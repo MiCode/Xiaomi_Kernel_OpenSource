@@ -2037,6 +2037,7 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 	}
 
 	dprintk(VIDC_WARN, "SYS_ERROR received for core %pK\n", core);
+	msm_vidc_noc_error_info(core);
 	call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
 	list_for_each_entry(inst, &core->instances, list) {
 		dprintk(VIDC_WARN,
@@ -5068,6 +5069,28 @@ enum hal_extradata_id msm_comm_get_hal_extradata_index(
 	}
 	return ret;
 };
+
+int msm_vidc_noc_error_info(struct msm_vidc_core *core)
+{
+	struct hfi_device *hdev;
+
+	if (!core || !core->device) {
+		dprintk(VIDC_WARN, "%s: Invalid parameters: %pK\n",
+			__func__, core);
+		return -EINVAL;
+	}
+
+	if (!core->resources.non_fatal_pagefaults)
+		return 0;
+
+	if (!core->smmu_fault_handled)
+		return 0;
+
+	hdev = core->device;
+	call_hfi_op(hdev, noc_error_info, hdev->hfi_device_data);
+
+	return 0;
+}
 
 int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 	enum hal_ssr_trigger_type type)

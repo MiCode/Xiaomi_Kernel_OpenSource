@@ -68,6 +68,10 @@ static struct msm_vidc_common_data sdm845_common_data[] = {
 		.value = 1,
 	},
 	{
+		.key = "qcom,domain-attr-non-fatal-faults",
+		.value = 1,
+	},
+	{
 		.key = "qcom,max-secure-instances",
 		.value = 5,
 	},

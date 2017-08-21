@@ -1411,6 +1411,7 @@ struct hfi_device {
 	int (*get_core_capabilities)(void *dev);
 	int (*suspend)(void *dev);
 	int (*flush_debug_queue)(void *dev);
+	int (*noc_error_info)(void *dev);
 	enum hal_default_properties (*get_default_properties)(void *dev);
 };
 
