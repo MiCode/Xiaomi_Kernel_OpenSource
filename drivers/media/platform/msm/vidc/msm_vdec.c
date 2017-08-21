@@ -61,6 +61,26 @@ static const char *const vp8_profile_level[] = {
 	"3.0",
 };
 
+static const char *const vp9_profile[] = {
+	"Unused",
+	"0",
+	"2_10",
+};
+
+static const char *const vp9_level[] = {
+	"Unused",
+	"1.0",
+	"1.1",
+	"2.0",
+	"2.1",
+	"3.0",
+	"3.1",
+	"4.0",
+	"4.1",
+	"5.0",
+	"5.1",
+};
+
 static const char *const mpeg2_profile[] = {
 	"Simple",
 	"Main",
@@ -228,6 +248,28 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.default_value = V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0,
 		.menu_skip_mask = 0,
 		.qmenu = vp8_profile_level,
+		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_VP9_PROFILE,
+		.name = "VP9 Profile",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_VP9_PROFILE_UNUSED,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_VP9_PROFILE_P2_10,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_VP9_PROFILE_P0,
+		.menu_skip_mask = 0,
+		.qmenu = vp9_profile,
+		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_VP9_LEVEL,
+		.name = "VP9 Level",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_UNUSED,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_51,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_51,
+		.menu_skip_mask = 0,
+		.qmenu = vp9_level,
 		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
 	},
 	{
