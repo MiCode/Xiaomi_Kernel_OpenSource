@@ -722,6 +722,9 @@ static void sde_encoder_phys_cmd_tearcheck_config(
 
 	tc_cfg.vsync_count = vsync_hz / (mode->vtotal * mode->vrefresh);
 
+	/* enable external TE after kickoff to avoid premature autorefresh */
+	tc_cfg.hw_vsync_mode = 0;
+
 	/*
 	 * By setting sync_cfg_height to near max register value, we essentially
 	 * disable sde hw generated TE signal, since hw TE will arrive first.
@@ -733,7 +736,6 @@ static void sde_encoder_phys_cmd_tearcheck_config(
 	tc_cfg.sync_threshold_continue = DEFAULT_TEARCHECK_SYNC_THRESH_CONTINUE;
 	tc_cfg.start_pos = mode->vdisplay;
 	tc_cfg.rd_ptr_irq = mode->vdisplay + 1;
-	tc_cfg.hw_vsync_mode = true;
 
 	SDE_DEBUG_CMDENC(cmd_enc,
 		"tc %d vsync_clk_speed_hz %u vtotal %u vrefresh %u\n",
@@ -860,6 +862,17 @@ static bool sde_encoder_phys_cmd_is_autorefresh_enabled(
 		return 0;
 
 	return cfg.enable;
+}
+
+static void _sde_encoder_phys_cmd_connect_te(
+		struct sde_encoder_phys *phys_enc, bool enable)
+{
+	if (!phys_enc || !phys_enc->hw_pp ||
+			!phys_enc->hw_pp->ops.connect_external_te)
+		return;
+
+	SDE_EVT32(DRMID(phys_enc->parent), enable);
+	phys_enc->hw_pp->ops.connect_external_te(phys_enc->hw_pp, enable);
 }
 
 static void sde_encoder_phys_cmd_disable(struct sde_encoder_phys *phys_enc)
@@ -1132,6 +1145,19 @@ static void sde_encoder_phys_cmd_prepare_commit(
 	SDE_DEBUG_CMDENC(cmd_enc, "disabled autorefresh\n");
 }
 
+static void sde_encoder_phys_cmd_handle_post_kickoff(
+		struct sde_encoder_phys *phys_enc)
+{
+	if (!phys_enc)
+		return;
+
+	/**
+	 * re-enable external TE, either for the first time after enabling
+	 * or if disabled for Autorefresh
+	 */
+	_sde_encoder_phys_cmd_connect_te(phys_enc, true);
+}
+
 static void sde_encoder_phys_cmd_trigger_start(
 		struct sde_encoder_phys *phys_enc)
 {
@@ -1175,6 +1201,7 @@ static void sde_encoder_phys_cmd_init_ops(
 	ops->restore = sde_encoder_phys_cmd_enable_helper;
 	ops->is_autorefresh_enabled =
 			sde_encoder_phys_cmd_is_autorefresh_enabled;
+	ops->handle_post_kickoff = sde_encoder_phys_cmd_handle_post_kickoff;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_cmd_init(
