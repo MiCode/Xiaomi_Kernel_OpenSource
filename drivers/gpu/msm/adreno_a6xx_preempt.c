@@ -369,7 +369,7 @@ void a6xx_preemption_schedule(struct adreno_device *adreno_dev)
 	mutex_unlock(&device->mutex);
 }
 
-unsigned int a6xx_preemption_set_marker(unsigned int *cmds, int start)
+unsigned int a6xx_set_marker(unsigned int *cmds, int start)
 {
 	*cmds++ = cp_type7_packet(CP_SET_MARKER, 1);
 
