@@ -45,7 +45,7 @@ enum pd_sig_type {
 	CABLE_RESET_SIG,
 };
 
-enum pd_msg_type {
+enum pd_sop_type {
 	SOP_MSG = 0,
 	SOPI_MSG,
 	SOPII_MSG,
@@ -61,8 +61,8 @@ enum pd_spec_rev {
 #define FRAME_FILTER_EN_HARD_RESET	BIT(5)
 
 struct pd_phy_params {
-	void		(*signal_cb)(struct usbpd *pd, enum pd_sig_type type);
-	void		(*msg_rx_cb)(struct usbpd *pd, enum pd_msg_type type,
+	void		(*signal_cb)(struct usbpd *pd, enum pd_sig_type sig);
+	void		(*msg_rx_cb)(struct usbpd *pd, enum pd_sop_type sop,
 					u8 *buf, size_t len);
 	void		(*shutdown_cb)(struct usbpd *pd);
 	enum data_role	data_role;
@@ -72,9 +72,9 @@ struct pd_phy_params {
 
 #if IS_ENABLED(CONFIG_QPNP_USB_PDPHY)
 int pd_phy_open(struct pd_phy_params *params);
-int pd_phy_signal(enum pd_sig_type type, unsigned int timeout_ms);
+int pd_phy_signal(enum pd_sig_type sig);
 int pd_phy_write(u16 hdr, const u8 *data, size_t data_len,
-	enum pd_msg_type type, unsigned int timeout_ms);
+		enum pd_sop_type sop);
 int pd_phy_update_roles(enum data_role dr, enum power_role pr);
 void pd_phy_close(void);
 #else
@@ -83,13 +83,13 @@ static inline int pd_phy_open(struct pd_phy_params *params)
 	return -ENODEV;
 }
 
-static inline int pd_phy_signal(enum pd_sig_type type, unsigned int timeout_ms)
+static inline int pd_phy_signal(enum pd_sig_type type)
 {
 	return -ENODEV;
 }
 
 static inline int pd_phy_write(u16 hdr, const u8 *data, size_t data_len,
-	enum pd_msg_type type, unsigned int timeout_ms)
+		enum pd_sop_type sop)
 {
 	return -ENODEV;
 }
