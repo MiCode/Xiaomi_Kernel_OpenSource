@@ -12,10 +12,6 @@ obj-$(CONFIG_SND_SOC_QDSP6V2) += snd-soc-qdsp6v2.o
 snd-soc-cpe-objs := msm-cpe-lsm.o
 obj-$(CONFIG_SND_SOC_CPE) += snd-soc-cpe.o
 
-# for MSM8996 sound card driver
-snd-soc-msm8996-objs := msm8996.o
-obj-$(CONFIG_SND_SOC_MSM8996) += snd-soc-msm8996.o
-
 # for MSM8998 sound card driver
 snd-soc-msm8998-objs := msm8998.o
 obj-$(CONFIG_SND_SOC_MACHINE_MSM8998) += snd-soc-msm8998.o

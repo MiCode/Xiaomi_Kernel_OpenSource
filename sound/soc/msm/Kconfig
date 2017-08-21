@@ -160,34 +160,6 @@ config SND_SOC_EXT_CODEC
 	the machine driver and the corresponding
 	DAI-links
 
-config SND_SOC_MSM8996
-	tristate "SoC Machine driver for MSM8996 boards"
-	depends on ARCH_MSM8996
-	select SND_SOC_COMPRESS
-	select SND_SOC_QDSP6V2
-	select SND_SOC_MSM_STUB
-	select SND_SOC_MSM_HOSTLESS_PCM
-	select SND_DYNAMIC_MINORS
-	select MSM_QDSP6_APRV2
-	select MSM_QDSP6V2_CODECS
-	select SND_SOC_WCD9335
-	select SND_SOC_WSA881X
-	select SND_SOC_MSM_HDMI_CODEC_RX
-	select DTS_SRS_TM
-	select QTI_PP
-	select QTI_PP_AUDIOSPHERE
-	select SND_SOC_CPE
-	select MSM_ULTRASOUND
-	select DOLBY_DS2
-	select SND_HWDEP
-        select DTS_EAGLE
-	help
-	 To add support for SoC audio on MSM8996.
-	 This will enable sound soc drivers which
-	 interfaces with DSP, also it will enable
-	 the machine driver and the corresponding
-	 DAI-links
-
 config SND_SOC_MACHINE_MSM8998
 	tristate "SoC Machine driver for MSM8998 boards"
 	select SND_SOC_WSA881X
