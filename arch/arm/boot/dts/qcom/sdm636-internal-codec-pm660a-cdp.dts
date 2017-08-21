@@ -1,0 +1,26 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+/dts-v1/;
+
+#include "sdm636.dtsi"
+#include "sdm636-cdp.dtsi"
+#include "msm-pm660a.dtsi"
+#include "sdm660-internal-codec.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDM 636 PM660 + PM660A Int. Audio Codec CDP";
+	compatible = "qcom,sdm636-cdp", "qcom,sdm636", "qcom,cdp";
+	qcom,board-id = <1 1>;
+	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>;
+};
