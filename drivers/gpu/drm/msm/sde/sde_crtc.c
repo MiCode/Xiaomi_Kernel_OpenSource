@@ -2524,9 +2524,11 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 {
 	struct drm_crtc *crtc = arg;
 	struct sde_crtc *sde_crtc;
+	struct drm_plane *plane;
 	struct drm_encoder *encoder;
+	struct sde_crtc_mixer *m;
 	struct drm_event event;
-	u32 power_on = 0;
+	u32 power_on = 0, i, misr_status;
 
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
@@ -2538,7 +2540,8 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 
 	SDE_EVT32(DRMID(crtc), event_type);
 
-	if (event_type == SDE_POWER_EVENT_POST_ENABLE) {
+	switch (event_type) {
+	case SDE_POWER_EVENT_POST_ENABLE:
 		/* restore encoder; crtc will be programmed during commit */
 		drm_for_each_encoder(encoder, crtc->dev) {
 			if (encoder->crtc != crtc)
@@ -2553,9 +2556,31 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 		power_on = 1;
 		msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
 				(u8 *)&power_on);
-	} else if (event_type == SDE_POWER_EVENT_POST_DISABLE) {
-		struct drm_plane *plane;
 
+		for (i = 0; i < sde_crtc->num_mixers; ++i) {
+			m = &sde_crtc->mixers[i];
+			if (!m->hw_lm || !m->hw_lm->ops.setup_misr ||
+					!sde_crtc->misr_enable)
+				continue;
+
+			m->hw_lm->ops.setup_misr(m->hw_lm, true,
+					sde_crtc->misr_frame_count);
+		}
+		break;
+	case SDE_POWER_EVENT_PRE_DISABLE:
+		for (i = 0; i < sde_crtc->num_mixers; ++i) {
+			m = &sde_crtc->mixers[i];
+			if (!m->hw_lm || !m->hw_lm->ops.collect_misr ||
+					!sde_crtc->misr_enable)
+				continue;
+
+			misr_status = m->hw_lm->ops.collect_misr(m->hw_lm);
+			sde_crtc->misr_data[i] = misr_status ? misr_status :
+							sde_crtc->misr_data[i];
+		}
+		sde_cp_crtc_pre_ipc(crtc);
+		break;
+	case SDE_POWER_EVENT_POST_DISABLE:
 		/*
 		 * set revalidate flag in planes, so it will be re-programmed
 		 * in the next frame update
@@ -2570,8 +2595,10 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 		power_on = 0;
 		msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
 				(u8 *)&power_on);
-	} else if (event_type == SDE_POWER_EVENT_PRE_DISABLE) {
-		sde_cp_crtc_pre_ipc(crtc);
+		break;
+	default:
+		SDE_DEBUG("event:%d not handled\n", event_type);
+		break;
 	}
 
 	mutex_unlock(&sde_crtc->crtc_lock);
@@ -3734,9 +3761,11 @@ static ssize_t _sde_crtc_misr_setup(struct file *file,
 
 	mutex_lock(&sde_crtc->crtc_lock);
 	sde_crtc->misr_enable = enable;
+	sde_crtc->misr_frame_count = frame_count;
 	for (i = 0; i < sde_crtc->num_mixers; ++i) {
+		sde_crtc->misr_data[i] = 0;
 		m = &sde_crtc->mixers[i];
-		if (!m->hw_lm)
+		if (!m->hw_lm || !m->hw_lm->ops.setup_misr)
 			continue;
 
 		m->hw_lm->ops.setup_misr(m->hw_lm, enable, frame_count);
@@ -3753,6 +3782,7 @@ static ssize_t _sde_crtc_misr_read(struct file *file,
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_mixer *m;
 	int i = 0, rc;
+	u32 misr_status;
 	ssize_t len = 0;
 	char buf[MISR_BUFF_SIZE + 1] = {'\0'};
 
@@ -3776,13 +3806,16 @@ static ssize_t _sde_crtc_misr_read(struct file *file,
 
 	for (i = 0; i < sde_crtc->num_mixers; ++i) {
 		m = &sde_crtc->mixers[i];
-		if (!m->hw_lm)
+		if (!m->hw_lm || !m->hw_lm->ops.collect_misr)
 			continue;
 
+		misr_status = m->hw_lm->ops.collect_misr(m->hw_lm);
+		sde_crtc->misr_data[i] = misr_status ? misr_status :
+							sde_crtc->misr_data[i];
 		len += snprintf(buf + len, MISR_BUFF_SIZE - len, "lm idx:%d\n",
 					m->hw_lm->idx - LM_0);
 		len += snprintf(buf + len, MISR_BUFF_SIZE - len, "0x%x\n",
-				m->hw_lm->ops.collect_misr(m->hw_lm));
+							sde_crtc->misr_data[i]);
 	}
 
 buff_check:

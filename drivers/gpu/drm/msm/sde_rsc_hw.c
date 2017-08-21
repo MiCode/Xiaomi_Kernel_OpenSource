@@ -296,6 +296,47 @@ static int rsc_hw_solver_init(struct sde_rsc_priv *rsc)
 	return 0;
 }
 
+static int rsc_hw_timer_update(struct sde_rsc_priv *rsc)
+{
+	if (!rsc) {
+		pr_debug("invalid input param\n");
+		return -EINVAL;
+	}
+
+	pr_debug("rsc hw timer update\n");
+
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_TIME_SLOT_TABLE_1_DRV0,
+		rsc->timer_config.rsc_time_slot_0_ns, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_TIME_SLOT_TABLE_2_DRV0,
+		rsc->timer_config.rsc_time_slot_1_ns, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_TIME_SLOT_TABLE_3_DRV0,
+		rsc->timer_config.rsc_time_slot_2_ns, rsc->debug_mode);
+
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM2_DRV0_MODE0,
+			rsc->timer_config.rsc_backoff_time_ns, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM3_DRV0_MODE0,
+			rsc->timer_config.pdc_backoff_time_ns, rsc->debug_mode);
+
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM2_DRV0_MODE1,
+			rsc->timer_config.rsc_backoff_time_ns, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM3_DRV0_MODE1,
+			rsc->timer_config.pdc_backoff_time_ns, rsc->debug_mode);
+
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM3_DRV0_MODE2,
+			rsc->timer_config.pdc_backoff_time_ns, rsc->debug_mode);
+
+	dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_STATIC_WAKEUP_0,
+		rsc->timer_config.static_wakeup_time_ns, rsc->debug_mode);
+
+	dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_RSCC_MODE_THRESHOLD,
+		rsc->timer_config.rsc_mode_threshold_time_ns, rsc->debug_mode);
+
+	/* make sure that hw timers are updated */
+	wmb();
+
+	return 0;
+}
+
 static int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc,
 						enum sde_rsc_state state)
 {
@@ -428,6 +469,7 @@ static int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
 
 	if (rc) {
 		pr_err("mdss gdsc power down failed rc:%d\n", rc);
+		SDE_EVT32(rc, SDE_EVTLOG_ERROR);
 		goto end;
 	}
 
@@ -675,10 +717,24 @@ int rsc_hw_vsync(struct sde_rsc_priv *rsc, enum rsc_vsync_req request,
 				rsc->debug_mode));
 		break;
 
+	case VSYNC_READ_VSYNC0:
+		return dss_reg_r(&rsc->wrapper_io,
+				SDE_RSCC_WRAPPER_VSYNC_TIMESTAMP0,
+				rsc->debug_mode);
+
 	case VSYNC_ENABLE:
-		reg = BIT(8) | ((mode & 0x7) << 10);
+		/* clear the current VSYNC value */
+		reg = BIT(9) | ((mode & 0x7) << 10);
 		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_DEBUG_BUS,
 					reg, rsc->debug_mode);
+
+		/* enable the VSYNC logging */
+		reg = BIT(8) | ((mode & 0x7) << 10);
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_DEBUG_BUS,
+				reg, rsc->debug_mode);
+
+		/* ensure vsync config has been written before waiting on it */
+		wmb();
 		break;
 
 	case VSYNC_DISABLE:
@@ -740,6 +796,7 @@ int sde_rsc_hw_register(struct sde_rsc_priv *rsc)
 	pr_debug("rsc hardware register\n");
 
 	rsc->hw_ops.init = rsc_hw_init;
+	rsc->hw_ops.timer_update = rsc_hw_timer_update;
 
 	rsc->hw_ops.tcs_wait = rsc_hw_tcs_wait;
 	rsc->hw_ops.tcs_use_ok = rsc_hw_tcs_use_ok;

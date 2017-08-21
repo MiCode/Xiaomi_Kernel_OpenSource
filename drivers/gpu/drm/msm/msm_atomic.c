@@ -310,13 +310,6 @@ static void msm_atomic_helper_commit_modeset_enables(struct drm_device *dev,
 		if (msm_is_mode_seamless(&crtc->state->mode))
 			continue;
 
-		/**
-		 * On DMS switch, wait for ping pong done to ensure the current
-		 * frame transfer is complete.
-		 */
-		if (msm_is_mode_seamless_dms(&crtc->state->adjusted_mode))
-			kms->funcs->wait_for_tx_complete(kms, crtc);
-
 		funcs = crtc->helper_private;
 
 		if (crtc->state->enable) {

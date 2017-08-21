@@ -657,7 +657,7 @@ static void sde_encoder_phys_vid_get_hw_resources(
 	hw_res->intfs[vid_enc->hw_intf->idx - INTF_0] = INTF_MODE_VIDEO;
 }
 
-static int sde_encoder_phys_vid_wait_for_vblank(
+static int _sde_encoder_phys_vid_wait_for_vblank(
 		struct sde_encoder_phys *phys_enc, bool notify)
 {
 	struct sde_encoder_wait_info wait_info;
@@ -696,10 +696,10 @@ static int sde_encoder_phys_vid_wait_for_vblank(
 	return ret;
 }
 
-static int sde_encoder_phys_vid_wait_for_commit_done(
+static int sde_encoder_phys_vid_wait_for_vblank(
 		struct sde_encoder_phys *phys_enc)
 {
-	return sde_encoder_phys_vid_wait_for_vblank(phys_enc, true);
+	return _sde_encoder_phys_vid_wait_for_vblank(phys_enc, true);
 }
 
 static void sde_encoder_phys_vid_prepare_for_kickoff(
@@ -781,7 +781,7 @@ static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 	 * scanout buffer) don't latch properly..
 	 */
 	if (sde_encoder_phys_vid_is_master(phys_enc)) {
-		ret = sde_encoder_phys_vid_wait_for_vblank(phys_enc, false);
+		ret = _sde_encoder_phys_vid_wait_for_vblank(phys_enc, false);
 		if (ret) {
 			atomic_set(&phys_enc->pending_kickoff_cnt, 0);
 			SDE_ERROR_VIDENC(vid_enc,
@@ -866,7 +866,9 @@ static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->destroy = sde_encoder_phys_vid_destroy;
 	ops->get_hw_resources = sde_encoder_phys_vid_get_hw_resources;
 	ops->control_vblank_irq = sde_encoder_phys_vid_control_vblank_irq;
-	ops->wait_for_commit_done = sde_encoder_phys_vid_wait_for_commit_done;
+	ops->wait_for_commit_done = sde_encoder_phys_vid_wait_for_vblank;
+	ops->wait_for_vblank = sde_encoder_phys_vid_wait_for_vblank;
+	ops->wait_for_tx_complete = sde_encoder_phys_vid_wait_for_vblank;
 	ops->prepare_for_kickoff = sde_encoder_phys_vid_prepare_for_kickoff;
 	ops->handle_post_kickoff = sde_encoder_phys_vid_handle_post_kickoff;
 	ops->needs_single_flush = sde_encoder_phys_vid_needs_single_flush;

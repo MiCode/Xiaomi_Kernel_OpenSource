@@ -113,6 +113,7 @@ struct sde_encoder_virt_ops {
  *				current pending frames to hardware
  * @wait_for_tx_complete:	Wait for hardware to transfer the pixels
  *				to the panel
+ * @wait_for_vblank:		Wait for VBLANK, for sub-driver internal use
  * @prepare_for_kickoff:	Do any work necessary prior to a kickoff
  *				For CMD encoder, may wait for previous tx done
  * @handle_post_kickoff:	Do any work necessary post-kickoff work
@@ -152,6 +153,7 @@ struct sde_encoder_phys_ops {
 	int (*control_vblank_irq)(struct sde_encoder_phys *enc, bool enable);
 	int (*wait_for_commit_done)(struct sde_encoder_phys *phys_enc);
 	int (*wait_for_tx_complete)(struct sde_encoder_phys *phys_enc);
+	int (*wait_for_vblank)(struct sde_encoder_phys *phys_enc);
 	void (*prepare_for_kickoff)(struct sde_encoder_phys *phys_enc,
 			struct sde_encoder_kickoff_params *params);
 	void (*handle_post_kickoff)(struct sde_encoder_phys *phys_enc);
@@ -313,10 +315,12 @@ struct sde_encoder_phys_cmd_autorefresh {
  * @serialize_wait4pp:	serialize wait4pp feature waits for pp_done interrupt
  *			after ctl_start instead of before next frame kickoff
  * @pp_timeout_report_cnt: number of pingpong done irq timeout errors
+ * @autorefresh: autorefresh feature state
  * @pending_rd_ptr_cnt: atomic counter to indicate if retire fence can be
  *                      signaled at the next rd_ptr_irq
  * @rd_ptr_timestamp: last rd_ptr_irq timestamp
- * @autorefresh: autorefresh feature state
+ * @pending_vblank_cnt: Atomic counter tracking pending wait for VBLANK
+ * @pending_vblank_wq: Wait queue for blocking until VBLANK received
  */
 struct sde_encoder_phys_cmd {
 	struct sde_encoder_phys base;
@@ -326,6 +330,8 @@ struct sde_encoder_phys_cmd {
 	struct sde_encoder_phys_cmd_autorefresh autorefresh;
 	atomic_t pending_rd_ptr_cnt;
 	ktime_t rd_ptr_timestamp;
+	atomic_t pending_vblank_cnt;
+	wait_queue_head_t pending_vblank_wq;
 };
 
 /**

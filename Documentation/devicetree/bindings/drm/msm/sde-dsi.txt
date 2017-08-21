@@ -96,3 +96,7 @@ Optional properties:
 					If ping pong split enabled, this time should not be higher
 					than two times the dsi link rate time.
 					If the property is not specified, then the default value is 14000 us.
+- qcom,dsi-phy-isolation-enabled:	A boolean property enables the phy isolation from dsi
+					controller. This must be enabled for debugging purpose
+					only with simulator panel. It should not be enabled for
+					normal DSI panels.
