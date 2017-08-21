@@ -751,31 +751,9 @@ int cam_soc_util_get_dt_properties(struct cam_hw_soc_info *soc_info)
 {
 	struct device_node *of_node = NULL;
 	int count = 0, i = 0, rc = 0;
-	struct platform_device *pdev = NULL;
-	struct device *dev = NULL;
 
-	if (!soc_info)
+	if (!soc_info || !soc_info->dev)
 		return -EINVAL;
-
-	if (soc_info->is_i2c_dev) {
-		if (!soc_info->i2c_dev)
-			return -EINVAL;
-		dev = &soc_info->i2c_dev->dev;
-		soc_info->dev = dev;
-		soc_info->dev_name = soc_info->i2c_dev->name;
-	} else if (soc_info->is_spi_dev) {
-		if (!soc_info->spi_dev)
-			return -EINVAL;
-		dev = &soc_info->spi_dev->dev;
-		soc_info->dev = dev;
-		soc_info->dev_name = soc_info->spi_dev->modalias;
-	} else {
-		if (!soc_info->pdev)
-			return -EINVAL;
-		pdev = soc_info->pdev;
-		soc_info->dev_name = pdev->name;
-		soc_info->dev = &pdev->dev;
-	}
 
 	of_node = soc_info->dev->of_node;
 
@@ -801,8 +779,8 @@ int cam_soc_util_get_dt_properties(struct cam_hw_soc_info *soc_info)
 			return rc;
 		}
 		soc_info->mem_block[i] =
-			platform_get_resource_byname(pdev, IORESOURCE_MEM,
-			soc_info->mem_block_name[i]);
+			platform_get_resource_byname(soc_info->pdev,
+			IORESOURCE_MEM, soc_info->mem_block_name[i]);
 
 		if (!soc_info->mem_block[i]) {
 			CAM_ERR(CAM_UTIL, "no mem resource by name %s",
@@ -827,7 +805,8 @@ int cam_soc_util_get_dt_properties(struct cam_hw_soc_info *soc_info)
 		CAM_WARN(CAM_UTIL, "No interrupt line present");
 		rc = 0;
 	} else {
-		soc_info->irq_line = platform_get_resource_byname(pdev,
+		soc_info->irq_line =
+			platform_get_resource_byname(soc_info->pdev,
 			IORESOURCE_IRQ, soc_info->irq_name);
 		if (!soc_info->irq_line) {
 			CAM_ERR(CAM_UTIL, "no irq resource");
@@ -856,7 +835,7 @@ int cam_soc_util_get_dt_properties(struct cam_hw_soc_info *soc_info)
  *
  * @brief:              Get regulator resource named vdd
  *
- * @pdev:               Platform device associated with regulator
+ * @dev:                Device associated with regulator
  * @reg:                Return pointer to be filled with regulator on success
  * @rgltr_name:         Name of regulator to get
  *

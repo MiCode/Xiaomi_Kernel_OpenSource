@@ -1338,6 +1338,8 @@ int cam_cpas_hw_probe(struct platform_device *pdev,
 
 	cpas_hw->hw_state = CAM_HW_STATE_POWER_DOWN;
 	cpas_hw->soc_info.pdev = pdev;
+	cpas_hw->soc_info.dev = &pdev->dev;
+	cpas_hw->soc_info.dev_name = pdev->name;
 	cpas_hw->open_count = 0;
 	mutex_init(&cpas_hw->hw_mutex);
 	spin_lock_init(&cpas_hw->hw_lock);

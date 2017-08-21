@@ -37,7 +37,7 @@ int32_t cam_actuator_parse_dt(struct cam_actuator_ctrl_t *a_ctrl,
 
 	of_node = soc_info->dev->of_node;
 
-	if (!(a_ctrl->soc_info.is_i2c_dev)) {
+	if (a_ctrl->io_master_info.master_type == CCI_MASTER) {
 		rc = of_property_read_u32(of_node, "cci-master",
 			&(a_ctrl->cci_i2c_master));
 		CAM_DBG(CAM_ACTUATOR, "cci-master %d, rc %d",

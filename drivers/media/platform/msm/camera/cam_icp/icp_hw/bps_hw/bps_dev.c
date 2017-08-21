@@ -78,6 +78,8 @@ int cam_bps_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	bps_dev->soc_info.pdev = pdev;
+	bps_dev->soc_info.dev = &pdev->dev;
+	bps_dev->soc_info.dev_name = pdev->name;
 	bps_dev_intf->hw_priv = bps_dev;
 	bps_dev_intf->hw_ops.init = cam_bps_init_hw;
 	bps_dev_intf->hw_ops.deinit = cam_bps_deinit_hw;
