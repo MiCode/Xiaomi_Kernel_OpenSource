@@ -892,22 +892,37 @@ struct ipa_l2tp_header_add_procparams {
  * @hdr_len_remove: Specifies how much of the header needs to
 		be removed in bytes
  * @eth_hdr_retained: Specifies if Ethernet header is retained or not
+ * @hdr_ofst_pkt_size_valid: Specifies if the Header offset is valid
+ * @hdr_ofst_pkt_size: If hdr_ofst_pkt_size_valid =1, this indicates where the
+		packet size field (2bytes) resides
+ * @hdr_endianness: 0:little endian, 1:big endian
  */
 struct ipa_l2tp_header_remove_procparams {
 	uint32_t hdr_len_remove:8;
 	uint32_t eth_hdr_retained:1;
-	uint32_t reserved:23;
+	/* Following fields are valid if eth_hdr_retained =1 ( bridge mode) */
+	uint32_t hdr_ofst_pkt_size_valid:1;
+	uint32_t hdr_ofst_pkt_size:6;
+	uint32_t hdr_endianness:1;
+	uint32_t reserved:15;
 };
 
 /**
- * union ipa_l2tp_hdr_proc_ctx_params -
+ * struct ipa_l2tp_hdr_proc_ctx_params -
  * @hdr_add_param: parameters for header add
  * @hdr_remove_param: parameters for header remove
+ * @is_dst_pipe_valid: if dst pipe is valid
+ * @dst_pipe: destination pipe
  */
-union ipa_l2tp_hdr_proc_ctx_params {
+struct ipa_l2tp_hdr_proc_ctx_params {
 	struct ipa_l2tp_header_add_procparams hdr_add_param;
 	struct ipa_l2tp_header_remove_procparams hdr_remove_param;
+	uint8_t is_dst_pipe_valid;
+	enum ipa_client_type dst_pipe;
 };
+
+#define L2TP_USER_SPACE_SPECIFY_DST_PIPE
+
 /**
  * struct ipa_hdr_proc_ctx_add - processing context descriptor includes
  * in and out parameters
@@ -924,7 +939,7 @@ struct ipa_hdr_proc_ctx_add {
 	uint32_t hdr_hdl;
 	uint32_t proc_ctx_hdl;
 	int status;
-	union ipa_l2tp_hdr_proc_ctx_params l2tp_params;
+	struct ipa_l2tp_hdr_proc_ctx_params l2tp_params;
 };
 
 #define IPA_L2TP_HDR_PROC_SUPPORT

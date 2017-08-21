@@ -66,12 +66,29 @@ static int ipa3_hdr_proc_ctx_to_hw_format(struct ipa_mem_buffer *mem,
 {
 	struct ipa3_hdr_proc_ctx_entry *entry;
 	int ret;
+	int ep;
 
 	list_for_each_entry(entry,
 			&ipa3_ctx->hdr_proc_ctx_tbl.head_proc_ctx_entry_list,
 			link) {
 		IPADBG_LOW("processing type %d ofst=%d\n",
 			entry->type, entry->offset_entry->offset);
+
+		if (entry->l2tp_params.is_dst_pipe_valid) {
+			ep = ipa3_get_ep_mapping(entry->l2tp_params.dst_pipe);
+			if (ep >= 0) {
+				entry->l2tp_params.hdr_remove_param.
+					hdr_ofst_pkt_size_valid = ipa3_ctx->
+					ep[ep].cfg.hdr.hdr_ofst_pkt_size_valid;
+				entry->l2tp_params.hdr_remove_param.
+					hdr_ofst_pkt_size = ipa3_ctx->ep[ep].
+					cfg.hdr.hdr_ofst_pkt_size;
+				entry->l2tp_params.hdr_remove_param.
+					hdr_endianness = ipa3_ctx->ep[ep].
+					cfg.hdr_ext.hdr_little_endian ? 0 : 1;
+			}
+		}
+
 		ret = ipahal_cp_proc_ctx_to_hw_buff(entry->type, mem->base,
 				entry->offset_entry->offset,
 				entry->hdr->hdr_len,
