@@ -11,6 +11,7 @@
  */
 
 #include "sdm845.dtsi"
+#include "sdm845-v2-camera.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM845 V2";

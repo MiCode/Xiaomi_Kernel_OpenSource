@@ -1961,6 +1961,16 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 			fill_fence = false;
 	}
 
+	/*
+	 * reg update will be done later for the initial configure.
+	 * need to plus one to the op_code and only take the lower
+	 * bits to get the type of operation since UMD definition
+	 * of op_code has some difference from KMD.
+	 */
+	if (((prepare->packet->header.op_code + 1) & 0xF) ==
+					CAM_ISP_PACKET_INIT_DEV)
+		return rc;
+
 	/* add reg update commands */
 	for (i = 0; i < ctx->num_base; i++) {
 		/* Add change base */

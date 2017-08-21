@@ -84,6 +84,11 @@ Third Level Node - CAM SMMU memory map device
       - Scratch region: 0x02
       - IO region: 0x03
 
+- iova-granularity
+  Usage: optional
+  Value type: <u32>
+  Definition: Should specify IOVA granularity for shared memory region.
+
 Example:
 	qcom,cam_smmu@0 {
 		compatible = "qcom,msm-cam-smmu";
@@ -114,7 +119,8 @@ Example:
 				        iova-region-start = <0x7400000>;
 				        iova-region-len = <0x6400000>;
 					iova-region-id = <0x1>;
-				        status = "ok";
+					iova-granularity = <0x15>;
+					status = "ok";
 				};
 
 			        iova-mem-region-io {

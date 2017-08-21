@@ -790,21 +790,43 @@ static int cam_sync_close(struct file *filep)
 		for (i = 1; i < CAM_SYNC_MAX_OBJS; i++) {
 			struct sync_table_row *row =
 			sync_dev->sync_table + i;
-			if (row->state == CAM_SYNC_STATE_INVALID)
-				continue;
 
-			/* Signal all remaining objects as ERR,but we don't care
-			 * about the return status here apart from logging it
+			/*
+			 * Signal all ACTIVE objects as ERR, but we don't
+			 * care about the return status here apart from logging
+			 * it.
 			 */
-			rc = cam_sync_signal(i, CAM_SYNC_STATE_SIGNALED_ERROR);
-			if (rc < 0)
-				CAM_ERR(CAM_SYNC,
-					"Cleanup signal failed: idx = %d", i);
+			if (row->state == CAM_SYNC_STATE_ACTIVE) {
+				rc = cam_sync_signal(i,
+					CAM_SYNC_STATE_SIGNALED_ERROR);
+				if (rc < 0)
+					CAM_ERR(CAM_SYNC,
+					  "Cleanup signal fail idx:%d\n",
+					  i);
+			}
+		}
 
-			rc = cam_sync_destroy(i);
-			if (rc < 0)
-				CAM_ERR(CAM_SYNC,
-					"Cleanup destroy failed: idx = %d", i);
+		/*
+		 * Flush the work queue to wait for pending signal callbacks to
+		 * finish
+		 */
+		flush_workqueue(sync_dev->work_queue);
+
+		/*
+		 * Now that all callbacks worker threads have finished,
+		 * destroy the sync objects
+		 */
+		for (i = 1; i < CAM_SYNC_MAX_OBJS; i++) {
+			struct sync_table_row *row =
+			sync_dev->sync_table + i;
+
+			if (row->state != CAM_SYNC_STATE_INVALID) {
+				rc = cam_sync_destroy(i);
+				if (rc < 0)
+					CAM_ERR(CAM_SYNC,
+					  "Cleanup destroy fail:idx:%d\n",
+					  i);
+			}
 		}
 	}
 	mutex_unlock(&sync_dev->table_lock);
