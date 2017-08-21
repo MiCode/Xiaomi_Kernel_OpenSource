@@ -12,9 +12,10 @@
 
 #include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/thermal/thermal.h>
 
 &spmi_bus {
-	qcom,pmi8998@2 {
+	pmi8998_lsid0: qcom,pmi8998@2 {
 		compatible = "qcom,spmi-pmic";
 		reg = <0x2 SPMI_USID>;
 		#address-cells = <2>;
@@ -335,7 +336,7 @@
 		};
 	};
 
-	qcom,pmi8998@3 {
+	pmi8998_lsid1: qcom,pmi8998@3 {
 		compatible ="qcom,spmi-pmic";
 		reg = <0x3 SPMI_USID>;
 		#address-cells = <2>;

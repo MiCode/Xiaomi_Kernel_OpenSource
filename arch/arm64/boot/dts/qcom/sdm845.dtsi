@@ -3805,7 +3805,6 @@
 };
 
 #include "pm8998.dtsi"
-#include "pmi8998.dtsi"
 #include "pm8005.dtsi"
 #include "sdm845-regulator.dtsi"
 #include "sdm845-coresight.dtsi"
