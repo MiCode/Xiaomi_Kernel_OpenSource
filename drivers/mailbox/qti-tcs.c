@@ -475,6 +475,8 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 		tcs = get_tcs_from_index(drv, m);
 		if (tcs && tcs->type != ACTIVE_TCS) {
 			data = read_tcs_reg(base, TCS_DRV_CONTROL, m, 0);
+			data &= ~TCS_AMC_MODE_TRIGGER;
+			write_tcs_reg_sync(base, TCS_DRV_CONTROL, m, 0, data);
 			data &= ~TCS_AMC_MODE_ENABLE;
 			write_tcs_reg(base, TCS_DRV_CONTROL, m, 0, data);
 			/*
@@ -555,7 +557,7 @@ static void __tcs_buffer_write(struct tcs_drv *drv, int d, int m, int n,
 	u32 msgid, cmd_msgid = 0;
 	u32 cmd_enable = 0;
 	u32 cmd_complete;
-	u32 enable = TCS_AMC_MODE_ENABLE;
+	u32 enable;
 	struct tcs_cmd *cmd;
 	int i;
 	void __iomem *base = drv->reg_base;
@@ -589,12 +591,22 @@ static void __tcs_buffer_write(struct tcs_drv *drv, int d, int m, int n,
 	write_tcs_reg(base, TCS_DRV_CMD_ENABLE, m, 0, cmd_enable);
 
 	if (trigger) {
-		/* HW req: Clear the DRV_CONTROL and enable TCS again */
-		write_tcs_reg_sync(base, TCS_DRV_CONTROL, m, 0, 0);
+		/*
+		 * HW req: Clear the DRV_CONTROL and enable TCS again
+		 * While clearing ensure that the AMC mode trigger is cleared
+		 * and then the mode enable is cleared.
+		 */
+		enable = read_tcs_reg(base, TCS_DRV_CONTROL, m, 0);
+		enable &= ~TCS_AMC_MODE_TRIGGER;
 		write_tcs_reg_sync(base, TCS_DRV_CONTROL, m, 0, enable);
-		/* Enable the AMC mode on the TCS */
+		enable &= ~TCS_AMC_MODE_ENABLE;
+		write_tcs_reg_sync(base, TCS_DRV_CONTROL, m, 0, enable);
+
+		/* Enable the AMC mode on the TCS and then trigger the TCS */
+		enable = TCS_AMC_MODE_ENABLE;
+		write_tcs_reg_sync(base, TCS_DRV_CONTROL, m, 0, enable);
 		enable |= TCS_AMC_MODE_TRIGGER;
-		write_tcs_reg_sync(base, TCS_DRV_CONTROL, m, 0, enable);
+		write_tcs_reg(base, TCS_DRV_CONTROL, m, 0, enable);
 	}
 }
 
