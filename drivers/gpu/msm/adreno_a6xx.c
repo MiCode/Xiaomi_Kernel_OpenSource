@@ -2874,6 +2874,20 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 }
 
 
+static unsigned int a6xx_ccu_invalidate(struct adreno_device *adreno_dev,
+	unsigned int *cmds)
+{
+	/* CCU_INVALIDATE_DEPTH */
+	*cmds++ = cp_packet(adreno_dev, CP_EVENT_WRITE, 1);
+	*cmds++ = 24;
+
+	/* CCU_INVALIDATE_COLOR */
+	*cmds++ = cp_packet(adreno_dev, CP_EVENT_WRITE, 1);
+	*cmds++ = 25;
+
+	return 4;
+}
+
 /* Register offset defines for A6XX, in order of enum adreno_regs */
 static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 
@@ -3032,4 +3046,5 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.preemption_context_destroy = a6xx_preemption_context_destroy,
 	.gx_is_on = a6xx_gx_is_on,
 	.sptprac_is_on = a6xx_sptprac_is_on,
+	.ccu_invalidate = a6xx_ccu_invalidate,
 };

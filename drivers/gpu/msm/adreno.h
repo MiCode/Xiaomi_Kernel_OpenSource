@@ -893,6 +893,8 @@ struct adreno_gpudev {
 	int (*soft_reset)(struct adreno_device *);
 	bool (*gx_is_on)(struct adreno_device *);
 	bool (*sptprac_is_on)(struct adreno_device *);
+	unsigned int (*ccu_invalidate)(struct adreno_device *adreno_dev,
+				unsigned int *cmds);
 };
 
 /**

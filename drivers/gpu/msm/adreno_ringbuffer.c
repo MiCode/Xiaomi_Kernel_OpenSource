@@ -877,6 +877,9 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	if (gpudev->set_marker)
 		dwords += 4;
 
+	if (gpudev->ccu_invalidate)
+		dwords += 4;
+
 	link = kcalloc(dwords, sizeof(unsigned int), GFP_KERNEL);
 	if (!link) {
 		ret = -ENOMEM;
@@ -929,6 +932,9 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 			use_preamble = false;
 		}
 	}
+
+	if (gpudev->ccu_invalidate)
+		cmds += gpudev->ccu_invalidate(adreno_dev, cmds);
 
 	if (gpudev->set_marker)
 		cmds += gpudev->set_marker(cmds, 0);
