@@ -341,8 +341,6 @@ static int sde_rotator_footswitch_ctrl(struct sde_rot_mgr *mgr, bool on)
 	if (!on) {
 		mgr->minimum_bw_vote = 0;
 		sde_rotator_update_perf(mgr);
-	} else {
-		sde_mdp_init_vbif();
 	}
 
 	mgr->regulator_enable = on;
@@ -425,6 +423,9 @@ int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable)
 						SDE_ROTATOR_CLK_MDSS_ROT_SUB);
 			if (ret)
 				goto error_rot_sub;
+
+			/* reinitialize static vbif setting */
+			sde_mdp_init_vbif();
 
 			/* Active+Sleep */
 			msm_bus_scale_client_update_context(
