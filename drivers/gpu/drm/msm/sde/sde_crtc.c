@@ -180,7 +180,9 @@ static void _sde_crtc_rp_reclaim(struct sde_crtc_respool *rp, bool force)
  */
 static void _sde_crtc_rp_free_unused(struct sde_crtc_respool *rp)
 {
+	mutex_lock(rp->rp_lock);
 	_sde_crtc_rp_reclaim(rp, false);
+	mutex_unlock(rp->rp_lock);
 }
 
 /**
@@ -190,7 +192,10 @@ static void _sde_crtc_rp_free_unused(struct sde_crtc_respool *rp)
  */
 static void _sde_crtc_rp_destroy(struct sde_crtc_respool *rp)
 {
+	mutex_lock(rp->rp_lock);
+	list_del_init(&rp->rp_list);
 	_sde_crtc_rp_reclaim(rp, true);
+	mutex_unlock(rp->rp_lock);
 }
 
 /**
@@ -229,7 +234,7 @@ static void _sde_crtc_rp_duplicate(struct sde_crtc_respool *rp,
 	struct sde_crtc_res *res, *dup_res;
 	struct drm_crtc *crtc;
 
-	if (!rp || !dup_rp) {
+	if (!rp || !dup_rp || !rp->rp_head) {
 		SDE_ERROR("invalid resource pool\n");
 		return;
 	}
@@ -242,13 +247,16 @@ static void _sde_crtc_rp_duplicate(struct sde_crtc_respool *rp,
 
 	SDE_DEBUG("crtc%d.%u duplicate\n", crtc->base.id, rp->sequence_id);
 
+	mutex_lock(rp->rp_lock);
 	dup_rp->sequence_id = rp->sequence_id + 1;
 	INIT_LIST_HEAD(&dup_rp->res_list);
 	dup_rp->ops = rp->ops;
 	list_for_each_entry(res, &rp->res_list, list) {
 		dup_res = kzalloc(sizeof(struct sde_crtc_res), GFP_KERNEL);
-		if (!dup_res)
+		if (!dup_res) {
+			mutex_unlock(rp->rp_lock);
 			return;
+		}
 		INIT_LIST_HEAD(&dup_res->list);
 		atomic_set(&dup_res->refcount, 0);
 		dup_res->type = res->type;
@@ -264,28 +272,43 @@ static void _sde_crtc_rp_duplicate(struct sde_crtc_respool *rp,
 		if (dup_res->ops.get)
 			dup_res->ops.get(dup_res->val, 0, -1);
 	}
+
+	dup_rp->rp_lock = rp->rp_lock;
+	dup_rp->rp_head = rp->rp_head;
+	INIT_LIST_HEAD(&dup_rp->rp_list);
+	list_add_tail(&dup_rp->rp_list, rp->rp_head);
+	mutex_unlock(rp->rp_lock);
 }
 
 /**
  * _sde_crtc_rp_reset - reset resource pool after allocation
  * @rp: Pointer to original resource pool
+ * @rp_lock: Pointer to serialization resource pool lock
+ * @rp_head: Pointer to crtc resource pool head
  * return: None
  */
-static void _sde_crtc_rp_reset(struct sde_crtc_respool *rp)
+static void _sde_crtc_rp_reset(struct sde_crtc_respool *rp,
+		struct mutex *rp_lock, struct list_head *rp_head)
 {
-	if (!rp) {
+	if (!rp || !rp_lock || !rp_head) {
 		SDE_ERROR("invalid resource pool\n");
 		return;
 	}
 
+	mutex_lock(rp_lock);
+	rp->rp_lock = rp_lock;
+	rp->rp_head = rp_head;
+	INIT_LIST_HEAD(&rp->rp_list);
 	rp->sequence_id = 0;
 	INIT_LIST_HEAD(&rp->res_list);
 	rp->ops.get = _sde_crtc_hw_blk_get;
 	rp->ops.put = _sde_crtc_hw_blk_put;
+	list_add_tail(&rp->rp_list, rp->rp_head);
+	mutex_unlock(rp_lock);
 }
 
 /**
- * _sde_crtc_rp_add - add given resource to resource pool
+ * _sde_crtc_rp_add_no_lock - add given resource to resource pool without lock
  * @rp: Pointer to original resource pool
  * @type: Resource type
  * @tag: Search tag for given resource
@@ -293,8 +316,8 @@ static void _sde_crtc_rp_reset(struct sde_crtc_respool *rp)
  * @ops: Resource callback operations
  * return: 0 if success; error code otherwise
  */
-static int _sde_crtc_rp_add(struct sde_crtc_respool *rp, u32 type, u64 tag,
-		void *val, struct sde_crtc_res_ops *ops)
+static int _sde_crtc_rp_add_no_lock(struct sde_crtc_respool *rp, u32 type,
+		u64 tag, void *val, struct sde_crtc_res_ops *ops)
 {
 	struct sde_crtc_res *res;
 	struct drm_crtc *crtc;
@@ -335,6 +358,31 @@ static int _sde_crtc_rp_add(struct sde_crtc_respool *rp, u32 type, u64 tag,
 }
 
 /**
+ * _sde_crtc_rp_add - add given resource to resource pool
+ * @rp: Pointer to original resource pool
+ * @type: Resource type
+ * @tag: Search tag for given resource
+ * @val: Resource handle
+ * @ops: Resource callback operations
+ * return: 0 if success; error code otherwise
+ */
+static int _sde_crtc_rp_add(struct sde_crtc_respool *rp, u32 type, u64 tag,
+		void *val, struct sde_crtc_res_ops *ops)
+{
+	int rc;
+
+	if (!rp) {
+		SDE_ERROR("invalid resource pool\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(rp->rp_lock);
+	rc = _sde_crtc_rp_add_no_lock(rp, type, tag, val, ops);
+	mutex_unlock(rp->rp_lock);
+	return rc;
+}
+
+/**
  * _sde_crtc_rp_get - lookup the resource from given resource pool and obtain
  *	if available; otherwise, obtain resource from global pool
  * @rp: Pointer to original resource pool
@@ -344,6 +392,7 @@ static int _sde_crtc_rp_add(struct sde_crtc_respool *rp, u32 type, u64 tag,
  */
 static void *_sde_crtc_rp_get(struct sde_crtc_respool *rp, u32 type, u64 tag)
 {
+	struct sde_crtc_respool *old_rp;
 	struct sde_crtc_res *res;
 	void *val = NULL;
 	int rc;
@@ -360,6 +409,7 @@ static void *_sde_crtc_rp_get(struct sde_crtc_respool *rp, u32 type, u64 tag)
 		return NULL;
 	}
 
+	mutex_lock(rp->rp_lock);
 	list_for_each_entry(res, &rp->res_list, list) {
 		if (res->type != type || res->tag != tag)
 			continue;
@@ -369,6 +419,7 @@ static void *_sde_crtc_rp_get(struct sde_crtc_respool *rp, u32 type, u64 tag)
 				atomic_read(&res->refcount));
 		atomic_inc(&res->refcount);
 		res->flags &= ~SDE_CRTC_RES_FLAG_FREE;
+		mutex_unlock(rp->rp_lock);
 		return res->val;
 	}
 	list_for_each_entry(res, &rp->res_list, list) {
@@ -381,16 +432,63 @@ static void *_sde_crtc_rp_get(struct sde_crtc_respool *rp, u32 type, u64 tag)
 		atomic_inc(&res->refcount);
 		res->tag = tag;
 		res->flags &= ~SDE_CRTC_RES_FLAG_FREE;
+		mutex_unlock(rp->rp_lock);
 		return res->val;
 	}
+	/* not in this rp, try to grab from global pool */
 	if (rp->ops.get)
 		val = rp->ops.get(NULL, type, -1);
+	if (!IS_ERR_OR_NULL(val))
+		goto add_res;
+	/*
+	 * Search older resource pools for hw blk with matching type,
+	 * necessary when resource is being used by this object,
+	 * but in previous states not yet cleaned up.
+	 *
+	 * This enables searching of all resources currently owned
+	 * by this crtc even though the resource might not be used
+	 * in the current atomic state. This allows those resources
+	 * to be re-acquired by the new atomic state immediately
+	 * without waiting for the resources to be fully released.
+	 */
+	else if (IS_ERR_OR_NULL(val) && (type < SDE_HW_BLK_MAX)) {
+		list_for_each_entry(old_rp, rp->rp_head, rp_list) {
+			if (old_rp == rp)
+				continue;
+
+			list_for_each_entry(res, &old_rp->res_list, list) {
+				if (res->type != type)
+					continue;
+				SDE_DEBUG(
+					"crtc%d.%u found res:0x%x//%pK/ in crtc%d.%d\n",
+						crtc->base.id,
+						rp->sequence_id,
+						res->type, res->val,
+						crtc->base.id,
+						old_rp->sequence_id);
+				SDE_EVT32_VERBOSE(crtc->base.id,
+						rp->sequence_id,
+						res->type, res->val,
+						crtc->base.id,
+						old_rp->sequence_id);
+				if (res->ops.get)
+					res->ops.get(res->val, 0, -1);
+				val = res->val;
+				break;
+			}
+
+			if (!IS_ERR_OR_NULL(val))
+				break;
+		}
+	}
 	if (IS_ERR_OR_NULL(val)) {
 		SDE_DEBUG("crtc%d.%u failed to get res:0x%x//\n",
 				crtc->base.id, rp->sequence_id, type);
+		mutex_unlock(rp->rp_lock);
 		return NULL;
 	}
-	rc = _sde_crtc_rp_add(rp, type, tag, val, &rp->ops);
+add_res:
+	rc = _sde_crtc_rp_add_no_lock(rp, type, tag, val, &rp->ops);
 	if (rc) {
 		SDE_ERROR("crtc%d.%u failed to add res:0x%x/0x%llx\n",
 				crtc->base.id, rp->sequence_id, type, tag);
@@ -398,6 +496,7 @@ static void *_sde_crtc_rp_get(struct sde_crtc_respool *rp, u32 type, u64 tag)
 			rp->ops.put(val);
 		val = NULL;
 	}
+	mutex_unlock(rp->rp_lock);
 	return val;
 }
 
@@ -424,6 +523,7 @@ static void _sde_crtc_rp_put(struct sde_crtc_respool *rp, u32 type, u64 tag)
 		return;
 	}
 
+	mutex_lock(rp->rp_lock);
 	list_for_each_entry_safe(res, next, &rp->res_list, list) {
 		if (res->type != type || res->tag != tag)
 			continue;
@@ -440,10 +540,12 @@ static void _sde_crtc_rp_put(struct sde_crtc_respool *rp, u32 type, u64 tag)
 		else if (atomic_dec_return(&res->refcount) == 0)
 			res->flags |= SDE_CRTC_RES_FLAG_FREE;
 
+		mutex_unlock(rp->rp_lock);
 		return;
 	}
 	SDE_ERROR("crtc%d.%u not found res:0x%x/0x%llx\n",
 			crtc->base.id, rp->sequence_id, type, tag);
+	mutex_unlock(rp->rp_lock);
 }
 
 int sde_crtc_res_add(struct drm_crtc_state *state, u32 type, u64 tag,
@@ -2394,7 +2496,8 @@ static void sde_crtc_reset(struct drm_crtc *crtc)
 
 	_sde_crtc_set_input_fence_timeout(cstate);
 
-	_sde_crtc_rp_reset(&cstate->rp);
+	_sde_crtc_rp_reset(&cstate->rp, &sde_crtc->rp_lock,
+			&sde_crtc->rp_head);
 
 	cstate->base.crtc = crtc;
 	crtc->state = &cstate->base;
@@ -3720,6 +3823,7 @@ static int sde_crtc_debugfs_state_show(struct seq_file *s, void *v)
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 	struct sde_crtc_state *cstate = to_sde_crtc_state(crtc->state);
 	struct sde_crtc_res *res;
+	struct sde_crtc_respool *rp;
 	int i;
 
 	seq_printf(s, "num_connectors: %d\n", cstate->num_connectors);
@@ -3737,12 +3841,16 @@ static int sde_crtc_debugfs_state_show(struct seq_file *s, void *v)
 				sde_crtc->cur_perf.max_per_pipe_ib[i]);
 	}
 
-	seq_printf(s, "rp.%d: ", cstate->rp.sequence_id);
-	list_for_each_entry(res, &cstate->rp.res_list, list)
-		seq_printf(s, "0x%x/0x%llx/%pK/%d ",
-				res->type, res->tag, res->val,
-				atomic_read(&res->refcount));
-	seq_puts(s, "\n");
+	mutex_lock(&sde_crtc->rp_lock);
+	list_for_each_entry(rp, &sde_crtc->rp_head, rp_list) {
+		seq_printf(s, "rp.%d: ", rp->sequence_id);
+		list_for_each_entry(res, &rp->res_list, list)
+			seq_printf(s, "0x%x/0x%llx/%pK/%d ",
+					res->type, res->tag, res->val,
+					atomic_read(&res->refcount));
+		seq_puts(s, "\n");
+	}
+	mutex_unlock(&sde_crtc->rp_lock);
 
 	return 0;
 }
@@ -3958,6 +4066,9 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 	mutex_init(&sde_crtc->crtc_lock);
 	spin_lock_init(&sde_crtc->spin_lock);
 	atomic_set(&sde_crtc->frame_pending, 0);
+
+	mutex_init(&sde_crtc->rp_lock);
+	INIT_LIST_HEAD(&sde_crtc->rp_head);
 
 	init_completion(&sde_crtc->frame_done_comp);
 

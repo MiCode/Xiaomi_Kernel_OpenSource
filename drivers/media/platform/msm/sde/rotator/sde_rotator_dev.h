@@ -205,6 +205,9 @@ struct sde_rotator_statistics {
  * @min_overhead_us: Override the minimum overhead in us from perf calculation
  * @debugfs_root: Pointer to debugfs directory entry.
  * @stats: placeholder for rotator statistics
+ * @open_timeout: maximum wait time for ctx open in msec
+ * @open_wq: wait queue for ctx open
+ * @excl_ctx: Pointer to exclusive ctx
  */
 struct sde_rotator_device {
 	struct mutex lock;
@@ -227,6 +230,9 @@ struct sde_rotator_device {
 	struct sde_rotator_statistics stats;
 	struct dentry *debugfs_root;
 	struct dentry *perf_root;
+	u32 open_timeout;
+	wait_queue_head_t open_wq;
+	struct sde_rotator_ctx *excl_ctx;
 };
 
 static inline

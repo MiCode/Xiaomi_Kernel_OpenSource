@@ -251,6 +251,26 @@ int sde_dbg_reg_register_base(const char *name, void __iomem *base,
 		size_t max_offset);
 
 /**
+ * sde_dbg_reg_register_cb - register a hw register callback for later
+ *	dumping.
+ * @name:	name of base region
+ * @cb:		callback of external region
+ * @cb_ptr:	private pointer of external region
+ * Returns:	0 or -ERROR
+ */
+int sde_dbg_reg_register_cb(const char *name, void (*cb)(void *), void *ptr);
+
+/**
+ * sde_dbg_reg_unregister_cb - register a hw unregister callback for later
+ *	dumping.
+ * @name:	name of base region
+ * @cb:		callback of external region
+ * @cb_ptr:	private pointer of external region
+ * Returns:	None
+ */
+void sde_dbg_reg_unregister_cb(const char *name, void (*cb)(void *), void *ptr);
+
+/**
  * sde_dbg_reg_register_dump_range - register a hw register sub-region for
  *	later register dumping associated with base specified by
  *	sde_dbg_reg_register_base

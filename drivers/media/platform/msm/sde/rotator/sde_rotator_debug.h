@@ -18,6 +18,9 @@
 
 #define SDE_ROT_DATA_LIMITER (-1)
 #define SDE_ROT_EVTLOG_TOUT_DATA_LIMITER (NULL)
+#define SDE_ROT_EVTLOG_PANIC		0xdead
+#define SDE_ROT_EVTLOG_FATAL		0xbad
+#define SDE_ROT_EVTLOG_ERROR		0xebad
 
 enum sde_rot_dbg_reg_dump_flag {
 	SDE_ROT_DBG_DUMP_IN_LOG = BIT(0),
@@ -39,7 +42,7 @@ enum sde_rot_dbg_evtlog_flag {
 		SDE_ROT_EVTLOG_TOUT_DATA_LIMITER)
 
 void sde_rot_evtlog(const char *name, int line, int flag, ...);
-void sde_rot_dump_panic(void);
+void sde_rot_dump_panic(bool do_panic);
 void sde_rot_evtlog_tout_handler(bool queue, const char *name, ...);
 
 struct sde_rotator_device;

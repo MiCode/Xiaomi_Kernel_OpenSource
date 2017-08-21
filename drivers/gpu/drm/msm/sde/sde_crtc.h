@@ -144,6 +144,8 @@ struct sde_crtc_event {
  * @misr_enable   : boolean entry indicates misr enable/disable status.
  * @power_event   : registered power event handle
  * @cur_perf      : current performance committed to clock/bandwidth driver
+ * @rp_lock       : serialization lock for resource pool
+ * @rp_head       : list of active resource pool
  */
 struct sde_crtc {
 	struct drm_crtc base;
@@ -198,6 +200,9 @@ struct sde_crtc {
 	struct sde_power_event *power_event;
 
 	struct sde_core_perf_params cur_perf;
+
+	struct mutex rp_lock;
+	struct list_head rp_head;
 };
 
 #define to_sde_crtc(x) container_of(x, struct sde_crtc, base)
@@ -242,11 +247,17 @@ struct sde_crtc_res {
 
 /**
  * sde_crtc_respool - crtc resource pool
+ * @rp_lock: pointer to serialization lock
+ * @rp_head: pointer to head of active resource pools of this crtc
+ * @rp_list: list of crtc resource pool
  * @sequence_id: sequence identifier, incremented per state duplication
  * @res_list: list of resource managed by this resource pool
  * @ops: resource operations for parent resource pool
  */
 struct sde_crtc_respool {
+	struct mutex *rp_lock;
+	struct list_head *rp_head;
+	struct list_head rp_list;
 	u32 sequence_id;
 	struct list_head res_list;
 	struct sde_crtc_res_ops ops;
