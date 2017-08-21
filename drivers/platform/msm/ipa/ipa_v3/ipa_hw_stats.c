@@ -599,7 +599,7 @@ int ipa_reset_teth_stats(enum ipa_client_type prod, enum ipa_client_type cons)
 	if (!ipa3_ctx->hw_stats.enabled)
 		return 0;
 
-	if (!IPA_CLIENT_IS_PROD(prod) || IPA_CLIENT_IS_CONS(cons) == -1) {
+	if (!IPA_CLIENT_IS_PROD(prod) || !IPA_CLIENT_IS_CONS(cons)) {
 		IPAERR("invalid prod %d or cons %d\n", prod, cons);
 		return -EINVAL;
 	}
