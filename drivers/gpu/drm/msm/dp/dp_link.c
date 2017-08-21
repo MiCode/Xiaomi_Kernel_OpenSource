@@ -943,7 +943,6 @@ static int dp_link_parse_request(struct dp_link_private *link)
 	u8 data;
 	int rlen;
 	u32 const param_len = 0x1;
-	u8 buf[4];
 
 	/**
 	 * Read the device service IRQ vector (Byte 0x201) to determine
@@ -1007,10 +1006,6 @@ static int dp_link_parse_request(struct dp_link_private *link)
 		ret = dp_link_parse_audio_pattern_params(link);
 	}
 end:
-	/* clear the link request IRQ */
-	buf[0] = 1;
-	drm_dp_dpcd_write(link->aux->drm_aux, DP_TEST_REQUEST, buf, 1);
-
 	/**
 	 * Send a TEST_ACK if all link parameters are valid, otherwise send
 	 * a TEST_NACK.
