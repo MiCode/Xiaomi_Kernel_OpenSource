@@ -95,6 +95,12 @@ __read_mostly unsigned int sysctl_sched_window_stats_policy =
 /* Window size (in ns) */
 __read_mostly unsigned int sched_ravg_window = MIN_SCHED_RAVG_WINDOW;
 
+/*
+ * A after-boot constant divisor for cpu_util_freq_walt() to apply the load
+ * boost.
+ */
+__read_mostly unsigned int walt_cpu_util_freq_divisor;
+
 /* Initial task load. Newly created tasks are assigned this load. */
 unsigned int __read_mostly sched_init_task_load_windows;
 unsigned int __read_mostly sysctl_sched_init_task_load_pct = 15;
@@ -3094,4 +3100,7 @@ void walt_sched_init(struct rq *rq)
 		clear_top_tasks_bitmap(rq->top_tasks_bitmap[j]);
 	}
 	rq->cum_window_demand = 0;
+
+	walt_cpu_util_freq_divisor =
+	    (sched_ravg_window >> SCHED_CAPACITY_SHIFT) * 100;
 }

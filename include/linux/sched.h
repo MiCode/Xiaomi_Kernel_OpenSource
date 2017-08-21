@@ -3902,4 +3902,6 @@ void cpufreq_add_update_util_hook(int cpu, struct update_util_data *data,
 void cpufreq_remove_update_util_hook(int cpu);
 #endif /* CONFIG_CPU_FREQ */
 
+extern DEFINE_PER_CPU_READ_MOSTLY(int, sched_load_boost);
+
 #endif
