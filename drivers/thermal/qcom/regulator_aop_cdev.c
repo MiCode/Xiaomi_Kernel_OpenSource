@@ -17,7 +17,7 @@
 #include <linux/slab.h>
 #include <linux/mailbox_client.h>
 
-#define REG_CDEV_DRIVER "reg-cooling-device"
+#define REG_CDEV_DRIVER "reg-aop-cooling-device"
 #define REG_MSG_FORMAT "{class:volt_flr, event:zero_temp, res:%s, value:%s}"
 #define REG_CDEV_MAX_STATE 1
 #define MBOX_TOUT_MS 1000
