@@ -3715,6 +3715,119 @@ done:
 	return ret;
 }
 
+static int msm_compr_playback_dnmix_ctl_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = 0;
+	int len = 0;
+	int i = 0;
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	unsigned long fe_id = kcontrol->private_value;
+	struct msm_compr_pdata *pdata = (struct msm_compr_pdata *)
+					snd_soc_component_get_drvdata(comp);
+	struct snd_compr_stream *cstream = NULL;
+	struct msm_compr_audio *prtd;
+	struct asm_stream_pan_ctrl_params dnmix_param;
+	int be_id = ucontrol->value.integer.value[len++];
+	int stream_id = 0;
+	/*
+	 * Max index for this mixer control includes below
+	 * be_id			(1)
+	 * num_output_channels		(1)
+	 * num_input_channels		(1)
+	 * output ch map (max)		(8)
+	 * input ch map (max)		(8)
+	 * mix matrix coefficients (max)(64)
+	 */
+	int max_index = 0;
+	int max_mixer_ctrl_value_size = 128;
+
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s Received out of bounds invalid fe_id %lu\n",
+			__func__, fe_id);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	cstream = pdata->cstream[fe_id];
+	if (cstream == NULL) {
+		pr_err("%s cstream is null\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	prtd = cstream->runtime->private_data;
+	if (!prtd) {
+		pr_err("%s: prtd is null\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	if (prtd->audio_client == NULL) {
+		pr_err("%s: audio_client is null\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	stream_id = prtd->audio_client->session;
+	if (len >= max_mixer_ctrl_value_size) {
+		ret = -EINVAL;
+		goto done;
+	}
+	dnmix_param.num_output_channels =
+				ucontrol->value.integer.value[len++];
+	if (dnmix_param.num_output_channels >
+		PCM_FORMAT_MAX_NUM_CHANNEL) {
+		ret = -EINVAL;
+		goto done;
+	}
+	if (len >= max_mixer_ctrl_value_size) {
+		ret = -EINVAL;
+		goto done;
+	}
+	dnmix_param.num_input_channels =
+				ucontrol->value.integer.value[len++];
+	if (dnmix_param.num_input_channels >
+		PCM_FORMAT_MAX_NUM_CHANNEL) {
+		ret = -EINVAL;
+		goto done;
+	}
+	max_index = len + dnmix_param.num_output_channels +
+			dnmix_param.num_input_channels +
+			dnmix_param.num_output_channels *
+			dnmix_param.num_input_channels;
+	if (max_index >= max_mixer_ctrl_value_size) {
+		ret = -EINVAL;
+		goto done;
+	}
+
+	if (ucontrol->value.integer.value[len++]) {
+		for (i = 0; i < dnmix_param.num_output_channels; i++) {
+			dnmix_param.output_channel_map[i] =
+				ucontrol->value.integer.value[len++];
+		}
+	}
+	if (ucontrol->value.integer.value[len++]) {
+		for (i = 0; i < dnmix_param.num_input_channels; i++) {
+			dnmix_param.input_channel_map[i] =
+				ucontrol->value.integer.value[len++];
+		}
+	}
+	if (ucontrol->value.integer.value[len++]) {
+		for (i = 0; i < dnmix_param.num_output_channels *
+				dnmix_param.num_input_channels; i++) {
+			dnmix_param.gain[i] =
+					ucontrol->value.integer.value[len++];
+		}
+	}
+	msm_routing_set_downmix_control_data(be_id,
+						stream_id,
+						&dnmix_param);
+
+done:
+	return ret;
+}
+
 static int msm_compr_shm_ion_fd_map_put(struct snd_kcontrol *kcontrol,
 				    struct snd_ctl_elem_value *ucontrol)
 {
@@ -3979,6 +4092,16 @@ static int msm_compr_channel_map_info(struct snd_kcontrol *kcontrol,
 {
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count = 8;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = 0xFFFFFFFF;
+	return 0;
+}
+
+static int msm_compr_device_downmix_info(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 128;
 	uinfo->value.integer.min = 0;
 	uinfo->value.integer.max = 0xFFFFFFFF;
 	return 0;
@@ -4282,6 +4405,53 @@ static int msm_compr_add_dec_runtime_params_control(
 	return 0;
 }
 
+static int msm_compr_add_device_down_mix_controls(
+					struct snd_soc_pcm_runtime *rtd)
+{
+	const char *playback_mixer_ctl_name = "Audio Device";
+	const char *deviceNo = "NN";
+	const char *suffix = "Downmix Control";
+	char *mixer_str = NULL;
+	int ctl_len = 0, ret = 0;
+	struct snd_kcontrol_new device_downmix_control[1] = {
+		{
+			.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+			.name = "?",
+			.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
+			.info = msm_compr_device_downmix_info,
+			.put = msm_compr_playback_dnmix_ctl_put,
+			.private_value = 0,
+		}
+	};
+
+	if (!rtd) {
+		pr_err("%s NULL rtd\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+	ctl_len = strlen(playback_mixer_ctl_name) + 1 +
+			strlen(deviceNo) + 1 + strlen(suffix) + 1;
+	mixer_str = kzalloc(ctl_len, GFP_KERNEL);
+	if (!mixer_str) {
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	snprintf(mixer_str, ctl_len, "%s %d %s",
+		playback_mixer_ctl_name, rtd->pcm->device, suffix);
+	device_downmix_control[0].name = mixer_str;
+	device_downmix_control[0].private_value = rtd->dai_link->be_id;
+	ret = snd_soc_add_platform_controls(rtd->platform,
+					device_downmix_control,
+					ARRAY_SIZE(device_downmix_control));
+	if (ret < 0)
+		pr_err("%s: failed to add ctl %s\n", __func__, mixer_str);
+
+	kfree(mixer_str);
+done:
+	return ret;
+}
+
 static int msm_compr_add_app_type_cfg_control(struct snd_soc_pcm_runtime *rtd)
 {
 	const char *playback_mixer_ctl_name	= "Audio Stream";
@@ -4583,6 +4753,11 @@ static int msm_compr_new(struct snd_soc_pcm_runtime *rtd)
 	rc = msm_compr_add_event_ack_cmd_control(rtd);
 	if (rc)
 		pr_err("%s: Could not add Compr event ack Control\n",
+			__func__);
+
+	rc = msm_compr_add_device_down_mix_controls(rtd);
+	if (rc)
+		pr_err("%s: Could not add Compr downmix Control\n",
 			__func__);
 
 	rc = msm_compr_add_query_audio_effect_control(rtd);
