@@ -554,14 +554,14 @@ static struct clk_regmap *gpu_cc_sdm845_clocks[] = {
 	[GPU_CC_GX_GMU_CLK] = &gpu_cc_gx_gmu_clk.clkr,
 	[GPU_CC_GX_VSENSE_CLK] = &gpu_cc_gx_vsense_clk.clkr,
 	[GPU_CC_PLL_TEST_CLK] = &gpu_cc_pll_test_clk.clkr,
+	[GPU_CC_PLL0] = &gpu_cc_pll0.clkr,
+	[GPU_CC_PLL1] = NULL,
 };
 
 static struct clk_regmap *gpu_cc_gfx_sdm845_clocks[] = {
-	[GPU_CC_PLL0] = &gpu_cc_pll0.clkr,
 	[GPU_CC_PLL0_OUT_EVEN] = &gpu_cc_pll0_out_even.clkr,
 	[GPU_CC_GX_GFX3D_CLK_SRC] = &gpu_cc_gx_gfx3d_clk_src.clkr,
 	[GPU_CC_GX_GFX3D_CLK] = &gpu_cc_gx_gfx3d_clk.clkr,
-	[GPU_CC_PLL1] = NULL,
 };
 
 static const struct qcom_reset_map gpu_cc_sdm845_resets[] = {
@@ -612,8 +612,9 @@ MODULE_DEVICE_TABLE(of, gpu_cc_gfx_sdm845_match_table);
 
 static void gpu_cc_sdm845_fixup_sdm845v2(struct regmap *regmap)
 {
-	clk_fabia_pll_configure(&gpu_cc_pll1, regmap, &gpu_cc_pll1_config);
 	gpu_cc_sdm845_clocks[GPU_CC_PLL1] = &gpu_cc_pll1.clkr;
+	clk_fabia_pll_configure(&gpu_cc_pll1, regmap, &gpu_cc_pll1_config);
+
 	gpu_cc_gmu_clk_src.freq_tbl = ftbl_gpu_cc_gmu_clk_src_sdm845_v2;
 	gpu_cc_gmu_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 500000000;
 }
@@ -701,15 +702,6 @@ static int gpu_cc_gfx_sdm845_probe(struct platform_device *pdev)
 		return PTR_ERR(regmap);
 	}
 
-	/* Get MX voltage regulator for GPU PLL graphic clock. */
-	vdd_mx.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_mx");
-	if (IS_ERR(vdd_mx.regulator[0])) {
-		if (!(PTR_ERR(vdd_mx.regulator[0]) == -EPROBE_DEFER))
-			dev_err(&pdev->dev,
-				"Unable to get vdd_mx regulator\n");
-		return PTR_ERR(vdd_mx.regulator[0]);
-	}
-
 	/* GFX voltage regulators for GFX3D  graphic clock. */
 	vdd_gfx.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_gfx");
 	if (IS_ERR(vdd_gfx.regulator[0])) {
@@ -777,6 +769,15 @@ static int gpu_cc_sdm845_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev,
 				"Unable to get vdd_cx regulator\n");
 		return PTR_ERR(vdd_cx.regulator[0]);
+	}
+
+	/* Get MX voltage regulator for GPU PLL graphic clock. */
+	vdd_mx.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_mx");
+	if (IS_ERR(vdd_mx.regulator[0])) {
+		if (!(PTR_ERR(vdd_mx.regulator[0]) == -EPROBE_DEFER))
+			dev_err(&pdev->dev,
+				"Unable to get vdd_mx regulator\n");
+		return PTR_ERR(vdd_mx.regulator[0]);
 	}
 
 	ret = gpu_cc_sdm845_fixup(pdev, regmap);
