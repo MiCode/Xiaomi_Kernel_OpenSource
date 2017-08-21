@@ -227,6 +227,12 @@ void sde_plane_restore(struct drm_plane *plane);
 void sde_plane_flush(struct drm_plane *plane);
 
 /**
+ * sde_plane_kickoff - final plane operations before commit kickoff
+ * @plane: Pointer to drm plane structure
+ */
+void sde_plane_kickoff(struct drm_plane *plane);
+
+/**
  * sde_plane_init - create new sde plane for the given pipe
  * @dev:   Pointer to DRM device
  * @pipe:  sde hardware pipe identifier

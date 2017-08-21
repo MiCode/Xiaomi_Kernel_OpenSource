@@ -82,6 +82,18 @@ struct sde_hw_vbif_ops {
 			u32 xin_id, u32 value);
 
 	/**
+	 * clear_errors - clear any vbif errors
+	 *	This function clears any detected pending/source errors
+	 *	on the VBIF interface, and optionally returns the detected
+	 *	error mask(s).
+	 * @vbif: vbif context driver
+	 * @pnd_errors: pointer to pending error reporting variable
+	 * @src_errors: pointer to source error reporting variable
+	 */
+	void (*clear_errors)(struct sde_hw_vbif *vbif,
+		u32 *pnd_errors, u32 *src_errors);
+
+	/**
 	 * set_write_gather_en - set write_gather enable
 	 * @vbif: vbif context driver
 	 * @xin_id: client interface identifier

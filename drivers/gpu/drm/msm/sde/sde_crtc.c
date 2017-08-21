@@ -34,6 +34,7 @@
 #include "sde_color_processing.h"
 #include "sde_encoder.h"
 #include "sde_connector.h"
+#include "sde_vbif.h"
 #include "sde_power_handle.h"
 #include "sde_core_perf.h"
 #include "sde_trace.h"
@@ -1322,7 +1323,8 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 				state->src_w >> 16, state->src_h >> 16,
 				state->crtc_x, state->crtc_y,
 				state->crtc_w, state->crtc_h,
-				cstate->sbuf_cfg.rot_op_mode);
+				flush_tmp ? cstate->sbuf_cfg.rot_op_mode :
+				SDE_CTL_ROT_OP_MODE_OFFLINE);
 
 		stage_idx = zpos_cnt[pstate->stage]++;
 		stage_cfg->stage[pstate->stage][stage_idx] =
@@ -2221,6 +2223,7 @@ static int _sde_crtc_wait_for_frame_done(struct drm_crtc *crtc)
 
 void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 {
+	struct drm_plane *plane;
 	struct drm_encoder *encoder;
 	struct drm_device *dev;
 	struct sde_crtc *sde_crtc;
@@ -2290,6 +2293,12 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 		SDE_EVT32(DRMID(crtc), SDE_EVTLOG_FUNC_CASE2);
 	}
 	sde_crtc->play_count++;
+
+	if (cstate->sbuf_cfg.rot_op_mode != SDE_CTL_ROT_OP_MODE_OFFLINE)
+		drm_atomic_crtc_for_each_plane(plane, crtc)
+			sde_plane_kickoff(plane);
+
+	sde_vbif_clear_errors(sde_kms);
 
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 		if (encoder->crtc != crtc)
