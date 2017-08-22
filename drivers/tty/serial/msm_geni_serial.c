@@ -177,6 +177,7 @@ static int msm_geni_serial_power_on(struct uart_port *uport);
 static void msm_geni_serial_power_off(struct uart_port *uport);
 static int msm_geni_serial_poll_bit(struct uart_port *uport,
 				int offset, int bit_field, bool set);
+static void msm_geni_serial_stop_rx(struct uart_port *uport);
 
 static atomic_t uart_line_id = ATOMIC_INIT(0);
 
@@ -534,6 +535,7 @@ static void msm_geni_serial_abort_rx(struct uart_port *uport)
 	msm_geni_serial_poll_bit(uport, SE_GENI_S_CMD_CTRL_REG,
 					S_GENI_CMD_ABORT, false);
 	geni_write_reg_nolog(irq_clear, uport->membase, SE_GENI_S_IRQ_CLEAR);
+	geni_write_reg(FORCE_DEFAULT, uport->membase, GENI_FORCE_DEFAULT_REG);
 }
 
 #ifdef CONFIG_CONSOLE_POLL
@@ -904,7 +906,8 @@ static void msm_geni_serial_start_rx(struct uart_port *uport)
 
 	geni_status = geni_read_reg_nolog(uport->membase, SE_GENI_STATUS);
 	if (geni_status & S_GENI_CMD_ACTIVE)
-		msm_geni_serial_abort_rx(uport);
+		msm_geni_serial_stop_rx(uport);
+
 	geni_setup_s_cmd(uport->membase, UART_START_READ, 0);
 
 	if (port->xfer_mode == FIFO_MODE) {
@@ -926,7 +929,7 @@ static void msm_geni_serial_start_rx(struct uart_port *uport)
 		if (ret) {
 			dev_err(uport->dev, "%s: RX Prep dma failed %d\n",
 				__func__, ret);
-			msm_geni_serial_abort_rx(uport);
+			msm_geni_serial_stop_rx(uport);
 			return;
 		}
 	}
@@ -964,6 +967,7 @@ static void msm_geni_serial_stop_rx(struct uart_port *uport)
 	unsigned int geni_m_irq_en;
 	unsigned int geni_status;
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
+	u32 irq_clear = S_CMD_DONE_EN;
 
 	if (!uart_console(uport) && pm_runtime_status_suspended(uport->dev)) {
 		dev_err(uport->dev, "%s.Device is suspended.\n", __func__);
@@ -995,7 +999,16 @@ static void msm_geni_serial_stop_rx(struct uart_port *uport)
 	/* Possible stop rx is called multiple times. */
 	if (!(geni_status & S_GENI_CMD_ACTIVE))
 		return;
-	msm_geni_serial_abort_rx(uport);
+	geni_cancel_s_cmd(uport->membase);
+	/* Ensure that the cancel goes through before polling for the
+	 * cancel control bit.
+	 */
+	mb();
+	msm_geni_serial_poll_bit(uport, SE_GENI_S_CMD_CTRL_REG,
+					S_GENI_CMD_CANCEL, false);
+	geni_write_reg_nolog(irq_clear, uport->membase, SE_GENI_S_IRQ_CLEAR);
+	if ((geni_status & S_GENI_CMD_ACTIVE))
+		msm_geni_serial_abort_rx(uport);
 }
 
 static int handle_rx_hs(struct uart_port *uport,
@@ -1538,7 +1551,6 @@ static int msm_geni_serial_startup(struct uart_port *uport)
 			goto exit_startup;
 	}
 
-	msm_geni_serial_start_rx(uport);
 	/*
 	 * Ensure that all the port configuration writes complete
 	 * before returning to the framework.
@@ -1659,11 +1671,17 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 	unsigned long clk_rate;
 
-	if (!uart_console(uport) && pm_runtime_status_suspended(uport->dev)) {
-		IPC_LOG_MSG(port->ipc_log_pwr,
-			"%s Device suspended,vote clocks on.\n", __func__);
-		return;
+	if (!uart_console(uport)) {
+		int ret = msm_geni_serial_power_on(uport);
+
+		if (ret) {
+			IPC_LOG_MSG(port->ipc_log_misc,
+				"%s: Failed to vote clock on:%d\n",
+							__func__, ret);
+			return;
+		}
 	}
+	msm_geni_serial_stop_rx(uport);
 	/* baud rate */
 	baud = uart_get_baud_rate(uport, termios, old, 300, 4000000);
 	port->cur_baud = baud;
@@ -1752,6 +1770,9 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	IPC_LOG_MSG(port->ipc_log_misc, "BitsChar%d stop bit%d\n",
 				bits_per_char, stop_bit_len);
 exit_set_termios:
+	msm_geni_serial_start_rx(uport);
+	if (!uart_console(uport))
+		msm_geni_serial_power_off(uport);
 	return;
 
 }
