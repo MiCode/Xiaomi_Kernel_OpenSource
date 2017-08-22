@@ -1873,6 +1873,9 @@ void sde_crtc_prepare_commit(struct drm_crtc *crtc,
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *cstate;
 	struct drm_connector *conn;
+	struct sde_crtc_retire_event *retire_event = NULL;
+	unsigned long flags;
+	int i;
 
 	if (!crtc || !crtc->state) {
 		SDE_ERROR("invalid crtc\n");
@@ -1892,6 +1895,27 @@ void sde_crtc_prepare_commit(struct drm_crtc *crtc,
 			cstate->connectors[cstate->num_connectors++] = conn;
 			sde_connector_prepare_fence(conn);
 		}
+
+	for (i = 0; i < SDE_CRTC_FRAME_EVENT_SIZE; i++) {
+		retire_event = &sde_crtc->retire_events[i];
+		if (list_empty(&retire_event->list))
+			break;
+		retire_event = NULL;
+	}
+
+	if (retire_event) {
+		retire_event->num_connectors = cstate->num_connectors;
+		for (i = 0; i < cstate->num_connectors; i++)
+			retire_event->connectors[i] = cstate->connectors[i];
+
+		spin_lock_irqsave(&sde_crtc->spin_lock, flags);
+		list_add_tail(&retire_event->list,
+						&sde_crtc->retire_event_list);
+		spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
+	} else {
+		SDE_ERROR("crtc%d retire event overflow\n", crtc->base.id);
+		SDE_EVT32(DRMID(crtc), SDE_EVTLOG_ERROR);
+	}
 
 	/* prepare main output fence */
 	sde_fence_prepare(&sde_crtc->output_fence);
@@ -1966,17 +1990,50 @@ static void sde_crtc_vblank_cb(void *data)
 	SDE_EVT32_VERBOSE(DRMID(crtc));
 }
 
+static void _sde_crtc_retire_event(struct drm_crtc *crtc, ktime_t ts)
+{
+	struct sde_crtc_retire_event *retire_event;
+	struct sde_crtc *sde_crtc;
+	unsigned long flags;
+	int i;
+
+	if (!crtc) {
+		SDE_ERROR("invalid param\n");
+		return;
+	}
+
+	sde_crtc = to_sde_crtc(crtc);
+	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
+	retire_event = list_first_entry_or_null(&sde_crtc->retire_event_list,
+				struct sde_crtc_retire_event, list);
+	if (retire_event)
+		list_del_init(&retire_event->list);
+	spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
+
+	if (!retire_event) {
+		SDE_ERROR("crtc%d retire event without kickoff\n",
+								crtc->base.id);
+		SDE_EVT32(DRMID(crtc), SDE_EVTLOG_ERROR);
+		return;
+	}
+
+	SDE_ATRACE_BEGIN("signal_retire_fence");
+	for (i = 0; (i < retire_event->num_connectors) &&
+					retire_event->connectors[i]; ++i)
+		sde_connector_complete_commit(
+					retire_event->connectors[i], ts);
+	SDE_ATRACE_END("signal_retire_fence");
+}
+
 static void sde_crtc_frame_event_work(struct kthread_work *work)
 {
 	struct msm_drm_private *priv;
 	struct sde_crtc_frame_event *fevent;
 	struct drm_crtc *crtc;
 	struct sde_crtc *sde_crtc;
-	struct sde_crtc_state *cstate;
 	struct sde_kms *sde_kms;
 	unsigned long flags;
 	bool frame_done = false;
-	int i;
 
 	if (!work) {
 		SDE_ERROR("invalid work handle\n");
@@ -1991,7 +2048,6 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 
 	crtc = fevent->crtc;
 	sde_crtc = to_sde_crtc(crtc);
-	cstate = to_sde_crtc_state(crtc->state);
 
 	sde_kms = _sde_crtc_get_kms(crtc);
 	if (!sde_kms) {
@@ -2045,13 +2101,9 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 		SDE_ATRACE_END("signal_release_fence");
 	}
 
-	if (fevent->event & SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE) {
-		SDE_ATRACE_BEGIN("signal_retire_fence");
-		for (i = 0; i < cstate->num_connectors; ++i)
-			sde_connector_complete_commit(cstate->connectors[i],
-					fevent->ts);
-		SDE_ATRACE_END("signal_retire_fence");
-	}
+	if (fevent->event & SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE)
+		/* this api should be called without spin_lock */
+		_sde_crtc_retire_event(crtc, fevent->ts);
 
 	if (fevent->event & SDE_ENCODER_FRAME_EVENT_PANEL_DEAD)
 		SDE_ERROR("crtc%d ts:%lld received panel dead event\n",
@@ -4440,6 +4492,10 @@ static int _sde_crtc_init_events(struct sde_crtc *sde_crtc)
 	for (i = 0; i < SDE_CRTC_MAX_EVENT_COUNT; ++i)
 		list_add_tail(&sde_crtc->event_cache[i].list,
 				&sde_crtc->event_free_list);
+
+	INIT_LIST_HEAD(&sde_crtc->retire_event_list);
+	for (i = 0; i < ARRAY_SIZE(sde_crtc->retire_events); i++)
+		INIT_LIST_HEAD(&sde_crtc->retire_events[i].list);
 
 	return rc;
 }
