@@ -529,6 +529,11 @@ static int qpnp_wled_set_level(struct qpnp_wled *wled, int level)
 {
 	int i, rc;
 	u8 reg;
+	u16 low_limit = WLED_MAX_LEVEL_4095 * 4 / 1000;
+
+	/* WLED's lower limit of operation is 0.4% */
+	if (level > 0 && level < low_limit)
+		level = low_limit;
 
 	/* set brightness registers */
 	for (i = 0; i < wled->num_strings; i++) {
