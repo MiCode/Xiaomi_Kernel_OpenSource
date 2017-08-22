@@ -1163,6 +1163,10 @@ static int adreno_init(struct kgsl_device *device)
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int ret;
 
+	if (!adreno_is_a3xx(adreno_dev))
+		kgsl_sharedmem_set(device, &device->scratch, 0, 0,
+				device->scratch.size);
+
 	ret = kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
 	if (ret)
 		return ret;
