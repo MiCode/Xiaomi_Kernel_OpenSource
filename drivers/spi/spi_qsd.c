@@ -1827,14 +1827,16 @@ static int msm_spi_setup(struct spi_device *spi)
 	mb();
 	if (dd->pdata->is_shared)
 		put_local_resources(dd);
-	/* Counter-part of system-resume when runtime-pm is not enabled. */
-	if (!pm_runtime_enabled(dd->dev))
-		msm_spi_pm_suspend_runtime(dd->dev);
 
 no_resources:
 	mutex_unlock(&dd->core_lock);
-	pm_runtime_mark_last_busy(dd->dev);
-	pm_runtime_put_autosuspend(dd->dev);
+	/* Counter-part of system-resume when runtime-pm is not enabled. */
+	if (!pm_runtime_enabled(dd->dev)) {
+		msm_spi_pm_suspend_runtime(dd->dev);
+	} else {
+		pm_runtime_mark_last_busy(dd->dev);
+		pm_runtime_put_autosuspend(dd->dev);
+	}
 
 err_setup_exit:
 	return rc;
