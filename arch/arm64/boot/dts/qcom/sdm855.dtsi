@@ -619,7 +619,11 @@
 	status = "ok";
 };
 
-&hlos1_vote_turing_mmu_tbu_gdsc {
+&hlos1_vote_turing_mmu_tbu0_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_turing_mmu_tbu1_gdsc {
 	status = "ok";
 };
 
