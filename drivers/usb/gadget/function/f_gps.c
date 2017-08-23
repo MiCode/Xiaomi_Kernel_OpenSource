@@ -297,6 +297,12 @@ static void gps_resume(struct usb_function *f)
 		return;
 
 	dev->is_suspended = false;
+	spin_lock(&dev->lock);
+	if (list_empty(&dev->cpkt_resp_q)) {
+		spin_unlock(&dev->lock);
+		return;
+	}
+	spin_unlock(&dev->lock);
 	gps_ctrl_response_available(dev);
 }
 
