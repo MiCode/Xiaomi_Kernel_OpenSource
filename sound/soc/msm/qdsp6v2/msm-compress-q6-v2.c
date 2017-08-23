@@ -1282,12 +1282,32 @@ static int msm_compr_configure_dsp_for_playback
 		.step = SOFT_VOLUME_STEP,
 		.rampingcurve = SOFT_VOLUME_CURVE_LINEAR,
 	};
+	struct snd_kcontrol *kctl;
+	struct snd_ctl_elem_value kctl_elem_value;
+	uint16_t target_asm_bit_width = 0;
 
 	pr_debug("%s: stream_id %d\n", __func__, ac->stream_id);
 	stream_index = STREAM_ARRAY_INDEX(ac->stream_id);
 	if (stream_index >= MAX_NUMBER_OF_STREAMS || stream_index < 0) {
 		pr_err("%s: Invalid stream index:%d", __func__, stream_index);
 		return -EINVAL;
+	}
+
+	kctl = snd_soc_card_get_kcontrol(soc_prtd->card,
+		DSP_BIT_WIDTH_MIXER_CTL);
+	if (kctl) {
+		kctl->get(kctl, &kctl_elem_value);
+		target_asm_bit_width = kctl_elem_value.value.integer.value[0];
+		if (target_asm_bit_width > 0) {
+			pr_debug("%s enforce ASM bitwidth to %d from %d\n",
+				__func__,
+				target_asm_bit_width,
+				bits_per_sample);
+			bits_per_sample = target_asm_bit_width;
+		}
+	} else {
+		pr_info("%s: failed to get mixer ctl for %s.\n",
+			__func__, DSP_BIT_WIDTH_MIXER_CTL);
 	}
 
 	if ((prtd->codec_param.codec.format == SNDRV_PCM_FORMAT_S24_LE) ||
