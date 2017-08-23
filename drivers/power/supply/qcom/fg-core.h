@@ -49,7 +49,6 @@
 #define SRAM_READ		"fg_sram_read"
 #define SRAM_WRITE		"fg_sram_write"
 #define PROFILE_LOAD		"fg_profile_load"
-#define DELTA_SOC		"fg_delta_soc"
 #define TTF_PRIMING		"fg_ttf_priming"
 
 /* Delta BSOC irq votable reasons */
@@ -454,7 +453,6 @@ struct fg_chip {
 	struct completion	mem_grant;
 	struct delayed_work	profile_load_work;
 	struct work_struct	status_change_work;
-	struct work_struct	cycle_count_work;
 	struct delayed_work	ttf_work;
 	struct delayed_work	sram_dump_work;
 };

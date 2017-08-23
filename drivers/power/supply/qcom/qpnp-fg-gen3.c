@@ -2232,93 +2232,13 @@ static void fg_ttf_update(struct fg_chip *chip)
 	schedule_delayed_work(&chip->ttf_work, msecs_to_jiffies(delay_ms));
 }
 
-static void status_change_work(struct work_struct *work)
-{
-	struct fg_chip *chip = container_of(work,
-			struct fg_chip, status_change_work);
-	union power_supply_propval prop = {0, };
-	int rc, batt_temp;
-
-	if (!batt_psy_initialized(chip)) {
-		fg_dbg(chip, FG_STATUS, "Charger not available?!\n");
-		goto out;
-	}
-
-	rc = power_supply_get_property(chip->batt_psy, POWER_SUPPLY_PROP_STATUS,
-			&prop);
-	if (rc < 0) {
-		pr_err("Error in getting charging status, rc=%d\n", rc);
-		goto out;
-	}
-
-	chip->prev_charge_status = chip->charge_status;
-	chip->charge_status = prop.intval;
-	rc = power_supply_get_property(chip->batt_psy,
-			POWER_SUPPLY_PROP_CHARGE_TYPE, &prop);
-	if (rc < 0) {
-		pr_err("Error in getting charge type, rc=%d\n", rc);
-		goto out;
-	}
-
-	chip->charge_type = prop.intval;
-	rc = power_supply_get_property(chip->batt_psy,
-			POWER_SUPPLY_PROP_CHARGE_DONE, &prop);
-	if (rc < 0) {
-		pr_err("Error in getting charge_done, rc=%d\n", rc);
-		goto out;
-	}
-
-	chip->charge_done = prop.intval;
-	if (chip->cyc_ctr.en)
-		schedule_work(&chip->cycle_count_work);
-
-	fg_cap_learning_update(chip);
-
-	rc = fg_charge_full_update(chip);
-	if (rc < 0)
-		pr_err("Error in charge_full_update, rc=%d\n", rc);
-
-	rc = fg_adjust_recharge_soc(chip);
-	if (rc < 0)
-		pr_err("Error in adjusting recharge_soc, rc=%d\n", rc);
-
-	rc = fg_adjust_ki_coeff_dischg(chip);
-	if (rc < 0)
-		pr_err("Error in adjusting ki_coeff_dischg, rc=%d\n", rc);
-
-	rc = fg_esr_fcc_config(chip);
-	if (rc < 0)
-		pr_err("Error in adjusting FCC for ESR, rc=%d\n", rc);
-
-	rc = fg_esr_timer_config(chip, false);
-	if (rc < 0)
-		pr_err("Error in configuring ESR timer, rc=%d\n", rc);
-
-	rc = fg_get_battery_temp(chip, &batt_temp);
-	if (!rc) {
-		rc = fg_slope_limit_config(chip, batt_temp);
-		if (rc < 0)
-			pr_err("Error in configuring slope limiter rc:%d\n",
-				rc);
-
-		rc = fg_adjust_ki_coeff_full_soc(chip, batt_temp);
-		if (rc < 0)
-			pr_err("Error in configuring ki_coeff_full_soc rc:%d\n",
-				rc);
-	}
-
-	fg_ttf_update(chip);
-
-out:
-	fg_dbg(chip, FG_POWER_SUPPLY, "charge_status:%d charge_type:%d charge_done:%d\n",
-		chip->charge_status, chip->charge_type, chip->charge_done);
-	pm_relax(chip->dev);
-}
-
 static void restore_cycle_counter(struct fg_chip *chip)
 {
 	int rc = 0, i;
 	u8 data[2];
+
+	if (!chip->cyc_ctr.en)
+		return;
 
 	mutex_lock(&chip->cyc_ctr.lock);
 	for (i = 0; i < BUCKET_COUNT; i++) {
@@ -2373,20 +2293,25 @@ static int fg_inc_store_cycle_ctr(struct fg_chip *chip, int bucket)
 	rc = fg_sram_write(chip, CYCLE_COUNT_WORD + (bucket / 2),
 			CYCLE_COUNT_OFFSET + (bucket % 2) * 2, data, 2,
 			FG_IMA_DEFAULT);
-	if (rc < 0)
+	if (rc < 0) {
 		pr_err("failed to write BATT_CYCLE[%d] rc=%d\n",
 			bucket, rc);
-	else
-		chip->cyc_ctr.count[bucket] = cyc_count;
+		return rc;
+	}
+
+	chip->cyc_ctr.count[bucket] = cyc_count;
+	fg_dbg(chip, FG_STATUS, "Stored count %d in bucket %d\n", cyc_count,
+		bucket);
+
 	return rc;
 }
 
-static void cycle_count_work(struct work_struct *work)
+static void fg_cycle_counter_update(struct fg_chip *chip)
 {
 	int rc = 0, bucket, i, batt_soc;
-	struct fg_chip *chip = container_of(work,
-				struct fg_chip,
-				cycle_count_work);
+
+	if (!chip->cyc_ctr.en)
+		return;
 
 	mutex_lock(&chip->cyc_ctr.lock);
 	rc = fg_get_sram_prop(chip, FG_SRAM_BATT_SOC, &batt_soc);
@@ -2398,45 +2323,30 @@ static void cycle_count_work(struct work_struct *work)
 	/* We need only the most significant byte here */
 	batt_soc = (u32)batt_soc >> 24;
 
-	if (chip->charge_status == POWER_SUPPLY_STATUS_CHARGING) {
-		/* Find out which bucket the SOC falls in */
-		bucket = batt_soc / BUCKET_SOC_PCT;
-		pr_debug("batt_soc: %d bucket: %d\n", batt_soc, bucket);
+	/* Find out which bucket the SOC falls in */
+	bucket = batt_soc / BUCKET_SOC_PCT;
 
-		/*
-		 * If we've started counting for the previous bucket,
-		 * then store the counter for that bucket if the
-		 * counter for current bucket is getting started.
-		 */
-		if (bucket > 0 && chip->cyc_ctr.started[bucket - 1] &&
-			!chip->cyc_ctr.started[bucket]) {
-			rc = fg_inc_store_cycle_ctr(chip, bucket - 1);
-			if (rc < 0) {
-				pr_err("Error in storing cycle_ctr rc: %d\n",
-					rc);
-				goto out;
-			} else {
-				chip->cyc_ctr.started[bucket - 1] = false;
-				chip->cyc_ctr.last_soc[bucket - 1] = 0;
-			}
-		}
+	if (chip->charge_status == POWER_SUPPLY_STATUS_CHARGING) {
 		if (!chip->cyc_ctr.started[bucket]) {
 			chip->cyc_ctr.started[bucket] = true;
 			chip->cyc_ctr.last_soc[bucket] = batt_soc;
 		}
-	} else {
+	} else if (chip->charge_done || !is_input_present(chip)) {
 		for (i = 0; i < BUCKET_COUNT; i++) {
 			if (chip->cyc_ctr.started[i] &&
-				batt_soc > chip->cyc_ctr.last_soc[i]) {
+				batt_soc > chip->cyc_ctr.last_soc[i] + 2) {
 				rc = fg_inc_store_cycle_ctr(chip, i);
 				if (rc < 0)
 					pr_err("Error in storing cycle_ctr rc: %d\n",
 						rc);
 				chip->cyc_ctr.last_soc[i] = 0;
+				chip->cyc_ctr.started[i] = false;
 			}
-			chip->cyc_ctr.started[i] = false;
 		}
 	}
+
+	fg_dbg(chip, FG_STATUS, "batt_soc: %d bucket: %d chg_status: %d\n",
+		batt_soc, bucket, chip->charge_status);
 out:
 	mutex_unlock(&chip->cyc_ctr.lock);
 }
@@ -2455,6 +2365,83 @@ static int fg_get_cycle_count(struct fg_chip *chip)
 	count = chip->cyc_ctr.count[chip->cyc_ctr.id - 1];
 	mutex_unlock(&chip->cyc_ctr.lock);
 	return count;
+}
+
+static void status_change_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work,
+			struct fg_chip, status_change_work);
+	union power_supply_propval prop = {0, };
+	int rc, batt_temp;
+
+	if (!batt_psy_initialized(chip)) {
+		fg_dbg(chip, FG_STATUS, "Charger not available?!\n");
+		goto out;
+	}
+
+	rc = power_supply_get_property(chip->batt_psy, POWER_SUPPLY_PROP_STATUS,
+			&prop);
+	if (rc < 0) {
+		pr_err("Error in getting charging status, rc=%d\n", rc);
+		goto out;
+	}
+
+	chip->prev_charge_status = chip->charge_status;
+	chip->charge_status = prop.intval;
+	rc = power_supply_get_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_CHARGE_TYPE, &prop);
+	if (rc < 0) {
+		pr_err("Error in getting charge type, rc=%d\n", rc);
+		goto out;
+	}
+
+	chip->charge_type = prop.intval;
+	rc = power_supply_get_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_CHARGE_DONE, &prop);
+	if (rc < 0) {
+		pr_err("Error in getting charge_done, rc=%d\n", rc);
+		goto out;
+	}
+
+	chip->charge_done = prop.intval;
+	fg_cycle_counter_update(chip);
+	fg_cap_learning_update(chip);
+
+	rc = fg_charge_full_update(chip);
+	if (rc < 0)
+		pr_err("Error in charge_full_update, rc=%d\n", rc);
+
+	rc = fg_adjust_recharge_soc(chip);
+	if (rc < 0)
+		pr_err("Error in adjusting recharge_soc, rc=%d\n", rc);
+
+	rc = fg_adjust_ki_coeff_dischg(chip);
+	if (rc < 0)
+		pr_err("Error in adjusting ki_coeff_dischg, rc=%d\n", rc);
+
+	rc = fg_esr_fcc_config(chip);
+	if (rc < 0)
+		pr_err("Error in adjusting FCC for ESR, rc=%d\n", rc);
+
+	rc = fg_get_battery_temp(chip, &batt_temp);
+	if (!rc) {
+		rc = fg_slope_limit_config(chip, batt_temp);
+		if (rc < 0)
+			pr_err("Error in configuring slope limiter rc:%d\n",
+				rc);
+
+		rc = fg_adjust_ki_coeff_full_soc(chip, batt_temp);
+		if (rc < 0)
+			pr_err("Error in configuring ki_coeff_full_soc rc:%d\n",
+				rc);
+	}
+
+	fg_ttf_update(chip);
+
+out:
+	fg_dbg(chip, FG_POWER_SUPPLY, "charge_status:%d charge_type:%d charge_done:%d\n",
+		chip->charge_status, chip->charge_type, chip->charge_done);
+	pm_relax(chip->dev);
 }
 
 static int fg_bp_params_config(struct fg_chip *chip)
@@ -3756,8 +3743,7 @@ static int fg_hw_init(struct fg_chip *chip)
 		return rc;
 	}
 
-	if (chip->cyc_ctr.en)
-		restore_cycle_counter(chip);
+	restore_cycle_counter(chip);
 
 	if (chip->dt.jeita_hyst_temp >= 0) {
 		val = chip->dt.jeita_hyst_temp << JEITA_TEMP_HYST_SHIFT;
@@ -4054,8 +4040,7 @@ static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 	int rc;
 
 	fg_dbg(chip, FG_IRQ, "irq %d triggered\n", irq);
-	if (chip->cyc_ctr.en)
-		schedule_work(&chip->cycle_count_work);
+	fg_cycle_counter_update(chip);
 
 	if (chip->cl.active)
 		fg_cap_learning_update(chip);
@@ -4836,7 +4821,6 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	init_completion(&chip->mem_grant);
 	INIT_DELAYED_WORK(&chip->profile_load_work, profile_load_work);
 	INIT_WORK(&chip->status_change_work, status_change_work);
-	INIT_WORK(&chip->cycle_count_work, cycle_count_work);
 	INIT_DELAYED_WORK(&chip->ttf_work, ttf_work);
 	INIT_DELAYED_WORK(&chip->sram_dump_work, sram_dump_work);
 
