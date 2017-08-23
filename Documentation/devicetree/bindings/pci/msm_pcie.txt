@@ -75,8 +75,6 @@ Optional Properties:
   - qcom,pcie-phy-ver: version of PCIe PHY.
   - qcom,phy-sequence: The initialization sequence to bring up the PCIe PHY.
     Should be specified in groups (offset, value, delay).
-  - qcom,port-phy-sequence: The initialization sequence to bring up the
-    PCIe port PHY.
     Should be specified in groups (offset, value, delay).
   - qcom,use-19p2mhz-aux-clk: The frequency of PCIe AUX clock is 19.2MHz.
   - qcom,boot-option: Bits that alter PCIe bus driver boot sequence.
@@ -91,7 +89,6 @@ Optional Properties:
   - iommus: the phandle and stream IDs for the SMMU used by this root
     complex. This should be used in separate nodes from the main root
     complex nodes, and is the only property needed in that case.
-  - qcom,common-phy: There is a common phy for all the Root Complexes.
   - qcom,smmu-exist: PCIe uses a SMMU.
   - qcom,smmu-sid-base: The base SMMU SID that PCIe bus driver will use to calculate
     and assign for each endpoint.
@@ -214,13 +211,6 @@ Example:
 					0x15c 0x06 0x00
 					0x090 0x01 0x00
 					0x808 0x03 0x00>;
-		qcom,port-phy-sequence = <0x804 0x01 0x00
-					0x034 0x14 0x00
-					0x138 0x30 0x00
-					0x048 0x0f 0x00
-					0x15c 0x06 0x00
-					0x090 0x01 0x00
-					0x808 0x03 0x00>;
 		perst-gpio = <&msmgpio 70 0>;
 		wake-gpio = <&msmgpio 69 0>;
 		clkreq-gpio = <&msmgpio 68 0>;
@@ -272,7 +262,6 @@ Example:
 		qcom,msi-gicm-base = <0x160>;
 		qcom,ext-ref-clk;
 		qcom,tlp-rd-size = <0x5>;
-		qcom,common-phy;
 		qcom,smmu-exist;
 		qcom,smmu-sid-base = <0x1480>;
 		qcom,ep-latency = <100>;
