@@ -863,7 +863,7 @@ struct thermal_zone_device *devm_thermal_of_virtual_sensor_register(
 	tzd = thermal_zone_get_zone_by_name(
 				sensor_data->virt_zone_name);
 	if (IS_ERR(tzd)) {
-		dev_err(dev, "sens:%s not available err: %ld\n",
+		dev_dbg(dev, "sens:%s not available err: %ld\n",
 				sensor_data->virt_zone_name,
 				PTR_ERR(tzd));
 		return tzd;
