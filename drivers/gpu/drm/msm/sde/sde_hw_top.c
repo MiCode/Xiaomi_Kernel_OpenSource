@@ -348,6 +348,18 @@ void sde_hw_reset_ubwc(struct sde_hw_mdp *mdp, struct sde_mdss_cfg *m)
 	SDE_REG_WRITE(&c, UBWC_STATIC, m->mdp[0].ubwc_static);
 }
 
+static void sde_hw_intf_audio_select(struct sde_hw_mdp *mdp)
+{
+	struct sde_hw_blk_reg_map *c;
+
+	if (!mdp)
+		return;
+
+	c = &mdp->hw;
+
+	SDE_REG_WRITE(c, HDMI_DP_CORE_SELECT, 0x1);
+}
+
 static void _setup_mdp_ops(struct sde_hw_mdp_ops *ops,
 		unsigned long cap)
 {
@@ -360,6 +372,7 @@ static void _setup_mdp_ops(struct sde_hw_mdp_ops *ops,
 	ops->get_safe_status = sde_hw_get_safe_status;
 	ops->setup_dce = sde_hw_setup_dce;
 	ops->reset_ubwc = sde_hw_reset_ubwc;
+	ops->intf_audio_select = sde_hw_intf_audio_select;
 }
 
 static const struct sde_mdp_cfg *_top_offset(enum sde_mdp mdp,

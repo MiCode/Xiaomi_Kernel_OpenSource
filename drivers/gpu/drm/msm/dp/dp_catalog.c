@@ -59,9 +59,12 @@ static u8 const vm_voltage_swing[4][4] = {
 	{0xFF, 0xFF, 0xFF, 0xFF}  /* sw1, 1.2 v, optional */
 };
 
+/* audio related catalog functions */
 struct dp_catalog_private {
 	struct device *dev;
 	struct dp_io *io;
+
+	u32 (*audio_map)[DP_AUDIO_SDP_HEADER_MAX];
 	struct dp_catalog dp_catalog;
 };
 
@@ -700,40 +703,190 @@ static int dp_catalog_panel_timing_cfg(struct dp_catalog_panel *panel)
 end:
 	return 0;
 }
- /* audio related catalog functions */
-static int dp_catalog_audio_acr_ctrl(struct dp_catalog_audio *audio)
+
+static void dp_catalog_audio_init(struct dp_catalog_audio *audio)
 {
-	return 0;
+	struct dp_catalog_private *catalog;
+	static u32 sdp_map[][DP_AUDIO_SDP_HEADER_MAX] = {
+		{
+			MMSS_DP_AUDIO_STREAM_0,
+			MMSS_DP_AUDIO_STREAM_1,
+			MMSS_DP_AUDIO_STREAM_1,
+		},
+		{
+			MMSS_DP_AUDIO_TIMESTAMP_0,
+			MMSS_DP_AUDIO_TIMESTAMP_1,
+			MMSS_DP_AUDIO_TIMESTAMP_1,
+		},
+		{
+			MMSS_DP_AUDIO_INFOFRAME_0,
+			MMSS_DP_AUDIO_INFOFRAME_1,
+			MMSS_DP_AUDIO_INFOFRAME_1,
+		},
+		{
+			MMSS_DP_AUDIO_COPYMANAGEMENT_0,
+			MMSS_DP_AUDIO_COPYMANAGEMENT_1,
+			MMSS_DP_AUDIO_COPYMANAGEMENT_1,
+		},
+		{
+			MMSS_DP_AUDIO_ISRC_0,
+			MMSS_DP_AUDIO_ISRC_1,
+			MMSS_DP_AUDIO_ISRC_1,
+		},
+	};
+
+	if (!audio)
+		return;
+
+	dp_catalog_get_priv(audio);
+
+	catalog->audio_map = sdp_map;
 }
 
-static int dp_catalog_audio_stream_sdp(struct dp_catalog_audio *audio)
+static void dp_catalog_audio_config_sdp(struct dp_catalog_audio *audio)
 {
-	return 0;
+	struct dp_catalog_private *catalog;
+	void __iomem *base;
+	u32 sdp_cfg = 0;
+	u32 sdp_cfg2 = 0;
+
+	if (!audio)
+		return;
+
+	dp_catalog_get_priv(audio);
+	base = catalog->io->ctrl_io.base;
+
+	/* AUDIO_TIMESTAMP_SDP_EN */
+	sdp_cfg |= BIT(1);
+	/* AUDIO_STREAM_SDP_EN */
+	sdp_cfg |= BIT(2);
+	/* AUDIO_COPY_MANAGEMENT_SDP_EN */
+	sdp_cfg |= BIT(5);
+	/* AUDIO_ISRC_SDP_EN  */
+	sdp_cfg |= BIT(6);
+	/* AUDIO_INFOFRAME_SDP_EN  */
+	sdp_cfg |= BIT(20);
+
+	pr_debug("sdp_cfg = 0x%x\n", sdp_cfg);
+	dp_write(base + MMSS_DP_SDP_CFG, sdp_cfg);
+
+	sdp_cfg2 = dp_read(base + MMSS_DP_SDP_CFG2);
+	/* IFRM_REGSRC -> Do not use reg values */
+	sdp_cfg2 &= ~BIT(0);
+	/* AUDIO_STREAM_HB3_REGSRC-> Do not use reg values */
+	sdp_cfg2 &= ~BIT(1);
+
+	pr_debug("sdp_cfg2 = 0x%x\n", sdp_cfg2);
+	dp_write(base + MMSS_DP_SDP_CFG2, sdp_cfg2);
 }
 
-static int dp_catalog_audio_timestamp_sdp(struct dp_catalog_audio *audio)
+static void dp_catalog_audio_get_header(struct dp_catalog_audio *audio)
 {
-	return 0;
+	struct dp_catalog_private *catalog;
+	u32 (*sdp_map)[DP_AUDIO_SDP_HEADER_MAX];
+	void __iomem *base;
+	enum dp_catalog_audio_sdp_type sdp;
+	enum dp_catalog_audio_header_type header;
+
+	if (!audio)
+		return;
+
+	dp_catalog_get_priv(audio);
+
+	base    = catalog->io->ctrl_io.base;
+	sdp_map = catalog->audio_map;
+	sdp     = audio->sdp_type;
+	header  = audio->sdp_header;
+
+	audio->data = dp_read(base + sdp_map[sdp][header]);
 }
 
-static int dp_catalog_audio_infoframe_sdp(struct dp_catalog_audio *audio)
+static void dp_catalog_audio_set_header(struct dp_catalog_audio *audio)
 {
-	return 0;
+	struct dp_catalog_private *catalog;
+	u32 (*sdp_map)[DP_AUDIO_SDP_HEADER_MAX];
+	void __iomem *base;
+	enum dp_catalog_audio_sdp_type sdp;
+	enum dp_catalog_audio_header_type header;
+	u32 data;
+
+	if (!audio)
+		return;
+
+	dp_catalog_get_priv(audio);
+
+	base    = catalog->io->ctrl_io.base;
+	sdp_map = catalog->audio_map;
+	sdp     = audio->sdp_type;
+	header  = audio->sdp_header;
+	data    = audio->data;
+
+	dp_write(base + sdp_map[sdp][header], data);
 }
 
-static int dp_catalog_audio_copy_mgmt_sdp(struct dp_catalog_audio *audio)
+static void dp_catalog_audio_config_acr(struct dp_catalog_audio *audio)
 {
-	return 0;
+	struct dp_catalog_private *catalog;
+	void __iomem *base;
+	u32 acr_ctrl, select;
+
+	dp_catalog_get_priv(audio);
+
+	select = audio->data;
+	base   = catalog->io->ctrl_io.base;
+
+	acr_ctrl = select << 4 | BIT(31) | BIT(8) | BIT(14);
+
+	pr_debug("select = 0x%x, acr_ctrl = 0x%x\n", select, acr_ctrl);
+
+	dp_write(base + MMSS_DP_AUDIO_ACR_CTRL, acr_ctrl);
 }
 
-static int dp_catalog_audio_isrc_sdp(struct dp_catalog_audio *audio)
+static void dp_catalog_audio_safe_to_exit_level(struct dp_catalog_audio *audio)
 {
-	return 0;
+	struct dp_catalog_private *catalog;
+	void __iomem *base;
+	u32 mainlink_levels, safe_to_exit_level;
+
+	dp_catalog_get_priv(audio);
+
+	base   = catalog->io->ctrl_io.base;
+	safe_to_exit_level = audio->data;
+
+	mainlink_levels = dp_read(base + DP_MAINLINK_LEVELS);
+	mainlink_levels &= 0xFE0;
+	mainlink_levels |= safe_to_exit_level;
+
+	pr_debug("mainlink_level = 0x%x, safe_to_exit_level = 0x%x\n",
+			mainlink_levels, safe_to_exit_level);
+
+	dp_write(base + DP_MAINLINK_LEVELS, mainlink_levels);
 }
 
-static int dp_catalog_audio_setup_sdp(struct dp_catalog_audio *audio)
+static void dp_catalog_audio_enable(struct dp_catalog_audio *audio)
 {
-	return 0;
+	struct dp_catalog_private *catalog;
+	void __iomem *base;
+	bool enable;
+	u32 audio_ctrl;
+
+	dp_catalog_get_priv(audio);
+
+	base   = catalog->io->ctrl_io.base;
+	enable = !!audio->data;
+
+	audio_ctrl = dp_read(base + MMSS_DP_AUDIO_CFG);
+
+	if (enable)
+		audio_ctrl |= BIT(0);
+	else
+		audio_ctrl &= ~BIT(0);
+
+	pr_debug("dp_audio_cfg = 0x%x\n", audio_ctrl);
+	dp_write(base + MMSS_DP_AUDIO_CFG, audio_ctrl);
+
+	/* make sure audio engine is disabled */
+	wmb();
 }
 
 struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io)
@@ -771,13 +924,13 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io)
 		.read_hdcp_status     = dp_catalog_ctrl_read_hdcp_status,
 	};
 	struct dp_catalog_audio audio = {
-		.acr_ctrl      = dp_catalog_audio_acr_ctrl,
-		.stream_sdp    = dp_catalog_audio_stream_sdp,
-		.timestamp_sdp = dp_catalog_audio_timestamp_sdp,
-		.infoframe_sdp = dp_catalog_audio_infoframe_sdp,
-		.copy_mgmt_sdp = dp_catalog_audio_copy_mgmt_sdp,
-		.isrc_sdp      = dp_catalog_audio_isrc_sdp,
-		.setup_sdp     = dp_catalog_audio_setup_sdp,
+		.init       = dp_catalog_audio_init,
+		.config_acr = dp_catalog_audio_config_acr,
+		.enable     = dp_catalog_audio_enable,
+		.config_sdp = dp_catalog_audio_config_sdp,
+		.set_header = dp_catalog_audio_set_header,
+		.get_header = dp_catalog_audio_get_header,
+		.safe_to_exit_level = dp_catalog_audio_safe_to_exit_level,
 	};
 	struct dp_catalog_panel panel = {
 		.timing_cfg = dp_catalog_panel_timing_cfg,

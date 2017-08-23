@@ -369,6 +369,14 @@
 		label = "wb_display";
 	};
 
+	ext_disp: qcom,msm-ext-disp {
+		compatible = "qcom,msm-ext-disp";
+
+		ext_disp_audio_codec: qcom,msm-ext-disp-audio-codec-rx {
+			compatible = "qcom,msm-ext-disp-audio-codec-rx";
+		};
+	};
+
 	sde_dp: qcom,dp_display@0{
 		cell-index = <0>;
 		compatible = "qcom,dp-display";
@@ -410,6 +418,7 @@
 			"crypto_clk", "pixel_clk_rcg", "pixel_parent";
 
 		qcom,dp-usbpd-detection = <&pmi8998_pdphy>;
+		qcom,ext-disp = <&ext_disp>;
 
 		qcom,aux-cfg0-settings = [20 00];
 		qcom,aux-cfg1-settings = [24 13 23 1d];

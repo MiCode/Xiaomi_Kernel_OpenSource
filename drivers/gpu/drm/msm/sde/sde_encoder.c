@@ -1927,6 +1927,12 @@ static void _sde_encoder_virt_enable_helper(struct drm_encoder *drm_enc)
 		return;
 	}
 
+	if (sde_enc->disp_info.intf_type == DRM_MODE_CONNECTOR_DisplayPort &&
+	    sde_enc->cur_master->hw_mdptop &&
+	    sde_enc->cur_master->hw_mdptop->ops.intf_audio_select)
+		sde_enc->cur_master->hw_mdptop->ops.intf_audio_select(
+					sde_enc->cur_master->hw_mdptop);
+
 	if (sde_enc->cur_master->hw_mdptop &&
 			sde_enc->cur_master->hw_mdptop->ops.reset_ubwc)
 		sde_enc->cur_master->hw_mdptop->ops.reset_ubwc(
