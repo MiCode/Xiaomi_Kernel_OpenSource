@@ -104,6 +104,7 @@ struct drm_msm_memcol {
 #define GAMUT_3D_MODE5_TBL_SZ 32
 #define GAMUT_3D_MODE13_TBL_SZ 550
 #define GAMUT_3D_SCALE_OFF_SZ 16
+#define GAMUT_3D_SCALEB_OFF_SZ 12
 #define GAMUT_3D_TBL_NUM 4
 #define GAMUT_3D_SCALE_OFF_TBL_NUM 3
 #define GAMUT_3D_MAP_EN (1 << 0)
