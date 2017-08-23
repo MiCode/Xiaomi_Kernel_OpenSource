@@ -1129,6 +1129,24 @@ static void dp_ctrl_host_deinit(struct dp_ctrl *dp_ctrl)
 	pr_debug("Host deinitialized successfully\n");
 }
 
+static bool dp_ctrl_use_fixed_nvid(struct dp_ctrl_private *ctrl)
+{
+	u8 *dpcd = ctrl->panel->dpcd;
+
+	/*
+	 * For better interop experience, used a fixed NVID=0x8000
+	 * whenever connected to a VGA dongle downstream.
+	 */
+	if (dpcd[DP_DOWNSTREAMPORT_PRESENT] & DP_DWN_STRM_PORT_PRESENT) {
+		u8 type = dpcd[DP_DOWNSTREAMPORT_PRESENT] &
+			DP_DWN_STRM_PORT_TYPE_MASK;
+		if (type == DP_DWN_STRM_PORT_TYPE_ANALOG)
+			return true;
+	}
+
+	return false;
+}
+
 static int dp_ctrl_on_irq(struct dp_ctrl_private *ctrl, bool lt_needed)
 {
 	int ret = 0;
@@ -1158,7 +1176,8 @@ static int dp_ctrl_on_irq(struct dp_ctrl_private *ctrl, bool lt_needed)
 		dp_ctrl_configure_source_params(ctrl);
 
 		ctrl->catalog->config_msa(ctrl->catalog,
-			drm_dp_bw_code_to_link_rate(ctrl->link->bw_code));
+			drm_dp_bw_code_to_link_rate(ctrl->link->bw_code),
+			ctrl->pixel_rate, dp_ctrl_use_fixed_nvid(ctrl));
 
 		reinit_completion(&ctrl->idle_comp);
 
@@ -1212,7 +1231,8 @@ static int dp_ctrl_on_hpd(struct dp_ctrl_private *ctrl)
 
 	while (--link_train_max_retries && !atomic_read(&ctrl->aborted)) {
 		ctrl->catalog->config_msa(ctrl->catalog,
-			drm_dp_bw_code_to_link_rate(ctrl->link->bw_code));
+			drm_dp_bw_code_to_link_rate(ctrl->link->bw_code),
+			ctrl->pixel_rate, dp_ctrl_use_fixed_nvid(ctrl));
 
 		ret = dp_ctrl_setup_main_link(ctrl, true);
 		if (!ret)
