@@ -9,7 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#define pr_fmt(fmt)	"%s: " fmt, __func__
+#define pr_fmt(fmt)	"%s:%d: " fmt, __func__, __LINE__
 
 #include <linux/vmalloc.h>
 #include <linux/kernel.h>
@@ -1433,7 +1433,8 @@ int sde_rotator_inline_get_pixfmt_caps(struct platform_device *pdev,
 
 	sde_rot_mgr_lock(rot_dev->mgr);
 	for (i = 0;; i++) {
-		pixfmt = sde_rotator_get_pixfmt(rot_dev->mgr, i, input);
+		pixfmt = sde_rotator_get_pixfmt(rot_dev->mgr, i, input,
+				SDE_ROTATOR_MODE_SBUF);
 		if (!pixfmt)
 			break;
 		if (pixfmts && i < len)
@@ -1610,7 +1611,7 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 			ret = sde_rotator_session_config(rot_dev->mgr,
 					ctx->private, &rotcfg);
 			if (ret) {
-				SDEROT_ERR("fail session config s:%d\n",
+				SDEROT_WARN("fail session config s:%d\n",
 						ctx->session_id);
 				goto error_session_config;
 			}
@@ -1621,7 +1622,7 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 		ret = sde_rotator_validate_request(rot_dev->mgr, ctx->private,
 				req);
 		if (ret) {
-			SDEROT_ERR("fail validate request s:%d\n",
+			SDEROT_WARN("fail validate request s:%d\n",
 					ctx->session_id);
 			goto error_validate_request;
 		}
@@ -1857,7 +1858,8 @@ static int sde_rotator_enum_fmt_vid_cap(struct file *file,
 	bool found = false;
 
 	for (i = 0, index = 0; index <= f->index; i++) {
-		pixfmt = sde_rotator_get_pixfmt(rot_dev->mgr, i, false);
+		pixfmt = sde_rotator_get_pixfmt(rot_dev->mgr, i, false,
+				SDE_ROTATOR_MODE_OFFLINE);
 		if (!pixfmt)
 			return -EINVAL;
 
@@ -1901,7 +1903,8 @@ static int sde_rotator_enum_fmt_vid_out(struct file *file,
 	bool found = false;
 
 	for (i = 0, index = 0; index <= f->index; i++) {
-		pixfmt = sde_rotator_get_pixfmt(rot_dev->mgr, i, true);
+		pixfmt = sde_rotator_get_pixfmt(rot_dev->mgr, i, true,
+				SDE_ROTATOR_MODE_OFFLINE);
 		if (!pixfmt)
 			return -EINVAL;
 

@@ -685,10 +685,8 @@ static int sde_hw_rot_commit(struct sde_hw_rot *hw, struct sde_hw_rot_cmd *data,
 				hw_cmd);
 
 		rc = sde_rotator_inline_commit(hw->rot_ctx, &rot_cmd, cmd_type);
-		if (rc) {
-			SDE_ERROR("failed to commit inline rotation %d\n", rc);
+		if (rc)
 			return rc;
-		}
 
 		/* return to caller */
 		data->priv_handle = rot_cmd.priv_handle;
