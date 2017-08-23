@@ -26,6 +26,7 @@ struct msm_commit {
 	struct drm_device *dev;
 	struct drm_atomic_state *state;
 	uint32_t crtc_mask;
+	bool nonblock;
 	struct kthread_work commit_work;
 };
 
@@ -62,7 +63,8 @@ static void end_atomic(struct msm_drm_private *priv, uint32_t crtc_mask)
 static void commit_destroy(struct msm_commit *c)
 {
 	end_atomic(c->dev->dev_private, c->crtc_mask);
-	kfree(c);
+	if (c->nonblock)
+		kfree(c);
 }
 
 static void msm_atomic_wait_for_commit_done(
@@ -449,7 +451,8 @@ static void _msm_drm_commit_work_cb(struct kthread_work *work)
 	SDE_ATRACE_END("complete_commit");
 }
 
-static struct msm_commit *commit_init(struct drm_atomic_state *state)
+static struct msm_commit *commit_init(struct drm_atomic_state *state,
+		bool nonblock)
 {
 	struct msm_commit *c = kzalloc(sizeof(*c), GFP_KERNEL);
 
@@ -458,6 +461,7 @@ static struct msm_commit *commit_init(struct drm_atomic_state *state)
 
 	c->dev = state->dev;
 	c->state = state;
+	c->nonblock = nonblock;
 
 	kthread_init_work(&c->commit_work, _msm_drm_commit_work_cb);
 
@@ -502,6 +506,11 @@ static int msm_atomic_commit_dispatch(struct drm_device *dev,
 			break;
 	}
 
+	if (!ret && !commit->nonblock) {
+		kthread_flush_work(&commit->commit_work);
+		kfree(commit);
+	}
+
 	return ret;
 }
 
@@ -535,7 +544,7 @@ int msm_atomic_commit(struct drm_device *dev,
 		return ret;
 	}
 
-	c = commit_init(state);
+	c = commit_init(state, nonblock);
 	if (!c) {
 		ret = -ENOMEM;
 		goto error;
@@ -603,20 +612,13 @@ int msm_atomic_commit(struct drm_device *dev,
 	 * current layout.
 	 */
 
-	if (nonblock) {
-		ret = msm_atomic_commit_dispatch(dev, state, c);
-		if (ret) {
-			DRM_ERROR("%s: atomic commit failed\n", __func__);
-			drm_atomic_state_free(state);
-			commit_destroy(c);
-			goto error;
-		}
-		SDE_ATRACE_END("atomic_commit");
-		return 0;
+	ret = msm_atomic_commit_dispatch(dev, state, c);
+	if (ret) {
+		DRM_ERROR("%s: atomic commit failed\n", __func__);
+		drm_atomic_state_free(state);
+		commit_destroy(c);
+		goto error;
 	}
-
-	complete_commit(c);
-
 	SDE_ATRACE_END("atomic_commit");
 	return 0;
 
