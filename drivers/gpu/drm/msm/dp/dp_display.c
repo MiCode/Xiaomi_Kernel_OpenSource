@@ -668,12 +668,11 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 
 		rc = dp->link->process_request(dp->link);
 		/* check for any test request issued by sink */
-		if (!rc) {
+		if (!rc)
 			dp_display_handle_hpd_irq(dp);
-			dp->hpd_irq_on = false;
-			goto end;
-		}
+
 		dp->hpd_irq_on = false;
+		goto end;
 	}
 
 	if (!dp->usbpd->hpd_high) {
