@@ -204,6 +204,8 @@ enum camera_vreg_type {
 
 enum cam_sensor_i2c_cmd_type {
 	CAM_SENSOR_I2C_WRITE_RANDOM,
+	CAM_SENSOR_I2C_WRITE_BURST,
+	CAM_SENSOR_I2C_WRITE_SEQ,
 	CAM_SENSOR_I2C_READ,
 	CAM_SENSOR_I2C_POLL
 };

@@ -127,6 +127,70 @@ update_req_mgr:
 	return rc;
 }
 
+static int32_t cam_sensor_i2c_modes_util(
+	struct camera_io_master *io_master_info,
+	struct i2c_settings_list *i2c_list)
+{
+	int32_t rc = 0;
+	uint32_t i, size;
+
+	if (i2c_list->op_code == CAM_SENSOR_I2C_WRITE_RANDOM) {
+		rc = camera_io_dev_write(io_master_info,
+			&(i2c_list->i2c_settings));
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR,
+				"Failed to random write I2C settings: %d",
+				rc);
+			return rc;
+		}
+	} else if (i2c_list->op_code == CAM_SENSOR_I2C_WRITE_SEQ) {
+		rc = camera_io_dev_write_continuous(
+			io_master_info,
+			&(i2c_list->i2c_settings),
+			0);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR,
+				"Failed to seq write I2C settings: %d",
+				rc);
+			return rc;
+		}
+	} else if (i2c_list->op_code == CAM_SENSOR_I2C_WRITE_BURST) {
+		rc = camera_io_dev_write_continuous(
+			io_master_info,
+			&(i2c_list->i2c_settings),
+			1);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR,
+				"Failed to burst write I2C settings: %d",
+				rc);
+			return rc;
+		}
+	} else if (i2c_list->op_code == CAM_SENSOR_I2C_POLL) {
+		size = i2c_list->i2c_settings.size;
+		for (i = 0; i < size; i++) {
+			rc = camera_io_dev_poll(
+			io_master_info,
+			i2c_list->i2c_settings.
+				reg_setting[i].reg_addr,
+			i2c_list->i2c_settings.
+				reg_setting[i].reg_data,
+			i2c_list->i2c_settings.
+				reg_setting[i].data_mask,
+			i2c_list->i2c_settings.addr_type,
+				i2c_list->i2c_settings.data_type,
+			i2c_list->i2c_settings.
+				reg_setting[i].delay);
+			if (rc < 0) {
+				CAM_ERR(CAM_SENSOR,
+					"i2c poll apply setting Fail: %d", rc);
+				return rc;
+			}
+		}
+	}
+
+	return rc;
+}
+
 int32_t cam_sensor_update_i2c_info(struct cam_cmd_i2c_info *i2c_info,
 	struct cam_sensor_ctrl_t *s_ctrl)
 {
@@ -715,12 +779,13 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 		if (i2c_set->is_settings_valid == 1) {
 			list_for_each_entry(i2c_list,
 				&(i2c_set->list_head), list) {
-				rc = camera_io_dev_write(
+				rc = cam_sensor_i2c_modes_util(
 					&(s_ctrl->io_master_info),
-					&(i2c_list->i2c_settings));
+					i2c_list);
 				if (rc < 0) {
 					CAM_ERR(CAM_SENSOR,
-					"Failed to write the I2C settings");
+						"Failed to apply settings: %d",
+						rc);
 					return rc;
 				}
 			}
@@ -738,13 +803,13 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 			i2c_set->request_id == req_id) {
 			list_for_each_entry(i2c_list,
 				&(i2c_set->list_head), list) {
-				rc = camera_io_dev_write(
+				rc = cam_sensor_i2c_modes_util(
 					&(s_ctrl->io_master_info),
-					&(i2c_list->i2c_settings));
+					i2c_list);
 				if (rc < 0) {
 					CAM_ERR(CAM_SENSOR,
-					"Fail to write the I2C settings: %d",
-						 rc);
+						"Failed to apply settings: %d",
+						rc);
 					return rc;
 				}
 			}

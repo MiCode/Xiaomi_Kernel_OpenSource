@@ -424,7 +424,8 @@ static int32_t cam_cci_calc_cmd_len(struct cci_device *cci_dev,
 	msg = &c_ctrl->cfg.cci_i2c_write_cfg;
 	*pack = 0;
 
-	if (c_ctrl->cmd == MSM_CCI_I2C_WRITE_SEQ) {
+	if (c_ctrl->cmd == MSM_CCI_I2C_WRITE_SEQ ||
+		c_ctrl->cmd == MSM_CCI_I2C_WRITE_BURST) {
 		addr_len = cam_cci_convert_type_to_num_bytes(msg->addr_type);
 		len = (size + addr_len) <= (cci_dev->payload_size) ?
 			(size + addr_len):cci_dev->payload_size;
@@ -725,24 +726,29 @@ static int32_t cam_cci_data_queue(struct cci_device *cci_dev,
 		do {
 			if (i2c_msg->data_type == CAMERA_SENSOR_I2C_TYPE_BYTE) {
 				data[i++] = i2c_cmd->reg_data;
-				reg_addr++;
+				if (c_ctrl->cmd == MSM_CCI_I2C_WRITE_SEQ)
+					reg_addr++;
 			} else {
 				if ((i + 1) <= cci_dev->payload_size) {
 					data[i++] = (i2c_cmd->reg_data &
 						0xFF00) >> 8; /* MSB */
 					data[i++] = i2c_cmd->reg_data &
 						0x00FF; /* LSB */
-					reg_addr++;
+					if (c_ctrl->cmd ==
+						MSM_CCI_I2C_WRITE_SEQ)
+						reg_addr++;
 				} else
 					break;
 			}
 			i2c_cmd++;
 			--cmd_size;
-		} while (((c_ctrl->cmd == MSM_CCI_I2C_WRITE_SEQ) || pack--) &&
+		} while (((c_ctrl->cmd == MSM_CCI_I2C_WRITE_SEQ ||
+			c_ctrl->cmd == MSM_CCI_I2C_WRITE_BURST) || pack--) &&
 				(cmd_size > 0) && (i <= cci_dev->payload_size));
 		free_size = cam_cci_get_queue_free_size(cci_dev, master,
 				queue);
-		if ((c_ctrl->cmd == MSM_CCI_I2C_WRITE_SEQ) &&
+		if ((c_ctrl->cmd == MSM_CCI_I2C_WRITE_SEQ ||
+			c_ctrl->cmd == MSM_CCI_I2C_WRITE_BURST) &&
 			((i-1) == MSM_CCI_WRITE_DATA_PAYLOAD_SIZE_11) &&
 			cci_dev->support_seq_write && cmd_size > 0 &&
 			free_size > BURST_MIN_FREE_SIZE) {
@@ -1253,6 +1259,7 @@ static int32_t cam_cci_write(struct v4l2_subdev *sd,
 		break;
 	case MSM_CCI_I2C_WRITE:
 	case MSM_CCI_I2C_WRITE_SEQ:
+	case MSM_CCI_I2C_WRITE_BURST:
 		for (i = 0; i < NUM_QUEUES; i++) {
 			if (mutex_trylock(&cci_master_info->mutex_q[i])) {
 				rc = cam_cci_i2c_write(sd, c_ctrl, i,
@@ -1295,6 +1302,7 @@ int32_t cam_cci_core_cfg(struct v4l2_subdev *sd,
 		break;
 	case MSM_CCI_I2C_WRITE:
 	case MSM_CCI_I2C_WRITE_SEQ:
+	case MSM_CCI_I2C_WRITE_BURST:
 	case MSM_CCI_I2C_WRITE_SYNC:
 	case MSM_CCI_I2C_WRITE_ASYNC:
 	case MSM_CCI_I2C_WRITE_SYNC_BLOCK:
