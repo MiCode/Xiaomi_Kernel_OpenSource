@@ -174,8 +174,13 @@ inline void adreno_perfcounter_save(struct adreno_device *adreno_dev)
 	struct adreno_perfcounters *counters = ADRENO_PERFCOUNTERS(adreno_dev);
 	struct adreno_perfcount_group *group;
 	unsigned int counter, groupid;
+	int ret;
 
 	if (counters == NULL)
+		return;
+
+	ret = adreno_perfcntr_active_oob_get(adreno_dev);
+	if (ret)
 		return;
 
 	for (groupid = 0; groupid < counters->group_count; groupid++) {
@@ -197,6 +202,8 @@ inline void adreno_perfcounter_save(struct adreno_device *adreno_dev)
 								counter);
 		}
 	}
+
+	adreno_perfcntr_active_oob_put(adreno_dev);
 }
 
 static int adreno_perfcounter_enable(struct adreno_device *adreno_dev,
