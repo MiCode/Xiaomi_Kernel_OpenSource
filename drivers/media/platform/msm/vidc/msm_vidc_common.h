@@ -104,6 +104,8 @@ bool msm_comm_turbo_session(struct msm_vidc_inst *inst);
 void msm_comm_print_inst_info(struct msm_vidc_inst *inst);
 int msm_comm_v4l2_to_hal(int id, int value);
 int msm_comm_hal_to_v4l2(int id, int value);
+int msm_comm_get_v4l2_profile(int fourcc, int profile);
+int msm_comm_get_v4l2_level(int fourcc, int level);
 int msm_comm_session_continue(void *instance);
 enum hal_uncompressed_format msm_comm_get_hal_uncompressed(int fourcc);
 u32 get_frame_size_nv12(int plane, u32 height, u32 width);
