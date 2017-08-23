@@ -18,6 +18,7 @@
 #include <linux/timer.h>
 #include <media/cam_icp.h>
 #include <linux/iopoll.h>
+#include <soc/qcom/socinfo.h>
 
 #include "cam_io_util.h"
 #include "hfi_reg.h"
@@ -37,6 +38,9 @@
 #define HFI_VERSION_INFO_MINOR_SHFT  8
 #define HFI_VERSION_INFO_STEP_BMSK   0xFF
 #define HFI_VERSION_INFO_STEP_SHFT  0
+
+#define SOC_VERSION_HW1             0x10000
+#define SOC_VERSION_HW2             0x20000
 
 static struct hfi_info *g_hfi;
 unsigned int g_icp_mmu_hdl;
@@ -350,7 +354,7 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 	struct hfi_qtbl *qtbl;
 	struct hfi_qtbl_hdr *qtbl_hdr;
 	struct hfi_q_hdr *cmd_q_hdr, *msg_q_hdr, *dbg_q_hdr;
-	uint32_t hw_version, fw_version, status = 0;
+	uint32_t hw_version, soc_version, fw_version, status = 0;
 
 	mutex_lock(&hfi_cmd_q_mutex);
 	mutex_lock(&hfi_msg_q_mutex);
@@ -370,7 +374,7 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 
 	memcpy(&g_hfi->map, hfi_mem, sizeof(g_hfi->map));
 	g_hfi->hfi_state = HFI_DEINIT;
-
+	soc_version = socinfo_get_version();
 	if (debug) {
 		cam_io_w_mb(
 		(uint32_t)(ICP_FLAG_CSR_A5_EN | ICP_FLAG_CSR_WAKE_UP_EN |
@@ -382,7 +386,9 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 		icp_base + HFI_REG_A5_CSR_A5_CONTROL);
 	} else {
 		cam_io_w((uint32_t)ICP_FLAG_CSR_A5_EN |
-			ICP_FLAG_CSR_WAKE_UP_EN | ICP_CSR_EN_CLKGATE_WFI,
+			ICP_FLAG_CSR_WAKE_UP_EN |
+			((soc_version == SOC_VERSION_HW1) ?
+			(ICP_CSR_EN_CLKGATE_WFI) : (0x0)),
 			icp_base + HFI_REG_A5_CSR_A5_CONTROL);
 	}
 
