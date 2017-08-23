@@ -163,62 +163,62 @@
 					"CCI_I2C_CLK1";
 
 		i2c_freq_100Khz: qcom,i2c_standard_mode {
-			qcom,hw-thigh = <201>;
-			qcom,hw-tlow = <174>;
-			qcom,hw-tsu-sto = <204>;
-			qcom,hw-tsu-sta = <231>;
-			qcom,hw-thd-dat = <22>;
-			qcom,hw-thd-sta = <162>;
-			qcom,hw-tbuf = <227>;
-			qcom,hw-scl-stretch-en = <0>;
-			qcom,hw-trdhld = <6>;
-			qcom,hw-tsp = <3>;
-			qcom,cci-clk-src = <37500000>;
+			hw-thigh = <201>;
+			hw-tlow = <174>;
+			hw-tsu-sto = <204>;
+			hw-tsu-sta = <231>;
+			hw-thd-dat = <22>;
+			hw-thd-sta = <162>;
+			hw-tbuf = <227>;
+			hw-scl-stretch-en = <0>;
+			hw-trdhld = <6>;
+			hw-tsp = <3>;
+			cci-clk-src = <37500000>;
 			status = "ok";
 		};
 
 		i2c_freq_400Khz: qcom,i2c_fast_mode {
-			qcom,hw-thigh = <38>;
-			qcom,hw-tlow = <56>;
-			qcom,hw-tsu-sto = <40>;
-			qcom,hw-tsu-sta = <40>;
-			qcom,hw-thd-dat = <22>;
-			qcom,hw-thd-sta = <35>;
-			qcom,hw-tbuf = <62>;
-			qcom,hw-scl-stretch-en = <0>;
-			qcom,hw-trdhld = <6>;
-			qcom,hw-tsp = <3>;
-			qcom,cci-clk-src = <37500000>;
+			hw-thigh = <38>;
+			hw-tlow = <56>;
+			hw-tsu-sto = <40>;
+			hw-tsu-sta = <40>;
+			hw-thd-dat = <22>;
+			hw-thd-sta = <35>;
+			hw-tbuf = <62>;
+			hw-scl-stretch-en = <0>;
+			hw-trdhld = <6>;
+			hw-tsp = <3>;
+			cci-clk-src = <37500000>;
 			status = "ok";
 		};
 
 		i2c_freq_custom: qcom,i2c_custom_mode {
-			qcom,hw-thigh = <38>;
-			qcom,hw-tlow = <56>;
-			qcom,hw-tsu-sto = <40>;
-			qcom,hw-tsu-sta = <40>;
-			qcom,hw-thd-dat = <22>;
-			qcom,hw-thd-sta = <35>;
-			qcom,hw-tbuf = <62>;
-			qcom,hw-scl-stretch-en = <1>;
-			qcom,hw-trdhld = <6>;
-			qcom,hw-tsp = <3>;
-			qcom,cci-clk-src = <37500000>;
+			hw-thigh = <38>;
+			hw-tlow = <56>;
+			hw-tsu-sto = <40>;
+			hw-tsu-sta = <40>;
+			hw-thd-dat = <22>;
+			hw-thd-sta = <35>;
+			hw-tbuf = <62>;
+			hw-scl-stretch-en = <1>;
+			hw-trdhld = <6>;
+			hw-tsp = <3>;
+			cci-clk-src = <37500000>;
 			status = "ok";
 		};
 
 		i2c_freq_1Mhz: qcom,i2c_fast_plus_mode {
-			qcom,hw-thigh = <16>;
-			qcom,hw-tlow = <22>;
-			qcom,hw-tsu-sto = <17>;
-			qcom,hw-tsu-sta = <18>;
-			qcom,hw-thd-dat = <16>;
-			qcom,hw-thd-sta = <15>;
-			qcom,hw-tbuf = <24>;
-			qcom,hw-scl-stretch-en = <0>;
-			qcom,hw-trdhld = <3>;
-			qcom,hw-tsp = <3>;
-			qcom,cci-clk-src = <37500000>;
+			hw-thigh = <16>;
+			hw-tlow = <22>;
+			hw-tsu-sto = <17>;
+			hw-tsu-sta = <18>;
+			hw-thd-dat = <16>;
+			hw-thd-sta = <15>;
+			hw-tbuf = <24>;
+			hw-scl-stretch-en = <0>;
+			hw-trdhld = <3>;
+			hw-tsp = <3>;
+			cci-clk-src = <37500000>;
 			status = "ok";
 		};
 	};
@@ -795,7 +795,7 @@
 
 	cam_a5: qcom,a5@ac00000 {
 		cell-index = <0>;
-		compatible = "qcom,cam_a5";
+		compatible = "qcom,cam-a5";
 		reg = <0xac00000 0x6000>,
 			<0xac10000 0x8000>,
 			<0xac18000 0x3000>;
@@ -832,7 +832,7 @@
 
 	cam_ipe0: qcom,ipe0 {
 		cell-index = <0>;
-		compatible = "qcom,cam_ipe";
+		compatible = "qcom,cam-ipe";
 		regulator-names = "ipe0-vdd";
 		ipe0-vdd-supply = <&ipe_0_gdsc>;
 		clock-names = "ipe_0_ahb_clk",
@@ -853,7 +853,7 @@
 
 	cam_ipe1: qcom,ipe1 {
 		cell-index = <1>;
-		compatible = "qcom,cam_ipe";
+		compatible = "qcom,cam-ipe";
 		regulator-names = "ipe1-vdd";
 		ipe1-vdd-supply = <&ipe_1_gdsc>;
 		clock-names = "ipe_1_ahb_clk",
@@ -874,7 +874,7 @@
 
 	cam_bps: qcom,bps {
 		cell-index = <0>;
-		compatible = "qcom,cam_bps";
+		compatible = "qcom,cam-bps";
 		regulator-names = "bps-vdd";
 		bps-vdd-supply = <&bps_gdsc>;
 		clock-names = "bps_ahb_clk",
