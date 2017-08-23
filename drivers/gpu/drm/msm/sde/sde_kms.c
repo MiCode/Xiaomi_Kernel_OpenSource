@@ -348,66 +348,7 @@ static void sde_kms_disable_vblank(struct msm_kms *kms, struct drm_crtc *crtc)
 	sde_crtc_vblank(crtc, false);
 }
 
-static void sde_kms_prepare_commit(struct msm_kms *kms,
-		struct drm_atomic_state *state)
-{
-	struct sde_kms *sde_kms;
-	struct msm_drm_private *priv;
-	struct drm_device *dev;
-	struct drm_encoder *encoder;
-
-	if (!kms)
-		return;
-	sde_kms = to_sde_kms(kms);
-	dev = sde_kms->dev;
-
-	if (!dev || !dev->dev_private)
-		return;
-	priv = dev->dev_private;
-
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
-
-	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head)
-		if (encoder->crtc != NULL)
-			sde_encoder_prepare_commit(encoder);
-
-}
-
-static void sde_kms_commit(struct msm_kms *kms,
-		struct drm_atomic_state *old_state)
-{
-	struct drm_crtc *crtc;
-	struct drm_crtc_state *old_crtc_state;
-	int i;
-
-	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i) {
-		if (crtc->state->active) {
-			SDE_EVT32(DRMID(crtc));
-			sde_crtc_commit_kickoff(crtc);
-		}
-	}
-}
-
-static void sde_kms_complete_commit(struct msm_kms *kms,
-		struct drm_atomic_state *old_state)
-{
-	struct sde_kms *sde_kms;
-	struct msm_drm_private *priv;
-
-	if (!kms || !old_state)
-		return;
-	sde_kms = to_sde_kms(kms);
-
-	if (!sde_kms->dev || !sde_kms->dev->dev_private)
-		return;
-	priv = sde_kms->dev->dev_private;
-
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
-
-	SDE_EVT32_VERBOSE(SDE_EVTLOG_FUNC_EXIT);
-}
-
-static void sde_kms_wait_for_tx_complete(struct msm_kms *kms,
+static void sde_kms_wait_for_frame_transfer_complete(struct msm_kms *kms,
 		struct drm_crtc *crtc)
 {
 	struct drm_encoder *encoder;
@@ -448,6 +389,178 @@ static void sde_kms_wait_for_tx_complete(struct msm_kms *kms,
 			break;
 		}
 	}
+}
+
+static int sde_kms_prepare_secure_transition(struct msm_kms *kms,
+		struct drm_atomic_state *state)
+{
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *old_crtc_state;
+
+	struct drm_plane *plane;
+	struct drm_plane_state *plane_state;
+	struct sde_kms *sde_kms = to_sde_kms(kms);
+	struct drm_device *dev = sde_kms->dev;
+	int i, ops = 0, ret = 0;
+	bool old_valid_fb = false;
+
+	for_each_crtc_in_state(state, crtc, old_crtc_state, i) {
+		if (!crtc->state || !crtc->state->active)
+			continue;
+		/*
+		 * It is safe to assume only one active crtc,
+		 * and compatible translation modes on the
+		 * planes staged on this crtc.
+		 * otherwise validation would have failed.
+		 * For this CRTC,
+		 */
+
+		/*
+		 * 1. Check if old state on the CRTC has planes
+		 * staged with valid fbs
+		 */
+		for_each_plane_in_state(state, plane, plane_state, i) {
+			if (!plane_state->crtc)
+				continue;
+			if (plane_state->fb) {
+				old_valid_fb = true;
+				break;
+			}
+		}
+
+		/*
+		 * 2.Get the operations needed to be performed before
+		 * secure transition can be initiated.
+		 */
+		ops = sde_crtc_get_secure_transition_ops(crtc,
+				old_crtc_state,
+				old_valid_fb);
+		if (ops < 0) {
+			SDE_ERROR("invalid secure operations %x\n", ops);
+			return ops;
+		}
+
+		if (!ops)
+			goto no_ops;
+
+		SDE_DEBUG("%d:secure operations(%x) started on state:%pK\n",
+				crtc->base.id,
+				ops,
+				crtc->state);
+
+		/* 3. Perform operations needed for secure transition */
+		if  (ops & SDE_KMS_OPS_WAIT_FOR_TX_DONE) {
+			SDE_DEBUG("wait_for_transfer_done\n");
+			sde_kms_wait_for_frame_transfer_complete(kms, crtc);
+		}
+		if (ops & SDE_KMS_OPS_CLEANUP_PLANE_FB) {
+			SDE_DEBUG("cleanup planes\n");
+			drm_atomic_helper_cleanup_planes(dev, state);
+		}
+		if (ops & SDE_KMS_OPS_CRTC_SECURE_STATE_CHANGE) {
+			SDE_DEBUG("secure ctrl\n");
+			sde_crtc_secure_ctrl(crtc, false);
+		}
+		if (ops & SDE_KMS_OPS_PREPARE_PLANE_FB) {
+			SDE_DEBUG("prepare planes %d",
+					crtc->state->plane_mask);
+			drm_atomic_crtc_for_each_plane(plane,
+					crtc) {
+				const struct drm_plane_helper_funcs *funcs;
+
+				plane_state = plane->state;
+				funcs = plane->helper_private;
+
+				SDE_DEBUG("psde:%d FB[%u]\n",
+						plane->base.id,
+						plane->fb->base.id);
+				if (!funcs)
+					continue;
+
+				if (funcs->prepare_fb(plane, plane_state)) {
+					ret = funcs->prepare_fb(plane,
+							plane_state);
+					if (ret)
+						return ret;
+				}
+			}
+		}
+		SDE_DEBUG("secure operations completed\n");
+	}
+
+no_ops:
+	return 0;
+}
+
+static void sde_kms_prepare_commit(struct msm_kms *kms,
+		struct drm_atomic_state *state)
+{
+	struct sde_kms *sde_kms;
+	struct msm_drm_private *priv;
+	struct drm_device *dev;
+	struct drm_encoder *encoder;
+
+	if (!kms)
+		return;
+	sde_kms = to_sde_kms(kms);
+	dev = sde_kms->dev;
+
+	if (!dev || !dev->dev_private)
+		return;
+	priv = dev->dev_private;
+
+	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
+
+	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head)
+		if (encoder->crtc != NULL)
+			sde_encoder_prepare_commit(encoder);
+
+	/*
+	 * NOTE: for secure use cases we want to apply the new HW
+	 * configuration only after completing preparation for secure
+	 * transitions prepare below if any transtions is required.
+	 */
+	sde_kms_prepare_secure_transition(kms, state);
+}
+
+static void sde_kms_commit(struct msm_kms *kms,
+		struct drm_atomic_state *old_state)
+{
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *old_crtc_state;
+	int i;
+
+	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i) {
+		if (crtc->state->active) {
+			SDE_EVT32(DRMID(crtc));
+			sde_crtc_commit_kickoff(crtc);
+		}
+	}
+}
+
+static void sde_kms_complete_commit(struct msm_kms *kms,
+		struct drm_atomic_state *old_state)
+{
+	struct sde_kms *sde_kms;
+	struct msm_drm_private *priv;
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *old_crtc_state;
+	int i;
+
+	if (!kms || !old_state)
+		return;
+	sde_kms = to_sde_kms(kms);
+
+	if (!sde_kms->dev || !sde_kms->dev->dev_private)
+		return;
+	priv = sde_kms->dev->dev_private;
+
+	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i)
+		sde_crtc_complete_commit(crtc, old_crtc_state);
+
+	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
+
+	SDE_EVT32_VERBOSE(SDE_EVTLOG_FUNC_EXIT);
 }
 
 static void sde_kms_wait_for_commit_done(struct msm_kms *kms,
@@ -1574,7 +1687,7 @@ static const struct msm_kms_funcs kms_funcs = {
 	.commit          = sde_kms_commit,
 	.complete_commit = sde_kms_complete_commit,
 	.wait_for_crtc_commit_done = sde_kms_wait_for_commit_done,
-	.wait_for_tx_complete = sde_kms_wait_for_tx_complete,
+	.wait_for_tx_complete = sde_kms_wait_for_frame_transfer_complete,
 	.enable_vblank   = sde_kms_enable_vblank,
 	.disable_vblank  = sde_kms_disable_vblank,
 	.check_modified_format = sde_format_check_modified_format,

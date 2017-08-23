@@ -2775,10 +2775,13 @@ static int sde_plane_prepare_fb(struct drm_plane *plane,
 
 	new_rstate = &to_sde_plane_state(new_state)->rot;
 
-	ret = msm_framebuffer_prepare(new_rstate->out_fb, pstate->aspace);
-	if (ret) {
-		SDE_ERROR("failed to prepare framebuffer\n");
-		return ret;
+	if (pstate->aspace) {
+		ret = msm_framebuffer_prepare(new_rstate->out_fb,
+				pstate->aspace);
+		if (ret) {
+			SDE_ERROR("failed to prepare framebuffer\n");
+			return ret;
+		}
 	}
 
 	/* validate framebuffer layout before commit */
@@ -3243,6 +3246,21 @@ void sde_plane_flush(struct drm_plane *plane)
 	/* flag h/w flush complete */
 	if (plane->state)
 		pstate->pending = false;
+}
+
+/**
+ * sde_plane_set_error: enable/disable error condition
+ * @plane: pointer to drm_plane structure
+ */
+void sde_plane_set_error(struct drm_plane *plane, bool error)
+{
+	struct sde_plane *psde;
+
+	if (!plane)
+		return;
+
+	psde = to_sde_plane(plane);
+	psde->is_error = error;
 }
 
 static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
