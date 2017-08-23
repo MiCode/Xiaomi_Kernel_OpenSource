@@ -314,7 +314,6 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 {
 	struct sde_hw_blk_reg_map *c;
 	u32 chroma_samp, unpack, src_format;
-	u32 secure = 0, secure_bit_mask;
 	u32 opmode = 0;
 	u32 fast_clear = 0;
 	u32 op_mode_off, unpack_pat_off, format_off;
@@ -327,24 +326,16 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 		op_mode_off = SSPP_SRC_OP_MODE;
 		unpack_pat_off = SSPP_SRC_UNPACK_PATTERN;
 		format_off = SSPP_SRC_FORMAT;
-		secure_bit_mask = (rect_mode == SDE_SSPP_RECT_SOLO) ? 0xF : 0x5;
 	} else {
 		op_mode_off = SSPP_SRC_OP_MODE_REC1;
 		unpack_pat_off = SSPP_SRC_UNPACK_PATTERN_REC1;
 		format_off = SSPP_SRC_FORMAT_REC1;
-		secure_bit_mask = 0xA;
 	}
 
 	c = &ctx->hw;
 	opmode = SDE_REG_READ(c, op_mode_off + idx);
 	opmode &= ~(MDSS_MDP_OP_FLIP_LR | MDSS_MDP_OP_FLIP_UD |
 			MDSS_MDP_OP_BWC_EN | MDSS_MDP_OP_PE_OVERRIDE);
-
-	secure = SDE_REG_READ(c, SSPP_SRC_ADDR_SW_STATUS + idx);
-	if (flags & SDE_SSPP_SECURE_OVERLAY_SESSION)
-		secure |= secure_bit_mask;
-	else
-		secure &= ~secure_bit_mask;
 
 	if (flags & SDE_SSPP_FLIP_LR)
 		opmode |= MDSS_MDP_OP_FLIP_LR;
@@ -415,11 +406,39 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 	SDE_REG_WRITE(c, format_off + idx, src_format);
 	SDE_REG_WRITE(c, unpack_pat_off + idx, unpack);
 	SDE_REG_WRITE(c, op_mode_off + idx, opmode);
-	SDE_REG_WRITE(c, SSPP_SRC_ADDR_SW_STATUS + idx, secure);
 
 	/* clear previous UBWC error */
 	SDE_REG_WRITE(c, SSPP_UBWC_ERROR_STATUS + idx, BIT(31));
 }
+
+static void sde_hw_sspp_setup_secure(struct sde_hw_pipe *ctx,
+		enum sde_sspp_multirect_index rect_mode,
+		bool enable)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 secure = 0, secure_bit_mask;
+	u32 idx;
+
+	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx))
+		return;
+
+	if (rect_mode == SDE_SSPP_RECT_SOLO || rect_mode == SDE_SSPP_RECT_0)
+		secure_bit_mask = (rect_mode == SDE_SSPP_RECT_SOLO) ? 0xF :
+			0x5;
+	else
+		secure_bit_mask = 0xA;
+
+	c = &ctx->hw;
+
+	secure = SDE_REG_READ(c, SSPP_SRC_ADDR_SW_STATUS + idx);
+	if (enable)
+		secure |= secure_bit_mask;
+	else
+		secure &= ~secure_bit_mask;
+
+	SDE_REG_WRITE(c, SSPP_SRC_ADDR_SW_STATUS + idx, secure);
+}
+
 
 static void sde_hw_sspp_setup_pe_config(struct sde_hw_pipe *ctx,
 		struct sde_hw_pixel_ext *pe_ext)
@@ -1153,6 +1172,7 @@ static void _setup_layer_ops(struct sde_hw_pipe *c,
 		c->ops.setup_sourceaddress = sde_hw_sspp_setup_sourceaddress;
 		c->ops.setup_solidfill = sde_hw_sspp_setup_solidfill;
 		c->ops.setup_pe = sde_hw_sspp_setup_pe_config;
+		c->ops.setup_secure_address = sde_hw_sspp_setup_secure;
 	}
 
 	if (test_bit(SDE_SSPP_EXCL_RECT, &features))

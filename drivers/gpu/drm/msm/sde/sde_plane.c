@@ -3266,7 +3266,7 @@ void sde_plane_set_error(struct drm_plane *plane, bool error)
 static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 				struct drm_plane_state *old_state)
 {
-	uint32_t nplanes, src_flags = 0x0;
+	uint32_t nplanes, src_flags;
 	struct sde_plane *psde;
 	struct drm_plane_state *state;
 	struct sde_plane_state *pstate;
@@ -3279,7 +3279,6 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 	const struct sde_rect *crtc_roi;
 	bool q16_data = true;
 	int idx;
-	int mode;
 
 	if (!plane) {
 		SDE_ERROR("invalid plane\n");
@@ -3413,10 +3412,19 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 	_sde_plane_set_qos_ctrl(plane, false, SDE_PLANE_QOS_PANIC_CTRL);
 
 	/* update secure session flag */
-	mode = sde_plane_get_property(pstate, PLANE_PROP_FB_TRANSLATION_MODE);
-	if ((mode == SDE_DRM_FB_SEC) ||
-			(mode == SDE_DRM_FB_SEC_DIR_TRANS))
-		src_flags |= SDE_SSPP_SECURE_OVERLAY_SESSION;
+	if (pstate->dirty & SDE_PLANE_DIRTY_FB_TRANSLATION_MODE) {
+		bool enable = false;
+		int mode = sde_plane_get_property(pstate,
+				PLANE_PROP_FB_TRANSLATION_MODE);
+
+		if ((mode == SDE_DRM_FB_SEC) ||
+				(mode == SDE_DRM_FB_SEC_DIR_TRANS))
+			enable = true;
+		/* update secure session flag */
+		psde->pipe_hw->ops.setup_secure_address(psde->pipe_hw,
+				pstate->multirect_index,
+				enable);
+	}
 
 	/* update roi config */
 	if (pstate->dirty & SDE_PLANE_DIRTY_RECTS) {
@@ -3495,9 +3503,9 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 					pstate->multirect_mode);
 	}
 
-	if (((pstate->dirty & SDE_PLANE_DIRTY_FORMAT) ||
-			(src_flags & SDE_SSPP_SECURE_OVERLAY_SESSION)) &&
+	if ((pstate->dirty & SDE_PLANE_DIRTY_FORMAT) &&
 			psde->pipe_hw->ops.setup_format) {
+		src_flags = 0x0;
 		SDE_DEBUG_PLANE(psde, "rotation 0x%X\n", rstate->out_rotation);
 		if (rstate->out_rotation & DRM_REFLECT_X)
 			src_flags |= SDE_SSPP_FLIP_LR;
