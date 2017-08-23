@@ -1636,6 +1636,11 @@ static int sde_kms_atomic_check(struct msm_kms *kms,
 	sde_kms = to_sde_kms(kms);
 	dev = sde_kms->dev;
 
+	if (sde_kms_is_suspend_blocked(dev)) {
+		SDE_DEBUG("suspended, skip atomic_check\n");
+		return -EBUSY;
+	}
+
 	ret = drm_atomic_helper_check(dev, state);
 	if (ret)
 		return ret;
@@ -1696,6 +1701,148 @@ static void _sde_kms_post_open(struct msm_kms *kms, struct drm_file *file)
 		dev->mode_config.funcs->output_poll_changed(dev);
 }
 
+static int sde_kms_pm_suspend(struct device *dev)
+{
+	struct drm_device *ddev;
+	struct drm_modeset_acquire_ctx ctx;
+	struct drm_connector *conn;
+	struct drm_atomic_state *state;
+	struct sde_kms *sde_kms;
+	int ret = 0;
+
+	if (!dev)
+		return -EINVAL;
+
+	ddev = dev_get_drvdata(dev);
+	if (!ddev || !ddev_to_msm_kms(ddev))
+		return -EINVAL;
+
+	sde_kms = to_sde_kms(ddev_to_msm_kms(ddev));
+	SDE_EVT32(0);
+
+	/* disable hot-plug polling */
+	drm_kms_helper_poll_disable(ddev);
+
+	/* acquire modeset lock(s) */
+	drm_modeset_acquire_init(&ctx, 0);
+
+retry:
+	ret = drm_modeset_lock_all_ctx(ddev, &ctx);
+	if (ret)
+		goto unlock;
+
+	/* save current state for resume */
+	if (sde_kms->suspend_state)
+		drm_atomic_state_free(sde_kms->suspend_state);
+	sde_kms->suspend_state = drm_atomic_helper_duplicate_state(ddev, &ctx);
+	if (IS_ERR_OR_NULL(sde_kms->suspend_state)) {
+		DRM_ERROR("failed to back up suspend state\n");
+		sde_kms->suspend_state = NULL;
+		goto unlock;
+	}
+
+	/* create atomic state to disable all CRTCs */
+	state = drm_atomic_state_alloc(ddev);
+	if (IS_ERR_OR_NULL(state)) {
+		DRM_ERROR("failed to allocate crtc disable state\n");
+		goto unlock;
+	}
+
+	state->acquire_ctx = &ctx;
+	drm_for_each_connector(conn, ddev) {
+		struct drm_crtc_state *crtc_state;
+		uint64_t lp;
+
+		if (!conn->state || !conn->state->crtc ||
+				conn->dpms != DRM_MODE_DPMS_ON)
+			continue;
+
+		lp = sde_connector_get_lp(conn);
+		if (lp == SDE_MODE_DPMS_LP1) {
+			/* transition LP1->LP2 on pm suspend */
+			ret = sde_connector_set_property_for_commit(conn, state,
+					CONNECTOR_PROP_LP, SDE_MODE_DPMS_LP2);
+			if (ret) {
+				DRM_ERROR("failed to set lp2 for conn %d\n",
+						conn->base.id);
+				drm_atomic_state_free(state);
+				goto unlock;
+			}
+		} else if (lp != SDE_MODE_DPMS_LP2) {
+			/* force CRTC to be inactive */
+			crtc_state = drm_atomic_get_crtc_state(state,
+					conn->state->crtc);
+			if (IS_ERR_OR_NULL(crtc_state)) {
+				DRM_ERROR("failed to get crtc %d state\n",
+						conn->state->crtc->base.id);
+				drm_atomic_state_free(state);
+				goto unlock;
+			}
+			crtc_state->active = false;
+		}
+	}
+
+	/* commit the "disable all" state */
+	ret = drm_atomic_commit(state);
+	if (ret < 0) {
+		DRM_ERROR("failed to disable crtcs, %d\n", ret);
+		drm_atomic_state_free(state);
+	} else {
+		sde_kms->suspend_block = true;
+	}
+
+unlock:
+	if (ret == -EDEADLK) {
+		drm_modeset_backoff(&ctx);
+		goto retry;
+	}
+	drm_modeset_drop_locks(&ctx);
+	drm_modeset_acquire_fini(&ctx);
+
+	return 0;
+}
+
+static int sde_kms_pm_resume(struct device *dev)
+{
+	struct drm_device *ddev;
+	struct sde_kms *sde_kms;
+	int ret;
+
+	if (!dev)
+		return -EINVAL;
+
+	ddev = dev_get_drvdata(dev);
+	if (!ddev || !ddev_to_msm_kms(ddev))
+		return -EINVAL;
+
+	sde_kms = to_sde_kms(ddev_to_msm_kms(ddev));
+
+	SDE_EVT32(sde_kms->suspend_state != NULL);
+
+	drm_mode_config_reset(ddev);
+
+	drm_modeset_lock_all(ddev);
+
+	sde_kms->suspend_block = false;
+
+	if (sde_kms->suspend_state) {
+		sde_kms->suspend_state->acquire_ctx =
+			ddev->mode_config.acquire_ctx;
+		ret = drm_atomic_commit(sde_kms->suspend_state);
+		if (ret < 0) {
+			DRM_ERROR("failed to restore state, %d\n", ret);
+			drm_atomic_state_free(sde_kms->suspend_state);
+		}
+		sde_kms->suspend_state = NULL;
+	}
+	drm_modeset_unlock_all(ddev);
+
+	/* enable hot-plug polling */
+	drm_kms_helper_poll_enable(ddev);
+
+	return 0;
+}
+
 static const struct msm_kms_funcs kms_funcs = {
 	.hw_init         = sde_kms_hw_init,
 	.postinit        = sde_kms_postinit,
@@ -1716,6 +1863,8 @@ static const struct msm_kms_funcs kms_funcs = {
 	.atomic_check = sde_kms_atomic_check,
 	.get_format      = sde_get_msm_format,
 	.round_pixclk    = sde_kms_round_pixclk,
+	.pm_suspend      = sde_kms_pm_suspend,
+	.pm_resume       = sde_kms_pm_resume,
 	.destroy         = sde_kms_destroy,
 	.register_events = _sde_kms_register_events,
 	.get_address_space = _sde_kms_get_address_space,

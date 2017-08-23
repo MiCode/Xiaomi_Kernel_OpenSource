@@ -591,10 +591,6 @@ struct msm_drm_private {
 	 */
 	struct task_struct *struct_mutex_task;
 
-	/* saved atomic state during system suspend */
-	struct drm_atomic_state *suspend_state;
-	bool suspend_block;
-
 	/* list of clients waiting for events */
 	struct list_head client_event_list;
 
@@ -605,12 +601,14 @@ struct msm_drm_private {
 	struct dentry *debug_root;
 };
 
+/* get struct msm_kms * from drm_device * */
+#define ddev_to_msm_kms(D) ((D) && (D)->dev_private ? \
+		((struct msm_drm_private *)((D)->dev_private))->kms : NULL)
+
 struct msm_format {
 	uint32_t pixel_format;
 };
 
-int msm_atomic_check(struct drm_device *dev,
-		     struct drm_atomic_state *state);
 /* callback from wq once fence has passed: */
 struct msm_fence_cb {
 	struct work_struct work;
@@ -624,25 +622,6 @@ void __msm_fence_worker(struct work_struct *work);
 		INIT_WORK(&(_cb)->work, __msm_fence_worker); \
 		(_cb)->func = _func;                         \
 	} while (0)
-
-static inline bool msm_is_suspend_state(struct drm_device *dev)
-{
-	if (!dev || !dev->dev_private)
-		return false;
-
-	return ((struct msm_drm_private *)dev->dev_private)->suspend_state != 0;
-}
-
-static inline bool msm_is_suspend_blocked(struct drm_device *dev)
-{
-	if (!dev || !dev->dev_private)
-		return false;
-
-	if (!msm_is_suspend_state(dev))
-		return false;
-
-	return ((struct msm_drm_private *)dev->dev_private)->suspend_block != 0;
-}
 
 int msm_atomic_commit(struct drm_device *dev,
 		struct drm_atomic_state *state, bool nonblock);

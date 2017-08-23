@@ -3240,7 +3240,7 @@ void sde_plane_flush(struct drm_plane *plane)
 		psde->pipe_hw->ops.setup_csc(psde->pipe_hw, psde->csc_ptr);
 
 	/* force black color fill during suspend */
-	if (msm_is_suspend_state(plane->dev) && suspend_blank)
+	if (sde_kms_is_suspend_state(plane->dev) && suspend_blank)
 		_sde_plane_color_fill(psde, 0x0, 0x0);
 
 	/* flag h/w flush complete */

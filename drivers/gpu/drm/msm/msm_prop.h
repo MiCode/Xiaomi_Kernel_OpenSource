@@ -95,6 +95,22 @@ struct msm_property_state {
 };
 
 /**
+ * msm_property_index_to_drm_property - get drm property struct from prop index
+ * @info: Pointer to property info container struct
+ * @property_idx: Property index
+ * Returns: drm_property pointer associated with property index
+ */
+static inline
+struct drm_property *msm_property_index_to_drm_property(
+		struct msm_property_info *info, uint32_t property_idx)
+{
+	if (!info || property_idx >= info->property_count)
+		return NULL;
+
+	return info->property_array[property_idx];
+}
+
+/**
  * msm_property_get_default - query default value of a property
  * @info: Pointer to property info container struct
  * @property_idx: Property index
