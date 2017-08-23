@@ -12,6 +12,7 @@
 
 #include <drm/msm_drm_pp.h>
 #include "sde_hw_color_processing_v1_7.h"
+#include "sde_hw_ctl.h"
 
 #define PA_HUE_VIG_OFF		0x110
 #define PA_SAT_VIG_OFF		0x114
@@ -25,6 +26,9 @@
 
 #define PA_LUTV_DSPP_OFF	0x1400
 #define PA_LUT_SWAP_OFF		0x234
+
+#define PA_LUTV_DSPP_CTRL_OFF	0x4c
+#define PA_LUTV_DSPP_SWAP_OFF	0x18
 
 #define PA_HUE_MASK		0xFFF
 #define PA_SAT_MASK		0xFFFF
@@ -456,6 +460,62 @@ void sde_setup_dspp_pa_vlut_v1_7(struct sde_hw_dspp *ctx, void *cfg)
 	SDE_REG_WRITE(&ctx->hw, (base + PA_LUT_SWAP_OFF), 1);
 	op_mode |= DSPP_OP_PA_EN | DSPP_OP_PA_LUTV_EN;
 	SDE_REG_WRITE(&ctx->hw, base, op_mode);
+}
+
+void sde_setup_dspp_pa_vlut_v1_8(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct drm_msm_pa_vlut *payload = NULL;
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct sde_hw_ctl *ctl = NULL;
+	u32 vlut_base, pa_hist_base;
+	u32 ctrl_off, swap_off;
+	u32 tmp = 0;
+	int i = 0, j = 0;
+	u32 flush_mask = 0;
+
+	if (!ctx) {
+		DRM_ERROR("invalid input parameter NULL ctx\n");
+		return;
+	}
+
+	if (!hw_cfg || (hw_cfg->payload && hw_cfg->len !=
+			sizeof(struct drm_msm_pa_vlut))) {
+		DRM_ERROR("hw %pK payload %pK payloadsize %d exp size %zd\n",
+			  hw_cfg, ((hw_cfg) ? hw_cfg->payload : NULL),
+			  ((hw_cfg) ? hw_cfg->len : 0),
+			  sizeof(struct drm_msm_pa_vlut));
+		return;
+	}
+
+	ctl = hw_cfg->ctl;
+	vlut_base = ctx->cap->sblk->vlut.base;
+	pa_hist_base = ctx->cap->sblk->hist.base;
+	ctrl_off = pa_hist_base + PA_LUTV_DSPP_CTRL_OFF;
+	swap_off = pa_hist_base + PA_LUTV_DSPP_SWAP_OFF;
+
+	if (!hw_cfg->payload) {
+		DRM_DEBUG_DRIVER("Disable vlut feature\n");
+		SDE_REG_WRITE(&ctx->hw, ctrl_off, 0);
+		goto exit;
+	}
+
+	payload = hw_cfg->payload;
+	DRM_DEBUG_DRIVER("Enable vlut feature flags %llx\n", payload->flags);
+	for (i = 0, j = 0; i < ARRAY_SIZE(payload->val); i += 2, j += 4) {
+		tmp = (payload->val[i] & REG_MASK(10)) |
+			((payload->val[i + 1] & REG_MASK(10)) << 16);
+		SDE_REG_WRITE(&ctx->hw, (vlut_base + j), tmp);
+	}
+	SDE_REG_WRITE(&ctx->hw, ctrl_off, 1);
+	SDE_REG_WRITE(&ctx->hw, swap_off, 1);
+
+exit:
+	/* update flush bit */
+	if (ctl && ctl->ops.get_bitmask_dspp_pavlut) {
+		ctl->ops.get_bitmask_dspp_pavlut(ctl, &flush_mask, ctx->idx);
+		if (ctl->ops.update_pending_flush)
+			ctl->ops.update_pending_flush(ctl, flush_mask);
+	}
 }
 
 void sde_setup_dspp_gc_v1_7(struct sde_hw_dspp *ctx, void *cfg)

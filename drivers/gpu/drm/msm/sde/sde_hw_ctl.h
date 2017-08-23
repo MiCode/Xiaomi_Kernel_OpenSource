@@ -173,6 +173,10 @@ struct sde_hw_ctl_ops {
 		u32 *flushbits,
 		enum sde_dspp blk);
 
+	int (*get_bitmask_dspp_pavlut)(struct sde_hw_ctl *ctx,
+		u32 *flushbits,
+		enum sde_dspp blk);
+
 	int (*get_bitmask_intf)(struct sde_hw_ctl *ctx,
 		u32 *flushbits,
 		enum sde_intf blk);
