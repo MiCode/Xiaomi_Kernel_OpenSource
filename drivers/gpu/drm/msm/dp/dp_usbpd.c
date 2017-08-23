@@ -178,7 +178,10 @@ static u32 dp_usbpd_gen_config_pkt(struct dp_usbpd_private *pd)
 	u32 config = 0;
 	const u32 ufp_d_config = 0x2, dp_ver = 0x1;
 
-	pin_cfg = pd->cap.dlink_pin_config;
+	if (pd->cap.receptacle_state)
+		pin_cfg = pd->cap.ulink_pin_config;
+	else
+		pin_cfg = pd->cap.dlink_pin_config;
 
 	for (pin = DP_USBPD_PIN_A; pin < DP_USBPD_PIN_MAX; pin++) {
 		if (pin_cfg & BIT(pin)) {
