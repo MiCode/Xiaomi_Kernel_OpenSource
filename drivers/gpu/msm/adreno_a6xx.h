@@ -73,7 +73,7 @@ struct a6xx_cp_smmu_info {
 	uint32_t  context_idr;
 };
 
-#define A6XX_CP_SMMU_INFO_MAGIC_REF     0x3618CDA3UL
+#define A6XX_CP_SMMU_INFO_MAGIC_REF     0x241350D5UL
 
 #define A6XX_CP_CTXRECORD_MAGIC_REF     0xAE399D6EUL
 /* Size of each CP preemption record */
