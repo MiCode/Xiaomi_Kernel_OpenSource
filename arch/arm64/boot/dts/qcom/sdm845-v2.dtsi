@@ -613,6 +613,10 @@
 	qcom,perfcl-memacc-level-vc-bin1 = <14 22>;
 };
 
+&bwmon {
+	qcom,count-unit = <0x10000>;
+};
+
 &clock_gcc {
 	compatible = "qcom,gcc-sdm845-v2", "syscon";
 };
