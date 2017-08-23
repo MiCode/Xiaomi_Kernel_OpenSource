@@ -1453,6 +1453,9 @@ static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		}
 		ctrl->val = bufreq->buffer_count_min_host;
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_TME_PAYLOAD_VERSION:
+		ctrl->val = inst->capability.tme_version;
+		break;
 	default:
 		/*
 		 * Other controls aren't really volatile, shouldn't need to

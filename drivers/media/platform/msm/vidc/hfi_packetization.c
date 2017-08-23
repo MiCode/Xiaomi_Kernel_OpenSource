@@ -164,6 +164,9 @@ enum hal_video_codec vidc_get_hal_codec(u32 hfi_codec)
 	case HFI_VIDEO_CODEC_VP9:
 		hal_codec = HAL_VIDEO_CODEC_VP9;
 		break;
+	case HFI_VIDEO_CODEC_TME:
+		hal_codec = HAL_VIDEO_CODEC_TME;
+		break;
 	default:
 		dprintk(VIDC_INFO, "%s: invalid codec 0x%x\n",
 			__func__, hfi_codec);
@@ -219,6 +222,9 @@ u32 vidc_get_hfi_codec(enum hal_video_codec hal_codec)
 		break;
 	case HAL_VIDEO_CODEC_VP9:
 		hfi_codec = HFI_VIDEO_CODEC_VP9;
+		break;
+	case HAL_VIDEO_CODEC_TME:
+		hfi_codec = HFI_VIDEO_CODEC_TME;
 		break;
 	default:
 		dprintk(VIDC_INFO, "%s: invalid codec 0x%x\n",
