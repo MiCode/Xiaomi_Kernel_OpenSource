@@ -1034,6 +1034,9 @@ static int smb2_batt_set_prop(struct power_supply *psy,
 	struct smb_charger *chg = power_supply_get_drvdata(psy);
 
 	switch (prop) {
+	case POWER_SUPPLY_PROP_STATUS:
+		rc = smblib_set_prop_batt_status(chg, val);
+		break;
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
 		rc = smblib_set_prop_input_suspend(chg, val);
 		break;
@@ -1111,6 +1114,7 @@ static int smb2_batt_prop_is_writeable(struct power_supply *psy,
 		enum power_supply_property psp)
 {
 	switch (psp) {
+	case POWER_SUPPLY_PROP_STATUS:
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 	case POWER_SUPPLY_PROP_CAPACITY:

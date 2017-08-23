@@ -307,6 +307,7 @@ struct smb_charger {
 	int			*thermal_mitigation;
 	int			dcp_icl_ua;
 	int			fake_capacity;
+	int			fake_batt_status;
 	bool			step_chg_enabled;
 	bool			sw_jeita_enabled;
 	bool			is_hdc;
@@ -426,6 +427,8 @@ int smblib_get_prop_batt_temp(struct smb_charger *chg,
 int smblib_set_prop_input_suspend(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_batt_capacity(struct smb_charger *chg,
+				const union power_supply_propval *val);
+int smblib_set_prop_batt_status(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_system_temp_level(struct smb_charger *chg,
 				const union power_supply_propval *val);
