@@ -111,7 +111,7 @@ module_param_named(
 	debug_mask, __debug_mask, int, S_IRUSR | S_IWUSR
 );
 
-irqreturn_t smb138x_handle_slave_chg_state_change(int irq, void *data)
+static irqreturn_t smb138x_handle_slave_chg_state_change(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb138x *chip = irq_data->parent_data;
@@ -727,7 +727,7 @@ static int smb138x_init_parallel_psy(struct smb138x *chip)
  * VBUS REGULATOR REGISTRATION *
  ******************************/
 
-struct regulator_ops smb138x_vbus_reg_ops = {
+static struct regulator_ops smb138x_vbus_reg_ops = {
 	.enable		= smblib_vbus_regulator_enable,
 	.disable	= smblib_vbus_regulator_disable,
 	.is_enabled	= smblib_vbus_regulator_is_enabled,
@@ -769,7 +769,7 @@ static int smb138x_init_vbus_regulator(struct smb138x *chip)
  * VCONN REGULATOR REGISTRATION *
  ******************************/
 
-struct regulator_ops smb138x_vconn_reg_ops = {
+static struct regulator_ops smb138x_vconn_reg_ops = {
 	.enable		= smblib_vconn_regulator_enable,
 	.disable	= smblib_vconn_regulator_disable,
 	.is_enabled	= smblib_vconn_regulator_is_enabled,
