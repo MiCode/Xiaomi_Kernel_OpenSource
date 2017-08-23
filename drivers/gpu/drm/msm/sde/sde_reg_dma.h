@@ -171,6 +171,7 @@ enum sde_reg_dma_blk {
 /**
  * struct sde_reg_dma_buffer - defines reg dma buffer structure.
  * @drm_gem_object *buf: drm gem handle for the buffer
+ * @asapce : pointer to address space
  * @buffer_size: buffer size
  * @index: write pointer index
  * @iova: device address
@@ -180,6 +181,7 @@ enum sde_reg_dma_blk {
  */
 struct sde_reg_dma_buffer {
 	struct drm_gem_object *buf;
+	struct msm_gem_address_space *aspace;
 	u32 buffer_size;
 	u32 index;
 	u32 iova;

@@ -2392,6 +2392,7 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	struct drm_encoder *encoder;
 	struct drm_device *dev;
 	unsigned long flags;
+	struct sde_crtc_smmu_state_data *smmu_state;
 
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
@@ -2408,6 +2409,7 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 
 	sde_crtc = to_sde_crtc(crtc);
 	dev = crtc->dev;
+	smmu_state = &sde_crtc->smmu_state;
 
 	if (!sde_crtc->num_mixers) {
 		_sde_crtc_setup_mixers(crtc);
@@ -2440,7 +2442,17 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 		return;
 
 	_sde_crtc_blend_setup(crtc);
-	sde_cp_crtc_apply_properties(crtc);
+
+	/*
+	 * Since CP properties use AXI buffer to program the
+	 * HW, check if context bank is in attached
+	 * state,
+	 * apply color processing properties only if
+	 * smmu state is attached,
+	 */
+	if ((smmu_state->state != DETACHED) ||
+			(smmu_state->state != DETACH_ALL_REQ))
+		sde_cp_crtc_apply_properties(crtc);
 
 	/*
 	 * PP_DONE irq is only used by command mode for now.
