@@ -948,6 +948,14 @@ static int smb138x_init_slave_hw(struct smb138x *chip)
 		return rc;
 	}
 
+	/* increase the concurrent mode threshold */
+	rc = smblib_masked_write(chg, ENG_SDCDC_CFG7_REG,
+				 ENG_SDCDC_BST_SET_POINT_MASK, 0);
+	if (rc < 0) {
+		pr_err("Couldn't set concurrent mode threshold\n");
+		return rc;
+	}
+
 	return 0;
 }
 
