@@ -131,6 +131,9 @@ static void _sde_encoder_phys_cmd_update_flush_mask(
 	struct sde_hw_ctl *ctl;
 	u32 flush_mask = 0;
 
+	if (!phys_enc)
+		return;
+
 	ctl = phys_enc->hw_ctl;
 	if (!ctl || !ctl->ops.get_bitmask_intf ||
 			!ctl->ops.update_pending_flush)
@@ -150,6 +153,9 @@ static void _sde_encoder_phys_cmd_update_intf_cfg(
 			to_sde_encoder_phys_cmd(phys_enc);
 	struct sde_hw_ctl *ctl;
 	struct sde_hw_intf_cfg intf_cfg = { 0 };
+
+	if (!phys_enc)
+		return;
 
 	ctl = phys_enc->hw_ctl;
 	if (!ctl || !ctl->ops.setup_intf_cfg)
@@ -410,6 +416,9 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 				| SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE;
 	bool do_log = false;
 
+	if (!phys_enc || !phys_enc->hw_pp || !phys_enc->hw_ctl)
+		return -EINVAL;
+
 	cmd_enc->pp_timeout_report_cnt++;
 	if (cmd_enc->pp_timeout_report_cnt == PP_TIMEOUT_MAX_TRIALS) {
 		frame_event |= SDE_ENCODER_FRAME_EVENT_PANEL_DEAD;
@@ -603,7 +612,7 @@ static int sde_encoder_phys_cmd_control_vblank_irq(
 	int ret = 0;
 	int refcount;
 
-	if (!phys_enc) {
+	if (!phys_enc || !phys_enc->hw_pp) {
 		SDE_ERROR("invalid encoder\n");
 		return -EINVAL;
 	}
@@ -695,7 +704,7 @@ static void sde_encoder_phys_cmd_tearcheck_config(
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
 
-	if (!phys_enc) {
+	if (!phys_enc || !phys_enc->hw_pp) {
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
@@ -991,8 +1000,8 @@ static int _sde_encoder_phys_cmd_wait_for_ctl_start(
 	struct sde_encoder_wait_info wait_info;
 	int ret;
 
-	if (!phys_enc) {
-		SDE_ERROR("invalid encoder\n");
+	if (!phys_enc || !phys_enc->hw_ctl) {
+		SDE_ERROR("invalid argument(s)\n");
 		return -EINVAL;
 	}
 
