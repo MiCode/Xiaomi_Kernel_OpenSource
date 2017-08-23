@@ -980,6 +980,9 @@ static int cluster_select(struct lpm_cluster *cluster, bool from_idle,
 		if (suspend_in_progress && from_idle && level->notify_rpm)
 			continue;
 
+		if (level->is_reset && !system_sleep_allowed())
+			continue;
+
 		best_level = i;
 
 		if (from_idle &&
@@ -1042,7 +1045,8 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		clear_predict_history();
 		clear_cl_predict_history();
 
-		system_sleep_enter(us);
+		if (system_sleep_enter(us))
+			return -EBUSY;
 	}
 	/* Notify cluster enter event after successfully config completion */
 	cluster_notify(cluster, level, true);

@@ -15,6 +15,7 @@
 #include <linux/platform_device.h>
 
 #include <soc/qcom/rpmh.h>
+#include <soc/qcom/system_pm.h>
 
 #define ARCH_TIMER_HZ		(19200000UL)
 #define PDC_TIME_VALID_SHIFT	31
@@ -32,6 +33,15 @@ static int setup_wakeup(uint64_t sleep_val)
 
 	return rpmh_write_control(rpmh_client, cmd, ARRAY_SIZE(cmd));
 }
+
+/**
+ * system_sleep_allowed() - Returns if its okay to enter system low power modes
+ */
+bool system_sleep_allowed(void)
+{
+	return (rpmh_ctrlr_idle(rpmh_client) == 0);
+}
+EXPORT_SYMBOL(system_sleep_allowed);
 
 /**
  * system_sleep_enter() - Activties done when entering system low power modes
