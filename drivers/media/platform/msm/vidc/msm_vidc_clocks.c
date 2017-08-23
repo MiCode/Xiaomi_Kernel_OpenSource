@@ -510,7 +510,7 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 	u32 vpp_cycles_per_mb;
 	u32 mbs_per_second;
 
-	mbs_per_second = msm_comm_get_inst_load(inst,
+	mbs_per_second = msm_comm_get_inst_load_per_core(inst,
 		LOAD_CALC_NO_QUIRKS);
 
 	/*
@@ -524,6 +524,8 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 			inst->clk_data.entry->low_power_cycles :
 			inst->clk_data.entry->vpp_cycles;
 
+		vpp_cycles = mbs_per_second * vpp_cycles_per_mb;
+
 		vsp_cycles = mbs_per_second * inst->clk_data.entry->vsp_cycles;
 
 		/* 10 / 7 is overhead factor */
@@ -533,7 +535,7 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 
 		vsp_cycles = mbs_per_second * inst->clk_data.entry->vsp_cycles;
 		/* 10 / 7 is overhead factor */
-		vsp_cycles += ((inst->prop.fps * filled_len * 8) / 7) * 10;
+		vsp_cycles += ((inst->prop.fps * filled_len * 8) * 10) / 7;
 
 	} else {
 		dprintk(VIDC_ERR, "Unknown session type = %s\n", __func__);
@@ -619,7 +621,7 @@ int msm_vidc_update_operating_rate(struct msm_vidc_inst *inst)
 				temp->state >= MSM_VIDC_RELEASE_RESOURCES_DONE)
 			continue;
 
-		mbs_per_second = msm_comm_get_inst_load(temp,
+		mbs_per_second = msm_comm_get_inst_load_per_core(temp,
 		LOAD_CALC_NO_QUIRKS);
 
 		cycles = temp->clk_data.entry->vpp_cycles;
@@ -820,7 +822,7 @@ void msm_clock_data_reset(struct msm_vidc_inst *inst)
 
 	core = inst->core;
 	dcvs = &inst->clk_data;
-	load = msm_comm_get_inst_load(inst, LOAD_CALC_NO_QUIRKS);
+	load = msm_comm_get_inst_load_per_core(inst, LOAD_CALC_NO_QUIRKS);
 	cycles = inst->clk_data.entry->vpp_cycles;
 	allowed_clks_tbl = core->resources.allowed_clks_tbl;
 	if (inst->session_type == MSM_VIDC_ENCODER) {
@@ -1044,10 +1046,7 @@ static u32 get_core_load(struct msm_vidc_core *core,
 		} else {
 			continue;
 		}
-		if (inst->clk_data.core_id == 3)
-			cycles = cycles / 2;
-
-		current_inst_mbs_per_sec = msm_comm_get_inst_load(inst,
+		current_inst_mbs_per_sec = msm_comm_get_inst_load_per_core(inst,
 				LOAD_CALC_NO_QUIRKS);
 		load += current_inst_mbs_per_sec * cycles;
 	}
@@ -1122,9 +1121,11 @@ int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst)
 	if (inst->session_type == MSM_VIDC_ENCODER && hier_mode) {
 		if (current_inst_load / 2 + core0_load <= max_freq &&
 			current_inst_load / 2 + core1_load <= max_freq) {
-			inst->clk_data.core_id = VIDC_CORE_ID_3;
-			msm_vidc_power_save_mode_enable(inst, false);
-			goto decision_done;
+			if (inst->clk_data.work_mode == VIDC_WORK_MODE_2) {
+				inst->clk_data.core_id = VIDC_CORE_ID_3;
+				msm_vidc_power_save_mode_enable(inst, false);
+				goto decision_done;
+			}
 		}
 	}
 
@@ -1133,9 +1134,11 @@ int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst)
 				core0_lp_load <= max_freq &&
 			current_inst_lp_load / 2 +
 				core1_lp_load <= max_freq) {
-			inst->clk_data.core_id = VIDC_CORE_ID_3;
-			msm_vidc_power_save_mode_enable(inst, true);
-			goto decision_done;
+			if (inst->clk_data.work_mode == VIDC_WORK_MODE_2) {
+				inst->clk_data.core_id = VIDC_CORE_ID_3;
+				msm_vidc_power_save_mode_enable(inst, true);
+				goto decision_done;
+			}
 		}
 	}
 

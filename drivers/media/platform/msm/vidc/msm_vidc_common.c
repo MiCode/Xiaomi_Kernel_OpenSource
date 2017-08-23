@@ -757,6 +757,17 @@ exit:
 	return load;
 }
 
+int msm_comm_get_inst_load_per_core(struct msm_vidc_inst *inst,
+		enum load_calc_quirks quirks)
+{
+	int load = msm_comm_get_inst_load(inst, quirks);
+
+	if (inst->clk_data.core_id == VIDC_CORE_ID_3)
+		load = load / 2;
+
+	return load;
+}
+
 int msm_comm_get_load(struct msm_vidc_core *core,
 	enum session_type type, enum load_calc_quirks quirks)
 {
