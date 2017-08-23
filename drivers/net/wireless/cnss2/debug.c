@@ -214,6 +214,214 @@ static const struct file_operations cnss_dev_boot_debug_fops = {
 	.llseek		= seq_lseek,
 };
 
+static int cnss_reg_read_debug_show(struct seq_file *s, void *data)
+{
+	struct cnss_plat_data *plat_priv = s->private;
+
+	mutex_lock(&plat_priv->dev_lock);
+	if (!plat_priv->diag_reg_read_buf) {
+		seq_puts(s, "\nUsage: echo <mem_type> <offset> <data_len> > <debugfs_path>/cnss/reg_read\n");
+		mutex_unlock(&plat_priv->dev_lock);
+		return 0;
+	}
+
+	seq_printf(s, "\nRegister read, address: 0x%x memory type: 0x%x length: 0x%x\n\n",
+		   plat_priv->diag_reg_read_addr,
+		   plat_priv->diag_reg_read_mem_type,
+		   plat_priv->diag_reg_read_len);
+
+	seq_hex_dump(s, "", DUMP_PREFIX_OFFSET, 32, 4,
+		     plat_priv->diag_reg_read_buf,
+		     plat_priv->diag_reg_read_len, false);
+
+	plat_priv->diag_reg_read_len = 0;
+	kfree(plat_priv->diag_reg_read_buf);
+	plat_priv->diag_reg_read_buf = NULL;
+	mutex_unlock(&plat_priv->dev_lock);
+
+	return 0;
+}
+
+static ssize_t cnss_reg_read_debug_write(struct file *fp,
+					 const char __user *user_buf,
+					 size_t count, loff_t *off)
+{
+	struct cnss_plat_data *plat_priv =
+		((struct seq_file *)fp->private_data)->private;
+	char buf[64];
+	char *sptr, *token;
+	unsigned int len = 0;
+	u32 reg_offset, mem_type;
+	u32 data_len = 0;
+	u8 *reg_buf = NULL;
+	const char *delim = " ";
+	int ret = 0;
+
+	if (!test_bit(CNSS_FW_READY, &plat_priv->driver_state)) {
+		cnss_pr_err("Firmware is not ready yet\n");
+		return -EINVAL;
+	}
+
+	len = min(count, sizeof(buf) - 1);
+	if (copy_from_user(buf, user_buf, len))
+		return -EFAULT;
+
+	buf[len] = '\0';
+	sptr = buf;
+
+	token = strsep(&sptr, delim);
+	if (!token)
+		return -EINVAL;
+
+	if (!sptr)
+		return -EINVAL;
+
+	if (kstrtou32(token, 0, &mem_type))
+		return -EINVAL;
+
+	token = strsep(&sptr, delim);
+	if (!token)
+		return -EINVAL;
+
+	if (!sptr)
+		return -EINVAL;
+
+	if (kstrtou32(token, 0, &reg_offset))
+		return -EINVAL;
+
+	token = strsep(&sptr, delim);
+	if (!token)
+		return -EINVAL;
+
+	if (kstrtou32(token, 0, &data_len))
+		return -EINVAL;
+
+	if (data_len == 0 ||
+	    data_len > QMI_WLFW_MAX_ATHDIAG_DATA_SIZE_V01)
+		return -EINVAL;
+
+	mutex_lock(&plat_priv->dev_lock);
+	kfree(plat_priv->diag_reg_read_buf);
+	plat_priv->diag_reg_read_buf = NULL;
+
+	reg_buf = kzalloc(data_len, GFP_KERNEL);
+	if (!reg_buf) {
+		mutex_unlock(&plat_priv->dev_lock);
+		return -ENOMEM;
+	}
+
+	ret = cnss_wlfw_athdiag_read_send_sync(plat_priv, reg_offset,
+					       mem_type, data_len,
+					       reg_buf);
+	if (ret) {
+		kfree(reg_buf);
+		mutex_unlock(&plat_priv->dev_lock);
+		return ret;
+	}
+
+	plat_priv->diag_reg_read_addr = reg_offset;
+	plat_priv->diag_reg_read_mem_type = mem_type;
+	plat_priv->diag_reg_read_len = data_len;
+	plat_priv->diag_reg_read_buf = reg_buf;
+	mutex_unlock(&plat_priv->dev_lock);
+
+	return count;
+}
+
+static int cnss_reg_read_debug_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, cnss_reg_read_debug_show, inode->i_private);
+}
+
+static const struct file_operations cnss_reg_read_debug_fops = {
+	.read		= seq_read,
+	.write		= cnss_reg_read_debug_write,
+	.open		= cnss_reg_read_debug_open,
+	.owner		= THIS_MODULE,
+	.llseek		= seq_lseek,
+};
+
+static int cnss_reg_write_debug_show(struct seq_file *s, void *data)
+{
+	seq_puts(s, "\nUsage: echo <mem_type> <offset> <reg_val> > <debugfs_path>/cnss/reg_write\n");
+
+	return 0;
+}
+
+static ssize_t cnss_reg_write_debug_write(struct file *fp,
+					  const char __user *user_buf,
+					  size_t count, loff_t *off)
+{
+	struct cnss_plat_data *plat_priv =
+		((struct seq_file *)fp->private_data)->private;
+	char buf[64];
+	char *sptr, *token;
+	unsigned int len = 0;
+	u32 reg_offset, mem_type, reg_val;
+	const char *delim = " ";
+	int ret = 0;
+
+	if (!test_bit(CNSS_FW_READY, &plat_priv->driver_state)) {
+		cnss_pr_err("Firmware is not ready yet\n");
+		return -EINVAL;
+	}
+
+	len = min(count, sizeof(buf) - 1);
+	if (copy_from_user(buf, user_buf, len))
+		return -EFAULT;
+
+	buf[len] = '\0';
+	sptr = buf;
+
+	token = strsep(&sptr, delim);
+	if (!token)
+		return -EINVAL;
+
+	if (!sptr)
+		return -EINVAL;
+
+	if (kstrtou32(token, 0, &mem_type))
+		return -EINVAL;
+
+	token = strsep(&sptr, delim);
+	if (!token)
+		return -EINVAL;
+
+	if (!sptr)
+		return -EINVAL;
+
+	if (kstrtou32(token, 0, &reg_offset))
+		return -EINVAL;
+
+	token = strsep(&sptr, delim);
+	if (!token)
+		return -EINVAL;
+
+	if (kstrtou32(token, 0, &reg_val))
+		return -EINVAL;
+
+	ret = cnss_wlfw_athdiag_write_send_sync(plat_priv, reg_offset, mem_type,
+						sizeof(u32),
+						(u8 *)&reg_val);
+	if (ret)
+		return ret;
+
+	return count;
+}
+
+static int cnss_reg_write_debug_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, cnss_reg_write_debug_show, inode->i_private);
+}
+
+static const struct file_operations cnss_reg_write_debug_fops = {
+	.read		= seq_read,
+	.write		= cnss_reg_write_debug_write,
+	.open		= cnss_reg_write_debug_open,
+	.owner		= THIS_MODULE,
+	.llseek		= seq_lseek,
+};
+
 #ifdef CONFIG_CNSS2_DEBUG
 static int cnss_create_debug_only_node(struct cnss_plat_data *plat_priv)
 {
@@ -221,6 +429,10 @@ static int cnss_create_debug_only_node(struct cnss_plat_data *plat_priv)
 
 	debugfs_create_file("dev_boot", 0600, root_dentry, plat_priv,
 			    &cnss_dev_boot_debug_fops);
+	debugfs_create_file("reg_read", 0600, root_dentry, plat_priv,
+			    &cnss_reg_read_debug_fops);
+	debugfs_create_file("reg_write", 0600, root_dentry, plat_priv,
+			    &cnss_reg_write_debug_fops);
 
 	return 0;
 }

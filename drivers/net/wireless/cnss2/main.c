@@ -2283,6 +2283,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 			    ret);
 
 	init_completion(&plat_priv->power_up_complete);
+	mutex_init(&plat_priv->dev_lock);
 
 	cnss_pr_info("Platform driver probed successfully.\n");
 

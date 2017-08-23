@@ -205,6 +205,11 @@ struct cnss_plat_data {
 	atomic_t pm_count;
 	struct timer_list fw_boot_timer;
 	struct completion power_up_complete;
+	struct mutex dev_lock; /* mutex for register access through debugfs */
+	u32 diag_reg_read_addr;
+	u32 diag_reg_read_mem_type;
+	u32 diag_reg_read_len;
+	u8 *diag_reg_read_buf;
 };
 
 void *cnss_bus_dev_to_bus_priv(struct device *dev);
