@@ -1423,16 +1423,7 @@ static irqreturn_t handle_ptrain_done(int irq, void *data)
 	struct qnovo *chip = data;
 	union power_supply_propval pval = {0};
 
-	/*
-	 * In some cases (esp shutting down) the userspace would  disable by
-	 * setting qnovo_enable=0. Also charger could be removed or there is
-	 * an error (i.e. its not okay to run qnovo)-
-	 * skip taking ESR measurement in such situations
-	 */
-
-	if (get_client_vote(chip->disable_votable, USER_VOTER)
-		|| get_effective_result(chip->not_ok_to_qnovo_votable) > 0)
-		return IRQ_HANDLED;
+	qnovo_update_status(chip);
 
 	/*
 	 * hw resets pt_en bit once ptrain_done triggers.
@@ -1443,13 +1434,14 @@ static irqreturn_t handle_ptrain_done(int irq, void *data)
 	vote(chip->pt_dis_votable, QNI_PT_VOTER, true, 0);
 
 	vote(chip->pt_dis_votable, ESR_VOTER, true, 0);
-	if (is_fg_available(chip))
+	if (is_fg_available(chip)
+		&& !get_client_vote(chip->disable_votable, USER_VOTER)
+		&& !get_effective_result(chip->not_ok_to_qnovo_votable))
 		power_supply_set_property(chip->bms_psy,
 				POWER_SUPPLY_PROP_RESISTANCE,
 				&pval);
 
 	vote(chip->pt_dis_votable, ESR_VOTER, false, 0);
-	qnovo_update_status(chip);
 	kobject_uevent(&chip->dev->kobj, KOBJ_CHANGE);
 	return IRQ_HANDLED;
 }
