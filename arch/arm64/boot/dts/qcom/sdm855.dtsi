@@ -20,6 +20,7 @@
 #include <dt-bindings/clock/qcom,npucc-sdm855.h>
 #include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/clock/qcom,aop-qmp.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM855";
@@ -544,6 +545,30 @@
 				  "l1-l2-errirq",
 				  "l3-scu-errirq",
 				  "l3-scu-faultirq";
+	};
+
+	qcom,llcc@9200000 {
+		compatible = "qcom,llcc-core", "syscon", "simple-mfd";
+		reg = <0x9200000 0x450000>;
+		reg-names = "llcc_base";
+		qcom,llcc-banks-off = <0x0 0x80000 0x100000 0x180000>;
+		qcom,llcc-broadcast-off = <0x400000>;
+
+		llcc: qcom,sdm855-llcc {
+			compatible = "qcom,sdm855-llcc";
+			#cache-cells = <1>;
+			max-slices = <32>;
+		};
+
+		qcom,llcc-erp {
+			compatible = "qcom,llcc-erp";
+			interrupt-names = "ecc_irq";
+			interrupts = <GIC_SPI 582 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		qcom,llcc-amon {
+			compatible = "qcom,llcc-amon";
+		};
 	};
 
 	usb0: ssusb@a600000 {
