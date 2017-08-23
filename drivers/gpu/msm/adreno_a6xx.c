@@ -1459,6 +1459,7 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	struct gmu_device *gmu = &device->gmu;
 	struct gmu_memdesc *mem_addr = gmu->hfi_mem;
 	int ret, i;
+	unsigned int chipid = 0;
 
 	switch (boot_state) {
 	case GMU_RESET:
@@ -1510,6 +1511,21 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_AHB_FENCE_RANGE_0,
 			FENCE_RANGE_MASK);
+
+	/* Pass chipid to GMU FW, must happen before starting GMU */
+
+	/* Keep Core and Major bitfields unchanged */
+	chipid = adreno_dev->chipid & 0xFFFF0000;
+
+	/*
+	 * Compress minor and patch version into 8 bits
+	 * Bit 15-12: minor version
+	 * Bit 11-8: patch version
+	 */
+	chipid = chipid | (ADRENO_CHIPID_MINOR(adreno_dev->chipid) << 12)
+			| (ADRENO_CHIPID_PATCH(adreno_dev->chipid) << 8);
+
+	kgsl_gmu_regwrite(device, A6XX_GMU_HFI_SFR_ADDR, chipid);
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM) &&
 		test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag)) {
