@@ -340,6 +340,14 @@ int32_t msm_camera_fill_vreg_params(
 	}
 
 	for (i = 0; i < power_setting_size; i++) {
+
+		if (power_setting[i].seq_type < SENSOR_MCLK ||
+			power_setting[i].seq_type >= SENSOR_SEQ_TYPE_MAX) {
+			CAM_ERR(CAM_SENSOR, "failed: Invalid Seq type\n",
+				power_setting[i].seq_type);
+			return -EINVAL;
+		}
+
 		switch (power_setting[i].seq_type) {
 		case SENSOR_VDIG:
 			for (j = 0; j < num_vreg; j++) {
@@ -488,12 +496,8 @@ int32_t msm_camera_fill_vreg_params(
 			if (j == num_vreg)
 				power_setting[i].seq_val = INVALID_VREG;
 			break;
-
-		default: {
-			CAM_ERR(CAM_SENSOR, "invalid seq_val %d",
-				power_setting[i].seq_val);
+		default:
 			break;
-			}
 		}
 	}
 
