@@ -51,6 +51,8 @@ struct gmu_vma {
 	unsigned int image_start;
 };
 
+static void gmu_snapshot(struct kgsl_device *device);
+
 struct gmu_iommu_context {
 	const char *name;
 	struct device *dev;
@@ -436,26 +438,33 @@ int gmu_dcvs_set(struct gmu_device *gmu,
 	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	int perf_idx = INVALID_DCVS_IDX, bw_idx = INVALID_DCVS_IDX;
+	int ret;
 
-	if (gpu_pwrlevel < gmu->num_gpupwrlevels)
+	if (gpu_pwrlevel < gmu->num_gpupwrlevels - 1)
 		perf_idx = gmu->num_gpupwrlevels - gpu_pwrlevel - 1;
 
-	if (bus_level < gmu->num_bwlevels)
+	if (bus_level < gmu->num_bwlevels && bus_level > 0)
 		bw_idx = bus_level;
 
 	if ((perf_idx == INVALID_DCVS_IDX) &&
 		(bw_idx == INVALID_DCVS_IDX))
 		return -EINVAL;
 
-	if (bw_idx == INVALID_DCVS_IDX)
-		/* Use default BW, algorithm changes on V2 */
-		bw_idx = pwr->pwrlevels[gpu_pwrlevel].bus_freq;
-
-	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
-		return gpudev->rpmh_gpu_pwrctrl(adreno_dev,
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
+		ret = gpudev->rpmh_gpu_pwrctrl(adreno_dev,
 			GMU_DCVS_NOHFI, perf_idx, bw_idx);
+
+		if (ret) {
+			dev_err(&gmu->pdev->dev,
+				"Failed to set GPU perf idx %d, bw idx %d\n",
+				perf_idx, bw_idx);
+
+			gmu_snapshot(device);
+		}
+
+		return ret;
+	}
 
 	return hfi_send_dcvs_vote(gmu, perf_idx, bw_idx, ACK_NONBLOCK);
 }
