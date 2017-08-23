@@ -1333,8 +1333,6 @@ static int dwc3_remove(struct platform_device *pdev)
 	dwc3_event_buffers_cleanup(dwc);
 	dwc3_free_event_buffers(dwc);
 
-	usb_phy_set_suspend(dwc->usb2_phy, 1);
-	usb_phy_set_suspend(dwc->usb3_phy, 1);
 	phy_power_off(dwc->usb2_generic_phy);
 	phy_power_off(dwc->usb3_generic_phy);
 
