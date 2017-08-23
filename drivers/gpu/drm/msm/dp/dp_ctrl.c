@@ -845,7 +845,7 @@ static int dp_ctrl_link_train_1(struct dp_ctrl_private *ctrl)
 			tries++;
 			if (tries >= maximum_retries) {
 				pr_err("max tries reached\n");
-				ret = -EAGAIN;
+				ret = -ETIMEDOUT;
 				break;
 			}
 		} else {
@@ -926,7 +926,7 @@ static int dp_ctrl_link_training_2(struct dp_ctrl_private *ctrl)
 			break;
 
 		if (tries > maximum_retries) {
-			ret = -EAGAIN;
+			ret = -ETIMEDOUT;
 			break;
 		}
 		tries++;
