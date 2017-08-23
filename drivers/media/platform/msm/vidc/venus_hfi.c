@@ -1090,6 +1090,7 @@ static int __set_clocks(struct venus_hfi_device *device, u32 freq)
 				return rc;
 			}
 
+			trace_msm_vidc_perf_clock_scale(cl->name, freq);
 			dprintk(VIDC_PROF, "Scaling clock %s to %u\n",
 					cl->name, freq);
 		}
