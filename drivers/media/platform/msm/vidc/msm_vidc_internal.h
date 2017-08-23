@@ -175,6 +175,13 @@ struct msm_vidc_csc_coeff {
 	u32 *vpe_csc_custom_limit_coeff;
 };
 
+struct msm_vidc_buf_data {
+	struct list_head list;
+	u32 index;
+	u32 mark_data;
+	u32 mark_target;
+};
+
 struct msm_vidc_common_data {
 	char key[128];
 	int value;
@@ -349,6 +356,8 @@ struct msm_vidc_inst {
 	struct msm_vidc_list reconbufs;
 	struct msm_vidc_list eosbufs;
 	struct msm_vidc_list registeredbufs;
+	struct msm_vidc_list etb_data;
+	struct msm_vidc_list fbd_data;
 	struct buffer_requirements buff_req;
 	struct smem_client *mem_client;
 	struct v4l2_ctrl_handler ctrl_handler;

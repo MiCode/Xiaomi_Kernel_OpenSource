@@ -510,6 +510,12 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 		msm_comm_update_input_cr(inst, b->index, cr);
 	}
 
+	if (inst->session_type == MSM_VIDC_DECODER &&
+			b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		msm_comm_store_mark_data(&inst->etb_data, b->index,
+			b->m.planes[0].reserved[3], b->m.planes[0].reserved[4]);
+	}
+
 	q = msm_comm_get_vb2q(inst, b->type);
 	if (!q) {
 		dprintk(VIDC_ERR,
@@ -560,6 +566,13 @@ int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b)
 	for (i = 0; i < b->length; i++) {
 		b->m.planes[i].reserved[0] = b->m.planes[i].m.fd;
 		b->m.planes[i].reserved[1] = b->m.planes[i].data_offset;
+	}
+
+	if (inst->session_type == MSM_VIDC_DECODER &&
+			b->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		msm_comm_fetch_mark_data(&inst->fbd_data, b->index,
+			&b->m.planes[0].reserved[3],
+			&b->m.planes[0].reserved[4]);
 	}
 
 	return rc;
@@ -1566,6 +1579,8 @@ void *msm_vidc_open(int core_id, int session_type)
 	INIT_MSM_VIDC_LIST(&inst->registeredbufs);
 	INIT_MSM_VIDC_LIST(&inst->reconbufs);
 	INIT_MSM_VIDC_LIST(&inst->eosbufs);
+	INIT_MSM_VIDC_LIST(&inst->etb_data);
+	INIT_MSM_VIDC_LIST(&inst->fbd_data);
 
 	kref_init(&inst->kref);
 
@@ -1673,6 +1688,8 @@ fail_mem_client:
 	DEINIT_MSM_VIDC_LIST(&inst->eosbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->freqs);
 	DEINIT_MSM_VIDC_LIST(&inst->input_crs);
+	DEINIT_MSM_VIDC_LIST(&inst->etb_data);
+	DEINIT_MSM_VIDC_LIST(&inst->fbd_data);
 
 	kfree(inst);
 	inst = NULL;
@@ -1715,6 +1732,10 @@ static void msm_vidc_cleanup_instance(struct msm_vidc_inst *inst)
 	if (msm_comm_release_persist_buffers(inst))
 		dprintk(VIDC_ERR,
 			"Failed to release persist buffers\n");
+
+	if (msm_comm_release_mark_data(inst))
+		dprintk(VIDC_ERR,
+			"Failed to release mark_data buffers\n");
 
 	/*
 	 * At this point all buffes should be with driver
@@ -1771,6 +1792,8 @@ int msm_vidc_destroy(struct msm_vidc_inst *inst)
 	DEINIT_MSM_VIDC_LIST(&inst->eosbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->freqs);
 	DEINIT_MSM_VIDC_LIST(&inst->input_crs);
+	DEINIT_MSM_VIDC_LIST(&inst->etb_data);
+	DEINIT_MSM_VIDC_LIST(&inst->fbd_data);
 
 	mutex_destroy(&inst->sync_lock);
 	mutex_destroy(&inst->bufq[CAPTURE_PORT].lock);

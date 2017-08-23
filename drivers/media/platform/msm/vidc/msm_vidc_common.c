@@ -2569,6 +2569,11 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 	}
 	vb->timestamp = (time_usec * NSEC_PER_USEC);
 
+	if (inst->session_type == MSM_VIDC_DECODER) {
+		msm_comm_store_mark_data(&inst->fbd_data, vb->index,
+			fill_buf_done->mark_data, fill_buf_done->mark_target);
+	}
+
 	extra_idx = EXTRADATA_IDX(inst->bufq[CAPTURE_PORT].num_planes);
 	if (extra_idx && extra_idx < VIDEO_MAX_PLANES)
 		vb->planes[extra_idx].bytesused = vb->planes[extra_idx].length;
@@ -3955,9 +3960,6 @@ static void populate_frame_data(struct vidc_frame_data *data,
 	data->clnt_data = data->device_addr;
 
 	if (vb->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		bool pic_decoding_mode = msm_comm_g_ctrl_for_id(inst,
-				V4L2_CID_MPEG_VIDC_VIDEO_PICTYPE_DEC_MODE);
-
 		data->buffer_type = HAL_BUFFER_INPUT;
 		data->filled_len = vb->planes[0].bytesused;
 		data->offset = vb->planes[0].data_offset;
@@ -3974,13 +3976,10 @@ static void populate_frame_data(struct vidc_frame_data *data,
 		if (vbuf->flags & V4L2_QCOM_BUF_TIMESTAMP_INVALID)
 			data->timestamp = LLONG_MAX;
 
-		/* XXX: This is a dirty hack necessitated by the firmware,
-		 * which refuses to issue FBDs for non I-frames in Picture Type
-		 * Decoding mode, unless we pass in non-zero value in mark_data
-		 * and mark_target.
-		 */
-		data->mark_data = data->mark_target =
-			pic_decoding_mode ? 0xdeadbeef : 0;
+		if (inst->session_type == MSM_VIDC_DECODER) {
+			msm_comm_fetch_mark_data(&inst->etb_data, vb->index,
+				&data->mark_data, &data->mark_target);
+		}
 
 	} else if (vb->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		data->buffer_type = msm_comm_get_hal_output_buffer(inst);
@@ -6608,5 +6607,95 @@ bool kref_get_mbuf(struct msm_vidc_inst *inst, struct msm_vidc_buffer *mbuf)
 	mutex_unlock(&inst->registeredbufs.lock);
 
 	return ret;
+}
+
+void msm_comm_store_mark_data(struct msm_vidc_list *data_list,
+		u32 index, u32 mark_data, u32 mark_target)
+{
+	struct msm_vidc_buf_data *pdata = NULL;
+	bool found = false;
+
+	if (!data_list) {
+		dprintk(VIDC_ERR, "%s: invalid params %pK\n",
+			__func__, data_list);
+		return;
+	}
+
+	mutex_lock(&data_list->lock);
+	list_for_each_entry(pdata, &data_list->list, list) {
+		if (pdata->index == index) {
+			pdata->mark_data = mark_data;
+			pdata->mark_target = mark_target;
+			found = true;
+			break;
+		}
+	}
+
+	if (!found) {
+		pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+		if (!pdata)  {
+			dprintk(VIDC_WARN, "%s: malloc failure.\n", __func__);
+			goto exit;
+		}
+		pdata->index = index;
+		pdata->mark_data = mark_data;
+		pdata->mark_target = mark_target;
+		list_add_tail(&pdata->list, &data_list->list);
+	}
+
+exit:
+	mutex_unlock(&data_list->lock);
+}
+
+void msm_comm_fetch_mark_data(struct msm_vidc_list *data_list,
+		u32 index, u32 *mark_data, u32 *mark_target)
+{
+	struct msm_vidc_buf_data *pdata = NULL;
+
+	if (!data_list || !mark_data || !mark_target) {
+		dprintk(VIDC_ERR, "%s: invalid params %pK %pK %pK\n",
+			__func__, data_list, mark_data, mark_target);
+		return;
+	}
+
+	*mark_data = *mark_target = 0;
+	mutex_lock(&data_list->lock);
+	list_for_each_entry(pdata, &data_list->list, list) {
+		if (pdata->index == index) {
+			*mark_data = pdata->mark_data;
+			*mark_target = pdata->mark_target;
+			/* clear after fetch */
+			pdata->mark_data = pdata->mark_target = 0;
+			break;
+		}
+	}
+	mutex_unlock(&data_list->lock);
+}
+
+int msm_comm_release_mark_data(struct msm_vidc_inst *inst)
+{
+	struct msm_vidc_buf_data *pdata, *next;
+
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s: invalid params %pK\n",
+			__func__, inst);
+		return -EINVAL;
+	}
+
+	mutex_lock(&inst->etb_data.lock);
+	list_for_each_entry_safe(pdata, next, &inst->etb_data.list, list) {
+		list_del(&pdata->list);
+		kfree(pdata);
+	}
+	mutex_unlock(&inst->etb_data.lock);
+
+	mutex_lock(&inst->fbd_data.lock);
+	list_for_each_entry_safe(pdata, next, &inst->fbd_data.list, list) {
+		list_del(&pdata->list);
+		kfree(pdata);
+	}
+	mutex_unlock(&inst->fbd_data.lock);
+
+	return 0;
 }
 
