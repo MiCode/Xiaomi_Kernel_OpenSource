@@ -1519,7 +1519,8 @@ static void process_cmdbatch_fault(struct kgsl_device *device,
 	 * because we won't see this cmdbatch again
 	 */
 
-	if (fault & ADRENO_TIMEOUT_FAULT)
+	if ((fault & ADRENO_TIMEOUT_FAULT) ||
+				(fault & ADRENO_CTX_DETATCH_TIMEOUT_FAULT))
 		bitmap_zero(&cmdbatch->fault_policy, BITS_PER_LONG);
 
 	/*
