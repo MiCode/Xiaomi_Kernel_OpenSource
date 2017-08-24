@@ -206,6 +206,13 @@ struct sde_hw_ctl_ops {
 
 	void (*setup_sbuf_cfg)(struct sde_hw_ctl *ctx,
 		struct sde_ctl_sbuf_cfg *cfg);
+
+	/**
+	 * Flush the reg dma by sending last command.
+	 * @ctx       : ctl path ctx pointer
+	 */
+	void (*reg_dma_flush)(struct sde_hw_ctl *ctx);
+
 };
 
 /**
