@@ -375,7 +375,7 @@
 				MSM_BUS_SLAVE_EBI_CH0 240000 700000>,
 			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_USB3_1 0 40000>;
 
-		dwc3@a600000 {
+		dwc3@a800000 {
 			compatible = "snps,dwc3";
 			reg = <0x0a800000 0xcd00>;
 			interrupts = <0 138 0>;
