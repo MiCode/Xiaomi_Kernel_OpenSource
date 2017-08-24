@@ -520,6 +520,7 @@ struct mhi_dev {
 	u32				ipa_clnt_hndl[4];
 	struct workqueue_struct		*ring_init_wq;
 	struct work_struct		ring_init_cb_work;
+	struct work_struct		re_init;
 
 	/* EP PCIe registration */
 	struct ep_pcie_register_event	event_reg;
@@ -529,6 +530,7 @@ struct mhi_dev {
 	atomic_t			write_active;
 	atomic_t			is_suspended;
 	atomic_t			mhi_dev_wake;
+	atomic_t			re_init_done;
 	struct mutex			mhi_write_test;
 	u32				device_local_pa_base;
 	u32				mhi_ep_msi_num;
@@ -1050,8 +1052,10 @@ int mhi_dev_get_mhi_addr(struct mhi_dev *dev);
  * mhi_dev_get_mhi_state() - Fetches the MHI state such as M0/M1/M2/M3.
  * @dev:	MHI device structure.
  * @state:	Pointer of type mhi_dev_state
+ * @mhi_reset:	MHI device reset from host.
  */
-int mhi_dev_mmio_get_mhi_state(struct mhi_dev *dev, enum mhi_dev_state *state);
+int mhi_dev_mmio_get_mhi_state(struct mhi_dev *dev, enum mhi_dev_state *state,
+						bool *mhi_reset);
 
 /**
  * mhi_dev_mmio_init() - Initializes the MMIO and reads the Number of event

@@ -397,7 +397,8 @@ static bool mhi_sm_is_legal_pcie_event_on_state(enum mhi_dev_state curr_mstate,
 		res = true;
 		break;
 	case EP_PCIE_EVENT_PM_D3_HOT:
-		res = (curr_mstate == MHI_DEV_M3_STATE &&
+		res = ((curr_mstate == MHI_DEV_M3_STATE ||
+			curr_mstate == MHI_DEV_READY_STATE) &&
 			curr_dstate != MHI_SM_EP_PCIE_LINK_DISABLE);
 		break;
 	case EP_PCIE_EVENT_PM_D3_COLD:
@@ -937,6 +938,24 @@ fail_init_wq:
 }
 EXPORT_SYMBOL(mhi_dev_sm_init);
 
+int mhi_dev_sm_exit(struct mhi_dev *mhi_dev)
+{
+	MHI_SM_FUNC_ENTRY();
+
+	atomic_set(&mhi_sm_ctx->pending_device_events, 0);
+	atomic_set(&mhi_sm_ctx->pending_pcie_events, 0);
+	mhi_sm_debugfs_destroy();
+	flush_workqueue(mhi_sm_ctx->mhi_sm_wq);
+	destroy_workqueue(mhi_sm_ctx->mhi_sm_wq);
+	ipa_dma_destroy();
+	mutex_destroy(&mhi_sm_ctx->mhi_state_lock);
+	devm_kfree(mhi_dev->dev, mhi_sm_ctx);
+	mhi_sm_ctx = NULL;
+
+	return 0;
+}
+EXPORT_SYMBOL(mhi_dev_sm_exit);
+
 /**
  * mhi_dev_sm_get_mhi_state() -Get current MHI state.
  * @state: return param
@@ -983,7 +1002,7 @@ EXPORT_SYMBOL(mhi_dev_sm_get_mhi_state);
  */
 int mhi_dev_sm_set_ready(void)
 {
-	int res = -EAGAIN;
+	int res = 0;
 	int is_ready;
 	enum mhi_dev_state state;
 
