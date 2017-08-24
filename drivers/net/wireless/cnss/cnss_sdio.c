@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -275,6 +275,11 @@ static int cnss_get_hw_resources(struct device *dev)
 	}
 
 	host = info->host;
+
+	if (!host) {
+		pr_err("%s: MMC host is invalid\n", __func__);
+		return -ENODEV;
+	}
 
 	ret = regulator_enable(cnss_pdata->regulator.wlan_vreg);
 	if (ret) {

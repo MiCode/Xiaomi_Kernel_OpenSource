@@ -1,0 +1,30 @@
+SPIDEV
+
+SPI slave devices using the spidev driver allowing for userspace
+control of the SPI devices. Must be children of a SPI master node
+and contain the following properties.
+
+Required properties:
+- compatible:     Should contain:
+                  "nxp,mpc57xx" for external CAN controller
+                  "infineon,sli97" for external HSM module
+
+- reg:            Chip select address of device.
+- spi-max-frequency: Maximum SPI clocking speed of device in Hz.
+
+Optional properties:
+- spi-cpol:       Empty property indicating device requires
+                  inverse clock polarity (CPOL) mode.
+- spi-cpha:       Empty property indicating device requires
+                  shifted clock phase (CPHA) mode.
+
+Other optional properties described in
+Documentation/devicetree/bindings/spi/spi-bus.txt
+
+Example:
+
+	spi@0 {
+		compatible = "nxp,mpc57xx";
+		reg = <0>;
+		spi-max-frequency = <19200000>;
+	};
