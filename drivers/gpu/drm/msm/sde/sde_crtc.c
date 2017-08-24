@@ -2292,9 +2292,11 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	}
 	sde_crtc->play_count++;
 
-	if (cstate->sbuf_cfg.rot_op_mode != SDE_CTL_ROT_OP_MODE_OFFLINE)
-		drm_atomic_crtc_for_each_plane(plane, crtc)
+	if (cstate->sbuf_cfg.rot_op_mode != SDE_CTL_ROT_OP_MODE_OFFLINE) {
+		drm_atomic_crtc_for_each_plane(plane, crtc) {
 			sde_plane_kickoff(plane);
+		}
+	}
 
 	for (i = 0; i < sde_crtc->num_mixers; i++) {
 		ctl = sde_crtc->mixers[i].hw_ctl;
