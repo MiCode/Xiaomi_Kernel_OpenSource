@@ -149,7 +149,6 @@ struct msm_gem_submit {
 	uint32_t fence;
 	int ring;
 	u32 flags;
-	bool valid;
 	uint64_t profile_buf_iova;
 	struct drm_msm_gem_submit_profile_buffer *profile_buf;
 	bool secure;
