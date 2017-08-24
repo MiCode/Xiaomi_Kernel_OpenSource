@@ -31,27 +31,8 @@ enum dp_link_preemaphasis_level {
 	DP_LINK_PRE_EMPHASIS_MAX	= DP_LINK_PRE_EMPHASIS_LEVEL_2,
 };
 
-enum test_type {
-	UNKNOWN_TEST		  = 0,
-	TEST_LINK_TRAINING	  = 0x01,
-	TEST_VIDEO_PATTERN	  = 0x02,
-	PHY_TEST_PATTERN	  = 0x08,
-	TEST_EDID_READ		  = 0x04,
-	TEST_AUDIO_PATTERN	  = 0x20,
-	TEST_AUDIO_DISABLED_VIDEO = 0x40,
-};
-
-enum status_update {
-	LINK_STATUS_UPDATED    = 0x100,
-	DS_PORT_STATUS_CHANGED = 0x200,
-};
-
-enum test_bit_depth {
-	DP_TEST_BIT_DEPTH_6 = 0x00,
-	DP_TEST_BIT_DEPTH_8 = 0x01,
-	DP_TEST_BIT_DEPTH_10 = 0x02,
-	DP_TEST_BIT_DEPTH_UNKNOWN = 0xFFFFFFFF,
-};
+#define DS_PORT_STATUS_CHANGED 0x200
+#define DP_TEST_BIT_DEPTH_UNKNOWN 0xFFFFFFFF
 
 struct dp_link {
 	u32 test_requested;
