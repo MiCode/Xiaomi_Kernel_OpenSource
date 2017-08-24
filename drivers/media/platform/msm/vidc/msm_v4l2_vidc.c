@@ -437,13 +437,14 @@ static int msm_vidc_probe_vidc_device(struct platform_device *pdev)
 	struct device *dev;
 	int nr = BASE_DEVICE_NUMBER;
 
-	core = kzalloc(sizeof(*core), GFP_KERNEL);
-	if (!core || !vidc_driver) {
-		dprintk(VIDC_ERR,
-			"Failed to allocate memory for device core\n");
-		rc = -ENOMEM;
-		goto err_no_mem;
+	if (!vidc_driver) {
+		dprintk(VIDC_ERR, "Invalid vidc driver\n");
+		return -EINVAL;
 	}
+
+	core = kzalloc(sizeof(*core), GFP_KERNEL);
+	if (!core)
+		return -ENOMEM;
 
 	dev_set_drvdata(&pdev->dev, core);
 	rc = msm_vidc_initialize_core(pdev, core);
@@ -609,7 +610,6 @@ err_v4l2_register:
 err_core_init:
 	dev_set_drvdata(&pdev->dev, NULL);
 	kfree(core);
-err_no_mem:
 	return rc;
 }
 
