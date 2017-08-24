@@ -219,6 +219,12 @@ config QCA8337_SWITCH
 	  This enables support for the QTI Atheros QCA8337 Ethernet
 	  switch. This driver support switch funtionality over SGMII
 	  interface.
+
+config NXP_TJA110X_PHY
+	tristate "Driver for NXP TJA110X PHY"
+	help
+	  Currently supports the TJA110X Ethernet PHYs.
+
 endif # PHYLIB
 
 config MICREL_KS8995MA

@@ -253,6 +253,11 @@ static ssize_t mhi_dev_net_client_read(struct mhi_dev_net_client *mhi_handle)
 	do {
 		start_time = ktime_get();
 		skb_buff = alloc_skb(MHI_NET_DEFAULT_MTU, GFP_ATOMIC);
+		if (!skb_buff) {
+			mhi_dev_net_log(MHI_ERROR,
+				"Error while allocating skb\n");
+			return -ENOMEM;
+		}
 		bytes_avail = mhi_dev_read_channel(client_handle,
 				skb_buff->data,
 				buf_size, &chained);
@@ -499,7 +504,7 @@ int mhi_dev_net_interface_init(void)
 	struct mhi_dev_net_client *mhi_net_client = NULL;
 
 	mhi_net_client = kzalloc(sizeof(struct mhi_dev_net_client), GFP_KERNEL);
-	if (mhi_net_client < 0)
+	if (!mhi_net_client)
 		return -ENOMEM;
 
 	mhi_net_ipc_log = ipc_log_context_create(MHI_NET_IPC_PAGES,

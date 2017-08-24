@@ -36,3 +36,5 @@ obj-$(CONFIG_MDIO_MOXART)	+= mdio-moxart.o
 obj-$(CONFIG_AMD_XGBE_PHY)	+= amd-xgbe-phy.o
 obj-$(CONFIG_MDIO_BCM_UNIMAC)	+= mdio-bcm-unimac.o
 obj-$(CONFIG_QCA8337_SWITCH)	+= qca8337.o
+obj-$(CONFIG_NXP_TJA1100_PHY)   += nxp/
+obj-$(CONFIG_NXP_TJA110X_PHY)   += nxp/

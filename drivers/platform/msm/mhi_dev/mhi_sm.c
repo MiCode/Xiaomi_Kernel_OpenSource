@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -438,7 +438,7 @@ static int mhi_sm_change_to_M0(void)
 {
 	enum mhi_dev_state old_state;
 	struct ep_pcie_msi_config cfg;
-	int res;
+	int res = -EINVAL;
 
 	MHI_SM_FUNC_ENTRY();
 
@@ -983,7 +983,7 @@ EXPORT_SYMBOL(mhi_dev_sm_get_mhi_state);
  */
 int mhi_dev_sm_set_ready(void)
 {
-	int res;
+	int res = -EAGAIN;
 	int is_ready;
 	enum mhi_dev_state state;
 
@@ -1030,6 +1030,7 @@ int mhi_dev_sm_set_ready(void)
 		goto unlock_and_exit;
 	}
 	mhi_sm_mmio_set_mhistatus(MHI_DEV_READY_STATE);
+	res = 0;
 
 unlock_and_exit:
 	mutex_unlock(&mhi_sm_ctx->mhi_state_lock);
