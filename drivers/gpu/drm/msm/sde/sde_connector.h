@@ -449,6 +449,13 @@ void sde_connector_prepare_fence(struct drm_connector *connector);
 void sde_connector_complete_commit(struct drm_connector *connector, ktime_t ts);
 
 /**
+ * sde_connector_commit_reset - reset the completion signal
+ * @connector: Pointer to drm connector object
+ * @ts: timestamp to be updated in the fence signalling
+ */
+void sde_connector_commit_reset(struct drm_connector *connector, ktime_t ts);
+
+/**
  * sde_connector_get_info - query display specific information
  * @connector: Pointer to drm connector object
  * @info: Pointer to msm display information structure
