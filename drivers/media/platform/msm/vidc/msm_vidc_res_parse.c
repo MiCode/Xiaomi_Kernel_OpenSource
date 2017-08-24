@@ -788,6 +788,8 @@ int read_platform_resources_from_drv_data(
 	res->non_fatal_pagefaults = find_key_value(platform_data,
 			"qcom,domain-attr-non-fatal-faults");
 
+	res->csc_coeff_data = &platform_data->csc_data;
+
 	return rc;
 
 }

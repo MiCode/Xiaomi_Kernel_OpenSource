@@ -355,6 +355,8 @@ struct hfi_buffer_info {
 	(HFI_DOMAIN_BASE_VPE + HFI_ARCH_COMMON_OFFSET + 0x7000)
 #define HFI_PROPERTY_PARAM_VPE_ROTATION				\
 	(HFI_PROPERTY_PARAM_VPE_COMMON_START + 0x001)
+#define HFI_PROPERTY_PARAM_VPE_COLOR_SPACE_CONVERSION		\
+	(HFI_PROPERTY_PARAM_VPE_COMMON_START + 0x002)
 
 #define HFI_PROPERTY_CONFIG_VPE_COMMON_START				\
 	(HFI_DOMAIN_BASE_VPE + HFI_ARCH_COMMON_OFFSET + 0x8000)
@@ -712,6 +714,8 @@ struct hfi_max_sessions_supported {
 };
 
 struct hfi_vpe_color_space_conversion {
+	u32 input_color_primaries;
+	u32 custom_matrix_enabled;
 	u32 csc_matrix[HFI_MAX_MATRIX_COEFFS];
 	u32 csc_bias[HFI_MAX_BIAS_COEFFS];
 	u32 csc_limit[HFI_MAX_LIMIT_COEFFS];

@@ -1605,6 +1605,9 @@ int create_pkt_cmd_session_set_property(
 				HFI_PROPERTY_PARAM_VPE_COLOR_SPACE_CONVERSION;
 		hfi = (struct hfi_vpe_color_space_conversion *)
 			&pkt->rg_property_data[1];
+
+		hfi->input_color_primaries = hal->input_color_primaries;
+		hfi->custom_matrix_enabled = hal->custom_matrix_enabled;
 		memcpy(hfi->csc_matrix, hal->csc_matrix,
 				sizeof(hfi->csc_matrix));
 		memcpy(hfi->csc_bias, hal->csc_bias, sizeof(hfi->csc_bias));

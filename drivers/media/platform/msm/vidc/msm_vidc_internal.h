@@ -169,6 +169,12 @@ struct internal_buf {
 	enum buffer_owner buffer_ownership;
 };
 
+struct msm_vidc_csc_coeff {
+	u32 *vpe_csc_custom_matrix_coeff;
+	u32 *vpe_csc_custom_bias_coeff;
+	u32 *vpe_csc_custom_limit_coeff;
+};
+
 struct msm_vidc_common_data {
 	char key[128];
 	int value;
@@ -187,6 +193,7 @@ struct msm_vidc_platform_data {
 	unsigned int common_data_length;
 	struct msm_vidc_codec_data *codec_data;
 	unsigned int codec_data_length;
+	struct msm_vidc_csc_coeff csc_data;
 };
 
 struct msm_vidc_format {
