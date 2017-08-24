@@ -469,7 +469,7 @@ static struct msm_commit *commit_init(struct drm_atomic_state *state,
 }
 
 /* Start display thread function */
-static int msm_atomic_commit_dispatch(struct drm_device *dev,
+static void msm_atomic_commit_dispatch(struct drm_device *dev,
 		struct drm_atomic_state *state, struct msm_commit *commit)
 {
 	struct msm_drm_private *priv = dev->dev_private;
@@ -506,12 +506,19 @@ static int msm_atomic_commit_dispatch(struct drm_device *dev,
 			break;
 	}
 
-	if (!ret && !commit->nonblock) {
+	if (ret) {
+		/**
+		 * this is not expected to happen, but at this point the state
+		 * has been swapped, but we couldn't dispatch to a crtc thread.
+		 * fallback now to a synchronous complete_commit to try and
+		 * ensure that SW and HW state don't get out of sync.
+		 */
+		DRM_ERROR("failed to dispatch commit to any CRTC\n");
+		complete_commit(commit);
+	} else if (!commit->nonblock) {
 		kthread_flush_work(&commit->commit_work);
 		kfree(commit);
 	}
-
-	return ret;
 }
 
 /**
@@ -612,13 +619,7 @@ int msm_atomic_commit(struct drm_device *dev,
 	 * current layout.
 	 */
 
-	ret = msm_atomic_commit_dispatch(dev, state, c);
-	if (ret) {
-		DRM_ERROR("%s: atomic commit failed\n", __func__);
-		drm_atomic_state_free(state);
-		commit_destroy(c);
-		goto error;
-	}
+	msm_atomic_commit_dispatch(dev, state, c);
 	SDE_ATRACE_END("atomic_commit");
 	return 0;
 
