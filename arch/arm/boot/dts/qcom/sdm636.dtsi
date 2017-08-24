@@ -31,3 +31,18 @@
 &soc {
 	/delete-node/ qcom,turing@1a300000;
 };
+
+&soc {
+	/delete-node/ arm,smmu-turing_q6@5180000;
+	qcom,msm_fastrpc {
+		/delete-node/ qcom,msm_fastrpc_compute_cb5;
+		/delete-node/ qcom,msm_fastrpc_compute_cb6;
+		/delete-node/ qcom,msm_fastrpc_compute_cb7;
+		/delete-node/ qcom,msm_fastrpc_compute_cb8;
+		/delete-node/ qcom,msm_fastrpc_compute_cb9;
+		/delete-node/ qcom,msm_fastrpc_compute_cb10;
+		/delete-node/ qcom,msm_fastrpc_compute_cb11;
+		/delete-node/ qcom,msm_fastrpc_compute_cb12;
+		/delete-node/ qcom,msm_fastrpc_compute_cb13;
+	};
+};
