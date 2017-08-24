@@ -1943,9 +1943,7 @@ static int a6xx_gmu_suspend(struct kgsl_device *device)
 	/* If SPTP_RAC is on, turn off SPTP_RAC HS */
 	a6xx_sptprac_disable(adreno_dev);
 
-	/* Disconnect GPU from BUS. Clear and reconnected after reset */
-	adreno_vbif_clear_pending_transactions(device);
-	/* Unnecessary: a6xx_soft_reset(adreno_dev); */
+	/* Disconnect GPU from BUS is not needed if CX GDSC goes off later */
 
 	/* Check no outstanding RPMh voting */
 	a6xx_complete_rpmh_votes(device);
