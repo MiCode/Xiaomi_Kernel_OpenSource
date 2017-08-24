@@ -910,10 +910,9 @@ static int sde_hw_intr_enable_irq(struct sde_hw_intr *intr, int irq_idx)
 	return 0;
 }
 
-static int sde_hw_intr_disable_irq(struct sde_hw_intr *intr, int irq_idx)
+static int sde_hw_intr_disable_irq_nolock(struct sde_hw_intr *intr, int irq_idx)
 {
 	int reg_idx;
-	unsigned long irq_flags;
 	const struct sde_intr_reg *reg;
 	const struct sde_irq_type *irq;
 	const char *dbgstr = NULL;
@@ -931,7 +930,6 @@ static int sde_hw_intr_disable_irq(struct sde_hw_intr *intr, int irq_idx)
 	reg_idx = irq->reg_idx;
 	reg = &sde_intr_set[reg_idx];
 
-	spin_lock_irqsave(&intr->irq_lock, irq_flags);
 	cache_irq_mask = intr->cache_irq_mask[reg_idx];
 	if ((cache_irq_mask & irq->irq_mask) == 0) {
 		dbgstr = "SDE IRQ is already cleared:";
@@ -949,10 +947,28 @@ static int sde_hw_intr_disable_irq(struct sde_hw_intr *intr, int irq_idx)
 
 		intr->cache_irq_mask[reg_idx] = cache_irq_mask;
 	}
-	spin_unlock_irqrestore(&intr->irq_lock, irq_flags);
 
 	pr_debug("%s MASK:0x%.8x, CACHE-MASK:0x%.8x\n", dbgstr,
 			irq->irq_mask, cache_irq_mask);
+
+	return 0;
+}
+
+static int sde_hw_intr_disable_irq(struct sde_hw_intr *intr, int irq_idx)
+{
+	unsigned long irq_flags;
+
+	if (!intr)
+		return -EINVAL;
+
+	if (irq_idx < 0 || irq_idx >= ARRAY_SIZE(sde_irq_map)) {
+		pr_err("invalid IRQ index: [%d]\n", irq_idx);
+		return -EINVAL;
+	}
+
+	spin_lock_irqsave(&intr->irq_lock, irq_flags);
+	sde_hw_intr_disable_irq_nolock(intr, irq_idx);
+	spin_unlock_irqrestore(&intr->irq_lock, irq_flags);
 
 	return 0;
 }
@@ -1141,6 +1157,7 @@ static void __setup_intr_ops(struct sde_hw_intr_ops *ops)
 	ops->irq_idx_lookup = sde_hw_intr_irqidx_lookup;
 	ops->enable_irq = sde_hw_intr_enable_irq;
 	ops->disable_irq = sde_hw_intr_disable_irq;
+	ops->disable_irq_nolock = sde_hw_intr_disable_irq_nolock;
 	ops->dispatch_irqs = sde_hw_intr_dispatch_irq;
 	ops->clear_all_irqs = sde_hw_intr_clear_irqs;
 	ops->disable_all_irqs = sde_hw_intr_disable_irqs;
