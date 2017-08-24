@@ -50,6 +50,12 @@ int msm_audio_ion_free_legacy(struct ion_client *client,
 			struct ion_handle *handle);
 u32 msm_audio_populate_upper_32_bits(ion_phys_addr_t pa);
 
-int msm_audio_ion_phys_assign(const char *name, int fd, ion_phys_addr_t *paddr,
-				size_t *pa_len, u8 assign_type);
+int msm_audio_ion_phys_assign(const char *name, struct ion_client **client,
+			      struct ion_handle **handle,
+			      int fd, ion_phys_addr_t *paddr,
+			      size_t *pa_len, u8 assign_type);
+int msm_audio_ion_phys_free(struct ion_client *client,
+			    struct ion_handle *handle,
+			    ion_phys_addr_t *paddr,
+			    size_t *pa_len, u8 assign_type);
 #endif /* _LINUX_MSM_AUDIO_ION_H */
