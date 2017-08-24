@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,5 +21,7 @@
 	model = "Qualcomm Technologies, Inc. SDM 658 PM660 + PM660A CDP";
 	compatible = "qcom,sdm658-cdp", "qcom,sdm658", "qcom,cdp";
 	qcom,board-id = <1 0>;
-	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>;
+	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>,
+			<0x0001001b 0x0002001a 0x0 0x0>,
+			<0x0001001b 0x0202001a 0x0 0x0>;
 };

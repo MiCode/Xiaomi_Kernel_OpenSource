@@ -21,7 +21,9 @@
 	model = "Qualcomm Technologies, Inc. SDM 636 PM660 + PM660A QRD";
 	compatible = "qcom,sdm636-qrd", "qcom,sdm636", "qcom,qrd";
 	qcom,board-id = <0x0012000b 0>;
-	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>;
+	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>,
+			<0x0001001b 0x0002001a 0x0 0x0>,
+			<0x0001001b 0x0202001a 0x0 0x0>;
 };
 
 &pm660a_oledb {
