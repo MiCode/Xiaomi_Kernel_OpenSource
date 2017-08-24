@@ -2441,7 +2441,7 @@ static int qpnp_wled_probe(struct platform_device *pdev)
 		wled->pmic_rev_id->pmic_subtype, wled->pmic_rev_id->rev4);
 
 	prop = of_get_address_by_name(pdev->dev.of_node, QPNP_WLED_SINK_BASE,
-			0, 0);
+			NULL, NULL);
 	if (!prop) {
 		dev_err(&pdev->dev, "Couldnt find sink's addr rc %d\n", rc);
 		return rc;
@@ -2449,7 +2449,7 @@ static int qpnp_wled_probe(struct platform_device *pdev)
 	wled->sink_base = be32_to_cpu(*prop);
 
 	prop = of_get_address_by_name(pdev->dev.of_node, QPNP_WLED_CTRL_BASE,
-			0, 0);
+			NULL, NULL);
 	if (!prop) {
 		dev_err(&pdev->dev, "Couldnt find ctrl's addr rc = %d\n", rc);
 		return rc;
