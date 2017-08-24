@@ -79,11 +79,16 @@ void swr_remove_device(struct swr_device *swr_dev)
 {
 	struct swr_device *swr_dev_loop, *safe;
 
+	/*
+	 * master still has reference to all nodes and deletes
+	 * at platform_unregister, so need to init the deleted
+	 * entry
+	 */
 	list_for_each_entry_safe(swr_dev_loop, safe,
 				 &swr_dev->master->devices,
 				 dev_list) {
 		if (swr_dev == swr_dev_loop)
-			list_del(&swr_dev_loop->dev_list);
+			list_del_init(&swr_dev_loop->dev_list);
 	}
 }
 EXPORT_SYMBOL(swr_remove_device);
@@ -789,9 +794,7 @@ static void swr_unregister_device(struct swr_device *swr)
 
 static void swr_master_release(struct device *dev)
 {
-	struct swr_master *master = to_swr_master(dev);
-
-	kfree(master);
+	/* kfree of master done at swrm_remove of device */
 }
 
 #define swr_master_attr_gr NULL

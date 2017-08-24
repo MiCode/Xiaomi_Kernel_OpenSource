@@ -128,6 +128,8 @@ static const struct snd_kcontrol_new name##_mux = \
 #define WCD934X_DIG_CORE_REG_MIN  WCD934X_CDC_ANC0_CLK_RESET_CTL
 #define WCD934X_DIG_CORE_REG_MAX  0xFFF
 
+#define WCD934X_CHILD_DEVICES_MAX	6
+
 #define WCD934X_MAX_MICBIAS 4
 #define DAPM_MICBIAS1_STANDALONE "MIC BIAS1 Standalone"
 #define DAPM_MICBIAS2_STANDALONE "MIC BIAS2 Standalone"
@@ -626,6 +628,11 @@ struct tavil_priv {
 	int power_active_ref;
 	int sidetone_coeff_array[IIR_MAX][BAND_MAX]
 		[WCD934X_CDC_SIDETONE_IIR_COEFF_MAX];
+
+	struct spi_device *spi;
+	struct platform_device *pdev_child_devices
+		[WCD934X_CHILD_DEVICES_MAX];
+	int child_count;
 };
 
 static const struct tavil_reg_mask_val tavil_spkr_default[] = {
@@ -5105,6 +5112,13 @@ static void tavil_restore_iir_coeff(struct tavil_priv *tavil, int iir_idx)
 	int band_idx = 0, coeff_idx = 0;
 	struct snd_soc_codec *codec = tavil->codec;
 
+	/*
+	 * snd_soc_write call crashes at rmmod if there is no machine
+	 * driver and hence no codec pointer available
+	 */
+	if (!codec)
+		return;
+
 	for (band_idx = 0; band_idx < BAND_MAX; band_idx++) {
 		snd_soc_write(codec,
 		(WCD934X_CDC_SIDETONE_IIR0_IIR_COEF_B1_CTL + 16 * iir_idx),
@@ -9397,6 +9411,9 @@ static int tavil_soc_codec_remove(struct snd_soc_codec *codec)
 
 	control = dev_get_drvdata(codec->dev->parent);
 	devm_kfree(codec->dev, control->rx_chs);
+	/* slimslave deinit in wcd core looks for this value */
+	control->num_rx_port = 0;
+	control->num_tx_port = 0;
 	control->rx_chs = NULL;
 	control->tx_chs = NULL;
 	tavil_cleanup_irqs(tavil);
@@ -9736,6 +9753,7 @@ static void tavil_codec_add_spi_device(struct tavil_priv *tavil,
 		goto err_dt_parse;
 	}
 
+	tavil->spi = spi;
 	/* Put the reference to SPI master */
 	put_device(&master->dev);
 
@@ -9782,6 +9800,7 @@ static void tavil_add_child_devices(struct work_struct *work)
 	}
 
 	platdata = &tavil->swr.plat_data;
+	tavil->child_count = 0;
 
 	for_each_child_of_node(wcd9xxx->dev->of_node, node) {
 
@@ -9849,6 +9868,10 @@ static void tavil_add_child_devices(struct work_struct *work)
 				__func__);
 			tavil->swr.ctrl_data = swr_ctrl_data;
 		}
+		if (tavil->child_count < WCD934X_CHILD_DEVICES_MAX)
+			tavil->pdev_child_devices[tavil->child_count++] = pdev;
+		else
+			goto err_mem;
 	}
 
 	return;
@@ -10076,10 +10099,23 @@ err_resmgr:
 static int tavil_remove(struct platform_device *pdev)
 {
 	struct tavil_priv *tavil;
+	int count = 0;
 
 	tavil = platform_get_drvdata(pdev);
 	if (!tavil)
 		return -EINVAL;
+
+	/* do dsd deinit before codec->component->regmap becomes freed */
+	if (tavil->dsd_config) {
+		tavil_dsd_deinit(tavil->dsd_config);
+		tavil->dsd_config = NULL;
+	}
+
+	if (tavil->spi)
+		spi_unregister_device(tavil->spi);
+	for (count = 0; count < tavil->child_count &&
+				count < WCD934X_CHILD_DEVICES_MAX; count++)
+		platform_device_unregister(tavil->pdev_child_devices[count]);
 
 	mutex_destroy(&tavil->micb_lock);
 	mutex_destroy(&tavil->svs_mutex);
@@ -10091,10 +10127,6 @@ static int tavil_remove(struct platform_device *pdev)
 	snd_soc_unregister_codec(&pdev->dev);
 	clk_put(tavil->wcd_ext_clk);
 	wcd_resmgr_remove(tavil->resmgr);
-	if (tavil->dsd_config) {
-		tavil_dsd_deinit(tavil->dsd_config);
-		tavil->dsd_config = NULL;
-	}
 	devm_kfree(&pdev->dev, tavil);
 	return 0;
 }

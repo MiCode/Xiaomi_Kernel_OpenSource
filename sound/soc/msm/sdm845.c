@@ -7149,6 +7149,7 @@ static int msm_asoc_machine_remove(struct platform_device *pdev)
 
 	msm_release_pinctrl(pdev);
 	snd_soc_unregister_card(card);
+	audio_notifier_deregister("sdm845");
 	return 0;
 }
 
