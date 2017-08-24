@@ -1836,7 +1836,8 @@ static void process_cmdobj_fault(struct kgsl_device *device,
 	 * because we won't see this cmdobj again
 	 */
 
-	if (fault & ADRENO_TIMEOUT_FAULT)
+	if ((fault & ADRENO_TIMEOUT_FAULT) ||
+				(fault & ADRENO_CTX_DETATCH_TIMEOUT_FAULT))
 		bitmap_zero(&cmdobj->fault_policy, BITS_PER_LONG);
 
 	/*
