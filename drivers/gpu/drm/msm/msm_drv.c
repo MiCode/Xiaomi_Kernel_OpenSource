@@ -185,9 +185,14 @@ static void vblank_ctrl_worker(struct kthread_work *work)
 	struct msm_kms *kms = priv->kms;
 	struct vblank_event *vbl_ev, *tmp;
 	unsigned long flags;
+	struct kthread_worker *worker = work->worker;
+	struct msm_drm_commit *commit = container_of(worker,
+						struct msm_drm_commit, worker);
 
 	spin_lock_irqsave(&vbl_ctrl->lock, flags);
 	list_for_each_entry_safe(vbl_ev, tmp, &vbl_ctrl->event_list, node) {
+		if (vbl_ev->crtc_id != commit->crtc_id)
+			continue;
 		list_del(&vbl_ev->node);
 		spin_unlock_irqrestore(&vbl_ctrl->lock, flags);
 
