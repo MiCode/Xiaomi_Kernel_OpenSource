@@ -12,8 +12,10 @@
 
 #include "dsi-panel-sim-video.dtsi"
 #include "dsi-panel-sim-cmd.dtsi"
+#include "dsi-panel-sim-dsc375-cmd.dtsi"
 #include "dsi-panel-sim-dualmipi-video.dtsi"
 #include "dsi-panel-sim-dualmipi-cmd.dtsi"
+#include "dsi-panel-sim-dualmipi-dsc375-cmd.dtsi"
 #include "dsi-panel-sharp-dsc-4k-video.dtsi"
 #include "dsi-panel-sharp-dsc-4k-cmd.dtsi"
 #include "dsi-panel-nt35597-truly-dualmipi-wqxga-video.dtsi"
@@ -363,6 +365,42 @@
 		qcom,dsi-panel = <&dsi_dual_sim_cmd>;
 	};
 
+	dsi_sim_dsc_375_cmd_display: qcom,dsi-display@12 {
+		compatible = "qcom,dsi-display";
+		label = "dsi_sim_dsc_375_cmd_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl = <&mdss_dsi0>;
+		qcom,dsi-phy = <&mdss_dsi_phy0>;
+		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
+			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
+		clock-names = "src_byte_clk", "src_pixel_clk";
+
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&sde_dsi_active &sde_te_active>;
+		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
+
+		qcom,dsi-panel = <&dsi_sim_dsc_375_cmd>;
+	};
+
+	dsi_dual_sim_dsc_375_cmd_display: qcom,dsi-display@13 {
+		compatible = "qcom,dsi-display";
+		label = "dsi_dual_sim_dsc_375_cmd_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
+		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
+		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
+			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
+		clock-names = "src_byte_clk", "src_pixel_clk";
+
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&sde_dsi_active &sde_te_active>;
+		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
+
+		qcom,dsi-panel = <&dsi_dual_sim_dsc_375_cmd>;
+	};
+
 	sde_wb: qcom,wb-display@0 {
 		compatible = "qcom,wb-display";
 		cell-index = <0>;
@@ -664,6 +702,46 @@
 			qcom,mdss-dsi-panel-phy-timings = [00 18 06 06 21 20 06
 				06 04 03 04 00];
 			qcom,display-topology = <2 0 2>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_sim_dsc_375_cmd {
+	qcom,mdss-dsi-t-clk-post = <0x0d>;
+	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+	qcom,mdss-dsi-display-timings {
+		timing@0 { /* 1080p */
+			qcom,mdss-dsi-panel-phy-timings = [00 1A 06 06 22 20 07
+				07 04 03 04 00];
+			qcom,display-topology = <1 1 1>;
+			qcom,default-topology-index = <0>;
+		};
+		timing@1 { /* qhd */
+			qcom,mdss-dsi-panel-phy-timings = [00 15 05 05 20 1f 05
+				05 03 03 04 00];
+			qcom,display-topology = <1 1 1>,
+						<2 2 1>, /* dsc merge */
+						<2 1 1>; /* 3d mux */
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_dual_sim_dsc_375_cmd {
+	qcom,mdss-dsi-t-clk-post = <0x0d>;
+	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+	qcom,mdss-dsi-display-timings {
+		timing@0 { /* qhd */
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 07 07 23 21 07
+				07 05 03 04 00];
+			qcom,display-topology = <2 2 2>;
+			qcom,default-topology-index = <0>;
+		};
+		timing@1 { /* 4k */
+			qcom,mdss-dsi-panel-phy-timings = [00 18 06 06 21 20 06
+				06 04 03 04 00];
+			qcom,display-topology = <2 2 2>;
 			qcom,default-topology-index = <0>;
 		};
 	};
