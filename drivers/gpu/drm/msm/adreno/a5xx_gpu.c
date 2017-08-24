@@ -15,6 +15,7 @@
 #include "msm_iommu.h"
 #include "msm_trace.h"
 #include "a5xx_gpu.h"
+#include <linux/clk/msm-clk.h>
 
 #define SECURE_VA_START 0xc0000000
 #define SECURE_VA_SIZE  SZ_256M
@@ -1169,6 +1170,17 @@ static int a5xx_pm_resume(struct msm_gpu *gpu)
 {
 	int ret;
 
+	/*
+	 * Between suspend/resumes the GPU clocks need to be turned off
+	 * but not a complete power down, typically between frames. Set the
+	 * memory retention flags on the GPU core clock to retain memory
+	 * across clock toggles.
+	 */
+	if (gpu->core_clk) {
+		clk_set_flags(gpu->core_clk, CLKFLAG_RETAIN_PERIPH);
+		clk_set_flags(gpu->core_clk, CLKFLAG_RETAIN_MEM);
+	}
+
 	/* Turn on the core power */
 	ret = msm_gpu_pm_resume(gpu);
 	if (ret)
@@ -1207,6 +1219,12 @@ static int a5xx_pm_resume(struct msm_gpu *gpu)
 static int a5xx_pm_suspend(struct msm_gpu *gpu)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+
+	/* Turn off the memory retention flag when not necessary */
+	if (gpu->core_clk) {
+		clk_set_flags(gpu->core_clk, CLKFLAG_NORETAIN_PERIPH);
+		clk_set_flags(gpu->core_clk, CLKFLAG_NORETAIN_MEM);
+	}
 
 	/* Only do this next bit if we are about to go down */
 	if (gpu->active_cnt == 1) {
