@@ -20,8 +20,9 @@
 		reg-cam-base = <0x65000>;
 		interrupts = <0 477 0>;
 		interrupt-names = "csiphy";
-		regulator-names = "gdscr";
+		regulator-names = "gdscr", "refgen";
 		gdscr-supply = <&titan_top_gdsc>;
+		refgen-supply = <&refgen>;
 		csi-vdd-voltage = <1200000>;
 		mipi-csi-vdd-supply = <&pm8998_l26>;
 		mipi-dsi-vdd-supply = <&pm8998_l1>;
@@ -55,8 +56,9 @@
 		reg-cam-base = <0x66000>;
 		interrupts = <0 478 0>;
 		interrupt-names = "csiphy";
-		regulator-names = "gdscr";
+		regulator-names = "gdscr", "refgen";
 		gdscr-supply = <&titan_top_gdsc>;
+		refgen-supply = <&refgen>;
 		csi-vdd-voltage = <1200000>;
 		mipi-csi-vdd-supply = <&pm8998_l26>;
 		mipi-dsi-vdd-supply = <&pm8998_l1>;
@@ -91,8 +93,9 @@
 		reg-cam-base = <0x67000>;
 		interrupts = <0 479 0>;
 		interrupt-names = "csiphy";
-		regulator-names = "gdscr";
+		regulator-names = "gdscr", "refgen";
 		gdscr-supply = <&titan_top_gdsc>;
+		refgen-supply = <&refgen>;
 		csi-vdd-voltage = <1200000>;
 		mipi-csi-vdd-supply = <&pm8998_l26>;
 		mipi-dsi-vdd-supply = <&pm8998_l1>;
@@ -126,8 +129,9 @@
 		reg-cam-base = <0x68000>;
 		interrupts = <0 448 0>;
 		interrupt-names = "csiphy";
-		regulator-names = "gdscr";
+		regulator-names = "gdscr", "refgen";
 		gdscr-supply = <&titan_top_gdsc>;
+		refgen-supply = <&refgen>;
 		csi-vdd-voltage = <1200000>;
 		mipi-csi-vdd-supply = <&pm8998_l26>;
 		mipi-dsi-vdd-supply = <&pm8998_l1>;
