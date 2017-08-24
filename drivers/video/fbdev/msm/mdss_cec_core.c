@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -681,7 +681,7 @@ static ssize_t cec_wta_msg(struct device *dev,
 	}
 	spin_unlock_irqrestore(&ctl->lock, flags);
 
-	if (msg->frame_size > MAX_OPERAND_SIZE) {
+	if (msg->frame_size > MAX_CEC_FRAME_SIZE) {
 		pr_err("msg frame too big!\n");
 		ret = -EINVAL;
 		goto end;
