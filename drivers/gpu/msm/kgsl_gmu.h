@@ -194,6 +194,7 @@ enum gpu_idle_level {
  * @pcl: GPU BW scaling client
  * @ccl: CNOC BW scaling client
  * @idle_level: Minimal GPU idle power level
+ * @fault_count: GMU fault count
  */
 struct gmu_device {
 	unsigned int ver;
@@ -228,6 +229,7 @@ struct gmu_device {
 	unsigned int pcl;
 	unsigned int ccl;
 	unsigned int idle_level;
+	unsigned int fault_count;
 };
 
 bool kgsl_gmu_isenabled(struct kgsl_device *device);
