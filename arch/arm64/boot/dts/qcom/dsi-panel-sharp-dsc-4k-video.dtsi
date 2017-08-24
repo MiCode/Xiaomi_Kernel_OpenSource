@@ -27,7 +27,7 @@
 		qcom,mdss-dsi-lane-3-state;
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";
 		qcom,mdss-dsi-mdp-trigger = "none";
-		qcom,mdss-dsi-reset-sequence = <1 100>, <0 100>, <1 100>;
+		qcom,mdss-dsi-reset-sequence = <1 200>, <0 200>, <1 200>;
 		qcom,mdss-pan-physical-width-dimension = <71>;
 		qcom,mdss-pan-physical-height-dimension = <129>;
 		qcom,mdss-dsi-tx-eot-append;
