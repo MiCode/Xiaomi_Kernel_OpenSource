@@ -295,6 +295,13 @@
 
 	soc: soc { };
 
+	vendor: vendor {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0 0 0 0xffffffff>;
+		compatible = "simple-bus";
+	};
+
 	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
