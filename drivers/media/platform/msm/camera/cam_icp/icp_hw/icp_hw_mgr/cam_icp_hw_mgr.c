@@ -652,9 +652,7 @@ static int cam_icp_mgr_abort_handle(
 		return -ENOMEM;
 
 	abort_cmd.size =
-		sizeof(struct hfi_cmd_ipebps_async) +
-		sizeof(struct hfi_cmd_abort_destroy) -
-		sizeof(abort_cmd.payload.direct);
+		sizeof(struct hfi_cmd_ipebps_async);
 	abort_cmd.pkt_type = HFI_CMD_IPEBPS_ASYNC_COMMAND_DIRECT;
 	if (ctx_data->icp_dev_acquire_info->dev_type == CAM_ICP_RES_TYPE_BPS)
 		abort_cmd.opcode = HFI_IPEBPS_CMD_OPCODE_BPS_ABORT;
@@ -706,9 +704,7 @@ static int cam_icp_mgr_destroy_handle(
 		return -ENOMEM;
 
 	destroy_cmd.size =
-		sizeof(struct hfi_cmd_ipebps_async) +
-		sizeof(struct ipe_bps_destroy) -
-		sizeof(destroy_cmd.payload.direct);
+		sizeof(struct hfi_cmd_ipebps_async);
 	destroy_cmd.pkt_type = HFI_CMD_IPEBPS_ASYNC_COMMAND_DIRECT;
 	if (ctx_data->icp_dev_acquire_info->dev_type == CAM_ICP_RES_TYPE_BPS)
 		destroy_cmd.opcode = HFI_IPEBPS_CMD_OPCODE_BPS_DESTROY;
