@@ -184,7 +184,7 @@ EXPORT_SYMBOL(dev_base_lock);
 /* protects napi_hash addition/deletion and napi_gen_id */
 static DEFINE_SPINLOCK(napi_hash_lock);
 
-static unsigned int napi_gen_id;
+static unsigned int napi_gen_id = NR_CPUS;
 static DEFINE_HASHTABLE(napi_hash, 8);
 
 static seqcount_t devnet_rename_seq;
@@ -1248,8 +1248,9 @@ int dev_set_alias(struct net_device *dev, const char *alias, size_t len)
 	if (!new_ifalias)
 		return -ENOMEM;
 	dev->ifalias = new_ifalias;
+	memcpy(dev->ifalias, alias, len);
+	dev->ifalias[len] = 0;
 
-	strlcpy(dev->ifalias, alias, len+1);
 	return len;
 }
 
@@ -2551,9 +2552,10 @@ EXPORT_SYMBOL(skb_mac_gso_segment);
 static inline bool skb_needs_check(struct sk_buff *skb, bool tx_path)
 {
 	if (tx_path)
-		return skb->ip_summed != CHECKSUM_PARTIAL;
-	else
-		return skb->ip_summed == CHECKSUM_NONE;
+		return skb->ip_summed != CHECKSUM_PARTIAL &&
+		       skb->ip_summed != CHECKSUM_NONE;
+
+	return skb->ip_summed == CHECKSUM_NONE;
 }
 
 /**
@@ -2572,11 +2574,12 @@ static inline bool skb_needs_check(struct sk_buff *skb, bool tx_path)
 struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
 				  netdev_features_t features, bool tx_path)
 {
+	struct sk_buff *segs;
+
 	if (unlikely(skb_needs_check(skb, tx_path))) {
 		int err;
 
-		skb_warn_bad_offload(skb);
-
+		/* We're going to init ->check field in TCP or UDP header */
 		err = skb_cow_head(skb, 0);
 		if (err < 0)
 			return ERR_PTR(err);
@@ -2591,7 +2594,12 @@ struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
 	skb_reset_mac_header(skb);
 	skb_reset_mac_len(skb);
 
-	return skb_mac_gso_segment(skb, features);
+	segs = skb_mac_gso_segment(skb, features);
+
+	if (unlikely(skb_needs_check(skb, tx_path)))
+		skb_warn_bad_offload(skb);
+
+	return segs;
 }
 EXPORT_SYMBOL(__skb_gso_segment);
 
@@ -3055,7 +3063,9 @@ struct netdev_queue *netdev_pick_tx(struct net_device *dev,
 	int queue_index = 0;
 
 #ifdef CONFIG_XPS
-	if (skb->sender_cpu == 0)
+	u32 sender_cpu = skb->sender_cpu - 1;
+
+	if (sender_cpu >= (u32)NR_CPUS)
 		skb->sender_cpu = raw_smp_processor_id() + 1;
 #endif
 
@@ -4380,6 +4390,12 @@ struct packet_offload *gro_find_complete_by_type(__be16 type)
 }
 EXPORT_SYMBOL(gro_find_complete_by_type);
 
+static void napi_skb_free_stolen_head(struct sk_buff *skb)
+{
+	skb_dst_drop(skb);
+	kmem_cache_free(skbuff_head_cache, skb);
+}
+
 static gro_result_t napi_skb_finish(gro_result_t ret, struct sk_buff *skb)
 {
 	switch (ret) {
@@ -4393,12 +4409,10 @@ static gro_result_t napi_skb_finish(gro_result_t ret, struct sk_buff *skb)
 		break;
 
 	case GRO_MERGED_FREE:
-		if (NAPI_GRO_CB(skb)->free == NAPI_GRO_FREE_STOLEN_HEAD) {
-			skb_dst_drop(skb);
-			kmem_cache_free(skbuff_head_cache, skb);
-		} else {
+		if (NAPI_GRO_CB(skb)->free == NAPI_GRO_FREE_STOLEN_HEAD)
+			napi_skb_free_stolen_head(skb);
+		else
 			__kfree_skb(skb);
-		}
 		break;
 
 	case GRO_HELD:
@@ -4464,8 +4478,14 @@ static gro_result_t napi_frags_finish(struct napi_struct *napi,
 		break;
 
 	case GRO_DROP:
-	case GRO_MERGED_FREE:
 		napi_reuse_skb(napi, skb);
+		break;
+
+	case GRO_MERGED_FREE:
+		if (NAPI_GRO_CB(skb)->free == NAPI_GRO_FREE_STOLEN_HEAD)
+			napi_skb_free_stolen_head(skb);
+		else
+			napi_reuse_skb(napi, skb);
 		break;
 
 	case GRO_MERGED:
@@ -4552,6 +4572,24 @@ __sum16 __skb_gro_checksum_complete(struct sk_buff *skb)
 }
 EXPORT_SYMBOL(__skb_gro_checksum_complete);
 
+static void net_rps_send_ipi(struct softnet_data *remsd)
+{
+#ifdef CONFIG_RPS
+	while (remsd) {
+		struct softnet_data *next = remsd->rps_ipi_next;
+
+		if (cpu_online(remsd->cpu)) {
+			smp_call_function_single_async(remsd->cpu, &remsd->csd);
+		} else {
+			rps_lock(remsd);
+			remsd->backlog.state = 0;
+			rps_unlock(remsd);
+		}
+		remsd = next;
+	}
+#endif
+}
+
 /*
  * net_rps_action_and_irq_enable sends any pending IPI's for rps.
  * Note: called with local irq disabled, but exits with local irq enabled.
@@ -4567,20 +4605,7 @@ static void net_rps_action_and_irq_enable(struct softnet_data *sd)
 		local_irq_enable();
 
 		/* Send pending IPI's to kick RPS processing on remote cpus. */
-		while (remsd) {
-			struct softnet_data *next = remsd->rps_ipi_next;
-
-			if (cpu_online(remsd->cpu)) {
-				smp_call_function_single_async(remsd->cpu,
-							   &remsd->csd);
-			} else {
-				pr_err("%s() cpu offline\n", __func__);
-				rps_lock(remsd);
-				remsd->backlog.state = 0;
-				rps_unlock(remsd);
-			}
-			remsd = next;
-		}
+		net_rps_send_ipi(remsd);
 	} else
 #endif
 		local_irq_enable();
@@ -4745,25 +4770,22 @@ EXPORT_SYMBOL_GPL(napi_by_id);
 
 void napi_hash_add(struct napi_struct *napi)
 {
-	if (!test_and_set_bit(NAPI_STATE_HASHED, &napi->state)) {
+	if (test_and_set_bit(NAPI_STATE_HASHED, &napi->state))
+		return;
 
-		spin_lock(&napi_hash_lock);
+	spin_lock(&napi_hash_lock);
 
-		/* 0 is not a valid id, we also skip an id that is taken
-		 * we expect both events to be extremely rare
-		 */
-		napi->napi_id = 0;
-		while (!napi->napi_id) {
-			napi->napi_id = ++napi_gen_id;
-			if (napi_by_id(napi->napi_id))
-				napi->napi_id = 0;
-		}
+	/* 0..NR_CPUS+1 range is reserved for sender_cpu use */
+	do {
+		if (unlikely(++napi_gen_id < NR_CPUS + 1))
+			napi_gen_id = NR_CPUS + 1;
+	} while (napi_by_id(napi_gen_id));
+	napi->napi_id = napi_gen_id;
 
-		hlist_add_head_rcu(&napi->napi_hash_node,
-			&napi_hash[napi->napi_id % HASH_SIZE(napi_hash)]);
+	hlist_add_head_rcu(&napi->napi_hash_node,
+			   &napi_hash[napi->napi_id % HASH_SIZE(napi_hash)]);
 
-		spin_unlock(&napi_hash_lock);
-	}
+	spin_unlock(&napi_hash_lock);
 }
 EXPORT_SYMBOL_GPL(napi_hash_add);
 
@@ -7083,8 +7105,8 @@ struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev,
 	} else {
 		netdev_stats_to_stats64(storage, &dev->stats);
 	}
-	storage->rx_dropped += atomic_long_read(&dev->rx_dropped);
-	storage->tx_dropped += atomic_long_read(&dev->tx_dropped);
+	storage->rx_dropped += (unsigned long)atomic_long_read(&dev->rx_dropped);
+	storage->tx_dropped += (unsigned long)atomic_long_read(&dev->tx_dropped);
 	return storage;
 }
 EXPORT_SYMBOL(dev_get_stats);
@@ -7495,7 +7517,7 @@ static int dev_cpu_callback(struct notifier_block *nfb,
 	struct sk_buff **list_skb;
 	struct sk_buff *skb;
 	unsigned int cpu, oldcpu = (unsigned long)ocpu;
-	struct softnet_data *sd, *oldsd;
+	struct softnet_data *sd, *oldsd, *remsd;
 
 	if (action != CPU_DEAD && action != CPU_DEAD_FROZEN)
 		return NOTIFY_OK;
@@ -7538,6 +7560,13 @@ static int dev_cpu_callback(struct notifier_block *nfb,
 
 	raise_softirq_irqoff(NET_TX_SOFTIRQ);
 	local_irq_enable();
+
+#ifdef CONFIG_RPS
+	remsd = oldsd->rps_ipi_list;
+	oldsd->rps_ipi_list = NULL;
+#endif
+	/* send out pending IPI's on offline CPU */
+	net_rps_send_ipi(remsd);
 
 	/* Process offline CPU's input_pkt_queue */
 	while ((skb = __skb_dequeue(&oldsd->process_queue))) {

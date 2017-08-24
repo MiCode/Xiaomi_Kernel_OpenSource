@@ -776,40 +776,6 @@ void msm_isp_check_for_output_error(struct vfe_device *vfe_dev,
 	}
 }
 
-static int msm_isp_check_sync_time(struct msm_vfe_src_info *src_info,
-			struct msm_isp_timestamp *ts,
-			struct master_slave_resource_info *ms_res)
-{
-	int i;
-	struct msm_vfe_src_info *master_src_info = NULL;
-	uint32_t master_time = 0, current_time;
-
-	if (!ms_res->src_sof_mask)
-		return 0;
-
-	for (i = 0; i < MAX_VFE * VFE_SRC_MAX; i++) {
-		if (ms_res->src_info[i] == NULL)
-			continue;
-		if (src_info == ms_res->src_info[i] ||
-			ms_res->src_info[i]->active == 0)
-			continue;
-		if (ms_res->src_sof_mask &
-			(1 << ms_res->src_info[i]->dual_hw_ms_info.index)) {
-			master_src_info = ms_res->src_info[i];
-			break;
-		}
-	}
-	if (!master_src_info)
-		return 0;
-	master_time = master_src_info->
-		dual_hw_ms_info.sof_info.mono_timestamp_ms;
-	current_time = ts->buf_time.tv_sec * 1000 +
-		ts->buf_time.tv_usec / 1000;
-	if ((current_time - master_time) > ms_res->sof_delta_threshold)
-		return 1;
-	return 0;
-}
-
 static void msm_isp_sync_dual_cam_frame_id(
 		struct vfe_device *vfe_dev,
 		struct master_slave_resource_info *ms_res,
@@ -824,24 +790,11 @@ static void msm_isp_sync_dual_cam_frame_id(
 
 	if (src_info->dual_hw_ms_info.sync_state ==
 		ms_res->dual_sync_mode) {
-		if (msm_isp_check_sync_time(src_info, ts, ms_res) == 0) {
-			(frame_src == VFE_PIX_0) ? src_info->frame_id +=
+		(frame_src == VFE_PIX_0) ? src_info->frame_id +=
 				vfe_dev->axi_data.src_info[frame_src].
 				sof_counter_step :
 			src_info->frame_id++;
-			return;
-		}
-		ms_res->src_sof_mask = 0;
-		ms_res->active_src_mask = 0;
-		for (i = 0; i < MAX_VFE * VFE_SRC_MAX; i++) {
-			if (ms_res->src_info[i] == NULL)
-				continue;
-			if (ms_res->src_info[i]->active == 0)
-				continue;
-			ms_res->src_info[i]->dual_hw_ms_info.
-				sync_state =
-				MSM_ISP_DUAL_CAM_ASYNC;
-		}
+		return;
 	}
 
 	/* find highest frame id */
@@ -1699,6 +1652,9 @@ static int msm_isp_update_deliver_count(struct vfe_device *vfe_dev,
 		rc = -EINVAL;
 		goto done;
 	} else {
+		/*After wm reload, we get bufdone for ping buffer*/
+		if (stream_info->sw_ping_pong_bit == -1)
+			stream_info->sw_ping_pong_bit = 0;
 		stream_info->undelivered_request_cnt--;
 		if (pingpong_bit != stream_info->sw_ping_pong_bit) {
 			pr_err("%s:%d ping pong bit actual %d sw %d\n",
@@ -2296,6 +2252,8 @@ static void msm_isp_input_disable(struct vfe_device *vfe_dev, int cmd_type)
 			ms_res->src_info[src_info->dual_hw_ms_info.index] =
 				NULL;
 			ms_res->num_src--;
+			if (ms_res->num_src == 0)
+				ms_res->dual_sync_mode = MSM_ISP_DUAL_CAM_ASYNC;
 			src_info->dual_hw_ms_info.sync_state =
 						MSM_ISP_DUAL_CAM_ASYNC;
 			src_info->dual_hw_type = DUAL_NONE;
@@ -2498,7 +2456,8 @@ int msm_isp_ab_ib_update_lpm_mode(struct vfe_device *vfe_dev, void *arg)
 			intf = SRC_TO_INTF(stream_info->stream_src);
 			vfe_dev->axi_data.src_info[intf].lpm =
 				ab_ib_vote->lpm_mode;
-			if (stream_info->lpm_mode) {
+			if (stream_info->lpm_mode ||
+				stream_info->state == INACTIVE) {
 				spin_unlock_irqrestore(&stream_info->lock,
 							flags);
 				continue;
@@ -2518,7 +2477,8 @@ int msm_isp_ab_ib_update_lpm_mode(struct vfe_device *vfe_dev, void *arg)
 			intf = SRC_TO_INTF(stream_info->stream_src);
 			vfe_dev->axi_data.src_info[intf].lpm =
 				ab_ib_vote->lpm_mode;
-			if (stream_info->lpm_mode == 0) {
+			if (stream_info->lpm_mode == 0 ||
+				stream_info->state == INACTIVE) {
 				spin_unlock_irqrestore(&stream_info->lock,
 							flags);
 				continue;
@@ -2609,6 +2569,7 @@ int msm_isp_axi_reset(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 	uint32_t bufq_handle = 0, bufq_id = 0;
 	struct msm_isp_timestamp timestamp;
+	struct msm_vfe_frame_request_queue *queue_req;
 	unsigned long flags;
 	int vfe_idx;
 
@@ -2645,8 +2606,18 @@ int msm_isp_axi_reset(struct vfe_device *vfe_dev,
 					VFE_PING_FLAG);
 		msm_isp_cfg_stream_scratch(stream_info,
 					VFE_PONG_FLAG);
+		stream_info->undelivered_request_cnt = 0;
 		spin_unlock_irqrestore(&stream_info->lock,
 					flags);
+		while (!list_empty(&stream_info->request_q)) {
+			queue_req = list_first_entry_or_null(
+				&stream_info->request_q,
+				struct msm_vfe_frame_request_queue, list);
+			if (queue_req) {
+				queue_req->cmd_used = 0;
+				list_del(&queue_req->list);
+			}
+		}
 		for (bufq_id = 0; bufq_id < VFE_BUF_QUEUE_MAX;
 			bufq_id++) {
 			bufq_handle = stream_info->bufq_handle[bufq_id];
@@ -3439,7 +3410,7 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	}
 	if ((vfe_dev->axi_data.src_info[frame_src].active && (frame_id !=
 		vfe_dev->axi_data.src_info[frame_src].frame_id + vfe_dev->
-		axi_data.src_info[VFE_PIX_0].sof_counter_step)) ||
+		axi_data.src_info[frame_src].sof_counter_step)) ||
 		((!vfe_dev->axi_data.src_info[frame_src].active))) {
 		pr_debug("%s:%d invalid frame id %d cur frame id %d pix %d\n",
 			__func__, __LINE__, frame_id,
@@ -3475,7 +3446,14 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 
 	spin_lock_irqsave(&stream_info->lock, flags);
 	vfe_idx = msm_isp_get_vfe_idx_for_stream(vfe_dev, stream_info);
-	if (stream_info->undelivered_request_cnt == 1) {
+	/*
+	* When wm reloaded, pingpong status register would be stale, pingpong
+	* status would be updated only after AXI_DONE interrupt processed.
+	* So, we should avoid reading value from pingpong status register
+	* until buf_done happens for ping buffer.
+	*/
+	if ((stream_info->undelivered_request_cnt == 1) &&
+		(stream_info->sw_ping_pong_bit != -1)) {
 		pingpong_status =
 			vfe_dev->hw_info->vfe_ops.axi_ops.get_pingpong_status(
 				vfe_dev);
@@ -3548,10 +3526,25 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 				stream_info->vfe_dev[k]->vfe_base, wm_mask);
 
 		}
-		stream_info->sw_ping_pong_bit = 0;
+		/*
+		* sw_ping_pong_bit is updated only when AXI_DONE.
+		* so now reset this bit to -1.
+		*/
+		stream_info->sw_ping_pong_bit = -1;
 	} else if (stream_info->undelivered_request_cnt == 2) {
-		rc = msm_isp_cfg_ping_pong_address(
-				stream_info, pingpong_status);
+		if (stream_info->sw_ping_pong_bit == -1) {
+			/*
+			* This means wm is reloaded & ping buffer is
+			* already configured. And AXI_DONE for ping
+			* is still pending. So, config pong buffer
+			* now.
+			*/
+			rc = msm_isp_cfg_ping_pong_address(stream_info,
+				VFE_PONG_FLAG);
+		} else {
+			rc = msm_isp_cfg_ping_pong_address(
+					stream_info, pingpong_status);
+		}
 		if (rc) {
 			stream_info->undelivered_request_cnt--;
 			spin_unlock_irqrestore(&stream_info->lock,

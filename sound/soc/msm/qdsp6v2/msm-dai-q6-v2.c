@@ -3586,6 +3586,9 @@ static int msm_dai_q6_dai_mi2s_probe(struct snd_soc_dai *dai)
 			ctrl = &mi2s_config_controls[11];
 	}
 
+	if (dai->id == MSM_QUAT_MI2S)
+		ctrl = &mi2s_config_controls[8];
+
 	if (ctrl) {
 		rc = snd_ctl_add(dai->component->card->snd_card,
 				snd_ctl_new1(ctrl,
@@ -4149,7 +4152,8 @@ static struct snd_soc_dai_driver msm_dai_q6_mi2s_dai[] = {
 			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
 				 SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
 				 SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
-				 SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				 SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_88200 |
+				 SNDRV_PCM_RATE_96000 | SNDRV_PCM_RATE_176400 |
 				 SNDRV_PCM_RATE_192000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE,
 			.rate_min =     8000,
@@ -5143,6 +5147,27 @@ static int msm_dai_tdm_q6_probe(struct platform_device *pdev)
 	}
 	dev_dbg(&pdev->dev, "%s: Clk Rate from DT file %d\n",
 		__func__, tdm_clk_set.clk_freq_in_hz);
+
+	/* initialize static tdm clk attribute to default value */
+	tdm_clk_set.clk_attri = Q6AFE_LPASS_CLK_ATTRIBUTE_INVERT_COUPLE_NO;
+
+	/* extract tdm clk attribute into static */
+	if (of_find_property(pdev->dev.of_node,
+			"qcom,msm-cpudai-tdm-clk-attribute", NULL)) {
+		rc = of_property_read_u16(pdev->dev.of_node,
+			"qcom,msm-cpudai-tdm-clk-attribute",
+			&tdm_clk_set.clk_attri);
+		if (rc) {
+			dev_err(&pdev->dev, "%s: clk attribute from DT file %s\n",
+				__func__, "qcom,msm-cpudai-tdm-clk-attribute");
+			goto rtn;
+		}
+		dev_dbg(&pdev->dev, "%s: clk attribute from DT file %d\n",
+			__func__, tdm_clk_set.clk_attri);
+	} else {
+		dev_dbg(&pdev->dev, "%s: No optional clk attribute found\n",
+			__func__);
+	}
 
 	/* extract tdm clk src master/slave info into static */
 	rc = of_property_read_u32(pdev->dev.of_node,
@@ -6223,6 +6248,41 @@ static int msm_dai_q6_tdm_set_tdm_slot(struct snd_soc_dai *dai,
 	return rc;
 }
 
+static int msm_dai_q6_tdm_set_sysclk(struct snd_soc_dai *dai,
+				int clk_id, unsigned int freq, int dir)
+{
+	struct msm_dai_q6_tdm_dai_data *dai_data =
+		dev_get_drvdata(dai->dev);
+
+	switch (dai->id) {
+	case AFE_PORT_ID_PRIMARY_TDM_RX:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_1:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_2:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_3:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_4:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_5:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_6:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_7:
+	case AFE_PORT_ID_PRIMARY_TDM_TX:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_1:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_2:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_3:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_4:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_5:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_6:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_7:
+		dai_data->clk_set.clk_freq_in_hz = freq;
+		break;
+	default:
+		return 0;
+	}
+
+	dev_dbg(dai->dev, "%s: dai id = 0x%x group clk_freq %d\n",
+			__func__, dai->id, freq);
+	return 0;
+}
+
+
 static int msm_dai_q6_tdm_set_channel_map(struct snd_soc_dai *dai,
 				unsigned int tx_num, unsigned int *tx_slot,
 				unsigned int rx_num, unsigned int *rx_slot)
@@ -6650,6 +6710,7 @@ static struct snd_soc_dai_ops msm_dai_q6_tdm_ops = {
 	.hw_params        = msm_dai_q6_tdm_hw_params,
 	.set_tdm_slot     = msm_dai_q6_tdm_set_tdm_slot,
 	.set_channel_map  = msm_dai_q6_tdm_set_channel_map,
+	.set_sysclk       = msm_dai_q6_tdm_set_sysclk,
 	.shutdown         = msm_dai_q6_tdm_shutdown,
 };
 

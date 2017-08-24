@@ -272,7 +272,7 @@ static struct of_device_id msm_hs_match_table[] = {
 #define UARTDM_TX_BUF_SIZE UART_XMIT_SIZE
 #define UARTDM_RX_BUF_SIZE 512
 #define RETRY_TIMEOUT 5
-#define UARTDM_NR 256
+#define UARTDM_NR 4
 #define BAM_PIPE_MIN 0
 #define BAM_PIPE_MAX 11
 #define BUS_SCALING 1
@@ -2255,7 +2255,7 @@ void disable_wakeup_interrupt(struct msm_hs_port *msm_uport)
 		return;
 
 	if (msm_uport->wakeup.enabled) {
-		disable_irq_nosync(msm_uport->wakeup.irq);
+		disable_irq(msm_uport->wakeup.irq);
 		enable_irq(uport->irq);
 		spin_lock_irqsave(&uport->lock, flags);
 		msm_uport->wakeup.enabled = false;
@@ -2614,8 +2614,7 @@ static int msm_hs_startup(struct uart_port *uport)
 	msm_hs_resource_vote(msm_uport);
 
 	if (is_use_low_power_wakeup(msm_uport)) {
-		ret = request_threaded_irq(msm_uport->wakeup.irq, NULL,
-					msm_hs_wakeup_isr,
+		ret = request_irq(msm_uport->wakeup.irq, msm_hs_wakeup_isr,
 					IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
 					"msm_hs_wakeup", msm_uport);
 		if (unlikely(ret)) {

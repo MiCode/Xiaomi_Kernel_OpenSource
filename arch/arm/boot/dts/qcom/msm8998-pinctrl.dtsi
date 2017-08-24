@@ -993,6 +993,86 @@
 			};
 		};
 
+		cam_sensor_depth_default: cam_sensor_depth_default {
+			mux {
+				pins = "gpio28","gpio23","gpio7";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio28","gpio23","gpio7";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_depth_sleep: cam_sensor_depth_sleep {
+			mux {
+				pins = "gpio28","gpio23","gpio7";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio28","gpio23","gpio7";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_depth_v1_active: cam_sensor_depth_v1_active {
+			/* Depth VANA */
+			mux {
+				pins = "gpio24";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio24";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_depth_v1_sleep: cam_sensor_depth_v1_sleep {
+			mux {
+				pins = "gpio24";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio24";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_depth_v2_active: cam_sensor_depth_v2_active {
+			/* Depth CUSTOM2 */
+			mux {
+				pins = "gpio21";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio21";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_depth_v2_sleep: cam_sensor_depth_v2_sleep {
+			mux {
+				pins = "gpio21";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio21";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
 		cam_sensor_mclk0_active: cam_sensor_mclk0_active {
 			/* MCLK0 */
 			mux {

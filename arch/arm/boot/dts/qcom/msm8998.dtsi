@@ -2366,6 +2366,10 @@
 		hyplog-size-offset = <0x414>;    /* 0x066BFB34 */
 	};
 
+	qcom_msmhdcp: qcom,msm_hdcp {
+		compatible = "qcom,msm-hdcp";
+	};
+
 	qcom_crypto: qcrypto@1DE0000 {
 		compatible = "qcom,qcrypto";
 		reg = <0x1DE0000 0x20000>,
@@ -2671,7 +2675,7 @@
 					0x9ac 0x00 0x00
 					0x8a0 0x01 0x00
 					0x9e0 0x00 0x00
-					0x9dc 0x01 0x00
+					0x9dc 0x20 0x00
 					0x9a8 0x00 0x00
 					0x8a4 0x01 0x00
 					0x8a8 0x73 0x00
@@ -3059,8 +3063,8 @@
 	qcom,msm-core@780000 {
 		compatible = "qcom,apss-core-ea";
 		reg = <0x780000 0x1000>;
-		qcom,low-hyst-temp = <10>;
-		qcom,high-hyst-temp = <5>;
+		qcom,low-hyst-temp = <100>;
+		qcom,high-hyst-temp = <100>;
 		qcom,polling-interval = <50>;
 
 		ea0: ea0 {

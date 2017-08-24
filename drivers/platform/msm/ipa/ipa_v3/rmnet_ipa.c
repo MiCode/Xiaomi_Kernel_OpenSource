@@ -702,6 +702,11 @@ static int ipa3_wwan_add_ul_flt_rule_to_ipa(void)
 	/* send ipa_fltr_installed_notif_req_msg_v01 to Q6*/
 	req->source_pipe_index =
 		ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_PROD);
+	if (req->source_pipe_index == IPA_EP_NOT_ALLOCATED) {
+		IPAWANERR("ep mapping failed\n");
+		retval = -EFAULT;
+	}
+
 	req->install_status = QMI_RESULT_SUCCESS_V01;
 	req->rule_id_valid = 1;
 	req->rule_id_len = rmnet_ipa3_ctx->num_q6_rules;
@@ -1140,7 +1145,8 @@ send:
 		memset(&meta, 0, sizeof(meta));
 		meta.pkt_init_dst_ep_valid = true;
 		meta.pkt_init_dst_ep_remote = true;
-		meta.pkt_init_dst_ep = IPA_CLIENT_Q6_LAN_CONS;
+		meta.pkt_init_dst_ep =
+			ipa3_get_ep_mapping(IPA_CLIENT_Q6_WAN_CONS);
 		ret = ipa3_tx_dp(IPA_CLIENT_APPS_WAN_PROD, skb, &meta);
 	} else {
 		ret = ipa3_tx_dp(IPA_CLIENT_APPS_WAN_PROD, skb, NULL);
@@ -1946,7 +1952,9 @@ void ipa3_q6_deinitialize_rm(void)
 	if (ret < 0)
 		IPAWANERR("Error deleting resource %d, ret=%d\n",
 			IPA_RM_RESOURCE_Q6_PROD, ret);
-	destroy_workqueue(rmnet_ipa3_ctx->rm_q6_wq);
+
+	if (rmnet_ipa3_ctx->rm_q6_wq)
+		destroy_workqueue(rmnet_ipa3_ctx->rm_q6_wq);
 }
 
 static void ipa3_wake_tx_queue(struct work_struct *work)
@@ -2286,7 +2294,10 @@ timer_init_err:
 		IPAWANERR("Error deleting resource %d, ret=%d\n",
 		IPA_RM_RESOURCE_WWAN_0_PROD, ret);
 create_rsrc_err:
-	ipa3_q6_deinitialize_rm();
+
+	if (!atomic_read(&rmnet_ipa3_ctx->is_ssr))
+		ipa3_q6_deinitialize_rm();
+
 q6_init_err:
 	free_netdev(dev);
 	rmnet_ipa3_ctx->wwan_priv = NULL;
@@ -2745,6 +2756,9 @@ static int rmnet_ipa3_set_data_quota_modem(
 	if (!data->set_quota)
 		ipa3_qmi_stop_data_qouta();
 
+	/* prevent string buffer overflows */
+	data->interface_name[IFNAMSIZ-1] = '\0';
+
 	index = find_vchannel_name_index(data->interface_name);
 	IPAWANERR("iface name %s, quota %lu\n",
 		  data->interface_name,
@@ -2982,6 +2996,10 @@ static int rmnet_ipa3_query_tethering_stats_modem(
 		kfree(req);
 		kfree(resp);
 		return rc;
+	} else if (data == NULL) {
+		kfree(req);
+		kfree(resp);
+		return 0;
 	}
 
 	if (resp->dl_dst_pipe_stats_list_valid) {
@@ -3165,7 +3183,10 @@ int rmnet_ipa3_query_tethering_stats_all(
 int rmnet_ipa3_reset_tethering_stats(struct wan_ioctl_reset_tether_stats *data)
 {
 	enum ipa_upstream_type upstream_type;
+	struct wan_ioctl_query_tether_stats tether_stats;
 	int rc = 0;
+
+	memset(&tether_stats, 0, sizeof(struct wan_ioctl_query_tether_stats));
 
 	/* get IPA backhaul type */
 	upstream_type = find_upstream_type(data->upstreamIface);
@@ -3184,7 +3205,7 @@ int rmnet_ipa3_reset_tethering_stats(struct wan_ioctl_reset_tether_stats *data)
 	} else {
 		IPAWANERR(" reset modem-backhaul stats\n");
 		rc = rmnet_ipa3_query_tethering_stats_modem(
-			NULL, true);
+			&tether_stats, true);
 		if (rc) {
 			IPAWANERR("reset MODEM stats failed\n");
 			return rc;

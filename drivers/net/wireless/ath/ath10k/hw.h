@@ -984,4 +984,37 @@ struct ath10k_shadow_reg_address {
 extern struct ath10k_shadow_reg_value wcn3990_shadow_reg_value;
 extern struct ath10k_shadow_reg_address wcn3990_shadow_reg_address;
 
+#define ATH10K_PKTLOG_HDR_SIZE_16      0x8000
+
+enum {
+	ATH10k_PKTLOG_FLG_FRM_TYPE_LOCAL_S = 0,
+	ATH10K_PKTLOG_FLG_FRM_TYPE_REMOTE_S,
+	ATH10K_PKTLOG_FLG_FRM_TYPE_CLONE_S,
+	ATH10K_PKTLOG_FLG_FRM_TYPE_CBF_S,
+	ATH10K_PKTLOG_FLG_FRM_TYPE_UNKNOWN_S
+};
+
+enum ath10k_pktlog_type {
+	ATH10K_PKTLOG_TYPE_TX_CTRL = 1,
+	ATH10K_PKTLOG_TYPE_TX_STAT,
+	ATH10K_PKTLOG_TYPE_TX_MSDU_ID,
+	ATH10K_PKTLOG_TYPE_TX_FRM_HDR,
+	ATH10K_PKTLOG_TYPE_RX_STAT,
+	ATH10K_PKTLOG_TYPE_RC_FIND,
+	ATH10K_PKTLOG_TYPE_RC_UPDATE,
+	ATH10K_PKTLOG_TYPE_TX_VIRT_ADDR,
+	ATH10K_PKTLOG_TYPE_DBG_PRINT,
+	ATH10K_PKTLOG_TYPE_SW_EVENT,
+	ATH10K_PKTLOG_TYPE_MAX,
+};
+
+struct ath10k_pktlog_hdr {
+	__le16 flags;
+	__le16 missed_cnt;
+	__le16 log_type;
+	__le16 size;
+	__le32 timestamp;
+	u8 payload[0];
+} __packed;
+
 #endif /* _HW_H_ */

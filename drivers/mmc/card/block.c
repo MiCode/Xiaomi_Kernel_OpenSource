@@ -1173,7 +1173,7 @@ idata_free:
 
 cmd_done:
 	mmc_blk_put(md);
-	if (card->cmdq_init)
+	if (card && card->cmdq_init)
 		wake_up(&card->host->cmdq_ctx.wait);
 	return err;
 }
@@ -1701,7 +1701,7 @@ static int mmc_blk_cmd_recovery(struct mmc_card *card, struct request *req,
 		mmc_retune_recheck(card->host);
 
 		prev_cmd_status_valid = false;
-		pr_err("%s: error %d sending status command, %sing\n",
+		pr_err_ratelimited("%s: error %d sending status command, %sing\n",
 		       req->rq_disk->disk_name, err, retry ? "retry" : "abort");
 	}
 
@@ -4623,6 +4623,10 @@ static int mmc_blk_probe(struct mmc_card *card)
 
 	dev_set_drvdata(&card->dev, md);
 
+#ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME
+	mmc_set_bus_resume_policy(card->host, 1);
+#endif
+
 	if (mmc_add_disk(md))
 		goto out;
 
@@ -4666,6 +4670,9 @@ static void mmc_blk_remove(struct mmc_card *card)
 	pm_runtime_put_noidle(&card->dev);
 	mmc_blk_remove_req(md);
 	dev_set_drvdata(&card->dev, NULL);
+#ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME
+	mmc_set_bus_resume_policy(card->host, 0);
+#endif
 }
 
 static int _mmc_blk_suspend(struct mmc_card *card, bool wait)

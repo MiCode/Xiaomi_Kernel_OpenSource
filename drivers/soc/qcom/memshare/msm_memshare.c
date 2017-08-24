@@ -968,8 +968,8 @@ static int memshare_child_probe(struct platform_device *pdev)
   /*
    *	Memshare allocation for guaranteed clients
    */
-	if (memblock[num_clients].guarantee) {
-		if (client_id == 1 && size > 0)
+	if (memblock[num_clients].guarantee && size > 0) {
+		if (client_id == 1)
 			size += MEMSHARE_GUARD_BYTES;
 		rc = memshare_alloc(memsh_child->dev,
 				size,
@@ -980,6 +980,7 @@ static int memshare_child_probe(struct platform_device *pdev)
 			return rc;
 		}
 		memblock[num_clients].alloted = 1;
+		shared_hyp_mapping(num_clients);
 	}
 
 	/*

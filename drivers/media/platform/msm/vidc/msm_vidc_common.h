@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,9 +41,13 @@ int msm_comm_try_set_prop(struct msm_vidc_inst *inst,
 	enum hal_property ptype, void *pdata);
 int msm_comm_try_get_prop(struct msm_vidc_inst *inst,
 	enum hal_property ptype, union hal_get_property *hprop);
-int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst);
+int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst,
+						bool max_int_buffer);
 int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst);
 int msm_comm_set_output_buffers(struct msm_vidc_inst *inst);
+int allocate_and_set_internal_bufs(struct msm_vidc_inst *inst,
+			struct hal_buffer_requirements *internal_bufreq,
+			struct msm_vidc_list *buf_list, bool set_on_fw);
 int msm_comm_queue_output_buffers(struct msm_vidc_inst *inst);
 int msm_comm_qbuf(struct msm_vidc_inst *inst, struct vb2_buffer *vb);
 void msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst);
@@ -76,7 +80,7 @@ struct msm_smem *msm_comm_smem_alloc(struct msm_vidc_inst *inst,
 			enum hal_buffer buffer_type, int map_kernel);
 void msm_comm_smem_free(struct msm_vidc_inst *inst, struct msm_smem *mem);
 int msm_comm_smem_cache_operations(struct msm_vidc_inst *inst,
-		struct msm_smem *mem, enum smem_cache_ops cache_ops);
+		struct msm_smem *mem, enum smem_cache_ops cache_ops, int size);
 struct msm_smem *msm_comm_smem_user_to_kernel(struct msm_vidc_inst *inst,
 			int fd, u32 offset, enum hal_buffer buffer_type);
 enum hal_video_codec get_hal_codec(int fourcc);
@@ -99,4 +103,5 @@ void msm_comm_cleanup_internal_buffers(struct msm_vidc_inst *inst);
 int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a);
 bool msm_comm_turbo_session(struct msm_vidc_inst *inst);
 void msm_comm_print_inst_info(struct msm_vidc_inst *inst);
+void msm_comm_sort_ctrl(void);
 #endif

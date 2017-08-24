@@ -1094,8 +1094,14 @@ static int dp_audio_info_setup(struct platform_device *pdev,
 	struct mdss_dp_drv_pdata *dp_ctrl = platform_get_drvdata(pdev);
 
 	if (!dp_ctrl || !params) {
-		DEV_ERR("%s: invalid input\n", __func__);
-		return -ENODEV;
+		pr_err("invalid input\n");
+		rc = -ENODEV;
+		goto end;
+	}
+
+	if (!dp_ctrl->power_on) {
+		pr_debug("DP is already power off\n");
+		goto end;
 	}
 
 	mdss_dp_audio_setup_sdps(&dp_ctrl->ctrl_io, params->num_of_channels);
@@ -1103,6 +1109,7 @@ static int dp_audio_info_setup(struct platform_device *pdev,
 	mdss_dp_set_safe_to_exit_level(&dp_ctrl->ctrl_io, dp_ctrl->lane_cnt);
 	mdss_dp_audio_enable(&dp_ctrl->ctrl_io, true);
 
+end:
 	return rc;
 } /* dp_audio_info_setup */
 
@@ -1131,6 +1138,11 @@ static void dp_audio_teardown_done(struct platform_device *pdev)
 
 	if (!dp) {
 		pr_err("invalid input\n");
+		return;
+	}
+
+	if (!dp->power_on) {
+		pr_err("DP is already power off\n");
 		return;
 	}
 
@@ -1455,7 +1467,7 @@ static void mdss_dp_configure_source_params(struct mdss_dp_drv_pdata *dp,
 	mdss_dp_config_misc(dp,
 		mdss_dp_bpp_to_test_bit_depth(mdss_dp_get_bpp(dp)),
 		mdss_dp_get_colorimetry_config(dp));
-	mdss_dp_sw_config_msa(&dp->ctrl_io, dp->link_rate, &dp->dp_cc_io);
+	mdss_dp_sw_config_msa(dp);
 	mdss_dp_timing_cfg(&dp->ctrl_io, &dp->panel_data.panel_info);
 }
 
@@ -1674,6 +1686,8 @@ exit:
 int mdss_dp_on(struct mdss_panel_data *pdata)
 {
 	struct mdss_dp_drv_pdata *dp_drv = NULL;
+	bool hpd;
+	int rc = 0;
 
 	if (!pdata) {
 		pr_err("Invalid input data\n");
@@ -1682,6 +1696,22 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 
 	dp_drv = container_of(pdata, struct mdss_dp_drv_pdata,
 			panel_data);
+
+	mutex_lock(&dp_drv->attention_lock);
+	hpd = dp_drv->cable_connected;
+	mutex_unlock(&dp_drv->attention_lock);
+
+	/* In case of device coming out of PM_SUSPEND, there can be
+	 * a corner case where the sink is turned off or the DP cable
+	 * is disconnected almost at the same time as userspace triggering
+	 * unblank. This can cause the UNBLANK call to be still triggered
+	 * before the disconnect event is notified to the userspace.
+	 * Avoid turning ON DP path in such cases.
+	 */
+	if (!hpd || !dp_drv->alt_mode.dp_status.hpd_high) {
+		pr_err("DP sink not connected\n");
+		return -EINVAL;
+	}
 
 	/*
 	 * If the link already active, then nothing needs to be done here.
@@ -1707,15 +1737,18 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 	 * init/deinit during unrelated resume/suspend events,
 	 * add host initialization call before DP power-on.
 	 */
-	if (!dp_drv->dp_initialized)
-		mdss_dp_host_init(pdata);
+	if (!dp_drv->dp_initialized) {
+		rc = mdss_dp_host_init(pdata);
+		if (rc < 0)
+			return rc;
+	}
 
 	return mdss_dp_on_hpd(dp_drv);
 }
 
 static bool mdss_dp_is_ds_bridge(struct mdss_dp_drv_pdata *dp)
 {
-	return dp->dpcd.downstream_port.dfp_present;
+	return dp->dpcd.downstream_port.dsp_present;
 }
 
 static bool mdss_dp_is_ds_bridge_sink_count_zero(struct mdss_dp_drv_pdata *dp)
@@ -1941,6 +1974,11 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 	}
 
 	dp_drv->orientation = usbpd_get_plug_orientation(dp_drv->pd);
+	if (dp_drv->orientation == ORIENTATION_NONE) {
+		pr_err("DP cable might be disconnected\n");
+		ret = -EINVAL;
+		goto orientation_error;
+	}
 
 	dp_drv->aux_sel_gpio_output = 0;
 	if (dp_drv->orientation == ORIENTATION_CC2)
@@ -1981,8 +2019,9 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 	return 0;
 
 clk_error:
-	mdss_dp_regulator_ctrl(dp_drv, false);
 	mdss_dp_config_gpios(dp_drv, false);
+orientation_error:
+	mdss_dp_regulator_ctrl(dp_drv, false);
 vreg_error:
 	return ret;
 }
@@ -2149,6 +2188,10 @@ static int mdss_dp_process_hpd_high(struct mdss_dp_drv_pdata *dp)
 	ret = mdss_dp_dpcd_cap_read(dp);
 	if (ret || !mdss_dp_aux_is_link_rate_valid(dp->dpcd.max_link_rate) ||
 		!mdss_dp_aux_is_lane_count_valid(dp->dpcd.max_lane_count)) {
+		if (ret == EDP_AUX_ERR_TOUT) {
+			pr_err("DPCD read timedout, skip connect notification\n");
+			goto end;
+		}
 		/*
 		 * If there is an error in parsing DPCD or if DPCD reports
 		 * unsupported link parameters then set the default link
@@ -3951,12 +3994,6 @@ static int mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
 {
 	int ret = 0;
 
-	/* In case of HPD_IRQ events without DP link being turned on such as
-	 * adb shell stop, skip handling hpd_irq event.
-	 */
-	if (!dp->dp_initialized)
-		goto exit;
-
 	pr_debug("start\n");
 
 	dp->hpd_irq_on = true;
@@ -4071,6 +4108,15 @@ static void mdss_dp_process_attention(struct mdss_dp_drv_pdata *dp_drv)
 {
 	if (dp_drv->alt_mode.dp_status.hpd_irq) {
 		pr_debug("Attention: hpd_irq high\n");
+
+		/* In case of HPD_IRQ events without DP link being
+		 * turned on such as adb shell stop, skip handling
+		 * hpd_irq event.
+		 */
+		if (!dp_drv->dp_initialized) {
+			pr_err("DP not initialized yet\n");
+			return;
+		}
 
 		if (dp_is_hdcp_enabled(dp_drv) && dp_drv->hdcp.ops->cp_irq) {
 			if (!dp_drv->hdcp.ops->cp_irq(dp_drv->hdcp.data))

@@ -1797,7 +1797,8 @@ static inline int mdss_mdp_irq_clk_register(struct mdss_data_type *mdata,
 
 static void __mdss_restore_sec_cfg(struct mdss_data_type *mdata)
 {
-	int ret, scm_ret = 0;
+	int ret;
+	u64 scm_ret = 0;
 
 	if (test_bit(MDSS_CAPS_SCM_RESTORE_NOT_REQUIRED, mdata->mdss_caps_map))
 		return;
@@ -1808,7 +1809,7 @@ static void __mdss_restore_sec_cfg(struct mdss_data_type *mdata)
 
 	ret = scm_restore_sec_cfg(SEC_DEVICE_MDSS, 0, &scm_ret);
 	if (ret || scm_ret)
-		pr_warn("scm_restore_sec_cfg failed %d %d\n",
+		pr_warn("scm_restore_sec_cfg failed %d %llu\n",
 				ret, scm_ret);
 
 	__mdss_mdp_reg_access_clk_enable(mdata, false);
@@ -2779,6 +2780,8 @@ ssize_t mdss_mdp_show_capabilities(struct device *dev,
 		SPRINT(" avr");
 	if (mdss_has_quirk(mdata, MDSS_QUIRK_HDR_SUPPORT_ENABLED))
 		SPRINT(" hdr");
+	if (mdata->nvig_pipes && mdata->mdp_rev >= MDSS_MDP_HW_REV_300)
+		SPRINT(" vig_csc_db"); /* double buffered VIG CSC block */
 	SPRINT("\n");
 #undef SPRINT
 
@@ -4526,6 +4529,15 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 	mdata->clk_factor.denom = 1;
 	mdss_mdp_parse_dt_fudge_factors(pdev, "qcom,mdss-clk-factor",
 		&mdata->clk_factor);
+
+	/*
+	 * Bus throughput factor will be used during high downscale cases.
+	 * The recommended default factor is 1.1.
+	 */
+	mdata->bus_throughput_factor.numer = 11;
+	mdata->bus_throughput_factor.denom = 10;
+	mdss_mdp_parse_dt_fudge_factors(pdev, "qcom,mdss-bus-througput-factor",
+		&mdata->bus_throughput_factor);
 
 	rc = of_property_read_u32(pdev->dev.of_node,
 			"qcom,max-bandwidth-low-kbps", &mdata->max_bw_low);

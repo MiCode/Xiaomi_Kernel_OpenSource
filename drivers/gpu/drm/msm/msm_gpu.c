@@ -18,7 +18,7 @@
 #include "msm_gpu.h"
 #include "msm_gem.h"
 #include "msm_mmu.h"
-
+#include "msm_trace.h"
 
 /*
  * Power Management:
@@ -274,18 +274,31 @@ static void inactive_start(struct msm_gpu *gpu)
 			round_jiffies_up(jiffies + DRM_MSM_INACTIVE_JIFFIES));
 }
 
+static void retire_guilty_submit(struct msm_gpu *gpu,
+		struct msm_ringbuffer *ring)
+{
+	struct msm_gem_submit *submit = list_first_entry_or_null(&ring->submits,
+		struct msm_gem_submit, node);
+
+	if (!submit)
+		return;
+
+	submit->queue->faults++;
+
+	msm_gem_submit_free(submit);
+}
+
 /*
  * Hangcheck detection for locked gpu:
  */
 
-static void retire_submits(struct msm_gpu *gpu, uint32_t fence);
+static void retire_submits(struct msm_gpu *gpu, struct msm_ringbuffer *ring,
+		uint32_t fence);
 
 static void recover_worker(struct work_struct *work)
 {
 	struct msm_gpu *gpu = container_of(work, struct msm_gpu, recover_work);
 	struct drm_device *dev = gpu->dev;
-
-	dev_err(dev->dev, "%s: hangcheck recover!\n", gpu->name);
 
 	mutex_lock(&dev->struct_mutex);
 	if (msm_gpu_active(gpu)) {
@@ -295,30 +308,21 @@ static void recover_worker(struct work_struct *work)
 
 		inactive_cancel(gpu);
 
-		FOR_EACH_RING(gpu, ring, i) {
-			uint32_t fence;
+		/* Retire all events that have already passed */
+		FOR_EACH_RING(gpu, ring, i)
+			retire_submits(gpu, ring, ring->memptrs->fence);
 
-			if (!ring)
-				continue;
-
-			fence = gpu->funcs->last_fence(gpu, ring);
-
-			/*
-			 * Retire the faulting command on the active ring and
-			 * make sure the other rings are cleaned up
-			 */
-			if (ring == gpu->funcs->active_ring(gpu))
-				retire_submits(gpu, fence + 1);
-			else
-				retire_submits(gpu, fence);
-		}
+		retire_guilty_submit(gpu, gpu->funcs->active_ring(gpu));
 
 		/* Recover the GPU */
 		gpu->funcs->recover(gpu);
 
-		/* replay the remaining submits for all rings: */
-		list_for_each_entry(submit, &gpu->submit_list, node) {
-			gpu->funcs->submit(gpu, submit);
+		/* Replay the remaining on all rings, highest priority first */
+		for (i = 0;  i < gpu->nr_rings; i++) {
+			struct msm_ringbuffer *ring = gpu->rb[i];
+
+			list_for_each_entry(submit, &ring->submits, node)
+				gpu->funcs->submit(gpu, submit);
 		}
 	}
 	mutex_unlock(&dev->struct_mutex);
@@ -339,15 +343,29 @@ static void hangcheck_handler(unsigned long data)
 	struct drm_device *dev = gpu->dev;
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_ringbuffer *ring = gpu->funcs->active_ring(gpu);
-	uint32_t fence = gpu->funcs->last_fence(gpu, ring);
+	uint32_t fence = ring->memptrs->fence;
 	uint32_t submitted = gpu->funcs->submitted_fence(gpu, ring);
 
-	if (fence != gpu->hangcheck_fence[ring->id]) {
+	if (fence != ring->hangcheck_fence) {
 		/* some progress has been made.. ya! */
-		gpu->hangcheck_fence[ring->id] = fence;
+		ring->hangcheck_fence = fence;
 	} else if (fence < submitted) {
-		/* no progress and not done.. hung! */
-		gpu->hangcheck_fence[ring->id] = fence;
+		struct msm_gem_submit *submit;
+
+		ring->hangcheck_fence = fence;
+
+		/*
+		 * No progress done, but see if the current submit is
+		 * intentionally skipping the hangcheck
+		 */
+		submit = list_first_entry_or_null(&ring->submits,
+			struct msm_gem_submit, node);
+
+		if (!submit || (submit->queue->flags &
+			MSM_SUBMITQUEUE_BYPASS_QOS_TIMEOUT))
+			goto out;
+
+		/* no progress and not done and not special .. hung! */
 		dev_err(dev->dev, "%s: hangcheck detected gpu lockup rb %d!\n",
 				gpu->name, ring->id);
 		dev_err(dev->dev, "%s:     completed fence: %u\n",
@@ -358,8 +376,9 @@ static void hangcheck_handler(unsigned long data)
 		queue_work(priv->wq, &gpu->recover_work);
 	}
 
+out:
 	/* if still more pending work, reset the hangcheck timer: */
-	if (submitted > gpu->hangcheck_fence[ring->id])
+	if (submitted > ring->hangcheck_fence)
 		hangcheck_timer_reset(gpu);
 
 	/* workaround for missing irq: */
@@ -465,23 +484,28 @@ out:
  * Cmdstream submission/retirement:
  */
 
-static void retire_submits(struct msm_gpu *gpu, uint32_t fence)
+static void retire_submits(struct msm_gpu *gpu, struct msm_ringbuffer *ring,
+		uint32_t fence)
 {
 	struct drm_device *dev = gpu->dev;
 	struct msm_gem_submit *submit, *tmp;
 
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
 
-	/*
-	 * Find and retire all the submits in the same ring that are older than
-	 * or equal to 'fence'
-	 */
+	list_for_each_entry_safe(submit, tmp, &ring->submits, node) {
+		struct msm_memptr_ticks *ticks;
 
-	list_for_each_entry_safe(submit, tmp, &gpu->submit_list, node) {
-		if (COMPARE_FENCE_LTE(submit->fence, fence)) {
-			list_del(&submit->node);
-			kfree(submit);
-		}
+		if (submit->fence > fence)
+			break;
+
+		ticks = &(ring->memptrs->ticks[submit->tick_index]);
+
+		/* Add memory barrier to ensure the timer ticks are posted */
+		rmb();
+
+		trace_msm_retired(submit, ticks->started, ticks->retired);
+
+		msm_gem_submit_free(submit);
 	}
 }
 
@@ -493,11 +517,12 @@ static bool _fence_signaled(struct msm_gem_object *obj, uint32_t fence)
 	return COMPARE_FENCE_LTE(obj->read_fence, fence);
 }
 
-static void _retire_ring(struct msm_gpu *gpu, uint32_t fence)
+static void _retire_ring(struct msm_gpu *gpu, struct msm_ringbuffer *ring,
+		uint32_t fence)
 {
 	struct msm_gem_object *obj, *tmp;
 
-	retire_submits(gpu, fence);
+	retire_submits(gpu, ring, fence);
 
 	list_for_each_entry_safe(obj, tmp, &gpu->active_list, mm_list) {
 		if (_fence_signaled(obj, fence)) {
@@ -516,16 +541,13 @@ static void retire_worker(struct work_struct *work)
 	int i;
 
 	FOR_EACH_RING(gpu, ring, i) {
-		uint32_t fence;
-
 		if (!ring)
 			continue;
 
-		fence = gpu->funcs->last_fence(gpu, ring);
-		msm_update_fence(gpu->dev, fence);
+		msm_update_fence(gpu->dev, ring->memptrs->fence);
 
 		mutex_lock(&dev->struct_mutex);
-		_retire_ring(gpu, fence);
+		_retire_ring(gpu, ring, ring->memptrs->fence);
 		mutex_unlock(&dev->struct_mutex);
 	}
 
@@ -545,21 +567,26 @@ void msm_gpu_retire(struct msm_gpu *gpu)
 int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 {
 	struct drm_device *dev = gpu->dev;
-	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_ringbuffer *ring = gpu->rb[submit->ring];
 	int i;
 
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
 
-	submit->fence = FENCE(submit->ring, ++priv->next_fence[submit->ring]);
+	submit->fence = FENCE(submit->ring, ++ring->seqno);
 
 	inactive_cancel(gpu);
 
-	list_add_tail(&submit->node, &gpu->submit_list);
+	list_add_tail(&submit->node, &ring->submits);
 
 	msm_rd_dump_submit(submit);
 
 	ring->submitted_fence = submit->fence;
+
+	submit->tick_index = ring->tick_index;
+	ring->tick_index = (ring->tick_index + 1) %
+		ARRAY_SIZE(ring->memptrs->ticks);
+
+	trace_msm_queued(submit);
 
 	update_sw_cntrs(gpu);
 
@@ -651,6 +678,9 @@ int msm_gpu_counter_put(struct msm_gpu *gpu, struct drm_msm_counter *data,
 	struct msm_file_private *ctx)
 {
 	struct msm_context_counter *entry;
+
+	if (!gpu || !ctx)
+		return -ENODEV;
 
 	list_for_each_entry(entry, &ctx->counters, node) {
 		if (entry->groupid == data->groupid &&
@@ -793,10 +823,30 @@ msm_gpu_create_address_space(struct msm_gpu *gpu, struct device *dev,
 			gpu->name, name, PTR_ERR(aspace));
 
 		iommu_domain_free(iommu);
-		aspace = NULL;
+		return NULL;
+	}
+
+	if (aspace->mmu) {
+		int ret = aspace->mmu->funcs->attach(aspace->mmu, NULL, 0);
+
+		if (ret) {
+			dev_err(gpu->dev->dev,
+				"%s: failed to atach IOMMU '%s': %d\n",
+				gpu->name, name, ret);
+			msm_gem_address_space_put(aspace);
+			aspace = ERR_PTR(ret);
+		}
 	}
 
 	return aspace;
+}
+
+static void msm_gpu_destroy_address_space(struct msm_gem_address_space *aspace)
+{
+	if (!IS_ERR_OR_NULL(aspace) && aspace->mmu)
+		aspace->mmu->funcs->detach(aspace->mmu);
+
+	msm_gem_address_space_put(aspace);
 }
 
 int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
@@ -804,6 +854,8 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		const char *name, struct msm_gpu_config *config)
 {
 	int i, ret, nr_rings;
+	void *memptrs;
+	uint64_t memptrs_iova;
 
 	if (WARN_ON(gpu->num_perfcntrs > ARRAY_SIZE(gpu->last_cntrs)))
 		gpu->num_perfcntrs = ARRAY_SIZE(gpu->last_cntrs);
@@ -811,14 +863,20 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	gpu->dev = drm;
 	gpu->funcs = funcs;
 	gpu->name = name;
-	gpu->inactive = true;
+	/*
+	 * Set the inactive flag to false, so that when the retire worker
+	 * kicks in from the init path, it knows that it has to turn off the
+	 * clocks. This should be fine to do since this is the init sequence
+	 * and we have an init_lock in msm_open() to protect against bad things
+	 * from happening.
+	 */
+	gpu->inactive = false;
 
 	INIT_LIST_HEAD(&gpu->active_list);
 	INIT_WORK(&gpu->retire_work, retire_worker);
 	INIT_WORK(&gpu->inactive_work, inactive_worker);
 	INIT_WORK(&gpu->recover_work, recover_worker);
 
-	INIT_LIST_HEAD(&gpu->submit_list);
 
 	setup_timer(&gpu->inactive_timer, inactive_handler,
 			(unsigned long)gpu);
@@ -846,6 +904,7 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	ret = devm_request_irq(&pdev->dev, gpu->irq, irq_handler,
 			IRQF_TRIGGER_HIGH, gpu->name, gpu);
 	if (ret) {
+		gpu->irq = ret;
 		dev_err(drm->dev, "failed to request IRQ%u: %d\n", gpu->irq, ret);
 		goto fail;
 	}
@@ -887,10 +946,18 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		nr_rings = ARRAY_SIZE(gpu->rb);
 	}
 
+	/* Allocate one buffer to hold all the memptr records for the rings */
+	memptrs = msm_gem_kernel_new(drm, sizeof(struct msm_memptrs) * nr_rings,
+		MSM_BO_UNCACHED, gpu->aspace, &gpu->memptrs_bo, &memptrs_iova);
+
+	if (IS_ERR(memptrs)) {
+		ret = PTR_ERR(memptrs);
+		goto fail;
+	}
+
 	/* Create ringbuffer(s): */
 	for (i = 0; i < nr_rings; i++) {
-
-		gpu->rb[i] = msm_ringbuffer_new(gpu, i);
+		gpu->rb[i] = msm_ringbuffer_new(gpu, i, memptrs, memptrs_iova);
 		if (IS_ERR(gpu->rb[i])) {
 			ret = PTR_ERR(gpu->rb[i]);
 			gpu->rb[i] = NULL;
@@ -898,6 +965,9 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 				"could not create ringbuffer %d: %d\n", i, ret);
 			goto fail;
 		}
+
+		memptrs += sizeof(struct msm_memptrs);
+		memptrs_iova += sizeof(struct msm_memptrs);
 	}
 
 	gpu->nr_rings = nr_rings;
@@ -919,10 +989,16 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	return 0;
 
 fail:
-	for (i = 0; i < ARRAY_SIZE(gpu->rb); i++) {
-		if (gpu->rb[i])
-			msm_ringbuffer_destroy(gpu->rb[i]);
+	for (i = 0; i < ARRAY_SIZE(gpu->rb); i++)
+		msm_ringbuffer_destroy(gpu->rb[i]);
+
+	if (gpu->memptrs_bo) {
+		msm_gem_put_iova(gpu->memptrs_bo, gpu->aspace);
+		drm_gem_object_unreference_unlocked(gpu->memptrs_bo);
 	}
+
+	msm_gpu_destroy_address_space(gpu->aspace);
+	msm_gpu_destroy_address_space(gpu->secure_aspace);
 
 	pm_runtime_disable(&pdev->dev);
 	return ret;
@@ -939,18 +1015,42 @@ void msm_gpu_cleanup(struct msm_gpu *gpu)
 
 	WARN_ON(!list_empty(&gpu->active_list));
 
+	if (gpu->irq >= 0) {
+		disable_irq(gpu->irq);
+		devm_free_irq(&pdev->dev, gpu->irq, gpu);
+	}
+
 	bs_fini(gpu);
 
-	for (i = 0; i < ARRAY_SIZE(gpu->rb); i++) {
-		if (!gpu->rb[i])
-			continue;
-
-		if (gpu->rb[i]->iova)
-			msm_gem_put_iova(gpu->rb[i]->bo, gpu->aspace);
-
+	for (i = 0; i < ARRAY_SIZE(gpu->rb); i++)
 		msm_ringbuffer_destroy(gpu->rb[i]);
+
+	if (gpu->memptrs_bo) {
+		msm_gem_put_iova(gpu->memptrs_bo, gpu->aspace);
+		drm_gem_object_unreference_unlocked(gpu->memptrs_bo);
 	}
 
 	msm_snapshot_destroy(gpu, gpu->snapshot);
 	pm_runtime_disable(&pdev->dev);
+
+	msm_gpu_destroy_address_space(gpu->aspace);
+	msm_gpu_destroy_address_space(gpu->secure_aspace);
+
+	if (gpu->gpu_reg)
+		devm_regulator_put(gpu->gpu_reg);
+
+	if (gpu->gpu_cx)
+		devm_regulator_put(gpu->gpu_cx);
+
+	if (gpu->ebi1_clk)
+		devm_clk_put(&pdev->dev, gpu->ebi1_clk);
+
+	for (i = gpu->nr_clocks - 1; i >= 0; i--)
+		if (gpu->grp_clks[i])
+			devm_clk_put(&pdev->dev, gpu->grp_clks[i]);
+
+	devm_kfree(&pdev->dev, gpu->grp_clks);
+
+	if (gpu->mmio)
+		devm_iounmap(&pdev->dev, gpu->mmio);
 }

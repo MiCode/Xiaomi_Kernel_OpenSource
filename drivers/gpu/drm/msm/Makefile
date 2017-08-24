@@ -13,6 +13,7 @@ msm_drm-y := \
 	hdmi/hdmi_connector.o \
 	hdmi/hdmi_hdcp.o \
 	hdmi/hdmi_i2c.o \
+	hdmi/hdmi_util.o \
 	hdmi/hdmi_phy_8960.o \
 	hdmi/hdmi_phy_8x60.o \
 	hdmi/hdmi_phy_8x74.o \
@@ -47,10 +48,12 @@ msm_drm-y := \
 	sde/sde_backlight.o \
 	sde/sde_color_processing.o \
 	sde/sde_vbif.o \
+	sde/sde_splash.o \
 	sde_dbg_evtlog.o \
 	sde_io_util.o \
 	dba_bridge.o \
-	sde_edid_parser.o
+	sde_edid_parser.o \
+	sde_hdcp_1x.o
 
 # use drm gpu driver only if qcom_kgsl driver not available
 ifneq ($(CONFIG_QCOM_KGSL),y)
@@ -101,9 +104,11 @@ msm_drm-$(CONFIG_DRM_MSM_DSI_STAGING) += dsi-staging/dsi_phy.o \
 				dsi-staging/dsi_display_test.o
 
 msm_drm-$(CONFIG_DRM_SDE_HDMI) += \
+	hdmi-staging/sde_hdmi_util.o \
 	hdmi-staging/sde_hdmi.o \
 	hdmi-staging/sde_hdmi_bridge.o \
 	hdmi-staging/sde_hdmi_audio.o \
+	hdmi-staging/sde_hdmi_hdcp2p2.o \
 
 msm_drm-$(CONFIG_DRM_MSM_DSI_PLL) += dsi/pll/dsi_pll.o \
 				dsi/pll/dsi_pll_28nm.o
@@ -144,6 +149,8 @@ msm_drm-$(CONFIG_DRM_MSM) += \
 	msm_rd.o \
 	msm_ringbuffer.o \
 	msm_prop.o \
-	msm_snapshot.o
+	msm_snapshot.o \
+	msm_submitqueue.o \
+	msm_trace_points.o
 
 obj-$(CONFIG_DRM_MSM)	+= msm_drm.o

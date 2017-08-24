@@ -365,7 +365,8 @@ struct ath10k_sta {
 #endif
 };
 
-#define ATH10K_VDEV_SETUP_TIMEOUT_HZ (5 * HZ)
+#define ATH10K_VDEV_SETUP_TIMEOUT_HZ	(5 * HZ)
+#define ATH10K_VDEV_DELETE_TIMEOUT_HZ	(5 * HZ)
 
 enum ath10k_beacon_state {
 	ATH10K_BEACON_SCHEDULED = 0,
@@ -466,6 +467,7 @@ struct ath10k_debug {
 	u64 fw_dbglog_mask;
 	u32 fw_dbglog_level;
 	u32 pktlog_filter;
+	enum ath10k_htc_ep_id eid;
 	u32 reg_addr;
 	u32 nf_cal_period;
 	void *cal_data;
@@ -853,6 +855,7 @@ struct ath10k {
 	struct completion install_key_done;
 
 	struct completion vdev_setup_done;
+	struct completion vdev_delete_done;
 
 	struct workqueue_struct *workqueue;
 	/* Auxiliary workqueue */
@@ -957,7 +960,9 @@ struct ath10k {
 
 	struct fw_flag *fw_flags;
 	/* set for bmi chip sets */
+	struct completion peer_delete_done;
 	bool is_bmi;
+	enum ieee80211_sta_state sta_state;
 	/* must be last */
 	u8 drv_priv[0] __aligned(sizeof(void *));
 };

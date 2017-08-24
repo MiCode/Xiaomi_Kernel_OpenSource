@@ -62,12 +62,63 @@ struct drm_msm_timespec {
 	__s64 tv_nsec;         /* nanoseconds */
 };
 
+/*
+ * HDR Metadata
+ * These are defined as per EDID spec and shall be used by the sink
+ * to set the HDR metadata for playback from userspace.
+ */
+
+#define HDR_PRIMARIES_COUNT   3
+
+struct drm_msm_ext_panel_hdr_metadata {
+	__u32 eotf;             /* electro optical transfer function */
+	__u32 hdr_supported;    /* HDR supported */
+	__u32 display_primaries_x[HDR_PRIMARIES_COUNT]; /* Primaries x */
+	__u32 display_primaries_y[HDR_PRIMARIES_COUNT]; /* Primaries y */
+	__u32 white_point_x;    /* white_point_x */
+	__u32 white_point_y;    /* white_point_y */
+	__u32 max_luminance;    /* Max luminance */
+	__u32 min_luminance;    /* Min Luminance */
+	__u32 max_content_light_level; /* max content light level */
+	__u32 max_average_light_level; /* max average light level */
+};
+
+/**
+ * HDR Control
+ * This encapsulates the HDR metadata as well as a state control
+ * for the HDR metadata as required by the HDMI spec to send the
+ * relevant metadata depending on the state of the HDR playback.
+ * hdr_state: Controls HDR state, takes values ENABLE(1)/DISABLE(0)
+ * hdr_meta: Metadata sent by the userspace for the HDR clip
+ */
+
+#define DRM_MSM_EXT_PANEL_HDR_CTRL
+struct drm_msm_ext_panel_hdr_ctrl {
+	__u8 hdr_state;                                 /* HDR state */
+	struct drm_msm_ext_panel_hdr_metadata hdr_meta; /* HDR metadata */
+};
+
+/**
+ * HDR sink properties
+ * These are defined as per EDID spec and shall be used by the userspace
+ * to determine the HDR properties to be set to the sink.
+ */
+struct drm_msm_ext_panel_hdr_properties {
+	__u8 hdr_metadata_type_one;   /* static metadata type one */
+	__u32 hdr_supported;          /* HDR supported */
+	__u32 hdr_eotf;               /* electro optical transfer function */
+	__u32 hdr_max_luminance;      /* Max luminance */
+	__u32 hdr_avg_luminance;      /* Avg luminance */
+	__u32 hdr_min_luminance;      /* Min Luminance */
+};
+
 #define MSM_PARAM_GPU_ID     0x01
 #define MSM_PARAM_GMEM_SIZE  0x02
 #define MSM_PARAM_CHIP_ID    0x03
 #define MSM_PARAM_MAX_FREQ   0x04
 #define MSM_PARAM_TIMESTAMP  0x05
 #define MSM_PARAM_GMEM_BASE  0x06
+#define MSM_PARAM_NR_RINGS   0x07
 
 struct drm_msm_param {
 	__u32 pipe;           /* in, MSM_PIPE_x */
@@ -183,7 +234,7 @@ struct drm_msm_gem_submit_cmd {
 	__u32 size;           /* in, cmdstream size */
 	__u32 pad;
 	__u32 nr_relocs;      /* in, number of submit_reloc's */
-	__u64 __user relocs;  /* in, ptr to array of submit_reloc's */
+	__u64 relocs;         /* in, ptr to array of submit_reloc's */
 };
 
 /* Each buffer referenced elsewhere in the cmdstream submit (ie. the
@@ -223,13 +274,21 @@ struct drm_msm_gem_submit {
 	__u32 fence;          /* out */
 	__u32 nr_bos;         /* in, number of submit_bo's */
 	__u32 nr_cmds;        /* in, number of submit_cmd's */
-	__u64 __user bos;     /* in, ptr to array of submit_bo's */
-	__u64 __user cmds;    /* in, ptr to array of submit_cmd's */
+	__u64 bos;     /* in, ptr to array of submit_bo's */
+	__u64 cmds;    /* in, ptr to array of submit_cmd's */
+	__s32 fence_fd;       /* gap for the fence_fd which is upstream */
+	__u32 queueid;         /* in, submitqueue id */
 };
 
+/*
+ * Define a preprocessor variable to let the userspace know that
+ * drm_msm_gem_submit_profile_buffer switched to only support a kernel timestamp
+ * for submit time
+ */
+#define MSM_PROFILE_BUFFER_SUBMIT_TIME 1
+
 struct drm_msm_gem_submit_profile_buffer {
-	__s64 queue_time;      /* out, Ringbuffer queue time (nsecs) */
-	__s64 submit_time;     /* out, Ringbuffer submission time (nsecs) */
+	struct drm_msm_timespec time;   /* out, submission time */
 	__u64 ticks_queued;    /* out, GPU ticks at ringbuffer submission */
 	__u64 ticks_submitted; /* out, GPU ticks before cmdstream execution*/
 	__u64 ticks_retired;   /* out, GPU ticks after cmdstream execution */
@@ -353,6 +412,36 @@ struct drm_msm_gem_sync {
 	__u64 __user ops;
 };
 
+/*
+ * Draw queues allow the user to set specific submission parameter. Command
+ * submissions will specify a specific submit queue id to use. id '0' is
+ * reserved as a "default" drawqueue with medium priority. The user can safely
+ * use and query 0 but cannot destroy it.
+ */
+
+/*
+ * Allows a process to bypass the 2 second quality of service timeout.
+ * Only CAP_SYS_ADMIN capable processes can set this flag.
+ */
+#define MSM_SUBMITQUEUE_BYPASS_QOS_TIMEOUT 0x00000001
+
+#define MSM_SUBMITQUEUE_FLAGS (MSM_SUBMITQUEUE_BYPASS_QOS_TIMEOUT)
+
+struct drm_msm_submitqueue {
+	__u32 flags;   /* in, MSM_SUBMITQUEUE_x */
+	__u32 prio;    /* in, Priority level */
+	__u32 id;      /* out, identifier */
+};
+
+#define MSM_SUBMITQUEUE_PARAM_FAULTS 0
+
+struct drm_msm_submitqueue_query {
+	__u64 data;
+	__u32 id;
+	__u32 param;
+	__u32 len;
+};
+
 #define DRM_MSM_GET_PARAM              0x00
 /* placeholder:
 #define DRM_MSM_SET_PARAM              0x01
@@ -365,6 +454,9 @@ struct drm_msm_gem_sync {
 #define DRM_MSM_WAIT_FENCE             0x07
 /* Gap for upstream DRM_MSM_GEM_MADVISE */
 #define DRM_MSM_GEM_SVM_NEW            0x09
+#define DRM_MSM_SUBMITQUEUE_NEW        0x0A
+#define DRM_MSM_SUBMITQUEUE_CLOSE      0x0B
+#define DRM_MSM_SUBMITQUEUE_QUERY      0x0C
 
 #define DRM_SDE_WB_CONFIG              0x40
 #define DRM_MSM_REGISTER_EVENT         0x41
@@ -407,6 +499,15 @@ struct drm_msm_gem_sync {
 #define DRM_IOCTL_MSM_GEM_SVM_NEW \
 	DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GEM_SVM_NEW, \
 		struct drm_msm_gem_svm_new)
+#define DRM_IOCTL_MSM_SUBMITQUEUE_NEW \
+	DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_SUBMITQUEUE_NEW, \
+		struct drm_msm_submitqueue)
+#define DRM_IOCTL_MSM_SUBMITQUEUE_CLOSE \
+	DRM_IOW(DRM_COMMAND_BASE + DRM_MSM_SUBMITQUEUE_CLOSE, \
+		struct drm_msm_submitqueue)
+#define DRM_IOCTL_MSM_SUBMITQUEUE_QUERY \
+	DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_SUBMITQUEUE_QUERY, \
+		struct drm_msm_submitqueue_query)
 
 #if defined(__cplusplus)
 }

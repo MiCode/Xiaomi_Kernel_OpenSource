@@ -1020,6 +1020,8 @@ static int rh850_create_netdev(struct spi_device *spi,
 		return -ENOMEM;
 	}
 
+	netdev->mtu = CANFD_MTU;
+
 	netdev_priv_data = netdev_priv(netdev);
 	netdev_priv_data->rh850_can = priv_data;
 	netdev_priv_data->netdev_index = index;

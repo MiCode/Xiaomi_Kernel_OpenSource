@@ -267,7 +267,9 @@ static int32_t msm_isp_stats_configure(struct vfe_device *vfe_dev,
 	int result = 0;
 
 	memset(&buf_event, 0, sizeof(struct msm_isp_event_data));
-	buf_event.timestamp = ts->buf_time;
+	buf_event.timestamp = ts->event_time;
+	buf_event.mono_timestamp = ts->buf_time;
+
 	buf_event.frame_id = vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
 	pingpong_status = vfe_dev->hw_info->
 		vfe_ops.stats_ops.get_pingpong_status(vfe_dev);

@@ -209,6 +209,20 @@ struct detailed_timing {
 #define DRM_EDID_HDMI_DC_30               (1 << 4)
 #define DRM_EDID_HDMI_DC_Y444             (1 << 3)
 
+/* YCBCR 420 deep color modes */
+#define DRM_EDID_YCBCR420_DC_48  (1 << 2)
+#define DRM_EDID_YCBCR420_DC_36  (1 << 1)
+#define DRM_EDID_YCBCR420_DC_30  (1 << 0)
+
+#define DRM_EDID_COLORIMETRY_xvYCC_601	(1 << 0)
+#define DRM_EDID_COLORIMETRY_xvYCC_709	(1 << 1)
+#define DRM_EDID_COLORIMETRY_sYCC_601	(1 << 2)
+#define DRM_EDID_COLORIMETRY_ADBYCC_601	(1 << 3)
+#define DRM_EDID_COLORIMETRY_ADB_RGB	(1 << 4)
+#define DRM_EDID_COLORIMETRY_BT2020_CYCC	(1 << 5)
+#define DRM_EDID_COLORIMETRY_BT2020_YCC	(1 << 6)
+#define DRM_EDID_COLORIMETRY_BT2020_RGB	(1 << 7)
+
 /* ELD Header Block */
 #define DRM_ELD_HEADER_BLOCK_SIZE	4
 

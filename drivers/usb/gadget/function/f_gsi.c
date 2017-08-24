@@ -1035,7 +1035,7 @@ gsi_ctrl_dev_read(struct file *fp, char __user *buf, size_t count, loff_t *pos)
 	log_event_dbg("%s: cpkt size:%d", __func__, cpkt->len);
 	if (qti_packet_debug)
 		print_hex_dump(KERN_DEBUG, "READ:", DUMP_PREFIX_OFFSET, 16, 1,
-			buf, min_t(int, 30, cpkt->len), false);
+			cpkt->buf, min_t(int, 30, cpkt->len), false);
 
 	ret = copy_to_user(buf, cpkt->buf, cpkt->len);
 	if (ret) {
@@ -1108,7 +1108,7 @@ static ssize_t gsi_ctrl_dev_write(struct file *fp, const char __user *buf,
 	c_port->copied_from_modem++;
 	if (qti_packet_debug)
 		print_hex_dump(KERN_DEBUG, "WRITE:", DUMP_PREFIX_OFFSET, 16, 1,
-			buf, min_t(int, 30, count), false);
+			cpkt->buf, min_t(int, 30, count), false);
 
 	spin_lock_irqsave(&c_port->lock, flags);
 	list_add_tail(&cpkt->list, &c_port->cpkt_resp_q);
@@ -1578,6 +1578,12 @@ static void gsi_rndis_command_complete(struct usb_ep *ep,
 {
 	struct f_gsi *rndis = req->context;
 	int status;
+
+	if (req->status != 0) {
+		log_event_err("RNDIS command completion error %d\n",
+				req->status);
+		return;
+	}
 
 	status = rndis_msg_parser(rndis->params, (u8 *) req->buf);
 	if (status < 0)

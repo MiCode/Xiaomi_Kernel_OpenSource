@@ -262,7 +262,7 @@ static void qcrypto_free_req_control(struct crypto_engine *pce,
 	preq->arsp = NULL;
 	/* free req */
 	if (xchg(&preq->in_use, false) == false) {
-		pr_warn("request info %p free already\n", preq);
+		pr_warn("request info %pK free already\n", preq);
 	} else {
 		atomic_dec(&pce->req_count);
 	}
@@ -437,6 +437,7 @@ struct qcrypto_cipher_req_ctx {
 	u8 rfc4309_iv[QCRYPTO_MAX_IV_LENGTH];
 	unsigned int ivsize;
 	int  aead;
+	int  ccmtype;			/* default: 0, rfc4309: 1 */
 	struct scatterlist asg;		/* Formatted associated data sg  */
 	unsigned char *adata;		/* Pointer to formatted assoc data */
 	enum qce_cipher_alg_enum alg;
@@ -1719,7 +1720,7 @@ static void _qce_ahash_complete(void *cookie, unsigned char *digest,
 	}
 
 #ifdef QCRYPTO_DEBUG
-	dev_info(&pengine->pdev->dev, "_qce_ahash_complete: %p ret %d\n",
+	dev_info(&pengine->pdev->dev, "_qce_ahash_complete: %pK ret %d\n",
 				areq, ret);
 #endif
 	if (digest) {
@@ -1778,7 +1779,7 @@ static void _qce_ablk_cipher_complete(void *cookie, unsigned char *icb,
 	}
 
 #ifdef QCRYPTO_DEBUG
-	dev_info(&pengine->pdev->dev, "_qce_ablk_cipher_complete: %p ret %d\n",
+	dev_info(&pengine->pdev->dev, "_qce_ablk_cipher_complete: %pK ret %d\n",
 				areq, ret);
 #endif
 	if (iv)
@@ -1897,9 +1898,8 @@ static int aead_ccm_set_msg_len(u8 *block, unsigned int msglen, int csize)
 	return 0;
 }
 
-static int qccrypto_set_aead_ccm_nonce(struct qce_req *qreq)
+static int qccrypto_set_aead_ccm_nonce(struct qce_req *qreq, uint32_t assoclen)
 {
-	struct aead_request *areq = (struct aead_request *) qreq->areq;
 	unsigned int i = ((unsigned int)qreq->iv[0]) + 1;
 
 	memcpy(&qreq->nonce[0] , qreq->iv, qreq->ivsize);
@@ -1908,7 +1908,7 @@ static int qccrypto_set_aead_ccm_nonce(struct qce_req *qreq)
 	 * NIST Special Publication 800-38C
 	 */
 	qreq->nonce[0] |= (8 * ((qreq->authsize - 2) / 2));
-	if (areq->assoclen)
+	if (assoclen)
 		qreq->nonce[0] |= 64;
 
 	if (i > MAX_NONCE)
@@ -2118,24 +2118,31 @@ static int _qcrypto_process_aead(struct  crypto_engine *pengine,
 	qreq.flags = cipher_ctx->flags;
 
 	if (qreq.mode == QCE_MODE_CCM) {
+		uint32_t assoclen;
+
 		if (qreq.dir == QCE_ENCRYPT)
 			qreq.cryptlen = req->cryptlen;
 		else
 			qreq.cryptlen = req->cryptlen -
 						qreq.authsize;
+
+		/* if rfc4309 ccm, adjust assoclen */
+		assoclen = req->assoclen;
+		if (rctx->ccmtype)
+			assoclen -= 8;
 		/* Get NONCE */
-		ret = qccrypto_set_aead_ccm_nonce(&qreq);
+		ret = qccrypto_set_aead_ccm_nonce(&qreq, assoclen);
 		if (ret)
 			return ret;
 
-		if (req->assoclen) {
-			rctx->adata = kzalloc((req->assoclen + 0x64),
+		if (assoclen) {
+			rctx->adata = kzalloc((assoclen + 0x64),
 								GFP_ATOMIC);
 			if (!rctx->adata)
 				return -ENOMEM;
 			/* Format Associated data    */
 			ret = qcrypto_aead_ccm_format_adata(&qreq,
-						req->assoclen,
+						assoclen,
 						req->src,
 						rctx->adata);
 		} else {
@@ -2472,7 +2479,7 @@ static int _qcrypto_enc_aes_ecb(struct ablkcipher_request *req)
 	BUG_ON(crypto_tfm_alg_type(req->base.tfm) !=
 					CRYPTO_ALG_TYPE_ABLKCIPHER);
 #ifdef QCRYPTO_DEBUG
-	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_enc_aes_ecb: %p\n", req);
+	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_enc_aes_ecb: %pK\n", req);
 #endif
 
 	if ((ctx->enc_key_len == AES_KEYSIZE_192) &&
@@ -2502,7 +2509,7 @@ static int _qcrypto_enc_aes_cbc(struct ablkcipher_request *req)
 	BUG_ON(crypto_tfm_alg_type(req->base.tfm) !=
 					CRYPTO_ALG_TYPE_ABLKCIPHER);
 #ifdef QCRYPTO_DEBUG
-	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_enc_aes_cbc: %p\n", req);
+	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_enc_aes_cbc: %pK\n", req);
 #endif
 
 	if ((ctx->enc_key_len == AES_KEYSIZE_192) &&
@@ -2532,7 +2539,7 @@ static int _qcrypto_enc_aes_ctr(struct ablkcipher_request *req)
 	BUG_ON(crypto_tfm_alg_type(req->base.tfm) !=
 				CRYPTO_ALG_TYPE_ABLKCIPHER);
 #ifdef QCRYPTO_DEBUG
-	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_enc_aes_ctr: %p\n", req);
+	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_enc_aes_ctr: %pK\n", req);
 #endif
 
 	if ((ctx->enc_key_len == AES_KEYSIZE_192) &&
@@ -2592,6 +2599,7 @@ static int _qcrypto_aead_encrypt_aes_ccm(struct aead_request *req)
 	rctx->dir = QCE_ENCRYPT;
 	rctx->mode = QCE_MODE_CCM;
 	rctx->iv = req->iv;
+	rctx->ccmtype = 0;
 
 	pstat->aead_ccm_aes_enc++;
 	return _qcrypto_queue_req(cp, ctx->pengine, &req->base);
@@ -2606,6 +2614,8 @@ static int _qcrypto_aead_rfc4309_enc_aes_ccm(struct aead_request *req)
 
 	pstat = &_qcrypto_stat;
 
+	if (req->assoclen != 16 && req->assoclen != 20)
+		return -EINVAL;
 	rctx = aead_request_ctx(req);
 	rctx->aead = 1;
 	rctx->alg = CIPHER_ALG_AES;
@@ -2615,6 +2625,7 @@ static int _qcrypto_aead_rfc4309_enc_aes_ccm(struct aead_request *req)
 	rctx->rfc4309_iv[0] = 3; /* L -1 */
 	memcpy(&rctx->rfc4309_iv[1], ctx->ccm4309_nonce, 3);
 	memcpy(&rctx->rfc4309_iv[4], req->iv, 8);
+	rctx->ccmtype = 1;
 	rctx->iv = rctx->rfc4309_iv;
 	pstat->aead_rfc4309_ccm_aes_enc++;
 	return _qcrypto_queue_req(cp, ctx->pengine, &req->base);
@@ -2716,7 +2727,7 @@ static int _qcrypto_dec_aes_ecb(struct ablkcipher_request *req)
 	BUG_ON(crypto_tfm_alg_type(req->base.tfm) !=
 				CRYPTO_ALG_TYPE_ABLKCIPHER);
 #ifdef QCRYPTO_DEBUG
-	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_dec_aes_ecb: %p\n", req);
+	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_dec_aes_ecb: %pK\n", req);
 #endif
 
 	if ((ctx->enc_key_len == AES_KEYSIZE_192) &&
@@ -2746,7 +2757,7 @@ static int _qcrypto_dec_aes_cbc(struct ablkcipher_request *req)
 	BUG_ON(crypto_tfm_alg_type(req->base.tfm) !=
 				CRYPTO_ALG_TYPE_ABLKCIPHER);
 #ifdef QCRYPTO_DEBUG
-	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_dec_aes_cbc: %p\n", req);
+	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_dec_aes_cbc: %pK\n", req);
 #endif
 
 	if ((ctx->enc_key_len == AES_KEYSIZE_192) &&
@@ -2776,7 +2787,7 @@ static int _qcrypto_dec_aes_ctr(struct ablkcipher_request *req)
 	BUG_ON(crypto_tfm_alg_type(req->base.tfm) !=
 					CRYPTO_ALG_TYPE_ABLKCIPHER);
 #ifdef QCRYPTO_DEBUG
-	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_dec_aes_ctr: %p\n", req);
+	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_dec_aes_ctr: %pK\n", req);
 #endif
 
 	if ((ctx->enc_key_len == AES_KEYSIZE_192) &&
@@ -2922,6 +2933,7 @@ static int _qcrypto_aead_decrypt_aes_ccm(struct aead_request *req)
 	rctx->dir = QCE_DECRYPT;
 	rctx->mode = QCE_MODE_CCM;
 	rctx->iv = req->iv;
+	rctx->ccmtype = 0;
 
 	pstat->aead_ccm_aes_dec++;
 	return _qcrypto_queue_req(cp, ctx->pengine, &req->base);
@@ -2935,6 +2947,8 @@ static int _qcrypto_aead_rfc4309_dec_aes_ccm(struct aead_request *req)
 	struct crypto_stat *pstat;
 
 	pstat = &_qcrypto_stat;
+	if (req->assoclen != 16 && req->assoclen != 20)
+		return -EINVAL;
 	rctx = aead_request_ctx(req);
 	rctx->aead = 1;
 	rctx->alg = CIPHER_ALG_AES;
@@ -2944,6 +2958,7 @@ static int _qcrypto_aead_rfc4309_dec_aes_ccm(struct aead_request *req)
 	rctx->rfc4309_iv[0] = 3; /* L -1 */
 	memcpy(&rctx->rfc4309_iv[1], ctx->ccm4309_nonce, 3);
 	memcpy(&rctx->rfc4309_iv[4], req->iv, 8);
+	rctx->ccmtype = 1;
 	rctx->iv = rctx->rfc4309_iv;
 	pstat->aead_rfc4309_ccm_aes_dec++;
 	return _qcrypto_queue_req(cp, ctx->pengine, &req->base);
@@ -3338,7 +3353,7 @@ static int _qcrypto_aead_encrypt_aes_cbc(struct aead_request *req)
 
 #ifdef QCRYPTO_DEBUG
 	dev_info(&ctx->pengine->pdev->dev,
-			 "_qcrypto_aead_encrypt_aes_cbc: %p\n", req);
+			 "_qcrypto_aead_encrypt_aes_cbc: %pK\n", req);
 #endif
 
 	rctx = aead_request_ctx(req);
@@ -3369,7 +3384,7 @@ static int _qcrypto_aead_decrypt_aes_cbc(struct aead_request *req)
 
 #ifdef QCRYPTO_DEBUG
 	dev_info(&ctx->pengine->pdev->dev,
-			 "_qcrypto_aead_decrypt_aes_cbc: %p\n", req);
+			 "_qcrypto_aead_decrypt_aes_cbc: %pK\n", req);
 #endif
 	rctx = aead_request_ctx(req);
 	rctx->aead = 1;
@@ -3957,6 +3972,7 @@ static int _sha1_hmac_setkey(struct crypto_ahash *tfm, const u8 *key,
 							unsigned int len)
 {
 	struct qcrypto_sha_ctx *sha_ctx = crypto_tfm_ctx(&tfm->base);
+	int ret = 0;
 	memset(&sha_ctx->authkey[0], 0, SHA1_BLOCK_SIZE);
 	if (len <= SHA1_BLOCK_SIZE) {
 		memcpy(&sha_ctx->authkey[0], key, len);
@@ -3964,16 +3980,19 @@ static int _sha1_hmac_setkey(struct crypto_ahash *tfm, const u8 *key,
 	} else {
 		sha_ctx->alg = QCE_HASH_SHA1;
 		sha_ctx->diglen = SHA1_DIGEST_SIZE;
-		_sha_hmac_setkey(tfm, key, len);
+		ret = _sha_hmac_setkey(tfm, key, len);
+		if (ret)
+			pr_err("SHA1 hmac setkey failed\n");
 		sha_ctx->authkey_in_len = SHA1_BLOCK_SIZE;
 	}
-	return 0;
+	return ret;
 }
 
 static int _sha256_hmac_setkey(struct crypto_ahash *tfm, const u8 *key,
 							unsigned int len)
 {
 	struct qcrypto_sha_ctx *sha_ctx = crypto_tfm_ctx(&tfm->base);
+	int ret = 0;
 
 	memset(&sha_ctx->authkey[0], 0, SHA256_BLOCK_SIZE);
 	if (len <= SHA256_BLOCK_SIZE) {
@@ -3982,11 +4001,13 @@ static int _sha256_hmac_setkey(struct crypto_ahash *tfm, const u8 *key,
 	} else {
 		sha_ctx->alg = QCE_HASH_SHA256;
 		sha_ctx->diglen = SHA256_DIGEST_SIZE;
-		_sha_hmac_setkey(tfm, key, len);
+		ret = _sha_hmac_setkey(tfm, key, len);
+		if (ret)
+			pr_err("SHA256 hmac setkey failed\n");
 		sha_ctx->authkey_in_len = SHA256_BLOCK_SIZE;
 	}
 
-	return 0;
+	return ret;
 }
 
 static int _sha_hmac_init_ihash(struct ahash_request *req,

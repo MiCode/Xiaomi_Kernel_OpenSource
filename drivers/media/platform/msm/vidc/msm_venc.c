@@ -861,14 +861,14 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.step = 1,
 	},
 	{
-		.id = V4L2_CID_MPEG_VIDC_VIDEO_H264_AU_DELIMITER,
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_AU_DELIMITER,
 		.name = "H264 AU Delimiter",
 		.type = V4L2_CTRL_TYPE_BOOLEAN,
-		.minimum = V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_DISABLED,
-		.maximum = V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_ENABLED,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_AU_DELIMITER_DISABLED,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_AU_DELIMITER_ENABLED,
 		.step = 1,
 		.default_value =
-			V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_DISABLED,
+			V4L2_MPEG_VIDC_VIDEO_AU_DELIMITER_DISABLED,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_SET_PERF_LEVEL,
@@ -1868,7 +1868,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 			"Failed to get Buffer Requirements : %d\n", rc);
 		goto fail_start;
 	}
-	rc = msm_comm_set_scratch_buffers(inst);
+	rc = msm_comm_set_scratch_buffers(inst, false);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to set scratch buffers: %d\n", rc);
 		goto fail_start;
@@ -1908,8 +1908,10 @@ static int msm_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 
 	if (inst->state == MSM_VIDC_CORE_INVALID ||
 		inst->core->state == VIDC_CORE_INVALID ||
-		inst->core->state == VIDC_CORE_UNINIT)
-		return -EINVAL;
+		inst->core->state == VIDC_CORE_UNINIT) {
+		rc = -EINVAL;
+		goto stream_start_failed;
+	}
 
 	dprintk(VIDC_DBG, "Streamon called on: %d capability for inst: %pK\n",
 		q->type, inst);
@@ -3315,14 +3317,14 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		pdata = &vui_timing_info;
 		break;
 	}
-	case V4L2_CID_MPEG_VIDC_VIDEO_H264_AU_DELIMITER:
-		property_id = HAL_PARAM_VENC_H264_GENERATE_AUDNAL;
+	case V4L2_CID_MPEG_VIDC_VIDEO_AU_DELIMITER:
+		property_id = HAL_PARAM_VENC_GENERATE_AUDNAL;
 
 		switch (ctrl->val) {
-		case V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_DISABLED:
+		case V4L2_MPEG_VIDC_VIDEO_AU_DELIMITER_DISABLED:
 			enable.enable = 0;
 			break;
-		case V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_ENABLED:
+		case V4L2_MPEG_VIDC_VIDEO_AU_DELIMITER_ENABLED:
 			enable.enable = 1;
 			break;
 		default:

@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/sort.h>
 #include "fg-core.h"
 
 void fg_circ_buf_add(struct fg_circ_buf *buf, int val)
@@ -36,6 +37,39 @@ int fg_circ_buf_avg(struct fg_circ_buf *buf, int *avg)
 		result += buf->arr[i];
 
 	*avg = div_s64(result, buf->size);
+	return 0;
+}
+
+static int cmp_int(const void *a, const void *b)
+{
+	return *(int *)a - *(int *)b;
+}
+
+int fg_circ_buf_median(struct fg_circ_buf *buf, int *median)
+{
+	int *temp;
+
+	if (buf->size == 0)
+		return -ENODATA;
+
+	if (buf->size == 1) {
+		*median = buf->arr[0];
+		return 0;
+	}
+
+	temp = kmalloc_array(buf->size, sizeof(*temp), GFP_KERNEL);
+	if (!temp)
+		return -ENOMEM;
+
+	memcpy(temp, buf->arr, buf->size * sizeof(*temp));
+	sort(temp, buf->size, sizeof(*temp), cmp_int, NULL);
+
+	if (buf->size % 2)
+		*median = temp[buf->size / 2];
+	else
+		*median = (temp[buf->size / 2 - 1] + temp[buf->size / 2]) / 2;
+
+	kfree(temp);
 	return 0;
 }
 
@@ -106,14 +140,17 @@ static struct fg_dbgfs dbgfs_data = {
 static bool is_usb_present(struct fg_chip *chip)
 {
 	union power_supply_propval pval = {0, };
+	int rc;
 
 	if (!chip->usb_psy)
 		chip->usb_psy = power_supply_get_by_name("usb");
 
-	if (chip->usb_psy)
-		power_supply_get_property(chip->usb_psy,
-				POWER_SUPPLY_PROP_PRESENT, &pval);
-	else
+	if (!chip->usb_psy)
+		return false;
+
+	rc = power_supply_get_property(chip->usb_psy,
+			POWER_SUPPLY_PROP_PRESENT, &pval);
+	if (rc < 0)
 		return false;
 
 	return pval.intval != 0;
@@ -122,14 +159,17 @@ static bool is_usb_present(struct fg_chip *chip)
 static bool is_dc_present(struct fg_chip *chip)
 {
 	union power_supply_propval pval = {0, };
+	int rc;
 
 	if (!chip->dc_psy)
 		chip->dc_psy = power_supply_get_by_name("dc");
 
-	if (chip->dc_psy)
-		power_supply_get_property(chip->dc_psy,
-				POWER_SUPPLY_PROP_PRESENT, &pval);
-	else
+	if (!chip->dc_psy)
+		return false;
+
+	rc = power_supply_get_property(chip->dc_psy,
+			POWER_SUPPLY_PROP_PRESENT, &pval);
+	if (rc < 0)
 		return false;
 
 	return pval.intval != 0;
@@ -138,6 +178,25 @@ static bool is_dc_present(struct fg_chip *chip)
 bool is_input_present(struct fg_chip *chip)
 {
 	return is_usb_present(chip) || is_dc_present(chip);
+}
+
+bool is_qnovo_en(struct fg_chip *chip)
+{
+	union power_supply_propval pval = {0, };
+	int rc;
+
+	if (!chip->batt_psy)
+		chip->batt_psy = power_supply_get_by_name("battery");
+
+	if (!chip->batt_psy)
+		return false;
+
+	rc = power_supply_get_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_CHARGE_QNOVO_ENABLE, &pval);
+	if (rc < 0)
+		return false;
+
+	return pval.intval != 0;
 }
 
 #define EXPONENT_SHIFT		11

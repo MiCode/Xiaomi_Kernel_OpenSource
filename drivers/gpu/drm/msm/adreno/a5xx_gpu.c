@@ -13,7 +13,9 @@
 
 #include "msm_gem.h"
 #include "msm_iommu.h"
+#include "msm_trace.h"
 #include "a5xx_gpu.h"
+#include <linux/clk/msm-clk.h>
 
 #define SECURE_VA_START 0xc0000000
 #define SECURE_VA_SIZE  SZ_256M
@@ -46,7 +48,6 @@ static void a5xx_flush(struct msm_gpu *gpu, struct msm_ringbuffer *ring)
 static void a5xx_set_pagetable(struct msm_gpu *gpu, struct msm_ringbuffer *ring,
 	struct msm_gem_address_space *aspace)
 {
-	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 	struct msm_mmu *mmu = aspace->mmu;
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
 
@@ -75,17 +76,15 @@ static void a5xx_set_pagetable(struct msm_gpu *gpu, struct msm_ringbuffer *ring,
 	 * reload the pagetable if the current ring gets preempted out.
 	 */
 	OUT_PKT7(ring, CP_MEM_WRITE, 4);
-	OUT_RING(ring, lower_32_bits(rbmemptr(adreno_gpu, ring->id, ttbr0)));
-	OUT_RING(ring, upper_32_bits(rbmemptr(adreno_gpu, ring->id, ttbr0)));
+	OUT_RING(ring, lower_32_bits(rbmemptr(ring, ttbr0)));
+	OUT_RING(ring, upper_32_bits(rbmemptr(ring, ttbr0)));
 	OUT_RING(ring, lower_32_bits(iommu->ttbr0));
 	OUT_RING(ring, upper_32_bits(iommu->ttbr0));
 
 	/* Also write the current contextidr (ASID) */
 	OUT_PKT7(ring, CP_MEM_WRITE, 3);
-	OUT_RING(ring, lower_32_bits(rbmemptr(adreno_gpu, ring->id,
-		contextidr)));
-	OUT_RING(ring, upper_32_bits(rbmemptr(adreno_gpu, ring->id,
-		contextidr)));
+	OUT_RING(ring, lower_32_bits(rbmemptr(ring, contextidr)));
+	OUT_RING(ring, upper_32_bits(rbmemptr(ring, contextidr)));
 	OUT_RING(ring, iommu->contextidr);
 
 	/* Invalidate the draw state so we start off fresh */
@@ -103,12 +102,32 @@ static void a5xx_set_pagetable(struct msm_gpu *gpu, struct msm_ringbuffer *ring,
 	OUT_RING(ring, 1);
 }
 
+/* Inline PM4 code to get the current value of the 19.2 Mhz always on counter */
+static void a5xx_get_ticks(struct msm_ringbuffer *ring, uint64_t iova)
+{
+	/*
+	 * Set bit[30] to make this command a 64 bit write operation.
+	 * bits[18-29] is to specify number of consecutive registers
+	 * to copy, so set this space with 2, since we want to copy
+	 * data from REG_A5XX_RBBM_ALWAYSON_COUNTER_LO and [HI].
+	 */
+
+	OUT_PKT7(ring, CP_REG_TO_MEM, 3);
+	OUT_RING(ring, REG_A5XX_RBBM_ALWAYSON_COUNTER_LO |
+		(1 << 30) | (2 << 18));
+	OUT_RING(ring, lower_32_bits(iova));
+	OUT_RING(ring, upper_32_bits(iova));
+}
+
 static void a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 	struct a5xx_gpu *a5xx_gpu = to_a5xx_gpu(adreno_gpu);
 	struct msm_ringbuffer *ring = gpu->rb[submit->ring];
 	unsigned int i, ibs = 0;
+	unsigned long flags;
+	u64 ticks;
+	ktime_t time;
 
 	a5xx_set_pagetable(gpu, ring, submit->aspace);
 
@@ -142,24 +161,15 @@ static void a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 		OUT_RING(ring, 1);
 	}
 
-	/* Record the always on counter before command execution */
-	if (submit->profile_buf_iova) {
-		uint64_t gpuaddr = submit->profile_buf_iova +
-			offsetof(struct drm_msm_gem_submit_profile_buffer,
-					ticks_submitted);
+	/* Record the GPU ticks at command start for kernel side profiling */
+	a5xx_get_ticks(ring,
+		RING_TICKS_IOVA(ring, submit->tick_index, started));
 
-		/*
-		 * Set bit[30] to make this command a 64 bit write operation.
-		 * bits[18-29] is to specify number of consecutive registers
-		 * to copy, so set this space with 2, since we want to copy
-		 * data from REG_A5XX_RBBM_ALWAYSON_COUNTER_LO and [HI].
-		 */
-		OUT_PKT7(ring, CP_REG_TO_MEM, 3);
-		OUT_RING(ring, REG_A5XX_RBBM_ALWAYSON_COUNTER_LO |
-				(1 << 30) | (2 << 18));
-		OUT_RING(ring, lower_32_bits(gpuaddr));
-		OUT_RING(ring, upper_32_bits(gpuaddr));
-	}
+	/* And for the user profiling too if it is enabled */
+	if (submit->profile_buf_iova)
+		a5xx_get_ticks(ring, submit->profile_buf_iova +
+			offsetof(struct drm_msm_gem_submit_profile_buffer,
+				ticks_submitted));
 
 	/* Submit the commands */
 	for (i = 0; i < submit->nr_cmds; i++) {
@@ -193,18 +203,15 @@ static void a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 	OUT_PKT7(ring, CP_YIELD_ENABLE, 1);
 	OUT_RING(ring, 0x01);
 
-	/* Record the always on counter after command execution */
-	if (submit->profile_buf_iova) {
-		uint64_t gpuaddr = submit->profile_buf_iova +
-			offsetof(struct drm_msm_gem_submit_profile_buffer,
-					ticks_retired);
+	/* Record the GPU ticks at command retire for kernel side profiling */
+	a5xx_get_ticks(ring,
+		RING_TICKS_IOVA(ring, submit->tick_index, retired));
 
-		OUT_PKT7(ring, CP_REG_TO_MEM, 3);
-		OUT_RING(ring, REG_A5XX_RBBM_ALWAYSON_COUNTER_LO |
-				(1 << 30) | (2 << 18));
-		OUT_RING(ring, lower_32_bits(gpuaddr));
-		OUT_RING(ring, upper_32_bits(gpuaddr));
-	}
+	/* Record the always on counter after command execution */
+	if (submit->profile_buf_iova)
+		a5xx_get_ticks(ring, submit->profile_buf_iova +
+			offsetof(struct drm_msm_gem_submit_profile_buffer,
+				ticks_retired));
 
 	/* Write the fence to the scratch register */
 	OUT_PKT4(ring, REG_A5XX_CP_SCRATCH_REG(2), 1);
@@ -217,8 +224,8 @@ static void a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 	OUT_PKT7(ring, CP_EVENT_WRITE, 4);
 	OUT_RING(ring, CACHE_FLUSH_TS | (1 << 31));
 
-	OUT_RING(ring, lower_32_bits(rbmemptr(adreno_gpu, ring->id, fence)));
-	OUT_RING(ring, upper_32_bits(rbmemptr(adreno_gpu, ring->id, fence)));
+	OUT_RING(ring, lower_32_bits(rbmemptr(ring, fence)));
+	OUT_RING(ring, upper_32_bits(rbmemptr(ring, fence)));
 	OUT_RING(ring, submit->fence);
 
 	if (submit->secure) {
@@ -240,32 +247,27 @@ static void a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 	/* Set bit 0 to trigger an interrupt on preempt complete */
 	OUT_RING(ring, 0x01);
 
-	if (submit->profile_buf_iova) {
-		unsigned long flags;
-		uint64_t ktime;
-		struct drm_msm_gem_submit_profile_buffer *profile_buf =
-			submit->profile_buf_vaddr;
+	/*
+	 * Get the current kernel time and ticks with interrupts off so we don't
+	 * get interrupted between the operations and skew the numbers
+	 */
 
-		/*
-		 * With this profiling, we are trying to create closest
-		 * possible mapping between the CPU time domain(monotonic clock)
-		 * and the GPU time domain(ticks). In order to make this
-		 * happen, we need to briefly turn off interrupts to make sure
-		 * interrupts do not run between collecting these two samples.
-		 */
-		local_irq_save(flags);
+	local_irq_save(flags);
+	ticks = gpu_read64(gpu, REG_A5XX_RBBM_ALWAYSON_COUNTER_LO,
+		REG_A5XX_RBBM_ALWAYSON_COUNTER_HI);
+	time = ktime_get_raw();
+	local_irq_restore(flags);
 
-		profile_buf->ticks_queued = gpu_read64(gpu,
-			REG_A5XX_RBBM_ALWAYSON_COUNTER_LO,
-			REG_A5XX_RBBM_ALWAYSON_COUNTER_HI);
+	if (submit->profile_buf) {
+		struct timespec64 ts = ktime_to_timespec64(time);
 
-		ktime = ktime_get_raw_ns();
-
-		local_irq_restore(flags);
-
-		profile_buf->queue_time = ktime;
-		profile_buf->submit_time = ktime;
+		/* Write the data into the user-specified profile buffer */
+		submit->profile_buf->time.tv_sec = ts.tv_sec;
+		submit->profile_buf->time.tv_nsec = ts.tv_nsec;
+		submit->profile_buf->ticks_queued = ticks;
 	}
+
+	trace_msm_submitted(submit, ticks, ktime_to_ns(time));
 
 	a5xx_flush(gpu, ring);
 
@@ -374,6 +376,7 @@ static const struct {
 void a5xx_set_hwcg(struct msm_gpu *gpu, bool state)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+	struct a5xx_gpu *a5xx_gpu = to_a5xx_gpu(adreno_gpu);
 	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(a5xx_hwcg); i++)
@@ -390,6 +393,11 @@ void a5xx_set_hwcg(struct msm_gpu *gpu, bool state)
 
 	gpu_write(gpu, REG_A5XX_RBBM_CLOCK_CNTL, state ? 0xAAA8AA00 : 0);
 	gpu_write(gpu, REG_A5XX_RBBM_ISDB_CNT, state ? 0x182 : 0x180);
+
+	if (state)
+		set_bit(A5XX_HWCG_ENABLED, &a5xx_gpu->flags);
+	else
+		clear_bit(A5XX_HWCG_ENABLED, &a5xx_gpu->flags);
 }
 
 static int a5xx_me_init(struct msm_gpu *gpu)
@@ -477,30 +485,14 @@ static int a5xx_preempt_start(struct msm_gpu *gpu)
 static struct drm_gem_object *a5xx_ucode_load_bo(struct msm_gpu *gpu,
 		const struct firmware *fw, u64 *iova)
 {
-	struct drm_device *drm = gpu->dev;
 	struct drm_gem_object *bo;
 	void *ptr;
 
-	bo = msm_gem_new(drm, fw->size - 4,
-		MSM_BO_UNCACHED | MSM_BO_GPU_READONLY);
+	ptr = msm_gem_kernel_new(gpu->dev, fw->size - 4,
+		MSM_BO_UNCACHED | MSM_BO_GPU_READONLY, gpu->aspace, &bo, iova);
 
-	if (IS_ERR(bo))
-		return bo;
-
-	ptr = msm_gem_vaddr(bo);
-	if (!ptr) {
-		drm_gem_object_unreference_unlocked(bo);
-		return ERR_PTR(-ENOMEM);
-	}
-
-	if (iova) {
-		int ret = msm_gem_get_iova(bo, gpu->aspace, iova);
-
-		if (ret) {
-			drm_gem_object_unreference_unlocked(bo);
-			return ERR_PTR(ret);
-		}
-	}
+	if (IS_ERR(ptr))
+		return ERR_CAST(ptr);
 
 	memcpy(ptr, &fw->data[4], fw->size - 4);
 	return bo;
@@ -788,6 +780,9 @@ static int a5xx_hw_init(struct msm_gpu *gpu)
 	gpu_write(gpu, REG_A5XX_SP_ADDR_MODE_CNTL, 0x1);
 	gpu_write(gpu, REG_A5XX_TPL1_ADDR_MODE_CNTL, 0x1);
 	gpu_write(gpu, REG_A5XX_RBBM_SECVID_TSB_ADDR_MODE_CNTL, 0x1);
+
+	a5xx_gpu->timestamp_counter = adreno_get_counter(gpu,
+		MSM_COUNTER_GROUP_CP, 0, NULL, NULL);
 
 	/* Load the GPMU firmware before starting the HW init */
 	a5xx_gpmu_ucode_init(gpu);
@@ -1175,10 +1170,25 @@ static int a5xx_pm_resume(struct msm_gpu *gpu)
 {
 	int ret;
 
+	/*
+	 * Between suspend/resumes the GPU clocks need to be turned off
+	 * but not a complete power down, typically between frames. Set the
+	 * memory retention flags on the GPU core clock to retain memory
+	 * across clock toggles.
+	 */
+	if (gpu->core_clk) {
+		clk_set_flags(gpu->core_clk, CLKFLAG_RETAIN_PERIPH);
+		clk_set_flags(gpu->core_clk, CLKFLAG_RETAIN_MEM);
+	}
+
 	/* Turn on the core power */
 	ret = msm_gpu_pm_resume(gpu);
 	if (ret)
 		return ret;
+
+	/* If we are already up, don't mess with what works */
+	if (gpu->active_cnt > 1)
+		return 0;
 
 	/* Turn the RBCCU domain first to limit the chances of voltage droop */
 	gpu_write(gpu, REG_A5XX_GPMU_RBCCU_POWER_CNTL, 0x778000);
@@ -1210,22 +1220,33 @@ static int a5xx_pm_suspend(struct msm_gpu *gpu)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 
-	/* Clear the VBIF pipe before shutting down */
+	/* Turn off the memory retention flag when not necessary */
+	if (gpu->core_clk) {
+		clk_set_flags(gpu->core_clk, CLKFLAG_NORETAIN_PERIPH);
+		clk_set_flags(gpu->core_clk, CLKFLAG_NORETAIN_MEM);
+	}
 
-	gpu_write(gpu, REG_A5XX_VBIF_XIN_HALT_CTRL0, 0xF);
-	spin_until((gpu_read(gpu, REG_A5XX_VBIF_XIN_HALT_CTRL1) & 0xF) == 0xF);
+	/* Only do this next bit if we are about to go down */
+	if (gpu->active_cnt == 1) {
+		/* Clear the VBIF pipe before shutting down */
 
-	gpu_write(gpu, REG_A5XX_VBIF_XIN_HALT_CTRL0, 0);
+		gpu_write(gpu, REG_A5XX_VBIF_XIN_HALT_CTRL0, 0xF);
+		spin_until((gpu_read(gpu, REG_A5XX_VBIF_XIN_HALT_CTRL1) & 0xF)
+			== 0xF);
 
-	/*
-	 * Reset the VBIF before power collapse to avoid issue with FIFO
-	 * entries
-	 */
+		gpu_write(gpu, REG_A5XX_VBIF_XIN_HALT_CTRL0, 0);
 
-	if (adreno_is_a530(adreno_gpu)) {
-		/* These only need to be done for A530 */
-		gpu_write(gpu, REG_A5XX_RBBM_BLOCK_SW_RESET_CMD, 0x003C0000);
-		gpu_write(gpu, REG_A5XX_RBBM_BLOCK_SW_RESET_CMD, 0x00000000);
+		/*
+		 * Reset the VBIF before power collapse to avoid issue with FIFO
+		* entries
+		*/
+		if (adreno_is_a530(adreno_gpu)) {
+			/* These only need to be done for A530 */
+			gpu_write(gpu, REG_A5XX_RBBM_BLOCK_SW_RESET_CMD,
+				0x003C0000);
+			gpu_write(gpu, REG_A5XX_RBBM_BLOCK_SW_RESET_CMD,
+				0x00000000);
+		}
 	}
 
 	return msm_gpu_pm_suspend(gpu);
@@ -1233,8 +1254,11 @@ static int a5xx_pm_suspend(struct msm_gpu *gpu)
 
 static int a5xx_get_timestamp(struct msm_gpu *gpu, uint64_t *value)
 {
-	*value = gpu_read64(gpu, REG_A5XX_RBBM_PERFCTR_CP_0_LO,
-		REG_A5XX_RBBM_PERFCTR_CP_0_HI);
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+	struct a5xx_gpu *a5xx_gpu = to_a5xx_gpu(adreno_gpu);
+
+	*value = adreno_read_counter(gpu, MSM_COUNTER_GROUP_CP,
+		a5xx_gpu->timestamp_counter);
 
 	return 0;
 }
@@ -1242,13 +1266,29 @@ static int a5xx_get_timestamp(struct msm_gpu *gpu, uint64_t *value)
 #ifdef CONFIG_DEBUG_FS
 static void a5xx_show(struct msm_gpu *gpu, struct seq_file *m)
 {
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+	struct a5xx_gpu *a5xx_gpu = to_a5xx_gpu(adreno_gpu);
+	bool enabled = test_bit(A5XX_HWCG_ENABLED, &a5xx_gpu->flags);
+
 	gpu->funcs->pm_resume(gpu);
 
 	seq_printf(m, "status:   %08x\n",
 			gpu_read(gpu, REG_A5XX_RBBM_STATUS));
-	gpu->funcs->pm_suspend(gpu);
+
+	/*
+	 * Temporarily disable hardware clock gating before going into
+	 * adreno_show to avoid issues while reading the registers
+	 */
+
+	if (enabled)
+		a5xx_set_hwcg(gpu, false);
 
 	adreno_show(gpu, m);
+
+	if (enabled)
+		a5xx_set_hwcg(gpu, true);
+
+	gpu->funcs->pm_suspend(gpu);
 }
 #endif
 
@@ -1267,7 +1307,6 @@ static const struct adreno_gpu_funcs funcs = {
 		.pm_suspend = a5xx_pm_suspend,
 		.pm_resume = a5xx_pm_resume,
 		.recover = a5xx_recover,
-		.last_fence = adreno_last_fence,
 		.submitted_fence = adreno_submitted_fence,
 		.submit = a5xx_submit,
 		.flush = a5xx_flush,

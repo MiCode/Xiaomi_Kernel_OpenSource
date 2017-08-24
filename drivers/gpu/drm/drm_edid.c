@@ -2716,6 +2716,7 @@ add_detailed_modes(struct drm_connector *connector, struct edid *edid,
 #define VENDOR_BLOCK    0x03
 #define SPEAKER_BLOCK	0x04
 #define HDR_STATIC_METADATA_EXTENDED_DATA_BLOCK 0x06
+#define COLORIMETRY_EXTENDED_DATA_BLOCK 0x05
 #define EXTENDED_TAG  0x07
 #define VIDEO_CAPABILITY_BLOCK	0x07
 #define Y420_VIDEO_DATA_BLOCK	0x0E
@@ -3526,11 +3527,17 @@ drm_extract_vcdb_info(struct drm_connector *connector, const u8 *db)
 		(db[2] & (BIT(3) | BIT(2))) >> 2;
 	connector->ce_scan_info =
 		db[2] & (BIT(1) | BIT(0));
+	connector->rgb_qs =
+		db[2] & BIT(6);
+	connector->yuv_qs =
+		db[2] & BIT(7);
 
 	DRM_DEBUG_KMS("Scan Info (pt|it|ce): (%d|%d|%d)",
 			  (int) connector->pt_scan_info,
 			  (int) connector->it_scan_info,
 			  (int) connector->ce_scan_info);
+	DRM_DEBUG_KMS("rgb_quant_range_select %d", connector->rgb_qs);
+	DRM_DEBUG_KMS("ycc_quant_range_select %d", connector->yuv_qs);
 }
 
 static bool drm_edid_is_luminance_value_present(
@@ -3589,6 +3596,50 @@ drm_extract_hdr_db(struct drm_connector *connector, const u8 *db)
 }
 
 /*
+ * drm_extract_colorimetry_db - Parse the HDMI colorimetry extended block
+ * @connector: connector corresponding to the HDMI sink
+ * @db: start of the HDMI colorimetry extended block
+ *
+ * Parses the HDMI colorimetry block to extract sink info for @connector.
+ */
+static void
+drm_extract_clrmetry_db(struct drm_connector *connector, const u8 *db)
+{
+
+	if (!db) {
+		DRM_ERROR("invalid db\n");
+		return;
+	}
+
+	/* Bit 0: xvYCC_601 */
+	if (db[2] & BIT(0))
+		connector->color_enc_fmt |= DRM_EDID_COLORIMETRY_xvYCC_601;
+	/* Bit 0: xvYCC_709 */
+	if (db[2] & BIT(1))
+		connector->color_enc_fmt |= DRM_EDID_COLORIMETRY_xvYCC_709;
+	/* Bit 0: sYCC_601 */
+	if (db[2] & BIT(2))
+		connector->color_enc_fmt |= DRM_EDID_COLORIMETRY_sYCC_601;
+	/* Bit 0: ADBYCC_601 */
+	if (db[2] & BIT(3))
+		connector->color_enc_fmt |= DRM_EDID_COLORIMETRY_ADBYCC_601;
+	/* Bit 0: ADB_RGB */
+	if (db[2] & BIT(4))
+		connector->color_enc_fmt |= DRM_EDID_COLORIMETRY_ADB_RGB;
+	/* Bit 0: BT2020_CYCC */
+	if (db[2] & BIT(5))
+		connector->color_enc_fmt |= DRM_EDID_COLORIMETRY_BT2020_CYCC;
+	/* Bit 0: BT2020_YCC */
+	if (db[2] & BIT(6))
+		connector->color_enc_fmt |= DRM_EDID_COLORIMETRY_BT2020_YCC;
+	/* Bit 0: BT2020_RGB */
+	if (db[2] & BIT(7))
+		connector->color_enc_fmt |= DRM_EDID_COLORIMETRY_BT2020_RGB;
+
+	DRM_DEBUG_KMS("colorimetry fmt 0x%x\n", connector->color_enc_fmt);
+}
+
+/*
  * drm_hdmi_extract_extended_blk_info - Parse the HDMI extended tag blocks
  * @connector: connector corresponding to the HDMI sink
  * @edid: handle to the EDID structure
@@ -3619,6 +3670,9 @@ struct edid *edid)
 					break;
 				case HDR_STATIC_METADATA_EXTENDED_DATA_BLOCK:
 					drm_extract_hdr_db(connector, db);
+					break;
+				case COLORIMETRY_EXTENDED_DATA_BLOCK:
+					drm_extract_clrmetry_db(connector, db);
 					break;
 				default:
 					break;

@@ -2858,7 +2858,7 @@ static void msm_thermal_bite(int zone_id, int temp)
 			tsens_id, temp);
 	}
 	/* If it is a secure device ignore triggering the thermal bite. */
-	if (scm_is_secure_device())
+	if (!scm_is_secure_device())
 		return;
 	if (!is_scm_armv8()) {
 		scm_call_atomic1(SCM_SVC_BOOT, THERM_SECURE_BITE_CMD, 0);
@@ -7409,11 +7409,11 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 		pr_err("thermal pre init failed. err:%d\n", ret);
 		goto probe_exit;
 	}
+	probe_sensor_info(node, &data, pdev);
 	ret = probe_deferrable_properties(node, &data, pdev);
 	if (ret)
 		goto probe_exit;
 
-	probe_sensor_info(node, &data, pdev);
 	probe_cc(node, &data, pdev);
 	probe_freq_mitigation(node, &data, pdev);
 	probe_cx_phase_ctrl(node, &data, pdev);

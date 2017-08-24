@@ -522,7 +522,7 @@ static int32_t msm_actuator_piezo_move_focus(
 	CDBG("Enter\n");
 
 	if (copy_from_user(&ringing_params_kernel,
-		&(move_params->ringing_params[0]),
+		(void __user *)&(move_params->ringing_params[0]),
 		sizeof(struct damping_params_t))) {
 		pr_err("copy_from_user failed\n");
 		return -EFAULT;
@@ -612,7 +612,7 @@ static int32_t msm_actuator_move_focus(
 		return -EFAULT;
 	}
 	if (copy_from_user(ringing_params_kernel,
-		&(move_params->ringing_params[0]),
+		(void __user *)&(move_params->ringing_params[0]),
 		(sizeof(struct damping_params_t))*(a_ctrl->region_size))) {
 		pr_err("copy_from_user failed\n");
 		/* Free the allocated memory for damping parameters */
@@ -732,7 +732,7 @@ static int32_t msm_actuator_bivcm_move_focus(
 		return -EFAULT;
 	}
 	if (copy_from_user(ringing_params_kernel,
-		&(move_params->ringing_params[0]),
+		(void __user *)&(move_params->ringing_params[0]),
 		(sizeof(struct damping_params_t))*(a_ctrl->region_size))) {
 		pr_err("copy_from_user failed\n");
 		/* Free the allocated memory for damping parameters */
@@ -1289,7 +1289,7 @@ static int32_t msm_actuator_set_param(struct msm_actuator_ctrl_t *a_ctrl,
 	a_ctrl->total_steps = set_info->af_tuning_params.total_steps;
 
 	if (copy_from_user(&a_ctrl->region_params,
-		(void *)set_info->af_tuning_params.region_params,
+		(void __user *)set_info->af_tuning_params.region_params,
 		a_ctrl->region_size * sizeof(struct region_params_t)))
 		return -EFAULT;
 
@@ -1332,7 +1332,7 @@ static int32_t msm_actuator_set_param(struct msm_actuator_ctrl_t *a_ctrl,
 	}
 
 	if (copy_from_user(&a_ctrl->reg_tbl,
-		(void *)set_info->actuator_params.reg_tbl_params,
+		(void __user *)set_info->actuator_params.reg_tbl_params,
 		a_ctrl->reg_tbl_size *
 		sizeof(struct msm_actuator_reg_params_t))) {
 		kfree(a_ctrl->i2c_reg_tbl);
@@ -1354,7 +1354,8 @@ static int32_t msm_actuator_set_param(struct msm_actuator_ctrl_t *a_ctrl,
 				return -EFAULT;
 			}
 			if (copy_from_user(init_settings,
-				(void *)set_info->actuator_params.init_settings,
+				(void __user *)
+				set_info->actuator_params.init_settings,
 				set_info->actuator_params.init_setting_size *
 				sizeof(struct reg_settings_t))) {
 				kfree(init_settings);
@@ -1411,7 +1412,7 @@ static int msm_actuator_init(struct msm_actuator_ctrl_t *a_ctrl)
 }
 
 static int32_t msm_actuator_config(struct msm_actuator_ctrl_t *a_ctrl,
-	void __user *argp)
+	void *argp)
 {
 	struct msm_actuator_cfg_data *cdata =
 		(struct msm_actuator_cfg_data *)argp;
@@ -1571,7 +1572,7 @@ static long msm_actuator_subdev_ioctl(struct v4l2_subdev *sd,
 {
 	int rc;
 	struct msm_actuator_ctrl_t *a_ctrl = v4l2_get_subdevdata(sd);
-	void __user *argp = (void __user *)arg;
+	void *argp = arg;
 
 	CDBG("Enter\n");
 	CDBG("%s:%d a_ctrl %pK argp %pK\n", __func__, __LINE__, a_ctrl, argp);
@@ -1721,6 +1722,10 @@ static long msm_actuator_subdev_do_ioctl(
 			parg = &actuator_data;
 			break;
 		}
+		break;
+	case VIDIOC_MSM_ACTUATOR_CFG:
+		pr_err("%s: invalid cmd 0x%x received\n", __func__, cmd);
+		return -EINVAL;
 	}
 
 	rc = msm_actuator_subdev_ioctl(sd, cmd, parg);

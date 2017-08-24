@@ -278,6 +278,7 @@
 
 #define PERST_PROPAGATION_DELAY_US_MIN	  1000
 #define PERST_PROPAGATION_DELAY_US_MAX	  1005
+#define SWITCH_DELAY_MAX	  20
 #define REFCLK_STABILIZATION_DELAY_US_MIN     1000
 #define REFCLK_STABILIZATION_DELAY_US_MAX     1005
 #define LINK_UP_TIMEOUT_US_MIN		    5000
@@ -595,7 +596,6 @@ struct msm_pcie_dev_t {
 	bool				 cfg_access;
 	spinlock_t			 cfg_lock;
 	unsigned long		    irqsave_flags;
-	struct mutex			enumerate_lock;
 	struct mutex		     setup_lock;
 
 	struct irq_domain		*irq_domain;
@@ -626,6 +626,7 @@ struct msm_pcie_dev_t {
 	bool				 ext_ref_clk;
 	bool				common_phy;
 	uint32_t			   ep_latency;
+	uint32_t			switch_latency;
 	uint32_t			wr_halt_size;
 	uint32_t			cpl_timeout;
 	uint32_t			current_bdf;
@@ -701,6 +702,9 @@ static u32 num_rc_on;
 
 /* global lock for PCIe common PHY */
 static struct mutex com_phy_lock;
+
+/* global lock for PCIe enumeration */
+static struct mutex enumerate_lock;
 
 /* Table to track info of PCIe devices */
 static struct msm_pcie_device_info
@@ -1735,7 +1739,8 @@ static bool pcie_phy_is_ready(struct msm_pcie_dev_t *dev)
 
 static int msm_pcie_restore_sec_config(struct msm_pcie_dev_t *dev)
 {
-	int ret, scm_ret;
+	int ret;
+	u64 scm_ret;
 
 	if (!dev) {
 		pr_err("PCIe: the input pcie dev is NULL.\n");
@@ -1745,7 +1750,7 @@ static int msm_pcie_restore_sec_config(struct msm_pcie_dev_t *dev)
 	ret = scm_restore_sec_cfg(dev->scm_dev_id, 0, &scm_ret);
 	if (ret || scm_ret) {
 		PCIE_ERR(dev,
-			"PCIe: RC%d failed(%d) to restore sec config, scm_ret=%d\n",
+			"PCIe: RC%d failed(%d) to restore sec config, scm_ret=%llu\n",
 			dev->rc_idx, ret, scm_ret);
 		return ret ? ret : -EINVAL;
 	}
@@ -1984,6 +1989,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->common_phy);
 	PCIE_DBG_FS(dev, "ep_latency: %dms\n",
 		dev->ep_latency);
+	PCIE_DBG_FS(dev, "switch_latency: %dms\n",
+		dev->switch_latency);
 	PCIE_DBG_FS(dev, "wr_halt_size: 0x%x\n",
 		dev->wr_halt_size);
 	PCIE_DBG_FS(dev, "cpl_timeout: 0x%x\n",
@@ -4675,7 +4682,15 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 		goto link_fail;
 	}
 
-	msleep(500);
+	if (dev->switch_latency) {
+		PCIE_DBG(dev, "switch_latency: %dms\n",
+			dev->switch_latency);
+		if (dev->switch_latency <= SWITCH_DELAY_MAX)
+			usleep_range(dev->switch_latency * 1000,
+				dev->switch_latency * 1000);
+		else
+			msleep(dev->switch_latency);
+	}
 
 	msm_pcie_config_controller(dev);
 
@@ -5037,7 +5052,7 @@ int msm_pcie_enumerate(u32 rc_idx)
 	int ret = 0, bus_ret = 0, scan_ret = 0;
 	struct msm_pcie_dev_t *dev = &msm_pcie_dev[rc_idx];
 
-	mutex_lock(&dev->enumerate_lock);
+	mutex_lock(&enumerate_lock);
 
 	PCIE_DBG(dev, "Enumerate RC%d\n", rc_idx);
 
@@ -5156,7 +5171,7 @@ int msm_pcie_enumerate(u32 rc_idx)
 	}
 
 out:
-	mutex_unlock(&dev->enumerate_lock);
+	mutex_unlock(&enumerate_lock);
 
 	return ret;
 }
@@ -6279,6 +6294,20 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		PCIE_DBG(&msm_pcie_dev[rc_idx], "RC%d: ep-latency: 0x%x.\n",
 			rc_idx, msm_pcie_dev[rc_idx].ep_latency);
 
+	msm_pcie_dev[rc_idx].switch_latency = 0;
+	ret = of_property_read_u32((&pdev->dev)->of_node,
+					"qcom,switch-latency",
+					&msm_pcie_dev[rc_idx].switch_latency);
+
+	if (ret)
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+				"RC%d: switch-latency does not exist.\n",
+				rc_idx);
+	else
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+				"RC%d: switch-latency: 0x%x.\n",
+				rc_idx, msm_pcie_dev[rc_idx].switch_latency);
+
 	msm_pcie_dev[rc_idx].wr_halt_size = 0;
 	ret = of_property_read_u32(pdev->dev.of_node,
 				"qcom,wr-halt-size",
@@ -6604,6 +6633,7 @@ int __init pcie_init(void)
 	pcie_drv.rc_num = 0;
 	mutex_init(&pcie_drv.drv_lock);
 	mutex_init(&com_phy_lock);
+	mutex_init(&enumerate_lock);
 
 	for (i = 0; i < MAX_RC_NUM; i++) {
 		snprintf(rc_name, MAX_RC_NAME_LEN, "pcie%d-short", i);
@@ -6638,7 +6668,6 @@ int __init pcie_init(void)
 				rc_name, i);
 		spin_lock_init(&msm_pcie_dev[i].cfg_lock);
 		msm_pcie_dev[i].cfg_access = true;
-		mutex_init(&msm_pcie_dev[i].enumerate_lock);
 		mutex_init(&msm_pcie_dev[i].setup_lock);
 		mutex_init(&msm_pcie_dev[i].recovery_lock);
 		spin_lock_init(&msm_pcie_dev[i].linkdown_lock);

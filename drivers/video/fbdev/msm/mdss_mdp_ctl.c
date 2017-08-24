@@ -31,6 +31,7 @@
 #define MDSS_MDP_QSEED3_VER_DOWNSCALE_LIM 2
 #define NUM_MIXERCFG_REGS 3
 #define MDSS_MDP_WB_OUTPUT_BPP	3
+#define MIN_BUS_THROUGHPUT_SCALE_FACTOR 35
 struct mdss_mdp_mixer_cfg {
 	u32 config_masks[NUM_MIXERCFG_REGS];
 	bool border_enabled;
@@ -622,9 +623,19 @@ static u32 __calc_qseed3_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
 }
 
 static inline bool __is_vert_downscaling(u32 src_h,
-	struct mdss_rect dst){
-
+	struct mdss_rect dst)
+{
 	return (src_h > dst.h);
+}
+
+static inline bool __is_bus_throughput_factor_required(u32 src_h,
+	struct mdss_rect dst)
+{
+	u32 scale_factor = src_h * 10;
+
+	do_div(scale_factor, dst.h);
+	return (__is_vert_downscaling(src_h, dst) &&
+		(scale_factor >= MIN_BUS_THROUGHPUT_SCALE_FACTOR));
 }
 
 static u32 get_pipe_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
@@ -673,10 +684,18 @@ static u32 get_pipe_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
 		}
 	}
 
+	/*
+	 * If the downscale factor is >= 3.5 for a 32 BPP surface,
+	 * it is recommended to add a 10% bus throughput factor to
+	 * the clock rate.
+	 */
+	if ((pipe->src_fmt->bpp == 4) &&
+		__is_bus_throughput_factor_required(src_h, dst))
+		rate = apply_fudge_factor(rate, &mdata->bus_throughput_factor);
+
 	if (flags & PERF_CALC_PIPE_APPLY_CLK_FUDGE)
 		rate = mdss_mdp_clk_fudge_factor(mixer, rate);
 
-	rate = min(mdata->max_mdp_clk_rate, rate);
 	return rate;
 }
 
@@ -2513,6 +2532,7 @@ struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 	u32 nmixers_wb;
 	u32 i;
 	u32 nmixers;
+	u32 nmixers_active;
 	struct mdss_mdp_mixer *mixer_pool = NULL;
 
 	if (!ctl || !ctl->mdata)
@@ -2526,10 +2546,21 @@ struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 	case MDSS_MDP_MIXER_TYPE_INTF:
 		mixer_pool = ctl->mdata->mixer_intf;
 		nmixers = nmixers_intf;
+		nmixers_active = nmixers;
+
+		for (i = 0; i < nmixers; i++) {
+			mixer = mixer_pool + i;
+			if (mixer->ref_cnt)
+				nmixers_active--;
+		}
+		mixer = NULL;
 
 		/*
 		 * try to reserve first layer mixer for write back if
-		 * assertive display needs to be supported through wfd
+		 * assertive display needs to be supported through wfd.
+		 * For external displays(pluggable) and writeback avoid
+		 * allocating mixers LM0 and LM1 which are allocated
+		 * to primary display first.
 		 */
 		if (ctl->mdata->has_wb_ad && ctl->intf_num &&
 			((ctl->panel_data->panel_info.type != MIPI_CMD_PANEL) ||
@@ -2539,6 +2570,10 @@ struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 			nmixers--;
 		} else if ((ctl->panel_data->panel_info.type == WRITEBACK_PANEL)
 			&& (ctl->mdata->ndspp < nmixers)) {
+			mixer_pool += ctl->mdata->ndspp;
+			nmixers -= ctl->mdata->ndspp;
+		} else if ((ctl->panel_data->panel_info.is_pluggable) &&
+				nmixers_active) {
 			mixer_pool += ctl->mdata->ndspp;
 			nmixers -= ctl->mdata->ndspp;
 		}

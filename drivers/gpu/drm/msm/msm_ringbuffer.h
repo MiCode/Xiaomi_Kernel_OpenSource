@@ -20,17 +20,46 @@
 
 #include "msm_drv.h"
 
+#define rbmemptr(ring, member) \
+	((ring)->memptrs_iova + offsetof(struct msm_memptrs, member))
+
+struct msm_memptr_ticks {
+	uint64_t started;
+	uint64_t retired;
+};
+
+struct msm_memptrs {
+	volatile uint32_t rptr;
+	volatile uint32_t fence;
+	volatile uint64_t ttbr0;
+	volatile unsigned int contextidr;
+	struct msm_memptr_ticks ticks[128];
+};
+
+#define RING_TICKS_IOVA(ring, index, field) \
+	((ring)->memptrs_iova + offsetof(struct msm_memptrs, ticks) + \
+	 ((index) * sizeof(struct msm_memptr_ticks)) + \
+	 offsetof(struct msm_memptr_ticks, field))
+
 struct msm_ringbuffer {
 	struct msm_gpu *gpu;
 	int id;
 	struct drm_gem_object *bo;
 	uint32_t *start, *end, *cur, *next;
 	uint64_t iova;
+	uint32_t seqno;
 	uint32_t submitted_fence;
 	spinlock_t lock;
+	struct list_head submits;
+	uint32_t hangcheck_fence;
+
+	struct msm_memptrs *memptrs;
+	uint64_t memptrs_iova;
+	int tick_index;
 };
 
-struct msm_ringbuffer *msm_ringbuffer_new(struct msm_gpu *gpu, int id);
+struct msm_ringbuffer *msm_ringbuffer_new(struct msm_gpu *gpu, int id,
+		struct msm_memptrs *memptrs, uint64_t memptrs_iova);
 void msm_ringbuffer_destroy(struct msm_ringbuffer *ring);
 
 /* ringbuffer helpers (the parts that are same for a3xx/a2xx/z180..) */

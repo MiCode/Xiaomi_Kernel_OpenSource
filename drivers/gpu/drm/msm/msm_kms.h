@@ -34,6 +34,24 @@
 #define MSM_MODE_FLAG_SEAMLESS_DYNAMIC_FPS	(1<<0)
 /* Transition to new mode requires a wait-for-vblank before the modeset */
 #define MSM_MODE_FLAG_VBLANK_PRE_MODESET	(1<<1)
+/*
+ * We need setting some flags in bridge, and using them in encoder. Add them in
+ * private_flags would be better for use. DRM_MODE_FLAG_SUPPORTS_RGB/YUV are
+ * flags that indicating the SINK supported color formats read from EDID. While,
+ * these flags defined here indicate the best color/bit depth foramt we choosed
+ * that would be better for display. For example the best mode display like:
+ * RGB+RGB_DC,YUV+YUV_DC, RGB,YUV. And we could not set RGB and YUV format at
+ * the same time. And also RGB_DC only set when RGB format is set,the same for
+ * YUV_DC.
+ */
+/* Enable RGB444 30 bit deep color */
+#define MSM_MODE_FLAG_RGB444_DC_ENABLE		(1<<2)
+/* Enable YUV420 30 bit deep color */
+#define MSM_MODE_FLAG_YUV420_DC_ENABLE		(1<<3)
+/* Choose RGB444 format to display */
+#define MSM_MODE_FLAG_COLOR_FORMAT_RGB444	(1<<4)
+/* Choose YUV420 format to display */
+#define MSM_MODE_FLAG_COLOR_FORMAT_YCBCR420	(1<<5)
 
 /* As there are different display controller blocks depending on the
  * snapdragon version, the kms support is split out and the appropriate

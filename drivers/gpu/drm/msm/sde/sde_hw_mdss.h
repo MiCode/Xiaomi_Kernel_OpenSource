@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,13 +41,29 @@
 #define SDE_MAX_DE_CURVES		3
 #endif
 
-#define SDE_FORMAT_FLAG_YUV		(1 << 0)
-#define SDE_FORMAT_FLAG_DX		(1 << 1)
+enum sde_format_flags {
+	SDE_FORMAT_FLAG_YUV_BIT,
+	SDE_FORMAT_FLAG_DX_BIT,
+	SDE_FORMAT_FLAG_COMPRESSED_BIT,
+	SDE_FORMAT_FLAG_BIT_MAX,
+};
 
-#define SDE_FORMAT_IS_YUV(X)		((X)->flag & SDE_FORMAT_FLAG_YUV)
-#define SDE_FORMAT_IS_DX(X)		((X)->flag & SDE_FORMAT_FLAG_DX)
+#define SDE_FORMAT_FLAG_YUV		BIT(SDE_FORMAT_FLAG_YUV_BIT)
+#define SDE_FORMAT_FLAG_DX		BIT(SDE_FORMAT_FLAG_DX_BIT)
+#define SDE_FORMAT_FLAG_COMPRESSED	BIT(SDE_FORMAT_FLAG_COMPRESSED_BIT)
+#define SDE_FORMAT_IS_YUV(X)		\
+	(test_bit(SDE_FORMAT_FLAG_YUV_BIT, (X)->flag))
+#define SDE_FORMAT_IS_DX(X)		\
+	(test_bit(SDE_FORMAT_FLAG_DX_BIT, (X)->flag))
 #define SDE_FORMAT_IS_LINEAR(X)		((X)->fetch_mode == SDE_FETCH_LINEAR)
-#define SDE_FORMAT_IS_UBWC(X)		((X)->fetch_mode == SDE_FETCH_UBWC)
+#define SDE_FORMAT_IS_TILE(X) \
+	(((X)->fetch_mode == SDE_FETCH_UBWC) && \
+			!test_bit(SDE_FORMAT_FLAG_COMPRESSED_BIT, (X)->flag))
+#define SDE_FORMAT_IS_UBWC(X) \
+	(((X)->fetch_mode == SDE_FETCH_UBWC) && \
+			test_bit(SDE_FORMAT_FLAG_COMPRESSED_BIT, (X)->flag))
+
+#define TO_S15D16(_x_) ((_x_) << 7)
 
 #define SDE_BLEND_FG_ALPHA_FG_CONST	(0 << 0)
 #define SDE_BLEND_FG_ALPHA_BG_CONST	(1 << 0)
@@ -325,6 +341,15 @@ enum sde_3d_blend_mode {
 	BLEND_3D_MAX
 };
 
+enum sde_csc_type {
+	SDE_CSC_RGB2YUV_601L,
+	SDE_CSC_RGB2YUV_601FR,
+	SDE_CSC_RGB2YUV_709L,
+	SDE_CSC_RGB2YUV_2020L,
+	SDE_CSC_RGB2YUV_2020FR,
+	SDE_MAX_CSC
+};
+
 /** struct sde_format - defines the format configuration which
  * allows SDE HW to correctly fetch and decode the format
  * @base: base msm_format struture containing fourcc code
@@ -357,7 +382,7 @@ struct sde_format {
 	u8 alpha_enable;
 	u8 num_planes;
 	enum sde_fetch_type fetch_mode;
-	u32 flag;
+	DECLARE_BITMAP(flag, SDE_FORMAT_FLAG_BIT_MAX);
 	u16 tile_width;
 	u16 tile_height;
 };

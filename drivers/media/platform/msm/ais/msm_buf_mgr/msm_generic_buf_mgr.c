@@ -51,7 +51,7 @@ static int32_t msm_buf_mngr_hdl_cont_get_buf(struct msm_buf_mngr_device *dev,
 }
 
 static int32_t msm_buf_mngr_get_buf(struct msm_buf_mngr_device *dev,
-	void __user *argp)
+	void *argp)
 {
 	unsigned long flags;
 	int32_t rc = 0;
@@ -465,7 +465,7 @@ static int msm_generic_buf_mngr_close(struct v4l2_subdev *sd,
 	return rc;
 }
 
-int msm_cam_buf_mgr_ops(unsigned int cmd, void *argp)
+static int msm_cam_buf_mgr_ops(unsigned int cmd, void *argp)
 {
 	int rc = 0;
 
@@ -531,7 +531,7 @@ static long msm_buf_mngr_subdev_ioctl(struct v4l2_subdev *sd,
 {
 	int32_t rc = 0;
 	struct msm_buf_mngr_device *buf_mngr_dev = v4l2_get_subdevdata(sd);
-	void __user *argp = (void __user *)arg;
+	void *argp = arg;
 
 	if (!buf_mngr_dev) {
 		pr_err("%s buf manager device NULL\n", __func__);
@@ -557,13 +557,13 @@ static long msm_buf_mngr_subdev_ioctl(struct v4l2_subdev *sd,
 
 			MSM_CAM_GET_IOCTL_ARG_PTR(&tmp, &k_ioctl.ioctl_ptr,
 				sizeof(tmp));
-			if (copy_from_user(&buf_info, tmp,
+			if (copy_from_user(&buf_info, (void __user *)tmp,
 				sizeof(struct msm_buf_mngr_info))) {
 				return -EFAULT;
 			}
 			k_ioctl.ioctl_ptr = (uintptr_t)&buf_info;
 
-			argp = &k_ioctl;
+			argp = (void *)&k_ioctl;
 			rc = msm_cam_buf_mgr_ops(cmd, argp);
 			}
 			break;

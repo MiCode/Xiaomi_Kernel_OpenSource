@@ -34,6 +34,10 @@ static bool usb_compliance_mode;
 module_param(usb_compliance_mode, bool, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(usb_compliance_mode, "Start USB stack for USB3.1 compliance testing");
 
+static bool disable_usb_pd;
+module_param(disable_usb_pd, bool, S_IRUGO|S_IWUSR);
+MODULE_PARM_DESC(disable_usb_pd, "Disable USB PD for USB3.1 compliance testing");
+
 enum usbpd_state {
 	PE_UNKNOWN,
 	PE_ERROR_RECOVERY,
@@ -178,7 +182,7 @@ static void *usbpd_ipc_log;
 #define PS_HARD_RESET_TIME	25
 #define PS_SOURCE_ON		400
 #define PS_SOURCE_OFF		750
-#define SWAP_SOURCE_START_TIME	20
+#define FIRST_SOURCE_CAP_TIME	200
 #define VDM_BUSY_TIME		50
 #define VCONN_ON_TIME		100
 
@@ -477,15 +481,15 @@ static inline void pd_reset_protocol(struct usbpd *pd)
 	pd->send_dr_swap = false;
 }
 
-static int pd_send_msg(struct usbpd *pd, u8 hdr_type, const u32 *data,
-		size_t num_data, enum pd_msg_type type)
+static int pd_send_msg(struct usbpd *pd, u8 msg_type, const u32 *data,
+		size_t num_data, enum pd_sop_type sop)
 {
 	int ret;
 	u16 hdr;
 
-	hdr = PD_MSG_HDR(hdr_type, pd->current_dr, pd->current_pr,
+	hdr = PD_MSG_HDR(msg_type, pd->current_dr, pd->current_pr,
 			pd->tx_msgid, num_data, pd->spec_rev);
-	ret = pd_phy_write(hdr, (u8 *)data, num_data * sizeof(u32), type, 15);
+	ret = pd_phy_write(hdr, (u8 *)data, num_data * sizeof(u32), sop, 15);
 	/* TODO figure out timeout. based on tReceive=1.1ms x nRetryCount? */
 
 	if (ret < 0)
@@ -608,12 +612,12 @@ static void kick_sm(struct usbpd *pd, int ms)
 		queue_work(pd->wq, &pd->sm_work);
 }
 
-static void phy_sig_received(struct usbpd *pd, enum pd_sig_type type)
+static void phy_sig_received(struct usbpd *pd, enum pd_sig_type sig)
 {
 	union power_supply_propval val = {1};
 
-	if (type != HARD_RESET_SIG) {
-		usbpd_err(&pd->dev, "invalid signal (%d) received\n", type);
+	if (sig != HARD_RESET_SIG) {
+		usbpd_err(&pd->dev, "invalid signal (%d) received\n", sig);
 		return;
 	}
 
@@ -628,16 +632,16 @@ static void phy_sig_received(struct usbpd *pd, enum pd_sig_type type)
 	kick_sm(pd, 0);
 }
 
-static void phy_msg_received(struct usbpd *pd, enum pd_msg_type type,
+static void phy_msg_received(struct usbpd *pd, enum pd_sop_type sop,
 		u8 *buf, size_t len)
 {
 	struct rx_msg *rx_msg;
 	unsigned long flags;
 	u16 header;
 
-	if (type != SOP_MSG) {
+	if (sop != SOP_MSG) {
 		usbpd_err(&pd->dev, "invalid msg type (%d) received; only SOP supported\n",
-				type);
+				sop);
 		return;
 	}
 
@@ -786,17 +790,27 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			pd->pd_phy_opened = true;
 		}
 
-		pd->current_state = PE_SRC_SEND_CAPABILITIES;
 		if (pd->in_pr_swap) {
-			kick_sm(pd, SWAP_SOURCE_START_TIME);
 			pd->in_pr_swap = false;
 			val.intval = 0;
 			power_supply_set_property(pd->usb_psy,
 					POWER_SUPPLY_PROP_PR_SWAP, &val);
-			break;
 		}
 
-		/* fall-through */
+		/*
+		 * A sink might remove its terminations (during some Type-C
+		 * compliance tests or a sink attempting to do Try.SRC)
+		 * at this point just after we enabled VBUS. Sending PD
+		 * messages now would delay detecting the detach beyond the
+		 * required timing. Instead, delay sending out the first
+		 * source capabilities to allow for the other side to
+		 * completely settle CC debounce and allow HW to detect detach
+		 * sooner in the meantime. PD spec allows up to
+		 * tFirstSourceCap (250ms).
+		 */
+		pd->current_state = PE_SRC_SEND_CAPABILITIES;
+		kick_sm(pd, FIRST_SOURCE_CAP_TIME);
+		break;
 
 	case PE_SRC_SEND_CAPABILITIES:
 		kick_sm(pd, 0);
@@ -906,6 +920,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 			if (pd->psy_type == POWER_SUPPLY_TYPE_USB ||
 				pd->psy_type == POWER_SUPPLY_TYPE_USB_CDP ||
+				pd->psy_type == POWER_SUPPLY_TYPE_USB_FLOAT ||
 				usb_compliance_mode)
 				start_usb_peripheral(pd);
 		}
@@ -920,7 +935,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			break;
 		}
 
-		if (!val.intval)
+		if (!val.intval || disable_usb_pd)
 			break;
 
 		pd_reset_protocol(pd);
@@ -949,7 +964,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		pd->current_voltage = pd->requested_voltage = 5000000;
 		val.intval = pd->requested_voltage; /* set max range to 5V */
 		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_VOLTAGE_MAX, &val);
+				POWER_SUPPLY_PROP_PD_VOLTAGE_MAX, &val);
 
 		if (!pd->vbus_present) {
 			pd->current_state = PE_SNK_DISCOVERY;
@@ -1648,7 +1663,7 @@ static void usbpd_sm(struct work_struct *w)
 		pd->requested_voltage = 5000000;
 		val.intval = pd->requested_voltage;
 		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_VOLTAGE_MIN, &val);
+				POWER_SUPPLY_PROP_PD_VOLTAGE_MIN, &val);
 
 		pd->in_pr_swap = false;
 		val.intval = 0;
@@ -1687,7 +1702,6 @@ static void usbpd_sm(struct work_struct *w)
 		if (pd->current_pr == PR_SINK) {
 			usbpd_set_state(pd, PE_SNK_STARTUP);
 		} else if (pd->current_pr == PR_SRC) {
-			enable_vbus(pd);
 			if (!pd->vconn_enabled &&
 					pd->typec_mode ==
 					POWER_SUPPLY_TYPEC_SINK_POWERED_CABLE) {
@@ -1697,6 +1711,7 @@ static void usbpd_sm(struct work_struct *w)
 				else
 					pd->vconn_enabled = true;
 			}
+			enable_vbus(pd);
 
 			usbpd_set_state(pd, PE_SRC_STARTUP);
 		}
@@ -1967,8 +1982,8 @@ static void usbpd_sm(struct work_struct *w)
 			val.intval = pd->requested_voltage;
 			power_supply_set_property(pd->usb_psy,
 				pd->requested_voltage >= pd->current_voltage ?
-					POWER_SUPPLY_PROP_VOLTAGE_MAX :
-					POWER_SUPPLY_PROP_VOLTAGE_MIN,
+					POWER_SUPPLY_PROP_PD_VOLTAGE_MAX :
+					POWER_SUPPLY_PROP_PD_VOLTAGE_MIN,
 					&val);
 
 			/*
@@ -2019,8 +2034,8 @@ static void usbpd_sm(struct work_struct *w)
 			val.intval = pd->requested_voltage;
 			power_supply_set_property(pd->usb_psy,
 				pd->requested_voltage >= pd->current_voltage ?
-					POWER_SUPPLY_PROP_VOLTAGE_MIN :
-					POWER_SUPPLY_PROP_VOLTAGE_MAX, &val);
+					POWER_SUPPLY_PROP_PD_VOLTAGE_MIN :
+					POWER_SUPPLY_PROP_PD_VOLTAGE_MAX, &val);
 			pd->current_voltage = pd->requested_voltage;
 
 			/* resume charging */
@@ -2202,7 +2217,7 @@ static void usbpd_sm(struct work_struct *w)
 
 		val.intval = pd->requested_voltage;
 		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_VOLTAGE_MIN, &val);
+				POWER_SUPPLY_PROP_PD_VOLTAGE_MIN, &val);
 
 		pd_send_hard_reset(pd);
 		pd->in_explicit_contract = false;

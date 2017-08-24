@@ -26,11 +26,68 @@
 #include "msm_gem.h"
 #include "msm_mmu.h"
 
+static void msm_drm_helper_hotplug_event(struct drm_device *dev)
+{
+	struct drm_connector *connector;
+	char *event_string;
+	char const *connector_name;
+	char *envp[2];
+
+	if (!dev) {
+		DRM_ERROR("hotplug_event failed, invalid input\n");
+		return;
+	}
+
+	if (!dev->mode_config.poll_enabled)
+		return;
+
+	event_string = kzalloc(SZ_4K, GFP_KERNEL);
+	if (!event_string) {
+		DRM_ERROR("failed to allocate event string\n");
+		return;
+	}
+
+	mutex_lock(&dev->mode_config.mutex);
+	drm_for_each_connector(connector, dev) {
+		/* Only handle HPD capable connectors. */
+		if (!(connector->polled & DRM_CONNECTOR_POLL_HPD))
+			continue;
+
+		connector->status = connector->funcs->detect(connector, false);
+
+		if (connector->name)
+			connector_name = connector->name;
+		else
+			connector_name = "unknown";
+
+		snprintf(event_string, SZ_4K, "name=%s status=%s\n",
+			connector_name,
+			drm_get_connector_status_name(connector->status));
+		DRM_DEBUG("generating hotplug event [%s]\n", event_string);
+		envp[0] = event_string;
+		envp[1] = NULL;
+		kobject_uevent_env(&dev->primary->kdev->kobj, KOBJ_CHANGE,
+				envp);
+	}
+	mutex_unlock(&dev->mode_config.mutex);
+	kfree(event_string);
+}
+
 static void msm_fb_output_poll_changed(struct drm_device *dev)
 {
-	struct msm_drm_private *priv = dev->dev_private;
+	struct msm_drm_private *priv = NULL;
+
+	if (!dev) {
+		DRM_ERROR("output_poll_changed failed, invalid input\n");
+		return;
+	}
+
+	priv = dev->dev_private;
+
 	if (priv->fbdev)
 		drm_fb_helper_hotplug_event(priv->fbdev);
+	else
+		msm_drm_helper_hotplug_event(dev);
 }
 
 static const struct drm_mode_config_funcs mode_config_funcs = {
@@ -259,8 +316,8 @@ static int get_mdp_ver(struct platform_device *pdev)
 	static const struct of_device_id match_types[] = { {
 		.compatible = "qcom,sde-kms",
 		.data	= (void	*)KMS_SDE,
-		/* end node */
-	} };
+	},
+	{} };
 	struct device *dev = &pdev->dev;
 	const struct of_device_id *match;
 	match = of_match_node(match_types, dev->of_node);
@@ -602,7 +659,10 @@ static int msm_open(struct drm_device *dev, struct drm_file *file)
 	if (IS_ERR(ctx))
 		return PTR_ERR(ctx);
 
-	INIT_LIST_HEAD(&ctx->counters);
+	if (ctx)
+		INIT_LIST_HEAD(&ctx->counters);
+
+	msm_submitqueue_init(ctx);
 
 	file->driver_priv = ctx;
 
@@ -632,12 +692,18 @@ static void msm_postclose(struct drm_device *dev, struct drm_file *file)
 	if (kms && kms->funcs && kms->funcs->postclose)
 		kms->funcs->postclose(kms, file);
 
-	if (priv->gpu)
+	if (!ctx)
+		return;
+
+	msm_submitqueue_close(ctx);
+
+	if (priv->gpu) {
 		msm_gpu_cleanup_counters(priv->gpu, ctx);
 
-	if (ctx && ctx->aspace && ctx->aspace != priv->gpu->aspace) {
-		ctx->aspace->mmu->funcs->detach(ctx->aspace->mmu);
-		msm_gem_address_space_put(ctx->aspace);
+		if (ctx->aspace && ctx->aspace != priv->gpu->aspace) {
+			ctx->aspace->mmu->funcs->detach(ctx->aspace->mmu);
+			msm_gem_address_space_put(ctx->aspace);
+		}
 	}
 
 	kfree(ctx);
@@ -1683,6 +1749,52 @@ static int msm_ioctl_counter_read(struct drm_device *dev, void *data,
 	return -ENODEV;
 }
 
+
+static int msm_ioctl_submitqueue_new(struct drm_device *dev, void *data,
+		struct drm_file *file)
+{
+	struct drm_msm_submitqueue *args = data;
+	struct msm_drm_private *priv = dev->dev_private;
+	struct msm_gpu *gpu = priv->gpu;
+
+	if (args->flags & ~MSM_SUBMITQUEUE_FLAGS)
+		return -EINVAL;
+
+	if ((gpu->nr_rings > 1) &&
+		(!file->is_master && args->prio == 0)) {
+		DRM_ERROR("Only DRM master can set highest priority ringbuffer\n");
+		return -EPERM;
+	}
+
+	if (args->flags & MSM_SUBMITQUEUE_BYPASS_QOS_TIMEOUT &&
+		!capable(CAP_SYS_ADMIN)) {
+		DRM_ERROR(
+			"Only CAP_SYS_ADMIN processes can bypass the timer\n");
+		return -EPERM;
+	}
+
+	return msm_submitqueue_create(file->driver_priv, args->prio,
+		args->flags, &args->id);
+}
+
+static int msm_ioctl_submitqueue_query(struct drm_device *dev, void *data,
+		struct drm_file *file)
+{
+	struct drm_msm_submitqueue_query *args = data;
+	void __user *ptr = (void __user *)(uintptr_t) args->data;
+
+	return msm_submitqueue_query(file->driver_priv, args->id,
+		args->param, ptr, args->len);
+}
+
+static int msm_ioctl_submitqueue_close(struct drm_device *dev, void *data,
+		struct drm_file *file)
+{
+	struct drm_msm_submitqueue *args = data;
+
+	return msm_submitqueue_remove(file->driver_priv, args->id);
+}
+
 int msm_release(struct inode *inode, struct file *filp)
 {
 	struct drm_file *file_priv = filp->private_data;
@@ -1727,6 +1839,12 @@ static const struct drm_ioctl_desc msm_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MSM_GEM_SYNC, msm_ioctl_gem_sync,
 			  DRM_AUTH|DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MSM_GEM_SVM_NEW, msm_ioctl_gem_svm_new,
+			  DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_SUBMITQUEUE_NEW,  msm_ioctl_submitqueue_new,
+			  DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_SUBMITQUEUE_CLOSE, msm_ioctl_submitqueue_close,
+			  DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_SUBMITQUEUE_QUERY, msm_ioctl_submitqueue_query,
 			  DRM_AUTH|DRM_RENDER_ALLOW),
 };
 
@@ -1780,6 +1898,7 @@ static struct drm_driver msm_driver = {
 	.prime_fd_to_handle = drm_gem_prime_fd_to_handle,
 	.gem_prime_export   = drm_gem_prime_export,
 	.gem_prime_import   = drm_gem_prime_import,
+	.gem_prime_res_obj  = msm_gem_prime_res_obj,
 	.gem_prime_pin      = msm_gem_prime_pin,
 	.gem_prime_unpin    = msm_gem_prime_unpin,
 	.gem_prime_get_sg_table = msm_gem_prime_get_sg_table,
@@ -1804,8 +1923,75 @@ static struct drm_driver msm_driver = {
 #ifdef CONFIG_PM_SLEEP
 static int msm_pm_suspend(struct device *dev)
 {
-	struct drm_device *ddev = dev_get_drvdata(dev);
+	struct drm_device *ddev;
+	struct drm_modeset_acquire_ctx *ctx;
+	struct drm_connector *conn;
+	struct drm_atomic_state *state;
+	struct drm_crtc_state *crtc_state;
+	struct msm_drm_private *priv;
+	int ret = 0;
 
+	if (!dev)
+		return -EINVAL;
+
+	ddev = dev_get_drvdata(dev);
+	if (!ddev || !ddev->dev_private)
+		return -EINVAL;
+
+	priv = ddev->dev_private;
+	SDE_EVT32(0);
+
+	/* acquire modeset lock(s) */
+	drm_modeset_lock_all(ddev);
+	ctx = ddev->mode_config.acquire_ctx;
+
+	/* save current state for resume */
+	if (priv->suspend_state)
+		drm_atomic_state_free(priv->suspend_state);
+	priv->suspend_state = drm_atomic_helper_duplicate_state(ddev, ctx);
+	if (IS_ERR_OR_NULL(priv->suspend_state)) {
+		DRM_ERROR("failed to back up suspend state\n");
+		priv->suspend_state = NULL;
+		goto unlock;
+	}
+
+	/* create atomic state to disable all CRTCs */
+	state = drm_atomic_state_alloc(ddev);
+	if (IS_ERR_OR_NULL(state)) {
+		DRM_ERROR("failed to allocate crtc disable state\n");
+		goto unlock;
+	}
+
+	state->acquire_ctx = ctx;
+	drm_for_each_connector(conn, ddev) {
+
+		if (!conn->state || !conn->state->crtc ||
+				conn->dpms != DRM_MODE_DPMS_ON)
+			continue;
+
+		/* force CRTC to be inactive */
+		crtc_state = drm_atomic_get_crtc_state(state,
+				conn->state->crtc);
+		if (IS_ERR_OR_NULL(crtc_state)) {
+			DRM_ERROR("failed to get crtc %d state\n",
+					conn->state->crtc->base.id);
+			drm_atomic_state_free(state);
+			goto unlock;
+		}
+		crtc_state->active = false;
+	}
+
+	/* commit the "disable all" state */
+	ret = drm_atomic_commit(state);
+	if (ret < 0) {
+		DRM_ERROR("failed to disable crtcs, %d\n", ret);
+		drm_atomic_state_free(state);
+	}
+
+unlock:
+	drm_modeset_unlock_all(ddev);
+
+	/* disable hot-plug polling */
 	drm_kms_helper_poll_disable(ddev);
 
 	return 0;
@@ -1813,8 +1999,38 @@ static int msm_pm_suspend(struct device *dev)
 
 static int msm_pm_resume(struct device *dev)
 {
-	struct drm_device *ddev = dev_get_drvdata(dev);
+	struct drm_device *ddev;
+	struct msm_drm_private *priv;
+	int ret;
 
+	if (!dev)
+		return -EINVAL;
+
+	ddev = dev_get_drvdata(dev);
+	if (!ddev || !ddev->dev_private)
+		return -EINVAL;
+
+	priv = ddev->dev_private;
+
+	SDE_EVT32(priv->suspend_state != NULL);
+
+	drm_mode_config_reset(ddev);
+
+	drm_modeset_lock_all(ddev);
+
+	if (priv->suspend_state) {
+		priv->suspend_state->acquire_ctx =
+			ddev->mode_config.acquire_ctx;
+		ret = drm_atomic_commit(priv->suspend_state);
+		if (ret < 0) {
+			DRM_ERROR("failed to restore state, %d\n", ret);
+			drm_atomic_state_free(priv->suspend_state);
+		}
+		priv->suspend_state = NULL;
+	}
+	drm_modeset_unlock_all(ddev);
+
+	/* enable hot-plug polling */
 	drm_kms_helper_poll_enable(ddev);
 
 	return 0;
@@ -1979,6 +2195,7 @@ static struct platform_driver msm_platform_driver = {
 		.name   = "msm_drm",
 		.of_match_table = dt_match,
 		.pm     = &msm_pm_ops,
+		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 	},
 	.id_table   = msm_id,
 };

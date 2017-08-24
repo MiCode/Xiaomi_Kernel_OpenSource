@@ -547,7 +547,6 @@ struct diagchar_dev {
 	struct mutex cmd_reg_mutex;
 	uint32_t cmd_reg_count;
 	struct mutex diagfwd_channel_mutex[NUM_PERIPHERALS];
-	struct mutex diagfwd_untag_mutex;
 	/* Sizes that reflect memory pool sizes */
 	unsigned int poolsize;
 	unsigned int poolsize_hdlc;
@@ -579,6 +578,7 @@ struct diagchar_dev {
 	unsigned char *buf_feature_mask_update;
 	uint8_t hdlc_disabled;
 	struct mutex hdlc_disable_mutex;
+	struct mutex hdlc_recovery_mutex;
 	struct timer_list hdlc_reset_timer;
 	struct mutex diag_hdlc_mutex;
 	unsigned char *hdlc_buf;
@@ -613,12 +613,6 @@ struct diagchar_dev {
 	int pd_logging_mode[NUM_UPD];
 	int pd_session_clear[NUM_UPD];
 	int num_pd_session;
-	int cpd_len_1[NUM_PERIPHERALS];
-	int cpd_len_2[NUM_PERIPHERALS];
-	int upd_len_1_a[NUM_PERIPHERALS];
-	int upd_len_1_b[NUM_PERIPHERALS];
-	int upd_len_2_a;
-	int upd_len_2_b;
 	int mask_check;
 	uint32_t md_session_mask;
 	uint8_t md_session_mode;
@@ -648,6 +642,7 @@ struct diagchar_dev {
 #endif
 	int time_sync_enabled;
 	uint8_t uses_time_api;
+	struct platform_device *pdev;
 };
 
 extern struct diagchar_dev *driver;

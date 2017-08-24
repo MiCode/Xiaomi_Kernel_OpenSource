@@ -297,10 +297,39 @@
 
 	soc: soc { };
 
+	firmware: firmware {
+		android {
+			compatible = "android,firmware";
+			fstab {
+				compatible = "android,fstab";
+				vendor {
+					compatible = "android,vendor";
+					dev = "/dev/block/platform/soc/c0c4000.sdhci/by-name/vendor";
+					type = "ext4";
+					mnt_flags = "ro,barrier=1,discard";
+					fsmgr_flags = "wait,slotselect";
+					status = "ok";
+				};
+			};
+		};
+	};
+
 	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
+
+		wlan_msa_guard: wlan_msa_guard@85600000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x85600000 0x0 0x100000>;
+		};
+
+		wlan_msa_mem: wlan_msa_mem@85700000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x85700000 0x0 0x100000>;
+		};
 
 		removed_regions: removed_regions@85800000 {
 			compatible = "removed-dma-pool";
@@ -643,6 +672,16 @@
 		clock-names = "core", "iface";
 	};
 
+	qcom,qbt1000 {
+		compatible = "qcom,qbt1000";
+		clock-names = "core", "iface";
+		clocks = <&clock_gcc GCC_BLSP1_QUP3_SPI_APPS_CLK>,
+			<&clock_gcc GCC_BLSP1_AHB_CLK>;
+		clock-frequency = <15000000>;
+		qcom,ipc-gpio = <&tlmm 72 0>;
+		qcom,finger-detect-gpio = <&pm660_gpios 11 0>;
+	};
+
 	qcom,sensor-information {
 		compatible = "qcom,sensor-information";
 		sensor_information0: qcom,sensor-information-0 {
@@ -848,8 +887,8 @@
 	qcom,msm-core@780000 {
 		compatible = "qcom,apss-core-ea";
 		reg = <0x780000 0x1000>;
-		qcom,low-hyst-temp = <10>;
-		qcom,high-hyst-temp = <5>;
+		qcom,low-hyst-temp = <100>;
+		qcom,high-hyst-temp = <100>;
 
 		ea0: ea0 {
 			sensor = <&sensor_information1>;
@@ -1215,9 +1254,17 @@
 		compatible = "qcom,clk-cpu-osm";
 		reg = <0x179c0000 0x4000>, <0x17916000 0x1000>,
 		      <0x17816000 0x1000>, <0x179d1000 0x1000>,
-		      <0x00784130 0x8>;
+		      <0x00784130 0x8>, <0x17914800 0x800>;
 		reg-names = "osm", "pwrcl_pll", "perfcl_pll",
-			    "apcs_common", "perfcl_efuse";
+			    "apcs_common", "perfcl_efuse",
+			    "pwrcl_acd";
+
+		qcom,acdtd-val = <0x0000a111 0x0000a111>;
+		qcom,acdcr-val = <0x002c5ffd 0x002c5ffd>;
+		qcom,acdsscr-val = <0x00000901 0x00000901>;
+		qcom,acdextint0-val = <0x2cf9ae8 0x2cf9ae8>;
+		qcom,acdextint1-val = <0x2cf9afe 0x2cf9afe>;
+		qcom,acdautoxfer-val = <0x00000015 0x00000015>;
 
 		vdd-pwrcl-supply = <&apc0_pwrcl_vreg>;
 		vdd-perfcl-supply = <&apc1_perfcl_vreg>;
@@ -1486,9 +1533,9 @@
 		};
 	};
 
-	qcom,rmtfs_sharedmem@0 {
+	qcom,rmtfs_sharedmem@85e00000 {
 		compatible = "qcom,sharedmem-uio";
-		reg = <0x0 0x200000>;
+		reg = <0x85e00000 0x200000>;
 		reg-names = "rmtfs";
 		qcom,client-id = <0x00000001>;
 	};
@@ -1530,6 +1577,7 @@
 	qcom,msm_fastrpc {
 		compatible = "qcom,msm-fastrpc-adsp";
 		qcom,fastrpc-glink;
+		qcom,fastrpc-vmid-heap-shared;
 
 		qcom,msm_fastrpc_compute_cb1 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
@@ -1903,6 +1951,7 @@
 		qcom,vdd-1.3-rfa-config = <1200000 1370000>;
 		qcom,vdd-3.3-ch0-config = <3200000 3400000>;
 		qcom,wlan-msa-memory = <0x100000>;
+		qcom,wlan-msa-fixed-region = <&wlan_msa_mem>;
 		qcom,smmu-s1-bypass;
 	};
 
@@ -2115,6 +2164,7 @@
 		qcom,qsee-ce-hw-instance = <0>;
 		qcom,disk-encrypt-pipe-pair = <2>;
 		qcom,support-fde;
+		qcom,fde-key-size;
 		qcom,no-clock-support;
 		qcom,msm-bus,name = "qseecom-noc";
 		qcom,msm-bus,num-cases = <4>;
@@ -2287,6 +2337,7 @@
 		lanes-per-direction = <1>;
 		spm-level = <5>;
 
+		non-removable;
 		qcom,msm-bus,name = "ufs1";
 		qcom,msm-bus,num-cases = <12>;
 		qcom,msm-bus,num-paths = <2>;
@@ -2520,6 +2571,7 @@
 #include "msm-arm-smmu-impl-defs-660.dtsi"
 #include "sdm660-common.dtsi"
 #include "sdm660-blsp.dtsi"
+#include "msm-rdbg.dtsi"
 #include "sdm660-camera.dtsi"
 #include "sdm660-vidc.dtsi"
 #include "msm-audio.dtsi"

@@ -665,6 +665,12 @@ send_cmd:
 			retries++;
 			if (retries == IPA_BAM_STOP_MAX_RETRY) {
 				IPAERR("Failed after %d tries\n", retries);
+				mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
+				/*
+				 * Max retry reached,
+				 * assert to check why cmd send failed.
+				 */
+				ipa_assert();
 			} else {
 				/* sleep for short period to flush IPA */
 				usleep_range(IPA_UC_WAIT_MIN_SLEEP,

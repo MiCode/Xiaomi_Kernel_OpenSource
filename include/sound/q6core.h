@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,8 @@
 #define AVCS_CMDRSP_ADSP_EVENT_GET_STATE	0x0001290D
 
 bool q6core_is_adsp_ready(void);
+int q6core_add_remove_pool_pages(phys_addr_t buf_add, uint32_t bufsz,
+			uint32_t mempool_id, bool add_pages);
 
 #define ADSP_CMD_SET_DTS_EAGLE_DATA_ID 0x00012919
 #define DTS_EAGLE_LICENSE_ID           0x00028346
@@ -152,5 +154,17 @@ struct avcs_cmd_deregister_topologies {
 
 int32_t core_set_license(uint32_t key, uint32_t module_id);
 int32_t core_get_license_status(uint32_t module_id);
+
+#define ADSP_MEMORY_MAP_HLOS_PHYSPOOL 4
+#define AVCS_CMD_ADD_POOL_PAGES 0x0001292E
+#define AVCS_CMD_REMOVE_POOL_PAGES 0x0001292F
+
+struct avs_mem_assign_region {
+	struct apr_hdr       hdr;
+	u32                  pool_id;
+	u32                  size;
+	u32                  addr_lsw;
+	u32                  addr_msw;
+} __packed;
 
 #endif /* __Q6CORE_H__ */

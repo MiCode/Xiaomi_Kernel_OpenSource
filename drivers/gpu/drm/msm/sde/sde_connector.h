@@ -122,6 +122,37 @@ struct sde_connector_ops {
 	int (*get_info)(struct msm_display_info *info, void *display);
 
 	int (*set_backlight)(void *display, u32 bl_lvl);
+
+
+	/**
+	 * pre_kickoff - trigger display to program kickoff-time features
+	 * @connector: Pointer to drm connector structure
+	 * @display: Pointer to private display structure
+	 * @params: Parameter bundle of connector-stored information for
+	 *	kickoff-time programming into the display
+	 * Returns: Zero on success
+	 */
+	int (*pre_kickoff)(struct drm_connector *connector,
+		void *display,
+		struct msm_display_kickoff_params *params);
+
+	/**
+	 * mode_needs_full_range - does the mode need full range
+	 * quantization
+	 * @display: Pointer to private display structure
+	 * Returns: true or false based on whether full range is needed
+	 */
+	bool (*mode_needs_full_range)(void *display);
+
+	/**
+	 * get_csc_type - returns the CSC type to be used
+	 * by the CDM block based on HDR state
+	 * @connector: Pointer to drm connector structure
+	 * @display: Pointer to private display structure
+	 * Returns: type of CSC matrix to be used
+	 */
+	enum sde_csc_type (*get_csc_type)(struct drm_connector *connector,
+		void *display);
 };
 
 /**
@@ -139,6 +170,7 @@ struct sde_connector_ops {
  * @property_info: Private structure for generic property handling
  * @property_data: Array of private data for generic property handling
  * @blob_caps: Pointer to blob structure for 'capabilities' property
+ * @blob_hdr: Pointer to blob structure for 'hdr_properties' property
  */
 struct sde_connector {
 	struct drm_connector base;
@@ -159,6 +191,7 @@ struct sde_connector {
 	struct msm_property_info property_info;
 	struct msm_property_data property_data[CONNECTOR_PROP_COUNT];
 	struct drm_property_blob *blob_caps;
+	struct drm_property_blob *blob_hdr;
 };
 
 /**
@@ -206,12 +239,14 @@ struct sde_connector {
  * @out_fb: Pointer to output frame buffer, if applicable
  * @aspace: Address space for accessing frame buffer objects, if applicable
  * @property_values: Local cache of current connector property values
+ * @hdr_ctrl: HDR control info passed from userspace
  */
 struct sde_connector_state {
 	struct drm_connector_state base;
 	struct drm_framebuffer *out_fb;
 	struct msm_gem_address_space *aspace;
 	uint64_t property_values[CONNECTOR_PROP_COUNT];
+	struct drm_msm_ext_panel_hdr_ctrl hdr_ctrl;
 };
 
 /**
@@ -302,6 +337,29 @@ void sde_connector_complete_commit(struct drm_connector *connector);
  */
 int sde_connector_get_info(struct drm_connector *connector,
 		struct msm_display_info *info);
+
+/**
+ * sde_connector_pre_kickoff - trigger kickoff time feature programming
+ * @connector: Pointer to drm connector object
+ * Returns: Zero on success
+ */
+int sde_connector_pre_kickoff(struct drm_connector *connector);
+
+/**
+ * sde_connector_mode_needs_full_range - query quantization type
+ * for the connector mode
+ * @connector: Pointer to drm connector object
+ * Returns: true OR false based on connector mode
+ */
+bool sde_connector_mode_needs_full_range(struct drm_connector *connector);
+
+/**
+ * sde_connector_get_csc_type - query csc type
+ * to be used for the connector
+ * @connector: Pointer to drm connector object
+ * Returns: csc type based on connector HDR state
+ */
+enum sde_csc_type sde_connector_get_csc_type(struct drm_connector *conn);
 
 #endif /* _SDE_CONNECTOR_H_ */
 

@@ -26,7 +26,7 @@
 #include "f_ccid.h"
 
 #define BULK_IN_BUFFER_SIZE sizeof(struct ccid_bulk_in_header)
-#define BULK_OUT_BUFFER_SIZE sizeof(struct ccid_bulk_out_header)
+#define BULK_OUT_BUFFER_SIZE 1024
 #define CTRL_BUF_SIZE	4
 #define FUNCTION_NAME	"ccid"
 #define MAX_INST_NAME_LEN	40
@@ -629,14 +629,14 @@ static ssize_t ccid_bulk_read(struct file *fp, char __user *buf,
 	struct f_ccid *ccid_dev =  fp->private_data;
 	struct ccid_bulk_dev *bulk_dev = &ccid_dev->bulk_dev;
 	struct usb_request *req;
-	int r = count, xfer;
+	int r = count, xfer, len;
 	int ret;
 	unsigned long flags;
 
 	pr_debug("ccid_bulk_read(%zu)\n", count);
 
 	if (count > BULK_OUT_BUFFER_SIZE) {
-		pr_err("%s: max_buffer_size:%zu given_pkt_size:%zu\n",
+		pr_err("%s: max_buffer_size:%d given_pkt_size:%zu\n",
 				__func__, BULK_OUT_BUFFER_SIZE, count);
 		return -ENOMEM;
 	}
@@ -647,6 +647,7 @@ static ssize_t ccid_bulk_read(struct file *fp, char __user *buf,
 		goto done;
 	}
 
+	len = ALIGN(count, ccid_dev->out->maxpacket);
 requeue_req:
 	spin_lock_irqsave(&ccid_dev->lock, flags);
 	if (!atomic_read(&ccid_dev->online)) {
@@ -655,7 +656,7 @@ requeue_req:
 	}
 	/* queue a request */
 	req = bulk_dev->rx_req;
-	req->length = count;
+	req->length = len;
 	bulk_dev->rx_done = 0;
 	spin_unlock_irqrestore(&ccid_dev->lock, flags);
 	ret = usb_ep_queue(ccid_dev->out, req, GFP_KERNEL);
@@ -688,6 +689,9 @@ requeue_req:
 			spin_unlock_irqrestore(&ccid_dev->lock, flags);
 			goto requeue_req;
 		}
+		if (req->actual > count)
+			pr_err("%s More data received(%d) than required(%zu)\n",
+						__func__, req->actual, count);
 		xfer = (req->actual < count) ? req->actual : count;
 		atomic_set(&bulk_dev->rx_req_busy, 1);
 		spin_unlock_irqrestore(&ccid_dev->lock, flags);
@@ -875,7 +879,8 @@ static ssize_t ccid_ctrl_read(struct file *fp, char __user *buf,
 		count = CTRL_BUF_SIZE;
 
 	ret = wait_event_interruptible(ctrl_dev->tx_wait_q,
-					 ctrl_dev->tx_ctrl_done);
+					 ctrl_dev->tx_ctrl_done ||
+					!atomic_read(&ccid_dev->online));
 	if (ret < 0)
 		return ret;
 	ctrl_dev->tx_ctrl_done = 0;

@@ -382,7 +382,7 @@ static int32_t msm_ois_control(struct msm_ois_ctrl_t *o_ctrl,
 			return -EFAULT;
 		}
 		if (copy_from_user(settings,
-			(void *)set_info->ois_params.settings,
+			(void __user *)set_info->ois_params.settings,
 			set_info->ois_params.setting_size *
 			sizeof(struct reg_settings_ois_t))) {
 			kfree(settings);
@@ -407,7 +407,7 @@ static int32_t msm_ois_control(struct msm_ois_ctrl_t *o_ctrl,
 
 
 static int32_t msm_ois_config(struct msm_ois_ctrl_t *o_ctrl,
-	void __user *argp)
+	void *argp)
 {
 	struct msm_ois_cfg_data *cdata =
 		(struct msm_ois_cfg_data *)argp;
@@ -449,7 +449,7 @@ static int32_t msm_ois_config(struct msm_ois_ctrl_t *o_ctrl,
 		} else
 #endif
 		if (copy_from_user(&conf_array,
-			(void *)cdata->cfg.settings,
+			(void __user *)cdata->cfg.settings,
 			sizeof(struct msm_camera_i2c_seq_reg_setting))) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
@@ -470,7 +470,8 @@ static int32_t msm_ois_config(struct msm_ois_ctrl_t *o_ctrl,
 			rc = -ENOMEM;
 			break;
 		}
-		if (copy_from_user(reg_setting, (void *)conf_array.reg_setting,
+		if (copy_from_user(reg_setting,
+			(void __user *)conf_array.reg_setting,
 			conf_array.size *
 			sizeof(struct msm_camera_i2c_seq_reg_array))) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
@@ -495,7 +496,7 @@ static int32_t msm_ois_config(struct msm_ois_ctrl_t *o_ctrl,
 }
 
 static int32_t msm_ois_config_download(struct msm_ois_ctrl_t *o_ctrl,
-	void __user *argp)
+	void *argp)
 {
 	struct msm_ois_cfg_download_data *cdata =
 		(struct msm_ois_cfg_download_data *)argp;
@@ -606,7 +607,7 @@ static long msm_ois_subdev_ioctl(struct v4l2_subdev *sd,
 {
 	int rc;
 	struct msm_ois_ctrl_t *o_ctrl = v4l2_get_subdevdata(sd);
-	void __user *argp = (void __user *)arg;
+	void *argp = arg;
 
 	CDBG("Enter\n");
 	CDBG("%s:%d o_ctrl %pK argp %pK\n", __func__, __LINE__, o_ctrl, argp);
@@ -780,11 +781,11 @@ static long msm_ois_subdev_do_ioctl(
 	u32 = (struct msm_ois_cfg_data32 *)arg;
 	parg = arg;
 
-	ois_data.cfgtype = u32->cfgtype;
 
 	switch (cmd) {
 	case VIDIOC_MSM_OIS_CFG32:
 		cmd = VIDIOC_MSM_OIS_CFG;
+		ois_data.cfgtype = u32->cfgtype;
 
 		switch (u32->cfgtype) {
 		case CFG_OIS_CONTROL:
@@ -805,7 +806,7 @@ static long msm_ois_subdev_do_ioctl(
 			break;
 		case CFG_OIS_I2C_WRITE_SEQ_TABLE:
 			if (copy_from_user(&settings32,
-				(void *)compat_ptr(u32->cfg.settings),
+				(void __user *)compat_ptr(u32->cfg.settings),
 				sizeof(
 				struct msm_camera_i2c_seq_reg_setting32))) {
 				pr_err("copy_from_user failed\n");
@@ -818,7 +819,6 @@ static long msm_ois_subdev_do_ioctl(
 			settings.reg_setting =
 				compat_ptr(settings32.reg_setting);
 
-			ois_data.cfgtype = u32->cfgtype;
 			ois_data.cfg.settings = &settings;
 			parg = &ois_data;
 			break;

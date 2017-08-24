@@ -894,22 +894,24 @@ static bool dp_hdcp2p2_supported(struct dp_hdcp2p2_ctrl *ctrl)
 {
 	struct edp_cmd cmd = {0};
 	const u32 offset = 0x6921d;
-	u8 buf;
+	u8 buf[3];
 
 	cmd.read = 1;
 	cmd.addr = offset;
-	cmd.len = sizeof(buf);
-	cmd.out_buf = &buf;
+	cmd.len = ARRAY_SIZE(buf);
+	cmd.out_buf = buf;
 
 	if (dp_aux_read(ctrl->init_data.cb_data, &cmd)) {
 		pr_err("RxCaps read failed\n");
 		goto error;
 	}
 
-	pr_debug("rxcaps 0x%x\n", buf);
+	pr_debug("HDCP_CAPABLE=%lu\n", (buf[2] & BIT(1)) >> 1);
+	pr_debug("VERSION=%d\n", buf[0]);
 
-	if (buf & BIT(1))
+	if ((buf[2] & BIT(1)) && (buf[0] == 0x2))
 		return true;
+
 error:
 	return false;
 }

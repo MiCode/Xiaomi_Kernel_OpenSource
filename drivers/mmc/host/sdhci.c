@@ -255,6 +255,8 @@ retry_reset:
 		if (timeout == 0) {
 			pr_err("%s: Reset 0x%x never completed.\n",
 				mmc_hostname(host->mmc), (int)mask);
+			MMC_TRACE(host->mmc, "%s: Reset 0x%x never completed\n",
+					__func__, (int)mask);
 			if ((host->quirks2 & SDHCI_QUIRK2_USE_RESET_WORKAROUND)
 				&& host->ops->reset_workaround) {
 				if (!host->reset_wa_applied) {
@@ -1178,6 +1180,9 @@ void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 		if (timeout == 0) {
 			pr_err("%s: Controller never released "
 				"inhibit bit(s).\n", mmc_hostname(host->mmc));
+			MMC_TRACE(host->mmc,
+			"%s :Controller never released inhibit bit(s)\n",
+			__func__);
 			sdhci_dumpregs(host);
 			cmd->error = -EIO;
 			tasklet_schedule(&host->finish_tasklet);
@@ -1233,12 +1238,12 @@ void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 	if (cmd->data)
 		host->data_start_time = ktime_get();
 	trace_mmc_cmd_rw_start(cmd->opcode, cmd->arg, cmd->flags);
+	sdhci_writew(host, SDHCI_MAKE_CMD(cmd->opcode, flags), SDHCI_COMMAND);
 	MMC_TRACE(host->mmc,
 		"%s: updated 0x8=0x%08x 0xC=0x%08x 0xE=0x%08x\n", __func__,
 		sdhci_readl(host, SDHCI_ARGUMENT),
 		sdhci_readw(host, SDHCI_TRANSFER_MODE),
 		sdhci_readw(host, SDHCI_COMMAND));
-	sdhci_writew(host, SDHCI_MAKE_CMD(cmd->opcode, flags), SDHCI_COMMAND);
 }
 EXPORT_SYMBOL_GPL(sdhci_send_command);
 
@@ -1434,6 +1439,8 @@ clock_set:
 		if (timeout == 0) {
 			pr_err("%s: Internal clock never "
 				"stabilised.\n", mmc_hostname(host->mmc));
+			MMC_TRACE(host->mmc,
+			"%s: Internal clock never stabilised.\n", __func__);
 			sdhci_dumpregs(host);
 			return;
 		}
@@ -1777,6 +1784,7 @@ end_req:
 	if (mrq->data)
 		mrq->data->error = -EIO;
 	host->mrq = NULL;
+	MMC_TRACE(host->mmc, "Request failed due to ice config\n");
 	sdhci_dumpregs(host);
 	mmc_request_done(host->mmc, mrq);
 	sdhci_runtime_pm_put(host);
@@ -2418,7 +2426,13 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 
 	if (host->ops->platform_execute_tuning) {
 		spin_unlock_irqrestore(&host->lock, flags);
+		/*
+		 * Make sure re-tuning won't get triggered for the CRC errors
+		 * occurred while executing tuning
+		 */
+		mmc_retune_disable(mmc);
 		err = host->ops->platform_execute_tuning(host, opcode);
+		mmc_retune_enable(mmc);
 		sdhci_runtime_pm_put(host);
 		return err;
 	}
@@ -2840,6 +2854,7 @@ static void sdhci_timeout_timer(unsigned long data)
 	if (host->mrq) {
 		pr_err("%s: Timeout waiting for hardware "
 			"interrupt.\n", mmc_hostname(host->mmc));
+		MMC_TRACE(host->mmc, "Timeout waiting for h/w interrupt\n");
 		sdhci_dumpregs(host);
 
 		if (host->data) {
@@ -2879,6 +2894,9 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask, u32 *mask)
 		pr_err("%s: Got command interrupt 0x%08x even "
 			"though no command operation was in progress.\n",
 			mmc_hostname(host->mmc), (unsigned)intmask);
+		MMC_TRACE(host->mmc,
+		"Got command interrupt 0x%08x even though no command operation was in progress.\n",
+		(unsigned)intmask);
 		sdhci_dumpregs(host);
 		return;
 	}
@@ -3048,6 +3066,9 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 		pr_err("%s: Got data interrupt 0x%08x even "
 			"though no data operation was in progress.\n",
 			mmc_hostname(host->mmc), (unsigned)intmask);
+		MMC_TRACE(host->mmc,
+		"Got data interrupt 0x%08x even though no data operation was in progress.\n",
+		(unsigned)intmask);
 		sdhci_dumpregs(host);
 
 		return;
@@ -3083,6 +3104,11 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 			       mmc_hostname(host->mmc), intmask,
 			       host->data->error, ktime_to_ms(ktime_sub(
 			       ktime_get(), host->data_start_time)));
+			MMC_TRACE(host->mmc,
+				"data txfr (0x%08x) error: %d after %lld ms\n",
+				intmask, host->data->error,
+				ktime_to_ms(ktime_sub(ktime_get(),
+				host->data_start_time)));
 
 			if (!host->mmc->sdr104_wa ||
 			    (host->mmc->ios.timing != MMC_TIMING_UHS_SDR104))
@@ -3334,6 +3360,8 @@ out:
 	if (unexpected) {
 		pr_err("%s: Unexpected interrupt 0x%08x.\n",
 			   mmc_hostname(host->mmc), unexpected);
+		MMC_TRACE(host->mmc, "Unexpected interrupt 0x%08x.\n",
+				unexpected);
 		sdhci_dumpregs(host);
 	}
 
@@ -3605,7 +3633,7 @@ static void sdhci_cmdq_set_transfer_params(struct mmc_host *mmc)
 			ctrl |= SDHCI_CTRL_ADMA32;
 		sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 	}
-	if (host->ops->toggle_cdr)
+	if (host->ops->toggle_cdr && !host->cdr_support)
 		host->ops->toggle_cdr(host, false);
 }
 

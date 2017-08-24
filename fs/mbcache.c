@@ -222,8 +222,19 @@ __mb_cache_entry_release(struct mb_cache_entry *ce)
 		 * then reacquire the lock in the proper order.
 		 */
 		spin_lock(&mb_cache_spinlock);
-		if (list_empty(&ce->e_lru_list))
-			list_add_tail(&ce->e_lru_list, &mb_cache_lru_list);
+		/*
+		 * Evaluate the conditions under global lock mb_cache_spinlock,
+		 * to check if mb_cache_entry_get() is running now
+		 * and has already deleted the entry from mb_cache_lru_list
+		 * and incremented ce->e_refcnt to prevent further additions
+		 * to mb_cache_lru_list.
+		 */
+		if (!(ce->e_used || ce->e_queued ||
+				atomic_read(&ce->e_refcnt))) {
+			if (list_empty(&ce->e_lru_list))
+				list_add_tail(&ce->e_lru_list,
+						&mb_cache_lru_list);
+		}
 		spin_unlock(&mb_cache_spinlock);
 	}
 	__spin_unlock_mb_cache_entry(ce);

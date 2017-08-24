@@ -280,6 +280,27 @@ end:
 	return rc;
 }
 
+int mdss_smmu_set_attribute(int domain, int flag, int val)
+{
+	int rc = 0, domain_attr = 0;
+	struct mdss_smmu_client *mdss_smmu = mdss_smmu_get_cb(domain);
+
+	if (!mdss_smmu) {
+		pr_err("not able to get smmu context\n");
+		return -EINVAL;
+	}
+
+	if (flag == EARLY_MAP)
+		domain_attr = DOMAIN_ATTR_EARLY_MAP;
+	else
+		goto end;
+
+	rc = iommu_domain_set_attr(mdss_smmu->mmu_mapping->domain,
+			domain_attr, &val);
+end:
+	return rc;
+}
+
 /*
  * mdss_smmu_attach_v2()
  *
@@ -477,7 +498,7 @@ static void mdss_smmu_unmap_dma_buf_v2(struct sg_table *table, int domain,
  * bank device
  */
 static int mdss_smmu_dma_alloc_coherent_v2(struct device *dev, size_t size,
-		dma_addr_t *phys, dma_addr_t *iova, void *cpu_addr,
+		dma_addr_t *phys, dma_addr_t *iova, void **cpu_addr,
 		gfp_t gfp, int domain)
 {
 	struct mdss_smmu_client *mdss_smmu = mdss_smmu_get_cb(domain);
@@ -486,8 +507,8 @@ static int mdss_smmu_dma_alloc_coherent_v2(struct device *dev, size_t size,
 		return -EINVAL;
 	}
 
-	cpu_addr = dma_alloc_coherent(mdss_smmu->base.dev, size, iova, gfp);
-	if (!cpu_addr) {
+	*cpu_addr = dma_alloc_coherent(mdss_smmu->base.dev, size, iova, gfp);
+	if (!*cpu_addr) {
 		pr_err("dma alloc coherent failed!\n");
 		return -ENOMEM;
 	}

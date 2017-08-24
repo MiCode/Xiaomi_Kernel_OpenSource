@@ -62,6 +62,11 @@
 #define EDID_VENDOR_ID_SIZE     4
 #define EDID_IEEE_REG_ID        0x0c03
 
+enum edid_sink_mode {
+	SINK_MODE_DVI,
+	SINK_MODE_HDMI
+};
+
 enum luminance_value {
 	NO_LUMINANCE_DATA = 3,
 	MAXIMUM_LUMINANCE = 4,
@@ -151,10 +156,13 @@ struct hdmi_edid_ctrl {
 };
 
 static bool hdmi_edid_is_mode_supported(struct hdmi_edid_ctrl *edid_ctrl,
-			struct msm_hdmi_mode_timing_info *timing)
+		struct msm_hdmi_mode_timing_info *timing, u32 out_format)
 {
+	u32 pclk = hdmi_tx_setup_tmds_clk_rate(timing->pixel_freq,
+		out_format, false);
+
 	if (!timing->supported ||
-		timing->pixel_freq > edid_ctrl->init_data.max_pclk_khz)
+		pclk > edid_ctrl->init_data.max_pclk_khz)
 		return false;
 
 	return true;
@@ -469,8 +477,10 @@ static ssize_t hdmi_edid_sysfs_wta_res_info(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
 	int rc, page_id;
+	u32 i = 0, j, page;
 	ssize_t ret = strnlen(buf, PAGE_SIZE);
 	struct hdmi_edid_ctrl *edid_ctrl = hdmi_edid_get_ctrl(dev);
+	struct msm_hdmi_mode_timing_info info = {0};
 
 	if (!edid_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -483,7 +493,22 @@ static ssize_t hdmi_edid_sysfs_wta_res_info(struct device *dev,
 		return rc;
 	}
 
-	edid_ctrl->page_id = page_id;
+	if (page_id > MSM_HDMI_INIT_RES_PAGE) {
+		page = MSM_HDMI_INIT_RES_PAGE;
+		while (page < page_id) {
+			j = 1;
+			while (sizeof(info) * j < PAGE_SIZE) {
+				i++;
+				j++;
+			}
+			page++;
+		}
+	}
+
+	if (i < HDMI_VFRMT_MAX)
+		edid_ctrl->page_id = page_id;
+	else
+		DEV_ERR("%s: invalid page id\n", __func__);
 
 	DEV_DBG("%s: %d\n", __func__, edid_ctrl->page_id);
 	return ret;
@@ -914,7 +939,8 @@ static void hdmi_edid_add_sink_y420_format(struct hdmi_edid_ctrl *edid_ctrl,
 	u32 ret = hdmi_get_supported_mode(&timing,
 				&edid_ctrl->init_data.ds_data,
 				video_format);
-	u32 supported = hdmi_edid_is_mode_supported(edid_ctrl, &timing);
+	u32 supported = hdmi_edid_is_mode_supported(edid_ctrl,
+				&timing, MDP_Y_CBCR_H2V2);
 	struct hdmi_edid_sink_data *sink = &edid_ctrl->sink_data;
 
 	if (video_format >= HDMI_VFRMT_MAX) {
@@ -1682,7 +1708,8 @@ static void hdmi_edid_add_sink_video_format(struct hdmi_edid_ctrl *edid_ctrl,
 	u32 ret = hdmi_get_supported_mode(&timing,
 				&edid_ctrl->init_data.ds_data,
 				video_format);
-	u32 supported = hdmi_edid_is_mode_supported(edid_ctrl, &timing);
+	u32 supported = hdmi_edid_is_mode_supported(edid_ctrl,
+				&timing, MDP_RGBA_8888);
 	struct hdmi_edid_sink_data *sink_data = &edid_ctrl->sink_data;
 	struct disp_mode_info *disp_mode_list = sink_data->disp_mode_list;
 	u32 i = 0;
@@ -2401,7 +2428,7 @@ end:
 	return scaninfo;
 } /* hdmi_edid_get_sink_scaninfo */
 
-u32 hdmi_edid_get_sink_mode(void *input, u32 mode)
+static u32 hdmi_edid_get_sink_mode(void *input)
 {
 	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *)input;
 	bool sink_mode;
@@ -2414,13 +2441,8 @@ u32 hdmi_edid_get_sink_mode(void *input, u32 mode)
 	if (edid_ctrl->edid_override &&
 		(edid_ctrl->override_data.sink_mode != -1))
 		sink_mode = edid_ctrl->override_data.sink_mode;
-	else {
-		if (edid_ctrl->sink_mode &&
-			(mode > 0 && mode <= HDMI_EVFRMT_END))
-			sink_mode = SINK_MODE_HDMI;
-		else
-			sink_mode = SINK_MODE_DVI;
-	}
+	else
+		sink_mode = edid_ctrl->sink_mode;
 
 	return sink_mode;
 } /* hdmi_edid_get_sink_mode */
@@ -2435,21 +2457,10 @@ u32 hdmi_edid_get_sink_mode(void *input, u32 mode)
  */
 bool hdmi_edid_is_dvi_mode(void *input)
 {
-	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *)input;
-	int sink_mode;
-
-	if (!edid_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
-		return true;
-	}
-
-	if (edid_ctrl->edid_override &&
-		(edid_ctrl->override_data.sink_mode != -1))
-		sink_mode = edid_ctrl->override_data.sink_mode;
+	if (hdmi_edid_get_sink_mode(input))
+		return false;
 	else
-		sink_mode = edid_ctrl->sink_mode;
-
-	return (sink_mode == SINK_MODE_DVI);
+		return true;
 }
 
 /**

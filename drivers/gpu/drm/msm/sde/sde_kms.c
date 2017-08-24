@@ -328,24 +328,12 @@ static int sde_debugfs_danger_init(struct sde_kms *sde_kms,
 
 static int sde_kms_enable_vblank(struct msm_kms *kms, struct drm_crtc *crtc)
 {
-	struct sde_kms *sde_kms = to_sde_kms(kms);
-	struct drm_device *dev = sde_kms->dev;
-	struct msm_drm_private *priv = dev->dev_private;
-
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
-
 	return sde_crtc_vblank(crtc, true);
 }
 
 static void sde_kms_disable_vblank(struct msm_kms *kms, struct drm_crtc *crtc)
 {
-	struct sde_kms *sde_kms = to_sde_kms(kms);
-	struct drm_device *dev = sde_kms->dev;
-	struct msm_drm_private *priv = dev->dev_private;
-
 	sde_crtc_vblank(crtc, false);
-
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 }
 
 static void sde_kms_prepare_commit(struct msm_kms *kms,
@@ -354,6 +342,9 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 	struct sde_kms *sde_kms = to_sde_kms(kms);
 	struct drm_device *dev = sde_kms->dev;
 	struct msm_drm_private *priv = dev->dev_private;
+
+	if (sde_kms->splash_info.handoff)
+		sde_splash_clean_up_exit_lk(kms);
 
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
 }
@@ -601,6 +592,10 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.mode_valid = sde_hdmi_mode_valid,
 		.get_info =   sde_hdmi_get_info,
 		.set_property = sde_hdmi_set_property,
+		.get_property = sde_hdmi_get_property,
+		.pre_kickoff = sde_hdmi_pre_kickoff,
+		.mode_needs_full_range = sde_hdmi_mode_needs_full_range,
+		.get_csc_type = sde_hdmi_get_csc_type
 	};
 	struct msm_display_info info = {0};
 	struct drm_encoder *encoder;
@@ -995,8 +990,15 @@ static void _sde_kms_hw_destroy(struct sde_kms *sde_kms,
 		sde_hw_catalog_deinit(sde_kms->catalog);
 	sde_kms->catalog = NULL;
 
+	if (sde_kms->splash_info.handoff) {
+		if (sde_kms->core_client)
+			sde_splash_destroy(&sde_kms->splash_info,
+				&priv->phandle, sde_kms->core_client);
+	}
+
 	if (sde_kms->core_client)
-		sde_power_client_destroy(&priv->phandle, sde_kms->core_client);
+		sde_power_client_destroy(&priv->phandle,
+				sde_kms->core_client);
 	sde_kms->core_client = NULL;
 
 	if (sde_kms->vbif[VBIF_NRT])
@@ -1108,6 +1110,24 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 			continue;
 		}
 
+		/* Attaching smmu means IOMMU HW starts to work immediately.
+		 * However, display HW in LK is still accessing memory
+		 * while the memory map is not done yet.
+		 * So first set DOMAIN_ATTR_EARLY_MAP attribute 1 to bypass
+		 * stage 1 translation in IOMMU HW.
+		 */
+		if ((i == MSM_SMMU_DOMAIN_UNSECURE) &&
+				sde_kms->splash_info.handoff) {
+			ret = mmu->funcs->set_property(mmu,
+					DOMAIN_ATTR_EARLY_MAP,
+					&sde_kms->splash_info.handoff);
+			if (ret) {
+				SDE_ERROR("failed to set map att: %d\n", ret);
+				mmu->funcs->destroy(mmu);
+				goto fail;
+			}
+		}
+
 		aspace = msm_gem_smmu_address_space_create(sde_kms->dev->dev,
 			mmu, "sde");
 		if (IS_ERR(aspace)) {
@@ -1125,6 +1145,19 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 			goto fail;
 		}
 
+		/*
+		 * It's safe now to map the physical memory blcok LK accesses.
+		 */
+		if ((i == MSM_SMMU_DOMAIN_UNSECURE) &&
+				sde_kms->splash_info.handoff) {
+			ret = sde_splash_smmu_map(sde_kms->dev, mmu,
+					&sde_kms->splash_info);
+			if (ret) {
+				SDE_ERROR("map rsv mem failed: %d\n", ret);
+				msm_gem_address_space_put(aspace);
+				goto fail;
+			}
+		}
 	}
 
 	return 0;
@@ -1139,6 +1172,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	struct sde_kms *sde_kms;
 	struct drm_device *dev;
 	struct msm_drm_private *priv;
+	struct sde_splash_info *sinfo;
 	int i, rc = -EINVAL;
 
 	if (!kms) {
@@ -1228,6 +1262,35 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		goto power_error;
 	}
 
+	/*
+	 * Read the DISP_INTF_SEL register to check
+	 * whether early display is enabled in LK.
+	 */
+	rc = sde_splash_get_handoff_status(kms);
+	if (rc) {
+		SDE_ERROR("get early splash status failed: %d\n", rc);
+		goto power_error;
+	}
+
+	/*
+	 * when LK has enabled early display, sde_splash_parse_dt and
+	 * sde_splash_init must be called. The first function is to parse the
+	 * mandatory memory node for splash function, and the second function
+	 * will first do bandwidth voting job, because display hardware is now
+	 * accessing AHB data bus, otherwise device reboot will happen, and then
+	 * to check if the memory is reserved.
+	 */
+	sinfo = &sde_kms->splash_info;
+	if (sinfo->handoff) {
+		rc = sde_splash_parse_dt(dev);
+		if (rc) {
+			SDE_ERROR("parse dt for splash info failed: %d\n", rc);
+			goto power_error;
+		}
+
+		sde_splash_init(&priv->phandle, kms);
+	}
+
 	for (i = 0; i < sde_kms->catalog->vbif_count; i++) {
 		u32 vbif_idx = sde_kms->catalog->vbif[i].id;
 
@@ -1302,7 +1365,10 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	 */
 	dev->mode_config.allow_fb_modifiers = true;
 
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
+	if (!sde_kms->splash_info.handoff)
+		sde_power_resource_enable(&priv->phandle,
+				sde_kms->core_client, false);
+
 	return 0;
 
 drm_obj_init_err:

@@ -582,7 +582,7 @@ static int __smem_alloc(struct venus_hfi_device *dev,
 	dprintk(VIDC_DBG, "__smem_alloc: ptr = %pK, size = %d\n",
 			alloc->kvaddr, size);
 	rc = msm_smem_cache_operations(dev->hal_client, alloc,
-		SMEM_CACHE_CLEAN);
+		SMEM_CACHE_CLEAN, -1);
 	if (rc) {
 		dprintk(VIDC_WARN, "Failed to clean cache\n");
 		dprintk(VIDC_WARN, "This may result in undefined behavior\n");
@@ -1574,6 +1574,7 @@ static int __scale_clocks(struct venus_hfi_device *device,
 
 	return rc;
 }
+
 static int venus_hfi_scale_clocks(void *dev, int load,
 					struct vidc_clk_scale_data *data,
 					unsigned long instant_bitrate)
@@ -1598,6 +1599,41 @@ static int venus_hfi_scale_clocks(void *dev, int load,
 exit:
 	mutex_unlock(&device->lock);
 	return rc;
+}
+
+static void __save_clock_rate(struct venus_hfi_device *device, bool reset)
+{
+	struct clock_info *cl;
+
+	venus_hfi_for_each_clock(device, cl) {
+		if (cl->has_scaling) {
+			cl->rate_on_enable =
+				reset ? 0 : clk_get_rate(cl->clk);
+			dprintk(VIDC_PROF, "Saved clock %s rate %lu\n",
+					cl->name, cl->rate_on_enable);
+		}
+	}
+}
+
+static void __restore_clock_rate(struct venus_hfi_device *device)
+{
+	struct clock_info *cl;
+
+	venus_hfi_for_each_clock(device, cl) {
+		if (cl->has_scaling && cl->rate_on_enable) {
+			int rc;
+
+			rc = __set_clk_rate(device, cl, cl->rate_on_enable);
+			if (rc)
+				dprintk(VIDC_ERR,
+				"Failed to restore clock %s rate %lu\n",
+					cl->name, cl->rate_on_enable);
+			else
+				dprintk(VIDC_DBG,
+					"Restored clock %s rate %lu\n",
+					cl->name, cl->rate_on_enable);
+		}
+	}
 }
 
 /* Writes into cmdq without raising an interrupt */
@@ -4316,6 +4352,7 @@ static inline int __suspend(struct venus_hfi_device *device)
 		goto err_tzbsp_suspend;
 	}
 
+	__save_clock_rate(device, false);
 	__venus_power_off(device, true);
 	dprintk(VIDC_PROF, "Venus power collapsed\n");
 	return rc;
@@ -4345,6 +4382,7 @@ static inline int __resume(struct venus_hfi_device *device)
 		dprintk(VIDC_ERR, "Failed to power on venus\n");
 		goto err_venus_power_on;
 	}
+	__restore_clock_rate(device);
 
 	/* Reboot the firmware */
 	rc = __tzbsp_set_video_state(TZBSP_VIDEO_STATE_RESUME);
@@ -4382,6 +4420,7 @@ exit:
 err_reset_core:
 	__tzbsp_set_video_state(TZBSP_VIDEO_STATE_SUSPEND);
 err_set_video_state:
+	__save_clock_rate(device, true);
 	__venus_power_off(device, true);
 err_venus_power_on:
 	dprintk(VIDC_ERR, "Failed to resume from power collapse\n");
@@ -4440,6 +4479,7 @@ fail_protect_mem:
 		subsystem_put(device->resources.fw.cookie);
 	device->resources.fw.cookie = NULL;
 fail_load_fw:
+	__save_clock_rate(device, true);
 	__venus_power_off(device, true);
 fail_venus_power_on:
 fail_init_pkt:
@@ -4461,6 +4501,7 @@ static void __unload_fw(struct venus_hfi_device *device)
 	__vote_buses(device, NULL, 0);
 	subsystem_put(device->resources.fw.cookie);
 	__interface_queues_release(device);
+	__save_clock_rate(device, true);
 	__venus_power_off(device, false);
 	device->resources.fw.cookie = NULL;
 	__deinit_resources(device);

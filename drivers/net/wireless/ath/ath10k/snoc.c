@@ -107,8 +107,8 @@ static struct ce_attr host_ce_config_wlan[] = {
 	{
 		.flags = CE_ATTR_FLAGS,
 		.src_nentries = 0,
-		.src_sz_max = 512,
-		.dest_nentries = 512,
+		.src_sz_max = 0,
+		.dest_nentries = 0,
 		.recv_cb = ath10k_snoc_htt_rx_cb,
 	},
 
@@ -775,9 +775,6 @@ static int ath10k_snoc_hif_map_service_to_pipe(struct ath10k *ar,
 		}
 	}
 
-	if (WARN_ON(!ul_set || !dl_set))
-		return -ENOENT;
-
 	return 0;
 }
 
@@ -1274,19 +1271,19 @@ static int ath10k_snoc_probe(struct platform_device *pdev)
 	ret = ath10k_snoc_claim(ar);
 	if (ret) {
 		ath10k_err(ar, "failed to claim device: %d\n", ret);
-		goto err_core_destroy;
+		goto err_stop_qmi_service;
 	}
 	ret = ath10k_snoc_bus_configure(ar);
 	if (ret) {
 		ath10k_err(ar, "failed to configure bus: %d\n", ret);
-		goto err_core_destroy;
+		goto err_stop_qmi_service;
 	}
 
 	ret = ath10k_snoc_alloc_pipes(ar);
 	if (ret) {
 		ath10k_err(ar, "failed to allocate copy engine pipes: %d\n",
 			   ret);
-		goto err_core_destroy;
+		goto err_stop_qmi_service;
 	}
 
 	netif_napi_add(&ar->napi_dev, &ar->napi, ath10k_snoc_napi_poll,
@@ -1318,6 +1315,9 @@ err_free_irq:
 
 err_free_pipes:
 	ath10k_snoc_free_pipes(ar);
+
+err_stop_qmi_service:
+	ath10k_snoc_stop_qmi_service(ar);
 
 err_core_destroy:
 	ath10k_core_destroy(ar);

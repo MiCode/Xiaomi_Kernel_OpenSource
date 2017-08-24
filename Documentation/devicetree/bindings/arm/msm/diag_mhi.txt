@@ -1,0 +1,12 @@
+Qualcomm Technologies, Inc. Diag MHI Driver
+
+Required properties:
+-compatible : should be "qcom,diag-mhi".
+-qcom,mhi : phandle of MHI Device to connect to.
+
+Example:
+	qcom,diag {
+		compatible = "qcom,diag-mhi";
+		qcom,mhi = <&mhi_wlan>;
+	};
+

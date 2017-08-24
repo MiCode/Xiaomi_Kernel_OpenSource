@@ -214,28 +214,14 @@ struct crashdump {
 
 static int crashdump_init(struct msm_gpu *gpu, struct crashdump *crashdump)
 {
-	struct drm_device *drm = gpu->dev;
-	int ret = -ENOMEM;
+	int ret = 0;
 
-	crashdump->bo = msm_gem_new_locked(drm, CRASHDUMP_BO_SIZE,
-			MSM_BO_UNCACHED);
-	if (IS_ERR(crashdump->bo)) {
-		ret = PTR_ERR(crashdump->bo);
-		crashdump->bo = NULL;
-		return ret;
-	}
-
-	crashdump->ptr = msm_gem_vaddr(crashdump->bo);
-	if (!crashdump->ptr)
-		goto out;
-
-	ret = msm_gem_get_iova(crashdump->bo, gpu->aspace,
-		&crashdump->iova);
-
-out:
-	if (ret) {
-		drm_gem_object_unreference(crashdump->bo);
-		crashdump->bo = NULL;
+	crashdump->ptr = msm_gem_kernel_new_locked(gpu->dev,
+		CRASHDUMP_BO_SIZE, MSM_BO_UNCACHED,
+		gpu->aspace, &crashdump->bo, &crashdump->iova);
+	if (IS_ERR(crashdump->ptr)) {
+		ret = PTR_ERR(crashdump->ptr);
+		crashdump->ptr = NULL;
 	}
 
 	return ret;

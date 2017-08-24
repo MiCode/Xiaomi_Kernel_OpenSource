@@ -78,6 +78,9 @@ struct msm_gem_vma;
 struct msm_file_private {
 	struct msm_gem_address_space *aspace;
 	struct list_head counters;
+	rwlock_t queuelock;
+	struct list_head submitqueues;
+	int queueid;
 };
 
 enum msm_mdp_plane_property {
@@ -140,6 +143,8 @@ enum msm_mdp_crtc_property {
 enum msm_mdp_conn_property {
 	/* blob properties, always put these first */
 	CONNECTOR_PROP_SDE_INFO,
+	CONNECTOR_PROP_HDR_INFO,
+	CONNECTOR_PROP_HDR_CONTROL,
 
 	/* # of blob properties */
 	CONNECTOR_PROP_BLOBCOUNT,
@@ -152,6 +157,7 @@ enum msm_mdp_conn_property {
 	CONNECTOR_PROP_DST_W,
 	CONNECTOR_PROP_DST_H,
 	CONNECTOR_PROP_PLL_DELTA,
+	CONNECTOR_PROP_PLL_ENABLE,
 
 	/* enum/bitmask properties */
 	CONNECTOR_PROP_TOPOLOGY_NAME,
@@ -230,6 +236,14 @@ struct msm_display_info {
 };
 
 /**
+ * struct - msm_display_kickoff_params - info for display features at kickoff
+ * @hdr_ctrl: HDR control info passed from userspace
+ */
+struct msm_display_kickoff_params {
+	struct drm_msm_ext_panel_hdr_ctrl *hdr_ctrl;
+};
+
+/**
  * struct msm_drm_event - defines custom event notification struct
  * @base: base object required for event notification by DRM framework.
  * @event: event object required for event notification by DRM framework.
@@ -283,7 +297,6 @@ struct msm_drm_private {
 
 	struct drm_fb_helper *fbdev;
 
-	uint32_t next_fence[MSM_GPU_MAX_RINGS];
 	uint32_t completed_fence[MSM_GPU_MAX_RINGS];
 
 	wait_queue_head_t fence_event;
@@ -354,6 +367,9 @@ struct msm_drm_private {
 
 	struct msm_vblank_ctrl vblank_ctrl;
 
+	/* saved atomic state during system suspend */
+	struct drm_atomic_state *suspend_state;
+
 	/* list of clients waiting for events */
 	struct list_head client_event_list;
 };
@@ -401,6 +417,15 @@ void __msm_fence_worker(struct work_struct *work);
 		(_cb)->func = _func;                         \
 	} while (0)
 
+static inline bool msm_is_suspend_state(struct drm_device *dev)
+{
+	if (!dev || !dev->dev_private)
+		return false;
+
+	return ((struct msm_drm_private *)dev->dev_private)->suspend_state !=
+		NULL;
+}
+
 int msm_atomic_commit(struct drm_device *dev,
 		struct drm_atomic_state *state, bool async);
 
@@ -437,6 +462,7 @@ struct msm_gem_address_space *
 msm_gem_smmu_address_space_create(struct device *dev, struct msm_mmu *mmu,
 		const char *name);
 
+void msm_gem_submit_free(struct msm_gem_submit *submit);
 int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 		struct drm_file *file);
 
@@ -461,6 +487,7 @@ struct sg_table *msm_gem_prime_get_sg_table(struct drm_gem_object *obj);
 void *msm_gem_prime_vmap(struct drm_gem_object *obj);
 void msm_gem_prime_vunmap(struct drm_gem_object *obj, void *vaddr);
 int msm_gem_prime_mmap(struct drm_gem_object *obj, struct vm_area_struct *vma);
+struct reservation_object *msm_gem_prime_res_obj(struct drm_gem_object *obj);
 struct drm_gem_object *msm_gem_prime_import_sg_table(struct drm_device *dev,
 		struct dma_buf_attachment *attach, struct sg_table *sg);
 int msm_gem_prime_pin(struct drm_gem_object *obj);
@@ -490,7 +517,12 @@ int msm_gem_svm_new_handle(struct drm_device *dev, struct drm_file *file,
 struct drm_gem_object *msm_gem_svm_new(struct drm_device *dev,
 		struct drm_file *file, uint64_t hostptr,
 		uint64_t size, uint32_t flags);
-
+void *msm_gem_kernel_new(struct drm_device *dev, uint32_t size,
+		uint32_t flags, struct msm_gem_address_space *aspace,
+		struct drm_gem_object **bo, uint64_t *iova);
+void *msm_gem_kernel_new_locked(struct drm_device *dev, uint32_t size,
+		uint32_t flags, struct msm_gem_address_space *aspace,
+		struct drm_gem_object **bo, uint64_t *iova);
 int msm_framebuffer_prepare(struct drm_framebuffer *fb,
 		struct msm_gem_address_space *aspace);
 void msm_framebuffer_cleanup(struct drm_framebuffer *fb,
@@ -505,6 +537,19 @@ struct drm_framebuffer *msm_framebuffer_create(struct drm_device *dev,
 		struct drm_file *file, struct drm_mode_fb_cmd2 *mode_cmd);
 
 struct drm_fb_helper *msm_fbdev_init(struct drm_device *dev);
+
+struct msm_gpu_submitqueue;
+int msm_submitqueue_init(struct msm_file_private *ctx);
+struct msm_gpu_submitqueue *msm_submitqueue_get(struct msm_file_private *ctx,
+		u32 id);
+int msm_submitqueue_create(struct msm_file_private *ctx, u32 prio,
+		u32 flags, u32 *id);
+int msm_submitqueue_query(struct msm_file_private *ctx, u32 id, u32 param,
+		void __user *data, u32 len);
+int msm_submitqueue_remove(struct msm_file_private *ctx, u32 id);
+void msm_submitqueue_close(struct msm_file_private *ctx);
+
+void msm_submitqueue_destroy(struct kref *kref);
 
 struct hdmi;
 int hdmi_modeset_init(struct hdmi *hdmi, struct drm_device *dev,

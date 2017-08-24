@@ -54,7 +54,7 @@ static struct msm_camera_i2c_fn_t msm_sensor_cci_func_tbl = {
 	.i2c_poll =  msm_camera_cci_i2c_poll,
 };
 
-void msm_torch_brightness_set(struct led_classdev *led_cdev,
+static void msm_torch_brightness_set(struct led_classdev *led_cdev,
 				enum led_brightness value)
 {
 	if (!torch_trigger) {
@@ -152,6 +152,13 @@ static int32_t msm_flash_i2c_write_table(
 	conf_array.reg_setting = settings->reg_setting_a;
 	conf_array.size = settings->size;
 
+	/* Validate the settings size */
+	if ((!conf_array.size) || (conf_array.size > MAX_I2C_REG_SET)) {
+		pr_err("failed: invalid size %d", conf_array.size);
+		return -EINVAL;
+	}
+
+
 	return flash_ctrl->flash_i2c_client.i2c_func_tbl->i2c_write_table(
 		&flash_ctrl->flash_i2c_client, &conf_array);
 }
@@ -202,7 +209,7 @@ static int32_t msm_flash_i2c_init(
 		}
 
 		if (copy_from_user(power_setting_array32,
-			(void *)flash_init_info->power_setting_array,
+			(void __user *)flash_init_info->power_setting_array,
 			sizeof(struct msm_sensor_power_setting_array32))) {
 			pr_err("%s copy_from_user failed %d\n",
 				__func__, __LINE__);
@@ -248,7 +255,7 @@ static int32_t msm_flash_i2c_init(
 	} else
 #endif
 	if (copy_from_user(&flash_ctrl->power_setting_array,
-		(void *)flash_init_info->power_setting_array,
+		(void __user *)flash_init_info->power_setting_array,
 		sizeof(struct msm_sensor_power_setting_array))) {
 		pr_err("%s copy_from_user failed %d\n", __func__, __LINE__);
 		return -EFAULT;
@@ -298,7 +305,8 @@ static int32_t msm_flash_i2c_init(
 			goto msm_flash_i2c_init_fail;
 		}
 
-		if (copy_from_user(settings, (void *)flash_init_info->settings,
+		if (copy_from_user(settings,
+			(void __user *)flash_init_info->settings,
 			sizeof(struct msm_camera_i2c_reg_setting_array))) {
 			kfree(settings);
 			pr_err("%s copy_from_user failed %d\n",
@@ -414,7 +422,7 @@ static int32_t msm_flash_i2c_write_setting_array(
 	if (!settings)
 		return -ENOMEM;
 
-	if (copy_from_user(settings, (void *)flash_data->cfg.settings,
+	if (copy_from_user(settings, (void __user *)flash_data->cfg.settings,
 		sizeof(struct msm_camera_i2c_reg_setting_array))) {
 		kfree(settings);
 		pr_err("%s copy_from_user failed %d\n", __func__, __LINE__);
@@ -496,23 +504,46 @@ static int32_t msm_flash_init(
 	}
 
 	flash_ctrl->flash_state = MSM_CAMERA_FLASH_INIT;
-
 	CDBG("Exit");
 	return 0;
 }
 
-#ifdef CONFIG_COMPAT
 static int32_t msm_flash_init_prepare(
 	struct msm_flash_ctrl_t *flash_ctrl,
 	struct msm_flash_cfg_data_t *flash_data)
 {
+	#ifdef CONFIG_COMPAT
+	struct msm_flash_cfg_data_t flash_data_k;
+	struct msm_flash_init_info_t flash_init_info;
+	int32_t i = 0;
+
+	if (!is_compat_task()) {
+		/*for 64-bit usecase,it need copy the data to local memory*/
+		flash_data_k.cfg_type = flash_data->cfg_type;
+		for (i = 0; i < MAX_LED_TRIGGERS; i++) {
+			flash_data_k.flash_current[i] =
+				flash_data->flash_current[i];
+			flash_data_k.flash_duration[i] =
+				flash_data->flash_duration[i];
+		}
+
+		flash_data_k.cfg.flash_init_info = &flash_init_info;
+		if (copy_from_user(&flash_init_info,
+			(void __user *)(flash_data->cfg.flash_init_info),
+			sizeof(struct msm_flash_init_info_t))) {
+			pr_err("%s copy_from_user failed %d\n",
+				__func__, __LINE__);
+			return -EFAULT;
+		}
+		return msm_flash_init(flash_ctrl, &flash_data_k);
+	}
+	/*
+	* for 32-bit usecase,it already copy the userspace
+	* data to local memory in msm_flash_subdev_do_ioctl()
+	* so here do not need copy from user
+	*/
 	return msm_flash_init(flash_ctrl, flash_data);
-}
 #else
-static int32_t msm_flash_init_prepare(
-	struct msm_flash_ctrl_t *flash_ctrl,
-	struct msm_flash_cfg_data_t *flash_data)
-{
 	struct msm_flash_cfg_data_t flash_data_k;
 	struct msm_flash_init_info_t flash_init_info;
 	int32_t i = 0;
@@ -527,15 +558,15 @@ static int32_t msm_flash_init_prepare(
 
 	flash_data_k.cfg.flash_init_info = &flash_init_info;
 	if (copy_from_user(&flash_init_info,
-			(void *)(flash_data->cfg.flash_init_info),
+		(void __user *)(flash_data->cfg.flash_init_info),
 			sizeof(struct msm_flash_init_info_t))) {
 		pr_err("%s copy_from_user failed %d\n",
 			__func__, __LINE__);
 		return -EFAULT;
 	}
 	return msm_flash_init(flash_ctrl, &flash_data_k);
-}
 #endif
+}
 
 static int32_t msm_flash_low(
 	struct msm_flash_ctrl_t *flash_ctrl,
@@ -626,7 +657,7 @@ static int32_t msm_flash_release(
 }
 
 static int32_t msm_flash_config(struct msm_flash_ctrl_t *flash_ctrl,
-	void __user *argp)
+	void *argp)
 {
 	int32_t rc = 0;
 	struct msm_flash_cfg_data_t *flash_data =
@@ -701,7 +732,7 @@ static long msm_flash_subdev_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg)
 {
 	struct msm_flash_ctrl_t *fctrl = NULL;
-	void __user *argp = (void __user *)arg;
+	void *argp = arg;
 
 	CDBG("Enter\n");
 
@@ -1021,13 +1052,13 @@ static long msm_flash_subdev_do_ioctl(
 	sd = vdev_to_v4l2_subdev(vdev);
 	u32 = (struct msm_flash_cfg_data_t32 *)arg;
 
-	flash_data.cfg_type = u32->cfg_type;
-	for (i = 0; i < MAX_LED_TRIGGERS; i++) {
-		flash_data.flash_current[i] = u32->flash_current[i];
-		flash_data.flash_duration[i] = u32->flash_duration[i];
-	}
 	switch (cmd) {
 	case VIDIOC_MSM_FLASH_CFG32:
+		flash_data.cfg_type = u32->cfg_type;
+		for (i = 0; i < MAX_LED_TRIGGERS; i++) {
+			flash_data.flash_current[i] = u32->flash_current[i];
+			flash_data.flash_duration[i] = u32->flash_duration[i];
+		}
 		cmd = VIDIOC_MSM_FLASH_CFG;
 		switch (flash_data.cfg_type) {
 		case CFG_FLASH_OFF:
@@ -1038,7 +1069,8 @@ static long msm_flash_subdev_do_ioctl(
 		case CFG_FLASH_INIT:
 			flash_data.cfg.flash_init_info = &flash_init_info;
 			if (copy_from_user(&flash_init_info32,
-				(void *)compat_ptr(u32->cfg.flash_init_info),
+				(void __user *)
+				compat_ptr(u32->cfg.flash_init_info),
 				sizeof(struct msm_flash_init_info_t32))) {
 				pr_err("%s copy_from_user failed %d\n",
 					__func__, __LINE__);

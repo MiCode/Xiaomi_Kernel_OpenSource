@@ -37,12 +37,13 @@ struct md_region {
  */
 #ifdef CONFIG_QCOM_MINIDUMP
 extern int msm_minidump_add_region(const struct md_region *entry);
+/* Sets to true, if minidump table is initialized */
 extern bool minidump_enabled;
 #else
 static inline int msm_minidump_add_region(const struct md_region *entry)
 {
-	return -ENODEV;
+	/* Return quietly, if minidump is not supported */
+	return 0;
 }
-static inline bool msm_minidump_enabled(void) { return false; }
 #endif
 #endif

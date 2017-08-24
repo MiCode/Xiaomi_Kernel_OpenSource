@@ -132,6 +132,9 @@ static inline uint32_t msm_gem_fence(struct msm_gem_object *msm_obj,
 	return fence;
 }
 
+/* Internal submit flags */
+#define SUBMIT_FLAG_SKIP_HANGCHECK 0x00000001
+
 /* Created per submit-ioctl, to track bo's and cmdstream bufs, etc,
  * associated with the cmdstream submission for synchronization (and
  * make it easier to unwind when things go wrong, etc).  This only
@@ -140,15 +143,17 @@ static inline uint32_t msm_gem_fence(struct msm_gem_object *msm_obj,
 struct msm_gem_submit {
 	struct drm_device *dev;
 	struct msm_gem_address_space *aspace;
-	struct list_head node;   /* node in gpu submit_list */
+	struct list_head node;   /* node in ring submit list */
 	struct list_head bo_list;
 	struct ww_acquire_ctx ticket;
 	uint32_t fence;
 	int ring;
-	bool valid;
+	u32 flags;
 	uint64_t profile_buf_iova;
-	void *profile_buf_vaddr;
+	struct drm_msm_gem_submit_profile_buffer *profile_buf;
 	bool secure;
+	struct msm_gpu_submitqueue *queue;
+	int tick_index;
 	unsigned int nr_cmds;
 	unsigned int nr_bos;
 	struct {

@@ -397,18 +397,22 @@ static int __scm_call_armv8_64(u64 x0, u64 x1, u64 x2, u64 x3, u64 x4, u64 x5,
 			__asmeq("%1", R1_STR)
 			__asmeq("%2", R2_STR)
 			__asmeq("%3", R3_STR)
-			__asmeq("%4", R0_STR)
-			__asmeq("%5", R1_STR)
-			__asmeq("%6", R2_STR)
-			__asmeq("%7", R3_STR)
-			__asmeq("%8", R4_STR)
-			__asmeq("%9", R5_STR)
-			__asmeq("%10", R6_STR)
+			__asmeq("%4", R4_STR)
+			__asmeq("%5", R5_STR)
+			__asmeq("%6", R6_STR)
+			__asmeq("%7", R0_STR)
+			__asmeq("%8", R1_STR)
+			__asmeq("%9", R2_STR)
+			__asmeq("%10", R3_STR)
+			__asmeq("%11", R4_STR)
+			__asmeq("%12", R5_STR)
+			__asmeq("%13", R6_STR)
 #ifdef REQUIRES_SEC
 			".arch_extension sec\n"
 #endif
 			"smc	#0\n"
-			: "=r" (r0), "=r" (r1), "=r" (r2), "=r" (r3)
+			: "=r" (r0), "=r" (r1), "=r" (r2), "=r" (r3),
+			  "=r" (r4), "=r" (r5), "=r" (r6)
 			: "r" (r0), "r" (r1), "r" (r2), "r" (r3), "r" (r4),
 			  "r" (r5), "r" (r6)
 			: "x7", "x8", "x9", "x10", "x11", "x12", "x13",
@@ -442,18 +446,22 @@ static int __scm_call_armv8_32(u32 w0, u32 w1, u32 w2, u32 w3, u32 w4, u32 w5,
 			__asmeq("%1", R1_STR)
 			__asmeq("%2", R2_STR)
 			__asmeq("%3", R3_STR)
-			__asmeq("%4", R0_STR)
-			__asmeq("%5", R1_STR)
-			__asmeq("%6", R2_STR)
-			__asmeq("%7", R3_STR)
-			__asmeq("%8", R4_STR)
-			__asmeq("%9", R5_STR)
-			__asmeq("%10", R6_STR)
+			__asmeq("%4", R4_STR)
+			__asmeq("%5", R5_STR)
+			__asmeq("%6", R6_STR)
+			__asmeq("%7", R0_STR)
+			__asmeq("%8", R1_STR)
+			__asmeq("%9", R2_STR)
+			__asmeq("%10", R3_STR)
+			__asmeq("%11", R4_STR)
+			__asmeq("%12", R5_STR)
+			__asmeq("%13", R6_STR)
 #ifdef REQUIRES_SEC
 			".arch_extension sec\n"
 #endif
 			"smc	#0\n"
-			: "=r" (r0), "=r" (r1), "=r" (r2), "=r" (r3)
+			: "=r" (r0), "=r" (r1), "=r" (r2), "=r" (r3),
+			  "=r" (r4), "=r" (r5), "=r" (r6)
 			: "r" (r0), "r" (r1), "r" (r2), "r" (r3), "r" (r4),
 			  "r" (r5), "r" (r6)
 			: "x7", "x8", "x9", "x10", "x11", "x12", "x13",
@@ -490,18 +498,22 @@ static int __scm_call_armv8_32(u32 w0, u32 w1, u32 w2, u32 w3, u32 w4, u32 w5,
 			__asmeq("%1", R1_STR)
 			__asmeq("%2", R2_STR)
 			__asmeq("%3", R3_STR)
-			__asmeq("%4", R0_STR)
-			__asmeq("%5", R1_STR)
-			__asmeq("%6", R2_STR)
-			__asmeq("%7", R3_STR)
-			__asmeq("%8", R4_STR)
-			__asmeq("%9", R5_STR)
-			__asmeq("%10", R6_STR)
+			__asmeq("%4", R4_STR)
+			__asmeq("%5", R5_STR)
+			__asmeq("%6", R6_STR)
+			__asmeq("%7", R0_STR)
+			__asmeq("%8", R1_STR)
+			__asmeq("%9", R2_STR)
+			__asmeq("%10", R3_STR)
+			__asmeq("%11", R4_STR)
+			__asmeq("%12", R5_STR)
+			__asmeq("%13", R6_STR)
 #ifdef REQUIRES_SEC
 			".arch_extension sec\n"
 #endif
 			"smc	#0\n"
-			: "=r" (r0), "=r" (r1), "=r" (r2), "=r" (r3)
+			: "=r" (r0), "=r" (r1), "=r" (r2), "=r" (r3),
+			  "=r" (r4), "=r" (r5), "=r" (r6)
 			: "r" (r0), "r" (r1), "r" (r2), "r" (r3), "r" (r4),
 			 "r" (r5), "r" (r6));
 
@@ -731,10 +743,6 @@ int scm_call2_atomic(u32 fn_id, struct scm_desc *desc)
 
 	x0 = fn_id | BIT(SMC_ATOMIC_SYSCALL) | scm_version_mask;
 
-	pr_debug("scm_call: func id %#llx, args: %#x, %#llx, %#llx, %#llx, %#llx\n",
-		x0, desc->arginfo, desc->args[0], desc->args[1],
-		desc->args[2], desc->x5);
-
 	if (scm_version == SCM_ARMV8_64)
 		ret = __scm_call_armv8_64(x0, desc->arginfo, desc->args[0],
 					  desc->args[1], desc->args[2],
@@ -746,9 +754,8 @@ int scm_call2_atomic(u32 fn_id, struct scm_desc *desc)
 					  desc->x5, &desc->ret[0],
 					  &desc->ret[1], &desc->ret[2]);
 	if (ret < 0)
-		pr_err("scm_call failed: func id %#llx, arginfo: %#x, args: %#llx, %#llx, %#llx, %#llx, ret: %d, syscall returns: %#llx, %#llx, %#llx\n",
-			x0, desc->arginfo, desc->args[0], desc->args[1],
-			desc->args[2], desc->x5, ret, desc->ret[0],
+		pr_err("scm_call failed: func id %#llx, ret: %d, syscall returns: %#llx, %#llx, %#llx\n",
+			x0, ret, desc->ret[0],
 			desc->ret[1], desc->ret[2]);
 
 	if (arglen > N_REGISTER_ARGS)
@@ -1122,54 +1129,55 @@ int scm_is_call_available(u32 svc_id, u32 cmd_id)
 
 		ret = scm_call(SCM_SVC_INFO, IS_CALL_AVAIL_CMD, &svc_cmd,
 			sizeof(svc_cmd), &ret_val, sizeof(ret_val));
-		if (ret)
-			return ret;
+		if (!ret && ret_val)
+			return 1;
+		else
+			return 0;
 
-		return ret_val;
 	}
 	desc.arginfo = SCM_ARGS(1);
 	desc.args[0] = SCM_SIP_FNID(svc_id, cmd_id);
+	desc.ret[0] = 0;
 	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_INFO, IS_CALL_AVAIL_CMD), &desc);
-	if (ret)
-		return ret;
+	if (!ret && desc.ret[0])
+		return 1;
+	else
+		return 0;
 
-	return desc.ret[0];
 }
 EXPORT_SYMBOL(scm_is_call_available);
 
 #define GET_FEAT_VERSION_CMD	3
-int scm_get_feat_version(u32 feat)
+int scm_get_feat_version(u32 feat, u64 *scm_ret)
 {
 	struct scm_desc desc = {0};
 	int ret;
 
 	if (!is_scm_armv8()) {
 		if (scm_is_call_available(SCM_SVC_INFO, GET_FEAT_VERSION_CMD)) {
-			u32 version;
-			if (!scm_call(SCM_SVC_INFO, GET_FEAT_VERSION_CMD, &feat,
-				      sizeof(feat), &version, sizeof(version)))
-				return version;
+			ret = scm_call(SCM_SVC_INFO, GET_FEAT_VERSION_CMD,
+				&feat, sizeof(feat), scm_ret, sizeof(*scm_ret));
+			return ret;
 		}
-		return 0;
 	}
 
 	ret = scm_is_call_available(SCM_SVC_INFO, GET_FEAT_VERSION_CMD);
 	if (ret <= 0)
-		return 0;
+		return -EAGAIN;
 
 	desc.args[0] = feat;
 	desc.arginfo = SCM_ARGS(1);
 	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_INFO, GET_FEAT_VERSION_CMD),
 			&desc);
-	if (!ret)
-		return desc.ret[0];
 
-	return 0;
+	*scm_ret = desc.ret[0];
+
+	return ret;
 }
 EXPORT_SYMBOL(scm_get_feat_version);
 
 #define RESTORE_SEC_CFG    2
-int scm_restore_sec_cfg(u32 device_id, u32 spare, int *scm_ret)
+int scm_restore_sec_cfg(u32 device_id, u32 spare, u64 *scm_ret)
 {
 	struct scm_desc desc = {0};
 	int ret;

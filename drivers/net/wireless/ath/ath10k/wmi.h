@@ -6034,6 +6034,13 @@ struct wmi_chan_info_event {
 	__le32 noise_floor;
 	__le32 rx_clear_count;
 	__le32 cycle_count;
+	__le32 chan_tx_pwr_range;
+	__le32 chan_tx_pwr_tp;
+	__le32 rx_frame_count;
+	__le32 my_bss_rx_cycle_count;
+	__le32 rx_11b_mode_data_duration;
+	__le32 tx_frame_cnt;
+	__le32 mac_clk_mhz;
 } __packed;
 
 struct wmi_10_4_chan_info_event {
@@ -6227,6 +6234,11 @@ struct wmi_scan_ev_arg {
 	__le32 vdev_id;
 };
 
+struct wmi_peer_delete_resp_ev_arg {
+	__le32 vdev_id;
+	struct wmi_mac_addr peer_addr;
+};
+
 struct wmi_mgmt_rx_ev_arg {
 	__le32 channel;
 	__le32 snr;
@@ -6247,6 +6259,10 @@ struct wmi_ch_info_ev_arg {
 	__le32 chan_tx_pwr_range;
 	__le32 chan_tx_pwr_tp;
 	__le32 rx_frame_count;
+	__le32 my_bss_rx_cycle_count;
+	__le32 rx_11b_mode_data_duration;
+	__le32 tx_frame_cnt;
+	__le32 mac_clk_mhz;
 };
 
 struct wmi_vdev_start_ev_arg {
@@ -6592,6 +6608,8 @@ void ath10k_wmi_put_wmi_channel(struct wmi_channel *ch,
 int ath10k_wmi_start_scan_verify(const struct wmi_start_scan_arg *arg);
 
 int ath10k_wmi_event_scan(struct ath10k *ar, struct sk_buff *skb);
+int ath10k_wmi_tlv_event_peer_delete_resp(struct ath10k *ar,
+					  struct sk_buff *skb);
 int ath10k_wmi_event_mgmt_rx(struct ath10k *ar, struct sk_buff *skb);
 void ath10k_wmi_event_chan_info(struct ath10k *ar, struct sk_buff *skb);
 void ath10k_wmi_event_echo(struct ath10k *ar, struct sk_buff *skb);
@@ -6599,6 +6617,7 @@ int ath10k_wmi_event_debug_mesg(struct ath10k *ar, struct sk_buff *skb);
 void ath10k_wmi_event_update_stats(struct ath10k *ar, struct sk_buff *skb);
 void ath10k_wmi_event_vdev_start_resp(struct ath10k *ar, struct sk_buff *skb);
 void ath10k_wmi_event_vdev_stopped(struct ath10k *ar, struct sk_buff *skb);
+void ath10k_wmi_event_vdev_delete_resp(struct ath10k *ar, struct sk_buff *skb);
 void ath10k_wmi_event_peer_sta_kickout(struct ath10k *ar, struct sk_buff *skb);
 void ath10k_wmi_event_host_swba(struct ath10k *ar, struct sk_buff *skb);
 void ath10k_wmi_event_tbttoffset_update(struct ath10k *ar, struct sk_buff *skb);

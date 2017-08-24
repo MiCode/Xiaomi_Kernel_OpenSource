@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1503,6 +1503,7 @@ static int jtag_mm_etm_callback(struct notifier_block *nfb,
 				void *hcpu)
 {
 	unsigned int cpu = (unsigned long)hcpu;
+	u64 version = 0;
 
 	if (!etm[cpu])
 		goto out;
@@ -1524,8 +1525,8 @@ static int jtag_mm_etm_callback(struct notifier_block *nfb,
 			goto out;
 		}
 		if (etm_arch_supported(etm[cpu]->arch)) {
-			if (scm_get_feat_version(TZ_DBG_ETM_FEAT_ID) <
-			    TZ_DBG_ETM_VER)
+			if (!scm_get_feat_version(TZ_DBG_ETM_FEAT_ID, &version)
+				&& version <  TZ_DBG_ETM_VER)
 				etm[cpu]->save_restore_enabled = true;
 			else
 				pr_info("etm save-restore supported by TZ\n");
@@ -1615,8 +1616,10 @@ static int jtag_mm_etm_probe(struct platform_device *pdev, uint32_t cpu)
 	mutex_lock(&etmdata->mutex);
 	if (etmdata->init && !etmdata->enable) {
 		if (etm_arch_supported(etmdata->arch)) {
-			if (scm_get_feat_version(TZ_DBG_ETM_FEAT_ID) <
-			    TZ_DBG_ETM_VER)
+			u64 version = 0;
+
+			if (!scm_get_feat_version(TZ_DBG_ETM_FEAT_ID, &version)
+				&& (version < TZ_DBG_ETM_VER))
 				etmdata->save_restore_enabled = true;
 			else
 				pr_info("etm save-restore supported by TZ\n");

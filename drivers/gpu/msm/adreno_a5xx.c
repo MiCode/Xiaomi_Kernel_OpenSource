@@ -59,7 +59,7 @@ static const struct adreno_vbif_platform a5xx_vbif_platforms[] = {
 	{ adreno_is_a530, a530_vbif },
 	{ adreno_is_a512, a540_vbif },
 	{ adreno_is_a510, a530_vbif },
-	{ adreno_is_a508, a540_vbif },
+	{ adreno_is_a508, a530_vbif },
 	{ adreno_is_a505, a530_vbif },
 	{ adreno_is_a506, a530_vbif },
 };
@@ -713,6 +713,10 @@ static int _load_gpmu_firmware(struct adreno_device *adreno_dev)
 		adreno_dev->gpucore->gpmu_major,
 		adreno_dev->gpucore->gpmu_minor);
 	if (ret)
+		goto err;
+
+	/* Integer overflow check for cmd_size */
+	if (data[2] > (data[0] - 2))
 		goto err;
 
 	cmds = data + data[2] + 3;
@@ -2069,6 +2073,9 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 
 	}
 
+	/* Disable All flat shading optimization */
+	kgsl_regrmw(device, A5XX_VPC_DBG_ECO_CNTL, 0, 0x1 << 10);
+
 	/*
 	 * VPC corner case with local memory load kill leads to corrupt
 	 * internal state. Normal Disable does not work for all a5x chips.
@@ -3069,6 +3076,10 @@ static unsigned int a5xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 		ADRENO_REG_DEFINE(ADRENO_REG_RBBM_BLOCK_SW_RESET_CMD2,
 					  A5XX_RBBM_BLOCK_SW_RESET_CMD2),
 	ADRENO_REG_DEFINE(ADRENO_REG_UCHE_INVALIDATE0, A5XX_UCHE_INVALIDATE0),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_RBBM_0_LO,
+				A5XX_RBBM_PERFCTR_RBBM_0_LO),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_RBBM_0_HI,
+				A5XX_RBBM_PERFCTR_RBBM_0_HI),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_LO,
 				A5XX_RBBM_PERFCTR_LOAD_VALUE_LO),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,

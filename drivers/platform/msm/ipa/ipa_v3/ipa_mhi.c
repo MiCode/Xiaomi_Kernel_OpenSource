@@ -191,7 +191,7 @@ static int ipa3_mhi_get_ch_poll_cfg(enum ipa_client_type client,
 static int ipa_mhi_start_gsi_channel(enum ipa_client_type client,
 	int ipa_ep_idx, struct start_gsi_channel *params)
 {
-	int res;
+	int res = 0;
 	struct gsi_evt_ring_props ev_props;
 	struct ipa_mhi_msi_info *msi;
 	struct gsi_chan_props ch_props;
@@ -241,7 +241,6 @@ static int ipa_mhi_start_gsi_channel(enum ipa_client_type client,
 		if (res) {
 			IPA_MHI_ERR("gsi_alloc_evt_ring failed %d\n", res);
 			goto fail_alloc_evt;
-			return res;
 		}
 		IPA_MHI_DBG("client %d, caching event ring hdl %lu\n",
 				client,
@@ -253,6 +252,22 @@ static int ipa_mhi_start_gsi_channel(enum ipa_client_type client,
 		IPA_MHI_DBG("event ring already exists: evt_ring_hdl=%lu\n",
 			*params->cached_gsi_evt_ring_hdl);
 		ep->gsi_evt_ring_hdl = *params->cached_gsi_evt_ring_hdl;
+	}
+
+	if (params->ev_ctx_host->wp == params->ev_ctx_host->rbase) {
+		IPA_MHI_ERR("event ring wp is not updated. base=wp=0x%llx\n",
+			params->ev_ctx_host->wp);
+		goto fail_alloc_ch;
+	}
+
+	IPA_MHI_DBG("Ring event db: evt_ring_hdl=%lu host_wp=0x%llx\n",
+		ep->gsi_evt_ring_hdl, params->ev_ctx_host->wp);
+	res = gsi_ring_evt_ring_db(ep->gsi_evt_ring_hdl,
+		params->ev_ctx_host->wp);
+	if (res) {
+		IPA_MHI_ERR("fail to ring evt ring db %d. hdl=%lu wp=0x%llx\n",
+			res, ep->gsi_evt_ring_hdl, params->ev_ctx_host->wp);
+		goto fail_alloc_ch;
 	}
 
 	memset(&ch_props, 0, sizeof(ch_props));

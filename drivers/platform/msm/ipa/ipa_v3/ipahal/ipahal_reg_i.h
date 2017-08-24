@@ -21,6 +21,9 @@ int ipahal_reg_init(enum ipa_hw_type ipa_hw_type);
 #define IPA_GETFIELD_FROM_REG(reg, shift, mask) \
 		(((reg) & (mask)) >> (shift))
 
+/* IPA_CLKON_CFG register */
+#define IPA_CLKON_CFG_CGC_OPEN_MISC_SHFT 0x3
+#define IPA_CLKON_CFG_CGC_OPEN_MISC_BMSK 0x8
 
 /* IPA_ROUTE register */
 #define IPA_ROUTE_ROUTE_DIS_SHFT 0x0

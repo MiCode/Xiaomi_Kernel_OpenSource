@@ -1311,6 +1311,13 @@ Optional properties:
 
  - pinctrl-x: Defines pinctrl state for each pin group.
 
+ - qcom,msm-cpudai-tdm-clk-attribute: Clock attribute for tdm.
+				0 - Clk invalid attribute
+				1 - Clk attribute couple no
+				2 - Clk attribute couple dividend
+				3 - Clk attribute couple divisor
+				4 - Clk attribute invert couple no
+
 Example:
 
 	qcom,msm-dai-tdm-quat-rx {

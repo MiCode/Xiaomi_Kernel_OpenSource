@@ -113,8 +113,10 @@ enum msm_sensor_power_seq_gpio_t {
 	SENSOR_GPIO_FL_RESET,
 	SENSOR_GPIO_CUSTOM1,
 	SENSOR_GPIO_CUSTOM2,
+	SENSOR_GPIO_CUSTOM3,
 	SENSOR_GPIO_MAX,
 };
+#define SENSOR_GPIO_CUSTOM3 SENSOR_GPIO_CUSTOM3
 
 enum msm_ir_cut_filter_gpio_t {
 	IR_CUT_FILTER_GPIO_P = 0,

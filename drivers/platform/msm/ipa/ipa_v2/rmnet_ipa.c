@@ -1878,7 +1878,9 @@ void q6_deinitialize_rm(void)
 	if (ret < 0)
 		IPAWANERR("Error deleting resource %d, ret=%d\n",
 			IPA_RM_RESOURCE_Q6_PROD, ret);
-	destroy_workqueue(ipa_rm_q6_workqueue);
+
+	if (ipa_rm_q6_workqueue)
+		destroy_workqueue(ipa_rm_q6_workqueue);
 }
 
 static void wake_tx_queue(struct work_struct *work)
@@ -2187,7 +2189,10 @@ timer_init_err:
 		IPAWANERR("Error deleting resource %d, ret=%d\n",
 		IPA_RM_RESOURCE_WWAN_0_PROD, ret);
 create_rsrc_err:
-	q6_deinitialize_rm();
+
+	if (!atomic_read(&is_ssr))
+		q6_deinitialize_rm();
+
 q6_init_err:
 	free_netdev(ipa_netdevs[0]);
 	ipa_netdevs[0] = NULL;
@@ -2618,6 +2623,9 @@ static int rmnet_ipa_set_data_quota_modem(struct wan_ioctl_set_data_quota *data)
 	if (!data->set_quota)
 		ipa_qmi_stop_data_qouta();
 
+	/* prevent string buffer overflows */
+	data->interface_name[IFNAMSIZ-1] = '\0';
+
 	index = find_vchannel_name_index(data->interface_name);
 	IPAWANERR("iface name %s, quota %lu\n",
 			  data->interface_name,
@@ -2855,6 +2863,10 @@ int rmnet_ipa_query_tethering_stats_modem(
 		kfree(req);
 		kfree(resp);
 		return rc;
+	} else if (data == NULL) {
+		kfree(req);
+		kfree(resp);
+		return 0;
 	}
 
 	if (resp->dl_dst_pipe_stats_list_valid) {
@@ -3038,7 +3050,10 @@ int rmnet_ipa_query_tethering_stats_all(
 int rmnet_ipa_reset_tethering_stats(struct wan_ioctl_reset_tether_stats *data)
 {
 	enum ipa_upstream_type upstream_type;
+	struct wan_ioctl_query_tether_stats tether_stats;
 	int rc = 0;
+
+	memset(&tether_stats, 0, sizeof(struct wan_ioctl_query_tether_stats));
 
 	/* get IPA backhaul type */
 	upstream_type = find_upstream_type(data->upstreamIface);
@@ -3057,7 +3072,7 @@ int rmnet_ipa_reset_tethering_stats(struct wan_ioctl_reset_tether_stats *data)
 	} else {
 		IPAWANDBG(" reset modem-backhaul stats\n");
 		rc = rmnet_ipa_query_tethering_stats_modem(
-			NULL, true);
+			&tether_stats, true);
 		if (rc) {
 			IPAWANERR("reset MODEM stats failed\n");
 			return rc;

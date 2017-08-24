@@ -1323,10 +1323,6 @@ int mmc_hs400_to_hs200(struct mmc_card *card)
 	if (host->caps & MMC_CAP_WAIT_WHILE_BUSY)
 		send_status = false;
 
-	/* Reduce frequency to HS */
-	max_dtr = card->ext_csd.hs_max_dtr;
-	mmc_set_clock(host, max_dtr);
-
 	/* Switch HS400 to HS DDR */
 	val = EXT_CSD_TIMING_HS;
 	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL, EXT_CSD_HS_TIMING,
@@ -1336,6 +1332,10 @@ int mmc_hs400_to_hs200(struct mmc_card *card)
 		goto out_err;
 
 	mmc_set_timing(host, MMC_TIMING_MMC_DDR52);
+
+	/* Reduce frequency to HS */
+	max_dtr = card->ext_csd.hs_max_dtr;
+	mmc_set_clock(host, max_dtr);
 
 	if (!send_status) {
 		err = mmc_switch_status(card, false);
@@ -2849,6 +2849,7 @@ static int mmc_runtime_suspend(struct mmc_host *host)
 		return -EBUSY;
 	}
 
+	MMC_TRACE(host, "%s\n", __func__);
 	err = _mmc_suspend(host, true);
 	if (err)
 		pr_err("%s: error %d doing aggressive suspend\n",
@@ -2870,6 +2871,7 @@ static int mmc_runtime_resume(struct mmc_host *host)
 	if (!(host->caps & (MMC_CAP_AGGRESSIVE_PM | MMC_CAP_RUNTIME_RESUME)))
 		return 0;
 
+	MMC_TRACE(host, "%s\n", __func__);
 	err = _mmc_resume(host);
 	if (err)
 		pr_err("%s: error %d doing aggressive resume\n",

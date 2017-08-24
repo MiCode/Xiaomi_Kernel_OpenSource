@@ -194,7 +194,7 @@ config MSM_11AD
 	tristate "Platform driver for 11ad chip"
 	depends on PCI
 	depends on PCI_MSM
-	default y
+	default m
 	---help---
 	  This module adds required platform support for wireless adapter based on
 	  Qualcomm Technologies, Inc. 11ad chip, integrated into MSM platform

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -71,23 +71,33 @@ static int is_power_on;
 
 struct vregs_info {
 	const char * const name;
+	const char * const curr;
+	const char * const volt;
 	int state;
+	bool required;
 	struct regulator *regulator;
 };
 
 /* IRIS regulators for Pronto hardware */
-static struct vregs_info iris_vregs_pronto[] = {
-	{"qcom,iris-vddxo",  VREG_NULL_CONFIG, NULL},
-	{"qcom,iris-vddrfa", VREG_NULL_CONFIG, NULL},
-	{"qcom,iris-vddpa",  VREG_NULL_CONFIG, NULL},
-	{"qcom,iris-vdddig", VREG_NULL_CONFIG, NULL},
+static struct vregs_info iris_vregs[] = {
+	{"qcom,iris-vddxo", "qcom,iris-vddxo-current",
+	"qcom,iris-vddxo-voltage-level", VREG_NULL_CONFIG, true, NULL},
+	{"qcom,iris-vddrfa", "qcom,iris-vddrfa-current",
+	"qcom,iris-vddrfa-voltage-level", VREG_NULL_CONFIG, true, NULL},
+	{"qcom,iris-vddpa", "qcom,iris-vddpa-current",
+	"qcom,iris-vddpa-voltage-level", VREG_NULL_CONFIG, false, NULL},
+	{"qcom,iris-vdddig", "qcom,iris-vdddig-current",
+	"qcom,iris-vdddig-voltage-level", VREG_NULL_CONFIG, true, NULL},
 };
 
 /* WCNSS regulators for Pronto hardware */
 static struct vregs_info pronto_vregs[] = {
-	{"qcom,pronto-vddmx",  VREG_NULL_CONFIG, NULL},
-	{"qcom,pronto-vddcx",  VREG_NULL_CONFIG, NULL},
-	{"qcom,pronto-vddpx",  VREG_NULL_CONFIG, NULL},
+	{"qcom,pronto-vddmx", "qcom,pronto-vddmx-current",
+	"qcom,vddmx-voltage-level", VREG_NULL_CONFIG, true, NULL},
+	{"qcom,pronto-vddcx", "qcom,pronto-vddcx-current",
+	"qcom,vddcx-voltage-level", VREG_NULL_CONFIG, true, NULL},
+	{"qcom,pronto-vddpx", "qcom,pronto-vddpx-current",
+	"qcom,vddpx-voltage-level", VREG_NULL_CONFIG, true, NULL},
 };
 
 struct host_driver {
@@ -182,6 +192,129 @@ int validate_iris_chip_id(u32 reg)
 	default:
 		return 1;
 	}
+}
+
+static void wcnss_free_regulator(void)
+{
+	int vreg_i;
+
+	/* Free pronto voltage regulators from device node */
+	for (vreg_i = 0; vreg_i < PRONTO_REGULATORS; vreg_i++) {
+		if (pronto_vregs[vreg_i].state) {
+			regulator_put(pronto_vregs[vreg_i].regulator);
+			pronto_vregs[vreg_i].state = VREG_NULL_CONFIG;
+		}
+	}
+
+	/* Free IRIS voltage regulators from device node */
+	for (vreg_i = 0; vreg_i < IRIS_REGULATORS; vreg_i++) {
+		if (iris_vregs[vreg_i].state) {
+			regulator_put(iris_vregs[vreg_i].regulator);
+			iris_vregs[vreg_i].state = VREG_NULL_CONFIG;
+		}
+	}
+}
+
+static int
+wcnss_dt_parse_vreg_level(struct device *dev, int index,
+			  const char *current_vreg_name, const char *vreg_name,
+			  struct vregs_level *vlevel)
+{
+	int ret = 0;
+	/* array used to store nominal, low and high voltage values */
+	u32 voltage_levels[3], current_vreg;
+
+	ret = of_property_read_u32_array(dev->of_node, vreg_name,
+					 voltage_levels,
+					 ARRAY_SIZE(voltage_levels));
+	if (ret) {
+		dev_err(dev, "error reading %s property\n", vreg_name);
+		return ret;
+	}
+
+	vlevel[index].nominal_min = voltage_levels[0];
+	vlevel[index].low_power_min = voltage_levels[1];
+	vlevel[index].max_voltage = voltage_levels[2];
+
+	ret = of_property_read_u32(dev->of_node, current_vreg_name,
+				   &current_vreg);
+	if (ret) {
+		dev_err(dev, "error reading %s property\n", current_vreg_name);
+		return ret;
+	}
+
+	vlevel[index].uA_load = current_vreg;
+
+	return ret;
+}
+
+int
+wcnss_parse_voltage_regulator(struct wcnss_wlan_config *wlan_config,
+			      struct device *dev)
+{
+	int rc, vreg_i;
+
+	/* Parse pronto voltage regulators from device node */
+	for (vreg_i = 0; vreg_i < PRONTO_REGULATORS; vreg_i++) {
+		pronto_vregs[vreg_i].regulator =
+			regulator_get(dev, pronto_vregs[vreg_i].name);
+		if (IS_ERR(pronto_vregs[vreg_i].regulator)) {
+			if (pronto_vregs[vreg_i].required) {
+				rc = PTR_ERR(pronto_vregs[vreg_i].regulator);
+				dev_err(dev, "regulator get of %s failed (%d)\n",
+					pronto_vregs[vreg_i].name, rc);
+				goto wcnss_vreg_get_err;
+			} else {
+				dev_dbg(dev, "Skip optional regulator configuration: %s\n",
+					pronto_vregs[vreg_i].name);
+				continue;
+			}
+		}
+
+		pronto_vregs[vreg_i].state |= VREG_GET_REGULATOR_MASK;
+		rc = wcnss_dt_parse_vreg_level(dev, vreg_i,
+					       pronto_vregs[vreg_i].curr,
+					       pronto_vregs[vreg_i].volt,
+					       wlan_config->pronto_vlevel);
+		if (rc) {
+			dev_err(dev, "error reading voltage-level property\n");
+			goto wcnss_vreg_get_err;
+		}
+	}
+
+	/* Parse iris voltage regulators from device node */
+	for (vreg_i = 0; vreg_i < IRIS_REGULATORS; vreg_i++) {
+		iris_vregs[vreg_i].regulator =
+			regulator_get(dev, iris_vregs[vreg_i].name);
+		if (IS_ERR(iris_vregs[vreg_i].regulator)) {
+			if (iris_vregs[vreg_i].required) {
+				rc = PTR_ERR(iris_vregs[vreg_i].regulator);
+				dev_err(dev, "regulator get of %s failed (%d)\n",
+					iris_vregs[vreg_i].name, rc);
+				goto wcnss_vreg_get_err;
+			} else {
+				dev_dbg(dev, "Skip optional regulator configuration: %s\n",
+					iris_vregs[vreg_i].name);
+				continue;
+			}
+		}
+
+		iris_vregs[vreg_i].state |= VREG_GET_REGULATOR_MASK;
+		rc = wcnss_dt_parse_vreg_level(dev, vreg_i,
+					       iris_vregs[vreg_i].curr,
+					       iris_vregs[vreg_i].volt,
+					       wlan_config->iris_vlevel);
+		if (rc) {
+			dev_err(dev, "error reading voltage-level property\n");
+			goto wcnss_vreg_get_err;
+		}
+	}
+
+	return 0;
+
+wcnss_vreg_get_err:
+	wcnss_free_regulator();
+	return rc;
 }
 
 void  wcnss_iris_reset(u32 reg, void __iomem *pmu_conf_reg)
@@ -419,11 +552,11 @@ static void wcnss_vregs_off(struct vregs_info regulators[], uint size,
 
 		/* Remove PWM mode */
 		if (regulators[i].state & VREG_OPTIMUM_MODE_MASK) {
-			rc = regulator_set_optimum_mode(
-					regulators[i].regulator, 0);
-			if (rc < 0)
-				pr_err("regulator_set_optimum_mode(%s) failed (%d)\n",
-						regulators[i].name, rc);
+			rc = regulator_set_load(regulators[i].regulator, 0);
+			if (rc < 0) {
+				pr_err("regulator set load(%s) failed (%d)\n",
+				       regulators[i].name, rc);
+			}
 		}
 
 		/* Set voltage to lowest level */
@@ -478,18 +611,10 @@ static int wcnss_vregs_on(struct device *dev,
 	}
 
 	for (i = 0; i < size; i++) {
-			/* Get regulator source */
-		regulators[i].regulator =
-			regulator_get(dev, regulators[i].name);
-		if (IS_ERR(regulators[i].regulator)) {
-			rc = PTR_ERR(regulators[i].regulator);
-				pr_err("regulator get of %s failed (%d)\n",
-					regulators[i].name, rc);
-				goto fail;
-		}
-		regulators[i].state |= VREG_GET_REGULATOR_MASK;
-		reg_cnt = regulator_count_voltages(regulators[i].regulator);
+		if (regulators[i].state == VREG_NULL_CONFIG)
+			continue;
 
+		reg_cnt = regulator_count_voltages(regulators[i].regulator);
 		/* Set voltage to nominal. Exclude swtiches e.g. LVS */
 		if ((voltage_level[i].nominal_min ||
 		     voltage_level[i].max_voltage) && (reg_cnt > 0)) {
@@ -518,11 +643,11 @@ static int wcnss_vregs_on(struct device *dev,
 
 		/* Vote for PWM/PFM mode if needed */
 		if (voltage_level[i].uA_load && (reg_cnt > 0)) {
-			rc = regulator_set_optimum_mode(regulators[i].regulator,
-					voltage_level[i].uA_load);
+			rc = regulator_set_load(regulators[i].regulator,
+						voltage_level[i].uA_load);
 			if (rc < 0) {
-				pr_err("regulator_set_optimum_mode(%s) failed (%d)\n",
-						regulators[i].name, rc);
+				pr_err("regulator set load(%s) failed (%d)\n",
+				       regulators[i].name, rc);
 				goto fail;
 			}
 			regulators[i].state |= VREG_OPTIMUM_MODE_MASK;
@@ -551,8 +676,7 @@ static void wcnss_iris_vregs_off(enum wcnss_hw_type hw_type,
 {
 	switch (hw_type) {
 	case WCNSS_PRONTO_HW:
-		wcnss_vregs_off(iris_vregs_pronto,
-				ARRAY_SIZE(iris_vregs_pronto),
+		wcnss_vregs_off(iris_vregs, ARRAY_SIZE(iris_vregs),
 				cfg->iris_vlevel);
 		break;
 	default:
@@ -569,8 +693,7 @@ static int wcnss_iris_vregs_on(struct device *dev,
 
 	switch (hw_type) {
 	case WCNSS_PRONTO_HW:
-		ret = wcnss_vregs_on(dev, iris_vregs_pronto,
-				     ARRAY_SIZE(iris_vregs_pronto),
+		ret = wcnss_vregs_on(dev, iris_vregs, ARRAY_SIZE(iris_vregs),
 				     cfg->iris_vlevel);
 		break;
 	default:

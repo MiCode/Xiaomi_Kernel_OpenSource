@@ -34,6 +34,14 @@
 #include "sde_plane.h"
 #include "sde_color_processing.h"
 
+static bool suspend_blank = true;
+module_param(suspend_blank, bool, 0400);
+MODULE_PARM_DESC(suspend_blank,
+		"If set, active planes will force their outputs to black,\n"
+		"by temporarily enabling the color fill, when recovering\n"
+		"from a system resume instead of attempting to display the\n"
+		"last provided frame buffer.");
+
 #define SDE_DEBUG_PLANE(pl, fmt, ...) SDE_DEBUG("plane%d " fmt,\
 		(pl) ? (pl)->base.base.id : -1, ##__VA_ARGS__)
 
@@ -138,6 +146,7 @@ struct sde_plane {
 	struct sde_debugfs_regset32 debugfs_src;
 	struct sde_debugfs_regset32 debugfs_scaler;
 	struct sde_debugfs_regset32 debugfs_csc;
+	bool debugfs_default_scale;
 };
 
 #define to_sde_plane(x) container_of(x, struct sde_plane, base)
@@ -145,6 +154,20 @@ struct sde_plane {
 static bool sde_plane_enabled(struct drm_plane_state *state)
 {
 	return state && state->fb && state->crtc;
+}
+
+static struct sde_kms *_sde_plane_get_kms(struct drm_plane *plane)
+{
+	struct msm_drm_private *priv;
+
+	if (!plane || !plane->dev)
+		return NULL;
+
+	priv = plane->dev->dev_private;
+	if (!priv)
+		return NULL;
+
+	return to_sde_kms(priv->kms);
 }
 
 /**
@@ -582,12 +605,62 @@ int sde_plane_wait_input_fence(struct drm_plane *plane, uint32_t wait_ms)
 	return ret;
 }
 
+/**
+ * _sde_plane_get_aspace: gets the address space based on the
+ *            fb_translation mode property
+ */
+static int _sde_plane_get_aspace(
+		struct sde_plane *psde,
+		struct sde_plane_state *pstate,
+		struct msm_gem_address_space **aspace)
+{
+	struct sde_kms *kms;
+	int mode;
+
+	if (!psde || !pstate || !aspace) {
+		SDE_ERROR("invalid parameters\n");
+		return -EINVAL;
+	}
+
+	kms = _sde_plane_get_kms(&psde->base);
+	if (!kms) {
+		SDE_ERROR("invalid kms\n");
+		return -EINVAL;
+	}
+
+	mode = sde_plane_get_property(pstate,
+			PLANE_PROP_FB_TRANSLATION_MODE);
+
+	switch (mode) {
+	case SDE_DRM_FB_NON_SEC:
+		*aspace = kms->aspace[MSM_SMMU_DOMAIN_UNSECURE];
+		if (!aspace)
+			return -EINVAL;
+		break;
+	case SDE_DRM_FB_SEC:
+		*aspace = kms->aspace[MSM_SMMU_DOMAIN_SECURE];
+		if (!aspace)
+			return -EINVAL;
+		break;
+	case SDE_DRM_FB_SEC_DIR_TRANS:
+	case SDE_DRM_FB_NON_SEC_DIR_TRANS:
+		*aspace = NULL;
+		break;
+	default:
+		SDE_ERROR("invalid fb_translation mode:%d\n", mode);
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
 static inline void _sde_plane_set_scanout(struct sde_phy_plane *pp,
 		struct sde_plane_state *pstate,
 		struct sde_hw_pipe_cfg *pipe_cfg,
 		struct drm_framebuffer *fb)
 {
 	struct sde_plane *psde;
+	struct msm_gem_address_space *aspace = NULL;
 	int ret;
 
 	if (!pp || !pstate || !pipe_cfg || !fb) {
@@ -603,7 +676,13 @@ static inline void _sde_plane_set_scanout(struct sde_phy_plane *pp,
 		return;
 	}
 
-	ret = sde_format_populate_layout(psde->aspace, fb, &pipe_cfg->layout);
+	ret = _sde_plane_get_aspace(psde, pstate, &aspace);
+	if (ret) {
+		SDE_ERROR_PLANE(psde, "Failed to get aspace %d\n", ret);
+		return;
+	}
+
+	ret = sde_format_populate_layout(aspace, fb, &pipe_cfg->layout);
 	if (ret == -EAGAIN)
 		SDE_DEBUG_PLANE(psde, "not updating same src addrs\n");
 	else if (ret)
@@ -616,8 +695,19 @@ static int _sde_plane_setup_scaler3_lut(struct sde_phy_plane *pp,
 		struct sde_plane_state *pstate)
 {
 	struct sde_plane *psde = pp->sde_plane;
-	struct sde_hw_scaler3_cfg *cfg = pp->scaler3_cfg;
+	struct sde_hw_scaler3_cfg *cfg;
 	int ret = 0;
+
+	if (!pp || !pp->scaler3_cfg) {
+		SDE_ERROR("invalid args\n");
+		return -EINVAL;
+	} else if (!pstate) {
+		/* pstate is expected to be null on forced color fill */
+		SDE_DEBUG("null pstate\n");
+		return -EINVAL;
+	}
+
+	cfg = pp->scaler3_cfg;
 
 	cfg->dir_lut = msm_property_get_blob(
 			&psde->property_info,
@@ -653,6 +743,7 @@ static void _sde_plane_setup_scaler3(struct sde_phy_plane *pp,
 	}
 
 	memset(scale_cfg, 0, sizeof(*scale_cfg));
+	memset(&pp->pixel_ext, 0, sizeof(struct sde_hw_pixel_ext));
 
 	decimated = DECIMATED_DIMENSION(src_w,
 			pp->pipe_cfg.horz_decimation);
@@ -1000,7 +1091,8 @@ static void _sde_plane_setup_scaler(struct sde_phy_plane *pp,
 		int error;
 
 		error = _sde_plane_setup_scaler3_lut(pp, pstate);
-		if (error || !pp->pixel_ext_usr) {
+		if (error || !pp->pixel_ext_usr ||
+				psde->debugfs_default_scale) {
 			memset(pe, 0, sizeof(struct sde_hw_pixel_ext));
 			/* calculate default config for QSEED3 */
 			_sde_plane_setup_scaler3(pp,
@@ -1011,7 +1103,8 @@ static void _sde_plane_setup_scaler(struct sde_phy_plane *pp,
 					pp->scaler3_cfg, fmt,
 					chroma_subsmpl_h, chroma_subsmpl_v);
 		}
-	} else if (!pp->pixel_ext_usr) {
+	} else if (!pp->pixel_ext_usr || !pstate ||
+			psde->debugfs_default_scale) {
 		uint32_t deci_dim, i;
 
 		/* calculate default configuration for QSEED2 */
@@ -1132,9 +1225,9 @@ static int _sde_plane_color_fill(struct sde_phy_plane *pp,
 }
 
 static int _sde_plane_mode_set(struct drm_plane *plane,
-				struct drm_plane_state *state)
+		struct drm_plane_state *state)
 {
-	uint32_t nplanes, src_flags;
+	uint32_t nplanes, src_flags = 0x0;
 	struct sde_plane *psde;
 	struct sde_plane_state *pstate;
 	const struct sde_format *fmt;
@@ -1145,6 +1238,7 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	int idx;
 	struct sde_phy_plane *pp;
 	uint32_t num_of_phy_planes = 0, maxlinewidth = 0xFFFF;
+	int mode = 0;
 
 	if (!plane) {
 		SDE_ERROR("invalid plane\n");
@@ -1220,6 +1314,15 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 		return 0;
 
 	memset(&src, 0, sizeof(struct sde_rect));
+
+	/* update secure session flag */
+	mode = sde_plane_get_property(pstate,
+			PLANE_PROP_FB_TRANSLATION_MODE);
+	if ((mode == SDE_DRM_FB_SEC) ||
+			(mode == SDE_DRM_FB_SEC_DIR_TRANS))
+		src_flags |= SDE_SSPP_SECURE_OVERLAY_SESSION;
+
+
 	/* update roi config */
 	if (pstate->dirty & SDE_PLANE_DIRTY_RECTS) {
 		POPULATE_RECT(&src, state->src_x, state->src_y,
@@ -1286,10 +1389,11 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 					pp->scaler3_cfg);
 		}
 
-		if ((pstate->dirty & SDE_PLANE_DIRTY_FORMAT) &&
+	if (((pstate->dirty & SDE_PLANE_DIRTY_FORMAT) ||
+				(src_flags &
+				 SDE_SSPP_SECURE_OVERLAY_SESSION)) &&
 				pp->pipe_hw->ops.setup_format) {
-			src_flags = 0x0;
-			SDE_DEBUG_PLANE(psde, "rotation 0x%llX\n",
+		SDE_DEBUG_PLANE(psde, "rotation 0x%llX\n",
 			sde_plane_get_property(pstate, PLANE_PROP_ROTATION));
 			if (sde_plane_get_property(pstate, PLANE_PROP_ROTATION)
 				& BIT(DRM_REFLECT_X))
@@ -1344,9 +1448,22 @@ static int sde_plane_prepare_fb(struct drm_plane *plane,
 {
 	struct drm_framebuffer *fb = new_state->fb;
 	struct sde_plane *psde = to_sde_plane(plane);
+	struct sde_plane_state *pstate;
+	int rc;
+
+	if (!psde || !new_state)
+		return -EINVAL;
 
 	if (!new_state->fb)
 		return 0;
+
+	pstate = to_sde_plane_state(new_state);
+	rc = _sde_plane_get_aspace(psde, pstate, &psde->aspace);
+
+	if (rc) {
+		SDE_ERROR_PLANE(psde, "Failed to get aspace %d\n", rc);
+		return rc;
+	}
 
 	SDE_DEBUG_PLANE(psde, "FB[%u]\n", fb->base.id);
 	return msm_framebuffer_prepare(fb, psde->aspace);
@@ -1607,8 +1724,8 @@ void sde_plane_flush(struct drm_plane *plane)
 	 */
 	list_for_each_entry(pp, &psde->phy_plane_head, phy_plane_list) {
 		if (psde->is_error)
-		/* force white frame with 0% alpha pipe output on error */
-			_sde_plane_color_fill(pp, 0xFFFFFF, 0x0);
+		/* force white frame with 100% alpha pipe output on error */
+			_sde_plane_color_fill(pp, 0xFFFFFF, 0xFF);
 		else if (pp->color_fill & SDE_PLANE_COLOR_FILL_FLAG)
 			/* force 100% alpha */
 			_sde_plane_color_fill(pp, pp->color_fill, 0xFF);
@@ -1616,6 +1733,10 @@ void sde_plane_flush(struct drm_plane *plane)
 					pp->pipe_hw->ops.setup_csc)
 			pp->pipe_hw->ops.setup_csc(pp->pipe_hw, pp->csc_ptr);
 	}
+
+	/* force black color fill during suspend */
+	if (msm_is_suspend_state(plane->dev) && suspend_blank)
+		_sde_plane_color_fill(pp, 0x0, 0x0);
 
 	/* flag h/w flush complete */
 	if (plane->state)
@@ -1813,10 +1934,12 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 		BIT(DRM_REFLECT_X) | BIT(DRM_REFLECT_Y), PLANE_PROP_ROTATION);
 
 	msm_property_install_enum(&psde->property_info, "blend_op", 0x0, 0,
-		e_blend_op, ARRAY_SIZE(e_blend_op), PLANE_PROP_BLEND_OP);
+		e_blend_op, ARRAY_SIZE(e_blend_op), PLANE_PROP_BLEND_OP,
+		SDE_DRM_BLEND_OP_PREMULTIPLIED);
 
 	msm_property_install_enum(&psde->property_info, "src_config", 0x0, 1,
-		e_src_config, ARRAY_SIZE(e_src_config), PLANE_PROP_SRC_CONFIG);
+		e_src_config, ARRAY_SIZE(e_src_config), PLANE_PROP_SRC_CONFIG,
+		0);
 
 	list_for_each_entry(pp, &psde->phy_plane_head, phy_plane_list) {
 		if (pp->pipe_hw->ops.setup_solidfill)
@@ -1879,7 +2002,7 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 			0x0,
 			0, e_fb_translation_mode,
 			ARRAY_SIZE(e_fb_translation_mode),
-			PLANE_PROP_FB_TRANSLATION_MODE);
+			PLANE_PROP_FB_TRANSLATION_MODE, SDE_DRM_FB_NON_SEC);
 }
 
 static inline void _sde_plane_set_csc_v1(struct sde_phy_plane *pp,
@@ -2486,6 +2609,10 @@ static void _sde_plane_init_debugfs(struct sde_plane *psde,
 		sde_debugfs_create_regset32("scaler_blk", S_IRUGO,
 				psde->debugfs_root,
 				&psde->debugfs_scaler);
+		debugfs_create_bool("default_scaling",
+				0644,
+				psde->debugfs_root,
+				&psde->debugfs_default_scale);
 
 		sde_debugfs_setup_regset32(&psde->debugfs_csc,
 				sblk->csc_blk.base + cfg->base,
@@ -2631,7 +2758,6 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 
 	/* cache local stuff for later */
 	plane = &psde->base;
-	psde->aspace = kms->aspace[MSM_SMMU_DOMAIN_UNSECURE];
 
 	INIT_LIST_HEAD(&psde->phy_plane_head);
 

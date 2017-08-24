@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -755,14 +755,17 @@ static void sde_hw_sspp_setup_csc(struct sde_hw_pipe *ctx,
 		struct sde_csc_cfg *data)
 {
 	u32 idx;
+	bool csc10 = false;
 
 	if (_sspp_subblk_offset(ctx, SDE_SSPP_CSC, &idx) || !data)
 		return;
 
-	if (test_bit(SDE_SSPP_CSC_10BIT, &ctx->cap->features))
+	if (test_bit(SDE_SSPP_CSC_10BIT, &ctx->cap->features)) {
 		idx += CSC_10BIT_OFFSET;
+		csc10 = true;
+	}
 
-	sde_hw_csc_setup(&ctx->hw, idx, data);
+	sde_hw_csc_setup(&ctx->hw, idx, data, csc10);
 }
 
 static void sde_hw_sspp_setup_sharpening(struct sde_hw_pipe *ctx,

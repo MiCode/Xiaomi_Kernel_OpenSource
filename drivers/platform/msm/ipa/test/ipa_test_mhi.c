@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -326,6 +326,7 @@ struct ipa_test_mhi_context {
 	struct ipa_mem_buffer out_buffer;
 	u32 prod_hdl;
 	u32 cons_hdl;
+	u32 test_prod_hdl;
 };
 
 static struct ipa_test_mhi_context *test_mhi_ctx;
@@ -774,6 +775,7 @@ fail_destroy_out_ch_ctx:
 static int ipa_test_mhi_suite_setup(void **ppriv)
 {
 	int rc = 0;
+	struct ipa_sys_connect_params sys_in;
 
 	IPA_UT_DBG("Start Setup\n");
 
@@ -815,9 +817,22 @@ static int ipa_test_mhi_suite_setup(void **ppriv)
 		goto fail_free_mmio_spc;
 	}
 
+	/* connect PROD pipe for remote wakeup */
+	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
+	sys_in.client = IPA_CLIENT_TEST_PROD;
+	sys_in.desc_fifo_sz = IPA_SYS_DESC_FIFO_SZ;
+	sys_in.ipa_ep_cfg.mode.mode = IPA_DMA;
+	sys_in.ipa_ep_cfg.mode.dst = IPA_CLIENT_MHI_CONS;
+	if (ipa_setup_sys_pipe(&sys_in, &test_mhi_ctx->test_prod_hdl)) {
+		IPA_UT_ERR("setup sys pipe failed.\n");
+		goto fail_destroy_data_structures;
+	}
+
 	*ppriv = test_mhi_ctx;
 	return 0;
 
+fail_destroy_data_structures:
+	ipa_mhi_test_destroy_data_structures();
 fail_free_mmio_spc:
 	ipa_test_mhi_free_mmio_space();
 fail_iounmap:
@@ -838,6 +853,7 @@ static int ipa_test_mhi_suite_teardown(void *priv)
 	if (!test_mhi_ctx)
 		return  0;
 
+	ipa_teardown_sys_pipe(test_mhi_ctx->test_prod_hdl);
 	ipa_mhi_test_destroy_data_structures();
 	ipa_test_mhi_free_mmio_space();
 	iounmap(test_mhi_ctx->gsi_mmio);
@@ -1811,7 +1827,7 @@ static int ipa_mhi_test_create_aggr_open_frame(void)
 		memset(test_mhi_ctx->out_buffer.base + i, i & 0xFF, 1);
 	}
 
-	rc = ipa_tx_dp(IPA_CLIENT_MHI_CONS, skb, NULL);
+	rc = ipa_tx_dp(IPA_CLIENT_TEST_PROD, skb, NULL);
 	if (rc) {
 		IPA_UT_LOG("ipa_tx_dp failed %d\n", rc);
 		IPA_UT_TEST_FAIL_REPORT("ipa tx dp fail");
@@ -1982,7 +1998,7 @@ static int ipa_mhi_test_suspend_host_wakeup(void)
 		memset(test_mhi_ctx->out_buffer.base + i, i & 0xFF, 1);
 	}
 
-	rc = ipa_tx_dp(IPA_CLIENT_MHI_CONS, skb, NULL);
+	rc = ipa_tx_dp(IPA_CLIENT_TEST_PROD, skb, NULL);
 	if (rc) {
 		IPA_UT_LOG("ipa_tx_dp failed %d\n", rc);
 		IPA_UT_TEST_FAIL_REPORT("ipa tx dp fail");

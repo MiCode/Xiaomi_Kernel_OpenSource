@@ -573,7 +573,10 @@ static int32_t msm_actuator_move_focus(
 
 	CDBG("called, dir %d, num_steps %d\n", dir, num_steps);
 
-	if (dest_step_pos == a_ctrl->curr_step_pos)
+	if ((dest_step_pos == a_ctrl->curr_step_pos) ||
+		((dest_step_pos <= a_ctrl->total_steps) &&
+		(a_ctrl->step_position_table[dest_step_pos] ==
+		a_ctrl->step_position_table[a_ctrl->curr_step_pos])))
 		return rc;
 
 	if ((sign_dir > MSM_ACTUATOR_MOVE_SIGNED_NEAR) ||
@@ -1704,6 +1707,10 @@ static long msm_actuator_subdev_do_ioctl(
 			parg = &actuator_data;
 			break;
 		}
+		break;
+	case VIDIOC_MSM_ACTUATOR_CFG:
+		pr_err("%s: invalid cmd 0x%x received\n", __func__, cmd);
+		return -EINVAL;
 	}
 
 	rc = msm_actuator_subdev_ioctl(sd, cmd, parg);

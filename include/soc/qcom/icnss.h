@@ -83,13 +83,6 @@ struct icnss_wlan_enable_cfg {
 	struct icnss_shadow_reg_cfg *shadow_reg_cfg;
 };
 
-/* MSA Memory Regions Information */
-struct icnss_mem_region_info {
-	uint64_t reg_addr;
-	uint32_t size;
-	uint8_t secure_flag;
-};
-
 /* driver modes */
 enum icnss_driver_mode {
 	ICNSS_MISSION,
@@ -154,4 +147,6 @@ extern void cnss_set_cc_source(enum cnss_cc_src cc_source);
 extern enum cnss_cc_src cnss_get_cc_source(void);
 extern int icnss_get_driver_load_cnt(void);
 extern void icnss_increment_driver_load_cnt(void);
+extern void icnss_set_cc_source(enum cnss_cc_src cc_source);
+extern enum cnss_cc_src icnss_get_cc_source(void);
 #endif /* _ICNSS_WLAN_H_ */

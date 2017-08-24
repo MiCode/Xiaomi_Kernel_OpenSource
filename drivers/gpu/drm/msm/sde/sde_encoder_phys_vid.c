@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -242,17 +242,20 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 	SDE_DEBUG_VIDENC(vid_enc, "enabling mode:\n");
 	drm_mode_debug_printmodeline(&mode);
 
-	if (phys_enc->split_role != ENC_ROLE_SOLO) {
+	if (phys_enc->split_role != ENC_ROLE_SOLO ||
+	    (mode.private_flags & MSM_MODE_FLAG_COLOR_FORMAT_YCBCR420)) {
 		mode.hdisplay >>= 1;
 		mode.htotal >>= 1;
 		mode.hsync_start >>= 1;
 		mode.hsync_end >>= 1;
+		mode.hskew >>= 1;
 
 		SDE_DEBUG_VIDENC(vid_enc,
-			"split_role %d, halve horizontal %d %d %d %d\n",
+			"split_role %d, halve horizontal %d %d %d %d %d\n",
 			phys_enc->split_role,
 			mode.hdisplay, mode.htotal,
-			mode.hsync_start, mode.hsync_end);
+			mode.hsync_start, mode.hsync_end,
+			mode.hskew);
 	}
 
 	drm_mode_to_intf_timing_params(vid_enc, &mode, &timing_params);
@@ -407,6 +410,9 @@ static void sde_encoder_phys_vid_mode_set(
 		return;
 	}
 
+	phys_enc->hw_ctl = NULL;
+	phys_enc->hw_cdm = NULL;
+
 	rm = &phys_enc->sde_kms->rm;
 	vid_enc = to_sde_encoder_phys_vid(phys_enc);
 	phys_enc->cached_mode = *adj_mode;
@@ -426,6 +432,20 @@ static void sde_encoder_phys_vid_mode_set(
 				PTR_ERR(phys_enc->hw_ctl));
 		phys_enc->hw_ctl = NULL;
 		return;
+	}
+
+	/* CDM is optional */
+	sde_rm_init_hw_iter(&iter, phys_enc->parent->base.id, SDE_HW_BLK_CDM);
+	for (i = 0; i <= instance; i++) {
+		sde_rm_get_hw(rm, &iter);
+		if (i == instance)
+			phys_enc->hw_cdm = (struct sde_hw_cdm *) iter.hw;
+	}
+
+	if (IS_ERR(phys_enc->hw_cdm)) {
+		SDE_ERROR("CDM required but not allocated: %ld\n",
+				PTR_ERR(phys_enc->hw_cdm));
+		phys_enc->hw_cdm = NULL;
 	}
 }
 
@@ -477,6 +497,9 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	struct sde_encoder_phys_vid *vid_enc;
 	struct sde_hw_intf *intf;
 	struct sde_hw_ctl *ctl;
+	struct sde_hw_cdm *hw_cdm = NULL;
+	struct drm_display_mode mode;
+	const struct sde_format *fmt = NULL;
 	u32 flush_mask = 0;
 	int ret;
 
@@ -485,7 +508,9 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 		SDE_ERROR("invalid encoder/device\n");
 		return;
 	}
+	hw_cdm = phys_enc->hw_cdm;
 	priv = phys_enc->parent->dev->dev_private;
+	mode = phys_enc->cached_mode;
 
 	vid_enc = to_sde_encoder_phys_vid(phys_enc);
 	intf = vid_enc->hw_intf;
@@ -520,7 +545,21 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 		goto end;
 	}
 
+	if (mode.private_flags & MSM_MODE_FLAG_COLOR_FORMAT_YCBCR420)
+		fmt = sde_get_sde_format(DRM_FORMAT_YUV420);
+
+	if (fmt) {
+		struct sde_rect hdmi_roi;
+
+		hdmi_roi.w = mode.hdisplay;
+		hdmi_roi.h = mode.vdisplay;
+		sde_encoder_phys_setup_cdm(phys_enc, fmt,
+			CDM_CDWN_OUTPUT_HDMI, &hdmi_roi);
+	}
+
 	ctl->ops.get_bitmask_intf(ctl, &flush_mask, intf->idx);
+	if (ctl->ops.get_bitmask_cdm && hw_cdm)
+		ctl->ops.get_bitmask_cdm(ctl, &flush_mask, hw_cdm->idx);
 	ctl->ops.update_pending_flush(ctl, flush_mask);
 
 	SDE_DEBUG_VIDENC(vid_enc, "update pending flush ctl %d flush_mask %x\n",
@@ -554,21 +593,34 @@ static void sde_encoder_phys_vid_get_hw_resources(
 		struct drm_connector_state *conn_state)
 {
 	struct sde_encoder_phys_vid *vid_enc;
+	struct sde_mdss_cfg *vid_catalog;
 
 	if (!phys_enc || !hw_res) {
 		SDE_ERROR("invalid arg(s), enc %d hw_res %d conn_state %d\n",
-				phys_enc != 0, hw_res != 0, conn_state != 0);
+			phys_enc != NULL, hw_res != NULL, conn_state != NULL);
 		return;
 	}
 
+	vid_catalog = phys_enc->sde_kms->catalog;
 	vid_enc = to_sde_encoder_phys_vid(phys_enc);
-	if (!vid_enc->hw_intf) {
-		SDE_ERROR("invalid arg(s), hw_intf\n");
+	if (!vid_enc->hw_intf || !vid_catalog) {
+		SDE_ERROR("invalid arg(s), hw_intf %d vid_catalog %d\n",
+			  vid_enc->hw_intf != NULL, vid_catalog != NULL);
 		return;
 	}
 
 	SDE_DEBUG_VIDENC(vid_enc, "\n");
+	if (vid_enc->hw_intf->idx > INTF_MAX) {
+		SDE_ERROR("invalid arg(s), idx %d\n",
+			  vid_enc->hw_intf->idx);
+		return;
+	}
 	hw_res->intfs[vid_enc->hw_intf->idx - INTF_0] = INTF_MODE_VIDEO;
+
+	if (vid_catalog->intf[vid_enc->hw_intf->idx - INTF_0].type
+			== INTF_HDMI)
+		hw_res->needs_cdm = true;
+	SDE_DEBUG_DRIVER("[vid] needs_cdm=%d\n", hw_res->needs_cdm);
 }
 
 static int sde_encoder_phys_vid_wait_for_vblank(
@@ -712,6 +764,11 @@ static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 	if (atomic_read(&phys_enc->vblank_refcount))
 		SDE_ERROR_VIDENC(vid_enc, "invalid vblank refcount %d\n",
 				atomic_read(&phys_enc->vblank_refcount));
+
+	if (phys_enc->hw_cdm && phys_enc->hw_cdm->ops.disable) {
+		SDE_DEBUG_DRIVER("[cdm_disable]\n");
+		phys_enc->hw_cdm->ops.disable(phys_enc->hw_cdm);
+	}
 
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 }

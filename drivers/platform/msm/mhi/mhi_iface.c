@@ -509,7 +509,7 @@ static int __exit mhi_plat_remove(struct platform_device *pdev)
 
 static int __init mhi_init(void)
 {
-	int r;
+	int r = -EAGAIN;
 	struct mhi_device_driver *mhi_dev_drv;
 
 	mhi_dev_drv = kmalloc(sizeof(*mhi_dev_drv), GFP_KERNEL);

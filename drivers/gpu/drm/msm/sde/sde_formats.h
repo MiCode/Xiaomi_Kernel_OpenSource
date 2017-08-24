@@ -59,6 +59,21 @@ uint32_t sde_populate_formats(
 		uint32_t pixel_formats_max);
 
 /**
+ * sde_format_get_plane_sizes - calculate size and layout of given buffer format
+ * @fmt:             pointer to sde_format
+ * @w:               width of the buffer
+ * @h:               height of the buffer
+ * @layout:          layout of the buffer
+ *
+ * Return: size of the buffer
+ */
+int sde_format_get_plane_sizes(
+		const struct sde_format *fmt,
+		const uint32_t w,
+		const uint32_t h,
+		struct sde_hw_fmt_layout *layout);
+
+/**
  * sde_format_check_modified_format - validate format and buffers for
  *                   sde non-standard, i.e. modified format
  * @kms:             kms driver

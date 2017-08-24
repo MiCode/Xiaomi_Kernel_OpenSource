@@ -190,10 +190,12 @@ static void core_temp_notify(enum thermal_trip_type type,
 	struct cpu_activity_info *cpu_node =
 		(struct cpu_activity_info *) data;
 
+	temp /= scaling_factor;
+
 	trace_temp_notification(cpu_node->sensor_id,
 		type, temp, cpu_node->temp);
 
-	cpu_node->temp = temp / scaling_factor;
+	cpu_node->temp = temp;
 
 	complete(&sampling_completion);
 }

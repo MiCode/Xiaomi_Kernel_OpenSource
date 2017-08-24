@@ -43,6 +43,10 @@ enum cam_smmu_map_dir {
 	CAM_SMMU_MAP_INVALID
 };
 
+int cam_smmu_query_vaddr_in_range(int handle,
+	unsigned long fault_addr, unsigned long *start_addr,
+	unsigned long *end_addr, int *fd);
+
 /**
  * @param identifier: Unique identifier to be used by clients which they
  *                    should get from device tree. CAM SMMU driver will

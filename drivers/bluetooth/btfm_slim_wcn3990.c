@@ -82,18 +82,19 @@ int btfm_slim_chrk_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
 	uint8_t rxport, uint8_t enable)
 {
 	int ret = 0;
-	uint8_t reg_val = 0;
+	uint8_t reg_val = 0, en;
 	uint8_t port_bit = 0;
 	uint16_t reg;
 
 	BTFMSLIM_DBG("port(%d) enable(%d)", port_num, enable);
+
 	if (rxport) {
-		if (enable && btfmslim->sample_rate == 48000) {
-			/* For A2DP Rx */
+		if (enable) {
+			/* For SCO Rx, A2DP Rx */
 			reg_val = 0x1;
 			port_bit = port_num - 0x10;
 			reg = CHRK_SB_PGD_RX_PORTn_MULTI_CHNL_0(port_bit);
-			BTFMSLIM_DBG("writing reg_val (%d) to reg(%x) for A2DP",
+			BTFMSLIM_DBG("writing reg_val (%d) to reg(%x)",
 					reg_val, reg);
 			ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
 			if (ret) {
@@ -117,7 +118,8 @@ int btfm_slim_chrk_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
 		reg = CHRK_SB_PGD_TX_PORTn_MULTI_CHNL_0(port_num);
 		ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
 		if (ret) {
-			BTFMSLIM_ERR("failed to write (%d) reg 0x%x", ret, reg);
+			BTFMSLIM_ERR("failed to write (%d) reg 0x%x",
+					ret, reg);
 			goto error;
 		}
 	}
@@ -137,15 +139,15 @@ enable_disable_txport:
 	reg = CHRK_SB_PGD_PORT_TX_CFGN(port_num);
 
 enable_disable_rxport:
-	if (enable) {
-		if (is_fm_port(port_num))
-			reg_val = CHRK_SB_PGD_PORT_ENABLE |
-					CHRK_SB_PGD_PORT_WM_L3;
-		else
-			reg_val = CHRK_SB_PGD_PORT_ENABLE |
-					CHRK_SB_PGD_PORT_WM_LB;
-	} else
-		reg_val = CHRK_SB_PGD_PORT_DISABLE;
+	if (enable)
+		en = CHRK_SB_PGD_PORT_ENABLE;
+	else
+		en = CHRK_SB_PGD_PORT_DISABLE;
+
+	if (is_fm_port(port_num))
+		reg_val = en | CHRK_SB_PGD_PORT_WM_L8;
+	else
+		reg_val = enable ? en | CHRK_SB_PGD_PORT_WM_LB : en;
 
 	ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
 	if (ret)

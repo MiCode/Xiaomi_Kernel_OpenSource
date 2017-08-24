@@ -86,6 +86,12 @@ static void msm_ispif_io_dump_reg(struct ispif_device *ispif)
 {
 	if (!ispif->enb_dump_reg)
 		return;
+
+	if (!ispif->base) {
+		pr_err("%s: null pointer for the ispif base\n", __func__);
+		return;
+	}
+
 	msm_camera_io_dump(ispif->base, 0x250, 0);
 }
 
@@ -1018,6 +1024,9 @@ static void msm_ispif_config_stereo(struct ispif_device *ispif,
 	int i;
 	enum msm_ispif_vfe_intf vfe_intf;
 	uint32_t stereo_3d_threshold = STEREO_DEFAULT_3D_THRESHOLD;
+
+	if (params->num > MAX_PARAM_ENTRIES)
+		return;
 
 	for (i = 0; i < params->num; i++) {
 		vfe_intf = params->entries[i].vfe_intf;

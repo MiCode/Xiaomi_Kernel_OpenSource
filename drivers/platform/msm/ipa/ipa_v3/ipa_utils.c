@@ -795,6 +795,28 @@ void _ipa_sram_settings_read_v3_0(void)
 }
 
 /**
+ * ipa3_cfg_clkon_cfg() - configure IPA clkon_cfg
+ * @clkon_cfg: IPA clkon_cfg
+ *
+ * Return codes:
+ * 0: success
+ */
+int ipa3_cfg_clkon_cfg(struct ipahal_reg_clkon_cfg *clkon_cfg)
+{
+
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
+	IPADBG("cgc_open_misc = %d\n",
+		clkon_cfg->cgc_open_misc);
+
+	ipahal_write_reg_fields(IPA_CLKON_CFG, clkon_cfg);
+
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+
+	return 0;
+}
+
+/**
  * ipa3_cfg_route() - configure IPA route
  * @route: IPA route
  *
@@ -838,7 +860,7 @@ int ipa3_cfg_route(struct ipahal_reg_route *route)
  */
 int ipa3_cfg_filter(u32 disable)
 {
-	IPAERR("Filter disable is not supported!\n");
+	IPAERR_RL("Filter disable is not supported!\n");
 	return -EPERM;
 }
 
@@ -928,7 +950,7 @@ int ipa3_get_ep_mapping(enum ipa_client_type client)
 	int ipa_ep_idx;
 
 	if (client >= IPA_CLIENT_MAX || client < 0) {
-		IPAERR("Bad client number! client =%d\n", client);
+		IPAERR_RL("Bad client number! client =%d\n", client);
 		return IPA_EP_NOT_ALLOCATED;
 	}
 
@@ -1064,6 +1086,11 @@ enum ipacm_client_enum ipa3_get_client(int pipe_idx)
  */
 bool ipa3_get_client_uplink(int pipe_idx)
 {
+	if (pipe_idx < 0 || pipe_idx >= IPA3_MAX_NUM_PIPES) {
+		IPAERR("invalid pipe idx %d\n", pipe_idx);
+		return false;
+	}
+
 	return ipa3_ctx->ipacm_client[pipe_idx].uplink;
 }
 
@@ -1996,19 +2023,19 @@ int ipa3_write_qmap_id(struct ipa_ioc_write_qmapid *param_in)
 	int result = -EINVAL;
 
 	if (param_in->client  >= IPA_CLIENT_MAX) {
-		IPAERR("bad parm client:%d\n", param_in->client);
+		IPAERR_RL("bad parm client:%d\n", param_in->client);
 		goto fail;
 	}
 
 	ipa_ep_idx = ipa3_get_ep_mapping(param_in->client);
 	if (ipa_ep_idx == -1) {
-		IPAERR("Invalid client.\n");
+		IPAERR_RL("Invalid client.\n");
 		goto fail;
 	}
 
 	ep = &ipa3_ctx->ep[ipa_ep_idx];
 	if (!ep->valid) {
-		IPAERR("EP not allocated.\n");
+		IPAERR_RL("EP not allocated.\n");
 		goto fail;
 	}
 
@@ -2021,7 +2048,7 @@ int ipa3_write_qmap_id(struct ipa_ioc_write_qmapid *param_in)
 		ipa3_ctx->ep[ipa_ep_idx].cfg.meta = meta;
 		result = ipa3_write_qmapid_wdi_pipe(ipa_ep_idx, meta.qmap_id);
 		if (result)
-			IPAERR("qmap_id %d write failed on ep=%d\n",
+			IPAERR_RL("qmap_id %d write failed on ep=%d\n",
 					meta.qmap_id, ipa_ep_idx);
 		result = 0;
 	}
@@ -2834,7 +2861,7 @@ static int ipa3_tag_generate_force_close_desc(struct ipa3_desc desc[],
 			IPAHAL_FULL_PIPELINE_CLEAR;
 		reg_write_agg_close.offset =
 			ipahal_get_reg_ofst(IPA_AGGR_FORCE_CLOSE);
-		ipahal_get_aggr_force_close_valmask(1<<i, &valmask);
+		ipahal_get_aggr_force_close_valmask(i, &valmask);
 		reg_write_agg_close.value = valmask.val;
 		reg_write_agg_close.value_mask = valmask.mask;
 		cmd_pyld = ipahal_construct_imm_cmd(IPA_IMM_CMD_REGISTER_WRITE,

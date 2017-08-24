@@ -459,3 +459,12 @@
 		<          0  0 >,
 		<  315000000  4 >;
 };
+
+/* GPU overrides for auto */
+&msm_gpu {
+	qcom,gpu-pwrlevel-bins {
+		qcom,gpu-pwrlevels-0 {
+			qcom,initial-pwrlevel = <1>;
+		};
+	};
+};

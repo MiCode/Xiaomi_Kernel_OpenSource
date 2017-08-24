@@ -120,16 +120,30 @@ static int msm_smmu_map(struct msm_mmu *mmu, uint64_t iova,
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
+	struct iommu_domain *domain;
 	int ret;
 
-	if (priv)
-		ret = msm_dma_map_sg_lazy(client->dev, sgt->sgl, sgt->nents,
-			DMA_BIDIRECTIONAL, priv);
-	else
-		ret = dma_map_sg(client->dev, sgt->sgl, sgt->nents,
-			DMA_BIDIRECTIONAL);
+	if (!client || !sgt)
+		return -EINVAL;
 
-	return (ret != sgt->nents) ? -ENOMEM : 0;
+	if (iova != 0) {
+		if (!client->mmu_mapping || !client->mmu_mapping->domain)
+			return -EINVAL;
+
+		domain = client->mmu_mapping->domain;
+
+		return iommu_map_sg(domain, iova, sgt->sgl,
+				sgt->nents, flags);
+	} else {
+		if (priv)
+			ret = msm_dma_map_sg_lazy(client->dev, sgt->sgl,
+					sgt->nents, DMA_BIDIRECTIONAL, priv);
+		else
+			ret = dma_map_sg(client->dev, sgt->sgl, sgt->nents,
+				DMA_BIDIRECTIONAL);
+
+		return (ret != sgt->nents) ? -ENOMEM : 0;
+	}
 }
 
 static void msm_smmu_unmap(struct msm_mmu *mmu, uint64_t iova,
@@ -156,12 +170,36 @@ static void msm_smmu_destroy(struct msm_mmu *mmu)
 	kfree(smmu);
 }
 
+/* user can call this API to set the attribute of smmu*/
+static int msm_smmu_set_property(struct msm_mmu *mmu,
+		enum iommu_attr attr, void *data)
+{
+	struct msm_smmu *smmu = to_msm_smmu(mmu);
+	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
+	struct iommu_domain *domain;
+	int ret = 0;
+
+	if (!client)
+		return -EINVAL;
+
+	domain = client->mmu_mapping->domain;
+	if (!domain)
+		return -EINVAL;
+
+	ret = iommu_domain_set_attr(domain, attr, data);
+	if (ret)
+		DRM_ERROR("set domain attribute failed\n");
+
+	return ret;
+}
+
 static const struct msm_mmu_funcs funcs = {
 	.attach = msm_smmu_attach,
 	.detach = msm_smmu_detach,
 	.map = msm_smmu_map,
 	.unmap = msm_smmu_unmap,
 	.destroy = msm_smmu_destroy,
+	.set_property = msm_smmu_set_property,
 };
 
 static struct msm_smmu_domain msm_smmu_domains[MSM_SMMU_DOMAIN_MAX] = {
@@ -173,8 +211,8 @@ static struct msm_smmu_domain msm_smmu_domains[MSM_SMMU_DOMAIN_MAX] = {
 	},
 	[MSM_SMMU_DOMAIN_SECURE] = {
 		.label = "mdp_s",
-		.va_start = 0,
-		.va_size = SZ_4G,
+		.va_start = SZ_128K,
+		.va_size = SZ_4G - SZ_128K,
 		.secure = true,
 	},
 	[MSM_SMMU_DOMAIN_NRT_UNSECURE] = {
@@ -185,8 +223,8 @@ static struct msm_smmu_domain msm_smmu_domains[MSM_SMMU_DOMAIN_MAX] = {
 	},
 	[MSM_SMMU_DOMAIN_NRT_SECURE] = {
 		.label = "rot_s",
-		.va_start = 0,
-		.va_size = SZ_4G,
+		.va_start = SZ_128K,
+		.va_size = SZ_4G - SZ_128K,
 		.secure = true,
 	},
 };

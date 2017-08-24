@@ -51,6 +51,9 @@ int adreno_get_param(struct msm_gpu *gpu, uint32_t param, uint64_t *value)
 		if (adreno_gpu->funcs->get_timestamp)
 			return adreno_gpu->funcs->get_timestamp(gpu, value);
 		return -EINVAL;
+	case MSM_PARAM_NR_RINGS:
+		*value = gpu->nr_rings;
+		return 0;
 	default:
 		DBG("%s: invalid param: %u", gpu->name, param);
 		return -EINVAL;
@@ -90,7 +93,7 @@ int adreno_hw_init(struct msm_gpu *gpu)
 		REG_ADRENO_CP_RB_BASE_HI, gpu->rb[0]->iova);
 
 	adreno_gpu_write64(adreno_gpu, REG_ADRENO_CP_RB_RPTR_ADDR,
-		REG_ADRENO_CP_RB_RPTR_ADDR_HI, rbmemptr(adreno_gpu, 0, rptr));
+		REG_ADRENO_CP_RB_RPTR_ADDR_HI, rbmemptr(gpu->rb[0], rptr));
 
 	return 0;
 }
@@ -106,10 +109,11 @@ static uint32_t get_rptr(struct adreno_gpu *adreno_gpu,
 		 * ensure that it won't be. If not then this is why your
 		 * a430 stopped working.
 		 */
-		return adreno_gpu->memptrs->rptr[ring->id] = adreno_gpu_read(
-			adreno_gpu, REG_ADRENO_CP_RB_RPTR);
-	} else
-		return adreno_gpu->memptrs->rptr[ring->id];
+		return ring->memptrs->rptr =
+			adreno_gpu_read(adreno_gpu, REG_ADRENO_CP_RB_RPTR);
+	}
+
+	return ring->memptrs->rptr;
 }
 
 struct msm_ringbuffer *adreno_active_ring(struct msm_gpu *gpu)
@@ -126,19 +130,8 @@ uint32_t adreno_submitted_fence(struct msm_gpu *gpu,
 	return ring->submitted_fence;
 }
 
-uint32_t adreno_last_fence(struct msm_gpu *gpu, struct msm_ringbuffer *ring)
-{
-	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
-
-	if (!ring)
-		return 0;
-
-	return adreno_gpu->memptrs->fence[ring->id];
-}
-
 void adreno_recover(struct msm_gpu *gpu)
 {
-	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 	struct drm_device *dev = gpu->dev;
 	struct msm_ringbuffer *ring;
 	int ret, i;
@@ -156,9 +149,8 @@ void adreno_recover(struct msm_gpu *gpu)
 		ring->next = ring->start;
 
 		/* reset completed fence seqno, discard anything pending: */
-		adreno_gpu->memptrs->fence[ring->id] =
-			adreno_submitted_fence(gpu, ring);
-		adreno_gpu->memptrs->rptr[ring->id]  = 0;
+		ring->memptrs->fence = adreno_submitted_fence(gpu, ring);
+		ring->memptrs->rptr  = 0;
 	}
 
 	gpu->funcs->pm_resume(gpu);
@@ -213,7 +205,7 @@ void adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 
 	OUT_PKT3(ring, CP_EVENT_WRITE, 3);
 	OUT_RING(ring, CACHE_FLUSH_TS);
-	OUT_RING(ring, rbmemptr(adreno_gpu, ring->id, fence));
+	OUT_RING(ring, rbmemptr(ring, fence));
 	OUT_RING(ring, submit->fence);
 
 	/* we could maybe be clever and only CP_COND_EXEC the interrupt: */
@@ -297,15 +289,13 @@ void adreno_show(struct msm_gpu *gpu, struct seq_file *m)
 			continue;
 
 		seq_printf(m, "rb %d: fence:    %d/%d\n", i,
-			adreno_last_fence(gpu, ring),
+			ring->memptrs->fence,
 			adreno_submitted_fence(gpu, ring));
 
 		seq_printf(m, "      rptr:     %d\n",
 			get_rptr(adreno_gpu, ring));
 		seq_printf(m, "rb wptr:  %d\n", get_wptr(ring));
 	}
-
-	gpu->funcs->pm_resume(gpu);
 
 	/* dump these out in a form that can be parsed by demsm: */
 	seq_printf(m, "IO:region %s 00000000 00020000\n", gpu->name);
@@ -319,8 +309,6 @@ void adreno_show(struct msm_gpu *gpu, struct seq_file *m)
 			seq_printf(m, "IO:R %08x %08x\n", addr<<2, val);
 		}
 	}
-
-	gpu->funcs->pm_suspend(gpu);
 }
 #endif
 
@@ -347,7 +335,7 @@ void adreno_dump_info(struct msm_gpu *gpu)
 			continue;
 
 		dev_err(dev->dev, " ring %d: fence %d/%d rptr/wptr %x/%x\n", i,
-			adreno_last_fence(gpu, ring),
+			ring->memptrs->fence,
 			adreno_submitted_fence(gpu, ring),
 			get_rptr(adreno_gpu, ring),
 			get_wptr(ring));
@@ -516,7 +504,6 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 {
 	struct adreno_platform_config *config = pdev->dev.platform_data;
 	struct msm_gpu *gpu = &adreno_gpu->base;
-	struct msm_mmu *mmu;
 	int ret;
 
 	adreno_gpu->funcs = funcs;
@@ -541,77 +528,19 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	}
 
 	ret = request_firmware(&adreno_gpu->pfp, adreno_gpu->info->pfpfw, drm->dev);
-	if (ret) {
+	if (ret)
 		dev_err(drm->dev, "failed to load %s PFP firmware: %d\n",
 				adreno_gpu->info->pfpfw, ret);
-		return ret;
-	}
 
-	mmu = gpu->aspace->mmu;
-	if (mmu) {
-		ret = mmu->funcs->attach(mmu, NULL, 0);
-		if (ret)
-			return ret;
-	}
-
-	if (gpu->secure_aspace) {
-		mmu = gpu->secure_aspace->mmu;
-		if (mmu) {
-			ret = mmu->funcs->attach(mmu, NULL, 0);
-			if (ret)
-				return ret;
-		}
-	}
-
-	adreno_gpu->memptrs_bo = msm_gem_new(drm, sizeof(*adreno_gpu->memptrs),
-			MSM_BO_UNCACHED);
-	if (IS_ERR(adreno_gpu->memptrs_bo)) {
-		ret = PTR_ERR(adreno_gpu->memptrs_bo);
-		adreno_gpu->memptrs_bo = NULL;
-		dev_err(drm->dev, "could not allocate memptrs: %d\n", ret);
-		return ret;
-	}
-
-	adreno_gpu->memptrs = msm_gem_vaddr(adreno_gpu->memptrs_bo);
-	if (!adreno_gpu->memptrs) {
-		dev_err(drm->dev, "could not vmap memptrs\n");
-		return -ENOMEM;
-	}
-
-	ret = msm_gem_get_iova(adreno_gpu->memptrs_bo, gpu->aspace,
-			&adreno_gpu->memptrs_iova);
-	if (ret) {
-		dev_err(drm->dev, "could not map memptrs: %d\n", ret);
-		return ret;
-	}
-
-	return 0;
+	return ret;
 }
 
 void adreno_gpu_cleanup(struct adreno_gpu *gpu)
 {
-	struct msm_gem_address_space *aspace = gpu->base.aspace;
-
-	if (gpu->memptrs_bo) {
-		if (gpu->memptrs_iova)
-			msm_gem_put_iova(gpu->memptrs_bo, aspace);
-		drm_gem_object_unreference_unlocked(gpu->memptrs_bo);
-	}
 	release_firmware(gpu->pm4);
 	release_firmware(gpu->pfp);
 
 	msm_gpu_cleanup(&gpu->base);
-
-	if (aspace) {
-		aspace->mmu->funcs->detach(aspace->mmu);
-		msm_gem_address_space_put(aspace);
-	}
-
-	if (gpu->base.secure_aspace) {
-		aspace = gpu->base.secure_aspace;
-		aspace->mmu->funcs->detach(aspace->mmu);
-		msm_gem_address_space_put(aspace);
-	}
 }
 
 static void adreno_snapshot_os(struct msm_gpu *gpu,
@@ -665,7 +594,7 @@ static void adreno_snapshot_ringbuffer(struct msm_gpu *gpu,
 	header.rptr = get_rptr(adreno_gpu, ring);
 	header.wptr = get_wptr(ring);
 	header.timestamp_queued = adreno_submitted_fence(gpu, ring);
-	header.timestamp_retired = adreno_last_fence(gpu, ring);
+	header.timestamp_retired = ring->memptrs->fence;
 
 	/* Write the header even if the ringbuffer data is empty */
 	if (!SNAPSHOT_HEADER(snapshot, header, SNAPSHOT_SECTION_RB_V2,

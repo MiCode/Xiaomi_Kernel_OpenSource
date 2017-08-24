@@ -1745,16 +1745,21 @@ struct ath10k_htt {
 
 #define RX_HTT_HDR_STATUS_LEN 64
 
-/* This structure layout is programmed via rx ring setup
- * so that FW knows how to transfer the rx descriptor to the host.
- * Buffers like this are placed on the rx ring. */
-struct htt_rx_desc {
+struct htt_host_fw_desc_base {
 	union {
 		/* This field is filled on the host using the msdu buffer
 		 * from htt_rx_indication */
 		struct fw_rx_desc_base fw_desc;
 		u32 pad;
 	} __packed;
+};
+
+/* This structure layout is programmed via rx ring setup
+ * so that FW knows how to transfer the rx descriptor to the host.
+ * Buffers like this are placed on the rx ring.
+ */
+struct htt_rx_desc {
+	struct htt_host_fw_desc_base fw_desc_base;
 	struct {
 		struct rx_attention attention;
 		struct rx_frag_info frag_info;
@@ -1847,5 +1852,7 @@ int ath10k_htt_tx(struct ath10k_htt *htt,
 void ath10k_htt_rx_pktlog_completion_handler(struct ath10k *ar,
 					     struct sk_buff *skb);
 int ath10k_htt_txrx_compl_task(struct ath10k *ar, int budget);
+struct sk_buff *ath10k_htt_tx_find_msdu_by_id(struct ath10k_htt *htt,
+					      u16 msdu_id);
 
 #endif

@@ -745,7 +745,6 @@ struct subsys_info {
  * ssr_name:	Name of the subsystem recognized by the SSR framework
  * edge:	Name of the G-Link edge
  * xprt:	Name of the G-Link transport
- * restarted:	Indicates whether a restart has been triggered for this edge
  * cb_data:	Private callback data structure for notification functions
  * notify_list_node:	used to chain this structure in the notify list
  */
@@ -753,7 +752,6 @@ struct subsys_info_leaf {
 	const char *ssr_name;
 	const char *edge;
 	const char *xprt;
-	bool restarted;
 	struct ssr_notify_data *cb_data;
 	struct list_head notify_list_node;
 };

@@ -99,7 +99,7 @@
 #define SOFT_PAUSE_ENABLE	1
 #define SOFT_PAUSE_DISABLE	0
 
-#define ASM_ACTIVE_STREAMS_ALLOWED	0x8
+#define ASM_ACTIVE_STREAMS_ALLOWED	0x9
 /* Control session is used for mapping calibration memory */
 #define ASM_CONTROL_SESSION	(ASM_ACTIVE_STREAMS_ALLOWED + 1)
 
@@ -611,6 +611,14 @@ int q6asm_set_softvolume(struct audio_client *ac,
 int q6asm_set_softvolume_v2(struct audio_client *ac,
 			    struct asm_softvolume_params *param, int instance);
 
+/* Set panning and MFC params */
+int q6asm_set_mfc_panning_params(struct audio_client *ac,
+				 struct asm_stream_pan_ctrl_params *pan_param);
+
+/* Set vol gain pair */
+int q6asm_set_vol_ctrl_gain_pair(struct audio_client *ac,
+				 struct asm_stream_pan_ctrl_params *pan_param);
+
 /* Send left-right channel gain */
 int q6asm_set_lrgain(struct audio_client *ac, int left_gain, int right_gain);
 
@@ -631,7 +639,7 @@ int q6asm_send_audio_effects_params(struct audio_client *ac, char *params,
 int q6asm_send_stream_cmd(struct audio_client *ac,
 			  struct msm_adsp_event_data *data);
 
-int q6asm_send_ion_fd(struct audio_client *ac, int fd);
+int q6asm_audio_map_shm_fd(struct audio_client *ac, int fd);
 
 int q6asm_send_rtic_event_ack(struct audio_client *ac,
 			      void *param, uint32_t params_length);

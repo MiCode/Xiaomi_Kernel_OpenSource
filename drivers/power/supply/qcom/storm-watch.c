@@ -64,3 +64,13 @@ void reset_storm_count(struct storm_watch *data)
 	data->storm_count = 0;
 	mutex_unlock(&data->storm_lock);
 }
+
+void update_storm_count(struct storm_watch *data, int max_count)
+{
+	if (!data)
+		return;
+
+	mutex_lock(&data->storm_lock);
+	data->max_storm_count = max_count;
+	mutex_unlock(&data->storm_lock);
+}

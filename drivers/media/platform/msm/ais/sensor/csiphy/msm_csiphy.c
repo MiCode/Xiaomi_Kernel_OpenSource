@@ -164,7 +164,7 @@ static int msm_csiphy_3phase_lane_config(
 			mipi_csiphy_3ph_lnn_ctrl1.data,
 			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 			mipi_csiphy_3ph_lnn_ctrl1.addr + 0x200*i);
-		msm_camera_io_w(((csiphy_params->settle_cnt >> 8) & 0xff),
+		msm_camera_io_w(0,
 			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 			mipi_csiphy_3ph_lnn_ctrl2.addr + 0x200*i);
 		msm_camera_io_w((csiphy_params->settle_cnt & 0xff),
@@ -648,7 +648,7 @@ static int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 	return rc;
 }
 
-void msm_csiphy_disable_irq(
+static void msm_csiphy_disable_irq(
 	struct csiphy_device *csiphy_dev)
 {
 	void __iomem *csiphybase;
@@ -1207,7 +1207,7 @@ static int32_t msm_csiphy_cmd(struct csiphy_device *csiphy_dev, void *arg)
 		break;
 	case CSIPHY_CFG:
 		if (copy_from_user(&csiphy_params,
-			(void *)cdata->cfg.csiphy_params,
+			(void __user *)cdata->cfg.csiphy_params,
 			sizeof(struct msm_camera_csiphy_params))) {
 			pr_err("%s: %d failed\n", __func__, __LINE__);
 			rc = -EFAULT;

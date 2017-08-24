@@ -64,8 +64,6 @@ struct msm_gpu_funcs {
 	void (*submit)(struct msm_gpu *gpu, struct msm_gem_submit *submit);
 	void (*flush)(struct msm_gpu *gpu, struct msm_ringbuffer *ring);
 	irqreturn_t (*irq)(struct msm_gpu *irq);
-	uint32_t (*last_fence)(struct msm_gpu *gpu,
-			struct msm_ringbuffer *ring);
 	uint32_t (*submitted_fence)(struct msm_gpu *gpu,
 			struct msm_ringbuffer *ring);
 	struct msm_ringbuffer *(*active_ring)(struct msm_gpu *gpu);
@@ -131,6 +129,8 @@ struct msm_gpu {
 
 	struct pm_qos_request pm_qos_req_dma;
 
+	struct drm_gem_object *memptrs_bo;
+
 #ifdef DOWNSTREAM_CONFIG_MSM_BUS_SCALING
 	struct msm_bus_scale_pdata *bus_scale_table;
 	uint32_t bsc;
@@ -145,12 +145,17 @@ struct msm_gpu {
 #define DRM_MSM_HANGCHECK_PERIOD 500 /* in ms */
 #define DRM_MSM_HANGCHECK_JIFFIES msecs_to_jiffies(DRM_MSM_HANGCHECK_PERIOD)
 	struct timer_list hangcheck_timer;
-	uint32_t hangcheck_fence[MSM_GPU_MAX_RINGS];
 	struct work_struct recover_work;
-
-	struct list_head submit_list;
-
 	struct msm_snapshot *snapshot;
+};
+
+struct msm_gpu_submitqueue {
+	int id;
+	u32 flags;
+	u32 prio;
+	int faults;
+	struct list_head node;
+	struct kref ref;
 };
 
 /* It turns out that all targets use the same ringbuffer size. */
@@ -178,7 +183,7 @@ static inline bool msm_gpu_active(struct msm_gpu *gpu)
 
 	FOR_EACH_RING(gpu, ring, i) {
 		if (gpu->funcs->submitted_fence(gpu, ring) >
-			gpu->funcs->last_fence(gpu, ring))
+			ring->memptrs->fence)
 			return true;
 	}
 
@@ -279,5 +284,11 @@ void msm_gpu_cleanup_counters(struct msm_gpu *gpu,
 
 u64 msm_gpu_counter_read(struct msm_gpu *gpu,
 		struct drm_msm_counter_read *data);
+
+static inline void msm_submitqueue_put(struct msm_gpu_submitqueue *queue)
+{
+	if (queue)
+		kref_put(&queue->ref, msm_submitqueue_destroy);
+}
 
 #endif /* __MSM_GPU_H__ */

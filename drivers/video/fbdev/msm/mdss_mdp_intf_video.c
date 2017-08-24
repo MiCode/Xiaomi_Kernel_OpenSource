@@ -643,8 +643,13 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
 	display_hctl = (hsync_end_x << 16) | hsync_start_x;
 
 	den_polarity = 0;
-	hsync_polarity = p->h_polarity;
-	vsync_polarity = p->v_polarity;
+	if (ctx->intf_type == MDSS_INTF_HDMI) {
+		hsync_polarity = p->h_polarity;
+		vsync_polarity = p->v_polarity;
+	} else {
+		hsync_polarity = 0;
+		vsync_polarity = 0;
+	}
 	polarity_ctl = (den_polarity << 2)   | /*  DEN Polarity  */
 		       (vsync_polarity << 1) | /* VSYNC Polarity */
 		       (hsync_polarity << 0);  /* HSYNC Polarity */
@@ -1996,8 +2001,9 @@ static void mdss_mdp_handoff_programmable_fetch(struct mdss_mdp_ctl *ctl,
 			MDSS_MDP_REG_INTF_HSYNC_CTL) >> 16;
 		v_total_handoff = mdp_video_read(ctx,
 			MDSS_MDP_REG_INTF_VSYNC_PERIOD_F0)/h_total_handoff;
-		pinfo->prg_fet = v_total_handoff -
-			((fetch_start_handoff - 1)/h_total_handoff);
+		if (h_total_handoff)
+			pinfo->prg_fet = v_total_handoff -
+				((fetch_start_handoff - 1)/h_total_handoff);
 		pr_debug("programmable fetch lines %d start:%d\n",
 			pinfo->prg_fet, fetch_start_handoff);
 		MDSS_XLOG(pinfo->prg_fet, fetch_start_handoff,

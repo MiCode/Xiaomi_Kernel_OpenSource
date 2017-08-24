@@ -242,6 +242,7 @@
 
 #include "msm8996-ion.dtsi"
 #include "msm8996-sde.dtsi"
+#include "msm8996-mdss.dtsi"
 #include "msm8996-mdss-pll.dtsi"
 #include "msm8996-smp2p.dtsi"
 #include "msm8996-ipcrouter.dtsi"
@@ -1064,6 +1065,7 @@
 		qcom,pm-qos-irq-cpu = <0>;
 		qcom,pm-qos-irq-latency = <70 70>;
 
+		non-removable;
 		status = "disabled";
 	};
 
@@ -1268,6 +1270,7 @@
 		qcom,pm-qos-cpu-group-latency-us = <70 70>;
 		qcom,pm-qos-default-cpu = <0>;
 
+		non-removable;
 		status = "disabled";
 	};
 
@@ -2332,15 +2335,17 @@
 	qcom,cnss {
 		compatible = "qcom,cnss";
 		wlan-bootstrap-gpio = <&tlmm 46 0>;
-		wlan-en-gpio = <&pm8994_gpios 8 0>;
+		vdd-wlan-en-supply = <&wlan_en_vreg>;
 		vdd-wlan-supply = <&rome_vreg>;
 		vdd-wlan-io-supply = <&pm8994_s4>;
 		vdd-wlan-xtal-supply = <&pm8994_l30>;
 		vdd-wlan-core-supply = <&pm8994_s3>;
 		wlan-ant-switch-supply = <&pm8994_l18_pin_ctrl>;
+		qcom,wlan-en-vreg-support;
 		qcom,notify-modem-status;
-		pinctrl-names = "default";
-		pinctrl-0 = <&cnss_default>;
+		pinctrl-names = "bootstrap_active", "bootstrap_sleep";
+		pinctrl-0 = <&cnss_bootstrap_active>;
+		pinctrl-1 = <&cnss_bootstrap_sleep>;
 		qcom,wlan-rc-num = <0>;
 		qcom,wlan-ramdump-dynamic = <0x200000>;
 
@@ -3349,6 +3354,82 @@
 			qcom,msm-dai-q6-mi2s-dev-id = <3>;
 			qcom,msm-mi2s-rx-lines = <1>;
 			qcom,msm-mi2s-tx-lines = <0>;
+		};
+	};
+
+	qcom,msm-dai-tdm-pri-rx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37120>;
+		qcom,msm-cpudai-tdm-group-num-ports = <4>;
+		qcom,msm-cpudai-tdm-group-port-id = <36864 36866 36868 36870>;
+		qcom,msm-cpudai-tdm-clk-rate = <12288000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <0>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <1>;
+		qcom,msm-cpudai-tdm-clk-attribute = /bits/ 16 <1>;
+		dai_pri_tdm_rx_0: qcom,msm-dai-q6-tdm-pri-rx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36864>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_pri_tdm_rx_1: qcom,msm-dai-q6-tdm-pri-rx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36866>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_pri_tdm_rx_2: qcom,msm-dai-q6-tdm-pri-rx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36868>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_pri_tdm_rx_3: qcom,msm-dai-q6-tdm-pri-rx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36870>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	qcom,msm-dai-tdm-pri-tx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37121>;
+		qcom,msm-cpudai-tdm-group-num-ports = <4>;
+		qcom,msm-cpudai-tdm-group-port-id = <36865 36867 36869 36871>;
+		qcom,msm-cpudai-tdm-clk-rate = <12288000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <0>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <1>;
+		qcom,msm-cpudai-tdm-clk-attribute = /bits/ 16 <1>;
+		dai_pri_tdm_tx_0: qcom,msm-dai-q6-tdm-pri-tx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36865>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_pri_tdm_tx_1: qcom,msm-dai-q6-tdm-pri-tx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36867>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_pri_tdm_tx_2: qcom,msm-dai-q6-tdm-pri-tx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36869>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_pri_tdm_tx_3: qcom,msm-dai-q6-tdm-pri-tx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36871>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
 		};
 	};
 

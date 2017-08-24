@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -145,6 +145,29 @@ TRACE_EVENT(adreno_cmdbatch_retired,
 			__entry->retire,
 			__entry->rb_id, __entry->rptr, __entry->wptr,
 			__entry->q_inflight
+	)
+);
+
+TRACE_EVENT(adreno_cmdbatch_sync,
+	TP_PROTO(struct adreno_context *drawctxt,
+		uint64_t ticks),
+	TP_ARGS(drawctxt, ticks),
+	TP_STRUCT__entry(
+		__field(unsigned int, id)
+		__field(unsigned int, timestamp)
+		__field(uint64_t, ticks)
+		__field(int, prio)
+	),
+	TP_fast_assign(
+		__entry->id = drawctxt->base.id;
+		__entry->timestamp = drawctxt->timestamp;
+		__entry->ticks = ticks;
+		__entry->prio = drawctxt->base.priority;
+	),
+	TP_printk(
+		"ctx=%u ctx_prio=%d ts=%u ticks=%lld",
+			__entry->id, __entry->prio, __entry->timestamp,
+			__entry->ticks
 	)
 );
 

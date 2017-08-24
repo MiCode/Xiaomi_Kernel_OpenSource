@@ -196,7 +196,7 @@ static int32_t msm_ir_led_handle_init(
 }
 
 static int32_t msm_ir_led_config(struct msm_ir_led_ctrl_t *ir_led_ctrl,
-	void __user *argp)
+	void *argp)
 {
 	int32_t rc = -EINVAL;
 	struct msm_ir_led_cfg_data_t *ir_led_data =
@@ -241,7 +241,7 @@ static long msm_ir_led_subdev_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg)
 {
 	struct msm_ir_led_ctrl_t *fctrl = NULL;
-	void __user *argp = (void __user *)arg;
+	void *argp = arg;
 	struct msm_ir_led_cfg_data_t ir_led_data = {0};
 
 	if (!sd) {

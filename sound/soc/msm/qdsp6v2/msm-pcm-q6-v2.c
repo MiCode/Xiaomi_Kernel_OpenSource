@@ -1603,6 +1603,266 @@ done:
 	return ret;
 }
 
+static int msm_pcm_playback_pan_scale_ctl_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = 0;
+	int len = 0;
+	int i = 0;
+	struct snd_pcm_usr *usr_info = snd_kcontrol_chip(kcontrol);
+	struct snd_pcm_substream *substream;
+	struct msm_audio *prtd;
+	struct asm_stream_pan_ctrl_params pan_param;
+
+	if (!usr_info) {
+		pr_err("%s: usr_info is null\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	substream = usr_info->pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
+	if (!substream) {
+		pr_err("%s substream not found\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	if (!substream->runtime) {
+		pr_err("%s substream runtime not found\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+	prtd = substream->runtime->private_data;
+	if (!prtd) {
+		ret = -EINVAL;
+		goto done;
+	}
+	pan_param.num_output_channels =
+			ucontrol->value.integer.value[len++];
+	if (pan_param.num_output_channels >
+		PCM_FORMAT_MAX_NUM_CHANNEL) {
+		ret = -EINVAL;
+		goto done;
+	}
+	pan_param.num_input_channels =
+			ucontrol->value.integer.value[len++];
+	if (pan_param.num_input_channels >
+		PCM_FORMAT_MAX_NUM_CHANNEL) {
+		ret = -EINVAL;
+		goto done;
+	}
+
+	if (ucontrol->value.integer.value[len++]) {
+		for (i = 0; i < pan_param.num_output_channels; i++) {
+			pan_param.output_channel_map[i] =
+				ucontrol->value.integer.value[len++];
+		}
+	}
+	if (ucontrol->value.integer.value[len++]) {
+		for (i = 0; i < pan_param.num_input_channels; i++) {
+			pan_param.input_channel_map[i] =
+				ucontrol->value.integer.value[len++];
+		}
+	}
+	if (ucontrol->value.integer.value[len++]) {
+		for (i = 0; i < pan_param.num_output_channels *
+			pan_param.num_input_channels; i++) {
+			pan_param.gain[i] =
+				!(ucontrol->value.integer.value[len++] > 0) ?
+				0 : 2 << 13;
+		}
+	}
+
+	ret = q6asm_set_mfc_panning_params(prtd->audio_client,
+					   &pan_param);
+	len -= pan_param.num_output_channels *
+	       pan_param.num_input_channels;
+	for (i = 0; i < pan_param.num_output_channels *
+		pan_param.num_input_channels; i++) {
+		/*
+		 * The data userspace passes is already in Q14 format.
+		 * For volume gain is in Q28.
+		 */
+		pan_param.gain[i] =
+				ucontrol->value.integer.value[len++] << 14;
+	}
+	ret = q6asm_set_vol_ctrl_gain_pair(prtd->audio_client,
+					   &pan_param);
+
+done:
+	return ret;
+}
+
+static int msm_pcm_playback_pan_scale_ctl_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	return 0;
+}
+
+static int msm_add_stream_pan_scale_controls(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_pcm *pcm;
+	struct snd_pcm_usr *pan_ctl_info;
+	struct snd_kcontrol *kctl;
+	const char *playback_mixer_ctl_name = "Audio Stream";
+	const char *deviceNo = "NN";
+	const char *suffix = "Pan Scale Control";
+	int ctl_len, ret = 0;
+
+	if (!rtd) {
+		pr_err("%s: rtd is NULL\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	pcm = rtd->pcm;
+	ctl_len = strlen(playback_mixer_ctl_name) + 1 + strlen(deviceNo) + 1 +
+			 strlen(suffix) + 1;
+
+	ret = snd_pcm_add_usr_ctls(pcm, SNDRV_PCM_STREAM_PLAYBACK,
+				   NULL, 1, ctl_len, rtd->dai_link->be_id,
+				   &pan_ctl_info);
+
+	if (ret < 0) {
+		pr_err("%s: failed add ctl %s. err = %d\n",
+			__func__, suffix, ret);
+		goto done;
+	}
+	kctl = pan_ctl_info->kctl;
+	snprintf(kctl->id.name, ctl_len, "%s %d %s", playback_mixer_ctl_name,
+		 rtd->pcm->device, suffix);
+	kctl->put = msm_pcm_playback_pan_scale_ctl_put;
+	kctl->get = msm_pcm_playback_pan_scale_ctl_get;
+	pr_debug("%s: Registering new mixer ctl = %s\n", __func__,
+		 kctl->id.name);
+done:
+	return ret;
+
+}
+
+static int msm_pcm_playback_dnmix_ctl_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	return 0;
+}
+
+static int msm_pcm_playback_dnmix_ctl_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = 0;
+	int len = 0;
+	int i = 0;
+	struct snd_pcm_usr *usr_info = snd_kcontrol_chip(kcontrol);
+	struct snd_pcm_substream *substream;
+	struct msm_audio *prtd;
+	struct asm_stream_pan_ctrl_params dnmix_param;
+
+	int be_id = ucontrol->value.integer.value[len++];
+	int stream_id = 0;
+
+	if (!usr_info) {
+		pr_err("%s usr_info is null\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+	substream = usr_info->pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
+	if (!substream) {
+		pr_err("%s substream not found\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+	if (!substream->runtime) {
+		pr_err("%s substream runtime not found\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+	prtd = substream->runtime->private_data;
+	if (!prtd) {
+		ret = -EINVAL;
+		goto done;
+	}
+	stream_id = prtd->audio_client->session;
+	dnmix_param.num_output_channels =
+				ucontrol->value.integer.value[len++];
+	if (dnmix_param.num_output_channels >
+		PCM_FORMAT_MAX_NUM_CHANNEL) {
+		ret = -EINVAL;
+		goto done;
+	}
+	dnmix_param.num_input_channels =
+				ucontrol->value.integer.value[len++];
+	if (dnmix_param.num_input_channels >
+		PCM_FORMAT_MAX_NUM_CHANNEL) {
+		ret = -EINVAL;
+		goto done;
+	}
+
+	if (ucontrol->value.integer.value[len++]) {
+		for (i = 0; i < dnmix_param.num_output_channels; i++) {
+			dnmix_param.output_channel_map[i] =
+				ucontrol->value.integer.value[len++];
+		}
+	}
+	if (ucontrol->value.integer.value[len++]) {
+		for (i = 0; i < dnmix_param.num_input_channels; i++) {
+			dnmix_param.input_channel_map[i] =
+				ucontrol->value.integer.value[len++];
+		}
+	}
+	if (ucontrol->value.integer.value[len++]) {
+		for (i = 0; i < dnmix_param.num_output_channels *
+				dnmix_param.num_input_channels; i++) {
+			dnmix_param.gain[i] =
+					ucontrol->value.integer.value[len++];
+		}
+	}
+	msm_routing_set_downmix_control_data(be_id,
+					     stream_id,
+					     &dnmix_param);
+
+done:
+	return ret;
+}
+
+static int msm_add_device_down_mix_controls(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_pcm *pcm;
+	struct snd_pcm_usr *usr_info;
+	struct snd_kcontrol *kctl;
+	const char *playback_mixer_ctl_name = "Audio Device";
+	const char *deviceNo = "NN";
+	const char *suffix = "Downmix Control";
+	int ctl_len, ret = 0;
+
+	if (!rtd) {
+		pr_err("%s: rtd is NULL\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	pcm = rtd->pcm;
+	ctl_len = strlen(playback_mixer_ctl_name) + 1 +
+			 strlen(deviceNo) + 1 + strlen(suffix) + 1;
+	ret = snd_pcm_add_usr_ctls(pcm, SNDRV_PCM_STREAM_PLAYBACK,
+				   NULL, 1, ctl_len, rtd->dai_link->be_id,
+				   &usr_info);
+	if (ret < 0) {
+		pr_err("%s: downmix control add failed: %d\n",
+			__func__, ret);
+		goto done;
+	}
+
+	kctl = usr_info->kctl;
+	snprintf(kctl->id.name, ctl_len, "%s %d %s",
+		 playback_mixer_ctl_name, rtd->pcm->device, suffix);
+	kctl->put = msm_pcm_playback_dnmix_ctl_put;
+	kctl->get = msm_pcm_playback_dnmix_ctl_get;
+	pr_debug("%s: downmix control name = %s\n",
+		 __func__, playback_mixer_ctl_name);
+done:
+	return ret;
+}
+
 static int msm_pcm_capture_app_type_cfg_ctl_put(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
@@ -1718,6 +1978,14 @@ static int msm_pcm_add_controls(struct snd_soc_pcm_runtime *rtd)
 	ret = msm_pcm_add_app_type_controls(rtd);
 	if (ret)
 		pr_err("%s: pcm add app type controls failed:%d\n",
+			__func__, ret);
+	ret = msm_add_stream_pan_scale_controls(rtd);
+	if (ret)
+		pr_err("%s: pcm add pan scale controls failed:%d\n",
+			__func__, ret);
+	ret = msm_add_device_down_mix_controls(rtd);
+	if (ret)
+		pr_err("%s: pcm add dnmix controls failed:%d\n",
 			__func__, ret);
 	return ret;
 }

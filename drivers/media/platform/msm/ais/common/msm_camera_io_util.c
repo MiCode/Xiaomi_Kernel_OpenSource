@@ -123,8 +123,8 @@ void msm_camera_io_memcpy_toio(void __iomem *dest_addr,
 	void __iomem *src_addr, u32 len)
 {
 	int i;
-	u32 *d = (u32 *) dest_addr;
-	u32 *s = (u32 *) src_addr;
+	u32 __iomem *d = (u32 __iomem *) dest_addr;
+	u32 __iomem *s = (u32 __iomem *) src_addr;
 
 	for (i = 0; i < len; i++)
 		writel_relaxed(*s++, d++);
@@ -178,7 +178,7 @@ void msm_camera_io_dump(void __iomem *addr, int size, int enable)
 {
 	char line_str[128], *p_str;
 	int i;
-	u32 *p = (u32 *) addr;
+	u32 __iomem *p = (u32 __iomem *) addr;
 	u32 data;
 
 	CDBG("%s: addr=%pK size=%d\n", __func__, addr, size);
@@ -242,8 +242,8 @@ void msm_camera_io_memcpy_mb(void __iomem *dest_addr,
 	void __iomem *src_addr, u32 len)
 {
 	int i;
-	u32 *d = (u32 *) dest_addr;
-	u32 *s = (u32 *) src_addr;
+	u32 __iomem *d = (u32 __iomem *) dest_addr;
+	u32 __iomem *s = (u32 __iomem *) src_addr;
 	/* This is generic function called who needs to register
 	 *  writes with memory barrier
 	 */

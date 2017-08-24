@@ -274,10 +274,12 @@ int msm_isp47_ahb_clk_cfg(struct vfe_device *vfe_dev,
 	enum cam_ahb_clk_vote src_clk_vote;
 	struct msm_isp_clk_rates clk_rates;
 
-	if (ahb_cfg)
+	if (ahb_cfg) {
 		vote = msm_isp47_get_cam_clk_vote(ahb_cfg->vote);
-	else
-		vote = CAM_AHB_SVS_VOTE;
+		vfe_dev->user_requested_ahb_vote = vote;
+	} else {
+		vote = vfe_dev->user_requested_ahb_vote;
+	}
 
 	vfe_dev->hw_info->vfe_ops.platform_ops.get_clk_rates(vfe_dev,
 							&clk_rates);
@@ -327,6 +329,7 @@ int msm_vfe47_init_hardware(struct vfe_device *vfe_dev)
 	if (rc)
 		goto clk_enable_failed;
 
+	vfe_dev->user_requested_ahb_vote = CAM_AHB_SVS_VOTE;
 	rc = cam_config_ahb_clk(NULL, 0, id, CAM_AHB_SVS_VOTE);
 	if (rc < 0) {
 		pr_err("%s: failed to vote for AHB\n", __func__);
@@ -1360,6 +1363,7 @@ void msm_vfe47_cfg_camif(struct vfe_device *vfe_dev,
 {
 	uint16_t first_pixel, last_pixel, first_line, last_line;
 	struct msm_vfe_camif_cfg *camif_cfg = &pix_cfg->camif_cfg;
+	struct msm_vfe_testgen_cfg *testgen_cfg = &pix_cfg->testgen_cfg;
 	uint32_t val, subsample_period, subsample_pattern;
 	uint32_t irq_sub_period = 32;
 	uint32_t frame_sub_period = 32;
@@ -1383,8 +1387,15 @@ void msm_vfe47_cfg_camif(struct vfe_device *vfe_dev,
 	subsample_period = camif_cfg->subsample_cfg.irq_subsample_period;
 	subsample_pattern = camif_cfg->subsample_cfg.irq_subsample_pattern;
 
-	msm_camera_io_w((camif_cfg->lines_per_frame - 1) << 16 |
-		(camif_cfg->pixels_per_line - 1), vfe_dev->vfe_base + 0x484);
+	if (pix_cfg->input_mux == TESTGEN)
+		msm_camera_io_w((testgen_cfg->lines_per_frame - 1) << 16 |
+			(testgen_cfg->pixels_per_line - 1),
+			vfe_dev->vfe_base + 0x484);
+	else
+		msm_camera_io_w((camif_cfg->lines_per_frame - 1) << 16 |
+			(camif_cfg->pixels_per_line - 1),
+			vfe_dev->vfe_base + 0x484);
+
 	if (bus_sub_en) {
 		val = msm_camera_io_r(vfe_dev->vfe_base + 0x47C);
 		val &= 0xFFFFFFDF;

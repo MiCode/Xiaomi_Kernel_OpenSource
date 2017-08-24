@@ -12,6 +12,7 @@
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/regulator/max20010.h>
 
 &rpm_bus {
 	/* PM8994 S1 + S6 = 2 phase VDD_CX supply */
@@ -1917,6 +1918,13 @@
 		gpio = <&pm8994_gpios 9 0>;
 	};
 
+	wlan_en_vreg: wlan_en_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "wlan_en_vreg";
+		enable-active-high;
+		gpio = <&pm8994_gpios 8 0>;
+	};
+
 	hl7509_en_vreg: hl7509_en_vreg {
 		compatible = "regulator-fixed";
 		regulator-name = "hl7509_en_vreg";
@@ -1967,4 +1975,16 @@
 		onnn,restore-reg;
 		status = "disabled";
 	  };
+
+	max20010_vreg: max20010-regulator@38 {
+		compatible = "maxim,max20010";
+		reg = <0x38>;
+		vin-supply = <&hl7509_en_vreg>;
+		regulator-min-microvolt = <600000>;
+		regulator-max-microvolt = <1270000>;
+		regulator-initial-mode = <MAX20010_OPMODE_SYNC>;
+		maxim,vrange-sel = <0>;
+		maxim,soft-start-slew-rate = <5500>;
+		maxim,dvs-slew-rate = <5500>;
+	};
 };

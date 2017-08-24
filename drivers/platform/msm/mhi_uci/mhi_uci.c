@@ -326,73 +326,6 @@ static int mhi_init_inbound(struct uci_client *client_handle)
 	return ret_val;
 }
 
-static int mhi_uci_send_packet(struct mhi_client_handle **client_handle,
-			       void *buf,
-			       u32 size)
-{
-	u32 nr_avail_trbs = 0;
-	u32 i = 0;
-	void *data_loc = NULL;
-	unsigned long memcpy_result = 0;
-	int data_left_to_insert = 0;
-	size_t data_to_insert_now = 0;
-	u32 data_inserted_so_far = 0;
-	int ret_val = 0;
-	struct uci_client *uci_handle;
-	struct uci_buf *uci_buf;
-
-	uci_handle = container_of(client_handle, struct uci_client,
-				  out_attr.mhi_handle);
-
-	nr_avail_trbs = atomic_read(&uci_handle->out_attr.avail_pkts);
-	data_left_to_insert = size;
-
-	for (i = 0; i < nr_avail_trbs; ++i) {
-		data_to_insert_now = min_t(size_t, data_left_to_insert,
-				uci_handle->out_attr.max_packet_size);
-		data_loc = kmalloc(data_to_insert_now + sizeof(*uci_buf),
-				   GFP_KERNEL);
-		if (!data_loc) {
-			uci_log(uci_handle->uci_ipc_log, UCI_DBG_VERBOSE,
-				"Failed to allocate memory 0x%zx\n",
-				data_to_insert_now);
-				return -ENOMEM;
-		}
-		uci_buf = data_loc + data_to_insert_now;
-		uci_buf->data = data_loc;
-		uci_buf->pkt_id = uci_handle->out_attr.pkt_count++;
-		memcpy_result = copy_from_user(uci_buf->data,
-					       buf + data_inserted_so_far,
-					       data_to_insert_now);
-		if (memcpy_result)
-			goto error_xfer;
-
-		uci_log(uci_handle->uci_ipc_log, UCI_DBG_VERBOSE,
-			"At trb i = %d/%d, size = %lu, id %llu chan %d\n",
-			i, nr_avail_trbs, data_to_insert_now, uci_buf->pkt_id,
-			uci_handle->out_attr.chan_id);
-		ret_val = mhi_queue_xfer(*client_handle, uci_buf->data,
-					data_to_insert_now, MHI_EOT);
-		if (ret_val) {
-			goto error_xfer;
-		} else {
-			data_left_to_insert -= data_to_insert_now;
-			data_inserted_so_far += data_to_insert_now;
-			atomic_inc(&uci_handle->out_pkt_pend_ack);
-			atomic_dec(&uci_handle->out_attr.avail_pkts);
-			list_add_tail(&uci_buf->node,
-				      &uci_handle->out_attr.buf_head);
-		}
-		if (!data_left_to_insert)
-			break;
-	}
-	return data_inserted_so_far;
-
-error_xfer:
-	kfree(uci_buf->data);
-	return data_inserted_so_far;
-}
-
 static int mhi_uci_send_status_cmd(struct uci_client *client)
 {
 	void *buf = NULL;
@@ -963,18 +896,11 @@ static ssize_t mhi_uci_client_write(struct file *file,
 		goto sys_interrupt;
 	}
 
-	while (bytes_transferrd != count) {
-		ret_val = mhi_uci_send_packet(&chan_attr->mhi_handle,
-					      (void *)buf, count);
-		if (ret_val < 0)
-			goto sys_interrupt;
+	while (count) {
+		size_t xfer_size;
+		void *data_loc = NULL;
+		struct uci_buf *uci_buf;
 
-		bytes_transferrd += ret_val;
-		if (bytes_transferrd == count)
-			break;
-		uci_log(uci_handle->uci_ipc_log, UCI_DBG_VERBOSE,
-			"No descriptors available, did we poll, chan %d?\n",
-			chan);
 		mutex_unlock(&chan_attr->chan_lock);
 		ret_val = wait_event_interruptible(chan_attr->wq,
 				(atomic_read(&chan_attr->avail_pkts) ||
@@ -991,6 +917,37 @@ static ssize_t mhi_uci_client_write(struct file *file,
 			ret_val = -ERESTARTSYS;
 			goto sys_interrupt;
 		}
+
+		xfer_size = min_t(size_t, count, chan_attr->max_packet_size);
+		data_loc = kmalloc(xfer_size + sizeof(*uci_buf), GFP_KERNEL);
+		if (!data_loc) {
+			uci_log(uci_handle->uci_ipc_log, UCI_DBG_VERBOSE,
+				"Failed to allocate memory %lu\n", xfer_size);
+			ret_val = -ENOMEM;
+			goto sys_interrupt;
+		}
+
+		uci_buf = data_loc + xfer_size;
+		uci_buf->data = data_loc;
+		uci_buf->pkt_id = uci_handle->out_attr.pkt_count++;
+		ret_val = copy_from_user(uci_buf->data, buf, xfer_size);
+		if (unlikely(ret_val)) {
+			kfree(uci_buf->data);
+			goto sys_interrupt;
+		}
+		ret_val = mhi_queue_xfer(chan_attr->mhi_handle, uci_buf->data,
+					 xfer_size, MHI_EOT);
+		if (unlikely(ret_val)) {
+			kfree(uci_buf->data);
+			goto sys_interrupt;
+		}
+
+		bytes_transferrd += xfer_size;
+		count -= xfer_size;
+		buf += xfer_size;
+		atomic_inc(&uci_handle->out_pkt_pend_ack);
+		atomic_dec(&uci_handle->out_attr.avail_pkts);
+		list_add_tail(&uci_buf->node, &uci_handle->out_attr.buf_head);
 	}
 
 	mutex_unlock(&chan_attr->chan_lock);
@@ -1073,7 +1030,7 @@ error_dts:
 static void process_rs232_state(struct uci_client *ctrl_client,
 				struct mhi_result *result)
 {
-	struct rs232_ctrl_msg *rs232_pkt;
+	struct rs232_ctrl_msg *rs232_pkt = result->buf_addr;
 	struct uci_client *client = NULL;
 	struct mhi_uci_ctxt_t *uci_ctxt = ctrl_client->uci_ctxt;
 	u32 msg_id;
@@ -1094,7 +1051,6 @@ static void process_rs232_state(struct uci_client *ctrl_client,
 			sizeof(struct rs232_ctrl_msg));
 		goto error_size;
 	}
-	rs232_pkt = result->buf_addr;
 	MHI_GET_CTRL_DEST_ID(CTRL_DEST_ID, rs232_pkt, chan);
 	for (i = 0; i < MHI_SOFTWARE_CLIENT_LIMIT; i++)
 		if (chan == uci_ctxt->client_handles[i].out_attr.chan_id ||

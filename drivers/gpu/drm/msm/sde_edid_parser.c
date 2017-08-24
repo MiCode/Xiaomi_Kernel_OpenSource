@@ -93,6 +93,21 @@ for ((i) = (start); \
 (i) < (end) && (i) + sde_cea_db_payload_len(&(cea)[(i)]) < (end); \
 (i) += sde_cea_db_payload_len(&(cea)[(i)]) + 1)
 
+static bool sde_cea_db_is_hdmi_hf_vsdb(const u8 *db)
+{
+	int hdmi_id;
+
+	if (sde_cea_db_tag(db) != VENDOR_SPECIFIC_DATA_BLOCK)
+		return false;
+
+	if (sde_cea_db_payload_len(db) < 7)
+		return false;
+
+	hdmi_id = db[1] | (db[2] << 8) | (db[3] << 16);
+
+	return hdmi_id == HDMI_IEEE_OUI_HF;
+}
+
 static u8 *sde_edid_find_extended_tag_block(struct edid *edid, int blk_id)
 {
 	u8 *db = NULL;
@@ -214,10 +229,17 @@ u32 video_format)
 {
 	u8 cea_mode = 0;
 	struct drm_display_mode *mode;
+	u32 mode_fmt_flags = 0;
 
 	/* Need to add Y420 support flag to the modes */
 	list_for_each_entry(mode, &connector->probed_modes, head) {
+		/* Cache the format flags before clearing */
+		mode_fmt_flags = mode->flags;
+		/* Clear the RGB/YUV format flags before calling upstream API */
+		mode->flags &= ~SDE_DRM_MODE_FLAG_FMT_MASK;
 		cea_mode = drm_match_cea_mode(mode);
+		/* Restore the format flags */
+		mode->flags = mode_fmt_flags;
 		if ((cea_mode != 0) && (cea_mode == video_format)) {
 			SDE_EDID_DEBUG("%s found match for %d ", __func__,
 			video_format);
@@ -231,7 +253,7 @@ struct drm_connector *connector, struct sde_edid_ctrl *edid_ctrl,
 const u8 *db)
 {
 	u32 offset = 0;
-	u8 len = 0;
+	u8 cmdb_len = 0;
 	u8 svd_len = 0;
 	const u8 *svd = NULL;
 	u32 i = 0, j = 0;
@@ -247,10 +269,8 @@ const u8 *db)
 		return;
 	}
 	SDE_EDID_DEBUG("%s +\n", __func__);
-	len = db[0] & 0x1f;
+	cmdb_len = db[0] & 0x1f;
 
-	if (len < 7)
-		return;
 	/* Byte 3 to L+1 contain SVDs */
 	offset += 2;
 
@@ -258,20 +278,24 @@ const u8 *db)
 
 	if (svd) {
 		/*moving to the next byte as vic info begins there*/
-		++svd;
 		svd_len = svd[0] & 0x1f;
+		++svd;
 	}
 
 	for (i = 0; i < svd_len; i++, j++) {
-		video_format = *svd & 0x7F;
-		if (db[offset] & (1 << j))
+		video_format = *(svd + i) & 0x7F;
+		if (cmdb_len == 1) {
+			/* If cmdb_len is 1, it means all SVDs support YUV */
+			sde_edid_set_y420_support(connector, video_format);
+		} else if (db[offset] & (1 << j)) {
 			sde_edid_set_y420_support(connector, video_format);
 
-		if (j & 0x80) {
-			j = j/8;
-			offset++;
-			if (offset >= len)
-				break;
+			if (j & 0x80) {
+				j = j/8;
+				offset++;
+				if (offset >= cmdb_len)
+					break;
+			}
 		}
 	}
 
@@ -335,6 +359,63 @@ struct drm_connector *connector, struct sde_edid_ctrl *edid_ctrl)
 		sde_edid_parse_Y420CMDB(connector, edid_ctrl, db);
 	else
 		SDE_EDID_DEBUG("YCbCr420 CMDB is not present\n");
+
+	SDE_EDID_DEBUG("%s -\n", __func__);
+}
+
+static void _sde_edid_update_dc_modes(
+struct drm_connector *connector, struct sde_edid_ctrl *edid_ctrl)
+{
+	int i, start, end;
+	u8 *edid_ext, *hdmi;
+	struct drm_display_info *disp_info;
+	u32 hdmi_dc_yuv_modes = 0;
+
+	SDE_EDID_DEBUG("%s +\n", __func__);
+
+	if (!connector || !edid_ctrl) {
+		SDE_ERROR("invalid input\n");
+		return;
+	}
+
+	disp_info = &connector->display_info;
+
+	edid_ext = sde_find_cea_extension(edid_ctrl->edid);
+
+	if (!edid_ext) {
+		SDE_ERROR("no cea extension\n");
+		return;
+	}
+
+	if (sde_cea_db_offsets(edid_ext, &start, &end))
+		return;
+
+	sde_for_each_cea_db(edid_ext, i, start, end) {
+		if (sde_cea_db_is_hdmi_hf_vsdb(&edid_ext[i])) {
+
+			hdmi = &edid_ext[i];
+
+			if (sde_cea_db_payload_len(hdmi) < 7)
+				continue;
+
+			if (hdmi[7] & DRM_EDID_YCBCR420_DC_30) {
+				hdmi_dc_yuv_modes |= DRM_EDID_YCBCR420_DC_30;
+				SDE_EDID_DEBUG("Y420 30-bit supported\n");
+			}
+
+			if (hdmi[7] & DRM_EDID_YCBCR420_DC_36) {
+				hdmi_dc_yuv_modes |= DRM_EDID_YCBCR420_DC_36;
+				SDE_EDID_DEBUG("Y420 36-bit supported\n");
+			}
+
+			if (hdmi[7] & DRM_EDID_YCBCR420_DC_48) {
+				hdmi_dc_yuv_modes |= DRM_EDID_YCBCR420_DC_36;
+				SDE_EDID_DEBUG("Y420 48-bit supported\n");
+			}
+		}
+	}
+
+	disp_info->edid_hdmi_dc_modes |= hdmi_dc_yuv_modes;
 
 	SDE_EDID_DEBUG("%s -\n", __func__);
 }
@@ -476,6 +557,7 @@ int _sde_edid_update_modes(struct drm_connector *connector,
 
 		rc = drm_add_edid_modes(connector, edid_ctrl->edid);
 		sde_edid_set_mode_format(connector, edid_ctrl);
+		_sde_edid_update_dc_modes(connector, edid_ctrl);
 		SDE_EDID_DEBUG("%s -", __func__);
 		return rc;
 	}

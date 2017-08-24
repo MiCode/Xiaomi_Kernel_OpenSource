@@ -249,6 +249,12 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_HW_CURRENT_MAX,
 	POWER_SUPPLY_PROP_REAL_TYPE,
 	POWER_SUPPLY_PROP_PR_SWAP,
+	POWER_SUPPLY_PROP_CC_STEP,
+	POWER_SUPPLY_PROP_CC_STEP_SEL,
+	POWER_SUPPLY_PROP_SW_JEITA_ENABLED,
+	POWER_SUPPLY_PROP_PD_VOLTAGE_MAX,
+	POWER_SUPPLY_PROP_PD_VOLTAGE_MIN,
+	POWER_SUPPLY_PROP_SDP_CURRENT_MAX,
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT,
 	/* Properties of type `const char *' */
@@ -271,6 +277,7 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_USB_HVDCP_3,	/* Efficient High Voltage DCP */
 	POWER_SUPPLY_TYPE_USB_PD,	/* Power Delivery */
 	POWER_SUPPLY_TYPE_WIRELESS,	/* Accessory Charger Adapters */
+	POWER_SUPPLY_TYPE_USB_FLOAT,	/* Floating charger */
 	POWER_SUPPLY_TYPE_BMS,		/* Battery Monitor System */
 	POWER_SUPPLY_TYPE_PARALLEL,	/* Parallel Path */
 	POWER_SUPPLY_TYPE_MAIN,		/* Main Path */

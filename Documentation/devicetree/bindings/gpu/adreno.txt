@@ -93,6 +93,7 @@ Optional Properties:
 - qcom,chipid:		   If it exists this property is used to replace
 			   the chip identification read from the GPU hardware.
 			   This is used to override faulty hardware readings.
+- qcom,disable-wake-on-touch:   Boolean. Disables the GPU power up on a touch input event.
 - qcom,disable-busy-time-burst:
 				Boolean. Disables the busy time burst to avoid switching
 				of power level for large frames based on the busy time limit.
@@ -140,6 +141,9 @@ Optional Properties:
 				Disables L2PC on masked CPUs when any of Graphics
 				rendering thread is running on masked CPUs.
 				Bit 0 is for CPU-0, bit 1 is for CPU-1...
+
+- qcom,l2pc-update-queue:
+				Disables L2PC on masked CPUs at queue time when it's true.
 
 - qcom,snapshot-size:
 				Specify the size of snapshot in bytes. This will override

@@ -170,6 +170,15 @@
 	qcom,mdss-pref-prim-intf = "dsi";
 };
 
+&mdss_dp_ctrl {
+	pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";
+	pinctrl-0 = <&mdss_dp_aux_active &mdss_dp_usbplug_cc_active>;
+	pinctrl-1 = <&mdss_dp_aux_suspend &mdss_dp_usbplug_cc_suspend>;
+	qcom,aux-en-gpio = <&tlmm 55 0>;
+	qcom,aux-sel-gpio = <&tlmm 56 0>;
+	qcom,usbplug-cc-gpio = <&tlmm 58 0>;
+};
+
 &mdss_dsi {
 	hw-config = "single_dsi";
 };
@@ -218,4 +227,14 @@
 		<0x00188018 0x4>;
 	reg-names = "qusb_phy_base",
 		"ref_clk_addr";
+	qcom,qusb-phy-init-seq = <0xf8 0x80
+				0xb3 0x84
+				0x83 0x88
+				0xc7 0x8c
+				0x30 0x08
+				0x79 0x0c
+				0x21 0x10
+				0x14 0x9c
+				0x9f 0x1c
+				0x00 0x18>;
 };

@@ -83,22 +83,6 @@ struct adreno_info {
 
 const struct adreno_info *adreno_info(struct adreno_rev rev);
 
-#define _sizeof(member) \
-	sizeof(((struct adreno_rbmemptrs *) 0)->member[0])
-
-#define _base(adreno_gpu, member)  \
-	((adreno_gpu)->memptrs_iova + offsetof(struct adreno_rbmemptrs, member))
-
-#define rbmemptr(adreno_gpu, index, member) \
-	(_base((adreno_gpu), member) + ((index) * _sizeof(member)))
-
-struct adreno_rbmemptrs {
-	volatile uint32_t rptr[MSM_GPU_MAX_RINGS];
-	volatile uint32_t fence[MSM_GPU_MAX_RINGS];
-	volatile uint64_t ttbr0[MSM_GPU_MAX_RINGS];
-	volatile unsigned int contextidr[MSM_GPU_MAX_RINGS];
-};
-
 struct adreno_counter {
 	u32 lo;
 	u32 hi;
@@ -136,13 +120,6 @@ struct adreno_gpu {
 
 	/* firmware: */
 	const struct firmware *pm4, *pfp;
-
-	/* ringbuffer rptr/wptr: */
-	// TODO should this be in msm_ringbuffer?  I think it would be
-	// different for z180..
-	struct adreno_rbmemptrs *memptrs;
-	struct drm_gem_object *memptrs_bo;
-	uint64_t memptrs_iova;
 
 	/*
 	 * Register offsets are different between some GPUs.
@@ -240,7 +217,6 @@ static inline int adreno_is_a540(struct adreno_gpu *gpu)
 
 int adreno_get_param(struct msm_gpu *gpu, uint32_t param, uint64_t *value);
 int adreno_hw_init(struct msm_gpu *gpu);
-uint32_t adreno_last_fence(struct msm_gpu *gpu, struct msm_ringbuffer *ring);
 uint32_t adreno_submitted_fence(struct msm_gpu *gpu,
 		struct msm_ringbuffer *ring);
 void adreno_recover(struct msm_gpu *gpu);

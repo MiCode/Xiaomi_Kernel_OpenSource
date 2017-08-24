@@ -468,6 +468,9 @@ static void ath10k_wmi_tlv_op_rx(struct ath10k *ar, struct sk_buff *skb)
 	case WMI_TLV_VDEV_STOPPED_EVENTID:
 		ath10k_wmi_event_vdev_stopped(ar, skb);
 		break;
+	case WMI_TLV_VDEV_DELETE_RESP_EVENTID:
+		ath10k_wmi_event_vdev_delete_resp(ar, skb);
+		break;
 	case WMI_TLV_PEER_STA_KICKOUT_EVENTID:
 		ath10k_wmi_event_peer_sta_kickout(ar, skb);
 		break;
@@ -551,6 +554,9 @@ static void ath10k_wmi_tlv_op_rx(struct ath10k *ar, struct sk_buff *skb)
 		break;
 	case WMI_TLV_TX_PAUSE_EVENTID:
 		ath10k_wmi_tlv_event_tx_pause(ar, skb);
+		break;
+	case WMI_TLV_PEER_DELETE_RESP_EVENTID:
+		ath10k_wmi_tlv_event_peer_delete_resp(ar, skb);
 		break;
 	default:
 		ath10k_dbg(ar, ATH10K_DBG_WMI, "Unknown eventid: %d\n", id);
@@ -642,6 +648,34 @@ static int ath10k_wmi_tlv_op_pull_mgmt_rx_ev(struct ath10k *ar,
 	return 0;
 }
 
+static int ath10k_wmi_tlv_op_pull_peer_delete_ev(
+			struct ath10k *ar, struct sk_buff *skb,
+			struct wmi_peer_delete_resp_ev_arg *arg)
+{
+	const void **tb;
+	const struct wmi_peer_delete_resp_ev_arg *ev;
+	int ret;
+
+	tb = ath10k_wmi_tlv_parse_alloc(ar, skb->data, skb->len, GFP_ATOMIC);
+	if (IS_ERR(tb)) {
+		ret = PTR_ERR(tb);
+		ath10k_warn(ar, "failed to parse tlv: %d\n", ret);
+		return ret;
+	}
+
+	ev = tb[WMI_TLV_TAG_STRUCT_PEER_DELETE_RESP_EVENT];
+	if (!ev) {
+		kfree(tb);
+		return -EPROTO;
+	}
+
+	arg->vdev_id = ev->vdev_id;
+	arg->peer_addr = ev->peer_addr;
+
+	kfree(tb);
+	return 0;
+}
+
 static int ath10k_wmi_tlv_op_pull_ch_info_ev(struct ath10k *ar,
 					     struct sk_buff *skb,
 					     struct wmi_ch_info_ev_arg *arg)
@@ -669,6 +703,13 @@ static int ath10k_wmi_tlv_op_pull_ch_info_ev(struct ath10k *ar,
 	arg->noise_floor = ev->noise_floor;
 	arg->rx_clear_count = ev->rx_clear_count;
 	arg->cycle_count = ev->cycle_count;
+	arg->chan_tx_pwr_range = ev->chan_tx_pwr_range;
+	arg->chan_tx_pwr_tp = ev->chan_tx_pwr_tp;
+	arg->rx_frame_count = ev->rx_frame_count;
+	arg->my_bss_rx_cycle_count = ev->my_bss_rx_cycle_count;
+	arg->rx_11b_mode_data_duration = ev->rx_11b_mode_data_duration;
+	arg->tx_frame_cnt = ev->tx_frame_cnt;
+	arg->mac_clk_mhz = ev->mac_clk_mhz;
 
 	kfree(tb);
 	return 0;
@@ -1512,11 +1553,14 @@ ath10k_wmi_tlv_op_gen_start_scan(struct ath10k *ar,
 	cmd->ie_len = __cpu_to_le32(arg->ie_len);
 	cmd->num_probes = __cpu_to_le32(3);
 
-	if (QCA_REV_WCN3990(ar))
+	if (QCA_REV_WCN3990(ar)) {
 		cmd->common.scan_ctrl_flags = ar->fw_flags->flags;
-	else
+		cmd->common.scan_ctrl_flags |=
+					__cpu_to_le32(WMI_SCAN_CHAN_STAT_EVENT);
+	} else {
 		cmd->common.scan_ctrl_flags ^=
 			__cpu_to_le32(WMI_SCAN_FILTER_PROBE_REQ);
+	}
 
 	ptr += sizeof(*tlv);
 	ptr += sizeof(*cmd);
@@ -3595,6 +3639,7 @@ static const struct wmi_ops wmi_tlv_ops = {
 	.pull_scan = ath10k_wmi_tlv_op_pull_scan_ev,
 	.pull_mgmt_rx = ath10k_wmi_tlv_op_pull_mgmt_rx_ev,
 	.pull_ch_info = ath10k_wmi_tlv_op_pull_ch_info_ev,
+	.pull_peer_delete_resp = ath10k_wmi_tlv_op_pull_peer_delete_ev,
 	.pull_vdev_start = ath10k_wmi_tlv_op_pull_vdev_start_ev,
 	.pull_peer_kick = ath10k_wmi_tlv_op_pull_peer_kick_ev,
 	.pull_swba = ath10k_wmi_tlv_op_pull_swba_ev,

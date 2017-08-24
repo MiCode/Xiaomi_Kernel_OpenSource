@@ -384,6 +384,7 @@ struct clk_osm {
 	u32 acd_extint1_cfg;
 	u32 acd_autoxfer_ctl;
 	u32 acd_debugfs_addr;
+	u32 acd_debugfs_addr_size;
 	bool acd_init;
 	bool secure_init;
 	bool red_fsm_en;
@@ -719,9 +720,22 @@ static int clk_osm_set_rate(struct clk_hw *hw, unsigned long rate,
 	return 0;
 }
 
+static int clk_osm_acd_init(struct clk_osm *c);
+
 static int clk_osm_enable(struct clk_hw *hw)
 {
 	struct clk_osm *cpuclk = to_clk_osm(hw);
+	int rc;
+
+	rc = clk_osm_acd_init(cpuclk);
+	if (rc) {
+		pr_err("Failed to initialize ACD for cluster %d, rc=%d\n",
+				cpuclk->cluster_num, rc);
+		return rc;
+	}
+
+	/* Wait for 5 usecs before enabling OSM */
+	udelay(5);
 
 	clk_osm_write_reg(cpuclk, 1, ENABLE_REG);
 
@@ -1358,6 +1372,7 @@ static int clk_osm_resources_init(struct platform_device *pdev)
 			return -ENOMEM;
 		}
 		pwrcl_clk.pbases[ACD_BASE] = pbase;
+		pwrcl_clk.acd_debugfs_addr_size = resource_size(res);
 		pwrcl_clk.vbases[ACD_BASE] = vbase;
 		pwrcl_clk.acd_init = true;
 	} else {
@@ -1375,6 +1390,7 @@ static int clk_osm_resources_init(struct platform_device *pdev)
 			return -ENOMEM;
 		}
 		perfcl_clk.pbases[ACD_BASE] = pbase;
+		perfcl_clk.acd_debugfs_addr_size = resource_size(res);
 		perfcl_clk.vbases[ACD_BASE] = vbase;
 		perfcl_clk.acd_init = true;
 	} else {
@@ -2819,6 +2835,11 @@ static int debugfs_get_debug_reg(void *data, u64 *val)
 {
 	struct clk_osm *c = data;
 
+	if (!c->pbases[ACD_BASE]) {
+		pr_err("ACD base start not defined\n");
+		return -EINVAL;
+	}
+
 	if (c->acd_debugfs_addr >= ACD_MASTER_ONLY_REG_ADDR)
 		*val = readl_relaxed((char *)c->vbases[ACD_BASE] +
 				     c->acd_debugfs_addr);
@@ -2830,6 +2851,11 @@ static int debugfs_get_debug_reg(void *data, u64 *val)
 static int debugfs_set_debug_reg(void *data, u64 val)
 {
 	struct clk_osm *c = data;
+
+	if (!c->pbases[ACD_BASE]) {
+		pr_err("ACD base start not defined\n");
+		return -EINVAL;
+	}
 
 	if (c->acd_debugfs_addr >= ACD_MASTER_ONLY_REG_ADDR)
 		clk_osm_acd_master_write_reg(c, val, c->acd_debugfs_addr);
@@ -2848,13 +2874,27 @@ static int debugfs_get_debug_reg_addr(void *data, u64 *val)
 {
 	struct clk_osm *c = data;
 
+	if (!c->pbases[ACD_BASE]) {
+		pr_err("ACD base start not defined\n");
+		return -EINVAL;
+	}
+
 	*val = c->acd_debugfs_addr;
+
 	return 0;
 }
 
 static int debugfs_set_debug_reg_addr(void *data, u64 val)
 {
 	struct clk_osm *c = data;
+
+	if (!c->pbases[ACD_BASE]) {
+		pr_err("ACD base start not defined\n");
+		return -EINVAL;
+	}
+
+	if (val >= c->acd_debugfs_addr_size)
+		return -EINVAL;
 
 	c->acd_debugfs_addr = val;
 	return 0;
@@ -3270,17 +3310,6 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,osm-pll-setup")) {
 		clk_osm_setup_cluster_pll(&pwrcl_clk);
 		clk_osm_setup_cluster_pll(&perfcl_clk);
-	}
-
-	rc = clk_osm_acd_init(&pwrcl_clk);
-	if (rc) {
-		pr_err("failed to initialize ACD for pwrcl, rc=%d\n", rc);
-		return rc;
-	}
-	rc = clk_osm_acd_init(&perfcl_clk);
-	if (rc) {
-		pr_err("failed to initialize ACD for perfcl, rc=%d\n", rc);
-		return rc;
 	}
 
 	spin_lock_init(&pwrcl_clk.lock);

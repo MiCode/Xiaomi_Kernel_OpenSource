@@ -942,10 +942,13 @@ net_dev_reg_fail:
 	netif_napi_del(&(rmnet_mhi_ptr->napi));
 	free_netdev(rmnet_mhi_ptr->dev);
 net_dev_alloc_fail:
-	mhi_close_channel(rmnet_mhi_ptr->rx_client_handle);
-	rmnet_mhi_ptr->dev = NULL;
+	if (rmnet_mhi_ptr->rx_client_handle) {
+		mhi_close_channel(rmnet_mhi_ptr->rx_client_handle);
+		rmnet_mhi_ptr->dev = NULL;
+	}
 mhi_rx_chan_start_fail:
-	mhi_close_channel(rmnet_mhi_ptr->tx_client_handle);
+	if (rmnet_mhi_ptr->tx_client_handle)
+		mhi_close_channel(rmnet_mhi_ptr->tx_client_handle);
 mhi_tx_chan_start_fail:
 	rmnet_log(rmnet_mhi_ptr, MSG_INFO, "Exited ret %d.\n", ret);
 	return ret;

@@ -65,26 +65,19 @@ _kgsl_get_pool_from_order(unsigned int order)
 
 /* Map the page into kernel and zero it out */
 static void
-_kgsl_pool_zero_page(struct page *p, unsigned int pool_order)
+_kgsl_pool_zero_page(struct page *p)
 {
-	int i;
+	void *addr = kmap_atomic(p);
 
-	for (i = 0; i < (1 << pool_order); i++) {
-		struct page *page = nth_page(p, i);
-		void *addr = kmap_atomic(page);
-
-		memset(addr, 0, PAGE_SIZE);
-		dmac_flush_range(addr, addr + PAGE_SIZE);
-		kunmap_atomic(addr);
-	}
+	memset(addr, 0, PAGE_SIZE);
+	dmac_flush_range(addr, addr + PAGE_SIZE);
+	kunmap_atomic(addr);
 }
 
 /* Add a page to specified pool */
 static void
 _kgsl_pool_add_page(struct kgsl_page_pool *pool, struct page *p)
 {
-	_kgsl_pool_zero_page(p, pool->pool_order);
-
 	spin_lock(&pool->list_lock);
 	list_add_tail(&p->lru, &pool->page_list);
 	pool->page_count++;
@@ -280,6 +273,17 @@ static int kgsl_pool_idx_lookup(unsigned int order)
 	return -ENOMEM;
 }
 
+static int kgsl_pool_get_retry_order(unsigned int order)
+{
+	int i;
+
+	for (i = kgsl_num_pools-1; i > 0; i--)
+		if (order >= kgsl_pools[i].pool_order)
+			return kgsl_pools[i].pool_order;
+
+	return 0;
+}
+
 /**
  * kgsl_pool_alloc_page() - Allocate a page of requested size
  * @page_size: Size of the page to be allocated
@@ -318,7 +322,6 @@ int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 			} else
 				return -ENOMEM;
 		}
-		_kgsl_pool_zero_page(page, order);
 		goto done;
 	}
 
@@ -326,7 +329,7 @@ int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 	if (pool == NULL) {
 		/* Retry with lower order pages */
 		if (order > 0) {
-			size = PAGE_SIZE << --order;
+			size = PAGE_SIZE << kgsl_pool_get_retry_order(order);
 			goto eagain;
 		} else {
 			/*
@@ -338,7 +341,6 @@ int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 			page = alloc_pages(gfp_mask, order);
 			if (page == NULL)
 				return -ENOMEM;
-			_kgsl_pool_zero_page(page, order);
 			goto done;
 		}
 	}
@@ -368,13 +370,12 @@ int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 			} else
 				return -ENOMEM;
 		}
-
-		_kgsl_pool_zero_page(page, order);
 	}
 
 done:
 	for (j = 0; j < (*page_size >> PAGE_SHIFT); j++) {
 		p = nth_page(page, j);
+		_kgsl_pool_zero_page(p);
 		pages[pcount] = p;
 		pcount++;
 	}

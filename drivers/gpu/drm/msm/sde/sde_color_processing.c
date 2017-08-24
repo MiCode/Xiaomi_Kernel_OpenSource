@@ -344,8 +344,8 @@ static void sde_cp_crtc_install_immutable_property(struct drm_crtc *crtc,
 	prop = priv->cp_property[feature];
 
 	if (!prop) {
-		prop = drm_property_create(crtc->dev, DRM_MODE_PROP_IMMUTABLE,
-					   name, 0);
+		prop = drm_property_create_range(crtc->dev,
+				DRM_MODE_PROP_IMMUTABLE, name, 0, 1);
 		if (!prop) {
 			DRM_ERROR("property create failed: %s\n", name);
 			kfree(prop_node);

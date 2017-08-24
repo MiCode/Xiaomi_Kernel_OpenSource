@@ -79,6 +79,9 @@
 
 		qcom,tsens-name = "tsens_tz_sensor12";
 
+		/* Avoid L2PC on big cluster CPUs (CPU 4,5,6,7) */
+		qcom,l2pc-cpu-mask = <0x000000f0>;
+
 		/* Quirks */
 		qcom,gpu-quirk-lmloadkill-disable;
 

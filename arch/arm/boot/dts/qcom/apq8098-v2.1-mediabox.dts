@@ -90,6 +90,7 @@
 
 &snd_9335 {
 	qcom,msm-mi2s-master = <1>, <1>, <1>, <0>;
+	qcom,msm-mbhc-hphl-swh = <1>;
 };
 
 &wcd_usbc_analog_en1_gpio {
@@ -98,6 +99,10 @@
 
 &wcd_usbc_analog_en2n_gpio {
 	status = "disabled";
+};
+
+&pcie0 {
+	qcom,boot-option = <0x0>;
 };
 
 &soc {

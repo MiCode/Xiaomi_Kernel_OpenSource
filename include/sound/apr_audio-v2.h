@@ -446,6 +446,88 @@ struct adm_param_data_v5 {
 	 */
 } __packed;
 
+
+struct param_data_v6 {
+	/* Unique ID of the module. */
+	u32		module_id;
+	/* Unique ID of the instance. */
+	u16		instance_id;
+	/* Reserved for future enhancements.
+	 * This field must be set to zero.
+	 */
+	u16		reserved;
+	/* Unique ID of the parameter. */
+	u32		param_id;
+	/* Data size of the param_id/module_id combination.
+	 * This value is a
+	 * multiple of 4 bytes.
+	 */
+	u32		param_size;
+} __packed;
+
+/* ADM_CMD_SET_MTMX_STRTR_DEV_PARAMS_V1 command is used to set
+ * calibration data to the ADSP Matrix Mixer the payload is
+ * of struct adm_cmd_set_mtmx_params_v1.
+ *
+ * ADM_CMD_GET_MTMX_STRTR_DEV_PARAMS_V1 can be used to get
+ * the calibration data from the ADSP Matrix Mixer and
+ * ADM_CMDRSP_GET_MTMX_STRTR_DEV_PARAMS_V1 is the response
+ * ioctl to ADM_CMD_GET_MTMX_STRTR_DEV_PARAMS_V1.
+ */
+#define ADM_CMD_SET_MTMX_STRTR_DEV_PARAMS_V1	0x00010367
+#define ADM_CMD_GET_MTMX_STRTR_DEV_PARAMS_V1	0x00010368
+#define ADM_CMDRSP_GET_MTMX_STRTR_DEV_PARAMS_V1	0x00010369
+
+/* Payload of the #define ADM_CMD_SET_MTMX_STRTR_DEV_PARAMS_V1 command.
+ * If the data_payload_addr_lsw and data_payload_addr_msw element
+ * are NULL, a series of struct param_data_v6 structures immediately
+ * follows, whose total size is payload_size bytes.
+ */
+struct adm_cmd_set_mtmx_params_v1 {
+	struct apr_hdr	hdr;
+	/* LSW of parameter data payload address.*/
+	u32		payload_addr_lsw;
+
+	/* MSW of parameter data payload address.*/
+	u32		payload_addr_msw;
+
+	/* Memory map handle returned by ADM_CMD_SHARED_MEM_MAP_REGIONS
+	 * command.
+	 * If mem_map_handle is zero it implies the message is in
+	 * the payload
+	 */
+	u32		mem_map_handle;
+
+	/* Size in bytes of the variable payload accompanying this
+	 * message or in shared memory. This is used for parsing
+	 * the parameter payload.
+	 */
+	u32		payload_size;
+
+	/* COPP ID/Device ID */
+	u16		copp_id;
+
+	/* For alignment, must be set to 0 */
+	u16		reserved;
+} __packed;
+
+struct enable_param_v6 {
+	/*
+	 * Specifies whether the Audio processing module is enabled.
+	 * This parameter is generic/common parameter to configure or
+	 * determine the state of any audio processing module.
+	 */
+	struct param_data_v6		param;
+
+	/* @values 0 : Disable 1: Enable */
+	uint32_t			enable;
+} __packed;
+
+/* Defined in ADSP as VOICE_MODULE_TX_STREAM_LIMITER but
+ * used for RX stream limiter on matrix input to ADM.
+ */
+#define ADM_MTMX_MODULE_STREAM_LIMITER  0x00010F15
+
 #define ASM_STREAM_CMD_REGISTER_PP_EVENTS 0x00013213
 #define ASM_STREAM_PP_EVENT 0x00013214
 #define ASM_STREAM_CMD_REGISTER_IEC_61937_FMT_UPDATE 0x13333
@@ -625,6 +707,29 @@ struct audproc_softvolume_params {
  */
 #define AUDPROC_PARAM_ID_MFC_OUTPUT_MEDIA_FORMAT            0x00010913
 
+/* ID of the Channel Mixer module, which is used to configure
+ * channel-mixer related parameters.
+ * This module supports the AUDPROC_CHMIXER_PARAM_ID_COEFF parameter ID.
+ */
+#define AUDPROC_MODULE_ID_CHMIXER                           0x00010341
+
+/* ID of the Coefficient parameter used by AUDPROC_MODULE_ID_CHMIXER to
+ *configure the channel mixer weighting coefficients.
+ */
+#define AUDPROC_CHMIXER_PARAM_ID_COEFF                      0x00010342
+
+/* Payload of the per-session, per-device parameter data of the
+ *   #ADM_CMD_SET_PSPD_MTMX_STRTR_PARAMS_V5 command or
+ *   #ADM_CMD_SET_PSPD_MTMX_STRTR_PARAMS_V6 command.
+ * Immediately following this structure are param_size bytes of parameter
+ *   data. The structure and size depend on the module_id/param_id pair.
+ */
+struct adm_pspd_param_data_t {
+	uint32_t module_id;
+	uint32_t param_id;
+	uint16_t param_size;
+	uint16_t reserved;
+} __packed;
 
 struct audproc_mfc_output_media_fmt {
 	struct adm_cmd_set_pp_params_v5 params;
@@ -3900,6 +4005,14 @@ struct asm_softvolume_params {
 	u32 period;
 	u32 step;
 	u32 rampingcurve;
+} __packed;
+
+struct asm_stream_pan_ctrl_params {
+	uint16_t num_output_channels;
+	uint16_t num_input_channels;
+	uint16_t output_channel_map[8];
+	uint16_t input_channel_map[8];
+	uint32_t gain[64];
 } __packed;
 
 #define ASM_END_POINT_DEVICE_MATRIX     0
@@ -7802,6 +7915,48 @@ struct asm_volume_ctrl_lr_chan_gain {
 	/*< Linear gain in Q13 format for the right channel.*/
 } __packed;
 
+struct audproc_chmixer_param_coeff {
+	uint32_t index;
+	uint16_t num_output_channels;
+	uint16_t num_input_channels;
+} __packed;
+
+
+/* ID of the Multichannel Volume Control parameters used by
+ * AUDPROC_MODULE_ID_VOL_CTRL.
+ */
+#define AUDPROC_PARAM_ID_MULTICHANNEL_GAIN                          0x00010713
+
+/* Payload of the AUDPROC_PARAM_ID_MULTICHANNEL_GAIN channel type/gain
+ * pairs used by the Volume Control module.
+ * This structure immediately follows the
+ * audproc_volume_ctrl_multichannel_gain_t structure.
+ */
+struct audproc_volume_ctrl_channel_type_gain_pair {
+	uint8_t channel_type;
+	/* Channel type for which the gain setting is to be applied. */
+
+	uint8_t reserved1;
+	uint8_t reserved2;
+	uint8_t reserved3;
+
+	uint32_t gain;
+	/* Gain value for this channel in Q28 format. */
+} __packed;
+
+/* Payload of the AUDPROC_PARAM_ID_MULTICHANNEL_MUTE parameters used by
+ * the Volume Control module.
+ */
+struct audproc_volume_ctrl_multichannel_gain {
+	uint32_t num_channels;
+	/* Number of channels for which mute configuration is provided. Any
+	 * channels present in the data for which mute configuration is not
+	 * provided are set to unmute.
+	 */
+
+	struct audproc_volume_ctrl_channel_type_gain_pair *gain_data;
+	/* Array of channel type/mute setting pairs. */
+} __packed;
 
 /* Structure for the mute configuration parameter for a
 	volume control module. */
@@ -9151,7 +9306,6 @@ struct srs_trumedia_params {
 } __packed;
 /* SRS TruMedia end */
 
-#define AUDPROC_PARAM_ID_ENABLE		0x00010904
 #define ASM_STREAM_POSTPROC_TOPO_ID_SA_PLUS 0x1000FFFF
 /* DTS Eagle */
 #define AUDPROC_MODULE_ID_DTS_HPX_PREMIX 0x0001077C

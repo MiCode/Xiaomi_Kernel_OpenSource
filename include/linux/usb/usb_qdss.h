@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,9 @@
 #define __LINUX_USB_QDSS_H
 
 #include <linux/kernel.h>
+
+#define USB_QDSS_CH_MDM	"qdss_mdm"
+#define USB_QDSS_CH_MSM	"qdss"
 
 struct qdss_request {
 	char *buf;

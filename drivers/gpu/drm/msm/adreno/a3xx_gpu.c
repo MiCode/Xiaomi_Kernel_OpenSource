@@ -409,8 +409,8 @@ static void a3xx_show(struct msm_gpu *gpu, struct seq_file *m)
 	gpu->funcs->pm_resume(gpu);
 	seq_printf(m, "status:   %08x\n",
 			gpu_read(gpu, REG_A3XX_RBBM_STATUS));
-	gpu->funcs->pm_suspend(gpu);
 	adreno_show(gpu, m);
+	gpu->funcs->pm_suspend(gpu);
 }
 #endif
 
@@ -439,7 +439,6 @@ static const struct adreno_gpu_funcs funcs = {
 		.pm_suspend = msm_gpu_pm_suspend,
 		.pm_resume = msm_gpu_pm_resume,
 		.recover = a3xx_recover,
-		.last_fence = adreno_last_fence,
 		.submitted_fence = adreno_submitted_fence,
 		.submit = adreno_submit,
 		.flush = adreno_flush,
