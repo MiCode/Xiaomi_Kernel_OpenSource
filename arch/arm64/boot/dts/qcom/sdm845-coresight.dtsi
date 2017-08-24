@@ -1862,6 +1862,18 @@
 		clock-names = "apb_pclk";
 	};
 
+	cti0_swao:cti@6b04000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
+		reg = <0x6b04000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti0-swao";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
 	turing_etm0 {
 		compatible = "qcom,coresight-remote-etm";
 
