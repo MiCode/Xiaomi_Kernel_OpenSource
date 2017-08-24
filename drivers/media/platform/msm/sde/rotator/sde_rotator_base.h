@@ -157,6 +157,7 @@ struct sde_smmu_client {
 	struct reg_bus_client *reg_bus_clt;
 	bool domain_attached;
 	int domain;
+	u32 sid;
 };
 
 /*

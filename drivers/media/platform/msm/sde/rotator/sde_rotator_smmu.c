@@ -517,6 +517,7 @@ int sde_smmu_probe(struct platform_device *pdev)
 	const struct of_device_id *match;
 	struct sde_module_power *mp;
 	char name[MAX_CLIENT_NAME_LEN];
+	u32 sid = 0;
 
 	if (!mdata) {
 		SDEROT_INFO(
@@ -538,6 +539,11 @@ int sde_smmu_probe(struct platform_device *pdev)
 
 	if (of_find_property(pdev->dev.of_node, "iommus", NULL)) {
 		dev = &pdev->dev;
+		rc = of_property_read_u32_index(pdev->dev.of_node, "iommus",
+			1, &sid);
+		if (rc)
+			SDEROT_DBG("SID not defined for domain:%d",
+					smmu_domain.domain);
 	} else {
 		SDEROT_ERR("Invalid SMMU ctx for domain:%d\n",
 				smmu_domain.domain);
@@ -546,6 +552,7 @@ int sde_smmu_probe(struct platform_device *pdev)
 
 	sde_smmu = &mdata->sde_smmu[smmu_domain.domain];
 	sde_smmu->domain = smmu_domain.domain;
+	sde_smmu->sid = sid;
 	mp = &sde_smmu->mp;
 	memset(mp, 0, sizeof(struct sde_module_power));
 
