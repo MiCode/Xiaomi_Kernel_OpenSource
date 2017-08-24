@@ -532,17 +532,25 @@ static int sde_encoder_phys_vid_control_vblank_irq(
 {
 	int ret = 0;
 	struct sde_encoder_phys_vid *vid_enc;
+	int refcount;
 
 	if (!phys_enc) {
 		SDE_ERROR("invalid encoder\n");
 		return -EINVAL;
 	}
 
+	refcount = atomic_read(&phys_enc->vblank_refcount);
 	vid_enc = to_sde_encoder_phys_vid(phys_enc);
 
 	/* Slave encoders don't report vblank */
 	if (!sde_encoder_phys_vid_is_master(phys_enc))
-		return 0;
+		goto end;
+
+	/* protect against negative */
+	if (!enable && refcount == 0) {
+		ret = -EINVAL;
+		goto end;
+	}
 
 	SDE_DEBUG_VIDENC(vid_enc, "[%pS] enable=%d/%d\n",
 			__builtin_return_address(0),
@@ -557,11 +565,15 @@ static int sde_encoder_phys_vid_control_vblank_irq(
 		ret = sde_encoder_helper_unregister_irq(phys_enc,
 				INTR_IDX_VSYNC);
 
-	if (ret)
+end:
+	if (ret) {
 		SDE_ERROR_VIDENC(vid_enc,
 				"control vblank irq error %d, enable %d\n",
 				ret, enable);
-
+		SDE_EVT32(DRMID(phys_enc->parent),
+				vid_enc->hw_intf->idx - INTF_0,
+				enable, refcount, SDE_EVTLOG_ERROR);
+	}
 	return ret;
 }
 
@@ -572,7 +584,6 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	struct sde_hw_intf *intf;
 	struct sde_hw_ctl *ctl;
 	u32 flush_mask = 0;
-	int ret;
 
 	if (!phys_enc || !phys_enc->parent || !phys_enc->parent->dev ||
 			!phys_enc->parent->dev->dev_private) {
@@ -601,15 +612,6 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	sde_encoder_helper_split_config(phys_enc, vid_enc->hw_intf->idx);
 
 	sde_encoder_phys_vid_setup_timing_engine(phys_enc);
-	ret = sde_encoder_phys_vid_control_vblank_irq(phys_enc, true);
-	if (ret)
-		goto end;
-
-	ret = sde_encoder_helper_register_irq(phys_enc, INTR_IDX_UNDERRUN);
-	if (ret) {
-		sde_encoder_phys_vid_control_vblank_irq(phys_enc, false);
-		goto end;
-	}
 
 	/*
 	 * For pp-split, skip setting the flush bit for the slave intf, since
@@ -630,7 +632,6 @@ skip_flush:
 	if (phys_enc->enable_state == SDE_ENC_DISABLED)
 		phys_enc->enable_state = SDE_ENC_ENABLING;
 
-end:
 	return;
 }
 
@@ -804,10 +805,7 @@ static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 			SDE_EVT32(DRMID(phys_enc->parent),
 					vid_enc->hw_intf->idx - INTF_0, ret);
 		}
-		sde_encoder_phys_vid_control_vblank_irq(phys_enc, false);
 	}
-
-	sde_encoder_helper_unregister_irq(phys_enc, INTR_IDX_UNDERRUN);
 
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 }
@@ -837,6 +835,32 @@ static void sde_encoder_phys_vid_handle_post_kickoff(
 		vid_enc->hw_intf->ops.enable_timing(vid_enc->hw_intf, 1);
 		spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 		phys_enc->enable_state = SDE_ENC_ENABLED;
+	}
+}
+
+static void sde_encoder_phys_vid_irq_control(struct sde_encoder_phys *phys_enc,
+		bool enable)
+{
+	struct sde_encoder_phys_vid *vid_enc;
+	int ret;
+
+	if (!phys_enc)
+		return;
+
+	vid_enc = to_sde_encoder_phys_vid(phys_enc);
+
+	SDE_EVT32(DRMID(phys_enc->parent), vid_enc->hw_intf->idx - INTF_0,
+			enable, atomic_read(&phys_enc->vblank_refcount));
+
+	if (enable) {
+		ret = sde_encoder_phys_vid_control_vblank_irq(phys_enc, true);
+		if (ret)
+			return;
+
+		sde_encoder_helper_register_irq(phys_enc, INTR_IDX_UNDERRUN);
+	} else {
+		sde_encoder_phys_vid_control_vblank_irq(phys_enc, false);
+		sde_encoder_helper_unregister_irq(phys_enc, INTR_IDX_UNDERRUN);
 	}
 }
 
@@ -879,6 +903,7 @@ static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->wait_for_commit_done = sde_encoder_phys_vid_wait_for_vblank;
 	ops->wait_for_vblank = sde_encoder_phys_vid_wait_for_vblank;
 	ops->wait_for_tx_complete = sde_encoder_phys_vid_wait_for_vblank;
+	ops->irq_control = sde_encoder_phys_vid_irq_control;
 	ops->prepare_for_kickoff = sde_encoder_phys_vid_prepare_for_kickoff;
 	ops->handle_post_kickoff = sde_encoder_phys_vid_handle_post_kickoff;
 	ops->needs_single_flush = sde_encoder_phys_vid_needs_single_flush;
