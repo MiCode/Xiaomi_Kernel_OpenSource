@@ -292,6 +292,7 @@ enum icnss_driver_state {
 	ICNSS_WLFW_EXISTS,
 	ICNSS_SHUTDOWN_DONE,
 	ICNSS_HOST_TRIGGERED_PDR,
+	ICNSS_FW_DOWN,
 };
 
 struct ce_irq_list {
@@ -1946,6 +1947,12 @@ static void icnss_qmi_wlfw_clnt_ind(struct qmi_handle *handle,
 
 	icnss_pr_dbg("Received Ind 0x%x, msg_len: %d\n", msg_id, msg_len);
 
+	if (test_bit(ICNSS_FW_DOWN, &penv->state)) {
+		icnss_pr_dbg("FW down, ignoring 0x%x, state: 0x%lx\n",
+				msg_id, penv->state);
+		return;
+	}
+
 	switch (msg_id) {
 	case QMI_WLFW_FW_READY_IND_V01:
 		icnss_driver_event_post(ICNSS_DRIVER_EVENT_FW_READY_IND,
@@ -1992,6 +1999,7 @@ static int icnss_driver_event_server_arrive(void *data)
 		return -ENODEV;
 
 	set_bit(ICNSS_WLFW_EXISTS, &penv->state);
+	clear_bit(ICNSS_FW_DOWN, &penv->state);
 
 	penv->wlfw_clnt = qmi_handle_create(icnss_qmi_wlfw_clnt_notify, penv);
 	if (!penv->wlfw_clnt) {
@@ -2492,6 +2500,8 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 	icnss_pr_info("Modem went down, state: 0x%lx, crashed: %d\n",
 		      priv->state, notif->crashed);
 
+	set_bit(ICNSS_FW_DOWN, &priv->state);
+
 	if (notif->crashed)
 		priv->stats.recovery.root_pd_crash++;
 	else
@@ -2619,6 +2629,7 @@ static int icnss_service_notifier_notify(struct notifier_block *nb,
 	icnss_pr_info("PD service down, pd_state: %d, state: 0x%lx: cause: %s\n",
 		      *state, priv->state, icnss_pdr_cause[cause]);
 event_post:
+	set_bit(ICNSS_FW_DOWN, &priv->state);
 	icnss_ignore_qmi_timeout(true);
 	clear_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state);
 
@@ -2627,6 +2638,8 @@ event_post:
 	icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
 				ICNSS_EVENT_SYNC, event_data);
 done:
+	if (notification == SERVREG_NOTIF_SERVICE_STATE_UP_V01)
+		clear_bit(ICNSS_FW_DOWN, &priv->state);
 	return NOTIFY_OK;
 }
 
@@ -3833,6 +3846,9 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 			continue;
 		case ICNSS_HOST_TRIGGERED_PDR:
 			seq_puts(s, "HOST TRIGGERED PDR");
+			continue;
+		case ICNSS_FW_DOWN:
+			seq_puts(s, "FW DOWN");
 			continue;
 		}
 
