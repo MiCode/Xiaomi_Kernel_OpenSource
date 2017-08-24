@@ -3349,8 +3349,11 @@ int sde_rotator_r3_init(struct sde_rot_mgr *mgr)
 		goto error_parse_dt;
 
 	rot->irq_num = platform_get_irq(mgr->pdev, 0);
-	if (rot->irq_num < 0) {
-		SDEROT_ERR("fail to get rotator irq\n");
+	if (rot->irq_num == -EPROBE_DEFER) {
+		SDEROT_INFO("irq master master not ready, defer probe\n");
+		return -EPROBE_DEFER;
+	} else if (rot->irq_num < 0) {
+		SDEROT_ERR("fail to get rotator irq, fallback to polling\n");
 	} else {
 		if (rot->mode == ROT_REGDMA_OFF)
 			ret = devm_request_threaded_irq(&mgr->pdev->dev,
