@@ -1280,10 +1280,10 @@ static inline u64 scale_exec_time(u64 delta, struct rq *rq)
 /* Convert busy time to frequency equivalent
  * Assumes load is scaled to 1024
  */
-static inline unsigned int load_to_freq(struct rq *rq, u64 load)
+static inline unsigned int load_to_freq(struct rq *rq, unsigned int load)
 {
 	return mult_frac(cpu_max_possible_freq(cpu_of(rq)), load,
-			 capacity_orig_of(cpu_of(rq)));
+			 (unsigned int) capacity_orig_of(cpu_of(rq)));
 }
 
 bool do_pl_notif(struct rq *rq)
