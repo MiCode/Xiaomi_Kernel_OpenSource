@@ -247,6 +247,7 @@ struct sde_connector_evt {
  * @fb_kmap: true if kernel mapping of framebuffer is requested
  * @event_table: Array of registered events
  * @event_lock: Lock object for event_table
+ * @bl_device: backlight device node
  */
 struct sde_connector {
 	struct drm_connector base;
@@ -277,6 +278,8 @@ struct sde_connector {
 	bool fb_kmap;
 	struct sde_connector_evt event_table[SDE_CONN_EVENT_COUNT];
 	spinlock_t event_lock;
+
+	struct backlight_device *bl_device;
 };
 
 /**
