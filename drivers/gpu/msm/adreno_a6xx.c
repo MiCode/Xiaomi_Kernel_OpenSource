@@ -871,6 +871,16 @@ static int _load_firmware(struct kgsl_device *device, const char *fwfile,
 
 #define RSC_CMD_OFFSET 2
 #define PDC_CMD_OFFSET 4
+static void _regread(void __iomem *regbase,
+		unsigned int offsetwords, unsigned int *value)
+{
+	void __iomem *reg;
+
+	reg = regbase + (offsetwords << 2);
+	*value = __raw_readl(reg);
+	/* Ensure read completes */
+	rmb();
+}
 
 static void _regwrite(void __iomem *regbase,
 		unsigned int offsetwords, unsigned int value)
@@ -1387,6 +1397,8 @@ static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = &device->gmu;
 	struct device *dev = &gmu->pdev->dev;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	unsigned int tmp;
 	int val;
 
 	kgsl_gmu_regread(device, A6XX_GPU_CC_GX_DOMAIN_MISC, &val);
@@ -1416,6 +1428,19 @@ static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 0);
 
+	/* Turn on GFX rail CPR */
+	if (adreno_is_a630v2(adreno_dev)) {
+		_regread(gmu->cpr_reg_virt, CPR_CPRF_CPRF5_CTRL, &tmp);
+		tmp |= BIT(2);
+		_regwrite(gmu->cpr_reg_virt, CPR_CPRF_CPRF5_CTRL, tmp);
+
+		kgsl_gmu_regread(device, A6XX_GPU_CPR_FSM_CTL, &tmp);
+		tmp |= BIT(0);
+		kgsl_gmu_regwrite(device, A6XX_GPU_CPR_FSM_CTL, tmp);
+		/* Ensure write happens before exit the function */
+		wmb();
+	}
+
 	/* Enable the power counter because it was disabled before slumber */
 	kgsl_gmu_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 1);
 
@@ -1428,8 +1453,22 @@ error_rsc:
 static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = &device->gmu;
-	const struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	unsigned int tmp;
 	int val;
+
+	/* Turn off GFX rail CPR */
+	if (adreno_is_a630v2(adreno_dev)) {
+		_regread(gmu->cpr_reg_virt, CPR_CPRF_CPRF5_CTRL, &tmp);
+		tmp &= ~BIT(2);
+		_regwrite(gmu->cpr_reg_virt, CPR_CPRF_CPRF5_CTRL, tmp);
+
+		kgsl_gmu_regread(device, A6XX_GPU_CPR_FSM_CTL, &tmp);
+		tmp &= ~BIT(0);
+		kgsl_gmu_regwrite(device, A6XX_GPU_CPR_FSM_CTL, tmp);
+		/* Ensure write completes before starting sleep seq */
+		wmb();
+	}
 
 	/* RSC sleep sequence */
 	kgsl_gmu_regwrite(device, A6XX_RSCC_TIMESTAMP_UNIT1_EN_DRV0, 1);
@@ -1942,7 +1981,7 @@ static int a6xx_gmu_suspend(struct kgsl_device *device)
 	a6xx_sptprac_disable(adreno_dev);
 
 	/* Disconnect GPU from BUS. Clear and reconnected after reset */
-	adreno_vbif_clear_pending_transactions(device);
+	/* adreno_vbif_clear_pending_transactions(device); */
 	/* Unnecessary: a6xx_soft_reset(adreno_dev); */
 
 	/* Check no outstanding RPMh voting */
