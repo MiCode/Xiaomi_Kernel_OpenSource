@@ -916,7 +916,9 @@ static int timed_poll_check(struct kgsl_device *device,
 		kgsl_gmu_regread(device, offset, &value);
 		if ((value & mask) == expected_ret)
 			return 0;
-		cpu_relax();
+		/* Wait 100us to reduce unnecessary AHB bus traffic */
+		udelay(100);
+		cond_resched();
 	} while (!time_after(jiffies, t));
 
 	return -EINVAL;

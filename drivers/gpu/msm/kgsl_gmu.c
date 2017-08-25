@@ -1525,7 +1525,9 @@ void gmu_stop(struct kgsl_device *device)
 			idle = true;
 			break;
 		}
-		cpu_relax();
+		/* Wait 100us to reduce unnecessary AHB bus traffic */
+		udelay(100);
+		cond_resched();
 	}
 
 	gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_NOTIFY_SLUMBER, 0, 0);
