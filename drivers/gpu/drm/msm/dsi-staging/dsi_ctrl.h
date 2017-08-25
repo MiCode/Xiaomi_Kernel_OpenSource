@@ -617,9 +617,4 @@ void dsi_ctrl_drv_register(void);
  */
 void dsi_ctrl_drv_unregister(void);
 
-/**
- * dsi_ctrl_dump_debug_register() - dump dsi debug register
- */
-void dsi_ctrl_dump_debug_register(void);
-
 #endif /* _DSI_CTRL_H_ */

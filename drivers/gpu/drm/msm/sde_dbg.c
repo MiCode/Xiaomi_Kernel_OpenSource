@@ -23,7 +23,6 @@
 
 #include "sde_dbg.h"
 #include "sde/sde_hw_catalog.h"
-#include "dsi-staging/dsi_ctrl.h"
 
 #define SDE_DBG_BASE_MAX		10
 
@@ -2536,8 +2535,6 @@ static void _sde_dump_array(struct sde_dbg_reg_base *blk_arr[],
 
 	if (dump_dbgbus_vbif_rt)
 		_sde_dbg_dump_vbif_dbg_bus(&sde_dbg_base.dbgbus_vbif_rt);
-
-	dsi_ctrl_dump_debug_register();
 
 	if (do_panic && sde_dbg_base.panic_on_err)
 		panic(name);
