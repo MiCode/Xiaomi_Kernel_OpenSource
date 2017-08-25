@@ -69,7 +69,9 @@ static int qcom_apcs_ipc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	base = devm_ioremap_resource(&pdev->dev, res);
+	if (!res)
+		return -ENODEV;
+	base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 	if (IS_ERR(base))
 		return PTR_ERR(base);
 
@@ -127,6 +129,8 @@ static const struct of_device_id qcom_apcs_ipc_of_match[] = {
 	{ .compatible = "qcom,msm8996-apcs-hmss-global", .data = (void *)16 },
 	{ .compatible = "qcom,msm8998-apcs-hmss-global", .data = (void *)8 },
 	{ .compatible = "qcom,sdm845-apss-shared", .data = (void *)12 },
+	{ .compatible = "qcom,sm8150-apcs-hmss-global", .data = (void *) 12 },
+	{ .compatible = "qcom,sm8150-spcs-global", .data = (void *)0 },
 	{}
 };
 MODULE_DEVICE_TABLE(of, qcom_apcs_ipc_of_match);
@@ -137,6 +141,7 @@ static struct platform_driver qcom_apcs_ipc_driver = {
 	.driver = {
 		.name = "qcom_apcs_ipc",
 		.of_match_table = qcom_apcs_ipc_of_match,
+		.suppress_bind_attrs = true,
 	},
 };
 
