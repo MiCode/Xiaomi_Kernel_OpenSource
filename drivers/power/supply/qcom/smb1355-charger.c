@@ -763,14 +763,26 @@ static int smb1355_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void smb1355_shutdown(struct platform_device *pdev)
+{
+	struct smb1355 *chip = platform_get_drvdata(pdev);
+	int rc;
+
+	/* disable parallel charging path */
+	rc = smb1355_set_parallel_charging(chip, true);
+	if (rc < 0)
+		pr_err("Couldn't disable parallel path rc=%d\n", rc);
+}
+
 static struct platform_driver smb1355_driver = {
 	.driver	= {
 		.name		= "qcom,smb1355-charger",
 		.owner		= THIS_MODULE,
 		.of_match_table	= match_table,
 	},
-	.probe	= smb1355_probe,
-	.remove	= smb1355_remove,
+	.probe		= smb1355_probe,
+	.remove		= smb1355_remove,
+	.shutdown	= smb1355_shutdown,
 };
 module_platform_driver(smb1355_driver);
 
