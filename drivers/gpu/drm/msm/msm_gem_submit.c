@@ -212,15 +212,8 @@ static int submit_validate_objects(struct msm_gpu *gpu,
 	int contended, slow_locked = -1, i, ret = 0;
 
 retry:
-	submit->valid = true;
-
 	for (i = 0; i < submit->nr_bos; i++) {
 		struct msm_gem_object *msm_obj = submit->bos[i].obj;
-		struct msm_gem_address_space *aspace;
-		uint64_t iova;
-
-		aspace = (msm_obj->flags & MSM_BO_SECURE) ?
-			gpu->secure_aspace : submit->aspace;
 
 		if (slow_locked == i)
 			slow_locked = -1;
@@ -246,28 +239,6 @@ retry:
 				ret = -EINVAL;
 				goto fail;
 			}
-		}
-
-		/* if locking succeeded, pin bo: */
-		ret = msm_gem_get_iova(&msm_obj->base, aspace, &iova);
-
-		/* this would break the logic in the fail path.. there is no
-		 * reason for this to happen, but just to be on the safe side
-		 * let's notice if this starts happening in the future:
-		 */
-		WARN_ON(ret == -EDEADLK);
-
-		if (ret)
-			goto fail;
-
-		submit->bos[i].flags |= BO_PINNED;
-
-		if (iova == submit->bos[i].iova) {
-			submit->bos[i].flags |= BO_VALID;
-		} else {
-			submit->bos[i].iova = iova;
-			submit->bos[i].flags &= ~BO_VALID;
-			submit->valid = false;
 		}
 	}
 
@@ -297,9 +268,14 @@ fail:
 	return ret;
 }
 
-static int submit_bo(struct msm_gem_submit *submit, uint32_t idx,
+static int submit_bo(struct msm_gpu *gpu,
+		struct msm_gem_submit *submit, uint32_t idx,
 		struct msm_gem_object **obj, uint64_t *iova, bool *valid)
 {
+	struct msm_gem_object *msm_obj;
+	struct msm_gem_address_space *aspace;
+	int ret;
+
 	if (idx >= submit->nr_bos) {
 		DRM_ERROR("invalid buffer index: %u (out of %u)\n",
 				idx, submit->nr_bos);
@@ -308,6 +284,39 @@ static int submit_bo(struct msm_gem_submit *submit, uint32_t idx,
 
 	if (obj)
 		*obj = submit->bos[idx].obj;
+
+	/* Only map and pin if the caller needs either the iova or valid */
+	if (!iova && !valid)
+		return 0;
+
+	if (!(submit->bos[idx].flags & BO_PINNED)) {
+		uint64_t buf_iova;
+
+		msm_obj = submit->bos[idx].obj;
+		aspace = (msm_obj->flags & MSM_BO_SECURE) ?
+			gpu->secure_aspace : submit->aspace;
+
+		ret = msm_gem_get_iova(&msm_obj->base, aspace, &buf_iova);
+
+		/* this would break the logic in the fail path.. there is no
+		 * reason for this to happen, but just to be on the safe side
+		 * let's notice if this starts happening in the future:
+		 */
+		WARN_ON(ret == -EDEADLK);
+
+		if (ret)
+			return ret;
+
+		submit->bos[idx].flags |= BO_PINNED;
+
+		if (buf_iova == submit->bos[idx].iova) {
+			submit->bos[idx].flags |= BO_VALID;
+		} else {
+			submit->bos[idx].iova = buf_iova;
+			submit->bos[idx].flags &= ~BO_VALID;
+		}
+	}
+
 	if (iova)
 		*iova = submit->bos[idx].iova;
 	if (valid)
@@ -317,8 +326,10 @@ static int submit_bo(struct msm_gem_submit *submit, uint32_t idx,
 }
 
 /* process the reloc's and patch up the cmdstream as needed: */
-static int submit_reloc(struct msm_gem_submit *submit, struct msm_gem_object *obj,
-		uint32_t offset, uint32_t nr_relocs, uint64_t relocs)
+static int submit_reloc(struct msm_gpu *gpu,
+		struct msm_gem_submit *submit,
+		struct msm_gem_object *obj, uint32_t offset,
+		uint32_t nr_relocs, uint64_t relocs)
 {
 	uint32_t i, last_offset = 0;
 	uint32_t *ptr;
@@ -333,6 +344,9 @@ static int submit_reloc(struct msm_gem_submit *submit, struct msm_gem_object *ob
 		DRM_ERROR("cannot do relocs on a secure buffer\n");
 		return -EINVAL;
 	}
+
+	if (nr_relocs == 0)
+		return 0;
 
 	/* For now, just map the entire thing.  Eventually we probably
 	 * to do it page-by-page, w/ kmap() if not vmap()d..
@@ -372,7 +386,8 @@ static int submit_reloc(struct msm_gem_submit *submit, struct msm_gem_object *ob
 			return -EINVAL;
 		}
 
-		ret = submit_bo(submit, submit_reloc.reloc_idx, NULL, &iova, &valid);
+		ret = submit_bo(gpu, submit, submit_reloc.reloc_idx,
+				NULL, &iova, &valid);
 		if (ret)
 			return ret;
 
@@ -482,7 +497,7 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 			goto out;
 		}
 
-		ret = submit_bo(submit, submit_cmd.submit_idx,
+		ret = submit_bo(gpu, submit, submit_cmd.submit_idx,
 				&msm_obj, &iova, NULL);
 		if (ret)
 			goto out;
@@ -515,11 +530,9 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 				+ submit_cmd.submit_offset;
 		}
 
-		if (submit->valid)
-			continue;
-
-		ret = submit_reloc(submit, msm_obj, submit_cmd.submit_offset,
-				submit_cmd.nr_relocs, submit_cmd.relocs);
+		ret = submit_reloc(gpu, submit, msm_obj,
+				submit_cmd.submit_offset, submit_cmd.nr_relocs,
+				submit_cmd.relocs);
 		if (ret)
 			goto out;
 	}
