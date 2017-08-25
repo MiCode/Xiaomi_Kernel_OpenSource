@@ -1205,10 +1205,8 @@ static int32_t cam_cci_release(struct v4l2_subdev *sd)
 	rc = cam_cci_soc_release(cci_dev);
 	if (rc < 0) {
 		CAM_ERR(CAM_CCI, "Failed in releasing the cci: %d", rc);
-		cam_cpas_stop(cci_dev->cpas_handle);
 		return rc;
 	}
-	cam_cpas_stop(cci_dev->cpas_handle);
 
 	return rc;
 }
