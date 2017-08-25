@@ -411,4 +411,12 @@ config  QCOM_BUS_CONFIG_RPMH
 	  from logical nodes to hardware nodes controlled by the BCM (Bus
 	  Clock Manager)
 
+config QCOM_GLINK
+	tristate "GLINK Probe Helper"
+	depends on RPMSG_QCOM_GLINK_SMEM
+	help
+	  This enables the GLINK Probe module. The GLINK RPMSG Plugin is
+	  currently designed to plugin with the remote proc framework as a
+	  subdev. This module is responsible for creating the glink transports
+	  when remote proc is disabled.
 endmenu
