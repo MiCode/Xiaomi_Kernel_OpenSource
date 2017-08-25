@@ -411,13 +411,16 @@ static int notify_online(unsigned int cpu)
 }
 static void __cpuhp_kick_ap_work(struct cpuhp_cpu_state *st);
 
+static void __cpuhp_kick_ap_work(struct cpuhp_cpu_state *st);
+
 static int bringup_wait_for_ap(unsigned int cpu)
 {
 	struct cpuhp_cpu_state *st = per_cpu_ptr(&cpuhp_state, cpu);
 
 	/* Wait for the CPU to reach CPUHP_AP_ONLINE_IDLE */
 	wait_for_completion(&st->done);
-	BUG_ON(!cpu_online(cpu));
+	if (WARN_ON_ONCE((!cpu_online(cpu))))
+		return -ECANCELED;
 
 	/* Unpark the stopper thread and the hotplug thread of the target cpu */
 	stop_machine_unpark(cpu);
