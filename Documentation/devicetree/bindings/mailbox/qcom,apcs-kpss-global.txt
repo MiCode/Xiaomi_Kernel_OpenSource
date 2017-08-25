@@ -12,7 +12,8 @@ platforms.
 		    "qcom,msm8996-apcs-hmss-global"
 		    "qcom,msm8998-apcs-hmss-global"
 		    "qcom,sdm845-apss-shared"
-
+		    "qcom,sm8150-apcs-hmss-global"
+		    "qcom,sm8150-spcs-global"
 - reg:
 	Usage: required
 	Value type: <prop-encoded-array>
