@@ -92,6 +92,10 @@ struct msm_transcode_loopback {
 	int session_id;
 	struct audio_client *audio_client;
 	int32_t shm_ion_fd;
+	struct ion_client *lib_ion_client;
+	struct ion_client *shm_ion_client;
+	struct ion_handle *lib_ion_handle;
+	struct ion_handle *shm_ion_handle;
 };
 
 /* Transcode loopback global info struct */
@@ -192,20 +196,17 @@ static void populate_codec_list(struct msm_transcode_loopback *trans,
 	}
 }
 
-static int msm_transcode_map_unmap_fd(int fd, bool add_pages)
+static int msm_transcode_map_ion_fd(struct msm_transcode_loopback *trans,
+				    int fd)
 {
 	ion_phys_addr_t paddr;
 	size_t pa_len = 0;
 	int ret = 0;
-	u8 assign_type;
 
-	if (add_pages)
-		assign_type = HLOS_TO_ADSP;
-	else
-		assign_type = ADSP_TO_HLOS;
-
-	ret = msm_audio_ion_phys_assign("audio_lib_mem_client", fd,
-					&paddr, &pa_len, assign_type);
+	ret = msm_audio_ion_phys_assign("audio_lib_mem_client",
+					&trans->lib_ion_client,
+					&trans->lib_ion_handle, fd,
+					&paddr, &pa_len, HLOS_TO_ADSP);
 	if (ret) {
 		pr_err("%s: audio lib ION phys failed, rc = %d\n", __func__,
 			ret);
@@ -213,14 +214,42 @@ static int msm_transcode_map_unmap_fd(int fd, bool add_pages)
 	}
 
 	ret = q6core_add_remove_pool_pages(paddr, pa_len,
-				 ADSP_MEMORY_MAP_HLOS_PHYSPOOL, add_pages);
+				 ADSP_MEMORY_MAP_HLOS_PHYSPOOL, true);
 	if (ret) {
-		pr_err("%s: add remove pages failed, rc = %d\n", __func__, ret);
+		pr_err("%s: add pages failed, rc = %d\n", __func__, ret);
 		/* Assign back to HLOS if add pages cmd failed */
-		if (add_pages)
-			msm_audio_ion_phys_assign("audio_lib_mem_client", fd,
-						&paddr, &pa_len, ADSP_TO_HLOS);
+		msm_audio_ion_phys_free(trans->lib_ion_client,
+					trans->lib_ion_handle,
+					&paddr, &pa_len, ADSP_TO_HLOS);
 	}
+
+done:
+	return ret;
+}
+
+static int msm_transcode_unmap_ion_fd(struct msm_transcode_loopback *trans)
+{
+	ion_phys_addr_t paddr;
+	size_t pa_len = 0;
+	int ret = 0;
+
+	if (!trans->lib_ion_client || !trans->lib_ion_handle) {
+		pr_err("%s: ion_client or ion_handle is NULL", __func__);
+		return -EINVAL;
+	}
+	ret = msm_audio_ion_phys_free(trans->lib_ion_client,
+				      trans->lib_ion_handle,
+				      &paddr, &pa_len, ADSP_TO_HLOS);
+	if (ret) {
+		pr_err("%s: audio lib ION phys failed, rc = %d\n", __func__,
+			ret);
+		goto done;
+	}
+
+	ret = q6core_add_remove_pool_pages(paddr, pa_len,
+					ADSP_MEMORY_MAP_HLOS_PHYSPOOL, false);
+	if (ret)
+		pr_err("%s: remove pages failed, rc = %d\n", __func__, ret);
 
 done:
 	return ret;
@@ -272,9 +301,8 @@ static int msm_transcode_loopback_open(struct snd_compr_stream *cstream)
 		}
 		msm_adsp_init_mixer_ctl_pp_event_queue(rtd);
 		if (pdata->ion_fd[rtd->dai_link->be_id] > 0) {
-			ret = msm_transcode_map_unmap_fd(
-					pdata->ion_fd[rtd->dai_link->be_id],
-					true);
+			ret = msm_transcode_map_ion_fd(trans,
+					pdata->ion_fd[rtd->dai_link->be_id]);
 			if (ret < 0)
 				goto exit;
 		}
@@ -345,16 +373,13 @@ static int msm_transcode_loopback_free(struct snd_compr_stream *cstream)
 		memset(&trans->sink, 0, sizeof(struct loopback_stream));
 		msm_adsp_clean_mixer_ctl_pp_event_queue(rtd);
 		if (trans->shm_ion_fd > 0) {
-			msm_audio_ion_phys_assign("audio_shm_mem_client",
-						  trans->shm_ion_fd,
-						  &paddr, &pa_len,
-						  ADSP_TO_HLOS);
+			msm_audio_ion_phys_free(trans->shm_ion_client,
+						trans->shm_ion_handle,
+						&paddr, &pa_len, ADSP_TO_HLOS);
 			trans->shm_ion_fd = 0;
 		}
 		if (pdata->ion_fd[rtd->dai_link->be_id] > 0) {
-			msm_transcode_map_unmap_fd(
-					pdata->ion_fd[rtd->dai_link->be_id],
-					false);
+			msm_transcode_unmap_ion_fd(trans);
 			pdata->ion_fd[rtd->dai_link->be_id] = 0;
 		}
 	} else if (cstream->direction == SND_COMPRESS_CAPTURE) {
@@ -713,7 +738,9 @@ static int msm_transcode_shm_ion_fd_map_put(struct snd_kcontrol *kcontrol,
 
 	memcpy(&prtd->shm_ion_fd, ucontrol->value.bytes.data,
 		sizeof(prtd->shm_ion_fd));
-	ret = q6asm_audio_map_shm_fd(prtd->audio_client, prtd->shm_ion_fd);
+	ret = q6asm_audio_map_shm_fd(prtd->audio_client,
+				&prtd->shm_ion_client,
+				&prtd->shm_ion_handle, prtd->shm_ion_fd);
 	if (ret < 0)
 		pr_err("%s: failed to map shm mem\n", __func__);
 done:
