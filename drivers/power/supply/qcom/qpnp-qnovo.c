@@ -112,6 +112,7 @@
 #define GAIN_LSB_FACTOR	976560
 
 #define USER_VOTER		"user_voter"
+#define SHUTDOWN_VOTER		"user_voter"
 #define OK_TO_QNOVO_VOTER	"ok_to_qnovo_voter"
 
 #define QNOVO_VOTER		"qnovo_voter"
@@ -1726,6 +1727,13 @@ static int qnovo_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void qnovo_shutdown(struct platform_device *pdev)
+{
+	struct qnovo *chip = platform_get_drvdata(pdev);
+
+	vote(chip->not_ok_to_qnovo_votable, SHUTDOWN_VOTER, true, 0);
+}
+
 static const struct of_device_id match_table[] = {
 	{ .compatible = "qcom,qpnp-qnovo", },
 	{ },
@@ -1739,6 +1747,7 @@ static struct platform_driver qnovo_driver = {
 	},
 	.probe		= qnovo_probe,
 	.remove		= qnovo_remove,
+	.shutdown	= qnovo_shutdown,
 };
 module_platform_driver(qnovo_driver);
 
