@@ -459,6 +459,16 @@
 			};
 		};
 	};
+
+	gpu_gx_domain_addr: syscon@0x5091508 {
+		compatible = "syscon";
+		reg = <0x5091508 0x4>;
+	};
+
+	gpu_gx_sw_reset: syscon@0x5091008 {
+		compatible = "syscon";
+		reg = <0x5091008 0x4>;
+	};
 };
 
 &clock_cpucc {
@@ -792,4 +802,10 @@
 			4 3 2 1
 		>;
 	};
+};
+
+&gpu_gx_gdsc {
+	domain-addr = <&gpu_gx_domain_addr>;
+	sw-reset = <&gpu_gx_sw_reset>;
+	qcom,reset-aon-logic;
 };
