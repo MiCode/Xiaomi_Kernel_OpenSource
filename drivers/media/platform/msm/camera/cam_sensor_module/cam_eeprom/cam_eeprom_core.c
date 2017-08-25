@@ -731,7 +731,7 @@ error:
 int32_t cam_eeprom_driver_cmd(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 {
 	int                            rc = 0;
-	struct cam_eeprom_query_cap_t  eeprom_cap;
+	struct cam_eeprom_query_cap_t  eeprom_cap = {0};
 	struct cam_control            *cmd = (struct cam_control *)arg;
 
 	if (!e_ctrl) {
