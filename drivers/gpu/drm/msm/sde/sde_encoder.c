@@ -1357,6 +1357,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		u32 sw_event)
 {
 	bool schedule_off = false;
+	bool autorefresh_enabled = false;
 	unsigned int lp, idle_timeout;
 	struct sde_encoder_virt *sde_enc;
 	struct msm_drm_private *priv;
@@ -1440,6 +1441,13 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 			return 0;
 		}
 
+		/* schedule delayed off work if autorefresh is disabled */
+		if (sde_enc->cur_master &&
+			sde_enc->cur_master->ops.is_autorefresh_enabled)
+			autorefresh_enabled =
+				sde_enc->cur_master->ops.is_autorefresh_enabled(
+							sde_enc->cur_master);
+
 		/* set idle timeout based on master connector's lp value */
 		if (sde_enc->cur_master)
 			lp = sde_connector_get_lp(
@@ -1452,12 +1460,13 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		else
 			idle_timeout = IDLE_TIMEOUT;
 
-		/* schedule delayed off work */
-		kthread_queue_delayed_work(
+		if (!autorefresh_enabled)
+			kthread_queue_delayed_work(
 				&disp_thread->worker,
 				&sde_enc->delayed_off_work,
 				msecs_to_jiffies(idle_timeout));
 		SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
+				autorefresh_enabled,
 				idle_timeout, SDE_EVTLOG_FUNC_CASE2);
 		SDE_DEBUG_ENC(sde_enc, "sw_event:%d, work scheduled\n",
 				sw_event);

@@ -125,6 +125,8 @@ struct sde_encoder_virt_ops {
  * @irq_control:		Handler to enable/disable all the encoder IRQs
  * @update_split_role:		Update the split role of the phys enc
  * @restore:			Restore all the encoder configs.
+ * @is_autorefresh_enabled:	provides the autorefresh current
+ *                              enable/disable state.
  */
 
 struct sde_encoder_phys_ops {
@@ -164,6 +166,7 @@ struct sde_encoder_phys_ops {
 	void (*update_split_role)(struct sde_encoder_phys *phys_enc,
 			enum sde_enc_split_role role);
 	void (*restore)(struct sde_encoder_phys *phys);
+	bool (*is_autorefresh_enabled)(struct sde_encoder_phys *phys);
 };
 
 /**
