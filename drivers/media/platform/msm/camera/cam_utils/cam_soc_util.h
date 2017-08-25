@@ -18,6 +18,8 @@
 #include <linux/io.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
+#include <linux/i2c.h>
+#include <linux/spi/spi.h>
 #include <linux/regulator/consumer.h>
 #include <linux/clk/qcom.h>
 
@@ -113,8 +115,12 @@ struct cam_soc_gpio_data {
  *                          Camera hardware driver module
  *
  * @pdev:                   Platform device pointer
+ * @device:                 Device pointer
+ * @i2c_dev:                I2C device pointer
+ * @spi_dev:                SPI device pointer
  * @hw_version:             Camera device version
  * @index:                  Instance id for the camera device
+ * @dev_name:               Device Name
  * @irq_name:               Name of the irq associated with the device
  * @irq_line:               Irq resource
  * @irq_data:               Private data that is passed when IRQ is requested
@@ -147,12 +153,17 @@ struct cam_soc_gpio_data {
  * @gpio_data:              Pointer to gpio info
  * @pinctrl_info:           Pointer to pinctrl info
  * @soc_private:            Soc private data
- *
+ * @is_i2c_dev:             Boolean to identify i2c device
+ * @is_spi_dev:             Boolean to identify spi device
  */
 struct cam_hw_soc_info {
 	struct platform_device         *pdev;
+	struct device                  *dev;
+	struct i2c_client              *i2c_dev;
+	struct spi_device              *spi_dev;
 	uint32_t                        hw_version;
 	uint32_t                        index;
+	const char                     *dev_name;
 	const char                     *irq_name;
 	struct resource                *irq_line;
 	void                           *irq_data;
@@ -185,6 +196,8 @@ struct cam_hw_soc_info {
 	struct cam_soc_gpio_data       *gpio_data;
 	struct cam_soc_pinctrl_info     pinctrl_info;
 
+	bool                            is_i2c_dev;
+	bool                            is_spi_dev;
 	void                           *soc_private;
 };
 
