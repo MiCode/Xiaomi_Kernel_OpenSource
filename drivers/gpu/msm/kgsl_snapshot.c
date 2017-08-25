@@ -182,7 +182,8 @@ static size_t snapshot_os(struct kgsl_device *device,
 	context = kgsl_context_get(device, header->current_context);
 
 	/* Get the current PT base */
-	 header->ptbase = kgsl_mmu_get_current_ttbr0(&device->mmu);
+	if (!IS_ERR(priv))
+		header->ptbase = kgsl_mmu_get_current_ttbr0(&device->mmu);
 
 	/* And the PID for the task leader */
 	if (context) {
@@ -633,8 +634,10 @@ void kgsl_device_snapshot(struct kgsl_device *device,
 	snapshot->size += sizeof(*header);
 
 	/* Build the Linux specific header */
+	/* Context err is implied a GMU fault, so limit dump */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_OS,
-			snapshot, snapshot_os, NULL);
+			snapshot, snapshot_os,
+			IS_ERR(context) ? context : NULL);
 
 	/* Get the device specific sections */
 	if (device->ftbl->snapshot)
