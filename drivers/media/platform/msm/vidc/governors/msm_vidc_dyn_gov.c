@@ -901,6 +901,7 @@ static int __get_target_freq(struct devfreq *dev, unsigned long *freq)
 
 exit:
 	*freq = clamp(ab_kbps, dev->min_freq, dev->max_freq ?: UINT_MAX);
+	trace_msm_vidc_perf_bus_vote(gov->devfreq_gov.name, *freq);
 	return 0;
 }
 

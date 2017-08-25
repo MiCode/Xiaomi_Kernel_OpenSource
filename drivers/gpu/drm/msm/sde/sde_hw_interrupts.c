@@ -682,9 +682,89 @@ static const struct sde_irq_type sde_irq_map[] = {
 	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 7},
 	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 7},
 
-	/* irq_idx: 256-257 */
+	/* BEGIN MAP_RANGE: 256-287 AD4_0_INTR */
+	/* irq_idx: 256-259 */
 	{ SDE_IRQ_TYPE_AD4_BL_DONE, DSPP_0, SDE_INTR_BACKLIGHT_UPDATED, 8},
-	{ SDE_IRQ_TYPE_AD4_BL_DONE, DSPP_1, SDE_INTR_BACKLIGHT_UPDATED, 9}
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	/* irq_idx: 260-263 */
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	/* irq_idx: 264-267 */
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	/* irq_idx: 268-271 */
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	/* irq_idx: 272-275 */
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	/* irq_idx: 276-279 */
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	/* irq_idx: 280-283 */
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	/* irq_idx: 284-287 */
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 8},
+
+	/* BEGIN MAP_RANGE: 288-319 AD4_1_INTR */
+	/* irq_idx: 288-291 */
+	{ SDE_IRQ_TYPE_AD4_BL_DONE, DSPP_1, SDE_INTR_BACKLIGHT_UPDATED, 9},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	/* irq_idx: 292-295 */
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	/* irq_idx: 296-299 */
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	/* irq_idx: 300-303 */
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	/* irq_idx: 304-307 */
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	/* irq_idx: 308-311 */
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	/* irq_idx: 312-315 */
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	/* irq_idx: 315-319 */
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
+	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 9},
 };
 
 static int sde_hw_intr_irqidx_lookup(enum sde_intr_type intr_type,
@@ -830,10 +910,9 @@ static int sde_hw_intr_enable_irq(struct sde_hw_intr *intr, int irq_idx)
 	return 0;
 }
 
-static int sde_hw_intr_disable_irq(struct sde_hw_intr *intr, int irq_idx)
+static int sde_hw_intr_disable_irq_nolock(struct sde_hw_intr *intr, int irq_idx)
 {
 	int reg_idx;
-	unsigned long irq_flags;
 	const struct sde_intr_reg *reg;
 	const struct sde_irq_type *irq;
 	const char *dbgstr = NULL;
@@ -851,7 +930,6 @@ static int sde_hw_intr_disable_irq(struct sde_hw_intr *intr, int irq_idx)
 	reg_idx = irq->reg_idx;
 	reg = &sde_intr_set[reg_idx];
 
-	spin_lock_irqsave(&intr->irq_lock, irq_flags);
 	cache_irq_mask = intr->cache_irq_mask[reg_idx];
 	if ((cache_irq_mask & irq->irq_mask) == 0) {
 		dbgstr = "SDE IRQ is already cleared:";
@@ -869,10 +947,28 @@ static int sde_hw_intr_disable_irq(struct sde_hw_intr *intr, int irq_idx)
 
 		intr->cache_irq_mask[reg_idx] = cache_irq_mask;
 	}
-	spin_unlock_irqrestore(&intr->irq_lock, irq_flags);
 
 	pr_debug("%s MASK:0x%.8x, CACHE-MASK:0x%.8x\n", dbgstr,
 			irq->irq_mask, cache_irq_mask);
+
+	return 0;
+}
+
+static int sde_hw_intr_disable_irq(struct sde_hw_intr *intr, int irq_idx)
+{
+	unsigned long irq_flags;
+
+	if (!intr)
+		return -EINVAL;
+
+	if (irq_idx < 0 || irq_idx >= ARRAY_SIZE(sde_irq_map)) {
+		pr_err("invalid IRQ index: [%d]\n", irq_idx);
+		return -EINVAL;
+	}
+
+	spin_lock_irqsave(&intr->irq_lock, irq_flags);
+	sde_hw_intr_disable_irq_nolock(intr, irq_idx);
+	spin_unlock_irqrestore(&intr->irq_lock, irq_flags);
 
 	return 0;
 }
@@ -1061,6 +1157,7 @@ static void __setup_intr_ops(struct sde_hw_intr_ops *ops)
 	ops->irq_idx_lookup = sde_hw_intr_irqidx_lookup;
 	ops->enable_irq = sde_hw_intr_enable_irq;
 	ops->disable_irq = sde_hw_intr_disable_irq;
+	ops->disable_irq_nolock = sde_hw_intr_disable_irq_nolock;
 	ops->dispatch_irqs = sde_hw_intr_dispatch_irq;
 	ops->clear_all_irqs = sde_hw_intr_clear_irqs;
 	ops->disable_all_irqs = sde_hw_intr_disable_irqs;

@@ -1262,13 +1262,41 @@ static int dsi_enable_io_clamp(struct dsi_ctrl *dsi_ctrl,
 	return 0;
 }
 
+static int dsi_ctrl_dts_parse(struct dsi_ctrl *dsi_ctrl,
+				  struct device_node *of_node)
+{
+	u32 index = 0;
+	int rc = 0;
+
+	if (!dsi_ctrl || !of_node) {
+		pr_err("invalid dsi_ctrl:%d or of_node:%d\n",
+					dsi_ctrl != NULL, of_node != NULL);
+		return -EINVAL;
+	}
+
+	rc = of_property_read_u32(of_node, "cell-index", &index);
+	if (rc) {
+		pr_debug("cell index not set, default to 0\n");
+		index = 0;
+	}
+
+	dsi_ctrl->cell_index = index;
+	dsi_ctrl->name = of_get_property(of_node, "label", NULL);
+	if (!dsi_ctrl->name)
+		dsi_ctrl->name = DSI_CTRL_DEFAULT_LABEL;
+
+	dsi_ctrl->phy_isolation_enabled = of_property_read_bool(of_node,
+				    "qcom,dsi-phy-isolation-enabled");
+
+	return 0;
+}
+
 static int dsi_ctrl_dev_probe(struct platform_device *pdev)
 {
 	struct dsi_ctrl *dsi_ctrl;
 	struct dsi_ctrl_list_item *item;
 	const struct of_device_id *id;
 	enum dsi_ctrl_version version;
-	u32 index = 0;
 	int rc = 0;
 
 	id = of_match_node(msm_dsi_of_match, pdev->dev.of_node);
@@ -1285,22 +1313,18 @@ static int dsi_ctrl_dev_probe(struct platform_device *pdev)
 	if (!dsi_ctrl)
 		return -ENOMEM;
 
-	rc = of_property_read_u32(pdev->dev.of_node, "cell-index", &index);
-	if (rc) {
-		pr_debug("cell index not set, default to 0\n");
-		index = 0;
-	}
-
-	dsi_ctrl->cell_index = index;
 	dsi_ctrl->version = version;
 	dsi_ctrl->irq_info.irq_num = -1;
 	dsi_ctrl->irq_info.irq_stat_mask = 0x0;
 
 	spin_lock_init(&dsi_ctrl->irq_info.irq_lock);
 
-	dsi_ctrl->name = of_get_property(pdev->dev.of_node, "label", NULL);
-	if (!dsi_ctrl->name)
-		dsi_ctrl->name = DSI_CTRL_DEFAULT_LABEL;
+	rc = dsi_ctrl_dts_parse(dsi_ctrl, pdev->dev.of_node);
+	if (rc) {
+		pr_err("ctrl:%d dts parse failed, rc = %d\n",
+						dsi_ctrl->cell_index, rc);
+		goto fail;
+	}
 
 	rc = dsi_ctrl_init_regmap(pdev, dsi_ctrl);
 	if (rc) {
@@ -1321,7 +1345,7 @@ static int dsi_ctrl_dev_probe(struct platform_device *pdev)
 	}
 
 	rc = dsi_catalog_ctrl_setup(&dsi_ctrl->hw, dsi_ctrl->version,
-				    dsi_ctrl->cell_index);
+		    dsi_ctrl->cell_index, dsi_ctrl->phy_isolation_enabled);
 	if (rc) {
 		pr_err("Catalog does not support version (%d)\n",
 		       dsi_ctrl->version);

@@ -52,6 +52,8 @@ static int phyirq_to_virq(
 	struct wcd9xxx_core_resource *wcd9xxx_res, int irq);
 static unsigned int wcd9xxx_irq_get_upstream_irq(
 	struct wcd9xxx_core_resource *wcd9xxx_res);
+static void wcd9xxx_irq_put_downstream_irq(
+	struct wcd9xxx_core_resource *wcd9xxx_res);
 static void wcd9xxx_irq_put_upstream_irq(
 	struct wcd9xxx_core_resource *wcd9xxx_res);
 static int wcd9xxx_map_irq(
@@ -632,6 +634,7 @@ void wcd9xxx_irq_exit(struct wcd9xxx_core_resource *wcd9xxx_res)
 		disable_irq_wake(wcd9xxx_res->irq);
 		free_irq(wcd9xxx_res->irq, wcd9xxx_res);
 		wcd9xxx_res->irq = 0;
+		wcd9xxx_irq_put_downstream_irq(wcd9xxx_res);
 		wcd9xxx_irq_put_upstream_irq(wcd9xxx_res);
 	}
 	mutex_destroy(&wcd9xxx_res->irq_lock);
@@ -754,6 +757,29 @@ static unsigned int wcd9xxx_irq_get_upstream_irq(
 	return data->irq;
 }
 
+static void wcd9xxx_irq_put_downstream_irq(
+			struct wcd9xxx_core_resource *wcd9xxx_res)
+{
+	int irq, virq, ret;
+
+	/*
+	 * IRQ migration hits error if the chip data and handles
+	 * are not made NULL. make associated data and handles
+	 * to NULL at irq_exit
+	 */
+	for (irq = 0; irq < wcd9xxx_res->num_irqs; irq++) {
+		virq = wcd9xxx_map_irq(wcd9xxx_res, irq);
+		pr_debug("%s: irq %d -> %d\n", __func__, irq, virq);
+		ret = irq_set_chip_data(virq, NULL);
+		if (ret) {
+			pr_err("%s: Failed to configure irq %d (%d)\n",
+				__func__, irq, ret);
+			return;
+		}
+		irq_set_chip_and_handler(virq, NULL, NULL);
+	}
+}
+
 static void wcd9xxx_irq_put_upstream_irq(
 			struct wcd9xxx_core_resource *wcd9xxx_res)
 {
@@ -821,7 +847,6 @@ static int wcd9xxx_irq_remove(struct platform_device *pdev)
 	wmb();
 	irq_domain_remove(data->domain);
 	kfree(data);
-	domain->host_data = NULL;
 
 	return 0;
 }

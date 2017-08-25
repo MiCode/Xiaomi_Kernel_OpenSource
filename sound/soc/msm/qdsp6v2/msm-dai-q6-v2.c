@@ -3632,7 +3632,6 @@ static int msm_dai_q6_dai_mi2s_remove(struct snd_soc_dai *dai)
 		clear_bit(STATUS_PORT_STARTED,
 			  mi2s_dai_data->tx_dai.mi2s_dai_data.status_mask);
 	}
-	kfree(mi2s_dai_data);
 	return 0;
 }
 

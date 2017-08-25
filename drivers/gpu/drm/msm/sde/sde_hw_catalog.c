@@ -945,6 +945,7 @@ static void _sde_sspp_setup_vig(struct sde_mdss_cfg *sde_cfg,
 	}
 
 	sblk->format_list = sde_cfg->vig_formats;
+	sblk->virt_format_list = sde_cfg->dma_formats;
 }
 
 static void _sde_sspp_setup_rgb(struct sde_mdss_cfg *sde_cfg,
@@ -997,6 +998,7 @@ static void _sde_sspp_setup_rgb(struct sde_mdss_cfg *sde_cfg,
 	}
 
 	sblk->format_list = sde_cfg->dma_formats;
+	sblk->virt_format_list = NULL;
 }
 
 static void _sde_sspp_setup_cursor(struct sde_mdss_cfg *sde_cfg,
@@ -1010,6 +1012,7 @@ static void _sde_sspp_setup_cursor(struct sde_mdss_cfg *sde_cfg,
 	sblk->maxupscale = SSPP_UNITY_SCALE;
 	sblk->maxdwnscale = SSPP_UNITY_SCALE;
 	sblk->format_list = sde_cfg->cursor_formats;
+	sblk->virt_format_list = NULL;
 	sspp->id = SSPP_CURSOR0 + *cursor_count;
 	snprintf(sspp->name, SDE_HW_BLK_NAME_LEN, "sspp_%u",
 			sspp->id - SSPP_VIG0);
@@ -1025,6 +1028,7 @@ static void _sde_sspp_setup_dma(struct sde_mdss_cfg *sde_cfg,
 	sblk->maxupscale = SSPP_UNITY_SCALE;
 	sblk->maxdwnscale = SSPP_UNITY_SCALE;
 	sblk->format_list = sde_cfg->dma_formats;
+	sblk->virt_format_list = sde_cfg->dma_formats;
 	sspp->id = SSPP_DMA0 + *dma_count;
 	sspp->clk_ctrl = SDE_CLK_CTRL_DMA0 + *dma_count;
 	snprintf(sspp->name, SDE_HW_BLK_NAME_LEN, "sspp_%u",

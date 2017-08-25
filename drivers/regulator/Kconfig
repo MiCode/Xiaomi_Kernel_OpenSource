@@ -1027,6 +1027,15 @@ config REGULATOR_QPNP
 	  LDO and switching regulators.  They also provide voltage switches and
 	  boost regulators.
 
+config REGULATOR_REFGEN
+	tristate "Qualcomm Technologies, Inc. REFGEN regulator driver"
+	depends on OF
+	help
+	  This driver supports control of the REFGEN reference bias generator
+	  block found on some Qualcomm Technologies Inc. SoCs.  A REFGEN
+	  it used by various PHY blocks found inside of the SoC.  It supports
+	  enable/disable control.
+
 config REGULATOR_RPMH
 	tristate "Qualcomm Technologies, Inc. RPMh regulator driver"
 	depends on OF

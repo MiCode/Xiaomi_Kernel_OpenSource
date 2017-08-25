@@ -66,6 +66,7 @@
 #define PERFCL_EFUSE_MASK		0x7
 
 #define ENABLE_REG			0x0
+#define ENABLE_OSM			BIT(0)
 #define FREQ_REG			0x110
 #define VOLT_REG			0x114
 #define OVERRIDE_REG			0x118
@@ -112,8 +113,8 @@
 
 #define PLL_MIN_LVAL			0x21
 #define PLL_MIN_FREQ_REG		0x94
-#define PLL_POST_DIV1			0x1F
-#define PLL_POST_DIV2			0x11F
+#define PLL_POST_DIV1			0x09
+#define PLL_POST_DIV2			0x109
 #define PLL_MODE			0x0
 #define PLL_L_VAL			0x4
 #define PLL_USER_CTRL			0xc
@@ -133,8 +134,8 @@
 #define ISENSE_OFF_DATA			0x0
 #define CONSTANT_32			0x20
 
-#define APM_MX_MODE			0x0
-#define APM_APC_MODE			0x2
+#define APM_MX_MODE			0x4100000
+#define APM_APC_MODE			0x4100002
 #define APM_READ_DATA_MASK		0xc
 #define APM_MX_MODE_VAL			0x4
 #define APM_APC_READ_VAL		0x8
@@ -2629,7 +2630,7 @@ static int clk_osm_resources_init(struct platform_device *pdev)
 	}
 
 	/* Check if OSM has been enabled already by trustzone.  */
-	if (readl_relaxed(l3_clk.vbases[OSM_BASE] + ENABLE_REG)) {
+	if (readl_relaxed(l3_clk.vbases[OSM_BASE] + ENABLE_REG) & ENABLE_OSM) {
 		dev_info(&pdev->dev, "OSM has been initialized and enabled by TZ software\n");
 		osm_tz_enabled = true;
 	}

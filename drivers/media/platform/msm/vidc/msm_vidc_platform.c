@@ -44,11 +44,32 @@ static struct msm_vidc_codec_data sdm845_codec_data[] =  {
 	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_VIDC_ENCODER, 125, 675, 320),
 	CODEC_ENTRY(V4L2_PIX_FMT_HEVC, MSM_VIDC_ENCODER, 125, 675, 320),
 	CODEC_ENTRY(V4L2_PIX_FMT_VP8, MSM_VIDC_ENCODER, 125, 675, 320),
+	CODEC_ENTRY(V4L2_PIX_FMT_TME, MSM_VIDC_ENCODER, 125, 675, 320),
 	CODEC_ENTRY(V4L2_PIX_FMT_MPEG2, MSM_VIDC_DECODER, 50, 200, 200),
 	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_VIDC_DECODER, 50, 200, 200),
 	CODEC_ENTRY(V4L2_PIX_FMT_HEVC, MSM_VIDC_DECODER, 50, 200, 200),
 	CODEC_ENTRY(V4L2_PIX_FMT_VP8, MSM_VIDC_DECODER, 50, 200, 200),
 	CODEC_ENTRY(V4L2_PIX_FMT_VP9, MSM_VIDC_DECODER, 50, 200, 200),
+};
+
+/*
+ * Custom conversion coefficients for resolution: 176x144 negative
+ * coeffs are converted to s4.9 format
+ * (e.g. -22 converted to ((1 << 13) - 22)
+ * 3x3 transformation matrix coefficients in s4.9 fixed point format
+ */
+static u32 vpe_csc_custom_matrix_coeff[HAL_MAX_MATRIX_COEFFS] = {
+	470, 8170, 8148, 0, 490, 50, 0, 34, 483
+};
+
+/* offset coefficients in s9 fixed point format */
+static u32 vpe_csc_custom_bias_coeff[HAL_MAX_BIAS_COEFFS] = {
+	34, 0, 4
+};
+
+/* clamping value for Y/U/V([min,max] for Y/U/V) */
+static u32 vpe_csc_custom_limit_coeff[HAL_MAX_LIMIT_COEFFS] = {
+	16, 235, 16, 240, 16, 240
 };
 
 static struct msm_vidc_common_data default_common_data[] = {
@@ -65,6 +86,10 @@ static struct msm_vidc_common_data sdm845_common_data[] = {
 	},
 	{
 		.key = "qcom,sw-power-collapse",
+		.value = 1,
+	},
+	{
+		.key = "qcom,domain-attr-non-fatal-faults",
 		.value = 1,
 	},
 	{
@@ -107,6 +132,9 @@ static struct msm_vidc_platform_data default_data = {
 	.codec_data_length =  ARRAY_SIZE(default_codec_data),
 	.common_data = default_common_data,
 	.common_data_length =  ARRAY_SIZE(default_common_data),
+	.csc_data.vpe_csc_custom_bias_coeff = vpe_csc_custom_bias_coeff,
+	.csc_data.vpe_csc_custom_matrix_coeff = vpe_csc_custom_matrix_coeff,
+	.csc_data.vpe_csc_custom_limit_coeff = vpe_csc_custom_limit_coeff,
 };
 
 static struct msm_vidc_platform_data sdm845_data = {
@@ -114,6 +142,9 @@ static struct msm_vidc_platform_data sdm845_data = {
 	.codec_data_length =  ARRAY_SIZE(sdm845_codec_data),
 	.common_data = sdm845_common_data,
 	.common_data_length =  ARRAY_SIZE(sdm845_common_data),
+	.csc_data.vpe_csc_custom_bias_coeff = vpe_csc_custom_bias_coeff,
+	.csc_data.vpe_csc_custom_matrix_coeff = vpe_csc_custom_matrix_coeff,
+	.csc_data.vpe_csc_custom_limit_coeff = vpe_csc_custom_limit_coeff,
 };
 
 static const struct of_device_id msm_vidc_dt_match[] = {

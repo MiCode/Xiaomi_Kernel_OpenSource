@@ -90,6 +90,8 @@ void dsi_ctrl_hw_cmn_host_setup(struct dsi_ctrl_hw *ctrl,
 
 	DSI_W32(ctrl, DSI_CTRL, reg_value);
 
+	if (ctrl->phy_isolation_enabled)
+		DSI_W32(ctrl, DSI_DEBUG_CTRL, BIT(28));
 	pr_debug("[DSI_%d]Host configuration complete\n", ctrl->index);
 }
 

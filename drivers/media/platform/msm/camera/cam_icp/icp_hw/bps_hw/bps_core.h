@@ -19,7 +19,13 @@
 #include <linux/platform_device.h>
 #include <linux/dma-buf.h>
 
+#define BPS_COLLAPSE_MASK 0x1
+#define BPS_PWR_ON_MASK   0x2
+
 struct cam_bps_device_hw_info {
+	uint32_t hw_idx;
+	uint32_t pwr_ctrl;
+	uint32_t pwr_status;
 	uint32_t reserved;
 };
 

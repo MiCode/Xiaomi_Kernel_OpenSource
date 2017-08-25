@@ -997,6 +997,15 @@ static enum vidc_status hfi_parse_init_done_properties(
 			num_properties--;
 			break;
 		}
+		case HFI_PROPERTY_TME_VERSION_SUPPORTED:
+		{
+			capabilities->tme_version =
+				*((u32 *)(data_ptr + next_offset));
+			next_offset +=
+				sizeof(u32);
+			num_properties--;
+			break;
+		}
 		default:
 			dprintk(VIDC_DBG,
 				"%s: default case - data_ptr %pK, prop_id 0x%x\n",

@@ -22,6 +22,7 @@
 #include "msm_kms.h"
 #include "sde_connector.h"
 #include "dp_drm.h"
+#include "dp_debug.h"
 
 #define to_dp_bridge(x)     container_of((x), struct dp_bridge, base)
 
@@ -456,6 +457,7 @@ enum drm_mode_status dp_connector_mode_valid(struct drm_connector *connector,
 		void *display)
 {
 	struct dp_display *dp_disp;
+	struct dp_debug *debug;
 
 	if (!mode || !display) {
 		pr_err("invalid params\n");
@@ -463,9 +465,20 @@ enum drm_mode_status dp_connector_mode_valid(struct drm_connector *connector,
 	}
 
 	dp_disp = display;
+	debug = dp_disp->get_debug(dp_disp);
 
-	if (mode->clock > dp_disp->max_pclk_khz)
-		return MODE_BAD;
-	else
-		return MODE_OK;
+	if (debug->debug_en) {
+		if (mode->hdisplay == debug->hdisplay &&
+				mode->vdisplay == debug->vdisplay &&
+				mode->vrefresh == debug->vrefresh &&
+				mode->clock <= dp_disp->max_pclk_khz)
+			return MODE_OK;
+		else
+			return MODE_ERROR;
+	} else {
+		if (mode->clock > dp_disp->max_pclk_khz)
+			return MODE_BAD;
+		else
+			return MODE_OK;
+	}
 }

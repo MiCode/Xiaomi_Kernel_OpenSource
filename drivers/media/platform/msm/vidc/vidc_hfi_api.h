@@ -273,39 +273,33 @@ enum hal_video_codec {
 	HAL_VIDEO_CODEC_VP8      = 0x00001000,
 	HAL_VIDEO_CODEC_HEVC     = 0x00002000,
 	HAL_VIDEO_CODEC_VP9      = 0x00004000,
+	HAL_VIDEO_CODEC_TME      = 0x00008000,
 	HAL_VIDEO_CODEC_HEVC_HYBRID     = 0x80000000,
 	HAL_UNUSED_CODEC = 0x10000000,
 };
 
 enum hal_mpeg2_profile {
+	HAL_UNUSED_MPEG2_PROFILE  = 0x00000000,
 	HAL_MPEG2_PROFILE_SIMPLE  = 0x00000001,
 	HAL_MPEG2_PROFILE_MAIN    = 0x00000002,
-	HAL_MPEG2_PROFILE_422     = 0x00000004,
-	HAL_MPEG2_PROFILE_SNR     = 0x00000008,
-	HAL_MPEG2_PROFILE_SPATIAL = 0x00000010,
-	HAL_MPEG2_PROFILE_HIGH    = 0x00000020,
-	HAL_UNUSED_MPEG2_PROFILE = 0x10000000,
 };
 
 enum hal_mpeg2_level {
+	HAL_UNUSED_MEPG2_LEVEL = 0x00000000,
 	HAL_MPEG2_LEVEL_LL  = 0x00000001,
 	HAL_MPEG2_LEVEL_ML  = 0x00000002,
-	HAL_MPEG2_LEVEL_H14 = 0x00000004,
-	HAL_MPEG2_LEVEL_HL  = 0x00000008,
-	HAL_UNUSED_MEPG2_LEVEL = 0x10000000,
+	HAL_MPEG2_LEVEL_HL  = 0x00000004,
 };
 
 enum hal_h264_profile {
+	HAL_UNUSED_H264_PROFILE   = 0x00000000,
 	HAL_H264_PROFILE_BASELINE = 0x00000001,
 	HAL_H264_PROFILE_MAIN     = 0x00000002,
 	HAL_H264_PROFILE_HIGH     = 0x00000004,
-	HAL_H264_PROFILE_EXTENDED = 0x00000008,
-	HAL_H264_PROFILE_HIGH10   = 0x00000010,
-	HAL_H264_PROFILE_HIGH422  = 0x00000020,
-	HAL_H264_PROFILE_HIGH444  = 0x00000040,
-	HAL_H264_PROFILE_CONSTRAINED_BASE  = 0x00000080,
-	HAL_H264_PROFILE_CONSTRAINED_HIGH  = 0x00000100,
-	HAL_UNUSED_H264_PROFILE = 0x10000000,
+	HAL_H264_PROFILE_STEREO_HIGH      = 0x00000008,
+	HAL_H264_PROFILE_MULTIVIEW_HIGH   = 0x00000010,
+	HAL_H264_PROFILE_CONSTRAINED_BASE = 0x00000020,
+	HAL_H264_PROFILE_CONSTRAINED_HIGH = 0x00000040,
 };
 
 enum hal_h264_level {
@@ -330,10 +324,10 @@ enum hal_h264_level {
 };
 
 enum hal_hevc_profile {
+	HAL_UNUSED_HEVC_PROFILE         = 0x00000000,
 	HAL_HEVC_PROFILE_MAIN           = 0x00000001,
 	HAL_HEVC_PROFILE_MAIN10         = 0x00000002,
 	HAL_HEVC_PROFILE_MAIN_STILL_PIC = 0x00000004,
-	HAL_UNUSED_HEVC_PROFILE         = 0x10000000,
 };
 
 enum hal_hevc_level {
@@ -372,17 +366,28 @@ enum hal_hevc_tier {
 	HAL_UNUSED_HEVC_TIER = 0x10000000,
 };
 
-enum hal_vpx_profile {
-	HAL_VPX_PROFILE_MAIN    = 0x00000001,
-	HAL_VPX_PROFILE_UNUSED = 0x10000000,
+enum hal_vp8_profile {
+	HAL_VP8_PROFILE_UNUSED = 0x00000000,
+	HAL_VP8_PROFILE_MAIN   = 0x00000001,
 };
 
-enum hal_vpx_level {
-	HAL_VPX_LEVEL_UNUSED = 0x00000000,
-	HAL_VPX_LEVEL_VERSION_0 = 0x00000001,
-	HAL_VPX_LEVEL_VERSION_1 = 0x00000002,
-	HAL_VPX_LEVEL_VERSION_2 = 0x00000004,
-	HAL_VPX_LEVEL_VERSION_3 = 0x00000008,
+enum hal_vp8_level {
+	HAL_VP8_LEVEL_UNUSED = 0x00000000,
+	HAL_VP8_LEVEL_VERSION_0 = 0x00000001,
+	HAL_VP8_LEVEL_VERSION_1 = 0x00000002,
+	HAL_VP8_LEVEL_VERSION_2 = 0x00000004,
+	HAL_VP8_LEVEL_VERSION_3 = 0x00000008,
+};
+
+enum hal_tme_profile {
+	HAL_TME_PROFILE_0 = 0x00000001,
+	HAL_TME_PROFILE_1 = 0x00000002,
+	HAL_TME_PROFILE_2 = 0x00000004,
+	HAL_TME_PROFILE_3 = 0x00000008,
+};
+
+enum hal_tme_level {
+	HAL_TME_LEVEL_INTEGER = 0x00000001,
 };
 
 struct hal_frame_rate {
@@ -851,6 +856,8 @@ struct hal_video_work_mode {
 };
 
 struct hal_vpe_color_space_conversion {
+	u32 input_color_primaries;
+	u32 custom_matrix_enabled;
 	u32 csc_matrix[HAL_MAX_MATRIX_COEFFS];
 	u32 csc_bias[HAL_MAX_BIAS_COEFFS];
 	u32 csc_limit[HAL_MAX_LIMIT_COEFFS];
@@ -1203,6 +1210,7 @@ struct msm_vidc_capability {
 	enum buffer_mode_type alloc_mode_out;
 	enum buffer_mode_type alloc_mode_in;
 	u32 pixelprocess_capabilities;
+	u32 tme_version;
 };
 
 struct vidc_hal_sys_init_done {
@@ -1411,6 +1419,7 @@ struct hfi_device {
 	int (*get_core_capabilities)(void *dev);
 	int (*suspend)(void *dev);
 	int (*flush_debug_queue)(void *dev);
+	int (*noc_error_info)(void *dev);
 	enum hal_default_properties (*get_default_properties)(void *dev);
 };
 

@@ -833,6 +833,7 @@ static void __cam_req_mgr_destroy_link_info(struct cam_req_mgr_core_link *link)
 	for (i = 0; i < link->num_devs; i++) {
 		dev = &link->l_dev[i];
 		if (dev != NULL) {
+			link_data.dev_hdl = dev->dev_hdl;
 			if (dev->ops && dev->ops->link_setup)
 				dev->ops->link_setup(&link_data);
 			dev->dev_hdl = 0;

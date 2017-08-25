@@ -403,6 +403,20 @@ static inline uint64_t sde_connector_get_lp(
 }
 
 /**
+ * sde_connector_set_property_for_commit - add property set to atomic state
+ *	Add a connector state property update for the specified property index
+ *	to the atomic state in preparation for a drm_atomic_commit.
+ * @connector: Pointer to drm connector
+ * @atomic_state: Pointer to DRM atomic state structure for commit
+ * @property_idx: Connector property index
+ * @value: Updated property value
+ * Returns: Zero on success
+ */
+int sde_connector_set_property_for_commit(struct drm_connector *connector,
+		struct drm_atomic_state *atomic_state,
+		uint32_t property_idx, uint64_t value);
+
+/**
  * sde_connector_init - create drm connector object for a given display
  * @dev: Pointer to drm device struct
  * @encoder: Pointer to associated encoder
@@ -433,6 +447,13 @@ void sde_connector_prepare_fence(struct drm_connector *connector);
  * @ts: timestamp to be updated in the fence signalling
  */
 void sde_connector_complete_commit(struct drm_connector *connector, ktime_t ts);
+
+/**
+ * sde_connector_commit_reset - reset the completion signal
+ * @connector: Pointer to drm connector object
+ * @ts: timestamp to be updated in the fence signalling
+ */
+void sde_connector_commit_reset(struct drm_connector *connector, ktime_t ts);
 
 /**
  * sde_connector_get_info - query display specific information

@@ -21,6 +21,9 @@
 
 #define MAX_RSC_CLIENT_NAME_LEN 128
 
+/* DRM Object IDs are numbered excluding 0, use 0 to indicate invalid CRTC */
+#define SDE_RSC_INVALID_CRTC_ID 0
+
 /**
  * event will be triggered before sde core power collapse,
  * mdss gdsc is still on
@@ -169,12 +172,29 @@ void sde_rsc_client_destroy(struct sde_rsc_client *client);
  * @config:	 fps, vtotal, porches, etc configuration for command mode
  *               panel
  * @crtc_id:	 current client's crtc id
+ * @wait_vblank_crtc_id:	Output parameter. If set to non-zero, rsc hw
+ *				state update requires a wait for one vblank on
+ *				the primary crtc. In that case, this output
+ *				param will be set to the crtc on which to wait.
+ *				If SDE_RSC_INVALID_CRTC_ID, no wait necessary
  *
  * Return: error code.
  */
 int sde_rsc_client_state_update(struct sde_rsc_client *client,
 	enum sde_rsc_state state,
-	struct sde_rsc_cmd_config *config, int crtc_id);
+	struct sde_rsc_cmd_config *config, int crtc_id,
+	int *wait_vblank_crtc_id);
+
+/**
+ * sde_rsc_client_is_state_update_complete() - check if state update is complete
+ * RSC state transition is not complete until HW receives VBLANK signal. This
+ * function checks RSC HW to determine whether that signal has been received.
+ * @client:	 Client pointer provided by sde_rsc_client_create().
+ *
+ * Return: true if the state update has completed.
+ */
+bool sde_rsc_client_is_state_update_complete(
+		struct sde_rsc_client *caller_client);
 
 /**
  * sde_rsc_client_vote() - ab/ib vote from rsc client
@@ -242,6 +262,12 @@ static inline int sde_rsc_client_state_update(struct sde_rsc_client *client,
 	struct sde_rsc_cmd_config *config, int crtc_id)
 {
 	return 0;
+}
+
+static inline bool sde_rsc_client_is_state_update_complete(
+		struct sde_rsc_client *caller_client)
+{
+	return false;
 }
 
 static inline int sde_rsc_client_vote(struct sde_rsc_client *caller_client,

@@ -48,6 +48,8 @@ enum dp_usbpd_port {
  * @hpd_high: Hot Plug Detect signal is high.
  * @hpd_irq: Change in the status since last message
  * @alt_mode_cfg_done: bool to specify alt mode status
+ * @debug_en: bool to specify debug mode
+ * @connect: simulate disconnect or connect for debug mode
  */
 struct dp_usbpd {
 	enum dp_usbpd_port port;
@@ -60,6 +62,9 @@ struct dp_usbpd {
 	bool hpd_high;
 	bool hpd_irq;
 	bool alt_mode_cfg_done;
+	bool debug_en;
+
+	int (*connect)(struct dp_usbpd *dp_usbpd, bool hpd);
 };
 
 /**

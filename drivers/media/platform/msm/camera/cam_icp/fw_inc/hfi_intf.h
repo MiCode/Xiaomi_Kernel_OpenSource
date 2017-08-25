@@ -110,4 +110,13 @@ void cam_hfi_disable_cpu(void __iomem *icp_base);
  */
 void cam_hfi_deinit(void);
 
+/**
+ * hfi_enable_ipe_bps_pc() - Enable interframe pc
+ * Host sends a command to firmware to enable interframe
+ * power collapse for IPE and BPS hardware.
+ *
+ * @enable: flag to enable/disable
+ */
+int hfi_enable_ipe_bps_pc(bool enable);
+
 #endif /* _HFI_INTF_H_ */

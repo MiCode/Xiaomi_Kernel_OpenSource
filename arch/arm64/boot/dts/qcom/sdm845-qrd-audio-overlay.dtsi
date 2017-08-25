@@ -30,33 +30,31 @@
 	};
 };
 
-&wcd934x_cdc {
-	wcd_pinctrl@5 {
-		us_euro_sw_wcd_active {
-			mux {
-				pins = "gpio1";
-			};
-
-			config {
-				pins = "gpio1";
-				/delete-property/ output-high;
-				bias-high-impedance;
-			};
-		};
-
-		us_euro_sw_wcd_sleep {
-			mux {
-				pins = "gpio1";
-			};
-
-			config {
-				pins = "gpio1";
-				/delete-property/ output-low;
-				bias-high-impedance;
-			};
-		};
+&us_euro_sw_wcd_active {
+	mux {
+		pins = "gpio1";
 	};
 
+	config {
+		pins = "gpio1";
+		/delete-property/ output-high;
+		bias-high-impedance;
+	};
+};
+
+&us_euro_sw_wcd_sleep {
+	mux {
+		pins = "gpio1";
+	};
+
+	config {
+		pins = "gpio1";
+		/delete-property/ output-low;
+		bias-high-impedance;
+	};
+};
+
+&wcd934x_cdc {
 	swr_master {
 		wsa881x@20170211 {
 			compatible = "qcom,wsa881x";

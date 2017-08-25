@@ -31,8 +31,10 @@
 #include "dp_link.h"
 #include "dp_panel.h"
 #include "dp_ctrl.h"
+#include "dp_audio.h"
 #include "dp_display.h"
 #include "sde_hdcp.h"
+#include "dp_debug.h"
 
 static struct dp_display *g_dp_display;
 
@@ -59,6 +61,7 @@ struct dp_display_private {
 	bool core_initialized;
 	bool power_on;
 	bool hpd_irq_on;
+	bool audio_supported;
 
 	struct platform_device *pdev;
 	struct dentry *root;
@@ -72,6 +75,9 @@ struct dp_display_private {
 	struct dp_link    *link;
 	struct dp_panel   *panel;
 	struct dp_ctrl    *ctrl;
+	struct dp_audio   *audio;
+	struct dp_debug   *debug;
+
 	struct dp_hdcp hdcp;
 
 	struct dp_usbpd_cb usbpd_cb;
@@ -118,80 +124,6 @@ static irqreturn_t dp_display_irq(int irq, void *dev_id)
 	}
 
 	return IRQ_HANDLED;
-}
-
-static ssize_t debugfs_dp_info_read(struct file *file, char __user *buff,
-		size_t count, loff_t *ppos)
-{
-	struct dp_display_private *dp = file->private_data;
-	char *buf;
-	u32 len = 0;
-
-	if (!dp)
-		return -ENODEV;
-
-	if (*ppos)
-		return 0;
-
-	buf = kzalloc(SZ_4K, GFP_KERNEL);
-	if (!buf)
-		return -ENOMEM;
-
-	len += snprintf(buf + len, (SZ_4K - len), "name = %s\n", dp->name);
-	len += snprintf(buf + len, (SZ_4K - len),
-			"\tResolution = %dx%d\n",
-			dp->panel->pinfo.h_active,
-			dp->panel->pinfo.v_active);
-
-	if (copy_to_user(buff, buf, len)) {
-		kfree(buf);
-		return -EFAULT;
-	}
-
-	*ppos += len;
-
-	kfree(buf);
-	return len;
-}
-
-static const struct file_operations dp_debug_fops = {
-	.open = simple_open,
-	.read = debugfs_dp_info_read,
-};
-
-static int dp_display_debugfs_init(struct dp_display_private *dp)
-{
-	int rc = 0;
-	struct dentry *dir, *file;
-
-	dir = debugfs_create_dir(dp->name, NULL);
-	if (IS_ERR_OR_NULL(dir)) {
-		rc = PTR_ERR(dir);
-		pr_err("[%s] debugfs create dir failed, rc = %d\n",
-		       dp->name, rc);
-		goto error;
-	}
-
-	file = debugfs_create_file("dp_debug", 0444, dir, dp, &dp_debug_fops);
-	if (IS_ERR_OR_NULL(file)) {
-		rc = PTR_ERR(file);
-		pr_err("[%s] debugfs create file failed, rc=%d\n",
-		       dp->name, rc);
-		goto error_remove_dir;
-	}
-
-	dp->root = dir;
-	return rc;
-error_remove_dir:
-	debugfs_remove(dir);
-error:
-	return rc;
-}
-
-static int dp_display_debugfs_deinit(struct dp_display_private *dp)
-{
-	debugfs_remove(dp->root);
-	return 0;
 }
 
 static void dp_display_hdcp_cb_work(struct work_struct *work)
@@ -429,12 +361,6 @@ static int dp_display_bind(struct device *dev, struct device *master,
 	dp->dp_display.drm_dev = drm;
 	priv = drm->dev_private;
 
-	rc = dp_display_debugfs_init(dp);
-	if (rc) {
-		pr_err("[%s]Debugfs init failed, rc=%d\n", dp->name, rc);
-		goto end;
-	}
-
 	rc = dp->parser->parse(dp->parser);
 	if (rc) {
 		pr_err("device tree parsing failed\n");
@@ -488,7 +414,6 @@ static void dp_display_unbind(struct device *dev, struct device *master,
 	(void)dp->power->power_client_deinit(dp->power);
 	(void)dp->panel->sde_edid_deregister(dp->panel);
 	(void)dp->aux->drm_aux_deregister(dp->aux);
-	(void)dp_display_debugfs_deinit(dp);
 	dp_display_deinitialize_hdcp(dp);
 }
 
@@ -501,10 +426,15 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 {
 	int rc = 0;
 	u32 max_pclk_from_edid = 0;
+	struct edid *edid;
 
 	rc = dp->panel->read_sink_caps(dp->panel, dp->dp_display.connector);
 	if (rc)
 		return rc;
+
+	edid = dp->panel->edid_ctrl->edid;
+
+	dp->audio_supported = drm_detect_monitor_audio(edid);
 
 	max_pclk_from_edid = dp->panel->get_max_pclk(dp->panel);
 
@@ -565,6 +495,9 @@ static void dp_display_process_hpd_low(struct dp_display_private *dp)
 		dp->hdcp.ops->off(dp->hdcp.data);
 	}
 
+	if (dp->audio_supported)
+		dp->audio->off(dp->audio);
+
 	dp->dp_display.is_connected = false;
 	drm_helper_hpd_irq_event(dp->dp_display.connector->dev);
 
@@ -599,6 +532,20 @@ end:
 	return rc;
 }
 
+static void dp_display_clean(struct dp_display_private *dp)
+{
+	if (dp_display_is_hdcp_enabled(dp)) {
+		dp->hdcp_status = HDCP_STATE_INACTIVE;
+
+		cancel_delayed_work_sync(&dp->hdcp_cb_work);
+		if (dp->hdcp.ops->off)
+			dp->hdcp.ops->off(dp->hdcp.data);
+	}
+
+	dp->ctrl->push_idle(dp->ctrl);
+	dp->ctrl->off(dp->ctrl, false);
+}
+
 static int dp_display_usbpd_disconnect_cb(struct device *dev)
 {
 	int rc = 0;
@@ -620,24 +567,21 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 	/* cancel any pending request */
 	dp->ctrl->abort(dp->ctrl);
 
+	if (dp->audio_supported)
+		dp->audio->off(dp->audio);
+
 	dp->dp_display.is_connected = false;
 	drm_helper_hpd_irq_event(dp->dp_display.connector->dev);
 
 	reinit_completion(&dp->notification_comp);
-	if (!wait_for_completion_timeout(&dp->notification_comp, HZ * 2))
+	if (!wait_for_completion_timeout(&dp->notification_comp, HZ * 2)) {
 		pr_warn("timeout\n");
 
-	/*
-	 * If a cable/dongle is connected to the TX device but
-	 * no sink device is connected, we call host
-	 * initialization where orientation settings are
-	 * configured. When the cable/dongle is disconnect,
-	 * call host de-initialization to make sure
-	 * we re-configure the orientation settings during
-	 * the next connect event.
-	 */
-	if (!dp->power_on && dp->core_initialized)
-		dp_display_host_deinit(dp);
+		if (dp->power_on)
+			dp_display_clean(dp);
+	}
+
+	dp_display_host_deinit(dp);
 end:
 	return rc;
 }
@@ -677,10 +621,8 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 		goto end;
 	}
 
-	if (dp->usbpd->alt_mode_cfg_done) {
-		dp_display_host_init(dp);
+	if (dp->usbpd->alt_mode_cfg_done)
 		dp_display_process_hpd_high(dp);
-	}
 end:
 	return rc;
 }
@@ -760,6 +702,20 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 		pr_err("failed to initialize ctrl, rc = %d\n", rc);
 		goto err;
 	}
+
+	dp->audio = dp_audio_get(dp->pdev, dp->panel, &dp->catalog->audio);
+	if (IS_ERR(dp->audio)) {
+		rc = PTR_ERR(dp->audio);
+		pr_err("failed to initialize audio, rc = %d\n", rc);
+	}
+
+	dp->debug = dp_debug_get(dev, dp->panel, dp->usbpd,
+				dp->link, &dp->dp_display.connector);
+	if (IS_ERR(dp->debug)) {
+		rc = PTR_ERR(dp->debug);
+		pr_err("failed to initialize debug, rc = %d\n", rc);
+		goto err;
+	}
 err:
 	return rc;
 }
@@ -821,6 +777,12 @@ static int dp_display_post_enable(struct dp_display *dp_display)
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 
+	if (dp->audio_supported) {
+		dp->audio->bw_code = dp->link->bw_code;
+		dp->audio->lane_count = dp->link->lane_count;
+		dp->audio->on(dp->audio);
+	}
+
 	complete_all(&dp->notification_comp);
 
 	dp_display_update_hdcp_info(dp);
@@ -875,8 +837,10 @@ static int dp_display_disable(struct dp_display *dp_display)
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 
+	if (!dp->power_on || !dp->core_initialized)
+		goto error;
+
 	dp->ctrl->off(dp->ctrl, dp->hpd_irq_on);
-	dp_display_host_deinit(dp);
 
 	dp->power_on = false;
 
@@ -914,6 +878,20 @@ static int dp_request_irq(struct dp_display *dp_display)
 	disable_irq(dp->irq);
 
 	return 0;
+}
+
+static struct dp_debug *dp_get_debug(struct dp_display *dp_display)
+{
+	struct dp_display_private *dp;
+
+	if (!dp_display) {
+		pr_err("invalid input\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	dp = container_of(dp_display, struct dp_display_private, dp_display);
+
+	return dp->debug;
 }
 
 static int dp_display_unprepare(struct dp_display *dp)
@@ -979,6 +957,7 @@ static int dp_display_probe(struct platform_device *pdev)
 	g_dp_display->prepare       = dp_display_prepare;
 	g_dp_display->unprepare     = dp_display_unprepare;
 	g_dp_display->request_irq   = dp_request_irq;
+	g_dp_display->get_debug     = dp_get_debug;
 
 	rc = component_add(&pdev->dev, &dp_display_comp_ops);
 	if (rc)
@@ -1010,6 +989,7 @@ int dp_display_get_num_of_displays(void)
 
 static void dp_display_deinit_sub_modules(struct dp_display_private *dp)
 {
+	dp_audio_put(dp->audio);
 	dp_ctrl_put(dp->ctrl);
 	dp_link_put(dp->link);
 	dp_panel_put(dp->panel);
@@ -1018,6 +998,7 @@ static void dp_display_deinit_sub_modules(struct dp_display_private *dp)
 	dp_catalog_put(dp->catalog);
 	dp_parser_put(dp->parser);
 	dp_usbpd_put(dp->usbpd);
+	dp_debug_put(dp->debug);
 }
 
 static int dp_display_remove(struct platform_device *pdev)

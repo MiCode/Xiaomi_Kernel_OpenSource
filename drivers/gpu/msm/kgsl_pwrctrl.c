@@ -68,8 +68,7 @@ static const char * const clocks[] = {
 	"rbcpr_clk",
 	"iref_clk",
 	"gmu_clk",
-	"ahb_clk",
-	"cxo_clk"
+	"ahb_clk"
 };
 
 static unsigned int ib_votes[KGSL_MAX_BUSLEVELS];
@@ -228,7 +227,8 @@ static int kgsl_bus_scale_request(struct kgsl_device *device,
 
 	/* GMU scales BW */
 	if (kgsl_gmu_isenabled(device)) {
-		if (!(gmu->flags & GMU_HFI_ON))
+		if (!(gmu->flags & GMU_HFI_ON) || !buslevel)
+			/* Zero bus level is invalid for GMU to vote */
 			return 0;
 
 		ret = gmu_dcvs_set(gmu, INVALID_DCVS_IDX, buslevel);

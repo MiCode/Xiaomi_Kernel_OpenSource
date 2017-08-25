@@ -102,6 +102,19 @@ int sde_core_irq_disable(
 		uint32_t irq_count);
 
 /**
+ * sde_core_irq_disable_nolock - no lock version of sde_core_irq_disable
+ * @sde_kms:		SDE handle
+ * @irq_idx:		Irq index
+ * @return:		0 for success disabling IRQ, otherwise failure
+ *
+ * This function increments count on each enable and decrements on each
+ * disable.  Interrupts is disabled if count is 0 after decrement.
+ */
+int sde_core_irq_disable_nolock(
+		struct sde_kms *sde_kms,
+		int irq_idx);
+
+/**
  * sde_core_irq_read - IRQ helper function for reading IRQ status
  * @sde_kms:		SDE handle
  * @irq_idx:		irq index

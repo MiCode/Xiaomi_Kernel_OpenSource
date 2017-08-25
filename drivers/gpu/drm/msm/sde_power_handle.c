@@ -76,7 +76,7 @@ static int sde_power_rsc_update(struct sde_power_handle *phandle, bool enable)
 
 	if (phandle->rsc_client)
 		ret = sde_rsc_client_state_update(phandle->rsc_client,
-			rsc_state, NULL, -1);
+			rsc_state, NULL, SDE_RSC_INVALID_CRTC_ID, NULL);
 
 	return ret;
 }

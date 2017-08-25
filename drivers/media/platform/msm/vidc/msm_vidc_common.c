@@ -152,16 +152,14 @@ int msm_comm_hal_to_v4l2(int id, int value)
 			V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE;
 		case HAL_H264_PROFILE_MAIN:
 			return V4L2_MPEG_VIDEO_H264_PROFILE_MAIN;
-		case HAL_H264_PROFILE_EXTENDED:
-			return V4L2_MPEG_VIDEO_H264_PROFILE_EXTENDED;
 		case HAL_H264_PROFILE_HIGH:
 			return V4L2_MPEG_VIDEO_H264_PROFILE_HIGH;
-		case HAL_H264_PROFILE_HIGH10:
-			return V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_10;
-		case HAL_H264_PROFILE_HIGH422:
-			return V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_422;
-		case HAL_H264_PROFILE_HIGH444:
-			return V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_444_PREDICTIVE;
+		case HAL_H264_PROFILE_STEREO_HIGH:
+			return V4L2_MPEG_VIDEO_H264_PROFILE_STEREO_HIGH;
+		case HAL_H264_PROFILE_MULTIVIEW_HIGH:
+			return V4L2_MPEG_VIDEO_H264_PROFILE_MULTIVIEW_HIGH;
+		case HAL_H264_PROFILE_CONSTRAINED_HIGH:
+			return V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH;
 		default:
 			goto unknown_value;
 		}
@@ -286,29 +284,40 @@ int msm_comm_hal_to_v4l2(int id, int value)
 	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
 		switch (value) {
-		case HAL_VPX_LEVEL_VERSION_0:
+		case HAL_VP8_LEVEL_VERSION_0:
 			return V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0;
-		case HAL_VPX_LEVEL_VERSION_1:
+		case HAL_VP8_LEVEL_VERSION_1:
 			return V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_1;
-		case HAL_VPX_LEVEL_VERSION_2:
+		case HAL_VP8_LEVEL_VERSION_2:
 			return V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_2;
-		case HAL_VPX_LEVEL_VERSION_3:
+		case HAL_VP8_LEVEL_VERSION_3:
 			return V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_3;
-		case HAL_VPX_LEVEL_UNUSED:
+		case HAL_VP8_LEVEL_UNUSED:
 			return V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED;
 		default:
 			goto unknown_value;
 		}
 	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE:
+		switch (value) {
+		case HAL_MPEG2_PROFILE_SIMPLE:
+			return V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_SIMPLE;
+		case HAL_MPEG2_PROFILE_MAIN:
+			return V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_MAIN;
+		default:
+			goto unknown_value;
+		}
 	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_LEVEL:
-		/*
-		 * Extremely dirty hack: we haven't implemented g_ctrl of
-		 * any of these controls and have no intention of doing
-		 * so in the near future.  So just return 0 so that we
-		 * don't see the annoying "Unknown control" errors at the
-		 * bottom of this function.
-		 */
-		return 0;
+		/* This mapping is not defined properly in V4L2 */
+		switch (value) {
+		case HAL_MPEG2_LEVEL_LL:
+			return V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_0;
+		case HAL_MPEG2_LEVEL_ML:
+			return V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_1;
+		case HAL_MPEG2_LEVEL_HL:
+			return V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_2;
+		default:
+			goto unknown_value;
+		}
 	}
 
 unknown_value:
@@ -328,16 +337,12 @@ int msm_comm_v4l2_to_hal(int id, int value)
 			return HAL_H264_PROFILE_CONSTRAINED_BASE;
 		case V4L2_MPEG_VIDEO_H264_PROFILE_MAIN:
 			return HAL_H264_PROFILE_MAIN;
-		case V4L2_MPEG_VIDEO_H264_PROFILE_EXTENDED:
-			return HAL_H264_PROFILE_EXTENDED;
 		case V4L2_MPEG_VIDEO_H264_PROFILE_HIGH:
 			return HAL_H264_PROFILE_HIGH;
-		case V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_10:
-			return HAL_H264_PROFILE_HIGH10;
-		case V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_422:
-			return HAL_H264_PROFILE_HIGH422;
-		case V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_444_PREDICTIVE:
-			return HAL_H264_PROFILE_HIGH444;
+		case V4L2_MPEG_VIDEO_H264_PROFILE_STEREO_HIGH:
+			return HAL_H264_PROFILE_STEREO_HIGH;
+		case V4L2_MPEG_VIDEO_H264_PROFILE_MULTIVIEW_HIGH:
+			return HAL_H264_PROFILE_MULTIVIEW_HIGH;
 		case V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH:
 			return HAL_H264_PROFILE_CONSTRAINED_HIGH;
 		default:
@@ -407,15 +412,15 @@ int msm_comm_v4l2_to_hal(int id, int value)
 	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
 		switch (value) {
 		case V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0:
-			return HAL_VPX_LEVEL_VERSION_0;
+			return HAL_VP8_LEVEL_VERSION_0;
 		case V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_1:
-			return HAL_VPX_LEVEL_VERSION_1;
+			return HAL_VP8_LEVEL_VERSION_1;
 		case V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_2:
-			return HAL_VPX_LEVEL_VERSION_2;
+			return HAL_VP8_LEVEL_VERSION_2;
 		case V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_3:
-			return HAL_VPX_LEVEL_VERSION_3;
+			return HAL_VP8_LEVEL_VERSION_3;
 		case V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED:
-			return HAL_VPX_LEVEL_UNUSED;
+			return HAL_VP8_LEVEL_UNUSED;
 		default:
 			goto unknown_value;
 		}
@@ -489,6 +494,26 @@ int msm_comm_v4l2_to_hal(int id, int value)
 		default:
 			goto unknown_value;
 		}
+	case V4L2_CID_MPEG_VIDC_VIDEO_TME_PROFILE:
+		switch (value) {
+		case V4L2_MPEG_VIDC_VIDEO_TME_PROFILE_0:
+			return HAL_TME_PROFILE_0;
+		case V4L2_MPEG_VIDC_VIDEO_TME_PROFILE_1:
+			return HAL_TME_PROFILE_1;
+		case V4L2_MPEG_VIDC_VIDEO_TME_PROFILE_2:
+			return HAL_TME_PROFILE_2;
+		case V4L2_MPEG_VIDC_VIDEO_TME_PROFILE_3:
+			return HAL_TME_PROFILE_3;
+		default:
+			goto unknown_value;
+		}
+	case V4L2_CID_MPEG_VIDC_VIDEO_TME_LEVEL:
+		switch (value) {
+		case V4L2_MPEG_VIDC_VIDEO_TME_LEVEL_INTEGER:
+			return HAL_TME_LEVEL_INTEGER;
+		default:
+			goto unknown_value;
+		}
 	case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION:
 		switch (value) {
 		case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_NONE:
@@ -531,6 +556,51 @@ int msm_comm_v4l2_to_hal(int id, int value)
 unknown_value:
 	dprintk(VIDC_WARN, "Unknown control (%x, %d)\n", id, value);
 	return -EINVAL;
+}
+
+int msm_comm_get_v4l2_profile(int fourcc, int profile)
+{
+	switch (fourcc) {
+	case V4L2_PIX_FMT_H264:
+		return msm_comm_hal_to_v4l2(
+			V4L2_CID_MPEG_VIDEO_H264_PROFILE,
+			profile);
+	case V4L2_PIX_FMT_HEVC:
+		return msm_comm_hal_to_v4l2(
+			V4L2_CID_MPEG_VIDC_VIDEO_HEVC_PROFILE,
+			profile);
+	case V4L2_PIX_FMT_VP8:
+	case V4L2_PIX_FMT_VP9:
+	case V4L2_PIX_FMT_MPEG2:
+		return 0;
+	default:
+		dprintk(VIDC_WARN, "Unknown codec id %x\n", fourcc);
+		return 0;
+	}
+}
+
+int msm_comm_get_v4l2_level(int fourcc, int level)
+{
+	switch (fourcc) {
+	case V4L2_PIX_FMT_H264:
+		return msm_comm_hal_to_v4l2(
+			V4L2_CID_MPEG_VIDEO_H264_LEVEL,
+			level);
+	case V4L2_PIX_FMT_HEVC:
+		return msm_comm_hal_to_v4l2(
+			V4L2_CID_MPEG_VIDC_VIDEO_HEVC_TIER_LEVEL,
+			level);
+	case V4L2_PIX_FMT_VP8:
+		return msm_comm_hal_to_v4l2(
+			V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL,
+			level);
+	case V4L2_PIX_FMT_VP9:
+	case V4L2_PIX_FMT_MPEG2:
+		return 0;
+	default:
+		dprintk(VIDC_WARN, "Unknown codec id %x\n", fourcc);
+		return 0;
+	}
 }
 
 int msm_comm_ctrl_init(struct msm_vidc_inst *inst,
@@ -737,6 +807,17 @@ exit:
 	return load;
 }
 
+int msm_comm_get_inst_load_per_core(struct msm_vidc_inst *inst,
+		enum load_calc_quirks quirks)
+{
+	int load = msm_comm_get_inst_load(inst, quirks);
+
+	if (inst->clk_data.core_id == VIDC_CORE_ID_3)
+		load = load / 2;
+
+	return load;
+}
+
 int msm_comm_get_load(struct msm_vidc_core *core,
 	enum session_type type, enum load_calc_quirks quirks)
 {
@@ -792,7 +873,6 @@ enum hal_video_codec get_hal_codec(int fourcc)
 	case V4L2_PIX_FMT_H264_MVC:
 		codec = HAL_VIDEO_CODEC_MVC;
 		break;
-
 	case V4L2_PIX_FMT_MPEG1:
 		codec = HAL_VIDEO_CODEC_MPEG1;
 		break;
@@ -807,6 +887,9 @@ enum hal_video_codec get_hal_codec(int fourcc)
 		break;
 	case V4L2_PIX_FMT_HEVC:
 		codec = HAL_VIDEO_CODEC_HEVC;
+		break;
+	case V4L2_PIX_FMT_TME:
+		codec = HAL_VIDEO_CODEC_TME;
 		break;
 	default:
 		dprintk(VIDC_ERR, "Wrong codec: %d\n", fourcc);
@@ -1252,6 +1335,9 @@ static int msm_vidc_comm_update_ctrl(struct msm_vidc_inst *inst,
 static void msm_vidc_comm_update_ctrl_limits(struct msm_vidc_inst *inst)
 {
 	if (inst->session_type == MSM_VIDC_ENCODER) {
+		if (get_hal_codec(inst->fmts[CAPTURE_PORT].fourcc) ==
+			HAL_VIDEO_CODEC_TME)
+			return;
 		msm_vidc_comm_update_ctrl(inst,
 				V4L2_CID_MPEG_VIDC_VIDEO_HYBRID_HIERP_MODE,
 				&inst->capability.hier_p_hybrid);
@@ -1529,6 +1615,12 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	* ptr[2] = bit depth
 	* ptr[3] = pic struct (progressive or interlaced)
 	* ptr[4] = colour space
+	* ptr[5] = crop_data(top)
+	* ptr[6] = crop_data(left)
+	* ptr[7] = crop_data(height)
+	* ptr[8] = crop_data(width)
+	* ptr[9] = profile
+	* ptr[10] = level
 	*/
 
 	inst->entropy_mode = event_notify->entropy_mode;
@@ -1553,10 +1645,17 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	ptr[6] = event_notify->crop_data.left;
 	ptr[7] = event_notify->crop_data.height;
 	ptr[8] = event_notify->crop_data.width;
+	ptr[9] = msm_comm_get_v4l2_profile(
+		inst->fmts[OUTPUT_PORT].fourcc,
+		event_notify->profile);
+	ptr[10] = msm_comm_get_v4l2_level(
+		inst->fmts[OUTPUT_PORT].fourcc,
+		event_notify->level);
 
 	dprintk(VIDC_DBG,
-		"Event payload: height = %d width = %d\n",
-		event_notify->height, event_notify->width);
+		"Event payload: height = %d width = %d profile = %d level = %d\n",
+			event_notify->height, event_notify->width,
+			ptr[9], ptr[10]);
 
 	dprintk(VIDC_DBG,
 		"Event payload: bit_depth = %d pic_struct = %d colour_space = %d\n",
@@ -2037,6 +2136,7 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 	}
 
 	dprintk(VIDC_WARN, "SYS_ERROR received for core %pK\n", core);
+	msm_vidc_noc_error_info(core);
 	call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
 	list_for_each_entry(inst, &core->instances, list) {
 		dprintk(VIDC_WARN,
@@ -5069,6 +5169,28 @@ enum hal_extradata_id msm_comm_get_hal_extradata_index(
 	return ret;
 };
 
+int msm_vidc_noc_error_info(struct msm_vidc_core *core)
+{
+	struct hfi_device *hdev;
+
+	if (!core || !core->device) {
+		dprintk(VIDC_WARN, "%s: Invalid parameters: %pK\n",
+			__func__, core);
+		return -EINVAL;
+	}
+
+	if (!core->resources.non_fatal_pagefaults)
+		return 0;
+
+	if (!core->smmu_fault_handled)
+		return 0;
+
+	hdev = core->device;
+	call_hfi_op(hdev, noc_error_info, hdev->hfi_device_data);
+
+	return 0;
+}
+
 int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 	enum hal_ssr_trigger_type type)
 {
@@ -5221,6 +5343,8 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct msm_vidc_core *core;
+	u32 output_height, output_width;
+	u32 rotation;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_WARN, "%s: Invalid parameter\n", __func__);
@@ -5242,34 +5366,47 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 		return -ENOTSUPP;
 	}
 
+	rotation =  msm_comm_g_ctrl_for_id(inst,
+					V4L2_CID_MPEG_VIDC_VIDEO_ROTATION);
+
+	output_height = inst->prop.height[CAPTURE_PORT];
+	output_width = inst->prop.width[CAPTURE_PORT];
+
+	if ((output_width != output_height) &&
+		(rotation == V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_90 ||
+		rotation == V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_270)) {
+
+		output_width = inst->prop.height[CAPTURE_PORT];
+		output_height = inst->prop.width[CAPTURE_PORT];
+		dprintk(VIDC_DBG,
+			"Rotation=%u Swapped Output W=%u H=%u to check capability",
+			rotation, output_width, output_height);
+	}
+
 	if (!rc) {
-		if (inst->prop.width[CAPTURE_PORT] < capability->width.min ||
-			inst->prop.height[CAPTURE_PORT] <
-			capability->height.min) {
+		if (output_width < capability->width.min ||
+			output_height < capability->height.min) {
 			dprintk(VIDC_ERR,
 				"Unsupported WxH = (%u)x(%u), min supported is - (%u)x(%u)\n",
-				inst->prop.width[CAPTURE_PORT],
-				inst->prop.height[CAPTURE_PORT],
+				output_width,
+				output_height,
 				capability->width.min,
 				capability->height.min);
 			rc = -ENOTSUPP;
 		}
-		if (!rc && inst->prop.width[CAPTURE_PORT] >
-			capability->width.max) {
+		if (!rc && output_width > capability->width.max) {
 			dprintk(VIDC_ERR,
 				"Unsupported width = %u supported max width = %u\n",
-				inst->prop.width[CAPTURE_PORT],
+				output_width,
 				capability->width.max);
 				rc = -ENOTSUPP;
 		}
 
-		if (!rc && inst->prop.height[CAPTURE_PORT]
-			* inst->prop.width[CAPTURE_PORT] >
+		if (!rc && output_height * output_width >
 			capability->width.max * capability->height.max) {
 			dprintk(VIDC_ERR,
 			"Unsupported WxH = (%u)x(%u), max supported is - (%u)x(%u)\n",
-			inst->prop.width[CAPTURE_PORT],
-			inst->prop.height[CAPTURE_PORT],
+			output_width, output_height,
 			capability->width.max, capability->height.max);
 			rc = -ENOTSUPP;
 		}
@@ -5660,7 +5797,9 @@ int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 	dprintk(VIDC_PROF, "reported fps changed for %pK: %d->%d\n",
 			inst, inst->prop.fps, fps);
 	inst->prop.fps = fps;
-	if (inst->session_type == MSM_VIDC_ENCODER) {
+	if (inst->session_type == MSM_VIDC_ENCODER &&
+		get_hal_codec(inst->fmts[CAPTURE_PORT].fourcc) !=
+			HAL_VIDEO_CODEC_TME) {
 		frame_rate.frame_rate = inst->prop.fps * BIT(16);
 		frame_rate.buffer_type = HAL_BUFFER_OUTPUT;
 		pdata = &frame_rate;

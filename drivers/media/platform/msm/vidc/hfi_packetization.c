@@ -21,15 +21,6 @@
  * space.  So before indexing them, we apply log2 to use a more
  * sensible index.
  */
-static int profile_table[] = {
-	[ilog2(HAL_H264_PROFILE_BASELINE)] = HFI_H264_PROFILE_BASELINE,
-	[ilog2(HAL_H264_PROFILE_MAIN)] = HFI_H264_PROFILE_MAIN,
-	[ilog2(HAL_H264_PROFILE_HIGH)] = HFI_H264_PROFILE_HIGH,
-	[ilog2(HAL_H264_PROFILE_CONSTRAINED_BASE)] =
-		HFI_H264_PROFILE_CONSTRAINED_BASE,
-	[ilog2(HAL_H264_PROFILE_CONSTRAINED_HIGH)] =
-		HFI_H264_PROFILE_CONSTRAINED_HIGH,
-};
 
 static int entropy_mode[] = {
 	[ilog2(HAL_H264_ENTROPY_CAVLC)] = HFI_H264_ENTROPY_CAVLC,
@@ -95,9 +86,6 @@ static inline int hal_to_hfi_type(int property, int hal_type)
 		hal_type = ilog2(hal_type);
 
 	switch (property) {
-	case HAL_PARAM_PROFILE_LEVEL_CURRENT:
-		return (hal_type >= ARRAY_SIZE(profile_table)) ?
-			-ENOTSUPP : profile_table[hal_type];
 	case HAL_PARAM_VENC_H264_ENTROPY_CONTROL:
 		return (hal_type >= ARRAY_SIZE(entropy_mode)) ?
 			-ENOTSUPP : entropy_mode[hal_type];
@@ -164,6 +152,9 @@ enum hal_video_codec vidc_get_hal_codec(u32 hfi_codec)
 	case HFI_VIDEO_CODEC_VP9:
 		hal_codec = HAL_VIDEO_CODEC_VP9;
 		break;
+	case HFI_VIDEO_CODEC_TME:
+		hal_codec = HAL_VIDEO_CODEC_TME;
+		break;
 	default:
 		dprintk(VIDC_INFO, "%s: invalid codec 0x%x\n",
 			__func__, hfi_codec);
@@ -219,6 +210,9 @@ u32 vidc_get_hfi_codec(enum hal_video_codec hal_codec)
 		break;
 	case HAL_VIDEO_CODEC_VP9:
 		hfi_codec = HFI_VIDEO_CODEC_VP9;
+		break;
+	case HAL_VIDEO_CODEC_TME:
+		hfi_codec = HFI_VIDEO_CODEC_TME;
 		break;
 	default:
 		dprintk(VIDC_INFO, "%s: invalid codec 0x%x\n",
@@ -1188,8 +1182,7 @@ int create_pkt_cmd_session_set_property(
 		 * HFI level
 		 */
 		hfi->level = prop->level;
-		hfi->profile = hal_to_hfi_type(HAL_PARAM_PROFILE_LEVEL_CURRENT,
-				prop->profile);
+		hfi->profile = prop->profile;
 		if (hfi->profile <= 0) {
 			hfi->profile = HFI_H264_PROFILE_HIGH;
 			dprintk(VIDC_WARN,
@@ -1612,6 +1605,9 @@ int create_pkt_cmd_session_set_property(
 				HFI_PROPERTY_PARAM_VPE_COLOR_SPACE_CONVERSION;
 		hfi = (struct hfi_vpe_color_space_conversion *)
 			&pkt->rg_property_data[1];
+
+		hfi->input_color_primaries = hal->input_color_primaries;
+		hfi->custom_matrix_enabled = hal->custom_matrix_enabled;
 		memcpy(hfi->csc_matrix, hal->csc_matrix,
 				sizeof(hfi->csc_matrix));
 		memcpy(hfi->csc_bias, hal->csc_bias, sizeof(hfi->csc_bias));

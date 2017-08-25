@@ -36,6 +36,9 @@ static const char drv_name[] = "vfe_bus";
 #define CAM_VFE_RDI_BUS_DEFAULT_WIDTH           0xFF01
 #define CAM_VFE_RDI_BUS_DEFAULT_STRIDE          0xFF01
 
+#define ALIGNUP(value, alignment) \
+	((value + alignment - 1) / alignment * alignment)
+
 #define MAX_BUF_UPDATE_REG_NUM   \
 	(sizeof(struct cam_vfe_bus_ver2_reg_offset_bus_client)/4)
 #define MAX_REG_VAL_PAIR_SIZE    \
@@ -732,8 +735,21 @@ static int cam_vfe_bus_acquire_wm(
 		rsrc_data->index == 7 || rsrc_data->index == 8) {
 		/* Write master 3, 4 - for Full OUT , 7-8  FD OUT */
 		switch (rsrc_data->format) {
-		case CAM_FORMAT_UBWC_NV12:
 		case CAM_FORMAT_UBWC_NV12_4R:
+			rsrc_data->en_ubwc = 1;
+			rsrc_data->width = ALIGNUP(rsrc_data->width, 64);
+			switch (plane) {
+			case PLANE_C:
+				rsrc_data->height /= 2;
+				break;
+			case PLANE_Y:
+				break;
+			default:
+				CAM_ERR(CAM_ISP, "Invalid plane %d\n", plane);
+				return -EINVAL;
+			}
+			break;
+		case CAM_FORMAT_UBWC_NV12:
 			rsrc_data->en_ubwc = 1;
 			/* Fall through for NV12 */
 		case CAM_FORMAT_NV21:
@@ -751,9 +767,22 @@ static int cam_vfe_bus_acquire_wm(
 			break;
 		case CAM_FORMAT_UBWC_TP10:
 			rsrc_data->en_ubwc = 1;
-			/* Fall through for LINEAR TP10 */
+			rsrc_data->width =
+				ALIGNUP(rsrc_data->width, 48) * 4 / 3;
+			switch (plane) {
+			case PLANE_C:
+				rsrc_data->height /= 2;
+				break;
+			case PLANE_Y:
+				break;
+			default:
+				CAM_ERR(CAM_ISP, "Invalid plane %d\n", plane);
+				return -EINVAL;
+			}
+			break;
 		case CAM_FORMAT_TP10:
-			rsrc_data->width = rsrc_data->width * 4 / 3;
+			rsrc_data->width =
+				ALIGNUP(rsrc_data->width, 3) * 4 / 3;
 			switch (plane) {
 			case PLANE_C:
 				rsrc_data->height /= 2;

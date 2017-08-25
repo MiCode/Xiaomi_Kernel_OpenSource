@@ -67,6 +67,12 @@ void sde_vbif_set_qos_remap(struct sde_kms *sde_kms,
 		struct sde_vbif_set_qos_params *params);
 
 /**
+ * sde_vbif_clear_errors - clear any vbif errors
+ * @sde_kms:	SDE handler
+ */
+void sde_vbif_clear_errors(struct sde_kms *sde_kms);
+
+/**
  * sde_vbif_init_memtypes - initialize xin memory types for vbif
  * @sde_kms:	SDE handler
  */

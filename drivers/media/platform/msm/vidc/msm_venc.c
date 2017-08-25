@@ -42,25 +42,6 @@
 #define MIN_NUM_ENC_OUTPUT_BUFFERS 4
 #define MIN_NUM_ENC_CAPTURE_BUFFERS 5
 
-/*
- * Default 601 to 709 conversion coefficients for resolution: 176x144 negative
- * coeffs are converted to s4.9 format (e.g. -22 converted to ((1 << 13) - 22)
- * 3x3 transformation matrix coefficients in s4.9 fixed point format
- */
-static u32 vpe_csc_601_to_709_matrix_coeff[HAL_MAX_MATRIX_COEFFS] = {
-	470, 8170, 8148, 0, 490, 50, 0, 34, 483
-};
-
-/* offset coefficients in s9 fixed point format */
-static u32 vpe_csc_601_to_709_bias_coeff[HAL_MAX_BIAS_COEFFS] = {
-	34, 0, 4
-};
-
-/* clamping value for Y/U/V([min,max] for Y/U/V) */
-static u32 vpe_csc_601_to_709_limit_coeff[HAL_MAX_LIMIT_COEFFS] = {
-	16, 235, 16, 240, 16, 240
-};
-
 static const char *const mpeg_video_rate_control[] = {
 	"No Rate Control",
 	"VBR VFR",
@@ -115,6 +96,17 @@ static const char *const hevc_tier_level[] = {
 	"High Tier Level 6.1",
 	"High Tier Level 6.2",
 	"Level unknown",
+};
+
+static const char *const tme_profile[] = {
+	"0",
+	"1",
+	"2",
+	"3",
+};
+
+static const char *const tme_level[] = {
+	"Integer",
 };
 
 static const char *const hevc_profile[] = {
@@ -484,6 +476,46 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_UNKNOWN)
 		),
 		.qmenu = hevc_tier_level,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_TME_PROFILE,
+		.name = "TME Profile",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_TME_PROFILE_0,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_TME_PROFILE_3,
+		.default_value =
+			V4L2_MPEG_VIDC_VIDEO_TME_PROFILE_0,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDC_VIDEO_TME_PROFILE_0) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_TME_PROFILE_1) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_TME_PROFILE_2) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_TME_PROFILE_3)
+		),
+		.qmenu = tme_profile,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_TME_LEVEL,
+		.name = "TME Level",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_TME_LEVEL_INTEGER,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_TME_LEVEL_INTEGER,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_TME_LEVEL_INTEGER,
+		.menu_skip_mask =  ~(
+		(1 << V4L2_MPEG_VIDC_VIDEO_TME_LEVEL_INTEGER)
+		),
+		.qmenu = tme_level,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_TME_PAYLOAD_VERSION,
+		.name = "TME Payload Version",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 0,
+		.maximum = 0xFFFFFFF,
+		.default_value = 0,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.flags = V4L2_CTRL_FLAG_READ_ONLY,
+		.qmenu = NULL,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_ROTATION,
@@ -995,6 +1027,15 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.default_value = 0,
 		.step = 1,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_VPE_CSC_CUSTOM_MATRIX,
+		.name = "Enable/Disable CSC Custom Matrix",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = 0,
+		.maximum = 1,
+		.default_value = 0,
+		.step = 1,
+	},
 
 };
 
@@ -1064,9 +1105,17 @@ static struct msm_vidc_format venc_formats[] = {
 		.get_frame_size = get_frame_size_tp10_ubwc,
 		.type = OUTPUT_PORT,
 	},
+	{
+		.name = "TME",
+		.description = "TME MBI format",
+		.fourcc = V4L2_PIX_FMT_TME,
+		.get_frame_size = get_frame_size_compressed,
+		.type = CAPTURE_PORT,
+	},
 };
 
-static int msm_venc_set_csc(struct msm_vidc_inst *inst);
+static int msm_venc_set_csc(struct msm_vidc_inst *inst,
+					u32 color_primaries, u32 custom_matrix);
 
 static int msm_venc_toggle_hier_p(struct msm_vidc_inst *inst, int layers)
 {
@@ -1140,6 +1189,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct hal_video_signal_info signal_info = {0};
 	struct hal_vui_timing_info vui_timing_info = {0};
 	enum hal_iframesize_type iframesize_type = HAL_IFRAMESIZE_TYPE_DEFAULT;
+	u32 color_primaries, custom_matrix;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
@@ -1316,7 +1366,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
 		property_id = HAL_PARAM_PROFILE_LEVEL_CURRENT;
-		profile_level.profile = HAL_VPX_PROFILE_MAIN;
+		profile_level.profile = HAL_VP8_PROFILE_MAIN;
 		profile_level.level = msm_comm_v4l2_to_hal(
 				V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL,
 				ctrl->val);
@@ -1342,6 +1392,29 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 							ctrl->val);
 		profile_level.profile = msm_comm_v4l2_to_hal(
 				V4L2_CID_MPEG_VIDC_VIDEO_HEVC_PROFILE,
+				temp_ctrl->val);
+		pdata = &profile_level;
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_TME_PROFILE:
+		temp_ctrl =
+			TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_TME_LEVEL);
+
+		property_id = HAL_PARAM_PROFILE_LEVEL_CURRENT;
+		profile_level.profile = msm_comm_v4l2_to_hal(ctrl->id,
+							ctrl->val);
+		profile_level.level = msm_comm_v4l2_to_hal(
+				V4L2_CID_MPEG_VIDC_VIDEO_TME_LEVEL,
+				temp_ctrl->val);
+		pdata = &profile_level;
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_TME_LEVEL:
+		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_TME_PROFILE);
+
+		property_id = HAL_PARAM_PROFILE_LEVEL_CURRENT;
+		profile_level.level = msm_comm_v4l2_to_hal(ctrl->id,
+							ctrl->val);
+		profile_level.profile = msm_comm_v4l2_to_hal(
+				V4L2_CID_MPEG_VIDC_VIDEO_TME_PROFILE,
 				temp_ctrl->val);
 		pdata = &profile_level;
 		break;
@@ -1817,11 +1890,23 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_VPE_CSC:
-		if (ctrl->val == V4L2_CID_MPEG_VIDC_VIDEO_VPE_CSC_ENABLE) {
-			rc = msm_venc_set_csc(inst);
-			if (rc)
-				dprintk(VIDC_ERR, "fail to set csc: %d\n", rc);
-		}
+		if (ctrl->val != V4L2_CID_MPEG_VIDC_VIDEO_VPE_CSC_ENABLE)
+			break;
+		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_COLOR_SPACE);
+		color_primaries = temp_ctrl->val;
+		temp_ctrl =
+		   TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_VPE_CSC_CUSTOM_MATRIX);
+		custom_matrix = temp_ctrl->val;
+		rc = msm_venc_set_csc(inst, color_primaries, custom_matrix);
+		if (rc)
+			dprintk(VIDC_ERR, "fail to set csc: %d\n", rc);
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_VPE_CSC_CUSTOM_MATRIX:
+		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_COLOR_SPACE);
+		color_primaries = temp_ctrl->val;
+		rc = msm_venc_set_csc(inst, color_primaries, ctrl->val);
+		if (rc)
+			dprintk(VIDC_ERR, "fail to set csc: %d\n", rc);
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_MODE:
 	{
@@ -2210,22 +2295,42 @@ int msm_venc_enum_fmt(struct msm_vidc_inst *inst, struct v4l2_fmtdesc *f)
 	return rc;
 }
 
-static int msm_venc_set_csc(struct msm_vidc_inst *inst)
+static int msm_venc_set_csc(struct msm_vidc_inst *inst,
+					u32 color_primaries, u32 custom_matrix)
 {
 	int rc = 0;
 	int count = 0;
 	struct hal_vpe_color_space_conversion vpe_csc;
+	struct msm_vidc_platform_resources *resources;
+	u32 *bias_coeff = NULL;
+	u32 *csc_limit = NULL;
+	u32 *csc_matrix = NULL;
 
-	while (count < HAL_MAX_MATRIX_COEFFS) {
-		if (count < HAL_MAX_BIAS_COEFFS)
-			vpe_csc.csc_bias[count] =
-				vpe_csc_601_to_709_bias_coeff[count];
-		if (count < HAL_MAX_LIMIT_COEFFS)
-			vpe_csc.csc_limit[count] =
-				vpe_csc_601_to_709_limit_coeff[count];
-		vpe_csc.csc_matrix[count] =
-			vpe_csc_601_to_709_matrix_coeff[count];
-		count = count + 1;
+	resources = &(inst->core->resources);
+	bias_coeff =
+		resources->csc_coeff_data->vpe_csc_custom_bias_coeff;
+	csc_limit =
+		resources->csc_coeff_data->vpe_csc_custom_limit_coeff;
+	csc_matrix =
+		resources->csc_coeff_data->vpe_csc_custom_matrix_coeff;
+
+	vpe_csc.input_color_primaries = color_primaries;
+	/* Custom bias, matrix & limit */
+	vpe_csc.custom_matrix_enabled = custom_matrix;
+
+	if (vpe_csc.custom_matrix_enabled && bias_coeff != NULL
+			&& csc_limit != NULL && csc_matrix != NULL) {
+		while (count < HAL_MAX_MATRIX_COEFFS) {
+			if (count < HAL_MAX_BIAS_COEFFS)
+				vpe_csc.csc_bias[count] =
+					bias_coeff[count];
+			if (count < HAL_MAX_LIMIT_COEFFS)
+				vpe_csc.csc_limit[count] =
+					csc_limit[count];
+			vpe_csc.csc_matrix[count] =
+				csc_matrix[count];
+			count = count + 1;
+		}
 	}
 	rc = msm_comm_try_set_prop(inst,
 			HAL_PARAM_VPE_COLOR_SPACE_CONVERSION, &vpe_csc);

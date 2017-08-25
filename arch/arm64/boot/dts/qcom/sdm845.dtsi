@@ -344,7 +344,7 @@
 		};
 	};
 
-	energy-costs {
+	energy_costs: energy-costs {
 		compatible = "sched-energy";
 
 		CPU_COST_0: core-cost0 {
@@ -1991,6 +1991,7 @@
 
 	qcom,msm_fastrpc {
 		compatible = "qcom,msm-fastrpc-compute";
+		qcom,rpc-latency-us = <611>;
 
 		qcom,msm_fastrpc_compute_cb1 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
@@ -3668,6 +3669,8 @@
 		interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,affinity = <1>;
 		#thermal-sensor-cells = <0>;
+		isens_vref-supply = <&pm8998_l1_ao>;
+		isens-vref-settings = <880000 880000 20000>;
 	};
 
 	wil6210: qcom,wil6210 {
@@ -3802,7 +3805,6 @@
 };
 
 #include "pm8998.dtsi"
-#include "pmi8998.dtsi"
 #include "pm8005.dtsi"
 #include "sdm845-regulator.dtsi"
 #include "sdm845-coresight.dtsi"

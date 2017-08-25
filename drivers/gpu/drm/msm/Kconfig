@@ -13,6 +13,7 @@ config DRM_MSM
 	select SND_SOC_HDMI_CODEC if SND_SOC
 	select SYNC_FILE
 	select HDCP_QSEECOM
+	select MSM_EXT_DISPLAY
 	default y
 	help
 	  DRM/KMS driver for MSM/snapdragon.

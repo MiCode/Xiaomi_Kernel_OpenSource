@@ -14,6 +14,8 @@ msm_drm-y := \
 	dp/dp_panel.o \
 	dp/dp_link.o \
 	dp/dp_ctrl.o \
+	dp/dp_audio.o \
+	dp/dp_debug.o \
 	dp/dp_display.o \
 	dp/dp_drm.o \
 	dp/dp_hdcp2p2.o \

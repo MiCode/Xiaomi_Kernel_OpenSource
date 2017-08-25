@@ -51,7 +51,7 @@
 				reg = <2>;
 				label = "l3-pc";
 				qcom,psci-mode = <0x4>;
-				qcom,latency-us = <4562>;
+				qcom,latency-us = <3201>;
 				qcom,ss-power = <408>;
 				qcom,energy-overhead = <2421840>;
 				qcom,time-overhead = <5376>;
@@ -105,7 +105,7 @@
 					reg = <1>;
 					qcom,psci-cpu-mode = <0x2>;
 					qcom,spm-cpu-mode = "ret";
-					qcom,latency-us = <86>;
+					qcom,latency-us = <119>;
 					qcom,ss-power = <449>;
 					qcom,energy-overhead = <78456>;
 					qcom,time-overhead = <167>;
@@ -115,7 +115,7 @@
 					reg = <2>;
 					qcom,spm-cpu-mode = "pc";
 					qcom,psci-cpu-mode = <0x3>;
-					qcom,latency-us = <612>;
+					qcom,latency-us = <461>;
 					qcom,ss-power = <436>;
 					qcom,energy-overhead = <418225>;
 					qcom,time-overhead = <885>;
@@ -127,7 +127,7 @@
 					reg = <3>;
 					qcom,spm-cpu-mode = "rail-pc";
 					qcom,psci-cpu-mode = <0x4>;
-					qcom,latency-us = <700>;
+					qcom,latency-us = <531>;
 					qcom,ss-power = <400>;
 					qcom,energy-overhead = <428225>;
 					qcom,time-overhead = <1000>;
@@ -157,7 +157,7 @@
 					reg = <1>;
 					qcom,psci-cpu-mode = <0x2>;
 					qcom,spm-cpu-mode = "ret";
-					qcom,latency-us = <86>;
+					qcom,latency-us = <116>;
 					qcom,ss-power = <449>;
 					qcom,energy-overhead = <78456>;
 					qcom,time-overhead = <167>;
@@ -167,7 +167,7 @@
 					reg = <2>;
 					qcom,spm-cpu-mode = "pc";
 					qcom,psci-cpu-mode = <0x3>;
-					qcom,latency-us = <612>;
+					qcom,latency-us = <621>;
 					qcom,ss-power = <436>;
 					qcom,energy-overhead = <418225>;
 					qcom,time-overhead = <885>;
@@ -179,7 +179,7 @@
 					reg = <3>;
 					qcom,spm-cpu-mode = "rail-pc";
 					qcom,psci-cpu-mode = <0x4>;
-					qcom,latency-us = <700>;
+					qcom,latency-us = <1061>;
 					qcom,ss-power = <400>;
 					qcom,energy-overhead = <428225>;
 					qcom,time-overhead = <1000>;

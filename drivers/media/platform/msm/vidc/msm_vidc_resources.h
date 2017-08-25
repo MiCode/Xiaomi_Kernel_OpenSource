@@ -189,8 +189,10 @@ struct msm_vidc_platform_resources {
 	int msm_vidc_hw_rsp_timeout;
 	int msm_vidc_firmware_unload_delay;
 	uint32_t msm_vidc_pwr_collapse_delay;
+	bool non_fatal_pagefaults;
 	struct msm_vidc_codec_data *codec_data;
 	int codec_data_count;
+	struct msm_vidc_csc_coeff *csc_coeff_data;
 };
 
 static inline bool is_iommu_present(struct msm_vidc_platform_resources *res)

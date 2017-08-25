@@ -49,6 +49,7 @@
 #include <asm/cpuidle.h>
 #include "lpm-levels.h"
 #include <trace/events/power.h>
+#include "../clk/clk.h"
 #define CREATE_TRACE_POINTS
 #include <trace/events/trace_msm_low_power.h>
 
@@ -980,7 +981,7 @@ static int cluster_select(struct lpm_cluster *cluster, bool from_idle,
 		if (suspend_in_progress && from_idle && level->notify_rpm)
 			continue;
 
-		if (level->notify_rpm && !system_sleep_allowed())
+		if (level->is_reset && !system_sleep_allowed())
 			continue;
 
 		best_level = i;
@@ -1635,6 +1636,7 @@ static int lpm_suspend_enter(suspend_state_t state)
 	 * clocks that are enabled and preventing the system level
 	 * LPMs(XO and Vmin).
 	 */
+	clock_debug_print_enabled();
 
 	psci_enter_sleep(lpm_cpu, idx, true);
 

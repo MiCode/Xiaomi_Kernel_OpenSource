@@ -15,6 +15,7 @@
 #include <linux/platform_device.h>
 
 #include <soc/qcom/rpmh.h>
+#include <soc/qcom/system_pm.h>
 
 #define ARCH_TIMER_HZ		(19200000UL)
 #define PDC_TIME_VALID_SHIFT	31

@@ -182,6 +182,12 @@ struct sde_hw_mdp_ops {
 	 * @m: pointer to mdss catalog data
 	 */
 	void (*reset_ubwc)(struct sde_hw_mdp *mdp, struct sde_mdss_cfg *m);
+
+	/**
+	 * intf_audio_select - select the external interface for audio
+	 * @mdp: mdp top context driver
+	 */
+	void (*intf_audio_select)(struct sde_hw_mdp *mdp);
 };
 
 struct sde_hw_mdp {

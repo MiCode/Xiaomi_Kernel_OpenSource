@@ -169,6 +169,12 @@ struct internal_buf {
 	enum buffer_owner buffer_ownership;
 };
 
+struct msm_vidc_csc_coeff {
+	u32 *vpe_csc_custom_matrix_coeff;
+	u32 *vpe_csc_custom_bias_coeff;
+	u32 *vpe_csc_custom_limit_coeff;
+};
+
 struct msm_vidc_common_data {
 	char key[128];
 	int value;
@@ -187,6 +193,7 @@ struct msm_vidc_platform_data {
 	unsigned int common_data_length;
 	struct msm_vidc_codec_data *codec_data;
 	unsigned int codec_data_length;
+	struct msm_vidc_csc_coeff csc_data;
 };
 
 struct msm_vidc_format {
@@ -395,6 +402,7 @@ struct msm_vidc_ctrl {
 void handle_cmd_response(enum hal_command_response cmd, void *data);
 int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 	enum hal_ssr_trigger_type type);
+int msm_vidc_noc_error_info(struct msm_vidc_core *core);
 int msm_vidc_check_session_supported(struct msm_vidc_inst *inst);
 int msm_vidc_check_scaling_supported(struct msm_vidc_inst *inst);
 void msm_vidc_queue_v4l2_event(struct msm_vidc_inst *inst, int event_type);

@@ -25,8 +25,19 @@
 #include "cam_cpas_api.h"
 #include "cam_debug_util.h"
 
-struct cam_ipe_device_hw_info cam_ipe_hw_info = {
-	.reserved = 0,
+static struct cam_ipe_device_hw_info cam_ipe_hw_info[] = {
+	{
+		.hw_idx = 0,
+		.pwr_ctrl = 0x4c,
+		.pwr_status = 0x48,
+		.reserved = 0,
+	},
+	{
+		.hw_idx = 1,
+		.pwr_ctrl = 0x54,
+		.pwr_status = 0x50,
+		.reserved = 0,
+	},
 };
 EXPORT_SYMBOL(cam_ipe_hw_info);
 
@@ -106,7 +117,7 @@ int cam_ipe_probe(struct platform_device *pdev)
 		rc = -EINVAL;
 		return rc;
 	}
-	hw_info = (struct cam_ipe_device_hw_info *)match_dev->data;
+	hw_info = &cam_ipe_hw_info[ipe_dev_intf->hw_idx];
 	core_info->ipe_hw_info = hw_info;
 
 	rc = cam_ipe_init_soc_resources(&ipe_dev->soc_info, cam_ipe_irq,
@@ -142,7 +153,7 @@ int cam_ipe_probe(struct platform_device *pdev)
 
 static const struct of_device_id cam_ipe_dt_match[] = {
 	{
-		.compatible = "qcom,cam_ipe",
+		.compatible = "qcom,cam-ipe",
 		.data = &cam_ipe_hw_info,
 	},
 	{}
@@ -152,7 +163,7 @@ MODULE_DEVICE_TABLE(of, cam_ipe_dt_match);
 static struct platform_driver cam_ipe_driver = {
 	.probe = cam_ipe_probe,
 	.driver = {
-		.name = "cam_ipe",
+		.name = "cam-ipe",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_ipe_dt_match,
 	},

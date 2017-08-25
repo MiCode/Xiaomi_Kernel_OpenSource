@@ -216,10 +216,12 @@ enum msm_display_caps {
  * enum msm_event_wait - type of HW events to wait for
  * @MSM_ENC_COMMIT_DONE - wait for the driver to flush the registers to HW
  * @MSM_ENC_TX_COMPLETE - wait for the HW to transfer the frame to panel
+ * @MSM_ENC_VBLANK - wait for the HW VBLANK event (for driver-internal waiters)
  */
 enum msm_event_wait {
 	MSM_ENC_COMMIT_DONE = 0,
 	MSM_ENC_TX_COMPLETE,
+	MSM_ENC_VBLANK,
 };
 
 /**
@@ -589,10 +591,6 @@ struct msm_drm_private {
 	 */
 	struct task_struct *struct_mutex_task;
 
-	/* saved atomic state during system suspend */
-	struct drm_atomic_state *suspend_state;
-	bool suspend_block;
-
 	/* list of clients waiting for events */
 	struct list_head client_event_list;
 
@@ -603,12 +601,14 @@ struct msm_drm_private {
 	struct dentry *debug_root;
 };
 
+/* get struct msm_kms * from drm_device * */
+#define ddev_to_msm_kms(D) ((D) && (D)->dev_private ? \
+		((struct msm_drm_private *)((D)->dev_private))->kms : NULL)
+
 struct msm_format {
 	uint32_t pixel_format;
 };
 
-int msm_atomic_check(struct drm_device *dev,
-		     struct drm_atomic_state *state);
 /* callback from wq once fence has passed: */
 struct msm_fence_cb {
 	struct work_struct work;
@@ -622,25 +622,6 @@ void __msm_fence_worker(struct work_struct *work);
 		INIT_WORK(&(_cb)->work, __msm_fence_worker); \
 		(_cb)->func = _func;                         \
 	} while (0)
-
-static inline bool msm_is_suspend_state(struct drm_device *dev)
-{
-	if (!dev || !dev->dev_private)
-		return false;
-
-	return ((struct msm_drm_private *)dev->dev_private)->suspend_state != 0;
-}
-
-static inline bool msm_is_suspend_blocked(struct drm_device *dev)
-{
-	if (!dev || !dev->dev_private)
-		return false;
-
-	if (!msm_is_suspend_state(dev))
-		return false;
-
-	return ((struct msm_drm_private *)dev->dev_private)->suspend_block != 0;
-}
 
 int msm_atomic_commit(struct drm_device *dev,
 		struct drm_atomic_state *state, bool nonblock);
@@ -733,6 +714,7 @@ struct page **msm_gem_get_pages(struct drm_gem_object *obj);
 void msm_gem_put_pages(struct drm_gem_object *obj);
 void msm_gem_put_iova(struct drm_gem_object *obj,
 		struct msm_gem_address_space *aspace);
+dma_addr_t msm_gem_get_dma_addr(struct drm_gem_object *obj);
 int msm_gem_dumb_create(struct drm_file *file, struct drm_device *dev,
 		struct drm_mode_create_dumb *args);
 int msm_gem_dumb_map_offset(struct drm_file *file, struct drm_device *dev,
@@ -775,6 +757,7 @@ void msm_framebuffer_cleanup(struct drm_framebuffer *fb,
 		struct msm_gem_address_space *aspace);
 uint32_t msm_framebuffer_iova(struct drm_framebuffer *fb,
 		struct msm_gem_address_space *aspace, int plane);
+uint32_t msm_framebuffer_phys(struct drm_framebuffer *fb, int plane);
 struct drm_gem_object *msm_framebuffer_bo(struct drm_framebuffer *fb, int plane);
 const struct msm_format *msm_framebuffer_format(struct drm_framebuffer *fb);
 struct drm_framebuffer *msm_framebuffer_init(struct drm_device *dev,
