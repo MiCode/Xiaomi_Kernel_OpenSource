@@ -869,6 +869,8 @@ int cam_hw_cdm_probe(struct platform_device *pdev)
 
 	cdm_hw->hw_state = CAM_HW_STATE_POWER_DOWN;
 	cdm_hw->soc_info.pdev = pdev;
+	cdm_hw->soc_info.dev = &pdev->dev;
+	cdm_hw->soc_info.dev_name = pdev->name;
 	cdm_hw_intf->hw_type = CAM_HW_CDM;
 	cdm_hw->open_count = 0;
 	mutex_init(&cdm_hw->hw_mutex);

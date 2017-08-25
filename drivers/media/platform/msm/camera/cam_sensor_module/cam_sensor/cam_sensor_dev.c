@@ -135,8 +135,9 @@ static int32_t cam_sensor_driver_i2c_probe(struct i2c_client *client,
 
 	s_ctrl->io_master_info.client = client;
 	soc_info = &s_ctrl->soc_info;
-	soc_info->i2c_dev = client;
-	soc_info->is_i2c_dev = true;
+	soc_info->dev = &client->dev;
+	soc_info->dev_name = client->name;
+
 	/* Initialize sensor device type */
 	s_ctrl->of_node = client->dev.of_node;
 	s_ctrl->io_master_info.master_type = I2C_MASTER;
@@ -233,7 +234,8 @@ static int32_t cam_sensor_driver_platform_probe(
 
 	soc_info = &s_ctrl->soc_info;
 	soc_info->pdev = pdev;
-	soc_info->is_i2c_dev = false;
+	soc_info->dev = &pdev->dev;
+	soc_info->dev_name = pdev->name;
 
 	/* Initialize sensor device type */
 	s_ctrl->of_node = pdev->dev.of_node;

@@ -76,7 +76,7 @@ int cam_ife_csid_init_soc_resources(struct cam_hw_soc_info *soc_info,
 	strlcpy(cpas_register_param.identifier, "csid",
 		CAM_HW_IDENTIFIER_LENGTH);
 	cpas_register_param.cell_index = soc_info->index;
-	cpas_register_param.dev = &soc_info->pdev->dev;
+	cpas_register_param.dev = soc_info->dev;
 	rc = cam_cpas_register_client(&cpas_register_param);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "CPAS registration failed rc=%d", rc);

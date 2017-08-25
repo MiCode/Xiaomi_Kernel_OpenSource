@@ -146,8 +146,8 @@ static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client,
 
 	a_ctrl->io_master_info.client = client;
 	soc_info = &a_ctrl->soc_info;
-	soc_info->i2c_dev = client;
-	soc_info->is_i2c_dev = true;
+	soc_info->dev = &client->dev;
+	soc_info->dev_name = client->name;
 	a_ctrl->io_master_info.master_type = I2C_MASTER;
 
 	rc = cam_actuator_parse_dt(a_ctrl, &client->dev);
@@ -258,7 +258,8 @@ static int32_t cam_actuator_driver_platform_probe(
 	/*fill in platform device*/
 	a_ctrl->v4l2_dev_str.pdev = pdev;
 	a_ctrl->soc_info.pdev = pdev;
-
+	a_ctrl->soc_info.dev = &pdev->dev;
+	a_ctrl->soc_info.dev_name = pdev->name;
 	a_ctrl->io_master_info.master_type = CCI_MASTER;
 
 	a_ctrl->io_master_info.cci_client = kzalloc(sizeof(

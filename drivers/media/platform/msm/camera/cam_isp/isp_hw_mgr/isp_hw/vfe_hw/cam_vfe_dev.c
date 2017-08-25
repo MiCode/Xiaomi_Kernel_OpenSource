@@ -45,6 +45,8 @@ int cam_vfe_probe(struct platform_device *pdev)
 		goto free_vfe_hw_intf;
 	}
 	vfe_hw->soc_info.pdev = pdev;
+	vfe_hw->soc_info.dev = &pdev->dev;
+	vfe_hw->soc_info.dev_name = pdev->name;
 	vfe_hw_intf->hw_priv = vfe_hw;
 	vfe_hw_intf->hw_ops.get_hw_caps = cam_vfe_get_hw_caps;
 	vfe_hw_intf->hw_ops.init = cam_vfe_init_hw;

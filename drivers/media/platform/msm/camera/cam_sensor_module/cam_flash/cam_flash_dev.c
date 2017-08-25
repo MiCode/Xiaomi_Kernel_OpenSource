@@ -286,6 +286,8 @@ static int32_t cam_flash_platform_probe(struct platform_device *pdev)
 
 	flash_ctrl->pdev = pdev;
 	flash_ctrl->soc_info.pdev = pdev;
+	flash_ctrl->soc_info.dev = &pdev->dev;
+	flash_ctrl->soc_info.dev_name = pdev->name;
 
 	rc = cam_flash_get_dt_data(flash_ctrl, &flash_ctrl->soc_info);
 	if (rc) {

@@ -157,12 +157,11 @@ static int cam_eeprom_i2c_driver_probe(struct i2c_client *client,
 	mutex_init(&(e_ctrl->eeprom_mutex));
 
 	soc_info = &e_ctrl->soc_info;
-	soc_info->i2c_dev = client;
 	soc_info->dev = &client->dev;
+	soc_info->dev_name = client->name;
 	e_ctrl->io_master_info.master_type = I2C_MASTER;
 	e_ctrl->io_master_info.client = client;
 	e_ctrl->eeprom_device_type = MSM_CAMERA_I2C_DEVICE;
-	e_ctrl->soc_info.is_i2c_dev = true;
 
 	rc = cam_eeprom_parse_dt(e_ctrl);
 	if (rc) {
@@ -268,8 +267,8 @@ static int cam_eeprom_spi_setup(struct spi_device *spi)
 		return -ENOMEM;
 
 	soc_info = &e_ctrl->soc_info;
-	soc_info->spi_dev = spi;
-	soc_info->is_spi_dev = true;
+	soc_info->dev = &spi->dev;
+	soc_info->dev_name = spi->modalias;
 
 	e_ctrl->v4l2_dev_str.ops = &cam_eeprom_subdev_ops;
 	e_ctrl->userspace_probe = false;
@@ -395,6 +394,8 @@ static int32_t cam_eeprom_platform_driver_probe(
 		return -ENOMEM;
 
 	e_ctrl->soc_info.pdev = pdev;
+	e_ctrl->soc_info.dev = &pdev->dev;
+	e_ctrl->soc_info.dev_name = pdev->name;
 	e_ctrl->eeprom_device_type = MSM_CAMERA_PLATFORM_DEVICE;
 	e_ctrl->cal_data.mapdata = NULL;
 	e_ctrl->cal_data.map = NULL;
