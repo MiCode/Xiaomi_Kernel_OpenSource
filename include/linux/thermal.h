@@ -52,6 +52,12 @@
 /* use value, which < 0K, to indicate an invalid/uninitialized temperature */
 #define THERMAL_TEMP_INVALID	-274000
 
+/*
+ * use a high value for low temp tracking zone,
+ * to indicate an invalid/uninitialized temperature
+ */
+#define THERMAL_TEMP_INVALID_LOW 274000
+
 /* Unit conversion macros */
 #define DECI_KELVIN_TO_CELSIUS(t)	({			\
 	long _t = (t);						\
