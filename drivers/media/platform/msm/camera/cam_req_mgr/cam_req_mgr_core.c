@@ -524,7 +524,7 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 		return rc;
 
 	if (trigger == CAM_TRIGGER_POINT_SOF) {
-		if (!link->trigger_mask) {
+		if (link->trigger_mask) {
 			CAM_ERR(CAM_CRM, "Applying for last EOF fails");
 			return -EINVAL;
 		}
