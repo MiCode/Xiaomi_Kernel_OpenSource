@@ -1541,6 +1541,7 @@ int sde_cp_ad_interrupt(struct drm_crtc *crtc_drm, bool en,
 	int i;
 	int irq_idx, ret;
 	struct sde_cp_node prop_node;
+	struct sde_crtc_irq_info *node = NULL;
 
 	if (!crtc_drm || !ad_irq) {
 		DRM_ERROR("invalid crtc %pK irq %pK\n", crtc_drm, ad_irq);
@@ -1585,8 +1586,23 @@ int sde_cp_ad_interrupt(struct drm_crtc *crtc_drm, bool en,
 		goto exit;
 	}
 
+	node = _sde_cp_get_intr_node(DRM_EVENT_AD_BACKLIGHT, crtc);
+
 	if (!en) {
-		sde_core_irq_disable(kms, &irq_idx, 1);
+		if (node) {
+			if (node->state == IRQ_ENABLED) {
+				ret = sde_core_irq_disable(kms, &irq_idx, 1);
+				if (ret)
+					DRM_ERROR("disable irq %d error %d\n",
+						irq_idx, ret);
+				else
+					node->state = IRQ_NOINIT;
+			} else {
+				node->state = IRQ_NOINIT;
+			}
+		} else {
+			DRM_ERROR("failed to get node from crtc event list\n");
+		}
 		sde_core_irq_unregister_callback(kms, irq_idx, ad_irq);
 		ret = 0;
 		goto exit;
@@ -1599,10 +1615,30 @@ int sde_cp_ad_interrupt(struct drm_crtc *crtc_drm, bool en,
 		DRM_ERROR("failed to register the callback ret %d\n", ret);
 		goto exit;
 	}
-	ret = sde_core_irq_enable(kms, &irq_idx, 1);
-	if (ret) {
-		DRM_ERROR("failed to enable irq ret %d\n", ret);
-		sde_core_irq_unregister_callback(kms, irq_idx, ad_irq);
+
+	if (node) {
+		/* device resume or resume from IPC cases */
+		if (node->state == IRQ_DISABLED || node->state == IRQ_NOINIT) {
+			ret = sde_core_irq_enable(kms, &irq_idx, 1);
+			if (ret) {
+				DRM_ERROR("enable irq %d error %d\n",
+					irq_idx, ret);
+				sde_core_irq_unregister_callback(kms,
+					irq_idx, ad_irq);
+			} else {
+				node->state = IRQ_ENABLED;
+			}
+		}
+	} else {
+		/* request from userspace to register the event
+		 * in this case, node has not been added into the event list
+		 */
+		ret = sde_core_irq_enable(kms, &irq_idx, 1);
+		if (ret) {
+			DRM_ERROR("failed to enable irq ret %d\n", ret);
+			sde_core_irq_unregister_callback(kms,
+				irq_idx, ad_irq);
+		}
 	}
 exit:
 	return ret;
