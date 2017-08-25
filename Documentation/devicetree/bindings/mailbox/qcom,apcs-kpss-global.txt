@@ -9,7 +9,8 @@ platforms.
 	Value type: <string>
 	Definition: must be one of:
 		    "qcom,msm8916-apcs-kpss-global",
-		    "qcom,msm8996-apcs-hmss-global"
+		    "qcom,msm8996-apcs-hmss-global",
+		    "qcom,sdm855-apcs-hmss-global"
 
 - reg:
 	Usage: required
