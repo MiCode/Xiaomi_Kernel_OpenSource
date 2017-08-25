@@ -842,6 +842,8 @@ void clk_hw_set_rate_range(struct clk_hw *hw, unsigned long min_rate,
 
 unsigned long clk_aggregate_rate(struct clk_hw *hw,
 					const struct clk_core *parent);
+int clk_vote_rate_vdd(struct clk_core *core, unsigned long rate);
+void clk_unvote_rate_vdd(struct clk_core *core, unsigned long rate);
 
 static inline void __clk_hw_set_clk(struct clk_hw *dst, struct clk_hw *src)
 {

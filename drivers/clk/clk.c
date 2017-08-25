@@ -648,7 +648,7 @@ out:
 /*
  * Vote for a voltage level corresponding to a clock's rate.
  */
-static int clk_vote_rate_vdd(struct clk_core *core, unsigned long rate)
+int clk_vote_rate_vdd(struct clk_core *core, unsigned long rate)
 {
 	int level;
 
@@ -661,11 +661,12 @@ static int clk_vote_rate_vdd(struct clk_core *core, unsigned long rate)
 
 	return clk_vote_vdd_level(core->vdd_class, level);
 }
+EXPORT_SYMBOL_GPL(clk_vote_rate_vdd);
 
 /*
  * Remove vote for a voltage level corresponding to a clock's rate.
  */
-static void clk_unvote_rate_vdd(struct clk_core *core, unsigned long rate)
+void clk_unvote_rate_vdd(struct clk_core *core, unsigned long rate)
 {
 	int level;
 
@@ -678,6 +679,7 @@ static void clk_unvote_rate_vdd(struct clk_core *core, unsigned long rate)
 
 	clk_unvote_vdd_level(core->vdd_class, level);
 }
+EXPORT_SYMBOL_GPL(clk_unvote_rate_vdd);
 
 static bool clk_is_rate_level_valid(struct clk_core *core, unsigned long rate)
 {
