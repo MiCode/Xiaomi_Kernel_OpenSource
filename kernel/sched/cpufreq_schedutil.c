@@ -74,6 +74,7 @@ struct sugov_cpu {
 };
 
 static DEFINE_PER_CPU(struct sugov_cpu, sugov_cpu);
+static unsigned int stale_ns;
 
 /************************ Governor internals ***********************/
 
@@ -346,7 +347,7 @@ static unsigned int sugov_next_freq_shared(struct sugov_cpu *sg_cpu,
 		 * idle now (and clear iowait_boost for it).
 		 */
 		delta_ns = last_freq_update_time - j_sg_cpu->last_update;
-		if (delta_ns > sched_ravg_window) {
+		if (delta_ns > stale_ns) {
 			j_sg_cpu->iowait_boost = 0;
 			continue;
 		}
@@ -694,6 +695,7 @@ static int sugov_init(struct cpufreq_policy *policy)
 
 	policy->governor_data = sg_policy;
 	sg_policy->tunables = tunables;
+	stale_ns = sched_ravg_window + (sched_ravg_window >> 3);
 
 	ret = kobject_init_and_add(&tunables->attr_set.kobj, &sugov_tunables_ktype,
 				   get_governor_parent_kobj(policy), "%s",
