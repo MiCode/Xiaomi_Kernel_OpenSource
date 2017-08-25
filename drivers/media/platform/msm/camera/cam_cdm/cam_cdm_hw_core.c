@@ -785,18 +785,6 @@ int cam_hw_cdm_init(void *hw_priv,
 	time_left = wait_for_completion_timeout(&cdm_core->reset_complete,
 		msecs_to_jiffies(CAM_CDM_HW_RESET_TIMEOUT));
 
-	/*
-	 * Check for HW error and recover as a workaround
-	 * Sometimes CDM HW triggers irq with invalid status for
-	 * HW reset command, so ignore reset failure and proceed further
-	 * as a workaround.
-	 */
-	if (time_left <= 0) {
-		CAM_ERR(CAM_CDM, "CDM HW reset Wait failed time_left=%ld",
-			time_left);
-		time_left = 1;
-	}
-
 	if (time_left <= 0) {
 		CAM_ERR(CAM_CDM, "CDM HW reset Wait failed rc=%d", rc);
 		goto disable_return;
