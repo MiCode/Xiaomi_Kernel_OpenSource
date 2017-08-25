@@ -210,11 +210,11 @@
 
 &clock_gpucc {
 	/delete-property/ vdd_cx-supply;
+	/delete-property/ vdd_mx-supply;
 };
 
 &clock_gfx {
 	/delete-property/ vdd_gfx-supply;
-	/delete-property/ vdd_mx-supply;
 };
 
 &pil_modem {
