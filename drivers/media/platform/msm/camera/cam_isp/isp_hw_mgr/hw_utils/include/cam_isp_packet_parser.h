@@ -21,6 +21,16 @@
 #include "cam_packet_util.h"
 
 /**
+ * struct cam_isp_generic_blob_info  Generic blob information
+ *
+ * @hfr_config             Initial configuration required to enable HFR
+ *
+ */
+struct cam_isp_generic_blob_info {
+	struct cam_isp_resource_hfr_config *hfr_config;
+};
+
+/**
  * @brief                  Add change base in the hw entries list
  *                         processe the isp source list get the change base from
  *                         ISP HW instance
@@ -96,5 +106,40 @@ int cam_isp_add_reg_update(
 	uint32_t                              base_idx,
 	struct cam_kmd_buf_info              *kmd_buf_info);
 
+/**
+ * @brief                  Add HFR configurations in the HW entries list
+ *                         processe the hfr configurations based on the base
+ *                         index and update the HW entries list
+ *
+ * @hfr_config:            HFR resource configuration info
+ * @prepare:               Contain the  packet and HW update variables
+ * @base_idx:              Base or dev index of the IFE/VFE HW instance
+ * @kmd_buf_info:          Kmd buffer to store the change base command
+ * @res_list_isp_out:      IFE /VFE out resource list
+ * @size_isp_out:          Size of the res_list_isp_out array
+ *
+ * @return:                0 for success
+ *                         -EINVAL for Fail
+ */
+int cam_isp_add_hfr_config_hw_update(
+	struct cam_isp_resource_hfr_config   *hfr_config,
+	struct cam_hw_prepare_update_args    *prepare,
+	uint32_t                              base_idx,
+	struct cam_kmd_buf_info              *kmd_buf_info,
+	struct cam_ife_hw_mgr_res            *res_list_isp_out,
+	uint32_t                              size_isp_out);
+
+/**
+ * @brief                  Processing Generic command buffer.
+ *
+ * @prepare:               Contain the  packet and HW update variables
+ * @blob_info:             Information from generic blob command buffer
+ *
+ * @return:                0 for success
+ *                         -EINVAL for Fail
+ */
+int cam_isp_process_generic_cmd_buffer(
+	struct cam_hw_prepare_update_args *prepare,
+	struct cam_isp_generic_blob_info  *blob_info);
 
 #endif /*_CAM_ISP_HW_PARSER_H */

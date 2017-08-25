@@ -73,13 +73,16 @@
 #define CAM_ISP_PACKET_META_DMI_COMMON          6
 #define CAM_ISP_PACKET_META_CLOCK               7
 #define CAM_ISP_PACKET_META_CSID                8
-#define CAM_ISP_PACKET_META_MAX                 9
+#define CAM_ISP_PACKET_META_GENERIC_BLOB        10
+#define CAM_ISP_PACKET_META_MAX                 11
 
 /* DSP mode */
 #define CAM_ISP_DSP_MODE_NONE                   0
 #define CAM_ISP_DSP_MODE_ONE_WAY                1
 #define CAM_ISP_DSP_MODE_ROUND                  2
 
+/* ISP Generic Cmd Buffer Blob types */
+#define CAM_ISP_GENERIC_BLOB_TYPE_HFR_CONFIG    0
 
 /* Query devices */
 /**
@@ -220,6 +223,42 @@ struct cam_isp_resource {
 	uint32_t                       handle_type;
 	uint32_t                       reserved;
 	uint64_t                       res_hdl;
+};
+
+/**
+ * struct cam_isp_port_hfr_config - HFR configuration for this port
+ *
+ * @resource_type:              Resource type
+ * @subsample_pattern:          Subsample pattern. Used in HFR mode. It
+ *                              should be consistent with batchSize and
+ *                              CAMIF programming.
+ * @subsample_period:           Subsample period. Used in HFR mode. It
+ *                              should be consistent with batchSize and
+ *                              CAMIF programming.
+ * @framedrop_pattern:          Framedrop pattern
+ * @framedrop_period:           Framedrop period
+ * @reserved:                   Reserved for alignment
+ */
+struct cam_isp_port_hfr_config {
+	uint32_t                       resource_type;
+	uint32_t                       subsample_pattern;
+	uint32_t                       subsample_period;
+	uint32_t                       framedrop_pattern;
+	uint32_t                       framedrop_period;
+	uint32_t                       reserved;
+};
+
+/**
+ * struct cam_isp_resource_hfr_config - Resource HFR configuration
+ *
+ * @num_io_configs:             Number of ports
+ * @reserved:                   Reserved for alignment
+ * @io_hfr_config:              HFR configuration for each IO port
+ */
+struct cam_isp_resource_hfr_config {
+	uint32_t                       num_io_configs;
+	uint32_t                       reserved;
+	struct cam_isp_port_hfr_config io_hfr_config[1];
 };
 
 #endif /* __UAPI_CAM_ISP_H__ */

@@ -1898,6 +1898,7 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 	struct cam_kmd_buf_info           kmd_buf;
 	uint32_t                          i;
 	bool                              fill_fence = true;
+	struct cam_isp_generic_blob_info  blob_info;
 
 	if (!hw_mgr_priv || !prepare_hw_update_args) {
 		CAM_ERR(CAM_ISP, "Invalid args");
@@ -1926,6 +1927,14 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 		return rc;
 	}
 
+	memset(&blob_info, 0x0, sizeof(struct cam_isp_generic_blob_info));
+	rc = cam_isp_process_generic_cmd_buffer(prepare, &blob_info);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Failed in generic blob cmd buffer, rc=%d",
+			rc);
+		goto end;
+	}
+
 	prepare->num_hw_update_entries = 0;
 	prepare->num_in_map_entries = 0;
 	prepare->num_out_map_entries = 0;
@@ -1936,25 +1945,51 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 		/* Add change base */
 		rc = cam_isp_add_change_base(prepare, &ctx->res_list_ife_src,
 			ctx->base[i].idx, &kmd_buf);
-		if (rc)
-			return rc;
+		if (rc) {
+			CAM_ERR(CAM_ISP,
+				"Failed in change base i=%d, idx=%d, rc=%d",
+				i, ctx->base[i].idx, rc);
+			goto end;
+		}
+
 
 		/* get command buffers */
 		if (ctx->base[i].split_id != CAM_ISP_HW_SPLIT_MAX) {
 			rc = cam_isp_add_command_buffers(prepare,
 				ctx->base[i].split_id);
-			if (rc)
-				return rc;
+			if (rc) {
+				CAM_ERR(CAM_ISP,
+					"Failed in add cmdbuf, i=%d, split_id=%d, rc=%d",
+					i, ctx->base[i].split_id, rc);
+				goto end;
+			}
+		}
+
+		if (blob_info.hfr_config) {
+			rc = cam_isp_add_hfr_config_hw_update(
+				blob_info.hfr_config, prepare,
+				ctx->base[i].idx, &kmd_buf,
+				ctx->res_list_ife_out, CAM_IFE_HW_OUT_RES_MAX);
+			if (rc) {
+				CAM_ERR(CAM_ISP,
+					"Failed in hfr config, i=%d, rc=%d",
+					i, rc);
+				goto end;
+			}
 		}
 
 		/* get IO buffers */
 		rc = cam_isp_add_io_buffers(hw_mgr->mgr_common.img_iommu_hdl,
-				prepare, ctx->base[i].idx,
+			prepare, ctx->base[i].idx,
 			&kmd_buf, ctx->res_list_ife_out,
 			CAM_IFE_HW_OUT_RES_MAX, fill_fence);
 
-		if (rc)
-			return rc;
+		if (rc) {
+			CAM_ERR(CAM_ISP,
+				"Failed in io buffers, i=%d, rc=%d",
+				i, rc);
+			goto end;
+		}
 
 		/* fence map table entries need to fill only once in the loop */
 		if (fill_fence)
@@ -1969,7 +2004,7 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 	 */
 	if (((prepare->packet->header.op_code + 1) & 0xF) ==
 					CAM_ISP_PACKET_INIT_DEV)
-		return rc;
+		goto end;
 
 	/* add reg update commands */
 	for (i = 0; i < ctx->num_base; i++) {
@@ -1977,15 +2012,17 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 		rc = cam_isp_add_change_base(prepare, &ctx->res_list_ife_src,
 			ctx->base[i].idx, &kmd_buf);
 		if (rc)
-			return rc;
+			goto end;
 
 		/*Add reg update */
 		rc = cam_isp_add_reg_update(prepare, &ctx->res_list_ife_src,
 			ctx->base[i].idx, &kmd_buf);
 		if (rc)
-			return rc;
+			goto end;
 	}
 
+end:
+	kfree(blob_info.hfr_config);
 	return rc;
 }
 

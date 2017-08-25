@@ -168,6 +168,8 @@ int cam_isp_add_command_buffers(
 
 			num_ent++;
 			break;
+		case CAM_ISP_PACKET_META_GENERIC_BLOB:
+			break;
 		default:
 			CAM_ERR(CAM_ISP, "invalid cdm command meta data %d",
 				cmd_meta_data);
@@ -180,6 +182,229 @@ int cam_isp_add_command_buffers(
 	return rc;
 }
 
+static int cam_isp_handle_hfr_config(
+	struct cam_isp_generic_blob_info *blob_info,
+	struct cam_isp_resource_hfr_config *hfr_config, uint32_t blob_size)
+{
+	uint32_t cal_blob_size =
+		sizeof(struct cam_isp_resource_hfr_config) +
+		(sizeof(struct cam_isp_port_hfr_config) *
+		(hfr_config->num_io_configs - 1));
+
+	if (cal_blob_size != blob_size) {
+		CAM_ERR(CAM_ISP, "Invalid blob size %d %d",
+			cal_blob_size, blob_size);
+		return -EINVAL;
+	}
+
+	CAM_DBG(CAM_ISP, "HFR num_io_config = %d", hfr_config->num_io_configs);
+
+	if (blob_info->hfr_config) {
+		CAM_WARN(CAM_ISP,
+			"Ignoring previous hfr_config, prev=%d, curr=%d",
+			blob_info->hfr_config->num_io_configs,
+			hfr_config->num_io_configs);
+		kfree(blob_info->hfr_config);
+	}
+
+	blob_info->hfr_config = kzalloc(blob_size, GFP_ATOMIC);
+	if (!blob_info->hfr_config)
+		return -ENOMEM;
+
+	memcpy(blob_info->hfr_config, hfr_config, blob_size);
+
+	return 0;
+}
+
+static int cam_isp_packet_generic_blob_handler(void *user_data,
+	uint32_t blob_type, uint32_t blob_size, uint8_t *blob_data)
+{
+	int rc = 0;
+
+	if (!blob_data || (blob_size == 0)) {
+		CAM_ERR(CAM_ISP, "Invalid blob info %pK %d", blob_data,
+			blob_size);
+		return -EINVAL;
+	}
+
+	switch (blob_type) {
+	case CAM_ISP_GENERIC_BLOB_TYPE_HFR_CONFIG:
+		rc = cam_isp_handle_hfr_config(user_data,
+			(struct cam_isp_resource_hfr_config *)blob_data,
+			blob_size);
+		if (rc)
+			CAM_ERR(CAM_ISP, "Failed in handling hfr config %d",
+				rc);
+
+		break;
+	default:
+		CAM_WARN(CAM_ISP, "Invalid blob type %d", blob_type);
+		break;
+	}
+
+	return rc;
+}
+
+int cam_isp_process_generic_cmd_buffer(
+	struct cam_hw_prepare_update_args *prepare,
+	struct cam_isp_generic_blob_info  *blob_info)
+{
+	int i, rc = 0;
+	struct cam_cmd_buf_desc *cmd_desc = NULL;
+
+	/*
+	 * set the cmd_desc to point the first command descriptor in the
+	 * packet
+	 */
+	cmd_desc = (struct cam_cmd_buf_desc *)
+			((uint8_t *)&prepare->packet->payload +
+			prepare->packet->cmd_buf_offset);
+
+	for (i = 0; i < prepare->packet->num_cmd_buf; i++) {
+		if (!cmd_desc[i].length)
+			continue;
+
+		if (cmd_desc[i].meta_data != CAM_ISP_PACKET_META_GENERIC_BLOB)
+			continue;
+
+		rc = cam_packet_util_validate_cmd_desc(&cmd_desc[i]);
+		if (rc)
+			return rc;
+
+		rc = cam_packet_util_process_generic_cmd_buffer(&cmd_desc[i],
+			cam_isp_packet_generic_blob_handler, blob_info);
+		if (rc)
+			CAM_ERR(CAM_ISP, "Failed in processing blobs %d", rc);
+
+		break;
+	}
+
+	return rc;
+}
+
+int cam_isp_add_hfr_config_hw_update(
+	struct cam_isp_resource_hfr_config   *hfr_config,
+	struct cam_hw_prepare_update_args    *prepare,
+	uint32_t                              base_idx,
+	struct cam_kmd_buf_info              *kmd_buf_info,
+	struct cam_ife_hw_mgr_res            *res_list_isp_out,
+	uint32_t                              size_isp_out)
+{
+	int rc = 0;
+	struct cam_isp_resource_node       *res;
+	struct cam_ife_hw_mgr_res          *hw_mgr_res;
+	struct cam_isp_hw_get_hfr_update    update_hfr;
+	struct cam_isp_port_hfr_config     *io_hfr_config;
+	uint32_t                            kmd_buf_remain_size;
+	uint32_t                            i, j;
+	uint32_t                            res_id_out;
+	uint32_t                            hfr_cfg_used_bytes, num_ent;
+
+	hfr_cfg_used_bytes = 0;
+
+	/* Max one hw entries required for hfr config update */
+	if (prepare->num_hw_update_entries + 1 >=
+			prepare->max_hw_update_entries) {
+		CAM_ERR(CAM_ISP, "Insufficient  HW entries :%d %d",
+			prepare->num_hw_update_entries,
+			prepare->max_hw_update_entries);
+		return -EINVAL;
+	}
+
+	CAM_DBG(CAM_ISP, "num_io_configs= %d", hfr_config->num_io_configs);
+
+	for (i = 0; i < hfr_config->num_io_configs; i++) {
+		io_hfr_config = &hfr_config->io_hfr_config[i];
+		res_id_out = io_hfr_config->resource_type & 0xFF;
+
+		CAM_DBG(CAM_ISP, "hfr config idx %d, type=%d", i, res_id_out);
+
+		if (res_id_out >= size_isp_out) {
+			CAM_ERR(CAM_ISP, "invalid out restype:%x",
+				io_hfr_config->resource_type);
+			return -EINVAL;
+		}
+
+		hw_mgr_res = &res_list_isp_out[res_id_out];
+		if (hw_mgr_res->res_type == CAM_IFE_HW_MGR_RES_UNINIT) {
+			CAM_ERR(CAM_ISP, "io res id:%d not valid",
+				io_hfr_config->resource_type);
+			return -EINVAL;
+		}
+
+		for (j = 0; j < CAM_ISP_HW_SPLIT_MAX; j++) {
+			if (!hw_mgr_res->hw_res[j])
+				continue;
+
+			if (hw_mgr_res->hw_res[j]->hw_intf->hw_idx != base_idx)
+				continue;
+
+			res = hw_mgr_res->hw_res[j];
+			if (res->res_id !=
+				io_hfr_config->resource_type) {
+				CAM_ERR(CAM_ISP,
+					"wm err res id:%d io res id:%d",
+					res->res_id,
+					io_hfr_config->resource_type);
+				return -EINVAL;
+			}
+
+			if ((kmd_buf_info->used_bytes + hfr_cfg_used_bytes) <
+				kmd_buf_info->size) {
+				kmd_buf_remain_size = kmd_buf_info->size -
+					(kmd_buf_info->used_bytes +
+					hfr_cfg_used_bytes);
+			} else {
+				CAM_ERR(CAM_ISP,
+					"no free kmd memory for base %d",
+					base_idx);
+				rc = -ENOMEM;
+				return rc;
+			}
+
+			update_hfr.cdm.res = res;
+			update_hfr.cdm.cmd_buf_addr = kmd_buf_info->cpu_addr +
+				kmd_buf_info->used_bytes/4 +
+					hfr_cfg_used_bytes/4;
+			update_hfr.cdm.size = kmd_buf_remain_size;
+			update_hfr.io_hfr_cfg    = io_hfr_config;
+
+			CAM_DBG(CAM_ISP, "cmd buffer 0x%pK, size %d",
+				update_hfr.cdm.cmd_buf_addr,
+				update_hfr.cdm.size);
+			rc = res->hw_intf->hw_ops.process_cmd(
+				res->hw_intf->hw_priv,
+				CAM_VFE_HW_CMD_GET_HFR_UPDATE, &update_hfr,
+				sizeof(struct cam_isp_hw_get_hfr_update));
+
+			if (rc) {
+				CAM_ERR(CAM_ISP, "get buf cmd error:%d",
+					res->res_id);
+				rc = -ENOMEM;
+				return rc;
+			}
+			hfr_cfg_used_bytes += update_hfr.cdm.used_bytes;
+		}
+	}
+
+	CAM_DBG(CAM_ISP, "hfr_cfg_used_bytes %d", hfr_cfg_used_bytes);
+	if (hfr_cfg_used_bytes) {
+		/* Update the HW entries */
+		num_ent = prepare->num_hw_update_entries;
+		prepare->hw_update_entries[num_ent].handle =
+					kmd_buf_info->handle;
+		prepare->hw_update_entries[num_ent].len = hfr_cfg_used_bytes;
+		prepare->hw_update_entries[num_ent].offset =
+			kmd_buf_info->offset;
+		num_ent++;
+
+		kmd_buf_info->used_bytes += hfr_cfg_used_bytes;
+		kmd_buf_info->offset     += hfr_cfg_used_bytes;
+		prepare->num_hw_update_entries = num_ent;
+	}
+
+	return rc;
+}
 
 int cam_isp_add_io_buffers(
 	int                                   iommu_hdl,
