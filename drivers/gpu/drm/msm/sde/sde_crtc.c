@@ -1528,7 +1528,6 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 static int _sde_crtc_find_plane_fb_modes(struct drm_crtc_state *state,
 		uint32_t *fb_ns,
 		uint32_t *fb_sec,
-		uint32_t *fb_ns_dir,
 		uint32_t *fb_sec_dir)
 {
 	struct drm_plane *plane;
@@ -1544,7 +1543,6 @@ static int _sde_crtc_find_plane_fb_modes(struct drm_crtc_state *state,
 
 	*fb_ns = 0;
 	*fb_sec = 0;
-	*fb_ns_dir = 0;
 	*fb_sec_dir = 0;
 	drm_atomic_crtc_state_for_each_plane_state(plane, pstate, state) {
 		if (IS_ERR_OR_NULL(pstate)) {
@@ -1564,16 +1562,12 @@ static int _sde_crtc_find_plane_fb_modes(struct drm_crtc_state *state,
 		case SDE_DRM_FB_SEC:
 			(*fb_sec)++;
 			break;
-		case SDE_DRM_FB_NON_SEC_DIR_TRANS:
-			(*fb_ns_dir)++;
-			break;
 		case SDE_DRM_FB_SEC_DIR_TRANS:
 			(*fb_sec_dir)++;
 			break;
 		default:
 			SDE_ERROR("Error: Plane[%d], fb_trans_mode:%d",
-					plane->base.id,
-					mode);
+					plane->base.id, mode);
 			return -EINVAL;
 		}
 	}
@@ -1597,7 +1591,7 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *cstate;
 	struct sde_crtc_smmu_state_data *smmu_state;
-	uint32_t translation_mode = 0;
+	uint32_t translation_mode = 0, secure_level;
 	int ops  = 0;
 	bool post_commit = false;
 
@@ -1609,10 +1603,10 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 	cstate = to_sde_crtc_state(crtc->state);
 	smmu_state = &sde_crtc->smmu_state;
+	secure_level = sde_crtc_get_secure_level(crtc, crtc->state);
 
-	SDE_DEBUG("crtc%d, secure_level%d\n",
-			crtc->base.id,
-			sde_crtc_get_secure_level(crtc, crtc->state));
+	SDE_DEBUG("crtc%d, secure_level%d old_valid_fb%d\n",
+			crtc->base.id, secure_level, old_valid_fb);
 
 	/**
 	 * SMMU operations need to be delayed in case of
@@ -1635,8 +1629,7 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 				PLANE_PROP_FB_TRANSLATION_MODE);
 		if (translation_mode > SDE_DRM_FB_SEC_DIR_TRANS) {
 			SDE_ERROR("crtc%d, invalid translation_mode%d\n",
-					crtc->base.id,
-					translation_mode);
+					crtc->base.id, translation_mode);
 			return -EINVAL;
 		}
 
@@ -1644,14 +1637,15 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 		 * we can break if we find sec_fir or non_sec_dir
 		 * plane
 		 */
-		if ((translation_mode == SDE_DRM_FB_NON_SEC_DIR_TRANS) ||
-			(translation_mode == SDE_DRM_FB_SEC_DIR_TRANS))
+		if (translation_mode == SDE_DRM_FB_SEC_DIR_TRANS)
 			break;
 	}
 
 	switch (translation_mode) {
-	case SDE_DRM_FB_NON_SEC_DIR_TRANS:
-		if (smmu_state->state == ATTACHED) {
+	case SDE_DRM_FB_SEC_DIR_TRANS:
+		/* secure display usecase */
+		if ((smmu_state->state == ATTACHED) &&
+				(secure_level == SDE_DRM_SEC_ONLY)) {
 			smmu_state->state = DETACH_ALL_REQ;
 			smmu_state->transition_type = PRE_COMMIT;
 			ops |= SDE_KMS_OPS_CRTC_SECURE_STATE_CHANGE;
@@ -1659,10 +1653,8 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 				ops |= (SDE_KMS_OPS_WAIT_FOR_TX_DONE  |
 					SDE_KMS_OPS_CLEANUP_PLANE_FB);
 			}
-		}
-		break;
-	case SDE_DRM_FB_SEC_DIR_TRANS:
-		if (smmu_state->state == ATTACHED) {
+		/* secure camera usecase */
+		} else if (smmu_state->state == ATTACHED) {
 			smmu_state->state = DETACH_SEC_REQ;
 			smmu_state->transition_type = PRE_COMMIT;
 			ops |= SDE_KMS_OPS_CRTC_SECURE_STATE_CHANGE;
@@ -1670,14 +1662,18 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 		break;
 	case SDE_DRM_FB_SEC:
 	case SDE_DRM_FB_NON_SEC:
-		if (smmu_state->state == DETACHED_SEC) {
+		if ((smmu_state->state == DETACHED_SEC) ||
+			(smmu_state->state == DETACH_SEC_REQ)) {
 			smmu_state->state = ATTACH_SEC_REQ;
 			smmu_state->transition_type = post_commit ?
 				POST_COMMIT : PRE_COMMIT;
 			ops |= SDE_KMS_OPS_CRTC_SECURE_STATE_CHANGE;
 			if (translation_mode == SDE_DRM_FB_SEC)
 				ops |= SDE_KMS_OPS_PREPARE_PLANE_FB;
-		} else if (smmu_state->state == DETACHED) {
+			if (old_valid_fb)
+				ops |= SDE_KMS_OPS_WAIT_FOR_TX_DONE;
+		} else if ((smmu_state->state == DETACHED) ||
+				(smmu_state->state == DETACH_ALL_REQ)) {
 			smmu_state->state = ATTACH_ALL_REQ;
 			smmu_state->transition_type = post_commit ?
 				POST_COMMIT : PRE_COMMIT;
@@ -1689,15 +1685,13 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 		}
 		break;
 	default:
-		SDE_ERROR("invalid plane fb_mode:%d\n",
-				translation_mode);
+		SDE_ERROR("invalid plane fb_mode:%d\n", translation_mode);
 		ops = 0;
 		return -EINVAL;
 	}
 
 	SDE_DEBUG("SMMU State:%d, type:%d ops:%x\n", smmu_state->state,
-			smmu_state->transition_type,
-			ops);
+			smmu_state->transition_type, ops);
 	return ops;
 }
 
@@ -1725,13 +1719,13 @@ static int _sde_crtc_scm_call(int vmid)
 	 */
 	sec_sid[0] = SEC_SID_MASK_0;
 	sec_sid[1] = SEC_SID_MASK_1;
-	dmac_flush_range(&sec_sid, &sec_sid + num_sids);
+	dmac_flush_range(sec_sid, sec_sid + num_sids);
 
 	SDE_DEBUG("calling scm_call for vmid %d", vmid);
 
 	desc.arginfo = SCM_ARGS(4, SCM_VAL, SCM_RW, SCM_VAL, SCM_VAL);
 	desc.args[0] = MDP_DEVICE_ID;
-	desc.args[1] = SCM_BUFFER_PHYS(&sec_sid);
+	desc.args[1] = SCM_BUFFER_PHYS(sec_sid);
 	desc.args[2] = sizeof(uint32_t) * num_sids;
 	desc.args[3] =  vmid;
 
@@ -1739,8 +1733,7 @@ static int _sde_crtc_scm_call(int vmid)
 				mem_protect_sd_ctrl_id), &desc);
 	if (ret) {
 		SDE_ERROR("Error:scm_call2, vmid (%lld): ret%d\n",
-				desc.args[3],
-				ret);
+				desc.args[3], ret);
 	}
 
 	kfree(sec_sid);
@@ -1782,7 +1775,6 @@ int sde_crtc_secure_ctrl(struct drm_crtc *crtc, bool post_commit)
 	    ((smmu_state->transition_type == POST_COMMIT) && !post_commit))
 		/* Bail out */
 		return 0;
-
 
 	/* Secure UI use case enable */
 	switch (smmu_state->state) {
@@ -1859,11 +1851,10 @@ int sde_crtc_secure_ctrl(struct drm_crtc *crtc, bool post_commit)
 	SDE_DEBUG("crtc: %d, old_state %d new_state %d\n", crtc->base.id,
 			old_smmu_state,
 			smmu_state->state);
-	smmu_state->transition_error = false;
 	smmu_state->transition_type = NONE;
 
 error:
-	smmu_state->transition_error = true;
+	smmu_state->transition_error = ret ? true : false;
 	return ret;
 }
 
@@ -2450,7 +2441,7 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	 * apply color processing properties only if
 	 * smmu state is attached,
 	 */
-	if ((smmu_state->state != DETACHED) ||
+	if ((smmu_state->state != DETACHED) &&
 			(smmu_state->state != DETACH_ALL_REQ))
 		sde_cp_crtc_apply_properties(crtc);
 
@@ -3252,7 +3243,7 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 	struct drm_encoder *encoder;
 	struct sde_crtc_state *cstate;
 	uint32_t secure;
-	uint32_t fb_ns = 0, fb_sec = 0, fb_ns_dir = 0, fb_sec_dir = 0;
+	uint32_t fb_ns = 0, fb_sec = 0, fb_sec_dir = 0;
 	int encoder_cnt = 0;
 	int rc;
 
@@ -3269,26 +3260,21 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 	rc = _sde_crtc_find_plane_fb_modes(state,
 			&fb_ns,
 			&fb_sec,
-			&fb_ns_dir,
 			&fb_sec_dir);
 	if (rc)
 		return rc;
 
 	/**
 	 * validate planes
-	 * fb_ns_dir is for  secure display use case,
-	 * fb_sec_dir is for secure camera preview use case,
+	 * fb_sec_dir is for secure camera preview and secure display  use case,
 	 * fb_sec is for secure video playback,
 	 * fb_ns is for normal non secure use cases.
 	 */
-	if (((secure == SDE_DRM_SEC_ONLY) &&
-				(fb_ns || fb_sec || fb_sec_dir)) ||
-			(fb_sec && fb_sec_dir)) {
+	if ((secure == SDE_DRM_SEC_ONLY) &&
+			(fb_ns || fb_sec || (fb_sec && fb_sec_dir))) {
 		SDE_ERROR(
-			"crtc%d: invalid planes fb_modes Sec:%d, NS:%d, Sec_Dir:%d, NS_Dir%d\n",
-				crtc->base.id,
-				fb_sec, fb_ns, fb_sec_dir,
-				fb_ns_dir);
+		"crtc%d: invalid planes fb_modes Sec:%d, NS:%d, Sec_Dir:%d\n",
+				crtc->base.id, fb_sec, fb_ns, fb_sec_dir);
 		return -EINVAL;
 	}
 
@@ -3296,7 +3282,7 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 	 * secure_crtc is not allowed in a shared toppolgy
 	 * across different encoders.
 	 */
-	if (fb_ns_dir || fb_sec_dir) {
+	if (fb_sec_dir) {
 		drm_for_each_encoder(encoder, crtc->dev)
 			if (encoder->crtc ==  crtc)
 				encoder_cnt++;
