@@ -12,6 +12,7 @@
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
 #include "msm_drv.h"
+#include "sde_dbg.h"
 
 #include "sde_kms.h"
 #include "sde_connector.h"
@@ -107,7 +108,6 @@ static const struct backlight_ops sde_backlight_device_ops = {
 static int sde_backlight_setup(struct sde_connector *c_conn,
 					struct drm_device *dev)
 {
-	struct backlight_device *bl_device;
 	struct backlight_properties props;
 	struct dsi_display *display;
 	struct dsi_backlight_config *bl_config;
@@ -131,11 +131,12 @@ static int sde_backlight_setup(struct sde_connector *c_conn,
 	props.brightness = bl_config->brightness_max_level;
 	snprintf(bl_node_name, BL_NODE_NAME_SIZE, "panel%u-backlight",
 							display_count);
-	bl_device = backlight_device_register(bl_node_name, dev->dev,
+	c_conn->bl_device = backlight_device_register(bl_node_name, dev->dev,
 			c_conn, &sde_backlight_device_ops, &props);
-	if (IS_ERR_OR_NULL(bl_device)) {
+	if (IS_ERR_OR_NULL(c_conn->bl_device)) {
 		SDE_ERROR("Failed to register backlight: %ld\n",
-				    PTR_ERR(bl_device));
+				    PTR_ERR(c_conn->bl_device));
+		c_conn->bl_device = NULL;
 		return -ENODEV;
 	}
 	display_count++;
@@ -502,6 +503,8 @@ static void sde_connector_destroy(struct drm_connector *connector)
 		drm_property_unreference_blob(c_conn->blob_dither);
 	msm_property_destroy(&c_conn->property_info);
 
+	if (c_conn->bl_device)
+		backlight_device_unregister(c_conn->bl_device);
 	drm_connector_unregister(connector);
 	mutex_destroy(&c_conn->lock);
 	sde_fence_deinit(&c_conn->retire_fence);
