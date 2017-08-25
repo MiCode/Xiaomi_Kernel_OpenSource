@@ -157,15 +157,6 @@ static u32 programmable_fetch_get_num_lines(
 	u32 needed_vfp_lines = worst_case_needed_lines - start_of_frame_lines;
 	u32 actual_vfp_lines = 0;
 
-	if (worst_case_needed_lines < start_of_frame_lines) {
-		needed_vfp_lines = 0;
-		SDE_ERROR("invalid params - needed_lines:%d, frame_lines:%d\n",
-				worst_case_needed_lines, start_of_frame_lines);
-	} else {
-		needed_vfp_lines = worst_case_needed_lines
-					- start_of_frame_lines;
-	}
-
 	/* Fetch must be outside active lines, otherwise undefined. */
 	if (start_of_frame_lines >= worst_case_needed_lines) {
 		SDE_DEBUG_VIDENC(vid_enc,
