@@ -588,6 +588,7 @@ int cam_sensor_publish_dev_info(struct cam_req_mgr_device_info *info)
 	info->dev_id = CAM_REQ_MGR_DEVICE_SENSOR;
 	strlcpy(info->name, CAM_SENSOR_NAME, sizeof(info->name));
 	info->p_delay = 2;
+	info->trigger = CAM_TRIGGER_POINT_SOF;
 
 	return rc;
 }
