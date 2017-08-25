@@ -182,6 +182,12 @@ struct scsi_device {
 	unsigned no_dif:1;	/* T10 PI (DIF) should be disabled */
 	unsigned broken_fua:1;		/* Don't set FUA bit */
 	unsigned lun_in_cdb:1;		/* Store LUN bits in CDB[1] */
+	unsigned use_rpm_auto:1; /* Enable runtime PM auto suspend */
+
+#define SCSI_DEFAULT_AUTOSUSPEND_DELAY  -1
+	int autosuspend_delay;
+	/* If non-zero, use timeout (in jiffies) for all commands */
+	unsigned int timeout_override;
 
 	atomic_t disk_events_disable_depth; /* disable depth for disk events */
 
@@ -427,6 +433,8 @@ extern void sdev_disable_disk_events(struct scsi_device *sdev);
 extern void sdev_enable_disk_events(struct scsi_device *sdev);
 extern int scsi_vpd_lun_id(struct scsi_device *, char *, size_t);
 extern int scsi_vpd_tpg_id(struct scsi_device *, int *);
+extern void scsi_set_cmd_timeout_override(struct scsi_device *sdev,
+					  unsigned int timeout);
 
 #ifdef CONFIG_PM
 extern int scsi_autopm_get_device(struct scsi_device *);

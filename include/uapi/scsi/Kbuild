@@ -1,0 +1,3 @@
+header-y += ufs/
+header-y += sg.h
+header-y += scsi_ioctl.h

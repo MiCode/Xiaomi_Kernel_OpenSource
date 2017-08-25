@@ -830,7 +830,11 @@ sg_common_write(Sg_fd * sfp, Sg_request * srp,
 	else
 		at_head = 1;
 
-	srp->rq->timeout = timeout;
+	if (likely(!sdp->device->timeout_override))
+		srp->rq->timeout = timeout;
+	else
+		srp->rq->timeout = sdp->device->timeout_override;
+
 	kref_get(&sfp->f_ref); /* sg_rq_end_io() does kref_put(). */
 	blk_execute_rq_nowait(sdp->device->request_queue, sdp->disk,
 			      srp->rq, at_head, sg_rq_end_io);
@@ -1542,9 +1546,6 @@ sg_add_device(struct device *cl_dev, struct class_interface *cl_intf)
 			       "to sg%d\n", __func__, sdp->index);
 	} else
 		pr_warn("%s: sg_sys Invalid\n", __func__);
-
-	sdev_printk(KERN_NOTICE, scsidp, "Attached scsi generic sg%d "
-		    "type %d\n", sdp->index, scsidp->type);
 
 	dev_set_drvdata(cl_dev, sdp);
 

@@ -8,6 +8,7 @@
 #ifndef LINUX_MMC_CORE_H
 #define LINUX_MMC_CORE_H
 
+#include <linux/interrupt.h>
 #include <linux/completion.h>
 #include <linux/types.h>
 #include <linux/ktime.h>
