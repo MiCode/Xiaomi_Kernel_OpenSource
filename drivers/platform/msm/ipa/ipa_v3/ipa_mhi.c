@@ -630,6 +630,8 @@ int ipa3_mhi_destroy_channel(enum ipa_client_type client)
 	}
 	ep = &ipa3_ctx->ep[ipa_ep_idx];
 
+	IPA_ACTIVE_CLIENTS_INC_EP(client);
+
 	IPA_MHI_DBG("reset event ring (hdl: %lu, ep: %d)\n",
 		ep->gsi_evt_ring_hdl, ipa_ep_idx);
 
@@ -651,8 +653,10 @@ int ipa3_mhi_destroy_channel(enum ipa_client_type client)
 		goto fail;
 	}
 
+	IPA_ACTIVE_CLIENTS_DEC_EP(client);
 	return 0;
 fail:
+	IPA_ACTIVE_CLIENTS_DEC_EP(client);
 	return res;
 }
 
