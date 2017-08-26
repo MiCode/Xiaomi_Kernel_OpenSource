@@ -4110,7 +4110,9 @@ static inline int __resume(struct venus_hfi_device *device)
 
 	dprintk(VIDC_PROF, "Resumed from power collapse\n");
 exit:
-	device->skip_pc_count = 0;
+	/* Don't reset skip_pc_count for SYS_PC_PREP cmd */
+	if (device->last_packet_type != HFI_CMD_SYS_PC_PREP)
+		device->skip_pc_count = 0;
 	return rc;
 err_reset_core:
 	__tzbsp_set_video_state(TZBSP_VIDEO_STATE_SUSPEND);
