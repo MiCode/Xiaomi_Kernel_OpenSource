@@ -224,6 +224,16 @@ int sde_power_resource_enable(struct sde_power_handle *pdata,
 	struct sde_power_client *pclient, bool enable);
 
 /**
+ * sde_power_data_bus_state_update() - update data bus state
+ * @pdata:  power handle containing the resources
+ * @enable: take enable vs disable path
+ *
+ * Return: error code.
+ */
+int sde_power_data_bus_state_update(struct sde_power_handle *phandle,
+							bool enable);
+
+/**
  * sde_power_clk_set_rate() - set the clock rate
  * @pdata:  power handle containing the resources
  * @clock_name: clock name which needs rate update.

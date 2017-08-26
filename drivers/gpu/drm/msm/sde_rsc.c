@@ -1240,6 +1240,12 @@ static int sde_rsc_probe(struct platform_device *pdev)
 		goto sde_rsc_fail;
 	}
 
+	/**
+	 * sde rsc should always vote through enable path, sleep vote is
+	 * set to "0" by default.
+	 */
+	sde_power_data_bus_state_update(&rsc->phandle, true);
+
 	rsc->disp_rsc = rpmh_get_byname(pdev, "disp_rsc");
 	if (IS_ERR_OR_NULL(rsc->disp_rsc)) {
 		ret = PTR_ERR(rsc->disp_rsc);
