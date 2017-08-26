@@ -29,7 +29,6 @@ bool msm_vidc_fw_coverage = !true;
 bool msm_vidc_sys_idle_indicator = !true;
 bool msm_vidc_thermal_mitigation_disabled = !true;
 bool msm_vidc_clock_scaling = true;
-bool msm_vidc_debug_timeout = !true;
 bool msm_vidc_syscache_disable = !true;
 
 #define MAX_DBG_BUF_SIZE 4096
@@ -208,8 +207,6 @@ struct dentry *msm_vidc_debugfs_init_drv(void)
 			&msm_vidc_thermal_mitigation_disabled) &&
 	__debugfs_create(bool, "clock_scaling",
 			&msm_vidc_clock_scaling) &&
-	__debugfs_create(bool, "debug_timeout",
-			&msm_vidc_debug_timeout) &&
 	__debugfs_create(bool, "disable_video_syscache",
 			&msm_vidc_syscache_disable);
 
