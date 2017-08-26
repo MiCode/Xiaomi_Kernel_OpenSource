@@ -182,6 +182,7 @@ int msm_vidc_query_ctrl(void *instance, struct v4l2_queryctrl *ctrl)
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
 	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_PROFILE:
 	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE:
+	case V4L2_CID_MPEG_VIDC_VIDEO_VP9_PROFILE:
 	{
 		prof_level_supported = &inst->capability.profile_level;
 		for (i = 0; i < prof_level_supported->profile_count; i++) {
@@ -200,6 +201,7 @@ int msm_vidc_query_ctrl(void *instance, struct v4l2_queryctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
 	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_TIER_LEVEL:
 	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_LEVEL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_VP9_LEVEL:
 	{
 		prof_level_supported = &inst->capability.profile_level;
 		for (i = 0; i < prof_level_supported->profile_count; i++) {

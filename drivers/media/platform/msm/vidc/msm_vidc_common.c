@@ -297,6 +297,44 @@ int msm_comm_hal_to_v4l2(int id, int value)
 		default:
 			goto unknown_value;
 		}
+	case V4L2_CID_MPEG_VIDC_VIDEO_VP9_PROFILE:
+		switch (value) {
+		case HAL_VP9_PROFILE_P0:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_PROFILE_P0;
+		case HAL_VP9_PROFILE_P2_10:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_PROFILE_P2_10;
+		case HAL_VP9_PROFILE_UNUSED:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_PROFILE_UNUSED;
+		default:
+			goto unknown_value;
+		}
+	case V4L2_CID_MPEG_VIDC_VIDEO_VP9_LEVEL:
+		switch (value) {
+		case HAL_VP9_LEVEL_1:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_1;
+		case HAL_VP9_LEVEL_11:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_11;
+		case HAL_VP9_LEVEL_2:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_2;
+		case HAL_VP9_LEVEL_21:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_21;
+		case HAL_VP9_LEVEL_3:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_3;
+		case HAL_VP9_LEVEL_31:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_31;
+		case HAL_VP9_LEVEL_4:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_4;
+		case HAL_VP9_LEVEL_41:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_41;
+		case HAL_VP9_LEVEL_5:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_5;
+		case HAL_VP9_LEVEL_51:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_51;
+		case HAL_VP9_LEVEL_UNUSED:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_UNUSED;
+		default:
+			goto unknown_value;
+		}
 	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE:
 		switch (value) {
 		case HAL_MPEG2_PROFILE_SIMPLE:
