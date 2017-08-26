@@ -121,13 +121,32 @@ static void msm_fb_output_poll_changed(struct drm_device *dev)
 		msm_drm_helper_hotplug_event(dev);
 }
 
+/**
+ * msm_atomic_helper_check - validate state object
+ * @dev: DRM device
+ * @state: the driver state object
+ *
+ * This is a wrapper for the drm_atomic_helper_check to check the modeset
+ * and state checking for planes. Additionally it checks if any secure
+ * transition(moving CRTC and planes between secure and non-secure states and
+ * vice versa) is allowed or not. When going to secure state, planes
+ * with fb_mode as dir translated only can be staged on the CRTC, and only one
+ * CRTC should be active.
+ * Also mixing of secure and non-secure is not allowed.
+ *
+ * RETURNS
+ * Zero for success or -errorno.
+ */
 int msm_atomic_check(struct drm_device *dev,
 			    struct drm_atomic_state *state)
 {
-	if (msm_is_suspend_blocked(dev)) {
-		DRM_DEBUG("rejecting commit during suspend\n");
-		return -EBUSY;
-	}
+	struct msm_drm_private *priv;
+
+	priv = dev->dev_private;
+	if (priv && priv->kms && priv->kms->funcs &&
+			priv->kms->funcs->atomic_check)
+		return priv->kms->funcs->atomic_check(priv->kms, state);
+
 	return drm_atomic_helper_check(dev, state);
 }
 
@@ -1644,12 +1663,8 @@ static struct drm_driver msm_driver = {
 static int msm_pm_suspend(struct device *dev)
 {
 	struct drm_device *ddev;
-	struct drm_modeset_acquire_ctx ctx;
-	struct drm_connector *conn;
-	struct drm_atomic_state *state;
-	struct drm_crtc_state *crtc_state;
 	struct msm_drm_private *priv;
-	int ret = 0;
+	struct msm_kms *kms;
 
 	if (!dev)
 		return -EINVAL;
@@ -1659,68 +1674,10 @@ static int msm_pm_suspend(struct device *dev)
 		return -EINVAL;
 
 	priv = ddev->dev_private;
-	SDE_EVT32(0);
+	kms = priv->kms;
 
-	/* acquire modeset lock(s) */
-	drm_modeset_acquire_init(&ctx, 0);
-
-retry:
-	ret = drm_modeset_lock_all_ctx(ddev, &ctx);
-	if (ret)
-		goto unlock;
-
-	/* save current state for resume */
-	if (priv->suspend_state)
-		drm_atomic_state_free(priv->suspend_state);
-	priv->suspend_state = drm_atomic_helper_duplicate_state(ddev, &ctx);
-	if (IS_ERR_OR_NULL(priv->suspend_state)) {
-		DRM_ERROR("failed to back up suspend state\n");
-		priv->suspend_state = NULL;
-		goto unlock;
-	}
-
-	/* create atomic state to disable all CRTCs */
-	state = drm_atomic_state_alloc(ddev);
-	if (IS_ERR_OR_NULL(state)) {
-		DRM_ERROR("failed to allocate crtc disable state\n");
-		goto unlock;
-	}
-
-	state->acquire_ctx = &ctx;
-	drm_for_each_connector(conn, ddev) {
-
-		if (!conn->state || !conn->state->crtc ||
-				conn->dpms != DRM_MODE_DPMS_ON)
-			continue;
-
-		/* force CRTC to be inactive */
-		crtc_state = drm_atomic_get_crtc_state(state,
-				conn->state->crtc);
-		if (IS_ERR_OR_NULL(crtc_state)) {
-			DRM_ERROR("failed to get crtc %d state\n",
-					conn->state->crtc->base.id);
-			drm_atomic_state_free(state);
-			goto unlock;
-		}
-		crtc_state->active = false;
-	}
-
-	/* commit the "disable all" state */
-	ret = drm_atomic_commit(state);
-	if (ret < 0) {
-		DRM_ERROR("failed to disable crtcs, %d\n", ret);
-		drm_atomic_state_free(state);
-	} else {
-		priv->suspend_block = true;
-	}
-
-unlock:
-	if (ret == -EDEADLK) {
-		drm_modeset_backoff(&ctx);
-		goto retry;
-	}
-	drm_modeset_drop_locks(&ctx);
-	drm_modeset_acquire_fini(&ctx);
+	if (kms && kms->funcs && kms->funcs->pm_suspend)
+		return kms->funcs->pm_suspend(dev);
 
 	/* disable hot-plug polling */
 	drm_kms_helper_poll_disable(ddev);
@@ -1732,7 +1689,7 @@ static int msm_pm_resume(struct device *dev)
 {
 	struct drm_device *ddev;
 	struct msm_drm_private *priv;
-	int ret;
+	struct msm_kms *kms;
 
 	if (!dev)
 		return -EINVAL;
@@ -1742,26 +1699,10 @@ static int msm_pm_resume(struct device *dev)
 		return -EINVAL;
 
 	priv = ddev->dev_private;
+	kms = priv->kms;
 
-	SDE_EVT32(priv->suspend_state != NULL);
-
-	drm_mode_config_reset(ddev);
-
-	drm_modeset_lock_all(ddev);
-
-	priv->suspend_block = false;
-
-	if (priv->suspend_state) {
-		priv->suspend_state->acquire_ctx =
-			ddev->mode_config.acquire_ctx;
-		ret = drm_atomic_commit(priv->suspend_state);
-		if (ret < 0) {
-			DRM_ERROR("failed to restore state, %d\n", ret);
-			drm_atomic_state_free(priv->suspend_state);
-		}
-		priv->suspend_state = NULL;
-	}
-	drm_modeset_unlock_all(ddev);
+	if (kms && kms->funcs && kms->funcs->pm_resume)
+		return kms->funcs->pm_resume(dev);
 
 	/* enable hot-plug polling */
 	drm_kms_helper_poll_enable(ddev);

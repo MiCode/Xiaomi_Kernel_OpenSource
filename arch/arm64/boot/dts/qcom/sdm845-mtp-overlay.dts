@@ -26,6 +26,6 @@
 / {
 	model = "Qualcomm Technologies, Inc. SDM845 v1 MTP";
 	compatible = "qcom,sdm845-mtp", "qcom,sdm845", "qcom,mtp";
-	qcom,msm-id = <321 0x0>;
+	qcom,msm-id = <321 0x10000>;
 	qcom,board-id = <8 0>;
 };

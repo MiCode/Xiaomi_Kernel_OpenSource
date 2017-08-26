@@ -73,6 +73,8 @@ struct dp_usbpd_private {
 	struct dp_usbpd dp_usbpd;
 	enum dp_usbpd_alt_mode alt_mode;
 	u32 dp_usbpd_config;
+
+	bool forced_disconnect;
 };
 
 static const char *dp_usbpd_pin_name(u8 pin)
@@ -342,6 +344,9 @@ static void dp_usbpd_response_cb(struct usbpd_svid_handler *hdlr, u8 cmd,
 		dp_usbpd_send_event(pd, DP_USBPD_EVT_STATUS);
 		break;
 	case USBPD_SVDM_ATTENTION:
+		if (pd->forced_disconnect)
+			break;
+
 		pd->vdo = *vdos;
 		dp_usbpd_get_status(pd);
 
@@ -378,12 +383,38 @@ static void dp_usbpd_response_cb(struct usbpd_svid_handler *hdlr, u8 cmd,
 	}
 }
 
+static int dp_usbpd_connect(struct dp_usbpd *dp_usbpd, bool hpd)
+{
+	int rc = 0;
+	struct dp_usbpd_private *pd;
+
+	if (!dp_usbpd) {
+		pr_err("invalid input\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	pd = container_of(dp_usbpd, struct dp_usbpd_private, dp_usbpd);
+
+	dp_usbpd->hpd_high = hpd;
+	pd->forced_disconnect = !hpd;
+
+	if (hpd)
+		pd->dp_cb->configure(pd->dev);
+	else
+		pd->dp_cb->disconnect(pd->dev);
+
+error:
+	return rc;
+}
+
 struct dp_usbpd *dp_usbpd_get(struct device *dev, struct dp_usbpd_cb *cb)
 {
 	int rc = 0;
 	const char *pd_phandle = "qcom,dp-usbpd-detection";
 	struct usbpd *pd = NULL;
 	struct dp_usbpd_private *usbpd;
+	struct dp_usbpd *dp_usbpd;
 	struct usbpd_svid_handler svid_handler = {
 		.svid		= USB_C_DP_SID,
 		.vdm_received	= NULL,
@@ -423,7 +454,11 @@ struct dp_usbpd *dp_usbpd_get(struct device *dev, struct dp_usbpd_cb *cb)
 		kfree(usbpd);
 		goto error;
 	}
-	return &usbpd->dp_usbpd;
+
+	dp_usbpd = &usbpd->dp_usbpd;
+	dp_usbpd->connect = dp_usbpd_connect;
+
+	return dp_usbpd;
 error:
 	return ERR_PTR(rc);
 }

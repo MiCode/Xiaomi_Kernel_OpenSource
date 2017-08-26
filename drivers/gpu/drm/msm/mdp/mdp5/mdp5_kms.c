@@ -617,7 +617,7 @@ struct msm_kms *mdp5_kms_init(struct drm_device *dev)
 			goto fail;
 		}
 
-		aspace = msm_gem_smmu_address_space_create(&pdev->dev,
+		aspace = msm_gem_smmu_address_space_create(dev,
 				mmu, "mdp5");
 		if (IS_ERR(aspace)) {
 			ret = PTR_ERR(aspace);

@@ -401,6 +401,24 @@ Optional properties:
 					String that specifies the ctrl state for reading the panel status.
 					"dsi_lp_mode" = DSI low power mode
 					"dsi_hs_mode" = DSI high speed mode
+- qcom,mdss-dsi-lp1-command:		An optional byte stream to request low
+					power mode on a panel
+- qcom,mdss-dsi-lp1-command-mode:	String that specifies the ctrl state for
+					setting the panel power mode.
+					"dsi_lp_mode" = DSI low power mode
+					"dsi_hs_mode" = DSI high speed mode
+- qcom,mdss-dsi-lp2-command:		An optional byte stream to request ultra
+					low power mode on a panel
+- qcom,mdss-dsi-lp2-command-mode:	String that specifies the ctrl state for
+					setting the panel power mode.
+					"dsi_lp_mode" = DSI low power mode
+					"dsi_hs_mode" = DSI high speed mode
+- qcom,mdss-dsi-nolp-command:		An optional byte stream to disable low
+					power and ultra low power panel modes
+- qcom,mdss-dsi-nolp-command-mode:	String that specifies the ctrl state for
+					setting the panel power mode.
+					"dsi_lp_mode" = DSI low power mode
+					"dsi_hs_mode" = DSI high speed mode
 - qcom,mdss-dsi-panel-status-check-mode:Specifies the panel status check method for ESD recovery.
 					"bta_check" = Uses BTA to check the panel status
 					"reg_read" = Reads panel status register to check the panel status

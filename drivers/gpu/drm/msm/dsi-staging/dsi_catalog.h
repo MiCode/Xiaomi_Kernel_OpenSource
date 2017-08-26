@@ -23,14 +23,15 @@
  * @ctrl:        Pointer to DSI controller hw object.
  * @version:     DSI controller version.
  * @index:       DSI controller instance ID.
+ * @phy_isolation_enabled:       DSI controller works isolated from phy.
  *
  * This function setups the catalog information in the dsi_ctrl_hw object.
  *
  * return: error code for failure and 0 for success.
  */
 int dsi_catalog_ctrl_setup(struct dsi_ctrl_hw *ctrl,
-			   enum dsi_ctrl_version version,
-			   u32 index);
+		   enum dsi_ctrl_version version, u32 index,
+		   bool phy_isolation_enabled);
 
 /**
  * dsi_catalog_phy_setup() - return catalog info for dsi phy hardware
@@ -146,6 +147,12 @@ void dsi_ctrl_hw_cmn_setup_cmd_stream(struct dsi_ctrl_hw *ctrl,
 				     struct dsi_rect *roi);
 void dsi_ctrl_hw_cmn_phy_sw_reset(struct dsi_ctrl_hw *ctrl);
 void dsi_ctrl_hw_cmn_soft_reset(struct dsi_ctrl_hw *ctrl);
+
+void dsi_ctrl_hw_cmn_setup_misr(struct dsi_ctrl_hw *ctrl,
+			enum dsi_op_mode panel_mode,
+			bool enable, u32 frame_count);
+u32 dsi_ctrl_hw_cmn_collect_misr(struct dsi_ctrl_hw *ctrl,
+			enum dsi_op_mode panel_mode);
 
 void dsi_ctrl_hw_cmn_kickoff_command(struct dsi_ctrl_hw *ctrl,
 			struct dsi_ctrl_cmd_dma_info *cmd,

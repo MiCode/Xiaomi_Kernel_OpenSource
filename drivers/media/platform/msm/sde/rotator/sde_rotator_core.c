@@ -11,7 +11,7 @@
  *
  */
 
-#define pr_fmt(fmt)	"%s: " fmt, __func__
+#define pr_fmt(fmt)	"%s:%d: " fmt, __func__, __LINE__
 
 #include <linux/platform_device.h>
 #include <linux/module.h>
@@ -325,7 +325,7 @@ static int sde_rotator_footswitch_ctrl(struct sde_rot_mgr *mgr, bool on)
 	if (mgr->rsc_client)
 		ret = sde_rsc_client_state_update(mgr->rsc_client,
 				on ? SDE_RSC_CLK_STATE : SDE_RSC_IDLE_STATE,
-				NULL, -1);
+				NULL, SDE_RSC_INVALID_CRTC_ID, NULL);
 	else
 		ret = sde_rot_enable_vreg(mgr->module_power.vreg_config,
 			mgr->module_power.num_vreg, on);
@@ -341,8 +341,6 @@ static int sde_rotator_footswitch_ctrl(struct sde_rot_mgr *mgr, bool on)
 	if (!on) {
 		mgr->minimum_bw_vote = 0;
 		sde_rotator_update_perf(mgr);
-	} else {
-		sde_mdp_init_vbif();
 	}
 
 	mgr->regulator_enable = on;
@@ -425,6 +423,9 @@ int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable)
 						SDE_ROTATOR_CLK_MDSS_ROT_SUB);
 			if (ret)
 				goto error_rot_sub;
+
+			/* reinitialize static vbif setting */
+			sde_mdp_init_vbif();
 
 			/* Active+Sleep */
 			msm_bus_scale_client_update_context(
@@ -945,6 +946,11 @@ static struct sde_rot_hw_resource *sde_rotator_get_hw_resource(
 				"timeout waiting for hw resource, a:%d p:%d\n",
 				atomic_read(&hw->num_active),
 				hw->pending_count);
+			SDEROT_EVTLOG(entry->item.session_id,
+					entry->item.sequence_id,
+					atomic_read(&hw->num_active),
+					hw->pending_count,
+					SDE_ROT_EVTLOG_ERROR);
 			return NULL;
 		}
 	}
@@ -1603,9 +1609,14 @@ static void sde_rotator_done_handler(struct kthread_work *work)
 		entry->item.flags,
 		entry->dnsc_factor_w, entry->dnsc_factor_h);
 
-	wait_for_completion_timeout(
+	ret = wait_for_completion_timeout(
 			&entry->item.inline_start,
 			msecs_to_jiffies(ROT_INLINE_START_TIMEOUT_IN_MS));
+	if (!ret) {
+		SDEROT_WARN("timeout waiting for inline start\n");
+		SDEROT_EVTLOG(entry->item.session_id, entry->item.sequence_id,
+				SDE_ROT_EVTLOG_ERROR);
+	}
 
 	if (entry->item.ts)
 		entry->item.ts[SDE_ROTATOR_TS_START] = ktime_get();
@@ -1652,18 +1663,20 @@ static void sde_rotator_done_handler(struct kthread_work *work)
 
 static bool sde_rotator_verify_format(struct sde_rot_mgr *mgr,
 	struct sde_mdp_format_params *in_fmt,
-	struct sde_mdp_format_params *out_fmt, bool rotation)
+	struct sde_mdp_format_params *out_fmt, bool rotation, u32 mode)
 {
 	u8 in_v_subsample, in_h_subsample;
 	u8 out_v_subsample, out_h_subsample;
 
-	if (!sde_rotator_is_valid_pixfmt(mgr, in_fmt->format, true)) {
-		SDEROT_ERR("Invalid input format %x\n", in_fmt->format);
+	if (!sde_rotator_is_valid_pixfmt(mgr, in_fmt->format, true, mode)) {
+		SDEROT_ERR("Invalid input format 0x%x (%4.4s)\n",
+				in_fmt->format, (char *)&in_fmt->format);
 		goto verify_error;
 	}
 
-	if (!sde_rotator_is_valid_pixfmt(mgr, out_fmt->format, false)) {
-		SDEROT_ERR("Invalid output format %x\n", out_fmt->format);
+	if (!sde_rotator_is_valid_pixfmt(mgr, out_fmt->format, false, mode)) {
+		SDEROT_ERR("Invalid output format 0x%x (%4.4s)\n",
+				out_fmt->format, (char *)&out_fmt->format);
 		goto verify_error;
 	}
 
@@ -1712,8 +1725,10 @@ static bool sde_rotator_verify_format(struct sde_rot_mgr *mgr,
 	return true;
 
 verify_error:
-	SDEROT_ERR("in_fmt=0x%x, out_fmt=0x%x\n",
-			in_fmt->format, out_fmt->format);
+	SDEROT_ERR("in_fmt=0x%x (%4.4s), out_fmt=0x%x (%4.4s), mode=%d\n",
+			in_fmt->format, (char *)&in_fmt->format,
+			out_fmt->format, (char *)&out_fmt->format,
+			mode);
 	return false;
 }
 
@@ -1832,6 +1847,7 @@ int sde_rotator_verify_config_all(struct sde_rot_mgr *mgr,
 {
 	struct sde_mdp_format_params *in_fmt, *out_fmt;
 	bool rotation;
+	u32 mode;
 
 	if (!mgr || !config) {
 		SDEROT_ERR("null parameters\n");
@@ -1839,6 +1855,9 @@ int sde_rotator_verify_config_all(struct sde_rot_mgr *mgr,
 	}
 
 	rotation = (config->flags & SDE_ROTATION_90) ? true : false;
+
+	mode = config->output.sbuf ? SDE_ROTATOR_MODE_SBUF :
+				SDE_ROTATOR_MODE_OFFLINE;
 
 	in_fmt = __verify_input_config(mgr, config);
 	if (!in_fmt)
@@ -1848,7 +1867,7 @@ int sde_rotator_verify_config_all(struct sde_rot_mgr *mgr,
 	if (!out_fmt)
 		return -EINVAL;
 
-	if (!sde_rotator_verify_format(mgr, in_fmt, out_fmt, rotation)) {
+	if (!sde_rotator_verify_format(mgr, in_fmt, out_fmt, rotation, mode)) {
 		SDEROT_ERR(
 			"Rot format pairing invalid, in_fmt:0x%x, out_fmt:0x%x\n",
 					config->input.format,
@@ -2335,6 +2354,7 @@ static int sde_rotator_config_session(struct sde_rot_mgr *mgr,
 
 	if (config->output.sbuf && mgr->sbuf_ctx != private && mgr->sbuf_ctx) {
 		SDEROT_ERR("too many sbuf sessions\n");
+		ret = -EBUSY;
 		goto done;
 	}
 

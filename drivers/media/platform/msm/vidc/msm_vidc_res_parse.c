@@ -785,6 +785,9 @@ int read_platform_resources_from_drv_data(
 			"qcom,fw-unload-delay");
 	res->msm_vidc_hw_rsp_timeout = find_key_value(platform_data,
 			"qcom,hw-resp-timeout");
+	res->non_fatal_pagefaults = find_key_value(platform_data,
+			"qcom,domain-attr-non-fatal-faults");
+
 	return rc;
 
 }
@@ -980,8 +983,13 @@ int msm_vidc_smmu_fault_handler(struct iommu_domain *domain,
 		return -EINVAL;
 	}
 
-	if (core->smmu_fault_handled)
+	if (core->smmu_fault_handled) {
+		if (core->resources.non_fatal_pagefaults) {
+			msm_vidc_noc_error_info(core);
+			MSM_VIDC_ERROR(true);
+		}
 		return -ENOSYS;
+	}
 
 	dprintk(VIDC_ERR, "%s - faulting address: %lx\n", __func__, iova);
 
@@ -1059,6 +1067,21 @@ static int msm_vidc_populate_context_bank(struct device *dev,
 	if (rc) {
 		dprintk(VIDC_ERR, "Cannot setup context bank %d\n", rc);
 		goto err_setup_cb;
+	}
+
+	if (core->resources.non_fatal_pagefaults) {
+		int data = 1;
+
+		dprintk(VIDC_DBG, "set non-fatal-faults attribute on %s\n",
+				dev_name(dev));
+		rc = iommu_domain_set_attr(cb->mapping->domain,
+					DOMAIN_ATTR_NON_FATAL_FAULTS, &data);
+		if (rc) {
+			dprintk(VIDC_WARN,
+				"%s: set non fatal attribute failed: %s %d\n",
+				__func__, dev_name(dev), rc);
+			/* ignore the error */
+		}
 	}
 
 	iommu_set_fault_handler(cb->mapping->domain,

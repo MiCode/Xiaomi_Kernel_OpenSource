@@ -15,6 +15,7 @@
 #include <linux/mpls.h>
 #include <net/ndisc.h>
 #include <linux/if_arp.h>
+#include <linux/gcd.h>
 #include "core.h"
 #include "rdev-ops.h"
 
@@ -935,7 +936,6 @@ void cfg80211_process_wdev_events(struct wireless_dev *wdev)
 {
 	struct cfg80211_event *ev;
 	unsigned long flags;
-	const u8 *bssid = NULL;
 
 	spin_lock_irqsave(&wdev->event_lock, flags);
 	while (!list_empty(&wdev->event_list)) {
@@ -947,15 +947,10 @@ void cfg80211_process_wdev_events(struct wireless_dev *wdev)
 		wdev_lock(wdev);
 		switch (ev->type) {
 		case EVENT_CONNECT_RESULT:
-			if (!is_zero_ether_addr(ev->cr.bssid))
-				bssid = ev->cr.bssid;
 			__cfg80211_connect_result(
-				wdev->netdev, bssid,
-				ev->cr.req_ie, ev->cr.req_ie_len,
-				ev->cr.resp_ie, ev->cr.resp_ie_len,
-				ev->cr.status,
-				ev->cr.status == WLAN_STATUS_SUCCESS,
-				ev->cr.bss);
+				wdev->netdev,
+				&ev->cr,
+				ev->cr.status == WLAN_STATUS_SUCCESS);
 			break;
 		case EVENT_ROAMED:
 			__cfg80211_roamed(wdev, ev->rm.bss, ev->rm.req_ie,
@@ -1559,47 +1554,53 @@ bool ieee80211_chandef_to_operating_class(struct cfg80211_chan_def *chandef,
 }
 EXPORT_SYMBOL(ieee80211_chandef_to_operating_class);
 
+static void cfg80211_calculate_bi_data(struct wiphy *wiphy, u32 new_beacon_int,
+				       u32 *beacon_int_gcd,
+				       bool *beacon_int_different)
+{
+	struct wireless_dev *wdev;
+
+	*beacon_int_gcd = 0;
+	*beacon_int_different = false;
+
+	list_for_each_entry(wdev, &wiphy->wdev_list, list) {
+		if (!wdev->beacon_interval)
+			continue;
+
+		if (!*beacon_int_gcd) {
+			*beacon_int_gcd = wdev->beacon_interval;
+			continue;
+		}
+
+		if (wdev->beacon_interval == *beacon_int_gcd)
+			continue;
+
+		*beacon_int_different = true;
+		*beacon_int_gcd = gcd(*beacon_int_gcd, wdev->beacon_interval);
+	}
+
+	if (new_beacon_int && *beacon_int_gcd != new_beacon_int) {
+		if (*beacon_int_gcd)
+			*beacon_int_different = true;
+		*beacon_int_gcd = gcd(*beacon_int_gcd, new_beacon_int);
+	}
+}
+
 int cfg80211_validate_beacon_int(struct cfg80211_registered_device *rdev,
 				 enum nl80211_iftype iftype, u32 beacon_int)
 {
-	struct wireless_dev *wdev;
-	struct iface_combination_params params = {
-		.beacon_int_gcd = beacon_int,	/* GCD(n) = n */
-	};
+	/*
+	 * This is just a basic pre-condition check; if interface combinations
+	 * are possible the driver must already be checking those with a call
+	 * to cfg80211_check_combinations(), in which case we'll validate more
+	 * through the cfg80211_calculate_bi_data() call and code in
+	 * cfg80211_iter_combinations().
+	 */
 
 	if (beacon_int < 10 || beacon_int > 10000)
 		return -EINVAL;
 
-	params.iftype_num[iftype] = 1;
-	list_for_each_entry(wdev, &rdev->wiphy.wdev_list, list) {
-		if (!wdev->beacon_interval)
-			continue;
-
-		params.iftype_num[wdev->iftype]++;
-	}
-
-	list_for_each_entry(wdev, &rdev->wiphy.wdev_list, list) {
-		u32 bi_prev = wdev->beacon_interval;
-
-		if (!wdev->beacon_interval)
-			continue;
-
-		/* slight optimisation - skip identical BIs */
-		if (wdev->beacon_interval == beacon_int)
-			continue;
-
-		params.beacon_int_different = true;
-
-		/* Get the GCD */
-		while (bi_prev != 0) {
-			u32 tmp_bi = bi_prev;
-
-			bi_prev = params.beacon_int_gcd % bi_prev;
-			params.beacon_int_gcd = tmp_bi;
-		}
-	}
-
-	return cfg80211_check_combinations(&rdev->wiphy, &params);
+	return 0;
 }
 
 int cfg80211_iter_combinations(struct wiphy *wiphy,
@@ -1613,6 +1614,21 @@ int cfg80211_iter_combinations(struct wiphy *wiphy,
 	int i, j, iftype;
 	int num_interfaces = 0;
 	u32 used_iftypes = 0;
+	u32 beacon_int_gcd;
+	bool beacon_int_different;
+
+	/*
+	 * This is a bit strange, since the iteration used to rely only on
+	 * the data given by the driver, but here it now relies on context,
+	 * in form of the currently operating interfaces.
+	 * This is OK for all current users, and saves us from having to
+	 * push the GCD calculations into all the drivers.
+	 * In the future, this should probably rely more on data that's in
+	 * cfg80211 already - the only thing not would appear to be any new
+	 * interfaces (while being brought up) and channel/radar data.
+	 */
+	cfg80211_calculate_bi_data(wiphy, params->new_beacon_int,
+				   &beacon_int_gcd, &beacon_int_different);
 
 	if (params->radar_detect) {
 		rcu_read_lock();
@@ -1675,12 +1691,11 @@ int cfg80211_iter_combinations(struct wiphy *wiphy,
 		if ((all_iftypes & used_iftypes) != used_iftypes)
 			goto cont;
 
-		if (params->beacon_int_gcd) {
+		if (beacon_int_gcd) {
 			if (c->beacon_int_min_gcd &&
-			    params->beacon_int_gcd < c->beacon_int_min_gcd)
-				return -EINVAL;
-			if (!c->beacon_int_min_gcd &&
-			    params->beacon_int_different)
+			    beacon_int_gcd < c->beacon_int_min_gcd)
+				goto cont;
+			if (!c->beacon_int_min_gcd && beacon_int_different)
 				goto cont;
 		}
 

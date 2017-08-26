@@ -116,6 +116,8 @@ config ARCH_QCOM
 	select PINCTRL
 	select SOC_BUS
 	select PM_OPP
+	select MFD_CORE
+	select SND_SOC_COMPRESS
 	help
 	  This enables support for the ARMv8 based Qualcomm chipsets.
 

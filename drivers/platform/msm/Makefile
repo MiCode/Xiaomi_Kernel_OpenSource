@@ -12,3 +12,4 @@ obj-$(CONFIG_USB_BAM) += usb_bam.o
 obj-$(CONFIG_MSM_11AD) += msm_11ad/
 obj-$(CONFIG_SEEMP_CORE) += seemp_core/
 obj-$(CONFIG_QCOM_GENI_SE) += qcom-geni-se.o
+obj-$(CONFIG_MSM_EXT_DISPLAY) += msm_ext_display.o

@@ -66,7 +66,7 @@ extern void update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 extern unsigned int nr_eligible_big_tasks(int cpu);
 
 static inline void
-inc_nr_big_task(struct hmp_sched_stats *stats, struct task_struct *p)
+inc_nr_big_task(struct walt_sched_stats *stats, struct task_struct *p)
 {
 	if (sched_disable_window_stats)
 		return;
@@ -76,7 +76,7 @@ inc_nr_big_task(struct hmp_sched_stats *stats, struct task_struct *p)
 }
 
 static inline void
-dec_nr_big_task(struct hmp_sched_stats *stats, struct task_struct *p)
+dec_nr_big_task(struct walt_sched_stats *stats, struct task_struct *p)
 {
 	if (sched_disable_window_stats)
 		return;
@@ -88,57 +88,20 @@ dec_nr_big_task(struct hmp_sched_stats *stats, struct task_struct *p)
 }
 
 static inline void
-adjust_nr_big_tasks(struct hmp_sched_stats *stats, int delta, bool inc)
+walt_adjust_nr_big_tasks(struct rq *rq, int delta, bool inc)
 {
-	struct rq *rq = container_of(stats, struct rq, hmp_stats);
-
 	if (sched_disable_window_stats)
 		return;
 
 	sched_update_nr_prod(cpu_of(rq), 0, true);
-	stats->nr_big_tasks += inc ? delta : -delta;
+	rq->walt_stats.nr_big_tasks += inc ? delta : -delta;
 
-	BUG_ON(stats->nr_big_tasks < 0);
+	BUG_ON(rq->walt_stats.nr_big_tasks < 0);
 }
 
 static inline void
-inc_cumulative_runnable_avg(struct hmp_sched_stats *stats,
-				 struct task_struct *p)
-{
-	u32 task_load;
-
-	if (sched_disable_window_stats)
-		return;
-
-	task_load = sched_disable_window_stats ? 0 : p->ravg.demand;
-
-	stats->cumulative_runnable_avg += task_load;
-	stats->pred_demands_sum += p->ravg.pred_demand;
-}
-
-static inline void
-dec_cumulative_runnable_avg(struct hmp_sched_stats *stats,
-				struct task_struct *p)
-{
-	u32 task_load;
-
-	if (sched_disable_window_stats)
-		return;
-
-	task_load = sched_disable_window_stats ? 0 : p->ravg.demand;
-
-	stats->cumulative_runnable_avg -= task_load;
-
-	BUG_ON((s64)stats->cumulative_runnable_avg < 0);
-
-	stats->pred_demands_sum -= p->ravg.pred_demand;
-	BUG_ON((s64)stats->pred_demands_sum < 0);
-}
-
-static inline void
-fixup_cumulative_runnable_avg(struct hmp_sched_stats *stats,
-			      struct task_struct *p, s64 task_load_delta,
-			      s64 pred_demand_delta)
+fixup_cumulative_runnable_avg(struct walt_sched_stats *stats,
+			      s64 task_load_delta, s64 pred_demand_delta)
 {
 	if (sched_disable_window_stats)
 		return;
@@ -150,17 +113,56 @@ fixup_cumulative_runnable_avg(struct hmp_sched_stats *stats,
 	BUG_ON((s64)stats->pred_demands_sum < 0);
 }
 
-extern void inc_rq_hmp_stats(struct rq *rq,
-				struct task_struct *p, int change_cra);
-extern void dec_rq_hmp_stats(struct rq *rq,
-				struct task_struct *p, int change_cra);
-extern void reset_hmp_stats(struct hmp_sched_stats *stats, int reset_cra);
+static inline void
+walt_inc_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
+{
+	if (sched_disable_window_stats)
+		return;
+
+	fixup_cumulative_runnable_avg(&rq->walt_stats, p->ravg.demand,
+				      p->ravg.pred_demand);
+
+	/*
+	 * Add a task's contribution to the cumulative window demand when
+	 *
+	 * (1) task is enqueued with on_rq = 1 i.e migration,
+	 *     prio/cgroup/class change.
+	 * (2) task is waking for the first time in this window.
+	 */
+	if (p->on_rq || (p->last_sleep_ts < rq->window_start))
+		walt_fixup_cum_window_demand(rq, p->ravg.demand);
+}
+
+static inline void
+walt_dec_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
+{
+	if (sched_disable_window_stats)
+		return;
+
+	fixup_cumulative_runnable_avg(&rq->walt_stats, -(s64)p->ravg.demand,
+				      -(s64)p->ravg.pred_demand);
+
+	/*
+	 * on_rq will be 1 for sleeping tasks. So check if the task
+	 * is migrating or dequeuing in RUNNING state to change the
+	 * prio/cgroup/class.
+	 */
+	if (task_on_rq_migrating(p) || p->state == TASK_RUNNING)
+		walt_fixup_cum_window_demand(rq, -(s64)p->ravg.demand);
+}
+
+extern void fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
+					  u32 new_task_load,
+					  u32 new_pred_demand);
+extern void inc_rq_walt_stats(struct rq *rq, struct task_struct *p);
+extern void dec_rq_walt_stats(struct rq *rq, struct task_struct *p);
 extern void fixup_busy_time(struct task_struct *p, int new_cpu);
 extern void init_new_task_load(struct task_struct *p, bool idle_task);
 extern void mark_task_starting(struct task_struct *p);
 extern void set_window_start(struct rq *rq);
 void account_irqtime(int cpu, struct task_struct *curr, u64 delta,
                                   u64 wallclock);
+extern bool do_pl_notif(struct rq *rq);
 
 #define SCHED_HIGH_IRQ_TIMEOUT 3
 static inline u64 sched_irqload(int cpu)
@@ -297,8 +299,8 @@ static inline void walt_sched_init(struct rq *rq) { }
 
 static inline void update_task_ravg(struct task_struct *p, struct rq *rq,
 				int event, u64 wallclock, u64 irqtime) { }
-static inline void inc_cumulative_runnable_avg(struct hmp_sched_stats *stats,
-		 struct task_struct *p)
+static inline void walt_inc_cumulative_runnable_avg(struct rq *rq,
+		struct task_struct *p)
 {
 }
 
@@ -307,21 +309,21 @@ static inline unsigned int nr_eligible_big_tasks(int cpu)
 	return 0;
 }
 
-static inline void adjust_nr_big_tasks(struct hmp_sched_stats *stats,
+static inline void walt_adjust_nr_big_tasks(struct rq *rq,
 		int delta, bool inc)
 {
 }
 
-static inline void inc_nr_big_task(struct hmp_sched_stats *stats,
+static inline void inc_nr_big_task(struct walt_sched_stats *stats,
 		struct task_struct *p)
 {
 }
 
-static inline void dec_nr_big_task(struct hmp_sched_stats *stats,
+static inline void dec_nr_big_task(struct walt_sched_stats *stats,
 		struct task_struct *p)
 {
 }
-static inline void dec_cumulative_runnable_avg(struct hmp_sched_stats *stats,
+static inline void walt_dec_cumulative_runnable_avg(struct rq *rq,
 		 struct task_struct *p)
 {
 }
@@ -348,6 +350,19 @@ static inline void sched_account_irqtime(int cpu, struct task_struct *curr,
 }
 
 static inline int same_cluster(int src_cpu, int dst_cpu) { return 1; }
+static inline bool do_pl_notif(struct rq *rq) { return false; }
+
+static inline void
+inc_rq_walt_stats(struct rq *rq, struct task_struct *p) { }
+
+static inline void
+dec_rq_walt_stats(struct rq *rq, struct task_struct *p) { }
+
+static inline void
+fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
+			      u32 new_task_load, u32 new_pred_demand)
+{
+}
 
 #endif /* CONFIG_SCHED_WALT */
 

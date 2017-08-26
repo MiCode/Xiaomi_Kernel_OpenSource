@@ -117,6 +117,17 @@ static const char *const hevc_tier_level[] = {
 	"Level unknown",
 };
 
+static const char *const tme_profile[] = {
+	"0",
+	"1",
+	"2",
+	"3",
+};
+
+static const char *const tme_level[] = {
+	"Integer",
+};
+
 static const char *const hevc_profile[] = {
 	"Main",
 	"Main10",
@@ -484,6 +495,46 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_UNKNOWN)
 		),
 		.qmenu = hevc_tier_level,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_TME_PROFILE,
+		.name = "TME Profile",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_TME_PROFILE_0,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_TME_PROFILE_3,
+		.default_value =
+			V4L2_MPEG_VIDC_VIDEO_TME_PROFILE_0,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDC_VIDEO_TME_PROFILE_0) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_TME_PROFILE_1) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_TME_PROFILE_2) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_TME_PROFILE_3)
+		),
+		.qmenu = tme_profile,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_TME_LEVEL,
+		.name = "TME Level",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_TME_LEVEL_INTEGER,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_TME_LEVEL_INTEGER,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_TME_LEVEL_INTEGER,
+		.menu_skip_mask =  ~(
+		(1 << V4L2_MPEG_VIDC_VIDEO_TME_LEVEL_INTEGER)
+		),
+		.qmenu = tme_level,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_TME_PAYLOAD_VERSION,
+		.name = "TME Payload Version",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 0,
+		.maximum = 0xFFFFFFF,
+		.default_value = 0,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.flags = V4L2_CTRL_FLAG_READ_ONLY,
+		.qmenu = NULL,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_ROTATION,
@@ -1064,6 +1115,13 @@ static struct msm_vidc_format venc_formats[] = {
 		.get_frame_size = get_frame_size_tp10_ubwc,
 		.type = OUTPUT_PORT,
 	},
+	{
+		.name = "TME",
+		.description = "TME MBI format",
+		.fourcc = V4L2_PIX_FMT_TME,
+		.get_frame_size = get_frame_size_compressed,
+		.type = CAPTURE_PORT,
+	},
 };
 
 static int msm_venc_set_csc(struct msm_vidc_inst *inst);
@@ -1345,6 +1403,29 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 				temp_ctrl->val);
 		pdata = &profile_level;
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_TME_PROFILE:
+		temp_ctrl =
+			TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_TME_LEVEL);
+
+		property_id = HAL_PARAM_PROFILE_LEVEL_CURRENT;
+		profile_level.profile = msm_comm_v4l2_to_hal(ctrl->id,
+							ctrl->val);
+		profile_level.level = msm_comm_v4l2_to_hal(
+				V4L2_CID_MPEG_VIDC_VIDEO_TME_LEVEL,
+				temp_ctrl->val);
+		pdata = &profile_level;
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_TME_LEVEL:
+		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_TME_PROFILE);
+
+		property_id = HAL_PARAM_PROFILE_LEVEL_CURRENT;
+		profile_level.level = msm_comm_v4l2_to_hal(ctrl->id,
+							ctrl->val);
+		profile_level.profile = msm_comm_v4l2_to_hal(
+				V4L2_CID_MPEG_VIDC_VIDEO_TME_PROFILE,
+				temp_ctrl->val);
+		pdata = &profile_level;
+		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION:
 	{
 		property_id = HAL_PARAM_VPE_ROTATION;
@@ -1553,23 +1634,25 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			break;
 		}
 
-		buff_req_buffer = get_buff_req_buffer(inst,
-			HAL_BUFFER_EXTRADATA_INPUT);
-
 		extra_idx = EXTRADATA_IDX(inst->bufq[OUTPUT_PORT].num_planes);
+		if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
+			buff_req_buffer = get_buff_req_buffer(inst,
+						HAL_BUFFER_EXTRADATA_INPUT);
 
-		inst->bufq[OUTPUT_PORT].plane_sizes[extra_idx] =
-			buff_req_buffer ?
-			buff_req_buffer->buffer_size : 0;
-
-		buff_req_buffer = get_buff_req_buffer(inst,
-			HAL_BUFFER_EXTRADATA_OUTPUT);
+			inst->bufq[OUTPUT_PORT].plane_sizes[extra_idx] =
+					buff_req_buffer ?
+					buff_req_buffer->buffer_size : 0;
+		}
 
 		extra_idx = EXTRADATA_IDX(inst->bufq[CAPTURE_PORT].num_planes);
-		inst->bufq[CAPTURE_PORT].plane_sizes[extra_idx] =
-			buff_req_buffer ?
-			buff_req_buffer->buffer_size : 0;
+		if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
+			buff_req_buffer = get_buff_req_buffer(inst,
+						HAL_BUFFER_EXTRADATA_OUTPUT);
 
+			inst->bufq[CAPTURE_PORT].plane_sizes[extra_idx] =
+				buff_req_buffer ?
+				buff_req_buffer->buffer_size : 0;
+		}
 		property_id = 0;
 		}
 		break;
@@ -1597,7 +1680,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_USELTRFRAME:
 		property_id = HAL_CONFIG_VENC_USELTRFRAME;
-		use_ltr.ref_ltr = ctrl->val;
+		use_ltr.ref_ltr = 0x1 << ctrl->val;
 		use_ltr.use_constraint = false;
 		use_ltr.frames = 0;
 		pdata = &use_ltr;
@@ -2360,6 +2443,7 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			rc = -EINVAL;
 			goto exit;
 		}
+		inst->clk_data.opb_fourcc = f->fmt.pix_mp.pixelformat;
 		memcpy(&inst->fmts[fmt->type], fmt,
 				sizeof(struct msm_vidc_format));
 

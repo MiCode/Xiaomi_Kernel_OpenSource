@@ -775,6 +775,47 @@ static int hfi_fill_codec_info(u8 *data_ptr,
 	return size;
 }
 
+static int copy_profile_caps_to_sessions(struct hfi_profile_level *prof,
+		u32 profile_count, struct msm_vidc_capability *capabilities,
+		u32 num_sessions, u32 codecs, u32 domain)
+{
+	u32 i = 0, j = 0;
+	struct msm_vidc_capability *capability;
+	u32 sess_codec;
+	u32 sess_domain;
+
+	/*
+	 * iterate over num_sessions and copy all the profile capabilities
+	 * to matching sessions.
+	 */
+	for (i = 0; i < num_sessions; i++) {
+		sess_codec = 0;
+		sess_domain = 0;
+		capability = &capabilities[i];
+
+		if (capability->codec)
+			sess_codec =
+				vidc_get_hfi_codec(capability->codec);
+		if (capability->domain)
+			sess_domain =
+				vidc_get_hfi_domain(capability->domain);
+
+		if (!(sess_codec & codecs && sess_domain & domain))
+			continue;
+
+		capability->profile_level.profile_count = profile_count;
+		for (j = 0; j < profile_count; j++) {
+			/* HFI and HAL follow same enums, hence no conversion */
+			capability->profile_level.profile_level[j].profile =
+				prof[j].profile;
+			capability->profile_level.profile_level[j].level =
+				prof[j].level;
+		}
+	}
+
+	return 0;
+}
+
 static int copy_caps_to_sessions(struct hfi_capability_supported *cap,
 		u32 num_caps, struct msm_vidc_capability *capabilities,
 		u32 num_sessions, u32 codecs, u32 domain)
@@ -914,38 +955,25 @@ static enum vidc_status hfi_parse_init_done_properties(
 		}
 		case HFI_PROPERTY_PARAM_PROFILE_LEVEL_SUPPORTED:
 		{
-			struct msm_vidc_capability capability;
-			char *ptr = NULL;
-			u32 count = 0;
-			u32 prof_count = 0;
-			struct hfi_profile_level *prof_level;
 			struct hfi_profile_level_supported *prop =
 				(struct hfi_profile_level_supported *)
 				(data_ptr + next_offset);
 
-			ptr = (char *) &prop->rg_profile_level[0];
-			prof_count = prop->profile_count;
-			next_offset += sizeof(u32);
+			next_offset += sizeof(u32) +
+				prop->profile_count *
+				sizeof(struct hfi_profile_level);
 
-			if (prof_count > MAX_PROFILE_COUNT) {
-				prof_count = MAX_PROFILE_COUNT;
+			if (prop->profile_count > MAX_PROFILE_COUNT) {
+				prop->profile_count = MAX_PROFILE_COUNT;
 				dprintk(VIDC_WARN,
 					"prop count exceeds max profile count\n");
 				break;
 			}
-			while (prof_count) {
-				prof_level = (struct hfi_profile_level *)ptr;
-				capability.
-				profile_level.profile_level[count].profile
-					= prof_level->profile;
-				capability.
-				profile_level.profile_level[count].level
-					= prof_level->level;
-				prof_count--;
-				count++;
-				ptr += sizeof(struct hfi_profile_level);
-				next_offset += sizeof(struct hfi_profile_level);
-			}
+
+			copy_profile_caps_to_sessions(
+					&prop->rg_profile_level[0],
+					prop->profile_count, capabilities,
+					num_sessions, codecs, domain);
 			num_properties--;
 			break;
 		}
@@ -966,6 +994,15 @@ static enum vidc_status hfi_parse_init_done_properties(
 		{
 			next_offset +=
 				sizeof(struct hfi_intra_refresh);
+			num_properties--;
+			break;
+		}
+		case HFI_PROPERTY_TME_VERSION_SUPPORTED:
+		{
+			capabilities->tme_version =
+				*((u32 *)(data_ptr + next_offset));
+			next_offset +=
+				sizeof(u32);
 			num_properties--;
 			break;
 		}
@@ -1139,6 +1176,12 @@ static void hfi_process_sess_get_prop_buf_req(
 				sizeof(struct hfi_buffer_requirements));
 			buffreq->buffer[10].buffer_type =
 				HAL_BUFFER_INTERNAL_PERSIST_1;
+			break;
+		case HFI_BUFFER_COMMON_INTERNAL_RECON:
+			memcpy(&buffreq->buffer[11], hfi_buf_req,
+			sizeof(struct hfi_buffer_requirements));
+			buffreq->buffer[11].buffer_type =
+				HAL_BUFFER_INTERNAL_RECON;
 			break;
 		default:
 			dprintk(VIDC_ERR,

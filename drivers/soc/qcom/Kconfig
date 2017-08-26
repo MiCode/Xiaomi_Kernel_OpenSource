@@ -752,3 +752,10 @@ config QMP_DEBUGFS_CLIENT
 	  to Alway On processor using QMP transport.
 
 source "drivers/soc/qcom/memshare/Kconfig"
+
+config QSEE_IPC_IRQ_BRIDGE
+	tristate "QSEE IPC Interrupt Bridge"
+	help
+	  This module enables bridging an Inter-Processor Communication(IPC)
+	  interrupt from a remote subsystem directed towards Qualcomm
+	  Technologies, Inc. Secure Execution Environment(QSEE).

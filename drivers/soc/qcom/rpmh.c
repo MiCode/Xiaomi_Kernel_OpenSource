@@ -77,6 +77,8 @@ struct rpmh_mbox {
 	DECLARE_BITMAP(fast_req, RPMH_MAX_FAST_RES);
 	bool dirty;
 	bool in_solver_mode;
+	/* Cache sleep and wake requests sent as passthru */
+	struct rpmh_msg *passthru_cache[2 * RPMH_MAX_REQ_IN_BATCH];
 };
 
 struct rpmh_client {
@@ -111,17 +113,24 @@ static struct rpmh_msg *get_msg_from_pool(struct rpmh_client *rc)
 	return msg;
 }
 
+static void __free_msg_to_pool(struct rpmh_msg *rpm_msg)
+{
+	struct rpmh_mbox *rpm = rpm_msg->rc->rpmh;
+
+	/* If we allocated the pool, set it as available */
+	if (rpm_msg->bit >= 0 && rpm_msg->bit != RPMH_MAX_FAST_RES) {
+		bitmap_clear(rpm->fast_req, rpm_msg->bit, 1);
+	}
+}
+
 static void free_msg_to_pool(struct rpmh_msg *rpm_msg)
 {
 	struct rpmh_mbox *rpm = rpm_msg->rc->rpmh;
 	unsigned long flags;
 
-	/* If we allocated the pool, set it as available */
-	if (rpm_msg->bit >= 0 && rpm_msg->bit != RPMH_MAX_FAST_RES) {
-		spin_lock_irqsave(&rpm->lock, flags);
-		bitmap_clear(rpm->fast_req, rpm_msg->bit, 1);
-		spin_unlock_irqrestore(&rpm->lock, flags);
-	}
+	spin_lock_irqsave(&rpm->lock, flags);
+	__free_msg_to_pool(rpm_msg);
+	spin_unlock_irqrestore(&rpm->lock, flags);
 }
 
 static void rpmh_rx_cb(struct mbox_client *cl, void *msg)
@@ -181,6 +190,7 @@ static inline void wait_for_tx_done(struct rpmh_client *rc,
 {
 	int ret;
 	int count = 4;
+	int skip = 0;
 
 	do {
 		ret = wait_for_completion_timeout(compl, RPMH_TIMEOUT);
@@ -192,7 +202,12 @@ static inline void wait_for_tx_done(struct rpmh_client *rc,
 			return;
 		}
 		if (!count) {
+			if (skip++ % 100)
+				continue;
+			dev_err(rc->dev,
+				"RPMH waiting for interrupt from AOSS\n");
 			mbox_chan_debug(rc->chan);
+			BUG();
 		} else {
 			dev_err(rc->dev,
 			"RPMH response timeout (%d) addr=0x%x,data=0x%x\n",
@@ -511,6 +526,70 @@ int rpmh_write(struct rpmh_client *rc, enum rpmh_state state,
 }
 EXPORT_SYMBOL(rpmh_write);
 
+static int cache_passthru(struct rpmh_client *rc, struct rpmh_msg **rpm_msg,
+					int count)
+{
+	struct rpmh_mbox *rpm = rc->rpmh;
+	unsigned long flags;
+	int ret = 0;
+	int index = 0;
+	int i;
+
+	spin_lock_irqsave(&rpm->lock, flags);
+	while (rpm->passthru_cache[index])
+		index++;
+	if (index + count >=  2 * RPMH_MAX_REQ_IN_BATCH) {
+		ret = -ENOMEM;
+		goto fail;
+	}
+
+	for (i = 0; i < count; i++)
+		rpm->passthru_cache[index + i] = rpm_msg[i];
+fail:
+	spin_unlock_irqrestore(&rpm->lock, flags);
+
+	return ret;
+}
+
+static int flush_passthru(struct rpmh_client *rc)
+{
+	struct rpmh_mbox *rpm = rc->rpmh;
+	struct rpmh_msg *rpm_msg;
+	unsigned long flags;
+	int ret = 0;
+	int i;
+
+	/* Send Sleep/Wake requests to the controller, expect no response */
+	spin_lock_irqsave(&rpm->lock, flags);
+	for (i = 0; rpm->passthru_cache[i]; i++) {
+		rpm_msg = rpm->passthru_cache[i];
+		ret = mbox_send_controller_data(rc->chan, &rpm_msg->msg);
+		if (ret)
+			goto fail;
+	}
+fail:
+	spin_unlock_irqrestore(&rpm->lock, flags);
+
+	return ret;
+}
+
+static void invalidate_passthru(struct rpmh_client *rc)
+{
+	struct rpmh_mbox *rpm = rc->rpmh;
+	unsigned long flags;
+	int index = 0;
+	int i;
+
+	spin_lock_irqsave(&rpm->lock, flags);
+	while (rpm->passthru_cache[index])
+		index++;
+	for (i = 0; i < index; i++) {
+		__free_msg_to_pool(rpm->passthru_cache[i]);
+		rpm->passthru_cache[i] = NULL;
+	}
+	spin_unlock_irqrestore(&rpm->lock, flags);
+}
+
 /**
  * rpmh_write_passthru: Write multiple batches of RPMH commands without caching
  *
@@ -530,7 +609,7 @@ EXPORT_SYMBOL(rpmh_write);
 int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 			struct tcs_cmd *cmd, int *n)
 {
-	struct rpmh_msg *rpm_msg[RPMH_MAX_REQ_IN_BATCH];
+	struct rpmh_msg *rpm_msg[RPMH_MAX_REQ_IN_BATCH] = { NULL };
 	DECLARE_COMPLETION_ONSTACK(compl);
 	atomic_t wait_count = ATOMIC_INIT(0); /* overwritten */
 	int count = 0;
@@ -548,7 +627,7 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 	if (ret)
 		return ret;
 
-	while (n[count++])
+	while (n[count++] > 0)
 		;
 	count--;
 	if (!count || count > RPMH_MAX_REQ_IN_BATCH)
@@ -607,14 +686,11 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 			rpmh_tx_done(&rc->client, &rpm_msg[j]->msg, ret);
 		wait_for_tx_done(rc, &compl, addr, data);
 	} else {
-		/* Send Sleep requests to the controller, expect no response */
-		for (i = 0; i < count; i++) {
-			rpm_msg[i]->completion = NULL;
-			ret = mbox_send_controller_data(rc->chan,
-						&rpm_msg[i]->msg);
-			free_msg_to_pool(rpm_msg[i]);
-		}
-		return 0;
+		/*
+		 * Cache sleep/wake data in store.
+		 * But flush passthru first before flushing all other data.
+		 */
+		return cache_passthru(rc, rpm_msg, count);
 	}
 
 	return 0;
@@ -674,7 +750,7 @@ int rpmh_write_control(struct rpmh_client *rc, struct tcs_cmd *cmd, int n)
 {
 	DEFINE_RPMH_MSG_ONSTACK(rc, 0, NULL, NULL, rpm_msg);
 
-	if (IS_ERR_OR_NULL(rc) ||  n > MAX_RPMH_PAYLOAD)
+	if (IS_ERR_OR_NULL(rc) || n <= 0 || n > MAX_RPMH_PAYLOAD)
 		return -EINVAL;
 
 	if (rpmh_standalone)
@@ -709,6 +785,8 @@ int rpmh_invalidate(struct rpmh_client *rc)
 
 	if (rpmh_standalone)
 		return 0;
+
+	invalidate_passthru(rc);
 
 	rpm = rc->rpmh;
 	rpm_msg.msg.invalidate = true;
@@ -767,6 +845,28 @@ int rpmh_read(struct rpmh_client *rc, u32 addr, u32 *resp)
 }
 EXPORT_SYMBOL(rpmh_read);
 
+/**
+ * rpmh_ctrlr_idle: Check if the controller is idle
+ *
+ * @rc: The RPMH handle got from rpmh_get_dev_channel
+ *
+ * Returns if the controller is idle or not.
+ */
+int rpmh_ctrlr_idle(struct rpmh_client *rc)
+{
+	if (IS_ERR_OR_NULL(rc))
+		return -EINVAL;
+
+	if (rpmh_standalone)
+		return 0;
+
+	if (!mbox_controller_is_idle(rc->chan))
+		return -EBUSY;
+
+	return 0;
+}
+EXPORT_SYMBOL(rpmh_ctrlr_idle);
+
 static inline int is_req_valid(struct rpmh_req *req)
 {
 	return (req->sleep_val != UINT_MAX && req->wake_val != UINT_MAX
@@ -822,6 +922,11 @@ int rpmh_flush(struct rpmh_client *rc)
 		return 0;
 	}
 	spin_unlock_irqrestore(&rpm->lock, flags);
+
+	/* First flush the cached passthru's */
+	ret = flush_passthru(rc);
+	if (ret)
+		return ret;
 
 	/*
 	 * Nobody else should be calling this function other than sleep,
@@ -906,8 +1011,10 @@ static struct rpmh_mbox *get_mbox(struct platform_device *pdev,
 
 	rpmh->msg_pool = kzalloc(sizeof(struct rpmh_msg) *
 				RPMH_MAX_FAST_RES, GFP_KERNEL);
-	if (!rpmh->msg_pool)
+	if (!rpmh->msg_pool) {
+		of_node_put(spec.np);
 		return ERR_PTR(-ENOMEM);
+	}
 
 	rpmh->mbox_dn = spec.np;
 	INIT_LIST_HEAD(&rpmh->resources);

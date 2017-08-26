@@ -68,6 +68,7 @@
 #define F_DIAG_SOCKETS_ENABLED			13
 #define F_DIAG_DCI_EXTENDED_HEADER_SUPPORT	14
 #define F_DIAG_DIAGID_SUPPORT	15
+#define F_DIAG_PKT_HEADER_UNTAG			16
 
 #define ENABLE_SEPARATE_CMDRSP	1
 #define DISABLE_SEPARATE_CMDRSP	0
@@ -81,6 +82,9 @@
 
 #define ENABLE_APPS_HDLC_ENCODING	1
 #define DISABLE_APPS_HDLC_ENCODING	0
+
+#define ENABLE_PKT_HEADER_UNTAGGING		1
+#define DISABLE_PKT_HEADER_UNTAGGING	0
 
 #define DIAG_MODE_PKT_LEN	36
 
@@ -279,6 +283,7 @@ void diag_cntl_channel_close(struct diagfwd_info *p_info);
 void diag_cntl_process_read_data(struct diagfwd_info *p_info, void *buf,
 				 int len);
 int diag_send_real_time_update(uint8_t peripheral, int real_time);
+void diag_map_pd_to_diagid(uint8_t pd, uint8_t *diag_id, int *peripheral);
 int diag_send_peripheral_buffering_mode(struct diag_buffering_mode_t *params);
 void diag_update_proc_vote(uint16_t proc, uint8_t vote, int index);
 void diag_update_real_time_vote(uint16_t proc, uint8_t real_time, int index);

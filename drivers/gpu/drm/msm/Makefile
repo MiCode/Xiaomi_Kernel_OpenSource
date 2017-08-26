@@ -3,6 +3,7 @@ ccflags-$(CONFIG_DRM_MSM_DSI) += -Idrivers/gpu/drm/msm/dsi
 ccflags-$(CONFIG_DRM_MSM_DSI_PLL) += -Idrivers/gpu/drm/msm/dsi
 ccflags-y += -Idrivers/gpu/drm/msm/sde
 ccflags-y += -Idrivers/media/platform/msm/sde/rotator
+ccflags-y += -Idrivers/gpu/drm/msm/hdmi
 
 msm_drm-y := \
 	dp/dp_usbpd.o \
@@ -13,8 +14,11 @@ msm_drm-y := \
 	dp/dp_panel.o \
 	dp/dp_link.o \
 	dp/dp_ctrl.o \
+	dp/dp_audio.o \
+	dp/dp_debug.o \
 	dp/dp_display.o \
 	dp/dp_drm.o \
+	dp/dp_hdcp2p2.o \
 	sde/sde_crtc.o \
 	sde/sde_encoder.o \
 	sde/sde_encoder_phys_vid.o \
@@ -36,6 +40,7 @@ msm_drm-y := \
 	sde/sde_hw_color_proc_v4.o \
 	sde/sde_hw_ad4.o \
 	sde_edid_parser.o \
+	sde_hdcp_1x.o
 
 msm_drm-$(CONFIG_DRM_MSM_HDMI) += hdmi/hdmi.o \
 	hdmi/hdmi_audio.o \

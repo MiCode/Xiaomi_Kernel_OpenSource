@@ -26,6 +26,7 @@
 #include <linux/pm_opp.h>
 #include <linux/cpu_cooling.h>
 #include <linux/atomic.h>
+#include <linux/regulator/consumer.h>
 
 #include <asm/smp_plat.h>
 #include <asm/cacheflush.h>
@@ -102,10 +103,12 @@ struct limits_dcvs_hw {
 	unsigned long max_freq;
 	unsigned long min_freq;
 	unsigned long hw_freq_limit;
+	struct device_attribute lmh_freq_attr;
 	struct list_head list;
 	atomic_t is_irq_enabled;
 	struct mutex access_lock;
 	struct __limits_cdev_data *cdev_data;
+	struct regulator *isens_reg;
 };
 
 LIST_HEAD(lmh_dcvs_hw_list);
@@ -430,6 +433,60 @@ static int limits_cpu_online(unsigned int online_cpu)
 	return 0;
 }
 
+static void limits_isens_vref_ldo_init(struct platform_device *pdev,
+					struct limits_dcvs_hw *hw)
+{
+	int ret = 0;
+	uint32_t settings[3];
+
+	hw->isens_reg = devm_regulator_get(&pdev->dev, "isens_vref");
+	if (IS_ERR_OR_NULL(hw->isens_reg)) {
+		if (PTR_ERR(hw->isens_reg) == -ENODEV)
+			return;
+
+		pr_err("Regulator:isens_vref init error:%ld\n",
+			PTR_ERR(hw->isens_reg));
+		return;
+	}
+	ret = of_property_read_u32_array(pdev->dev.of_node,
+					"isens-vref-settings",
+					settings, 3);
+	if (ret) {
+		pr_err("Regulator:isens_vref settings read error:%d\n",
+				ret);
+		devm_regulator_put(hw->isens_reg);
+		return;
+	}
+	ret = regulator_set_voltage(hw->isens_reg, settings[0], settings[1]);
+	if (ret) {
+		pr_err("Regulator:isens_vref set voltage error:%d\n", ret);
+		devm_regulator_put(hw->isens_reg);
+		return;
+	}
+	ret = regulator_set_load(hw->isens_reg, settings[2]);
+	if (ret) {
+		pr_err("Regulator:isens_vref set load error:%d\n", ret);
+		devm_regulator_put(hw->isens_reg);
+		return;
+	}
+	if (regulator_enable(hw->isens_reg)) {
+		pr_err("Failed to enable regulator:isens_vref\n");
+		devm_regulator_put(hw->isens_reg);
+		return;
+	}
+}
+
+static ssize_t
+lmh_freq_limit_show(struct device *dev, struct device_attribute *devattr,
+		       char *buf)
+{
+	struct limits_dcvs_hw *hw = container_of(devattr,
+						struct limits_dcvs_hw,
+						lmh_freq_attr);
+
+	return snprintf(buf, PAGE_SIZE, "%lu\n", hw->hw_freq_limit);
+}
+
 static int limits_dcvs_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -585,6 +642,11 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 		ret = 0;
 		goto probe_exit;
 	}
+	limits_isens_vref_ldo_init(pdev, hw);
+	hw->lmh_freq_attr.attr.name = "lmh_freq_limit";
+	hw->lmh_freq_attr.show = lmh_freq_limit_show;
+	hw->lmh_freq_attr.attr.mode = 0444;
+	device_create_file(&pdev->dev, &hw->lmh_freq_attr);
 
 probe_exit:
 	mutex_lock(&lmh_dcvs_list_access);

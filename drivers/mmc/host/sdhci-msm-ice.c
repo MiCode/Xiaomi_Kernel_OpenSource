@@ -212,6 +212,38 @@ void sdhci_msm_ice_cfg_reset(struct sdhci_host *host, u32 slot)
 }
 
 static
+int sdhci_msm_ice_get_cfg(struct sdhci_msm_host *msm_host, struct request *req,
+			unsigned int *bypass, short *key_index)
+{
+	int err = 0;
+	struct ice_data_setting ice_set;
+
+	memset(&ice_set, 0, sizeof(struct ice_data_setting));
+	if (msm_host->ice.vops->config_start) {
+		err = msm_host->ice.vops->config_start(
+						msm_host->ice.pdev,
+						req, &ice_set, false);
+		if (err) {
+			pr_err("%s: ice config failed %d\n",
+					mmc_hostname(msm_host->mmc), err);
+			return err;
+		}
+	}
+	/* if writing data command */
+	if (rq_data_dir(req) == WRITE)
+		*bypass = ice_set.encr_bypass ?
+				SDHCI_MSM_ICE_ENABLE_BYPASS :
+				SDHCI_MSM_ICE_DISABLE_BYPASS;
+	/* if reading data command */
+	else if (rq_data_dir(req) == READ)
+		*bypass = ice_set.decr_bypass ?
+				SDHCI_MSM_ICE_ENABLE_BYPASS :
+				SDHCI_MSM_ICE_DISABLE_BYPASS;
+	*key_index = ice_set.crypto_data.key_index;
+	return err;
+}
+
+static
 void sdhci_msm_ice_update_cfg(struct sdhci_host *host, u64 lba,
 			u32 slot, unsigned int bypass, short key_index)
 {
@@ -250,7 +282,7 @@ int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	int err = 0;
-	struct ice_data_setting ice_set;
+	short key_index = 0;
 	sector_t lba = 0;
 	unsigned int bypass = SDHCI_MSM_ICE_ENABLE_BYPASS;
 	struct request *req;
@@ -261,41 +293,22 @@ int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
 		return -EINVAL;
 	}
 
-	BUG_ON(!mrq);
-	memset(&ice_set, 0, sizeof(struct ice_data_setting));
+	WARN_ON(!mrq);
+	if (!mrq)
+		return -EINVAL;
 	req = mrq->req;
 	if (req) {
 		lba = req->__sector;
-		if (msm_host->ice.vops->config_start) {
-			err = msm_host->ice.vops->config_start(
-							msm_host->ice.pdev,
-							req, &ice_set, false);
-			if (err) {
-				pr_err("%s: ice config failed %d\n",
-						mmc_hostname(host->mmc), err);
-				return err;
-			}
-		}
-		/* if writing data command */
-		if (rq_data_dir(req) == WRITE)
-			bypass = ice_set.encr_bypass ?
-					SDHCI_MSM_ICE_ENABLE_BYPASS :
-					SDHCI_MSM_ICE_DISABLE_BYPASS;
-		/* if reading data command */
-		else if (rq_data_dir(req) == READ)
-			bypass = ice_set.decr_bypass ?
-					SDHCI_MSM_ICE_ENABLE_BYPASS :
-					SDHCI_MSM_ICE_DISABLE_BYPASS;
-		pr_debug("%s: %s: slot %d encr_bypass %d bypass %d decr_bypass %d key_index %d\n",
+		err = sdhci_msm_ice_get_cfg(msm_host, req, &bypass, &key_index);
+		if (err)
+			return err;
+		pr_debug("%s: %s: slot %d bypass %d key_index %d\n",
 				mmc_hostname(host->mmc),
 				(rq_data_dir(req) == WRITE) ? "WRITE" : "READ",
-				slot, ice_set.encr_bypass, bypass,
-				ice_set.decr_bypass,
-				ice_set.crypto_data.key_index);
+				slot, bypass, key_index);
 	}
 
-	sdhci_msm_ice_update_cfg(host, lba, slot, bypass,
-				ice_set.crypto_data.key_index);
+	sdhci_msm_ice_update_cfg(host, lba, slot, bypass, key_index);
 	return 0;
 }
 

@@ -783,10 +783,15 @@ struct sde_mdp_format_params *sde_get_format_params(u32 format)
 	if (!fmt_found) {
 		for (i = 0; i < ARRAY_SIZE(sde_mdp_format_ubwc_map); i++) {
 			fmt = &sde_mdp_format_ubwc_map[i].mdp_format;
-			if (format == fmt->format)
+			if (format == fmt->format) {
+				fmt_found = true;
 				break;
+			}
 		}
 	}
+	/* If format not supported than return NULL */
+	if (!fmt_found)
+		fmt = NULL;
 
 	return fmt;
 }
@@ -844,6 +849,11 @@ int sde_rot_get_base_tilea5x_pixfmt(u32 src_pixfmt, u32 *dst_pixfmt)
 	case SDE_PIX_FMT_Y_CRCB_H2V2:
 	case SDE_PIX_FMT_Y_CRCB_H2V2_TILE:
 		*dst_pixfmt = SDE_PIX_FMT_Y_CRCB_H2V2_TILE;
+		break;
+	case V4L2_PIX_FMT_RGB565:
+	case SDE_PIX_FMT_RGB_565_UBWC:
+	case SDE_PIX_FMT_RGB_565_TILE:
+		*dst_pixfmt = SDE_PIX_FMT_RGB_565_TILE;
 		break;
 	case SDE_PIX_FMT_RGBA_8888:
 	case SDE_PIX_FMT_RGBA_8888_UBWC:

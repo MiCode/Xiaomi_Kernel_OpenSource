@@ -619,7 +619,7 @@ static int usb_audio_probe(struct usb_interface *intf,
 	assoc = intf->intf_assoc;
 	if (assoc && assoc->bFunctionClass == USB_CLASS_AUDIO &&
 	    assoc->bFunctionProtocol == UAC_VERSION_3 &&
-	    assoc->bFunctionSubClass == FULL_ADC_PROFILE) {
+	    assoc->bFunctionSubClass == FULL_ADC_3_0) {
 		dev_info(&dev->dev, "No support for full-fledged ADC 3.0 yet!!\n");
 		return -EINVAL;
 	}

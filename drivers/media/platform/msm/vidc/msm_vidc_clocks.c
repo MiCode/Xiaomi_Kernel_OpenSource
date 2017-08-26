@@ -19,6 +19,9 @@
 #define MSM_VIDC_MIN_UBWC_COMPLEXITY_FACTOR (1 << 16)
 #define MSM_VIDC_MAX_UBWC_COMPLEXITY_FACTOR (4 << 16)
 
+#define MSM_VIDC_MIN_UBWC_COMPRESSION_RATIO (1 << 16)
+#define MSM_VIDC_MAX_UBWC_COMPRESSION_RATIO (5 << 16)
+
 static inline unsigned long int get_ubwc_compression_ratio(
 	struct ubwc_cr_stats_info_type ubwc_stats_info)
 {
@@ -90,36 +93,56 @@ void update_recon_stats(struct msm_vidc_inst *inst,
 	mutex_unlock(&inst->reconbufs.lock);
 }
 
-static int fill_recon_stats(struct msm_vidc_inst *inst,
+static int fill_dynamic_stats(struct msm_vidc_inst *inst,
 	struct vidc_bus_vote_data *vote_data)
 {
-	struct recon_buf *binfo;
-	u32 CR = 0, min_cf = MSM_VIDC_MIN_UBWC_COMPLEXITY_FACTOR,
-		max_cf = MSM_VIDC_MAX_UBWC_COMPLEXITY_FACTOR;
+	struct recon_buf *binfo, *nextb;
+	struct vidc_input_cr_data *temp, *next;
+	u32 min_cf = 0, max_cf = 0;
+	u32 min_input_cr = 0, max_input_cr = 0, min_cr = 0, max_cr = 0;
 
 	mutex_lock(&inst->reconbufs.lock);
-	list_for_each_entry(binfo, &inst->reconbufs.list, list) {
-		CR = max(CR, binfo->CR);
+	list_for_each_entry_safe(binfo, nextb, &inst->reconbufs.list, list) {
+		min_cr = min(min_cr, binfo->CR);
+		max_cr = max(max_cr, binfo->CR);
 		min_cf = min(min_cf, binfo->CF);
 		max_cf = max(max_cf, binfo->CF);
 	}
 	mutex_unlock(&inst->reconbufs.lock);
 
+	mutex_lock(&inst->input_crs.lock);
+	list_for_each_entry_safe(temp, next, &inst->input_crs.list, list) {
+		min_input_cr = min(min_input_cr, temp->input_cr);
+		max_input_cr = max(max_input_cr, temp->input_cr);
+	}
+	mutex_unlock(&inst->input_crs.lock);
+
 	/* Sanitize CF values from HW . */
 	max_cf = min_t(u32, max_cf, MSM_VIDC_MAX_UBWC_COMPLEXITY_FACTOR);
 	min_cf = max_t(u32, min_cf, MSM_VIDC_MIN_UBWC_COMPLEXITY_FACTOR);
+	max_cr = min_t(u32, max_cr, MSM_VIDC_MAX_UBWC_COMPRESSION_RATIO);
+	min_cr = max_t(u32, min_cr, MSM_VIDC_MIN_UBWC_COMPRESSION_RATIO);
+	max_input_cr = min_t(u32,
+		max_input_cr, MSM_VIDC_MAX_UBWC_COMPRESSION_RATIO);
+	min_input_cr = max_t(u32,
+		min_input_cr, MSM_VIDC_MIN_UBWC_COMPRESSION_RATIO);
 
-	vote_data->compression_ratio = CR;
+	vote_data->compression_ratio = min_cr;
 	vote_data->complexity_factor = max_cf;
+	vote_data->input_cr = min_input_cr;
 	vote_data->use_dpb_read = false;
+
+	/* Check if driver can vote for lower bus BW */
 	if (inst->clk_data.load <= inst->clk_data.load_norm) {
+		vote_data->compression_ratio = max_cr;
 		vote_data->complexity_factor = min_cf;
+		vote_data->input_cr = max_input_cr;
 		vote_data->use_dpb_read = true;
 	}
 
-	dprintk(VIDC_DBG,
-		"Compression Ratio = %d Complexity Factor = %d\n",
-			vote_data->compression_ratio,
+	dprintk(VIDC_PROF,
+		"Input CR = %d Recon CR = %d Complexity Factor = %d\n",
+			vote_data->input_cr, vote_data->compression_ratio,
 			vote_data->complexity_factor);
 
 	return 0;
@@ -139,15 +162,16 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 
 	hdev = core->device;
 
+	mutex_lock(&core->lock);
 	vote_data = core->vote_data;
 	if (!vote_data) {
 		dprintk(VIDC_PROF,
 			"Failed to get vote_data for inst %pK\n",
 				inst);
+		mutex_unlock(&core->lock);
 		return -EINVAL;
 	}
 
-	mutex_lock(&core->lock);
 	list_for_each_entry(inst, &core->instances, list) {
 		int codec = 0;
 		struct msm_vidc_buffer *temp, *next;
@@ -157,6 +181,7 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 		if (!inst) {
 			dprintk(VIDC_ERR, "%s Invalid args\n",
 				__func__);
+			mutex_unlock(&core->lock);
 			return -EINVAL;
 		}
 
@@ -165,7 +190,7 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 				&inst->registeredbufs.list, list) {
 			if (temp->vvb.vb2_buf.type ==
 				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
-					temp->deferred) {
+					temp->flags & MSM_VIDC_FLAG_DEFERRED) {
 				filled_len = max(filled_len,
 					temp->vvb.vb2_buf.planes[0].bytesused);
 				device_addr = temp->smem[0].device_addr;
@@ -184,6 +209,8 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 			inst->fmts[OUTPUT_PORT].fourcc :
 			inst->fmts[CAPTURE_PORT].fourcc;
 
+		memset(&(vote_data[i]), 0x0, sizeof(struct vidc_bus_vote_data));
+
 		vote_data[i].domain = get_hal_domain(inst->session_type);
 		vote_data[i].codec = get_hal_codec(codec);
 		vote_data[i].input_width =  max(inst->prop.width[OUTPUT_PORT],
@@ -196,6 +223,9 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 				max(inst->prop.height[CAPTURE_PORT],
 				inst->prop.height[OUTPUT_PORT]);
 		vote_data[i].lcu_size = codec == V4L2_PIX_FMT_HEVC ? 32 : 16;
+		vote_data[i].b_frames_enabled =
+			msm_comm_g_ctrl_for_id(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES) != 0;
 
 		if (inst->clk_data.operating_rate)
 			vote_data[i].fps =
@@ -225,9 +255,9 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 			vote_data[i].num_formats = 2;
 		}
 		vote_data[i].work_mode = inst->clk_data.work_mode;
-		fill_recon_stats(inst, &vote_data[i]);
+		fill_dynamic_stats(inst, &vote_data[i]);
 
-		if (core->resources.sys_cache_enabled)
+		if (core->resources.sys_cache_res_set)
 			vote_data[i].use_sys_cache = true;
 
 		i++;
@@ -354,10 +384,15 @@ static void msm_vidc_update_freq_entry(struct msm_vidc_inst *inst,
 
 	if (!found) {
 		temp = kzalloc(sizeof(*temp), GFP_KERNEL);
+		if (!temp) {
+			dprintk(VIDC_WARN, "%s: malloc failure.\n", __func__);
+			goto exit;
+		}
 		temp->freq = freq;
 		temp->device_addr = device_addr;
 		list_add_tail(&temp->list, &inst->freqs.list);
 	}
+exit:
 	mutex_unlock(&inst->freqs.lock);
 }
 
@@ -413,6 +448,48 @@ void msm_comm_free_freq_table(struct msm_vidc_inst *inst)
 	mutex_unlock(&inst->freqs.lock);
 }
 
+void msm_comm_free_input_cr_table(struct msm_vidc_inst *inst)
+{
+	struct vidc_input_cr_data *temp, *next;
+
+	mutex_lock(&inst->input_crs.lock);
+	list_for_each_entry_safe(temp, next, &inst->input_crs.list, list) {
+		list_del(&temp->list);
+		kfree(temp);
+	}
+	INIT_LIST_HEAD(&inst->input_crs.list);
+	mutex_unlock(&inst->input_crs.lock);
+}
+
+void msm_comm_update_input_cr(struct msm_vidc_inst *inst,
+	u32 index, u32 cr)
+{
+	struct vidc_input_cr_data *temp, *next;
+	bool found = false;
+
+	mutex_lock(&inst->input_crs.lock);
+	list_for_each_entry_safe(temp, next, &inst->input_crs.list, list) {
+		if (temp->index == index) {
+			temp->input_cr = cr;
+			found = true;
+			break;
+		}
+	}
+
+	if (!found) {
+		temp = kzalloc(sizeof(*temp), GFP_KERNEL);
+		if (!temp)  {
+			dprintk(VIDC_WARN, "%s: malloc failure.\n", __func__);
+			goto exit;
+		}
+		temp->index = index;
+		temp->input_cr = cr;
+		list_add_tail(&temp->list, &inst->input_crs.list);
+	}
+exit:
+	mutex_unlock(&inst->input_crs.lock);
+}
+
 static unsigned long msm_vidc_max_freq(struct msm_vidc_core *core)
 {
 	struct allowed_clock_rates_table *allowed_clks_tbl = NULL;
@@ -433,7 +510,7 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 	u32 vpp_cycles_per_mb;
 	u32 mbs_per_second;
 
-	mbs_per_second = msm_comm_get_inst_load(inst,
+	mbs_per_second = msm_comm_get_inst_load_per_core(inst,
 		LOAD_CALC_NO_QUIRKS);
 
 	/*
@@ -447,6 +524,8 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 			inst->clk_data.entry->low_power_cycles :
 			inst->clk_data.entry->vpp_cycles;
 
+		vpp_cycles = mbs_per_second * vpp_cycles_per_mb;
+
 		vsp_cycles = mbs_per_second * inst->clk_data.entry->vsp_cycles;
 
 		/* 10 / 7 is overhead factor */
@@ -456,7 +535,7 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 
 		vsp_cycles = mbs_per_second * inst->clk_data.entry->vsp_cycles;
 		/* 10 / 7 is overhead factor */
-		vsp_cycles += ((inst->prop.fps * filled_len * 8) / 7) * 10;
+		vsp_cycles += ((inst->prop.fps * filled_len * 8) * 10) / 7;
 
 	} else {
 		dprintk(VIDC_ERR, "Unknown session type = %s\n", __func__);
@@ -542,7 +621,7 @@ int msm_vidc_update_operating_rate(struct msm_vidc_inst *inst)
 				temp->state >= MSM_VIDC_RELEASE_RESOURCES_DONE)
 			continue;
 
-		mbs_per_second = msm_comm_get_inst_load(temp,
+		mbs_per_second = msm_comm_get_inst_load_per_core(temp,
 		LOAD_CALC_NO_QUIRKS);
 
 		cycles = temp->clk_data.entry->vpp_cycles;
@@ -599,7 +678,7 @@ int msm_comm_scale_clocks(struct msm_vidc_inst *inst)
 	list_for_each_entry_safe(temp, next, &inst->registeredbufs.list, list) {
 		if (temp->vvb.vb2_buf.type ==
 				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
-					temp->deferred) {
+					temp->flags & MSM_VIDC_FLAG_DEFERRED) {
 			filled_len = max(filled_len,
 				temp->vvb.vb2_buf.planes[0].bytesused);
 			device_addr = temp->smem[0].device_addr;
@@ -743,7 +822,7 @@ void msm_clock_data_reset(struct msm_vidc_inst *inst)
 
 	core = inst->core;
 	dcvs = &inst->clk_data;
-	load = msm_comm_get_inst_load(inst, LOAD_CALC_NO_QUIRKS);
+	load = msm_comm_get_inst_load_per_core(inst, LOAD_CALC_NO_QUIRKS);
 	cycles = inst->clk_data.entry->vpp_cycles;
 	allowed_clks_tbl = core->resources.allowed_clks_tbl;
 	if (inst->session_type == MSM_VIDC_ENCODER) {
@@ -967,10 +1046,7 @@ static u32 get_core_load(struct msm_vidc_core *core,
 		} else {
 			continue;
 		}
-		if (inst->clk_data.core_id == 3)
-			cycles = cycles / 2;
-
-		current_inst_mbs_per_sec = msm_comm_get_inst_load(inst,
+		current_inst_mbs_per_sec = msm_comm_get_inst_load_per_core(inst,
 				LOAD_CALC_NO_QUIRKS);
 		load += current_inst_mbs_per_sec * cycles;
 	}
@@ -1045,9 +1121,11 @@ int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst)
 	if (inst->session_type == MSM_VIDC_ENCODER && hier_mode) {
 		if (current_inst_load / 2 + core0_load <= max_freq &&
 			current_inst_load / 2 + core1_load <= max_freq) {
-			inst->clk_data.core_id = VIDC_CORE_ID_3;
-			msm_vidc_power_save_mode_enable(inst, false);
-			goto decision_done;
+			if (inst->clk_data.work_mode == VIDC_WORK_MODE_2) {
+				inst->clk_data.core_id = VIDC_CORE_ID_3;
+				msm_vidc_power_save_mode_enable(inst, false);
+				goto decision_done;
+			}
 		}
 	}
 
@@ -1056,9 +1134,11 @@ int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst)
 				core0_lp_load <= max_freq &&
 			current_inst_lp_load / 2 +
 				core1_lp_load <= max_freq) {
-			inst->clk_data.core_id = VIDC_CORE_ID_3;
-			msm_vidc_power_save_mode_enable(inst, true);
-			goto decision_done;
+			if (inst->clk_data.work_mode == VIDC_WORK_MODE_2) {
+				inst->clk_data.core_id = VIDC_CORE_ID_3;
+				msm_vidc_power_save_mode_enable(inst, true);
+				goto decision_done;
+			}
 		}
 	}
 

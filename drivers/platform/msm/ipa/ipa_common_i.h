@@ -384,5 +384,6 @@ int ipa_ntn_uc_reg_rdyCB(void (*ipauc_ready_cb)(void *user_data),
 			      void *user_data);
 void ipa_ntn_uc_dereg_rdyCB(void);
 const char *ipa_get_version_string(enum ipa_hw_type ver);
+int ipa_start_gsi_channel(u32 clnt_hdl);
 
 #endif /* _IPA_COMMON_I_H_ */

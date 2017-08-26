@@ -29,7 +29,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. SDM845";
 	compatible = "qcom,sdm845";
-	qcom,msm-id = <321 0x0>;
+	qcom,msm-id = <321 0x10000>;
 	interrupt-parent = <&pdc>;
 
 	aliases {
@@ -344,7 +344,7 @@
 		};
 	};
 
-	energy-costs {
+	energy_costs: energy-costs {
 		compatible = "sched-energy";
 
 		CPU_COST_0: core-cost0 {
@@ -515,12 +515,17 @@
 		#size-cells = <2>;
 		ranges;
 
-		removed_region1: removed_region1@85700000 {
+		hyp_region: hyp_region@85700000 {
 			no-map;
-			reg = <0 0x85700000 0 0x800000>;
+			reg = <0 0x85700000 0 0x600000>;
 		};
 
-		removed_region2: removed_region2@85fc0000 {
+		xbl_region: xbl_region@85e00000 {
+			no-map;
+			reg = <0 0x85e00000 0 0x100000>;
+		};
+
+		removed_region: removed_region@85fc0000 {
 			no-map;
 			reg = <0 0x85fc0000 0 0x2f40000>;
 		};
@@ -531,64 +536,70 @@
 			reg = <0 0x8ab00000 0 0x500000>;
 		};
 
-		pil_modem_mem: modem_region@8b000000 {
+		pil_ipa_fw_mem: pil_ipa_fw_region@8b000000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x8b000000 0 0x7300000>;
+			reg = <0 0x8b000000 0 0x10000>;
 		};
 
-		pil_video_mem: pil_video_region@92300000 {
+		pil_ipa_gsi_mem: pil_ipa_gsi_region@8b010000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x92300000 0 0x500000>;
+			reg = <0 0x8b010000 0 0x5000>;
 		};
 
-		pil_cdsp_mem: cdsp_regions@92800000 {
+		pil_gpu_mem: pil_gpu_region@8b015000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x92800000 0 0x800000>;
+			reg = <0 0x8b015000 0 0x1000>;
 		};
 
-		pil_adsp_mem: pil_adsp_region@93000000 {
+		pil_adsp_mem: pil_adsp_region@8b100000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x93000000 0 0x1a00000>;
+			reg = <0 0x8b100000 0 0x1a00000>;
 		};
 
-		pil_mba_mem: pil_mba_region@0x94a00000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0 0x94a00000 0 0x200000>;
+		wlan_fw_region: wlan_fw_region@8cb00000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x8cb00000 0 0x100000>;
 		};
 
-		pil_slpi_mem: pil_slpi_region@94c00000 {
+		pil_modem_mem: modem_region@8cc00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x94c00000 0 0x1400000>;
+			reg = <0 0x8cc00000 0 0x7600000>;
 		};
 
-		pil_ipa_fw_mem: pil_ipa_fw_region@96000000 {
+		pil_video_mem: pil_video_region@94200000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x96000000 0 0x10000>;
+			reg = <0 0x94200000 0 0x500000>;
 		};
 
-		pil_ipa_gsi_mem: pil_ipa_gsi_region@96010000 {
+		pil_cdsp_mem: cdsp_regions@94700000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x96010000 0 0x5000>;
+			reg = <0 0x94700000 0 0x800000>;
 		};
 
-		pil_gpu_mem: pil_gpu_region@96015000 {
+		pil_mba_mem: pil_mba_region@0x94f00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x96015000 0 0x1000>;
+			reg = <0 0x94f00000 0 0x200000>;
 		};
 
-		pil_spss_mem: spss_region@96100000 {
+		pil_slpi_mem: pil_slpi_region@95100000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x96100000 0 0x100000>;
+			reg = <0 0x95100000 0 0x1400000>;
+		};
+
+
+		pil_spss_mem: spss_region@96500000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x96500000 0 0x100000>;
 		};
 
 		adsp_mem: adsp_region {
@@ -602,7 +613,7 @@
 		qseecom_mem: qseecom_region {
 			compatible = "shared-dma-pool";
 			alloc-ranges = <0 0x00000000 0 0xffffffff>;
-			reusable;
+			no-map;
 			alignment = <0 0x400000>;
 			size = <0 0x1400000>;
 		};
@@ -935,10 +946,9 @@
 		qcom,core-dev-table =
 			<  300000  762 >,
 			<  748800 1720 >,
-			<  979200 2929 >,
-			< 1209600 3879 >,
-			< 1516800 4943 >,
-			< 1593600 5931 >;
+			< 1132800 2086 >,
+			< 1440000 2929 >,
+			< 1593600 3879 >;
 	};
 
 	devfreq_memlat_4: qcom,cpu4-memlat-mon {
@@ -948,10 +958,12 @@
 		qcom,cachemiss-ev = <0x2A>;
 		qcom,core-dev-table =
 			<  300000  762 >,
+			<  499200 1720 >,
+			<  806400 2086 >,
 			< 1036800 2929 >,
 			< 1190400 3879 >,
 			< 1574400 4943 >,
-			< 1804800 5931 >,
+			< 1728000 5931 >,
 			< 1958400 6881 >;
 	};
 
@@ -960,7 +972,6 @@
 		clock-names = "devfreq_clk";
 		clocks = <&clock_cpucc L3_CLUSTER0_VOTE_CLK>;
 		governor = "performance";
-		qcom,prepare-clk;
 	};
 
 	l3_cpu4: qcom,l3-cpu4 {
@@ -968,7 +979,6 @@
 		clock-names = "devfreq_clk";
 		clocks = <&clock_cpucc L3_CLUSTER1_VOTE_CLK>;
 		governor = "performance";
-		qcom,prepare-clk;
 	};
 
 	devfreq_l3lat_0: qcom,cpu0-l3lat-mon {
@@ -1154,8 +1164,8 @@
 			<   652800000 0x401c0422 0x00002020 0x1 5 >,
 			<   729600000 0x401c0526 0x00002020 0x1 6 >,
 			<   806400000 0x401c062a 0x00002222 0x1 7 >,
-			<   883200000 0x4024072e 0x00002525 0x2 8 >,
-			<   960000000 0x40240832 0x00002828 0x2 9 >;
+			<   883200000 0x4024072e 0x00002525 0x1 8 >,
+			<   960000000 0x40240832 0x00002828 0x1 9 >;
 
 		qcom,l3-speedbin1-v0 =
 			<   300000000 0x000c000f 0x00002020 0x1 1 >,
@@ -1165,10 +1175,10 @@
 			<   652800000 0x401c0422 0x00002020 0x1 5 >,
 			<   729600000 0x401c0526 0x00002020 0x1 6 >,
 			<   806400000 0x401c062a 0x00002222 0x1 7 >,
-			<   883200000 0x4024072e 0x00002525 0x2 8 >,
-			<   960000000 0x40240832 0x00002828 0x2 9 >,
-			<  1036800000 0x40240936 0x00002b2b 0x3 10 >,
-			<  1094400000 0x402c0a39 0x00002e2e 0x3 11 >;
+			<   883200000 0x4024072e 0x00002525 0x1 8 >,
+			<   960000000 0x40240832 0x00002828 0x1 9 >,
+			<  1036800000 0x40240936 0x00002b2b 0x1 10 >,
+			<  1094400000 0x402c0a39 0x00002e2e 0x1 11 >;
 
 		qcom,l3-speedbin2-v0 =
 			<   300000000 0x000c000f 0x00002020 0x1 1 >,
@@ -1178,12 +1188,12 @@
 			<   652800000 0x401c0422 0x00002020 0x1 5 >,
 			<   729600000 0x401c0526 0x00002020 0x1 6 >,
 			<   806400000 0x401c062a 0x00002222 0x1 7 >,
-			<   883200000 0x4024072e 0x00002525 0x2 8 >,
-			<   960000000 0x40240832 0x00002828 0x2 9 >,
-			<  1036800000 0x40240936 0x00002b2b 0x3 10 >,
-			<  1113600000 0x402c0a3a 0x00002e2e 0x3 11 >,
-			<  1209600000 0x402c0b3f 0x00003232 0x3 12 >,
-			<  1305600000 0x40340c44 0x00003636 0x3 13 >;
+			<   883200000 0x4024072e 0x00002525 0x1 8 >,
+			<   960000000 0x40240832 0x00002828 0x1 9 >,
+			<  1036800000 0x40240936 0x00002b2b 0x1 10 >,
+			<  1113600000 0x402c0a3a 0x00002e2e 0x1 11 >,
+			<  1209600000 0x402c0b3f 0x00003232 0x1 12 >,
+			<  1305600000 0x40340c44 0x00003636 0x1 13 >;
 
 		qcom,pwrcl-speedbin0-v0 =
 			<   300000000 0x000c000f 0x00002020 0x1 1 >,
@@ -1198,11 +1208,11 @@
 			<  1056000000 0x402c0937 0x00002c2c 0x1 10 >,
 			<  1132800000 0x402c0a3b 0x00002f2f 0x1 11 >,
 			<  1209600000 0x402c0b3f 0x00003232 0x1 12 >,
-			<  1286400000 0x40340c43 0x00003636 0x2 13 >,
-			<  1363200000 0x40340d47 0x00003939 0x2 14 >,
-			<  1440000000 0x40340e4b 0x00003c3c 0x2 15 >,
-			<  1516800000 0x403c0f4f 0x00003f3f 0x2 16 >,
-			<  1593600000 0x403c1053 0x00004242 0x2 17 >;
+			<  1286400000 0x40340c43 0x00003636 0x1 13 >,
+			<  1363200000 0x40340d47 0x00003939 0x1 14 >,
+			<  1440000000 0x40340e4b 0x00003c3c 0x1 15 >,
+			<  1516800000 0x403c0f4f 0x00003f3f 0x1 16 >,
+			<  1593600000 0x403c1053 0x00004242 0x1 17 >;
 
 		qcom,pwrcl-speedbin1-v0 =
 			<   300000000 0x000c000f 0x00002020 0x1 1 >,
@@ -1217,13 +1227,13 @@
 			<  1056000000 0x402c0937 0x00002c2c 0x1 10 >,
 			<  1132800000 0x402c0a3b 0x00002f2f 0x1 11 >,
 			<  1209600000 0x402c0b3f 0x00003232 0x1 12 >,
-			<  1286400000 0x40340c43 0x00003636 0x2 13 >,
-			<  1363200000 0x40340d47 0x00003939 0x2 14 >,
-			<  1440000000 0x40340e4b 0x00003c3c 0x2 15 >,
-			<  1516800000 0x403c0f4f 0x00003f3f 0x2 16 >,
-			<  1593600000 0x403c1053 0x00004242 0x2 17 >,
-			<  1651200000 0x403c1156 0x00004545 0x3 18 >,
-			<  1708800000 0x40441259 0x00004747 0x3 19 >;
+			<  1286400000 0x40340c43 0x00003636 0x1 13 >,
+			<  1363200000 0x40340d47 0x00003939 0x1 14 >,
+			<  1440000000 0x40340e4b 0x00003c3c 0x1 15 >,
+			<  1516800000 0x403c0f4f 0x00003f3f 0x1 16 >,
+			<  1593600000 0x403c1053 0x00004242 0x1 17 >,
+			<  1651200000 0x403c1156 0x00004545 0x1 18 >,
+			<  1708800000 0x40441259 0x00004747 0x1 19 >;
 
 		qcom,pwrcl-speedbin2-v0 =
 			<   300000000 0x000c000f 0x00002020 0x1 1 >,
@@ -1238,13 +1248,13 @@
 			<  1056000000 0x402c0937 0x00002c2c 0x1 10 >,
 			<  1132800000 0x402c0a3b 0x00002f2f 0x1 11 >,
 			<  1209600000 0x402c0b3f 0x00003232 0x1 12 >,
-			<  1286400000 0x40340c43 0x00003636 0x2 13 >,
-			<  1363200000 0x40340d47 0x00003939 0x2 14 >,
-			<  1440000000 0x40340e4b 0x00003c3c 0x2 15 >,
-			<  1516800000 0x403c0f4f 0x00003f3f 0x2 16 >,
-			<  1593600000 0x403c1053 0x00004242 0x2 17 >,
-			<  1670400000 0x40441157 0x00004646 0x3 18 >,
-			<  1747200000 0x4044125b 0x00004949 0x3 19 >;
+			<  1286400000 0x40340c43 0x00003636 0x1 13 >,
+			<  1363200000 0x40340d47 0x00003939 0x1 14 >,
+			<  1440000000 0x40340e4b 0x00003c3c 0x1 15 >,
+			<  1516800000 0x403c0f4f 0x00003f3f 0x1 16 >,
+			<  1593600000 0x403c1053 0x00004242 0x1 17 >,
+			<  1670400000 0x40441157 0x00004646 0x1 18 >,
+			<  1747200000 0x4044125b 0x00004949 0x1 19 >;
 
 		qcom,perfcl-speedbin0-v0 =
 			<   300000000 0x000c000f 0x00002020 0x1 1 >,
@@ -1259,16 +1269,16 @@
 			<  1036800000 0x40240936 0x00002b2b 0x1 10 >,
 			<  1113600000 0x402c0a3a 0x00002e2e 0x1 11 >,
 			<  1190400000 0x402c0b3e 0x00003232 0x1 12 >,
-			<  1267200000 0x40340c42 0x00003535 0x2 13 >,
-			<  1344000000 0x40340d46 0x00003838 0x2 14 >,
-			<  1420800000 0x40340e4a 0x00003b3b 0x2 15 >,
-			<  1497600000 0x403c0f4e 0x00003e3e 0x2 16 >,
-			<  1574400000 0x403c1052 0x00004242 0x2 17 >,
-			<  1651200000 0x403c1156 0x00004545 0x2 18 >,
-			<  1728000000 0x4044125a 0x00004848 0x3 19 >,
-			<  1804800000 0x4044135e 0x00004b4b 0x3 20 >,
-			<  1881600000 0x404c1462 0x00004e4e 0x3 21 >,
-			<  1958400000 0x404c1566 0x00005252 0x3 22 >;
+			<  1267200000 0x40340c42 0x00003535 0x1 13 >,
+			<  1344000000 0x40340d46 0x00003838 0x1 14 >,
+			<  1420800000 0x40340e4a 0x00003b3b 0x1 15 >,
+			<  1497600000 0x403c0f4e 0x00003e3e 0x1 16 >,
+			<  1574400000 0x403c1052 0x00004242 0x1 17 >,
+			<  1651200000 0x403c1156 0x00004545 0x1 18 >,
+			<  1728000000 0x4044125a 0x00004848 0x1 19 >,
+			<  1804800000 0x4044135e 0x00004b4b 0x1 20 >,
+			<  1881600000 0x404c1462 0x00004e4e 0x1 21 >,
+			<  1958400000 0x404c1566 0x00005252 0x1 22 >;
 
 		qcom,perfcl-speedbin1-v0 =
 			<   300000000 0x000c000f 0x00002020 0x1 1 >,
@@ -1283,18 +1293,18 @@
 			<  1036800000 0x40240936 0x00002b2b 0x1 10 >,
 			<  1113600000 0x402c0a3a 0x00002e2e 0x1 11 >,
 			<  1190400000 0x402c0b3e 0x00003232 0x1 12 >,
-			<  1267200000 0x40340c42 0x00003535 0x2 13 >,
-			<  1344000000 0x40340d46 0x00003838 0x2 14 >,
-			<  1420800000 0x40340e4a 0x00003b3b 0x2 15 >,
-			<  1497600000 0x403c0f4e 0x00003e3e 0x2 16 >,
-			<  1574400000 0x403c1052 0x00004242 0x2 17 >,
-			<  1651200000 0x403c1156 0x00004545 0x2 18 >,
-			<  1728000000 0x4044125a 0x00004848 0x3 19 >,
-			<  1804800000 0x4044135e 0x00004b4b 0x3 20 >,
-			<  1881600000 0x404c1462 0x00004e4e 0x3 21 >,
-			<  1958400000 0x404c1566 0x00005252 0x3 22 >,
-			<  2035200000 0x404c166a 0x00005555 0x3 23 >,
-			<  2092800000 0x4054176d 0x00005757 0x3 24 >;
+			<  1267200000 0x40340c42 0x00003535 0x1 13 >,
+			<  1344000000 0x40340d46 0x00003838 0x1 14 >,
+			<  1420800000 0x40340e4a 0x00003b3b 0x1 15 >,
+			<  1497600000 0x403c0f4e 0x00003e3e 0x1 16 >,
+			<  1574400000 0x403c1052 0x00004242 0x1 17 >,
+			<  1651200000 0x403c1156 0x00004545 0x1 18 >,
+			<  1728000000 0x4044125a 0x00004848 0x1 19 >,
+			<  1804800000 0x4044135e 0x00004b4b 0x1 20 >,
+			<  1881600000 0x404c1462 0x00004e4e 0x1 21 >,
+			<  1958400000 0x404c1566 0x00005252 0x1 22 >,
+			<  2035200000 0x404c166a 0x00005555 0x1 23 >,
+			<  2092800000 0x4054176d 0x00005757 0x1 24 >;
 
 		qcom,perfcl-speedbin2-v0 =
 			<   300000000 0x000c000f 0x00002020 0x1 1 >,
@@ -1309,26 +1319,36 @@
 			<  1036800000 0x40240936 0x00002b2b 0x1 10 >,
 			<  1113600000 0x402c0a3a 0x00002e2e 0x1 11 >,
 			<  1190400000 0x402c0b3e 0x00003232 0x1 12 >,
-			<  1267200000 0x40340c42 0x00003535 0x2 13 >,
-			<  1344000000 0x40340d46 0x00003838 0x2 14 >,
-			<  1420800000 0x40340e4a 0x00003b3b 0x2 15 >,
-			<  1497600000 0x403c0f4e 0x00003e3e 0x2 16 >,
-			<  1574400000 0x403c1052 0x00004242 0x2 17 >,
-			<  1651200000 0x403c1156 0x00004545 0x2 18 >,
-			<  1728000000 0x4044125a 0x00004848 0x3 19 >,
-			<  1804800000 0x4044135e 0x00004b4b 0x3 20 >,
-			<  1881600000 0x404c1462 0x00004e4e 0x3 21 >,
-			<  1958400000 0x404c1566 0x00005252 0x3 22 >,
-			<  2035200000 0x404c166a 0x00005555 0x3 23 >,
-			<  2112000000 0x4054176e 0x00005858 0x3 24 >,
-			<  2208000000 0x40541873 0x00005c5c 0x3 25 >;
+			<  1267200000 0x40340c42 0x00003535 0x1 13 >,
+			<  1344000000 0x40340d46 0x00003838 0x1 14 >,
+			<  1420800000 0x40340e4a 0x00003b3b 0x1 15 >,
+			<  1497600000 0x403c0f4e 0x00003e3e 0x1 16 >,
+			<  1574400000 0x403c1052 0x00004242 0x1 17 >,
+			<  1651200000 0x403c1156 0x00004545 0x1 18 >,
+			<  1728000000 0x4044125a 0x00004848 0x1 19 >,
+			<  1804800000 0x4044135e 0x00004b4b 0x1 20 >,
+			<  1881600000 0x404c1462 0x00004e4e 0x1 21 >,
+			<  1958400000 0x404c1566 0x00005252 0x1 22 >,
+			<  2035200000 0x404c166a 0x00005555 0x1 23 >,
+			<  2112000000 0x4054176e 0x00005858 0x1 24 >,
+			<  2208000000 0x40541873 0x00005c5c 0x1 25 >;
+
+		qcom,l3-memacc-level-vc-bin0 = <7 63>;
+		qcom,l3-memacc-level-vc-bin1 = <7 9>;
+		qcom,l3-memacc-level-vc-bin2 = <7 9>;
+
+		qcom,pwrcl-memacc-level-vc-bin0 = <12 63>;
+		qcom,pwrcl-memacc-level-vc-bin1 = <12 17>;
+		qcom,pwrcl-memacc-level-vc-bin2 = <12 17>;
+
+		qcom,perfcl-memacc-level-vc-bin0 = <12 18>;
+		qcom,perfcl-memacc-level-vc-bin1 = <12 18>;
+		qcom,perfcl-memacc-level-vc-bin2 = <12 18>;
 
 		qcom,up-timer =
 			<1000 1000 1000>;
 		qcom,down-timer =
 			<100000 100000 100000>;
-		qcom,pc-override-index =
-			<0 0 0>;
 		qcom,set-ret-inactive;
 		qcom,enable-llm-freq-vote;
 		qcom,llm-freq-up-timer =
@@ -1392,7 +1412,7 @@
 	};
 
 	clock_aop: qcom,aopclk {
-		compatible = "qcom,aop-qmp-clk";
+		compatible = "qcom,aop-qmp-clk-v1";
 		#clock-cells = <1>;
 		mboxes = <&qmp_aop 0>;
 		mbox-names = "qdss_clk";
@@ -1676,13 +1696,18 @@
 			<81 512 1338562 4096000>,
 			<1 608 1338562 4096000>;
 		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
-			100000000 200000000 4294967295>;
+			100750000 200000000 4294967295>;
 
 		qcom,sdr104-wa;
 
 		qcom,restore-after-cx-collapse;
 
-		qcom,devfreq,freq-table = <50000000 200000000>;
+		qcom,clk-rates = <400000 20000000 25000000
+					50000000 100000000 201500000>;
+		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50",
+				      "SDR104";
+
+		qcom,devfreq,freq-table = <50000000 201500000>;
 		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
 			<&clock_gcc GCC_SDCC2_APPS_CLK>;
 		clock-names = "iface_clk", "core_clk";
@@ -1966,6 +1991,7 @@
 
 	qcom,msm_fastrpc {
 		compatible = "qcom,msm-fastrpc-compute";
+		qcom,rpc-latency-us = <611>;
 
 		qcom,msm_fastrpc_compute_cb1 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
@@ -2700,6 +2726,13 @@
 			 <&clock_gcc GCC_CE1_AXI_CLK>;
 		qcom,ce-opp-freq = <171430000>;
 		qcom,request-bw-before-clk;
+		qcom,smmu-s1-bypass;
+		iommus = <&apps_smmu 0x702 0x1>,
+			 <&apps_smmu 0x712 0x1>;
+	};
+
+	qcom_msmhdcp: qcom,msm_hdcp {
+		compatible = "qcom,msm-hdcp";
 	};
 
 	qcom_crypto: qcrypto@1de0000 {
@@ -2734,6 +2767,9 @@
 		qcom,use-sw-ahash-algo;
 		qcom,use-sw-aead-algo;
 		qcom,use-sw-hmac-algo;
+		qcom,smmu-s1-bypass;
+		iommus = <&apps_smmu 0x704 0x3>,
+			 <&apps_smmu 0x714 0x3>;
 	};
 
 	qcom,msm_gsi {
@@ -3614,6 +3650,9 @@
 			&tsif0_sync_active
 			&tsif1_signals_active
 			&tsif1_sync_active>;		/* dual-tsif-mode2 */
+
+		qcom,smmu-s1-bypass;
+		iommus = <&apps_smmu 0x20 0x0f>;
 	};
 };
 
@@ -3630,6 +3669,8 @@
 		interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,affinity = <1>;
 		#thermal-sensor-cells = <0>;
+		isens_vref-supply = <&pm8998_l1_ao>;
+		isens-vref-settings = <880000 880000 20000>;
 	};
 
 	wil6210: qcom,wil6210 {
@@ -3764,7 +3805,6 @@
 };
 
 #include "pm8998.dtsi"
-#include "pmi8998.dtsi"
 #include "pm8005.dtsi"
 #include "sdm845-regulator.dtsi"
 #include "sdm845-coresight.dtsi"

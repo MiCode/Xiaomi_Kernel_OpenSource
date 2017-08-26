@@ -190,6 +190,22 @@ uint32_t msm_framebuffer_iova(struct drm_framebuffer *fb,
 	return msm_gem_iova(msm_fb->planes[plane], aspace) + fb->offsets[plane];
 }
 
+uint32_t msm_framebuffer_phys(struct drm_framebuffer *fb,
+		int plane)
+{
+	struct msm_framebuffer *msm_fb = to_msm_framebuffer(fb);
+	dma_addr_t phys_addr;
+
+	if (!msm_fb->planes[plane])
+		return 0;
+
+	phys_addr = msm_gem_get_dma_addr(msm_fb->planes[plane]);
+	if (!phys_addr)
+		return 0;
+
+	return phys_addr + fb->offsets[plane];
+}
+
 struct drm_gem_object *msm_framebuffer_bo(struct drm_framebuffer *fb, int plane)
 {
 	struct msm_framebuffer *msm_fb = to_msm_framebuffer(fb);

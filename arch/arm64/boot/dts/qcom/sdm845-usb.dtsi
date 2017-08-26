@@ -21,6 +21,8 @@
 		reg = <0x0a600000 0xf8c00>,
 		      <0x088ee000 0x400>;
 		reg-names = "core_base", "ahb2phy_base";
+		iommus = <&apps_smmu 0x740 0x0>;
+		qcom,smmu-s1-bypass;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -34,7 +36,7 @@
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
 		qcom,num-gsi-evt-buffs = <0x3>;
 		qcom,use-pdc-interrupts;
-		extcon = <&pmi8998_pdphy>, <&pmi8998_pdphy>, <&eud>;
+		extcon = <0>, <0>, <&eud>;
 
 		clocks = <&clock_gcc GCC_USB30_PRIM_MASTER_CLK>,
 			 <&clock_gcc GCC_CFG_NOC_USB3_PRIM_AXI_CLK>,
@@ -61,10 +63,10 @@
 			<MSM_BUS_MASTER_USB3 MSM_BUS_SLAVE_IPA_CFG 0 0>,
 			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_USB3 0 0>,
 			<MSM_BUS_MASTER_USB3
-				MSM_BUS_SLAVE_EBI_CH0 240000 800000>,
+				MSM_BUS_SLAVE_EBI_CH0 240000 700000>,
 			<MSM_BUS_MASTER_USB3
 				MSM_BUS_SLAVE_IPA_CFG 0 2400>,
-			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_USB3 0 80000>;
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_USB3 0 40000>;
 
 		dwc3@a600000 {
 			compatible = "snps,dwc3";
@@ -331,6 +333,8 @@
 		reg = <0x0a800000 0xf8c00>,
 		      <0x088ee000 0x400>;
 		reg-names = "core_base", "ahb2phy_base";
+		iommus = <&apps_smmu 0x760 0x0>;
+		qcom,smmu-s1-bypass;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -368,8 +372,8 @@
 			<MSM_BUS_MASTER_USB3_1 MSM_BUS_SLAVE_EBI_CH0 0 0>,
 			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_USB3_1 0 0>,
 			<MSM_BUS_MASTER_USB3_1
-				MSM_BUS_SLAVE_EBI_CH0 240000 800000>,
-			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_USB3_1 0 80000>;
+				MSM_BUS_SLAVE_EBI_CH0 240000 700000>,
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_USB3_1 0 40000>;
 
 		dwc3@a600000 {
 			compatible = "snps,dwc3";

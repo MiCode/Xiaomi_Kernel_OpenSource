@@ -184,6 +184,7 @@
 #define DSI_DESKEW_CTRL                            (0x02BC)
 #define DSI_DESKEW_DELAY_CTRL                      (0x02C0)
 #define DSI_DESKEW_SW_TRIGGER                      (0x02C4)
+#define DSI_DEBUG_CTRL                             (0x02C8)
 #define DSI_SECURE_DISPLAY_STATUS                  (0x02CC)
 #define DSI_SECURE_DISPLAY_BLOCK_COMMAND_COLOR     (0x02D0)
 #define DSI_SECURE_DISPLAY_BLOCK_VIDEO_COLOR       (0x02D4)

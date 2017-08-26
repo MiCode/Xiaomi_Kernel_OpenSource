@@ -332,9 +332,17 @@ struct arm_smmu_impl_def_reg {
 	u32 value;
 };
 
+/*
+ * attach_count
+ *	The SMR and S2CR registers are only programmed when the number of
+ *	devices attached to the iommu using these registers is > 0. This
+ *	is required for the "SID switch" use case for secure display.
+ *	Protected by stream_map_mutex.
+ */
 struct arm_smmu_s2cr {
 	struct iommu_group		*group;
 	int				count;
+	int				attach_count;
 	enum arm_smmu_s2cr_type		type;
 	enum arm_smmu_s2cr_privcfg	privcfg;
 	u8				cbndx;
@@ -389,6 +397,7 @@ struct arm_smmu_power_resources {
 	/* Protects clock_refs_count */
 	spinlock_t			clock_refs_lock;
 	int				clock_refs_count;
+	int				regulator_defer;
 };
 
 struct arm_smmu_device {
@@ -789,6 +798,57 @@ static void arm_smmu_unrequest_bus(struct arm_smmu_power_resources *pwr)
 	WARN_ON(msm_bus_scale_client_update_request(pwr->bus_client, 0));
 }
 
+static int arm_smmu_enable_regulators(struct arm_smmu_power_resources *pwr)
+{
+	struct regulator_bulk_data *consumers;
+	int num_consumers, ret;
+	int i;
+
+	num_consumers = pwr->num_gdscs;
+	consumers = pwr->gdscs;
+	for (i = 0; i < num_consumers; i++) {
+		ret = regulator_enable(consumers[i].consumer);
+		if (ret)
+			goto out;
+	}
+	return 0;
+
+out:
+	i -= 1;
+	for (; i >= 0; i--)
+		regulator_disable(consumers[i].consumer);
+	return ret;
+}
+
+static int arm_smmu_disable_regulators(struct arm_smmu_power_resources *pwr)
+{
+	struct regulator_bulk_data *consumers;
+	int i;
+	int num_consumers, ret, r;
+
+	num_consumers = pwr->num_gdscs;
+	consumers = pwr->gdscs;
+	for (i = num_consumers - 1; i >= 0; --i) {
+		ret = regulator_disable_deferred(consumers[i].consumer,
+						 pwr->regulator_defer);
+		if (ret != 0)
+			goto err;
+	}
+
+	return 0;
+
+err:
+	pr_err("Failed to disable %s: %d\n", consumers[i].supply, ret);
+	for (++i; i < num_consumers; ++i) {
+		r = regulator_enable(consumers[i].consumer);
+		if (r != 0)
+			pr_err("Failed to reename %s: %d\n",
+			       consumers[i].supply, r);
+	}
+
+	return ret;
+}
+
 /* Clocks must be prepared before this (arm_smmu_prepare_clocks) */
 static int arm_smmu_power_on_atomic(struct arm_smmu_power_resources *pwr)
 {
@@ -848,7 +908,7 @@ static int arm_smmu_power_on_slow(struct arm_smmu_power_resources *pwr)
 	if (ret)
 		goto out_unlock;
 
-	ret = regulator_bulk_enable(pwr->num_gdscs, pwr->gdscs);
+	ret = arm_smmu_enable_regulators(pwr);
 	if (ret)
 		goto out_disable_bus;
 
@@ -884,7 +944,7 @@ static void arm_smmu_power_off_slow(struct arm_smmu_power_resources *pwr)
 	}
 
 	arm_smmu_unprepare_clocks(pwr);
-	regulator_bulk_disable(pwr->num_gdscs, pwr->gdscs);
+	arm_smmu_disable_regulators(pwr);
 	arm_smmu_unrequest_bus(pwr);
 	pwr->power_count = 0;
 	mutex_unlock(&pwr->power_lock);
@@ -1958,11 +2018,9 @@ static int arm_smmu_master_alloc_smes(struct device *dev)
 	}
 	iommu_group_put(group);
 
-	/* It worked! Now, poke the actual hardware */
-	for_each_cfg_sme(fwspec, i, idx) {
-		arm_smmu_write_sme(smmu, idx);
+	/* It worked! Don't poke the actual hardware until we've attached */
+	for_each_cfg_sme(fwspec, i, idx)
 		smmu->s2crs[idx].group = group;
-	}
 
 	mutex_unlock(&smmu->stream_map_mutex);
 	return 0;
@@ -1991,6 +2049,33 @@ static void arm_smmu_master_free_smes(struct iommu_fwspec *fwspec)
 	mutex_unlock(&smmu->stream_map_mutex);
 }
 
+static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
+					  struct iommu_fwspec *fwspec)
+{
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	struct arm_smmu_s2cr *s2cr = smmu->s2crs;
+	int i, idx;
+	const struct iommu_gather_ops *tlb;
+
+	tlb = smmu_domain->pgtbl_cfg.tlb;
+
+	mutex_lock(&smmu->stream_map_mutex);
+	for_each_cfg_sme(fwspec, i, idx) {
+		WARN_ON(s2cr[idx].attach_count == 0);
+		s2cr[idx].attach_count -= 1;
+
+		if (s2cr[idx].attach_count > 0)
+			continue;
+
+		writel_relaxed(0, ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_SMR(idx));
+		writel_relaxed(0, ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_S2CR(idx));
+	}
+	mutex_unlock(&smmu->stream_map_mutex);
+
+	/* Ensure there are no stale mappings for this context bank */
+	tlb->tlb_flush_all(smmu_domain);
+}
+
 static int arm_smmu_domain_add_master(struct arm_smmu_domain *smmu_domain,
 				      struct iommu_fwspec *fwspec)
 {
@@ -2000,15 +2085,17 @@ static int arm_smmu_domain_add_master(struct arm_smmu_domain *smmu_domain,
 	u8 cbndx = smmu_domain->cfg.cbndx;
 	int i, idx;
 
+	mutex_lock(&smmu->stream_map_mutex);
 	for_each_cfg_sme(fwspec, i, idx) {
-		if (type == s2cr[idx].type && cbndx == s2cr[idx].cbndx)
+		if (s2cr[idx].attach_count++ > 0)
 			continue;
 
 		s2cr[idx].type = type;
 		s2cr[idx].privcfg = S2CR_PRIVCFG_DEFAULT;
 		s2cr[idx].cbndx = cbndx;
-		arm_smmu_write_s2cr(smmu, idx);
+		arm_smmu_write_sme(smmu, idx);
 	}
+	mutex_unlock(&smmu->stream_map_mutex);
 
 	return 0;
 }
@@ -2018,6 +2105,7 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain,
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
 	int dynamic = smmu_domain->attributes & (1 << DOMAIN_ATTR_DYNAMIC);
 	int atomic_domain = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
 
@@ -2028,6 +2116,8 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain,
 		dev_err(dev, "Domain not attached; cannot detach!\n");
 		return;
 	}
+
+	arm_smmu_domain_remove_master(smmu_domain, fwspec);
 
 	/* Remove additional vote for atomic power */
 	if (atomic_domain) {
@@ -3175,6 +3265,11 @@ static phys_addr_t qsmmuv2_iova_to_phys_hard(struct iommu_domain *domain,
 	u32 sctlr, sctlr_orig, fsr;
 	void __iomem *cb_base;
 
+	if (smmu->model == QCOM_SMMUV2) {
+		dev_err(smmu->dev, "ATOS support is disabled\n");
+		return 0;
+	}
+
 	ret = arm_smmu_power_on(smmu_domain->smmu->pwr);
 	if (ret)
 		return ret;
@@ -3533,6 +3628,12 @@ static int arm_smmu_init_regulators(struct arm_smmu_power_resources *pwr)
 
 	if (!pwr->gdscs)
 		return -ENOMEM;
+
+	if (!of_property_read_u32(dev->of_node,
+				  "qcom,deferred-regulator-disable-delay",
+				  &(pwr->regulator_defer)))
+		dev_info(dev, "regulator defer delay %d\n",
+			pwr->regulator_defer);
 
 	i = 0;
 	of_property_for_each_string(dev->of_node, "qcom,regulator-names",
@@ -4206,36 +4307,6 @@ struct qsmmuv500_tbu_device {
 	u32				halt_count;
 };
 
-static int qsmmuv500_tbu_power_on_all(struct arm_smmu_device *smmu)
-{
-	struct qsmmuv500_tbu_device *tbu;
-	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
-	int ret = 0;
-
-	list_for_each_entry(tbu, &data->tbus, list) {
-		ret = arm_smmu_power_on(tbu->pwr);
-		if (ret)
-			break;
-	}
-	if (!ret)
-		return 0;
-
-	list_for_each_entry_continue_reverse(tbu, &data->tbus, list) {
-		arm_smmu_power_off(tbu->pwr);
-	}
-	return ret;
-}
-
-static void qsmmuv500_tbu_power_off_all(struct arm_smmu_device *smmu)
-{
-	struct qsmmuv500_tbu_device *tbu;
-	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
-
-	list_for_each_entry_reverse(tbu, &data->tbus, list) {
-		arm_smmu_power_off(tbu->pwr);
-	}
-}
-
 static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu)
 {
 	unsigned long flags;
@@ -4294,37 +4365,6 @@ static void qsmmuv500_tbu_resume(struct qsmmuv500_tbu_device *tbu)
 	spin_unlock_irqrestore(&tbu->halt_lock, flags);
 }
 
-static int qsmmuv500_halt_all(struct arm_smmu_device *smmu)
-{
-	struct qsmmuv500_tbu_device *tbu;
-	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
-	int ret = 0;
-
-	list_for_each_entry(tbu, &data->tbus, list) {
-		ret = qsmmuv500_tbu_halt(tbu);
-		if (ret)
-			break;
-	}
-
-	if (!ret)
-		return 0;
-
-	list_for_each_entry_continue_reverse(tbu, &data->tbus, list) {
-		qsmmuv500_tbu_resume(tbu);
-	}
-	return ret;
-}
-
-static void qsmmuv500_resume_all(struct arm_smmu_device *smmu)
-{
-	struct qsmmuv500_tbu_device *tbu;
-	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
-
-	list_for_each_entry(tbu, &data->tbus, list) {
-		qsmmuv500_tbu_resume(tbu);
-	}
-}
-
 static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(
 	struct arm_smmu_device *smmu, u32 sid)
 {
@@ -4337,24 +4377,6 @@ static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(
 			return tbu;
 	}
 	return NULL;
-}
-
-static void qsmmuv500_device_reset(struct arm_smmu_device *smmu)
-{
-	int i, ret;
-	struct arm_smmu_impl_def_reg *regs = smmu->impl_def_attach_registers;
-
-	ret = qsmmuv500_tbu_power_on_all(smmu);
-	if (ret)
-		return;
-
-	/* Program implementation defined registers */
-	qsmmuv500_halt_all(smmu);
-	for (i = 0; i < smmu->num_impl_def_attach_registers; ++i)
-		writel_relaxed(regs[i].value,
-			ARM_SMMU_GR0(smmu) + regs[i].offset);
-	qsmmuv500_resume_all(smmu);
-	qsmmuv500_tbu_power_off_all(smmu);
 }
 
 static int qsmmuv500_ecats_lock(struct arm_smmu_domain *smmu_domain,
@@ -4594,7 +4616,6 @@ static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 
 struct arm_smmu_arch_ops qsmmuv500_arch_ops = {
 	.init = qsmmuv500_arch_init,
-	.device_reset = qsmmuv500_device_reset,
 	.iova_to_phys_hard = qsmmuv500_iova_to_phys_hard,
 };
 

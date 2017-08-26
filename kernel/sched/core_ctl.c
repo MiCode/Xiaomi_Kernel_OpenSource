@@ -13,7 +13,6 @@
 #define pr_fmt(fmt)	"core_ctl: " fmt
 
 #include <linux/init.h>
-#include <linux/notifier.h>
 #include <linux/cpu.h>
 #include <linux/cpumask.h>
 #include <linux/cpufreq.h>
@@ -877,21 +876,18 @@ static int __ref try_core_ctl(void *data)
 	return 0;
 }
 
-static int __ref cpu_callback(struct notifier_block *nfb,
-				unsigned long action, void *hcpu)
+static int isolation_cpuhp_state(unsigned int cpu,  bool online)
 {
-	uint32_t cpu = (uintptr_t)hcpu;
 	struct cpu_data *state = &per_cpu(cpu_state, cpu);
 	struct cluster_data *cluster = state->cluster;
 	unsigned int need;
-	bool do_wakeup, unisolated = false;
+	bool do_wakeup = false, unisolated = false;
 	unsigned long flags;
 
 	if (unlikely(!cluster || !cluster->inited))
-		return NOTIFY_DONE;
+		return 0;
 
-	switch (action & ~CPU_TASKS_FROZEN) {
-	case CPU_ONLINE:
+	if (online) {
 		cluster->active_cpus = get_active_cpu_count(cluster);
 
 		/*
@@ -901,9 +897,7 @@ static int __ref cpu_callback(struct notifier_block *nfb,
 		 * reject trying to online CPUs.
 		 */
 		move_cpu_lru(state);
-		break;
-
-	case CPU_DEAD:
+	} else {
 		/*
 		 * We don't want to have a CPU both offline and isolated.
 		 * So unisolate a CPU that went down if it was isolated by us.
@@ -919,9 +913,6 @@ static int __ref cpu_callback(struct notifier_block *nfb,
 
 		state->busy = 0;
 		cluster->active_cpus = get_active_cpu_count(cluster);
-		break;
-	default:
-		return NOTIFY_DONE;
 	}
 
 	need = apply_limits(cluster, cluster->need_cpus);
@@ -933,12 +924,18 @@ static int __ref cpu_callback(struct notifier_block *nfb,
 	if (do_wakeup)
 		wake_up_core_ctl_thread(cluster);
 
-	return NOTIFY_OK;
+	return 0;
 }
 
-static struct notifier_block __refdata cpu_notifier = {
-	.notifier_call = cpu_callback,
-};
+static int core_ctl_isolation_online_cpu(unsigned int cpu)
+{
+	return isolation_cpuhp_state(cpu, true);
+}
+
+static int core_ctl_isolation_dead_cpu(unsigned int cpu)
+{
+	return isolation_cpuhp_state(cpu, false);
+}
 
 /* ============================ init code ============================== */
 
@@ -1068,7 +1065,13 @@ static int __init core_ctl_init(void)
 	if (should_skip(cpu_possible_mask))
 		return 0;
 
-	register_cpu_notifier(&cpu_notifier);
+	cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
+			"core_ctl/isolation:online",
+			core_ctl_isolation_online_cpu, NULL);
+
+	cpuhp_setup_state_nocalls(CPUHP_CORE_CTL_ISOLATION_DEAD,
+			"core_ctl/isolation:dead",
+			NULL, core_ctl_isolation_dead_cpu);
 
 	for_each_cpu(cpu, &cpus) {
 		int ret;

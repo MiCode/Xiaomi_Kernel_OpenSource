@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,7 +39,85 @@ struct odu_bridge_params {
 	u32 ipa_desc_size;
 };
 
-#if defined CONFIG_IPA || defined CONFIG_IPA3
+/**
+ * struct ipa_bridge_init_params - parameters for IPA bridge initialization API
+ *
+ * @info: structure contains initialization information
+ * @wakeup_request: callback to client to indicate there is downlink data
+ *	available. Client is expected to call ipa_bridge_resume() to start
+ *	receiving data
+ */
+struct ipa_bridge_init_params {
+	struct odu_bridge_params info;
+	void (*wakeup_request)(void *);
+};
+
+#ifdef CONFIG_IPA3
+
+int ipa_bridge_init(struct ipa_bridge_init_params *params, u32 *hdl);
+
+int ipa_bridge_connect(u32 hdl);
+
+int ipa_bridge_set_perf_profile(u32 hdl, u32 bandwidth);
+
+int ipa_bridge_disconnect(u32 hdl);
+
+int ipa_bridge_suspend(u32 hdl);
+
+int ipa_bridge_resume(u32 hdl);
+
+int ipa_bridge_tx_dp(u32 hdl, struct sk_buff *skb,
+	struct ipa_tx_meta *metadata);
+
+int ipa_bridge_cleanup(u32 hdl);
+
+#else
+
+static inline int ipa_bridge_init(struct odu_bridge_params *params, u32 *hdl)
+{
+	return -EPERM;
+}
+
+static inline int ipa_bridge_connect(u32 hdl)
+{
+	return -EPERM;
+}
+
+static inline int ipa_bridge_set_perf_profile(u32 hdl, u32 bandwidth)
+{
+	return -EPERM;
+}
+
+static inline int ipa_bridge_disconnect(u32 hdl)
+{
+	return -EPERM;
+}
+
+static inline int ipa_bridge_suspend(u32 hdl)
+{
+	return -EPERM;
+}
+
+static inline int ipa_bridge_resume(u32 hdl)
+{
+	return -EPERM;
+}
+
+static inline int ipa_bridge_tx_dp(u32 hdl, struct sk_buff *skb,
+struct ipa_tx_meta *metadata)
+{
+	return -EPERM;
+}
+
+static inline int ipa_bridge_cleanup(u32 hdl)
+{
+	return -EPERM;
+}
+
+#endif /* CONFIG_IPA3 */
+
+/* Below API is deprecated. Please use the API above */
+# if defined CONFIG_IPA || defined CONFIG_IPA3
 
 int odu_bridge_init(struct odu_bridge_params *params);
 

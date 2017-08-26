@@ -89,9 +89,23 @@
 
 #define SDE_NAME_SIZE  12
 
-
 /* timeout in frames waiting for frame done */
 #define SDE_FRAME_DONE_TIMEOUT	60
+
+/* max active secure client counts allowed */
+#define MAX_ALLOWED_SECURE_CLIENT_CNT	1
+
+/* max active crtc when secure client is active */
+#define MAX_ALLOWED_CRTC_CNT_DURING_SECURE	1
+
+/* max virtual encoders per secure crtc */
+#define MAX_ALLOWED_ENCODER_CNT_PER_SECURE_CRTC	1
+
+/* defines the operations required for secure state transition */
+#define SDE_KMS_OPS_CRTC_SECURE_STATE_CHANGE               BIT(0)
+#define SDE_KMS_OPS_WAIT_FOR_TX_DONE                       BIT(1)
+#define SDE_KMS_OPS_CLEANUP_PLANE_FB                       BIT(2)
+#define SDE_KMS_OPS_PREPARE_PLANE_FB                       BIT(3)
 
 /*
  * struct sde_irq_callback - IRQ callback handlers
@@ -184,6 +198,10 @@ struct sde_kms {
 
 	struct sde_core_perf perf;
 
+	/* saved atomic state during system suspend */
+	struct drm_atomic_state *suspend_state;
+	bool suspend_block;
+
 	struct sde_rm rm;
 	bool rm_init;
 
@@ -212,6 +230,33 @@ struct vsync_info {
  * Return: Whether or not the 'sdeclient' module parameter was set on boot up
  */
 bool sde_is_custom_client(void);
+
+/**
+ * sde_kms_is_suspend_state - whether or not the system is pm suspended
+ * @dev: Pointer to drm device
+ * Return: Suspend status
+ */
+static inline bool sde_kms_is_suspend_state(struct drm_device *dev)
+{
+	if (!ddev_to_msm_kms(dev))
+		return false;
+
+	return to_sde_kms(ddev_to_msm_kms(dev))->suspend_state != NULL;
+}
+
+/**
+ * sde_kms_is_suspend_blocked - whether or not commits are blocked due to pm
+ *				suspend status
+ * @dev: Pointer to drm device
+ * Return: True if commits should be rejected due to pm suspend
+ */
+static inline bool sde_kms_is_suspend_blocked(struct drm_device *dev)
+{
+	if (!sde_kms_is_suspend_state(dev))
+		return false;
+
+	return to_sde_kms(ddev_to_msm_kms(dev))->suspend_block;
+}
 
 /**
  * Debugfs functions - extra helper functions for debugfs support
@@ -499,5 +544,14 @@ int sde_kms_fbo_reference(struct sde_kms_fbo *fbo);
  * return: 0 on success; error code otherwise
  */
 void sde_kms_fbo_unreference(struct sde_kms_fbo *fbo);
+
+/**
+ * smmu attach/detach functions
+ * @sde_kms: poiner to sde_kms structure
+ * @secure_only: if true only secure contexts are attached/detached, else
+ * all contexts are attached/detached/
+ */
+int sde_kms_mmu_attach(struct sde_kms *sde_kms, bool secure_only);
+int sde_kms_mmu_detach(struct sde_kms *sde_kms, bool secure_only);
 
 #endif /* __sde_kms_H__ */

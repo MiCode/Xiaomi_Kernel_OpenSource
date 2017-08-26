@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -294,6 +294,40 @@ TRACE_EVENT(rot_bw_ao_as_context,
 			__entry->state ? "Active Only" : "Active+Sleep")
 
 );
+
+#define SDE_ROT_TRACE_EVTLOG_SIZE	15
+TRACE_EVENT(sde_rot_evtlog,
+	TP_PROTO(const char *tag, u32 tag_id, u32 cnt, u32 data[]),
+	TP_ARGS(tag, tag_id, cnt, data),
+	TP_STRUCT__entry(
+			__field(int, pid)
+			__string(evtlog_tag, tag)
+			__field(u32, tag_id)
+			__array(u32, data, SDE_ROT_TRACE_EVTLOG_SIZE)
+	),
+	TP_fast_assign(
+			__entry->pid = current->tgid;
+			__assign_str(evtlog_tag, tag);
+			__entry->tag_id = tag_id;
+			if (cnt > SDE_ROT_TRACE_EVTLOG_SIZE)
+				cnt = SDE_ROT_TRACE_EVTLOG_SIZE;
+			memcpy(__entry->data, data, cnt * sizeof(u32));
+			memset(&__entry->data[cnt], 0,
+				(SDE_ROT_TRACE_EVTLOG_SIZE - cnt) *
+				sizeof(u32));
+	),
+	TP_printk("%d|%s:%d|%x|%x|%x|%x|%x|%x|%x|%x|%x|%x|%x|%x|%x|%x|%x",
+			__entry->pid, __get_str(evtlog_tag),
+			__entry->tag_id,
+			__entry->data[0], __entry->data[1],
+			__entry->data[2], __entry->data[3],
+			__entry->data[4], __entry->data[5],
+			__entry->data[6], __entry->data[7],
+			__entry->data[8], __entry->data[9],
+			__entry->data[10], __entry->data[11],
+			__entry->data[12], __entry->data[13],
+			__entry->data[14])
+)
 
 #endif /* if !defined(TRACE_SDE_ROTATOR_H) ||
 	*		defined(TRACE_HEADER_MULTI_READ)

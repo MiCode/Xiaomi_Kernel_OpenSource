@@ -178,4 +178,11 @@ config QCOM_GENI_SE
 	  module is used to configure and read the configuration from the
 	  Serial Engines.
 
+config MSM_EXT_DISPLAY
+	bool "MSM External Display Driver"
+	help
+	  Enabling this option adds MSM External Display Driver.
+	  External Display driver was added to support the communication
+	  between external display driver and its counterparts.
+
 endmenu

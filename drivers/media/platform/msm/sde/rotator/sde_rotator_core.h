@@ -141,6 +141,12 @@ enum sde_rotator_trigger {
 	SDE_ROTATOR_TRIGGER_COMMAND,
 };
 
+enum sde_rotator_mode {
+	SDE_ROTATOR_MODE_OFFLINE,
+	SDE_ROTATOR_MODE_SBUF,
+	SDE_ROTATOR_MODE_MAX,
+};
+
 struct sde_rotation_item {
 	/* rotation request flag */
 	uint32_t	flags;
@@ -463,9 +469,9 @@ struct sde_rot_mgr {
 	int (*ops_hw_validate_entry)(struct sde_rot_mgr *mgr,
 			struct sde_rot_entry *entry);
 	u32 (*ops_hw_get_pixfmt)(struct sde_rot_mgr *mgr, int index,
-			bool input);
+			bool input, u32 mode);
 	int (*ops_hw_is_valid_pixfmt)(struct sde_rot_mgr *mgr, u32 pixfmt,
-			bool input);
+			bool input, u32 mode);
 	int (*ops_hw_get_downscale_caps)(struct sde_rot_mgr *mgr, char *caps,
 			int len);
 	int (*ops_hw_get_maxlinewidth)(struct sde_rot_mgr *mgr);
@@ -474,19 +480,19 @@ struct sde_rot_mgr {
 };
 
 static inline int sde_rotator_is_valid_pixfmt(struct sde_rot_mgr *mgr,
-		u32 pixfmt, bool input)
+		u32 pixfmt, bool input, u32 mode)
 {
 	if (mgr && mgr->ops_hw_is_valid_pixfmt)
-		return mgr->ops_hw_is_valid_pixfmt(mgr, pixfmt, input);
+		return mgr->ops_hw_is_valid_pixfmt(mgr, pixfmt, input, mode);
 
 	return false;
 }
 
 static inline u32 sde_rotator_get_pixfmt(struct sde_rot_mgr *mgr,
-		int index, bool input)
+		int index, bool input, u32 mode)
 {
 	if (mgr && mgr->ops_hw_get_pixfmt)
-		return mgr->ops_hw_get_pixfmt(mgr, index, input);
+		return mgr->ops_hw_get_pixfmt(mgr, index, input, mode);
 
 	return 0;
 }

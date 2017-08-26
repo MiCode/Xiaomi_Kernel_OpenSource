@@ -45,7 +45,7 @@
 #include "adsprpc_compat.h"
 #include "adsprpc_shared.h"
 #include <linux/debugfs.h>
-
+#include <linux/pm_qos.h>
 #define TZ_PIL_PROTECT_MEM_SUBSYS_ID 0x0C
 #define TZ_PIL_CLEAR_PROTECT_MEM_SUBSYS_ID 0x0D
 #define TZ_PIL_AUTH_QDSP6_PROC 1
@@ -73,6 +73,7 @@
 #define PERF_KEYS "count:flush:map:copy:glink:getargs:putargs:invalidate:invoke"
 #define FASTRPC_STATIC_HANDLE_LISTENER (3)
 #define FASTRPC_STATIC_HANDLE_MAX (20)
+#define FASTRPC_LATENCY_CTRL_ENB  (1)
 
 #define PERF_END (void)0
 
@@ -235,6 +236,7 @@ struct fastrpc_apps {
 	spinlock_t hlock;
 	struct ion_client *client;
 	struct device *dev;
+	unsigned int latency;
 };
 
 struct fastrpc_mmap {
@@ -284,9 +286,12 @@ struct fastrpc_file {
 	int cid;
 	int ssrcount;
 	int pd;
+	int file_close;
 	struct fastrpc_apps *apps;
 	struct fastrpc_perf perf;
 	struct dentry *debugfs_file;
+	struct pm_qos_request pm_qos_req;
+	int qos_request;
 };
 
 static struct fastrpc_apps gfa;
@@ -480,7 +485,7 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map)
 
 	if (!IS_ERR_OR_NULL(map->handle))
 		ion_free(fl->apps->client, map->handle);
-	if (sess->smmu.enabled) {
+	if (sess && sess->smmu.enabled) {
 		if (map->size || map->phys)
 			msm_dma_unmap_sg(sess->dev,
 				map->table->sgl,
@@ -558,7 +563,9 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 		sess = fl->secsctx;
 	else
 		sess = fl->sctx;
-
+	VERIFY(err, !IS_ERR_OR_NULL(sess));
+	if (err)
+		goto bail;
 	VERIFY(err, !IS_ERR_OR_NULL(map->buf = dma_buf_get(fd)));
 	if (err)
 		goto bail;
@@ -1399,6 +1406,14 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 
 	if (fl->profile)
 		getnstimeofday(&invoket);
+
+	VERIFY(err, fl->sctx != NULL);
+	if (err)
+		goto bail;
+	VERIFY(err, fl->cid >= 0 && fl->cid < NUM_CHANNELS);
+	if (err)
+		goto bail;
+
 	if (!kernel) {
 		VERIFY(err, 0 == context_restore_interrupted(fl, inv,
 								&ctx));
@@ -1888,6 +1903,9 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 		return 0;
 	}
 	(void)fastrpc_release_current_dsp_process(fl);
+	spin_lock(&fl->hlock);
+	fl->file_close = 1;
+	spin_unlock(&fl->hlock);
 	fastrpc_context_list_dtor(fl);
 	fastrpc_buf_list_free(fl);
 	hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
@@ -1909,6 +1927,8 @@ static int fastrpc_device_release(struct inode *inode, struct file *file)
 	struct fastrpc_file *fl = (struct fastrpc_file *)file->private_data;
 
 	if (fl) {
+		if (fl->qos_request && pm_qos_request_active(&fl->pm_qos_req))
+			pm_qos_remove_request(&fl->pm_qos_req);
 		if (fl->debugfs_file != NULL)
 			debugfs_remove(fl->debugfs_file);
 		fastrpc_file_free(fl);
@@ -2088,16 +2108,16 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 		spin_lock(&fl->hlock);
 		hlist_for_each_entry_safe(buf, n, &fl->bufs, hn) {
 			len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-						"%s %p %s %p %s %llx\n", "buf:",
-						buf, "buf->virt:", buf->virt,
-						"buf->phys:", buf->phys);
+					"%s %pK %s %pK %s %llx\n", "buf:",
+					buf, "buf->virt:", buf->virt,
+					"buf->phys:", buf->phys);
 		}
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
 					"\n%s\n",
 					"LIST OF MAPS:");
 		hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
 			len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-						"%s %p %s %lx %s %llx\n",
+						"%s %pK %s %lx %s %llx\n",
 						"map:", map,
 						"map->va:", map->va,
 						"map->phys:", map->phys);
@@ -2107,7 +2127,7 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 					"LIST OF PENDING SMQCONTEXTS:");
 		hlist_for_each_entry_safe(ictx, n, &fl->clst.pending, hn) {
 			len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-						"%s %p %s %u %s %u %s %u\n",
+						"%s %pK %s %u %s %u %s %u\n",
 						"smqcontext:", ictx,
 						"sc:", ictx->sc,
 						"tid:", ictx->pid,
@@ -2118,7 +2138,7 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 					"LIST OF INTERRUPTED SMQCONTEXTS:");
 		hlist_for_each_entry_safe(ictx, n, &fl->clst.interrupted, hn) {
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-					"%s %p %s %u %s %u %s %u\n",
+					"%s %pK %s %u %s %u %s %u\n",
 					"smqcontext:", ictx,
 					"sc:", ictx->sc,
 					"tid:", ictx->pid,
@@ -2172,6 +2192,11 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 		kref_init(&me->channel[cid].kref);
 		pr_info("'opened /dev/%s c %d %d'\n", gcinfo[cid].name,
 						MAJOR(me->dev_no), cid);
+		err = glink_queue_rx_intent(me->channel[cid].chan, NULL, 16);
+		err |= glink_queue_rx_intent(me->channel[cid].chan, NULL, 64);
+		if (err)
+			pr_warn("adsprpc: initial intent fail for %d err %d\n",
+					 cid, err);
 		if (me->channel[cid].ssrcount !=
 				 me->channel[cid].prevssrcount) {
 			me->channel[cid].prevssrcount =
@@ -2208,6 +2233,7 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	if (debugfs_file != NULL)
 		fl->debugfs_file = debugfs_file;
 	memset(&fl->perf, 0, sizeof(fl->perf));
+	fl->qos_request = 0;
 	filp->private_data = fl;
 	spin_lock(&me->hlock);
 	hlist_add_head(&fl->hn, &me->drivers);
@@ -2235,7 +2261,45 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 		if (err)
 			goto bail;
 	}
+	VERIFY(err, fl->sctx != NULL);
+	if (err)
+		goto bail;
 	*info = (fl->sctx->smmu.enabled ? 1 : 0);
+bail:
+	return err;
+}
+
+static int fastrpc_internal_control(struct fastrpc_file *fl,
+					struct fastrpc_ioctl_control *cp)
+{
+	int err = 0;
+	int latency;
+
+	VERIFY(err, !IS_ERR_OR_NULL(fl) && !IS_ERR_OR_NULL(fl->apps));
+	if (err)
+		goto bail;
+	VERIFY(err, !IS_ERR_OR_NULL(cp));
+	if (err)
+		goto bail;
+
+	switch (cp->req) {
+	case FASTRPC_CONTROL_LATENCY:
+		latency = cp->lp.enable == FASTRPC_LATENCY_CTRL_ENB ?
+			fl->apps->latency : PM_QOS_DEFAULT_VALUE;
+		VERIFY(err, latency != 0);
+		if (err)
+			goto bail;
+		if (!fl->qos_request) {
+			pm_qos_add_request(&fl->pm_qos_req,
+				PM_QOS_CPU_DMA_LATENCY, latency);
+			fl->qos_request = 1;
+		} else
+			pm_qos_update_request(&fl->pm_qos_req, latency);
+		break;
+	default:
+		err = -ENOTTY;
+		break;
+	}
 bail:
 	return err;
 }
@@ -2249,6 +2313,7 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 		struct fastrpc_ioctl_munmap munmap;
 		struct fastrpc_ioctl_init_attrs init;
 		struct fastrpc_ioctl_perf perf;
+		struct fastrpc_ioctl_control cp;
 	} p;
 	void *param = (char *)ioctl_param;
 	struct fastrpc_file *fl = (struct fastrpc_file *)file->private_data;
@@ -2258,6 +2323,14 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 	p.inv.fds = 0;
 	p.inv.attrs = 0;
 	p.inv.crc = NULL;
+	spin_lock(&fl->hlock);
+	if (fl->file_close == 1) {
+		err = EBADF;
+		pr_warn("ADSPRPC: fastrpc_device_release is happening, So not sending any new requests to DSP");
+		spin_unlock(&fl->hlock);
+		goto bail;
+	}
+	spin_unlock(&fl->hlock);
 
 	switch (ioctl_num) {
 	case FASTRPC_IOCTL_INVOKE:
@@ -2340,6 +2413,15 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 		if (err)
 			goto bail;
 		break;
+	case FASTRPC_IOCTL_CONTROL:
+		VERIFY(err, 0 == copy_from_user(&p.cp, (void __user *)param,
+				sizeof(p.cp)));
+		if (err)
+			goto bail;
+		VERIFY(err, 0 == (err = fastrpc_internal_control(fl, &p.cp)));
+		if (err)
+			goto bail;
+		break;
 	case FASTRPC_IOCTL_GETINFO:
 	    VERIFY(err, 0 == copy_from_user(&info, param, sizeof(info)));
 		if (err)
@@ -2360,6 +2442,10 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 		if (!size)
 			size = sizeof(struct fastrpc_ioctl_init_attrs);
 		VERIFY(err, 0 == copy_from_user(&p.init, param, size));
+		if (err)
+			goto bail;
+		VERIFY(err, p.init.init.filelen >= 0 &&
+			p.init.init.memlen >= 0);
 		if (err)
 			goto bail;
 		VERIFY(err, 0 == fastrpc_init_process(fl, &p.init));
@@ -2459,7 +2545,7 @@ static int fastrpc_cb_probe(struct device *dev)
 		start = 0x60000000;
 	VERIFY(err, !IS_ERR_OR_NULL(sess->smmu.mapping =
 				arm_iommu_create_mapping(&platform_bus_type,
-						start, 0x7fffffff)));
+						start, 0x78000000)));
 	if (err)
 		goto bail;
 
@@ -2535,6 +2621,10 @@ static int fastrpc_probe(struct platform_device *pdev)
 		return 0;
 	}
 
+	err = of_property_read_u32(dev->of_node, "qcom,rpc-latency-us",
+		&me->latency);
+	if (err)
+		me->latency = 0;
 	VERIFY(err, !of_platform_populate(pdev->dev.of_node,
 					  fastrpc_match_table,
 					  NULL, &pdev->dev));

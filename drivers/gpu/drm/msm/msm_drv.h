@@ -216,10 +216,12 @@ enum msm_display_caps {
  * enum msm_event_wait - type of HW events to wait for
  * @MSM_ENC_COMMIT_DONE - wait for the driver to flush the registers to HW
  * @MSM_ENC_TX_COMPLETE - wait for the HW to transfer the frame to panel
+ * @MSM_ENC_VBLANK - wait for the HW VBLANK event (for driver-internal waiters)
  */
 enum msm_event_wait {
 	MSM_ENC_COMMIT_DONE = 0,
 	MSM_ENC_TX_COMPLETE,
+	MSM_ENC_VBLANK,
 };
 
 /**
@@ -387,10 +389,22 @@ struct msm_display_topology {
 
 /**
  * struct msm_mode_info - defines all msm custom mode info
- * @topology - supported topology for the mode
+ * @frame_rate:      frame_rate of the mode
+ * @vtotal:          vtotal calculated for the mode
+ * @prefill_lines:   prefill lines based on porches.
+ * @jitter_numer:	display panel jitter numerator configuration
+ * @jitter_denom:	display panel jitter denominator configuration
+ * @topology:        supported topology for the mode
+ * @comp_info:       compression info supported
  */
 struct msm_mode_info {
+	uint32_t frame_rate;
+	uint32_t vtotal;
+	uint32_t prefill_lines;
+	uint32_t jitter_numer;
+	uint32_t jitter_denom;
 	struct msm_display_topology topology;
+	struct msm_compression_info comp_info;
 };
 
 /**
@@ -410,12 +424,6 @@ struct msm_mode_info {
  * @is_primary:         Set to true if display is primary display
  * @is_te_using_watchdog_timer:  Boolean to indicate watchdog TE is
  *				 used instead of panel TE in cmd mode panels
- * @frame_rate:		Display frame rate
- * @prefill_lines:	prefill lines based on porches.
- * @vtotal:		display vertical total
- * @jitter_numer:	display panel jitter numerator configuration
- * @jitter_denom:	display panel jitter denominator configuration
- * @comp_info:          Compression supported by the display
  * @roi_caps:           Region of interest capability info
  */
 struct msm_display_info {
@@ -435,13 +443,6 @@ struct msm_display_info {
 
 	bool is_primary;
 	bool is_te_using_watchdog_timer;
-	uint32_t frame_rate;
-	uint32_t prefill_lines;
-	uint32_t vtotal;
-	uint32_t jitter_numer;
-	uint32_t jitter_denom;
-
-	struct msm_compression_info comp_info;
 	struct msm_roi_caps roi_caps;
 };
 
@@ -590,10 +591,6 @@ struct msm_drm_private {
 	 */
 	struct task_struct *struct_mutex_task;
 
-	/* saved atomic state during system suspend */
-	struct drm_atomic_state *suspend_state;
-	bool suspend_block;
-
 	/* list of clients waiting for events */
 	struct list_head client_event_list;
 
@@ -604,12 +601,14 @@ struct msm_drm_private {
 	struct dentry *debug_root;
 };
 
+/* get struct msm_kms * from drm_device * */
+#define ddev_to_msm_kms(D) ((D) && (D)->dev_private ? \
+		((struct msm_drm_private *)((D)->dev_private))->kms : NULL)
+
 struct msm_format {
 	uint32_t pixel_format;
 };
 
-int msm_atomic_check(struct drm_device *dev,
-		     struct drm_atomic_state *state);
 /* callback from wq once fence has passed: */
 struct msm_fence_cb {
 	struct work_struct work;
@@ -623,25 +622,6 @@ void __msm_fence_worker(struct work_struct *work);
 		INIT_WORK(&(_cb)->work, __msm_fence_worker); \
 		(_cb)->func = _func;                         \
 	} while (0)
-
-static inline bool msm_is_suspend_state(struct drm_device *dev)
-{
-	if (!dev || !dev->dev_private)
-		return false;
-
-	return ((struct msm_drm_private *)dev->dev_private)->suspend_state != 0;
-}
-
-static inline bool msm_is_suspend_blocked(struct drm_device *dev)
-{
-	if (!dev || !dev->dev_private)
-		return false;
-
-	if (!msm_is_suspend_state(dev))
-		return false;
-
-	return ((struct msm_drm_private *)dev->dev_private)->suspend_block != 0;
-}
 
 int msm_atomic_commit(struct drm_device *dev,
 		struct drm_atomic_state *state, bool nonblock);
@@ -662,12 +642,56 @@ msm_gem_address_space_create(struct device *dev, struct iommu_domain *domain,
 
 /* For SDE  display */
 struct msm_gem_address_space *
-msm_gem_smmu_address_space_create(struct device *dev, struct msm_mmu *mmu,
+msm_gem_smmu_address_space_create(struct drm_device *dev, struct msm_mmu *mmu,
 		const char *name);
 
+/**
+ * msm_gem_add_obj_to_aspace_active_list: adds obj to active obj list in aspace
+ */
+void msm_gem_add_obj_to_aspace_active_list(
+		struct msm_gem_address_space *aspace,
+		struct drm_gem_object *obj);
+
+/**
+ * msm_gem_remove_obj_from_aspace_active_list: removes obj from  active obj
+ * list in aspace
+ */
+void msm_gem_remove_obj_from_aspace_active_list(
+		struct msm_gem_address_space *aspace,
+		struct drm_gem_object *obj);
+
+/**
+ * msm_gem_smmu_address_space_get: returns the aspace pointer for the requested
+ * domain
+ */
 struct msm_gem_address_space *
 msm_gem_smmu_address_space_get(struct drm_device *dev,
 		unsigned int domain);
+
+/**
+ * msm_gem_aspace_domain_attach_detach: function to inform the attach/detach
+ * of the domain for this aspace
+ */
+void msm_gem_aspace_domain_attach_detach_update(
+		struct msm_gem_address_space *aspace,
+		bool is_detach);
+
+/**
+ * msm_gem_address_space_register_cb: function to register callback for attach
+ * and detach of the domain
+ */
+int msm_gem_address_space_register_cb(
+		struct msm_gem_address_space *aspace,
+		void (*cb)(void *, bool),
+		void *cb_data);
+
+/**
+ * msm_gem_address_space_register_cb: function to unregister callback
+ */
+int msm_gem_address_space_unregister_cb(
+		struct msm_gem_address_space *aspace,
+		void (*cb)(void *, bool),
+		void *cb_data);
 
 int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 		struct drm_file *file);
@@ -690,6 +714,7 @@ struct page **msm_gem_get_pages(struct drm_gem_object *obj);
 void msm_gem_put_pages(struct drm_gem_object *obj);
 void msm_gem_put_iova(struct drm_gem_object *obj,
 		struct msm_gem_address_space *aspace);
+dma_addr_t msm_gem_get_dma_addr(struct drm_gem_object *obj);
 int msm_gem_dumb_create(struct drm_file *file, struct drm_device *dev,
 		struct drm_mode_create_dumb *args);
 int msm_gem_dumb_map_offset(struct drm_file *file, struct drm_device *dev,
@@ -732,6 +757,7 @@ void msm_framebuffer_cleanup(struct drm_framebuffer *fb,
 		struct msm_gem_address_space *aspace);
 uint32_t msm_framebuffer_iova(struct drm_framebuffer *fb,
 		struct msm_gem_address_space *aspace, int plane);
+uint32_t msm_framebuffer_phys(struct drm_framebuffer *fb, int plane);
 struct drm_gem_object *msm_framebuffer_bo(struct drm_framebuffer *fb, int plane);
 const struct msm_format *msm_framebuffer_format(struct drm_framebuffer *fb);
 struct drm_framebuffer *msm_framebuffer_init(struct drm_device *dev,

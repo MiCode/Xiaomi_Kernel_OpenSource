@@ -453,7 +453,7 @@
 	};
 
 	apc1_cpr: cprh-ctrl@17db0000 {
-		compatible = "qcom,cprh-sdm845-kbss-regulator";
+		compatible = "qcom,cprh-sdm845-v1-kbss-regulator";
 		reg =	<0x17db0000 0x4000>,
 			<0x00784000 0x1000>,
 			<0x17830000 0x1000>;
@@ -792,6 +792,14 @@
 			regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_OFF>;
 			regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
 		};
+
+		mx_cdev: mx-cdev-lvl {
+			compatible = "qcom,regulator-cooling-device";
+			regulator-cdev-supply = <&pm8998_s6_level>;
+			regulator-levels = <RPMH_REGULATOR_LEVEL_NOM
+					RPMH_REGULATOR_LEVEL_OFF>;
+			#cooling-cells = <2>;
+		};
 	};
 
 	rpmh-regulator-smpa7 {
@@ -854,6 +862,25 @@
 			qcom,init-voltage = <880000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LDO_LPM>;
 		};
+
+		pm8998_l1_ao: regulator-l1-ao {
+			regulator-name = "pm8998_l1_ao";
+			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
+			regulator-min-microvolt = <880000>;
+			regulator-max-microvolt = <880000>;
+			qcom,init-voltage = <880000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LDO_LPM>;
+		};
+
+		regulator-l1-so {
+			regulator-name = "pm8998_l1_so";
+			qcom,set = <RPMH_REGULATOR_SET_SLEEP>;
+			regulator-min-microvolt = <880000>;
+			regulator-max-microvolt = <880000>;
+			qcom,init-voltage = <880000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LDO_LPM>;
+			qcom,init-enable = <0>;
+		};
 	};
 
 	rpmh-regulator-ldoa2 {
@@ -903,13 +930,6 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_OFF>;
 			regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
-		};
-
-		mx_cdev: regulator-cdev {
-			compatible = "qcom,rpmh-reg-cdev";
-			mboxes = <&qmp_aop 0>;
-			qcom,reg-resource-name = "mx";
-			#cooling-cells = <2>;
 		};
 	};
 
@@ -1421,21 +1441,13 @@
 		};
 	};
 
-	ext_5v_boost: ext_5v_boost {
+	refgen: refgen-regulator@ff1000 {
+		compatible = "qcom,refgen-regulator";
+		reg = <0xff1000 0x60>;
+		regulator-name = "refgen";
+		regulator-enable-ramp-delay = <5>;
 		status = "disabled";
-		compatible = "regulator-fixed";
-		regulator-name = "ext_5v_boost";
-		gpio = <&pmi8998_gpios 10 GPIO_ACTIVE_HIGH>;
-		enable-active-high;
-
-		regulator-enable-ramp-delay = <1600>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&usb2_ext_5v_boost_default>;
-	};
-};
-
-&pmi8998_charger {
-	smb2_vconn: qcom,smb2-vconn {
-		regulator-name = "smb2-vconn";
+		proxy-supply = <&refgen>;
+		qcom,proxy-consumer-enable;
 	};
 };

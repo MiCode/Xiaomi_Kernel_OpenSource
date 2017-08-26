@@ -68,6 +68,7 @@
 #define CHRK_SB_PGD_PORT_WM_L1			(0x1 << 1)
 #define CHRK_SB_PGD_PORT_WM_L2			(0x2 << 1)
 #define CHRK_SB_PGD_PORT_WM_L3			(0x3 << 1)
+#define CHRK_SB_PGD_PORT_WM_L8			(0x8 << 1)
 #define CHRK_SB_PGD_PORT_WM_LB			(0xB << 1)
 
 #define CHRK_SB_PGD_PORT_RX_NUM			16

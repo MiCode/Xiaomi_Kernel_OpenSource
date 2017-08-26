@@ -9,6 +9,7 @@ config ARM64
 	select ARCH_HAS_DEVMEM_IS_ALLOWED
 	select ARCH_HAS_ACPI_TABLE_UPGRADE if ACPI
 	select ARCH_HAS_ELF_RANDOMIZE
+	select ARCH_HAS_FORTIFY_SOURCE
 	select ARCH_HAS_GCOV_PROFILE_ALL
 	select ARCH_HAS_GIGANTIC_PAGE
 	select ARCH_HAS_KCOV
@@ -595,7 +596,7 @@ config HOTPLUG_CPU
 # selected platforms.
 config ARCH_NR_GPIO
 	int
-	default 1024 if ARCH_QCOM
+	default 1280 if ARCH_QCOM
 	default 256
 	help
 	  Maximum number of GPIOs in the system.

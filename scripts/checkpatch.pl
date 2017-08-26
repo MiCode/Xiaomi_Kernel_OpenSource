@@ -2963,6 +2963,20 @@ sub process {
 # check we are in a valid source file if not then ignore this hunk
 		next if ($realfile !~ /\.(h|c|s|S|pl|sh|dtsi|dts)$/);
 
+# do DT checks:
+#       * Property names should be lower-case
+#       * Only newline after };
+
+		if ($realfile =~ /\.(dts|dtsi)$/ && $line =~ /^\+/) {
+			if($line =~ /\};.+$/) { # check for any characters after };
+				ERROR("DT_STYLE", "newline does not follow immediately after };\n" . $herecurr);
+			}
+
+			if($line =~ /[0-9a-zA-Z,\._\+\?#]+\s*=/ && $line !~ /[0-9a-z,\._\+\?#]+\s*=/) { # find property names with uppercase characters
+				ERROR("DT_PROPERTY_NAME", "property name is not lowercase\n" . $herecurr);
+			}
+		}
+
 # line length limit (with some exclusions)
 #
 # There are a few types of lines that may extend beyond $max_line_length:
@@ -3654,7 +3668,7 @@ sub process {
 				$fixedline =~ s/\s*=\s*$/ = {/;
 				fix_insert_line($fixlinenr, $fixedline);
 				$fixedline = $line;
-				$fixedline =~ s/^(.\s*){\s*/$1/;
+				$fixedline =~ s/^(.\s*)\{\s*/$1/;
 				fix_insert_line($fixlinenr, $fixedline);
 			}
 		}
@@ -3995,7 +4009,7 @@ sub process {
 				my $fixedline = rtrim($prevrawline) . " {";
 				fix_insert_line($fixlinenr, $fixedline);
 				$fixedline = $rawline;
-				$fixedline =~ s/^(.\s*){\s*/$1\t/;
+				$fixedline =~ s/^(.\s*)\{\s*/$1\t/;
 				if ($fixedline !~ /^\+\s*$/) {
 					fix_insert_line($fixlinenr, $fixedline);
 				}
@@ -4484,7 +4498,7 @@ sub process {
 			if (ERROR("SPACING",
 				  "space required before the open brace '{'\n" . $herecurr) &&
 			    $fix) {
-				$fixed[$fixlinenr] =~ s/^(\+.*(?:do|\))){/$1 {/;
+				$fixed[$fixlinenr] =~ s/^(\+.*(?:do|\)))\{/$1 {/;
 			}
 		}
 

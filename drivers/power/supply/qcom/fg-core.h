@@ -49,7 +49,7 @@
 #define SRAM_READ		"fg_sram_read"
 #define SRAM_WRITE		"fg_sram_write"
 #define PROFILE_LOAD		"fg_profile_load"
-#define DELTA_SOC		"fg_delta_soc"
+#define TTF_PRIMING		"fg_ttf_priming"
 
 /* Delta BSOC irq votable reasons */
 #define DELTA_BSOC_IRQ_VOTER	"fg_delta_bsoc_irq"
@@ -67,6 +67,7 @@
 #define MAX_LINE_LENGTH			(ADDR_LEN + (ITEMS_PER_LINE *	\
 					CHARS_PER_ITEM) + 1)		\
 
+#define NUM_PARTITIONS			3
 #define FG_SRAM_ADDRESS_MAX		255
 #define FG_SRAM_LEN			504
 #define PROFILE_LEN			224
@@ -80,6 +81,8 @@
 #define SLOPE_LIMIT_COEFF_MAX		31
 
 #define BATT_THERM_NUM_COEFFS		3
+
+#define MAX_CC_STEPS			20
 
 /* Debug flag definitions */
 enum fg_debug_flag {
@@ -192,6 +195,18 @@ struct fg_sram_param {
 		int val);
 };
 
+struct fg_dma_address {
+	/* Starting word address of the partition */
+	u16 partition_start;
+	/* Last word address of the partition */
+	u16 partition_end;
+	/*
+	 * Byte offset in the FG_DMA peripheral that maps to the partition_start
+	 * in SRAM
+	 */
+	u16 spmi_addr_base;
+};
+
 enum fg_alg_flag_id {
 	ALG_FLAG_SOC_LT_OTG_MIN = 0,
 	ALG_FLAG_SOC_LT_RECHARGE,
@@ -226,6 +241,11 @@ enum esr_timer_config {
 	TIMER_RETRY = 0,
 	TIMER_MAX,
 	NUM_ESR_TIMERS,
+};
+
+enum ttf_mode {
+	TTF_MODE_NORMAL = 0,
+	TTF_MODE_QNOVO,
 };
 
 /* DT parameters for FG device */
@@ -265,6 +285,7 @@ struct fg_dt_props {
 	int	slope_limit_temp;
 	int	esr_pulse_thresh_ma;
 	int	esr_meas_curr_ma;
+	int	bmd_en_delay_ms;
 	int	jeita_thresholds[NUM_JEITA_LEVELS];
 	int	ki_coeff_soc[KI_COEFF_SOC_LEVELS];
 	int	ki_coeff_med_dischg[KI_COEFF_SOC_LEVELS];
@@ -309,14 +330,29 @@ struct fg_irq_info {
 };
 
 struct fg_circ_buf {
-	int	arr[20];
+	int	arr[10];
 	int	size;
 	int	head;
+};
+
+struct fg_cc_step_data {
+	int arr[MAX_CC_STEPS];
+	int sel;
 };
 
 struct fg_pt {
 	s32 x;
 	s32 y;
+};
+
+struct ttf {
+	struct fg_circ_buf	ibatt;
+	struct fg_circ_buf	vbatt;
+	struct fg_cc_step_data	cc_step;
+	struct mutex		lock;
+	int			mode;
+	int			last_ttf;
+	s64			last_ms;
 };
 
 static const struct fg_pt fg_ln_table[] = {
@@ -358,14 +394,15 @@ struct fg_chip {
 	struct power_supply	*usb_psy;
 	struct power_supply	*dc_psy;
 	struct power_supply	*parallel_psy;
+	struct power_supply	*pc_port_psy;
 	struct iio_channel	*batt_id_chan;
 	struct iio_channel	*die_temp_chan;
-	struct fg_memif		*sram;
 	struct fg_irq_info	*irqs;
 	struct votable		*awake_votable;
 	struct votable		*delta_bsoc_irq_en_votable;
 	struct votable		*batt_miss_irq_en_votable;
 	struct fg_sram_param	*sp;
+	struct fg_dma_address	*addr_map;
 	struct fg_alg_flag	*alg_flags;
 	int			*debug_mask;
 	char			batt_profile[PROFILE_LEN];
@@ -374,9 +411,9 @@ struct fg_chip {
 	struct fg_cyc_ctr_data	cyc_ctr;
 	struct notifier_block	nb;
 	struct fg_cap_learning  cl;
+	struct ttf		ttf;
 	struct mutex		bus_lock;
 	struct mutex		sram_rw_lock;
-	struct mutex		batt_avg_lock;
 	struct mutex		charge_full_lock;
 	u32			batt_soc_base;
 	u32			batt_info_base;
@@ -389,6 +426,7 @@ struct fg_chip {
 	int			prev_charge_status;
 	int			charge_done;
 	int			charge_type;
+	int			online_status;
 	int			last_soc;
 	int			last_batt_temp;
 	int			health;
@@ -409,15 +447,14 @@ struct fg_chip {
 	bool			esr_flt_cold_temp_en;
 	bool			slope_limit_en;
 	bool			use_ima_single_mode;
+	bool			use_dma;
 	struct completion	soc_update;
 	struct completion	soc_ready;
+	struct completion	mem_grant;
 	struct delayed_work	profile_load_work;
 	struct work_struct	status_change_work;
-	struct work_struct	cycle_count_work;
-	struct delayed_work	batt_avg_work;
+	struct delayed_work	ttf_work;
 	struct delayed_work	sram_dump_work;
-	struct fg_circ_buf	ibatt_circ_buf;
-	struct fg_circ_buf	vbatt_circ_buf;
 };
 
 /* Debugfs data structures are below */
@@ -459,10 +496,15 @@ extern int fg_interleaved_mem_read(struct fg_chip *chip, u16 address,
 			u8 offset, u8 *val, int len);
 extern int fg_interleaved_mem_write(struct fg_chip *chip, u16 address,
 			u8 offset, u8 *val, int len, bool atomic_access);
+extern int fg_direct_mem_read(struct fg_chip *chip, u16 address,
+			u8 offset, u8 *val, int len);
+extern int fg_direct_mem_write(struct fg_chip *chip, u16 address,
+			u8 offset, u8 *val, int len, bool atomic_access);
 extern int fg_read(struct fg_chip *chip, int addr, u8 *val, int len);
 extern int fg_write(struct fg_chip *chip, int addr, u8 *val, int len);
 extern int fg_masked_write(struct fg_chip *chip, int addr, u8 mask, u8 val);
 extern int fg_ima_init(struct fg_chip *chip);
+extern int fg_dma_init(struct fg_chip *chip);
 extern int fg_clear_ima_errors_if_any(struct fg_chip *chip, bool check_hw_sts);
 extern int fg_clear_dma_errors_if_any(struct fg_chip *chip);
 extern int fg_debugfs_create(struct fg_chip *chip);
@@ -475,6 +517,7 @@ extern bool is_qnovo_en(struct fg_chip *chip);
 extern void fg_circ_buf_add(struct fg_circ_buf *buf, int val);
 extern void fg_circ_buf_clr(struct fg_circ_buf *buf);
 extern int fg_circ_buf_avg(struct fg_circ_buf *buf, int *avg);
+extern int fg_circ_buf_median(struct fg_circ_buf *buf, int *median);
 extern int fg_lerp(const struct fg_pt *pts, size_t tablesize, s32 input,
 			s32 *output);
 #endif

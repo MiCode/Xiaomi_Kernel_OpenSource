@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,7 +34,7 @@ static void dsi_display_test_work(struct work_struct *work)
 	test = container_of(work, struct dsi_display_test, test_work);
 
 	display = test->display;
-	rc = dsi_display_get_modes(display, NULL, &count);
+	rc = dsi_display_get_mode_count(display, &count);
 	if (rc) {
 		pr_err("failed to get modes count, rc=%d\n", rc);
 		goto test_fail;
@@ -47,7 +47,7 @@ static void dsi_display_test_work(struct work_struct *work)
 		goto test_fail;
 	}
 
-	rc = dsi_display_get_modes(display, modes, &count);
+	rc = dsi_display_get_modes(display, modes);
 	if (rc) {
 		pr_err("failed to get modes, rc=%d\n", rc);
 		goto test_fail_free_modes;

@@ -56,6 +56,8 @@ static void dsi_catalog_cmn_init(struct dsi_ctrl_hw *ctrl,
 		dsi_ctrl_hw_cmn_trigger_cmd_test_pattern;
 	ctrl->ops.clear_phy0_ln_err = dsi_ctrl_hw_dln0_phy_err;
 	ctrl->ops.phy_reset_config = dsi_ctrl_hw_cmn_phy_reset_config;
+	ctrl->ops.setup_misr = dsi_ctrl_hw_cmn_setup_misr;
+	ctrl->ops.collect_misr = dsi_ctrl_hw_cmn_collect_misr;
 
 	switch (version) {
 	case DSI_CTRL_VERSION_1_4:
@@ -106,14 +108,15 @@ static void dsi_catalog_cmn_init(struct dsi_ctrl_hw *ctrl,
  * @ctrl:        Pointer to DSI controller hw object.
  * @version:     DSI controller version.
  * @index:       DSI controller instance ID.
+ * @phy_isolation_enabled:       DSI controller works isolated from phy.
  *
  * This function setups the catalog information in the dsi_ctrl_hw object.
  *
  * return: error code for failure and 0 for success.
  */
 int dsi_catalog_ctrl_setup(struct dsi_ctrl_hw *ctrl,
-			   enum dsi_ctrl_version version,
-			   u32 index)
+		   enum dsi_ctrl_version version, u32 index,
+		   bool phy_isolation_enabled)
 {
 	int rc = 0;
 
@@ -133,8 +136,11 @@ int dsi_catalog_ctrl_setup(struct dsi_ctrl_hw *ctrl,
 
 	switch (version) {
 	case DSI_CTRL_VERSION_1_4:
+		dsi_catalog_cmn_init(ctrl, version);
+		break;
 	case DSI_CTRL_VERSION_2_0:
 	case DSI_CTRL_VERSION_2_2:
+		ctrl->phy_isolation_enabled = phy_isolation_enabled;
 		dsi_catalog_cmn_init(ctrl, version);
 		break;
 	default:

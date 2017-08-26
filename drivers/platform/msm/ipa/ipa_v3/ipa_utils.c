@@ -21,6 +21,7 @@
 #include "ipa_i.h"
 #include "ipahal/ipahal.h"
 #include "ipahal/ipahal_fltrt.h"
+#include "ipahal/ipahal_hw_stats.h"
 #include "../ipa_rm_i.h"
 
 #define IPA_V3_0_CLK_RATE_SVS (75 * 1000 * 1000UL)
@@ -1141,7 +1142,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 	[IPA_4_0][IPA_CLIENT_ODU_PROD]            = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			true,
-			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
 			{ 1, 0, 8, 16, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_ETHERNET_PROD]	  = {
@@ -1988,7 +1989,7 @@ int ipa3_cfg_route(struct ipahal_reg_route *route)
  */
 int ipa3_cfg_filter(u32 disable)
 {
-	IPAERR("Filter disable is not supported!\n");
+	IPAERR_RL("Filter disable is not supported!\n");
 	return -EPERM;
 }
 
@@ -2123,7 +2124,7 @@ int ipa3_get_ep_mapping(enum ipa_client_type client)
 	int ipa_ep_idx;
 
 	if (client >= IPA_CLIENT_MAX || client < 0) {
-		IPAERR("Bad client number! client =%d\n", client);
+		IPAERR_RL("Bad client number! client =%d\n", client);
 		return IPA_EP_NOT_ALLOCATED;
 	}
 
@@ -3281,19 +3282,19 @@ int ipa3_write_qmap_id(struct ipa_ioc_write_qmapid *param_in)
 	int result = -EINVAL;
 
 	if (param_in->client  >= IPA_CLIENT_MAX) {
-		IPAERR("bad parm client:%d\n", param_in->client);
+		IPAERR_RL("bad parm client:%d\n", param_in->client);
 		goto fail;
 	}
 
 	ipa_ep_idx = ipa3_get_ep_mapping(param_in->client);
 	if (ipa_ep_idx == -1) {
-		IPAERR("Invalid client.\n");
+		IPAERR_RL("Invalid client.\n");
 		goto fail;
 	}
 
 	ep = &ipa3_ctx->ep[ipa_ep_idx];
 	if (!ep->valid) {
-		IPAERR("EP not allocated.\n");
+		IPAERR_RL("EP not allocated.\n");
 		goto fail;
 	}
 
@@ -3307,7 +3308,7 @@ int ipa3_write_qmap_id(struct ipa_ioc_write_qmapid *param_in)
 		ipa3_ctx->ep[ipa_ep_idx].cfg.meta = meta;
 		result = ipa3_write_qmapid_wdi_pipe(ipa_ep_idx, meta.qmap_id);
 		if (result)
-			IPAERR("qmap_id %d write failed on ep=%d\n",
+			IPAERR_RL("qmap_id %d write failed on ep=%d\n",
 					meta.qmap_id, ipa_ep_idx);
 		result = 0;
 	}
@@ -4061,7 +4062,7 @@ static int ipa3_tag_generate_force_close_desc(struct ipa3_desc desc[],
 			IPAHAL_FULL_PIPELINE_CLEAR;
 		reg_write_agg_close.offset =
 			ipahal_get_reg_ofst(IPA_AGGR_FORCE_CLOSE);
-		ipahal_get_aggr_force_close_valmask(1<<i, &valmask);
+		ipahal_get_aggr_force_close_valmask(i, &valmask);
 		reg_write_agg_close.value = valmask.val;
 		reg_write_agg_close.value_mask = valmask.mask;
 		cmd_pyld = ipahal_construct_imm_cmd(IPA_IMM_CMD_REGISTER_WRITE,
@@ -4455,6 +4456,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_create_wdi_mapping = ipa3_create_wdi_mapping;
 	api_ctrl->ipa_get_gsi_ep_info = ipa3_get_gsi_ep_info;
 	api_ctrl->ipa_stop_gsi_channel = ipa3_stop_gsi_channel;
+	api_ctrl->ipa_start_gsi_channel = ipa3_start_gsi_channel;
 	api_ctrl->ipa_register_ipa_ready_cb = ipa3_register_ipa_ready_cb;
 	api_ctrl->ipa_inc_client_enable_clks = ipa3_inc_client_enable_clks;
 	api_ctrl->ipa_dec_client_disable_clks = ipa3_dec_client_disable_clks;

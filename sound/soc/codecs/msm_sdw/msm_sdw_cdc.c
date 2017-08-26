@@ -1376,15 +1376,19 @@ int msm_sdw_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 	struct snd_info_entry *version_entry;
 	struct msm_sdw_priv *msm_sdw;
 	struct snd_soc_card *card;
+	char name[80];
 
 	if (!codec_root || !codec)
 		return -EINVAL;
 
 	msm_sdw = snd_soc_codec_get_drvdata(codec);
 	card = codec->component.card;
+
+	snprintf(name, sizeof(name), "%x.%s", (u32)msm_sdw->sdw_base_addr,
+			"msm-sdw-codec");
 	msm_sdw->entry = snd_info_create_subdir(codec_root->module,
-						  "152c1000.msm-sdw-codec",
-						  codec_root);
+						(const char *)name,
+						codec_root);
 	if (!msm_sdw->entry) {
 		dev_err(codec->dev, "%s: failed to create msm_sdw entry\n",
 			__func__);

@@ -26,6 +26,7 @@
 		REG_DMA_HEADERS_BUFFER_SZ)
 #define GAMUT_SCALE_OFF_LEN (GAMUT_3D_SCALE_OFF_SZ * \
 		GAMUT_3D_SCALE_OFF_TBL_NUM * sizeof(u32))
+#define GAMUT_SCALE_OFF_LEN_12 (GAMUT_3D_SCALEB_OFF_SZ * sizeof(u32))
 
 #define GC_LUT_MEM_SIZE ((sizeof(struct drm_msm_pgc_lut)) + \
 		REG_DMA_HEADERS_BUFFER_SZ)
@@ -430,6 +431,8 @@ void reg_dmav1_setup_dspp_3d_gamutv4(struct sde_hw_dspp *ctx, void *cfg)
 	struct sde_reg_dma_kickoff_cfg kick_off;
 	struct sde_hw_cp_cfg *hw_cfg = cfg;
 	u32 op_mode, reg, tbl_len, tbl_off, scale_off, i;
+	u32 scale_tbl_len, scale_tbl_off;
+	u32 *scale_data;
 	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
 	struct sde_hw_reg_dma_ops *dma_ops;
 	int rc;
@@ -493,14 +496,24 @@ void reg_dmav1_setup_dspp_3d_gamutv4(struct sde_hw_dspp *ctx, void *cfg)
 	}
 
 	if (op_mode & GAMUT_MAP_EN) {
-		REG_DMA_SETUP_OPS(dma_write_cfg,
-			ctx->cap->sblk->gamut.base + scale_off,
-			payload->scale_off[0], GAMUT_SCALE_OFF_LEN,
-			REG_BLK_WRITE_SINGLE, 0, 0);
-		rc = dma_ops->setup_payload(&dma_write_cfg);
-		if (rc) {
-			DRM_ERROR("write scale/off reg failed ret %d\n", rc);
-			return;
+		if (scale_off == GAMUT_SCALEA_OFFSET_OFF)
+			scale_tbl_len = GAMUT_SCALE_OFF_LEN;
+		else
+			scale_tbl_len = GAMUT_SCALE_OFF_LEN_12;
+
+		for (i = 0; i < GAMUT_3D_SCALE_OFF_TBL_NUM; i++) {
+			scale_tbl_off = ctx->cap->sblk->gamut.base + scale_off +
+					(i * scale_tbl_len);
+			scale_data = &payload->scale_off[i][0];
+			REG_DMA_SETUP_OPS(dma_write_cfg, scale_tbl_off,
+					scale_data, scale_tbl_len,
+					REG_BLK_WRITE_SINGLE, 0, 0);
+			rc = dma_ops->setup_payload(&dma_write_cfg);
+			if (rc) {
+				DRM_ERROR("write scale/off reg failed ret %d\n",
+						rc);
+				return;
+			}
 		}
 	}
 

@@ -84,34 +84,58 @@ module_param(qmi_timeout, ulong, 0600);
 	} while (0)
 
 #define icnss_pr_err(_fmt, ...) do {					\
-		pr_err(_fmt, ##__VA_ARGS__);				\
-		icnss_ipc_log_string("ERR: " pr_fmt(_fmt),		\
-				     ##__VA_ARGS__);			\
+	printk("%s" pr_fmt(_fmt), KERN_ERR, ##__VA_ARGS__);		\
+	icnss_ipc_log_string("%s" pr_fmt(_fmt), "",			\
+			     ##__VA_ARGS__);				\
 	} while (0)
 
 #define icnss_pr_warn(_fmt, ...) do {					\
-		pr_warn(_fmt, ##__VA_ARGS__);				\
-		icnss_ipc_log_string("WRN: " pr_fmt(_fmt),		\
-				     ##__VA_ARGS__);			\
+	printk("%s" pr_fmt(_fmt), KERN_WARNING, ##__VA_ARGS__);		\
+	icnss_ipc_log_string("%s" pr_fmt(_fmt), "",			\
+			     ##__VA_ARGS__);				\
 	} while (0)
 
 #define icnss_pr_info(_fmt, ...) do {					\
-		pr_info(_fmt, ##__VA_ARGS__);				\
-		icnss_ipc_log_string("INF: " pr_fmt(_fmt),		\
-				     ##__VA_ARGS__);			\
+	printk("%s" pr_fmt(_fmt), KERN_INFO, ##__VA_ARGS__);		\
+	icnss_ipc_log_string("%s" pr_fmt(_fmt), "",			\
+			     ##__VA_ARGS__);				\
 	} while (0)
 
+#if defined(CONFIG_DYNAMIC_DEBUG)
 #define icnss_pr_dbg(_fmt, ...) do {					\
-		pr_debug(_fmt, ##__VA_ARGS__);				\
-		icnss_ipc_log_string("DBG: " pr_fmt(_fmt),		\
-				     ##__VA_ARGS__);			\
+	pr_debug(_fmt, ##__VA_ARGS__);					\
+	icnss_ipc_log_string(pr_fmt(_fmt), ##__VA_ARGS__);		\
 	} while (0)
 
 #define icnss_pr_vdbg(_fmt, ...) do {					\
-		pr_debug(_fmt, ##__VA_ARGS__);				\
-		icnss_ipc_log_long_string("DBG: " pr_fmt(_fmt),		\
-				     ##__VA_ARGS__);			\
+	pr_debug(_fmt, ##__VA_ARGS__);					\
+	icnss_ipc_log_long_string(pr_fmt(_fmt), ##__VA_ARGS__);		\
 	} while (0)
+#elif defined(DEBUG)
+#define icnss_pr_dbg(_fmt, ...) do {					\
+	printk("%s" pr_fmt(_fmt), KERN_DEBUG, ##__VA_ARGS__);		\
+	icnss_ipc_log_string("%s" pr_fmt(_fmt), "",			\
+			     ##__VA_ARGS__);				\
+	} while (0)
+
+#define icnss_pr_vdbg(_fmt, ...) do {					\
+	printk("%s" pr_fmt(_fmt), KERN_DEBUG, ##__VA_ARGS__);		\
+	icnss_ipc_log_long_string("%s" pr_fmt(_fmt), "",		\
+				  ##__VA_ARGS__);			\
+	} while (0)
+#else
+#define icnss_pr_dbg(_fmt, ...) do {					\
+	no_printk("%s" pr_fmt(_fmt), KERN_DEBUG, ##__VA_ARGS__);	\
+	icnss_ipc_log_string("%s" pr_fmt(_fmt), "",			\
+		     ##__VA_ARGS__);					\
+	} while (0)
+
+#define icnss_pr_vdbg(_fmt, ...) do {					\
+	no_printk("%s" pr_fmt(_fmt), KERN_DEBUG, ##__VA_ARGS__);	\
+	icnss_ipc_log_long_string("%s" pr_fmt(_fmt), "",		\
+				  ##__VA_ARGS__);			\
+	} while (0)
+#endif
 
 #ifdef CONFIG_ICNSS_DEBUG
 #define ICNSS_ASSERT(_condition) do {					\
@@ -242,7 +266,6 @@ struct icnss_msa_perm_list_t msa_perm_list[ICNSS_MSA_PERM_MAX] = {
 struct icnss_event_pd_service_down_data {
 	bool crashed;
 	bool fw_rejuvenate;
-	bool wdog_bite;
 };
 
 struct icnss_driver_event {
@@ -267,7 +290,6 @@ enum icnss_driver_state {
 	ICNSS_PD_RESTART,
 	ICNSS_MSA0_ASSIGNED,
 	ICNSS_WLFW_EXISTS,
-	ICNSS_WDOG_BITE,
 	ICNSS_SHUTDOWN_DONE,
 	ICNSS_HOST_TRIGGERED_PDR,
 };
@@ -2125,10 +2147,7 @@ static int icnss_pd_restart_complete(struct icnss_priv *priv)
 
 	icnss_pm_relax(priv);
 
-	if (test_bit(ICNSS_WDOG_BITE, &priv->state)) {
-		icnss_call_driver_shutdown(priv);
-		clear_bit(ICNSS_WDOG_BITE, &priv->state);
-	}
+	icnss_call_driver_shutdown(priv);
 
 	clear_bit(ICNSS_PD_RESTART, &priv->state);
 
@@ -2278,8 +2297,7 @@ static int icnss_call_driver_remove(struct icnss_priv *priv)
 static int icnss_fw_crashed(struct icnss_priv *priv,
 			    struct icnss_event_pd_service_down_data *event_data)
 {
-	icnss_pr_dbg("FW crashed, state: 0x%lx, wdog_bite: %d\n",
-		     priv->state, event_data->wdog_bite);
+	icnss_pr_dbg("FW crashed, state: 0x%lx\n", priv->state);
 
 	set_bit(ICNSS_PD_RESTART, &priv->state);
 	clear_bit(ICNSS_FW_READY, &priv->state);
@@ -2289,17 +2307,9 @@ static int icnss_fw_crashed(struct icnss_priv *priv,
 	if (test_bit(ICNSS_DRIVER_PROBED, &priv->state))
 		icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_CRASHED, NULL);
 
-	if (event_data->wdog_bite) {
-		set_bit(ICNSS_WDOG_BITE, &priv->state);
-		goto out;
-	}
-
-	icnss_call_driver_shutdown(priv);
-
 	if (event_data->fw_rejuvenate)
 		wlfw_rejuvenate_ack_send_sync_msg(priv);
 
-out:
 	return 0;
 }
 
@@ -2496,9 +2506,6 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 
 	event_data->crashed = notif->crashed;
 
-	if (notif->crashed == CRASH_STATUS_WDOG_BITE)
-		event_data->wdog_bite = true;
-
 	fw_down_data.crashed = !!notif->crashed;
 	icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_DOWN, &fw_down_data);
 
@@ -2579,21 +2586,21 @@ static int icnss_service_notifier_notify(struct notifier_block *nb,
 	if (event_data == NULL)
 		return notifier_from_errno(-ENOMEM);
 
+	event_data->crashed = true;
+
 	if (state == NULL) {
-		event_data->crashed = true;
 		priv->stats.recovery.root_pd_crash++;
 		goto event_post;
 	}
 
 	switch (*state) {
 	case ROOT_PD_WDOG_BITE:
-		event_data->crashed = true;
-		event_data->wdog_bite = true;
 		priv->stats.recovery.root_pd_crash++;
 		break;
 	case ROOT_PD_SHUTDOWN:
 		cause = ICNSS_ROOT_PD_SHUTDOWN;
 		priv->stats.recovery.root_pd_shutdown++;
+		event_data->crashed = false;
 		break;
 	case USER_PD_STATE_CHANGE:
 		if (test_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state)) {
@@ -2605,7 +2612,6 @@ static int icnss_service_notifier_notify(struct notifier_block *nb,
 		}
 		break;
 	default:
-		event_data->crashed = true;
 		priv->stats.recovery.root_pd_crash++;
 		break;
 	}
@@ -3821,9 +3827,6 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 			continue;
 		case ICNSS_WLFW_EXISTS:
 			seq_puts(s, "WLAN FW EXISTS");
-			continue;
-		case ICNSS_WDOG_BITE:
-			seq_puts(s, "MODEM WDOG BITE");
 			continue;
 		case ICNSS_SHUTDOWN_DONE:
 			seq_puts(s, "SHUTDOWN DONE");

@@ -55,6 +55,7 @@
 #define SCLK_HZ (32768)
 #define PSCI_POWER_STATE(reset) (reset << 30)
 #define PSCI_AFFINITY_LEVEL(lvl) ((lvl & 0x3) << 24)
+#define BIAS_HYST (bias_hyst * NSEC_PER_MSEC)
 
 enum {
 	MSM_LPM_LVL_DBG_SUSPEND_LIMITS = BIT(0),
@@ -92,6 +93,9 @@ module_param_named(ref_stddev, ref_stddev, uint, 0664);
 
 static uint32_t tmr_add = 100;
 module_param_named(tmr_add, tmr_add, uint, 0664);
+
+static uint32_t bias_hyst;
+module_param_named(bias_hyst, bias_hyst, uint, 0664);
 
 struct lpm_history {
 	uint32_t resi[MAXSAMPLES];
@@ -572,6 +576,17 @@ static void clear_predict_history(void)
 
 static void update_history(struct cpuidle_device *dev, int idx);
 
+static inline bool is_cpu_biased(int cpu)
+{
+	u64 now = sched_clock();
+	u64 last = sched_get_cpu_last_busy_time(cpu);
+
+	if (!last)
+		return false;
+
+	return (now - last) < BIAS_HYST;
+}
+
 static int cpu_power_select(struct cpuidle_device *dev,
 		struct lpm_cpu *cpu)
 {
@@ -595,6 +610,11 @@ static int cpu_power_select(struct cpuidle_device *dev,
 	idx_restrict = cpu->nlevels + 1;
 
 	next_event_us = (uint32_t)(ktime_to_us(get_next_event_time(dev->cpu)));
+
+	if (is_cpu_biased(dev->cpu)) {
+		best_level = 0;
+		goto done_select;
+	}
 
 	for (i = 0; i < cpu->nlevels; i++) {
 		struct lpm_cpu_level *level = &cpu->levels[i];
@@ -674,6 +694,7 @@ static int cpu_power_select(struct cpuidle_device *dev,
 			histtimer_start(htime);
 	}
 
+done_select:
 	trace_cpu_power_select(best_level, sleep_us, latency_us, next_event_us);
 
 	trace_cpu_pred_select(idx_restrict_time ? 2 : (predicted ? 1 : 0),
@@ -959,6 +980,9 @@ static int cluster_select(struct lpm_cluster *cluster, bool from_idle,
 		if (suspend_in_progress && from_idle && level->notify_rpm)
 			continue;
 
+		if (level->is_reset && !system_sleep_allowed())
+			continue;
+
 		best_level = i;
 
 		if (from_idle &&
@@ -1021,7 +1045,8 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		clear_predict_history();
 		clear_cl_predict_history();
 
-		system_sleep_enter(us);
+		if (system_sleep_enter(us))
+			return -EBUSY;
 	}
 	/* Notify cluster enter event after successfully config completion */
 	cluster_notify(cluster, level, true);
@@ -1031,9 +1056,7 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 	if (predicted && (idx < (cluster->nlevels - 1))) {
 		struct power_params *pwr_params = &cluster->levels[idx].pwr;
 
-		tick_broadcast_exit();
 		clusttimer_start(cluster, pwr_params->max_residency + tmr_add);
-		tick_broadcast_enter();
 	}
 
 	return 0;
@@ -1086,10 +1109,8 @@ static void cluster_prepare(struct lpm_cluster *cluster,
 			struct power_params *pwr_params =
 						&cluster->levels[0].pwr;
 
-			tick_broadcast_exit();
 			clusttimer_start(cluster,
 					pwr_params->max_residency + tmr_add);
-			tick_broadcast_enter();
 		}
 	}
 
@@ -1196,9 +1217,6 @@ static inline void cpu_prepare(struct lpm_cpu *cpu, int cpu_index,
 	 * next wakeup within a cluster, in which case, CPU switches over to
 	 * use broadcast timer.
 	 */
-	if (from_idle && cpu_level->use_bc_timer)
-		tick_broadcast_enter();
-
 	if (from_idle && ((cpu_level->mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE)
 		|| (cpu_level->mode ==
 			MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)
@@ -1217,9 +1235,6 @@ static inline void cpu_unprepare(struct lpm_cpu *cpu, int cpu_index,
 {
 	struct lpm_cpu_level *cpu_level = &cpu->levels[cpu_index];
 	bool jtag_save_restore = cpu->levels[cpu_index].jtag_save_restore;
-
-	if (from_idle && cpu_level->use_bc_timer)
-		tick_broadcast_exit();
 
 	if (from_idle && ((cpu_level->mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE)
 		|| (cpu_level->mode ==
@@ -1272,6 +1287,11 @@ static bool psci_enter_sleep(struct lpm_cpu *cpu, int idx, bool from_idle)
 	/*
 	 * idx = 0 is the default LPM state
 	 */
+	if (from_idle && cpu->levels[idx].use_bc_timer) {
+		if (tick_broadcast_enter())
+			return false;
+	}
+
 	if (!idx) {
 		stop_critical_timings();
 		wfi();
@@ -1290,6 +1310,10 @@ static bool psci_enter_sleep(struct lpm_cpu *cpu, int idx, bool from_idle)
 	start_critical_timings();
 	update_debug_pc_event(CPU_EXIT, state_id,
 			success, 0xdeaffeed, true);
+
+	if (from_idle && cpu->levels[idx].use_bc_timer)
+		tick_broadcast_exit();
+
 	return success;
 }
 

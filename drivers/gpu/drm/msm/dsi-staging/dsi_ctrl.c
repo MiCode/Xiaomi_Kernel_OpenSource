@@ -1262,13 +1262,41 @@ static int dsi_enable_io_clamp(struct dsi_ctrl *dsi_ctrl,
 	return 0;
 }
 
+static int dsi_ctrl_dts_parse(struct dsi_ctrl *dsi_ctrl,
+				  struct device_node *of_node)
+{
+	u32 index = 0;
+	int rc = 0;
+
+	if (!dsi_ctrl || !of_node) {
+		pr_err("invalid dsi_ctrl:%d or of_node:%d\n",
+					dsi_ctrl != NULL, of_node != NULL);
+		return -EINVAL;
+	}
+
+	rc = of_property_read_u32(of_node, "cell-index", &index);
+	if (rc) {
+		pr_debug("cell index not set, default to 0\n");
+		index = 0;
+	}
+
+	dsi_ctrl->cell_index = index;
+	dsi_ctrl->name = of_get_property(of_node, "label", NULL);
+	if (!dsi_ctrl->name)
+		dsi_ctrl->name = DSI_CTRL_DEFAULT_LABEL;
+
+	dsi_ctrl->phy_isolation_enabled = of_property_read_bool(of_node,
+				    "qcom,dsi-phy-isolation-enabled");
+
+	return 0;
+}
+
 static int dsi_ctrl_dev_probe(struct platform_device *pdev)
 {
 	struct dsi_ctrl *dsi_ctrl;
 	struct dsi_ctrl_list_item *item;
 	const struct of_device_id *id;
 	enum dsi_ctrl_version version;
-	u32 index = 0;
 	int rc = 0;
 
 	id = of_match_node(msm_dsi_of_match, pdev->dev.of_node);
@@ -1285,22 +1313,18 @@ static int dsi_ctrl_dev_probe(struct platform_device *pdev)
 	if (!dsi_ctrl)
 		return -ENOMEM;
 
-	rc = of_property_read_u32(pdev->dev.of_node, "cell-index", &index);
-	if (rc) {
-		pr_debug("cell index not set, default to 0\n");
-		index = 0;
-	}
-
-	dsi_ctrl->cell_index = index;
 	dsi_ctrl->version = version;
 	dsi_ctrl->irq_info.irq_num = -1;
 	dsi_ctrl->irq_info.irq_stat_mask = 0x0;
 
 	spin_lock_init(&dsi_ctrl->irq_info.irq_lock);
 
-	dsi_ctrl->name = of_get_property(pdev->dev.of_node, "label", NULL);
-	if (!dsi_ctrl->name)
-		dsi_ctrl->name = DSI_CTRL_DEFAULT_LABEL;
+	rc = dsi_ctrl_dts_parse(dsi_ctrl, pdev->dev.of_node);
+	if (rc) {
+		pr_err("ctrl:%d dts parse failed, rc = %d\n",
+						dsi_ctrl->cell_index, rc);
+		goto fail;
+	}
 
 	rc = dsi_ctrl_init_regmap(pdev, dsi_ctrl);
 	if (rc) {
@@ -1321,7 +1345,7 @@ static int dsi_ctrl_dev_probe(struct platform_device *pdev)
 	}
 
 	rc = dsi_catalog_ctrl_setup(&dsi_ctrl->hw, dsi_ctrl->version,
-				    dsi_ctrl->cell_index);
+		    dsi_ctrl->cell_index, dsi_ctrl->phy_isolation_enabled);
 	if (rc) {
 		pr_err("Catalog does not support version (%d)\n",
 		       dsi_ctrl->version);
@@ -1945,6 +1969,36 @@ void dsi_ctrl_disable_status_interrupt(struct dsi_ctrl *dsi_ctrl,
 	spin_unlock_irqrestore(&dsi_ctrl->irq_info.irq_lock, flags);
 }
 
+int dsi_ctrl_host_timing_update(struct dsi_ctrl *dsi_ctrl)
+{
+	if (!dsi_ctrl) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	if (dsi_ctrl->hw.ops.host_setup)
+		dsi_ctrl->hw.ops.host_setup(&dsi_ctrl->hw,
+				&dsi_ctrl->host_config.common_config);
+
+	if (dsi_ctrl->host_config.panel_mode == DSI_OP_CMD_MODE) {
+		if (dsi_ctrl->hw.ops.cmd_engine_setup)
+			dsi_ctrl->hw.ops.cmd_engine_setup(&dsi_ctrl->hw,
+					&dsi_ctrl->host_config.common_config,
+					&dsi_ctrl->host_config.u.cmd_engine);
+
+		if (dsi_ctrl->hw.ops.setup_cmd_stream)
+			dsi_ctrl->hw.ops.setup_cmd_stream(&dsi_ctrl->hw,
+				&dsi_ctrl->host_config.video_timing,
+				dsi_ctrl->host_config.video_timing.h_active * 3,
+				0x0, NULL);
+	} else {
+		pr_err("invalid panel mode for resolution switch\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 /**
  * dsi_ctrl_host_init() - Initialize DSI host hardware.
  * @dsi_ctrl:        DSI controller handle.
@@ -2002,8 +2056,6 @@ int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl)
 	dsi_ctrl->hw.ops.enable_status_interrupts(&dsi_ctrl->hw, 0x0);
 	dsi_ctrl->hw.ops.enable_error_interrupts(&dsi_ctrl->hw, 0x0);
 
-	/* Perform a soft reset before enabling dsi controller */
-	dsi_ctrl->hw.ops.soft_reset(&dsi_ctrl->hw);
 	pr_debug("[DSI_%d]Host initialization complete\n",
 		dsi_ctrl->cell_index);
 	dsi_ctrl_update_state(dsi_ctrl, DSI_CTRL_OP_HOST_INIT, 0x1);
@@ -2258,6 +2310,28 @@ int dsi_ctrl_cmd_tx_trigger(struct dsi_ctrl *dsi_ctrl, u32 flags)
 }
 
 /**
+ * _dsi_ctrl_cache_misr - Cache frame MISR value
+ * @dsi_ctrl: Pointer to associated dsi_ctrl structure
+ */
+static void _dsi_ctrl_cache_misr(struct dsi_ctrl *dsi_ctrl)
+{
+	u32 misr;
+
+	if (!dsi_ctrl || !dsi_ctrl->hw.ops.collect_misr)
+		return;
+
+	misr = dsi_ctrl->hw.ops.collect_misr(&dsi_ctrl->hw,
+				dsi_ctrl->host_config.panel_mode);
+
+	if (misr)
+		dsi_ctrl->misr_cache = misr;
+
+	pr_debug("DSI_%d misr_cache = %x\n", dsi_ctrl->cell_index,
+		dsi_ctrl->misr_cache);
+
+}
+
+/**
  * dsi_ctrl_set_power_state() - set power state for dsi controller
  * @dsi_ctrl:          DSI controller handle.
  * @state:             Power state.
@@ -2295,6 +2369,9 @@ int dsi_ctrl_set_power_state(struct dsi_ctrl *dsi_ctrl,
 			goto error;
 		}
 	} else if (state == DSI_CTRL_POWER_VREG_OFF) {
+		if (dsi_ctrl->misr_enable)
+			_dsi_ctrl_cache_misr(dsi_ctrl);
+
 		rc = dsi_ctrl_enable_supplies(dsi_ctrl, false);
 		if (rc) {
 			pr_err("[%d]failed to disable vreg supplies, rc=%d\n",
@@ -2606,6 +2683,59 @@ int dsi_ctrl_set_clock_source(struct dsi_ctrl *dsi_ctrl,
 error:
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
 	return rc;
+}
+
+/**
+ * dsi_ctrl_setup_misr() - Setup frame MISR
+ * @dsi_ctrl:              DSI controller handle.
+ * @enable:                enable/disable MISR.
+ * @frame_count:           Number of frames to accumulate MISR.
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_setup_misr(struct dsi_ctrl *dsi_ctrl,
+			bool enable,
+			u32 frame_count)
+{
+	if (!dsi_ctrl) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	if (!dsi_ctrl->hw.ops.setup_misr)
+		return 0;
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	dsi_ctrl->misr_enable = enable;
+	dsi_ctrl->hw.ops.setup_misr(&dsi_ctrl->hw,
+			dsi_ctrl->host_config.panel_mode,
+			enable, frame_count);
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
+	return 0;
+}
+
+/**
+ * dsi_ctrl_collect_misr() - Read frame MISR
+ * @dsi_ctrl:              DSI controller handle.
+ *
+ * Return: MISR value.
+ */
+u32 dsi_ctrl_collect_misr(struct dsi_ctrl *dsi_ctrl)
+{
+	u32 misr;
+
+	if (!dsi_ctrl || !dsi_ctrl->hw.ops.collect_misr)
+		return 0;
+
+	misr = dsi_ctrl->hw.ops.collect_misr(&dsi_ctrl->hw,
+				dsi_ctrl->host_config.panel_mode);
+	if (!misr)
+		misr = dsi_ctrl->misr_cache;
+
+	pr_debug("DSI_%d cached misr = %x, final = %x\n",
+		dsi_ctrl->cell_index, dsi_ctrl->misr_cache, misr);
+
+	return misr;
 }
 
 /**

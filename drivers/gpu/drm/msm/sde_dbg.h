@@ -25,6 +25,11 @@
 #define SDE_EVTLOG_FUNC_CASE3	0x5555
 #define SDE_EVTLOG_FUNC_CASE4	0x6666
 #define SDE_EVTLOG_FUNC_CASE5	0x7777
+#define SDE_EVTLOG_FUNC_CASE6	0x8888
+#define SDE_EVTLOG_FUNC_CASE7	0x9999
+#define SDE_EVTLOG_FUNC_CASE8	0xaaaa
+#define SDE_EVTLOG_FUNC_CASE9	0xbbbb
+#define SDE_EVTLOG_FUNC_CASE10	0xcccc
 #define SDE_EVTLOG_PANIC	0xdead
 #define SDE_EVTLOG_FATAL	0xbad
 #define SDE_EVTLOG_ERROR	0xebad
@@ -249,6 +254,26 @@ void sde_dbg_dump(bool queue_work, const char *name, ...);
  */
 int sde_dbg_reg_register_base(const char *name, void __iomem *base,
 		size_t max_offset);
+
+/**
+ * sde_dbg_reg_register_cb - register a hw register callback for later
+ *	dumping.
+ * @name:	name of base region
+ * @cb:		callback of external region
+ * @cb_ptr:	private pointer of external region
+ * Returns:	0 or -ERROR
+ */
+int sde_dbg_reg_register_cb(const char *name, void (*cb)(void *), void *ptr);
+
+/**
+ * sde_dbg_reg_unregister_cb - register a hw unregister callback for later
+ *	dumping.
+ * @name:	name of base region
+ * @cb:		callback of external region
+ * @cb_ptr:	private pointer of external region
+ * Returns:	None
+ */
+void sde_dbg_reg_unregister_cb(const char *name, void (*cb)(void *), void *ptr);
 
 /**
  * sde_dbg_reg_register_dump_range - register a hw register sub-region for

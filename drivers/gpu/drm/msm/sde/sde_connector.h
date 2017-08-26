@@ -65,6 +65,14 @@ struct sde_connector_ops {
 			void *display);
 
 	/**
+	 * put_modes - free up drm modes of the connector
+	 * @connector: Pointer to drm connector structure
+	 * @display: Pointer to private display handle
+	 */
+	void (*put_modes)(struct drm_connector *connector,
+			void *display);
+
+	/**
 	 * update_pps - update pps command for the display panel
 	 * @pps_cmd: Pointer to pps command
 	 * @display: Pointer to private display handle
@@ -122,14 +130,14 @@ struct sde_connector_ops {
 	int (*get_info)(struct msm_display_info *info, void *display);
 
 	/**
-	 * get_topology - retrieve current topology for the mode selected
+	 * get_mode_info - retrieve mode information
 	 * @drm_mode: Display mode set for the display
-	 * @topology: Out parameter. Topology for the mode.
+	 * @mode_info: Out parameter. information of the display mode
 	 * @max_mixer_width: max width supported by HW layer mixer
 	 * Returns: Zero on success
 	 */
-	int (*get_topology)(const struct drm_display_mode *drm_mode,
-			struct msm_display_topology *topology,
+	int (*get_mode_info)(const struct drm_display_mode *drm_mode,
+			struct msm_mode_info *mode_info,
 			u32 max_mixer_width);
 
 	/**
@@ -315,6 +323,7 @@ struct sde_connector {
  * @base: Base drm connector structure
  * @out_fb: Pointer to output frame buffer, if applicable
  * @aspace: Address space for accessing frame buffer objects, if applicable
+ * @property_state: Local storage for msm_prop properties
  * @property_values: Local cache of current connector property values
  * @rois: Regions of interest structure for mapping CRTC to Connector output
  * @property_blobs: blob properties
@@ -323,7 +332,8 @@ struct sde_connector_state {
 	struct drm_connector_state base;
 	struct drm_framebuffer *out_fb;
 	struct msm_gem_address_space *aspace;
-	uint64_t property_values[CONNECTOR_PROP_COUNT];
+	struct msm_property_state property_state;
+	struct msm_property_value property_values[CONNECTOR_PROP_COUNT];
 
 	struct msm_roi_list rois;
 	struct drm_property_blob *property_blobs[CONNECTOR_PROP_BLOBCOUNT];
@@ -346,15 +356,15 @@ struct sde_connector_state {
  */
 #define sde_connector_get_property(S, X) \
 	((S) && ((X) < CONNECTOR_PROP_COUNT) ? \
-	 (to_sde_connector_state((S))->property_values[(X)]) : 0)
+	 (to_sde_connector_state((S))->property_values[(X)].value) : 0)
 
 /**
- * sde_connector_get_property_values - retrieve property values cache
+ * sde_connector_get_property_state - retrieve property state cache
  * @S: Pointer to drm connector state
- * Returns: Integer value of requested property
+ * Returns: Pointer to local property state structure
  */
-#define sde_connector_get_property_values(S) \
-	((S) ? (to_sde_connector_state((S))->property_values) : 0)
+#define sde_connector_get_property_state(S) \
+	((S) ? (&to_sde_connector_state((S))->property_state) : NULL)
 
 /**
  * sde_connector_get_out_fb - query out_fb value from sde connector state
@@ -377,6 +387,34 @@ static inline uint64_t sde_connector_get_topology_name(
 	return sde_connector_get_property(connector->state,
 			CONNECTOR_PROP_TOPOLOGY_NAME);
 }
+
+/**
+ * sde_connector_get_lp - helper accessor to retrieve LP state
+ * @connector: pointer to drm connector
+ * Returns: value of the CONNECTOR_PROP_LP property or 0
+ */
+static inline uint64_t sde_connector_get_lp(
+		struct drm_connector *connector)
+{
+	if (!connector || !connector->state)
+		return 0;
+	return sde_connector_get_property(connector->state,
+			CONNECTOR_PROP_LP);
+}
+
+/**
+ * sde_connector_set_property_for_commit - add property set to atomic state
+ *	Add a connector state property update for the specified property index
+ *	to the atomic state in preparation for a drm_atomic_commit.
+ * @connector: Pointer to drm connector
+ * @atomic_state: Pointer to DRM atomic state structure for commit
+ * @property_idx: Connector property index
+ * @value: Updated property value
+ * Returns: Zero on success
+ */
+int sde_connector_set_property_for_commit(struct drm_connector *connector,
+		struct drm_atomic_state *atomic_state,
+		uint32_t property_idx, uint64_t value);
 
 /**
  * sde_connector_init - create drm connector object for a given display

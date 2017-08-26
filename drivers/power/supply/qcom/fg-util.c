@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/sort.h>
 #include "fg-core.h"
 
 void fg_circ_buf_add(struct fg_circ_buf *buf, int val)
@@ -21,7 +22,9 @@ void fg_circ_buf_add(struct fg_circ_buf *buf, int val)
 
 void fg_circ_buf_clr(struct fg_circ_buf *buf)
 {
-	memset(buf, 0, sizeof(*buf));
+	buf->size = 0;
+	buf->head = 0;
+	memset(buf->arr, 0, sizeof(buf->arr));
 }
 
 int fg_circ_buf_avg(struct fg_circ_buf *buf, int *avg)
@@ -36,6 +39,39 @@ int fg_circ_buf_avg(struct fg_circ_buf *buf, int *avg)
 		result += buf->arr[i];
 
 	*avg = div_s64(result, buf->size);
+	return 0;
+}
+
+static int cmp_int(const void *a, const void *b)
+{
+	return *(int *)a - *(int *)b;
+}
+
+int fg_circ_buf_median(struct fg_circ_buf *buf, int *median)
+{
+	int *temp;
+
+	if (buf->size == 0)
+		return -ENODATA;
+
+	if (buf->size == 1) {
+		*median = buf->arr[0];
+		return 0;
+	}
+
+	temp = kmalloc_array(buf->size, sizeof(*temp), GFP_KERNEL);
+	if (!temp)
+		return -ENOMEM;
+
+	memcpy(temp, buf->arr, buf->size * sizeof(*temp));
+	sort(temp, buf->size, sizeof(*temp), cmp_int, NULL);
+
+	if (buf->size % 2)
+		*median = temp[buf->size / 2];
+	else
+		*median = (temp[buf->size / 2 - 1] + temp[buf->size / 2]) / 2;
+
+	kfree(temp);
 	return 0;
 }
 
@@ -255,8 +291,6 @@ int fg_sram_write(struct fg_chip *chip, u16 address, u8 offset,
 		reinit_completion(&chip->soc_update);
 		enable_irq(chip->irqs[SOC_UPDATE_IRQ].irq);
 		atomic_access = true;
-	} else {
-		flags = FG_IMA_DEFAULT;
 	}
 wait:
 	/*
@@ -282,11 +316,17 @@ wait:
 		}
 	}
 
-	rc = fg_interleaved_mem_write(chip, address, offset, val, len,
-			atomic_access);
+	if (chip->use_dma)
+		rc = fg_direct_mem_write(chip, address, offset, val, len,
+				false);
+	else
+		rc = fg_interleaved_mem_write(chip, address, offset, val, len,
+				atomic_access);
+
 	if (rc < 0)
 		pr_err("Error in writing SRAM address 0x%x[%d], rc=%d\n",
 			address, offset, rc);
+
 out:
 	if (atomic_access)
 		disable_irq_nosync(chip->irqs[SOC_UPDATE_IRQ].irq);
@@ -313,9 +353,14 @@ int fg_sram_read(struct fg_chip *chip, u16 address, u8 offset,
 
 	if (!(flags & FG_IMA_NO_WLOCK))
 		vote(chip->awake_votable, SRAM_READ, true, 0);
+
 	mutex_lock(&chip->sram_rw_lock);
 
-	rc = fg_interleaved_mem_read(chip, address, offset, val, len);
+	if (chip->use_dma)
+		rc = fg_direct_mem_read(chip, address, offset, val, len);
+	else
+		rc = fg_interleaved_mem_read(chip, address, offset, val, len);
+
 	if (rc < 0)
 		pr_err("Error in reading SRAM address 0x%x[%d], rc=%d\n",
 			address, offset, rc);

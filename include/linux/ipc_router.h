@@ -144,6 +144,7 @@ struct msm_ipc_port {
 	uint32_t num_rx;
 	unsigned long num_tx_bytes;
 	unsigned long num_rx_bytes;
+	uint32_t last_served_svc_id;
 	void *priv;
 };
 

@@ -99,6 +99,7 @@ struct mdss_pll_resources {
 	unsigned long	vco_cached_rate;
 	u32		cached_cfg0;
 	u32		cached_cfg1;
+	u32		cached_outdiv;
 
 	/* dsi/edp/hmdi pll interface type */
 	u32		pll_interface_type;
