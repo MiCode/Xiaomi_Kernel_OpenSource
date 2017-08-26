@@ -408,7 +408,7 @@ static const u32 ipa3_rsrc_rx_grp_hps_weight_config
 enum ipa_ees {
 	IPA_EE_AP = 0,
 	IPA_EE_Q6 = 1,
-	IPA_EE_UC = 3,
+	IPA_EE_UC = 2,
 };
 
 struct ipa_ep_configuration {
