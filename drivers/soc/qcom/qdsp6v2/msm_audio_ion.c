@@ -210,11 +210,11 @@ done:
 	return ret;
 }
 
-int msm_audio_ion_phys_assign(const char *name, int fd, ion_phys_addr_t *paddr,
-			      size_t *pa_len, u8 assign_type)
+int msm_audio_ion_phys_free(struct ion_client *client,
+			    struct ion_handle *handle,
+			    ion_phys_addr_t *paddr,
+			    size_t *pa_len, u8 assign_type)
 {
-	struct ion_client *client;
-	struct ion_handle *handle;
 	int ret;
 
 	if (!(msm_audio_ion_data.device_status & MSM_AUDIO_ION_PROBED)) {
@@ -222,23 +222,9 @@ int msm_audio_ion_phys_assign(const char *name, int fd, ion_phys_addr_t *paddr,
 		return -EPROBE_DEFER;
 	}
 
-	if (!name || !paddr || !pa_len) {
+	if (!client || !handle || !paddr || !pa_len) {
 		pr_err("%s: Invalid params\n", __func__);
 		return -EINVAL;
-	}
-
-	client = msm_audio_ion_client_create(name);
-	if (IS_ERR_OR_NULL((void *)(client))) {
-		pr_err("%s: ION create client failed\n", __func__);
-		return -EINVAL;
-	}
-
-	handle = ion_import_dma_buf(client, fd);
-	if (IS_ERR_OR_NULL((void *) (handle))) {
-		pr_err("%s: ion import dma buffer failed\n",
-			__func__);
-		ret = -EINVAL;
-		goto err_destroy_client;
 	}
 
 	ret = ion_phys(client, handle, paddr, pa_len);
@@ -247,15 +233,65 @@ int msm_audio_ion_phys_assign(const char *name, int fd, ion_phys_addr_t *paddr,
 			__func__, ret);
 		goto err_ion_handle;
 	}
-	pr_debug("%s: ION Physical address is %x\n", __func__, (u32)*paddr);
 
 	ret = msm_audio_hyp_assign(paddr, pa_len, assign_type);
 
 err_ion_handle:
 	ion_free(client, handle);
+	ion_client_destroy(client);
+
+	return ret;
+}
+
+int msm_audio_ion_phys_assign(const char *name, struct ion_client **client,
+			      struct ion_handle **handle, int fd,
+			      ion_phys_addr_t *paddr,
+			      size_t *pa_len, u8 assign_type)
+{
+	int ret;
+
+	if (!(msm_audio_ion_data.device_status & MSM_AUDIO_ION_PROBED)) {
+		pr_debug("%s:probe is not done, deferred\n", __func__);
+		return -EPROBE_DEFER;
+	}
+
+	if (!name || !client || !handle || !paddr || !pa_len) {
+		pr_err("%s: Invalid params\n", __func__);
+		return -EINVAL;
+	}
+
+	*client = msm_audio_ion_client_create(name);
+	if (IS_ERR_OR_NULL((void *)(*client))) {
+		pr_err("%s: ION create client failed\n", __func__);
+		return -EINVAL;
+	}
+
+	*handle = ion_import_dma_buf(*client, fd);
+	if (IS_ERR_OR_NULL((void *) (*handle))) {
+		pr_err("%s: ion import dma buffer failed\n",
+			__func__);
+		ret = -EINVAL;
+		goto err_destroy_client;
+	}
+
+	ret = ion_phys(*client, *handle, paddr, pa_len);
+	if (ret) {
+		pr_err("%s: could not get physical address for handle, ret = %d\n",
+			__func__, ret);
+		goto err_ion_handle;
+	}
+
+	ret = msm_audio_hyp_assign(paddr, pa_len, assign_type);
+
+	return ret;
+
+err_ion_handle:
+	ion_free(*client, *handle);
 
 err_destroy_client:
-	ion_client_destroy(client);
+	ion_client_destroy(*client);
+	*client = NULL;
+	*handle = NULL;
 
 	return ret;
 }
