@@ -2620,7 +2620,7 @@ static void _sde_encoder_update_master(struct drm_encoder *drm_enc,
 	}
 }
 
-bool sde_encoder_is_cmd_mode(struct drm_encoder *drm_enc)
+bool sde_encoder_check_mode(struct drm_encoder *drm_enc, u32 mode)
 {
 	struct sde_encoder_virt *sde_enc;
 	struct msm_display_info *disp_info;
@@ -2633,7 +2633,7 @@ bool sde_encoder_is_cmd_mode(struct drm_encoder *drm_enc)
 	sde_enc = to_sde_encoder_virt(drm_enc);
 	disp_info = &sde_enc->disp_info;
 
-	return (disp_info->capabilities & MSM_DISPLAY_CAP_CMD_MODE);
+	return (disp_info->capabilities & mode);
 }
 
 void sde_encoder_trigger_kickoff_pending(struct drm_encoder *drm_enc)
