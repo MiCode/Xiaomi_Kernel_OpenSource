@@ -899,10 +899,6 @@ static inline int wait_on_page_bit_common(wait_queue_head_t *q,
 
 		if (likely(test_bit(bit_nr, &page->flags))) {
 			io_schedule();
-			if (unlikely(signal_pending_state(state, current))) {
-				ret = -EINTR;
-				break;
-			}
 		}
 
 		if (lock) {
@@ -911,6 +907,11 @@ static inline int wait_on_page_bit_common(wait_queue_head_t *q,
 		} else {
 			if (!test_bit(bit_nr, &page->flags))
 				break;
+		}
+
+		if (unlikely(signal_pending_state(state, current))) {
+			ret = -EINTR;
+			break;
 		}
 	}
 
