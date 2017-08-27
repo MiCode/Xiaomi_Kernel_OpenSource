@@ -262,7 +262,7 @@ static void ion_secure_cma_free(struct ion_buffer *buffer)
 	}
 
 	for_each_sg(sgt->sgl, sg, sgt->nents, i)
-		ClearPagePrivate(sg_page(sgt->sgl));
+		ClearPagePrivate(sg_page(sg));
 
 	ion_cma_free(buffer);
 }
@@ -308,7 +308,7 @@ static int ion_secure_cma_allocate(struct ion_heap *heap,
 
 	/* Set the private bit to indicate that we've secured this */
 	for_each_sg(sgt->sgl, sg, sgt->nents, i)
-		SetPagePrivate(sg_page(sgt->sgl));
+		SetPagePrivate(sg_page(sg));
 
 	return ret;
 

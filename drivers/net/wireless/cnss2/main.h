@@ -142,6 +142,7 @@ enum cnss_driver_state {
 	CNSS_DRIVER_RECOVERY,
 	CNSS_FW_BOOT_RECOVERY,
 	CNSS_DEV_ERR_NOTIFY,
+	CNSS_DRIVER_DEBUG,
 };
 
 struct cnss_recovery_data {

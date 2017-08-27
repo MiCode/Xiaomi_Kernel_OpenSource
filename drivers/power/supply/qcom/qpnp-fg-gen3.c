@@ -1173,6 +1173,42 @@ static bool batt_psy_initialized(struct fg_chip *chip)
 	return true;
 }
 
+static bool usb_psy_initialized(struct fg_chip *chip)
+{
+	if (chip->usb_psy)
+		return true;
+
+	chip->usb_psy = power_supply_get_by_name("usb");
+	if (!chip->usb_psy)
+		return false;
+
+	return true;
+}
+
+static bool pc_port_psy_initialized(struct fg_chip *chip)
+{
+	if (chip->pc_port_psy)
+		return true;
+
+	chip->pc_port_psy = power_supply_get_by_name("pc_port");
+	if (!chip->pc_port_psy)
+		return false;
+
+	return true;
+}
+
+static bool dc_psy_initialized(struct fg_chip *chip)
+{
+	if (chip->dc_psy)
+		return true;
+
+	chip->dc_psy = power_supply_get_by_name("dc");
+	if (!chip->dc_psy)
+		return false;
+
+	return true;
+}
+
 static bool is_parallel_charger_available(struct fg_chip *chip)
 {
 	if (!chip->parallel_psy)
@@ -1279,10 +1315,19 @@ static bool is_temp_valid_cap_learning(struct fg_chip *chip)
 	return true;
 }
 
+#define QNOVO_CL_SKEW_DECIPCT	-30
 static void fg_cap_learning_post_process(struct fg_chip *chip)
 {
 	int64_t max_inc_val, min_dec_val, old_cap;
 	int rc;
+
+	if (is_qnovo_en(chip)) {
+		fg_dbg(chip, FG_CAP_LEARN, "applying skew %d on current learnt capacity %lld\n",
+			QNOVO_CL_SKEW_DECIPCT, chip->cl.final_cc_uah);
+		chip->cl.final_cc_uah = chip->cl.final_cc_uah *
+						(1000 + QNOVO_CL_SKEW_DECIPCT);
+		do_div(chip->cl.final_cc_uah, 1000);
+	}
 
 	max_inc_val = chip->cl.learned_cc_uah
 			* (1000 + chip->dt.cl_max_cap_inc);
@@ -1592,6 +1637,9 @@ static int fg_set_recharge_voltage(struct fg_chip *chip, int voltage_mv)
 	if (chip->wa_flags & PMI8998_V1_REV_WA)
 		return 0;
 
+	if (voltage_mv == chip->last_recharge_volt_mv)
+		return 0;
+
 	fg_dbg(chip, FG_STATUS, "Setting recharge voltage to %dmV\n",
 		voltage_mv);
 	fg_encode(chip->sp, FG_SRAM_RECHARGE_VBATT_THR, voltage_mv, &buf);
@@ -1606,6 +1654,7 @@ static int fg_set_recharge_voltage(struct fg_chip *chip, int voltage_mv)
 		return rc;
 	}
 
+	chip->last_recharge_volt_mv = voltage_mv;
 	return 0;
 }
 
@@ -1916,6 +1965,33 @@ static int fg_adjust_recharge_soc(struct fg_chip *chip)
 	return 0;
 }
 
+static int fg_adjust_recharge_voltage(struct fg_chip *chip)
+{
+	int rc, recharge_volt_mv;
+
+	if (chip->dt.auto_recharge_soc)
+		return 0;
+
+	fg_dbg(chip, FG_STATUS, "health: %d chg_status: %d chg_done: %d\n",
+		chip->health, chip->charge_status, chip->charge_done);
+
+	recharge_volt_mv = chip->dt.recharge_volt_thr_mv;
+
+	/* Lower the recharge voltage in soft JEITA */
+	if (chip->health == POWER_SUPPLY_HEALTH_WARM ||
+			chip->health == POWER_SUPPLY_HEALTH_COOL)
+		recharge_volt_mv -= 200;
+
+	rc = fg_set_recharge_voltage(chip, recharge_volt_mv);
+	if (rc < 0) {
+		pr_err("Error in setting recharge_voltage, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	return 0;
+}
+
 static int fg_slope_limit_config(struct fg_chip *chip, int batt_temp)
 {
 	enum slope_limit_status status;
@@ -2133,108 +2209,76 @@ static int fg_esr_timer_config(struct fg_chip *chip, bool sleep)
 	return 0;
 }
 
-static void fg_batt_avg_update(struct fg_chip *chip)
+static void fg_ttf_update(struct fg_chip *chip)
 {
-	if (chip->charge_status == chip->prev_charge_status)
+	int rc;
+	int delay_ms;
+	union power_supply_propval prop = {0, };
+	int online = 0;
+
+	if (usb_psy_initialized(chip)) {
+		rc = power_supply_get_property(chip->usb_psy,
+			POWER_SUPPLY_PROP_ONLINE, &prop);
+		if (rc < 0) {
+			pr_err("Couldn't read usb ONLINE prop rc=%d\n", rc);
+			return;
+		}
+
+		online = online || prop.intval;
+	}
+
+	if (pc_port_psy_initialized(chip)) {
+		rc = power_supply_get_property(chip->pc_port_psy,
+			POWER_SUPPLY_PROP_ONLINE, &prop);
+		if (rc < 0) {
+			pr_err("Couldn't read pc_port ONLINE prop rc=%d\n", rc);
+			return;
+		}
+
+		online = online || prop.intval;
+	}
+
+	if (dc_psy_initialized(chip)) {
+		rc = power_supply_get_property(chip->dc_psy,
+			POWER_SUPPLY_PROP_ONLINE, &prop);
+		if (rc < 0) {
+			pr_err("Couldn't read dc ONLINE prop rc=%d\n", rc);
+			return;
+		}
+
+		online = online || prop.intval;
+	}
+
+
+	if (chip->online_status == online)
 		return;
 
-	cancel_delayed_work_sync(&chip->batt_avg_work);
-	fg_circ_buf_clr(&chip->ibatt_circ_buf);
-	fg_circ_buf_clr(&chip->vbatt_circ_buf);
+	chip->online_status = online;
+	if (online)
+		/* wait 35 seconds for the input to settle */
+		delay_ms = 35000;
+	else
+		/* wait 5 seconds for current to settle during discharge */
+		delay_ms = 5000;
 
-	if (chip->charge_status == POWER_SUPPLY_STATUS_CHARGING ||
-			chip->charge_status == POWER_SUPPLY_STATUS_DISCHARGING)
-		schedule_delayed_work(&chip->batt_avg_work,
-							msecs_to_jiffies(2000));
-}
-
-static void status_change_work(struct work_struct *work)
-{
-	struct fg_chip *chip = container_of(work,
-			struct fg_chip, status_change_work);
-	union power_supply_propval prop = {0, };
-	int rc, batt_temp;
-
-	if (!batt_psy_initialized(chip)) {
-		fg_dbg(chip, FG_STATUS, "Charger not available?!\n");
-		goto out;
-	}
-
-	rc = power_supply_get_property(chip->batt_psy, POWER_SUPPLY_PROP_STATUS,
-			&prop);
-	if (rc < 0) {
-		pr_err("Error in getting charging status, rc=%d\n", rc);
-		goto out;
-	}
-
-	chip->prev_charge_status = chip->charge_status;
-	chip->charge_status = prop.intval;
-	rc = power_supply_get_property(chip->batt_psy,
-			POWER_SUPPLY_PROP_CHARGE_TYPE, &prop);
-	if (rc < 0) {
-		pr_err("Error in getting charge type, rc=%d\n", rc);
-		goto out;
-	}
-
-	chip->charge_type = prop.intval;
-	rc = power_supply_get_property(chip->batt_psy,
-			POWER_SUPPLY_PROP_CHARGE_DONE, &prop);
-	if (rc < 0) {
-		pr_err("Error in getting charge_done, rc=%d\n", rc);
-		goto out;
-	}
-
-	chip->charge_done = prop.intval;
-	if (chip->cyc_ctr.en)
-		schedule_work(&chip->cycle_count_work);
-
-	fg_cap_learning_update(chip);
-
-	rc = fg_charge_full_update(chip);
-	if (rc < 0)
-		pr_err("Error in charge_full_update, rc=%d\n", rc);
-
-	rc = fg_adjust_recharge_soc(chip);
-	if (rc < 0)
-		pr_err("Error in adjusting recharge_soc, rc=%d\n", rc);
-
-	rc = fg_adjust_ki_coeff_dischg(chip);
-	if (rc < 0)
-		pr_err("Error in adjusting ki_coeff_dischg, rc=%d\n", rc);
-
-	rc = fg_esr_fcc_config(chip);
-	if (rc < 0)
-		pr_err("Error in adjusting FCC for ESR, rc=%d\n", rc);
-
-	rc = fg_esr_timer_config(chip, false);
-	if (rc < 0)
-		pr_err("Error in configuring ESR timer, rc=%d\n", rc);
-
-	rc = fg_get_battery_temp(chip, &batt_temp);
-	if (!rc) {
-		rc = fg_slope_limit_config(chip, batt_temp);
-		if (rc < 0)
-			pr_err("Error in configuring slope limiter rc:%d\n",
-				rc);
-
-		rc = fg_adjust_ki_coeff_full_soc(chip, batt_temp);
-		if (rc < 0)
-			pr_err("Error in configuring ki_coeff_full_soc rc:%d\n",
-				rc);
-	}
-
-	fg_batt_avg_update(chip);
-
-out:
-	fg_dbg(chip, FG_POWER_SUPPLY, "charge_status:%d charge_type:%d charge_done:%d\n",
-		chip->charge_status, chip->charge_type, chip->charge_done);
-	pm_relax(chip->dev);
+	vote(chip->awake_votable, TTF_PRIMING, true, 0);
+	cancel_delayed_work_sync(&chip->ttf_work);
+	mutex_lock(&chip->ttf.lock);
+	fg_circ_buf_clr(&chip->ttf.ibatt);
+	fg_circ_buf_clr(&chip->ttf.vbatt);
+	chip->ttf.last_ttf = 0;
+	chip->ttf.last_ms = 0;
+	mutex_unlock(&chip->ttf.lock);
+	schedule_delayed_work(&chip->ttf_work, msecs_to_jiffies(delay_ms));
 }
 
 static void restore_cycle_counter(struct fg_chip *chip)
 {
 	int rc = 0, i;
 	u8 data[2];
+
+	if (!chip->cyc_ctr.en)
+		return;
 
 	mutex_lock(&chip->cyc_ctr.lock);
 	for (i = 0; i < BUCKET_COUNT; i++) {
@@ -2289,20 +2333,25 @@ static int fg_inc_store_cycle_ctr(struct fg_chip *chip, int bucket)
 	rc = fg_sram_write(chip, CYCLE_COUNT_WORD + (bucket / 2),
 			CYCLE_COUNT_OFFSET + (bucket % 2) * 2, data, 2,
 			FG_IMA_DEFAULT);
-	if (rc < 0)
+	if (rc < 0) {
 		pr_err("failed to write BATT_CYCLE[%d] rc=%d\n",
 			bucket, rc);
-	else
-		chip->cyc_ctr.count[bucket] = cyc_count;
+		return rc;
+	}
+
+	chip->cyc_ctr.count[bucket] = cyc_count;
+	fg_dbg(chip, FG_STATUS, "Stored count %d in bucket %d\n", cyc_count,
+		bucket);
+
 	return rc;
 }
 
-static void cycle_count_work(struct work_struct *work)
+static void fg_cycle_counter_update(struct fg_chip *chip)
 {
 	int rc = 0, bucket, i, batt_soc;
-	struct fg_chip *chip = container_of(work,
-				struct fg_chip,
-				cycle_count_work);
+
+	if (!chip->cyc_ctr.en)
+		return;
 
 	mutex_lock(&chip->cyc_ctr.lock);
 	rc = fg_get_sram_prop(chip, FG_SRAM_BATT_SOC, &batt_soc);
@@ -2314,45 +2363,30 @@ static void cycle_count_work(struct work_struct *work)
 	/* We need only the most significant byte here */
 	batt_soc = (u32)batt_soc >> 24;
 
-	if (chip->charge_status == POWER_SUPPLY_STATUS_CHARGING) {
-		/* Find out which bucket the SOC falls in */
-		bucket = batt_soc / BUCKET_SOC_PCT;
-		pr_debug("batt_soc: %d bucket: %d\n", batt_soc, bucket);
+	/* Find out which bucket the SOC falls in */
+	bucket = batt_soc / BUCKET_SOC_PCT;
 
-		/*
-		 * If we've started counting for the previous bucket,
-		 * then store the counter for that bucket if the
-		 * counter for current bucket is getting started.
-		 */
-		if (bucket > 0 && chip->cyc_ctr.started[bucket - 1] &&
-			!chip->cyc_ctr.started[bucket]) {
-			rc = fg_inc_store_cycle_ctr(chip, bucket - 1);
-			if (rc < 0) {
-				pr_err("Error in storing cycle_ctr rc: %d\n",
-					rc);
-				goto out;
-			} else {
-				chip->cyc_ctr.started[bucket - 1] = false;
-				chip->cyc_ctr.last_soc[bucket - 1] = 0;
-			}
-		}
+	if (chip->charge_status == POWER_SUPPLY_STATUS_CHARGING) {
 		if (!chip->cyc_ctr.started[bucket]) {
 			chip->cyc_ctr.started[bucket] = true;
 			chip->cyc_ctr.last_soc[bucket] = batt_soc;
 		}
-	} else {
+	} else if (chip->charge_done || !is_input_present(chip)) {
 		for (i = 0; i < BUCKET_COUNT; i++) {
 			if (chip->cyc_ctr.started[i] &&
-				batt_soc > chip->cyc_ctr.last_soc[i]) {
+				batt_soc > chip->cyc_ctr.last_soc[i] + 2) {
 				rc = fg_inc_store_cycle_ctr(chip, i);
 				if (rc < 0)
 					pr_err("Error in storing cycle_ctr rc: %d\n",
 						rc);
 				chip->cyc_ctr.last_soc[i] = 0;
+				chip->cyc_ctr.started[i] = false;
 			}
-			chip->cyc_ctr.started[i] = false;
 		}
 	}
+
+	fg_dbg(chip, FG_STATUS, "batt_soc: %d bucket: %d chg_status: %d\n",
+		batt_soc, bucket, chip->charge_status);
 out:
 	mutex_unlock(&chip->cyc_ctr.lock);
 }
@@ -2371,6 +2405,87 @@ static int fg_get_cycle_count(struct fg_chip *chip)
 	count = chip->cyc_ctr.count[chip->cyc_ctr.id - 1];
 	mutex_unlock(&chip->cyc_ctr.lock);
 	return count;
+}
+
+static void status_change_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work,
+			struct fg_chip, status_change_work);
+	union power_supply_propval prop = {0, };
+	int rc, batt_temp;
+
+	if (!batt_psy_initialized(chip)) {
+		fg_dbg(chip, FG_STATUS, "Charger not available?!\n");
+		goto out;
+	}
+
+	rc = power_supply_get_property(chip->batt_psy, POWER_SUPPLY_PROP_STATUS,
+			&prop);
+	if (rc < 0) {
+		pr_err("Error in getting charging status, rc=%d\n", rc);
+		goto out;
+	}
+
+	chip->prev_charge_status = chip->charge_status;
+	chip->charge_status = prop.intval;
+	rc = power_supply_get_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_CHARGE_TYPE, &prop);
+	if (rc < 0) {
+		pr_err("Error in getting charge type, rc=%d\n", rc);
+		goto out;
+	}
+
+	chip->charge_type = prop.intval;
+	rc = power_supply_get_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_CHARGE_DONE, &prop);
+	if (rc < 0) {
+		pr_err("Error in getting charge_done, rc=%d\n", rc);
+		goto out;
+	}
+
+	chip->charge_done = prop.intval;
+	fg_cycle_counter_update(chip);
+	fg_cap_learning_update(chip);
+
+	rc = fg_charge_full_update(chip);
+	if (rc < 0)
+		pr_err("Error in charge_full_update, rc=%d\n", rc);
+
+	rc = fg_adjust_recharge_soc(chip);
+	if (rc < 0)
+		pr_err("Error in adjusting recharge_soc, rc=%d\n", rc);
+
+	rc = fg_adjust_recharge_voltage(chip);
+	if (rc < 0)
+		pr_err("Error in adjusting recharge_voltage, rc=%d\n", rc);
+
+	rc = fg_adjust_ki_coeff_dischg(chip);
+	if (rc < 0)
+		pr_err("Error in adjusting ki_coeff_dischg, rc=%d\n", rc);
+
+	rc = fg_esr_fcc_config(chip);
+	if (rc < 0)
+		pr_err("Error in adjusting FCC for ESR, rc=%d\n", rc);
+
+	rc = fg_get_battery_temp(chip, &batt_temp);
+	if (!rc) {
+		rc = fg_slope_limit_config(chip, batt_temp);
+		if (rc < 0)
+			pr_err("Error in configuring slope limiter rc:%d\n",
+				rc);
+
+		rc = fg_adjust_ki_coeff_full_soc(chip, batt_temp);
+		if (rc < 0)
+			pr_err("Error in configuring ki_coeff_full_soc rc:%d\n",
+				rc);
+	}
+
+	fg_ttf_update(chip);
+
+out:
+	fg_dbg(chip, FG_POWER_SUPPLY, "charge_status:%d charge_type:%d charge_done:%d\n",
+		chip->charge_status, chip->charge_type, chip->charge_done);
+	pm_relax(chip->dev);
 }
 
 static int fg_bp_params_config(struct fg_chip *chip)
@@ -2733,45 +2848,19 @@ static struct kernel_param_ops fg_restart_ops = {
 
 module_param_cb(restart, &fg_restart_ops, &fg_restart, 0644);
 
-#define BATT_AVG_POLL_PERIOD_MS	10000
-static void batt_avg_work(struct work_struct *work)
-{
-	struct fg_chip *chip = container_of(work, struct fg_chip,
-					    batt_avg_work.work);
-	int rc, ibatt_now, vbatt_now;
-
-	mutex_lock(&chip->batt_avg_lock);
-	rc = fg_get_battery_current(chip, &ibatt_now);
-	if (rc < 0) {
-		pr_err("failed to get battery current, rc=%d\n", rc);
-		goto reschedule;
-	}
-
-	rc = fg_get_battery_voltage(chip, &vbatt_now);
-	if (rc < 0) {
-		pr_err("failed to get battery voltage, rc=%d\n", rc);
-		goto reschedule;
-	}
-
-	fg_circ_buf_add(&chip->ibatt_circ_buf, ibatt_now);
-	fg_circ_buf_add(&chip->vbatt_circ_buf, vbatt_now);
-
-reschedule:
-	mutex_unlock(&chip->batt_avg_lock);
-	schedule_delayed_work(&chip->batt_avg_work,
-			      msecs_to_jiffies(BATT_AVG_POLL_PERIOD_MS));
-}
-
 #define HOURS_TO_SECONDS	3600
 #define OCV_SLOPE_UV		10869
 #define MILLI_UNIT		1000
 #define MICRO_UNIT		1000000
-static int fg_get_time_to_full(struct fg_chip *chip, int *val)
+#define NANO_UNIT		1000000000
+static int fg_get_time_to_full_locked(struct fg_chip *chip, int *val)
 {
-	int rc, ibatt_avg, vbatt_avg, rbatt, msoc, ocv_cc2cv, full_soc,
-		act_cap_uah;
-	s32 i_cc2cv, soc_cc2cv, ln_val, centi_tau_scale;
-	s64 t_predicted_cc = 0, t_predicted_cv = 0;
+	int rc, ibatt_avg, vbatt_avg, rbatt, msoc, full_soc, act_cap_mah,
+		i_cc2cv, soc_cc2cv, tau, divisor, iterm, ttf_mode,
+		i, soc_per_step, msoc_this_step, msoc_next_step,
+		ibatt_this_step, t_predicted_this_step, ttf_slope,
+		t_predicted_cv, t_predicted = 0;
+	s64 delta_ms;
 
 	if (chip->bp.float_volt_uv <= 0) {
 		pr_err("battery profile is not loaded\n");
@@ -2790,48 +2879,53 @@ static int fg_get_time_to_full(struct fg_chip *chip, int *val)
 	}
 	fg_dbg(chip, FG_TTF, "msoc=%d\n", msoc);
 
+	/* the battery is considered full if the SOC is 100% */
 	if (msoc >= 100) {
 		*val = 0;
 		return 0;
 	}
 
-	mutex_lock(&chip->batt_avg_lock);
-	rc = fg_circ_buf_avg(&chip->ibatt_circ_buf, &ibatt_avg);
-	if (rc < 0) {
-		/* try to get instantaneous current */
-		rc = fg_get_battery_current(chip, &ibatt_avg);
-		if (rc < 0) {
-			mutex_unlock(&chip->batt_avg_lock);
-			pr_err("failed to get battery current, rc=%d\n", rc);
-			return rc;
-		}
+	if (is_qnovo_en(chip))
+		ttf_mode = TTF_MODE_QNOVO;
+	else
+		ttf_mode = TTF_MODE_NORMAL;
+
+	/* when switching TTF algorithms the TTF needs to be reset */
+	if (chip->ttf.mode != ttf_mode) {
+		fg_circ_buf_clr(&chip->ttf.ibatt);
+		fg_circ_buf_clr(&chip->ttf.vbatt);
+		chip->ttf.last_ttf = 0;
+		chip->ttf.last_ms = 0;
+		chip->ttf.mode = ttf_mode;
 	}
 
-	rc = fg_circ_buf_avg(&chip->vbatt_circ_buf, &vbatt_avg);
-	if (rc < 0) {
-		/* try to get instantaneous voltage */
-		rc = fg_get_battery_voltage(chip, &vbatt_avg);
-		if (rc < 0) {
-			mutex_unlock(&chip->batt_avg_lock);
-			pr_err("failed to get battery voltage, rc=%d\n", rc);
-			return rc;
-		}
+	/* at least 10 samples are required to produce a stable IBATT */
+	if (chip->ttf.ibatt.size < 10) {
+		*val = -1;
+		return 0;
 	}
 
-	mutex_unlock(&chip->batt_avg_lock);
-	fg_dbg(chip, FG_TTF, "vbatt_avg=%d\n", vbatt_avg);
+	rc = fg_circ_buf_median(&chip->ttf.ibatt, &ibatt_avg);
+	if (rc < 0) {
+		pr_err("failed to get IBATT AVG rc=%d\n", rc);
+		return rc;
+	}
 
-	/* clamp ibatt_avg to -150mA */
-	if (ibatt_avg > -150000)
-		ibatt_avg = -150000;
+	rc = fg_circ_buf_median(&chip->ttf.vbatt, &vbatt_avg);
+	if (rc < 0) {
+		pr_err("failed to get VBATT AVG rc=%d\n", rc);
+		return rc;
+	}
+
+	ibatt_avg = -ibatt_avg / MILLI_UNIT;
+	vbatt_avg /= MILLI_UNIT;
+
+	/* clamp ibatt_avg to iterm */
+	if (ibatt_avg < abs(chip->dt.sys_term_curr_ma))
+		ibatt_avg = abs(chip->dt.sys_term_curr_ma);
+
 	fg_dbg(chip, FG_TTF, "ibatt_avg=%d\n", ibatt_avg);
-
-	/* reverse polarity to be consistent with unsigned current settings */
-	ibatt_avg = abs(ibatt_avg);
-
-	/* estimated battery current at the CC to CV transition */
-	i_cc2cv = div_s64((s64)ibatt_avg * vbatt_avg, chip->bp.float_volt_uv);
-	fg_dbg(chip, FG_TTF, "i_cc2cv=%d\n", i_cc2cv);
+	fg_dbg(chip, FG_TTF, "vbatt_avg=%d\n", vbatt_avg);
 
 	rc = fg_get_battery_resistance(chip, &rbatt);
 	if (rc < 0) {
@@ -2839,19 +2933,14 @@ static int fg_get_time_to_full(struct fg_chip *chip, int *val)
 		return rc;
 	}
 
-	/* clamp rbatt to 50mOhms */
-	if (rbatt < 50000)
-		rbatt = 50000;
-
+	rbatt /= MILLI_UNIT;
 	fg_dbg(chip, FG_TTF, "rbatt=%d\n", rbatt);
 
-	rc = fg_get_sram_prop(chip, FG_SRAM_ACT_BATT_CAP, &act_cap_uah);
+	rc = fg_get_sram_prop(chip, FG_SRAM_ACT_BATT_CAP, &act_cap_mah);
 	if (rc < 0) {
 		pr_err("failed to get ACT_BATT_CAP rc=%d\n", rc);
 		return rc;
 	}
-	act_cap_uah *= MILLI_UNIT;
-	fg_dbg(chip, FG_TTF, "actual_capacity_uah=%d\n", act_cap_uah);
 
 	rc = fg_get_sram_prop(chip, FG_SRAM_FULL_SOC, &full_soc);
 	if (rc < 0) {
@@ -2860,69 +2949,148 @@ static int fg_get_time_to_full(struct fg_chip *chip, int *val)
 	}
 	full_soc = DIV_ROUND_CLOSEST(((u16)full_soc >> 8) * FULL_CAPACITY,
 								FULL_SOC_RAW);
-	fg_dbg(chip, FG_TTF, "full_soc=%d\n", full_soc);
+	act_cap_mah = full_soc * act_cap_mah / 100;
+	fg_dbg(chip, FG_TTF, "act_cap_mah=%d\n", act_cap_mah);
+
+	/* estimated battery current at the CC to CV transition */
+	switch (chip->ttf.mode) {
+	case TTF_MODE_NORMAL:
+		i_cc2cv = ibatt_avg * vbatt_avg /
+			max(MILLI_UNIT, chip->bp.float_volt_uv / MILLI_UNIT);
+		break;
+	case TTF_MODE_QNOVO:
+		i_cc2cv = min(
+			chip->ttf.cc_step.arr[MAX_CC_STEPS - 1] / MILLI_UNIT,
+			ibatt_avg * vbatt_avg /
+			max(MILLI_UNIT, chip->bp.float_volt_uv / MILLI_UNIT));
+		break;
+	default:
+		pr_err("TTF mode %d is not supported\n", chip->ttf.mode);
+		break;
+	}
+	fg_dbg(chip, FG_TTF, "i_cc2cv=%d\n", i_cc2cv);
 
 	/* if we are already in CV state then we can skip estimating CC */
 	if (chip->charge_type == POWER_SUPPLY_CHARGE_TYPE_TAPER)
-		goto skip_cc_estimate;
+		goto cv_estimate;
 
-	/* if the charger is current limited then use power approximation */
-	if (ibatt_avg > chip->bp.fastchg_curr_ma * MILLI_UNIT - 50000)
-		ocv_cc2cv = div_s64((s64)rbatt * ibatt_avg, MICRO_UNIT);
-	else
-		ocv_cc2cv = div_s64((s64)rbatt * i_cc2cv, MICRO_UNIT);
-	ocv_cc2cv = chip->bp.float_volt_uv - ocv_cc2cv;
-	fg_dbg(chip, FG_TTF, "ocv_cc2cv=%d\n", ocv_cc2cv);
-
-	soc_cc2cv = div_s64(chip->bp.float_volt_uv - ocv_cc2cv, OCV_SLOPE_UV);
 	/* estimated SOC at the CC to CV transition */
+	soc_cc2cv = DIV_ROUND_CLOSEST(rbatt * i_cc2cv, OCV_SLOPE_UV);
 	soc_cc2cv = 100 - soc_cc2cv;
 	fg_dbg(chip, FG_TTF, "soc_cc2cv=%d\n", soc_cc2cv);
 
-	/* the esimated SOC may be lower than the current SOC */
-	if (soc_cc2cv - msoc <= 0)
-		goto skip_cc_estimate;
+	switch (chip->ttf.mode) {
+	case TTF_MODE_NORMAL:
+		if (soc_cc2cv - msoc <= 0)
+			goto cv_estimate;
 
-	t_predicted_cc = div_s64((s64)full_soc * act_cap_uah, 100);
-	t_predicted_cc = div_s64(t_predicted_cc * (soc_cc2cv - msoc), 100);
-	t_predicted_cc *= HOURS_TO_SECONDS;
-	t_predicted_cc = div_s64(t_predicted_cc, (ibatt_avg + i_cc2cv) / 2);
+		divisor = max(100, (ibatt_avg + i_cc2cv) / 2 * 100);
+		t_predicted = div_s64((s64)act_cap_mah * (soc_cc2cv - msoc) *
+						HOURS_TO_SECONDS, divisor);
+		break;
+	case TTF_MODE_QNOVO:
+		soc_per_step = 100 / MAX_CC_STEPS;
+		for (i = msoc / soc_per_step; i < MAX_CC_STEPS - 1; ++i) {
+			msoc_next_step = (i + 1) * soc_per_step;
+			if (i == msoc / soc_per_step)
+				msoc_this_step = msoc;
+			else
+				msoc_this_step = i * soc_per_step;
 
-skip_cc_estimate:
-	fg_dbg(chip, FG_TTF, "t_predicted_cc=%lld\n", t_predicted_cc);
+			/* scale ibatt by 85% to account for discharge pulses */
+			ibatt_this_step = min(
+					chip->ttf.cc_step.arr[i] / MILLI_UNIT,
+					ibatt_avg) * 85 / 100;
+			divisor = max(100, ibatt_this_step * 100);
+			t_predicted_this_step = div_s64((s64)act_cap_mah *
+					(msoc_next_step - msoc_this_step) *
+					HOURS_TO_SECONDS, divisor);
+			t_predicted += t_predicted_this_step;
+			fg_dbg(chip, FG_TTF, "[%d, %d] ma=%d t=%d\n",
+				msoc_this_step, msoc_next_step,
+				ibatt_this_step, t_predicted_this_step);
+		}
+		break;
+	default:
+		pr_err("TTF mode %d is not supported\n", chip->ttf.mode);
+		break;
+	}
 
-	/* CV estimate starts here */
-	if (chip->charge_type >= POWER_SUPPLY_CHARGE_TYPE_TAPER)
-		ln_val = ibatt_avg / (abs(chip->dt.sys_term_curr_ma) + 200);
+cv_estimate:
+	fg_dbg(chip, FG_TTF, "t_predicted_cc=%d\n", t_predicted);
+
+	iterm = max(100, abs(chip->dt.sys_term_curr_ma) + 200);
+	fg_dbg(chip, FG_TTF, "iterm=%d\n", iterm);
+
+	if (chip->charge_type == POWER_SUPPLY_CHARGE_TYPE_TAPER)
+		tau = max(MILLI_UNIT, ibatt_avg * MILLI_UNIT / iterm);
 	else
-		ln_val = i_cc2cv / (abs(chip->dt.sys_term_curr_ma) + 200);
+		tau = max(MILLI_UNIT, i_cc2cv * MILLI_UNIT / iterm);
 
-	if (msoc < 95)
-		centi_tau_scale = 100;
-	else
-		centi_tau_scale = 20 * (100 - msoc);
+	rc = fg_lerp(fg_ln_table, ARRAY_SIZE(fg_ln_table), tau, &tau);
+	if (rc < 0) {
+		pr_err("failed to interpolate tau rc=%d\n", rc);
+		return rc;
+	}
 
-	fg_dbg(chip, FG_TTF, "ln_in=%d\n", ln_val);
-	rc = fg_lerp(fg_ln_table, ARRAY_SIZE(fg_ln_table), ln_val, &ln_val);
-	fg_dbg(chip, FG_TTF, "ln_out=%d\n", ln_val);
-	t_predicted_cv = div_s64((s64)act_cap_uah * rbatt, MICRO_UNIT);
-	t_predicted_cv = div_s64(t_predicted_cv * centi_tau_scale, 100);
-	t_predicted_cv = div_s64(t_predicted_cv * ln_val, MILLI_UNIT);
-	t_predicted_cv = div_s64(t_predicted_cv * HOURS_TO_SECONDS, MICRO_UNIT);
-	fg_dbg(chip, FG_TTF, "t_predicted_cv=%lld\n", t_predicted_cv);
-	*val = t_predicted_cc + t_predicted_cv;
+	/* tau is scaled linearly from 95% to 100% SOC */
+	if (msoc >= 95)
+		tau = tau * 2 * (100 - msoc) / 10;
+
+	fg_dbg(chip, FG_TTF, "tau=%d\n", tau);
+	t_predicted_cv = div_s64((s64)act_cap_mah * rbatt * tau *
+						HOURS_TO_SECONDS, NANO_UNIT);
+	fg_dbg(chip, FG_TTF, "t_predicted_cv=%d\n", t_predicted_cv);
+	t_predicted += t_predicted_cv;
+
+	fg_dbg(chip, FG_TTF, "t_predicted_prefilter=%d\n", t_predicted);
+	if (chip->ttf.last_ms != 0) {
+		delta_ms = ktime_ms_delta(ktime_get_boottime(),
+					  ms_to_ktime(chip->ttf.last_ms));
+		if (delta_ms > 10000) {
+			ttf_slope = div64_s64(
+				(s64)(t_predicted - chip->ttf.last_ttf) *
+				MICRO_UNIT, delta_ms);
+			if (ttf_slope > -100)
+				ttf_slope = -100;
+			else if (ttf_slope < -2000)
+				ttf_slope = -2000;
+
+			t_predicted = div_s64(
+				(s64)ttf_slope * delta_ms, MICRO_UNIT) +
+				chip->ttf.last_ttf;
+			fg_dbg(chip, FG_TTF, "ttf_slope=%d\n", ttf_slope);
+		} else {
+			t_predicted = chip->ttf.last_ttf;
+		}
+	}
+
+	/* clamp the ttf to 0 */
+	if (t_predicted < 0)
+		t_predicted = 0;
+
+	fg_dbg(chip, FG_TTF, "t_predicted_postfilter=%d\n", t_predicted);
+	*val = t_predicted;
 	return 0;
+}
+
+static int fg_get_time_to_full(struct fg_chip *chip, int *val)
+{
+	int rc;
+
+	mutex_lock(&chip->ttf.lock);
+	rc = fg_get_time_to_full_locked(chip, val);
+	mutex_unlock(&chip->ttf.lock);
+	return rc;
 }
 
 #define CENTI_ICORRECT_C0	105
 #define CENTI_ICORRECT_C1	20
 static int fg_get_time_to_empty(struct fg_chip *chip, int *val)
 {
-	int rc, ibatt_avg, msoc, act_cap_uah;
-	s32 divisor;
-	s64 t_predicted;
+	int rc, ibatt_avg, msoc, full_soc, act_cap_mah, divisor;
 
-	rc = fg_circ_buf_avg(&chip->ibatt_circ_buf, &ibatt_avg);
+	rc = fg_circ_buf_median(&chip->ttf.ibatt, &ibatt_avg);
 	if (rc < 0) {
 		/* try to get instantaneous current */
 		rc = fg_get_battery_current(chip, &ibatt_avg);
@@ -2932,16 +3100,10 @@ static int fg_get_time_to_empty(struct fg_chip *chip, int *val)
 		}
 	}
 
-	/* clamp ibatt_avg to 150mA */
-	if (ibatt_avg < 150000)
-		ibatt_avg = 150000;
-
-	rc = fg_get_sram_prop(chip, FG_SRAM_ACT_BATT_CAP, &act_cap_uah);
-	if (rc < 0) {
-		pr_err("Error in getting ACT_BATT_CAP, rc=%d\n", rc);
-		return rc;
-	}
-	act_cap_uah *= MILLI_UNIT;
+	ibatt_avg /= MILLI_UNIT;
+	/* clamp ibatt_avg to 100mA */
+	if (ibatt_avg < 100)
+		ibatt_avg = 100;
 
 	rc = fg_get_prop_capacity(chip, &msoc);
 	if (rc < 0) {
@@ -2949,14 +3111,25 @@ static int fg_get_time_to_empty(struct fg_chip *chip, int *val)
 		return rc;
 	}
 
-	t_predicted = div_s64((s64)msoc * act_cap_uah, 100);
-	t_predicted *= HOURS_TO_SECONDS;
-	divisor = CENTI_ICORRECT_C0 * 100 + CENTI_ICORRECT_C1 * msoc;
-	divisor = div_s64((s64)divisor * ibatt_avg, 10000);
-	if (divisor > 0)
-		t_predicted = div_s64(t_predicted, divisor);
+	rc = fg_get_sram_prop(chip, FG_SRAM_ACT_BATT_CAP, &act_cap_mah);
+	if (rc < 0) {
+		pr_err("Error in getting ACT_BATT_CAP, rc=%d\n", rc);
+		return rc;
+	}
 
-	*val = t_predicted;
+	rc = fg_get_sram_prop(chip, FG_SRAM_FULL_SOC, &full_soc);
+	if (rc < 0) {
+		pr_err("failed to get full soc rc=%d\n", rc);
+		return rc;
+	}
+	full_soc = DIV_ROUND_CLOSEST(((u16)full_soc >> 8) * FULL_CAPACITY,
+								FULL_SOC_RAW);
+	act_cap_mah = full_soc * act_cap_mah / 100;
+
+	divisor = CENTI_ICORRECT_C0 * 100 + CENTI_ICORRECT_C1 * msoc;
+	divisor = ibatt_avg * divisor / 100;
+	divisor = max(100, divisor);
+	*val = act_cap_mah * msoc * HOURS_TO_SECONDS / divisor;
 	return 0;
 }
 
@@ -3118,6 +3291,67 @@ static int fg_prepare_for_qnovo(struct fg_chip *chip, int qnovo_enable)
 	fg_dbg(chip, FG_STATUS, "Prepared for Qnovo\n");
 	return 0;
 }
+
+static void ttf_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work, struct fg_chip,
+					    ttf_work.work);
+	int rc, ibatt_now, vbatt_now, ttf;
+	ktime_t ktime_now;
+
+	mutex_lock(&chip->ttf.lock);
+	if (chip->charge_status != POWER_SUPPLY_STATUS_CHARGING &&
+			chip->charge_status != POWER_SUPPLY_STATUS_DISCHARGING)
+		goto end_work;
+
+	rc = fg_get_battery_current(chip, &ibatt_now);
+	if (rc < 0) {
+		pr_err("failed to get battery current, rc=%d\n", rc);
+		goto end_work;
+	}
+
+	rc = fg_get_battery_voltage(chip, &vbatt_now);
+	if (rc < 0) {
+		pr_err("failed to get battery voltage, rc=%d\n", rc);
+		goto end_work;
+	}
+
+	fg_circ_buf_add(&chip->ttf.ibatt, ibatt_now);
+	fg_circ_buf_add(&chip->ttf.vbatt, vbatt_now);
+
+	if (chip->charge_status == POWER_SUPPLY_STATUS_CHARGING) {
+		rc = fg_get_time_to_full_locked(chip, &ttf);
+		if (rc < 0) {
+			pr_err("failed to get ttf, rc=%d\n", rc);
+			goto end_work;
+		}
+
+		/* keep the wake lock and prime the IBATT and VBATT buffers */
+		if (ttf < 0) {
+			/* delay for one FG cycle */
+			schedule_delayed_work(&chip->ttf_work,
+							msecs_to_jiffies(1500));
+			mutex_unlock(&chip->ttf.lock);
+			return;
+		}
+
+		/* update the TTF reference point every minute */
+		ktime_now = ktime_get_boottime();
+		if (ktime_ms_delta(ktime_now,
+				   ms_to_ktime(chip->ttf.last_ms)) > 60000 ||
+				   chip->ttf.last_ms == 0) {
+			chip->ttf.last_ttf = ttf;
+			chip->ttf.last_ms = ktime_to_ms(ktime_now);
+		}
+	}
+
+	/* recurse every 10 seconds */
+	schedule_delayed_work(&chip->ttf_work, msecs_to_jiffies(10000));
+end_work:
+	vote(chip->awake_votable, TTF_PRIMING, false, 0);
+	mutex_unlock(&chip->ttf.lock);
+}
+
 /* PSY CALLBACKS STAY HERE */
 
 static int fg_psy_get_property(struct power_supply *psy,
@@ -3195,17 +3429,18 @@ static int fg_psy_get_property(struct power_supply *psy,
 		rc = fg_get_sram_prop(chip, FG_SRAM_VBATT_FULL, &pval->intval);
 		break;
 	case POWER_SUPPLY_PROP_CC_STEP:
-		if ((chip->cc_step.sel >= 0) &&
-					(chip->cc_step.sel < MAX_CC_STEPS)) {
-			pval->intval = chip->cc_step.arr[chip->cc_step.sel];
+		if ((chip->ttf.cc_step.sel >= 0) &&
+				(chip->ttf.cc_step.sel < MAX_CC_STEPS)) {
+			pval->intval =
+				chip->ttf.cc_step.arr[chip->ttf.cc_step.sel];
 		} else {
 			pr_err("cc_step_sel is out of bounds [0, %d]\n",
-				chip->cc_step.sel);
+				chip->ttf.cc_step.sel);
 			return -EINVAL;
 		}
 		break;
 	case POWER_SUPPLY_PROP_CC_STEP_SEL:
-		pval->intval = chip->cc_step.sel;
+		pval->intval = chip->ttf.cc_step.sel;
 		break;
 	default:
 		pr_err("unsupported property %d\n", psp);
@@ -3246,18 +3481,19 @@ static int fg_psy_set_property(struct power_supply *psy,
 		rc = fg_prepare_for_qnovo(chip, pval->intval);
 		break;
 	case POWER_SUPPLY_PROP_CC_STEP:
-		if ((chip->cc_step.sel >= 0) &&
-					(chip->cc_step.sel < MAX_CC_STEPS)) {
-			chip->cc_step.arr[chip->cc_step.sel] = pval->intval;
+		if ((chip->ttf.cc_step.sel >= 0) &&
+				(chip->ttf.cc_step.sel < MAX_CC_STEPS)) {
+			chip->ttf.cc_step.arr[chip->ttf.cc_step.sel] =
+								pval->intval;
 		} else {
 			pr_err("cc_step_sel is out of bounds [0, %d]\n",
-				chip->cc_step.sel);
+				chip->ttf.cc_step.sel);
 			return -EINVAL;
 		}
 		break;
 	case POWER_SUPPLY_PROP_CC_STEP_SEL:
 		if ((pval->intval >= 0) && (pval->intval < MAX_CC_STEPS)) {
-			chip->cc_step.sel = pval->intval;
+			chip->ttf.cc_step.sel = pval->intval;
 		} else {
 			pr_err("cc_step_sel is out of bounds [0, %d]\n",
 				pval->intval);
@@ -3551,8 +3787,7 @@ static int fg_hw_init(struct fg_chip *chip)
 		return rc;
 	}
 
-	if (chip->cyc_ctr.en)
-		restore_cycle_counter(chip);
+	restore_cycle_counter(chip);
 
 	if (chip->dt.jeita_hyst_temp >= 0) {
 		val = chip->dt.jeita_hyst_temp << JEITA_TEMP_HYST_SHIFT;
@@ -3779,6 +4014,11 @@ static irqreturn_t fg_delta_batt_temp_irq_handler(int irq, void *data)
 		if (rc < 0)
 			pr_err("Error in adjusting timebase, rc=%d\n", rc);
 
+		rc = fg_adjust_recharge_voltage(chip);
+		if (rc < 0)
+			pr_err("Error in adjusting recharge_voltage, rc=%d\n",
+				rc);
+
 		chip->last_batt_temp = batt_temp;
 		power_supply_changed(chip->batt_psy);
 	}
@@ -3826,8 +4066,7 @@ static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 	int rc;
 
 	fg_dbg(chip, FG_IRQ, "irq %d triggered\n", irq);
-	if (chip->cyc_ctr.en)
-		schedule_work(&chip->cycle_count_work);
+	fg_cycle_counter_update(chip);
 
 	if (chip->cl.active)
 		fg_cap_learning_update(chip);
@@ -4522,6 +4761,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	chip->charge_status = -EINVAL;
 	chip->prev_charge_status = -EINVAL;
 	chip->ki_coeff_full_soc = -EINVAL;
+	chip->online_status = -EINVAL;
 	chip->regmap = dev_get_regmap(chip->dev->parent, NULL);
 	if (!chip->regmap) {
 		dev_err(chip->dev, "Parent regmap is unavailable\n");
@@ -4590,14 +4830,13 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	mutex_init(&chip->sram_rw_lock);
 	mutex_init(&chip->cyc_ctr.lock);
 	mutex_init(&chip->cl.lock);
-	mutex_init(&chip->batt_avg_lock);
+	mutex_init(&chip->ttf.lock);
 	mutex_init(&chip->charge_full_lock);
 	init_completion(&chip->soc_update);
 	init_completion(&chip->soc_ready);
 	INIT_DELAYED_WORK(&chip->profile_load_work, profile_load_work);
 	INIT_WORK(&chip->status_change_work, status_change_work);
-	INIT_WORK(&chip->cycle_count_work, cycle_count_work);
-	INIT_DELAYED_WORK(&chip->batt_avg_work, batt_avg_work);
+	INIT_DELAYED_WORK(&chip->ttf_work, ttf_work);
 	INIT_DELAYED_WORK(&chip->sram_dump_work, sram_dump_work);
 
 	rc = fg_memif_init(chip);
@@ -4694,7 +4933,7 @@ static int fg_gen3_suspend(struct device *dev)
 	if (rc < 0)
 		pr_err("Error in configuring ESR timer, rc=%d\n", rc);
 
-	cancel_delayed_work_sync(&chip->batt_avg_work);
+	cancel_delayed_work_sync(&chip->ttf_work);
 	if (fg_sram_dump)
 		cancel_delayed_work_sync(&chip->sram_dump_work);
 	return 0;
@@ -4709,9 +4948,7 @@ static int fg_gen3_resume(struct device *dev)
 	if (rc < 0)
 		pr_err("Error in configuring ESR timer, rc=%d\n", rc);
 
-	fg_circ_buf_clr(&chip->ibatt_circ_buf);
-	fg_circ_buf_clr(&chip->vbatt_circ_buf);
-	schedule_delayed_work(&chip->batt_avg_work, 0);
+	schedule_delayed_work(&chip->ttf_work, 0);
 	if (fg_sram_dump)
 		schedule_delayed_work(&chip->sram_dump_work,
 				msecs_to_jiffies(fg_sram_dump_period_ms));

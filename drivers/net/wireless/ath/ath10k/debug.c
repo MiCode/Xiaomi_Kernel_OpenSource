@@ -25,6 +25,7 @@
 #include "core.h"
 #include "debug.h"
 #include "hif.h"
+#include "htt.h"
 #include "wmi-ops.h"
 
 /* ms */
@@ -2616,6 +2617,178 @@ static const struct file_operations fops_fw_checksums = {
 	.owner = THIS_MODULE,
 	.llseek = default_llseek,
 };
+
+static struct txctl_frm_hdr frm_hdr;
+
+static void ath10k_extract_frame_header(u8 *addr1, u8 *addr2, u8 *addr3)
+{
+	frm_hdr.bssid_tail = (addr1[IEEE80211_ADDR_LEN - 2] << BITS_PER_BYTE)
+			      | (addr1[IEEE80211_ADDR_LEN - 1]);
+	frm_hdr.sa_tail = (addr2[IEEE80211_ADDR_LEN - 2] << BITS_PER_BYTE)
+			   | (addr2[IEEE80211_ADDR_LEN - 1]);
+	frm_hdr.da_tail = (addr3[IEEE80211_ADDR_LEN - 2] << BITS_PER_BYTE)
+			   | (addr3[IEEE80211_ADDR_LEN - 1]);
+}
+
+static void ath10k_process_ieee_hdr(void *data)
+{
+	u8 dir;
+	struct ieee80211_frame *wh;
+
+	if (!data)
+		return;
+
+	wh = (struct ieee80211_frame *)(data);
+	frm_hdr.framectrl = *(u_int16_t *)(wh->i_fc);
+	frm_hdr.seqctrl   = *(u_int16_t *)(wh->i_seq);
+	dir = (wh->i_fc[1] & IEEE80211_FC1_DIR_MASK);
+
+	if (dir == IEEE80211_FC1_DIR_TODS)
+		ath10k_extract_frame_header(wh->i_addr1, wh->i_addr2,
+					    wh->i_addr3);
+	else if (dir == IEEE80211_FC1_DIR_FROMDS)
+		ath10k_extract_frame_header(wh->i_addr2, wh->i_addr3,
+					    wh->i_addr1);
+	else
+		ath10k_extract_frame_header(wh->i_addr3, wh->i_addr2,
+					    wh->i_addr1);
+}
+
+static void ath10k_pktlog_process_rx(struct ath10k *ar, struct sk_buff *skb)
+{
+	struct ath10k_pktlog_hdr *hdr = (void *)skb->data;
+	struct ath_pktlog_txctl pktlog_tx_ctrl;
+
+	switch (hdr->log_type) {
+	case ATH10K_PKTLOG_TYPE_TX_CTRL: {
+		spin_lock_bh(&ar->htt.tx_lock);
+
+		memcpy((void *)(&pktlog_tx_ctrl.hdr), (void *)hdr,
+		       sizeof(pktlog_tx_ctrl.hdr));
+		pktlog_tx_ctrl.frm_hdr = frm_hdr;
+		memcpy((void *)pktlog_tx_ctrl.txdesc_ctl, (void *)hdr->payload,
+		       __le16_to_cpu(hdr->size));
+		pktlog_tx_ctrl.hdr.size = sizeof(pktlog_tx_ctrl) -
+			sizeof(pktlog_tx_ctrl.hdr);
+
+		spin_unlock_bh(&ar->htt.tx_lock);
+
+		trace_ath10k_htt_pktlog(ar, (void *)&pktlog_tx_ctrl,
+					sizeof(pktlog_tx_ctrl));
+		break;
+		}
+	case ATH10K_PKTLOG_TYPE_TX_MSDU_ID:
+		break;
+	case ATH10K_PKTLOG_TYPE_TX_FRM_HDR: {
+		ath10k_process_ieee_hdr((void *)(hdr->payload));
+		trace_ath10k_htt_pktlog(ar, hdr, sizeof(*hdr) +
+					__le16_to_cpu(hdr->size));
+		break;
+		}
+	case ATH10K_PKTLOG_TYPE_RX_STAT:
+	case ATH10K_PKTLOG_TYPE_RC_FIND:
+	case ATH10K_PKTLOG_TYPE_RC_UPDATE:
+	case ATH10K_PKTLOG_TYPE_DBG_PRINT:
+	case ATH10K_PKTLOG_TYPE_TX_STAT:
+	case ATH10K_PKTLOG_TYPE_SW_EVENT:
+		trace_ath10k_htt_pktlog(ar, hdr, sizeof(*hdr) +
+					__le16_to_cpu(hdr->size));
+		break;
+	case ATH10K_PKTLOG_TYPE_TX_VIRT_ADDR: {
+		u32 desc_id = (u32)*((u32 *)(hdr->payload));
+		struct sk_buff *msdu;
+
+		spin_lock_bh(&ar->htt.tx_lock);
+		msdu = ath10k_htt_tx_find_msdu_by_id(&ar->htt, desc_id);
+
+		if (!msdu) {
+			ath10k_info(ar,
+				    "Failed to get msdu, id: %d\n",
+				    desc_id);
+			spin_unlock_bh(&ar->htt.tx_lock);
+			return;
+		}
+		ath10k_process_ieee_hdr((void *)msdu->data);
+		spin_unlock_bh(&ar->htt.tx_lock);
+		trace_ath10k_htt_pktlog(ar, hdr, sizeof(*hdr) +
+					__le16_to_cpu(hdr->size));
+		break;
+		}
+	}
+}
+
+int ath10k_rx_record_pktlog(struct ath10k *ar, struct sk_buff *skb)
+{
+	struct sk_buff *pktlog_skb;
+	struct ath_pktlog_hdr *pl_hdr;
+	struct ath_pktlog_rx_info *pktlog_rx_info;
+	struct htt_rx_desc *rx_desc = (void *)skb->data - sizeof(*rx_desc);
+
+	if (!ar->debug.pktlog_filter)
+		return 0;
+
+	pktlog_skb = dev_alloc_skb(sizeof(struct ath_pktlog_hdr) +
+				   sizeof(struct htt_rx_desc) -
+				   sizeof(struct htt_host_fw_desc_base));
+	if (!pktlog_skb)
+		return -ENOMEM;
+
+	pktlog_rx_info = (struct ath_pktlog_rx_info *)pktlog_skb->data;
+	pl_hdr = &pktlog_rx_info->pl_hdr;
+
+	pl_hdr->flags = (1 << ATH10K_PKTLOG_FLG_FRM_TYPE_REMOTE_S);
+	pl_hdr->missed_cnt = 0;
+	pl_hdr->mac_id = 0;
+	pl_hdr->log_type = ATH10K_PKTLOG_TYPE_RX_STAT;
+	pl_hdr->flags |= ATH10K_PKTLOG_HDR_SIZE_16;
+	pl_hdr->size = sizeof(*rx_desc) -
+		       sizeof(struct htt_host_fw_desc_base);
+
+	pl_hdr->timestamp =
+	cpu_to_le32(rx_desc->ppdu_end.wcn3990.rx_pkt_end.phy_timestamp_1);
+
+	pl_hdr->type_specific_data = 0xDEADAA;
+	memcpy((void *)pktlog_rx_info + sizeof(struct ath_pktlog_hdr),
+	       (void *)rx_desc + sizeof(struct htt_host_fw_desc_base),
+	       pl_hdr->size);
+
+	ath10k_pktlog_process_rx(ar, pktlog_skb);
+	dev_kfree_skb_any(pktlog_skb);
+	return 0;
+}
+
+static void ath10k_pktlog_htc_tx_complete(struct ath10k *ar,
+					  struct sk_buff *skb)
+{
+	ath10k_info(ar, "PKTLOG htc completed\n");
+}
+
+int ath10k_pktlog_connect(struct ath10k *ar)
+{
+	int status;
+	struct ath10k_htc_svc_conn_req conn_req;
+	struct ath10k_htc_svc_conn_resp conn_resp;
+
+	memset(&conn_req, 0, sizeof(conn_req));
+	memset(&conn_resp, 0, sizeof(conn_resp));
+
+	conn_req.ep_ops.ep_tx_complete = ath10k_pktlog_htc_tx_complete;
+	conn_req.ep_ops.ep_rx_complete = ath10k_pktlog_process_rx;
+	conn_req.ep_ops.ep_tx_credits = NULL;
+
+	/* connect to control service */
+	conn_req.service_id = ATH10K_HTC_SVC_ID_HTT_LOG_MSG;
+	status = ath10k_htc_connect_service(&ar->htc, &conn_req, &conn_resp);
+	if (status) {
+		ath10k_warn(ar, "failed to connect to PKTLOG service: %d\n",
+			    status);
+		return status;
+	}
+
+	ar->debug.eid = conn_resp.eid;
+
+	return 0;
+}
 
 int ath10k_debug_create(struct ath10k *ar)
 {

@@ -969,6 +969,7 @@ static void ath10k_process_rx(struct ath10k *ar,
 	trace_ath10k_rx_hdr(ar, skb->data, skb->len);
 	trace_ath10k_rx_payload(ar, skb->data, skb->len);
 
+	ath10k_rx_record_pktlog(ar, skb);
 	ieee80211_rx_napi(ar->hw, NULL, skb, &ar->napi);
 }
 

@@ -173,6 +173,9 @@ struct msm_gpu *adreno_load_gpu(struct drm_device *dev)
 		ret = gpu->funcs->hw_init(gpu);
 		if (ret) {
 			dev_err(dev->dev, "gpu hw init failed: %d\n", ret);
+			mutex_lock(&dev->struct_mutex);
+			gpu->funcs->pm_suspend(gpu);
+			mutex_unlock(&dev->struct_mutex);
 			gpu->funcs->destroy(gpu);
 			gpu = NULL;
 		} else {

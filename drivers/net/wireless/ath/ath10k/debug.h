@@ -57,6 +57,84 @@ enum ath10k_dbg_aggr_mode {
 	ATH10K_DBG_AGGR_MODE_MAX,
 };
 
+#define IEEE80211_FC1_DIR_MASK              0x03
+#define IEEE80211_FC1_DIR_NODS              0x00    /* STA->STA */
+#define IEEE80211_FC1_DIR_TODS              0x01    /* STA->AP  */
+#define IEEE80211_FC1_DIR_FROMDS            0x02    /* AP ->STA */
+#define IEEE80211_FC1_DIR_DSTODS            0x03    /* AP ->AP  */
+#define IEEE80211_ADDR_LEN  6                       /* size of 802.11 address */
+
+#define MAX_PKT_INFO_MSDU_ID 192
+#define MSDU_ID_INFO_ID_OFFSET  \
+	((MAX_PKT_INFO_MSDU_ID >> 3) + 4)
+
+#define PKTLOG_MAX_TXCTL_WORDS 57 /* +2 words for bitmap */
+#define HTT_TX_MSDU_LEN_MASK 0xffff
+
+struct txctl_frm_hdr {
+	__le16 framectrl;       /* frame control field from header */
+	__le16 seqctrl;         /* frame control field from header */
+	__le16 bssid_tail;      /* last two octets of bssid */
+	__le16 sa_tail;         /* last two octets of SA */
+	__le16 da_tail;         /* last two octets of DA */
+	__le16 resvd;
+} __packed;
+
+struct ath_pktlog_hdr {
+	__le16 flags;
+	__le16 missed_cnt;
+	u8 log_type;
+	u8 mac_id;
+	__le16 size;
+	__le32 timestamp;
+	__le32 type_specific_data;
+} __packed;
+
+/* generic definitions for IEEE 802.11 frames */
+struct ieee80211_frame {
+	u8 i_fc[2];
+	u8 i_dur[2];
+	union {
+		struct {
+			u8 i_addr1[IEEE80211_ADDR_LEN];
+			u8 i_addr2[IEEE80211_ADDR_LEN];
+			u8 i_addr3[IEEE80211_ADDR_LEN];
+		};
+		u8 i_addr_all[3 * IEEE80211_ADDR_LEN];
+	};
+	u8 i_seq[2];
+} __packed;
+
+struct fw_pktlog_msdu_info {
+	__le32 num_msdu;
+	u8 bound_bmap[MAX_PKT_INFO_MSDU_ID >> 3];
+	__le16 id[MAX_PKT_INFO_MSDU_ID];
+} __packed;
+
+struct ath_pktlog_txctl {
+	struct ath_pktlog_hdr hdr;
+	struct txctl_frm_hdr frm_hdr;
+	__le32 txdesc_ctl[PKTLOG_MAX_TXCTL_WORDS];
+} __packed;
+
+struct ath_pktlog_msdu_id {
+	struct ath_pktlog_hdr hdr;
+	struct fw_pktlog_msdu_info msdu_info;
+} __packed;
+
+struct ath_pktlog_rx_info {
+	struct ath_pktlog_hdr pl_hdr;
+	struct rx_attention attention;
+	struct rx_frag_info frag_info;
+	struct rx_mpdu_start mpdu_start;
+	struct rx_msdu_start msdu_start;
+	struct rx_msdu_end msdu_end;
+	struct rx_mpdu_end mpdu_end;
+	struct rx_ppdu_start ppdu_start;
+	struct rx_ppdu_end ppdu_end;
+	u8 rx_hdr_status[RX_HTT_HDR_STATUS_LEN];
+} __packed;
+
 /* FIXME: How to calculate the buffer size sanely? */
 #define ATH10K_FW_STATS_BUF_SIZE (1024 * 1024)
 #define ATH10K_DATAPATH_BUF_SIZE (1024 * 1024)
@@ -86,6 +164,7 @@ struct ath10k_fw_crash_data *
 ath10k_debug_get_new_fw_crash_data(struct ath10k *ar);
 
 void ath10k_debug_dbglog_add(struct ath10k *ar, u8 *buffer, int len);
+int ath10k_rx_record_pktlog(struct ath10k *ar, struct sk_buff *skb);
 #define ATH10K_DFS_STAT_INC(ar, c) (ar->debug.dfs_stats.c++)
 
 void ath10k_debug_get_et_strings(struct ieee80211_hw *hw,
@@ -98,6 +177,7 @@ void ath10k_debug_get_et_stats(struct ieee80211_hw *hw,
 			       struct ethtool_stats *stats, u64 *data);
 void fill_datapath_stats(struct ath10k *ar, struct ieee80211_rx_status *status);
 size_t get_datapath_stat(char *buf, struct ath10k *ar);
+int ath10k_pktlog_connect(struct ath10k *ar);
 #else
 static inline int ath10k_debug_start(struct ath10k *ar)
 {
@@ -142,6 +222,12 @@ static inline void ath10k_debug_dbglog_add(struct ath10k *ar, u8 *buffer,
 {
 }
 
+static inline int ath10k_rx_record_pktlog(struct ath10k *ar,
+					  struct sk_buff *skb)
+{
+	return 0;
+}
+
 static inline struct ath10k_fw_crash_data *
 ath10k_debug_get_new_fw_crash_data(struct ath10k *ar)
 {
@@ -158,6 +244,10 @@ static inline size_t get_datapath_stat(char *buf, struct ath10k *ar)
 	return 0;
 }
 
+static inline int ath10k_pktlog_connect(struct ath10k *ar)
+{
+	return 0;
+}
 #define ATH10K_DFS_STAT_INC(ar, c) do { } while (0)
 
 #define ath10k_debug_get_et_strings NULL

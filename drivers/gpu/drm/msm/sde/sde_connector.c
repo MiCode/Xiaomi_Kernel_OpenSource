@@ -90,6 +90,50 @@ int sde_connector_pre_kickoff(struct drm_connector *connector)
 	return rc;
 }
 
+enum sde_csc_type sde_connector_get_csc_type(struct drm_connector *conn)
+{
+	struct sde_connector *c_conn;
+
+	if (!conn) {
+		SDE_ERROR("invalid argument\n");
+		return -EINVAL;
+	}
+
+	c_conn = to_sde_connector(conn);
+
+	if (!c_conn->display) {
+		SDE_ERROR("invalid argument\n");
+		return -EINVAL;
+	}
+
+	if (!c_conn->ops.get_csc_type)
+		return SDE_CSC_RGB2YUV_601L;
+
+	return c_conn->ops.get_csc_type(conn, c_conn->display);
+}
+
+bool sde_connector_mode_needs_full_range(struct drm_connector *connector)
+{
+	struct sde_connector *c_conn;
+
+	if (!connector) {
+		SDE_ERROR("invalid argument\n");
+		return false;
+	}
+
+	c_conn = to_sde_connector(connector);
+
+	if (!c_conn->display) {
+		SDE_ERROR("invalid argument\n");
+		return false;
+	}
+
+	if (!c_conn->ops.mode_needs_full_range)
+		return false;
+
+	return c_conn->ops.mode_needs_full_range(c_conn->display);
+}
+
 static void sde_connector_destroy(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn;

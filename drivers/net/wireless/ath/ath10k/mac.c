@@ -7822,10 +7822,6 @@ static const struct ieee80211_iface_limit ath10k_wcn3990_if_limit[] = {
 			 BIT(NL80211_IFTYPE_P2P_CLIENT) |
 			 BIT(NL80211_IFTYPE_P2P_GO),
 	},
-	{
-		.max = 1,
-		.types = BIT(NL80211_IFTYPE_P2P_DEVICE),
-	},
 };
 
 static const struct ieee80211_iface_limit ath10k_wcn3990_qcs_if_limit[] = {
@@ -7844,10 +7840,6 @@ static const struct ieee80211_iface_limit ath10k_wcn3990_qcs_if_limit[] = {
 			 BIT(NL80211_IFTYPE_MESH_POINT) |
 #endif
 			 BIT(NL80211_IFTYPE_P2P_GO),
-	},
-	{
-		.max = 1,
-		.types = BIT(NL80211_IFTYPE_P2P_DEVICE),
 	},
 };
 
@@ -8021,6 +8013,10 @@ int ath10k_mac_register(struct ath10k *ar)
 			BIT(NL80211_IFTYPE_P2P_DEVICE) |
 			BIT(NL80211_IFTYPE_P2P_CLIENT) |
 			BIT(NL80211_IFTYPE_P2P_GO);
+
+	if (QCA_REV_WCN3990(ar))
+		ar->hw->wiphy->interface_modes &=
+			~BIT(NL80211_IFTYPE_P2P_DEVICE);
 
 	ieee80211_hw_set(ar->hw, SIGNAL_DBM);
 	ieee80211_hw_set(ar->hw, SUPPORTS_PS);

@@ -1449,7 +1449,7 @@
 		};
 
 		cnss_pins {
-			cnss_default: cnss_default {
+			cnss_bootstrap_active: cnss_bootstrap_active {
 				mux {
 					pins = "gpio46";
 					function = "gpio";
@@ -1458,6 +1458,20 @@
 				config {
 					pins = "gpio46";
 					drive-strength = <16>;
+					output-high;
+					bias-pull-up;
+				};
+			};
+			cnss_bootstrap_sleep: cnss_bootstrap_sleep {
+				mux {
+					pins = "gpio46";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio46";
+					drive-strength = <2>;
+					output-low;
 					bias-pull-down;
 				};
 			};

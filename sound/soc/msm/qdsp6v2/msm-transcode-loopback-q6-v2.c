@@ -27,6 +27,8 @@
 #include <sound/initval.h>
 #include <sound/control.h>
 #include <sound/q6asm-v2.h>
+#include <sound/q6core.h>
+#include <sound/q6audio-v2.h>
 #include <sound/pcm_params.h>
 #include <sound/timer.h>
 #include <sound/tlv.h>
@@ -40,11 +42,21 @@
 #include "msm-qti-pp-config.h"
 
 #define LOOPBACK_SESSION_MAX_NUM_STREAMS 2
+/* Max volume corresponding to 24dB */
+#define TRANSCODE_LR_VOL_MAX_STEPS 0xFFFF
+
+#define APP_TYPE_CONFIG_IDX_APP_TYPE 0
+#define APP_TYPE_CONFIG_IDX_ACDB_ID 1
+#define APP_TYPE_CONFIG_IDX_SAMPLE_RATE 2
+#define APP_TYPE_CONFIG_IDX_BE_ID 3
 
 static DEFINE_MUTEX(transcode_loopback_session_lock);
 
 struct trans_loopback_pdata {
 	struct snd_compr_stream *cstream[MSM_FRONTEND_DAI_MAX];
+	int32_t ion_fd[MSM_FRONTEND_DAI_MAX];
+	uint32_t master_gain;
+	int perf_mode;
 };
 
 struct loopback_stream {
@@ -79,6 +91,7 @@ struct msm_transcode_loopback {
 
 	int session_id;
 	struct audio_client *audio_client;
+	int32_t shm_ion_fd;
 };
 
 /* Transcode loopback global info struct */
@@ -179,6 +192,40 @@ static void populate_codec_list(struct msm_transcode_loopback *trans,
 	}
 }
 
+static int msm_transcode_map_unmap_fd(int fd, bool add_pages)
+{
+	ion_phys_addr_t paddr;
+	size_t pa_len = 0;
+	int ret = 0;
+	u8 assign_type;
+
+	if (add_pages)
+		assign_type = HLOS_TO_ADSP;
+	else
+		assign_type = ADSP_TO_HLOS;
+
+	ret = msm_audio_ion_phys_assign("audio_lib_mem_client", fd,
+					&paddr, &pa_len, assign_type);
+	if (ret) {
+		pr_err("%s: audio lib ION phys failed, rc = %d\n", __func__,
+			ret);
+		goto done;
+	}
+
+	ret = q6core_add_remove_pool_pages(paddr, pa_len,
+				 ADSP_MEMORY_MAP_HLOS_PHYSPOOL, add_pages);
+	if (ret) {
+		pr_err("%s: add remove pages failed, rc = %d\n", __func__, ret);
+		/* Assign back to HLOS if add pages cmd failed */
+		if (add_pages)
+			msm_audio_ion_phys_assign("audio_lib_mem_client", fd,
+						&paddr, &pa_len, ADSP_TO_HLOS);
+	}
+
+done:
+	return ret;
+}
+
 static int msm_transcode_loopback_open(struct snd_compr_stream *cstream)
 {
 	int ret = 0;
@@ -224,6 +271,13 @@ static int msm_transcode_loopback_open(struct snd_compr_stream *cstream)
 			goto exit;
 		}
 		msm_adsp_init_mixer_ctl_pp_event_queue(rtd);
+		if (pdata->ion_fd[rtd->dai_link->be_id] > 0) {
+			ret = msm_transcode_map_unmap_fd(
+					pdata->ion_fd[rtd->dai_link->be_id],
+					true);
+			if (ret < 0)
+				goto exit;
+		}
 	}
 
 	pr_debug("%s: num stream%d, stream name %s\n", __func__,
@@ -274,7 +328,11 @@ static int msm_transcode_loopback_free(struct snd_compr_stream *cstream)
 	struct snd_compr_runtime *runtime = cstream->runtime;
 	struct msm_transcode_loopback *trans = runtime->private_data;
 	struct snd_soc_pcm_runtime *rtd = snd_pcm_substream_chip(cstream);
+	struct trans_loopback_pdata *pdata = snd_soc_platform_get_drvdata(
+								rtd->platform);
 	int ret = 0;
+	ion_phys_addr_t paddr;
+	size_t pa_len = 0;
 
 	mutex_lock(&trans->lock);
 
@@ -286,6 +344,19 @@ static int msm_transcode_loopback_free(struct snd_compr_stream *cstream)
 	if (cstream->direction == SND_COMPRESS_PLAYBACK) {
 		memset(&trans->sink, 0, sizeof(struct loopback_stream));
 		msm_adsp_clean_mixer_ctl_pp_event_queue(rtd);
+		if (trans->shm_ion_fd > 0) {
+			msm_audio_ion_phys_assign("audio_shm_mem_client",
+						  trans->shm_ion_fd,
+						  &paddr, &pa_len,
+						  ADSP_TO_HLOS);
+			trans->shm_ion_fd = 0;
+		}
+		if (pdata->ion_fd[rtd->dai_link->be_id] > 0) {
+			msm_transcode_map_unmap_fd(
+					pdata->ion_fd[rtd->dai_link->be_id],
+					false);
+			pdata->ion_fd[rtd->dai_link->be_id] = 0;
+		}
 	} else if (cstream->direction == SND_COMPRESS_CAPTURE) {
 		memset(&trans->source, 0, sizeof(struct loopback_stream));
 	}
@@ -337,6 +408,8 @@ static int msm_transcode_loopback_set_params(struct snd_compr_stream *cstream,
 	struct msm_transcode_loopback *trans = runtime->private_data;
 	struct snd_soc_pcm_runtime *soc_pcm_rx;
 	struct snd_soc_pcm_runtime *soc_pcm_tx;
+	struct snd_soc_pcm_runtime *rtd;
+	struct trans_loopback_pdata *pdata;
 	uint32_t bit_width = 16;
 	int ret = 0;
 
@@ -346,6 +419,9 @@ static int msm_transcode_loopback_set_params(struct snd_compr_stream *cstream,
 	}
 
 	mutex_lock(&trans->lock);
+
+	rtd = snd_pcm_substream_chip(cstream);
+	pdata = snd_soc_platform_get_drvdata(rtd->platform);
 
 	if (cstream->direction == SND_COMPRESS_PLAYBACK) {
 		if (codec_param->codec.id == SND_AUDIOCODEC_PCM) {
@@ -428,7 +504,7 @@ static int msm_transcode_loopback_set_params(struct snd_compr_stream *cstream,
 		pr_debug("%s: ASM client allocated, callback %pK\n", __func__,
 						loopback_event_handler);
 		trans->session_id = trans->audio_client->session;
-		trans->audio_client->perf_mode = false;
+		trans->audio_client->perf_mode = pdata->perf_mode;
 		ret = q6asm_open_transcode_loopback(trans->audio_client,
 					bit_width,
 					trans->source.codec_format,
@@ -447,7 +523,7 @@ static int msm_transcode_loopback_set_params(struct snd_compr_stream *cstream,
 		if (trans->source.codec_format != FORMAT_LINEAR_PCM)
 			msm_pcm_routing_reg_phy_compr_stream(
 					soc_pcm_tx->dai_link->be_id,
-					trans->audio_client->perf_mode,
+					false,
 					trans->session_id,
 					SNDRV_PCM_STREAM_CAPTURE,
 					COMPRESSED_PASSTHROUGH_GEN);
@@ -460,7 +536,7 @@ static int msm_transcode_loopback_set_params(struct snd_compr_stream *cstream,
 		/* Opening Rx ADM in LOW_LATENCY mode by default */
 		msm_pcm_routing_reg_phy_stream(
 					soc_pcm_rx->dai_link->be_id,
-					true,
+					trans->audio_client->perf_mode,
 					trans->session_id,
 					SNDRV_PCM_STREAM_PLAYBACK);
 		pr_debug("%s: Successfully opened ADM sessions\n", __func__);
@@ -490,6 +566,46 @@ static int msm_transcode_loopback_get_caps(struct snd_compr_stream *cstream,
 	else
 		memcpy(arg, &trans->sink_compr_cap,
 		       sizeof(struct snd_compr_caps));
+	return 0;
+}
+
+static int msm_transcode_loopback_set_metadata(struct snd_compr_stream *cstream,
+				struct snd_compr_metadata *metadata)
+{
+	struct snd_soc_pcm_runtime *rtd;
+	struct trans_loopback_pdata *pdata;
+
+	if (!metadata || !cstream) {
+		pr_err("%s: Invalid arguments\n", __func__);
+		return -EINVAL;
+	}
+
+	rtd = snd_pcm_substream_chip(cstream);
+	pdata = snd_soc_platform_get_drvdata(rtd->platform);
+
+	switch (metadata->key) {
+	case SNDRV_COMPRESS_LATENCY_MODE:
+	{
+		switch (metadata->value[0]) {
+		case SNDRV_COMPRESS_LEGACY_LATENCY_MODE:
+			pdata->perf_mode = LEGACY_PCM_MODE;
+			break;
+		case SNDRV_COMPRESS_LOW_LATENCY_MODE:
+			pdata->perf_mode = LOW_LATENCY_PCM_MODE;
+			break;
+		default:
+			pr_debug("%s: Unsupported latency mode %d, default to Legacy\n",
+					__func__, metadata->value[0]);
+			pdata->perf_mode = LEGACY_PCM_MODE;
+			break;
+		}
+	}
+		break;
+	default:
+		pr_debug("%s: Unsupported metadata %d\n",
+				__func__, metadata->key);
+		break;
+	}
 	return 0;
 }
 
@@ -557,7 +673,7 @@ done:
 	return ret;
 }
 
-static int msm_transcode_ion_fd_map_put(struct snd_kcontrol *kcontrol,
+static int msm_transcode_shm_ion_fd_map_put(struct snd_kcontrol *kcontrol,
 				    struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
@@ -566,7 +682,6 @@ static int msm_transcode_ion_fd_map_put(struct snd_kcontrol *kcontrol,
 				snd_soc_component_get_drvdata(comp);
 	struct snd_compr_stream *cstream = NULL;
 	struct msm_transcode_loopback *prtd;
-	int fd;
 	int ret = 0;
 
 	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
@@ -596,10 +711,34 @@ static int msm_transcode_ion_fd_map_put(struct snd_kcontrol *kcontrol,
 		goto done;
 	}
 
-	memcpy(&fd, ucontrol->value.bytes.data, sizeof(fd));
-	ret = q6asm_send_ion_fd(prtd->audio_client, fd);
+	memcpy(&prtd->shm_ion_fd, ucontrol->value.bytes.data,
+		sizeof(prtd->shm_ion_fd));
+	ret = q6asm_audio_map_shm_fd(prtd->audio_client, prtd->shm_ion_fd);
 	if (ret < 0)
-		pr_err("%s: failed to register ion fd\n", __func__);
+		pr_err("%s: failed to map shm mem\n", __func__);
+done:
+	return ret;
+}
+
+
+static int msm_transcode_lib_ion_fd_map_put(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	unsigned long fe_id = kcontrol->private_value;
+	struct trans_loopback_pdata *pdata = (struct trans_loopback_pdata *)
+				snd_soc_component_get_drvdata(comp);
+	int ret = 0;
+
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s Received out of bounds invalid fe_id %lu\n",
+			__func__, fe_id);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	memcpy(&pdata->ion_fd[fe_id], ucontrol->value.bytes.data,
+		   sizeof(pdata->ion_fd[fe_id]));
 done:
 	return ret;
 }
@@ -661,6 +800,141 @@ static int msm_transcode_rtic_event_ack_put(struct snd_kcontrol *kcontrol,
 			__func__, ret);
 done:
 	return ret;
+}
+
+static int msm_transcode_playback_app_type_cfg_put(
+			struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	u64 fe_id = kcontrol->private_value;
+	int session_type = SESSION_TYPE_RX;
+	int be_id = ucontrol->value.integer.value[APP_TYPE_CONFIG_IDX_BE_ID];
+	struct msm_pcm_stream_app_type_cfg cfg_data = {0, 0, 48000};
+	int ret = 0;
+
+	cfg_data.app_type = ucontrol->value.integer.value[
+			    APP_TYPE_CONFIG_IDX_APP_TYPE];
+	cfg_data.acdb_dev_id = ucontrol->value.integer.value[
+			       APP_TYPE_CONFIG_IDX_ACDB_ID];
+	if (ucontrol->value.integer.value[APP_TYPE_CONFIG_IDX_SAMPLE_RATE] != 0)
+		cfg_data.sample_rate = ucontrol->value.integer.value[
+				       APP_TYPE_CONFIG_IDX_SAMPLE_RATE];
+	pr_debug("%s: fe_id %llu session_type %d be_id %d app_type %d acdb_dev_id %d sample_rate- %d\n",
+		__func__, fe_id, session_type, be_id,
+		cfg_data.app_type, cfg_data.acdb_dev_id, cfg_data.sample_rate);
+	ret = msm_pcm_routing_reg_stream_app_type_cfg(fe_id, session_type,
+						      be_id, &cfg_data);
+	if (ret < 0)
+		pr_err("%s: msm_transcode_playback_stream_app_type_cfg set failed returned %d\n",
+			__func__, ret);
+
+	return ret;
+}
+
+static int msm_transcode_playback_app_type_cfg_get(
+			struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	u64 fe_id = kcontrol->private_value;
+	int session_type = SESSION_TYPE_RX;
+	int be_id = 0;
+	struct msm_pcm_stream_app_type_cfg cfg_data = {0};
+	int ret = 0;
+
+	ret = msm_pcm_routing_get_stream_app_type_cfg(fe_id, session_type,
+						      &be_id, &cfg_data);
+	if (ret < 0) {
+		pr_err("%s: msm_transcode_playback_stream_app_type_cfg get failed returned %d\n",
+			__func__, ret);
+		goto done;
+	}
+
+	ucontrol->value.integer.value[APP_TYPE_CONFIG_IDX_APP_TYPE] =
+					cfg_data.app_type;
+	ucontrol->value.integer.value[APP_TYPE_CONFIG_IDX_ACDB_ID] =
+					cfg_data.acdb_dev_id;
+	ucontrol->value.integer.value[APP_TYPE_CONFIG_IDX_SAMPLE_RATE] =
+					cfg_data.sample_rate;
+	ucontrol->value.integer.value[APP_TYPE_CONFIG_IDX_BE_ID] = be_id;
+	pr_debug("%s: fedai_id %llu, session_type %d, be_id %d, app_type %d, acdb_dev_id %d, sample_rate %d\n",
+		__func__, fe_id, session_type, be_id,
+		cfg_data.app_type, cfg_data.acdb_dev_id, cfg_data.sample_rate);
+done:
+	return ret;
+}
+
+static int msm_transcode_set_volume(struct snd_compr_stream *cstream,
+				uint32_t master_gain)
+{
+	int rc = 0;
+	struct msm_transcode_loopback *prtd;
+	struct snd_soc_pcm_runtime *rtd;
+
+	pr_debug("%s: master_gain %d\n", __func__, master_gain);
+	if (!cstream || !cstream->runtime) {
+		pr_err("%s: session not active\n", __func__);
+		return -EPERM;
+	}
+	rtd = cstream->private_data;
+	prtd = cstream->runtime->private_data;
+
+	if (!rtd || !rtd->platform || !prtd || !prtd->audio_client) {
+		pr_err("%s: invalid rtd, prtd or audio client", __func__);
+		return -EINVAL;
+	}
+
+	rc = q6asm_set_volume(prtd->audio_client, master_gain);
+	if (rc < 0)
+		pr_err("%s: Send vol gain command failed rc=%d\n",
+		       __func__, rc);
+
+	return rc;
+}
+
+static int msm_transcode_volume_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	unsigned long fe_id = kcontrol->private_value;
+	struct trans_loopback_pdata *pdata = (struct trans_loopback_pdata *)
+			snd_soc_component_get_drvdata(comp);
+	struct snd_compr_stream *cstream = NULL;
+	uint32_t ret = 0;
+
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s Received out of bounds fe_id %lu\n",
+			__func__, fe_id);
+		return -EINVAL;
+	}
+
+	cstream = pdata->cstream[fe_id];
+	pdata->master_gain = ucontrol->value.integer.value[0];
+
+	pr_debug("%s: fe_id %lu master_gain %d\n",
+		 __func__, fe_id, pdata->master_gain);
+	if (cstream)
+		ret = msm_transcode_set_volume(cstream, pdata->master_gain);
+	return ret;
+}
+
+static int msm_transcode_volume_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	unsigned long fe_id = kcontrol->private_value;
+
+	struct trans_loopback_pdata *pdata = (struct trans_loopback_pdata *)
+			snd_soc_component_get_drvdata(comp);
+
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s Received out of bound fe_id %lu\n", __func__, fe_id);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: fe_id %lu\n", __func__, fe_id);
+	ucontrol->value.integer.value[0] = pdata->master_gain;
+
+	return 0;
 }
 
 static int msm_transcode_stream_cmd_control(
@@ -773,7 +1047,8 @@ done:
 	return ret;
 }
 
-static int msm_transcode_add_ion_fd_cmd_control(struct snd_soc_pcm_runtime *rtd)
+static int msm_transcode_add_shm_ion_fd_cmd_control(
+					struct snd_soc_pcm_runtime *rtd)
 {
 	const char *mixer_ctl_name = "Playback ION FD";
 	const char *deviceNo = "NN";
@@ -785,7 +1060,53 @@ static int msm_transcode_add_ion_fd_cmd_control(struct snd_soc_pcm_runtime *rtd)
 		.name = "?",
 		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
 		.info = msm_adsp_stream_cmd_info,
-		.put = msm_transcode_ion_fd_map_put,
+		.put = msm_transcode_shm_ion_fd_map_put,
+		.private_value = 0,
+		}
+	};
+
+	if (!rtd) {
+		pr_err("%s NULL rtd\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ctl_len = strlen(mixer_ctl_name) + 1 + strlen(deviceNo) + 1;
+	mixer_str = kzalloc(ctl_len, GFP_KERNEL);
+	if (!mixer_str) {
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	snprintf(mixer_str, ctl_len, "%s %d", mixer_ctl_name, rtd->pcm->device);
+	fe_ion_fd_config_control[0].name = mixer_str;
+	fe_ion_fd_config_control[0].private_value = rtd->dai_link->be_id;
+	pr_debug("%s: Registering new mixer ctl %s\n", __func__, mixer_str);
+	ret = snd_soc_add_platform_controls(rtd->platform,
+				fe_ion_fd_config_control,
+				ARRAY_SIZE(fe_ion_fd_config_control));
+	if (ret < 0)
+		pr_err("%s: failed to add ctl %s\n", __func__, mixer_str);
+
+	kfree(mixer_str);
+done:
+	return ret;
+}
+
+static int msm_transcode_add_lib_ion_fd_cmd_control(
+					struct snd_soc_pcm_runtime *rtd)
+{
+	const char *mixer_ctl_name = "Playback ION LIB FD";
+	const char *deviceNo = "NN";
+	char *mixer_str = NULL;
+	int ctl_len = 0, ret = 0;
+	struct snd_kcontrol_new fe_ion_fd_config_control[1] = {
+		{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "?",
+		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
+		.info = msm_adsp_stream_cmd_info,
+		.put = msm_transcode_lib_ion_fd_map_put,
 		.private_value = 0,
 		}
 	};
@@ -864,6 +1185,99 @@ done:
 	return ret;
 }
 
+static int msm_transcode_app_type_cfg_info(struct snd_kcontrol *kcontrol,
+				       struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 5;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = 0xFFFFFFFF;
+	return 0;
+}
+
+static int msm_transcode_add_app_type_cfg_control(
+			struct snd_soc_pcm_runtime *rtd)
+{
+	char mixer_str[32];
+	int rc = 0;
+	struct snd_kcontrol_new fe_app_type_cfg_control[1] = {
+		{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
+		.info = msm_transcode_app_type_cfg_info,
+		.put = msm_transcode_playback_app_type_cfg_put,
+		.get = msm_transcode_playback_app_type_cfg_get,
+		.private_value = 0,
+		}
+	};
+
+	if (!rtd) {
+		pr_err("%s NULL rtd\n", __func__);
+
+		return -EINVAL;
+	}
+
+	if (rtd->compr->direction == SND_COMPRESS_PLAYBACK) {
+
+		snprintf(mixer_str, sizeof(mixer_str),
+			"Audio Stream %d App Type Cfg",
+			 rtd->pcm->device);
+
+		fe_app_type_cfg_control[0].name = mixer_str;
+		fe_app_type_cfg_control[0].private_value = rtd->dai_link->be_id;
+
+		fe_app_type_cfg_control[0].put =
+				msm_transcode_playback_app_type_cfg_put;
+		fe_app_type_cfg_control[0].get =
+				msm_transcode_playback_app_type_cfg_get;
+
+		pr_debug("Registering new mixer ctl %s", mixer_str);
+		snd_soc_add_platform_controls(rtd->platform,
+					fe_app_type_cfg_control,
+					ARRAY_SIZE(fe_app_type_cfg_control));
+	}
+
+	return rc;
+}
+static int msm_transcode_volume_info(struct snd_kcontrol *kcontrol,
+				 struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = TRANSCODE_LR_VOL_MAX_STEPS;
+	return 0;
+}
+
+static int msm_transcode_add_volume_control(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_kcontrol_new fe_volume_control[1] = {
+		{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "Transcode Loopback Rx Volume",
+		.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ |
+			  SNDRV_CTL_ELEM_ACCESS_READWRITE,
+		.info = msm_transcode_volume_info,
+		.get = msm_transcode_volume_get,
+		.put = msm_transcode_volume_put,
+		.private_value = 0,
+		}
+	};
+
+	if (!rtd) {
+		pr_err("%s NULL rtd\n", __func__);
+		return -EINVAL;
+	}
+	if (rtd->compr->direction == SND_COMPRESS_PLAYBACK) {
+		fe_volume_control[0].private_value = rtd->dai_link->be_id;
+		pr_debug("Registering new mixer ctl %s",
+			     fe_volume_control[0].name);
+		snd_soc_add_platform_controls(rtd->platform, fe_volume_control,
+						ARRAY_SIZE(fe_volume_control));
+	}
+	return 0;
+}
+
 static int msm_transcode_loopback_new(struct snd_soc_pcm_runtime *rtd)
 {
 	int rc;
@@ -877,14 +1291,29 @@ static int msm_transcode_loopback_new(struct snd_soc_pcm_runtime *rtd)
 		pr_err("%s: ADSP Stream callback Control open failed\n",
 			__func__);
 
-	rc = msm_transcode_add_ion_fd_cmd_control(rtd);
+	rc = msm_transcode_add_shm_ion_fd_cmd_control(rtd);
 	if (rc)
-		pr_err("%s: Could not add transcode ion fd Control\n",
+		pr_err("%s: Could not add transcode shm ion fd Control\n",
+			__func__);
+
+	rc = msm_transcode_add_lib_ion_fd_cmd_control(rtd);
+	if (rc)
+		pr_err("%s: Could not add transcode lib ion fd Control\n",
 			__func__);
 
 	rc = msm_transcode_add_event_ack_cmd_control(rtd);
 	if (rc)
 		pr_err("%s: Could not add transcode event ack Control\n",
+			__func__);
+
+	rc = msm_transcode_add_app_type_cfg_control(rtd);
+	if (rc)
+		pr_err("%s: Could not add Compr App Type Cfg Control\n",
+			__func__);
+
+	rc = msm_transcode_add_volume_control(rtd);
+	if (rc)
+		pr_err("%s: Could not add transcode volume Control\n",
 			__func__);
 
 	return 0;
@@ -896,6 +1325,7 @@ static struct snd_compr_ops msm_transcode_loopback_ops = {
 	.trigger		= msm_transcode_loopback_trigger,
 	.set_params		= msm_transcode_loopback_set_params,
 	.get_caps		= msm_transcode_loopback_get_caps,
+	.set_metadata		= msm_transcode_loopback_set_metadata,
 };
 
 
@@ -910,6 +1340,7 @@ static int msm_transcode_loopback_probe(struct snd_soc_platform *platform)
 	if (!pdata)
 		return -ENOMEM;
 
+	pdata->perf_mode = LOW_LATENCY_PCM_MODE;
 	snd_soc_platform_set_drvdata(platform, pdata);
 	return 0;
 }
