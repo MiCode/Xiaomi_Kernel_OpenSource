@@ -69,6 +69,34 @@ void sde_setup_dspp_pcc_v1_7(struct sde_hw_dspp *ctx, void *cfg);
 void sde_setup_dspp_pa_hsic_v17(struct sde_hw_dspp *ctx, void *cfg);
 
 /**
+ * sde_setup_dspp_memcol_skin_v17 - setup DSPP memcol skin in v1.7 hardware
+ * @ctx: Pointer to DSPP context
+ * @cfg: Pointer to memcolor config data
+ */
+void sde_setup_dspp_memcol_skin_v17(struct sde_hw_dspp *ctx, void *cfg);
+
+/**
+ * sde_setup_dspp_memcol_sky_v17 - setup DSPP memcol sky in v1.7 hardware
+ * @ctx: Pointer to DSPP context
+ * @cfg: Pointer to memcolor config data
+ */
+void sde_setup_dspp_memcol_sky_v17(struct sde_hw_dspp *ctx, void *cfg);
+
+/**
+ * sde_setup_dspp_memcol_foliage_v17 - setup DSPP memcol fol in v1.7 hardware
+ * @ctx: Pointer to DSPP context
+ * @cfg: Pointer to memcolor config data
+ */
+void sde_setup_dspp_memcol_foliage_v17(struct sde_hw_dspp *ctx, void *cfg);
+
+/**
+ * sde_setup_dspp_memcol_prot_v17 - setup DSPP memcol prot in v1.7 hardware
+ * @ctx: Pointer to DSPP context
+ * @cfg: Pointer to memcolor config data
+ */
+void sde_setup_dspp_memcol_prot_v17(struct sde_hw_dspp *ctx, void *cfg);
+
+/**
  * sde_setup_dspp_sixzone_v17 - setup DSPP sixzone feature in v1.7 hardware
  * @ctx: Pointer to DSPP context
  * @cfg: Pointer to sixzone data

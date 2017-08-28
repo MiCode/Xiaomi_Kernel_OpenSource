@@ -95,7 +95,13 @@ struct drm_msm_pa_hsic {
 	__u32 contrast;
 };
 
-/* struct drm_msm_memcol - Memory color feature strucuture.
+#define MEMCOL_PROT_HUE (1 << 0)
+#define MEMCOL_PROT_SAT (1 << 1)
+#define MEMCOL_PROT_VAL (1 << 2)
+#define MEMCOL_PROT_CONT (1 << 3)
+#define MEMCOL_PROT_SIXZONE (1 << 4)
+#define MEMCOL_PROT_BLEND (1 << 5)
+/* struct drm_msm_memcol - Memory color feature structure.
  *                         Skin, sky, foliage features are supported.
  * @prot_flags: Bit mask for enabling protection feature.
  * @color_adjust_p0: Adjustment curve.
