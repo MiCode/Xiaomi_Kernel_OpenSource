@@ -66,11 +66,32 @@ struct sde_hw_dspp_ops {
 	void (*setup_sharpening)(struct sde_hw_dspp *ctx, void *cfg);
 
 	/**
-	 * setup_pa_memcolor - setup dspp memcolor
+	 * setup_pa_memcol_skin - setup dspp memcolor skin
 	 * @ctx: Pointer to dspp context
 	 * @cfg: Pointer to configuration
 	 */
-	void (*setup_pa_memcolor)(struct sde_hw_dspp *ctx, void *cfg);
+	void (*setup_pa_memcol_skin)(struct sde_hw_dspp *ctx, void *cfg);
+
+	/**
+	 * setup_pa_memcol_sky - setup dspp memcolor sky
+	 * @ctx: Pointer to dspp context
+	 * @cfg: Pointer to configuration
+	 */
+	void (*setup_pa_memcol_sky)(struct sde_hw_dspp *ctx, void *cfg);
+
+	/**
+	 * setup_pa_memcol_foliage - setup dspp memcolor foliage
+	 * @ctx: Pointer to dspp context
+	 * @cfg: Pointer to configuration
+	 */
+	void (*setup_pa_memcol_foliage)(struct sde_hw_dspp *ctx, void *cfg);
+
+	/**
+	 * setup_pa_memcol_prot - setup dspp memcolor protection
+	 * @ctx: Pointer to dspp context
+	 * @cfg: Pointer to configuration
+	 */
+	void (*setup_pa_memcol_prot)(struct sde_hw_dspp *ctx, void *cfg);
 
 	/**
 	 * setup_sixzone - setup dspp six zone

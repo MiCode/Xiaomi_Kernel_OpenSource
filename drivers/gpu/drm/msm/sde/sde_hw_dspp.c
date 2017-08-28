@@ -75,6 +75,19 @@ static void _setup_dspp_ops(struct sde_hw_dspp *c, unsigned long features)
 				c->ops.setup_pa_hsic =
 					sde_setup_dspp_pa_hsic_v17;
 			break;
+		case SDE_DSPP_MEMCOLOR:
+			if (c->cap->sblk->memcolor.version ==
+				SDE_COLOR_PROCESS_VER(0x1, 0x7)) {
+				c->ops.setup_pa_memcol_skin =
+					sde_setup_dspp_memcol_skin_v17;
+				c->ops.setup_pa_memcol_sky =
+					sde_setup_dspp_memcol_sky_v17;
+				c->ops.setup_pa_memcol_foliage =
+					sde_setup_dspp_memcol_foliage_v17;
+				c->ops.setup_pa_memcol_prot =
+					sde_setup_dspp_memcol_prot_v17;
+			}
+			break;
 		case SDE_DSPP_SIXZONE:
 			if (c->cap->sblk->sixzone.version ==
 				SDE_COLOR_PROCESS_VER(0x1, 0x7))

@@ -26,7 +26,8 @@ struct sde_irq_callback;
 enum sde_memcolor_type {
 	MEMCOLOR_SKIN = 0,
 	MEMCOLOR_SKY,
-	MEMCOLOR_FOLIAGE
+	MEMCOLOR_FOLIAGE,
+	MEMCOLOR_MAX
 };
 
 /**
