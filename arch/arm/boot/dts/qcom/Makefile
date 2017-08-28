@@ -181,6 +181,7 @@ dtb-$(CONFIG_ARCH_SDX20) += sdx20-emmc-cdp.dtb \
 	sdx20-v2-nand-mtp.dtb \
 	sdx20-v2-nand-dualwifi-mtp.dtb \
 	sdx20-v2-nand-dualwifi-cdp.dtb \
+	sdx20-v2-nand-singlewifi-dualwificonf-mtp.dtb \
 	sdx20-emmc-pcie-ep-mtp.dtb \
 	sdx20-nand-pcie-ep-mtp.dtb \
 	sdx20-v2-emmc-pcie-ep-mtp.dtb \
