@@ -1430,6 +1430,15 @@
 						<&tpda_spss_out_funnel_spss>;
 				};
 			};
+
+			port@2 {
+				reg = <1>;
+				funnel_spss_in_spss_etm0: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&spss_etm0_out_funnel_spss>;
+				};
+			};
 		};
 	};
 
@@ -1927,6 +1936,20 @@
 			audio_etm0_out_funnel_lpass_1: endpoint {
 				remote-endpoint =
 					<&funnel_lpass_1_in_audio_etm0>;
+			};
+		};
+	};
+
+	spss_etm0 {
+		compatible = "qcom,coresight-dummy";
+
+		coresight-name = "coresight-spss-etm0";
+
+		qcom,dummy-source;
+		port {
+			spss_etm0_out_funnel_spss: endpoint {
+				remote-endpoint =
+					<&funnel_spss_in_spss_etm0>;
 			};
 		};
 	};
