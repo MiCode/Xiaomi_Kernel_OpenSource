@@ -179,11 +179,17 @@ static inline void show_stats(struct msm_vidc_inst *i)
 	}
 }
 
+static inline void msm_vidc_res_handle_fatal_hw_error(
+	struct msm_vidc_platform_resources *resources,
+	bool enable_fatal)
+{
+	enable_fatal &= resources->debug_timeout;
+	MSM_VIDC_ERROR(enable_fatal);
+}
+
 static inline void msm_vidc_handle_hw_error(struct msm_vidc_core *core)
 {
-	bool enable_fatal;
-
-	enable_fatal = core->resources.debug_timeout;
+	bool enable_fatal = true;
 
 	/*
 	 * In current implementation user-initiated SSR triggers
@@ -200,8 +206,7 @@ static inline void msm_vidc_handle_hw_error(struct msm_vidc_core *core)
 	 * based on multiple factors. This condition check will
 	 * be enhanced later.
 	 */
-
-	MSM_VIDC_ERROR(enable_fatal);
+	msm_vidc_res_handle_fatal_hw_error(&core->resources, enable_fatal);
 }
 
 #endif

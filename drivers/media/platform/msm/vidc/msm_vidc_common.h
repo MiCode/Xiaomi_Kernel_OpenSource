@@ -20,6 +20,11 @@ struct vb2_buf_entry {
 	struct vb2_buffer *vb;
 };
 
+struct getprop_buf {
+	struct list_head list;
+	void *data;
+};
+
 extern const char *const mpeg_video_vidc_extradata[];
 
 enum load_calc_quirks {
