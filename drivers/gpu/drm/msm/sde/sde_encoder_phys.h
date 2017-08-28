@@ -350,6 +350,8 @@ struct sde_encoder_phys_cmd {
  * @intf_cfg:		Interface hardware configuration
  * @wb_roi:		Writeback region-of-interest
  * @wb_fmt:		Writeback pixel format
+ * @wb_fb:		Pointer to current writeback framebuffer
+ * @wb_aspace:		Pointer to current writeback address space
  * @frame_count:	Counter of completed writeback operations
  * @kickoff_count:	Counter of issued writeback operations
  * @aspace:		address space identifier for non-secure/secure domain
@@ -372,6 +374,8 @@ struct sde_encoder_phys_wb {
 	struct sde_hw_intf_cfg intf_cfg;
 	struct sde_rect wb_roi;
 	const struct sde_format *wb_fmt;
+	struct drm_framebuffer *wb_fb;
+	struct msm_gem_address_space *wb_aspace;
 	u32 frame_count;
 	u32 kickoff_count;
 	struct msm_gem_address_space *aspace[SDE_IOMMU_DOMAIN_MAX];
