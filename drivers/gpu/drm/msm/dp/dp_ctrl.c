@@ -860,39 +860,23 @@ static int dp_ctrl_link_train_1(struct dp_ctrl_private *ctrl)
 static int dp_ctrl_link_rate_down_shift(struct dp_ctrl_private *ctrl)
 {
 	int ret = 0;
-	u32 min_req_link_rate_khz;
-	u32 new_proposed_link_bw_code;
-	u32 new_proposed_link_rate_khz;
 
 	if (!ctrl)
 		return -EINVAL;
 
-	min_req_link_rate_khz = ctrl->panel->get_min_req_link_rate(ctrl->panel);
-
 	switch (ctrl->link->link_params.bw_code) {
 	case DP_LINK_BW_8_1:
-		new_proposed_link_bw_code = DP_LINK_BW_5_4;
+		ctrl->link->link_params.bw_code = DP_LINK_BW_5_4;
 		break;
 	case DP_LINK_BW_5_4:
-		new_proposed_link_bw_code = DP_LINK_BW_2_7;
+		ctrl->link->link_params.bw_code = DP_LINK_BW_2_7;
 		break;
 	case DP_LINK_BW_2_7:
 	case DP_LINK_BW_1_62:
 	default:
-		new_proposed_link_bw_code = DP_LINK_BW_1_62;
+		ctrl->link->link_params.bw_code = DP_LINK_BW_1_62;
 		break;
 	};
-
-	new_proposed_link_rate_khz = drm_dp_bw_code_to_link_rate(
-						new_proposed_link_bw_code);
-
-	pr_debug("new proposed link rate=%d khz\n", new_proposed_link_rate_khz);
-	pr_debug("min required link rate=%d khz\n", min_req_link_rate_khz);
-
-	if (new_proposed_link_rate_khz >= min_req_link_rate_khz)
-		ctrl->link->link_params.bw_code = new_proposed_link_bw_code;
-	else
-		pr_debug("can't go below min required link rate\n");
 
 	pr_debug("new bw code=0x%x\n", ctrl->link->link_params.bw_code);
 
@@ -1165,8 +1149,12 @@ static int dp_ctrl_handle_sink_request(struct dp_ctrl *dp_ctrl,
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
 	do {
-		if (ret == -EAGAIN)
+		if (ret == -EAGAIN) {
+			/* try with lower link rate */
+			dp_ctrl_link_rate_down_shift(ctrl);
+
 			ctrl->catalog->mainlink_ctrl(ctrl->catalog, false);
+		}
 
 		ctrl->catalog->phy_lane_cfg(ctrl->catalog,
 			ctrl->orientation, ctrl->link->link_params.lane_count);
