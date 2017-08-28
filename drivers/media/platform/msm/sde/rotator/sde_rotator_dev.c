@@ -1478,7 +1478,7 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 	}
 
 	SDEROT_DBG(
-		"s:%d.%u src:(%u,%u,%u,%u)/%ux%u/%c%c%c%c dst:(%u,%u,%u,%u)/%c%c%c%c r:%d f:%d/%d s:%d fps:%u clk:%llu bw:%llu wb:%d vid:%d cmd:%d\n",
+		"s:%d.%u src:(%u,%u,%u,%u)/%ux%u/%c%c%c%c dst:(%u,%u,%u,%u)/%c%c%c%c r:%d f:%d/%d s:%d fps:%u clk:%llu bw:%llu prefill:%llu wb:%d vid:%d cmd:%d\n",
 		ctx->session_id, cmd->sequence_id,
 		cmd->src_rect_x, cmd->src_rect_y,
 		cmd->src_rect_w, cmd->src_rect_h,
@@ -1490,7 +1490,7 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 		cmd->dst_pixfmt >> 0, cmd->dst_pixfmt >> 8,
 		cmd->dst_pixfmt >> 16, cmd->dst_pixfmt >> 24,
 		cmd->rot90, cmd->hflip, cmd->vflip, cmd->secure, cmd->fps,
-		cmd->clkrate, cmd->data_bw,
+		cmd->clkrate, cmd->data_bw, cmd->prefill_bw,
 		cmd->dst_writeback, cmd->video_mode, cmd_type);
 	SDEROT_EVTLOG(ctx->session_id, cmd->sequence_id,
 		cmd->src_rect_x, cmd->src_rect_y,
@@ -1498,11 +1498,11 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 		cmd->src_pixfmt,
 		cmd->dst_rect_w, cmd->dst_rect_h,
 		cmd->dst_pixfmt,
+		cmd->fps, cmd->clkrate, cmd->data_bw, cmd->prefill_bw,
 		(cmd->rot90 << 0) | (cmd->hflip << 1) | (cmd->vflip << 2) |
 		(cmd->secure << 3) | (cmd->dst_writeback << 4) |
-		(cmd->video_mode << 5),
-		cmd->fps, cmd->clkrate, cmd->data_bw,
-		cmd_type);
+		(cmd->video_mode << 5) |
+		(cmd_type << 24));
 
 	sde_rot_mgr_lock(rot_dev->mgr);
 
