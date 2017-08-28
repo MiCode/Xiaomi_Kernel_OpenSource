@@ -143,6 +143,23 @@ int smblib_icl_override(struct smb_charger *chg, bool override)
 	return rc;
 }
 
+int smblib_stat_sw_override_cfg(struct smb_charger *chg, bool override)
+{
+	int rc;
+
+	/* override  = 1, SW STAT override; override = 0, HW auto mode */
+	rc = smblib_masked_write(chg, STAT_CFG_REG,
+				STAT_SW_OVERRIDE_CFG_BIT,
+				override ? STAT_SW_OVERRIDE_CFG_BIT : 0);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't configure SW STAT override rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	return rc;
+}
+
 /********************
  * REGISTER GETTERS *
  ********************/
@@ -584,8 +601,10 @@ static int smblib_notifier_call(struct notifier_block *nb,
 			schedule_work(&chg->bms_update_work);
 	}
 
-	if (!chg->pl.psy && !strcmp(psy->desc->name, "parallel"))
+	if (!chg->pl.psy && !strcmp(psy->desc->name, "parallel")) {
 		chg->pl.psy = psy;
+		schedule_work(&chg->pl_update_work);
+	}
 
 	return NOTIFY_OK;
 }
@@ -4282,6 +4301,14 @@ static void bms_update_work(struct work_struct *work)
 		power_supply_changed(chg->batt_psy);
 }
 
+static void pl_update_work(struct work_struct *work)
+{
+	struct smb_charger *chg = container_of(work, struct smb_charger,
+						pl_update_work);
+
+	smblib_stat_sw_override_cfg(chg, false);
+}
+
 static void clear_hdc_work(struct work_struct *work)
 {
 	struct smb_charger *chg = container_of(work, struct smb_charger,
@@ -4812,6 +4839,7 @@ int smblib_init(struct smb_charger *chg)
 	mutex_init(&chg->otg_oc_lock);
 	mutex_init(&chg->vconn_oc_lock);
 	INIT_WORK(&chg->bms_update_work, bms_update_work);
+	INIT_WORK(&chg->pl_update_work, pl_update_work);
 	INIT_WORK(&chg->rdstd_cc2_detach_work, rdstd_cc2_detach_work);
 	INIT_DELAYED_WORK(&chg->hvdcp_detect_work, smblib_hvdcp_detect_work);
 	INIT_DELAYED_WORK(&chg->clear_hdc_work, clear_hdc_work);
@@ -4860,6 +4888,14 @@ int smblib_init(struct smb_charger *chg)
 
 		chg->bms_psy = power_supply_get_by_name("bms");
 		chg->pl.psy = power_supply_get_by_name("parallel");
+		if (chg->pl.psy) {
+			rc = smblib_stat_sw_override_cfg(chg, false);
+			if (rc < 0) {
+				smblib_err(chg,
+					"Couldn't config stat sw rc=%d\n", rc);
+				return rc;
+			}
+		}
 		break;
 	case PARALLEL_SLAVE:
 		break;
@@ -4876,6 +4912,7 @@ int smblib_deinit(struct smb_charger *chg)
 	switch (chg->mode) {
 	case PARALLEL_MASTER:
 		cancel_work_sync(&chg->bms_update_work);
+		cancel_work_sync(&chg->pl_update_work);
 		cancel_work_sync(&chg->rdstd_cc2_detach_work);
 		cancel_delayed_work_sync(&chg->hvdcp_detect_work);
 		cancel_delayed_work_sync(&chg->clear_hdc_work);

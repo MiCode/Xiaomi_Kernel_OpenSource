@@ -1647,15 +1647,6 @@ static int smb2_init_hw(struct smb2 *chip)
 		return rc;
 	}
 
-	/* disable SW STAT override */
-	rc = smblib_masked_write(chg, STAT_CFG_REG,
-				 STAT_SW_OVERRIDE_CFG_BIT, 0);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't disable SW STAT override rc=%d\n",
-			rc);
-		return rc;
-	}
-
 	/* disable h/w autonomous parallel charging control */
 	rc = smblib_masked_write(chg, MISC_CFG_REG,
 				 STAT_PARALLEL_1400MA_EN_CFG_BIT, 0);
