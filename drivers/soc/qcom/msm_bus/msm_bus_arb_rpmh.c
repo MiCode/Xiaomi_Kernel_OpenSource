@@ -1809,17 +1809,20 @@ static int update_bw_adhoc(struct msm_bus_client_handle *cl, u64 ab, u64 ib)
 
 	msm_bus_dbg_rec_transaction(cl, ab, ib);
 
-	if ((cl->cur_act_ib == ib) && (cl->cur_act_ab == ab)) {
-		MSM_BUS_DBG("%s:no change in request", cl->name);
-		goto exit_update_request;
-	}
-
 	if (cl->active_only) {
+		if ((cl->cur_act_ib == ib) && (cl->cur_act_ab == ab)) {
+			MSM_BUS_DBG("%s:no change in request", cl->name);
+			goto exit_update_request;
+		}
 		act_ib = ib;
 		act_ab = ab;
 		dual_ib = 0;
 		dual_ab = 0;
 	} else {
+		if ((cl->cur_dual_ib == ib) && (cl->cur_dual_ab == ab)) {
+			MSM_BUS_DBG("%s:no change in request", cl->name);
+			goto exit_update_request;
+		}
 		dual_ib = ib;
 		dual_ab = ab;
 		act_ib = 0;
