@@ -393,7 +393,7 @@ enum hal_tme_level {
 enum hal_vp9_profile {
 	HAL_VP9_PROFILE_UNUSED = 0x00000000,
 	HAL_VP9_PROFILE_P0     = 0x00000001,
-	HAL_VP9_PROFILE_P2_10  = 0x00000002,
+	HAL_VP9_PROFILE_P2_10  = 0x00000004,
 };
 
 enum hal_vp9_level {
