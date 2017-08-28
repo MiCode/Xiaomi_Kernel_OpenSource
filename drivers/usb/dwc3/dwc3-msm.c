@@ -1050,6 +1050,8 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 	struct dwc3_trb *trb;
 	int num_trbs = (dep->direction) ? (2 * (req->num_bufs) + 2)
 					: (req->num_bufs + 2);
+	struct scatterlist *sg;
+	struct sg_table *sgt;
 
 	dep->trb_pool = dma_zalloc_coherent(dwc->sysdev,
 				num_trbs * sizeof(struct dwc3_trb),
@@ -1062,6 +1064,19 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 	}
 
 	dep->num_trbs = num_trbs;
+	dma_get_sgtable(dwc->sysdev, &req->sgt_trb_xfer_ring, dep->trb_pool,
+		dep->trb_pool_dma, num_trbs * sizeof(struct dwc3_trb));
+
+	sgt = &req->sgt_trb_xfer_ring;
+	dev_dbg(dwc->dev, "%s(): trb_pool:%pK trb_pool_dma:%lx\n",
+		__func__, dep->trb_pool, (unsigned long)dep->trb_pool_dma);
+
+	for_each_sg(sgt->sgl, sg, sgt->nents, i)
+		dev_dbg(dwc->dev,
+			"%i: page_link:%lx offset:%x length:%x address:%lx\n",
+			i, sg->page_link, sg->offset, sg->length,
+			(unsigned long)sg->dma_address);
+
 	/* IN direction */
 	if (dep->direction) {
 		for (i = 0; i < num_trbs ; i++) {
@@ -1127,11 +1142,13 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 		}
 	}
 
-	pr_debug("%s: Initialized TRB Ring for %s\n", __func__, dep->name);
+	dev_dbg(dwc->dev, "%s: Initialized TRB Ring for %s\n",
+					__func__, dep->name);
 	trb = &dep->trb_pool[0];
 	if (trb) {
 		for (i = 0; i < num_trbs; i++) {
-			pr_debug("TRB(%d): ADDRESS:%lx bpl:%x bph:%x size:%x ctrl:%x\n",
+			dev_dbg(dwc->dev,
+				"TRB %d: ADDR:%lx bpl:%x bph:%x sz:%x ctl:%x\n",
 				i, (unsigned long)dwc3_trb_dma_offset(dep,
 				&dep->trb_pool[i]), trb->bpl, trb->bph,
 				trb->size, trb->ctrl);
@@ -1148,7 +1165,7 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
  * @usb_ep - pointer to usb_ep instance.
  *
  */
-static void gsi_free_trbs(struct usb_ep *ep)
+static void gsi_free_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 {
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct dwc3 *dwc = dep->dwc;
@@ -1165,6 +1182,7 @@ static void gsi_free_trbs(struct usb_ep *ep)
 		dep->trb_pool = NULL;
 		dep->trb_pool_dma = 0;
 	}
+	sg_free_table(&req->sgt_trb_xfer_ring);
 }
 /**
  * Configures GSI EPs. For GSI EPs we need to set interrupter numbers.
@@ -1354,7 +1372,8 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
 		break;
 	case GSI_EP_OP_FREE_TRBS:
 		dev_dbg(mdwc->dev, "EP_OP_FREE_TRBS for %s\n", ep->name);
-		gsi_free_trbs(ep);
+		request = (struct usb_gsi_request *)op_data;
+		gsi_free_trbs(ep, request);
 		break;
 	case GSI_EP_OP_CONFIG:
 		request = (struct usb_gsi_request *)op_data;
