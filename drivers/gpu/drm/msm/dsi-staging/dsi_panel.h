@@ -30,6 +30,8 @@
 #include "msm_drv.h"
 
 #define MAX_BL_LEVEL 4096
+#define MAX_BL_SCALE_LEVEL 1024
+#define MAX_AD_BL_SCALE_LEVEL 65535
 #define DSI_CMD_PPS_SIZE 135
 
 #define DSI_MODE_MAX 5
@@ -87,6 +89,9 @@ struct dsi_backlight_config {
 	u32 bl_min_level;
 	u32 bl_max_level;
 	u32 brightness_max_level;
+	u32 bl_level;
+	u32 bl_scale;
+	u32 bl_scale_ad;
 
 	int en_gpio;
 	/* PWM params */

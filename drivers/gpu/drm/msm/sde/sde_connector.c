@@ -744,6 +744,42 @@ static int _sde_connector_set_roi_v1(
 	return 0;
 }
 
+static int _sde_connector_update_bl_scale(struct sde_connector *c_conn,
+		int idx,
+		uint64_t value)
+{
+	struct dsi_display *dsi_display = c_conn->display;
+	struct dsi_backlight_config *bl_config;
+	int rc = 0;
+
+	if (!dsi_display || !dsi_display->panel) {
+		pr_err("Invalid params(s) dsi_display %pK, panel %pK\n",
+			dsi_display,
+			((dsi_display) ? dsi_display->panel : NULL));
+		return -EINVAL;
+	}
+
+	bl_config = &dsi_display->panel->bl_config;
+	if (idx == CONNECTOR_PROP_BL_SCALE) {
+		bl_config->bl_scale = value;
+		if (value > MAX_BL_SCALE_LEVEL)
+			bl_config->bl_scale = MAX_BL_SCALE_LEVEL;
+		SDE_DEBUG("set to panel: bl_scale = %u, bl_level = %u\n",
+			bl_config->bl_scale, bl_config->bl_level);
+		rc = c_conn->ops.set_backlight(dsi_display,
+					       bl_config->bl_level);
+	} else if (idx == CONNECTOR_PROP_AD_BL_SCALE) {
+		bl_config->bl_scale_ad = value;
+		if (value > MAX_AD_BL_SCALE_LEVEL)
+			bl_config->bl_scale_ad = MAX_AD_BL_SCALE_LEVEL;
+		SDE_DEBUG("set to panel: bl_scale_ad = %u, bl_level = %u\n",
+			bl_config->bl_scale_ad, bl_config->bl_level);
+		rc = c_conn->ops.set_backlight(dsi_display,
+					       bl_config->bl_level);
+	}
+	return rc;
+}
+
 static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		struct drm_connector_state *state,
 		struct drm_property *property,
@@ -789,6 +825,10 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 			msm_framebuffer_set_kmap(c_state->out_fb,
 					c_conn->fb_kmap);
 		}
+		break;
+	case CONNECTOR_PROP_BL_SCALE:
+	case CONNECTOR_PROP_AD_BL_SCALE:
+		rc = _sde_connector_update_bl_scale(c_conn, idx, val);
 		break;
 	default:
 		break;
@@ -1289,6 +1329,14 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 	msm_property_install_range(&c_conn->property_info, "autorefresh",
 			0x0, 0, AUTOREFRESH_MAX_FRAME_CNT, 0,
 			CONNECTOR_PROP_AUTOREFRESH);
+
+	msm_property_install_range(&c_conn->property_info, "bl_scale",
+		0x0, 0, MAX_BL_SCALE_LEVEL, MAX_BL_SCALE_LEVEL,
+		CONNECTOR_PROP_BL_SCALE);
+
+	msm_property_install_range(&c_conn->property_info, "ad_bl_scale",
+		0x0, 0, MAX_AD_BL_SCALE_LEVEL, MAX_AD_BL_SCALE_LEVEL,
+		CONNECTOR_PROP_AD_BL_SCALE);
 
 	/* enum/bitmask properties */
 	msm_property_install_enum(&c_conn->property_info, "topology_name",
