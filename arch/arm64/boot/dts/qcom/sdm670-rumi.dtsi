@@ -98,3 +98,22 @@
 
 	status = "ok";
 };
+
+&sdhc_2 {
+	vdd-supply = <&pm660l_l5>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <200 800000>;
+
+	vdd-io-supply = <&pm660l_l2>;
+	qcom,vdd-io-voltage-level = <1800000 2960000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000>;
+	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50";
+
+	status = "ok";
+};

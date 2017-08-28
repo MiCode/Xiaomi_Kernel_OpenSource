@@ -32,6 +32,7 @@
 	aliases {
 		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
+		sdhc2 = &sdhc_2; /* SDC2 SD Card slot */
 	};
 
 	aliases {
@@ -1845,6 +1846,24 @@
 		qcom,nonremovable;
 
 		qcom,scaling-lower-bus-speed-mode = "DDR52";
+		status = "disabled";
+	};
+
+	sdhc_2: sdhci@8804000 {
+		compatible = "qcom,sdhci-msm-v5";
+		reg = <0x8804000 0x1000>;
+		reg-names = "hc_mem";
+
+		interrupts = <0 204 0>, <0 222 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		qcom,bus-width = <4>;
+		qcom,large-address-bus;
+
+		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
+			<&clock_gcc GCC_SDCC2_APPS_CLK>;
+		clock-names = "iface_clk", "core_clk";
+
 		status = "disabled";
 	};
 
