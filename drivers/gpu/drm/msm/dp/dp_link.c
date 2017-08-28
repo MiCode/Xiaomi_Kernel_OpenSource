@@ -50,34 +50,6 @@ struct dp_link_request {
 	u32 test_requested;
 	u32 test_link_rate;
 	u32 test_lane_count;
-	u32 phy_test_pattern_sel;
-	u32 test_video_pattern;
-	u32 test_bit_depth;
-	u32 test_dyn_range;
-	u32 test_h_total;
-	u32 test_v_total;
-	u32 test_h_start;
-	u32 test_v_start;
-	u32 test_hsync_pol;
-	u32 test_hsync_width;
-	u32 test_vsync_pol;
-	u32 test_vsync_width;
-	u32 test_h_width;
-	u32 test_v_height;
-	u32 test_rr_d;
-	u32 test_rr_n;
-	u32 test_audio_sampling_rate;
-	u32 test_audio_channel_count;
-	u32 test_audio_pattern_type;
-	u32 test_audio_period_ch_1;
-	u32 test_audio_period_ch_2;
-	u32 test_audio_period_ch_3;
-	u32 test_audio_period_ch_4;
-	u32 test_audio_period_ch_5;
-	u32 test_audio_period_ch_6;
-	u32 test_audio_period_ch_7;
-	u32 test_audio_period_ch_8;
-	u32 response;
 };
 
 struct dp_link_private {
@@ -218,7 +190,7 @@ exit:
 static int dp_link_parse_audio_channel_period(struct dp_link_private *link)
 {
 	int ret = 0;
-	struct dp_link_request *req = &link->request;
+	struct dp_link_test_audio *req = &link->dp_link.test_audio;
 
 	ret = dp_link_get_period(link, DP_TEST_AUDIO_PERIOD_CH1);
 	if (ret == -EINVAL)
@@ -305,7 +277,7 @@ static int dp_link_parse_audio_pattern_type(struct dp_link_private *link)
 		goto exit;
 	}
 
-	link->request.test_audio_pattern_type = data;
+	link->dp_link.test_audio.test_audio_pattern_type = data;
 	pr_debug("audio pattern type = %s\n",
 			dp_link_get_audio_test_pattern(data));
 exit:
@@ -351,8 +323,8 @@ static int dp_link_parse_audio_mode(struct dp_link_private *link)
 		goto exit;
 	}
 
-	link->request.test_audio_sampling_rate = sampling_rate;
-	link->request.test_audio_channel_count = channel_count;
+	link->dp_link.test_audio.test_audio_sampling_rate = sampling_rate;
+	link->dp_link.test_audio.test_audio_channel_count = channel_count;
 	pr_debug("sampling_rate = %s, channel_count = 0x%x\n",
 		dp_link_get_audio_sample_rate(sampling_rate), channel_count);
 exit:
@@ -573,11 +545,11 @@ static int dp_link_parse_video_pattern_params(struct dp_link_private *link)
 		goto exit;
 	}
 
-	link->request.test_video_pattern = data;
+	link->dp_link.test_video.test_video_pattern = data;
 	pr_debug("link video pattern = 0x%x (%s)\n",
-		link->request.test_video_pattern,
+		link->dp_link.test_video.test_video_pattern,
 		dp_link_video_pattern_to_string(
-			link->request.test_video_pattern));
+			link->dp_link.test_video.test_video_pattern));
 
 	/* Read the requested color bit depth and dynamic range (Byte 0x232) */
 	rlen = drm_dp_dpcd_read(link->aux->drm_aux, DP_TEST_MISC0,
@@ -596,11 +568,11 @@ static int dp_link_parse_video_pattern_params(struct dp_link_private *link)
 		ret = -EINVAL;
 		goto exit;
 	}
-	link->request.test_dyn_range = dyn_range;
+	link->dp_link.test_video.test_dyn_range = dyn_range;
 	pr_debug("link dynamic range = 0x%x (%s)\n",
-		link->request.test_dyn_range,
+		link->dp_link.test_video.test_dyn_range,
 		dp_link_dynamic_range_to_string(
-			link->request.test_dyn_range));
+			link->dp_link.test_video.test_dyn_range));
 
 	/* Color bit depth */
 	data &= DP_TEST_BIT_DEPTH_MASK;
@@ -610,96 +582,104 @@ static int dp_link_parse_video_pattern_params(struct dp_link_private *link)
 		goto exit;
 	}
 
-	link->request.test_bit_depth = data;
+	link->dp_link.test_video.test_bit_depth = data;
 	pr_debug("link bit depth = 0x%x (%s)\n",
-		link->request.test_bit_depth,
-		dp_link_bit_depth_to_string(link->request.test_bit_depth));
+		link->dp_link.test_video.test_bit_depth,
+		dp_link_bit_depth_to_string(
+		link->dp_link.test_video.test_bit_depth));
 
 	/* resolution timing params */
 	ret = dp_link_parse_timing_params1(link, DP_TEST_H_TOTAL_HI, 2,
-			&link->request.test_h_total);
+			&link->dp_link.test_video.test_h_total);
 	if (ret) {
 		pr_err("failed to parse test_h_total (DP_TEST_H_TOTAL_HI)\n");
 		goto exit;
 	}
-	pr_debug("TEST_H_TOTAL = %d\n", link->request.test_h_total);
+	pr_debug("TEST_H_TOTAL = %d\n", link->dp_link.test_video.test_h_total);
 
 	ret = dp_link_parse_timing_params1(link, DP_TEST_V_TOTAL_HI, 2,
-			&link->request.test_v_total);
+			&link->dp_link.test_video.test_v_total);
 	if (ret) {
 		pr_err("failed to parse test_v_total (DP_TEST_V_TOTAL_HI)\n");
 		goto exit;
 	}
-	pr_debug("TEST_V_TOTAL = %d\n", link->request.test_v_total);
+	pr_debug("TEST_V_TOTAL = %d\n", link->dp_link.test_video.test_v_total);
 
 	ret = dp_link_parse_timing_params1(link, DP_TEST_H_START_HI, 2,
-			&link->request.test_h_start);
+			&link->dp_link.test_video.test_h_start);
 	if (ret) {
 		pr_err("failed to parse test_h_start (DP_TEST_H_START_HI)\n");
 		goto exit;
 	}
-	pr_debug("TEST_H_START = %d\n", link->request.test_h_start);
+	pr_debug("TEST_H_START = %d\n", link->dp_link.test_video.test_h_start);
 
 	ret = dp_link_parse_timing_params1(link, DP_TEST_V_START_HI, 2,
-			&link->request.test_v_start);
+			&link->dp_link.test_video.test_v_start);
 	if (ret) {
 		pr_err("failed to parse test_v_start (DP_TEST_V_START_HI)\n");
 		goto exit;
 	}
-	pr_debug("TEST_V_START = %d\n", link->request.test_v_start);
+	pr_debug("TEST_V_START = %d\n", link->dp_link.test_video.test_v_start);
 
 	ret = dp_link_parse_timing_params2(link, DP_TEST_HSYNC_HI, 2,
-			&link->request.test_hsync_pol,
-			&link->request.test_hsync_width);
+			&link->dp_link.test_video.test_hsync_pol,
+			&link->dp_link.test_video.test_hsync_width);
 	if (ret) {
 		pr_err("failed to parse (DP_TEST_HSYNC_HI)\n");
 		goto exit;
 	}
-	pr_debug("TEST_HSYNC_POL = %d\n", link->request.test_hsync_pol);
-	pr_debug("TEST_HSYNC_WIDTH = %d\n", link->request.test_hsync_width);
+	pr_debug("TEST_HSYNC_POL = %d\n",
+		link->dp_link.test_video.test_hsync_pol);
+	pr_debug("TEST_HSYNC_WIDTH = %d\n",
+		link->dp_link.test_video.test_hsync_width);
 
 	ret = dp_link_parse_timing_params2(link, DP_TEST_VSYNC_HI, 2,
-			&link->request.test_vsync_pol,
-			&link->request.test_vsync_width);
+			&link->dp_link.test_video.test_vsync_pol,
+			&link->dp_link.test_video.test_vsync_width);
 	if (ret) {
 		pr_err("failed to parse (DP_TEST_VSYNC_HI)\n");
 		goto exit;
 	}
-	pr_debug("TEST_VSYNC_POL = %d\n", link->request.test_vsync_pol);
-	pr_debug("TEST_VSYNC_WIDTH = %d\n", link->request.test_vsync_width);
+	pr_debug("TEST_VSYNC_POL = %d\n",
+		link->dp_link.test_video.test_vsync_pol);
+	pr_debug("TEST_VSYNC_WIDTH = %d\n",
+		link->dp_link.test_video.test_vsync_width);
 
 	ret = dp_link_parse_timing_params1(link, DP_TEST_H_WIDTH_HI, 2,
-			&link->request.test_h_width);
+			&link->dp_link.test_video.test_h_width);
 	if (ret) {
 		pr_err("failed to parse test_h_width (DP_TEST_H_WIDTH_HI)\n");
 		goto exit;
 	}
-	pr_debug("TEST_H_WIDTH = %d\n", link->request.test_h_width);
+	pr_debug("TEST_H_WIDTH = %d\n", link->dp_link.test_video.test_h_width);
 
 	ret = dp_link_parse_timing_params1(link, DP_TEST_V_HEIGHT_HI, 2,
-			&link->request.test_v_height);
+			&link->dp_link.test_video.test_v_height);
 	if (ret) {
 		pr_err("failed to parse test_v_height (DP_TEST_V_HEIGHT_HI)\n");
 		goto exit;
 	}
-	pr_debug("TEST_V_HEIGHT = %d\n", link->request.test_v_height);
+	pr_debug("TEST_V_HEIGHT = %d\n",
+		link->dp_link.test_video.test_v_height);
 
 	ret = dp_link_parse_timing_params3(link, DP_TEST_MISC1,
-		&link->request.test_rr_d);
-	link->request.test_rr_d &= DP_TEST_REFRESH_DENOMINATOR;
+		&link->dp_link.test_video.test_rr_d);
+	link->dp_link.test_video.test_rr_d &= DP_TEST_REFRESH_DENOMINATOR;
 	if (ret) {
 		pr_err("failed to parse test_rr_d (DP_TEST_MISC1)\n");
 		goto exit;
 	}
-	pr_debug("TEST_REFRESH_DENOMINATOR = %d\n", link->request.test_rr_d);
+	pr_debug("TEST_REFRESH_DENOMINATOR = %d\n",
+		link->dp_link.test_video.test_rr_d);
 
 	ret = dp_link_parse_timing_params3(link, DP_TEST_REFRESH_RATE_NUMERATOR,
-		&link->request.test_rr_n);
+		&link->dp_link.test_video.test_rr_n);
 	if (ret) {
 		pr_err("failed to parse test_rr_n (DP_TEST_REFRESH_RATE_NUMERATOR)\n");
 		goto exit;
 	}
-	pr_debug("TEST_REFRESH_NUMERATOR = %d\n", link->request.test_rr_n);
+	pr_debug("TEST_REFRESH_NUMERATOR = %d\n",
+		link->dp_link.test_video.test_rr_n);
 exit:
 	return ret;
 }
@@ -827,7 +807,7 @@ static int dp_link_parse_phy_test_params(struct dp_link_private *link)
 
 	data = bp;
 
-	link->request.phy_test_pattern_sel = data;
+	link->dp_link.phy_params.phy_test_pattern_sel = data;
 
 	pr_debug("phy_test_pattern_sel = %s\n",
 			dp_link_get_phy_test_pattern(data));
@@ -884,6 +864,11 @@ static bool dp_link_is_test_supported(u32 test_requested)
 		(test_requested == DP_TEST_LINK_EDID_READ) ||
 		(test_requested == DP_TEST_LINK_PHY_TEST_PATTERN) ||
 		dp_link_is_video_audio_test_requested(test_requested);
+}
+
+static bool dp_link_is_test_edid_read(struct dp_link_private *link)
+{
+	return (link->request.test_requested == DP_TEST_LINK_EDID_READ);
 }
 
 /**
@@ -972,10 +957,15 @@ end:
 	 * Send a DP_TEST_ACK if all link parameters are valid, otherwise send
 	 * a DP_TEST_NAK.
 	 */
-	if (ret)
-		link->request.response = DP_TEST_NAK;
-	else
-		link->request.response = DP_TEST_ACK;
+	if (ret) {
+		link->dp_link.test_response = DP_TEST_NAK;
+	} else {
+		if (!dp_link_is_test_edid_read(link))
+			link->dp_link.test_response = DP_TEST_ACK;
+		else
+			link->dp_link.test_response =
+				DP_TEST_EDID_CHECKSUM_WRITE;
+	}
 
 	return ret;
 }
@@ -1029,7 +1019,7 @@ static void dp_link_parse_sink_status_field(struct dp_link_private *link)
 
 static bool dp_link_is_link_training_requested(struct dp_link_private *link)
 {
-	return (link->request.test_requested == DP_TEST_LINK_PHY_TEST_PATTERN);
+	return (link->request.test_requested == DP_TEST_LINK_TRAINING);
 }
 
 /**
@@ -1049,12 +1039,12 @@ static int dp_link_process_link_training_request(struct dp_link_private *link)
 		return -EINVAL;
 
 	pr_debug("%s link rate = 0x%x, lane count = 0x%x\n",
-			dp_link_get_test_name(DP_TEST_LINK_PHY_TEST_PATTERN),
+			dp_link_get_test_name(DP_TEST_LINK_TRAINING),
 			link->request.test_link_rate,
 			link->request.test_lane_count);
 
-	link->dp_link.lane_count = link->request.test_lane_count;
-	link->dp_link.bw_code = link->request.test_link_rate;
+	link->dp_link.link_params.lane_count = link->request.test_lane_count;
+	link->dp_link.link_params.bw_code = link->request.test_link_rate;
 
 	return 0;
 }
@@ -1130,10 +1120,11 @@ static int dp_link_parse_vx_px(struct dp_link_private *link)
 	 * vector.
 	 */
 	pr_debug("Current: v_level = 0x%x, p_level = 0x%x\n",
-			link->dp_link.v_level, link->dp_link.p_level);
+			link->dp_link.phy_params.v_level,
+			link->dp_link.phy_params.p_level);
 	pr_debug("Requested: v_level = 0x%x, p_level = 0x%x\n", v0, p0);
-	link->dp_link.v_level = v0;
-	link->dp_link.p_level = p0;
+	link->dp_link.phy_params.v_level = v0;
+	link->dp_link.phy_params.p_level = p0;
 
 	pr_debug("Success\n");
 end:
@@ -1168,8 +1159,8 @@ static int dp_link_process_phy_test_pattern_request(
 
 	pr_debug("start\n");
 
-	link->dp_link.lane_count = link->request.test_lane_count;
-	link->dp_link.bw_code = link->request.test_link_rate;
+	link->dp_link.link_params.lane_count = link->request.test_lane_count;
+	link->dp_link.link_params.bw_code = link->request.test_link_rate;
 
 	dp_link_parse_vx_px(link);
 
@@ -1199,16 +1190,16 @@ static int dp_link_process_link_status_update(struct dp_link_private *link)
 	if (!(get_link_status(link->link_status, DP_LANE_ALIGN_STATUS_UPDATED) &
 		DP_LINK_STATUS_UPDATED) || /* link status updated */
 		(drm_dp_clock_recovery_ok(link->link_status,
-			link->dp_link.lane_count) &&
+			link->dp_link.link_params.lane_count) &&
 	     drm_dp_channel_eq_ok(link->link_status,
-			link->dp_link.lane_count)))
+			link->dp_link.link_params.lane_count)))
 		return -EINVAL;
 
 	pr_debug("channel_eq_done = %d, clock_recovery_done = %d\n",
 			drm_dp_clock_recovery_ok(link->link_status,
-			link->dp_link.lane_count),
+			link->dp_link.link_params.lane_count),
 			drm_dp_clock_recovery_ok(link->link_status,
-			link->dp_link.lane_count));
+			link->dp_link.link_params.lane_count));
 
 	return 0;
 }
@@ -1276,10 +1267,11 @@ static int dp_link_process_video_pattern_request(struct dp_link_private *link)
 
 	pr_debug("%s: bit depth=%d(%d bpp) pattern=%s\n",
 		dp_link_get_test_name(DP_TEST_LINK_VIDEO_PATTERN),
-		link->request.test_bit_depth,
-		dp_link_bit_depth_to_bpp(link->request.test_bit_depth),
+		link->dp_link.test_video.test_bit_depth,
+		dp_link_bit_depth_to_bpp(
+		link->dp_link.test_video.test_bit_depth),
 		dp_link_video_pattern_to_string(
-			link->request.test_video_pattern));
+			link->dp_link.test_video.test_video_pattern));
 
 	return 0;
 end:
@@ -1302,22 +1294,22 @@ static int dp_link_process_audio_pattern_request(struct dp_link_private *link)
 
 	pr_debug("sampling_rate=%s, channel_count=%d, pattern_type=%s\n",
 		dp_link_get_audio_sample_rate(
-			link->request.test_audio_sampling_rate),
-		link->request.test_audio_channel_count,
+			link->dp_link.test_audio.test_audio_sampling_rate),
+		link->dp_link.test_audio.test_audio_channel_count,
 		dp_link_get_audio_test_pattern(
-			link->request.test_audio_pattern_type));
+			link->dp_link.test_audio.test_audio_pattern_type));
 
 	pr_debug("audio_period: ch1=0x%x, ch2=0x%x, ch3=0x%x, ch4=0x%x\n",
-		link->request.test_audio_period_ch_1,
-		link->request.test_audio_period_ch_2,
-		link->request.test_audio_period_ch_3,
-		link->request.test_audio_period_ch_4);
+		link->dp_link.test_audio.test_audio_period_ch_1,
+		link->dp_link.test_audio.test_audio_period_ch_2,
+		link->dp_link.test_audio.test_audio_period_ch_3,
+		link->dp_link.test_audio.test_audio_period_ch_4);
 
 	pr_debug("audio_period: ch5=0x%x, ch6=0x%x, ch7=0x%x, ch8=0x%x\n",
-		link->request.test_audio_period_ch_5,
-		link->request.test_audio_period_ch_6,
-		link->request.test_audio_period_ch_7,
-		link->request.test_audio_period_ch_8);
+		link->dp_link.test_audio.test_audio_period_ch_5,
+		link->dp_link.test_audio.test_audio_period_ch_6,
+		link->dp_link.test_audio.test_audio_period_ch_7,
+		link->dp_link.test_audio.test_audio_period_ch_8);
 
 	return 0;
 }
@@ -1325,8 +1317,12 @@ static int dp_link_process_audio_pattern_request(struct dp_link_private *link)
 static void dp_link_reset_data(struct dp_link_private *link)
 {
 	link->request = (const struct dp_link_request){ 0 };
-	link->request.test_bit_depth = DP_TEST_BIT_DEPTH_UNKNOWN;
-	link->dp_link.test_requested = 0;
+	link->dp_link.test_video = (const struct dp_link_test_video){ 0 };
+	link->dp_link.test_video.test_bit_depth = DP_TEST_BIT_DEPTH_UNKNOWN;
+	link->dp_link.test_audio = (const struct dp_link_test_audio){ 0 };
+	link->dp_link.phy_params.phy_test_pattern_sel = 0;
+	link->dp_link.sink_request = 0;
+	link->dp_link.test_response = 0;
 }
 
 /**
@@ -1355,39 +1351,44 @@ static int dp_link_process_request(struct dp_link *dp_link)
 
 	dp_link_parse_sink_status_field(link);
 
+	if (dp_link_is_test_edid_read(link)) {
+		dp_link->sink_request |= DP_TEST_LINK_EDID_READ;
+		goto exit;
+	}
+
 	ret = dp_link_process_ds_port_status_change(link);
 	if (!ret) {
-		dp_link->test_requested |= DS_PORT_STATUS_CHANGED;
+		dp_link->sink_request |= DS_PORT_STATUS_CHANGED;
 		goto exit;
 	}
 
 	ret = dp_link_process_link_training_request(link);
 	if (!ret) {
-		dp_link->test_requested |= DP_TEST_LINK_TRAINING;
+		dp_link->sink_request |= DP_TEST_LINK_TRAINING;
 		goto exit;
 	}
 
 	ret = dp_link_process_phy_test_pattern_request(link);
 	if (!ret) {
-		dp_link->test_requested |= DP_TEST_LINK_PHY_TEST_PATTERN;
+		dp_link->sink_request |= DP_TEST_LINK_PHY_TEST_PATTERN;
 		goto exit;
 	}
 
 	ret = dp_link_process_link_status_update(link);
 	if (!ret) {
-		dp_link->test_requested |= DP_LINK_STATUS_UPDATED;
+		dp_link->sink_request |= DP_LINK_STATUS_UPDATED;
 		goto exit;
 	}
 
 	ret = dp_link_process_video_pattern_request(link);
 	if (!ret) {
-		dp_link->test_requested |= DP_TEST_LINK_VIDEO_PATTERN;
+		dp_link->sink_request |= DP_TEST_LINK_VIDEO_PATTERN;
 		goto exit;
 	}
 
 	ret = dp_link_process_audio_pattern_request(link);
 	if (!ret) {
-		dp_link->test_requested |= DP_TEST_LINK_AUDIO_PATTERN;
+		dp_link->sink_request |= DP_TEST_LINK_AUDIO_PATTERN;
 		goto exit;
 	}
 
@@ -1411,7 +1412,7 @@ static int dp_link_get_colorimetry_config(struct dp_link *dp_link)
 
 	/* unless a video pattern CTS test is ongoing, use CEA_VESA */
 	if (dp_link_is_video_pattern_requested(link))
-		dr = link->request.test_dyn_range;
+		dr = link->dp_link.test_video.test_dyn_range;
 	else
 		dr = DP_DYNAMIC_RANGE_RGB_VESA;
 
@@ -1443,51 +1444,52 @@ static int dp_link_adjust_levels(struct dp_link *dp_link, u8 *link_status)
 	link = container_of(dp_link, struct dp_link_private, dp_link);
 
 	/* use the max level across lanes */
-	for (i = 0; i < dp_link->lane_count; i++) {
+	for (i = 0; i < dp_link->link_params.lane_count; i++) {
 		data = drm_dp_get_adjust_request_voltage(link_status, i);
 		pr_debug("lane=%d req_voltage_swing=%d\n", i, data);
 		if (max < data)
 			max = data;
 	}
 
-	dp_link->v_level = max >> DP_TRAIN_VOLTAGE_SWING_SHIFT;
+	dp_link->phy_params.v_level = max >> DP_TRAIN_VOLTAGE_SWING_SHIFT;
 
 	/* use the max level across lanes */
 	max = 0;
-	for (i = 0; i < dp_link->lane_count; i++) {
+	for (i = 0; i < dp_link->link_params.lane_count; i++) {
 		data = drm_dp_get_adjust_request_pre_emphasis(link_status, i);
 		pr_debug("lane=%d req_pre_emphasis=%d\n", i, data);
 		if (max < data)
 			max = data;
 	}
 
-	dp_link->p_level = max >> DP_TRAIN_PRE_EMPHASIS_SHIFT;
+	dp_link->phy_params.p_level = max >> DP_TRAIN_PRE_EMPHASIS_SHIFT;
 
 	/**
 	 * Adjust the voltage swing and pre-emphasis level combination to within
 	 * the allowable range.
 	 */
-	if (dp_link->v_level > DP_LINK_VOLTAGE_MAX) {
+	if (dp_link->phy_params.v_level > DP_LINK_VOLTAGE_MAX) {
 		pr_debug("Requested vSwingLevel=%d, change to %d\n",
-				dp_link->v_level, DP_LINK_VOLTAGE_MAX);
-		dp_link->v_level = DP_LINK_VOLTAGE_MAX;
+			dp_link->phy_params.v_level, DP_LINK_VOLTAGE_MAX);
+		dp_link->phy_params.v_level = DP_LINK_VOLTAGE_MAX;
 	}
 
-	if (dp_link->p_level > DP_LINK_PRE_EMPHASIS_MAX) {
+	if (dp_link->phy_params.p_level > DP_LINK_PRE_EMPHASIS_MAX) {
 		pr_debug("Requested preEmphasisLevel=%d, change to %d\n",
-				dp_link->p_level, DP_LINK_PRE_EMPHASIS_MAX);
-		dp_link->p_level = DP_LINK_PRE_EMPHASIS_MAX;
+			dp_link->phy_params.p_level, DP_LINK_PRE_EMPHASIS_MAX);
+		dp_link->phy_params.p_level = DP_LINK_PRE_EMPHASIS_MAX;
 	}
 
-	if ((dp_link->p_level > DP_LINK_PRE_EMPHASIS_LEVEL_1)
-			&& (dp_link->v_level == DP_LINK_VOLTAGE_LEVEL_2)) {
+	if ((dp_link->phy_params.p_level > DP_LINK_PRE_EMPHASIS_LEVEL_1)
+		&& (dp_link->phy_params.v_level == DP_LINK_VOLTAGE_LEVEL_2)) {
 		pr_debug("Requested preEmphasisLevel=%d, change to %d\n",
-				dp_link->p_level, DP_LINK_PRE_EMPHASIS_LEVEL_1);
-		dp_link->p_level = DP_LINK_PRE_EMPHASIS_LEVEL_1;
+			dp_link->phy_params.p_level,
+			DP_LINK_PRE_EMPHASIS_LEVEL_1);
+		dp_link->phy_params.p_level = DP_LINK_PRE_EMPHASIS_LEVEL_1;
 	}
 
 	pr_debug("adjusted: v_level=%d, p_level=%d\n",
-		dp_link->v_level, dp_link->p_level);
+		dp_link->phy_params.v_level, dp_link->phy_params.p_level);
 
 	return 0;
 }
@@ -1560,7 +1562,6 @@ struct dp_link *dp_link_get(struct device *dev, struct dp_aux *aux)
 	dp_link = &link->dp_link;
 
 	dp_link->process_request        = dp_link_process_request;
-	dp_link->get_sink_count         = dp_link_parse_sink_count;
 	dp_link->get_test_bits_depth    = dp_link_get_test_bits_depth;
 	dp_link->get_colorimetry_config = dp_link_get_colorimetry_config;
 	dp_link->adjust_levels          = dp_link_adjust_levels;

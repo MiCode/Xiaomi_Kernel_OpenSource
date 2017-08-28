@@ -440,19 +440,17 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 	u32 max_pclk_from_edid = 0;
 	struct edid *edid;
 
-	rc = dp->link->get_sink_count(dp->link);
+	rc = dp->panel->read_sink_caps(dp->panel, dp->dp_display.connector);
 	if (rc)
-		goto end;
+		return rc;
+
+	dp->link->process_request(dp->link);
 
 	if (dp_display_is_sink_count_zero(dp)) {
 		pr_debug("no downstream devices connected\n");
 		rc = -EINVAL;
 		goto end;
 	}
-
-	rc = dp->panel->read_sink_caps(dp->panel, dp->dp_display.connector);
-	if (rc)
-		return rc;
 
 	edid = dp->panel->edid_ctrl->edid;
 
@@ -611,7 +609,7 @@ end:
 
 static int dp_display_handle_hpd_irq(struct dp_display_private *dp)
 {
-	if (dp->link->test_requested & DS_PORT_STATUS_CHANGED) {
+	if (dp->link->sink_request & DS_PORT_STATUS_CHANGED) {
 		dp->dp_display.is_connected = false;
 		drm_helper_hpd_irq_event(dp->dp_display.connector->dev);
 
@@ -827,8 +825,8 @@ static int dp_display_post_enable(struct dp_display *dp_display)
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 
 	if (dp->audio_supported) {
-		dp->audio->bw_code = dp->link->bw_code;
-		dp->audio->lane_count = dp->link->lane_count;
+		dp->audio->bw_code = dp->link->link_params.bw_code;
+		dp->audio->lane_count = dp->link->link_params.lane_count;
 		dp->audio->on(dp->audio);
 	}
 

@@ -155,7 +155,7 @@ static void dp_ctrl_config_ctrl(struct dp_ctrl_private *ctrl)
 	config |= tbd << 8;
 
 	/* Num of Lanes */
-	config |= ((ctrl->link->lane_count - 1) << 4);
+	config |= ((ctrl->link->link_params.lane_count - 1) << 4);
 
 	if (drm_dp_enhanced_frame_cap(dpcd))
 		config |= 0x40;
@@ -303,7 +303,7 @@ static void dp_ctrl_calc_tu_parameters(struct dp_ctrl_private *ctrl,
 	u64 brute_force_threshold = 10;
 	u64 diff_abs;
 
-	ln_cnt =  ctrl->link->lane_count;
+	ln_cnt =  ctrl->link->link_params.lane_count;
 
 	bpp = pinfo->bpp;
 	lwidth = pinfo->h_active;
@@ -322,7 +322,8 @@ static void dp_ctrl_calc_tu_parameters(struct dp_ctrl_private *ctrl,
 	even_distribution = 0;
 	min_hblank = 0;
 
-	lclk = drm_dp_bw_code_to_link_rate(ctrl->link->bw_code) * DP_KHZ_TO_HZ;
+	lclk = drm_dp_bw_code_to_link_rate(
+		ctrl->link->link_params.bw_code) * DP_KHZ_TO_HZ;
 
 	pr_debug("pclk=%lld, active_width=%d, h_blank=%d\n",
 						pclk, lwidth, h_blank);
@@ -761,9 +762,10 @@ static void dp_ctrl_update_vx_px(struct dp_ctrl_private *ctrl)
 	struct dp_link *link = ctrl->link;
 
 	ctrl->catalog->update_vx_px(ctrl->catalog,
-			link->v_level, link->p_level);
+		link->phy_params.v_level, link->phy_params.p_level);
 
-	dp_ctrl_update_sink_vx_px(ctrl, link->v_level, link->p_level);
+	dp_ctrl_update_sink_vx_px(ctrl, link->phy_params.v_level,
+		link->phy_params.p_level);
 }
 
 static void dp_ctrl_train_pattern_set(struct dp_ctrl_private *ctrl,
@@ -816,7 +818,7 @@ static int dp_ctrl_link_train_1(struct dp_ctrl_private *ctrl)
 	dp_ctrl_update_vx_px(ctrl);
 
 	tries = 0;
-	old_v_level = ctrl->link->v_level;
+	old_v_level = ctrl->link->phy_params.v_level;
 	while (1) {
 		drm_dp_link_train_clock_recovery_delay(ctrl->panel->dpcd);
 
@@ -825,17 +827,17 @@ static int dp_ctrl_link_train_1(struct dp_ctrl_private *ctrl)
 			break;
 
 		if (drm_dp_clock_recovery_ok(link_status,
-			ctrl->link->lane_count)) {
+			ctrl->link->link_params.lane_count)) {
 			break;
 		}
 
-		if (ctrl->link->v_level == DP_LINK_VOLTAGE_MAX) {
+		if (ctrl->link->phy_params.v_level == DP_LINK_VOLTAGE_MAX) {
 			pr_err_ratelimited("max v_level reached\n");
 			ret = -EAGAIN;
 			break;
 		}
 
-		if (old_v_level == ctrl->link->v_level) {
+		if (old_v_level == ctrl->link->phy_params.v_level) {
 			tries++;
 			if (tries >= maximum_retries) {
 				pr_err("max tries reached\n");
@@ -844,7 +846,7 @@ static int dp_ctrl_link_train_1(struct dp_ctrl_private *ctrl)
 			}
 		} else {
 			tries = 0;
-			old_v_level = ctrl->link->v_level;
+			old_v_level = ctrl->link->phy_params.v_level;
 		}
 
 		pr_debug("clock recovery not done, adjusting vx px\n");
@@ -868,7 +870,7 @@ static int dp_ctrl_link_rate_down_shift(struct dp_ctrl_private *ctrl)
 
 	min_req_link_rate_khz = ctrl->panel->get_min_req_link_rate(ctrl->panel);
 
-	switch (ctrl->link->bw_code) {
+	switch (ctrl->link->link_params.bw_code) {
 	case DP_LINK_BW_8_1:
 		new_proposed_link_bw_code = DP_LINK_BW_5_4;
 		break;
@@ -889,11 +891,11 @@ static int dp_ctrl_link_rate_down_shift(struct dp_ctrl_private *ctrl)
 	pr_debug("min required link rate=%d khz\n", min_req_link_rate_khz);
 
 	if (new_proposed_link_rate_khz >= min_req_link_rate_khz)
-		ctrl->link->bw_code = new_proposed_link_bw_code;
+		ctrl->link->link_params.bw_code = new_proposed_link_bw_code;
 	else
 		pr_debug("can't go below min required link rate\n");
 
-	pr_debug("new bw code=0x%x\n", ctrl->link->bw_code);
+	pr_debug("new bw code=0x%x\n", ctrl->link->link_params.bw_code);
 
 	return ret;
 }
@@ -931,7 +933,8 @@ static int dp_ctrl_link_training_2(struct dp_ctrl_private *ctrl)
 		if (ret)
 			break;
 
-		if (drm_dp_channel_eq_ok(link_status, ctrl->link->lane_count))
+		if (drm_dp_channel_eq_ok(link_status,
+			ctrl->link->link_params.lane_count))
 			break;
 
 		if (tries > maximum_retries) {
@@ -953,13 +956,14 @@ static int dp_ctrl_link_train(struct dp_ctrl_private *ctrl)
 	u8 encoding = 0x1;
 	struct drm_dp_link link_info = {0};
 
-	ctrl->link->p_level = 0;
-	ctrl->link->v_level = 0;
+	ctrl->link->phy_params.p_level = 0;
+	ctrl->link->phy_params.v_level = 0;
 
 	dp_ctrl_config_ctrl(ctrl);
 
-	link_info.num_lanes = ctrl->link->lane_count;
-	link_info.rate = drm_dp_bw_code_to_link_rate(ctrl->link->bw_code);
+	link_info.num_lanes = ctrl->link->link_params.lane_count;
+	link_info.rate = drm_dp_bw_code_to_link_rate(
+		ctrl->link->link_params.bw_code);
 	link_info.capabilities = ctrl->panel->link_info.capabilities;
 
 	drm_dp_link_configure(ctrl->aux->drm_aux, &link_info);
@@ -1060,7 +1064,7 @@ static int dp_ctrl_enable_mainlink_clocks(struct dp_ctrl_private *ctrl)
 	ctrl->power->set_pixel_clk_parent(ctrl->power);
 
 	dp_ctrl_set_clock_rate(ctrl, "ctrl_link_clk",
-		drm_dp_bw_code_to_link_rate(ctrl->link->bw_code));
+		drm_dp_bw_code_to_link_rate(ctrl->link->link_params.bw_code));
 
 	dp_ctrl_set_clock_rate(ctrl, "ctrl_pixel_clk", ctrl->pixel_rate);
 
@@ -1157,7 +1161,7 @@ static int dp_ctrl_on_irq(struct dp_ctrl_private *ctrl, bool lt_needed)
 			ctrl->catalog->mainlink_ctrl(ctrl->catalog, false);
 
 		ctrl->catalog->phy_lane_cfg(ctrl->catalog,
-			ctrl->orientation, ctrl->link->lane_count);
+			ctrl->orientation, ctrl->link->link_params.lane_count);
 
 		if (lt_needed) {
 			/*
@@ -1177,7 +1181,8 @@ static int dp_ctrl_on_irq(struct dp_ctrl_private *ctrl, bool lt_needed)
 		dp_ctrl_configure_source_params(ctrl);
 
 		ctrl->catalog->config_msa(ctrl->catalog,
-			drm_dp_bw_code_to_link_rate(ctrl->link->bw_code),
+			drm_dp_bw_code_to_link_rate(
+			ctrl->link->link_params.bw_code),
 			ctrl->pixel_rate, dp_ctrl_use_fixed_nvid(ctrl));
 
 		reinit_completion(&ctrl->idle_comp);
@@ -1208,16 +1213,16 @@ static int dp_ctrl_on_hpd(struct dp_ctrl_private *ctrl)
 	ctrl->power->clk_enable(ctrl->power, DP_CORE_PM, true);
 	ctrl->catalog->hpd_config(ctrl->catalog, true);
 
-	ctrl->link->bw_code  = drm_dp_link_rate_to_bw_code(rate);
-	ctrl->link->lane_count = ctrl->panel->link_info.num_lanes;
+	ctrl->link->link_params.bw_code  = drm_dp_link_rate_to_bw_code(rate);
+	ctrl->link->link_params.lane_count = ctrl->panel->link_info.num_lanes;
 	ctrl->pixel_rate = ctrl->panel->pinfo.pixel_clk_khz;
 
 	pr_debug("bw_code=%d, lane_count=%d, pixel_rate=%d\n",
-		ctrl->link->bw_code, ctrl->link->lane_count,
-		ctrl->pixel_rate);
+		ctrl->link->link_params.bw_code,
+		ctrl->link->link_params.lane_count, ctrl->pixel_rate);
 
 	ctrl->catalog->phy_lane_cfg(ctrl->catalog,
-			ctrl->orientation, ctrl->link->lane_count);
+			ctrl->orientation, ctrl->link->link_params.lane_count);
 
 	ret = dp_ctrl_enable_mainlink_clocks(ctrl);
 	if (ret)
@@ -1232,7 +1237,8 @@ static int dp_ctrl_on_hpd(struct dp_ctrl_private *ctrl)
 
 	while (--link_train_max_retries && !atomic_read(&ctrl->aborted)) {
 		ctrl->catalog->config_msa(ctrl->catalog,
-			drm_dp_bw_code_to_link_rate(ctrl->link->bw_code),
+			drm_dp_bw_code_to_link_rate(
+			ctrl->link->link_params.bw_code),
 			ctrl->pixel_rate, dp_ctrl_use_fixed_nvid(ctrl));
 
 		ret = dp_ctrl_setup_main_link(ctrl, true);

@@ -39,19 +39,61 @@ struct dp_link_sink_count {
 	bool cp_ready;
 };
 
-struct dp_link {
-	u32 test_requested;
+struct dp_link_test_video {
+	u32 test_video_pattern;
+	u32 test_bit_depth;
+	u32 test_dyn_range;
+	u32 test_h_total;
+	u32 test_v_total;
+	u32 test_h_start;
+	u32 test_v_start;
+	u32 test_hsync_pol;
+	u32 test_hsync_width;
+	u32 test_vsync_pol;
+	u32 test_vsync_width;
+	u32 test_h_width;
+	u32 test_v_height;
+	u32 test_rr_d;
+	u32 test_rr_n;
+};
 
-	u32 lane_count;
-	u32 bw_code;
+struct dp_link_test_audio {
+	u32 test_audio_sampling_rate;
+	u32 test_audio_channel_count;
+	u32 test_audio_pattern_type;
+	u32 test_audio_period_ch_1;
+	u32 test_audio_period_ch_2;
+	u32 test_audio_period_ch_3;
+	u32 test_audio_period_ch_4;
+	u32 test_audio_period_ch_5;
+	u32 test_audio_period_ch_6;
+	u32 test_audio_period_ch_7;
+	u32 test_audio_period_ch_8;
+};
+
+struct dp_link_phy_params {
+	u32 phy_test_pattern_sel;
 	u32 v_level;
 	u32 p_level;
+};
+
+struct dp_link_params {
+	u32 lane_count;
+	u32 bw_code;
+};
+
+struct dp_link {
+	u32 sink_request;
+	u32 test_response;
 
 	struct dp_link_sink_count sink_count;
+	struct dp_link_test_video test_video;
+	struct dp_link_test_audio test_audio;
+	struct dp_link_phy_params phy_params;
+	struct dp_link_params link_params;
 
 	u32 (*get_test_bits_depth)(struct dp_link *dp_link, u32 bpp);
 	int (*process_request)(struct dp_link *dp_link);
-	int (*get_sink_count)(struct dp_link *dp_link);
 	int (*get_colorimetry_config)(struct dp_link *dp_link);
 	int (*adjust_levels)(struct dp_link *dp_link, u8 *link_status);
 	int (*send_psm_request)(struct dp_link *dp_link, bool req);
