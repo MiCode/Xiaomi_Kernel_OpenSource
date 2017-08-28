@@ -672,7 +672,7 @@
 	};
 };
 
-#include "msm8996-pinctrl.dtsi"
+#include "vplatform-lfv-msm8996-pinctrl.dtsi"
 #include "msm8996-smp2p.dtsi"
 
 &soc {
