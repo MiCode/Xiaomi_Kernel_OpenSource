@@ -21,11 +21,6 @@
 
 #define MAX_BUFFER_TYPES 32
 
-struct platform_version_table {
-	u32 version_mask;
-	u32 version_shift;
-};
-
 struct dcvs_table {
 	u32 load;
 	u32 load_low;
@@ -153,7 +148,7 @@ struct msm_vidc_platform_resources {
 	phys_addr_t register_base;
 	uint32_t register_size;
 	uint32_t irq;
-	struct platform_version_table *pf_ver_tbl;
+	uint32_t sku_version;
 	struct allowed_clock_rates_table *allowed_clks_tbl;
 	u32 allowed_clks_tbl_size;
 	struct clock_freq_table clock_freq_tbl;

@@ -195,12 +195,33 @@ struct msm_vidc_codec_data {
 	int low_power_cycles;
 };
 
+enum efuse_purpose {
+	SKU_VERSION = 0,
+};
+
+enum sku_version {
+	SKU_VERSION_0 = 0,
+	SKU_VERSION_1,
+	SKU_VERSION_2,
+};
+
+struct msm_vidc_efuse_data {
+	u32 start_address;
+	u32 size;
+	u32 mask;
+	u32 shift;
+	enum efuse_purpose purpose;
+};
+
 struct msm_vidc_platform_data {
 	struct msm_vidc_common_data *common_data;
 	unsigned int common_data_length;
 	struct msm_vidc_codec_data *codec_data;
 	unsigned int codec_data_length;
 	struct msm_vidc_csc_coeff csc_data;
+	struct msm_vidc_efuse_data *efuse_data;
+	unsigned int efuse_data_length;
+	unsigned int sku_version;
 };
 
 struct msm_vidc_format {
@@ -218,7 +239,7 @@ struct msm_vidc_drv {
 	int num_cores;
 	struct dentry *debugfs_root;
 	int thermal_level;
-	u32 platform_version;
+	u32 sku_version;
 };
 
 struct msm_video_device {
