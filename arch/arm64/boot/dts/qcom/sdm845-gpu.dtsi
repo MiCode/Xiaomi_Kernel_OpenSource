@@ -264,8 +264,14 @@
 		label = "kgsl-gmu";
 		compatible = "qcom,gpu-gmu";
 
-		reg = <0x506a000 0x30000>, <0xb200000 0x300000>;
-		reg-names = "kgsl_gmu_reg", "kgsl_gmu_pdc_reg";
+		reg =
+			<0x506a000 0x31000>,
+			<0xb200000 0x300000>,
+			<0xc200000 0x10000>;
+		reg-names =
+			"kgsl_gmu_reg",
+			"kgsl_gmu_pdc_reg",
+			"kgsl_gmu_cpr_reg";
 
 		interrupts = <0 304 0>, <0 305 0>;
 		interrupt-names = "kgsl_hfi_irq", "kgsl_gmu_irq";

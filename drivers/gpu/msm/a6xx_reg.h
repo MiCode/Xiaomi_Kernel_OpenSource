@@ -965,6 +965,10 @@
 #define A6XX_RSCC_TCS2_DRV0_STATUS                      0x23A16
 #define A6XX_RSCC_TCS3_DRV0_STATUS                      0x23B7E
 
+
+/* CPR controller */
+#define A6XX_GPU_CPR_FSM_CTL				0x26801
+
 /* GPU PDC sequencer registers in AOSS.RPMh domain */
 #define	PDC_GPU_ENABLE_PDC			0x21140
 #define PDC_GPU_SEQ_START_ADDR			0x21148
@@ -982,5 +986,7 @@
 #define PDC_GPU_TCS1_CMD0_DATA			0x21577
 #define PDC_GPU_SEQ_MEM_0			0xA0000
 
+/* GFX rail CPR registers in AOSS.CPR domain */
+#define CPR_CPRF_CPRF5_CTRL			0x1801
 #endif /* _A6XX_REG_H */
 
