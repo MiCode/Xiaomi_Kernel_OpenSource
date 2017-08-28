@@ -1014,6 +1014,7 @@ static const struct qcom_cc_desc disp_cc_sdm845_desc = {
 static const struct of_device_id disp_cc_sdm845_match_table[] = {
 	{ .compatible = "qcom,dispcc-sdm845" },
 	{ .compatible = "qcom,dispcc-sdm845-v2" },
+	{ .compatible = "qcom,dispcc-sdm670" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, disp_cc_sdm845_match_table);
@@ -1064,6 +1065,11 @@ static void disp_cc_sdm845_fixup_sdm845v2(struct regmap *regmap)
 		430000000;
 }
 
+static void disp_cc_sdm845_fixup_sdm670(struct regmap *regmap)
+{
+	disp_cc_sdm845_fixup_sdm845v2(regmap);
+}
+
 static int disp_cc_sdm845_fixup(struct platform_device *pdev,
 						struct regmap *regmap)
 {
@@ -1076,6 +1082,8 @@ static int disp_cc_sdm845_fixup(struct platform_device *pdev,
 
 	if (!strcmp(compat, "qcom,dispcc-sdm845-v2"))
 		disp_cc_sdm845_fixup_sdm845v2(regmap);
+	else if (!strcmp(compat, "qcom,dispcc-sdm670"))
+		disp_cc_sdm845_fixup_sdm670(regmap);
 
 	return 0;
 }

@@ -1959,6 +1959,7 @@ static const struct qcom_cc_desc cam_cc_sdm845_desc = {
 static const struct of_device_id cam_cc_sdm845_match_table[] = {
 	{ .compatible = "qcom,cam_cc-sdm845" },
 	{ .compatible = "qcom,cam_cc-sdm845-v2" },
+	{ .compatible = "qcom,cam_cc-sdm670" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, cam_cc_sdm845_match_table);
@@ -1986,6 +1987,11 @@ static void cam_cc_sdm845_fixup_sdm845v2(void)
 	cam_cc_slow_ahb_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 80000000;
 }
 
+static void cam_cc_sdm845_fixup_sdm670(void)
+{
+	cam_cc_sdm845_fixup_sdm845v2();
+}
+
 static int cam_cc_sdm845_fixup(struct platform_device *pdev)
 {
 	const char *compat = NULL;
@@ -1997,6 +2003,8 @@ static int cam_cc_sdm845_fixup(struct platform_device *pdev)
 
 	if (!strcmp(compat, "qcom,cam_cc-sdm845-v2"))
 		cam_cc_sdm845_fixup_sdm845v2();
+	else if (!strcmp(compat, "qcom,cam_cc-sdm670"))
+		cam_cc_sdm845_fixup_sdm670();
 
 	return 0;
 }

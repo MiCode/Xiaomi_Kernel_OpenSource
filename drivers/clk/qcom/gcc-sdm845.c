@@ -198,6 +198,22 @@ static const char * const gcc_parent_names_10[] = {
 	"core_bi_pll_test_se",
 };
 
+static const struct parent_map gcc_parent_map_7[] = {
+	{ P_BI_TCXO, 0 },
+	{ P_GPLL0_OUT_MAIN, 1 },
+	{ P_GPLL6_OUT_MAIN, 2 },
+	{ P_GPLL0_OUT_EVEN, 6 },
+	{ P_CORE_BI_PLL_TEST_SE, 7 },
+};
+
+static const char * const gcc_parent_names_11[] = {
+	"bi_tcxo",
+	"gpll0",
+	"gpll6",
+	"gpll0_out_even",
+	"core_bi_pll_test_se",
+};
+
 static struct clk_dummy measure_only_snoc_clk = {
 	.rrate = 1000,
 	.hw.init = &(struct clk_init_data){
@@ -301,6 +317,28 @@ static struct clk_alpha_pll_postdiv gpll0_out_even = {
 	},
 };
 
+static struct clk_alpha_pll gpll6 = {
+	.offset = 0x13000,
+	.vco_table = fabia_vco,
+	.num_vco = ARRAY_SIZE(fabia_vco),
+	.type = FABIA_PLL,
+	.clkr = {
+		.enable_reg = 0x52000,
+		.enable_mask = BIT(6),
+		.hw.init = &(struct clk_init_data){
+			.name = "gpll6",
+			.parent_names = (const char *[]){ "bi_tcxo" },
+			.num_parents = 1,
+			.ops = &clk_fabia_fixed_pll_ops,
+			VDD_CX_FMAX_MAP4(
+				MIN, 615000000,
+				LOW, 1066000000,
+				LOW_L1, 1600000000,
+				NOMINAL, 2000000000),
+		},
+	},
+};
+
 static const struct freq_tbl ftbl_gcc_cpuss_ahb_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	{ }
@@ -327,6 +365,12 @@ static struct clk_rcg2 gcc_cpuss_ahb_clk_src = {
 
 static const struct freq_tbl ftbl_gcc_cpuss_rbcpr_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_gcc_cpuss_rbcpr_clk_src_sdm670[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(50000000, P_GPLL0_OUT_MAIN, 12, 0, 0),
 	{ }
 };
 
@@ -862,6 +906,67 @@ static struct clk_rcg2 gcc_qupv3_wrap1_s7_clk_src = {
 	},
 };
 
+static const struct freq_tbl ftbl_gcc_sdcc1_ice_core_clk_src[] = {
+	F(75000000, P_GPLL0_OUT_EVEN, 4, 0, 0),
+	F(150000000, P_GPLL0_OUT_MAIN, 4, 0, 0),
+	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
+	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
+	{ }
+};
+
+static struct clk_rcg2 gcc_sdcc1_ice_core_clk_src = {
+	.cmd_rcgr = 0x26010,
+	.mnd_width = 8,
+	.hid_width = 5,
+	.parent_map = gcc_parent_map_0,
+	.freq_tbl = ftbl_gcc_sdcc1_ice_core_clk_src,
+	.enable_safe_config = true,
+	.clkr.hw.init = &(struct clk_init_data){
+		.name = "gcc_sdcc1_ice_core_clk_src",
+		.parent_names = gcc_parent_names_0,
+		.num_parents = 4,
+		.flags = CLK_SET_RATE_PARENT,
+		.ops = &clk_rcg2_ops,
+		VDD_CX_FMAX_MAP3(
+			MIN, 75000000,
+			LOW, 150000000,
+			NOMINAL, 300000000),
+	},
+};
+
+static const struct freq_tbl ftbl_gcc_sdcc1_apps_clk_src[] = {
+	F(144000, P_BI_TCXO, 16, 3, 25),
+	F(400000, P_BI_TCXO, 12, 1, 4),
+	F(20000000, P_GPLL0_OUT_EVEN, 5, 1, 3),
+	F(25000000, P_GPLL0_OUT_EVEN, 6, 1, 2),
+	F(50000000, P_GPLL0_OUT_EVEN, 6, 0, 0),
+	F(100000000, P_GPLL0_OUT_MAIN, 6, 0, 0),
+	F(192000000, P_GPLL6_OUT_MAIN, 2, 0, 0),
+	F(384000000, P_GPLL6_OUT_MAIN, 1, 0, 0),
+	{ }
+};
+
+static struct clk_rcg2 gcc_sdcc1_apps_clk_src = {
+	.cmd_rcgr = 0x26028,
+	.mnd_width = 8,
+	.hid_width = 5,
+	.parent_map = gcc_parent_map_7,
+	.freq_tbl = ftbl_gcc_sdcc1_apps_clk_src,
+	.enable_safe_config = true,
+	.clkr.hw.init = &(struct clk_init_data){
+		.name = "gcc_sdcc1_apps_clk_src",
+		.parent_names = gcc_parent_names_11,
+		.num_parents = 5,
+		.flags = CLK_SET_RATE_PARENT,
+		.ops = &clk_rcg2_ops,
+		VDD_CX_FMAX_MAP4(
+			MIN, 19200000,
+			LOWER, 50000000,
+			LOW, 100000000,
+			NOMINAL, 384000000),
+	},
+};
+
 static const struct freq_tbl ftbl_gcc_sdcc2_apps_clk_src[] = {
 	F(400000, P_BI_TCXO, 12, 1, 4),
 	F(9600000, P_BI_TCXO, 2, 0, 0),
@@ -904,17 +1009,28 @@ static const struct freq_tbl ftbl_gcc_sdcc4_apps_clk_src[] = {
 	{ }
 };
 
+static const struct freq_tbl ftbl_gcc_sdcc4_apps_clk_src_sdm670[] = {
+	F(400000, P_BI_TCXO, 12, 1, 4),
+	F(9600000, P_BI_TCXO, 2, 0, 0),
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(25000000, P_GPLL0_OUT_EVEN, 12, 0, 0),
+	F(33333333, P_GPLL0_OUT_EVEN, 9, 0, 0),
+	F(50000000, P_GPLL0_OUT_MAIN, 12, 0, 0),
+	F(100000000, P_GPLL0_OUT_MAIN, 6, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 gcc_sdcc4_apps_clk_src = {
 	.cmd_rcgr = 0x1600c,
 	.mnd_width = 8,
 	.hid_width = 5,
-	.parent_map = gcc_parent_map_3,
+	.parent_map = gcc_parent_map_0,
 	.freq_tbl = ftbl_gcc_sdcc4_apps_clk_src,
 	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_sdcc4_apps_clk_src",
-		.parent_names = gcc_parent_names_3,
-		.num_parents = 3,
+		.parent_names = gcc_parent_names_0,
+		.num_parents = 4,
 		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
 		VDD_CX_FMAX_MAP4(
@@ -2700,6 +2816,55 @@ static struct clk_branch gcc_qupv3_wrap_1_s_ahb_clk = {
 	},
 };
 
+static struct clk_branch gcc_sdcc1_ice_core_clk = {
+	.halt_reg = 0x2600c,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x2600c,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_sdcc1_ice_core_clk",
+			.parent_names = (const char *[]){
+				"gcc_sdcc1_ice_core_clk_src",
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_sdcc1_ahb_clk = {
+	.halt_reg = 0x26008,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x26008,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_sdcc1_ahb_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_sdcc1_apps_clk = {
+	.halt_reg = 0x26004,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x26004,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_sdcc1_apps_clk",
+			.parent_names = (const char *[]){
+				"gcc_sdcc1_apps_clk_src",
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_sdcc2_ahb_clk = {
 	.halt_reg = 0x14008,
 	.halt_check = BRANCH_HALT,
@@ -3824,6 +3989,12 @@ static struct clk_regmap *gcc_sdm845_clocks[] = {
 	[GPLL0] = &gpll0.clkr,
 	[GPLL0_OUT_EVEN] = &gpll0_out_even.clkr,
 	[GPLL4] = &gpll4.clkr,
+	[GCC_SDCC1_AHB_CLK] = NULL,
+	[GCC_SDCC1_APPS_CLK] = NULL,
+	[GCC_SDCC1_ICE_CORE_CLK] = NULL,
+	[GCC_SDCC1_APPS_CLK_SRC] = NULL,
+	[GCC_SDCC1_ICE_CORE_CLK_SRC] = NULL,
+	[GPLL6] = NULL,
 };
 
 static const struct qcom_reset_map gcc_sdm845_resets[] = {
@@ -3853,6 +4024,7 @@ static const struct qcom_reset_map gcc_sdm845_resets[] = {
 	[GCC_USB_PHY_CFG_AHB2PHY_BCR] = { 0x6a000 },
 	[GCC_PCIE_0_PHY_BCR] = { 0x6c01c },
 	[GCC_PCIE_1_PHY_BCR] = { 0x8e01c },
+	[GCC_SDCC1_BCR] = { 0x26000 },
 };
 
 /* List of RCG clocks and corresponding flags requested for DFS Mode */
@@ -3899,6 +4071,7 @@ static const struct qcom_cc_desc gcc_sdm845_desc = {
 static const struct of_device_id gcc_sdm845_match_table[] = {
 	{ .compatible = "qcom,gcc-sdm845" },
 	{ .compatible = "qcom,gcc-sdm845-v2" },
+	{ .compatible = "qcom,gcc-sdm670" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gcc_sdm845_match_table);
@@ -4009,6 +4182,86 @@ static void gcc_sdm845_fixup_sdm845v2(void)
 		ftbl_gcc_ufs_card_axi_clk_src_sdm845_v2;
 }
 
+static void gcc_sdm845_fixup_sdm670(void)
+{
+	gcc_sdm845_fixup_sdm845v2();
+
+	gcc_sdm845_clocks[GCC_SDCC1_AHB_CLK] = &gcc_sdcc1_ahb_clk.clkr;
+	gcc_sdm845_clocks[GCC_SDCC1_APPS_CLK] = &gcc_sdcc1_apps_clk.clkr;
+	gcc_sdm845_clocks[GCC_SDCC1_ICE_CORE_CLK] =
+					&gcc_sdcc1_ice_core_clk.clkr;
+	gcc_sdm845_clocks[GCC_SDCC1_APPS_CLK_SRC] =
+					&gcc_sdcc1_apps_clk_src.clkr;
+	gcc_sdm845_clocks[GCC_SDCC1_ICE_CORE_CLK_SRC] =
+					&gcc_sdcc1_ice_core_clk_src.clkr;
+	gcc_sdm845_clocks[GPLL6] = &gpll6.clkr;
+	gcc_sdm845_clocks[GCC_AGGRE_UFS_CARD_AXI_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_AGGRE_UFS_CARD_AXI_HW_CTL_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_AGGRE_USB3_SEC_AXI_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_AGGRE_NOC_PCIE_TBU_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_CFG_NOC_USB3_SEC_AXI_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_PCIE_0_AUX_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_PCIE_0_AUX_CLK_SRC] = NULL;
+	gcc_sdm845_clocks[GCC_PCIE_0_CFG_AHB_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_PCIE_0_CLKREF_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_PCIE_0_MSTR_AXI_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_PCIE_0_PIPE_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_PCIE_0_SLV_AXI_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_PCIE_0_SLV_Q2A_AXI_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_PCIE_1_AUX_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_PCIE_1_AUX_CLK_SRC] = NULL;
+	gcc_sdm845_clocks[GCC_PCIE_1_CFG_AHB_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_PCIE_1_CLKREF_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_PCIE_1_MSTR_AXI_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_PCIE_1_PIPE_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_PCIE_1_SLV_AXI_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_PCIE_1_SLV_Q2A_AXI_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_PCIE_PHY_AUX_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_PCIE_PHY_REFGEN_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_PCIE_PHY_REFGEN_CLK_SRC] = NULL;
+	gcc_sdm845_clocks[GCC_UFS_CARD_AHB_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_UFS_CARD_AXI_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_UFS_CARD_AXI_HW_CTL_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_UFS_CARD_AXI_CLK_SRC] = NULL;
+	gcc_sdm845_clocks[GCC_UFS_CARD_CLKREF_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_UFS_CARD_ICE_CORE_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_UFS_CARD_ICE_CORE_HW_CTL_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_UFS_CARD_ICE_CORE_CLK_SRC] = NULL;
+	gcc_sdm845_clocks[GCC_UFS_CARD_PHY_AUX_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_UFS_CARD_PHY_AUX_HW_CTL_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_UFS_CARD_PHY_AUX_CLK_SRC] = NULL;
+	gcc_sdm845_clocks[GCC_UFS_CARD_RX_SYMBOL_0_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_UFS_CARD_RX_SYMBOL_1_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_UFS_CARD_TX_SYMBOL_0_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_UFS_CARD_UNIPRO_CORE_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_UFS_CARD_UNIPRO_CORE_HW_CTL_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_UFS_CARD_UNIPRO_CORE_CLK_SRC] = NULL;
+	gcc_sdm845_clocks[GCC_UFS_PHY_RX_SYMBOL_1_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_USB30_SEC_MASTER_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_USB30_SEC_MASTER_CLK_SRC] = NULL;
+	gcc_sdm845_clocks[GCC_USB30_SEC_MOCK_UTMI_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_USB30_SEC_MOCK_UTMI_CLK_SRC] = NULL;
+	gcc_sdm845_clocks[GCC_USB30_SEC_SLEEP_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_USB3_SEC_CLKREF_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_USB3_SEC_PHY_AUX_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_USB3_SEC_PHY_AUX_CLK_SRC] = NULL;
+	gcc_sdm845_clocks[GCC_USB3_SEC_PHY_COM_AUX_CLK] = NULL;
+	gcc_sdm845_clocks[GCC_USB3_SEC_PHY_PIPE_CLK] = NULL;
+
+	gcc_cpuss_rbcpr_clk_src.freq_tbl = ftbl_gcc_cpuss_rbcpr_clk_src_sdm670;
+	gcc_cpuss_rbcpr_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
+					50000000;
+	gcc_sdcc2_apps_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] =
+					50000000;
+	gcc_sdcc2_apps_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
+					100000000;
+	gcc_sdcc2_apps_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
+					201500000;
+	gcc_sdcc4_apps_clk_src.freq_tbl = ftbl_gcc_sdcc4_apps_clk_src_sdm670;
+	gcc_sdcc4_apps_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] =
+					33333333;
+}
+
 static int gcc_sdm845_fixup(struct platform_device *pdev)
 {
 	const char *compat = NULL;
@@ -4020,6 +4273,8 @@ static int gcc_sdm845_fixup(struct platform_device *pdev)
 
 	if (!strcmp(compat, "qcom,gcc-sdm845-v2"))
 		gcc_sdm845_fixup_sdm845v2();
+	else if (!strcmp(compat, "qcom,gcc-sdm670"))
+		gcc_sdm845_fixup_sdm670();
 
 	return 0;
 }
