@@ -476,6 +476,10 @@ static void msm_atomic_commit_dispatch(struct drm_device *dev,
 	struct drm_crtc *crtc = NULL;
 	struct drm_crtc_state *crtc_state = NULL;
 	int ret = -EINVAL, i = 0, j = 0;
+	bool nonblock;
+
+	/* cache since work will kfree commit in non-blocking case */
+	nonblock = commit->nonblock;
 
 	for_each_crtc_in_state(state, crtc, crtc_state, i) {
 		for (j = 0; j < priv->num_crtcs; j++) {
@@ -515,10 +519,13 @@ static void msm_atomic_commit_dispatch(struct drm_device *dev,
 		 */
 		DRM_ERROR("failed to dispatch commit to any CRTC\n");
 		complete_commit(commit);
-	} else if (!commit->nonblock) {
+	} else if (!nonblock) {
 		kthread_flush_work(&commit->commit_work);
-		kfree(commit);
 	}
+
+	/* free nonblocking commits in this context, after processing */
+	if (!nonblock)
+		kfree(commit);
 }
 
 /**
