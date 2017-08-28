@@ -256,6 +256,7 @@ static int aop_qmp_clk_probe(struct platform_device *pdev)
 	struct clk *clk = NULL;
 	struct device_node *np = pdev->dev.of_node;
 	struct mbox_chan *mbox = NULL;
+	struct clk_onecell_data *clk_data;
 	int num_clks = ARRAY_SIZE(aop_qmp_clk_hws);
 	int ret = 0, i = 0;
 
@@ -266,6 +267,17 @@ static int aop_qmp_clk_probe(struct platform_device *pdev)
 	ret = qmp_update_client(aop_qmp_clk_hws[i], &pdev->dev, &mbox);
 	if (ret < 0)
 		return ret;
+
+	clk_data = devm_kzalloc(&pdev->dev, sizeof(*clk_data), GFP_KERNEL);
+	if (!clk_data)
+		return -ENOMEM;
+
+	clk_data->clks = devm_kcalloc(&pdev->dev, num_clks,
+					sizeof(*clk_data->clks), GFP_KERNEL);
+	if (!clk_data->clks)
+		return -ENOMEM;
+
+	clk_data->clk_num = num_clks;
 
 	for (i = 1; i < num_clks; i++) {
 		if (!aop_qmp_clk_hws[i])
@@ -289,14 +301,16 @@ static int aop_qmp_clk_probe(struct platform_device *pdev)
 	for (i = 0; i < num_clks; i++) {
 		if (!aop_qmp_clk_hws[i])
 			continue;
+
 		clk = devm_clk_register(&pdev->dev, aop_qmp_clk_hws[i]);
 		if (IS_ERR(clk)) {
 			ret = PTR_ERR(clk);
 			goto fail;
 		}
+		clk_data->clks[i] = clk;
 	}
 
-	ret = of_clk_add_provider(np, of_clk_src_simple_get, clk);
+	ret = of_clk_add_provider(np, of_clk_src_onecell_get, clk_data);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register clock provider\n");
 		goto fail;
