@@ -373,7 +373,7 @@ int q6core_get_service_version(uint32_t service_id,
 
 	svc_size = q6core_get_avcs_service_size(service_id);
 	if (svc_size != size) {
-		pr_err("%s: Expected size: %ld, Provided size: %ld",
+		pr_err("%s: Expected size: %zu, Provided size: %zu",
 		       __func__, svc_size, size);
 		return -EINVAL;
 	}
