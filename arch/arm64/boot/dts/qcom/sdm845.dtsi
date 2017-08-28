@@ -3691,6 +3691,7 @@
 			 <&clock_rpmh RPMH_RF_CLK3_A>;
 		clock-names = "rf_clk3_clk", "rf_clk3_pin_clk";
 		qcom,smmu-support;
+		qcom,keep-radio-on-during-sleep;
 		status = "disabled";
 	};
 };
