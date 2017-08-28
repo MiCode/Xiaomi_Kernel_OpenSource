@@ -652,6 +652,8 @@ int msm_bus_commit_data(struct list_head *clist)
 		if (ret)
 			MSM_BUS_ERR("%s: error sending wake sets: %d\n",
 							__func__, ret);
+		kfree(n_wake);
+		kfree(cmdlist_wake);
 	}
 	if (cnt_sleep) {
 		ret = rpmh_write_passthru(cur_mbox, RPMH_SLEEP_STATE,
@@ -659,14 +661,12 @@ int msm_bus_commit_data(struct list_head *clist)
 		if (ret)
 			MSM_BUS_ERR("%s: error sending sleep sets: %d\n",
 							__func__, ret);
+		kfree(n_sleep);
+		kfree(cmdlist_sleep);
 	}
 
 	kfree(cmdlist_active);
-	kfree(cmdlist_wake);
-	kfree(cmdlist_sleep);
 	kfree(n_active);
-	kfree(n_wake);
-	kfree(n_sleep);
 
 exit_msm_bus_commit_data:
 	list_for_each_entry_safe(node, node_tmp, clist, link) {
