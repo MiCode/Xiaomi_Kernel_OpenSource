@@ -656,7 +656,7 @@ static int sde_hw_rot_commit(struct sde_hw_rot *hw, struct sde_hw_rot_cmd *data,
 			SDE_ERROR("failed to get dst format\n");
 			return -EINVAL;
 		}
-	} else if (hw_cmd == SDE_HW_ROT_CMD_COMMIT) {
+	} else {
 		rc = sde_hw_rot_to_v4l2_pixfmt(data->dst_pixel_format,
 				data->dst_modifier, &rot_cmd.dst_pixfmt);
 		if (rc) {

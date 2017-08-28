@@ -1434,7 +1434,7 @@ static void sde_hw_rotator_setup_wbengine(struct sde_hw_rotator_context *ctx,
 
 	wrptr = sde_hw_rotator_get_regdma_segment(ctx);
 
-	/* setup traffic shaper for 4k 30fps or if prefill_bw is set in sbuf */
+	/* setup traffic shaper for 4k 30fps content or if prefill_bw is set */
 	if (ctx->is_traffic_shaping || cfg->prefill_bw) {
 		u32 bw;
 
