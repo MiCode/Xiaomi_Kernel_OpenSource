@@ -112,6 +112,7 @@
 #define GAIN_LSB_FACTOR	976560
 
 #define USER_VOTER		"user_voter"
+#define SHUTDOWN_VOTER		"user_voter"
 #define OK_TO_QNOVO_VOTER	"ok_to_qnovo_voter"
 
 #define QNOVO_VOTER		"qnovo_voter"
@@ -130,6 +131,7 @@
 struct qnovo_dt_props {
 	bool			external_rsense;
 	struct device_node	*revid_dev_node;
+	bool			enable_for_dc;
 };
 
 struct qnovo {
@@ -442,6 +444,8 @@ static int qnovo_parse_dt(struct qnovo *chip)
 		pr_err("Missing qcom,pmic-revid property - driver failed\n");
 		return -EINVAL;
 	}
+	chip->dt.enable_for_dc = of_property_read_bool(node,
+					"qcom,enable-for-dc");
 
 	return 0;
 }
@@ -1310,6 +1314,10 @@ static void status_change_work(struct work_struct *work)
 	if (usb_present)
 		dc_present = 0;
 
+	/* disable qnovo for dc path by forcing dc_present = 0 always */
+	if (!chip->dt.enable_for_dc)
+		dc_present = 0;
+
 	if (chip->dc_present && !dc_present) {
 		/* removal */
 		chip->dc_present = 0;
@@ -1333,6 +1341,26 @@ static void ptrain_restart_work(struct work_struct *work)
 				struct qnovo, ptrain_restart_work.work);
 	u8 pt_t1, pt_t2;
 	int rc;
+	u8 pt_en;
+
+	rc = qnovo_read(chip, QNOVO_PTRAIN_EN, &pt_en, 1);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read QNOVO_PTRAIN_EN rc = %d\n",
+				rc);
+		goto clean_up;
+	}
+
+	if (!pt_en) {
+		rc = qnovo_masked_write(chip, QNOVO_PTRAIN_EN,
+				QNOVO_PTRAIN_EN_BIT, QNOVO_PTRAIN_EN_BIT);
+		if (rc < 0) {
+			dev_err(chip->dev, "Couldn't enable pulse train rc=%d\n",
+					rc);
+			goto clean_up;
+		}
+		/* sleep 20ms for the pulse trains to restart and settle */
+		msleep(20);
+	}
 
 	rc = qnovo_read(chip, QNOVO_PTTIME_STS, &pt_t1, 1);
 	if (rc < 0) {
@@ -1395,16 +1423,7 @@ static irqreturn_t handle_ptrain_done(int irq, void *data)
 	struct qnovo *chip = data;
 	union power_supply_propval pval = {0};
 
-	/*
-	 * In some cases (esp shutting down) the userspace would  disable by
-	 * setting qnovo_enable=0. Also charger could be removed or there is
-	 * an error (i.e. its not okay to run qnovo)-
-	 * skip taking ESR measurement in such situations
-	 */
-
-	if (get_client_vote(chip->disable_votable, USER_VOTER)
-		|| get_effective_result(chip->not_ok_to_qnovo_votable) > 0)
-		return IRQ_HANDLED;
+	qnovo_update_status(chip);
 
 	/*
 	 * hw resets pt_en bit once ptrain_done triggers.
@@ -1415,13 +1434,14 @@ static irqreturn_t handle_ptrain_done(int irq, void *data)
 	vote(chip->pt_dis_votable, QNI_PT_VOTER, true, 0);
 
 	vote(chip->pt_dis_votable, ESR_VOTER, true, 0);
-	if (is_fg_available(chip))
+	if (is_fg_available(chip)
+		&& !get_client_vote(chip->disable_votable, USER_VOTER)
+		&& !get_effective_result(chip->not_ok_to_qnovo_votable))
 		power_supply_set_property(chip->bms_psy,
 				POWER_SUPPLY_PROP_RESISTANCE,
 				&pval);
 
 	vote(chip->pt_dis_votable, ESR_VOTER, false, 0);
-	qnovo_update_status(chip);
 	kobject_uevent(&chip->dev->kobj, KOBJ_CHANGE);
 	return IRQ_HANDLED;
 }
@@ -1433,6 +1453,9 @@ static int qnovo_hw_init(struct qnovo *chip)
 	u8 iadc_gain_external, iadc_gain_internal;
 	u8 vadc_offset, vadc_gain;
 	u8 val;
+
+	vote(chip->chg_ready_votable, USB_READY_VOTER, false, 0);
+	vote(chip->chg_ready_votable, DC_READY_VOTER, false, 0);
 
 	vote(chip->disable_votable, USER_VOTER, true, 0);
 	vote(chip->disable_votable, FG_AVAILABLE_VOTER, true, 0);
@@ -1706,6 +1729,13 @@ static int qnovo_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void qnovo_shutdown(struct platform_device *pdev)
+{
+	struct qnovo *chip = platform_get_drvdata(pdev);
+
+	vote(chip->not_ok_to_qnovo_votable, SHUTDOWN_VOTER, true, 0);
+}
+
 static const struct of_device_id match_table[] = {
 	{ .compatible = "qcom,qpnp-qnovo", },
 	{ },
@@ -1719,6 +1749,7 @@ static struct platform_driver qnovo_driver = {
 	},
 	.probe		= qnovo_probe,
 	.remove		= qnovo_remove,
+	.shutdown	= qnovo_shutdown,
 };
 module_platform_driver(qnovo_driver);
 
