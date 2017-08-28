@@ -17,6 +17,7 @@
 #include "dp_panel.h"
 
 #define DP_PANEL_DEFAULT_BPP 24
+#define DP_MAX_DS_PORT_COUNT 1
 
 enum {
 	DP_LINK_RATE_MULTIPLIER = 27000000,
@@ -35,7 +36,8 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
 	int rlen, rc = 0;
 	struct dp_panel_private *panel;
 	struct drm_dp_link *link_info;
-	u8 major = 0, minor = 0;
+	u8 *dpcd, major = 0, minor = 0;
+	u32 dfp_count = 0;
 	unsigned long caps = DP_LINK_CAP_ENHANCED_FRAMING;
 
 	if (!dp_panel) {
@@ -44,11 +46,13 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
 		goto end;
 	}
 
+	dpcd = dp_panel->dpcd;
+
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 	link_info = &dp_panel->link_info;
 
 	rlen = drm_dp_dpcd_read(panel->aux->drm_aux, DP_DPCD_REV,
-		dp_panel->dpcd, (DP_RECEIVER_CAP_SIZE + 1));
+		dpcd, (DP_RECEIVER_CAP_SIZE + 1));
 	if (rlen < (DP_RECEIVER_CAP_SIZE + 1)) {
 		pr_err("dpcd read failed, rlen=%d\n", rlen);
 		rc = -EINVAL;
@@ -70,8 +74,27 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
 
 	pr_debug("lane_count=%d\n", link_info->num_lanes);
 
-	if (dp_panel->dpcd[DP_MAX_LANE_COUNT] & DP_ENHANCED_FRAME_CAP)
+	if (drm_dp_enhanced_frame_cap(dpcd))
 		link_info->capabilities |= caps;
+
+	dfp_count = dpcd[DP_DOWN_STREAM_PORT_COUNT] &
+						DP_DOWN_STREAM_PORT_COUNT;
+
+	if ((dpcd[DP_DOWNSTREAMPORT_PRESENT] & DP_DWN_STRM_PORT_PRESENT)
+		&& (dpcd[DP_DPCD_REV] > 0x10)) {
+		rlen = drm_dp_dpcd_read(panel->aux->drm_aux,
+			DP_DOWNSTREAM_PORT_0, dp_panel->ds_ports,
+			DP_MAX_DOWNSTREAM_PORTS);
+		if (rlen < DP_MAX_DOWNSTREAM_PORTS) {
+			pr_err("ds port status failed, rlen=%d\n", rlen);
+			rc = -EINVAL;
+			goto end;
+		}
+	}
+
+	if (dfp_count > DP_MAX_DS_PORT_COUNT)
+		pr_debug("DS port count %d greater that max (%d) supported\n",
+			dfp_count, DP_MAX_DS_PORT_COUNT);
 
 end:
 	return rc;

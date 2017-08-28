@@ -34,6 +34,11 @@ enum dp_link_preemaphasis_level {
 #define DS_PORT_STATUS_CHANGED 0x200
 #define DP_TEST_BIT_DEPTH_UNKNOWN 0xFFFFFFFF
 
+struct dp_link_sink_count {
+	u32 count;
+	bool cp_ready;
+};
+
 struct dp_link {
 	u32 test_requested;
 
@@ -42,8 +47,11 @@ struct dp_link {
 	u32 v_level;
 	u32 p_level;
 
+	struct dp_link_sink_count sink_count;
+
 	u32 (*get_test_bits_depth)(struct dp_link *dp_link, u32 bpp);
 	int (*process_request)(struct dp_link *dp_link);
+	int (*get_sink_count)(struct dp_link *dp_link);
 	int (*get_colorimetry_config)(struct dp_link *dp_link);
 	int (*adjust_levels)(struct dp_link *dp_link, u8 *link_status);
 	int (*send_psm_request)(struct dp_link *dp_link, bool req);

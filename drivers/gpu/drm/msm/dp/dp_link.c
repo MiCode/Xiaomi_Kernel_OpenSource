@@ -80,18 +80,13 @@ struct dp_link_request {
 	u32 response;
 };
 
-struct dp_link_sink_count {
-	u32 count;
-	bool cp_ready;
-};
-
 struct dp_link_private {
+	u32 prev_sink_count;
 	struct device *dev;
 	struct dp_aux *aux;
 	struct dp_link dp_link;
 
 	struct dp_link_request request;
-	struct dp_link_sink_count sink_count;
 	u8 link_status[DP_LINK_STATUS_SIZE];
 };
 
@@ -992,41 +987,44 @@ end:
  * (Byte 0x200), and whether all the sink devices connected have Content
  * Protection enabled.
  */
-static void dp_link_parse_sink_count(struct dp_link_private *link)
+static int dp_link_parse_sink_count(struct dp_link *dp_link)
 {
-	u8 bp;
-	u8 data;
 	int rlen;
 	int const param_len = 0x1;
+	struct dp_link_private *link = container_of(dp_link,
+			struct dp_link_private, dp_link);
 
 	rlen = drm_dp_dpcd_read(link->aux->drm_aux, DP_SINK_COUNT,
-			&bp, param_len);
+			&link->dp_link.sink_count.count, param_len);
 	if (rlen < param_len) {
 		pr_err("failed to read sink count\n");
-		return;
+		return -EINVAL;
 	}
 
-	data = bp;
-
+	link->dp_link.sink_count.cp_ready =
+		link->dp_link.sink_count.count & DP_SINK_CP_READY;
 	/* BIT 7, BIT 5:0 */
-	link->sink_count.count = (data & BIT(7)) << 6 | (data & 0x63);
-	/* BIT 6*/
-	link->sink_count.cp_ready = data & BIT(6);
+	link->dp_link.sink_count.count =
+		DP_GET_SINK_COUNT(link->dp_link.sink_count.count);
 
 	pr_debug("sink_count = 0x%x, cp_ready = 0x%x\n",
-		link->sink_count.count, link->sink_count.cp_ready);
+		link->dp_link.sink_count.count,
+		link->dp_link.sink_count.cp_ready);
+	return 0;
 }
 
 static void dp_link_parse_sink_status_field(struct dp_link_private *link)
 {
 	int len = 0;
 
-	dp_link_parse_sink_count(link);
-	dp_link_parse_request(link);
+	link->prev_sink_count = link->dp_link.sink_count.count;
+	dp_link_parse_sink_count(&link->dp_link);
+
 	len = drm_dp_dpcd_read_link_status(link->aux->drm_aux,
 		link->link_status);
 	if (len < DP_LINK_STATUS_SIZE)
 		pr_err("DP link status read failed\n");
+	dp_link_parse_request(link);
 }
 
 static bool dp_link_is_link_training_requested(struct dp_link_private *link)
@@ -1221,6 +1219,9 @@ static bool dp_link_is_ds_port_status_changed(struct dp_link_private *link)
 		DP_DOWNSTREAM_PORT_STATUS_CHANGED) /* port status changed */
 		return true;
 
+	if (link->prev_sink_count != link->dp_link.sink_count.count)
+		return true;
+
 	return false;
 }
 
@@ -1239,6 +1240,9 @@ static int dp_link_process_ds_port_status_change(struct dp_link_private *link)
 {
 	if (!dp_link_is_ds_port_status_changed(link))
 		return -EINVAL;
+
+	/* reset prev_sink_count */
+	link->prev_sink_count = link->dp_link.sink_count.count;
 
 	return 0;
 }
@@ -1351,6 +1355,12 @@ static int dp_link_process_request(struct dp_link *dp_link)
 
 	dp_link_parse_sink_status_field(link);
 
+	ret = dp_link_process_ds_port_status_change(link);
+	if (!ret) {
+		dp_link->test_requested |= DS_PORT_STATUS_CHANGED;
+		goto exit;
+	}
+
 	ret = dp_link_process_link_training_request(link);
 	if (!ret) {
 		dp_link->test_requested |= DP_TEST_LINK_TRAINING;
@@ -1366,12 +1376,6 @@ static int dp_link_process_request(struct dp_link *dp_link)
 	ret = dp_link_process_link_status_update(link);
 	if (!ret) {
 		dp_link->test_requested |= DP_LINK_STATUS_UPDATED;
-		goto exit;
-	}
-
-	ret = dp_link_process_ds_port_status_change(link);
-	if (!ret) {
-		dp_link->test_requested |= DS_PORT_STATUS_CHANGED;
 		goto exit;
 	}
 
@@ -1556,6 +1560,7 @@ struct dp_link *dp_link_get(struct device *dev, struct dp_aux *aux)
 	dp_link = &link->dp_link;
 
 	dp_link->process_request        = dp_link_process_request;
+	dp_link->get_sink_count         = dp_link_parse_sink_count;
 	dp_link->get_test_bits_depth    = dp_link_get_test_bits_depth;
 	dp_link->get_colorimetry_config = dp_link_get_colorimetry_config;
 	dp_link->adjust_levels          = dp_link_adjust_levels;

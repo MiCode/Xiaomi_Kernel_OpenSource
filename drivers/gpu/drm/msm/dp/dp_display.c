@@ -422,11 +422,33 @@ static const struct component_ops dp_display_comp_ops = {
 	.unbind = dp_display_unbind,
 };
 
+static bool dp_display_is_ds_bridge(struct dp_panel *panel)
+{
+	return (panel->dpcd[DP_DOWNSTREAMPORT_PRESENT] &
+		DP_DWN_STRM_PORT_PRESENT);
+}
+
+static bool dp_display_is_sink_count_zero(struct dp_display_private *dp)
+{
+	return dp_display_is_ds_bridge(dp->panel) &&
+		(dp->link->sink_count.count == 0);
+}
+
 static int dp_display_process_hpd_high(struct dp_display_private *dp)
 {
 	int rc = 0;
 	u32 max_pclk_from_edid = 0;
 	struct edid *edid;
+
+	rc = dp->link->get_sink_count(dp->link);
+	if (rc)
+		goto end;
+
+	if (dp_display_is_sink_count_zero(dp)) {
+		pr_debug("no downstream devices connected\n");
+		rc = -EINVAL;
+		goto end;
+	}
 
 	rc = dp->panel->read_sink_caps(dp->panel, dp->dp_display.connector);
 	if (rc)
@@ -449,6 +471,7 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 	if (!wait_for_completion_timeout(&dp->notification_comp, HZ * 2))
 		pr_warn("timeout\n");
 
+end:
 	return rc;
 }
 
@@ -586,6 +609,28 @@ end:
 	return rc;
 }
 
+static int dp_display_handle_hpd_irq(struct dp_display_private *dp)
+{
+	if (dp->link->test_requested & DS_PORT_STATUS_CHANGED) {
+		dp->dp_display.is_connected = false;
+		drm_helper_hpd_irq_event(dp->dp_display.connector->dev);
+
+		reinit_completion(&dp->notification_comp);
+		if (!wait_for_completion_timeout(
+			&dp->notification_comp, HZ * 2))
+			pr_warn("timeout\n");
+
+		if (dp_display_is_sink_count_zero(dp)) {
+			pr_debug("sink count is zero, nothing to do\n");
+			return 0;
+		}
+
+		return dp_display_process_hpd_high(dp);
+	}
+
+	return 0;
+}
+
 static int dp_display_usbpd_attention_cb(struct device *dev)
 {
 	int rc = 0;
@@ -611,9 +656,13 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 		}
 
 		rc = dp->link->process_request(dp->link);
-		dp->hpd_irq_on = false;
-		if (!rc)
+		/* check for any test request issued by sink */
+		if (!rc) {
+			dp_display_handle_hpd_irq(dp);
+			dp->hpd_irq_on = false;
 			goto end;
+		}
+		dp->hpd_irq_on = false;
 	}
 
 	if (!dp->usbpd->hpd_high) {
