@@ -36,6 +36,7 @@
 #define   CTL_ROT_START                 0x0CC
 
 #define CTL_MIXER_BORDER_OUT            BIT(24)
+#define CTL_FLUSH_MASK_ROT              BIT(27)
 #define CTL_FLUSH_MASK_CTL              BIT(17)
 
 #define SDE_REG_RESET_TIMEOUT_COUNT    20
@@ -123,6 +124,13 @@ static inline void sde_hw_ctl_trigger_flush(struct sde_hw_ctl *ctx)
 static inline u32 sde_hw_ctl_get_flush_register(struct sde_hw_ctl *ctx)
 {
 	struct sde_hw_blk_reg_map *c = &ctx->hw;
+	u32 rot_op_mode;
+
+	rot_op_mode = SDE_REG_READ(c, CTL_ROT_TOP) & 0x3;
+
+	/* rotate flush bit is undefined if offline mode, so ignore it */
+	if (rot_op_mode == SDE_CTL_ROT_OP_MODE_OFFLINE)
+		return SDE_REG_READ(c, CTL_FLUSH) & ~CTL_FLUSH_MASK_ROT;
 
 	return SDE_REG_READ(c, CTL_FLUSH);
 }
@@ -273,7 +281,7 @@ static inline int sde_hw_ctl_get_bitmask_rot(struct sde_hw_ctl *ctx,
 {
 	switch (rot) {
 	case ROT_0:
-		*flushbits |= BIT(27);
+		*flushbits |= CTL_FLUSH_MASK_ROT;
 		break;
 	default:
 		return -EINVAL;
