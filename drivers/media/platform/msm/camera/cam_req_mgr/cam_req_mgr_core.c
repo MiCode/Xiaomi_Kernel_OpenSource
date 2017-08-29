@@ -575,7 +575,6 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 			slot->status = CRM_SLOT_STATUS_REQ_APPLIED;
 			link->trigger_mask = 0;
 			CAM_DBG(CAM_CRM, "req is applied\n");
-			__cam_req_mgr_check_next_req_slot(in_q);
 
 			idx = in_q->rd_idx;
 			__cam_req_mgr_dec_idx(
@@ -1370,7 +1369,11 @@ static int cam_req_mgr_process_trigger(void *priv, void *data)
 		/*
 		 * Do NOT reset req q slot data here, it can not be done
 		 * here because we need to preserve the data to handle bubble.
+		 *
+		 * Check if any new req is pending in slot, if not finish the
+		 * lower pipeline delay device with available req ids.
 		 */
+		__cam_req_mgr_check_next_req_slot(in_q);
 		__cam_req_mgr_inc_idx(&in_q->rd_idx, 1, in_q->num_slots);
 	}
 	rc = __cam_req_mgr_process_req(link, trigger_data->trigger);
