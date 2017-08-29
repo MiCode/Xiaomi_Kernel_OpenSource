@@ -10,15 +10,14 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __CAM_CSID_HW_INTF_H__
-#define __CAM_CSID_HW_INTF_H__
+#ifndef _CAM_CSID_HW_INTF_H_
+#define _CAM_CSID_HW_INTF_H_
 
 #include "cam_isp_hw.h"
 #include "cam_hw_intf.h"
 
 /* MAX IFE CSID instance */
 #define CAM_IFE_CSID_HW_NUM_MAX                        4
-
 
 /**
  * enum cam_ife_pix_path_res_id - Specify the csid patch
@@ -43,7 +42,6 @@ enum cam_ife_cid_res_id {
 	CAM_IFE_CSID_CID_MAX,
 };
 
-
 /**
  * struct cam_ife_csid_hw_caps- get the CSID hw capability
  * @no_rdis :       number of rdis supported by CSID HW device
@@ -60,7 +58,6 @@ struct cam_ife_csid_hw_caps {
 	uint32_t      minor_version;
 	uint32_t      version_incr;
 };
-
 
 /**
  * struct cam_csid_hw_reserve_resource- hw reserve
@@ -89,9 +86,7 @@ struct cam_csid_hw_reserve_resource_args {
 	uint32_t                                  master_idx;
 	uint32_t                                  cid;
 	struct cam_isp_resource_node             *node_res;
-
 };
-
 
 /**
  *  enum cam_ife_csid_halt_cmd - Specify the halt command type
@@ -170,4 +165,4 @@ enum cam_ife_csid_cmd_type {
 int cam_ife_csid_hw_init(struct cam_hw_intf **ife_csid_hw,
 	uint32_t hw_idx);
 
-#endif /* __CAM_CSID_HW_INTF_H__ */
+#endif /* _CAM_CSID_HW_INTF_H_ */

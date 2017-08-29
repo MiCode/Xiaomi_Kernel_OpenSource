@@ -80,53 +80,13 @@ static int cam_vfe_top_mux_get_reg_update(
 	struct cam_vfe_top_ver2_priv *top_priv,
 	void *cmd_args, uint32_t arg_size)
 {
-	uint32_t                          size = 0;
-	uint32_t                          reg_val_pair[2];
 	struct cam_isp_hw_get_cdm_args   *cdm_args = cmd_args;
-	struct cam_cdm_utils_ops         *cdm_util_ops = NULL;
 
-	if (arg_size != sizeof(struct cam_isp_hw_get_cdm_args)) {
-		CAM_ERR(CAM_ISP, "Error! Invalid cmd size");
-		return -EINVAL;
-	}
+	if (cdm_args->res->process_cmd)
+		return cdm_args->res->process_cmd(cdm_args->res,
+			CAM_VFE_HW_CMD_GET_REG_UPDATE, cmd_args, arg_size);
 
-	if (!cdm_args || !cdm_args->res) {
-		CAM_ERR(CAM_ISP, "Error! Invalid args");
-		return -EINVAL;
-	}
-
-	cdm_util_ops = (struct cam_cdm_utils_ops *)cdm_args->res->cdm_ops;
-
-	if (!cdm_util_ops) {
-		CAM_ERR(CAM_ISP, "Error! Invalid CDM ops");
-		return -EINVAL;
-	}
-
-	size = cdm_util_ops->cdm_required_size_reg_random(1);
-	/* since cdm returns dwords, we need to convert it into bytes */
-	if ((size * 4) > cdm_args->size) {
-		CAM_ERR(CAM_ISP, "buf size:%d is not sufficient, expected: %d",
-			cdm_args->size, size);
-		return -EINVAL;
-	}
-
-	reg_val_pair[0] = top_priv->common_data.common_reg->reg_update_cmd;
-
-	if (cdm_args->res->res_id == CAM_ISP_HW_VFE_IN_CAMIF)
-		reg_val_pair[1] = BIT(0);
-	else {
-		uint32_t rdi_num = cdm_args->res->res_id -
-			CAM_ISP_HW_VFE_IN_RDI0;
-		/* RDI reg_update starts at BIT 1, so add 1 */
-		reg_val_pair[1] = BIT(rdi_num + 1);
-	}
-
-	cdm_util_ops->cdm_write_regrandom(cdm_args->cmd_buf_addr,
-		1, reg_val_pair);
-
-	cdm_args->used_bytes = size * 4;
-
-	return 0;
+	return -EINVAL;
 }
 
 int cam_vfe_top_get_hw_caps(void *device_priv,
@@ -257,12 +217,8 @@ int cam_vfe_top_start(void *device_priv,
 	top_priv = (struct cam_vfe_top_ver2_priv   *)device_priv;
 	mux_res = (struct cam_isp_resource_node *)start_args;
 
-	if (mux_res->res_id == CAM_ISP_HW_VFE_IN_CAMIF) {
+	if (mux_res->start) {
 		rc = mux_res->start(mux_res);
-	} else if (mux_res->res_id >= CAM_ISP_HW_VFE_IN_RDI0 &&
-		mux_res->res_id <= CAM_ISP_HW_VFE_IN_RDI3) {
-		mux_res->res_state = CAM_ISP_RESOURCE_STATE_STREAMING;
-		rc = 0;
 	} else {
 		CAM_ERR(CAM_ISP, "Invalid res id:%d", mux_res->res_id);
 		rc = -EINVAL;

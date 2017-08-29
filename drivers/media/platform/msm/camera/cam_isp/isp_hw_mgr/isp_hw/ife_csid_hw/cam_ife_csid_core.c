@@ -32,12 +32,14 @@
 #define CAM_IFE_CSID_TIMEOUT_SLEEP_US                  1000
 #define CAM_IFE_CSID_TIMEOUT_ALL_US                    1000000
 
+#define MEASURE_EN                                     0
+
 static int cam_ife_csid_is_ipp_format_supported(
-				uint32_t decode_fmt)
+	uint32_t in_format)
 {
 	int rc = -EINVAL;
 
-	switch (decode_fmt) {
+	switch (in_format) {
 	case CAM_FORMAT_MIPI_RAW_6:
 	case CAM_FORMAT_MIPI_RAW_8:
 	case CAM_FORMAT_MIPI_RAW_10:
@@ -59,126 +61,220 @@ static int cam_ife_csid_is_ipp_format_supported(
 	return rc;
 }
 
-static int cam_ife_csid_get_format(uint32_t input_fmt,
-	uint32_t *path_fmt)
+static int cam_ife_csid_get_format_rdi(
+	uint32_t in_format, uint32_t out_format,
+	uint32_t *decode_fmt, uint32_t *plain_fmt)
 {
 	int rc = 0;
 
-	switch (input_fmt) {
+	switch (in_format) {
 	case CAM_FORMAT_MIPI_RAW_6:
-		*path_fmt  = 0;
+		switch (out_format) {
+		case CAM_FORMAT_MIPI_RAW_6:
+			*decode_fmt = 0xf;
+			break;
+		case CAM_FORMAT_PLAIN8:
+			*decode_fmt = 0x0;
+			*plain_fmt = 0x0;
+			break;
+		default:
+			rc = -EINVAL;
+			break;
+		}
 		break;
 	case CAM_FORMAT_MIPI_RAW_8:
-		*path_fmt  = 1;
+		switch (out_format) {
+		case CAM_FORMAT_MIPI_RAW_8:
+			*decode_fmt = 0xf;
+			break;
+		case CAM_FORMAT_PLAIN8:
+			*decode_fmt = 0x1;
+			*plain_fmt = 0x0;
+			break;
+		default:
+			rc = -EINVAL;
+			break;
+		}
 		break;
 	case CAM_FORMAT_MIPI_RAW_10:
-		*path_fmt  = 2;
+		switch (out_format) {
+		case CAM_FORMAT_MIPI_RAW_10:
+			*decode_fmt = 0xf;
+			break;
+		case CAM_FORMAT_PLAIN16_10:
+			*decode_fmt = 0x2;
+			*plain_fmt = 0x1;
+			break;
+		default:
+			rc = -EINVAL;
+			break;
+		}
 		break;
 	case CAM_FORMAT_MIPI_RAW_12:
-		*path_fmt  = 3;
+		switch (out_format) {
+		case CAM_FORMAT_MIPI_RAW_12:
+			*decode_fmt = 0xf;
+			break;
+		case CAM_FORMAT_PLAIN16_12:
+			*decode_fmt = 0x3;
+			*plain_fmt = 0x1;
+			break;
+		default:
+			rc = -EINVAL;
+			break;
+		}
 		break;
 	case CAM_FORMAT_MIPI_RAW_14:
-		*path_fmt  = 4;
+		switch (out_format) {
+		case CAM_FORMAT_MIPI_RAW_14:
+			*decode_fmt = 0xf;
+			break;
+		case CAM_FORMAT_PLAIN16_14:
+			*decode_fmt = 0x4;
+			*plain_fmt = 0x1;
+			break;
+		default:
+			rc = -EINVAL;
+			break;
+		}
 		break;
 	case CAM_FORMAT_MIPI_RAW_16:
-		*path_fmt  = 5;
+		switch (out_format) {
+		case CAM_FORMAT_MIPI_RAW_16:
+			*decode_fmt = 0xf;
+			break;
+		case CAM_FORMAT_PLAIN16_16:
+			*decode_fmt = 0x5;
+			*plain_fmt = 0x1;
+			break;
+		default:
+			rc = -EINVAL;
+			break;
+		}
 		break;
 	case CAM_FORMAT_MIPI_RAW_20:
-		*path_fmt  = 6;
+		switch (out_format) {
+		case CAM_FORMAT_MIPI_RAW_20:
+			*decode_fmt = 0xf;
+			break;
+		case CAM_FORMAT_PLAIN32_20:
+			*decode_fmt = 0x6;
+			*plain_fmt = 0x2;
+			break;
+		default:
+			rc = -EINVAL;
+			break;
+		}
 		break;
 	case CAM_FORMAT_DPCM_10_6_10:
-		*path_fmt  = 7;
+		*decode_fmt  = 0x7;
+		*plain_fmt = 0x1;
 		break;
 	case CAM_FORMAT_DPCM_10_8_10:
-		*path_fmt  = 8;
+		*decode_fmt  = 0x8;
+		*plain_fmt = 0x1;
 		break;
 	case CAM_FORMAT_DPCM_12_6_12:
-		*path_fmt  = 9;
+		*decode_fmt  = 0x9;
+		*plain_fmt = 0x1;
 		break;
 	case CAM_FORMAT_DPCM_12_8_12:
-		*path_fmt  = 0xA;
+		*decode_fmt  = 0xA;
+		*plain_fmt = 0x1;
 		break;
 	case CAM_FORMAT_DPCM_14_8_14:
-		*path_fmt  = 0xB;
+		*decode_fmt  = 0xB;
+		*plain_fmt = 0x1;
 		break;
 	case CAM_FORMAT_DPCM_14_10_14:
-		*path_fmt  = 0xC;
+		*decode_fmt  = 0xC;
+		*plain_fmt = 0x1;
 		break;
 	default:
-		CAM_ERR(CAM_ISP, "CSID:%d un supported format",
-			input_fmt);
+		rc = -EINVAL;
+		break;
+	}
+
+	if (rc)
+		CAM_ERR(CAM_ISP, "Unsupported format pair in %d out %d\n",
+			in_format, out_format);
+
+	return rc;
+}
+
+static int cam_ife_csid_get_format_ipp(
+	uint32_t in_format,
+	uint32_t *decode_fmt, uint32_t *plain_fmt)
+{
+	int rc = 0;
+
+	CAM_DBG(CAM_ISP, "input format:%d",
+		 in_format);
+
+	switch (in_format) {
+	case CAM_FORMAT_MIPI_RAW_6:
+		*decode_fmt  = 0;
+		*plain_fmt = 0;
+		break;
+	case CAM_FORMAT_MIPI_RAW_8:
+		*decode_fmt  = 0x1;
+		*plain_fmt = 0;
+		break;
+	case CAM_FORMAT_MIPI_RAW_10:
+		*decode_fmt  = 0x2;
+		*plain_fmt = 0x1;
+		break;
+	case CAM_FORMAT_MIPI_RAW_12:
+		*decode_fmt  = 0x3;
+		*plain_fmt = 0x1;
+		break;
+	case CAM_FORMAT_MIPI_RAW_14:
+		*decode_fmt  = 0x4;
+		*plain_fmt = 0x1;
+		break;
+	case CAM_FORMAT_MIPI_RAW_16:
+		*decode_fmt  = 0x5;
+		*plain_fmt = 0x1;
+		break;
+	case CAM_FORMAT_MIPI_RAW_20:
+		*decode_fmt  = 0x6;
+		*plain_fmt = 0x2;
+		break;
+	case CAM_FORMAT_DPCM_10_6_10:
+		*decode_fmt  = 0x7;
+		*plain_fmt = 0x1;
+		break;
+	case CAM_FORMAT_DPCM_10_8_10:
+		*decode_fmt  = 0x8;
+		*plain_fmt = 0x1;
+		break;
+	case CAM_FORMAT_DPCM_12_6_12:
+		*decode_fmt  = 0x9;
+		*plain_fmt = 0x1;
+		break;
+	case CAM_FORMAT_DPCM_12_8_12:
+		*decode_fmt  = 0xA;
+		*plain_fmt = 0x1;
+		break;
+	case CAM_FORMAT_DPCM_14_8_14:
+		*decode_fmt  = 0xB;
+		*plain_fmt = 0x1;
+		break;
+	case CAM_FORMAT_DPCM_14_10_14:
+		*decode_fmt  = 0xC;
+		*plain_fmt = 0x1;
+		break;
+	default:
+		CAM_ERR(CAM_ISP, "Unsupported format %d",
+			in_format);
 		rc = -EINVAL;
 	}
 
+	CAM_DBG(CAM_ISP, "decode_fmt:%d plain_fmt:%d",
+		 *decode_fmt, *plain_fmt);
+
 	return rc;
 }
-
-static int cam_ife_csid_get_rdi_format(uint32_t input_fmt,
-	uint32_t output_fmt, uint32_t *path_fmt, uint32_t *plain_fmt)
-{
-	int rc = 0;
-
-	CAM_DBG(CAM_ISP, "input format:%d output format:%d",
-		 input_fmt, output_fmt);
-
-	switch (output_fmt) {
-	case CAM_FORMAT_MIPI_RAW_6:
-	case CAM_FORMAT_MIPI_RAW_8:
-	case CAM_FORMAT_MIPI_RAW_10:
-	case CAM_FORMAT_MIPI_RAW_12:
-	case CAM_FORMAT_MIPI_RAW_14:
-	case CAM_FORMAT_MIPI_RAW_16:
-	case CAM_FORMAT_MIPI_RAW_20:
-	case CAM_FORMAT_DPCM_10_6_10:
-	case CAM_FORMAT_DPCM_10_8_10:
-	case CAM_FORMAT_DPCM_12_6_12:
-	case CAM_FORMAT_DPCM_12_8_12:
-	case CAM_FORMAT_DPCM_14_8_14:
-	case CAM_FORMAT_DPCM_14_10_14:
-		*path_fmt  = 0xF;
-		*plain_fmt = 0;
-		break;
-
-	case CAM_FORMAT_PLAIN8:
-		rc = cam_ife_csid_get_format(input_fmt, path_fmt);
-		if (rc)
-			goto error;
-
-		*plain_fmt = 0;
-		break;
-	case CAM_FORMAT_PLAIN16_8:
-	case CAM_FORMAT_PLAIN16_10:
-	case CAM_FORMAT_PLAIN16_12:
-	case CAM_FORMAT_PLAIN16_14:
-	case CAM_FORMAT_PLAIN16_16:
-		rc = cam_ife_csid_get_format(input_fmt, path_fmt);
-		if (rc)
-			goto error;
-
-		*plain_fmt = 1;
-		break;
-	case CAM_FORMAT_PLAIN32_20:
-		rc = cam_ife_csid_get_format(input_fmt, path_fmt);
-		if (rc)
-			goto error;
-
-		*plain_fmt = 2;
-		break;
-	default:
-		*path_fmt  = 0xF;
-		*plain_fmt = 0;
-		break;
-	}
-
-	CAM_DBG(CAM_ISP, "path format value:%d plain format value:%d",
-		 *path_fmt, *plain_fmt);
-
-	return 0;
-error:
-	return rc;
-
-}
-
 
 static int cam_ife_csid_cid_get(struct cam_ife_csid_hw *csid_hw,
 	struct cam_isp_resource_node **res, int32_t vc, uint32_t dt,
@@ -549,7 +645,7 @@ static int cam_ife_csid_cid_reserve(struct cam_ife_csid_hw *csid_hw,
 				goto end;
 				}
 		} else {
-			if (csid_hw->tpg_cfg.decode_fmt !=
+			if (csid_hw->tpg_cfg.in_format !=
 				cid_reserv->in_port->format     ||
 				csid_hw->tpg_cfg.width !=
 				cid_reserv->in_port->left_width ||
@@ -585,7 +681,7 @@ static int cam_ife_csid_cid_reserve(struct cam_ife_csid_hw *csid_hw,
 				rc = -EINVAL;
 				goto end;
 			}
-			csid_hw->tpg_cfg.decode_fmt =
+			csid_hw->tpg_cfg.in_format =
 				cid_reserv->in_port->format;
 			csid_hw->tpg_cfg.width =
 				cid_reserv->in_port->left_width;
@@ -712,20 +808,9 @@ static int cam_ife_csid_path_reserve(struct cam_ife_csid_hw *csid_hw,
 	res->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
 	path_data = (struct cam_ife_csid_path_cfg   *)res->res_priv;
 
-	/* store the output format for RDI */
-	switch (reserve->res_id) {
-	case CAM_IFE_PIX_PATH_RES_RDI_0:
-	case CAM_IFE_PIX_PATH_RES_RDI_1:
-	case CAM_IFE_PIX_PATH_RES_RDI_2:
-	case CAM_IFE_PIX_PATH_RES_RDI_3:
-		path_data->output_fmt = reserve->out_port->format;
-		break;
-	default:
-		break;
-	}
-
 	path_data->cid = reserve->cid;
-	path_data->decode_fmt = reserve->in_port->format;
+	path_data->in_format = reserve->in_port->format;
+	path_data->out_format = reserve->out_port->format;
 	path_data->master_idx = reserve->master_idx;
 	path_data->sync_mode = reserve->sync_mode;
 	path_data->height  = reserve->in_port->height;
@@ -746,9 +831,14 @@ static int cam_ife_csid_path_reserve(struct cam_ife_csid_hw *csid_hw,
 		path_data->crop_enable = 1;
 		path_data->start_pixel = reserve->in_port->right_start;
 		path_data->width  = reserve->in_port->right_width;
-	} else
+	} else {
 		path_data->crop_enable = 0;
+		path_data->width  = reserve->in_port->left_width;
+		path_data->start_pixel = reserve->in_port->left_start;
+	}
 
+	CAM_DBG(CAM_ISP, "Res %d width %d height %d\n", reserve->res_id,
+		path_data->width, path_data->height);
 	reserve->node_res = res;
 
 end:
@@ -1027,10 +1117,10 @@ static int cam_ife_csid_config_tpg(struct cam_ife_csid_hw   *csid_hw,
 		csid_reg->tpg_reg->csid_tpg_dt_n_cfg_1_addr);
 
 	/*
-	 * decode_fmt is the same as the input resource format.
+	 * in_format is the same as the input resource format.
 	 * it is one larger than the register spec format.
 	 */
-	val = ((csid_hw->tpg_cfg.decode_fmt - 1) << 16) | 0x8;
+	val = ((csid_hw->tpg_cfg.in_format - 1) << 16) | 0x8;
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		csid_reg->tpg_reg->csid_tpg_dt_n_cfg_2_addr);
 
@@ -1160,7 +1250,7 @@ static int cam_ife_csid_init_config_ipp_path(
 	struct cam_ife_csid_path_cfg           *path_data;
 	struct cam_ife_csid_reg_offset         *csid_reg;
 	struct cam_hw_soc_info                 *soc_info;
-	uint32_t path_format = 0, val = 0;
+	uint32_t decode_format = 0, plain_format = 0, val = 0;
 
 	path_data = (struct cam_ife_csid_path_cfg  *) res->res_priv;
 	csid_reg = csid_hw->csid_info->csid_reg;
@@ -1173,8 +1263,9 @@ static int cam_ife_csid_init_config_ipp_path(
 		return -EINVAL;
 	}
 
-	CAM_DBG(CAM_ISP, "Enabled IPP Path.......");
-	rc = cam_ife_csid_get_format(path_data->decode_fmt, &path_format);
+	CAM_DBG(CAM_ISP, "Config IPP Path");
+	rc = cam_ife_csid_get_format_ipp(path_data->in_format,
+		&decode_format, &plain_format);
 	if (rc)
 		return rc;
 
@@ -1185,7 +1276,7 @@ static int cam_ife_csid_init_config_ipp_path(
 	val = (path_data->vc << csid_reg->cmn_reg->vc_shift_val) |
 		(path_data->dt << csid_reg->cmn_reg->dt_shift_val) |
 		(path_data->cid << csid_reg->cmn_reg->dt_id_shift_val) |
-		(path_format << csid_reg->cmn_reg->fmt_shift_val) |
+		(decode_format << csid_reg->cmn_reg->fmt_shift_val) |
 		(path_data->crop_enable & 1 <<
 		csid_reg->cmn_reg->crop_h_en_shift_val) |
 		(path_data->crop_enable & 1 <<
@@ -1330,9 +1421,9 @@ static int cam_ife_csid_enable_ipp_path(
 		return -EINVAL;
 	}
 
-	CAM_DBG(CAM_ISP, "enable IPP path.......");
+	CAM_DBG(CAM_ISP, "Enable IPP path");
 
-	/*Resume at frame boundary */
+	/* Resume at frame boundary */
 	if (path_data->sync_mode == CAM_ISP_HW_SYNC_MASTER) {
 		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
 			csid_reg->ipp_reg->csid_ipp_ctrl_addr);
@@ -1432,7 +1523,7 @@ static int cam_ife_csid_disable_ipp_path(
 			csid_reg->ipp_reg->csid_ipp_irq_mask_addr);
 	} else {
 		val &= ~(CSID_PATH_INFO_RST_DONE |
-				CSID_PATH_ERROR_FIFO_OVERFLOW);
+			CSID_PATH_ERROR_FIFO_OVERFLOW);
 		cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 			csid_reg->ipp_reg->csid_ipp_irq_mask_addr);
 	}
@@ -1462,8 +1553,8 @@ static int cam_ife_csid_init_config_rdi_path(
 		return -EINVAL;
 	}
 
-	rc = cam_ife_csid_get_rdi_format(path_data->decode_fmt,
-		path_data->output_fmt, &path_format, &plain_fmt);
+	rc = cam_ife_csid_get_format_rdi(path_data->in_format,
+		path_data->out_format, &path_format, &plain_fmt);
 	if (rc)
 		return rc;
 
@@ -1536,6 +1627,18 @@ static int cam_ife_csid_init_config_rdi_path(
 	val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
 		csid_reg->rdi_reg[id]->csid_rdi_cfg0_addr);
 	val |= (1 << csid_reg->cmn_reg->path_en_shift_val);
+#if MEASURE_EN
+	val |= 0x2;
+	cam_io_w_mb(0x3, soc_info->reg_map[0].mem_base +
+		csid_reg->rdi_reg[id]->csid_rdi_format_measure_cfg0_addr);
+	cam_io_w_mb(path_data->height << 16 | path_data->width,
+		soc_info->reg_map[0].mem_base +
+		csid_reg->rdi_reg[id]->csid_rdi_format_measure_cfg1_addr);
+	CAM_DBG(CAM_ISP, "measure_cfg1 0x%x offset 0x%x\n",
+		path_data->height << 16 | path_data->width,
+		csid_reg->rdi_reg[id]->csid_rdi_format_measure_cfg0_addr);
+
+#endif
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		csid_reg->rdi_reg[id]->csid_rdi_cfg0_addr);
 
@@ -1605,7 +1708,11 @@ static int cam_ife_csid_enable_rdi_path(
 			csid_reg->rdi_reg[id]->csid_rdi_ctrl_addr);
 
 	/* Enable the required RDI interrupts */
-	val = CSID_PATH_INFO_RST_DONE | CSID_PATH_ERROR_FIFO_OVERFLOW;
+	val = CSID_PATH_INFO_RST_DONE |
+#if MEASURE_EN
+		CSID_PATH_INFO_INPUT_SOF |
+#endif
+		CSID_PATH_ERROR_FIFO_OVERFLOW;
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		csid_reg->rdi_reg[id]->csid_rdi_irq_mask_addr);
 
@@ -2298,6 +2405,9 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 	struct cam_ife_csid_reg_offset  *csid_reg;
 	uint32_t i, irq_status_top, irq_status_rx, irq_status_ipp = 0,
 		irq_status_rdi[4];
+#if MEASURE_EN
+	uint32_t val;
+#endif
 
 	csid_hw = (struct cam_ife_csid_hw *)data;
 
@@ -2428,8 +2538,15 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 			complete(&csid_hw->csid_rdin_complete[i]);
 		}
 
-		if (irq_status_rdi[i]  & CSID_PATH_INFO_INPUT_SOF)
+		if (irq_status_rdi[i]  & CSID_PATH_INFO_INPUT_SOF) {
 			CAM_DBG(CAM_ISP, "CSID RDI SOF received");
+#if MEASURE_EN
+			val = cam_io_r(soc_info->reg_map[0].mem_base +
+				csid_reg->rdi_reg[i]->
+				csid_rdi_format_measure0_addr);
+			CAM_ERR(CAM_ISP, "measure 0x%x\n", val);
+#endif
+		}
 		if (irq_status_rdi[i]  & CSID_PATH_INFO_INPUT_EOF)
 			CAM_DBG(CAM_ISP, "CSID RDI EOF received");
 

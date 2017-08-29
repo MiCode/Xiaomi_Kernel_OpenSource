@@ -69,11 +69,11 @@ static int cam_ife_mgr_get_hw_caps(void *hw_mgr_priv,
 	return rc;
 }
 
-static int cam_ife_hw_mgr_is_rdi_res(uint32_t format)
+static int cam_ife_hw_mgr_is_rdi_res(uint32_t res_id)
 {
 	int rc = 0;
 
-	switch (format) {
+	switch (res_id) {
 	case CAM_ISP_IFE_OUT_RES_RDI_0:
 	case CAM_ISP_IFE_OUT_RES_RDI_1:
 	case CAM_ISP_IFE_OUT_RES_RDI_2:
@@ -379,11 +379,12 @@ static void cam_ife_mgr_add_base_info(
 	uint32_t    i;
 
 	if (!ctx->num_base) {
-		CAM_DBG(CAM_ISP, "Add split id = %d for base idx = %d",
-			split_id, base_idx);
 		ctx->base[0].split_id = split_id;
 		ctx->base[0].idx      = base_idx;
 		ctx->num_base++;
+		CAM_DBG(CAM_ISP,
+			"Add split id = %d for base idx = %d num_base=%d",
+			split_id, base_idx, ctx->num_base);
 	} else {
 		/*Check if base index is alreay exist in the list */
 		for (i = 0; i < CAM_IFE_HW_NUM_MAX; i++) {
@@ -398,11 +399,12 @@ static void cam_ife_mgr_add_base_info(
 		}
 
 		if (i == CAM_IFE_HW_NUM_MAX) {
-			CAM_DBG(CAM_ISP, "Add split id = %d for base idx = %d",
-				 split_id, base_idx);
 			ctx->base[ctx->num_base].split_id = split_id;
 			ctx->base[ctx->num_base].idx      = base_idx;
 			ctx->num_base++;
+			CAM_DBG(CAM_ISP,
+				"Add split_id=%d for base idx=%d num_base=%d",
+				 split_id, base_idx, ctx->num_base);
 		}
 	}
 }
@@ -427,15 +429,12 @@ static int cam_ife_mgr_process_base_info(
 		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
 			if (!hw_mgr_res->hw_res[i])
 				continue;
-			res = hw_mgr_res->hw_res[i];
-			if (res->res_id == CAM_ISP_HW_VFE_IN_CAMIF)
-				cam_ife_mgr_add_base_info(ctx, i,
-					res->hw_intf->hw_idx);
 
-			else
-				cam_ife_mgr_add_base_info(ctx,
-						CAM_ISP_HW_SPLIT_MAX,
-						res->hw_intf->hw_idx);
+			res = hw_mgr_res->hw_res[i];
+			cam_ife_mgr_add_base_info(ctx, i,
+					res->hw_intf->hw_idx);
+			CAM_DBG(CAM_ISP, "add base info for hw %d",
+				res->hw_intf->hw_idx);
 		}
 	}
 	CAM_DBG(CAM_ISP, "ctx base num = %d", ctx->num_base);
@@ -676,7 +675,6 @@ static int cam_ife_hw_mgr_acquire_res_ife_src(
 
 		vfe_acquire.rsrc_type = CAM_ISP_RESOURCE_VFE_IN;
 		vfe_acquire.tasklet = ife_ctx->common.tasklet_info;
-		vfe_acquire.rsrc_type = CAM_ISP_RESOURCE_VFE_IN;
 		vfe_acquire.vfe_in.cdm_ops = ife_ctx->cdm_ops;
 
 		switch (csid_res->res_id) {
@@ -787,6 +785,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_ipp(
 	csid_acquire.res_id = CAM_IFE_PIX_PATH_RES_IPP;
 	csid_acquire.cid = cid_res_id;
 	csid_acquire.in_port = in_port;
+	csid_acquire.out_port = in_port->data;
 
 	if (in_port->usage_type)
 		csid_acquire.sync_mode = CAM_ISP_HW_SYNC_MASTER;
@@ -1288,8 +1287,10 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv,
 	}
 
 	/* Check whether context has only RDI resource */
-	if (!num_pix_port)
+	if (!num_pix_port) {
 		ife_ctx->is_rdi_only_context = 1;
+		CAM_DBG(CAM_ISP, "RDI only context");
+	}
 
 	/* Process base info */
 	rc = cam_ife_mgr_process_base_info(ife_ctx);
@@ -1342,7 +1343,8 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 		return -EPERM;
 	}
 
-	CAM_DBG(CAM_ISP, "Enter ctx id:%d", ctx->ctx_index);
+	CAM_DBG(CAM_ISP, "Enter ctx id:%d num_hw_upd_entries %d",
+		ctx->ctx_index, cfg->num_hw_update_entries);
 
 	if (cfg->num_hw_update_entries > 0) {
 		cdm_cmd = ctx->cdm_cmd;
@@ -1359,6 +1361,7 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 			cdm_cmd->cmd[i].len = cmd->len;
 		}
 
+		CAM_DBG(CAM_ISP, "Submit to CDM");
 		rc = cam_cdm_submit_bls(ctx->cdm_handle, cdm_cmd);
 		if (rc)
 			CAM_ERR(CAM_ISP, "Failed to apply the configs");
@@ -1914,7 +1917,6 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 	if (rc)
 		return rc;
 
-	CAM_DBG(CAM_ISP, "enter");
 	/* Pre parse the packet*/
 	rc = cam_packet_util_get_kmd_buffer(prepare->packet, &kmd_buf);
 	if (rc)
@@ -2011,14 +2013,22 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 		/* Add change base */
 		rc = cam_isp_add_change_base(prepare, &ctx->res_list_ife_src,
 			ctx->base[i].idx, &kmd_buf);
-		if (rc)
+		if (rc) {
+			CAM_ERR(CAM_ISP,
+				"Failed in change base adding reg_update cmd i=%d, idx=%d, rc=%d",
+				i, ctx->base[i].idx, rc);
 			goto end;
+		}
 
 		/*Add reg update */
 		rc = cam_isp_add_reg_update(prepare, &ctx->res_list_ife_src,
 			ctx->base[i].idx, &kmd_buf);
-		if (rc)
+		if (rc) {
+			CAM_ERR(CAM_ISP,
+				"Add Reg_update cmd Failed i=%d, idx=%d, rc=%d",
+				i, ctx->base[i].idx, rc);
 			goto end;
+		}
 	}
 
 end:
@@ -2804,9 +2814,9 @@ static int cam_ife_hw_mgr_handle_sof(
 						ife_hw_mgr_ctx->common.cb_priv,
 						CAM_ISP_HW_EVENT_SOF,
 						&sof_done_event_data);
+					CAM_DBG(CAM_ISP, "sof_status = %d",
+						sof_status);
 				}
-
-				CAM_DBG(CAM_ISP, "sof_status = %d", sof_status);
 
 				/* this is RDI only context so exit from here */
 				return 0;
