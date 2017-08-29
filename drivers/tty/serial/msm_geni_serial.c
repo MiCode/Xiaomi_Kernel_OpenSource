@@ -124,7 +124,7 @@
 		ipc_log_string(ctx, x); \
 } while (0)
 
-#define DMA_RX_BUF_SIZE		(512)
+#define DMA_RX_BUF_SIZE		(2048)
 struct msm_geni_serial_port {
 	struct uart_port uport;
 	char name[20];
@@ -821,6 +821,25 @@ check_flow_ctrl:
 							__func__, geni_ios);
 }
 
+static void msm_geni_serial_tx_fsm_rst(struct uart_port *uport)
+{
+	unsigned int tx_irq_en;
+	int done = 0;
+	int tries = 0;
+
+	tx_irq_en = geni_read_reg_nolog(uport->membase, SE_DMA_TX_IRQ_EN);
+	geni_write_reg_nolog(0, uport->membase, SE_DMA_TX_IRQ_EN_SET);
+	geni_write_reg_nolog(1, uport->membase, SE_DMA_TX_FSM_RST);
+	do {
+		done = msm_geni_serial_poll_bit(uport, SE_DMA_TX_IRQ_STAT,
+							TX_RESET_DONE, true);
+		tries++;
+	} while (!done && tries < 5);
+	geni_write_reg_nolog(TX_DMA_DONE | TX_RESET_DONE, uport->membase,
+						     SE_DMA_TX_IRQ_CLR);
+	geni_write_reg_nolog(tx_irq_en, uport->membase, SE_DMA_TX_IRQ_EN_SET);
+}
+
 static void msm_geni_serial_stop_tx(struct uart_port *uport)
 {
 	unsigned int geni_m_irq_en;
@@ -842,8 +861,7 @@ static void msm_geni_serial_stop_tx(struct uart_port *uport)
 				     SE_GENI_TX_WATERMARK_REG);
 	} else if (port->xfer_mode == SE_DMA) {
 		if (port->tx_dma) {
-			geni_write_reg_nolog(1, uport->membase,
-					     SE_DMA_TX_FSM_RST);
+			msm_geni_serial_tx_fsm_rst(uport);
 			geni_se_tx_dma_unprep(port->wrapper_dev, port->tx_dma,
 					   port->xmit_size);
 			port->tx_dma = (dma_addr_t)NULL;
@@ -906,20 +924,11 @@ static void msm_geni_serial_start_rx(struct uart_port *uport)
 		geni_write_reg_nolog(geni_m_irq_en, uport->membase,
 							SE_GENI_M_IRQ_EN);
 	} else if (port->xfer_mode == SE_DMA) {
-		port->rx_buf = kzalloc(DMA_RX_BUF_SIZE, GFP_KERNEL);
-		if (!port->rx_buf) {
-			dev_err(uport->dev, "%s: kzalloc failed\n",
-				__func__);
-			msm_geni_serial_abort_rx(uport);
-			return;
-		}
-
 		ret = geni_se_rx_dma_prep(port->wrapper_dev, uport->membase,
 				port->rx_buf, DMA_RX_BUF_SIZE, &port->rx_dma);
 		if (ret) {
 			dev_err(uport->dev, "%s: RX Prep dma failed %d\n",
 				__func__, ret);
-			kfree(port->rx_buf);
 			msm_geni_serial_abort_rx(uport);
 			return;
 		}
@@ -931,6 +940,25 @@ static void msm_geni_serial_start_rx(struct uart_port *uport)
 	mb();
 	geni_status = geni_read_reg_nolog(uport->membase, SE_GENI_STATUS);
 	IPC_LOG_MSG(port->ipc_log_misc, "%s 0x%x\n", __func__, geni_status);
+}
+
+static void msm_geni_serial_rx_fsm_rst(struct uart_port *uport)
+{
+	unsigned int rx_irq_en;
+	int done = 0;
+	int tries = 0;
+
+	rx_irq_en = geni_read_reg_nolog(uport->membase, SE_DMA_RX_IRQ_EN);
+	geni_write_reg_nolog(0, uport->membase, SE_DMA_RX_IRQ_EN_SET);
+	geni_write_reg_nolog(1, uport->membase, SE_DMA_RX_FSM_RST);
+	do {
+		done = msm_geni_serial_poll_bit(uport, SE_DMA_RX_IRQ_STAT,
+							RX_RESET_DONE, true);
+		tries++;
+	} while (!done && tries < 5);
+	geni_write_reg_nolog(RX_DMA_DONE | RX_RESET_DONE, uport->membase,
+						     SE_DMA_RX_IRQ_CLR);
+	geni_write_reg_nolog(rx_irq_en, uport->membase, SE_DMA_RX_IRQ_EN_SET);
 }
 
 static void msm_geni_serial_stop_rx(struct uart_port *uport)
@@ -960,11 +988,9 @@ static void msm_geni_serial_stop_rx(struct uart_port *uport)
 		geni_write_reg_nolog(geni_m_irq_en, uport->membase,
 							SE_GENI_M_IRQ_EN);
 	} else if (port->xfer_mode == SE_DMA && port->rx_dma) {
-		geni_write_reg_nolog(1, uport->membase,	SE_DMA_RX_FSM_RST);
+		msm_geni_serial_rx_fsm_rst(uport);
 		geni_se_rx_dma_unprep(port->wrapper_dev, port->rx_dma,
 						      DMA_RX_BUF_SIZE);
-		kfree(port->rx_buf);
-		port->rx_buf = NULL;
 		port->rx_dma = (dma_addr_t)NULL;
 	}
 
@@ -1126,10 +1152,15 @@ static int msm_geni_serial_handle_dma_rx(struct uart_port *uport)
 	geni_se_rx_dma_unprep(msm_port->wrapper_dev, msm_port->rx_dma,
 			      DMA_RX_BUF_SIZE);
 	rx_bytes = geni_read_reg_nolog(uport->membase, SE_DMA_RX_LEN_IN);
-	if (unlikely(!msm_port->rx_buf || !rx_bytes)) {
-		IPC_LOG_MSG(msm_port->ipc_log_rx, "%s: Rx_buf %pK Size %d\n",
-					__func__, msm_port->rx_buf, rx_bytes);
+	if (unlikely(!msm_port->rx_buf)) {
+		IPC_LOG_MSG(msm_port->ipc_log_rx, "%s: NULL Rx_buf\n",
+								__func__);
 		return 0;
+	}
+	if (unlikely(!rx_bytes)) {
+		IPC_LOG_MSG(msm_port->ipc_log_rx, "%s: Size %d\n",
+					__func__, rx_bytes);
+		goto exit_handle_dma_rx;
 	}
 
 	tport = &uport->state->port;
@@ -1144,6 +1175,7 @@ static int msm_geni_serial_handle_dma_rx(struct uart_port *uport)
 	tty_flip_buffer_push(tport);
 	dump_ipc(msm_port->ipc_log_rx, "DMA Rx", (char *)msm_port->rx_buf, 0,
 								rx_bytes);
+exit_handle_dma_rx:
 	ret = geni_se_rx_dma_prep(msm_port->wrapper_dev, uport->membase,
 			msm_port->rx_buf, DMA_RX_BUF_SIZE, &msm_port->rx_dma);
 	if (ret)
@@ -1387,6 +1419,15 @@ static int msm_geni_serial_port_setup(struct uart_port *uport)
 				sizeof(msm_port->rx_fifo_depth * sizeof(u32)),
 								GFP_KERNEL);
 		if (!msm_port->rx_fifo) {
+			ret = -ENOMEM;
+			goto exit_portsetup;
+		}
+
+		msm_port->rx_buf = devm_kzalloc(uport->dev, DMA_RX_BUF_SIZE,
+								GFP_KERNEL);
+		if (!msm_port->rx_buf) {
+			kfree(msm_port->rx_fifo);
+			msm_port->rx_fifo = NULL;
 			ret = -ENOMEM;
 			goto exit_portsetup;
 		}
