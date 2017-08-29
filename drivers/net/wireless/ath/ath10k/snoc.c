@@ -27,6 +27,8 @@
 #include "qmi.h"
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/regulator/consumer.h>
+#include <linux/clk.h>
 
 #define WCN3990_MAX_IRQ 12
 
@@ -48,6 +50,7 @@ const char *ce_name[WCN3990_MAX_IRQ] = {
 #define ATH10K_SNOC_TARGET_WAIT 3000
 #define ATH10K_SNOC_NUM_WARM_RESET_ATTEMPTS 3
 #define SNOC_HIF_POWER_DOWN_DELAY 30
+#define ATH10K_MAX_PROP_SIZE 32
 
 static void ath10k_snoc_buffer_cleanup(struct ath10k *ar);
 static int ath10k_snoc_request_irq(struct ath10k *ar);
@@ -1248,6 +1251,326 @@ int ath10k_snoc_pm_notifier(struct notifier_block *nb,
 	return NOTIFY_DONE;
 }
 
+static int ath10k_get_vreg_info(struct ath10k *ar, struct device *dev,
+				struct ath10k_wcn3990_vreg_info *vreg_info)
+{
+	int ret = 0;
+	char prop_name[ATH10K_MAX_PROP_SIZE];
+	struct regulator *reg;
+	const __be32 *prop;
+	int len = 0;
+	int i;
+
+	reg = devm_regulator_get_optional(dev, vreg_info->name);
+	if (PTR_ERR(reg) == -EPROBE_DEFER) {
+		ath10k_err(ar, "EPROBE_DEFER for regulator: %s\n",
+			   vreg_info->name);
+		ret = PTR_ERR(reg);
+		goto out;
+	}
+
+	if (IS_ERR(reg)) {
+		ret = PTR_ERR(reg);
+
+		if (vreg_info->required) {
+			ath10k_err(ar, "Regulator %s doesn't exist: %d\n",
+				   vreg_info->name, ret);
+			goto out;
+		} else {
+			ath10k_dbg(ar, ATH10K_DBG_SNOC,
+				   "Optional regulator %s doesn't exist: %d\n",
+				   vreg_info->name, ret);
+			goto done;
+		}
+	}
+
+	vreg_info->reg = reg;
+
+	snprintf(prop_name, ATH10K_MAX_PROP_SIZE,
+		 "qcom,%s-config", vreg_info->name);
+
+	prop = of_get_property(dev->of_node, prop_name, &len);
+
+	ath10k_dbg(ar, ATH10K_DBG_SNOC, "Got regulator cfg,prop: %s, len: %d\n",
+		   prop_name, len);
+
+	if (!prop || len < (2 * sizeof(__be32))) {
+		ath10k_dbg(ar, ATH10K_DBG_SNOC, "Property %s %s\n", prop_name,
+			   prop ? "invalid format" : "doesn't exist");
+		goto done;
+	}
+
+	for (i = 0; (i * sizeof(__be32)) < len; i++) {
+		switch (i) {
+		case 0:
+			vreg_info->min_v = be32_to_cpup(&prop[0]);
+			break;
+		case 1:
+			vreg_info->max_v = be32_to_cpup(&prop[1]);
+			break;
+		case 2:
+			vreg_info->load_ua = be32_to_cpup(&prop[2]);
+			break;
+		case 3:
+			vreg_info->settle_delay = be32_to_cpup(&prop[3]);
+			break;
+		default:
+			ath10k_dbg(ar, ATH10K_DBG_SNOC, "%s, ignoring val %d\n",
+				   prop_name, i);
+			break;
+		}
+	}
+
+done:
+	ath10k_dbg(ar, ATH10K_DBG_SNOC,
+		   "vreg: %s, min_v: %u, max_v: %u, load: %u, delay: %lu\n",
+		   vreg_info->name, vreg_info->min_v, vreg_info->max_v,
+		   vreg_info->load_ua, vreg_info->settle_delay);
+
+	return 0;
+
+out:
+	return ret;
+}
+
+static int ath10k_get_clk_info(struct ath10k *ar, struct device *dev,
+			       struct ath10k_wcn3990_clk_info *clk_info)
+{
+	struct clk *handle;
+	int ret = 0;
+
+	handle = devm_clk_get(dev, clk_info->name);
+	if (IS_ERR(handle)) {
+		ret = PTR_ERR(handle);
+		if (clk_info->required) {
+			ath10k_err(ar, "Clock %s isn't available: %d\n",
+				   clk_info->name, ret);
+			goto out;
+		} else {
+			ath10k_dbg(ar, ATH10K_DBG_SNOC, "Ignoring clk %s: %d\n",
+				   clk_info->name,
+				   ret);
+			ret = 0;
+			goto out;
+		}
+	}
+
+	ath10k_dbg(ar, ATH10K_DBG_SNOC, "Clock: %s, freq: %u\n",
+		   clk_info->name, clk_info->freq);
+
+	clk_info->handle = handle;
+out:
+	return ret;
+}
+
+static int ath10k_wcn3990_vreg_on(struct ath10k *ar)
+{
+	int ret = 0;
+	struct ath10k_wcn3990_vreg_info *vreg_info;
+	int i;
+	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
+
+	for (i = 0; i < ATH10K_WCN3990_VREG_INFO_SIZE; i++) {
+		vreg_info = &ar_snoc->vreg[i];
+
+		if (!vreg_info->reg)
+			continue;
+
+		ath10k_dbg(ar, ATH10K_DBG_SNOC, "Regulator %s being enabled\n",
+			   vreg_info->name);
+
+		ret = regulator_set_voltage(vreg_info->reg, vreg_info->min_v,
+					    vreg_info->max_v);
+		if (ret) {
+			ath10k_err(ar,
+				   "vreg %s, set failed:min:%u,max:%u,ret: %d\n",
+				   vreg_info->name, vreg_info->min_v,
+				   vreg_info->max_v, ret);
+			break;
+		}
+
+		if (vreg_info->load_ua) {
+			ret = regulator_set_load(vreg_info->reg,
+						 vreg_info->load_ua);
+			if (ret < 0) {
+				ath10k_err(ar,
+					   "Reg %s, can't set load:%u,ret: %d\n",
+					   vreg_info->name,
+					   vreg_info->load_ua, ret);
+				break;
+			}
+		}
+
+		ret = regulator_enable(vreg_info->reg);
+		if (ret) {
+			ath10k_err(ar, "Regulator %s, can't enable: %d\n",
+				   vreg_info->name, ret);
+			break;
+		}
+
+		if (vreg_info->settle_delay)
+			udelay(vreg_info->settle_delay);
+	}
+
+	if (!ret)
+		return 0;
+
+	for (; i >= 0; i--) {
+		vreg_info = &ar_snoc->vreg[i];
+
+		if (!vreg_info->reg)
+			continue;
+
+		regulator_disable(vreg_info->reg);
+		regulator_set_load(vreg_info->reg, 0);
+		regulator_set_voltage(vreg_info->reg, 0, vreg_info->max_v);
+	}
+
+	return ret;
+}
+
+static int ath10k_wcn3990_vreg_off(struct ath10k *ar)
+{
+	int ret = 0;
+	struct ath10k_wcn3990_vreg_info *vreg_info;
+	int i;
+	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
+
+	for (i = ATH10K_WCN3990_VREG_INFO_SIZE - 1; i >= 0; i--) {
+		vreg_info = &ar_snoc->vreg[i];
+
+		if (!vreg_info->reg)
+			continue;
+
+		ath10k_dbg(ar, ATH10K_DBG_SNOC, "Regulator %s being disabled\n",
+			   vreg_info->name);
+
+		ret = regulator_disable(vreg_info->reg);
+		if (ret)
+			ath10k_err(ar, "Regulator %s, can't disable: %d\n",
+				   vreg_info->name, ret);
+
+		ret = regulator_set_load(vreg_info->reg, 0);
+		if (ret < 0)
+			ath10k_err(ar, "Regulator %s, can't set load: %d\n",
+				   vreg_info->name, ret);
+
+		ret = regulator_set_voltage(vreg_info->reg, 0,
+					    vreg_info->max_v);
+		if (ret)
+			ath10k_err(ar, "Regulator %s, can't set voltage: %d\n",
+				   vreg_info->name, ret);
+	}
+
+	return ret;
+}
+
+static int ath10k_wcn3990_clk_init(struct ath10k *ar)
+{
+	struct ath10k_wcn3990_clk_info *clk_info;
+	int i;
+	int ret = 0;
+	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
+
+	for (i = 0; i < ATH10K_WCN3990_CLK_INFO_SIZE; i++) {
+		clk_info = &ar_snoc->clk[i];
+
+		if (!clk_info->handle)
+			continue;
+
+		ath10k_dbg(ar, ATH10K_DBG_SNOC, "Clock %s being enabled\n",
+			   clk_info->name);
+
+		if (clk_info->freq) {
+			ret = clk_set_rate(clk_info->handle, clk_info->freq);
+
+			if (ret) {
+				ath10k_err(ar, "Clk %s,set err: %u,ret: %d\n",
+					   clk_info->name, clk_info->freq,
+					   ret);
+				break;
+			}
+		}
+
+		ret = clk_prepare_enable(clk_info->handle);
+		if (ret) {
+			ath10k_err(ar, "Clock %s, can't enable: %d\n",
+				   clk_info->name, ret);
+			break;
+		}
+	}
+
+	if (ret == 0)
+		return 0;
+
+	for (; i >= 0; i--) {
+		clk_info = &ar_snoc->clk[i];
+
+		if (!clk_info->handle)
+			continue;
+
+		clk_disable_unprepare(clk_info->handle);
+	}
+
+	return ret;
+}
+
+static int ath10k_wcn3990_clk_deinit(struct ath10k *ar)
+{
+	struct ath10k_wcn3990_clk_info *clk_info;
+	int i;
+	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
+
+	for (i = 0; i < ATH10K_WCN3990_CLK_INFO_SIZE; i++) {
+		clk_info = &ar_snoc->clk[i];
+
+		if (!clk_info->handle)
+			continue;
+
+		ath10k_dbg(ar, ATH10K_DBG_SNOC, "Clock %s being disabled\n",
+			   clk_info->name);
+
+		clk_disable_unprepare(clk_info->handle);
+	}
+
+	return 0;
+}
+
+static int ath10k_hw_power_on(struct ath10k *ar)
+{
+	int ret = 0;
+
+	ath10k_dbg(ar, ATH10K_DBG_SNOC, "HW Power on\n");
+
+	ret = ath10k_wcn3990_vreg_on(ar);
+	if (ret)
+		goto out;
+
+	ret = ath10k_wcn3990_clk_init(ar);
+	if (ret)
+		goto vreg_off;
+
+	return ret;
+
+vreg_off:
+	ath10k_wcn3990_vreg_off(ar);
+out:
+	return ret;
+}
+
+static int ath10k_hw_power_off(struct ath10k *ar)
+{
+	int ret = 0;
+
+	ath10k_dbg(ar, ATH10K_DBG_SNOC, "HW Power off\n");
+
+	ath10k_wcn3990_clk_deinit(ar);
+
+	ret = ath10k_wcn3990_vreg_off(ar);
+
+	return ret;
+}
+
 static const struct ath10k_hif_ops ath10k_snoc_hif_ops = {
 	.tx_sg			= ath10k_snoc_hif_tx_sg,
 	.start			= ath10k_snoc_hif_start,
@@ -1275,6 +1598,7 @@ static int ath10k_snoc_probe(struct platform_device *pdev)
 	enum ath10k_hw_rev hw_rev;
 	struct device *dev;
 	u32 chip_id;
+	u32 i;
 
 	dev = &pdev->dev;
 	hw_rev = ATH10K_HW_WCN3990;
@@ -1308,22 +1632,43 @@ static int ath10k_snoc_probe(struct platform_device *pdev)
 	setup_timer(&ar_snoc->rx_post_retry, ath10k_snoc_rx_replenish_retry,
 		    (unsigned long)ar);
 
+	memcpy(ar_snoc->vreg, vreg_cfg, sizeof(vreg_cfg));
+	for (i = 0; i < ATH10K_WCN3990_VREG_INFO_SIZE; i++) {
+		ret = ath10k_get_vreg_info(ar, dev, &ar_snoc->vreg[i]);
+		if (ret)
+			goto err_core_destroy;
+	}
+
+	memcpy(ar_snoc->clk, clk_cfg, sizeof(clk_cfg));
+	for (i = 0; i < ATH10K_WCN3990_CLK_INFO_SIZE; i++) {
+		ret = ath10k_get_clk_info(ar, dev, &ar_snoc->clk[i]);
+		if (ret)
+			goto err_core_destroy;
+	}
+
+	ret = ath10k_hw_power_on(ar);
+	if (ret) {
+		ath10k_err(ar, "failed to power on device: %d\n", ret);
+		goto err_stop_qmi_service;
+	}
+
 	ret = ath10k_snoc_claim(ar);
 	if (ret) {
 		ath10k_err(ar, "failed to claim device: %d\n", ret);
-		goto err_stop_qmi_service;
+		goto err_hw_power_off;
 	}
+
 	ret = ath10k_snoc_bus_configure(ar);
 	if (ret) {
 		ath10k_err(ar, "failed to configure bus: %d\n", ret);
-		goto err_stop_qmi_service;
+		goto err_hw_power_off;
 	}
 
 	ret = ath10k_snoc_alloc_pipes(ar);
 	if (ret) {
 		ath10k_err(ar, "failed to allocate copy engine pipes: %d\n",
 			   ret);
-		goto err_stop_qmi_service;
+		goto err_hw_power_off;
 	}
 
 	netif_napi_add(&ar->napi_dev, &ar->napi, ath10k_snoc_napi_poll,
@@ -1359,6 +1704,9 @@ err_free_irq:
 err_free_pipes:
 	ath10k_snoc_free_pipes(ar);
 
+err_hw_power_off:
+	ath10k_hw_power_off(ar);
+
 err_stop_qmi_service:
 	ath10k_snoc_stop_qmi_service(ar);
 
@@ -1389,6 +1737,7 @@ static int ath10k_snoc_remove(struct platform_device *pdev)
 	ath10k_snoc_release_resource(ar);
 	ath10k_snoc_free_pipes(ar);
 	ath10k_snoc_stop_qmi_service(ar);
+	ath10k_hw_power_off(ar);
 	ath10k_core_destroy(ar);
 
 	return 0;

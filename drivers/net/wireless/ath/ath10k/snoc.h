@@ -17,6 +17,7 @@
 #include "ce.h"
 #include "pci.h"
 #include "qmi.h"
+#include <linux/kernel.h>
 #include <soc/qcom/service-locator.h>
 #define ATH10K_SNOC_RX_POST_RETRY_MS 50
 #define CE_POLL_PIPE 4
@@ -112,6 +113,38 @@ struct ath10k_snoc_ce_irq {
 	u32 irq_line;
 };
 
+struct ath10k_wcn3990_vreg_info {
+	struct regulator *reg;
+	const char *name;
+	u32 min_v;
+	u32 max_v;
+	u32 load_ua;
+	unsigned long settle_delay;
+	bool required;
+};
+
+struct ath10k_wcn3990_clk_info {
+	struct clk *handle;
+	const char *name;
+	u32 freq;
+	bool required;
+};
+
+static struct ath10k_wcn3990_vreg_info vreg_cfg[] = {
+	{NULL, "vdd-0.8-cx-mx", 800000, 800000, 0, 0, false},
+	{NULL, "vdd-1.8-xo", 1800000, 1800000, 0, 0, false},
+	{NULL, "vdd-1.3-rfa", 1304000, 1304000, 0, 0, false},
+	{NULL, "vdd-3.3-ch0", 3312000, 3312000, 0, 0, false},
+};
+
+#define ATH10K_WCN3990_VREG_INFO_SIZE		ARRAY_SIZE(vreg_cfg)
+
+static struct ath10k_wcn3990_clk_info clk_cfg[] = {
+	{NULL, "cxo_ref_clk_pin", 0, false},
+};
+
+#define ATH10K_WCN3990_CLK_INFO_SIZE		ARRAY_SIZE(clk_cfg)
+
 /* struct ath10k_snoc: SNOC info struct
  * @dev: device structure
  * @ar:ath10k base structure
@@ -157,6 +190,8 @@ struct ath10k_snoc {
 	atomic_t fw_crashed;
 	atomic_t pm_ops_inprogress;
 	struct ath10k_snoc_qmi_config qmi_cfg;
+	struct ath10k_wcn3990_vreg_info vreg[ATH10K_WCN3990_VREG_INFO_SIZE];
+	struct ath10k_wcn3990_clk_info clk[ATH10K_WCN3990_CLK_INFO_SIZE];
 };
 
 struct ath10k_event_pd_down_data {

@@ -11,13 +11,24 @@ Required properties:
  - compatible: "qcom,wcn3990-wifi";
  - reg: Memory regions defined as starting address and size
  - reg-names: Names of the memory regions defined in reg entry
+ - clocks: List of clock phandles
+ - clock-names: List of clock names corresponding to the "clocks" property
  - interrupts: Copy engine interrupt table
+Optional properties:
+  - <supply-name>-supply: phandle to the regulator device tree node
+			   optional "supply-name" is "vdd-0.8-cx-mx".
+  - qcom,<supply>-config: Specifies voltage levels for supply. Should be
+			   specified in pairs (min, max), units uV.  There can
+			   be optional load in uA and Regulator settle delay in
+			   uS.
 
 Example:
 	msm_ath10k_wlan: qcom,msm_ath10k_wlan@18800000 {
 		compatible = "qcom,wcn3990-wifi";
 		reg = <0x18800000 0x800000>;
 		reg-names = "membase";
+		clocks = <&clock_gcc clk_aggre2_noc_clk>;
+		clock-names = "smmu_aggre2_noc_clk";
 		interrupts =
 			   <0 130 0 /* CE0 */ >,
 			   <0 131 0 /* CE1 */ >,
@@ -31,4 +42,10 @@ Example:
 			   <0 139 0 /* CE9 */ >,
 			   <0 140 0 /* CE10 */ >,
 			   <0 141 0 /* CE11 */ >;
+		vdd-0.8-cx-mx-supply = <&pm8998_l5>;
+		vdd-1.8-xo-supply = <&pm8998_l7_pin_ctrl>;
+		vdd-1.3-rfa-supply = <&pm8998_l17_pin_ctrl>;
+		vdd-3.3-ch0-supply = <&pm8998_l25_pin_ctrl>;
+		qcom,vdd-0.8-cx-mx-config = <800000 800000>;
+		qcom,vdd-3.3-ch0-config = <3104000 3312000>;
 	};
