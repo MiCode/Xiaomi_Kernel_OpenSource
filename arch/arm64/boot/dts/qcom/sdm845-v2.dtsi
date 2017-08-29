@@ -651,10 +651,6 @@
 	compatible = "qcom,video_cc-sdm845-v2", "syscon";
 };
 
-&clock_aop {
-	compatible = "qcom,aop-qmp-clk-v2";
-};
-
 &msm_vidc {
 	qcom,allowed-clock-rates = <100000000 200000000 330000000
 		404000000 444000000 533000000>;
