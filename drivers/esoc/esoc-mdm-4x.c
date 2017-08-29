@@ -1081,6 +1081,10 @@ static int mdm9x55_setup_hw(struct mdm_ctrl *mdm,
 	mdm->dual_interface = of_property_read_bool(node,
 						"qcom,mdm-dual-link");
 	esoc->link_name = MDM9x55_PCIE;
+	ret = of_property_read_string(node, "qcom,mdm-link-info",
+					&esoc->link_info);
+	if (ret)
+		dev_info(mdm->dev, "esoc link info missing\n");
 	esoc->clink_ops = clink_ops;
 	esoc->parent = mdm->dev;
 	esoc->owner = THIS_MODULE;
