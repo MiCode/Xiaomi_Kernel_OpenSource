@@ -415,6 +415,7 @@ static struct rcg_clk gfx3d_clk_src = {
 	.set_rate = set_rate_hid,
 	.freq_tbl = ftbl_gfx3d_clk_src,
 	.current_freq = &rcg_dummy_freq,
+	.non_local_control_timeout = 1000,
 	.base = &virt_bases[GFX_BASE],
 	.c = {
 		.dbg_name = "gfx3d_clk_src",
