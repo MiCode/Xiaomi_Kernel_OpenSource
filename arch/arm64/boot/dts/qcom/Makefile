@@ -20,7 +20,7 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 sdm845-cdp-overlay.dtbo-base := sdm845.dtb
 sdm845-mtp-overlay.dtbo-base := sdm845.dtb
 sdm845-qrd-overlay.dtbo-base := sdm845.dtb
-sdm845-qvr-overlay.dtbo-base := sdm845.dtb
+sdm845-qvr-overlay.dtbo-base := sdm845-v2.dtb
 sdm845-v2-cdp-overlay.dtbo-base := sdm845-v2.dtb
 sdm845-v2-mtp-overlay.dtbo-base := sdm845-v2.dtb
 sdm845-v2-qrd-overlay.dtbo-base := sdm845-v2.dtb
