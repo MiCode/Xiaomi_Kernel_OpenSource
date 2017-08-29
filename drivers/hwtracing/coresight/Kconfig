@@ -24,6 +24,7 @@ config CORESIGHT_LINKS_AND_SINKS
 config CORESIGHT_LINK_AND_SINK_TMC
 	bool "Coresight generic TMC driver"
 	depends on CORESIGHT_LINKS_AND_SINKS
+	select CORESIGHT_CSR
 	help
 	  This enables support for the Trace Memory Controller driver.
 	  Depending on its configuration the device can act as a link (embedded
@@ -158,4 +159,12 @@ config CORESIGHT_TPDM_DEFAULT_ENABLE
 
 	  If unsure, say 'N' here to avoid potential power and performance
 	  penalty.
+
+config CORESIGHT_CSR
+	bool "CoreSight Slave Register driver"
+	help
+	  This driver provides support for CoreSight Slave Register block
+	  that hosts miscellaneous configuration registers.
+	  Those configuration registers can be used to control, various
+	  coresight configurations.
 endif
