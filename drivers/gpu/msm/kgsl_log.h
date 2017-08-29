@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2008-2011,2013-2014,2016 The Linux Foundation.
+/* Copyright (c) 2002,2008-2011,2013-2014,2016-2017 The Linux Foundation.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -67,6 +67,13 @@
 					__func__, ##args);\
 	} while (0)
 
+#define KGSL_LOG_ERR_RATELIMITED(dev, lvl, fmt, args...) \
+	do { \
+		if ((lvl) >= 3) \
+			dev_err_ratelimited(dev, "|%s| " fmt, \
+					__func__, ##args);\
+	} while (0)
+
 #define KGSL_DRV_INFO(_dev, fmt, args...) \
 KGSL_LOG_INFO(_dev->dev, _dev->drv_log, fmt, ##args)
 #define KGSL_DRV_WARN(_dev, fmt, args...) \
@@ -77,6 +84,8 @@ KGSL_LOG_ERR(_dev->dev, _dev->drv_log, fmt, ##args)
 KGSL_LOG_CRIT(_dev->dev, _dev->drv_log, fmt, ##args)
 #define KGSL_DRV_CRIT_RATELIMIT(_dev, fmt, args...) \
 KGSL_LOG_CRIT_RATELIMITED(_dev->dev, _dev->drv_log, fmt, ##args)
+#define KGSL_DRV_ERR_RATELIMIT(_dev, fmt, args...) \
+KGSL_LOG_ERR_RATELIMITED(_dev->dev, _dev->drv_log, fmt, ##args)
 #define KGSL_DRV_FATAL(_dev, fmt, args...) \
 KGSL_LOG_FATAL((_dev)->dev, (_dev)->drv_log, fmt, ##args)
 
