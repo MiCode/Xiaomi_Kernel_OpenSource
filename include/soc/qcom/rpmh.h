@@ -31,7 +31,7 @@ int rpmh_write(struct rpmh_client *rc, enum rpmh_state state,
 int rpmh_write_async(struct rpmh_client *rc, enum rpmh_state state,
 			struct tcs_cmd *cmd, int n);
 
-int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
+int rpmh_write_batch(struct rpmh_client *rc, enum rpmh_state state,
 			struct tcs_cmd *cmd, int *n);
 
 int rpmh_mode_solver_set(struct rpmh_client *rc, bool enable);
@@ -70,7 +70,7 @@ static inline int rpmh_write_async(struct rpmh_client *rc,
 			enum rpmh_state state, struct tcs_cmd *cmd, int n)
 { return -ENODEV; }
 
-static inline int rpmh_write_passthru(struct rpmh_client *rc,
+static inline int rpmh_write_batch(struct rpmh_client *rc,
 			enum rpmh_state state, struct tcs_cmd *cmd, int *n)
 { return -ENODEV; }
 
