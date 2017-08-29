@@ -19,7 +19,6 @@
  *             and Todd Kjos
  */
 
-#include <linux/syscore_ops.h>
 #include <linux/cpufreq.h>
 #include <linux/list_sort.h>
 #include <linux/jiffies.h>
@@ -42,8 +41,6 @@ const char *migrate_type_names[] = {"GROUP_TO_RQ", "RQ_TO_GROUP",
 
 #define EARLY_DETECTION_DURATION 9500000
 
-static ktime_t ktime_last;
-static bool sched_ktime_suspended;
 static struct cpu_cycle_counter_cb cpu_cycle_counter_cb;
 static bool use_cycle_counter;
 DEFINE_MUTEX(cluster_lock);
@@ -51,37 +48,6 @@ static atomic64_t walt_irq_work_lastq_ws;
 
 static struct irq_work walt_cpufreq_irq_work;
 static struct irq_work walt_migration_irq_work;
-
-u64 sched_ktime_clock(void)
-{
-	if (unlikely(sched_ktime_suspended))
-		return ktime_to_ns(ktime_last);
-	return ktime_get_ns();
-}
-
-static void sched_resume(void)
-{
-	sched_ktime_suspended = false;
-}
-
-static int sched_suspend(void)
-{
-	ktime_last = ktime_get();
-	sched_ktime_suspended = true;
-	return 0;
-}
-
-static struct syscore_ops sched_syscore_ops = {
-	.resume	= sched_resume,
-	.suspend = sched_suspend
-};
-
-static int __init sched_init_ops(void)
-{
-	register_syscore_ops(&sched_syscore_ops);
-	return 0;
-}
-late_initcall(sched_init_ops);
 
 static void acquire_rq_locks_irqsave(const cpumask_t *cpus,
 				     unsigned long *flags)
@@ -421,7 +387,7 @@ void sched_account_irqtime(int cpu, struct task_struct *curr,
 	cur_jiffies_ts = get_jiffies_64();
 
 	if (is_idle_task(curr))
-		update_task_ravg(curr, rq, IRQ_UPDATE, sched_ktime_clock(),
+		update_task_ravg(curr, rq, IRQ_UPDATE, ktime_get_ns(),
 				 delta);
 
 	nr_windows = cur_jiffies_ts - rq->irqload_ts;
@@ -758,7 +724,7 @@ void fixup_busy_time(struct task_struct *p, int new_cpu)
 	if (sched_disable_window_stats)
 		goto done;
 
-	wallclock = sched_ktime_clock();
+	wallclock = ktime_get_ns();
 
 	update_task_ravg(task_rq(p)->curr, task_rq(p),
 			 TASK_UPDATE,
@@ -2028,7 +1994,7 @@ void mark_task_starting(struct task_struct *p)
 		return;
 	}
 
-	wallclock = sched_ktime_clock();
+	wallclock = ktime_get_ns();
 	p->ravg.mark_start = p->last_wake_ts = wallclock;
 	p->last_cpu_selected_ts = wallclock;
 	p->last_switch_out_ts = 0;
@@ -2474,7 +2440,7 @@ static void _set_preferred_cluster(struct related_thread_group *grp)
 	if (list_empty(&grp->tasks))
 		return;
 
-	wallclock = sched_ktime_clock();
+	wallclock = ktime_get_ns();
 
 	/*
 	 * wakeup of two or more related tasks could race with each other and
@@ -2501,7 +2467,7 @@ static void _set_preferred_cluster(struct related_thread_group *grp)
 
 	grp->preferred_cluster = best_cluster(grp,
 			combined_demand, group_boost);
-	grp->last_update = sched_ktime_clock();
+	grp->last_update = ktime_get_ns();
 	trace_sched_set_preferred_cluster(grp, combined_demand);
 }
 
@@ -2525,7 +2491,7 @@ int update_preferred_cluster(struct related_thread_group *grp,
 	 * has passed since we last updated preference
 	 */
 	if (abs(new_load - old_load) > sched_ravg_window / 4 ||
-		sched_ktime_clock() - grp->last_update > sched_ravg_window)
+		ktime_get_ns() - grp->last_update > sched_ravg_window)
 		return 1;
 
 	return 0;
@@ -2911,7 +2877,7 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 	bool new_task;
 	int i;
 
-	wallclock = sched_ktime_clock();
+	wallclock = ktime_get_ns();
 
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 	update_task_ravg(p, rq, TASK_UPDATE, wallclock, 0);
@@ -3018,7 +2984,7 @@ void walt_irq_work(struct irq_work *irq_work)
 	for_each_cpu(cpu, cpu_possible_mask)
 		raw_spin_lock(&cpu_rq(cpu)->lock);
 
-	wc = sched_ktime_clock();
+	wc = ktime_get_ns();
 
 	for_each_sched_cluster(cluster) {
 		u64 aggr_grp_load = 0;
