@@ -10,6 +10,54 @@
  * GNU General Public License for more details.
  */
 
+&soc {
+	qmi-tmd-devices {
+		compatible = "qcom,qmi_cooling_devices";
+
+		modem {
+			qcom,instance-id = <0x0>;
+
+			modem_pa: modem_pa {
+				qcom,qmi-dev-name = "pa";
+				#cooling-cells = <2>;
+			};
+
+			modem_proc: modem_proc {
+				qcom,qmi-dev-name = "modem";
+				#cooling-cells = <2>;
+			};
+
+			modem_current: modem_current {
+				qcom,qmi-dev-name = "modem_current";
+				#cooling-cells = <2>;
+			};
+
+			modem_vdd: modem_vdd {
+				qcom,qmi-dev-name = "cpuv_restriction_cold";
+				#cooling-cells = <2>;
+			};
+		};
+
+		adsp {
+			qcom,instance-id = <0x1>;
+
+			adsp_vdd: adsp_vdd {
+				qcom,qmi-dev-name = "cpuv_restriction_cold";
+				#cooling-cells = <2>;
+			};
+		};
+
+		cdsp {
+			qcom,instance-id = <0x43>;
+
+			cdsp_vdd: cdsp_vdd {
+				qcom,qmi-dev-name = "cpuv_restriction_cold";
+				#cooling-cells = <2>;
+			};
+		};
+	};
+};
+
 &thermal_zones {
 	aoss0-usr {
 		polling-delay-passive = <0>;
