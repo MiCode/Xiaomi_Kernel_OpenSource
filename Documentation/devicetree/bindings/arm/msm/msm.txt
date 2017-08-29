@@ -157,6 +157,8 @@ Generic board variants:
 - RUMI device:
   compatible = "qcom,rumi"
 
+- VR device:
+  compatible = "qcom,qvr"
 
 
 Boards (SoC type + board variant):
@@ -267,6 +269,7 @@ compatible = "qcom,sdm845-cdp"
 compatible = "qcom,sdm845-mtp"
 compatible = "qcom,sdm845-mtp"
 compatible = "qcom,sdm845-qrd"
+compatible = "qcom,sdm845-qvr"
 compatible = "qcom,sdm670-rumi"
 compatible = "qcom,sdm670-cdp"
 compatible = "qcom,sdm670-mtp"
