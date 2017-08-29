@@ -77,6 +77,7 @@ its hardware characteristcs.
 		- "qcom,coresight-tpdm"
 		- "qcom,coresight-hwevent"
 		- "qcom,coresight-dummy"
+		- "qcom,coresight-remote-etm"
 
 	* port or ports: same as above.
 
@@ -134,6 +135,11 @@ its hardware characteristcs.
 
 	* qcom,msr-fix-req: boolean, indicating if MSRs need to be programmed
 	  after enabling the subunit.
+
+* Required property for Remote ETMs:
+
+	* qcom,inst-id: must be present. QMI instance id for remote ETMs.
+
 Example:
 
 1. Sinks
