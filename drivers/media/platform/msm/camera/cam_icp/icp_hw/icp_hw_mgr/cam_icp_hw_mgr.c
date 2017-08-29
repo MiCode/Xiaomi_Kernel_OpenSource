@@ -642,42 +642,52 @@ static int cam_icp_mgr_abort_handle(
 {
 	int rc = 0;
 	unsigned long rem_jiffies;
+	size_t packet_size;
 	int timeout = 5000;
 	struct hfi_cmd_work_data *task_data;
-	struct hfi_cmd_ipebps_async abort_cmd;
+	struct hfi_cmd_ipebps_async *abort_cmd;
 	struct crm_workq_task *task;
 
 	task = cam_req_mgr_workq_get_task(icp_hw_mgr.cmd_work);
 	if (!task)
 		return -ENOMEM;
 
-	abort_cmd.size =
+	packet_size =
 		sizeof(struct hfi_cmd_ipebps_async) +
 		sizeof(struct hfi_cmd_abort_destroy) -
-		sizeof(abort_cmd.payload.direct);
-	abort_cmd.pkt_type = HFI_CMD_IPEBPS_ASYNC_COMMAND_DIRECT;
+		sizeof(((struct hfi_cmd_ipebps_async *)0)->payload.direct);
+	abort_cmd = kzalloc(packet_size, GFP_KERNEL);
+	if (!abort_cmd) {
+		rc = -ENOMEM;
+		return rc;
+	}
+
+
+	abort_cmd->pkt_type = HFI_CMD_IPEBPS_ASYNC_COMMAND_DIRECT;
 	if (ctx_data->icp_dev_acquire_info->dev_type == CAM_ICP_RES_TYPE_BPS)
-		abort_cmd.opcode = HFI_IPEBPS_CMD_OPCODE_BPS_ABORT;
+		abort_cmd->opcode = HFI_IPEBPS_CMD_OPCODE_BPS_ABORT;
 	else
-		abort_cmd.opcode = HFI_IPEBPS_CMD_OPCODE_IPE_ABORT;
+		abort_cmd->opcode = HFI_IPEBPS_CMD_OPCODE_IPE_ABORT;
 
 	reinit_completion(&ctx_data->wait_complete);
-	abort_cmd.num_fw_handles = 1;
-	abort_cmd.fw_handles[0] = ctx_data->fw_handle;
-	abort_cmd.user_data1 = (uint64_t)ctx_data;
-	abort_cmd.user_data2 = (uint64_t)0x0;
-	memcpy(abort_cmd.payload.direct, &ctx_data->temp_payload,
-		sizeof(uint32_t));
+	abort_cmd->num_fw_handles = 1;
+	abort_cmd->fw_handles[0] = ctx_data->fw_handle;
+	abort_cmd->user_data1 = (uint64_t)ctx_data;
+	abort_cmd->user_data2 = (uint64_t)0x0;
+	memcpy(abort_cmd->payload.direct, &ctx_data->temp_payload,
+		sizeof(uint64_t));
 
 	task_data = (struct hfi_cmd_work_data *)task->payload;
-	task_data->data = (void *)&abort_cmd;
+	task_data->data = (void *)abort_cmd;
 	task_data->request_id = 0;
 	task_data->type = ICP_WORKQ_TASK_CMD_TYPE;
 	task->process_cb = cam_icp_mgr_process_cmd;
 	rc = cam_req_mgr_workq_enqueue_task(task, &icp_hw_mgr,
 		CRM_TASK_PRIORITY_0);
-	if (rc)
+	if (rc) {
+		kfree(abort_cmd);
 		return rc;
+	}
 
 	CAM_DBG(CAM_ICP, "fw_handle = %x ctx_data = %pK",
 		ctx_data->fw_handle, ctx_data);
@@ -688,6 +698,7 @@ static int cam_icp_mgr_abort_handle(
 		CAM_DBG(CAM_ICP, "FW timeout/err in abort handle command");
 	}
 
+	kfree(abort_cmd);
 	return rc;
 }
 
@@ -697,41 +708,50 @@ static int cam_icp_mgr_destroy_handle(
 	int rc = 0;
 	int timeout = 5000;
 	unsigned long rem_jiffies;
+	size_t packet_size;
 	struct hfi_cmd_work_data *task_data;
-	struct hfi_cmd_ipebps_async destroy_cmd;
+	struct hfi_cmd_ipebps_async *destroy_cmd;
 	struct crm_workq_task *task;
 
 	task = cam_req_mgr_workq_get_task(icp_hw_mgr.cmd_work);
 	if (!task)
 		return -ENOMEM;
 
-	destroy_cmd.size =
+	packet_size =
 		sizeof(struct hfi_cmd_ipebps_async) +
-		sizeof(struct ipe_bps_destroy) -
-		sizeof(destroy_cmd.payload.direct);
-	destroy_cmd.pkt_type = HFI_CMD_IPEBPS_ASYNC_COMMAND_DIRECT;
+		sizeof(struct hfi_cmd_abort_destroy) -
+		sizeof(((struct hfi_cmd_ipebps_async *)0)->payload.direct);
+	destroy_cmd = kzalloc(packet_size, GFP_KERNEL);
+	if (!destroy_cmd) {
+		rc = -ENOMEM;
+		return rc;
+	}
+
+	destroy_cmd->pkt_type = HFI_CMD_IPEBPS_ASYNC_COMMAND_DIRECT;
 	if (ctx_data->icp_dev_acquire_info->dev_type == CAM_ICP_RES_TYPE_BPS)
-		destroy_cmd.opcode = HFI_IPEBPS_CMD_OPCODE_BPS_DESTROY;
+		destroy_cmd->opcode = HFI_IPEBPS_CMD_OPCODE_BPS_DESTROY;
 	else
-		destroy_cmd.opcode = HFI_IPEBPS_CMD_OPCODE_IPE_DESTROY;
+		destroy_cmd->opcode = HFI_IPEBPS_CMD_OPCODE_IPE_DESTROY;
 
 	reinit_completion(&ctx_data->wait_complete);
-	destroy_cmd.num_fw_handles = 1;
-	destroy_cmd.fw_handles[0] = ctx_data->fw_handle;
-	destroy_cmd.user_data1 = (uint64_t)ctx_data;
-	destroy_cmd.user_data2 = (uint64_t)0x0;
-	memcpy(destroy_cmd.payload.direct, &ctx_data->temp_payload,
-						sizeof(uint32_t));
+	destroy_cmd->num_fw_handles = 1;
+	destroy_cmd->fw_handles[0] = ctx_data->fw_handle;
+	destroy_cmd->user_data1 = (uint64_t)ctx_data;
+	destroy_cmd->user_data2 = (uint64_t)0x0;
+	memcpy(destroy_cmd->payload.direct, &ctx_data->temp_payload,
+		sizeof(uint64_t));
 
 	task_data = (struct hfi_cmd_work_data *)task->payload;
-	task_data->data = (void *)&destroy_cmd;
+	task_data->data = (void *)destroy_cmd;
 	task_data->request_id = 0;
 	task_data->type = ICP_WORKQ_TASK_CMD_TYPE;
 	task->process_cb = cam_icp_mgr_process_cmd;
 	rc = cam_req_mgr_workq_enqueue_task(task, &icp_hw_mgr,
 		CRM_TASK_PRIORITY_0);
-	if (rc)
+	if (rc) {
+		kfree(destroy_cmd);
 		return rc;
+	}
 
 	CAM_DBG(CAM_ICP, "fw_handle = %x ctx_data = %pK",
 		ctx_data->fw_handle, ctx_data);
@@ -742,6 +762,7 @@ static int cam_icp_mgr_destroy_handle(
 		CAM_ERR(CAM_ICP, "FW response timeout: %d", rc);
 	}
 
+	kfree(destroy_cmd);
 	return rc;
 }
 
