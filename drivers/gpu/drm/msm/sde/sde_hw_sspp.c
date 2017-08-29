@@ -15,6 +15,7 @@
 #include "sde_hw_lm.h"
 #include "sde_hw_sspp.h"
 #include "sde_hw_color_processing.h"
+#include "sde_dbg.h"
 
 #define SDE_FETCH_CONFIG_RESET_VALUE   0x00000087
 
@@ -903,6 +904,7 @@ static struct sde_sspp_cfg *_sspp_offset(enum sde_sspp sspp,
 			if (sspp == catalog->sspp[i].id) {
 				b->base_off = addr;
 				b->blk_off = catalog->sspp[i].base;
+				b->length = catalog->sspp[i].len;
 				b->hwversion = catalog->hwversion;
 				b->log_mask = SDE_DBG_MASK_SSPP;
 				return &catalog->sspp[i];
@@ -917,26 +919,39 @@ struct sde_hw_pipe *sde_hw_sspp_init(enum sde_sspp idx,
 			void __iomem *addr,
 			struct sde_mdss_cfg *catalog)
 {
-	struct sde_hw_pipe *ctx;
+	struct sde_hw_pipe *hw_pipe;
 	struct sde_sspp_cfg *cfg;
 
-	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
-	if (!ctx)
+	hw_pipe = kzalloc(sizeof(*hw_pipe), GFP_KERNEL);
+	if (!hw_pipe)
 		return ERR_PTR(-ENOMEM);
 
-	cfg = _sspp_offset(idx, addr, catalog, &ctx->hw);
+	cfg = _sspp_offset(idx, addr, catalog, &hw_pipe->hw);
 	if (IS_ERR_OR_NULL(cfg)) {
-		kfree(ctx);
+		kfree(hw_pipe);
 		return ERR_PTR(-EINVAL);
 	}
 
 	/* Assign ops */
-	ctx->idx = idx;
-	ctx->cap = cfg;
-	_setup_layer_ops(ctx, ctx->cap->features);
-	ctx->highest_bank_bit = catalog->mdp[0].highest_bank_bit;
+	hw_pipe->idx = idx;
+	hw_pipe->cap = cfg;
+	_setup_layer_ops(hw_pipe, hw_pipe->cap->features);
+	hw_pipe->highest_bank_bit = catalog->mdp[0].highest_bank_bit;
 
-	return ctx;
+	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name,
+			hw_pipe->hw.blk_off,
+			hw_pipe->hw.blk_off + hw_pipe->hw.length,
+			hw_pipe->hw.xin_id);
+
+	if (cfg->sblk->scaler_blk.len)
+		sde_dbg_reg_register_dump_range(SDE_DBG_NAME,
+			cfg->sblk->scaler_blk.name,
+			hw_pipe->hw.blk_off + cfg->sblk->scaler_blk.base,
+			hw_pipe->hw.blk_off + cfg->sblk->scaler_blk.base +
+				cfg->sblk->scaler_blk.len,
+			hw_pipe->hw.xin_id);
+
+	return hw_pipe;
 }
 
 void sde_hw_sspp_destroy(struct sde_hw_pipe *ctx)

@@ -14,6 +14,7 @@
 #include "sde_hwio.h"
 #include "sde_hw_catalog.h"
 #include "sde_hw_cdm.h"
+#include "sde_dbg.h"
 
 #define CDM_CSC_10_OPMODE                  0x000
 #define CDM_CSC_10_BASE                    0x004
@@ -294,6 +295,9 @@ struct sde_hw_cdm *sde_hw_cdm_init(enum sde_cdm idx,
 	 * @setup default csc coefficients
 	 */
 	sde_hw_cdm_setup_csc_10bit(c, &rgb2yuv_cfg);
+
+	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name, c->hw.blk_off,
+			c->hw.blk_off + c->hw.length, c->hw.xin_id);
 
 	return c;
 }
