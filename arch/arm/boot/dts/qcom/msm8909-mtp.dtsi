@@ -388,6 +388,27 @@
 		invn,gpio-int = <&msm_gpio 96 0x1>;
 		invn,place = "Portrait Down Back Side";
 	};
+
+	avago@39 { /* Ambient light and proximity sensor */
+		compatible = "avago,apds9900";
+		reg = <0x39>;
+		pinctrl-names = "default","sleep";
+		pinctrl-0 = <&apds99xx_default>;
+		pinctrl-1 = <&apds99xx_sleep>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <94 0x2002>;
+		vdd-supply = <&pm8909_l17>;
+		vio-supply = <&pm8909_l6>;
+		avago,irq-gpio = <&msm_gpio 94 0x2002>;
+		avago,ps-threshold = <600>;
+		avago,ps-hysteresis-threshold = <500>;
+		avago,ps-pulse = <8>;
+		avago,ps-pgain = <0>;
+		avago,als-B = <186>;
+		avago,als-C = <75>;
+		avago,als-D = <129>;
+		avago,ga-value = <256>;
+	};
 };
 
 &mdss_mdp {
@@ -491,6 +512,30 @@
 			config {
 				pins = "gpio96";
 				drive-dtrength = <2>;
+				bias-pull-down;
+			};
+		};
+	};
+	apds99xx_int_pin {
+		apds99xx_default: apds99xx_default {
+			mux {
+				pins = "gpio94";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio94";
+				drive-strength = <6>;
+				bias-pull-up;
+			};
+		};
+		apds99xx_sleep: apds99xx_sleep {
+			mux {
+				pins = "gpio94";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio94";
+				drive-strength = <2>;
 				bias-pull-down;
 			};
 		};
