@@ -2963,14 +2963,9 @@ static int icnss_probe(struct platform_device *pdev)
 	INIT_WORK(&priv->event_work, icnss_driver_event_work);
 	INIT_LIST_HEAD(&priv->event_list);
 
-	ret = icnss_register_fw_service(penv);
+	ret = icnss_register_fw_service(priv);
 	if (ret < 0) {
 		icnss_pr_err("fw service registration failed: %d\n", ret);
-		goto out_destroy_wq;
-	}
-
-	if (ret < 0) {
-		icnss_pr_err("Notifier register failed: %d\n", ret);
 		goto out_destroy_wq;
 	}
 
