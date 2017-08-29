@@ -27,6 +27,7 @@
 #define DP_INTR_STATUS3				(0x00000028)
 #define dp_read(offset) readl_relaxed((offset))
 #define dp_write(offset, data) writel_relaxed((data), (offset))
+#define DP_HDCP_RXCAPS_LENGTH 3
 
 enum dp_hdcp2p2_sink_status {
 	SINK_DISCONNECTED,
@@ -893,21 +894,22 @@ error:
 static bool dp_hdcp2p2_supported(struct dp_hdcp2p2_ctrl *ctrl)
 {
 	u32 const rxcaps_dpcd_offset = 0x6921d;
-	ssize_t const bytes_to_read = 1;
 	ssize_t bytes_read = 0;
-	u8 buf = 0;
+	u8 buf[DP_HDCP_RXCAPS_LENGTH];
 
 	bytes_read = drm_dp_dpcd_read(ctrl->init_data.drm_aux,
-			rxcaps_dpcd_offset, &buf, bytes_to_read);
-	if (bytes_read != bytes_to_read) {
+			rxcaps_dpcd_offset, &buf, DP_HDCP_RXCAPS_LENGTH);
+	if (bytes_read != DP_HDCP_RXCAPS_LENGTH) {
 		pr_err("RxCaps read failed\n");
 		goto error;
 	}
 
-	pr_debug("rxcaps 0x%x\n", buf);
+	pr_debug("HDCP_CAPABLE=%lu\n", (buf[2] & BIT(1)) >> 1);
+	pr_debug("VERSION=%d\n", buf[0]);
 
-	if (buf & BIT(1))
+	if ((buf[2] & BIT(1)) && (buf[0] == 0x2))
 		return true;
+
 error:
 	return false;
 }
