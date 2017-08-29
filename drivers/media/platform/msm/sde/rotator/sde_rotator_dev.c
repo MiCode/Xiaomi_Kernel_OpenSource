@@ -9,7 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#define pr_fmt(fmt)	"%s: " fmt, __func__
+#define pr_fmt(fmt)	"%s:%d: " fmt, __func__, __LINE__
 
 #include <linux/vmalloc.h>
 #include <linux/kernel.h>
@@ -45,6 +45,9 @@
 
 /* acquire fence time out, following other driver fence time out practice */
 #define SDE_ROTATOR_FENCE_TIMEOUT	MSEC_PER_SEC
+
+/* Timeout (msec) waiting for ctx open */
+#define SDE_ROTATOR_CTX_OPEN_TIMEOUT	500
 
 /* Rotator default fps */
 #define SDE_ROTATOR_DEFAULT_FPS	60
@@ -457,6 +460,9 @@ static void sde_rotator_stop_streaming(struct vb2_queue *q)
 				"timeout to stream off s:%d t:%d p:%d\n",
 				ctx->session_id, q->type,
 				!list_empty(&ctx->pending_list));
+		SDEROT_EVTLOG(ctx->session_id, q->type,
+				!list_empty(&ctx->pending_list),
+				SDE_ROT_EVTLOG_ERROR);
 		sde_rot_mgr_lock(rot_dev->mgr);
 		sde_rotator_cancel_all_requests(rot_dev->mgr, ctx->private);
 		sde_rot_mgr_unlock(rot_dev->mgr);
@@ -486,7 +492,7 @@ static void sde_rotator_stop_streaming(struct vb2_queue *q)
 			struct sde_rotator_vbinfo *vbinfo =
 					&ctx->vbinfo_cap[i];
 
-			if (vbinfo->fence && vbinfo->fd < 0) {
+			if (vbinfo->fence) {
 				/* fence is not used */
 				SDEDEV_DBG(rot_dev->dev,
 						"put fence s:%d t:%d i:%d\n",
@@ -893,6 +899,29 @@ struct sde_rotator_ctx *sde_rotator_ctx_open(
 		goto error_lock;
 	}
 
+	/* wait until exclusive ctx, if exists, finishes or timeout */
+	while (rot_dev->excl_ctx) {
+		SDEROT_DBG("waiting to open %s session %d ...\n",
+				file ? "v4l2" : "excl",	rot_dev->session_id);
+		mutex_unlock(&rot_dev->lock);
+		ret = wait_event_interruptible_timeout(rot_dev->open_wq,
+				!rot_dev->excl_ctx,
+				msecs_to_jiffies(rot_dev->open_timeout));
+		if (ret < 0) {
+			goto error_lock;
+		} else if (!ret) {
+			SDEROT_WARN("timeout to open session %d\n",
+					rot_dev->session_id);
+			SDEROT_EVTLOG(rot_dev->session_id,
+					SDE_ROT_EVTLOG_ERROR);
+			ret = -EBUSY;
+			goto error_lock;
+		} else if (mutex_lock_interruptible(&rot_dev->lock)) {
+			ret = -ERESTARTSYS;
+			goto error_lock;
+		}
+	}
+
 	ctx->rot_dev = rot_dev;
 	ctx->file = file;
 
@@ -991,8 +1020,8 @@ struct sde_rotator_ctx *sde_rotator_ctx_open(
 	}
 	sde_rot_mgr_unlock(rot_dev->mgr);
 
-	/* Create control */
 	if (ctx->file) {
+		/* Create control */
 		ctrl_handler = &ctx->ctrl_handler;
 		v4l2_ctrl_handler_init(ctrl_handler, 4);
 		v4l2_ctrl_new_std(ctrl_handler,
@@ -1012,7 +1041,14 @@ struct sde_rotator_ctx *sde_rotator_ctx_open(
 		}
 		ctx->fh.ctrl_handler = ctrl_handler;
 		v4l2_ctrl_handler_setup(ctrl_handler);
+	} else {
+		/* acquire exclusive context */
+		SDEDEV_DBG(rot_dev->dev, "acquire exclusive session id:%u\n",
+				ctx->session_id);
+		SDEROT_EVTLOG(ctx->session_id);
+		rot_dev->excl_ctx = ctx;
 	}
+
 	mutex_unlock(&rot_dev->lock);
 
 	SDEDEV_DBG(ctx->rot_dev->dev, "SDE v4l2 rotator open success\n");
@@ -1059,6 +1095,12 @@ static int sde_rotator_ctx_release(struct sde_rotator_ctx *ctx,
 
 	SDEDEV_DBG(rot_dev->dev, "release s:%d\n", session_id);
 	mutex_lock(&rot_dev->lock);
+	if (rot_dev->excl_ctx == ctx) {
+		SDEDEV_DBG(rot_dev->dev, "release exclusive session id:%u\n",
+				session_id);
+		SDEROT_EVTLOG(session_id);
+		rot_dev->excl_ctx = NULL;
+	}
 	if (ctx->file) {
 		v4l2_ctrl_handler_free(&ctx->ctrl_handler);
 		SDEDEV_DBG(rot_dev->dev, "release streams s:%d\n", session_id);
@@ -1105,6 +1147,7 @@ static int sde_rotator_ctx_release(struct sde_rotator_ctx *ctx,
 	kfree(ctx->vbinfo_out);
 	kfree(ctx->vbinfo_cap);
 	kfree(ctx);
+	wake_up_interruptible(&rot_dev->open_wq);
 	mutex_unlock(&rot_dev->lock);
 	SDEDEV_DBG(rot_dev->dev, "release complete s:%d\n", session_id);
 	return 0;
@@ -1390,7 +1433,8 @@ int sde_rotator_inline_get_pixfmt_caps(struct platform_device *pdev,
 
 	sde_rot_mgr_lock(rot_dev->mgr);
 	for (i = 0;; i++) {
-		pixfmt = sde_rotator_get_pixfmt(rot_dev->mgr, i, input);
+		pixfmt = sde_rotator_get_pixfmt(rot_dev->mgr, i, input,
+				SDE_ROTATOR_MODE_SBUF);
 		if (!pixfmt)
 			break;
 		if (pixfmts && i < len)
@@ -1451,15 +1495,14 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 	SDEROT_EVTLOG(ctx->session_id, cmd->sequence_id,
 		cmd->src_rect_x, cmd->src_rect_y,
 		cmd->src_rect_w, cmd->src_rect_h,
-		cmd->src_width, cmd->src_height,
 		cmd->src_pixfmt,
-		cmd->dst_rect_x, cmd->dst_rect_y,
 		cmd->dst_rect_w, cmd->dst_rect_h,
 		cmd->dst_pixfmt,
-		cmd->rot90, cmd->hflip, cmd->vflip, cmd->secure, cmd->fps,
-		cmd->clkrate, cmd->data_bw,
-		cmd->dst_writeback, cmd->video_mode, cmd_type);
-
+		(cmd->rot90 << 0) | (cmd->hflip << 1) | (cmd->vflip << 2) |
+		(cmd->secure << 3) | (cmd->dst_writeback << 4) |
+		(cmd->video_mode << 5),
+		cmd->fps, cmd->clkrate, cmd->data_bw,
+		cmd_type);
 
 	sde_rot_mgr_lock(rot_dev->mgr);
 
@@ -1568,7 +1611,7 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 			ret = sde_rotator_session_config(rot_dev->mgr,
 					ctx->private, &rotcfg);
 			if (ret) {
-				SDEROT_ERR("fail session config s:%d\n",
+				SDEROT_WARN("fail session config s:%d\n",
 						ctx->session_id);
 				goto error_session_config;
 			}
@@ -1579,7 +1622,7 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 		ret = sde_rotator_validate_request(rot_dev->mgr, ctx->private,
 				req);
 		if (ret) {
-			SDEROT_ERR("fail validate request s:%d\n",
+			SDEROT_WARN("fail validate request s:%d\n",
 					ctx->session_id);
 			goto error_validate_request;
 		}
@@ -1677,13 +1720,17 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 			ret = wait_event_timeout(ctx->wait_queue,
 				sde_rotator_is_request_retired(request),
 				msecs_to_jiffies(rot_dev->streamoff_timeout));
-			if (!ret)
+			if (!ret) {
 				SDEROT_ERR("timeout w/o retire s:%d\n",
 						ctx->session_id);
-			else if (ret == 1)
+				SDEROT_EVTLOG(ctx->session_id,
+						SDE_ROT_EVTLOG_ERROR);
+			} else if (ret == 1) {
 				SDEROT_ERR("timeout w/ retire s:%d\n",
 						ctx->session_id);
-
+				SDEROT_EVTLOG(ctx->session_id,
+						SDE_ROT_EVTLOG_ERROR);
+			}
 			sde_rot_mgr_lock(rot_dev->mgr);
 		}
 
@@ -1707,6 +1754,12 @@ error_init_request:
 	return ret;
 }
 EXPORT_SYMBOL(sde_rotator_inline_commit);
+
+void sde_rotator_inline_reg_dump(struct platform_device *pdev)
+{
+	sde_rot_dump_panic(false);
+}
+EXPORT_SYMBOL(sde_rotator_inline_reg_dump);
 
 /*
  * sde_rotator_open - Rotator device open method.
@@ -1805,7 +1858,8 @@ static int sde_rotator_enum_fmt_vid_cap(struct file *file,
 	bool found = false;
 
 	for (i = 0, index = 0; index <= f->index; i++) {
-		pixfmt = sde_rotator_get_pixfmt(rot_dev->mgr, i, false);
+		pixfmt = sde_rotator_get_pixfmt(rot_dev->mgr, i, false,
+				SDE_ROTATOR_MODE_OFFLINE);
 		if (!pixfmt)
 			return -EINVAL;
 
@@ -1849,7 +1903,8 @@ static int sde_rotator_enum_fmt_vid_out(struct file *file,
 	bool found = false;
 
 	for (i = 0, index = 0; index <= f->index; i++) {
-		pixfmt = sde_rotator_get_pixfmt(rot_dev->mgr, i, true);
+		pixfmt = sde_rotator_get_pixfmt(rot_dev->mgr, i, true,
+				SDE_ROTATOR_MODE_OFFLINE);
 		if (!pixfmt)
 			return -EINVAL;
 
@@ -2158,7 +2213,7 @@ static int sde_rotator_dqbuf(struct file *file,
 			&& (buf->index < ctx->nbuf_cap)) {
 		int idx = buf->index;
 
-		if (ctx->vbinfo_cap[idx].fence && ctx->vbinfo_cap[idx].fd < 0) {
+		if (ctx->vbinfo_cap[idx].fence) {
 			/* fence is not used */
 			SDEDEV_DBG(ctx->rot_dev->dev, "put fence s:%d i:%d\n",
 					ctx->session_id, idx);
@@ -2487,6 +2542,7 @@ static long sde_rotator_private_ioctl(struct file *file, void *fh,
 	struct msm_sde_rotator_fence *fence = arg;
 	struct msm_sde_rotator_comp_ratio *comp_ratio = arg;
 	struct sde_rotator_vbinfo *vbinfo;
+	int ret;
 
 	switch (cmd) {
 	case VIDIOC_S_SDE_ROTATOR_FENCE:
@@ -2545,17 +2601,37 @@ static long sde_rotator_private_ioctl(struct file *file, void *fh,
 
 		vbinfo = &ctx->vbinfo_cap[fence->index];
 
-		if (vbinfo->fence == NULL) {
-			vbinfo->fd = -1;
-		} else {
-			vbinfo->fd =
-				sde_rotator_get_sync_fence_fd(vbinfo->fence);
-			if (vbinfo->fd < 0) {
+		if (!vbinfo)
+			return -EINVAL;
+
+		if (vbinfo->fence) {
+			ret = sde_rotator_get_sync_fence_fd(vbinfo->fence);
+			if (ret < 0) {
 				SDEDEV_ERR(rot_dev->dev,
-					"fail get fence fd s:%d\n",
-					ctx->session_id);
-				return vbinfo->fd;
+						"fail get fence fd s:%d\n",
+						ctx->session_id);
+				return ret;
 			}
+
+			/**
+			 * Loose any reference to sync fence once we pass
+			 * it to user. Driver does not clean up user
+			 * unclosed fence descriptors.
+			 */
+			vbinfo->fence = NULL;
+
+			/**
+			 * Cache fence descriptor in case user calls this
+			 * ioctl multiple times. Cached value would be stale
+			 * if user duplicated and closed old descriptor.
+			 */
+			vbinfo->fd = ret;
+		} else if (!sde_rotator_get_fd_sync_fence(vbinfo->fd)) {
+			/**
+			 * User has closed cached fence descriptor.
+			 * Invalidate descriptor cache.
+			 */
+			vbinfo->fd = -1;
 		}
 		fence->fd = vbinfo->fd;
 
@@ -2878,6 +2954,9 @@ static int sde_rotator_process_buffers(struct sde_rotator_ctx *ctx,
 				"error waiting for fence s:%d.%d fd:%d r:%d\n",
 				ctx->session_id,
 				vbinfo_cap->fence_ts, vbinfo_out->fd, ret);
+			SDEROT_EVTLOG(ctx->session_id, vbinfo_cap->fence_ts,
+					vbinfo_out->fd, ret,
+					SDE_ROT_EVTLOG_ERROR);
 			goto error_fence_wait;
 		} else {
 			SDEDEV_DBG(rot_dev->dev, "fence exit s:%d.%d fd:%d\n",
@@ -3278,6 +3357,8 @@ static int sde_rotator_probe(struct platform_device *pdev)
 	rot_dev->min_bw = 0;
 	rot_dev->min_overhead_us = 0;
 	rot_dev->drvdata = sde_rotator_get_drv_data(&pdev->dev);
+	rot_dev->open_timeout = SDE_ROTATOR_CTX_OPEN_TIMEOUT;
+	init_waitqueue_head(&rot_dev->open_wq);
 
 	rot_dev->pdev = pdev;
 	rot_dev->dev = &pdev->dev;

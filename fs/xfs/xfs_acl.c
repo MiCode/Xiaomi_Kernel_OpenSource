@@ -170,8 +170,8 @@ xfs_get_acl(struct inode *inode, int type)
 	return acl;
 }
 
-STATIC int
-__xfs_set_acl(struct inode *inode, int type, struct posix_acl *acl)
+int
+__xfs_set_acl(struct inode *inode, struct posix_acl *acl, int type)
 {
 	struct xfs_inode *ip = XFS_I(inode);
 	unsigned char *ea_name;
@@ -258,8 +258,10 @@ xfs_set_acl(struct inode *inode, struct posix_acl *acl, int type)
 
 	if (type == ACL_TYPE_ACCESS) {
 		umode_t mode;
-
+		struct posix_acl *old_acl = acl;
 		error = posix_acl_update_mode(inode, &mode, &acl);
+		if (!acl)
+			posix_acl_release(old_acl);
 		if (error)
 			return error;
 		error = xfs_set_mode(inode, mode);
@@ -268,5 +270,5 @@ xfs_set_acl(struct inode *inode, struct posix_acl *acl, int type)
 	}
 
  set_acl:
-	return __xfs_set_acl(inode, type, acl);
+	return __xfs_set_acl(inode, acl, type);
 }

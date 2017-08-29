@@ -134,6 +134,13 @@ struct mi2s_conf {
 	u32 msm_is_mi2s_master;
 };
 
+static u32 mi2s_ebit_clk[MI2S_MAX] = {
+	Q6AFE_LPASS_CLK_ID_PRI_MI2S_EBIT,
+	Q6AFE_LPASS_CLK_ID_SEC_MI2S_EBIT,
+	Q6AFE_LPASS_CLK_ID_TER_MI2S_EBIT,
+	Q6AFE_LPASS_CLK_ID_QUAD_MI2S_EBIT
+};
+
 struct auxpcm_conf {
 	struct mutex lock;
 	u32 ref_cnt;
@@ -434,6 +441,7 @@ static const char *const mi2s_ch_text[] = {"One", "Two", "Three", "Four",
 					   "Five", "Six", "Seven",
 					   "Eight"};
 static const char *const hifi_text[] = {"Off", "On"};
+static const char *const qos_text[] = {"Disable", "Enable"};
 
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_rx_chs, slim_rx_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_2_rx_chs, slim_rx_ch_text);
@@ -498,9 +506,11 @@ static SOC_ENUM_SINGLE_EXT_DECL(mi2s_tx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(aux_pcm_rx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(aux_pcm_tx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(hifi_function, hifi_text);
+static SOC_ENUM_SINGLE_EXT_DECL(qos_vote, qos_text);
 
 static struct platform_device *spdev;
 static int msm_hifi_control;
+static int qos_vote_status;
 
 static bool is_initial_boot;
 static bool codec_reg_done;
@@ -2628,6 +2638,72 @@ static int msm_hifi_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static s32 msm_qos_value(struct snd_pcm_runtime *runtime)
+{
+	s32 usecs;
+
+	if (!runtime->rate)
+		return -EINVAL;
+
+	/* take 75% of period time as the deadline */
+	usecs = (750000 / runtime->rate) * runtime->period_size;
+	usecs += ((750000 % runtime->rate) * runtime->period_size) /
+		 runtime->rate;
+
+	return usecs;
+}
+
+static int msm_qos_ctl_get(struct snd_kcontrol *kcontrol,
+			   struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.enumerated.item[0] = qos_vote_status;
+
+	return 0;
+}
+
+static int msm_qos_ctl_put(struct snd_kcontrol *kcontrol,
+			   struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct snd_soc_card *card = codec->component.card;
+	const char *be_name = MSM_DAILINK_NAME(LowLatency);
+	struct snd_soc_pcm_runtime *rtd;
+	struct snd_pcm_substream *substream;
+	s32 usecs;
+
+	rtd = snd_soc_get_pcm_runtime(card, be_name);
+	if (!rtd) {
+		pr_err("%s: fail to get pcm runtime for %s\n",
+			__func__, be_name);
+		return -EINVAL;
+	}
+
+	substream = rtd->pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
+	if (!substream) {
+		pr_err("%s: substream is null\n", __func__);
+		return -EINVAL;
+	}
+
+	qos_vote_status = ucontrol->value.enumerated.item[0];
+	if (qos_vote_status) {
+		if (pm_qos_request_active(&substream->latency_pm_qos_req))
+			pm_qos_remove_request(&substream->latency_pm_qos_req);
+		if (!substream->runtime) {
+			pr_err("%s: runtime is null\n", __func__);
+			return -EINVAL;
+		}
+		usecs = msm_qos_value(substream->runtime);
+		if (usecs >= 0)
+			pm_qos_add_request(&substream->latency_pm_qos_req,
+					PM_QOS_CPU_DMA_LATENCY, usecs);
+	} else {
+		if (pm_qos_request_active(&substream->latency_pm_qos_req))
+			pm_qos_remove_request(&substream->latency_pm_qos_req);
+	}
+
+	return 0;
+}
+
 static const struct snd_kcontrol_new msm_snd_controls[] = {
 	SOC_ENUM_EXT("SLIM_0_RX Channels", slim_0_rx_chs,
 			msm_slim_rx_ch_get, msm_slim_rx_ch_put),
@@ -2857,6 +2933,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			msm_aux_pcm_tx_format_get, msm_aux_pcm_tx_format_put),
 	SOC_ENUM_EXT("HiFi Function", hifi_function, msm_hifi_get,
 			msm_hifi_put),
+	SOC_ENUM_EXT("MultiMedia5_RX QOS Vote", qos_vote, msm_qos_ctl_get,
+			msm_qos_ctl_put),
 };
 
 static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec,
@@ -4176,9 +4254,6 @@ static void update_mi2s_clk_val(int dai_id, int stream)
 		mi2s_clk[dai_id].clk_freq_in_hz =
 		    mi2s_tx_cfg[dai_id].sample_rate * 2 * bit_per_sample;
 	}
-
-	if (!mi2s_intf_conf[dai_id].msm_is_mi2s_master)
-		mi2s_clk[dai_id].clk_freq_in_hz = 0;
 }
 
 static int msm_mi2s_set_sclk(struct snd_pcm_substream *substream, bool enable)
@@ -4529,6 +4604,11 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	 */
 	mutex_lock(&mi2s_intf_conf[index].lock);
 	if (++mi2s_intf_conf[index].ref_cnt == 1) {
+		/* Check if msm needs to provide the clock to the interface */
+		if (!mi2s_intf_conf[index].msm_is_mi2s_master) {
+			mi2s_clk[index].clk_id = mi2s_ebit_clk[index];
+			fmt = SND_SOC_DAIFMT_CBM_CFM;
+		}
 		ret = msm_mi2s_set_sclk(substream, true);
 		if (ret < 0) {
 			dev_err(rtd->card->dev,
@@ -4548,9 +4628,6 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 			ret = -EINVAL;
 			goto clk_off;
 		}
-		/* Check if msm needs to provide the clock to the interface */
-		if (!mi2s_intf_conf[index].msm_is_mi2s_master)
-			fmt = SND_SOC_DAIFMT_CBM_CFM;
 		ret = snd_soc_dai_set_fmt(cpu_dai, fmt);
 		if (ret < 0) {
 			pr_err("%s: set fmt cpu dai failed for MI2S (%d), err:%d\n",
@@ -5049,12 +5126,13 @@ static struct snd_soc_dai_link msm_common_dai_links[] = {
 		.id = MSM_FRONTEND_DAI_MULTIMEDIA7,
 	},
 	{
-		.name = MSM_DAILINK_NAME(Compress3),
-		.stream_name = "Compress3",
+		.name = MSM_DAILINK_NAME(MultiMedia10),
+		.stream_name = "MultiMedia10",
 		.cpu_dai_name = "MultiMedia10",
-		.platform_name = "msm-compress-dsp",
+		.platform_name = "msm-pcm-dsp.1",
 		.dynamic = 1,
 		.dpcm_playback = 1,
+		.dpcm_capture = 1,
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
 			 SND_SOC_DPCM_TRIGGER_POST},
 		.codec_dai_name = "snd-soc-dummy-dai",
@@ -6619,16 +6697,18 @@ static int msm_init_wsa_dev(struct platform_device *pdev,
 	ret = of_property_read_u32(pdev->dev.of_node,
 				   "qcom,wsa-max-devs", &wsa_max_devs);
 	if (ret) {
-		dev_dbg(&pdev->dev,
+		dev_info(&pdev->dev,
 			 "%s: wsa-max-devs property missing in DT %s, ret = %d\n",
 			 __func__, pdev->dev.of_node->full_name, ret);
-		goto err;
+		card->num_aux_devs = 0;
+		return 0;
 	}
 	if (wsa_max_devs == 0) {
 		dev_warn(&pdev->dev,
 			 "%s: Max WSA devices is 0 for this target?\n",
 			 __func__);
-		goto err;
+		card->num_aux_devs = 0;
+		return 0;
 	}
 
 	/* Get count of WSA device phandles for this platform */

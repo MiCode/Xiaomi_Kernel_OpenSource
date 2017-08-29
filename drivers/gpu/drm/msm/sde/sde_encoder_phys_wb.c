@@ -156,9 +156,17 @@ void sde_encoder_phys_setup_cdm(struct sde_encoder_phys *phys_enc,
 		struct drm_framebuffer *fb, const struct sde_format *format,
 		struct sde_rect *wb_roi)
 {
-	struct sde_hw_cdm *hw_cdm = phys_enc->hw_cdm;
-	struct sde_hw_cdm_cfg *cdm_cfg = &phys_enc->cdm_cfg;
+	struct sde_hw_cdm *hw_cdm;
+	struct sde_hw_cdm_cfg *cdm_cfg;
 	int ret;
+
+	if (!phys_enc || !format)
+		return;
+
+	cdm_cfg = &phys_enc->cdm_cfg;
+	hw_cdm = phys_enc->hw_cdm;
+	if (!hw_cdm)
+		return;
 
 	if (!SDE_FORMAT_IS_YUV(format)) {
 		SDE_DEBUG("[cdm_disable fmt:%x]\n",
@@ -171,6 +179,9 @@ void sde_encoder_phys_setup_cdm(struct sde_encoder_phys *phys_enc,
 	}
 
 	memset(cdm_cfg, 0, sizeof(struct sde_hw_cdm_cfg));
+
+	if (!wb_roi)
+		return;
 
 	cdm_cfg->output_width = wb_roi->w;
 	cdm_cfg->output_height = wb_roi->h;
@@ -512,10 +523,17 @@ static int sde_encoder_phys_wb_atomic_check(
 static void _sde_encoder_phys_wb_update_flush(struct sde_encoder_phys *phys_enc)
 {
 	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
-	struct sde_hw_wb *hw_wb = wb_enc->hw_wb;
-	struct sde_hw_ctl *hw_ctl = phys_enc->hw_ctl;
-	struct sde_hw_cdm *hw_cdm = phys_enc->hw_cdm;
+	struct sde_hw_wb *hw_wb;
+	struct sde_hw_ctl *hw_ctl;
+	struct sde_hw_cdm *hw_cdm;
 	u32 flush_mask = 0;
+
+	if (!phys_enc)
+		return;
+
+	hw_wb = wb_enc->hw_wb;
+	hw_ctl = phys_enc->hw_ctl;
+	hw_cdm = phys_enc->hw_cdm;
 
 	SDE_DEBUG("[wb:%d]\n", hw_wb->idx - WB_0);
 
@@ -918,10 +936,12 @@ static void sde_encoder_phys_wb_handle_post_kickoff(
  * @pixel_format:	DRM pixel format
  * @width:		Desired fb width
  * @height:		Desired fb height
+ * @pitch:		Desired fb pitch
  */
 static int _sde_encoder_phys_wb_init_internal_fb(
 		struct sde_encoder_phys_wb *wb_enc,
-		uint32_t pixel_format, uint32_t width, uint32_t height)
+		uint32_t pixel_format, uint32_t width,
+		uint32_t height, uint32_t pitch)
 {
 	struct drm_device *dev;
 	struct drm_framebuffer *fb;
@@ -951,9 +971,11 @@ static int _sde_encoder_phys_wb_init_internal_fb(
 	mode_cmd.pixel_format = pixel_format;
 	mode_cmd.width = width;
 	mode_cmd.height = height;
+	mode_cmd.pitches[0] = pitch;
 
 	size = sde_format_get_framebuffer_size(pixel_format,
-			mode_cmd.width, mode_cmd.height, 0, 0);
+			mode_cmd.width, mode_cmd.height,
+			mode_cmd.pitches, NULL, 0);
 	if (!size) {
 		SDE_DEBUG("not creating zero size buffer\n");
 		return -EINVAL;
@@ -1314,7 +1336,7 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 
 	/* create internal buffer for disable logic */
 	if (_sde_encoder_phys_wb_init_internal_fb(wb_enc,
-				DRM_FORMAT_RGB888, 2, 1)) {
+				DRM_FORMAT_RGB888, 2, 1, 6)) {
 		SDE_ERROR("failed to init internal fb\n");
 		goto fail_wb_init;
 	}

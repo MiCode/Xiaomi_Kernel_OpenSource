@@ -11,6 +11,8 @@
  */
 
 #include <dt-bindings/spmi/spmi.h>
+#include "sdm845-pmic-overlay.dtsi"
+#include "sdm845-pinctrl-overlay.dtsi"
 
 &ufsphy_mem {
 	compatible = "qcom,ufs-phy-qrbtc-sdm845";

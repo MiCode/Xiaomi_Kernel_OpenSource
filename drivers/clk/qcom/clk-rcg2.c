@@ -138,9 +138,6 @@ static int clk_rcg2_set_parent(struct clk_hw *hw, u8 index)
 	int ret;
 	u32 cfg = rcg->parent_map[index].cfg << CFG_SRC_SEL_SHIFT;
 
-	if (rcg->flags & DFS_ENABLE_RCG)
-		return 0;
-
 	ret = regmap_update_bits(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG,
 				 CFG_SRC_SEL_MASK, cfg);
 	if (ret)
@@ -350,8 +347,9 @@ static int clk_rcg2_configure(struct clk_rcg2 *rcg, const struct freq_tbl *f)
 	struct clk_hw *hw = &rcg->clkr.hw;
 	int ret, index = qcom_find_src_index(hw, rcg->parent_map, f->src);
 
+	/* Skip configuration if DFS control has been enabled for the RCG. */
 	if (rcg->flags & DFS_ENABLE_RCG)
-		return -EPERM;
+		return 0;
 
 	if (index < 0)
 		return index;
@@ -481,7 +479,7 @@ static int __clk_rcg2_set_rate(struct clk_hw *hw, unsigned long rate)
 	}
 
 	ret = clk_rcg2_configure(rcg, f);
-	if (ret && ret != -EPERM)
+	if (ret)
 		return ret;
 
 	if (rcg->flags & FORCE_ENABLE_RCG) {
@@ -934,10 +932,11 @@ const struct clk_ops clk_byte2_ops = {
 EXPORT_SYMBOL_GPL(clk_byte2_ops);
 
 static const struct frac_entry frac_table_pixel[] = {
+	{ 1, 1 },
+	{ 2, 3 },
+	{ 4, 9 },
 	{ 3, 8 },
 	{ 2, 9 },
-	{ 4, 9 },
-	{ 1, 1 },
 	{ }
 };
 
@@ -1028,6 +1027,7 @@ static int clk_dp_set_rate(struct clk_hw *hw, unsigned long rate,
 			unsigned long parent_rate)
 {
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+	struct clk_hw *parent = clk_hw_get_parent(hw);
 	struct freq_tbl f = { 0 };
 	unsigned long src_rate;
 	unsigned long num, den;
@@ -1035,7 +1035,12 @@ static int clk_dp_set_rate(struct clk_hw *hw, unsigned long rate,
 	u32 hid_div, cfg;
 	int i, num_parents = clk_hw_get_num_parents(hw);
 
-	src_rate = clk_get_rate(clk_hw_get_parent(hw)->clk);
+	if (!parent) {
+		pr_err("RCG parent isn't initialized\n");
+		return -EINVAL;
+	}
+
+	src_rate = clk_get_rate(parent->clk);
 	if (src_rate <= 0) {
 		pr_err("Invalid RCG parent rate\n");
 		return -EINVAL;
@@ -1196,12 +1201,14 @@ static u8 clk_parent_index_pre_div_and_mode(struct clk_hw *hw, u32 offset,
 		u32 *mode, u32 *pre_div)
 {
 	struct clk_rcg2 *rcg;
-	int num_parents = clk_hw_get_num_parents(hw);
+	int num_parents;
 	u32 cfg, mask;
 	int i, ret;
 
 	if (!hw)
 		return -EINVAL;
+
+	num_parents = clk_hw_get_num_parents(hw);
 
 	rcg = to_clk_rcg2(hw);
 
@@ -1348,7 +1355,9 @@ done:
 		"RCG flags %x\n", i, dfs_freq_tbl[i].freq, dfs_freq_tbl[i].src,
 				dfs_freq_tbl[i].pre_div, dfs_freq_tbl[i].m,
 				dfs_freq_tbl[i].n, rcg_flags);
-
+	/* Skip the safe configuration if DFS has been enabled for the RCG. */
+	if (clk->enable_safe_config)
+		clk->enable_safe_config = false;
 	clk->flags |= rcg_flags;
 	clk->freq_tbl = dfs_freq_tbl;
 err:

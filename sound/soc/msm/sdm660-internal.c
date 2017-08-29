@@ -1314,6 +1314,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	msm_dig_codec_info_create_codec_entry(codec_root, dig_cdc);
 	msm_anlg_codec_info_create_codec_entry(codec_root, ana_cdc);
 done:
+	msm_set_codec_reg_done(true);
 	return 0;
 }
 
@@ -1914,13 +1915,14 @@ static struct snd_soc_dai_link msm_int_dai[] = {
 		.id = MSM_FRONTEND_DAI_MULTIMEDIA7,
 	},
 	{/* hw:x,16 */
-		.name = MSM_DAILINK_NAME(Compress3),
-		.stream_name = "Compress3",
+		.name = MSM_DAILINK_NAME(MultiMedia10),
+		.stream_name = "MultiMedia10",
 		.cpu_dai_name	= "MultiMedia10",
-		.platform_name  = "msm-compress-dsp",
+		.platform_name  = "msm-pcm-dsp.1",
 		.dynamic = 1,
 		.dpcm_capture = 1,
 		.dpcm_playback = 1,
+		.dpcm_capture = 1,
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
 			 SND_SOC_DPCM_TRIGGER_POST},
 		.codec_dai_name = "snd-soc-dummy-dai",

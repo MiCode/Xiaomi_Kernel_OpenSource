@@ -129,6 +129,10 @@ struct msm_pinctrl_soc_data {
 	unsigned ngpios;
 	const struct msm_dir_conn *dir_conn;
 	unsigned int n_dir_conns;
+	const u32 *tile_offsets;
+	unsigned int n_tile_offsets;
+	u32 *pin_base;
+	unsigned int reg_size;
 };
 
 int msm_pinctrl_probe(struct platform_device *pdev,

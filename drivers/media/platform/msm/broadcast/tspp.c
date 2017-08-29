@@ -24,6 +24,7 @@
 #include <linux/uaccess.h>       /* copy_to_user */
 #include <linux/slab.h>          /* kfree, kzalloc */
 #include <linux/ioport.h>        /* XXX_ mem_region */
+#include <asm/dma-iommu.h>
 #include <linux/dma-mapping.h>   /* dma_XXX */
 #include <linux/dmapool.h>       /* DMA pools */
 #include <linux/delay.h>         /* msleep */
@@ -46,6 +47,7 @@
 #include <linux/msm-bus.h>
 #include <linux/interrupt.h>	/* tasklet */
 #include <asm/arch_timer.h> /* Timer */
+#include <linux/dma-buf.h>
 
 /*
  * General defines
@@ -59,6 +61,10 @@
 #define TSPP_NUM_KEYS                  8
 #define INVALID_CHANNEL                0xFFFFFFFF
 #define TSPP_BAM_DEFAULT_IPC_LOGLVL    2
+
+#define TSPP_SMMU_IOVA_START	(0x10000000)
+#define TSPP_SMMU_IOVA_SIZE	(0x40000000)
+
 /*
  * BAM descriptor FIFO size (in number of descriptors).
  * Max number of descriptors allowed by SPS which is 8K-1.
@@ -489,6 +495,7 @@ struct tspp_device {
 	struct mutex mutex;
 	struct tspp_pinctrl pinctrl;
 	unsigned int tts_source; /* Time stamp source type LPASS timer/TCR */
+	struct dma_iommu_mapping *iommu_mapping;
 
 	struct dentry *dent;
 	struct dentry *debugfs_regs[ARRAY_SIZE(debugfs_tspp_regs)];
@@ -1058,6 +1065,35 @@ static void tspp_free_key_entry(int entry)
 	tspp_key_entry &= ~(1 << entry);
 }
 
+static int tspp_iommu_init(struct tspp_device *device)
+{
+	struct dma_iommu_mapping *iommu_map;
+
+	iommu_map = arm_iommu_create_mapping(&platform_bus_type,
+						TSPP_SMMU_IOVA_START,
+						TSPP_SMMU_IOVA_SIZE);
+	if (IS_ERR(iommu_map)) {
+		dev_err(&device->pdev->dev, "iommu_create_mapping failure\n");
+		return PTR_ERR(iommu_map);
+	}
+	if (arm_iommu_attach_device(&device->pdev->dev, iommu_map)) {
+		dev_err(&device->pdev->dev, "can't arm_iommu_attach_device\n");
+		arm_iommu_release_mapping(iommu_map);
+		return -EIO;
+	}
+
+	device->iommu_mapping = iommu_map;
+	return 0;
+}
+
+static void tspp_iommu_release_iomapping(struct tspp_device *device)
+{
+	if (device->iommu_mapping)
+		arm_iommu_release_mapping(device->iommu_mapping);
+
+	device->iommu_mapping = NULL;
+}
+
 static int tspp_alloc_buffer(u32 channel_id, struct tspp_data_descriptor *desc,
 	u32 size, struct dma_pool *dma_pool, tspp_allocator *alloc, void *user)
 {
@@ -1070,7 +1106,7 @@ static int tspp_alloc_buffer(u32 channel_id, struct tspp_data_descriptor *desc,
 	if (alloc) {
 		TSPP_DEBUG("tspp using alloc function");
 		desc->virt_base = alloc(channel_id, size,
-			&desc->phys_base, user);
+			&desc->phys_base, &desc->dma_base, user);
 	} else {
 		if (!dma_pool)
 			desc->virt_base = dma_alloc_coherent(NULL, size,
@@ -2562,7 +2598,8 @@ int tspp_allocate_buffers(u32 dev, u32 channel_id, u32 count, u32 size,
 		desc->next = channel->data;
 
 		/* prepare the sps descriptor */
-		desc->sps.phys_base = desc->desc.phys_base;
+		desc->sps.phys_base = ((alloc != NULL) ? desc->desc.dma_base :
+				       desc->desc.phys_base);
 		desc->sps.base = desc->desc.virt_base;
 		desc->sps.size = desc->desc.size;
 
@@ -2599,6 +2636,121 @@ int tspp_allocate_buffers(u32 dev, u32 channel_id, u32 count, u32 size,
 	return 0;
 }
 EXPORT_SYMBOL(tspp_allocate_buffers);
+
+/**
+ * tspp_attach_ion_dma_buff- attach ion dma buffer to TSPP device
+ * It will attach the DMA buffer to TSPP device to go through SMMU.
+ *
+ * @dev: TSPP device (up to TSPP_MAX_DEVICES)
+ * @ion_dma_buf: It contains required members for ION buffer dma mapping.
+ *
+ * Return  error status
+ *
+ */
+int tspp_attach_ion_dma_buff(u32 dev, struct tspp_ion_dma_buf_info *ion_dma_buf)
+{
+	struct tspp_device *pdev;
+	int dir = DMA_FROM_DEVICE;
+	int ret = -1;
+
+	if (NULL == ion_dma_buf || NULL == ion_dma_buf->dbuf) {
+		pr_err("tspp: invalid input argument");
+		return -EINVAL;
+	}
+
+	if (dev >= TSPP_MAX_DEVICES) {
+		pr_err("tspp: device id out of range");
+		return -ENODEV;
+	}
+
+	pdev = tspp_find_by_id(dev);
+	if (!pdev) {
+		pr_err("tspp: can't find device %i", dev);
+		return -ENODEV;
+	}
+
+	ion_dma_buf->attach = dma_buf_attach(ion_dma_buf->dbuf,
+					&pdev->pdev->dev);
+	if (IS_ERR_OR_NULL(ion_dma_buf->attach)) {
+		dev_err(&pdev->pdev->dev, "%s: dma_buf_attach fail", __func__);
+		return -ENODEV;
+	}
+	ion_dma_buf->table = dma_buf_map_attachment(ion_dma_buf->attach, dir);
+	if (IS_ERR_OR_NULL(ion_dma_buf->table)) {
+		dev_err(&pdev->pdev->dev, "dma_buf_map_attachment fail");
+		dma_buf_detach(ion_dma_buf->dbuf, ion_dma_buf->attach);
+		return -ENODEV;
+	}
+	ret = dma_map_sg(&pdev->pdev->dev, ion_dma_buf->table->sgl,
+				ion_dma_buf->table->nents, dir);
+	if (ret <= 0) {
+		dev_err(&pdev->pdev->dev, "dma_map_sg failed! ret=%d\n", ret);
+		goto unmap_attachment;
+	}
+	if (ion_dma_buf->table->nents > 1) {
+		dev_err(&pdev->pdev->dev, "no of sg table entries %d > 1\n",
+			ion_dma_buf->table->nents);
+		goto unmap_attachment;
+	}
+
+	ion_dma_buf->dma_map_base = sg_dma_address(ion_dma_buf->table->sgl);
+	ion_dma_buf->smmu_map = true;
+	return 0;
+
+unmap_attachment:
+	dma_buf_unmap_attachment(ion_dma_buf->attach, ion_dma_buf->table, dir);
+	dma_buf_detach(ion_dma_buf->dbuf, ion_dma_buf->attach);
+	dma_buf_put(ion_dma_buf->dbuf);
+
+	return ret;
+}
+EXPORT_SYMBOL(tspp_attach_ion_dma_buff);
+
+/**
+ * tspp_detach_ion_dma_buff - detach the mapped ion dma buffer from TSPP device
+ * It will detach previously mapped DMA buffer from TSPP device.
+ *
+ * @dev: TSPP device (up to TSPP_MAX_DEVICES)
+ * @ion_dma_buf: It contains required members for ION buffer dma mapping.
+ *
+ * Return  error status
+ *
+ */
+int tspp_detach_ion_dma_buff(u32 dev, struct tspp_ion_dma_buf_info *ion_dma_buf)
+{
+	struct tspp_device *pdev;
+	int dir = DMA_FROM_DEVICE;
+
+	if (ion_dma_buf == NULL || ion_dma_buf->dbuf == NULL ||
+	    ion_dma_buf->table == NULL || ion_dma_buf->table->sgl == NULL ||
+	    ion_dma_buf->smmu_map == false) {
+		pr_err("tspp: invalid input argument");
+		return -EINVAL;
+	}
+
+	if (dev >= TSPP_MAX_DEVICES) {
+		pr_err("tspp: device id out of range");
+		return -ENODEV;
+	}
+
+	pdev = tspp_find_by_id(dev);
+	if (!pdev) {
+		pr_err("tspp: can't find device %i", dev);
+		return -ENODEV;
+	}
+
+
+	dma_unmap_sg(&pdev->pdev->dev, ion_dma_buf->table->sgl,
+			ion_dma_buf->table->nents, dir);
+	dma_buf_unmap_attachment(ion_dma_buf->attach, ion_dma_buf->table, dir);
+	dma_buf_detach(ion_dma_buf->dbuf, ion_dma_buf->attach);
+	dma_buf_put(ion_dma_buf->dbuf);
+
+	ion_dma_buf->smmu_map = false;
+	return 0;
+}
+EXPORT_SYMBOL(tspp_detach_ion_dma_buff);
+
 
 /*** debugfs ***/
 static int debugfs_iomem_x32_set(void *data, u64 val)
@@ -2959,6 +3111,11 @@ static int msm_tspp_probe(struct platform_device *pdev)
 		goto err_irq;
 	device->req_irqs = false;
 
+	if (tspp_iommu_init(device)) {
+		dev_err(&pdev->dev, "iommu init failed");
+		goto err_iommu;
+	}
+
 	device->tts_source = TSIF_TTS_TCR;
 	for (i = 0; i < TSPP_TSIF_INSTANCES; i++)
 		device->tsif[i].tts_source = device->tts_source;
@@ -3029,6 +3186,8 @@ err_clock:
 	tspp_debugfs_exit(device);
 	for (i = 0; i < TSPP_TSIF_INSTANCES; i++)
 		tsif_debugfs_exit(&device->tsif[i]);
+err_iommu:
+	tspp_iommu_release_iomapping(device);
 err_irq:
 	iounmap(device->bam_props.virt_addr);
 err_map_bam:
@@ -3098,6 +3257,9 @@ static int msm_tspp_remove(struct platform_device *pdev)
 
 	if (device->tsif_vreg)
 		regulator_disable(device->tsif_vreg);
+
+	tspp_iommu_release_iomapping(device);
+	arm_iommu_detach_device(&pdev->dev);
 
 	pm_runtime_disable(&pdev->dev);
 

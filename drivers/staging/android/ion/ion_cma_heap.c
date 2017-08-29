@@ -241,14 +241,18 @@ void ion_cma_heap_destroy(struct ion_heap *heap)
 
 static void ion_secure_cma_free(struct ion_buffer *buffer)
 {
-	int ret = 0;
+	int i, ret = 0;
 	int *source_vm_list;
 	int source_nelems;
 	int dest_vmid;
 	int dest_perms;
+	struct sg_table *sgt;
+	struct scatterlist *sg;
 	struct ion_cma_buffer_info *info = buffer->priv_virt;
 
 	source_nelems = count_set_bits(buffer->flags & ION_FLAGS_CP_MASK);
+	if (!source_nelems)
+		return;
 	source_vm_list = kcalloc(source_nelems, sizeof(*source_vm_list),
 				 GFP_KERNEL);
 	if (!source_vm_list)
@@ -262,13 +266,17 @@ static void ion_secure_cma_free(struct ion_buffer *buffer)
 	dest_vmid = VMID_HLOS;
 	dest_perms = PERM_READ | PERM_WRITE | PERM_EXEC;
 
-	ret = hyp_assign_table(info->table, source_vm_list, source_nelems,
+	sgt = info->table;
+	ret = hyp_assign_table(sgt, source_vm_list, source_nelems,
 			       &dest_vmid, &dest_perms, 1);
 	if (ret) {
 		pr_err("%s: Not freeing memory since assign failed\n",
 		       __func__);
 		goto out_free_source;
 	}
+
+	for_each_sg(sgt->sgl, sg, sgt->nents, i)
+		ClearPagePrivate(sg_page(sg));
 
 	ion_cma_free(buffer);
 out_free_source:
@@ -280,17 +288,23 @@ static int ion_secure_cma_allocate(
 			struct ion_buffer *buffer, unsigned long len,
 			unsigned long align, unsigned long flags)
 {
-	int ret = 0;
+	int i, ret = 0;
 	int count;
 	int source_vm;
 	int *dest_vm_list = NULL;
 	int *dest_perms = NULL;
 	int dest_nelems;
 	struct ion_cma_buffer_info *info;
+	struct sg_table *sgt;
+	struct scatterlist *sg;
 
 	source_vm = VMID_HLOS;
 
 	dest_nelems = count_set_bits(flags & ION_FLAGS_CP_MASK);
+	if (!dest_nelems) {
+		ret = -EINVAL;
+		goto out;
+	}
 	dest_vm_list = kcalloc(dest_nelems, sizeof(*dest_vm_list), GFP_KERNEL);
 	if (!dest_vm_list) {
 		ret = -ENOMEM;
@@ -321,12 +335,17 @@ static int ion_secure_cma_allocate(
 	}
 
 	info = buffer->priv_virt;
-	ret = hyp_assign_table(info->table, &source_vm, 1,
-			dest_vm_list, dest_perms, dest_nelems);
+	sgt = info->table;
+	ret = hyp_assign_table(sgt, &source_vm, 1, dest_vm_list, dest_perms,
+			       dest_nelems);
 	if (ret) {
 		pr_err("%s: Assign call failed\n", __func__);
 		goto err;
 	}
+
+	/* Set the private bit to indicate that we've secured this */
+	for_each_sg(sgt->sgl, sg, sgt->nents, i)
+		SetPagePrivate(sg_page(sg));
 
 	kfree(dest_vm_list);
 	kfree(dest_perms);

@@ -179,7 +179,7 @@ TRACE_EVENT(sde_evtlog,
 			memset(&__entry->data[cnt], 0,
 				(SDE_TRACE_EVTLOG_SIZE - cnt) * sizeof(u32));
 	),
-	TP_printk("%d|%s:%d|%u|%u|%u|%u|%u|%u|%u|%u|%u|%u|%u|%u|%u|%u|%u",
+	TP_printk("%d|%s:%d|%x|%x|%x|%x|%x|%x|%x|%x|%x|%x|%x|%x|%x|%x|%x",
 			__entry->pid, __get_str(evtlog_tag),
 			__entry->tag_id,
 			__entry->data[0], __entry->data[1],

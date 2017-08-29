@@ -769,13 +769,14 @@ TRACE_EVENT(memlat_dev_update,
 
 TRACE_EVENT(sugov_util_update,
 	    TP_PROTO(int cpu,
-		     unsigned long util, unsigned long max_cap,
-		     unsigned long nl, unsigned long pl,
+		     unsigned long util, unsigned long avg_cap,
+		     unsigned long max_cap, unsigned long nl, unsigned long pl,
 		     unsigned int flags),
-	    TP_ARGS(cpu, util, max_cap, nl, pl, flags),
+	    TP_ARGS(cpu, util, avg_cap, max_cap, nl, pl, flags),
 	    TP_STRUCT__entry(
 		    __field(	int,		cpu)
 		    __field(	unsigned long,	util)
+		    __field(	unsigned long,	avg_cap)
 		    __field(	unsigned long,	max_cap)
 		    __field(	unsigned long,	nl)
 		    __field(	unsigned long,	pl)
@@ -784,14 +785,16 @@ TRACE_EVENT(sugov_util_update,
 	    TP_fast_assign(
 		    __entry->cpu = cpu;
 		    __entry->util = util;
+		    __entry->avg_cap = avg_cap;
 		    __entry->max_cap = max_cap;
 		    __entry->nl = nl;
 		    __entry->pl = pl;
 		    __entry->flags = flags;
 	    ),
-	    TP_printk("cpu=%d util=%lu max_cap=%lu nl=%lu pl=%lu flags=%x",
-		      __entry->cpu, __entry->util, __entry->max_cap,
-		      __entry->nl, __entry->pl, __entry->flags)
+	    TP_printk("cpu=%d util=%lu avg_cap=%lu max_cap=%lu nl=%lu pl=%lu flags=0x%x",
+		      __entry->cpu, __entry->util, __entry->avg_cap,
+		      __entry->max_cap, __entry->nl,
+		      __entry->pl, __entry->flags)
 );
 
 DECLARE_EVENT_CLASS(kpm_module,

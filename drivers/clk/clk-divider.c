@@ -283,9 +283,13 @@ static int clk_divider_bestdiv(struct clk_hw *hw, unsigned long rate,
 			       const struct clk_div_table *table, u8 width,
 			       unsigned long flags)
 {
+	struct clk_hw *parent = clk_hw_get_parent(hw);
 	int i, bestdiv = 0;
 	unsigned long parent_rate, best = 0, now, maxdiv;
 	unsigned long parent_rate_saved = *best_parent_rate;
+
+	if (!parent)
+		return -EINVAL;
 
 	if (!rate)
 		rate = 1;
@@ -317,8 +321,7 @@ static int clk_divider_bestdiv(struct clk_hw *hw, unsigned long rate,
 			*best_parent_rate = parent_rate_saved;
 			return i;
 		}
-		parent_rate = clk_hw_round_rate(clk_hw_get_parent(hw),
-					       rate * i);
+		parent_rate = clk_hw_round_rate(parent, rate * i);
 		now = DIV_ROUND_UP_ULL((u64)parent_rate, i);
 		if (_is_best_div(rate, now, best, flags)) {
 			bestdiv = i;
@@ -329,7 +332,7 @@ static int clk_divider_bestdiv(struct clk_hw *hw, unsigned long rate,
 
 	if (!bestdiv) {
 		bestdiv = _get_maxdiv(table, width, flags);
-		*best_parent_rate = clk_hw_round_rate(clk_hw_get_parent(hw), 1);
+		*best_parent_rate = clk_hw_round_rate(parent, 1);
 	}
 
 	return bestdiv;

@@ -675,6 +675,26 @@ struct dsi_ctrl_hw_ops {
 	ssize_t (*reg_dump_to_buffer)(struct dsi_ctrl_hw *ctrl,
 				      char *buf,
 				      u32 size);
+
+	/**
+	 * setup_misr() - Setup frame MISR
+	 * @ctrl:         Pointer to the controller host hardware.
+	 * @panel_mode:   CMD or VIDEO mode indicator
+	 * @enable:       Enable/disable MISR.
+	 * @frame_count:  Number of frames to accumulate MISR.
+	 */
+	void (*setup_misr)(struct dsi_ctrl_hw *ctrl,
+			   enum dsi_op_mode panel_mode,
+			   bool enable, u32 frame_count);
+
+	/**
+	 * collect_misr() - Read frame MISR
+	 * @ctrl:         Pointer to the controller host hardware.
+	 * @panel_mode:   CMD or VIDEO mode indicator
+	 */
+	u32 (*collect_misr)(struct dsi_ctrl_hw *ctrl,
+			    enum dsi_op_mode panel_mode);
+
 };
 
 /*
@@ -691,6 +711,8 @@ struct dsi_ctrl_hw_ops {
  *                          controller.
  * @supported_interrupts:   Number of supported interrupts.
  * @supported_errors:       Number of supported errors.
+ * @phy_isolation_enabled:    A boolean property allows to isolate the phy from
+ *                          dsi controller and run only dsi controller.
  */
 struct dsi_ctrl_hw {
 	void __iomem *base;
@@ -708,6 +730,8 @@ struct dsi_ctrl_hw {
 	/* capabilities */
 	u32 supported_interrupts;
 	u64 supported_errors;
+
+	bool phy_isolation_enabled;
 };
 
 #endif /* _DSI_CTRL_HW_H_ */

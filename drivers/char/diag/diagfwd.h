@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,9 +19,11 @@
  */
 #define SET_BUF_CTXT(p, d, n) \
 	(((p & 0xFF) << 16) | ((d & 0xFF) << 8) | (n & 0xFF))
+#define SET_PD_CTXT(u)		((u & 0xFF) << 24)
 #define GET_BUF_PERIPHERAL(p)	((p & 0xFF0000) >> 16)
 #define GET_BUF_TYPE(d)		((d & 0x00FF00) >> 8)
 #define GET_BUF_NUM(n)		((n & 0x0000FF))
+#define GET_PD_CTXT(u)		((u & 0xFF000000) >> 24)
 
 #define CHK_OVERFLOW(bufStart, start, end, length) \
 	((((bufStart) <= (start)) && ((end) - (start) >= (length))) ? 1 : 0)

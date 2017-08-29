@@ -56,6 +56,7 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst,
 					bool check_for_reuse);
 int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst);
 int msm_comm_release_recon_buffers(struct msm_vidc_inst *inst);
+void msm_comm_release_eos_buffers(struct msm_vidc_inst *inst);
 int msm_comm_release_output_buffers(struct msm_vidc_inst *inst,
 	bool force_release);
 void msm_comm_validate_output_buffers(struct msm_vidc_inst *inst);
@@ -84,6 +85,8 @@ enum hal_domain get_hal_domain(int session_type);
 int msm_comm_check_core_init(struct msm_vidc_core *core);
 int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
 			enum load_calc_quirks quirks);
+int msm_comm_get_inst_load_per_core(struct msm_vidc_inst *inst,
+			enum load_calc_quirks quirks);
 int msm_comm_get_load(struct msm_vidc_core *core,
 			enum session_type type, enum load_calc_quirks quirks);
 int msm_comm_set_color_format(struct msm_vidc_inst *inst,
@@ -101,6 +104,8 @@ bool msm_comm_turbo_session(struct msm_vidc_inst *inst);
 void msm_comm_print_inst_info(struct msm_vidc_inst *inst);
 int msm_comm_v4l2_to_hal(int id, int value);
 int msm_comm_hal_to_v4l2(int id, int value);
+int msm_comm_get_v4l2_profile(int fourcc, int profile);
+int msm_comm_get_v4l2_level(int fourcc, int level);
 int msm_comm_session_continue(void *instance);
 enum hal_uncompressed_format msm_comm_get_hal_uncompressed(int fourcc);
 u32 get_frame_size_nv12(int plane, u32 height, u32 width);

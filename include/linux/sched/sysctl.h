@@ -24,13 +24,9 @@ extern unsigned int sysctl_sched_initial_task_util;
 extern unsigned int sysctl_sched_cstate_aware;
 extern unsigned int sysctl_sched_capacity_margin;
 extern unsigned int sysctl_sched_capacity_margin_down;
-#ifdef CONFIG_SCHED_WALT
-extern unsigned int sysctl_sched_use_walt_cpu_util;
-extern unsigned int sysctl_sched_use_walt_task_util;
-extern unsigned int sysctl_sched_init_task_load_pct;
-#endif
 
 #ifdef CONFIG_SCHED_WALT
+extern unsigned int sysctl_sched_init_task_load_pct;
 extern unsigned int sysctl_sched_cpu_high_irqload;
 extern unsigned int sysctl_sched_use_walt_cpu_util;
 extern unsigned int sysctl_sched_use_walt_task_util;
@@ -70,9 +66,6 @@ int sched_proc_update_handler(struct ctl_table *table, int write,
 #endif
 
 extern int sched_migrate_notify_proc_handler(struct ctl_table *table,
-		int write, void __user *buffer, size_t *lenp, loff_t *ppos);
-
-extern int sched_hmp_proc_update_handler(struct ctl_table *table,
 		int write, void __user *buffer, size_t *lenp, loff_t *ppos);
 
 extern int sched_boost_handler(struct ctl_table *table, int write,

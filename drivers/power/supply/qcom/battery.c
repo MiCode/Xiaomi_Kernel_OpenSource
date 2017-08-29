@@ -1082,6 +1082,8 @@ int qcom_batt_init(void)
 		goto unreg_notifier;
 	}
 
+	chip->taper_pct = 100;
+
 	the_chip = chip;
 
 	return 0;

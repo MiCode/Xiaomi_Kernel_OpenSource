@@ -1,0 +1,45 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&slim_aud {
+	tavil_codec {
+		swr_master {
+			compatible = "qcom,swr-wcd";
+			#address-cells = <2>;
+			#size-cells = <0>;
+
+			wsa881x_0211: wsa881x@20170211 {
+				compatible = "qcom,wsa881x";
+				reg = <0x0 0x20170211>;
+				qcom,spkr-sd-n-node = <&wsa_spkr_wcd_sd1>;
+			};
+
+			wsa881x_0212: wsa881x@20170212 {
+				compatible = "qcom,wsa881x";
+				reg = <0x0 0x20170212>;
+				qcom,spkr-sd-n-node = <&wsa_spkr_wcd_sd2>;
+			};
+
+			wsa881x_0213: wsa881x@21170213 {
+				compatible = "qcom,wsa881x";
+				reg = <0x0 0x21170213>;
+				qcom,spkr-sd-n-node = <&wsa_spkr_wcd_sd1>;
+			};
+
+			wsa881x_0214: wsa881x@21170214 {
+				compatible = "qcom,wsa881x";
+				reg = <0x0 0x21170214>;
+				qcom,spkr-sd-n-node = <&wsa_spkr_wcd_sd2>;
+			};
+		};
+	};
+};

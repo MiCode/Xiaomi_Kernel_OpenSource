@@ -85,7 +85,12 @@ enum kgsl_event_results {
 	{ KGSL_CONTEXT_NO_FAULT_TOLERANCE, "NO_FT" }, \
 	{ KGSL_CONTEXT_INVALIDATE_ON_FAULT, "INVALIDATE_ON_FAULT" }, \
 	{ KGSL_CONTEXT_PWR_CONSTRAINT, "PWR" }, \
-	{ KGSL_CONTEXT_SAVE_GMEM, "SAVE_GMEM" }
+	{ KGSL_CONTEXT_SAVE_GMEM, "SAVE_GMEM" }, \
+	{ KGSL_CONTEXT_IFH_NOP, "IFH_NOP" }, \
+	{ KGSL_CONTEXT_SECURE, "SECURE" }, \
+	{ KGSL_CONTEXT_NO_SNAPSHOT, "NO_SNAPSHOT" }, \
+	{ KGSL_CONTEXT_SPARSE, "SPARSE" }
+
 
 #define KGSL_CONTEXT_TYPES \
 	{ KGSL_CONTEXT_TYPE_ANY, "ANY" }, \
@@ -268,6 +273,11 @@ struct kgsl_device {
 	struct timer_list idle_timer;
 	struct kgsl_pwrctrl pwrctrl;
 	int open_count;
+
+	/* For GPU inline submission */
+	uint32_t submit_now;
+	spinlock_t submit_lock;
+	bool slumber;
 
 	struct mutex mutex;
 	uint32_t state;
@@ -664,8 +674,13 @@ static inline struct kgsl_device *kgsl_device_from_dev(struct device *dev)
 
 static inline int kgsl_state_is_awake(struct kgsl_device *device)
 {
+	struct gmu_device *gmu = &device->gmu;
+
 	if (device->state == KGSL_STATE_ACTIVE ||
 		device->state == KGSL_STATE_AWARE)
+		return true;
+	else if (kgsl_gmu_isenabled(device) &&
+			test_bit(GMU_CLK_ON, &gmu->flags))
 		return true;
 	else
 		return false;

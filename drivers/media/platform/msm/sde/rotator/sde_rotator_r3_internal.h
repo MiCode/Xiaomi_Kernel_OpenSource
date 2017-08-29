@@ -259,10 +259,10 @@ struct sde_hw_rotator_resource_info {
  * @sbuf_ctx: list of active sbuf context in FIFO order
  * @vid_trigger: video mode trigger select
  * @cmd_trigger: command mode trigger select
- * @inpixfmts: array of supported input pixel formats forucc
- * @num_inpixfmt: size of the supported input pixel format array
- * @outpixfmts: array of supported output pixel formats in fourcc
- * @num_outpixfmt: size of the supported output pixel formats array
+ * @inpixfmts: array of supported input pixel formats fourcc per mode
+ * @num_inpixfmt: size of the supported input pixel format array per mode
+ * @outpixfmts: array of supported output pixel formats in fourcc per mode
+ * @num_outpixfmt: size of the supported output pixel formats array per mode
  * @downscale_caps: capability string of scaling
  * @maxlinewidth: maximum line width supported
  */
@@ -320,10 +320,10 @@ struct sde_hw_rotator {
 
 	struct list_head sbuf_ctx[ROT_QUEUE_MAX];
 
-	u32 *inpixfmts;
-	u32 num_inpixfmt;
-	u32 *outpixfmts;
-	u32 num_outpixfmt;
+	const u32 *inpixfmts[SDE_ROTATOR_MODE_MAX];
+	u32 num_inpixfmt[SDE_ROTATOR_MODE_MAX];
+	const u32 *outpixfmts[SDE_ROTATOR_MODE_MAX];
+	u32 num_outpixfmt[SDE_ROTATOR_MODE_MAX];
 	const char *downscale_caps;
 	u32 maxlinewidth;
 };

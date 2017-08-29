@@ -845,6 +845,13 @@ static int smb138x_init_slave_hw(struct smb138x *chip)
 		}
 	}
 
+	/* configure to a fixed 700khz freq to avoid tdie errors */
+	rc = smblib_set_charge_param(chg, &chg->param.freq_buck, 700);
+	if (rc < 0) {
+		pr_err("Couldn't configure 700Khz switch freq rc=%d\n", rc);
+		return rc;
+	}
+
 	/* enable watchdog bark and bite interrupts, and disable the watchdog */
 	rc = smblib_masked_write(chg, WD_CFG_REG, WDOG_TIMER_EN_BIT
 			| WDOG_TIMER_EN_ON_PLUGIN_BIT | BITE_WDOG_INT_EN_BIT

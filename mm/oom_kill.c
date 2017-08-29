@@ -37,6 +37,7 @@
 #include <linux/ratelimit.h>
 #include <linux/kthread.h>
 #include <linux/init.h>
+#include <linux/show_mem_notifier.h>
 
 #include <asm/tlb.h>
 #include "internal.h"
@@ -416,8 +417,11 @@ static void dump_header(struct oom_control *oc, struct task_struct *p)
 	dump_stack();
 	if (oc->memcg)
 		mem_cgroup_print_oom_info(oc->memcg, p);
-	else
+	else {
 		show_mem(SHOW_MEM_FILTER_NODES);
+		show_mem_call_notifiers();
+	}
+
 	if (sysctl_oom_dump_tasks)
 		dump_tasks(oc->memcg, oc->nodemask);
 }

@@ -188,6 +188,10 @@ struct dsi_ctrl_interrupts {
  * @vaddr:		 CPU virtual address of cmd buffer.
  * @cmd_buffer_size:     Size of command buffer.
  * @debugfs_root:        Root for debugfs entries.
+ * @misr_enable:         Frame MISR enable/disable
+ * @misr_cache:          Cached Frame MISR value
+ * @phy_isolation_enabled:    A boolean property allows to isolate the phy from
+ *                          dsi controller and run only dsi controller.
  */
 struct dsi_ctrl {
 	struct platform_device *pdev;
@@ -226,6 +230,11 @@ struct dsi_ctrl {
 	/* Debug Information */
 	struct dentry *debugfs_root;
 
+	/* MISR */
+	bool misr_enable;
+	u32 misr_cache;
+
+	bool phy_isolation_enabled;
 };
 
 /**
@@ -352,6 +361,17 @@ int dsi_ctrl_phy_reset_config(struct dsi_ctrl *dsi_ctrl, bool enable);
  * Return: error code
  */
 int dsi_ctrl_soft_reset(struct dsi_ctrl *dsi_ctrl);
+
+/**
+ * dsi_ctrl_host_timing_update - reinitialize host with new timing values
+ * @dsi_ctrl:         DSI controller handle.
+ *
+ * Reinitialize DSI controller hardware with new display timing values
+ * when resolution is switched dynamically.
+ *
+ * Return: error code
+ */
+int dsi_ctrl_host_timing_update(struct dsi_ctrl *dsi_ctrl);
 
 /**
  * dsi_ctrl_host_init() - Initialize DSI host hardware.
@@ -569,6 +589,26 @@ void dsi_ctrl_enable_status_interrupt(struct dsi_ctrl *dsi_ctrl,
  */
 void dsi_ctrl_disable_status_interrupt(
 		struct dsi_ctrl *dsi_ctrl, uint32_t intr_idx);
+
+/**
+ * dsi_ctrl_setup_misr() - Setup frame MISR
+ * @dsi_ctrl:              DSI controller handle.
+ * @enable:                enable/disable MISR.
+ * @frame_count:           Number of frames to accumulate MISR.
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_setup_misr(struct dsi_ctrl *dsi_ctrl,
+			bool enable,
+			u32 frame_count);
+
+/**
+ * dsi_ctrl_collect_misr() - Read frame MISR
+ * @dsi_ctrl:              DSI controller handle.
+ *
+ * Return: MISR value.
+ */
+u32 dsi_ctrl_collect_misr(struct dsi_ctrl *dsi_ctrl);
 
 /**
  * dsi_ctrl_drv_register() - register platform driver for dsi controller

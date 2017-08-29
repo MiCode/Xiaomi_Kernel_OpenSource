@@ -33,6 +33,7 @@
 #include "ipahal/ipahal_reg.h"
 #include "ipahal/ipahal.h"
 #include "ipahal/ipahal_fltrt.h"
+#include "ipahal/ipahal_hw_stats.h"
 #include "../ipa_common_i.h"
 #include "ipa_uc_offload_i.h"
 
@@ -92,6 +93,18 @@
 #define IPAERR(fmt, args...) \
 	do { \
 		pr_err(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
+		if (ipa3_ctx) { \
+			IPA_IPC_LOGGING(ipa3_ctx->logbuf, \
+				DRV_NAME " %s:%d " fmt, ## args); \
+			IPA_IPC_LOGGING(ipa3_ctx->logbuf_low, \
+				DRV_NAME " %s:%d " fmt, ## args); \
+		} \
+	} while (0)
+
+#define IPAERR_RL(fmt, args...) \
+	do { \
+		pr_err_ratelimited(DRV_NAME " %s:%d " fmt, __func__,\
+		__LINE__, ## args);\
 		if (ipa3_ctx) { \
 			IPA_IPC_LOGGING(ipa3_ctx->logbuf, \
 				DRV_NAME " %s:%d " fmt, ## args); \
@@ -175,6 +188,7 @@ struct ipa3_active_client_htable_entry {
 };
 
 struct ipa3_active_clients_log_ctx {
+	spinlock_t lock;
 	char *log_buffer[IPA3_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES];
 	int log_head;
 	int log_tail;
@@ -238,7 +252,7 @@ struct ipa3_flt_entry {
  * @curr_mem: current routing tables block in sys memory
  * @prev_mem: previous routing table block in sys memory
  * @id: routing table id
- * @rule_ids: idr structure that holds the rule_id for each rule
+ * @rule_ids: common idr structure that holds the rule_id for each rule
  */
 struct ipa3_rt_tbl {
 	struct list_head link;
@@ -254,7 +268,7 @@ struct ipa3_rt_tbl {
 	struct ipa_mem_buffer curr_mem[IPA_RULE_TYPE_MAX];
 	struct ipa_mem_buffer prev_mem[IPA_RULE_TYPE_MAX];
 	int id;
-	struct idr rule_ids;
+	struct idr *rule_ids;
 };
 
 /**
@@ -341,7 +355,7 @@ struct ipa3_hdr_proc_ctx_entry {
 	struct list_head link;
 	u32 cookie;
 	enum ipa_hdr_proc_type type;
-	union ipa_l2tp_hdr_proc_ctx_params l2tp_params;
+	struct ipa_l2tp_hdr_proc_ctx_params l2tp_params;
 	struct ipa3_hdr_proc_ctx_offset_entry *offset_entry;
 	struct ipa3_hdr_entry *hdr;
 	u32 ref_cnt;
@@ -376,7 +390,7 @@ struct ipa3_hdr_proc_ctx_tbl {
  * @end: the last header index
  * @curr_mem: current filter tables block in sys memory
  * @prev_mem: previous filter table block in sys memory
- * @rule_ids: idr structure that holds the rule_id for each rule
+ * @rule_ids: common idr structure that holds the rule_id for each rule
  */
 struct ipa3_flt_tbl {
 	struct list_head head_flt_rule_list;
@@ -386,7 +400,7 @@ struct ipa3_flt_tbl {
 	struct ipa_mem_buffer curr_mem[IPA_RULE_TYPE_MAX];
 	struct ipa_mem_buffer prev_mem[IPA_RULE_TYPE_MAX];
 	bool sticky_rear;
-	struct idr rule_ids;
+	struct idr *rule_ids;
 };
 
 /**
@@ -420,10 +434,12 @@ struct ipa3_rt_entry {
  * struct ipa3_rt_tbl_set - collection of routing tables
  * @head_rt_tbl_list: collection of routing tables
  * @tbl_cnt: number of routing tables
+ * @rule_ids: idr structure that holds the rule_id for each rule
  */
 struct ipa3_rt_tbl_set {
 	struct list_head head_rt_tbl_list;
 	u32 tbl_cnt;
+	struct idr rule_ids;
 };
 
 /**
@@ -1022,6 +1038,56 @@ struct ipa_dma_task_info {
 	struct ipahal_imm_cmd_pyld *cmd_pyld;
 };
 
+struct ipa_quota_stats {
+	u64 num_ipv4_bytes;
+	u64 num_ipv6_bytes;
+	u32 num_ipv4_pkts;
+	u32 num_ipv6_pkts;
+};
+
+struct ipa_quota_stats_all {
+	struct ipa_quota_stats client[IPA_CLIENT_MAX];
+};
+
+struct ipa_drop_stats {
+	u32 drop_packet_cnt;
+	u32 drop_byte_cnt;
+};
+
+struct ipa_drop_stats_all {
+	struct ipa_drop_stats client[IPA_CLIENT_MAX];
+};
+
+struct ipa_hw_stats_quota {
+	struct ipahal_stats_init_quota init;
+	struct ipa_quota_stats_all stats;
+};
+
+struct ipa_hw_stats_teth {
+	struct ipahal_stats_init_tethering init;
+	struct ipa_quota_stats_all prod_stats[IPA_CLIENT_MAX];
+};
+
+struct ipa_hw_stats_flt_rt {
+	struct ipahal_stats_init_flt_rt flt_v4_init;
+	struct ipahal_stats_init_flt_rt flt_v6_init;
+	struct ipahal_stats_init_flt_rt rt_v4_init;
+	struct ipahal_stats_init_flt_rt rt_v6_init;
+};
+
+struct ipa_hw_stats_drop {
+	struct ipahal_stats_init_drop init;
+	struct ipa_drop_stats_all stats;
+};
+
+struct ipa_hw_stats {
+	bool enabled;
+	struct ipa_hw_stats_quota quota;
+	struct ipa_hw_stats_teth teth;
+	struct ipa_hw_stats_flt_rt flt_rt;
+	struct ipa_hw_stats_drop drop;
+};
+
 /**
  * struct ipa3_context - IPA context
  * @class: pointer to the struct class
@@ -1035,6 +1101,7 @@ struct ipa_dma_task_info {
  * @ep_flt_num: End-points supporting filtering number
  * @resume_on_connect: resume ep on ipa connect
  * @flt_tbl: list of all IPA filter tables
+ * @flt_rule_ids: idr structure that holds the rule_id for each rule
  * @mode: IPA operating mode
  * @mmio: iomem
  * @ipa_wrapper_base: IPA wrapper base address
@@ -1120,6 +1187,7 @@ struct ipa3_context {
 	u32 ep_flt_num;
 	bool resume_on_connect[IPA_CLIENT_MAX];
 	struct ipa3_flt_tbl flt_tbl[IPA3_MAX_NUM_PIPES][IPA_IP_MAX];
+	struct idr flt_rule_ids[IPA_IP_MAX];
 	void __iomem *mmio;
 	u32 ipa_wrapper_base;
 	u32 ipa_wrapper_size;
@@ -1234,6 +1302,7 @@ struct ipa3_context {
 	u32 ipa_tz_unlock_reg_num;
 	struct ipa_tz_unlock_reg_info *ipa_tz_unlock_reg;
 	struct ipa_dma_task_info dma_task_info;
+	struct ipa_hw_stats hw_stats;
 };
 
 struct ipa3_plat_drv_res {
@@ -1346,6 +1415,48 @@ struct ipa3_plat_drv_res {
  * +-------------------------+
  * |    CANARY               |
  * +-------------------------+
+ * | QUOTA STATS             |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * | TETH STATS              |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * | V4 FLT STATS            |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * | V6 FLT STATS            |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * | V4 RT STATS             |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * | V6 RT STATS             |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * | DROP STATS              |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
  * |  MODEM MEM              |
  * +-------------------------+
  * |    CANARY               |
@@ -1428,6 +1539,20 @@ struct ipa3_mem_partition {
 	u32 uc_event_ring_size;
 	u32 pdn_config_ofst;
 	u32 pdn_config_size;
+	u32 stats_quota_ofst;
+	u32 stats_quota_size;
+	u32 stats_tethering_ofst;
+	u32 stats_tethering_size;
+	u32 stats_flt_v4_ofst;
+	u32 stats_flt_v4_size;
+	u32 stats_flt_v6_ofst;
+	u32 stats_flt_v6_size;
+	u32 stats_rt_v4_ofst;
+	u32 stats_rt_v4_size;
+	u32 stats_rt_v6_ofst;
+	u32 stats_rt_v6_size;
+	u32 stats_drop_ofst;
+	u32 stats_drop_size;
 };
 
 struct ipa3_controller {
@@ -1875,10 +2000,6 @@ void ipa3_suspend_handler(enum ipa_irq_type interrupt,
 				void *private_data,
 				void *interrupt_data);
 
-
-int ipa_bridge_init(void);
-void ipa_bridge_cleanup(void);
-
 ssize_t ipa3_read(struct file *filp, char __user *buf, size_t count,
 		 loff_t *f_pos);
 int ipa3_pull_msg(struct ipa_msg_meta *meta, char *buff, size_t count);
@@ -1977,6 +2098,65 @@ void ipa3_tag_destroy_imm(void *user1, int user2);
 const struct ipa_gsi_ep_config *ipa3_get_gsi_ep_info
 	(enum ipa_client_type client);
 void ipa3_uc_rg10_write_reg(enum ipahal_reg_name reg, u32 n, u32 val);
+
+/* Hardware stats */
+
+#define IPA_STATS_MAX_PIPE_BIT 32
+
+struct ipa_teth_stats_endpoints {
+	u32 prod_mask;
+	u32 dst_ep_mask[IPA_STATS_MAX_PIPE_BIT];
+};
+
+struct ipa_flt_rt_stats {
+	u32 num_pkts;
+	u32 num_pkts_hash;
+};
+
+int ipa_hw_stats_init(void);
+
+int ipa_debugfs_init_stats(struct dentry *parent);
+
+int ipa_init_quota_stats(u32 pipe_bitmask);
+
+int ipa_get_quota_stats(struct ipa_quota_stats_all *out);
+
+int ipa_reset_quota_stats(enum ipa_client_type client);
+
+int ipa_reset_all_quota_stats(void);
+
+int ipa_init_drop_stats(u32 pipe_bitmask);
+
+int ipa_get_drop_stats(struct ipa_drop_stats_all *out);
+
+int ipa_reset_drop_stats(enum ipa_client_type client);
+
+int ipa_reset_all_drop_stats(void);
+
+int ipa_init_teth_stats(struct ipa_teth_stats_endpoints *in);
+
+int ipa_get_teth_stats(enum ipa_client_type prod,
+	struct ipa_quota_stats_all *out);
+
+int ipa_reset_teth_stats(enum ipa_client_type prod, enum ipa_client_type cons);
+
+int ipa_reset_all_cons_teth_stats(enum ipa_client_type prod);
+
+int ipa_reset_all_teth_stats(void);
+
+int ipa_flt_rt_stats_add_rule_id(enum ipa_ip_type ip, bool filtering,
+	u16 rule_id);
+
+int ipa_flt_rt_stats_start(enum ipa_ip_type ip, bool filtering);
+
+int ipa_flt_rt_stats_clear_rule_ids(enum ipa_ip_type ip, bool filtering);
+
+int ipa_get_flt_rt_stats(enum ipa_ip_type ip, bool filtering, u16 rule_id,
+	struct ipa_flt_rt_stats *out);
+
+int ipa_reset_flt_rt_stats(enum ipa_ip_type ip, bool filtering, u16 rule_id);
+
+int ipa_reset_all_flt_rt_stats(enum ipa_ip_type ip, bool filtering);
 
 u32 ipa3_get_num_pipes(void);
 struct ipa_smmu_cb_ctx *ipa3_get_smmu_ctx(void);

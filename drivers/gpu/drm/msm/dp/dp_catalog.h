@@ -43,7 +43,10 @@ struct dp_catalog_aux {
 	int (*write_trans)(struct dp_catalog_aux *aux);
 	void (*reset)(struct dp_catalog_aux *aux);
 	void (*enable)(struct dp_catalog_aux *aux, bool enable);
-	void (*setup)(struct dp_catalog_aux *aux, u32 *aux_cfg);
+	void (*update_aux_cfg)(struct dp_catalog_aux *aux,
+		struct dp_aux_cfg *cfg, enum dp_phy_aux_config_type type);
+	void (*setup)(struct dp_catalog_aux *aux,
+			struct dp_aux_cfg *aux_cfg);
 	void (*get_irq)(struct dp_catalog_aux *aux, bool cmd_busy);
 };
 
@@ -58,7 +61,8 @@ struct dp_catalog_ctrl {
 	void (*lane_mapping)(struct dp_catalog_ctrl *ctrl);
 	void (*mainlink_ctrl)(struct dp_catalog_ctrl *ctrl, bool enable);
 	void (*config_misc)(struct dp_catalog_ctrl *ctrl, u32 cc, u32 tb);
-	void (*config_msa)(struct dp_catalog_ctrl *ctrl, u32 rate);
+	void (*config_msa)(struct dp_catalog_ctrl *ctrl, u32 rate,
+				u32 stream_rate_khz, bool fixed_nvid);
 	void (*set_pattern)(struct dp_catalog_ctrl *ctrl, u32 pattern);
 	void (*reset)(struct dp_catalog_ctrl *ctrl);
 	bool (*mainlink_ready)(struct dp_catalog_ctrl *ctrl);
@@ -71,18 +75,37 @@ struct dp_catalog_ctrl {
 				u8 p_level);
 	void (*get_interrupt)(struct dp_catalog_ctrl *ctrl);
 	void (*update_transfer_unit)(struct dp_catalog_ctrl *ctrl);
+	u32 (*read_hdcp_status)(struct dp_catalog_ctrl *ctrl);
+};
+
+enum dp_catalog_audio_sdp_type {
+	DP_AUDIO_SDP_STREAM,
+	DP_AUDIO_SDP_TIMESTAMP,
+	DP_AUDIO_SDP_INFOFRAME,
+	DP_AUDIO_SDP_COPYMANAGEMENT,
+	DP_AUDIO_SDP_ISRC,
+	DP_AUDIO_SDP_MAX,
+};
+
+enum dp_catalog_audio_header_type {
+	DP_AUDIO_SDP_HEADER_1,
+	DP_AUDIO_SDP_HEADER_2,
+	DP_AUDIO_SDP_HEADER_3,
+	DP_AUDIO_SDP_HEADER_MAX,
 };
 
 struct dp_catalog_audio {
+	enum dp_catalog_audio_sdp_type sdp_type;
+	enum dp_catalog_audio_header_type sdp_header;
 	u32 data;
 
-	int (*acr_ctrl)(struct dp_catalog_audio *audio);
-	int (*stream_sdp)(struct dp_catalog_audio *audio);
-	int (*timestamp_sdp)(struct dp_catalog_audio *audio);
-	int (*infoframe_sdp)(struct dp_catalog_audio *audio);
-	int (*copy_mgmt_sdp)(struct dp_catalog_audio *audio);
-	int (*isrc_sdp)(struct dp_catalog_audio *audio);
-	int (*setup_sdp)(struct dp_catalog_audio *audio);
+	void (*init)(struct dp_catalog_audio *audio);
+	void (*enable)(struct dp_catalog_audio *audio);
+	void (*config_acr)(struct dp_catalog_audio *audio);
+	void (*config_sdp)(struct dp_catalog_audio *audio);
+	void (*set_header)(struct dp_catalog_audio *audio);
+	void (*get_header)(struct dp_catalog_audio *audio);
+	void (*safe_to_exit_level)(struct dp_catalog_audio *audio);
 };
 
 struct dp_catalog_panel {

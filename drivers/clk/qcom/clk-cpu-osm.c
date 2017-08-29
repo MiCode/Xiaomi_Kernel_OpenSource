@@ -45,6 +45,7 @@
 #include "clk-debug.h"
 
 #define OSM_INIT_RATE			300000000UL
+#define XO_RATE				19200000UL
 #define OSM_TABLE_SIZE			40
 #define SINGLE_CORE			1
 #define MAX_CLUSTER_CNT			3
@@ -65,6 +66,7 @@
 #define PERFCL_EFUSE_MASK		0x7
 
 #define ENABLE_REG			0x0
+#define ENABLE_OSM			BIT(0)
 #define FREQ_REG			0x110
 #define VOLT_REG			0x114
 #define OVERRIDE_REG			0x118
@@ -111,8 +113,8 @@
 
 #define PLL_MIN_LVAL			0x21
 #define PLL_MIN_FREQ_REG		0x94
-#define PLL_POST_DIV1			0x1F
-#define PLL_POST_DIV2			0x11F
+#define PLL_POST_DIV1			0x09
+#define PLL_POST_DIV2			0x109
 #define PLL_MODE			0x0
 #define PLL_L_VAL			0x4
 #define PLL_USER_CTRL			0xc
@@ -121,6 +123,7 @@
 #define MIN_VCO_VAL			0x2b
 
 #define MAX_VC				63
+#define MEM_ACC_LEVELS_LUT		2
 #define MAX_MEM_ACC_LEVELS		3
 #define MAX_MEM_ACC_VAL_PER_LEVEL	3
 #define MAX_MEM_ACC_VALUES		(MAX_MEM_ACC_LEVELS * \
@@ -131,8 +134,8 @@
 #define ISENSE_OFF_DATA			0x0
 #define CONSTANT_32			0x20
 
-#define APM_MX_MODE			0x0
-#define APM_APC_MODE			0x2
+#define APM_MX_MODE			0x4100000
+#define APM_APC_MODE			0x4100002
 #define APM_READ_DATA_MASK		0xc
 #define APM_MX_MODE_VAL			0x4
 #define APM_APC_READ_VAL		0x8
@@ -265,6 +268,7 @@ struct clk_osm {
 	u32 speedbin;
 	u32 mem_acc_crossover_vc_addr;
 	u32 mem_acc_addr[MEM_ACC_ADDRS];
+	u32 mem_acc_level_vc[MEM_ACC_LEVELS_LUT];
 	u32 ramp_ctl_addr;
 	u32 apm_mode_ctl;
 	u32 apm_status_ctl;
@@ -450,6 +454,7 @@ static int clk_osm_acd_auto_local_write_reg(struct clk_osm *c, u32 mask)
 }
 
 static bool is_v2;
+static bool osm_tz_enabled;
 
 static inline struct clk_osm *to_clk_osm(struct clk_hw *_hw)
 {
@@ -518,6 +523,9 @@ static long clk_osm_round_rate(struct clk_hw *hw, unsigned long rate,
 	int i;
 	unsigned long rrate = 0;
 
+	if (!hw)
+		return -EINVAL;
+
 	/*
 	 * If the rate passed in is 0, return the first frequency in the
 	 * FMAX table.
@@ -541,23 +549,12 @@ static long clk_osm_round_rate(struct clk_hw *hw, unsigned long rate,
 
 static int clk_osm_search_table(struct osm_entry *table, int entries, long rate)
 {
-	int quad_core_index, single_core_index = 0;
-	int core_count;
+	int index = 0;
 
-	for (quad_core_index = 0; quad_core_index < entries;
-						quad_core_index++) {
-		core_count = CORE_COUNT_VAL(table[quad_core_index].freq_data);
-		if (rate == table[quad_core_index].frequency &&
-					core_count == SINGLE_CORE) {
-			single_core_index = quad_core_index;
-			continue;
-		}
-		if (rate == table[quad_core_index].frequency &&
-					core_count == MAX_CORE_COUNT)
-			return quad_core_index;
+	for (index = 0; index < entries; index++) {
+		if (rate == table[index].frequency)
+			return index;
 	}
-	if (single_core_index)
-		return single_core_index;
 
 	return -EINVAL;
 }
@@ -639,7 +636,7 @@ static unsigned long l3_clk_recalc_rate(struct clk_hw *hw,
 }
 
 
-const struct clk_ops clk_ops_l3_osm = {
+static struct clk_ops clk_ops_l3_osm = {
 	.enable = clk_osm_enable,
 	.round_rate = clk_osm_round_rate,
 	.list_rate = clk_osm_list_rate,
@@ -1051,21 +1048,6 @@ static inline int clk_osm_count_ns(struct clk_osm *c, u64 nsec)
 
 static void clk_osm_program_mem_acc_regs(struct clk_osm *c)
 {
-	int curr_level, i, j = 0;
-	int mem_acc_level_map[MAX_MEM_ACC_LEVELS] = {MAX_VC, MAX_VC, MAX_VC};
-
-	curr_level = c->osm_table[0].mem_acc_level;
-	for (i = 0; i < c->num_entries; i++) {
-		if (curr_level == MAX_MEM_ACC_LEVELS)
-			break;
-
-		if (c->osm_table[i].mem_acc_level != curr_level) {
-			mem_acc_level_map[j++] =
-				c->osm_table[i].virtual_corner;
-			curr_level = c->osm_table[i].mem_acc_level;
-		}
-	}
-
 	if (c->secure_init) {
 		clk_osm_write_seq_reg(c,
 				c->pbases[OSM_BASE] + MEMACC_CROSSOVER_VC,
@@ -1075,13 +1057,8 @@ static void clk_osm_program_mem_acc_regs(struct clk_osm *c)
 		clk_osm_write_seq_reg(c, c->mem_acc_addr[2], DATA_MEM(50));
 		clk_osm_write_seq_reg(c, c->mem_acc_crossover_vc,
 							DATA_MEM(78));
-		clk_osm_write_seq_reg(c, mem_acc_level_map[0], DATA_MEM(79));
-		if (c == &perfcl_clk)
-			clk_osm_write_seq_reg(c, c->mem_acc_threshold_vc,
-								DATA_MEM(80));
-		else
-			clk_osm_write_seq_reg(c, mem_acc_level_map[1],
-								DATA_MEM(80));
+		clk_osm_write_seq_reg(c, c->mem_acc_level_vc[0], DATA_MEM(79));
+		clk_osm_write_seq_reg(c, c->mem_acc_level_vc[1], DATA_MEM(80));
 		/*
 		 * Note that DATA_MEM[81] -> DATA_MEM[89] values will be
 		 * confirmed post-si. Use a value of 1 for DATA_MEM[89] and
@@ -1092,13 +1069,9 @@ static void clk_osm_program_mem_acc_regs(struct clk_osm *c)
 		scm_io_write(c->pbases[SEQ_BASE] + DATA_MEM(78),
 						c->mem_acc_crossover_vc);
 		scm_io_write(c->pbases[SEQ_BASE] + DATA_MEM(79),
-						mem_acc_level_map[0]);
-		if (c == &perfcl_clk)
-			scm_io_write(c->pbases[SEQ_BASE] + DATA_MEM(80),
-						c->mem_acc_threshold_vc);
-		else
-			scm_io_write(c->pbases[SEQ_BASE] + DATA_MEM(80),
-						mem_acc_level_map[1]);
+						c->mem_acc_level_vc[0]);
+		scm_io_write(c->pbases[SEQ_BASE] + DATA_MEM(80),
+						c->mem_acc_level_vc[1]);
 	}
 }
 
@@ -1675,7 +1648,8 @@ static void clk_osm_misc_programming(struct clk_osm *c)
 
 	/* Program LVAL corresponding to first turbo VC */
 	for (i = 0; i < c->num_entries; i++) {
-		if (c->osm_table[i].mem_acc_level == MAX_MEM_ACC_LEVELS) {
+		if (c->osm_table[i].virtual_corner ==
+					c->mem_acc_level_vc[1]) {
 			lval = c->osm_table[i].freq_data & GENMASK(7, 0);
 			break;
 		}
@@ -1882,6 +1856,7 @@ static u64 clk_osm_get_cpu_cycle_counter(int cpu)
 	u32 val;
 	int core_num;
 	unsigned long flags;
+	u64 cycle_counter_ret;
 	struct clk_osm *parent, *c = logical_cpu_to_clk(cpu);
 
 	if (IS_ERR_OR_NULL(c)) {
@@ -1909,9 +1884,10 @@ static u64 clk_osm_get_cpu_cycle_counter(int cpu)
 		c->total_cycle_counter += val - c->prev_cycle_counter;
 		c->prev_cycle_counter = val;
 	}
+	cycle_counter_ret = c->total_cycle_counter;
 	spin_unlock_irqrestore(&parent->lock, flags);
 
-	return c->total_cycle_counter;
+	return cycle_counter_ret;
 }
 
 static void clk_osm_setup_cycle_counters(struct clk_osm *c)
@@ -2104,6 +2080,49 @@ exit:
 	return rc;
 }
 
+static int clk_osm_read_lut(struct platform_device *pdev, struct clk_osm *c)
+{
+	u32 data, src, lval, i, j = OSM_TABLE_SIZE;
+
+	for (i = 0; i < OSM_TABLE_SIZE; i++) {
+		data = clk_osm_read_reg(c, FREQ_REG + i * OSM_REG_SIZE);
+		src = ((data & GENMASK(31, 30)) >> 30);
+		lval = (data & GENMASK(7, 0));
+
+		if (!src)
+			c->osm_table[i].frequency = OSM_INIT_RATE;
+		else
+			c->osm_table[i].frequency = XO_RATE * lval;
+
+		data = clk_osm_read_reg(c, VOLT_REG + i * OSM_REG_SIZE);
+		c->osm_table[i].virtual_corner =
+					((data & GENMASK(21, 16)) >> 16);
+		c->osm_table[i].open_loop_volt = (data & GENMASK(11, 0));
+
+		pr_debug("index=%d freq=%ld virtual_corner=%d open_loop_voltage=%u\n",
+			 i, c->osm_table[i].frequency,
+			 c->osm_table[i].virtual_corner,
+			 c->osm_table[i].open_loop_volt);
+
+		if (i > 0 && j == OSM_TABLE_SIZE && c->osm_table[i].frequency ==
+					c->osm_table[i - 1].frequency)
+			j = i;
+	}
+
+	osm_clks_init[c->cluster_num].rate_max = devm_kcalloc(&pdev->dev,
+						 j, sizeof(unsigned long),
+						       GFP_KERNEL);
+	if (!osm_clks_init[c->cluster_num].rate_max)
+		return -ENOMEM;
+
+	for (i = 0; i < j; i++)
+		osm_clks_init[c->cluster_num].rate_max[i] =
+					c->osm_table[i].frequency;
+
+	c->num_entries = osm_clks_init[c->cluster_num].num_rate_max = j;
+	return 0;
+}
+
 static int clk_osm_parse_acd_dt_configs(struct platform_device *pdev)
 {
 	struct device_node *of = pdev->dev.of_node;
@@ -2251,6 +2270,7 @@ static int clk_osm_parse_dt_configs(struct platform_device *pdev)
 {
 	struct device_node *of = pdev->dev.of_node;
 	u32 *array;
+	char memacc_str[40];
 	int rc = 0;
 	struct resource *res;
 
@@ -2470,6 +2490,36 @@ static int clk_osm_parse_dt_configs(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	snprintf(memacc_str, ARRAY_SIZE(memacc_str),
+			"qcom,l3-memacc-level-vc-bin%d", l3_clk.speedbin);
+	rc = of_property_read_u32_array(of, memacc_str, l3_clk.mem_acc_level_vc,
+			MEM_ACC_LEVELS_LUT);
+	if (rc) {
+		dev_err(&pdev->dev, "unable to find %s property, rc=%d\n",
+						memacc_str, rc);
+		return rc;
+	}
+
+	snprintf(memacc_str, ARRAY_SIZE(memacc_str),
+			"qcom,pwrcl-memacc-level-vc-bin%d", pwrcl_clk.speedbin);
+	rc = of_property_read_u32_array(of, memacc_str,
+			pwrcl_clk.mem_acc_level_vc, MEM_ACC_LEVELS_LUT);
+	if (rc) {
+		dev_err(&pdev->dev, "unable to find %s property, rc=%d\n",
+			memacc_str, rc);
+		return rc;
+	}
+
+	snprintf(memacc_str, ARRAY_SIZE(memacc_str),
+		"qcom,perfcl-memacc-level-vc-bin%d", pwrcl_clk.speedbin);
+	rc = of_property_read_u32_array(of, memacc_str,
+			perfcl_clk.mem_acc_level_vc, MEM_ACC_LEVELS_LUT);
+	if (rc) {
+		dev_err(&pdev->dev, "unable to find %s property, rc=%d\n",
+			memacc_str, rc);
+		return rc;
+	}
+
 	l3_clk.secure_init = perfcl_clk.secure_init = pwrcl_clk.secure_init =
 		of_property_read_bool(pdev->dev.of_node, "qcom,osm-no-tz");
 
@@ -2579,6 +2629,12 @@ static int clk_osm_resources_init(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	/* Check if OSM has been enabled already by trustzone.  */
+	if (readl_relaxed(l3_clk.vbases[OSM_BASE] + ENABLE_REG) & ENABLE_OSM) {
+		dev_info(&pdev->dev, "OSM has been initialized and enabled by TZ software\n");
+		osm_tz_enabled = true;
+	}
+
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"osm_pwrcl_base");
 	if (!res) {
@@ -2611,6 +2667,9 @@ static int clk_osm_resources_init(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Unable to map osm_perfcl_base base\n");
 		return -ENOMEM;
 	}
+
+	if (osm_tz_enabled)
+		return rc;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "l3_pll");
 	if (!res) {
@@ -3018,77 +3077,6 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 
 	clk_data->clk_num = num_clks;
 
-	if (l3_clk.vbases[EFUSE_BASE]) {
-		/* Multiple speed-bins are supported */
-		pte_efuse = readl_relaxed(l3_clk.vbases[EFUSE_BASE]);
-		l3_clk.speedbin = ((pte_efuse >> L3_EFUSE_SHIFT) &
-						    L3_EFUSE_MASK);
-		snprintf(l3speedbinstr, ARRAY_SIZE(l3speedbinstr),
-			 "qcom,l3-speedbin%d-v%d", l3_clk.speedbin, pvs_ver);
-	}
-
-	dev_info(&pdev->dev, "using L3 speed bin %u and pvs_ver %d\n",
-		 l3_clk.speedbin, pvs_ver);
-
-	rc = clk_osm_get_lut(pdev, &l3_clk, l3speedbinstr);
-	if (rc) {
-		dev_err(&pdev->dev, "Unable to get OSM LUT for L3, rc=%d\n",
-			rc);
-		return rc;
-	}
-
-	if (pwrcl_clk.vbases[EFUSE_BASE]) {
-		/* Multiple speed-bins are supported */
-		pte_efuse = readl_relaxed(pwrcl_clk.vbases[EFUSE_BASE]);
-		pwrcl_clk.speedbin = ((pte_efuse >> PWRCL_EFUSE_SHIFT) &
-						    PWRCL_EFUSE_MASK);
-		snprintf(pwrclspeedbinstr, ARRAY_SIZE(pwrclspeedbinstr),
-			 "qcom,pwrcl-speedbin%d-v%d", pwrcl_clk.speedbin,
-							pvs_ver);
-	}
-
-	dev_info(&pdev->dev, "using pwrcl speed bin %u and pvs_ver %d\n",
-		 pwrcl_clk.speedbin, pvs_ver);
-
-	rc = clk_osm_get_lut(pdev, &pwrcl_clk, pwrclspeedbinstr);
-	if (rc) {
-		dev_err(&pdev->dev, "Unable to get OSM LUT for power cluster, rc=%d\n",
-			rc);
-		return rc;
-	}
-
-	if (perfcl_clk.vbases[EFUSE_BASE]) {
-		/* Multiple speed-bins are supported */
-		pte_efuse = readl_relaxed(perfcl_clk.vbases[EFUSE_BASE]);
-		perfcl_clk.speedbin = ((pte_efuse >> PERFCL_EFUSE_SHIFT) &
-							PERFCL_EFUSE_MASK);
-		snprintf(perfclspeedbinstr, ARRAY_SIZE(perfclspeedbinstr),
-			 "qcom,perfcl-speedbin%d-v%d", perfcl_clk.speedbin,
-							pvs_ver);
-	}
-
-	dev_info(&pdev->dev, "using perfcl speed bin %u and pvs_ver %d\n",
-		 perfcl_clk.speedbin, pvs_ver);
-
-	rc = clk_osm_get_lut(pdev, &perfcl_clk, perfclspeedbinstr);
-	if (rc) {
-		dev_err(&pdev->dev, "Unable to get OSM LUT for perf cluster, rc=%d\n",
-			rc);
-		return rc;
-	}
-
-	rc = clk_osm_parse_dt_configs(pdev);
-	if (rc) {
-		dev_err(&pdev->dev, "Unable to parse OSM device tree configurations\n");
-		return rc;
-	}
-
-	rc = clk_osm_parse_acd_dt_configs(pdev);
-	if (rc) {
-		dev_err(&pdev->dev, "Unable to parse ACD device tree configurations\n");
-		return rc;
-	}
-
 	rc = clk_osm_resources_init(pdev);
 	if (rc) {
 		if (rc != -EPROBE_DEFER)
@@ -3097,170 +3085,282 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	rc = clk_osm_acd_resources_init(pdev);
-	if (rc) {
-		dev_err(&pdev->dev, "ACD resources init failed, rc=%d\n",
-			rc);
-		return rc;
-	}
+	if (!osm_tz_enabled) {
+		if (l3_clk.vbases[EFUSE_BASE]) {
+			/* Multiple speed-bins are supported */
+			pte_efuse = readl_relaxed(l3_clk.vbases[EFUSE_BASE]);
+			l3_clk.speedbin = ((pte_efuse >> L3_EFUSE_SHIFT) &
+							L3_EFUSE_MASK);
+			snprintf(l3speedbinstr, ARRAY_SIZE(l3speedbinstr),
+			 "qcom,l3-speedbin%d-v%d", l3_clk.speedbin, pvs_ver);
+		}
 
-	rc = clk_osm_resolve_open_loop_voltages(&l3_clk);
-	if (rc) {
-		if (rc == -EPROBE_DEFER)
+		dev_info(&pdev->dev, "using L3 speed bin %u and pvs_ver %d\n",
+					l3_clk.speedbin, pvs_ver);
+
+		rc = clk_osm_get_lut(pdev, &l3_clk, l3speedbinstr);
+		if (rc) {
+			dev_err(&pdev->dev, "Unable to get OSM LUT for L3, rc=%d\n",
+				rc);
 			return rc;
-		dev_err(&pdev->dev, "Unable to determine open-loop voltages for L3, rc=%d\n",
-			rc);
-		return rc;
-	}
+		}
 
-	rc = clk_osm_resolve_open_loop_voltages(&pwrcl_clk);
-	if (rc) {
-		if (rc == -EPROBE_DEFER)
+		if (pwrcl_clk.vbases[EFUSE_BASE]) {
+			/* Multiple speed-bins are supported */
+			pte_efuse = readl_relaxed(pwrcl_clk.vbases[EFUSE_BASE]);
+			pwrcl_clk.speedbin = ((pte_efuse >> PWRCL_EFUSE_SHIFT) &
+							PWRCL_EFUSE_MASK);
+			snprintf(pwrclspeedbinstr, ARRAY_SIZE(pwrclspeedbinstr),
+			 "qcom,pwrcl-speedbin%d-v%d", pwrcl_clk.speedbin,
+							pvs_ver);
+		}
+
+		dev_info(&pdev->dev, "using pwrcl speed bin %u and pvs_ver %d\n",
+					pwrcl_clk.speedbin, pvs_ver);
+
+		rc = clk_osm_get_lut(pdev, &pwrcl_clk, pwrclspeedbinstr);
+		if (rc) {
+			dev_err(&pdev->dev, "Unable to get OSM LUT for power cluster, rc=%d\n",
+				rc);
 			return rc;
-		dev_err(&pdev->dev, "Unable to determine open-loop voltages for power cluster, rc=%d\n",
-			rc);
-		return rc;
-	}
+		}
 
-	rc = clk_osm_resolve_open_loop_voltages(&perfcl_clk);
-	if (rc) {
-		if (rc == -EPROBE_DEFER)
+		if (perfcl_clk.vbases[EFUSE_BASE]) {
+			/* Multiple speed-bins are supported */
+			pte_efuse =
+				readl_relaxed(perfcl_clk.vbases[EFUSE_BASE]);
+			perfcl_clk.speedbin = ((pte_efuse >> PERFCL_EFUSE_SHIFT)
+						& PERFCL_EFUSE_MASK);
+			snprintf(perfclspeedbinstr,
+				ARRAY_SIZE(perfclspeedbinstr),
+				"qcom,perfcl-speedbin%d-v%d",
+				perfcl_clk.speedbin, pvs_ver);
+		}
+
+		dev_info(&pdev->dev, "using perfcl speed bin %u and pvs_ver %d\n",
+					perfcl_clk.speedbin, pvs_ver);
+
+		rc = clk_osm_get_lut(pdev, &perfcl_clk, perfclspeedbinstr);
+		if (rc) {
+			dev_err(&pdev->dev, "Unable to get OSM LUT for perf cluster, rc=%d\n",
+				rc);
 			return rc;
-		dev_err(&pdev->dev, "Unable to determine open-loop voltages for perf cluster, rc=%d\n",
-			rc);
-		return rc;
-	}
+		}
 
-	rc = clk_osm_resolve_crossover_corners(&l3_clk, pdev);
-	if (rc)
-		dev_info(&pdev->dev,
-			"No APM crossover corner programmed for L3\n");
+		rc = clk_osm_parse_dt_configs(pdev);
+		if (rc) {
+			dev_err(&pdev->dev, "Unable to parse OSM device tree configurations\n");
+			return rc;
+		}
 
-	rc = clk_osm_resolve_crossover_corners(&pwrcl_clk, pdev);
-	if (rc)
-		dev_info(&pdev->dev,
-			"No APM crossover corner programmed for pwrcl_clk\n");
+		rc = clk_osm_parse_acd_dt_configs(pdev);
+		if (rc) {
+			dev_err(&pdev->dev, "Unable to parse ACD device tree configurations\n");
+			return rc;
+		}
 
-	rc = clk_osm_resolve_crossover_corners(&perfcl_clk, pdev);
-	if (rc)
-		dev_info(&pdev->dev, "No MEM-ACC crossover corner programmed\n");
+		rc = clk_osm_acd_resources_init(pdev);
+		if (rc) {
+			dev_err(&pdev->dev, "ACD resources init failed, rc=%d\n",
+				rc);
+			return rc;
+		}
 
-	clk_osm_setup_cycle_counters(&l3_clk);
-	clk_osm_setup_cycle_counters(&pwrcl_clk);
-	clk_osm_setup_cycle_counters(&perfcl_clk);
+		rc = clk_osm_resolve_open_loop_voltages(&l3_clk);
+		if (rc) {
+			if (rc == -EPROBE_DEFER)
+				return rc;
+			dev_err(&pdev->dev, "Unable to determine open-loop voltages for L3, rc=%d\n",
+				rc);
+			return rc;
+		}
+		rc = clk_osm_resolve_open_loop_voltages(&pwrcl_clk);
+		if (rc) {
+			if (rc == -EPROBE_DEFER)
+				return rc;
+			dev_err(&pdev->dev, "Unable to determine open-loop voltages for power cluster, rc=%d\n",
+				rc);
+			return rc;
+		}
+		rc = clk_osm_resolve_open_loop_voltages(&perfcl_clk);
+		if (rc) {
+			if (rc == -EPROBE_DEFER)
+				return rc;
+			dev_err(&pdev->dev, "Unable to determine open-loop voltages for perf cluster, rc=%d\n",
+				rc);
+			return rc;
+		}
 
-	clk_osm_print_osm_table(&l3_clk);
-	clk_osm_print_osm_table(&pwrcl_clk);
-	clk_osm_print_osm_table(&perfcl_clk);
+		rc = clk_osm_resolve_crossover_corners(&l3_clk, pdev);
+		if (rc)
+			dev_info(&pdev->dev,
+				"No APM crossover corner programmed for L3\n");
+		rc = clk_osm_resolve_crossover_corners(&pwrcl_clk, pdev);
+		if (rc)
+			dev_info(&pdev->dev,
+				"No APM crossover corner programmed for pwrcl_clk\n");
+		rc = clk_osm_resolve_crossover_corners(&perfcl_clk, pdev);
+		if (rc)
+			dev_info(&pdev->dev, "No MEM-ACC crossover corner programmed\n");
 
-	rc = clk_osm_setup_hw_table(&l3_clk);
-	if (rc) {
-		dev_err(&pdev->dev, "failed to setup l3 hardware table\n");
-		goto exit;
-	}
-	rc = clk_osm_setup_hw_table(&pwrcl_clk);
-	if (rc) {
-		dev_err(&pdev->dev, "failed to setup power cluster hardware table\n");
-		goto exit;
-	}
-	rc = clk_osm_setup_hw_table(&perfcl_clk);
-	if (rc) {
-		dev_err(&pdev->dev, "failed to setup perf cluster hardware table\n");
-		goto exit;
-	}
+		clk_osm_setup_cycle_counters(&l3_clk);
+		clk_osm_setup_cycle_counters(&pwrcl_clk);
+		clk_osm_setup_cycle_counters(&perfcl_clk);
 
-	/* Policy tuning */
-	rc = clk_osm_set_cc_policy(pdev);
-	if (rc < 0) {
-		dev_err(&pdev->dev, "cc policy setup failed");
-		goto exit;
-	}
+		clk_osm_print_osm_table(&l3_clk);
+		clk_osm_print_osm_table(&pwrcl_clk);
+		clk_osm_print_osm_table(&perfcl_clk);
 
-	/* LLM Freq Policy Tuning */
-	rc = clk_osm_set_llm_freq_policy(pdev);
-	if (rc < 0) {
-		dev_err(&pdev->dev, "LLM Frequency Policy setup failed");
-		goto exit;
-	}
+		rc = clk_osm_setup_hw_table(&l3_clk);
+		if (rc) {
+			dev_err(&pdev->dev, "failed to setup l3 hardware table\n");
+			goto exit;
+		}
+		rc = clk_osm_setup_hw_table(&pwrcl_clk);
+		if (rc) {
+			dev_err(&pdev->dev, "failed to setup power cluster hardware table\n");
+			goto exit;
+		}
+		rc = clk_osm_setup_hw_table(&perfcl_clk);
+		if (rc) {
+			dev_err(&pdev->dev, "failed to setup perf cluster hardware table\n");
+			goto exit;
+		}
 
-	/* LLM Voltage Policy Tuning */
-	rc = clk_osm_set_llm_volt_policy(pdev);
-	if (rc < 0) {
-		dev_err(&pdev->dev, "Failed to set LLM voltage Policy");
-		goto exit;
-	}
+		/* Policy tuning */
+		rc = clk_osm_set_cc_policy(pdev);
+		if (rc < 0) {
+			dev_err(&pdev->dev, "cc policy setup failed");
+			goto exit;
+		}
 
-	clk_osm_setup_fsms(&l3_clk);
-	clk_osm_setup_fsms(&pwrcl_clk);
-	clk_osm_setup_fsms(&perfcl_clk);
+		/* LLM Freq Policy Tuning */
+		rc = clk_osm_set_llm_freq_policy(pdev);
+		if (rc < 0) {
+			dev_err(&pdev->dev, "LLM Frequency Policy setup failed");
+			goto exit;
+		}
 
-	/* Program VC at which the array power supply needs to be switched */
-	clk_osm_write_reg(&perfcl_clk, perfcl_clk.apm_threshold_vc,
+		/* LLM Voltage Policy Tuning */
+		rc = clk_osm_set_llm_volt_policy(pdev);
+		if (rc < 0) {
+			dev_err(&pdev->dev, "Failed to set LLM voltage Policy");
+			goto exit;
+		}
+
+		clk_osm_setup_fsms(&l3_clk);
+		clk_osm_setup_fsms(&pwrcl_clk);
+		clk_osm_setup_fsms(&perfcl_clk);
+
+		/*
+		 * Program the VC at which the array power supply
+		 * needs to be switched.
+		 */
+		clk_osm_write_reg(&perfcl_clk, perfcl_clk.apm_threshold_vc,
 				APM_CROSSOVER_VC, OSM_BASE);
-	if (perfcl_clk.secure_init) {
-		clk_osm_write_seq_reg(&perfcl_clk, perfcl_clk.apm_crossover_vc,
-				DATA_MEM(77));
-		clk_osm_write_seq_reg(&perfcl_clk,
+		if (perfcl_clk.secure_init) {
+			clk_osm_write_seq_reg(&perfcl_clk,
+				perfcl_clk.apm_crossover_vc, DATA_MEM(77));
+			clk_osm_write_seq_reg(&perfcl_clk,
 				(0x39 | (perfcl_clk.apm_threshold_vc << 6)),
 				DATA_MEM(111));
-	} else {
-		scm_io_write(perfcl_clk.pbases[SEQ_BASE] + DATA_MEM(77),
-				perfcl_clk.apm_crossover_vc);
-		scm_io_write(perfcl_clk.pbases[SEQ_BASE] + DATA_MEM(111),
+		} else {
+			scm_io_write(perfcl_clk.pbases[SEQ_BASE] + DATA_MEM(77),
+					perfcl_clk.apm_crossover_vc);
+			scm_io_write(perfcl_clk.pbases[SEQ_BASE] +
+								DATA_MEM(111),
 				(0x39 | (perfcl_clk.apm_threshold_vc << 6)));
-	}
+		}
 
-	/*
-	 * Perform typical secure-world HW initialization
-	 * as necessary.
-	 */
-	clk_osm_do_additional_setup(&l3_clk, pdev);
-	clk_osm_do_additional_setup(&pwrcl_clk, pdev);
-	clk_osm_do_additional_setup(&perfcl_clk, pdev);
+		/*
+		 * Perform typical secure-world HW initialization
+		 * as necessary.
+		 */
+		clk_osm_do_additional_setup(&l3_clk, pdev);
+		clk_osm_do_additional_setup(&pwrcl_clk, pdev);
+		clk_osm_do_additional_setup(&perfcl_clk, pdev);
 
-	/* MEM-ACC Programming */
-	clk_osm_program_mem_acc_regs(&l3_clk);
-	clk_osm_program_mem_acc_regs(&pwrcl_clk);
-	clk_osm_program_mem_acc_regs(&perfcl_clk);
+		/* MEM-ACC Programming */
+		clk_osm_program_mem_acc_regs(&l3_clk);
+		clk_osm_program_mem_acc_regs(&pwrcl_clk);
+		clk_osm_program_mem_acc_regs(&perfcl_clk);
 
-	if (of_property_read_bool(pdev->dev.of_node, "qcom,osm-pll-setup")) {
-		clk_osm_setup_cluster_pll(&l3_clk);
-		clk_osm_setup_cluster_pll(&pwrcl_clk);
-		clk_osm_setup_cluster_pll(&perfcl_clk);
-	}
+		if (of_property_read_bool(pdev->dev.of_node,
+					"qcom,osm-pll-setup")) {
+			clk_osm_setup_cluster_pll(&l3_clk);
+			clk_osm_setup_cluster_pll(&pwrcl_clk);
+			clk_osm_setup_cluster_pll(&perfcl_clk);
+		}
 
-	/* Misc programming */
-	clk_osm_misc_programming(&l3_clk);
-	clk_osm_misc_programming(&pwrcl_clk);
-	clk_osm_misc_programming(&perfcl_clk);
+		/* Misc programming */
+		clk_osm_misc_programming(&l3_clk);
+		clk_osm_misc_programming(&pwrcl_clk);
+		clk_osm_misc_programming(&perfcl_clk);
 
-	pwrcl_clk.per_core_dcvs = perfcl_clk.per_core_dcvs =
+		rc = clk_osm_acd_init(&l3_clk);
+		if (rc) {
+			pr_err("failed to initialize ACD for L3, rc=%d\n", rc);
+			goto exit;
+		}
+		rc = clk_osm_acd_init(&pwrcl_clk);
+		if (rc) {
+			pr_err("failed to initialize ACD for pwrcl, rc=%d\n",
+									rc);
+			goto exit;
+		}
+		rc = clk_osm_acd_init(&perfcl_clk);
+		if (rc) {
+			pr_err("failed to initialize ACD for perfcl, rc=%d\n",
+									rc);
+			goto exit;
+		}
+
+		pwrcl_clk.per_core_dcvs = perfcl_clk.per_core_dcvs =
 			of_property_read_bool(pdev->dev.of_node,
 				"qcom,enable-per-core-dcvs");
-	if (pwrcl_clk.per_core_dcvs) {
+		if (pwrcl_clk.per_core_dcvs) {
+			val = clk_osm_read_reg(&pwrcl_clk, CORE_DCVS_CTRL);
+			val |= BIT(0);
+			clk_osm_write_reg(&pwrcl_clk, val, CORE_DCVS_CTRL,
+							OSM_BASE);
+			val = clk_osm_read_reg(&perfcl_clk, CORE_DCVS_CTRL);
+			val |= BIT(0);
+			clk_osm_write_reg(&perfcl_clk, val, CORE_DCVS_CTRL,
+							OSM_BASE);
+		}
+	} else {
+		/* OSM has been enabled already by trustzone */
+		rc = clk_osm_read_lut(pdev, &l3_clk);
+		if (rc) {
+			dev_err(&pdev->dev, "Unable to read OSM LUT for L3, rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		rc = clk_osm_read_lut(pdev, &pwrcl_clk);
+		if (rc) {
+			dev_err(&pdev->dev, "Unable to read OSM LUT for power cluster, rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		rc = clk_osm_read_lut(pdev, &perfcl_clk);
+		if (rc) {
+			dev_err(&pdev->dev, "Unable to read OSM LUT for perf cluster, rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		/* Check if per-core DCVS is enabled/not */
 		val = clk_osm_read_reg(&pwrcl_clk, CORE_DCVS_CTRL);
-		val |= BIT(0);
-		clk_osm_write_reg(&pwrcl_clk, val, CORE_DCVS_CTRL, OSM_BASE);
+		if (val && BIT(0))
+			pwrcl_clk.per_core_dcvs = true;
 
 		val = clk_osm_read_reg(&perfcl_clk, CORE_DCVS_CTRL);
-		val |= BIT(0);
-		clk_osm_write_reg(&perfcl_clk, val, CORE_DCVS_CTRL, OSM_BASE);
-	}
+		if (val && BIT(0))
+			perfcl_clk.per_core_dcvs = true;
 
-	rc = clk_osm_acd_init(&l3_clk);
-	if (rc) {
-		pr_err("failed to initialize ACD for L3, rc=%d\n", rc);
-		goto exit;
-	}
-	rc = clk_osm_acd_init(&pwrcl_clk);
-	if (rc) {
-		pr_err("failed to initialize ACD for pwrcl, rc=%d\n", rc);
-		goto exit;
-	}
-	rc = clk_osm_acd_init(&perfcl_clk);
-	if (rc) {
-		pr_err("failed to initialize ACD for perfcl, rc=%d\n", rc);
-		goto exit;
+		clk_ops_l3_osm.enable = NULL;
 	}
 
 	spin_lock_init(&l3_clk.lock);
@@ -3287,7 +3387,23 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 
 	get_online_cpus();
 
-	/* Set the L3 clock to run off GPLL0 and enable OSM for the domain */
+	if (!osm_tz_enabled) {
+		populate_debugfs_dir(&l3_clk);
+		populate_debugfs_dir(&pwrcl_clk);
+		populate_debugfs_dir(&perfcl_clk);
+
+		/* Configure default rate to lowest frequency */
+		for (i = 0; i < MAX_CORE_COUNT; i++) {
+			osm_set_index(&pwrcl_clk, 0, i);
+			osm_set_index(&perfcl_clk, 0, i);
+		}
+	}
+	/*
+	 * Set the L3 clock to run off GPLL0 and enable OSM for the domain.
+	 * In the case that trustzone has already enabled OSM, bring the L3
+	 * clock rate to a safe level until the devfreq driver comes up and
+	 * votes for its desired frequency.
+	 */
 	rc = clk_set_rate(l3_clk.hw.clk, OSM_INIT_RATE);
 	if (rc) {
 		dev_err(&pdev->dev, "Unable to set init rate on L3 cluster, rc=%d\n",
@@ -3295,21 +3411,12 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 		goto provider_err;
 	}
 	WARN(clk_prepare_enable(l3_cluster0_vote_clk.hw.clk),
-		     "clk: Failed to enable cluster0 clock for L3\n");
+			"clk: Failed to enable cluster0 clock for L3\n");
 	WARN(clk_prepare_enable(l3_cluster1_vote_clk.hw.clk),
-		     "clk: Failed to enable cluster1 clock for L3\n");
+			"clk: Failed to enable cluster1 clock for L3\n");
 	udelay(300);
 
-	/* Configure default rate to lowest frequency */
-	for (i = 0; i < MAX_CORE_COUNT; i++) {
-		osm_set_index(&pwrcl_clk, 0, i);
-		osm_set_index(&perfcl_clk, 0, i);
-	}
-
 	populate_opp_table(pdev);
-	populate_debugfs_dir(&l3_clk);
-	populate_debugfs_dir(&pwrcl_clk);
-	populate_debugfs_dir(&perfcl_clk);
 
 	of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
 	register_cpu_cycle_counter_cb(&cb);

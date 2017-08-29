@@ -32,7 +32,7 @@ static inline void boost_kick(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 
-	if (!test_and_set_bit(BOOST_KICK, &rq->hmp_flags))
+	if (!test_and_set_bit(BOOST_KICK, &rq->walt_flags))
 		smp_send_reschedule(cpu);
 }
 
@@ -57,14 +57,14 @@ int got_boost_kick(void)
 	int cpu = smp_processor_id();
 	struct rq *rq = cpu_rq(cpu);
 
-	return test_bit(BOOST_KICK, &rq->hmp_flags);
+	return test_bit(BOOST_KICK, &rq->walt_flags);
 }
 
 void clear_boost_kick(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 
-	clear_bit(BOOST_KICK, &rq->hmp_flags);
+	clear_bit(BOOST_KICK, &rq->walt_flags);
 }
 
 /*

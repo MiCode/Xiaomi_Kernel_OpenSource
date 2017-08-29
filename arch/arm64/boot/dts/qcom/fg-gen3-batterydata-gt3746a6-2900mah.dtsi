@@ -1,0 +1,81 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,gt3746a6_2900mah {
+	/* #GT3746A6_2900mAh_averaged_MasterSlave_May11th2017*/
+	qcom,max-voltage-uv = <4350000>;
+	qcom,fg-cc-cv-threshold-mv = <4340>;
+	qcom,fastchg-current-ma = <2900>;
+	qcom,batt-id-kohm = <121>;
+	qcom,battery-beta = <3435>;
+	qcom,battery-type = "GT3746A6_2900mah_averaged_masterslave_may11th2017";
+	qcom,checksum = <0xDF27>;
+	qcom,gui-version = "PMI8998GUI - 2.0.0.57";
+	qcom,fg-profile-data = [
+		 C9 1F 44 05
+		 A5 0A 27 06
+		 F0 1C 07 01
+		 49 F2 91 05
+		 C3 17 42 23
+		 69 45 E8 52
+		 58 00 00 00
+		 0E 00 00 00
+		 00 00 DF A2
+		 12 CD 0C C3
+		 19 00 08 00
+		 89 C2 A5 ED
+		 DF 05 1A 01
+		 C0 05 10 12
+		 03 CA C2 32
+		 32 06 09 20
+		 27 00 14 00
+		 69 20 CD 04
+		 F1 0A E3 05
+		 12 1D 59 01
+		 A3 ED D1 05
+		 95 18 27 23
+		 35 45 6D 53
+		 5F 00 00 00
+		 0E 00 00 00
+		 00 00 0A D5
+		 A6 B5 D0 D2
+		 14 00 00 00
+		 52 F2 A5 ED
+		 57 06 AA F2
+		 29 F4 A5 0B
+		 4D FD FA 1A
+		 AD 33 CC FF
+		 07 10 00 00
+		 27 0B 99 45
+		 14 00 40 00
+		 26 02 0A FA
+		 FF 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+	];
+};

@@ -51,6 +51,8 @@ struct gmu_vma {
 	unsigned int image_start;
 };
 
+static void gmu_snapshot(struct kgsl_device *device);
+
 struct gmu_iommu_context {
 	const char *name;
 	struct device *dev;
@@ -436,26 +438,33 @@ int gmu_dcvs_set(struct gmu_device *gmu,
 	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	int perf_idx = INVALID_DCVS_IDX, bw_idx = INVALID_DCVS_IDX;
+	int ret;
 
-	if (gpu_pwrlevel < gmu->num_gpupwrlevels)
+	if (gpu_pwrlevel < gmu->num_gpupwrlevels - 1)
 		perf_idx = gmu->num_gpupwrlevels - gpu_pwrlevel - 1;
 
-	if (bus_level < gmu->num_bwlevels)
+	if (bus_level < gmu->num_bwlevels && bus_level > 0)
 		bw_idx = bus_level;
 
 	if ((perf_idx == INVALID_DCVS_IDX) &&
 		(bw_idx == INVALID_DCVS_IDX))
 		return -EINVAL;
 
-	if (bw_idx == INVALID_DCVS_IDX)
-		/* Use default BW, algorithm changes on V2 */
-		bw_idx = pwr->pwrlevels[gpu_pwrlevel].bus_freq;
-
-	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
-		return gpudev->rpmh_gpu_pwrctrl(adreno_dev,
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
+		ret = gpudev->rpmh_gpu_pwrctrl(adreno_dev,
 			GMU_DCVS_NOHFI, perf_idx, bw_idx);
+
+		if (ret) {
+			dev_err(&gmu->pdev->dev,
+				"Failed to set GPU perf idx %d, bw idx %d\n",
+				perf_idx, bw_idx);
+
+			gmu_snapshot(device);
+		}
+
+		return ret;
+	}
 
 	return hfi_send_dcvs_vote(gmu, perf_idx, bw_idx, ACK_NONBLOCK);
 }
@@ -505,7 +514,11 @@ static int rpmh_arc_cmds(struct gmu_device *gmu,
 	}
 
 	cmd_db_get_aux_data(res_id, (uint8_t *)arc->val, len);
-	arc->num = len >> 1;
+	for (arc->num = 1; arc->num <= MAX_GX_LEVELS; arc->num++) {
+		if (arc->num == MAX_GX_LEVELS ||
+				arc->val[arc->num - 1] >= arc->val[arc->num])
+			break;
+	}
 
 	return 0;
 }
@@ -528,35 +541,42 @@ static int setup_volt_dependency_tbl(struct arc_vote_desc *votes,
 {
 	int i, j, k;
 	uint16_t cur_vlvl;
+	bool found_match;
 
 	/* i tracks current KGSL GPU frequency table entry
 	 * j tracks second rail voltage table entry
 	 * k tracks primary rail voltage table entry
 	 */
-	for (i = 0, k = 0; i < num_entries; k++) {
-		if (pri_rail->val[k] != vlvl[i]) {
-			if (k >= pri_rail->num)
-				return -EINVAL;
-			continue;
-		}
-		votes[i].pri_idx = k;
-		votes[i].vlvl = vlvl[i];
-		cur_vlvl = vlvl[i];
+	for (i = 0; i < num_entries; i++) {
+		found_match = false;
 
-		/* find index of second rail vlvl array element that
-		 * its vlvl >= current vlvl of primary rail
-		 */
-		for (j = 0; j < sec_rail->num; j++) {
-			if (sec_rail->val[j] >= cur_vlvl) {
-				votes[i].sec_idx = j;
+		/* Look for a primary rail voltage that matches a VLVL level */
+		for (k = 0; k < pri_rail->num; k++) {
+			if (pri_rail->val[k] == vlvl[i]) {
+				votes[i].pri_idx = k;
+				votes[i].vlvl = vlvl[i];
+				cur_vlvl = vlvl[i];
+				found_match = true;
 				break;
 			}
 		}
 
-		if (j == sec_rail->num)
-			votes[i].sec_idx = j;
+		/* If we did not find a matching VLVL level then abort */
+		if (!found_match)
+			return -EINVAL;
 
-		i++;
+		/*
+		 * Look for a secondary rail index whose VLVL value
+		 * is greater than or equal to the VLVL value of the
+		 * corresponding index of the primary rail
+		 */
+		for (j = 0; j < sec_rail->num; j++) {
+			if (sec_rail->val[j] >= cur_vlvl ||
+					j + 1 == sec_rail->num) {
+				votes[i].sec_idx = j;
+				break;
+			}
+		}
 	}
 	return 0;
 }
@@ -575,26 +595,25 @@ static int rpmh_arc_votes_init(struct gmu_device *gmu,
 		struct rpmh_arc_vals *sec_rail,
 		unsigned int type)
 {
+	struct device *dev;
+	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
 	unsigned int num_freqs;
 	struct arc_vote_desc *votes;
 	unsigned int vlvl_tbl[MAX_GX_LEVELS];
 	unsigned int *freq_tbl;
 	int i, ret;
-	/*
-	 * FIXME: remove below two arrays after OPP VLVL query API ready
-	 * struct dev_pm_opp *opp;
-	 */
-	uint16_t gpu_vlvl[] = {0, 128, 256, 384};
-	uint16_t cx_vlvl[] = {0, 48, 256};
+	struct dev_pm_opp *opp;
 
 	if (type == GPU_ARC_VOTE) {
 		num_freqs = gmu->num_gpupwrlevels;
 		votes = gmu->rpmh_votes.gx_votes;
-		freq_tbl = gmu->gmu_freqs;
+		freq_tbl = gmu->gpu_freqs;
+		dev = &device->pdev->dev;
 	} else if (type == GMU_ARC_VOTE) {
 		num_freqs = gmu->num_gmupwrlevels;
 		votes = gmu->rpmh_votes.cx_votes;
-		freq_tbl = gmu->gpu_freqs;
+		freq_tbl = gmu->gmu_freqs;
+		dev = &gmu->pdev->dev;
 	} else {
 		return -EINVAL;
 	}
@@ -606,26 +625,25 @@ static int rpmh_arc_votes_init(struct gmu_device *gmu,
 		return -EINVAL;
 	}
 
-	/*
-	 * FIXME: Find a core's voltage VLVL value based on its frequency
-	 *	using OPP framework, waiting for David Colin, ETA Jan.
-	 */
+	memset(vlvl_tbl, 0, sizeof(vlvl_tbl));
 	for (i = 0; i < num_freqs; i++) {
-		/*
-		 * opp = dev_pm_opp_find_freq_exact(&gmu->pdev->dev,
-		 *		freq_tbl[i], true);
-		 * if (IS_ERR(opp)) {
-		 *	dev_err(&gmu->pdev->dev,
-		 *			"Failed to find opp freq %d of %s\n",
-		 *			freq_tbl[i], debug_strs[type]);
-		 *	return PTR_ERR(opp);
-		 * }
-		 * vlvl_tbl[i] = dev_pm_opp_get_voltage(opp);
-		 */
-		if (type == GPU_ARC_VOTE)
-			vlvl_tbl[i] = gpu_vlvl[i];
-		else
-			vlvl_tbl[i] = cx_vlvl[i];
+		/* Hardcode VLVL for 0 because it is not registered in OPP */
+		if (freq_tbl[i] == 0) {
+			vlvl_tbl[i] = 0;
+			continue;
+		}
+
+		/* Otherwise get the value from the OPP API */
+		opp = dev_pm_opp_find_freq_exact(dev, freq_tbl[i], true);
+		if (IS_ERR(opp)) {
+			dev_err(&gmu->pdev->dev,
+				"Failed to find opp freq %d of %s\n",
+				freq_tbl[i], debug_strs[type]);
+			return PTR_ERR(opp);
+		}
+
+		/* Values from OPP framework are offset by 1 */
+		vlvl_tbl[i] = dev_pm_opp_get_voltage(opp) - 1;
 	}
 
 	ret = setup_volt_dependency_tbl(votes,
@@ -1130,6 +1148,7 @@ int gmu_probe(struct kgsl_device *device)
 		goto error;
 
 	gmu->num_gpupwrlevels = pwr->num_pwrlevels;
+	gmu->wakeup_pwrlevel = pwr->default_pwrlevel;
 
 	for (i = 0; i < gmu->num_gpupwrlevels; i++) {
 		int j = gmu->num_gpupwrlevels - 1 - i;
@@ -1166,6 +1185,8 @@ int gmu_probe(struct kgsl_device *device)
 	else
 		gmu->idle_level = GPU_HW_ACTIVE;
 
+	/* disable LM during boot time */
+	clear_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
 	return 0;
 
 error:
@@ -1206,19 +1227,10 @@ static int gmu_enable_clks(struct gmu_device *gmu)
 
 static int gmu_disable_clks(struct gmu_device *gmu)
 {
-	int ret, j = 0;
-	unsigned int gmu_freq;
+	int j = 0;
 
 	if (IS_ERR_OR_NULL(gmu->clks[0]))
 		return 0;
-
-	gmu_freq = gmu->gmu_freqs[gmu->num_gmupwrlevels - 1];
-	ret = clk_set_rate(gmu->clks[0], gmu_freq);
-	if (ret) {
-		dev_err(&gmu->pdev->dev, "fail to reset GMU clk freq %d\n",
-				gmu_freq);
-		return ret;
-	}
 
 	while ((j < MAX_GMU_CLKS) && gmu->clks[j]) {
 		clk_disable_unprepare(gmu->clks[j]);
@@ -1332,15 +1344,44 @@ static int gmu_suspend(struct kgsl_device *device)
 	return 0;
 }
 
+static void gmu_snapshot(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct gmu_device *gmu = &device->gmu;
+
+	if (!test_and_set_bit(GMU_FAULT, &gmu->flags)) {
+		/* Mask so there's no interrupt caused by NMI */
+		adreno_write_gmureg(adreno_dev,
+				ADRENO_REG_GMU_GMU2HOST_INTR_MASK, 0xFFFFFFFF);
+
+		/* Make sure the interrupt is masked before causing it */
+		wmb();
+		adreno_write_gmureg(adreno_dev,
+			ADRENO_REG_GMU_NMI_CONTROL_STATUS, 0);
+		adreno_write_gmureg(adreno_dev,
+			ADRENO_REG_GMU_CM3_CFG, (1 << 9));
+
+		/* Wait for the NMI to be handled */
+		wmb();
+		udelay(100);
+		kgsl_device_snapshot(device, NULL);
+
+		adreno_write_gmureg(adreno_dev,
+				ADRENO_REG_GMU_GMU2HOST_INTR_CLR, 0xFFFFFFFF);
+		adreno_write_gmureg(adreno_dev,
+				ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
+				(unsigned int) ~HFI_IRQ_MASK);
+	}
+}
+
 /* To be called to power on both GPU and GMU */
 int gmu_start(struct kgsl_device *device)
 {
-	int ret = 0, perf_idx;
+	int ret = 0;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct gmu_device *gmu = &device->gmu;
-	int bus_level = pwr->pwrlevels[pwr->default_pwrlevel].bus_freq;
 
 	switch (device->state) {
 	case KGSL_STATE_INIT:
@@ -1349,13 +1390,9 @@ int gmu_start(struct kgsl_device *device)
 		gmu_enable_gdsc(gmu);
 		gmu_enable_clks(gmu);
 
-		/* Convert to RPMh frequency index */
-		perf_idx = gmu->num_gpupwrlevels -
-				pwr->default_pwrlevel - 1;
-
 		/* Vote for 300MHz DDR for GMU to init */
 		ret = msm_bus_scale_client_update_request(gmu->pcl,
-				bus_level);
+				pwr->pwrlevels[pwr->default_pwrlevel].bus_freq);
 		if (ret) {
 			dev_err(&gmu->pdev->dev,
 					"Failed to allocate gmu b/w\n");
@@ -1374,7 +1411,8 @@ int gmu_start(struct kgsl_device *device)
 			goto error_gpu;
 
 		/* Send default DCVS level */
-		ret = gmu_dcvs_set(gmu, perf_idx, bus_level);
+		ret = gmu_dcvs_set(gmu, pwr->default_pwrlevel,
+				pwr->pwrlevels[pwr->default_pwrlevel].bus_freq);
 		if (ret)
 			goto error_gpu;
 
@@ -1385,8 +1423,6 @@ int gmu_start(struct kgsl_device *device)
 		WARN_ON(test_bit(GMU_CLK_ON, &gmu->flags));
 		gmu_enable_gdsc(gmu);
 		gmu_enable_clks(gmu);
-
-		perf_idx = gmu->num_gpupwrlevels - gmu->wakeup_pwrlevel - 1;
 
 		ret = gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_START,
 				GMU_WARM_BOOT, 0);
@@ -1399,12 +1435,12 @@ int gmu_start(struct kgsl_device *device)
 		if (ret)
 			goto error_gpu;
 
-		if (gmu->wakeup_pwrlevel != pwr->default_pwrlevel) {
-			ret = gmu_dcvs_set(gmu, perf_idx, bus_level);
-			if (ret)
-				goto error_gpu;
-			gmu->wakeup_pwrlevel = pwr->default_pwrlevel;
-		}
+		ret = gmu_dcvs_set(gmu, gmu->wakeup_pwrlevel,
+				pwr->pwrlevels[gmu->wakeup_pwrlevel].bus_freq);
+		if (ret)
+			goto error_gpu;
+
+		gmu->wakeup_pwrlevel = pwr->default_pwrlevel;
 		break;
 
 	case KGSL_STATE_RESET:
@@ -1413,11 +1449,6 @@ int gmu_start(struct kgsl_device *device)
 			gmu_enable_gdsc(gmu);
 			gmu_enable_clks(gmu);
 
-			perf_idx = gmu->num_gpupwrlevels -
-				pwr->active_pwrlevel - 1;
-
-			bus_level =
-				pwr->pwrlevels[pwr->active_pwrlevel].bus_freq;
 			ret = gpudev->rpmh_gpu_pwrctrl(
 				adreno_dev, GMU_FW_START, GMU_RESET, 0);
 			if (ret)
@@ -1430,7 +1461,9 @@ int gmu_start(struct kgsl_device *device)
 				goto error_gpu;
 
 			/* Send DCVS level prior to reset*/
-			ret = gmu_dcvs_set(gmu, perf_idx, bus_level);
+			ret = gmu_dcvs_set(gmu, pwr->active_pwrlevel,
+					pwr->pwrlevels[pwr->active_pwrlevel]
+					.bus_freq);
 			if (ret)
 				goto error_gpu;
 
@@ -1439,19 +1472,13 @@ int gmu_start(struct kgsl_device *device)
 				OOB_CPINIT_CHECK_MASK,
 				OOB_CPINIT_CLEAR_MASK);
 
-		} else {
+		} else
 			gmu_fast_boot(device);
-		}
 		break;
 	default:
 		break;
 	}
 
-	/*
-	 * OOB to enable power management of GMU.
-	 * In v2, this function call shall move ahead
-	 * of hfi_start() to save power.
-	 */
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
 		gpudev->oob_clear(adreno_dev,
 				OOB_BOOT_SLUMBER_CLEAR_MASK);
@@ -1459,15 +1486,17 @@ int gmu_start(struct kgsl_device *device)
 	return ret;
 
 error_gpu:
+	gmu_snapshot(device);
 	hfi_stop(gmu);
 	gmu_irq_disable(device);
-		if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
-			gpudev->oob_clear(adreno_dev,
-					OOB_BOOT_SLUMBER_CLEAR_MASK);
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
+		gpudev->oob_clear(adreno_dev,
+				OOB_BOOT_SLUMBER_CLEAR_MASK);
 	gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_STOP, 0, 0);
 error_bus:
-		msm_bus_scale_client_update_request(gmu->pcl, 0);
+	msm_bus_scale_client_update_request(gmu->pcl, 0);
 error_clks:
+	gmu_snapshot(device);
 	gmu_disable_clks(gmu);
 	gmu_disable_gdsc(gmu);
 	return ret;

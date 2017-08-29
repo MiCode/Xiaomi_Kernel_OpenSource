@@ -91,6 +91,7 @@ struct tsens_ops {
 	int (*set_trips)(struct tsens_sensor *, int, int);
 	int (*interrupts_reg)(struct tsens_device *);
 	int (*dbg)(struct tsens_device *, u32, u32, int *);
+	int (*sensor_en)(struct tsens_device *, u32);
 };
 
 struct tsens_irqs {

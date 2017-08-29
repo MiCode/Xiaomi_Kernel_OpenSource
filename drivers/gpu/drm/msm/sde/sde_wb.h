@@ -186,15 +186,14 @@ int sde_wb_connector_set_property(struct drm_connector *connector,
 int sde_wb_get_info(struct msm_display_info *info, void *display);
 
 /**
- * sde_wb_get_topology - retrieve current topology for the mode selected
+ * sde_wb_get_mode_info - retrieve information of the mode selected
  * @drm_mode: Display mode set for the display
- * @topology: Out parameter. Topology for the mode.
+ * @mode_info: Out parameter. information of the mode.
  * @max_mixer_width: max width supported by HW layer mixer
  * Returns: zero on success
  */
-int sde_wb_get_topology(const struct drm_display_mode *drm_mode,
-		struct msm_display_topology *topology,
-		u32 max_mixer_width);
+int sde_wb_get_mode_info(const struct drm_display_mode *drm_mode,
+		struct msm_mode_info *mode_info, u32 max_mixer_width);
 
 /**
  * sde_wb_connector_get_wb - retrieve writeback device of the given connector

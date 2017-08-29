@@ -29,8 +29,15 @@
 #define WCN_CDC_SLIM_RX_CH_MAX 2
 #define WCN_CDC_SLIM_TX_CH_MAX 3
 
-static struct snd_soc_card snd_soc_card_msm_card_tavil;
-static struct snd_soc_card snd_soc_card_msm_card_tasha;
+static struct snd_soc_card snd_soc_card_msm_card_tavil = {
+	.name = "sdm670-tavil-snd-card",
+	.late_probe = msm_snd_card_tavil_late_probe,
+};
+
+static struct snd_soc_card snd_soc_card_msm_card_tasha = {
+	.name = "sdm670-tasha-snd-card",
+	.late_probe = msm_snd_card_tasha_late_probe,
+};
 
 static struct snd_soc_ops msm_ext_slimbus_be_ops = {
 	.hw_params = msm_snd_hw_params,
@@ -990,13 +997,14 @@ static struct snd_soc_dai_link msm_ext_common_fe_dai[] = {
 		.id = MSM_FRONTEND_DAI_MULTIMEDIA7,
 	},
 	{/* hw:x,16 */
-		.name = MSM_DAILINK_NAME(Compress3),
-		.stream_name = "Compress3",
+		.name = MSM_DAILINK_NAME(MultiMedia10),
+		.stream_name = "MultiMedia10",
 		.cpu_dai_name	= "MultiMedia10",
-		.platform_name  = "msm-compress-dsp",
+		.platform_name  = "msm-pcm-dsp.1",
 		.dynamic = 1,
 		.dpcm_capture = 1,
 		.dpcm_playback = 1,
+		.dpcm_capture = 1,
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
 			 SND_SOC_DPCM_TRIGGER_POST},
 		.codec_dai_name = "snd-soc-dummy-dai",

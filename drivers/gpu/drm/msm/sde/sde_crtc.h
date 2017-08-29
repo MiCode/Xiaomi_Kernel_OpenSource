@@ -47,6 +47,50 @@ enum sde_crtc_client_type {
 };
 
 /**
+ * enum sde_crtc_smmu_state:	smmu state
+ * @ATTACHED:	 all the context banks are attached.
+ * @DETACHED:	 all the context banks are detached.
+ * @DETACHED_SEC:	 secure context bank is detached.
+ * @ATTACH_ALL_REQ:	 transient state of attaching context banks.
+ * @DETACH_ALL_REQ:	 transient state of detaching context banks.
+ * @DETACH_SEC_REQ:	 tranisent state of secure context bank is detached
+ * @ATTACH_SEC_REQ:	 transient state of attaching secure context bank.
+ */
+enum sde_crtc_smmu_state {
+	ATTACHED = 0,
+	DETACHED,
+	DETACHED_SEC,
+	ATTACH_ALL_REQ,
+	DETACH_ALL_REQ,
+	DETACH_SEC_REQ,
+	ATTACH_SEC_REQ,
+};
+
+/**
+ * enum sde_crtc_smmu_state_transition_type: state transition type
+ * @NONE: no pending state transitions
+ * @PRE_COMMIT: state transitions should be done before processing the commit
+ * @POST_COMMIT: state transitions to be done after processing the commit.
+ */
+enum sde_crtc_smmu_state_transition_type {
+	NONE,
+	PRE_COMMIT,
+	POST_COMMIT
+};
+
+/**
+ * struct sde_crtc_smmu_state_data: stores the smmu state and transition type
+ * @state: current state of smmu context banks
+ * @transition_type: transition request type
+ * @transition_error: whether there is error while transitioning the state
+ */
+struct sde_crtc_smmu_state_data {
+	uint32_t state;
+	uint32_t transition_type;
+	uint32_t transition_error;
+};
+
+/**
  * struct sde_crtc_mixer: stores the map for each virtual pipeline in the CRTC
  * @hw_lm:	LM HW Driver context
  * @hw_ctl:	CTL Path HW driver context
@@ -123,8 +167,11 @@ struct sde_crtc_event {
  * @vblank_cb_count : count of vblank callback since last reset
  * @play_count    : frame count between crtc enable and disable
  * @vblank_cb_time  : ktime at vblank count reset
- * @vblank_enable : whether the user has requested vblank events
+ * @vblank_requested : whether the user has requested vblank events
  * @suspend         : whether or not a suspend operation is in progress
+ * @enabled       : whether the SDE CRTC is currently enabled. updated in the
+ *                  commit-thread, not state-swap time which is earlier, so
+ *                  safe to make decisions on during VBLANK on/off work
  * @feature_list  : list of color processing features supported on a crtc
  * @active_list   : list of color processing features are active
  * @dirty_list    : list of color processing features are dirty
@@ -142,8 +189,12 @@ struct sde_crtc_event {
  * @event_free_list : List of available event structures
  * @event_lock    : Spinlock around event handling code
  * @misr_enable   : boolean entry indicates misr enable/disable status.
+ * @misr_frame_count  : misr frame count provided by client
+ * @misr_data     : store misr data before turning off the clocks.
  * @power_event   : registered power event handle
  * @cur_perf      : current performance committed to clock/bandwidth driver
+ * @rp_lock       : serialization lock for resource pool
+ * @rp_head       : list of active resource pool
  */
 struct sde_crtc {
 	struct drm_crtc base;
@@ -171,8 +222,9 @@ struct sde_crtc {
 	u32 vblank_cb_count;
 	u64 play_count;
 	ktime_t vblank_cb_time;
-	bool vblank_enable;
+	bool vblank_requested;
 	bool suspend;
+	bool enabled;
 
 	struct list_head feature_list;
 	struct list_head active_list;
@@ -194,10 +246,17 @@ struct sde_crtc {
 	struct list_head event_free_list;
 	spinlock_t event_lock;
 	bool misr_enable;
+	u32 misr_frame_count;
+	u32 misr_data[CRTC_DUAL_MIXERS];
 
 	struct sde_power_event *power_event;
 
 	struct sde_core_perf_params cur_perf;
+
+	struct mutex rp_lock;
+	struct list_head rp_head;
+
+	struct sde_crtc_smmu_state_data smmu_state;
 };
 
 #define to_sde_crtc(x) container_of(x, struct sde_crtc, base)
@@ -242,11 +301,17 @@ struct sde_crtc_res {
 
 /**
  * sde_crtc_respool - crtc resource pool
+ * @rp_lock: pointer to serialization lock
+ * @rp_head: pointer to head of active resource pools of this crtc
+ * @rp_list: list of crtc resource pool
  * @sequence_id: sequence identifier, incremented per state duplication
  * @res_list: list of resource managed by this resource pool
  * @ops: resource operations for parent resource pool
  */
 struct sde_crtc_respool {
+	struct mutex *rp_lock;
+	struct list_head *rp_head;
+	struct list_head rp_list;
 	u32 sequence_id;
 	struct list_head res_list;
 	struct sde_crtc_res_ops ops;
@@ -269,9 +334,9 @@ struct sde_crtc_respool {
  * @lm_roi        : Current LM ROI, possibly sub-rectangle of mode.
  *                  Origin top left of CRTC.
  * @user_roi_list : List of user's requested ROIs as from set property
+ * @property_state: Local storage for msm_prop properties
  * @property_values: Current crtc property values
  * @input_fence_timeout_ns : Cached input fence timeout, in ns
- * @property_blobs: Reference pointers for blob properties
  * @num_dim_layers: Number of dim layers
  * @dim_layer: Dim layer configs
  * @new_perf: new performance state being requested
@@ -296,9 +361,9 @@ struct sde_crtc_state {
 	struct sde_rect lm_roi[CRTC_DUAL_MIXERS];
 	struct msm_roi_list user_roi_list;
 
-	uint64_t property_values[CRTC_PROP_COUNT];
+	struct msm_property_state property_state;
+	struct msm_property_value property_values[CRTC_PROP_COUNT];
 	uint64_t input_fence_timeout_ns;
-	struct drm_property_blob *property_blobs[CRTC_PROP_COUNT];
 	uint32_t num_dim_layers;
 	struct sde_hw_dim_layer dim_layer[SDE_MAX_DIM_LAYERS];
 
@@ -320,7 +385,7 @@ struct sde_crtc_state {
  * Returns: Integer value of requested property
  */
 #define sde_crtc_get_property(S, X) \
-	((S) && ((X) < CRTC_PROP_COUNT) ? ((S)->property_values[(X)]) : 0)
+	((S) && ((X) < CRTC_PROP_COUNT) ? ((S)->property_values[(X)].value) : 0)
 
 static inline int sde_crtc_mixer_width(struct sde_crtc *sde_crtc,
 	struct drm_display_mode *mode)
@@ -366,6 +431,14 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc);
  * @old_state: Pointer to drm crtc old state object
  */
 void sde_crtc_prepare_commit(struct drm_crtc *crtc,
+		struct drm_crtc_state *old_state);
+
+/**
+ * sde_crtc_complete_commit - callback signalling completion of current commit
+ * @crtc: Pointer to drm crtc object
+ * @old_state: Pointer to drm crtc old state object
+ */
+void sde_crtc_complete_commit(struct drm_crtc *crtc,
 		struct drm_crtc_state *old_state);
 
 /**
@@ -491,5 +564,42 @@ void sde_crtc_res_put(struct drm_crtc_state *state, u32 type, u64 tag);
  */
 void sde_crtc_get_crtc_roi(struct drm_crtc_state *state,
 		const struct sde_rect **crtc_roi);
+
+/** sde_crt_get_secure_level - retrieve the secure level from the give state
+ *	object, this is used to determine the secure state of the crtc
+ * @crtc : Pointer to drm crtc structure
+ * @usr: Pointer to drm crtc state
+ * return: secure_level
+ */
+static inline int sde_crtc_get_secure_level(struct drm_crtc *crtc,
+		struct drm_crtc_state *state)
+{
+	if (!crtc || !state)
+		return -EINVAL;
+
+	return sde_crtc_get_property(to_sde_crtc_state(state),
+			CRTC_PROP_SECURITY_LEVEL);
+}
+
+/**
+ * sde_crtc_get_secure_transition - determines the operations to be
+ * performed before transitioning to secure state
+ * This function should be called after swapping the new state
+ * @crtc: Pointer to drm crtc structure
+ * @old_crtc_state: Poniter to previous CRTC state
+ * Returns the bitmask of operations need to be performed, -Error in
+ * case of error cases
+ */
+int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
+		struct drm_crtc_state *old_crtc_state,
+		bool old_valid_fb);
+
+/**
+ * sde_crtc_secure_ctrl - Initiates the transition between secure and
+ *                          non-secure world
+ * @crtc: Pointer to crtc
+ * @post_commit: if this operation is triggered after commit
+ */
+int sde_crtc_secure_ctrl(struct drm_crtc *crtc, bool post_commit);
 
 #endif /* _SDE_CRTC_H_ */

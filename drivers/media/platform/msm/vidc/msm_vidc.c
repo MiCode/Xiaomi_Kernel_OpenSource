@@ -140,7 +140,8 @@ static void msm_vidc_ctrl_get_range(struct v4l2_queryctrl *ctrl,
 int msm_vidc_query_ctrl(void *instance, struct v4l2_queryctrl *ctrl)
 {
 	struct msm_vidc_inst *inst = instance;
-	int rc = 0;
+	struct hal_profile_level_supported *prof_level_supported;
+	int rc = 0, i = 0, profile_mask = 0, v4l2_prof_value = 0, max_level = 0;
 
 	if (!inst || !ctrl)
 		return -EINVAL;
@@ -178,6 +179,43 @@ int msm_vidc_query_ctrl(void *instance, struct v4l2_queryctrl *ctrl)
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES:
 		msm_vidc_ctrl_get_range(ctrl, &inst->capability.slice_bytes);
 		break;
+	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
+	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_PROFILE:
+	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE:
+	{
+		prof_level_supported = &inst->capability.profile_level;
+		for (i = 0; i < prof_level_supported->profile_count; i++) {
+			v4l2_prof_value = msm_comm_hal_to_v4l2(ctrl->id,
+				prof_level_supported->profile_level[i].profile);
+			if (v4l2_prof_value == -EINVAL) {
+				dprintk(VIDC_WARN, "Invalid profile");
+				rc = -EINVAL;
+			}
+			profile_mask |= (1 << v4l2_prof_value);
+		}
+		ctrl->flags = profile_mask;
+		break;
+	}
+	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_TIER_LEVEL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_LEVEL:
+	{
+		prof_level_supported = &inst->capability.profile_level;
+		for (i = 0; i < prof_level_supported->profile_count; i++) {
+			if (max_level < prof_level_supported->
+				profile_level[i].level) {
+				max_level = prof_level_supported->
+					profile_level[i].level;
+			}
+		}
+		ctrl->maximum = msm_comm_hal_to_v4l2(ctrl->id, max_level);
+		if (ctrl->maximum == -EINVAL) {
+			dprintk(VIDC_WARN, "Invalid max level");
+			rc = -EINVAL;
+		}
+		break;
+	}
 	default:
 		rc = -EINVAL;
 	}
@@ -426,6 +464,12 @@ int msm_vidc_release_buffer(void *instance, int type, unsigned int index)
 		if (vb2->type != type || vb2->index != index)
 			continue;
 
+		if (mbuf->flags & MSM_VIDC_FLAG_RBR_PENDING) {
+			print_vidc_buffer(VIDC_DBG,
+				"skip rel buf (rbr pending)", inst, mbuf);
+			continue;
+		}
+
 		print_vidc_buffer(VIDC_DBG, "release buf", inst, mbuf);
 		msm_comm_unmap_vidc_buffer(inst, mbuf);
 		list_del(&mbuf->list);
@@ -442,6 +486,7 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 	struct msm_vidc_inst *inst = instance;
 	int rc = 0, i = 0;
 	struct buf_queue *q = NULL;
+	u32 cr = 0;
 
 	if (!inst || !inst->core || !b || !valid_v4l2_buffer(b, inst)) {
 		dprintk(VIDC_ERR, "%s: invalid params, inst %pK\n",
@@ -453,7 +498,15 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 		b->m.planes[i].m.fd = b->m.planes[i].reserved[0];
 		b->m.planes[i].data_offset = b->m.planes[i].reserved[1];
 	}
+
 	msm_comm_qbuf_cache_operations(inst, b);
+
+	/* Compression ratio is valid only for Encoder YUV buffers. */
+	if (inst->session_type == MSM_VIDC_ENCODER &&
+			b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		cr = b->m.planes[0].reserved[2];
+		msm_comm_update_input_cr(inst, b->index, cr);
+	}
 
 	q = msm_comm_get_vb2q(inst, b->type);
 	if (!q) {
@@ -712,7 +765,6 @@ static int msm_vidc_queue_setup(struct vb2_queue *q,
 		rc = set_buffer_count(inst, bufreq->buffer_count_min_host,
 			bufreq->buffer_count_actual, HAL_BUFFER_INPUT);
 		}
-
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE: {
 		buffer_type = msm_comm_get_hal_output_buffer(inst);
@@ -1116,7 +1168,7 @@ static inline int vb2_bufq_init(struct msm_vidc_inst *inst,
 
 	q->mem_ops = &msm_vidc_vb2_mem_ops;
 	q->drv_priv = inst;
-	q->allow_zero_bytesused = 1;
+	q->allow_zero_bytesused = !V4L2_TYPE_IS_OUTPUT(type);
 	q->copy_timestamp = 1;
 	return vb2_queue_init(q);
 }
@@ -1401,6 +1453,9 @@ static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		}
 		ctrl->val = bufreq->buffer_count_min_host;
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_TME_PAYLOAD_VERSION:
+		ctrl->val = inst->capability.tme_version;
+		break;
 	default:
 		/*
 		 * Other controls aren't really volatile, shouldn't need to
@@ -1494,11 +1549,13 @@ void *msm_vidc_open(int core_id, int session_type)
 
 	INIT_MSM_VIDC_LIST(&inst->scratchbufs);
 	INIT_MSM_VIDC_LIST(&inst->freqs);
+	INIT_MSM_VIDC_LIST(&inst->input_crs);
 	INIT_MSM_VIDC_LIST(&inst->persistbufs);
 	INIT_MSM_VIDC_LIST(&inst->pending_getpropq);
 	INIT_MSM_VIDC_LIST(&inst->outputbufs);
 	INIT_MSM_VIDC_LIST(&inst->registeredbufs);
 	INIT_MSM_VIDC_LIST(&inst->reconbufs);
+	INIT_MSM_VIDC_LIST(&inst->eosbufs);
 
 	kref_init(&inst->kref);
 
@@ -1603,6 +1660,9 @@ fail_mem_client:
 	DEINIT_MSM_VIDC_LIST(&inst->pending_getpropq);
 	DEINIT_MSM_VIDC_LIST(&inst->outputbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->registeredbufs);
+	DEINIT_MSM_VIDC_LIST(&inst->eosbufs);
+	DEINIT_MSM_VIDC_LIST(&inst->freqs);
+	DEINIT_MSM_VIDC_LIST(&inst->input_crs);
 
 	kfree(inst);
 	inst = NULL;
@@ -1632,6 +1692,8 @@ static void msm_vidc_cleanup_instance(struct msm_vidc_inst *inst)
 
 	msm_comm_free_freq_table(inst);
 
+	msm_comm_free_input_cr_table(inst);
+
 	if (msm_comm_release_scratch_buffers(inst, false))
 		dprintk(VIDC_ERR,
 			"Failed to release scratch buffers\n");
@@ -1649,6 +1711,8 @@ static void msm_vidc_cleanup_instance(struct msm_vidc_inst *inst)
 	 * irrespective of scenario
 	 */
 	msm_comm_validate_output_buffers(inst);
+
+	msm_comm_release_eos_buffers(inst);
 
 	if (msm_comm_release_output_buffers(inst, true))
 		dprintk(VIDC_ERR,
@@ -1694,6 +1758,9 @@ int msm_vidc_destroy(struct msm_vidc_inst *inst)
 	DEINIT_MSM_VIDC_LIST(&inst->pending_getpropq);
 	DEINIT_MSM_VIDC_LIST(&inst->outputbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->registeredbufs);
+	DEINIT_MSM_VIDC_LIST(&inst->eosbufs);
+	DEINIT_MSM_VIDC_LIST(&inst->freqs);
+	DEINIT_MSM_VIDC_LIST(&inst->input_crs);
 
 	mutex_destroy(&inst->sync_lock);
 	mutex_destroy(&inst->bufq[CAPTURE_PORT].lock);

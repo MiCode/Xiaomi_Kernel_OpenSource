@@ -1283,6 +1283,8 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 #endif
 #endif
 
+	trace_sched_migrate_task(p, new_cpu, task_util(p));
+
 	if (task_cpu(p) != new_cpu) {
 		if (p->sched_class->migrate_task_rq)
 			p->sched_class->migrate_task_rq(p);
@@ -1679,7 +1681,7 @@ int select_task_rq(struct task_struct *p, int cpu, int sd_flags, int wake_flags)
 	return cpu;
 }
 
-void update_avg(u64 *avg, u64 sample)
+static void update_avg(u64 *avg, u64 sample)
 {
 	s64 diff = sample - *avg;
 	*avg += diff >> 3;
@@ -2187,9 +2189,6 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 		notif_required = true;
 	}
 
-	if (!__task_in_cum_window_demand(cpu_rq(cpu), p))
-		inc_cum_window_demand(cpu_rq(cpu), p, task_load(p));
-
 	note_task_waking(p, wallclock);
 #endif /* CONFIG_SMP */
 
@@ -2198,6 +2197,15 @@ stat:
 	ttwu_stat(p, cpu, wake_flags);
 out:
 	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
+
+	if (success && sched_predl) {
+		raw_spin_lock_irqsave(&cpu_rq(cpu)->lock, flags);
+		if (do_pl_notif(cpu_rq(cpu)))
+			cpufreq_update_util(cpu_rq(cpu),
+					    SCHED_CPUFREQ_WALT |
+					    SCHED_CPUFREQ_PL);
+		raw_spin_unlock_irqrestore(&cpu_rq(cpu)->lock, flags);
+	}
 
 	return success;
 }
@@ -2249,8 +2257,6 @@ static void try_to_wake_up_local(struct task_struct *p, struct pin_cookie cookie
 
 		update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 		update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);
-		if (!__task_in_cum_window_demand(rq, p))
-			inc_cum_window_demand(rq, p, task_load(p));
 		cpufreq_update_util(rq, 0);
 		ttwu_activate(rq, p, ENQUEUE_WAKEUP);
 		note_task_waking(p, wallclock);
@@ -5952,13 +5958,7 @@ int do_isolation_work_cpu_stop(void *data)
 		set_rq_online(rq);
 	raw_spin_unlock(&rq->lock);
 
-	/*
-	 * We might have been in tickless state. Clear NOHZ flags to avoid
-	 * us being kicked for helping out with balancing
-	 */
-	nohz_balance_clear_nohz_mask(cpu);
-
-	clear_hmp_request(cpu);
+	clear_walt_request(cpu);
 	local_irq_enable();
 	return 0;
 }
@@ -6691,6 +6691,9 @@ enum s_alloc {
  * Build an iteration mask that can exclude certain CPUs from the upwards
  * domain traversal.
  *
+ * Only CPUs that can arrive at this group should be considered to continue
+ * balancing.
+ *
  * Asymmetric node setups can result in situations where the domain tree is of
  * unequal depth, make sure to skip domains that already cover the entire
  * range.
@@ -6702,18 +6705,31 @@ enum s_alloc {
  */
 static void build_group_mask(struct sched_domain *sd, struct sched_group *sg)
 {
-	const struct cpumask *span = sched_domain_span(sd);
+	const struct cpumask *sg_span = sched_group_cpus(sg);
 	struct sd_data *sdd = sd->private;
 	struct sched_domain *sibling;
 	int i;
 
-	for_each_cpu(i, span) {
+	for_each_cpu(i, sg_span) {
 		sibling = *per_cpu_ptr(sdd->sd, i);
-		if (!cpumask_test_cpu(i, sched_domain_span(sibling)))
+
+		/*
+		 * Can happen in the asymmetric case, where these siblings are
+		 * unused. The mask will not be empty because those CPUs that
+		 * do have the top domain _should_ span the domain.
+		 */
+		if (!sibling->child)
+			continue;
+
+		/* If we would not end up here, we can't continue from here */
+		if (!cpumask_equal(sg_span, sched_domain_span(sibling->child)))
 			continue;
 
 		cpumask_set_cpu(i, sched_group_mask(sg));
 	}
+
+	/* We must not have empty masks here */
+	WARN_ON_ONCE(cpumask_empty(sched_group_mask(sg)));
 }
 
 /*
@@ -6737,7 +6753,7 @@ build_overlap_sched_groups(struct sched_domain *sd, int cpu)
 
 	cpumask_clear(covered);
 
-	for_each_cpu(i, span) {
+	for_each_cpu_wrap(i, span, cpu) {
 		struct cpumask *sg_span;
 
 		if (cpumask_test_cpu(i, covered))
@@ -8068,7 +8084,7 @@ int sched_cpu_dying(unsigned int cpu)
 	BUG_ON(rq->nr_running != 1);
 	raw_spin_unlock_irqrestore(&rq->lock, flags);
 
-	clear_hmp_request(cpu);
+	clear_walt_request(cpu);
 
 	calc_load_migrate(rq);
 	update_max_interval();
@@ -8076,22 +8092,6 @@ int sched_cpu_dying(unsigned int cpu)
 	hrtick_clear(rq);
 	return 0;
 }
-#endif
-
-#ifdef CONFIG_SCHED_SMT
-DEFINE_STATIC_KEY_FALSE(sched_smt_present);
-
-static void sched_init_smt(void)
-{
-	/*
-	 * We've enumerated all CPUs and will assume that if any CPU
-	 * has SMT siblings, CPU0 will too.
-	 */
-	if (cpumask_weight(cpu_smt_mask(0)) > 1)
-		static_branch_enable(&sched_smt_present);
-}
-#else
-static inline void sched_init_smt(void) { }
 #endif
 
 void __init sched_init_smp(void)
@@ -8125,9 +8125,6 @@ void __init sched_init_smp(void)
 
 	init_sched_rt_class();
 	init_sched_dl_class();
-
-	sched_init_smt();
-
 	sched_smp_initialized = true;
 }
 
@@ -8308,7 +8305,6 @@ void __init sched_init(void)
 		rq->avg_idle = 2*sysctl_sched_migration_cost;
 		rq->max_idle_balance_cost = sysctl_sched_migration_cost;
 		rq->push_task = NULL;
-
 		walt_sched_init(rq);
 
 		INIT_LIST_HEAD(&rq->cfs_tasks);
@@ -9578,8 +9574,13 @@ void sched_exit(struct task_struct *p)
 	wallclock = sched_ktime_clock();
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 	dequeue_task(rq, p, 0);
+	/*
+	 * task's contribution is already removed from the
+	 * cumulative window demand in dequeue. As the
+	 * task's stats are reset, the next enqueue does
+	 * not change the cumulative window demand.
+	 */
 	reset_task_stats(p);
-	dec_cum_window_demand(rq, p);
 	p->ravg.mark_start = wallclock;
 	p->ravg.sum_history[0] = EXITING_TASK_MARKER;
 	free_task_load_ptrs(p);
@@ -9589,3 +9590,5 @@ void sched_exit(struct task_struct *p)
 	task_rq_unlock(rq, p, &rf);
 }
 #endif /* CONFIG_SCHED_WALT */
+
+__read_mostly bool sched_predl;

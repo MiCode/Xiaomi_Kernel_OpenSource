@@ -11,7 +11,7 @@
  *
  */
 
-#define pr_fmt(fmt)	"%s: " fmt, __func__
+#define pr_fmt(fmt)	"%s:%d: " fmt, __func__, __LINE__
 
 #include <linux/platform_device.h>
 #include <linux/module.h>
@@ -107,7 +107,7 @@
 #define SDE_ROTREG_READ(base, off) \
 	readl_relaxed(base + (off))
 
-static u32 sde_hw_rotator_v3_inpixfmts[] = {
+static const u32 sde_hw_rotator_v3_inpixfmts[] = {
 	SDE_PIX_FMT_XRGB_8888,
 	SDE_PIX_FMT_ARGB_8888,
 	SDE_PIX_FMT_ABGR_8888,
@@ -167,7 +167,7 @@ static u32 sde_hw_rotator_v3_inpixfmts[] = {
 	SDE_PIX_FMT_Y_CBCR_H2V2_TP10_UBWC,
 };
 
-static u32 sde_hw_rotator_v3_outpixfmts[] = {
+static const u32 sde_hw_rotator_v3_outpixfmts[] = {
 	SDE_PIX_FMT_XRGB_8888,
 	SDE_PIX_FMT_ARGB_8888,
 	SDE_PIX_FMT_ABGR_8888,
@@ -227,7 +227,7 @@ static u32 sde_hw_rotator_v3_outpixfmts[] = {
 	SDE_PIX_FMT_Y_CBCR_H2V2_TP10_UBWC,
 };
 
-static u32 sde_hw_rotator_v4_inpixfmts[] = {
+static const u32 sde_hw_rotator_v4_inpixfmts[] = {
 	SDE_PIX_FMT_XRGB_8888,
 	SDE_PIX_FMT_ARGB_8888,
 	SDE_PIX_FMT_ABGR_8888,
@@ -307,7 +307,7 @@ static u32 sde_hw_rotator_v4_inpixfmts[] = {
 	SDE_PIX_FMT_XBGR_2101010_TILE,
 };
 
-static u32 sde_hw_rotator_v4_outpixfmts[] = {
+static const u32 sde_hw_rotator_v4_outpixfmts[] = {
 	SDE_PIX_FMT_XRGB_8888,
 	SDE_PIX_FMT_ARGB_8888,
 	SDE_PIX_FMT_ABGR_8888,
@@ -385,6 +385,23 @@ static u32 sde_hw_rotator_v4_outpixfmts[] = {
 	SDE_PIX_FMT_BGRX_1010102_TILE,
 	SDE_PIX_FMT_ABGR_2101010_TILE,
 	SDE_PIX_FMT_XBGR_2101010_TILE,
+};
+
+static const u32 sde_hw_rotator_v4_inpixfmts_sbuf[] = {
+	SDE_PIX_FMT_Y_CBCR_H2V2_P010,
+	SDE_PIX_FMT_Y_CBCR_H2V2,
+	SDE_PIX_FMT_Y_CBCR_H2V2_TP10_UBWC,
+	SDE_PIX_FMT_Y_CBCR_H2V2_P010_UBWC,
+	SDE_PIX_FMT_Y_CBCR_H2V2_UBWC,
+	SDE_PIX_FMT_Y_CBCR_H2V2_TP10,
+	SDE_PIX_FMT_Y_CBCR_H2V2_P010_TILE,
+	SDE_PIX_FMT_Y_CBCR_H2V2_TILE,
+};
+
+static const u32 sde_hw_rotator_v4_outpixfmts_sbuf[] = {
+	SDE_PIX_FMT_Y_CBCR_H2V2_TP10,
+	SDE_PIX_FMT_Y_CBCR_H2V2_P010_TILE,
+	SDE_PIX_FMT_Y_CBCR_H2V2_TILE,
 };
 
 static struct sde_rot_vbif_debug_bus nrt_vbif_dbg_bus_r3[] = {
@@ -2637,17 +2654,33 @@ static int sde_rotator_hw_rev_init(struct sde_hw_rotator *rot)
 		set_bit(SDE_CAPS_SBUF_1,  mdata->sde_caps_map);
 		set_bit(SDE_CAPS_UBWC_2,  mdata->sde_caps_map);
 		set_bit(SDE_CAPS_PARTIALWR,  mdata->sde_caps_map);
-		rot->inpixfmts = sde_hw_rotator_v4_inpixfmts;
-		rot->num_inpixfmt = ARRAY_SIZE(sde_hw_rotator_v4_inpixfmts);
-		rot->outpixfmts = sde_hw_rotator_v4_outpixfmts;
-		rot->num_outpixfmt = ARRAY_SIZE(sde_hw_rotator_v4_outpixfmts);
+		rot->inpixfmts[SDE_ROTATOR_MODE_OFFLINE] =
+				sde_hw_rotator_v4_inpixfmts;
+		rot->num_inpixfmt[SDE_ROTATOR_MODE_OFFLINE] =
+				ARRAY_SIZE(sde_hw_rotator_v4_inpixfmts);
+		rot->outpixfmts[SDE_ROTATOR_MODE_OFFLINE] =
+				sde_hw_rotator_v4_outpixfmts;
+		rot->num_outpixfmt[SDE_ROTATOR_MODE_OFFLINE] =
+				ARRAY_SIZE(sde_hw_rotator_v4_outpixfmts);
+		rot->inpixfmts[SDE_ROTATOR_MODE_SBUF] =
+				sde_hw_rotator_v4_inpixfmts_sbuf;
+		rot->num_inpixfmt[SDE_ROTATOR_MODE_SBUF] =
+				ARRAY_SIZE(sde_hw_rotator_v4_inpixfmts_sbuf);
+		rot->outpixfmts[SDE_ROTATOR_MODE_SBUF] =
+				sde_hw_rotator_v4_outpixfmts_sbuf;
+		rot->num_outpixfmt[SDE_ROTATOR_MODE_SBUF] =
+				ARRAY_SIZE(sde_hw_rotator_v4_outpixfmts_sbuf);
 		rot->downscale_caps =
 			"LINEAR/1.5/2/4/8/16/32/64 TILE/1.5/2/4 TP10/1.5/2";
 	} else {
-		rot->inpixfmts = sde_hw_rotator_v3_inpixfmts;
-		rot->num_inpixfmt = ARRAY_SIZE(sde_hw_rotator_v3_inpixfmts);
-		rot->outpixfmts = sde_hw_rotator_v3_outpixfmts;
-		rot->num_outpixfmt = ARRAY_SIZE(sde_hw_rotator_v3_outpixfmts);
+		rot->inpixfmts[SDE_ROTATOR_MODE_OFFLINE] =
+				sde_hw_rotator_v3_inpixfmts;
+		rot->num_inpixfmt[SDE_ROTATOR_MODE_OFFLINE] =
+				ARRAY_SIZE(sde_hw_rotator_v3_inpixfmts);
+		rot->outpixfmts[SDE_ROTATOR_MODE_OFFLINE] =
+				sde_hw_rotator_v3_outpixfmts;
+		rot->num_outpixfmt[SDE_ROTATOR_MODE_OFFLINE] =
+				ARRAY_SIZE(sde_hw_rotator_v3_outpixfmts);
 		rot->downscale_caps = (hw_version == SDE_ROT_TYPE_V1_0) ?
 			"LINEAR/2/4/8/16/32/64 TILE/2/4 TP10/2" :
 			"LINEAR/1.5/2/4/8/16/32/64 TILE/1.5/2/4 TP10/1.5/2";
@@ -3055,9 +3088,10 @@ static ssize_t sde_hw_rotator_show_state(struct sde_rot_mgr *mgr,
  * @mgr: Pointer to rotator manager
  * @index: index of pixel format
  * @input: true for input port; false for output port
+ * @mode: operating mode
  */
 static u32 sde_hw_rotator_get_pixfmt(struct sde_rot_mgr *mgr,
-		int index, bool input)
+		int index, bool input, u32 mode)
 {
 	struct sde_hw_rotator *rot;
 
@@ -3068,14 +3102,19 @@ static u32 sde_hw_rotator_get_pixfmt(struct sde_rot_mgr *mgr,
 
 	rot = mgr->hw_data;
 
+	if (mode >= SDE_ROTATOR_MODE_MAX) {
+		SDEROT_ERR("invalid rotator mode %d\n", mode);
+		return 0;
+	}
+
 	if (input) {
-		if ((index < rot->num_inpixfmt) && rot->inpixfmts)
-			return rot->inpixfmts[index];
+		if ((index < rot->num_inpixfmt[mode]) && rot->inpixfmts[mode])
+			return rot->inpixfmts[mode][index];
 		else
 			return 0;
 	} else {
-		if ((index < rot->num_outpixfmt) && rot->outpixfmts)
-			return rot->outpixfmts[index];
+		if ((index < rot->num_outpixfmt[mode]) && rot->outpixfmts[mode])
+			return rot->outpixfmts[mode][index];
 		else
 			return 0;
 	}
@@ -3086,12 +3125,13 @@ static u32 sde_hw_rotator_get_pixfmt(struct sde_rot_mgr *mgr,
  * @mgr: Pointer to rotator manager
  * @pixfmt: pixel format to be verified
  * @input: true for input port; false for output port
+ * @mode: operating mode
  */
 static int sde_hw_rotator_is_valid_pixfmt(struct sde_rot_mgr *mgr, u32 pixfmt,
-		bool input)
+		bool input, u32 mode)
 {
 	struct sde_hw_rotator *rot;
-	u32 *pixfmts;
+	const u32 *pixfmts;
 	u32 num_pixfmt;
 	int i;
 
@@ -3102,12 +3142,17 @@ static int sde_hw_rotator_is_valid_pixfmt(struct sde_rot_mgr *mgr, u32 pixfmt,
 
 	rot = mgr->hw_data;
 
+	if (mode >= SDE_ROTATOR_MODE_MAX) {
+		SDEROT_ERR("invalid rotator mode %d\n", mode);
+		return false;
+	}
+
 	if (input) {
-		pixfmts = rot->inpixfmts;
-		num_pixfmt = rot->num_inpixfmt;
+		pixfmts = rot->inpixfmts[mode];
+		num_pixfmt = rot->num_inpixfmt[mode];
 	} else {
-		pixfmts = rot->outpixfmts;
-		num_pixfmt = rot->num_outpixfmt;
+		pixfmts = rot->outpixfmts[mode];
+		num_pixfmt = rot->num_outpixfmt[mode];
 	}
 
 	if (!pixfmts || !num_pixfmt) {

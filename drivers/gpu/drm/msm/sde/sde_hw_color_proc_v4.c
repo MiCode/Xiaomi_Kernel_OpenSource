@@ -18,6 +18,7 @@ static int sde_write_3d_gamut(struct sde_hw_blk_reg_map *hw,
 		u32 *opcode)
 {
 	u32 reg, tbl_len, tbl_off, scale_off, i, j;
+	u32 scale_tbl_len, scale_tbl_off;
 	u32 *scale_data;
 
 	if (!payload || !opcode || !hw) {
@@ -50,7 +51,7 @@ static int sde_write_3d_gamut(struct sde_hw_blk_reg_map *hw,
 		*opcode = gamut_mode_5 << 2;
 		*opcode |= GAMUT_MAP_EN;
 		tbl_len = GAMUT_3D_MODE5_TBL_SZ;
-		tbl_off = 0;
+		tbl_off = GAMUT_MODE_5_OFF;
 		scale_off = GAMUT_SCALEB_OFFSET_OFF;
 		break;
 	default:
@@ -75,12 +76,18 @@ static int sde_write_3d_gamut(struct sde_hw_blk_reg_map *hw,
 	}
 
 	if ((*opcode & GAMUT_MAP_EN)) {
-		scale_data = &payload->scale_off[0][0];
-		tbl_off = base + scale_off;
-		tbl_len = GAMUT_3D_SCALE_OFF_TBL_NUM * GAMUT_3D_SCALE_OFF_SZ;
-		for (i = 0; i < tbl_len; i++)
-			SDE_REG_WRITE(hw, tbl_off + (i * sizeof(u32)),
-					scale_data[i]);
+		if (scale_off == GAMUT_SCALEA_OFFSET_OFF)
+			scale_tbl_len = GAMUT_3D_SCALE_OFF_SZ;
+		else
+			scale_tbl_len = GAMUT_3D_SCALEB_OFF_SZ;
+		for (i = 0; i < GAMUT_3D_SCALE_OFF_TBL_NUM; i++) {
+			scale_tbl_off = base + scale_off + i * scale_tbl_len;
+			scale_data = &payload->scale_off[i][0];
+			for (j = 0; j < scale_tbl_len; j++)
+				SDE_REG_WRITE(hw,
+					scale_tbl_off + (j * sizeof(u32)),
+					scale_data[j]);
+		}
 	}
 	SDE_REG_WRITE(hw, base, *opcode);
 	return 0;

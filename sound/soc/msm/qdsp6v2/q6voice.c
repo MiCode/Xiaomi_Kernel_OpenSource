@@ -21,6 +21,7 @@
 #include <soc/qcom/socinfo.h>
 #include <linux/qdsp6v2/apr_tal.h>
 
+#include "sound/q6core.h"
 #include "sound/q6audio-v2.h"
 #include "sound/apr_audio-v2.h"
 #include "sound/q6afe-v2.h"
@@ -33,6 +34,9 @@
 
 #define CMD_STATUS_SUCCESS 0
 #define CMD_STATUS_FAIL 1
+#define NUM_CHANNELS_MONO 1
+#define NUM_CHANNELS_STEREO 2
+#define CVP_VERSION_2 2
 
 enum {
 	VOC_TOKEN_NONE,
@@ -83,6 +87,11 @@ static int voice_send_cvp_device_channels_cmd(struct voice_data *v);
 static int voice_send_cvp_media_format_cmd(struct voice_data *v,
 					   uint32_t param_type);
 static int voice_send_cvp_topology_commit_cmd(struct voice_data *v);
+static int voice_send_cvp_channel_info_cmd(struct voice_data *v);
+static int voice_send_cvp_channel_info_v2(struct voice_data *v,
+					  uint32_t param_type);
+static int voice_get_avcs_version_per_service(uint32_t service_id);
+
 
 static int voice_cvs_stop_playback(struct voice_data *v);
 static int voice_cvs_start_playback(struct voice_data *v);
@@ -3793,6 +3802,295 @@ done:
 	return result;
 }
 
+static int voice_send_cvp_channel_info_v2(struct voice_data *v,
+					  uint32_t param_type)
+{
+	int ret;
+	struct cvp_set_channel_info_cmd_v2 cvp_set_channel_info_cmd;
+	void *apr_cvp;
+	u16 cvp_handle;
+	struct vss_icommon_param_data_channel_info_v2_t
+		*channel_info_param_data =
+			&cvp_set_channel_info_cmd.
+			cvp_set_ch_info_param_v2.param_data;
+	struct vss_param_vocproc_dev_channel_info_t *channel_info =
+			&channel_info_param_data->channel_info;
+
+	if (v == NULL) {
+		pr_err("%s: v is NULL\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	apr_cvp = common.apr_q6_cvp;
+	if (!apr_cvp) {
+		pr_err("%s: apr_cvp is NULL\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	cvp_handle = voice_get_cvp_handle(v);
+	memset(&cvp_set_channel_info_cmd, 0, sizeof(cvp_set_channel_info_cmd));
+
+	cvp_set_channel_info_cmd.hdr.hdr_field =
+		APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD, APR_HDR_LEN(APR_HDR_SIZE),
+			      APR_PKT_VER);
+	cvp_set_channel_info_cmd.hdr.pkt_size =
+		APR_PKT_SIZE(APR_HDR_SIZE,
+		sizeof(cvp_set_channel_info_cmd) - APR_HDR_SIZE);
+	cvp_set_channel_info_cmd.hdr.src_svc = 0;
+	cvp_set_channel_info_cmd.hdr.src_domain = APR_DOMAIN_APPS;
+	cvp_set_channel_info_cmd.hdr.src_port =
+		voice_get_idx_for_session(v->session_id);
+	cvp_set_channel_info_cmd.hdr.dest_svc = 0;
+	cvp_set_channel_info_cmd.hdr.dest_domain = APR_DOMAIN_ADSP;
+	cvp_set_channel_info_cmd.hdr.dest_port = cvp_handle;
+	cvp_set_channel_info_cmd.hdr.token = 0;
+	cvp_set_channel_info_cmd.hdr.opcode =  VSS_ICOMMON_CMD_SET_PARAM_V2;
+
+	cvp_set_channel_info_cmd.cvp_set_ch_info_param_v2.mem_size =
+			sizeof(struct vss_icommon_param_data_channel_info_v2_t);
+
+	channel_info_param_data->module_id = VSS_MODULE_CVD_GENERIC;
+	channel_info_param_data->param_size =
+		sizeof(struct vss_param_vocproc_dev_channel_info_t);
+
+	 /* Device specific data */
+	switch (param_type) {
+	case RX_PATH:
+		channel_info_param_data->param_id =
+			VSS_PARAM_VOCPROC_RX_CHANNEL_INFO;
+		channel_info->num_channels = v->dev_rx.no_of_channels;
+		channel_info->bits_per_sample = v->dev_rx.bits_per_sample;
+		break;
+
+	case TX_PATH:
+		channel_info_param_data->param_id =
+			VSS_PARAM_VOCPROC_TX_CHANNEL_INFO;
+		channel_info->num_channels = v->dev_tx.no_of_channels;
+		channel_info->bits_per_sample = v->dev_tx.bits_per_sample;
+		break;
+
+	case EC_REF_PATH:
+		channel_info_param_data->param_id =
+			VSS_PARAM_VOCPROC_EC_REF_CHANNEL_INFO;
+		channel_info->num_channels = v->dev_rx.no_of_channels;
+		channel_info->bits_per_sample = v->dev_rx.bits_per_sample;
+		break;
+	default:
+		pr_err("%s: Invalid param type\n",
+		       __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	if (channel_info->num_channels == NUM_CHANNELS_MONO) {
+		channel_info->channel_mapping[0] = PCM_CHANNEL_FC;
+	} else if (channel_info->num_channels == NUM_CHANNELS_STEREO) {
+		channel_info->channel_mapping[0] = PCM_CHANNEL_FL;
+		channel_info->channel_mapping[1] = PCM_CHANNEL_FR;
+	} else {
+		pr_err("%s: Unsupported num channels: %d\n",
+		       __func__, channel_info->num_channels);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	v->cvp_state = CMD_STATUS_FAIL;
+	v->async_err = 0;
+	ret = apr_send_pkt(apr_cvp, (uint32_t *) &cvp_set_channel_info_cmd);
+	if (ret < 0) {
+		pr_err("%s: Failed to send VSS_ICOMMON_CMD_SET_PARAM_V2\n",
+		       __func__);
+		goto done;
+	}
+
+	ret = wait_event_timeout(v->cvp_wait,
+				(v->cvp_state == CMD_STATUS_SUCCESS),
+				 msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		ret = -ETIMEDOUT;
+		goto done;
+	}
+
+	if (v->async_err > 0) {
+		pr_err("%s: DSP returned error[%s] handle = %d\n", __func__,
+		       adsp_err_get_err_str(v->async_err), cvp_handle);
+		ret = adsp_err_get_lnx_err_code(v->async_err);
+		goto done;
+	}
+	ret = 0;
+done:
+	return ret;
+}
+
+static int voice_send_cvp_channel_info_cmd(struct voice_data *v)
+{
+	int ret = 0;
+
+	ret = voice_send_cvp_channel_info_v2(v, RX_PATH);
+	if (ret < 0) {
+		pr_err("%s: Error in sending cvp_channel_info RX: %d\n",
+		       __func__, ret);
+		goto done;
+	}
+
+	ret = voice_send_cvp_channel_info_v2(v, TX_PATH);
+	if (ret < 0) {
+		pr_err("%s: Error in sending cvp_channel_info TX: %d\n",
+		       __func__, ret);
+		goto done;
+	}
+
+	ret = voice_send_cvp_channel_info_v2(v, EC_REF_PATH);
+	if (ret < 0) {
+		pr_err("%s: Error in sending cvp_channel_info EC Ref: %d\n",
+		       __func__, ret);
+		goto done;
+	}
+done:
+	return ret;
+}
+
+static int voice_send_cvp_mfc_config_v2(struct voice_data *v)
+{
+	int ret;
+	struct cvp_set_mfc_config_cmd_v2 cvp_set_mfc_config_cmd;
+	void *apr_cvp;
+	u16 cvp_handle;
+	struct vss_icommon_param_data_mfc_config_v2_t *cvp_config_param_data =
+		&cvp_set_mfc_config_cmd.cvp_set_mfc_param_v2.param_data;
+	struct vss_param_mfc_config_info_t *mfc_config_info =
+		&cvp_config_param_data->mfc_config_info;
+
+	if (v == NULL) {
+		pr_err("%s: v is NULL\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	apr_cvp  = common.apr_q6_cvp;
+	if (!apr_cvp) {
+		pr_err("%s: apr_cvp is NULL\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	cvp_handle = voice_get_cvp_handle(v);
+	memset(&cvp_set_mfc_config_cmd, 0, sizeof(cvp_set_mfc_config_cmd));
+
+	cvp_set_mfc_config_cmd.hdr.hdr_field =
+		APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD, APR_HDR_LEN(APR_HDR_SIZE),
+			      APR_PKT_VER);
+	cvp_set_mfc_config_cmd.hdr.pkt_size =
+		APR_PKT_SIZE(APR_HDR_SIZE,
+		sizeof(cvp_set_mfc_config_cmd) - APR_HDR_SIZE);
+	cvp_set_mfc_config_cmd.hdr.src_svc = 0;
+	cvp_set_mfc_config_cmd.hdr.src_domain = APR_DOMAIN_APPS;
+	cvp_set_mfc_config_cmd.hdr.src_port =
+		voice_get_idx_for_session(v->session_id);
+	cvp_set_mfc_config_cmd.hdr.dest_svc = 0;
+	cvp_set_mfc_config_cmd.hdr.dest_domain = APR_DOMAIN_ADSP;
+	cvp_set_mfc_config_cmd.hdr.dest_port = cvp_handle;
+	cvp_set_mfc_config_cmd.hdr.token = 0;
+	cvp_set_mfc_config_cmd.hdr.opcode = VSS_ICOMMON_CMD_SET_PARAM_V2;
+	cvp_set_mfc_config_cmd.cvp_set_mfc_param_v2.mem_size =
+		sizeof(struct vss_icommon_param_data_mfc_config_v2_t);
+
+	cvp_config_param_data->module_id = AUDPROC_MODULE_ID_MFC;
+	cvp_config_param_data->param_id =
+		AUDPROC_PARAM_ID_MFC_OUTPUT_MEDIA_FORMAT;
+	cvp_config_param_data->param_size =
+		sizeof(struct vss_param_mfc_config_info_t);
+
+	mfc_config_info->num_channels = v->dev_rx.no_of_channels;
+	mfc_config_info->bits_per_sample = 16;
+	mfc_config_info->sample_rate = v->dev_rx.sample_rate;
+
+	if (mfc_config_info->num_channels == NUM_CHANNELS_MONO) {
+		mfc_config_info->channel_type[0] = PCM_CHANNEL_FC;
+	} else if (mfc_config_info->num_channels == NUM_CHANNELS_STEREO) {
+		mfc_config_info->channel_type[0] = PCM_CHANNEL_FL;
+		mfc_config_info->channel_type[1] = PCM_CHANNEL_FR;
+	} else {
+		pr_err("%s: Unsupported num channels: %d\n",
+		       __func__, mfc_config_info->num_channels);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	v->cvp_state = CMD_STATUS_FAIL;
+	v->async_err = 0;
+	ret = apr_send_pkt(apr_cvp, (uint32_t *)&cvp_set_mfc_config_cmd);
+	if (ret < 0) {
+		pr_err("%s: Failed to send VSS_ICOMMON_CMD_SET_PARAM_V2 %d\n",
+		       __func__, ret);
+		goto done;
+	}
+	ret = wait_event_timeout(v->cvp_wait,
+				(v->cvp_state == CMD_STATUS_SUCCESS),
+				msecs_to_jiffies(TIMEOUT_MS));
+
+	if (!ret) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		ret = -ETIMEDOUT;
+		goto done;
+	}
+
+	if (v->async_err > 0) {
+		pr_err("%s: DSP returned error[%s] handle = %d\n", __func__,
+		       adsp_err_get_err_str(v->async_err), cvp_handle);
+		ret = adsp_err_get_lnx_err_code(v->async_err);
+		goto done;
+	}
+	ret = 0;
+done:
+	return ret;
+}
+
+static int voice_send_cvp_mfc_config_cmd(struct voice_data *v)
+{
+	int ret = 0;
+
+	if (common.cvp_version >= CVP_VERSION_2) {
+		ret = voice_send_cvp_mfc_config_v2(v);
+	} else {
+		pr_warn("%s: CVP Version not supported\n", __func__);
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+static int voice_get_avcs_version_per_service(uint32_t service_id)
+{
+	int ret = 0;
+	size_t svc_size;
+	struct avcs_fwk_ver_info ver_info = {{0}, NULL};
+
+	if (service_id == AVCS_SERVICE_ID_ALL) {
+		pr_err("%s: Invalid service id: %d", __func__,
+		       AVCS_SERVICE_ID_ALL);
+		return -EINVAL;
+	}
+
+	svc_size = sizeof(struct avs_svc_api_info);
+	ver_info.services = kzalloc(svc_size, GFP_KERNEL);
+	if (ver_info.services == NULL)
+		return -ENOMEM;
+
+	ret = q6core_get_service_version(service_id, &ver_info, svc_size);
+	if (ret < 0)
+		goto done;
+
+	ret = ver_info.services[0].api_version;
+	common.is_avcs_version_queried = true;
+done:
+	kfree(ver_info.services);
+	return ret;
+}
+
 static int voice_setup_vocproc(struct voice_data *v)
 {
 	int ret = 0;
@@ -3802,6 +4100,18 @@ static int voice_setup_vocproc(struct voice_data *v)
 		pr_err("%s: CVP create failed err:%d\n", __func__, ret);
 		goto fail;
 	}
+
+	if (common.is_avcs_version_queried == false)
+		common.cvp_version = voice_get_avcs_version_per_service(
+				     APRV2_IDS_SERVICE_ID_ADSP_CVP_V);
+
+	if (common.cvp_version < 0) {
+		pr_err("%s: Invalid CVP version %d\n",
+		       __func__, common.cvp_version);
+		ret = -EINVAL;
+		goto fail;
+	}
+	pr_debug("%s: CVP Version %d\n", __func__, common.cvp_version);
 
 	ret = voice_send_cvp_media_fmt_info_cmd(v);
 	if (ret < 0) {
@@ -3815,6 +4125,15 @@ static int voice_setup_vocproc(struct voice_data *v)
 		pr_err("%s: Set topology commit failed err:%d\n",
 		       __func__, ret);
 		goto fail;
+	}
+
+	/* Send MFC config only when the no of channels are more than 1 */
+	if (v->dev_rx.no_of_channels > NUM_CHANNELS_MONO) {
+		ret = voice_send_cvp_mfc_config_cmd(v);
+		if (ret < 0) {
+			pr_warn("%s: Set mfc config failed err:%d\n",
+				__func__, ret);
+		}
 	}
 
 	voice_send_cvs_register_cal_cmd(v);
@@ -3962,11 +4281,18 @@ done:
 
 static int voice_send_cvp_media_fmt_info_cmd(struct voice_data *v)
 {
-	int ret;
+	int ret = 0;
 
-	ret = voice_send_cvp_device_channels_cmd(v);
-	if (ret < 0)
+	if (common.cvp_version < CVP_VERSION_2)
+		ret = voice_send_cvp_device_channels_cmd(v);
+	else
+		ret = voice_send_cvp_channel_info_cmd(v);
+
+	if (ret < 0) {
+		pr_err("%s: Set channel info failed err: %d\n", __func__,
+		       ret);
 		goto done;
+	}
 
 	if (voice_get_cvd_int_version(common.cvd_version) >=
 	    CVD_INT_VERSION_2_3) {
@@ -3994,7 +4320,7 @@ static int voice_send_cvp_media_format_cmd(struct voice_data *v,
 	void *apr_cvp;
 	u16 cvp_handle;
 	struct vss_icommon_param_data_t *media_fmt_param_data =
-		&cvp_set_media_format_cmd.cvp_set_param_v2.param_data;
+		&cvp_set_media_format_cmd.cvp_set_media_param_v2.param_data;
 	struct vss_param_endpoint_media_format_info_t *media_fmt_info =
 		&media_fmt_param_data->media_format_info;
 
@@ -4032,7 +4358,7 @@ static int voice_send_cvp_media_format_cmd(struct voice_data *v,
 	cvp_set_media_format_cmd.hdr.opcode = VSS_ICOMMON_CMD_SET_PARAM_V2;
 
 	/* Fill param data */
-	cvp_set_media_format_cmd.cvp_set_param_v2.mem_size =
+	cvp_set_media_format_cmd.cvp_set_media_param_v2.mem_size =
 		sizeof(struct vss_icommon_param_data_t);
 	media_fmt_param_data->module_id = VSS_MODULE_CVD_GENERIC;
 	media_fmt_param_data->param_size =
@@ -6197,6 +6523,15 @@ int voc_enable_device(uint32_t session_id)
 			goto done;
 		}
 
+		/* Send MFC config only when the no of channels are > 1 */
+		if (v->dev_rx.no_of_channels > NUM_CHANNELS_MONO) {
+			ret = voice_send_cvp_mfc_config_cmd(v);
+			if (ret < 0) {
+				pr_warn("%s: Set mfc config failed err: %d\n",
+					__func__, ret);
+			}
+		}
+
 		voice_send_cvp_register_dev_cfg_cmd(v);
 		voice_send_cvp_register_cal_cmd(v);
 		voice_send_cvp_register_vol_cal_cmd(v);
@@ -7054,7 +7389,8 @@ static int32_t qdsp_cvp_callback(struct apr_client_data *data, void *priv)
 			case VSS_ICOMMON_CMD_SET_PARAM_V2:
 				switch (data->token) {
 				case VOC_SET_MEDIA_FORMAT_PARAM_TOKEN:
-					pr_debug("%s: VSS_ICOMMON_CMD_SET_PARAM_V2 called by voice_send_cvp_media_format_cmd\n",
+				case VOC_GENERIC_SET_PARAM_TOKEN:
+					pr_debug("%s: VSS_ICOMMON_CMD_SET_PARAM_V2 called\n",
 						__func__);
 					v->cvp_state = CMD_STATUS_SUCCESS;
 					v->async_err = ptr[1];
@@ -7702,7 +8038,7 @@ uint32_t voice_get_topology(uint32_t topology_idx)
 	if (topology_idx == CVP_VOC_RX_TOPOLOGY_CAL) {
 		topology = VSS_IVOCPROC_TOPOLOGY_ID_RX_DEFAULT;
 	} else if (topology_idx == CVP_VOC_TX_TOPOLOGY_CAL) {
-		topology = VSS_IVOCPROC_TOPOLOGY_ID_TX_SM_ECNS;
+		topology = VSS_IVOCPROC_TOPOLOGY_ID_TX_SM_ECNS_V2;
 	} else {
 		pr_err("%s: cal index %x is invalid!\n",
 			__func__, topology_idx);
@@ -8566,7 +8902,8 @@ static int __init voice_init(void)
 	common.default_vol_step_val = 0;
 	common.default_vol_ramp_duration_ms = DEFAULT_VOLUME_RAMP_DURATION;
 	common.default_mute_ramp_duration_ms = DEFAULT_MUTE_RAMP_DURATION;
-
+	common.cvp_version = 0;
+	common.is_avcs_version_queried = false;
 	/* Initialize EC Ref media format info */
 	common.ec_ref_ext = false;
 	common.ec_media_fmt_info.port_id = AFE_PORT_INVALID;

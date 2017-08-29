@@ -20,6 +20,7 @@
 #include <linux/debugfs.h>
 #include <linux/component.h>
 #include <linux/of_irq.h>
+#include <linux/hdcp_qseecom.h>
 
 #include "msm_drv.h"
 #include "dp_usbpd.h"
@@ -30,9 +31,27 @@
 #include "dp_link.h"
 #include "dp_panel.h"
 #include "dp_ctrl.h"
+#include "dp_audio.h"
 #include "dp_display.h"
+#include "sde_hdcp.h"
+#include "dp_debug.h"
 
 static struct dp_display *g_dp_display;
+
+struct dp_hdcp {
+	void *data;
+	struct sde_hdcp_ops *ops;
+
+	void *hdcp1;
+	void *hdcp2;
+
+	int enc_lvl;
+
+	bool auth_state;
+	bool hdcp1_present;
+	bool hdcp2_present;
+	bool feature_enabled;
+};
 
 struct dp_display_private {
 	char *name;
@@ -42,6 +61,7 @@ struct dp_display_private {
 	bool core_initialized;
 	bool power_on;
 	bool hpd_irq_on;
+	bool audio_supported;
 
 	struct platform_device *pdev;
 	struct dentry *root;
@@ -55,16 +75,32 @@ struct dp_display_private {
 	struct dp_link    *link;
 	struct dp_panel   *panel;
 	struct dp_ctrl    *ctrl;
+	struct dp_audio   *audio;
+	struct dp_debug   *debug;
+
+	struct dp_hdcp hdcp;
 
 	struct dp_usbpd_cb usbpd_cb;
 	struct dp_display_mode mode;
 	struct dp_display dp_display;
+
+	struct workqueue_struct *hdcp_workqueue;
+	struct delayed_work hdcp_cb_work;
+	struct mutex hdcp_mutex;
+	int hdcp_status;
 };
 
 static const struct of_device_id dp_dt_match[] = {
 	{.compatible = "qcom,dp-display"},
 	{}
 };
+
+static inline bool dp_display_is_hdcp_enabled(struct dp_display_private *dp)
+{
+	return dp->hdcp.feature_enabled &&
+		(dp->hdcp.hdcp1_present || dp->hdcp.hdcp2_present) &&
+		dp->hdcp.ops;
+}
 
 static irqreturn_t dp_display_irq(int irq, void *dev_id)
 {
@@ -81,81 +117,220 @@ static irqreturn_t dp_display_irq(int irq, void *dev_id)
 	/* DP aux isr */
 	dp->aux->isr(dp->aux);
 
+	/* HDCP isr */
+	if (dp_display_is_hdcp_enabled(dp) && dp->hdcp.ops->isr) {
+		if (dp->hdcp.ops->isr(dp->hdcp.data))
+			pr_err("dp_hdcp_isr failed\n");
+	}
+
 	return IRQ_HANDLED;
 }
 
-static ssize_t debugfs_dp_info_read(struct file *file, char __user *buff,
-		size_t count, loff_t *ppos)
+static void dp_display_hdcp_cb_work(struct work_struct *work)
 {
-	struct dp_display_private *dp = file->private_data;
-	char *buf;
-	u32 len = 0;
+	struct dp_display_private *dp;
+	struct delayed_work *dw = to_delayed_work(work);
+	struct sde_hdcp_ops *ops;
+	int rc = 0;
+	u32 hdcp_auth_state;
 
-	if (!dp)
-		return -ENODEV;
+	dp = container_of(dw, struct dp_display_private, hdcp_cb_work);
 
-	if (*ppos)
-		return 0;
-
-	buf = kzalloc(SZ_4K, GFP_KERNEL);
-	if (!buf)
-		return -ENOMEM;
-
-	len += snprintf(buf + len, (SZ_4K - len), "name = %s\n", dp->name);
-	len += snprintf(buf + len, (SZ_4K - len),
-			"\tResolution = %dx%d\n",
-			dp->panel->pinfo.h_active,
-			dp->panel->pinfo.v_active);
-
-	if (copy_to_user(buff, buf, len)) {
-		kfree(buf);
-		return -EFAULT;
+	rc = dp->catalog->ctrl.read_hdcp_status(&dp->catalog->ctrl);
+	if (rc >= 0) {
+		hdcp_auth_state = (rc >> 20) & 0x3;
+		pr_debug("hdcp auth state %d\n", hdcp_auth_state);
 	}
 
-	*ppos += len;
+	ops = dp->hdcp.ops;
 
-	kfree(buf);
-	return len;
+	switch (dp->hdcp_status) {
+	case HDCP_STATE_AUTHENTICATING:
+		pr_debug("start authenticaton\n");
+
+		if (dp->hdcp.ops && dp->hdcp.ops->authenticate)
+			rc = dp->hdcp.ops->authenticate(dp->hdcp.data);
+
+		break;
+	case HDCP_STATE_AUTHENTICATED:
+		pr_debug("hdcp authenticated\n");
+		dp->hdcp.auth_state = true;
+		break;
+	case HDCP_STATE_AUTH_FAIL:
+		dp->hdcp.auth_state = false;
+
+		if (dp->power_on) {
+			pr_debug("Reauthenticating\n");
+			if (ops && ops->reauthenticate) {
+				rc = ops->reauthenticate(dp->hdcp.data);
+				if (rc)
+					pr_err("reauth failed rc=%d\n", rc);
+			}
+		} else {
+			pr_debug("not reauthenticating, cable disconnected\n");
+		}
+
+		break;
+	default:
+		break;
+	}
 }
 
-static const struct file_operations dp_debug_fops = {
-	.open = simple_open,
-	.read = debugfs_dp_info_read,
-};
-
-static int dp_display_debugfs_init(struct dp_display_private *dp)
+static void dp_display_notify_hdcp_status_cb(void *ptr,
+		enum sde_hdcp_states status)
 {
-	int rc = 0;
-	struct dentry *dir, *file;
+	struct dp_display_private *dp = ptr;
 
-	dir = debugfs_create_dir(dp->name, NULL);
-	if (IS_ERR_OR_NULL(dir)) {
-		rc = PTR_ERR(dir);
-		pr_err("[%s] debugfs create dir failed, rc = %d\n",
-		       dp->name, rc);
+	if (!dp) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	dp->hdcp_status = status;
+
+	if (dp->dp_display.is_connected)
+		queue_delayed_work(dp->hdcp_workqueue, &dp->hdcp_cb_work, HZ/4);
+}
+
+static int dp_display_create_hdcp_workqueue(struct dp_display_private *dp)
+{
+	dp->hdcp_workqueue = create_workqueue("sdm_dp_hdcp");
+	if (IS_ERR_OR_NULL(dp->hdcp_workqueue)) {
+		pr_err("Error creating hdcp_workqueue\n");
+		return -EPERM;
+	}
+
+	INIT_DELAYED_WORK(&dp->hdcp_cb_work, dp_display_hdcp_cb_work);
+
+	return 0;
+}
+
+static void dp_display_destroy_hdcp_workqueue(struct dp_display_private *dp)
+{
+	if (dp->hdcp_workqueue)
+		destroy_workqueue(dp->hdcp_workqueue);
+}
+
+static void dp_display_update_hdcp_info(struct dp_display_private *dp)
+{
+	void *fd = NULL;
+	struct sde_hdcp_ops *ops = NULL;
+
+	if (!dp) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	if (!dp->hdcp.feature_enabled) {
+		pr_debug("feature not enabled\n");
+		return;
+	}
+
+	fd = dp->hdcp.hdcp2;
+	if (fd)
+		ops = sde_dp_hdcp2p2_start(fd);
+
+	if (ops && ops->feature_supported)
+		dp->hdcp.hdcp2_present = ops->feature_supported(fd);
+	else
+		dp->hdcp.hdcp2_present = false;
+
+	pr_debug("hdcp2p2: %s\n",
+			dp->hdcp.hdcp2_present ? "supported" : "not supported");
+
+	if (!dp->hdcp.hdcp2_present) {
+		dp->hdcp.hdcp1_present = hdcp1_check_if_supported_load_app();
+
+		if (dp->hdcp.hdcp1_present) {
+			fd = dp->hdcp.hdcp1;
+			ops = sde_hdcp_1x_start(fd);
+		}
+	}
+
+	pr_debug("hdcp1x: %s\n",
+			dp->hdcp.hdcp1_present ? "supported" : "not supported");
+
+	if (dp->hdcp.hdcp2_present || dp->hdcp.hdcp1_present) {
+		dp->hdcp.data = fd;
+		dp->hdcp.ops = ops;
+	} else {
+		dp->hdcp.data = NULL;
+		dp->hdcp.ops = NULL;
+	}
+}
+
+static void dp_display_deinitialize_hdcp(struct dp_display_private *dp)
+{
+	if (!dp) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	sde_dp_hdcp2p2_deinit(dp->hdcp.data);
+	dp_display_destroy_hdcp_workqueue(dp);
+	if (&dp->hdcp_mutex)
+		mutex_destroy(&dp->hdcp_mutex);
+}
+
+static int dp_display_initialize_hdcp(struct dp_display_private *dp)
+{
+	struct sde_hdcp_init_data hdcp_init_data;
+	struct resource *res;
+	int rc = 0;
+
+	if (!dp) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	mutex_init(&dp->hdcp_mutex);
+
+	rc = dp_display_create_hdcp_workqueue(dp);
+	if (rc) {
+		pr_err("Failed to create HDCP workqueue\n");
 		goto error;
 	}
 
-	file = debugfs_create_file("dp_debug", 0444, dir, dp, &dp_debug_fops);
-	if (IS_ERR_OR_NULL(file)) {
-		rc = PTR_ERR(file);
-		pr_err("[%s] debugfs create file failed, rc=%d\n",
-		       dp->name, rc);
-		goto error_remove_dir;
+	res = platform_get_resource_byname(dp->pdev,
+		IORESOURCE_MEM, "dp_ctrl");
+	if (!res) {
+		pr_err("Error getting dp ctrl resource\n");
+		rc = -EINVAL;
+		goto error;
 	}
 
-	dp->root = dir;
-	return rc;
-error_remove_dir:
-	debugfs_remove(dir);
-error:
-	return rc;
-}
+	hdcp_init_data.phy_addr      = res->start;
+	hdcp_init_data.client_id     = HDCP_CLIENT_DP;
+	hdcp_init_data.drm_aux       = dp->aux->drm_aux;
+	hdcp_init_data.cb_data       = (void *)dp;
+	hdcp_init_data.workq         = dp->hdcp_workqueue;
+	hdcp_init_data.mutex         = &dp->hdcp_mutex;
+	hdcp_init_data.sec_access    = true;
+	hdcp_init_data.notify_status = dp_display_notify_hdcp_status_cb;
+	hdcp_init_data.core_io       = &dp->parser->io.ctrl_io;
+	hdcp_init_data.qfprom_io     = &dp->parser->io.qfprom_io;
+	hdcp_init_data.hdcp_io       = &dp->parser->io.hdcp_io;
+	hdcp_init_data.revision      = &dp->panel->link_info.revision;
 
-static int dp_display_debugfs_deinit(struct dp_display_private *dp)
-{
-	debugfs_remove(dp->root);
+	dp->hdcp.hdcp1 = sde_hdcp_1x_init(&hdcp_init_data);
+	if (IS_ERR_OR_NULL(dp->hdcp.hdcp1)) {
+		pr_err("Error initializing HDCP 1.x\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	pr_debug("HDCP 1.3 initialized\n");
+
+	dp->hdcp.hdcp2 = sde_dp_hdcp2p2_init(&hdcp_init_data);
+	if (!IS_ERR_OR_NULL(dp->hdcp.hdcp2))
+		pr_debug("HDCP 2.2 initialized\n");
+
+	dp->hdcp.feature_enabled = true;
+
 	return 0;
+error:
+	dp_display_deinitialize_hdcp(dp);
+	return rc;
 }
 
 static int dp_display_bind(struct device *dev, struct device *master,
@@ -186,12 +361,6 @@ static int dp_display_bind(struct device *dev, struct device *master,
 	dp->dp_display.drm_dev = drm;
 	priv = drm->dev_private;
 
-	rc = dp_display_debugfs_init(dp);
-	if (rc) {
-		pr_err("[%s]Debugfs init failed, rc=%d\n", dp->name, rc);
-		goto end;
-	}
-
 	rc = dp->parser->parse(dp->parser);
 	if (rc) {
 		pr_err("device tree parsing failed\n");
@@ -213,6 +382,12 @@ static int dp_display_bind(struct device *dev, struct device *master,
 	rc = dp->power->power_client_init(dp->power, &priv->phandle);
 	if (rc) {
 		pr_err("Power client create failed\n");
+		goto end;
+	}
+
+	rc = dp_display_initialize_hdcp(dp);
+	if (rc) {
+		pr_err("HDCP initialization failed\n");
 		goto end;
 	}
 end:
@@ -239,7 +414,7 @@ static void dp_display_unbind(struct device *dev, struct device *master,
 	(void)dp->power->power_client_deinit(dp->power);
 	(void)dp->panel->sde_edid_deregister(dp->panel);
 	(void)dp->aux->drm_aux_deregister(dp->aux);
-	(void)dp_display_debugfs_deinit(dp);
+	dp_display_deinitialize_hdcp(dp);
 }
 
 static const struct component_ops dp_display_comp_ops = {
@@ -251,13 +426,15 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 {
 	int rc = 0;
 	u32 max_pclk_from_edid = 0;
+	struct edid *edid;
 
-	rc = dp->panel->read_dpcd(dp->panel);
+	rc = dp->panel->read_sink_caps(dp->panel, dp->dp_display.connector);
 	if (rc)
 		return rc;
 
-	sde_get_edid(dp->dp_display.connector, &dp->aux->drm_aux->ddc,
-		(void **)&dp->panel->edid_ctrl);
+	edid = dp->panel->edid_ctrl->edid;
+
+	dp->audio_supported = drm_detect_monitor_audio(edid);
 
 	max_pclk_from_edid = dp->panel->get_max_pclk(dp->panel);
 
@@ -312,6 +489,14 @@ static void dp_display_process_hpd_low(struct dp_display_private *dp)
 {
 	/* cancel any pending request */
 	dp->ctrl->abort(dp->ctrl);
+
+	if (dp_display_is_hdcp_enabled(dp) && dp->hdcp.ops->off) {
+		cancel_delayed_work_sync(&dp->hdcp_cb_work);
+		dp->hdcp.ops->off(dp->hdcp.data);
+	}
+
+	if (dp->audio_supported)
+		dp->audio->off(dp->audio);
 
 	dp->dp_display.is_connected = false;
 	drm_helper_hpd_irq_event(dp->dp_display.connector->dev);
@@ -368,6 +553,9 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 	/* cancel any pending request */
 	dp->ctrl->abort(dp->ctrl);
 
+	if (dp->audio_supported)
+		dp->audio->off(dp->audio);
+
 	dp->dp_display.is_connected = false;
 	drm_helper_hpd_irq_event(dp->dp_display.connector->dev);
 
@@ -408,6 +596,12 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 
 	if (dp->usbpd->hpd_irq) {
 		dp->hpd_irq_on = true;
+
+		if (dp_display_is_hdcp_enabled(dp) && dp->hdcp.ops->cp_irq) {
+			if (!dp->hdcp.ops->cp_irq(dp->hdcp.data))
+				goto end;
+		}
+
 		rc = dp->link->process_request(dp->link);
 		dp->hpd_irq_on = false;
 		if (!rc)
@@ -468,7 +662,7 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 		goto err;
 	}
 
-	dp->aux = dp_aux_get(dev, &dp->catalog->aux);
+	dp->aux = dp_aux_get(dev, &dp->catalog->aux, dp->parser->aux_cfg);
 	if (IS_ERR(dp->aux)) {
 		rc = PTR_ERR(dp->aux);
 		pr_err("failed to initialize aux, rc = %d\n", rc);
@@ -500,6 +694,20 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	if (IS_ERR(dp->ctrl)) {
 		rc = PTR_ERR(dp->ctrl);
 		pr_err("failed to initialize ctrl, rc = %d\n", rc);
+		goto err;
+	}
+
+	dp->audio = dp_audio_get(dp->pdev, dp->panel, &dp->catalog->audio);
+	if (IS_ERR(dp->audio)) {
+		rc = PTR_ERR(dp->audio);
+		pr_err("failed to initialize audio, rc = %d\n", rc);
+	}
+
+	dp->debug = dp_debug_get(dev, dp->panel, dp->usbpd,
+				dp->link, &dp->dp_display.connector);
+	if (IS_ERR(dp->debug)) {
+		rc = PTR_ERR(dp->debug);
+		pr_err("failed to initialize debug, rc = %d\n", rc);
 		goto err;
 	}
 err:
@@ -563,7 +771,23 @@ static int dp_display_post_enable(struct dp_display *dp_display)
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 
+	if (dp->audio_supported) {
+		dp->audio->bw_code = dp->link->bw_code;
+		dp->audio->lane_count = dp->link->lane_count;
+		dp->audio->on(dp->audio);
+	}
+
 	complete_all(&dp->notification_comp);
+
+	dp_display_update_hdcp_info(dp);
+
+	if (dp_display_is_hdcp_enabled(dp)) {
+		cancel_delayed_work_sync(&dp->hdcp_cb_work);
+
+		dp->hdcp_status = HDCP_STATE_AUTHENTICATING;
+		queue_delayed_work(dp->hdcp_workqueue,
+				&dp->hdcp_cb_work, HZ / 2);
+	}
 end:
 	return rc;
 }
@@ -580,6 +804,14 @@ static int dp_display_pre_disable(struct dp_display *dp_display)
 	}
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
+
+	if (dp_display_is_hdcp_enabled(dp)) {
+		dp->hdcp_status = HDCP_STATE_INACTIVE;
+
+		cancel_delayed_work_sync(&dp->hdcp_cb_work);
+		if (dp->hdcp.ops->off)
+			dp->hdcp.ops->off(dp->hdcp.data);
+	}
 
 	dp->ctrl->push_idle(dp->ctrl);
 error:
@@ -638,6 +870,20 @@ static int dp_request_irq(struct dp_display *dp_display)
 	disable_irq(dp->irq);
 
 	return 0;
+}
+
+static struct dp_debug *dp_get_debug(struct dp_display *dp_display)
+{
+	struct dp_display_private *dp;
+
+	if (!dp_display) {
+		pr_err("invalid input\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	dp = container_of(dp_display, struct dp_display_private, dp_display);
+
+	return dp->debug;
 }
 
 static int dp_display_unprepare(struct dp_display *dp)
@@ -703,6 +949,7 @@ static int dp_display_probe(struct platform_device *pdev)
 	g_dp_display->prepare       = dp_display_prepare;
 	g_dp_display->unprepare     = dp_display_unprepare;
 	g_dp_display->request_irq   = dp_request_irq;
+	g_dp_display->get_debug     = dp_get_debug;
 
 	rc = component_add(&pdev->dev, &dp_display_comp_ops);
 	if (rc)
@@ -734,6 +981,7 @@ int dp_display_get_num_of_displays(void)
 
 static void dp_display_deinit_sub_modules(struct dp_display_private *dp)
 {
+	dp_audio_put(dp->audio);
 	dp_ctrl_put(dp->ctrl);
 	dp_link_put(dp->link);
 	dp_panel_put(dp->panel);
@@ -742,6 +990,7 @@ static void dp_display_deinit_sub_modules(struct dp_display_private *dp)
 	dp_catalog_put(dp->catalog);
 	dp_parser_put(dp->parser);
 	dp_usbpd_put(dp->usbpd);
+	dp_debug_put(dp->debug);
 }
 
 static int dp_display_remove(struct platform_device *pdev)

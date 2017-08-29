@@ -49,6 +49,7 @@
 #define MAX_NUM_OUTPUT_BUFFERS VIDEO_MAX_FRAME // same as VB2_MAX_FRAME
 #define MAX_NUM_CAPTURE_BUFFERS VIDEO_MAX_FRAME // same as VB2_MAX_FRAME
 
+#define MAX_SUPPORTED_INSTANCES 16
 
 /* Maintains the number of FTB's between each FBD over a window */
 #define DCVS_FTB_WINDOW 16
@@ -143,11 +144,22 @@ struct vidc_freq_data {
 	unsigned long freq;
 };
 
+struct vidc_input_cr_data {
+	struct list_head list;
+	u32 index;
+	u32 input_cr;
+};
+
 struct recon_buf {
 	struct list_head list;
 	u32 buffer_index;
 	u32 CR;
 	u32 CF;
+};
+
+struct eos_buf {
+	struct list_head list;
+	struct msm_smem smem;
 };
 
 struct internal_buf {
@@ -321,11 +333,13 @@ struct msm_vidc_inst {
 	struct msm_vidc_format fmts[MAX_PORT_NUM];
 	struct buf_queue bufq[MAX_PORT_NUM];
 	struct msm_vidc_list freqs;
+	struct msm_vidc_list input_crs;
 	struct msm_vidc_list scratchbufs;
 	struct msm_vidc_list persistbufs;
 	struct msm_vidc_list pending_getpropq;
 	struct msm_vidc_list outputbufs;
 	struct msm_vidc_list reconbufs;
+	struct msm_vidc_list eosbufs;
 	struct msm_vidc_list registeredbufs;
 	struct buffer_requirements buff_req;
 	struct smem_client *mem_client;
@@ -381,16 +395,22 @@ struct msm_vidc_ctrl {
 void handle_cmd_response(enum hal_command_response cmd, void *data);
 int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 	enum hal_ssr_trigger_type type);
+int msm_vidc_noc_error_info(struct msm_vidc_core *core);
 int msm_vidc_check_session_supported(struct msm_vidc_inst *inst);
 int msm_vidc_check_scaling_supported(struct msm_vidc_inst *inst);
 void msm_vidc_queue_v4l2_event(struct msm_vidc_inst *inst, int event_type);
+
+enum msm_vidc_flags {
+	MSM_VIDC_FLAG_DEFERRED            = BIT(0),
+	MSM_VIDC_FLAG_RBR_PENDING         = BIT(1),
+};
 
 struct msm_vidc_buffer {
 	struct list_head list;
 	struct kref kref;
 	struct msm_smem smem[VIDEO_MAX_PLANES];
 	struct vb2_v4l2_buffer vvb;
-	bool deferred;
+	enum msm_vidc_flags flags;
 };
 
 void msm_comm_handle_thermal_event(void);

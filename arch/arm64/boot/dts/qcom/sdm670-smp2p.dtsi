@@ -25,8 +25,8 @@
 		compatible = "qcom,smp2p";
 		reg = <0x1799000c 0x4>;
 		qcom,remote-pid = <2>;
-		qcom,irq-bitmask = <0x200>;
-		interrupts = <GIC_SPI 157 IRQ_TYPE_EDGE_RISING>;
+		qcom,irq-bitmask = <0x4000000>;
+		interrupts = <GIC_SPI 172 IRQ_TYPE_EDGE_RISING>;
 	};
 
 	qcom,smp2p-cdsp@1799000c {
@@ -240,6 +240,29 @@
 		compatible = "qcom,smp2pgpio";
 		qcom,entry-name = "master-kernel";
 		qcom,remote-pid = <1>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	/* ssr - inbound entry from cdsp */
+	smp2pgpio_ssr_smp2p_5_in: qcom,smp2pgpio-ssr-smp2p-5-in {
+		compatible = "qcom,smp2pgpio";
+		qcom,entry-name = "slave-kernel";
+		qcom,remote-pid = <5>;
+		qcom,is-inbound;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	/* ssr - outbound entry to cdsp */
+	smp2pgpio_ssr_smp2p_5_out: qcom,smp2pgpio-ssr-smp2p-5-out {
+		compatible = "qcom,smp2pgpio";
+		qcom,entry-name = "master-kernel";
+		qcom,remote-pid = <5>;
 		gpio-controller;
 		#gpio-cells = <2>;
 		interrupt-controller;

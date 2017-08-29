@@ -395,6 +395,7 @@ struct sde_qos_lut_tbl {
  * @danger_vblank: danger priority during vertical blanking
  * @pixel_ram_size: size of latency hiding and de-tiling buffer in bytes
  * @smart_dma_priority: hw priority of rect1 of multirect pipe
+ * @max_per_pipe_bw: maximum allowable bandwidth of this pipe in kBps
  * @src_blk:
  * @scaler_blk:
  * @csc_blk:
@@ -403,7 +404,7 @@ struct sde_qos_lut_tbl {
  * @pcc_blk:
  * @igc_blk:
  * @format_list: Pointer to list of supported formats
- * @max_per_pipe_bw: maximum allowable bandwidth of this pipe in kBps
+ * @virt_format_list: Pointer to list of supported formats for virtual planes
  */
 struct sde_sspp_sub_blks {
 	u32 maxlinewidth;
@@ -425,6 +426,7 @@ struct sde_sspp_sub_blks {
 	struct sde_pp_blk igc_blk;
 
 	const struct sde_format_extended *format_list;
+	const struct sde_format_extended *virt_format_list;
 };
 
 /**

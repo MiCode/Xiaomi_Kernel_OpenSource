@@ -233,8 +233,6 @@ Properties:
 		    configuration registers for the Performance cluster.
 		    The array must contain exactly three elements.
 
-		    corresponding CPRh device.
-
 - qcom,perfcl-apcs-mem-acc-threshold-voltage
 	Usage:      optional
 	Value type: <u32>
@@ -244,6 +242,27 @@ Properties:
 		    highest frequencies.  If specified, the voltage must match
 		    the MEM ACC threshold voltage specified for the
 		    corresponding CPRh device.
+
+- qcom,l3-memacc-level-vc-binX
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Array which defines the NOM and TURBO VCs for the L3 clock
+		    on that BIN part.
+		    The array must contain exactly two elements.
+
+- qcom,pwrcl-memacc-level-vc-binX
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Array which defines the NOM and TURBO VCs for the Power
+		    cluster clock on that BIN part.
+		    The array must contain exactly two elements.
+
+- qcom,perfcl-memacc-level-vc-binX
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Array which defines the NOM and TURBO VCs for the
+		    Performance cluster clock on that BIN part.
+		    The array must contain exactly two elements.
 
 - qcom,apcs-cbc-addr
 	Usage:      required
@@ -482,6 +501,18 @@ Example:
 			<  1804800000 0x4044135e 0x00004b4b 0x2 20 >,
 			<  1881600000 0x404c1462 0x00004e4e 0x2 21 >,
 			<  1958400000 0x404c1566 0x00005252 0x3 22 >;
+
+		qcom,l3-memacc-level-vc-bin0 = <7 63>;
+		qcom,l3-memacc-level-vc-bin1 = <7 9>;
+		qcom,l3-memacc-level-vc-bin2 = <7 9>;
+
+		qcom,pwrcl-memacc-level-vc-bin0 = <12 63>;
+		qcom,pwrcl-memacc-level-vc-bin1 = <12 17>;
+		qcom,pwrcl-memacc-level-vc-bin2 = <12 17>;
+
+		qcom,perfcl-memacc-level-vc-bin0 = <12 18>;
+		qcom,perfcl-memacc-level-vc-bin1 = <12 18>;
+		qcom,perfcl-memacc-level-vc-bin2 = <12 18>;
 
 		qcom,up-timer =
 			<1000 1000 1000>;

@@ -56,6 +56,8 @@
 #define MMSS_VBIF_TEST_BUS_OUT		0x230
 
 /* Vbif error info */
+#define MMSS_VBIF_PND_ERR		0x190
+#define MMSS_VBIF_SRC_ERR		0x194
 #define MMSS_VBIF_XIN_HALT_CTRL1	0x204
 #define MMSS_VBIF_ERR_INFO		0X1a0
 #define MMSS_VBIF_ERR_INFO_1		0x1a4
@@ -104,6 +106,8 @@ struct sde_dbg_reg_range {
  * @buf: buffer used for manual register dumping
  * @buf_len:  buffer length used for manual register dumping
  * @reg_dump: address for the mem dump if no ranges used
+ * @cb: callback for external dump function, null if not defined
+ * @cb_ptr: private pointer to callback function
  */
 struct sde_dbg_reg_base {
 	struct list_head reg_base_head;
@@ -116,6 +120,8 @@ struct sde_dbg_reg_base {
 	char *buf;
 	size_t buf_len;
 	u32 *reg_dump;
+	void (*cb)(void *ptr);
+	void *cb_ptr;
 };
 
 struct sde_debug_bus_entry {
@@ -2142,16 +2148,17 @@ static void _sde_dump_reg_by_ranges(struct sde_dbg_reg_base *dbg,
 	size_t len;
 	struct sde_dbg_reg_range *range_node;
 
-	if (!dbg || !dbg->base) {
+	if (!dbg || !(dbg->base || dbg->cb)) {
 		pr_err("dbg base is null!\n");
 		return;
 	}
 
 	dev_info(sde_dbg_base.dev, "%s:=========%s DUMP=========\n", __func__,
 			dbg->name);
-
+	if (dbg->cb) {
+		dbg->cb(dbg->cb_ptr);
 	/* If there is a list to dump the registers by ranges, use the ranges */
-	if (!list_empty(&dbg->sub_range_list)) {
+	} else if (!list_empty(&dbg->sub_range_list)) {
 		/* sort the list by start address first */
 		list_sort(NULL, &dbg->sub_range_list, _sde_dump_reg_range_cmp);
 		list_for_each_entry(range_node, &dbg->sub_range_list, head) {
@@ -2300,10 +2307,14 @@ static void _sde_dbg_dump_sde_dbg_bus(struct sde_dbg_sde_debug_bus *bus)
 				mem_base + head->wr_addr);
 		wmb(); /* make sure test bits were written */
 
-		if (bus->cmn.flags & DBGBUS_FLAGS_DSPP)
+		if (bus->cmn.flags & DBGBUS_FLAGS_DSPP) {
 			offset = DBGBUS_DSPP_STATUS;
-		else
+			/* keep DSPP test point enabled */
+			if (head->wr_addr != DBGBUS_DSPP)
+				writel_relaxed(0xF, mem_base + DBGBUS_DSPP);
+		} else {
 			offset = head->wr_addr + 0x4;
+		}
 
 		status = readl_relaxed(mem_base + offset);
 
@@ -2325,7 +2336,9 @@ static void _sde_dbg_dump_sde_dbg_bus(struct sde_dbg_sde_debug_bus *bus)
 
 		/* Disable debug bus once we are done */
 		writel_relaxed(0, mem_base + head->wr_addr);
-
+		if (bus->cmn.flags & DBGBUS_FLAGS_DSPP &&
+						head->wr_addr != DBGBUS_DSPP)
+			writel_relaxed(0x0, mem_base + DBGBUS_DSPP);
 	}
 	_sde_dbg_enable_power(false);
 
@@ -2373,7 +2386,7 @@ static void _sde_dbg_dump_vbif_dbg_bus(struct sde_dbg_vbif_debug_bus *bus)
 	u32 **dump_mem = NULL;
 	u32 *dump_addr = NULL;
 	u32 value, d0, d1;
-	unsigned long reg;
+	unsigned long reg, reg1, reg2;
 	struct vbif_debug_bus_entry *head;
 	phys_addr_t phys = 0;
 	int i, list_size = 0;
@@ -2447,13 +2460,18 @@ static void _sde_dbg_dump_vbif_dbg_bus(struct sde_dbg_vbif_debug_bus *bus)
 	wmb();
 
 	/**
-	 * Extract VBIF error info based on XIN halt status.
-	 * If the XIN client is not in HALT state, then retrieve the
-	 * VBIF error info for it.
+	 * Extract VBIF error info based on XIN halt and error status.
+	 * If the XIN client is not in HALT state, or an error is detected,
+	 * then retrieve the VBIF error info for it.
 	 */
 	reg = readl_relaxed(mem_base + MMSS_VBIF_XIN_HALT_CTRL1);
-	dev_err(sde_dbg_base.dev, "XIN HALT:0x%lX\n", reg);
+	reg1 = readl_relaxed(mem_base + MMSS_VBIF_PND_ERR);
+	reg2 = readl_relaxed(mem_base + MMSS_VBIF_SRC_ERR);
+	dev_err(sde_dbg_base.dev,
+			"XIN HALT:0x%lX, PND ERR:0x%lX, SRC ERR:0x%lX\n",
+			reg, reg1, reg2);
 	reg >>= 16;
+	reg &= ~(reg1 | reg2);
 	for (i = 0; i < MMSS_VBIF_CLIENT_NUM; i++) {
 		if (!test_bit(0, &reg)) {
 			writel_relaxed(i, mem_base + MMSS_VBIF_ERR_INFO);
@@ -3170,6 +3188,60 @@ int sde_dbg_reg_register_base(const char *name, void __iomem *base,
 	list_add(&reg_base->reg_base_head, &dbg_base->reg_base_list);
 
 	return 0;
+}
+
+int sde_dbg_reg_register_cb(const char *name, void (*cb)(void *), void *ptr)
+{
+	struct sde_dbg_base *dbg_base = &sde_dbg_base;
+	struct sde_dbg_reg_base *reg_base;
+
+	if (!name || !strlen(name)) {
+		pr_err("no debug name provided\n");
+		return -EINVAL;
+	}
+
+	reg_base = kzalloc(sizeof(*reg_base), GFP_KERNEL);
+	if (!reg_base)
+		return -ENOMEM;
+
+	strlcpy(reg_base->name, name, sizeof(reg_base->name));
+	reg_base->base = NULL;
+	reg_base->max_offset = 0;
+	reg_base->off = 0;
+	reg_base->cnt = DEFAULT_BASE_REG_CNT;
+	reg_base->reg_dump = NULL;
+	reg_base->cb = cb;
+	reg_base->cb_ptr = ptr;
+
+	/* Initialize list to make sure check for null list will be valid */
+	INIT_LIST_HEAD(&reg_base->sub_range_list);
+
+	pr_debug("%s cb: %pK cb_ptr: %pK\n", reg_base->name,
+			reg_base->cb, reg_base->cb_ptr);
+
+	list_add(&reg_base->reg_base_head, &dbg_base->reg_base_list);
+
+	return 0;
+}
+
+void sde_dbg_reg_unregister_cb(const char *name, void (*cb)(void *), void *ptr)
+{
+	struct sde_dbg_base *dbg_base = &sde_dbg_base;
+	struct sde_dbg_reg_base *reg_base;
+
+	if (!dbg_base)
+		return;
+
+	list_for_each_entry(reg_base, &dbg_base->reg_base_list, reg_base_head) {
+		if (strlen(reg_base->name) &&
+			!strcmp(reg_base->name, name)) {
+			pr_debug("%s cb: %pK cb_ptr: %pK\n", reg_base->name,
+					reg_base->cb, reg_base->cb_ptr);
+			list_del(&reg_base->reg_base_head);
+			kfree(reg_base);
+			break;
+		}
+	}
 }
 
 void sde_dbg_reg_register_dump_range(const char *base_name,

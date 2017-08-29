@@ -4472,7 +4472,7 @@ void mmc_stop_host(struct mmc_host *host)
 
 	BUG_ON(host->card);
 
-	mmc_register_extcon(host);
+	mmc_unregister_extcon(host);
 
 	mmc_claim_host(host);
 	mmc_power_off(host);

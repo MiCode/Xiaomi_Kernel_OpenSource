@@ -17,196 +17,7 @@
 #include <linux/delay.h>
 
 #include "dp_catalog.h"
-
-/* DP_TX Registers */
-#define DP_HW_VERSION				(0x00000000)
-#define DP_SW_RESET				(0x00000010)
-#define DP_PHY_CTRL				(0x00000014)
-#define DP_CLK_CTRL				(0x00000018)
-#define DP_CLK_ACTIVE				(0x0000001C)
-#define DP_INTR_STATUS				(0x00000020)
-#define DP_INTR_STATUS2				(0x00000024)
-#define DP_INTR_STATUS3				(0x00000028)
-
-#define DP_DP_HPD_CTRL				(0x00000200)
-#define DP_DP_HPD_INT_STATUS			(0x00000204)
-#define DP_DP_HPD_INT_ACK			(0x00000208)
-#define DP_DP_HPD_INT_MASK			(0x0000020C)
-#define DP_DP_HPD_REFTIMER			(0x00000218)
-#define DP_DP_HPD_EVENT_TIME_0			(0x0000021C)
-#define DP_DP_HPD_EVENT_TIME_1			(0x00000220)
-#define DP_AUX_CTRL				(0x00000230)
-#define DP_AUX_DATA				(0x00000234)
-#define DP_AUX_TRANS_CTRL			(0x00000238)
-#define DP_TIMEOUT_COUNT			(0x0000023C)
-#define DP_AUX_LIMITS				(0x00000240)
-#define DP_AUX_STATUS				(0x00000244)
-
-#define DP_DPCD_CP_IRQ				(0x201)
-#define DP_DPCD_RXSTATUS			(0x69493)
-
-#define DP_INTERRUPT_TRANS_NUM			(0x000002A0)
-
-#define DP_MAINLINK_CTRL			(0x00000400)
-#define DP_STATE_CTRL				(0x00000404)
-#define DP_CONFIGURATION_CTRL			(0x00000408)
-#define DP_SOFTWARE_MVID			(0x00000410)
-#define DP_SOFTWARE_NVID			(0x00000418)
-#define DP_TOTAL_HOR_VER			(0x0000041C)
-#define DP_START_HOR_VER_FROM_SYNC		(0x00000420)
-#define DP_HSYNC_VSYNC_WIDTH_POLARITY		(0x00000424)
-#define DP_ACTIVE_HOR_VER			(0x00000428)
-#define DP_MISC1_MISC0				(0x0000042C)
-#define DP_VALID_BOUNDARY			(0x00000430)
-#define DP_VALID_BOUNDARY_2			(0x00000434)
-#define DP_LOGICAL2PHYSCIAL_LANE_MAPPING	(0x00000438)
-
-#define DP_MAINLINK_READY			(0x00000440)
-#define DP_MAINLINK_LEVELS			(0x00000444)
-#define DP_TU					(0x0000044C)
-
-#define DP_HBR2_COMPLIANCE_SCRAMBLER_RESET	(0x00000454)
-#define DP_TEST_80BIT_CUSTOM_PATTERN_REG0	(0x000004C0)
-#define DP_TEST_80BIT_CUSTOM_PATTERN_REG1	(0x000004C4)
-#define DP_TEST_80BIT_CUSTOM_PATTERN_REG2	(0x000004C8)
-
-#define MMSS_DP_MISC1_MISC0			(0x0000042C)
-#define MMSS_DP_AUDIO_TIMING_GEN		(0x00000480)
-#define MMSS_DP_AUDIO_TIMING_RBR_32		(0x00000484)
-#define MMSS_DP_AUDIO_TIMING_HBR_32		(0x00000488)
-#define MMSS_DP_AUDIO_TIMING_RBR_44		(0x0000048C)
-#define MMSS_DP_AUDIO_TIMING_HBR_44		(0x00000490)
-#define MMSS_DP_AUDIO_TIMING_RBR_48		(0x00000494)
-#define MMSS_DP_AUDIO_TIMING_HBR_48		(0x00000498)
-
-#define MMSS_DP_PSR_CRC_RG			(0x00000554)
-#define MMSS_DP_PSR_CRC_B			(0x00000558)
-
-#define MMSS_DP_AUDIO_CFG			(0x00000600)
-#define MMSS_DP_AUDIO_STATUS			(0x00000604)
-#define MMSS_DP_AUDIO_PKT_CTRL			(0x00000608)
-#define MMSS_DP_AUDIO_PKT_CTRL2			(0x0000060C)
-#define MMSS_DP_AUDIO_ACR_CTRL			(0x00000610)
-#define MMSS_DP_AUDIO_CTRL_RESET		(0x00000614)
-
-#define MMSS_DP_SDP_CFG				(0x00000628)
-#define MMSS_DP_SDP_CFG2			(0x0000062C)
-#define MMSS_DP_AUDIO_TIMESTAMP_0		(0x00000630)
-#define MMSS_DP_AUDIO_TIMESTAMP_1		(0x00000634)
-
-#define MMSS_DP_AUDIO_STREAM_0			(0x00000640)
-#define MMSS_DP_AUDIO_STREAM_1			(0x00000644)
-
-#define MMSS_DP_EXTENSION_0			(0x00000650)
-#define MMSS_DP_EXTENSION_1			(0x00000654)
-#define MMSS_DP_EXTENSION_2			(0x00000658)
-#define MMSS_DP_EXTENSION_3			(0x0000065C)
-#define MMSS_DP_EXTENSION_4			(0x00000660)
-#define MMSS_DP_EXTENSION_5			(0x00000664)
-#define MMSS_DP_EXTENSION_6			(0x00000668)
-#define MMSS_DP_EXTENSION_7			(0x0000066C)
-#define MMSS_DP_EXTENSION_8			(0x00000670)
-#define MMSS_DP_EXTENSION_9			(0x00000674)
-#define MMSS_DP_AUDIO_COPYMANAGEMENT_0		(0x00000678)
-#define MMSS_DP_AUDIO_COPYMANAGEMENT_1		(0x0000067C)
-#define MMSS_DP_AUDIO_COPYMANAGEMENT_2		(0x00000680)
-#define MMSS_DP_AUDIO_COPYMANAGEMENT_3		(0x00000684)
-#define MMSS_DP_AUDIO_COPYMANAGEMENT_4		(0x00000688)
-#define MMSS_DP_AUDIO_COPYMANAGEMENT_5		(0x0000068C)
-#define MMSS_DP_AUDIO_ISRC_0			(0x00000690)
-#define MMSS_DP_AUDIO_ISRC_1			(0x00000694)
-#define MMSS_DP_AUDIO_ISRC_2			(0x00000698)
-#define MMSS_DP_AUDIO_ISRC_3			(0x0000069C)
-#define MMSS_DP_AUDIO_ISRC_4			(0x000006A0)
-#define MMSS_DP_AUDIO_ISRC_5			(0x000006A4)
-#define MMSS_DP_AUDIO_INFOFRAME_0		(0x000006A8)
-#define MMSS_DP_AUDIO_INFOFRAME_1		(0x000006AC)
-#define MMSS_DP_AUDIO_INFOFRAME_2		(0x000006B0)
-
-#define MMSS_DP_GENERIC0_0			(0x00000700)
-#define MMSS_DP_GENERIC0_1			(0x00000704)
-#define MMSS_DP_GENERIC0_2			(0x00000708)
-#define MMSS_DP_GENERIC0_3			(0x0000070C)
-#define MMSS_DP_GENERIC0_4			(0x00000710)
-#define MMSS_DP_GENERIC0_5			(0x00000714)
-#define MMSS_DP_GENERIC0_6			(0x00000718)
-#define MMSS_DP_GENERIC0_7			(0x0000071C)
-#define MMSS_DP_GENERIC0_8			(0x00000720)
-#define MMSS_DP_GENERIC0_9			(0x00000724)
-#define MMSS_DP_GENERIC1_0			(0x00000728)
-#define MMSS_DP_GENERIC1_1			(0x0000072C)
-#define MMSS_DP_GENERIC1_2			(0x00000730)
-#define MMSS_DP_GENERIC1_3			(0x00000734)
-#define MMSS_DP_GENERIC1_4			(0x00000738)
-#define MMSS_DP_GENERIC1_5			(0x0000073C)
-#define MMSS_DP_GENERIC1_6			(0x00000740)
-#define MMSS_DP_GENERIC1_7			(0x00000744)
-#define MMSS_DP_GENERIC1_8			(0x00000748)
-#define MMSS_DP_GENERIC1_9			(0x0000074C)
-
-#define MMSS_DP_TIMING_ENGINE_EN		(0x00000A10)
-#define MMSS_DP_ASYNC_FIFO_CONFIG		(0x00000A88)
-
-/*DP PHY Register offsets */
-#define DP_PHY_REVISION_ID0                     (0x00000000)
-#define DP_PHY_REVISION_ID1                     (0x00000004)
-#define DP_PHY_REVISION_ID2                     (0x00000008)
-#define DP_PHY_REVISION_ID3                     (0x0000000C)
-
-#define DP_PHY_CFG                              (0x00000010)
-#define DP_PHY_PD_CTL                           (0x00000018)
-#define DP_PHY_MODE                             (0x0000001C)
-
-#define DP_PHY_AUX_CFG0                         (0x00000020)
-#define DP_PHY_AUX_CFG1                         (0x00000024)
-#define DP_PHY_AUX_CFG2                         (0x00000028)
-#define DP_PHY_AUX_CFG3                         (0x0000002C)
-#define DP_PHY_AUX_CFG4                         (0x00000030)
-#define DP_PHY_AUX_CFG5                         (0x00000034)
-#define DP_PHY_AUX_CFG6                         (0x00000038)
-#define DP_PHY_AUX_CFG7                         (0x0000003C)
-#define DP_PHY_AUX_CFG8                         (0x00000040)
-#define DP_PHY_AUX_CFG9                         (0x00000044)
-#define DP_PHY_AUX_INTERRUPT_MASK               (0x00000048)
-#define DP_PHY_AUX_INTERRUPT_CLEAR              (0x0000004C)
-
-#define DP_PHY_SPARE0				(0x00AC)
-
-#define TXn_TX_EMP_POST1_LVL			(0x000C)
-#define TXn_TX_DRV_LVL				(0x001C)
-
-#define QSERDES_COM_BIAS_EN_CLKBUFLR_EN		(0x004)
-
-/* DP MMSS_CC registers */
-#define MMSS_DP_LINK_CMD_RCGR			(0x0138)
-#define MMSS_DP_LINK_CFG_RCGR			(0x013C)
-#define MMSS_DP_PIXEL_M				(0x0174)
-#define MMSS_DP_PIXEL_N				(0x0178)
-
-/* DP HDCP 1.3 registers */
-#define DP_HDCP_CTRL                                   (0x0A0)
-#define DP_HDCP_STATUS                                 (0x0A4)
-#define DP_HDCP_SW_UPPER_AKSV                          (0x298)
-#define DP_HDCP_SW_LOWER_AKSV                          (0x29C)
-#define DP_HDCP_ENTROPY_CTRL0                          (0x750)
-#define DP_HDCP_ENTROPY_CTRL1                          (0x75C)
-#define DP_HDCP_SHA_STATUS                             (0x0C8)
-#define DP_HDCP_RCVPORT_DATA2_0                        (0x0B0)
-#define DP_HDCP_RCVPORT_DATA3                          (0x2A4)
-#define DP_HDCP_RCVPORT_DATA4                          (0x2A8)
-#define DP_HDCP_RCVPORT_DATA5                          (0x0C0)
-#define DP_HDCP_RCVPORT_DATA6                          (0x0C4)
-
-#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_SHA_CTRL           (0x024)
-#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_SHA_DATA           (0x028)
-#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA0      (0x004)
-#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA1      (0x008)
-#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA7      (0x00C)
-#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA8      (0x010)
-#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA9      (0x014)
-#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA10     (0x018)
-#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA11     (0x01C)
-#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA12     (0x020)
+#include "dp_reg.h"
 
 #define dp_read(offset) readl_relaxed((offset))
 #define dp_write(offset, data) writel_relaxed((data), (offset))
@@ -248,9 +59,12 @@ static u8 const vm_voltage_swing[4][4] = {
 	{0xFF, 0xFF, 0xFF, 0xFF}  /* sw1, 1.2 v, optional */
 };
 
+/* audio related catalog functions */
 struct dp_catalog_private {
 	struct device *dev;
 	struct dp_io *io;
+
+	u32 (*audio_map)[DP_AUDIO_SDP_HEADER_MAX];
 	struct dp_catalog dp_catalog;
 };
 
@@ -364,11 +178,37 @@ static void dp_catalog_aux_enable(struct dp_catalog_aux *aux, bool enable)
 	dp_write(base + DP_AUX_CTRL, aux_ctrl);
 }
 
-static void dp_catalog_aux_setup(struct dp_catalog_aux *aux, u32 *aux_cfg)
+static void dp_catalog_aux_update_cfg(struct dp_catalog_aux *aux,
+		struct dp_aux_cfg *cfg, enum dp_phy_aux_config_type type)
 {
 	struct dp_catalog_private *catalog;
+	u32 new_index = 0, current_index = 0;
 
-	if (!aux || !aux_cfg) {
+	if (!aux || !cfg || (type >= PHY_AUX_CFG_MAX)) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	dp_catalog_get_priv(aux);
+
+	current_index = cfg[type].current_index;
+	new_index = (current_index + 1) % cfg[type].cfg_cnt;
+	pr_debug("Updating %s from 0x%08x to 0x%08x\n",
+		dp_phy_aux_config_type_to_string(type),
+	cfg[type].lut[current_index], cfg[type].lut[new_index]);
+
+	dp_write(catalog->io->phy_io.base + cfg[type].offset,
+			cfg[type].lut[new_index]);
+	cfg[type].current_index = new_index;
+}
+
+static void dp_catalog_aux_setup(struct dp_catalog_aux *aux,
+		struct dp_aux_cfg *cfg)
+{
+	struct dp_catalog_private *catalog;
+	int i = 0;
+
+	if (!aux || !cfg) {
 		pr_err("invalid input\n");
 		return;
 	}
@@ -384,16 +224,13 @@ static void dp_catalog_aux_setup(struct dp_catalog_aux *aux, u32 *aux_cfg)
 		QSERDES_COM_BIAS_EN_CLKBUFLR_EN, 0x3f);
 
 	/* DP AUX CFG register programming */
-	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_CFG0, aux_cfg[0]);
-	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_CFG1, aux_cfg[1]);
-	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_CFG2, aux_cfg[2]);
-	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_CFG3, aux_cfg[3]);
-	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_CFG4, aux_cfg[4]);
-	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_CFG5, aux_cfg[5]);
-	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_CFG6, aux_cfg[6]);
-	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_CFG7, aux_cfg[7]);
-	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_CFG8, aux_cfg[8]);
-	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_CFG9, aux_cfg[9]);
+	for (i = 0; i < PHY_AUX_CFG_MAX; i++) {
+		pr_debug("%s: offset=0x%08x, value=0x%08x\n",
+			dp_phy_aux_config_type_to_string(i),
+			cfg[i].offset, cfg[i].lut[cfg[i].current_index]);
+		dp_write(catalog->io->phy_io.base + cfg[i].offset,
+			cfg[i].lut[cfg[i].current_index]);
+	}
 
 	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_INTERRUPT_MASK, 0x1F);
 }
@@ -424,6 +261,22 @@ static void dp_catalog_aux_get_irq(struct dp_catalog_aux *aux, bool cmd_busy)
 }
 
 /* controller related catalog functions */
+static u32 dp_catalog_ctrl_read_hdcp_status(struct dp_catalog_ctrl *ctrl)
+{
+	struct dp_catalog_private *catalog;
+	void __iomem *base;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	dp_catalog_get_priv(ctrl);
+	base = catalog->io->ctrl_io.base;
+
+	return dp_read(base + DP_HDCP_STATUS);
+}
+
 static void dp_catalog_ctrl_update_transfer_unit(struct dp_catalog_ctrl *ctrl)
 {
 	struct dp_catalog_private *catalog;
@@ -548,10 +401,13 @@ static void dp_catalog_ctrl_config_misc(struct dp_catalog_ctrl *ctrl,
 }
 
 static void dp_catalog_ctrl_config_msa(struct dp_catalog_ctrl *ctrl,
-					u32 rate)
+					u32 rate, u32 stream_rate_khz,
+					bool fixed_nvid)
 {
 	u32 pixel_m, pixel_n;
 	u32 mvid, nvid;
+	u64 mvid_calc;
+	u32 const nvid_fixed = 0x8000;
 	u32 const link_rate = 540000;
 	struct dp_catalog_private *catalog;
 	void __iomem *base_cc, *base_ctrl;
@@ -562,21 +418,42 @@ static void dp_catalog_ctrl_config_msa(struct dp_catalog_ctrl *ctrl,
 	}
 
 	dp_catalog_get_priv(ctrl);
-	base_cc = catalog->io->dp_cc_io.base;
+	if (fixed_nvid) {
+		pr_debug("use fixed NVID=0x%x\n", nvid_fixed);
+		nvid = nvid_fixed;
+
+		pr_debug("link rate=%dkbps, stream_rate_khz=%uKhz",
+			rate, stream_rate_khz);
+
+		/*
+		 * For intermediate results, use 64 bit arithmetic to avoid
+		 * loss of precision.
+		 */
+		mvid_calc = (u64) stream_rate_khz * nvid;
+		mvid_calc = div_u64(mvid_calc, rate);
+
+		/*
+		 * truncate back to 32 bits as this final divided value will
+		 * always be within the range of a 32 bit unsigned int.
+		 */
+		mvid = (u32) mvid_calc;
+	} else {
+		base_cc = catalog->io->dp_cc_io.base;
+
+		pixel_m = dp_read(base_cc + MMSS_DP_PIXEL_M);
+		pixel_n = dp_read(base_cc + MMSS_DP_PIXEL_N);
+		pr_debug("pixel_m=0x%x, pixel_n=0x%x\n", pixel_m, pixel_n);
+
+		mvid = (pixel_m & 0xFFFF) * 5;
+		nvid = (0xFFFF & (~pixel_n)) + (pixel_m & 0xFFFF);
+
+		pr_debug("rate = %d\n", rate);
+
+		if (link_rate == rate)
+			nvid *= 2;
+	}
+
 	base_ctrl = catalog->io->ctrl_io.base;
-
-	pixel_m = dp_read(base_cc + MMSS_DP_PIXEL_M);
-	pixel_n = dp_read(base_cc + MMSS_DP_PIXEL_N);
-	pr_debug("pixel_m=0x%x, pixel_n=0x%x\n", pixel_m, pixel_n);
-
-	mvid = (pixel_m & 0xFFFF) * 5;
-	nvid = (0xFFFF & (~pixel_n)) + (pixel_m & 0xFFFF);
-
-	pr_debug("rate = %d\n", rate);
-
-	if (link_rate == rate)
-		nvid *= 2;
-
 	pr_debug("mvid=0x%x, nvid=0x%x\n", mvid, nvid);
 	dp_write(base_ctrl + DP_SOFTWARE_MVID, mvid);
 	dp_write(base_ctrl + DP_SOFTWARE_NVID, nvid);
@@ -850,40 +727,190 @@ static int dp_catalog_panel_timing_cfg(struct dp_catalog_panel *panel)
 end:
 	return 0;
 }
- /* audio related catalog functions */
-static int dp_catalog_audio_acr_ctrl(struct dp_catalog_audio *audio)
+
+static void dp_catalog_audio_init(struct dp_catalog_audio *audio)
 {
-	return 0;
+	struct dp_catalog_private *catalog;
+	static u32 sdp_map[][DP_AUDIO_SDP_HEADER_MAX] = {
+		{
+			MMSS_DP_AUDIO_STREAM_0,
+			MMSS_DP_AUDIO_STREAM_1,
+			MMSS_DP_AUDIO_STREAM_1,
+		},
+		{
+			MMSS_DP_AUDIO_TIMESTAMP_0,
+			MMSS_DP_AUDIO_TIMESTAMP_1,
+			MMSS_DP_AUDIO_TIMESTAMP_1,
+		},
+		{
+			MMSS_DP_AUDIO_INFOFRAME_0,
+			MMSS_DP_AUDIO_INFOFRAME_1,
+			MMSS_DP_AUDIO_INFOFRAME_1,
+		},
+		{
+			MMSS_DP_AUDIO_COPYMANAGEMENT_0,
+			MMSS_DP_AUDIO_COPYMANAGEMENT_1,
+			MMSS_DP_AUDIO_COPYMANAGEMENT_1,
+		},
+		{
+			MMSS_DP_AUDIO_ISRC_0,
+			MMSS_DP_AUDIO_ISRC_1,
+			MMSS_DP_AUDIO_ISRC_1,
+		},
+	};
+
+	if (!audio)
+		return;
+
+	dp_catalog_get_priv(audio);
+
+	catalog->audio_map = sdp_map;
 }
 
-static int dp_catalog_audio_stream_sdp(struct dp_catalog_audio *audio)
+static void dp_catalog_audio_config_sdp(struct dp_catalog_audio *audio)
 {
-	return 0;
+	struct dp_catalog_private *catalog;
+	void __iomem *base;
+	u32 sdp_cfg = 0;
+	u32 sdp_cfg2 = 0;
+
+	if (!audio)
+		return;
+
+	dp_catalog_get_priv(audio);
+	base = catalog->io->ctrl_io.base;
+
+	/* AUDIO_TIMESTAMP_SDP_EN */
+	sdp_cfg |= BIT(1);
+	/* AUDIO_STREAM_SDP_EN */
+	sdp_cfg |= BIT(2);
+	/* AUDIO_COPY_MANAGEMENT_SDP_EN */
+	sdp_cfg |= BIT(5);
+	/* AUDIO_ISRC_SDP_EN  */
+	sdp_cfg |= BIT(6);
+	/* AUDIO_INFOFRAME_SDP_EN  */
+	sdp_cfg |= BIT(20);
+
+	pr_debug("sdp_cfg = 0x%x\n", sdp_cfg);
+	dp_write(base + MMSS_DP_SDP_CFG, sdp_cfg);
+
+	sdp_cfg2 = dp_read(base + MMSS_DP_SDP_CFG2);
+	/* IFRM_REGSRC -> Do not use reg values */
+	sdp_cfg2 &= ~BIT(0);
+	/* AUDIO_STREAM_HB3_REGSRC-> Do not use reg values */
+	sdp_cfg2 &= ~BIT(1);
+
+	pr_debug("sdp_cfg2 = 0x%x\n", sdp_cfg2);
+	dp_write(base + MMSS_DP_SDP_CFG2, sdp_cfg2);
 }
 
-static int dp_catalog_audio_timestamp_sdp(struct dp_catalog_audio *audio)
+static void dp_catalog_audio_get_header(struct dp_catalog_audio *audio)
 {
-	return 0;
+	struct dp_catalog_private *catalog;
+	u32 (*sdp_map)[DP_AUDIO_SDP_HEADER_MAX];
+	void __iomem *base;
+	enum dp_catalog_audio_sdp_type sdp;
+	enum dp_catalog_audio_header_type header;
+
+	if (!audio)
+		return;
+
+	dp_catalog_get_priv(audio);
+
+	base    = catalog->io->ctrl_io.base;
+	sdp_map = catalog->audio_map;
+	sdp     = audio->sdp_type;
+	header  = audio->sdp_header;
+
+	audio->data = dp_read(base + sdp_map[sdp][header]);
 }
 
-static int dp_catalog_audio_infoframe_sdp(struct dp_catalog_audio *audio)
+static void dp_catalog_audio_set_header(struct dp_catalog_audio *audio)
 {
-	return 0;
+	struct dp_catalog_private *catalog;
+	u32 (*sdp_map)[DP_AUDIO_SDP_HEADER_MAX];
+	void __iomem *base;
+	enum dp_catalog_audio_sdp_type sdp;
+	enum dp_catalog_audio_header_type header;
+	u32 data;
+
+	if (!audio)
+		return;
+
+	dp_catalog_get_priv(audio);
+
+	base    = catalog->io->ctrl_io.base;
+	sdp_map = catalog->audio_map;
+	sdp     = audio->sdp_type;
+	header  = audio->sdp_header;
+	data    = audio->data;
+
+	dp_write(base + sdp_map[sdp][header], data);
 }
 
-static int dp_catalog_audio_copy_mgmt_sdp(struct dp_catalog_audio *audio)
+static void dp_catalog_audio_config_acr(struct dp_catalog_audio *audio)
 {
-	return 0;
+	struct dp_catalog_private *catalog;
+	void __iomem *base;
+	u32 acr_ctrl, select;
+
+	dp_catalog_get_priv(audio);
+
+	select = audio->data;
+	base   = catalog->io->ctrl_io.base;
+
+	acr_ctrl = select << 4 | BIT(31) | BIT(8) | BIT(14);
+
+	pr_debug("select = 0x%x, acr_ctrl = 0x%x\n", select, acr_ctrl);
+
+	dp_write(base + MMSS_DP_AUDIO_ACR_CTRL, acr_ctrl);
 }
 
-static int dp_catalog_audio_isrc_sdp(struct dp_catalog_audio *audio)
+static void dp_catalog_audio_safe_to_exit_level(struct dp_catalog_audio *audio)
 {
-	return 0;
+	struct dp_catalog_private *catalog;
+	void __iomem *base;
+	u32 mainlink_levels, safe_to_exit_level;
+
+	dp_catalog_get_priv(audio);
+
+	base   = catalog->io->ctrl_io.base;
+	safe_to_exit_level = audio->data;
+
+	mainlink_levels = dp_read(base + DP_MAINLINK_LEVELS);
+	mainlink_levels &= 0xFE0;
+	mainlink_levels |= safe_to_exit_level;
+
+	pr_debug("mainlink_level = 0x%x, safe_to_exit_level = 0x%x\n",
+			mainlink_levels, safe_to_exit_level);
+
+	dp_write(base + DP_MAINLINK_LEVELS, mainlink_levels);
 }
 
-static int dp_catalog_audio_setup_sdp(struct dp_catalog_audio *audio)
+static void dp_catalog_audio_enable(struct dp_catalog_audio *audio)
 {
-	return 0;
+	struct dp_catalog_private *catalog;
+	void __iomem *base;
+	bool enable;
+	u32 audio_ctrl;
+
+	dp_catalog_get_priv(audio);
+
+	base   = catalog->io->ctrl_io.base;
+	enable = !!audio->data;
+
+	audio_ctrl = dp_read(base + MMSS_DP_AUDIO_CFG);
+
+	if (enable)
+		audio_ctrl |= BIT(0);
+	else
+		audio_ctrl &= ~BIT(0);
+
+	pr_debug("dp_audio_cfg = 0x%x\n", audio_ctrl);
+	dp_write(base + MMSS_DP_AUDIO_CFG, audio_ctrl);
+
+	/* make sure audio engine is disabled */
+	wmb();
 }
 
 struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io)
@@ -896,6 +923,7 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io)
 		.write_data    = dp_catalog_aux_write_data,
 		.write_trans   = dp_catalog_aux_write_trans,
 		.reset         = dp_catalog_aux_reset,
+		.update_aux_cfg = dp_catalog_aux_update_cfg,
 		.enable        = dp_catalog_aux_enable,
 		.setup         = dp_catalog_aux_setup,
 		.get_irq       = dp_catalog_aux_get_irq,
@@ -917,15 +945,16 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io)
 		.update_vx_px   = dp_catalog_ctrl_update_vx_px,
 		.get_interrupt  = dp_catalog_ctrl_get_interrupt,
 		.update_transfer_unit = dp_catalog_ctrl_update_transfer_unit,
+		.read_hdcp_status     = dp_catalog_ctrl_read_hdcp_status,
 	};
 	struct dp_catalog_audio audio = {
-		.acr_ctrl      = dp_catalog_audio_acr_ctrl,
-		.stream_sdp    = dp_catalog_audio_stream_sdp,
-		.timestamp_sdp = dp_catalog_audio_timestamp_sdp,
-		.infoframe_sdp = dp_catalog_audio_infoframe_sdp,
-		.copy_mgmt_sdp = dp_catalog_audio_copy_mgmt_sdp,
-		.isrc_sdp      = dp_catalog_audio_isrc_sdp,
-		.setup_sdp     = dp_catalog_audio_setup_sdp,
+		.init       = dp_catalog_audio_init,
+		.config_acr = dp_catalog_audio_config_acr,
+		.enable     = dp_catalog_audio_enable,
+		.config_sdp = dp_catalog_audio_config_sdp,
+		.set_header = dp_catalog_audio_set_header,
+		.get_header = dp_catalog_audio_get_header,
+		.safe_to_exit_level = dp_catalog_audio_safe_to_exit_level,
 	};
 	struct dp_catalog_panel panel = {
 		.timing_cfg = dp_catalog_panel_timing_cfg,

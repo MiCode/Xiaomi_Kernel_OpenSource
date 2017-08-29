@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include "sdm845-pmic-overlay.dtsi"
+#include "sdm845-pinctrl-overlay.dtsi"
 #include "smb1355.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 
@@ -37,8 +39,7 @@
 
 	qrd_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
-		#include "fg-gen3-batterydata-itech-3000mah.dtsi"
-		#include "fg-gen3-batterydata-ascent-3450mah.dtsi"
+		#include "fg-gen3-batterydata-gt3746a6-2900mah.dtsi"
 	};
 };
 
@@ -84,6 +85,7 @@
 
 &pmi8998_fg {
 	qcom,battery-data = <&qrd_batterydata>;
+	qcom,fg-bmd-en-delay-ms = <300>;
 };
 
 &smb1355_charger {
@@ -170,10 +172,6 @@
 	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on>;
 	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
 
-	qcom,clk-rates = <400000 20000000 25000000
-				50000000 100000000 200000000>;
-	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
-
 	extcon = <&extcon_storage_cd>;
 
 	status = "ok";
@@ -189,35 +187,42 @@
 	qcom,led-strings-list = [01 02];
 };
 
+&pmi8998_haptics {
+	qcom,vmax-mv = <1800>;
+	qcom,wave-play-rate-us = <4347>;
+	qcom,lra-auto-mode;
+	status = "okay";
+};
+
 &mdss_mdp {
 	connectors = <&sde_rscc &sde_wb>;
 };
 
-&dsi_sharp_4k_dsc_video {
+&dsi_nt35597_truly_dsc_cmd {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
-	qcom,mdss-dsi-mode-sel-gpio-state = "dual_port";
+	qcom,mdss-dsi-mode-sel-gpio-state = "single_port";
 	qcom,panel-mode-gpio = <&tlmm 52 0>;
 	qcom,platform-te-gpio = <&tlmm 10 0>;
 	qcom,platform-reset-gpio = <&tlmm 6 0>;
 	qcom,mdss-dsi-panel-orientation = "180";
 };
 
-&dsi_sharp_4k_dsc_cmd {
+&dsi_nt35597_truly_dsc_video {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
-	qcom,mdss-dsi-mode-sel-gpio-state = "dual_port";
+	qcom,mdss-dsi-mode-sel-gpio-state = "single_port";
 	qcom,panel-mode-gpio = <&tlmm 52 0>;
 	qcom,platform-te-gpio = <&tlmm 10 0>;
 	qcom,platform-reset-gpio = <&tlmm 6 0>;
 	qcom,mdss-dsi-panel-orientation = "180";
 };
 
-&dsi_sharp_4k_dsc_video_display {
+&dsi_nt35597_truly_dsc_cmd_display {
 	qcom,dsi-display-active;
 };
 

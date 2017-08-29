@@ -34,28 +34,11 @@
 #define CODEC_EXT_CLK_RATE          9600000
 #define ADSP_STATE_READY_TIMEOUT_MS 3000
 
-#define TLMM_CENTER_MPM_WAKEUP_INT_EN_0 0x03596000
-#define LPI_GPIO_22_WAKEUP_VAL 0x00000002
-
-#define TLMM_LPI_DIR_CONN_INTR1_CFG_APPS 0x0359D004
-#define LPI_GPIO_22_INTR1_CFG_VAL 0x01
-#define LPI_GPIO_22_INTR1_CFG_MASK 0x03
-
-#define TLMM_LPI_GPIO_INTR_CFG1  0x0359B004
-#define LPI_GPIO_INTR_CFG1_VAL 0x00000113
-
-#define TLMM_LPI_GPIO22_CFG  0x15078040
-#define LPI_GPIO22_CFG_VAL 0x0000009
-
-#define TLMM_LPI_GPIO22_INOUT  0x179D1318
-#define LPI_GPIO22_INOUT_VAL 0x0020000
-
 #define WSA8810_NAME_1 "wsa881x.20170211"
 #define WSA8810_NAME_2 "wsa881x.20170212"
 
 static int msm_ext_spk_control = 1;
 static struct wcd_mbhc_config *wcd_mbhc_cfg_ptr;
-bool codec_reg_done;
 
 struct msm_asoc_wcd93xx_codec {
 	void* (*get_afe_config_fn)(struct snd_soc_codec *codec,
@@ -603,23 +586,23 @@ static int msm_vi_feed_tx_ch_put(struct snd_kcontrol *kcontrol,
 
 static void *def_ext_mbhc_cal(void)
 {
-	void *tavil_wcd_cal;
+	void *wcd_mbhc_cal;
 	struct wcd_mbhc_btn_detect_cfg *btn_cfg;
 	u16 *btn_high;
 
-	tavil_wcd_cal = kzalloc(WCD_MBHC_CAL_SIZE(WCD_MBHC_DEF_BUTTONS,
+	wcd_mbhc_cal = kzalloc(WCD_MBHC_CAL_SIZE(WCD_MBHC_DEF_BUTTONS,
 				WCD9XXX_MBHC_DEF_RLOADS), GFP_KERNEL);
-	if (!tavil_wcd_cal)
+	if (!wcd_mbhc_cal)
 		return NULL;
 
-#define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(tavil_wcd_cal)->X) = (Y))
+#define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(wcd_mbhc_cal)->X) = (Y))
 	S(v_hs_max, 1600);
 #undef S
-#define S(X, Y) ((WCD_MBHC_CAL_BTN_DET_PTR(tavil_wcd_cal)->X) = (Y))
+#define S(X, Y) ((WCD_MBHC_CAL_BTN_DET_PTR(wcd_mbhc_cal)->X) = (Y))
 	S(num_btn, WCD_MBHC_DEF_BUTTONS);
 #undef S
 
-	btn_cfg = WCD_MBHC_CAL_BTN_DET_PTR(tavil_wcd_cal);
+	btn_cfg = WCD_MBHC_CAL_BTN_DET_PTR(wcd_mbhc_cal);
 	btn_high = ((void *)&btn_cfg->_v_btn_low) +
 		(sizeof(btn_cfg->_v_btn_low[0]) * btn_cfg->num_btn);
 
@@ -632,7 +615,7 @@ static void *def_ext_mbhc_cal(void)
 	btn_high[6] = 500;
 	btn_high[7] = 500;
 
-	return tavil_wcd_cal;
+	return wcd_mbhc_cal;
 }
 
 static inline int param_is_mask(int p)
@@ -1209,28 +1192,6 @@ static void msm_afe_clear_config(void)
 	afe_clear_config(AFE_SLIMBUS_SLAVE_CONFIG);
 }
 
-static void msm_snd_interrupt_config(struct msm_asoc_mach_data *pdata)
-{
-	int val;
-
-	val = ioread32(pdata->msm_snd_intr_lpi.mpm_wakeup);
-	val |= LPI_GPIO_22_WAKEUP_VAL;
-	iowrite32(val, pdata->msm_snd_intr_lpi.mpm_wakeup);
-
-	val = ioread32(pdata->msm_snd_intr_lpi.intr1_cfg_apps);
-	val &= ~(LPI_GPIO_22_INTR1_CFG_MASK);
-	val |= LPI_GPIO_22_INTR1_CFG_VAL;
-	iowrite32(val, pdata->msm_snd_intr_lpi.intr1_cfg_apps);
-
-	iowrite32(LPI_GPIO_INTR_CFG1_VAL,
-			pdata->msm_snd_intr_lpi.lpi_gpio_intr_cfg);
-	iowrite32(LPI_GPIO22_CFG_VAL,
-			pdata->msm_snd_intr_lpi.lpi_gpio_cfg);
-	val = ioread32(pdata->msm_snd_intr_lpi.lpi_gpio_inout);
-	val |= LPI_GPIO22_INOUT_VAL;
-	iowrite32(val, pdata->msm_snd_intr_lpi.lpi_gpio_inout);
-}
-
 static int msm_adsp_power_up_config(struct snd_soc_codec *codec)
 {
 	int ret = 0;
@@ -1262,7 +1223,6 @@ static int msm_adsp_power_up_config(struct snd_soc_codec *codec)
 		ret = -ETIMEDOUT;
 		goto err_fail;
 	}
-	msm_snd_interrupt_config(pdata);
 
 	ret = msm_afe_set_config(codec);
 	if (ret)
@@ -1477,6 +1437,79 @@ static struct snd_soc_dapm_route wcd_audio_paths[] = {
 	{"MIC BIAS3", NULL, "MCLK"},
 	{"MIC BIAS4", NULL, "MCLK"},
 };
+
+int msm_snd_card_tasha_late_probe(struct snd_soc_card *card)
+{
+	const char *be_dl_name = LPASS_BE_SLIMBUS_0_RX;
+	struct snd_soc_pcm_runtime *rtd;
+	int ret = 0;
+	void *mbhc_calibration;
+
+	rtd = snd_soc_get_pcm_runtime(card, be_dl_name);
+	if (!rtd) {
+		dev_err(card->dev,
+			"%s: snd_soc_get_pcm_runtime for %s failed!\n",
+			__func__, be_dl_name);
+		ret = -EINVAL;
+		goto err_pcm_runtime;
+	}
+
+	mbhc_calibration = def_ext_mbhc_cal();
+	if (!mbhc_calibration) {
+		ret = -ENOMEM;
+		goto err_mbhc_cal;
+	}
+	wcd_mbhc_cfg_ptr->calibration = mbhc_calibration;
+	ret = tasha_mbhc_hs_detect(rtd->codec, wcd_mbhc_cfg_ptr);
+	if (ret) {
+		dev_err(card->dev, "%s: mbhc hs detect failed, err:%d\n",
+			__func__, ret);
+		goto err_hs_detect;
+	}
+	return 0;
+
+err_hs_detect:
+	kfree(mbhc_calibration);
+err_mbhc_cal:
+err_pcm_runtime:
+	return ret;
+}
+
+int msm_snd_card_tavil_late_probe(struct snd_soc_card *card)
+{
+	const char *be_dl_name = LPASS_BE_SLIMBUS_0_RX;
+	struct snd_soc_pcm_runtime *rtd;
+	int ret = 0;
+	void *mbhc_calibration;
+
+	rtd = snd_soc_get_pcm_runtime(card, be_dl_name);
+	if (!rtd) {
+		dev_err(card->dev,
+			"%s: snd_soc_get_pcm_runtime for %s failed!\n",
+			__func__, be_dl_name);
+		ret = -EINVAL;
+		goto err;
+	}
+
+	mbhc_calibration = def_ext_mbhc_cal();
+	if (!mbhc_calibration) {
+		ret = -ENOMEM;
+		goto err;
+	}
+	wcd_mbhc_cfg_ptr->calibration = mbhc_calibration;
+	ret = tavil_mbhc_hs_detect(rtd->codec, wcd_mbhc_cfg_ptr);
+	if (ret) {
+		dev_err(card->dev, "%s: mbhc hs detect failed, err:%d\n",
+			__func__, ret);
+		goto err_free_mbhc_cal;
+	}
+	return 0;
+
+err_free_mbhc_cal:
+	kfree(mbhc_calibration);
+err:
+	return ret;
+}
 
 /**
  * msm_audrx_init - Audio init function of sound card instantiate.
@@ -1698,7 +1731,6 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		if (!entry) {
 			pr_debug("%s: Cannot create codecs module entry\n",
 				 __func__);
-			pdata->codec_root = NULL;
 			goto done;
 		}
 		pdata->codec_root = entry;
@@ -1721,50 +1753,17 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		if (!entry) {
 			pr_debug("%s: Cannot create codecs module entry\n",
 				 __func__);
-			ret = 0;
-			goto err_snd_module;
+			goto done;
 		}
 		pdata->codec_root = entry;
 		tasha_codec_info_create_codec_entry(pdata->codec_root, codec);
 		tasha_mbhc_zdet_gpio_ctrl(msm_config_hph_en0_gpio, rtd->codec);
 	}
-
-	wcd_mbhc_cfg_ptr->calibration = def_ext_mbhc_cal();
-	if (!strcmp(dev_name(codec_dai->dev), "tavil_codec")) {
-		if (wcd_mbhc_cfg_ptr->calibration) {
-			pdata->codec = codec;
-			ret = tavil_mbhc_hs_detect(codec, wcd_mbhc_cfg_ptr);
-			if (ret < 0)
-				pr_err("%s: Failed to intialise mbhc %d\n",
-						__func__, ret);
-		} else {
-			pr_err("%s: wcd_mbhc_cfg calibration is NULL\n",
-					__func__);
-			ret = -ENOMEM;
-			goto err_mbhc_cal;
-		}
-	} else {
-		if (wcd_mbhc_cfg_ptr->calibration) {
-			pdata->codec = codec;
-			ret = tasha_mbhc_hs_detect(codec, wcd_mbhc_cfg_ptr);
-			if (ret < 0)
-				pr_err("%s: Failed to intialise mbhc %d\n",
-						__func__, ret);
-		} else {
-			pr_err("%s: wcd_mbhc_cfg calibration is NULL\n",
-					__func__);
-			ret = -ENOMEM;
-			goto err_mbhc_cal;
-		}
-
-	}
-	codec_reg_done = true;
 done:
+	msm_set_codec_reg_done(true);
 	return 0;
 
-err_snd_module:
 err_afe_cfg:
-err_mbhc_cal:
 	return ret;
 }
 EXPORT_SYMBOL(msm_audrx_init);
@@ -1844,36 +1843,7 @@ int msm_ext_cdc_init(struct platform_device *pdev,
 			ret);
 		ret = 0;
 	}
-	pdata->msm_snd_intr_lpi.mpm_wakeup =
-			ioremap(TLMM_CENTER_MPM_WAKEUP_INT_EN_0, 4);
-	pdata->msm_snd_intr_lpi.intr1_cfg_apps =
-			ioremap(TLMM_LPI_DIR_CONN_INTR1_CFG_APPS, 4);
-	pdata->msm_snd_intr_lpi.lpi_gpio_intr_cfg =
-			ioremap(TLMM_LPI_GPIO_INTR_CFG1, 4);
-	pdata->msm_snd_intr_lpi.lpi_gpio_cfg =
-			ioremap(TLMM_LPI_GPIO22_CFG, 4);
-	pdata->msm_snd_intr_lpi.lpi_gpio_inout =
-			ioremap(TLMM_LPI_GPIO22_INOUT, 4);
 err:
 	return ret;
 }
 EXPORT_SYMBOL(msm_ext_cdc_init);
-
-/**
- * msm_ext_cdc_deinit - external codec machine specific deinit.
- */
-void msm_ext_cdc_deinit(struct msm_asoc_mach_data *pdata)
-{
-	if (pdata->msm_snd_intr_lpi.mpm_wakeup)
-		iounmap(pdata->msm_snd_intr_lpi.mpm_wakeup);
-	if (pdata->msm_snd_intr_lpi.intr1_cfg_apps)
-		iounmap(pdata->msm_snd_intr_lpi.intr1_cfg_apps);
-	if (pdata->msm_snd_intr_lpi.lpi_gpio_intr_cfg)
-		iounmap(pdata->msm_snd_intr_lpi.lpi_gpio_intr_cfg);
-	if (pdata->msm_snd_intr_lpi.lpi_gpio_cfg)
-		iounmap(pdata->msm_snd_intr_lpi.lpi_gpio_cfg);
-	if (pdata->msm_snd_intr_lpi.lpi_gpio_inout)
-		iounmap(pdata->msm_snd_intr_lpi.lpi_gpio_inout);
-
-}
-EXPORT_SYMBOL(msm_ext_cdc_deinit);

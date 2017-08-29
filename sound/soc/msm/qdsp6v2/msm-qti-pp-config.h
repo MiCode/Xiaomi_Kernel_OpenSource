@@ -13,6 +13,7 @@
 #define _MSM_QTI_PP_H_
 
 #include <sound/soc.h>
+#define DSP_BIT_WIDTH_MIXER_CTL "ASM Bit Width"
 int msm_adsp_inform_mixer_ctl(struct snd_soc_pcm_runtime *rtd,
 			uint32_t *payload);
 int msm_adsp_init_mixer_ctl_pp_event_queue(struct snd_soc_pcm_runtime *rtd);

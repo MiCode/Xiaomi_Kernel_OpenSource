@@ -915,6 +915,12 @@ static void process_init_reply(struct fuse_conn *fc, struct fuse_req *req)
 				fc->parallel_dirops = 1;
 			if (arg->flags & FUSE_HANDLE_KILLPRIV)
 				fc->handle_killpriv = 1;
+			if (arg->flags & FUSE_PASSTHROUGH) {
+				fc->passthrough = 1;
+				/* Prevent further stacking */
+				fc->sb->s_stack_depth =
+					FILESYSTEM_MAX_STACK_DEPTH;
+			}
 			if (arg->time_gran && arg->time_gran <= 1000000000)
 				fc->sb->s_time_gran = arg->time_gran;
 			if ((arg->flags & FUSE_POSIX_ACL)) {

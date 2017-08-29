@@ -2944,6 +2944,7 @@ static int mmc_runtime_suspend(struct mmc_host *host)
 		return -EBUSY;
 	}
 
+	MMC_TRACE(host, "%s\n", __func__);
 	err = _mmc_suspend(host, true);
 	if (err)
 		pr_err("%s: error %d doing aggressive suspend\n",
@@ -2962,6 +2963,7 @@ static int mmc_runtime_resume(struct mmc_host *host)
 	int err;
 	ktime_t start = ktime_get();
 
+	MMC_TRACE(host, "%s\n", __func__);
 	err = _mmc_resume(host);
 	if (err && err != -ENOMEDIUM)
 		pr_err("%s: error %d doing runtime resume\n",

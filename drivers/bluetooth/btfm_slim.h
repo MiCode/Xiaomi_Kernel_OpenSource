@@ -162,4 +162,12 @@ int btfm_slim_disable_ch(struct btfmslim *btfmslim,
  * 0
  */
 int btfm_slim_register_codec(struct device *dev);
+
+/**
+ * btfm_slim_unregister_codec: Unregister codec driver in slimbus device node
+ * @dev: device node
+ * Returns:
+ * VOID
+ */
+void btfm_slim_unregister_codec(struct device *dev);
 #endif /* BTFM_SLIM_H */

@@ -15,6 +15,8 @@
 #include "ipahal_i.h"
 #include "ipahal_reg_i.h"
 #include "ipahal_fltrt_i.h"
+#include "ipahal_hw_stats_i.h"
+
 
 struct ipahal_context *ipahal_ctx;
 
@@ -47,9 +49,6 @@ static const char *ipahal_pkt_status_exception_to_str
 	__stringify(IPAHAL_PKT_STATUS_EXCEPTION_NAT),
 	__stringify(IPAHAL_PKT_STATUS_EXCEPTION_IPV6CT),
 };
-
-#define IPAHAL_MEM_ALLOC(__size, __is_atomic_ctx) \
-		(kzalloc((__size), ((__is_atomic_ctx)?GFP_ATOMIC:GFP_KERNEL)))
 
 static u16 ipahal_imm_cmd_get_opcode(enum ipahal_imm_cmd_name cmd);
 
@@ -1167,7 +1166,7 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		u32 hdr_len, bool is_hdr_proc_ctx,
 		dma_addr_t phys_base, u32 hdr_base_addr,
 		struct ipa_hdr_offset_entry *offset_entry,
-		union ipa_l2tp_hdr_proc_ctx_params l2tp_params){
+		struct ipa_l2tp_hdr_proc_ctx_params l2tp_params){
 	if (type == IPA_HDR_PROC_NONE) {
 		struct ipa_hw_hdr_proc_ctx_add_hdr_seq *ctx;
 
@@ -1230,6 +1229,17 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 			l2tp_params.hdr_remove_param.hdr_len_remove;
 		ctx->l2tp_params.l2tp_params.eth_hdr_retained =
 			l2tp_params.hdr_remove_param.eth_hdr_retained;
+		ctx->l2tp_params.l2tp_params.hdr_ofst_pkt_size_valid =
+			l2tp_params.hdr_remove_param.hdr_ofst_pkt_size_valid;
+		ctx->l2tp_params.l2tp_params.hdr_ofst_pkt_size =
+			l2tp_params.hdr_remove_param.hdr_ofst_pkt_size;
+		ctx->l2tp_params.l2tp_params.hdr_endianness =
+			l2tp_params.hdr_remove_param.hdr_endianness;
+		IPAHAL_DBG("hdr ofst valid: %d, hdr ofst pkt size: %d\n",
+			ctx->l2tp_params.l2tp_params.hdr_ofst_pkt_size_valid,
+			ctx->l2tp_params.l2tp_params.hdr_ofst_pkt_size);
+		IPAHAL_DBG("endianness: %d\n",
+			ctx->l2tp_params.l2tp_params.hdr_endianness);
 
 		IPAHAL_DBG("command id %d\n", ctx->l2tp_params.tlv.value);
 		ctx->end.type = IPA_PROC_CTX_TLV_TYPE_END;
@@ -1304,7 +1314,7 @@ struct ipahal_hdr_funcs {
 			bool is_hdr_proc_ctx, dma_addr_t phys_base,
 			u32 hdr_base_addr,
 			struct ipa_hdr_offset_entry *offset_entry,
-			union ipa_l2tp_hdr_proc_ctx_params l2tp_params);
+			struct ipa_l2tp_hdr_proc_ctx_params l2tp_params);
 
 	int (*ipahal_get_proc_ctx_needed_len)(enum ipa_hdr_proc_type type);
 };
@@ -1375,7 +1385,7 @@ int ipahal_cp_proc_ctx_to_hw_buff(enum ipa_hdr_proc_type type,
 		void *const base, u32 offset, u32 hdr_len,
 		bool is_hdr_proc_ctx, dma_addr_t phys_base,
 		u32 hdr_base_addr, struct ipa_hdr_offset_entry *offset_entry,
-		union ipa_l2tp_hdr_proc_ctx_params l2tp_params)
+		struct ipa_l2tp_hdr_proc_ctx_params l2tp_params)
 {
 	IPAHAL_DBG(
 		"type %d, base %p, offset %d, hdr_len %d, is_hdr_proc_ctx %d, hdr_base_addr %d, offset_entry %p\n"
@@ -1500,6 +1510,12 @@ int ipahal_init(enum ipa_hw_type ipa_hw_type, void __iomem *base,
 
 	if (ipahal_fltrt_init(ipa_hw_type)) {
 		IPAHAL_ERR("failed to init ipahal flt rt\n");
+		result = -EFAULT;
+		goto bail_free_ctx;
+	}
+
+	if (ipahal_hw_stats_init(ipa_hw_type)) {
+		IPAHAL_ERR("failed to init ipahal hw stats\n");
 		result = -EFAULT;
 		goto bail_free_ctx;
 	}

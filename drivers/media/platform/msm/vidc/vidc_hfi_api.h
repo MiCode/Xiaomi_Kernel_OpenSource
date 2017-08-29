@@ -273,6 +273,7 @@ enum hal_video_codec {
 	HAL_VIDEO_CODEC_VP8      = 0x00001000,
 	HAL_VIDEO_CODEC_HEVC     = 0x00002000,
 	HAL_VIDEO_CODEC_VP9      = 0x00004000,
+	HAL_VIDEO_CODEC_TME      = 0x00008000,
 	HAL_VIDEO_CODEC_HEVC_HYBRID     = 0x80000000,
 	HAL_UNUSED_CODEC = 0x10000000,
 };
@@ -383,6 +384,17 @@ enum hal_vpx_level {
 	HAL_VPX_LEVEL_VERSION_1 = 0x00000002,
 	HAL_VPX_LEVEL_VERSION_2 = 0x00000004,
 	HAL_VPX_LEVEL_VERSION_3 = 0x00000008,
+};
+
+enum hal_tme_profile {
+	HAL_TME_PROFILE_0 = 0x00000001,
+	HAL_TME_PROFILE_1 = 0x00000002,
+	HAL_TME_PROFILE_2 = 0x00000004,
+	HAL_TME_PROFILE_3 = 0x00000008,
+};
+
+enum hal_tme_level {
+	HAL_TME_LEVEL_INTEGER = 0x00000001,
 };
 
 struct hal_frame_rate {
@@ -1203,6 +1215,7 @@ struct msm_vidc_capability {
 	enum buffer_mode_type alloc_mode_out;
 	enum buffer_mode_type alloc_mode_in;
 	u32 pixelprocess_capabilities;
+	u32 tme_version;
 };
 
 struct vidc_hal_sys_init_done {
@@ -1345,11 +1358,13 @@ struct vidc_bus_vote_data {
 	int output_height, output_width;
 	int compression_ratio;
 	int complexity_factor;
+	int input_cr;
 	bool use_dpb_read;
 	unsigned int lcu_size;
 	enum msm_vidc_power_mode power_mode;
 	enum hal_work_mode work_mode;
 	bool use_sys_cache;
+	bool b_frames_enabled;
 };
 
 struct vidc_clk_scale_data {
@@ -1409,6 +1424,7 @@ struct hfi_device {
 	int (*get_core_capabilities)(void *dev);
 	int (*suspend)(void *dev);
 	int (*flush_debug_queue)(void *dev);
+	int (*noc_error_info)(void *dev);
 	enum hal_default_properties (*get_default_properties)(void *dev);
 };
 

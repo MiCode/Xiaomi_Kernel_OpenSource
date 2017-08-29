@@ -30,6 +30,7 @@
 
 	aliases {
 		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
+		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
 	};
 
 	aliases {
@@ -825,6 +826,12 @@
 		reg-names = "pshold-base", "tcsr-boot-misc-detect";
 	};
 
+	aop-msg-client {
+		compatible = "qcom,debugfs-qmp-client";
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "aop";
+	};
+
 	clock_rpmh: qcom,rpmhclk {
 		compatible = "qcom,dummycc";
 		clock-output-names = "rpmh_clocks";
@@ -1086,7 +1093,7 @@
 		qcom,mpu-enabled;
 	};
 
-	qmp_aop: mailbox@1799000c {
+	qmp_aop: qcom,qmp-aop@c300000 {
 		compatible = "qcom,qmp-mbox";
 		label = "aop";
 		reg = <0xc300000 0x100000>,
@@ -1094,6 +1101,7 @@
 		reg-names = "msgram", "irq-reg-base";
 		qcom,irq-mask = <0x1>;
 		interrupts = <0 389 1>;
+		priority = <0>;
 		mbox-desc-offset = <0x0>;
 		#mbox-cells = <1>;
 	};
@@ -1113,8 +1121,8 @@
 		reg = <0x86000000 0x200000>,
 			<0x1799000c 0x4>;
 		reg-names = "smem", "irq-reg-base";
-		qcom,irq-mask = <0x100>;
-		interrupts = <GIC_SPI 156 IRQ_TYPE_EDGE_RISING>;
+		qcom,irq-mask = <0x1000000>;
+		interrupts = <GIC_SPI 170 IRQ_TYPE_EDGE_RISING>;
 		label = "lpass";
 		qcom,qos-config = <&glink_qos_adsp>;
 		qcom,ramp-time = <0xaf>;
@@ -1366,6 +1374,19 @@
 				<SLEEP_TCS     3>,
 				<WAKE_TCS      3>,
 				<CONTROL_TCS   1>;
+	};
+
+	disp_rsc: mailbox@af20000 {
+		compatible = "qcom,tcs-drv";
+		label = "display_rsc";
+		reg = <0xaf20000 0x100>, <0xaf21c00 0x3000>;
+		interrupts = <0 129 0>;
+		#mbox-cells = <1>;
+		qcom,drv-id = <0>;
+		qcom,tcs-config = <SLEEP_TCS 1>,
+				<WAKE_TCS    1>,
+				<ACTIVE_TCS  0>,
+				<CONTROL_TCS 1>;
 	};
 
 	system_pm {
@@ -1715,6 +1736,168 @@
 			memory-region = <&pil_mba_mem>;
 		};
 	};
+
+	qcom,venus@aae0000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0xaae0000 0x4000>;
+
+		vdd-supply = <&venus_gdsc>;
+		qcom,proxy-reg-names = "vdd";
+
+		clocks = <&clock_videocc VIDEO_CC_VENUS_CTL_CORE_CLK>,
+			 <&clock_videocc VIDEO_CC_VENUS_AHB_CLK>,
+			 <&clock_videocc VIDEO_CC_VENUS_CTL_AXI_CLK>;
+		clock-names = "core_clk", "iface_clk", "bus_clk";
+		qcom,proxy-clock-names = "core_clk", "iface_clk", "bus_clk";
+
+		qcom,pas-id = <9>;
+		qcom,msm-bus,name = "pil-venus";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<63 512 0 0>,
+			<63 512 0 304000>;
+		qcom,proxy-timeout-ms = <100>;
+		qcom,firmware-name = "venus";
+		memory-region = <&pil_video_mem>;
+		status = "ok";
+	};
+
+	qcom,turing@8300000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x8300000 0x100000>;
+		interrupts = <0 578 1>;
+
+		vdd_cx-supply = <&pm660l_s3_level>;
+		qcom,proxy-reg-names = "vdd_cx";
+		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "xo";
+		qcom,proxy-clock-names = "xo";
+
+		qcom,pas-id = <18>;
+		qcom,proxy-timeout-ms = <10000>;
+		qcom,smem-id = <601>;
+		qcom,sysmon-id = <7>;
+		qcom,ssctl-instance-id = <0x17>;
+		qcom,firmware-name = "cdsp";
+		memory-region = <&pil_cdsp_mem>;
+
+		/* GPIO inputs from turing */
+		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_5_in 0 0>;
+		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_5_in 2 0>;
+		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_5_in 1 0>;
+		qcom,gpio-stop-ack = <&smp2pgpio_ssr_smp2p_5_in 3 0>;
+
+		/* GPIO output to turing*/
+		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_5_out 0 0>;
+		status = "ok";
+	};
+
+	sdhc_1: sdhci@7c4000 {
+		compatible = "qcom,sdhci-msm-v5";
+		reg = <0x7C4000 0x1000>, <0x7C5000 0x1000>;
+		reg-names = "hc_mem", "cmdq_mem";
+
+		interrupts = <0 641 0>, <0 644 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		qcom,bus-width = <8>;
+		qcom,large-address-bus;
+
+		clocks = <&clock_gcc GCC_SDCC1_AHB_CLK>,
+			<&clock_gcc GCC_SDCC1_APPS_CLK>;
+		clock-names = "iface_clk", "core_clk";
+
+		qcom,nonremovable;
+
+		qcom,scaling-lower-bus-speed-mode = "DDR52";
+		status = "disabled";
+	};
+
+	qcom,msm-cdsp-loader {
+		compatible = "qcom,cdsp-loader";
+		qcom,proc-img-to-load = "cdsp";
+	};
+
+	qcom,msm-adsprpc-mem {
+		compatible = "qcom,msm-adsprpc-mem-region";
+		memory-region = <&adsp_mem>;
+	};
+
+	qcom,msm_fastrpc {
+		compatible = "qcom,msm-fastrpc-compute";
+
+		qcom,msm_fastrpc_compute_cb1 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x1421 0x30>;
+			dma-coherent;
+		};
+		qcom,msm_fastrpc_compute_cb2 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x1422 0x30>;
+			dma-coherent;
+		};
+		qcom,msm_fastrpc_compute_cb3 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x1423 0x30>;
+			dma-coherent;
+		};
+		qcom,msm_fastrpc_compute_cb4 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x1424 0x30>;
+			dma-coherent;
+		};
+		qcom,msm_fastrpc_compute_cb5 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x1425 0x30>;
+			dma-coherent;
+		};
+		qcom,msm_fastrpc_compute_cb6 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x1426 0x30>;
+			dma-coherent;
+		};
+		qcom,msm_fastrpc_compute_cb7 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			qcom,secure-context-bank;
+			iommus = <&apps_smmu 0x1429 0x30>;
+			dma-coherent;
+		};
+		qcom,msm_fastrpc_compute_cb8 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			qcom,secure-context-bank;
+			iommus = <&apps_smmu 0x142A 0x30>;
+			dma-coherent;
+		};
+		qcom,msm_fastrpc_compute_cb9 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&apps_smmu 0x1803 0x0>;
+			dma-coherent;
+		};
+		qcom,msm_fastrpc_compute_cb10 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&apps_smmu 0x1804 0x0>;
+			dma-coherent;
+		};
+		qcom,msm_fastrpc_compute_cb11 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&apps_smmu 0x1805 0x0>;
+			dma-coherent;
+		};
+	};
 };
 
 #include "sdm670-pinctrl.dtsi"
@@ -1739,6 +1922,18 @@
 };
 
 &hlos1_vote_aggre_noc_mmu_tbu2_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_mmnoc_mmu_tbu_sf_gdsc {
 	status = "ok";
 };
 
@@ -1778,6 +1973,7 @@
 	clock-names = "core_root_clk";
 	clocks = <&clock_gfx GPU_CC_GX_GFX3D_CLK_SRC>;
 	qcom,force-enable-root-clk;
+	parent-supply = <&pm660l_s2_level>;
 	status = "ok";
 };
 
@@ -1798,3 +1994,4 @@
 #include "pm660.dtsi"
 #include "pm660l.dtsi"
 #include "sdm670-regulator.dtsi"
+#include "sdm670-audio.dtsi"

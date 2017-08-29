@@ -161,7 +161,7 @@ struct msm_vidc_platform_resources {
 	uint32_t dcvs_tbl_size;
 	struct dcvs_limit *dcvs_limit;
 	bool sys_cache_present;
-	bool sys_cache_enabled;
+	bool sys_cache_res_set;
 	struct subcache_set subcache_set;
 	struct reg_set reg_set;
 	struct addr_set qdss_addr_set;
@@ -189,6 +189,7 @@ struct msm_vidc_platform_resources {
 	int msm_vidc_hw_rsp_timeout;
 	int msm_vidc_firmware_unload_delay;
 	uint32_t msm_vidc_pwr_collapse_delay;
+	bool non_fatal_pagefaults;
 	struct msm_vidc_codec_data *codec_data;
 	int codec_data_count;
 };
