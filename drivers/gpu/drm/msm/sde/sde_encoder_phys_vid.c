@@ -809,10 +809,6 @@ static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 
 	sde_encoder_helper_unregister_irq(phys_enc, INTR_IDX_UNDERRUN);
 
-	if (atomic_read(&phys_enc->vblank_refcount))
-		SDE_ERROR_VIDENC(vid_enc, "invalid vblank refcount %d\n",
-				atomic_read(&phys_enc->vblank_refcount));
-
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 }
 
