@@ -92,7 +92,8 @@ struct cam_vfe_bus_ver2_wm_resource_data {
 	void                                *ctx;
 
 	uint32_t             irq_enabled;
-	uint32_t             init_cfg_done;
+	bool                 init_cfg_done;
+	bool                 hfr_cfg_done;
 
 	uint32_t             offset;
 	uint32_t             width;
@@ -849,7 +850,8 @@ static int cam_vfe_bus_release_wm(void   *bus_priv,
 	rsrc_data->ubwc_meta_stride = 0;
 	rsrc_data->ubwc_mode_cfg = 0;
 	rsrc_data->ubwc_meta_offset = 0;
-	rsrc_data->init_cfg_done = 0;
+	rsrc_data->init_cfg_done = false;
+	rsrc_data->hfr_cfg_done = false;
 	rsrc_data->en_cfg = 0;
 
 	wm_res->tasklet_info = NULL;
@@ -1959,7 +1961,7 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 		CAM_DBG(CAM_ISP, "image stride 0x%x", wm_data->stride);
 
 		if (wm_data->framedrop_pattern != io_cfg->framedrop_pattern ||
-			!wm_data->init_cfg_done) {
+			!wm_data->hfr_cfg_done) {
 			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
 				wm_data->hw_regs->framedrop_pattern,
 				io_cfg->framedrop_pattern);
@@ -1969,7 +1971,7 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 			wm_data->framedrop_pattern);
 
 		if (wm_data->framedrop_period != io_cfg->framedrop_period ||
-			!wm_data->init_cfg_done) {
+			!wm_data->hfr_cfg_done) {
 			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
 				wm_data->hw_regs->framedrop_period,
 				io_cfg->framedrop_period);
@@ -1979,7 +1981,7 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 			wm_data->framedrop_period);
 
 		if (wm_data->irq_subsample_period != io_cfg->subsample_period
-			|| !wm_data->init_cfg_done) {
+			|| !wm_data->hfr_cfg_done) {
 			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
 				wm_data->hw_regs->irq_subsample_period,
 				io_cfg->subsample_period);
@@ -1990,7 +1992,7 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 			wm_data->irq_subsample_period);
 
 		if (wm_data->irq_subsample_pattern != io_cfg->subsample_pattern
-			|| !wm_data->init_cfg_done) {
+			|| !wm_data->hfr_cfg_done) {
 			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
 				wm_data->hw_regs->irq_subsample_pattern,
 				io_cfg->subsample_pattern);
@@ -2117,7 +2119,7 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 
 		/* set initial configuration done */
 		if (!wm_data->init_cfg_done)
-			wm_data->init_cfg_done = 1;
+			wm_data->init_cfg_done = true;
 	}
 
 	size = vfe_out_data->cdm_util_ops->cdm_required_size_reg_random(j/2);
@@ -2135,6 +2137,108 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 
 	/* cdm util returns dwords, need to convert to bytes */
 	update_buf->cdm.used_bytes = size * 4;
+
+	return 0;
+}
+
+static int cam_vfe_bus_update_hfr(void *priv, void *cmd_args,
+	uint32_t arg_size)
+{
+	struct cam_vfe_bus_ver2_priv             *bus_priv;
+	struct cam_isp_hw_get_hfr_update         *update_hfr;
+	struct cam_vfe_bus_ver2_vfe_out_data     *vfe_out_data = NULL;
+	struct cam_vfe_bus_ver2_wm_resource_data *wm_data = NULL;
+	struct cam_isp_port_hfr_config           *hfr_cfg = NULL;
+	uint32_t *reg_val_pair;
+	uint32_t  i, j, size = 0;
+
+	bus_priv = (struct cam_vfe_bus_ver2_priv  *) priv;
+	update_hfr =  (struct cam_isp_hw_get_hfr_update *) cmd_args;
+
+	vfe_out_data = (struct cam_vfe_bus_ver2_vfe_out_data *)
+		update_hfr->cdm.res->res_priv;
+
+	if (!vfe_out_data || !vfe_out_data->cdm_util_ops) {
+		CAM_ERR(CAM_ISP, "Failed! Invalid data");
+		return -EINVAL;
+	}
+
+	reg_val_pair = &vfe_out_data->common_data->io_buf_update[0];
+	hfr_cfg = update_hfr->io_hfr_cfg;
+
+	for (i = 0, j = 0; i < vfe_out_data->num_wm; i++) {
+		if (j >= (MAX_REG_VAL_PAIR_SIZE - MAX_BUF_UPDATE_REG_NUM * 2)) {
+			CAM_ERR(CAM_ISP,
+				"reg_val_pair %d exceeds the array limit %lu",
+				j, MAX_REG_VAL_PAIR_SIZE);
+			return -ENOMEM;
+		}
+
+		wm_data = vfe_out_data->wm_res[i]->res_priv;
+
+		if ((wm_data->framedrop_pattern !=
+			hfr_cfg->framedrop_pattern) ||
+			!wm_data->hfr_cfg_done) {
+			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+				wm_data->hw_regs->framedrop_pattern,
+				hfr_cfg->framedrop_pattern);
+			wm_data->framedrop_pattern = hfr_cfg->framedrop_pattern;
+		}
+		CAM_DBG(CAM_ISP, "framedrop pattern 0x%x",
+			wm_data->framedrop_pattern);
+
+		if (wm_data->framedrop_period != hfr_cfg->framedrop_period ||
+			!wm_data->hfr_cfg_done) {
+			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+				wm_data->hw_regs->framedrop_period,
+				hfr_cfg->framedrop_period);
+			wm_data->framedrop_period = hfr_cfg->framedrop_period;
+		}
+		CAM_DBG(CAM_ISP, "framedrop period 0x%x",
+			wm_data->framedrop_period);
+
+		if (wm_data->irq_subsample_period != hfr_cfg->subsample_period
+			|| !wm_data->hfr_cfg_done) {
+			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+				wm_data->hw_regs->irq_subsample_period,
+				hfr_cfg->subsample_period);
+			wm_data->irq_subsample_period =
+				hfr_cfg->subsample_period;
+		}
+		CAM_DBG(CAM_ISP, "irq subsample period 0x%x",
+			wm_data->irq_subsample_period);
+
+		if (wm_data->irq_subsample_pattern != hfr_cfg->subsample_pattern
+			|| !wm_data->hfr_cfg_done) {
+			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+				wm_data->hw_regs->irq_subsample_pattern,
+				hfr_cfg->subsample_pattern);
+			wm_data->irq_subsample_pattern =
+				hfr_cfg->subsample_pattern;
+		}
+		CAM_DBG(CAM_ISP, "irq subsample pattern 0x%x",
+			wm_data->irq_subsample_pattern);
+
+		/* set initial configuration done */
+		if (!wm_data->hfr_cfg_done)
+			wm_data->hfr_cfg_done = true;
+	}
+
+	size = vfe_out_data->cdm_util_ops->cdm_required_size_reg_random(j/2);
+
+	/* cdm util returns dwords, need to convert to bytes */
+	if ((size * 4) > update_hfr->cdm.size) {
+		CAM_ERR(CAM_ISP,
+			"Failed! Buf size:%d insufficient, expected size:%d",
+			update_hfr->cdm.size, size);
+		return -ENOMEM;
+	}
+
+	vfe_out_data->cdm_util_ops->cdm_write_regrandom(
+		update_hfr->cdm.cmd_buf_addr, j/2, reg_val_pair);
+
+	/* cdm util returns dwords, need to convert to bytes */
+	update_hfr->cdm.used_bytes = size * 4;
 
 	return 0;
 }
@@ -2215,6 +2319,9 @@ static int cam_vfe_bus_process_cmd(void *priv,
 	switch (cmd_type) {
 	case CAM_VFE_HW_CMD_GET_BUF_UPDATE:
 		rc = cam_vfe_bus_update_buf(priv, cmd_args, arg_size);
+		break;
+	case CAM_VFE_HW_CMD_GET_HFR_UPDATE:
+		rc = cam_vfe_bus_update_hfr(priv, cmd_args, arg_size);
 		break;
 	default:
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "Inval camif process command:%d\n",

@@ -104,6 +104,9 @@ int32_t camera_io_dev_write(struct camera_io_master *io_master_info,
 	} else if (io_master_info->master_type == I2C_MASTER) {
 		return cam_qup_i2c_write_table(io_master_info,
 			write_setting);
+	} else if (io_master_info->master_type == SPI_MASTER) {
+		return cam_spi_write_table(io_master_info,
+			write_setting);
 	} else {
 		CAM_ERR(CAM_SENSOR, "Invalid Comm. Master:%d",
 			io_master_info->master_type);

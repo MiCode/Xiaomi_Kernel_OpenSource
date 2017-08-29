@@ -28,12 +28,21 @@ int32_t cam_actuator_slaveInfo_pkt_parser(struct cam_actuator_ctrl_t *a_ctrl,
 	}
 
 	i2c_info = (struct cam_cmd_i2c_info *)cmd_buf;
-	a_ctrl->io_master_info.cci_client->i2c_freq_mode =
-		i2c_info->i2c_freq_mode;
-	a_ctrl->io_master_info.cci_client->sid =
-		i2c_info->slave_addr >> 1;
-	CAM_DBG(CAM_ACTUATOR, "Slave addr: 0x%x Freq Mode: %d",
-		i2c_info->slave_addr, i2c_info->i2c_freq_mode);
+	if (a_ctrl->io_master_info.master_type == CCI_MASTER) {
+		a_ctrl->io_master_info.cci_client->i2c_freq_mode =
+			i2c_info->i2c_freq_mode;
+		a_ctrl->io_master_info.cci_client->sid =
+			i2c_info->slave_addr >> 1;
+		CAM_DBG(CAM_ACTUATOR, "Slave addr: 0x%x Freq Mode: %d",
+			i2c_info->slave_addr, i2c_info->i2c_freq_mode);
+	} else if (a_ctrl->io_master_info.master_type == I2C_MASTER) {
+		a_ctrl->io_master_info.client->addr = i2c_info->slave_addr;
+		CAM_DBG(CAM_ACTUATOR, "Slave addr: 0x%x", i2c_info->slave_addr);
+	} else {
+		CAM_ERR(CAM_ACTUATOR, "Invalid Master type: %d",
+			a_ctrl->io_master_info.master_type);
+		 rc = -EINVAL;
+	}
 
 	return rc;
 }
@@ -185,6 +194,7 @@ int32_t cam_actuator_publish_dev_info(struct cam_req_mgr_device_info *info)
 	info->dev_id = CAM_REQ_MGR_DEVICE_ACTUATOR;
 	strlcpy(info->name, CAM_ACTUATOR_NAME, sizeof(info->name));
 	info->p_delay = 0;
+	info->trigger = CAM_TRIGGER_POINT_SOF;
 
 	return 0;
 }

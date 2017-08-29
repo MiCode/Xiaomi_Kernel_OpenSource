@@ -111,12 +111,34 @@ static struct v4l2_subdev_ops cam_eeprom_subdev_ops = {
 	.core = &cam_eeprom_subdev_core_ops,
 };
 
+static int cam_eeprom_init_subdev(struct cam_eeprom_ctrl_t *e_ctrl)
+{
+	int rc = 0;
+
+	e_ctrl->v4l2_dev_str.internal_ops = &cam_eeprom_internal_ops;
+	e_ctrl->v4l2_dev_str.ops = &cam_eeprom_subdev_ops;
+	strlcpy(e_ctrl->device_name, CAM_EEPROM_NAME,
+		sizeof(e_ctrl->device_name));
+	e_ctrl->v4l2_dev_str.name = e_ctrl->device_name;
+	e_ctrl->v4l2_dev_str.sd_flags =
+		(V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_HAS_EVENTS);
+	e_ctrl->v4l2_dev_str.ent_function = CAM_EEPROM_DEVICE_TYPE;
+	e_ctrl->v4l2_dev_str.token = e_ctrl;
+
+	rc = cam_register_subdev(&(e_ctrl->v4l2_dev_str));
+	if (rc)
+		CAM_ERR(CAM_SENSOR, "Fail with cam_register_subdev");
+
+	return rc;
+}
+
 static int cam_eeprom_i2c_driver_probe(struct i2c_client *client,
 	 const struct i2c_device_id *id)
 {
 	int                             rc = 0;
 	struct cam_eeprom_ctrl_t       *e_ctrl = NULL;
 	struct cam_eeprom_soc_private  *soc_private = NULL;
+	struct cam_hw_soc_info         *soc_info = NULL;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		CAM_ERR(CAM_EEPROM, "i2c_check_functionality failed");
@@ -129,27 +151,67 @@ static int cam_eeprom_i2c_driver_probe(struct i2c_client *client,
 		rc = -ENOMEM;
 		goto probe_failure;
 	}
-	e_ctrl->v4l2_dev_str.ops = &cam_eeprom_subdev_ops;
+
+	i2c_set_clientdata(client, e_ctrl);
+
+	mutex_init(&(e_ctrl->eeprom_mutex));
+
+	soc_info = &e_ctrl->soc_info;
+	soc_info->dev = &client->dev;
+	soc_info->dev_name = client->name;
+	e_ctrl->io_master_info.master_type = I2C_MASTER;
+	e_ctrl->io_master_info.client = client;
+	e_ctrl->eeprom_device_type = MSM_CAMERA_I2C_DEVICE;
+
+	rc = cam_eeprom_parse_dt(e_ctrl);
+	if (rc) {
+		CAM_ERR(CAM_EEPROM, "failed: soc init rc %d", rc);
+		goto free_soc;
+	}
+
+	rc = cam_eeprom_update_i2c_info(e_ctrl, &soc_private->i2c_info);
+	if (rc) {
+		CAM_ERR(CAM_EEPROM, "failed: to update i2c info rc %d", rc);
+		goto free_soc;
+	}
+
+	if (e_ctrl->userspace_probe == false) {
+		rc = cam_eeprom_parse_read_memory_map(soc_info->dev->of_node,
+			e_ctrl);
+		if (rc) {
+			CAM_ERR(CAM_EEPROM, "failed: read mem map rc %d", rc);
+			goto free_soc;
+		}
+	}
+
 	soc_private = (struct cam_eeprom_soc_private *)(id->driver_data);
 	if (!soc_private) {
 		CAM_ERR(CAM_EEPROM, "board info NULL");
 		rc = -EINVAL;
 		goto ectrl_free;
 	}
+
+	rc = cam_eeprom_init_subdev(e_ctrl);
+	if (rc)
+		goto free_soc;
+
 	e_ctrl->cal_data.mapdata = NULL;
 	e_ctrl->cal_data.map = NULL;
 	e_ctrl->userspace_probe = false;
-
-	e_ctrl->eeprom_device_type = MSM_CAMERA_I2C_DEVICE;
-	e_ctrl->io_master_info.master_type = I2C_MASTER;
-	e_ctrl->io_master_info.client = client;
 
 	if (soc_private->i2c_info.slave_addr != 0)
 		e_ctrl->io_master_info.client->addr =
 			soc_private->i2c_info.slave_addr;
 
-	return rc;
+	e_ctrl->bridge_intf.device_hdl = -1;
+	e_ctrl->bridge_intf.ops.get_dev_info = NULL;
+	e_ctrl->bridge_intf.ops.link_setup = NULL;
+	e_ctrl->bridge_intf.ops.apply_req = NULL;
+	v4l2_set_subdevdata(&e_ctrl->v4l2_dev_str.sd, e_ctrl);
 
+	return rc;
+free_soc:
+	kfree(soc_private);
 ectrl_free:
 	kfree(e_ctrl);
 probe_failure:
@@ -194,6 +256,7 @@ static int cam_eeprom_i2c_driver_remove(struct i2c_client *client)
 static int cam_eeprom_spi_setup(struct spi_device *spi)
 {
 	struct cam_eeprom_ctrl_t       *e_ctrl = NULL;
+	struct cam_hw_soc_info         *soc_info = NULL;
 	struct cam_sensor_spi_client   *spi_client;
 	struct cam_eeprom_soc_private  *eb_info;
 	struct cam_sensor_power_ctrl_t *power_info = NULL;
@@ -202,6 +265,10 @@ static int cam_eeprom_spi_setup(struct spi_device *spi)
 	e_ctrl = kzalloc(sizeof(*e_ctrl), GFP_KERNEL);
 	if (!e_ctrl)
 		return -ENOMEM;
+
+	soc_info = &e_ctrl->soc_info;
+	soc_info->dev = &spi->dev;
+	soc_info->dev_name = spi->modalias;
 
 	e_ctrl->v4l2_dev_str.ops = &cam_eeprom_subdev_ops;
 	e_ctrl->userspace_probe = false;
@@ -234,14 +301,14 @@ static int cam_eeprom_spi_setup(struct spi_device *spi)
 	/* Initialize mutex */
 	mutex_init(&(e_ctrl->eeprom_mutex));
 
-	rc = cam_eeprom_spi_driver_soc_init(e_ctrl);
+	rc = cam_eeprom_parse_dt(e_ctrl);
 	if (rc) {
 		CAM_ERR(CAM_EEPROM, "failed: spi soc init rc %d", rc);
 		goto board_free;
 	}
 
 	if (e_ctrl->userspace_probe == false) {
-		rc = cam_eeprom_parse_read_memory_map(spi->dev.of_node,
+		rc = cam_eeprom_parse_read_memory_map(soc_info->dev->of_node,
 			e_ctrl);
 		if (rc) {
 			CAM_ERR(CAM_EEPROM, "failed: read mem map rc %d", rc);
@@ -249,6 +316,16 @@ static int cam_eeprom_spi_setup(struct spi_device *spi)
 		}
 	}
 
+	rc = cam_eeprom_init_subdev(e_ctrl);
+	if (rc)
+		goto board_free;
+
+	e_ctrl->bridge_intf.device_hdl = -1;
+	e_ctrl->bridge_intf.ops.get_dev_info = NULL;
+	e_ctrl->bridge_intf.ops.link_setup = NULL;
+	e_ctrl->bridge_intf.ops.apply_req = NULL;
+
+	v4l2_set_subdevdata(&e_ctrl->v4l2_dev_str.sd, e_ctrl);
 	return rc;
 
 board_free:
@@ -317,6 +394,8 @@ static int32_t cam_eeprom_platform_driver_probe(
 		return -ENOMEM;
 
 	e_ctrl->soc_info.pdev = pdev;
+	e_ctrl->soc_info.dev = &pdev->dev;
+	e_ctrl->soc_info.dev_name = pdev->name;
 	e_ctrl->eeprom_device_type = MSM_CAMERA_PLATFORM_DEVICE;
 	e_ctrl->cal_data.mapdata = NULL;
 	e_ctrl->cal_data.map = NULL;
@@ -338,7 +417,7 @@ static int32_t cam_eeprom_platform_driver_probe(
 
 	/* Initialize mutex */
 	mutex_init(&(e_ctrl->eeprom_mutex));
-	rc = cam_eeprom_platform_driver_soc_init(e_ctrl);
+	rc = cam_eeprom_parse_dt(e_ctrl);
 	if (rc) {
 		CAM_ERR(CAM_EEPROM, "failed: soc init rc %d", rc);
 		goto free_soc;
@@ -358,21 +437,9 @@ static int32_t cam_eeprom_platform_driver_probe(
 		}
 	}
 
-	e_ctrl->v4l2_dev_str.internal_ops = &cam_eeprom_internal_ops;
-	e_ctrl->v4l2_dev_str.ops = &cam_eeprom_subdev_ops;
-	strlcpy(e_ctrl->device_name, CAM_EEPROM_NAME,
-		sizeof(e_ctrl->device_name));
-	e_ctrl->v4l2_dev_str.name = e_ctrl->device_name;
-	e_ctrl->v4l2_dev_str.sd_flags =
-		(V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_HAS_EVENTS);
-	e_ctrl->v4l2_dev_str.ent_function = CAM_EEPROM_DEVICE_TYPE;
-	e_ctrl->v4l2_dev_str.token = e_ctrl;
-
-	rc = cam_register_subdev(&(e_ctrl->v4l2_dev_str));
-	if (rc) {
-		CAM_ERR(CAM_EEPROM, "fail to create subdev");
+	rc = cam_eeprom_init_subdev(e_ctrl);
+	if (rc)
 		goto free_soc;
-	}
 
 	e_ctrl->bridge_intf.device_hdl = -1;
 	e_ctrl->bridge_intf.ops.get_dev_info = NULL;

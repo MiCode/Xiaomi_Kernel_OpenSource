@@ -42,7 +42,7 @@ static int cam_jpeg_enc_register_cpas(struct cam_hw_soc_info *soc_info,
 	struct cam_cpas_register_params cpas_register_params;
 	int rc;
 
-	cpas_register_params.dev = &soc_info->pdev->dev;
+	cpas_register_params.dev = soc_info->dev;
 	memcpy(cpas_register_params.identifier, "jpeg-enc",
 		sizeof("jpeg-enc"));
 	cpas_register_params.cam_cpas_client_cb = NULL;
@@ -140,6 +140,8 @@ static int cam_jpeg_enc_probe(struct platform_device *pdev)
 		goto error_alloc_dev;
 	}
 	jpeg_enc_dev->soc_info.pdev = pdev;
+	jpeg_enc_dev->soc_info.dev = &pdev->dev;
+	jpeg_enc_dev->soc_info.dev_name = pdev->name;
 	jpeg_enc_dev_intf->hw_priv = jpeg_enc_dev;
 	jpeg_enc_dev_intf->hw_ops.init = cam_jpeg_enc_init_hw;
 	jpeg_enc_dev_intf->hw_ops.deinit = cam_jpeg_enc_deinit_hw;

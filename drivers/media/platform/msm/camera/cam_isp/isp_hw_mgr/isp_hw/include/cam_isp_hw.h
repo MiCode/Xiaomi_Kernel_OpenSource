@@ -161,4 +161,18 @@ struct cam_isp_hw_get_buf_update {
 	struct cam_buf_io_cfg          *io_cfg;
 };
 
+/*
+ * struct cam_isp_hw_get_hfr_update:
+ *
+ * @Brief:         Get cdm commands for HFR updates.
+ *
+ * @ cdm:          Command buffer information
+ * @ io_hfr_cfg:   IO buffer config information sent from UMD
+ *
+ */
+struct cam_isp_hw_get_hfr_update {
+	struct cam_isp_hw_get_cdm_args  cdm;
+	struct cam_isp_port_hfr_config *io_hfr_cfg;
+};
+
 #endif /* _CAM_ISP_HW_H_ */

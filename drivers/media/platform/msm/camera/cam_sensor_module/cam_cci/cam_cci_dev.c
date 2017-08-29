@@ -188,6 +188,8 @@ static int cam_cci_platform_probe(struct platform_device *pdev)
 	new_cci_dev->v4l2_dev_str.pdev = pdev;
 
 	soc_info->pdev = pdev;
+	soc_info->dev = &pdev->dev;
+	soc_info->dev_name = pdev->name;
 
 	rc = cam_cci_parse_dt_info(pdev, new_cci_dev);
 	if (rc < 0) {

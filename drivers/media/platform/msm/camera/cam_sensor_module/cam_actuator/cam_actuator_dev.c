@@ -35,11 +35,94 @@ static long cam_actuator_subdev_ioctl(struct v4l2_subdev *sd,
 	return rc;
 }
 
+#ifdef CONFIG_COMPAT
+static long cam_actuator_init_subdev_do_ioctl(struct v4l2_subdev *sd,
+	unsigned int cmd, unsigned long arg)
+{
+	struct cam_control cmd_data;
+	int32_t rc = 0;
+
+	if (copy_from_user(&cmd_data, (void __user *)arg,
+		sizeof(cmd_data))) {
+		CAM_ERR(CAM_ACTUATOR,
+			"Failed to copy from user_ptr=%pK size=%zu",
+			(void __user *)arg, sizeof(cmd_data));
+		return -EFAULT;
+	}
+
+	switch (cmd) {
+	case VIDIOC_CAM_CONTROL:
+		cmd = VIDIOC_CAM_CONTROL;
+		rc = cam_actuator_subdev_ioctl(sd, cmd, &cmd_data);
+		if (rc) {
+			CAM_ERR(CAM_ACTUATOR,
+				"Failed in actuator subdev handling rc: %d",
+				rc);
+			return rc;
+		}
+	break;
+	default:
+		CAM_ERR(CAM_ACTUATOR, "Invalid compat ioctl: %d", cmd);
+		rc = -EINVAL;
+	}
+
+	if (!rc) {
+		if (copy_to_user((void __user *)arg, &cmd_data,
+			sizeof(cmd_data))) {
+			CAM_ERR(CAM_ACTUATOR,
+				"Failed to copy to user_ptr=%pK size=%zu",
+				(void __user *)arg, sizeof(cmd_data));
+			rc = -EFAULT;
+		}
+	}
+	return rc;
+}
+#endif
+
+static struct v4l2_subdev_core_ops cam_actuator_subdev_core_ops = {
+	.ioctl = cam_actuator_subdev_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl32 = cam_actuator_init_subdev_do_ioctl,
+#endif
+};
+
+static struct v4l2_subdev_ops cam_actuator_subdev_ops = {
+	.core = &cam_actuator_subdev_core_ops,
+};
+
+static const struct v4l2_subdev_internal_ops cam_actuator_internal_ops;
+
+static int cam_actuator_init_subdev(struct cam_actuator_ctrl_t *a_ctrl)
+{
+	int rc = 0;
+
+	a_ctrl->v4l2_dev_str.internal_ops =
+		&cam_actuator_internal_ops;
+	a_ctrl->v4l2_dev_str.ops =
+		&cam_actuator_subdev_ops;
+	strlcpy(a_ctrl->device_name, CAMX_ACTUATOR_DEV_NAME,
+		sizeof(a_ctrl->device_name));
+	a_ctrl->v4l2_dev_str.name =
+		a_ctrl->device_name;
+	a_ctrl->v4l2_dev_str.sd_flags =
+		(V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_HAS_EVENTS);
+	a_ctrl->v4l2_dev_str.ent_function =
+		CAM_ACTUATOR_DEVICE_TYPE;
+	a_ctrl->v4l2_dev_str.token = a_ctrl;
+
+	rc = cam_register_subdev(&(a_ctrl->v4l2_dev_str));
+	if (rc)
+		CAM_ERR(CAM_SENSOR, "Fail with cam_register_subdev rc: %d", rc);
+
+	return rc;
+}
+
 static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
 {
 	int32_t rc = 0, i = 0;
 	struct cam_actuator_ctrl_t *a_ctrl;
+	struct cam_hw_soc_info *soc_info = NULL;
 
 	if (client == NULL || id == NULL) {
 		CAM_ERR(CAM_ACTUATOR, "Invalid Args client: %pK id: %pK",
@@ -61,13 +144,29 @@ static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, a_ctrl);
 
+	a_ctrl->io_master_info.client = client;
+	soc_info = &a_ctrl->soc_info;
+	soc_info->dev = &client->dev;
+	soc_info->dev_name = client->name;
+	a_ctrl->io_master_info.master_type = I2C_MASTER;
+
+	rc = cam_actuator_parse_dt(a_ctrl, &client->dev);
+	if (rc < 0) {
+		CAM_ERR(CAM_ACTUATOR, "failed: cam_sensor_parse_dt rc %d", rc);
+		goto free_ctrl;
+	}
+
+	rc = cam_actuator_init_subdev(a_ctrl);
+	if (rc)
+		goto free_ctrl;
+
 	a_ctrl->i2c_data.per_frame =
 		(struct i2c_settings_array *)
 		kzalloc(sizeof(struct i2c_settings_array) *
 		MAX_PER_FRAME_ARRAY, GFP_KERNEL);
 	if (a_ctrl->i2c_data.per_frame == NULL) {
 		rc = -ENOMEM;
-		goto free_ctrl;
+		goto unreg_subdev;
 	}
 
 	INIT_LIST_HEAD(&(a_ctrl->i2c_data.init_settings.list_head));
@@ -75,18 +174,28 @@ static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client,
 	for (i = 0; i < MAX_PER_FRAME_ARRAY; i++)
 		INIT_LIST_HEAD(&(a_ctrl->i2c_data.per_frame[i].list_head));
 
-	/* Initialize sensor device type */
-	a_ctrl->io_master_info.master_type = I2C_MASTER;
-
-	rc = cam_actuator_parse_dt(a_ctrl, &client->dev);
+	rc = cam_soc_util_request_platform_resource(&a_ctrl->soc_info,
+		NULL, NULL);
 	if (rc < 0) {
-		CAM_ERR(CAM_ACTUATOR, "failed: cam_sensor_parse_dt rc %d", rc);
+		CAM_ERR(CAM_ACTUATOR,
+			"Requesting Platform Resources failed rc %d", rc);
 		goto free_mem;
 	}
 
+	a_ctrl->bridge_intf.device_hdl = -1;
+	a_ctrl->bridge_intf.ops.get_dev_info =
+		cam_actuator_publish_dev_info;
+	a_ctrl->bridge_intf.ops.link_setup =
+		cam_actuator_establish_link;
+	a_ctrl->bridge_intf.ops.apply_req =
+		cam_actuator_apply_request;
+
+	v4l2_set_subdevdata(&(a_ctrl->v4l2_dev_str.sd), a_ctrl);
 	return rc;
 free_mem:
 	kfree(a_ctrl->i2c_data.per_frame);
+unreg_subdev:
+	cam_unregister_subdev(&(a_ctrl->v4l2_dev_str));
 free_ctrl:
 	kfree(a_ctrl);
 	return rc;
@@ -129,63 +238,6 @@ static int32_t cam_actuator_driver_i2c_remove(struct i2c_client *client)
 	return rc;
 }
 
-#ifdef CONFIG_COMPAT
-static long cam_actuator_init_subdev_do_ioctl(struct v4l2_subdev *sd,
-	unsigned int cmd, unsigned long arg)
-{
-	struct cam_control cmd_data;
-	int32_t rc = 0;
-
-	if (copy_from_user(&cmd_data, (void __user *)arg,
-		sizeof(cmd_data))) {
-		CAM_ERR(CAM_ACTUATOR,
-			"Failed to copy from user_ptr=%pK size=%zu\n",
-			(void __user *)arg, sizeof(cmd_data));
-		return -EFAULT;
-	}
-
-	switch (cmd) {
-	case VIDIOC_CAM_CONTROL:
-		cmd = VIDIOC_CAM_CONTROL;
-		rc = cam_actuator_subdev_ioctl(sd, cmd, &cmd_data);
-		if (rc < 0) {
-			CAM_ERR(CAM_ACTUATOR,
-				"Failed in actuator suddev handling");
-			return rc;
-		}
-		break;
-	default:
-		CAM_ERR(CAM_ACTUATOR, "Invalid compat ioctl: %d", cmd);
-		rc = -EINVAL;
-	}
-
-	if (!rc) {
-		if (copy_to_user((void __user *)arg, &cmd_data,
-			sizeof(cmd_data))) {
-			CAM_ERR(CAM_ACTUATOR,
-				"Failed to copy to user_ptr=%pK size=%zu\n",
-				(void __user *)arg, sizeof(cmd_data));
-			rc = -EFAULT;
-		}
-	}
-	return rc;
-}
-
-#endif
-
-static struct v4l2_subdev_core_ops cam_actuator_subdev_core_ops = {
-	.ioctl = cam_actuator_subdev_ioctl,
-#ifdef CONFIG_COMPAT
-	.compat_ioctl32 = cam_actuator_init_subdev_do_ioctl,
-#endif
-};
-
-static struct v4l2_subdev_ops cam_actuator_subdev_ops = {
-	.core = &cam_actuator_subdev_core_ops,
-};
-
-static const struct v4l2_subdev_internal_ops cam_actuator_internal_ops;
-
 static const struct of_device_id cam_actuator_driver_dt_match[] = {
 	{.compatible = "qcom,actuator"},
 	{}
@@ -206,7 +258,8 @@ static int32_t cam_actuator_driver_platform_probe(
 	/*fill in platform device*/
 	a_ctrl->v4l2_dev_str.pdev = pdev;
 	a_ctrl->soc_info.pdev = pdev;
-
+	a_ctrl->soc_info.dev = &pdev->dev;
+	a_ctrl->soc_info.dev_name = pdev->name;
 	a_ctrl->io_master_info.master_type = CCI_MASTER;
 
 	a_ctrl->io_master_info.cci_client = kzalloc(sizeof(
@@ -235,32 +288,16 @@ static int32_t cam_actuator_driver_platform_probe(
 	/* Fill platform device id*/
 	pdev->id = a_ctrl->id;
 
-	a_ctrl->v4l2_dev_str.internal_ops =
-		&cam_actuator_internal_ops;
-	a_ctrl->v4l2_dev_str.ops =
-		&cam_actuator_subdev_ops;
-	strlcpy(a_ctrl->device_name, CAMX_ACTUATOR_DEV_NAME,
-		sizeof(a_ctrl->device_name));
-	a_ctrl->v4l2_dev_str.name =
-		a_ctrl->device_name;
-	a_ctrl->v4l2_dev_str.sd_flags =
-		(V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_HAS_EVENTS);
-	a_ctrl->v4l2_dev_str.ent_function =
-		CAM_ACTUATOR_DEVICE_TYPE;
-	a_ctrl->v4l2_dev_str.token = a_ctrl;
-
-	rc = cam_register_subdev(&(a_ctrl->v4l2_dev_str));
-	if (rc < 0) {
-		CAM_ERR(CAM_ACTUATOR, "Fail with cam_register_subdev");
+	rc = cam_actuator_init_subdev(a_ctrl);
+	if (rc)
 		goto free_mem;
-	}
 
 	rc = cam_soc_util_request_platform_resource(&a_ctrl->soc_info,
 			NULL, NULL);
 	if (rc < 0) {
 		CAM_ERR(CAM_ACTUATOR,
 			"Requesting Platform Resources failed rc %d", rc);
-		goto free_ctrl;
+		goto unreg_subdev;
 	}
 
 	a_ctrl->bridge_intf.device_hdl = -1;
@@ -275,6 +312,8 @@ static int32_t cam_actuator_driver_platform_probe(
 	v4l2_set_subdevdata(&a_ctrl->v4l2_dev_str.sd, a_ctrl);
 
 	return rc;
+unreg_subdev:
+	cam_unregister_subdev(&(a_ctrl->v4l2_dev_str));
 free_mem:
 	kfree(a_ctrl->i2c_data.per_frame);
 free_ctrl:
