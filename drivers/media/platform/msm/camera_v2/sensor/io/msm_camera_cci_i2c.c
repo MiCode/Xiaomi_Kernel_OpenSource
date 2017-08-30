@@ -67,7 +67,8 @@ int32_t msm_camera_cci_i2c_read_seq(struct msm_camera_i2c_client *client,
 
 	if ((client->addr_type != MSM_CAMERA_I2C_BYTE_ADDR
 		&& client->addr_type != MSM_CAMERA_I2C_WORD_ADDR
-		&& client->addr_type != MSM_CAMERA_I2C_3B_ADDR)
+		&& client->addr_type != MSM_CAMERA_I2C_3B_ADDR
+		&& client->addr_type != MSM_CAMERA_I2C_DWORD_ADDR)
 		|| num_byte == 0)
 		return rc;
 
