@@ -226,8 +226,8 @@ enum clk_osm_trace_packet_id {
 #define PLL_DD_D0_USER_CTL_LO				0x17916208
 #define PLL_DD_D1_USER_CTL_LO				0x17816208
 
-#define PWRCL_EFUSE_SHIFT				0
-#define PWRCL_EFUSE_MASK				0
+#define PWRCL_EFUSE_SHIFT				29
+#define PWRCL_EFUSE_MASK				0x7
 #define PERFCL_EFUSE_SHIFT				29
 #define PERFCL_EFUSE_MASK				0x7
 
