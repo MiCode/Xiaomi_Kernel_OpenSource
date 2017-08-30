@@ -71,6 +71,9 @@
 #define ROT_OVERHEAD_NUMERATOR		27
 #define ROT_OVERHEAD_DENOMINATOR	10000
 
+/* Minimum Rotator Clock value */
+#define ROT_MIN_ROT_CLK			20000000
+
 /* default minimum bandwidth vote */
 #define ROT_ENABLE_BW_VOTE		64000
 /*
@@ -1376,6 +1379,9 @@ static int sde_rotator_calc_perf(struct sde_rot_mgr *mgr,
 	 */
 	if (rot_dev->min_rot_clk > perf->clk_rate)
 		perf->clk_rate = rot_dev->min_rot_clk;
+
+	if (mgr->min_rot_clk > perf->clk_rate)
+		perf->clk_rate = mgr->min_rot_clk;
 
 	read_bw =  sde_rotator_calc_buf_bw(in_fmt, config->input.width,
 				config->input.height, max_fps);
@@ -3081,6 +3087,7 @@ int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
 		IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
 			SDE_MDP_HW_REV_400)) {
 		mgr->ops_hw_init = sde_rotator_r3_init;
+		mgr->min_rot_clk = ROT_MIN_ROT_CLK;
 	} else {
 		ret = -ENODEV;
 		SDEROT_ERR("unsupported sde version %x\n",
