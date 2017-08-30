@@ -483,6 +483,10 @@ struct adreno_device {
 	void *gpuhtw_llc_slice;
 	bool gpuhtw_llc_slice_enable;
 	unsigned int zap_loaded;
+	unsigned int preempt_level;
+	bool usesgmem;
+	bool skipsaverestore;
+
 };
 
 /**
