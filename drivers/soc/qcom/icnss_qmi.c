@@ -759,7 +759,7 @@ int wlfw_dynamic_feature_mask_send_sync_msg(struct icnss_priv *priv,
 	struct wlfw_dynamic_feature_mask_resp_msg_v01 resp;
 	struct msg_desc req_desc, resp_desc;
 
-	if (!test_bit(ICNSS_WLFW_QMI_CONNECTED, &priv->state)) {
+	if (!test_bit(ICNSS_WLFW_CONNECTED, &priv->state)) {
 		icnss_pr_err("Invalid state for dynamic feature: 0x%lx\n",
 			     priv->state);
 		return -EINVAL;
@@ -945,7 +945,7 @@ int icnss_clear_server(struct icnss_priv *priv)
 
 	qmi_handle_destroy(priv->wlfw_clnt);
 
-	clear_bit(ICNSS_WLFW_QMI_CONNECTED, &priv->state);
+	clear_bit(ICNSS_WLFW_CONNECTED, &priv->state);
 	priv->wlfw_clnt = NULL;
 
 	return 0;
@@ -984,7 +984,10 @@ static void icnss_qmi_wlfw_clnt_notify_work(struct work_struct *work)
 {
 	int ret = 0;
 
-	if (!penv || !penv->wlfw_clnt)
+	struct icnss_priv *priv = container_of(work, struct icnss_priv,
+					       fw_recv_msg_work);
+
+	if (!priv || !priv->wlfw_clnt)
 		return;
 
 	icnss_pr_vdbg("Receiving Event in work queue context\n");
@@ -994,7 +997,6 @@ static void icnss_qmi_wlfw_clnt_notify_work(struct work_struct *work)
 
 	if (ret != -ENOMSG)
 		icnss_pr_err("Error receiving message: %d\n", ret);
-
 
 	icnss_pr_vdbg("Receiving Event completed\n");
 }
