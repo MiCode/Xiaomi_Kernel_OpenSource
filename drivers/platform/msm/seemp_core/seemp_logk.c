@@ -346,9 +346,11 @@ static long seemp_logk_ioctl(struct file *filp, unsigned int cmd,
 		return seemp_logk_set_mapping(arg);
 	} else if (cmd == SEEMP_CMD_CHECK_FILTER) {
 		return seemp_logk_check_filter(arg);
+	} else {
+		pr_err("Invalid Request %X\n", cmd);
+		return -ENOIOCTLCMD;
 	}
-	pr_err("Invalid Request %X\n", cmd);
-	return -ENOIOCTLCMD;
+	return 0;
 }
 
 static long seemp_logk_reserve_rdblks(
@@ -756,7 +758,7 @@ __init int seemp_logk_init(void)
 		desc.args[1] = PAGE_SIZE;
 		ret = scm_call2(EL2_SCM_ID, &desc);
 		if (ret || desc.ret[0] || desc.ret[1]) {
-			pr_err("SCM call failed with ret val = %d %d %d",
+			pr_err("SCM call failed with ret val = %d %d %d\n",
 				ret, (int)desc.ret[0], (int)desc.ret[1]);
 			free_page((unsigned long) el2_shared_mem);
 			el2_shared_mem = NULL;
