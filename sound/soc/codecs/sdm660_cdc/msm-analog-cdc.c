@@ -3662,18 +3662,6 @@ static const struct sdm660_cdc_reg_mask_val
 	{MSM89XX_PMIC_ANALOG_RX_COM_OCP_COUNT, 0xFF, 0xFF},
 };
 
-static void msm_anlg_cdc_codec_init_cache(struct snd_soc_codec *codec)
-{
-	u32 i;
-
-	regcache_cache_only(codec->component.regmap, true);
-	/* update cache with POR values */
-	for (i = 0; i < ARRAY_SIZE(msm89xx_pmic_cdc_defaults); i++)
-		snd_soc_write(codec, msm89xx_pmic_cdc_defaults[i].reg,
-			      msm89xx_pmic_cdc_defaults[i].def);
-	regcache_cache_only(codec->component.regmap, false);
-}
-
 static void msm_anlg_cdc_codec_init_reg(struct snd_soc_codec *codec)
 {
 	u32 i;
@@ -3719,7 +3707,7 @@ static struct regulator *msm_anlg_cdc_find_regulator(
 			return sdm660_cdc->supplies[i].consumer;
 	}
 
-	dev_err(sdm660_cdc->dev, "Error: regulator not found:%s\n"
+	dev_dbg(sdm660_cdc->dev, "Error: regulator not found:%s\n"
 				, name);
 	return NULL;
 }
@@ -4171,7 +4159,6 @@ static int msm_anlg_cdc_soc_probe(struct snd_soc_codec *codec)
 				  ARRAY_SIZE(hph_type_detect_controls));
 
 	msm_anlg_cdc_bringup(codec);
-	msm_anlg_cdc_codec_init_cache(codec);
 	msm_anlg_cdc_codec_init_reg(codec);
 	msm_anlg_cdc_update_reg_defaults(codec);
 
