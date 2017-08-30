@@ -147,6 +147,10 @@
 #define LINKDOWN_WAITING_US_MAX	   5100
 #define LINKDOWN_WAITING_COUNT	    200
 
+#define GEN1_SPEED 0x1
+#define GEN2_SPEED 0x2
+#define GEN3_SPEED 0x3
+
 #define PHY_READY_TIMEOUT_COUNT		   10
 #define XMLH_LINK_UP				  0x400
 #define MAX_LINK_RETRIES 5
@@ -477,6 +481,7 @@ struct msm_pcie_dev_t {
 	bool				smmu_exist;
 	uint32_t			smmu_sid_base;
 	uint32_t			   n_fts;
+	uint32_t			max_link_speed;
 	bool				 ext_ref_clk;
 	uint32_t			   ep_latency;
 	uint32_t			wr_halt_size;
@@ -1125,6 +1130,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->linkdown_counter);
 	PCIE_DBG_FS(dev, "wake_counter: %lu\n",
 		dev->wake_counter);
+	PCIE_DBG_FS(dev, "max_link_speed: 0x%x\n",
+		dev->max_link_speed);
 	PCIE_DBG_FS(dev, "link_turned_on_counter: %lu\n",
 		dev->link_turned_on_counter);
 	PCIE_DBG_FS(dev, "link_turned_off_counter: %lu\n",
@@ -5276,6 +5283,13 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	else
 		PCIE_DBG(&msm_pcie_dev[rc_idx], "n-fts: 0x%x.\n",
 				msm_pcie_dev[rc_idx].n_fts);
+
+	msm_pcie_dev[rc_idx].max_link_speed = GEN2_SPEED;
+	ret = of_property_read_u32(pdev->dev.of_node,
+				"qcom,max-link-speed",
+				&msm_pcie_dev[rc_idx].max_link_speed);
+	PCIE_DBG(&msm_pcie_dev[rc_idx], "PCIe: RC%d: max-link-speed: 0x%x.\n",
+		rc_idx, msm_pcie_dev[rc_idx].max_link_speed);
 
 	msm_pcie_dev[rc_idx].ext_ref_clk =
 		of_property_read_bool((&pdev->dev)->of_node,
