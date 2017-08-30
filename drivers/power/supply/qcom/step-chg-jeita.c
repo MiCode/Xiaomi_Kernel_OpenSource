@@ -443,21 +443,24 @@ int qcom_step_chg_init(bool step_chg_enable, bool sw_jeita_enable)
 				!step_chg_config.prop_name)) {
 		/* fail if step-chg configuration is invalid */
 		pr_err("Step-chg configuration not defined - fail\n");
-		return -ENODATA;
+		rc = -ENODATA;
+		goto release_wakeup_source;
 	}
 
 	if (sw_jeita_enable && (!jeita_fcc_config.psy_prop ||
 				!jeita_fcc_config.prop_name)) {
 		/* fail if step-chg configuration is invalid */
 		pr_err("Jeita TEMP configuration not defined - fail\n");
-		return -ENODATA;
+		rc = -ENODATA;
+		goto release_wakeup_source;
 	}
 
 	if (sw_jeita_enable && (!jeita_fv_config.psy_prop ||
 				!jeita_fv_config.prop_name)) {
 		/* fail if step-chg configuration is invalid */
 		pr_err("Jeita TEMP configuration not defined - fail\n");
-		return -ENODATA;
+		rc = -ENODATA;
+		goto release_wakeup_source;
 	}
 
 	INIT_DELAYED_WORK(&chip->status_change_work, status_change_work);
