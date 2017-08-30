@@ -1,0 +1,66 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/qcom,gcc-sdm845.h>
+#include <dt-bindings/clock/qcom,camcc-sdm845.h>
+#include <dt-bindings/clock/qcom,dispcc-sdm845.h>
+#include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+#include "sdm845-sde-display.dtsi"
+#include "sdm845-cdp.dtsi"
+#include "sdm845-cdp-audio-overlay.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. sda845 v2 4K Display Panel CDP";
+	compatible = "qcom,sda845-cdp", "qcom,sda845", "qcom,cdp";
+	qcom,msm-id = <341 0x20000>;
+	qcom,board-id = <1 1>;
+};
+
+&dsi_nt35597_truly_dsc_cmd_display {
+	/delete-property/ qcom,dsi-display-active;
+};
+
+&mdss_mdp {
+	connectors = <&sde_rscc &sde_wb>;
+};
+
+&dsi_sharp_4k_dsc_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-mode-sel-gpio-state = "dual_port";
+	qcom,panel-mode-gpio = <&tlmm 52 0>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,platform-reset-gpio = <&tlmm 6 0>;
+};
+
+&dsi_sharp_4k_dsc_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-mode-sel-gpio-state = "dual_port";
+	qcom,panel-mode-gpio = <&tlmm 52 0>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,platform-reset-gpio = <&tlmm 6 0>;
+};
+
+&dsi_sharp_4k_dsc_video_display {
+	qcom,dsi-display-active;
+};
