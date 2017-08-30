@@ -8,8 +8,13 @@ contain a phandle reference to UFS PHY node.
 
 Required properties:
 - compatible        : compatible list, contains one of the following -
-			"qcom,ufs-phy-qmp-20nm" for 20nm ufs phy,
 			"qcom,ufs-phy-qmp-14nm" for legacy 14nm ufs phy,
+			"qcom,ufs-phy-qmp-v3" for V3 ufs phy present
+			 on msmcobalt platform,
+			"qcom,ufs-phy-qrbtc-sdm845" for phy support
+			 for sdm845 emulation
+		        "qcom,ufs-phy-qmp-v3-falcon" for phy support
+			 for msmfalcon
 			"qcom,msm8996-ufs-phy-qmp-14nm" for 14nm ufs phy
 			 present on MSM8996 chipset.
 - reg               : should contain PHY register address space (mandatory),
@@ -29,14 +34,17 @@ Optional properties:
 - vdda-pll-max-microamp : specifies max. load that can be drawn from pll supply
 - vddp-ref-clk-supply   : phandle to UFS device ref_clk pad power supply
 - vddp-ref-clk-max-microamp : specifies max. load that can be drawn from this supply
+- qcom,disable-lpm : disable various LPM mechanisms in UFS for platform compatibility
+  (limit link to PWM Gear-1, 1-lane slow mode; disable hibernate, and avoid suspend/resume)
 
 Example:
 
 	ufsphy1: ufsphy@0xfc597000 {
-		compatible = "qcom,ufs-phy-qmp-20nm";
+		compatible = "qcom,ufs-phy-qmp-14nm";
 		reg = <0xfc597000 0x800>;
 		reg-names = "phy_mem";
 		#phy-cells = <0>;
+		lanes-per-direction = <1>;
 		vdda-phy-supply = <&pma8084_l4>;
 		vdda-pll-supply = <&pma8084_l12>;
 		vdda-phy-max-microamp = <50000>;

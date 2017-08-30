@@ -42,6 +42,22 @@
 
 #define UFSHCD_DEFAULT_LANES_PER_DIRECTION		2
 
+static int ufshcd_parse_reset_info(struct ufs_hba *hba)
+{
+	int ret = 0;
+
+	hba->core_reset = devm_reset_control_get(hba->dev,
+				"core_reset");
+	if (IS_ERR(hba->core_reset)) {
+		ret = PTR_ERR(hba->core_reset);
+		dev_err(hba->dev, "core_reset unavailable,err = %d\n",
+				ret);
+		hba->core_reset = NULL;
+	}
+
+	return ret;
+}
+
 static int ufshcd_parse_clock_info(struct ufs_hba *hba)
 {
 	int ret = 0;
@@ -221,6 +237,110 @@ out:
 	return err;
 }
 
+static void ufshcd_parse_pm_levels(struct ufs_hba *hba)
+{
+	struct device *dev = hba->dev;
+	struct device_node *np = dev->of_node;
+
+	if (np) {
+		if (of_property_read_u32(np, "rpm-level", &hba->rpm_lvl))
+			hba->rpm_lvl = -1;
+		if (of_property_read_u32(np, "spm-level", &hba->spm_lvl))
+			hba->spm_lvl = -1;
+	}
+}
+
+static int ufshcd_parse_pinctrl_info(struct ufs_hba *hba)
+{
+	int ret = 0;
+
+	/* Try to obtain pinctrl handle */
+	hba->pctrl = devm_pinctrl_get(hba->dev);
+	if (IS_ERR(hba->pctrl)) {
+		ret = PTR_ERR(hba->pctrl);
+		hba->pctrl = NULL;
+	}
+
+	return ret;
+}
+
+static int ufshcd_parse_extcon_info(struct ufs_hba *hba)
+{
+	struct extcon_dev *extcon;
+
+	extcon = extcon_get_edev_by_phandle(hba->dev, 0);
+	if (IS_ERR(extcon) && PTR_ERR(extcon) != -ENODEV)
+		return PTR_ERR(extcon);
+
+	if (!IS_ERR(extcon))
+		hba->extcon = extcon;
+
+	return 0;
+}
+
+static void ufshcd_parse_gear_limits(struct ufs_hba *hba)
+{
+	struct device *dev = hba->dev;
+	struct device_node *np = dev->of_node;
+	int ret;
+
+	if (!np)
+		return;
+
+	ret = of_property_read_u32(np, "limit-tx-hs-gear",
+		&hba->limit_tx_hs_gear);
+	if (ret)
+		hba->limit_tx_hs_gear = -1;
+
+	ret = of_property_read_u32(np, "limit-rx-hs-gear",
+		&hba->limit_rx_hs_gear);
+	if (ret)
+		hba->limit_rx_hs_gear = -1;
+
+	ret = of_property_read_u32(np, "limit-tx-pwm-gear",
+		&hba->limit_tx_pwm_gear);
+	if (ret)
+		hba->limit_tx_pwm_gear = -1;
+
+	ret = of_property_read_u32(np, "limit-rx-pwm-gear",
+		&hba->limit_rx_pwm_gear);
+	if (ret)
+		hba->limit_rx_pwm_gear = -1;
+}
+
+static void ufshcd_parse_cmd_timeout(struct ufs_hba *hba)
+{
+	struct device *dev = hba->dev;
+	struct device_node *np = dev->of_node;
+	int ret;
+
+	if (!np)
+		return;
+
+	ret = of_property_read_u32(np, "scsi-cmd-timeout",
+		&hba->scsi_cmd_timeout);
+	if (ret)
+		hba->scsi_cmd_timeout = 0;
+}
+
+static void ufshcd_parse_dev_ref_clk_freq(struct ufs_hba *hba)
+{
+	struct device *dev = hba->dev;
+	struct device_node *np = dev->of_node;
+	int ret;
+
+	if (!np)
+		return;
+
+	ret = of_property_read_u32(np, "dev-ref-clk-freq",
+				   &hba->dev_ref_clk_freq);
+	if (ret ||
+	    (hba->dev_ref_clk_freq < 0) ||
+	    (hba->dev_ref_clk_freq > REF_CLK_FREQ_52_MHZ))
+		/* default setting */
+		hba->dev_ref_clk_freq = REF_CLK_FREQ_26_MHZ;
+}
+
 #ifdef CONFIG_PM
 /**
  * ufshcd_pltfrm_suspend - suspend power management function
@@ -292,12 +412,12 @@ static void ufshcd_init_lanes_per_dir(struct ufs_hba *hba)
 /**
  * ufshcd_pltfrm_init - probe routine of the driver
  * @pdev: pointer to Platform device handle
- * @vops: pointer to variant ops
+ * @var: pointer to variant specific data
  *
  * Returns 0 on success, non-zero value on failure
  */
 int ufshcd_pltfrm_init(struct platform_device *pdev,
-		       struct ufs_hba_variant_ops *vops)
+		       struct ufs_hba_variant *var)
 {
 	struct ufs_hba *hba;
 	void __iomem *mmio_base;
@@ -325,7 +445,7 @@ int ufshcd_pltfrm_init(struct platform_device *pdev,
 		goto out;
 	}
 
-	hba->vops = vops;
+	hba->var = var;
 
 	err = ufshcd_parse_clock_info(hba);
 	if (err) {
@@ -340,24 +460,45 @@ int ufshcd_pltfrm_init(struct platform_device *pdev,
 		goto dealloc_host;
 	}
 
-	pm_runtime_set_active(&pdev->dev);
-	pm_runtime_enable(&pdev->dev);
+	err = ufshcd_parse_reset_info(hba);
+	if (err) {
+		dev_err(&pdev->dev, "%s: reset parse failed %d\n",
+				__func__, err);
+		goto dealloc_host;
+	}
+
+	err = ufshcd_parse_pinctrl_info(hba);
+	if (err) {
+		dev_dbg(&pdev->dev, "%s: unable to parse pinctrl data %d\n",
+				__func__, err);
+		/* let's not fail the probe */
+	}
+
+	ufshcd_parse_dev_ref_clk_freq(hba);
+	ufshcd_parse_pm_levels(hba);
+	ufshcd_parse_gear_limits(hba);
+	ufshcd_parse_cmd_timeout(hba);
+	err = ufshcd_parse_extcon_info(hba);
+	if (err)
+		goto dealloc_host;
+
+	if (!dev->dma_mask)
+		dev->dma_mask = &dev->coherent_dma_mask;
 
 	ufshcd_init_lanes_per_dir(hba);
 
 	err = ufshcd_init(hba, mmio_base, irq);
 	if (err) {
 		dev_err(dev, "Initialization failed\n");
-		goto out_disable_rpm;
+		goto dealloc_host;
 	}
 
 	platform_set_drvdata(pdev, hba);
 
-	return 0;
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
 
-out_disable_rpm:
-	pm_runtime_disable(&pdev->dev);
-	pm_runtime_set_suspended(&pdev->dev);
+	return 0;
 dealloc_host:
 	ufshcd_dealloc_host(hba);
 out:
