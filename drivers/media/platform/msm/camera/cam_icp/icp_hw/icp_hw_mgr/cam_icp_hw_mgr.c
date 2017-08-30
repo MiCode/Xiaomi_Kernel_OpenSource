@@ -662,7 +662,7 @@ static int cam_icp_mgr_abort_handle(
 		return rc;
 	}
 
-
+	abort_cmd->size = packet_size;
 	abort_cmd->pkt_type = HFI_CMD_IPEBPS_ASYNC_COMMAND_DIRECT;
 	if (ctx_data->icp_dev_acquire_info->dev_type == CAM_ICP_RES_TYPE_BPS)
 		abort_cmd->opcode = HFI_IPEBPS_CMD_OPCODE_BPS_ABORT;
@@ -727,6 +727,7 @@ static int cam_icp_mgr_destroy_handle(
 		return rc;
 	}
 
+	destroy_cmd->size = packet_size;
 	destroy_cmd->pkt_type = HFI_CMD_IPEBPS_ASYNC_COMMAND_DIRECT;
 	if (ctx_data->icp_dev_acquire_info->dev_type == CAM_ICP_RES_TYPE_BPS)
 		destroy_cmd->opcode = HFI_IPEBPS_CMD_OPCODE_BPS_DESTROY;
