@@ -1,0 +1,86 @@
+Android firmware
+
+Node to specify early mount of vendor and system partition.
+
+Required properties
+
+-compatible: "android,firmware"
+
+Child nodes:
+------------
+
+fstab:
+------------------------------
+
+fstab entry to specify mount attributes of vendor partition.
+
+Required properties:
+
+-compatible: "android,fstab"
+
+Child nodes:
+------------
+
+vendor:
+-----------------
+
+vendor partition specification.
+
+Required properties:
+
+-compatible: "android, vendor"
+-dev: block device corresponding to vendor partition
+-type: file system type of vendor partition
+-mnt_flags: mount flags
+-fsmgr_flags: fsmgr flags
+
+Example:
+
+	firmware: firmware {
+		android {
+			compatible = "android,firmware";
+			fstab {
+				compatible = "android,fstab";
+				vendor {
+					compatible = "android,vendor";
+					dev = "/dev/block/platform/soc/1da4000.ufshc/by-name/vendor";
+					type = "ext4";
+					mnt_flags = "ro,barrier=1,discard";
+					fsmgr_flags = "wait,slotselect";
+					status = "ok";
+				};
+			};
+		};
+	};
+
+system:
+-----------------
+
+system partition specification.
+
+Required properties:
+
+-compatible: "android,system"
+-dev: block device corresponding to system partition
+-type: file system type of system partition
+-mnt_flags: mount flags
+-fsmgr_flags: fsmgr flags
+
+Example:
+
+        firmware: firmware {
+                android {
+                        compatible = "android,firmware";
+                        fstab {
+                                compatible = "android,fstab";
+                                system {
+                                        compatible = "android,system";
+                                        dev = "/dev/block/platform/soc/1da4000.ufshc/by-name/system";
+                                        type = "ext4";
+                                        mnt_flags = "ro,barrier=1,discard";
+                                        fsmgr_flags = "wait,slotselect";
+                                        status = "ok";
+                                };
+                        };
+                };
+        };
