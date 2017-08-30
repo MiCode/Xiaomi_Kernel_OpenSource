@@ -31,6 +31,12 @@ static bool ignore_reg_hints = true;
 module_param(ignore_reg_hints, bool, 0444);
 MODULE_PARM_DESC(ignore_reg_hints, " Ignore OTA regulatory hints (Default: true)");
 
+#ifdef CONFIG_PM
+static struct wiphy_wowlan_support wil_wowlan_support = {
+	.flags = WIPHY_WOWLAN_ANY | WIPHY_WOWLAN_DISCONNECT,
+};
+#endif
+
 #define CHAN60G(_channel, _flags) {				\
 	.band			= IEEE80211_BAND_60GHZ,		\
 	.center_freq		= 56160 + (2160 * (_channel)),	\
@@ -345,12 +351,12 @@ int wil_cid_fill_sinfo(struct wil6210_priv *wil, int cid,
 
 	wil_dbg_wmi(wil, "Link status for CID %d: {\n"
 		    "  MCS %d TSF 0x%016llx\n"
-		    "  BF status 0x%08x SNR 0x%08x SQI %d%%\n"
+		    "  BF status 0x%08x RSSI %d SQI %d%%\n"
 		    "  Tx Tpt %d goodput %d Rx goodput %d\n"
 		    "  Sectors(rx:tx) my %d:%d peer %d:%d\n""}\n",
 		    cid, le16_to_cpu(reply.evt.bf_mcs),
 		    le64_to_cpu(reply.evt.tsf), reply.evt.status,
-		    le32_to_cpu(reply.evt.snr_val),
+		    reply.evt.rssi,
 		    reply.evt.sqi,
 		    le32_to_cpu(reply.evt.tx_tpt),
 		    le32_to_cpu(reply.evt.tx_goodput),
@@ -384,7 +390,11 @@ int wil_cid_fill_sinfo(struct wil6210_priv *wil, int cid,
 
 	if (test_bit(wil_status_fwconnected, wil->status)) {
 		sinfo->filled |= BIT(NL80211_STA_INFO_SIGNAL);
-		sinfo->signal = reply.evt.sqi;
+		if (test_bit(WMI_FW_CAPABILITY_RSSI_REPORTING,
+			     wil->fw_capabilities))
+			sinfo->signal = reply.evt.rssi;
+		else
+			sinfo->signal = reply.evt.sqi;
 	}
 
 	return rc;
@@ -1870,7 +1880,7 @@ static void wil_wiphy_init(struct wiphy *wiphy)
 
 	wiphy->bands[IEEE80211_BAND_60GHZ] = &wil_band_60ghz;
 
-	/* TODO: figure this out */
+	/* may change after reading FW capabilities */
 	wiphy->signal_type = CFG80211_SIGNAL_TYPE_UNSPEC;
 
 	wiphy->cipher_suites = wil_cipher_suites;
@@ -1887,6 +1897,10 @@ static void wil_wiphy_init(struct wiphy *wiphy)
 		wiphy->regulatory_flags |= REGULATORY_DISABLE_BEACON_HINTS;
 		wiphy->regulatory_flags |= REGULATORY_COUNTRY_IE_IGNORE;
 	}
+
+#ifdef CONFIG_PM
+	wiphy->wowlan = &wil_wowlan_support;
+#endif
 }
 
 struct wireless_dev *wil_cfg80211_init(struct device *dev)

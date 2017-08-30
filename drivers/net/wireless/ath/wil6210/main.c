@@ -395,10 +395,11 @@ static void wil_fw_error_worker(struct work_struct *work)
 	struct wil6210_priv *wil = container_of(work, struct wil6210_priv,
 						fw_error_worker);
 	struct wireless_dev *wdev = wil->wdev;
+	struct net_device *ndev = wil_to_ndev(wil);
 
 	wil_dbg_misc(wil, "fw error worker\n");
 
-	if (!netif_running(wil_to_ndev(wil))) {
+	if (!(ndev->flags & IFF_UP)) {
 		wil_info(wil, "No recovery - interface is down\n");
 		return;
 	}
@@ -581,6 +582,8 @@ int wil_priv_init(struct wil6210_priv *wil)
 
 	wil->wakeup_trigger = WMI_WAKEUP_TRIGGER_UCAST |
 			      WMI_WAKEUP_TRIGGER_BCAST;
+	memset(&wil->suspend_stats, 0, sizeof(wil->suspend_stats));
+	wil->suspend_stats.min_suspend_time = ULONG_MAX;
 
 	return 0;
 
