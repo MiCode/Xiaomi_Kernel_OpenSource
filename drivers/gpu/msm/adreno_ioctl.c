@@ -96,7 +96,7 @@ static long adreno_ioctl_preemption_counters_query(
 	int levels_to_copy;
 
 	if (!adreno_is_a5xx(adreno_dev) ||
-		!adreno_is_preemption_enabled(adreno_dev))
+		!adreno_is_preemption_execution_enabled(adreno_dev))
 		return -EOPNOTSUPP;
 
 	if (read->size_user < size_level)

@@ -284,7 +284,7 @@ int adreno_ringbuffer_probe(struct adreno_device *adreno_dev, bool nopreempt)
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int i;
 
-	if (nopreempt == false && ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
+	if (nopreempt == false)
 		adreno_dev->num_ringbuffers = gpudev->num_prio_levels;
 	else
 		adreno_dev->num_ringbuffers = 1;
@@ -473,11 +473,11 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 		total_sizedwords += 4;
 
 	if (gpudev->preemption_pre_ibsubmit &&
-				adreno_is_preemption_enabled(adreno_dev))
+			adreno_is_preemption_execution_enabled(adreno_dev))
 		total_sizedwords += 22;
 
 	if (gpudev->preemption_post_ibsubmit &&
-				adreno_is_preemption_enabled(adreno_dev))
+			adreno_is_preemption_execution_enabled(adreno_dev))
 		total_sizedwords += 5;
 
 	/*
@@ -523,7 +523,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	*ringcmds++ = cp_packet(adreno_dev, CP_NOP, 1);
 	*ringcmds++ = KGSL_CMD_IDENTIFIER;
 
-	if (adreno_is_preemption_enabled(adreno_dev) &&
+	if (adreno_is_preemption_execution_enabled(adreno_dev) &&
 				gpudev->preemption_pre_ibsubmit)
 		ringcmds += gpudev->preemption_pre_ibsubmit(
 					adreno_dev, rb, ringcmds, context);
@@ -660,7 +660,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 		ringcmds += cp_secure_mode(adreno_dev, ringcmds, 0);
 
 	if (gpudev->preemption_post_ibsubmit &&
-				adreno_is_preemption_enabled(adreno_dev))
+			adreno_is_preemption_execution_enabled(adreno_dev))
 		ringcmds += gpudev->preemption_post_ibsubmit(adreno_dev,
 			ringcmds);
 
@@ -864,9 +864,10 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 			dwords += 2;
 	}
 
-	if (adreno_is_preemption_enabled(adreno_dev))
+	if (adreno_is_preemption_execution_enabled(adreno_dev)) {
 		if (gpudev->preemption_yield_enable)
 			dwords += 8;
+	}
 
 	if (gpudev->set_marker)
 		dwords += 4;
@@ -927,9 +928,10 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	if (gpudev->set_marker)
 		cmds += gpudev->set_marker(cmds, 0);
 
-	if (adreno_is_preemption_enabled(adreno_dev))
+	if (adreno_is_preemption_execution_enabled(adreno_dev)) {
 		if (gpudev->preemption_yield_enable)
 			cmds += gpudev->preemption_yield_enable(cmds);
+	}
 
 	if (kernel_profiling) {
 		cmds += _get_alwayson_counter(adreno_dev, cmds,
