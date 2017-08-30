@@ -463,7 +463,11 @@ struct dp_debug *dp_debug_get(struct device *dev, struct dp_panel *panel,
 	dp_debug->hdisplay = 0;
 	dp_debug->vrefresh = 0;
 
-	dp_debug_init(dp_debug);
+	rc = dp_debug_init(dp_debug);
+	if (rc) {
+		devm_kfree(dev, debug);
+		goto error;
+	}
 
 	return dp_debug;
 error:
@@ -495,5 +499,5 @@ void dp_debug_put(struct dp_debug *dp_debug)
 
 	dp_debug_deinit(dp_debug);
 
-	kzfree(debug);
+	devm_kfree(debug->dev, debug);
 }
