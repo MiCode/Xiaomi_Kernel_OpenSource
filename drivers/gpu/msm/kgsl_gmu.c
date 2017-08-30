@@ -862,7 +862,7 @@ static int gmu_pwrlevel_probe(struct gmu_device *gmu, struct device_node *node)
 	return 0;
 }
 
-static int gmu_reg_probe(struct gmu_device *gmu, const char *name)
+static int gmu_reg_probe(struct gmu_device *gmu, const char *name, bool is_gmu)
 {
 	struct resource *res;
 
@@ -880,7 +880,7 @@ static int gmu_reg_probe(struct gmu_device *gmu, const char *name)
 		return -EINVAL;
 	}
 
-	if (!strcmp(name, "kgsl_gmu_reg")) {
+	if (is_gmu) {
 		gmu->reg_phys = res->start;
 		gmu->reg_len = resource_size(res);
 		gmu->reg_virt = devm_ioremap(&gmu->pdev->dev, res->start,
@@ -891,18 +891,11 @@ static int gmu_reg_probe(struct gmu_device *gmu, const char *name)
 			return -ENODEV;
 		}
 
-	} else if (!strcmp(name, "kgsl_gmu_pdc_reg")) {
+	} else {
 		gmu->pdc_reg_virt = devm_ioremap(&gmu->pdev->dev, res->start,
 				resource_size(res));
 		if (gmu->pdc_reg_virt == NULL) {
 			dev_err(&gmu->pdev->dev, "PDC regs ioremap failed\n");
-			return -ENODEV;
-		}
-	} else if (!strcmp(name, "kgsl_gmu_cpr_reg")) {
-		gmu->cpr_reg_virt = devm_ioremap(&gmu->pdev->dev, res->start,
-				resource_size(res));
-		if (gmu->cpr_reg_virt == NULL) {
-			dev_err(&gmu->pdev->dev, "CPR regs ioremap failed\n");
 			return -ENODEV;
 		}
 	}
@@ -1125,15 +1118,11 @@ int gmu_probe(struct kgsl_device *device)
 	mem_addr = gmu->hfi_mem;
 
 	/* Map and reserve GMU CSRs registers */
-	ret = gmu_reg_probe(gmu, "kgsl_gmu_reg");
+	ret = gmu_reg_probe(gmu, "kgsl_gmu_reg", true);
 	if (ret)
 		goto error;
 
-	ret = gmu_reg_probe(gmu, "kgsl_gmu_pdc_reg");
-	if (ret)
-		goto error;
-
-	ret = gmu_reg_probe(gmu, "kgsl_gmu_cpr_reg");
+	ret = gmu_reg_probe(gmu, "kgsl_gmu_pdc_reg", false);
 	if (ret)
 		goto error;
 
