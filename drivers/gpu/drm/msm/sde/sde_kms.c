@@ -792,6 +792,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.mode_valid = dp_connector_mode_valid,
 		.get_info   = dp_connector_get_info,
 		.get_mode_info  = dp_connector_get_mode_info,
+		.send_hpd_event = dp_connector_send_hpd_event,
 	};
 	struct msm_display_info info;
 	struct drm_encoder *encoder;
@@ -1701,6 +1702,8 @@ static void _sde_kms_post_open(struct msm_kms *kms, struct drm_file *file)
 {
 	struct drm_device *dev = NULL;
 	struct sde_kms *sde_kms = NULL;
+	struct drm_connector *connector = NULL;
+	struct sde_connector *sde_conn = NULL;
 
 	if (!kms) {
 		SDE_ERROR("invalid kms\n");
@@ -1715,8 +1718,22 @@ static void _sde_kms_post_open(struct msm_kms *kms, struct drm_file *file)
 		return;
 	}
 
-	if (dev->mode_config.funcs->output_poll_changed)
-		dev->mode_config.funcs->output_poll_changed(dev);
+	if (!dev->mode_config.poll_enabled)
+		return;
+
+	mutex_lock(&dev->mode_config.mutex);
+	drm_for_each_connector(connector, dev) {
+		/* Only handle HPD capable connectors. */
+		if (!(connector->polled & DRM_CONNECTOR_POLL_HPD))
+			continue;
+
+		sde_conn = to_sde_connector(connector);
+
+		if (sde_conn->ops.send_hpd_event)
+			sde_conn->ops.send_hpd_event(sde_conn->display);
+	}
+	mutex_unlock(&dev->mode_config.mutex);
+
 }
 
 static int sde_kms_pm_suspend(struct device *dev)

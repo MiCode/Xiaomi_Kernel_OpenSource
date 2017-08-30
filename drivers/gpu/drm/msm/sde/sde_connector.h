@@ -207,6 +207,11 @@ struct sde_connector_ops {
 	 */
 	int (*post_kickoff)(struct drm_connector *connector);
 
+	/**
+	 * send_hpd_event - send HPD uevent notification to userspace
+	 * @display: Pointer to private display structure
+	 */
+	void (*send_hpd_event)(void *display);
 };
 
 /**
