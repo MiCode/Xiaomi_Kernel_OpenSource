@@ -1196,6 +1196,20 @@
 			};
 		};
 
+		sdc1_rclk_on: sdc1_rclk_on {
+			config {
+				pins = "sdc1_rclk";
+				bias-pull-down; /* pull down */
+			};
+		};
+
+		sdc1_rclk_off: sdc1_rclk_off {
+			config {
+				pins = "sdc1_rclk";
+				bias-pull-down; /* pull down */
+			};
+		};
+
 		sdc2_clk_on: sdc2_clk_on {
 			config {
 				pins = "sdc2_clk";
