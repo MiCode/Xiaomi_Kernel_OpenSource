@@ -13,6 +13,7 @@
 #include <uapi/media/cam_defs.h>
 #include <uapi/media/cam_isp.h>
 #include "cam_mem_mgr.h"
+#include "cam_isp_hw.h"
 #include "cam_vfe_hw_intf.h"
 #include "cam_isp_packet_parser.h"
 #include "cam_debug_util.h"
@@ -26,7 +27,7 @@ int cam_isp_add_change_base(
 	int rc = -EINVAL;
 	struct cam_ife_hw_mgr_res       *hw_mgr_res;
 	struct cam_isp_resource_node    *res;
-	struct cam_isp_hw_get_cdm_args   get_base;
+	struct cam_isp_hw_get_cmd_update get_base;
 	struct cam_hw_update_entry      *hw_entry;
 	uint32_t                         num_ent, i;
 
@@ -53,24 +54,25 @@ int cam_isp_add_change_base(
 				continue;
 
 			get_base.res  = res;
-			get_base.cmd_buf_addr = kmd_buf_info->cpu_addr +
+			get_base.cmd_type = CAM_ISP_HW_CMD_GET_CHANGE_BASE;
+			get_base.cmd.cmd_buf_addr = kmd_buf_info->cpu_addr +
 				kmd_buf_info->used_bytes/4;
-			get_base.size  = kmd_buf_info->size -
+			get_base.cmd.size  = kmd_buf_info->size -
 					kmd_buf_info->used_bytes;
 
 			rc = res->hw_intf->hw_ops.process_cmd(
 				res->hw_intf->hw_priv,
-				CAM_VFE_HW_CMD_GET_CHANGE_BASE, &get_base,
-				sizeof(struct cam_isp_hw_get_cdm_args));
+				CAM_ISP_HW_CMD_GET_CHANGE_BASE, &get_base,
+				sizeof(struct cam_isp_hw_get_cmd_update));
 			if (rc)
 				return rc;
 
 			hw_entry[num_ent].handle = kmd_buf_info->handle;
-			hw_entry[num_ent].len    = get_base.used_bytes;
+			hw_entry[num_ent].len    = get_base.cmd.used_bytes;
 			hw_entry[num_ent].offset = kmd_buf_info->offset;
 
-			kmd_buf_info->used_bytes += get_base.used_bytes;
-			kmd_buf_info->offset     += get_base.used_bytes;
+			kmd_buf_info->used_bytes += get_base.cmd.used_bytes;
+			kmd_buf_info->offset     += get_base.cmd.used_bytes;
 			num_ent++;
 			prepare->num_hw_update_entries = num_ent;
 
@@ -125,7 +127,7 @@ static int cam_isp_update_dual_config(
 			dual_isp_update_args.dual_cfg = dual_config;
 			rc = res->hw_intf->hw_ops.process_cmd(
 				res->hw_intf->hw_priv,
-				CAM_VFE_HW_CMD_STRIPE_UPDATE,
+				CAM_ISP_HW_CMD_STRIPE_UPDATE,
 				&dual_isp_update_args,
 				sizeof(struct cam_isp_hw_dual_isp_update_args));
 			if (rc)
@@ -136,20 +138,83 @@ static int cam_isp_update_dual_config(
 	return rc;
 }
 
+int cam_isp_add_cmd_buf_update(
+	struct cam_ife_hw_mgr_res            *hw_mgr_res,
+	uint32_t                              cmd_type,
+	uint32_t                              hw_cmd_type,
+	uint32_t                              base_idx,
+	uint32_t                             *cmd_buf_addr,
+	uint32_t                              kmd_buf_remain_size,
+	void                                 *cmd_update_data,
+	uint32_t                             *bytes_used)
+{
+	int rc = 0;
+	struct cam_isp_resource_node       *res;
+	struct cam_isp_hw_get_cmd_update    cmd_update;
+	uint32_t                            i;
+	uint32_t                            total_used_bytes = 0;
+
+	if (hw_mgr_res->res_type == CAM_IFE_HW_MGR_RES_UNINIT) {
+		CAM_ERR(CAM_ISP, "io res id:%d not valid",
+			hw_mgr_res->res_type);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+		if (!hw_mgr_res->hw_res[i])
+			continue;
+
+		if (hw_mgr_res->hw_res[i]->hw_intf->hw_idx != base_idx)
+			continue;
+
+		res = hw_mgr_res->hw_res[i];
+		cmd_update.res = res;
+		cmd_update.cmd_type = hw_cmd_type;
+		cmd_update.cmd.cmd_buf_addr = cmd_buf_addr;
+		cmd_update.cmd.size = kmd_buf_remain_size;
+		cmd_update.data = cmd_update_data;
+
+		CAM_DBG(CAM_ISP, "cmd buffer 0x%pK, size %d",
+			cmd_update.cmd.cmd_buf_addr,
+			cmd_update.cmd.size);
+		rc = res->hw_intf->hw_ops.process_cmd(
+			res->hw_intf->hw_priv,
+			cmd_update.cmd_type, &cmd_update,
+			sizeof(struct cam_isp_hw_get_cmd_update));
+
+		if (rc) {
+			CAM_ERR(CAM_ISP, "get buf cmd error:%d",
+				res->res_id);
+			rc = -ENOMEM;
+			return rc;
+		}
+
+		total_used_bytes += cmd_update.cmd.used_bytes;
+	}
+	*bytes_used = total_used_bytes;
+	CAM_DBG(CAM_ISP, "total_used_bytes %u", total_used_bytes);
+	return rc;
+}
+
 int cam_isp_add_command_buffers(
 	struct cam_hw_prepare_update_args  *prepare,
-	enum cam_isp_hw_split_id            split_id,
-	uint32_t                            base_idx,
+	struct cam_kmd_buf_info            *kmd_buf_info,
+	struct ctx_base_info               *base_info,
+	cam_packet_generic_blob_handler     blob_handler_cb,
 	struct cam_ife_hw_mgr_res          *res_list_isp_out,
 	uint32_t                            size_isp_out)
 {
 	int rc = 0;
-	uint32_t  cmd_meta_data, num_ent, i;
-	struct cam_cmd_buf_desc       *cmd_desc = NULL;
-	struct cam_hw_update_entry    *hw_entry;
+	uint32_t                           cmd_meta_data, num_ent, i;
+	uint32_t                           base_idx;
+	enum cam_isp_hw_split_id           split_id;
+	struct cam_cmd_buf_desc           *cmd_desc = NULL;
+	struct cam_hw_update_entry        *hw_entry;
 
 	hw_entry = prepare->hw_update_entries;
-	num_ent = prepare->num_hw_update_entries;
+	split_id = base_info->split_id;
+	base_idx = base_info->idx;
+
 	/*
 	 * set the cmd_desc to point the first command descriptor in the
 	 * packet
@@ -162,6 +227,7 @@ int cam_isp_add_command_buffers(
 		split_id, prepare->packet->num_cmd_buf);
 
 	for (i = 0; i < prepare->packet->num_cmd_buf; i++) {
+		num_ent = prepare->num_hw_update_entries;
 		if (!cmd_desc[i].length)
 			continue;
 
@@ -232,238 +298,75 @@ int cam_isp_add_command_buffers(
 			if (rc)
 				return rc;
 			break;
-		case CAM_ISP_PACKET_META_GENERIC_BLOB:
+		case CAM_ISP_PACKET_META_GENERIC_BLOB_LEFT:
+			if (split_id == CAM_ISP_HW_SPLIT_LEFT) {
+				struct cam_isp_generic_blob_info   blob_info;
+
+				prepare->num_hw_update_entries = num_ent;
+				blob_info.prepare = prepare;
+				blob_info.base_info = base_info;
+				blob_info.kmd_buf_info = kmd_buf_info;
+
+				rc = cam_packet_util_process_generic_cmd_buffer(
+					&cmd_desc[i],
+					blob_handler_cb,
+					&blob_info);
+				if (rc) {
+					CAM_ERR(CAM_ISP,
+						"Failed in processing blobs %d",
+						rc);
+					return rc;
+				}
+				num_ent = prepare->num_hw_update_entries;
+			}
+			break;
+		case CAM_ISP_PACKET_META_GENERIC_BLOB_RIGHT:
+			if (split_id == CAM_ISP_HW_SPLIT_RIGHT) {
+				struct cam_isp_generic_blob_info   blob_info;
+
+				prepare->num_hw_update_entries = num_ent;
+				blob_info.prepare = prepare;
+				blob_info.base_info = base_info;
+				blob_info.kmd_buf_info = kmd_buf_info;
+
+				rc = cam_packet_util_process_generic_cmd_buffer(
+					&cmd_desc[i],
+					blob_handler_cb,
+					&blob_info);
+				if (rc) {
+					CAM_ERR(CAM_ISP,
+						"Failed in processing blobs %d",
+						rc);
+					return rc;
+				}
+				num_ent = prepare->num_hw_update_entries;
+			}
+			break;
+		case CAM_ISP_PACKET_META_GENERIC_BLOB_COMMON: {
+			struct cam_isp_generic_blob_info   blob_info;
+
+			prepare->num_hw_update_entries = num_ent;
+			blob_info.prepare = prepare;
+			blob_info.base_info = base_info;
+			blob_info.kmd_buf_info = kmd_buf_info;
+
+			rc = cam_packet_util_process_generic_cmd_buffer(
+				&cmd_desc[i],
+				blob_handler_cb,
+				&blob_info);
+			if (rc) {
+				CAM_ERR(CAM_ISP,
+					"Failed in processing blobs %d", rc);
+				return rc;
+			}
+			num_ent = prepare->num_hw_update_entries;
+		}
 			break;
 		default:
 			CAM_ERR(CAM_ISP, "invalid cdm command meta data %d",
 				cmd_meta_data);
 			return -EINVAL;
 		}
-	}
-
-	prepare->num_hw_update_entries = num_ent;
-
-	return rc;
-}
-
-static int cam_isp_handle_hfr_config(
-	struct cam_isp_generic_blob_info *blob_info,
-	struct cam_isp_resource_hfr_config *hfr_config, uint32_t blob_size)
-{
-	uint32_t cal_blob_size =
-		sizeof(struct cam_isp_resource_hfr_config) +
-		(sizeof(struct cam_isp_port_hfr_config) *
-		(hfr_config->num_io_configs - 1));
-
-	if (cal_blob_size != blob_size) {
-		CAM_ERR(CAM_ISP, "Invalid blob size %d %d",
-			cal_blob_size, blob_size);
-		return -EINVAL;
-	}
-
-	CAM_DBG(CAM_ISP, "HFR num_io_config = %d", hfr_config->num_io_configs);
-
-	if (blob_info->hfr_config) {
-		CAM_WARN(CAM_ISP,
-			"Ignoring previous hfr_config, prev=%d, curr=%d",
-			blob_info->hfr_config->num_io_configs,
-			hfr_config->num_io_configs);
-		kfree(blob_info->hfr_config);
-	}
-
-	blob_info->hfr_config = kzalloc(blob_size, GFP_ATOMIC);
-	if (!blob_info->hfr_config)
-		return -ENOMEM;
-
-	memcpy(blob_info->hfr_config, hfr_config, blob_size);
-
-	return 0;
-}
-
-static int cam_isp_packet_generic_blob_handler(void *user_data,
-	uint32_t blob_type, uint32_t blob_size, uint8_t *blob_data)
-{
-	int rc = 0;
-
-	if (!blob_data || (blob_size == 0)) {
-		CAM_ERR(CAM_ISP, "Invalid blob info %pK %d", blob_data,
-			blob_size);
-		return -EINVAL;
-	}
-
-	switch (blob_type) {
-	case CAM_ISP_GENERIC_BLOB_TYPE_HFR_CONFIG:
-		rc = cam_isp_handle_hfr_config(user_data,
-			(struct cam_isp_resource_hfr_config *)blob_data,
-			blob_size);
-		if (rc)
-			CAM_ERR(CAM_ISP, "Failed in handling hfr config %d",
-				rc);
-
-		break;
-	default:
-		CAM_WARN(CAM_ISP, "Invalid blob type %d", blob_type);
-		break;
-	}
-
-	return rc;
-}
-
-int cam_isp_process_generic_cmd_buffer(
-	struct cam_hw_prepare_update_args *prepare,
-	struct cam_isp_generic_blob_info  *blob_info)
-{
-	int i, rc = 0;
-	struct cam_cmd_buf_desc *cmd_desc = NULL;
-
-	/*
-	 * set the cmd_desc to point the first command descriptor in the
-	 * packet
-	 */
-	cmd_desc = (struct cam_cmd_buf_desc *)
-			((uint8_t *)&prepare->packet->payload +
-			prepare->packet->cmd_buf_offset);
-
-	for (i = 0; i < prepare->packet->num_cmd_buf; i++) {
-		if (!cmd_desc[i].length)
-			continue;
-
-		if (cmd_desc[i].meta_data != CAM_ISP_PACKET_META_GENERIC_BLOB)
-			continue;
-
-		rc = cam_packet_util_validate_cmd_desc(&cmd_desc[i]);
-		if (rc)
-			return rc;
-
-		rc = cam_packet_util_process_generic_cmd_buffer(&cmd_desc[i],
-			cam_isp_packet_generic_blob_handler, blob_info);
-		if (rc)
-			CAM_ERR(CAM_ISP, "Failed in processing blobs %d", rc);
-
-		break;
-	}
-
-	return rc;
-}
-
-int cam_isp_add_hfr_config_hw_update(
-	struct cam_isp_resource_hfr_config   *hfr_config,
-	struct cam_hw_prepare_update_args    *prepare,
-	uint32_t                              base_idx,
-	struct cam_kmd_buf_info              *kmd_buf_info,
-	struct cam_ife_hw_mgr_res            *res_list_isp_out,
-	uint32_t                              size_isp_out)
-{
-	int rc = 0;
-	struct cam_isp_resource_node       *res;
-	struct cam_ife_hw_mgr_res          *hw_mgr_res;
-	struct cam_isp_hw_get_hfr_update    update_hfr;
-	struct cam_isp_port_hfr_config     *io_hfr_config;
-	uint32_t                            kmd_buf_remain_size;
-	uint32_t                            i, j;
-	uint32_t                            res_id_out;
-	uint32_t                            hfr_cfg_used_bytes, num_ent;
-
-	hfr_cfg_used_bytes = 0;
-
-	/* Max one hw entries required for hfr config update */
-	if (prepare->num_hw_update_entries + 1 >=
-			prepare->max_hw_update_entries) {
-		CAM_ERR(CAM_ISP, "Insufficient  HW entries :%d %d",
-			prepare->num_hw_update_entries,
-			prepare->max_hw_update_entries);
-		return -EINVAL;
-	}
-
-	CAM_DBG(CAM_ISP, "num_io_configs= %d", hfr_config->num_io_configs);
-
-	for (i = 0; i < hfr_config->num_io_configs; i++) {
-		io_hfr_config = &hfr_config->io_hfr_config[i];
-		res_id_out = io_hfr_config->resource_type & 0xFF;
-
-		CAM_DBG(CAM_ISP, "hfr config idx %d, type=%d", i, res_id_out);
-
-		if (res_id_out >= size_isp_out) {
-			CAM_ERR(CAM_ISP, "invalid out restype:%x",
-				io_hfr_config->resource_type);
-			return -EINVAL;
-		}
-
-		hw_mgr_res = &res_list_isp_out[res_id_out];
-		if (hw_mgr_res->res_type == CAM_IFE_HW_MGR_RES_UNINIT) {
-			CAM_ERR(CAM_ISP, "io res id:%d not valid",
-				io_hfr_config->resource_type);
-			return -EINVAL;
-		}
-
-		for (j = 0; j < CAM_ISP_HW_SPLIT_MAX; j++) {
-			if (!hw_mgr_res->hw_res[j])
-				continue;
-
-			if (hw_mgr_res->hw_res[j]->hw_intf->hw_idx != base_idx)
-				continue;
-
-			res = hw_mgr_res->hw_res[j];
-			if (res->res_id !=
-				io_hfr_config->resource_type) {
-				CAM_ERR(CAM_ISP,
-					"wm err res id:%d io res id:%d",
-					res->res_id,
-					io_hfr_config->resource_type);
-				return -EINVAL;
-			}
-
-			if ((kmd_buf_info->used_bytes + hfr_cfg_used_bytes) <
-				kmd_buf_info->size) {
-				kmd_buf_remain_size = kmd_buf_info->size -
-					(kmd_buf_info->used_bytes +
-					hfr_cfg_used_bytes);
-			} else {
-				CAM_ERR(CAM_ISP,
-					"no free kmd memory for base %d",
-					base_idx);
-				rc = -ENOMEM;
-				return rc;
-			}
-
-			update_hfr.cdm.res = res;
-			update_hfr.cdm.cmd_buf_addr = kmd_buf_info->cpu_addr +
-				kmd_buf_info->used_bytes/4 +
-					hfr_cfg_used_bytes/4;
-			update_hfr.cdm.size = kmd_buf_remain_size;
-			update_hfr.io_hfr_cfg    = io_hfr_config;
-
-			CAM_DBG(CAM_ISP, "cmd buffer 0x%pK, size %d",
-				update_hfr.cdm.cmd_buf_addr,
-				update_hfr.cdm.size);
-			rc = res->hw_intf->hw_ops.process_cmd(
-				res->hw_intf->hw_priv,
-				CAM_VFE_HW_CMD_GET_HFR_UPDATE, &update_hfr,
-				sizeof(struct cam_isp_hw_get_hfr_update));
-
-			if (rc) {
-				CAM_ERR(CAM_ISP, "get buf cmd error:%d",
-					res->res_id);
-				rc = -ENOMEM;
-				return rc;
-			}
-			hfr_cfg_used_bytes += update_hfr.cdm.used_bytes;
-		}
-	}
-
-	CAM_DBG(CAM_ISP, "hfr_cfg_used_bytes %d", hfr_cfg_used_bytes);
-	if (hfr_cfg_used_bytes) {
-		/* Update the HW entries */
-		num_ent = prepare->num_hw_update_entries;
-		prepare->hw_update_entries[num_ent].handle =
-					kmd_buf_info->handle;
-		prepare->hw_update_entries[num_ent].len = hfr_cfg_used_bytes;
-		prepare->hw_update_entries[num_ent].offset =
-			kmd_buf_info->offset;
-		num_ent++;
-
-		kmd_buf_info->used_bytes += hfr_cfg_used_bytes;
-		kmd_buf_info->offset     += hfr_cfg_used_bytes;
 		prepare->num_hw_update_entries = num_ent;
 	}
 
@@ -485,7 +388,8 @@ int cam_isp_add_io_buffers(
 	struct cam_buf_io_cfg              *io_cfg;
 	struct cam_isp_resource_node       *res;
 	struct cam_ife_hw_mgr_res          *hw_mgr_res;
-	struct cam_isp_hw_get_buf_update    update_buf;
+	struct cam_isp_hw_get_cmd_update    update_buf;
+	struct cam_isp_hw_get_wm_update     wm_update;
 	uint32_t                            kmd_buf_remain_size;
 	uint32_t                            i, j, num_out_buf, num_in_buf;
 	uint32_t                            res_id_out, res_id_in, plane_id;
@@ -606,7 +510,7 @@ int cam_isp_add_io_buffers(
 
 				hdl = io_cfg[i].mem_handle[plane_id];
 				if (res->process_cmd(res,
-						CAM_VFE_HW_CMD_GET_SECURE_MODE,
+						CAM_ISP_HW_CMD_GET_SECURE_MODE,
 						&mode,
 						sizeof(bool)))
 					return -EINVAL;
@@ -670,22 +574,24 @@ int cam_isp_add_io_buffers(
 				rc = -ENOMEM;
 				return rc;
 			}
-			update_buf.cdm.res = res;
-			update_buf.cdm.cmd_buf_addr = kmd_buf_info->cpu_addr +
+			update_buf.res = res;
+			update_buf.cmd_type = CAM_ISP_HW_CMD_GET_BUF_UPDATE;
+			update_buf.cmd.cmd_buf_addr = kmd_buf_info->cpu_addr +
 				kmd_buf_info->used_bytes/4 +
 					io_cfg_used_bytes/4;
-			update_buf.cdm.size = kmd_buf_remain_size;
-			update_buf.image_buf = io_addr;
-			update_buf.num_buf   = plane_id;
-			update_buf.io_cfg    = &io_cfg[i];
+			wm_update.image_buf = io_addr;
+			wm_update.num_buf   = plane_id;
+			wm_update.io_cfg    = &io_cfg[i];
+			update_buf.cmd.size = kmd_buf_remain_size;
+			update_buf.wm_update = &wm_update;
 
 			CAM_DBG(CAM_ISP, "cmd buffer 0x%pK, size %d",
-				update_buf.cdm.cmd_buf_addr,
-				update_buf.cdm.size);
+				update_buf.cmd.cmd_buf_addr,
+				update_buf.cmd.size);
 			rc = res->hw_intf->hw_ops.process_cmd(
 				res->hw_intf->hw_priv,
-				CAM_VFE_HW_CMD_GET_BUF_UPDATE, &update_buf,
-				sizeof(struct cam_isp_hw_get_buf_update));
+				CAM_ISP_HW_CMD_GET_BUF_UPDATE, &update_buf,
+				sizeof(struct cam_isp_hw_get_cmd_update));
 
 			if (rc) {
 				CAM_ERR(CAM_ISP, "get buf cmd error:%d",
@@ -693,7 +599,7 @@ int cam_isp_add_io_buffers(
 				rc = -ENOMEM;
 				return rc;
 			}
-			io_cfg_used_bytes += update_buf.cdm.used_bytes;
+			io_cfg_used_bytes += update_buf.cmd.used_bytes;
 		}
 	}
 
@@ -733,7 +639,7 @@ int cam_isp_add_reg_update(
 	struct cam_isp_resource_node         *res;
 	struct cam_ife_hw_mgr_res            *hw_mgr_res;
 	struct cam_hw_update_entry           *hw_entry;
-	struct cam_isp_hw_get_cdm_args        get_regup;
+	struct cam_isp_hw_get_cmd_update      get_regup;
 	uint32_t kmd_buf_remain_size, num_ent, i, reg_update_size;
 
 	hw_entry = prepare->hw_update_entries;
@@ -773,22 +679,23 @@ int cam_isp_add_reg_update(
 				return rc;
 			}
 
-			get_regup.cmd_buf_addr = kmd_buf_info->cpu_addr +
+			get_regup.cmd.cmd_buf_addr = kmd_buf_info->cpu_addr +
 				kmd_buf_info->used_bytes/4 +
 				reg_update_size/4;
-			get_regup.size = kmd_buf_remain_size;
+			get_regup.cmd.size = kmd_buf_remain_size;
+			get_regup.cmd_type = CAM_ISP_HW_CMD_GET_REG_UPDATE;
 			get_regup.res = res;
 
 			rc = res->hw_intf->hw_ops.process_cmd(
 				res->hw_intf->hw_priv,
-				CAM_VFE_HW_CMD_GET_REG_UPDATE, &get_regup,
-				sizeof(struct cam_isp_hw_get_cdm_args));
+				CAM_ISP_HW_CMD_GET_REG_UPDATE, &get_regup,
+				sizeof(struct cam_isp_hw_get_cmd_update));
 			if (rc)
 				return rc;
 
 			CAM_DBG(CAM_ISP, "Reg update added for res %d hw_id %d",
 				res->res_id, res->hw_intf->hw_idx);
-			reg_update_size += get_regup.used_bytes;
+			reg_update_size += get_regup.cmd.used_bytes;
 		}
 	}
 

@@ -69,10 +69,10 @@ struct cam_ife_hw_mgr_res {
 
 
 /**
- * struct ctx_base_info - base hardware information for the context
+ * struct ctx_base_info - Base hardware information for the context
  *
  * @idx:                 Base resource index
- * @split_id:            split info for the base resource
+ * @split_id:            Split info for the base resource
  *
  */
 struct ctx_base_info {

@@ -74,8 +74,9 @@
 #define CAM_ISP_PACKET_META_CLOCK               7
 #define CAM_ISP_PACKET_META_CSID                8
 #define CAM_ISP_PACKET_META_DUAL_CONFIG         9
-#define CAM_ISP_PACKET_META_GENERIC_BLOB        10
-#define CAM_ISP_PACKET_META_MAX                 11
+#define CAM_ISP_PACKET_META_GENERIC_BLOB_LEFT   10
+#define CAM_ISP_PACKET_META_GENERIC_BLOB_RIGHT  11
+#define CAM_ISP_PACKET_META_GENERIC_BLOB_COMMON 12
 
 /* DSP mode */
 #define CAM_ISP_DSP_MODE_NONE                   0
@@ -252,14 +253,14 @@ struct cam_isp_port_hfr_config {
 /**
  * struct cam_isp_resource_hfr_config - Resource HFR configuration
  *
- * @num_io_configs:             Number of ports
+ * @num_ports:                  Number of ports
  * @reserved:                   Reserved for alignment
- * @io_hfr_config:              HFR configuration for each IO port
+ * @port_hfr_config:            HFR configuration for each IO port
  */
 struct cam_isp_resource_hfr_config {
-	uint32_t                       num_io_configs;
+	uint32_t                       num_ports;
 	uint32_t                       reserved;
-	struct cam_isp_port_hfr_config io_hfr_config[1];
+	struct cam_isp_port_hfr_config port_hfr_config[1];
 };
 
 /**
