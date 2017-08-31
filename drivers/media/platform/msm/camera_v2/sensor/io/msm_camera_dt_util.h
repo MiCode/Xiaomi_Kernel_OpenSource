@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,10 @@ int msm_sensor_get_dt_csi_data(struct device_node *of_node,
 int msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 	struct camera_vreg_t *cam_vreg, int num_vreg,
 	struct msm_camera_power_ctrl_t *power_info);
+
+int msm_camera_get_dt_gpio_set_tbl(struct device_node *of_node,
+	struct msm_camera_gpio_conf *gconf, uint16_t *gpio_array,
+	uint16_t gpio_array_size);
 
 int msm_camera_get_dt_gpio_req_tbl(struct device_node *of_node,
 	struct msm_camera_gpio_conf *gconf, uint16_t *gpio_array,
