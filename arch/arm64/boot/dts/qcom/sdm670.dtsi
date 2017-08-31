@@ -435,6 +435,7 @@
 
 #include "sdm670-qupv3.dtsi"
 
+#include "sdm670-coresight.dtsi"
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
