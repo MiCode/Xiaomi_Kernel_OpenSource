@@ -214,60 +214,66 @@ static int msm_dig_cdc_codec_config_compander(struct snd_soc_codec *codec,
 					      int interp_n, int event)
 {
 	struct msm_dig_priv *dig_cdc = snd_soc_codec_get_drvdata(codec);
+	int comp_ch_bits_set = 0x03;
 
 	dev_dbg(codec->dev, "%s: event %d shift %d, enabled %d\n",
 		__func__, event, interp_n,
 		dig_cdc->comp_enabled[interp_n]);
 
-	/* compander is not enabled */
-	if (!dig_cdc->comp_enabled[interp_n])
+	/* compander is invalid */
+	if (dig_cdc->comp_enabled[interp_n] != COMPANDER_1 &&
+	    dig_cdc->comp_enabled[interp_n]) {
+		dev_dbg(codec->dev, "%s: Invalid compander %d\n", __func__,
+			dig_cdc->comp_enabled[interp_n]);
 		return 0;
+	}
 
-	switch (dig_cdc->comp_enabled[interp_n]) {
-	case COMPANDER_1:
-		if (SND_SOC_DAPM_EVENT_ON(event)) {
-			/* Enable Compander Clock */
-			snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_COMP0_B2_CTL, 0x0F, 0x09);
-			snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_CLK_RX_B2_CTL, 0x01, 0x01);
-			snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_COMP0_B1_CTL,
-				1 << interp_n, 1 << interp_n);
-			snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_COMP0_B3_CTL, 0xFF, 0x01);
-			snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_COMP0_B2_CTL, 0xF0, 0x50);
-			/* add sleep for compander to settle */
-			usleep_range(1000, 1100);
-			snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_COMP0_B3_CTL, 0xFF, 0x28);
-			snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_COMP0_B2_CTL, 0xF0, 0xB0);
+	if (SND_SOC_DAPM_EVENT_ON(event)) {
+		/* compander is not enabled */
+		if (!dig_cdc->comp_enabled[interp_n]) {
+			dig_cdc->set_compander_mode(dig_cdc->handle, 0x00);
+			return 0;
+		};
+		dig_cdc->set_compander_mode(dig_cdc->handle, 0x08);
+		/* Enable Compander Clock */
+		snd_soc_update_bits(codec,
+			MSM89XX_CDC_CORE_COMP0_B2_CTL, 0x0F, 0x09);
+		snd_soc_update_bits(codec,
+			MSM89XX_CDC_CORE_CLK_RX_B2_CTL, 0x01, 0x01);
+		snd_soc_update_bits(codec,
+			MSM89XX_CDC_CORE_COMP0_B1_CTL,
+			1 << interp_n, 1 << interp_n);
+		snd_soc_update_bits(codec,
+			MSM89XX_CDC_CORE_COMP0_B3_CTL, 0xFF, 0x01);
+		snd_soc_update_bits(codec,
+			MSM89XX_CDC_CORE_COMP0_B2_CTL, 0xF0, 0x50);
+		/* add sleep for compander to settle */
+		usleep_range(1000, 1100);
+		snd_soc_update_bits(codec,
+			MSM89XX_CDC_CORE_COMP0_B3_CTL, 0xFF, 0x28);
+		snd_soc_update_bits(codec,
+			MSM89XX_CDC_CORE_COMP0_B2_CTL, 0xF0, 0xB0);
 
-			/* Enable Compander GPIO */
-			if (dig_cdc->codec_hph_comp_gpio)
-				dig_cdc->codec_hph_comp_gpio(1, codec);
-		} else if (SND_SOC_DAPM_EVENT_OFF(event)) {
-			/* Disable Compander GPIO */
-			if (dig_cdc->codec_hph_comp_gpio)
-				dig_cdc->codec_hph_comp_gpio(0, codec);
+		/* Enable Compander GPIO */
+		if (dig_cdc->codec_hph_comp_gpio)
+			dig_cdc->codec_hph_comp_gpio(1, codec);
+	} else if (SND_SOC_DAPM_EVENT_OFF(event)) {
+		/* Disable Compander GPIO */
+		if (dig_cdc->codec_hph_comp_gpio)
+			dig_cdc->codec_hph_comp_gpio(0, codec);
 
+		snd_soc_update_bits(codec,
+			MSM89XX_CDC_CORE_COMP0_B1_CTL,
+			1 << interp_n, 0);
+		comp_ch_bits_set = snd_soc_read(codec,
+					 MSM89XX_CDC_CORE_COMP0_B1_CTL);
+		if ((comp_ch_bits_set & 0x03) == 0x00) {
 			snd_soc_update_bits(codec,
 				MSM89XX_CDC_CORE_COMP0_B2_CTL, 0x0F, 0x05);
-			snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_COMP0_B1_CTL,
-				1 << interp_n, 0);
-			snd_soc_update_bits(codec,
+			 snd_soc_update_bits(codec,
 				MSM89XX_CDC_CORE_CLK_RX_B2_CTL, 0x01, 0x00);
 		}
-		break;
-	default:
-		dev_dbg(codec->dev, "%s: Invalid compander %d\n", __func__,
-				dig_cdc->comp_enabled[interp_n]);
-		break;
-	};
-
+	}
 	return 0;
 }
 
@@ -2101,6 +2107,7 @@ static int msm_dig_cdc_probe(struct platform_device *pdev)
 			msm_dig_cdc->dig_base, &msm_digital_regmap_config);
 
 	msm_dig_cdc->update_clkdiv = pdata->update_clkdiv;
+	msm_dig_cdc->set_compander_mode = pdata->set_compander_mode;
 	msm_dig_cdc->get_cdc_version = pdata->get_cdc_version;
 	msm_dig_cdc->handle = pdata->handle;
 	msm_dig_cdc->register_notifier = pdata->register_notifier;

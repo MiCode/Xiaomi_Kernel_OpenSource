@@ -49,6 +49,7 @@ struct msm_dig_priv {
 	u32 mute_mask;
 	int dapm_bias_off;
 	void *handle;
+	void (*set_compander_mode)(void *handle, int val);
 	void (*update_clkdiv)(void *handle, int val);
 	int (*get_cdc_version)(void *handle);
 	int (*register_notifier)(void *handle,
@@ -58,6 +59,7 @@ struct msm_dig_priv {
 
 struct dig_ctrl_platform_data {
 	void *handle;
+	void (*set_compander_mode)(void *handle, int val);
 	void (*update_clkdiv)(void *handle, int val);
 	int (*get_cdc_version)(void *handle);
 	int (*register_notifier)(void *handle,

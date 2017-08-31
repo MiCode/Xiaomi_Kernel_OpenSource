@@ -2619,6 +2619,17 @@ static int msm_anlg_cdc_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static void set_compander_mode(void *handle, int val)
+{
+	struct sdm660_cdc_priv *handle_cdc = handle;
+	struct snd_soc_codec *codec = handle_cdc->codec;
+
+	if (get_codec_version(handle_cdc) >= DIANGU) {
+		snd_soc_update_bits(codec,
+			MSM89XX_PMIC_ANALOG_RX_COM_BIAS_DAC,
+			0x08, val);
+	};
+}
 static void update_clkdiv(void *handle, int val)
 {
 	struct sdm660_cdc_priv *handle_cdc = handle;
@@ -4649,6 +4660,7 @@ static int msm_anlg_cdc_probe(struct platform_device *pdev)
 	BLOCKING_INIT_NOTIFIER_HEAD(&sdm660_cdc->notifier_mbhc);
 
 	sdm660_cdc->dig_plat_data.handle = (void *) sdm660_cdc;
+	sdm660_cdc->dig_plat_data.set_compander_mode = set_compander_mode;
 	sdm660_cdc->dig_plat_data.update_clkdiv = update_clkdiv;
 	sdm660_cdc->dig_plat_data.get_cdc_version = get_cdc_version;
 	sdm660_cdc->dig_plat_data.register_notifier =
