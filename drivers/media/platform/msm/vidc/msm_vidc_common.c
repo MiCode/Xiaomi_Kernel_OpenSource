@@ -3871,18 +3871,13 @@ int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 		rc = msm_comm_session_continue(inst);
 		break;
 	}
+	/* This case also for V4L2_ENC_CMD_STOP */
 	case V4L2_DEC_CMD_STOP:
 	{
 		struct eos_buf *binfo = NULL;
 		u32 smem_flags = 0;
 
 		get_inst(inst->core, inst);
-		if (inst->session_type != MSM_VIDC_DECODER) {
-			dprintk(VIDC_DBG,
-				"Non-Decoder session. DEC_STOP is not valid\n");
-			rc = -EINVAL;
-			goto exit;
-		}
 
 		binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
 		if (!binfo) {
