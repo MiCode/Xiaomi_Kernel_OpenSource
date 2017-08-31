@@ -30,6 +30,7 @@ struct dp_panel_private {
 	struct dp_link *link;
 	struct dp_catalog_panel *catalog;
 	bool aux_cfg_update_done;
+	bool custom_edid;
 };
 
 static const struct dp_panel_info fail_safe = {
@@ -133,6 +134,28 @@ static int dp_panel_set_default_link_params(struct dp_panel *dp_panel)
 	link_info->num_lanes = default_num_lanes;
 	pr_debug("link_rate=%d num_lanes=%d\n",
 		link_info->rate, link_info->num_lanes);
+
+	return 0;
+}
+
+static int dp_panel_set_edid(struct dp_panel *dp_panel, u8 *edid)
+{
+	struct dp_panel_private *panel;
+
+	if (!dp_panel) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+
+	if (edid) {
+		dp_panel->edid_ctrl->edid = (struct edid *)edid;
+		panel->custom_edid = true;
+	} else {
+		panel->custom_edid = false;
+	}
+
 	return 0;
 }
 
@@ -149,6 +172,11 @@ static int dp_panel_read_edid(struct dp_panel *dp_panel,
 	}
 
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+
+	if (panel->custom_edid) {
+		pr_debug("skip edid read in debug mode\n");
+		return 0;
+	}
 
 	do {
 		sde_get_edid(connector, &panel->aux->drm_aux->ddc,
@@ -527,6 +555,7 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	dp_panel->get_mode_bpp = dp_panel_get_mode_bpp;
 	dp_panel->get_modes = dp_panel_get_modes;
 	dp_panel->handle_sink_request = dp_panel_handle_sink_request;
+	dp_panel->set_edid = dp_panel_set_edid;
 
 	return dp_panel;
 error:
