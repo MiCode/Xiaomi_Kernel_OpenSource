@@ -601,16 +601,14 @@ static int cpu_power_select(struct cpuidle_device *dev,
 	uint32_t *max_residency = get_per_cpu_max_residency(dev->cpu);
 
 	if ((sleep_disabled && !cpu_isolated(dev->cpu)) || sleep_us < 0)
-		return 0;
+		return best_level;
 
 	idx_restrict = cpu->nlevels + 1;
 
 	next_event_us = (uint32_t)(ktime_to_us(get_next_event_time(dev->cpu)));
 
-	if (is_cpu_biased(dev->cpu)) {
-		best_level = 0;
+	if (is_cpu_biased(dev->cpu))
 		goto done_select;
-	}
 
 	for (i = 0; i < cpu->nlevels; i++) {
 		struct lpm_cpu_level *level = &cpu->levels[i];
@@ -1342,12 +1340,10 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 		struct cpuidle_driver *drv, int idx)
 {
 	struct lpm_cpu *cpu = per_cpu(cpu_lpm, dev->cpu);
-	bool success = true;
+	bool success = false;
 	const struct cpumask *cpumask = get_cpu_mask(dev->cpu);
 	int64_t start_time = ktime_to_ns(ktime_get()), end_time;
 	struct power_params *pwr_params;
-
-	pwr_params = &cpu->levels[idx].pwr;
 
 	pwr_params = &cpu->levels[idx].pwr;
 
