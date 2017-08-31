@@ -99,6 +99,12 @@ config OF_RESERVED_MEM
 config OF_RESOLVE
 	bool
 
+config OF_SLIMBUS
+	def_tristate SLIMBUS
+	depends on SLIMBUS
+	help
+	  OpenFirmware SLIMBUS accessors
+
 config OF_OVERLAY
 	bool "Device Tree overlays"
 	select OF_DYNAMIC
