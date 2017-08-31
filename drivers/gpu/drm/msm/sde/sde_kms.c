@@ -1259,11 +1259,13 @@ struct sde_kms_fbo *sde_kms_fbo_alloc(struct drm_device *dev, u32 width,
 	/* allocate backing buffer object */
 	if (sde_kms->iclient) {
 		u32 heap_id = fbo->flags & DRM_MODE_FB_SECURE ?
-				ION_HEAP(ION_SECURE_DISPLAY_HEAP_ID) :
+				ION_HEAP(ION_SECURE_HEAP_ID) :
 				ION_HEAP(ION_SYSTEM_HEAP_ID);
+		u32 iflags = fbo->flags & DRM_MODE_FB_SECURE ?
+				(ION_FLAG_SECURE | ION_FLAG_CP_PIXEL) : 0;
 
 		fbo->ihandle = ion_alloc(sde_kms->iclient,
-				fbo->layout.total_size, SZ_4K, heap_id, 0);
+				fbo->layout.total_size, SZ_4K, heap_id, iflags);
 		if (IS_ERR_OR_NULL(fbo->ihandle)) {
 			SDE_ERROR("failed to alloc ion memory\n");
 			ret = PTR_ERR(fbo->ihandle);
