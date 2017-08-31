@@ -2689,7 +2689,7 @@
 			<0x1dc4000 0x24000>;
 		reg-names = "crypto-base","crypto-bam-base";
 		interrupts = <0 272 0>;
-		qcom,bam-pipe-pair = <1>;
+		qcom,bam-pipe-pair = <3>;
 		qcom,ce-hw-instance = <0>;
 		qcom,ce-device = <0>;
 		qcom,ce-hw-shared;
@@ -2708,9 +2708,9 @@
 			 <&clock_gcc GCC_CE1_AXI_CLK>;
 		qcom,ce-opp-freq = <171430000>;
 		qcom,request-bw-before-clk;
-		qcom,smmu-s1-bypass;
-		iommus = <&apps_smmu 0x702 0x1>,
-			 <&apps_smmu 0x712 0x1>;
+		qcom,smmu-s1-enable;
+		iommus = <&apps_smmu 0x706 0x1>,
+			 <&apps_smmu 0x716 0x1>;
 	};
 
 	qcom_msmhdcp: qcom,msm_hdcp {
@@ -2749,9 +2749,9 @@
 		qcom,use-sw-ahash-algo;
 		qcom,use-sw-aead-algo;
 		qcom,use-sw-hmac-algo;
-		qcom,smmu-s1-bypass;
-		iommus = <&apps_smmu 0x704 0x3>,
-			 <&apps_smmu 0x714 0x3>;
+		qcom,smmu-s1-enable;
+		iommus = <&apps_smmu 0x704 0x1>,
+			 <&apps_smmu 0x714 0x1>;
 	};
 
 	qcom,msm_gsi {
