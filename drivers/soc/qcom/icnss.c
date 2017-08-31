@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -165,10 +165,10 @@ static int icnss_assign_msa_perm(struct icnss_mem_region_info
 	phys_addr_t addr;
 	u32 size;
 	u32 i = 0;
-	u32 source_vmids[ICNSS_MAX_VMIDS];
+	u32 source_vmids[ICNSS_MAX_VMIDS] = {0};
 	u32 source_nelems;
-	u32 dest_vmids[ICNSS_MAX_VMIDS];
-	u32 dest_perms[ICNSS_MAX_VMIDS];
+	u32 dest_vmids[ICNSS_MAX_VMIDS] = {0};
+	u32 dest_perms[ICNSS_MAX_VMIDS] = {0};
 	u32 dest_nelems;
 	enum icnss_msa_perm cur_perm = mem_region->perm;
 	struct icnss_msa_perm_list_t *new_perm_list, *old_perm_list;
