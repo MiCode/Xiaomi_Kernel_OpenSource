@@ -2030,6 +2030,7 @@ static int spcom_handle_get_req_size(struct spcom_channel *ch,
 				      void *buf,
 				      uint32_t size)
 {
+	int ret = -1;
 	uint32_t next_req_size = 0;
 
 	if (size < sizeof(next_req_size)) {
@@ -2037,7 +2038,10 @@ static int spcom_handle_get_req_size(struct spcom_channel *ch,
 		return -EINVAL;
 	}
 
-	next_req_size = spcom_get_next_request_size(ch);
+	ret = spcom_get_next_request_size(ch);
+	if (ret < 0)
+		return ret;
+	next_req_size = (uint32_t) ret;
 
 	memcpy(buf, &next_req_size, sizeof(next_req_size));
 	pr_debug("next_req_size [%d].\n", next_req_size);
@@ -2142,18 +2146,20 @@ static int spcom_handle_read(struct spcom_channel *ch,
 			      void *buf,
 			      uint32_t size)
 {
+	int ret = -1;
+
 	if (size == SPCOM_GET_NEXT_REQUEST_SIZE) {
 		pr_debug("get next request size, ch [%s].\n", ch->name);
 		ch->is_server = true;
-		size = spcom_handle_get_req_size(ch, buf, size);
+		ret = spcom_handle_get_req_size(ch, buf, size);
 	} else {
 		pr_debug("get request/response, ch [%s].\n", ch->name);
-		size = spcom_handle_read_req_resp(ch, buf, size);
+		ret = spcom_handle_read_req_resp(ch, buf, size);
 	}
 
 	pr_debug("ch [%s] , size = %d.\n", ch->name, size);
 
-	return size;
+	return ret;
 }
 
 /*======================================================================*/
@@ -2305,6 +2311,7 @@ static ssize_t spcom_device_write(struct file *filp,
 	char *buf;
 	struct spcom_channel *ch;
 	const char *name = file_to_filename(filp);
+	int buf_size = 0;
 
 	pr_debug("Write file [%s] size [%d] pos [%d].\n",
 		 name, (int) size, (int) *f_pos);
@@ -2331,6 +2338,7 @@ static ssize_t spcom_device_write(struct file *filp,
 			   (int) size , (int) SPCOM_MAX_COMMAND_SIZE);
 		return -EINVAL;
 	}
+	buf_size = size; /* explicit casting size_t to int */
 
 	if (*f_pos != 0) {
 		pr_err("offset should be zero, no sparse buffer.\n");
@@ -2348,7 +2356,7 @@ static ssize_t spcom_device_write(struct file *filp,
 		return -EFAULT;
 	}
 
-	ret = spcom_handle_write(ch, buf, size);
+	ret = spcom_handle_write(ch, buf, buf_size);
 	if (ret) {
 		pr_err("handle command error [%d].\n", ret);
 		kfree(buf);
@@ -2376,6 +2384,7 @@ static ssize_t spcom_device_read(struct file *filp, char __user *user_buff,
 	char *buf;
 	struct spcom_channel *ch;
 	const char *name = file_to_filename(filp);
+	uint32_t buf_size = 0;
 
 	pr_debug("Read file [%s], size = %d bytes.\n", name, (int) size);
 
@@ -2384,6 +2393,7 @@ static ssize_t spcom_device_read(struct file *filp, char __user *user_buff,
 		pr_err("invalid parameters.\n");
 		return -EINVAL;
 	}
+	buf_size = size; /* explicit casting size_t to uint32_t */
 
 	ch = filp->private_data;
 
@@ -2401,7 +2411,7 @@ static ssize_t spcom_device_read(struct file *filp, char __user *user_buff,
 	if (buf == NULL)
 		return -ENOMEM;
 
-	ret = spcom_handle_read(ch, buf, size);
+	ret = spcom_handle_read(ch, buf, buf_size);
 	if (ret < 0) {
 		pr_err("read error [%d].\n", ret);
 		kfree(buf);
