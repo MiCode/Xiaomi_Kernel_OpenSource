@@ -1358,6 +1358,12 @@
 		compatible = "qcom,msm-pcm-dtmf";
 	};
 
+	cpu-pmu {
+		compatible = "arm,cortex-a7-pmu";
+		qcom,irq-is-percpu;
+		interrupts = <1 8 0x100>;
+	};
+
 	dai_pri_auxpcm: qcom,msm-pri-auxpcm {
 		compatible = "qcom,msm-auxpcm-dev";
 		qcom,msm-cpudai-auxpcm-mode = <0>, <0>;
