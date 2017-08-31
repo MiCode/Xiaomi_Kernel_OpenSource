@@ -20,6 +20,8 @@
 
 #include <asm/sysreg.h>
 
+#define ICC_HPPIR1_EL1			sys_reg(3, 0, 12, 12, 2)
+
 #ifndef __ASSEMBLY__
 
 #include <linux/stringify.h>
