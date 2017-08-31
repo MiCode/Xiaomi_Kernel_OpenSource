@@ -82,7 +82,7 @@ int32_t cam_sensor_handle_delay(
 		(struct cam_cmd_unconditional_wait *) *cmd_buf;
 	struct i2c_settings_list *i2c_list = NULL;
 
-	if (i2c_list == NULL) {
+	if (list_ptr == NULL) {
 		CAM_ERR(CAM_SENSOR, "Invalid list ptr");
 		return -EINVAL;
 	}
