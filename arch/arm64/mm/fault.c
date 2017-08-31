@@ -41,6 +41,7 @@
 #include <asm/pgtable.h>
 #include <asm/tlbflush.h>
 #include <soc/qcom/scm.h>
+#include <trace/events/exception.h>
 
 struct fault_info {
 	int	(*fn)(unsigned long addr, unsigned int esr,
@@ -211,6 +212,8 @@ static void __do_user_fault(struct task_struct *tsk, unsigned long addr,
 {
 	struct siginfo si;
 	const struct fault_info *inf;
+
+	trace_user_fault(tsk, addr, esr);
 
 	if (unhandled_signal(tsk, sig) && show_unhandled_signals_ratelimited()) {
 		inf = esr_to_fault_info(esr);

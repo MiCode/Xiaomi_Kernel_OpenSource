@@ -43,6 +43,7 @@
 #include <asm/exception.h>
 #include <asm/system_misc.h>
 #include <asm/sysreg.h>
+#include <trace/events/exception.h>
 
 static const char *handler[]= {
 	"Synchronous Abort",
@@ -458,12 +459,16 @@ void arm64_notify_segfault(struct pt_regs *regs, unsigned long addr)
 
 asmlinkage void __exception do_undefinstr(struct pt_regs *regs)
 {
+	void __user *pc = (void __user *)instruction_pointer(regs);
+
 	/* check for AArch32 breakpoint instructions */
 	if (!aarch32_break_handler(regs))
 		return;
 
 	if (call_undef_hook(regs) == 0)
 		return;
+
+	trace_undef_instr(regs, pc);
 
 	force_signal_inject(SIGILL, ILL_ILLOPC, regs, 0);
 }

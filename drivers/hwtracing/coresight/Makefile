@@ -19,6 +19,7 @@ obj-$(CONFIG_CORESIGHT_STM) += coresight-stm.o
 obj-$(CONFIG_CORESIGHT_OST) += coresight-ost.o
 obj-$(CONFIG_CORESIGHT_TPDA) += coresight-tpda.o
 obj-$(CONFIG_CORESIGHT_TPDM) += coresight-tpdm.o
+obj-$(CONFIG_CORESIGHT_EVENT) += coresight-event.o
 obj-$(CONFIG_CORESIGHT_CTI) += coresight-cti.o
 obj-$(CONFIG_CORESIGHT_CSR) += coresight-csr.o
 obj-$(CONFIG_CORESIGHT_HWEVENT) += coresight-hwevent.o
