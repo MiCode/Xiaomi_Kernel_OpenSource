@@ -52,3 +52,15 @@
 		/delete-node/ qcom,msm_fastrpc_compute_cb13;
 	};
 };
+
+&soc {
+	/delete-node/ qcom,turing@1a300000;
+
+	/delete-node/ cti@7068000;
+	/delete-node/ turing_etm0;
+	funnel@6042000 {
+		ports {
+			/delete-node/ port@4;
+		};
+	};
+};
