@@ -398,21 +398,6 @@ static int qcom_llcc_erp_probe(struct platform_device *pdev)
 	if (rc)
 		goto out_mem;
 
-	if (interrupt_mode) {
-		drv->ecc_irq = platform_get_irq_byname(pdev, "ecc_irq");
-		if (!drv->ecc_irq) {
-			rc = -ENODEV;
-			goto out_dev;
-		}
-
-		rc = devm_request_irq(dev, drv->ecc_irq, llcc_ecc_irq_handler,
-				IRQF_TRIGGER_HIGH, "llcc_ecc", edev_ctl);
-		if (rc) {
-			dev_err(dev, "failed to request ecc irq\n");
-			goto out_dev;
-		}
-	}
-
 	drv->llcc_banks = devm_kzalloc(&pdev->dev,
 		sizeof(u32) * drv->num_banks, GFP_KERNEL);
 
@@ -437,6 +422,21 @@ static int qcom_llcc_erp_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, edev_ctl);
+
+	if (interrupt_mode) {
+		drv->ecc_irq = platform_get_irq_byname(pdev, "ecc_irq");
+		if (!drv->ecc_irq) {
+			rc = -ENODEV;
+			goto out_dev;
+		}
+
+		rc = devm_request_irq(dev, drv->ecc_irq, llcc_ecc_irq_handler,
+				IRQF_TRIGGER_HIGH, "llcc_ecc", edev_ctl);
+		if (rc) {
+			dev_err(dev, "failed to request ecc irq\n");
+			goto out_dev;
+		}
+	}
 
 	return 0;
 
