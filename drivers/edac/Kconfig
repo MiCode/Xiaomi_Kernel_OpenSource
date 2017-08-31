@@ -500,7 +500,7 @@ config EDAC_XGENE
 	  APM X-Gene family of SOCs.
 
 config EDAC_QCOM_LLCC
-	depends on EDAC_MM_EDAC && QCOM_LLCC
+	depends on QCOM_LLCC
 	tristate "QCOM LLCC Caches"
 	help
 	  Support for error detection and correction on the

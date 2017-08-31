@@ -19,7 +19,8 @@
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
 #include <linux/interrupt.h>
-#include "edac_core.h"
+#include "edac_mc.h"
+#include "edac_device.h"
 
 #ifdef CONFIG_EDAC_QCOM_LLCC_PANIC_ON_CE
 #define LLCC_ERP_PANIC_ON_CE 1
