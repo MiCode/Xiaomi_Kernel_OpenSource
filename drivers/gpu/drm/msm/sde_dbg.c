@@ -1765,7 +1765,7 @@ static ssize_t sde_dbg_reg_base_offset_write(struct file *file,
 
 	buf[count] = 0;	/* end of string */
 
-	if (sscanf(buf, "%5x %x", &off, &cnt) != 2)
+	if (sscanf(buf, "%x %x", &off, &cnt) != 2)
 		return -EFAULT;
 
 	if (off > dbg->max_offset)
@@ -1884,7 +1884,7 @@ static ssize_t sde_dbg_reg_base_reg_read(struct file *file,
 	}
 
 	if (!dbg->buf) {
-		char *hwbuf, *hwbuf_cur;
+		char *hwbuf;
 		char dump_buf[64];
 		char __iomem *ioptr;
 		int cnt, tot;
@@ -1900,38 +1900,35 @@ static ssize_t sde_dbg_reg_base_reg_read(struct file *file,
 		if (!dbg->buf)
 			return -ENOMEM;
 
-		hwbuf = kzalloc(dbg->buf_len, GFP_KERNEL);
+		hwbuf = kzalloc(ROW_BYTES, GFP_KERNEL);
 		if (!hwbuf) {
 			kfree(dbg->buf);
 			return -ENOMEM;
 		}
-		hwbuf_cur = hwbuf;
 
 		ioptr = dbg->base + dbg->off;
 		tot = 0;
-
 		_sde_dbg_enable_power(true);
 
-		memcpy_fromio(hwbuf, ioptr, dbg->buf_len);
-
-		_sde_dbg_enable_power(false);
-
 		for (cnt = dbg->cnt; cnt > 0; cnt -= ROW_BYTES) {
-			hex_dump_to_buffer(hwbuf_cur,
+			memcpy_fromio(hwbuf, ioptr, ROW_BYTES);
+			hex_dump_to_buffer(hwbuf,
 					   min(cnt, ROW_BYTES),
 					   ROW_BYTES, GROUP_BYTES, dump_buf,
 					   sizeof(dump_buf), false);
 			len = scnprintf(dbg->buf + tot, dbg->buf_len - tot,
 					"0x%08x: %s\n",
-					((int) (unsigned long) hwbuf_cur) -
+					((int) (unsigned long) ioptr) -
 					((int) (unsigned long) dbg->base),
 					dump_buf);
 
-			hwbuf_cur += ROW_BYTES;
+			ioptr += ROW_BYTES;
 			tot += len;
 			if (tot >= dbg->buf_len)
 				break;
 		}
+
+		_sde_dbg_enable_power(false);
 
 		dbg->buf_len = tot;
 		kfree(hwbuf);
