@@ -22,6 +22,47 @@
 
 };
 
+&soc {
+	/* Delete all regulators */
+	/delete-node/ rpmh-regulator-smpa4;
+	/delete-node/ rpmh-regulator-smpa6;
+	/delete-node/ rpmh-regulator-mxlvl;
+	/delete-node/ rpmh-regulator-modemlvl;
+	/delete-node/ rpmh-regulator-cxlvl;
+	/delete-node/ rpmh-regulator-ldoa1;
+	/delete-node/ rpmh-regulator-ldoa2;
+	/delete-node/ rpmh-regulator-ldoa3;
+	/delete-node/ rpmh-regulator-ldoa5;
+	/delete-node/ rpmh-regulator-ldoa6;
+	/delete-node/ rpmh-regulator-ldoa7;
+	/delete-node/ rpmh-regulator-ldoa8;
+	/delete-node/ rpmh-regulator-ldoa9;
+	/delete-node/ rpmh-regulator-ldoa10;
+	/delete-node/ rpmh-regulator-ldoa11;
+	/delete-node/ rpmh-regulator-ldoa12;
+	/delete-node/ rpmh-regulator-ldoa13;
+	/delete-node/ rpmh-regulator-ldoa14;
+	/delete-node/ rpmh-regulator-ldoa15;
+	/delete-node/ rpmh-regulator-ldoa16;
+	/delete-node/ rpmh-regulator-ldoa17;
+	/delete-node/ rpmh-regulator-ldoa19;
+	/delete-node/ rpmh-regulator-ldob1;
+	/delete-node/ rpmh-regulator-ldob2;
+	/delete-node/ rpmh-regulator-ldob3;
+	/delete-node/ rpmh-regulator-ldob4;
+	/delete-node/ rpmh-regulator-ldob5;
+	/delete-node/ rpmh-regulator-ldob6;
+	/delete-node/ rpmh-regulator-ldob7;
+	/delete-node/ rpmh-regulator-ldob8;
+	/delete-node/ rpmh-regulator-lcxlvl;
+	/delete-node/ rpmh-regulator-lmxlvl;
+	/delete-node/ rpmh-regulator-ldoa28;
+	/delete-node/ rpmh-regulator-bobb1;
+	/delete-node/ rpmh-regulator-gfxlvl;
+};
+
+#include "sdm670-stub-regulator.dtsi"
+
 &qupv3_se9_2uart {
 	status = "disabled";
 };
