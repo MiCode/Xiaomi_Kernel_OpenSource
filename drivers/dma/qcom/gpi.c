@@ -439,6 +439,9 @@ struct gpi_dev {
 	u32 max_gpii; /* maximum # of gpii instances available per gpi block */
 	u32 gpii_mask; /* gpii instances available for apps */
 	u32 ev_factor; /* ev ring length factor */
+	u32 smmu_cfg;
+	dma_addr_t iova_base;
+	size_t iova_size;
 	struct gpii *gpiis;
 	void *ilctxt;
 	u32 ipc_log_lvl;
@@ -510,6 +513,11 @@ struct gpi_desc {
 	void *db; /* DB register to program */
 	struct gpii_chan *gpii_chan;
 };
+
+#define GPI_SMMU_ATTACH BIT(0)
+#define GPI_SMMU_S1_BYPASS BIT(1)
+#define GPI_SMMU_FAST BIT(2)
+#define GPI_SMMU_ATOMIC BIT(3)
 
 const u32 GPII_CHAN_DIR[MAX_CHANNELS_PER_GPII] = {
 	GPI_CHTYPE_DIR_OUT, GPI_CHTYPE_DIR_IN
@@ -2613,52 +2621,123 @@ static void gpi_setup_debug(struct gpi_dev *gpi_dev)
 	}
 }
 
+static struct dma_iommu_mapping *gpi_create_mapping(struct gpi_dev *gpi_dev)
+{
+	dma_addr_t base;
+	size_t size;
+
+	/*
+	 * If S1_BYPASS enabled then iommu space is not used, however framework
+	 * still require clients to create a mapping space before attaching. So
+	 * set to smallest size required by iommu framework.
+	 */
+	if (gpi_dev->smmu_cfg & GPI_SMMU_S1_BYPASS) {
+		base = 0;
+		size = PAGE_SIZE;
+	} else {
+		base = gpi_dev->iova_base;
+		size = gpi_dev->iova_size;
+	}
+
+	GPI_LOG(gpi_dev, "Creating iommu mapping of base:0x%llx size:%lu\n",
+		base, size);
+
+	return arm_iommu_create_mapping(&platform_bus_type, base, size);
+}
+
+static int gpi_dma_mask(struct gpi_dev *gpi_dev)
+{
+	int mask = 64;
+
+	if (gpi_dev->smmu_cfg && !(gpi_dev->smmu_cfg & GPI_SMMU_S1_BYPASS)) {
+		unsigned long addr;
+
+		addr = gpi_dev->iova_base + gpi_dev->iova_size + 1;
+		mask = find_last_bit(&addr, 64);
+	}
+
+	GPI_LOG(gpi_dev, "Setting dma mask to %d\n", mask);
+
+	return dma_set_mask(gpi_dev->dev, DMA_BIT_MASK(mask));
+}
+
 static int gpi_smmu_init(struct gpi_dev *gpi_dev)
 {
-	u64 size = PAGE_SIZE;
-	dma_addr_t base = 0x0;
-	struct dma_iommu_mapping *map;
-	int attr, ret;
+	struct dma_iommu_mapping *mapping = NULL;
+	int ret;
 
-	map = arm_iommu_create_mapping(&platform_bus_type, base, size);
-	if (IS_ERR_OR_NULL(map)) {
-		ret = PTR_ERR(map) ? : -EIO;
-		GPI_ERR(gpi_dev, "error create_mapping, ret:%d\n", ret);
-		return ret;
+	if (gpi_dev->smmu_cfg) {
+
+		/* create mapping table */
+		mapping = gpi_create_mapping(gpi_dev);
+		if (IS_ERR(mapping)) {
+			GPI_ERR(gpi_dev,
+				"Failed to create iommu mapping, ret:%ld\n",
+				PTR_ERR(mapping));
+			return PTR_ERR(mapping);
+		}
+
+		if (gpi_dev->smmu_cfg & GPI_SMMU_S1_BYPASS) {
+			int s1_bypass = 1;
+
+			ret = iommu_domain_set_attr(mapping->domain,
+					DOMAIN_ATTR_S1_BYPASS, &s1_bypass);
+			if (ret) {
+				GPI_ERR(gpi_dev,
+					"Failed to set attr S1_BYPASS, ret:%d\n",
+					ret);
+				goto release_mapping;
+			}
+		}
+
+		if (gpi_dev->smmu_cfg & GPI_SMMU_FAST) {
+			int fast = 1;
+
+			ret = iommu_domain_set_attr(mapping->domain,
+						    DOMAIN_ATTR_FAST, &fast);
+			if (ret) {
+				GPI_ERR(gpi_dev,
+					"Failed to set attr FAST, ret:%d\n",
+					ret);
+				goto release_mapping;
+			}
+		}
+
+		if (gpi_dev->smmu_cfg & GPI_SMMU_ATOMIC) {
+			int atomic = 1;
+
+			ret = iommu_domain_set_attr(mapping->domain,
+						DOMAIN_ATTR_ATOMIC, &atomic);
+			if (ret) {
+				GPI_ERR(gpi_dev,
+					"Failed to set attr ATOMIC, ret:%d\n",
+					ret);
+				goto release_mapping;
+			}
+		}
+
+		ret = arm_iommu_attach_device(gpi_dev->dev, mapping);
+		if (ret) {
+			GPI_ERR(gpi_dev,
+				"Failed with iommu_attach, ret:%d\n", ret);
+			goto release_mapping;
+		}
 	}
 
-	attr = 1;
-	ret = iommu_domain_set_attr(map->domain, DOMAIN_ATTR_ATOMIC, &attr);
+	ret = gpi_dma_mask(gpi_dev);
 	if (ret) {
-		GPI_ERR(gpi_dev, "error setting ATTTR_ATOMIC, ret:%d\n", ret);
-		goto error_smmu;
-	}
-
-	attr = 1;
-	ret = iommu_domain_set_attr(map->domain, DOMAIN_ATTR_S1_BYPASS, &attr);
-	if (ret) {
-		GPI_ERR(gpi_dev, "error setting S1_BYPASS, ret:%d\n", ret);
-		goto error_smmu;
-	}
-
-	ret = arm_iommu_attach_device(gpi_dev->dev, map);
-	if (ret) {
-		GPI_ERR(gpi_dev, "error iommu_attach, ret:%d\n", ret);
-		goto error_smmu;
-	}
-
-	ret = dma_set_mask(gpi_dev->dev, DMA_BIT_MASK(64));
-	if (ret) {
-		GPI_ERR(gpi_dev, "error setting dma_mask, ret:%d\n", ret);
+		GPI_ERR(gpi_dev, "Error setting dma_mask, ret:%d\n", ret);
 		goto error_set_mask;
 	}
 
 	return ret;
 
 error_set_mask:
-	arm_iommu_detach_device(gpi_dev->dev);
-error_smmu:
-	arm_iommu_release_mapping(map);
+	if (gpi_dev->smmu_cfg)
+		arm_iommu_detach_device(gpi_dev->dev);
+release_mapping:
+	if (mapping)
+		arm_iommu_release_mapping(mapping);
 	return ret;
 }
 
@@ -2705,6 +2784,36 @@ static int gpi_probe(struct platform_device *pdev)
 	if (ret) {
 		GPI_ERR(gpi_dev, "missing 'qcom,ev-factor' DT node\n");
 		return ret;
+	}
+
+	ret = of_property_read_u32(gpi_dev->dev->of_node, "qcom,smmu-cfg",
+				   &gpi_dev->smmu_cfg);
+	if (ret) {
+		GPI_ERR(gpi_dev, "missing 'qcom,smmu-cfg' DT node\n");
+		return ret;
+	}
+	if (gpi_dev->smmu_cfg && !(gpi_dev->smmu_cfg & GPI_SMMU_S1_BYPASS)) {
+		u64 iova_range[2];
+
+		ret = of_property_count_elems_of_size(gpi_dev->dev->of_node,
+						      "qcom,iova-range",
+						      sizeof(iova_range));
+		if (ret != 1) {
+			GPI_ERR(gpi_dev,
+				"missing or incorrect 'qcom,iova-range' DT node ret:%d\n",
+				ret);
+		}
+
+		ret = of_property_read_u64_array(gpi_dev->dev->of_node,
+					"qcom,iova-range", iova_range,
+					sizeof(iova_range) / sizeof(u64));
+		if (ret) {
+			GPI_ERR(gpi_dev,
+				"could not read DT prop 'qcom,iova-range\n");
+			return ret;
+		}
+		gpi_dev->iova_base = iova_range[0];
+		gpi_dev->iova_size = iova_range[1];
 	}
 
 	ret = gpi_smmu_init(gpi_dev);

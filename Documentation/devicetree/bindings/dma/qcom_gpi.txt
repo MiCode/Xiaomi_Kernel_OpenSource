@@ -63,6 +63,22 @@ Main node properties:
 	for the controller.  For more detail please check binding
 	documentation arm,smmu.txt
 
+- qcom,smmu-cfg
+  Usage: required
+  Value type: <u32>
+  Definition: Determine whether GPI driver require to configure SMMU that
+	sits behind GPI controller.
+	Bit mask:
+	BIT(0) : Attach address mapping to endpoint device
+	BIT(1) : Set SMMU attribute S1_BYPASS
+	BIT(2) : Set SMMU attribute FAST
+	BIT(3) : Set SMMU attribute ATOMIC
+
+- qcom,iova-range
+  Usage: required if SMMU S1 translation is enabled
+  Value type: Array of <u64>
+  Definition: Pair of values describing iova base and size to allocate.
+
 ========
 Example:
 ========
@@ -79,5 +95,7 @@ gpi_dma0: qcom,gpi-dma@0x800000 {
 	qcom,gpii-mask = <0xfa>;
 	qcom,ev-factor = <2>;
 	iommus = <&apps_smmu 0x0016 0x0>;
+	qcom,smmu-cfg = <0x1>
+	qcom,iova-range = <0x0 0x100000 0x0 0x100000>;
 	status = "ok";
 };
