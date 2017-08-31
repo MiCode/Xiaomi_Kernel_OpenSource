@@ -166,7 +166,7 @@ config SND_SOC_EXT_CODEC
 
 config SND_SOC_MSM8996
 	tristate "SoC Machine driver for MSM8996 boards"
-	depends on ARCH_MSM8996
+	depends on ARCH_MSM8996 || MSM_GVM_QUIN
 	select SND_SOC_COMPRESS
 	select SND_SOC_QDSP6V2
 	select SND_SOC_MSM_STUB
@@ -176,7 +176,7 @@ config SND_SOC_MSM8996
 	select MSM_QDSP6V2_CODECS
 	select SND_SOC_WCD9335
 	select SND_SOC_WSA881X
-	select SND_SOC_MSM_HDMI_CODEC_RX
+	select SND_SOC_MSM_HDMI_CODEC_RX if ARCH_MSM8996
 	select DTS_SRS_TM
 	select QTI_PP
 	select QTI_PP_AUDIOSPHERE
