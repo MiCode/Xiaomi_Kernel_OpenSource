@@ -14,7 +14,6 @@
 #include "cam_csiphy_core.h"
 #include "include/cam_csiphy_1_0_hwreg.h"
 
-#ifdef CAM_CSIPHY_MEM_DMP
 int32_t cam_csiphy_mem_dmp(struct cam_hw_soc_info *soc_info)
 {
 	int32_t rc = 0;
@@ -35,7 +34,6 @@ int32_t cam_csiphy_mem_dmp(struct cam_hw_soc_info *soc_info)
 	}
 	return rc;
 }
-#endif
 
 int32_t cam_csiphy_enable_hw(struct csiphy_device *csiphy_dev)
 {

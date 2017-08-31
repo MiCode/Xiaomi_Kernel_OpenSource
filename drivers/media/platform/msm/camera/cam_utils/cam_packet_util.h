@@ -33,6 +33,10 @@ struct cam_kmd_buf_info {
 	uint32_t   used_bytes;
 };
 
+/* Generic Cmd Buffer blob callback function type */
+typedef int (*cam_packet_generic_blob_handler)(void *user_data,
+	uint32_t blob_type, uint32_t blob_size, uint8_t *blob_data);
+
 /**
  * cam_packet_util_validate_packet()
  *
@@ -85,5 +89,25 @@ int cam_packet_util_get_kmd_buffer(struct cam_packet *packet,
  */
 int cam_packet_util_process_patches(struct cam_packet *packet,
 	int32_t iommu_hdl);
+
+/**
+ * cam_packet_util_process_generic_cmd_buffer()
+ *
+ * @brief:              Process Generic Blob command buffer. This utility
+ *                      function process the command buffer and calls the
+ *                      blob_handle_cb callback for each blob that exists
+ *                      in the command buffer.
+ *
+ * @cmd_buf:            Generic Blob Cmd Buffer handle
+ * @blob_handler_cb:    Callback pointer to call for each blob exists in the
+ *                      command buffer
+ * @user_data:          User data to be passed while callback
+ *
+ * @return:             0: Success
+ *                      Negative: Failure
+ */
+int cam_packet_util_process_generic_cmd_buffer(
+	struct cam_cmd_buf_desc *cmd_buf,
+	cam_packet_generic_blob_handler blob_handler_cb, void *user_data);
 
 #endif /* _CAM_PACKET_UTIL_H_ */

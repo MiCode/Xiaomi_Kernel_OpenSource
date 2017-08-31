@@ -96,6 +96,8 @@ int cam_a5_probe(struct platform_device *pdev)
 	}
 
 	a5_dev->soc_info.pdev = pdev;
+	a5_dev->soc_info.dev = &pdev->dev;
+	a5_dev->soc_info.dev_name = pdev->name;
 	a5_dev_intf->hw_priv = a5_dev;
 	a5_dev_intf->hw_ops.init = cam_a5_init_hw;
 	a5_dev_intf->hw_ops.deinit = cam_a5_deinit_hw;

@@ -219,7 +219,8 @@ end:
 static int __cam_isp_ctx_notify_sof_in_actived_state(
 	struct cam_isp_context *ctx_isp, void *evt_data)
 {
-	struct cam_req_mgr_sof_notify  notify;
+	int rc = 0;
+	struct cam_req_mgr_trigger_notify  notify;
 	struct cam_context *ctx = ctx_isp->base;
 	struct cam_ctx_request  *req;
 	uint64_t  request_id  = 0;
@@ -231,15 +232,18 @@ static int __cam_isp_ctx_notify_sof_in_actived_state(
 	 * In this case, we need to skip the current notification. This
 	 * helps the state machine to catch up the delay.
 	 */
-	if (ctx->ctx_crm_intf && ctx->ctx_crm_intf->notify_sof &&
+	if (ctx->ctx_crm_intf && ctx->ctx_crm_intf->notify_trigger &&
 		ctx_isp->active_req_cnt <= 2) {
-		notify.link_hdl = ctx->link_hdl;
-		notify.dev_hdl = ctx->dev_hdl;
-		notify.frame_id = ctx_isp->frame_id;
+		if (ctx_isp->subscribe_event & CAM_TRIGGER_POINT_SOF) {
+			notify.link_hdl = ctx->link_hdl;
+			notify.dev_hdl = ctx->dev_hdl;
+			notify.frame_id = ctx_isp->frame_id;
+			notify.trigger = CAM_TRIGGER_POINT_SOF;
 
-		ctx->ctx_crm_intf->notify_sof(&notify);
-		CAM_DBG(CAM_ISP, "Notify CRM  SOF frame %lld",
-			ctx_isp->frame_id);
+			ctx->ctx_crm_intf->notify_trigger(&notify);
+			CAM_DBG(CAM_ISP, "Notify CRM  SOF frame %lld",
+				ctx_isp->frame_id);
+		}
 
 		list_for_each_entry(req, &ctx->active_req_list, list) {
 			if (req->request_id > ctx_isp->reported_req_id) {
@@ -253,11 +257,39 @@ static int __cam_isp_ctx_notify_sof_in_actived_state(
 			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 	} else {
 		CAM_ERR(CAM_ISP, "Can not notify SOF to CRM");
+		rc = -EFAULT;
 	}
 
 	return 0;
 }
 
+static int __cam_isp_ctx_notify_eof_in_actived_state(
+	struct cam_isp_context *ctx_isp, void *evt_data)
+{
+	int rc = 0;
+	struct cam_req_mgr_trigger_notify  notify;
+	struct cam_context *ctx = ctx_isp->base;
+
+	if (!(ctx_isp->subscribe_event & CAM_TRIGGER_POINT_EOF))
+		return rc;
+
+	/* notify reqmgr with eof signal */
+	if (ctx->ctx_crm_intf && ctx->ctx_crm_intf->notify_trigger) {
+		notify.link_hdl = ctx->link_hdl;
+		notify.dev_hdl = ctx->dev_hdl;
+		notify.frame_id = ctx_isp->frame_id;
+		notify.trigger = CAM_TRIGGER_POINT_EOF;
+
+		ctx->ctx_crm_intf->notify_trigger(&notify);
+		CAM_DBG(CAM_ISP, "Notify CRM EOF frame %lld\n",
+			ctx_isp->frame_id);
+	} else {
+		CAM_ERR(CAM_ISP, "Can not notify EOF to CRM");
+		rc = -EFAULT;
+	}
+
+	return rc;
+}
 
 static int __cam_isp_ctx_sof_in_activated_state(
 	struct cam_isp_context *ctx_isp, void *evt_data)
@@ -581,7 +613,7 @@ static struct cam_isp_ctx_irq_ops
 			__cam_isp_ctx_sof_in_activated_state,
 			__cam_isp_ctx_reg_upd_in_sof,
 			__cam_isp_ctx_notify_sof_in_actived_state,
-			NULL,
+			__cam_isp_ctx_notify_eof_in_actived_state,
 			NULL,
 		},
 	},
@@ -592,7 +624,7 @@ static struct cam_isp_ctx_irq_ops
 			__cam_isp_ctx_sof_in_activated_state,
 			__cam_isp_ctx_reg_upd_in_activated_state,
 			__cam_isp_ctx_epoch_in_applied,
-			NULL,
+			__cam_isp_ctx_notify_eof_in_actived_state,
 			__cam_isp_ctx_buf_done_in_applied,
 		},
 	},
@@ -603,7 +635,7 @@ static struct cam_isp_ctx_irq_ops
 			__cam_isp_ctx_sof_in_epoch,
 			NULL,
 			__cam_isp_ctx_notify_sof_in_actived_state,
-			NULL,
+			__cam_isp_ctx_notify_eof_in_actived_state,
 			__cam_isp_ctx_buf_done_in_epoch,
 		},
 	},
@@ -614,7 +646,7 @@ static struct cam_isp_ctx_irq_ops
 			__cam_isp_ctx_sof_in_activated_state,
 			NULL,
 			__cam_isp_ctx_notify_sof_in_actived_state,
-			NULL,
+			__cam_isp_ctx_notify_eof_in_actived_state,
 			__cam_isp_ctx_buf_done_in_bubble,
 		},
 	},
@@ -890,7 +922,7 @@ static int __cam_isp_ctx_rdi_only_sof_in_top_state(
 {
 	int rc = 0;
 	struct cam_context                    *ctx = ctx_isp->base;
-	struct cam_req_mgr_sof_notify          notify;
+	struct cam_req_mgr_trigger_notify      notify;
 	struct cam_isp_hw_sof_event_data      *sof_event_data = evt_data;
 	uint64_t                               request_id  = 0;
 
@@ -911,13 +943,14 @@ static int __cam_isp_ctx_rdi_only_sof_in_top_state(
 	 * In this case, we need to skip the current notification. This
 	 * helps the state machine to catch up the delay.
 	 */
-	if (ctx->ctx_crm_intf && ctx->ctx_crm_intf->notify_sof &&
+	if (ctx->ctx_crm_intf && ctx->ctx_crm_intf->notify_trigger &&
 		ctx_isp->active_req_cnt <= 2) {
 		notify.link_hdl = ctx->link_hdl;
 		notify.dev_hdl = ctx->dev_hdl;
 		notify.frame_id = ctx_isp->frame_id;
+		notify.trigger = CAM_TRIGGER_POINT_SOF;
 
-		ctx->ctx_crm_intf->notify_sof(&notify);
+		ctx->ctx_crm_intf->notify_trigger(&notify);
 		CAM_DBG(CAM_ISP, "Notify CRM  SOF frame %lld",
 			ctx_isp->frame_id);
 
@@ -1037,7 +1070,7 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_state(
 	uint32_t i;
 	struct cam_ctx_request                *req;
 	struct cam_context                    *ctx = ctx_isp->base;
-	struct cam_req_mgr_sof_notify          notify;
+	struct cam_req_mgr_trigger_notify      notify;
 	struct cam_isp_hw_sof_event_data      *sof_event_data = evt_data;
 	struct cam_isp_ctx_req                *req_isp;
 	uint64_t                               request_id  = 0;
@@ -1072,12 +1105,13 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_state(
 	}
 
 	/* notify reqmgr with sof signal */
-	if (ctx->ctx_crm_intf && ctx->ctx_crm_intf->notify_sof) {
+	if (ctx->ctx_crm_intf && ctx->ctx_crm_intf->notify_trigger) {
 		notify.link_hdl = ctx->link_hdl;
 		notify.dev_hdl = ctx->dev_hdl;
 		notify.frame_id = ctx_isp->frame_id;
+		notify.trigger = CAM_TRIGGER_POINT_SOF;
 
-		ctx->ctx_crm_intf->notify_sof(&notify);
+		ctx->ctx_crm_intf->notify_trigger(&notify);
 		CAM_DBG(CAM_ISP, "Notify CRM  SOF frame %lld",
 			ctx_isp->frame_id);
 
@@ -1106,11 +1140,11 @@ static int __cam_isp_ctx_rdi_only_reg_upd_in_bubble_applied_state(
 	struct cam_ctx_request  *req;
 	struct cam_context      *ctx = ctx_isp->base;
 	struct cam_isp_ctx_req  *req_isp;
-	struct cam_req_mgr_sof_notify  notify;
+	struct cam_req_mgr_trigger_notify  notify;
 	uint64_t  request_id  = 0;
 
 	/* notify reqmgr with sof signal*/
-	if (ctx->ctx_crm_intf && ctx->ctx_crm_intf->notify_sof) {
+	if (ctx->ctx_crm_intf && ctx->ctx_crm_intf->notify_trigger) {
 		if (list_empty(&ctx->pending_req_list)) {
 			CAM_ERR(CAM_ISP, "Reg upd ack with no pending request");
 			goto error;
@@ -1138,8 +1172,9 @@ static int __cam_isp_ctx_rdi_only_reg_upd_in_bubble_applied_state(
 		notify.link_hdl = ctx->link_hdl;
 		notify.dev_hdl = ctx->dev_hdl;
 		notify.frame_id = ctx_isp->frame_id;
+		notify.trigger = CAM_TRIGGER_POINT_SOF;
 
-		ctx->ctx_crm_intf->notify_sof(&notify);
+		ctx->ctx_crm_intf->notify_trigger(&notify);
 		CAM_DBG(CAM_ISP, "Notify CRM  SOF frame %lld",
 			ctx_isp->frame_id);
 	} else {
@@ -1608,11 +1643,14 @@ static int __cam_isp_ctx_link_in_acquired(struct cam_context *ctx,
 	struct cam_req_mgr_core_dev_link_setup *link)
 {
 	int rc = 0;
+	struct cam_isp_context *ctx_isp =
+		(struct cam_isp_context *) ctx->ctx_priv;
 
 	CAM_DBG(CAM_ISP, "Enter.........");
 
 	ctx->link_hdl = link->link_hdl;
 	ctx->ctx_crm_intf = link->crm_cb;
+	ctx_isp->subscribe_event = link->subscribe_event;
 
 	/* change state only if we had the init config */
 	if (!list_empty(&ctx->pending_req_list)) {
@@ -1645,6 +1683,7 @@ static int __cam_isp_ctx_get_dev_info_in_acquired(struct cam_context *ctx,
 	strlcpy(dev_info->name, CAM_ISP_DEV_NAME, sizeof(dev_info->name));
 	dev_info->dev_id = CAM_REQ_MGR_DEVICE_IFE;
 	dev_info->p_delay = 1;
+	dev_info->trigger = CAM_TRIGGER_POINT_SOF;
 
 	return rc;
 }

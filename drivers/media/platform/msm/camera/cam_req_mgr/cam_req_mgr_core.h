@@ -47,15 +47,15 @@ enum crm_workq_task_type {
 
 /**
  * struct crm_task_payload
- * @type       : to identify which type of task is present
- * @u          : union of payload of all types of tasks supported
- * @sched_req  : contains info of  incoming reqest from CSL to CRM
- * @flush_info : contains info of cancelled reqest
- * @dev_req    : contains tracking info of available req id at device
- * @send_req   : contains info of apply settings to be sent to devs in link
- * @apply_req  : contains info of which request is applied at device
- * @notify_sof : contains notification from IFE to CRM about SOF trigger
- * @notify_err : contains error info happened while processing request
+ * @type           : to identify which type of task is present
+ * @u              : union of payload of all types of tasks supported
+ * @sched_req      : contains info of  incoming reqest from CSL to CRM
+ * @flush_info     : contains info of cancelled reqest
+ * @dev_req        : contains tracking info of available req id at device
+ * @send_req       : contains info of apply settings to be sent to devs in link
+ * @apply_req      : contains info of which request is applied at device
+ * @notify_trigger : contains notification from IFE to CRM about trigger
+ * @notify_err     : contains error info happened while processing request
  * -
  */
 struct crm_task_payload {
@@ -65,7 +65,7 @@ struct crm_task_payload {
 		struct cam_req_mgr_flush_info           flush_info;
 		struct cam_req_mgr_add_request          dev_req;
 		struct cam_req_mgr_send_request         send_req;
-		struct cam_req_mgr_sof_notify           notify_sof;
+		struct cam_req_mgr_trigger_notify       notify_trigger;
 		struct cam_req_mgr_error_notify         notify_err;
 	} u;
 };
@@ -90,8 +90,8 @@ enum crm_req_state {
  * State machine for life cycle of request in input queue
  * NO_REQ     : empty slot
  * REQ_ADDED  : new entry in slot
- * INCOMPLETE : waiting for
- * APPLIED    : req is sent to devices
+ * PENDING    : waiting for next trigger to apply
+ * APPLIED    : req is sent to all devices
  * INVALID    : invalid state
  */
 enum crm_slot_status {
@@ -108,7 +108,7 @@ enum crm_slot_status {
  * AVAILABLE  : link available
  * IDLE       : link initialized but not ready yet
  * READY      : link is ready for use
- * ERR	      : link has encountered error
+ * ERR        : link has encountered error
  * MAX        : invalid state
  */
 enum cam_req_mgr_link_state {
@@ -189,12 +189,12 @@ struct cam_req_mgr_req_tbl {
 /**
  * struct cam_req_mgr_slot
  * - Internal Book keeping
- * @idx      : slot index
- * @skip_idx : if req id in this slot needs to be skipped/not applied
- * @status   : state machine for life cycle of a slot
+ * @idx          : slot index
+ * @skip_idx     : if req id in this slot needs to be skipped/not applied
+ * @status       : state machine for life cycle of a slot
  * - members updated due to external events
- * @recover  : if user enabled recovery for this request.
- * @req_id   : mask tracking which all devices have request ready
+ * @recover      : if user enabled recovery for this request.
+ * @req_id       : mask tracking which all devices have request ready
  */
 struct cam_req_mgr_slot {
 	int32_t               idx;
@@ -275,6 +275,9 @@ struct cam_req_mgr_connected_device {
  * @state          : link state machine
  * @parent         : pvt data - link's parent is session
  * @lock           : mutex lock to guard link data operations
+ * @subscribe_event: irqs that link subscribes, IFE should send notification
+ * to CRM at those hw events.
+ * @trigger_mask   : mask on which irq the req is already applied
  */
 struct cam_req_mgr_core_link {
 	int32_t                              link_hdl;
@@ -289,6 +292,8 @@ struct cam_req_mgr_core_link {
 	enum cam_req_mgr_link_state          state;
 	void                                *parent;
 	struct mutex                         lock;
+	uint32_t                             subscribe_event;
+	uint32_t                             trigger_mask;
 };
 
 /**

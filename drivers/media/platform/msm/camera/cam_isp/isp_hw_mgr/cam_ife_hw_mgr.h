@@ -106,6 +106,7 @@ struct ctx_base_info {
  * @cdm_cmd                 cdm base and length request pointer
  * @sof_cnt                 sof count value per core, used for dual VFE
  * @epoch_cnt               epoch count value per core, used for dual VFE
+ * @eof_cnt                 eof count value per core, used for dual VFE
  * @overflow_pending        flat to specify the overflow is pending for the
  *                          context
  * @is_rdi_only_context     flag to specify the context has only rdi resource
@@ -138,6 +139,7 @@ struct cam_ife_hw_mgr_ctx {
 
 	uint32_t                        sof_cnt[CAM_IFE_HW_NUM_MAX];
 	uint32_t                        epoch_cnt[CAM_IFE_HW_NUM_MAX];
+	uint32_t                        eof_cnt[CAM_IFE_HW_NUM_MAX];
 	atomic_t                        overflow_pending;
 	uint32_t                        is_rdi_only_context;
 

@@ -143,14 +143,17 @@ static int32_t cam_sensor_driver_get_dt_data(struct cam_sensor_ctrl_t *s_ctrl)
 		goto FREE_SENSOR_DATA;
 	}
 
-	/* Get CCI master */
-	rc = of_property_read_u32(of_node, "cci-master",
-		&s_ctrl->cci_i2c_master);
-	CAM_DBG(CAM_SENSOR, "cci-master %d, rc %d", s_ctrl->cci_i2c_master, rc);
-	if (rc < 0) {
-		/* Set default master 0 */
-		s_ctrl->cci_i2c_master = MASTER_0;
-		rc = 0;
+	if (s_ctrl->io_master_info.master_type == CCI_MASTER) {
+		/* Get CCI master */
+		rc = of_property_read_u32(of_node, "cci-master",
+			&s_ctrl->cci_i2c_master);
+		CAM_DBG(CAM_SENSOR, "cci-master %d, rc %d",
+			s_ctrl->cci_i2c_master, rc);
+		if (rc < 0) {
+			/* Set default master 0 */
+			s_ctrl->cci_i2c_master = MASTER_0;
+			rc = 0;
+		}
 	}
 
 	if (of_property_read_u32(of_node, "sensor-position-pitch",
@@ -194,6 +197,9 @@ int32_t msm_sensor_init_default_params(struct cam_sensor_ctrl_t *s_ctrl)
 		if (!(s_ctrl->io_master_info.cci_client))
 			return -ENOMEM;
 
+	} else if (s_ctrl->io_master_info.master_type == I2C_MASTER) {
+		if (!(s_ctrl->io_master_info.client))
+			return -EINVAL;
 	} else {
 		CAM_ERR(CAM_SENSOR,
 			"Invalid master / Master type Not supported");
@@ -220,7 +226,7 @@ int32_t cam_sensor_parse_dt(struct cam_sensor_ctrl_t *s_ctrl)
 
 	/* Initialize default parameters */
 	for (i = 0; i < soc_info->num_clk; i++) {
-		soc_info->clk[i] = devm_clk_get(&soc_info->pdev->dev,
+		soc_info->clk[i] = devm_clk_get(soc_info->dev,
 					soc_info->clk_name[i]);
 		if (!soc_info->clk[i]) {
 			CAM_ERR(CAM_SENSOR, "get failed for %s",

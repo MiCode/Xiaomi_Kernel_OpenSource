@@ -70,6 +70,7 @@ static struct cam_vfe_camif_reg_data vfe_170_camif_reg_data = {
 	.sof_irq_mask                    = 0x00000001,
 	.epoch0_irq_mask                 = 0x00000004,
 	.reg_update_irq_mask             = 0x00000010,
+	.eof_irq_mask                    = 0x00000002,
 };
 
 struct cam_vfe_top_ver2_reg_offset_module_ctrl lens_170_reg = {

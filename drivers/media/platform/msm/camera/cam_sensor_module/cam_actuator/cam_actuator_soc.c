@@ -25,15 +25,6 @@ int32_t cam_actuator_parse_dt(struct cam_actuator_ctrl_t *a_ctrl,
 	int32_t                   rc = 0;
 	struct cam_hw_soc_info *soc_info = &a_ctrl->soc_info;
 	struct device_node *of_node = NULL;
-	struct platform_device *pdev = NULL;
-
-	if (!soc_info->pdev) {
-		CAM_ERR(CAM_ACTUATOR, "soc_info is not initialized");
-		return -EINVAL;
-	}
-
-	pdev = soc_info->pdev;
-	of_node = pdev->dev.of_node;
 
 	/* Initialize mutex */
 	mutex_init(&(a_ctrl->actuator_mutex));
@@ -43,14 +34,19 @@ int32_t cam_actuator_parse_dt(struct cam_actuator_ctrl_t *a_ctrl,
 		CAM_ERR(CAM_ACTUATOR, "parsing common soc dt(rc %d)", rc);
 		return rc;
 	}
-	rc = of_property_read_u32(of_node, "cci-master",
-		&(a_ctrl->cci_i2c_master));
-	CAM_DBG(CAM_ACTUATOR, "cci-master %d, rc %d",
-		a_ctrl->cci_i2c_master, rc);
-	if (rc < 0 || a_ctrl->cci_i2c_master >= MASTER_MAX) {
-		CAM_ERR(CAM_ACTUATOR, "Wrong info from dt CCI master as : %d",
-			a_ctrl->cci_i2c_master);
-		return rc;
+
+	of_node = soc_info->dev->of_node;
+
+	if (a_ctrl->io_master_info.master_type == CCI_MASTER) {
+		rc = of_property_read_u32(of_node, "cci-master",
+			&(a_ctrl->cci_i2c_master));
+		CAM_DBG(CAM_ACTUATOR, "cci-master %d, rc %d",
+			a_ctrl->cci_i2c_master, rc);
+		if ((rc < 0) || (a_ctrl->cci_i2c_master >= MASTER_MAX)) {
+			CAM_ERR(CAM_ACTUATOR, "Wrong info: dt CCI master:%d",
+				a_ctrl->cci_i2c_master);
+			return rc;
+		}
 	}
 
 	if (!soc_info->gpio_data) {

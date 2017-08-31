@@ -21,6 +21,12 @@
 #define CAM_HANDLE_USER_POINTER                 1
 #define CAM_HANDLE_MEM_HANDLE                   2
 
+/* Generic Blob CmdBuffer header properties */
+#define CAM_GENERIC_BLOB_CMDBUFFER_SIZE_MASK    0xFFFFFF00
+#define CAM_GENERIC_BLOB_CMDBUFFER_SIZE_SHIFT   8
+#define CAM_GENERIC_BLOB_CMDBUFFER_TYPE_MASK    0xFF
+#define CAM_GENERIC_BLOB_CMDBUFFER_TYPE_SHIFT   0
+
 /**
  * struct cam_control - Structure used by ioctl control for camera
  *

@@ -69,6 +69,8 @@ int cam_ife_csid_probe(struct platform_device *pdev)
 
 	csid_hw_info->core_info = csid_dev;
 	csid_hw_info->soc_info.pdev = pdev;
+	csid_hw_info->soc_info.dev = &pdev->dev;
+	csid_hw_info->soc_info.dev_name = pdev->name;
 	csid_hw_info->soc_info.index = csid_dev_idx;
 
 	csid_hw_data = (struct cam_ife_csid_hw_info  *)match_dev->data;

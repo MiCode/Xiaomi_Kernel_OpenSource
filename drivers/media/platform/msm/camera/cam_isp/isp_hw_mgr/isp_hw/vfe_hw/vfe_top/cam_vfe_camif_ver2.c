@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
- #include <linux/slab.h>
+#include <linux/slab.h>
 #include <uapi/media/cam_isp.h>
 #include "cam_io_util.h"
 #include "cam_isp_hw_mgr_intf.h"
@@ -204,6 +204,12 @@ static int cam_vfe_camif_handle_irq_bottom_half(void *handler_priv,
 	case CAM_ISP_HW_EVENT_REG_UPDATE:
 		if (irq_status0 & camif_priv->reg_data->reg_update_irq_mask) {
 			CAM_DBG(CAM_ISP, "Received REG_UPDATE_ACK");
+			ret = CAM_VFE_IRQ_STATUS_SUCCESS;
+		}
+		break;
+	case CAM_ISP_HW_EVENT_EOF:
+		if (irq_status0 & camif_priv->reg_data->eof_irq_mask) {
+			CAM_DBG(CAM_ISP, "Received EOF\n");
 			ret = CAM_VFE_IRQ_STATUS_SUCCESS;
 		}
 		break;

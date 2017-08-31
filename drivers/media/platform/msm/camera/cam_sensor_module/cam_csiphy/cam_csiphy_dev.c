@@ -113,7 +113,8 @@ static int32_t cam_csiphy_platform_probe(struct platform_device *pdev)
 	new_csiphy_dev->v4l2_dev_str.pdev = pdev;
 
 	new_csiphy_dev->soc_info.pdev = pdev;
-
+	new_csiphy_dev->soc_info.dev = &pdev->dev;
+	new_csiphy_dev->soc_info.dev_name = pdev->name;
 	new_csiphy_dev->ref_count = 0;
 
 	rc = cam_csiphy_parse_dt_info(pdev, new_csiphy_dev);
