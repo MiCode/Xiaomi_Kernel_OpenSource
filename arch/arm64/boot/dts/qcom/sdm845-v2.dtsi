@@ -69,7 +69,7 @@
 			"APSS_SILVER_CPRH_STATUS_1",
 			"SILVER_SAW4_PMIC_STS";
 
-		qcom,cpr-aging-ref-voltage = <952000>;
+		qcom,cpr-aging-ref-voltage = <1000000>;
 		vdd-supply = <&pm8998_s13>;
 
 		thread@0 {
@@ -254,7 +254,7 @@
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
 
 				qcom,cpr-aging-max-voltage-adjustment = <15000>;
-				qcom,cpr-aging-ref-corner = <14>;
+				qcom,cpr-aging-ref-corner = <14 15>;
 				qcom,cpr-aging-ro-scaling-factor = <1620>;
 				qcom,allow-aging-voltage-adjustment =
 					/* Speed bin 0 */
@@ -475,6 +475,18 @@
 		compatible = "syscon";
 		reg = <0x5091008 0x4>;
 	};
+};
+
+/* VDD_APC0 */
+&pm8998_s13 {
+	regulator-min-microvolt = <568000>;
+	regulator-max-microvolt = <1000000>;
+};
+
+/* VDD_APC1 */
+&pm8998_s12 {
+	regulator-min-microvolt = <568000>;
+	regulator-max-microvolt = <1136000>;
 };
 
 &clock_cpucc {
