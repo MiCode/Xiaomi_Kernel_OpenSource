@@ -1557,5 +1557,9 @@
 			reg = <0 0xb3fff000 0 0x800000>;
 			label = "early_camera_mem";
 		};
+		early_audio_mem: early_audio_mem@0xb5fff000 {
+			reg = <0x0 0xb5fff000 0x0 0x3FFFFC>;
+			label = "early_audio_mem";
+		};
 	};
 };
