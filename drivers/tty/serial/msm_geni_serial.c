@@ -511,9 +511,6 @@ static void msm_geni_serial_poll_cancel_tx(struct uart_port *uport)
 	int done = 0;
 	unsigned int irq_clear = M_CMD_DONE_EN;
 
-	if (!uart_console(uport))
-		return;
-
 	done = msm_geni_serial_poll_bit(uport, SE_GENI_M_IRQ_STATUS,
 						M_CMD_DONE_EN, true);
 	if (!done) {
@@ -1125,11 +1122,12 @@ static int msm_geni_serial_handle_tx(struct uart_port *uport)
 		/* Ensure FIFO write goes through */
 		wmb();
 	}
-	msm_geni_serial_poll_cancel_tx(uport);
-	if (uart_console(uport))
+	if (uart_console(uport)) {
+		msm_geni_serial_poll_cancel_tx(uport);
 		xmit->tail = (xmit->tail + xmit_size) & (UART_XMIT_SIZE - 1);
-	else
+	} else {
 		msm_port->xmit_size = xmit_size;
+	}
 	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
 		uart_write_wakeup(uport);
 exit_handle_tx:
