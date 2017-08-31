@@ -227,23 +227,6 @@ static int gpio_usbdetect_probe(struct platform_device *pdev)
 	if (rc)
 		return rc;
 
-	usb->vbus_det_irq = platform_get_irq_byname(pdev, "vbus_det_irq");
-	if (usb->vbus_det_irq < 0) {
-		dev_err(&pdev->dev, "vbus_det_irq failed\n");
-		rc = usb->vbus_det_irq;
-		goto disable_ldo;
-	}
-
-	rc = devm_request_irq(&pdev->dev, usb->vbus_det_irq,
-			      gpio_usbdetect_vbus_irq,
-			      IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-			      "vbus_det_irq", usb);
-	if (rc) {
-		dev_err(&pdev->dev, "request for vbus_det_irq failed: %d\n",
-			rc);
-		goto disable_ldo;
-	}
-
 	usb->gpio_usbdetect = of_get_named_gpio(pdev->dev.of_node,
 					"qcom,gpio-mode-sel", 0);
 
@@ -261,6 +244,23 @@ static int gpio_usbdetect_probe(struct platform_device *pdev)
 					usb->gpio_usbdetect);
 			goto disable_ldo;
 		}
+	}
+
+	usb->vbus_det_irq = platform_get_irq_byname(pdev, "vbus_det_irq");
+	if (usb->vbus_det_irq < 0) {
+		dev_err(&pdev->dev, "vbus_det_irq failed\n");
+		rc = usb->vbus_det_irq;
+		goto disable_ldo;
+	}
+
+	rc = devm_request_irq(&pdev->dev, usb->vbus_det_irq,
+			      gpio_usbdetect_vbus_irq,
+			      IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+			      "vbus_det_irq", usb);
+	if (rc) {
+		dev_err(&pdev->dev, "request for vbus_det_irq failed: %d\n",
+			rc);
+		goto disable_ldo;
 	}
 
 	device_init_wakeup(&pdev->dev, 1);
