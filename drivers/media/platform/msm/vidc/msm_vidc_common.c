@@ -70,11 +70,6 @@ const char *const mpeg_video_vidc_extradata[] = {
 	"Extradata UBWC CR stats info",
 };
 
-struct getprop_buf {
-	struct list_head list;
-	void *data;
-};
-
 static void msm_comm_generate_session_error(struct msm_vidc_inst *inst);
 static void msm_comm_generate_sys_error(struct msm_vidc_inst *inst);
 static void handle_session_error(enum hal_command_response cmd, void *data);

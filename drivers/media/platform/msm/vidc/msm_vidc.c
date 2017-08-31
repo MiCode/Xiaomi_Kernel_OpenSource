@@ -1684,6 +1684,7 @@ EXPORT_SYMBOL(msm_vidc_open);
 static void msm_vidc_cleanup_instance(struct msm_vidc_inst *inst)
 {
 	struct msm_vidc_buffer *temp, *dummy;
+	struct getprop_buf *temp_prop, *dummy_prop;
 
 	if (!inst) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -1732,7 +1733,17 @@ static void msm_vidc_cleanup_instance(struct msm_vidc_inst *inst)
 		msm_comm_smem_free(inst, inst->extradata_handle);
 
 	mutex_lock(&inst->pending_getpropq.lock);
-	WARN_ON(!list_empty(&inst->pending_getpropq.list));
+	if (!list_empty(&inst->pending_getpropq.list)) {
+		dprintk(VIDC_ERR,
+			"pending_getpropq not empty for instance %pK\n",
+			inst);
+		list_for_each_entry_safe(temp_prop, dummy_prop,
+			&inst->pending_getpropq.list, list) {
+			kfree(temp_prop->data);
+			list_del(&temp_prop->list);
+			kfree(temp_prop);
+		}
+	}
 	mutex_unlock(&inst->pending_getpropq.lock);
 }
 
