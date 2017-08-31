@@ -640,21 +640,21 @@ int msm_bus_commit_data(struct list_head *clist)
 			MSM_BUS_ERR("%s: error sending active/awake sets: %d\n",
 						__func__, ret);
 	} else {
-		ret = rpmh_write_passthru(cur_mbox, cur_rsc->rscdev->req_state,
+		ret = rpmh_write_batch(cur_mbox, cur_rsc->rscdev->req_state,
 						cmdlist_active, n_active);
 		if (ret)
 			MSM_BUS_ERR("%s: error sending active/awake sets: %d\n",
 						__func__, ret);
 	}
 	if (cnt_wake) {
-		ret = rpmh_write_passthru(cur_mbox, RPMH_WAKE_ONLY_STATE,
+		ret = rpmh_write_batch(cur_mbox, RPMH_WAKE_ONLY_STATE,
 							cmdlist_wake, n_wake);
 		if (ret)
 			MSM_BUS_ERR("%s: error sending wake sets: %d\n",
 							__func__, ret);
 	}
 	if (cnt_sleep) {
-		ret = rpmh_write_passthru(cur_mbox, RPMH_SLEEP_STATE,
+		ret = rpmh_write_batch(cur_mbox, RPMH_SLEEP_STATE,
 							cmdlist_sleep, n_sleep);
 		if (ret)
 			MSM_BUS_ERR("%s: error sending sleep sets: %d\n",

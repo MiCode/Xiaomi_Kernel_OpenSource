@@ -41,14 +41,14 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/rpmh.h>
 
-#define TCS_DRV_IPC_LOG_SIZE		2
+#define RSC_DRV_IPC_LOG_SIZE		2
 
 #define MAX_CMDS_PER_TCS		16
 #define MAX_TCS_PER_TYPE		3
 #define MAX_TCS_SLOTS			(MAX_CMDS_PER_TCS * MAX_TCS_PER_TYPE)
 
-#define TCS_DRV_TCS_OFFSET		672
-#define TCS_DRV_CMD_OFFSET		20
+#define RSC_DRV_TCS_OFFSET		672
+#define RSC_DRV_CMD_OFFSET		20
 
 /* DRV Configuration Information Register */
 #define DRV_PRNT_CHLD_CONFIG		0x0C
@@ -58,18 +58,18 @@
 #define DRV_NCPT_SHIFT			27
 
 /* Register offsets */
-#define TCS_DRV_IRQ_ENABLE		0x00
-#define TCS_DRV_IRQ_STATUS		0x04
-#define TCS_DRV_IRQ_CLEAR		0x08
-#define TCS_DRV_CMD_WAIT_FOR_CMPL	0x10
-#define TCS_DRV_CONTROL			0x14
-#define TCS_DRV_STATUS			0x18
-#define TCS_DRV_CMD_ENABLE		0x1C
-#define TCS_DRV_CMD_MSGID		0x30
-#define TCS_DRV_CMD_ADDR		0x34
-#define TCS_DRV_CMD_DATA		0x38
-#define TCS_DRV_CMD_STATUS		0x3C
-#define TCS_DRV_CMD_RESP_DATA		0x40
+#define RSC_DRV_IRQ_ENABLE		0x00
+#define RSC_DRV_IRQ_STATUS		0x04
+#define RSC_DRV_IRQ_CLEAR		0x08
+#define RSC_DRV_CMD_WAIT_FOR_CMPL	0x10
+#define RSC_DRV_CONTROL			0x14
+#define RSC_DRV_STATUS			0x18
+#define RSC_DRV_CMD_ENABLE		0x1C
+#define RSC_DRV_CMD_MSGID		0x30
+#define RSC_DRV_CMD_ADDR		0x34
+#define RSC_DRV_CMD_DATA		0x38
+#define RSC_DRV_CMD_STATUS		0x3C
+#define RSC_DRV_CMD_RESP_DATA		0x40
 
 #define TCS_AMC_MODE_ENABLE		BIT(16)
 #define TCS_AMC_MODE_TRIGGER		BIT(24)
@@ -90,10 +90,10 @@
 #define MAX_POOL_SIZE			(MAX_TCS_PER_TYPE * TCS_TYPE_NR)
 #define TCS_M_INIT			0xFFFF
 
-struct tcs_drv;
+struct rsc_drv;
 
 struct tcs_response {
-	struct tcs_drv *drv;
+	struct rsc_drv *drv;
 	struct mbox_chan *chan;
 	struct tcs_mbox_msg *msg;
 	u32 m; /* m-th TCS */
@@ -111,7 +111,7 @@ struct tcs_response_pool {
 
 /* One per TCS type of a controller */
 struct tcs_mbox {
-	struct tcs_drv *drv;
+	struct rsc_drv *drv;
 	u32 *cmd_addr;
 	int type;
 	u32 tcs_mask;
@@ -123,7 +123,7 @@ struct tcs_mbox {
 };
 
 /* One per MBOX controller */
-struct tcs_drv {
+struct rsc_drv {
 	struct mbox_controller mbox;
 	const char *name;
 	void __iomem *base; /* start address of the RSC's registers */
@@ -172,7 +172,7 @@ struct tcs_drv {
 	} while (0)
 
 
-static int tcs_response_pool_init(struct tcs_drv *drv)
+static int tcs_response_pool_init(struct rsc_drv *drv)
 {
 	struct tcs_response_pool *pool;
 	int i;
@@ -194,7 +194,7 @@ static int tcs_response_pool_init(struct tcs_drv *drv)
 	return 0;
 }
 
-static struct tcs_response *setup_response(struct tcs_drv *drv,
+static struct tcs_response *setup_response(struct rsc_drv *drv,
 		struct tcs_mbox_msg *msg, struct mbox_chan *chan,
 		u32 m, int err)
 {
@@ -233,7 +233,7 @@ static void free_response(struct tcs_response *resp)
 	spin_unlock_irqrestore(&pool->lock, flags);
 }
 
-static inline struct tcs_response *get_response(struct tcs_drv *drv, u32 m,
+static inline struct tcs_response *get_response(struct rsc_drv *drv, u32 m,
 					bool for_use)
 {
 	struct tcs_response_pool *pool = drv->resp_pool;
@@ -259,7 +259,7 @@ static inline struct tcs_response *get_response(struct tcs_drv *drv, u32 m,
 	return resp;
 }
 
-static void print_response(struct tcs_drv *drv, int m)
+static void print_response(struct rsc_drv *drv, int m)
 {
 	struct tcs_response *resp;
 	struct tcs_mbox_msg *msg;
@@ -288,14 +288,14 @@ static inline u32 read_drv_config(void __iomem *base)
 static inline u32 read_tcs_reg(void __iomem *base, int reg, int m, int n)
 {
 	return le32_to_cpu(readl_relaxed(base + reg +
-			TCS_DRV_TCS_OFFSET * m + TCS_DRV_CMD_OFFSET * n));
+			RSC_DRV_TCS_OFFSET * m + RSC_DRV_CMD_OFFSET * n));
 }
 
 static inline void write_tcs_reg(void __iomem *base, int reg, int m, int n,
 				u32 data)
 {
 	writel_relaxed(cpu_to_le32(data), base + reg +
-			TCS_DRV_TCS_OFFSET * m + TCS_DRV_CMD_OFFSET * n);
+			RSC_DRV_TCS_OFFSET * m + RSC_DRV_CMD_OFFSET * n);
 }
 
 static inline void write_tcs_reg_sync(void __iomem *base, int reg, int m, int n,
@@ -309,15 +309,15 @@ static inline void write_tcs_reg_sync(void __iomem *base, int reg, int m, int n,
 	} while (1);
 }
 
-static inline bool tcs_is_free(struct tcs_drv *drv, int m)
+static inline bool tcs_is_free(struct rsc_drv *drv, int m)
 {
 	void __iomem *base = drv->reg_base;
 
-	return read_tcs_reg(base, TCS_DRV_STATUS, m, 0) &&
+	return read_tcs_reg(base, RSC_DRV_STATUS, m, 0) &&
 			!atomic_read(&drv->tcs_in_use[m]);
 }
 
-static inline struct tcs_mbox *get_tcs_from_index(struct tcs_drv *drv, int m)
+static inline struct tcs_mbox *get_tcs_from_index(struct rsc_drv *drv, int m)
 {
 	struct tcs_mbox *tcs = NULL;
 	int i;
@@ -336,7 +336,7 @@ static inline struct tcs_mbox *get_tcs_from_index(struct tcs_drv *drv, int m)
 	return tcs;
 }
 
-static inline struct tcs_mbox *get_tcs_of_type(struct tcs_drv *drv, int type)
+static inline struct tcs_mbox *get_tcs_of_type(struct rsc_drv *drv, int type)
 {
 	int i;
 	struct tcs_mbox *tcs;
@@ -355,7 +355,7 @@ static inline struct tcs_mbox *get_tcs_of_type(struct tcs_drv *drv, int type)
 	return tcs;
 }
 
-static inline struct tcs_mbox *get_tcs_for_msg(struct tcs_drv *drv,
+static inline struct tcs_mbox *get_tcs_for_msg(struct rsc_drv *drv,
 						struct tcs_mbox_msg *msg)
 {
 	int type = -1;
@@ -394,7 +394,7 @@ static inline struct tcs_mbox *get_tcs_for_msg(struct tcs_drv *drv,
 
 static inline void send_tcs_response(struct tcs_response *resp)
 {
-	struct tcs_drv *drv = resp->drv;
+	struct rsc_drv *drv = resp->drv;
 	unsigned long flags;
 
 	spin_lock_irqsave(&drv->drv_lock, flags);
@@ -405,18 +405,18 @@ static inline void send_tcs_response(struct tcs_response *resp)
 	tasklet_schedule(&drv->tasklet);
 }
 
-static inline void enable_tcs_irq(struct tcs_drv *drv, int m, bool enable)
+static inline void enable_tcs_irq(struct rsc_drv *drv, int m, bool enable)
 {
 	void __iomem *base = drv->reg_base;
 	u32 data;
 
 	/* Enable interrupts for non-ACTIVE TCS */
-	data = read_tcs_reg(base, TCS_DRV_IRQ_ENABLE, 0, 0);
+	data = read_tcs_reg(base, RSC_DRV_IRQ_ENABLE, 0, 0);
 	if (enable)
 		data |= BIT(m);
 	else
 		data &= ~BIT(m);
-	write_tcs_reg(base, TCS_DRV_IRQ_ENABLE, 0, 0, data);
+	write_tcs_reg(base, RSC_DRV_IRQ_ENABLE, 0, 0, data);
 }
 
 /**
@@ -424,7 +424,7 @@ static inline void enable_tcs_irq(struct tcs_drv *drv, int m, bool enable)
  */
 static irqreturn_t tcs_irq_handler(int irq, void *p)
 {
-	struct tcs_drv *drv = p;
+	struct rsc_drv *drv = p;
 	void __iomem *base = drv->reg_base;
 	int m, i;
 	u32 irq_status, sts;
@@ -434,7 +434,7 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 	u32 data;
 
 	/* Know which TCSes were triggered */
-	irq_status = read_tcs_reg(base, TCS_DRV_IRQ_STATUS, 0, 0);
+	irq_status = read_tcs_reg(base, RSC_DRV_IRQ_STATUS, 0, 0);
 
 	for (m = 0; m < drv->num_tcs; m++) {
 		if (!(irq_status & (u32)BIT(m)))
@@ -451,7 +451,7 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 		resp->err = 0;
 		for (i = 0; i < resp->msg->num_payload; i++) {
 			cmd = &resp->msg->payload[i];
-			sts = read_tcs_reg(base, TCS_DRV_CMD_STATUS, m, i);
+			sts = read_tcs_reg(base, RSC_DRV_CMD_STATUS, m, i);
 			if ((!(sts & CMD_STATUS_ISSUED)) ||
 				((resp->msg->is_complete || cmd->complete) &&
 				(!(sts & CMD_STATUS_COMPL)))) {
@@ -463,7 +463,7 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 		/* Check for response if this was a read request */
 		if (resp->msg->is_read) {
 			/* Respond the data back in the same req data */
-			data = read_tcs_reg(base, TCS_DRV_CMD_RESP_DATA, m, 0);
+			data = read_tcs_reg(base, RSC_DRV_CMD_RESP_DATA, m, 0);
 			resp->msg->payload[0].data = data;
 			mbox_chan_received_data(resp->chan, resp->msg);
 		}
@@ -474,11 +474,11 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 		/* Clear the AMC mode for non-ACTIVE TCSes */
 		tcs = get_tcs_from_index(drv, m);
 		if (tcs && tcs->type != ACTIVE_TCS) {
-			data = read_tcs_reg(base, TCS_DRV_CONTROL, m, 0);
+			data = read_tcs_reg(base, RSC_DRV_CONTROL, m, 0);
 			data &= ~TCS_AMC_MODE_TRIGGER;
-			write_tcs_reg_sync(base, TCS_DRV_CONTROL, m, 0, data);
+			write_tcs_reg_sync(base, RSC_DRV_CONTROL, m, 0, data);
 			data &= ~TCS_AMC_MODE_ENABLE;
-			write_tcs_reg(base, TCS_DRV_CONTROL, m, 0, data);
+			write_tcs_reg(base, RSC_DRV_CONTROL, m, 0, data);
 			/*
 			 * Disable interrupt for this TCS to avoid being
 			 * spammed with interrupts coming when the solver
@@ -487,7 +487,7 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 			enable_tcs_irq(drv, m, false);
 		} else {
 			/* Clear the enable bit for the commands */
-			write_tcs_reg(base, TCS_DRV_CMD_ENABLE, m, 0, 0);
+			write_tcs_reg(base, RSC_DRV_CMD_ENABLE, m, 0, 0);
 		}
 
 no_resp:
@@ -495,7 +495,7 @@ no_resp:
 		drv->tcs_last_recv_ts[m] = arch_counter_get_cntvct();
 
 		/* Clear the TCS IRQ status */
-		write_tcs_reg(base, TCS_DRV_IRQ_CLEAR, 0, 0, BIT(m));
+		write_tcs_reg(base, RSC_DRV_IRQ_CLEAR, 0, 0, BIT(m));
 
 		/* Notify the client that this request is completed. */
 		atomic_set(&drv->tcs_in_use[m], 0);
@@ -511,7 +511,7 @@ no_resp:
 static inline void mbox_notify_tx_done(struct mbox_chan *chan,
 				struct tcs_mbox_msg *msg, int m, int err)
 {
-	struct tcs_drv *drv = container_of(chan->mbox, struct tcs_drv, mbox);
+	struct rsc_drv *drv = container_of(chan->mbox, struct rsc_drv, mbox);
 
 	log_rpmh_notify(drv, m, msg->payload[0].addr, err);
 	mbox_chan_txdone(chan, err);
@@ -533,7 +533,7 @@ static void respond_tx_done(struct tcs_response *resp)
  */
 static void tcs_notify_tx_done(unsigned long data)
 {
-	struct tcs_drv *drv = (struct tcs_drv *)data;
+	struct rsc_drv *drv = (struct rsc_drv *)data;
 	struct tcs_response *resp;
 	unsigned long flags;
 
@@ -551,7 +551,7 @@ static void tcs_notify_tx_done(unsigned long data)
 	} while (1);
 }
 
-static void __tcs_buffer_write(struct tcs_drv *drv, int d, int m, int n,
+static void __tcs_buffer_write(struct rsc_drv *drv, int d, int m, int n,
 			struct tcs_mbox_msg *msg, bool trigger)
 {
 	u32 msgid, cmd_msgid = 0;
@@ -568,7 +568,7 @@ static void __tcs_buffer_write(struct tcs_drv *drv, int d, int m, int n,
 	cmd_msgid |= (!msg->is_read) ? CMD_MSGID_WRITE : 0;
 
 	/* Read the send-after-prev complete flag for those already in TCS */
-	cmd_complete = read_tcs_reg(base, TCS_DRV_CMD_WAIT_FOR_CMPL, m, 0);
+	cmd_complete = read_tcs_reg(base, RSC_DRV_CMD_WAIT_FOR_CMPL, m, 0);
 
 	for (i = 0; i < msg->num_payload; i++) {
 		cmd = &msg->payload[i];
@@ -576,19 +576,19 @@ static void __tcs_buffer_write(struct tcs_drv *drv, int d, int m, int n,
 		cmd_complete |= cmd->complete << (n + i);
 		msgid = cmd_msgid;
 		msgid |= (cmd->complete) ? CMD_MSGID_RESP_REQ : 0;
-		write_tcs_reg(base, TCS_DRV_CMD_MSGID, m, n + i, msgid);
-		write_tcs_reg(base, TCS_DRV_CMD_ADDR, m, n + i, cmd->addr);
-		write_tcs_reg(base, TCS_DRV_CMD_DATA, m, n + i, cmd->data);
+		write_tcs_reg(base, RSC_DRV_CMD_MSGID, m, n + i, msgid);
+		write_tcs_reg(base, RSC_DRV_CMD_ADDR, m, n + i, cmd->addr);
+		write_tcs_reg(base, RSC_DRV_CMD_DATA, m, n + i, cmd->data);
 		log_send_msg(drv, m, n + i, msgid, cmd->addr,
 					cmd->data, cmd->complete, trigger);
 	}
 
 	/* Write the send-after-prev completion bits for the batch */
-	write_tcs_reg(base, TCS_DRV_CMD_WAIT_FOR_CMPL, m, 0, cmd_complete);
+	write_tcs_reg(base, RSC_DRV_CMD_WAIT_FOR_CMPL, m, 0, cmd_complete);
 
 	/* Enable the new commands in TCS */
-	cmd_enable |= read_tcs_reg(base, TCS_DRV_CMD_ENABLE, m, 0);
-	write_tcs_reg(base, TCS_DRV_CMD_ENABLE, m, 0, cmd_enable);
+	cmd_enable |= read_tcs_reg(base, RSC_DRV_CMD_ENABLE, m, 0);
+	write_tcs_reg(base, RSC_DRV_CMD_ENABLE, m, 0, cmd_enable);
 
 	if (trigger) {
 		/*
@@ -596,31 +596,31 @@ static void __tcs_buffer_write(struct tcs_drv *drv, int d, int m, int n,
 		 * While clearing ensure that the AMC mode trigger is cleared
 		 * and then the mode enable is cleared.
 		 */
-		enable = read_tcs_reg(base, TCS_DRV_CONTROL, m, 0);
+		enable = read_tcs_reg(base, RSC_DRV_CONTROL, m, 0);
 		enable &= ~TCS_AMC_MODE_TRIGGER;
-		write_tcs_reg_sync(base, TCS_DRV_CONTROL, m, 0, enable);
+		write_tcs_reg_sync(base, RSC_DRV_CONTROL, m, 0, enable);
 		enable &= ~TCS_AMC_MODE_ENABLE;
-		write_tcs_reg_sync(base, TCS_DRV_CONTROL, m, 0, enable);
+		write_tcs_reg_sync(base, RSC_DRV_CONTROL, m, 0, enable);
 
 		/* Enable the AMC mode on the TCS and then trigger the TCS */
 		enable = TCS_AMC_MODE_ENABLE;
-		write_tcs_reg_sync(base, TCS_DRV_CONTROL, m, 0, enable);
+		write_tcs_reg_sync(base, RSC_DRV_CONTROL, m, 0, enable);
 		enable |= TCS_AMC_MODE_TRIGGER;
-		write_tcs_reg(base, TCS_DRV_CONTROL, m, 0, enable);
+		write_tcs_reg(base, RSC_DRV_CONTROL, m, 0, enable);
 	}
 }
 
 /**
- * tcs_drv_is_idle: Check if any of the AMCs are busy.
+ * rsc_drv_is_idle: Check if any of the AMCs are busy.
  *
  * @mbox: The mailbox controller.
  *
  * Returns true if the AMCs are not engaged or absent.
  */
-static bool tcs_drv_is_idle(struct mbox_controller *mbox)
+static bool rsc_drv_is_idle(struct mbox_controller *mbox)
 {
 	int m;
-	struct tcs_drv *drv = container_of(mbox, struct tcs_drv, mbox);
+	struct rsc_drv *drv = container_of(mbox, struct rsc_drv, mbox);
 	struct tcs_mbox *tcs = get_tcs_of_type(drv, ACTIVE_TCS);
 
 	/* Check for WAKE TCS if there are no ACTIVE TCS */
@@ -634,7 +634,7 @@ static bool tcs_drv_is_idle(struct mbox_controller *mbox)
 	return true;
 }
 
-static int check_for_req_inflight(struct tcs_drv *drv, struct tcs_mbox *tcs,
+static int check_for_req_inflight(struct rsc_drv *drv, struct tcs_mbox *tcs,
 						struct tcs_mbox_msg *msg)
 {
 	u32 curr_enabled, addr;
@@ -646,13 +646,13 @@ static int check_for_req_inflight(struct tcs_drv *drv, struct tcs_mbox *tcs,
 		if (tcs_is_free(drv, m))
 			continue;
 
-		curr_enabled = read_tcs_reg(base, TCS_DRV_CMD_ENABLE, m, 0);
+		curr_enabled = read_tcs_reg(base, RSC_DRV_CMD_ENABLE, m, 0);
 
 		for (j = 0; j < MAX_CMDS_PER_TCS; j++) {
 			if (!(curr_enabled & (u32)BIT(j)))
 				continue;
 
-			addr = read_tcs_reg(base, TCS_DRV_CMD_ADDR, m, j);
+			addr = read_tcs_reg(base, RSC_DRV_CMD_ADDR, m, j);
 			for (k = 0; k < msg->num_payload; k++) {
 				if (addr == msg->payload[k].addr)
 					return -EBUSY;
@@ -734,7 +734,7 @@ static int find_slots(struct tcs_mbox *tcs, struct tcs_mbox_msg *msg)
 static int tcs_mbox_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg,
 				bool trigger)
 {
-	struct tcs_drv *drv = container_of(chan->mbox, struct tcs_drv, mbox);
+	struct rsc_drv *drv = container_of(chan->mbox, struct rsc_drv, mbox);
 	int d = drv->drv_id;
 	struct tcs_mbox *tcs;
 	int i, slot, offset, m, n, ret;
@@ -804,12 +804,12 @@ static int tcs_mbox_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg,
 
 static void __tcs_buffer_invalidate(void __iomem *base, int m)
 {
-	write_tcs_reg(base, TCS_DRV_CMD_ENABLE, m, 0, 0);
+	write_tcs_reg(base, RSC_DRV_CMD_ENABLE, m, 0, 0);
 }
 
 static int tcs_mbox_invalidate(struct mbox_chan *chan)
 {
-	struct tcs_drv *drv = container_of(chan->mbox, struct tcs_drv, mbox);
+	struct rsc_drv *drv = container_of(chan->mbox, struct rsc_drv, mbox);
 	struct tcs_mbox *tcs;
 	int m, i;
 	int inv_types[] = { WAKE_TCS, SLEEP_TCS };
@@ -838,7 +838,7 @@ static int tcs_mbox_invalidate(struct mbox_chan *chan)
 	return 0;
 }
 
-static void print_tcs_regs(struct tcs_drv *drv, int m)
+static void print_tcs_regs(struct rsc_drv *drv, int m)
 {
 	int n;
 	struct tcs_mbox *tcs = get_tcs_from_index(drv, m);
@@ -848,15 +848,15 @@ static void print_tcs_regs(struct tcs_drv *drv, int m)
 	if (!tcs || tcs_is_free(drv, m))
 		return;
 
-	enable = read_tcs_reg(base, TCS_DRV_CMD_ENABLE, m, 0);
+	enable = read_tcs_reg(base, RSC_DRV_CMD_ENABLE, m, 0);
 	if (!enable)
 		return;
 
 	pr_warn("RSC:%s\n", drv->name);
 
-	sts = read_tcs_reg(base, TCS_DRV_STATUS, m, 0);
-	data = read_tcs_reg(base, TCS_DRV_CONTROL, m, 0);
-	irq_sts = read_tcs_reg(base, TCS_DRV_IRQ_STATUS, 0, 0);
+	sts = read_tcs_reg(base, RSC_DRV_STATUS, m, 0);
+	data = read_tcs_reg(base, RSC_DRV_CONTROL, m, 0);
+	irq_sts = read_tcs_reg(base, RSC_DRV_IRQ_STATUS, 0, 0);
 	pr_warn("TCS=%d [ctrlr-sts:%s amc-mode:0x%x irq-sts:%s]\n",
 			m, sts ? "IDLE" : "BUSY", data,
 			(irq_sts & BIT(m)) ? "COMPLETED" : "PENDING");
@@ -864,16 +864,16 @@ static void print_tcs_regs(struct tcs_drv *drv, int m)
 	for (n = 0; n < tcs->ncpt; n++) {
 		if (!(enable & BIT(n)))
 			continue;
-		addr = read_tcs_reg(base, TCS_DRV_CMD_ADDR, m, n);
-		data = read_tcs_reg(base, TCS_DRV_CMD_DATA, m, n);
-		msgid = read_tcs_reg(base, TCS_DRV_CMD_MSGID, m, n);
-		sts = read_tcs_reg(base, TCS_DRV_CMD_STATUS, m, n);
+		addr = read_tcs_reg(base, RSC_DRV_CMD_ADDR, m, n);
+		data = read_tcs_reg(base, RSC_DRV_CMD_DATA, m, n);
+		msgid = read_tcs_reg(base, RSC_DRV_CMD_MSGID, m, n);
+		sts = read_tcs_reg(base, RSC_DRV_CMD_STATUS, m, n);
 		pr_warn("\tCMD=%d [addr=0x%x data=0x%x hdr=0x%x sts=0x%x]\n",
 						n, addr, data, msgid, sts);
 	}
 }
 
-static void dump_tcs_stats(struct tcs_drv *drv)
+static void dump_tcs_stats(struct rsc_drv *drv)
 {
 	int i;
 	unsigned long long curr = arch_counter_get_cntvct();
@@ -894,7 +894,7 @@ static void dump_tcs_stats(struct tcs_drv *drv)
 
 static void chan_debug(struct mbox_chan *chan)
 {
-	struct tcs_drv *drv = container_of(chan->mbox, struct tcs_drv, mbox);
+	struct rsc_drv *drv = container_of(chan->mbox, struct rsc_drv, mbox);
 
 	dump_tcs_stats(drv);
 }
@@ -912,7 +912,7 @@ static void chan_debug(struct mbox_chan *chan)
  */
 static int chan_tcs_write(struct mbox_chan *chan, void *data)
 {
-	struct tcs_drv *drv = container_of(chan->mbox, struct tcs_drv, mbox);
+	struct rsc_drv *drv = container_of(chan->mbox, struct rsc_drv, mbox);
 	struct tcs_mbox_msg *msg = data;
 	const struct device *dev = chan->cl->dev;
 	int ret = 0;
@@ -986,7 +986,7 @@ tx_fail:
 	return ret;
 }
 
-static void __tcs_write_hidden(struct tcs_drv *drv, int d,
+static void __tcs_write_hidden(struct rsc_drv *drv, int d,
 					struct tcs_mbox_msg *msg)
 {
 	int i;
@@ -1003,7 +1003,7 @@ static void __tcs_write_hidden(struct tcs_drv *drv, int d,
 static int tcs_control_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg)
 {
 	const struct device *dev = chan->cl->dev;
-	struct tcs_drv *drv = container_of(chan->mbox, struct tcs_drv, mbox);
+	struct rsc_drv *drv = container_of(chan->mbox, struct rsc_drv, mbox);
 	struct tcs_mbox *tcs;
 	unsigned long flags;
 
@@ -1083,7 +1083,7 @@ static const struct mbox_chan_ops mbox_ops = {
 static struct mbox_chan *of_tcs_mbox_xlate(struct mbox_controller *mbox,
 				const struct of_phandle_args *sp)
 {
-	struct tcs_drv *drv = container_of(mbox, struct tcs_drv, mbox);
+	struct rsc_drv *drv = container_of(mbox, struct rsc_drv, mbox);
 	struct mbox_chan *chan;
 
 	if (drv->num_assigned >= mbox->num_chans) {
@@ -1097,11 +1097,11 @@ static struct mbox_chan *of_tcs_mbox_xlate(struct mbox_controller *mbox,
 	return chan;
 }
 
-static int tcs_drv_probe(struct platform_device *pdev)
+static int rsc_drv_probe(struct platform_device *pdev)
 {
 	struct device_node *dn = pdev->dev.of_node;
 	struct device_node *np;
-	struct tcs_drv *drv;
+	struct rsc_drv *drv;
 	struct mbox_chan *chans;
 	struct tcs_mbox *tcs;
 	struct of_phandle_args p;
@@ -1234,7 +1234,7 @@ static int tcs_drv_probe(struct platform_device *pdev)
 	drv->mbox.num_chans = num_chans;
 	drv->mbox.txdone_irq = true;
 	drv->mbox.of_xlate = of_tcs_mbox_xlate;
-	drv->mbox.is_idle = tcs_drv_is_idle;
+	drv->mbox.is_idle = rsc_drv_is_idle;
 	drv->mbox.debug = chan_debug;
 	drv->num_tcs = st;
 	drv->pdev = pdev;
@@ -1261,13 +1261,13 @@ static int tcs_drv_probe(struct platform_device *pdev)
 		return ret;
 
 	/* Enable interrupts for AMC TCS */
-	write_tcs_reg(drv->reg_base, TCS_DRV_IRQ_ENABLE, 0, 0,
+	write_tcs_reg(drv->reg_base, RSC_DRV_IRQ_ENABLE, 0, 0,
 					drv->tcs[ACTIVE_TCS].tcs_mask);
 
 	for (i = 0; i < ARRAY_SIZE(drv->tcs_in_use); i++)
 		atomic_set(&drv->tcs_in_use[i], 0);
 
-	drv->ipc_log_ctx = ipc_log_context_create(TCS_DRV_IPC_LOG_SIZE,
+	drv->ipc_log_ctx = ipc_log_context_create(RSC_DRV_IPC_LOG_SIZE,
 						drv->name, 0);
 
 	ret = mbox_controller_register(&drv->mbox);
@@ -1280,21 +1280,21 @@ static int tcs_drv_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct of_device_id tcs_drv_match[] = {
+static const struct of_device_id rsc_drv_match[] = {
 	{ .compatible = "qcom,tcs-drv", },
 	{ }
 };
 
-static struct platform_driver tcs_mbox_driver = {
-	.probe = tcs_drv_probe,
+static struct platform_driver rpmh_mbox_driver = {
+	.probe = rsc_drv_probe,
 	.driver = {
 		.name = KBUILD_MODNAME,
-		.of_match_table = tcs_drv_match,
+		.of_match_table = rsc_drv_match,
 	},
 };
 
-static int __init tcs_mbox_driver_init(void)
+static int __init rpmh_mbox_driver_init(void)
 {
-	return platform_driver_register(&tcs_mbox_driver);
+	return platform_driver_register(&rpmh_mbox_driver);
 }
-arch_initcall(tcs_mbox_driver_init);
+arch_initcall(rpmh_mbox_driver_init);
