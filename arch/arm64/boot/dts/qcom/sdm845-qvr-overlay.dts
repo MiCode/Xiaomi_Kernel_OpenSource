@@ -22,8 +22,8 @@
 #include "sdm845-qvr.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDM845 v1 QVR";
+	model = "Qualcomm Technologies, Inc. SDM845 v2 QVR";
 	compatible = "qcom,sdm845-qvr", "qcom,sdm845", "qcom,qvr";
-	qcom,msm-id = <321 0x10000>;
+	qcom,msm-id = <321 0x20000>;
 	qcom,board-id = <0x01000B 0x20>;
 };

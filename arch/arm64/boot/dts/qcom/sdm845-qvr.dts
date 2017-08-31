@@ -13,7 +13,7 @@
 
 /dts-v1/;
 
-#include "sdm845.dtsi"
+#include "sdm845-v2.dtsi"
 #include "sdm845-qvr.dtsi"
 
 / {
