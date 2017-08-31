@@ -67,7 +67,7 @@ static int cam_flash_ops(struct cam_flash_ctrl *flash_ctrl,
 	}
 
 	soc_private = (struct cam_flash_private_soc *)
-		&flash_ctrl->soc_info.soc_private;
+		flash_ctrl->soc_info.soc_private;
 
 	if (op == CAMERA_SENSOR_FLASH_OP_FIRELOW) {
 		for (i = 0; i < flash_ctrl->torch_num_sources; i++) {
@@ -349,7 +349,7 @@ int cam_flash_apply_setting(struct cam_flash_ctrl *fctrl,
 		} else if ((flash_data->opcode ==
 			CAMERA_SENSOR_FLASH_OP_FIRELOW) &&
 			(flash_data->cmn_attr.is_settings_valid)) {
-			/* Turn Off Flash */
+			/* Turn On Torch */
 			if (fctrl->flash_state == CAM_FLASH_STATE_INIT) {
 				rc = cam_flash_low(fctrl, flash_data);
 				if (rc) {
@@ -427,7 +427,15 @@ int cam_flash_parser(struct cam_flash_ctrl *fctrl, void *arg)
 		return rc;
 	}
 
-	csl_packet = (struct cam_packet *)generic_ptr;
+	if (config.offset > len_of_buffer) {
+		CAM_ERR(CAM_FLASH,
+			"offset is out of bounds: offset: %lld len: %zu",
+			config.offset, len_of_buffer);
+		return -EINVAL;
+	}
+
+	/* Add offset to the flash csl header */
+	csl_packet = (struct cam_packet *)(generic_ptr + config.offset);
 
 	switch (csl_packet->header.op_code & 0xFFFFFF) {
 	case CAM_FLASH_PACKET_OPCODE_INIT: {
