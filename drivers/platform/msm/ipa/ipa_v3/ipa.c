@@ -88,6 +88,10 @@
 
 #define IPA_SMEM_SIZE (8 * 1024)
 
+#define IPA_GSI_CHANNEL_HALT_MIN_SLEEP 5000
+#define IPA_GSI_CHANNEL_HALT_MAX_SLEEP 10000
+#define IPA_GSI_CHANNEL_HALT_MAX_TRY 10
+
 /* round addresses for closes page per SMMU requirements */
 #define IPA_SMMU_ROUND_TO_PAGE(iova, pa, size, iova_p, pa_p, size_p) \
 	do { \
@@ -1969,6 +1973,7 @@ static void ipa3_halt_q6_cons_gsi_channels(void)
 	int ep_idx;
 	int client_idx;
 	const struct ipa_gsi_ep_config *gsi_ep_cfg;
+	int i;
 	int ret;
 	int code = 0;
 
@@ -1988,6 +1993,19 @@ static void ipa3_halt_q6_cons_gsi_channels(void)
 			ret = gsi_halt_channel_ee(
 				gsi_ep_cfg->ipa_gsi_chan_num, gsi_ep_cfg->ee,
 				&code);
+			for (i = 0; i < IPA_GSI_CHANNEL_STOP_MAX_RETRY &&
+				ret == -GSI_STATUS_AGAIN; i++) {
+				IPADBG(
+				"ch %d ee %d with code %d\n is busy try again",
+					gsi_ep_cfg->ipa_gsi_chan_num,
+					gsi_ep_cfg->ee,
+					code);
+				usleep_range(IPA_GSI_CHANNEL_HALT_MIN_SLEEP,
+					IPA_GSI_CHANNEL_HALT_MAX_SLEEP);
+				ret = gsi_halt_channel_ee(
+					gsi_ep_cfg->ipa_gsi_chan_num,
+					gsi_ep_cfg->ee, &code);
+			}
 			if (ret == GSI_STATUS_SUCCESS)
 				IPADBG("halted gsi ch %d ee %d with code %d\n",
 				gsi_ep_cfg->ipa_gsi_chan_num,
