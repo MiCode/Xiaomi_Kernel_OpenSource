@@ -12,13 +12,12 @@ Main node properties:
 - #dma-cells
   Usage: required
   Value type: <u32>
-  Definition: Number of parameters client will provide.  Must be set to 6.
-	1st parameter: gpii index
-	2nd parameter: channel index
-	3rd parameter: serial engine index
-	4th parameter: bus protocol, 1 for SPI, 2 for UART, 3 for I2C
-	5th parameter: channel ring length in transfer ring elements
-	6th parameter: event processing priority, set to 0 for lowest latency
+  Definition: Number of parameters client will provide.  Must be set to 5.
+	1st parameter: channel index, 0 for TX, 1 for RX
+	2nd parameter: serial engine index
+	3rd parameter: bus protocol, 1 for SPI, 2 for UART, 3 for I2C
+	4th parameter: channel ring length in transfer ring elements
+	5th parameter: event processing priority, set to 0 for lowest latency
 
 - compatible
   Usage: required
@@ -68,7 +67,7 @@ Main node properties:
 Example:
 ========
 gpi_dma0: qcom,gpi-dma@0x800000 {
-	#dma-cells = <6>;
+	#dma-cells = <5>;
 	compatible = "qcom,gpi-dma";
 	reg = <0x800000 0x60000>;
 	reg-names = "gpi-top";

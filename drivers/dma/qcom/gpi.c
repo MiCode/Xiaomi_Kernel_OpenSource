@@ -131,9 +131,11 @@ enum EV_PRIORITY {
 #define GPI_LABEL_SIZE (256)
 #define GPI_DBG_COMMON (99)
 #define MAX_CHANNELS_PER_GPII (2)
+#define GPI_TX_CHAN (0)
+#define GPI_RX_CHAN (1)
 #define CMD_TIMEOUT_MS (50)
 #define STATE_IGNORE (U32_MAX)
-#define REQ_OF_DMA_ARGS (6) /* # of arguments required from client */
+#define REQ_OF_DMA_ARGS (5) /* # of arguments required from client */
 
 struct __packed gpi_error_log_entry {
 	u32 routine : 4;
@@ -2464,12 +2466,53 @@ xfer_alloc_err:
 	return ret;
 }
 
+static int gpi_find_avail_gpii(struct gpi_dev *gpi_dev, u32 seid)
+{
+	int gpii;
+	struct gpii_chan *tx_chan, *rx_chan;
+
+	/* check if same seid is already configured for another chid */
+	for (gpii = 0; gpii < gpi_dev->max_gpii; gpii++) {
+		if (!((1 << gpii) & gpi_dev->gpii_mask))
+			continue;
+
+		tx_chan = &gpi_dev->gpiis[gpii].gpii_chan[GPI_TX_CHAN];
+		rx_chan = &gpi_dev->gpiis[gpii].gpii_chan[GPI_RX_CHAN];
+
+		if (rx_chan->vc.chan.client_count && rx_chan->seid == seid)
+			return gpii;
+		if (tx_chan->vc.chan.client_count && tx_chan->seid == seid)
+			return gpii;
+	}
+
+	/* no channels configured with same seid, return next avail gpii */
+	for (gpii = 0; gpii < gpi_dev->max_gpii; gpii++) {
+		if (!((1 << gpii) & gpi_dev->gpii_mask))
+			continue;
+
+		tx_chan = &gpi_dev->gpiis[gpii].gpii_chan[GPI_TX_CHAN];
+		rx_chan = &gpi_dev->gpiis[gpii].gpii_chan[GPI_RX_CHAN];
+
+		/* check if gpii is configured */
+		if (tx_chan->vc.chan.client_count ||
+		    rx_chan->vc.chan.client_count)
+			continue;
+
+		/* found a free gpii */
+		return gpii;
+	}
+
+	/* no gpii instance available to use */
+	return -EIO;
+}
+
 /* gpi_of_dma_xlate: open client requested channel */
 static struct dma_chan *gpi_of_dma_xlate(struct of_phandle_args *args,
 					 struct of_dma *of_dma)
 {
 	struct gpi_dev *gpi_dev = (struct gpi_dev *)of_dma->of_dma_data;
-	u32 gpii, chid;
+	u32 seid, chid;
+	int gpii;
 	struct gpii_chan *gpii_chan;
 
 	if (args->args_count < REQ_OF_DMA_ARGS) {
@@ -2479,25 +2522,33 @@ static struct dma_chan *gpi_of_dma_xlate(struct of_phandle_args *args,
 		return NULL;
 	}
 
-	/* Check if valid gpii instance */
-	gpii = args->args[0];
-	if (!((1 << gpii) & gpi_dev->gpii_mask)) {
-		GPI_ERR(gpi_dev, "gpii instance:%d is not supported\n", gpii);
-		return NULL;
-	}
-
-	chid = args->args[1];
+	chid = args->args[0];
 	if (chid >= MAX_CHANNELS_PER_GPII) {
 		GPI_ERR(gpi_dev, "gpii channel:%d not valid\n", chid);
 		return NULL;
 	}
 
-	/* get ring size, protocol, se_id, and priority */
+	seid = args->args[1];
+
+	/* find next available gpii to use */
+	gpii = gpi_find_avail_gpii(gpi_dev, seid);
+	if (gpii < 0) {
+		GPI_ERR(gpi_dev, "no available gpii instances\n");
+		return NULL;
+	}
+
 	gpii_chan = &gpi_dev->gpiis[gpii].gpii_chan[chid];
-	gpii_chan->seid = args->args[2];
-	gpii_chan->protocol = args->args[3];
-	gpii_chan->req_tres = args->args[4];
-	gpii_chan->priority = args->args[5];
+	if (gpii_chan->vc.chan.client_count) {
+		GPI_ERR(gpi_dev, "gpii:%d chid:%d seid:%d already configured\n",
+			gpii, chid, gpii_chan->seid);
+		return NULL;
+	}
+
+	/* get ring size, protocol, se_id, and priority */
+	gpii_chan->seid = seid;
+	gpii_chan->protocol = args->args[2];
+	gpii_chan->req_tres = args->args[3];
+	gpii_chan->priority = args->args[4];
 
 	GPI_LOG(gpi_dev,
 		"client req. gpii:%u chid:%u #_tre:%u priority:%u protocol:%u\n",
