@@ -201,7 +201,16 @@ config MSM_CLK_AOP_QMP
 	tristate "AOP QMP Clock Driver"
 	depends on COMMON_CLK_QCOM && MSM_QMP
 	help
-	Always On Processor manages few shared clocks on some Qualcomm
-	Technologies, Inc. SoCs. It accepts requests from other hardware
-	subsystems via QMP mailboxes.
-	Say Y to support the clocks managed by AOP on platforms such as sdm845.
+	  Always On Processor manages few shared clocks on some Qualcomm
+	  Technologies, Inc. SoCs. It accepts requests from other hardware
+	  subsystems via QMP mailboxes.
+	  Say Y to support the clocks managed by AOP on platforms such as sdm855.
+
+config MSM_GCC_SDM855
+	tristate "SDM855 Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  SDM855 devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, i2c,
+	  USB, UFS, SD/eMMC, PCIe, etc.
