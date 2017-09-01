@@ -220,7 +220,15 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	 * 3. xhci_plat is grandchild of a pci device (dwc3-pci)
 	 */
 	sysdev = &pdev->dev;
-	if (sysdev->parent && !sysdev->of_node && sysdev->parent->of_node)
+	/*
+	 * If sysdev->parent->parent is available and part of IOMMU group
+	 * (indicating possible usage of SMMU enablement), then use
+	 * sysdev->parent->parent as sysdev.
+	 */
+	if (sysdev->parent && !sysdev->of_node && sysdev->parent->of_node &&
+		sysdev->parent->parent && sysdev->parent->parent->iommu_group)
+		sysdev = sysdev->parent->parent;
+	else if (sysdev->parent && !sysdev->of_node && sysdev->parent->of_node)
 		sysdev = sysdev->parent;
 #ifdef CONFIG_PCI
 	else if (sysdev->parent && sysdev->parent->parent &&
