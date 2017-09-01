@@ -1301,7 +1301,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		pd->current_voltage = pd->requested_voltage = 5000000;
 		val.intval = pd->requested_voltage; /* set max range to 5V */
 		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_VOLTAGE_MAX, &val);
+				POWER_SUPPLY_PROP_PD_VOLTAGE_MAX, &val);
 
 		if (!pd->vbus_present) {
 			pd->current_state = PE_SNK_DISCOVERY;
@@ -1995,7 +1995,7 @@ static void usbpd_sm(struct work_struct *w)
 		pd->requested_voltage = 5000000;
 		val.intval = pd->requested_voltage;
 		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_VOLTAGE_MIN, &val);
+				POWER_SUPPLY_PROP_PD_VOLTAGE_MIN, &val);
 
 		pd->in_pr_swap = false;
 		val.intval = 0;
@@ -2316,8 +2316,8 @@ static void usbpd_sm(struct work_struct *w)
 			val.intval = pd->requested_voltage;
 			power_supply_set_property(pd->usb_psy,
 				pd->requested_voltage >= pd->current_voltage ?
-					POWER_SUPPLY_PROP_VOLTAGE_MAX :
-					POWER_SUPPLY_PROP_VOLTAGE_MIN,
+					POWER_SUPPLY_PROP_PD_VOLTAGE_MAX :
+					POWER_SUPPLY_PROP_PD_VOLTAGE_MIN,
 					&val);
 
 			/*
@@ -2368,8 +2368,8 @@ static void usbpd_sm(struct work_struct *w)
 			val.intval = pd->requested_voltage;
 			power_supply_set_property(pd->usb_psy,
 				pd->requested_voltage >= pd->current_voltage ?
-					POWER_SUPPLY_PROP_VOLTAGE_MIN :
-					POWER_SUPPLY_PROP_VOLTAGE_MAX, &val);
+					POWER_SUPPLY_PROP_PD_VOLTAGE_MIN :
+					POWER_SUPPLY_PROP_PD_VOLTAGE_MAX, &val);
 			pd->current_voltage = pd->requested_voltage;
 
 			/* resume charging */
@@ -2668,7 +2668,7 @@ static void usbpd_sm(struct work_struct *w)
 
 		val.intval = pd->requested_voltage;
 		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_VOLTAGE_MIN, &val);
+				POWER_SUPPLY_PROP_PD_VOLTAGE_MIN, &val);
 
 		pd_send_hard_reset(pd);
 		pd->in_explicit_contract = false;
