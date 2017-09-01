@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -553,7 +553,7 @@ static void _sde_encoder_phys_wb_update_flush(struct sde_encoder_phys *phys_enc)
 	struct sde_hw_wb *hw_wb;
 	struct sde_hw_ctl *hw_ctl;
 	struct sde_hw_cdm *hw_cdm;
-	u32 flush_mask = 0;
+	struct sde_ctl_flush_cfg pending_flush = {0,};
 
 	if (!phys_enc)
 		return;
@@ -569,20 +569,19 @@ static void _sde_encoder_phys_wb_update_flush(struct sde_encoder_phys *phys_enc)
 		return;
 	}
 
-	if (hw_ctl->ops.get_bitmask_wb)
-		hw_ctl->ops.get_bitmask_wb(hw_ctl, &flush_mask, hw_wb->idx);
+	if (hw_ctl->ops.update_bitmask_wb)
+		hw_ctl->ops.update_bitmask_wb(hw_ctl, hw_wb->idx, 1);
 
-	if (hw_ctl->ops.get_bitmask_cdm && hw_cdm)
-		hw_ctl->ops.get_bitmask_cdm(hw_ctl, &flush_mask, hw_cdm->idx);
-
-	if (hw_ctl->ops.update_pending_flush)
-		hw_ctl->ops.update_pending_flush(hw_ctl, flush_mask);
+	if (hw_ctl->ops.update_bitmask_cdm && hw_cdm)
+		hw_ctl->ops.update_bitmask_cdm(hw_ctl, hw_cdm->idx, 1);
 
 	if (hw_ctl->ops.get_pending_flush)
-		flush_mask = hw_ctl->ops.get_pending_flush(hw_ctl);
+		hw_ctl->ops.get_pending_flush(hw_ctl,
+				&pending_flush);
 
 	SDE_DEBUG("Pending flush mask for CTL_%d is 0x%x, WB %d\n",
-			hw_ctl->idx - CTL_0, flush_mask, hw_wb->idx - WB_0);
+			hw_ctl->idx - CTL_0, pending_flush.pending_flush_mask,
+			hw_wb->idx - WB_0);
 }
 
 /**

@@ -258,12 +258,10 @@ static void programmable_rot_fetch_config(struct sde_encoder_phys *phys_enc,
 	u32 horiz_total = 0;
 	u32 vert_total = 0;
 	u32 rot_fetch_start_vsync_counter = 0;
-	u32 flush_mask = 0;
 	unsigned long lock_flags;
 
 	if (!phys_enc || !vid_enc->hw_intf || !phys_enc->hw_ctl ||
-			!phys_enc->hw_ctl->ops.get_bitmask_intf ||
-			!phys_enc->hw_ctl->ops.update_pending_flush ||
+			!phys_enc->hw_ctl->ops.update_bitmask_intf ||
 			!vid_enc->hw_intf->ops.setup_rot_start ||
 			!phys_enc->sde_kms ||
 			!is_primary)
@@ -303,11 +301,8 @@ static void programmable_rot_fetch_config(struct sde_encoder_phys *phys_enc,
 	if (!phys_enc->sde_kms->splash_data.cont_splash_en) {
 		SDE_EVT32(DRMID(phys_enc->parent), f.enable, f.fetch_start);
 
-		phys_enc->hw_ctl->ops.get_bitmask_intf(
-				phys_enc->hw_ctl, &flush_mask,
-				vid_enc->hw_intf->idx);
-		phys_enc->hw_ctl->ops.update_pending_flush(
-				phys_enc->hw_ctl, flush_mask);
+		phys_enc->hw_ctl->ops.update_bitmask_intf(
+				phys_enc->hw_ctl, vid_enc->hw_intf->idx, 1);
 
 		spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
 		vid_enc->hw_intf->ops.setup_rot_start(vid_enc->hw_intf, &f);
@@ -680,7 +675,6 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	struct sde_encoder_phys_vid *vid_enc;
 	struct sde_hw_intf *intf;
 	struct sde_hw_ctl *ctl;
-	u32 flush_mask = 0;
 
 	if (!phys_enc || !phys_enc->parent || !phys_enc->parent->dev ||
 			!phys_enc->parent->dev->dev_private ||
@@ -696,6 +690,11 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	if (!vid_enc->hw_intf || !phys_enc->hw_ctl) {
 		SDE_ERROR("invalid hw_intf %d hw_ctl %d\n",
 				vid_enc->hw_intf != 0, phys_enc->hw_ctl != 0);
+		return;
+	}
+
+	if (!ctl->ops.update_bitmask_intf) {
+		SDE_ERROR("invalid hw_ctl ops %d\n", ctl->idx);
 		return;
 	}
 
@@ -733,12 +732,11 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 		goto skip_flush;
 	}
 
-	ctl->ops.get_bitmask_intf(ctl, &flush_mask, intf->idx);
-	ctl->ops.update_pending_flush(ctl, flush_mask);
+	ctl->ops.update_bitmask_intf(ctl, intf->idx, 1);
 
 skip_flush:
-	SDE_DEBUG_VIDENC(vid_enc, "update pending flush ctl %d flush_mask %x\n",
-		ctl->idx - CTL_0, flush_mask);
+	SDE_DEBUG_VIDENC(vid_enc, "update pending flush ctl %d intf %d\n",
+		ctl->idx - CTL_0, intf->idx);
 
 	/* ctl_flush & timing engine enable will be triggered by framework */
 	if (phys_enc->enable_state == SDE_ENC_DISABLED)

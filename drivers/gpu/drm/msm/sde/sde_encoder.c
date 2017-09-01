@@ -2904,10 +2904,11 @@ static void sde_encoder_off_work(struct kthread_work *work)
  * _sde_encoder_trigger_flush - trigger flush for a physical encoder
  * drm_enc: Pointer to drm encoder structure
  * phys: Pointer to physical encoder structure
- * extra_flush_bits: Additional bit mask to include in flush trigger
+ * extra_flush: Additional bit mask to include in flush trigger
  */
 static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
-		struct sde_encoder_phys *phys, uint32_t extra_flush_bits)
+		struct sde_encoder_phys *phys,
+		struct sde_ctl_flush_cfg *extra_flush)
 {
 	struct sde_hw_ctl *ctl;
 	int pending_kickoff_cnt;
@@ -2942,18 +2943,24 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 	if (phys->ops.is_master && phys->ops.is_master(phys))
 		atomic_inc(&phys->pending_retire_fence_cnt);
 
-	if (extra_flush_bits && ctl->ops.update_pending_flush)
-		ctl->ops.update_pending_flush(ctl, extra_flush_bits);
+	if ((extra_flush && extra_flush->pending_flush_mask)
+			&& ctl->ops.update_pending_flush)
+		ctl->ops.update_pending_flush(ctl, extra_flush);
 
 	phys->ops.trigger_flush(phys);
 
-	if (ctl->ops.get_pending_flush)
+	if (ctl->ops.get_pending_flush) {
+		struct sde_ctl_flush_cfg pending_flush = {0,};
+
+		ctl->ops.get_pending_flush(ctl, &pending_flush);
 		SDE_EVT32(DRMID(drm_enc), phys->intf_idx - INTF_0,
-			pending_kickoff_cnt, ctl->idx - CTL_0,
-			ctl->ops.get_pending_flush(ctl));
-	else
+				pending_kickoff_cnt, ctl->idx - CTL_0,
+				pending_flush.pending_flush_mask);
+	} else {
 		SDE_EVT32(DRMID(drm_enc), phys->intf_idx - INTF_0,
-			ctl->idx - CTL_0, pending_kickoff_cnt);
+				ctl->idx - CTL_0,
+				pending_kickoff_cnt);
+	}
 }
 
 /**
@@ -3112,15 +3119,14 @@ void sde_encoder_helper_hw_reset(struct sde_encoder_phys *phys_enc)
 static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 {
 	struct sde_hw_ctl *ctl;
-	uint32_t i, pending_flush;
+	uint32_t i;
 	unsigned long lock_flags;
+	struct sde_ctl_flush_cfg pending_flush = {0,};
 
 	if (!sde_enc) {
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
-
-	pending_flush = 0x0;
 
 	/*
 	 * Trigger LUT DMA flush, this might need a wait, so we need
@@ -3177,15 +3183,15 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 				!phys->ops.needs_single_flush(phys))
 			_sde_encoder_trigger_flush(&sde_enc->base, phys, 0x0);
 		else if (ctl->ops.get_pending_flush)
-			pending_flush |= ctl->ops.get_pending_flush(ctl);
+			ctl->ops.get_pending_flush(ctl, &pending_flush);
 	}
 
 	/* for split flush, combine pending flush masks and send to master */
-	if (pending_flush && sde_enc->cur_master) {
+	if (pending_flush.pending_flush_mask && sde_enc->cur_master) {
 		_sde_encoder_trigger_flush(
 				&sde_enc->base,
 				sde_enc->cur_master,
-				pending_flush);
+				&pending_flush);
 	}
 
 	_sde_encoder_trigger_start(sde_enc->cur_master);
@@ -3912,12 +3918,10 @@ int sde_encoder_helper_reset_mixers(struct sde_encoder_phys *phys_enc,
 			continue;
 
 		/* need to flush LM to remove it */
-		if (phys_enc->hw_ctl->ops.get_bitmask_mixer &&
-				phys_enc->hw_ctl->ops.update_pending_flush)
-			phys_enc->hw_ctl->ops.update_pending_flush(
+		if (phys_enc->hw_ctl->ops.update_bitmask_mixer)
+			phys_enc->hw_ctl->ops.update_bitmask_mixer(
 					phys_enc->hw_ctl,
-					phys_enc->hw_ctl->ops.get_bitmask_mixer(
-					phys_enc->hw_ctl, hw_lm->idx));
+					hw_lm->idx, 1);
 
 		if (fb) {
 			/* assume a single LM if targeting a frame buffer */

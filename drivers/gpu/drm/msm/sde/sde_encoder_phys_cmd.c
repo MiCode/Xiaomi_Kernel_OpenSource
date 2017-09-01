@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -126,21 +126,18 @@ static void _sde_encoder_phys_cmd_update_flush_mask(
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
 	struct sde_hw_ctl *ctl;
-	u32 flush_mask = 0;
 
 	if (!phys_enc)
 		return;
 
 	ctl = phys_enc->hw_ctl;
-	if (!ctl || !ctl->ops.get_bitmask_intf ||
-			!ctl->ops.update_pending_flush)
+	if (!ctl || !ctl->ops.update_bitmask_intf)
 		return;
 
-	ctl->ops.get_bitmask_intf(ctl, &flush_mask, phys_enc->intf_idx);
-	ctl->ops.update_pending_flush(ctl, flush_mask);
+	ctl->ops.update_bitmask_intf(ctl, phys_enc->intf_idx, 1);
 
-	SDE_DEBUG_CMDENC(cmd_enc, "update pending flush ctl %d flush_mask %x\n",
-			ctl->idx - CTL_0, flush_mask);
+	SDE_DEBUG_CMDENC(cmd_enc, "update pending flush ctl %d intf_idx %x\n",
+			ctl->idx - CTL_0, phys_enc->intf_idx);
 }
 
 static void _sde_encoder_phys_cmd_update_intf_cfg(
@@ -862,7 +859,6 @@ static void sde_encoder_phys_cmd_enable_helper(
 		struct sde_encoder_phys *phys_enc)
 {
 	struct sde_hw_ctl *ctl;
-	u32 flush_mask = 0;
 
 	if (!phys_enc || !phys_enc->hw_ctl || !phys_enc->hw_pp) {
 		SDE_ERROR("invalid arg(s), encoder %d\n", phys_enc != 0);
@@ -882,8 +878,7 @@ static void sde_encoder_phys_cmd_enable_helper(
 		goto skip_flush;
 
 	ctl = phys_enc->hw_ctl;
-	ctl->ops.get_bitmask_intf(ctl, &flush_mask, phys_enc->intf_idx);
-	ctl->ops.update_pending_flush(ctl, flush_mask);
+	ctl->ops.update_bitmask_intf(ctl, phys_enc->intf_idx, 1);
 
 skip_flush:
 	return;
