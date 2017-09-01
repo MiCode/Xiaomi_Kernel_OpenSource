@@ -2219,7 +2219,7 @@ static int smb135x_chg_otg_regulator_is_enable(struct regulator_dev *rdev)
 	return  (reg & OTG_EN) ? 1 : 0;
 }
 
-struct regulator_ops smb135x_chg_otg_reg_ops = {
+static struct regulator_ops smb135x_chg_otg_reg_ops = {
 	.enable		= smb135x_chg_otg_regulator_enable,
 	.disable	= smb135x_chg_otg_regulator_disable,
 	.is_enabled	= smb135x_chg_otg_regulator_is_enable,
