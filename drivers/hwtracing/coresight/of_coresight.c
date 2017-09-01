@@ -207,6 +207,8 @@ of_get_coresight_platform_data(struct device *dev,
 	}
 
 	pdata->cpu = of_coresight_get_cpu(node);
+	/* Affinity defaults to invalid */
+	pdata->cpu = -1;
 
 	return pdata;
 }
