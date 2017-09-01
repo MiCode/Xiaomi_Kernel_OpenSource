@@ -96,6 +96,8 @@ Optional properties:
 	or not for the drivers to prepare for cluster collapse.
 	- qcom,hyp-psci: This property is used to determine if the cpu
         enters the low power mode within hypervisor.
+	- qcom,no-cache-flush: This boolean property will specify that cache
+	will not be flushed and will be in retention for this mode.
 	- qcom,reset-level: This property is used to determine in this
 	low power mode only control logic power collapse happens or memory
 	logic power collapse aswell happens or retention state.
