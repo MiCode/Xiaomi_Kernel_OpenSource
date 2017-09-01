@@ -175,7 +175,7 @@
 			compatible = "qcom,wcd-spi-v2";
 			qcom,master-bus-num = <0>;
 			qcom,chip-select = <0>;
-			qcom,max-frequency = <9600000>;
+			qcom,max-frequency = <24000000>;
 			qcom,mem-base-addr = <0x100000>;
 		};
 
