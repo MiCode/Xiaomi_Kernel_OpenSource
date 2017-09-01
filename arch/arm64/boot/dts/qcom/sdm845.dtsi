@@ -1019,7 +1019,7 @@
 			< MHZ_TO_MBPS(1804, 4) >; /* 6881 MB/s */
 	};
 
-	devfreq-cpufreq {
+	devfreq_cpufreq: devfreq-cpufreq {
 		mincpubw-cpufreq {
 			target-dev = <&mincpubw>;
 			cpu-to-dev-map-0 =
