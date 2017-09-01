@@ -674,6 +674,18 @@
 		#size-cells = <1>;
 		ranges;
 
+		USB3_GDSC-supply = <&usb30_prim_gdsc>;
+
+		clocks = <&clock_gcc GCC_USB30_PRIM_MASTER_CLK>,
+			 <&clock_gcc GCC_CFG_NOC_USB3_PRIM_AXI_CLK>,
+			 <&clock_gcc GCC_AGGRE_USB3_PRIM_AXI_CLK>,
+			 <&clock_gcc GCC_USB30_PRIM_MOCK_UTMI_CLK>,
+			 <&clock_gcc GCC_USB30_PRIM_SLEEP_CLK>,
+			 <&clock_gcc GCC_USB3_PRIM_CLKREF_CLK>;
+
+		clock-names = "core_clk", "iface_clk", "bus_aggr_clk",
+			"utmi_clk", "sleep_clk", "xo";
+
 		dwc3@a600000 {
 			compatible = "snps,dwc3";
 			reg = <0x0a600000 0xcd00>;
