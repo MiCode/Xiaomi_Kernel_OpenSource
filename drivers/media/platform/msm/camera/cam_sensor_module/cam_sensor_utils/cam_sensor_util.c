@@ -1229,16 +1229,13 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 				CAM_ERR(CAM_SENSOR, "request gpio failed");
 				return no_gpio;
 			}
-			if (power_setting->seq_val >= CAM_VREG_MAX ||
-				!gpio_num_info) {
-				CAM_ERR(CAM_SENSOR, "gpio index %d >= max %d",
-					power_setting->seq_val,
-					CAM_VREG_MAX);
+			if (!gpio_num_info) {
+				CAM_ERR(CAM_SENSOR, "Invalid gpio_num_info");
 				goto power_up_failed;
 			}
 			CAM_DBG(CAM_SENSOR, "gpio set val %d",
 				gpio_num_info->gpio_num
-				[power_setting->seq_val]);
+				[power_setting->seq_type]);
 
 			rc = msm_cam_sensor_handle_reg_gpio(
 				power_setting->seq_type,
@@ -1336,11 +1333,11 @@ power_up_failed:
 			if (!gpio_num_info)
 				continue;
 			if (!gpio_num_info->valid
-				[power_setting->seq_val])
+				[power_setting->seq_type])
 				continue;
 			gpio_set_value_cansleep(
 				gpio_num_info->gpio_num
-				[power_setting->seq_val], GPIOF_OUT_INIT_LOW);
+				[power_setting->seq_type], GPIOF_OUT_INIT_LOW);
 			break;
 		case SENSOR_VANA:
 		case SENSOR_VDIG:
@@ -1506,12 +1503,12 @@ int msm_camera_power_down(struct cam_sensor_power_ctrl_t *ctrl,
 		case SENSOR_CUSTOM_GPIO1:
 		case SENSOR_CUSTOM_GPIO2:
 
-			if (!gpio_num_info->valid[pd->seq_val])
+			if (!gpio_num_info->valid[pd->seq_type])
 				continue;
 
 			gpio_set_value_cansleep(
 				gpio_num_info->gpio_num
-				[pd->seq_val],
+				[pd->seq_type],
 				(int) pd->config_val);
 
 			break;

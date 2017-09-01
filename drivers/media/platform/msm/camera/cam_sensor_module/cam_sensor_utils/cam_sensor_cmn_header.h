@@ -224,14 +224,6 @@ struct camera_vreg_t {
 	enum camera_vreg_type type;
 };
 
-struct cam_sensor_module_power_setting {
-	enum msm_camera_power_seq_type seq_type;
-	unsigned short seq_val;
-	uint32_t config_val_low;
-	uint32_t config_val_high;
-	unsigned short delay;
-};
-
 struct msm_camera_gpio_num_info {
 	uint16_t gpio_num[SENSOR_SEQ_TYPE_MAX];
 	uint8_t valid[SENSOR_SEQ_TYPE_MAX];
@@ -331,26 +323,6 @@ struct cam_sensor_power_setting {
 	long config_val;
 	unsigned short delay;
 	void *data[10];
-};
-
-struct cam_sensor_power_setting_array {
-	struct cam_sensor_power_setting  power_setting_a[MAX_POWER_CONFIG];
-	struct cam_sensor_power_setting *power_setting;
-	unsigned short size;
-	struct cam_sensor_power_setting  power_down_setting_a[MAX_POWER_CONFIG];
-	struct cam_sensor_power_setting *power_down_setting;
-	unsigned short size_down;
-};
-
-struct msm_camera_sensor_slave_info {
-	enum msm_sensor_camera_id_t camera_id;
-	unsigned short slave_addr;
-	enum i2c_freq_mode i2c_freq_mode;
-	enum camera_sensor_i2c_type addr_type;
-	struct msm_sensor_id_info_t sensor_id_info;
-	struct cam_sensor_power_setting_array power_setting_array;
-	unsigned char  is_init_params_valid;
-	enum msm_sensor_output_format_t output_format;
 };
 
 struct cam_sensor_board_info {
