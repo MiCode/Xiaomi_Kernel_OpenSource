@@ -252,6 +252,28 @@ static struct adv7533_reg_cfg I2S_cfg[] = {
 	{I2C_ADDR_MAIN, 0x73, 0x01, 0},	/* Channel Count = 2 channels */
 };
 
+static struct mdss_dba_timing_info adv7533_supp_timing_cfg[] = {
+	{1920, 1080, 24, 60, 0x4},
+	{1920, 1080, 24, 30, 0x3},
+	{1920, 1080, 24, 24, 0x3},
+	{1280, 720, 24, 60, 0x3},
+	{1280, 720, 24, 50, 0x3},
+	{1024, 768, 24, 60, 0x3},
+	{1024, 576, 24, 60, 0x2},
+	{720, 480, 24, 60, 0x2},
+	{720, 480, 16, 60, 0x2},
+	{720, 576, 24, 50, 0x2},
+	{720, 576, 16, 50, 0x2},
+	{640, 480, 24, 60, 0x2},
+	{640, 480, 16, 60, 0x2},
+	{0xffff, 0xffff, 0xff, 0xff, 0xff},
+};
+
+static void *adv7533_get_supp_timing_info(void)
+{
+	return adv7533_supp_timing_cfg;
+}
+
 static int adv7533_write(struct adv7533 *pdata, u8 offset, u8 reg, u8 val)
 {
 	u8 addr = 0;
@@ -1841,6 +1863,7 @@ static int adv7533_register_dba(struct adv7533 *pdata)
 	client_ops->check_hpd	    = adv7533_check_hpd;
 	client_ops->get_audio_block = adv7533_get_audio_block;
 	client_ops->set_audio_block = adv7533_set_audio_block;
+	client_ops->get_supp_timing_info = adv7533_get_supp_timing_info;
 
 	dev_ops->write_reg = adv7533_write_reg;
 	dev_ops->read_reg = adv7533_read_reg;

@@ -1494,11 +1494,11 @@ static inline void msm_spi_set_cs(struct spi_device *spi, bool set_flag)
 	struct msm_spi *dd = spi_master_get_devdata(spi->master);
 	u32 spi_ioc;
 	u32 spi_ioc_orig;
-	int rc;
+	int rc = 0;
 
 	rc = pm_runtime_get_sync(dd->dev);
 	if (rc < 0) {
-		dev_err(dd->dev, "Failure during runtime get");
+		dev_err(dd->dev, "Failure during runtime get,rc=%d", rc);
 		return;
 	}
 
@@ -1513,6 +1513,15 @@ static inline void msm_spi_set_cs(struct spi_device *spi, bool set_flag)
 	if (!(spi->mode & SPI_CS_HIGH))
 		set_flag = !set_flag;
 
+	/* Serve only under mutex lock as RT suspend may cause a race */
+	mutex_lock(&dd->core_lock);
+	if (dd->suspended) {
+		dev_err(dd->dev, "%s: SPI operational state=%d Invalid\n",
+			__func__, dd->suspended);
+		mutex_unlock(&dd->core_lock);
+		return;
+	}
+
 	spi_ioc = readl_relaxed(dd->base + SPI_IO_CONTROL);
 	spi_ioc_orig = spi_ioc;
 	if (set_flag)
@@ -1524,6 +1533,8 @@ static inline void msm_spi_set_cs(struct spi_device *spi, bool set_flag)
 		writel_relaxed(spi_ioc, dd->base + SPI_IO_CONTROL);
 	if (dd->pdata->is_shared)
 		put_local_resources(dd);
+	mutex_unlock(&dd->core_lock);
+
 	pm_runtime_mark_last_busy(dd->dev);
 	pm_runtime_put_autosuspend(dd->dev);
 }
@@ -1816,14 +1827,16 @@ static int msm_spi_setup(struct spi_device *spi)
 	mb();
 	if (dd->pdata->is_shared)
 		put_local_resources(dd);
-	/* Counter-part of system-resume when runtime-pm is not enabled. */
-	if (!pm_runtime_enabled(dd->dev))
-		msm_spi_pm_suspend_runtime(dd->dev);
 
 no_resources:
 	mutex_unlock(&dd->core_lock);
-	pm_runtime_mark_last_busy(dd->dev);
-	pm_runtime_put_autosuspend(dd->dev);
+	/* Counter-part of system-resume when runtime-pm is not enabled. */
+	if (!pm_runtime_enabled(dd->dev)) {
+		msm_spi_pm_suspend_runtime(dd->dev);
+	} else {
+		pm_runtime_mark_last_busy(dd->dev);
+		pm_runtime_put_autosuspend(dd->dev);
+	}
 
 err_setup_exit:
 	return rc;
@@ -2615,6 +2628,7 @@ static int msm_spi_pm_suspend_runtime(struct device *device)
 	wait_event_interruptible(dd->continue_suspend,
 		!dd->transfer_pending);
 
+	mutex_lock(&dd->core_lock);
 	if (dd->pdata && !dd->pdata->is_shared && dd->use_dma) {
 		msm_spi_bam_pipe_disconnect(dd, &dd->bam.prod);
 		msm_spi_bam_pipe_disconnect(dd, &dd->bam.cons);
@@ -2624,6 +2638,7 @@ static int msm_spi_pm_suspend_runtime(struct device *device)
 
 	if (dd->pdata)
 		msm_spi_clk_path_vote(dd, 0);
+	mutex_unlock(&dd->core_lock);
 
 suspend_exit:
 	return 0;

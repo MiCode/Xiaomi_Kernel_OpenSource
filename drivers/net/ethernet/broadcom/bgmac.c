@@ -1412,6 +1412,7 @@ static void bgmac_mii_unregister(struct bgmac *bgmac)
 /* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipattach */
 static int bgmac_probe(struct bcma_device *core)
 {
+	struct bcma_chipinfo *ci = &core->bus->chipinfo;
 	struct net_device *net_dev;
 	struct bgmac *bgmac;
 	struct ssb_sprom *sprom = &core->bus->sprom;
@@ -1429,6 +1430,11 @@ static int bgmac_probe(struct bcma_device *core)
 		eth_random_addr(mac);
 		dev_warn(&core->dev, "Using random MAC: %pM\n", mac);
 	}
+
+	/* This (reset &) enable is not preset in specs or reference driver but
+	 * Broadcom does it in arch PCI code when enabling fake PCI device.
+	 */
+	bcma_core_enable(core, 0);
 
 	/* Allocation and references */
 	net_dev = alloc_etherdev(sizeof(*bgmac));
@@ -1474,8 +1480,8 @@ static int bgmac_probe(struct bcma_device *core)
 	bgmac_chip_reset(bgmac);
 
 	/* For Northstar, we have to take all GMAC core out of reset */
-	if (core->id.id == BCMA_CHIP_ID_BCM4707 ||
-	    core->id.id == BCMA_CHIP_ID_BCM53018) {
+	if (ci->id == BCMA_CHIP_ID_BCM4707 ||
+	    ci->id == BCMA_CHIP_ID_BCM53018) {
 		struct bcma_device *ns_core;
 		int ns_gmac;
 

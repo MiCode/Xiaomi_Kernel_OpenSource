@@ -123,7 +123,7 @@ static notrace u64 get_ns(struct vdso_data *vdata)
 	u64 cycle_now;
 	u64 nsec;
 
-	cycle_now = arch_counter_get_cntvct_cp15();
+	cycle_now = arch_counter_get_cntvct();
 
 	cycle_delta = (cycle_now - vdata->cs_cycle_last) & vdata->cs_mask;
 
@@ -196,7 +196,7 @@ static notrace int do_monotonic(struct timespec *ts, struct vdso_data *vdata)
 
 #endif /* CONFIG_ARM_ARCH_TIMER */
 
-static notrace int __vdso_clock_gettime(clockid_t clkid, struct timespec *ts)
+notrace int __vdso_clock_gettime(clockid_t clkid, struct timespec *ts)
 {
 	struct vdso_data *vdata;
 	int ret = -1;
@@ -243,7 +243,7 @@ static notrace long gettimeofday_fallback(struct timeval *_tv,
 	return ret;
 }
 
-static notrace int __vdso_gettimeofday(struct timeval *tv, struct timezone *tz)
+notrace int __vdso_gettimeofday(struct timeval *tv, struct timezone *tz)
 {
 	struct timespec ts;
 	struct vdso_data *vdata;
@@ -269,14 +269,14 @@ static notrace int __vdso_gettimeofday(struct timeval *tv, struct timezone *tz)
 
 /* Avoid unresolved references emitted by GCC */
 
-static void __aeabi_unwind_cpp_pr0(void)
+void __aeabi_unwind_cpp_pr0(void)
 {
 }
 
-static void __aeabi_unwind_cpp_pr1(void)
+void __aeabi_unwind_cpp_pr1(void)
 {
 }
 
-static void __aeabi_unwind_cpp_pr2(void)
+void __aeabi_unwind_cpp_pr2(void)
 {
 }

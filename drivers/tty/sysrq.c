@@ -954,23 +954,8 @@ static bool sysrq_handler_registered;
 
 static inline void sysrq_register_handler(void)
 {
-	unsigned short key;
 	int error;
-	int i;
 
-	/* First check if a __weak interface was instantiated. */
-	for (i = 0; i < ARRAY_SIZE(sysrq_reset_seq); i++) {
-		key = platform_sysrq_reset_seq[i];
-		if (key == KEY_RESERVED || key > KEY_MAX)
-			break;
-
-		sysrq_reset_seq[sysrq_reset_seq_len++] = key;
-	}
-
-	/*
-	 * DT configuration takes precedence over anything that would
-	 * have been defined via the __weak interface.
-	 */
 	sysrq_of_get_keyreset_config();
 
 	error = input_register_handler(&sysrq_handler);

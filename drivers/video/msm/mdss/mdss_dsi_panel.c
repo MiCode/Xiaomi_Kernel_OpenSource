@@ -2527,6 +2527,7 @@ static int mdss_panel_parse_dt(struct device_node *np,
 			struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	u32 tmp;
+	u8 lanes = 0;
 	int rc = 0;
 	const char *data;
 	static const char *pdest;
@@ -2672,6 +2673,20 @@ static int mdss_panel_parse_dt(struct device_node *np,
 		"qcom,mdss-dsi-lane-2-state");
 	pinfo->mipi.data_lane3 = of_property_read_bool(np,
 		"qcom,mdss-dsi-lane-3-state");
+
+	if (pinfo->mipi.data_lane0)
+		lanes++;
+	if (pinfo->mipi.data_lane1)
+		lanes++;
+	if (pinfo->mipi.data_lane2)
+		lanes++;
+	if (pinfo->mipi.data_lane3)
+		lanes++;
+	/*
+	 * needed to set default lanes during
+	 * resolution switch for bridge chips
+	 */
+	pinfo->mipi.default_lanes = lanes;
 
 	rc = mdss_panel_parse_display_timings(np, &ctrl_pdata->panel_data);
 	if (rc)

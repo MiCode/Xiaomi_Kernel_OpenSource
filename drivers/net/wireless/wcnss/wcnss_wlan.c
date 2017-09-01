@@ -190,8 +190,8 @@ static DEFINE_SPINLOCK(reg_spinlock);
 
 /* control messages from userspace */
 #define WCNSS_USR_CTRL_MSG_START  0x00000000
-#define WCNSS_USR_HAS_CAL_DATA    (WCNSS_USR_CTRL_MSG_START + 1)
-#define WCNSS_USR_WLAN_MAC_ADDR   (WCNSS_USR_CTRL_MSG_START + 2)
+#define WCNSS_USR_HAS_CAL_DATA    (WCNSS_USR_CTRL_MSG_START + 2)
+#define WCNSS_USR_WLAN_MAC_ADDR   (WCNSS_USR_CTRL_MSG_START + 3)
 
 #define MAC_ADDRESS_STR "%02x:%02x:%02x:%02x:%02x:%02x"
 #define SHOW_MAC_ADDRESS_STR	"%02x:%02x:%02x:%02x:%02x:%02x\n"
@@ -363,6 +363,7 @@ static struct {
 	unsigned char	wcnss_version[WCNSS_VERSION_LEN];
 	unsigned char   fw_major;
 	unsigned char   fw_minor;
+	unsigned int	serial_number;
 	int		thermal_mitigation;
 	enum wcnss_hw_type	wcnss_hw_type;
 	void		(*tm_notify)(struct device *, int);
@@ -1645,8 +1646,12 @@ EXPORT_SYMBOL(wcnss_unregister_thermal_mitigation);
 
 unsigned int wcnss_get_serial_number(void)
 {
-	if (penv)
-		return socinfo_get_serial_number();
+	if (penv) {
+		penv->serial_number = socinfo_get_serial_number();
+		pr_info("%s: Device serial number: %u\n",
+			__func__, penv->serial_number);
+		return penv->serial_number;
+	}
 
 	return 0;
 }

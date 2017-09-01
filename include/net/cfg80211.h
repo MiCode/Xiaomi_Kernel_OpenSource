@@ -1642,6 +1642,8 @@ struct cfg80211_bss_select_adjust {
  *	using @relative_rssi. If delta is a negative number, the BSSs that
  *	belong to the specified band will be penalized by delta dB in relative
  *	comparisions.
+ * @owner_nlportid: netlink portid of owner (if this should is a request
+ *	owned by a particular socket)
  */
 struct cfg80211_sched_scan_request {
 	struct cfg80211_ssid *ssids;

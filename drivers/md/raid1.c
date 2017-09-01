@@ -563,7 +563,7 @@ static int read_balance(struct r1conf *conf, struct r1bio *r1_bio, int *max_sect
 			if (best_dist_disk < 0) {
 				if (is_badblock(rdev, this_sector, sectors,
 						&first_bad, &bad_sectors)) {
-					if (first_bad < this_sector)
+					if (first_bad <= this_sector)
 						/* Cannot use this */
 						continue;
 					best_good_sectors = first_bad - this_sector;
@@ -1120,13 +1120,16 @@ static void make_request(struct mddev *mddev, struct bio * bio)
 		 */
 		DEFINE_WAIT(w);
 		for (;;) {
-			flush_signals(current);
+			sigset_t full, old;
 			prepare_to_wait(&conf->wait_barrier,
 					&w, TASK_INTERRUPTIBLE);
 			if (bio_end_sector(bio) <= mddev->suspend_lo ||
 			    bio->bi_iter.bi_sector >= mddev->suspend_hi)
 				break;
+			sigfillset(&full);
+			sigprocmask(SIG_BLOCK, &full, &old);
 			schedule();
+			sigprocmask(SIG_SETMASK, &old, NULL);
 		}
 		finish_wait(&conf->wait_barrier, &w);
 	}
@@ -2066,6 +2069,8 @@ static void sync_request_write(struct mddev *mddev, struct r1bio *r1_bio)
 		    (wbio->bi_end_io == end_sync_read &&
 		     (i == r1_bio->read_disk ||
 		      !test_bit(MD_RECOVERY_SYNC, &mddev->recovery))))
+			continue;
+		if (test_bit(Faulty, &conf->mirrors[i].rdev->flags))
 			continue;
 
 		wbio->bi_rw = WRITE;
