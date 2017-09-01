@@ -1047,9 +1047,9 @@ static int venus_hfi_flush_debug_queue(void *dev)
 
 	mutex_lock(&device->lock);
 
-	if (device->power_enabled) {
-		dprintk(VIDC_DBG, "Venus is busy\n");
-		rc = -EBUSY;
+	if (!device->power_enabled) {
+		dprintk(VIDC_WARN, "%s: venus power off\n", __func__);
+		rc = -EINVAL;
 		goto exit;
 	}
 	__flush_debug_queue(device, NULL);
