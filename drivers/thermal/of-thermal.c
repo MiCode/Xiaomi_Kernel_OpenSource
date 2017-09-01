@@ -193,6 +193,12 @@ static int of_thermal_get_temp(struct thermal_zone_device *tz,
 
 	if (!data->senps || !data->senps->ops->get_temp)
 		return -EINVAL;
+	if (data->mode == THERMAL_DEVICE_DISABLED) {
+		*temp = tz->tzp->tracks_low ?
+				THERMAL_TEMP_INVALID_LOW :
+				THERMAL_TEMP_INVALID;
+		return 0;
+	}
 
 	return data->senps->ops->get_temp(data->senps->sensor_data, temp);
 }
@@ -507,6 +513,8 @@ static int of_thermal_aggregate_trip_types(struct thermal_zone_device *tz,
 	head = &data->senps->first_tz;
 	list_for_each_entry(data, head, list) {
 		zone = data->tzd;
+		if (data->mode == THERMAL_DEVICE_DISABLED)
+			continue;
 		for (trip = 0; trip < data->ntrips; trip++) {
 			of_thermal_get_trip_type(zone, trip, &type);
 			if (!(BIT(type) & trip_type_mask))
@@ -570,6 +578,8 @@ void of_thermal_handle_trip(struct thermal_zone_device *tz)
 	head = &data->senps->first_tz;
 	list_for_each_entry(data, head, list) {
 		zone = data->tzd;
+		if (data->mode == THERMAL_DEVICE_DISABLED)
+			continue;
 		thermal_zone_device_update(zone, THERMAL_EVENT_UNSPECIFIED);
 	}
 }
