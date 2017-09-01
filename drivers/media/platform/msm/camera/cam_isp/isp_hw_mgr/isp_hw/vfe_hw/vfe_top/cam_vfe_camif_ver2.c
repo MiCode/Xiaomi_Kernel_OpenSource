@@ -14,11 +14,13 @@
 #include <uapi/media/cam_isp.h>
 #include "cam_io_util.h"
 #include "cam_isp_hw_mgr_intf.h"
+#include "cam_isp_hw.h"
 #include "cam_vfe_hw_intf.h"
 #include "cam_vfe_top.h"
 #include "cam_vfe_top_ver2.h"
 #include "cam_vfe_camif_ver2.h"
 #include "cam_debug_util.h"
+#include "cam_cdm_util.h"
 
 struct cam_vfe_mux_camif_data {
 	void __iomem                                *mem_base;
@@ -56,6 +58,55 @@ static int cam_vfe_camif_validate_pix_pattern(uint32_t pattern)
 		break;
 	}
 	return rc;
+}
+
+static int cam_vfe_camif_get_reg_update(
+	struct cam_isp_resource_node  *camif_res,
+	void *cmd_args, uint32_t arg_size)
+{
+	uint32_t                          size = 0;
+	uint32_t                          reg_val_pair[2];
+	struct cam_isp_hw_get_cdm_args   *cdm_args = cmd_args;
+	struct cam_cdm_utils_ops         *cdm_util_ops = NULL;
+	struct cam_vfe_mux_camif_data    *rsrc_data = NULL;
+
+	if (arg_size != sizeof(struct cam_isp_hw_get_cdm_args)) {
+		CAM_ERR(CAM_ISP, "Invalid cmd size");
+		return -EINVAL;
+	}
+
+	if (!cdm_args || !cdm_args->res) {
+		CAM_ERR(CAM_ISP, "Invalid args");
+		return -EINVAL;
+	}
+
+	cdm_util_ops = (struct cam_cdm_utils_ops *)cdm_args->res->cdm_ops;
+
+	if (!cdm_util_ops) {
+		CAM_ERR(CAM_ISP, "Invalid CDM ops");
+		return -EINVAL;
+	}
+
+	size = cdm_util_ops->cdm_required_size_reg_random(1);
+	/* since cdm returns dwords, we need to convert it into bytes */
+	if ((size * 4) > cdm_args->size) {
+		CAM_ERR(CAM_ISP, "buf size:%d is not sufficient, expected: %d",
+			cdm_args->size, size);
+		return -EINVAL;
+	}
+
+	rsrc_data = camif_res->res_priv;
+	reg_val_pair[0] = rsrc_data->camif_reg->reg_update_cmd;
+	reg_val_pair[1] = rsrc_data->reg_data->reg_update_cmd_data;
+	CAM_DBG(CAM_ISP, "CAMIF reg_update_cmd %x offset %x",
+		reg_val_pair[1], reg_val_pair[0]);
+
+	cdm_util_ops->cdm_write_regrandom(cdm_args->cmd_buf_addr,
+		1, reg_val_pair);
+
+	cdm_args->used_bytes = size * 4;
+
+	return 0;
 }
 
 int cam_vfe_camif_ver2_acquire_resource(
@@ -117,15 +168,16 @@ static int cam_vfe_camif_resource_start(
 			rsrc_data->camif_reg->pixel_skip_pattern);
 
 	/* epoch config with 20 line */
-	cam_io_w_mb(0x00140014,
+	cam_io_w_mb(rsrc_data->reg_data->epoch_line_cfg,
 		rsrc_data->mem_base + rsrc_data->camif_reg->epoch_irq);
 
 	camif_res->res_state = CAM_ISP_RESOURCE_STATE_STREAMING;
 
 	/* Reg Update */
-	cam_io_w_mb(0x1, rsrc_data->mem_base + 0x4AC);
+	cam_io_w_mb(rsrc_data->reg_data->reg_update_cmd_data,
+		rsrc_data->mem_base + rsrc_data->camif_reg->reg_update_cmd);
 
-	CAM_DBG(CAM_ISP, "Exit");
+	CAM_DBG(CAM_ISP, "Start Camif IFE %d Done", camif_res->hw_intf->hw_idx);
 	return 0;
 }
 
@@ -155,10 +207,28 @@ static int cam_vfe_camif_resource_stop(
 	return rc;
 }
 
-int cam_vfe_camif_process_cmd(void *priv,
+static int cam_vfe_camif_process_cmd(struct cam_isp_resource_node *rsrc_node,
 	uint32_t cmd_type, void *cmd_args, uint32_t arg_size)
 {
-	return -EPERM;
+	int rc = -EINVAL;
+
+	if (!rsrc_node || !cmd_args) {
+		CAM_ERR(CAM_ISP, "Invalid input arguments");
+		return -EINVAL;
+	}
+
+	switch (cmd_type) {
+	case CAM_VFE_HW_CMD_GET_REG_UPDATE:
+		rc = cam_vfe_camif_get_reg_update(rsrc_node, cmd_args,
+			arg_size);
+		break;
+	default:
+		CAM_ERR(CAM_ISP,
+			"unsupported process command:%d", cmd_type);
+		break;
+	}
+
+	return rc;
 }
 
 static int cam_vfe_camif_handle_irq_top_half(uint32_t evt_id,
@@ -247,6 +317,7 @@ int cam_vfe_camif_ver2_init(
 
 	camif_node->start = cam_vfe_camif_resource_start;
 	camif_node->stop  = cam_vfe_camif_resource_stop;
+	camif_node->process_cmd = cam_vfe_camif_process_cmd;
 	camif_node->top_half_handler = cam_vfe_camif_handle_irq_top_half;
 	camif_node->bottom_half_handler = cam_vfe_camif_handle_irq_bottom_half;
 
@@ -260,6 +331,7 @@ int cam_vfe_camif_ver2_deinit(
 
 	camif_node->start = NULL;
 	camif_node->stop  = NULL;
+	camif_node->process_cmd = NULL;
 	camif_node->top_half_handler = NULL;
 	camif_node->bottom_half_handler = NULL;
 

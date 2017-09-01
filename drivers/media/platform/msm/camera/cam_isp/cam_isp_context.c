@@ -691,7 +691,7 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 	 */
 	ctx_isp = (struct cam_isp_context *) ctx->ctx_priv;
 	if (ctx_isp->active_req_cnt >=  2) {
-		CAM_DBG(CAM_ISP,
+		CAM_ERR_RATE_LIMIT(CAM_ISP,
 			"Reject apply request due to congestion(cnt = %d)",
 			ctx_isp->active_req_cnt);
 		rc = -EFAULT;
@@ -706,6 +706,9 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 	 * we are in the middle of the error handling. Need to reject this apply
 	 */
 	if (req->request_id != apply->request_id) {
+		CAM_ERR_RATE_LIMIT(CAM_ISP,
+			"Invalid Request Id asking %llu existing %llu",
+			apply->request_id, req->request_id);
 		rc = -EFAULT;
 		goto end;
 	}

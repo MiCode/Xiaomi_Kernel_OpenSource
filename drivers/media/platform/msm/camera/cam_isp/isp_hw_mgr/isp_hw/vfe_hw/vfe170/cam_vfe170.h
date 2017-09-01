@@ -49,6 +49,7 @@ static struct cam_vfe_camif_ver2_reg vfe170_camif_reg = {
 	.epoch_irq                = 0x000004A0,
 	.raw_crop_width_cfg       = 0x00000CE4,
 	.raw_crop_height_cfg      = 0x00000CE8,
+	.reg_update_cmd           = 0x000004AC,
 };
 
 static struct cam_vfe_camif_reg_data vfe_170_camif_reg_data = {
@@ -66,7 +67,8 @@ static struct cam_vfe_camif_reg_data vfe_170_camif_reg_data = {
 	.extern_reg_update_mask          = 1,
 	.pixel_pattern_shift             = 0,
 	.pixel_pattern_mask              = 0x7,
-	.epoch_line_cfg                  = 0x140000,
+	.reg_update_cmd_data             = 0x1,
+	.epoch_line_cfg                  = 0x00140014,
 	.sof_irq_mask                    = 0x00000001,
 	.epoch0_irq_mask                 = 0x00000004,
 	.reg_update_irq_mask             = 0x00000010,

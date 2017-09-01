@@ -50,6 +50,7 @@ struct cam_vfe_camif_reg_data {
 	uint32_t     pixel_pattern_shift;
 	uint32_t     pixel_pattern_mask;
 
+	uint32_t     reg_update_cmd_data;
 	uint32_t     epoch_line_cfg;
 	uint32_t     sof_irq_mask;
 	uint32_t     epoch0_irq_mask;
@@ -66,9 +67,6 @@ struct cam_vfe_camif_ver2_hw_info {
 int cam_vfe_camif_ver2_acquire_resource(
 	struct cam_isp_resource_node  *camif_res,
 	void                          *acquire_param);
-
-int cam_vfe_camif_process_cmd(void *priv,
-	uint32_t cmd_type, void *cmd_args, uint32_t arg_size);
 
 int cam_vfe_camif_ver2_init(
 	struct cam_hw_intf            *hw_intf,
