@@ -901,6 +901,48 @@
 				  <CONTROL_TCS 0>;
 		status = "disabled";
 	};
+
+	apcs_glb: mailbox@17c00000 {
+		compatible = "qcom,sdm855-apcs-hmss-global";
+		reg = <0x17c00000 0x1000>;
+
+		#mbox-cells = <1>;
+	};
+
+	qcom,glink {
+		compatible = "qcom,glink";
+		modem {
+			qcom,remote-pid = <1>;
+			transport = "smem";
+			mboxes = <&apcs_glb 12>;
+			mbox-names = "mpss_smem";
+			interrupts = <GIC_SPI 449 IRQ_TYPE_EDGE_RISING>;
+		};
+
+		adsp {
+			qcom,remote-pid = <2>;
+			transport = "smem";
+			mboxes = <&apcs_glb 8>;
+			mbox-names = "adsp_smem";
+			interrupts = <GIC_SPI 156 IRQ_TYPE_EDGE_RISING>;
+		};
+
+		dsps {
+			qcom,remote-pid = <3>;
+			transport = "smem";
+			mboxes = <&apcs_glb 24>;
+			mbox-names = "dsps_smem";
+			interrupts = <GIC_SPI 170 IRQ_TYPE_EDGE_RISING>;
+		};
+
+		cdsp {
+			qcom,remote-pid = <5>;
+			transport = "smem";
+			mboxes = <&apcs_glb 5>;
+			mbox-names = "cdsp_smem";
+			interrupts = <GIC_SPI 574 IRQ_TYPE_EDGE_RISING>;
+		};
+	};
 };
 
 &emac_gdsc {
