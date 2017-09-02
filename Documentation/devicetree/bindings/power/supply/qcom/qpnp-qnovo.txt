@@ -20,6 +20,7 @@ Required properties:
 Optional Properties:
 - qcom,external-rsense:		To indicate whether the platform uses external or
 				internal rsense for measuring battery current.
+- qcom,enable-for-dc:		To enable qnovo for dc charging path.
 
 Example:
 
