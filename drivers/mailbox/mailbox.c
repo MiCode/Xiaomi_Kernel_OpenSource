@@ -99,11 +99,14 @@ static void tx_tick(struct mbox_chan *chan, int r)
 	/* Submit next message */
 	msg_submit(chan);
 
+	if (!mssg)
+		return;
+
 	/* Notify the client */
-	if (mssg && chan->cl->tx_done)
+	if (chan->cl->tx_done)
 		chan->cl->tx_done(chan->cl, mssg, r);
 
-	if (chan->cl->tx_block)
+	if (r != -ETIME && chan->cl->tx_block)
 		complete(&chan->tx_complete);
 }
 
@@ -255,7 +258,7 @@ int mbox_send_message(struct mbox_chan *chan, void *mssg)
 	if (chan->txdone_method	== TXDONE_BY_POLL)
 		poll_txdone((unsigned long)chan->mbox);
 
-	if (chan->cl->tx_block && chan->active_req) {
+	if (chan->cl->tx_block) {
 		unsigned long wait;
 		int ret;
 
@@ -266,8 +269,8 @@ int mbox_send_message(struct mbox_chan *chan, void *mssg)
 
 		ret = wait_for_completion_timeout(&chan->tx_complete, wait);
 		if (ret == 0) {
-			t = -EIO;
-			tx_tick(chan, -EIO);
+			t = -ETIME;
+			tx_tick(chan, t);
 		}
 	}
 
