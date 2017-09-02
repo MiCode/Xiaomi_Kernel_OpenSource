@@ -28,7 +28,6 @@
 #include "kgsl_device.h"
 #include "kgsl_log.h"
 #include "kgsl_mmu.h"
-#include "kgsl_pool.h"
 
 /*
  * The user can set this from debugfs to force failed memory allocations to
