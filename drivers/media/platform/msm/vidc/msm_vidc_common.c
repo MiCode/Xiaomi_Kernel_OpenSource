@@ -5963,6 +5963,10 @@ int msm_comm_session_continue(void *instance)
 			goto sess_continue_fail;
 		}
 		inst->in_reconfig = false;
+		inst->prop.height[CAPTURE_PORT] = inst->reconfig_height;
+		inst->prop.width[CAPTURE_PORT] = inst->reconfig_width;
+		inst->prop.height[OUTPUT_PORT] = inst->reconfig_height;
+		inst->prop.width[OUTPUT_PORT] = inst->reconfig_width;
 	} else if (inst->session_type == MSM_VIDC_ENCODER) {
 		dprintk(VIDC_DBG,
 				"session_continue not supported for encoder");
