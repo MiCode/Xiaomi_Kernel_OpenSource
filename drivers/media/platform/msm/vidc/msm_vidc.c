@@ -883,6 +883,13 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		goto fail_start;
 	}
 
+	rc = msm_vidc_check_scaling_supported(inst);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"This session scaling is not supported %pK\n", inst);
+		goto fail_start;
+	}
+
 	/* Decide work mode for current session */
 	rc = msm_vidc_decide_work_mode(inst);
 	if (rc) {
