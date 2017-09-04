@@ -115,6 +115,10 @@
 		cache-slice-names = "gpu", "gpuhtw";
 		cache-slices = <&llcc 12>, <&llcc 11>;
 
+		/* CPU latency parameter */
+		qcom,pm-qos-active-latency = <660>;
+		qcom,pm-qos-wakeup-latency = <460>;
+
 		/* Enable context aware freq. scaling */
 		qcom,enable-ca-jump;
 		/* Context aware jump busy penalty in us */
