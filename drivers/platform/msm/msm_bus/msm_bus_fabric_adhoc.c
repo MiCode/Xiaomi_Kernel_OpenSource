@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,8 @@
 #include "msm_bus_adhoc.h"
 #include "msm_bus_noc.h"
 #include "msm_bus_bimc.h"
+
+static LIST_HEAD(fabdev_list);
 
 static int msm_bus_dev_init_qos(struct device *dev, void *data);
 
@@ -431,6 +433,68 @@ static int msm_bus_agg_fab_clks(struct msm_bus_node_device_type *bus_dev)
 	return ret;
 }
 
+static void msm_bus_log_fab_max_votes(struct msm_bus_node_device_type *bus_dev)
+{
+	int ctx;
+	struct timespec ts;
+	uint32_t vrail_comp = 0;
+	struct msm_bus_node_device_type *node;
+	uint64_t max_ib, max_ib_temp[NUM_CTX];
+
+	for (ctx = 0; ctx < NUM_CTX; ctx++) {
+		max_ib_temp[ctx] = 0;
+		bus_dev->node_bw[ctx].max_ib = 0;
+		bus_dev->node_bw[ctx].max_ab = 0;
+		bus_dev->node_bw[ctx].max_ib_cl_name = NULL;
+		bus_dev->node_bw[ctx].max_ab_cl_name = NULL;
+	}
+
+	list_for_each_entry(node, &bus_dev->devlist, dev_link) {
+		for (ctx = 0; ctx < NUM_CTX; ctx++) {
+			max_ib = node->node_bw[ctx].max_ib;
+			vrail_comp = node->node_bw[ctx].vrail_used;
+
+			if (vrail_comp && (vrail_comp != 100)) {
+				max_ib *= 100;
+				max_ib = msm_bus_div64(vrail_comp, max_ib);
+			}
+
+			if (max_ib > max_ib_temp[ctx]) {
+				max_ib_temp[ctx] = max_ib;
+				bus_dev->node_bw[ctx].max_ib =
+					node->node_bw[ctx].max_ib;
+				bus_dev->node_bw[ctx].max_ib_cl_name =
+					node->node_bw[ctx].max_ib_cl_name;
+			}
+
+			if (node->node_bw[ctx].max_ab >
+					bus_dev->node_bw[ctx].max_ab) {
+				bus_dev->node_bw[ctx].max_ab =
+					node->node_bw[ctx].max_ab;
+				bus_dev->node_bw[ctx].max_ab_cl_name =
+					node->node_bw[ctx].max_ab_cl_name;
+			}
+		}
+	}
+
+	ts = ktime_to_timespec(ktime_get());
+	for (ctx = 0; ctx < NUM_CTX; ctx++) {
+		trace_bus_max_votes((int)ts.tv_sec, (int)ts.tv_nsec,
+				bus_dev->node_info->name,
+				((ctx == ACTIVE_CTX) ? "active" : "sleep"),
+				"ib", bus_dev->node_bw[ctx].max_ib,
+				bus_dev->node_bw[ctx].max_ib_cl_name);
+	}
+
+	for (ctx = 0; ctx < NUM_CTX; ctx++) {
+		trace_bus_max_votes((int)ts.tv_sec, (int)ts.tv_nsec,
+				bus_dev->node_info->name,
+				((ctx == ACTIVE_CTX) ? "active" : "sleep"),
+				"ab", bus_dev->node_bw[ctx].max_ab,
+				bus_dev->node_bw[ctx].max_ab_cl_name);
+	}
+}
+
 int msm_bus_commit_data(struct list_head *clist)
 {
 	int ret = 0;
@@ -440,8 +504,10 @@ int msm_bus_commit_data(struct list_head *clist)
 
 	list_for_each_entry(node, clist, link) {
 		/* Aggregate the bus clocks */
-		if (node->node_info->is_fab_dev)
+		if (node->node_info->is_fab_dev) {
 			msm_bus_agg_fab_clks(node);
+			msm_bus_log_fab_max_votes(node);
+		}
 	}
 
 	list_for_each_entry_safe(node, node_tmp, clist, link) {
@@ -1120,6 +1186,53 @@ int msm_bus_device_remove(struct platform_device *pdev)
 	return 0;
 }
 
+/**
+ * msm_bus_panic_callback() - panic notification callback function.
+ *              This function is invoked when a kernel panic occurs.
+ * @nfb:        Notifier block pointer
+ * @event:      Value passed unmodified to notifier function
+ * @data:       Pointer passed unmodified to notifier function
+ *
+ * Return: NOTIFY_OK
+ */
+static int msm_bus_panic_callback(struct notifier_block *nfb,
+					unsigned long event, void *data)
+{
+	struct msm_bus_node_device_type *bus_node = NULL;
+	unsigned int ctx;
+
+	list_for_each_entry(bus_node, &fabdev_list, dev_link) {
+		for (ctx = 0; ctx < NUM_CTX; ctx++) {
+			if (bus_node->node_bw[ctx].max_ib_cl_name &&
+				bus_node->node_bw[ctx].max_ib) {
+				pr_err("%s: %s: %s max_ib: %llu: client-name: %s\n",
+				__func__, bus_node->node_info->name,
+				((ctx == ACTIVE_CTX) ? "active" : "sleep"),
+				bus_node->node_bw[ctx].max_ib,
+				bus_node->node_bw[ctx].max_ib_cl_name);
+			}
+		}
+
+		for (ctx = 0; ctx < NUM_CTX; ctx++) {
+			if (bus_node->node_bw[ctx].max_ab_cl_name &&
+				bus_node->node_bw[ctx].max_ab) {
+				pr_err("%s: %s: %s max_ab: %llu: client-name: %s\n",
+				__func__, bus_node->node_info->name,
+				((ctx == ACTIVE_CTX) ? "active" : "sleep"),
+				bus_node->node_bw[ctx].max_ab,
+				bus_node->node_bw[ctx].max_ab_cl_name);
+			}
+		}
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block msm_bus_panic_notifier = {
+	.notifier_call = msm_bus_panic_callback,
+	.priority = 1,
+};
+
 static int msm_bus_device_probe(struct platform_device *pdev)
 {
 	unsigned int i, ret;
@@ -1141,6 +1254,7 @@ static int msm_bus_device_probe(struct platform_device *pdev)
 
 	for (i = 0; i < pdata->num_devices; i++) {
 		struct device *node_dev = NULL;
+		struct msm_bus_node_device_type *bus_node = NULL;
 
 		node_dev = msm_bus_device_init(&pdata->info[i]);
 
@@ -1167,6 +1281,9 @@ static int msm_bus_device_probe(struct platform_device *pdev)
 					__func__, pdata->info[i].node_info->id);
 				goto exit_device_probe;
 			}
+
+			bus_node = to_msm_bus_node(node_dev);
+			list_add_tail(&bus_node->dev_link, &fabdev_list);
 		}
 	}
 
@@ -1187,6 +1304,9 @@ static int msm_bus_device_probe(struct platform_device *pdev)
 	/* Register the arb layer ops */
 	msm_bus_arb_setops_adhoc(&arb_ops);
 	bus_for_each_dev(&msm_bus_type, NULL, NULL, msm_bus_node_debug);
+
+	atomic_notifier_chain_register(&panic_notifier_list,
+						&msm_bus_panic_notifier);
 
 	devm_kfree(&pdev->dev, pdata->info);
 	devm_kfree(&pdev->dev, pdata);
