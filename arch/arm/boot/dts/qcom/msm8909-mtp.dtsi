@@ -409,6 +409,20 @@
 		avago,als-D = <129>;
 		avago,ga-value = <256>;
 	};
+
+	akm@c { /* Magnetic field sensor */
+		compatible = "ak,ak8963";
+		reg = <0x0c>;
+		pinctrl-names = "ak8963_default", "ak8963_sleep";
+		pinctrl-0 = <&ak8963_default>;
+		pinctrl-1 = <&ak8963_sleep>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <65 0x2>;
+		vdd-supply = <&pm8909_l17>;
+		vio-supply = <&pm8909_l6>;
+		ak,layout = <0x6>;
+		ak,auto-report;
+	};
 };
 
 &mdss_mdp {
@@ -535,6 +549,30 @@
 			};
 			config {
 				pins = "gpio94";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+	};
+	ak8963_int_pin {
+		ak8963_default: ak8963_default {
+			mux {
+				pins = "gpio65";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio65";
+				drive-strength = <6>;
+				bias-pull-up;
+			};
+		};
+		ak8963_sleep: ak8963_sleep {
+			mux {
+				pins = "gpio65";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio65";
 				drive-strength = <2>;
 				bias-pull-down;
 			};
