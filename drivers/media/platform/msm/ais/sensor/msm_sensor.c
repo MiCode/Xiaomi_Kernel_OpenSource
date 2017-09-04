@@ -10,6 +10,12 @@
  * GNU General Public License for more details.
  */
 
+#include <media/v4l2-subdev.h>
+#include <media/v4l2-dev.h>
+#include <media/v4l2-ioctl.h>
+#include <media/v4l2-device.h>
+#include <media/v4l2-fh.h>
+#include <media/v4l2-event.h>
 #include "msm_sensor.h"
 #include "msm_sd.h"
 #include "msm_cci.h"
@@ -21,6 +27,7 @@
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
+#define MAX_SENSOR_V4l2_EVENTS 100
 static struct msm_camera_i2c_fn_t msm_sensor_cci_func_tbl;
 static struct msm_camera_i2c_fn_t msm_sensor_secure_func_tbl;
 
@@ -404,12 +411,26 @@ static long msm_sensor_subdev_do_ioctl(
 {
 	struct video_device *vdev = video_devdata(file);
 	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
-
+	struct v4l2_fh *vfh = file->private_data;
 	switch (cmd) {
 	case VIDIOC_MSM_SENSOR_CFG32:
 		cmd = VIDIOC_MSM_SENSOR_CFG;
+	case VIDIOC_DQEVENT: {
+		if (!(sd->flags & V4L2_SUBDEV_FL_HAS_EVENTS))
+			return -ENOIOCTLCMD;
+		return v4l2_event_dequeue(vfh, arg,
+			file->f_flags & O_NONBLOCK);
+	}
+	break;
+	case VIDIOC_SUBSCRIBE_EVENT:
+		pr_debug("msm_sensor_subdev_do_ioctl:VIDIOC_SUBSCRIBE_EVENT");
+		return v4l2_subdev_call(sd, core, subscribe_event, vfh, arg);
+
+	case VIDIOC_UNSUBSCRIBE_EVENT:
+		return v4l2_subdev_call(sd, core, unsubscribe_event, vfh, arg);
 	default:
-		return msm_sensor_subdev_ioctl(sd, cmd, arg);
+			pr_debug("msm_sensor.c msm_sensor_subdev_do_ioctl");
+		return v4l2_subdev_call(sd, core, ioctl, cmd, arg);
 	}
 }
 
@@ -1467,8 +1488,107 @@ static int msm_sensor_v4l2_enum_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static u32 msm_sensor_evt_mask_to_sensor_event(u32 evt_mask)
+{
+	u32 evt_id = SENSOR_EVENT_SUBS_MASK_NONE;
+
+	switch (evt_mask) {
+	case SENSOR_EVENT_MASK_INDEX_SIGNAL_STATUS:
+		evt_id = SENSOR_EVENT_SIGNAL_STATUS;
+		break;
+	default:
+		evt_id = SENSOR_EVENT_SUBS_MASK_NONE;
+		break;
+	}
+
+	return evt_id;
+}
+
+static int msm_sensor_subscribe_event_mask(struct v4l2_fh *fh,
+		struct v4l2_event_subscription *sub, int evt_mask_index,
+		u32 evt_id, bool subscribe_flag)
+{
+	int rc = 0;
+
+	sub->type = evt_id;
+
+	if (subscribe_flag)
+			rc = v4l2_event_subscribe(fh, sub,
+				MAX_SENSOR_V4l2_EVENTS, NULL);
+		else
+			rc = v4l2_event_unsubscribe(fh, sub);
+	if (rc != 0) {
+			pr_err("%s: Subs event_type =0x%x failed\n",
+				__func__, sub->type);
+			return rc;
+		}
+	return rc;
+}
+
+static int msm_sensor_process_event_subscription(struct v4l2_fh *fh,
+	struct v4l2_event_subscription *sub, bool subscribe_flag)
+{
+	int rc = 0, evt_mask_index = 0;
+	u32 evt_mask = sub->type;
+	u32 evt_id = 0;
+
+	if (SENSOR_EVENT_SUBS_MASK_NONE == evt_mask) {
+		pr_err("%s: Subs event_type is None=0x%x\n",
+			__func__, evt_mask);
+		return 0;
+	}
+
+	evt_mask_index = SENSOR_EVENT_MASK_INDEX_SIGNAL_STATUS;
+	if (evt_mask & (1<<evt_mask_index)) {
+		evt_id =
+			msm_sensor_evt_mask_to_sensor_event(
+				evt_mask_index);
+		rc = msm_sensor_subscribe_event_mask(fh, sub,
+			evt_mask_index, evt_id, subscribe_flag);
+		if (rc != 0) {
+			pr_err("%s: Subs event index:%d failed\n",
+				__func__, evt_mask_index);
+			return rc;
+		}
+	}
+
+	return rc;
+}
+
+int msm_sensor_send_event(struct msm_sensor_ctrl_t *s_ctrl,
+	uint32_t event_type,
+	struct msm_sensor_event_data *event_data)
+{
+	struct v4l2_event sensor_event;
+
+	memset(&sensor_event, 0, sizeof(struct v4l2_event));
+	sensor_event.id = 0;
+	sensor_event.type = event_type;
+
+	memcpy(&sensor_event.u.data[0], event_data,
+		sizeof(struct msm_sensor_event_data));
+	v4l2_event_queue(s_ctrl->msm_sd.sd.devnode, &sensor_event);
+	return 0;
+}
+
+static int msm_sensor_subscribe_event(struct v4l2_subdev *sd,
+	struct v4l2_fh *fh,
+	struct v4l2_event_subscription *sub)
+{
+	return msm_sensor_process_event_subscription(fh, sub, true);
+}
+
+static int msm_sensor_unsubscribe_event(struct v4l2_subdev *sd,
+	struct v4l2_fh *fh,
+	struct v4l2_event_subscription *sub)
+{
+	return msm_sensor_process_event_subscription(fh, sub, false);
+}
+
 static struct v4l2_subdev_core_ops msm_sensor_subdev_core_ops = {
 	.ioctl = msm_sensor_subdev_ioctl,
+	.subscribe_event = msm_sensor_subscribe_event,
+	.unsubscribe_event = msm_sensor_unsubscribe_event,
 	.s_power = msm_sensor_power,
 };
 
