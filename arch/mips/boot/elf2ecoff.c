@@ -49,7 +49,8 @@
 /*
  * Some extra ELF definitions
  */
-#define PT_MIPS_REGINFO 0x70000000	/* Register usage information */
+#define PT_MIPS_REGINFO 	0x70000000	/* Register usage information */
+#define PT_MIPS_ABIFLAGS	0x70000003	/* Records ABI related flags  */
 
 /* -------------------------------------------------------------------- */
 
@@ -267,7 +268,6 @@ int main(int argc, char *argv[])
 	Elf32_Ehdr ex;
 	Elf32_Phdr *ph;
 	Elf32_Shdr *sh;
-	char *shstrtab;
 	int i, pad;
 	struct sect text, data, bss;
 	struct filehdr efh;
@@ -335,9 +335,6 @@ int main(int argc, char *argv[])
 				     "sh");
 	if (must_convert_endian)
 		convert_elf_shdrs(sh, ex.e_shnum);
-	/* Read in the section string table. */
-	shstrtab = saveRead(infile, sh[ex.e_shstrndx].sh_offset,
-			    sh[ex.e_shstrndx].sh_size, "shstrtab");
 
 	/* Figure out if we can cram the program header into an ECOFF
 	   header...  Basically, we can't handle anything but loadable
@@ -351,7 +348,8 @@ int main(int argc, char *argv[])
 		/* Section types we can ignore... */
 		if (ph[i].p_type == PT_NULL || ph[i].p_type == PT_NOTE ||
 		    ph[i].p_type == PT_PHDR
-		    || ph[i].p_type == PT_MIPS_REGINFO)
+		    || ph[i].p_type == PT_MIPS_REGINFO
+		    || ph[i].p_type == PT_MIPS_ABIFLAGS)
 			continue;
 		/* Section types we can't handle... */
 		else if (ph[i].p_type != PT_LOAD) {

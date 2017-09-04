@@ -30,6 +30,10 @@
 	status = "ok";
 };
 
+&wcd9335 {
+	qcom,cdc-mic-unmute-delay = <50>;
+};
+
 &sdhc_2 {
 	/* device core power supply */
 	/delete-property/vdd-supply;

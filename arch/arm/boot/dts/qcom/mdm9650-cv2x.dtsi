@@ -84,11 +84,7 @@
 	};
 };
 
-&spi_2 {
-	status = "ok";
-};
-
-&spi_4 {
+&spi_1 {
 	status = "ok";
 	/delete-property/ qcom,use-bam;
 
@@ -103,6 +99,10 @@
 		pinctrl-0 = <&can_rst_on>;
 		pinctrl-1 = <&can_rst_off>;
 	};
+};
+
+&spi_2 {
+	status = "ok";
 };
 
 &qnand_1 {
@@ -189,6 +189,11 @@
 		bias-disable;
 		/delete-property/ bias-pull-down;
 	};
+};
+
+/* Needed by spi_1 */
+&pmd9650_l13 {
+	regulator-always-on;
 };
 
 &pmd9650_gpios {

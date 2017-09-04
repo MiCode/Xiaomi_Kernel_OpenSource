@@ -680,7 +680,7 @@ static void dib0700_rc_urb_completion(struct urb *purb)
 	struct dvb_usb_device *d = purb->context;
 	struct dib0700_rc_response *poll_reply;
 	enum rc_type protocol;
-	u32 uninitialized_var(keycode);
+	u32 keycode;
 	u8 toggle;
 
 	deb_info("%s()\n", __func__);
@@ -722,7 +722,8 @@ static void dib0700_rc_urb_completion(struct urb *purb)
 		    poll_reply->nec.data       == 0x00 &&
 		    poll_reply->nec.not_data   == 0xff) {
 			poll_reply->data_state = 2;
-			break;
+			rc_repeat(d->rc_dev);
+			goto resubmit;
 		}
 
 		if ((poll_reply->nec.data ^ poll_reply->nec.not_data) != 0xff) {
@@ -784,6 +785,9 @@ int dib0700_rc_setup(struct dvb_usb_device *d, struct usb_interface *intf)
 		return 0;
 
 	/* Starting in firmware 1.20, the RC info is provided on a bulk pipe */
+
+	if (intf->altsetting[0].desc.bNumEndpoints < rc_ep + 1)
+		return -ENODEV;
 
 	purb = usb_alloc_urb(0, GFP_KERNEL);
 	if (purb == NULL) {

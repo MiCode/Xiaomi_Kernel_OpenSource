@@ -87,8 +87,8 @@ static int bcm47xxpart_parse(struct mtd_info *master,
 	/* Parse block by block looking for magics */
 	for (offset = 0; offset <= master->size - blocksize;
 	     offset += blocksize) {
-		/* Nothing more in higher memory */
-		if (offset >= 0x2000000)
+		/* Nothing more in higher memory on BCM47XX (MIPS) */
+		if (config_enabled(CONFIG_BCM47XX) && offset >= 0x2000000)
 			break;
 
 		if (curr_part >= BCM47XXPART_MAX_PARTS) {
@@ -183,12 +183,10 @@ static int bcm47xxpart_parse(struct mtd_info *master,
 
 			last_trx_part = curr_part - 1;
 
-			/*
-			 * We have whole TRX scanned, skip to the next part. Use
-			 * roundown (not roundup), as the loop will increase
-			 * offset in next step.
-			 */
-			offset = rounddown(offset + trx->length, blocksize);
+			/* Jump to the end of TRX */
+			offset = roundup(offset + trx->length, blocksize);
+			/* Next loop iteration will increase the offset */
+			offset -= blocksize;
 			continue;
 		}
 

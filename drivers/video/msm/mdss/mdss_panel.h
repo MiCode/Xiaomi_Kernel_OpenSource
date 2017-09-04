@@ -265,6 +265,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_DSI_RECONFIG_CMD,
 	MDSS_EVENT_DSI_RESET_WRITE_PTR,
 	MDSS_EVENT_PANEL_TIMING_SWITCH,
+	MDSS_EVENT_UPDATE_PARAMS,
 	MDSS_EVENT_MAX,
 };
 
@@ -415,6 +416,7 @@ struct mipi_panel_info {
 	char lp11_init;
 	u32  init_delay;
 	u32  post_init_delay;
+	u8 default_lanes;
 };
 
 struct edp_panel_info {

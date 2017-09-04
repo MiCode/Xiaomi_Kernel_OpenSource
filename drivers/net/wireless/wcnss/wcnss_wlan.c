@@ -363,6 +363,7 @@ static struct {
 	unsigned char	wcnss_version[WCNSS_VERSION_LEN];
 	unsigned char   fw_major;
 	unsigned char   fw_minor;
+	unsigned int	serial_number;
 	int		thermal_mitigation;
 	enum wcnss_hw_type	wcnss_hw_type;
 	void		(*tm_notify)(struct device *, int);
@@ -1645,8 +1646,12 @@ EXPORT_SYMBOL(wcnss_unregister_thermal_mitigation);
 
 unsigned int wcnss_get_serial_number(void)
 {
-	if (penv)
-		return socinfo_get_serial_number();
+	if (penv) {
+		penv->serial_number = socinfo_get_serial_number();
+		pr_info("%s: Device serial number: %u\n",
+			__func__, penv->serial_number);
+		return penv->serial_number;
+	}
 
 	return 0;
 }

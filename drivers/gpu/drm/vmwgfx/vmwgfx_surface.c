@@ -715,11 +715,14 @@ int vmw_surface_define_ioctl(struct drm_device *dev, void *data,
 			128;
 
 	num_sizes = 0;
-	for (i = 0; i < DRM_VMW_MAX_SURFACE_FACES; ++i)
+	for (i = 0; i < DRM_VMW_MAX_SURFACE_FACES; ++i) {
+		if (req->mip_levels[i] > DRM_VMW_MAX_MIP_LEVELS)
+			return -EINVAL;
 		num_sizes += req->mip_levels[i];
+	}
 
-	if (num_sizes > DRM_VMW_MAX_SURFACE_FACES *
-	    DRM_VMW_MAX_MIP_LEVELS)
+	if (num_sizes > DRM_VMW_MAX_SURFACE_FACES * DRM_VMW_MAX_MIP_LEVELS ||
+	    num_sizes == 0)
 		return -EINVAL;
 
 	size = vmw_user_surface_size + 128 +
@@ -904,6 +907,7 @@ vmw_surface_handle_reference(struct vmw_private *dev_priv,
 	uint32_t handle;
 	struct ttm_base_object *base;
 	int ret;
+	bool require_exist = false;
 
 	if (handle_type == DRM_VMW_HANDLE_PRIME) {
 		ret = ttm_prime_fd_to_handle(tfile, u_handle, &handle);
@@ -942,17 +946,14 @@ vmw_surface_handle_reference(struct vmw_private *dev_priv,
 
 		/*
 		 * Make sure the surface creator has the same
-		 * authenticating master.
+		 * authenticating master, or is already registered with us.
 		 */
 		if (drm_is_primary_client(file_priv) &&
-		    user_srf->master != file_priv->master) {
-			DRM_ERROR("Trying to reference surface outside of"
-				  " master domain.\n");
-			ret = -EACCES;
-			goto out_bad_resource;
-		}
+		    user_srf->master != file_priv->master)
+			require_exist = true;
 
-		ret = ttm_ref_object_add(tfile, base, TTM_REF_USAGE, NULL);
+		ret = ttm_ref_object_add(tfile, base, TTM_REF_USAGE, NULL,
+					 require_exist);
 		if (unlikely(ret != 0)) {
 			DRM_ERROR("Could not add a reference to a surface.\n");
 			goto out_bad_resource;
@@ -1291,7 +1292,7 @@ int vmw_gb_surface_define_ioctl(struct drm_device *dev, void *data,
 	uint32_t size;
 	uint32_t backup_handle;
 
-	if (req->multisample_count != 0)
+	if (req->mip_levels > DRM_VMW_MAX_MIP_LEVELS)
 		return -EINVAL;
 
 	if (unlikely(vmw_user_surface_size == 0))

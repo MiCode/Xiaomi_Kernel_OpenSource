@@ -1264,8 +1264,9 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	 * an idle event, user space tries to fall back to GPU composition which
 	 * can lead to increased load when there are new frames.
 	 */
-	if ((mfd->panel_info->type == MIPI_CMD_PANEL) ||
-	    (mfd->panel_info->type == MIPI_VIDEO_PANEL))
+	if (mfd->mdp.input_event_handler &&
+		((mfd->panel_info->type == MIPI_CMD_PANEL) ||
+		(mfd->panel_info->type == MIPI_VIDEO_PANEL)))
 		if (mdss_fb_register_input_handler(mfd))
 			pr_err("failed to register input handler\n");
 
@@ -3901,6 +3902,10 @@ static int mdss_fb_set_par(struct fb_info *info)
 	if (mfd->panel_reconfig || (mfd->fb_imgType != old_imgType)) {
 		mdss_fb_blank_sub(FB_BLANK_POWERDOWN, info, mfd->op_enable);
 		mdss_fb_var_to_panelinfo(var, mfd->panel_info);
+		if (mfd->panel_info->is_dba_panel &&
+			mdss_fb_send_panel_event(mfd, MDSS_EVENT_UPDATE_PARAMS,
+							mfd->panel_info))
+			pr_debug("Failed to send panel event UPDATE_PARAMS\n");
 		mdss_fb_blank_sub(FB_BLANK_UNBLANK, info, mfd->op_enable);
 		mfd->panel_reconfig = false;
 	}

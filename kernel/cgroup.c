@@ -2326,6 +2326,7 @@ static int cgroup_attach_task(struct cgroup *dst_cgrp,
 	cgroup_migrate_finish(&preloaded_csets);
 	return ret;
 }
+
 int subsys_cgroup_allow_attach(struct cgroup_subsys_state *css, struct cgroup_taskset *tset)
 {
 	const struct cred *cred = current_cred(), *tcred;
