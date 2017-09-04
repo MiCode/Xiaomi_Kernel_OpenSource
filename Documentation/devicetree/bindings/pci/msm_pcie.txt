@@ -70,6 +70,7 @@ Optional Properties:
   - qcom,common-clk-en: Enables the common clock configuration for the endpoint.
   - qcom,clk-power-manage-en: Enables the clock power management for the
     endpoint.
+  - qcom,max-link-speed: Max Gen speed Root complex supports.
   - qcom,n-fts: The number of fast training sequences sent when the link state
     is changed from L0s to L0.
   - qcom,pcie-phy-ver: version of PCIe PHY.
@@ -96,6 +97,7 @@ Optional Properties:
     stable after power on, before de-assert the PERST to the endpoint.
   - qcom,wr-halt-size: With base 2, this exponent determines the size of the
     data that PCIe core will halt on for each write transaction.
+  - qcom,slv-addr-space-size: The memory space size of PCIe Root Complex.
   - qcom,cpl-timeout: Completion timeout value. This value specifies the time range
     which the root complex will send out a completion packet if there is no response
     from the endpoint.
@@ -255,6 +257,7 @@ Example:
 		qcom,l1-supported;
 		qcom,l1ss-supported;
 		qcom,aux-clk-sync;
+		qcom,max-link-speed = <0x2>;
 		qcom,n-fts = <0x50>;
 		qcom,pcie-phy-ver = <1>;
 		qcom,boot-option = <0x1>;
@@ -266,6 +269,7 @@ Example:
 		qcom,smmu-sid-base = <0x1480>;
 		qcom,ep-latency = <100>;
 		qcom,wr-halt-size = <0xa>; /* 1KB */
+		qcom,slv-addr-space-size = <0x1000000>; /* 16MB */
 		qcom,cpl-timeout = <0x2>;
 
 		iommus = <&anoc0_smmu>;
