@@ -75,6 +75,8 @@ void mmc_remove_card_debugfs(struct mmc_card *card);
 
 void mmc_init_context_info(struct mmc_host *host);
 
+int mmc_execute_tuning(struct mmc_card *card);
+
 extern bool mmc_can_scale_clk(struct mmc_host *host);
 extern int mmc_init_clk_scaling(struct mmc_host *host);
 extern int mmc_suspend_clk_scaling(struct mmc_host *host);
