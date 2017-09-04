@@ -72,11 +72,18 @@ static int ipa_generate_rt_hw_rule(enum ipa_ip_type ip,
 	if (entry->proc_ctx || (entry->hdr && entry->hdr->is_hdr_proc_ctx)) {
 		struct ipa3_hdr_proc_ctx_entry *proc_ctx;
 		proc_ctx = (entry->proc_ctx) ? : entry->hdr->proc_ctx;
-		gen_params.hdr_lcl = ipa3_ctx->hdr_proc_ctx_tbl_lcl;
-		gen_params.hdr_type = IPAHAL_RT_RULE_HDR_PROC_CTX;
-		gen_params.hdr_ofst = proc_ctx->offset_entry->offset +
-			ipa3_ctx->hdr_proc_ctx_tbl.start_offset;
-	} else if (entry->hdr) {
+		if ((proc_ctx == NULL) ||
+			(proc_ctx->cookie != IPA_PROC_HDR_COOKIE)) {
+			gen_params.hdr_type = IPAHAL_RT_RULE_HDR_NONE;
+			gen_params.hdr_ofst = 0;
+		} else {
+			gen_params.hdr_lcl = ipa3_ctx->hdr_proc_ctx_tbl_lcl;
+			gen_params.hdr_type = IPAHAL_RT_RULE_HDR_PROC_CTX;
+			gen_params.hdr_ofst = proc_ctx->offset_entry->offset +
+				ipa3_ctx->hdr_proc_ctx_tbl.start_offset;
+		}
+	} else if ((entry->hdr != NULL) &&
+		(entry->hdr->cookie == IPA_HDR_COOKIE)) {
 		gen_params.hdr_lcl = ipa3_ctx->hdr_tbl_lcl;
 		gen_params.hdr_type = IPAHAL_RT_RULE_HDR_RAW;
 		gen_params.hdr_ofst = entry->hdr->offset_entry->offset;

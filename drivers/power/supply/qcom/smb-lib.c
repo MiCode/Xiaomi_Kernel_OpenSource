@@ -3616,6 +3616,32 @@ static void smblib_force_legacy_icl(struct smb_charger *chg, int pst)
 	}
 }
 
+static void smblib_notify_extcon_props(struct smb_charger *chg)
+{
+	union power_supply_propval val;
+
+	smblib_get_prop_typec_cc_orientation(chg, &val);
+	extcon_set_cable_state_(chg->extcon, EXTCON_USB_CC,
+					(val.intval == 2) ? 1 : 0);
+	extcon_set_cable_state_(chg->extcon, EXTCON_USB_SPEED, true);
+}
+
+static void smblib_notify_device_mode(struct smb_charger *chg, bool enable)
+{
+	if (enable)
+		smblib_notify_extcon_props(chg);
+
+	extcon_set_cable_state_(chg->extcon, EXTCON_USB, enable);
+}
+
+static void smblib_notify_usb_host(struct smb_charger *chg, bool enable)
+{
+	if (enable)
+		smblib_notify_extcon_props(chg);
+
+	extcon_set_cable_state_(chg->extcon, EXTCON_USB_HOST, enable);
+}
+
 #define HVDCP_DET_MS 2500
 static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 {
@@ -3635,6 +3661,8 @@ static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 		if (chg->micro_usb_mode)
 			extcon_set_cable_state_(chg->extcon, EXTCON_USB,
 					true);
+		if (chg->use_extcon)
+			smblib_notify_device_mode(chg, true);
 	case OCP_CHARGER_BIT:
 	case FLOAT_CHARGER_BIT:
 		/* if not DCP then no hvdcp timeout happens, Enable pd here. */
@@ -3719,6 +3747,10 @@ static void typec_sink_insertion(struct smb_charger *chg)
 	 */
 	vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER,
 			false, 0);
+	if (chg->use_extcon) {
+		smblib_notify_usb_host(chg, true);
+		chg->otg_present = true;
+	}
 }
 
 static void typec_sink_removal(struct smb_charger *chg)
@@ -3867,6 +3899,14 @@ unlock:
 
 	typec_sink_removal(chg);
 	smblib_update_usb_type(chg);
+
+	if (chg->use_extcon) {
+		if (chg->otg_present)
+			smblib_notify_usb_host(chg, false);
+		else
+			smblib_notify_device_mode(chg, false);
+	}
+	chg->otg_present = false;
 }
 
 static void smblib_handle_typec_insertion(struct smb_charger *chg)

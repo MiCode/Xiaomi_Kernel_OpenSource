@@ -15659,10 +15659,6 @@ static int msm_pcm_routing_close(struct snd_pcm_substream *substream)
 	bedai->active = 0;
 	bedai->sample_rate = 0;
 	bedai->channel = 0;
-	for (i = 0; i < MSM_FRONTEND_DAI_MAX; i++) {
-		if (bedai->passthr_mode[i] != LISTEN)
-			bedai->passthr_mode[i] = LEGACY_PCM;
-	}
 	mutex_unlock(&routing_lock);
 
 	return 0;

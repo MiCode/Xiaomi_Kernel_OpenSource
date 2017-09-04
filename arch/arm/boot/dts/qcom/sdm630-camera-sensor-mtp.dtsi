@@ -114,6 +114,26 @@
 		status = "disabled";
 	};
 
+	tof0: qcom,tof@29{
+		cell-index = <0>;
+		reg = <0x29>;
+		compatible = "st,stmvl53l0";
+		qcom,cci-master = <0>;
+		cam_laser-supply = <&pm660l_l8>;
+		qcom,cam-vreg-name =  "cam_laser";
+		qcom,cam-vreg-min-voltage = <2800000>;
+		qcom,cam-vreg-max-voltage = <3400000>;
+		qcom,cam-vreg-op-mode = <100000>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_tof_active>;
+		pinctrl-1 = <&cam_tof_suspend>;
+		stm,irq-gpio = <&tlmm 45 0x2008>;
+		gpios = <&tlmm 42 0>;
+		qcom,gpio-req-tbl-num = <0>;
+		qcom,gpio-req-tbl-flags = <0>;
+		qcom,gpio-req-tbl-label = "RNG_EN";
+	};
+
 	eeprom0: qcom,eeprom@0 {
 		cell-index = <0>;
 		reg = <0>;

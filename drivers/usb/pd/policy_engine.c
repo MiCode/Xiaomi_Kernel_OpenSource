@@ -1617,7 +1617,6 @@ static void usbpd_sm(struct work_struct *w)
 		else if (pd->current_dr == DR_DFP)
 			stop_usb_host(pd);
 
-		pd->current_pr = PR_NONE;
 		pd->current_dr = DR_NONE;
 
 		reset_vdm_state(pd);
@@ -2479,6 +2478,16 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 
 		if (pd->current_pr == PR_SINK)
 			return 0;
+
+		/*
+		 * Unexpected if not in PR swap; need to force disconnect from
+		 * source so we can turn off VBUS, Vconn, PD PHY etc.
+		 */
+		if (pd->current_pr == PR_SRC) {
+			usbpd_info(&pd->dev, "Forcing disconnect from source mode\n");
+			pd->current_pr = PR_NONE;
+			break;
+		}
 
 		pd->current_pr = PR_SINK;
 		break;
