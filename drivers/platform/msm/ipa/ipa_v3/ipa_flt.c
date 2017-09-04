@@ -1085,7 +1085,7 @@ static int __ipa_validate_flt_rule(const struct ipa_flt_rule *rule,
 				goto error;
 			}
 
-			if ((*rt_tbl)->cookie != IPA_COOKIE) {
+			if ((*rt_tbl)->cookie != IPA_RT_TBL_COOKIE) {
 				IPAERR("RT table cookie is invalid\n");
 				goto error;
 			}
@@ -1130,7 +1130,7 @@ static int __ipa_create_flt_entry(struct ipa3_flt_entry **entry,
 	}
 	INIT_LIST_HEAD(&((*entry)->link));
 	(*entry)->rule = *rule;
-	(*entry)->cookie = IPA_COOKIE;
+	(*entry)->cookie = IPA_FLT_COOKIE;
 	(*entry)->rt_tbl = rt_tbl;
 	(*entry)->tbl = tbl;
 	if (rule->rule_id) {
@@ -1165,12 +1165,18 @@ static int __ipa_finish_flt_rule_add(struct ipa3_flt_tbl *tbl,
 	if (id < 0) {
 		IPAERR("failed to add to tree\n");
 		WARN_ON(1);
+		goto ipa_insert_failed;
 	}
 	*rule_hdl = id;
 	entry->id = id;
 	IPADBG_LOW("add flt rule rule_cnt=%d\n", tbl->rule_cnt);
 
 	return 0;
+ipa_insert_failed:
+	if (entry->rt_tbl)
+		entry->rt_tbl->ref_cnt--;
+	tbl->rule_cnt--;
+	return -EPERM;
 }
 
 static int __ipa_add_flt_rule(struct ipa3_flt_tbl *tbl, enum ipa_ip_type ip,
@@ -1196,9 +1202,17 @@ static int __ipa_add_flt_rule(struct ipa3_flt_tbl *tbl, enum ipa_ip_type ip,
 		list_add(&entry->link, &tbl->head_flt_rule_list);
 	}
 
-	__ipa_finish_flt_rule_add(tbl, entry, rule_hdl);
+	if (__ipa_finish_flt_rule_add(tbl, entry, rule_hdl))
+		goto ipa_insert_failed;
 
 	return 0;
+ipa_insert_failed:
+	list_del(&entry->link);
+	/* if rule id was allocated from idr, remove it */
+	if (entry->rule_id >= IPA_RULE_ID_MIN_VAL &&
+	    entry->rule_id <= IPA_RULE_ID_MAX_VAL)
+		idr_remove(&entry->tbl->rule_ids, entry->rule_id);
+	kmem_cache_free(ipa3_ctx->flt_rule_cache, entry);
 
 error:
 	return -EPERM;
@@ -1230,7 +1244,8 @@ static int __ipa_add_flt_rule_after(struct ipa3_flt_tbl *tbl,
 
 	list_add(&entry->link, &((*add_after_entry)->link));
 
-	__ipa_finish_flt_rule_add(tbl, entry, rule_hdl);
+	if (__ipa_finish_flt_rule_add(tbl, entry, rule_hdl))
+		goto ipa_insert_failed;
 
 	/*
 	 * prepare for next insertion
@@ -1238,6 +1253,14 @@ static int __ipa_add_flt_rule_after(struct ipa3_flt_tbl *tbl,
 	*add_after_entry = entry;
 
 	return 0;
+
+ipa_insert_failed:
+	list_del(&entry->link);
+	/* if rule id was allocated from idr, remove it */
+	if (entry->rule_id >= IPA_RULE_ID_MIN_VAL &&
+	    entry->rule_id <= IPA_RULE_ID_MAX_VAL)
+		idr_remove(&entry->tbl->rule_ids, entry->rule_id);
+	kmem_cache_free(ipa3_ctx->flt_rule_cache, entry);
 
 error:
 	*add_after_entry = NULL;
@@ -1255,7 +1278,7 @@ static int __ipa_del_flt_rule(u32 rule_hdl)
 		return -EINVAL;
 	}
 
-	if (entry->cookie != IPA_COOKIE) {
+	if (entry->cookie != IPA_FLT_COOKIE) {
 		IPAERR("bad params\n");
 		return -EINVAL;
 	}
@@ -1292,7 +1315,7 @@ static int __ipa_mdfy_flt_rule(struct ipa_flt_rule_mdfy *frule,
 		goto error;
 	}
 
-	if (entry->cookie != IPA_COOKIE) {
+	if (entry->cookie != IPA_FLT_COOKIE) {
 		IPAERR("bad params\n");
 		goto error;
 	}
@@ -1313,7 +1336,7 @@ static int __ipa_mdfy_flt_rule(struct ipa_flt_rule_mdfy *frule,
 				goto error;
 			}
 
-			if (rt_tbl->cookie != IPA_COOKIE) {
+			if (rt_tbl->cookie != IPA_RT_TBL_COOKIE) {
 				IPAERR("RT table cookie is invalid\n");
 				goto error;
 			}
