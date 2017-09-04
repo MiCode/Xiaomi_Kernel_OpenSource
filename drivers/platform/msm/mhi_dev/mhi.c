@@ -67,6 +67,7 @@ static struct mhi_dev *mhi_ctx;
 static void mhi_hwc_cb(void *priv, enum ipa_mhi_event_type event,
 	unsigned long data);
 static void mhi_ring_init_cb(void *user_data);
+static void mhi_update_state_info(uint32_t info);
 
 void mhi_dev_read_from_host(struct mhi_dev *mhi, struct mhi_addr *transfer)
 {
@@ -383,6 +384,8 @@ static void mhi_hwc_cb(void *priv, enum ipa_mhi_event_type event,
 			pr_err("Failed to enable command db\n");
 			return;
 		}
+
+		mhi_update_state_info(MHI_STATE_CONNECTED);
 		break;
 	case IPA_MHI_EVENT_DATA_AVAILABLE:
 		rc = mhi_dev_notify_sm_event(MHI_DEV_EVENT_HW_ACC_WAKEUP);
@@ -1360,6 +1363,7 @@ int mhi_dev_suspend(struct mhi_dev *mhi)
 		mhi_dev_write_to_host(mhi, &data_transfer);
 
 	}
+	mhi_update_state_info(MHI_STATE_DISCONNECTED);
 
 	atomic_set(&mhi->mhi_dev_wake, 0);
 	pm_relax(mhi->dev);
@@ -1398,6 +1402,7 @@ int mhi_dev_resume(struct mhi_dev *mhi)
 		/* update the channel state in the host */
 		mhi_dev_write_to_host(mhi, &data_transfer);
 	}
+	mhi_update_state_info(MHI_STATE_CONNECTED);
 
 	atomic_set(&mhi->is_suspended, 0);
 
@@ -1843,7 +1848,6 @@ static void mhi_dev_enable(struct work_struct *work)
 		return;
 	}
 
-	mhi_uci_init();
 	/*Enable MHI dev network stack Interface*/
 	rc = mhi_dev_net_interface_init();
 	if (rc)
@@ -1911,6 +1915,8 @@ static void mhi_dev_enable(struct work_struct *work)
 
 	if (mhi_ctx->config_iatu)
 		enable_irq(mhi_ctx->mhi_irq);
+
+	mhi_update_state_info(MHI_STATE_CONNECTED);
 }
 
 static void mhi_ring_init_cb(void *data)
@@ -1924,6 +1930,30 @@ static void mhi_ring_init_cb(void *data)
 
 	queue_work(mhi->ring_init_wq, &mhi->ring_init_cb_work);
 }
+
+static void mhi_update_state_info(uint32_t info)
+{
+	struct mhi_dev_client_cb_reason reason;
+
+	mhi_ctx->ctrl_info = info;
+
+	reason.reason = MHI_DEV_CTRL_UPDATE;
+	uci_ctrl_update(&reason);
+}
+
+int mhi_ctrl_state_info(uint32_t *info)
+{
+	if (!info) {
+		pr_err("Invalid info\n");
+		return -EINVAL;
+	}
+
+	*info = mhi_ctx->ctrl_info;
+	mhi_log(MHI_MSG_VERBOSE, "ctrl:%d", mhi_ctx->ctrl_info);
+
+	return 0;
+}
+EXPORT_SYMBOL(mhi_ctrl_state_info);
 
 static int get_device_tree_data(struct platform_device *pdev)
 {
@@ -2238,6 +2268,8 @@ static int mhi_dev_probe(struct platform_device *pdev)
 			pr_err("Error reading MHI Dev DT\n");
 			return rc;
 		}
+		mhi_uci_init();
+		mhi_update_state_info(MHI_STATE_CONFIGURED);
 	}
 
 	mhi_ctx->phandle = ep_pcie_get_phandle(mhi_ctx->ifc_id);
