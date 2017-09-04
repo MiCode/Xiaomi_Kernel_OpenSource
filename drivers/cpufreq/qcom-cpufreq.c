@@ -93,6 +93,16 @@ done:
 	return ret;
 }
 
+static unsigned int msm_cpufreq_resolve_freq(struct cpufreq_policy *policy,
+					     unsigned int target_freq)
+{
+	int index;
+
+	index = cpufreq_frequency_table_target(policy, target_freq,
+					       CPUFREQ_RELATION_L);
+	return policy->freq_table[index].frequency;
+}
+
 static int msm_cpufreq_verify(struct cpufreq_policy *policy)
 {
 	cpufreq_verify_within_limits(policy, policy->cpuinfo.min_freq,
@@ -278,6 +288,7 @@ static struct cpufreq_driver msm_cpufreq_driver = {
 	.init		= msm_cpufreq_init,
 	.verify		= msm_cpufreq_verify,
 	.target		= msm_cpufreq_target,
+	.resolve_freq	= msm_cpufreq_resolve_freq,
 	.get		= msm_cpufreq_get_freq,
 	.name		= "msm",
 	.attr		= msm_freq_attr,
