@@ -64,12 +64,18 @@ struct clk dummy_clk = {
 static void *dummy_clk_dt_parser(struct device *dev, struct device_node *np)
 {
 	struct clk *c;
+	u32 rate;
+
 	c = devm_kzalloc(dev, sizeof(*c), GFP_KERNEL);
 	if (!c) {
 		dev_err(dev, "failed to map memory for %s\n", np->name);
 		return ERR_PTR(-ENOMEM);
 	}
 	c->ops = &clk_ops_dummy;
+
+	if (!of_property_read_u32(np, "clock-frequency", &rate))
+		c->rate = rate;
+
 	return msmclk_generic_clk_init(dev, np, c);
 }
 MSMCLK_PARSER(dummy_clk_dt_parser, "qcom,dummy-clk", 0);
@@ -82,6 +88,7 @@ static struct clk *of_dummy_get(struct of_phandle_args *clkspec,
 
 static struct of_device_id msm_clock_dummy_match_table[] = {
 	{ .compatible = "qcom,dummycc" },
+	{ .compatible = "fixed-clock" },
 	{}
 };
 
