@@ -214,6 +214,8 @@ Optional properties:
  - qcom,major-rev: provide major revision number to differentiate power up sequence. default is 2.0
  - qcom,vdda33-voltage-level: A list of three integer values (min, op, max) representing
    specific voltages (in microvolts) used for the vdda33 supply.
+ - qcom,tune2-efuse-correction: The value to be adjusted from fused value for
+   improved rise/fall times.
 
 Example:
 	qusb_phy: qusb@f9b39000 {
