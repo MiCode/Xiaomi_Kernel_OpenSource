@@ -696,6 +696,8 @@ int cam_isp_add_reg_update(
 			if (rc)
 				return rc;
 
+			CAM_DBG(CAM_ISP, "Reg update added for res %d hw_id %d",
+				res->res_id, res->hw_intf->hw_idx);
 			reg_update_size += get_regup.used_bytes;
 		}
 	}

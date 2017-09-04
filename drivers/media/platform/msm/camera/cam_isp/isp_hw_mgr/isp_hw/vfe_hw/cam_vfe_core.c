@@ -350,7 +350,11 @@ int cam_vfe_irq_top_half(uint32_t    evt_id,
 	 *  will block everything.
 	 */
 	if (evt_payload->irq_reg_val[1]) {
-		CAM_ERR(CAM_ISP, "Mask all the interrupts");
+		CAM_ERR(CAM_ISP,
+			"Encountered Error Irq_status1=0x%x. Stopping further IRQ processing from this HW",
+			evt_payload->irq_reg_val[1]);
+		CAM_ERR(CAM_ISP, "Violation status = %x",
+			evt_payload->irq_reg_val[2]);
 		cam_io_w(0, handler_priv->mem_base + 0x60);
 		cam_io_w(0, handler_priv->mem_base + 0x5C);
 
