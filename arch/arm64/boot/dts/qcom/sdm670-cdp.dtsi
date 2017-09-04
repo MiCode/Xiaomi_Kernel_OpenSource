@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include "sdm670-pmic-overlay.dtsi"
+
 &qupv3_se9_2uart {
 	status = "disabled";
 };

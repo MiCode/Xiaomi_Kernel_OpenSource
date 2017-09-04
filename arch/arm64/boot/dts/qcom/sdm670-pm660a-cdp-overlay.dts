@@ -10,17 +10,25 @@
  * GNU General Public License for more details.
  */
 
-
 /dts-v1/;
+/plugin/;
 
-#include "sdm670.dtsi"
+#include <dt-bindings/clock/qcom,gcc-sdm845.h>
+#include <dt-bindings/clock/qcom,camcc-sdm845.h>
+#include <dt-bindings/clock/qcom,dispcc-sdm845.h>
+#include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
 #include "sdm670-cdp.dtsi"
+#include "pm660a.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDM670 PM660 + PM660L CDP";
+	model = "Qualcomm Technologies, Inc. SDM670 PM660 + PM660A CDP";
 	compatible = "qcom,sdm670-cdp", "qcom,sdm670", "qcom,cdp";
+	qcom,msm-id = <336 0x0>;
 	qcom,board-id = <1 0>;
-	qcom,pmic-id = <0x0001001b 0x0101011a 0x0 0x0>,
-		       <0x0001001b 0x0102001a 0x0 0x0>,
-		       <0x0001001b 0x0201011a 0x0 0x0>;
+	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>,
+		       <0x0001001b 0x0002001a 0x0 0x0>,
+		       <0x0001001b 0x0202001a 0x0 0x0>;
 };
+
