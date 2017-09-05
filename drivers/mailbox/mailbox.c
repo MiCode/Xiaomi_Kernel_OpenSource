@@ -60,6 +60,7 @@ static void msg_submit(struct mbox_chan *chan)
 	void *data;
 	int err = -EBUSY;
 
+again:
 	spin_lock_irqsave(&chan->lock, flags);
 
 	if (!chan->msg_count || chan->active_req)
@@ -84,6 +85,16 @@ static void msg_submit(struct mbox_chan *chan)
 	}
 exit:
 	spin_unlock_irqrestore(&chan->lock, flags);
+
+	/*
+	 * If the controller returns -EAGAIN, then it means, our spinlock
+	 * here is preventing the controller from receiving its interrupt,
+	 * that would help clear the controller channels that are currently
+	 * blocked waiting on the interrupt response.
+	 * Unlock and retry again.
+	 */
+	if (err == -EAGAIN)
+		goto again;
 
 	if (!err && (chan->txdone_method & TXDONE_BY_POLL))
 		/* kick start the timer immediately to avoid delays */
@@ -282,6 +293,54 @@ int mbox_send_message(struct mbox_chan *chan, void *mssg)
 	return t;
 }
 EXPORT_SYMBOL_GPL(mbox_send_message);
+
+/**
+ * mbox_send_controller_data-	For client to submit a message to be
+ *				sent only to the controller.
+ * @chan: Mailbox channel assigned to this client.
+ * @mssg: Client specific message typecasted.
+ *
+ * For client to submit data to the controller. There is no ACK expected
+ * from the controller. This request is not buffered in the mailbox framework.
+ *
+ * Return: Non-negative integer for successful submission (non-blocking mode)
+ *	or transmission over chan (blocking mode).
+ *	Negative value denotes failure.
+ */
+int mbox_send_controller_data(struct mbox_chan *chan, void *mssg)
+{
+	unsigned long flags;
+	int err;
+
+	if (!chan || !chan->cl)
+		return -EINVAL;
+
+	spin_lock_irqsave(&chan->lock, flags);
+	err = chan->mbox->ops->send_controller_data(chan, mssg);
+	spin_unlock_irqrestore(&chan->lock, flags);
+
+	return err;
+}
+EXPORT_SYMBOL(mbox_send_controller_data);
+
+bool mbox_controller_is_idle(struct mbox_chan *chan)
+{
+	if (!chan || !chan->cl || !chan->mbox->is_idle)
+		return false;
+
+	return chan->mbox->is_idle(chan->mbox);
+}
+EXPORT_SYMBOL(mbox_controller_is_idle);
+
+
+void mbox_chan_debug(struct mbox_chan *chan)
+{
+	if (!chan || !chan->cl || !chan->mbox->debug)
+		return;
+
+	return chan->mbox->debug(chan);
+}
+EXPORT_SYMBOL(mbox_chan_debug);
 
 /**
  * mbox_request_channel - Request a mailbox channel.
