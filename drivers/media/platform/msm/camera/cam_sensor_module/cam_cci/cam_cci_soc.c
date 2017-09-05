@@ -392,5 +392,7 @@ int cam_cci_soc_release(struct cci_device *cci_dev)
 	cci_dev->cycles_per_us = 0;
 	soc_info->src_clk_idx = 0;
 
+	cam_cpas_stop(cci_dev->cpas_handle);
+
 	return rc;
 }
