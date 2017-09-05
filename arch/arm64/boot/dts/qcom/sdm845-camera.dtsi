@@ -338,6 +338,22 @@
 				};
 			};
 		};
+
+		msm_cam_smmu_fd {
+			compatible = "qcom,msm-cam-smmu-cb";
+			iommus = <&apps_smmu 0x1070 0x0>;
+			label = "fd";
+			fd_iova_mem_map: iova-mem-map {
+				iova-mem-region-io {
+					/* IO region is approximately 3.4 GB */
+					iova-region-name = "io";
+					iova-region-start = <0x7400000>;
+					iova-region-len = <0xd8c00000>;
+					iova-region-id = <0x3>;
+					status = "ok";
+				};
+			};
+		};
 	};
 
 	qcom,cam-cpas@ac40000 {
@@ -964,4 +980,43 @@
 		status = "ok";
 	};
 
+	qcom,cam-fd {
+		compatible = "qcom,cam-fd";
+		compat-hw-name = "qcom,fd";
+		num-fd = <1>;
+		status = "ok";
+	};
+
+	cam_fd: qcom,fd@ac5a000 {
+		cell-index = <0>;
+		compatible = "qcom,fd41";
+		reg-names = "fd_core", "fd_wrapper";
+		reg = <0xac5a000 0x1000>,
+			<0xac5b000 0x400>;
+		reg-cam-base = <0x5a000 0x5b000>;
+		interrupt-names = "fd";
+		interrupts = <0 462 0>;
+		regulator-names = "camss-vdd";
+		camss-vdd-supply = <&titan_top_gdsc>;
+		clock-names = "gcc_ahb_clk",
+			"gcc_axi_clk",
+			"soc_ahb_clk",
+			"cpas_ahb_clk",
+			"camnoc_axi_clk",
+			"fd_core_clk_src",
+			"fd_core_clk",
+			"fd_core_uar_clk";
+		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>,
+			<&clock_gcc GCC_CAMERA_AXI_CLK>,
+			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
+			<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
+			<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
+			<&clock_camcc CAM_CC_FD_CORE_CLK_SRC>,
+			<&clock_camcc CAM_CC_FD_CORE_CLK>,
+			<&clock_camcc CAM_CC_FD_CORE_UAR_CLK>;
+		src-clock-name = "fd_core_clk_src";
+		clock-cntl-level = "svs";
+		clock-rates = <0 0 0 0 0 400000000 0 0>;
+		status = "ok";
+	};
 };
