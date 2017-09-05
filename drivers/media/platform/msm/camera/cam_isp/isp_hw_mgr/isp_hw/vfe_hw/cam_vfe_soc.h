@@ -16,6 +16,8 @@
 #include "cam_soc_util.h"
 #include "cam_isp_hw.h"
 
+#define CAM_VFE_DSP_CLK_NAME "ife_dsp_clk"
+
 /*
  * struct cam_vfe_soc_private:
  *
@@ -26,7 +28,10 @@
  *                           with CPAS.
  */
 struct cam_vfe_soc_private {
-	uint32_t cpas_handle;
+	uint32_t    cpas_handle;
+	struct clk *dsp_clk;
+	int32_t     dsp_clk_index;
+	int32_t     dsp_clk_rate;
 };
 
 /*
@@ -79,5 +84,33 @@ int cam_vfe_enable_soc_resources(struct cam_hw_soc_info *soc_info);
  *                           Non-zero: Failure
  */
 int cam_vfe_disable_soc_resources(struct cam_hw_soc_info *soc_info);
+
+/*
+ * cam_vfe_soc_enable_clk()
+ *
+ * @brief:                   Enable clock with given name
+ *
+ * @soc_info:                Device soc information
+ * @clk_name:                Name of clock to enable
+ *
+ * @Return:                  0: Success
+ *                           Non-zero: Failure
+ */
+int cam_vfe_soc_enable_clk(struct cam_hw_soc_info *soc_info,
+	const char *clk_name);
+
+/*
+ * cam_vfe_soc_disable_dsp_clk()
+ *
+ * @brief:                   Disable clock with given name
+ *
+ * @soc_info:                Device soc information
+ * @clk_name:                Name of clock to enable
+ *
+ * @Return:                  0: Success
+ *                           Non-zero: Failure
+ */
+int cam_vfe_soc_disable_clk(struct cam_hw_soc_info *soc_info,
+	const char *clk_name);
 
 #endif /* _CAM_VFE_SOC_H_ */
