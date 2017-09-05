@@ -70,7 +70,7 @@
 	IPADMA_DBG_LOW("EXIT\n")
 
 #ifdef CONFIG_DEBUG_FS
-#define IPADMA_MAX_MSG_LEN 1024
+#define IPADMA_MAX_MSG_LEN 4096
 static char dbg_buff[IPADMA_MAX_MSG_LEN];
 static void ipa3_dma_debugfs_init(void);
 static void ipa3_dma_debugfs_destroy(void);
