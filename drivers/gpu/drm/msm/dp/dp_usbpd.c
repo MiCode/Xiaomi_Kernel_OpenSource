@@ -73,8 +73,6 @@ struct dp_usbpd_private {
 	struct dp_usbpd dp_usbpd;
 	enum dp_usbpd_alt_mode alt_mode;
 	u32 dp_usbpd_config;
-
-	bool forced_disconnect;
 };
 
 static const char *dp_usbpd_pin_name(u8 pin)
@@ -347,7 +345,7 @@ static void dp_usbpd_response_cb(struct usbpd_svid_handler *hdlr, u8 cmd,
 		dp_usbpd_send_event(pd, DP_USBPD_EVT_STATUS);
 		break;
 	case USBPD_SVDM_ATTENTION:
-		if (pd->forced_disconnect)
+		if (pd->dp_usbpd.forced_disconnect)
 			break;
 
 		pd->vdo = *vdos;
@@ -412,7 +410,7 @@ static int dp_usbpd_connect(struct dp_usbpd *dp_usbpd, bool hpd)
 	pd = container_of(dp_usbpd, struct dp_usbpd_private, dp_usbpd);
 
 	dp_usbpd->hpd_high = hpd;
-	pd->forced_disconnect = !hpd;
+	dp_usbpd->forced_disconnect = !hpd;
 
 	if (hpd)
 		pd->dp_cb->configure(pd->dev);

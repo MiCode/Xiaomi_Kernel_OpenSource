@@ -999,6 +999,32 @@ static void dp_link_send_test_response(struct dp_link *dp_link)
 			&dp_link->test_response, response_len);
 }
 
+static int dp_link_psm_config(struct dp_link *dp_link,
+	struct drm_dp_link *link_info, bool enable)
+{
+	struct dp_link_private *link = NULL;
+	int ret = 0;
+
+	if (!dp_link) {
+		pr_err("invalid params\n");
+		return -EINVAL;
+	}
+
+	link = container_of(dp_link, struct dp_link_private, dp_link);
+
+	if (enable)
+		ret = drm_dp_link_power_down(link->aux->drm_aux, link_info);
+	else
+		ret = drm_dp_link_power_up(link->aux->drm_aux, link_info);
+
+	if (ret)
+		pr_err("Failed to %s low power mode\n",
+			(enable ? "enter" : "exit"));
+	else
+		dp_link->psm_enabled = enable;
+
+	return ret;
+}
 
 static int dp_link_parse_vx_px(struct dp_link_private *link)
 {
@@ -1519,6 +1545,7 @@ struct dp_link *dp_link_get(struct device *dev, struct dp_aux *aux)
 	dp_link->adjust_levels          = dp_link_adjust_levels;
 	dp_link->send_psm_request       = dp_link_send_psm_request;
 	dp_link->send_test_response     = dp_link_send_test_response;
+	dp_link->psm_config             = dp_link_psm_config;
 
 	return dp_link;
 error:

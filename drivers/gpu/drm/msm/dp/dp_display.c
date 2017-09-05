@@ -524,6 +524,9 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 
 	dp->aux->init(dp->aux, dp->parser->aux_cfg);
 
+	if (dp->link->psm_enabled)
+		goto notify;
+
 	rc = dp->panel->read_sink_caps(dp->panel, dp->dp_display.connector);
 	if (rc)
 		return rc;
@@ -547,6 +550,7 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 	dp->dp_display.max_pclk_khz = min(max_pclk_from_edid,
 		dp->parser->max_pclk_khz);
 
+notify:
 	dp_display_send_hpd_notification(dp, true);
 
 end:
@@ -667,6 +671,10 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 		dp->audio->off(dp->audio);
 
 	rc = dp_display_send_hpd_notification(dp, false);
+
+	/* if cable is disconnected, reset psm_enabled flag */
+	if (!dp->usbpd->alt_mode_cfg_done)
+		dp->link->psm_enabled = false;
 
 	if ((rc < 0) && dp->power_on)
 		dp_display_clean(dp);
@@ -954,6 +962,10 @@ static int dp_display_pre_disable(struct dp_display *dp_display)
 		if (dp->hdcp.ops->off)
 			dp->hdcp.ops->off(dp->hdcp.data);
 	}
+
+	if (dp->usbpd->alt_mode_cfg_done && (dp->usbpd->hpd_high ||
+		dp->usbpd->forced_disconnect))
+		dp->link->psm_config(dp->link, &dp->panel->link_info, true);
 
 	dp->ctrl->push_idle(dp->ctrl);
 error:
