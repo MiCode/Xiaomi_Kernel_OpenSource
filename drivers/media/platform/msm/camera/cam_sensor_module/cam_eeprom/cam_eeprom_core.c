@@ -243,7 +243,8 @@ static int cam_eeprom_match_id(struct cam_eeprom_ctrl_t *e_ctrl)
 	struct camera_io_master *client = &e_ctrl->io_master_info;
 	uint8_t                  id[2];
 
-	rc = cam_spi_query_id(client, 0, &id[0], 2);
+	rc = cam_spi_query_id(client, 0, CAMERA_SENSOR_I2C_TYPE_WORD,
+		&id[0], 2);
 	if (rc)
 		return rc;
 	CAM_DBG(CAM_EEPROM, "read 0x%x 0x%x, check 0x%x 0x%x",
