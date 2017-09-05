@@ -15,3 +15,14 @@
 / {
 };
 
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_nt35695b_truly_fhd_video>;
+};
+
+&mdss_dsi1 {
+	status = "disabled";
+};
