@@ -336,6 +336,7 @@ struct drm_msm_event_resp {
 #define DRM_EVENT_SYS_BACKLIGHT 0x80000003
 #define DRM_EVENT_SDE_POWER 0x80000004
 #define DRM_EVENT_IDLE_NOTIFY 0x80000005
+#define DRM_EVENT_PANEL_DEAD 0x80000006 /* ESD event */
 
 #define DRM_IOCTL_MSM_GET_PARAM        DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GET_PARAM, struct drm_msm_param)
 #define DRM_IOCTL_MSM_GEM_NEW          DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GEM_NEW, struct drm_msm_gem_new)
