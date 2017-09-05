@@ -1279,6 +1279,11 @@
 		mboxes = <&apps_rsc 0>;
 		status = "disabled";
 	};
+
+	cmd_db: qcom,cmd-db@c3f000c {
+		compatible = "qcom,cmd-db";
+		reg = <0xc3f000c 8>;
+	};
 };
 
 &emac_gdsc {
