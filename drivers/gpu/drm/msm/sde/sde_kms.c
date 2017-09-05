@@ -2047,7 +2047,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	} else {
 		sde_kms->reg_dma_len = msm_iomap_size(dev->platformdev,
 								"regdma_phys");
-		rc =  sde_dbg_reg_register_base("vbif_nrt",
+		rc =  sde_dbg_reg_register_base("reg_dma",
 				sde_kms->reg_dma,
 				sde_kms->reg_dma_len);
 		if (rc)
