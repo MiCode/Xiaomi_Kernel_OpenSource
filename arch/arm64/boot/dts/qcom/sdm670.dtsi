@@ -2046,3 +2046,4 @@
 #include "pm660l.dtsi"
 #include "sdm670-regulator.dtsi"
 #include "sdm670-audio.dtsi"
+#include "sdm670-usb.dtsi"
