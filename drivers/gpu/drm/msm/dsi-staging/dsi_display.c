@@ -3613,6 +3613,9 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 		break;
 	}
 
+	if (display->panel->esd_config.esd_enabled)
+		info->capabilities |= MSM_DISPLAY_ESD_ENABLED;
+
 	memcpy(&info->roi_caps, &display->panel->roi_caps,
 			sizeof(info->roi_caps));
 
