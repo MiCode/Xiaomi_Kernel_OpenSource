@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016 Qualcomm Atheros, Inc.
+ * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -84,9 +84,7 @@ void wil_set_capabilities(struct wil6210_priv *wil)
 
 	/* extract FW capabilities from file without loading the FW */
 	wil_request_firmware(wil, wil->wil_fw_name, false);
-
-	if (test_bit(WMI_FW_CAPABILITY_RSSI_REPORTING, wil->fw_capabilities))
-		wil_to_wiphy(wil)->signal_type = CFG80211_SIGNAL_TYPE_MBM;
+	wil_refresh_fw_capabilities(wil);
 }
 
 void wil_disable_irq(struct wil6210_priv *wil)
@@ -288,15 +286,6 @@ static int wil_pcie_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	wil_set_capabilities(wil);
 	wil6210_clear_irq(wil);
-
-	wil->keep_radio_on_during_sleep =
-		wil->platform_ops.keep_radio_on_during_sleep &&
-		wil->platform_ops.keep_radio_on_during_sleep(
-			wil->platform_handle) &&
-		test_bit(WMI_FW_CAPABILITY_D3_SUSPEND, wil->fw_capabilities);
-
-	wil_info(wil, "keep_radio_on_during_sleep (%d)\n",
-		 wil->keep_radio_on_during_sleep);
 
 	/* FW should raise IRQ when ready */
 	rc = wil_if_pcie_enable(wil);
