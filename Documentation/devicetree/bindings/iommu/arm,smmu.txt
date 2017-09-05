@@ -74,6 +74,9 @@ conditions.
                   address size faults are due to a fundamental programming
                   error from which we don't care about recovering anyways.
 
+- qcom,tz-device-id : A string indicating the device ID for this SMMU known
+		  to TZ.  See msm_tz_smmu.c for a full list of mappings.
+
 - qcom,skip-init : Disable resetting configuration for all context banks
                   during device reset.  This is useful for targets where
                   some context banks are dedicated to other execution
