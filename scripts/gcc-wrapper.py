@@ -74,7 +74,6 @@ allowed_warnings = set([
     "pcie_bus.c:383",
     "nf_nat_h323.c:553",
     "fdt.c:1208",
-    "cls_api.c:325",
     "act_api.c:483",
     "helpers.c:125",
     "sd.c:742",
@@ -194,12 +193,13 @@ allowed_warnings = set([
     "sd.c:262",
     "sd.c:264",
     "process.c:614",
-    "page_alloc.c:7370",
     "shmem.c:1773",
     "super.c:2628",
     "binfmt_elf.c:2266",
     "shmem.c:4156",
     "i2c-core-base.c:2043",
+    "page_alloc.c:7373",
+    "cls_api.c:333",
  ])
 
 # Capture the name of the object file, can find it.
