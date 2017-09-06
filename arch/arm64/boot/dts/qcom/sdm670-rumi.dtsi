@@ -49,6 +49,7 @@
 	/delete-node/ rpmh-regulator-ldoa28;
 	/delete-node/ rpmh-regulator-bobb1;
 	/delete-node/ rpmh-regulator-gfxlvl;
+	/delete-node/ thermal-zones;
 };
 
 #include "sdm670-stub-regulator.dtsi"
