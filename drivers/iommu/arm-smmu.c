@@ -2766,6 +2766,11 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 					& (1 << DOMAIN_ATTR_FAST));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_UPSTREAM_IOVA_ALLOCATOR:
+		*((int *)data) = !!(smmu_domain->attributes
+			& (1 << DOMAIN_ATTR_UPSTREAM_IOVA_ALLOCATOR));
+		ret = 0;
+		break;
 	case DOMAIN_ATTR_USE_UPSTREAM_HINT:
 		*((int *)data) = !!(smmu_domain->attributes &
 				   (1 << DOMAIN_ATTR_USE_UPSTREAM_HINT));
@@ -2917,6 +2922,12 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 			break;
 		}
 		smmu_domain->secure_vmid = *((int *)data);
+		break;
+	case DOMAIN_ATTR_UPSTREAM_IOVA_ALLOCATOR:
+		if (*((int *)data))
+			smmu_domain->attributes |=
+				1 << DOMAIN_ATTR_UPSTREAM_IOVA_ALLOCATOR;
+		ret = 0;
 		break;
 	case DOMAIN_ATTR_FAST:
 		if (*((int *)data))

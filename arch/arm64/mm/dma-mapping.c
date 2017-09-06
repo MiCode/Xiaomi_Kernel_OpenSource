@@ -1975,6 +1975,45 @@ static void bypass_iommu_release_mapping(struct kref *kref)
 	kfree(mapping);
 }
 
+static int upstream_iommu_init_mapping(struct device *dev,
+					struct dma_iommu_mapping *mapping)
+{
+	struct iommu_domain *domain = mapping->domain;
+	struct iommu_group *group = dev->iommu_group;
+	dma_addr_t base = mapping->base;
+	u64 size = mapping->bits << PAGE_SHIFT;
+
+	if (iommu_get_dma_cookie(domain))
+		return -EINVAL;
+
+	/* Need to attach to get geometry */
+	if (iommu_attach_group(domain, group))
+		goto out_put_cookie;
+
+	if (iommu_dma_init_domain(domain, base, size, dev))
+		goto out_detach_group;
+
+	mapping->ops = &iommu_dma_ops;
+	iommu_detach_group(domain, group);
+	return 0;
+
+out_detach_group:
+	iommu_detach_group(domain, group);
+out_put_cookie:
+	iommu_put_dma_cookie(domain);
+	return -EINVAL;
+}
+
+static void upstream_iommu_release_mapping(struct kref *kref)
+{
+	struct dma_iommu_mapping *mapping =
+		container_of(kref, struct dma_iommu_mapping, kref);
+
+	iommu_put_dma_cookie(mapping->domain);
+	iommu_domain_free(mapping->domain);
+	kfree(mapping);
+}
+
 /*
  * arm_iommu_release_mapping
  * @mapping: allocted via arm_iommu_create_mapping()
@@ -1984,7 +2023,7 @@ static void bypass_iommu_release_mapping(struct kref *kref)
  */
 void arm_iommu_release_mapping(struct dma_iommu_mapping *mapping)
 {
-	int s1_bypass = 0, is_fast = 0;
+	int s1_bypass = 0, is_fast = 0, is_upstream = 0;
 	void (*release)(struct kref *kref);
 
 	if (!mapping)
@@ -1999,11 +2038,16 @@ void arm_iommu_release_mapping(struct dma_iommu_mapping *mapping)
 	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_S1_BYPASS,
 					&s1_bypass);
 	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_FAST, &is_fast);
+	iommu_domain_get_attr(mapping->domain,
+				DOMAIN_ATTR_UPSTREAM_IOVA_ALLOCATOR,
+				&is_upstream);
 
 	if (s1_bypass)
 		release = bypass_iommu_release_mapping;
 	else if (is_fast)
 		release = fast_smmu_release_mapping;
+	else if (is_upstream)
+		release = upstream_iommu_release_mapping;
 	else
 		release = bitmap_iommu_release_mapping;
 
@@ -2015,7 +2059,7 @@ static int arm_iommu_init_mapping(struct device *dev,
 			    struct dma_iommu_mapping *mapping)
 {
 	int err = -EINVAL;
-	int s1_bypass = 0, is_fast = 0;
+	int s1_bypass = 0, is_fast = 0, is_upstream = 0;
 	struct iommu_group *group;
 	dma_addr_t iova_end;
 
@@ -2045,12 +2089,17 @@ static int arm_iommu_init_mapping(struct device *dev,
 	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_S1_BYPASS,
 					&s1_bypass);
 	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_FAST, &is_fast);
+	iommu_domain_get_attr(mapping->domain,
+				DOMAIN_ATTR_UPSTREAM_IOVA_ALLOCATOR,
+				&is_upstream);
 
 	if (s1_bypass) {
 		mapping->ops = &swiotlb_dma_ops;
 		err = 0;
 	} else if (is_fast) {
 		err = fast_smmu_init_mapping(dev, mapping);
+	} else if (is_upstream) {
+		err = upstream_iommu_init_mapping(dev, mapping);
 	} else {
 		err = bitmap_iommu_init_mapping(dev, mapping);
 	}
