@@ -1333,8 +1333,7 @@ static int adreno_init(struct kgsl_device *device)
 
 	}
 
-	if (nopreempt == false &&
-		ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION)) {
+	if (nopreempt == false) {
 		int r = 0;
 
 		if (gpudev->preemption_init)

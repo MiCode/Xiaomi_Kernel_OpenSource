@@ -205,13 +205,14 @@ static int _preemption_store(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	if (test_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv) == val)
+	if (test_bit(ADRENO_DEVICE_PREEMPTION_EXECUTION,
+		&adreno_dev->priv) == val)
 		return 0;
 
 	mutex_lock(&device->mutex);
 
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
-	change_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
+	change_bit(ADRENO_DEVICE_PREEMPTION_EXECUTION, &adreno_dev->priv);
 	adreno_dev->cur_rb = &(adreno_dev->ringbuffers[0]);
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
 
@@ -222,7 +223,7 @@ static int _preemption_store(struct adreno_device *adreno_dev,
 
 static unsigned int _preemption_show(struct adreno_device *adreno_dev)
 {
-	return adreno_is_preemption_enabled(adreno_dev);
+	return adreno_is_preemption_execution_enabled(adreno_dev);
 }
 
 static int _hwcg_store(struct adreno_device *adreno_dev,
