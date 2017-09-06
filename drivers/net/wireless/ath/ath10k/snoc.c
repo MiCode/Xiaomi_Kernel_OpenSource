@@ -17,6 +17,7 @@
 #include <linux/interrupt.h>
 #include <linux/spinlock.h>
 #include <linux/bitops.h>
+#include <linux/suspend.h>
 #include "core.h"
 #include "debug.h"
 #include "hif.h"
@@ -955,9 +956,13 @@ static int ath10k_snoc_init_pipes(struct ath10k *ar)
 
 static void ath10k_snoc_hif_power_down(struct ath10k *ar)
 {
+	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
+
 	ath10k_dbg(ar, ATH10K_DBG_BOOT, "boot hif power down\n");
 	msleep(SNOC_HIF_POWER_DOWN_DELAY);
-	ath10k_snoc_qmi_wlan_disable(ar);
+
+	if (!atomic_read(&ar_snoc->pm_ops_inprogress))
+		ath10k_snoc_qmi_wlan_disable(ar);
 }
 
 int ath10k_snoc_get_ce_id(struct ath10k *ar, int irq)
@@ -1141,9 +1146,17 @@ static int ath10k_snoc_claim(struct ath10k *ar)
 static int ath10k_snoc_hif_power_up(struct ath10k *ar)
 {
 	int ret;
+	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
 
 	ath10k_dbg(ar, ATH10K_DBG_SNOC, "%s:WCN3990 driver state = %d\n",
 		   __func__, ar->state);
+
+	if (atomic_read(&ar_snoc->pm_ops_inprogress)) {
+		ath10k_dbg(ar, ATH10K_DBG_SNOC,
+			   "%s: WLAN OFF CMD Reset on PM Resume\n", __func__);
+		ath10k_snoc_qmi_wlan_disable(ar);
+		atomic_set(&ar_snoc->pm_ops_inprogress, 0);
+	}
 
 	if (ar->state == ATH10K_STATE_ON ||
 	    test_bit(ATH10K_FLAG_CRASH_FLUSH, &ar->dev_flags)) {
@@ -1206,6 +1219,33 @@ static int ath10k_snoc_resource_init(struct ath10k *ar)
 
 out:
 	return ret;
+}
+
+static
+int ath10k_snoc_pm_notifier(struct notifier_block *nb,
+			    unsigned long pm_event, void *data)
+{
+	struct ath10k_snoc *ar_snoc =
+			container_of(nb, struct ath10k_snoc, pm_notifier);
+	struct ath10k *ar = ar_snoc->ar;
+
+	ath10k_dbg(ar, ATH10K_DBG_SNOC,
+		   "%s: PM Event: %lu\n", __func__, pm_event);
+
+	switch (pm_event) {
+	case PM_HIBERNATION_PREPARE:
+	case PM_SUSPEND_PREPARE:
+	case PM_POST_HIBERNATION:
+	case PM_POST_SUSPEND:
+	case PM_RESTORE_PREPARE:
+	case PM_POST_RESTORE:
+		atomic_set(&ar_snoc->pm_ops_inprogress, 1);
+		break;
+	default:
+		break;
+	}
+
+	return NOTIFY_DONE;
 }
 
 static const struct ath10k_hif_ops ath10k_snoc_hif_ops = {
@@ -1306,6 +1346,9 @@ static int ath10k_snoc_probe(struct platform_device *pdev)
 	ath10k_snoc_modem_ssr_register_notifier(ar);
 	ath10k_snoc_pd_restart_enable(ar);
 
+	ar_snoc->pm_notifier.notifier_call = ath10k_snoc_pm_notifier;
+	register_pm_notifier(&ar_snoc->pm_notifier);
+
 	ath10k_dbg(ar, ATH10K_DBG_SNOC, "%s:WCN3990 probed\n", __func__);
 
 	return 0;
@@ -1338,6 +1381,7 @@ static int ath10k_snoc_remove(struct platform_device *pdev)
 
 	ath10k_dbg(ar, ATH10K_DBG_SNOC, "%s:WCN3990 removed\n", __func__);
 
+	unregister_pm_notifier(&ar_snoc->pm_notifier);
 	ath10k_core_unregister(ar);
 	ath10k_snoc_pdr_unregister_notifier(ar);
 	ath10k_snoc_modem_ssr_unregister_notifier(ar);
