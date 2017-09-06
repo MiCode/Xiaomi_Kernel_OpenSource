@@ -45,12 +45,651 @@
 #include "a5_core.h"
 #include "hfi_sys_defs.h"
 #include "cam_debug_util.h"
+#include "cam_soc_util.h"
 
 #define ICP_WORKQ_NUM_TASK      30
 #define ICP_WORKQ_TASK_CMD_TYPE 1
 #define ICP_WORKQ_TASK_MSG_TYPE 2
 
 static struct cam_icp_hw_mgr icp_hw_mgr;
+
+static void cam_icp_hw_mgr_clk_info_update(struct cam_icp_hw_mgr *hw_mgr,
+	struct cam_icp_hw_ctx_data *ctx_data)
+{
+	struct cam_icp_clk_info *hw_mgr_clk_info;
+
+	if (ctx_data->icp_dev_acquire_info->dev_type == CAM_ICP_RES_TYPE_BPS)
+		hw_mgr_clk_info = &hw_mgr->clk_info[ICP_CLK_HW_BPS];
+	else
+		hw_mgr_clk_info = &hw_mgr->clk_info[ICP_CLK_HW_IPE];
+
+	if (hw_mgr_clk_info->base_clk >= ctx_data->clk_info.base_clk)
+		hw_mgr_clk_info->base_clk -= ctx_data->clk_info.base_clk;
+}
+
+static void cam_icp_hw_mgr_reset_clk_info(struct cam_icp_hw_mgr *hw_mgr)
+{
+	int i;
+
+	for (i = 0; i < ICP_CLK_HW_MAX; i++) {
+		hw_mgr->clk_info[i].base_clk = 0;
+		hw_mgr->clk_info[i].curr_clk = ICP_TURBO_VOTE;
+		hw_mgr->clk_info[i].threshold = ICP_OVER_CLK_THRESHOLD;
+		hw_mgr->clk_info[i].over_clked = 0;
+		hw_mgr->clk_info[i].uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
+		hw_mgr->clk_info[i].compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
+	}
+	hw_mgr->icp_default_clk = ICP_SVS_VOTE;
+}
+
+static int cam_icp_get_actual_clk_rate_idx(
+	struct cam_icp_hw_ctx_data *ctx_data, uint32_t base_clk)
+{
+	int i;
+
+	for (i = 0; i < CAM_MAX_VOTE; i++)
+		if (ctx_data->clk_info.clk_rate[i] >= base_clk)
+			return i;
+
+	return 0;
+}
+
+static bool cam_icp_is_over_clk(struct cam_icp_hw_mgr *hw_mgr,
+	struct cam_icp_hw_ctx_data *ctx_data,
+	struct cam_icp_clk_info *hw_mgr_clk_info)
+{
+	int base_clk_idx;
+	int curr_clk_idx;
+
+	base_clk_idx = cam_icp_get_actual_clk_rate_idx(ctx_data,
+		hw_mgr_clk_info->base_clk);
+
+	curr_clk_idx = cam_icp_get_actual_clk_rate_idx(ctx_data,
+		hw_mgr_clk_info->curr_clk);
+
+	CAM_DBG(CAM_ICP, "bc_idx = %d cc_idx = %d %lld %lld",
+		base_clk_idx, curr_clk_idx, hw_mgr_clk_info->base_clk,
+		hw_mgr_clk_info->curr_clk);
+
+	if (curr_clk_idx > base_clk_idx)
+		return true;
+
+	return false;
+}
+
+static int cam_icp_get_lower_clk_rate(struct cam_icp_hw_mgr *hw_mgr,
+	struct cam_icp_hw_ctx_data *ctx_data, uint32_t base_clk)
+{
+	int i;
+
+	i = cam_icp_get_actual_clk_rate_idx(ctx_data, base_clk);
+
+	if (i > 0)
+		return ctx_data->clk_info.clk_rate[i - 1];
+
+	CAM_DBG(CAM_ICP, "Already clk at lower level");
+	return base_clk;
+}
+
+static int cam_icp_get_next_clk_rate(struct cam_icp_hw_mgr *hw_mgr,
+	struct cam_icp_hw_ctx_data *ctx_data, uint32_t base_clk)
+{
+	int i;
+
+	i = cam_icp_get_actual_clk_rate_idx(ctx_data, base_clk);
+
+	if (i < CAM_MAX_VOTE - 1)
+		return ctx_data->clk_info.clk_rate[i + 1];
+
+	CAM_DBG(CAM_ICP, "Already clk at higher level");
+
+	return base_clk;
+}
+
+static int cam_icp_get_actual_clk_rate(struct cam_icp_hw_mgr *hw_mgr,
+	struct cam_icp_hw_ctx_data *ctx_data, uint32_t base_clk)
+{
+	int i;
+
+	for (i = 0; i < CAM_MAX_VOTE; i++)
+		if (ctx_data->clk_info.clk_rate[i] >= base_clk)
+			return ctx_data->clk_info.clk_rate[i];
+
+	return base_clk;
+}
+
+static int cam_icp_supported_clk_rates(struct cam_icp_hw_mgr *hw_mgr,
+	struct cam_icp_hw_ctx_data *ctx_data)
+{
+	int i;
+	struct cam_hw_soc_info *soc_info;
+	struct cam_hw_intf *dev_intf = NULL;
+	struct cam_hw_info *dev = NULL;
+
+	if (ctx_data->icp_dev_acquire_info->dev_type == CAM_ICP_RES_TYPE_BPS)
+		dev_intf = hw_mgr->devices[CAM_ICP_DEV_BPS][0];
+	else
+		dev_intf = hw_mgr->devices[CAM_ICP_DEV_IPE][0];
+
+	if (!dev_intf) {
+		CAM_ERR(CAM_ICP, "dev_intf is invalid");
+		return -EINVAL;
+	}
+	dev = (struct cam_hw_info *)dev_intf->hw_priv;
+	soc_info = &dev->soc_info;
+
+	for (i = 0; i < CAM_MAX_VOTE; i++) {
+		ctx_data->clk_info.clk_rate[i] =
+			soc_info->clk_rate[i][soc_info->num_clk - 1];
+		CAM_DBG(CAM_ICP, "clk_info = %d",
+			ctx_data->clk_info.clk_rate[i]);
+	}
+
+	return 0;
+}
+
+static int cam_icp_clk_idx_from_req_id(struct cam_icp_hw_ctx_data *ctx_data,
+	uint64_t req_id)
+{
+	struct hfi_frame_process_info *frame_process;
+	int i;
+
+	frame_process = &ctx_data->hfi_frame_process;
+
+	for (i = 0; i < CAM_FRAME_CMD_MAX; i++)
+		if (frame_process->request_id[i] == req_id)
+			return i;
+
+	return 0;
+}
+
+static int cam_icp_clk_info_init(struct cam_icp_hw_mgr *hw_mgr,
+	struct cam_icp_hw_ctx_data *ctx_data)
+{
+	int i;
+
+	for (i = 0; i < ICP_CLK_HW_MAX; i++) {
+		hw_mgr->clk_info[i].base_clk = ICP_TURBO_VOTE;
+		hw_mgr->clk_info[i].curr_clk = ICP_TURBO_VOTE;
+		hw_mgr->clk_info[i].threshold = ICP_OVER_CLK_THRESHOLD;
+		hw_mgr->clk_info[i].over_clked = 0;
+		hw_mgr->clk_info[i].uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
+		hw_mgr->clk_info[i].compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
+	}
+	hw_mgr->icp_default_clk = ICP_SVS_VOTE;
+
+	return 0;
+}
+
+static int cam_icp_ctx_clk_info_init(struct cam_icp_hw_ctx_data *ctx_data)
+{
+	ctx_data->clk_info.curr_fc = 0;
+	ctx_data->clk_info.base_clk = 0;
+	ctx_data->clk_info.uncompressed_bw = 0;
+	ctx_data->clk_info.compressed_bw = 0;
+	cam_icp_supported_clk_rates(&icp_hw_mgr, ctx_data);
+
+	return 0;
+}
+
+static uint32_t cam_icp_mgr_calc_base_clk(uint32_t frame_cycles,
+	uint64_t budget)
+{
+	uint64_t base_clk;
+	uint64_t mul = 1000000000;
+
+	base_clk = (frame_cycles * mul) / budget;
+
+	CAM_DBG(CAM_ICP, "budget = %lld fc = %d ib = %lld base_clk = %lld",
+		budget, frame_cycles,
+		(long long int)(frame_cycles * mul), base_clk);
+
+	return base_clk;
+}
+
+static bool cam_icp_busy_prev_reqs(struct hfi_frame_process_info *frm_process,
+	uint64_t req_id)
+{
+	int i;
+	int cnt;
+
+	for (i = 0, cnt = 0; i < CAM_FRAME_CMD_MAX; i++) {
+		if (frm_process->request_id[i]) {
+			if (frm_process->fw_process_flag[i]) {
+				CAM_DBG(CAM_ICP, "r id = %lld busy = %d",
+					frm_process->request_id[i],
+					frm_process->fw_process_flag[i]);
+				cnt++;
+			}
+		}
+	}
+	if (cnt > 1)
+		return true;
+
+	return false;
+}
+
+static int cam_icp_calc_total_clk(struct cam_icp_hw_mgr *hw_mgr,
+	struct cam_icp_clk_info *hw_mgr_clk_info, uint32_t dev_type)
+{
+	int i;
+	struct cam_icp_hw_ctx_data *ctx_data;
+
+	hw_mgr_clk_info->base_clk = 0;
+	for (i = 0; i < CAM_ICP_CTX_MAX; i++) {
+		ctx_data = &hw_mgr->ctx_data[i];
+		if (ctx_data->in_use &&
+			ctx_data->icp_dev_acquire_info->dev_type == dev_type)
+			hw_mgr_clk_info->base_clk +=
+				ctx_data->clk_info.base_clk;
+	}
+
+	return 0;
+}
+
+static bool cam_icp_update_clk_busy(struct cam_icp_hw_mgr *hw_mgr,
+	struct cam_icp_hw_ctx_data *ctx_data,
+	struct cam_icp_clk_info *hw_mgr_clk_info,
+	struct cam_icp_clk_bw_request *clk_info,
+	uint32_t base_clk)
+{
+	uint32_t next_clk_level;
+	uint32_t actual_clk;
+
+	/* 1. if current request frame cycles(fc) are more than previous
+	 *      frame fc
+	 *      Calculate the new base clock.
+	 *      if sum of base clocks are more than next available clk level
+	 *       Update clock rate, change curr_clk_rate to sum of base clock
+	 *       rates and make over_clked to zero
+	 *      else
+	 *       Update clock rate to next level, update curr_clk_rate and make
+	 *       overclked cnt to zero
+	 * 2. if current fc is less than or equal to previous  frame fc
+	 *      Still Bump up the clock to next available level
+	 *      if it is available, then update clock, make overclk cnt to
+	 *      zero
+	 */
+	mutex_lock(&hw_mgr->hw_mgr_mutex);
+	ctx_data->clk_info.curr_fc = clk_info->frame_cycles;
+	ctx_data->clk_info.base_clk = base_clk;
+	hw_mgr_clk_info->over_clked = 0;
+	if (clk_info->frame_cycles > ctx_data->clk_info.curr_fc) {
+		cam_icp_calc_total_clk(hw_mgr, hw_mgr_clk_info,
+			ctx_data->icp_dev_acquire_info->dev_type);
+		actual_clk = cam_icp_get_actual_clk_rate(hw_mgr,
+			ctx_data, base_clk);
+		if (hw_mgr_clk_info->base_clk > actual_clk) {
+			hw_mgr_clk_info->curr_clk = hw_mgr_clk_info->base_clk;
+		} else {
+			next_clk_level = cam_icp_get_next_clk_rate(hw_mgr,
+				ctx_data, hw_mgr_clk_info->curr_clk);
+			hw_mgr_clk_info->curr_clk = next_clk_level;
+		}
+	} else {
+		hw_mgr_clk_info->curr_clk =
+			cam_icp_get_next_clk_rate(hw_mgr, ctx_data,
+			hw_mgr_clk_info->curr_clk);
+	}
+	mutex_unlock(&hw_mgr->hw_mgr_mutex);
+
+	return true;
+}
+
+static bool cam_icp_update_clk_overclk_free(struct cam_icp_hw_mgr *hw_mgr,
+	struct cam_icp_hw_ctx_data *ctx_data,
+	struct cam_icp_clk_info *hw_mgr_clk_info,
+	struct cam_icp_clk_bw_request *clk_info,
+	uint32_t base_clk)
+{
+	int rc = false;
+
+	/*
+	 * In caseof no pending packets case
+	 *    1. In caseof overclk cnt is less than threshold, increase
+	 *       overclk count and no update in the clock rate
+	 *    2. In caseof overclk cnt is greater than or equal to threshold
+	 *       then lower clock rate by one level and update hw_mgr current
+	 *       clock value.
+	 *        a. In case of new clock rate greater than sum of clock
+	 *           rates, reset overclk count value to zero if it is
+	 *           overclock
+	 *        b. if it is less than sum of base clocks then go to next
+	 *           level of clock and make overclk count to zero
+	 *        c. if it is same as sum of base clock rates update overclock
+	 *           cnt to 0
+	 */
+	if (hw_mgr_clk_info->over_clked < hw_mgr_clk_info->threshold) {
+		hw_mgr_clk_info->over_clked++;
+		rc = false;
+	} else {
+		hw_mgr_clk_info->curr_clk =
+			cam_icp_get_lower_clk_rate(hw_mgr, ctx_data,
+			hw_mgr_clk_info->curr_clk);
+		if (hw_mgr_clk_info->curr_clk > hw_mgr_clk_info->base_clk) {
+			if (cam_icp_is_over_clk(hw_mgr, ctx_data,
+				hw_mgr_clk_info))
+				hw_mgr_clk_info->over_clked = 0;
+		} else if (hw_mgr_clk_info->curr_clk <
+			hw_mgr_clk_info->base_clk) {
+			hw_mgr_clk_info->curr_clk =
+				cam_icp_get_next_clk_rate(hw_mgr, ctx_data,
+				hw_mgr_clk_info->curr_clk);
+				hw_mgr_clk_info->over_clked = 0;
+		} else if (hw_mgr_clk_info->curr_clk ==
+			hw_mgr_clk_info->base_clk) {
+			hw_mgr_clk_info->over_clked = 0;
+		}
+		rc = true;
+	}
+
+	return rc;
+}
+
+static bool cam_icp_update_clk_free(struct cam_icp_hw_mgr *hw_mgr,
+	struct cam_icp_hw_ctx_data *ctx_data,
+	struct cam_icp_clk_info *hw_mgr_clk_info,
+	struct cam_icp_clk_bw_request *clk_info,
+	uint32_t base_clk)
+{
+	int rc = false;
+	bool over_clocked = false;
+
+	ctx_data->clk_info.curr_fc = clk_info->frame_cycles;
+	ctx_data->clk_info.base_clk = base_clk;
+	mutex_lock(&hw_mgr->hw_mgr_mutex);
+	cam_icp_calc_total_clk(hw_mgr, hw_mgr_clk_info,
+		ctx_data->icp_dev_acquire_info->dev_type);
+	mutex_unlock(&hw_mgr->hw_mgr_mutex);
+
+	/*
+	 * Current clock is not always sum of base clocks, due to
+	 * clock scales update to next higher or lower levels, it
+	 * equals to one of discrete clock values supported by hardware.
+	 * So even current clock is higher than sum of base clocks, we
+	 * can not consider it is over clocked. if it is greater than
+	 * discrete clock level then only it is considered as over clock.
+	 * 1. Handle over clock case
+	 * 2. If current clock is less than sum of base clocks
+	 *    update current clock
+	 * 3. If current clock is same as sum of base clocks no action
+	 */
+
+	over_clocked = cam_icp_is_over_clk(hw_mgr, ctx_data,
+		hw_mgr_clk_info);
+
+	mutex_lock(&hw_mgr->hw_mgr_mutex);
+	if (hw_mgr_clk_info->curr_clk > hw_mgr_clk_info->base_clk &&
+		over_clocked) {
+		rc = cam_icp_update_clk_overclk_free(hw_mgr, ctx_data,
+			hw_mgr_clk_info, clk_info, base_clk);
+	} else if (hw_mgr_clk_info->curr_clk > hw_mgr_clk_info->base_clk) {
+		hw_mgr_clk_info->over_clked = 0;
+		rc = false;
+	}  else if (hw_mgr_clk_info->curr_clk < hw_mgr_clk_info->base_clk) {
+		hw_mgr_clk_info->curr_clk = hw_mgr_clk_info->base_clk;
+		rc = true;
+	}
+	mutex_unlock(&hw_mgr->hw_mgr_mutex);
+
+	return rc;
+}
+
+static bool cam_icp_debug_clk_update(struct cam_icp_clk_info *hw_mgr_clk_info)
+{
+	if (icp_hw_mgr.icp_debug_clk < ICP_TURBO_VOTE &&
+		icp_hw_mgr.icp_debug_clk &&
+		icp_hw_mgr.icp_debug_clk != hw_mgr_clk_info->curr_clk) {
+		mutex_lock(&icp_hw_mgr.hw_mgr_mutex);
+		hw_mgr_clk_info->base_clk = icp_hw_mgr.icp_debug_clk;
+		hw_mgr_clk_info->curr_clk = icp_hw_mgr.icp_debug_clk;
+		hw_mgr_clk_info->uncompressed_bw = icp_hw_mgr.icp_debug_clk;
+		hw_mgr_clk_info->compressed_bw = icp_hw_mgr.icp_debug_clk;
+		mutex_unlock(&icp_hw_mgr.hw_mgr_mutex);
+		CAM_DBG(CAM_ICP, "bc = %d cc = %d",
+			hw_mgr_clk_info->base_clk, hw_mgr_clk_info->curr_clk);
+		return true;
+	}
+
+	return false;
+}
+
+static bool cam_icp_default_clk_update(struct cam_icp_clk_info *hw_mgr_clk_info)
+{
+	if (icp_hw_mgr.icp_default_clk != hw_mgr_clk_info->curr_clk) {
+		mutex_lock(&icp_hw_mgr.hw_mgr_mutex);
+		hw_mgr_clk_info->base_clk = icp_hw_mgr.icp_default_clk;
+		hw_mgr_clk_info->curr_clk = icp_hw_mgr.icp_default_clk;
+		hw_mgr_clk_info->uncompressed_bw = icp_hw_mgr.icp_default_clk;
+		hw_mgr_clk_info->compressed_bw = icp_hw_mgr.icp_default_clk;
+		mutex_unlock(&icp_hw_mgr.hw_mgr_mutex);
+		CAM_DBG(CAM_ICP, "bc = %d cc = %d",
+			hw_mgr_clk_info->base_clk, hw_mgr_clk_info->curr_clk);
+		return true;
+	}
+
+	return false;
+}
+
+static bool cam_icp_update_bw(struct cam_icp_hw_mgr *hw_mgr,
+	struct cam_icp_hw_ctx_data *ctx_data,
+	struct cam_icp_clk_info *hw_mgr_clk_info,
+	struct cam_icp_clk_bw_request *clk_info,
+	bool busy)
+{
+	int i;
+	struct cam_icp_hw_ctx_data *ctx;
+
+	/*
+	 * If current request bandwidth is different from previous frames, then
+	 * recalculate bandwidth of all contexts of same hardware and update
+	 * voting of bandwidth
+	 */
+	if (clk_info->uncompressed_bw == ctx_data->clk_info.uncompressed_bw)
+		return false;
+
+	if (busy &&
+		ctx_data->clk_info.uncompressed_bw > clk_info->uncompressed_bw)
+		return false;
+
+	ctx_data->clk_info.uncompressed_bw = clk_info->uncompressed_bw;
+	ctx_data->clk_info.compressed_bw = clk_info->compressed_bw;
+	hw_mgr_clk_info->uncompressed_bw = 0;
+	hw_mgr_clk_info->compressed_bw = 0;
+	for (i = 0; i < CAM_ICP_CTX_MAX; i++) {
+		ctx = &hw_mgr->ctx_data[i];
+		if (ctx->in_use &&
+			ctx->icp_dev_acquire_info->dev_type ==
+			ctx_data->icp_dev_acquire_info->dev_type) {
+			mutex_lock(&hw_mgr->hw_mgr_mutex);
+			hw_mgr_clk_info->uncompressed_bw +=
+				ctx->clk_info.uncompressed_bw;
+			hw_mgr_clk_info->compressed_bw +=
+				ctx->clk_info.compressed_bw;
+			mutex_unlock(&hw_mgr->hw_mgr_mutex);
+		}
+	}
+
+	return true;
+}
+
+static bool cam_icp_check_clk_update(struct cam_icp_hw_mgr *hw_mgr,
+	struct cam_icp_hw_ctx_data *ctx_data, int idx)
+{
+	bool busy, rc = false;
+	uint32_t base_clk;
+	struct cam_icp_clk_bw_request *clk_info;
+	struct hfi_frame_process_info *frame_info;
+	uint64_t req_id;
+	struct cam_icp_clk_info *hw_mgr_clk_info;
+
+	if (ctx_data->icp_dev_acquire_info->dev_type == CAM_ICP_RES_TYPE_BPS)
+		hw_mgr_clk_info = &hw_mgr->clk_info[ICP_CLK_HW_BPS];
+	else
+		hw_mgr_clk_info = &hw_mgr->clk_info[ICP_CLK_HW_IPE];
+
+	if (icp_hw_mgr.icp_debug_clk)
+		return cam_icp_debug_clk_update(hw_mgr_clk_info);
+
+	/* Check is there any pending frames in this context */
+	frame_info = &ctx_data->hfi_frame_process;
+	req_id = frame_info->request_id[idx];
+	busy = cam_icp_busy_prev_reqs(frame_info, req_id);
+	CAM_DBG(CAM_ICP, "busy = %d req_id = %lld", busy, req_id);
+
+	clk_info = &ctx_data->hfi_frame_process.clk_info[idx];
+	if (!clk_info->frame_cycles)
+		return cam_icp_default_clk_update(hw_mgr_clk_info);
+
+	/* Calculate base clk rate */
+	base_clk = cam_icp_mgr_calc_base_clk(
+		clk_info->frame_cycles, clk_info->budget_ns);
+	ctx_data->clk_info.rt_flag = clk_info->rt_flag;
+
+	if (busy)
+		rc = cam_icp_update_clk_busy(hw_mgr, ctx_data,
+			hw_mgr_clk_info, clk_info, base_clk);
+	else
+		rc = cam_icp_update_clk_free(hw_mgr, ctx_data,
+			hw_mgr_clk_info, clk_info, base_clk);
+
+	CAM_DBG(CAM_ICP, "bc = %d cc = %d busy = %d overclk = %d uc = %d",
+		hw_mgr_clk_info->base_clk, hw_mgr_clk_info->curr_clk,
+		busy, hw_mgr_clk_info->over_clked, rc);
+
+	return rc;
+}
+
+static bool cam_icp_check_bw_update(struct cam_icp_hw_mgr *hw_mgr,
+	struct cam_icp_hw_ctx_data *ctx_data, int idx)
+{
+	bool busy, rc = false;
+	struct cam_icp_clk_bw_request *clk_info;
+	struct cam_icp_clk_info *hw_mgr_clk_info;
+	struct hfi_frame_process_info *frame_info;
+	uint64_t req_id;
+
+	if (ctx_data->icp_dev_acquire_info->dev_type == CAM_ICP_RES_TYPE_BPS)
+		hw_mgr_clk_info = &hw_mgr->clk_info[ICP_CLK_HW_BPS];
+	else
+		hw_mgr_clk_info = &hw_mgr->clk_info[ICP_CLK_HW_IPE];
+
+	clk_info = &ctx_data->hfi_frame_process.clk_info[idx];
+	frame_info = &ctx_data->hfi_frame_process;
+	req_id = frame_info->request_id[idx];
+	busy = cam_icp_busy_prev_reqs(frame_info, req_id);
+	rc = cam_icp_update_bw(hw_mgr, ctx_data, hw_mgr_clk_info,
+		clk_info, busy);
+
+	CAM_DBG(CAM_ICP, "bw = %d update_bw = %d",
+		hw_mgr_clk_info->uncompressed_bw, rc);
+
+	return rc;
+}
+
+static int cam_icp_update_clk_rate(struct cam_icp_hw_mgr *hw_mgr,
+	struct cam_icp_hw_ctx_data *ctx_data)
+{
+	uint32_t id;
+	uint32_t curr_clk_rate;
+	struct cam_hw_intf *ipe0_dev_intf = NULL;
+	struct cam_hw_intf *ipe1_dev_intf = NULL;
+	struct cam_hw_intf *bps_dev_intf = NULL;
+	struct cam_hw_intf *dev_intf = NULL;
+
+	ipe0_dev_intf = hw_mgr->devices[CAM_ICP_DEV_IPE][0];
+	ipe1_dev_intf = hw_mgr->devices[CAM_ICP_DEV_IPE][1];
+	bps_dev_intf = hw_mgr->devices[CAM_ICP_DEV_BPS][0];
+
+
+	if ((!ipe0_dev_intf) || (!bps_dev_intf)) {
+		CAM_ERR(CAM_ICP, "dev intfs are wrong, failed to update clk");
+		return -EINVAL;
+	}
+
+	if (ctx_data->icp_dev_acquire_info->dev_type == CAM_ICP_RES_TYPE_BPS) {
+		dev_intf = bps_dev_intf;
+		curr_clk_rate = hw_mgr->clk_info[ICP_CLK_HW_BPS].curr_clk;
+		id = CAM_ICP_BPS_CMD_UPDATE_CLK;
+	} else {
+		dev_intf = ipe0_dev_intf;
+		curr_clk_rate = hw_mgr->clk_info[ICP_CLK_HW_IPE].curr_clk;
+		id = CAM_ICP_IPE_CMD_UPDATE_CLK;
+	}
+
+	dev_intf->hw_ops.process_cmd(dev_intf->hw_priv, id,
+		&curr_clk_rate, sizeof(curr_clk_rate));
+
+	if (ctx_data->icp_dev_acquire_info->dev_type != CAM_ICP_RES_TYPE_BPS)
+		if (ipe1_dev_intf)
+			ipe1_dev_intf->hw_ops.process_cmd(
+				ipe1_dev_intf->hw_priv, id,
+				&curr_clk_rate, sizeof(curr_clk_rate));
+
+	return 0;
+}
+
+static int cam_icp_update_cpas_vote(struct cam_icp_hw_mgr *hw_mgr,
+	struct cam_icp_hw_ctx_data *ctx_data)
+{
+	uint32_t id;
+	struct cam_hw_intf *ipe0_dev_intf = NULL;
+	struct cam_hw_intf *ipe1_dev_intf = NULL;
+	struct cam_hw_intf *bps_dev_intf = NULL;
+	struct cam_hw_intf *dev_intf = NULL;
+	struct cam_icp_clk_info *clk_info;
+	struct cam_icp_cpas_vote clk_update;
+
+	ipe0_dev_intf = hw_mgr->devices[CAM_ICP_DEV_IPE][0];
+	ipe1_dev_intf = hw_mgr->devices[CAM_ICP_DEV_IPE][1];
+	bps_dev_intf = hw_mgr->devices[CAM_ICP_DEV_BPS][0];
+
+	if ((!ipe0_dev_intf) || (!bps_dev_intf)) {
+		CAM_ERR(CAM_ICP, "dev intfs are wrong, failed to update clk");
+		return -EINVAL;
+	}
+
+	if (ctx_data->icp_dev_acquire_info->dev_type == CAM_ICP_RES_TYPE_BPS) {
+		dev_intf = bps_dev_intf;
+		clk_info = &hw_mgr->clk_info[ICP_CLK_HW_BPS];
+		id = CAM_ICP_BPS_CMD_VOTE_CPAS;
+	} else {
+		dev_intf = ipe0_dev_intf;
+		clk_info = &hw_mgr->clk_info[ICP_CLK_HW_IPE];
+		id = CAM_ICP_IPE_CMD_VOTE_CPAS;
+	}
+
+	clk_update.ahb_vote.type = CAM_VOTE_DYNAMIC;
+	clk_update.ahb_vote.vote.freq = clk_info->curr_clk;
+	clk_update.ahb_vote_valid = true;
+	clk_update.axi_vote.compressed_bw = clk_info->compressed_bw;
+	clk_update.axi_vote.uncompressed_bw = clk_info->uncompressed_bw;
+	clk_update.axi_vote_valid = true;
+	dev_intf->hw_ops.process_cmd(dev_intf->hw_priv, id,
+		&clk_update, sizeof(clk_update));
+
+	if (ctx_data->icp_dev_acquire_info->dev_type != CAM_ICP_RES_TYPE_BPS)
+		if (ipe1_dev_intf)
+			ipe1_dev_intf->hw_ops.process_cmd(
+				ipe1_dev_intf->hw_priv, id,
+				&clk_update, sizeof(clk_update));
+
+	return 0;
+}
+
+static int cam_icp_mgr_ipe_bps_clk_update(struct cam_icp_hw_mgr *hw_mgr,
+	struct cam_icp_hw_ctx_data *ctx_data, int idx)
+{
+	int rc = 0;
+
+	if (cam_icp_check_clk_update(hw_mgr, ctx_data, idx))
+		rc = cam_icp_update_clk_rate(hw_mgr, ctx_data);
+
+	if (cam_icp_check_bw_update(hw_mgr, ctx_data, idx))
+		rc |= cam_icp_update_cpas_vote(hw_mgr, ctx_data);
+
+	return rc;
+}
 
 static int cam_icp_mgr_ipe_bps_resume(struct cam_icp_hw_mgr *hw_mgr,
 	struct cam_icp_hw_ctx_data *ctx_data)
@@ -128,8 +767,26 @@ static int cam_icp_mgr_ipe_bps_power_collapse(struct cam_icp_hw_mgr *hw_mgr,
 	return rc;
 }
 
+static int cam_icp_set_dbg_default_clk(void *data, u64 val)
+{
+	icp_hw_mgr.icp_debug_clk = val;
+	return 0;
+}
+
+static int cam_icp_get_dbg_default_clk(void *data, u64 *val)
+{
+	*val = icp_hw_mgr.icp_debug_clk;
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(cam_icp_debug_default_clk,
+	cam_icp_get_dbg_default_clk,
+	cam_icp_set_dbg_default_clk, "%16llu");
+
 static int cam_icp_hw_mgr_create_debugfs_entry(void)
 {
+	int rc = 0;
+
 	icp_hw_mgr.dentry = debugfs_create_dir("camera_icp", NULL);
 	if (!icp_hw_mgr.dentry)
 		return -ENOMEM;
@@ -139,7 +796,8 @@ static int cam_icp_hw_mgr_create_debugfs_entry(void)
 		icp_hw_mgr.dentry,
 		&icp_hw_mgr.a5_debug)) {
 		debugfs_remove_recursive(icp_hw_mgr.dentry);
-		return -ENOMEM;
+		rc = -ENOMEM;
+		goto err;
 	}
 
 	if (!debugfs_create_bool("icp_pc",
@@ -147,10 +805,23 @@ static int cam_icp_hw_mgr_create_debugfs_entry(void)
 		icp_hw_mgr.dentry,
 		&icp_hw_mgr.icp_pc_flag)) {
 		CAM_ERR(CAM_ICP, "failed to create icp_pc entry");
-		return -ENOMEM;
+		rc = -ENOMEM;
+		goto err;
 	}
 
-	return 0;
+	if (!debugfs_create_file("icp_debug_clk",
+		0644,
+		icp_hw_mgr.dentry, NULL,
+		&cam_icp_debug_default_clk)) {
+		CAM_ERR(CAM_ICP, "failed to create icp_debug_clk entry");
+		rc = -ENOMEM;
+		goto err;
+	}
+
+	return rc;
+err:
+	debugfs_remove_recursive(icp_hw_mgr.dentry);
+	return rc;
 }
 
 static int cam_icp_mgr_process_cmd(void *priv, void *data)
@@ -210,6 +881,7 @@ static int cam_icp_mgr_handle_frame_process(uint32_t *msg_ptr, int flag)
 	ctx_data->ctxt_event_cb(ctx_data->context_priv, flag, &buf_data);
 	hfi_frame_process->request_id[idx] = 0;
 	clear_bit(idx, ctx_data->hfi_frame_process.bitmap);
+	hfi_frame_process->fw_process_flag[idx] = false;
 	mutex_unlock(&ctx_data->ctx_mutex);
 
 	return 0;
@@ -228,7 +900,7 @@ static int cam_icp_mgr_process_msg_frame_process(uint32_t *msg_ptr)
 	ioconfig_ack = (struct hfi_msg_ipebps_async_ack *)msg_ptr;
 	if (ioconfig_ack->err_type != HFI_ERR_SYS_NONE) {
 		CAM_ERR(CAM_ICP, "failed with error : %u",
-			ioconfig_ack->err_type);
+		ioconfig_ack->err_type);
 		cam_icp_mgr_handle_frame_process(msg_ptr,
 			ICP_FRAME_PROCESS_FAILURE);
 		return -EIO;
@@ -791,6 +1463,9 @@ static int cam_icp_mgr_release_ctx(struct cam_icp_hw_mgr *hw_mgr, int ctx_id)
 	for (i = 0; i < CAM_FRAME_CMD_MAX; i++)
 		clear_bit(i, hw_mgr->ctx_data[ctx_id].hfi_frame_process.bitmap);
 	kfree(hw_mgr->ctx_data[ctx_id].hfi_frame_process.bitmap);
+	cam_icp_hw_mgr_clk_info_update(hw_mgr, &hw_mgr->ctx_data[ctx_id]);
+	hw_mgr->ctx_data[ctx_id].clk_info.curr_fc = 0;
+	hw_mgr->ctx_data[ctx_id].clk_info.base_clk = 0;
 	hw_mgr->ctxt_cnt--;
 	kfree(hw_mgr->ctx_data[ctx_id].icp_dev_acquire_info);
 	hw_mgr->ctx_data[ctx_id].icp_dev_acquire_info = NULL;
@@ -1135,12 +1810,17 @@ alloc_hfi_mem_failed:
 
 static int cam_icp_mgr_handle_config_err(
 	struct cam_hw_config_args *config_args,
-	struct cam_icp_hw_ctx_data *ctx_data)
+	struct cam_icp_hw_ctx_data *ctx_data,
+	int idx)
 {
 	struct cam_hw_done_event_data buf_data;
 
 	buf_data.request_id = *(uint64_t *)config_args->priv;
 	ctx_data->ctxt_event_cb(ctx_data->context_priv, true, &buf_data);
+
+	ctx_data->hfi_frame_process.request_id[idx] = 0;
+	ctx_data->hfi_frame_process.fw_process_flag[idx] = false;
+	clear_bit(idx, ctx_data->hfi_frame_process.bitmap);
 
 	return 0;
 }
@@ -1180,6 +1860,8 @@ static int cam_icp_mgr_enqueue_config(struct cam_icp_hw_mgr *hw_mgr,
 static int cam_icp_mgr_config_hw(void *hw_mgr_priv, void *config_hw_args)
 {
 	int rc = 0;
+	int idx;
+	uint64_t req_id;
 	struct cam_icp_hw_mgr *hw_mgr = hw_mgr_priv;
 	struct cam_hw_config_args *config_args = config_hw_args;
 	struct cam_icp_hw_ctx_data *ctx_data = NULL;
@@ -1199,9 +1881,13 @@ static int cam_icp_mgr_config_hw(void *hw_mgr_priv, void *config_hw_args)
 	mutex_lock(&ctx_data->ctx_mutex);
 	if (!ctx_data->in_use) {
 		CAM_ERR(CAM_ICP, "ctx is not in use");
-		rc = -EINVAL;
-		goto config_err;
+		return -EINVAL;
 	}
+
+	req_id = *(uint64_t *)config_args->priv;
+	idx = cam_icp_clk_idx_from_req_id(ctx_data, req_id);
+	ctx_data->hfi_frame_process.fw_process_flag[idx] = true;
+	cam_icp_mgr_ipe_bps_clk_update(hw_mgr, ctx_data, idx);
 
 	rc = cam_icp_mgr_enqueue_config(hw_mgr, config_args);
 	if (rc)
@@ -1210,8 +1896,8 @@ static int cam_icp_mgr_config_hw(void *hw_mgr_priv, void *config_hw_args)
 
 	return 0;
 config_err:
+	cam_icp_mgr_handle_config_err(config_args, ctx_data, idx);
 	mutex_unlock(&ctx_data->ctx_mutex);
-	cam_icp_mgr_handle_config_err(config_args, ctx_data);
 	return rc;
 }
 
@@ -1250,14 +1936,8 @@ static int cam_icp_mgr_pkt_validation(struct cam_packet *packet)
 			packet->header.op_code & 0xff);
 		return -EINVAL;
 	}
-
-	if ((packet->num_cmd_buf > 1) || (!packet->num_patches) ||
-		(!packet->num_io_configs)) {
-		CAM_ERR(CAM_ICP, "wrong number of cmd/patch info: %u %u",
+	CAM_DBG(CAM_ICP, "number of cmd/patch info: %u %u",
 			packet->num_cmd_buf, packet->num_patches);
-		return -EINVAL;
-	}
-
 	return 0;
 }
 
@@ -1266,25 +1946,29 @@ static int cam_icp_mgr_process_cmd_desc(struct cam_icp_hw_mgr *hw_mgr,
 	uint32_t *fw_cmd_buf_iova_addr)
 {
 	int rc = 0;
-	uint64_t iova_addr;
-	size_t   fw_cmd_buf_len;
+	int i;
+	uint64_t addr;
+	size_t len;
 	struct cam_cmd_buf_desc *cmd_desc = NULL;
 
 	cmd_desc = (struct cam_cmd_buf_desc *)
 		((uint32_t *) &packet->payload + packet->cmd_buf_offset/4);
 
-	rc = cam_mem_get_io_buf(cmd_desc->mem_handle,
-		hw_mgr->iommu_hdl, &iova_addr, &fw_cmd_buf_len);
-	if (rc) {
-		CAM_ERR(CAM_ICP, "unable to get src buf info for cmd buf: %x",
-			hw_mgr->iommu_hdl);
-		return rc;
+	*fw_cmd_buf_iova_addr = 0;
+	for (i = 0; i < packet->num_cmd_buf; i++) {
+		if (cmd_desc[i].type == CAM_CMD_BUF_FW) {
+			rc = cam_mem_get_io_buf(cmd_desc[i].mem_handle,
+				hw_mgr->iommu_hdl, &addr, &len);
+			if (rc) {
+				CAM_ERR(CAM_ICP, "get cmd buf failed %x",
+					hw_mgr->iommu_hdl);
+				return rc;
+			}
+			*fw_cmd_buf_iova_addr = addr;
+			*fw_cmd_buf_iova_addr =
+				(*fw_cmd_buf_iova_addr + cmd_desc[i].offset);
+		}
 	}
-	CAM_DBG(CAM_ICP, "cmd_buf desc cpu and iova address: %pK %zu",
-		(void *)iova_addr, fw_cmd_buf_len);
-
-	*fw_cmd_buf_iova_addr = iova_addr;
-	*fw_cmd_buf_iova_addr = (*fw_cmd_buf_iova_addr + cmd_desc->offset);
 
 	return rc;
 }
@@ -1317,13 +2001,87 @@ static void cam_icp_mgr_process_io_cfg(struct cam_icp_hw_mgr *hw_mgr,
 	}
 }
 
+static int cam_icp_packet_generic_blob_handler(void *user_data,
+	uint32_t blob_type, uint32_t blob_size, uint8_t *blob_data)
+{
+	struct cam_icp_clk_bw_request *soc_req;
+	struct cam_icp_clk_bw_request *clk_info;
+	struct icp_cmd_generic_blob *blob;
+	struct cam_icp_hw_ctx_data *ctx_data;
+	uint32_t index;
+	int rc = 0;
+
+	if (!blob_data || (blob_size == 0)) {
+		CAM_ERR(CAM_ICP, "Invalid blob info %pK %d", blob_data,
+			blob_size);
+		return -EINVAL;
+	}
+
+	blob = (struct icp_cmd_generic_blob *)user_data;
+	ctx_data = blob->ctx;
+	index = blob->frame_info_idx;
+
+	switch (blob_type) {
+	case CAM_ICP_CMD_GENERIC_BLOB_CLK:
+		if (blob_size != sizeof(struct cam_icp_clk_bw_request)) {
+			rc = -EINVAL;
+			break;
+		}
+		clk_info = &ctx_data->hfi_frame_process.clk_info[index];
+		memset(clk_info, 0, sizeof(struct cam_icp_clk_bw_request));
+
+		soc_req = (struct cam_icp_clk_bw_request *)blob_data;
+		*clk_info = *soc_req;
+		CAM_DBG(CAM_ICP, "%llu %llu %d %d %d",
+			clk_info->budget_ns, clk_info->frame_cycles,
+			clk_info->rt_flag, clk_info->uncompressed_bw,
+			clk_info->compressed_bw);
+		break;
+
+	default:
+		CAM_WARN(CAM_ICP, "Invalid blob type %d", blob_type);
+		break;
+	}
+	return rc;
+}
+
+static int cam_icp_process_generic_cmd_buffer(
+	struct cam_packet *packet,
+	struct cam_icp_hw_ctx_data *ctx_data,
+	int32_t index)
+{
+	int i, rc = 0;
+	struct cam_cmd_buf_desc *cmd_desc = NULL;
+	struct icp_cmd_generic_blob cmd_generic_blob;
+
+	cmd_generic_blob.ctx = ctx_data;
+	cmd_generic_blob.frame_info_idx = index;
+
+	cmd_desc = (struct cam_cmd_buf_desc *)
+		((uint32_t *) &packet->payload + packet->cmd_buf_offset/4);
+	for (i = 0; i < packet->num_cmd_buf; i++) {
+		if (!cmd_desc[i].length)
+			continue;
+
+		if (cmd_desc[i].meta_data != CAM_ICP_CMD_META_GENERIC_BLOB)
+			continue;
+
+		rc = cam_packet_util_process_generic_cmd_buffer(&cmd_desc[i],
+			cam_icp_packet_generic_blob_handler, &cmd_generic_blob);
+		if (rc)
+			CAM_ERR(CAM_ICP, "Failed in processing blobs %d", rc);
+	}
+
+	return rc;
+}
+
 static int cam_icp_mgr_update_hfi_frame_process(
 	struct cam_icp_hw_ctx_data *ctx_data,
 	struct cam_packet *packet,
 	struct cam_hw_prepare_update_args *prepare_args,
 	int32_t *idx)
 {
-	int32_t index;
+	int32_t index, rc;
 
 	index = find_first_zero_bit(ctx_data->hfi_frame_process.bitmap,
 		ctx_data->hfi_frame_process.bits);
@@ -1335,7 +2093,12 @@ static int cam_icp_mgr_update_hfi_frame_process(
 
 	ctx_data->hfi_frame_process.request_id[index] =
 		packet->header.request_id;
-
+	rc = cam_icp_process_generic_cmd_buffer(packet, ctx_data, index);
+	if (rc) {
+		clear_bit(index, ctx_data->hfi_frame_process.bitmap);
+		ctx_data->hfi_frame_process.request_id[index] = -1;
+		return rc;
+	}
 	*idx = index;
 
 	return 0;
@@ -1475,6 +2238,7 @@ static int cam_icp_mgr_release_hw(void *hw_mgr_priv, void *release_hw_args)
 		cam_icp_mgr_ipe_bps_power_collapse(hw_mgr,
 			NULL, 0);
 		cam_icp_mgr_hw_close(hw_mgr, NULL);
+		cam_icp_hw_mgr_reset_clk_info(hw_mgr);
 	}
 
 	return rc;
@@ -1730,6 +2494,9 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 	mutex_lock(&hw_mgr->hw_mgr_mutex);
 	if (!hw_mgr->ctxt_cnt) {
 		mutex_unlock(&hw_mgr->hw_mgr_mutex);
+		rc = cam_icp_clk_info_init(hw_mgr, ctx_data);
+		if (rc)
+			goto get_io_buf_failed;
 		rc = cam_icp_mgr_download_fw(hw_mgr, ctx_data);
 		if (rc)
 			goto get_io_buf_failed;
@@ -1775,6 +2542,7 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 		icp_dev_acquire_info, sizeof(struct cam_icp_acquire_dev_info)))
 		goto copy_to_user_failed;
 
+	cam_icp_ctx_clk_info_init(ctx_data);
 	mutex_unlock(&ctx_data->ctx_mutex);
 	CAM_DBG(CAM_ICP, "scratch size = %x fw_handle = %x",
 			(unsigned int)icp_dev_acquire_info->scratch_mem_size,

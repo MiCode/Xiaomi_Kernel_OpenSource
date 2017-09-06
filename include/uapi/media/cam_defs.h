@@ -27,6 +27,18 @@
 #define CAM_GENERIC_BLOB_CMDBUFFER_TYPE_MASK    0xFF
 #define CAM_GENERIC_BLOB_CMDBUFFER_TYPE_SHIFT   0
 
+/* Command Buffer Types */
+#define CAM_CMD_BUF_DMI                     0x1
+#define CAM_CMD_BUF_DMI16                   0x2
+#define CAM_CMD_BUF_DMI32                   0x3
+#define CAM_CMD_BUF_DMI64                   0x4
+#define CAM_CMD_BUF_DIRECT                  0x5
+#define CAM_CMD_BUF_INDIRECT                0x6
+#define CAM_CMD_BUF_I2C                     0x7
+#define CAM_CMD_BUF_FW                      0x8
+#define CAM_CMD_BUF_GENERIC                 0x9
+#define CAM_CMD_BUF_LEGACY                  0xA
+
 /**
  * struct cam_control - Structure used by ioctl control for camera
  *

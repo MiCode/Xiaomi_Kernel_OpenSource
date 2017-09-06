@@ -114,6 +114,33 @@ int32_t camera_io_dev_write(struct camera_io_master *io_master_info,
 	}
 }
 
+int32_t camera_io_dev_write_continuous(struct camera_io_master *io_master_info,
+	struct cam_sensor_i2c_reg_setting *write_setting,
+	uint8_t cam_sensor_i2c_write_flag)
+{
+	if (!write_setting || !io_master_info) {
+		CAM_ERR(CAM_SENSOR,
+			"Input parameters not valid ws: %pK ioinfo: %pK",
+			write_setting, io_master_info);
+		return -EINVAL;
+	}
+
+	if (io_master_info->master_type == CCI_MASTER) {
+		return cam_cci_i2c_write_continuous_table(io_master_info,
+			write_setting, cam_sensor_i2c_write_flag);
+	} else if (io_master_info->master_type == I2C_MASTER) {
+		return cam_qup_i2c_write_table(io_master_info,
+			write_setting);
+	} else if (io_master_info->master_type == SPI_MASTER) {
+		return cam_spi_write_table(io_master_info,
+			write_setting);
+	} else {
+		CAM_ERR(CAM_SENSOR, "Invalid Comm. Master:%d",
+			io_master_info->master_type);
+		return -EINVAL;
+	}
+}
+
 int32_t camera_io_init(struct camera_io_master *io_master_info)
 {
 	if (!io_master_info) {
