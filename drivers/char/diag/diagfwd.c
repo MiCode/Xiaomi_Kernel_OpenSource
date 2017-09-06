@@ -1657,6 +1657,9 @@ static int diagfwd_mux_write_done(unsigned char *buf, int len, int buf_ctxt,
 	switch (type) {
 	case TYPE_DATA:
 		if (peripheral >= 0 && peripheral < NUM_PERIPHERALS) {
+			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			"Marking buffer as free after write done p: %d, t: %d, buf_num: %d\n",
+				peripheral, type, num);
 			diagfwd_write_done(peripheral, type, num);
 			diag_ws_on_copy(DIAG_WS_MUX);
 		} else if (peripheral == APPS_DATA) {
@@ -1671,6 +1674,9 @@ static int diagfwd_mux_write_done(unsigned char *buf, int len, int buf_ctxt,
 	case TYPE_CMD:
 		if (peripheral >= 0 && peripheral < NUM_PERIPHERALS) {
 			diagfwd_write_done(peripheral, type, num);
+			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			"Marking buffer as free after write done p: %d, t: %d, buf_num: %d\n",
+				peripheral, type, num);
 		}
 		if (peripheral == APPS_DATA ||
 				ctxt == DIAG_MEMORY_DEVICE_MODE) {
