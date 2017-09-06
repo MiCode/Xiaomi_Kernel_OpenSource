@@ -24,8 +24,8 @@ struct mbox_chan;
  *		transmission of data is reported by the controller via
  *		mbox_chan_txdone (if it has some TX ACK irq). It must not
  *		sleep.
- * @send_controller_data:
- *		Send data for the controller driver. This could be data to
+ * @write_controller_data:
+ *		Write data for the controller driver. This could be data to
  *		configure the controller or data that may be cached in the
  *		controller and not transmitted immediately. There is no ACK
  *		for this request and the request is not buffered in the
@@ -54,7 +54,7 @@ struct mbox_chan;
  */
 struct mbox_chan_ops {
 	int (*send_data)(struct mbox_chan *chan, void *data);
-	int (*send_controller_data)(struct mbox_chan *chan, void *data);
+	int (*write_controller_data)(struct mbox_chan *chan, void *data);
 	int (*startup)(struct mbox_chan *chan);
 	void (*shutdown)(struct mbox_chan *chan);
 	bool (*last_tx_done)(struct mbox_chan *chan);

@@ -293,8 +293,9 @@ int mbox_send_message(struct mbox_chan *chan, void *mssg)
 EXPORT_SYMBOL_GPL(mbox_send_message);
 
 /**
- * mbox_send_controller_data-	For client to submit a message to be
- *				sent only to the controller.
+ * mbox_write_controller_data -	For client to submit a message to be
+ *				written to the controller but not sent to
+ *				the remote processor.
  * @chan: Mailbox channel assigned to this client.
  * @mssg: Client specific message typecasted.
  *
@@ -305,7 +306,7 @@ EXPORT_SYMBOL_GPL(mbox_send_message);
  *	or transmission over chan (blocking mode).
  *	Negative value denotes failure.
  */
-int mbox_send_controller_data(struct mbox_chan *chan, void *mssg)
+int mbox_write_controller_data(struct mbox_chan *chan, void *mssg)
 {
 	unsigned long flags;
 	int err;
@@ -314,12 +315,12 @@ int mbox_send_controller_data(struct mbox_chan *chan, void *mssg)
 		return -EINVAL;
 
 	spin_lock_irqsave(&chan->lock, flags);
-	err = chan->mbox->ops->send_controller_data(chan, mssg);
+	err = chan->mbox->ops->write_controller_data(chan, mssg);
 	spin_unlock_irqrestore(&chan->lock, flags);
 
 	return err;
 }
-EXPORT_SYMBOL(mbox_send_controller_data);
+EXPORT_SYMBOL(mbox_write_controller_data);
 
 bool mbox_controller_is_idle(struct mbox_chan *chan)
 {
