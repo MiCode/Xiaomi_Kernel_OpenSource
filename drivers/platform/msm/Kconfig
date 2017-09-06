@@ -1,0 +1,4 @@
+menu "Qualcomm technologies inc. MSM specific device drivers"
+	depends on ARCH_QCOM
+
+endmenu
