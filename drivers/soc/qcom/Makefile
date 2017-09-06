@@ -68,6 +68,7 @@ ifdef CONFIG_MSM_SUBSYSTEM_RESTART
        obj-y += subsystem_restart.o
        obj-y += ramdump.o
 endif
+obj-$(CONFIG_MSM_JTAGV8) += jtagv8.o jtagv8-etm.o
 obj-$(CONFIG_QCOM_COMMAND_DB) += cmd-db.o
 obj-$(CONFIG_MSM_QBT1000) += qbt1000.o
 obj-$(CONFIG_MSM_EVENT_TIMER) += event_timer.o
