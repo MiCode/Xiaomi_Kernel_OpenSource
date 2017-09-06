@@ -60,6 +60,7 @@
 #define NUM_SESSIONS	9	/*8 compute, 1 cpz*/
 #define M_FDLIST	(16)
 #define M_CRCLIST	(64)
+#define SESSION_ID_INDEX (30)
 
 #define IS_CACHE_ALIGNED(x) (((x) & ((L1_CACHE_BYTES)-1)) == 0)
 
@@ -280,6 +281,7 @@ struct fastrpc_file {
 	struct fastrpc_session_ctx *secsctx;
 	uint32_t mode;
 	uint32_t profile;
+	int sessionid;
 	int tgid;
 	int cid;
 	int ssrcount;
@@ -856,7 +858,7 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 	}
 	ctx->retval = -1;
 	ctx->pid = current->pid;
-	ctx->tgid = current->tgid;
+	ctx->tgid = fl->tgid;
 	init_completion(&ctx->work);
 
 	spin_lock(&fl->hlock);
@@ -1347,8 +1349,10 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	VERIFY(err, 0 != channel_ctx->chan);
 	if (err)
 		goto bail;
-	msg->pid = current->tgid;
+	msg->pid = fl->tgid;
 	msg->tid = current->pid;
+	if (fl->sessionid)
+		msg->tid |= (1 << SESSION_ID_INDEX);
 	if (kernel)
 		msg->pid = 0;
 	msg->invoke.header.ctx = ptr_to_uint64(ctx) | fl->pd;
@@ -1402,6 +1406,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 
 	if (fl->profile)
 		getnstimeofday(&invoket);
+
 
 	VERIFY(err, fl->sctx != NULL);
 	if (err)
@@ -1500,7 +1505,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		goto bail;
 	if (init->flags == FASTRPC_INIT_ATTACH) {
 		remote_arg_t ra[1];
-		int tgid = current->tgid;
+		int tgid = fl->tgid;
 
 		ra[0].buf.pv = (void *)&tgid;
 		ra[0].buf.len = sizeof(tgid);
@@ -1528,7 +1533,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 			int siglen;
 		} inbuf;
 
-		inbuf.pgid = current->tgid;
+		inbuf.pgid = fl->tgid;
 		inbuf.namelen = strlen(current->comm) + 1;
 		inbuf.filelen = init->filelen;
 		fl->pd = 1;
@@ -1641,7 +1646,7 @@ static int fastrpc_mmap_on_dsp(struct fastrpc_file *fl, uint32_t flags,
 		uintptr_t vaddrout;
 	} routargs;
 
-	inargs.pid = current->tgid;
+	inargs.pid = fl->tgid;
 	inargs.vaddrin = (uintptr_t)map->va;
 	inargs.flags = flags;
 	inargs.num = fl->apps->compat ? num * sizeof(page) : num;
@@ -1683,7 +1688,7 @@ static int fastrpc_munmap_on_dsp(struct fastrpc_file *fl,
 		ssize_t size;
 	} inargs;
 
-	inargs.pid = current->tgid;
+	inargs.pid = fl->tgid;
 	inargs.size = map->size;
 	inargs.vaddrout = map->raddr;
 	ra[0].buf.pv = (void *)&inargs;
@@ -2218,6 +2223,7 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	INIT_HLIST_HEAD(&fl->maps);
 	INIT_HLIST_HEAD(&fl->bufs);
 	INIT_HLIST_NODE(&fl->hn);
+	fl->sessionid = 0;
 	fl->tgid = current->tgid;
 	fl->apps = me;
 	fl->mode = FASTRPC_MODE_SERIAL;
@@ -2340,6 +2346,10 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 			break;
 		case FASTRPC_MODE_PROFILE:
 			fl->profile = (uint32_t)ioctl_param;
+			break;
+		case FASTRPC_MODE_SESSION:
+			fl->sessionid = 1;
+			fl->tgid |= (1 << SESSION_ID_INDEX);
 			break;
 		default:
 			err = -ENOTTY;
