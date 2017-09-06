@@ -42,7 +42,6 @@ int ufs_qcom_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 			   struct ufs_qcom_phy_calibration *tbl_B,
 			   int tbl_size_B, bool is_rate_B)
 {
-	int i;
 	int ret = 0;
 
 	if (!tbl_A) {
