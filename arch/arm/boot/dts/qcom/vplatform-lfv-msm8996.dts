@@ -111,10 +111,9 @@
 		asoc-codec-names = "msm-stub-codec.1";
 	};
 
-	qcom,msm-audio-ion {
-		compatible = "qcom,msm-audio-ion";
+	qcom,msm-audio-ion-vm {
+		compatible = "qcom,msm-audio-ion-vm";
 		qcom,smmu-enabled;
-		qcom,smmu-sid = <1>;
 	};
 
 	pcm0: qcom,msm-pcm {
