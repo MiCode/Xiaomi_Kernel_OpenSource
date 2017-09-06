@@ -2884,9 +2884,16 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		}
 		smmu_domain->secure_vmid = *((int *)data);
 		break;
+		/*
+		 * fast_smmu_unmap_page() and fast_smmu_alloc_iova() both
+		 * expect that the bus/clock/regulator are already on. Thus also
+		 * force DOMAIN_ATTR_ATOMIC to bet set.
+		 */
 	case DOMAIN_ATTR_FAST:
-		if (*((int *)data))
+		if (*((int *)data)) {
 			smmu_domain->attributes |= 1 << DOMAIN_ATTR_FAST;
+			smmu_domain->attributes |= 1 << DOMAIN_ATTR_ATOMIC;
+		}
 		ret = 0;
 		break;
 	case DOMAIN_ATTR_USE_UPSTREAM_HINT:
