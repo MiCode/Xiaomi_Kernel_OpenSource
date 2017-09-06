@@ -5603,10 +5603,6 @@ static int ufshcd_link_startup(struct ufs_hba *hba)
 	int ret;
 	int retries = DME_LINKSTARTUP_RETRIES;
 	bool link_startup_again = false;
-	int hc_tx_lanes;
-	int device_tx_lanes;
-	int i;
-	int err;
 
 	/*
 	 * If UFS device isn't active then we will have to issue link startup
