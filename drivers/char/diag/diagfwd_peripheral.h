@@ -117,7 +117,7 @@ int diagfwd_cntl_register(uint8_t transport, uint8_t peripheral, void *ctxt,
 void diagfwd_deregister(uint8_t peripheral, uint8_t type, void *ctxt);
 
 int diagfwd_write(uint8_t peripheral, uint8_t type, void *buf, int len);
-void diagfwd_write_done(uint8_t peripheral, uint8_t type, int ctxt);
+void diagfwd_write_done(uint8_t peripheral, uint8_t type, int buf_num);
 void diagfwd_buffers_init(struct diagfwd_info *fwd_info);
 
 /*
