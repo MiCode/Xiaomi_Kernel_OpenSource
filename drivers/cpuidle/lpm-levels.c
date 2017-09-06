@@ -1346,6 +1346,8 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	struct power_params *pwr_params;
 
 	pwr_params = &cpu->levels[idx].pwr;
+	sched_set_cpu_cstate(dev->cpu, idx + 1,
+			pwr_params->energy_overhead, pwr_params->latency_us);
 
 	cpu_prepare(cpu, idx, true);
 	cluster_prepare(cpu->parent, cpumask, idx, true, start_time);
