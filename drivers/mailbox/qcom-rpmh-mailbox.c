@@ -1178,11 +1178,10 @@ static int rsc_drv_probe(struct platform_device *pdev)
 		if (tcs->num_tcs <= 0 || tcs->type == CONTROL_TCS)
 			continue;
 
-		if (tcs->num_tcs > MAX_TCS_PER_TYPE)
-			return -EINVAL;
-
-		if (st + tcs->num_tcs > max_tcs &&
-				st + tcs->num_tcs >= sizeof(tcs->tcs_mask))
+		if (tcs->num_tcs > MAX_TCS_PER_TYPE ||
+			st + tcs->num_tcs > max_tcs ||
+			st + tcs->num_tcs >=
+				BITS_PER_BYTE * sizeof(tcs->tcs_mask))
 			return -EINVAL;
 
 		tcs->tcs_mask = ((1 << tcs->num_tcs) - 1) << st;
