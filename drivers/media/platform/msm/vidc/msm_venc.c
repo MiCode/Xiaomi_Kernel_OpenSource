@@ -1112,6 +1112,13 @@ static struct msm_vidc_format venc_formats[] = {
 		.get_frame_size = get_frame_size_compressed,
 		.type = CAPTURE_PORT,
 	},
+	{
+		.name = "YCbCr Semiplanar 4:2:0 10bit",
+		.description = "Y/CbCr 4:2:0 10bit",
+		.fourcc = V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010,
+		.get_frame_size = get_frame_size_p010,
+		.type = OUTPUT_PORT,
+	},
 };
 
 static int msm_venc_set_csc(struct msm_vidc_inst *inst,
