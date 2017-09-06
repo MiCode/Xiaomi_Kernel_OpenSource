@@ -184,19 +184,35 @@ static rx_handler_result_t rmnet_bridge_handler
 	return RX_HANDLER_CONSUMED;
 }
 
-#ifdef NET_SKBUFF_DATA_USES_OFFSET
-static void rmnet_reset_mac_header(struct sk_buff *skb)
+/* RX/TX Fixup */
+
+/* rmnet_vnd_rx_fixup() - Virtual Network Device receive fixup hook
+ * @skb:        Socket buffer ("packet") to modify
+ * @dev:        Virtual network device
+ *
+ * Additional VND specific packet processing for ingress packets
+ *
+ * Return: void
+ */
+static void rmnet_vnd_rx_fixup(struct sk_buff *skb, struct net_device *dev)
 {
-	skb->mac_header = 0;
-	skb->mac_len = 0;
+	dev->stats.rx_packets++;
+	dev->stats.rx_bytes += skb->len;
 }
-#else
-static void rmnet_reset_mac_header(struct sk_buff *skb)
+
+/* rmnet_vnd_tx_fixup() - Virtual Network Device transmic fixup hook
+ * @skb:      Socket buffer ("packet") to modify
+ * @dev:      Virtual network device
+ *
+ * Additional VND specific packet processing for egress packets
+ *
+ * Return: void
+ */
+static void rmnet_vnd_tx_fixup(struct sk_buff *skb, struct net_device *dev)
 {
-	skb->mac_header = skb->network_header;
-	skb->mac_len = 0;
+	dev->stats.tx_packets++;
+	dev->stats.tx_bytes += skb->len;
 }
-#endif /*NET_SKBUFF_DATA_USES_OFFSET*/
 
 /* rmnet_check_skb_can_gro() - Check is skb can be passed through GRO handler
  *
@@ -321,41 +337,32 @@ static rx_handler_result_t __rmnet_deliver_skb
 
 	trace___rmnet_deliver_skb(skb);
 	switch (ep->rmnet_mode) {
+	case RMNET_EPMODE_VND:
+		skb_reset_transport_header(skb);
+		skb_reset_network_header(skb);
+		rmnet_vnd_rx_fixup(skb, skb->dev);
+
+		skb->pkt_type = PACKET_HOST;
+		skb_set_mac_header(skb, 0);
+
+		if (rmnet_check_skb_can_gro(skb) &&
+		    (skb->dev->features & NETIF_F_GRO)) {
+			napi = get_current_napi_context();
+
+			skb_size = skb->len;
+			gro_res = napi_gro_receive(napi, skb);
+			trace_rmnet_gro_downlink(gro_res);
+			rmnet_optional_gro_flush(napi, ep, skb_size);
+		} else{
+			netif_receive_skb(skb);
+		}
+		return RX_HANDLER_CONSUMED;
+
 	case RMNET_EPMODE_NONE:
 		return RX_HANDLER_PASS;
 
 	case RMNET_EPMODE_BRIDGE:
 		return rmnet_bridge_handler(skb, ep);
-
-	case RMNET_EPMODE_VND:
-		skb_reset_transport_header(skb);
-		skb_reset_network_header(skb);
-		switch (rmnet_vnd_rx_fixup(skb, skb->dev)) {
-		case RX_HANDLER_CONSUMED:
-			return RX_HANDLER_CONSUMED;
-
-		case RX_HANDLER_PASS:
-			skb->pkt_type = PACKET_HOST;
-			rmnet_reset_mac_header(skb);
-			if (rmnet_check_skb_can_gro(skb) &&
-			    (skb->dev->features & NETIF_F_GRO)) {
-				napi = get_current_napi_context();
-				if (napi) {
-					skb_size = skb->len;
-					gro_res = napi_gro_receive(napi, skb);
-					trace_rmnet_gro_downlink(gro_res);
-					rmnet_optional_gro_flush(napi, ep,
-								 skb_size);
-				} else {
-					WARN_ONCE(1, "current napi is NULL\n");
-					netif_receive_skb(skb);
-				}
-			} else {
-				netif_receive_skb(skb);
-			}
-			return RX_HANDLER_CONSUMED;
-		}
-		return RX_HANDLER_PASS;
 
 	default:
 		LOGD("Unknown ep mode %d", ep->rmnet_mode);
@@ -441,16 +448,7 @@ static rx_handler_result_t _rmnet_map_ingress_handler
 
 	ep = &config->muxed_ep[mux_id];
 
-	if (!ep->refcount) {
-		LOGD("Packet on %s:%d; has no logical endpoint config",
-		     skb->dev->name, mux_id);
-
-		rmnet_kfree_skb(skb, RMNET_STATS_SKBFREE_MAPINGRESS_MUX_NO_EP);
-		return RX_HANDLER_CONSUMED;
-	}
-
-	if (config->ingress_data_format & RMNET_INGRESS_FORMAT_DEMUXING)
-		skb->dev = ep->egress_dev;
+	skb->dev = ep->egress_dev;
 
 	if ((config->ingress_data_format & RMNET_INGRESS_FORMAT_MAP_CKSUMV3) ||
 	    (config->ingress_data_format & RMNET_INGRESS_FORMAT_MAP_CKSUMV4)) {
@@ -495,17 +493,13 @@ static rx_handler_result_t rmnet_map_ingress_handler
 	(struct sk_buff *skb, struct rmnet_phys_ep_config *config)
 {
 	struct sk_buff *skbn;
-	int rc, co = 0;
+	int rc;
 
 	if (config->ingress_data_format & RMNET_INGRESS_FORMAT_DEAGGREGATION) {
 		trace_rmnet_start_deaggregation(skb);
 		while ((skbn = rmnet_map_deaggregate(skb, config)) != 0) {
 			_rmnet_map_ingress_handler(skbn, config);
-			co++;
 		}
-		trace_rmnet_end_deaggregation(skb, co);
-		LOGD("De-aggregated %d packets", co);
-		rmnet_stats_deagg_pkts(co);
 		rmnet_kfree_skb(skb, RMNET_STATS_SKBFREE_MAPINGRESS_AGGBUF);
 		rc = RX_HANDLER_CONSUMED;
 	} else {
@@ -538,12 +532,15 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 	int required_headroom, additional_header_length, ckresult;
 	struct rmnet_map_header_s *map_header;
 	int non_linear_skb;
+	int csum_required = (config->egress_data_format &
+			     RMNET_EGRESS_FORMAT_MAP_CKSUMV3) ||
+			    (config->egress_data_format &
+			     RMNET_EGRESS_FORMAT_MAP_CKSUMV4);
 
 	additional_header_length = 0;
 
 	required_headroom = sizeof(struct rmnet_map_header_s);
-	if ((config->egress_data_format & RMNET_EGRESS_FORMAT_MAP_CKSUMV3) ||
-	    (config->egress_data_format & RMNET_EGRESS_FORMAT_MAP_CKSUMV4)) {
+	if (csum_required) {
 		required_headroom +=
 			sizeof(struct rmnet_map_ul_checksum_header_s);
 		additional_header_length +=
@@ -558,8 +555,7 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 		return 1;
 	}
 
-	if ((config->egress_data_format & RMNET_EGRESS_FORMAT_MAP_CKSUMV3) ||
-	    (config->egress_data_format & RMNET_EGRESS_FORMAT_MAP_CKSUMV4)) {
+	if (csum_required) {
 		ckresult = rmnet_map_checksum_uplink_packet
 				(skb, orig_dev, config->egress_data_format);
 		trace_rmnet_map_checksum_uplink_packet(orig_dev, ckresult);
