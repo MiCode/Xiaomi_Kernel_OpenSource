@@ -358,6 +358,7 @@ struct sde_crtc_respool {
  * @sbuf_cfg: stream buffer configuration
  * @sbuf_prefill_line: number of line for inline rotator prefetch
  * @sbuf_flush_mask: flush mask for inline rotator
+ * @is_sbuf: whether or not the CRTC is using inline rotation
  */
 struct sde_crtc_state {
 	struct drm_crtc_state base;
@@ -386,6 +387,7 @@ struct sde_crtc_state {
 	struct sde_ctl_sbuf_cfg sbuf_cfg;
 	u32 sbuf_prefill_line;
 	u32 sbuf_flush_mask;
+	bool is_sbuf;
 
 	struct sde_crtc_respool rp;
 };

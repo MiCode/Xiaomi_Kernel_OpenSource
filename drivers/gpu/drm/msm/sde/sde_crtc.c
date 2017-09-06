@@ -1281,8 +1281,8 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	cstate = to_sde_crtc_state(crtc->state);
 	flush_sbuf = 0x0;
 
-	cstate->sbuf_cfg.rot_op_mode = SDE_CTL_ROT_OP_MODE_OFFLINE;
 	cstate->sbuf_prefill_line = 0;
+	cstate->is_sbuf = false;
 
 	drm_atomic_crtc_for_each_plane(plane, crtc) {
 		state = plane->state;
@@ -1298,8 +1298,7 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 		fb = state->fb;
 
 		if (sde_plane_is_sbuf_mode(plane, &prefill))
-			cstate->sbuf_cfg.rot_op_mode =
-					SDE_CTL_ROT_OP_MODE_INLINE_SYNC;
+			cstate->is_sbuf = true;
 		if (prefill > cstate->sbuf_prefill_line)
 			cstate->sbuf_prefill_line = prefill;
 
@@ -1331,8 +1330,7 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 				state->src_w >> 16, state->src_h >> 16,
 				state->crtc_x, state->crtc_y,
 				state->crtc_w, state->crtc_h,
-				flush_tmp ? cstate->sbuf_cfg.rot_op_mode :
-				SDE_CTL_ROT_OP_MODE_OFFLINE);
+				flush_tmp ? cstate->is_sbuf : 0);
 
 		stage_idx = zpos_cnt[pstate->stage]++;
 		stage_cfg->stage[pstate->stage][stage_idx] =
@@ -2731,17 +2729,52 @@ static int _sde_crtc_wait_for_frame_done(struct drm_crtc *crtc)
 	return rc;
 }
 
-void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
+static void _sde_crtc_commit_kickoff_rot(struct drm_crtc *crtc,
+		struct sde_crtc_state *cstate)
 {
 	struct drm_plane *plane;
+	struct sde_crtc *sde_crtc;
+	struct sde_hw_ctl *ctl, *master_ctl;
+	int i;
+
+	if (!crtc || !cstate)
+		return;
+
+	sde_crtc = to_sde_crtc(crtc);
+
+	SDE_ATRACE_BEGIN("crtc_kickoff_rot");
+
+	drm_atomic_crtc_for_each_plane(plane, crtc)
+		sde_plane_kickoff(plane);
+
+	master_ctl = NULL;
+	for (i = 0; i < sde_crtc->num_mixers; i++) {
+		ctl = sde_crtc->mixers[i].hw_ctl;
+		if (!ctl || !ctl->ops.setup_sbuf_cfg)
+			continue;
+
+		if (!master_ctl || master_ctl->idx > ctl->idx)
+			master_ctl = ctl;
+
+		ctl->ops.setup_sbuf_cfg(ctl, &cstate->sbuf_cfg);
+	}
+
+	if (cstate->sbuf_cfg.rot_op_mode == SDE_CTL_ROT_OP_MODE_INLINE_ASYNC &&
+			master_ctl && master_ctl->ops.trigger_rot_start)
+		master_ctl->ops.trigger_rot_start(master_ctl);
+
+	SDE_ATRACE_END("crtc_kickoff_rot");
+}
+
+void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
+{
 	struct drm_encoder *encoder;
 	struct drm_device *dev;
 	struct sde_crtc *sde_crtc;
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
 	struct sde_crtc_state *cstate;
-	struct sde_hw_ctl *ctl;
-	int ret, i;
+	int ret;
 
 	if (!crtc) {
 		SDE_ERROR("invalid argument\n");
@@ -2768,6 +2801,11 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 		return;
 
 	SDE_ATRACE_BEGIN("crtc_commit");
+
+	/* default to ASYNC mode for inline rotation */
+	cstate->sbuf_cfg.rot_op_mode = cstate->is_sbuf ?
+		SDE_CTL_ROT_OP_MODE_INLINE_ASYNC : SDE_CTL_ROT_OP_MODE_OFFLINE;
+
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 		struct sde_encoder_kickoff_params params = { 0 };
 
@@ -2782,7 +2820,26 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 		params.affected_displays = _sde_crtc_get_displays_affected(crtc,
 				crtc->state);
 		sde_encoder_prepare_for_kickoff(encoder, &params);
+
+		/*
+		 * For inline ASYNC modes, the flush bits are not written
+		 * to hardware atomically, so avoid using it if a video
+		 * mode encoder is active on this CRTC.
+		 */
+		if (cstate->sbuf_cfg.rot_op_mode ==
+				SDE_CTL_ROT_OP_MODE_INLINE_ASYNC &&
+				sde_encoder_get_intf_mode(encoder) ==
+				INTF_MODE_VIDEO)
+			cstate->sbuf_cfg.rot_op_mode =
+				SDE_CTL_ROT_OP_MODE_INLINE_SYNC;
 	}
+
+	/*
+	 * For ASYNC inline modes, kick off the rotator now so that the H/W
+	 * can start as soon as it's ready.
+	 */
+	if (cstate->sbuf_cfg.rot_op_mode == SDE_CTL_ROT_OP_MODE_INLINE_ASYNC)
+		_sde_crtc_commit_kickoff_rot(crtc, cstate);
 
 	/* wait for frame_event_done completion */
 	SDE_ATRACE_BEGIN("wait_for_frame_done_event");
@@ -2798,24 +2855,21 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	if (atomic_inc_return(&sde_crtc->frame_pending) == 1) {
 		/* acquire bandwidth and other resources */
 		SDE_DEBUG("crtc%d first commit\n", crtc->base.id);
-		SDE_EVT32(DRMID(crtc), SDE_EVTLOG_FUNC_CASE1);
+		SDE_EVT32(DRMID(crtc), cstate->sbuf_cfg.rot_op_mode,
+				SDE_EVTLOG_FUNC_CASE1);
 	} else {
 		SDE_DEBUG("crtc%d commit\n", crtc->base.id);
-		SDE_EVT32(DRMID(crtc), SDE_EVTLOG_FUNC_CASE2);
+		SDE_EVT32(DRMID(crtc), cstate->sbuf_cfg.rot_op_mode,
+				SDE_EVTLOG_FUNC_CASE2);
 	}
 	sde_crtc->play_count++;
 
-	if (cstate->sbuf_cfg.rot_op_mode != SDE_CTL_ROT_OP_MODE_OFFLINE) {
-		drm_atomic_crtc_for_each_plane(plane, crtc) {
-			sde_plane_kickoff(plane);
-		}
-	}
-
-	for (i = 0; i < sde_crtc->num_mixers; i++) {
-		ctl = sde_crtc->mixers[i].hw_ctl;
-		if (ctl && ctl->ops.setup_sbuf_cfg)
-			ctl->ops.setup_sbuf_cfg(ctl, &cstate->sbuf_cfg);
-	}
+	/*
+	 * For SYNC inline modes, delay the kick off until after the
+	 * wait for frame done in case the wait times out.
+	 */
+	if (cstate->sbuf_cfg.rot_op_mode == SDE_CTL_ROT_OP_MODE_INLINE_SYNC)
+		_sde_crtc_commit_kickoff_rot(crtc, cstate);
 
 	sde_vbif_clear_errors(sde_kms);
 

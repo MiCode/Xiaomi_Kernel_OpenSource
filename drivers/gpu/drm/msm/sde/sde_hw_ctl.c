@@ -89,6 +89,11 @@ static inline void sde_hw_ctl_trigger_pending(struct sde_hw_ctl *ctx)
 
 static inline void sde_hw_ctl_trigger_rot_start(struct sde_hw_ctl *ctx)
 {
+	/* ROT flush bit is latched during ROT start, so set it first */
+	if (CTL_FLUSH_MASK_ROT & ctx->pending_flush_mask) {
+		ctx->pending_flush_mask &= ~CTL_FLUSH_MASK_ROT;
+		SDE_REG_WRITE(&ctx->hw, CTL_FLUSH, CTL_FLUSH_MASK_ROT);
+	}
 	SDE_REG_WRITE(&ctx->hw, CTL_ROT_START, BIT(0));
 }
 
