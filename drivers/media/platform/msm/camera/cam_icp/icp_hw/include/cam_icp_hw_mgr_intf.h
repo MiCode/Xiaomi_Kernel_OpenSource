@@ -18,7 +18,8 @@
 #include <linux/of.h>
 #include "cam_cpas_api.h"
 
-#define ICP_TURBO_VOTE           640000000
+#define ICP_TURBO_VOTE           600000000
+#define ICP_SVS_VOTE             400000000
 
 int cam_icp_hw_mgr_init(struct device_node *of_node,
 	uint64_t *hw_mgr_hdl);

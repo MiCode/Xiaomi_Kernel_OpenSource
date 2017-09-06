@@ -145,6 +145,23 @@ int32_t cam_cci_i2c_write_table(
 		MSM_CCI_I2C_WRITE);
 }
 
+int32_t cam_cci_i2c_write_continuous_table(
+	struct camera_io_master *client,
+	struct cam_sensor_i2c_reg_setting *write_setting,
+	uint8_t cam_sensor_i2c_write_flag)
+{
+	int32_t rc = 0;
+
+	if (cam_sensor_i2c_write_flag == 1)
+		rc = cam_cci_i2c_write_table_cmd(client, write_setting,
+			MSM_CCI_I2C_WRITE_BURST);
+	else if (cam_sensor_i2c_write_flag == 0)
+		rc = cam_cci_i2c_write_table_cmd(client, write_setting,
+			MSM_CCI_I2C_WRITE_SEQ);
+
+	return rc;
+}
+
 static int32_t cam_cci_i2c_compare(struct cam_sensor_cci_client *client,
 	uint32_t addr, uint16_t data, uint16_t data_mask,
 	enum camera_sensor_i2c_type data_type,

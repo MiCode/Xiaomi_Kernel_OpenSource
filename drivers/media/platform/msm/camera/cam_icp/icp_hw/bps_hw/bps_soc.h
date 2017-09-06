@@ -26,4 +26,6 @@ int cam_bps_get_gdsc_control(struct cam_hw_soc_info *soc_info);
 
 int cam_bps_transfer_gdsc_control(struct cam_hw_soc_info *soc_info);
 
+int cam_bps_update_clk_rate(struct cam_hw_soc_info *soc_info,
+	uint32_t clk_rate);
 #endif /* _CAM_BPS_SOC_H_*/
