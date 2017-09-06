@@ -15,7 +15,13 @@
 
 #include <linux/errno.h>
 
+enum twm_state {
+	PMIC_TWM_CLEAR,
+	PMIC_TWM_ENABLE,
+};
+
 #ifdef CONFIG_QPNP_MISC
+
 /**
  * qpnp_misc_irqs_available - check if IRQs are available
  *
@@ -42,6 +48,26 @@ int qpnp_misc_irqs_available(struct device *consumer_dev);
  */
 
 int qpnp_misc_read_reg(struct device_node *node, u16 addr, u8 *val);
+
+/**
+ * qpnp_misc_twm_notifier_register - register to the twm mode notifier
+ *
+ * @nb: pointer to the client's notifier handle
+ *
+ * This function returns 0 if the client is successfuly added to the
+ * notifer list.
+ */
+int qpnp_misc_twm_notifier_register(struct notifier_block *nb);
+
+/**
+ * qpnp_misc_twm_notifier_unregister - unregister to the twm mode notifier
+ *
+ * @nb: pointer to the client's notifier handle
+ *
+ * This function returns 0 if the client is successfuly removed from the
+ * notifer list.
+ */
+int qpnp_misc_twm_notifier_unregister(struct notifier_block *nb);
 #else
 static inline int qpnp_misc_irqs_available(struct device *consumer_dev)
 {
@@ -49,6 +75,14 @@ static inline int qpnp_misc_irqs_available(struct device *consumer_dev)
 }
 static inline int qpnp_misc_read_reg(struct device_node *node, u16 addr,
 					u8 *val)
+{
+	return 0;
+}
+static inline int qpnp_misc_twm_notifier_register(struct notifier_block *nb)
+{
+	return 0;
+}
+static inline int qpnp_misc_twm_notifier_unregister(struct notifier_block *nb)
 {
 	return 0;
 }
