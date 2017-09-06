@@ -67,7 +67,7 @@
 
 
 #ifdef CONFIG_DEBUG_FS
-#define IPADMA_MAX_MSG_LEN 1024
+#define IPADMA_MAX_MSG_LEN 4096
 static char dbg_buff[IPADMA_MAX_MSG_LEN];
 static void ipa_dma_debugfs_init(void);
 static void ipa_dma_debugfs_destroy(void);
@@ -775,6 +775,8 @@ void ipa_dma_async_memcpy_notify_cb(void *priv
 	IPADMA_FUNC_ENTRY();
 
 	ep_idx = ipa2_get_ep_mapping(IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS);
+	if (ep_idx == -1)
+		goto fail;
 	sys = ipa_ctx->ep[ep_idx].sys;
 
 	spin_lock_irqsave(&ipa_dma_ctx->async_lock, flags);
@@ -797,6 +799,7 @@ void ipa_dma_async_memcpy_notify_cb(void *priv
 	if (ipa_dma_ctx->destroy_pending && !ipa_dma_work_pending())
 			complete(&ipa_dma_ctx->done);
 
+fail:
 	IPADMA_FUNC_EXIT();
 }
 
