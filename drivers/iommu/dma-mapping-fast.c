@@ -434,7 +434,8 @@ static int fast_smmu_map_sg(struct device *dev, struct scatterlist *sg,
 			    int nents, enum dma_data_direction dir,
 			    unsigned long attrs)
 {
-	return -EINVAL;
+	/* 0 indicates error */
+	return 0;
 }
 
 static void fast_smmu_unmap_sg(struct device *dev,
