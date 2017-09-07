@@ -590,20 +590,6 @@
 
 		qcom,max-pclk-frequency-khz = <675000>;
 
-		qcom,core-supply-entries {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			qcom,core-supply-entry@0 {
-				reg = <0>;
-				qcom,supply-name = "gdsc";
-				qcom,supply-min-voltage = <0>;
-				qcom,supply-max-voltage = <0>;
-				qcom,supply-enable-load = <0>;
-				qcom,supply-disable-load = <0>;
-			};
-		};
-
 		qcom,ctrl-supply-entries {
 			#address-cells = <1>;
 			#size-cells = <0>;
