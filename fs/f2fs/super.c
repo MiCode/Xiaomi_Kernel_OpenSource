@@ -636,6 +636,7 @@ static struct inode *f2fs_alloc_inode(struct super_block *sb)
 	init_rwsem(&fi->dio_rwsem[READ]);
 	init_rwsem(&fi->dio_rwsem[WRITE]);
 	init_rwsem(&fi->i_mmap_sem);
+	init_rwsem(&fi->i_xattr_sem);
 
 #ifdef CONFIG_QUOTA
 	fi->i_reserved_quota = 0;
