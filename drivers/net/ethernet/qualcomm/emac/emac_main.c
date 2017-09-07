@@ -36,6 +36,7 @@
 #include <linux/property.h>
 #include <net/ip6_checksum.h>
 #endif
+#include <linux/msm-bus.h>
 
 #include "emac.h"
 #include "emac_phy.h"
@@ -2604,6 +2605,38 @@ static int msm_emac_pinctrl_init(struct emac_adapter *adpt, struct device *dev)
 	return 0;
 }
 
+static void msm_emac_clk_path_vote(struct emac_adapter *adpt,
+				   enum emac_bus_vote vote)
+{
+	if (adpt->bus_cl_hdl)
+		if (msm_bus_scale_client_update_request(adpt->bus_cl_hdl, vote))
+			emac_err(adpt, "Failed to vote for bus bw\n");
+}
+
+static void msm_emac_clk_path_teardown(struct emac_adapter *adpt)
+{
+	if (adpt->bus_cl_hdl) {
+		msm_emac_clk_path_vote(adpt, EMAC_NO_PERF_VOTE);
+		msm_bus_scale_unregister_client(adpt->bus_cl_hdl);
+		adpt->bus_cl_hdl = 0;
+	}
+}
+
+static void msm_emac_clk_path_init(struct platform_device *pdev,
+				   struct emac_adapter *adpt)
+{
+	/* Get bus scalling data */
+	adpt->bus_scale_table = msm_bus_cl_get_pdata(pdev);
+	if (IS_ERR_OR_NULL(adpt->bus_scale_table)) {
+		emac_err(adpt, "bus scaling is disabled\n");
+		return;
+	}
+
+	adpt->bus_cl_hdl = msm_bus_scale_register_client(adpt->bus_scale_table);
+	if (!adpt->bus_cl_hdl)
+		emac_err(adpt, "Failed to register BUS scaling client!!\n");
+}
+
 /* Get the resources */
 static int emac_get_resources(struct platform_device *pdev,
 			      struct emac_adapter *adpt)
@@ -2685,6 +2718,7 @@ static int emac_get_resources(struct platform_device *pdev,
 	if (ACPI_HANDLE(adpt->dev))
 		retval = emac_acpi_get_resources(pdev, adpt);
 
+	msm_emac_clk_path_init(pdev, adpt);
 	return retval;
 }
 
@@ -2870,6 +2904,7 @@ static int emac_pm_suspend(struct device *device, bool wol_enable)
 	}
 
 	adpt->gpio_off(adpt, true, false);
+	msm_emac_clk_path_vote(adpt, EMAC_NO_PERF_VOTE);
 	return 0;
 }
 
@@ -2883,6 +2918,7 @@ static int emac_pm_resume(struct device *device)
 	int retval = 0, i;
 
 	adpt->gpio_on(adpt, true, false);
+	msm_emac_clk_path_vote(adpt, EMAC_MAX_PERF_VOTE);
 	emac_hw_reset_mac(hw);
 
 	/* Disable EPHY Link UP interrupt */
@@ -3232,6 +3268,7 @@ static int emac_remove(struct platform_device *pdev)
 	adpt->gpio_off(adpt, true, true);
 	emac_disable_clks(adpt);
 	emac_disable_regulator(adpt, EMAC_VREG1, EMAC_VREG5);
+	msm_emac_clk_path_teardown(adpt);
 
 	if (!ACPI_COMPANION(&pdev->dev))
 		put_device(&adpt->phydev->dev);
