@@ -212,6 +212,7 @@ int dpcm_dapm_stream_event(struct snd_soc_pcm_runtime *fe, int dir,
 			pr_debug("%s Don't close BE\n", __func__);
 			continue;
 		}
+
 		snd_soc_dapm_stream_event(be, dir, event);
 	}
 

@@ -563,6 +563,7 @@ struct iscsi_conn {
 #define LOGIN_FLAGS_READ_ACTIVE		1
 #define LOGIN_FLAGS_CLOSED		2
 #define LOGIN_FLAGS_READY		4
+#define LOGIN_FLAGS_INITIAL_PDU		8
 	unsigned long		login_flags;
 	struct delayed_work	login_work;
 	struct delayed_work	login_cleanup_work;
@@ -784,6 +785,7 @@ struct iscsi_np {
 	int			np_sock_type;
 	enum np_thread_state_table np_thread_state;
 	bool                    enabled;
+	atomic_t		np_reset_count;
 	enum iscsi_timer_flags_table np_login_timer_flags;
 	u32			np_exports;
 	enum np_flags_table	np_flags;
