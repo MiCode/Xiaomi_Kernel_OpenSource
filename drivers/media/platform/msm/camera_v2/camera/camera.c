@@ -572,10 +572,10 @@ static int camera_v4l2_fh_release(struct file *filep)
 	if (sp) {
 		v4l2_fh_del(&sp->fh);
 		v4l2_fh_exit(&sp->fh);
+		mutex_destroy(&sp->lock);
+		kzfree(sp);
 	}
 
-	mutex_destroy(&sp->lock);
-	kzfree(sp);
 	return 0;
 }
 
