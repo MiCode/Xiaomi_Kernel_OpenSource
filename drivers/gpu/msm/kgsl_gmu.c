@@ -1519,6 +1519,14 @@ void gmu_stop(struct kgsl_device *device)
 		cond_resched();
 	}
 
+	/* Double check one last time */
+	if (idle == false) {
+		adreno_read_gmureg(ADRENO_DEVICE(device),
+			ADRENO_REG_GMU_RPMH_POWER_STATE, &reg);
+		if (reg == device->gmu.idle_level)
+			idle = true;
+	}
+
 	gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_NOTIFY_SLUMBER, 0, 0);
 
 	if (!idle || (gpudev->wait_for_gmu_idle &&

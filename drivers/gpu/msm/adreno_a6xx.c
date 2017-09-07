@@ -1007,6 +1007,11 @@ static int timed_poll_check(struct kgsl_device *device,
 		cond_resched();
 	} while (!time_after(jiffies, t));
 
+	/* Double check one last time */
+	kgsl_gmu_regread(device, offset, &value);
+	if ((value & mask) == expected_ret)
+		return 0;
+
 	return -EINVAL;
 }
 
