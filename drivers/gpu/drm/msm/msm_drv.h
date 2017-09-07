@@ -162,6 +162,7 @@ enum msm_mdp_conn_property {
 	/* enum/bitmask properties */
 	CONNECTOR_PROP_TOPOLOGY_NAME,
 	CONNECTOR_PROP_TOPOLOGY_CONTROL,
+	CONNECTOR_PROP_LP,
 
 	/* total # of properties */
 	CONNECTOR_PROP_COUNT
