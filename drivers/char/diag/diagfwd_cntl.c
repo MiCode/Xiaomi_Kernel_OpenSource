@@ -1119,6 +1119,18 @@ void diag_map_pd_to_diagid(uint8_t pd, uint8_t *diag_id, int *peripheral)
 		*diag_id = DIAG_ID_LPASS;
 		*peripheral = PERIPHERAL_LPASS;
 		break;
+	case PERIPHERAL_WCNSS:
+		*diag_id = 0;
+		*peripheral = PERIPHERAL_WCNSS;
+		break;
+	case PERIPHERAL_SENSORS:
+		*diag_id = 0;
+		*peripheral = PERIPHERAL_SENSORS;
+		break;
+	case PERIPHERAL_WDSP:
+		*diag_id = 0;
+		*peripheral = PERIPHERAL_WDSP;
+		break;
 	case PERIPHERAL_CDSP:
 		*diag_id = DIAG_ID_CDSP;
 		*peripheral = PERIPHERAL_CDSP;
