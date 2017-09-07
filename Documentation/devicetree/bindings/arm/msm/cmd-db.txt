@@ -1,0 +1,35 @@
+Command DB
+---------
+
+Command DB is a database that provides a mapping between resource key and
+the resource address for a system resource managed by RPMh. The data is
+stored in a shared memory region and is loaded by the remote processor.
+
+Some of the "Qualcomm Technologies Inc" SOC's have hardware accelerators
+for controlling shared resources.  The HW accelerator associated to a given
+resource could change between builds when accelerators are added/removed.
+To remove dependencies between multiple images in a SoC, Command DB allows
+drivers to query resource parameters based on predetermined key strings.
+
+The devicetree representation of the command DB driver should be:
+
+PROPERTIES:
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: Should be "qcom,cmd-db"
+
+- reg:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: First element is the base address of shared memory
+		Second element is the size of the shared memory region
+		Points to the dictionary address that houses the command DB
+		start address and the size of the command DB region
+
+Example:
+
+qcom,cmd-db@861e0000 {
+	compatible = "qcom,cmd-db";
+	reg = <0xc3f000c 0x8>;
+}
