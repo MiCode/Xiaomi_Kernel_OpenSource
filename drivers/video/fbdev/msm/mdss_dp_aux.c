@@ -683,6 +683,11 @@ char mdss_dp_gen_link_clk(struct mdss_dp_drv_pdata *dp)
 	pr_debug("clk_rate=%llu, bpp= %d, lane_cnt=%d\n",
 	       pinfo->clk_rate, pinfo->bpp, lane_cnt);
 
+	if (lane_cnt == 0) {
+		pr_warn("Invalid max lane count\n");
+		return 0;
+	}
+
 	/*
 	 * The max pixel clock supported is 675Mhz. The
 	 * current calculations below will make sure

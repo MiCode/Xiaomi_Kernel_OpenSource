@@ -1625,6 +1625,7 @@ int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 	dp_drv->link_rate = mdss_dp_gen_link_clk(dp_drv);
 	if (!dp_drv->link_rate) {
 		pr_err("Unable to configure required link rate\n");
+		mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, false);
 		ret = -EINVAL;
 		goto exit;
 	}
