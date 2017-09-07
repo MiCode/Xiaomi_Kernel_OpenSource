@@ -1,0 +1,299 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+
+	pil_gpu: qcom,kgsl-hyp {
+		compatible = "qcom,pil-tz-generic";
+		qcom,pas-id = <13>;
+		qcom,firmware-name = "a615_zap";
+	};
+
+	msm_bus: qcom,kgsl-busmon{
+		label = "kgsl-busmon";
+		compatible = "qcom,kgsl-busmon";
+	};
+
+	gpubw: qcom,gpubw {
+		compatible = "qcom,devbw";
+		governor = "bw_vbif";
+		qcom,src-dst-ports = <26 512>;
+		qcom,bw-tbl =
+			<     0 /*  off     */ >,
+			<   381 /*  100  MHz */ >,
+			<   762 /*  200  MHz */ >,
+			<  1144 /*  300  MHz */ >,
+			<  1720 /*  451  MHz */ >,
+			<  2086 /*  547  MHz */ >,
+			<  2597 /*  681  MHz */ >,
+			<  3147 /*  825  MHz */ >,
+			<  3879 /*  1017 MHz */ >,
+			<  5161 /*  1353 MHz */ >,
+			<  5931 /*  1555 MHz */ >,
+			<  6881 /*  1804 MHz */ >;
+	};
+
+	msm_gpu: qcom,kgsl-3d0@5000000 {
+		label = "kgsl-3d0";
+		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
+		status = "ok";
+		reg = <0x5000000 0x40000>;
+		reg-names = "kgsl_3d0_reg_memory";
+		interrupts = <0 300 0>;
+		interrupt-names = "kgsl_3d0_irq";
+		qcom,id = <0>;
+
+		qcom,chipid = <0x06010500>;
+
+		qcom,initial-pwrlevel = <3>;
+
+		qcom,gpu-quirk-hfi-use-reg;
+
+		/* <HZ/12> */
+		qcom,idle-timeout = <80>;
+		qcom,no-nap;
+
+		qcom,highest-bank-bit = <14>;
+
+		qcom,min-access-length = <64>;
+
+		qcom,ubwc-mode = <2>;
+
+		/* size in bytes */
+		qcom,snapshot-size = <1048576>;
+
+		/* base addr, size */
+		qcom,gpu-qdss-stm = <0x161c0000 0x40000>;
+
+		clocks = <&clock_gfx GPU_CC_GX_GFX3D_CLK>,
+			<&clock_gpucc GPU_CC_CXO_CLK>,
+			<&clock_gcc GCC_DDRSS_GPU_AXI_CLK>,
+			<&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
+			<&clock_gpucc GPU_CC_CX_GMU_CLK>,
+			<&clock_gpucc GPU_CC_AHB_CLK>;
+
+		clock-names = "core_clk", "rbbmtimer_clk", "mem_clk",
+				"mem_iface_clk", "gmu_clk", "ahb_clk";
+
+		/* Bus Scale Settings */
+		qcom,gpubw-dev = <&gpubw>;
+		qcom,bus-control;
+		qcom,msm-bus,name = "grp3d";
+		qcom,bus-width = <32>;
+		qcom,msm-bus,num-cases = <12>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<26 512 0 0>,
+				<26 512 0 400000>,     /*  1 bus=100  */
+				<26 512 0 800000>,     /*  2 bus=200  */
+				<26 512 0 1200000>,    /*  3 bus=300  */
+				<26 512 0 1804000>,    /*  4 bus=451  */
+				<26 512 0 2188000>,    /*  5 bus=547  */
+				<26 512 0 2724000>,    /*  6 bus=681  */
+				<26 512 0 3300000>,    /*  7 bus=825  */
+				<26 512 0 4068000>,    /*  8 bus=1017 */
+				<26 512 0 5412000>,    /*  9 bus=1353 */
+				<26 512 0 6220000>,    /* 10 bus=1555 */
+				<26 512 0 7216000>;    /* 11 bus=1804 */
+
+		/* GDSC regulator names */
+		regulator-names = "vddcx", "vdd";
+		/* GDSC oxili regulators */
+		vddcx-supply = <&gpu_cx_gdsc>;
+		vdd-supply = <&gpu_gx_gdsc>;
+
+		/* GPU related llc slices */
+		cache-slice-names = "gpu", "gpuhtw";
+		cache-slices = <&llcc 12>, <&llcc 11>;
+
+		/* GPU Mempools */
+		qcom,gpu-mempools {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "qcom,gpu-mempools";
+
+			/* 4K Page Pool configuration */
+			qcom,gpu-mempool@0 {
+				reg = <0>;
+				qcom,mempool-page-size = <4096>;
+				qcom,mempool-allocate;
+			};
+			/* 8K Page Pool configuration */
+			qcom,gpu-mempool@1 {
+				reg = <1>;
+				qcom,mempool-page-size = <8192>;
+				qcom,mempool-allocate;
+			};
+			/* 64K Page Pool configuration */
+			qcom,gpu-mempool@2 {
+				reg = <2>;
+				qcom,mempool-page-size = <65536>;
+				qcom,mempool-reserved = <256>;
+			};
+			/* 1M Page Pool configuration */
+			qcom,gpu-mempool@3 {
+				reg = <3>;
+				qcom,mempool-page-size = <1048576>;
+				qcom,mempool-reserved = <32>;
+			};
+		};
+
+		/* Power levels */
+		qcom,gpu-pwrlevels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			compatible = "qcom,gpu-pwrlevels";
+
+			/* SVS_L1 */
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <430000000>;
+				qcom,bus-freq = <11>;
+				qcom,bus-min = <10>;
+				qcom,bus-max = <11>;
+			};
+
+			/* SVS */
+			qcom,gpu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gpu-freq = <355000000>;
+				qcom,bus-freq = <9>;
+				qcom,bus-min = <8>;
+				qcom,bus-max = <10>;
+			};
+
+			/* LOW SVS */
+			qcom,gpu-pwrlevel@2 {
+				reg = <2>;
+				qcom,gpu-freq = <267000000>;
+				qcom,bus-freq = <6>;
+				qcom,bus-min = <4>;
+				qcom,bus-max = <8>;
+			};
+
+			/* MIN SVS */
+			qcom,gpu-pwrlevel@3 {
+				reg = <3>;
+				qcom,gpu-freq = <180000000>;
+				qcom,bus-freq = <4>;
+				qcom,bus-min = <3>;
+				qcom,bus-max = <5>;
+			};
+
+			/* XO */
+			qcom,gpu-pwrlevel@4 {
+				reg = <4>;
+				qcom,gpu-freq = <0>;
+				qcom,bus-freq = <0>;
+				qcom,bus-min = <0>;
+				qcom,bus-max = <0>;
+			};
+		};
+
+	};
+
+	kgsl_msm_iommu: qcom,kgsl-iommu {
+		compatible = "qcom,kgsl-smmu-v2";
+
+		reg = <0x05040000 0x10000>;
+		qcom,protect = <0x40000 0x10000>;
+		qcom,micro-mmu-control = <0x6000>;
+
+		clocks =<&clock_gcc GCC_GPU_CFG_AHB_CLK>,
+			<&clock_gcc GCC_DDRSS_GPU_AXI_CLK>,
+			<&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>;
+
+		clock-names = "iface_clk", "mem_clk", "mem_iface_clk";
+
+		qcom,secure_align_mask = <0xfff>;
+		qcom,retention;
+		qcom,hyp_secure_alloc;
+
+		gfx3d_user: gfx3d_user {
+			compatible = "qcom,smmu-kgsl-cb";
+			label = "gfx3d_user";
+			iommus = <&kgsl_smmu 0>;
+			qcom,gpu-offset = <0x48000>;
+		};
+
+		gfx3d_secure: gfx3d_secure {
+			compatible = "qcom,smmu-kgsl-cb";
+			iommus = <&kgsl_smmu 2>;
+		};
+	};
+
+	gmu: qcom,gmu {
+		label = "kgsl-gmu";
+		compatible = "qcom,gpu-gmu";
+
+		reg =
+			<0x506a000 0x31000>,
+			<0xb200000 0x300000>,
+			<0xc200000 0x10000>;
+		reg-names =
+			"kgsl_gmu_reg",
+			"kgsl_gmu_pdc_reg",
+			"kgsl_gmu_cpr_reg";
+
+		interrupts = <0 304 0>, <0 305 0>;
+		interrupt-names = "kgsl_hfi_irq", "kgsl_gmu_irq";
+
+		qcom,msm-bus,name = "cnoc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<26 10036 0 0>,      /* CNOC off */
+			<26 10036 0 100>;    /* CNOC on  */
+
+		regulator-names = "vddcx", "vdd";
+		vddcx-supply = <&gpu_cx_gdsc>;
+		vdd-supply = <&gpu_gx_gdsc>;
+
+
+		clocks = <&clock_gpucc GPU_CC_CX_GMU_CLK>,
+				<&clock_gpucc GPU_CC_CXO_CLK>,
+				<&clock_gcc GCC_DDRSS_GPU_AXI_CLK>,
+				<&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
+				<&clock_gpucc GPU_CC_AHB_CLK>;
+
+		clock-names = "gmu_clk", "cxo_clk", "axi_clk",
+				"memnoc_clk", "ahb_clk";
+
+		qcom,gmu-pwrlevels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			compatible = "qcom,gmu-pwrlevels";
+
+			qcom,gmu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gmu-freq = <200000000>;
+			};
+
+			qcom,gmu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gmu-freq = <0>;
+			};
+		};
+
+		gmu_user: gmu_user {
+			compatible = "qcom,smmu-gmu-user-cb";
+			iommus = <&kgsl_smmu 4>;
+		};
+
+		gmu_kernel: gmu_kernel {
+			compatible = "qcom,smmu-gmu-kernel-cb";
+			iommus = <&kgsl_smmu 5>;
+		};
+	};
+};
