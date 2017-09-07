@@ -1075,7 +1075,7 @@ static void chan_shutdown(struct mbox_chan *chan)
 
 static const struct mbox_chan_ops mbox_ops = {
 	.send_data = chan_tcs_write,
-	.send_controller_data = chan_tcs_ctrl_write,
+	.write_controller_data = chan_tcs_ctrl_write,
 	.startup = chan_init,
 	.shutdown = chan_shutdown,
 };
