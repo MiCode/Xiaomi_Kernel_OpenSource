@@ -1085,6 +1085,7 @@ int sde_connector_set_property_for_commit(struct drm_connector *connector,
 static int sde_connector_init_debugfs(struct drm_connector *connector)
 {
 	struct sde_connector *sde_connector;
+	struct msm_display_info info;
 
 	if (!connector || !connector->debugfs_entry) {
 		SDE_ERROR("invalid connector\n");
@@ -1092,6 +1093,13 @@ static int sde_connector_init_debugfs(struct drm_connector *connector)
 	}
 
 	sde_connector = to_sde_connector(connector);
+
+	sde_connector_get_info(connector, &info);
+	if (sde_connector->ops.check_status &&
+		(info.capabilities & MSM_DISPLAY_ESD_ENABLED))
+		debugfs_create_u32("force_panel_dead", 0600,
+				connector->debugfs_entry,
+				&sde_connector->force_panel_dead);
 
 	if (!debugfs_create_bool("fb_kmap", 0600, connector->debugfs_entry,
 			&sde_connector->fb_kmap)) {
@@ -1213,22 +1221,30 @@ static void sde_connector_check_status_work(struct work_struct *work)
 
 	rc = conn->ops.check_status(conn->display);
 	mutex_unlock(&conn->lock);
+
+	if (conn->force_panel_dead) {
+		conn->force_panel_dead--;
+		if (!conn->force_panel_dead)
+			goto status_dead;
+	}
+
 	if (rc > 0) {
 		SDE_DEBUG("esd check status success conn_id: %d enc_id: %d\n",
 				conn->base.base.id, conn->encoder->base.id);
 		schedule_delayed_work(&conn->status_work,
 			msecs_to_jiffies(STATUS_CHECK_INTERVAL_MS));
-	} else {
-		SDE_EVT32(rc, SDE_EVTLOG_ERROR);
-		SDE_ERROR("failed report PANEL_DEAD conn_id: %d enc_id: %d\n",
-				conn->base.base.id, conn->encoder->base.id);
-		/* report panel dead event */
-		panel_dead = true;
-		event.type = DRM_EVENT_PANEL_DEAD;
-		event.length = sizeof(u32);
-		msm_mode_object_event_notify(&conn->base.base,
-			conn->base.dev, &event, (u8 *)&panel_dead);
+		return;
 	}
+
+status_dead:
+	SDE_EVT32(rc, SDE_EVTLOG_ERROR);
+	SDE_ERROR("esd check failed report PANEL_DEAD conn_id: %d enc_id: %d\n",
+			conn->base.base.id, conn->encoder->base.id);
+	panel_dead = true;
+	event.type = DRM_EVENT_PANEL_DEAD;
+	event.length = sizeof(u32);
+	msm_mode_object_event_notify(&conn->base.base,
+		conn->base.dev, &event, (u8 *)&panel_dead);
 }
 
 static const struct drm_connector_helper_funcs sde_connector_helper_ops = {
