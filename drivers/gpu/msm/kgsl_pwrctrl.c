@@ -2676,7 +2676,8 @@ _aware(struct kgsl_device *device)
 				 * Cannot recover GMU failure
 				 * GPU will not be powered on
 				 */
-				WARN_ONCE(1, "Failed to recover GMU\n");
+				/* WARN_ONCE(1, "Failed to recover GMU\n"); */
+				BUG_ON(1);
 			}
 
 			clear_bit(GMU_FAULT, &gmu->flags);
