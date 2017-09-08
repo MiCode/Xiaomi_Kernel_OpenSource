@@ -43,4 +43,21 @@
 		/delete-node/ qcom,msm_fastrpc_compute_cb12;
 		/delete-node/ qcom,msm_fastrpc_compute_cb13;
 	};
+
+	devfreq_memlat_4: qcom,arm-memlat-mon-4 {
+		qcom,core-dev-table =
+		< 1113600 762 >,
+		< 1401600 3879 >,
+		< 1804800 5163 >;
+	};
+
+	devfreq_cpufreq: devfreq-cpufreq {
+		mincpubw-cpufreq {
+			cpu-to-dev-map-4 =
+				< 1113600 762 >,
+				< 1401600 2086 >,
+				< 1747200 2929 >,
+				< 1804800 5163 >;
+		};
+	};
 };
