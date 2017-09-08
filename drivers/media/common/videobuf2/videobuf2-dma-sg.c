@@ -38,6 +38,7 @@ struct vb2_dma_sg_buf {
 	struct frame_vector		*vec;
 	int				offset;
 	enum dma_data_direction		dma_dir;
+	unsigned long			dma_attrs;
 	struct sg_table			sg_table;
 	/*
 	 * This will point to sg_table when used with the MMAP or USERPTR
@@ -114,6 +115,7 @@ static void *vb2_dma_sg_alloc(struct device *dev, unsigned long dma_attrs,
 
 	buf->vaddr = NULL;
 	buf->dma_dir = dma_dir;
+	buf->dma_attrs = dma_attrs;
 	buf->offset = 0;
 	buf->size = size;
 	/* size is already page aligned */
@@ -143,7 +145,7 @@ static void *vb2_dma_sg_alloc(struct device *dev, unsigned long dma_attrs,
 	 * prepare() memop is called.
 	 */
 	sgt->nents = dma_map_sg_attrs(buf->dev, sgt->sgl, sgt->orig_nents,
-				      buf->dma_dir, DMA_ATTR_SKIP_CPU_SYNC);
+				      buf->dma_dir, dma_attrs);
 	if (!sgt->nents)
 		goto fail_map;
 
@@ -181,7 +183,7 @@ static void vb2_dma_sg_put(void *buf_priv)
 		dprintk(1, "%s: Freeing buffer of %d pages\n", __func__,
 			buf->num_pages);
 		dma_unmap_sg_attrs(buf->dev, sgt->sgl, sgt->orig_nents,
-				   buf->dma_dir, DMA_ATTR_SKIP_CPU_SYNC);
+				   buf->dma_dir, buf->dma_attrs);
 		if (buf->vaddr)
 			vm_unmap_ram(buf->vaddr, buf->num_pages);
 		sg_free_table(buf->dma_sgt);
@@ -198,12 +200,13 @@ static void vb2_dma_sg_prepare(void *buf_priv)
 	struct vb2_dma_sg_buf *buf = buf_priv;
 	struct sg_table *sgt = buf->dma_sgt;
 
-	/* DMABUF exporter will flush the cache for us */
-	if (buf->db_attach)
-		return;
-
-	dma_sync_sg_for_device(buf->dev, sgt->sgl, sgt->orig_nents,
-			       buf->dma_dir);
+	/*
+	 * DMABUF exporter will flush the cache for us; only USERPTR
+	 * and MMAP buffers with non-coherent memory will be flushed.
+	 */
+	if (buf->dma_attrs & DMA_ATTR_NON_CONSISTENT)
+		dma_sync_sg_for_device(buf->dev, sgt->sgl, sgt->orig_nents,
+				       buf->dma_dir);
 }
 
 static void vb2_dma_sg_finish(void *buf_priv)
@@ -211,11 +214,13 @@ static void vb2_dma_sg_finish(void *buf_priv)
 	struct vb2_dma_sg_buf *buf = buf_priv;
 	struct sg_table *sgt = buf->dma_sgt;
 
-	/* DMABUF exporter will flush the cache for us */
-	if (buf->db_attach)
-		return;
-
-	dma_sync_sg_for_cpu(buf->dev, sgt->sgl, sgt->orig_nents, buf->dma_dir);
+	/*
+	 * DMABUF exporter will flush the cache for us; only USERPTR
+	 * and MMAP buffers with non-coherent memory will be flushed.
+	 */
+	if (buf->dma_attrs & DMA_ATTR_NON_CONSISTENT)
+		dma_sync_sg_for_cpu(buf->dev, sgt->sgl, sgt->orig_nents,
+				    buf->dma_dir);
 }
 
 static void *vb2_dma_sg_get_userptr(struct device *dev, unsigned long vaddr,
@@ -237,6 +242,7 @@ static void *vb2_dma_sg_get_userptr(struct device *dev, unsigned long vaddr,
 	buf->vaddr = NULL;
 	buf->dev = dev;
 	buf->dma_dir = dma_dir;
+	buf->dma_attrs = dma_attrs;
 	buf->offset = vaddr & ~PAGE_MASK;
 	buf->size = size;
 	buf->dma_sgt = &buf->sg_table;
@@ -261,7 +267,7 @@ static void *vb2_dma_sg_get_userptr(struct device *dev, unsigned long vaddr,
 	 * prepare() memop is called.
 	 */
 	sgt->nents = dma_map_sg_attrs(buf->dev, sgt->sgl, sgt->orig_nents,
-				      buf->dma_dir, DMA_ATTR_SKIP_CPU_SYNC);
+				      buf->dma_dir, dma_attrs);
 	if (!sgt->nents)
 		goto userptr_fail_map;
 
@@ -289,7 +295,7 @@ static void vb2_dma_sg_put_userptr(void *buf_priv)
 	dprintk(1, "%s: Releasing userspace buffer of %d pages\n",
 	       __func__, buf->num_pages);
 	dma_unmap_sg_attrs(buf->dev, sgt->sgl, sgt->orig_nents, buf->dma_dir,
-			   DMA_ATTR_SKIP_CPU_SYNC);
+			   buf->dma_attrs);
 	if (buf->vaddr)
 		vm_unmap_ram(buf->vaddr, buf->num_pages);
 	sg_free_table(buf->dma_sgt);
@@ -434,6 +440,7 @@ static struct sg_table *vb2_dma_sg_dmabuf_ops_map(
 	struct dma_buf_attachment *db_attach, enum dma_data_direction dma_dir)
 {
 	struct vb2_dma_sg_attachment *attach = db_attach->priv;
+	struct vb2_dma_sg_buf *buf = db_attach->dmabuf->priv;
 	/* stealing dmabuf mutex to serialize map/unmap operations */
 	struct mutex *lock = &db_attach->dmabuf->lock;
 	struct sg_table *sgt;
@@ -449,14 +456,14 @@ static struct sg_table *vb2_dma_sg_dmabuf_ops_map(
 
 	/* release any previous cache */
 	if (attach->dma_dir != DMA_NONE) {
-		dma_unmap_sg(db_attach->dev, sgt->sgl, sgt->orig_nents,
-			attach->dma_dir);
+		dma_unmap_sg_attrs(db_attach->dev, sgt->sgl, sgt->orig_nents,
+				   attach->dma_dir, buf->dma_attrs);
 		attach->dma_dir = DMA_NONE;
 	}
 
 	/* mapping to the client with new direction */
-	sgt->nents = dma_map_sg(db_attach->dev, sgt->sgl, sgt->orig_nents,
-				dma_dir);
+	sgt->nents = dma_map_sg_attrs(db_attach->dev, sgt->sgl, sgt->orig_nents,
+				      dma_dir, buf->dma_attrs);
 	if (!sgt->nents) {
 		pr_err("failed to map scatterlist\n");
 		mutex_unlock(lock);
@@ -489,6 +496,40 @@ static void *vb2_dma_sg_dmabuf_ops_kmap(struct dma_buf *dbuf, unsigned long pgnu
 	return buf->vaddr ? buf->vaddr + pgnum * PAGE_SIZE : NULL;
 }
 
+static int vb2_dma_sg_dmabuf_ops_begin_cpu_access(
+	struct dma_buf *dbuf, enum dma_data_direction direction)
+{
+	struct vb2_dma_sg_buf *buf = dbuf->priv;
+	struct sg_table *sgt = buf->dma_sgt;
+
+	/*
+	 * DMABUF exporter will flush the cache for us; only USERPTR
+	 * and MMAP buffers with non-coherent memory will be flushed.
+	 */
+	if (buf->dma_attrs & DMA_ATTR_NON_CONSISTENT)
+		dma_sync_sg_for_cpu(buf->dev, sgt->sgl, sgt->nents,
+				    buf->dma_dir);
+
+	return 0;
+}
+
+static int vb2_dma_sg_dmabuf_ops_end_cpu_access(
+	struct dma_buf *dbuf, enum dma_data_direction direction)
+{
+	struct vb2_dma_sg_buf *buf = dbuf->priv;
+	struct sg_table *sgt = buf->dma_sgt;
+
+	/*
+	 * DMABUF exporter will flush the cache for us; only USERPTR
+	 * and MMAP buffers with non-coherent memory will be flushed.
+	 */
+	if (buf->dma_attrs & DMA_ATTR_NON_CONSISTENT)
+		dma_sync_sg_for_device(buf->dev, sgt->sgl, sgt->nents,
+				       buf->dma_dir);
+
+	return 0;
+}
+
 static void *vb2_dma_sg_dmabuf_ops_vmap(struct dma_buf *dbuf)
 {
 	struct vb2_dma_sg_buf *buf = dbuf->priv;
@@ -508,6 +549,8 @@ static const struct dma_buf_ops vb2_dma_sg_dmabuf_ops = {
 	.map_dma_buf = vb2_dma_sg_dmabuf_ops_map,
 	.unmap_dma_buf = vb2_dma_sg_dmabuf_ops_unmap,
 	.map = vb2_dma_sg_dmabuf_ops_kmap,
+	.begin_cpu_access = vb2_dma_sg_dmabuf_ops_begin_cpu_access,
+	.end_cpu_access = vb2_dma_sg_dmabuf_ops_end_cpu_access,
 	.vmap = vb2_dma_sg_dmabuf_ops_vmap,
 	.mmap = vb2_dma_sg_dmabuf_ops_mmap,
 	.release = vb2_dma_sg_dmabuf_ops_release,
