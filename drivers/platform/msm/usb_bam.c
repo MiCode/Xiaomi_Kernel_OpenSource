@@ -126,13 +126,13 @@ static char *bam_enable_strings[MAX_BAMS] = {
  * CI_CTRL & DWC3_CTRL shouldn't be used simultaneously
  * since both share the same prod & cons rm resourses
  */
-static enum ipa_client_type ipa_rm_resource_prod[MAX_BAMS] = {
+static enum ipa_rm_resource_name ipa_rm_resource_prod[MAX_BAMS] = {
 	[CI_CTRL] = IPA_RM_RESOURCE_USB_PROD,
 	[HSIC_CTRL]  = IPA_RM_RESOURCE_HSIC_PROD,
 	[DWC3_CTRL] = IPA_RM_RESOURCE_USB_PROD,
 };
 
-static enum ipa_client_type ipa_rm_resource_cons[MAX_BAMS] = {
+static enum ipa_rm_resource_name ipa_rm_resource_cons[MAX_BAMS] = {
 	[CI_CTRL] = IPA_RM_RESOURCE_USB_CONS,
 	[HSIC_CTRL]  = IPA_RM_RESOURCE_HSIC_CONS,
 	[DWC3_CTRL] = IPA_RM_RESOURCE_USB_CONS,
@@ -1623,6 +1623,22 @@ static void usb_bam_ipa_create_resources(enum usb_ctrl cur_bam)
 				__func__);
 		return;
 	}
+}
+
+static void usb_bam_ipa_delete_resources(enum usb_ctrl cur_bam)
+{
+	int ret;
+
+	ret = ipa_rm_delete_resource(ipa_rm_resource_prod[cur_bam]);
+	if (ret)
+		log_event_err("%s: Failed to delete USB_PROD resource\n",
+							__func__);
+
+	ret = ipa_rm_delete_resource(ipa_rm_resource_cons[cur_bam]);
+	if (ret)
+		log_event_err("%s: Failed to delete USB_CONS resource\n",
+							__func__);
+
 }
 
 static void wait_for_prod_granted(enum usb_ctrl cur_bam)
@@ -3401,6 +3417,7 @@ static int usb_bam_remove(struct platform_device *pdev)
 {
 	struct usb_bam_ctx_type *ctx = dev_get_drvdata(&pdev->dev);
 
+	usb_bam_ipa_delete_resources(ctx->usb_bam_data->bam_type);
 	usb_bam_unregister_panic_hdlr();
 	sps_deregister_bam_device(ctx->h_bam);
 	destroy_workqueue(ctx->usb_bam_wq);
