@@ -434,13 +434,14 @@
 			"csid0", "csid1", "csid2",
 			"ife0", "ife1", "ife2", "ipe0",
 			"ipe1", "cam-cdm-intf0", "cpas-cdm0", "bps0",
-			"icp0", "jpeg-dma0", "jpeg-enc0", "fd0";
+			"icp0", "jpeg-dma0", "jpeg-enc0", "fd0", "lrmecpas";
 		client-axi-port-names =
 			"cam_hf_1", "cam_hf_2", "cam_hf_2", "cam_sf_1",
 			"cam_hf_1", "cam_hf_2", "cam_hf_2",
 			"cam_hf_1", "cam_hf_2", "cam_hf_2", "cam_sf_1",
 			"cam_sf_1", "cam_sf_1", "cam_sf_1", "cam_sf_1",
-			"cam_sf_1", "cam_sf_1", "cam_sf_1", "cam_sf_1";
+			"cam_sf_1", "cam_sf_1", "cam_sf_1", "cam_sf_1",
+			"cam_sf_1";
 		client-bus-camnoc-based;
 		qcom,axi-port-list {
 			qcom,axi-port1 {
@@ -529,7 +530,8 @@
 		cdm-client-names = "vfe",
 			"jpegdma",
 			"jpegenc",
-			"fd";
+			"fd",
+			"lrmecdm";
 		status = "ok";
 	};
 
