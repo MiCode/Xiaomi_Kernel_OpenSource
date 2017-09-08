@@ -1342,6 +1342,7 @@ static int wsa881x_i2c_probe(struct i2c_client *client,
 			dev_err(&client->dev,
 				"failed to ping wsa with addr:%x, ret = %d\n",
 						client->addr, ret);
+			wsa881x_probing_count++;
 			goto err1;
 		}
 		pdata->version = wsa881x_i2c_read_device(pdata,

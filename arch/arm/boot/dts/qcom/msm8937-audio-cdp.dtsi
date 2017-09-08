@@ -31,6 +31,14 @@
 	status = "okay";
 };
 
+&wsa881x_i2c_e {
+	status = "okay";
+};
+
+&wsa881x_i2c_44 {
+	status = "okay";
+};
+
 &wsa881x_i2c_f {
 	status = "okay";
 };
