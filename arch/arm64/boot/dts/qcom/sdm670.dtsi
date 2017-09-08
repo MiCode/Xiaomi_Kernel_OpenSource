@@ -72,6 +72,9 @@
 				compatible = "arm,arch-cache";
 				qcom,dump-size = <0x9000>;
 			};
+			L1_TLB_0: l1-tlb {
+				qcom,dump-size = <0x3000>;
+			};
 		};
 
 		CPU1: cpu@100 {
@@ -96,6 +99,9 @@
 			L1_D_100: l1-dcache {
 				compatible = "arm,arch-cache";
 				qcom,dump-size = <0x9000>;
+			};
+			L1_TLB_100: l1-tlb {
+				qcom,dump-size = <0x3000>;
 			};
 		};
 
@@ -122,6 +128,9 @@
 				compatible = "arm,arch-cache";
 				qcom,dump-size = <0x9000>;
 			};
+			L1_TLB_200: l1-tlb {
+				qcom,dump-size = <0x3000>;
+			};
 		};
 
 		CPU3: cpu@300 {
@@ -146,6 +155,9 @@
 			L1_D_300: l1-dcache {
 				compatible = "arm,arch-cache";
 				qcom,dump-size = <0x9000>;
+			};
+			L1_TLB_300: l1-tlb {
+				qcom,dump-size = <0x3000>;
 			};
 		};
 
@@ -172,6 +184,9 @@
 				compatible = "arm,arch-cache";
 				qcom,dump-size = <0x9000>;
 			};
+			L1_TLB_400: l1-tlb {
+				qcom,dump-size = <0x3000>;
+			};
 		};
 
 		CPU5: cpu@500 {
@@ -196,6 +211,9 @@
 			L1_D_500: l1-dcache {
 				compatible = "arm,arch-cache";
 				qcom,dump-size = <0x9000>;
+			};
+			L1_TLB_500: l1-tlb {
+				qcom,dump-size = <0x3000>;
 			};
 		};
 
@@ -222,6 +240,9 @@
 				compatible = "arm,arch-cache";
 				qcom,dump-size = <0x12000>;
 			};
+			L1_TLB_600: l1-tlb {
+				qcom,dump-size = <0x3c000>;
+			};
 		};
 
 		CPU7: cpu@700 {
@@ -246,6 +267,9 @@
 			L1_D_700: l1-dcache {
 				compatible = "arm,arch-cache";
 				qcom,dump-size = <0x12000>;
+			};
+			L1_TLB_700: l1-tlb {
+				qcom,dump-size = <0x3c000>;
 			};
 		};
 
@@ -1024,31 +1048,31 @@
 			qcom,dump-node = <&L1_I_0>;
 			qcom,dump-id = <0x60>;
 		};
-		qcom,l1_i_cache1 {
+		qcom,l1_i_cache100 {
 			qcom,dump-node = <&L1_I_100>;
 			qcom,dump-id = <0x61>;
 		};
-		qcom,l1_i_cache2 {
+		qcom,l1_i_cache200 {
 			qcom,dump-node = <&L1_I_200>;
 			qcom,dump-id = <0x62>;
 		};
-		qcom,l1_i_cache3 {
+		qcom,l1_i_cache300 {
 			qcom,dump-node = <&L1_I_300>;
 			qcom,dump-id = <0x63>;
 		};
-		qcom,l1_i_cache100 {
+		qcom,l1_i_cache400 {
 			qcom,dump-node = <&L1_I_400>;
 			qcom,dump-id = <0x64>;
 		};
-		qcom,l1_i_cache101 {
+		qcom,l1_i_cache500 {
 			qcom,dump-node = <&L1_I_500>;
 			qcom,dump-id = <0x65>;
 		};
-		qcom,l1_i_cache102 {
+		qcom,l1_i_cache600 {
 			qcom,dump-node = <&L1_I_600>;
 			qcom,dump-id = <0x66>;
 		};
-		qcom,l1_i_cache103 {
+		qcom,l1_i_cache700 {
 			qcom,dump-node = <&L1_I_700>;
 			qcom,dump-id = <0x67>;
 		};
@@ -1056,31 +1080,31 @@
 			qcom,dump-node = <&L1_D_0>;
 			qcom,dump-id = <0x80>;
 		};
-		qcom,l1_d_cache1 {
+		qcom,l1_d_cache100 {
 			qcom,dump-node = <&L1_D_100>;
 			qcom,dump-id = <0x81>;
 		};
-		qcom,l1_d_cache2 {
+		qcom,l1_d_cache200 {
 			qcom,dump-node = <&L1_D_200>;
 			qcom,dump-id = <0x82>;
 		};
-		qcom,l1_d_cache3 {
+		qcom,l1_d_cache300 {
 			qcom,dump-node = <&L1_D_300>;
 			qcom,dump-id = <0x83>;
 		};
-		qcom,l1_d_cache100 {
+		qcom,l1_d_cache400 {
 			qcom,dump-node = <&L1_D_400>;
 			qcom,dump-id = <0x84>;
 		};
-		qcom,l1_d_cache101 {
+		qcom,l1_d_cache500 {
 			qcom,dump-node = <&L1_D_500>;
 			qcom,dump-id = <0x85>;
 		};
-		qcom,l1_d_cache102 {
+		qcom,l1_d_cache600 {
 			qcom,dump-node = <&L1_D_600>;
 			qcom,dump-id = <0x86>;
 		};
-		qcom,l1_d_cache103 {
+		qcom,l1_d_cache700 {
 			qcom,dump-node = <&L1_D_700>;
 			qcom,dump-id = <0x87>;
 		};
@@ -1091,6 +1115,38 @@
 		qcom,llcc2_d_cache {
 			qcom,dump-node = <&LLCC_2>;
 			qcom,dump-id = <0x141>;
+		};
+		qcom,l1_tlb_dump0 {
+			qcom,dump-node = <&L1_TLB_0>;
+			qcom,dump-id = <0x20>;
+		};
+		qcom,l1_tlb_dump100 {
+			qcom,dump-node = <&L1_TLB_100>;
+			qcom,dump-id = <0x21>;
+		};
+		qcom,l1_tlb_dump200 {
+			qcom,dump-node = <&L1_TLB_200>;
+			qcom,dump-id = <0x22>;
+		};
+		qcom,l1_tlb_dump300 {
+			qcom,dump-node = <&L1_TLB_300>;
+			qcom,dump-id = <0x23>;
+		};
+		qcom,l1_tlb_dump400 {
+			qcom,dump-node = <&L1_TLB_400>;
+			qcom,dump-id = <0x24>;
+		};
+		qcom,l1_tlb_dump500 {
+			qcom,dump-node = <&L1_TLB_500>;
+			qcom,dump-id = <0x25>;
+		};
+		qcom,l1_tlb_dump600 {
+			qcom,dump-node = <&L1_TLB_600>;
+			qcom,dump-id = <0x26>;
+		};
+		qcom,l1_tlb_dump700 {
+			qcom,dump-node = <&L1_TLB_700>;
+			qcom,dump-id = <0x27>;
 		};
 	};
 
