@@ -75,6 +75,8 @@
 		qcom,tsens-name = "tsens_tz_sensor12";
 		#cooling-cells = <2>;
 
+		qcom,pm-qos-active-latency = <460>;
+
 		clocks = <&clock_gfx GPU_CC_GX_GFX3D_CLK>,
 			<&clock_gpucc GPU_CC_CXO_CLK>,
 			<&clock_gcc GCC_DDRSS_GPU_AXI_CLK>,
