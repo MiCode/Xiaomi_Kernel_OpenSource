@@ -86,15 +86,15 @@ static int a5xx_counter_get(struct msm_gpu *gpu,
 
 	spin_unlock(&group->lock);
 
-	if (group->funcs.enable)
-		group->funcs.enable(gpu, group, empty);
+	if (pm_runtime_active(&gpu->pdev->dev) && group->funcs.enable)
+		group->funcs.enable(gpu, group, empty, false);
 
 	return empty;
 }
 
 /* The majority of the non-fixed counter selects can be programmed by the CPU */
 static void a5xx_counter_enable_cpu(struct msm_gpu *gpu,
-		struct adreno_counter_group *group, int counterid)
+		struct adreno_counter_group *group, int counterid, bool restore)
 {
 	struct adreno_counter *counter = &group->counters[counterid];
 
@@ -102,14 +102,35 @@ static void a5xx_counter_enable_cpu(struct msm_gpu *gpu,
 }
 
 static void a5xx_counter_enable_pm4(struct msm_gpu *gpu,
-		struct adreno_counter_group *group, int counterid)
+		struct adreno_counter_group *group, int counterid, bool restore)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 	struct a5xx_gpu *a5xx_gpu = to_a5xx_gpu(adreno_gpu);
 	struct msm_ringbuffer *ring = gpu->rb[0];
 	struct adreno_counter *counter = &group->counters[counterid];
 
+	/*
+	 * If we are restoring the counters after a power cycle we can safely
+	 * use AHB to enable the counters because we know SP/TP power collapse
+	 * isn't active
+	 */
+	if (restore) {
+		a5xx_counter_enable_cpu(gpu, group, counterid, true);
+		return;
+	}
+
 	mutex_lock(&gpu->dev->struct_mutex);
+
+	/*
+	 * If HW init hasn't run yet we can use the CPU to program the counter
+	 * (and indeed we must because we can't submit commands to the
+	 * GPU if it isn't initalized)
+	 */
+	if (gpu->needs_hw_init) {
+		a5xx_counter_enable_cpu(gpu, group, counterid, true);
+		mutex_unlock(&gpu->dev->struct_mutex);
+		return;
+	}
 
 	/* Turn off preemption for the duration of this command */
 	OUT_PKT7(ring, CP_PREEMPT_ENABLE_GLOBAL, 1);
@@ -168,7 +189,7 @@ static void a5xx_counter_enable_pm4(struct msm_gpu *gpu,
  * registers
  */
 static void a5xx_counter_enable_gpmu(struct msm_gpu *gpu,
-		struct adreno_counter_group *group, int counterid)
+		struct adreno_counter_group *group, int counterid, bool restore)
 {
 	struct adreno_counter *counter = &group->counters[counterid];
 	u32 reg;
@@ -192,7 +213,7 @@ static void a5xx_counter_enable_gpmu(struct msm_gpu *gpu,
 
 /* VBIF counters are selectable but have their own programming process */
 static void a5xx_counter_enable_vbif(struct msm_gpu *gpu,
-		struct adreno_counter_group *group, int counterid)
+		struct adreno_counter_group *group, int counterid, bool restore)
 {
 	struct adreno_counter *counter = &group->counters[counterid];
 
@@ -208,7 +229,7 @@ static void a5xx_counter_enable_vbif(struct msm_gpu *gpu,
  * use
  */
 static void a5xx_counter_enable_vbif_power(struct msm_gpu *gpu,
-		struct adreno_counter_group *group, int counterid)
+		struct adreno_counter_group *group, int counterid, bool restore)
 {
 	gpu_write(gpu, REG_A5XX_VBIF_PERF_PWR_CNT_CLR(counterid), 1);
 	gpu_write(gpu, REG_A5XX_VBIF_PERF_PWR_CNT_CLR(counterid), 0);
@@ -217,7 +238,7 @@ static void a5xx_counter_enable_vbif_power(struct msm_gpu *gpu,
 
 /* GPMU always on counter needs to be enabled before use */
 static void a5xx_counter_enable_alwayson_power(struct msm_gpu *gpu,
-		struct adreno_counter_group *group, int counterid)
+		struct adreno_counter_group *group, int counterid, bool restore)
 {
 	gpu_write(gpu, REG_A5XX_GPMU_ALWAYS_ON_COUNTER_RESET, 1);
 }
@@ -227,6 +248,10 @@ static u64 a5xx_counter_read(struct msm_gpu *gpu,
 {
 	if (counterid >= group->nr_counters)
 		return 0;
+
+	/* If the power is off, return the shadow value */
+	if (!pm_runtime_active(&gpu->pdev->dev))
+		return group->counters[counterid].value;
 
 	return gpu_read64(gpu, group->counters[counterid].lo,
 		group->counters[counterid].hi);
@@ -252,6 +277,77 @@ static void a5xx_counter_put(struct msm_gpu *gpu,
 	spin_unlock(&group->lock);
 }
 
+static void a5xx_counter_group_enable(struct msm_gpu *gpu,
+		struct adreno_counter_group *group, bool restore)
+{
+	int i;
+
+	if (!group || !group->funcs.enable)
+		return;
+
+	spin_lock(&group->lock);
+
+	for (i = 0; i < group->nr_counters; i++) {
+		if (!group->counters[i].refcount)
+			continue;
+
+		group->funcs.enable(gpu, group, i, restore);
+	}
+	spin_unlock(&group->lock);
+}
+
+static void a5xx_counter_restore(struct msm_gpu *gpu,
+		struct adreno_counter_group *group)
+{
+	int i;
+
+	spin_lock(&group->lock);
+	for (i = 0; i < group->nr_counters; i++) {
+		struct adreno_counter *counter = &group->counters[i];
+		uint32_t bit, offset = counter->load_bit;
+
+		/* Don't load if the counter isn't active or can't be loaded */
+		if (!counter->refcount)
+			continue;
+
+		/*
+		 * Each counter has a specific bit in one of four load command
+		 * registers. Figure out which register / relative bit to use
+		 * for the counter
+		 */
+		bit = do_div(offset, 32);
+
+		/* Write the counter value */
+		gpu_write64(gpu, REG_A5XX_RBBM_PERFCTR_LOAD_VALUE_LO,
+			REG_A5XX_RBBM_PERFCTR_LOAD_VALUE_HI,
+			counter->value);
+
+		/*
+		 * Write the load bit to load the counter - the command register
+		 * will get reset to 0 after the operation completes
+		 */
+		gpu_write(gpu, REG_A5XX_RBBM_PERFCTR_LOAD_CMD0 + offset,
+			 (1 << bit));
+	}
+	spin_unlock(&group->lock);
+}
+
+static void a5xx_counter_save(struct msm_gpu *gpu,
+		struct adreno_counter_group *group)
+{
+	int i;
+
+	spin_lock(&group->lock);
+	for (i = 0; i < group->nr_counters; i++) {
+		struct adreno_counter *counter = &group->counters[i];
+
+		if (counter->refcount > 0)
+			counter->value = gpu_read64(gpu, counter->lo,
+				counter->hi);
+	}
+	spin_unlock(&group->lock);
+}
+
 static struct adreno_counter a5xx_counters_alwayson[1] = {
 	{ REG_A5XX_RBBM_ALWAYSON_COUNTER_LO,
 		REG_A5XX_RBBM_ALWAYSON_COUNTER_HI },
@@ -270,242 +366,242 @@ static struct adreno_counter a5xx_counters_ccu[] = {
 
 static struct adreno_counter a5xx_counters_cmp[] = {
 	{ REG_A5XX_RBBM_PERFCTR_CMP_0_LO, REG_A5XX_RBBM_PERFCTR_CMP_0_HI,
-		REG_A5XX_RB_PERFCTR_CMP_SEL_0 },
+		REG_A5XX_RB_PERFCTR_CMP_SEL_0, 94 },
 	{ REG_A5XX_RBBM_PERFCTR_CMP_1_LO, REG_A5XX_RBBM_PERFCTR_CMP_1_HI,
-		REG_A5XX_RB_PERFCTR_CMP_SEL_1 },
+		REG_A5XX_RB_PERFCTR_CMP_SEL_1, 95 },
 	{ REG_A5XX_RBBM_PERFCTR_CMP_2_LO, REG_A5XX_RBBM_PERFCTR_CMP_2_HI,
-		REG_A5XX_RB_PERFCTR_CMP_SEL_2 },
+		REG_A5XX_RB_PERFCTR_CMP_SEL_2, 96 },
 	{ REG_A5XX_RBBM_PERFCTR_CMP_3_LO, REG_A5XX_RBBM_PERFCTR_CMP_3_HI,
-		REG_A5XX_RB_PERFCTR_CMP_SEL_3 },
+		REG_A5XX_RB_PERFCTR_CMP_SEL_3, 97 },
 };
 
 static struct adreno_counter a5xx_counters_cp[] = {
 	{ REG_A5XX_RBBM_PERFCTR_CP_0_LO, REG_A5XX_RBBM_PERFCTR_CP_0_HI,
-		REG_A5XX_CP_PERFCTR_CP_SEL_0 },
+		REG_A5XX_CP_PERFCTR_CP_SEL_0, 0 },
 	{ REG_A5XX_RBBM_PERFCTR_CP_1_LO, REG_A5XX_RBBM_PERFCTR_CP_1_HI,
-		REG_A5XX_CP_PERFCTR_CP_SEL_1 },
+		REG_A5XX_CP_PERFCTR_CP_SEL_1, 1},
 	{ REG_A5XX_RBBM_PERFCTR_CP_2_LO, REG_A5XX_RBBM_PERFCTR_CP_2_HI,
-		REG_A5XX_CP_PERFCTR_CP_SEL_2 },
+		REG_A5XX_CP_PERFCTR_CP_SEL_2, 2 },
 	{ REG_A5XX_RBBM_PERFCTR_CP_3_LO, REG_A5XX_RBBM_PERFCTR_CP_3_HI,
-		REG_A5XX_CP_PERFCTR_CP_SEL_3 },
+		REG_A5XX_CP_PERFCTR_CP_SEL_3, 3 },
 	{ REG_A5XX_RBBM_PERFCTR_CP_4_LO, REG_A5XX_RBBM_PERFCTR_CP_4_HI,
-		REG_A5XX_CP_PERFCTR_CP_SEL_4 },
+		REG_A5XX_CP_PERFCTR_CP_SEL_4, 4 },
 	{ REG_A5XX_RBBM_PERFCTR_CP_5_LO, REG_A5XX_RBBM_PERFCTR_CP_5_HI,
-		REG_A5XX_CP_PERFCTR_CP_SEL_5 },
+		REG_A5XX_CP_PERFCTR_CP_SEL_5, 5 },
 	{ REG_A5XX_RBBM_PERFCTR_CP_6_LO, REG_A5XX_RBBM_PERFCTR_CP_6_HI,
-		REG_A5XX_CP_PERFCTR_CP_SEL_6 },
+		REG_A5XX_CP_PERFCTR_CP_SEL_6, 6 },
 	{ REG_A5XX_RBBM_PERFCTR_CP_7_LO, REG_A5XX_RBBM_PERFCTR_CP_7_HI,
-		REG_A5XX_CP_PERFCTR_CP_SEL_7 },
+		REG_A5XX_CP_PERFCTR_CP_SEL_7, 7 },
 };
 
 static struct adreno_counter a5xx_counters_hlsq[] = {
 	{ REG_A5XX_RBBM_PERFCTR_HLSQ_0_LO, REG_A5XX_RBBM_PERFCTR_HLSQ_0_HI,
-		REG_A5XX_HLSQ_PERFCTR_HLSQ_SEL_0 },
+		REG_A5XX_HLSQ_PERFCTR_HLSQ_SEL_0, 28 },
 	{ REG_A5XX_RBBM_PERFCTR_HLSQ_1_LO, REG_A5XX_RBBM_PERFCTR_HLSQ_1_HI,
-		REG_A5XX_HLSQ_PERFCTR_HLSQ_SEL_1 },
+		REG_A5XX_HLSQ_PERFCTR_HLSQ_SEL_1, 29 },
 	{ REG_A5XX_RBBM_PERFCTR_HLSQ_2_LO, REG_A5XX_RBBM_PERFCTR_HLSQ_2_HI,
-		REG_A5XX_HLSQ_PERFCTR_HLSQ_SEL_2 },
+		REG_A5XX_HLSQ_PERFCTR_HLSQ_SEL_2, 30 },
 	{ REG_A5XX_RBBM_PERFCTR_HLSQ_3_LO, REG_A5XX_RBBM_PERFCTR_HLSQ_3_HI,
-		REG_A5XX_HLSQ_PERFCTR_HLSQ_SEL_3 },
+		REG_A5XX_HLSQ_PERFCTR_HLSQ_SEL_3, 31 },
 	{ REG_A5XX_RBBM_PERFCTR_HLSQ_4_LO, REG_A5XX_RBBM_PERFCTR_HLSQ_4_HI,
-		REG_A5XX_HLSQ_PERFCTR_HLSQ_SEL_4 },
+		REG_A5XX_HLSQ_PERFCTR_HLSQ_SEL_4, 32 },
 	{ REG_A5XX_RBBM_PERFCTR_HLSQ_5_LO, REG_A5XX_RBBM_PERFCTR_HLSQ_5_HI,
-		REG_A5XX_HLSQ_PERFCTR_HLSQ_SEL_5 },
+		REG_A5XX_HLSQ_PERFCTR_HLSQ_SEL_5, 33 },
 	{ REG_A5XX_RBBM_PERFCTR_HLSQ_6_LO, REG_A5XX_RBBM_PERFCTR_HLSQ_6_HI,
-		REG_A5XX_HLSQ_PERFCTR_HLSQ_SEL_6 },
+		REG_A5XX_HLSQ_PERFCTR_HLSQ_SEL_6, 34 },
 	{ REG_A5XX_RBBM_PERFCTR_HLSQ_7_LO, REG_A5XX_RBBM_PERFCTR_HLSQ_7_HI,
-		REG_A5XX_HLSQ_PERFCTR_HLSQ_SEL_7 },
+		REG_A5XX_HLSQ_PERFCTR_HLSQ_SEL_7, 35 },
 };
 
 static struct adreno_counter a5xx_counters_lrz[] = {
 	{ REG_A5XX_RBBM_PERFCTR_LRZ_0_LO, REG_A5XX_RBBM_PERFCTR_LRZ_0_HI,
-		REG_A5XX_GRAS_PERFCTR_LRZ_SEL_0 },
+		REG_A5XX_GRAS_PERFCTR_LRZ_SEL_0, 90 },
 	{ REG_A5XX_RBBM_PERFCTR_LRZ_1_LO, REG_A5XX_RBBM_PERFCTR_LRZ_1_HI,
-		REG_A5XX_GRAS_PERFCTR_LRZ_SEL_1 },
+		REG_A5XX_GRAS_PERFCTR_LRZ_SEL_1, 91 },
 	{ REG_A5XX_RBBM_PERFCTR_LRZ_2_LO, REG_A5XX_RBBM_PERFCTR_LRZ_2_HI,
-		REG_A5XX_GRAS_PERFCTR_LRZ_SEL_2 },
+		REG_A5XX_GRAS_PERFCTR_LRZ_SEL_2, 92 },
 	{ REG_A5XX_RBBM_PERFCTR_LRZ_3_LO, REG_A5XX_RBBM_PERFCTR_LRZ_3_HI,
-		REG_A5XX_GRAS_PERFCTR_LRZ_SEL_3 },
+		REG_A5XX_GRAS_PERFCTR_LRZ_SEL_3, 93 },
 };
 
 static struct adreno_counter a5xx_counters_pc[] = {
 	{ REG_A5XX_RBBM_PERFCTR_PC_0_LO, REG_A5XX_RBBM_PERFCTR_PC_0_HI,
-		REG_A5XX_PC_PERFCTR_PC_SEL_0 },
+		REG_A5XX_PC_PERFCTR_PC_SEL_0, 12 },
 	{ REG_A5XX_RBBM_PERFCTR_PC_1_LO, REG_A5XX_RBBM_PERFCTR_PC_1_HI,
-		REG_A5XX_PC_PERFCTR_PC_SEL_1 },
+		REG_A5XX_PC_PERFCTR_PC_SEL_1, 13 },
 	{ REG_A5XX_RBBM_PERFCTR_PC_2_LO, REG_A5XX_RBBM_PERFCTR_PC_2_HI,
-		REG_A5XX_PC_PERFCTR_PC_SEL_2 },
+		REG_A5XX_PC_PERFCTR_PC_SEL_2, 14 },
 	{ REG_A5XX_RBBM_PERFCTR_PC_3_LO, REG_A5XX_RBBM_PERFCTR_PC_3_HI,
-		REG_A5XX_PC_PERFCTR_PC_SEL_3 },
+		REG_A5XX_PC_PERFCTR_PC_SEL_3, 15 },
 	{ REG_A5XX_RBBM_PERFCTR_PC_4_LO, REG_A5XX_RBBM_PERFCTR_PC_4_HI,
-		REG_A5XX_PC_PERFCTR_PC_SEL_4 },
+		REG_A5XX_PC_PERFCTR_PC_SEL_4, 16 },
 	{ REG_A5XX_RBBM_PERFCTR_PC_5_LO, REG_A5XX_RBBM_PERFCTR_PC_5_HI,
-		REG_A5XX_PC_PERFCTR_PC_SEL_5 },
+		REG_A5XX_PC_PERFCTR_PC_SEL_5, 17 },
 	{ REG_A5XX_RBBM_PERFCTR_PC_6_LO, REG_A5XX_RBBM_PERFCTR_PC_6_HI,
-		REG_A5XX_PC_PERFCTR_PC_SEL_6 },
+		REG_A5XX_PC_PERFCTR_PC_SEL_6, 18 },
 	{ REG_A5XX_RBBM_PERFCTR_PC_7_LO, REG_A5XX_RBBM_PERFCTR_PC_7_HI,
-		REG_A5XX_PC_PERFCTR_PC_SEL_7 },
+		REG_A5XX_PC_PERFCTR_PC_SEL_7, 19 },
 };
 
 static struct adreno_counter a5xx_counters_ras[] = {
 	{ REG_A5XX_RBBM_PERFCTR_RAS_0_LO, REG_A5XX_RBBM_PERFCTR_RAS_0_HI,
-		REG_A5XX_GRAS_PERFCTR_RAS_SEL_0 },
+		REG_A5XX_GRAS_PERFCTR_RAS_SEL_0, 48 },
 	{ REG_A5XX_RBBM_PERFCTR_RAS_1_LO, REG_A5XX_RBBM_PERFCTR_RAS_1_HI,
-		REG_A5XX_GRAS_PERFCTR_RAS_SEL_1 },
+		REG_A5XX_GRAS_PERFCTR_RAS_SEL_1, 49 },
 	{ REG_A5XX_RBBM_PERFCTR_RAS_2_LO, REG_A5XX_RBBM_PERFCTR_RAS_2_HI,
-		REG_A5XX_GRAS_PERFCTR_RAS_SEL_2 },
+		REG_A5XX_GRAS_PERFCTR_RAS_SEL_2, 50 },
 	{ REG_A5XX_RBBM_PERFCTR_RAS_3_LO, REG_A5XX_RBBM_PERFCTR_RAS_3_HI,
-		REG_A5XX_GRAS_PERFCTR_RAS_SEL_3 },
+		REG_A5XX_GRAS_PERFCTR_RAS_SEL_3, 51 },
 };
 
 static struct adreno_counter a5xx_counters_rb[] = {
 	{ REG_A5XX_RBBM_PERFCTR_RB_0_LO, REG_A5XX_RBBM_PERFCTR_RB_0_HI,
-		REG_A5XX_RB_PERFCTR_RB_SEL_0 },
+		REG_A5XX_RB_PERFCTR_RB_SEL_0, 80 },
 	{ REG_A5XX_RBBM_PERFCTR_RB_1_LO, REG_A5XX_RBBM_PERFCTR_RB_1_HI,
-		REG_A5XX_RB_PERFCTR_RB_SEL_1 },
+		REG_A5XX_RB_PERFCTR_RB_SEL_1, 81 },
 	{ REG_A5XX_RBBM_PERFCTR_RB_2_LO, REG_A5XX_RBBM_PERFCTR_RB_2_HI,
-		REG_A5XX_RB_PERFCTR_RB_SEL_2 },
+		REG_A5XX_RB_PERFCTR_RB_SEL_2, 82 },
 	{ REG_A5XX_RBBM_PERFCTR_RB_3_LO, REG_A5XX_RBBM_PERFCTR_RB_3_HI,
-		REG_A5XX_RB_PERFCTR_RB_SEL_3 },
+		REG_A5XX_RB_PERFCTR_RB_SEL_3, 83 },
 	{ REG_A5XX_RBBM_PERFCTR_RB_4_LO, REG_A5XX_RBBM_PERFCTR_RB_4_HI,
-		REG_A5XX_RB_PERFCTR_RB_SEL_4 },
+		REG_A5XX_RB_PERFCTR_RB_SEL_4, 84 },
 	{ REG_A5XX_RBBM_PERFCTR_RB_5_LO, REG_A5XX_RBBM_PERFCTR_RB_5_HI,
-		REG_A5XX_RB_PERFCTR_RB_SEL_5 },
+		REG_A5XX_RB_PERFCTR_RB_SEL_5, 85 },
 	{ REG_A5XX_RBBM_PERFCTR_RB_6_LO, REG_A5XX_RBBM_PERFCTR_RB_6_HI,
-		REG_A5XX_RB_PERFCTR_RB_SEL_6 },
+		REG_A5XX_RB_PERFCTR_RB_SEL_6, 86 },
 	{ REG_A5XX_RBBM_PERFCTR_RB_7_LO, REG_A5XX_RBBM_PERFCTR_RB_7_HI,
-		REG_A5XX_RB_PERFCTR_RB_SEL_7 },
+		REG_A5XX_RB_PERFCTR_RB_SEL_7, 87 },
 };
 
 static struct adreno_counter a5xx_counters_rbbm[] = {
 	{ REG_A5XX_RBBM_PERFCTR_RBBM_0_LO, REG_A5XX_RBBM_PERFCTR_RBBM_0_HI,
-		REG_A5XX_RBBM_PERFCTR_RBBM_SEL_0 },
+		REG_A5XX_RBBM_PERFCTR_RBBM_SEL_0, 8 },
 	{ REG_A5XX_RBBM_PERFCTR_RBBM_1_LO, REG_A5XX_RBBM_PERFCTR_RBBM_1_HI,
-		REG_A5XX_RBBM_PERFCTR_RBBM_SEL_1 },
+		REG_A5XX_RBBM_PERFCTR_RBBM_SEL_1, 9 },
 	{ REG_A5XX_RBBM_PERFCTR_RBBM_2_LO, REG_A5XX_RBBM_PERFCTR_RBBM_2_HI,
-		REG_A5XX_RBBM_PERFCTR_RBBM_SEL_2 },
+		REG_A5XX_RBBM_PERFCTR_RBBM_SEL_2, 10 },
 	{ REG_A5XX_RBBM_PERFCTR_RBBM_3_LO, REG_A5XX_RBBM_PERFCTR_RBBM_3_HI,
-		REG_A5XX_RBBM_PERFCTR_RBBM_SEL_3 },
+		REG_A5XX_RBBM_PERFCTR_RBBM_SEL_3, 11 },
 };
 
 static struct adreno_counter a5xx_counters_sp[] = {
 	{ REG_A5XX_RBBM_PERFCTR_SP_0_LO, REG_A5XX_RBBM_PERFCTR_SP_0_HI,
-		REG_A5XX_SP_PERFCTR_SP_SEL_0 },
+		REG_A5XX_SP_PERFCTR_SP_SEL_0, 68 },
 	{ REG_A5XX_RBBM_PERFCTR_SP_1_LO, REG_A5XX_RBBM_PERFCTR_SP_1_HI,
-		REG_A5XX_SP_PERFCTR_SP_SEL_1 },
+		REG_A5XX_SP_PERFCTR_SP_SEL_1, 69 },
 	{ REG_A5XX_RBBM_PERFCTR_SP_2_LO, REG_A5XX_RBBM_PERFCTR_SP_2_HI,
-		REG_A5XX_SP_PERFCTR_SP_SEL_2 },
+		REG_A5XX_SP_PERFCTR_SP_SEL_2, 70 },
 	{ REG_A5XX_RBBM_PERFCTR_SP_3_LO, REG_A5XX_RBBM_PERFCTR_SP_3_HI,
-		REG_A5XX_SP_PERFCTR_SP_SEL_3 },
+		REG_A5XX_SP_PERFCTR_SP_SEL_3, 71 },
 	{ REG_A5XX_RBBM_PERFCTR_SP_4_LO, REG_A5XX_RBBM_PERFCTR_SP_4_HI,
-		REG_A5XX_SP_PERFCTR_SP_SEL_4 },
+		REG_A5XX_SP_PERFCTR_SP_SEL_4, 72 },
 	{ REG_A5XX_RBBM_PERFCTR_SP_5_LO, REG_A5XX_RBBM_PERFCTR_SP_5_HI,
-		REG_A5XX_SP_PERFCTR_SP_SEL_5 },
+		REG_A5XX_SP_PERFCTR_SP_SEL_5, 73 },
 	{ REG_A5XX_RBBM_PERFCTR_SP_6_LO, REG_A5XX_RBBM_PERFCTR_SP_6_HI,
-		REG_A5XX_SP_PERFCTR_SP_SEL_6 },
+		REG_A5XX_SP_PERFCTR_SP_SEL_6, 74 },
 	{ REG_A5XX_RBBM_PERFCTR_SP_7_LO, REG_A5XX_RBBM_PERFCTR_SP_7_HI,
-		REG_A5XX_SP_PERFCTR_SP_SEL_7 },
+		REG_A5XX_SP_PERFCTR_SP_SEL_7, 75 },
 	{ REG_A5XX_RBBM_PERFCTR_SP_8_LO, REG_A5XX_RBBM_PERFCTR_SP_8_HI,
-		REG_A5XX_SP_PERFCTR_SP_SEL_8 },
+		REG_A5XX_SP_PERFCTR_SP_SEL_8, 76 },
 	{ REG_A5XX_RBBM_PERFCTR_SP_9_LO, REG_A5XX_RBBM_PERFCTR_SP_9_HI,
-		REG_A5XX_SP_PERFCTR_SP_SEL_9 },
+		REG_A5XX_SP_PERFCTR_SP_SEL_9, 77 },
 	{ REG_A5XX_RBBM_PERFCTR_SP_10_LO, REG_A5XX_RBBM_PERFCTR_SP_10_HI,
-		REG_A5XX_SP_PERFCTR_SP_SEL_10 },
+		REG_A5XX_SP_PERFCTR_SP_SEL_10, 78 },
 	{ REG_A5XX_RBBM_PERFCTR_SP_11_LO, REG_A5XX_RBBM_PERFCTR_SP_11_HI,
-		REG_A5XX_SP_PERFCTR_SP_SEL_11 },
+		REG_A5XX_SP_PERFCTR_SP_SEL_11, 79 },
 };
 
 static struct adreno_counter a5xx_counters_tp[] = {
 	{ REG_A5XX_RBBM_PERFCTR_TP_0_LO, REG_A5XX_RBBM_PERFCTR_TP_0_HI,
-		REG_A5XX_TPL1_PERFCTR_TP_SEL_0 },
+		REG_A5XX_TPL1_PERFCTR_TP_SEL_0, 60 },
 	{ REG_A5XX_RBBM_PERFCTR_TP_1_LO, REG_A5XX_RBBM_PERFCTR_TP_1_HI,
-		REG_A5XX_TPL1_PERFCTR_TP_SEL_1 },
+		REG_A5XX_TPL1_PERFCTR_TP_SEL_1, 61 },
 	{ REG_A5XX_RBBM_PERFCTR_TP_2_LO, REG_A5XX_RBBM_PERFCTR_TP_2_HI,
-		REG_A5XX_TPL1_PERFCTR_TP_SEL_2 },
+		REG_A5XX_TPL1_PERFCTR_TP_SEL_2, 62 },
 	{ REG_A5XX_RBBM_PERFCTR_TP_3_LO, REG_A5XX_RBBM_PERFCTR_TP_3_HI,
-		REG_A5XX_TPL1_PERFCTR_TP_SEL_3 },
+		REG_A5XX_TPL1_PERFCTR_TP_SEL_3, 63 },
 	{ REG_A5XX_RBBM_PERFCTR_TP_4_LO, REG_A5XX_RBBM_PERFCTR_TP_4_HI,
-		REG_A5XX_TPL1_PERFCTR_TP_SEL_4 },
+		REG_A5XX_TPL1_PERFCTR_TP_SEL_4, 64 },
 	{ REG_A5XX_RBBM_PERFCTR_TP_5_LO, REG_A5XX_RBBM_PERFCTR_TP_5_HI,
-		REG_A5XX_TPL1_PERFCTR_TP_SEL_5 },
+		REG_A5XX_TPL1_PERFCTR_TP_SEL_5, 65 },
 	{ REG_A5XX_RBBM_PERFCTR_TP_6_LO, REG_A5XX_RBBM_PERFCTR_TP_6_HI,
-		REG_A5XX_TPL1_PERFCTR_TP_SEL_6 },
+		REG_A5XX_TPL1_PERFCTR_TP_SEL_6, 66 },
 	{ REG_A5XX_RBBM_PERFCTR_TP_7_LO, REG_A5XX_RBBM_PERFCTR_TP_7_HI,
-		REG_A5XX_TPL1_PERFCTR_TP_SEL_7 },
+		REG_A5XX_TPL1_PERFCTR_TP_SEL_7, 67 },
 };
 
 static struct adreno_counter a5xx_counters_tse[] = {
 	{ REG_A5XX_RBBM_PERFCTR_TSE_0_LO, REG_A5XX_RBBM_PERFCTR_TSE_0_HI,
-		REG_A5XX_GRAS_PERFCTR_TSE_SEL_0 },
+		REG_A5XX_GRAS_PERFCTR_TSE_SEL_0, 44 },
 	{ REG_A5XX_RBBM_PERFCTR_TSE_1_LO, REG_A5XX_RBBM_PERFCTR_TSE_1_HI,
-		REG_A5XX_GRAS_PERFCTR_TSE_SEL_1 },
+		REG_A5XX_GRAS_PERFCTR_TSE_SEL_1, 45 },
 	{ REG_A5XX_RBBM_PERFCTR_TSE_2_LO, REG_A5XX_RBBM_PERFCTR_TSE_2_HI,
-		REG_A5XX_GRAS_PERFCTR_TSE_SEL_2 },
+		REG_A5XX_GRAS_PERFCTR_TSE_SEL_2, 46 },
 	{ REG_A5XX_RBBM_PERFCTR_TSE_3_LO, REG_A5XX_RBBM_PERFCTR_TSE_3_HI,
-		REG_A5XX_GRAS_PERFCTR_TSE_SEL_3 },
+		REG_A5XX_GRAS_PERFCTR_TSE_SEL_3, 47 },
 };
 
 static struct adreno_counter a5xx_counters_uche[] = {
 	{ REG_A5XX_RBBM_PERFCTR_UCHE_0_LO, REG_A5XX_RBBM_PERFCTR_UCHE_0_HI,
-		REG_A5XX_UCHE_PERFCTR_UCHE_SEL_0 },
+		REG_A5XX_UCHE_PERFCTR_UCHE_SEL_0, 52 },
 	{ REG_A5XX_RBBM_PERFCTR_UCHE_1_LO, REG_A5XX_RBBM_PERFCTR_UCHE_1_HI,
-		REG_A5XX_UCHE_PERFCTR_UCHE_SEL_1 },
+		REG_A5XX_UCHE_PERFCTR_UCHE_SEL_1, 53 },
 	{ REG_A5XX_RBBM_PERFCTR_UCHE_2_LO, REG_A5XX_RBBM_PERFCTR_UCHE_2_HI,
-		REG_A5XX_UCHE_PERFCTR_UCHE_SEL_2 },
+		REG_A5XX_UCHE_PERFCTR_UCHE_SEL_2, 54 },
 	{ REG_A5XX_RBBM_PERFCTR_UCHE_3_LO, REG_A5XX_RBBM_PERFCTR_UCHE_3_HI,
-		REG_A5XX_UCHE_PERFCTR_UCHE_SEL_3 },
+		REG_A5XX_UCHE_PERFCTR_UCHE_SEL_3, 55 },
 	{ REG_A5XX_RBBM_PERFCTR_UCHE_4_LO, REG_A5XX_RBBM_PERFCTR_UCHE_4_HI,
-		REG_A5XX_UCHE_PERFCTR_UCHE_SEL_4 },
+		REG_A5XX_UCHE_PERFCTR_UCHE_SEL_4, 56 },
 	{ REG_A5XX_RBBM_PERFCTR_UCHE_5_LO, REG_A5XX_RBBM_PERFCTR_UCHE_5_HI,
-		REG_A5XX_UCHE_PERFCTR_UCHE_SEL_5 },
+		REG_A5XX_UCHE_PERFCTR_UCHE_SEL_5, 57 },
 	{ REG_A5XX_RBBM_PERFCTR_UCHE_6_LO, REG_A5XX_RBBM_PERFCTR_UCHE_6_HI,
-		REG_A5XX_UCHE_PERFCTR_UCHE_SEL_6 },
+		REG_A5XX_UCHE_PERFCTR_UCHE_SEL_6, 58 },
 	{ REG_A5XX_RBBM_PERFCTR_UCHE_7_LO, REG_A5XX_RBBM_PERFCTR_UCHE_7_HI,
-		REG_A5XX_UCHE_PERFCTR_UCHE_SEL_7 },
+		REG_A5XX_UCHE_PERFCTR_UCHE_SEL_7, 59 },
 };
 
 static struct adreno_counter a5xx_counters_vfd[] = {
 	{ REG_A5XX_RBBM_PERFCTR_VFD_0_LO, REG_A5XX_RBBM_PERFCTR_VFD_0_HI,
-		REG_A5XX_VFD_PERFCTR_VFD_SEL_0 },
+		REG_A5XX_VFD_PERFCTR_VFD_SEL_0, 20 },
 	{ REG_A5XX_RBBM_PERFCTR_VFD_1_LO, REG_A5XX_RBBM_PERFCTR_VFD_1_HI,
-		REG_A5XX_VFD_PERFCTR_VFD_SEL_1 },
+		REG_A5XX_VFD_PERFCTR_VFD_SEL_1, 21 },
 	{ REG_A5XX_RBBM_PERFCTR_VFD_2_LO, REG_A5XX_RBBM_PERFCTR_VFD_2_HI,
-		REG_A5XX_VFD_PERFCTR_VFD_SEL_2 },
+		REG_A5XX_VFD_PERFCTR_VFD_SEL_2, 22 },
 	{ REG_A5XX_RBBM_PERFCTR_VFD_3_LO, REG_A5XX_RBBM_PERFCTR_VFD_3_HI,
-		REG_A5XX_VFD_PERFCTR_VFD_SEL_3 },
+		REG_A5XX_VFD_PERFCTR_VFD_SEL_3, 23 },
 	{ REG_A5XX_RBBM_PERFCTR_VFD_4_LO, REG_A5XX_RBBM_PERFCTR_VFD_4_HI,
-		REG_A5XX_VFD_PERFCTR_VFD_SEL_4 },
+		REG_A5XX_VFD_PERFCTR_VFD_SEL_4, 24 },
 	{ REG_A5XX_RBBM_PERFCTR_VFD_5_LO, REG_A5XX_RBBM_PERFCTR_VFD_5_HI,
-		REG_A5XX_VFD_PERFCTR_VFD_SEL_5 },
+		REG_A5XX_VFD_PERFCTR_VFD_SEL_5, 25 },
 	{ REG_A5XX_RBBM_PERFCTR_VFD_6_LO, REG_A5XX_RBBM_PERFCTR_VFD_6_HI,
-		REG_A5XX_VFD_PERFCTR_VFD_SEL_6 },
+		REG_A5XX_VFD_PERFCTR_VFD_SEL_6, 26 },
 	{ REG_A5XX_RBBM_PERFCTR_VFD_7_LO, REG_A5XX_RBBM_PERFCTR_VFD_7_HI,
-		REG_A5XX_VFD_PERFCTR_VFD_SEL_7 },
+		REG_A5XX_VFD_PERFCTR_VFD_SEL_7, 27 },
 };
 
 static struct adreno_counter a5xx_counters_vpc[] = {
 	{ REG_A5XX_RBBM_PERFCTR_VPC_0_LO, REG_A5XX_RBBM_PERFCTR_VPC_0_HI,
-		REG_A5XX_VPC_PERFCTR_VPC_SEL_0 },
+		REG_A5XX_VPC_PERFCTR_VPC_SEL_0, 36 },
 	{ REG_A5XX_RBBM_PERFCTR_VPC_1_LO, REG_A5XX_RBBM_PERFCTR_VPC_1_HI,
-		REG_A5XX_VPC_PERFCTR_VPC_SEL_1 },
+		REG_A5XX_VPC_PERFCTR_VPC_SEL_1, 37 },
 	{ REG_A5XX_RBBM_PERFCTR_VPC_2_LO, REG_A5XX_RBBM_PERFCTR_VPC_2_HI,
-		REG_A5XX_VPC_PERFCTR_VPC_SEL_2 },
+		REG_A5XX_VPC_PERFCTR_VPC_SEL_2, 38 },
 	{ REG_A5XX_RBBM_PERFCTR_VPC_3_LO, REG_A5XX_RBBM_PERFCTR_VPC_3_HI,
-		REG_A5XX_VPC_PERFCTR_VPC_SEL_3 },
+		REG_A5XX_VPC_PERFCTR_VPC_SEL_3, 39 },
 };
 
 static struct adreno_counter a5xx_counters_vsc[] = {
 	{ REG_A5XX_RBBM_PERFCTR_VSC_0_LO, REG_A5XX_RBBM_PERFCTR_VSC_0_HI,
-		REG_A5XX_VSC_PERFCTR_VSC_SEL_0 },
+		REG_A5XX_VSC_PERFCTR_VSC_SEL_0, 88 },
 	{ REG_A5XX_RBBM_PERFCTR_VSC_1_LO, REG_A5XX_RBBM_PERFCTR_VSC_1_HI,
-		REG_A5XX_VSC_PERFCTR_VSC_SEL_1 },
+		REG_A5XX_VSC_PERFCTR_VSC_SEL_1, 89 },
 };
 
 static struct adreno_counter a5xx_counters_power_ccu[] = {
 	{ REG_A5XX_CCU_POWER_COUNTER_0_LO, REG_A5XX_CCU_POWER_COUNTER_0_HI,
-		REG_A5XX_RB_POWERCTR_CCU_SEL_0 },
+		REG_A5XX_RB_POWERCTR_CCU_SEL_0, 40 },
 	{ REG_A5XX_CCU_POWER_COUNTER_1_LO, REG_A5XX_CCU_POWER_COUNTER_1_HI,
-		REG_A5XX_RB_POWERCTR_CCU_SEL_1 },
+		REG_A5XX_RB_POWERCTR_CCU_SEL_1, 41 },
 };
 
 static struct adreno_counter a5xx_counters_power_cp[] = {
@@ -590,39 +686,47 @@ static struct adreno_counter a5xx_counters_alwayson_power[] = {
 		REG_A5XX_GPMU_ALWAYS_ON_COUNTER_HI },
 };
 
-#define DEFINE_COUNTER_GROUP(_name, _array, _get, _enable, _put) \
-static struct adreno_counter_group _name = { \
-	.counters = _array, \
-	.nr_counters = ARRAY_SIZE(_array), \
+#define DEFINE_COUNTER_GROUP(_n, _a, _get, _enable, _put, _save, _restore) \
+static struct adreno_counter_group _n = { \
+	.counters = _a, \
+	.nr_counters = ARRAY_SIZE(_a), \
 	.lock = __SPIN_LOCK_UNLOCKED(_name.lock), \
 	.funcs = { \
 		.get = _get, \
 		.enable = _enable, \
 		.read = a5xx_counter_read, \
 		.put = _put, \
+		.save = _save, \
+		.restore = _restore \
 	}, \
 }
 
-#define DEFAULT_COUNTER_GROUP(_name, _array) DEFINE_COUNTER_GROUP(_name, \
-	_array, a5xx_counter_get, a5xx_counter_enable_cpu, a5xx_counter_put)
+#define COUNTER_GROUP(_name, _array) DEFINE_COUNTER_GROUP(_name, \
+	_array, a5xx_counter_get, a5xx_counter_enable_cpu, a5xx_counter_put, \
+	a5xx_counter_save, a5xx_counter_restore)
 
 #define SPTP_COUNTER_GROUP(_name, _array) DEFINE_COUNTER_GROUP(_name, \
-	_array, a5xx_counter_get, a5xx_counter_enable_pm4, a5xx_counter_put)
+	_array, a5xx_counter_get, a5xx_counter_enable_pm4, a5xx_counter_put, \
+	a5xx_counter_save, a5xx_counter_restore)
+
+#define POWER_COUNTER_GROUP(_name, _array) DEFINE_COUNTER_GROUP(_name, \
+	_array, a5xx_counter_get, a5xx_counter_enable_cpu, a5xx_counter_put, \
+	NULL, NULL)
 
 /* "standard" counters */
-DEFAULT_COUNTER_GROUP(a5xx_counter_group_cp, a5xx_counters_cp);
-DEFAULT_COUNTER_GROUP(a5xx_counter_group_rbbm, a5xx_counters_rbbm);
-DEFAULT_COUNTER_GROUP(a5xx_counter_group_pc, a5xx_counters_pc);
-DEFAULT_COUNTER_GROUP(a5xx_counter_group_vfd, a5xx_counters_vfd);
-DEFAULT_COUNTER_GROUP(a5xx_counter_group_vpc, a5xx_counters_vpc);
-DEFAULT_COUNTER_GROUP(a5xx_counter_group_ccu, a5xx_counters_ccu);
-DEFAULT_COUNTER_GROUP(a5xx_counter_group_cmp, a5xx_counters_cmp);
-DEFAULT_COUNTER_GROUP(a5xx_counter_group_tse, a5xx_counters_tse);
-DEFAULT_COUNTER_GROUP(a5xx_counter_group_ras, a5xx_counters_ras);
-DEFAULT_COUNTER_GROUP(a5xx_counter_group_uche, a5xx_counters_uche);
-DEFAULT_COUNTER_GROUP(a5xx_counter_group_rb, a5xx_counters_rb);
-DEFAULT_COUNTER_GROUP(a5xx_counter_group_vsc, a5xx_counters_vsc);
-DEFAULT_COUNTER_GROUP(a5xx_counter_group_lrz, a5xx_counters_lrz);
+COUNTER_GROUP(a5xx_counter_group_cp, a5xx_counters_cp);
+COUNTER_GROUP(a5xx_counter_group_rbbm, a5xx_counters_rbbm);
+COUNTER_GROUP(a5xx_counter_group_pc, a5xx_counters_pc);
+COUNTER_GROUP(a5xx_counter_group_vfd, a5xx_counters_vfd);
+COUNTER_GROUP(a5xx_counter_group_vpc, a5xx_counters_vpc);
+COUNTER_GROUP(a5xx_counter_group_ccu, a5xx_counters_ccu);
+COUNTER_GROUP(a5xx_counter_group_cmp, a5xx_counters_cmp);
+COUNTER_GROUP(a5xx_counter_group_tse, a5xx_counters_tse);
+COUNTER_GROUP(a5xx_counter_group_ras, a5xx_counters_ras);
+COUNTER_GROUP(a5xx_counter_group_uche, a5xx_counters_uche);
+COUNTER_GROUP(a5xx_counter_group_rb, a5xx_counters_rb);
+COUNTER_GROUP(a5xx_counter_group_vsc, a5xx_counters_vsc);
+COUNTER_GROUP(a5xx_counter_group_lrz, a5xx_counters_lrz);
 
 /* SP/TP counters */
 SPTP_COUNTER_GROUP(a5xx_counter_group_hlsq, a5xx_counters_hlsq);
@@ -630,24 +734,27 @@ SPTP_COUNTER_GROUP(a5xx_counter_group_tp, a5xx_counters_tp);
 SPTP_COUNTER_GROUP(a5xx_counter_group_sp, a5xx_counters_sp);
 
 /* Power counters */
-DEFAULT_COUNTER_GROUP(a5xx_counter_group_power_ccu, a5xx_counters_power_ccu);
-DEFAULT_COUNTER_GROUP(a5xx_counter_group_power_cp, a5xx_counters_power_cp);
-DEFAULT_COUNTER_GROUP(a5xx_counter_group_power_rb, a5xx_counters_power_rb);
-DEFAULT_COUNTER_GROUP(a5xx_counter_group_power_sp, a5xx_counters_power_sp);
-DEFAULT_COUNTER_GROUP(a5xx_counter_group_power_tp, a5xx_counters_power_tp);
-DEFAULT_COUNTER_GROUP(a5xx_counter_group_power_uche, a5xx_counters_power_uche);
+POWER_COUNTER_GROUP(a5xx_counter_group_power_ccu, a5xx_counters_power_ccu);
+POWER_COUNTER_GROUP(a5xx_counter_group_power_cp, a5xx_counters_power_cp);
+POWER_COUNTER_GROUP(a5xx_counter_group_power_rb, a5xx_counters_power_rb);
+POWER_COUNTER_GROUP(a5xx_counter_group_power_sp, a5xx_counters_power_sp);
+POWER_COUNTER_GROUP(a5xx_counter_group_power_tp, a5xx_counters_power_tp);
+POWER_COUNTER_GROUP(a5xx_counter_group_power_uche, a5xx_counters_power_uche);
 
 DEFINE_COUNTER_GROUP(a5xx_counter_group_alwayson, a5xx_counters_alwayson,
-	a5xx_counter_get_fixed, NULL, NULL);
+	a5xx_counter_get_fixed, NULL, NULL, NULL, NULL);
 DEFINE_COUNTER_GROUP(a5xx_counter_group_vbif, a5xx_counters_vbif,
-	a5xx_counter_get, a5xx_counter_enable_vbif, a5xx_counter_put);
+	a5xx_counter_get, a5xx_counter_enable_vbif, a5xx_counter_put,
+	NULL, NULL);
 DEFINE_COUNTER_GROUP(a5xx_counter_group_gpmu, a5xx_counters_gpmu,
-	a5xx_counter_get, a5xx_counter_enable_gpmu, a5xx_counter_put);
+	a5xx_counter_get, a5xx_counter_enable_gpmu, a5xx_counter_put,
+	NULL, NULL);
 DEFINE_COUNTER_GROUP(a5xx_counter_group_vbif_power, a5xx_counters_vbif_power,
-	a5xx_counter_get_fixed, a5xx_counter_enable_vbif_power, NULL);
+	a5xx_counter_get_fixed, a5xx_counter_enable_vbif_power, NULL, NULL,
+	NULL);
 DEFINE_COUNTER_GROUP(a5xx_counter_group_alwayson_power,
 		a5xx_counters_alwayson_power, a5xx_counter_get_fixed,
-		a5xx_counter_enable_alwayson_power, NULL);
+		a5xx_counter_enable_alwayson_power, NULL, NULL, NULL);
 
 static const struct adreno_counter_group *a5xx_counter_groups[] = {
 	[MSM_COUNTER_GROUP_ALWAYSON] = &a5xx_counter_group_alwayson,
@@ -679,6 +786,35 @@ static const struct adreno_counter_group *a5xx_counter_groups[] = {
 	[MSM_COUNTER_GROUP_ALWAYSON_PWR] =
 		&a5xx_counter_group_alwayson_power,
 };
+
+void a5xx_counters_restore(struct msm_gpu *gpu)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(a5xx_counter_groups); i++) {
+		struct adreno_counter_group *group =
+			(struct adreno_counter_group *) a5xx_counter_groups[i];
+
+		if (group && group->funcs.restore)
+			group->funcs.restore(gpu, group);
+
+		a5xx_counter_group_enable(gpu, group, true);
+	}
+}
+
+
+void a5xx_counters_save(struct msm_gpu *gpu)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(a5xx_counter_groups); i++) {
+		struct adreno_counter_group *group =
+			(struct adreno_counter_group *) a5xx_counter_groups[i];
+
+		if (group && group->funcs.save)
+			group->funcs.save(gpu, group);
+	}
+}
 
 int a5xx_counters_init(struct adreno_gpu *adreno_gpu)
 {

@@ -1174,6 +1174,10 @@ static int a5xx_pm_resume(struct msm_gpu *gpu)
 	if (ret)
 		return ret;
 
+
+	/* Restore all the counters before turning on the GPMU */
+	a5xx_counters_restore(gpu);
+
 	/* Turn the RBCCU domain first to limit the chances of voltage droop */
 	gpu_write(gpu, REG_A5XX_GPMU_RBCCU_POWER_CNTL, 0x778000);
 
@@ -1210,6 +1214,9 @@ static int a5xx_pm_suspend(struct msm_gpu *gpu)
 			== 0xF);
 
 	gpu_write(gpu, REG_A5XX_VBIF_XIN_HALT_CTRL0, 0);
+
+	/* Save the counters before going down */
+	a5xx_counters_save(gpu);
 
 	/*
 	 * Reset the VBIF before power collapse to avoid issue with FIFO
