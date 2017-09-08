@@ -14,13 +14,14 @@
 /dts-v1/;
 
 #include "sdm670.dtsi"
-#include "sdm670-cdp.dtsi"
+#include "sdm670-mtp.dtsi"
+#include "pm660a.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDM670 PM660 + PM660L CDP";
-	compatible = "qcom,sdm670-cdp", "qcom,sdm670", "qcom,cdp";
-	qcom,board-id = <1 0>;
-	qcom,pmic-id = <0x0001001b 0x0101011a 0x0 0x0>,
-		       <0x0001001b 0x0102001a 0x0 0x0>,
-		       <0x0001001b 0x0201011a 0x0 0x0>;
+	model = "Qualcomm Technologies, Inc. SDM670 PM660 + PM660A MTP";
+	compatible = "qcom,sdm670-mtp", "qcom,sdm670", "qcom,mtp";
+	qcom,board-id = <8 0>;
+	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>,
+		       <0x0001001b 0x0002001a 0x0 0x0>,
+		       <0x0001001b 0x0202001a 0x0 0x0>;
 };

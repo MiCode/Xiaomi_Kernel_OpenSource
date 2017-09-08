@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include "sdm670-pmic-overlay.dtsi"
+
 &soc {
 	/* Delete all regulators */
 	/delete-node/ rpmh-regulator-smpa4;
