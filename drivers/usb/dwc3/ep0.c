@@ -878,10 +878,7 @@ static void dwc3_ep0_complete_data(struct dwc3 *dwc,
 
 		dwc3_trace(trace_dwc3_ep0, "Setup Pending received");
 
-		if (r)
-			dwc3_gadget_giveback(ep0, r, -ECONNRESET);
-
-		return;
+		dbg_event(0x0, "SETUPPEND", status);
 	}
 
 	ur = &r->request;
