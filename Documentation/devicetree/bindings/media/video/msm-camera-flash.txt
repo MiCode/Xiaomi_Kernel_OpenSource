@@ -10,6 +10,7 @@ Required properties:
     - "qcom,camera-flash"
     - "qcom,led-flash"
     - "qcom,led-flash1"
+    - "qcom,leds-gpio-flash"
 - qcom,flash-type : Should contain type flash device
     - 1 for LED flash
     - 2 for strobe flash
