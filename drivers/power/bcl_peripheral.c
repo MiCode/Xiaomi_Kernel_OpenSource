@@ -25,8 +25,6 @@
 #include <linux/mutex.h>
 #include <linux/msm_bcl.h>
 #include <linux/power_supply.h>
-#include <soc/qcom/scm.h>
-#include <linux/slab.h>
 
 #define CREATE_TRACE_POINTS
 #define _BCL_HW_TRACE
@@ -61,23 +59,12 @@
 #define BCL_8998_IBAT_MAX_CLR   3
 #define BCL_8998_VBAT_MIN_CLR   2
 #define BCL_8998_VBAT_ADC_LOW   0x72
-#define BCL_8998_VBAT_COMP_LOW  0x75
-#define BCL_8998_VBAT_COMP_TLOW 0x76
 #define BCL_8998_IBAT_HIGH      0x78
-#define BCL_8998_IBAT_TOO_HIGH  0x79
-#define BCL_8998_LMH_CFG        0xA3
 #define BCL_8998_BCL_CFG        0x6A
-#define LMH_8998_INT_POL_HIGH   0x12
-#define LMH_8998_INT_EN         0x15
 
 #define BCL_8998_VBAT_SCALING   39000
 #define BCL_8998_IBAT_SCALING   80000
-#define BCL_VBAT_LOW_THRESHOLD  0x7 /* 3.1V */
-#define BCL_VBAT_TLOW_THRESHOLD 0x5 /* 2.9v */
-#define BCL_IBAT_HIGH_THRESH_UA 4300000
-#define BCL_LMH_CFG_VAL         0x3
 #define BCL_CFG_VAL             0x81
-#define LMH_INT_VAL             0x7
 
 #define BCL_CONSTANT_NUM        32
 #define BCL_READ_RETRY_LIMIT    3
@@ -86,13 +73,6 @@
 #define VAL_CP_REG_BUF_OFFSET   2
 #define PON_SPARE_FULL_CURRENT		0x0
 #define PON_SPARE_DERATED_CURRENT	0x1
-
-#define LMH_DCVSH               0x10
-#define LMH_NODE_DCVS           0x44435653 /* DCVS */
-#define LMH_SUB_FN_BCL          0x42434C00 /* BCL */
-#define LMH_CLUSTER_0           0x6370302D /* cpAG */
-#define LMH_CLUSTER_1           0x6370312D /* cpAU */
-#define LMH_ALGO_ENABLE         0x454E424C /* ENBL */
 
 #define READ_CONV_FACTOR(_node, _key, _val, _ret, _dest) do { \
 		_ret = of_property_read_u32(_node, _key, &_val); \
@@ -156,7 +136,6 @@ struct bcl_device {
 	struct spmi_device      *spmi;
 	uint16_t                base_addr;
 	uint16_t                pon_spare_addr;
-	uint16_t		fg_lmh_addr;
 	uint8_t                 slave_id;
 	int                     i_src;
 	struct bcl_peripheral_data   param[BCL_PARAM_MAX];
@@ -348,7 +327,6 @@ static int bcl_set_high_ibat(int thresh_value)
 {
 	int ret = 0, ibat_ua;
 	int8_t val = 0;
-	uint32_t too_high_thresh = BCL_IBAT_HIGH_THRESH_UA;
 
 	ibat_ua = thresh_value;
 	convert_ibat_to_adc_val(&thresh_value);
@@ -362,17 +340,6 @@ static int bcl_set_high_ibat(int thresh_value)
 		return ret;
 	}
 	bcl_perph->param[BCL_PARAM_CURRENT].high_trip = thresh_value;
-	if (bcl_perph_version == BCL_PMI8998) {
-		convert_ibat_to_adc_val(&too_high_thresh);
-		pr_debug("Setting Ibat too high trip:%d. ADC_val:%d\n",
-			BCL_IBAT_HIGH_THRESH_UA, too_high_thresh);
-		val = (int8_t)too_high_thresh;
-		ret = bcl_write_register(BCL_8998_IBAT_TOO_HIGH, val);
-		if (ret) {
-			pr_err("Error accessing BCL peripheral. err:%d\n", ret);
-			return ret;
-		}
-	}
 
 	if (bcl_perph->param[BCL_PARAM_CURRENT].inhibit_derating_ua == 0
 			|| bcl_perph->pon_spare_addr == 0)
@@ -414,76 +381,19 @@ static int bcl_set_low_vbat(int thresh_value)
 		pr_err("Error accessing BCL peripheral. err:%d\n", ret);
 		return ret;
 	}
-	if (bcl_perph_version == BCL_PMI8998) {
-		ret = bcl_write_register(BCL_8998_VBAT_COMP_LOW,
-			BCL_VBAT_LOW_THRESHOLD);
-		if (ret) {
-			pr_err("Error accessing BCL peripheral. err:%d\n", ret);
-			return ret;
-		}
-		pr_debug("Setting Vbat low comparator threshold:0x%x.\n",
-			BCL_VBAT_LOW_THRESHOLD);
-		ret = bcl_write_register(BCL_8998_VBAT_COMP_TLOW,
-			BCL_VBAT_TLOW_THRESHOLD);
-		if (ret) {
-			pr_err("Error accessing BCL peripheral. err:%d\n", ret);
-			return ret;
-		}
-		pr_debug("Setting Vbat too low comparator threshold:0x%x.\n",
-			BCL_VBAT_TLOW_THRESHOLD);
-	}
 	bcl_perph->param[BCL_PARAM_VOLTAGE].low_trip = thresh_value;
 
 	return ret;
-}
-
-static void bcl_lmh_dcvs_enable(void)
-{
-	struct scm_desc desc_arg;
-	uint32_t *payload = NULL;
-
-	payload = kzalloc(sizeof(uint32_t) * 5,	GFP_KERNEL);
-	if (!payload)
-		return;
-
-	payload[0] = LMH_SUB_FN_BCL;
-	payload[1] = 0; /* unused sub-algorithm */
-	payload[2] = LMH_ALGO_ENABLE;
-	payload[3] = 1; /* number of values */
-	payload[4] = 1;
-
-	desc_arg.args[0] = SCM_BUFFER_PHYS(payload);
-	desc_arg.args[1] = sizeof(uint32_t) * 5;
-	desc_arg.args[2] = LMH_NODE_DCVS;
-	desc_arg.args[3] = LMH_CLUSTER_0;
-	desc_arg.args[4] = 0; /* version */
-	desc_arg.arginfo = SCM_ARGS(5, SCM_RO, SCM_VAL, SCM_VAL,
-				SCM_VAL, SCM_VAL);
-
-	if (scm_call2(SCM_SIP_FNID(SCM_SVC_LMH, LMH_DCVSH),
-			&desc_arg))
-		pr_err("Error enabling LMH BCL monitoringfor cluster0\n");
-
-	desc_arg.args[3] = LMH_CLUSTER_1;
-	if (scm_call2(SCM_SIP_FNID(SCM_SVC_LMH, LMH_DCVSH),
-			&desc_arg))
-		pr_err("Error enabling LMH BCL monitoringfor cluster1\n");
-
-	kfree(payload);
 }
 
 static int bcl_access_monitor_enable(bool enable)
 {
 	int ret = 0, i = 0;
 	struct bcl_peripheral_data *perph_data = NULL;
-	static bool hw_enabled;
 
 	mutex_lock(&bcl_enable_mutex);
 	if (enable == bcl_perph->enabled)
 		goto access_exit;
-
-	if ((bcl_perph_version == BCL_PMI8998) && !hw_enabled && enable)
-		bcl_lmh_dcvs_enable();
 
 	for (; i < BCL_PARAM_MAX; i++) {
 		perph_data = &bcl_perph->param[i];
@@ -580,7 +490,7 @@ static int bcl_read_vbat_low_trip(int *thresh_value)
 
 	*thresh_value = (int)val;
 	ret = bcl_read_register((bcl_perph_version == BCL_PMI8994)
-			? BCL_VBAT_TRIP	: BCL_8998_VBAT_ADC_LOW,
+			? BCL_VBAT_TRIP : BCL_8998_VBAT_ADC_LOW,
 			&val);
 	if (ret) {
 		pr_err("BCL register read error. err:%d\n", ret);
@@ -1024,15 +934,6 @@ static int bcl_get_devicetree_data(struct spmi_device *spmi)
 		READ_OPTIONAL_PROP(dev_node, key, temp_val, ret,
 			bcl_perph->param[BCL_PARAM_CURRENT].
 			inhibit_derating_ua);
-	} else {
-		prop = of_get_address_by_name(dev_node,
-			"fg_lmh", NULL, NULL);
-		if (prop) {
-			bcl_perph->fg_lmh_addr = be32_to_cpu(*prop);
-			pr_debug("fg_lmh@%04x\n", bcl_perph->fg_lmh_addr);
-		} else {
-			return -ENODEV;
-		}
 	}
 	key = "qcom,vbat-polling-delay-ms";
 	READ_CONV_FACTOR(dev_node, key, temp_val, ret,
@@ -1229,12 +1130,7 @@ static int bcl_probe(struct spmi_device *spmi)
 			return ret;
 		}
 	} else {
-		bcl_write_register(BCL_8998_LMH_CFG, BCL_LMH_CFG_VAL);
 		bcl_write_register(BCL_8998_BCL_CFG, BCL_CFG_VAL);
-		bcl_write_general_register(LMH_8998_INT_POL_HIGH,
-			bcl_perph->fg_lmh_addr, LMH_INT_VAL);
-		bcl_write_general_register(LMH_8998_INT_EN,
-			bcl_perph->fg_lmh_addr, LMH_INT_VAL);
 	}
 
 	ret = bcl_update_data();
