@@ -3441,6 +3441,7 @@ long kgsl_ioctl_sparse_virt_free(struct kgsl_device_private *dev_priv,
 	return 0;
 }
 
+/* entry->bind_lock must be held by the caller */
 static int _sparse_add_to_bind_tree(struct kgsl_mem_entry *entry,
 		uint64_t v_offset,
 		struct kgsl_memdesc *memdesc,
@@ -3699,8 +3700,11 @@ static int _sparse_bind(struct kgsl_process_private *process,
 		return ret;
 	}
 
+	spin_lock(&virt_entry->bind_lock);
 	ret = _sparse_add_to_bind_tree(virt_entry, v_offset, memdesc,
 			p_offset, size, flags);
+	spin_unlock(&virt_entry->bind_lock);
+
 	if (ret == 0)
 		memdesc->cur_bindings += size / PAGE_SIZE;
 
