@@ -123,7 +123,8 @@ struct vb2_mem_ops {
 
 	void		*(*get_userptr)(struct device *dev, unsigned long vaddr,
 					unsigned long size,
-					enum dma_data_direction dma_dir);
+					enum dma_data_direction dma_dir,
+					unsigned long dma_attrs);
 	void		(*put_userptr)(void *buf_priv);
 
 	void		(*prepare)(void *buf_priv);

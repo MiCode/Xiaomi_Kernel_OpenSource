@@ -993,7 +993,7 @@ static int __prepare_userptr(struct vb2_buffer *vb, const void *pb)
 		mem_priv = call_ptr_memop(vb, get_userptr,
 				q->alloc_devs[plane] ? : q->dev,
 				planes[plane].m.userptr,
-				planes[plane].length, q->dma_dir);
+				planes[plane].length, q->dma_dir, q->dma_attrs);
 		if (IS_ERR(mem_priv)) {
 			dprintk(1, "failed acquiring userspace memory for plane %d\n",
 				plane);
