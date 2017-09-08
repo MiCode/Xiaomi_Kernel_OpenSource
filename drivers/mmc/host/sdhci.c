@@ -3021,11 +3021,6 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 		 * above in sdhci_cmd_irq().
 		 */
 		if (host->cmd && (host->cmd->flags & MMC_RSP_BUSY)) {
-			if (intmask & SDHCI_INT_DATA_TIMEOUT) {
-				host->cmd->error = -ETIMEDOUT;
-				tasklet_schedule(&host->finish_tasklet);
-				return;
-			}
 			if (intmask & SDHCI_INT_DATA_END) {
 				/*
 				 * Some cards handle busy-end interrupt
@@ -3039,8 +3034,20 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 				return;
 			}
 			if (host->quirks2 &
-				SDHCI_QUIRK2_IGNORE_DATATOUT_FOR_R1BCMD)
+				SDHCI_QUIRK2_IGNORE_DATATOUT_FOR_R1BCMD) {
+				pr_err_ratelimited("%s: %s: ignoring interrupt: 0x%08x due to DATATOUT_FOR_R1B quirk\n",
+						mmc_hostname(host->mmc),
+						__func__, intmask);
+				MMC_TRACE(host->mmc,
+					"%s: Quirk ignoring intr: 0x%08x\n",
+						__func__, intmask);
 				return;
+			}
+			if (intmask & SDHCI_INT_DATA_TIMEOUT) {
+				host->cmd->error = -ETIMEDOUT;
+				tasklet_schedule(&host->finish_tasklet);
+				return;
+			}
 		}
 
 		pr_err("%s: Got data interrupt 0x%08x even "
