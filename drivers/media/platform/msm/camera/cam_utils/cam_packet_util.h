@@ -83,12 +83,14 @@ int cam_packet_util_get_kmd_buffer(struct cam_packet *packet,
  *
  * @packet:             Input packet containing Command Buffers and Patches
  * @iommu_hdl:          IOMMU handle of the HW Device that received the packet
+ * @sec_iommu_hdl:      Secure IOMMU handle of the HW Device that
+ *                      received the packet
  *
  * @return:             0: Success
  *                      Negative: Failure
  */
 int cam_packet_util_process_patches(struct cam_packet *packet,
-	int32_t iommu_hdl);
+	int32_t iommu_hdl, int32_t sec_mmu_hdl);
 
 /**
  * cam_packet_util_process_generic_cmd_buffer()

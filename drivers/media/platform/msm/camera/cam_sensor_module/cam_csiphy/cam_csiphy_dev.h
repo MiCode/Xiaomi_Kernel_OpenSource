@@ -176,7 +176,7 @@ struct cam_csiphy_param {
 	uint8_t     csiphy_3phase;
 	uint8_t     combo_mode;
 	uint8_t     lane_cnt;
-	uint8_t     reserved;
+	uint8_t     secure_mode;
 	uint64_t    settle_time;
 	uint64_t    settle_time_combo_sensor;
 	uint64_t    data_rate;
@@ -233,6 +233,7 @@ struct csiphy_device {
 	uint32_t is_acquired_dev_combo_mode;
 	struct cam_hw_soc_info   soc_info;
 	uint32_t cpas_handle;
+	uint32_t config_count;
 };
 
 #endif /* _CAM_CSIPHY_DEV_H_ */

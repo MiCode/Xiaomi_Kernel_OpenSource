@@ -95,4 +95,9 @@ int cam_mem_get_io_buf(int32_t buf_handle, int32_t mmu_handle,
 int cam_mem_get_cpu_buf(int32_t buf_handle, uint64_t *vaddr_ptr,
 	size_t *len);
 
+static inline bool cam_mem_is_secure_buf(int32_t buf_handle)
+{
+	return CAM_MEM_MGR_IS_SECURE_HDL(buf_handle);
+}
+
 #endif /* _CAM_MEM_MGR_API_H_ */

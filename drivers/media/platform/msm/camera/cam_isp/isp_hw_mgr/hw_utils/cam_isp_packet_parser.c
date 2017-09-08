@@ -408,6 +408,7 @@ int cam_isp_add_hfr_config_hw_update(
 
 int cam_isp_add_io_buffers(
 	int                                   iommu_hdl,
+	int                                   sec_iommu_hdl,
 	struct cam_hw_prepare_update_args    *prepare,
 	uint32_t                              base_idx,
 	struct cam_kmd_buf_info              *kmd_buf_info,
@@ -425,7 +426,10 @@ int cam_isp_add_io_buffers(
 	uint32_t                            i, j, num_out_buf, num_in_buf;
 	uint32_t                            res_id_out, res_id_in, plane_id;
 	uint32_t                            io_cfg_used_bytes, num_ent;
-	size_t size;
+	size_t                              size;
+	int32_t                             hdl;
+	int                                 mmu_hdl;
+	bool                                mode, is_buf_secure;
 
 	io_cfg = (struct cam_buf_io_cfg *) ((uint8_t *)
 			&prepare->packet->payload +
@@ -536,9 +540,31 @@ int cam_isp_add_io_buffers(
 				if (!io_cfg[i].mem_handle[plane_id])
 					break;
 
+				hdl = io_cfg[i].mem_handle[plane_id];
+				if (res->process_cmd(res,
+						CAM_VFE_HW_CMD_GET_SECURE_MODE,
+						&mode,
+						sizeof(bool)))
+					return -EINVAL;
+
+				is_buf_secure = cam_mem_is_secure_buf(hdl);
+				if ((mode == CAM_SECURE_MODE_SECURE) &&
+					is_buf_secure) {
+					mmu_hdl = sec_iommu_hdl;
+				} else if (
+					(mode == CAM_SECURE_MODE_NON_SECURE) &&
+					(!is_buf_secure)) {
+					mmu_hdl = iommu_hdl;
+				} else {
+					CAM_ERR_RATE_LIMIT(CAM_ISP,
+						"Invalid hdl: port mode[%u], buf mode[%u]",
+						mode, is_buf_secure);
+					return -EINVAL;
+				}
+
 				rc = cam_mem_get_io_buf(
 					io_cfg[i].mem_handle[plane_id],
-					iommu_hdl, &io_addr[plane_id], &size);
+					mmu_hdl, &io_addr[plane_id], &size);
 				if (rc) {
 					CAM_ERR(CAM_ISP,
 						"no io addr for plane%d",
