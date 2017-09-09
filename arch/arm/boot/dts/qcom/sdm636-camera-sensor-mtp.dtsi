@@ -47,5 +47,4 @@
 		qcom,cam-vreg-max-voltage = <3400000>;
 		qcom,cam-vreg-op-mode = <100000>;
 	};
-
 };
