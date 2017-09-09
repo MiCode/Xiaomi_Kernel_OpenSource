@@ -130,6 +130,12 @@ enum smb_irq_index {
 	SMB_IRQ_MAX,
 };
 
+enum try_sink_exit_mode {
+	ATTACHED_SRC = 0,
+	ATTACHED_SINK,
+	UNATTACHED_SINK,
+};
+
 struct smb_irq_info {
 	const char			*name;
 	const irq_handler_t		handler;
@@ -232,6 +238,7 @@ struct smb_charger {
 	struct smb_params	param;
 	struct smb_iio		iio;
 	int			*debug_mask;
+	int			*try_sink_enabled;
 	enum smb_mode		mode;
 	struct smb_chg_freq	chg_freq;
 	int			smb_version;
@@ -343,6 +350,7 @@ struct smb_charger {
 	u32			wa_flags;
 	bool			cc2_detach_wa_active;
 	bool			typec_en_dis_active;
+	bool			try_sink_active;
 	int			boost_current_ua;
 	int			temp_speed_reading_count;
 
@@ -527,6 +535,8 @@ int smblib_get_prop_pr_swap_in_progress(struct smb_charger *chg,
 int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_stat_sw_override_cfg(struct smb_charger *chg, bool override);
+void smblib_usb_typec_change(struct smb_charger *chg);
+
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);
 #endif /* __SMB2_CHARGER_H */
