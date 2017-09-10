@@ -423,7 +423,7 @@ static void sde_encoder_phys_wb_setup_cdp(struct sde_encoder_phys *phys_enc,
 	if (test_bit(SDE_CTL_ACTIVE_CFG, &ctl->caps->features) &&
 		(phys_enc->hw_ctl &&
 		 phys_enc->hw_ctl->ops.setup_intf_cfg_v1)) {
-		struct sde_hw_intf_cfg_v1 *intf_cfg_v1 = &wb_enc->intf_cfg_v1;
+		struct sde_hw_intf_cfg_v1 *intf_cfg_v1 = &phys_enc->intf_cfg_v1;
 		struct sde_hw_pingpong *hw_pp = phys_enc->hw_pp;
 		enum sde_3d_blend_mode mode_3d;
 
@@ -454,7 +454,7 @@ static void sde_encoder_phys_wb_setup_cdp(struct sde_encoder_phys *phys_enc,
 		phys_enc->hw_ctl->ops.setup_intf_cfg_v1(phys_enc->hw_ctl,
 				intf_cfg_v1);
 	} else if (phys_enc->hw_ctl && phys_enc->hw_ctl->ops.setup_intf_cfg) {
-		struct sde_hw_intf_cfg *intf_cfg = &wb_enc->intf_cfg;
+		struct sde_hw_intf_cfg *intf_cfg = &phys_enc->intf_cfg;
 
 		memset(intf_cfg, 0, sizeof(struct sde_hw_intf_cfg));
 

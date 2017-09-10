@@ -728,6 +728,65 @@ void sde_encoder_destroy(struct drm_encoder *drm_enc)
 	kfree(sde_enc);
 }
 
+void sde_encoder_helper_update_intf_cfg(
+		struct sde_encoder_phys *phys_enc)
+{
+	struct sde_encoder_virt *sde_enc;
+	struct sde_hw_intf_cfg_v1 *intf_cfg;
+	enum sde_3d_blend_mode mode_3d;
+
+	if (!phys_enc) {
+		SDE_ERROR("invalid arg, encoder %d\n", phys_enc != 0);
+		return;
+	}
+
+	sde_enc = to_sde_encoder_virt(phys_enc->parent);
+	intf_cfg = &sde_enc->cur_master->intf_cfg_v1;
+
+	SDE_DEBUG_ENC(sde_enc,
+			"intf_cfg updated for %d at idx %d\n",
+			phys_enc->intf_idx,
+			intf_cfg->intf_count);
+
+
+	/* setup interface configuration */
+	if (intf_cfg->intf_count >= MAX_INTF_PER_CTL_V1) {
+		pr_err("invalid inf_count %d\n", intf_cfg->intf_count);
+		return;
+	}
+	intf_cfg->intf[intf_cfg->intf_count++] = phys_enc->intf_idx;
+	if (phys_enc == sde_enc->cur_master) {
+		if (sde_enc->cur_master->intf_mode == INTF_MODE_CMD)
+			intf_cfg->intf_mode_sel = SDE_CTL_MODE_SEL_CMD;
+		else
+			intf_cfg->intf_mode_sel = SDE_CTL_MODE_SEL_VID;
+	}
+
+	/* configure this interface as master for split display */
+	if (phys_enc->split_role == ENC_ROLE_MASTER)
+		intf_cfg->intf_master = phys_enc->hw_intf->idx;
+
+	/* setup which pp blk will connect to this intf */
+	if (phys_enc->hw_intf->ops.bind_pingpong_blk)
+		phys_enc->hw_intf->ops.bind_pingpong_blk(
+				phys_enc->hw_intf,
+				true,
+				phys_enc->hw_pp->idx);
+
+
+	/*setup merge_3d configuration */
+	mode_3d = sde_encoder_helper_get_3d_blend_mode(phys_enc);
+
+	if (mode_3d && phys_enc->hw_pp->merge_3d &&
+			intf_cfg->merge_3d_count < MAX_MERGE_3D_PER_CTL_V1)
+		intf_cfg->merge_3d[intf_cfg->merge_3d_count++] =
+			phys_enc->hw_pp->merge_3d->idx;
+
+	if (phys_enc->hw_pp->ops.setup_3d_mode)
+		phys_enc->hw_pp->ops.setup_3d_mode(phys_enc->hw_pp,
+				mode_3d);
+}
+
 void sde_encoder_helper_split_config(
 		struct sde_encoder_phys *phys_enc,
 		enum sde_intf interface)
@@ -1086,6 +1145,9 @@ static void _sde_encoder_dsc_pipe_cfg(struct sde_hw_dsc *hw_dsc,
 	if (hw_pp->ops.setup_dsc)
 		hw_pp->ops.setup_dsc(hw_pp);
 
+	if (hw_dsc->ops.bind_pingpong_blk)
+		hw_dsc->ops.bind_pingpong_blk(hw_dsc, true, hw_pp->idx);
+
 	if (hw_pp->ops.enable_dsc)
 		hw_pp->ops.enable_dsc(hw_pp);
 }
@@ -1121,6 +1183,8 @@ static int _sde_encoder_dsc_n_lm_1_enc_1_intf(struct sde_encoder_virt *sde_enc)
 	const struct sde_rect *roi = &sde_enc->cur_conn_roi;
 	struct msm_mode_info mode_info;
 	struct msm_display_dsc_info *dsc = NULL;
+	struct sde_hw_ctl *hw_ctl = enc_master->hw_ctl;
+	struct sde_ctl_dsc_cfg cfg;
 	int rc;
 
 	if (hw_dsc == NULL || hw_pp == NULL || !enc_master) {
@@ -1134,8 +1198,8 @@ static int _sde_encoder_dsc_n_lm_1_enc_1_intf(struct sde_encoder_virt *sde_enc)
 		return -EINVAL;
 	}
 
+	memset(&cfg, 0, sizeof(cfg));
 	dsc = &mode_info.comp_info.dsc_info;
-
 	_sde_encoder_dsc_update_pic_dim(dsc, roi->w, roi->h);
 
 	this_frame_slices = roi->w / dsc->slice_width;
@@ -1156,6 +1220,25 @@ static int _sde_encoder_dsc_n_lm_1_enc_1_intf(struct sde_encoder_virt *sde_enc)
 
 	_sde_encoder_dsc_pipe_cfg(hw_dsc, hw_pp, dsc, dsc_common_mode,
 			ich_res, true);
+	if (cfg.dsc_count >= MAX_DSC_PER_CTL_V1) {
+		pr_err("Invalid dsc count:%d\n", cfg.dsc_count);
+		return -EINVAL;
+	}
+	cfg.dsc[cfg.dsc_count++] = hw_dsc->idx;
+
+	/* setup dsc active configuration in the control path */
+	if (hw_ctl->ops.setup_dsc_cfg) {
+		hw_ctl->ops.setup_dsc_cfg(hw_ctl, &cfg);
+		SDE_DEBUG_ENC(sde_enc,
+				"setup dsc_cfg hw_ctl[%d], count:%d,dsc[0]:%d, dsc[1]:%d\n",
+				hw_ctl->idx,
+				cfg.dsc_count,
+				cfg.dsc[0],
+				cfg.dsc[1]);
+	}
+
+	if (hw_ctl->ops.update_bitmask_dsc)
+		hw_ctl->ops.update_bitmask_dsc(hw_ctl, hw_dsc->idx, 1);
 
 	return 0;
 }
@@ -1174,7 +1257,11 @@ static int _sde_encoder_dsc_2_lm_2_enc_2_intf(struct sde_encoder_virt *sde_enc,
 	struct msm_display_dsc_info dsc[MAX_CHANNELS_PER_ENC];
 	struct msm_mode_info mode_info;
 	bool half_panel_partial_update;
+	struct sde_hw_ctl *hw_ctl = enc_master->hw_ctl;
+	struct sde_ctl_dsc_cfg cfg;
 	int i, rc;
+
+	memset(&cfg, 0, sizeof(cfg));
 
 	for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
 		hw_pp[i] = sde_enc->hw_pp[i];
@@ -1249,8 +1336,32 @@ static int _sde_encoder_dsc_2_lm_2_enc_2_intf(struct sde_encoder_virt *sde_enc,
 				dsc_common_mode, i, active);
 		_sde_encoder_dsc_pipe_cfg(hw_dsc[i], hw_pp[i], &dsc[i],
 				dsc_common_mode, ich_res, active);
+
+		if (active) {
+			if (cfg.dsc_count >= MAX_DSC_PER_CTL_V1) {
+				pr_err("Invalid dsc count:%d\n",
+						cfg.dsc_count);
+				return -EINVAL;
+			}
+			cfg.dsc[i] = hw_dsc[i]->idx;
+			cfg.dsc_count++;
+
+			if (hw_ctl->ops.update_bitmask_dsc)
+				hw_ctl->ops.update_bitmask_dsc(hw_ctl,
+						hw_dsc[i]->idx, 1);
+		}
 	}
 
+	/* setup dsc active configuration in the control path */
+	if (hw_ctl->ops.setup_dsc_cfg) {
+		hw_ctl->ops.setup_dsc_cfg(hw_ctl, &cfg);
+		SDE_DEBUG_ENC(sde_enc,
+				"setup dsc_cfg hw_ctl[%d], count:%d,dsc[0]:%d, dsc[1]:%d\n",
+				hw_ctl->idx,
+				cfg.dsc_count,
+				cfg.dsc[0],
+				cfg.dsc[1]);
+	}
 	return 0;
 }
 
@@ -1268,7 +1379,11 @@ static int _sde_encoder_dsc_2_lm_2_enc_1_intf(struct sde_encoder_virt *sde_enc,
 	struct msm_display_dsc_info *dsc = NULL;
 	struct msm_mode_info mode_info;
 	bool half_panel_partial_update;
+	struct sde_hw_ctl *hw_ctl = enc_master->hw_ctl;
+	struct sde_ctl_dsc_cfg cfg;
 	int i, rc;
+
+	memset(&cfg, 0, sizeof(cfg));
 
 	for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
 		hw_pp[i] = sde_enc->hw_pp[i];
@@ -1320,9 +1435,31 @@ static int _sde_encoder_dsc_2_lm_2_enc_1_intf(struct sde_encoder_virt *sde_enc,
 
 	_sde_encoder_dsc_pipe_cfg(hw_dsc[0], hw_pp[0], dsc, dsc_common_mode,
 			ich_res, true);
+	cfg.dsc[0] = hw_dsc[0]->idx;
+	cfg.dsc_count++;
+	if (hw_ctl->ops.update_bitmask_dsc)
+		hw_ctl->ops.update_bitmask_dsc(hw_ctl, hw_dsc[0]->idx, 1);
+
+
 	_sde_encoder_dsc_pipe_cfg(hw_dsc[1], hw_pp[1], dsc, dsc_common_mode,
 			ich_res, !half_panel_partial_update);
-
+	if (!half_panel_partial_update) {
+		cfg.dsc[1] = hw_dsc[1]->idx;
+		cfg.dsc_count++;
+		if (hw_ctl->ops.update_bitmask_dsc)
+			hw_ctl->ops.update_bitmask_dsc(hw_ctl, hw_dsc[1]->idx,
+					1);
+	}
+	/* setup dsc active configuration in the control path */
+	if (hw_ctl->ops.setup_dsc_cfg) {
+		hw_ctl->ops.setup_dsc_cfg(hw_ctl, &cfg);
+		SDE_DEBUG_ENC(sde_enc,
+				"setup_dsc_cfg hw_ctl[%d], count:%d,dsc[0]:%d, dsc[1]:%d\n",
+				hw_ctl->idx,
+				cfg.dsc_count,
+				cfg.dsc[0],
+				cfg.dsc[1]);
+	}
 	return 0;
 }
 
@@ -2480,6 +2617,12 @@ static void _sde_encoder_virt_enable_helper(struct drm_encoder *drm_enc)
 				sde_enc->cur_master->hw_mdptop,
 				sde_kms->catalog);
 
+	if (sde_enc->cur_master->hw_ctl &&
+			sde_enc->cur_master->hw_ctl->ops.setup_intf_cfg_v1)
+		sde_enc->cur_master->hw_ctl->ops.setup_intf_cfg_v1(
+				sde_enc->cur_master->hw_ctl,
+				&sde_enc->cur_master->intf_cfg_v1);
+
 	_sde_encoder_update_vsync_source(sde_enc, &sde_enc->disp_info, false);
 	sde_encoder_control_te(drm_enc, true);
 
@@ -2497,6 +2640,8 @@ void sde_encoder_virt_restore(struct drm_encoder *drm_enc)
 		return;
 	}
 	sde_enc = to_sde_encoder_virt(drm_enc);
+	memset(&sde_enc->cur_master->intf_cfg_v1, 0,
+			sizeof(sde_enc->cur_master->intf_cfg_v1));
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
@@ -2574,6 +2719,9 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 				ret);
 		return;
 	}
+
+	memset(&sde_enc->cur_master->intf_cfg_v1, 0,
+			sizeof(sde_enc->cur_master->intf_cfg_v1));
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];

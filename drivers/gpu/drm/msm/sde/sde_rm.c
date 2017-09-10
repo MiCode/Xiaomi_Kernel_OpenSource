@@ -38,6 +38,8 @@
 				(t).num_comp_enc == (r).num_enc && \
 				(t).num_intf == (r).num_intf)
 
+#define SINGLE_CTL	1
+
 struct sde_rm_topology_def {
 	enum sde_rm_topology_name top_name;
 	int num_lm;
@@ -1133,7 +1135,8 @@ static int _sde_rm_make_next_rsvp(
 	 * - Only then allow to grab from CTLs with split display capability
 	 */
 	_sde_rm_reserve_ctls(rm, rsvp, reqs, reqs->topology, NULL);
-	if (ret && !reqs->topology->needs_split_display) {
+	if (ret && !reqs->topology->needs_split_display &&
+			reqs->topology->num_ctl > SINGLE_CTL) {
 		memcpy(&topology, reqs->topology, sizeof(topology));
 		topology.needs_split_display = true;
 		_sde_rm_reserve_ctls(rm, rsvp, reqs, &topology, NULL);

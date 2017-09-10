@@ -123,18 +123,36 @@ static void _sde_encoder_phys_cmd_config_autorefresh(
 static void _sde_encoder_phys_cmd_update_flush_mask(
 		struct sde_encoder_phys *phys_enc)
 {
-	struct sde_encoder_phys_cmd *cmd_enc =
-			to_sde_encoder_phys_cmd(phys_enc);
+	struct sde_encoder_phys_cmd *cmd_enc;
 	struct sde_hw_ctl *ctl;
+	bool merge_3d_enable = false;
 
-	if (!phys_enc)
+	if (!phys_enc && !phys_enc->hw_intf && !phys_enc->hw_pp)
 		return;
 
+	cmd_enc = to_sde_encoder_phys_cmd(phys_enc);
 	ctl = phys_enc->hw_ctl;
-	if (!ctl || !ctl->ops.update_bitmask_intf)
+
+	if (!ctl)
 		return;
+
+	if (!ctl->ops.update_bitmask_intf ||
+		(test_bit(SDE_CTL_ACTIVE_CFG, &ctl->caps->features) &&
+		!ctl->ops.update_bitmask_merge3d)) {
+		SDE_ERROR("invalid hw_ctl ops %d\n", ctl->idx);
+		return;
+	}
+
+	if (sde_encoder_helper_get_3d_blend_mode(phys_enc) != BLEND_3D_NONE)
+		merge_3d_enable = true;
 
 	ctl->ops.update_bitmask_intf(ctl, phys_enc->intf_idx, 1);
+
+
+	if (test_bit(SDE_CTL_ACTIVE_CFG, &ctl->caps->features) &&
+			phys_enc->hw_pp->merge_3d)
+		ctl->ops.update_bitmask_merge3d(ctl,
+			phys_enc->hw_pp->merge_3d->idx, merge_3d_enable);
 
 	SDE_DEBUG_CMDENC(cmd_enc, "update pending flush ctl %d intf_idx %x\n",
 			ctl->idx - CTL_0, phys_enc->intf_idx);
@@ -146,20 +164,26 @@ static void _sde_encoder_phys_cmd_update_intf_cfg(
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
 	struct sde_hw_ctl *ctl;
-	struct sde_hw_intf_cfg intf_cfg = { 0 };
 
 	if (!phys_enc)
 		return;
 
 	ctl = phys_enc->hw_ctl;
-	if (!ctl || !ctl->ops.setup_intf_cfg)
+	if (!ctl)
 		return;
 
-	intf_cfg.intf = phys_enc->intf_idx;
-	intf_cfg.intf_mode_sel = SDE_CTL_MODE_SEL_CMD;
-	intf_cfg.stream_sel = cmd_enc->stream_sel;
-	intf_cfg.mode_3d = sde_encoder_helper_get_3d_blend_mode(phys_enc);
-	ctl->ops.setup_intf_cfg(ctl, &intf_cfg);
+	if (ctl->ops.setup_intf_cfg) {
+		struct sde_hw_intf_cfg intf_cfg = { 0 };
+
+		intf_cfg.intf = phys_enc->intf_idx;
+		intf_cfg.intf_mode_sel = SDE_CTL_MODE_SEL_CMD;
+		intf_cfg.stream_sel = cmd_enc->stream_sel;
+		intf_cfg.mode_3d =
+			sde_encoder_helper_get_3d_blend_mode(phys_enc);
+		ctl->ops.setup_intf_cfg(ctl, &intf_cfg);
+	} else if (test_bit(SDE_CTL_ACTIVE_CFG, &ctl->caps->features)) {
+		sde_encoder_helper_update_intf_cfg(phys_enc);
+	}
 }
 
 static void sde_encoder_phys_cmd_pp_tx_done_irq(void *arg, int irq_idx)
@@ -414,6 +438,19 @@ static void sde_encoder_phys_cmd_mode_set(
 		SDE_ERROR_CMDENC(cmd_enc, "failed to init ctl: %ld\n",
 				PTR_ERR(phys_enc->hw_ctl));
 		phys_enc->hw_ctl = NULL;
+		return;
+	}
+
+	sde_rm_init_hw_iter(&iter, phys_enc->parent->base.id, SDE_HW_BLK_INTF);
+	for (i = 0; i <= instance; i++) {
+		if (sde_rm_get_hw(rm, &iter))
+			phys_enc->hw_intf = (struct sde_hw_intf *)iter.hw;
+	}
+
+	if (IS_ERR_OR_NULL(phys_enc->hw_intf)) {
+		SDE_ERROR_CMDENC(cmd_enc, "failed to init intf: %ld\n",
+				PTR_ERR(phys_enc->hw_intf));
+		phys_enc->hw_intf = NULL;
 		return;
 	}
 
@@ -831,8 +868,7 @@ static void _sde_encoder_phys_cmd_pingpong_config(
 	struct sde_encoder_phys_cmd *cmd_enc =
 		to_sde_encoder_phys_cmd(phys_enc);
 
-	if (!phys_enc || !phys_enc->hw_ctl || !phys_enc->hw_pp
-			|| !phys_enc->hw_ctl->ops.setup_intf_cfg) {
+	if (!phys_enc || !phys_enc->hw_ctl || !phys_enc->hw_pp) {
 		SDE_ERROR("invalid arg(s), enc %d\n", phys_enc != 0);
 		return;
 	}
@@ -858,8 +894,6 @@ static bool sde_encoder_phys_cmd_needs_single_flush(
 static void sde_encoder_phys_cmd_enable_helper(
 		struct sde_encoder_phys *phys_enc)
 {
-	struct sde_hw_ctl *ctl;
-
 	if (!phys_enc || !phys_enc->hw_ctl || !phys_enc->hw_pp) {
 		SDE_ERROR("invalid arg(s), encoder %d\n", phys_enc != 0);
 		return;
@@ -877,8 +911,7 @@ static void sde_encoder_phys_cmd_enable_helper(
 		!sde_encoder_phys_cmd_is_master(phys_enc))
 		goto skip_flush;
 
-	ctl = phys_enc->hw_ctl;
-	ctl->ops.update_bitmask_intf(ctl, phys_enc->intf_idx, 1);
+	_sde_encoder_phys_cmd_update_flush_mask(phys_enc);
 
 skip_flush:
 	return;
