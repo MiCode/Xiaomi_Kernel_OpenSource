@@ -5472,10 +5472,6 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 			capability->width.max, capability->height.max);
 			rc = -ENOTSUPP;
 		}
-
-		if (!rc && msm_vidc_check_scaling_supported(inst)) {
-			rc = -ENOTSUPP;
-		}
 	}
 	if (rc) {
 		dprintk(VIDC_ERR,

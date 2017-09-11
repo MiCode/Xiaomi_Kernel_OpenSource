@@ -2385,6 +2385,12 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 
 		inst->prop.width[CAPTURE_PORT] = f->fmt.pix_mp.width;
 		inst->prop.height[CAPTURE_PORT] = f->fmt.pix_mp.height;
+		rc = msm_vidc_check_session_supported(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s: session not supported\n", __func__);
+			goto exit;
+		}
 
 		frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
 		frame_sz.width = inst->prop.width[CAPTURE_PORT];
@@ -2443,6 +2449,12 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 
 		inst->prop.width[OUTPUT_PORT] = f->fmt.pix_mp.width;
 		inst->prop.height[OUTPUT_PORT] = f->fmt.pix_mp.height;
+		rc = msm_vidc_check_session_supported(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s: session not supported\n", __func__);
+			goto exit;
+		}
 
 		frame_sz.buffer_type = HAL_BUFFER_INPUT;
 		frame_sz.width = inst->prop.width[OUTPUT_PORT];
