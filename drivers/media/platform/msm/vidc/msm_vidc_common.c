@@ -2161,6 +2161,7 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 				"Got SYS_ERR but unable to identify core\n");
 		return;
 	}
+	hdev = core->device;
 
 	mutex_lock(&core->lock);
 	if (core->state == VIDC_CORE_UNINIT) {
@@ -2181,7 +2182,6 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 		msm_vidc_queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_SYS_ERROR);
 		msm_comm_print_inst_info(inst);
 	}
-	hdev = core->device;
 	dprintk(VIDC_DBG, "Calling core_release\n");
 	rc = call_hfi_op(hdev, core_release, hdev->hfi_device_data);
 	if (rc) {
@@ -3011,6 +3011,23 @@ int msm_comm_force_cleanup(struct msm_vidc_inst *inst)
 	return msm_vidc_deinit_core(inst);
 }
 
+static int msm_comm_session_init_done(int flipped_state,
+	struct msm_vidc_inst *inst)
+{
+	int rc;
+
+	dprintk(VIDC_DBG, "inst %pK: waiting for session init done\n", inst);
+	rc = wait_for_state(inst, flipped_state, MSM_VIDC_OPEN_DONE,
+			HAL_SESSION_INIT_DONE);
+	if (rc) {
+		dprintk(VIDC_ERR, "Session init failed for inst %pK\n", inst);
+		msm_comm_generate_sys_error(inst);
+		return rc;
+	}
+
+	return rc;
+}
+
 static int msm_comm_session_init(int flipped_state,
 	struct msm_vidc_inst *inst)
 {
@@ -3693,8 +3710,7 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 	case MSM_VIDC_OPEN_DONE:
-		rc = wait_for_state(inst, flipped_state, MSM_VIDC_OPEN_DONE,
-			HAL_SESSION_INIT_DONE);
+		rc = msm_comm_session_init_done(flipped_state, inst);
 		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 	case MSM_VIDC_LOAD_RESOURCES:
