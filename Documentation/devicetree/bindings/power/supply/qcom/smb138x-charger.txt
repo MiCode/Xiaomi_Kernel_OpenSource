@@ -43,6 +43,13 @@ Charger specific properties:
   Definition: Boolean flag which indicates that the charger should not draw
 	      current from any of its input sources (USB, DC).
 
+- qcom,use-extcon
+  Usage:      optional
+  Value type: <empty>
+  Definition: Boolean flag which specify that smb138x will act as main charger
+	      to do extcon USB calls. If not defined, other charger driver can
+	      act as main charger to do extcon USB calls.
+
 - qcom,fcc-max-ua
   Usage:      optional
   Value type: <u32>
