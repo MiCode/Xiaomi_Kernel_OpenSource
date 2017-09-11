@@ -7,6 +7,8 @@ Required properties :
 		"qcom,gpucc-sdm845-v2",
 		"qcom,gfxcc-sdm845",
 		"qcom,gfxcc-sdm845-v2"
+		"qcom,gpucc-sdm670",
+		"qcom,gfxcc-sdm670"
 
 - reg : shall contain base register offset and size.
 - #clock-cells : shall contain 1.
