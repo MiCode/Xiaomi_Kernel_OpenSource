@@ -19,11 +19,6 @@
 
 #include "dp_panel.h"
 
-struct dp_display_mode {
-	struct dp_panel_info timing;
-	u32 capabilities;
-};
-
 struct dp_display {
 	struct drm_device *drm_dev;
 	struct dp_bridge *bridge;
@@ -41,12 +36,15 @@ struct dp_display {
 			struct dp_display_mode *mode);
 	int (*validate_mode)(struct dp_display *dp_display,
 			struct dp_display_mode *mode);
-	int (*get_modes)(struct dp_display *dp_display);
+	int (*get_modes)(struct dp_display *dp_display,
+		struct dp_display_mode *dp_mode);
 	int (*prepare)(struct dp_display *dp_display);
 	int (*unprepare)(struct dp_display *dp_display);
 	int (*request_irq)(struct dp_display *dp_display);
 	struct dp_debug *(*get_debug)(struct dp_display *dp_display);
 	void (*send_hpd_event)(struct dp_display *dp_display);
+	bool (*is_video_test)(struct dp_display *dp_display);
+	int (*get_test_bpp)(struct dp_display *dp_display);
 };
 
 int dp_display_get_num_of_displays(void);

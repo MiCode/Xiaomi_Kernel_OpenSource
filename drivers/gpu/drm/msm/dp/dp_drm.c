@@ -48,7 +48,15 @@ static void convert_to_dp_mode(const struct drm_display_mode *drm_mode,
 
 	dp_mode->timing.v_front_porch = drm_mode->vsync_start -
 					 drm_mode->vdisplay;
-	dp_mode->timing.bpp = dp->connector->display_info.bpc * num_components;
+
+	if (dp->is_video_test(dp))
+		dp_mode->timing.bpp = dp->get_test_bpp(dp);
+	else
+		dp_mode->timing.bpp = dp->connector->display_info.bpc *
+		num_components;
+
+	if (!dp_mode->timing.bpp)
+		dp_mode->timing.bpp = 24;
 
 	dp_mode->timing.refresh_rate = drm_mode->vrefresh;
 
@@ -395,21 +403,45 @@ int dp_connector_get_modes(struct drm_connector *connector,
 {
 	int rc = 0;
 	struct dp_display *dp;
+	struct dp_display_mode *dp_mode = NULL;
+	struct drm_display_mode *m, drm_mode;
 
 	if (!connector || !display)
-		return -EINVAL;
+		return 0;
 
 	dp = display;
+
+	dp_mode = kzalloc(sizeof(*dp_mode),  GFP_KERNEL);
+	if (!dp_mode)
+		return 0;
+
 	/* pluggable case assumes EDID is read when HPD */
 	if (dp->is_connected) {
-		rc = dp->get_modes(dp);
+		rc = dp->get_modes(dp, dp_mode);
 		if (!rc)
 			pr_err("failed to get DP sink modes, rc=%d\n", rc);
+
+		if (dp_mode->timing.pixel_clk_khz) { /* valid DP mode */
+			memset(&drm_mode, 0x0, sizeof(drm_mode));
+			convert_to_drm_mode(dp_mode, &drm_mode);
+			m = drm_mode_duplicate(connector->dev, &drm_mode);
+			if (!m) {
+				pr_err("failed to add mode %ux%u\n",
+				       drm_mode.hdisplay,
+				       drm_mode.vdisplay);
+				kfree(dp_mode);
+				return 0;
+			}
+			m->width_mm = connector->display_info.width_mm;
+			m->height_mm = connector->display_info.height_mm;
+			drm_mode_probed_add(connector, m);
+		}
 	} else {
 		pr_err("No sink connected\n");
 	}
+	kfree(dp_mode);
 
-	return 0;
+	return rc;
 }
 
 int dp_drm_bridge_init(void *data, struct drm_encoder *encoder)
@@ -491,6 +523,13 @@ enum drm_mode_status dp_connector_mode_valid(struct drm_connector *connector,
 		else
 			return MODE_ERROR;
 	} else {
+		if (mode->vrefresh == 0) {
+			int vrefresh = (mode->clock * 1000) /
+				(mode->vtotal * mode->htotal);
+			if (vrefresh > 60)
+				return MODE_BAD;
+		}
+
 		if (mode->clock > dp_disp->max_pclk_khz)
 			return MODE_BAD;
 		else

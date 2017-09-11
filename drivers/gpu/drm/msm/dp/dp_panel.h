@@ -16,6 +16,8 @@
 #define _DP_PANEL_H_
 
 #include "dp_aux.h"
+#include "dp_link.h"
+#include "dp_usbpd.h"
 #include "sde_edid_parser.h"
 
 #define DP_MAX_DOWNSTREAM_PORTS 0x10
@@ -37,6 +39,18 @@ struct dp_panel_info {
 	u32 bpp;
 };
 
+struct dp_display_mode {
+	struct dp_panel_info timing;
+	u32 capabilities;
+};
+
+struct dp_panel_in {
+	struct device *dev;
+	struct dp_aux *aux;
+	struct dp_link *link;
+	struct dp_catalog_panel *catalog;
+};
+
 struct dp_panel {
 	/* dpcd raw data */
 	u8 dpcd[DP_RECEIVER_CAP_SIZE];
@@ -46,6 +60,7 @@ struct dp_panel {
 	struct sde_edid_ctrl *edid_ctrl;
 	struct drm_connector *connector;
 	struct dp_panel_info pinfo;
+	bool video_test;
 
 	u32 vic;
 	u32 max_pclk_khz;
@@ -58,9 +73,10 @@ struct dp_panel {
 		struct drm_connector *connector);
 	u32 (*get_min_req_link_rate)(struct dp_panel *dp_panel);
 	u32 (*get_max_pclk)(struct dp_panel *dp_panel);
+	int (*get_modes)(struct dp_panel *dp_panel,
+		struct drm_connector *connector, struct dp_display_mode *mode);
 };
 
-struct dp_panel *dp_panel_get(struct device *dev, struct dp_aux *aux,
-				struct dp_catalog_panel *catalog);
+struct dp_panel *dp_panel_get(struct dp_panel_in *in);
 void dp_panel_put(struct dp_panel *dp_panel);
 #endif /* _DP_PANEL_H_ */
