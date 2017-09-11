@@ -206,6 +206,13 @@ enum msm_ir_led_cfg_type_t {
 #define CFG_IR_LED_OFF CFG_IR_LED_OFF
 #define CFG_IR_LED_ON CFG_IR_LED_ON
 
+enum msm_laser_led_cfg_type_t {
+	CFG_LASER_LED_INIT,
+	CFG_LASER_LED_CONTROL,
+};
+#define CFG_LASER_LED_INIT CFG_LASER_LED_INIT
+#define CFG_LASER_LED_CONTROL CFG_LASER_LED_CONTROL
+
 enum msm_ir_cut_cfg_type_t {
 	CFG_IR_CUT_INIT = 0,
 	CFG_IR_CUT_RELEASE,
