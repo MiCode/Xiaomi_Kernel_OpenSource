@@ -1467,7 +1467,7 @@ void gmu_stop(struct kgsl_device *device)
 	struct gmu_device *gmu = &device->gmu;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	bool idle = true;
+	int ret = 0;
 
 	if (!test_bit(GMU_CLK_ON, &gmu->flags))
 		return;
@@ -1475,38 +1475,37 @@ void gmu_stop(struct kgsl_device *device)
 	/* Wait for the lowest idle level we requested */
 	if (gpudev->wait_for_lowest_idle &&
 			gpudev->wait_for_lowest_idle(adreno_dev))
-		idle = false;
+		goto error;
 
-	gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_NOTIFY_SLUMBER, 0, 0);
-	if (!idle || (gpudev->wait_for_gmu_idle &&
-			gpudev->wait_for_gmu_idle(adreno_dev))) {
-		dev_err(&gmu->pdev->dev, "Stopping GMU before it is idle\n");
-		idle = false;
-		set_bit(GMU_FAULT, &gmu->flags);
-	} else {
-		idle = true;
-	}
+	ret = gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_NOTIFY_SLUMBER, 0, 0);
+	if (ret)
+		goto error;
 
-	if (idle) {
-		/* Pending message in all queues are abandoned */
-		hfi_stop(gmu);
-		clear_bit(GMU_HFI_ON, &gmu->flags);
-		gmu_irq_disable(device);
+	if (gpudev->wait_for_gmu_idle &&
+			gpudev->wait_for_gmu_idle(adreno_dev))
+		goto error;
 
-		gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_STOP, 0, 0);
-		gmu_disable_clks(gmu);
-		gmu_disable_gdsc(gmu);
-	} else {
-		/*
-		 * The power controller will change state to SLUMBER anyway
-		 * Set GMU_FAULT flag to indicate to power contrller
-		 * that hang recovery is needed to power on GPU
-		 */
-		set_bit(GMU_FAULT, &gmu->flags);
-		gmu_snapshot(device);
-	}
+	/* Pending message in all queues are abandoned */
+	hfi_stop(gmu);
+	clear_bit(GMU_HFI_ON, &gmu->flags);
+	gmu_irq_disable(device);
+
+	gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_STOP, 0, 0);
+	gmu_disable_clks(gmu);
+	gmu_disable_gdsc(gmu);
 
 	msm_bus_scale_client_update_request(gmu->pcl, 0);
+	return;
+
+error:
+	/*
+	 * The power controller will change state to SLUMBER anyway
+	 * Set GMU_FAULT flag to indicate to power contrller
+	 * that hang recovery is needed to power on GPU
+	 */
+	set_bit(GMU_FAULT, &gmu->flags);
+	dev_err(&gmu->pdev->dev, "Failed to stop GMU\n");
+	gmu_snapshot(device);
 }
 
 void gmu_remove(struct kgsl_device *device)
