@@ -215,6 +215,7 @@ static int msm_dig_cdc_codec_config_compander(struct snd_soc_codec *codec,
 {
 	struct msm_dig_priv *dig_cdc = snd_soc_codec_get_drvdata(codec);
 	int comp_ch_bits_set = 0x03;
+	int comp_ch_value;
 
 	dev_dbg(codec->dev, "%s: event %d shift %d, enabled %d\n",
 		__func__, event, interp_n,
@@ -234,15 +235,40 @@ static int msm_dig_cdc_codec_config_compander(struct snd_soc_codec *codec,
 			dig_cdc->set_compander_mode(dig_cdc->handle, 0x00);
 			return 0;
 		};
+		comp_ch_value = snd_soc_read(codec,
+					     MSM89XX_CDC_CORE_COMP0_B1_CTL);
+		if (interp_n == 0) {
+			if ((comp_ch_value & 0x02) == 0x02) {
+				dev_dbg(codec->dev,
+					"%s comp ch already enabled\n",
+					__func__);
+				return 0;
+			}
+		}
+		if (interp_n == 1) {
+			if ((comp_ch_value & 0x01) == 0x01) {
+				dev_dbg(codec->dev,
+					"%s comp ch already enabled\n",
+					__func__);
+				return 0;
+			}
+		}
 		dig_cdc->set_compander_mode(dig_cdc->handle, 0x08);
 		/* Enable Compander Clock */
 		snd_soc_update_bits(codec,
 			MSM89XX_CDC_CORE_COMP0_B2_CTL, 0x0F, 0x09);
 		snd_soc_update_bits(codec,
 			MSM89XX_CDC_CORE_CLK_RX_B2_CTL, 0x01, 0x01);
-		snd_soc_update_bits(codec,
-			MSM89XX_CDC_CORE_COMP0_B1_CTL,
-			1 << interp_n, 1 << interp_n);
+		if (dig_cdc->comp_enabled[MSM89XX_RX1]) {
+			snd_soc_update_bits(codec,
+				MSM89XX_CDC_CORE_COMP0_B1_CTL,
+				0x02, 0x02);
+		}
+		if (dig_cdc->comp_enabled[MSM89XX_RX2]) {
+			snd_soc_update_bits(codec,
+				MSM89XX_CDC_CORE_COMP0_B1_CTL,
+				0x01, 0x01);
+		}
 		snd_soc_update_bits(codec,
 			MSM89XX_CDC_CORE_COMP0_B3_CTL, 0xFF, 0x01);
 		snd_soc_update_bits(codec,
