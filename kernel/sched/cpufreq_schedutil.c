@@ -28,6 +28,7 @@ unsigned long boosted_cpu_util(int cpu);
 struct sugov_tunables {
 	struct gov_attr_set attr_set;
 	unsigned int rate_limit_us;
+	unsigned int hispeed_load;
 	unsigned int hispeed_freq;
 	bool pl;
 };
@@ -266,7 +267,7 @@ static void sugov_calc_avg_cap(struct sugov_policy *sg_policy, u64 curr_ws,
 }
 
 #define NL_RATIO 75
-#define HISPEED_LOAD 90
+#define DEFAULT_HISPEED_LOAD 90
 static void sugov_walt_adjust(struct sugov_cpu *sg_cpu, unsigned long *util,
 			      unsigned long *max)
 {
@@ -280,7 +281,7 @@ static void sugov_walt_adjust(struct sugov_cpu *sg_cpu, unsigned long *util,
 		return;
 
 	is_hiload = (cpu_util >= mult_frac(sg_policy->avg_cap,
-					   HISPEED_LOAD,
+					   sg_policy->tunables->hispeed_load,
 					   100));
 
 	if (is_hiload && !is_migration)
@@ -508,6 +509,26 @@ static ssize_t rate_limit_us_store(struct gov_attr_set *attr_set, const char *bu
 	return count;
 }
 
+static ssize_t hispeed_load_show(struct gov_attr_set *attr_set, char *buf)
+{
+	struct sugov_tunables *tunables = to_sugov_tunables(attr_set);
+
+	return sprintf(buf, "%u\n", tunables->hispeed_load);
+}
+
+static ssize_t hispeed_load_store(struct gov_attr_set *attr_set,
+				  const char *buf, size_t count)
+{
+	struct sugov_tunables *tunables = to_sugov_tunables(attr_set);
+
+	if (kstrtouint(buf, 10, &tunables->hispeed_load))
+		return -EINVAL;
+
+	tunables->hispeed_load = min(100U, tunables->hispeed_load);
+
+	return count;
+}
+
 static ssize_t hispeed_freq_show(struct gov_attr_set *attr_set, char *buf)
 {
 	struct sugov_tunables *tunables = to_sugov_tunables(attr_set);
@@ -559,11 +580,13 @@ static ssize_t pl_store(struct gov_attr_set *attr_set, const char *buf,
 }
 
 static struct governor_attr rate_limit_us = __ATTR_RW(rate_limit_us);
+static struct governor_attr hispeed_load = __ATTR_RW(hispeed_load);
 static struct governor_attr hispeed_freq = __ATTR_RW(hispeed_freq);
 static struct governor_attr pl = __ATTR_RW(pl);
 
 static struct attribute *sugov_attributes[] = {
 	&rate_limit_us.attr,
+	&hispeed_load.attr,
 	&hispeed_freq.attr,
 	&pl.attr,
 	NULL
@@ -710,6 +733,7 @@ static int sugov_init(struct cpufreq_policy *policy)
 	}
 
 	tunables->rate_limit_us = LATENCY_MULTIPLIER;
+	tunables->hispeed_load = DEFAULT_HISPEED_LOAD;
 	tunables->hispeed_freq = 0;
 	lat = policy->cpuinfo.transition_latency / NSEC_PER_USEC;
 	if (lat)
