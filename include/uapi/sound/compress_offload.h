@@ -136,6 +136,10 @@ struct snd_compr_audio_info {
 
 #define SNDRV_COMPRESS_RENDER_MODE_AUDIO_MASTER 0
 #define SNDRV_COMPRESS_RENDER_MODE_STC_MASTER 1
+
+#define SNDRV_COMPRESS_CLK_REC_MODE_NONE 0
+#define SNDRV_COMPRESS_CLK_REC_MODE_AUTO 1
+
 /**
  * enum sndrv_compress_encoder
  * @SNDRV_COMPRESS_ENCODER_PADDING: no of samples appended by the encoder at the
@@ -144,6 +148,7 @@ struct snd_compr_audio_info {
  * beginning of the track
  * @SNDRV_COMPRESS_PATH_DELAY: dsp path delay in microseconds
  * @SNDRV_COMPRESS_RENDER_MODE: dsp render mode (audio master or stc)
+ *  @SNDRV_COMPRESS_CLK_REC_MODE: clock recovery mode ( none or auto)
  */
 enum sndrv_compress_encoder {
 	SNDRV_COMPRESS_ENCODER_PADDING = 1,
@@ -152,12 +157,14 @@ enum sndrv_compress_encoder {
 	SNDRV_COMPRESS_MAX_BLK_SIZE = 4,
 	SNDRV_COMPRESS_PATH_DELAY = 5,
 	SNDRV_COMPRESS_RENDER_MODE = 6,
+	SNDRV_COMPRESS_CLK_REC_MODE = 7,
 };
 
 #define SNDRV_COMPRESS_MIN_BLK_SIZE SNDRV_COMPRESS_MIN_BLK_SIZE
 #define SNDRV_COMPRESS_MAX_BLK_SIZE SNDRV_COMPRESS_MAX_BLK_SIZE
 #define SNDRV_COMPRESS_PATH_DELAY SNDRV_COMPRESS_PATH_DELAY
 #define SNDRV_COMPRESS_RENDER_MODE SNDRV_COMPRESS_RENDER_MODE
+#define SNDRV_COMPRESS_CLK_REC_MODE SNDRV_COMPRESS_CLK_REC_MODE
 
 /**
  * struct snd_compr_metadata - compressed stream metadata
