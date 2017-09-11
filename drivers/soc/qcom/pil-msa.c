@@ -269,7 +269,7 @@ static int pil_mss_restart_reg(struct q6v5_data *drv, u32 mss_restart)
 	return ret;
 }
 
-static int pil_mss_assert_resets(struct q6v5_data *drv)
+int pil_mss_assert_resets(struct q6v5_data *drv)
 {
 	int ret = 0;
 
@@ -280,7 +280,7 @@ static int pil_mss_assert_resets(struct q6v5_data *drv)
 	return ret;
 }
 
-static int pil_mss_deassert_resets(struct q6v5_data *drv)
+int pil_mss_deassert_resets(struct q6v5_data *drv)
 {
 	int ret = 0;
 
