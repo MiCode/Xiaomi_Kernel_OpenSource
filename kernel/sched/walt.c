@@ -19,6 +19,7 @@
  *             and Todd Kjos
  */
 
+#include <linux/acpi.h>
 #include <linux/syscore_ops.h>
 #include <linux/cpufreq.h>
 #include <trace/events/sched.h>
@@ -1017,6 +1018,11 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 	 */
 	for_each_cpu(i, cpus) {
 		struct rq *rq = cpu_rq(i);
+
+		if (!acpi_disabled && !rq->max_freq) {
+			pr_warn("max frequency for CPU%d not populated\n", i);
+			continue;
+		}
 
 		rq->capacity = compute_capacity(i);
 		rq->load_scale_factor = compute_load_scale_factor(i);
