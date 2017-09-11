@@ -1610,14 +1610,24 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 				pmqos_active_vote);
 
 	/* Send OOB request to allow IFPC */
-	if (gpudev->oob_clear)
+	if (gpudev->oob_clear) {
 		gpudev->oob_clear(adreno_dev, OOB_GPUSTART_CLEAR_MASK);
+
+		/* If we made it this far, the BOOT OOB was sent to the GMU */
+		if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
+			gpudev->oob_clear(adreno_dev,
+					OOB_BOOT_SLUMBER_CLEAR_MASK);
+	}
 
 	return 0;
 
 error_oob_clear:
-	if (gpudev->oob_clear)
+	if (gpudev->oob_clear) {
 		gpudev->oob_clear(adreno_dev, OOB_GPUSTART_CLEAR_MASK);
+		if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
+			gpudev->oob_clear(adreno_dev,
+					OOB_BOOT_SLUMBER_CLEAR_MASK);
+	}
 
 error_mmu_off:
 	kgsl_mmu_stop(&device->mmu);

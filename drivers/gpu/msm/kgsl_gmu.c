@@ -1468,10 +1468,6 @@ int gmu_start(struct kgsl_device *device)
 		break;
 	}
 
-	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
-		gpudev->oob_clear(adreno_dev,
-				OOB_BOOT_SLUMBER_CLEAR_MASK);
-
 	return ret;
 
 error_gmu:
