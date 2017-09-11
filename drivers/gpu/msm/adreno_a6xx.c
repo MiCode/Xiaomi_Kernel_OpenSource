@@ -1366,8 +1366,9 @@ static int a6xx_notify_slumber(struct kgsl_device *device)
 	/* Disable the power counter so that the GMU is not busy */
 	kgsl_gmu_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 0);
 
-	/* Turn off SPTPRAC before GMU turns off GX */
-	a6xx_sptprac_disable(adreno_dev);
+	/* Turn off SPTPRAC if we own it */
+	if (gmu->idle_level < GPU_HW_SPTP_PC)
+		a6xx_sptprac_disable(adreno_dev);
 
 	if (!ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
 		ret = hfi_notify_slumber(gmu, perf_idx, bus_level);
