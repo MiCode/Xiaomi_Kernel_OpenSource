@@ -161,6 +161,62 @@ DEFINE_EVENT(iommu_error, io_page_fault,
 
 	TP_ARGS(dev, iova, flags)
 );
+
+DECLARE_EVENT_CLASS(iommu_errata_tlbi,
+
+	TP_PROTO(struct device *dev, u64 time),
+
+	TP_ARGS(dev, time),
+
+	TP_STRUCT__entry(
+		__string(device, dev_name(dev))
+		__field(u64, time)
+	),
+
+	TP_fast_assign(
+		__assign_str(device, dev_name(dev));
+		__entry->time = time;
+	),
+
+	TP_printk("IOMMU:%s %lld us",
+			__get_str(device), __entry->time
+	)
+);
+
+DEFINE_EVENT(iommu_errata_tlbi, errata_tlbi_start,
+
+	TP_PROTO(struct device *dev, u64 time),
+
+	TP_ARGS(dev, time)
+);
+
+DEFINE_EVENT(iommu_errata_tlbi, errata_tlbi_end,
+
+	TP_PROTO(struct device *dev, u64 time),
+
+	TP_ARGS(dev, time)
+);
+
+DEFINE_EVENT(iommu_errata_tlbi, errata_throttle_start,
+
+	TP_PROTO(struct device *dev, u64 time),
+
+	TP_ARGS(dev, time)
+);
+
+DEFINE_EVENT(iommu_errata_tlbi, errata_throttle_end,
+
+	TP_PROTO(struct device *dev, u64 time),
+
+	TP_ARGS(dev, time)
+);
+
+DEFINE_EVENT(iommu_errata_tlbi, errata_failed,
+
+	TP_PROTO(struct device *dev, u64 time),
+
+	TP_ARGS(dev, time)
+);
 #endif /* _TRACE_IOMMU_H */
 
 /* This part must be outside protection */
