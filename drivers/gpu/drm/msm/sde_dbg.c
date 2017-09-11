@@ -3067,9 +3067,7 @@ void sde_dbg_init_dbg_buses(u32 hwversion)
 	memset(&dbg->dbgbus_sde, 0, sizeof(dbg->dbgbus_sde));
 	memset(&dbg->dbgbus_vbif_rt, 0, sizeof(dbg->dbgbus_vbif_rt));
 
-	switch (hwversion) {
-	case SDE_HW_VER_300:
-	case SDE_HW_VER_301:
+	if (IS_MSM8998_TARGET(hwversion)) {
 		dbg->dbgbus_sde.entries = dbg_bus_sde_8998;
 		dbg->dbgbus_sde.cmn.entries_size = ARRAY_SIZE(dbg_bus_sde_8998);
 		dbg->dbgbus_sde.cmn.flags = DBGBUS_FLAGS_DSPP;
@@ -3077,9 +3075,7 @@ void sde_dbg_init_dbg_buses(u32 hwversion)
 		dbg->dbgbus_vbif_rt.entries = vbif_dbg_bus_msm8998;
 		dbg->dbgbus_vbif_rt.cmn.entries_size =
 				ARRAY_SIZE(vbif_dbg_bus_msm8998);
-		break;
-
-	case SDE_HW_VER_400:
+	} else if (IS_SDM845_TARGET(hwversion)) {
 		dbg->dbgbus_sde.entries = dbg_bus_sde_sdm845;
 		dbg->dbgbus_sde.cmn.entries_size =
 				ARRAY_SIZE(dbg_bus_sde_sdm845);
@@ -3089,10 +3085,8 @@ void sde_dbg_init_dbg_buses(u32 hwversion)
 		dbg->dbgbus_vbif_rt.entries = vbif_dbg_bus_msm8998;
 		dbg->dbgbus_vbif_rt.cmn.entries_size =
 				ARRAY_SIZE(vbif_dbg_bus_msm8998);
-		break;
-	default:
-		pr_err("unsupported chipset id %u\n", hwversion);
-		break;
+	} else {
+		pr_err("unsupported chipset id %X\n", hwversion);
 	}
 }
 

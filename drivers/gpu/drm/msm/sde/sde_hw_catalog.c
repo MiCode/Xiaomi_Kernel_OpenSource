@@ -2944,33 +2944,25 @@ static int _sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 
 	rc = sde_hardware_format_caps(sde_cfg, hw_rev);
 
-	switch (hw_rev) {
-	case SDE_HW_VER_170:
-	case SDE_HW_VER_171:
-	case SDE_HW_VER_172:
+	if (IS_MSM8996_TARGET(hw_rev)) {
 		/* update msm8996 target here */
 		sde_cfg->perf.min_prefill_lines = 21;
-		break;
-	case SDE_HW_VER_300:
-	case SDE_HW_VER_301:
+	} else if (IS_MSM8998_TARGET(hw_rev)) {
 		/* update msm8998 target here */
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->perf.min_prefill_lines = 25;
 		sde_cfg->vbif_qos_nlvl = 4;
 		sde_cfg->ts_prefill_rev = 1;
-		sde_cfg->perf.min_prefill_lines = 25;
-		break;
-	case SDE_HW_VER_400:
+	} else if (IS_SDM845_TARGET(hw_rev)) {
 		/* update sdm845 target here */
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->perf.min_prefill_lines = 24;
 		sde_cfg->vbif_qos_nlvl = 8;
 		sde_cfg->ts_prefill_rev = 2;
-		sde_cfg->perf.min_prefill_lines = 24;
-		break;
-	default:
+	} else {
+		SDE_ERROR("unsupported chipset id:%X\n", hw_rev);
 		sde_cfg->perf.min_prefill_lines = 0xffff;
-		break;
+		rc = -ENODEV;
 	}
 
 	return rc;
