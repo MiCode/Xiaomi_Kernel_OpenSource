@@ -49,10 +49,10 @@
 #define BUS_DOWN 1
 
 /*
- * 50 Milliseconds sufficient for DSP bring up in the lpass
+ * 200 Milliseconds sufficient for DSP bring up in the lpass
  * after Sub System Restart
  */
-#define ADSP_STATE_READY_TIMEOUT_MS 50
+#define ADSP_STATE_READY_TIMEOUT_MS 200
 
 #define EAR_PMD 0
 #define EAR_PMU 1
