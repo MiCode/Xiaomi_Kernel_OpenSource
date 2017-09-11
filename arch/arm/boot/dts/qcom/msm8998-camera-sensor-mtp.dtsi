@@ -54,6 +54,13 @@
 		qcom,cam-vreg-op-mode = <0>;
 	};
 
+	laserled0: qcom,laserled@0 {
+		cell-index = <0>;
+		reg = <0x0>;
+		compatible = "qcom,laser-led";
+		qcom,cci-master = <1>;
+	};
+
 	actuator1: qcom,actuator@1 {
 		cell-index = <1>;
 		reg = <0x1>;
@@ -322,6 +329,7 @@
 		qcom,eeprom-src = <&eeprom2>;
 		qcom,led-flash-src = <&led_flash1>;
 		qcom,actuator-src = <&actuator1>;
+		qcom,laserled-src = <&laserled0>;
 		cam_vio-supply = <&pm8998_lvs1>;
 		cam_vana-supply = <&pm8998_l22>;
 		cam_vdig-supply = <&pm8998_s3>;
