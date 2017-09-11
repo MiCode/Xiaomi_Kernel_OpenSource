@@ -128,11 +128,19 @@ struct snd_compr_codec_caps {
  * end of the track
  * @SNDRV_COMPRESS_ENCODER_DELAY: no of samples inserted by the encoder at the
  * beginning of the track
+ * @SNDRV_COMPRESS_PATH_DELAY: dsp path delay in microseconds
  */
 enum sndrv_compress_encoder {
 	SNDRV_COMPRESS_ENCODER_PADDING = 1,
 	SNDRV_COMPRESS_ENCODER_DELAY = 2,
+#ifdef CONFIG_AUDIO_QGKI
+	SNDRV_COMPRESS_PATH_DELAY = 3,
+#endif
 };
+
+#ifdef CONFIG_AUDIO_QGKI
+#define SNDRV_COMPRESS_PATH_DELAY SNDRV_COMPRESS_PATH_DELAY
+#endif
 
 /**
  * struct snd_compr_metadata - compressed stream metadata
