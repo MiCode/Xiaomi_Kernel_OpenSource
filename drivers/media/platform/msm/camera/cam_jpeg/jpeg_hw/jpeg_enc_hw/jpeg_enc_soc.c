@@ -55,7 +55,7 @@ int cam_jpeg_enc_disable_soc_resources(struct cam_hw_soc_info *soc_info)
 {
 	int rc;
 
-	rc = cam_soc_util_disable_platform_resource(soc_info, true, false);
+	rc = cam_soc_util_disable_platform_resource(soc_info, true, true);
 	if (rc)
 		CAM_ERR(CAM_JPEG, "disable platform failed %d", rc);
 
