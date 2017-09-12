@@ -16,4 +16,5 @@
 
 &qupv3_se10_i2c {
 	/delete-node/ qcom,smb1355@8;
+	/delete-node/ qcom,smb1355@c;
 };

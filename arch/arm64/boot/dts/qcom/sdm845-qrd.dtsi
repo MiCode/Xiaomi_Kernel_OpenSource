@@ -88,7 +88,11 @@
 	qcom,fg-bmd-en-delay-ms = <300>;
 };
 
-&smb1355_charger {
+&smb1355_charger_0 {
+	status = "ok";
+};
+
+&smb1355_charger_1 {
 	status = "ok";
 };
 
