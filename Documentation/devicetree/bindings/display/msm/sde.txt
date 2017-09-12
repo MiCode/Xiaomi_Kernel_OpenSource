@@ -380,6 +380,14 @@ Optional properties:
 				match the number of xin-ids defined in
 				property: qcom,sde-inline-rot-xin
 - #power-domain-cells:		Number of cells in a power-domain specifier and should contain 0.
+- qcom,sde-mixer-display-pref:  A string array indicating the preferred display type
+				for the mixer block. Possible values:
+				"primary" - preferred for primary display
+				"none" - no preference on display
+- qcom,sde-ctl-display-pref:    A string array indicating the preferred display type
+                                for the ctl block. Possible values:
+				"primary" - preferred for primary display
+				"none" - no preference on display
 
 Bus Scaling Subnodes:
 - qcom,sde-reg-bus:		Property to provide Bus scaling for register access for
@@ -465,8 +473,12 @@ Example:
     qcom,sde-off = <0x1000>;
     qcom,sde-ctl-off = <0x00002000 0x00002200 0x00002400
 		     0x00002600 0x00002800>;
+    qcom,sde-ctl-display-pref = "primary", "none", "none",
+	             "none", "none";
     qcom,sde-mixer-off = <0x00045000 0x00046000
 			0x00047000 0x0004a000>;
+    qcom,sde-mixer-display-pref = "primary", "none",
+	                "none", "none";
     qcom,sde-dspp-top-off = <0x1300>;
     qcom,sde-dspp-off = <0x00055000 0x00057000>;
     qcom,sde-dspp-ad-off = <0x24000 0x22800>;
