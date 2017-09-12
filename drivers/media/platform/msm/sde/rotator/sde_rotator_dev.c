@@ -2614,13 +2614,6 @@ static long sde_rotator_private_ioctl(struct file *file, void *fh,
 			}
 
 			/**
-			 * Loose any reference to sync fence once we pass
-			 * it to user. Driver does not clean up user
-			 * unclosed fence descriptors.
-			 */
-			vbinfo->fence = NULL;
-
-			/**
 			 * Cache fence descriptor in case user calls this
 			 * ioctl multiple times. Cached value would be stale
 			 * if user duplicated and closed old descriptor.
