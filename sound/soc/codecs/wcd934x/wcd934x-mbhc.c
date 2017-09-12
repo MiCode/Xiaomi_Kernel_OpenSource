@@ -42,7 +42,7 @@
 /* Z floating defined in ohms */
 #define TAVIL_ZDET_FLOATING_IMPEDANCE 0x0FFFFFFE
 
-#define TAVIL_ZDET_NUM_MEASUREMENTS   150
+#define TAVIL_ZDET_NUM_MEASUREMENTS   900
 #define TAVIL_MBHC_GET_C1(c)          ((c & 0xC000) >> 14)
 #define TAVIL_MBHC_GET_X1(x)          (x & 0x3FFF)
 /* Z value compared in milliOhm */
