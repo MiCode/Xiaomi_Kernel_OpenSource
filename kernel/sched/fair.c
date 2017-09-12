@@ -5438,19 +5438,7 @@ struct energy_env {
 	int			dst_cpu;
 	int			trg_cpu;
 	int			energy;
-	int			payoff;
 	struct task_struct	*p;
-	struct {
-		int before;
-		int after;
-		int delta;
-		int diff;
-	} nrg;
-	struct {
-		int before;
-		int after;
-		int delta;
-	} cap;
 };
 
 static int cpu_util_wake(int cpu, struct task_struct *p);
@@ -5669,22 +5657,6 @@ static int sched_group_energy(struct energy_env *eenv)
 					eenv->sg_cap = sg;
 
 				cap_idx = find_new_capacity(eenv, sg->sge);
-
-				if (sg->group_weight == 1) {
-					/* Remove capacity of src CPU (before task move) */
-					if (eenv->trg_cpu == eenv->src_cpu &&
-					    cpumask_test_cpu(eenv->src_cpu, sched_group_cpus(sg))) {
-						eenv->cap.before = sg->sge->cap_states[cap_idx].cap;
-						eenv->cap.delta -= eenv->cap.before;
-					}
-					/* Add capacity of dst CPU  (after task move) */
-					if (eenv->trg_cpu == eenv->dst_cpu &&
-					    cpumask_test_cpu(eenv->dst_cpu, sched_group_cpus(sg))) {
-						eenv->cap.after = sg->sge->cap_states[cap_idx].cap;
-						eenv->cap.delta += eenv->cap.after;
-					}
-				}
-
 				idle_idx = group_idle_state(eenv, sg);
 				group_util = group_norm_util(eenv, sg);
 
@@ -5715,7 +5687,7 @@ next_cpu:
 		continue;
 	}
 
-	eenv->energy = total_energy >> SCHED_CAPACITY_SHIFT;
+	eenv->energy += (total_energy >> SCHED_CAPACITY_SHIFT);
 	return 0;
 }
 
@@ -5733,21 +5705,21 @@ static inline unsigned long task_util(struct task_struct *p);
  * utilization is removed from or added to the system (e.g. task wake-up). If
  * both are specified, the utilization is migrated.
  */
-static inline int __energy_diff(struct energy_env *eenv)
+static inline int energy_diff(struct energy_env *eenv)
 {
 	struct sched_domain *sd;
 	struct sched_group *sg;
-	int sd_cpu = -1, energy_before = 0, energy_after = 0;
-	int diff, margin;
+	int energy_diff = 0;
+	int sd_cpu = -1;
+	int margin;
 
 	struct energy_env eenv_before = {
 		.util_delta	= task_util(eenv->p),
 		.src_cpu	= eenv->src_cpu,
 		.dst_cpu	= eenv->dst_cpu,
 		.trg_cpu	= eenv->src_cpu,
-		.nrg		= { 0, 0, 0, 0},
-		.cap		= { 0, 0, 0 },
-		.p  		= eenv->p,
+		.energy		= 0,
+		.p              = eenv->p,
 	};
 
 	if (eenv->src_cpu == eenv->dst_cpu)
@@ -5764,122 +5736,23 @@ static inline int __energy_diff(struct energy_env *eenv)
 	do {
 		if (cpu_in_sg(sg, eenv->src_cpu) || cpu_in_sg(sg, eenv->dst_cpu)) {
 			eenv_before.sg_top = eenv->sg_top = sg;
-
 			if (sched_group_energy(&eenv_before))
 				return 0; /* Invalid result abort */
-			energy_before += eenv_before.energy;
-
-			/* Keep track of SRC cpu (before) capacity */
-			eenv->cap.before = eenv_before.cap.before;
-			eenv->cap.delta = eenv_before.cap.delta;
-
 			if (sched_group_energy(eenv))
 				return 0; /* Invalid result abort */
-			energy_after += eenv->energy;
 		}
 	} while (sg = sg->next, sg != sd->groups);
-
-	eenv->nrg.before = energy_before;
-	eenv->nrg.after = energy_after;
-	eenv->nrg.diff = eenv->nrg.after - eenv->nrg.before;
-	eenv->payoff = 0;
+	energy_diff = eenv->energy - eenv_before.energy;
 
 	/*
 	 * Dead-zone margin preventing too many migrations.
 	 */
+	margin = eenv->energy >> 6; /* ~1.56% */
+	if (abs(energy_diff) < margin)
+		energy_diff = 0;
 
-	margin = eenv->nrg.before >> 6; /* ~1.56% */
-
-	diff = eenv->nrg.after - eenv->nrg.before;
-
-	eenv->nrg.diff = (abs(diff) < margin) ? 0 : eenv->nrg.diff;
-
-	return eenv->nrg.diff;
+	return energy_diff;
 }
-
-#ifdef CONFIG_SCHED_TUNE
-
-struct target_nrg schedtune_target_nrg;
-extern bool schedtune_initialized;
-/*
- * System energy normalization
- * Returns the normalized value, in the range [0..SCHED_CAPACITY_SCALE],
- * corresponding to the specified energy variation.
- */
-static inline int
-normalize_energy(int energy_diff)
-{
-	u32 normalized_nrg;
-
-	/* during early setup, we don't know the extents */
-	if (unlikely(!schedtune_initialized))
-		return energy_diff < 0 ? -1 : 1 ;
-
-#ifdef CONFIG_SCHED_DEBUG
-	{
-	int max_delta;
-
-	/* Check for boundaries */
-	max_delta  = schedtune_target_nrg.max_power;
-	max_delta -= schedtune_target_nrg.min_power;
-	WARN_ON(abs(energy_diff) >= max_delta);
-	}
-#endif
-
-	/* Do scaling using positive numbers to increase the range */
-	normalized_nrg = (energy_diff < 0) ? -energy_diff : energy_diff;
-
-	/* Scale by energy magnitude */
-	normalized_nrg <<= SCHED_CAPACITY_SHIFT;
-
-	/* Normalize on max energy for target platform */
-	normalized_nrg = reciprocal_divide(
-			normalized_nrg, schedtune_target_nrg.rdiv);
-
-	return (energy_diff < 0) ? -normalized_nrg : normalized_nrg;
-}
-
-static inline int
-energy_diff(struct energy_env *eenv)
-{
-	int boost = schedtune_task_boost(eenv->p);
-	int nrg_delta;
-
-	/* Conpute "absolute" energy diff */
-	__energy_diff(eenv);
-
-	/* Return energy diff when boost margin is 0 */
-	if (boost == 0) {
-		trace_sched_energy_diff(eenv->p,
-				eenv->src_cpu, eenv->dst_cpu, eenv->util_delta,
-				eenv->nrg.before, eenv->nrg.after, eenv->nrg.diff,
-				eenv->cap.before, eenv->cap.after, eenv->cap.delta,
-				0, -eenv->nrg.diff);
-		return eenv->nrg.diff;
-	}
-
-	/* Compute normalized energy diff */
-	nrg_delta = normalize_energy(eenv->nrg.diff);
-	eenv->nrg.delta = nrg_delta;
-
-	eenv->payoff = schedtune_accept_deltas(
-			eenv->nrg.delta,
-			eenv->cap.delta,
-			eenv->p);
-
-	/*
-	 * When SchedTune is enabled, the energy_diff() function will return
-	 * the computed energy payoff value. Since the energy_diff() return
-	 * value is expected to be negative by its callers, this evaluation
-	 * function return a negative value each time the evaluation return a
-	 * positive payoff, which is the condition for the acceptance of
-	 * a scheduling decision
-	 */
-	return -eenv->payoff;
-}
-#else /* CONFIG_SCHED_TUNE */
-#define energy_diff(eenv) __energy_diff(eenv)
-#endif
 
 /*
  * Detect M:N waker/wakee relationships via a switching-frequency heuristic.
