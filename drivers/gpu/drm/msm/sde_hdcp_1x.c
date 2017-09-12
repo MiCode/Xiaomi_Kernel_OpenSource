@@ -1201,9 +1201,16 @@ static int sde_hdcp_1x_authentication_part2(struct sde_hdcp_1x *hdcp)
 		if (rc)
 			goto error;
 
-		/* do not proceed further if no device connected */
-		if (!hdcp->current_tp.dev_count)
+		/*
+		 * Do not proceed further if no device connected
+		 * If no downstream devices are attached to the repeater
+		 * then part II fails.
+		 */
+
+		if (!hdcp->current_tp.dev_count) {
+			rc = -EINVAL;
 			goto error;
+		}
 
 		rc = sde_hdcp_1x_write_ksv_fifo(hdcp);
 	} while (--v_retry && rc);
