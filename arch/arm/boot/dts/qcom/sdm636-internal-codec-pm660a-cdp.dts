@@ -22,5 +22,7 @@
 	model = "Qualcomm Technologies, Inc. SDM 636 PM660 + PM660A Int. Audio Codec CDP";
 	compatible = "qcom,sdm636-cdp", "qcom,sdm636", "qcom,cdp";
 	qcom,board-id = <1 1>;
-	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>;
+	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>,
+			<0x0001001b 0x0002001a 0x0 0x0>,
+			<0x0001001b 0x0202001a 0x0 0x0>;
 };

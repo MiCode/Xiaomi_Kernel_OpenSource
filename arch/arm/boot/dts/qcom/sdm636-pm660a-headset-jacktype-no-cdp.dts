@@ -22,7 +22,9 @@
 	model = "Qualcomm Technologies, Inc. SDM 636 PM660 + PM660A, Headset Jacktype NO, CDP";
 	compatible = "qcom,sdm636-cdp", "qcom,sdm636", "qcom,cdp";
 	qcom,board-id = <1 2>;
-	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>;
+	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>,
+			<0x0001001b 0x0002001a 0x0 0x0>,
+			<0x0001001b 0x0202001a 0x0 0x0>;
 };
 
 &mdss_dsi0 {
