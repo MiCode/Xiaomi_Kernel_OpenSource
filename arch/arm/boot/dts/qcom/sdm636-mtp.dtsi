@@ -11,6 +11,7 @@
  */
 
 #include "sdm660-mtp.dtsi"
+#include "sdm636-camera-sensor-mtp.dtsi"
 / {
 };
 
