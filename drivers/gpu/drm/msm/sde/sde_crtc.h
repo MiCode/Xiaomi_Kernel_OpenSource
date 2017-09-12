@@ -204,6 +204,8 @@ struct sde_crtc_event {
  * @misr_enable   : boolean entry indicates misr enable/disable status.
  * @misr_frame_count  : misr frame count provided by client
  * @misr_data     : store misr data before turning off the clocks.
+ * @sbuf_flush_mask: flush mask for inline rotator
+ * @sbuf_flush_mask_old: inline rotator flush mask for previous commit
  * @power_event   : registered power event handle
  * @cur_perf      : current performance committed to clock/bandwidth driver
  * @rp_lock       : serialization lock for resource pool
@@ -263,6 +265,9 @@ struct sde_crtc {
 	bool misr_enable;
 	u32 misr_frame_count;
 	u32 misr_data[CRTC_DUAL_MIXERS];
+
+	u32 sbuf_flush_mask;
+	u32 sbuf_flush_mask_old;
 
 	struct sde_power_event *power_event;
 
@@ -357,8 +362,6 @@ struct sde_crtc_respool {
  * @new_perf: new performance state being requested
  * @sbuf_cfg: stream buffer configuration
  * @sbuf_prefill_line: number of line for inline rotator prefetch
- * @sbuf_flush_mask: flush mask for inline rotator
- * @is_sbuf: whether or not the CRTC is using inline rotation
  */
 struct sde_crtc_state {
 	struct drm_crtc_state base;
@@ -386,8 +389,6 @@ struct sde_crtc_state {
 	struct sde_core_perf_params new_perf;
 	struct sde_ctl_sbuf_cfg sbuf_cfg;
 	u32 sbuf_prefill_line;
-	u32 sbuf_flush_mask;
-	bool is_sbuf;
 
 	struct sde_crtc_respool rp;
 };
