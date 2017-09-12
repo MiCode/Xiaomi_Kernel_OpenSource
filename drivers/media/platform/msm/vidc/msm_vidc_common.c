@@ -2180,7 +2180,8 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 			"%s: Send sys error for inst %pK\n", __func__, inst);
 		change_inst_state(inst, MSM_VIDC_CORE_INVALID);
 		msm_vidc_queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_SYS_ERROR);
-		msm_comm_print_inst_info(inst);
+		if (!core->trigger_ssr)
+			msm_comm_print_inst_info(inst);
 	}
 	dprintk(VIDC_DBG, "Calling core_release\n");
 	rc = call_hfi_op(hdev, core_release, hdev->hfi_device_data);
