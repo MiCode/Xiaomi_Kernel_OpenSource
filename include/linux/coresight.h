@@ -158,6 +158,7 @@ struct coresight_connection {
  * @activated:	'true' only if a _sink_ has been activated.  A sink can be
 		activated but not yet enabled.  Enabling for a _sink_
 		happens when a source has been selected for that it.
+ * @abort:     captures sink trace on abort.
  */
 struct coresight_device {
 	struct coresight_connection *conns;
@@ -206,6 +207,7 @@ struct coresight_ops_sink {
 	void (*update_buffer)(struct coresight_device *csdev,
 			      struct perf_output_handle *handle,
 			      void *sink_config);
+	void (*abort)(struct coresight_device *csdev);
 };
 
 /**
@@ -252,6 +254,7 @@ extern int coresight_enable(struct coresight_device *csdev);
 extern void coresight_disable(struct coresight_device *csdev);
 extern int coresight_timeout(void __iomem *addr, u32 offset,
 			     int position, int value);
+extern void coresight_abort(void);
 #else
 static inline struct coresight_device *
 coresight_register(struct coresight_desc *desc) { return NULL; }
@@ -261,6 +264,7 @@ coresight_enable(struct coresight_device *csdev) { return -ENOSYS; }
 static inline void coresight_disable(struct coresight_device *csdev) {}
 static inline int coresight_timeout(void __iomem *addr, u32 offset,
 				     int position, int value) { return 1; }
+static inline void coresight_abort(void) {}
 #endif
 
 #ifdef CONFIG_OF

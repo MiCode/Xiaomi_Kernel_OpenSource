@@ -24,7 +24,7 @@
 #include "cam_req_mgr_workq.h"
 #include "cam_mem_mgr.h"
 #include "cam_smmu_api.h"
-
+#include "cam_soc_util.h"
 
 #define CAM_ICP_ROLE_PARENT     1
 #define CAM_ICP_ROLE_CHILD      2
@@ -44,6 +44,12 @@
 
 #define ICP_FRAME_PROCESS_SUCCESS 0
 #define ICP_FRAME_PROCESS_FAILURE 1
+
+#define ICP_CLK_HW_IPE          0x0
+#define ICP_CLK_HW_BPS          0x1
+#define ICP_CLK_HW_MAX          0x2
+
+#define ICP_OVER_CLK_THRESHOLD  15
 
 /**
  * struct icp_hfi_mem_info
@@ -97,6 +103,8 @@ struct hfi_msg_work_data {
  * @request_id: Request id list
  * @num_out_resources: Number of out syncs
  * @out_resource: Out sync info
+ * @fw_process_flag: Frame process flag
+ * @clk_info: Clock information for a request
  */
 struct hfi_frame_process_info {
 	struct hfi_cmd_ipebps_async hfi_frame_cmd[CAM_FRAME_CMD_MAX];
@@ -106,8 +114,27 @@ struct hfi_frame_process_info {
 	uint64_t request_id[CAM_FRAME_CMD_MAX];
 	uint32_t num_out_resources[CAM_FRAME_CMD_MAX];
 	uint32_t out_resource[CAM_FRAME_CMD_MAX][CAM_MAX_OUT_RES];
+	uint32_t fw_process_flag[CAM_FRAME_CMD_MAX];
+	struct cam_icp_clk_bw_request clk_info[CAM_FRAME_CMD_MAX];
 };
 
+/**
+ * struct cam_ctx_clk_info
+ * @curr_fc: Context latest request frame cycles
+ * @rt_flag: Flag to indicate real time request
+ * @base_clk: Base clock to process the request
+ * #uncompressed_bw: Current bandwidth voting
+ * @compressed_bw: Current compressed bandwidth voting
+ * @clk_rate: Supported clock rates for the context
+ */
+struct cam_ctx_clk_info {
+	uint32_t curr_fc;
+	uint32_t rt_flag;
+	uint32_t base_clk;
+	uint32_t uncompressed_bw;
+	uint32_t compressed_bw;
+	int32_t clk_rate[CAM_MAX_VOTE];
+};
 /**
  * struct cam_icp_hw_ctx_data
  * @context_priv: Context private data
@@ -122,8 +149,9 @@ struct hfi_frame_process_info {
  * @chain_ctx: Peer context
  * @hfi_frame_process: Frame process command
  * @wait_complete: Completion info
- * @ctx_id: Context Id
  * @temp_payload: Payload for destroy handle data
+ * @ctx_id: Context Id
+ * @clk_info: Current clock info of a context
  */
 struct cam_icp_hw_ctx_data {
 	void *context_priv;
@@ -140,6 +168,35 @@ struct cam_icp_hw_ctx_data {
 	struct completion wait_complete;
 	struct ipe_bps_destroy temp_payload;
 	uint32_t ctx_id;
+	struct cam_ctx_clk_info clk_info;
+};
+
+/**
+ * struct icp_cmd_generic_blob
+ * @ctx: Current context info
+ * @frame_info_idx: Index used for frame process info
+ */
+struct icp_cmd_generic_blob {
+	struct cam_icp_hw_ctx_data *ctx;
+	uint32_t frame_info_idx;
+};
+
+/**
+ * struct cam_icp_clk_info
+ * @base_clk: Base clock to process request
+ * @curr_clk: Current clock of hadrware
+ * @threshold: Threshold for overclk count
+ * @over_clked: Over clock count
+ * #uncompressed_bw: Current bandwidth voting
+ * @compressed_bw: Current compressed bandwidth voting
+ */
+struct cam_icp_clk_info {
+	uint32_t base_clk;
+	uint32_t curr_clk;
+	uint32_t threshold;
+	uint32_t over_clked;
+	uint32_t uncompressed_bw;
+	uint32_t compressed_bw;
 };
 
 /**
@@ -166,6 +223,9 @@ struct cam_icp_hw_ctx_data {
  * @dentry: Debugfs entry
  * @a5_debug: A5 debug flag
  * @icp_pc_flag: Flag to enable/disable power collapse
+ * @icp_debug_clk: Set clock based on debug value
+ * @icp_default_clk: Set this clok if user doesn't supply
+ * @clk_info: Clock info of hardware
  */
 struct cam_icp_hw_mgr {
 	struct mutex hw_mgr_mutex;
@@ -192,6 +252,9 @@ struct cam_icp_hw_mgr {
 	struct dentry *dentry;
 	bool a5_debug;
 	bool icp_pc_flag;
+	uint64_t icp_debug_clk;
+	uint64_t icp_default_clk;
+	struct cam_icp_clk_info clk_info[ICP_CLK_HW_MAX];
 };
 
 static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args);

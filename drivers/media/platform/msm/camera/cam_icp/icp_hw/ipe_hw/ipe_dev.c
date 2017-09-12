@@ -86,6 +86,8 @@ int cam_ipe_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	ipe_dev->soc_info.pdev = pdev;
+	ipe_dev->soc_info.dev = &pdev->dev;
+	ipe_dev->soc_info.dev_name = pdev->name;
 	ipe_dev_intf->hw_priv = ipe_dev;
 	ipe_dev_intf->hw_ops.init = cam_ipe_init_hw;
 	ipe_dev_intf->hw_ops.deinit = cam_ipe_deinit_hw;

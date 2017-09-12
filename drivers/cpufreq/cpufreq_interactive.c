@@ -455,15 +455,11 @@ static u64 update_load(int cpu)
 	struct cpufreq_interactive_cpuinfo *pcpu = &per_cpu(cpuinfo, cpu);
 	struct cpufreq_interactive_tunables *tunables =
 		ppol->policy->governor_data;
-	u64 now;
-	u64 now_idle;
-	unsigned int delta_idle;
-	unsigned int delta_time;
-	u64 active_time;
+	u64 now_idle, now, active_time, delta_idle, delta_time;
 
 	now_idle = get_cpu_idle_time(cpu, &now, tunables->io_is_busy);
-	delta_idle = (unsigned int)(now_idle - pcpu->time_in_idle);
-	delta_time = (unsigned int)(now - pcpu->time_in_idle_timestamp);
+	delta_idle = (now_idle - pcpu->time_in_idle);
+	delta_time = (now - pcpu->time_in_idle_timestamp);
 
 	if (delta_time <= delta_idle)
 		active_time = 0;

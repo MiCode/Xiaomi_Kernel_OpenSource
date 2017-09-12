@@ -1259,11 +1259,13 @@ struct sde_kms_fbo *sde_kms_fbo_alloc(struct drm_device *dev, u32 width,
 	/* allocate backing buffer object */
 	if (sde_kms->iclient) {
 		u32 heap_id = fbo->flags & DRM_MODE_FB_SECURE ?
-				ION_HEAP(ION_SECURE_DISPLAY_HEAP_ID) :
+				ION_HEAP(ION_SECURE_HEAP_ID) :
 				ION_HEAP(ION_SYSTEM_HEAP_ID);
+		u32 iflags = fbo->flags & DRM_MODE_FB_SECURE ?
+				(ION_FLAG_SECURE | ION_FLAG_CP_PIXEL) : 0;
 
 		fbo->ihandle = ion_alloc(sde_kms->iclient,
-				fbo->layout.total_size, SZ_4K, heap_id, 0);
+				fbo->layout.total_size, SZ_4K, heap_id, iflags);
 		if (IS_ERR_OR_NULL(fbo->ihandle)) {
 			SDE_ERROR("failed to alloc ion memory\n");
 			ret = PTR_ERR(fbo->ihandle);
@@ -1708,7 +1710,7 @@ static int sde_kms_pm_suspend(struct device *dev)
 	struct drm_connector *conn;
 	struct drm_atomic_state *state;
 	struct sde_kms *sde_kms;
-	int ret = 0;
+	int ret = 0, num_crtcs = 0;
 
 	if (!dev)
 		return -EINVAL;
@@ -1768,7 +1770,9 @@ retry:
 				drm_atomic_state_free(state);
 				goto unlock;
 			}
-		} else if (lp != SDE_MODE_DPMS_LP2) {
+		}
+
+		if (lp != SDE_MODE_DPMS_LP2) {
 			/* force CRTC to be inactive */
 			crtc_state = drm_atomic_get_crtc_state(state,
 					conn->state->crtc);
@@ -1778,8 +1782,18 @@ retry:
 				drm_atomic_state_free(state);
 				goto unlock;
 			}
-			crtc_state->active = false;
+
+			if (lp != SDE_MODE_DPMS_LP1)
+				crtc_state->active = false;
+			++num_crtcs;
 		}
+	}
+
+	/* check for nothing to do */
+	if (num_crtcs == 0) {
+		DRM_DEBUG("all crtcs are already in the off state\n");
+		drm_atomic_state_free(state);
+		goto suspended;
 	}
 
 	/* commit the "disable all" state */
@@ -1787,9 +1801,11 @@ retry:
 	if (ret < 0) {
 		DRM_ERROR("failed to disable crtcs, %d\n", ret);
 		drm_atomic_state_free(state);
-	} else {
-		sde_kms->suspend_block = true;
+		goto unlock;
 	}
+
+suspended:
+	sde_kms->suspend_block = true;
 
 unlock:
 	if (ret == -EDEADLK) {
@@ -2031,7 +2047,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	} else {
 		sde_kms->reg_dma_len = msm_iomap_size(dev->platformdev,
 								"regdma_phys");
-		rc =  sde_dbg_reg_register_base("vbif_nrt",
+		rc =  sde_dbg_reg_register_base("reg_dma",
 				sde_kms->reg_dma,
 				sde_kms->reg_dma_len);
 		if (rc)

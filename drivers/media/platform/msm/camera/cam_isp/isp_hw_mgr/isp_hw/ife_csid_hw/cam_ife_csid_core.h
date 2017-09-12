@@ -320,14 +320,14 @@ struct cam_ife_csid_csi2_rx_cfg  {
  * @width:            width
  * @height:           height
  * @test_pattern :    pattern
- * @decode_format:    decode format
+ * @in_format:        decode format
  *
  */
 struct cam_ife_csid_tpg_cfg  {
 	uint32_t                        width;
 	uint32_t                        height;
 	uint32_t                        test_pattern;
-	uint32_t                        decode_fmt;
+	uint32_t                        in_format;
 };
 
 /**
@@ -353,8 +353,8 @@ struct cam_ife_csid_cid_data {
  * @vc :            Virtual channel number
  * @dt :            Data type number
  * @cid             cid number, it is same as DT_ID number in HW
- * @decode_fmt:     input decode format
- * @output_fmt:     output resource format, needed for RDI resource
+ * @in_format:      input decode format
+ * @out_format:     output format
  * @crop_enable:    crop is enable or disabled, if enabled
  *                  then remaining parameters are valid.
  * @start_pixel:    start pixel
@@ -373,8 +373,8 @@ struct cam_ife_csid_path_cfg {
 	uint32_t                        vc;
 	uint32_t                        dt;
 	uint32_t                        cid;
-	uint32_t                        decode_fmt;
-	uint32_t                        output_fmt;
+	uint32_t                        in_format;
+	uint32_t                        out_format;
 	bool                            crop_enable;
 	uint32_t                        start_pixel;
 	uint32_t                        width;

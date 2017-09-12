@@ -51,6 +51,43 @@ static unsigned int _ft_policy_show(struct adreno_device *adreno_dev)
 	return adreno_dev->ft_policy;
 }
 
+static int _preempt_level_store(struct adreno_device *adreno_dev,
+		unsigned int val)
+{
+	if (val <= 2)
+		adreno_dev->preempt_level = val;
+	return 0;
+}
+
+static unsigned int _preempt_level_show(struct adreno_device *adreno_dev)
+{
+	return adreno_dev->preempt_level;
+}
+
+static int _usesgmem_store(struct adreno_device *adreno_dev,
+		unsigned int val)
+{
+	adreno_dev->usesgmem = val ? 1 : 0;
+	return 0;
+}
+
+static unsigned int _usesgmem_show(struct adreno_device *adreno_dev)
+{
+	return adreno_dev->usesgmem;
+}
+
+static int _skipsaverestore_store(struct adreno_device *adreno_dev,
+		unsigned int val)
+{
+	adreno_dev->skipsaverestore = val ? 1 : 0;
+	return 0;
+}
+
+static unsigned int _skipsaverestore_show(struct adreno_device *adreno_dev)
+{
+	return adreno_dev->skipsaverestore;
+}
+
 static int _ft_pagefault_policy_store(struct adreno_device *adreno_dev,
 		unsigned int val)
 {
@@ -168,13 +205,14 @@ static int _preemption_store(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	if (test_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv) == val)
+	if (test_bit(ADRENO_DEVICE_PREEMPTION_EXECUTION,
+		&adreno_dev->priv) == val)
 		return 0;
 
 	mutex_lock(&device->mutex);
 
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
-	change_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
+	change_bit(ADRENO_DEVICE_PREEMPTION_EXECUTION, &adreno_dev->priv);
 	adreno_dev->cur_rb = &(adreno_dev->ringbuffers[0]);
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
 
@@ -185,7 +223,7 @@ static int _preemption_store(struct adreno_device *adreno_dev,
 
 static unsigned int _preemption_show(struct adreno_device *adreno_dev)
 {
-	return adreno_is_preemption_enabled(adreno_dev);
+	return adreno_is_preemption_execution_enabled(adreno_dev);
 }
 
 static int _hwcg_store(struct adreno_device *adreno_dev,
@@ -313,6 +351,9 @@ static ssize_t _sysfs_show_bool(struct device *dev,
 
 static ADRENO_SYSFS_U32(ft_policy);
 static ADRENO_SYSFS_U32(ft_pagefault_policy);
+static ADRENO_SYSFS_U32(preempt_level);
+static ADRENO_SYSFS_BOOL(usesgmem);
+static ADRENO_SYSFS_BOOL(skipsaverestore);
 static ADRENO_SYSFS_BOOL(ft_long_ib_detect);
 static ADRENO_SYSFS_BOOL(ft_hang_intr_status);
 static ADRENO_SYSFS_BOOL(gpu_llc_slice_enable);
@@ -343,6 +384,9 @@ static const struct device_attribute *_attr_list[] = {
 	&adreno_attr_throttling.attr,
 	&adreno_attr_gpu_llc_slice_enable.attr,
 	&adreno_attr_gpuhtw_llc_slice_enable.attr,
+	&adreno_attr_preempt_level.attr,
+	&adreno_attr_usesgmem.attr,
+	&adreno_attr_skipsaverestore.attr,
 	NULL,
 };
 

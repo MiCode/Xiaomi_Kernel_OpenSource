@@ -13,6 +13,8 @@
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
 
+#include <uapi/drm/sde_drm.h>
+
 #include "msm_kms.h"
 #include "sde_kms.h"
 #include "sde_wb.h"
@@ -318,6 +320,10 @@ int sde_wb_connector_post_init(struct drm_connector *connector,
 	struct sde_connector *c_conn;
 	struct sde_wb_device *wb_dev = display;
 	const struct sde_format_extended *format_list;
+	static const struct drm_prop_enum_list e_fb_translation_mode[] = {
+		{SDE_DRM_FB_NON_SEC, "non_sec"},
+		{SDE_DRM_FB_SEC, "sec"},
+	};
 
 	if (!connector || !info || !display || !wb_dev->wb_cfg) {
 		SDE_ERROR("invalid params\n");
@@ -342,6 +348,12 @@ int sde_wb_connector_post_init(struct drm_connector *connector,
 			0x0, 0, UINT_MAX, 0, CONNECTOR_PROP_DST_W);
 	msm_property_install_range(&c_conn->property_info, "DST_H",
 			0x0, 0, UINT_MAX, 0, CONNECTOR_PROP_DST_H);
+	msm_property_install_enum(&c_conn->property_info,
+			"fb_translation_mode",
+			0x0,
+			0, e_fb_translation_mode,
+			ARRAY_SIZE(e_fb_translation_mode),
+			CONNECTOR_PROP_FB_TRANSLATION_MODE);
 
 	/*
 	 * Populate info buffer

@@ -1375,7 +1375,7 @@ static void gmu_snapshot(struct kgsl_device *device)
 		/* Wait for the NMI to be handled */
 		wmb();
 		udelay(100);
-		kgsl_device_snapshot(device, NULL);
+		kgsl_device_snapshot(device, ERR_PTR(-EINVAL));
 
 		adreno_write_gmureg(adreno_dev,
 				ADRENO_REG_GMU_GMU2HOST_INTR_CLR, 0xFFFFFFFF);
@@ -1536,7 +1536,9 @@ void gmu_stop(struct kgsl_device *device)
 			idle = true;
 			break;
 		}
-		cpu_relax();
+		/* Wait 100us to reduce unnecessary AHB bus traffic */
+		udelay(100);
+		cond_resched();
 	}
 
 	gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_NOTIFY_SLUMBER, 0, 0);

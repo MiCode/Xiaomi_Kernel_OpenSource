@@ -1022,6 +1022,9 @@ enum {
 
 #define TM_IO_DTEST4_SEL			(MISC_BASE + 0xE9)
 
+#define ENG_SDCDC_CFG7_REG			(MISC_BASE + 0xC6)
+#define ENG_SDCDC_BST_SET_POINT_MASK		GENMASK(7, 6)
+
 /* CHGR FREQ Peripheral registers */
 #define FREQ_CLK_DIV_REG			(CHGR_FREQ_BASE + 0x50)
 

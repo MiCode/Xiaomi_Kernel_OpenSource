@@ -716,7 +716,7 @@ static int ipa3_usb_create_rm_resources(enum ipa3_usb_transport_type ttype)
 		rm_ctx->prod_params.name = IPA3_USB_IS_TTYPE_DPL(ttype) ?
 			IPA_RM_RESOURCE_USB_DPL_DUMMY_PROD :
 			IPA_RM_RESOURCE_USB_PROD;
-		rm_ctx->prod_params.floor_voltage = IPA_VOLTAGE_SVS;
+		rm_ctx->prod_params.floor_voltage = IPA_VOLTAGE_SVS2;
 		rm_ctx->prod_params.reg_params.user_data = NULL;
 		rm_ctx->prod_params.reg_params.notify_cb =
 			IPA3_USB_IS_TTYPE_DPL(ttype) ?
@@ -741,7 +741,7 @@ static int ipa3_usb_create_rm_resources(enum ipa3_usb_transport_type ttype)
 		rm_ctx->cons_params.name = IPA3_USB_IS_TTYPE_DPL(ttype) ?
 			IPA_RM_RESOURCE_USB_DPL_CONS :
 			IPA_RM_RESOURCE_USB_CONS;
-		rm_ctx->cons_params.floor_voltage = IPA_VOLTAGE_SVS;
+		rm_ctx->cons_params.floor_voltage = IPA_VOLTAGE_SVS2;
 		rm_ctx->cons_params.reg_params.user_data = NULL;
 		rm_ctx->cons_params.reg_params.notify_cb = NULL;
 		rm_ctx->cons_params.request_resource =
@@ -784,7 +784,7 @@ int ipa_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
 
 	mutex_lock(&ipa3_usb_ctx->general_mutex);
 	IPA_USB_DBG_LOW("entry\n");
-	if (teth_prot > IPA_USB_MAX_TETH_PROT_SIZE ||
+	if (teth_prot < 0 || teth_prot >= IPA_USB_MAX_TETH_PROT_SIZE ||
 		((teth_prot == IPA_USB_RNDIS || teth_prot == IPA_USB_ECM) &&
 		teth_params == NULL) || ipa_usb_notify_cb == NULL ||
 		user_data == NULL) {
@@ -987,7 +987,8 @@ static bool ipa3_usb_check_chan_params(struct ipa_usb_xdci_chan_params *params)
 		params->xfer_scratch.depcmd_hi_addr);
 
 	if (params->client >= IPA_CLIENT_MAX  ||
-		params->teth_prot > IPA_USB_MAX_TETH_PROT_SIZE ||
+		params->teth_prot < 0 ||
+		params->teth_prot >= IPA_USB_MAX_TETH_PROT_SIZE ||
 		params->xfer_ring_len % GSI_CHAN_RE_SIZE_16B ||
 		params->xfer_scratch.const_buffer_size < 1 ||
 		params->xfer_scratch.const_buffer_size > 31) {
@@ -1251,7 +1252,7 @@ static int ipa3_usb_release_xdci_channel(u32 clnt_hdl,
 	int result = 0;
 
 	IPA_USB_DBG_LOW("entry\n");
-	if (ttype > IPA_USB_TRANSPORT_MAX) {
+	if (ttype < 0 || ttype >= IPA_USB_TRANSPORT_MAX) {
 		IPA_USB_ERR("bad parameter.\n");
 		return -EINVAL;
 	}
@@ -1355,7 +1356,8 @@ static bool ipa3_usb_check_connect_params(
 		(params->teth_prot != IPA_USB_DIAG &&
 		(params->usb_to_ipa_xferrscidx < 0 ||
 		params->usb_to_ipa_xferrscidx > 127)) ||
-		params->teth_prot > IPA_USB_MAX_TETH_PROT_SIZE) {
+		params->teth_prot < 0 ||
+		params->teth_prot >= IPA_USB_MAX_TETH_PROT_SIZE) {
 		IPA_USB_ERR("Invalid params\n");
 		return false;
 	}
@@ -2059,7 +2061,7 @@ EXPORT_SYMBOL(ipa_usb_xdci_connect);
 
 static int ipa3_usb_check_disconnect_prot(enum ipa_usb_teth_prot teth_prot)
 {
-	if (teth_prot > IPA_USB_MAX_TETH_PROT_SIZE) {
+	if (teth_prot < 0 || teth_prot >= IPA_USB_MAX_TETH_PROT_SIZE) {
 		IPA_USB_ERR("bad parameter.\n");
 		return -EFAULT;
 	}
@@ -2247,7 +2249,7 @@ int ipa_usb_deinit_teth_prot(enum ipa_usb_teth_prot teth_prot)
 
 	mutex_lock(&ipa3_usb_ctx->general_mutex);
 	IPA_USB_DBG_LOW("entry\n");
-	if (teth_prot > IPA_USB_MAX_TETH_PROT_SIZE) {
+	if (teth_prot < 0 || teth_prot >= IPA_USB_MAX_TETH_PROT_SIZE) {
 		IPA_USB_ERR("bad parameters.\n");
 		result = -EINVAL;
 		goto bad_params;
@@ -2432,7 +2434,7 @@ int ipa_usb_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	mutex_lock(&ipa3_usb_ctx->general_mutex);
 	IPA_USB_DBG_LOW("entry\n");
 
-	if (teth_prot > IPA_USB_MAX_TETH_PROT_SIZE) {
+	if (teth_prot < 0 || teth_prot >= IPA_USB_MAX_TETH_PROT_SIZE) {
 		IPA_USB_ERR("bad parameters.\n");
 		result = -EINVAL;
 		goto bad_params;
@@ -2604,7 +2606,7 @@ int ipa_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	mutex_lock(&ipa3_usb_ctx->general_mutex);
 	IPA_USB_DBG_LOW("entry\n");
 
-	if (teth_prot > IPA_USB_MAX_TETH_PROT_SIZE) {
+	if (teth_prot < 0 || teth_prot >= IPA_USB_MAX_TETH_PROT_SIZE) {
 		IPA_USB_ERR("bad parameters.\n");
 		result = -EINVAL;
 		goto bad_params;

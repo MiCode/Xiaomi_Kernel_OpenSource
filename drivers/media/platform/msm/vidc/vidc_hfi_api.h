@@ -390,6 +390,26 @@ enum hal_tme_level {
 	HAL_TME_LEVEL_INTEGER = 0x00000001,
 };
 
+enum hal_vp9_profile {
+	HAL_VP9_PROFILE_UNUSED = 0x00000000,
+	HAL_VP9_PROFILE_P0     = 0x00000001,
+	HAL_VP9_PROFILE_P2_10  = 0x00000004,
+};
+
+enum hal_vp9_level {
+	HAL_VP9_LEVEL_UNUSED = 0x00000000,
+	HAL_VP9_LEVEL_1  = 0x00000001,
+	HAL_VP9_LEVEL_11 = 0x00000002,
+	HAL_VP9_LEVEL_2  = 0x00000004,
+	HAL_VP9_LEVEL_21 = 0x00000008,
+	HAL_VP9_LEVEL_3  = 0x00000010,
+	HAL_VP9_LEVEL_31 = 0x00000020,
+	HAL_VP9_LEVEL_4  = 0x00000040,
+	HAL_VP9_LEVEL_41 = 0x00000080,
+	HAL_VP9_LEVEL_5  = 0x00000100,
+	HAL_VP9_LEVEL_51 = 0x00000200,
+};
+
 struct hal_frame_rate {
 	enum hal_buffer buffer_type;
 	u32 frame_rate;
@@ -413,6 +433,7 @@ enum hal_uncompressed_format {
 	HAL_COLOR_FORMAT_NV12_TP10_UBWC = 0x00004000,
 	HAL_COLOR_FORMAT_RGBA8888       = 0x00008000,
 	HAL_COLOR_FORMAT_RGBA8888_UBWC  = 0x00010000,
+	HAL_COLOR_FORMAT_P010           = 0x00020000,
 	HAL_UNUSED_COLOR                = 0x10000000,
 };
 
@@ -846,8 +867,8 @@ struct hal_videocores_usage_info {
 };
 
 enum hal_work_mode {
-	VIDC_WORK_MODE_1,
-	VIDC_WORK_MODE_2,
+	VIDC_WORK_MODE_1 = 1,
+	VIDC_WORK_MODE_2 = 2,
 	VIDC_WORK_MODE_UNUSED = 0x10000000,
 };
 

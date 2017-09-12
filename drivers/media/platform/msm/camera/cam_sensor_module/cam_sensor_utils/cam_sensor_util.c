@@ -82,7 +82,7 @@ int32_t cam_sensor_handle_delay(
 		(struct cam_cmd_unconditional_wait *) *cmd_buf;
 	struct i2c_settings_list *i2c_list = NULL;
 
-	if (i2c_list == NULL) {
+	if (list_ptr == NULL) {
 		CAM_ERR(CAM_SENSOR, "Invalid list ptr");
 		return -EINVAL;
 	}
@@ -196,6 +196,49 @@ int32_t cam_sensor_handle_random_write(
 	return rc;
 }
 
+static int32_t cam_sensor_handle_continuous_write(
+	struct cam_cmd_i2c_continuous_wr *cam_cmd_i2c_continuous_wr,
+	struct i2c_settings_array *i2c_reg_settings,
+	uint16_t *cmd_length_in_bytes, int32_t *offset,
+	struct list_head **list)
+{
+	struct i2c_settings_list *i2c_list;
+	int32_t rc = 0, cnt;
+
+	i2c_list = cam_sensor_get_i2c_ptr(i2c_reg_settings,
+		cam_cmd_i2c_continuous_wr->header.count);
+	if (i2c_list == NULL ||
+		i2c_list->i2c_settings.reg_setting == NULL) {
+		CAM_ERR(CAM_SENSOR, "Failed in allocating i2c_list");
+		return -ENOMEM;
+	}
+
+	*cmd_length_in_bytes = (sizeof(struct i2c_rdwr_header) +
+		sizeof(cam_cmd_i2c_continuous_wr->reg_addr) +
+		sizeof(struct cam_cmd_read) *
+		(cam_cmd_i2c_continuous_wr->header.count));
+	i2c_list->op_code = cam_cmd_i2c_continuous_wr->header.op_code;
+	i2c_list->i2c_settings.addr_type =
+		cam_cmd_i2c_continuous_wr->header.addr_type;
+
+	for (cnt = 0; cnt < (cam_cmd_i2c_continuous_wr->header.count);
+		cnt++) {
+		i2c_list->i2c_settings.reg_setting[cnt].reg_addr =
+			cam_cmd_i2c_continuous_wr->
+			reg_addr;
+		i2c_list->i2c_settings.
+			reg_setting[cnt].reg_data =
+			cam_cmd_i2c_continuous_wr->
+			data_read[cnt].reg_data;
+		i2c_list->i2c_settings.
+			reg_setting[cnt].data_mask = 0;
+	}
+	(*offset) += cnt;
+	*list = &(i2c_list->list);
+
+	return rc;
+}
+
 /**
  * Name : cam_sensor_i2c_pkt_parser
  * Description : Parse CSL CCI packet and apply register settings
@@ -260,7 +303,29 @@ int cam_sensor_i2c_pkt_parser(struct i2c_settings_array *i2c_reg_settings,
 					&cmd_length_in_bytes, &j, &list);
 				if (rc < 0) {
 					CAM_ERR(CAM_SENSOR,
-						"Failed in random read %d", rc);
+					"Failed in random write %d", rc);
+					return rc;
+				}
+
+				cmd_buf += cmd_length_in_bytes /
+					sizeof(uint32_t);
+				byte_cnt += cmd_length_in_bytes;
+				break;
+			}
+			case CAMERA_SENSOR_CMD_TYPE_I2C_CONT_WR: {
+				uint16_t cmd_length_in_bytes   = 0;
+				struct cam_cmd_i2c_continuous_wr
+				*cam_cmd_i2c_continuous_wr =
+				(struct cam_cmd_i2c_continuous_wr *)
+				cmd_buf;
+
+				rc = cam_sensor_handle_continuous_write(
+					cam_cmd_i2c_continuous_wr,
+					i2c_reg_settings,
+					&cmd_length_in_bytes, &j, &list);
+				if (rc < 0) {
+					CAM_ERR(CAM_SENSOR,
+					"Failed in continuous write %d", rc);
 					return rc;
 				}
 
@@ -340,6 +405,14 @@ int32_t msm_camera_fill_vreg_params(
 	}
 
 	for (i = 0; i < power_setting_size; i++) {
+
+		if (power_setting[i].seq_type < SENSOR_MCLK ||
+			power_setting[i].seq_type >= SENSOR_SEQ_TYPE_MAX) {
+			CAM_ERR(CAM_SENSOR, "failed: Invalid Seq type\n",
+				power_setting[i].seq_type);
+			return -EINVAL;
+		}
+
 		switch (power_setting[i].seq_type) {
 		case SENSOR_VDIG:
 			for (j = 0; j < num_vreg; j++) {
@@ -488,12 +561,8 @@ int32_t msm_camera_fill_vreg_params(
 			if (j == num_vreg)
 				power_setting[i].seq_val = INVALID_VREG;
 			break;
-
-		default: {
-			CAM_ERR(CAM_SENSOR, "invalid seq_val %d",
-				power_setting[i].seq_val);
+		default:
 			break;
-			}
 		}
 	}
 
@@ -507,14 +576,20 @@ int cam_sensor_util_request_gpio_table(
 	uint8_t size = 0;
 	struct cam_soc_gpio_data *gpio_conf =
 			soc_info->gpio_data;
-	struct gpio *gpio_tbl = gpio_conf->cam_gpio_req_tbl;
+	struct gpio *gpio_tbl = NULL;
 
-	size = gpio_conf->cam_gpio_req_tbl_size;
+	if (!gpio_conf) {
+		CAM_INFO(CAM_SENSOR, "No GPIO data");
+		return 0;
+	}
 
 	if (gpio_conf->cam_gpio_common_tbl_size <= 0) {
 		CAM_INFO(CAM_SENSOR, "No GPIO entry");
-		return 0;
+		return -EINVAL;
 	}
+
+	gpio_tbl = gpio_conf->cam_gpio_req_tbl;
+	size = gpio_conf->cam_gpio_req_tbl_size;
 
 	if (!gpio_tbl || !size) {
 		CAM_ERR(CAM_SENSOR, "invalid gpio_tbl %pK / size %d",
@@ -857,13 +932,16 @@ int cam_sensor_util_init_gpio_pin_tbl(
 {
 	int rc = 0, val = 0;
 	uint32_t gpio_array_size;
-	struct platform_device *pdev = NULL;
 	struct device_node *of_node = NULL;
 	struct cam_soc_gpio_data *gconf = NULL;
 	struct msm_camera_gpio_num_info *gpio_num_info = NULL;
 
-	pdev = soc_info->pdev;
-	of_node = pdev->dev.of_node;
+	if (!soc_info->dev) {
+		CAM_ERR(CAM_SENSOR, "device node NULL");
+		return -EINVAL;
+	}
+
+	of_node = soc_info->dev->of_node;
 
 	gconf = soc_info->gpio_data;
 	if (!gconf) {
@@ -1096,8 +1174,8 @@ int msm_cam_sensor_handle_reg_gpio(int seq_type,
 	int gpio_offset = -1;
 
 	if (!gpio_num_info) {
-		CAM_ERR(CAM_SENSOR, "Input Parameters are not proper");
-		return -EINVAL;
+		CAM_INFO(CAM_SENSOR, "Input Parameters are not proper");
+		return 0;
 	}
 
 	CAM_DBG(CAM_SENSOR, "Seq type: %d, config: %d", seq_type, val);
@@ -1177,7 +1255,7 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 
 					soc_info->rgltr[j] =
 					regulator_get(
-						&soc_info->pdev->dev,
+						soc_info->dev,
 						soc_info->rgltr_name[j]);
 
 					if (IS_ERR_OR_NULL(
@@ -1229,16 +1307,13 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 				CAM_ERR(CAM_SENSOR, "request gpio failed");
 				return no_gpio;
 			}
-			if (power_setting->seq_val >= CAM_VREG_MAX ||
-				!gpio_num_info) {
-				CAM_ERR(CAM_SENSOR, "gpio index %d >= max %d",
-					power_setting->seq_val,
-					CAM_VREG_MAX);
+			if (!gpio_num_info) {
+				CAM_ERR(CAM_SENSOR, "Invalid gpio_num_info");
 				goto power_up_failed;
 			}
 			CAM_DBG(CAM_SENSOR, "gpio set val %d",
 				gpio_num_info->gpio_num
-				[power_setting->seq_val]);
+				[power_setting->seq_type]);
 
 			rc = msm_cam_sensor_handle_reg_gpio(
 				power_setting->seq_type,
@@ -1270,7 +1345,7 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 				vreg_idx = power_setting->seq_val;
 
 				soc_info->rgltr[vreg_idx] =
-					regulator_get(&soc_info->pdev->dev,
+					regulator_get(soc_info->dev,
 						soc_info->rgltr_name[vreg_idx]);
 				if (IS_ERR_OR_NULL(
 					soc_info->rgltr[vreg_idx])) {
@@ -1336,11 +1411,11 @@ power_up_failed:
 			if (!gpio_num_info)
 				continue;
 			if (!gpio_num_info->valid
-				[power_setting->seq_val])
+				[power_setting->seq_type])
 				continue;
 			gpio_set_value_cansleep(
 				gpio_num_info->gpio_num
-				[power_setting->seq_val], GPIOF_OUT_INIT_LOW);
+				[power_setting->seq_type], GPIOF_OUT_INIT_LOW);
 			break;
 		case SENSOR_VANA:
 		case SENSOR_VDIG:
@@ -1506,12 +1581,12 @@ int msm_camera_power_down(struct cam_sensor_power_ctrl_t *ctrl,
 		case SENSOR_CUSTOM_GPIO1:
 		case SENSOR_CUSTOM_GPIO2:
 
-			if (!gpio_num_info->valid[pd->seq_val])
+			if (!gpio_num_info->valid[pd->seq_type])
 				continue;
 
 			gpio_set_value_cansleep(
 				gpio_num_info->gpio_num
-				[pd->seq_val],
+				[pd->seq_type],
 				(int) pd->config_val);
 
 			break;

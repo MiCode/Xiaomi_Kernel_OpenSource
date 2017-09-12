@@ -93,7 +93,7 @@
 
 				qcom,pm-cpu-level@0 { /* C1 */
 					reg = <0>;
-					qcom,spm-cpu-mode = "wfi";
+					label = "wfi";
 					qcom,psci-cpu-mode = <0x1>;
 					qcom,latency-us = <43>;
 					qcom,ss-power = <454>;
@@ -103,7 +103,7 @@
 
 				qcom,pm-cpu-level@1 { /* C2D */
 					reg = <1>;
-					qcom,spm-cpu-mode = "ret";
+					label = "ret";
 					qcom,psci-cpu-mode = <0x2>;
 					qcom,latency-us = <119>;
 					qcom,ss-power = <449>;
@@ -113,7 +113,7 @@
 
 				qcom,pm-cpu-level@2 {  /* C3 */
 					reg = <2>;
-					qcom,spm-cpu-mode = "pc";
+					label = "pc";
 					qcom,psci-cpu-mode = <0x3>;
 					qcom,latency-us = <461>;
 					qcom,ss-power = <436>;
@@ -125,7 +125,7 @@
 
 				qcom,pm-cpu-level@3 {  /* C4 */
 					reg = <3>;
-					qcom,spm-cpu-mode = "rail-pc";
+					label = "rail-pc";
 					qcom,psci-cpu-mode = <0x4>;
 					qcom,latency-us = <531>;
 					qcom,ss-power = <400>;
@@ -145,7 +145,7 @@
 
 				qcom,pm-cpu-level@0 { /* C1 */
 					reg = <0>;
-					qcom,spm-cpu-mode = "wfi";
+					label = "wfi";
 					qcom,psci-cpu-mode = <0x1>;
 					qcom,latency-us = <43>;
 					qcom,ss-power = <454>;
@@ -155,7 +155,7 @@
 
 				qcom,pm-cpu-level@1 { /* C2D */
 					reg = <1>;
-					qcom,spm-cpu-mode = "ret";
+					label = "ret";
 					qcom,psci-cpu-mode = <0x2>;
 					qcom,latency-us = <116>;
 					qcom,ss-power = <449>;
@@ -165,7 +165,7 @@
 
 				qcom,pm-cpu-level@2 {  /* C3 */
 					reg = <2>;
-					qcom,spm-cpu-mode = "pc";
+					label = "pc";
 					qcom,psci-cpu-mode = <0x3>;
 					qcom,latency-us = <621>;
 					qcom,ss-power = <436>;
@@ -177,7 +177,7 @@
 
 				qcom,pm-cpu-level@3 {  /* C4 */
 					reg = <3>;
-					qcom,spm-cpu-mode = "rail-pc";
+					label = "rail-pc";
 					qcom,psci-cpu-mode = <0x4>;
 					qcom,latency-us = <1061>;
 					qcom,ss-power = <400>;

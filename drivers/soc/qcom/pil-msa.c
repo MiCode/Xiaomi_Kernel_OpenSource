@@ -80,6 +80,8 @@
 #define MSS_PDC_OFFSET			8
 #define MSS_PDC_MASK			BIT(MSS_PDC_OFFSET)
 
+/* Timeout value for MBA boot when minidump is enabled */
+#define MBA_ENCRYPTION_TIMEOUT	3000
 enum scm_cmd {
 	PAS_MEM_SETUP_CMD = 2,
 };
@@ -298,7 +300,12 @@ static int pil_msa_wait_for_mba_ready(struct q6v5_data *drv)
 	struct device *dev = drv->desc.dev;
 	int ret;
 	u32 status;
-	u64 val = is_timeout_disabled() ? 0 : pbl_mba_boot_timeout_ms * 1000;
+	u64 val;
+
+	if (of_property_read_bool(dev->of_node, "qcom,minidump-id"))
+		pbl_mba_boot_timeout_ms = MBA_ENCRYPTION_TIMEOUT;
+
+	val = is_timeout_disabled() ? 0 : pbl_mba_boot_timeout_ms * 1000;
 
 	/* Wait for PBL completion. */
 	ret = readl_poll_timeout(drv->rmb_base + RMB_PBL_STATUS, status,

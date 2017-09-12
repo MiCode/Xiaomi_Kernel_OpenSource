@@ -121,23 +121,7 @@ static int cam_eeprom_get_dt_data(struct cam_eeprom_ctrl_t *e_ctrl)
 	struct cam_sensor_power_ctrl_t *power_info = &soc_private->power_info;
 	struct device_node             *of_node = NULL;
 
-	if (e_ctrl->eeprom_device_type == MSM_CAMERA_SPI_DEVICE)
-		of_node = e_ctrl->io_master_info.
-			spi_client->spi_master->dev.of_node;
-	else if (e_ctrl->eeprom_device_type == MSM_CAMERA_PLATFORM_DEVICE)
-		of_node = soc_info->pdev->dev.of_node;
-
-	if (!of_node) {
-		CAM_ERR(CAM_EEPROM, "of_node is NULL, device type %d",
-			e_ctrl->eeprom_device_type);
-		return -EINVAL;
-	}
-	rc = cam_soc_util_get_dt_properties(soc_info);
-	if (rc < 0) {
-		CAM_ERR(CAM_EEPROM, "cam_soc_util_get_dt_properties rc %d",
-			rc);
-		return rc;
-	}
+	of_node = soc_info->dev->of_node;
 
 	if (e_ctrl->userspace_probe == false) {
 		rc = cam_get_dt_power_setting_data(of_node,
@@ -209,82 +193,30 @@ static int cam_eeprom_cmm_dts(struct cam_eeprom_soc_private *eb_info,
 /**
  * @e_ctrl: ctrl structure
  *
- * This function is called from cam_eeprom_spi_driver_probe, it parses
- * the eeprom dt node and decides for userspace or kernel probe.
+ * This function is called from cam_eeprom_platform/i2c/spi_driver_probe
+ * it parses the eeprom dt node and decides for userspace or kernel probe.
  */
-int cam_eeprom_spi_driver_soc_init(struct cam_eeprom_ctrl_t *e_ctrl)
-{
-	int                             rc = 0;
-	struct cam_eeprom_soc_private  *soc_private =
-		(struct cam_eeprom_soc_private *)e_ctrl->soc_info.soc_private;
-
-	rc = of_property_read_u32(e_ctrl->spi->dev.of_node, "cell-index",
-		&e_ctrl->subdev_id);
-	if (rc < 0) {
-		CAM_ERR(CAM_EEPROM, "failed rc %d", rc);
-		return rc;
-	}
-	rc = of_property_read_string(e_ctrl->spi->dev.of_node,
-		"eeprom-name", &soc_private->eeprom_name);
-	if (rc < 0) {
-		CAM_ERR(CAM_EEPROM, "failed rc %d", rc);
-		e_ctrl->userspace_probe = true;
-	}
-
-	CAM_DBG(CAM_EEPROM, "eeprom-name %s, rc %d", soc_private->eeprom_name,
-		rc);
-	rc = cam_eeprom_cmm_dts(soc_private,
-		e_ctrl->io_master_info.spi_client->spi_master->dev.of_node);
-	if (rc < 0)
-		CAM_DBG(CAM_EEPROM, "MM data not available rc %d", rc);
-	rc = cam_eeprom_get_dt_data(e_ctrl);
-	if (rc < 0)
-		CAM_DBG(CAM_EEPROM, "failed: eeprom get dt data rc %d", rc);
-
-	return rc;
-}
-
-/**
- * @e_ctrl: ctrl structure
- *
- * This function is called from cam_eeprom_platform_driver_probe, it parses
- * the eeprom dt node and decides for userspace or kernel probe.
- */
-int cam_eeprom_platform_driver_soc_init(struct cam_eeprom_ctrl_t *e_ctrl)
+int cam_eeprom_parse_dt(struct cam_eeprom_ctrl_t *e_ctrl)
 {
 	int                             rc = 0;
 	struct cam_hw_soc_info         *soc_info = &e_ctrl->soc_info;
 	struct device_node             *of_node = NULL;
-	struct platform_device         *pdev = NULL;
 	struct cam_eeprom_soc_private  *soc_private =
 		(struct cam_eeprom_soc_private *)e_ctrl->soc_info.soc_private;
 	uint32_t                        temp;
 
-	if (!soc_info->pdev) {
-		CAM_ERR(CAM_EEPROM, "Error:soc_info is not initialized");
-		return -EINVAL;
-	}
-
-	pdev = soc_info->pdev;
-	of_node = pdev->dev.of_node;
-	if (!of_node) {
-		CAM_ERR(CAM_EEPROM, "dev.of_node NULL");
-		return -EINVAL;
-	}
-
-	rc = of_property_read_u32(of_node, "cell-index",
-		&e_ctrl->subdev_id);
+	rc = cam_soc_util_get_dt_properties(soc_info);
 	if (rc < 0) {
-		CAM_ERR(CAM_EEPROM, "failed rc %d\n", rc);
+		CAM_ERR(CAM_EEPROM, "Failed to read DT properties rc : %d", rc);
 		return rc;
 	}
 
-	rc = of_property_read_u32(of_node, "cci-master",
-		&e_ctrl->cci_i2c_master);
-	if (rc < 0) {
-		CAM_DBG(CAM_EEPROM, "failed rc %d", rc);
-		return rc;
+	if (!soc_info->dev) {
+		CAM_ERR(CAM_EEPROM, "Dev is NULL");
+		return -EINVAL;
 	}
+
+	of_node = soc_info->dev->of_node;
 
 	rc = of_property_read_string(of_node, "eeprom-name",
 		&soc_private->eeprom_name);
@@ -293,11 +225,27 @@ int cam_eeprom_platform_driver_soc_init(struct cam_eeprom_ctrl_t *e_ctrl)
 		e_ctrl->userspace_probe = true;
 	}
 
+	if (e_ctrl->io_master_info.master_type == CCI_MASTER) {
+		rc = of_property_read_u32(of_node, "cci-master",
+			&e_ctrl->cci_i2c_master);
+		if (rc < 0) {
+			CAM_DBG(CAM_EEPROM, "failed rc %d", rc);
+			return rc;
+		}
+	}
+
+	if (e_ctrl->io_master_info.master_type == SPI_MASTER) {
+		rc = cam_eeprom_cmm_dts(soc_private, soc_info->dev->of_node);
+		if (rc < 0)
+			CAM_DBG(CAM_EEPROM, "MM data not available rc %d", rc);
+	}
+
 	rc = cam_eeprom_get_dt_data(e_ctrl);
 	if (rc < 0)
 		CAM_DBG(CAM_EEPROM, "failed: eeprom get dt data rc %d", rc);
 
-	if (e_ctrl->userspace_probe == false) {
+	if ((e_ctrl->userspace_probe == false) &&
+			(e_ctrl->io_master_info.master_type != SPI_MASTER)) {
 		rc = of_property_read_u32(of_node, "slave-addr", &temp);
 		if (rc < 0)
 			CAM_DBG(CAM_EEPROM, "failed: no slave-addr rc %d", rc);
@@ -319,5 +267,6 @@ int cam_eeprom_platform_driver_soc_init(struct cam_eeprom_ctrl_t *e_ctrl)
 		CAM_DBG(CAM_EEPROM, "slave-addr = 0x%X",
 			soc_private->i2c_info.slave_addr);
 	}
+
 	return rc;
 }

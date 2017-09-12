@@ -26,6 +26,8 @@
 #include <dt-bindings/thermal/thermal.h>
 #include <dt-bindings/msm/msm-bus-ids.h>
 
+#define MHZ_TO_MBPS(mhz, w) ((mhz * 1000000 * w) / (1024 * 1024))
+
 / {
 	model = "Qualcomm Technologies, Inc. SDM845";
 	compatible = "qcom,sdm845";
@@ -36,6 +38,7 @@
 		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
 		ufshc2 = &ufshc_card; /* Removable UFS slot */
 		pci-domain0 = &pcie0;
+		pci-domain1 = &pcie1;
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 	};
 
@@ -534,24 +537,6 @@
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0 0x8ab00000 0 0x500000>;
-		};
-
-		pil_ipa_fw_mem: pil_ipa_fw_region@8b000000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0 0x8b000000 0 0x10000>;
-		};
-
-		pil_ipa_gsi_mem: pil_ipa_gsi_region@8b010000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0 0x8b010000 0 0x5000>;
-		};
-
-		pil_gpu_mem: pil_gpu_region@8b015000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0 0x8b015000 0 0x1000>;
 		};
 
 		pil_adsp_mem: pil_adsp_region@8b100000 {
@@ -1931,7 +1916,7 @@
 		reg-names = "wdt-base";
 		interrupts = <0 0 0>, <0 1 0>;
 		qcom,bark-time = <11000>;
-		qcom,pet-time = <10000>;
+		qcom,pet-time = <9360>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
 	};
@@ -2811,7 +2796,7 @@
 		qcom,smmu-s1-bypass;
 		qcom,bandwidth-vote-for-ipa;
 		qcom,msm-bus,name = "ipa";
-		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-cases = <5>;
 		qcom,msm-bus,num-paths = <4>;
 		qcom,msm-bus,vectors-KBps =
 		/* No vote */
@@ -2819,22 +2804,28 @@
 			<90 585 0 0>,
 			<1 676 0 0>,
 			<143 777 0 0>,
+		/* SVS2 */
+			<90 512 80000 600000>,
+			<90 585 80000 350000>,
+			<1 676 40000 40000>, /*gcc_config_noc_clk_src */
+			<143 777 0 75>, /* IB defined for IPA2X_clk in MHz*/
 		/* SVS */
 			<90 512 80000 640000>,
 			<90 585 80000 640000>,
 			<1 676 80000 80000>,
-			<143 777 0 150>, /* IB defined for IPA clk in MHz*/
+			<143 777 0 150>, /* IB defined for IPA2X_clk in MHz*/
 		/* NOMINAL */
 			<90 512 206000 960000>,
 			<90 585 206000 960000>,
 			<1 676 206000 160000>,
-			<143 777 0 300>, /* IB defined for IPA clk in MHz*/
+			<143 777 0 300>, /* IB defined for IPA2X_clk in MHz*/
 		/* TURBO */
 			<90 512 206000 3600000>,
 			<90 585 206000 3600000>,
 			<1 676 206000 300000>,
 			<143 777 0 355>; /* IB defined for IPA clk in MHz*/
-		qcom,bus-vector-names = "MIN", "SVS", "NOMINAL", "TURBO";
+		qcom,bus-vector-names =
+			"MIN", "SVS2", "SVS", "NOMINAL", "TURBO";
 
 		/* IPA RAM mmap */
 		qcom,ipa-ram-mmap = <
@@ -3570,7 +3561,7 @@
 	};
 
 	gpi_dma0: qcom,gpi-dma@0x800000 {
-		#dma-cells = <6>;
+		#dma-cells = <5>;
 		compatible = "qcom,gpi-dma";
 		reg = <0x800000 0x60000>;
 		reg-names = "gpi-top";
@@ -3582,11 +3573,13 @@
 		qcom,gpii-mask = <0xfa>;
 		qcom,ev-factor = <2>;
 		iommus = <&apps_smmu 0x0016 0x0>;
+		qcom,smmu-cfg = <0x1>;
+		qcom,iova-range = <0x0 0x100000 0x0 0x100000>;
 		status = "ok";
 	};
 
 	gpi_dma1: qcom,gpi-dma@0xa00000 {
-		#dma-cells = <6>;
+		#dma-cells = <5>;
 		compatible = "qcom,gpi-dma";
 		reg = <0xa00000 0x60000>;
 		reg-names = "gpi-top";
@@ -3598,6 +3591,8 @@
 		qcom,gpii-mask = <0xfa>;
 		qcom,ev-factor = <2>;
 		iommus = <&apps_smmu 0x06d6 0x0>;
+		qcom,smmu-cfg = <0x1>;
+		qcom,iova-range = <0x0 0x100000 0x0 0x100000>;
 		status = "ok";
 	};
 
@@ -3691,6 +3686,7 @@
 			 <&clock_rpmh RPMH_RF_CLK3_A>;
 		clock-names = "rf_clk3_clk", "rf_clk3_pin_clk";
 		qcom,smmu-support;
+		qcom,keep-radio-on-during-sleep;
 		status = "disabled";
 	};
 };

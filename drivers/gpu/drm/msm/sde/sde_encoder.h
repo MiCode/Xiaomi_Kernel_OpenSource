@@ -29,6 +29,9 @@
 #define SDE_ENCODER_FRAME_EVENT_PANEL_DEAD		BIT(2)
 #define SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE	BIT(3)
 #define SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE	BIT(4)
+#define SDE_ENCODER_FRAME_EVENT_IDLE			BIT(5)
+
+#define IDLE_TIMEOUT	(66 - 16/2)
 
 /**
  * Encoder functions and data types
@@ -175,11 +178,12 @@ bool sde_encoder_is_dsc_enabled(struct drm_encoder *drm_enc);
 bool sde_encoder_is_dsc_merge(struct drm_encoder *drm_enc);
 
 /**
- * sde_encoder_is_cmd_mode - check if it is cmd mode
+ * sde_encoder_check_mode - check if given mode is supported or not
  * @drm_enc: Pointer to drm encoder object
+ * @mode: Mode to be checked
  * @Return: true if it is cmd mode
  */
-bool sde_encoder_is_cmd_mode(struct drm_encoder *drm_enc);
+bool sde_encoder_check_mode(struct drm_encoder *drm_enc, u32 mode);
 
 /**
  * sde_encoder_init - initialize virtual encoder object
@@ -203,5 +207,14 @@ void sde_encoder_destroy(struct drm_encoder *drm_enc);
  * @drm_enc:    Pointer to previously created drm encoder structure
  */
 void sde_encoder_prepare_commit(struct drm_encoder *drm_enc);
+
+/**
+ * sde_encoder_set_idle_timeout - set the idle timeout for video
+ *                    and command mode encoders.
+ * @drm_enc:    Pointer to previously created drm encoder structure
+ * @idle_timeout:    idle timeout duration in milliseconds
+ */
+void sde_encoder_set_idle_timeout(struct drm_encoder *drm_enc,
+							u32 idle_timeout);
 
 #endif /* __SDE_ENCODER_H__ */

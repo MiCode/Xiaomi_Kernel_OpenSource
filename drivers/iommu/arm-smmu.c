@@ -1257,7 +1257,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	phys_addr_t phys_soft;
 	u32 frsynra;
 	bool non_fatal_fault = !!(smmu_domain->attributes &
-					DOMAIN_ATTR_NON_FATAL_FAULTS);
+					(1 << DOMAIN_ATTR_NON_FATAL_FAULTS));
 
 	static DEFINE_RATELIMIT_STATE(_rs,
 				      DEFAULT_RATELIMIT_INTERVAL,
@@ -3494,6 +3494,7 @@ static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
 
 		raw_s2cr = readl_relaxed(ARM_SMMU_GR0(smmu) +
 					ARM_SMMU_GR0_S2CR(i));
+		memset(&s2cr, 0, sizeof(s2cr));
 		s2cr.group = NULL;
 		s2cr.count = 1;
 		s2cr.type = (raw_s2cr >> S2CR_TYPE_SHIFT) & S2CR_TYPE_MASK;

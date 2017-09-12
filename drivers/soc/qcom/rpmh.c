@@ -563,7 +563,7 @@ static int flush_passthru(struct rpmh_client *rc)
 	spin_lock_irqsave(&rpm->lock, flags);
 	for (i = 0; rpm->passthru_cache[i]; i++) {
 		rpm_msg = rpm->passthru_cache[i];
-		ret = mbox_send_controller_data(rc->chan, &rpm_msg->msg);
+		ret = mbox_write_controller_data(rc->chan, &rpm_msg->msg);
 		if (ret)
 			goto fail;
 	}
@@ -591,7 +591,8 @@ static void invalidate_passthru(struct rpmh_client *rc)
 }
 
 /**
- * rpmh_write_passthru: Write multiple batches of RPMH commands without caching
+ * rpmh_write_batch: Write multiple sets of RPMH commands and wait for the
+ * batch to finish.
  *
  * @rc: The RPMh handle got from rpmh_get_dev_channel
  * @state: Active/sleep set
@@ -606,7 +607,7 @@ static void invalidate_passthru(struct rpmh_client *rc)
  *
  * May sleep. Do not call from atomic contexts for ACTIVE_ONLY requests.
  */
-int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
+int rpmh_write_batch(struct rpmh_client *rc, enum rpmh_state state,
 			struct tcs_cmd *cmd, int *n)
 {
 	struct rpmh_msg *rpm_msg[RPMH_MAX_REQ_IN_BATCH] = { NULL };
@@ -695,7 +696,7 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 
 	return 0;
 }
-EXPORT_SYMBOL(rpmh_write_passthru);
+EXPORT_SYMBOL(rpmh_write_batch);
 
 /**
  * rpmh_mode_solver_set: Indicate that the RSC controller hardware has
@@ -761,7 +762,7 @@ int rpmh_write_control(struct rpmh_client *rc, struct tcs_cmd *cmd, int n)
 	rpm_msg.msg.is_control = true;
 	rpm_msg.msg.is_complete = false;
 
-	return mbox_send_controller_data(rc->chan, &rpm_msg.msg);
+	return mbox_write_controller_data(rc->chan, &rpm_msg.msg);
 }
 EXPORT_SYMBOL(rpmh_write_control);
 
@@ -796,7 +797,7 @@ int rpmh_invalidate(struct rpmh_client *rc)
 	rpm->dirty = true;
 	spin_unlock_irqrestore(&rpm->lock, flags);
 
-	return mbox_send_controller_data(rc->chan, &rpm_msg.msg);
+	return mbox_write_controller_data(rc->chan, &rpm_msg.msg);
 }
 EXPORT_SYMBOL(rpmh_invalidate);
 
@@ -885,7 +886,7 @@ int send_single(struct rpmh_client *rc, enum rpmh_state state, u32 addr,
 	rpm_msg.msg.num_payload = 1;
 	rpm_msg.msg.is_complete = false;
 
-	return mbox_send_controller_data(rc->chan, &rpm_msg.msg);
+	return mbox_write_controller_data(rc->chan, &rpm_msg.msg);
 }
 
 /**

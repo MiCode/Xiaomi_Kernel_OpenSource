@@ -50,7 +50,6 @@
 			(cfg)->dma_buf->index)
 
 #define REG_DMA_DECODE_SEL 0x180AC060
-#define REG_DMA_LAST_CMD 0x180AC004
 #define SINGLE_REG_WRITE_OPCODE (BIT(28))
 #define REL_ADDR_OPCODE (BIT(27))
 #define HW_INDEX_REG_WRITE_OPCODE (BIT(28) | BIT(29))
@@ -471,7 +470,8 @@ static int write_kick_off_v1(struct sde_reg_dma_kickoff_cfg *cfg)
 			cfg->dma_buf->iova);
 	SDE_REG_WRITE(&hw, reg_dma_ctl_queue_off[cfg->ctl->idx] + 0x4,
 			cmd1);
-	SDE_REG_WRITE(&cfg->ctl->hw, REG_DMA_CTL_TRIGGER_OFF,
+	if (cfg->last_command)
+		SDE_REG_WRITE(&cfg->ctl->hw, REG_DMA_CTL_TRIGGER_OFF,
 			queue_sel[cfg->queue_select]);
 
 	return 0;
@@ -754,8 +754,8 @@ static int write_last_cmd(struct sde_reg_dma_setup_ops_cfg *cfg)
 
 	loc =  (u32 *)((u8 *)cfg->dma_buf->vaddr +
 			cfg->dma_buf->index);
-	loc[0] = REG_DMA_LAST_CMD;
-	loc[1] = BIT(0);
+	loc[0] = REG_DMA_DECODE_SEL;
+	loc[1] = 0;
 	cfg->dma_buf->index = sizeof(u32) * 2;
 	cfg->dma_buf->ops_completed = REG_WRITE_OP | DECODE_SEL_OP;
 	cfg->dma_buf->next_op_allowed = REG_WRITE_OP;

@@ -32,9 +32,7 @@
 	aliases {
 		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
-	};
-
-	aliases {
+		sdhc2 = &sdhc_2; /* SDC2 SD Card slot */
 		serial0 = &qupv3_se12_2uart;
 		spi0 = &qupv3_se8_spi;
 		i2c0 = &qupv3_se10_i2c;
@@ -303,6 +301,23 @@
 		compatible = "simple-bus";
 	};
 
+	firmware: firmware {
+		android {
+			compatible = "android,firmware";
+
+			fstab {
+				compatible = "android,fstab";
+				vendor {
+					compatible = "android,vendor";
+					dev = "/dev/block/platform/soc/1d84000.ufshc/by-name/vendor";
+					type = "ext4";
+					mnt_flags = "ro,barrier=1,discard";
+					fsmgr_flags = "wait,slotselect";
+				};
+			};
+		};
+	};
+
 	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -418,6 +433,7 @@
 
 #include "sdm670-qupv3.dtsi"
 
+#include "sdm670-coresight.dtsi"
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
@@ -1414,6 +1430,8 @@
 		reg = <0x10a2000 0x1000>,
 		      <0x10ae000 0x2000>;
 		reg-names = "dcc-base", "dcc-ram-base";
+
+		dcc-ram-offset = <0x6000>;
 	};
 
 	spmi_bus: qcom,spmi@c440000 {
@@ -1831,6 +1849,24 @@
 		status = "disabled";
 	};
 
+	sdhc_2: sdhci@8804000 {
+		compatible = "qcom,sdhci-msm-v5";
+		reg = <0x8804000 0x1000>;
+		reg-names = "hc_mem";
+
+		interrupts = <0 204 0>, <0 222 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		qcom,bus-width = <4>;
+		qcom,large-address-bus;
+
+		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
+			<&clock_gcc GCC_SDCC2_APPS_CLK>;
+		clock-names = "iface_clk", "core_clk";
+
+		status = "disabled";
+	};
+
 	qcom,msm-cdsp-loader {
 		compatible = "qcom,cdsp-loader";
 		qcom,proc-img-to-load = "cdsp";
@@ -2010,3 +2046,5 @@
 #include "pm660l.dtsi"
 #include "sdm670-regulator.dtsi"
 #include "sdm670-audio.dtsi"
+#include "sdm670-usb.dtsi"
+#include "sdm670-gpu.dtsi"

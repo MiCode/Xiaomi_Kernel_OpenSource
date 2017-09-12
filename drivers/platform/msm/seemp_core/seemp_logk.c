@@ -31,6 +31,7 @@
 
 #define EL2_SCM_ID 0x02001902
 #define KP_EL2_REPORT_REVISION 0x01000101
+#define INVALID_PID -1
 
 static struct seemp_logk_dev *slogk_dev;
 
@@ -65,6 +66,7 @@ static long seemp_logk_reserve_rdblks(
 static long seemp_logk_set_mask(unsigned long arg);
 static long seemp_logk_set_mapping(unsigned long arg);
 static long seemp_logk_check_filter(unsigned long arg);
+static pid_t seemp_logk_get_pid(struct task_struct *t);
 static int seemp_logk_rtic_thread(void *data);
 
 void* (*seemp_logk_kernel_begin)(char **buf);
@@ -344,9 +346,11 @@ static long seemp_logk_ioctl(struct file *filp, unsigned int cmd,
 		return seemp_logk_set_mapping(arg);
 	} else if (cmd == SEEMP_CMD_CHECK_FILTER) {
 		return seemp_logk_check_filter(arg);
+	} else {
+		pr_err("Invalid Request %X\n", cmd);
+		return -ENOIOCTLCMD;
 	}
-	pr_err("Invalid Request %X\n", cmd);
-	return -ENOIOCTLCMD;
+	return 0;
 }
 
 static long seemp_logk_reserve_rdblks(
@@ -601,6 +605,26 @@ static const struct file_operations seemp_logk_fops = {
 	.mmap = seemp_logk_mmap,
 };
 
+static pid_t seemp_logk_get_pid(struct task_struct *t)
+{
+	struct task_struct *task;
+	pid_t pid;
+
+	if (t == NULL)
+		return INVALID_PID;
+
+	rcu_read_lock();
+	for_each_process(task) {
+		if (task == t) {
+			pid = task->pid;
+			rcu_read_unlock();
+			return pid;
+		}
+	}
+	rcu_read_unlock();
+	return INVALID_PID;
+}
+
 static int seemp_logk_rtic_thread(void *data)
 {
 	struct el2_report_header_t *header;
@@ -632,8 +656,9 @@ static int seemp_logk_rtic_thread(void *data)
 					|| report->sequence_number >
 						last_sequence_number)) {
 				seemp_logk_rtic(report->report_type,
-					((struct task_struct *) report->actor)
-						->pid,
+					seemp_logk_get_pid(
+						(struct task_struct *)
+						report->actor),
 					/* leave this empty until
 					 * asset id is provided
 					 */
@@ -733,7 +758,7 @@ __init int seemp_logk_init(void)
 		desc.args[1] = PAGE_SIZE;
 		ret = scm_call2(EL2_SCM_ID, &desc);
 		if (ret || desc.ret[0] || desc.ret[1]) {
-			pr_err("SCM call failed with ret val = %d %d %d",
+			pr_err("SCM call failed with ret val = %d %d %d\n",
 				ret, (int)desc.ret[0], (int)desc.ret[1]);
 			free_page((unsigned long) el2_shared_mem);
 			el2_shared_mem = NULL;

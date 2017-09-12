@@ -70,11 +70,6 @@ const char *const mpeg_video_vidc_extradata[] = {
 	"Extradata UBWC CR stats info",
 };
 
-struct getprop_buf {
-	struct list_head list;
-	void *data;
-};
-
 static void msm_comm_generate_session_error(struct msm_vidc_inst *inst);
 static void msm_comm_generate_sys_error(struct msm_vidc_inst *inst);
 static void handle_session_error(enum hal_command_response cmd, void *data);
@@ -294,6 +289,44 @@ int msm_comm_hal_to_v4l2(int id, int value)
 			return V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_3;
 		case HAL_VP8_LEVEL_UNUSED:
 			return V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED;
+		default:
+			goto unknown_value;
+		}
+	case V4L2_CID_MPEG_VIDC_VIDEO_VP9_PROFILE:
+		switch (value) {
+		case HAL_VP9_PROFILE_P0:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_PROFILE_P0;
+		case HAL_VP9_PROFILE_P2_10:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_PROFILE_P2_10;
+		case HAL_VP9_PROFILE_UNUSED:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_PROFILE_UNUSED;
+		default:
+			goto unknown_value;
+		}
+	case V4L2_CID_MPEG_VIDC_VIDEO_VP9_LEVEL:
+		switch (value) {
+		case HAL_VP9_LEVEL_1:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_1;
+		case HAL_VP9_LEVEL_11:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_11;
+		case HAL_VP9_LEVEL_2:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_2;
+		case HAL_VP9_LEVEL_21:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_21;
+		case HAL_VP9_LEVEL_3:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_3;
+		case HAL_VP9_LEVEL_31:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_31;
+		case HAL_VP9_LEVEL_4:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_4;
+		case HAL_VP9_LEVEL_41:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_41;
+		case HAL_VP9_LEVEL_5:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_5;
+		case HAL_VP9_LEVEL_51:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_51;
+		case HAL_VP9_LEVEL_UNUSED:
+			return V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_UNUSED;
 		default:
 			goto unknown_value;
 		}
@@ -916,6 +949,9 @@ enum hal_uncompressed_format msm_comm_get_hal_uncompressed(int fourcc)
 		break;
 	case V4L2_PIX_FMT_NV12_TP10_UBWC:
 		format = HAL_COLOR_FORMAT_NV12_TP10_UBWC;
+		break;
+	case V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010:
+		format = HAL_COLOR_FORMAT_P010;
 		break;
 	default:
 		format = HAL_UNUSED_COLOR;
@@ -2531,6 +2567,11 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 	}
 	vb->timestamp = (time_usec * NSEC_PER_USEC);
 
+	if (inst->session_type == MSM_VIDC_DECODER) {
+		msm_comm_store_mark_data(&inst->fbd_data, vb->index,
+			fill_buf_done->mark_data, fill_buf_done->mark_target);
+	}
+
 	extra_idx = EXTRADATA_IDX(inst->bufq[CAPTURE_PORT].num_planes);
 	if (extra_idx && extra_idx < VIDEO_MAX_PLANES)
 		vb->planes[extra_idx].bytesused = vb->planes[extra_idx].length;
@@ -2897,6 +2938,8 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 	}
 	core->state = VIDC_CORE_INIT;
 	core->smmu_fault_handled = false;
+	core->trigger_ssr = false;
+
 core_already_inited:
 	change_inst_state(inst, MSM_VIDC_CORE_INIT);
 	mutex_unlock(&core->lock);
@@ -3725,6 +3768,42 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 	return rc;
 }
 
+int msm_vidc_send_pending_eos_buffers(struct msm_vidc_inst *inst)
+{
+	struct vidc_frame_data data = {0};
+	struct hfi_device *hdev;
+	struct eos_buf *binfo = NULL, *temp = NULL;
+	int rc = 0;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s: Invalid arguments\n", __func__);
+		return -EINVAL;
+	}
+
+	mutex_lock(&inst->eosbufs.lock);
+	list_for_each_entry_safe(binfo, temp, &inst->eosbufs.list, list) {
+		data.alloc_len = binfo->smem.size;
+		data.device_addr = binfo->smem.device_addr;
+		data.clnt_data = data.device_addr;
+		data.buffer_type = HAL_BUFFER_INPUT;
+		data.filled_len = 0;
+		data.offset = 0;
+		data.flags = HAL_BUFFERFLAG_EOS;
+		data.timestamp = LLONG_MAX;
+		data.extradata_addr = data.device_addr;
+		data.extradata_size = 0;
+		dprintk(VIDC_DBG, "Queueing EOS buffer %pK\n",
+				(void *)(u64)data.device_addr);
+		hdev = inst->core->device;
+
+		rc = call_hfi_op(hdev, session_etb, inst->session,
+				&data);
+	}
+	mutex_unlock(&inst->eosbufs.lock);
+
+	return rc;
+}
+
 int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 {
 	struct msm_vidc_inst *inst = instance;
@@ -3795,20 +3874,13 @@ int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 		rc = msm_comm_session_continue(inst);
 		break;
 	}
+	/* This case also for V4L2_ENC_CMD_STOP */
 	case V4L2_DEC_CMD_STOP:
 	{
-		struct vidc_frame_data data = {0};
-		struct hfi_device *hdev;
-		struct eos_buf *binfo;
+		struct eos_buf *binfo = NULL;
 		u32 smem_flags = 0;
 
 		get_inst(inst->core, inst);
-		if (inst->session_type != MSM_VIDC_DECODER) {
-			dprintk(VIDC_DBG,
-				"Non-Decoder session. DEC_STOP is not valid\n");
-			rc = -EINVAL;
-			goto exit;
-		}
 
 		binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
 		if (!binfo) {
@@ -3826,6 +3898,7 @@ int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"Failed to allocate output memory\n");
+			rc = -ENOMEM;
 			goto exit;
 		}
 
@@ -3833,22 +3906,14 @@ int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 		list_add_tail(&binfo->list, &inst->eosbufs.list);
 		mutex_unlock(&inst->eosbufs.lock);
 
-		data.alloc_len = binfo->smem.size;
-		data.device_addr = binfo->smem.device_addr;
-		data.clnt_data = data.device_addr;
-		data.buffer_type = HAL_BUFFER_INPUT;
-		data.filled_len = 0;
-		data.offset = 0;
-		data.flags = HAL_BUFFERFLAG_EOS;
-		data.timestamp = LLONG_MAX;
-		data.extradata_addr = data.device_addr;
-		data.extradata_size = 0;
-		dprintk(VIDC_DBG, "Queueing EOS buffer %pK\n",
-			(void *)(u64)data.device_addr);
-		hdev = inst->core->device;
+		if (inst->state != MSM_VIDC_START_DONE) {
+			dprintk(VIDC_DBG,
+				"Inst = %pK is not ready for EOS\n", inst);
+			goto exit;
+		}
 
-		rc = call_hfi_op(hdev, session_etb, inst->session,
-				&data);
+		rc = msm_vidc_send_pending_eos_buffers(inst);
+
 exit:
 		put_inst(inst);
 		break;
@@ -3888,9 +3953,6 @@ static void populate_frame_data(struct vidc_frame_data *data,
 	data->clnt_data = data->device_addr;
 
 	if (vb->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		bool pic_decoding_mode = msm_comm_g_ctrl_for_id(inst,
-				V4L2_CID_MPEG_VIDC_VIDEO_PICTYPE_DEC_MODE);
-
 		data->buffer_type = HAL_BUFFER_INPUT;
 		data->filled_len = vb->planes[0].bytesused;
 		data->offset = vb->planes[0].data_offset;
@@ -3907,13 +3969,10 @@ static void populate_frame_data(struct vidc_frame_data *data,
 		if (vbuf->flags & V4L2_QCOM_BUF_TIMESTAMP_INVALID)
 			data->timestamp = LLONG_MAX;
 
-		/* XXX: This is a dirty hack necessitated by the firmware,
-		 * which refuses to issue FBDs for non I-frames in Picture Type
-		 * Decoding mode, unless we pass in non-zero value in mark_data
-		 * and mark_target.
-		 */
-		data->mark_data = data->mark_target =
-			pic_decoding_mode ? 0xdeadbeef : 0;
+		if (inst->session_type == MSM_VIDC_DECODER) {
+			msm_comm_fetch_mark_data(&inst->etb_data, vb->index,
+				&data->mark_data, &data->mark_target);
+		}
 
 	} else if (vb->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		data->buffer_type = msm_comm_get_hal_output_buffer(inst);
@@ -5209,11 +5268,14 @@ int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 		 * to know if fatal error is due to SSR or not. Handle
 		 * user SSR as non-fatal.
 		 */
-		mutex_lock(&core->lock);
-		core->resources.debug_timeout = false;
-		mutex_unlock(&core->lock);
+		core->trigger_ssr = true;
 		rc = call_hfi_op(hdev, core_trigger_ssr,
 				hdev->hfi_device_data, type);
+		if (rc) {
+			dprintk(VIDC_ERR, "%s: trigger_ssr failed\n",
+				__func__);
+			core->trigger_ssr = false;
+		}
 	}
 
 	return rc;
@@ -5901,6 +5963,10 @@ int msm_comm_session_continue(void *instance)
 			goto sess_continue_fail;
 		}
 		inst->in_reconfig = false;
+		inst->prop.height[CAPTURE_PORT] = inst->reconfig_height;
+		inst->prop.width[CAPTURE_PORT] = inst->reconfig_width;
+		inst->prop.height[OUTPUT_PORT] = inst->reconfig_height;
+		inst->prop.width[OUTPUT_PORT] = inst->reconfig_width;
 	} else if (inst->session_type == MSM_VIDC_ENCODER) {
 		dprintk(VIDC_DBG,
 				"session_continue not supported for encoder");
@@ -5937,6 +6003,11 @@ u32 get_frame_size_nv21(int plane, u32 height, u32 width)
 u32 get_frame_size_tp10_ubwc(int plane, u32 height, u32 width)
 {
 	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12_BPP10_UBWC, width, height);
+}
+
+u32 get_frame_size_p010(int plane, u32 height, u32 width)
+{
+	return VENUS_BUFFER_SIZE(COLOR_FMT_P010, width, height);
 }
 
 
@@ -6538,5 +6609,95 @@ bool kref_get_mbuf(struct msm_vidc_inst *inst, struct msm_vidc_buffer *mbuf)
 	mutex_unlock(&inst->registeredbufs.lock);
 
 	return ret;
+}
+
+void msm_comm_store_mark_data(struct msm_vidc_list *data_list,
+		u32 index, u32 mark_data, u32 mark_target)
+{
+	struct msm_vidc_buf_data *pdata = NULL;
+	bool found = false;
+
+	if (!data_list) {
+		dprintk(VIDC_ERR, "%s: invalid params %pK\n",
+			__func__, data_list);
+		return;
+	}
+
+	mutex_lock(&data_list->lock);
+	list_for_each_entry(pdata, &data_list->list, list) {
+		if (pdata->index == index) {
+			pdata->mark_data = mark_data;
+			pdata->mark_target = mark_target;
+			found = true;
+			break;
+		}
+	}
+
+	if (!found) {
+		pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+		if (!pdata)  {
+			dprintk(VIDC_WARN, "%s: malloc failure.\n", __func__);
+			goto exit;
+		}
+		pdata->index = index;
+		pdata->mark_data = mark_data;
+		pdata->mark_target = mark_target;
+		list_add_tail(&pdata->list, &data_list->list);
+	}
+
+exit:
+	mutex_unlock(&data_list->lock);
+}
+
+void msm_comm_fetch_mark_data(struct msm_vidc_list *data_list,
+		u32 index, u32 *mark_data, u32 *mark_target)
+{
+	struct msm_vidc_buf_data *pdata = NULL;
+
+	if (!data_list || !mark_data || !mark_target) {
+		dprintk(VIDC_ERR, "%s: invalid params %pK %pK %pK\n",
+			__func__, data_list, mark_data, mark_target);
+		return;
+	}
+
+	*mark_data = *mark_target = 0;
+	mutex_lock(&data_list->lock);
+	list_for_each_entry(pdata, &data_list->list, list) {
+		if (pdata->index == index) {
+			*mark_data = pdata->mark_data;
+			*mark_target = pdata->mark_target;
+			/* clear after fetch */
+			pdata->mark_data = pdata->mark_target = 0;
+			break;
+		}
+	}
+	mutex_unlock(&data_list->lock);
+}
+
+int msm_comm_release_mark_data(struct msm_vidc_inst *inst)
+{
+	struct msm_vidc_buf_data *pdata, *next;
+
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s: invalid params %pK\n",
+			__func__, inst);
+		return -EINVAL;
+	}
+
+	mutex_lock(&inst->etb_data.lock);
+	list_for_each_entry_safe(pdata, next, &inst->etb_data.list, list) {
+		list_del(&pdata->list);
+		kfree(pdata);
+	}
+	mutex_unlock(&inst->etb_data.lock);
+
+	mutex_lock(&inst->fbd_data.lock);
+	list_for_each_entry_safe(pdata, next, &inst->fbd_data.list, list) {
+		list_del(&pdata->list);
+		kfree(pdata);
+	}
+	mutex_unlock(&inst->fbd_data.lock);
+
+	return 0;
 }
 

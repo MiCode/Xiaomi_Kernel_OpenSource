@@ -88,6 +88,10 @@
 
 #define IPA_SMEM_SIZE (8 * 1024)
 
+#define IPA_GSI_CHANNEL_HALT_MIN_SLEEP 5000
+#define IPA_GSI_CHANNEL_HALT_MAX_SLEEP 10000
+#define IPA_GSI_CHANNEL_HALT_MAX_TRY 10
+
 /* round addresses for closes page per SMMU requirements */
 #define IPA_SMMU_ROUND_TO_PAGE(iova, pa, size, iova_p, pa_p, size_p) \
 	do { \
@@ -1969,6 +1973,7 @@ static void ipa3_halt_q6_cons_gsi_channels(void)
 	int ep_idx;
 	int client_idx;
 	const struct ipa_gsi_ep_config *gsi_ep_cfg;
+	int i;
 	int ret;
 	int code = 0;
 
@@ -1988,6 +1993,19 @@ static void ipa3_halt_q6_cons_gsi_channels(void)
 			ret = gsi_halt_channel_ee(
 				gsi_ep_cfg->ipa_gsi_chan_num, gsi_ep_cfg->ee,
 				&code);
+			for (i = 0; i < IPA_GSI_CHANNEL_STOP_MAX_RETRY &&
+				ret == -GSI_STATUS_AGAIN; i++) {
+				IPADBG(
+				"ch %d ee %d with code %d\n is busy try again",
+					gsi_ep_cfg->ipa_gsi_chan_num,
+					gsi_ep_cfg->ee,
+					code);
+				usleep_range(IPA_GSI_CHANNEL_HALT_MIN_SLEEP,
+					IPA_GSI_CHANNEL_HALT_MAX_SLEEP);
+				ret = gsi_halt_channel_ee(
+					gsi_ep_cfg->ipa_gsi_chan_num,
+					gsi_ep_cfg->ee, &code);
+			}
 			if (ret == GSI_STATUS_SUCCESS)
 				IPADBG("halted gsi ch %d ee %d with code %d\n",
 				gsi_ep_cfg->ipa_gsi_chan_num,
@@ -3294,21 +3312,20 @@ static unsigned int ipa3_get_bus_vote(void)
 {
 	unsigned int idx = 1;
 
-	if (ipa3_ctx->curr_ipa_clk_rate == ipa3_ctx->ctrl->ipa_clk_rate_svs) {
+	if (ipa3_ctx->curr_ipa_clk_rate == ipa3_ctx->ctrl->ipa_clk_rate_svs2) {
 		idx = 1;
 	} else if (ipa3_ctx->curr_ipa_clk_rate ==
-			ipa3_ctx->ctrl->ipa_clk_rate_nominal) {
-		if (ipa3_ctx->ctrl->msm_bus_data_ptr->num_usecases <= 2)
-			idx = 1;
-		else
-			idx = 2;
+		ipa3_ctx->ctrl->ipa_clk_rate_svs) {
+		idx = 2;
+	} else if (ipa3_ctx->curr_ipa_clk_rate ==
+		ipa3_ctx->ctrl->ipa_clk_rate_nominal) {
+		idx = 3;
 	} else if (ipa3_ctx->curr_ipa_clk_rate ==
 			ipa3_ctx->ctrl->ipa_clk_rate_turbo) {
 		idx = ipa3_ctx->ctrl->msm_bus_data_ptr->num_usecases - 1;
 	} else {
 		WARN_ON(1);
 	}
-
 	IPADBG("curr %d idx %d\n", ipa3_ctx->curr_ipa_clk_rate, idx);
 
 	return idx;
@@ -3699,8 +3716,11 @@ int ipa3_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 		else if (bandwidth_mbps >=
 			ipa3_ctx->ctrl->clock_scaling_bw_threshold_nominal)
 			needed_voltage = IPA_VOLTAGE_NOMINAL;
-		else
+		else if (bandwidth_mbps >=
+			ipa3_ctx->ctrl->clock_scaling_bw_threshold_svs)
 			needed_voltage = IPA_VOLTAGE_SVS;
+		else
+			needed_voltage = IPA_VOLTAGE_SVS2;
 	} else {
 		IPADBG_LOW("Clock scaling is disabled\n");
 		needed_voltage = IPA_VOLTAGE_NOMINAL;
@@ -3708,6 +3728,9 @@ int ipa3_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 
 	needed_voltage = max(needed_voltage, floor_voltage);
 	switch (needed_voltage) {
+	case IPA_VOLTAGE_SVS2:
+		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_svs2;
+		break;
 	case IPA_VOLTAGE_SVS:
 		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_svs;
 		break;
@@ -4853,6 +4876,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 
 	mutex_init(&ipa3_ctx->lock);
 	mutex_init(&ipa3_ctx->nat_mem.lock);
+	mutex_init(&ipa3_ctx->q6_proxy_clk_vote_mutex);
 
 	idr_init(&ipa3_ctx->ipa_idr);
 	spin_lock_init(&ipa3_ctx->idr_lock);

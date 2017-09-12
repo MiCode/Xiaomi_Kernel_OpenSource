@@ -503,10 +503,10 @@ static int icnss_assign_msa_perm(struct icnss_mem_region_info
 	phys_addr_t addr;
 	u32 size;
 	u32 i = 0;
-	u32 source_vmids[ICNSS_MAX_VMIDS];
+	u32 source_vmids[ICNSS_MAX_VMIDS] = {0};
 	u32 source_nelems;
-	u32 dest_vmids[ICNSS_MAX_VMIDS];
-	u32 dest_perms[ICNSS_MAX_VMIDS];
+	u32 dest_vmids[ICNSS_MAX_VMIDS] = {0};
+	u32 dest_perms[ICNSS_MAX_VMIDS] = {0};
 	u32 dest_nelems;
 	enum icnss_msa_perm cur_perm = mem_region->perm;
 	struct icnss_msa_perm_list_t *new_perm_list, *old_perm_list;
@@ -557,6 +557,12 @@ static int icnss_assign_msa_perm_all(struct icnss_priv *priv,
 	int ret;
 	int i;
 	enum icnss_msa_perm old_perm;
+
+	if (priv->nr_mem_region > QMI_WLFW_MAX_NUM_MEMORY_REGIONS_V01) {
+		icnss_pr_err("Invalid memory region len %d\n",
+			     priv->nr_mem_region);
+		return -EINVAL;
+	}
 
 	for (i = 0; i < priv->nr_mem_region; i++) {
 		old_perm = priv->mem_region[i].perm;

@@ -13,6 +13,7 @@
 #include <linux/ratelimit.h>
 #include <linux/slab.h>
 #include "cam_io_util.h"
+#include "cam_debug_util.h"
 #include "cam_cdm_util.h"
 #include "cam_hw_intf.h"
 #include "cam_ife_hw_mgr.h"
@@ -92,7 +93,8 @@ struct cam_vfe_bus_ver2_wm_resource_data {
 	void                                *ctx;
 
 	uint32_t             irq_enabled;
-	uint32_t             init_cfg_done;
+	bool                 init_cfg_done;
+	bool                 hfr_cfg_done;
 
 	uint32_t             offset;
 	uint32_t             width;
@@ -102,7 +104,6 @@ struct cam_vfe_bus_ver2_wm_resource_data {
 	enum cam_vfe_bus_packer_format pack_fmt;
 
 	uint32_t             burst_len;
-	uint32_t             frame_based;
 
 	uint32_t             en_ubwc;
 	uint32_t             packer_cfg;
@@ -359,7 +360,6 @@ static int cam_vfe_bus_get_num_wm(
 		case CAM_FORMAT_DPCM_14_8_14:
 		case CAM_FORMAT_DPCM_14_10_14:
 		case CAM_FORMAT_PLAIN8:
-		case CAM_FORMAT_PLAIN16_8:
 		case CAM_FORMAT_PLAIN16_10:
 		case CAM_FORMAT_PLAIN16_12:
 		case CAM_FORMAT_PLAIN16_14:
@@ -656,8 +656,20 @@ static enum cam_vfe_bus_packer_format
 	case CAM_FORMAT_UBWC_NV12:
 	case CAM_FORMAT_UBWC_NV12_4R:
 		return PACKER_FMT_PLAIN_8_LSB_MSB_10;
+	case CAM_FORMAT_PLAIN16_16:
+		return PACKER_FMT_PLAIN_16_16BPP;
 	case CAM_FORMAT_PLAIN64:
 		return PACKER_FMT_PLAIN_64;
+	case CAM_FORMAT_PLAIN8:
+		return PACKER_FMT_PLAIN_8;
+	case CAM_FORMAT_PLAIN16_10:
+		return PACKER_FMT_PLAIN_16_10BPP;
+	case CAM_FORMAT_PLAIN16_12:
+		return PACKER_FMT_PLAIN_16_12BPP;
+	case CAM_FORMAT_PLAIN16_14:
+		return PACKER_FMT_PLAIN_16_14BPP;
+	case CAM_FORMAT_PLAIN32_20:
+		return PACKER_FMT_PLAIN_32_20BPP;
 	case CAM_FORMAT_MIPI_RAW_6:
 	case CAM_FORMAT_MIPI_RAW_8:
 	case CAM_FORMAT_MIPI_RAW_10:
@@ -665,14 +677,8 @@ static enum cam_vfe_bus_packer_format
 	case CAM_FORMAT_MIPI_RAW_14:
 	case CAM_FORMAT_MIPI_RAW_16:
 	case CAM_FORMAT_MIPI_RAW_20:
-	case CAM_FORMAT_PLAIN128:
-	case CAM_FORMAT_PLAIN8:
 	case CAM_FORMAT_PLAIN16_8:
-	case CAM_FORMAT_PLAIN16_10:
-	case CAM_FORMAT_PLAIN16_12:
-	case CAM_FORMAT_PLAIN16_14:
-	case CAM_FORMAT_PLAIN16_16:
-	case CAM_FORMAT_PLAIN32_20:
+	case CAM_FORMAT_PLAIN128:
 	case CAM_FORMAT_PD8:
 	case CAM_FORMAT_PD10:
 		return PACKER_FMT_PLAIN_128;
@@ -723,14 +729,72 @@ static int cam_vfe_bus_acquire_wm(
 
 	rsrc_data->width = out_port_info->width;
 	rsrc_data->height = out_port_info->height;
+	CAM_DBG(CAM_ISP, "WM %d width %d height %d", rsrc_data->index,
+		rsrc_data->width, rsrc_data->height);
 
 	if (rsrc_data->index < 3) {
 		/* Write master 0-2 refers to RDI 0/ RDI 1/RDI 2 */
-		rsrc_data->width = CAM_VFE_RDI_BUS_DEFAULT_WIDTH;
-		rsrc_data->height = 0;
-		rsrc_data->stride = CAM_VFE_RDI_BUS_DEFAULT_STRIDE;
-		rsrc_data->pack_fmt = 0x0;
-		rsrc_data->en_cfg = 0x3;
+		switch (rsrc_data->format) {
+		case CAM_FORMAT_MIPI_RAW_6:
+		case CAM_FORMAT_MIPI_RAW_8:
+		case CAM_FORMAT_MIPI_RAW_10:
+		case CAM_FORMAT_MIPI_RAW_12:
+		case CAM_FORMAT_MIPI_RAW_14:
+		case CAM_FORMAT_MIPI_RAW_16:
+		case CAM_FORMAT_MIPI_RAW_20:
+			rsrc_data->width = CAM_VFE_RDI_BUS_DEFAULT_WIDTH;
+			rsrc_data->height = 0;
+			rsrc_data->stride = CAM_VFE_RDI_BUS_DEFAULT_STRIDE;
+			rsrc_data->pack_fmt = 0x0;
+			rsrc_data->en_cfg = 0x3;
+			break;
+		case CAM_FORMAT_PLAIN8:
+			rsrc_data->en_cfg = 0x1;
+			rsrc_data->pack_fmt = 0x1;
+			rsrc_data->width = rsrc_data->width * 2;
+			rsrc_data->stride = rsrc_data->width;
+			break;
+		case CAM_FORMAT_PLAIN16_10:
+			rsrc_data->en_cfg = 0x1;
+			rsrc_data->pack_fmt = 0x2;
+			rsrc_data->width = rsrc_data->width * 2;
+			rsrc_data->stride = rsrc_data->width;
+			break;
+		case CAM_FORMAT_PLAIN16_12:
+			rsrc_data->en_cfg = 0x1;
+			rsrc_data->pack_fmt = 0x3;
+			rsrc_data->width = rsrc_data->width * 2;
+			rsrc_data->stride = rsrc_data->width;
+			break;
+		case CAM_FORMAT_PLAIN16_14:
+			rsrc_data->en_cfg = 0x1;
+			rsrc_data->pack_fmt = 0x4;
+			rsrc_data->width = rsrc_data->width * 2;
+			rsrc_data->stride = rsrc_data->width;
+			break;
+		case CAM_FORMAT_PLAIN16_16:
+			rsrc_data->en_cfg = 0x1;
+			rsrc_data->pack_fmt = 0x5;
+			rsrc_data->width = rsrc_data->width * 2;
+			rsrc_data->stride = rsrc_data->width;
+			break;
+		case CAM_FORMAT_PLAIN32_20:
+			rsrc_data->en_cfg = 0x1;
+			rsrc_data->pack_fmt = 0x9;
+			break;
+		case CAM_FORMAT_PLAIN64:
+			rsrc_data->en_cfg = 0x1;
+			rsrc_data->pack_fmt = 0xA;
+			break;
+		case CAM_FORMAT_PLAIN128:
+			rsrc_data->en_cfg = 0x1;
+			rsrc_data->pack_fmt = 0x0;
+			break;
+		default:
+			CAM_ERR(CAM_ISP, "Unsupported RDI format %d",
+				rsrc_data->format);
+			return -EINVAL;
+		}
 	} else if (rsrc_data->index < 5 ||
 		rsrc_data->index == 7 || rsrc_data->index == 8) {
 		/* Write master 3, 4 - for Full OUT , 7-8  FD OUT */
@@ -812,9 +876,6 @@ static int cam_vfe_bus_acquire_wm(
 		rsrc_data->height = rsrc_data->height / 2;
 		rsrc_data->en_cfg = 0x1;
 	}
-	if (vfe_out_res_id >= CAM_ISP_IFE_OUT_RES_RDI_0 &&
-		vfe_out_res_id <= CAM_ISP_IFE_OUT_RES_RDI_3)
-		rsrc_data->frame_based = 1;
 
 	*client_done_mask = (1 << wm_idx);
 	*wm_res = wm_res_local;
@@ -836,7 +897,6 @@ static int cam_vfe_bus_release_wm(void   *bus_priv,
 	rsrc_data->format = 0;
 	rsrc_data->pack_fmt = 0;
 	rsrc_data->burst_len = 0;
-	rsrc_data->frame_based = 0;
 	rsrc_data->irq_subsample_period = 0;
 	rsrc_data->irq_subsample_pattern = 0;
 	rsrc_data->framedrop_period = 0;
@@ -849,7 +909,8 @@ static int cam_vfe_bus_release_wm(void   *bus_priv,
 	rsrc_data->ubwc_meta_stride = 0;
 	rsrc_data->ubwc_mode_cfg = 0;
 	rsrc_data->ubwc_meta_offset = 0;
-	rsrc_data->init_cfg_done = 0;
+	rsrc_data->init_cfg_done = false;
+	rsrc_data->hfr_cfg_done = false;
 	rsrc_data->en_cfg = 0;
 
 	wm_res->tasklet_info = NULL;
@@ -1959,7 +2020,7 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 		CAM_DBG(CAM_ISP, "image stride 0x%x", wm_data->stride);
 
 		if (wm_data->framedrop_pattern != io_cfg->framedrop_pattern ||
-			!wm_data->init_cfg_done) {
+			!wm_data->hfr_cfg_done) {
 			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
 				wm_data->hw_regs->framedrop_pattern,
 				io_cfg->framedrop_pattern);
@@ -1969,7 +2030,7 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 			wm_data->framedrop_pattern);
 
 		if (wm_data->framedrop_period != io_cfg->framedrop_period ||
-			!wm_data->init_cfg_done) {
+			!wm_data->hfr_cfg_done) {
 			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
 				wm_data->hw_regs->framedrop_period,
 				io_cfg->framedrop_period);
@@ -1979,7 +2040,7 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 			wm_data->framedrop_period);
 
 		if (wm_data->irq_subsample_period != io_cfg->subsample_period
-			|| !wm_data->init_cfg_done) {
+			|| !wm_data->hfr_cfg_done) {
 			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
 				wm_data->hw_regs->irq_subsample_period,
 				io_cfg->subsample_period);
@@ -1990,7 +2051,7 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 			wm_data->irq_subsample_period);
 
 		if (wm_data->irq_subsample_pattern != io_cfg->subsample_pattern
-			|| !wm_data->init_cfg_done) {
+			|| !wm_data->hfr_cfg_done) {
 			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
 				wm_data->hw_regs->irq_subsample_pattern,
 				io_cfg->subsample_pattern);
@@ -2117,7 +2178,7 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 
 		/* set initial configuration done */
 		if (!wm_data->init_cfg_done)
-			wm_data->init_cfg_done = 1;
+			wm_data->init_cfg_done = true;
 	}
 
 	size = vfe_out_data->cdm_util_ops->cdm_required_size_reg_random(j/2);
@@ -2135,6 +2196,108 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 
 	/* cdm util returns dwords, need to convert to bytes */
 	update_buf->cdm.used_bytes = size * 4;
+
+	return 0;
+}
+
+static int cam_vfe_bus_update_hfr(void *priv, void *cmd_args,
+	uint32_t arg_size)
+{
+	struct cam_vfe_bus_ver2_priv             *bus_priv;
+	struct cam_isp_hw_get_hfr_update         *update_hfr;
+	struct cam_vfe_bus_ver2_vfe_out_data     *vfe_out_data = NULL;
+	struct cam_vfe_bus_ver2_wm_resource_data *wm_data = NULL;
+	struct cam_isp_port_hfr_config           *hfr_cfg = NULL;
+	uint32_t *reg_val_pair;
+	uint32_t  i, j, size = 0;
+
+	bus_priv = (struct cam_vfe_bus_ver2_priv  *) priv;
+	update_hfr =  (struct cam_isp_hw_get_hfr_update *) cmd_args;
+
+	vfe_out_data = (struct cam_vfe_bus_ver2_vfe_out_data *)
+		update_hfr->cdm.res->res_priv;
+
+	if (!vfe_out_data || !vfe_out_data->cdm_util_ops) {
+		CAM_ERR(CAM_ISP, "Failed! Invalid data");
+		return -EINVAL;
+	}
+
+	reg_val_pair = &vfe_out_data->common_data->io_buf_update[0];
+	hfr_cfg = update_hfr->io_hfr_cfg;
+
+	for (i = 0, j = 0; i < vfe_out_data->num_wm; i++) {
+		if (j >= (MAX_REG_VAL_PAIR_SIZE - MAX_BUF_UPDATE_REG_NUM * 2)) {
+			CAM_ERR(CAM_ISP,
+				"reg_val_pair %d exceeds the array limit %lu",
+				j, MAX_REG_VAL_PAIR_SIZE);
+			return -ENOMEM;
+		}
+
+		wm_data = vfe_out_data->wm_res[i]->res_priv;
+
+		if ((wm_data->framedrop_pattern !=
+			hfr_cfg->framedrop_pattern) ||
+			!wm_data->hfr_cfg_done) {
+			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+				wm_data->hw_regs->framedrop_pattern,
+				hfr_cfg->framedrop_pattern);
+			wm_data->framedrop_pattern = hfr_cfg->framedrop_pattern;
+		}
+		CAM_DBG(CAM_ISP, "framedrop pattern 0x%x",
+			wm_data->framedrop_pattern);
+
+		if (wm_data->framedrop_period != hfr_cfg->framedrop_period ||
+			!wm_data->hfr_cfg_done) {
+			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+				wm_data->hw_regs->framedrop_period,
+				hfr_cfg->framedrop_period);
+			wm_data->framedrop_period = hfr_cfg->framedrop_period;
+		}
+		CAM_DBG(CAM_ISP, "framedrop period 0x%x",
+			wm_data->framedrop_period);
+
+		if (wm_data->irq_subsample_period != hfr_cfg->subsample_period
+			|| !wm_data->hfr_cfg_done) {
+			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+				wm_data->hw_regs->irq_subsample_period,
+				hfr_cfg->subsample_period);
+			wm_data->irq_subsample_period =
+				hfr_cfg->subsample_period;
+		}
+		CAM_DBG(CAM_ISP, "irq subsample period 0x%x",
+			wm_data->irq_subsample_period);
+
+		if (wm_data->irq_subsample_pattern != hfr_cfg->subsample_pattern
+			|| !wm_data->hfr_cfg_done) {
+			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+				wm_data->hw_regs->irq_subsample_pattern,
+				hfr_cfg->subsample_pattern);
+			wm_data->irq_subsample_pattern =
+				hfr_cfg->subsample_pattern;
+		}
+		CAM_DBG(CAM_ISP, "irq subsample pattern 0x%x",
+			wm_data->irq_subsample_pattern);
+
+		/* set initial configuration done */
+		if (!wm_data->hfr_cfg_done)
+			wm_data->hfr_cfg_done = true;
+	}
+
+	size = vfe_out_data->cdm_util_ops->cdm_required_size_reg_random(j/2);
+
+	/* cdm util returns dwords, need to convert to bytes */
+	if ((size * 4) > update_hfr->cdm.size) {
+		CAM_ERR(CAM_ISP,
+			"Failed! Buf size:%d insufficient, expected size:%d",
+			update_hfr->cdm.size, size);
+		return -ENOMEM;
+	}
+
+	vfe_out_data->cdm_util_ops->cdm_write_regrandom(
+		update_hfr->cdm.cmd_buf_addr, j/2, reg_val_pair);
+
+	/* cdm util returns dwords, need to convert to bytes */
+	update_hfr->cdm.used_bytes = size * 4;
 
 	return 0;
 }
@@ -2215,6 +2378,9 @@ static int cam_vfe_bus_process_cmd(void *priv,
 	switch (cmd_type) {
 	case CAM_VFE_HW_CMD_GET_BUF_UPDATE:
 		rc = cam_vfe_bus_update_buf(priv, cmd_args, arg_size);
+		break;
+	case CAM_VFE_HW_CMD_GET_HFR_UPDATE:
+		rc = cam_vfe_bus_update_hfr(priv, cmd_args, arg_size);
 		break;
 	default:
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "Inval camif process command:%d\n",
