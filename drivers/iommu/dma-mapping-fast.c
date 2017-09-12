@@ -14,6 +14,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/dma-mapping-fast.h>
 #include <linux/io-pgtable-fast.h>
+#include <linux/pci.h>
 #include <linux/vmalloc.h>
 #include <asm/cacheflush.h>
 #include <asm/dma-iommu.h>
