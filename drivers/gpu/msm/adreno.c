@@ -554,7 +554,13 @@ static int _soft_reset(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-
+/**
+ * adreno_irqctrl() - Enables/disables the RBBM interrupt mask
+ * @adreno_dev: Pointer to an adreno_device
+ * @state: 1 for masked or 0 for unmasked
+ * Power: The caller of this function must make sure to use OOBs
+ * so that we know that the GPU is powered on
+ */
 void adreno_irqctrl(struct adreno_device *adreno_dev, int state)
 {
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
@@ -1509,9 +1515,9 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	/* Send OOB request to turn on the GX */
 	if (gpudev->oob_set) {
-		status = gpudev->oob_set(adreno_dev, OOB_GPUSTART_SET_MASK,
-				OOB_GPUSTART_CHECK_MASK,
-				OOB_GPUSTART_CLEAR_MASK);
+		status = gpudev->oob_set(adreno_dev, OOB_GPU_SET_MASK,
+				OOB_GPU_CHECK_MASK,
+				OOB_GPU_CLEAR_MASK);
 		if (status)
 			goto error_mmu_off;
 	}
@@ -1611,7 +1617,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	/* Send OOB request to allow IFPC */
 	if (gpudev->oob_clear) {
-		gpudev->oob_clear(adreno_dev, OOB_GPUSTART_CLEAR_MASK);
+		gpudev->oob_clear(adreno_dev, OOB_GPU_CLEAR_MASK);
 
 		/* If we made it this far, the BOOT OOB was sent to the GMU */
 		if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
@@ -1622,15 +1628,16 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	return 0;
 
 error_oob_clear:
-	if (gpudev->oob_clear) {
-		gpudev->oob_clear(adreno_dev, OOB_GPUSTART_CLEAR_MASK);
-		if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
-			gpudev->oob_clear(adreno_dev,
-					OOB_BOOT_SLUMBER_CLEAR_MASK);
-	}
+	if (gpudev->oob_clear)
+		gpudev->oob_clear(adreno_dev, OOB_GPU_CLEAR_MASK);
 
 error_mmu_off:
 	kgsl_mmu_stop(&device->mmu);
+	if (gpudev->oob_clear &&
+			ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
+		gpudev->oob_clear(adreno_dev,
+				OOB_BOOT_SLUMBER_CLEAR_MASK);
+	}
 
 error_pwr_off:
 	/* set the state back to original state */
@@ -1689,9 +1696,21 @@ static int adreno_stop(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	int error = 0;
 
 	if (!test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv))
 		return 0;
+
+	/* Turn the power on one last time before stopping */
+	if (gpudev->oob_set) {
+		error = gpudev->oob_set(adreno_dev, OOB_GPU_SET_MASK,
+				OOB_GPU_CHECK_MASK,
+				OOB_GPU_CLEAR_MASK);
+		if (error) {
+			gpudev->oob_clear(adreno_dev, OOB_GPU_CLEAR_MASK);
+			return error;
+		}
+	}
 
 	adreno_set_active_ctxs_null(adreno_dev);
 
@@ -1715,6 +1734,9 @@ static int adreno_stop(struct kgsl_device *device)
 
 	/* Save physical performance counter values before GPU power down*/
 	adreno_perfcounter_save(adreno_dev);
+
+	if (gpudev->oob_clear)
+		gpudev->oob_clear(adreno_dev, OOB_GPU_CLEAR_MASK);
 
 	/*
 	 * Saving perfcounters will use an OOB to put the GMU into
