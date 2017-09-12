@@ -489,12 +489,17 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	if (flags & KGSL_CMD_FLAGS_PWRON_FIXUP)
 		total_sizedwords += 9;
 
-	/* WAIT_MEM_WRITES - needed in the stall on fault case
-	 * to prevent out of order CP operations that can result
-	 * in a CACHE_FLUSH_TS interrupt storm */
-	if (test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE,
+	/* Don't insert any commands if stall on fault is not supported. */
+	if ((ADRENO_GPUREV(adreno_dev) > 500) && !adreno_is_a510(adreno_dev)) {
+		/*
+		 * WAIT_MEM_WRITES - needed in the stall on fault case
+		 * to prevent out of order CP operations that can result
+		 * in a CACHE_FLUSH_TS interrupt storm
+		 */
+		if (test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE,
 				&adreno_dev->ft_pf_policy))
-		total_sizedwords += 1;
+			total_sizedwords += 1;
+	}
 
 	ringcmds = adreno_ringbuffer_allocspace(rb, total_sizedwords);
 	if (IS_ERR(ringcmds))
@@ -581,14 +586,18 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	if (profile_ready)
 		adreno_profile_postib_processing(adreno_dev, &flags, &ringcmds);
 
-	/*
-	 * WAIT_MEM_WRITES - needed in the stall on fault case to prevent
-	 * out of order CP operations that can result in a CACHE_FLUSH_TS
-	 * interrupt storm
-	 */
-	if (test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE,
+	/* Don't insert any commands if stall on fault is not supported. */
+	if ((ADRENO_GPUREV(adreno_dev) > 500) && !adreno_is_a510(adreno_dev)) {
+		/*
+		 * WAIT_MEM_WRITES - needed in the stall on fault case
+		 * to prevent out of order CP operations that can result
+		 * in a CACHE_FLUSH_TS interrupt storm
+		 */
+		if (test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE,
 				&adreno_dev->ft_pf_policy))
-		*ringcmds++ = cp_packet(adreno_dev, CP_WAIT_MEM_WRITES, 0);
+			*ringcmds++ = cp_packet(adreno_dev,
+						CP_WAIT_MEM_WRITES, 0);
+	}
 
 	/*
 	 * Do a unique memory write from the GPU. This can be used in
