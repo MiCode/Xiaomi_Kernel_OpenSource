@@ -44,6 +44,14 @@
 		gpios = <&tlmm 22 0>;
 		status = "okay";
 	};
+
+	gpio_fan {
+		/* Based on 5v 75mA MC30100V2 */
+		compatible = "gpio-fan";
+		gpios =  <&tlmm 43 GPIO_ACTIVE_LOW>;
+		gpio-fan,speed-map = <0     1>,
+				     <8000  0>;
+	};
 };
 
 &soc {
