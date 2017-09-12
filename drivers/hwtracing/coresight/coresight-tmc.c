@@ -459,6 +459,42 @@ static ssize_t mem_type_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(mem_type);
 
+static ssize_t block_size_show(struct device *dev,
+			     struct device_attribute *attr,
+			     char *buf)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	uint32_t val = 0;
+
+	if (drvdata->byte_cntr)
+		val = drvdata->byte_cntr->block_size;
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n",
+			val);
+}
+
+static ssize_t block_size_store(struct device *dev,
+			      struct device_attribute *attr,
+			      const char *buf,
+			      size_t size)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	if (kstrtoul(buf, 0, &val))
+		return -EINVAL;
+
+	if (!drvdata->byte_cntr)
+		return -EINVAL;
+
+	mutex_lock(&drvdata->byte_cntr->byte_cntr_lock);
+	drvdata->byte_cntr->block_size = val * 8;
+	mutex_unlock(&drvdata->byte_cntr->byte_cntr_lock);
+
+	return size;
+}
+static DEVICE_ATTR_RW(block_size);
+
 static struct attribute *coresight_tmc_etf_attrs[] = {
 	&dev_attr_trigger_cntr.attr,
 	NULL,
@@ -470,6 +506,7 @@ static struct attribute *coresight_tmc_etr_attrs[] = {
 	&dev_attr_trigger_cntr.attr,
 	&dev_attr_out_mode.attr,
 	&dev_attr_available_out_modes.attr,
+	&dev_attr_block_size.attr,
 	NULL,
 };
 
@@ -586,6 +623,8 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 		desc.ops = &tmc_etr_cs_ops;
 		desc.groups = coresight_tmc_etr_groups;
 		desc.subtype.sink_subtype = CORESIGHT_DEV_SUBTYPE_SINK_BUFFER;
+
+		drvdata->byte_cntr = byte_cntr_init(adev, drvdata);
 
 		ret = tmc_etr_bam_init(adev, drvdata);
 		if (ret)
