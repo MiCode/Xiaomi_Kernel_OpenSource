@@ -27,6 +27,8 @@
 #include <linux/usb/usb_qdss.h>
 #include <linux/coresight-cti.h>
 
+#include "coresight-byte-cntr.h"
+
 #define TMC_RSZ			0x004
 #define TMC_STS			0x00c
 #define TMC_RRD			0x010
@@ -198,7 +200,7 @@ struct tmc_drvdata {
 	bool			enable;
 	char			*buf;
 	dma_addr_t		paddr;
-	void __iomem		*vaddr;
+	void			*vaddr;
 	u32			size;
 	u32			len;
 	u32			mode;
@@ -218,6 +220,7 @@ struct tmc_drvdata {
 	bool			sticky_enable;
 	struct coresight_cti	*cti_flush;
 	struct coresight_cti	*cti_reset;
+	struct byte_cntr	*byte_cntr;
 };
 
 /* Generic functions */
@@ -243,6 +246,8 @@ void usb_notifier(void *priv, unsigned int event, struct qdss_request *d_req,
 		  struct usb_qdss_ch *ch);
 int tmc_etr_bam_init(struct amba_device *adev,
 		     struct tmc_drvdata *drvdata);
+extern struct byte_cntr *byte_cntr_init(struct amba_device *adev,
+					struct tmc_drvdata *drvdata);
 extern const struct coresight_ops tmc_etr_cs_ops;
 
 

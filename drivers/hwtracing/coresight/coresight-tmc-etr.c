@@ -21,7 +21,7 @@
 #include "coresight-priv.h"
 #include "coresight-tmc.h"
 
-static void tmc_etr_enable_hw(struct tmc_drvdata *drvdata)
+void tmc_etr_enable_hw(struct tmc_drvdata *drvdata)
 {
 	u32 axictl, sts;
 
@@ -458,6 +458,8 @@ out:
 	if (!used && vaddr)
 		dma_free_coherent(drvdata->dev, drvdata->size, vaddr, paddr);
 
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
+		tmc_etr_byte_cntr_start(drvdata->byte_cntr);
 	mutex_unlock(&drvdata->mem_lock);
 
 	if (!ret)
@@ -540,6 +542,7 @@ static void tmc_disable_etr_sink(struct coresight_device *csdev)
 	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
 		coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
 		coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
+		tmc_etr_byte_cntr_stop(drvdata->byte_cntr);
 	}
 out:
 	mutex_unlock(&drvdata->mem_lock);
@@ -604,6 +607,11 @@ int tmc_read_prepare_etr(struct tmc_drvdata *drvdata)
 
 	/* If drvdata::buf is NULL the trace data has been read already */
 	if (drvdata->buf == NULL) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (!drvdata->byte_cntr || drvdata->byte_cntr->enable) {
 		ret = -EINVAL;
 		goto out;
 	}
