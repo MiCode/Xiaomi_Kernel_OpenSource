@@ -140,3 +140,7 @@
 &dsi_sim_cmd_display {
 	qcom,dsi-display-active;
 };
+
+&slim_qca {
+	status = "disabled";
+};
