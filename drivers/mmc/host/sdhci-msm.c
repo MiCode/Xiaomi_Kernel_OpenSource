@@ -4197,7 +4197,7 @@ static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
 	 * starts coming.
 	 */
 	if ((major == 1) && ((minor == 0x42) || (minor == 0x46) ||
-				(minor == 0x49)))
+				(minor == 0x49) || (minor >= 0x6b)))
 		msm_host->use_14lpp_dll = true;
 
 	/* Fake 3.0V support for SDIO devices which requires such voltage */
