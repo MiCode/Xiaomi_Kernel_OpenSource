@@ -17,9 +17,18 @@
 	/delete-node/ ssusb@a800000;
 	/delete-node/ qusb@88e3000;
 	/delete-node/ ssphy@88eb000;
+	/delete-node/ usb_audio_qmi_dev;
+	usb_audio_qmi_dev {
+		compatible = "qcom,usb-audio-qmi-dev";
+		iommus = <&apps_smmu 0x180f 0x0>;
+		qcom,usb-audio-stream-id = <0xf>;
+		qcom,usb-audio-intr-num = <2>;
+	};
 };
 
 &usb0 {
+	/delete-property/ iommus;
+	/delete-property/ qcom,smmu-s1-bypass;
 	extcon = <&pm660_pdphy>, <&pm660_pdphy>, <0> /* <&eud> */;
 };
 
@@ -30,6 +39,6 @@
 };
 
 &usb_qmp_dp_phy {
-	vdd-supply = <&pm660_l1>;
-	core-supply = <&pm660l_l1>;
+	vdd-supply = <&pm660l_l1>; /* 0.88v */
+	core-supply = <&pm660_l1>; /* 1.2v */
 };
