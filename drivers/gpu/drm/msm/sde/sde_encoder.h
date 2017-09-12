@@ -40,6 +40,7 @@
  * @needs_cdm:	Encoder requests a CDM based on pixel format conversion needs
  * @display_num_of_h_tiles: Number of horizontal tiles in case of split
  *                          interface
+ * @is_primary: set to true if the display is primary display
  * @topology:   Topology of the display
  */
 struct sde_encoder_hw_resources {
@@ -47,6 +48,7 @@ struct sde_encoder_hw_resources {
 	enum sde_intf_mode wbs[WB_MAX];
 	bool needs_cdm;
 	u32 display_num_of_h_tiles;
+	bool is_primary;
 	struct msm_display_topology topology;
 };
 

@@ -559,6 +559,7 @@ void sde_encoder_get_hw_resources(struct drm_encoder *drm_enc,
 	}
 
 	hw_res->topology = sde_enc->mode_info.topology;
+	hw_res->is_primary = sde_enc->disp_info.is_primary;
 }
 
 void sde_encoder_destroy(struct drm_encoder *drm_enc)
