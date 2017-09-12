@@ -94,3 +94,16 @@
 
 	status = "ok";
 };
+
+&vendor {
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "fg-gen3-batterydata-itech-3000mah.dtsi"
+		#include "fg-gen3-batterydata-ascent-3450mah.dtsi"
+		#include "fg-gen3-batterydata-demo-6000mah.dtsi"
+	};
+};
+
+&pm660_fg {
+	qcom,battery-data = <&mtp_batterydata>;
+};
