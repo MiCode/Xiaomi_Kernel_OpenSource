@@ -13,6 +13,8 @@
 #include <linux/mutex.h>
 #include <linux/refcount.h>
 
+#include "coresight-byte-cntr.h"
+
 #define TMC_RSZ			0x004
 #define TMC_STS			0x00c
 #define TMC_RRD			0x010
@@ -210,6 +212,7 @@ struct tmc_drvdata {
 	struct coresight_csr	*csr;
 	const char		*csr_name;
 	bool			enable;
+	struct byte_cntr	*byte_cntr;
 };
 
 struct etr_buf_operations {
@@ -271,6 +274,8 @@ ssize_t tmc_etb_get_sysfs_trace(struct tmc_drvdata *drvdata,
 /* ETR functions */
 int tmc_read_prepare_etr(struct tmc_drvdata *drvdata);
 int tmc_read_unprepare_etr(struct tmc_drvdata *drvdata);
+extern struct byte_cntr *byte_cntr_init(struct amba_device *adev,
+					struct tmc_drvdata *drvdata);
 extern const struct coresight_ops tmc_etr_cs_ops;
 ssize_t tmc_etr_get_sysfs_trace(struct tmc_drvdata *drvdata,
 				loff_t pos, size_t len, char **bufpp);

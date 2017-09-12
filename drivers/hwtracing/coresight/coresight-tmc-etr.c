@@ -1187,6 +1187,8 @@ out:
 	if (free_buf)
 		tmc_etr_free_sysfs_buf(free_buf);
 
+	tmc_etr_byte_cntr_start(drvdata->byte_cntr);
+
 	if (!ret)
 		dev_dbg(&csdev->dev, "TMC-ETR enabled\n");
 
@@ -1654,12 +1656,13 @@ static int tmc_disable_etr_sink(struct coresight_device *csdev)
 
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
+	tmc_etr_byte_cntr_stop(drvdata->byte_cntr);
 	/* Free memory outside the spinlock if need be */
 	if (drvdata->etr_buf) {
 		tmc_etr_free_sysfs_buf(drvdata->etr_buf);
 		drvdata->etr_buf = NULL;
 	}
-	dev_dbg(&csdev->dev, "TMC-ETR disabled\n");
+	dev_info(&csdev->dev, "TMC-ETR disabled\n");
 	return 0;
 }
 
@@ -1696,6 +1699,11 @@ int tmc_read_prepare_etr(struct tmc_drvdata *drvdata)
 	 * If drvdata::sysfs_data is NULL the trace data has been read already.
 	 */
 	if (!drvdata->sysfs_buf) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (drvdata->byte_cntr && drvdata->byte_cntr->enable) {
 		ret = -EINVAL;
 		goto out;
 	}

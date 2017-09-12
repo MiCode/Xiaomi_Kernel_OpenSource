@@ -355,9 +355,51 @@ static ssize_t buffer_size_store(struct device *dev,
 
 static DEVICE_ATTR_RW(buffer_size);
 
+static ssize_t block_size_show(struct device *dev,
+			     struct device_attribute *attr,
+			     char *buf)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	uint32_t val = 0;
+
+	if (drvdata->byte_cntr)
+		val = drvdata->byte_cntr->block_size;
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n",
+			val);
+}
+
+static ssize_t block_size_store(struct device *dev,
+			      struct device_attribute *attr,
+			      const char *buf,
+			      size_t size)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	if (kstrtoul(buf, 0, &val))
+		return -EINVAL;
+
+	if (!drvdata->byte_cntr)
+		return -EINVAL;
+
+	if (val && val < 4096) {
+		pr_err("Assign minimum block size of 4096 bytes\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&drvdata->byte_cntr->byte_cntr_lock);
+	drvdata->byte_cntr->block_size = val;
+	mutex_unlock(&drvdata->byte_cntr->byte_cntr_lock);
+
+	return size;
+}
+static DEVICE_ATTR_RW(block_size);
+
 static struct attribute *coresight_tmc_attrs[] = {
 	&dev_attr_trigger_cntr.attr,
 	&dev_attr_buffer_size.attr,
+	&dev_attr_block_size.attr,
 	NULL,
 };
 
@@ -508,6 +550,7 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 		desc.ops = &tmc_etr_cs_ops;
 		ret = tmc_etr_setup_caps(dev, devid,
 					 coresight_get_uci_data(id));
+		drvdata->byte_cntr = byte_cntr_init(adev, drvdata);
 		if (ret)
 			goto out;
 		idr_init(&drvdata->idr);
