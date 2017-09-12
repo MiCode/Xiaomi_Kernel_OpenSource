@@ -106,10 +106,8 @@
 #define QPNP_WLED_BOOST_DUTY_MIN_NS	26
 #define QPNP_WLED_BOOST_DUTY_MAX_NS	156
 #define QPNP_WLED_DEF_BOOST_DUTY_NS	104
-#define QPNP_WLED_SWITCH_FREQ_MASK	0x70
-#define QPNP_WLED_SWITCH_FREQ_800_KHZ	800
-#define QPNP_WLED_SWITCH_FREQ_1600_KHZ	1600
-#define QPNP_WLED_SWITCH_FREQ_OVERWRITE 0x80
+#define QPNP_WLED_SWITCH_FREQ_MASK	GENMASK(3, 0)
+#define QPNP_WLED_SWITCH_FREQ_OVERWRITE BIT(7)
 #define QPNP_WLED_OVP_MASK		GENMASK(1, 0)
 #define QPNP_WLED_TEST4_EN_DEB_BYPASS_ILIM_BIT	BIT(6)
 #define QPNP_WLED_TEST4_EN_SH_FOR_SS_BIT	BIT(5)
@@ -1800,20 +1798,23 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 		return rc;
 
 	/* Configure the SWITCHING FREQ register */
-	if (wled->switch_freq_khz == QPNP_WLED_SWITCH_FREQ_1600_KHZ)
-		temp = QPNP_WLED_SWITCH_FREQ_1600_KHZ_CODE;
+	if (wled->switch_freq_khz == 1600)
+		reg = QPNP_WLED_SWITCH_FREQ_1600_KHZ_CODE;
 	else
-		temp = QPNP_WLED_SWITCH_FREQ_800_KHZ_CODE;
+		reg = QPNP_WLED_SWITCH_FREQ_800_KHZ_CODE;
 
-	rc = qpnp_wled_read_reg(wled,
-			QPNP_WLED_SWITCH_FREQ_REG(wled->ctrl_base), &reg);
+	/*
+	 * Do not set the overwrite bit when switching frequency is selected
+	 * for AMOLED. This register is in logic reset block which can cause
+	 * the value to be overwritten during module enable/disable.
+	 */
+	mask = QPNP_WLED_SWITCH_FREQ_MASK | QPNP_WLED_SWITCH_FREQ_OVERWRITE;
+	if (!wled->disp_type_amoled)
+		reg |= QPNP_WLED_SWITCH_FREQ_OVERWRITE;
+
+	rc = qpnp_wled_masked_write_reg(wled,
+			QPNP_WLED_SWITCH_FREQ_REG(wled->ctrl_base), mask, reg);
 	if (rc < 0)
-		return rc;
-	reg &= QPNP_WLED_SWITCH_FREQ_MASK;
-	reg |= (temp | QPNP_WLED_SWITCH_FREQ_OVERWRITE);
-	rc = qpnp_wled_write_reg(wled,
-			QPNP_WLED_SWITCH_FREQ_REG(wled->ctrl_base), reg);
-	if (rc)
 		return rc;
 
 	rc = qpnp_wled_ovp_config(wled);
@@ -2252,7 +2253,7 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 		return rc;
 	}
 
-	wled->switch_freq_khz = QPNP_WLED_SWITCH_FREQ_800_KHZ;
+	wled->switch_freq_khz = wled->disp_type_amoled ? 1600 : 800;
 	rc = of_property_read_u32(pdev->dev.of_node,
 			"qcom,switch-freq-khz", &temp_val);
 	if (!rc) {
