@@ -146,6 +146,7 @@
 #define CORE_START_CDC_TRAFFIC		(1 << 6)
 
 #define CORE_PWRSAVE_DLL	(1 << 3)
+#define CORE_FIFO_ALT_EN	(1 << 10)
 #define CORE_CMDEN_HS400_INPUT_MASK_CNT (1 << 13)
 
 #define CORE_DDR_CAL_EN		(1 << 0)
@@ -4517,6 +4518,14 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	 */
 	writel_relaxed(CORE_VENDOR_SPEC_POR_VAL,
 	host->ioaddr + msm_host_offset->CORE_VENDOR_SPEC);
+
+	/*
+	 * Ensure SDHCI FIFO is enabled by disabling alternative FIFO
+	 */
+	writel_relaxed((readl_relaxed(host->ioaddr +
+			msm_host_offset->CORE_VENDOR_SPEC3) &
+			~CORE_FIFO_ALT_EN), host->ioaddr +
+			msm_host_offset->CORE_VENDOR_SPEC3);
 
 	if (!msm_host->mci_removed) {
 		/* Set HC_MODE_EN bit in HC_MODE register */
