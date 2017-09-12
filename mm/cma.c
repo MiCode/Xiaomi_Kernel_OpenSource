@@ -136,6 +136,10 @@ static int __init cma_activate_area(struct cma *cma)
 	spin_lock_init(&cma->mem_head_lock);
 #endif
 
+	if (!PageHighMem(pfn_to_page(cma->base_pfn)))
+		kmemleak_free_part(__va(cma->base_pfn << PAGE_SHIFT),
+				cma->count << PAGE_SHIFT);
+
 	return 0;
 
 not_in_zone:
