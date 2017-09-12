@@ -374,10 +374,8 @@ int cam_flash_apply_setting(struct cam_flash_ctrl *fctrl,
 				}
 			}
 		} else {
-			CAM_ERR(CAM_FLASH, "Wrong opcode : %d",
-				flash_data->opcode);
-			rc = -EINVAL;
-			goto apply_setting_err;
+			CAM_DBG(CAM_FLASH, "NOP opcode");
+			return rc;
 		}
 	}
 
