@@ -111,6 +111,7 @@ struct sde_crtc_retire_event {
  * @encoder:	Encoder attached to this lm & ctl
  * @mixer_op_mode:	mixer blending operation mode
  * @flush_mask:	mixer flush mask for ctl, mixer and pipe
+ * @pipe_mask:	mixer flush mask for pipe
  */
 struct sde_crtc_mixer {
 	struct sde_hw_mixer *hw_lm;
@@ -120,6 +121,7 @@ struct sde_crtc_mixer {
 	struct drm_encoder *encoder;
 	u32 mixer_op_mode;
 	u32 flush_mask;
+	u32 pipe_mask;
 };
 
 /**
