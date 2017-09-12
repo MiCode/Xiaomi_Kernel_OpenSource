@@ -2943,6 +2943,25 @@ struct device *ipa_get_pdev(void)
 }
 EXPORT_SYMBOL(ipa_get_pdev);
 
+int ipa_ntn_uc_reg_rdyCB(void (*ipauc_ready_cb)(void *user_data),
+			      void *user_data)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_ntn_uc_reg_rdyCB,
+				ipauc_ready_cb, user_data);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_ntn_uc_reg_rdyCB);
+
+void ipa_ntn_uc_dereg_rdyCB(void)
+{
+	IPA_API_DISPATCH(ipa_ntn_uc_dereg_rdyCB);
+}
+EXPORT_SYMBOL(ipa_ntn_uc_dereg_rdyCB);
+
+
 static const struct dev_pm_ops ipa_pm_ops = {
 	.suspend_noirq = ipa_ap_suspend,
 	.resume_noirq = ipa_ap_resume,

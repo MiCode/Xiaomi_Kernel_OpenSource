@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -149,6 +149,49 @@ int ipa3_get_ntn_stats(struct Ipa3HwStatsNTNInfoData_t *stats)
 	return 0;
 }
 
+
+int ipa3_ntn_uc_reg_rdyCB(void (*ipa_ready_cb)(void *), void *user_data)
+{
+	int ret;
+
+	if (!ipa3_ctx) {
+		IPAERR("IPA ctx is null\n");
+		return -ENXIO;
+	}
+
+	ret = ipa3_uc_state_check();
+	if (ret) {
+		ipa3_ctx->uc_ntn_ctx.uc_ready_cb = ipa_ready_cb;
+		ipa3_ctx->uc_ntn_ctx.priv = user_data;
+		return 0;
+	}
+
+	return -EEXIST;
+}
+
+void ipa3_ntn_uc_dereg_rdyCB(void)
+{
+	ipa3_ctx->uc_ntn_ctx.uc_ready_cb = NULL;
+	ipa3_ctx->uc_ntn_ctx.priv = NULL;
+}
+
+static void ipa3_uc_ntn_loaded_handler(void)
+{
+	if (!ipa3_ctx) {
+		IPAERR("IPA ctx is null\n");
+		return;
+	}
+
+	if (ipa3_ctx->uc_ntn_ctx.uc_ready_cb) {
+		ipa3_ctx->uc_ntn_ctx.uc_ready_cb(
+			ipa3_ctx->uc_ntn_ctx.priv);
+
+		ipa3_ctx->uc_ntn_ctx.uc_ready_cb =
+			NULL;
+		ipa3_ctx->uc_ntn_ctx.priv = NULL;
+	}
+}
+
 int ipa3_ntn_init(void)
 {
 	struct ipa3_uc_hdlrs uc_ntn_cbs = { 0 };
@@ -156,6 +199,8 @@ int ipa3_ntn_init(void)
 	uc_ntn_cbs.ipa_uc_event_hdlr = ipa3_uc_ntn_event_handler;
 	uc_ntn_cbs.ipa_uc_event_log_info_hdlr =
 		ipa3_uc_ntn_event_log_info_handler;
+	uc_ntn_cbs.ipa_uc_loaded_hdlr =
+		ipa3_uc_ntn_loaded_handler;
 
 	ipa3_uc_register_handlers(IPA_HW_FEATURE_NTN, &uc_ntn_cbs);
 
