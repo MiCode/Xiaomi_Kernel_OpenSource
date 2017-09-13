@@ -1337,8 +1337,9 @@ static int sde_mixer_parse_dt(struct device_node *np,
 	u32 off_count, blend_off_count, max_blendstages, lm_pair_mask;
 	struct sde_lm_cfg *mixer;
 	struct sde_lm_sub_blks *sblk;
-	int pp_count, dspp_count, ds_count;
+	int pp_count, dspp_count, ds_count, mixer_count;
 	u32 pp_idx, dspp_idx, ds_idx;
+	u32 mixer_base;
 	struct device_node *snp = NULL;
 
 	if (!sde_cfg) {
@@ -1359,8 +1360,6 @@ static int sde_mixer_parse_dt(struct device_node *np,
 		prop_count, &off_count);
 	if (rc)
 		goto end;
-
-	sde_cfg->mixer_count = off_count;
 
 	rc = _read_dt_entry(np, mixer_prop, ARRAY_SIZE(mixer_prop), prop_count,
 		prop_exists, prop_value);
@@ -1409,8 +1408,14 @@ static int sde_mixer_parse_dt(struct device_node *np,
 	if (rc)
 		goto end;
 
-	for (i = 0, pp_idx = 0, dspp_idx = 0, ds_idx = 0; i < off_count; i++) {
-		mixer = sde_cfg->mixer + i;
+	for (i = 0, mixer_count = 0, pp_idx = 0, dspp_idx = 0,
+			ds_idx = 0; i < off_count; i++) {
+		mixer_base = PROP_VALUE_ACCESS(prop_value, MIXER_OFF, i);
+		if (!mixer_base)
+			continue;
+
+		mixer = sde_cfg->mixer + mixer_count;
+
 		sblk = kzalloc(sizeof(*sblk), GFP_KERNEL);
 		if (!sblk) {
 			rc = -ENOMEM;
@@ -1419,7 +1424,7 @@ static int sde_mixer_parse_dt(struct device_node *np,
 		}
 		mixer->sblk = sblk;
 
-		mixer->base = PROP_VALUE_ACCESS(prop_value, MIXER_OFF, i);
+		mixer->base = mixer_base;
 		mixer->len = PROP_VALUE_ACCESS(prop_value, MIXER_LEN, 0);
 		mixer->id = LM_0 + i;
 		snprintf(mixer->name, SDE_HW_BLK_NAME_LEN, "lm_%u",
@@ -1463,6 +1468,7 @@ static int sde_mixer_parse_dt(struct device_node *np,
 			mixer->dspp = DSPP_MAX;
 			mixer->ds = DS_MAX;
 		}
+		mixer_count++;
 
 		sblk->gc.id = SDE_MIXER_GC;
 		if (blocks_prop_value && blocks_prop_exists[MIXER_GC_PROP]) {
@@ -1474,6 +1480,7 @@ static int sde_mixer_parse_dt(struct device_node *np,
 			set_bit(SDE_MIXER_GC, &mixer->features);
 		}
 	}
+	sde_cfg->mixer_count = mixer_count;
 
 end:
 	kfree(prop_value);
