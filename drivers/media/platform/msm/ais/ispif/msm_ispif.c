@@ -46,7 +46,7 @@
 #define ISPIF_INTF_CMD_DISABLE_IMMEDIATELY    0x02
 
 #define ISPIF_TIMEOUT_SLEEP_US                1000
-#define ISPIF_TIMEOUT_ALL_US               1000000
+#define ISPIF_TIMEOUT_ALL_US                200000
 #define ISPIF_SOF_DEBUG_COUNT                    0
 
 #undef CDBG
