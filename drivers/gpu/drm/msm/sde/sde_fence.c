@@ -136,31 +136,12 @@ static bool sde_fence_signaled(struct fence *fence)
 
 static void sde_fence_release(struct fence *fence)
 {
-	struct sde_fence *f = to_sde_fence(fence);
-	struct sde_fence *fc, *next;
-	struct sde_fence_context *ctx;
-	bool release_kref = false;
+	struct sde_fence *f;
 
-	if (!fence || !f->ctx)
-		return;
-
-	ctx = f->ctx;
-
-	spin_lock(&ctx->list_lock);
-	list_for_each_entry_safe(fc, next, &ctx->fence_list_head, fence_list) {
-		/* fence release called before signal */
-		if (f == fc) {
-			list_del_init(&fc->fence_list);
-			release_kref = true;
-			break;
-		}
+	if (fence) {
+		f = to_sde_fence(fence);
+		kfree(f);
 	}
-	spin_unlock(&ctx->list_lock);
-
-	/* keep kput outside spin_lock because it may release ctx */
-	if (release_kref)
-		kref_put(&ctx->kref, sde_fence_destroy);
-	kfree(f);
 }
 
 static void sde_fence_value_str(struct fence *fence, char *str, int size)
@@ -324,6 +305,7 @@ static void _sde_fence_trigger(struct sde_fence_context *ctx, ktime_t ts)
 		spin_unlock_irqrestore(&ctx->lock, flags);
 
 		if (is_signaled) {
+			fence_put(&fc->base);
 			kref_put(&ctx->kref, sde_fence_destroy);
 		} else {
 			spin_lock(&ctx->list_lock);
