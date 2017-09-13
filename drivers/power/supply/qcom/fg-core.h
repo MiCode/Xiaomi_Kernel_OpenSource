@@ -402,6 +402,7 @@ struct fg_chip {
 	struct mutex		bus_lock;
 	struct mutex		sram_rw_lock;
 	struct mutex		charge_full_lock;
+	struct mutex		qnovo_esr_ctrl_lock;
 	u32			batt_soc_base;
 	u32			batt_info_base;
 	u32			mem_if_base;
@@ -435,6 +436,7 @@ struct fg_chip {
 	bool			esr_flt_cold_temp_en;
 	bool			slope_limit_en;
 	bool			use_ima_single_mode;
+	bool			qnovo_enable;
 	struct completion	soc_update;
 	struct completion	soc_ready;
 	struct delayed_work	profile_load_work;
