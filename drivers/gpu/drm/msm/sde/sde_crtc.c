@@ -3046,6 +3046,9 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 	struct drm_encoder *encoder;
 	struct sde_crtc_mixer *m;
 	u32 i, misr_status;
+	unsigned long flags;
+	struct sde_crtc_irq_info *node = NULL;
+	int ret = 0;
 
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
@@ -3066,6 +3069,18 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 
 			sde_encoder_virt_restore(encoder);
 		}
+
+		spin_lock_irqsave(&sde_crtc->spin_lock, flags);
+		list_for_each_entry(node, &sde_crtc->user_event_list, list) {
+			ret = 0;
+			if (node->func)
+				ret = node->func(crtc, true, &node->irq);
+			if (ret)
+				SDE_ERROR("%s failed to enable event %x\n",
+						sde_crtc->name, node->event);
+		}
+		spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
+
 		sde_cp_crtc_post_ipc(crtc);
 
 		for (i = 0; i < sde_crtc->num_mixers; ++i) {
@@ -3089,6 +3104,19 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 			sde_crtc->misr_data[i] = misr_status ? misr_status :
 							sde_crtc->misr_data[i];
 		}
+
+		spin_lock_irqsave(&sde_crtc->spin_lock, flags);
+		node = NULL;
+		list_for_each_entry(node, &sde_crtc->user_event_list, list) {
+			ret = 0;
+			if (node->func)
+				ret = node->func(crtc, false, &node->irq);
+			if (ret)
+				SDE_ERROR("%s failed to disable event %x\n",
+						sde_crtc->name, node->event);
+		}
+		spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
+
 		sde_cp_crtc_pre_ipc(crtc);
 		break;
 	case SDE_POWER_EVENT_POST_DISABLE:
