@@ -464,10 +464,26 @@ static bool _sde_encoder_phys_is_ppsplit(struct sde_encoder_phys *phys_enc)
 	return false;
 }
 
+static bool _sde_encoder_phys_is_dual_ctl(struct sde_encoder_phys *phys_enc)
+{
+	enum sde_rm_topology_name topology;
+
+	if (!phys_enc)
+		return false;
+
+	topology = sde_connector_get_topology_name(phys_enc->connector);
+	if ((topology == SDE_RM_TOPOLOGY_DUALPIPE_DSC) ||
+		(topology == SDE_RM_TOPOLOGY_DUALPIPE))
+		return true;
+
+	return false;
+}
+
 static bool sde_encoder_phys_vid_needs_single_flush(
 		struct sde_encoder_phys *phys_enc)
 {
-	return phys_enc && _sde_encoder_phys_is_ppsplit(phys_enc);
+	return phys_enc && (_sde_encoder_phys_is_ppsplit(phys_enc) ||
+		_sde_encoder_phys_is_dual_ctl(phys_enc));
 }
 
 static void _sde_encoder_phys_vid_setup_irq_hw_idx(
@@ -614,10 +630,11 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	sde_encoder_phys_vid_setup_timing_engine(phys_enc);
 
 	/*
-	 * For pp-split, skip setting the flush bit for the slave intf, since
-	 * both intfs use same ctl and HW will only flush the master.
+	 * For single flush cases (dual-ctl or pp-split), skip setting the
+	 * flush bit for the slave intf, since both intfs use same ctl
+	 * and HW will only flush the master.
 	 */
-	if (_sde_encoder_phys_is_ppsplit(phys_enc) &&
+	if (sde_encoder_phys_vid_needs_single_flush(phys_enc) &&
 		!sde_encoder_phys_vid_is_master(phys_enc))
 		goto skip_flush;
 
