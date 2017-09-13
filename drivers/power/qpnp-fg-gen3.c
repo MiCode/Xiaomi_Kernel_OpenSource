@@ -563,6 +563,21 @@ static int fg_get_charge_raw(struct fg_chip *chip, int *val)
 	return 0;
 }
 
+#define BATT_SOC_32BIT	GENMASK(31, 0)
+static int fg_get_charge_counter_shadow(struct fg_chip *chip, int *val)
+{
+	int rc, batt_soc;
+
+	rc = fg_get_sram_prop(chip, FG_SRAM_BATT_SOC, &batt_soc);
+	if (rc < 0) {
+		pr_err("Error in getting BATT_SOC, rc=%d\n", rc);
+		return rc;
+	}
+
+	*val = div_u64((u32)batt_soc * chip->cl.learned_cc_uah, BATT_SOC_32BIT);
+	return 0;
+}
+
 static int fg_get_charge_counter(struct fg_chip *chip, int *val)
 {
 	int rc, cc_soc;
@@ -1202,6 +1217,21 @@ static bool is_parallel_charger_available(struct fg_chip *chip)
 	return true;
 }
 
+static int fg_prime_cc_soc_sw(struct fg_chip *chip, int cc_soc_sw)
+{
+	int rc;
+
+	rc = fg_sram_write(chip, chip->sp[FG_SRAM_CC_SOC_SW].addr_word,
+		chip->sp[FG_SRAM_CC_SOC_SW].addr_byte, (u8 *)&cc_soc_sw,
+		chip->sp[FG_SRAM_CC_SOC_SW].len, FG_IMA_ATOMIC);
+	if (rc < 0)
+		pr_err("Error in writing cc_soc_sw, rc=%d\n", rc);
+	else
+		fg_dbg(chip, FG_STATUS, "cc_soc_sw: %x\n", cc_soc_sw);
+
+	return rc;
+}
+
 static int fg_save_learned_cap_to_sram(struct fg_chip *chip)
 {
 	int16_t cc_mah;
@@ -1378,7 +1408,6 @@ static int fg_cap_learning_process_full_data(struct fg_chip *chip)
 	return 0;
 }
 
-#define BATT_SOC_32BIT	GENMASK(31, 0)
 static int fg_cap_learning_begin(struct fg_chip *chip, u32 batt_soc)
 {
 	int rc, cc_soc_sw, batt_soc_msb;
@@ -1397,16 +1426,13 @@ static int fg_cap_learning_begin(struct fg_chip *chip, u32 batt_soc)
 	/* Prime cc_soc_sw with battery SOC when capacity learning begins */
 	cc_soc_sw = div64_s64((int64_t)batt_soc * CC_SOC_30BIT,
 				BATT_SOC_32BIT);
-	rc = fg_sram_write(chip, chip->sp[FG_SRAM_CC_SOC_SW].addr_word,
-		chip->sp[FG_SRAM_CC_SOC_SW].addr_byte, (u8 *)&cc_soc_sw,
-		chip->sp[FG_SRAM_CC_SOC_SW].len, FG_IMA_ATOMIC);
+	rc = fg_prime_cc_soc_sw(chip, cc_soc_sw);
 	if (rc < 0) {
 		pr_err("Error in writing cc_soc_sw, rc=%d\n", rc);
 		goto out;
 	}
 
 	chip->cl.init_cc_soc_sw = cc_soc_sw;
-	chip->cl.active = true;
 	fg_dbg(chip, FG_CAP_LEARN, "Capacity learning started @ battery SOC %d init_cc_soc_sw:%d\n",
 		batt_soc_msb, chip->cl.init_cc_soc_sw);
 out:
@@ -1426,9 +1452,7 @@ static int fg_cap_learning_done(struct fg_chip *chip)
 
 	/* Write a FULL value to cc_soc_sw */
 	cc_soc_sw = CC_SOC_30BIT;
-	rc = fg_sram_write(chip, chip->sp[FG_SRAM_CC_SOC_SW].addr_word,
-		chip->sp[FG_SRAM_CC_SOC_SW].addr_byte, (u8 *)&cc_soc_sw,
-		chip->sp[FG_SRAM_CC_SOC_SW].len, FG_IMA_ATOMIC);
+	rc = fg_prime_cc_soc_sw(chip, cc_soc_sw);
 	if (rc < 0) {
 		pr_err("Error in writing cc_soc_sw, rc=%d\n", rc);
 		goto out;
@@ -1441,8 +1465,9 @@ out:
 
 static void fg_cap_learning_update(struct fg_chip *chip)
 {
-	int rc, batt_soc, batt_soc_msb;
+	int rc, batt_soc, batt_soc_msb, cc_soc_sw;
 	bool input_present = is_input_present(chip);
+	bool prime_cc = false;
 
 	mutex_lock(&chip->cl.lock);
 
@@ -1454,6 +1479,9 @@ static void fg_cap_learning_update(struct fg_chip *chip)
 		chip->cl.init_cc_uah = 0;
 		goto out;
 	}
+
+	if (chip->charge_status == chip->prev_charge_status)
+		goto out;
 
 	rc = fg_get_sram_prop(chip, FG_SRAM_BATT_SOC, &batt_soc);
 	if (rc < 0) {
@@ -1470,8 +1498,12 @@ static void fg_cap_learning_update(struct fg_chip *chip)
 		if (chip->charge_status == POWER_SUPPLY_STATUS_CHARGING) {
 			rc = fg_cap_learning_begin(chip, batt_soc);
 			chip->cl.active = (rc == 0);
+		} else {
+			if ((chip->charge_status ==
+					POWER_SUPPLY_STATUS_DISCHARGING) ||
+					chip->charge_done)
+				prime_cc = true;
 		}
-
 	} else {
 		if (chip->charge_done) {
 			rc = fg_cap_learning_done(chip);
@@ -1489,6 +1521,7 @@ static void fg_cap_learning_update(struct fg_chip *chip)
 					 batt_soc_msb);
 				chip->cl.active = false;
 				chip->cl.init_cc_uah = 0;
+				prime_cc = true;
 			}
 		}
 
@@ -1505,8 +1538,27 @@ static void fg_cap_learning_update(struct fg_chip *chip)
 					batt_soc_msb);
 				chip->cl.active = false;
 				chip->cl.init_cc_uah = 0;
+				prime_cc = true;
 			}
 		}
+	}
+
+	/*
+	 * Prime CC_SOC_SW when the device is not charging or during charge
+	 * termination when the capacity learning is not active.
+	 */
+
+	if (prime_cc) {
+		if (chip->charge_done)
+			cc_soc_sw = CC_SOC_30BIT;
+		else
+			cc_soc_sw = div_u64((u32)batt_soc *
+					CC_SOC_30BIT, BATT_SOC_32BIT);
+
+		rc = fg_prime_cc_soc_sw(chip, cc_soc_sw);
+		if (rc < 0)
+			pr_err("Error in writing cc_soc_sw, rc=%d\n",
+				rc);
 	}
 
 out:
@@ -2329,7 +2381,6 @@ static void status_change_work(struct work_struct *work)
 		goto out;
 	}
 
-	chip->prev_charge_status = chip->charge_status;
 	chip->charge_status = prop.intval;
 	rc = power_supply_get_property(chip->batt_psy,
 			POWER_SUPPLY_PROP_CHARGE_TYPE, &prop);
@@ -2386,7 +2437,7 @@ static void status_change_work(struct work_struct *work)
 	}
 
 	fg_batt_avg_update(chip);
-
+	chip->prev_charge_status = chip->charge_status;
 out:
 	fg_dbg(chip, FG_STATUS, "charge_status:%d charge_type:%d charge_done:%d\n",
 		chip->charge_status, chip->charge_type, chip->charge_done);
@@ -3262,6 +3313,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
 		rc = fg_get_charge_counter(chip, &pval->intval);
 		break;
+	case POWER_SUPPLY_PROP_CHARGE_COUNTER_SHADOW:
+		rc = fg_get_charge_counter_shadow(chip, &pval->intval);
+		break;
 	case POWER_SUPPLY_PROP_TIME_TO_FULL_AVG:
 		rc = fg_get_time_to_full(chip, &pval->intval);
 		break;
@@ -3377,6 +3431,7 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
+	POWER_SUPPLY_PROP_CHARGE_COUNTER_SHADOW,
 	POWER_SUPPLY_PROP_TIME_TO_FULL_AVG,
 	POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG,
 	POWER_SUPPLY_PROP_SOC_REPORTING_READY,
