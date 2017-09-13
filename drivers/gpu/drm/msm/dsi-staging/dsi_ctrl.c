@@ -1193,7 +1193,9 @@ static int dsi_ctrl_buffer_deinit(struct dsi_ctrl *dsi_ctrl)
 
 		msm_gem_put_iova(dsi_ctrl->tx_cmd_buf, aspace);
 
+		mutex_lock(&dsi_ctrl->drm_dev->struct_mutex);
 		msm_gem_free_object(dsi_ctrl->tx_cmd_buf);
+		mutex_unlock(&dsi_ctrl->drm_dev->struct_mutex);
 		dsi_ctrl->tx_cmd_buf = NULL;
 	}
 

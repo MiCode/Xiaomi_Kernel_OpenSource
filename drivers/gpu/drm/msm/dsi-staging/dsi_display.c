@@ -1690,7 +1690,9 @@ error_disable_clks:
 put_iova:
 	msm_gem_put_iova(display->tx_cmd_buf, aspace);
 free_gem:
+	mutex_lock(&display->drm_dev->struct_mutex);
 	msm_gem_free_object(display->tx_cmd_buf);
+	mutex_unlock(&display->drm_dev->struct_mutex);
 error:
 	return rc;
 }
