@@ -1144,6 +1144,22 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 		d->subsys_desc.ramdump_disable_handler =
 			subsys_ramdump_disable_intr_handler;
 	}
+	d->desc.signal_aop = of_property_read_bool(pdev->dev.of_node,
+						"qcom,signal-aop");
+	if (d->desc.signal_aop) {
+		d->desc.cl.dev = &pdev->dev;
+		d->desc.cl.tx_block = true;
+		d->desc.cl.tx_tout = 1000;
+		d->desc.cl.knows_txdone = false;
+		d->desc.mbox = mbox_request_channel(&d->desc.cl, 0);
+		if (IS_ERR(d->desc.mbox)) {
+			rc = PTR_ERR(d->desc.mbox);
+			dev_err(&pdev->dev, "Failed to get mailbox channel %pK %d\n",
+				d->desc.mbox, rc);
+			goto err_ramdump;
+		}
+	}
+
 	d->ramdump_dev = create_ramdump_device(d->subsys_desc.name,
 								&pdev->dev);
 	if (!d->ramdump_dev) {

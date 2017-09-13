@@ -12,6 +12,9 @@
 #ifndef __MSM_PERIPHERAL_LOADER_H
 #define __MSM_PERIPHERAL_LOADER_H
 
+#include <linux/mailbox_client.h>
+#include <linux/mailbox/qmp.h>
+
 struct device;
 struct module;
 struct pil_priv;
@@ -57,6 +60,9 @@ struct pil_desc {
 	bool modem_ssr;
 	bool clear_fw_region;
 	u32 subsys_vmid;
+	bool signal_aop;
+	struct mbox_client cl;
+	struct mbox_chan *mbox;
 };
 
 /**
