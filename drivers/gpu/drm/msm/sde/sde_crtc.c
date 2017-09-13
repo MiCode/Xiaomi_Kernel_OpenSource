@@ -1668,8 +1668,6 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 			smmu_state->transition_type = post_commit ?
 				POST_COMMIT : PRE_COMMIT;
 			ops |= SDE_KMS_OPS_CRTC_SECURE_STATE_CHANGE;
-			if (translation_mode == SDE_DRM_FB_SEC)
-				ops |= SDE_KMS_OPS_PREPARE_PLANE_FB;
 			if (old_valid_fb)
 				ops |= SDE_KMS_OPS_WAIT_FOR_TX_DONE;
 		} else if ((smmu_state->state == DETACHED) ||
@@ -1677,8 +1675,7 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 			smmu_state->state = ATTACH_ALL_REQ;
 			smmu_state->transition_type = post_commit ?
 				POST_COMMIT : PRE_COMMIT;
-			ops |= SDE_KMS_OPS_CRTC_SECURE_STATE_CHANGE |
-				SDE_KMS_OPS_PREPARE_PLANE_FB;
+			ops |= SDE_KMS_OPS_CRTC_SECURE_STATE_CHANGE;
 			if (old_valid_fb)
 				ops |= (SDE_KMS_OPS_WAIT_FOR_TX_DONE |
 				 SDE_KMS_OPS_CLEANUP_PLANE_FB);
