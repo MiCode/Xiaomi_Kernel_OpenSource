@@ -4705,6 +4705,7 @@ static int _sde_crtc_event_enable(struct sde_kms *kms,
 	if (crtc_drm->enabled) {
 		sde_power_resource_enable(&priv->phandle, kms->core_client,
 				true);
+		INIT_LIST_HEAD(&node->irq.list);
 		ret = node->func(crtc_drm, true, &node->irq);
 		sde_power_resource_enable(&priv->phandle, kms->core_client,
 				false);
