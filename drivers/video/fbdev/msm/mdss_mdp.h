@@ -86,7 +86,7 @@
 
 #define XIN_HALT_TIMEOUT_US	0x4000
 
-#define MAX_LAYER_COUNT		0xC
+#define MAX_LAYER_COUNT		0xD
 
 /* For SRC QSEED3, when user space does not send the scaler information,
  * this flag allows pixel _extension to be programmed when scaler is disabled
