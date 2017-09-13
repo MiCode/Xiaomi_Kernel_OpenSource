@@ -1340,6 +1340,14 @@ static struct usb_interface_descriptor qdss_gsi_data_intf_desc = {
 	.bInterfaceProtocol =	0xff,
 };
 
+static struct usb_endpoint_descriptor qdss_gsi_fs_data_desc = {
+	.bLength              =	 USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType      =	 USB_DT_ENDPOINT,
+	.bEndpointAddress     =	 USB_DIR_IN,
+	.bmAttributes         =	 USB_ENDPOINT_XFER_BULK,
+	.wMaxPacketSize       =	 cpu_to_le16(64),
+};
+
 static struct usb_endpoint_descriptor qdss_gsi_hs_data_desc = {
 	.bLength              =	 USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType      =	 USB_DT_ENDPOINT,
@@ -1362,6 +1370,12 @@ static struct usb_ss_ep_comp_descriptor qdss_gsi_data_ep_comp_desc = {
 	.bMaxBurst            =	 1,
 	.bmAttributes         =	 0,
 	.wBytesPerInterval    =	 0,
+};
+
+static struct usb_descriptor_header *qdss_gsi_fs_data_only_desc[] = {
+	(struct usb_descriptor_header *) &qdss_gsi_data_intf_desc,
+	(struct usb_descriptor_header *) &qdss_gsi_fs_data_desc,
+	NULL,
 };
 
 static struct usb_descriptor_header *qdss_gsi_hs_data_only_desc[] = {
