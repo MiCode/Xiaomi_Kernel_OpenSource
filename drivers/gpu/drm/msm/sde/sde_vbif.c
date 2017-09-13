@@ -60,6 +60,67 @@ static int _sde_vbif_wait_for_xin_halt(struct sde_hw_vbif *vbif, u32 xin_id)
 	return rc;
 }
 
+int sde_vbif_halt_plane_xin(struct sde_kms *sde_kms, u32 xin_id, u32 clk_ctrl)
+{
+	struct sde_hw_vbif *vbif = NULL;
+	struct sde_hw_mdp *mdp;
+	bool forced_on = false;
+	bool status;
+	int rc = 0;
+
+	if (!sde_kms) {
+		SDE_ERROR("invalid argument\n");
+		return -EINVAL;
+	}
+
+	vbif = sde_kms->hw_vbif[VBIF_RT];
+	mdp = sde_kms->hw_mdp;
+	if (!vbif || !mdp || !vbif->ops.get_halt_ctrl ||
+		       !vbif->ops.set_halt_ctrl ||
+		       !mdp->ops.setup_clk_force_ctrl) {
+		SDE_ERROR("invalid vbif or mdp arguments\n");
+		return -EINVAL;
+	}
+
+	/*
+	 * If status is 0, then make sure client clock is not gated
+	 * while halting by forcing it ON only if it was not previously
+	 * forced on. If status is 1 then its already halted.
+	 */
+	status = vbif->ops.get_halt_ctrl(vbif, xin_id);
+	if (status == 0)
+		forced_on = mdp->ops.setup_clk_force_ctrl(mdp, clk_ctrl, true);
+	else
+		return 0;
+
+	/* send halt request for unused plane's xin client */
+	vbif->ops.set_halt_ctrl(vbif, xin_id, true);
+
+	rc = _sde_vbif_wait_for_xin_halt(vbif, xin_id);
+	if (rc) {
+		SDE_ERROR(
+		"wait failed for pipe halt:xin_id %u, clk_ctrl %u, rc %u\n",
+			xin_id, clk_ctrl, rc);
+		SDE_EVT32(xin_id, clk_ctrl, rc, SDE_EVTLOG_ERROR);
+		return rc;
+	}
+
+	status = vbif->ops.get_halt_ctrl(vbif, xin_id);
+	if (status == 0) {
+		SDE_ERROR("halt failed for pipe xin_id %u halt clk_ctrl %u\n",
+			       xin_id, clk_ctrl);
+		SDE_EVT32(xin_id, clk_ctrl, SDE_EVTLOG_ERROR);
+		return -ETIMEDOUT;
+	}
+
+	/* open xin client to enable transactions */
+	vbif->ops.set_halt_ctrl(vbif, xin_id, false);
+	if (forced_on)
+		mdp->ops.setup_clk_force_ctrl(mdp, clk_ctrl, false);
+
+	return 0;
+}
+
 /**
  * _sde_vbif_apply_dynamic_ot_limit - determine OT based on usecase parameters
  * @vbif:	Pointer to hardware vbif driver

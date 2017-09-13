@@ -2804,19 +2804,75 @@ static int sde_plane_prepare_fb(struct drm_plane *plane,
 	return 0;
 }
 
+/**
+ * _sde_plane_fetch_halt - halts vbif transactions for a plane
+ * @plane: Pointer to plane
+ * Returns: 0 on success
+ */
+static int _sde_plane_fetch_halt(struct drm_plane *plane)
+{
+	struct sde_plane *psde;
+	int xin_id;
+	enum sde_clk_ctrl_type clk_ctrl;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+
+	psde = to_sde_plane(plane);
+	if (!plane || !plane->dev || !psde->pipe_hw) {
+		SDE_ERROR("invalid arguments\n");
+		return -EINVAL;
+	}
+
+	priv = plane->dev->dev_private;
+	if (!priv || !priv->kms) {
+		SDE_ERROR("invalid KMS reference\n");
+		return -EINVAL;
+	}
+
+	sde_kms = to_sde_kms(priv->kms);
+	clk_ctrl = psde->pipe_hw->cap->clk_ctrl;
+	xin_id = psde->pipe_hw->cap->xin_id;
+	SDE_DEBUG_PLANE(psde, "pipe:%d xin_id:%d clk_ctrl:%d\n",
+			psde->pipe - SSPP_VIG0, xin_id, clk_ctrl);
+	SDE_EVT32_VERBOSE(psde, psde->pipe - SSPP_VIG0, xin_id, clk_ctrl);
+
+	return sde_vbif_halt_plane_xin(sde_kms, xin_id, clk_ctrl);
+}
+
 static void sde_plane_cleanup_fb(struct drm_plane *plane,
 		struct drm_plane_state *old_state)
 {
 	struct sde_plane *psde = to_sde_plane(plane);
 	struct sde_plane_state *old_pstate;
 	struct sde_plane_rot_state *old_rstate;
+	int ret;
 
-	if (!old_state || !old_state->fb)
+	if (!old_state || !old_state->fb || !plane || !plane->state)
 		return;
 
 	old_pstate = to_sde_plane_state(old_state);
 
 	SDE_DEBUG_PLANE(psde, "FB[%u]\n", old_state->fb->base.id);
+
+	/*
+	 * plane->state gets populated for next frame after swap_state. If
+	 * plane->state->crtc pointer is not populated then it is not used in
+	 * the next frame, hence making it an unused plane.
+	 */
+	if ((plane->state->crtc == NULL) && !psde->is_virtual) {
+		SDE_DEBUG_PLANE(psde, "unused pipe:%u\n",
+			       psde->pipe - SSPP_VIG0);
+
+		/* halt this plane now */
+		ret = _sde_plane_fetch_halt(plane);
+		if (ret) {
+			SDE_ERROR_PLANE(psde,
+				       "unused pipe %u halt failed\n",
+				       psde->pipe - SSPP_VIG0);
+			SDE_EVT32(DRMID(plane), psde->pipe - SSPP_VIG0,
+				       ret, SDE_EVTLOG_ERROR);
+		}
+	}
 
 	old_rstate = &old_pstate->rot;
 

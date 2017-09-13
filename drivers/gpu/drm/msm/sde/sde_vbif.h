@@ -78,6 +78,20 @@ void sde_vbif_clear_errors(struct sde_kms *sde_kms);
  */
 void sde_vbif_init_memtypes(struct sde_kms *sde_kms);
 
+/**
+ * sde_vbif_halt_plane_xin - halts the xin client for the unused plane
+ * On unused plane, check if the vbif for this plane is idle or not.
+ * If not then first force_on the planes clock and then send the
+ * halt request. Wait for some time then check for the vbif idle
+ * or not again.
+ * @sde_kms:	SDE handler
+ * @xin_id:	xin id of the unused plane
+ * @clk_ctrl:	clk ctrl type for the unused plane
+ * Returns:	0 on success, error code otherwise
+ */
+int sde_vbif_halt_plane_xin(struct sde_kms *sde_kms, u32 xin_id,
+	       u32 clk_ctrl);
+
 #ifdef CONFIG_DEBUG_FS
 int sde_debugfs_vbif_init(struct sde_kms *sde_kms, struct dentry *debugfs_root);
 void sde_debugfs_vbif_destroy(struct sde_kms *sde_kms);

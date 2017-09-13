@@ -176,6 +176,7 @@ static bool sde_hw_setup_clk_force_ctrl(struct sde_hw_mdp *mdp,
 		new_val = reg_val & ~BIT(bit_off);
 
 	SDE_REG_WRITE(c, reg_off, new_val);
+	wmb(); /* ensure write finished before progressing */
 
 	clk_forced_on = !(reg_val & BIT(bit_off));
 
