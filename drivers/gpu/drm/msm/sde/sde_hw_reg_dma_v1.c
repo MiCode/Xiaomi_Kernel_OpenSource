@@ -697,7 +697,9 @@ free_aspace_cb:
 	msm_gem_address_space_unregister_cb(aspace, sde_reg_dma_aspace_cb,
 			dma_buf);
 free_gem:
+	mutex_lock(&reg_dma->drm_dev->struct_mutex);
 	msm_gem_free_object(dma_buf->buf);
+	mutex_unlock(&reg_dma->drm_dev->struct_mutex);
 fail:
 	kfree(dma_buf);
 	return ERR_PTR(rc);
