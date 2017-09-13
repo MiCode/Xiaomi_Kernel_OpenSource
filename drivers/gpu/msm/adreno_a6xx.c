@@ -770,10 +770,27 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	 */
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM) &&
 		test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag)) {
+		int result;
+		struct gmu_device *gmu = &device->gmu;
+		struct device *dev = &gmu->pdev->dev;
+
 		kgsl_gmu_regwrite(device, A6XX_GPU_GMU_CX_GMU_PWR_THRESHOLD,
 			GPU_LIMIT_THRESHOLD_ENABLE | lm_limit(adreno_dev));
 		kgsl_gmu_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 1);
 		kgsl_gmu_regwrite(device, A6XX_GPU_GMU_CX_GMU_ISENSE_CTRL, 0x1);
+
+		gmu->lm_config.lm_type = 1;
+		gmu->lm_config.lm_sensor_type = 1;
+		gmu->lm_config.throttle_config = 1;
+		gmu->lm_config.idle_throttle_en = 0;
+		gmu->lm_config.acd_en = 0;
+		gmu->bcl_config = 0;
+		gmu->lm_dcvs_level = 0;
+
+		result = hfi_send_lmconfig(gmu);
+		if (result)
+			dev_err(dev, "Failure enabling limits management (%d)\n",
+			result);
 	}
 }
 
