@@ -765,6 +765,8 @@ static void _a5xx_do_crashdump(struct kgsl_device *device)
 
 	crash_dump_valid = false;
 
+	if (!device->snapshot_crashdumper)
+		return;
 	if (capturescript.gpuaddr == 0 || registers.gpuaddr == 0)
 		return;
 
@@ -870,8 +872,7 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 		ARRAY_SIZE(a5xx_vbif_snapshot_registers));
 
 	/* Try to run the crash dumper */
-	if (device->snapshot_crashdumper)
-		_a5xx_do_crashdump(device);
+	_a5xx_do_crashdump(device);
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
 		snapshot, a5xx_snapshot_registers, NULL);
