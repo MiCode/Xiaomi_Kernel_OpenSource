@@ -71,6 +71,21 @@ TRACE_EVENT(cam_isp_activated_irq,
 	)
 );
 
+TRACE_EVENT(cam_icp_fw_dbg,
+	TP_PROTO(char *dbg_message),
+	TP_ARGS(dbg_message),
+	TP_STRUCT__entry(
+		__string(dbg_message, dbg_message)
+	),
+	TP_fast_assign(
+		__assign_str(dbg_message, dbg_message);
+	),
+	TP_printk(
+		"%s: ",
+		__get_str(dbg_message)
+	)
+);
+
 TRACE_EVENT(cam_buf_done,
 	TP_PROTO(const char *ctx_type, struct cam_context *ctx,
 		struct cam_ctx_request *req),
