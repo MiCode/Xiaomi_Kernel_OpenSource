@@ -785,6 +785,22 @@ out:
 	return ret;
 }
 
+static void ufs_qcom_phy_off(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	struct phy *phy = host->generic_phy;
+
+	phy_power_off(phy);
+}
+
+static void ufs_qcom_phy_on(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	struct phy *phy = host->generic_phy;
+
+	phy_power_on(phy);
+}
+
 static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
@@ -2745,6 +2761,8 @@ static struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 	.suspend		= ufs_qcom_suspend,
 	.resume			= ufs_qcom_resume,
 	.full_reset		= ufs_qcom_full_reset,
+	.phy_off                = ufs_qcom_phy_off,
+	.phy_on                 = ufs_qcom_phy_on,
 	.update_sec_cfg		= ufs_qcom_update_sec_cfg,
 	.get_scale_down_gear	= ufs_qcom_get_scale_down_gear,
 	.set_bus_vote		= ufs_qcom_set_bus_vote,
