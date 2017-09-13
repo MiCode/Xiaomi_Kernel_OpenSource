@@ -14,7 +14,6 @@
 /dts-v1/;
 
 #include "msm8909-mtp.dtsi"
-#include "msm8909-regulator.dtsi"
 #include "msm8909-pm8916.dtsi"
 #include "msm8909-pm8916-mtp.dtsi"
 #include "apq8009-audio-external_codec.dtsi"
