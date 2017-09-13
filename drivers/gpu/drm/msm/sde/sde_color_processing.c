@@ -365,6 +365,7 @@ void sde_cp_crtc_init(struct drm_crtc *crtc)
 		return;
 	}
 
+	mutex_init(&sde_crtc->crtc_cp_lock);
 	INIT_LIST_HEAD(&sde_crtc->active_list);
 	INIT_LIST_HEAD(&sde_crtc->dirty_list);
 	INIT_LIST_HEAD(&sde_crtc->feature_list);
@@ -746,6 +747,8 @@ void sde_cp_crtc_apply_properties(struct drm_crtc *crtc)
 		return;
 	}
 
+	mutex_lock(&sde_crtc->crtc_cp_lock);
+
 	/* Check if dirty lists are empty and ad features are disabled for
 	 * early return. If ad properties are active then we need to issue
 	 * dspp flush.
@@ -754,7 +757,7 @@ void sde_cp_crtc_apply_properties(struct drm_crtc *crtc)
 		list_empty(&sde_crtc->ad_dirty)) {
 		if (list_empty(&sde_crtc->ad_active)) {
 			DRM_DEBUG_DRIVER("Dirty list is empty\n");
-			return;
+			goto exit;
 		}
 		sde_cp_ad_set_prop(sde_crtc, AD_IPC_RESET);
 		set_dspp_flush = true;
@@ -794,6 +797,8 @@ void sde_cp_crtc_apply_properties(struct drm_crtc *crtc)
 			ctl->ops.update_pending_flush(ctl, flush_mask);
 		}
 	}
+exit:
+	mutex_unlock(&sde_crtc->crtc_cp_lock);
 }
 
 void sde_cp_crtc_install_properties(struct drm_crtc *crtc)
@@ -824,13 +829,15 @@ void sde_cp_crtc_install_properties(struct drm_crtc *crtc)
 		return;
 	}
 
+	mutex_lock(&sde_crtc->crtc_cp_lock);
+
 	/**
 	 * Function can be called during the atomic_check with test_only flag
 	 * and actual commit. Allocate properties only if feature list is
 	 * empty during the atomic_check with test_only flag.
 	 */
 	if (!list_empty(&sde_crtc->feature_list))
-		return;
+		goto exit;
 
 	catalog = kms->catalog;
 	priv = crtc->dev->dev_private;
@@ -846,7 +853,7 @@ void sde_cp_crtc_install_properties(struct drm_crtc *crtc)
 		setup_lm_prop_install_funcs(lm_prop_install_func);
 	}
 	if (!priv->cp_property)
-		return;
+		goto exit;
 
 	if (!catalog->dspp_count)
 		goto lm_property;
@@ -862,7 +869,7 @@ void sde_cp_crtc_install_properties(struct drm_crtc *crtc)
 
 lm_property:
 	if (!catalog->mixer_count)
-		return;
+		goto exit;
 
 	/* Check for all the LM properties and attach it to CRTC */
 	features = catalog->mixer[0].features;
@@ -872,6 +879,9 @@ lm_property:
 		if (lm_prop_install_func[i])
 			lm_prop_install_func[i](crtc);
 	}
+exit:
+	mutex_unlock(&sde_crtc->crtc_cp_lock);
+
 }
 
 int sde_cp_crtc_set_property(struct drm_crtc *crtc,
@@ -894,6 +904,7 @@ int sde_cp_crtc_set_property(struct drm_crtc *crtc,
 		return -EINVAL;
 	}
 
+	mutex_lock(&sde_crtc->crtc_cp_lock);
 	list_for_each_entry(prop_node, &sde_crtc->feature_list, feature_list) {
 		if (property->base.id == prop_node->property_id) {
 			found = 1;
@@ -902,7 +913,8 @@ int sde_cp_crtc_set_property(struct drm_crtc *crtc,
 	}
 
 	if (!found)
-		return 0;
+		goto exit;
+
 	/**
 	 * sde_crtc is virtual ensure that hardware has been attached to the
 	 * crtc. Check LM and dspp counts based on whether feature is a
@@ -912,7 +924,8 @@ int sde_cp_crtc_set_property(struct drm_crtc *crtc,
 	    sde_crtc->num_mixers > ARRAY_SIZE(sde_crtc->mixers)) {
 		DRM_ERROR("Invalid mixer config act cnt %d max cnt %ld\n",
 			sde_crtc->num_mixers, ARRAY_SIZE(sde_crtc->mixers));
-		return -EINVAL;
+		ret = -EINVAL;
+		goto exit;
 	}
 
 	dspp_cnt = 0;
@@ -927,17 +940,19 @@ int sde_cp_crtc_set_property(struct drm_crtc *crtc,
 	if (prop_node->is_dspp_feature && dspp_cnt < sde_crtc->num_mixers) {
 		DRM_ERROR("invalid dspp cnt %d mixer cnt %d\n", dspp_cnt,
 			sde_crtc->num_mixers);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto exit;
 	} else if (lm_cnt < sde_crtc->num_mixers) {
 		DRM_ERROR("invalid lm cnt %d mixer cnt %d\n", lm_cnt,
 			sde_crtc->num_mixers);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto exit;
 	}
 
 	ret = sde_cp_ad_validate_prop(prop_node, sde_crtc);
 	if (ret) {
 		DRM_ERROR("ad property validation failed ret %d\n", ret);
-		return ret;
+		goto exit;
 	}
 
 	/* remove the property from dirty list */
@@ -955,6 +970,8 @@ int sde_cp_crtc_set_property(struct drm_crtc *crtc,
 		/* Mark the feature as dirty */
 		sde_cp_update_list(prop_node, sde_crtc, true);
 	}
+exit:
+	mutex_unlock(&sde_crtc->crtc_cp_lock);
 	return ret;
 }
 
@@ -977,12 +994,14 @@ int sde_cp_crtc_get_property(struct drm_crtc *crtc,
 	}
 	/* Return 0 if property is not supported */
 	*val = 0;
+	mutex_lock(&sde_crtc->crtc_cp_lock);
 	list_for_each_entry(prop_node, &sde_crtc->feature_list, feature_list) {
 		if (property->base.id == prop_node->property_id) {
 			*val = prop_node->prop_val;
 			break;
 		}
 	}
+	mutex_unlock(&sde_crtc->crtc_cp_lock);
 	return 0;
 }
 
@@ -1015,6 +1034,7 @@ void sde_cp_crtc_destroy_properties(struct drm_crtc *crtc)
 		kfree(prop_node);
 	}
 
+	mutex_destroy(&sde_crtc->crtc_cp_lock);
 	INIT_LIST_HEAD(&sde_crtc->active_list);
 	INIT_LIST_HEAD(&sde_crtc->dirty_list);
 	INIT_LIST_HEAD(&sde_crtc->feature_list);
@@ -1035,6 +1055,7 @@ void sde_cp_crtc_suspend(struct drm_crtc *crtc)
 		return;
 	}
 
+	mutex_lock(&sde_crtc->crtc_cp_lock);
 	list_for_each_entry_safe(prop_node, n, &sde_crtc->active_list,
 				 active_list) {
 		sde_cp_update_list(prop_node, sde_crtc, true);
@@ -1046,6 +1067,7 @@ void sde_cp_crtc_suspend(struct drm_crtc *crtc)
 		sde_cp_update_list(prop_node, sde_crtc, true);
 		list_del_init(&prop_node->active_list);
 	}
+	mutex_unlock(&sde_crtc->crtc_cp_lock);
 }
 
 void sde_cp_crtc_resume(struct drm_crtc *crtc)
