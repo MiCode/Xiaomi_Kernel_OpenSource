@@ -1081,8 +1081,10 @@ static void sde_hw_rotator_setup_fetchengine(struct sde_hw_rotator_context *ctx,
 	int i;
 
 	if (ctx->rot->mode == ROT_REGDMA_ON) {
-		SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_CSR_REGDMA_INT_EN,
-				REGDMA_INT_MASK);
+		if (rot->irq_num >= 0)
+			SDE_ROTREG_WRITE(rot->mdss_base,
+					REGDMA_CSR_REGDMA_INT_EN,
+					REGDMA_INT_MASK);
 		SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_CSR_REGDMA_OP_MODE,
 				REGDMA_EN);
 	}
