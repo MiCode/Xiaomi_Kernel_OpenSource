@@ -3358,6 +3358,10 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 		vote(chg->awake_votable, PL_DELAY_VOTER, true, 0);
 		schedule_delayed_work(&chg->pl_enable_work,
 					msecs_to_jiffies(PL_DELAY_MS));
+		/* vbus rising when APSD was disabled and PD_ACTIVE = 0 */
+		if (get_effective_result(chg->apsd_disable_votable) &&
+				!chg->pd_active)
+			pr_err("APSD disabled on vbus rising without PD\n");
 	} else {
 		if (chg->wa_flags & BOOST_BACK_WA) {
 			data = chg->irq_info[SWITCH_POWER_OK_IRQ].irq_data;
