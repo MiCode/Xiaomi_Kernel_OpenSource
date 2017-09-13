@@ -28,9 +28,7 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sda845-v2-qrd-overlay.dtbo \
 		sda845-v2-4k-panel-mtp-overlay.dtbo \
 		sda845-v2-4k-panel-cdp-overlay.dtbo \
-		sda845-v2-4k-panel-qrd-overlay.dtbo \
-		sdm845-interposer-sdm670-cdp-overlay.dtbo \
-		sdm845-interposer-sdm670-mtp-overlay.dtbo
+		sda845-v2-4k-panel-qrd-overlay.dtbo
 
 sdm845-cdp-overlay.dtbo-base := sdm845.dtb
 sdm845-mtp-overlay.dtbo-base := sdm845.dtb
@@ -58,8 +56,6 @@ sda845-v2-qrd-overlay.dtbo-base := sda845-v2.dtb
 sda845-v2-4k-panel-mtp-overlay.dtbo-base := sda845-v2.dtb
 sda845-v2-4k-panel-cdp-overlay.dtbo-base := sda845-v2.dtb
 sda845-v2-4k-panel-qrd-overlay.dtbo-base := sda845-v2.dtb
-sdm845-interposer-sdm670-cdp-overlay.dtbo-base := sdm845-interposer-sdm670.dtb
-sdm845-interposer-sdm670-mtp-overlay.dtbo-base := sdm845-interposer-sdm670.dtb
 else
 dtb-$(CONFIG_ARCH_SDM845) += sdm845-sim.dtb \
 	sdm845-rumi.dtb \
