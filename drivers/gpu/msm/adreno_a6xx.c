@@ -43,6 +43,8 @@
 #define A6XX_GPU_CX_REG_BASE		0x509E000
 #define A6XX_GPU_CX_REG_SIZE		0x1000
 
+#define GPU_LIMIT_THRESHOLD_ENABLE	BIT(31)
+
 static int _load_gmu_firmware(struct kgsl_device *device);
 
 static const struct adreno_vbif_data a630_vbif[] = {
@@ -758,6 +760,21 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 
 	a6xx_preemption_start(adreno_dev);
 	a6xx_protect_init(adreno_dev);
+
+	/*
+	 * We start LM here because we want all the following to be up
+	 * 1. GX HS
+	 * 2. SPTPRAC
+	 * 3. HFI
+	 * At this point, we are guaranteed all.
+	 */
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM) &&
+		test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag)) {
+		kgsl_gmu_regwrite(device, A6XX_GPU_GMU_CX_GMU_PWR_THRESHOLD,
+			GPU_LIMIT_THRESHOLD_ENABLE | lm_limit(adreno_dev));
+		kgsl_gmu_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 1);
+		kgsl_gmu_regwrite(device, A6XX_GPU_GMU_CX_GMU_ISENSE_CTRL, 0x1);
+	}
 }
 
 /*
@@ -1713,7 +1730,6 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 	return 0;
 }
 
-#define GPU_LIMIT_THRESHOLD_ENABLE	BIT(31)
 /*
  * a6xx_gmu_fw_start() - set up GMU and start FW
  * @device: Pointer to KGSL device
@@ -1793,14 +1809,6 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 			| (ADRENO_CHIPID_PATCH(adreno_dev->chipid) << 8);
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_HFI_SFR_ADDR, chipid);
-
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM) &&
-		test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag)) {
-		kgsl_gmu_regwrite(device, A6XX_GPU_GMU_CX_GMU_PWR_THRESHOLD,
-			GPU_LIMIT_THRESHOLD_ENABLE | lm_limit(adreno_dev));
-		kgsl_gmu_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 1);
-		kgsl_gmu_regwrite(device, A6XX_GPU_GMU_CX_GMU_ISENSE_CTRL, 0x1);
-	}
 
 	/* Configure power control and bring the GMU out of reset */
 	a6xx_gmu_power_config(device);
