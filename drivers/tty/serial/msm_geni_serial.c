@@ -127,6 +127,7 @@
 } while (0)
 
 #define DMA_RX_BUF_SIZE		(2048)
+#define CONSOLE_YIELD_LEN	(8 * 1024)
 struct msm_geni_serial_port {
 	struct uart_port uport;
 	char name[20];
@@ -162,6 +163,7 @@ struct msm_geni_serial_port {
 	unsigned int cur_baud;
 	int ioctl_count;
 	int edge_count;
+	unsigned int tx_yield_count;
 };
 
 static const struct uart_ops msm_geni_serial_pops;
@@ -1083,6 +1085,14 @@ static int msm_geni_serial_handle_tx(struct uart_port *uport)
 
 	xmit->tail = (xmit->tail + msm_port->xmit_size) & (UART_XMIT_SIZE - 1);
 	msm_port->xmit_size = 0;
+	if (uart_console(uport) &&
+	    (uport->icount.tx - msm_port->tx_yield_count) > CONSOLE_YIELD_LEN) {
+		msm_port->tx_yield_count = uport->icount.tx;
+		msm_geni_serial_stop_tx(uport);
+		uart_write_wakeup(uport);
+		goto exit_handle_tx;
+	}
+
 	tx_fifo_status = geni_read_reg_nolog(uport->membase,
 					SE_GENI_TX_FIFO_STATUS);
 	if (uart_circ_empty(xmit) && !tx_fifo_status) {
