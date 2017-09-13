@@ -569,38 +569,33 @@ static struct reg_list {
 	(((_a)[(2 * (_i)) + 1] - (_a)[2 * (_i)]) + 1)
 
 static size_t a6xx_legacy_snapshot_registers(struct kgsl_device *device,
-		u8 *buf, size_t remain)
+		u8 *buf, size_t remain, struct reg_list *regs)
 {
-	unsigned int i;
-	size_t used = 0;
+	struct kgsl_snapshot_registers snapshot_regs = {
+		.regs = regs->regs,
+		.count = regs->count,
+	};
 
-	for (i = 0; i < ARRAY_SIZE(a6xx_reg_list); i++) {
-		struct reg_list *regs = &a6xx_reg_list[i];
-		struct kgsl_snapshot_registers snapshot_regs = {
-			.regs = regs->regs,
-			.count = regs->count,
-		};
+	if (regs->sel)
+		kgsl_regwrite(device, regs->sel->host_reg, regs->sel->val);
 
-		if (regs->sel)
-			kgsl_regwrite(device, regs->sel->host_reg,
-				regs->sel->val);
-		used += kgsl_snapshot_dump_registers(device, buf + used,
-						remain - used, &snapshot_regs);
-	}
-	return used;
+	return kgsl_snapshot_dump_registers(device, buf, remain,
+		&snapshot_regs);
 }
 
 static size_t a6xx_snapshot_registers(struct kgsl_device *device, u8 *buf,
 		size_t remain, void *priv)
 {
 	struct kgsl_snapshot_regs *header = (struct kgsl_snapshot_regs *)buf;
+	struct reg_list *regs = (struct reg_list *)priv;
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	unsigned int *src = (unsigned int *)a6xx_crashdump_registers.hostptr;
-	unsigned int i, j, k;
+	unsigned int j, k;
 	unsigned int count = 0;
 
 	if (crash_dump_valid == false)
-		return a6xx_legacy_snapshot_registers(device, buf, remain);
+		return a6xx_legacy_snapshot_registers(device, buf, remain,
+			regs);
 
 	if (remain < sizeof(*header)) {
 		SNAPSHOT_ERR_NOMEM(device, "REGISTERS");
@@ -609,24 +604,20 @@ static size_t a6xx_snapshot_registers(struct kgsl_device *device, u8 *buf,
 
 	remain -= sizeof(*header);
 
-	for (i = 0; i < ARRAY_SIZE(a6xx_reg_list); i++) {
-		struct reg_list *regs = &a6xx_reg_list[i];
+	for (j = 0; j < regs->count; j++) {
+		unsigned int start = regs->regs[2 * j];
+		unsigned int end = regs->regs[(2 * j) + 1];
 
-		for (j = 0; j < regs->count; j++) {
-			unsigned int start = regs->regs[2 * j];
-			unsigned int end = regs->regs[(2 * j) + 1];
+		if (remain < ((end - start) + 1) * 8) {
+			SNAPSHOT_ERR_NOMEM(device, "REGISTERS");
+			goto out;
+		}
 
-			if (remain < ((end - start) + 1) * 8) {
-				SNAPSHOT_ERR_NOMEM(device, "REGISTERS");
-				goto out;
-			}
+		remain -= ((end - start) + 1) * 8;
 
-			remain -= ((end - start) + 1) * 8;
-
-			for (k = start; k <= end; k++, count++) {
-				*data++ = k;
-				*data++ = *src++;
-			}
+		for (k = start; k <= end; k++, count++) {
+			*data++ = k;
+			*data++ = *src++;
 		}
 	}
 
@@ -1570,6 +1561,7 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_snapshot_data *snap_data = gpudev->snapshot_data;
 	bool sptprac_on;
+	unsigned int i;
 
 	/* GMU TCM data dumped through AHB */
 	a6xx_snapshot_gmu(device, snapshot);
@@ -1595,8 +1587,10 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	if (sptprac_on)
 		_a6xx_do_crashdump(device);
 
-	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
-		snapshot, a6xx_snapshot_registers, NULL);
+	for (i = 0; i < ARRAY_SIZE(a6xx_reg_list); i++) {
+		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
+			snapshot, a6xx_snapshot_registers, &a6xx_reg_list[i]);
+	}
 
 	/* CP_SQE indexed registers */
 	kgsl_snapshot_indexed_registers(device, snapshot,
