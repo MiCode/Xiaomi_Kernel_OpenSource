@@ -779,4 +779,14 @@ config INPUT_DRV2667_HAPTICS
 
 source "drivers/input/misc/ots_pat9125/Kconfig"
 
+config SENSORS_LTR553
+	tristate "LTR553 light and proximity device driver"
+	depends on I2C
+	help
+	  Say Y here if you want to enable the LTR553 light and
+	  proximity sensor driver.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ltr553.
+
 endif
