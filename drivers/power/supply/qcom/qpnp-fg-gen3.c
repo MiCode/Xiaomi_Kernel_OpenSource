@@ -576,6 +576,41 @@ static int fg_get_charge_counter(struct fg_chip *chip, int *val)
 	return 0;
 }
 
+static int fg_get_jeita_threshold(struct fg_chip *chip,
+				enum jeita_levels level, int *temp_decidegC)
+{
+	int rc;
+	u8 val;
+	u16 reg;
+
+	switch (level) {
+	case JEITA_COLD:
+		reg = BATT_INFO_JEITA_TOO_COLD(chip);
+		break;
+	case JEITA_COOL:
+		reg = BATT_INFO_JEITA_COLD(chip);
+		break;
+	case JEITA_WARM:
+		reg = BATT_INFO_JEITA_HOT(chip);
+		break;
+	case JEITA_HOT:
+		reg = BATT_INFO_JEITA_TOO_HOT(chip);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	rc = fg_read(chip, reg, &val, 1);
+	if (rc < 0) {
+		pr_err("Error in reading jeita level %d, rc=%d\n", level, rc);
+		return rc;
+	}
+
+	/* Resolution is 0.5C. Base is -30C. */
+	*temp_decidegC = (((5 * val) / 10) - 30) * 10;
+	return 0;
+}
+
 #define BATT_TEMP_NUMR		1
 #define BATT_TEMP_DENR		1
 static int fg_get_battery_temp(struct fg_chip *chip, int *val)
@@ -838,7 +873,7 @@ static int fg_get_prop_capacity(struct fg_chip *chip, int *val)
 	if (rc < 0)
 		return rc;
 
-	if (chip->delta_soc > 0)
+	if (chip->dt.linearize_soc && chip->delta_soc > 0)
 		*val = chip->maint_soc;
 	else
 		*val = msoc;
@@ -976,12 +1011,6 @@ static int fg_get_batt_profile(struct fg_chip *chip)
 	memcpy(chip->batt_profile, data, len);
 
 	return 0;
-}
-
-static inline void get_temp_setpoint(int threshold, u8 *val)
-{
-	/* Resolution is 0.5C. Base is -30C. */
-	*val = DIV_ROUND_CLOSEST((threshold + 30) * 10, 5);
 }
 
 static inline void get_batt_temp_delta(int delta, u8 *val)
@@ -1722,20 +1751,22 @@ static int fg_charge_full_update(struct fg_chip *chip)
 			fg_dbg(chip, FG_STATUS, "Terminated charging @ SOC%d\n",
 				msoc);
 		}
-	} else if (msoc_raw < recharge_soc && chip->charge_full) {
-		chip->delta_soc = FULL_CAPACITY - msoc;
+	} else if (msoc_raw <= recharge_soc && chip->charge_full) {
+		if (chip->dt.linearize_soc) {
+			chip->delta_soc = FULL_CAPACITY - msoc;
 
-		/*
-		 * We're spreading out the delta SOC over every 10% change
-		 * in monotonic SOC. We cannot spread more than 9% in the
-		 * range of 0-100 skipping the first 10%.
-		 */
-		if (chip->delta_soc > 9) {
-			chip->delta_soc = 0;
-			chip->maint_soc = 0;
-		} else {
-			chip->maint_soc = FULL_CAPACITY;
-			chip->last_msoc = msoc;
+			/*
+			 * We're spreading out the delta SOC over every 10%
+			 * change in monotonic SOC. We cannot spread more than
+			 * 9% in the range of 0-100 skipping the first 10%.
+			 */
+			if (chip->delta_soc > 9) {
+				chip->delta_soc = 0;
+				chip->maint_soc = 0;
+			} else {
+				chip->maint_soc = FULL_CAPACITY;
+				chip->last_msoc = msoc;
+			}
 		}
 
 		chip->charge_full = false;
@@ -1857,6 +1888,44 @@ static int fg_rconn_config(struct fg_chip *chip)
 			SW_CONFIG_OFFSET, (u8 *)&val, 1, FG_IMA_DEFAULT);
 	if (rc < 0) {
 		pr_err("Error in writing SW_CONFIG_OFFSET, rc=%d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+static int fg_set_jeita_threshold(struct fg_chip *chip,
+				enum jeita_levels level, int temp_decidegC)
+{
+	int rc;
+	u8 val;
+	u16 reg;
+
+	if (temp_decidegC < -300 || temp_decidegC > 970)
+		return -EINVAL;
+
+	/* Resolution is 0.5C. Base is -30C. */
+	val = DIV_ROUND_CLOSEST(((temp_decidegC / 10) + 30) * 10, 5);
+	switch (level) {
+	case JEITA_COLD:
+		reg = BATT_INFO_JEITA_TOO_COLD(chip);
+		break;
+	case JEITA_COOL:
+		reg = BATT_INFO_JEITA_COLD(chip);
+		break;
+	case JEITA_WARM:
+		reg = BATT_INFO_JEITA_HOT(chip);
+		break;
+	case JEITA_HOT:
+		reg = BATT_INFO_JEITA_TOO_HOT(chip);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	rc = fg_write(chip, reg, &val, 1);
+	if (rc < 0) {
+		pr_err("Error in setting jeita level %d, rc=%d\n", level, rc);
 		return rc;
 	}
 
@@ -3137,6 +3206,9 @@ static int fg_update_maint_soc(struct fg_chip *chip)
 {
 	int rc = 0, msoc;
 
+	if (!chip->dt.linearize_soc)
+		return 0;
+
 	mutex_lock(&chip->charge_full_lock);
 	if (chip->delta_soc <= 0)
 		goto out;
@@ -3365,6 +3437,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CAPACITY:
 		rc = fg_get_prop_capacity(chip, &pval->intval);
 		break;
+	case POWER_SUPPLY_PROP_CAPACITY_RAW:
+		rc = fg_get_msoc_raw(chip, &pval->intval);
+		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		if (chip->battery_missing)
 			pval->intval = 3700000;
@@ -3376,6 +3451,34 @@ static int fg_psy_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		rc = fg_get_battery_temp(chip, &pval->intval);
+		break;
+	case POWER_SUPPLY_PROP_COLD_TEMP:
+		rc = fg_get_jeita_threshold(chip, JEITA_COLD, &pval->intval);
+		if (rc < 0) {
+			pr_err("Error in reading jeita_cold, rc=%d\n", rc);
+			return rc;
+		}
+		break;
+	case POWER_SUPPLY_PROP_COOL_TEMP:
+		rc = fg_get_jeita_threshold(chip, JEITA_COOL, &pval->intval);
+		if (rc < 0) {
+			pr_err("Error in reading jeita_cool, rc=%d\n", rc);
+			return rc;
+		}
+		break;
+	case POWER_SUPPLY_PROP_WARM_TEMP:
+		rc = fg_get_jeita_threshold(chip, JEITA_WARM, &pval->intval);
+		if (rc < 0) {
+			pr_err("Error in reading jeita_warm, rc=%d\n", rc);
+			return rc;
+		}
+		break;
+	case POWER_SUPPLY_PROP_HOT_TEMP:
+		rc = fg_get_jeita_threshold(chip, JEITA_HOT, &pval->intval);
+		if (rc < 0) {
+			pr_err("Error in reading jeita_hot, rc=%d\n", rc);
+			return rc;
+		}
 		break;
 	case POWER_SUPPLY_PROP_RESISTANCE:
 		rc = fg_get_battery_resistance(chip, &pval->intval);
@@ -3514,6 +3617,34 @@ static int fg_psy_set_property(struct power_supply *psy,
 		if (rc < 0)
 			pr_err("Error in saving learned_cc_uah, rc=%d\n", rc);
 		break;
+	case POWER_SUPPLY_PROP_COLD_TEMP:
+		rc = fg_set_jeita_threshold(chip, JEITA_COLD, pval->intval);
+		if (rc < 0) {
+			pr_err("Error in writing jeita_cold, rc=%d\n", rc);
+			return rc;
+		}
+		break;
+	case POWER_SUPPLY_PROP_COOL_TEMP:
+		rc = fg_set_jeita_threshold(chip, JEITA_COOL, pval->intval);
+		if (rc < 0) {
+			pr_err("Error in writing jeita_cool, rc=%d\n", rc);
+			return rc;
+		}
+		break;
+	case POWER_SUPPLY_PROP_WARM_TEMP:
+		rc = fg_set_jeita_threshold(chip, JEITA_WARM, pval->intval);
+		if (rc < 0) {
+			pr_err("Error in writing jeita_warm, rc=%d\n", rc);
+			return rc;
+		}
+		break;
+	case POWER_SUPPLY_PROP_HOT_TEMP:
+		rc = fg_set_jeita_threshold(chip, JEITA_HOT, pval->intval);
+		if (rc < 0) {
+			pr_err("Error in writing jeita_hot, rc=%d\n", rc);
+			return rc;
+		}
+		break;
 	default:
 		break;
 	}
@@ -3530,6 +3661,10 @@ static int fg_property_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CC_STEP:
 	case POWER_SUPPLY_PROP_CC_STEP_SEL:
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
+	case POWER_SUPPLY_PROP_COLD_TEMP:
+	case POWER_SUPPLY_PROP_COOL_TEMP:
+	case POWER_SUPPLY_PROP_WARM_TEMP:
+	case POWER_SUPPLY_PROP_HOT_TEMP:
 		return 1;
 	default:
 		break;
@@ -3570,7 +3705,12 @@ static int fg_notifier_cb(struct notifier_block *nb,
 
 static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_CAPACITY_RAW,
 	POWER_SUPPLY_PROP_TEMP,
+	POWER_SUPPLY_PROP_COLD_TEMP,
+	POWER_SUPPLY_PROP_COOL_TEMP,
+	POWER_SUPPLY_PROP_WARM_TEMP,
+	POWER_SUPPLY_PROP_HOT_TEMP,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_VOLTAGE_OCV,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
@@ -3749,29 +3889,29 @@ static int fg_hw_init(struct fg_chip *chip)
 		}
 	}
 
-	get_temp_setpoint(chip->dt.jeita_thresholds[JEITA_COLD], &val);
-	rc = fg_write(chip, BATT_INFO_JEITA_TOO_COLD(chip), &val, 1);
+	rc = fg_set_jeita_threshold(chip, JEITA_COLD,
+		chip->dt.jeita_thresholds[JEITA_COLD] * 10);
 	if (rc < 0) {
 		pr_err("Error in writing jeita_cold, rc=%d\n", rc);
 		return rc;
 	}
 
-	get_temp_setpoint(chip->dt.jeita_thresholds[JEITA_COOL], &val);
-	rc = fg_write(chip, BATT_INFO_JEITA_COLD(chip), &val, 1);
+	rc = fg_set_jeita_threshold(chip, JEITA_COOL,
+		chip->dt.jeita_thresholds[JEITA_COOL] * 10);
 	if (rc < 0) {
 		pr_err("Error in writing jeita_cool, rc=%d\n", rc);
 		return rc;
 	}
 
-	get_temp_setpoint(chip->dt.jeita_thresholds[JEITA_WARM], &val);
-	rc = fg_write(chip, BATT_INFO_JEITA_HOT(chip), &val, 1);
+	rc = fg_set_jeita_threshold(chip, JEITA_WARM,
+		chip->dt.jeita_thresholds[JEITA_WARM] * 10);
 	if (rc < 0) {
 		pr_err("Error in writing jeita_warm, rc=%d\n", rc);
 		return rc;
 	}
 
-	get_temp_setpoint(chip->dt.jeita_thresholds[JEITA_HOT], &val);
-	rc = fg_write(chip, BATT_INFO_JEITA_TOO_HOT(chip), &val, 1);
+	rc = fg_set_jeita_threshold(chip, JEITA_HOT,
+		chip->dt.jeita_thresholds[JEITA_HOT] * 10);
 	if (rc < 0) {
 		pr_err("Error in writing jeita_hot, rc=%d\n", rc);
 		return rc;
@@ -4694,6 +4834,9 @@ static int fg_parse_dt(struct fg_chip *chip)
 
 	chip->dt.hold_soc_while_full = of_property_read_bool(node,
 					"qcom,hold-soc-while-full");
+
+	chip->dt.linearize_soc = of_property_read_bool(node,
+					"qcom,linearize-soc");
 
 	rc = fg_parse_ki_coefficients(chip);
 	if (rc < 0)

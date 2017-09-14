@@ -795,6 +795,7 @@ static int smb2_init_usb_main_psy(struct smb2 *chip)
  *************************/
 
 static enum power_supply_property smb2_dc_props[] = {
+	POWER_SUPPLY_PROP_INPUT_SUSPEND,
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
@@ -810,6 +811,9 @@ static int smb2_dc_get_prop(struct power_supply *psy,
 	int rc = 0;
 
 	switch (psp) {
+	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+		val->intval = get_effective_result(chg->dc_suspend_votable);
+		break;
 	case POWER_SUPPLY_PROP_PRESENT:
 		rc = smblib_get_prop_dc_present(chg, val);
 		break;
@@ -841,6 +845,10 @@ static int smb2_dc_set_prop(struct power_supply *psy,
 	int rc = 0;
 
 	switch (psp) {
+	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+		rc = vote(chg->dc_suspend_votable, WBC_VOTER,
+				(bool)val->intval, 0);
+		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		rc = smblib_set_prop_dc_current_max(chg, val);
 		break;
@@ -1199,7 +1207,7 @@ static int smb2_init_batt_psy(struct smb2 *chip)
  * VBUS REGULATOR REGISTRATION *
  ******************************/
 
-struct regulator_ops smb2_vbus_reg_ops = {
+static struct regulator_ops smb2_vbus_reg_ops = {
 	.enable = smblib_vbus_regulator_enable,
 	.disable = smblib_vbus_regulator_disable,
 	.is_enabled = smblib_vbus_regulator_is_enabled,
@@ -1241,7 +1249,7 @@ static int smb2_init_vbus_regulator(struct smb2 *chip)
  * VCONN REGULATOR REGISTRATION *
  ******************************/
 
-struct regulator_ops smb2_vconn_reg_ops = {
+static struct regulator_ops smb2_vconn_reg_ops = {
 	.enable = smblib_vconn_regulator_enable,
 	.disable = smblib_vconn_regulator_disable,
 	.is_enabled = smblib_vconn_regulator_is_enabled,
