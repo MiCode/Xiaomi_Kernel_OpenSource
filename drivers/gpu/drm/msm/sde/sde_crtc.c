@@ -2430,6 +2430,7 @@ static void _sde_crtc_setup_mixers(struct drm_crtc *crtc)
 	struct drm_encoder *enc;
 
 	sde_crtc->num_mixers = 0;
+	sde_crtc->mixers_swapped = false;
 	memset(sde_crtc->mixers, 0, sizeof(sde_crtc->mixers));
 
 	mutex_lock(&sde_crtc->crtc_lock);
@@ -3226,6 +3227,7 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 
 	memset(sde_crtc->mixers, 0, sizeof(sde_crtc->mixers));
 	sde_crtc->num_mixers = 0;
+	sde_crtc->mixers_swapped = false;
 
 	/* disable clk & bw control until clk & bw properties are set */
 	cstate->bw_control = false;
