@@ -541,6 +541,7 @@ static irqreturn_t qcom_glink_native_intr(int irq, void *data)
 			ret = 0;
 			break;
 		default:
+			qcom_glink_rx_advance(glink, ALIGN(sizeof(msg), 8));
 			dev_err(glink->dev, "unhandled rx cmd: %d\n", cmd);
 			ret = -EINVAL;
 			break;
