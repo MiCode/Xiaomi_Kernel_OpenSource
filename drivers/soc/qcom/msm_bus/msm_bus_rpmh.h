@@ -136,6 +136,7 @@ struct msm_bus_noc_qos_params {
 	struct msm_bus_noc_regulator reg;
 	struct msm_bus_noc_regulator_mode reg_mode;
 	bool urg_fwd_en;
+	bool defer_init_qos;
 };
 
 struct node_util_levels_type {

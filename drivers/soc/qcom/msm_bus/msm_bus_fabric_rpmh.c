@@ -563,9 +563,6 @@ int msm_bus_commit_data(struct list_head *clist)
 		return ret;
 
 	list_for_each_entry_safe(node, node_tmp, clist, link) {
-		if (unlikely(node->node_info->defer_qos))
-			msm_bus_dev_init_qos(&node->dev, NULL);
-
 		bcm_clist_add(node);
 	}
 
@@ -667,6 +664,12 @@ int msm_bus_commit_data(struct list_head *clist)
 
 	kfree(cmdlist_active);
 	kfree(n_active);
+
+
+	list_for_each_entry_safe(node, node_tmp, clist, link) {
+		if (unlikely(node->node_info->defer_qos))
+			msm_bus_dev_init_qos(&node->dev, NULL);
+	}
 
 exit_msm_bus_commit_data:
 	list_for_each_entry_safe(node, node_tmp, clist, link) {
@@ -961,6 +964,12 @@ static int msm_bus_dev_init_qos(struct device *dev, void *data)
 	}
 
 	MSM_BUS_DBG("Device = %d", node_dev->node_info->id);
+
+	if (node_dev->node_info->qos_params.defer_init_qos) {
+		node_dev->node_info->qos_params.defer_init_qos = false;
+		node_dev->node_info->defer_qos = true;
+		goto exit_init_qos;
+	}
 
 	if (node_dev->ap_owned) {
 		struct msm_bus_node_device_type *bus_node_info;
@@ -1290,6 +1299,8 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 				pdata_node_info->qos_params.reg_mode.write;
 	node_info->qos_params.urg_fwd_en =
 				pdata_node_info->qos_params.urg_fwd_en;
+	node_info->qos_params.defer_init_qos =
+				pdata_node_info->qos_params.defer_init_qos;
 	node_info->agg_params.buswidth = pdata_node_info->agg_params.buswidth;
 	node_info->agg_params.agg_scheme =
 					pdata_node_info->agg_params.agg_scheme;
