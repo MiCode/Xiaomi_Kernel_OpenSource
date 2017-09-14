@@ -634,6 +634,13 @@ update_req_mgr:
 		add_req.link_hdl = fctrl->bridge_intf.link_hdl;
 		add_req.req_id = csl_packet->header.request_id;
 		add_req.dev_hdl = fctrl->bridge_intf.device_hdl;
+
+		if ((csl_packet->header.op_code & 0xFFFFF) ==
+			CAM_FLASH_PACKET_OPCODE_SET_OPS)
+			add_req.skip_before_applying = 1;
+		else
+			add_req.skip_before_applying = 0;
+
 		if (fctrl->bridge_intf.crm_cb &&
 			fctrl->bridge_intf.crm_cb->add_req)
 			fctrl->bridge_intf.crm_cb->add_req(&add_req);
@@ -648,7 +655,7 @@ int cam_flash_publish_dev_info(struct cam_req_mgr_device_info *info)
 	info->dev_id = CAM_REQ_MGR_DEVICE_FLASH;
 	strlcpy(info->name, CAM_FLASH_NAME, sizeof(info->name));
 	info->p_delay = CAM_FLASH_PIPELINE_DELAY;
-	info->trigger = CAM_TRIGGER_POINT_EOF;
+	info->trigger = CAM_TRIGGER_POINT_SOF;
 	return 0;
 }
 

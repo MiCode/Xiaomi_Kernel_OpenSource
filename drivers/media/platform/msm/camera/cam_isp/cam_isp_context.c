@@ -1507,6 +1507,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 		add_req.link_hdl = ctx->link_hdl;
 		add_req.dev_hdl  = ctx->dev_hdl;
 		add_req.req_id   = req->request_id;
+		add_req.skip_before_applying = 0;
 		rc = ctx->ctx_crm_intf->add_req(&add_req);
 		if (rc) {
 			CAM_ERR(CAM_ISP, "Error: Adding request id=%llu",
