@@ -4620,6 +4620,12 @@ int msm_venc_streamoff(struct msm_vidc_inst *inst, enum v4l2_buf_type i)
 		return -EINVAL;
 	}
 	dprintk(VIDC_DBG, "Calling streamoff on port: %d\n", i);
+
+	rc = msm_comm_try_state(inst, MSM_VIDC_RELEASE_RESOURCES_DONE);
+	if (rc)
+		dprintk(VIDC_ERR,
+			"Failed to move inst: %pK to res done state\n", inst);
+
 	mutex_lock(&q->lock);
 	rc = vb2_streamoff(&q->vb2_bufq, i);
 	mutex_unlock(&q->lock);
