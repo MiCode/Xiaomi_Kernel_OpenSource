@@ -649,12 +649,22 @@ static void gps_notify_complete(struct usb_ep *ep, struct usb_request *req)
 
 		pr_debug("%s: decrement notify_count:%u\n", __func__,
 				atomic_read(&dev->notify_count));
-		if (atomic_dec_and_test(&dev->notify_count))
-			break;
+		atomic_dec(&dev->notify_count);
 
-		gps_queue_notify_request(dev);
 		break;
 	}
+}
+
+static void gps_ctrl_send_response_complete(struct usb_ep *ep,
+		struct usb_request *req)
+{
+	struct f_gps *dev = (struct f_gps *)req->context;
+
+	pr_debug("%s: response queue count:%u notify count: %u\n", __func__,
+			atomic_read(&dev->resp_q_count),
+			atomic_read(&dev->notify_count));
+	if (atomic_read(&dev->notify_count) > 0)
+		gps_queue_notify_request(dev);
 }
 
 static int
@@ -709,6 +719,8 @@ gps_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 			memcpy(req->buf, cpkt->buf, len);
 			ret = len;
 
+			req->complete = gps_ctrl_send_response_complete;
+			req->context = dev;
 			gps_free_ctrl_pkt(cpkt);
 		}
 		break;
