@@ -7,6 +7,7 @@
 
 #define CAM_SENSOR_PROBE_CMD   (CAM_COMMON_OPCODE_MAX + 1)
 #define CAM_FLASH_MAX_LED_TRIGGERS 3
+#define MAX_OIS_NAME_SIZE 32
 /**
  * struct cam_sensor_query_cap - capabilities info for sensor
  *
@@ -75,6 +76,16 @@ struct cam_eeprom_query_cap_t {
 } __attribute__((packed));
 
 /**
+ * struct cam_ois_query_cap_t - capabilities info for ois
+ *
+ * @slot_info                  :  Indicates about the slotId or cell Index
+ */
+struct cam_ois_query_cap_t {
+	uint32_t            slot_info;
+	uint16_t            reserved;
+} __attribute__((packed));
+
+/**
  * struct cam_cmd_i2c_info - Contains slave I2C related info
  *
  * @slave_addr      :    Slave address
@@ -85,6 +96,42 @@ struct cam_cmd_i2c_info {
 	uint16_t    slave_addr;
 	uint8_t     i2c_freq_mode;
 	uint8_t     cmd_type;
+} __attribute__((packed));
+
+/**
+ * struct cam_ois_opcode - Contains OIS opcode
+ *
+ * @prog            :    OIS FW prog register address
+ * @coeff           :    OIS FW coeff register address
+ * @pheripheral     :    OIS pheripheral
+ * @memory          :    OIS memory
+ */
+struct cam_ois_opcode {
+	uint32_t prog;
+	uint32_t coeff;
+	uint32_t pheripheral;
+	uint32_t memory;
+} __attribute__((packed));
+
+/**
+ * struct cam_cmd_ois_info - Contains OIS slave info
+ *
+ * @slave_addr            :    OIS i2c slave address
+ * @i2c_freq_mode         :    i2c frequency mode
+ * @ois_fw_flag           :    indicates if fw is present or not
+ * @is_ois_calib          :    indicates the calibration data is available
+ * @ois_name              :    OIS name
+ * @opcode                :    opcode
+ * @cmd_type              :    Explains type of command
+ */
+struct cam_cmd_ois_info {
+	uint16_t              slave_addr;
+	uint8_t               i2c_freq_mode;
+	uint8_t               ois_fw_flag;
+	uint8_t               is_ois_calib;
+	char                  ois_name[MAX_OIS_NAME_SIZE];
+	struct cam_ois_opcode opcode;
+	uint8_t               cmd_type;
 } __attribute__((packed));
 
 /**
