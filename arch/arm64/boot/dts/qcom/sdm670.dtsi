@@ -1907,6 +1907,7 @@
 		qcom,ssctl-instance-id = <0x12>;
 		qcom,override-acc;
 		qcom,qdsp6v65-1-0;
+		qcom,mss_pdc_offset = <8>;
 		status = "ok";
 		memory-region = <&pil_modem_mem>;
 		qcom,mem-protect-id = <0xF>;
