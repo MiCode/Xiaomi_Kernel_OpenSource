@@ -129,6 +129,12 @@ static int clk_aop_qmp_prepare(struct clk_hw *hw)
 	struct clk_aop_qmp *clk = to_aop_qmp_clk(hw);
 
 	mutex_lock(&clk_aop_lock);
+	/*
+	 * Return early if the clock has been enabled already. This
+	 * is to avoid issues with sending duplicate enable requests.
+	 */
+	if (clk->enabled)
+		goto err;
 
 	if (clk->level)
 		rate = clk->level;
@@ -166,6 +172,9 @@ static void clk_aop_qmp_unprepare(struct clk_hw *hw)
 	struct clk_aop_qmp *clk = to_aop_qmp_clk(hw);
 
 	mutex_lock(&clk_aop_lock);
+
+	if (!clk->enabled)
+		goto err;
 
 	rate = clk->disable_state;
 
