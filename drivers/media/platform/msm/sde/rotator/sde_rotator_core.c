@@ -45,17 +45,11 @@
 /* Rotator device id to be used in SCM call */
 #define SDE_ROTATOR_DEVICE	21
 
-#ifndef VMID_CP_CAMERA_PREVIEW
-#define VMID_CP_CAMERA_PREVIEW	VMID_INVAL
-#endif
-
-/* SCM call function id to be used for switching between secure and non
+/*
+ * SCM call function id to be used for switching between secure and non
  * secure context
  */
 #define MEM_PROTECT_SD_CTRL_SWITCH 0x18
-
-/* Rotator secure SID */
-#define SDE_ROTATOR_SECURE_SID  0xe01
 
 /* waiting for hw time out, 3 vsync for 30fps*/
 #define ROT_HW_ACQUIRE_TIMEOUT_IN_MS 100
@@ -601,7 +595,7 @@ static int sde_rotator_secure_session_ctrl(bool enable)
 
 	if (test_bit(SDE_CAPS_SEC_ATTACH_DETACH_SMMU,
 		mdata->sde_caps_map)) {
-		sid_info = SDE_ROTATOR_SECURE_SID;
+		sid_info = mdata->sde_smmu[SDE_IOMMU_DOMAIN_ROT_SECURE].sid;
 		desc.arginfo = SCM_ARGS(4, SCM_VAL, SCM_RW, SCM_VAL, SCM_VAL);
 		desc.args[0] = SDE_ROTATOR_DEVICE;
 		desc.args[1] = SCM_BUFFER_PHYS(&sid_info);
@@ -631,9 +625,12 @@ static int sde_rotator_secure_session_ctrl(bool enable)
 				return -EINVAL;
 			}
 
-			SDEROT_DBG("scm_call(1) ret=%d, resp=%x",
+			SDEROT_DBG(
+			  "scm(1) sid0x%x dev0x%llx vmid0x%llx ret%d resp%x\n",
+				sid_info, desc.args[0], desc.args[3],
 				ret, resp);
-			SDEROT_EVTLOG(1);
+			SDEROT_EVTLOG(1, sid_info, desc.args[0], desc.args[3],
+					ret, resp);
 		} else if (mdata->sec_cam_en && !enable) {
 			/*
 			 * Disable secure camera operation
@@ -648,12 +645,16 @@ static int sde_rotator_secure_session_ctrl(bool enable)
 				MEM_PROTECT_SD_CTRL_SWITCH), &desc);
 			resp = desc.ret[0];
 
-			SDEROT_DBG("scm_call(0): ret=%d, resp=%x",
+			SDEROT_DBG(
+			  "scm(0) sid0x%x dev0x%llx vmid0x%llx ret%d resp%d\n",
+				sid_info, desc.args[0], desc.args[3],
 				ret, resp);
 
 			/* force smmu to reattach */
 			sde_smmu_secure_ctrl(1);
-			SDEROT_EVTLOG(0);
+
+			SDEROT_EVTLOG(0, sid_info, desc.args[0], desc.args[3],
+					ret, resp);
 		}
 	} else {
 		return 0;

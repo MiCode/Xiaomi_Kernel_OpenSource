@@ -422,19 +422,19 @@ static void sde_hw_sspp_setup_secure(struct sde_hw_pipe *ctx,
 	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx))
 		return;
 
-	if (rect_mode == SDE_SSPP_RECT_SOLO || rect_mode == SDE_SSPP_RECT_0)
-		secure_bit_mask = (rect_mode == SDE_SSPP_RECT_SOLO) ? 0xF :
-			0x5;
-	else
-		secure_bit_mask = 0xA;
-
 	c = &ctx->hw;
 
-	secure = SDE_REG_READ(c, SSPP_SRC_ADDR_SW_STATUS + idx);
-	if (enable)
+	if (enable) {
+		if ((rect_mode == SDE_SSPP_RECT_SOLO)
+				|| (rect_mode == SDE_SSPP_RECT_0))
+			secure_bit_mask =
+				(rect_mode == SDE_SSPP_RECT_SOLO) ? 0xF : 0x5;
+		else
+			secure_bit_mask = 0xA;
+
+		secure = SDE_REG_READ(c, SSPP_SRC_ADDR_SW_STATUS + idx);
 		secure |= secure_bit_mask;
-	else
-		secure &= ~secure_bit_mask;
+	}
 
 	SDE_REG_WRITE(c, SSPP_SRC_ADDR_SW_STATUS + idx, secure);
 }
