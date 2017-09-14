@@ -214,22 +214,22 @@ static int cam_jpeg_mgr_get_free_ctx(struct cam_jpeg_hw_mgr *hw_mgr)
 
 
 static int cam_jpeg_mgr_release_ctx(
-	struct cam_jpeg_hw_mgr *hw_mgr, int ctx_id)
+	struct cam_jpeg_hw_mgr *hw_mgr, struct cam_jpeg_hw_ctx_data *ctx_data)
 {
-	if (ctx_id >= CAM_JPEG_CTX_MAX) {
-		CAM_ERR(CAM_JPEG, "ctx_id is wrong: %d", ctx_id);
+	if (!ctx_data) {
+		CAM_ERR(CAM_JPEG, "invalid ctx_data %pK", ctx_data);
 		return -EINVAL;
 	}
 
-	mutex_lock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
-	if (!hw_mgr->ctx_data[ctx_id].in_use) {
-		CAM_ERR(CAM_JPEG, "ctx is already in use: %d", ctx_id);
-		mutex_unlock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
+	mutex_lock(&ctx_data->ctx_mutex);
+	if (!ctx_data->in_use) {
+		CAM_ERR(CAM_JPEG, "ctx is already un-used: %pK", ctx_data);
+		mutex_unlock(&ctx_data->ctx_mutex);
 		return -EINVAL;
 	}
 
-	hw_mgr->ctx_data[ctx_id].in_use = 0;
-	mutex_unlock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
+	ctx_data->in_use = false;
+	mutex_unlock(&ctx_data->ctx_mutex);
 
 	return 0;
 }
@@ -280,7 +280,8 @@ static int cam_jpeg_mgr_process_cmd(void *priv, void *data)
 		hw_mgr->dev_hw_cfg_args[p_cfg_req->dev_type][0] = p_cfg_req;
 		list_del_init(&p_cfg_req->list);
 	} else {
-		CAM_ERR(CAM_JPEG, "NOT dequeing, just return");
+		CAM_DBG(CAM_JPEG, "Not dequeing, just return");
+		mutex_unlock(&hw_mgr->hw_mgr_mutex);
 		rc = -EFAULT;
 		goto end;
 	}
@@ -289,7 +290,7 @@ static int cam_jpeg_mgr_process_cmd(void *priv, void *data)
 	config_args = (struct cam_hw_config_args *)&p_cfg_req->hw_cfg_args;
 	request_id = task_data->request_id;
 	if (request_id != (uint64_t)config_args->priv) {
-		CAM_WARN(CAM_JPEG, "not a recent req %d %d",
+		CAM_DBG(CAM_JPEG, "not a recent req %lld %lld",
 			request_id, (uint64_t)config_args->priv);
 	}
 
@@ -475,8 +476,8 @@ static int cam_jpeg_mgr_config_hw(void *hw_mgr_priv, void *config_hw_args)
 
 	request_id = (uint64_t)config_args->priv;
 	hw_update_entries = config_args->hw_update_entries;
-	CAM_DBG(CAM_JPEG, "ctx_data = %pK req_id = %d %pK",
-		ctx_data, request_id, config_args->priv);
+	CAM_DBG(CAM_JPEG, "ctx_data = %pK req_id = %lld %lld",
+		ctx_data, request_id, (uint64_t)config_args->priv);
 	task = cam_req_mgr_workq_get_task(g_jpeg_hw_mgr.work_process_frame);
 	if (!task) {
 		CAM_ERR(CAM_JPEG, "no empty task");
@@ -631,13 +632,12 @@ static int cam_jpeg_mgr_prepare_hw_update(void *hw_mgr_priv,
 static int cam_jpeg_mgr_release_hw(void *hw_mgr_priv, void *release_hw_args)
 {
 	int rc;
-	int ctx_id = 0;
 	struct cam_hw_release_args *release_hw = release_hw_args;
 	struct cam_jpeg_hw_mgr *hw_mgr = hw_mgr_priv;
 	struct cam_jpeg_hw_ctx_data *ctx_data = NULL;
 	uint32_t dev_type;
 
-	if (!release_hw || !hw_mgr) {
+	if (!hw_mgr || !release_hw || !release_hw->ctxt_to_hw_map) {
 		CAM_ERR(CAM_JPEG, "Invalid args");
 		return -EINVAL;
 	}
@@ -671,7 +671,7 @@ static int cam_jpeg_mgr_release_hw(void *hw_mgr_priv, void *release_hw_args)
 	}
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
-	rc = cam_jpeg_mgr_release_ctx(hw_mgr, ctx_id);
+	rc = cam_jpeg_mgr_release_ctx(hw_mgr, ctx_data);
 	if (rc) {
 		mutex_unlock(&hw_mgr->hw_mgr_mutex);
 		return -EINVAL;
@@ -838,7 +838,7 @@ start_cdm_hdl_failed:
 	cam_cdm_release(hw_mgr->cdm_info[dev_type][0].cdm_handle);
 acq_cdm_hdl_failed:
 	kfree(ctx_data->cdm_cmd);
-	cam_jpeg_mgr_release_ctx(hw_mgr, ctx_id);
+	cam_jpeg_mgr_release_ctx(hw_mgr, ctx_data);
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
 	return rc;

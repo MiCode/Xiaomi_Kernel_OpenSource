@@ -103,6 +103,7 @@ static int cam_jpeg_enc_remove(struct platform_device *pdev)
 	if (rc)
 		CAM_ERR(CAM_JPEG, " unreg failed to reg cpas %d", rc);
 
+	mutex_destroy(&core_info->core_mutex);
 	kfree(core_info);
 
 deinit_soc:
@@ -171,13 +172,14 @@ static int cam_jpeg_enc_probe(struct platform_device *pdev)
 	hw_info = (struct cam_jpeg_enc_device_hw_info *)match_dev->data;
 	core_info->jpeg_enc_hw_info = hw_info;
 	core_info->core_state = CAM_JPEG_ENC_CORE_NOT_READY;
+	mutex_init(&core_info->core_mutex);
 
 	rc = cam_jpeg_enc_init_soc_resources(&jpeg_enc_dev->soc_info,
 		cam_jpeg_enc_irq,
 		jpeg_enc_dev);
 	if (rc) {
 		CAM_ERR(CAM_JPEG, " failed to init_soc %d", rc);
-		goto error_match_dev;
+		goto error_init_soc;
 	}
 
 	rc = cam_jpeg_enc_register_cpas(&jpeg_enc_dev->soc_info,
@@ -195,6 +197,8 @@ static int cam_jpeg_enc_probe(struct platform_device *pdev)
 
 error_reg_cpas:
 	cam_soc_util_release_platform_resource(&jpeg_enc_dev->soc_info);
+error_init_soc:
+	mutex_destroy(&core_info->core_mutex);
 error_match_dev:
 	kfree(jpeg_enc_dev->core_info);
 error_alloc_core:
