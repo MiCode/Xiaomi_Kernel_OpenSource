@@ -336,7 +336,7 @@ static irqreturn_t ipa3_isr(int irq, void *ctxt)
 	ipa3_process_interrupts(true);
 	IPADBG_LOW("Exit\n");
 
-	ipa3_dec_client_disable_clks(&log_info);
+	ipa3_dec_client_disable_clks_no_block(&log_info);
 	return IRQ_HANDLED;
 }
 /**
