@@ -337,7 +337,6 @@ struct sde_crtc_respool {
  * @base: Base drm crtc state structure
  * @connectors    : Currently associated drm connectors
  * @num_connectors: Number of associated drm connectors
- * @intf_mode     : Interface mode of the primary connector
  * @rsc_client    : sde rsc client when mode is valid
  * @is_ppsplit    : Whether current topology requires PPSplit special handling
  * @bw_control    : true if bw/clk controlled by core bw/clk properties
@@ -364,7 +363,6 @@ struct sde_crtc_state {
 
 	struct drm_connector *connectors[MAX_CONNECTORS];
 	int num_connectors;
-	enum sde_intf_mode intf_mode;
 	struct sde_rsc_client *rsc_client;
 	bool rsc_update;
 	bool bw_control;
@@ -500,8 +498,8 @@ static inline enum sde_crtc_client_type sde_crtc_get_client_type(
 	if (!cstate)
 		return NRT_CLIENT;
 
-	return cstate->rsc_client ? RT_RSC_CLIENT :
-	    (cstate->intf_mode == INTF_MODE_WB_LINE ? NRT_CLIENT : RT_CLIENT);
+	return sde_crtc_get_intf_mode(crtc) == INTF_MODE_WB_LINE ? NRT_CLIENT :
+			(cstate->rsc_client ? RT_RSC_CLIENT : RT_CLIENT);
 }
 
 /**
