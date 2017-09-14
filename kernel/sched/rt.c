@@ -1811,7 +1811,7 @@ retry:
 					cpu_idle_idx =
 					     idle_get_state_idx(cpu_rq(cpu));
 
-				if (add_capacity_margin(new_util_cum) <
+				if (add_capacity_margin(new_util_cum, cpu) <
 				    capacity_curr_of(cpu)) {
 					if (cpu_idle_idx < best_cpu_idle_idx ||
 					    (best_cpu != task_cpu(task) &&

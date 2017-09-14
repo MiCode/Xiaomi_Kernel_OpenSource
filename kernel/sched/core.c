@@ -3232,9 +3232,9 @@ unsigned int capacity_margin_freq = 1280; /* ~20% margin */
 
 static inline
 unsigned long sum_capacity_reqs(unsigned long cfs_cap,
-				struct sched_capacity_reqs *scr)
+				struct sched_capacity_reqs *scr, int cpu)
 {
-	unsigned long total = add_capacity_margin(cfs_cap + scr->rt);
+	unsigned long total = add_capacity_margin(cfs_cap + scr->rt, cpu);
 	return total += scr->dl;
 }
 
@@ -3246,7 +3246,7 @@ static void sched_freq_tick_pelt(int cpu)
 	struct sched_capacity_reqs *scr;
 
 	scr = &per_cpu(cpu_sched_capacity_reqs, cpu);
-	if (sum_capacity_reqs(cpu_utilization, scr) < capacity_curr)
+	if (sum_capacity_reqs(cpu_utilization, scr, cpu) < capacity_curr)
 		return;
 
 	/*
