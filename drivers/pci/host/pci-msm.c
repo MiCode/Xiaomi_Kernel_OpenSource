@@ -3825,6 +3825,11 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 		goto link_fail;
 	}
 
+	dev->link_status = MSM_PCIE_LINK_ENABLED;
+	dev->power_on = true;
+	dev->suspending = false;
+	dev->link_turned_on_counter++;
+
 	if (dev->switch_latency) {
 		PCIE_DBG(dev, "switch_latency: %dms\n",
 			dev->switch_latency);
@@ -3844,11 +3849,6 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 
 	if (dev->enumerated)
 		pci_walk_bus(dev->dev->bus, &msm_pcie_config_device, dev);
-
-	dev->link_status = MSM_PCIE_LINK_ENABLED;
-	dev->power_on = true;
-	dev->suspending = false;
-	dev->link_turned_on_counter++;
 
 	goto out;
 
