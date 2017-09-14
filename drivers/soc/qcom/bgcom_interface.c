@@ -285,6 +285,7 @@ static int ssr_bg_cb(struct notifier_block *this,
 	switch (opcode) {
 	case SUBSYS_BEFORE_SHUTDOWN:
 		bge.e_type = BG_BEFORE_POWER_DOWN;
+		bgcom_set_spi_state(BGCOM_SPI_BUSY);
 		send_uevent(&bge);
 		break;
 	case SUBSYS_AFTER_POWERUP:

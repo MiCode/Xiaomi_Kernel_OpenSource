@@ -40,6 +40,7 @@
 
 #define BG_SPI_MAX_WORDS (0x3FFFFFFD)
 #define BG_SPI_MAX_REGS (0x0A)
+#define SLEEP_IN_STATE_CHNG 2000
 
 enum bgcom_state {
 	/*BGCOM Staus ready*/
@@ -90,9 +91,19 @@ static enum bgcom_spi_state spi_state;
 
 int bgcom_set_spi_state(enum bgcom_spi_state state)
 {
+	struct bg_spi_priv *bg_spi = container_of(bg_com_drv,
+						struct bg_spi_priv, lhandle);
 	if (state < 0 || state > 1)
 		return -EINVAL;
+
+	if (state == spi_state)
+		return 0;
+
+	mutex_lock(&bg_spi->xfer_mutex);
 	spi_state = state;
+	if (spi_state == BGCOM_SPI_BUSY)
+		msleep(SLEEP_IN_STATE_CHNG);
+	mutex_unlock(&bg_spi->xfer_mutex);
 	return 0;
 }
 EXPORT_SYMBOL(bgcom_set_spi_state);
