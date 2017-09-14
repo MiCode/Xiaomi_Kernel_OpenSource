@@ -430,6 +430,7 @@ struct usbpd {
 	int			num_svids;
 	struct vdm_tx		*vdm_tx;
 	struct vdm_tx		*vdm_tx_retry;
+	struct mutex		svid_handler_lock;
 	struct list_head	svid_handlers;
 
 	struct list_head	instance;
@@ -581,10 +582,15 @@ static struct usbpd_svid_handler *find_svid_handler(struct usbpd *pd, u16 svid)
 {
 	struct usbpd_svid_handler *handler;
 
-	list_for_each_entry(handler, &pd->svid_handlers, entry)
-		if (svid == handler->svid)
+	mutex_lock(&pd->svid_handler_lock);
+	list_for_each_entry(handler, &pd->svid_handlers, entry) {
+		if (svid == handler->svid) {
+			mutex_unlock(&pd->svid_handler_lock);
 			return handler;
+		}
+	}
 
+	mutex_unlock(&pd->svid_handler_lock);
 	return NULL;
 }
 
@@ -1412,9 +1418,11 @@ int usbpd_register_svid(struct usbpd *pd, struct usbpd_svid_handler *hdlr)
 		return -EINVAL;
 	}
 
-	usbpd_dbg(&pd->dev, "registered handler for SVID 0x%04x\n", hdlr->svid);
-
+	usbpd_dbg(&pd->dev, "registered handler(%pK) for SVID 0x%04x\n",
+							hdlr, hdlr->svid);
+	mutex_lock(&pd->svid_handler_lock);
 	list_add_tail(&hdlr->entry, &pd->svid_handlers);
+	mutex_unlock(&pd->svid_handler_lock);
 	hdlr->request_usb_ss_lane = usbpd_release_ss_lane;
 
 	/* already connected with this SVID discovered? */
@@ -1436,7 +1444,12 @@ EXPORT_SYMBOL(usbpd_register_svid);
 
 void usbpd_unregister_svid(struct usbpd *pd, struct usbpd_svid_handler *hdlr)
 {
+
+	usbpd_dbg(&pd->dev, "unregistered handler(%pK) for SVID 0x%04x\n",
+							hdlr, hdlr->svid);
+	mutex_lock(&pd->svid_handler_lock);
 	list_del_init(&hdlr->entry);
+	mutex_unlock(&pd->svid_handler_lock);
 }
 EXPORT_SYMBOL(usbpd_unregister_svid);
 
@@ -1747,6 +1760,7 @@ static void reset_vdm_state(struct usbpd *pd)
 {
 	struct usbpd_svid_handler *handler;
 
+	mutex_lock(&pd->svid_handler_lock);
 	list_for_each_entry(handler, &pd->svid_handlers, entry) {
 		if (handler->discovered) {
 			handler->disconnect(handler);
@@ -1754,6 +1768,7 @@ static void reset_vdm_state(struct usbpd *pd)
 		}
 	}
 
+	mutex_unlock(&pd->svid_handler_lock);
 	pd->vdm_state = VDM_NONE;
 	kfree(pd->vdm_tx_retry);
 	pd->vdm_tx_retry = NULL;
@@ -3853,6 +3868,7 @@ struct usbpd *usbpd_create(struct device *parent)
 	hrtimer_init(&pd->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	pd->timer.function = pd_timeout;
 	mutex_init(&pd->swap_lock);
+	mutex_init(&pd->svid_handler_lock);
 
 	pd->usb_psy = power_supply_get_by_name("usb");
 	if (!pd->usb_psy) {
