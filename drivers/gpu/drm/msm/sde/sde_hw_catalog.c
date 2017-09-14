@@ -146,6 +146,9 @@ enum sde_prop {
 enum {
 	PERF_MAX_BW_LOW,
 	PERF_MAX_BW_HIGH,
+	PERF_MIN_CORE_IB,
+	PERF_MIN_LLCC_IB,
+	PERF_MIN_DRAM_IB,
 	PERF_CORE_IB_FF,
 	PERF_CORE_CLK_FF,
 	PERF_COMP_RATIO_RT,
@@ -376,6 +379,9 @@ static struct sde_prop_type sde_prop[] = {
 static struct sde_prop_type sde_perf_prop[] = {
 	{PERF_MAX_BW_LOW, "qcom,sde-max-bw-low-kbps", false, PROP_TYPE_U32},
 	{PERF_MAX_BW_HIGH, "qcom,sde-max-bw-high-kbps", false, PROP_TYPE_U32},
+	{PERF_MIN_CORE_IB, "qcom,sde-min-core-ib-kbps", false, PROP_TYPE_U32},
+	{PERF_MIN_LLCC_IB, "qcom,sde-min-llcc-ib-kbps", false, PROP_TYPE_U32},
+	{PERF_MIN_DRAM_IB, "qcom,sde-min-dram-ib-kbps", false, PROP_TYPE_U32},
 	{PERF_CORE_IB_FF, "qcom,sde-core-ib-ff", false, PROP_TYPE_STRING},
 	{PERF_CORE_CLK_FF, "qcom,sde-core-clk-ff", false, PROP_TYPE_STRING},
 	{PERF_COMP_RATIO_RT, "qcom,sde-comp-ratio-rt", false,
@@ -2691,6 +2697,18 @@ static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 			prop_exists[PERF_MAX_BW_HIGH] ?
 			PROP_VALUE_ACCESS(prop_value, PERF_MAX_BW_HIGH, 0) :
 			DEFAULT_MAX_BW_HIGH;
+	cfg->perf.min_core_ib =
+			prop_exists[PERF_MIN_CORE_IB] ?
+			PROP_VALUE_ACCESS(prop_value, PERF_MIN_CORE_IB, 0) :
+			DEFAULT_MAX_BW_LOW;
+	cfg->perf.min_llcc_ib =
+			prop_exists[PERF_MIN_LLCC_IB] ?
+			PROP_VALUE_ACCESS(prop_value, PERF_MIN_LLCC_IB, 0) :
+			DEFAULT_MAX_BW_LOW;
+	cfg->perf.min_dram_ib =
+			prop_exists[PERF_MIN_DRAM_IB] ?
+			PROP_VALUE_ACCESS(prop_value, PERF_MIN_DRAM_IB, 0) :
+			DEFAULT_MAX_BW_LOW;
 
 	/*
 	 * The following performance parameters (e.g. core_ib_ff) are
