@@ -600,9 +600,13 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 			BIT(EP_PCIE_INT_EVT_LINK_DOWN) |
 			BIT(EP_PCIE_INT_EVT_BME) |
 			BIT(EP_PCIE_INT_EVT_PM_TURNOFF) |
-			BIT(EP_PCIE_INT_EVT_MHI_A7) |
 			BIT(EP_PCIE_INT_EVT_DSTATE_CHANGE) |
 			BIT(EP_PCIE_INT_EVT_LINK_UP));
+		if (!dev->mhi_a7_irq)
+			ep_pcie_write_mask(dev->parf +
+				PCIE20_PARF_INT_ALL_MASK, 0,
+				BIT(EP_PCIE_INT_EVT_MHI_A7));
+
 		EP_PCIE_DBG(dev, "PCIe V%d: PCIE20_PARF_INT_ALL_MASK:0x%x\n",
 			dev->rev,
 			readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_MASK));
@@ -2286,6 +2290,13 @@ static int ep_pcie_probe(struct platform_device *pdev)
 	EP_PCIE_DBG(&ep_pcie_dev,
 		"PCIe V%d: aggregated IRQ is %s enabled.\n",
 		ep_pcie_dev.rev, ep_pcie_dev.aggregated_irq ? "" : "not");
+
+	ep_pcie_dev.mhi_a7_irq =
+		of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,pcie-mhi-a7-irq");
+	EP_PCIE_DBG(&ep_pcie_dev,
+		"PCIe V%d: Mhi a7 IRQ is %s enabled.\n",
+		ep_pcie_dev.rev, ep_pcie_dev.mhi_a7_irq ? "" : "not");
 
 	ep_pcie_dev.perst_enum = of_property_read_bool((&pdev->dev)->of_node,
 				"qcom,pcie-perst-enum");
