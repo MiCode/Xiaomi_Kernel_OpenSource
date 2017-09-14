@@ -62,3 +62,11 @@ config REGMAP_QTI_DEBUG
 	  interface to read and write a subset of regmap registers.  This
 	  interface is more performant and easier to use than the traditional
 	  method which dumps all registers defined in a given regmap.
+
+config REGMAP_ALLOW_WRITE_DEBUGFS
+	depends on REGMAP && DEBUG_FS
+	bool "Allow REGMAP debugfs write"
+	help
+	  Say 'y' here to allow the regmap debugfs write. Regmap debugfs write
+	  could be risky when accessing some essential hardwares, so it is not
+	  recommended to enable this option on any production device.
