@@ -953,6 +953,16 @@
 		qcom,apps-ch-pipes = <0x780000>;
 		qcom,ea-pc = <0x290>;
 		status = "disabled";
+		qcom,iommu-s1-bypass;
+
+		iommu_slim_aud_ctrl_cb: qcom,iommu_slim_ctrl_cb {
+			compatible = "qcom,iommu-slim-ctrl-cb";
+			iommus = <&apps_smmu 0x1826 0x0>,
+				 <&apps_smmu 0x182d 0x0>,
+				 <&apps_smmu 0x182e 0x1>,
+				 <&apps_smmu 0x1830 0x1>;
+		};
+
 	};
 
 	slim_qca: slim@62e40000 {
@@ -964,6 +974,13 @@
 		interrupts = <0 291 0>, <0 292 0>;
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
 		status = "disabled";
+		qcom,iommu-s1-bypass;
+
+		iommu_slim_qca_ctrl_cb: qcom,iommu_slim_ctrl_cb {
+			compatible = "qcom,iommu-slim-ctrl-cb";
+			iommus = <&apps_smmu 0x1833 0x0>;
+		};
+
 	};
 
 	wdog: qcom,wdt@17980000{
