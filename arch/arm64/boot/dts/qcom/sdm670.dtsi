@@ -1574,6 +1574,44 @@
 			<0 0>,
 			<0 0>;
 
+		qcom,msm-bus,name = "ufshc_mem";
+		qcom,msm-bus,num-cases = <12>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+		/*
+		 * During HS G3 UFS runs at nominal voltage corner, vote
+		 * higher bandwidth to push other buses in the data path
+		 * to run at nominal to achieve max throughput.
+		 * 4GBps pushes BIMC to run at nominal.
+		 * 200MBps pushes CNOC to run at nominal.
+		 * Vote for half of this bandwidth for HS G3 1-lane.
+		 * For max bandwidth, vote high enough to push the buses
+		 * to run in turbo voltage corner.
+		 */
+		<123 512 0 0>, <1 757 0 0>,          /* No vote */
+		<123 512 922 0>, <1 757 1000 0>,     /* PWM G1 */
+		<123 512 1844 0>, <1 757 1000 0>,    /* PWM G2 */
+		<123 512 3688 0>, <1 757 1000 0>,    /* PWM G3 */
+		<123 512 7376 0>, <1 757 1000 0>,    /* PWM G4 */
+		<123 512 127796 0>, <1 757 1000 0>,  /* HS G1 RA */
+		<123 512 255591 0>, <1 757 1000 0>,  /* HS G2 RA */
+		<123 512 2097152 0>, <1 757 102400 0>,  /* HS G3 RA */
+		<123 512 149422 0>, <1 757 1000 0>,  /* HS G1 RB */
+		<123 512 298189 0>, <1 757 1000 0>,  /* HS G2 RB */
+		<123 512 2097152 0>, <1 757 102400 0>,  /* HS G3 RB */
+		<123 512 7643136 0>, <1 757 307200 0>; /* Max. bandwidth */
+
+		qcom,bus-vector-names = "MIN",
+		"PWM_G1_L1", "PWM_G2_L1", "PWM_G3_L1", "PWM_G4_L1",
+		"HS_RA_G1_L1", "HS_RA_G2_L1", "HS_RA_G3_L1",
+		"HS_RB_G1_L1", "HS_RB_G2_L1", "HS_RB_G3_L1",
+		"MAX";
+
+		/* PM QoS */
+		qcom,pm-qos-cpu-groups = <0x3f 0xC0>;
+		qcom,pm-qos-cpu-group-latency-us = <70 70>;
+		qcom,pm-qos-default-cpu = <0>;
+
 		resets = <&clock_gcc GCC_UFS_PHY_BCR>;
 		reset-names = "core_reset";
 
