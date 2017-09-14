@@ -36,6 +36,11 @@
 #define ST_SEND_VIDEO			BIT(7)
 #define ST_PUSH_IDLE			BIT(8)
 
+#define MR_LINK_TRAINING1  0x8
+#define MR_LINK_SYMBOL_ERM 0x80
+#define MR_LINK_PRBS7 0x100
+#define MR_LINK_CUSTOM80 0x200
+
 struct dp_vc_tu_mapping_table {
 	u32 vic;
 	u8 lanes;
@@ -989,7 +994,7 @@ static int dp_ctrl_setup_main_link(struct dp_ctrl_private *ctrl, bool train)
 
 	drm_dp_link_power_up(ctrl->aux->drm_aux, &ctrl->panel->link_info);
 
-	if (ctrl->link->phy_pattern_requested(ctrl->link))
+	if (ctrl->link->sink_request & DP_TEST_LINK_PHY_TEST_PATTERN)
 		goto end;
 
 	if (!train)
@@ -1135,18 +1140,14 @@ static bool dp_ctrl_use_fixed_nvid(struct dp_ctrl_private *ctrl)
 	return false;
 }
 
-static int dp_ctrl_handle_sink_request(struct dp_ctrl *dp_ctrl,
-	u32 sink_request)
+static int dp_ctrl_link_maintenance(struct dp_ctrl_private *ctrl)
 {
 	int ret = 0;
-	struct dp_ctrl_private *ctrl;
 
-	if (!dp_ctrl) {
-		ret = -EINVAL;
-		goto end;
-	}
+	ctrl->dp_ctrl.push_idle(&ctrl->dp_ctrl);
+	ctrl->dp_ctrl.reset(&ctrl->dp_ctrl);
 
-	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
+	ctrl->pixel_rate = ctrl->panel->pinfo.pixel_clk_khz;
 
 	do {
 		if (ret == -EAGAIN) {
@@ -1159,19 +1160,16 @@ static int dp_ctrl_handle_sink_request(struct dp_ctrl *dp_ctrl,
 		ctrl->catalog->phy_lane_cfg(ctrl->catalog,
 			ctrl->orientation, ctrl->link->link_params.lane_count);
 
-		if (sink_request &
-			(DP_LINK_STATUS_UPDATED | DP_TEST_LINK_TRAINING)) {
-			/*
-			 * Disable and re-enable the mainlink clock since the
-			 * link clock might have been adjusted as part of the
-			 * link maintenance.
-			 */
-			dp_ctrl_disable_mainlink_clocks(ctrl);
+		/*
+		 * Disable and re-enable the mainlink clock since the
+		 * link clock might have been adjusted as part of the
+		 * link maintenance.
+		 */
+		dp_ctrl_disable_mainlink_clocks(ctrl);
 
-			ret = dp_ctrl_enable_mainlink_clocks(ctrl);
-			if (ret)
-				continue;
-		}
+		ret = dp_ctrl_enable_mainlink_clocks(ctrl);
+		if (ret)
+			continue;
 
 		dp_ctrl_configure_source_params(ctrl);
 
@@ -1185,8 +1183,109 @@ static int dp_ctrl_handle_sink_request(struct dp_ctrl *dp_ctrl,
 		ret = dp_ctrl_setup_main_link(ctrl, true);
 	} while (ret == -EAGAIN);
 
-end:
 	return ret;
+}
+
+static void dp_ctrl_process_phy_test_request(struct dp_ctrl_private *ctrl)
+{
+	int ret = 0;
+
+	if (!ctrl->link->phy_params.phy_test_pattern_sel) {
+		pr_debug("no test pattern selected by sink\n");
+		return;
+	}
+
+	pr_debug("start\n");
+
+	ctrl->dp_ctrl.push_idle(&ctrl->dp_ctrl);
+	/*
+	 * The global reset will need DP link ralated clocks to be
+	 * running. Add the global reset just before disabling the
+	 * link clocks and core clocks.
+	 */
+	ctrl->dp_ctrl.reset(&ctrl->dp_ctrl);
+	ctrl->dp_ctrl.off(&ctrl->dp_ctrl);
+
+	ret = ctrl->dp_ctrl.on(&ctrl->dp_ctrl);
+	if (ret)
+		pr_err("failed to enable DP controller\n");
+
+	pr_debug("end\n");
+}
+
+static void dp_ctrl_send_phy_test_pattern(struct dp_ctrl_private *ctrl)
+{
+	bool success = false;
+	u32 pattern_sent = 0x0;
+	u32 pattern_requested = ctrl->link->phy_params.phy_test_pattern_sel;
+
+	pr_debug("request: %s\n",
+			dp_link_get_phy_test_pattern(pattern_requested));
+
+	ctrl->catalog->update_vx_px(ctrl->catalog,
+			ctrl->link->phy_params.v_level,
+			ctrl->link->phy_params.p_level);
+	ctrl->catalog->send_phy_pattern(ctrl->catalog, pattern_requested);
+	ctrl->link->send_test_response(ctrl->link);
+
+	pattern_sent = ctrl->catalog->read_phy_pattern(ctrl->catalog);
+
+	switch (pattern_sent) {
+	case MR_LINK_TRAINING1:
+		if (pattern_requested ==
+				DP_TEST_PHY_PATTERN_D10_2_NO_SCRAMBLING)
+			success = true;
+		break;
+	case MR_LINK_SYMBOL_ERM:
+		if ((pattern_requested ==
+				DP_TEST_PHY_PATTERN_SYMBOL_ERR_MEASUREMENT_CNT)
+			|| (pattern_requested ==
+				DP_TEST_PHY_PATTERN_HBR2_CTS_EYE_PATTERN))
+			success = true;
+		break;
+	case MR_LINK_PRBS7:
+		if (pattern_requested == DP_TEST_PHY_PATTERN_PRBS7)
+			success = true;
+		break;
+	case MR_LINK_CUSTOM80:
+		if (pattern_requested ==
+				DP_TEST_PHY_PATTERN_80_BIT_CUSTOM_PATTERN)
+			success = true;
+		break;
+	default:
+		success = false;
+		return;
+	}
+
+	pr_debug("%s: %s\n", success ? "success" : "failed",
+			dp_link_get_phy_test_pattern(pattern_requested));
+}
+
+static void dp_ctrl_handle_sink_request(struct dp_ctrl *dp_ctrl)
+{
+	struct dp_ctrl_private *ctrl;
+	u32 sink_request = 0x0;
+
+	if (!dp_ctrl) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
+	sink_request = ctrl->link->sink_request;
+
+	if (sink_request & DP_TEST_LINK_PHY_TEST_PATTERN) {
+		pr_info("PHY_TEST_PATTERN request\n");
+		dp_ctrl_process_phy_test_request(ctrl);
+	}
+
+	if (sink_request & DP_LINK_STATUS_UPDATED)
+		dp_ctrl_link_maintenance(ctrl);
+
+	if (sink_request & DP_TEST_LINK_TRAINING) {
+		ctrl->link->send_test_response(ctrl->link);
+		dp_ctrl_link_maintenance(ctrl);
+	}
 }
 
 static void dp_ctrl_reset(struct dp_ctrl *dp_ctrl)
@@ -1208,6 +1307,7 @@ static int dp_ctrl_on(struct dp_ctrl *dp_ctrl)
 	struct dp_ctrl_private *ctrl;
 	u32 rate = 0;
 	u32 link_train_max_retries = 100;
+	u32 const phy_cts_pixel_clk_khz = 148500;
 
 	if (!dp_ctrl) {
 		rc = -EINVAL;
@@ -1222,9 +1322,17 @@ static int dp_ctrl_on(struct dp_ctrl *dp_ctrl)
 	ctrl->power->clk_enable(ctrl->power, DP_CORE_PM, true);
 	ctrl->catalog->hpd_config(ctrl->catalog, true);
 
-	ctrl->link->link_params.bw_code  = drm_dp_link_rate_to_bw_code(rate);
-	ctrl->link->link_params.lane_count = ctrl->panel->link_info.num_lanes;
-	ctrl->pixel_rate = ctrl->panel->pinfo.pixel_clk_khz;
+	if (ctrl->link->sink_request & DP_TEST_LINK_PHY_TEST_PATTERN) {
+		pr_debug("using phy test link parameters\n");
+		if (!ctrl->panel->pinfo.pixel_clk_khz)
+			ctrl->pixel_rate = phy_cts_pixel_clk_khz;
+	} else {
+		ctrl->link->link_params.bw_code =
+			drm_dp_link_rate_to_bw_code(rate);
+		ctrl->link->link_params.lane_count =
+			ctrl->panel->link_info.num_lanes;
+		ctrl->pixel_rate = ctrl->panel->pinfo.pixel_clk_khz;
+	}
 
 	pr_debug("bw_code=%d, lane_count=%d, pixel_rate=%d\n",
 		ctrl->link->link_params.bw_code,
@@ -1262,6 +1370,9 @@ static int dp_ctrl_on(struct dp_ctrl *dp_ctrl)
 
 		dp_ctrl_enable_mainlink_clocks(ctrl);
 	}
+
+	if (ctrl->link->sink_request & DP_TEST_LINK_PHY_TEST_PATTERN)
+		dp_ctrl_send_phy_test_pattern(ctrl);
 
 	pr_debug("End-\n");
 
@@ -1337,12 +1448,12 @@ struct dp_ctrl *dp_ctrl_get(struct dp_ctrl_in *in)
 	dp_ctrl->init      = dp_ctrl_host_init;
 	dp_ctrl->deinit    = dp_ctrl_host_deinit;
 	dp_ctrl->on        = dp_ctrl_on;
-	dp_ctrl->handle_sink_request = dp_ctrl_handle_sink_request;
 	dp_ctrl->off       = dp_ctrl_off;
 	dp_ctrl->push_idle = dp_ctrl_push_idle;
 	dp_ctrl->abort     = dp_ctrl_abort;
 	dp_ctrl->isr       = dp_ctrl_isr;
 	dp_ctrl->reset	   = dp_ctrl_reset;
+	dp_ctrl->handle_sink_request = dp_ctrl_handle_sink_request;
 
 	return dp_ctrl;
 error:

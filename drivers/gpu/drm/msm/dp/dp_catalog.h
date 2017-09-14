@@ -77,6 +77,9 @@ struct dp_catalog_ctrl {
 	void (*get_interrupt)(struct dp_catalog_ctrl *ctrl);
 	void (*update_transfer_unit)(struct dp_catalog_ctrl *ctrl);
 	u32 (*read_hdcp_status)(struct dp_catalog_ctrl *ctrl);
+	void (*send_phy_pattern)(struct dp_catalog_ctrl *ctrl,
+			u32 pattern);
+	u32 (*read_phy_pattern)(struct dp_catalog_ctrl *ctrl);
 };
 
 enum dp_catalog_audio_sdp_type {

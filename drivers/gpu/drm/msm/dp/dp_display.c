@@ -449,7 +449,7 @@ static int dp_display_send_hpd_notification(struct dp_display_private *dp,
 	drm_helper_hpd_irq_event(dp->dp_display.connector->dev);
 
 	if (!wait_for_completion_timeout(&dp->notification_comp, HZ * 2)) {
-		pr_warn("timeout\n");
+		pr_warn("%s timeout\n", hpd ? "connect" : "disconnect");
 		return -EINVAL;
 	}
 
@@ -624,20 +624,6 @@ end:
 	return rc;
 }
 
-static void dp_display_link_maintenance(struct dp_display_private *dp)
-{
-	if (dp->power_on) {
-		pr_debug("Set DP ctrl to push idle for link maintenance\n");
-		dp->ctrl->push_idle(dp->ctrl);
-		dp->ctrl->reset(dp->ctrl);
-	} else {
-		pr_err("DP not powered on, skip link maintenance\n");
-		return;
-	}
-
-	dp->ctrl->handle_sink_request(dp->ctrl, dp->link->sink_request);
-}
-
 static int dp_display_handle_hpd_irq(struct dp_display_private *dp)
 {
 	if (dp->link->sink_request & DS_PORT_STATUS_CHANGED) {
@@ -651,14 +637,7 @@ static int dp_display_handle_hpd_irq(struct dp_display_private *dp)
 		return dp_display_process_hpd_high(dp);
 	}
 
-	if (dp->link->sink_request & DP_LINK_STATUS_UPDATED)
-		dp_display_link_maintenance(dp);
-
-	if (dp->link->sink_request & DP_TEST_LINK_TRAINING) {
-		drm_dp_dpcd_write(dp->aux->drm_aux, DP_TEST_RESPONSE,
-			&dp->link->test_response, 1);
-		dp_display_link_maintenance(dp);
-	}
+	dp->ctrl->handle_sink_request(dp->ctrl);
 
 	return 0;
 }
@@ -689,12 +668,11 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 
 		rc = dp->link->process_request(dp->link);
 		/* check for any test request issued by sink */
-		if (!rc) {
+		if (!rc)
 			dp_display_handle_hpd_irq(dp);
-			dp->hpd_irq_on = false;
-			goto end;
-		}
+
 		dp->hpd_irq_on = false;
+		goto end;
 	}
 
 	if (!dp->usbpd->hpd_high) {

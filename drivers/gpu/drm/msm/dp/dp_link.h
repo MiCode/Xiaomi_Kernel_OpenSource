@@ -17,6 +17,10 @@
 
 #include "dp_aux.h"
 
+#define DS_PORT_STATUS_CHANGED 0x200
+#define DP_TEST_BIT_DEPTH_UNKNOWN 0xFFFFFFFF
+#define DP_LINK_ENUM_STR(x)		#x
+
 enum dp_link_voltage_level {
 	DP_LINK_VOLTAGE_LEVEL_0	= 0,
 	DP_LINK_VOLTAGE_LEVEL_1	= 1,
@@ -30,9 +34,6 @@ enum dp_link_preemaphasis_level {
 	DP_LINK_PRE_EMPHASIS_LEVEL_2	= 2,
 	DP_LINK_PRE_EMPHASIS_MAX	= DP_LINK_PRE_EMPHASIS_LEVEL_2,
 };
-
-#define DS_PORT_STATUS_CHANGED 0x200
-#define DP_TEST_BIT_DEPTH_UNKNOWN 0xFFFFFFFF
 
 struct dp_link_sink_count {
 	u32 count;
@@ -73,8 +74,8 @@ struct dp_link_test_audio {
 
 struct dp_link_phy_params {
 	u32 phy_test_pattern_sel;
-	u32 v_level;
-	u32 p_level;
+	u8 v_level;
+	u8 p_level;
 };
 
 struct dp_link_params {
@@ -97,8 +98,32 @@ struct dp_link {
 	int (*get_colorimetry_config)(struct dp_link *dp_link);
 	int (*adjust_levels)(struct dp_link *dp_link, u8 *link_status);
 	int (*send_psm_request)(struct dp_link *dp_link, bool req);
-	bool (*phy_pattern_requested)(struct dp_link *dp_link);
+	void (*send_test_response)(struct dp_link *dp_link);
 };
+
+static inline char *dp_link_get_phy_test_pattern(u32 phy_test_pattern_sel)
+{
+	switch (phy_test_pattern_sel) {
+	case DP_TEST_PHY_PATTERN_NONE:
+		return DP_LINK_ENUM_STR(DP_TEST_PHY_PATTERN_NONE);
+	case DP_TEST_PHY_PATTERN_D10_2_NO_SCRAMBLING:
+		return DP_LINK_ENUM_STR(
+			DP_TEST_PHY_PATTERN_D10_2_NO_SCRAMBLING);
+	case DP_TEST_PHY_PATTERN_SYMBOL_ERR_MEASUREMENT_CNT:
+		return DP_LINK_ENUM_STR(
+			DP_TEST_PHY_PATTERN_SYMBOL_ERR_MEASUREMENT_CNT);
+	case DP_TEST_PHY_PATTERN_PRBS7:
+		return DP_LINK_ENUM_STR(DP_TEST_PHY_PATTERN_PRBS7);
+	case DP_TEST_PHY_PATTERN_80_BIT_CUSTOM_PATTERN:
+		return DP_LINK_ENUM_STR(
+			DP_TEST_PHY_PATTERN_80_BIT_CUSTOM_PATTERN);
+	case DP_TEST_PHY_PATTERN_HBR2_CTS_EYE_PATTERN:
+		return DP_LINK_ENUM_STR(
+			DP_TEST_PHY_PATTERN_HBR2_CTS_EYE_PATTERN);
+	default:
+		return "unknown";
+	}
+}
 
 /**
  * dp_link_get() - get the functionalities of dp test module

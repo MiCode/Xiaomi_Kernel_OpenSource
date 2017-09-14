@@ -17,8 +17,6 @@
 #include "dp_link.h"
 #include "dp_panel.h"
 
-#define DP_LINK_ENUM_STR(x)		#x
-
 enum dp_lane_count {
 	DP_LANE_COUNT_1	= 1,
 	DP_LANE_COUNT_2	= 2,
@@ -96,30 +94,6 @@ static inline u32 dp_link_bit_depth_to_bpp(u32 tbd)
 	}
 
 	return bpp;
-}
-
-static char *dp_link_get_phy_test_pattern(u32 phy_test_pattern_sel)
-{
-	switch (phy_test_pattern_sel) {
-	case DP_TEST_PHY_PATTERN_NONE:
-		return DP_LINK_ENUM_STR(DP_TEST_PHY_PATTERN_NONE);
-	case DP_TEST_PHY_PATTERN_D10_2_NO_SCRAMBLING:
-		return DP_LINK_ENUM_STR(
-			DP_TEST_PHY_PATTERN_D10_2_NO_SCRAMBLING);
-	case DP_TEST_PHY_PATTERN_SYMBOL_ERR_MEASUREMENT_CNT:
-		return DP_LINK_ENUM_STR(
-			DP_TEST_PHY_PATTERN_SYMBOL_ERR_MEASUREMENT_CNT);
-	case DP_TEST_PHY_PATTERN_PRBS7:
-		return DP_LINK_ENUM_STR(DP_TEST_PHY_PATTERN_PRBS7);
-	case DP_TEST_PHY_PATTERN_80_BIT_CUSTOM_PATTERN:
-		return DP_LINK_ENUM_STR(
-			DP_TEST_PHY_PATTERN_80_BIT_CUSTOM_PATTERN);
-	case DP_TEST_PHY_PATTERN_HBR2_CTS_EYE_PATTERN:
-		return DP_LINK_ENUM_STR(
-			DP_TEST_PHY_PATTERN_HBR2_CTS_EYE_PATTERN);
-	default:
-		return "unknown";
-	}
 }
 
 static char *dp_link_get_audio_test_pattern(u32 pattern)
@@ -1044,13 +1018,23 @@ static int dp_link_process_link_training_request(struct dp_link_private *link)
 	return 0;
 }
 
-static bool dp_link_phy_pattern_requested(struct dp_link *dp_link)
+static void dp_link_send_test_response(struct dp_link *dp_link)
 {
-	struct dp_link_private *link = container_of(dp_link,
-			struct dp_link_private, dp_link);
+	struct dp_link_private *link = NULL;
+	u32 const test_response_addr = 0x260;
+	u32 const response_len = 0x1;
 
-	return (link->request.test_requested == DP_TEST_LINK_PHY_TEST_PATTERN);
+	if (!dp_link) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	link = container_of(dp_link, struct dp_link_private, dp_link);
+
+	drm_dp_dpcd_write(link->aux->drm_aux, test_response_addr,
+			&dp_link->test_response, response_len);
 }
+
 
 static int dp_link_parse_vx_px(struct dp_link_private *link)
 {
@@ -1139,8 +1123,10 @@ static int dp_link_process_phy_test_pattern_request(
 {
 	u32 test_link_rate = 0, test_lane_count = 0;
 
-	if (!dp_link_phy_pattern_requested(&link->dp_link))
+	if (!(link->request.test_requested & DP_TEST_LINK_PHY_TEST_PATTERN)) {
+		pr_debug("no phy test\n");
 		return -EINVAL;
+	}
 
 	test_link_rate = link->request.test_link_rate;
 	test_lane_count = link->request.test_lane_count;
@@ -1153,6 +1139,13 @@ static int dp_link_process_phy_test_pattern_request(
 	}
 
 	pr_debug("start\n");
+
+	pr_info("Current: bw_code = 0x%x, lane count = 0x%x\n",
+			link->dp_link.link_params.bw_code,
+			link->dp_link.link_params.lane_count);
+
+	pr_info("Requested: bw_code = 0x%x, lane count = 0x%x\n",
+			test_link_rate, test_lane_count);
 
 	link->dp_link.link_params.lane_count = link->request.test_lane_count;
 	link->dp_link.link_params.bw_code = link->request.test_link_rate;
@@ -1561,7 +1554,7 @@ struct dp_link *dp_link_get(struct device *dev, struct dp_aux *aux)
 	dp_link->get_colorimetry_config = dp_link_get_colorimetry_config;
 	dp_link->adjust_levels          = dp_link_adjust_levels;
 	dp_link->send_psm_request       = dp_link_send_psm_request;
-	dp_link->phy_pattern_requested  = dp_link_phy_pattern_requested;
+	dp_link->send_test_response     = dp_link_send_test_response;
 
 	return dp_link;
 error:
