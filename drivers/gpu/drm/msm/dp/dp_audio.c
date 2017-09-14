@@ -379,7 +379,7 @@ static void dp_audio_setup_acr(struct dp_audio_private *audio)
 	case DP_LINK_BW_5_4:
 		select = 2;
 		break;
-	case DP_LINK_RATE_810:
+	case DP_LINK_BW_8_1:
 		select = 3;
 		break;
 	default:

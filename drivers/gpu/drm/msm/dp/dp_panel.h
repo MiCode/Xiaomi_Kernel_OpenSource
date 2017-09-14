@@ -18,7 +18,7 @@
 #include "dp_aux.h"
 #include "sde_edid_parser.h"
 
-#define DP_LINK_RATE_810	30	/* 8.10G = 270M * 30 */
+#define DP_MAX_DOWNSTREAM_PORTS 0x10
 
 struct dp_panel_info {
 	u32 h_active;
@@ -40,8 +40,9 @@ struct dp_panel_info {
 struct dp_panel {
 	/* dpcd raw data */
 	u8 dpcd[DP_RECEIVER_CAP_SIZE];
-	struct drm_dp_link link_info;
+	u8 ds_ports[DP_MAX_DOWNSTREAM_PORTS];
 
+	struct drm_dp_link link_info;
 	struct sde_edid_ctrl *edid_ctrl;
 	struct drm_connector *connector;
 	struct dp_panel_info pinfo;

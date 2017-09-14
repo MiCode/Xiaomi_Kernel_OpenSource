@@ -23,10 +23,14 @@
 #include "dp_catalog.h"
 
 struct dp_ctrl {
+
 	int (*init)(struct dp_ctrl *dp_ctrl, bool flip);
 	void (*deinit)(struct dp_ctrl *dp_ctrl);
-	int (*on)(struct dp_ctrl *dp_ctrl, bool hpd_irq);
-	void (*off)(struct dp_ctrl *dp_ctrl, bool hpd_irq);
+	int (*on)(struct dp_ctrl *dp_ctrl);
+	void (*off)(struct dp_ctrl *dp_ctrl);
+	int (*handle_sink_request)(struct dp_ctrl *dp_ctrl,
+		u32 sink_request);
+	void (*reset)(struct dp_ctrl *dp_ctrl);
 	void (*push_idle)(struct dp_ctrl *dp_ctrl);
 	void (*abort)(struct dp_ctrl *dp_ctrl);
 	void (*isr)(struct dp_ctrl *dp_ctrl);

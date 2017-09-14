@@ -63,7 +63,6 @@ struct dp_ctrl_private {
 
 	struct completion idle_comp;
 	struct completion video_comp;
-	struct completion irq_comp;
 
 	bool psm_enabled;
 	bool orientation;
@@ -155,7 +154,7 @@ static void dp_ctrl_config_ctrl(struct dp_ctrl_private *ctrl)
 	config |= tbd << 8;
 
 	/* Num of Lanes */
-	config |= ((ctrl->link->lane_count - 1) << 4);
+	config |= ((ctrl->link->link_params.lane_count - 1) << 4);
 
 	if (drm_dp_enhanced_frame_cap(dpcd))
 		config |= 0x40;
@@ -303,7 +302,7 @@ static void dp_ctrl_calc_tu_parameters(struct dp_ctrl_private *ctrl,
 	u64 brute_force_threshold = 10;
 	u64 diff_abs;
 
-	ln_cnt =  ctrl->link->lane_count;
+	ln_cnt =  ctrl->link->link_params.lane_count;
 
 	bpp = pinfo->bpp;
 	lwidth = pinfo->h_active;
@@ -322,7 +321,8 @@ static void dp_ctrl_calc_tu_parameters(struct dp_ctrl_private *ctrl,
 	even_distribution = 0;
 	min_hblank = 0;
 
-	lclk = drm_dp_bw_code_to_link_rate(ctrl->link->bw_code) * DP_KHZ_TO_HZ;
+	lclk = drm_dp_bw_code_to_link_rate(
+		ctrl->link->link_params.bw_code) * DP_KHZ_TO_HZ;
 
 	pr_debug("pclk=%lld, active_width=%d, h_blank=%d\n",
 						pclk, lwidth, h_blank);
@@ -761,9 +761,10 @@ static void dp_ctrl_update_vx_px(struct dp_ctrl_private *ctrl)
 	struct dp_link *link = ctrl->link;
 
 	ctrl->catalog->update_vx_px(ctrl->catalog,
-			link->v_level, link->p_level);
+		link->phy_params.v_level, link->phy_params.p_level);
 
-	dp_ctrl_update_sink_vx_px(ctrl, link->v_level, link->p_level);
+	dp_ctrl_update_sink_vx_px(ctrl, link->phy_params.v_level,
+		link->phy_params.p_level);
 }
 
 static void dp_ctrl_train_pattern_set(struct dp_ctrl_private *ctrl,
@@ -816,7 +817,7 @@ static int dp_ctrl_link_train_1(struct dp_ctrl_private *ctrl)
 	dp_ctrl_update_vx_px(ctrl);
 
 	tries = 0;
-	old_v_level = ctrl->link->v_level;
+	old_v_level = ctrl->link->phy_params.v_level;
 	while (1) {
 		drm_dp_link_train_clock_recovery_delay(ctrl->panel->dpcd);
 
@@ -825,17 +826,17 @@ static int dp_ctrl_link_train_1(struct dp_ctrl_private *ctrl)
 			break;
 
 		if (drm_dp_clock_recovery_ok(link_status,
-			ctrl->link->lane_count)) {
+			ctrl->link->link_params.lane_count)) {
 			break;
 		}
 
-		if (ctrl->link->v_level == DP_LINK_VOLTAGE_MAX) {
+		if (ctrl->link->phy_params.v_level == DP_LINK_VOLTAGE_MAX) {
 			pr_err_ratelimited("max v_level reached\n");
 			ret = -EAGAIN;
 			break;
 		}
 
-		if (old_v_level == ctrl->link->v_level) {
+		if (old_v_level == ctrl->link->phy_params.v_level) {
 			tries++;
 			if (tries >= maximum_retries) {
 				pr_err("max tries reached\n");
@@ -844,7 +845,7 @@ static int dp_ctrl_link_train_1(struct dp_ctrl_private *ctrl)
 			}
 		} else {
 			tries = 0;
-			old_v_level = ctrl->link->v_level;
+			old_v_level = ctrl->link->phy_params.v_level;
 		}
 
 		pr_debug("clock recovery not done, adjusting vx px\n");
@@ -859,41 +860,25 @@ static int dp_ctrl_link_train_1(struct dp_ctrl_private *ctrl)
 static int dp_ctrl_link_rate_down_shift(struct dp_ctrl_private *ctrl)
 {
 	int ret = 0;
-	u32 min_req_link_rate_khz;
-	u32 new_proposed_link_bw_code;
-	u32 new_proposed_link_rate_khz;
 
 	if (!ctrl)
 		return -EINVAL;
 
-	min_req_link_rate_khz = ctrl->panel->get_min_req_link_rate(ctrl->panel);
-
-	switch (ctrl->link->bw_code) {
-	case DP_LINK_RATE_810:
-		new_proposed_link_bw_code = DP_LINK_BW_5_4;
+	switch (ctrl->link->link_params.bw_code) {
+	case DP_LINK_BW_8_1:
+		ctrl->link->link_params.bw_code = DP_LINK_BW_5_4;
 		break;
 	case DP_LINK_BW_5_4:
-		new_proposed_link_bw_code = DP_LINK_BW_2_7;
+		ctrl->link->link_params.bw_code = DP_LINK_BW_2_7;
 		break;
 	case DP_LINK_BW_2_7:
 	case DP_LINK_BW_1_62:
 	default:
-		new_proposed_link_bw_code = DP_LINK_BW_1_62;
+		ctrl->link->link_params.bw_code = DP_LINK_BW_1_62;
 		break;
 	};
 
-	new_proposed_link_rate_khz = drm_dp_bw_code_to_link_rate(
-						new_proposed_link_bw_code);
-
-	pr_debug("new proposed link rate=%d khz\n", new_proposed_link_rate_khz);
-	pr_debug("min required link rate=%d khz\n", min_req_link_rate_khz);
-
-	if (new_proposed_link_rate_khz >= min_req_link_rate_khz)
-		ctrl->link->bw_code = new_proposed_link_bw_code;
-	else
-		pr_debug("can't go below min required link rate\n");
-
-	pr_debug("new bw code=0x%x\n", ctrl->link->bw_code);
+	pr_debug("new bw code=0x%x\n", ctrl->link->link_params.bw_code);
 
 	return ret;
 }
@@ -931,7 +916,8 @@ static int dp_ctrl_link_training_2(struct dp_ctrl_private *ctrl)
 		if (ret)
 			break;
 
-		if (drm_dp_channel_eq_ok(link_status, ctrl->link->lane_count))
+		if (drm_dp_channel_eq_ok(link_status,
+			ctrl->link->link_params.lane_count))
 			break;
 
 		if (tries > maximum_retries) {
@@ -953,13 +939,14 @@ static int dp_ctrl_link_train(struct dp_ctrl_private *ctrl)
 	u8 encoding = 0x1;
 	struct drm_dp_link link_info = {0};
 
-	ctrl->link->p_level = 0;
-	ctrl->link->v_level = 0;
+	ctrl->link->phy_params.p_level = 0;
+	ctrl->link->phy_params.v_level = 0;
 
 	dp_ctrl_config_ctrl(ctrl);
 
-	link_info.num_lanes = ctrl->link->lane_count;
-	link_info.rate = drm_dp_bw_code_to_link_rate(ctrl->link->bw_code);
+	link_info.num_lanes = ctrl->link->link_params.lane_count;
+	link_info.rate = drm_dp_bw_code_to_link_rate(
+		ctrl->link->link_params.bw_code);
 	link_info.capabilities = ctrl->panel->link_info.capabilities;
 
 	drm_dp_link_configure(ctrl->aux->drm_aux, &link_info);
@@ -1060,7 +1047,7 @@ static int dp_ctrl_enable_mainlink_clocks(struct dp_ctrl_private *ctrl)
 	ctrl->power->set_pixel_clk_parent(ctrl->power);
 
 	dp_ctrl_set_clock_rate(ctrl, "ctrl_link_clk",
-		drm_dp_bw_code_to_link_rate(ctrl->link->bw_code));
+		drm_dp_bw_code_to_link_rate(ctrl->link->link_params.bw_code));
 
 	dp_ctrl_set_clock_rate(ctrl, "ctrl_pixel_clk", ctrl->pixel_rate);
 
@@ -1148,26 +1135,38 @@ static bool dp_ctrl_use_fixed_nvid(struct dp_ctrl_private *ctrl)
 	return false;
 }
 
-static int dp_ctrl_on_irq(struct dp_ctrl_private *ctrl, bool lt_needed)
+static int dp_ctrl_handle_sink_request(struct dp_ctrl *dp_ctrl,
+	u32 sink_request)
 {
 	int ret = 0;
+	struct dp_ctrl_private *ctrl;
+
+	if (!dp_ctrl) {
+		ret = -EINVAL;
+		goto end;
+	}
+
+	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
 	do {
-		if (ret == -EAGAIN)
+		if (ret == -EAGAIN) {
+			/* try with lower link rate */
+			dp_ctrl_link_rate_down_shift(ctrl);
+
 			ctrl->catalog->mainlink_ctrl(ctrl->catalog, false);
+		}
 
 		ctrl->catalog->phy_lane_cfg(ctrl->catalog,
-			ctrl->orientation, ctrl->link->lane_count);
+			ctrl->orientation, ctrl->link->link_params.lane_count);
 
-		if (lt_needed) {
+		if (sink_request &
+			(DP_LINK_STATUS_UPDATED | DP_TEST_LINK_TRAINING)) {
 			/*
-			 * Diasable and re-enable the mainlink clock since the
+			 * Disable and re-enable the mainlink clock since the
 			 * link clock might have been adjusted as part of the
 			 * link maintenance.
 			 */
-			if (!ctrl->link->phy_pattern_requested(
-					ctrl->link))
-				dp_ctrl_disable_mainlink_clocks(ctrl);
+			dp_ctrl_disable_mainlink_clocks(ctrl);
 
 			ret = dp_ctrl_enable_mainlink_clocks(ctrl);
 			if (ret)
@@ -1177,66 +1176,79 @@ static int dp_ctrl_on_irq(struct dp_ctrl_private *ctrl, bool lt_needed)
 		dp_ctrl_configure_source_params(ctrl);
 
 		ctrl->catalog->config_msa(ctrl->catalog,
-			drm_dp_bw_code_to_link_rate(ctrl->link->bw_code),
+			drm_dp_bw_code_to_link_rate(
+			ctrl->link->link_params.bw_code),
 			ctrl->pixel_rate, dp_ctrl_use_fixed_nvid(ctrl));
 
 		reinit_completion(&ctrl->idle_comp);
 
-		if (ctrl->psm_enabled) {
-			ret = ctrl->link->send_psm_request(ctrl->link, false);
-			if (ret) {
-				pr_err("failed to exit low power mode, rc=%d\n",
-					ret);
-				continue;
-			}
-		}
-
-		ret = dp_ctrl_setup_main_link(ctrl, lt_needed);
+		ret = dp_ctrl_setup_main_link(ctrl, true);
 	} while (ret == -EAGAIN);
 
+end:
 	return ret;
 }
 
-static int dp_ctrl_on_hpd(struct dp_ctrl_private *ctrl)
+static void dp_ctrl_reset(struct dp_ctrl *dp_ctrl)
 {
-	int ret = 0;
-	u32 rate = ctrl->panel->link_info.rate;
+	struct dp_ctrl_private *ctrl;
+
+	if (!dp_ctrl) {
+		pr_err("invalid params\n");
+		return;
+	}
+
+	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
+	ctrl->catalog->reset(ctrl->catalog);
+}
+
+static int dp_ctrl_on(struct dp_ctrl *dp_ctrl)
+{
+	int rc = 0;
+	struct dp_ctrl_private *ctrl;
+	u32 rate = 0;
 	u32 link_train_max_retries = 100;
 
+	if (!dp_ctrl) {
+		rc = -EINVAL;
+		goto end;
+	}
+
+	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
+
 	atomic_set(&ctrl->aborted, 0);
+	rate = ctrl->panel->link_info.rate;
 
 	ctrl->power->clk_enable(ctrl->power, DP_CORE_PM, true);
 	ctrl->catalog->hpd_config(ctrl->catalog, true);
 
-	ctrl->link->bw_code  = drm_dp_link_rate_to_bw_code(rate);
-	ctrl->link->lane_count = ctrl->panel->link_info.num_lanes;
+	ctrl->link->link_params.bw_code  = drm_dp_link_rate_to_bw_code(rate);
+	ctrl->link->link_params.lane_count = ctrl->panel->link_info.num_lanes;
 	ctrl->pixel_rate = ctrl->panel->pinfo.pixel_clk_khz;
 
 	pr_debug("bw_code=%d, lane_count=%d, pixel_rate=%d\n",
-		ctrl->link->bw_code, ctrl->link->lane_count,
-		ctrl->pixel_rate);
+		ctrl->link->link_params.bw_code,
+		ctrl->link->link_params.lane_count, ctrl->pixel_rate);
 
 	ctrl->catalog->phy_lane_cfg(ctrl->catalog,
-			ctrl->orientation, ctrl->link->lane_count);
+			ctrl->orientation, ctrl->link->link_params.lane_count);
 
-	ret = dp_ctrl_enable_mainlink_clocks(ctrl);
-	if (ret)
-		goto exit;
+	rc = dp_ctrl_enable_mainlink_clocks(ctrl);
+	if (rc)
+		goto end;
 
 	reinit_completion(&ctrl->idle_comp);
 
 	dp_ctrl_configure_source_params(ctrl);
 
-	if (ctrl->psm_enabled)
-		ret = ctrl->link->send_psm_request(ctrl->link, false);
-
 	while (--link_train_max_retries && !atomic_read(&ctrl->aborted)) {
 		ctrl->catalog->config_msa(ctrl->catalog,
-			drm_dp_bw_code_to_link_rate(ctrl->link->bw_code),
+			drm_dp_bw_code_to_link_rate(
+			ctrl->link->link_params.bw_code),
 			ctrl->pixel_rate, dp_ctrl_use_fixed_nvid(ctrl));
 
-		ret = dp_ctrl_setup_main_link(ctrl, true);
-		if (!ret)
+		rc = dp_ctrl_setup_main_link(ctrl, true);
+		if (!rc)
 			break;
 
 		/* try with lower link rate */
@@ -1253,48 +1265,11 @@ static int dp_ctrl_on_hpd(struct dp_ctrl_private *ctrl)
 
 	pr_debug("End-\n");
 
-exit:
-	return ret;
-}
-
-static void dp_ctrl_off_irq(struct dp_ctrl_private *ctrl)
-{
-	ctrl->catalog->mainlink_ctrl(ctrl->catalog, false);
-
-	/* Make sure DP mainlink and audio engines are disabled */
-	wmb();
-
-	complete_all(&ctrl->irq_comp);
-	pr_debug("end\n");
-}
-
-static void dp_ctrl_off_hpd(struct dp_ctrl_private *ctrl)
-{
-	ctrl->catalog->mainlink_ctrl(ctrl->catalog, false);
-	pr_debug("DP off done\n");
-}
-
-static int dp_ctrl_on(struct dp_ctrl *dp_ctrl, bool hpd_irq)
-{
-	int rc = 0;
-	struct dp_ctrl_private *ctrl;
-
-	if (!dp_ctrl) {
-		rc = -EINVAL;
-		goto end;
-	}
-
-	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
-
-	if (hpd_irq)
-		rc = dp_ctrl_on_irq(ctrl, false);
-	else
-		rc = dp_ctrl_on_hpd(ctrl);
 end:
 	return rc;
 }
 
-static void dp_ctrl_off(struct dp_ctrl *dp_ctrl, bool hpd_irq)
+static void dp_ctrl_off(struct dp_ctrl *dp_ctrl)
 {
 	struct dp_ctrl_private *ctrl;
 
@@ -1303,10 +1278,9 @@ static void dp_ctrl_off(struct dp_ctrl *dp_ctrl, bool hpd_irq)
 
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
-	if (hpd_irq)
-		dp_ctrl_off_irq(ctrl);
-	else
-		dp_ctrl_off_hpd(ctrl);
+	ctrl->catalog->mainlink_ctrl(ctrl->catalog, false);
+	pr_debug("DP off done\n");
+
 }
 
 static void dp_ctrl_isr(struct dp_ctrl *dp_ctrl)
@@ -1348,7 +1322,6 @@ struct dp_ctrl *dp_ctrl_get(struct dp_ctrl_in *in)
 
 	init_completion(&ctrl->idle_comp);
 	init_completion(&ctrl->video_comp);
-	init_completion(&ctrl->irq_comp);
 
 	/* in parameters */
 	ctrl->parser   = in->parser;
@@ -1364,10 +1337,12 @@ struct dp_ctrl *dp_ctrl_get(struct dp_ctrl_in *in)
 	dp_ctrl->init      = dp_ctrl_host_init;
 	dp_ctrl->deinit    = dp_ctrl_host_deinit;
 	dp_ctrl->on        = dp_ctrl_on;
+	dp_ctrl->handle_sink_request = dp_ctrl_handle_sink_request;
 	dp_ctrl->off       = dp_ctrl_off;
 	dp_ctrl->push_idle = dp_ctrl_push_idle;
 	dp_ctrl->abort     = dp_ctrl_abort;
 	dp_ctrl->isr       = dp_ctrl_isr;
+	dp_ctrl->reset	   = dp_ctrl_reset;
 
 	return dp_ctrl;
 error:
