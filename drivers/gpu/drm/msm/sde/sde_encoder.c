@@ -2224,10 +2224,12 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 
 	sde_encoder_resource_control(drm_enc, SDE_ENC_RC_EVENT_STOP);
 
-	if (sde_enc->cur_master) {
-		sde_enc->cur_master->connector = NULL;
-		sde_enc->cur_master = NULL;
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		if (sde_enc->phys_encs[i])
+			sde_enc->phys_encs[i]->connector = NULL;
 	}
+
+	sde_enc->cur_master = NULL;
 
 	SDE_DEBUG_ENC(sde_enc, "encoder disabled\n");
 
