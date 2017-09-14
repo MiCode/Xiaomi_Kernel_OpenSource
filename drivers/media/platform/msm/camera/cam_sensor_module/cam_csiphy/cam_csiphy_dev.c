@@ -157,6 +157,7 @@ static int32_t cam_csiphy_platform_probe(struct platform_device *pdev)
 		NULL;
 
 	new_csiphy_dev->acquire_count = 0;
+	new_csiphy_dev->start_dev_count = 0;
 	new_csiphy_dev->is_acquired_dev_combo_mode = 0;
 
 	cpas_parms.cam_cpas_client_cb = NULL;
