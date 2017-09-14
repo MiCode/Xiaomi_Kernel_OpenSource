@@ -73,6 +73,7 @@
 
 		/* base addr, size */
 		qcom,gpu-qdss-stm = <0x161c0000 0x40000>;
+		#cooling-cells = <2>;
 
 		clocks = <&clock_gfx GPU_CC_GX_GFX3D_CLK>,
 			<&clock_gpucc GPU_CC_CXO_CLK>,
