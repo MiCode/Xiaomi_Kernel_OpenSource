@@ -1471,10 +1471,18 @@ static void a6xx_snapshot_debugbus(struct kgsl_device *device,
 	}
 }
 
-static void a6xx_snapshot_gmu(struct kgsl_device *device,
+/*
+ * a6xx_snapshot_gmu() - A6XX GMU snapshot function
+ * @adreno_dev: Device being snapshotted
+ * @snapshot: Pointer to the snapshot instance
+ *
+ * This is where all of the A6XX GMU specific bits and pieces are grabbed
+ * into the snapshot memory
+ */
+void a6xx_snapshot_gmu(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	if (!kgsl_gmu_isenabled(device))
@@ -1571,16 +1579,11 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	struct adreno_snapshot_data *snap_data = gpudev->snapshot_data;
 	bool sptprac_on;
 
-	/* GMU TCM data dumped through AHB */
-	a6xx_snapshot_gmu(device, snapshot);
-
 	sptprac_on = gpudev->sptprac_is_on(adreno_dev);
 
 	/* Return if the GX is off */
-	if (!gpudev->gx_is_on(adreno_dev)) {
-		pr_err("GX is off. Only dumping GMU data in snapshot\n");
+	if (!gpudev->gx_is_on(adreno_dev))
 		return;
-	}
 
 	/* Dump the registers which get affected by crash dumper trigger */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
