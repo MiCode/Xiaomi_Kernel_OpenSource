@@ -109,6 +109,56 @@
 		qcom,y-offset = <0>;
 	};
 
+	i2c@78b5000 { /* BLSP1 QUP1 */
+		liteon@23 {
+			compatible = "liteon,ltr553";
+			reg = <0x23>;
+			vdd-supply = <&pm8909_l17>;
+			vio-supply = <&pm8909_l6>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <94 0x2002>;
+			pinctrl-names = "default","sleep";
+			pinctrl-0 = <&ltr553_default>;
+			pinctrl-1 = <&ltr553_sleep>;
+			liteon,irq-gpio = <&msm_gpio 94 0x2002>;
+			liteon,als-ps-persist = <0>;
+			liteon,ps-led = <0x7f>;
+			liteon,ps-pulses = <4>;
+			liteon,wakeup-threshold = <4>;
+			liteon,als-integration-time = <0>;
+			liteon,ps-distance-table = \
+				<1376 566 343 287 200 170 155>;
+		};
+
+		bosch@18 { /* Accelerometer sensor */
+			compatible = "bosch,bma2x2";
+			reg = <0x18>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&bma2x2_int1_default &bma2x2_int2_default>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <96 0x2002>;
+			vdd-supply = <&pm8909_l17>;
+			vio-supply = <&pm8909_l6>;
+			bosch,init-interval = <200>;
+			bosch,place = <4>;
+			bosch,gpio-int1 = <&msm_gpio 96 0x2002>;
+			bosch,gpio-int2 = <&msm_gpio 65 0x2002>;
+		};
+	};
+
+	hall {
+		compatible = "hall-switch";
+		pinctrl-names = "default";
+		pinctrl-0 = <&hall_sensor_int_default>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <36 0x2003>;
+		vddio-supply = <&pm8909_l5>;
+		linux,gpio-int = <&msm_gpio 36 0x1>;
+		linux,wakeup;
+		linux,min-uv = <1650000>;
+		linux,max-uv = <3300000>;
+	};
+
 	sound {
 		compatible = "qcom,msm8952-audio-codec";
 		qcom,model = "msm8909-skue-snd-card";
@@ -309,6 +359,69 @@
 			};
 			config {
 				pins = "gpio24";
+			};
+		};
+	};
+	bma2x2_int1_pin {
+		bma2x2_int1_default: int1_default {
+			mux {
+				pins = "gpio96";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio96";
+				drive-dtrength = <6>;
+				bias-pull-up;
+			};
+		};
+	};
+	bma2x2_int2_pin {
+		bma2x2_int2_default: int2_default {
+			mux {
+				pins = "gpio65";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio65";
+				drive-dtrength = <6>;
+				bias-pull-up;
+			};
+		};
+	};
+	ltr553_int_pin {
+		ltr553_default: ltr553_default {
+		    mux {
+				pins = "gpio94";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio94";
+				drive-dtrength = <6>;
+				bias-pull-up;
+			};
+		};
+		ltr553_sleep: ltr553_sleep {
+		    mux {
+				pins = "gpio94";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio94";
+				drive-dtrength = <2>;
+				bias-pull-down;
+			};
+		};
+	};
+	hall_int_pin {
+		hall_sensor_int_default: hall_sensor_int_default {
+			mux {
+				pins = "gpio36";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio36";
+				drive-dtrength = <6>;
+				bias-pull-up;
 			};
 		};
 	};
