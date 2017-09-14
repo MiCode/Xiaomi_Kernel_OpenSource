@@ -77,9 +77,6 @@
 
 #define MSS_MAGIC			0XAABADEAD
 
-#define MSS_PDC_OFFSET			8
-#define MSS_PDC_MASK			BIT(MSS_PDC_OFFSET)
-
 /* Timeout value for MBA boot when minidump is enabled */
 #define MBA_ENCRYPTION_TIMEOUT	3000
 enum scm_cmd {
@@ -214,13 +211,14 @@ static void pil_mss_disable_clks(struct q6v5_data *drv)
 static void pil_mss_pdc_sync(struct q6v5_data *drv, bool pdc_sync)
 {
 	u32 val = 0;
+	u32 mss_pdc_mask = BIT(drv->mss_pdc_offset);
 
 	if (drv->pdc_sync) {
 		val = readl_relaxed(drv->pdc_sync);
 		if (pdc_sync)
-			val |= MSS_PDC_MASK;
+			val |= mss_pdc_mask;
 		else
-			val &= ~MSS_PDC_MASK;
+			val &= ~mss_pdc_mask;
 		writel_relaxed(val, drv->pdc_sync);
 		/* Ensure PDC is written before next write */
 		wmb();
