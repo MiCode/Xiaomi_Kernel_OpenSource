@@ -65,6 +65,7 @@ struct dp_catalog_ctrl {
 				u32 stream_rate_khz, bool fixed_nvid);
 	void (*set_pattern)(struct dp_catalog_ctrl *ctrl, u32 pattern);
 	void (*reset)(struct dp_catalog_ctrl *ctrl);
+	void (*usb_reset)(struct dp_catalog_ctrl *ctrl, bool flip);
 	bool (*mainlink_ready)(struct dp_catalog_ctrl *ctrl);
 	void (*enable_irq)(struct dp_catalog_ctrl *ctrl, bool enable);
 	void (*hpd_config)(struct dp_catalog_ctrl *ctrl, bool enable);

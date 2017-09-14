@@ -10,6 +10,7 @@ DP Controller: Required properties:
 			"dp_mmss_cc" - Display Clock Control memory region.
 			"qfprom_physical" - QFPROM Phys memory region.
 			"dp_pll" - USB3 DP combo PLL memory region.
+			"usb3_dp_com" - USB3 DP PHY combo memory region.
 			"hdcp_physical" - DP HDCP memory region.
 - cell-index:           Specifies the controller instance.
 - clocks:               Clocks required for Display Port operation.

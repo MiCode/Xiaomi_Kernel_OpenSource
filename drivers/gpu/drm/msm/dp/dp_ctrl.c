@@ -1093,6 +1093,7 @@ static int dp_ctrl_host_init(struct dp_ctrl *dp_ctrl, bool flip)
 	ctrl->orientation = flip;
 	catalog = ctrl->catalog;
 
+	catalog->usb_reset(ctrl->catalog, flip);
 	catalog->reset(ctrl->catalog);
 	catalog->phy_reset(ctrl->catalog);
 	catalog->enable_irq(ctrl->catalog, true);
