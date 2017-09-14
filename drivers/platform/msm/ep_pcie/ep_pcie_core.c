@@ -1414,8 +1414,9 @@ static irqreturn_t ep_pcie_handle_bme_irq(int irq, void *data)
 			schedule_work(&dev->handle_bme_work);
 		} else {
 			EP_PCIE_DBG(dev,
-				"PCIe V%d:BME is set again after the enumeration has completed\n",
+				"PCIe V%d:BME is set again after the enumeration has completed; callback client for link ready.\n",
 				dev->rev);
+			ep_pcie_notify_event(dev, EP_PCIE_EVENT_LINKUP);
 		}
 	} else {
 		EP_PCIE_DBG(dev,
