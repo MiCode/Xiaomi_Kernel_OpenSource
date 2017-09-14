@@ -397,12 +397,22 @@ static int cam_fd_hw_util_processcmd_prestart(struct cam_hw_info *fd_hw,
 	prestart_args->pre_config_buf_size =
 		prestart_args->size - available_size;
 
-	/*
-	 * Currently, no post config commands, we trigger HW start directly
-	 * from start(). Start trigger command can be inserted into CDM
-	 * as post config commands.
-	 */
-	prestart_args->post_config_buf_size = 0;
+	/* Insert start trigger command into CDM as post config commands. */
+	num_cmds = cam_fd_cdm_write_reg_val_pair(reg_val_pair, 0,
+		hw_static_info->core_regs.control, 0x2);
+	size = ctx_hw_private->cdm_ops->cdm_required_size_reg_random(
+		num_cmds/2);
+	if ((size * 4) > available_size) {
+		CAM_ERR(CAM_FD, "Insufficient size:%d , expected size:%d",
+			available_size, size);
+		return -ENOMEM;
+	}
+	ctx_hw_private->cdm_ops->cdm_write_regrandom(cmd_buf_addr, num_cmds/2,
+		reg_val_pair);
+	cmd_buf_addr += size;
+	available_size -= (size * 4);
+
+	prestart_args->post_config_buf_size = size * 4;
 
 	CAM_DBG(CAM_FD, "PreConfig [%pK %d], PostConfig[%pK %d]",
 		prestart_args->cmd_buf_addr, prestart_args->pre_config_buf_size,
@@ -892,9 +902,6 @@ int cam_fd_hw_start(void *hw_priv, void *hw_start_args, uint32_t arg_size)
 		rc = -EINVAL;
 		goto error;
 	}
-
-	cam_fd_soc_register_write(&fd_hw->soc_info, CAM_FD_REG_CORE,
-		hw_static_info->core_regs.control, 0x2);
 
 	return 0;
 error:
