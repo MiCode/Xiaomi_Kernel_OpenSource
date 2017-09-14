@@ -843,6 +843,25 @@
 	qcom,count-unit = <0x10000>;
 };
 
+&cpubw {
+	qcom,bw-tbl =
+		< MHZ_TO_MBPS(150, 16) >, /*  2288 MB/s */
+		< MHZ_TO_MBPS(300, 16) >, /*  4577 MB/s */
+		< MHZ_TO_MBPS(426, 16) >, /*  6500 MB/s */
+		< MHZ_TO_MBPS(533, 16) >, /*  8132 MB/s */
+		< MHZ_TO_MBPS(600, 16) >, /*  9155 MB/s */
+		< MHZ_TO_MBPS(806, 16) >, /* 12298 MB/s */
+		< MHZ_TO_MBPS(933, 16) >; /* 14236 MB/s */
+};
+
+&devfreq_cpufreq {
+	mincpubw-cpufreq {
+		cpu-to-dev-map-4 =
+			< 1881600 MHZ_TO_MBPS(200, 4) >,
+			< 2400000 MHZ_TO_MBPS(681, 4) >;
+	};
+};
+
 &clock_gcc {
 	compatible = "qcom,gcc-sdm845-v2", "syscon";
 };
