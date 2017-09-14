@@ -645,7 +645,10 @@
 			qcom,qport = <2>;
 			qcom,connections = <&slv_qns_a2noc_snoc>;
 			qcom,bus-dev = <&fab_aggre2_noc>;
+			qcom,ap-owned;
 			qcom,prio = <2>;
+			qcom,defer-init-qos;
+			qcom,node-qos-bcms = <7035 0 1>;
 		};
 
 		mas_xm_pcie3_1: mas-xm-pcie3-1 {
