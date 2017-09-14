@@ -881,51 +881,86 @@
 	};
 
 	clock_rpmh: qcom,rpmhclk {
-		compatible = "qcom,dummycc";
-		clock-output-names = "rpmh_clocks";
+		compatible = "qcom,rpmh-clk-sdm670";
 		#clock-cells = <1>;
+		mboxes = <&apps_rsc 0>;
+		mbox-names = "apps";
 	};
 
 	clock_gcc: qcom,gcc@100000 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gcc_clocks";
+		compatible = "qcom,gcc-sdm670", "syscon";
+		reg = <0x100000 0x1f0000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&pm660l_s3_level>;
+		vdd_cx_ao-supply = <&pm660l_s3_level_ao>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
 
 	clock_videocc: qcom,videocc@ab00000 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "videocc_clocks";
+		compatible = "qcom,video_cc-sdm670", "syscon";
+		reg = <0xab00000 0x10000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&pm660l_s3_level>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
 
 	clock_camcc: qcom,camcc@ad00000 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "camcc_clocks";
+		compatible = "qcom,cam_cc-sdm670", "syscon";
+		reg = <0xad00000 0x10000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&pm660l_s3_level>;
+		vdd_mx-supply = <&pm660l_s1_level>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
 
 	clock_dispcc: qcom,dispcc@af00000 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "dispcc_clocks";
+		compatible = "qcom,dispcc-sdm670", "syscon";
+		reg = <0xaf00000 0x10000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&pm660l_s3_level>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
 
 	clock_gpucc: qcom,gpucc@5090000 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gpucc_clocks";
+		compatible = "qcom,gpucc-sdm670", "syscon";
+		reg = <0x5090000 0x9000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&pm660l_s3_level>;
+		vdd_mx-supply = <&pm660l_s1_level>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
 
 	clock_gfx: qcom,gfxcc@5090000  {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gfxcc_clocks";
+		compatible = "qcom,gfxcc-sdm670";
+		reg = <0x5090000 0x9000>;
+		reg-names = "cc_base";
+		vdd_gfx-supply = <&pm660l_s2_level>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	cpucc_debug: syscon@17970018 {
+		compatible = "syscon";
+		reg = <0x17970018 0x4>;
+	};
+
+	clock_debug: qcom,cc-debug {
+		compatible = "qcom,debugcc-sdm845";
+		qcom,cc-count = <5>;
+		qcom,gcc = <&clock_gcc>;
+		qcom,videocc = <&clock_videocc>;
+		qcom,camcc = <&clock_camcc>;
+		qcom,dispcc = <&clock_dispcc>;
+		qcom,gpucc = <&clock_gpucc>;
+		qcom,cpucc = <&cpucc_debug>;
+		clock-names = "xo_clk_src";
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		#clock-cells = <1>;
 	};
 
 	clock_cpucc: qcom,cpucc {
