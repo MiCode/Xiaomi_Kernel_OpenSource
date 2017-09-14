@@ -13,8 +13,6 @@
 #ifndef CAM_ICP_HW_INTF_H
 #define CAM_ICP_HW_INTF_H
 
-#define CAM_ICP_CTX_MAX                 8
-
 #define CAM_ICP_CMD_BUF_MAX_SIZE     128
 #define CAM_ICP_MSG_BUF_MAX_SIZE     CAM_ICP_CMD_BUF_MAX_SIZE
 
