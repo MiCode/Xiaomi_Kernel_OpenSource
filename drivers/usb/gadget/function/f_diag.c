@@ -206,39 +206,7 @@ static inline struct diag_context *func_to_diag(struct usb_function *f)
 	return container_of(f, struct diag_context, function);
 }
 
-/**
- * kref_put_spinlock_irqsave - decrement refcount for object.
- * @kref: object.
- * @release: pointer to the function that will clean up the object when the
- *	     last reference to the object is released.
- *	     This pointer is required, and it is not acceptable to pass kfree
- *	     in as this function.
- * @lock: lock to take in release case
- *
- * Behaves identical to kref_put with one exception.  If the reference count
- * drops to zero, the lock will be taken atomically wrt dropping the reference
- * count.  The release function has to call spin_unlock() without _irqrestore.
- */
-static inline int kref_put_spinlock_irqsave(struct kref *kref,
-		void (*release)(struct kref *kref),
-		spinlock_t *lock)
-{
-	unsigned long flags;
-
-	WARN_ON(release == NULL);
-	if (atomic_add_unless(&kref->refcount, -1, 1))
-		return 0;
-	spin_lock_irqsave(lock, flags);
-	if (atomic_dec_and_test(&kref->refcount)) {
-		release(kref);
-		local_irq_restore(flags);
-		return 1;
-	}
-	spin_unlock_irqrestore(lock, flags);
-	return 0;
-}
-
-/* Called with ctxt->lock held; i.e. only use with kref_put_spinlock_irqsave */
+/* Called with ctxt->lock held; i.e. only use with kref_put_lock() */
 static void diag_context_release(struct kref *kref)
 {
 	struct diag_context *ctxt =
@@ -321,8 +289,7 @@ static void diag_write_complete(struct usb_ep *ep,
 	if (ctxt->ch && ctxt->ch->notify)
 		ctxt->ch->notify(ctxt->ch->priv, USB_DIAG_WRITE_DONE, d_req);
 
-	kref_put_spinlock_irqsave(&ctxt->kref, diag_context_release,
-			&ctxt->lock);
+	kref_put_lock(&ctxt->kref, diag_context_release, &ctxt->lock);
 }
 
 static void diag_read_complete(struct usb_ep *ep,
@@ -344,8 +311,7 @@ static void diag_read_complete(struct usb_ep *ep,
 	if (ctxt->ch && ctxt->ch->notify)
 		ctxt->ch->notify(ctxt->ch->priv, USB_DIAG_READ_DONE, d_req);
 
-	kref_put_spinlock_irqsave(&ctxt->kref, diag_context_release,
-			&ctxt->lock);
+	kref_put_lock(&ctxt->kref, diag_context_release, &ctxt->lock);
 }
 
 /**
@@ -386,9 +352,11 @@ struct usb_diag_ch *usb_diag_open(const char *name, void *priv,
 	ch->priv = priv;
 	ch->notify = notify;
 
-	spin_lock_irqsave(&ch_lock, flags);
-	list_add_tail(&ch->list, &usb_diag_ch_list);
-	spin_unlock_irqrestore(&ch_lock, flags);
+	if (!found) {
+		spin_lock_irqsave(&ch_lock, flags);
+		list_add_tail(&ch->list, &usb_diag_ch_list);
+		spin_unlock_irqrestore(&ch_lock, flags);
+	}
 
 	return ch;
 }
@@ -554,8 +522,7 @@ int usb_diag_read(struct usb_diag_ch *ch, struct diag_request *d_req)
 	/* make sure context is still valid after releasing lock */
 	if (ctxt != ch->priv_usb) {
 		usb_ep_free_request(out, req);
-		kref_put_spinlock_irqsave(&ctxt->kref, diag_context_release,
-				&ctxt->lock);
+		kref_put_lock(&ctxt->kref, diag_context_release, &ctxt->lock);
 		return -EIO;
 	}
 
@@ -631,8 +598,7 @@ int usb_diag_write(struct usb_diag_ch *ch, struct diag_request *d_req)
 	/* make sure context is still valid after releasing lock */
 	if (ctxt != ch->priv_usb) {
 		usb_ep_free_request(in, req);
-		kref_put_spinlock_irqsave(&ctxt->kref, diag_context_release,
-				&ctxt->lock);
+		kref_put_lock(&ctxt->kref, diag_context_release, &ctxt->lock);
 		return -EIO;
 	}
 
@@ -863,6 +829,7 @@ static struct diag_context *diag_context_init(const char *name)
 	struct diag_context *dev;
 	struct usb_diag_ch *_ch;
 	int found = 0;
+	unsigned long flags;
 
 	pr_debug("%s\n", __func__);
 
@@ -872,9 +839,19 @@ static struct diag_context *diag_context_init(const char *name)
 			break;
 		}
 	}
+
 	if (!found) {
-		pr_err("%s: unable to get diag usb channel\n", __func__);
-		return ERR_PTR(-ENODEV);
+		pr_warn("%s: unable to get diag usb channel\n", __func__);
+
+		_ch = kzalloc(sizeof(*_ch), GFP_KERNEL);
+		if (_ch == NULL)
+			return ERR_PTR(-ENOMEM);
+
+		_ch->name = name;
+
+		spin_lock_irqsave(&ch_lock, flags);
+		list_add_tail(&_ch->list, &usb_diag_ch_list);
+		spin_unlock_irqrestore(&ch_lock, flags);
 	}
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
