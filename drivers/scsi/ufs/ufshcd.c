@@ -7151,6 +7151,12 @@ static int ufshcd_reset_and_restore(struct ufs_hba *hba)
 	} while (err && --retries);
 
 	/*
+	 * There is no point proceeding even after failing
+	 * to recover after multiple retries.
+	 */
+	if (err && ufshcd_is_embedded_dev(hba))
+		BUG();
+	/*
 	 * After reset the door-bell might be cleared, complete
 	 * outstanding requests in s/w here.
 	 */
