@@ -354,7 +354,13 @@ static int lmh_set_max_limit(int cpu, u32 freq)
 	mutex_lock(&hw->access_lock);
 	for_each_cpu(cpu_idx, &hw->core_map) {
 		if (cpu_idx == cpu)
-			hw->cdev_data[idx].max_freq = freq;
+		/*
+		 * If there is no limits restriction for CPU scaling max
+		 * frequency, vote for a very high value. This will allow
+		 * the CPU to use the boost frequencies.
+		 */
+			hw->cdev_data[idx].max_freq =
+				(freq == hw->max_freq) ? U32_MAX : freq;
 		if (max_freq > hw->cdev_data[idx].max_freq)
 			max_freq = hw->cdev_data[idx].max_freq;
 		idx++;
