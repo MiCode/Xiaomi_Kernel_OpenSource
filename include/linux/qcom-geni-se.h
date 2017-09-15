@@ -117,6 +117,7 @@ struct se_geni_rsc {
 #define SE_HW_PARAM_0			(0xE24)
 #define SE_HW_PARAM_1			(0xE28)
 #define SE_DMA_GENERAL_CFG		(0xE30)
+#define SE_DMA_DEBUG_REG0		(0xE40)
 
 /* GENI_OUTPUT_CTRL fields */
 #define DEFAULT_IO_OUTPUT_CTRL_MSK	(GENMASK(6, 0))
@@ -736,6 +737,22 @@ int geni_se_iommu_unmap_buf(struct device *wrapper_dev, dma_addr_t *iova,
 int geni_se_iommu_free_buf(struct device *wrapper_dev, dma_addr_t *iova,
 			   void *buf, size_t size);
 
+
+/**
+ * geni_se_dump_dbg_regs() - Print relevant registers that capture most
+ *			accurately the state of an SE; meant to be called
+ *			in case of errors to help debug.
+ * @_dev:		Pointer to the SE's device.
+ * @iomem:		Base address of the SE's register space.
+ * @ipc:		IPC log context handle.
+ *
+ * This function is used to print out all the registers that capture the state
+ * of an SE to help debug any errors.
+ *
+ * Return:	None
+ */
+void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
+				void *ipc);
 #else
 static inline unsigned int geni_read_reg_nolog(void __iomem *base, int offset)
 {
@@ -905,6 +922,11 @@ static inline int geni_se_iommu_free_buf(struct device *wrapper_dev,
 				dma_addr_t *iova, void *buf, size_t size)
 {
 	return -ENXIO;
+}
+
+void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
+				void *ipc)
+{
 }
 
 #endif
