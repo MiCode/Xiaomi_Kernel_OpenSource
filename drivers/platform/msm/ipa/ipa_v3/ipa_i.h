@@ -577,6 +577,7 @@ struct ipa3_ep_context {
 	bool switch_to_intr;
 	int inactive_cycles;
 	u32 eot_in_poll_err;
+	bool ep_delay_set;
 
 	/* sys MUST be the last element of this struct */
 	struct ipa3_sys_context *sys;
