@@ -897,6 +897,12 @@ static void _sde_encoder_phys_cmd_connect_te(
 	phys_enc->hw_pp->ops.connect_external_te(phys_enc->hw_pp, enable);
 }
 
+static void sde_encoder_phys_cmd_prepare_idle_pc(
+		struct sde_encoder_phys *phys_enc)
+{
+	_sde_encoder_phys_cmd_connect_te(phys_enc, false);
+}
+
 static void sde_encoder_phys_cmd_disable(struct sde_encoder_phys *phys_enc)
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
@@ -1239,6 +1245,7 @@ static void sde_encoder_phys_cmd_init_ops(
 	ops->irq_control = sde_encoder_phys_cmd_irq_control;
 	ops->update_split_role = sde_encoder_phys_cmd_update_split_role;
 	ops->restore = sde_encoder_phys_cmd_enable_helper;
+	ops->prepare_idle_pc = sde_encoder_phys_cmd_prepare_idle_pc;
 	ops->is_autorefresh_enabled =
 			sde_encoder_phys_cmd_is_autorefresh_enabled;
 	ops->handle_post_kickoff = sde_encoder_phys_cmd_handle_post_kickoff;
