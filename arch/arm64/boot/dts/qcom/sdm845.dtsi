@@ -3054,6 +3054,11 @@
 				#cooling-cells = <2>;
 			};
 
+			modem_skin: modem_skin {
+				qcom,qmi-dev-name = "modem_skin";
+				#cooling-cells = <2>;
+			};
+
 			modem_vdd: modem_vdd {
 				qcom,qmi-dev-name = "cpuv_restriction_cold";
 				#cooling-cells = <2>;
