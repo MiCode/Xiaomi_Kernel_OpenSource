@@ -20,6 +20,7 @@
 #define __SDE_KMS_H__
 
 #include <linux/msm_ion.h>
+#include <linux/pm_domain.h>
 
 #include "msm_drv.h"
 #include "msm_kms.h"
@@ -172,6 +173,9 @@ struct sde_kms {
 	struct drm_device *dev;
 	int core_rev;
 	struct sde_mdss_cfg *catalog;
+
+	struct generic_pm_domain genpd;
+	bool genpd_init;
 
 	struct msm_gem_address_space *aspace[MSM_SMMU_DOMAIN_MAX];
 	struct sde_power_client *core_client;

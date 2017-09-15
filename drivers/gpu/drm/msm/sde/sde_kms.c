@@ -1403,6 +1403,12 @@ static void _sde_kms_hw_destroy(struct sde_kms *sde_kms,
 	if (!priv)
 		return;
 
+	if (sde_kms->genpd_init) {
+		sde_kms->genpd_init = false;
+		pm_genpd_remove(&sde_kms->genpd);
+		of_genpd_del_provider(pdev->dev.of_node);
+	}
+
 	if (sde_kms->hw_intr)
 		sde_hw_intr_destroy(sde_kms->hw_intr);
 	sde_kms->hw_intr = NULL;
@@ -1968,6 +1974,56 @@ static void sde_kms_handle_power_event(u32 event_type, void *usr)
 		sde_vbif_init_memtypes(sde_kms);
 }
 
+#define genpd_to_sde_kms(domain) container_of(domain, struct sde_kms, genpd)
+
+static int sde_kms_pd_enable(struct generic_pm_domain *genpd)
+{
+	struct sde_kms *sde_kms = genpd_to_sde_kms(genpd);
+	struct drm_device *dev;
+	struct msm_drm_private *priv;
+	int rc;
+
+	SDE_DEBUG("\n");
+
+	dev = sde_kms->dev;
+	if (!dev)
+		return -EINVAL;
+
+	priv = dev->dev_private;
+	if (!priv)
+		return -EINVAL;
+
+	SDE_EVT32(genpd->device_count);
+
+	rc = sde_power_resource_enable(&priv->phandle, priv->pclient, true);
+
+	return rc;
+}
+
+static int sde_kms_pd_disable(struct generic_pm_domain *genpd)
+{
+	struct sde_kms *sde_kms = genpd_to_sde_kms(genpd);
+	struct drm_device *dev;
+	struct msm_drm_private *priv;
+	int rc;
+
+	SDE_DEBUG("\n");
+
+	dev = sde_kms->dev;
+	if (!dev)
+		return -EINVAL;
+
+	priv = dev->dev_private;
+	if (!priv)
+		return -EINVAL;
+
+	SDE_EVT32(genpd->device_count);
+
+	rc = sde_power_resource_enable(&priv->phandle, priv->pclient, false);
+
+	return rc;
+}
+
 static int sde_kms_hw_init(struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms;
@@ -2196,9 +2252,37 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 			SDE_POWER_EVENT_POST_ENABLE,
 			sde_kms_handle_power_event, sde_kms, "kms");
 
+	/* initialize power domain if defined */
+	if (of_find_property(dev->dev->of_node, "#power-domain-cells", NULL)) {
+		sde_kms->genpd.name = dev->unique;
+		sde_kms->genpd.power_off = sde_kms_pd_disable;
+		sde_kms->genpd.power_on = sde_kms_pd_enable;
+
+		rc = pm_genpd_init(&sde_kms->genpd, NULL, true);
+		if (rc < 0) {
+			SDE_ERROR("failed to init genpd provider %s: %d\n",
+					sde_kms->genpd.name, rc);
+			goto genpd_err;
+		}
+
+		rc = of_genpd_add_provider_simple(dev->dev->of_node,
+				&sde_kms->genpd);
+		if (rc < 0) {
+			SDE_ERROR("failed to add genpd provider %s: %d\n",
+					sde_kms->genpd.name, rc);
+			pm_genpd_remove(&sde_kms->genpd);
+			goto genpd_err;
+		}
+
+		sde_kms->genpd_init = true;
+		SDE_DEBUG("added genpd provider %s\n", sde_kms->genpd.name);
+	}
+
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
+
 	return 0;
 
+genpd_err:
 drm_obj_init_err:
 	sde_core_perf_destroy(&sde_kms->perf);
 hw_intr_init_err:
