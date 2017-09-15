@@ -1546,6 +1546,12 @@ int ipa2_tear_down_uc_offload_pipes(int ipa_ep_idx_ul, int ipa_ep_idx_dl);
 int ipa2_ntn_uc_reg_rdyCB(void (*ipauc_ready_cb)(void *), void *priv);
 void ipa2_ntn_uc_dereg_rdyCB(void);
 
+int ipa2_conn_wdi3_pipes(struct ipa_wdi3_conn_in_params *in,
+	struct ipa_wdi3_conn_out_params *out);
+int ipa2_disconn_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
+int ipa2_enable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
+int ipa2_disable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
+
 /*
  * To retrieve doorbell physical address of
  * wlan pipes
