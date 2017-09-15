@@ -98,3 +98,34 @@
 &pm660_charger {
 	qcom,batteryless-platform;
 };
+
+&soc {
+	gpio_keys {
+		compatible = "gpio-keys";
+		label = "gpio-keys";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&key_cam_snapshot_default
+			     &key_cam_focus_default>;
+
+		cam_snapshot {
+			label = "cam_snapshot";
+			gpios = <&tlmm 91 0>;
+			linux,input-type = <1>;
+			linux,code = <766>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+			linux,can-disable;
+		};
+
+		cam_focus {
+			label = "cam_focus";
+			gpios = <&tlmm 92 0>;
+			linux,input-type = <1>;
+			linux,code = <528>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+			linux,can-disable;
+		};
+	};
+};
