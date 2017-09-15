@@ -12,6 +12,7 @@
 
 #include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/thermal/thermal.h>
 
 &spmi_bus {
 	pm660_0: qcom,pm660@0 {
@@ -358,18 +359,23 @@
 			qcom,pmic-revid = <&pm660_revid>;
 		};
 
-		bcl@4200 {
+		bcl_sensor: bcl@4200 {
 			compatible = "qcom,msm-bcl-lmh";
 			reg = <0x4200 0xff>,
 				<0x4300 0xff>;
 			reg-names = "fg_user_adc",
 					"fg_lmh";
 			interrupts = <0x0 0x42 0x0 IRQ_TYPE_NONE>,
-					<0x0 0x42 0x2 IRQ_TYPE_NONE>;
-			interrupt-names = "bcl-high-ibat-int",
-					"bcl-low-vbat-int";
-			qcom,vbat-polling-delay-ms = <100>;
-			qcom,ibat-polling-delay-ms = <100>;
+					<0x0 0x42 0x1 IRQ_TYPE_NONE>,
+					<0x0 0x42 0x2 IRQ_TYPE_NONE>,
+					<0x0 0x42 0x3 IRQ_TYPE_NONE>,
+					<0x0 0x42 0x4 IRQ_TYPE_NONE>;
+			interrupt-names = "bcl-high-ibat",
+						"bcl-very-high-ibat",
+						"bcl-low-vbat",
+						"bcl-very-low-vbat",
+						"bcl-crit-low-vbat";
+			#thermal-sensor-cells = <1>;
 		};
 	};
 
@@ -453,6 +459,128 @@
 				temperature = <65000>;
 				hysteresis = <1000>;
 				type = "passive";
+			};
+		};
+	};
+
+	ibat-high {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&bcl_sensor 0>;
+
+		trips {
+			ibat-high {
+				temperature = <4200>;
+				hysteresis = <200>;
+				type = "passive";
+			};
+		};
+	};
+
+	ibat-vhigh {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&bcl_sensor 1>;
+
+		trips {
+			ibat-vhigh {
+				temperature = <4300>;
+				hysteresis = <100>;
+				type = "passive";
+			};
+		};
+	};
+
+	vbat_adc {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&bcl_sensor 2>;
+		tracks-low;
+
+		trips {
+			pm660_vbat_adc: vbat-adc {
+				temperature = <3300>;
+				hysteresis = <100>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			vbat_map6 {
+				trip = <&pm660_vbat_adc>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			vbat_map7 {
+				trip = <&pm660_vbat_adc>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	vbat_low {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&bcl_sensor 3>;
+		tracks-low;
+
+		trips {
+			vbat-low {
+				temperature = <3100>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+	};
+
+	vbat_too_low {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&bcl_sensor 4>;
+		tracks-low;
+
+		trips {
+			vbat-too-low {
+				temperature = <2900>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+	};
+
+	soc {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&bcl_sensor 5>;
+		tracks-low;
+
+		trips {
+			pm660_low_soc: low-soc {
+				temperature = <10>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			soc_map6 {
+				trip = <&pm660_low_soc>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			soc_map7 {
+				trip = <&pm660_low_soc>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
 			};
 		};
 	};
