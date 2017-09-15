@@ -1610,6 +1610,42 @@
 		clock-names = "apb_pclk";
 	};
 
+	cti0_apss: cti@78e0000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
+		reg = <0x78e0000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-APSS_CTI0";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti1_apss: cti@78f0000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
+		reg = <0x78f0000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-APSS_CTI1";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti2_apss: cti@7900000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
+		reg = <0x7900000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-APSS_CTI2";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
 	cti0: cti@6010000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b966>;
