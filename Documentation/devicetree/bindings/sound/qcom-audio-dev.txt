@@ -2667,3 +2667,24 @@ sound {
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
 	};
+
+* BG Codec Driver.
+
+Required properties:
+- compatible : "qcom,bg-codec"
+- qcom,bg-glink : Glink component required for the BG codec communication.
+	- compatible :"qcom,bg-cdc-glink"
+- qcom,msm-glink-channels: Number of glink channels available to communicate
+			   with the glink client
+
+
+Example:
+
+        bg_cdc: bg_codec {
+                status = "disabled";
+                compatible = "qcom,bg-codec";
+                qcom,bg-glink {
+                        compatible = "qcom,bg-cdc-glink";
+                        qcom,msm-glink-channels = <4>;
+                };
+        };
