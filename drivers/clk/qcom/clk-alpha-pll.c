@@ -459,6 +459,37 @@ static void clk_alpha_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 	}
 }
 
+static int clk_fabia_pll_latch_input(struct clk_alpha_pll *pll,
+					struct regmap *regmap)
+{
+	u32 regval;
+	int ret = 0;
+
+	/* Latch the PLL input */
+	ret = regmap_update_bits(regmap, pll->offset + PLL_MODE,
+			   FABIA_PLL_UPDATE, FABIA_PLL_UPDATE);
+	if (ret)
+		return ret;
+
+	/* Wait for 2 reference cycles before checking the ACK bit. */
+	udelay(1);
+	regmap_read(regmap, pll->offset + PLL_MODE, &regval);
+	if (!(regval & FABIA_PLL_ACK_LATCH)) {
+		WARN(1, "clk: PLL latch failed. Output may be unstable!\n");
+		return -EINVAL;
+	}
+
+	/* Return the latch input to 0 */
+	ret = regmap_update_bits(regmap, pll->offset + PLL_MODE,
+			   FABIA_PLL_UPDATE, 0);
+	if (ret)
+		return ret;
+
+	/* Wait for PLL output to stabilize */
+	udelay(100);
+	return ret;
+}
+
 void clk_fabia_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 				const struct pll_config *config)
 {
@@ -471,6 +502,7 @@ void clk_fabia_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 	if (config->frac)
 		regmap_write(regmap, pll->offset + FABIA_FRAC_VAL,
 						config->frac);
+
 	if (config->config_ctl_val)
 		regmap_write(regmap, pll->offset + PLL_CONFIG_CTL,
 				config->config_ctl_val);
@@ -481,6 +513,14 @@ void clk_fabia_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 		regmap_update_bits(regmap, pll->offset + FABIA_USER_CTL_LO,
 					mask, val);
 	}
+
+	/*
+	 * If the PLL has already been initialized, it would now be in a STANDBY
+	 * state. Any new updates to the PLL frequency will require setting the
+	 * PLL_UPDATE bit.
+	 */
+	if (pll->inited)
+		clk_fabia_pll_latch_input(pll, regmap);
 
 	regmap_update_bits(regmap, pll->offset + PLL_MODE,
 				 FABIA_PLL_HW_UPDATE_LOGIC_BYPASS,
@@ -627,29 +667,8 @@ static int clk_fabia_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	regmap_write(pll->clkr.regmap, off + PLL_L_VAL, l);
 	regmap_write(pll->clkr.regmap, off + FABIA_FRAC_VAL, a);
 
-	/* Latch the PLL input */
-	ret = regmap_update_bits(pll->clkr.regmap, off + PLL_MODE,
-			   FABIA_PLL_UPDATE, FABIA_PLL_UPDATE);
-	if (ret)
-		return ret;
-
-	/* Wait for 2 reference cycles before checking the ACK bit. */
-	udelay(1);
-	regmap_read(pll->clkr.regmap, off + PLL_MODE, &regval);
-	if (!(regval & FABIA_PLL_ACK_LATCH)) {
-		WARN(1, "clk: PLL latch failed. Output may be unstable!\n");
-		return -EINVAL;
-	}
-
-	/* Return the latch input to 0 */
-	ret = regmap_update_bits(pll->clkr.regmap, off + PLL_MODE,
-			   FABIA_PLL_UPDATE, 0);
-	if (ret)
-		return ret;
-
-	/* Wait for PLL output to stabilize */
-	udelay(100);
-	return 0;
+	ret = clk_fabia_pll_latch_input(pll, pll->clkr.regmap);
+	return ret;
 }
 
 static void clk_fabia_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
