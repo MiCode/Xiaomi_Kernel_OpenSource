@@ -353,6 +353,7 @@
 
 	qcom,pcie-phy-ver = <5>;
 	qcom,pcie-perst-enum;
+	qcom,pcie-mhi-a7-irq;
 	status = "disabled";
 };
 
