@@ -1379,7 +1379,7 @@ static struct usb_descriptor_header *qdss_gsi_ss_data_only_desc[] = {
 
 /* string descriptors: */
 static struct usb_string qdss_gsi_string_defs[] = {
-	[0].s = "QDSS DATA",
+	[0].s = "Qualcomm DPL Data",
 	{}, /* end of list */
 };
 
