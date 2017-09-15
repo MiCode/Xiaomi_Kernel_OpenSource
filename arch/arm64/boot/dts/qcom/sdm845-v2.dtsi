@@ -477,6 +477,10 @@
 	};
 };
 
+&pil_modem {
+	qcom,mss_pdc_offset = <9>;
+};
+
 /* VDD_APC0 */
 &pm8998_s13 {
 	regulator-min-microvolt = <568000>;
