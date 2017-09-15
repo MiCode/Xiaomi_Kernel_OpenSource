@@ -792,6 +792,7 @@ wait:
 		} else {
 			pr_err("wait for mem_grant timed out ret=%d\n",
 				ret);
+			fg_dump_regs(chip);
 		}
 	}
 
