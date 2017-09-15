@@ -2033,6 +2033,34 @@ int32_t qpnp_adc_scale_pmi_chg_temp(struct qpnp_vadc_chip *vadc,
 }
 EXPORT_SYMBOL(qpnp_adc_scale_pmi_chg_temp);
 
+int32_t qpnp_adc_scale_die_temp_1390(struct qpnp_vadc_chip *chip,
+		int32_t adc_code,
+		const struct qpnp_adc_properties *adc_properties,
+		const struct qpnp_vadc_chan_properties *chan_properties,
+		struct qpnp_vadc_result *adc_chan_result)
+{
+	int rc = 0;
+
+	if (!chan_properties || !chan_properties->offset_gain_numerator ||
+		!chan_properties->offset_gain_denominator || !adc_properties
+		|| !adc_chan_result)
+		return -EINVAL;
+
+	rc = qpnp_adc_scale_default(chip, adc_code, adc_properties,
+			chan_properties, adc_chan_result);
+	if (rc < 0)
+		return rc;
+
+	pr_debug("raw_code:%x, v_adc:%lld\n", adc_code,
+						adc_chan_result->physical);
+	/* T = (1.49322 – V) / 0.00356 */
+	adc_chan_result->physical = 1493220 - adc_chan_result->physical;
+	adc_chan_result->physical = div64_s64(adc_chan_result->physical, 356);
+
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_adc_scale_die_temp_1390);
+
 int32_t qpnp_adc_enable_voltage(struct qpnp_adc_drv *adc)
 {
 	int rc = 0;
