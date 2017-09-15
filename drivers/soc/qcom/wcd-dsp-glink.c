@@ -634,6 +634,21 @@ static int wdsp_glink_ch_info_init(struct wdsp_glink_priv *wpriv,
 		memcpy(&ch[i]->ch_cfg, payload, ch_cfg_size);
 		payload += ch_cfg_size;
 
+		/* check ch name is valid string or not */
+		for (j = 0; j < WDSP_CH_NAME_MAX_LEN; j++) {
+			if (ch[i]->ch_cfg.name[j] == '\0')
+				break;
+		}
+
+		if (j == WDSP_CH_NAME_MAX_LEN) {
+			dev_err_ratelimited(wpriv->dev, "%s: Wrong channel name\n",
+				__func__);
+			kfree(ch[i]);
+			ch[i] = NULL;
+			ret = -EINVAL;
+			goto err_ch_mem;
+		}
+
 		mutex_init(&ch[i]->mutex);
 		ch[i]->wpriv = wpriv;
 		INIT_WORK(&ch[i]->lcl_ch_open_wrk, wdsp_glink_lcl_ch_open_wrk);
@@ -906,8 +921,6 @@ static ssize_t wdsp_glink_write(struct file *file, const char __user *buf,
 			ret = -EINVAL;
 			goto free_buf;
 		}
-		dev_dbg(wpriv->dev, "%s: requested ch_name: %s, pkt_size: %zd\n",
-			__func__, cpkt->ch_name, pkt_max_size);
 		for (i = 0; i < wpriv->no_of_channels; i++) {
 			if (wpriv->ch && wpriv->ch[i] &&
 				(!strcmp(cpkt->ch_name,
@@ -922,6 +935,8 @@ static ssize_t wdsp_glink_write(struct file *file, const char __user *buf,
 			ret = -EINVAL;
 			goto free_buf;
 		}
+		dev_dbg(wpriv->dev, "%s: requested ch_name: %s, pkt_size: %zd\n",
+			__func__, cpkt->ch_name, pkt_max_size);
 
 		ret = wait_event_timeout(tx_buf->ch->ch_connect_wait,
 					 (tx_buf->ch->channel_state ==
