@@ -208,32 +208,32 @@ static dma_addr_t iommu_dma_alloc_iova(struct iommu_domain *domain,
 	struct iova_domain *iovad = cookie_iovad(domain);
 	unsigned long shift = iova_shift(iovad);
 	unsigned long iova_len = size >> shift;
-	struct iova *iova = NULL;
+	unsigned long iova = 0;
+
+	/*
+	 * Freeing non-power-of-two-sized allocations back into the IOVA caches
+	 * will come back to bite us badly, so we have to waste a bit of space
+	 * rounding up anything cacheable to make sure that can't happen. The
+	 * order of the unadjusted size will still match upon freeing.
+	 */
+	if (iova_len < (1 << (IOVA_RANGE_CACHE_MAX_SIZE - 1)))
+		iova_len = roundup_pow_of_two(iova_len);
 
 	if (domain->geometry.force_aperture)
 		dma_limit = min(dma_limit, domain->geometry.aperture_end);
-	/*
-	 * Enforce size-alignment to be safe - there could perhaps be an
-	 * attribute to control this per-device, or at least per-domain...
-	 */
-	iova = alloc_iova(iovad, iova_len, dma_limit >> shift, true);
-	if (!iova)
-		return 0;
 
-	return (dma_addr_t)iova->pfn_lo << shift;
+	iova = alloc_iova_fast(iovad, iova_len, dma_limit >> shift);
+
+	return (dma_addr_t)iova << shift;
 }
 
 static void iommu_dma_free_iova(struct iommu_dma_cookie *cookie,
 		dma_addr_t iova, size_t size)
 {
 	struct iova_domain *iovad = &cookie->iovad;
-	struct iova *iova_rbnode;
+	unsigned long shift = iova_shift(iovad);
 
-	iova_rbnode = find_iova(iovad, iova_pfn(iovad, iova));
-	if (WARN_ON(!iova_rbnode))
-		return;
-
-	__free_iova(iovad, iova_rbnode);
+	free_iova_fast(iovad, iova >> shift, size >> shift);
 }
 
 static void __iommu_dma_unmap(struct iommu_domain *domain, dma_addr_t dma_addr,
