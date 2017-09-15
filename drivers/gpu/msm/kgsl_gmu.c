@@ -1300,37 +1300,6 @@ static int gmu_disable_gdsc(struct gmu_device *gmu)
 	return -ETIMEDOUT;
 }
 
-static int gmu_fast_boot(struct kgsl_device *device)
-{
-	int ret;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	struct gmu_device *gmu = &device->gmu;
-
-	hfi_stop(gmu);
-	clear_bit(GMU_HFI_ON, &gmu->flags);
-
-	ret = gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_START,
-		GMU_RESET, 0);
-	if (ret)
-		return ret;
-
-	/*FIXME: enabling WD interrupt*/
-
-	ret = hfi_start(gmu, GMU_WARM_BOOT);
-	if (ret)
-		return ret;
-
-	ret = gpudev->oob_set(adreno_dev, OOB_CPINIT_SET_MASK,
-			OOB_CPINIT_CHECK_MASK, OOB_CPINIT_CLEAR_MASK);
-
-	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
-		gpudev->oob_clear(adreno_dev,
-				OOB_BOOT_SLUMBER_CLEAR_MASK);
-
-	return ret;
-}
-
 static int gmu_suspend(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -1464,14 +1433,19 @@ int gmu_start(struct kgsl_device *device)
 			/* Send DCVS level prior to reset*/
 			kgsl_pwrctrl_pwrlevel_change(device,
 				pwr->default_pwrlevel);
+		} else {
+			/* GMU fast boot */
+			hfi_stop(gmu);
 
-			ret = gpudev->oob_set(adreno_dev,
-				OOB_CPINIT_SET_MASK,
-				OOB_CPINIT_CHECK_MASK,
-				OOB_CPINIT_CLEAR_MASK);
+			ret = gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_START,
+					GMU_RESET, 0);
+			if (ret)
+				goto error_gmu;
 
-		} else
-			gmu_fast_boot(device);
+			ret = hfi_start(gmu, GMU_WARM_BOOT);
+			if (ret)
+				goto error_gmu;
+		}
 		break;
 	default:
 		break;
@@ -1480,6 +1454,9 @@ int gmu_start(struct kgsl_device *device)
 	return ret;
 
 error_gmu:
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
+		gpudev->oob_clear(adreno_dev,
+				OOB_BOOT_SLUMBER_CLEAR_MASK);
 	gmu_snapshot(device);
 	return ret;
 }
