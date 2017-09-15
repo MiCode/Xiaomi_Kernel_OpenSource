@@ -2377,9 +2377,9 @@ int adreno_soft_reset(struct kgsl_device *device)
 	int ret;
 
 	if (gpudev->oob_set) {
-		ret = gpudev->oob_set(adreno_dev, OOB_CPINIT_SET_MASK,
-				OOB_CPINIT_CHECK_MASK,
-				OOB_CPINIT_CLEAR_MASK);
+		ret = gpudev->oob_set(adreno_dev, OOB_GPU_SET_MASK,
+				OOB_GPU_CHECK_MASK,
+				OOB_GPU_CLEAR_MASK);
 		if (ret)
 			return ret;
 	}
@@ -2403,7 +2403,7 @@ int adreno_soft_reset(struct kgsl_device *device)
 		ret = _soft_reset(adreno_dev);
 	if (ret) {
 		if (gpudev->oob_clear)
-			gpudev->oob_clear(adreno_dev, OOB_CPINIT_CLEAR_MASK);
+			gpudev->oob_clear(adreno_dev, OOB_GPU_CLEAR_MASK);
 		return ret;
 	}
 
@@ -2453,7 +2453,7 @@ int adreno_soft_reset(struct kgsl_device *device)
 	adreno_perfcounter_restore(adreno_dev);
 
 	if (gpudev->oob_clear)
-		gpudev->oob_clear(adreno_dev, OOB_CPINIT_CLEAR_MASK);
+		gpudev->oob_clear(adreno_dev, OOB_GPU_CLEAR_MASK);
 
 	return ret;
 }
