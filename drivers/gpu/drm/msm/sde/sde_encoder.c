@@ -1502,29 +1502,31 @@ static void _sde_encoder_resource_control_rsc_update(
 {
 	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
 	struct sde_encoder_rsc_config rsc_cfg = { 0 };
+	int i;
 
 	if (enable) {
 		rsc_cfg.inline_rotate_prefill =
 				sde_crtc_get_inline_prefill(drm_enc->crtc);
-
-		/* connect the TE source to actual TE GPIO to drive RSC */
-		_sde_encoder_update_vsync_source(sde_enc, &sde_enc->disp_info,
-				false);
 
 		_sde_encoder_update_rsc_client(drm_enc, &rsc_cfg, true);
 	} else {
 		_sde_encoder_update_rsc_client(drm_enc, NULL, false);
 
 		/**
-		 * disconnect the TE source from the actual TE GPIO for RSC
-		 *
-		 * this call is for hardware workaround on sdm845 and should
-		 * not be removed without considering the design changes for
-		 * sde rsc + command mode concurrency. It may lead to pp
-		 * timeout due to vsync from panel for command mode panel.
+		 * disable the vsync source after updating the rsc state. rsc
+		 * state update might have vsync wait and vsync source must be
+		 * disabled after it. It will avoid generating any vsync from
+		 * this point till mode-2 entry. It is SW workaround for
+		 * HW limitation and should not be removed without checking the
+		 * updated design.
 		 */
-		_sde_encoder_update_vsync_source(sde_enc, &sde_enc->disp_info,
-				true);
+		for (i = 0; i < sde_enc->num_phys_encs; i++) {
+			struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
+			if (phys && phys->ops.prepare_idle_pc)
+				phys->ops.prepare_idle_pc(phys);
+		}
+
 	}
 }
 

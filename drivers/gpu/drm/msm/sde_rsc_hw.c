@@ -515,7 +515,7 @@ static int sde_rsc_state_update(struct sde_rsc_priv *rsc,
 		reg = dss_reg_r(&rsc->wrapper_io,
 			SDE_RSCC_WRAPPER_OVERRIDE_CTRL, rsc->debug_mode);
 		reg |= (BIT(0) | BIT(8));
-		reg &= ~(BIT(1) | BIT(2) | BIT(3) | BIT(6) | BIT(7));
+		reg &= ~(BIT(1) | BIT(2) | BIT(3) | BIT(6) | BIT(7) | BIT(9));
 		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
 							reg, rsc->debug_mode);
 		/* make sure that solver is enabled */
