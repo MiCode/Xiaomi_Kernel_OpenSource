@@ -131,10 +131,10 @@ end:
 	return rc;
 }
 
-static int dp_catalog_aux_clear_trans(struct dp_catalog_aux *aux)
+static int dp_catalog_aux_clear_trans(struct dp_catalog_aux *aux, bool read)
 {
 	int rc = 0;
-	u32 data;
+	u32 data = 0;
 	struct dp_catalog_private *catalog;
 	void __iomem *base;
 
@@ -147,9 +147,13 @@ static int dp_catalog_aux_clear_trans(struct dp_catalog_aux *aux)
 	dp_catalog_get_priv(aux);
 	base = catalog->io->ctrl_io.base;
 
-	data = dp_read(base + DP_AUX_TRANS_CTRL);
-	data &= ~BIT(9);
-	dp_write(base + DP_AUX_TRANS_CTRL, data);
+	if (read) {
+		data = dp_read(base + DP_AUX_TRANS_CTRL);
+		data &= ~BIT(9);
+		dp_write(base + DP_AUX_TRANS_CTRL, data);
+	} else {
+		dp_write(base + DP_AUX_TRANS_CTRL, 0);
+	}
 end:
 	return rc;
 }
@@ -274,9 +278,6 @@ static void dp_catalog_aux_get_irq(struct dp_catalog_aux *aux, bool cmd_busy)
 
 	dp_catalog_get_priv(aux);
 	base = catalog->io->ctrl_io.base;
-
-	if (cmd_busy)
-		dp_write(base + DP_AUX_TRANS_CTRL, 0x0);
 
 	aux->isr = dp_read(base + DP_INTR_STATUS);
 	aux->isr &= ~DP_INTR_MASK1;

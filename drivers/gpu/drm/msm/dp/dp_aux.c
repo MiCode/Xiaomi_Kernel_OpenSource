@@ -40,6 +40,8 @@ struct dp_aux_private {
 	bool read;
 	bool no_send_addr;
 	bool no_send_stop;
+	u32 offset;
+	u32 segment;
 
 	struct drm_dp_aux drm_aux;
 };
@@ -104,6 +106,8 @@ static u32 dp_aux_write(struct dp_aux_private *aux,
 		aux->catalog->write_data(aux->catalog);
 	}
 
+	aux->catalog->clear_trans(aux->catalog, false);
+
 	reg = 0; /* Transaction number == 1 */
 	if (!aux->native) { /* i2c */
 		reg |= BIT(8);
@@ -161,6 +165,8 @@ static void dp_aux_cmd_fifo_rx(struct dp_aux_private *aux,
 	u8 *dp;
 	u32 i, actual_i;
 	u32 len = msg->size;
+
+	aux->catalog->clear_trans(aux->catalog, true);
 
 	data = 0;
 	data |= DP_AUX_DATA_INDEX_WRITE; /* INDEX_WRITE */
@@ -264,6 +270,87 @@ static void dp_aux_reconfig(struct dp_aux *dp_aux)
 	aux->catalog->reset(aux->catalog);
 }
 
+static void dp_aux_update_offset_and_segment(struct dp_aux_private *aux,
+		struct drm_dp_aux_msg *input_msg)
+{
+	u32 const edid_address = 0x50;
+	u32 const segment_address = 0x30;
+	bool i2c_read = input_msg->request &
+		(DP_AUX_I2C_READ & DP_AUX_NATIVE_READ);
+	u8 *data = NULL;
+
+	if (aux->native || i2c_read || ((input_msg->address != edid_address) &&
+		(input_msg->address != segment_address)))
+		return;
+
+
+	data = input_msg->buffer;
+	if (input_msg->address == segment_address)
+		aux->segment = *data;
+	else
+		aux->offset = *data;
+}
+
+/**
+ * dp_aux_transfer_helper() - helper function for EDID read transactions
+ *
+ * @aux: DP AUX private structure
+ * @input_msg: input message from DRM upstream APIs
+ *
+ * return: void
+ *
+ * This helper function is used to fix EDID reads for non-compliant
+ * sinks that do not handle the i2c middle-of-transaction flag correctly.
+ */
+static void dp_aux_transfer_helper(struct dp_aux_private *aux,
+		struct drm_dp_aux_msg *input_msg)
+{
+	struct drm_dp_aux_msg helper_msg;
+	u32 const message_size = 0x10;
+	u32 const segment_address = 0x30;
+	bool i2c_mot = input_msg->request & DP_AUX_I2C_MOT;
+	bool i2c_read = input_msg->request &
+		(DP_AUX_I2C_READ & DP_AUX_NATIVE_READ);
+
+	if (!i2c_mot || !i2c_read || (input_msg->size == 0))
+		return;
+
+	aux->read = false;
+	aux->cmd_busy = true;
+	aux->no_send_addr = true;
+	aux->no_send_stop = true;
+
+	/*
+	 * Send the segment address for every i2c read in which the
+	 * middle-of-tranaction flag is set. This is required to support EDID
+	 * reads of more than 2 blocks as the segment address is reset to 0
+	 * since we are overriding the middle-of-transaction flag for read
+	 * transactions.
+	 */
+	memset(&helper_msg, 0, sizeof(helper_msg));
+	helper_msg.address = segment_address;
+	helper_msg.buffer = &aux->segment;
+	helper_msg.size = 1;
+	dp_aux_cmd_fifo_tx(aux, &helper_msg);
+
+	/*
+	 * Send the offset address for every i2c read in which the
+	 * middle-of-transaction flag is set. This will ensure that the sink
+	 * will update its read pointer and return the correct portion of the
+	 * EDID buffer in the subsequent i2c read trasntion triggered in the
+	 * native AUX transfer function.
+	 */
+	memset(&helper_msg, 0, sizeof(helper_msg));
+	helper_msg.address = input_msg->address;
+	helper_msg.buffer = &aux->offset;
+	helper_msg.size = 1;
+	dp_aux_cmd_fifo_tx(aux, &helper_msg);
+	aux->offset += message_size;
+
+	if (aux->offset == 0x80 || aux->offset == 0x100)
+		aux->segment = 0x0; /* reset segment at end of block */
+}
+
 /*
  * This function does the real job to process an AUX transaction.
  * It will call aux_reset() function to reset the AUX channel,
@@ -282,8 +369,6 @@ static ssize_t dp_aux_transfer(struct drm_dp_aux *drm_aux,
 	mutex_lock(&aux->mutex);
 
 	aux->native = msg->request & (DP_AUX_NATIVE_WRITE & DP_AUX_NATIVE_READ);
-	aux->read = msg->request & (DP_AUX_I2C_READ & DP_AUX_NATIVE_READ);
-	aux->cmd_busy = true;
 
 	/* Ignore address only message */
 	if ((msg->size == 0) || (msg->buffer == NULL)) {
@@ -301,6 +386,12 @@ static ssize_t dp_aux_transfer(struct drm_dp_aux *drm_aux,
 		ret = -EINVAL;
 		goto unlock_exit;
 	}
+
+	dp_aux_update_offset_and_segment(aux, msg);
+	dp_aux_transfer_helper(aux, msg);
+
+	aux->read = msg->request & (DP_AUX_I2C_READ & DP_AUX_NATIVE_READ);
+	aux->cmd_busy = true;
 
 	if (aux->read) {
 		aux->no_send_addr = true;
@@ -321,8 +412,6 @@ static ssize_t dp_aux_transfer(struct drm_dp_aux *drm_aux,
 	} else if (ret < 0) {
 		goto unlock_exit;
 	}
-
-	aux->catalog->clear_trans(aux->catalog);
 
 	if (aux->aux_error_num == DP_AUX_ERR_NONE) {
 		if (aux->read)
