@@ -833,7 +833,7 @@
 	};
 
 	clock_aop: qcom,aopclk {
-		compatible = "qcom,aop-qmp-clk-v2";
+		compatible = "qcom,aop-qmp-clk-v1";
 		#clock-cells = <1>;
 		mboxes = <&qmp_aop 0>;
 		mbox-names = "qdss_clk";
