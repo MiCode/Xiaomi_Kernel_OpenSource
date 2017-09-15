@@ -114,6 +114,17 @@ static const struct freq_tbl ftbl_video_cc_venus_clk_src_sdm845_v2[] = {
 	{ }
 };
 
+static const struct freq_tbl ftbl_video_cc_venus_clk_src_sdm670[] = {
+	F(100000000, P_VIDEO_PLL0_OUT_MAIN, 4, 0, 0),
+	F(200000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
+	F(330000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
+	F(364800000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
+	F(404000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
+	F(444000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
+	F(533000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 video_cc_venus_clk_src = {
 	.cmd_rcgr = 0x7f0,
 	.mnd_width = 0,
@@ -343,8 +354,10 @@ static void video_cc_sdm845_fixup_sdm845v2(void)
 
 static void video_cc_sdm845_fixup_sdm670(void)
 {
-	video_cc_sdm845_fixup_sdm845v2();
-
+	video_cc_venus_clk_src.freq_tbl = ftbl_video_cc_venus_clk_src_sdm670;
+	video_cc_venus_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 330000000;
+	video_cc_venus_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
+		404000000;
 }
 
 static int video_cc_sdm845_fixup(struct platform_device *pdev)
