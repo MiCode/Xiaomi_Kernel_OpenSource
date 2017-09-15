@@ -583,7 +583,7 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 
 	arch_setup_dma_ops(dma_dev, 0, 0, NULL, 0);
 
-	dma_dev->coherent_dma_mask = DMA_BIT_MASK(sizeof(dma_addr_t) * 8);
+	dma_dev->coherent_dma_mask = DMA_BIT_MASK(32);
 
 	init_dma_attrs(&md->attrs_dma);
 	dma_set_attr(DMA_ATTR_SKIP_ZEROING, &md->attrs_dma);
@@ -695,7 +695,7 @@ static int pil_msa_auth_modem_mdt(struct pil_desc *pil, const u8 *metadata,
 
 
 	trace_pil_func(__func__);
-	dma_dev->coherent_dma_mask = DMA_BIT_MASK(sizeof(dma_addr_t) * 8);
+	dma_dev->coherent_dma_mask = DMA_BIT_MASK(32);
 	dma_set_attr(DMA_ATTR_SKIP_ZEROING, &attrs);
 	dma_set_attr(DMA_ATTR_STRONGLY_ORDERED, &attrs);
 	/* Make metadata physically contiguous and 4K aligned. */
