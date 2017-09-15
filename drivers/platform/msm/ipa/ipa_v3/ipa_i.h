@@ -612,6 +612,7 @@ struct ipa3_ep_context {
 	u32 uc_offload_state;
 	bool disconnect_in_progress;
 	u32 qmi_request_sent;
+	bool ep_delay_set;
 
 	/* sys MUST be the last element of this struct */
 	struct ipa3_sys_context *sys;
