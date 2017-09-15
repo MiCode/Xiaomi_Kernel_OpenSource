@@ -94,3 +94,7 @@
 
 	status = "ok";
 };
+
+&pm660_charger {
+	qcom,batteryless-platform;
+};
