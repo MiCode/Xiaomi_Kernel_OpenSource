@@ -117,9 +117,6 @@
 	};
 };
 
-&audio_codec_mtp {
-	/delete-property/ asoc-codec;
-};
 
 &sdhc_2 {
 	/delete-property/ vdd-supply;

@@ -210,3 +210,15 @@
 		pins = "gpio98", "gpio16";
 	};
 };
+
+&audio_codec_mtp {
+	status = "disabled";
+};
+
+&audio_codec_bg {
+	status = "ok";
+};
+
+&bg_cdc {
+	status = "ok";
+};

@@ -2039,7 +2039,6 @@
 					pins = "gpio0", "gpio1";
 					drive-strength = <8>;   /* 8 MA */
 					bias-disable;           /* No PULL */
-					output-high;
 				};
 			};
 			quat_mi2s_sleep: quat_mi2s_sleep {
@@ -2066,6 +2065,7 @@
 					pins = "gpio2", "gpio3";
 					drive-strength = <8>;   /* 8 MA */
 					bias-disable;	        /* No PULL */
+					output-high;
 				};
 			};
 			quat_mi2s_din_sleep: quat_mi2s_din_sleep {
