@@ -729,13 +729,42 @@
 					    <&tpdm_turing_out_funnel_turing>;
 				};
 			};
+		};
+	};
 
-			port@2 {
+	funnel_turing_1: funnel_1@6861000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b908>;
+
+		reg = <0x6867000 0x10>,
+		      <0x6861000 0x1000>;
+		reg-names = "funnel-base-dummy", "funnel-base-real";
+
+		coresight-name = "coresight-funnel-turing-1";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		qcom,duplicate-funnel;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				funnel_turing_1_out_funnel_qatb: endpoint {
+					remote-endpoint =
+					    <&funnel_qatb_in_funnel_turing_1>;
+				};
+			};
+
+			port@1 {
 				reg = <1>;
-				funnel_turing_in_turing_etm0: endpoint {
+				funnel_turing_1_in_turing_etm0: endpoint {
 					slave-mode;
 					remote-endpoint =
-					    <&turing_etm0_out_funnel_turing>;
+					    <&turing_etm0_out_funnel_turing_1>;
 				};
 			};
 		};
@@ -933,6 +962,15 @@
 					slave-mode;
 					remote-endpoint =
 						<&tpda_out_funnel_qatb>;
+				};
+			};
+
+			port@2 {
+				reg = <7>;
+				funnel_qatb_in_funnel_turing_1: endpoint {
+					slave-mode;
+					remote-endpoint =
+					    <&funnel_turing_1_out_funnel_qatb>;
 				};
 			};
 		};
@@ -1562,9 +1600,9 @@
 		qcom,inst-id = <13>;
 
 		port{
-			turing_etm0_out_funnel_turing: endpoint {
+			turing_etm0_out_funnel_turing_1: endpoint {
 				remote-endpoint =
-					<&funnel_turing_in_turing_etm0>;
+					<&funnel_turing_1_in_turing_etm0>;
 			};
 		};
 	};
