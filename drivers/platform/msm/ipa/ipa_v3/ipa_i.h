@@ -556,6 +556,7 @@ struct ipa3_ep_context {
 	u32 qmi_request_sent;
 	bool napi_enabled;
 	u32 eot_in_poll_err;
+	bool ep_delay_set;
 
 	/* sys MUST be the last element of this struct */
 	struct ipa3_sys_context *sys;
