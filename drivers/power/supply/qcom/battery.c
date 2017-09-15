@@ -26,6 +26,7 @@
 #include <linux/pm_wakeup.h>
 #include <linux/slab.h>
 #include <linux/pmic-voter.h>
+#include <linux/workqueue.h>
 #include "battery.h"
 
 #define DRV_MAJOR_VERSION	1
@@ -59,7 +60,8 @@ struct pl_data {
 	struct votable		*pl_enable_votable_indirect;
 	struct delayed_work	status_change_work;
 	struct work_struct	pl_disable_forever_work;
-	struct delayed_work	pl_taper_work;
+	struct work_struct	pl_taper_work;
+	bool			taper_work_running;
 	struct power_supply	*main_psy;
 	struct power_supply	*pl_psy;
 	struct power_supply	*batt_psy;
@@ -353,56 +355,41 @@ static void get_fcc_split(struct pl_data *chip, int total_ua,
 static void pl_taper_work(struct work_struct *work)
 {
 	struct pl_data *chip = container_of(work, struct pl_data,
-						pl_taper_work.work);
+						pl_taper_work);
 	union power_supply_propval pval = {0, };
-	int total_fcc_ua, master_fcc_ua, slave_fcc_ua;
 	int rc;
 
-	/* exit immediately if parallel is disabled */
-	if (get_effective_result(chip->pl_disable_votable)) {
-		pl_dbg(chip, PR_PARALLEL, "terminating parallel not in progress\n");
-		goto done;
+	chip->taper_work_running = true;
+	while (true) {
+		/* exit immediately if parallel is disabled */
+		if (get_effective_result(chip->pl_disable_votable)) {
+			pl_dbg(chip, PR_PARALLEL, "terminating parallel not in progress\n");
+			goto done;
+		}
+
+		rc = power_supply_get_property(chip->batt_psy,
+				       POWER_SUPPLY_PROP_CHARGE_TYPE, &pval);
+		if (rc < 0) {
+			pr_err("Couldn't get batt charge type rc=%d\n", rc);
+			goto done;
+		}
+
+		chip->charge_type = pval.intval;
+		if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER) {
+			pl_dbg(chip, PR_PARALLEL, "master is taper charging; reducing slave FCC\n");
+
+			/* Reduce the taper percent by 10 percent */
+			chip->taper_pct
+				= chip->taper_pct * TAPER_RESIDUAL_PCT / 100;
+			rerun_election(chip->fcc_votable);
+		} else {
+			pl_dbg(chip, PR_PARALLEL, "master is fast charging; waiting for next taper\n");
+		}
+		/* wait for the charger state to deglitch after FCC change */
+		msleep(PL_TAPER_WORK_DELAY_MS);
 	}
-
-	total_fcc_ua = get_effective_result_locked(chip->fcc_votable);
-	get_fcc_split(chip, total_fcc_ua, &master_fcc_ua, &slave_fcc_ua);
-	if (slave_fcc_ua < MINIMUM_PARALLEL_FCC_UA) {
-		pl_dbg(chip, PR_PARALLEL, "terminating parallel's share lower than 500mA\n");
-		vote(chip->pl_disable_votable, TAPER_END_VOTER, true, 0);
-		goto done;
-	}
-
-	pl_dbg(chip, PR_PARALLEL, "entering parallel taper work slave_fcc = %d\n",
-		slave_fcc_ua);
-
-	rc = power_supply_get_property(chip->batt_psy,
-			       POWER_SUPPLY_PROP_CHARGE_TYPE, &pval);
-	if (rc < 0) {
-		pr_err("Couldn't get batt charge type rc=%d\n", rc);
-		goto done;
-	}
-
-	chip->charge_type = pval.intval;
-	if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER) {
-		pl_dbg(chip, PR_PARALLEL, "master is taper charging; reducing slave FCC\n");
-
-		vote(chip->pl_awake_votable, TAPER_END_VOTER, true, 0);
-		/* Reduce the taper percent by 10 percent */
-		chip->taper_pct = chip->taper_pct * TAPER_RESIDUAL_PCT / 100;
-		rerun_election(chip->fcc_votable);
-		pl_dbg(chip, PR_PARALLEL, "taper entry scheduling work after %d ms\n",
-				PL_TAPER_WORK_DELAY_MS);
-		schedule_delayed_work(&chip->pl_taper_work,
-				msecs_to_jiffies(PL_TAPER_WORK_DELAY_MS));
-		return;
-	}
-
-	/*
-	 * Master back to Fast Charge, get out of this round of taper reduction
-	 */
-	pl_dbg(chip, PR_PARALLEL, "master is fast charging; waiting for next taper\n");
-
 done:
+	chip->taper_work_running = false;
 	vote(chip->pl_awake_votable, TAPER_END_VOTER, false, 0);
 }
 
@@ -422,7 +409,7 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 		get_fcc_split(chip, total_fcc_ua, &master_fcc_ua,
 				&slave_fcc_ua);
 
-		if (slave_fcc_ua > 500000) {
+		if (slave_fcc_ua > MINIMUM_PARALLEL_FCC_UA) {
 			chip->slave_fcc_ua = slave_fcc_ua;
 			vote(chip->pl_disable_votable, FCC_CHANGE_VOTER,
 							false, 0);
@@ -434,11 +421,6 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 	}
 
 	rerun_election(chip->pl_disable_votable);
-
-	pl_dbg(chip, PR_PARALLEL, "master_fcc=%d slave_fcc=%d distribution=(%d/%d)\n",
-		   master_fcc_ua, slave_fcc_ua,
-		   (master_fcc_ua * 100) / total_fcc_ua,
-		   (slave_fcc_ua * 100) / total_fcc_ua);
 
 	return 0;
 }
@@ -652,12 +634,21 @@ static int pl_disable_vote_callback(struct votable *votable,
 		if (rc < 0) {
 			pr_err("Couldn't get batt charge type rc=%d\n", rc);
 		} else {
-			if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER) {
+			if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER
+				&& !chip->taper_work_running) {
 				pl_dbg(chip, PR_PARALLEL,
 					"pl enabled in Taper scheduing work\n");
-				schedule_delayed_work(&chip->pl_taper_work, 0);
+				vote(chip->pl_awake_votable, TAPER_END_VOTER,
+						true, 0);
+				queue_work(system_long_wq,
+						&chip->pl_taper_work);
 			}
 		}
+
+		pl_dbg(chip, PR_PARALLEL, "master_fcc=%d slave_fcc=%d distribution=(%d/%d)\n",
+			master_fcc_ua, slave_fcc_ua,
+			(master_fcc_ua * 100) / total_fcc_ua,
+			(slave_fcc_ua * 100) / total_fcc_ua);
 	} else {
 		if ((chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN)
 			|| (chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN_EXT))
@@ -800,8 +791,11 @@ static void handle_main_charge_type(struct pl_data *chip)
 	if (chip->charge_type == POWER_SUPPLY_CHARGE_TYPE_FAST
 		&& (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER)) {
 		chip->charge_type = pval.intval;
-		pl_dbg(chip, PR_PARALLEL, "taper entry scheduling work\n");
-		schedule_delayed_work(&chip->pl_taper_work, 0);
+		if (!chip->taper_work_running) {
+			pl_dbg(chip, PR_PARALLEL, "taper entry scheduling work\n");
+			vote(chip->pl_awake_votable, TAPER_END_VOTER, true, 0);
+			queue_work(system_long_wq, &chip->pl_taper_work);
+		}
 		return;
 	}
 
@@ -1057,7 +1051,7 @@ int qcom_batt_init(void)
 	vote(chip->pl_disable_votable, PL_INDIRECT_VOTER, true, 0);
 
 	INIT_DELAYED_WORK(&chip->status_change_work, status_change_work);
-	INIT_DELAYED_WORK(&chip->pl_taper_work, pl_taper_work);
+	INIT_WORK(&chip->pl_taper_work, pl_taper_work);
 	INIT_WORK(&chip->pl_disable_forever_work, pl_disable_forever_work);
 
 	rc = pl_register_notifier(chip);
@@ -1112,7 +1106,7 @@ void qcom_batt_deinit(void)
 		return;
 
 	cancel_delayed_work_sync(&chip->status_change_work);
-	cancel_delayed_work_sync(&chip->pl_taper_work);
+	cancel_work_sync(&chip->pl_taper_work);
 	cancel_work_sync(&chip->pl_disable_forever_work);
 
 	power_supply_unreg_notifier(&chip->nb);
