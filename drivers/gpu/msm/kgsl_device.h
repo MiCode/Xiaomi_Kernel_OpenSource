@@ -493,7 +493,9 @@ struct kgsl_device_private {
  * @work: worker to dump the frozen memory
  * @dump_gate: completion gate signaled by worker when it is finished.
  * @process: the process that caused the hang, if known.
- * @sysfs_read: An atomic for concurrent snapshot reads via syfs.
+ * @sysfs_read: Count of current reads via sysfs
+ * @first_read: True until the snapshot read is started
+ * @gmu_fault: Snapshot collected when GMU fault happened
  */
 struct kgsl_snapshot {
 	uint64_t ib1base;
@@ -514,7 +516,9 @@ struct kgsl_snapshot {
 	struct work_struct work;
 	struct completion dump_gate;
 	struct kgsl_process_private *process;
-	atomic_t sysfs_read;
+	unsigned int sysfs_read;
+	bool first_read;
+	bool gmu_fault;
 };
 
 /**
@@ -700,7 +704,7 @@ const char *kgsl_pwrstate_to_str(unsigned int state);
 
 int kgsl_device_snapshot_init(struct kgsl_device *device);
 void kgsl_device_snapshot(struct kgsl_device *device,
-			struct kgsl_context *context);
+			struct kgsl_context *context, bool gmu_fault);
 void kgsl_device_snapshot_close(struct kgsl_device *device);
 void kgsl_snapshot_save_frozen_objs(struct work_struct *work);
 

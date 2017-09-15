@@ -1366,7 +1366,7 @@ static void gmu_snapshot(struct kgsl_device *device)
 		/* Wait for the NMI to be handled */
 		wmb();
 		udelay(100);
-		kgsl_device_snapshot(device, ERR_PTR(-EINVAL));
+		kgsl_device_snapshot(device, ERR_PTR(-EINVAL), true);
 
 		adreno_write_gmureg(adreno_dev,
 				ADRENO_REG_GMU_GMU2HOST_INTR_CLR, 0xFFFFFFFF);
