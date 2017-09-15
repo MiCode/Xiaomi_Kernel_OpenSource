@@ -1058,7 +1058,7 @@ int diagfwd_write(uint8_t peripheral, uint8_t type, void *buf, int len)
 		return -ENODEV;
 
 	if (type == TYPE_CMD) {
-		if (driver->feature[peripheral].untag_header)
+		if (driver->feature[peripheral].diag_id_support)
 			if (!fwd_info->diagid_root ||
 				(!driver->diag_id_sent[peripheral])) {
 			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
