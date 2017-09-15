@@ -604,10 +604,11 @@ static bool glink_core_remote_close_common(struct channel_ctx *ctx, bool safe)
 static unsigned long glink_qos_calc_rate_kBps(size_t pkt_size,
 				       unsigned long interval_us)
 {
-	unsigned long rate_kBps, rem;
+	unsigned long rem;
+	uint64_t rate_kBps;
 
 	rate_kBps = pkt_size * USEC_PER_SEC;
-	rem = do_div(rate_kBps, (interval_us * 1024));
+	rem = do_div(rate_kBps, interval_us * 1024);
 	return rate_kBps;
 }
 
@@ -5454,8 +5455,8 @@ static int xprt_single_threaded_tx(struct glink_core_xprt_ctx *xprt_ptr,
 static void glink_scheduler_eval_prio(struct channel_ctx *ctx,
 			struct glink_core_xprt_ctx *xprt_ctx)
 {
-	unsigned long token_end_time;
-	unsigned long token_consume_time, rem;
+	unsigned long token_end_time, rem;
+	uint64_t token_consume_time;
 	unsigned long obs_rate_kBps;
 
 	if (ctx->initial_priority == 0)
