@@ -189,6 +189,9 @@ extern u64			kimage_vaddr;
 /* the offset between the kernel virtual and physical mappings */
 extern u64			kimage_voffset;
 
+/* physical memory limit imposed by the booloader */
+extern phys_addr_t bootloader_memory_limit;
+
 static inline unsigned long kaslr_offset(void)
 {
 	return kimage_vaddr - KIMAGE_VADDR;
