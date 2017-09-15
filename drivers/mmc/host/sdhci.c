@@ -3778,11 +3778,31 @@ static int sdhci_cmdq_crypto_cfg(struct mmc_host *mmc,
 		struct mmc_request *mrq, u32 slot)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
+	int err = 0;
 
 	if (!host->is_crypto_en)
 		return 0;
 
-	return sdhci_crypto_cfg(host, mrq, slot);
+	if (host->crypto_reset_reqd && host->ops->crypto_engine_reset) {
+		err = host->ops->crypto_engine_reset(host);
+		if (err) {
+			pr_err("%s: crypto reset failed\n",
+					mmc_hostname(host->mmc));
+			goto out;
+		}
+		host->crypto_reset_reqd = false;
+	}
+
+	if (host->ops->crypto_engine_cmdq_cfg) {
+		err = host->ops->crypto_engine_cmdq_cfg(host, mrq, slot, NULL);
+		if (err) {
+			pr_err("%s: failed to configure crypto\n",
+					mmc_hostname(host->mmc));
+			goto out;
+		}
+	}
+out:
+	return err;
 }
 
 static void sdhci_cmdq_crypto_cfg_reset(struct mmc_host *mmc, unsigned int slot)
