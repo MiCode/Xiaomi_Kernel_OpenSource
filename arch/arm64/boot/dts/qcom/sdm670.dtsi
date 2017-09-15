@@ -1839,6 +1839,26 @@
 			dma-coherent;
 		};
 	};
+
+	qcom,icnss@18800000 {
+		status = "disabled";
+		compatible = "qcom,icnss";
+		reg = <0x18800000 0x800000>;
+		interrupts = <0 414 0 /* CE0 */ >,
+			     <0 415 0 /* CE1 */ >,
+			     <0 416 0 /* CE2 */ >,
+			     <0 417 0 /* CE3 */ >,
+			     <0 418 0 /* CE4 */ >,
+			     <0 419 0 /* CE5 */ >,
+			     <0 420 0 /* CE6 */ >,
+			     <0 421 0 /* CE7 */ >,
+			     <0 422 0 /* CE8 */ >,
+			     <0 423 0 /* CE9 */ >,
+			     <0 424 0 /* CE10 */ >,
+			     <0 425 0 /* CE11 */ >;
+		qcom,wlan-msa-memory = <0x100000>;
+		qcom,smmu-s1-bypass;
+	};
 };
 
 #include "sdm670-pinctrl.dtsi"
