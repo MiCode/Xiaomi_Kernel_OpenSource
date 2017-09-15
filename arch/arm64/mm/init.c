@@ -152,6 +152,7 @@ static void __init arm64_memory_present(void)
 #endif
 
 static phys_addr_t memory_limit = (phys_addr_t)ULLONG_MAX;
+static phys_addr_t bootloader_memory_limit;
 
 /*
  * Limit the memory size that was specified via FDT.
@@ -205,6 +206,11 @@ void __init arm64_memblock_init(void)
 	 * via the linear mapping.
 	 */
 	if (memory_limit != (phys_addr_t)ULLONG_MAX) {
+		/*
+		 * Save bootloader imposed memory limit before we overwirte
+		 * memblock.
+		 */
+		bootloader_memory_limit = memblock_end_of_DRAM();
 		memblock_enforce_memory_limit(memory_limit);
 		memblock_add(__pa(_text), (u64)(_end - _text));
 	}
@@ -607,4 +613,25 @@ int arch_remove_memory(u64 start, u64 size)
 }
 
 #endif /* CONFIG_MEMORY_HOTREMOVE */
+static int arm64_online_page(struct page *page)
+{
+	unsigned long target_pfn = page_to_pfn(page);
+	unsigned long limit = __phys_to_pfn(bootloader_memory_limit);
+
+	if (target_pfn >= limit)
+		return -EINVAL;
+
+	__online_page_set_limits(page);
+	__online_page_increment_counters(page);
+	__online_page_free(page);
+
+	return 0;
+}
+
+static int __init arm64_memory_hotplug_init(void)
+{
+	set_online_page_callback(&arm64_online_page);
+	return 0;
+}
+subsys_initcall(arm64_memory_hotplug_init);
 #endif /* CONFIG_MEMORY_HOTPLUG */
