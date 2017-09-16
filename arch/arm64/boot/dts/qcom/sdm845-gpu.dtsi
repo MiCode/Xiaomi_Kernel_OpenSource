@@ -122,6 +122,36 @@
 		cache-slice-names = "gpu", "gpuhtw";
 		cache-slices = <&llcc 12>, <&llcc 11>;
 
+		qcom,gpu-coresights {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "qcom,gpu-coresight";
+
+			qcom,gpu-coresight@0 {
+				reg = <0>;
+				coresight-name = "coresight-gfx";
+				coresight-atid = <50>;
+				port {
+					gfx_out_funnel_in2: endpoint {
+						remote-endpoint =
+						  <&funnel_in2_in_gfx>;
+					};
+				};
+			};
+
+			qcom,gpu-coresight@1 {
+				reg = <1>;
+				coresight-name = "coresight-gfx-cx";
+				coresight-atid = <51>;
+				port {
+					gfx_cx_out_funnel_in2: endpoint {
+						remote-endpoint =
+						  <&funnel_in2_in_gfx_cx>;
+					};
+				};
+			};
+		};
+
 		/* GPU Mempools */
 		qcom,gpu-mempools {
 			#address-cells = <1>;

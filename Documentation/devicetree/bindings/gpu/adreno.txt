@@ -211,19 +211,22 @@ GPU LLC slice info:
 				and pagetable walk.
 - cache-slices:			phandle to the system LLC driver, cache slice index.
 
+
+GPU coresight info:
 The following properties are optional as collecting data via coresight might
 not be supported for every chipset. The documentation for coresight
 properties can be found in:
 Documentation/devicetree/bindings/coresight/coresight.txt
 
-- coresight-id           Unique integer identifier for the bus.
-- coresight-name         Unique descriptive name of the bus.
-- coresight-nr-inports   Number of input ports on the bus.
-- coresight-outports     List of output port numbers on the bus.
-- coresight-child-list   List of phandles pointing to the children of this
+- qcom,gpu-coresights:	 Container for sets of GPU coresight sources.
+- coresight-id:          Unique integer identifier for the bus.
+- coresight-name:        Unique descriptive name of the bus.
+- coresight-nr-inports:  Number of input ports on the bus.
+- coresight-outports:    List of output port numbers on the bus.
+- coresight-child-list:  List of phandles pointing to the children of this
                          component.
-- coresight-child-ports  List of input port numbers of the children.
-- coresight-atid         The unique ATID value of the coresight device
+- coresight-child-ports: List of input port numbers of the children.
+- coresight-atid:        The unique ATID value of the coresight device
 
 Example of A330 GPU in MSM8916:
 
