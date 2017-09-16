@@ -2272,6 +2272,8 @@ struct vb2_buffer *msm_comm_get_vb_using_vidc_buffer(
 	mutex_lock(&inst->bufq[port].lock);
 	found = false;
 	list_for_each_entry(vb, &q->queued_list, queued_entry) {
+		if (vb->state != VB2_BUF_STATE_ACTIVE)
+			continue;
 		if (msm_comm_compare_vb2_planes(inst, mbuf, vb)) {
 			found = true;
 			break;
