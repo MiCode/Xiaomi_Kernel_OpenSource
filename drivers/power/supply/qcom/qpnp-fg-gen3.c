@@ -4934,6 +4934,13 @@ static int fg_parse_dt(struct fg_chip *chip)
 
 static void fg_cleanup(struct fg_chip *chip)
 {
+	int i;
+
+	for (i = 0; i < FG_IRQ_MAX; i++) {
+		if (fg_irqs[i].irq)
+			devm_free_irq(chip->dev, fg_irqs[i].irq, chip);
+	}
+
 	power_supply_unreg_notifier(&chip->nb);
 	debugfs_remove_recursive(chip->dfs_root);
 	if (chip->awake_votable)
