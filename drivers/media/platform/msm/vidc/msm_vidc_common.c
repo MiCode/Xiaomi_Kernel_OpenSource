@@ -560,6 +560,19 @@ int msm_comm_v4l2_to_hal(int id, int value)
 		default:
 			goto unknown_value;
 		}
+	case V4L2_CID_MPEG_VIDC_VIDEO_FLIP:
+		switch (value) {
+		case V4L2_CID_MPEG_VIDC_VIDEO_FLIP_NONE:
+			return HAL_FLIP_NONE;
+		case V4L2_CID_MPEG_VIDC_VIDEO_FLIP_HORI:
+			return HAL_FLIP_HORIZONTAL;
+		case V4L2_CID_MPEG_VIDC_VIDEO_FLIP_VERT:
+			return HAL_FLIP_VERTICAL;
+		case V4L2_CID_MPEG_VIDC_VIDEO_FLIP_BOTH:
+			return HAL_FLIP_BOTH;
+		default:
+			goto unknown_value;
+		}
 	case V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_MODE:
 		switch (value) {
 		case V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_DISABLED:

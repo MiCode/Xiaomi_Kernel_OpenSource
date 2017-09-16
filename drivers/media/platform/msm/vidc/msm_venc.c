@@ -61,6 +61,14 @@ static const char *const mpeg_video_rotation[] = {
 	NULL
 };
 
+static const char *const mpeg_video_flip[] = {
+	"No Flip",
+	"Horizontal Flip",
+	"Vertical Flip",
+	"Both",
+	NULL
+};
+
 static const char *const h264_video_entropy_cabac_model[] = {
 	"Model 0",
 	"Model 1",
@@ -1045,6 +1053,21 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.default_value = 0,
 		.step = 1,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_FLIP,
+		.name = "Flip",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_CID_MPEG_VIDC_VIDEO_FLIP_NONE,
+		.maximum = V4L2_CID_MPEG_VIDC_VIDEO_FLIP_BOTH,
+		.default_value = V4L2_CID_MPEG_VIDC_VIDEO_FLIP_NONE,
+		.menu_skip_mask = ~(
+		(1 << V4L2_CID_MPEG_VIDC_VIDEO_FLIP_NONE) |
+		(1 << V4L2_CID_MPEG_VIDC_VIDEO_FLIP_HORI) |
+		(1 << V4L2_CID_MPEG_VIDC_VIDEO_FLIP_VERT) |
+		(1 << V4L2_CID_MPEG_VIDC_VIDEO_FLIP_BOTH)
+		),
+		.qmenu = mpeg_video_flip,
+	},
 
 };
 
@@ -1436,11 +1459,27 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION:
 	{
+		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_FLIP);
 		property_id = HAL_PARAM_VPE_ROTATION;
 		vpe_rotation.rotate = msm_comm_v4l2_to_hal(
 				V4L2_CID_MPEG_VIDC_VIDEO_ROTATION,
 				ctrl->val);
-		vpe_rotation.flip = HAL_FLIP_NONE;
+		vpe_rotation.flip = msm_comm_v4l2_to_hal(
+				V4L2_CID_MPEG_VIDC_VIDEO_FLIP,
+				temp_ctrl->val);
+		pdata = &vpe_rotation;
+		break;
+	}
+	case V4L2_CID_MPEG_VIDC_VIDEO_FLIP:
+	{
+		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_ROTATION);
+		property_id = HAL_PARAM_VPE_ROTATION;
+		vpe_rotation.rotate = msm_comm_v4l2_to_hal(
+				V4L2_CID_MPEG_VIDC_VIDEO_ROTATION,
+				temp_ctrl->val);
+		vpe_rotation.flip = msm_comm_v4l2_to_hal(
+				V4L2_CID_MPEG_VIDC_VIDEO_FLIP,
+				ctrl->val);
 		pdata = &vpe_rotation;
 		break;
 	}
