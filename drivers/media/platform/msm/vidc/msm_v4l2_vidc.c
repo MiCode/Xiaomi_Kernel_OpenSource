@@ -448,14 +448,14 @@ static ssize_t store_thermal_level(struct device *dev,
 static DEVICE_ATTR(thermal_level, 0644, show_thermal_level,
 		store_thermal_level);
 
-static ssize_t show_platform_version(struct device *dev,
+static ssize_t show_sku_version(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	return scnprintf(buf, PAGE_SIZE, "%d",
-			vidc_driver->platform_version);
+			vidc_driver->sku_version);
 }
 
-static ssize_t store_platform_version(struct device *dev,
+static ssize_t store_sku_version(struct device *dev,
 		struct device_attribute *attr, const char *buf,
 		size_t count)
 {
@@ -463,13 +463,13 @@ static ssize_t store_platform_version(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(platform_version, 0444, show_platform_version,
-		store_platform_version);
+static DEVICE_ATTR(sku_version, 0444, show_sku_version,
+		store_sku_version);
 
 static struct attribute *msm_vidc_core_attrs[] = {
 		&dev_attr_pwr_collapse_delay.attr,
 		&dev_attr_thermal_level.attr,
-		&dev_attr_platform_version.attr,
+		&dev_attr_sku_version.attr,
 		NULL
 };
 
@@ -487,8 +487,6 @@ static const struct of_device_id msm_vidc_dt_match[] = {
 static int msm_vidc_probe_vidc_device(struct platform_device *pdev)
 {
 	int rc = 0;
-	void __iomem *base;
-	struct resource *res;
 	struct msm_vidc_core *core;
 	struct device *dev;
 	int nr = BASE_DEVICE_NUMBER;
@@ -605,32 +603,7 @@ static int msm_vidc_probe_vidc_device(struct platform_device *pdev)
 	core->debugfs_root = msm_vidc_debugfs_init_core(
 		core, vidc_driver->debugfs_root);
 
-	vidc_driver->platform_version = 0;
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "efuse");
-	if (!res) {
-		dprintk(VIDC_DBG, "failed to get efuse resource\n");
-	} else {
-		base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
-		if (!base) {
-			dprintk(VIDC_ERR,
-				"failed efuse ioremap: res->start %#x, size %d\n",
-				(u32)res->start, (u32)resource_size(res));
-		} else {
-			u32 efuse = 0;
-			struct platform_version_table *pf_ver_tbl =
-				core->resources.pf_ver_tbl;
-
-			efuse = readl_relaxed(base);
-			vidc_driver->platform_version =
-				(efuse & pf_ver_tbl->version_mask) >>
-				pf_ver_tbl->version_shift;
-			dprintk(VIDC_DBG,
-				"efuse 0x%x, platform version 0x%x\n",
-				efuse, vidc_driver->platform_version);
-
-			devm_iounmap(&pdev->dev, base);
-		}
-	}
+	vidc_driver->sku_version = core->resources.sku_version;
 
 	dprintk(VIDC_DBG, "populating sub devices\n");
 	/*
