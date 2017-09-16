@@ -2943,6 +2943,9 @@ static int fg_get_time_to_full_locked(struct fg_chip *chip, int *val)
 		t_predicted_cv, t_predicted = 0;
 	s64 delta_ms;
 
+	if (!chip->soc_reporting_ready)
+		return -ENODATA;
+
 	if (chip->bp.float_volt_uv <= 0) {
 		pr_err("battery profile is not loaded\n");
 		return -ENODATA;
