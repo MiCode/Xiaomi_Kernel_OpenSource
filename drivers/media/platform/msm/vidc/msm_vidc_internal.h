@@ -307,6 +307,7 @@ struct clock_data {
 	u32 opb_fourcc;
 	enum hal_work_mode work_mode;
 	bool low_latency_mode;
+	bool turbo_mode;
 };
 
 struct profile_data {

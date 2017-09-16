@@ -1437,6 +1437,9 @@ static void msm_vidc_comm_update_ctrl_limits(struct msm_vidc_inst *inst)
 				V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES,
 				&inst->capability.bframe);
 	}
+	msm_vidc_comm_update_ctrl(inst,
+		V4L2_CID_MPEG_VIDC_VIDEO_FRAME_RATE,
+		&inst->capability.frame_rate);
 }
 
 static void handle_session_init_done(enum hal_command_response cmd, void *data)

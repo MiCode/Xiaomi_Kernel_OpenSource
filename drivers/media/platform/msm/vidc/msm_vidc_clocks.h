@@ -22,7 +22,8 @@
 #define DCVS_DEC_EXTRA_OUTPUT_BUFFERS 4
 
 void msm_clock_data_reset(struct msm_vidc_inst *inst);
-int msm_vidc_update_operating_rate(struct msm_vidc_inst *inst);
+int msm_vidc_validate_operating_rate(struct msm_vidc_inst *inst,
+	u32 operating_rate);
 int msm_vidc_get_extra_buff_count(struct msm_vidc_inst *inst,
 	enum hal_buffer buffer_type);
 int msm_dcvs_try_enable(struct msm_vidc_inst *inst);
@@ -31,6 +32,7 @@ int msm_comm_init_clocks_and_bus_data(struct msm_vidc_inst *inst);
 void msm_comm_free_freq_table(struct msm_vidc_inst *inst);
 int msm_vidc_decide_work_mode(struct msm_vidc_inst *inst);
 int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst);
+void msm_print_core_status(struct msm_vidc_core *core, u32 core_id);
 void msm_vidc_clear_freq_entry(struct msm_vidc_inst *inst,
 	u32 device_addr);
 void msm_comm_free_input_cr_table(struct msm_vidc_inst *inst);
