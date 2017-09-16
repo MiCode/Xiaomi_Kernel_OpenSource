@@ -1471,13 +1471,14 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		pdata = &multi_slice_control;
 		break;
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_DELIVERY_MODE: {
-		bool codec_avc =
+		bool codecs_supported =
+			inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_HEVC ||
 			inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_H264 ||
 			inst->fmts[CAPTURE_PORT].fourcc ==
 							V4L2_PIX_FMT_H264_NO_SC;
 
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
-		if (codec_avc && temp_ctrl->val ==
+		if (codecs_supported && temp_ctrl->val ==
 				V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_MB) {
 			property_id = HAL_PARAM_VENC_SLICE_DELIVERY_MODE;
 			enable.enable = true;
