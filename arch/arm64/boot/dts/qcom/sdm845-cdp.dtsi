@@ -110,6 +110,7 @@
 	vdd-hba-supply = <&ufs_phy_gdsc>;
 	vdd-hba-fixed-regulator;
 	vcc-supply = <&pm8998_l20>;
+	vcc-voltage-level = <2950000 2960000>;
 	vccq2-supply = <&pm8998_s4>;
 	vcc-max-microamp = <600000>;
 	vccq2-max-microamp = <600000>;
@@ -146,6 +147,7 @@
 	vdd-hba-supply = <&ufs_card_gdsc>;
 	vdd-hba-fixed-regulator;
 	vcc-supply = <&pm8998_l21>;
+	vcc-voltage-level = <2950000 2960000>;
 	vccq2-supply = <&pm8998_s4>;
 	vcc-max-microamp = <300000>;
 	vccq2-max-microamp = <300000>;

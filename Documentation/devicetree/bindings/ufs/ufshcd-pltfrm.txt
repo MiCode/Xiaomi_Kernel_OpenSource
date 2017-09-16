@@ -23,6 +23,8 @@ Optional properties:
                           with "phys" attribute, provides phandle to UFS PHY node
 - vdd-hba-supply        : phandle to UFS host controller supply regulator node
 - vcc-supply            : phandle to VCC supply regulator node
+- vcc-voltage-level     : specifies voltage levels for VCC supply.
+                          Should be specified in pairs (min, max), units uV.
 - vccq-supply           : phandle to VCCQ supply regulator node
 - vccq2-supply          : phandle to VCCQ2 supply regulator node
 - vcc-supply-1p8        : For embedded UFS devices, valid VCC range is 1.7-1.95V
