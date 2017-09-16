@@ -547,7 +547,6 @@
 
 		wlan_fw_region: wlan_fw_region@8cb00000 {
 			compatible = "shared-dma-pool";
-			no-map;
 			reg = <0 0x8cb00000 0 0x100000>;
 		};
 
@@ -3022,7 +3021,6 @@
 			     <0 424 0 /* CE10 */ >,
 			     <0 425 0 /* CE11 */ >;
 		qcom,wlan-msa-memory = <0x100000>;
-		qcom,wlan-msa-fixed-region = <&wlan_fw_region>;
 
 		vdd-0.8-cx-mx-supply = <&pm8998_l5>;
 		vdd-1.8-xo-supply = <&pm8998_l7>;
