@@ -53,6 +53,7 @@
 			cache-size = <0x8000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_0>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			#cooling-cells = <2>;
 			L2_0: l2-cache {
@@ -88,6 +89,7 @@
 			cache-size = <0x8000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_100>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			#cooling-cells = <2>;
 			L2_100: l2-cache {
@@ -118,6 +120,7 @@
 			cache-size = <0x8000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_200>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			#cooling-cells = <2>;
 			L2_200: l2-cache {
@@ -148,6 +151,7 @@
 			cache-size = <0x8000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_300>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			#cooling-cells = <2>;
 			L2_300: l2-cache {
@@ -178,6 +182,7 @@
 			cache-size = <0x8000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_400>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			#cooling-cells = <2>;
 			L2_400: l2-cache {
@@ -208,6 +213,7 @@
 			cache-size = <0x8000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_500>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			#cooling-cells = <2>;
 			L2_500: l2-cache {
@@ -238,6 +244,7 @@
 			cache-size = <0x10000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_600>;
+			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
 			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			#cooling-cells = <2>;
 			L2_600: l2-cache {
@@ -268,6 +275,7 @@
 			cache-size = <0x10000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_700>;
+			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
 			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			#cooling-cells = <2>;
 			L2_700: l2-cache {
@@ -324,6 +332,129 @@
 					cpu = <&CPU7>;
 				};
 			};
+		};
+	};
+
+	energy_costs: energy-costs {
+		compatible = "sched-energy";
+
+		CPU_COST_0: core-cost0 {
+			busy-cost-data = <
+				 300000    14
+				 403200    18
+				 480000    21
+				 576000    25
+				 652800    27
+				 748800    31
+				 825600    40
+				 902400    43
+				 979200    46
+				1056000    50
+				1132800    53
+				1228800    57
+				1324800    84
+				1420800    90
+				1516800    96
+				1612800   114
+				1689600   135
+				1766400   141
+			>;
+			idle-cost-data = <
+				12 10 8 6
+			>;
+		};
+		CPU_COST_1: core-cost1 {
+			busy-cost-data = <
+				 300000    256
+				 403200    271
+				 480000    282
+				 576000    296
+				 652800    307
+				 748800    321
+				 825600    332
+				 902400    369
+				 979200    382
+				1056000    395
+				1132800    408
+				1209600    421
+				1286400    434
+				1363200    448
+				1459200    567
+				1536000    586
+				1612800    604
+				1689600    622
+				1766400    641
+				1843200    659
+				1920000    678
+				1996800    696
+				2092800    876
+				2169600    900
+				2246400    924
+				2323200    948
+				2400000   1170
+			>;
+			idle-cost-data = <
+				100 80 60 40
+			>;
+		};
+		CLUSTER_COST_0: cluster-cost0 {
+			busy-cost-data = <
+				 300000    5
+				 403200    7
+				 480000    7
+				 576000    7
+				 652800    8
+				 748800    8
+				 825600    9
+				 902400    9
+				 979200    9
+				1056000   10
+				1132800   10
+				1228800   10
+				1324800   13
+				1420800   14
+				1516800   15
+				1612800   16
+				1689600   19
+				1766400   19
+			>;
+			idle-cost-data = <
+				4 3 2 1
+			>;
+		};
+		CLUSTER_COST_1: cluster-cost1 {
+			busy-cost-data = <
+				 300000    25
+				 403200    27
+				 480000    28
+				 576000    29
+				 652800    30
+				 748800    32
+				 825600    33
+				 902400    36
+				 979200    38
+				1056000    39
+				1132800    40
+				1209600    42
+				1286400    43
+				1363200    44
+				1459200    56
+				1536000    58
+				1612800    60
+				1689600    62
+				1766400    64
+				1843200    65
+				1920000    67
+				1996800    69
+				2092800    87
+				2169600    90
+				2246400    92
+				2323200    94
+				2400000   117
+			>;
+			idle-cost-data = <
+				4 3 2 1
+			>;
 		};
 	};
 
