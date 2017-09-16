@@ -366,3 +366,7 @@
 	vbus-supply = <&smb2_vbus>;
 	vconn-supply = <&smb2_vconn>;
 };
+
+&usb0 {
+	extcon = <&pm660_pdphy>, <&pm660_pdphy>, <0> /* <&eud> */;
+};
