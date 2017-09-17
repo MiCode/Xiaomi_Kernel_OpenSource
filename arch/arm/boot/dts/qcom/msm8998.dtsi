@@ -3106,6 +3106,8 @@
 		compatible = "qcom,wcn3990-wifi";
 		reg = <0x18800000 0x800000>;
 		reg-names = "membase";
+		clocks = <&clock_gcc clk_rf_clk2_pin>;
+		clock-names = "cxo_ref_clk_pin";
 		interrupts =
 			<0 413 0 /* CE0 */ >,
 			<0 414 0 /* CE1 */ >,
@@ -3119,6 +3121,12 @@
 			<0 423 0 /* CE9 */ >,
 			<0 424 0 /* CE10 */ >,
 			<0 425 0 /* CE11 */ >;
+		vdd-0.8-cx-mx-supply = <&pm8998_l5>;
+		vdd-1.8-xo-supply = <&pm8998_l7_pin_ctrl>;
+		vdd-1.3-rfa-supply = <&pm8998_l17_pin_ctrl>;
+		vdd-3.3-ch0-supply = <&pm8998_l25_pin_ctrl>;
+		qcom,vdd-0.8-cx-mx-config = <800000 800000>;
+		qcom,vdd-3.3-ch0-config = <3104000 3312000>;
 	};
 
 	qcom,icnss@18800000 {
