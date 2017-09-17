@@ -173,7 +173,7 @@ static void timeline_fence_disable_signaling(struct fence *fence)
 {
 	struct sync_pt *pt = container_of(fence, struct sync_pt, base);
 
-	list_del_init(&pt->active_list);
+	list_del_init(&pt->link);
 }
 
 static void timeline_fence_value_str(struct fence *fence,
