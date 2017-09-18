@@ -1956,9 +1956,19 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 	writel_relaxed(0, cb_base + ARM_SMMU_CB_SCTLR);
 
-	arm_smmu_tlb_inv_context(smmu_domain);
-
 	arm_smmu_disable_clocks(smmu_domain->smmu);
+
+	if (smmu_domain->pgtbl_ops) {
+		free_io_pgtable_ops(smmu_domain->pgtbl_ops);
+		/* unassign any freed page table memory */
+		if (arm_smmu_is_master_side_secure(smmu_domain)) {
+			arm_smmu_secure_domain_lock(smmu_domain);
+			arm_smmu_secure_pool_destroy(smmu_domain);
+			arm_smmu_unassign_table(smmu_domain);
+			arm_smmu_secure_domain_unlock(smmu_domain);
+		}
+		smmu_domain->pgtbl_ops = NULL;
+	}
 
 free_irqs:
 	if (cfg->irptndx != INVALID_IRPTNDX) {
