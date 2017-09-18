@@ -348,7 +348,7 @@ static void get_fcc_split(struct pl_data *chip, int total_ua,
 }
 
 #define MINIMUM_PARALLEL_FCC_UA		500000
-#define PL_TAPER_WORK_DELAY_MS		100
+#define PL_TAPER_WORK_DELAY_MS		500
 #define TAPER_RESIDUAL_PCT		90
 static void pl_taper_work(struct work_struct *work)
 {
