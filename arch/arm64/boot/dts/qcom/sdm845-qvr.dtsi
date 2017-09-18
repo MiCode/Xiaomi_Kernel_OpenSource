@@ -10,6 +10,13 @@
  * GNU General Public License for more details.
  */
 
+#include "sdm845-pmic-overlay.dtsi"
+#include "sdm845-pinctrl-overlay.dtsi"
+
+&pmi8998_pdphy {
+	vbus-supply = <&smb2_vbus>;
+};
+
 &ufsphy_mem {
 	compatible = "qcom,ufs-phy-qmp-v3";
 
