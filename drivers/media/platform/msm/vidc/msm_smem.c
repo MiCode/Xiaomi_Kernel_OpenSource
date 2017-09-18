@@ -603,22 +603,25 @@ static int free_ion_mem(struct smem_client *client, struct msm_smem *mem)
 		__func__, mem->handle, mem->device_addr, mem->size,
 		mem->kvaddr, mem->buffer_type);
 
-	if (mem->device_addr)
+	if (mem->device_addr) {
 		msm_ion_put_device_address(client, mem->handle, mem->flags,
 			&mem->mapping_info, mem->buffer_type);
+		mem->device_addr = 0x0;
+	}
 
-	if (mem->kvaddr)
+	if (mem->kvaddr) {
 		ion_unmap_kernel(client->clnt, mem->handle);
+		mem->kvaddr = NULL;
+	}
 
 	if (mem->handle) {
 		trace_msm_smem_buffer_ion_op_start("FREE",
 				(u32)mem->buffer_type, -1, mem->size, -1,
 				mem->flags, -1);
 		ion_free(client->clnt, mem->handle);
+		mem->handle = NULL;
 		trace_msm_smem_buffer_ion_op_end("FREE", (u32)mem->buffer_type,
 			-1, mem->size, -1, mem->flags, -1);
-	} else {
-		dprintk(VIDC_ERR, "%s: invalid ion_handle\n", __func__);
 	}
 
 	return rc;

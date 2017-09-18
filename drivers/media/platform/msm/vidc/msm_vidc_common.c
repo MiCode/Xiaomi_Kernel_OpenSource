@@ -4758,6 +4758,7 @@ void msm_comm_release_eos_buffers(struct msm_vidc_inst *inst)
 	mutex_lock(&inst->eosbufs.lock);
 	list_for_each_entry_safe(buf, next, &inst->eosbufs.list, list) {
 		list_del(&buf->list);
+		msm_comm_smem_free(inst, &buf->smem);
 		kfree(buf);
 	}
 	INIT_LIST_HEAD(&inst->eosbufs.list);
