@@ -21,6 +21,28 @@
 
 static uint32_t g_sde_irq_status;
 
+void sde_irq_update(struct msm_kms *msm_kms, bool enable)
+{
+	int irq_num;
+	struct sde_kms *sde_kms = to_sde_kms(msm_kms);
+
+	if (!msm_kms || !sde_kms) {
+		SDE_ERROR("invalid kms arguments\n");
+		return;
+	}
+
+	irq_num = platform_get_irq(sde_kms->dev->platformdev, 0);
+	if (irq_num < 0) {
+		SDE_ERROR("invalid irq number\n");
+		return;
+	}
+
+	if (enable)
+		enable_irq(irq_num);
+	else
+		disable_irq(irq_num);
+}
+
 irqreturn_t sde_irq(struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);

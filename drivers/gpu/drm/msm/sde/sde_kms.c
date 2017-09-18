@@ -1976,12 +1976,21 @@ fail:
 static void sde_kms_handle_power_event(u32 event_type, void *usr)
 {
 	struct sde_kms *sde_kms = usr;
+	struct msm_kms *msm_kms;
 
+	msm_kms = &sde_kms->base;
 	if (!sde_kms)
 		return;
 
-	if (event_type == SDE_POWER_EVENT_POST_ENABLE)
+	SDE_DEBUG("event_type:%d\n", event_type);
+	SDE_EVT32_VERBOSE(event_type);
+
+	if (event_type == SDE_POWER_EVENT_POST_ENABLE) {
+		sde_irq_update(msm_kms, true);
 		sde_vbif_init_memtypes(sde_kms);
+	} else if (event_type == SDE_POWER_EVENT_PRE_DISABLE) {
+		sde_irq_update(msm_kms, false);
+	}
 }
 
 static int sde_kms_hw_init(struct msm_kms *kms)
@@ -2209,7 +2218,8 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	 */
 	sde_kms_handle_power_event(SDE_POWER_EVENT_POST_ENABLE, sde_kms);
 	sde_kms->power_event = sde_power_handle_register_event(&priv->phandle,
-			SDE_POWER_EVENT_POST_ENABLE,
+			SDE_POWER_EVENT_POST_ENABLE |
+			SDE_POWER_EVENT_PRE_DISABLE,
 			sde_kms_handle_power_event, sde_kms, "kms");
 
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
