@@ -746,6 +746,12 @@ int rsc_hw_vsync(struct sde_rsc_priv *rsc, enum rsc_vsync_req request,
 	return blen;
 }
 
+static void rsc_hw_debug_dump(struct sde_rsc_priv *rsc, u32 mux_sel)
+{
+	dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_DEBUG_BUS,
+		((mux_sel & 0xf) << 1) | BIT(0), rsc->debug_mode);
+}
+
 bool rsc_hw_is_amc_mode(struct sde_rsc_priv *rsc)
 {
 	return dss_reg_r(&rsc->drv_io, SDE_RSCC_TCS_DRV0_CONTROL,
@@ -806,6 +812,7 @@ int sde_rsc_hw_register(struct sde_rsc_priv *rsc)
 	rsc->hw_ops.state_update = sde_rsc_state_update;
 	rsc->hw_ops.debug_show = sde_rsc_debug_show;
 	rsc->hw_ops.mode_ctrl = rsc_hw_mode_ctrl;
+	rsc->hw_ops.debug_dump = rsc_hw_debug_dump;
 
 	return 0;
 }
