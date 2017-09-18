@@ -497,6 +497,19 @@ static void diagfwd_data_read_untag_done(struct diagfwd_info *fwd_info,
 					fwd_info->upd_len[i][1] = 0;
 			}
 		}
+
+		if (flag_buf_1) {
+			fwd_info->cpd_len_1 = len_cpd;
+			for (i = 0; i <= (fwd_info->num_pd - 2); i++)
+				if (fwd_info->type == TYPE_DATA)
+					fwd_info->upd_len[i][0] = len_upd[i];
+		} else if (flag_buf_2) {
+			fwd_info->cpd_len_2 = len_cpd;
+			for (i = 0; i <= (fwd_info->num_pd - 2); i++)
+				if (fwd_info->type == TYPE_DATA)
+					fwd_info->upd_len[i][1] = len_upd[i];
+		}
+
 		if (len_cpd) {
 			if (flag_buf_1)
 				fwd_info->cpd_len_1 = len_cpd;
@@ -1281,7 +1294,7 @@ int diagfwd_channel_read_done(struct diagfwd_info *fwd_info,
 
 void diagfwd_write_done(uint8_t peripheral, uint8_t type, int ctxt)
 {
-	int i = 0;
+	int i = 0, upd_valid_len = 0;
 	struct diagfwd_info *fwd_info = NULL;
 
 	if (peripheral >= NUM_PERIPHERALS || type >= NUM_TYPES)
@@ -1293,12 +1306,26 @@ void diagfwd_write_done(uint8_t peripheral, uint8_t type, int ctxt)
 
 	if (ctxt == 1 && fwd_info->buf_1) {
 		/* Buffer 1 for core PD is freed */
-		atomic_set(&fwd_info->buf_1->in_busy, 0);
 		fwd_info->cpd_len_1 = 0;
+		for (i = 0; i <= (fwd_info->num_pd - 2); i++) {
+			if (fwd_info->upd_len[i][0]) {
+				upd_valid_len = 1;
+				break;
+			}
+		}
+		if (!upd_valid_len)
+			atomic_set(&fwd_info->buf_1->in_busy, 0);
 	} else if (ctxt == 2 && fwd_info->buf_2) {
 		/* Buffer 2 for core PD is freed */
-		atomic_set(&fwd_info->buf_2->in_busy, 0);
 		fwd_info->cpd_len_2 = 0;
+		for (i = 0; i <= (fwd_info->num_pd - 2); i++) {
+			if (fwd_info->upd_len[i][1]) {
+				upd_valid_len = 1;
+				break;
+			}
+		}
+		if (!upd_valid_len)
+			atomic_set(&fwd_info->buf_2->in_busy, 0);
 	} else if (ctxt >= 3 && (ctxt % 2)) {
 		for (i = 0; i <= (fwd_info->num_pd - 2); i++) {
 			if (fwd_info->buf_upd[i][0]) {
