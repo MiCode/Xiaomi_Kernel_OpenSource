@@ -405,24 +405,6 @@
 			reg = <0 0x93d00000 0 0x1e00000>;
 		};
 
-		pil_ipa_fw_mem: pil_ipa_fw_region@95b00000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0 0x95b00000 0 0x10000>;
-		};
-
-		pil_ipa_gsi_mem: pil_ipa_gsi_region@95b10000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0 0x95b10000 0 0x5000>;
-		};
-
-		pil_gpu_mem: pil_gpu_region@95b15000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0 0x95b15000 0 0x1000>;
-		};
-
 		adsp_mem: adsp_region {
 			compatible = "shared-dma-pool";
 			alloc-ranges = <0 0x00000000 0 0xffffffff>;
