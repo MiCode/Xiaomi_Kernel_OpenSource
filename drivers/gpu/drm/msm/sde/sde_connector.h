@@ -134,11 +134,12 @@ struct sde_connector_ops {
 	 * @drm_mode: Display mode set for the display
 	 * @mode_info: Out parameter. information of the display mode
 	 * @max_mixer_width: max width supported by HW layer mixer
+	 * @display: Pointer to private display structure
 	 * Returns: Zero on success
 	 */
 	int (*get_mode_info)(const struct drm_display_mode *drm_mode,
 			struct msm_mode_info *mode_info,
-			u32 max_mixer_width);
+			u32 max_mixer_width, void *display);
 
 	/**
 	 * enable_event - notify display of event registration/unregistration

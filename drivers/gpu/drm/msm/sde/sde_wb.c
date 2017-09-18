@@ -289,22 +289,30 @@ int sde_wb_get_info(struct msm_display_info *info, void *display)
 }
 
 int sde_wb_get_mode_info(const struct drm_display_mode *drm_mode,
-	struct msm_mode_info *mode_info, u32 max_mixer_width)
+	struct msm_mode_info *mode_info, u32 max_mixer_width, void *display)
 {
 	const u32 dual_lm = 2;
 	const u32 single_lm = 1;
 	const u32 single_intf = 1;
 	const u32 no_enc = 0;
 	struct msm_display_topology *topology;
+	struct sde_wb_device *wb_dev = display;
+	u16 hdisplay;
+	int i;
 
-	if (!drm_mode || !mode_info || !max_mixer_width) {
+	if (!drm_mode || !mode_info || !max_mixer_width || !display) {
 		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 
+	hdisplay = drm_mode->hdisplay;
+
+	/* find maximum display width to support */
+	for (i = 0; i < wb_dev->count_modes; i++)
+		hdisplay = max(hdisplay, wb_dev->modes[i].hdisplay);
+
 	topology = &mode_info->topology;
-	topology->num_lm = (max_mixer_width <= drm_mode->hdisplay) ?
-							dual_lm : single_lm;
+	topology->num_lm = (max_mixer_width <= hdisplay) ? dual_lm : single_lm;
 	topology->num_enc = no_enc;
 	topology->num_intf = single_intf;
 

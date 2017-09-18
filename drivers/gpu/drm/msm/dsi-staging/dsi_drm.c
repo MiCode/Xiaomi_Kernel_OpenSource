@@ -297,7 +297,7 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 
 int dsi_conn_get_mode_info(const struct drm_display_mode *drm_mode,
 	struct msm_mode_info *mode_info,
-	u32 max_mixer_width)
+	u32 max_mixer_width, void *display)
 {
 	struct dsi_display_mode dsi_mode;
 	struct dsi_mode_info *timing;
