@@ -56,4 +56,11 @@ void sde_irq_uninstall(struct msm_kms *kms);
  */
 irqreturn_t sde_irq(struct msm_kms *kms);
 
+/**
+ * sde_irq_update - enable/disable IRQ line
+ * @kms:		pointer to kms context
+ * @enable:		enable:true, disable:false
+ */
+void sde_irq_update(struct msm_kms *kms, bool enable);
+
 #endif /* __SDE_IRQ_H__ */
