@@ -135,6 +135,8 @@
 			<&dai_pri_tdm_tx_2>, <&dai_pri_tdm_tx_3>,
 			<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_rx_1>,
 			<&dai_pri_tdm_rx_2>, <&dai_pri_tdm_rx_3>,
+			<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_rx_1>,
+			<&dai_sec_tdm_rx_2>, <&dai_sec_tdm_rx_3>,
 			<&dai_sec_tdm_tx_0>, <&dai_sec_tdm_tx_1>,
 			<&dai_sec_tdm_tx_2>, <&dai_sec_tdm_tx_3>,
 			<&dai_tert_tdm_rx_0>, <&dai_tert_tdm_rx_1>,
@@ -157,6 +159,8 @@
 			"msm-dai-q6-tdm.36869", "msm-dai-q6-tdm.36871",
 			"msm-dai-q6-tdm.36864", "msm-dai-q6-tdm.36866",
 			"msm-dai-q6-tdm.36868", "msm-dai-q6-tdm.36870",
+			"msm-dai-q6-tdm.36880", "msm-dai-q6-tdm.36882",
+			"msm-dai-q6-tdm.36884", "msm-dai-q6-tdm.36886",
 			"msm-dai-q6-tdm.36881", "msm-dai-q6-tdm.36883",
 			"msm-dai-q6-tdm.36885", "msm-dai-q6-tdm.36887",
 			"msm-dai-q6-tdm.36896", "msm-dai-q6-tdm.36898",
@@ -424,6 +428,43 @@
 		dai_pri_tdm_tx_3: qcom,msm-dai-q6-tdm-pri-tx-3 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36871>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	qcom,msm-dai-tdm-sec-rx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37136>;
+		qcom,msm-cpudai-tdm-group-num-ports = <4>;
+		qcom,msm-cpudai-tdm-group-port-id = <36880 36882 36884 36886>;
+		qcom,msm-cpudai-tdm-clk-rate = <12288000>;
+		qcom,msm-cpudai-tdm-clk-internal = <0>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <0>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <0>;
+		dai_sec_tdm_rx_0: qcom,msm-dai-q6-tdm-sec-rx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36880>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sec_tdm_rx_1: qcom,msm-dai-q6-tdm-sec-rx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36882>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sec_tdm_rx_2: qcom,msm-dai-q6-tdm-sec-rx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36884>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sec_tdm_rx_3: qcom,msm-dai-q6-tdm-sec-rx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36886>;
 			qcom,msm-cpudai-tdm-data-align = <0>;
 		};
 	};
