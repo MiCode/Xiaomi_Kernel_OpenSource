@@ -27,6 +27,7 @@
 #include <linux/cdev.h>
 #include <linux/ipa_odu_bridge.h>
 #include "../ipa_common_i.h"
+#include "../ipa_v3/ipa_pm.h"
 
 #define ODU_BRIDGE_DRV_NAME "odu_ipa_bridge"
 
@@ -152,6 +153,7 @@ struct odu_bridge_ctx {
 	void *logbuf_low;
 	struct completion rm_comp;
 	void (*wakeup_request)(void *);
+	u32 pm_hdl;
 };
 static struct odu_bridge_ctx *odu_bridge_ctx;
 
@@ -273,20 +275,22 @@ static int odu_bridge_connect_bridge(void)
 	memset(&odu_prod_params, 0, sizeof(odu_prod_params));
 	memset(&odu_emb_cons_params, 0, sizeof(odu_emb_cons_params));
 
-	/* Build IPA Resource manager dependency graph */
-	ODU_BRIDGE_DBG_LOW("build dependency graph\n");
-	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_ODU_ADAPT_PROD,
+	if (!ipa_pm_is_used()) {
+		/* Build IPA Resource manager dependency graph */
+		ODU_BRIDGE_DBG_LOW("build dependency graph\n");
+		res = ipa_rm_add_dependency(IPA_RM_RESOURCE_ODU_ADAPT_PROD,
 					IPA_RM_RESOURCE_Q6_CONS);
-	if (res && res != -EINPROGRESS) {
-		ODU_BRIDGE_ERR("ipa_rm_add_dependency() failed\n");
-		goto fail_add_dependency_1;
-	}
+		if (res && res != -EINPROGRESS) {
+			ODU_BRIDGE_ERR("ipa_rm_add_dependency() failed\n");
+			goto fail_add_dependency_1;
+		}
 
-	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_Q6_PROD,
+		res = ipa_rm_add_dependency(IPA_RM_RESOURCE_Q6_PROD,
 					IPA_RM_RESOURCE_ODU_ADAPT_CONS);
-	if (res && res != -EINPROGRESS) {
-		ODU_BRIDGE_ERR("ipa_rm_add_dependency() failed\n");
-		goto fail_add_dependency_2;
+		if (res && res != -EINPROGRESS) {
+			ODU_BRIDGE_ERR("ipa_rm_add_dependency() failed\n");
+			goto fail_add_dependency_2;
+		}
 	}
 
 	/* configure RX (ODU->IPA) EP */
@@ -346,10 +350,12 @@ fail_odu_teth_cons:
 	ipa_teardown_sys_pipe(odu_bridge_ctx->odu_prod_hdl);
 	odu_bridge_ctx->odu_prod_hdl = 0;
 fail_odu_prod:
-	ipa_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
+	if (!ipa_pm_is_used())
+		ipa_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
 				IPA_RM_RESOURCE_ODU_ADAPT_CONS);
 fail_add_dependency_2:
-	ipa_rm_delete_dependency(IPA_RM_RESOURCE_ODU_ADAPT_PROD,
+	if (!ipa_pm_is_used())
+		ipa_rm_delete_dependency(IPA_RM_RESOURCE_ODU_ADAPT_PROD,
 				IPA_RM_RESOURCE_Q6_CONS);
 fail_add_dependency_1:
 	return res;
@@ -397,17 +403,19 @@ static int odu_bridge_disconnect_bridge(void)
 		ODU_BRIDGE_ERR("teardown ODU EMB CONS failed\n");
 	odu_bridge_ctx->odu_emb_cons_hdl = 0;
 
-	/* Delete IPA Resource manager dependency graph */
-	ODU_BRIDGE_DBG("deleting dependency graph\n");
-	res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_ODU_ADAPT_PROD,
-		IPA_RM_RESOURCE_Q6_CONS);
-	if (res && res != -EINPROGRESS)
-		ODU_BRIDGE_ERR("ipa_rm_delete_dependency() failed\n");
+	if (!ipa_pm_is_used()) {
+		/* Delete IPA Resource manager dependency graph */
+		ODU_BRIDGE_DBG("deleting dependency graph\n");
+		res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_ODU_ADAPT_PROD,
+			IPA_RM_RESOURCE_Q6_CONS);
+		if (res && res != -EINPROGRESS)
+			ODU_BRIDGE_ERR("ipa_rm_delete_dependency() failed\n");
 
-	res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
-		IPA_RM_RESOURCE_ODU_ADAPT_CONS);
-	if (res && res != -EINPROGRESS)
-		ODU_BRIDGE_ERR("ipa_rm_delete_dependency() failed\n");
+		res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
+			IPA_RM_RESOURCE_ODU_ADAPT_CONS);
+		if (res && res != -EINPROGRESS)
+			ODU_BRIDGE_ERR("ipa_rm_delete_dependency() failed\n");
+	}
 
 	return 0;
 }
@@ -1319,23 +1327,57 @@ static int ipa_br_cons_release(void)
 	return 0;
 }
 
-/* IPA Bridge API is the new API which will replaces old odu_bridge API */
-int ipa_bridge_init(struct ipa_bridge_init_params *params, u32 *hdl)
+static void ipa_br_pm_cb(void *p, enum ipa_pm_cb_event event)
+{
+	ODU_BRIDGE_FUNC_ENTRY();
+	if (event != IPA_PM_REQUEST_WAKEUP) {
+		ODU_BRIDGE_ERR("Unexpected event %d\n", event);
+		WARN_ON(1);
+		return;
+	}
+
+	if (odu_bridge_ctx->is_suspended)
+		odu_bridge_ctx->wakeup_request(odu_bridge_ctx->priv);
+	ODU_BRIDGE_FUNC_EXIT();
+}
+
+static int ipa_br_register_pm(void)
+{
+	struct ipa_pm_register_params reg_params;
+	int ret;
+
+	memset(&reg_params, 0, sizeof(reg_params));
+	reg_params.name = "ODU Bridge";
+	reg_params.callback = ipa_br_pm_cb;
+	reg_params.group = IPA_PM_GROUP_DEFAULT;
+
+	ret = ipa_pm_register(&reg_params,
+		&odu_bridge_ctx->pm_hdl);
+	if (ret) {
+		ODU_BRIDGE_ERR("fail to register with PM %d\n", ret);
+		goto fail_pm_reg;
+	}
+
+	ret = ipa_pm_associate_ipa_cons_to_client(odu_bridge_ctx->pm_hdl,
+		IPA_CLIENT_ODU_EMB_CONS);
+	if (ret) {
+		ODU_BRIDGE_ERR("fail to associate cons with PM %d\n", ret);
+		goto fail_pm_cons;
+	}
+
+	return 0;
+
+fail_pm_cons:
+	ipa_pm_deregister(odu_bridge_ctx->pm_hdl);
+	odu_bridge_ctx->pm_hdl = ~0;
+fail_pm_reg:
+	return ret;
+}
+
+static int ipa_br_create_rm_resources(void)
 {
 	int ret;
 	struct ipa_rm_create_params create_params;
-
-	if (!params || !params->wakeup_request || !hdl) {
-		ODU_BRIDGE_ERR("NULL arg\n");
-		return -EINVAL;
-	}
-
-
-	ret = odu_bridge_init(&params->info);
-	if (ret)
-		return ret;
-
-	odu_bridge_ctx->wakeup_request = params->wakeup_request;
 
 	/* create IPA RM resources for power management */
 	init_completion(&odu_bridge_ctx->rm_comp);
@@ -1368,9 +1410,6 @@ int ipa_bridge_init(struct ipa_bridge_init_params *params, u32 *hdl)
 		goto fail_rm_cons;
 	}
 
-	/* handle is ignored for now */
-	*hdl = 0;
-
 	return 0;
 
 fail_rm_cons:
@@ -1379,6 +1418,41 @@ fail_rm_cons:
 fail_add_dep:
 	ipa_rm_delete_resource(IPA_RM_RESOURCE_ODU_ADAPT_PROD);
 fail_rm_prod:
+	return ret;
+}
+
+/* IPA Bridge API is the new API which will replaces old odu_bridge API */
+int ipa_bridge_init(struct ipa_bridge_init_params *params, u32 *hdl)
+{
+	int ret;
+
+	if (!params || !params->wakeup_request || !hdl) {
+		ODU_BRIDGE_ERR("NULL arg\n");
+		return -EINVAL;
+	}
+
+
+	ret = odu_bridge_init(&params->info);
+	if (ret)
+		return ret;
+
+	odu_bridge_ctx->wakeup_request = params->wakeup_request;
+
+	if (ipa_pm_is_used())
+		ret = ipa_br_register_pm();
+	else
+		ret = ipa_br_create_rm_resources();
+	if (ret) {
+		ODU_BRIDGE_ERR("fail to register woth RM/PM %d\n", ret);
+		goto fail_pm;
+	}
+
+	/* handle is ignored for now */
+	*hdl = 0;
+
+	return 0;
+
+fail_pm:
 	odu_bridge_cleanup();
 	return ret;
 }
@@ -1398,7 +1472,10 @@ int ipa_bridge_connect(u32 hdl)
 		return -EFAULT;
 	}
 
-	ret = ipa_br_request_prod();
+	if (ipa_pm_is_used())
+		ret = ipa_pm_activate_sync(odu_bridge_ctx->pm_hdl);
+	else
+		ret = ipa_br_request_prod();
 	if (ret)
 		return ret;
 
@@ -1410,6 +1487,10 @@ int ipa_bridge_set_perf_profile(u32 hdl, u32 bandwidth)
 {
 	struct ipa_rm_perf_profile profile = {0};
 	int ret;
+
+	if (ipa_pm_is_used())
+		return ipa_pm_set_perf_profile(odu_bridge_ctx->pm_hdl,
+			bandwidth);
 
 	profile.max_supported_bandwidth_mbps = bandwidth;
 	ret = ipa_rm_set_perf_profile(IPA_RM_RESOURCE_ODU_ADAPT_PROD, &profile);
@@ -1436,7 +1517,10 @@ int ipa_bridge_disconnect(u32 hdl)
 	if (ret)
 		return ret;
 
-	ret = ipa_br_release_prod();
+	if (ipa_pm_is_used())
+		ret = ipa_pm_deactivate_sync(odu_bridge_ctx->pm_hdl);
+	else
+		ret = ipa_br_release_prod();
 	if (ret)
 		return ret;
 
@@ -1470,7 +1554,10 @@ int ipa_bridge_suspend(u32 hdl)
 		return ret;
 	}
 
-	ret = ipa_br_release_prod();
+	if (ipa_pm_is_used())
+		ret = ipa_pm_deactivate_sync(odu_bridge_ctx->pm_hdl);
+	else
+		ret = ipa_br_release_prod();
 	if (ret) {
 		ODU_BRIDGE_ERR("failed to release prod %d\n", ret);
 		ipa_start_gsi_channel(odu_bridge_ctx->odu_emb_cons_hdl);
@@ -1501,7 +1588,10 @@ int ipa_bridge_resume(u32 hdl)
 		return -EFAULT;
 	}
 
-	ret = ipa_br_request_prod();
+	if (ipa_pm_is_used())
+		ret = ipa_pm_activate_sync(odu_bridge_ctx->pm_hdl);
+	else
+		ret = ipa_br_request_prod();
 	if (ret)
 		return ret;
 
@@ -1523,12 +1613,27 @@ int ipa_bridge_tx_dp(u32 hdl, struct sk_buff *skb,
 }
 EXPORT_SYMBOL(ipa_bridge_tx_dp);
 
-int ipa_bridge_cleanup(u32 hdl)
+static void ipa_br_delete_rm_resources(void)
 {
 	ipa_rm_delete_dependency(IPA_RM_RESOURCE_ODU_ADAPT_PROD,
 		IPA_RM_RESOURCE_APPS_CONS);
 	ipa_rm_delete_resource(IPA_RM_RESOURCE_ODU_ADAPT_PROD);
 	ipa_rm_delete_resource(IPA_RM_RESOURCE_ODU_ADAPT_CONS);
+}
+
+static void ipa_br_deregister_pm(void)
+{
+	ipa_pm_deactivate_sync(odu_bridge_ctx->pm_hdl);
+	ipa_pm_deregister(odu_bridge_ctx->pm_hdl);
+	odu_bridge_ctx->pm_hdl = ~0;
+}
+
+int ipa_bridge_cleanup(u32 hdl)
+{
+	if (ipa_pm_is_used())
+		ipa_br_deregister_pm();
+	else
+		ipa_br_delete_rm_resources();
 	return odu_bridge_cleanup();
 }
 EXPORT_SYMBOL(ipa_bridge_cleanup);

@@ -142,6 +142,9 @@ struct rmnet_ipa3_context {
 	u32 ipa3_to_apps_hdl;
 	struct mutex pipe_handle_guard;
 	struct mutex add_mux_channel_lock;
+	u32 pm_hdl;
+	u32 q6_pm_hdl;
+	u32 q6_teth_pm_hdl;
 };
 
 static struct rmnet_ipa3_context *rmnet_ipa3_ctx;
@@ -1134,8 +1137,14 @@ static int ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 
 send:
 	/* IPA_RM checking start */
-	ret = ipa_rm_inactivity_timer_request_resource(
-		IPA_RM_RESOURCE_WWAN_0_PROD);
+	if (ipa3_ctx->use_ipa_pm) {
+		/* activate the modem pm for clock scaling */
+		ipa_pm_activate(rmnet_ipa3_ctx->q6_pm_hdl);
+		ret = ipa_pm_activate(rmnet_ipa3_ctx->pm_hdl);
+	} else {
+		ret = ipa_rm_inactivity_timer_request_resource(
+			IPA_RM_RESOURCE_WWAN_0_PROD);
+	}
 	if (ret == -EINPROGRESS) {
 		netif_stop_queue(dev);
 		return NETDEV_TX_BUSY;
@@ -1164,9 +1173,15 @@ send:
 	dev->stats.tx_bytes += skb->len;
 	ret = NETDEV_TX_OK;
 out:
-	if (atomic_read(&wwan_ptr->outstanding_pkts) == 0)
-		ipa_rm_inactivity_timer_release_resource(
-			IPA_RM_RESOURCE_WWAN_0_PROD);
+	if (atomic_read(&wwan_ptr->outstanding_pkts) == 0) {
+		if (ipa3_ctx->use_ipa_pm) {
+			ipa_pm_deferred_deactivate(rmnet_ipa3_ctx->pm_hdl);
+			ipa_pm_deferred_deactivate(rmnet_ipa3_ctx->q6_pm_hdl);
+		} else {
+			ipa_rm_inactivity_timer_release_resource(
+				IPA_RM_RESOURCE_WWAN_0_PROD);
+		}
+	}
 	return ret;
 }
 
@@ -1218,9 +1233,15 @@ static void apps_ipa_tx_complete_notify(void *priv,
 		netif_wake_queue(wwan_ptr->net);
 	}
 
-	if (atomic_read(&wwan_ptr->outstanding_pkts) == 0)
-		ipa_rm_inactivity_timer_release_resource(
+	if (atomic_read(&wwan_ptr->outstanding_pkts) == 0) {
+		if (ipa3_ctx->use_ipa_pm) {
+			ipa_pm_deferred_deactivate(rmnet_ipa3_ctx->pm_hdl);
+			ipa_pm_deferred_deactivate(rmnet_ipa3_ctx->q6_pm_hdl);
+		} else {
+			ipa_rm_inactivity_timer_release_resource(
 			IPA_RM_RESOURCE_WWAN_0_PROD);
+		}
+	}
 	__netif_tx_unlock_bh(netdev_get_tx_queue(dev, 0));
 	dev_kfree_skb_any(skb);
 }
@@ -1858,6 +1879,91 @@ static void ipa3_q6_rm_notify_cb(void *user_data,
 		return;
 	}
 }
+
+int ipa3_wwan_set_modem_state(struct wan_ioctl_notify_wan_state *state)
+{
+	if (!state)
+		return -EINVAL;
+
+	if (!ipa_pm_is_used())
+		return 0;
+
+	if (state->up)
+		return ipa_pm_activate_sync(rmnet_ipa3_ctx->q6_teth_pm_hdl);
+	else
+		return ipa_pm_deactivate_sync(rmnet_ipa3_ctx->q6_teth_pm_hdl);
+}
+
+/**
+ * ipa3_q6_register_pm - Register modem clients for PM
+ *
+ * This function will register 2 client with IPA PM to represent modem
+ * in clock scaling calculation:
+ *	- "EMB MODEM" - this client will be activated with embedded traffic
+	- "TETH MODEM" - this client we be activated by IPACM on offload to
+	  modem.
+*/
+static int ipa3_q6_register_pm(void)
+{
+	int result;
+	struct ipa_pm_register_params pm_reg;
+
+	memset(&pm_reg, 0, sizeof(pm_reg));
+	pm_reg.name = "EMB MODEM";
+	pm_reg.group = IPA_PM_GROUP_MODEM;
+	pm_reg.skip_clk_vote = true;
+	result = ipa_pm_register(&pm_reg, &rmnet_ipa3_ctx->q6_pm_hdl);
+	if (result) {
+		IPAERR("failed to create IPA PM client %d\n", result);
+		return result;
+	}
+
+	pm_reg.name = "TETH MODEM";
+	pm_reg.group = IPA_PM_GROUP_MODEM;
+	pm_reg.skip_clk_vote = true;
+	result = ipa_pm_register(&pm_reg, &rmnet_ipa3_ctx->q6_teth_pm_hdl);
+	if (result) {
+		IPAERR("failed to create IPA PM client %d\n", result);
+		return result;
+	}
+
+	return 0;
+}
+
+static void ipa3_q6_deregister_pm(void)
+{
+	ipa_pm_deactivate_sync(rmnet_ipa3_ctx->q6_pm_hdl);
+	ipa_pm_deregister(rmnet_ipa3_ctx->q6_pm_hdl);
+}
+
+int ipa3_wwan_set_modem_perf_profile(int throughput)
+{
+	struct ipa_rm_perf_profile profile;
+	int ret;
+
+	ret = ipa_pm_set_perf_profile(rmnet_ipa3_ctx->q6_pm_hdl, throughput);
+	if (ret)
+		return ret;
+	return ipa_pm_set_perf_profile(rmnet_ipa3_ctx->q6_teth_pm_hdl,
+		throughput);
+
+	if (ipa3_ctx->use_ipa_pm) {
+		ret = ipa_pm_set_perf_profile(rmnet_ipa3_ctx->q6_pm_hdl,
+			throughput);
+		if (ret)
+			return ret;
+		ret = ipa_pm_set_perf_profile(rmnet_ipa3_ctx->q6_teth_pm_hdl,
+			throughput);
+	} else {
+		memset(&profile, 0, sizeof(profile));
+		profile.max_supported_bandwidth_mbps = throughput;
+		ret = ipa_rm_set_perf_profile(IPA_RM_RESOURCE_Q6_PROD,
+			&profile);
+	}
+
+	return ret;
+}
+
 static int ipa3_q6_initialize_rm(void)
 {
 	struct ipa_rm_create_params create_params;
@@ -2075,6 +2181,120 @@ static void ipa3_ready_cb(void *user_data)
 	schedule_work(&ipa3_scheduled_probe);
 }
 
+static void ipa_pm_wwan_pm_cb(void *p, enum ipa_pm_cb_event event)
+{
+	struct net_device *dev = (struct net_device *)p;
+	struct ipa3_wwan_private *wwan_ptr = netdev_priv(dev);
+
+	IPAWANDBG_LOW("event %d\n", event);
+	switch (event) {
+	case IPA_PM_CLIENT_ACTIVATED:
+		if (wwan_ptr->device_status == WWAN_DEVICE_INACTIVE) {
+			complete_all(&wwan_ptr->resource_granted_completion);
+			break;
+		}
+		ipa3_rm_resource_granted(dev);
+		break;
+	default:
+		pr_err("%s: unknown event %d\n", __func__, event);
+		break;
+	}
+}
+
+static int ipa3_wwan_register_netdev_pm_client(struct net_device *dev)
+{
+	int result;
+	struct ipa_pm_register_params pm_reg;
+
+	memset(&pm_reg, 0, sizeof(pm_reg));
+	pm_reg.name = IPA_NETDEV()->name;
+	pm_reg.user_data = dev;
+	pm_reg.callback = ipa_pm_wwan_pm_cb;
+	pm_reg.group = IPA_PM_GROUP_APPS;
+	result = ipa_pm_register(&pm_reg, &rmnet_ipa3_ctx->pm_hdl);
+	if (result) {
+		IPAERR("failed to create IPA PM client %d\n", result);
+			return result;
+	}
+	return 0;
+}
+
+static void ipa3_wwan_deregister_netdev_pm_client(void)
+{
+	ipa_pm_deactivate_sync(rmnet_ipa3_ctx->pm_hdl);
+	ipa_pm_deregister(rmnet_ipa3_ctx->pm_hdl);
+}
+
+static int ipa3_wwan_create_wwan_rm_resource(struct net_device *dev)
+{
+	struct ipa_rm_create_params ipa_rm_params;
+	struct ipa_rm_perf_profile profile;
+	int ret;
+
+	memset(&ipa_rm_params, 0, sizeof(struct ipa_rm_create_params));
+	ipa_rm_params.name = IPA_RM_RESOURCE_WWAN_0_PROD;
+	ipa_rm_params.reg_params.user_data = dev;
+	ipa_rm_params.reg_params.notify_cb = ipa3_rm_notify;
+	ret = ipa_rm_create_resource(&ipa_rm_params);
+	if (ret) {
+		pr_err("%s: unable to create resourse %d in IPA RM\n",
+			__func__, IPA_RM_RESOURCE_WWAN_0_PROD);
+		return ret;
+	}
+	ret = ipa_rm_inactivity_timer_init(IPA_RM_RESOURCE_WWAN_0_PROD,
+		IPA_RM_INACTIVITY_TIMER);
+	if (ret) {
+		pr_err("%s: ipa rm timer init failed %d on resourse %d\n",
+			__func__, ret, IPA_RM_RESOURCE_WWAN_0_PROD);
+		goto timer_init_err;
+	}
+	/* add dependency */
+	ret = ipa_rm_add_dependency(IPA_RM_RESOURCE_WWAN_0_PROD,
+		IPA_RM_RESOURCE_Q6_CONS);
+	if (ret)
+		goto add_dpnd_err;
+	/* setup Performance profile */
+	memset(&profile, 0, sizeof(profile));
+	profile.max_supported_bandwidth_mbps = IPA_APPS_MAX_BW_IN_MBPS;
+	ret = ipa_rm_set_perf_profile(IPA_RM_RESOURCE_WWAN_0_PROD,
+		&profile);
+	if (ret)
+		goto set_perf_err;
+
+	return 0;
+
+set_perf_err:
+	ipa_rm_delete_dependency(IPA_RM_RESOURCE_WWAN_0_PROD,
+		IPA_RM_RESOURCE_Q6_CONS);
+add_dpnd_err:
+	ipa_rm_inactivity_timer_destroy(
+		IPA_RM_RESOURCE_WWAN_0_PROD); /* IPA_RM */
+timer_init_err:
+	ipa_rm_delete_resource(IPA_RM_RESOURCE_WWAN_0_PROD);
+	return ret;
+}
+
+static void ipa3_wwan_delete_wwan_rm_resource(void)
+{
+	int ret;
+
+	ret = ipa_rm_delete_dependency(IPA_RM_RESOURCE_WWAN_0_PROD,
+		IPA_RM_RESOURCE_Q6_CONS);
+	if (ret < 0)
+		IPAWANERR("Error deleting dependency %d->%d, ret=%d\n",
+		IPA_RM_RESOURCE_WWAN_0_PROD, IPA_RM_RESOURCE_Q6_CONS,
+		ret);
+	ret = ipa_rm_inactivity_timer_destroy(IPA_RM_RESOURCE_WWAN_0_PROD);
+	if (ret < 0)
+		IPAWANERR(
+		"Error ipa_rm_inactivity_timer_destroy resource %d, ret=%d\n",
+		IPA_RM_RESOURCE_WWAN_0_PROD, ret);
+	ret = ipa_rm_delete_resource(IPA_RM_RESOURCE_WWAN_0_PROD);
+	if (ret < 0)
+		IPAWANERR("Error deleting resource %d, ret=%d\n",
+		IPA_RM_RESOURCE_WWAN_0_PROD, ret);
+}
+
 /**
  * ipa3_wwan_probe() - Initialized the module and registers as a
  * network interface to the network stack
@@ -2092,8 +2312,6 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 {
 	int ret, i;
 	struct net_device *dev;
-	struct ipa_rm_create_params ipa_rm_params;	/* IPA_RM */
-	struct ipa_rm_perf_profile profile;			/* IPA_RM */
 
 	pr_info("rmnet_ipa3 started initialization\n");
 
@@ -2187,7 +2405,10 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 
 	if (!atomic_read(&rmnet_ipa3_ctx->is_ssr)) {
 		/* IPA_RM configuration starts */
-		ret = ipa3_q6_initialize_rm();
+		if (ipa3_ctx->use_ipa_pm)
+			ret = ipa3_q6_register_pm();
+		else
+			ret = ipa3_q6_initialize_rm();
 		if (ret) {
 			IPAWANERR("%s: ipa3_q6_initialize_rm failed, ret: %d\n",
 				__func__, ret);
@@ -2195,36 +2416,14 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 		}
 	}
 
-	memset(&ipa_rm_params, 0, sizeof(struct ipa_rm_create_params));
-	ipa_rm_params.name = IPA_RM_RESOURCE_WWAN_0_PROD;
-	ipa_rm_params.reg_params.user_data = dev;
-	ipa_rm_params.reg_params.notify_cb = ipa3_rm_notify;
-	ret = ipa_rm_create_resource(&ipa_rm_params);
+	if (ipa3_ctx->use_ipa_pm)
+		ret = ipa3_wwan_register_netdev_pm_client(dev);
+	else
+		ret = ipa3_wwan_create_wwan_rm_resource(dev);
 	if (ret) {
-		pr_err("%s: unable to create resourse %d in IPA RM\n",
-		       __func__, IPA_RM_RESOURCE_WWAN_0_PROD);
-		goto create_rsrc_err;
+		IPAWANERR("fail to create/register pm resources\n");
+		goto fail_pm;
 	}
-	ret = ipa_rm_inactivity_timer_init(IPA_RM_RESOURCE_WWAN_0_PROD,
-					   IPA_RM_INACTIVITY_TIMER);
-	if (ret) {
-		pr_err("%s: ipa rm timer init failed %d on resourse %d\n",
-		       __func__, ret, IPA_RM_RESOURCE_WWAN_0_PROD);
-		goto timer_init_err;
-	}
-	/* add dependency */
-	ret = ipa_rm_add_dependency(IPA_RM_RESOURCE_WWAN_0_PROD,
-			IPA_RM_RESOURCE_Q6_CONS);
-	if (ret)
-		goto add_dpnd_err;
-	/* setup Performance profile */
-	memset(&profile, 0, sizeof(profile));
-	profile.max_supported_bandwidth_mbps = IPA_APPS_MAX_BW_IN_MBPS;
-	ret = ipa_rm_set_perf_profile(IPA_RM_RESOURCE_WWAN_0_PROD,
-			&profile);
-	if (ret)
-		goto set_perf_err;
-	/* IPA_RM configuration ends */
 
 	/* Enable SG support in netdevice. */
 	if (ipa3_rmnet_res.ipa_advertise_sg_support)
@@ -2260,28 +2459,18 @@ config_err:
 		netif_napi_del(&(rmnet_ipa3_ctx->wwan_priv->napi));
 	unregister_netdev(dev);
 set_perf_err:
-	ret = ipa_rm_delete_dependency(IPA_RM_RESOURCE_WWAN_0_PROD,
-		IPA_RM_RESOURCE_Q6_CONS);
-	if (ret)
-		IPAWANERR("Error deleting dependency %d->%d, ret=%d\n",
-			IPA_RM_RESOURCE_WWAN_0_PROD, IPA_RM_RESOURCE_Q6_CONS,
-			ret);
-add_dpnd_err:
-	ret = ipa_rm_inactivity_timer_destroy(
-		IPA_RM_RESOURCE_WWAN_0_PROD); /* IPA_RM */
-	if (ret)
-		IPAWANERR("Error ipa_rm_inactivity_timer_destroy %d, ret=%d\n",
-		IPA_RM_RESOURCE_WWAN_0_PROD, ret);
-timer_init_err:
-	ret = ipa_rm_delete_resource(IPA_RM_RESOURCE_WWAN_0_PROD);
-	if (ret)
-		IPAWANERR("Error deleting resource %d, ret=%d\n",
-		IPA_RM_RESOURCE_WWAN_0_PROD, ret);
-create_rsrc_err:
-
-	if (!atomic_read(&rmnet_ipa3_ctx->is_ssr))
-		ipa3_q6_deinitialize_rm();
-
+	if (ipa3_ctx->use_ipa_pm)
+		ipa3_wwan_deregister_netdev_pm_client();
+	else
+		ipa3_wwan_delete_wwan_rm_resource();
+fail_pm:
+	if (ipa3_ctx->use_ipa_pm) {
+		if (!atomic_read(&rmnet_ipa3_ctx->is_ssr))
+			ipa3_q6_deregister_pm();
+	} else {
+		if (!atomic_read(&rmnet_ipa3_ctx->is_ssr))
+			ipa3_q6_deinitialize_rm();
+	}
 q6_init_err:
 	free_netdev(dev);
 	rmnet_ipa3_ctx->wwan_priv = NULL;
@@ -2317,21 +2506,10 @@ static int ipa3_wwan_remove(struct platform_device *pdev)
 		netif_napi_del(&(rmnet_ipa3_ctx->wwan_priv->napi));
 	mutex_unlock(&rmnet_ipa3_ctx->pipe_handle_guard);
 	unregister_netdev(IPA_NETDEV());
-	ret = ipa_rm_delete_dependency(IPA_RM_RESOURCE_WWAN_0_PROD,
-		IPA_RM_RESOURCE_Q6_CONS);
-	if (ret < 0)
-		IPAWANERR("Error deleting dependency %d->%d, ret=%d\n",
-			IPA_RM_RESOURCE_WWAN_0_PROD, IPA_RM_RESOURCE_Q6_CONS,
-			ret);
-	ret = ipa_rm_inactivity_timer_destroy(IPA_RM_RESOURCE_WWAN_0_PROD);
-	if (ret < 0)
-		IPAWANERR(
-		"Error ipa_rm_inactivity_timer_destroy resource %d, ret=%d\n",
-		IPA_RM_RESOURCE_WWAN_0_PROD, ret);
-	ret = ipa_rm_delete_resource(IPA_RM_RESOURCE_WWAN_0_PROD);
-	if (ret < 0)
-		IPAWANERR("Error deleting resource %d, ret=%d\n",
-		IPA_RM_RESOURCE_WWAN_0_PROD, ret);
+	if (ipa3_ctx->use_ipa_pm)
+		ipa3_wwan_deregister_netdev_pm_client();
+	else
+		ipa3_wwan_delete_wwan_rm_resource();
 	cancel_work_sync(&ipa3_tx_wakequeue_work);
 	cancel_delayed_work(&ipa_tether_stats_poll_wakequeue_work);
 	if (IPA_NETDEV())
@@ -2385,23 +2563,26 @@ static int rmnet_ipa_ap_suspend(struct device *dev)
 	if (wwan_ptr == NULL) {
 		IPAWANERR("wwan_ptr is NULL.\n");
 		ret = 0;
-		goto unlock_and_bail;
+		netif_tx_unlock_bh(netdev);
+		goto bail;
 	}
 
 	/* Do not allow A7 to suspend in case there are oustanding packets */
 	if (atomic_read(&wwan_ptr->outstanding_pkts) != 0) {
 		IPAWANDBG("Outstanding packets, postponing AP suspend.\n");
 		ret = -EAGAIN;
-		goto unlock_and_bail;
+		netif_tx_unlock_bh(netdev);
+		goto bail;
 	}
 
 	/* Make sure that there is no Tx operation ongoing */
 	netif_stop_queue(netdev);
-	ipa_rm_release_resource(IPA_RM_RESOURCE_WWAN_0_PROD);
-	ret = 0;
-
-unlock_and_bail:
 	netif_tx_unlock_bh(netdev);
+	if (ipa3_ctx->use_ipa_pm)
+		ipa_pm_deactivate_sync(rmnet_ipa3_ctx->pm_hdl);
+	else
+		ipa_rm_release_resource(IPA_RM_RESOURCE_WWAN_0_PROD);
+	ret = 0;
 bail:
 	IPAWANDBG("Exit with %d\n", ret);
 	return ret;

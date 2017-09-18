@@ -1466,6 +1466,10 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	case IPA_IOC_RM_ADD_DEPENDENCY:
+		/* deprecate if IPA PM is used */
+		if (ipa3_ctx->use_ipa_pm)
+			return 0;
+
 		if (copy_from_user((u8 *)&rm_depend, (u8 *)arg,
 				sizeof(struct ipa_ioc_rm_dependency))) {
 			retval = -EFAULT;
@@ -1475,6 +1479,10 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			rm_depend.resource_name, rm_depend.depends_on_name);
 		break;
 	case IPA_IOC_RM_DEL_DEPENDENCY:
+		/* deprecate if IPA PM is used */
+		if (ipa3_ctx->use_ipa_pm)
+			return 0;
+
 		if (copy_from_user((u8 *)&rm_depend, (u8 *)arg,
 				sizeof(struct ipa_ioc_rm_dependency))) {
 			retval = -EFAULT;
@@ -3861,14 +3869,19 @@ void ipa3_suspend_handler(enum ipa_irq_type interrupt,
 	u32 i = 0;
 	int res;
 	struct ipa_ep_cfg_holb holb_cfg;
+	u32 pipe_bitmask = 0;
 
 	IPADBG("interrupt=%d, interrupt_data=%u\n",
 		interrupt, suspend_data);
 	memset(&holb_cfg, 0, sizeof(holb_cfg));
 	holb_cfg.tmr_val = 0;
 
-	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
+	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++, bmsk = bmsk << 1) {
 		if ((suspend_data & bmsk) && (ipa3_ctx->ep[i].valid)) {
+			if (ipa3_ctx->use_ipa_pm) {
+				pipe_bitmask |= bmsk;
+				continue;
+			}
 			if (IPA_CLIENT_IS_APPS_CONS(ipa3_ctx->ep[i].client)) {
 				/*
 				 * pipe will be unsuspended as part of
@@ -3907,7 +3920,13 @@ void ipa3_suspend_handler(enum ipa_irq_type interrupt,
 				}
 			}
 		}
-		bmsk = bmsk << 1;
+	}
+	if (ipa3_ctx->use_ipa_pm) {
+		res = ipa_pm_handle_suspend(pipe_bitmask);
+		if (res) {
+			IPAERR("ipa_pm_handle_suspend failed %d\n", res);
+			return;
+		}
 	}
 }
 
@@ -4668,6 +4687,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->ee = resource_p->ee;
 	ipa3_ctx->apply_rg10_wa = resource_p->apply_rg10_wa;
 	ipa3_ctx->gsi_ch20_wa = resource_p->gsi_ch20_wa;
+	ipa3_ctx->use_ipa_pm = resource_p->use_ipa_pm;
 	ipa3_ctx->ipa3_active_clients_logging.log_rdy = false;
 	if (resource_p->ipa_tz_unlock_reg) {
 		ipa3_ctx->ipa_tz_unlock_reg_num =
@@ -4981,20 +5001,30 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	wakeup_source_init(&ipa3_ctx->w_lock, "IPA_WS");
 	spin_lock_init(&ipa3_ctx->wakelock_ref_cnt.spinlock);
 
-	/* Initialize IPA RM (resource manager) */
-	result = ipa_rm_initialize();
-	if (result) {
-		IPAERR("RM initialization failed (%d)\n", -result);
-		result = -ENODEV;
-		goto fail_ipa_rm_init;
-	}
-	IPADBG("IPA resource manager initialized");
+	/* Initialize Power Management framework */
+	if (ipa3_ctx->use_ipa_pm) {
+		result = ipa_pm_init(&ipa3_res.pm_init);
+		if (result) {
+			IPAERR("IPA PM initialization failed (%d)\n", -result);
+			result = -ENODEV;
+			goto fail_ipa_rm_init;
+		}
+		IPADBG("IPA resource manager initialized");
+	} else {
+		result = ipa_rm_initialize();
+		if (result) {
+			IPAERR("RM initialization failed (%d)\n", -result);
+			result = -ENODEV;
+			goto fail_ipa_rm_init;
+		}
+		IPADBG("IPA resource manager initialized");
 
-	result = ipa3_create_apps_resource();
-	if (result) {
-		IPAERR("Failed to create APPS_CONS resource\n");
-		result = -ENODEV;
-		goto fail_create_apps_resource;
+		result = ipa3_create_apps_resource();
+		if (result) {
+			IPAERR("Failed to create APPS_CONS resource\n");
+			result = -ENODEV;
+			goto fail_create_apps_resource;
+		}
 	}
 
 	result = ipa3_alloc_pkt_init();
@@ -5045,9 +5075,11 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 
 fail_cdev_add:
 fail_ipa_init_interrupts:
-	ipa_rm_delete_resource(IPA_RM_RESOURCE_APPS_CONS);
+	if (!ipa3_ctx->use_ipa_pm)
+		ipa_rm_delete_resource(IPA_RM_RESOURCE_APPS_CONS);
 fail_create_apps_resource:
-	ipa_rm_exit();
+	if (!ipa3_ctx->use_ipa_pm)
+		ipa_rm_exit();
 fail_ipa_rm_init:
 fail_nat_dev_add:
 	device_destroy(ipa3_ctx->class, ipa3_ctx->dev_num);
@@ -5114,6 +5146,101 @@ fail_tz_unlock_reg:
 	ipa3_ctx = NULL;
 fail_mem_ctx:
 	return result;
+}
+
+bool ipa_pm_is_used(void)
+{
+	return (ipa3_ctx) ? ipa3_ctx->use_ipa_pm : false;
+}
+
+static int get_ipa_dts_pm_info(struct platform_device *pdev,
+	struct ipa3_plat_drv_res *ipa_drv_res)
+{
+	int result;
+	int i, j;
+
+	ipa_drv_res->use_ipa_pm = of_property_read_bool(pdev->dev.of_node,
+		"qcom,use-ipa-pm");
+	IPADBG("use_ipa_pm=%d\n", ipa_drv_res->use_ipa_pm);
+	if (!ipa_drv_res->use_ipa_pm)
+		return 0;
+
+	result = of_property_read_u32(pdev->dev.of_node,
+		"qcom,msm-bus,num-cases",
+		&ipa_drv_res->pm_init.threshold_size);
+	/* No vote is ignored */
+	ipa_drv_res->pm_init.threshold_size -= 2;
+	if (result || ipa_drv_res->pm_init.threshold_size >
+		IPA_PM_THRESHOLD_MAX) {
+		IPAERR("invalid property qcom,msm-bus,num-cases %d\n",
+			ipa_drv_res->pm_init.threshold_size);
+		return -EFAULT;
+	}
+
+	result = of_property_read_u32_array(pdev->dev.of_node,
+		"qcom,throughput-threshold",
+		ipa_drv_res->pm_init.default_threshold,
+		ipa_drv_res->pm_init.threshold_size);
+	if (result) {
+		IPAERR("failed to read qcom,throughput-thresholds\n");
+		return -EFAULT;
+	}
+
+	result = of_property_count_strings(pdev->dev.of_node,
+		"qcom,scaling-exceptions");
+	if (result < 0) {
+		IPADBG("no exception list for ipa pm\n");
+		result = 0;
+	}
+
+	if (result % (ipa_drv_res->pm_init.threshold_size + 1)) {
+		IPAERR("failed to read qcom,scaling-exceptions\n");
+		return -EFAULT;
+	}
+
+	ipa_drv_res->pm_init.exception_size = result /
+		(ipa_drv_res->pm_init.threshold_size + 1);
+	if (ipa_drv_res->pm_init.exception_size >=
+		IPA_PM_EXCEPTION_MAX) {
+		IPAERR("exception list larger then max %d\n",
+			ipa_drv_res->pm_init.exception_size);
+		return -EFAULT;
+	}
+
+	for (i = 0; i < ipa_drv_res->pm_init.exception_size; i++) {
+		struct ipa_pm_exception *ex = ipa_drv_res->pm_init.exceptions;
+
+		result = of_property_read_string_index(pdev->dev.of_node,
+			"qcom,scaling-exceptions",
+			i * ipa_drv_res->pm_init.threshold_size,
+			&ex[i].usecase);
+		if (result) {
+			IPAERR("failed to read qcom,scaling-exceptions");
+			return -EFAULT;
+		}
+
+		for (j = 0; j < ipa_drv_res->pm_init.threshold_size; j++) {
+			const char *str;
+
+			result = of_property_read_string_index(
+				pdev->dev.of_node,
+				"qcom,scaling-exceptions",
+				i * ipa_drv_res->pm_init.threshold_size + j + 1,
+				&str);
+			if (result) {
+				IPAERR("failed to read qcom,scaling-exceptions"
+					);
+				return -EFAULT;
+			}
+
+			if (kstrtou32(str, 0, &ex[i].threshold[j])) {
+				IPAERR("error str=%s\n", str);
+				return -EFAULT;
+			}
+		}
+	}
+
+	return 0;
 }
 
 static int get_ipa_dts_configuration(struct platform_device *pdev,
@@ -5354,6 +5481,14 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 		}
 		kfree(ipa_tz_unlock_reg);
 	}
+
+	/* get IPA PM related information */
+	result = get_ipa_dts_pm_info(pdev, ipa_drv_res);
+	if (result) {
+		IPAERR("failed to get pm info from dts %d\n", result);
+		return result;
+	}
+
 	return 0;
 }
 
@@ -5891,11 +6026,16 @@ int ipa3_ap_suspend(struct device *dev)
 		}
 	}
 
-	/*
-	 * Release transport IPA resource without waiting for inactivity timer
-	 */
-	atomic_set(&ipa3_ctx->transport_pm.eot_activity, 0);
-	ipa3_transport_release_resource(NULL);
+	if (ipa3_ctx->use_ipa_pm) {
+		ipa_pm_deactivate_all_deferred();
+	} else {
+		/*
+		 * Release transport IPA resource without waiting
+		 * for inactivity timer
+		 */
+		atomic_set(&ipa3_ctx->transport_pm.eot_activity, 0);
+		ipa3_transport_release_resource(NULL);
+	}
 	IPADBG("Exit\n");
 
 	return 0;
