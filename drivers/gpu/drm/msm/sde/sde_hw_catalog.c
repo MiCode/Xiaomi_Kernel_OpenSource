@@ -2891,7 +2891,8 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 	vig_list_size += ARRAY_SIZE(rgb_10bit_formats)
 		+ ARRAY_SIZE(tp10_ubwc_formats)
 		+ ARRAY_SIZE(p010_formats);
-	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400))
+	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400) ||
+		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_410)))
 		vig_list_size += ARRAY_SIZE(p010_ubwc_formats);
 
 	wb2_list_size += ARRAY_SIZE(rgb_10bit_formats)
@@ -2932,7 +2933,8 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 		ARRAY_SIZE(rgb_10bit_formats));
 	index += sde_copy_formats(sde_cfg->vig_formats, vig_list_size,
 		index, p010_formats, ARRAY_SIZE(p010_formats));
-	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400))
+	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400) ||
+		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_410)))
 		index += sde_copy_formats(sde_cfg->vig_formats,
 			vig_list_size, index, p010_ubwc_formats,
 			ARRAY_SIZE(p010_ubwc_formats));
@@ -2971,7 +2973,7 @@ static int _sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->perf.min_prefill_lines = 25;
 		sde_cfg->vbif_qos_nlvl = 4;
 		sde_cfg->ts_prefill_rev = 1;
-	} else if (IS_SDM845_TARGET(hw_rev)) {
+	} else if (IS_SDM845_TARGET(hw_rev) || IS_SDM670_TARGET(hw_rev)) {
 		/* update sdm845 target here */
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->perf.min_prefill_lines = 24;

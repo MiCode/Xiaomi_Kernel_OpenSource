@@ -39,6 +39,7 @@
 #define SDE_MDP_HW_REV_300	SDE_MDP_REV(3, 0, 0)	/* 8998 v1.0 */
 #define SDE_MDP_HW_REV_301	SDE_MDP_REV(3, 0, 1)	/* 8998 v1.1 */
 #define SDE_MDP_HW_REV_400	SDE_MDP_REV(4, 0, 0)	/* sdm845 v1.0 */
+#define SDE_MDP_HW_REV_410	SDE_MDP_REV(4, 1, 0)	/* sdm670 v1.0 */
 
 #define SDE_MDP_VBIF_4_LEVEL_REMAPPER	4
 #define SDE_MDP_VBIF_8_LEVEL_REMAPPER	8
