@@ -194,7 +194,6 @@ enum sde_enc_rc_states {
  *				clks and resources after IDLE_TIMEOUT time.
  * @vsync_event_work:		worker to handle vsync event for autorefresh
  * @topology:                   topology of the display
- * @mode_set_complete:          flag to indicate modeset completion
  * @rsc_config:			rsc configuration for display vtotal, fps, etc.
  * @cur_conn_roi:		current connector roi
  * @prv_conn_roi:		previous connector roi to optimize if unchanged
@@ -241,7 +240,6 @@ struct sde_encoder_virt {
 	struct kthread_delayed_work delayed_off_work;
 	struct kthread_work vsync_event_work;
 	struct msm_display_topology topology;
-	bool mode_set_complete;
 
 	struct sde_rsc_cmd_config rsc_config;
 	struct sde_rect cur_conn_roi;
@@ -698,6 +696,7 @@ static int sde_encoder_virt_atomic_check(
 	struct sde_kms *sde_kms;
 	const struct drm_display_mode *mode;
 	struct drm_display_mode *adj_mode;
+	struct sde_connector *sde_conn = NULL;
 	int i = 0;
 	int ret = 0;
 
@@ -714,6 +713,7 @@ static int sde_encoder_virt_atomic_check(
 	sde_kms = to_sde_kms(priv->kms);
 	mode = &crtc_state->mode;
 	adj_mode = &crtc_state->adjusted_mode;
+	sde_conn = to_sde_connector(conn_state->connector);
 	SDE_EVT32(DRMID(drm_enc));
 
 	/*
@@ -743,17 +743,42 @@ static int sde_encoder_virt_atomic_check(
 		}
 	}
 
-	/* Reserve dynamic resources now. Indicating AtomicTest phase */
-	if (!ret) {
-		/*
-		 * Avoid reserving resources when mode set is pending. Topology
-		 * info may not be available to complete reservation.
+
+	if (!ret && sde_conn && drm_atomic_crtc_needs_modeset(crtc_state)) {
+		struct msm_display_topology *topology = NULL;
+
+		ret = sde_conn->ops.get_mode_info(adj_mode,
+				&sde_enc->mode_info,
+				sde_kms->catalog->max_mixer_width);
+		if (ret) {
+			SDE_ERROR_ENC(sde_enc,
+				"failed to get mode info, rc = %d\n", ret);
+			return ret;
+		}
+
+		/* Reserve dynamic resources, indicating atomic_check phase */
+		ret = sde_rm_reserve(&sde_kms->rm, drm_enc, crtc_state,
+			conn_state, true);
+		if (ret) {
+			SDE_ERROR_ENC(sde_enc,
+				"RM failed to reserve resources, rc = %d\n",
+				ret);
+			return ret;
+		}
+
+		/**
+		 * Update connector state with the topology selected for the
+		 * resource set validated. Reset the topology if we are
+		 * de-activating crtc.
 		 */
-		if (drm_atomic_crtc_needs_modeset(crtc_state)
-				&& sde_enc->mode_set_complete) {
-			ret = sde_rm_reserve(&sde_kms->rm, drm_enc, crtc_state,
-				conn_state, true);
-			sde_enc->mode_set_complete = false;
+		if (crtc_state->active)
+			topology = &sde_enc->mode_info.topology;
+
+		ret = sde_rm_update_topology(conn_state, topology);
+		if (ret) {
+			SDE_ERROR_ENC(sde_enc,
+				"RM failed to update topology, rc: %d\n", ret);
+			return ret;
 		}
 	}
 
@@ -1244,13 +1269,9 @@ static void _sde_encoder_update_vsync_source(struct sde_encoder_virt *sde_enc,
 
 static int _sde_encoder_dsc_disable(struct sde_encoder_virt *sde_enc)
 {
-	enum sde_rm_topology_name topology;
-	struct drm_connector *drm_conn;
 	int i, ret = 0;
-	struct sde_hw_pingpong *hw_pp[MAX_CHANNELS_PER_ENC];
-	struct sde_hw_dsc *hw_dsc[MAX_CHANNELS_PER_ENC] = {NULL};
-	int pp_count = 0;
-	int dsc_count = 0;
+	struct sde_hw_pingpong *hw_pp = NULL;
+	struct sde_hw_dsc *hw_dsc = NULL;
 
 	if (!sde_enc || !sde_enc->phys_encs[0] ||
 			!sde_enc->phys_encs[0]->connector) {
@@ -1259,80 +1280,16 @@ static int _sde_encoder_dsc_disable(struct sde_encoder_virt *sde_enc)
 		return -EINVAL;
 	}
 
-	drm_conn = sde_enc->phys_encs[0]->connector;
-
-	topology = sde_connector_get_topology_name(drm_conn);
-	if (topology == SDE_RM_TOPOLOGY_NONE) {
-		SDE_ERROR_ENC(sde_enc, "topology not set yet\n");
-		return -EINVAL;
-	}
-
-	switch (topology) {
-	case SDE_RM_TOPOLOGY_SINGLEPIPE:
-	case SDE_RM_TOPOLOGY_SINGLEPIPE_DSC:
-		/* single PP */
-		hw_pp[0] = sde_enc->hw_pp[0];
-		hw_dsc[0] = sde_enc->hw_dsc[0];
-		pp_count = 1;
-		dsc_count = 1;
-		break;
-	case SDE_RM_TOPOLOGY_DUALPIPE_DSC:
-	case SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE_DSC:
-	case SDE_RM_TOPOLOGY_DUALPIPE_DSCMERGE:
-		/* dual dsc */
-		for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
-			hw_dsc[i] = sde_enc->hw_dsc[i];
-			if (hw_dsc[i])
-				dsc_count++;
-		}
-		/* fall through */
-	case SDE_RM_TOPOLOGY_DUALPIPE:
-	case SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE:
-		/* dual pp */
-		for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
-			hw_pp[i] = sde_enc->hw_pp[i];
-			if (hw_pp[i])
-				pp_count++;
-		}
-		break;
-	default:
-		SDE_DEBUG_ENC(sde_enc, "Unexpected topology:%d\n", topology);
-		return -EINVAL;
-	};
-
-	SDE_EVT32(DRMID(&sde_enc->base), topology, pp_count, dsc_count);
-
-	if (pp_count > MAX_CHANNELS_PER_ENC ||
-		dsc_count > MAX_CHANNELS_PER_ENC) {
-		SDE_ERROR_ENC(sde_enc, "Wrong count pp:%d dsc:%d top:%d\n",
-				pp_count, dsc_count, topology);
-		return -EINVAL;
-	}
-
 	/* Disable DSC for all the pp's present in this topology */
-	for (i = 0; i < pp_count; i++) {
+	for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
+		hw_pp = sde_enc->hw_pp[i];
+		hw_dsc = sde_enc->hw_dsc[i];
 
-		if (!hw_pp[i]) {
-			SDE_ERROR_ENC(sde_enc, "null pp:%d top:%d cnt:%d\n",
-					i, topology, pp_count);
-			return -EINVAL;
-		}
+		if (hw_pp && hw_pp->ops.disable_dsc)
+			hw_pp->ops.disable_dsc(hw_pp);
 
-		if (hw_pp[i]->ops.disable_dsc)
-			hw_pp[i]->ops.disable_dsc(hw_pp[i]);
-	}
-
-	/* Disable DSC HW */
-	for (i = 0; i < dsc_count; i++) {
-
-		if (!hw_dsc[i]) {
-			SDE_ERROR_ENC(sde_enc, "null dsc:%d top:%d cnt:%d\n",
-					i, topology, dsc_count);
-			return -EINVAL;
-		}
-
-		if (hw_dsc[i]->ops.dsc_disable)
-			hw_dsc[i]->ops.dsc_disable(hw_dsc[i]);
+		if (hw_dsc && hw_dsc->ops.dsc_disable)
+			hw_dsc->ops.dsc_disable(hw_dsc);
 	}
 
 	return ret;
@@ -2032,8 +1989,6 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	if (msm_is_mode_seamless_dms(adj_mode))
 		sde_encoder_resource_control(&sde_enc->base,
 						SDE_ENC_RC_EVENT_POST_MODESET);
-
-	sde_enc->mode_set_complete = true;
 }
 
 static void _sde_encoder_virt_enable_helper(struct drm_encoder *drm_enc)

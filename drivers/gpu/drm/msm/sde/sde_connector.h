@@ -319,7 +319,7 @@ struct sde_connector {
  * Returns: Pointer to associated private display structure
  */
 #define sde_connector_get_display(C) \
-	((C) ? to_sde_connector((C))->display : 0)
+	((C) ? to_sde_connector((C))->display : NULL)
 
 /**
  * sde_connector_get_panel - get sde connector's private panel pointer
@@ -335,7 +335,7 @@ struct sde_connector {
  * Returns: Pointer to associated private encoder structure
  */
 #define sde_connector_get_encoder(C) \
-	((C) ? to_sde_connector((C))->encoder : 0)
+	((C) ? to_sde_connector((C))->encoder : NULL)
 
 /**
  * sde_connector_get_propinfo - get sde connector's property info pointer
@@ -343,7 +343,7 @@ struct sde_connector {
  * Returns: Pointer to associated private property info structure
  */
 #define sde_connector_get_propinfo(C) \
-	((C) ? &to_sde_connector((C))->property_info : 0)
+	((C) ? &to_sde_connector((C))->property_info : NULL)
 
 /**
  * struct sde_connector_state - private connector status structure
