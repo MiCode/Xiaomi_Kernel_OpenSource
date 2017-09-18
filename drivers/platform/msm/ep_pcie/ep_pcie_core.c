@@ -1050,7 +1050,6 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		EP_PCIE_ERR(dev,
 			"PCIe V%d: request to turn on the power when link is already powered on.\n",
 			dev->rev);
-		ret = EP_PCIE_ERROR;
 		goto out;
 	}
 
