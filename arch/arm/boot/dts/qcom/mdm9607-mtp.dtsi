@@ -141,18 +141,6 @@
 	status = "ok";
 };
 
-&pm8019_gpios {
-	gpio@c300 { /* GPIO 4 */
-		qcom,mode = <1>;		/* Digital output */
-		qcom,output-type = <0>;		/* CMOS logic */
-		qcom,invert = <0>;		/* Output high */
-		qcom,vin-sel = <0>;		/* VPH_PWR */
-		qcom,src-sel = <0>;		/* GPIO */
-		qcom,out-strength = <1>;	/* Low drive strength */
-		qcom,master-en = <1>;		/* Enable GPIO */
-	};
-};
-
 /* MPP pin 4 configs for SGMII */
 &pm8019_mpps {
 	mpp@a300 { /* MPP 4 */

@@ -43,3 +43,15 @@
 	status = "ok";
 };
 
+&pm8019_gpios {
+	gpio@c300 { /* GPIO 4 */
+		qcom,mode = <1>;		/* Digital Output */
+		qcom,output-type = <0>;		/* CMOS Logic */
+		qcom,invert = <0>;		/* Output High */
+		qcom,vin-sel = <0>;		/* VPH_PWR */
+		qcom,src-sel = <0>;		/* GPIO */
+		qcom,out-strength = <1>;	/* Low Drive Strength */
+		qcom,master-en = <1>;		/* Enable GPIO */
+	};
+};
+
