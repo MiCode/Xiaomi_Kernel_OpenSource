@@ -622,10 +622,12 @@
 	};
 
 	clock_camcc: qcom,camcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "camcc_clocks";
+		compatible = "qcom,camcc-sdm855";
+		reg = <0xad00000 0x10000>;
+		reg-names = "cc_base";
+		vdd_mx-supply = <&pm855l_s4_level>;
+		vdd_mm-supply = <&pm855l_s5_level>;
 		#clock-cells = <1>;
-		#reset-cells = <1>;
 	};
 
 	clock_dispcc: qcom,dispcc {
