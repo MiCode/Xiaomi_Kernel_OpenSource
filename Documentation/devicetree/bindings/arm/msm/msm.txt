@@ -92,6 +92,9 @@ SoCs:
 - SDM670
   compatible = "qcom,sdm670"
 
+- QCS605
+  compatible = "qcom,qcs605"
+
 - MSM8952
   compatible = "qcom,msm8952"
 
@@ -276,6 +279,8 @@ compatible = "qcom,sda845-qrd"
 compatible = "qcom,sdm670-rumi"
 compatible = "qcom,sdm670-cdp"
 compatible = "qcom,sdm670-mtp"
+compatible = "qcom,qcs605-cdp"
+compatible = "qcom,qcs605-mtp"
 compatible = "qcom,msm8952-rumi"
 compatible = "qcom,msm8952-sim"
 compatible = "qcom,msm8952-qrd"
