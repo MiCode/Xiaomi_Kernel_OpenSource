@@ -1022,8 +1022,10 @@ struct task_struct {
 	struct sysv_shm			sysvshm;
 #endif
 #ifdef CONFIG_DETECT_HUNG_TASK
+	/* hung task detection */
 	unsigned long			last_switch_count;
 	unsigned long			last_switch_time;
+	bool hang_detection_enabled;
 #endif
 	/* Filesystem information: */
 	struct fs_struct		*fs;
