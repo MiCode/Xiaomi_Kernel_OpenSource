@@ -96,7 +96,6 @@ enum icnss_debug_quirks {
 	RECOVERY_DISABLE,
 	SSR_ONLY,
 	PDR_ONLY,
-	VBATT_DISABLE,
 	FW_REJUVENATE_ENABLE,
 };
 
@@ -222,9 +221,6 @@ struct icnss_stats {
 	uint32_t ini_req;
 	uint32_t ini_resp;
 	uint32_t ini_req_err;
-	uint32_t vbatt_req;
-	uint32_t vbatt_resp;
-	uint32_t vbatt_req_err;
 	u32 rejuvenate_ind;
 	uint32_t rejuvenate_ack_req;
 	uint32_t rejuvenate_ack_resp;
