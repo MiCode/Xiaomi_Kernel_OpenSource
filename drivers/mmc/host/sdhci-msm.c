@@ -4311,6 +4311,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	struct resource *tlmm_memres = NULL;
 	void __iomem *tlmm_mem;
 	unsigned long flags;
+	bool force_probe;
 
 	pr_debug("%s: Enter %s\n", dev_name(&pdev->dev), __func__);
 	msm_host = devm_kzalloc(&pdev->dev, sizeof(struct sdhci_msm_host),
@@ -4374,8 +4375,13 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 			goto pltfm_free;
 		}
 
+		/* Read property to determine if the probe is forced */
+		force_probe = of_find_property(pdev->dev.of_node,
+			"qcom,force-sdhc1-probe", NULL);
+
 		/* skip the probe if eMMC isn't a boot device */
-		if ((ret == 1) && !sdhci_msm_is_bootdevice(&pdev->dev)) {
+		if ((ret == 1) && !sdhci_msm_is_bootdevice(&pdev->dev)
+		    && !force_probe) {
 			ret = -ENODEV;
 			goto pltfm_free;
 		}
