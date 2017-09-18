@@ -1168,6 +1168,33 @@ static struct drm_connector *_sde_rm_get_connector(
 	return NULL;
 }
 
+int sde_rm_update_topology(struct drm_connector_state *conn_state,
+	struct msm_display_topology *topology)
+{
+	int i, ret = 0;
+	struct msm_display_topology top;
+	enum sde_rm_topology_name top_name = SDE_RM_TOPOLOGY_NONE;
+
+	if (!conn_state)
+		return -EINVAL;
+
+	if (topology) {
+		top = *topology;
+		for (i = 0; i < SDE_RM_TOPOLOGY_MAX; i++)
+			if (RM_IS_TOPOLOGY_MATCH(g_top_table[i], top)) {
+				top_name = g_top_table[i].top_name;
+				break;
+			}
+	}
+
+	ret = msm_property_set_property(
+			sde_connector_get_propinfo(conn_state->connector),
+			sde_connector_get_property_state(conn_state),
+			CONNECTOR_PROP_TOPOLOGY_NAME, top_name);
+
+	return ret;
+}
+
 /**
  * _sde_rm_release_rsvp - release resources and release a reservation
  * @rm:	KMS handle
@@ -1249,12 +1276,6 @@ void sde_rm_release(struct sde_rm *rm, struct drm_encoder *enc)
 		SDE_DEBUG("release rsvp[s%de%d]\n", rsvp->seq,
 				rsvp->enc_id);
 		_sde_rm_release_rsvp(rm, rsvp, conn);
-
-		(void) msm_property_set_property(
-				sde_connector_get_propinfo(conn),
-				sde_connector_get_property_state(conn->state),
-				CONNECTOR_PROP_TOPOLOGY_NAME,
-				SDE_RM_TOPOLOGY_NONE);
 	}
 
 end:
@@ -1269,18 +1290,6 @@ static int _sde_rm_commit_rsvp(
 	struct sde_rm_hw_blk *blk;
 	enum sde_hw_blk_type type;
 	int ret = 0;
-
-	ret = msm_property_set_property(
-			sde_connector_get_propinfo(conn_state->connector),
-			sde_connector_get_property_state(conn_state),
-			CONNECTOR_PROP_TOPOLOGY_NAME,
-			rsvp->topology);
-	if (ret) {
-		SDE_ERROR("failed to set topology name property, ret %d\n",
-				ret);
-		_sde_rm_release_rsvp(rm, rsvp, conn_state->connector);
-		return ret;
-	}
 
 	/* Swap next rsvp to be the active */
 	for (type = 0; type < SDE_HW_BLK_MAX; type++) {
@@ -1366,12 +1375,6 @@ int sde_rm_reserve(
 		_sde_rm_release_rsvp(rm, rsvp_cur, conn_state->connector);
 		rsvp_cur = NULL;
 		_sde_rm_print_rsvps(rm, SDE_RM_STAGE_AFTER_CLEAR);
-		(void) msm_property_set_property(
-				sde_connector_get_propinfo(
-						conn_state->connector),
-				sde_connector_get_property_state(conn_state),
-				CONNECTOR_PROP_TOPOLOGY_NAME,
-				SDE_RM_TOPOLOGY_NONE);
 	}
 
 	/* Check the proposed reservation, store it in hw's "next" field */
