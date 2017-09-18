@@ -190,10 +190,12 @@ int sde_wb_get_info(struct msm_display_info *info, void *display);
  * @drm_mode: Display mode set for the display
  * @mode_info: Out parameter. information of the mode.
  * @max_mixer_width: max width supported by HW layer mixer
+ * @display: Pointer to private display structure
  * Returns: zero on success
  */
 int sde_wb_get_mode_info(const struct drm_display_mode *drm_mode,
-		struct msm_mode_info *mode_info, u32 max_mixer_width);
+		struct msm_mode_info *mode_info, u32 max_mixer_width,
+		void *display);
 
 /**
  * sde_wb_connector_get_wb - retrieve writeback device of the given connector

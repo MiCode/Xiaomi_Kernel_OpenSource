@@ -749,7 +749,8 @@ static int sde_encoder_virt_atomic_check(
 
 		ret = sde_conn->ops.get_mode_info(adj_mode,
 				&sde_enc->mode_info,
-				sde_kms->catalog->max_mixer_width);
+				sde_kms->catalog->max_mixer_width,
+				sde_conn->display);
 		if (ret) {
 			SDE_ERROR_ENC(sde_enc,
 				"failed to get mode info, rc = %d\n", ret);
@@ -1917,7 +1918,8 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	sde_conn = to_sde_connector(conn);
 	if (sde_conn) {
 		ret = sde_conn->ops.get_mode_info(adj_mode, &sde_enc->mode_info,
-				sde_kms->catalog->max_mixer_width);
+				sde_kms->catalog->max_mixer_width,
+				sde_conn->display);
 		if (ret) {
 			SDE_ERROR_ENC(sde_enc,
 				"invalid topology for the mode\n");

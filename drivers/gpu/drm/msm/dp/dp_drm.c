@@ -306,7 +306,7 @@ int dp_connector_post_init(struct drm_connector *connector,
 }
 
 int dp_connector_get_mode_info(const struct drm_display_mode *drm_mode,
-	struct msm_mode_info *mode_info, u32 max_mixer_width)
+	struct msm_mode_info *mode_info, u32 max_mixer_width, void *display)
 {
 	const u32 dual_lm = 2;
 	const u32 single_lm = 1;
