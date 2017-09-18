@@ -837,6 +837,21 @@ clk_enable_fail:
 }
 EXPORT_SYMBOL(sde_rsc_client_vote);
 
+#if defined(CONFIG_DEBUG_FS)
+void sde_rsc_debug_dump(u32 mux_sel)
+{
+	struct sde_rsc_priv *rsc;
+
+	rsc = rsc_prv_list[SDE_RSC_INDEX];
+	if (!rsc)
+		return;
+
+	/* this must be called with rsc clocks enabled */
+	if (rsc->hw_ops.debug_dump)
+		rsc->hw_ops.debug_dump(rsc, mux_sel);
+}
+#endif /* defined(CONFIG_DEBUG_FS) */
+
 static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 {
 	struct sde_rsc_priv *rsc;

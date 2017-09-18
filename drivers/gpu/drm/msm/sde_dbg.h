@@ -315,6 +315,12 @@ void sde_evtlog_set_filter(struct sde_dbg_evtlog *evtlog, char *filter);
 int sde_evtlog_get_filter(struct sde_dbg_evtlog *evtlog, int index,
 		char *buf, size_t bufsz);
 
+/**
+ * sde_rsc_debug_dump - sde rsc debug dump status
+ * @mux_sel:	select mux on rsc debug bus
+ */
+void sde_rsc_debug_dump(u32 mux_sel);
+
 #else
 static inline struct sde_dbg_evtlog *sde_evtlog_init(void)
 {
@@ -396,6 +402,9 @@ static inline int sde_evtlog_get_filter(struct sde_dbg_evtlog *evtlog,
 	return -EINVAL;
 }
 
+static inline void sde_rsc_debug_dump(u32 mux_sel)
+{
+}
 #endif /* defined(CONFIG_DEBUG_FS) */
 
 
