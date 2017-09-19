@@ -24,6 +24,46 @@
 #include "cam_trace.h"
 #include "cam_debug_util.h"
 
+static int __cam_isp_ctx_enqueue_request_in_order(
+	struct cam_context *ctx, struct cam_ctx_request *req)
+{
+	struct cam_ctx_request           *req_current;
+	struct cam_ctx_request           *req_prev;
+	struct list_head                  temp_list;
+
+	INIT_LIST_HEAD(&temp_list);
+	spin_lock_bh(&ctx->lock);
+	if (list_empty(&ctx->pending_req_list)) {
+		list_add_tail(&req->list, &ctx->pending_req_list);
+	} else {
+		list_for_each_entry_safe_reverse(
+			req_current, req_prev, &ctx->pending_req_list, list) {
+			if (req->request_id < req_current->request_id) {
+				list_del_init(&req_current->list);
+				list_add(&req_current->list, &temp_list);
+				continue;
+			} else if (req->request_id == req_current->request_id) {
+				CAM_WARN(CAM_ISP,
+					"Received duplicated request %lld",
+					req->request_id);
+			}
+			break;
+		}
+		list_add_tail(&req->list, &ctx->pending_req_list);
+
+		if (!list_empty(&temp_list)) {
+			list_for_each_entry_safe(
+				req_current, req_prev, &temp_list, list) {
+				list_del_init(&req_current->list);
+				list_add_tail(&req_current->list,
+					&ctx->pending_req_list);
+			}
+		}
+	}
+	spin_unlock_bh(&ctx->lock);
+	return 0;
+}
+
 static uint64_t __cam_isp_ctx_get_event_ts(uint32_t evt_id, void *evt_data)
 {
 	uint64_t ts = 0;
@@ -1478,9 +1518,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	CAM_DBG(CAM_ISP, "Packet request id 0x%llx",
 		packet->header.request_id);
 
-	spin_lock_bh(&ctx->lock);
-	list_add_tail(&req->list, &ctx->pending_req_list);
-	spin_unlock_bh(&ctx->lock);
+	__cam_isp_ctx_enqueue_request_in_order(ctx, req);
 
 	CAM_DBG(CAM_ISP, "Preprocessing Config %lld successful",
 		req->request_id);
