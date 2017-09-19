@@ -952,7 +952,6 @@ static int dp_link_process_link_training_request(struct dp_link_private *link)
 static void dp_link_send_test_response(struct dp_link *dp_link)
 {
 	struct dp_link_private *link = NULL;
-	u32 const test_response_addr = 0x260;
 	u32 const response_len = 0x1;
 
 	if (!dp_link) {
@@ -962,7 +961,7 @@ static void dp_link_send_test_response(struct dp_link *dp_link)
 
 	link = container_of(dp_link, struct dp_link_private, dp_link);
 
-	drm_dp_dpcd_write(link->aux->drm_aux, test_response_addr,
+	drm_dp_dpcd_write(link->aux->drm_aux, DP_TEST_RESPONSE,
 			&dp_link->test_response, response_len);
 }
 
@@ -991,6 +990,22 @@ static int dp_link_psm_config(struct dp_link *dp_link,
 		dp_link->psm_enabled = enable;
 
 	return ret;
+}
+
+static void dp_link_send_edid_checksum(struct dp_link *dp_link, u8 checksum)
+{
+	struct dp_link_private *link = NULL;
+	u32 const response_len = 0x1;
+
+	if (!dp_link) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	link = container_of(dp_link, struct dp_link_private, dp_link);
+
+	drm_dp_dpcd_write(link->aux->drm_aux, DP_TEST_EDID_CHECKSUM,
+			&checksum, response_len);
 }
 
 static int dp_link_parse_vx_px(struct dp_link_private *link)
@@ -1513,6 +1528,7 @@ struct dp_link *dp_link_get(struct device *dev, struct dp_aux *aux)
 	dp_link->send_psm_request       = dp_link_send_psm_request;
 	dp_link->send_test_response     = dp_link_send_test_response;
 	dp_link->psm_config             = dp_link_psm_config;
+	dp_link->send_edid_checksum     = dp_link_send_edid_checksum;
 
 	return dp_link;
 error:

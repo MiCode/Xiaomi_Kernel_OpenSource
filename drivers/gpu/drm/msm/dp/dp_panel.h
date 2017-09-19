@@ -81,6 +81,7 @@ struct dp_panel {
 	u32 (*get_max_pclk)(struct dp_panel *dp_panel);
 	int (*get_modes)(struct dp_panel *dp_panel,
 		struct drm_connector *connector, struct dp_display_mode *mode);
+	void (*handle_sink_request)(struct dp_panel *dp_panel);
 };
 
 /**

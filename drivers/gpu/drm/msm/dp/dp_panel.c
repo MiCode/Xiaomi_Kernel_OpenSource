@@ -299,6 +299,25 @@ static int dp_panel_get_modes(struct dp_panel *dp_panel,
 	}
 }
 
+static void dp_panel_handle_sink_request(struct dp_panel *dp_panel)
+{
+	struct dp_panel_private *panel;
+
+	if (!dp_panel) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+
+	if (panel->link->sink_request & DP_TEST_LINK_EDID_READ) {
+		u8 checksum = sde_get_edid_checksum(dp_panel->edid_ctrl);
+
+		panel->link->send_edid_checksum(panel->link, checksum);
+		panel->link->send_test_response(panel->link);
+	}
+}
+
 static int dp_panel_timing_cfg(struct dp_panel *dp_panel)
 {
 	int rc = 0;
@@ -491,6 +510,7 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	dp_panel->get_min_req_link_rate = dp_panel_get_min_req_link_rate;
 	dp_panel->get_max_pclk = dp_panel_get_max_pclk;
 	dp_panel->get_modes = dp_panel_get_modes;
+	dp_panel->handle_sink_request = dp_panel_handle_sink_request;
 
 	return dp_panel;
 error:

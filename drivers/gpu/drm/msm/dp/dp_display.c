@@ -506,16 +506,6 @@ static int dp_display_send_hpd_notification(struct dp_display_private *dp,
 	return 0;
 }
 
-static void dp_display_handle_test_edid(struct dp_display_private *dp)
-{
-	if (dp->link->sink_request & DP_TEST_LINK_EDID_READ) {
-		drm_dp_dpcd_write(dp->aux->drm_aux, DP_TEST_EDID_CHECKSUM,
-			&dp->panel->edid_ctrl->edid->checksum, 1);
-		drm_dp_dpcd_write(dp->aux->drm_aux, DP_TEST_RESPONSE,
-			&dp->link->test_response, 1);
-	}
-}
-
 static int dp_display_process_hpd_high(struct dp_display_private *dp)
 {
 	int rc = 0;
@@ -543,7 +533,7 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 
 	dp->audio_supported = drm_detect_monitor_audio(edid);
 
-	dp_display_handle_test_edid(dp);
+	dp->panel->handle_sink_request(dp->panel);
 
 	max_pclk_from_edid = dp->panel->get_max_pclk(dp->panel);
 
