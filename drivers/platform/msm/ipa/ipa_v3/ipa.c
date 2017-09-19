@@ -3712,6 +3712,53 @@ void ipa3_dec_release_wakelock(void)
 	spin_unlock_irqrestore(&ipa3_ctx->wakelock_ref_cnt.spinlock, flags);
 }
 
+int ipa3_set_clock_plan_from_pm(int idx)
+{
+	u32 clk_rate;
+
+	IPADBG_LOW("idx = %d\n", idx);
+
+	if (idx <= 0 || idx >= ipa3_ctx->ctrl->msm_bus_data_ptr->num_usecases) {
+		IPAERR("bad voltage\n");
+		return -EINVAL;
+	}
+
+	if (idx == 1)
+		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_svs;
+	else if (idx == 2)
+		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_nominal;
+	else if (idx == 3)
+		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_turbo;
+	else {
+		IPAERR("bad voltage\n");
+		WARN_ON(1);
+		return -EFAULT;
+	}
+
+	if (clk_rate == ipa3_ctx->curr_ipa_clk_rate) {
+		IPADBG_LOW("Same voltage\n");
+		return 0;
+	}
+
+	mutex_lock(&ipa3_ctx->ipa3_active_clients.mutex);
+	ipa3_ctx->curr_ipa_clk_rate = clk_rate;
+	ipa3_ctx->ipa3_active_clients.bus_vote_idx = idx;
+	IPADBG_LOW("setting clock rate to %u\n", ipa3_ctx->curr_ipa_clk_rate);
+	if (atomic_read(&ipa3_ctx->ipa3_active_clients.cnt) > 0) {
+		if (ipa3_clk)
+			clk_set_rate(ipa3_clk, ipa3_ctx->curr_ipa_clk_rate);
+		if (msm_bus_scale_client_update_request(ipa3_ctx->ipa_bus_hdl,
+				ipa3_get_bus_vote()))
+			WARN_ON(1);
+	} else {
+		IPADBG_LOW("clocks are gated, not setting rate\n");
+	}
+	mutex_unlock(&ipa3_ctx->ipa3_active_clients.mutex);
+	IPADBG_LOW("Done\n");
+
+	return 0;
+}
+
 int ipa3_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 				  u32 bandwidth_mbps)
 {

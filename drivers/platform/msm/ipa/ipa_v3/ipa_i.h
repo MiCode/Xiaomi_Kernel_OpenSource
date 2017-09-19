@@ -869,6 +869,7 @@ struct ipa3_stats {
 struct ipa3_active_clients {
 	struct mutex mutex;
 	atomic_t cnt;
+	int bus_vote_idx;
 };
 
 struct ipa3_wakelock_ref_cnt {
@@ -2226,4 +2227,5 @@ void ipa3_disable_prefetch(enum ipa_client_type client);
 int ipa3_alloc_common_event_ring(void);
 int ipa3_allocate_dma_task_for_gsi(void);
 void ipa3_free_dma_task_for_gsi(void);
+int ipa3_set_clock_plan_from_pm(int idx);
 #endif /* _IPA3_I_H_ */
