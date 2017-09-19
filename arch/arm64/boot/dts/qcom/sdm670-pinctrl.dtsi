@@ -1371,6 +1371,70 @@
 			};
 		};
 
+		nfc {
+			nfc_int_active: nfc_int_active {
+				/* active state */
+				mux {
+					/* GPIO 44 NFC Read Interrupt */
+					pins = "gpio44";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio44";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-up;
+				};
+			};
+
+			nfc_int_suspend: nfc_int_suspend {
+				/* sleep state */
+				mux {
+					/* GPIO 44 NFC Read Interrupt */
+					pins = "gpio44";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio44";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-up;
+				};
+			};
+
+			nfc_enable_active: nfc_enable_active {
+				/* active state */
+				mux {
+					/* 12: NFC ENABLE 43: FW DNLD */
+					/* 116: ESE Enable */
+					pins = "gpio12", "gpio43", "gpio116";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio12", "gpio43", "gpio116";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-up;
+				};
+			};
+
+			nfc_enable_suspend: nfc_enable_suspend {
+				/* sleep state */
+				mux {
+					/* 12: NFC ENABLE 43: FW DNLD */
+					/* 116: ESE Enable */
+					pins = "gpio12", "gpio43", "gpio116";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio12", "gpio43", "gpio116";
+					drive-strength = <2>; /* 2 MA */
+					bias-disable;
+				};
+			};
+		};
+
 		/* WSA speaker reset pins */
 		spkr_1_sd_n {
 			spkr_1_sd_n_sleep: spkr_1_sd_n_sleep {
@@ -1651,6 +1715,14 @@
 };
 
 &pm660_gpios {
+	nfc_clk {
+		nfc_clk_default: nfc_clk_default {
+			pins = "gpio4";
+			function = "normal";
+			input-enable;
+			power-source = <1>;
+		};
+	};
 	smb_shutdown_default: smb_shutdown_default {
 		pins = "gpio11";
 		function = "normal";
