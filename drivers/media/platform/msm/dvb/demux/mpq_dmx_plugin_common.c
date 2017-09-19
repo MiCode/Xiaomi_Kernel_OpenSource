@@ -354,13 +354,17 @@ static ssize_t mpq_sdmx_log_level_write(struct file *fp,
 	int level;
 	struct mpq_demux *mpq_demux = fp->private_data;
 
-	if (count >= 16)
+	if (count == 0 || count >= 16)
 		return -EINVAL;
 
-	ret_count = simple_write_to_buffer(user_str, 16, position, user_buffer,
+	memset(user_str, '\0', sizeof(user_str));
+
+	ret_count = simple_write_to_buffer(user_str, 15, position, user_buffer,
 		count);
 	if (ret_count < 0)
 		return ret_count;
+	else if (ret_count == 0)
+		return -EINVAL;
 
 	ret = kstrtoint(user_str, 0, &level);
 	if (ret)
