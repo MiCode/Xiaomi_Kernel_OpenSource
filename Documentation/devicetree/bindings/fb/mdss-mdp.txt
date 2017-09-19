@@ -286,6 +286,10 @@ Optional properties:
 			      feature is available or not.
 - qcom,mdss-has-rotator-downscale: Boolean property to indicate if rotator
 				   downscale feature is available or not.
+- qcom,mdss-rot-downscale-min: This integer value indicates the Minimum
+				downscale factor supported by rotator.
+- qcom,mdss-rot-downscale-max: This integer value indicates the Maximum
+				downscale factor supported by rotator.
 - qcom,mdss-ad-off:		Array of offset addresses for the available
 				Assertive Display (AD) blocks. These offsets
 				are calculated from the register "mdp_phys"
@@ -744,6 +748,8 @@ Example:
 		qcom,mdss-no-hist-vote;
 		qcom,mdss-traffic-shaper-enabled;
 		qcom,mdss-has-rotator-downscale;
+		qcom,mdss-rot-downscale-min = <2>;
+		qcom,mdss-rot-downscale-max = <16>;
 
 		qcom,mdss-has-pingpong-split;
 		qcom,mdss-pipe-vig-xin-id = <0 4 8>;
