@@ -111,7 +111,7 @@ static dma_addr_t msm_nand_dma_map(struct device *dev, void *addr, size_t size,
 	return dma_map_page(dev, page, offset, size, dir);
 }
 
-#ifdef CONFIG_MSM_BUS_SCALING
+#ifdef CONFIG_QCOM_BUS_SCALING
 static int msm_nand_bus_set_vote(struct msm_nand_info *info,
 			unsigned int vote)
 {
@@ -283,7 +283,7 @@ static int msm_nand_put_device(struct device *dev)
 }
 #endif
 
-#ifdef CONFIG_MSM_BUS_SCALING
+#ifdef CONFIG_QCOM_BUS_SCALING
 static int msm_nand_bus_register(struct platform_device *pdev,
 		struct msm_nand_info *info)
 {
@@ -314,6 +314,7 @@ static void msm_nand_bus_unregister(struct msm_nand_info *info)
 static int msm_nand_bus_register(struct platform_device *pdev,
 		struct msm_nand_info *info)
 {
+	pr_info("couldn't register due to missing config option\n");
 	return 0;
 }
 
