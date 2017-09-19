@@ -2003,8 +2003,10 @@ static void sde_rotator_cancel_request(struct sde_rot_mgr *mgr,
 		sde_rot_mgr_unlock(mgr);
 		for (i = req->count - 1; i >= 0; i--) {
 			entry = req->entries + i;
-			flush_kthread_worker(&entry->commitq->rot_kw);
-			flush_kthread_worker(&entry->doneq->rot_kw);
+			if (entry->commitq)
+				flush_kthread_worker(&entry->commitq->rot_kw);
+			if (entry->doneq)
+				flush_kthread_worker(&entry->doneq->rot_kw);
 		}
 		sde_rot_mgr_lock(mgr);
 		SDEROT_DBG("cancel work done\n");

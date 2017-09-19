@@ -337,4 +337,14 @@ struct sde_drm_wb_cfg {
 	uint64_t modes;
 };
 
+/**
+ * Define extended power modes supported by the SDE connectors.
+ */
+#define SDE_MODE_DPMS_ON       0
+#define SDE_MODE_DPMS_LP1      1
+#define SDE_MODE_DPMS_LP2      2
+#define SDE_MODE_DPMS_STANDBY  3
+#define SDE_MODE_DPMS_SUSPEND  4
+#define SDE_MODE_DPMS_OFF      5
+
 #endif /* _SDE_DRM_H_ */

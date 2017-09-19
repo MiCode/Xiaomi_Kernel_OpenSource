@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#include "sdm660-qrd.dtsi"
+#include "sdm630-qrd.dtsi"
 / {
 };
 

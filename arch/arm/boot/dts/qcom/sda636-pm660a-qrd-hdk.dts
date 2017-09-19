@@ -16,143 +16,7 @@
 #include "sda636.dtsi"
 #include "sdm636-qrd.dtsi"
 #include "msm-pm660a.dtsi"
-
-&smb1351_charger {
-	status = "disabled";
-};
-
-&i2c_2 {
-	smb138x: qcom,smb138x@8 {
-		compatible = "qcom,i2c-pmic";
-		reg = <0x8>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		interrupt-parent = <&tlmm>;
-		interrupts = <21 IRQ_TYPE_LEVEL_LOW>;
-		interrupt_names = "smb138x";
-		interrupt-controller;
-		#interrupt-cells = <3>;
-		qcom,periph-map = <0x10 0x11 0x12 0x13 0x14 0x16 0x36>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&smb_int_default>;
-
-		smb138x_revid: qcom,revid@100 {
-			compatible = "qcom,qpnp-revid";
-			reg = <0x100 0x100>;
-		};
-
-		smb138x_tadc: qcom,tadc@3600 {
-			compatible = "qcom,tadc";
-			reg = <0x3600 0x100>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-			#io-channel-cells = <1>;
-			interrupt-parent = <&smb138x>;
-			interrupts = <0x36 0x0 IRQ_TYPE_EDGE_BOTH>;
-			interrupt-names = "eoc";
-
-			batt_temp@0 {
-				reg = <0>;
-				qcom,rbias = <68100>;
-				qcom,rtherm-at-25degc = <68000>;
-				qcom,beta-coefficient = <3450>;
-			};
-
-			skin_temp@1 {
-				reg = <1>;
-				qcom,rbias = <33000>;
-				qcom,rtherm-at-25degc = <68000>;
-				qcom,beta-coefficient = <3450>;
-			};
-
-			die_temp@2 {
-				reg = <2>;
-				qcom,scale = <(-1306)>;
-				qcom,offset = <397904>;
-			};
-
-			batt_i@3 {
-				reg = <3>;
-				qcom,channel = <3>;
-				qcom,scale = <(-20000000)>;
-			};
-
-			batt_v@4 {
-				reg = <4>;
-				qcom,scale = <5000000>;
-			};
-
-			input_i@5 {
-				reg = <5>;
-				qcom,scale = <14285714>;
-			};
-
-			input_v@6 {
-				reg = <6>;
-				qcom,scale = <25000000>;
-			};
-
-			otg_i@7 {
-				reg = <7>;
-				qcom,scale = <5714286>;
-			};
-		};
-
-		smb138x_parallel_slave: qcom,smb138x-parallel-slave@1000 {
-			compatible = "qcom,smb138x-parallel-slave";
-			qcom,pmic-revid = <&smb138x_revid>;
-			reg = <0x1000 0x700>;
-			#address-cells = <1>;
-			#size-cells = <1>;
-			interrupt-parent = <&smb138x>;
-			io-channels =
-				<&smb138x_tadc 1>,
-				<&smb138x_tadc 2>,
-				<&smb138x_tadc 3>,
-				<&smb138x_tadc 14>,
-				<&smb138x_tadc 15>,
-				<&smb138x_tadc 16>,
-				<&smb138x_tadc 17>;
-			io-channel-names =
-				"connector_temp",
-				"charger_temp",
-				"batt_i",
-				"connector_temp_thr1",
-				"connector_temp_thr2",
-				"connector_temp_thr3",
-				"charger_temp_max";
-
-			qcom,chgr@1000 {
-				reg = <0x1000 0x100>;
-				interrupts = <0x10 0x1 IRQ_TYPE_EDGE_RISING>;
-				interrupt-names = "chg-state-change";
-			};
-
-			qcom,chgr-misc@1600 {
-				reg = <0x1600 0x100>;
-				interrupts = <0x16 0x1 IRQ_TYPE_EDGE_RISING>,
-					     <0x16 0x6 IRQ_TYPE_EDGE_RISING>;
-				interrupt-names = "wdog-bark",
-						  "temperature-change";
-			};
-		};
-	};
-};
-
-&tlmm {
-	smb_int_default: smb_int_default {
-		mux {
-			pins = "gpio21";
-			function = "gpio";
-		};
-
-		config {
-			pins = "gpio21";
-			drive-strength = <2>;
-			bias-pull-up;
-		};
-	};
-};
+#include "sdm660-external-codec.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDA 636 PM660 + PM660A QRD HDK636";
@@ -170,15 +34,6 @@
 	qcom,mdss-pref-prim-intf = "dsi";
 };
 
-&mdss_dp_ctrl {
-	pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";
-	pinctrl-0 = <&mdss_dp_aux_active &mdss_dp_usbplug_cc_active>;
-	pinctrl-1 = <&mdss_dp_aux_suspend &mdss_dp_usbplug_cc_suspend>;
-	qcom,aux-en-gpio = <&tlmm 55 0>;
-	qcom,aux-sel-gpio = <&tlmm 56 0>;
-	qcom,usbplug-cc-gpio = <&tlmm 58 0>;
-};
-
 &mdss_dsi {
 	hw-config = "single_dsi";
 };
@@ -188,6 +43,7 @@
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	oledb-supply = <&pm660a_oledb>;
 	lab-supply = <&lab_regulator>;
 	ibb-supply = <&ibb_regulator>;
 	qcom,platform-reset-gpio = <&tlmm 53 0>;
@@ -201,7 +57,24 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
 };
 
+/delete-node/ &tasha_hph_en0;
+/delete-node/ &tasha_hph_en1;
+
+&qusb_phy0 {
+	qcom,qusb-phy-init-seq = <0xf8 0x80
+				0xb3 0x84
+				0x83 0x88
+				0xc7 0x8c
+				0x30 0x08
+				0x79 0x0c
+				0x21 0x10
+				0x14 0x9c
+				0x9f 0x1c
+				0x00 0x18>;
+};
+
 &tasha_snd {
+	qcom,model = "sdm660-tasha-skus-snd-card";
 	qcom,audio-routing =
 		"AIF4 VI", "MCLK",
 		"RX_BIAS", "MCLK",
@@ -216,25 +89,10 @@
 		"MIC BIAS4", "Digital Mic5",
 		"SpkrLeft IN", "SPK1 OUT";
 	qcom,msm-mbhc-hphl-swh = <0>;
-};
-
-&usb2s {
-	status = "okay";
-};
-
-&qusb_phy0 {
-	reg = <0x0c012000 0x180>,
-		<0x00188018 0x4>;
-	reg-names = "qusb_phy_base",
-		"ref_clk_addr";
-	qcom,qusb-phy-init-seq = <0xf8 0x80
-				0xb3 0x84
-				0x83 0x88
-				0xc7 0x8c
-				0x30 0x08
-				0x79 0x0c
-				0x21 0x10
-				0x14 0x9c
-				0x9f 0x1c
-				0x00 0x18>;
+	/delete-property/ qcom,us-euro-gpios;
+	/delete-property/ qcom,hph-en0-gpio;
+	/delete-property/ qcom,hph-en1-gpio;
+	qcom,wsa-max-devs = <1>;
+	qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_213>;
+	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrLeft";
 };
