@@ -82,7 +82,8 @@ enum gmu_flags {
 	GMU_BOOT_INIT_DONE = 0,
 	GMU_CLK_ON = 1,
 	GMU_HFI_ON = 2,
-	GMU_FAULT = 3
+	GMU_FAULT = 3,
+	GMU_DCVS_REPLAY = 4,
 };
 
 /**

@@ -1149,7 +1149,6 @@ int gmu_probe(struct kgsl_device *device)
 		goto error;
 
 	gmu->num_gpupwrlevels = pwr->num_pwrlevels;
-	gmu->wakeup_pwrlevel = pwr->default_pwrlevel;
 
 	for (i = 0; i < gmu->num_gpupwrlevels; i++) {
 		int j = gmu->num_gpupwrlevels - 1 - i;
@@ -1411,11 +1410,8 @@ int gmu_start(struct kgsl_device *device)
 		if (ret)
 			goto error_gmu;
 
-		/* Send default DCVS level */
-		ret = gmu_dcvs_set(gmu, pwr->default_pwrlevel,
-				pwr->pwrlevels[pwr->default_pwrlevel].bus_freq);
-		if (ret)
-			goto error_gmu;
+		/* Request default DCVS level */
+		kgsl_pwrctrl_pwrlevel_change(device, pwr->default_pwrlevel);
 
 		msm_bus_scale_client_update_request(gmu->pcl, 0);
 		break;
@@ -1435,12 +1431,7 @@ int gmu_start(struct kgsl_device *device)
 		if (ret)
 			goto error_gmu;
 
-		ret = gmu_dcvs_set(gmu, gmu->wakeup_pwrlevel,
-				pwr->pwrlevels[gmu->wakeup_pwrlevel].bus_freq);
-		if (ret)
-			goto error_gmu;
-
-		gmu->wakeup_pwrlevel = pwr->default_pwrlevel;
+		kgsl_pwrctrl_pwrlevel_change(device, pwr->default_pwrlevel);
 		break;
 
 	case KGSL_STATE_RESET:
@@ -1462,11 +1453,8 @@ int gmu_start(struct kgsl_device *device)
 				goto error_gmu;
 
 			/* Send DCVS level prior to reset*/
-			ret = gmu_dcvs_set(gmu, pwr->active_pwrlevel,
-					pwr->pwrlevels[pwr->active_pwrlevel]
-					.bus_freq);
-			if (ret)
-				goto error_gmu;
+			kgsl_pwrctrl_pwrlevel_change(device,
+				pwr->default_pwrlevel);
 
 			ret = gpudev->oob_set(adreno_dev,
 				OOB_CPINIT_SET_MASK,
