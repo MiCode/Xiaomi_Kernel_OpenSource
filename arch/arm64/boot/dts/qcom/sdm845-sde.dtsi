@@ -45,6 +45,8 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
+		#power-domain-cells = <0>;
+
 		/* hw blocks */
 		qcom,sde-off = <0x1000>;
 		qcom,sde-len = <0x45C>;
@@ -355,6 +357,8 @@
 
 		interrupt-parent = <&mdss_mdp>;
 		interrupts = <2 0>;
+
+		power-domains = <&mdss_mdp>;
 
 		/* Offline rotator QoS setting */
 		qcom,mdss-rot-vbif-qos-setting = <3 3 3 3 3 3 3 3>;
