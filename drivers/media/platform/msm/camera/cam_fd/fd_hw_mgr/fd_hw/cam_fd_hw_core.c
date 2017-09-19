@@ -110,9 +110,6 @@ static int cam_fd_hw_util_fdwrapper_sync_reset(struct cam_hw_info *fd_hw)
 	/* Before triggering reset to HW, clear the reset complete */
 	reinit_completion(&fd_core->reset_complete);
 
-	cam_fd_soc_register_write(soc_info, CAM_FD_REG_CORE,
-		hw_static_info->core_regs.control, 0x1);
-
 	if (hw_static_info->enable_errata_wa.single_irq_only) {
 		cam_fd_soc_register_write(soc_info, CAM_FD_REG_WRAPPER,
 			hw_static_info->wrapper_regs.irq_mask,
@@ -124,13 +121,11 @@ static int cam_fd_hw_util_fdwrapper_sync_reset(struct cam_hw_info *fd_hw)
 
 	time_left = wait_for_completion_timeout(&fd_core->reset_complete,
 		msecs_to_jiffies(CAM_FD_HW_HALT_RESET_TIMEOUT));
-	if (time_left <= 0) {
-		CAM_ERR(CAM_FD, "HW reset wait failed time_left=%d", time_left);
-		return -EPERM;
-	}
+	if (time_left <= 0)
+		CAM_WARN(CAM_FD, "HW reset timeout time_left=%d", time_left);
 
 	cam_fd_soc_register_write(soc_info, CAM_FD_REG_CORE,
-		hw_static_info->core_regs.control, 0x0);
+		hw_static_info->core_regs.control, 0x1);
 
 	CAM_DBG(CAM_FD, "FD Wrapper SW Sync Reset complete");
 
@@ -148,9 +143,6 @@ static int cam_fd_hw_util_fdwrapper_halt(struct cam_hw_info *fd_hw)
 	/* Before triggering halt to HW, clear halt complete */
 	reinit_completion(&fd_core->halt_complete);
 
-	cam_fd_soc_register_write(soc_info, CAM_FD_REG_CORE,
-		hw_static_info->core_regs.control, 0x1);
-
 	if (hw_static_info->enable_errata_wa.single_irq_only) {
 		cam_fd_soc_register_write(soc_info, CAM_FD_REG_WRAPPER,
 			hw_static_info->wrapper_regs.irq_mask,
@@ -162,13 +154,8 @@ static int cam_fd_hw_util_fdwrapper_halt(struct cam_hw_info *fd_hw)
 
 	time_left = wait_for_completion_timeout(&fd_core->halt_complete,
 		msecs_to_jiffies(CAM_FD_HW_HALT_RESET_TIMEOUT));
-	if (time_left <= 0) {
-		CAM_ERR(CAM_FD, "HW halt wait failed time_left=%d", time_left);
-		return -EPERM;
-	}
-
-	cam_fd_soc_register_write(soc_info, CAM_FD_REG_CORE,
-		hw_static_info->core_regs.control, 0x0);
+	if (time_left <= 0)
+		CAM_WARN(CAM_FD, "HW halt timeout time_left=%d", time_left);
 
 	CAM_DBG(CAM_FD, "FD Wrapper Halt complete");
 
@@ -804,6 +791,12 @@ int cam_fd_hw_reset(void *hw_priv, void *reset_core_args, uint32_t arg_size)
 	fd_core->results_valid = false;
 	fd_core->core_state = CAM_FD_CORE_STATE_RESET_PROGRESS;
 	spin_unlock(&fd_core->spin_lock);
+
+	rc = cam_fd_hw_util_fdwrapper_halt(fd_hw);
+	if (rc) {
+		CAM_ERR(CAM_FD, "Failed in HALT rc=%d", rc);
+		return rc;
+	}
 
 	rc = cam_fd_hw_util_fdwrapper_sync_reset(fd_hw);
 	if (rc) {
