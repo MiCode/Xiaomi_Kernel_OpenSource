@@ -130,9 +130,11 @@ of_get_coresight_platform_data(struct device *dev,
 	if (!pdata)
 		return ERR_PTR(-ENOMEM);
 
-	/* Use device name as sysfs handle */
-	pdata->name = dev_name(dev);
-
+	ret = of_property_read_string(node, "coresight-name", &pdata->name);
+	if (ret) {
+		/* Use device name as sysfs handle */
+		pdata->name = dev_name(dev);
+	}
 	/* Get the number of input and output port for this component */
 	of_coresight_get_ports(node, &pdata->nr_inport, &pdata->nr_outport);
 
@@ -181,7 +183,10 @@ of_get_coresight_platform_data(struct device *dev,
 			if (!rdev)
 				return ERR_PTR(-EPROBE_DEFER);
 
-			pdata->child_names[i] = dev_name(rdev);
+			ret = of_property_read_string(rparent, "coresight-name",
+						&pdata->child_names[i]);
+			if (ret)
+				pdata->child_names[i] = dev_name(rdev);
 			pdata->child_ports[i] = rendpoint.id;
 
 			i++;
