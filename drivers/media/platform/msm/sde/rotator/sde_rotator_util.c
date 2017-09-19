@@ -35,6 +35,7 @@
 
 #include "sde_rotator_util.h"
 #include "sde_rotator_smmu.h"
+#include "sde_rotator_debug.h"
 
 #define Y_TILEWIDTH     48
 #define Y_TILEHEIGHT    4
@@ -1038,6 +1039,8 @@ int sde_mdp_data_map(struct sde_mdp_data *data, bool rotator, int dir)
 			break;
 		}
 	}
+	SDEROT_EVTLOG(data->num_planes, dir, data->p[0].addr, data->p[0].len,
+			data->p[0].mapped);
 
 	return rc;
 }

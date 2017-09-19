@@ -2183,6 +2183,7 @@ static int sde_rotator_qbuf(struct file *file, void *fh,
 	if (ret < 0)
 		SDEDEV_ERR(ctx->rot_dev->dev, "fail qbuf s:%d t:%d r:%d\n",
 				ctx->session_id, buf->type, ret);
+	SDEROT_EVTLOG(buf->type, buf->bytesused, buf->length, buf->m.fd, ret);
 
 	return ret;
 }
@@ -2365,6 +2366,7 @@ static int sde_rotator_cropcap(struct file *file, void *fh,
 	a->pixelaspect.numerator = 1;
 	a->pixelaspect.denominator = 1;
 
+	SDEROT_EVTLOG(format->fmt.pix.width, format->fmt.pix.height, a->type);
 	return 0;
 }
 

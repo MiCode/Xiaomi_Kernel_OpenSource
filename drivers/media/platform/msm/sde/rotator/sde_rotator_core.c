@@ -2388,6 +2388,10 @@ static int sde_rotator_config_session(struct sde_rot_mgr *mgr,
 		config->input.format, config->output.width,
 		config->output.height, config->output.format,
 		config->frame_rate, perf->clk_rate, perf->bw);
+	SDEROT_EVTLOG(config->session_id, config->input.width,
+			config->input.height, config->input.format,
+			config->output.width, config->output.height,
+			config->output.format, config->frame_rate);
 done:
 	return ret;
 }
