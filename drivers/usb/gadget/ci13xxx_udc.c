@@ -2253,6 +2253,12 @@ static void release_ep_request(struct ci13xxx_ep  *mEp,
 		mReq->map     = 0;
 	}
 
+	if (mReq->zptr) {
+		dma_pool_free(mEp->td_pool, mReq->zptr, mReq->zdma);
+		mReq->zptr = NULL;
+		mReq->zdma = 0;
+	}
+
 	if (mEp->multi_req) {
 		restore_original_req(mReq);
 		mEp->multi_req = false;
@@ -2314,6 +2320,12 @@ __acquires(mEp->lock)
 		release_ep_request(mEp, mReq);
 	}
 
+	if (mEp->last_zptr) {
+		dma_pool_free(mEp->td_pool, mEp->last_zptr, mEp->last_zdma);
+		mEp->last_zptr = NULL;
+		mEp->last_zdma = 0;
+	}
+
 	return 0;
 }
 
@@ -2347,12 +2359,6 @@ static int _gadget_stop_activity(struct usb_gadget *gadget)
 	_ep_nuke(&udc->ep0out);
 	_ep_nuke(&udc->ep0in);
 	spin_unlock_irqrestore(udc->lock, flags);
-
-	if (udc->ep0in.last_zptr) {
-		dma_pool_free(udc->ep0in.td_pool, udc->ep0in.last_zptr,
-				udc->ep0in.last_zdma);
-		udc->ep0in.last_zptr = NULL;
-	}
 
 	return 0;
 }
@@ -2981,12 +2987,6 @@ static int ep_disable(struct usb_ep *ep)
 			mEp->dir = (mEp->dir == TX) ? RX : TX;
 
 	} while (mEp->dir != direction);
-
-	if (mEp->last_zptr) {
-		dma_pool_free(mEp->td_pool, mEp->last_zptr,
-				mEp->last_zdma);
-		mEp->last_zptr = NULL;
-	}
 
 	mEp->desc = NULL;
 	mEp->ep.desc = NULL;
