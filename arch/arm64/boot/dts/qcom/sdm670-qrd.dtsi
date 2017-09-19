@@ -1,0 +1,37 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "sdm670-pmic-overlay.dtsi"
+
+&qupv3_se9_2uart {
+	status = "disabled";
+};
+
+&qupv3_se12_2uart {
+	status = "ok";
+};
+
+&qupv3_se8_spi {
+	status = "disabled";
+};
+
+&qupv3_se3_i2c {
+	status = "disabled";
+};
+
+&qupv3_se10_i2c {
+	status = "disabled";
+};
+
+&qupv3_se6_4uart {
+	status = "disabled";
+};
