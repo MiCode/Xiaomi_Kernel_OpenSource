@@ -170,6 +170,7 @@ extern int mmc_send_tuning(struct mmc_host *host, u32 opcode, int *cmd_error);
 extern int mmc_get_ext_csd(struct mmc_card *card, u8 **new_ext_csd);
 extern int mmc_set_auto_bkops(struct mmc_card *card, bool enable);
 extern int mmc_suspend_clk_scaling(struct mmc_host *host);
+extern void mmc_flush_detect_work(struct mmc_host *);
 
 #define MMC_ERASE_ARG		0x00000000
 #define MMC_SECURE_ERASE_ARG	0x80000000

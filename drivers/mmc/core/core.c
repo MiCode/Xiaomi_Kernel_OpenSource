@@ -4165,6 +4165,18 @@ int mmc_detect_card_removed(struct mmc_host *host)
 }
 EXPORT_SYMBOL(mmc_detect_card_removed);
 
+/*
+ * This should be called to make sure that detect work(mmc_rescan)
+ * is completed.Drivers may use this function from async schedule/probe
+ * contexts to make sure that the bootdevice detection is completed on
+ * completion of async_schedule.
+ */
+void mmc_flush_detect_work(struct mmc_host *host)
+{
+	flush_delayed_work(&host->detect);
+}
+EXPORT_SYMBOL(mmc_flush_detect_work);
+
 void mmc_rescan(struct work_struct *work)
 {
 	unsigned long flags;
