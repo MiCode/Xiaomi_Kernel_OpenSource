@@ -2399,8 +2399,8 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 	}
 
 	ctl = phys->hw_ctl;
-	if (!ctl || !ctl->ops.trigger_flush) {
-		SDE_ERROR("missing trigger cb\n");
+	if (!ctl || !phys->ops.trigger_flush) {
+		SDE_ERROR("missing ctl/trigger cb\n");
 		return;
 	}
 
@@ -2420,7 +2420,7 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 	if (extra_flush_bits && ctl->ops.update_pending_flush)
 		ctl->ops.update_pending_flush(ctl, extra_flush_bits);
 
-	ctl->ops.trigger_flush(ctl);
+	phys->ops.trigger_flush(phys);
 
 	if (ctl->ops.get_pending_flush)
 		SDE_EVT32(DRMID(drm_enc), phys->intf_idx, pending_kickoff_cnt,
@@ -2458,6 +2458,20 @@ static inline void _sde_encoder_trigger_start(struct sde_encoder_phys *phys)
 	}
 	if (phys->ops.trigger_start && phys->enable_state != SDE_ENC_DISABLED)
 		phys->ops.trigger_start(phys);
+}
+
+void sde_encoder_helper_trigger_flush(struct sde_encoder_phys *phys_enc)
+{
+	struct sde_hw_ctl *ctl;
+
+	if (!phys_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+
+	ctl = phys_enc->hw_ctl;
+	if (ctl && ctl->ops.trigger_flush)
+		ctl->ops.trigger_flush(ctl);
 }
 
 void sde_encoder_helper_trigger_start(struct sde_encoder_phys *phys_enc)
