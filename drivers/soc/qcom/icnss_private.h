@@ -143,6 +143,7 @@ enum icnss_driver_state {
 	ICNSS_WLFW_EXISTS,
 	ICNSS_SHUTDOWN_DONE,
 	ICNSS_HOST_TRIGGERED_PDR,
+	ICNSS_FW_DOWN,
 };
 
 struct ce_irq_list {

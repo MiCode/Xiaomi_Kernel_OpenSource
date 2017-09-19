@@ -868,6 +868,12 @@ void icnss_qmi_wlfw_clnt_ind(struct qmi_handle *handle,
 
 	icnss_pr_dbg("Received Ind 0x%x, msg_len: %d\n", msg_id, msg_len);
 
+	if (test_bit(ICNSS_FW_DOWN, &priv->state)) {
+		icnss_pr_dbg("FW down, ignoring 0x%x, state: 0x%lx\n",
+				msg_id, priv->state);
+		return;
+	}
+
 	switch (msg_id) {
 	case QMI_WLFW_FW_READY_IND_V01:
 		icnss_driver_event_post(ICNSS_DRIVER_EVENT_FW_READY_IND,

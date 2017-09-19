@@ -642,6 +642,7 @@ static int icnss_driver_event_server_arrive(void *data)
 		return -ENODEV;
 
 	set_bit(ICNSS_WLFW_EXISTS, &penv->state);
+	clear_bit(ICNSS_FW_DOWN, &penv->state);
 
 	ret = icnss_connect_to_fw_server(penv);
 	if (ret)
@@ -1080,6 +1081,8 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 	icnss_pr_info("Modem went down, state: 0x%lx, crashed: %d\n",
 		      priv->state, notif->crashed);
 
+	set_bit(ICNSS_FW_DOWN, &priv->state);
+
 	if (notif->crashed)
 		priv->stats.recovery.root_pd_crash++;
 	else
@@ -1206,6 +1209,7 @@ static int icnss_service_notifier_notify(struct notifier_block *nb,
 	icnss_pr_info("PD service down, pd_state: %d, state: 0x%lx: cause: %s\n",
 		      *state, priv->state, icnss_pdr_cause[cause]);
 event_post:
+	set_bit(ICNSS_FW_DOWN, &priv->state);
 	icnss_ignore_fw_timeout(true);
 	clear_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state);
 
@@ -1214,6 +1218,8 @@ event_post:
 	icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
 				ICNSS_EVENT_SYNC, event_data);
 done:
+	if (notification == SERVREG_NOTIF_SERVICE_STATE_UP_V01)
+		clear_bit(ICNSS_FW_DOWN, &priv->state);
 	return NOTIFY_OK;
 }
 
@@ -2269,6 +2275,9 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 			continue;
 		case ICNSS_HOST_TRIGGERED_PDR:
 			seq_puts(s, "HOST TRIGGERED PDR");
+			continue;
+		case ICNSS_FW_DOWN:
+			seq_puts(s, "FW DOWN");
 			continue;
 		}
 
