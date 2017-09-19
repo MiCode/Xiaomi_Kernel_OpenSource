@@ -1364,7 +1364,7 @@ int ep_pcie_core_mask_irq_event(enum ep_pcie_irq_event event,
 	spin_lock_irqsave(&dev->ext_lock, irqsave_flags);
 
 	if (dev->aggregated_irq) {
-		mask = readl_relaxed(dev->dm_core + PCIE20_PARF_INT_ALL_MASK);
+		mask = readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_MASK);
 		EP_PCIE_DUMP(dev,
 			"PCIe V%d: current PCIE20_PARF_INT_ALL_MASK:0x%x\n",
 			dev->rev, mask);
@@ -1377,7 +1377,7 @@ int ep_pcie_core_mask_irq_event(enum ep_pcie_irq_event event,
 		EP_PCIE_DUMP(dev,
 			"PCIe V%d: new PCIE20_PARF_INT_ALL_MASK:0x%x\n",
 			dev->rev,
-			readl_relaxed(dev->dm_core + PCIE20_PARF_INT_ALL_MASK));
+			readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_MASK));
 	} else {
 		EP_PCIE_ERR(dev,
 			"PCIe V%d: Client askes to %s IRQ event 0x%x when aggregated IRQ is not supported.\n",
