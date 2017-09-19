@@ -1381,6 +1381,7 @@
 
 &usb2s {
 	status = "ok";
+	qcom,no-wakeup-src-in-hostmode;
 };
 
 &usb3 {
@@ -1388,6 +1389,7 @@
 	vbus_dwc3-supply = <&usb_otg_switch>;
 	vdda33-supply = <&pm8994_l24>;
 	vdda18-supply = <&pm8994_l12>;
+	qcom,no-wakeup-src-in-hostmode;
 };
 
 &blsp1_uart2 {
