@@ -1261,6 +1261,7 @@ static void sde_encoder_phys_cmd_init_ops(
 	ops->prepare_for_kickoff = sde_encoder_phys_cmd_prepare_for_kickoff;
 	ops->wait_for_tx_complete = sde_encoder_phys_cmd_wait_for_tx_complete;
 	ops->wait_for_vblank = sde_encoder_phys_cmd_wait_for_vblank;
+	ops->trigger_flush = sde_encoder_helper_trigger_flush;
 	ops->trigger_start = sde_encoder_phys_cmd_trigger_start;
 	ops->needs_single_flush = sde_encoder_phys_cmd_needs_single_flush;
 	ops->hw_reset = sde_encoder_helper_hw_reset;
