@@ -529,7 +529,7 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 
 	rc = dp->panel->read_sink_caps(dp->panel, dp->dp_display.connector);
 	if (rc)
-		return rc;
+		goto notify;
 
 	dp->link->process_request(dp->link);
 

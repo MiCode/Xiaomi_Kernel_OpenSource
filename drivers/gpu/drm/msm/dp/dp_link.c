@@ -17,12 +17,6 @@
 #include "dp_link.h"
 #include "dp_panel.h"
 
-enum dp_lane_count {
-	DP_LANE_COUNT_1	= 1,
-	DP_LANE_COUNT_2	= 2,
-	DP_LANE_COUNT_4	= 4,
-};
-
 enum dynamic_range {
 	DP_DYNAMIC_RANGE_RGB_VESA = 0x00,
 	DP_DYNAMIC_RANGE_RGB_CEA = 0x01,
@@ -623,33 +617,6 @@ exit:
 }
 
 /**
- * dp_link_is_link_rate_valid() - validates the link rate
- * @lane_rate: link rate requested by the sink
- *
- * Returns true if the requested link rate is supported.
- */
-static bool dp_link_is_link_rate_valid(u32 bw_code)
-{
-	return ((bw_code == DP_LINK_BW_1_62) ||
-		(bw_code == DP_LINK_BW_2_7) ||
-		(bw_code == DP_LINK_BW_5_4) ||
-		(bw_code == DP_LINK_BW_8_1));
-}
-
-/**
- * dp_link_is_lane_count_valid() - validates the lane count
- * @lane_count: lane count requested by the sink
- *
- * Returns true if the requested lane count is supported.
- */
-static bool dp_link_is_lane_count_valid(u32 lane_count)
-{
-	return (lane_count == DP_LANE_COUNT_1) ||
-		(lane_count == DP_LANE_COUNT_2) ||
-		(lane_count == DP_LANE_COUNT_4);
-}
-
-/**
  * dp_link_parse_link_training_params() - parses link training parameters from
  * DPCD
  * @link: Display Port Driver data
@@ -674,7 +641,7 @@ static int dp_link_parse_link_training_params(struct dp_link_private *link)
 	}
 	data = bp;
 
-	if (!dp_link_is_link_rate_valid(data)) {
+	if (!is_link_rate_valid(data)) {
 		pr_err("invalid link rate = 0x%x\n", data);
 		ret = -EINVAL;
 		goto exit;
@@ -693,7 +660,7 @@ static int dp_link_parse_link_training_params(struct dp_link_private *link)
 	data = bp;
 	data &= 0x1F;
 
-	if (!dp_link_is_lane_count_valid(data)) {
+	if (!is_lane_count_valid(data)) {
 		pr_err("invalid lane count = 0x%x\n", data);
 		ret = -EINVAL;
 		goto exit;
@@ -1121,8 +1088,8 @@ static int dp_link_process_phy_test_pattern_request(
 	test_link_rate = link->request.test_link_rate;
 	test_lane_count = link->request.test_lane_count;
 
-	if (!dp_link_is_link_rate_valid(test_link_rate) ||
-		!dp_link_is_lane_count_valid(test_lane_count)) {
+	if (!is_link_rate_valid(test_link_rate) ||
+		!is_lane_count_valid(test_lane_count)) {
 		pr_err("Invalid params: link rate = 0x%x, lane count = 0x%x\n",
 				test_link_rate, test_lane_count);
 		return -EINVAL;

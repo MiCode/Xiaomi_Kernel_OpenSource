@@ -20,6 +20,12 @@
 #include "dp_usbpd.h"
 #include "sde_edid_parser.h"
 
+enum dp_lane_count {
+	DP_LANE_COUNT_1	= 1,
+	DP_LANE_COUNT_2	= 2,
+	DP_LANE_COUNT_4	= 4,
+};
+
 #define DP_MAX_DOWNSTREAM_PORTS 0x10
 
 struct dp_panel_info {
@@ -76,6 +82,33 @@ struct dp_panel {
 	int (*get_modes)(struct dp_panel *dp_panel,
 		struct drm_connector *connector, struct dp_display_mode *mode);
 };
+
+/**
+ * is_link_rate_valid() - validates the link rate
+ * @lane_rate: link rate requested by the sink
+ *
+ * Returns true if the requested link rate is supported.
+ */
+static inline bool is_link_rate_valid(u32 bw_code)
+{
+	return ((bw_code == DP_LINK_BW_1_62) ||
+		(bw_code == DP_LINK_BW_2_7) ||
+		(bw_code == DP_LINK_BW_5_4) ||
+		(bw_code == DP_LINK_BW_8_1));
+}
+
+/**
+ * dp_link_is_lane_count_valid() - validates the lane count
+ * @lane_count: lane count requested by the sink
+ *
+ * Returns true if the requested lane count is supported.
+ */
+static inline bool is_lane_count_valid(u32 lane_count)
+{
+	return (lane_count == DP_LANE_COUNT_1) ||
+		(lane_count == DP_LANE_COUNT_2) ||
+		(lane_count == DP_LANE_COUNT_4);
+}
 
 struct dp_panel *dp_panel_get(struct dp_panel_in *in);
 void dp_panel_put(struct dp_panel *dp_panel);

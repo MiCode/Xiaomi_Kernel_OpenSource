@@ -32,6 +32,23 @@ struct dp_panel_private {
 	bool aux_cfg_update_done;
 };
 
+static const struct dp_panel_info fail_safe = {
+	.h_active = 640,
+	.v_active = 480,
+	.h_back_porch = 48,
+	.h_front_porch = 16,
+	.h_sync_width = 96,
+	.h_active_low = 0,
+	.v_back_porch = 33,
+	.v_front_porch = 10,
+	.v_sync_width = 2,
+	.v_active_low = 0,
+	.h_skew = 0,
+	.refresh_rate = 60,
+	.pixel_clk_khz = 25200,
+	.bpp = 24,
+};
+
 static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
 {
 	int rlen, rc = 0;
@@ -101,6 +118,23 @@ end:
 	return rc;
 }
 
+static int dp_panel_set_default_link_params(struct dp_panel *dp_panel)
+{
+	struct drm_dp_link *link_info;
+	const int default_bw_code = 162000;
+	const int default_num_lanes = 1;
+
+	if (!dp_panel) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+	link_info = &dp_panel->link_info;
+	link_info->rate = default_bw_code;
+	link_info->num_lanes = default_num_lanes;
+	pr_debug("link_rate=%d num_lanes=%d\n",
+		link_info->rate, link_info->num_lanes);
+	return 0;
+}
 
 static int dp_panel_read_edid(struct dp_panel *dp_panel,
 	struct drm_connector *connector)
@@ -146,14 +180,16 @@ static int dp_panel_read_sink_caps(struct dp_panel *dp_panel,
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 
 	rc = dp_panel_read_dpcd(dp_panel);
-	if (rc) {
-		pr_err("panel dpcd read failed\n");
-		return rc;
+	if (rc || !is_link_rate_valid(drm_dp_link_rate_to_bw_code(
+		dp_panel->link_info.rate)) || !is_lane_count_valid(
+		dp_panel->link_info.num_lanes)) {
+		pr_err("panel dpcd read failed/incorrect, set default params\n");
+		dp_panel_set_default_link_params(dp_panel);
 	}
 
 	rc = dp_panel_read_edid(dp_panel, connector);
 	if (rc) {
-		pr_err("panel edid read failed\n");
+		pr_err("panel edid read failed, set failsafe mode\n");
 		return rc;
 	}
 
@@ -256,8 +292,11 @@ static int dp_panel_get_modes(struct dp_panel *dp_panel,
 		return 1;
 	} else if (dp_panel->edid_ctrl->edid) {
 		return _sde_edid_update_modes(connector, dp_panel->edid_ctrl);
+	} else { /* fail-safe mode */
+		memcpy(&mode->timing, &fail_safe,
+			sizeof(fail_safe));
+		return 1;
 	}
-	return 0;
 }
 
 static int dp_panel_timing_cfg(struct dp_panel *dp_panel)
