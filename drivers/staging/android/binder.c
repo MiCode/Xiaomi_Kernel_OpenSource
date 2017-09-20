@@ -3520,11 +3520,13 @@ static int binder_thread_write(struct binder_proc *proc,
 				BUG_ON(buf_node->proc != proc);
 				w = binder_dequeue_work_head_ilocked(
 						&buf_node->async_todo);
-				if (!w)
+				if (!w) {
 					buf_node->has_async_transaction = 0;
-				else
+				} else {
 					binder_enqueue_work_ilocked(
-							w, &thread->todo);
+							w, &proc->todo);
+					binder_wakeup_proc_ilocked(proc);
+				}
 				binder_node_inner_unlock(buf_node);
 			}
 			trace_binder_transaction_buffer_release(buffer);
@@ -3668,22 +3670,12 @@ static int binder_thread_write(struct binder_proc *proc,
 				ref->death = death;
 				if (ref->node->proc == NULL) {
 					ref->death->work.type = BINDER_WORK_DEAD_BINDER;
-					if (thread->looper &
-					    (BINDER_LOOPER_STATE_REGISTERED |
-					     BINDER_LOOPER_STATE_ENTERED))
-						binder_enqueue_work(
-							proc,
-							&ref->death->work,
-							&thread->todo);
-					else {
-						binder_inner_proc_lock(proc);
-						binder_enqueue_work_ilocked(
-							&ref->death->work,
-							&proc->todo);
-						binder_wakeup_proc_ilocked(
-							proc);
-						binder_inner_proc_unlock(proc);
-					}
+
+					binder_inner_proc_lock(proc);
+					binder_enqueue_work_ilocked(
+						&ref->death->work, &proc->todo);
+					binder_wakeup_proc_ilocked(proc);
+					binder_inner_proc_unlock(proc);
 				}
 			} else {
 				if (ref->death == NULL) {
@@ -3798,12 +3790,6 @@ static void binder_stat_br(struct binder_proc *proc,
 		atomic_inc(&proc->stats.br[_IOC_NR(cmd)]);
 		atomic_inc(&thread->stats.br[_IOC_NR(cmd)]);
 	}
-}
-
-static int binder_has_thread_work(struct binder_thread *thread)
-{
-	return !binder_worklist_empty(thread->proc, &thread->todo) ||
-		thread->looper_need_return;
 }
 
 static int binder_put_node_cmd(struct binder_proc *proc,
@@ -4436,12 +4422,9 @@ static unsigned int binder_poll(struct file *filp,
 
 	binder_inner_proc_unlock(thread->proc);
 
-	if (binder_has_work(thread, wait_for_proc_work))
-		return POLLIN;
-
 	poll_wait(filp, &thread->wait, wait);
 
-	if (binder_has_thread_work(thread))
+	if (binder_has_work(thread, wait_for_proc_work))
 		return POLLIN;
 
 	return 0;

@@ -1,0 +1,69 @@
+/*
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm8953-audio-mtp.dtsi"
+
+&soc {
+	led_flash0: qcom,camera-flash {
+		cell-index = <0>;
+		compatible = "qcom,camera-flash";
+		qcom,flash-type = <1>;
+		qcom,flash-source = <&pmi8940_flash0 &pmi8940_flash1>;
+		qcom,torch-source = <&pmi8940_torch0 &pmi8940_torch1>;
+		qcom,switch-source = <&pmi8940_switch>;
+	};
+};
+
+&usb3 {
+	vbus_dwc3-supply = <&smbcharger_charger_otg>;
+};
+
+&mdss_dsi0 {
+	lab-supply = <&lab_regulator>;
+	ibb-supply = <&ibb_regulator>;
+};
+
+&mdss_dsi1 {
+	lab-supply = <&lab_regulator>;
+	ibb-supply = <&ibb_regulator>;
+};
+
+&labibb {
+	status = "ok";
+	qpnp,qpnp-labibb-mode = "lcd";
+};
+
+&ibb_regulator {
+	qcom,qpnp-ibb-discharge-resistor = <32>;
+};
+
+&dsi_panel_pwr_supply {
+	qcom,panel-supply-entry@2 {
+		reg = <2>;
+		qcom,supply-name = "lab";
+		qcom,supply-min-voltage = <4600000>;
+		qcom,supply-max-voltage = <6000000>;
+		qcom,supply-enable-load = <100000>;
+		qcom,supply-disable-load = <100>;
+	};
+
+	qcom,panel-supply-entry@3 {
+		reg = <3>;
+		qcom,supply-name = "ibb";
+		qcom,supply-min-voltage = <4600000>;
+		qcom,supply-max-voltage = <6000000>;
+		qcom,supply-enable-load = <100000>;
+		qcom,supply-disable-load = <100>;
+		qcom,supply-post-on-sleep = <10>;
+	};
+};

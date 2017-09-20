@@ -1700,6 +1700,13 @@
 		pinctrl-3 = <&emac0_ephy_sleep>;
 		qcom,emac-tstamp-en;
 		qcom,emac-ptp-frac-ns-adj = <125000000 1>;
+
+		qcom,msm-bus,name = "emac0";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<114 512 0 0>,       /* No vote */
+				<114 512 125000 800000>; /* Max. bandwidth */
 		status = "disable";
 
 		phy0: ethernet-phy@0 {

@@ -285,6 +285,11 @@ struct msm_sensor_id_info_t {
 	unsigned short sensor_id_mask;
 };
 
+struct msm_camera_sensor_gpio_intr_config {
+	int gpio_num;
+	uint32_t gpio_trigger;
+};
+
 struct msm_camera_sensor_slave_info {
 	char sensor_name[32];
 	char eeprom_name[32];
@@ -300,6 +305,9 @@ struct msm_camera_sensor_slave_info {
 	unsigned char  is_init_params_valid;
 	struct msm_sensor_init_params sensor_init_params;
 	enum msm_sensor_output_format_t output_format;
+	struct msm_camera_sensor_gpio_intr_config
+				gpio_intr_config;
+	unsigned int camera_sensor_device_id;
 };
 
 struct msm_camera_i2c_reg_array {

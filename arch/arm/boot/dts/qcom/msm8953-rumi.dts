@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,11 +14,26 @@
 /dts-v1/;
 
 #include "msm8953.dtsi"
+#include "msm-pmi8950.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM8953 RUMI";
+	model = "Qualcomm Technologies, Inc. MSM8953 + PMI8950 RUMI";
 	compatible = "qcom,msm8953-rumi", "qcom,msm8953", "qcom,rumi";
 	qcom,board-id= <15 0>;
+};
+
+&usb3 {
+	vbus_dwc3-supply = <&smbcharger_charger_otg>;
+};
+
+&mdss_dsi0 {
+	lab-supply = <&lab_regulator>;
+	ibb-supply = <&ibb_regulator>;
+};
+
+&mdss_dsi1 {
+	lab-supply = <&lab_regulator>;
+	ibb-supply = <&ibb_regulator>;
 };
 
 &soc {

@@ -1289,6 +1289,7 @@ struct ipa3_context {
 	u32 enable_clock_scaling;
 	u32 curr_ipa_clk_rate;
 	bool q6_proxy_clk_vote_valid;
+	struct mutex q6_proxy_clk_vote_mutex;
 	u32 ipa_num_pipes;
 	dma_addr_t pkt_init_imm[IPA3_MAX_NUM_PIPES];
 

@@ -562,7 +562,7 @@ static int snd_uac2_probe(struct platform_device *pdev)
 	if (err < 0)
 		goto snd_fail;
 
-	strcpy(pcm->name, "UAC2 PCM");
+	strlcpy(pcm->name, "UAC2 PCM", sizeof(pcm->name));
 	pcm->private_data = uac2;
 
 	uac2->pcm = pcm;
@@ -570,9 +570,10 @@ static int snd_uac2_probe(struct platform_device *pdev)
 	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_PLAYBACK, &uac2_pcm_ops);
 	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_CAPTURE, &uac2_pcm_ops);
 
-	strcpy(card->driver, "UAC2_Gadget");
-	strcpy(card->shortname, "UAC2_Gadget");
-	sprintf(card->longname, "UAC2_Gadget %i", pdev->id);
+	strlcpy(card->driver, "UAC2_Gadget", sizeof(card->driver));
+	strlcpy(card->shortname, "UAC2_Gadget", sizeof(card->shortname));
+	snprintf(card->longname, sizeof(card->longname),
+			"UAC2_Gadget %i", pdev->id);
 
 	snd_pcm_lib_preallocate_pages_for_all(pcm, SNDRV_DMA_TYPE_CONTINUOUS,
 		snd_dma_continuous_data(GFP_KERNEL), 0, BUFF_SIZE_MAX);
@@ -2175,7 +2176,7 @@ static ssize_t f_uac2_opts_##name##_show(struct f_uac2_opts *opts,	\
 	int result;							\
 									\
 	mutex_lock(&opts->lock);					\
-	result = sprintf(page, "%u\n", opts->name);			\
+	result = snprintf(page, PAGE_SIZE, "%u\n", opts->name);		\
 	mutex_unlock(&opts->lock);					\
 									\
 	return result;							\

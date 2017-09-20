@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,6 @@
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
 
 #include <linux/module.h>
-#include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
 #include <linux/kernel.h>
@@ -36,16 +35,11 @@
 #define BCL_IBAT_INT_NAME       "bcl-high-ibat-int"
 #define BCL_PARAM_MAX_ATTR      3
 
-#define BCL_INT_EN              0x15
 #define BCL_MONITOR_EN          0x46
 #define BCL_VBAT_VALUE          0x54
 #define BCL_IBAT_VALUE          0x55
-#define BCL_VBAT_CP_VALUE       0x56
-#define BCL_IBAT_CP_VALUE       0x57
 #define BCL_VBAT_MIN            0x58
 #define BCL_IBAT_MAX            0x59
-#define BCL_VBAT_MIN_CP         0x5A
-#define BCL_IBAT_MAX_CP         0x5B
 #define BCL_V_GAIN_BAT          0x60
 #define BCL_I_GAIN_RSENSE       0x61
 #define BCL_I_OFFSET_RSENSE     0x62
@@ -56,6 +50,21 @@
 #define BCL_IBAT_MAX_CLR        0x67
 #define BCL_VBAT_TRIP           0x68
 #define BCL_IBAT_TRIP           0x69
+
+#define BCL_8998_VBAT_VALUE     0x58
+#define BCL_8998_IBAT_VALUE     0x59
+#define BCL_8998_VBAT_MIN       0x5C
+#define BCL_8998_IBAT_MAX       0x5D
+#define BCL_8998_MAX_MIN_CLR    0x48
+#define BCL_8998_IBAT_MAX_CLR   3
+#define BCL_8998_VBAT_MIN_CLR   2
+#define BCL_8998_VBAT_ADC_LOW   0x72
+#define BCL_8998_IBAT_HIGH      0x78
+#define BCL_8998_BCL_CFG        0x6A
+
+#define BCL_8998_VBAT_SCALING   39000
+#define BCL_8998_IBAT_SCALING   80000
+#define BCL_CFG_VAL             0x81
 
 #define BCL_CONSTANT_NUM        32
 #define BCL_READ_RETRY_LIMIT    3
@@ -90,6 +99,12 @@ enum bcl_monitor_state {
 	BCL_PARAM_INACTIVE,
 	BCL_PARAM_MONITOR,
 	BCL_PARAM_POLLING,
+};
+
+enum bcl_hw_type {
+	BCL_PMI8994,
+	BCL_PMI8998,
+	BCL_VERSION_MAX,
 };
 
 struct bcl_peripheral_data {
@@ -132,6 +147,7 @@ static const char bcl_psy_name[] = "fg_adc";
 static bool calibration_done;
 static DEFINE_MUTEX(bcl_access_mutex);
 static DEFINE_MUTEX(bcl_enable_mutex);
+static enum bcl_hw_type bcl_perph_version;
 
 static int bcl_read_multi_register(int16_t reg_offset, uint8_t *data, int len)
 {
@@ -196,14 +212,24 @@ static void convert_vbat_to_adc_val(int *val)
 {
 	struct bcl_peripheral_data *perph_data = NULL;
 
-	if (!bcl_perph)
-		return;
-	perph_data = &bcl_perph->param[BCL_PARAM_VOLTAGE];
-	*val = (*val * 100
-		/ (100 + (perph_data->gain_factor_num * perph_data->gain)
-		* BCL_CONSTANT_NUM
-		/ perph_data->gain_factor_den))
-		/ perph_data->scaling_factor;
+	switch (bcl_perph_version) {
+	case BCL_PMI8994:
+		if (!bcl_perph)
+			return;
+		perph_data = &bcl_perph->param[BCL_PARAM_VOLTAGE];
+		*val = (*val * 100
+			/ (100 + (perph_data->gain_factor_num
+			* perph_data->gain) * BCL_CONSTANT_NUM
+			/ perph_data->gain_factor_den))
+			/ perph_data->scaling_factor;
+		break;
+	case BCL_PMI8998:
+		*val = *val / BCL_8998_VBAT_SCALING;
+		break;
+	default:
+		break;
+	}
+
 	return;
 }
 
@@ -211,13 +237,24 @@ static void convert_adc_to_vbat_val(int *val)
 {
 	struct bcl_peripheral_data *perph_data = NULL;
 
-	if (!bcl_perph)
-		return;
-	perph_data = &bcl_perph->param[BCL_PARAM_VOLTAGE];
-	*val = ((*val + 2) * perph_data->scaling_factor)
-		* (100 + (perph_data->gain_factor_num * perph_data->gain)
-		* BCL_CONSTANT_NUM  / perph_data->gain_factor_den)
-		/ 100;
+	switch (bcl_perph_version) {
+	case BCL_PMI8994:
+		if (!bcl_perph)
+			return;
+		perph_data = &bcl_perph->param[BCL_PARAM_VOLTAGE];
+		*val = ((*val + 2) * perph_data->scaling_factor)
+			* (100 + (perph_data->gain_factor_num
+			* perph_data->gain)
+			* BCL_CONSTANT_NUM  / perph_data->gain_factor_den)
+			/ 100;
+		break;
+	case BCL_PMI8998:
+		*val = *val * BCL_8998_VBAT_SCALING;
+		break;
+	default:
+		break;
+	}
+
 	return;
 }
 
@@ -225,15 +262,26 @@ static void convert_ibat_to_adc_val(int *val)
 {
 	struct bcl_peripheral_data *perph_data = NULL;
 
-	if (!bcl_perph)
-		return;
-	perph_data = &bcl_perph->param[BCL_PARAM_CURRENT];
-	*val = (*val * 100
-		/ (100 + (perph_data->gain_factor_num * perph_data->gain)
-		* BCL_CONSTANT_NUM / perph_data->gain_factor_den)
-		- (perph_data->offset_factor_num * perph_data->offset)
-		/ perph_data->offset_factor_den)
-		/  perph_data->scaling_factor;
+	switch (bcl_perph_version) {
+	case BCL_PMI8994:
+		if (!bcl_perph)
+			return;
+		perph_data = &bcl_perph->param[BCL_PARAM_CURRENT];
+		*val = (*val * 100
+			/ (100 + (perph_data->gain_factor_num
+			* perph_data->gain)
+			* BCL_CONSTANT_NUM / perph_data->gain_factor_den)
+			- (perph_data->offset_factor_num * perph_data->offset)
+			/ perph_data->offset_factor_den)
+			/  perph_data->scaling_factor;
+		break;
+	case BCL_PMI8998:
+		*val = *val / BCL_8998_IBAT_SCALING;
+		break;
+	default:
+		break;
+	}
+
 	return;
 }
 
@@ -241,14 +289,25 @@ static void convert_adc_to_ibat_val(int *val)
 {
 	struct bcl_peripheral_data *perph_data = NULL;
 
-	if (!bcl_perph)
-		return;
-	perph_data = &bcl_perph->param[BCL_PARAM_CURRENT];
-	*val = (*val * perph_data->scaling_factor
-		+ (perph_data->offset_factor_num * perph_data->offset)
-		/ perph_data->offset_factor_den)
-		* (100 + (perph_data->gain_factor_num * perph_data->gain)
-		* BCL_CONSTANT_NUM / perph_data->gain_factor_den) / 100;
+	switch (bcl_perph_version) {
+	case BCL_PMI8994:
+		if (!bcl_perph)
+			return;
+		perph_data = &bcl_perph->param[BCL_PARAM_CURRENT];
+		*val = (*val * perph_data->scaling_factor
+			+ (perph_data->offset_factor_num * perph_data->offset)
+			/ perph_data->offset_factor_den)
+			* (100 + (perph_data->gain_factor_num
+			* perph_data->gain) * BCL_CONSTANT_NUM /
+			perph_data->gain_factor_den) / 100;
+		break;
+	case BCL_PMI8998:
+		*val = *val * BCL_8998_IBAT_SCALING;
+		break;
+	default:
+		break;
+	}
+
 	return;
 }
 
@@ -274,7 +333,8 @@ static int bcl_set_high_ibat(int thresh_value)
 	pr_debug("Setting Ibat high trip:%d. ADC_val:%d\n", ibat_ua,
 			thresh_value);
 	val = (int8_t)thresh_value;
-	ret = bcl_write_register(BCL_IBAT_TRIP, val);
+	ret = bcl_write_register((bcl_perph_version == BCL_PMI8994) ?
+		BCL_IBAT_TRIP : BCL_8998_IBAT_HIGH, val);
 	if (ret) {
 		pr_err("Error accessing BCL peripheral. err:%d\n", ret);
 		return ret;
@@ -315,7 +375,8 @@ static int bcl_set_low_vbat(int thresh_value)
 	pr_debug("Setting Vbat low trip:%d. ADC_val:%d\n", vbat_uv,
 			thresh_value);
 	val = (int8_t)thresh_value;
-	ret = bcl_write_register(BCL_VBAT_TRIP, val);
+	ret = bcl_write_register((bcl_perph_version == BCL_PMI8994)
+		? BCL_VBAT_TRIP : BCL_8998_VBAT_ADC_LOW, val);
 	if (ret) {
 		pr_err("Error accessing BCL peripheral. err:%d\n", ret);
 		return ret;
@@ -399,7 +460,8 @@ static int bcl_read_ibat_high_trip(int *thresh_value)
 	int8_t val = 0;
 
 	*thresh_value = (int)val;
-	ret = bcl_read_register(BCL_IBAT_TRIP, &val);
+	ret = bcl_read_register((bcl_perph_version == BCL_PMI8994) ?
+		BCL_IBAT_TRIP : BCL_8998_IBAT_HIGH, &val);
 	if (ret) {
 		pr_err("BCL register read error. err:%d\n", ret);
 		ret = 0;
@@ -427,7 +489,9 @@ static int bcl_read_vbat_low_trip(int *thresh_value)
 	int8_t val = 0;
 
 	*thresh_value = (int)val;
-	ret = bcl_read_register(BCL_VBAT_TRIP, &val);
+	ret = bcl_read_register((bcl_perph_version == BCL_PMI8994)
+			? BCL_VBAT_TRIP : BCL_8998_VBAT_ADC_LOW,
+			&val);
 	if (ret) {
 		pr_err("BCL register read error. err:%d\n", ret);
 		ret = 0;
@@ -452,7 +516,11 @@ static int bcl_clear_vbat_min(void)
 {
 	int ret  = 0;
 
-	ret = bcl_write_register(BCL_VBAT_MIN_CLR, BIT(7));
+	if (bcl_perph_version == BCL_PMI8994)
+		ret = bcl_write_register(BCL_VBAT_MIN_CLR, BIT(7));
+	else
+		ret = bcl_write_register(BCL_8998_MAX_MIN_CLR,
+			BIT(BCL_8998_VBAT_MIN_CLR));
 	if (ret)
 		pr_err("Error in clearing vbat min reg. err:%d", ret);
 
@@ -463,7 +531,11 @@ static int bcl_clear_ibat_max(void)
 {
 	int ret  = 0;
 
-	ret = bcl_write_register(BCL_IBAT_MAX_CLR, BIT(7));
+	if (bcl_perph_version == BCL_PMI8994)
+		ret = bcl_write_register(BCL_IBAT_MAX_CLR, BIT(7));
+	else
+		ret = bcl_write_register(BCL_8998_MAX_MIN_CLR,
+			BIT(BCL_8998_IBAT_MAX_CLR));
 	if (ret)
 		pr_err("Error in clearing ibat max reg. err:%d", ret);
 
@@ -477,7 +549,9 @@ static int bcl_read_ibat_max(int *adc_value)
 
 	*adc_value = (int)val[VAL_REG_BUF_OFFSET];
 	do {
-		ret = bcl_read_multi_register(BCL_IBAT_MAX, val,
+		ret = bcl_read_multi_register(
+			(bcl_perph_version == BCL_PMI8994) ? BCL_IBAT_MAX
+			: BCL_8998_IBAT_MAX, val,
 			VAL_CP_REG_BUF_LEN);
 		if (ret) {
 			pr_err("BCL register read error. err:%d\n", ret);
@@ -506,7 +580,9 @@ static int bcl_read_vbat_min(int *adc_value)
 
 	*adc_value = (int)val[VAL_REG_BUF_OFFSET];
 	do {
-		ret = bcl_read_multi_register(BCL_VBAT_MIN, val,
+		ret = bcl_read_multi_register(
+			(bcl_perph_version == BCL_PMI8994) ? BCL_VBAT_MIN
+			: BCL_8998_VBAT_MIN, val,
 			VAL_CP_REG_BUF_LEN);
 		if (ret) {
 			pr_err("BCL register read error. err:%d\n", ret);
@@ -535,7 +611,9 @@ static int bcl_read_ibat(int *adc_value)
 
 	*adc_value = (int)val[VAL_REG_BUF_OFFSET];
 	do {
-		ret = bcl_read_multi_register(BCL_IBAT_VALUE, val,
+		ret = bcl_read_multi_register(
+			(bcl_perph_version == BCL_PMI8994) ? BCL_IBAT_VALUE
+			: BCL_8998_IBAT_VALUE, val,
 			VAL_CP_REG_BUF_LEN);
 		if (ret) {
 			pr_err("BCL register read error. err:%d\n", ret);
@@ -564,7 +642,9 @@ static int bcl_read_vbat(int *adc_value)
 
 	*adc_value = (int)val[VAL_REG_BUF_OFFSET];
 	do {
-		ret = bcl_read_multi_register(BCL_VBAT_VALUE, val,
+		ret = bcl_read_multi_register(
+			(bcl_perph_version == BCL_PMI8994) ? BCL_VBAT_VALUE :
+			BCL_8998_VBAT_VALUE, val,
 			VAL_CP_REG_BUF_LEN);
 		if (ret) {
 			pr_err("BCL register read error. err:%d\n", ret);
@@ -824,40 +904,43 @@ static int bcl_get_devicetree_data(struct spmi_device *spmi)
 	}
 	bcl_perph->param[BCL_PARAM_CURRENT].irq_num = irq_num;
 
-	/* Get VADC and IADC scaling factor */
-	key = "qcom,vbat-scaling-factor";
-	READ_CONV_FACTOR(dev_node, key, temp_val, ret,
-		bcl_perph->param[BCL_PARAM_VOLTAGE].scaling_factor);
-	key = "qcom,vbat-gain-numerator";
-	READ_CONV_FACTOR(dev_node, key, temp_val, ret,
-		bcl_perph->param[BCL_PARAM_VOLTAGE].gain_factor_num);
-	key = "qcom,vbat-gain-denominator";
-	READ_CONV_FACTOR(dev_node, key, temp_val, ret,
-		bcl_perph->param[BCL_PARAM_VOLTAGE].gain_factor_den);
-	key = "qcom,ibat-scaling-factor";
-	READ_CONV_FACTOR(dev_node, key, temp_val, ret,
-		bcl_perph->param[BCL_PARAM_CURRENT].scaling_factor);
-	key = "qcom,ibat-offset-numerator";
-	READ_CONV_FACTOR(dev_node, key, temp_val, ret,
-		bcl_perph->param[BCL_PARAM_CURRENT].offset_factor_num);
-	key = "qcom,ibat-offset-denominator";
-	READ_CONV_FACTOR(dev_node, key, temp_val, ret,
-		bcl_perph->param[BCL_PARAM_CURRENT].offset_factor_den);
-	key = "qcom,ibat-gain-numerator";
-	READ_CONV_FACTOR(dev_node, key, temp_val, ret,
-		bcl_perph->param[BCL_PARAM_CURRENT].gain_factor_num);
-	key = "qcom,ibat-gain-denominator";
-	READ_CONV_FACTOR(dev_node, key, temp_val, ret,
-		bcl_perph->param[BCL_PARAM_CURRENT].gain_factor_den);
+	if (bcl_perph_version == BCL_PMI8994) {
+		/* Get VADC and IADC scaling factor */
+		key = "qcom,vbat-scaling-factor";
+		READ_CONV_FACTOR(dev_node, key, temp_val, ret,
+			bcl_perph->param[BCL_PARAM_VOLTAGE].scaling_factor);
+		key = "qcom,vbat-gain-numerator";
+		READ_CONV_FACTOR(dev_node, key, temp_val, ret,
+			bcl_perph->param[BCL_PARAM_VOLTAGE].gain_factor_num);
+		key = "qcom,vbat-gain-denominator";
+		READ_CONV_FACTOR(dev_node, key, temp_val, ret,
+			bcl_perph->param[BCL_PARAM_VOLTAGE].gain_factor_den);
+		key = "qcom,ibat-scaling-factor";
+		READ_CONV_FACTOR(dev_node, key, temp_val, ret,
+			bcl_perph->param[BCL_PARAM_CURRENT].scaling_factor);
+		key = "qcom,ibat-offset-numerator";
+		READ_CONV_FACTOR(dev_node, key, temp_val, ret,
+			bcl_perph->param[BCL_PARAM_CURRENT].offset_factor_num);
+		key = "qcom,ibat-offset-denominator";
+		READ_CONV_FACTOR(dev_node, key, temp_val, ret,
+			bcl_perph->param[BCL_PARAM_CURRENT].offset_factor_den);
+		key = "qcom,ibat-gain-numerator";
+		READ_CONV_FACTOR(dev_node, key, temp_val, ret,
+			bcl_perph->param[BCL_PARAM_CURRENT].gain_factor_num);
+		key = "qcom,ibat-gain-denominator";
+		READ_CONV_FACTOR(dev_node, key, temp_val, ret,
+			bcl_perph->param[BCL_PARAM_CURRENT].gain_factor_den);
+		key = "qcom,inhibit-derating-ua";
+		READ_OPTIONAL_PROP(dev_node, key, temp_val, ret,
+			bcl_perph->param[BCL_PARAM_CURRENT].
+			inhibit_derating_ua);
+	}
 	key = "qcom,vbat-polling-delay-ms";
 	READ_CONV_FACTOR(dev_node, key, temp_val, ret,
 		bcl_perph->param[BCL_PARAM_VOLTAGE].polling_delay_ms);
 	key = "qcom,ibat-polling-delay-ms";
 	READ_CONV_FACTOR(dev_node, key, temp_val, ret,
 		bcl_perph->param[BCL_PARAM_CURRENT].polling_delay_ms);
-	key = "qcom,inhibit-derating-ua";
-	READ_OPTIONAL_PROP(dev_node, key, temp_val, ret,
-		bcl_perph->param[BCL_PARAM_CURRENT].inhibit_derating_ua);
 
 bcl_dev_exit:
 	return ret;
@@ -1020,7 +1103,6 @@ static int bcl_probe(struct spmi_device *spmi)
 		pr_err("Memory alloc failed\n");
 		return -ENOMEM;
 	}
-	memset(bcl_perph, 0, sizeof(struct bcl_device));
 	bcl_perph->spmi = spmi;
 	bcl_perph->dev = &(spmi->dev);
 
@@ -1029,21 +1111,26 @@ static int bcl_probe(struct spmi_device *spmi)
 		pr_err("Device tree data fetch error. err:%d", ret);
 		goto bcl_probe_exit;
 	}
-	ret = bcl_calibrate();
-	if (ret) {
-		pr_debug("Could not read calibration values. err:%d", ret);
-		goto bcl_probe_exit;
-	}
-	bcl_psy.name = bcl_psy_name;
-	bcl_psy.type = POWER_SUPPLY_TYPE_BMS;
-	bcl_psy.get_property     = bcl_psy_get_property;
-	bcl_psy.set_property     = bcl_psy_set_property;
-	bcl_psy.num_properties   = 0;
-	bcl_psy.external_power_changed = power_supply_callback;
-	ret = power_supply_register(&spmi->dev, &bcl_psy);
-	if (ret < 0) {
-		pr_err("Unable to register bcl_psy rc = %d\n", ret);
-		return ret;
+	if (bcl_perph_version == BCL_PMI8994) {
+		ret = bcl_calibrate();
+		if (ret) {
+			pr_debug("Could not read calibration values. err:%d",
+					ret);
+			goto bcl_probe_exit;
+		}
+		bcl_psy.name = bcl_psy_name;
+		bcl_psy.type = POWER_SUPPLY_TYPE_BMS;
+		bcl_psy.get_property     = bcl_psy_get_property;
+		bcl_psy.set_property     = bcl_psy_set_property;
+		bcl_psy.num_properties   = 0;
+		bcl_psy.external_power_changed = power_supply_callback;
+		ret = power_supply_register(&spmi->dev, &bcl_psy);
+		if (ret < 0) {
+			pr_err("Unable to register bcl_psy rc = %d\n", ret);
+			return ret;
+		}
+	} else {
+		bcl_write_register(BCL_8998_BCL_CFG, BCL_CFG_VAL);
 	}
 
 	ret = bcl_update_data();
@@ -1123,7 +1210,11 @@ static int bcl_remove(struct spmi_device *spmi)
 }
 
 static struct of_device_id bcl_match[] = {
-	{	.compatible = "qcom,msm-bcl",
+	{	.compatible	= "qcom,msm-bcl",
+		.data		= (void *) BCL_PMI8994,
+	},
+	{	.compatible	= "qcom,msm-bcl-lmh",
+		.data		= (void *) BCL_PMI8998,
 	},
 	{},
 };
@@ -1140,7 +1231,22 @@ static struct spmi_driver bcl_driver = {
 
 static int __init bcl_perph_init(void)
 {
-	pr_info("BCL Initialized\n");
+	struct device_node *comp_node;
+
+	comp_node = of_find_matching_node(NULL, bcl_match);
+	bcl_perph_version = BCL_PMI8994;
+	if (comp_node) {
+		const struct of_device_id *match = of_match_node(bcl_match,
+							comp_node);
+		if (!match) {
+			pr_err("Couldnt find a match\n");
+			goto plt_register;
+		}
+		bcl_perph_version = (enum bcl_hw_type)match->data;
+		of_node_put(comp_node);
+	}
+
+plt_register:
 	return spmi_driver_register(&bcl_driver);
 }
 

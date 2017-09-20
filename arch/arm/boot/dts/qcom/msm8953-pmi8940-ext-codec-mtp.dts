@@ -1,0 +1,104 @@
+/*
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8953.dtsi"
+#include "msm-pmi8940.dtsi"
+#include "msm8953-mtp.dtsi"
+#include "msm8953-pmi8940.dtsi"
+#include "msm8953-camera-sensor-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM8953 + PMI8940 Ext Codec MTP";
+	compatible = "qcom,msm8953-mtp", "qcom,msm8953", "qcom,mtp";
+	qcom,board-id= <8 1>;
+	qcom,pmic-id = <0x010016 0x020040 0x0 0x0>;
+};
+
+&int_codec {
+	status = "disabled";
+};
+
+&pm8953_diangu_dig {
+	status = "disabled";
+};
+
+&pm8953_diangu_analog {
+	status = "disabled";
+};
+
+&wsa881x_i2c_e {
+	status = "disabled";
+};
+
+&wsa881x_i2c_44 {
+	status = "disabled";
+};
+
+&wsa881x_i2c_f {
+	status = "disabled";
+};
+
+&wsa881x_i2c_45 {
+	status = "disabled";
+};
+
+&slim_msm {
+	status = "okay";
+};
+
+&dai_slim {
+	status = "okay";
+};
+
+&wcd9xxx_intc {
+	status = "okay";
+};
+
+&clock_audio {
+	status = "okay";
+};
+
+&wcd9335 {
+	status = "okay";
+};
+
+&wcd_rst_gpio {
+	status = "okay";
+};
+
+&ext_codec {
+	qcom,model = "msm8953-tasha-snd-card";
+	status = "okay";
+};
+
+/{
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "batterydata-itech-3000mah.dtsi"
+		#include "batterydata-ascent-3450mAh.dtsi"
+	};
+};
+
+&pmi8940_fg {
+	qcom,battery-data = <&mtp_batterydata>;
+};
+
+&pmi8940_charger {
+	qcom,battery-data = <&mtp_batterydata>;
+	qcom,chg-led-sw-controls;
+	qcom,chg-led-support;
+	qcom,external-typec;
+	qcom,typec-psy-name = "typec";
+};

@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -70,6 +70,44 @@ TRACE_EVENT(bus_update_request_end,
 	),
 
 	TP_printk("client-name=%s", __get_str(name))
+);
+
+TRACE_EVENT(bus_max_votes,
+
+	TP_PROTO(int sec, int nsec, const char *bus_name, const char *ctx,
+		const char *bw_type_name, unsigned long long bw,
+		const char *cl_name),
+
+	TP_ARGS(sec, nsec, bus_name, ctx, bw_type_name, bw, cl_name),
+
+	TP_STRUCT__entry(
+		__field(int, sec)
+		__field(int, nsec)
+		__string(bus_name, bus_name)
+		__string(ctx, ctx)
+		__string(bw_type_name, bw_type_name)
+		__field(u64, bw)
+		__string(cl_name, cl_name)
+	),
+
+	TP_fast_assign(
+		__entry->sec = sec;
+		__entry->nsec = nsec;
+		__assign_str(bus_name, bus_name);
+		__assign_str(ctx, ctx);
+		__assign_str(bw_type_name, bw_type_name);
+		__entry->bw = bw;
+		__assign_str(cl_name, cl_name);
+	),
+
+	TP_printk("time= %u.%09u %s: %s max_%s: %llu: client-name: %s",
+		__entry->sec,
+		__entry->nsec,
+		__get_str(bus_name),
+		__get_str(ctx),
+		__get_str(bw_type_name),
+		(unsigned long long)__entry->bw,
+		__get_str(cl_name))
 );
 
 TRACE_EVENT(bus_bimc_config_limiter,

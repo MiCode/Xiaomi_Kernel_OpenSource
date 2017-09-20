@@ -255,6 +255,7 @@ static void gps_purge_responses(struct f_gps *dev)
 
 	pr_debug("%s: port#%d\n", __func__, dev->port_num);
 
+	usb_ep_dequeue(dev->notify, dev->notify_req);
 	spin_lock_irqsave(&dev->lock, flags);
 	while (!list_empty(&dev->cpkt_resp_q)) {
 		cpkt = list_first_entry(&dev->cpkt_resp_q,
@@ -297,6 +298,12 @@ static void gps_resume(struct usb_function *f)
 		return;
 
 	dev->is_suspended = false;
+	spin_lock(&dev->lock);
+	if (list_empty(&dev->cpkt_resp_q)) {
+		spin_unlock(&dev->lock);
+		return;
+	}
+	spin_unlock(&dev->lock);
 	gps_ctrl_response_available(dev);
 }
 
@@ -593,6 +600,8 @@ static void gps_notify_complete(struct usb_ep *ep, struct usb_request *req)
 		if (!atomic_read(&dev->ctrl_online))
 			break;
 
+		pr_debug("%s: decrement notify_count:%u\n", __func__,
+				atomic_read(&dev->notify_count));
 		if (atomic_dec_and_test(&dev->notify_count))
 			break;
 

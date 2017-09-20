@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,7 @@
 #define RPM_SMD_REGULATOR_LEVEL_NOM		256
 #define RPM_SMD_REGULATOR_LEVEL_NOM_PLUS	320
 #define RPM_SMD_REGULATOR_LEVEL_TURBO		384
+#define RPM_SMD_REGULATOR_LEVEL_TURBO_NO_CPR	416
 #define RPM_SMD_REGULATOR_LEVEL_BINNING		512
 
 #endif

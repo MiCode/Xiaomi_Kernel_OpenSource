@@ -149,7 +149,7 @@
 &tlmm_pinmux {
 	/* Set these up as hogs */
 	pinctrl-names = "default";
-	pinctrl-0 = <&can_reset_gpio>, <&ant_switch_gpio1>, <&ant_switch_gpio2>,
+	pinctrl-0 = <&ant_switch_gpio1>, <&ant_switch_gpio2>,
 		<&ant_switch_gpio3>, <&eth_can_supply_gpio>,
 		<&oabr_enable_gpio>;
 
@@ -174,20 +174,6 @@
 
 		config {
 			pins = "gpio69";
-			drive-strength = <2>;
-			output-high;
-			bias-pull-up;
-		};
-	};
-
-	can_reset_gpio: can_reset_gpio {
-		mux {
-			pins = "gpio89";
-			function = "gpio";
-		};
-
-		config {
-			pins = "gpio89";
 			drive-strength = <2>;
 			output-high;
 			bias-pull-up;
@@ -420,6 +406,35 @@
 			};
 		};
 	};
+
+	can_reset {
+		can_rst_on: rst_on {
+			mux {
+				pins = "gpio89";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio89";
+				drive-strength = <2>; /* 2 mA */
+				bias-pull-up;
+			};
+		};
+
+		can_rst_off: rst_off {
+			mux {
+				pins = "gpio89";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio89";
+				drive-strength = <2>; /* 2 mA */
+				bias-pull-up;
+				output-high;
+			};
+		};
+	};
 };
 
 &cnss_pcie {
@@ -494,6 +509,20 @@
 &spi_4 {
 	status = "ok";
 	/delete-property/ qcom,use-bam;
+
+	can-controller@0 {
+		compatible = "nxp,mpc5746c";
+		reg = <0>;
+		spi-max-frequency = <9600000>;
+		interrupt-parent = <&tlmm_pinmux>;
+		interrupts = <87 0>;
+		reset-gpio = <&tlmm_pinmux 89 0x1>;
+		bits-per-word = <8>;
+		reset-delay-msec = <100>;
+		pinctrl-names = "active", "sleep";
+		pinctrl-0 = <&can_rst_on>;
+		pinctrl-1 = <&can_rst_off>;
+	};
 };
 
 &usb3 {

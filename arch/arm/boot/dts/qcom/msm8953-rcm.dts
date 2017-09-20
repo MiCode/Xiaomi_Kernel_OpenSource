@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,13 +14,21 @@
 /dts-v1/;
 
 #include "msm8953.dtsi"
+#include "msm-pmi8950.dtsi"
 #include "msm8953-cdp.dtsi"
+#include "msm8953-pmi8950.dtsi"
 #include "msm8953-audio-cdp.dtsi"
+#include "msm8953-camera-sensor-cdp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM8953 RCM";
+	model = "Qualcomm Technologies, Inc. MSM8953 + PMI8950 RCM";
 	compatible = "qcom,msm8953-cdp", "qcom,msm8953", "qcom,cdp";
 	qcom,board-id= <21 0>;
+};
+
+&pmi8950_charger {
+	qcom,external-typec;
+	qcom,typec-psy-name = "typec";
 };
 
 &soc {

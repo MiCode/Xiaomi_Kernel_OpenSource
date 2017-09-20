@@ -181,6 +181,7 @@ dtb-$(CONFIG_ARCH_SDX20) += sdx20-emmc-cdp.dtb \
 	sdx20-v2-nand-mtp.dtb \
 	sdx20-v2-nand-dualwifi-mtp.dtb \
 	sdx20-v2-nand-dualwifi-cdp.dtb \
+	sdx20-v2-nand-singlewifi-dualwificonf-mtp.dtb \
 	sdx20-emmc-pcie-ep-mtp.dtb \
 	sdx20-nand-pcie-ep-mtp.dtb \
 	sdx20-v2-emmc-pcie-ep-mtp.dtb \
@@ -267,12 +268,20 @@ dtb-$(CONFIG_ARCH_MSM8953) += msm8953-sim.dtb \
 	apq8053-ext-codec-rcm.dtb \
 	msm8953-cdp-1200p.dtb \
 	msm8953-iot-mtp.dtb \
-	apq8053-iot-mtp.dtb
+	apq8053-iot-mtp.dtb \
+	msm8953-pmi8940-cdp.dtb \
+	msm8953-pmi8940-mtp.dtb \
+	msm8953-pmi8937-cdp.dtb \
+	msm8953-pmi8937-mtp.dtb \
+	msm8953-pmi8940-ext-codec-mtp.dtb \
+	msm8953-pmi8937-ext-codec-mtp.dtb
 
 dtb-$(CONFIG_ARCH_SDM450) += sdm450-rcm.dtb \
 	sdm450-cdp.dtb \
 	sdm450-mtp.dtb \
-	sdm450-qrd.dtb
+	sdm450-qrd.dtb \
+	sdm450-pmi8940-mtp.dtb \
+	sdm450-pmi8937-mtp.dtb
 
 dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-rumi.dtb \
 	mdm9607-cdp.dtb \

@@ -82,3 +82,30 @@
 &blsp1_uart2_hs {
 	status = "disabled";
 };
+&sec_master {
+	compatible = "qcom,wcd-gpio-ctrl";
+	pinctrl-names = "aud_active", "aud_sleep";
+	pinctrl-0 = <&sec_ws_b_active_master
+			&sec_sck_b_active_master
+			&sec_dout_b_active
+			&sec_din_b_active>;
+	pinctrl-1 = <&sec_ws_b_sleep
+			&sec_sck_b_sleep
+			&sec_dout_b_sleep
+			&sec_din_b_sleep>;
+	qcom,mi2s-auxpcm-cdc-gpios;
+};
+
+&sec_slave {
+	compatible = "qcom,wcd-gpio-ctrl";
+	pinctrl-names = "aud_active", "aud_sleep";
+	pinctrl-0 = <&sec_ws_b_active_slave
+			&sec_sck_b_active_slave
+			&sec_dout_b_active
+			&sec_din_b_active>;
+	pinctrl-1 = <&sec_ws_b_sleep
+			&sec_sck_b_sleep
+			&sec_dout_b_sleep
+			&sec_din_b_sleep>;
+	qcom,mi2s-auxpcm-cdc-gpios;
+};

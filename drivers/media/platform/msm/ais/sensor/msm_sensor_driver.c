@@ -132,6 +132,7 @@ static int32_t msm_sensor_driver_create_v4l_subdev
 		s_ctrl->sensordata->sensor_name);
 	v4l2_set_subdevdata(&s_ctrl->msm_sd.sd, s_ctrl->pdev);
 	s_ctrl->msm_sd.sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+	s_ctrl->msm_sd.sd.flags |= V4L2_SUBDEV_FL_HAS_EVENTS;
 	media_entity_init(&s_ctrl->msm_sd.sd.entity, 0, NULL, 0);
 	s_ctrl->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
 	s_ctrl->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_SENSOR;
@@ -143,6 +144,8 @@ static int32_t msm_sensor_driver_create_v4l_subdev
 		return rc;
 	}
 	msm_cam_copy_v4l2_subdev_fops(&msm_sensor_v4l2_subdev_fops);
+	msm_sensor_v4l2_subdev_fops.unlocked_ioctl =
+		msm_sensor_subdev_fops_ioctl;
 #ifdef CONFIG_COMPAT
 	msm_sensor_v4l2_subdev_fops.compat_ioctl32 =
 		msm_sensor_subdev_fops_ioctl;
@@ -627,6 +630,56 @@ static void msm_sensor_fill_sensor_info(struct msm_sensor_ctrl_t *s_ctrl,
 	strlcpy(entity_name, s_ctrl->msm_sd.sd.entity.name, MAX_SENSOR_NAME);
 }
 
+static irqreturn_t bridge_irq(int irq, void *dev)
+{
+	struct msm_sensor_ctrl_t *s_ctrl = dev;
+
+	pr_err("msm_sensor_driver: received bridge interrupt:0x%x",
+		s_ctrl->sensordata->slave_info->sensor_slave_addr);
+	schedule_delayed_work(&s_ctrl->irq_delayed_work,
+						msecs_to_jiffies(0));
+	return IRQ_HANDLED;
+}
+
+static void bridge_irq_delay_work(struct work_struct *work)
+{
+	struct msm_sensor_ctrl_t *s_ctrl;
+	struct msm_camera_i2c_client *sensor_i2c_client;
+	struct msm_camera_slave_info *slave_info;
+	const char *sensor_name;
+
+	struct msm_sensor_event_data sensor_event;
+
+	s_ctrl = container_of(work, struct msm_sensor_ctrl_t,
+				irq_delayed_work.work);
+	if (!s_ctrl) {
+		pr_err("%s:%d failed: %pK\n",
+			__func__, __LINE__, s_ctrl);
+		goto exit_queue;
+	}
+	sensor_i2c_client = s_ctrl->sensor_i2c_client;
+	slave_info = s_ctrl->sensordata->slave_info;
+	sensor_name = s_ctrl->sensordata->sensor_name;
+
+	if (!sensor_i2c_client || !slave_info || !sensor_name) {
+		pr_err("%s:%d failed: %pK %pK %pK\n",
+			__func__, __LINE__, sensor_i2c_client, slave_info,
+			sensor_name);
+		goto exit_queue;
+	}
+
+	mutex_lock(s_ctrl->msm_sensor_mutex);
+	/* Fill the sensor event */
+	sensor_event.sensor_slave_addr =
+		slave_info->sensor_slave_addr;
+	/* Queue the event */
+	msm_sensor_send_event(s_ctrl, SENSOR_EVENT_SIGNAL_STATUS,
+		&sensor_event);
+	mutex_unlock(s_ctrl->msm_sensor_mutex);
+exit_queue:
+	pr_err("Work IRQ exit");
+}
+
 /* static function definition */
 int32_t msm_sensor_driver_probe(void *setting,
 	struct msm_sensor_info_t *probed_info, char *entity_name)
@@ -928,6 +981,57 @@ CSID_TG:
 
 	msm_sensor_fill_sensor_info(s_ctrl, probed_info, entity_name);
 
+	if (slave_info->gpio_intr_config.gpio_num != -1) {
+		/* Configure INTB interrupt */
+		s_ctrl->gpio_array[0].gpio =
+			slave_info->gpio_intr_config.gpio_num;
+		s_ctrl->gpio_array[0].flags = 0;
+		/* Only setup IRQ1 for now... */
+		INIT_DELAYED_WORK(&s_ctrl->irq_delayed_work,
+			bridge_irq_delay_work);
+		rc = gpio_request_array(&s_ctrl->gpio_array[0], 1);
+		if (rc < 0) {
+			pr_err("%s: Failed to request irq_gpio %d",
+				__func__, rc);
+			goto cancel_work;
+		}
+
+		if (gpio_is_valid(s_ctrl->gpio_array[0].gpio)) {
+			rc |= gpio_direction_input(
+				s_ctrl->gpio_array[0].gpio);
+			if (rc) {
+				pr_err("%s: Failed gpio_direction irq %d",
+						__func__, rc);
+				goto cancel_work;
+			} else {
+				pr_err("sensor probe IRQ direction succeeded");
+			}
+		}
+
+		s_ctrl->irq = gpio_to_irq(s_ctrl->gpio_array[0].gpio);
+		if (s_ctrl->irq) {
+			rc = request_irq(s_ctrl->irq, bridge_irq,
+					IRQF_ONESHOT |
+					(slave_info->
+					gpio_intr_config.gpio_trigger),
+					"qcom,camera", s_ctrl);
+			if (rc) {
+				pr_err("%s: Failed request_irq %d",
+						__func__, rc);
+				goto cancel_work;
+			}
+
+		} else {
+			pr_err("%s: Failed gpio_to_irq %d",
+				__func__, rc);
+			rc = -EINVAL;
+			goto cancel_work;
+		}
+
+		/* Keep irq enabled */
+		pr_err("msm_sensor_driver.c irq number = %d", s_ctrl->irq);
+	}
+
 	/*
 	Set probe succeeded flag to 1 so that no other camera shall
 	* probed on this slot
@@ -935,6 +1039,8 @@ CSID_TG:
 	s_ctrl->is_probe_succeed = 1;
 	return rc;
 
+cancel_work:
+	cancel_delayed_work(&s_ctrl->irq_delayed_work);
 free_camera_info:
 	kfree(camera_info);
 free_slave_info:
@@ -1120,7 +1226,6 @@ static int32_t msm_sensor_driver_parse(struct msm_sensor_ctrl_t *s_ctrl)
 	/* Store sensor control structure in static database */
 	g_sctrl[s_ctrl->id] = s_ctrl;
 	CDBG("g_sctrl[%d] %pK", s_ctrl->id, g_sctrl[s_ctrl->id]);
-
 	return rc;
 
 FREE_DT_DATA:
@@ -1173,7 +1278,6 @@ static int32_t msm_sensor_driver_platform_probe(struct platform_device *pdev)
 
 	/* Fill platform device id*/
 	pdev->id = s_ctrl->id;
-
 	/* Fill device in power info */
 	s_ctrl->sensordata->power_info.dev = &pdev->dev;
 

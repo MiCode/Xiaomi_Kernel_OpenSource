@@ -178,6 +178,27 @@ enum cci_i2c_master_t {
 	MASTER_MAX,
 };
 
+struct msm_sensor_event_data {
+	uint16_t sensor_slave_addr;
+};
+
+enum msm_sensor_event_mask_index {
+	SENSOR_EVENT_MASK_INDEX_SIGNAL_STATUS	= 2,
+};
+
+#define SENSOR_EVENT_SUBS_MASK_NONE			0
+
+#define SENSOR_EVENT_SUBS_MASK_SIGNAL_STATUS \
+			(1 << SENSOR_EVENT_MASK_INDEX_SIGNAL_STATUS)
+
+enum msm_sensor_event_idx {
+	SENSOR_SIGNAL_STATUS      = 2,
+	SENSOR_EVENT_MAX          = 15
+};
+
+#define SENSOR_EVENT_BASE            (V4L2_EVENT_PRIVATE_START)
+#define SENSOR_EVENT_SIGNAL_STATUS   (SENSOR_EVENT_BASE + SENSOR_SIGNAL_STATUS)
+
 struct msm_camera_i2c_array_write_config {
 	struct msm_camera_i2c_reg_setting conf_array;
 	uint16_t slave_addr;

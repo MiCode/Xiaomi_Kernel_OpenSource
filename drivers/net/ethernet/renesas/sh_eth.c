@@ -781,6 +781,7 @@ static struct sh_eth_cpu_data r8a7740_data = {
 	.rpadir_value   = 2 << 16,
 	.no_trimd	= 1,
 	.no_ade		= 1,
+	.hw_crc		= 1,
 	.tsu		= 1,
 	.select_mii	= 1,
 	.shift_rd0	= 1,
@@ -1832,6 +1833,9 @@ static int sh_eth_get_settings(struct net_device *ndev,
 	unsigned long flags;
 	int ret;
 
+	if (!mdp->phydev)
+		return -ENODEV;
+
 	spin_lock_irqsave(&mdp->lock, flags);
 	ret = phy_ethtool_gset(mdp->phydev, ecmd);
 	spin_unlock_irqrestore(&mdp->lock, flags);
@@ -1845,6 +1849,9 @@ static int sh_eth_set_settings(struct net_device *ndev,
 	struct sh_eth_private *mdp = netdev_priv(ndev);
 	unsigned long flags;
 	int ret;
+
+	if (!mdp->phydev)
+		return -ENODEV;
 
 	spin_lock_irqsave(&mdp->lock, flags);
 
@@ -1879,6 +1886,9 @@ static int sh_eth_nway_reset(struct net_device *ndev)
 	struct sh_eth_private *mdp = netdev_priv(ndev);
 	unsigned long flags;
 	int ret;
+
+	if (!mdp->phydev)
+		return -ENODEV;
 
 	spin_lock_irqsave(&mdp->lock, flags);
 	ret = phy_start_aneg(mdp->phydev);
@@ -2189,6 +2199,7 @@ static int sh_eth_close(struct net_device *ndev)
 	if (mdp->phydev) {
 		phy_stop(mdp->phydev);
 		phy_disconnect(mdp->phydev);
+		mdp->phydev = NULL;
 	}
 
 	free_irq(ndev->irq, ndev);

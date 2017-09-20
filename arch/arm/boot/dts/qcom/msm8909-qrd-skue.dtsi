@@ -11,6 +11,7 @@
  */
 
 #include "msm8909-qrd.dtsi"
+#include "msm8909-camera-sensor-skue.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8909 QRD SKUE";
@@ -270,6 +271,8 @@
 
 &dsi_hx8379c_fwvga_video {
 	qcom,cont-splash-enabled;
+	qcom,mdss-dsi-pwm-gpio = <&pm8909_mpps 2 0>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &msm_gpio {

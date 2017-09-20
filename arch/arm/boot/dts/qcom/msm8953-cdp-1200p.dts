@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,11 +14,14 @@
 /dts-v1/;
 
 #include "msm8953.dtsi"
+#include "msm-pmi8950.dtsi"
 #include "msm8953-cdp.dtsi"
 #include "msm8953-audio-cdp.dtsi"
+#include "msm8953-pmi8950.dtsi"
+#include "msm8953-camera-sensor-cdp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM8953 CDP";
+	model = "Qualcomm Technologies, Inc. MSM8953 + PMI8950 CDP";
 	compatible = "qcom,msm8953-cdp", "qcom,msm8953", "qcom,cdp";
 	qcom,board-id= <1 1>;
 };
@@ -27,7 +30,6 @@
 	qcom,dsi-pref-prim-pan = <&dsi_truly_wuxga_vid>;
 	qcom,platform-enable-gpio = <&tlmm 12 0>;
 };
-
 
 &pm8953_pwm {
 	status = "ok";
@@ -60,6 +62,11 @@
 			bias-pull-down; /* pull down */
 		};
 	};
+};
+
+&pmi8950_charger {
+	qcom,external-typec;
+	qcom,typec-psy-name = "typec";
 };
 
 &hsuart_active {

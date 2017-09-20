@@ -77,7 +77,7 @@
 #define QMI_WLFW_FUNCTION_NAME_LEN_V01 128
 #define QMI_WLFW_MAX_NUM_CE_V01 12
 #define QMI_WLFW_MAX_TIMESTAMP_LEN_V01 32
-#define QMI_WLFW_MAX_ATHDIAG_DATA_SIZE_V01 512
+#define QMI_WLFW_MAX_ATHDIAG_DATA_SIZE_V01 6144
 #define QMI_WLFW_MAX_BUILD_ID_LEN_V01 128
 #define QMI_WLFW_MAX_STR_LEN_V01 16
 #define QMI_WLFW_MAX_NUM_SHADOW_REG_V01 24
@@ -483,7 +483,7 @@ struct wlfw_athdiag_read_resp_msg_v01 {
 	u8 data[QMI_WLFW_MAX_ATHDIAG_DATA_SIZE_V01];
 };
 
-#define WLFW_ATHDIAG_READ_RESP_MSG_V01_MAX_MSG_LEN 524
+#define WLFW_ATHDIAG_READ_RESP_MSG_V01_MAX_MSG_LEN 6156
 extern struct elem_info wlfw_athdiag_read_resp_msg_v01_ei[];
 
 struct wlfw_athdiag_write_req_msg_v01 {
@@ -493,7 +493,7 @@ struct wlfw_athdiag_write_req_msg_v01 {
 	u8 data[QMI_WLFW_MAX_ATHDIAG_DATA_SIZE_V01];
 };
 
-#define WLFW_ATHDIAG_WRITE_REQ_MSG_V01_MAX_MSG_LEN 531
+#define WLFW_ATHDIAG_WRITE_REQ_MSG_V01_MAX_MSG_LEN 6163
 extern struct elem_info wlfw_athdiag_write_req_msg_v01_ei[];
 
 struct wlfw_athdiag_write_resp_msg_v01 {

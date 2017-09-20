@@ -139,6 +139,34 @@
 			qcom,irq-gpio = <&msm_gpio 110 1>;
 		};
 	};
+
+	qcom,msm-thermal {
+		vdd-dig-supply = <&pm660_s2_floor_corner>;
+
+		msm_thermal_freq: qcom,vdd-apps-rstr {
+			qcom,vdd-rstr-reg = "vdd-apps";
+			qcom,levels = <1094400>;
+			qcom,freq-req;
+		};
+	};
+
+	qcom,bcl {
+		compatible = "qcom,bcl";
+		qcom,bcl-enable;
+		qcom,bcl-framework-interface;
+		qcom,bcl-freq-control-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,bcl-hotplug-list = <&CPU2 &CPU3>;
+		qcom,bcl-soc-hotplug-list = <&CPU2 &CPU3>;
+		qcom,ibat-monitor {
+			qcom,low-threshold-uamp = <1000000>;
+			qcom,high-threshold-uamp = <2000000>;
+			qcom,mitigation-freq-khz = <1094400>;
+			qcom,vph-high-threshold-uv = <3500000>;
+			qcom,vph-low-threshold-uv = <3200000>;
+			qcom,soc-low-threshold = <10>;
+			qcom,thermal-handle = <&msm_thermal_freq>;
+		};
+	};
 };
 
 &i2c_1 {

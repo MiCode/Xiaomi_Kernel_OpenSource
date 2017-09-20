@@ -149,7 +149,9 @@ scaling factors should be configured to handle Vbat in micro-volt and Ibat in
 micro-amps.
 
 Required Parameters:
-- compatible: must be qcom,msm-bcl
+- compatible: must be either
+	1. 'qcom,msm-bcl' for bcl peripheral without LMH DCVSh interface.
+	2. 'qcom,msm-bcl-lmh' for bcl peripheral with LMH DCVSh interface.
 - reg: <a b> where 'a' is the starting register address of the PMIC
 	peripheral and 'b' is the size of the peripheral address space.
 	If the BCL inhibit current derating feature is enabled, this must also
@@ -164,13 +166,17 @@ Required Parameters:
 - interrupt-names: user defined names for the interrupts. These
 		interrupt names will be used by the drivers to identify the
 		interrupts, instead of specifying the ID's.
+- qcom,ibat-polling-delay-ms: Software polling interval for monitoring ibat
+		low threshold.
+- qcom,vbat-polling-delay-ms: Software polling interval for monitoring vbat
+		high threshold.
+
+optional Parameters for peripheral with LMH DCVSh interface:
 - qcom,vbat-scaling-factor: The scaling factor to be used for converting
 		the raw vbat ADC value to milli-volt.
 - qcom,vbat-gain-numerator: The numerator of the vbat gain correction factor.
 - qcom,vbat-gain-denominator: The denominator of the vbat gain correction
 		factor.
-- qcom,vbat-polling-delay-ms: Software polling interval for monitoring vbat
-		high threshold.
 - qcom,ibat-scaling-factor: The scaling factor to be used for converting
 		the raw ibat ADC value to micro-amps.
 - qcom, ibat-gain-numerator: The numerator of the ibat gain correction factor.
@@ -180,8 +186,7 @@ Required Parameters:
 		factor.
 - qcom, ibat-offset-denominator: The denominator of the ibat offset
 		correction factor.
-- qcom,ibat-polling-delay-ms: Software polling interval for monitoring ibat
-		low threshold.
+
 Optional Parameters:
 - qcom,inhibit-derating-ua: The amount that the bcl current high trip threshold
 		should be lowered by when the bcl peripheral is operating in a

@@ -961,6 +961,21 @@ void mmc_request_done(struct mmc_host *host, struct mmc_request *mrq)
 
 EXPORT_SYMBOL(mmc_request_done);
 
+static void __mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
+{
+	int err;
+
+	/* Assumes host controller has been runtime resumed by mmc_claim_host */
+	err = mmc_retune(host);
+	if (err) {
+		mrq->cmd->error = err;
+		mmc_request_done(host, mrq);
+		return;
+	}
+
+	host->ops->request(host, mrq);
+}
+
 static void
 mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 {
@@ -968,6 +983,7 @@ mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 	unsigned int i, sz;
 	struct scatterlist *sg;
 #endif
+	mmc_retune_hold(host);
 
 	if (mrq->sbc) {
 		pr_debug("<%s: starting CMD%u arg %08x flags %08x>\n",
@@ -1032,7 +1048,7 @@ mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 		mmc_clk_scaling_start_busy(host, true);
 	}
 
-	host->ops->request(host, mrq);
+	__mmc_start_request(host, mrq);
 }
 
 static void mmc_start_cmdq_request(struct mmc_host *host,
@@ -1353,22 +1369,22 @@ static int mmc_wait_for_data_req_done(struct mmc_host *host,
 							    host->areq);
 				break; /* return err */
 			} else {
+				mmc_retune_recheck(host);
 				pr_info("%s: req failed (CMD%u): %d, retrying...\n",
 					mmc_hostname(host),
 					cmd->opcode, cmd->error);
 				cmd->retries--;
 				cmd->error = 0;
-				host->ops->request(host, mrq);
+				__mmc_start_request(host, mrq);
 				continue; /* wait for done/new event again */
 			}
 		} else if (context_info->is_new_req) {
 			context_info->is_new_req = false;
-			if (!next_req) {
-				err = MMC_BLK_NEW_REQUEST;
-				break; /* return err */
-			}
+			if (!next_req)
+				return MMC_BLK_NEW_REQUEST;
 		}
 	}
+	mmc_retune_release(host);
 	return err;
 }
 
@@ -1403,12 +1419,16 @@ static void mmc_wait_for_req_done(struct mmc_host *host,
 		    mmc_card_removed(host->card))
 			break;
 
+		mmc_retune_recheck(host);
+
 		pr_debug("%s: req failed (CMD%u): %d, retrying...\n",
 			 mmc_hostname(host), cmd->opcode, cmd->error);
 		cmd->retries--;
 		cmd->error = 0;
-		host->ops->request(host, mrq);
+		__mmc_start_request(host, mrq);
 	}
+
+	mmc_retune_release(host);
 }
 
 /**
@@ -2210,6 +2230,14 @@ void mmc_ungate_clock(struct mmc_host *host)
 		WARN_ON(host->ios.clock);
 		/* This call will also set host->clk_gated to false */
 		__mmc_set_clock(host, host->clk_old);
+		/*
+		 * We have seen that host controller's clock tuning circuit may
+		 * go out of sync if controller clocks are gated.
+		 * To workaround this issue, we are triggering retuning of the
+		 * tuning circuit after ungating the controller clocks.
+		 */
+		if (host->sdr104_wa)
+			mmc_retune_needed(host);
 	}
 }
 
@@ -2231,6 +2259,32 @@ void mmc_set_ungated(struct mmc_host *host)
 {
 }
 #endif
+
+int mmc_execute_tuning(struct mmc_card *card)
+{
+	struct mmc_host *host = card->host;
+	u32 opcode;
+	int err;
+
+	if (!host->ops->execute_tuning)
+		return 0;
+
+	if (mmc_card_mmc(card))
+		opcode = MMC_SEND_TUNING_BLOCK_HS200;
+	else
+		opcode = MMC_SEND_TUNING_BLOCK;
+
+	mmc_host_clk_hold(host);
+	err = host->ops->execute_tuning(host, opcode);
+	mmc_host_clk_release(host);
+
+	if (err)
+		pr_err("%s: tuning execution failed\n", mmc_hostname(host));
+	else
+		mmc_retune_enable(host);
+
+	return err;
+}
 
 /*
  * Change the bus mode (open drain/push-pull) of a host.
@@ -2730,6 +2784,7 @@ void mmc_power_up(struct mmc_host *host, u32 ocr)
 		return;
 
 	mmc_host_clk_hold(host);
+	mmc_retune_disable(host);
 
 	host->ios.vdd = fls(ocr) - 1;
 	if (mmc_host_is_spi(host))
@@ -2777,6 +2832,7 @@ void mmc_power_off(struct mmc_host *host)
 		return;
 
 	mmc_host_clk_hold(host);
+	mmc_retune_disable(host);
 
 	host->ios.clock = 0;
 	host->ios.vdd = 0;
@@ -3657,6 +3713,7 @@ static int mmc_do_hw_reset(struct mmc_host *host, int check)
 		return -EOPNOTSUPP;
 
 	mmc_host_clk_hold(host);
+	mmc_retune_disable(host);
 	mmc_set_clock(host, host->f_init);
 
 	if (mmc_card_mmc(card) && host->ops->hw_reset)

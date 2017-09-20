@@ -548,7 +548,7 @@
 &pm8994_mpps {
 	mpp@a100 { /* MPP 2 - TP82 */
 		qcom,mode = <0>;		/* Digital input */
-		qcom,pull = <5>;		/* Pull down */
+		qcom,pull = <1>;		/* Pull up open */
 		qcom,vin-sel = <2>;		/* S4 1.8V */
 		qcom,src-sel = <0>;		/* Constant */
 		qcom,master-en = <1>;		/* Enable GPIO */
@@ -558,7 +558,7 @@
 
 	mpp@a300 { /* MPP 4 - FAN_DETECT */
 		qcom,mode = <0>;		/* Digital input */
-		qcom,pull = <5>;		/* Pull down */
+		qcom,pull = <1>;		/* Pull up open */
 		qcom,vin-sel = <2>;		/* S4 1.8V */
 		qcom,src-sel = <0>;		/* Constant */
 		qcom,master-en = <1>;		/* Enable GPIO */
@@ -568,7 +568,7 @@
 
 	mpp@a400 { /* MPP 5 - TP81 */
 		qcom,mode = <0>;		/* Digital input */
-		qcom,pull = <5>;		/* Pull down */
+		qcom,pull = <1>;		/* Pull up open */
 		qcom,vin-sel = <2>;		/* S4 1.8V */
 		qcom,src-sel = <0>;		/* Constant */
 		qcom,master-en = <1>;		/* Enable GPIO */
@@ -587,7 +587,7 @@
 
 	mpp@a600 { /* MPP 7 - TP83 */
 		qcom,mode = <0>;		/* Digital input */
-		qcom,pull = <5>;		/* Pull down */
+		qcom,pull = <1>;		/* Pull up open */
 		qcom,vin-sel = <2>;		/* S4 1.8V */
 		qcom,src-sel = <0>;		/* Constant */
 		qcom,master-en = <1>;		/* Enable GPIO */

@@ -517,6 +517,9 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 		if (substream->stream != SNDRV_PCM_STREAM_PLAYBACK) {
 			prtd->enabled = STOPPED;
 			ret = q6asm_cmd_nowait(prtd->audio_client, CMD_PAUSE);
+			if (!ret)
+				ret = q6asm_cmd_nowait(prtd->audio_client,
+					CMD_FLUSH);
 			break;
 		}
 		/* pending CMD_EOS isn't expected */

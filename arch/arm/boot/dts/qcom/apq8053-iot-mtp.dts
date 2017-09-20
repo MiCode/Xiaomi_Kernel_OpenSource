@@ -14,11 +14,14 @@
 /dts-v1/;
 
 #include "apq8053.dtsi"
+#include "msm-pmi8950.dtsi"
 #include "msm8953-mtp.dtsi"
+#include "msm8953-pmi8950.dtsi"
+#include "msm8953-camera-sensor-mtp.dtsi"
 #include "apq8053-camera-sensor-mtp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. APQ8053 IOT MTP";
+	model = "Qualcomm Technologies, Inc. APQ8053 + PMI8950 IOT MTP";
 	compatible = "qcom,apq8053-mtp", "qcom,apq8053", "qcom,mtp";
 	qcom,board-id= <8 2>;
 };
@@ -162,4 +165,24 @@
 		/delete-property/ bias-pull-up;
 		bias-pull-down;
 	};
+};
+
+/{
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "batterydata-itech-3000mah.dtsi"
+		#include "batterydata-ascent-3450mAh.dtsi"
+	};
+};
+
+&pmi8950_fg {
+	qcom,battery-data = <&mtp_batterydata>;
+};
+
+&pmi8950_charger {
+	qcom,battery-data = <&mtp_batterydata>;
+	qcom,chg-led-sw-controls;
+	qcom,chg-led-support;
+	qcom,external-typec;
+	qcom,typec-psy-name = "typec";
 };

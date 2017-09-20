@@ -70,7 +70,7 @@
 	IPADMA_DBG_LOW("EXIT\n")
 
 #ifdef CONFIG_DEBUG_FS
-#define IPADMA_MAX_MSG_LEN 1024
+#define IPADMA_MAX_MSG_LEN 4096
 static char dbg_buff[IPADMA_MAX_MSG_LEN];
 static void ipa3_dma_debugfs_init(void);
 static void ipa3_dma_debugfs_destroy(void);
@@ -1020,10 +1020,10 @@ void ipa3_dma_destroy(void)
 
 	ipa3_dma_debugfs_destroy();
 	kmem_cache_destroy(ipa3_dma_ctx->ipa_dma_xfer_wrapper_cache);
-	kfree(ipa3_dma_ctx);
 	dma_free_coherent(ipa3_ctx->pdev, IPA_DMA_DUMMY_BUFF_SZ * 4,
 		ipa3_dma_ctx->ipa_dma_dummy_src_sync.base,
 		ipa3_dma_ctx->ipa_dma_dummy_src_sync.phys_base);
+	kfree(ipa3_dma_ctx);
 	ipa3_dma_ctx = NULL;
 
 	IPADMA_FUNC_EXIT();
