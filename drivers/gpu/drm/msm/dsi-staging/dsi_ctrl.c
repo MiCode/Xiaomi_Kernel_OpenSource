@@ -785,10 +785,14 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 	if (host_cfg->data_lanes & DSI_DATA_LANE_3)
 		num_of_lanes++;
 
-	h_period = DSI_H_TOTAL_DSC(timing);
-	v_period = DSI_V_TOTAL(timing);
+	if (config->bit_clk_rate_hz == 0) {
+		h_period = DSI_H_TOTAL_DSC(timing);
+		v_period = DSI_V_TOTAL(timing);
+		bit_rate = h_period * v_period * timing->refresh_rate * bpp * 8;
+	} else {
+		bit_rate = config->bit_clk_rate_hz * num_of_lanes;
+	}
 
-	bit_rate = h_period * v_period * timing->refresh_rate * bpp * 8;
 	bit_rate_per_lane = bit_rate;
 	do_div(bit_rate_per_lane, num_of_lanes);
 	pclk_rate = bit_rate;

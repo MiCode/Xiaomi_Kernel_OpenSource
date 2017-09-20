@@ -318,6 +318,7 @@ int dsi_conn_get_mode_info(const struct drm_display_mode *drm_mode,
 	mode_info->prefill_lines = dsi_mode.priv_info->panel_prefill_lines;
 	mode_info->jitter_numer = dsi_mode.priv_info->panel_jitter_numer;
 	mode_info->jitter_denom = dsi_mode.priv_info->panel_jitter_denom;
+	mode_info->clk_rate = dsi_mode.priv_info->clk_rate_hz;
 
 	memcpy(&mode_info->topology, &dsi_mode.priv_info->topology,
 			sizeof(struct msm_display_topology));
