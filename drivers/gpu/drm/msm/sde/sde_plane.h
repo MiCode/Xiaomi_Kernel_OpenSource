@@ -228,10 +228,11 @@ void sde_plane_restore(struct drm_plane *plane);
 void sde_plane_flush(struct drm_plane *plane);
 
 /**
- * sde_plane_kickoff - final plane operations before commit kickoff
+ * sde_plane_kickoff_rot - final plane rotator operations before commit kickoff
  * @plane: Pointer to drm plane structure
+ * Returns: Zero on success
  */
-void sde_plane_kickoff(struct drm_plane *plane);
+int sde_plane_kickoff_rot(struct drm_plane *plane);
 
 /**
  * sde_plane_set_error: enable/disable error condition
