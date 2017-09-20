@@ -140,6 +140,51 @@ subsys_initcall(register_cpu_capacity_sysctl);
 
 enum asym_cpucap_type { no_asym, asym_thread, asym_core, asym_die };
 static enum asym_cpucap_type asym_cpucap = no_asym;
+enum share_cap_type { no_share_cap, share_cap_thread, share_cap_core, share_cap_die};
+static enum share_cap_type share_cap = no_share_cap;
+
+#ifdef CONFIG_CPU_FREQ
+int detect_share_cap_flag(void)
+{
+	int cpu;
+	enum share_cap_type share_cap_level = no_share_cap;
+	struct cpufreq_policy *policy;
+
+	for_each_possible_cpu(cpu) {
+		policy = cpufreq_cpu_get(cpu);
+
+		if (!policy)
+			return 0;
+
+		if (cpumask_equal(topology_sibling_cpumask(cpu),
+				  policy->related_cpus)) {
+			share_cap_level = share_cap_thread;
+			continue;
+		}
+
+		if (cpumask_equal(topology_core_cpumask(cpu),
+				  policy->related_cpus)) {
+			share_cap_level = share_cap_core;
+			continue;
+		}
+
+		if (cpumask_equal(cpu_cpu_mask(cpu),
+				  policy->related_cpus)) {
+			share_cap_level = share_cap_die;
+			continue;
+		}
+	}
+
+	if (share_cap != share_cap_level) {
+		share_cap = share_cap_level;
+		return 1;
+	}
+
+	return 0;
+}
+#else
+int detect_share_cap_flags(void) { return 0; }
+#endif
 
 /*
  * Walk cpu topology to determine sched_domain flags.
@@ -208,22 +253,49 @@ done:
 		pr_debug("topology flag change detected\n");
 	}
 
+	if (detect_share_cap_flag())
+		flags_changed = 1;
+
 	return flags_changed;
 }
 
 int topology_smt_flags(void)
 {
-	return asym_cpucap == asym_thread ? SD_ASYM_CPUCAPACITY : 0;
+	int flags = 0;
+
+	if (asym_cpucap == asym_thread)
+		flags |= SD_ASYM_CPUCAPACITY;
+
+	if (share_cap == share_cap_thread)
+		flags |= SD_SHARE_CAP_STATES;
+
+	return flags;
 }
 
 int topology_core_flags(void)
 {
-	return asym_cpucap == asym_core ? SD_ASYM_CPUCAPACITY : 0;
+	int flags = 0;
+
+	if (asym_cpucap == asym_core)
+		flags |= SD_ASYM_CPUCAPACITY;
+
+	if (share_cap == share_cap_core)
+		flags |= SD_SHARE_CAP_STATES;
+
+	return flags;
 }
 
 int topology_cpu_flags(void)
 {
-	return asym_cpucap == asym_die ? SD_ASYM_CPUCAPACITY : 0;
+	int flags = 0;
+
+	if (asym_cpucap == asym_die)
+		flags |= SD_ASYM_CPUCAPACITY;
+
+	if (share_cap == share_cap_die)
+		flags |= SD_SHARE_CAP_STATES;
+
+	return flags;
 }
 
 static int update_topology = 0;
