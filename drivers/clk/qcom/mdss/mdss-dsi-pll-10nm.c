@@ -289,6 +289,14 @@ static inline int pclk_mux_write_sel(void *context, unsigned int reg,
 
 	(void)mdss_pll_resource_enable(rsc, false);
 
+	/*
+	 * cache the current parent index for cases where parent
+	 * is not changing but rate is changing. In that case
+	 * clock framework won't call parent_set and hence dsiclk_sel
+	 * bit won't be programmed. e.g. dfps update use case.
+	 */
+	rsc->cached_cfg1 = val;
+
 	return rc;
 }
 
@@ -633,6 +641,12 @@ static int dsi_pll_enable(struct dsi_pll_vco_clk *vco)
 	if (rsc->slave)
 		dsi_pll_enable_pll_bias(rsc->slave);
 
+	phy_reg_update_bits_sub(rsc, PHY_CMN_CLK_CFG1, 0x03, rsc->cached_cfg1);
+	if (rsc->slave)
+		phy_reg_update_bits_sub(rsc->slave, PHY_CMN_CLK_CFG1,
+				0x03, rsc->cached_cfg1);
+	wmb(); /* ensure dsiclk_sel is always programmed before pll start */
+
 	/* Start PLL */
 	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_PLL_CNTRL, 0x01);
 
@@ -720,7 +734,6 @@ static void vco_10nm_unprepare(struct clk_hw *hw)
 		return;
 	}
 	pll->cached_cfg0 = MDSS_PLL_REG_R(pll->phy_base, PHY_CMN_CLK_CFG0);
-	pll->cached_cfg1 = MDSS_PLL_REG_R(pll->phy_base, PHY_CMN_CLK_CFG1);
 	pll->cached_outdiv = MDSS_PLL_REG_R(pll->pll_base, PLL_PLL_OUTDIV_RATE);
 	pr_debug("cfg0=%d,cfg1=%d, outdiv=%d\n", pll->cached_cfg0,
 			pll->cached_cfg1, pll->cached_outdiv);
@@ -762,8 +775,6 @@ static int vco_10nm_prepare(struct clk_hw *hw)
 			pll->cached_cfg1);
 		MDSS_PLL_REG_W(pll->phy_base, PHY_CMN_CLK_CFG0,
 					pll->cached_cfg0);
-		MDSS_PLL_REG_W(pll->phy_base, PHY_CMN_CLK_CFG1,
-					pll->cached_cfg1);
 		MDSS_PLL_REG_W(pll->pll_base, PLL_PLL_OUTDIV_RATE,
 					pll->cached_outdiv);
 	}
