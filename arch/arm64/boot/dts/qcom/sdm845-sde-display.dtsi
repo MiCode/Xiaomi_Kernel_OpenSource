@@ -470,7 +470,7 @@
 		qcom,aux-cfg8-settings = [40 bb];
 		qcom,aux-cfg9-settings = [44 03];
 
-		qcom,max-pclk-frequency-khz = <576000>;
+		qcom,max-pclk-frequency-khz = <675000>;
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;
