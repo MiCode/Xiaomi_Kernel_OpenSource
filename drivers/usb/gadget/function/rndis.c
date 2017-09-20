@@ -813,8 +813,17 @@ int rndis_msg_parser(struct rndis_params *params, u8 *buf)
 	/* For USB: responses may take up to 10 seconds */
 	switch (MsgType) {
 	case RNDIS_MSG_INIT:
-		pr_debug("%s: RNDIS_MSG_INIT\n",
-			__func__);
+		pr_debug("%s: RNDIS_MSG_INIT\n", __func__);
+		tmp++; /* to get RequestID */
+		params->host_rndis_major_ver = get_unaligned_le32(tmp++);
+		params->host_rndis_minor_ver = get_unaligned_le32(tmp++);
+		params->dl_max_xfer_size = get_unaligned_le32(tmp++);
+
+		pr_debug("%s(): RNDIS Host Major:%d Minor:%d version\n",
+					__func__, params->host_rndis_major_ver,
+					params->host_rndis_minor_ver);
+		pr_debug("%s(): DL Max Transfer size:%x\n",
+				__func__, params->dl_max_xfer_size);
 		params->state = RNDIS_INITIALIZED;
 		return rndis_init_response(params, (rndis_init_msg_type *)buf);
 
