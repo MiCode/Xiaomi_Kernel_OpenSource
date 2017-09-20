@@ -2057,6 +2057,9 @@
 	};
 };
 
+#include "pm660.dtsi"
+#include "pm660l.dtsi"
+#include "sdm670-regulator.dtsi"
 #include "sdm670-pinctrl.dtsi"
 #include "msm-arm-smmu-sdm670.dtsi"
 #include "msm-gdsc-sdm845.dtsi"
@@ -2148,9 +2151,6 @@
 	status = "ok";
 };
 
-#include "pm660.dtsi"
-#include "pm660l.dtsi"
-#include "sdm670-regulator.dtsi"
 #include "sdm670-audio.dtsi"
 #include "sdm670-usb.dtsi"
 #include "sdm670-gpu.dtsi"
