@@ -515,7 +515,7 @@ static uint32_t cam_cpas110_slave_error_logger[] = {
 
 static struct cam_cpas_hw_errata_wa_list cam170_cpas110_errata_wa_list = {
 	.camnoc_flush_slave_pending_trans = {
-		.enable = true,
+		.enable = false,
 		.data.reg_info = {
 			.access_type = CAM_REG_TYPE_READ,
 			.offset = 0x2100, /* SidebandManager_SenseIn0_Low */

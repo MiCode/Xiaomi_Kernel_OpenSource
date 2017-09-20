@@ -402,9 +402,10 @@ static int cam_cpastop_poweroff(struct cam_hw_info *cpas_hw)
 			CAM_CPAS_POLL_RETRY_CNT,
 			CAM_CPAS_POLL_MIN_USECS, CAM_CPAS_POLL_MAX_USECS);
 		if (rc) {
-			CAM_ERR(CAM_CPAS,
+			CAM_DBG(CAM_CPAS,
 				"camnoc flush slave pending trans failed");
 			/* Do not return error, passthrough */
+			rc = 0;
 		}
 	}
 
