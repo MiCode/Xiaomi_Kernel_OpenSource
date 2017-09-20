@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -950,6 +950,10 @@ static int ufsdbg_show_hba_show(struct seq_file *file, void *data)
 	seq_printf(file, "hba->saved_err = 0x%x\n", hba->saved_err);
 	seq_printf(file, "hba->saved_uic_err = 0x%x\n", hba->saved_uic_err);
 
+	seq_printf(file, "power_mode_change_cnt = %d\n",
+			hba->ufs_stats.power_mode_change_cnt);
+	seq_printf(file, "hibern8_exit_cnt = %d\n",
+			hba->ufs_stats.hibern8_exit_cnt);
 	return 0;
 }
 
