@@ -1258,6 +1258,32 @@
 			};
 		};
 
+		sdc2_cd_on: cd_on {
+			mux {
+				pins = "gpio96";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio96";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		sdc2_cd_off: cd_off {
+			mux {
+				pins = "gpio96";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio96";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		/* USB C analog configuration */
 		wcd_usbc_analog_en1 {
 			wcd_usbc_analog_en1_idle: wcd_usbc_ana_en1_idle {
