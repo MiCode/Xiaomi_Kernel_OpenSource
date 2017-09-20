@@ -602,6 +602,17 @@ int sde_rotator_session_config(struct sde_rot_mgr *mgr,
 	struct sde_rotation_config *config);
 
 /*
+ * sde_rotator_session_validate - validate session configuration
+ * @mgr: Pointer to rotator manager
+ * @private: Pointer to per file session
+ * @config: Pointer to rotator configuration
+ * return: 0 if success; error code otherwise
+ */
+int sde_rotator_session_validate(struct sde_rot_mgr *mgr,
+	struct sde_rot_file_private *private,
+	struct sde_rotation_config *config);
+
+/*
  * sde_rotator_req_init - allocate a new request and initialzie with given
  *	array of rotation items
  * @rot_dev: Pointer to rotator device
