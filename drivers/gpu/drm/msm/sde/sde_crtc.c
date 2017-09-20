@@ -3001,8 +3001,15 @@ static void sde_crtc_reset(struct drm_crtc *crtc)
 	}
 
 	/* revert suspend actions, if necessary */
-	if (sde_kms_is_suspend_state(crtc->dev))
+	if (sde_kms_is_suspend_state(crtc->dev)) {
 		_sde_crtc_set_suspend(crtc, false);
+
+		if (!sde_crtc_is_reset_required(crtc)) {
+			SDE_DEBUG("avoiding reset for crtc:%d\n",
+					crtc->base.id);
+			return;
+		}
+	}
 
 	/* remove previous state, if present */
 	if (crtc->state) {

@@ -4379,6 +4379,11 @@ static void sde_plane_reset(struct drm_plane *plane)
 	psde = to_sde_plane(plane);
 	SDE_DEBUG_PLANE(psde, "\n");
 
+	if (plane->state && !sde_crtc_is_reset_required(plane->state->crtc)) {
+		SDE_DEBUG_PLANE(psde, "avoid reset for plane\n");
+		return;
+	}
+
 	/* remove previous state, if present */
 	if (plane->state) {
 		sde_plane_destroy_state(plane, plane->state);

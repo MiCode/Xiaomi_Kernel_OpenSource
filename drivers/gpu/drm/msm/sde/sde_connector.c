@@ -19,6 +19,7 @@
 #include <linux/backlight.h>
 #include "dsi_drm.h"
 #include "dsi_display.h"
+#include "sde_crtc.h"
 
 #define BL_NODE_NAME_SIZE 32
 
@@ -579,6 +580,12 @@ static void sde_connector_atomic_reset(struct drm_connector *connector)
 	}
 
 	c_conn = to_sde_connector(connector);
+
+	if (connector->state &&
+			!sde_crtc_is_reset_required(connector->state->crtc)) {
+		SDE_DEBUG_CONN(c_conn, "avoid reset for connector\n");
+		return;
+	}
 
 	if (connector->state) {
 		sde_connector_atomic_destroy_state(connector, connector->state);

@@ -531,6 +531,30 @@ static inline u32 sde_crtc_get_inline_prefill(struct drm_crtc *crtc)
 }
 
 /**
+ * sde_crtc_is_reset_required - validate the reset request based on the
+ *	pm_suspend and crtc's active status. crtc's are left active
+ *	on pm_suspend during LP1/LP2 states, as the display is still
+ *	left ON. Avoid reset for the subsequent pm_resume in such cases.
+ * @crtc: Pointer to crtc
+ * return: false if in suspend state and crtc active, true otherwise
+ */
+static inline bool sde_crtc_is_reset_required(struct drm_crtc *crtc)
+{
+	/*
+	 * reset is required even when there is no crtc_state as it is required
+	 * to create the initial state object
+	 */
+	if (!crtc || !crtc->state)
+		return true;
+
+	/* reset not required if crtc is active during suspend state */
+	if (sde_kms_is_suspend_state(crtc->dev) && crtc->state->active)
+		return false;
+
+	return true;
+}
+
+/**
  * sde_crtc_event_queue - request event callback
  * @crtc: Pointer to drm crtc structure
  * @func: Pointer to callback function
