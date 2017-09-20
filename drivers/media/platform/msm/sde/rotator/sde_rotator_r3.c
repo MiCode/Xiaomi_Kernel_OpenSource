@@ -65,35 +65,54 @@
 	do { \
 		SDEROT_DBG("SDEREG.W:[%s:0x%X] <= 0x%X\n", #off, (off),\
 				(u32)(data));\
-		*p++ = REGDMA_OP_REGWRITE | \
-			((off) & REGDMA_ADDR_OFFSET_MASK); \
-		*p++ = (data); \
+		writel_relaxed_no_log( \
+				(REGDMA_OP_REGWRITE | \
+				 ((off) & REGDMA_ADDR_OFFSET_MASK)), \
+				p); \
+		p += sizeof(u32); \
+		writel_relaxed_no_log(data, p); \
+		p += sizeof(u32); \
 	} while (0)
 
 #define SDE_REGDMA_MODIFY(p, off, mask, data) \
 	do { \
 		SDEROT_DBG("SDEREG.M:[%s:0x%X] <= 0x%X\n", #off, (off),\
 				(u32)(data));\
-		*p++ = REGDMA_OP_REGMODIFY | \
-			((off) & REGDMA_ADDR_OFFSET_MASK); \
-		*p++ = (mask); \
-		*p++ = (data); \
+		writel_relaxed_no_log( \
+				(REGDMA_OP_REGMODIFY | \
+				 ((off) & REGDMA_ADDR_OFFSET_MASK)), \
+				p); \
+		p += sizeof(u32); \
+		writel_relaxed_no_log(mask, p); \
+		p += sizeof(u32); \
+		writel_relaxed_no_log(data, p); \
+		p += sizeof(u32); \
 	} while (0)
 
 #define SDE_REGDMA_BLKWRITE_INC(p, off, len) \
 	do { \
 		SDEROT_DBG("SDEREG.B:[%s:0x%X:0x%X]\n", #off, (off),\
 				(u32)(len));\
-		*p++ = REGDMA_OP_BLKWRITE_INC | \
-			((off) & REGDMA_ADDR_OFFSET_MASK); \
-		*p++ = (len); \
+		writel_relaxed_no_log( \
+				(REGDMA_OP_BLKWRITE_INC | \
+				 ((off) & REGDMA_ADDR_OFFSET_MASK)), \
+				p); \
+		p += sizeof(u32); \
+		writel_relaxed_no_log(len, p); \
+		p += sizeof(u32); \
 	} while (0)
 
 #define SDE_REGDMA_BLKWRITE_DATA(p, data) \
 	do { \
 		SDEROT_DBG("SDEREG.I:[:] <= 0x%X\n", (u32)(data));\
-		*(p) = (data); \
-		(p)++; \
+		writel_relaxed_no_log(data, p); \
+		p += sizeof(u32); \
+	} while (0)
+
+#define SDE_REGDMA_READ(p, data) \
+	do { \
+		data = readl_relaxed_no_log(p); \
+		p += sizeof(u32); \
 	} while (0)
 
 /* Macro for directly accessing mapped registers */
@@ -851,7 +870,7 @@ static void sde_hw_rotator_vbif_setting(struct sde_hw_rotator *rot)
 static void sde_hw_rotator_setup_timestamp_packet(
 		struct sde_hw_rotator_context *ctx, u32 mask, u32 swts)
 {
-	u32 *wrptr;
+	char __iomem *wrptr;
 
 	wrptr = sde_hw_rotator_get_regdma_segment(ctx);
 
@@ -908,7 +927,7 @@ static void sde_hw_rotator_cdp_configs(struct sde_hw_rotator_context *ctx,
 		struct sde_rot_cdp_params *params)
 {
 	int reg_val;
-	u32 *wrptr = sde_hw_rotator_get_regdma_segment(ctx);
+	char __iomem *wrptr = sde_hw_rotator_get_regdma_segment(ctx);
 
 	if (!params->enable) {
 		SDE_REGDMA_WRITE(wrptr, params->offset, 0x0);
@@ -942,7 +961,7 @@ end:
 static void sde_hw_rotator_setup_qos_lut_wr(struct sde_hw_rotator_context *ctx)
 {
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
-	u32 *wrptr = sde_hw_rotator_get_regdma_segment(ctx);
+	char __iomem *wrptr = sde_hw_rotator_get_regdma_segment(ctx);
 
 	/* Offline rotation setting */
 	if (!ctx->sbuf_mode) {
@@ -1000,7 +1019,7 @@ static void sde_hw_rotator_setup_qos_lut_wr(struct sde_hw_rotator_context *ctx)
 static void sde_hw_rotator_setup_qos_lut_rd(struct sde_hw_rotator_context *ctx)
 {
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
-	u32 *wrptr = sde_hw_rotator_get_regdma_segment(ctx);
+	char __iomem *wrptr = sde_hw_rotator_get_regdma_segment(ctx);
 
 	/* Offline rotation setting */
 	if (!ctx->sbuf_mode) {
@@ -1070,7 +1089,7 @@ static void sde_hw_rotator_setup_fetchengine(struct sde_hw_rotator_context *ctx,
 	struct sde_mdp_data *data;
 	struct sde_rot_cdp_params cdp_params = {0};
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
-	u32 *wrptr;
+	char __iomem *wrptr;
 	u32 opmode = 0;
 	u32 chroma_samp = 0;
 	u32 src_format = 0;
@@ -1291,7 +1310,7 @@ static void sde_hw_rotator_setup_wbengine(struct sde_hw_rotator_context *ctx,
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	struct sde_mdp_format_params *fmt;
 	struct sde_rot_cdp_params cdp_params = {0};
-	u32 *wrptr;
+	char __iomem *wrptr;
 	u32 pack = 0;
 	u32 dst_format = 0;
 	u32 no_partial_writes = 0;
@@ -1489,13 +1508,18 @@ static u32 sde_hw_rotator_start_no_regdma(struct sde_hw_rotator_context *ctx,
 		enum sde_rot_queue_prio queue_id)
 {
 	struct sde_hw_rotator *rot = ctx->rot;
-	u32 *wrptr;
-	u32 *rdptr;
-	u8 *addr;
+	char __iomem *wrptr;
+	char __iomem *mem_rdptr;
+	char __iomem *addr;
 	u32 mask;
+	u32 cmd0, cmd1, cmd2;
 	u32 blksize;
 
-	rdptr = sde_hw_rotator_get_regdma_segment_base(ctx);
+	/*
+	 * when regdma is not using, the regdma segment is just a normal
+	 * DRAM, and not an iomem.
+	 */
+	mem_rdptr = sde_hw_rotator_get_regdma_segment_base(ctx);
 	wrptr = sde_hw_rotator_get_regdma_segment(ctx);
 
 	if (rot->irq_num >= 0) {
@@ -1513,54 +1537,65 @@ static u32 sde_hw_rotator_start_no_regdma(struct sde_hw_rotator_context *ctx,
 	SDEROT_DBG("BEGIN %d\n", ctx->timestamp);
 	/* Write all command stream to Rotator blocks */
 	/* Rotator will start right away after command stream finish writing */
-	while (rdptr < wrptr) {
-		u32 op = REGDMA_OP_MASK & *rdptr;
+	while (mem_rdptr < wrptr) {
+		u32 op = REGDMA_OP_MASK & readl_relaxed_no_log(mem_rdptr);
 
 		switch (op) {
 		case REGDMA_OP_NOP:
 			SDEROT_DBG("NOP\n");
-			rdptr++;
+			mem_rdptr += sizeof(u32);
 			break;
 		case REGDMA_OP_REGWRITE:
+			SDE_REGDMA_READ(mem_rdptr, cmd0);
+			SDE_REGDMA_READ(mem_rdptr, cmd1);
 			SDEROT_DBG("REGW %6.6x %8.8x\n",
-					rdptr[0] & REGDMA_ADDR_OFFSET_MASK,
-					rdptr[1]);
+					cmd0 & REGDMA_ADDR_OFFSET_MASK,
+					cmd1);
 			addr =  rot->mdss_base +
-				(*rdptr++ & REGDMA_ADDR_OFFSET_MASK);
-			writel_relaxed(*rdptr++, addr);
+				(cmd0 & REGDMA_ADDR_OFFSET_MASK);
+			writel_relaxed(cmd1, addr);
 			break;
 		case REGDMA_OP_REGMODIFY:
+			SDE_REGDMA_READ(mem_rdptr, cmd0);
+			SDE_REGDMA_READ(mem_rdptr, cmd1);
+			SDE_REGDMA_READ(mem_rdptr, cmd2);
 			SDEROT_DBG("REGM %6.6x %8.8x %8.8x\n",
-					rdptr[0] & REGDMA_ADDR_OFFSET_MASK,
-					rdptr[1], rdptr[2]);
+					cmd0 & REGDMA_ADDR_OFFSET_MASK,
+					cmd1, cmd2);
 			addr =  rot->mdss_base +
-				(*rdptr++ & REGDMA_ADDR_OFFSET_MASK);
-			mask = *rdptr++;
-			writel_relaxed((readl_relaxed(addr) & mask) | *rdptr++,
+				(cmd0 & REGDMA_ADDR_OFFSET_MASK);
+			mask = cmd1;
+			writel_relaxed((readl_relaxed(addr) & mask) | cmd2,
 					addr);
 			break;
 		case REGDMA_OP_BLKWRITE_SINGLE:
+			SDE_REGDMA_READ(mem_rdptr, cmd0);
+			SDE_REGDMA_READ(mem_rdptr, cmd1);
 			SDEROT_DBG("BLKWS %6.6x %6.6x\n",
-					rdptr[0] & REGDMA_ADDR_OFFSET_MASK,
-					rdptr[1]);
+					cmd0 & REGDMA_ADDR_OFFSET_MASK,
+					cmd1);
 			addr =  rot->mdss_base +
-				(*rdptr++ & REGDMA_ADDR_OFFSET_MASK);
-			blksize = *rdptr++;
+				(cmd0 & REGDMA_ADDR_OFFSET_MASK);
+			blksize = cmd1;
 			while (blksize--) {
-				SDEROT_DBG("DATA %8.8x\n", rdptr[0]);
-				writel_relaxed(*rdptr++, addr);
+				SDE_REGDMA_READ(mem_rdptr, cmd0);
+				SDEROT_DBG("DATA %8.8x\n", cmd0);
+				writel_relaxed(cmd0, addr);
 			}
 			break;
 		case REGDMA_OP_BLKWRITE_INC:
+			SDE_REGDMA_READ(mem_rdptr, cmd0);
+			SDE_REGDMA_READ(mem_rdptr, cmd1);
 			SDEROT_DBG("BLKWI %6.6x %6.6x\n",
-					rdptr[0] & REGDMA_ADDR_OFFSET_MASK,
-					rdptr[1]);
+					cmd0 & REGDMA_ADDR_OFFSET_MASK,
+					cmd1);
 			addr =  rot->mdss_base +
-				(*rdptr++ & REGDMA_ADDR_OFFSET_MASK);
-			blksize = *rdptr++;
+				(cmd0 & REGDMA_ADDR_OFFSET_MASK);
+			blksize = cmd1;
 			while (blksize--) {
-				SDEROT_DBG("DATA %8.8x\n", rdptr[0]);
-				writel_relaxed(*rdptr++, addr);
+				SDE_REGDMA_READ(mem_rdptr, cmd0);
+				SDEROT_DBG("DATA %8.8x\n", cmd0);
+				writel_relaxed(cmd0, addr);
 				addr += 4;
 			}
 			break;
@@ -1569,7 +1604,7 @@ static u32 sde_hw_rotator_start_no_regdma(struct sde_hw_rotator_context *ctx,
 			 * Skip data for now for unregonized OP mode
 			 */
 			SDEROT_DBG("UNDEFINED\n");
-			rdptr++;
+			mem_rdptr += sizeof(u32);
 			break;
 		}
 	}
@@ -1587,11 +1622,11 @@ static u32 sde_hw_rotator_start_regdma(struct sde_hw_rotator_context *ctx,
 		enum sde_rot_queue_prio queue_id)
 {
 	struct sde_hw_rotator *rot = ctx->rot;
-	u32 *wrptr;
+	char __iomem *wrptr;
 	u32  regdmaSlot;
 	u32  offset;
-	long length;
-	long ts_length;
+	u32  length;
+	u32  ts_length;
 	u32  enableInt;
 	u32  swts = 0;
 	u32  mask = 0;
@@ -1610,15 +1645,15 @@ static u32 sde_hw_rotator_start_regdma(struct sde_hw_rotator_context *ctx,
 	 * Start REGDMA with command offset and size
 	 */
 	regdmaSlot = sde_hw_rotator_get_regdma_ctxidx(ctx);
-	length = ((long)wrptr - (long)ctx->regdma_base) / 4;
-	offset = (u32)(ctx->regdma_base - (u32 *)(rot->mdss_base +
-				REGDMA_RAM_REGDMA_CMD_RAM));
+	length = (wrptr - ctx->regdma_base) / 4;
+	offset = (ctx->regdma_base - (rot->mdss_base +
+				REGDMA_RAM_REGDMA_CMD_RAM)) / sizeof(u32);
 	enableInt = ((ctx->timestamp & 1) + 1) << 30;
 	trig_sel = ctx->sbuf_mode ? REGDMA_CMD_TRIG_SEL_MDP_FLUSH :
 			REGDMA_CMD_TRIG_SEL_SW_START;
 
 	SDEROT_DBG(
-		"regdma(%d)[%d] <== INT:0x%X|length:%ld|offset:0x%X, ts:%X\n",
+		"regdma(%d)[%d] <== INT:0x%X|length:%d|offset:0x%X, ts:%X\n",
 		queue_id, regdmaSlot, enableInt, length, offset,
 		ctx->timestamp);
 
@@ -1648,6 +1683,7 @@ static u32 sde_hw_rotator_start_regdma(struct sde_hw_rotator_context *ctx,
 		sde_hw_rotator_setup_timestamp_packet(ctx, mask, swts);
 		offset += length;
 		ts_length = sde_hw_rotator_get_regdma_segment(ctx) - wrptr;
+		ts_length /= sizeof(u32);
 		WARN_ON((length + ts_length) > SDE_HW_ROT_REGDMA_SEG_SIZE);
 
 		/* ensure command packet is issue before the submit command */
@@ -3436,21 +3472,22 @@ int sde_rotator_r3_init(struct sde_rot_mgr *mgr)
 	/* REGDMA initialization */
 	if (rot->mode == ROT_REGDMA_OFF) {
 		for (i = 0; i < SDE_HW_ROT_REGDMA_TOTAL_CTX; i++)
-			rot->cmd_wr_ptr[0][i] = &rot->cmd_queue[
-				SDE_HW_ROT_REGDMA_SEG_SIZE * i];
+			rot->cmd_wr_ptr[0][i] = (char __iomem *)(
+					&rot->cmd_queue[
+					SDE_HW_ROT_REGDMA_SEG_SIZE * i]);
 	} else {
 		for (i = 0; i < SDE_HW_ROT_REGDMA_TOTAL_CTX; i++)
 			rot->cmd_wr_ptr[ROT_QUEUE_HIGH_PRIORITY][i] =
-				(u32 *)(rot->mdss_base +
+				rot->mdss_base +
 					REGDMA_RAM_REGDMA_CMD_RAM +
-					SDE_HW_ROT_REGDMA_SEG_SIZE * 4 * i);
+					SDE_HW_ROT_REGDMA_SEG_SIZE * 4 * i;
 
 		for (i = 0; i < SDE_HW_ROT_REGDMA_TOTAL_CTX; i++)
 			rot->cmd_wr_ptr[ROT_QUEUE_LOW_PRIORITY][i] =
-				(u32 *)(rot->mdss_base +
+				rot->mdss_base +
 					REGDMA_RAM_REGDMA_CMD_RAM +
 					SDE_HW_ROT_REGDMA_SEG_SIZE * 4 *
-					(i + SDE_HW_ROT_REGDMA_TOTAL_CTX));
+					(i + SDE_HW_ROT_REGDMA_TOTAL_CTX);
 	}
 
 	for (i = 0; i < ROT_QUEUE_MAX; i++) {
