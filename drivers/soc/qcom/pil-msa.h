@@ -46,4 +46,6 @@ void pil_mss_remove_proxy_votes(struct pil_desc *pil);
 int pil_mss_shutdown(struct pil_desc *pil);
 int pil_mss_deinit_image(struct pil_desc *pil);
 int __pil_mss_deinit_image(struct pil_desc *pil, bool err_path);
+int pil_mss_assert_resets(struct q6v5_data *drv);
+int pil_mss_deassert_resets(struct q6v5_data *drv);
 #endif

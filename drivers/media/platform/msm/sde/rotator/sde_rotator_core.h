@@ -115,8 +115,8 @@ enum sde_rotator_ts {
 	SDE_ROTATOR_TS_FENCE,		/* wait for source buffer fence */
 	SDE_ROTATOR_TS_QUEUE,		/* wait for h/w resource */
 	SDE_ROTATOR_TS_COMMIT,		/* prepare h/w command */
+	SDE_ROTATOR_TS_START,		/* wait for h/w kickoff rdy (inline) */
 	SDE_ROTATOR_TS_FLUSH,		/* initiate h/w processing */
-	SDE_ROTATOR_TS_START,		/* h/w triggered (if inline) */
 	SDE_ROTATOR_TS_DONE,		/* receive h/w completion */
 	SDE_ROTATOR_TS_RETIRE,		/* signal destination buffer fence */
 	SDE_ROTATOR_TS_SRCDQB,		/* dequeue source buffer */
@@ -448,6 +448,8 @@ struct sde_rot_mgr {
 
 	int (*ops_config_hw)(struct sde_rot_hw_resource *hw,
 			struct sde_rot_entry *entry);
+	int (*ops_cancel_hw)(struct sde_rot_hw_resource *hw,
+			struct sde_rot_entry *entry);
 	int (*ops_kickoff_entry)(struct sde_rot_hw_resource *hw,
 			struct sde_rot_entry *entry);
 	int (*ops_wait_for_entry)(struct sde_rot_hw_resource *hw,
@@ -622,20 +624,33 @@ struct sde_rot_entry_container *sde_rotator_req_init(
  *	indicator that allows the rotator to delay its rotator
  *	timeout waiting until such time as the inline rotation has
  *	really started.
+ * @mgr: Pointer to rotator manager
  * @req: Pointer to rotation request
  */
-void sde_rotator_req_reset_start(struct sde_rot_entry_container *req);
+void sde_rotator_req_reset_start(struct sde_rot_mgr *mgr,
+		struct sde_rot_entry_container *req);
 
 /*
  * sde_rotator_req_set_start - set inline h/w 'start' indicator
+ * @mgr: Pointer to rotator manager
  * @req: Pointer to rotation request
  */
-void sde_rotator_req_set_start(struct sde_rot_entry_container *req);
+void sde_rotator_req_set_start(struct sde_rot_mgr *mgr,
+		struct sde_rot_entry_container *req);
+
+/*
+ * sde_rotator_req_wait_start - wait for inline h/w 'start' indicator
+ * @mgr: Pointer to rotator manager
+ * @req: Pointer to rotation request
+ * return: Zero on success
+ */
+int sde_rotator_req_wait_start(struct sde_rot_mgr *mgr,
+		struct sde_rot_entry_container *req);
 
 /*
  * sde_rotator_req_finish - notify manager that client is finished with the
  *	given request and manager can release the request as required
- * @rot_dev: Pointer to rotator device
+ * @mgr: Pointer to rotator manager
  * @private: Pointer to rotator manager per file context
  * @req: Pointer to rotation request
  * return: none
@@ -664,18 +679,6 @@ int sde_rotator_handle_request_common(struct sde_rot_mgr *rot_dev,
  * return: 0 if success; error code otherwise
  */
 void sde_rotator_queue_request(struct sde_rot_mgr *rot_dev,
-	struct sde_rot_file_private *ctx,
-	struct sde_rot_entry_container *req);
-
-/*
- * sde_rotator_commit_request - queue/schedule the given request and wait
- *	until h/w commit
- * @rot_dev: Pointer to rotator device
- * @private: Pointer to rotator manager per file context
- * @req: Pointer to rotation request
- * return: 0 if success; error code otherwise
- */
-void sde_rotator_commit_request(struct sde_rot_mgr *mgr,
 	struct sde_rot_file_private *ctx,
 	struct sde_rot_entry_container *req);
 

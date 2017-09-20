@@ -44,13 +44,6 @@
 
 #define DEFAULT_BUS_P 25
 
-/*
- * The effective duration of qos request in usecs. After
- * timeout, qos request is cancelled automatically.
- * Kept 80ms default, inline with default GPU idle time.
- */
-#define KGSL_L2PC_CPU_TIMEOUT	(80 * 1000)
-
 /* Order deeply matters here because reasons. New entries go on the end */
 static const char * const clocks[] = {
 	"src_clk",
@@ -221,18 +214,10 @@ static void kgsl_pwrctrl_vbif_update(unsigned long ab)
 static int kgsl_bus_scale_request(struct kgsl_device *device,
 		unsigned int buslevel)
 {
-	struct gmu_device *gmu = &device->gmu;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	int ret = 0;
 
-	/* GMU scales BW */
-	if (kgsl_gmu_isenabled(device)) {
-		if (!(gmu->flags & GMU_HFI_ON) || !buslevel)
-			/* Zero bus level is invalid for GMU to vote */
-			return 0;
-
-		ret = gmu_dcvs_set(gmu, INVALID_DCVS_IDX, buslevel);
-	} else if (pwr->pcl) {
+	if (pwr->pcl) {
 		/* Linux bus driver scales BW */
 		ret = msm_bus_scale_client_update_request(pwr->pcl, buslevel);
 	}
@@ -298,8 +283,7 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 	unsigned long ab;
 
 	/* the bus should be ON to update the active frequency */
-	if (!(kgsl_gmu_isenabled(device)) && on &&
-		!(test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->power_flags)))
+	if (on && !(test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->power_flags)))
 		return;
 	/*
 	 * If the bus should remain on calculate our request and submit it,
@@ -544,12 +528,14 @@ EXPORT_SYMBOL(kgsl_pwrctrl_set_constraint);
 /**
  * kgsl_pwrctrl_update_l2pc() - Update existing qos request
  * @device: Pointer to the kgsl_device struct
+ * @timeout_us: the effective duration of qos request in usecs.
  *
  * Updates an existing qos request to avoid L2PC on the
  * CPUs (which are selected through dtsi) on which GPU
  * thread is running. This would help for performance.
  */
-void kgsl_pwrctrl_update_l2pc(struct kgsl_device *device)
+void kgsl_pwrctrl_update_l2pc(struct kgsl_device *device,
+			unsigned long timeout_us)
 {
 	int cpu;
 
@@ -563,7 +549,7 @@ void kgsl_pwrctrl_update_l2pc(struct kgsl_device *device)
 		pm_qos_update_request_timeout(
 				&device->pwrctrl.l2pc_cpus_qos,
 				device->pwrctrl.pm_qos_cpu_mask_latency,
-				KGSL_L2PC_CPU_TIMEOUT);
+				timeout_us);
 	}
 }
 EXPORT_SYMBOL(kgsl_pwrctrl_update_l2pc);
@@ -2194,6 +2180,10 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	kgsl_property_read_u32(device, "qcom,l2pc-cpu-mask",
 			&pwr->l2pc_cpus_mask);
 
+	pwr->l2pc_update_queue = of_property_read_bool(
+				device->pdev->dev.of_node,
+				"qcom,l2pc-update-queue");
+
 	pm_runtime_enable(&pdev->dev);
 
 	ocmem_bus_node = of_find_node_by_name(
@@ -2639,6 +2629,7 @@ static int
 _aware(struct kgsl_device *device)
 {
 	int status = 0;
+	struct gmu_device *gmu = &device->gmu;
 
 	switch (device->state) {
 	case KGSL_STATE_RESET:
@@ -2658,15 +2649,42 @@ _aware(struct kgsl_device *device)
 		kgsl_pwrscale_midframe_timer_cancel(device);
 		break;
 	case KGSL_STATE_SLUMBER:
+		/* if GMU already in FAULT */
+		if (kgsl_gmu_isenabled(device) &&
+			test_bit(GMU_FAULT, &gmu->flags)) {
+			status = -EINVAL;
+			break;
+		}
+
 		status = kgsl_pwrctrl_enable(device);
 		break;
 	default:
 		status = -EINVAL;
 	}
-	if (status)
+
+	if (status) {
+		if (kgsl_gmu_isenabled(device)) {
+			/* GMU hang recovery */
+			kgsl_pwrctrl_set_state(device, KGSL_STATE_RESET);
+			set_bit(GMU_FAULT, &gmu->flags);
+			status = kgsl_pwrctrl_enable(device);
+			if (status) {
+				/*
+				 * Cannot recover GMU failure
+				 * GPU will not be powered on
+				 */
+				WARN_ONCE(1, "Failed to recover GMU\n");
+			}
+
+			clear_bit(GMU_FAULT, &gmu->flags);
+			kgsl_pwrctrl_set_state(device, KGSL_STATE_AWARE);
+			return status;
+		}
+
 		kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
-	else
+	} else {
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_AWARE);
+	}
 	return status;
 }
 
@@ -3112,7 +3130,7 @@ void kgsl_pwr_limits_del(void *limit_ptr)
 {
 	struct kgsl_pwr_limit *limit = limit_ptr;
 
-	if (IS_ERR(limit))
+	if (IS_ERR_OR_NULL(limit))
 		return;
 
 	_update_limits(limit, KGSL_PWR_DEL_LIMIT, 0);
@@ -3133,7 +3151,7 @@ int kgsl_pwr_limits_set_freq(void *limit_ptr, unsigned int freq)
 	struct kgsl_pwr_limit *limit = limit_ptr;
 	int level;
 
-	if (IS_ERR(limit))
+	if (IS_ERR_OR_NULL(limit))
 		return -EINVAL;
 
 	pwr = &limit->device->pwrctrl;
@@ -3155,7 +3173,7 @@ void kgsl_pwr_limits_set_default(void *limit_ptr)
 {
 	struct kgsl_pwr_limit *limit = limit_ptr;
 
-	if (IS_ERR(limit))
+	if (IS_ERR_OR_NULL(limit))
 		return;
 
 	_update_limits(limit, KGSL_PWR_SET_LIMIT, 0);

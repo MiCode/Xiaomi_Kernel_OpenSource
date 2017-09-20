@@ -92,6 +92,7 @@ struct hbtp_data {
 	struct kobject *sysfs_kobject;
 	s16 ROI[MAX_ROI_SIZE];
 	s16 accelBuffer[MAX_ACCEL_SIZE];
+	u32 display_status;
 };
 
 static struct hbtp_data *hbtp;
@@ -1425,10 +1426,11 @@ static ssize_t hbtp_display_pwr_store(struct kobject *kobj,
 	if (ret) {
 		pr_err("hbtp: ret error: %zd\n", ret);
 		mutex_unlock(&hbtp->mutex);
-		return ret;
+		return 0;
 	}
-	if (!hbtp || !hbtp->input_dev) {
-		pr_err("hbtp: hbtp or hbtp->input_dev not ready!\n");
+	hbtp->display_status = status;
+	if (!hbtp->input_dev) {
+		pr_err("hbtp: hbtp->input_dev not ready!\n");
 		mutex_unlock(&hbtp->mutex);
 		return ret;
 	}
@@ -1445,8 +1447,20 @@ static ssize_t hbtp_display_pwr_store(struct kobject *kobj,
 	return count;
 }
 
+static ssize_t hbtp_display_pwr_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	ssize_t ret = 0;
+
+	mutex_lock(&hbtp->mutex);
+	ret = snprintf(buf, PAGE_SIZE, "%u\n", hbtp->display_status);
+	mutex_unlock(&hbtp->mutex);
+	return ret;
+}
+
 static struct kobj_attribute hbtp_display_attribute =
-		__ATTR(display_pwr, 0660, NULL, hbtp_display_pwr_store);
+		__ATTR(display_pwr, 0660, hbtp_display_pwr_show,
+			hbtp_display_pwr_store);
 
 static int __init hbtp_init(void)
 {
@@ -1463,6 +1477,7 @@ static int __init hbtp_init(void)
 
 	mutex_init(&hbtp->mutex);
 	mutex_init(&hbtp->sensormutex);
+	hbtp->display_status = 1;
 
 	error = misc_register(&hbtp_input_misc);
 	if (error) {
@@ -1545,6 +1560,8 @@ static void __exit hbtp_exit(void)
 	sysfs_remove_bin_file(sensor_kobject, &vibdata_attr);
 	sysfs_remove_bin_file(sensor_kobject, &capdata_attr);
 	kobject_put(sensor_kobject);
+	sysfs_remove_file(hbtp->sysfs_kobject, &hbtp_display_attribute.attr);
+	kobject_put(hbtp->sysfs_kobject);
 	misc_deregister(&hbtp_input_misc);
 	if (hbtp->input_dev)
 		input_unregister_device(hbtp->input_dev);

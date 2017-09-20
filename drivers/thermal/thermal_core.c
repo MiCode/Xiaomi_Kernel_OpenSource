@@ -594,7 +594,8 @@ static void update_temperature(struct thermal_zone_device *tz)
 	mutex_unlock(&tz->lock);
 
 	trace_thermal_temperature(tz);
-	if (tz->last_temperature == THERMAL_TEMP_INVALID)
+	if (tz->last_temperature == THERMAL_TEMP_INVALID ||
+		tz->last_temperature == THERMAL_TEMP_INVALID_LOW)
 		dev_dbg(&tz->device, "last_temperature N/A, current_temperature=%d\n",
 			tz->temperature);
 	else
@@ -688,6 +689,26 @@ mode_show(struct device *dev, struct device_attribute *attr, char *buf)
 		       : "disabled");
 }
 
+static int thermal_zone_device_clear(struct thermal_zone_device *tz)
+{
+	struct thermal_instance *pos;
+	int ret = 0;
+
+	ret = tz->ops->set_mode(tz, THERMAL_DEVICE_DISABLED);
+	mutex_lock(&tz->lock);
+	thermal_zone_device_reset(tz);
+	list_for_each_entry(pos, &tz->thermal_instances, tz_node) {
+		pos->target = THERMAL_NO_TARGET;
+		mutex_lock(&pos->cdev->lock);
+		pos->cdev->updated = false; /* cdev needs update */
+		mutex_unlock(&pos->cdev->lock);
+		thermal_cdev_update(pos->cdev);
+	}
+	mutex_unlock(&tz->lock);
+
+	return ret;
+}
+
 static ssize_t
 mode_store(struct device *dev, struct device_attribute *attr,
 	   const char *buf, size_t count)
@@ -701,7 +722,7 @@ mode_store(struct device *dev, struct device_attribute *attr,
 	if (!strncmp(buf, "enabled", sizeof("enabled") - 1))
 		result = tz->ops->set_mode(tz, THERMAL_DEVICE_ENABLED);
 	else if (!strncmp(buf, "disabled", sizeof("disabled") - 1))
-		result = tz->ops->set_mode(tz, THERMAL_DEVICE_DISABLED);
+		result = thermal_zone_device_clear(tz);
 	else
 		result = -EINVAL;
 

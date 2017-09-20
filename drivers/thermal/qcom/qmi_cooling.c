@@ -85,6 +85,10 @@ static struct qmi_dev_info device_clients[] = {
 		.type = QMI_CDEV_MAX_LIMIT_TYPE,
 	},
 	{
+		.dev_name = "modem_skin",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
 		.dev_name = "modem_bw",
 		.type = QMI_CDEV_MAX_LIMIT_TYPE,
 	},

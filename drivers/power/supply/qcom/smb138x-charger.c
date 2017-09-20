@@ -111,7 +111,7 @@ module_param_named(
 	debug_mask, __debug_mask, int, 0600
 );
 
-irqreturn_t smb138x_handle_slave_chg_state_change(int irq, void *data)
+static irqreturn_t smb138x_handle_slave_chg_state_change(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb138x *chip = irq_data->parent_data;
@@ -170,6 +170,9 @@ static int smb138x_parse_dt(struct smb138x *chip)
 	chip->dt.suspend_input = of_property_read_bool(node,
 				"qcom,suspend-input");
 
+	chg->use_extcon = of_property_read_bool(node,
+				"qcom,use-extcon");
+
 	rc = of_property_read_u32(node,
 				"qcom,fcc-max-ua", &chip->dt.fcc_ua);
 	if (rc < 0)
@@ -215,6 +218,7 @@ static enum power_supply_property smb138x_usb_props[] = {
 	POWER_SUPPLY_PROP_TYPEC_MODE,
 	POWER_SUPPLY_PROP_TYPEC_POWER_ROLE,
 	POWER_SUPPLY_PROP_TYPEC_CC_ORIENTATION,
+	POWER_SUPPLY_PROP_SDP_CURRENT_MAX,
 };
 
 static int smb138x_usb_get_prop(struct power_supply *psy,
@@ -242,7 +246,7 @@ static int smb138x_usb_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_usb_voltage_now(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		rc = smblib_get_prop_usb_current_max(chg, val);
+		val->intval = get_effective_result(chg->usb_icl_votable);
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
 		val->intval = chg->usb_psy_desc.type;
@@ -255,6 +259,10 @@ static int smb138x_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_TYPEC_CC_ORIENTATION:
 		rc = smblib_get_prop_typec_cc_orientation(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_SDP_CURRENT_MAX:
+		val->intval = get_client_vote(chg->usb_icl_votable,
+					      USB_PSY_VOTER);
 		break;
 	default:
 		pr_err("get prop %d is not supported\n", prop);
@@ -278,17 +286,11 @@ static int smb138x_usb_set_prop(struct power_supply *psy,
 	int rc = 0;
 
 	switch (prop) {
-	case POWER_SUPPLY_PROP_VOLTAGE_MIN:
-		rc = smblib_set_prop_usb_voltage_min(chg, val);
-		break;
-	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
-		rc = smblib_set_prop_usb_voltage_max(chg, val);
-		break;
-	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		rc = smblib_set_prop_usb_current_max(chg, val);
-		break;
 	case POWER_SUPPLY_PROP_TYPEC_POWER_ROLE:
 		rc = smblib_set_prop_typec_power_role(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_SDP_CURRENT_MAX:
+		rc = smblib_set_prop_sdp_current_max(chg, val);
 		break;
 	default:
 		pr_err("set prop %d is not supported\n", prop);
@@ -301,13 +303,6 @@ static int smb138x_usb_set_prop(struct power_supply *psy,
 static int smb138x_usb_prop_is_writeable(struct power_supply *psy,
 					 enum power_supply_property prop)
 {
-	switch (prop) {
-	case POWER_SUPPLY_PROP_TYPEC_POWER_ROLE:
-		return 1;
-	default:
-		break;
-	}
-
 	return 0;
 }
 
@@ -735,7 +730,7 @@ static int smb138x_init_parallel_psy(struct smb138x *chip)
  * VBUS REGULATOR REGISTRATION *
  ******************************/
 
-struct regulator_ops smb138x_vbus_reg_ops = {
+static struct regulator_ops smb138x_vbus_reg_ops = {
 	.enable		= smblib_vbus_regulator_enable,
 	.disable	= smblib_vbus_regulator_disable,
 	.is_enabled	= smblib_vbus_regulator_is_enabled,
@@ -777,7 +772,7 @@ static int smb138x_init_vbus_regulator(struct smb138x *chip)
  * VCONN REGULATOR REGISTRATION *
  ******************************/
 
-struct regulator_ops smb138x_vconn_reg_ops = {
+static struct regulator_ops smb138x_vconn_reg_ops = {
 	.enable		= smblib_vconn_regulator_enable,
 	.disable	= smblib_vconn_regulator_disable,
 	.is_enabled	= smblib_vconn_regulator_is_enabled,
@@ -871,6 +866,13 @@ static int smb138x_init_slave_hw(struct smb138x *chip)
 		return rc;
 	}
 
+	/* Disable OTG */
+	rc = smblib_masked_write(chg, CMD_OTG_REG, OTG_EN_BIT, 0);
+	if (rc < 0) {
+		pr_err("Couldn't disable OTG rc=%d\n", rc);
+		return rc;
+	}
+
 	/* suspend parallel charging */
 	rc = smb138x_set_parallel_suspend(chip, true);
 	if (rc < 0) {
@@ -948,6 +950,14 @@ static int smb138x_init_slave_hw(struct smb138x *chip)
 		return rc;
 	}
 
+	/* increase the concurrent mode threshold */
+	rc = smblib_masked_write(chg, ENG_SDCDC_CFG7_REG,
+				 ENG_SDCDC_BST_SET_POINT_MASK, 0);
+	if (rc < 0) {
+		pr_err("Couldn't set concurrent mode threshold\n");
+		return rc;
+	}
+
 	return 0;
 }
 
@@ -967,6 +977,20 @@ static int smb138x_init_hw(struct smb138x *chip)
 		DEFAULT_VOTER, true, chip->dt.dc_icl_ua);
 
 	chg->dcp_icl_ua = chip->dt.usb_icl_ua;
+
+	/* Disable OTG */
+	rc = smblib_masked_write(chg, CMD_OTG_REG, OTG_EN_BIT, 0);
+	if (rc < 0) {
+		pr_err("Couldn't disable OTG rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Unsuspend USB input */
+	rc = smblib_masked_write(chg, USBIN_CMD_IL_REG, USBIN_SUSPEND_BIT, 0);
+	if (rc < 0) {
+		pr_err("Couldn't unsuspend USB, rc=%d\n", rc);
+		return rc;
+	}
 
 	/* configure to a fixed 700khz freq to avoid tdie errors */
 	rc = smblib_set_charge_param(chg, &chg->param.freq_buck, 700);
@@ -1384,54 +1408,94 @@ static int smb138x_master_probe(struct smb138x *chip)
 	rc = smb138x_parse_dt(chip);
 	if (rc < 0) {
 		pr_err("Couldn't parse device tree rc=%d\n", rc);
-		return rc;
+		goto cleanup;
 	}
 
 	rc = smb138x_init_vbus_regulator(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize vbus regulator rc=%d\n",
 			rc);
-		return rc;
+		goto cleanup;
 	}
 
 	rc = smb138x_init_vconn_regulator(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize vconn regulator rc=%d\n",
 			rc);
-		return rc;
+		goto cleanup;
+	}
+
+	if (chg->use_extcon) {
+		/* extcon registration */
+		chg->extcon = devm_extcon_dev_allocate(chg->dev,
+							smblib_extcon_cable);
+		if (IS_ERR(chg->extcon)) {
+			rc = PTR_ERR(chg->extcon);
+			dev_err(chg->dev, "failed to allocate extcon device rc=%d\n",
+					rc);
+			goto cleanup;
+		}
+
+		chg->extcon->mutually_exclusive = smblib_extcon_exclusive;
+		rc = devm_extcon_dev_register(chg->dev, chg->extcon);
+		if (rc < 0) {
+			dev_err(chg->dev, "failed to register extcon device rc=%d\n",
+						rc);
+			goto cleanup;
+		}
+
+		/* Support reporting polarity and speed via properties */
+		rc = extcon_set_property_capability(chg->extcon,
+				EXTCON_USB, EXTCON_PROP_USB_TYPEC_POLARITY);
+		rc |= extcon_set_property_capability(chg->extcon,
+				EXTCON_USB, EXTCON_PROP_USB_SS);
+		rc |= extcon_set_property_capability(chg->extcon,
+				EXTCON_USB_HOST,
+				EXTCON_PROP_USB_TYPEC_POLARITY);
+		rc |= extcon_set_property_capability(chg->extcon,
+				EXTCON_USB_HOST, EXTCON_PROP_USB_SS);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"failed to configure extcon capabilities\n");
+			goto cleanup;
+		}
 	}
 
 	rc = smb138x_init_usb_psy(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize usb psy rc=%d\n", rc);
-		return rc;
+		goto cleanup;
 	}
 
 	rc = smb138x_init_batt_psy(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize batt psy rc=%d\n", rc);
-		return rc;
+		goto cleanup;
 	}
 
 	rc = smb138x_init_hw(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize hardware rc=%d\n", rc);
-		return rc;
+		goto cleanup;
 	}
 
 	rc = smb138x_determine_initial_status(chip);
 	if (rc < 0) {
 		pr_err("Couldn't determine initial status rc=%d\n",
 			rc);
-		return rc;
+		goto cleanup;
 	}
 
 	rc = smb138x_request_interrupts(chip);
 	if (rc < 0) {
 		pr_err("Couldn't request interrupts rc=%d\n", rc);
-		return rc;
+		goto cleanup;
 	}
 
+	return rc;
+
+cleanup:
+	smblib_deinit(chg);
 	return rc;
 }
 
@@ -1608,14 +1672,33 @@ static int smb138x_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void smb138x_shutdown(struct platform_device *pdev)
+{
+	struct smb138x *chip = platform_get_drvdata(pdev);
+	struct smb_charger *chg = &chip->chg;
+	int rc;
+
+	/* Suspend charging */
+	rc = smb138x_set_parallel_suspend(chip, true);
+	if (rc < 0)
+		pr_err("Couldn't suspend charging rc=%d\n", rc);
+
+	/* Disable OTG */
+	rc = smblib_masked_write(chg, CMD_OTG_REG, OTG_EN_BIT, 0);
+	if (rc < 0)
+		pr_err("Couldn't disable OTG rc=%d\n", rc);
+
+}
+
 static struct platform_driver smb138x_driver = {
 	.driver	= {
 		.name		= "qcom,smb138x-charger",
 		.owner		= THIS_MODULE,
 		.of_match_table	= match_table,
 	},
-	.probe	= smb138x_probe,
-	.remove	= smb138x_remove,
+	.probe		= smb138x_probe,
+	.remove		= smb138x_remove,
+	.shutdown	= smb138x_shutdown,
 };
 module_platform_driver(smb138x_driver);
 

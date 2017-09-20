@@ -722,6 +722,12 @@ int sde_core_perf_debugfs_init(struct sde_core_perf *perf,
 			(u32 *)&catalog->perf.max_bw_low);
 	debugfs_create_u32("threshold_high", 0600, perf->debugfs_root,
 			(u32 *)&catalog->perf.max_bw_high);
+	debugfs_create_u32("min_core_ib", 0600, perf->debugfs_root,
+			(u32 *)&catalog->perf.min_core_ib);
+	debugfs_create_u32("min_llcc_ib", 0600, perf->debugfs_root,
+			(u32 *)&catalog->perf.min_llcc_ib);
+	debugfs_create_u32("min_dram_ib", 0600, perf->debugfs_root,
+			(u32 *)&catalog->perf.min_dram_ib);
 	debugfs_create_file("perf_mode", 0600, perf->debugfs_root,
 			(u32 *)perf, &sde_core_perf_mode_fops);
 	debugfs_create_u32("bw_vote_mode", 0600, perf->debugfs_root,

@@ -61,6 +61,26 @@ static const char *const vp8_profile_level[] = {
 	"3.0",
 };
 
+static const char *const vp9_profile[] = {
+	"Unused",
+	"0",
+	"2_10",
+};
+
+static const char *const vp9_level[] = {
+	"Unused",
+	"1.0",
+	"1.1",
+	"2.0",
+	"2.1",
+	"3.0",
+	"3.1",
+	"4.0",
+	"4.1",
+	"5.0",
+	"5.1",
+};
+
 static const char *const mpeg2_profile[] = {
 	"Simple",
 	"Main",
@@ -231,6 +251,28 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
 	},
 	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_VP9_PROFILE,
+		.name = "VP9 Profile",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_VP9_PROFILE_UNUSED,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_VP9_PROFILE_P2_10,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_VP9_PROFILE_P0,
+		.menu_skip_mask = 0,
+		.qmenu = vp9_profile,
+		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_VP9_LEVEL,
+		.name = "VP9 Level",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_UNUSED,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_51,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_51,
+		.menu_skip_mask = 0,
+		.qmenu = vp9_level,
+		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
+	},
+	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE,
 		.name = "MPEG2 Profile",
 		.type = V4L2_CTRL_TYPE_MENU,
@@ -371,7 +413,16 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.minimum = 0,
 		.maximum = INT_MAX,
 		.default_value = 0,
-		.step = OPERATING_FRAME_RATE_STEP,
+		.step = 1,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_FRAME_RATE,
+		.name = "Set Decoder Frame rate",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 0,
+		.maximum = INT_MAX,
+		.default_value = 0,
+		.step = 1,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_MODE,
@@ -435,6 +486,13 @@ struct msm_vidc_format vdec_formats[] = {
 		.description = "Y/CbCr 4:2:0",
 		.fourcc = V4L2_PIX_FMT_NV12,
 		.get_frame_size = get_frame_size_nv12,
+		.type = CAPTURE_PORT,
+	},
+	{
+		.name = "YCbCr Semiplanar 4:2:0 10bit",
+		.description = "Y/CbCr 4:2:0 10bit",
+		.fourcc = V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010,
+		.get_frame_size = get_frame_size_p010,
 		.type = CAPTURE_PORT,
 	},
 	{
@@ -532,6 +590,13 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 
 		inst->prop.width[CAPTURE_PORT] = f->fmt.pix_mp.width;
 		inst->prop.height[CAPTURE_PORT] = f->fmt.pix_mp.height;
+		rc = msm_vidc_check_session_supported(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s: session not supported\n", __func__);
+			goto err_invalid_fmt;
+		}
+
 		msm_comm_set_color_format(inst,
 				msm_comm_get_hal_output_buffer(inst),
 				f->fmt.pix_mp.pixelformat);
@@ -599,6 +664,12 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		}
 		inst->prop.width[OUTPUT_PORT] = f->fmt.pix_mp.width;
 		inst->prop.height[OUTPUT_PORT] = f->fmt.pix_mp.height;
+		rc = msm_vidc_check_session_supported(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s: session not supported\n", __func__);
+			goto err_invalid_fmt;
+		}
 
 		frame_sz.buffer_type = HAL_BUFFER_INPUT;
 		frame_sz.width = inst->prop.width[OUTPUT_PORT];
@@ -1065,11 +1136,27 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		}
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE:
-		dprintk(VIDC_DBG,
-			"inst(%pK) operating rate changed from %d to %d\n",
-			inst, inst->clk_data.operating_rate >> 16,
-				ctrl->val >> 16);
-		inst->clk_data.operating_rate = ctrl->val;
+		if (((ctrl->val >> 16) < inst->capability.frame_rate.min ||
+			(ctrl->val >> 16) > inst->capability.frame_rate.max) &&
+			ctrl->val != INT_MAX) {
+			dprintk(VIDC_ERR, "Invalid operating rate %u\n",
+				(ctrl->val >> 16));
+			rc = -ENOTSUPP;
+		} else if (ctrl->val == INT_MAX) {
+			dprintk(VIDC_DBG,
+				"inst(%pK) Request for turbo mode\n", inst);
+			inst->clk_data.turbo_mode = true;
+		} else if (msm_vidc_validate_operating_rate(inst, ctrl->val)) {
+			dprintk(VIDC_ERR, "Failed to set operating rate\n");
+			rc = -ENOTSUPP;
+		} else {
+			dprintk(VIDC_DBG,
+				"inst(%pK) operating rate changed from %d to %d\n",
+				inst, inst->clk_data.operating_rate >> 16,
+					ctrl->val >> 16);
+			inst->clk_data.operating_rate = ctrl->val;
+			inst->clk_data.turbo_mode = false;
+		}
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_MODE:
 		if (ctrl->val ==

@@ -129,6 +129,12 @@
 	/delete-property/ vreg-cx-supply;
 };
 
+&pcie1 {
+	/delete-property/ vreg-1.8-supply;
+	/delete-property/ vreg-0.9-supply;
+	/delete-property/ vreg-cx-supply;
+};
+
 &cam_csiphy0 {
 	/delete-property/ mipi-csi-vdd-supply;
 };
@@ -383,6 +389,7 @@
 #include "pm660.dtsi"
 #include "pm660l.dtsi"
 #include "sdm670-regulator.dtsi"
+#include "sdm670-pmic-overlay.dtsi"
 
 &soc {
 	/delete-node/ thermal-zones;

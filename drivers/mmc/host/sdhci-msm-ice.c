@@ -312,6 +312,42 @@ int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
 	return 0;
 }
 
+int sdhci_msm_ice_cmdq_cfg(struct sdhci_host *host,
+			struct mmc_request *mrq, u32 slot, u64 *ice_ctx)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	int err = 0;
+	short key_index;
+	sector_t lba = 0;
+	unsigned int bypass = SDHCI_MSM_ICE_ENABLE_BYPASS;
+	struct request *req;
+
+	if (msm_host->ice.state != SDHCI_MSM_ICE_STATE_ACTIVE) {
+		pr_err("%s: ice is in invalid state %d\n",
+			mmc_hostname(host->mmc), msm_host->ice.state);
+		return -EINVAL;
+	}
+
+	WARN_ON(!mrq);
+	if (!mrq)
+		return -EINVAL;
+	req = mrq->req;
+	if (req) {
+		lba = req->__sector;
+		err = sdhci_msm_ice_get_cfg(msm_host, req, &bypass, &key_index);
+		if (err)
+			return err;
+		pr_debug("%s: %s: slot %d bypass %d key_index %d\n",
+				mmc_hostname(host->mmc),
+				(rq_data_dir(req) == WRITE) ? "WRITE" : "READ",
+				slot, bypass, key_index);
+	}
+
+	sdhci_msm_ice_update_cfg(host, lba, slot, bypass, key_index);
+	return 0;
+}
+
 int sdhci_msm_ice_reset(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);

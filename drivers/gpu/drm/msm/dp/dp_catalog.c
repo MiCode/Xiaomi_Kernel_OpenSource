@@ -15,6 +15,7 @@
 #define pr_fmt(fmt)	"[drm-dp] %s: " fmt, __func__
 
 #include <linux/delay.h>
+#include <drm/drm_dp_helper.h>
 
 #include "dp_catalog.h"
 #include "dp_reg.h"
@@ -408,7 +409,8 @@ static void dp_catalog_ctrl_config_msa(struct dp_catalog_ctrl *ctrl,
 	u32 mvid, nvid;
 	u64 mvid_calc;
 	u32 const nvid_fixed = 0x8000;
-	u32 const link_rate = 540000;
+	u32 const link_rate_hbr2 = 540000;
+	u32 const link_rate_hbr3 = 810000;
 	struct dp_catalog_private *catalog;
 	void __iomem *base_cc, *base_ctrl;
 
@@ -449,8 +451,11 @@ static void dp_catalog_ctrl_config_msa(struct dp_catalog_ctrl *ctrl,
 
 		pr_debug("rate = %d\n", rate);
 
-		if (link_rate == rate)
+		if (link_rate_hbr2 == rate)
 			nvid *= 2;
+
+		if (link_rate_hbr3 == rate)
+			nvid *= 3;
 	}
 
 	base_ctrl = catalog->io->ctrl_io.base;
@@ -491,6 +496,43 @@ static void dp_catalog_ctrl_set_pattern(struct dp_catalog_ctrl *ctrl,
 
 	if (cnt == 0)
 		pr_err("set link_train=%d failed\n", pattern);
+}
+
+static void dp_catalog_ctrl_usb_reset(struct dp_catalog_ctrl *ctrl, bool flip)
+{
+	struct dp_catalog_private *catalog;
+	void __iomem *base;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	dp_catalog_get_priv(ctrl);
+
+	base = catalog->io->usb3_dp_com.base;
+
+	dp_write(base + USB3_DP_COM_RESET_OVRD_CTRL, 0x0a);
+	dp_write(base + USB3_DP_COM_PHY_MODE_CTRL, 0x02);
+	dp_write(base + USB3_DP_COM_SW_RESET, 0x01);
+	/* make sure usb3 com phy software reset is done */
+	wmb();
+
+	if (!flip) /* CC1 */
+		dp_write(base + USB3_DP_COM_TYPEC_CTRL, 0x02);
+	else /* CC2 */
+		dp_write(base + USB3_DP_COM_TYPEC_CTRL, 0x03);
+
+	dp_write(base + USB3_DP_COM_SWI_CTRL, 0x00);
+	dp_write(base + USB3_DP_COM_SW_RESET, 0x00);
+	/* make sure the software reset is done */
+	wmb();
+
+	dp_write(base + USB3_DP_COM_POWER_DOWN_CTRL, 0x01);
+	dp_write(base + USB3_DP_COM_RESET_OVRD_CTRL, 0x00);
+	/* make sure phy is brought out of reset */
+	wmb();
+
 }
 
 static void dp_catalog_ctrl_reset(struct dp_catalog_ctrl *ctrl)
@@ -704,6 +746,82 @@ static void dp_catalog_ctrl_update_vx_px(struct dp_catalog_ctrl *ctrl,
 		pr_err("invalid vx (0x%x=0x%x), px (0x%x=0x%x\n",
 			v_level, value0, p_level, value1);
 	}
+}
+
+static void dp_catalog_ctrl_send_phy_pattern(struct dp_catalog_ctrl *ctrl,
+			u32 pattern)
+{
+	struct dp_catalog_private *catalog;
+	u32 value = 0x0;
+	void __iomem *base = NULL;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	dp_catalog_get_priv(ctrl);
+
+	base = catalog->io->ctrl_io.base;
+
+	dp_write(base + DP_STATE_CTRL, 0x0);
+
+	switch (pattern) {
+	case DP_TEST_PHY_PATTERN_D10_2_NO_SCRAMBLING:
+		dp_write(base + DP_STATE_CTRL, 0x1);
+		break;
+	case DP_TEST_PHY_PATTERN_SYMBOL_ERR_MEASUREMENT_CNT:
+		value &= ~(1 << 16);
+		dp_write(base + DP_HBR2_COMPLIANCE_SCRAMBLER_RESET, value);
+		value |= 0xFC;
+		dp_write(base + DP_HBR2_COMPLIANCE_SCRAMBLER_RESET, value);
+		dp_write(base + DP_MAINLINK_LEVELS, 0x2);
+		dp_write(base + DP_STATE_CTRL, 0x10);
+		break;
+	case DP_TEST_PHY_PATTERN_PRBS7:
+		dp_write(base + DP_STATE_CTRL, 0x20);
+		break;
+	case DP_TEST_PHY_PATTERN_80_BIT_CUSTOM_PATTERN:
+		dp_write(base + DP_STATE_CTRL, 0x40);
+		/* 00111110000011111000001111100000 */
+		dp_write(base + DP_TEST_80BIT_CUSTOM_PATTERN_REG0, 0x3E0F83E0);
+		/* 00001111100000111110000011111000 */
+		dp_write(base + DP_TEST_80BIT_CUSTOM_PATTERN_REG1, 0x0F83E0F8);
+		/* 1111100000111110 */
+		dp_write(base + DP_TEST_80BIT_CUSTOM_PATTERN_REG2, 0x0000F83E);
+		break;
+	case DP_TEST_PHY_PATTERN_HBR2_CTS_EYE_PATTERN:
+		value = BIT(16);
+		dp_write(base + DP_HBR2_COMPLIANCE_SCRAMBLER_RESET, value);
+		value |= 0xFC;
+		dp_write(base + DP_HBR2_COMPLIANCE_SCRAMBLER_RESET, value);
+		dp_write(base + DP_MAINLINK_LEVELS, 0x2);
+		dp_write(base + DP_STATE_CTRL, 0x10);
+		break;
+	default:
+		pr_debug("No valid test pattern requested: 0x%x\n", pattern);
+		return;
+	}
+
+	/* Make sure the test pattern is programmed in the hardware */
+	wmb();
+}
+
+static u32 dp_catalog_ctrl_read_phy_pattern(struct dp_catalog_ctrl *ctrl)
+{
+	struct dp_catalog_private *catalog;
+	void __iomem *base = NULL;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return 0;
+	}
+
+	dp_catalog_get_priv(ctrl);
+
+	base = catalog->io->ctrl_io.base;
+
+	return dp_read(base + DP_MAINLINK_READY);
 }
 
 /* panel related catalog functions */
@@ -937,6 +1055,7 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io)
 		.config_msa     = dp_catalog_ctrl_config_msa,
 		.set_pattern    = dp_catalog_ctrl_set_pattern,
 		.reset          = dp_catalog_ctrl_reset,
+		.usb_reset      = dp_catalog_ctrl_usb_reset,
 		.mainlink_ready = dp_catalog_ctrl_mainlink_ready,
 		.enable_irq     = dp_catalog_ctrl_enable_irq,
 		.hpd_config     = dp_catalog_ctrl_hpd_config,
@@ -946,6 +1065,8 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io)
 		.get_interrupt  = dp_catalog_ctrl_get_interrupt,
 		.update_transfer_unit = dp_catalog_ctrl_update_transfer_unit,
 		.read_hdcp_status     = dp_catalog_ctrl_read_hdcp_status,
+		.send_phy_pattern    = dp_catalog_ctrl_send_phy_pattern,
+		.read_phy_pattern = dp_catalog_ctrl_read_phy_pattern,
 	};
 	struct dp_catalog_audio audio = {
 		.init       = dp_catalog_audio_init,

@@ -17,11 +17,6 @@
 #define MAXSAMPLES 5
 #define CLUST_SMPL_INVLD_TIME 40000
 
-struct lpm_lookup_table {
-	uint32_t modes;
-	const char *mode_name;
-};
-
 struct power_params {
 	uint32_t latency_us;		/* Enter + Exit latency */
 	uint32_t ss_power;		/* Steady state power */
@@ -34,12 +29,10 @@ struct power_params {
 
 struct lpm_cpu_level {
 	const char *name;
-	enum msm_pm_sleep_mode mode;
 	bool use_bc_timer;
 	struct power_params pwr;
 	unsigned int psci_id;
 	bool is_reset;
-	bool jtag_save_restore;
 	bool hyp_psci;
 	int reset_level;
 };
@@ -70,7 +63,6 @@ struct lpm_level_avail {
 
 struct lpm_cluster_level {
 	const char *level_name;
-	int *mode;			/* SPM mode to enter */
 	int min_child_level;
 	struct cpumask num_cpu_votes;
 	struct power_params pwr;
@@ -99,9 +91,7 @@ struct lpm_cluster {
 	struct list_head list;
 	struct list_head child;
 	const char *cluster_name;
-	const char **name;
 	unsigned long aff_level; /* Affinity level of the node */
-	int ndevices;
 	struct lpm_cluster_level levels[NR_LPM_LEVELS];
 	int nlevels;
 	int min_child_level;

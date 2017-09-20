@@ -77,9 +77,8 @@
 
 #define MSS_MAGIC			0XAABADEAD
 
-#define MSS_PDC_OFFSET			8
-#define MSS_PDC_MASK			BIT(MSS_PDC_OFFSET)
-
+/* Timeout value for MBA boot when minidump is enabled */
+#define MBA_ENCRYPTION_TIMEOUT	3000
 enum scm_cmd {
 	PAS_MEM_SETUP_CMD = 2,
 };
@@ -212,13 +211,14 @@ static void pil_mss_disable_clks(struct q6v5_data *drv)
 static void pil_mss_pdc_sync(struct q6v5_data *drv, bool pdc_sync)
 {
 	u32 val = 0;
+	u32 mss_pdc_mask = BIT(drv->mss_pdc_offset);
 
 	if (drv->pdc_sync) {
 		val = readl_relaxed(drv->pdc_sync);
 		if (pdc_sync)
-			val |= MSS_PDC_MASK;
+			val |= mss_pdc_mask;
 		else
-			val &= ~MSS_PDC_MASK;
+			val &= ~mss_pdc_mask;
 		writel_relaxed(val, drv->pdc_sync);
 		/* Ensure PDC is written before next write */
 		wmb();
@@ -267,7 +267,7 @@ static int pil_mss_restart_reg(struct q6v5_data *drv, u32 mss_restart)
 	return ret;
 }
 
-static int pil_mss_assert_resets(struct q6v5_data *drv)
+int pil_mss_assert_resets(struct q6v5_data *drv)
 {
 	int ret = 0;
 
@@ -278,7 +278,7 @@ static int pil_mss_assert_resets(struct q6v5_data *drv)
 	return ret;
 }
 
-static int pil_mss_deassert_resets(struct q6v5_data *drv)
+int pil_mss_deassert_resets(struct q6v5_data *drv)
 {
 	int ret = 0;
 
@@ -298,7 +298,12 @@ static int pil_msa_wait_for_mba_ready(struct q6v5_data *drv)
 	struct device *dev = drv->desc.dev;
 	int ret;
 	u32 status;
-	u64 val = is_timeout_disabled() ? 0 : pbl_mba_boot_timeout_ms * 1000;
+	u64 val;
+
+	if (of_property_read_bool(dev->of_node, "qcom,minidump-id"))
+		pbl_mba_boot_timeout_ms = MBA_ENCRYPTION_TIMEOUT;
+
+	val = is_timeout_disabled() ? 0 : pbl_mba_boot_timeout_ms * 1000;
 
 	/* Wait for PBL completion. */
 	ret = readl_poll_timeout(drv->rmb_base + RMB_PBL_STATUS, status,

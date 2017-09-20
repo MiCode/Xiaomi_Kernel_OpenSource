@@ -192,16 +192,26 @@ static int get_spi_clk_cfg(u32 speed_hz, struct spi_geni_master *mas,
 static void spi_setup_word_len(struct spi_geni_master *mas, u32 mode,
 						int bits_per_word)
 {
-	int pack_words = 0;
+	int pack_words = 1;
 	bool msb_first = (mode & SPI_LSB_FIRST) ? false : true;
 	u32 word_len = geni_read_reg(mas->base, SE_SPI_WORD_LEN);
+	unsigned long cfg0, cfg1;
 
+	/*
+	 * If bits_per_word isn't a byte aligned value, set the packing to be
+	 * 1 SPI word per FIFO word.
+	 */
 	if (!(mas->tx_fifo_width % bits_per_word))
 		pack_words = mas->tx_fifo_width / bits_per_word;
 	word_len &= ~WORD_LEN_MSK;
 	word_len |= ((bits_per_word - MIN_WORD_LEN) & WORD_LEN_MSK);
 	se_config_packing(mas->base, bits_per_word, pack_words, msb_first);
 	geni_write_reg(word_len, mas->base, SE_SPI_WORD_LEN);
+	se_get_packing_config(bits_per_word, pack_words, msb_first,
+							&cfg0, &cfg1);
+	GENI_SE_DBG(mas->ipc, false, mas->dev,
+		"%s: cfg0 %lu cfg1 %lu bpw %d pack_words %d\n", __func__,
+		cfg0, cfg1, bits_per_word, pack_words);
 }
 
 static int setup_fifo_params(struct spi_device *spi_slv,
@@ -257,6 +267,12 @@ static int setup_fifo_params(struct spi_device *spi_slv,
 	geni_write_reg(demux_output_inv, mas->base, SE_SPI_DEMUX_OUTPUT_INV);
 	geni_write_reg(clk_sel, mas->base, SE_GENI_CLK_SEL);
 	geni_write_reg(m_clk_cfg, mas->base, GENI_SER_M_CLK_CFG);
+	GENI_SE_DBG(mas->ipc, false, mas->dev,
+		"%s:Loopback%d demux_sel0x%x demux_op_inv 0x%x clk_cfg 0x%x\n",
+		__func__, loopback_cfg, demux_sel, demux_output_inv, m_clk_cfg);
+	GENI_SE_DBG(mas->ipc, false, mas->dev,
+		"%s:clk_sel 0x%x cpol %d cpha %d\n", __func__,
+							clk_sel, cpol, cpha);
 	/* Ensure message level attributes are written before returning */
 	mb();
 setup_fifo_params_exit:
@@ -316,10 +332,7 @@ static struct msm_gpi_tre *setup_config0_tre(struct spi_transfer *xfer,
 		flags |= GSI_CS_TOGGLE;
 
 	word_len = xfer->bits_per_word - MIN_WORD_LEN;
-	if (mas->tx_fifo_width % xfer->bits_per_word)
-		pack = 0;
-	else
-		pack |= (GSI_TX_PACK_EN | GSI_RX_PACK_EN);
+	pack |= (GSI_TX_PACK_EN | GSI_RX_PACK_EN);
 	ret = get_spi_clk_cfg(mas->cur_speed_hz, mas, &idx, &div);
 	if (ret) {
 		dev_err(mas->dev, "%s:Err setting clks:%d\n", __func__, ret);
@@ -504,19 +517,26 @@ static int setup_gsi_xfer(struct spi_transfer *xfer,
 		}
 	}
 
+	if (!(mas->cur_word_len % MIN_WORD_LEN)) {
+		rx_len = ((xfer->len << 3) / mas->cur_word_len);
+	} else {
+		int bytes_per_word = (mas->cur_word_len / BITS_PER_BYTE) + 1;
+
+		rx_len = (xfer->len / bytes_per_word);
+	}
+
 	if (xfer->tx_buf && xfer->rx_buf) {
 		cmd = SPI_FULL_DUPLEX;
 		tx_nent += 2;
 		rx_nent++;
-		rx_len = ((xfer->len << 3) / mas->cur_word_len);
 	} else if (xfer->tx_buf) {
 		cmd = SPI_TX_ONLY;
 		tx_nent += 2;
+		rx_len = 0;
 	} else if (xfer->rx_buf) {
 		cmd = SPI_RX_ONLY;
 		tx_nent++;
 		rx_nent++;
-		rx_len = ((xfer->len << 3) / mas->cur_word_len);
 	}
 
 	cs |= spi_slv->chip_select;
@@ -844,7 +864,14 @@ static void setup_fifo_xfer(struct spi_transfer *xfer,
 	spi_tx_cfg &= ~CS_TOGGLE;
 	if (xfer->cs_change)
 		spi_tx_cfg |= CS_TOGGLE;
-	trans_len = ((xfer->len << 3) / mas->cur_word_len) & TRANS_LEN_MSK;
+	if (!(mas->cur_word_len % MIN_WORD_LEN)) {
+		trans_len =
+			((xfer->len << 3) / mas->cur_word_len) & TRANS_LEN_MSK;
+	} else {
+		int bytes_per_word = (mas->cur_word_len / BITS_PER_BYTE) + 1;
+
+		trans_len = (xfer->len / bytes_per_word) & TRANS_LEN_MSK;
+	}
 	if (!list_is_last(&xfer->transfer_list, &spi->cur_msg->transfers))
 		m_param |= FRAGMENTATION;
 
@@ -860,6 +887,9 @@ static void setup_fifo_xfer(struct spi_transfer *xfer,
 	}
 	geni_write_reg(spi_tx_cfg, mas->base, SE_SPI_TRANS_CFG);
 	geni_setup_m_cmd(mas->base, m_cmd, m_param);
+	GENI_SE_DBG(mas->ipc, false, mas->dev,
+		"%s: trans_len %d xferlen%d tx_cfg 0x%x cmd 0x%x\n",
+		__func__, trans_len, xfer->len, spi_tx_cfg, m_cmd);
 	if (m_cmd & SPI_TX_ONLY)
 		geni_write_reg(mas->tx_wm, mas->base, SE_GENI_TX_WATERMARK_REG);
 	/* Ensure all writes are done before the WM interrupt */
@@ -872,6 +902,7 @@ static void handle_fifo_timeout(struct spi_geni_master *mas)
 
 	reinit_completion(&mas->xfer_done);
 	geni_cancel_m_cmd(mas->base);
+	geni_write_reg(0, mas->base, SE_GENI_TX_WATERMARK_REG);
 	/* Ensure cmd cancel is written */
 	mb();
 	timeout = wait_for_completion_timeout(&mas->xfer_done, HZ);
@@ -966,12 +997,25 @@ static void geni_spi_handle_tx(struct spi_geni_master *mas)
 {
 	int i = 0;
 	int tx_fifo_width = (mas->tx_fifo_width >> 3);
-	int max_bytes = (mas->tx_fifo_depth - mas->tx_wm) * tx_fifo_width;
+	int max_bytes = 0;
 	const u8 *tx_buf = NULL;
 
 	if (!mas->cur_xfer)
 		return;
 
+	/*
+	 * For non-byte aligned bits-per-word values:
+	 * Assumption is that each SPI word will be accomodated in
+	 * ceil (bits_per_word / bits_per_byte)
+	 * and the next SPI word starts at the next byte.
+	 * In such cases, we can fit 1 SPI word per FIFO word so adjust the
+	 * max byte that can be sent per IRQ accordingly.
+	 */
+	if ((mas->tx_fifo_width % mas->cur_word_len))
+		max_bytes = (mas->tx_fifo_depth - mas->tx_wm) *
+				((mas->cur_word_len / BITS_PER_BYTE) + 1);
+	else
+		max_bytes = (mas->tx_fifo_depth - mas->tx_wm) * tx_fifo_width;
 	tx_buf = mas->cur_xfer->tx_buf;
 	tx_buf += (mas->cur_xfer->len - mas->tx_rem_bytes);
 	max_bytes = min_t(int, mas->tx_rem_bytes, max_bytes);
@@ -979,8 +1023,13 @@ static void geni_spi_handle_tx(struct spi_geni_master *mas)
 		int j;
 		u32 fifo_word = 0;
 		u8 *fifo_byte;
-		int bytes_to_write = min_t(int, (max_bytes - i), tx_fifo_width);
+		int bytes_per_fifo = tx_fifo_width;
+		int bytes_to_write = 0;
 
+		if ((mas->tx_fifo_width % mas->cur_word_len))
+			bytes_per_fifo =
+				(mas->cur_word_len / BITS_PER_BYTE) + 1;
+		bytes_to_write = min_t(int, (max_bytes - i), bytes_per_fifo);
 		fifo_byte = (u8 *)&fifo_word;
 		for (j = 0; j < bytes_to_write; j++)
 			fifo_byte[j] = tx_buf[i++];
@@ -1019,15 +1068,24 @@ static void geni_spi_handle_rx(struct spi_geni_master *mas)
 			rx_bytes += rx_last_byte_valid;
 		}
 	}
-	rx_bytes += rx_wc * fifo_width;
+	if (!(mas->tx_fifo_width % mas->cur_word_len))
+		rx_bytes += rx_wc * fifo_width;
+	else
+		rx_bytes += rx_wc *
+			((mas->cur_word_len / BITS_PER_BYTE) + 1);
 	rx_bytes = min_t(int, mas->rx_rem_bytes, rx_bytes);
 	rx_buf += (mas->cur_xfer->len - mas->rx_rem_bytes);
 	while (i < rx_bytes) {
 		u32 fifo_word = 0;
 		u8 *fifo_byte;
-		int read_bytes = min_t(int, (rx_bytes - i), fifo_width);
+		int bytes_per_fifo = fifo_width;
+		int read_bytes = 0;
 		int j;
 
+		if ((mas->tx_fifo_width % mas->cur_word_len))
+			bytes_per_fifo =
+				(mas->cur_word_len / BITS_PER_BYTE) + 1;
+		read_bytes = min_t(int, (rx_bytes - i), bytes_per_fifo);
 		fifo_word = geni_read_reg(mas->base, SE_GENI_RX_FIFOn);
 		fifo_byte = (u8 *)&fifo_word;
 		for (j = 0; j < read_bytes; j++)
@@ -1039,8 +1097,14 @@ static void geni_spi_handle_rx(struct spi_geni_master *mas)
 static irqreturn_t geni_spi_irq(int irq, void *dev)
 {
 	struct spi_geni_master *mas = dev;
-	u32 m_irq = geni_read_reg(mas->base, SE_GENI_M_IRQ_STATUS);
+	u32 m_irq = 0;
 
+	if (pm_runtime_status_suspended(dev)) {
+		GENI_SE_DBG(mas->ipc, false, mas->dev,
+				"%s: device is suspended\n", __func__);
+		goto exit_geni_spi_irq;
+	}
+	m_irq = geni_read_reg(mas->base, SE_GENI_M_IRQ_STATUS);
 	if ((m_irq & M_RX_FIFO_WATERMARK_EN) || (m_irq & M_RX_FIFO_LAST_EN))
 		geni_spi_handle_rx(mas);
 
@@ -1050,7 +1114,26 @@ static irqreturn_t geni_spi_irq(int irq, void *dev)
 	if ((m_irq & M_CMD_DONE_EN) || (m_irq & M_CMD_CANCEL_EN) ||
 		(m_irq & M_CMD_ABORT_EN)) {
 		complete(&mas->xfer_done);
+		/*
+		 * If this happens, then a CMD_DONE came before all the buffer
+		 * bytes were sent out. This is unusual, log this condition and
+		 * disable the WM interrupt to prevent the system from stalling
+		 * due an interrupt storm.
+		 * If this happens when all Rx bytes haven't been received, log
+		 * the condition.
+		 */
+		if (mas->tx_rem_bytes) {
+			geni_write_reg(0, mas->base, SE_GENI_TX_WATERMARK_REG);
+			GENI_SE_DBG(mas->ipc, false, mas->dev,
+				"%s:Premature Done.tx_rem%d bpw%d\n",
+				__func__, mas->tx_rem_bytes, mas->cur_word_len);
+		}
+		if (mas->rx_rem_bytes)
+			GENI_SE_DBG(mas->ipc, false, mas->dev,
+				"%s:Premature Done.rx_rem%d bpw%d\n",
+				__func__, mas->rx_rem_bytes, mas->cur_word_len);
 	}
+exit_geni_spi_irq:
 	geni_write_reg(m_irq, mas->base, SE_GENI_M_IRQ_CLEAR);
 	return IRQ_HANDLED;
 }

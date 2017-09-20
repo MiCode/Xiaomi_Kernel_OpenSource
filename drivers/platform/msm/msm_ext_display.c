@@ -218,6 +218,12 @@ static int msm_ext_disp_update_audio_ops(struct msm_ext_disp *ext_disp,
 		goto end;
 	}
 
+	if (!ext_disp->ops) {
+		pr_err("codec ops not registered\n");
+		ret = -EINVAL;
+		goto end;
+	}
+
 	if (state == EXT_DISPLAY_CABLE_CONNECT) {
 		/* connect codec with interface */
 		*ext_disp->ops = data->codec_ops;

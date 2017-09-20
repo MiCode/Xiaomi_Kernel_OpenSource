@@ -1,0 +1,44 @@
+/*
+ * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "sdm845-usb.dtsi"
+
+&soc {
+	/delete-node/ ssusb@a800000;
+	/delete-node/ qusb@88e3000;
+	/delete-node/ ssphy@88eb000;
+	/delete-node/ usb_audio_qmi_dev;
+	usb_audio_qmi_dev {
+		compatible = "qcom,usb-audio-qmi-dev";
+		iommus = <&apps_smmu 0x180f 0x0>;
+		qcom,usb-audio-stream-id = <0xf>;
+		qcom,usb-audio-intr-num = <2>;
+	};
+};
+
+&usb0 {
+	/delete-property/ iommus;
+	/delete-property/ qcom,smmu-s1-bypass;
+	extcon = <0>, <0>, <0> /* <&eud> */;
+};
+
+&qusb_phy0 {
+	vdd-supply = <&pm660l_l1>;
+	vdda18-supply = <&pm660_l10>;
+	vdda33-supply = <&pm660l_l7>;
+};
+
+&usb_qmp_dp_phy {
+	vdd-supply = <&pm660l_l1>; /* 0.88v */
+	core-supply = <&pm660_l1>; /* 1.2v */
+};

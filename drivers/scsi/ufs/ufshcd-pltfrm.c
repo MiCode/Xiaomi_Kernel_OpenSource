@@ -144,10 +144,11 @@ out:
 static int ufshcd_populate_vreg(struct device *dev, const char *name,
 		struct ufs_vreg **out_vreg)
 {
-	int ret = 0;
+	int len, ret = 0;
 	char prop_name[MAX_PROP_SIZE];
 	struct ufs_vreg *vreg = NULL;
 	struct device_node *np = dev->of_node;
+	const __be32 *prop;
 
 	if (!np) {
 		dev_err(dev, "%s: non DT initialization\n", __func__);
@@ -186,8 +187,16 @@ static int ufshcd_populate_vreg(struct device *dev, const char *name,
 			vreg->min_uV = UFS_VREG_VCC_1P8_MIN_UV;
 			vreg->max_uV = UFS_VREG_VCC_1P8_MAX_UV;
 		} else {
-			vreg->min_uV = UFS_VREG_VCC_MIN_UV;
-			vreg->max_uV = UFS_VREG_VCC_MAX_UV;
+			prop = of_get_property(np, "vcc-voltage-level", &len);
+			if (!prop || (len != (2 * sizeof(__be32)))) {
+				dev_warn(dev, "%s vcc-voltage-level property.\n",
+					prop ? "invalid format" : "no");
+				vreg->min_uV = UFS_VREG_VCC_MIN_UV;
+				vreg->max_uV = UFS_VREG_VCC_MAX_UV;
+			} else {
+				vreg->min_uV = be32_to_cpup(&prop[0]);
+				vreg->max_uV = be32_to_cpup(&prop[1]);
+			}
 		}
 	} else if (!strcmp(name, "vccq")) {
 		vreg->min_uV = UFS_VREG_VCCQ_MIN_UV;

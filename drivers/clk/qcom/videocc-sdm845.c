@@ -328,6 +328,7 @@ static const struct qcom_cc_desc video_cc_sdm845_desc = {
 static const struct of_device_id video_cc_sdm845_match_table[] = {
 	{ .compatible = "qcom,video_cc-sdm845" },
 	{ .compatible = "qcom,video_cc-sdm845-v2" },
+	{ .compatible = "qcom,video_cc-sdm670" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, video_cc_sdm845_match_table);
@@ -338,6 +339,12 @@ static void video_cc_sdm845_fixup_sdm845v2(void)
 	video_cc_venus_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 330000000;
 	video_cc_venus_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
 		404000000;
+}
+
+static void video_cc_sdm845_fixup_sdm670(void)
+{
+	video_cc_sdm845_fixup_sdm845v2();
+
 }
 
 static int video_cc_sdm845_fixup(struct platform_device *pdev)
@@ -351,6 +358,8 @@ static int video_cc_sdm845_fixup(struct platform_device *pdev)
 
 	if (!strcmp(compat, "qcom,video_cc-sdm845-v2"))
 		video_cc_sdm845_fixup_sdm845v2();
+	else if (!strcmp(compat, "qcom,video_cc-sdm670"))
+		video_cc_sdm845_fixup_sdm670();
 
 	return 0;
 }

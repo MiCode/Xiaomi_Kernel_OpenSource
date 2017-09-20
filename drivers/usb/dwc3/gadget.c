@@ -279,7 +279,7 @@ void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
 		dwc->ep0_bounced = false;
 		unmap_after_complete = true;
 	} else {
-		usb_gadget_unmap_request(&dwc->gadget,
+		usb_gadget_unmap_request_by_dev(dwc->sysdev,
 				&req->request, req->direction);
 	}
 
@@ -290,7 +290,7 @@ void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
 	spin_lock(&dwc->lock);
 
 	if (unmap_after_complete)
-		usb_gadget_unmap_request(&dwc->gadget,
+		usb_gadget_unmap_request_by_dev(dwc->sysdev,
 				&req->request, req->direction);
 }
 

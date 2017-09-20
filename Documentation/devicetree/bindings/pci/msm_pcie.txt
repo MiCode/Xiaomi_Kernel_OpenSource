@@ -70,13 +70,12 @@ Optional Properties:
   - qcom,common-clk-en: Enables the common clock configuration for the endpoint.
   - qcom,clk-power-manage-en: Enables the clock power management for the
     endpoint.
+  - qcom,max-link-speed: Max Gen speed Root complex supports.
   - qcom,n-fts: The number of fast training sequences sent when the link state
     is changed from L0s to L0.
   - qcom,pcie-phy-ver: version of PCIe PHY.
   - qcom,phy-sequence: The initialization sequence to bring up the PCIe PHY.
     Should be specified in groups (offset, value, delay).
-  - qcom,port-phy-sequence: The initialization sequence to bring up the
-    PCIe port PHY.
     Should be specified in groups (offset, value, delay).
   - qcom,use-19p2mhz-aux-clk: The frequency of PCIe AUX clock is 19.2MHz.
   - qcom,boot-option: Bits that alter PCIe bus driver boot sequence.
@@ -91,7 +90,6 @@ Optional Properties:
   - iommus: the phandle and stream IDs for the SMMU used by this root
     complex. This should be used in separate nodes from the main root
     complex nodes, and is the only property needed in that case.
-  - qcom,common-phy: There is a common phy for all the Root Complexes.
   - qcom,smmu-exist: PCIe uses a SMMU.
   - qcom,smmu-sid-base: The base SMMU SID that PCIe bus driver will use to calculate
     and assign for each endpoint.
@@ -99,6 +97,7 @@ Optional Properties:
     stable after power on, before de-assert the PERST to the endpoint.
   - qcom,wr-halt-size: With base 2, this exponent determines the size of the
     data that PCIe core will halt on for each write transaction.
+  - qcom,slv-addr-space-size: The memory space size of PCIe Root Complex.
   - qcom,cpl-timeout: Completion timeout value. This value specifies the time range
     which the root complex will send out a completion packet if there is no response
     from the endpoint.
@@ -214,13 +213,6 @@ Example:
 					0x15c 0x06 0x00
 					0x090 0x01 0x00
 					0x808 0x03 0x00>;
-		qcom,port-phy-sequence = <0x804 0x01 0x00
-					0x034 0x14 0x00
-					0x138 0x30 0x00
-					0x048 0x0f 0x00
-					0x15c 0x06 0x00
-					0x090 0x01 0x00
-					0x808 0x03 0x00>;
 		perst-gpio = <&msmgpio 70 0>;
 		wake-gpio = <&msmgpio 69 0>;
 		clkreq-gpio = <&msmgpio 68 0>;
@@ -265,6 +257,7 @@ Example:
 		qcom,l1-supported;
 		qcom,l1ss-supported;
 		qcom,aux-clk-sync;
+		qcom,max-link-speed = <0x2>;
 		qcom,n-fts = <0x50>;
 		qcom,pcie-phy-ver = <1>;
 		qcom,boot-option = <0x1>;
@@ -272,11 +265,11 @@ Example:
 		qcom,msi-gicm-base = <0x160>;
 		qcom,ext-ref-clk;
 		qcom,tlp-rd-size = <0x5>;
-		qcom,common-phy;
 		qcom,smmu-exist;
 		qcom,smmu-sid-base = <0x1480>;
 		qcom,ep-latency = <100>;
 		qcom,wr-halt-size = <0xa>; /* 1KB */
+		qcom,slv-addr-space-size = <0x1000000>; /* 16MB */
 		qcom,cpl-timeout = <0x2>;
 
 		iommus = <&anoc0_smmu>;

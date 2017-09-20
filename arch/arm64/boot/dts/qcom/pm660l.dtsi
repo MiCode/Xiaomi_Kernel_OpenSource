@@ -39,93 +39,35 @@
 				<PON_POWER_OFF_SHUTDOWN>;
 		};
 
-		qcom,temp-alarm@2400 {
+		pm660l_tz: qcom,temp-alarm@2400 {
 			compatible = "qcom,qpnp-temp-alarm";
 			reg = <0x2400 0x100>;
 			interrupts = <0x2 0x24 0x0 IRQ_TYPE_EDGE_RISING>;
 			label = "pm660l_tz";
+			#thermal-sensor-cells = <0>;
 		};
 
-		pm660l_gpios: gpios {
-			compatible = "qcom,qpnp-pin";
+		pm660l_gpios: pinctrl@c000 {
+			compatible = "qcom,spmi-gpio";
+			reg = <0xc000 0xc00>;
+			interrupts = <0x2 0xc0 0 IRQ_TYPE_NONE>,
+					<0x2 0xc2 0 IRQ_TYPE_NONE>,
+					<0x2 0xc3 0 IRQ_TYPE_NONE>,
+					<0x2 0xc4 0 IRQ_TYPE_NONE>,
+					<0x2 0xc5 0 IRQ_TYPE_NONE>,
+					<0x2 0xc6 0 IRQ_TYPE_NONE>,
+					<0x2 0xc7 0 IRQ_TYPE_NONE>,
+					<0x2 0xc8 0 IRQ_TYPE_NONE>,
+					<0x2 0xca 0 IRQ_TYPE_NONE>,
+					<0x2 0xcb 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pm660l_gpio1", "pm660l_gpio3",
+					"pm660l_gpio4", "pm660l_gpio5",
+					"pm660l_gpio6", "pm660l_gpio7",
+					"pm660l_gpio8", "pm660l_gpio9",
+					"pm660l_gpio11", "pm660l_gpio12";
 			gpio-controller;
 			#gpio-cells = <2>;
-			#address-cells = <1>;
-			#size-cells = <1>;
-			label = "pm660l-gpio";
-
-			gpio@c000 {
-				reg = <0xc000 0x100>;
-				qcom,pin-num = <1>;
-				status = "disabled";
-			};
-
-			gpio@c100 {
-				reg = <0xc100 0x100>;
-				qcom,pin-num = <2>;
-				status = "disabled";
-			};
-
-			gpio@c200 {
-				reg = <0xc200 0x100>;
-				qcom,pin-num = <3>;
-				status = "disabled";
-			};
-
-			gpio@c300 {
-				reg = <0xc300 0x100>;
-				qcom,pin-num = <4>;
-				status = "disabled";
-			};
-
-			gpio@c400 {
-				reg = <0xc400 0x100>;
-				qcom,pin-num = <5>;
-				status = "disabled";
-			};
-
-			gpio@c500 {
-				reg = <0xc500 0x100>;
-				qcom,pin-num = <6>;
-				status = "disabled";
-			};
-
-			gpio@c600 {
-				reg = <0xc600 0x100>;
-				qcom,pin-num = <7>;
-				status = "disabled";
-			};
-
-			gpio@c700 {
-				reg = <0xc700 0x100>;
-				qcom,pin-num = <8>;
-				status = "disabled";
-			};
-
-			gpio@c800 {
-				reg = <0xc800 0x100>;
-				qcom,pin-num = <9>;
-				status = "disabled";
-			};
-
-			gpio@c900 {
-				reg = <0xc900 0x100>;
-				qcom,pin-num = <10>;
-				status = "disabled";
-			};
-
-			gpio@ca00 {
-				reg = <0xca00 0x100>;
-				qcom,pin-num = <11>;
-				status = "disabled";
-			};
-
-			gpio@cb00 {
-				reg = <0xcb00 0x100>;
-				qcom,pin-num = <12>;
-				status = "disabled";
-			};
-
+			qcom,gpios-disallowed = <2 10>;
 		};
 	};
 
@@ -244,35 +186,6 @@
 			};
 		};
 
-		pm660l_wled: qcom,leds@d800 {
-			compatible = "qcom,qpnp-wled";
-			reg = <0xd800 0x100>,
-				<0xd900 0x100>;
-			reg-names = "qpnp-wled-ctrl-base",
-					"qpnp-wled-sink-base";
-			interrupts = <0x3 0xd8 0x1 IRQ_TYPE_EDGE_RISING>;
-			interrupt-names = "ovp-irq";
-			linux,name = "wled";
-			linux,default-trigger = "bkl-trigger";
-			qcom,fdbk-output = "auto";
-			qcom,vref-uv = <127500>;
-			qcom,switch-freq-khz = <800>;
-			qcom,ovp-mv = <29600>;
-			qcom,ilim-ma = <970>;
-			qcom,boost-duty-ns = <26>;
-			qcom,mod-freq-khz = <9600>;
-			qcom,dim-mode = "hybrid";
-			qcom,hyb-thres = <625>;
-			qcom,sync-dly-us = <800>;
-			qcom,fs-curr-ua = <25000>;
-			qcom,cons-sync-write-delay-us = <1000>;
-			qcom,led-strings-list = [00 01 02];
-			qcom,loop-auto-gm-en;
-			qcom,pmic-revid = <&pm660l_revid>;
-			qcom,auto-calibration-enable;
-			status = "ok";
-		};
-
 		flash_led: qcom,leds@d300 {
 			compatible = "qcom,qpnp-flash-led-v2";
 			reg = <0xd300 0x100>;
@@ -381,88 +294,30 @@
 				qcom,default-led-trigger = "switch1_trigger";
 			};
 		};
+	};
+};
 
-		pm660l_lcdb: qpnp-lcdb@ec00 {
-			compatible = "qcom,qpnp-lcdb-regulator";
-			#address-cells = <1>;
-			#size-cells = <1>;
-			reg = <0xec00 0x100>;
-			interrupts = <0x3 0xec 0x1 IRQ_TYPE_EDGE_RISING>;
-			interrupt-names = "sc-irq";
+&thermal_zones {
+	pm660l_tz {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm660l_tz>;
 
-			qcom,pmic-revid = <&pm660l_revid>;
-
-			lcdb_ldo_vreg: ldo {
-				label = "ldo";
-				regulator-name = "lcdb_ldo";
-				regulator-min-microvolt = <4000000>;
-				regulator-max-microvolt = <6000000>;
+		trips {
+			pm660l_trip0: pm660l-trip0 {
+				temperature = <105000>;
+				hysteresis = <0>;
+				type = "passive";
 			};
-
-			lcdb_ncp_vreg: ncp {
-				label = "ncp";
-				regulator-name = "lcdb_ncp";
-				regulator-min-microvolt = <4000000>;
-				regulator-max-microvolt = <6000000>;
+			 pm660l_trip1: pm660l-trip1 {
+				temperature = <125000>;
+				hysteresis = <0>;
+				type = "passive";
 			};
-		};
-
-		pm660a_oledb: qpnp-oledb@e000 {
-		       compatible = "qcom,qpnp-oledb-regulator";
-		       #address-cells = <1>;
-		       #size-cells = <1>;
-		       qcom,pmic-revid = <&pm660l_revid>;
-		       reg = <0xe000 0x100>;
-		       qcom,pbs-client = <&pm660l_pbs>;
-
-		       label = "oledb";
-		       regulator-name = "regulator-oledb";
-		       regulator-min-microvolt = <5000000>;
-		       regulator-max-microvolt = <8100000>;
-
-		       qcom,swire-control;
-		       qcom,ext-pin-control;
-		       status = "disabled";
-		};
-
-		pm660a_labibb: qpnp-labibb-regulator {
-			compatible = "qcom,qpnp-labibb-regulator";
-			#address-cells = <1>;
-			#size-cells = <1>;
-			qcom,pmic-revid = <&pm660l_revid>;
-			qcom,swire-control;
-			status = "disabled";
-
-			ibb_regulator: qcom,ibb@dc00 {
-				reg = <0xdc00 0x100>;
-				reg-names = "ibb_reg";
-				regulator-name = "ibb_reg";
-
-				regulator-min-microvolt = <4000000>;
-				regulator-max-microvolt = <6300000>;
-
-				qcom,qpnp-ibb-min-voltage = <1400000>;
-				qcom,qpnp-ibb-step-size = <100000>;
-				qcom,qpnp-ibb-slew-rate = <2000000>;
-				qcom,qpnp-ibb-init-voltage = <4000000>;
-				qcom,qpnp-ibb-init-amoled-voltage = <4000000>;
-			};
-
-			lab_regulator: qcom,lab@de00 {
-				reg = <0xde00 0x100>;
-				reg-names = "lab";
-				regulator-name = "lab_reg";
-
-				regulator-min-microvolt = <4600000>;
-				regulator-max-microvolt = <6100000>;
-
-				qcom,qpnp-lab-min-voltage = <4600000>;
-				qcom,qpnp-lab-step-size = <100000>;
-				qcom,qpnp-lab-slew-rate = <5000>;
-				qcom,qpnp-lab-init-voltage = <4600000>;
-				qcom,qpnp-lab-init-amoled-voltage = <4600000>;
-
-				qcom,notify-lab-vreg-ok-sts;
+			 pm660l_trip2: pm660l-trip2 {
+				temperature = <145000>;
+				hysteresis = <0>;
+				type = "critical";
 			};
 		};
 	};

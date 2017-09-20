@@ -202,6 +202,44 @@ int sde_core_irq_disable(struct sde_kms *sde_kms, int *irq_idxs, u32 irq_count)
 	return ret;
 }
 
+/**
+ * sde_core_irq_disable_nolock - disable core interrupt given by the index
+ *                               without lock
+ * @sde_kms:		Pointer to sde kms context
+ * @irq_idx:		interrupt index
+ */
+int sde_core_irq_disable_nolock(struct sde_kms *sde_kms, int irq_idx)
+{
+	int ret = 0;
+
+	if (!sde_kms || !sde_kms->hw_intr || !sde_kms->irq_obj.enable_counts) {
+		SDE_ERROR("invalid params\n");
+		return -EINVAL;
+	}
+
+	if (irq_idx < 0 || irq_idx >= sde_kms->hw_intr->irq_idx_tbl_size) {
+		SDE_ERROR("invalid IRQ index: [%d]\n", irq_idx);
+		return -EINVAL;
+	}
+
+	SDE_DEBUG("irq_idx=%d enable_count=%d\n", irq_idx,
+			atomic_read(&sde_kms->irq_obj.enable_counts[irq_idx]));
+
+	SDE_EVT32(irq_idx,
+			atomic_read(&sde_kms->irq_obj.enable_counts[irq_idx]));
+	if (atomic_dec_return(&sde_kms->irq_obj.enable_counts[irq_idx]) == 0) {
+		ret = sde_kms->hw_intr->ops.disable_irq_nolock(
+				sde_kms->hw_intr,
+				irq_idx);
+		if (ret)
+			SDE_ERROR("Fail to disable IRQ for irq_idx:%d\n",
+					irq_idx);
+		SDE_DEBUG("irq_idx=%d ret=%d\n", irq_idx, ret);
+	}
+
+	return ret;
+}
+
 u32 sde_core_irq_read_nolock(struct sde_kms *sde_kms, int irq_idx, bool clear)
 {
 	if (!sde_kms || !sde_kms->hw_intr ||

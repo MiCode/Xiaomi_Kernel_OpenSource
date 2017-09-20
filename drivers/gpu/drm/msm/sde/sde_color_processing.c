@@ -1445,7 +1445,6 @@ int sde_cp_ad_interrupt(struct drm_crtc *crtc_drm, bool en,
 		goto exit;
 	}
 
-	INIT_LIST_HEAD(&ad_irq->list);
 	ad_irq->arg = crtc;
 	ad_irq->func = sde_cp_ad_interrupt_cb;
 	ret = sde_core_irq_register_callback(kms, irq_idx, ad_irq);

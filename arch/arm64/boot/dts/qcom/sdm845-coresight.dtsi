@@ -522,6 +522,58 @@
 				};
 			};
 
+			port@5 {
+				reg = <6>;
+				funnel_in2_in_funnel_gfx: endpoint {
+					slave-mode;
+					remote-endpoint =
+					  <&funnel_gfx_out_funnel_in2>;
+				};
+			};
+		};
+	};
+
+	funnel_gfx: funnel@0x6943000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b908>;
+
+		reg = <0x6943000 0x1000>;
+		reg-names = "funnel-base";
+
+		coresight-name = "coresight-funnel-gfx";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				funnel_gfx_out_funnel_in2: endpoint {
+					remote-endpoint =
+					  <&funnel_in2_in_funnel_gfx>;
+				};
+			};
+
+			port@1 {
+				reg = <0>;
+				funnel_in2_in_gfx: endpoint {
+					slave-mode;
+					remote-endpoint =
+					  <&gfx_out_funnel_in2>;
+				};
+			};
+
+			port@2 {
+				reg = <1>;
+				funnel_in2_in_gfx_cx: endpoint {
+					slave-mode;
+					remote-endpoint =
+					  <&gfx_cx_out_funnel_in2>;
+				};
+			};
 		};
 	};
 
@@ -1430,6 +1482,15 @@
 						<&tpda_spss_out_funnel_spss>;
 				};
 			};
+
+			port@2 {
+				reg = <1>;
+				funnel_spss_in_spss_etm0: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&spss_etm0_out_funnel_spss>;
+				};
+			};
 		};
 	};
 
@@ -1862,6 +1923,18 @@
 		clock-names = "apb_pclk";
 	};
 
+	cti0_swao:cti@6b04000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
+		reg = <0x6b04000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti0-swao";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
 	turing_etm0 {
 		compatible = "qcom,coresight-remote-etm";
 
@@ -1915,6 +1988,20 @@
 			audio_etm0_out_funnel_lpass_1: endpoint {
 				remote-endpoint =
 					<&funnel_lpass_1_in_audio_etm0>;
+			};
+		};
+	};
+
+	spss_etm0 {
+		compatible = "qcom,coresight-dummy";
+
+		coresight-name = "coresight-spss-etm0";
+
+		qcom,dummy-source;
+		port {
+			spss_etm0_out_funnel_spss: endpoint {
+				remote-endpoint =
+					<&funnel_spss_in_spss_etm0>;
 			};
 		};
 	};

@@ -484,6 +484,36 @@ static void tmc_update_etf_buffer(struct coresight_device *csdev,
 	CS_LOCK(drvdata->base);
 }
 
+static void tmc_abort_etf_sink(struct coresight_device *csdev)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
+	unsigned long flags;
+	enum tmc_mode mode;
+
+	spin_lock_irqsave(&drvdata->spinlock, flags);
+	if (drvdata->reading)
+		goto out0;
+
+	if (drvdata->config_type == TMC_CONFIG_TYPE_ETB) {
+		tmc_etb_disable_hw(drvdata);
+	} else {
+
+		mode = readl_relaxed(drvdata->base + TMC_MODE);
+		if (mode == TMC_MODE_CIRCULAR_BUFFER)
+			tmc_etb_disable_hw(drvdata);
+		else
+			goto out1;
+	}
+out0:
+	drvdata->enable = false;
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
+
+	dev_info(drvdata->dev, "TMC aborted\n");
+	return;
+out1:
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
+}
+
 static const struct coresight_ops_sink tmc_etf_sink_ops = {
 	.enable		= tmc_enable_etf_sink,
 	.disable	= tmc_disable_etf_sink,
@@ -492,6 +522,7 @@ static const struct coresight_ops_sink tmc_etf_sink_ops = {
 	.set_buffer	= tmc_set_etf_buffer,
 	.reset_buffer	= tmc_reset_etf_buffer,
 	.update_buffer	= tmc_update_etf_buffer,
+	.abort		= tmc_abort_etf_sink,
 };
 
 static const struct coresight_ops_link tmc_etf_link_ops = {

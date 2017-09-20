@@ -26,12 +26,10 @@ First Level Node - LCDB module
 	Value type: <prop-encoded-array>
 	Definition:  Base address of the LCDB SPMI peripheral.
 
-- qcom,force-module-reenable
-	Usage:      required if using SW mode for module enable
-	Value type:  <bool>
-	Definition: This enables the workaround to force enable
-		    the vph_pwr_2p5_ok signal required for
-		    turning on the LCDB module.
+- qcom,pmic-revid
+	Usage:      required
+	Value type: <phandle>
+	Definition:  Phandle to the PMIC's revid node
 
 Touch-to-wake (TTW) properties:
 
@@ -211,6 +209,12 @@ Properties below are specific to BOOST subnode only.
 	Definition:  Current limit (in mA) of the BOOST rail.
 		     Possible values are 200 to 1600mA in 200mA steps.
 
+- qcom,bst-headroom-mv
+	Usage:      optional
+	Value type:  <u16>
+	Definition:  Headroom of the boost (in mV). The minimum headroom is
+		     200mV and if not specified defaults to 200mV.
+
 =======
 Example
 =======
@@ -252,5 +256,6 @@ pm660l_lcdb: qpnp-lcdb@ec00 {
 		qcom,bst-pd-strength = <1>;
 		qcom,bst-ps = <1>;
 		qcom,bst-ps-threshold-ma = <50>;
+		qcom,bst-headroom-mv = <200>;
 	};
 };

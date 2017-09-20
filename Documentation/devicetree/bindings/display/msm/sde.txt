@@ -281,6 +281,18 @@ Optional properties:
 				core ib calculation.
 - qcom,sde-core-clk-ff:		A string entry indicating the fudge factor for
 				core clock calculation.
+- qcom,sde-min-core-ib-kbps:	This u32 value indicates the minimum mnoc ib
+				vote in Kbps that can be reduced without hitting underflow.
+				BW calculation logic will choose the IB bandwidth requirement
+				based on usecase if this floor value is not defined.
+- qcom,sde-min-llcc-ib-kbps:	This u32 value indicates the minimum llcc ib
+				vote in Kbps that can be reduced without hitting underflow.
+				BW calculation logic will choose the IB bandwidth requirement
+				based on usecase if this floor value is not defined.
+- qcom,sde-min-dram-ib-kbps:	This u32 value indicates the minimum dram ib
+				vote in Kbps that can be reduced without hitting underflow.
+				BW calculation logic will choose the IB bandwidth requirement
+				based on usecase if this floor value is not defined.
 - qcom,sde-comp-ratio-rt:	A string entry indicating the compression ratio
 				for each supported compressed format on realtime interface.
 				The string is composed of one or more of
@@ -572,6 +584,9 @@ Example:
 
     qcom,sde-core-ib-ff = "1.1";
     qcom,sde-core-clk-ff = "1.0";
+    qcom,sde-min-core-ib-kbps = <2400000>;
+    qcom,sde-min-llcc-ib-kbps = <800000>;
+    qcom,sde-min-dram-ib-kbps = <800000>;
     qcom,sde-comp-ratio-rt = "NV12/5/1/1.1 AB24/5/1/1.2 XB24/5/1/1.3";
     qcom,sde-comp-ratio-nrt = "NV12/5/1/1.1 AB24/5/1/1.2 XB24/5/1/1.3";
     qcom,sde-undersized-prefill-lines = <4>;

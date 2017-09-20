@@ -10,6 +10,33 @@
  * GNU General Public License for more details.
  */
 
+#include "sdm670-pmic-overlay.dtsi"
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qmp-v3";
+
+	vdda-phy-supply = <&pm660l_l1>; /* 0.88v */
+	vdda-pll-supply = <&pm660_l1>; /* 1.2v */
+	vdda-phy-max-microamp = <62900>;
+	vdda-pll-max-microamp = <18300>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	vdd-hba-supply = <&ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm660l_l4>;
+	vccq2-supply = <&pm660_l8>;
+	vcc-max-microamp = <600000>;
+	vccq2-max-microamp = <600000>;
+
+	qcom,vddp-ref-clk-supply = <&pm660_l1>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	status = "ok";
+};
+
 &qupv3_se9_2uart {
 	status = "disabled";
 };
@@ -32,4 +59,42 @@
 
 &qupv3_se6_4uart {
 	status = "disabled";
+};
+
+&sdhc_1 {
+	vdd-supply = <&pm660l_l4>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <200 570000>;
+
+	vdd-io-supply = <&pm660_l8>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <200 325000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on  &sdc1_cmd_on &sdc1_data_on &sdc1_rclk_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off &sdc1_rclk_off>;
+
+	status = "ok";
+};
+
+&sdhc_2 {
+	vdd-supply = <&pm660l_l5>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <200 800000>;
+
+	vdd-io-supply = <&pm660l_l2>;
+	qcom,vdd-io-voltage-level = <1800000 2960000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
+
+	status = "ok";
+};
+
+&pm660_charger {
+	qcom,batteryless-platform;
 };

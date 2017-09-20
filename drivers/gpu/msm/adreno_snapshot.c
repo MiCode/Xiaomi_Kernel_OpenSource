@@ -837,7 +837,8 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 
 	snapshot_frozen_objsize = 0;
 
-	setup_fault_process(device, snapshot,
+	if (!IS_ERR(context))
+		setup_fault_process(device, snapshot,
 			context ? context->proc_priv : NULL);
 
 	/* Add GPU specific sections - registers mainly, but other stuff too */

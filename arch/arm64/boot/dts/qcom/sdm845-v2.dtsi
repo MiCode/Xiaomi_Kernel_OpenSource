@@ -69,7 +69,7 @@
 			"APSS_SILVER_CPRH_STATUS_1",
 			"SILVER_SAW4_PMIC_STS";
 
-		qcom,cpr-aging-ref-voltage = <952000>;
+		qcom,cpr-aging-ref-voltage = <1000000>;
 		vdd-supply = <&pm8998_s13>;
 
 		thread@0 {
@@ -96,7 +96,7 @@
 					<828000  828000  828000  828000  828000
 					 828000  828000  828000  828000  828000
 					 828000  828000  828000  828000  828000
-					 884000 1000000 1000000>;
+					 932000 1000000 1000000>;
 
 				qcom,cpr-voltage-floor =
 					<568000  568000  568000  568000  568000
@@ -133,10 +133,10 @@
 					 1950 2632>;
 
 				qcom,cpr-open-loop-voltage-fuse-adjustment =
-					<100000 100000 100000 100000>;
+					<     0      0  12000  12000>;
 
 				qcom,cpr-closed-loop-voltage-fuse-adjustment =
-					<100000 100000 100000 100000>;
+					<     0      0  12000  10000>;
 
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
@@ -187,11 +187,11 @@
 					/* Speed bin 0 */
 					<828000  828000  828000  828000  828000
 					 828000  828000  828000  828000  828000
-					 828000  884000  884000 1000000>,
+					 828000  932000  932000 1000000>,
 					/* Speed bin 1 */
 					<828000  828000  828000  828000  828000
 					 828000  828000  828000  828000  828000
-					 828000  884000  884000 1000000
+					 828000  932000  932000 1000000
 					1000000>;
 
 				qcom,cpr-voltage-floor =
@@ -244,17 +244,17 @@
 					 2501 2095>;
 
 				qcom,cpr-open-loop-voltage-fuse-adjustment =
-					<100000 100000 100000 100000>;
+					<  8000  16000  16000  12000>;
 
 				qcom,cpr-closed-loop-voltage-fuse-adjustment =
-					<100000 100000 100000 100000>;
+					<  6000  14000  16000  12000>;
 
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
 
 				qcom,cpr-aging-max-voltage-adjustment = <15000>;
-				qcom,cpr-aging-ref-corner = <14>;
+				qcom,cpr-aging-ref-corner = <14 15>;
 				qcom,cpr-aging-ro-scaling-factor = <1620>;
 				qcom,allow-aging-voltage-adjustment =
 					/* Speed bin 0 */
@@ -348,15 +348,15 @@
 					<828000  828000  828000  828000  828000
 					 828000  828000  828000  828000  828000
 					 828000  828000  828000  828000  828000
-					 828000  828000  828000  884000  884000
-					 884000  884000 1104000 1104000 1104000
+					 828000  828000  828000  932000  932000
+					 932000  932000 1104000 1104000 1104000
 					1104000 1136000 1136000>,
 					/* Speed bin 1 */
 					<828000  828000  828000  828000  828000
 					 828000  828000  828000  828000  828000
 					 828000  828000  828000  828000  828000
-					 828000  828000  828000  884000  884000
-					 884000  884000 1104000 1104000 1104000
+					 828000  828000  828000  932000  932000
+					 932000  932000 1104000 1104000 1104000
 					1104000 1136000 1136000 1136000 1136000
 					1136000>;
 
@@ -416,7 +416,7 @@
 					1766400000 1843200000 1920000000
 					1996800000 2092800000 2169600000
 					2246400000 2323200000 2400000000
-					2476800000 2553600000 2630400000
+					2476800000 2553600000 2649600000
 					2707200000>;
 
 				qcom,cpr-ro-scaling-factor =
@@ -437,10 +437,16 @@
 					 2003 1675>;
 
 				qcom,cpr-open-loop-voltage-fuse-adjustment =
-					<100000 100000 100000 100000 100000>;
+					/* Speed bin 0 */
+					<  8000   8000   8000      0      0>,
+					/* Speed bin 1 */
+					<  8000   8000   8000      0  16000>;
 
 				qcom,cpr-closed-loop-voltage-fuse-adjustment =
-					<100000 100000 100000 100000 100000>;
+					/* Speed bin 0 */
+					<  6000   6000   8000      0      0>,
+					/* Speed bin 1 */
+					<  6000   6000   8000      0  16000>;
 
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
@@ -459,6 +465,32 @@
 			};
 		};
 	};
+
+	gpu_gx_domain_addr: syscon@0x5091508 {
+		compatible = "syscon";
+		reg = <0x5091508 0x4>;
+	};
+
+	gpu_gx_sw_reset: syscon@0x5091008 {
+		compatible = "syscon";
+		reg = <0x5091008 0x4>;
+	};
+};
+
+&pil_modem {
+	qcom,mss_pdc_offset = <9>;
+};
+
+/* VDD_APC0 */
+&pm8998_s13 {
+	regulator-min-microvolt = <568000>;
+	regulator-max-microvolt = <1000000>;
+};
+
+/* VDD_APC1 */
+&pm8998_s12 {
+	regulator-min-microvolt = <568000>;
+	regulator-max-microvolt = <1136000>;
 };
 
 &clock_cpucc {
@@ -600,8 +632,8 @@
 		<  2400000000 0x40541a7d 0x00006464 0x2 27 >,
 		<  2476800000 0x40541b81 0x00006767 0x2 28 >,
 		<  2553600000 0x40541c85 0x00006a6a 0x2 29 >,
-		<  2630400000 0x40541d89 0x00006e6e 0x2 30 >,
-		<  2707200000 0x40541e8d 0x00007171 0x2 31 >;
+		<  2649600000 0x40541d8a 0x00006e6e 0x2 30 >,
+		<  2745600000 0x40511e8f 0x00007272 0x2 31 >;
 
 	qcom,l3-memacc-level-vc-bin0 = <8 13>;
 	qcom,l3-memacc-level-vc-bin1 = <8 13>;
@@ -613,8 +645,225 @@
 	qcom,perfcl-memacc-level-vc-bin1 = <14 22>;
 };
 
+&pcie1 {
+	qcom,phy-sequence = <0x1804 0x03 0x0
+				0x00dc 0x27 0x0
+				0x0014 0x01 0x0
+				0x0020 0x31 0x0
+				0x0024 0x01 0x0
+				0x0028 0xde 0x0
+				0x002c 0x07 0x0
+				0x0034 0x4c 0x0
+				0x0038 0x06 0x0
+				0x0054 0x18 0x0
+				0x0058 0xb0 0x0
+				0x006c 0x8c 0x0
+				0x0070 0x20 0x0
+				0x0078 0x14 0x0
+				0x007c 0x34 0x0
+				0x00b4 0x06 0x0
+				0x00b8 0x06 0x0
+				0x00c0 0x16 0x0
+				0x00c4 0x16 0x0
+				0x00cc 0x36 0x0
+				0x00d0 0x36 0x0
+				0x00f0 0x05 0x0
+				0x00f8 0x42 0x0
+				0x0100 0x82 0x0
+				0x0108 0x68 0x0
+				0x011c 0x55 0x0
+				0x0120 0x55 0x0
+				0x0124 0x03 0x0
+				0x0128 0xab 0x0
+				0x012c 0xaa 0x0
+				0x0130 0x02 0x0
+				0x0150 0x3f 0x0
+				0x0158 0x3f 0x0
+				0x0178 0x10 0x0
+				0x01cc 0x04 0x0
+				0x01d0 0x30 0x0
+				0x01e0 0x04 0x0
+				0x01e8 0x73 0x0
+				0x01f0 0x1c 0x0
+				0x01fc 0x15 0x0
+				0x021c 0x04 0x0
+				0x0224 0x01 0x0
+				0x0228 0x22 0x0
+				0x022c 0x00 0x0
+				0x0098 0x05 0x0
+				0x080c 0x00 0x0
+				0x0818 0x0d 0x0
+				0x0860 0x01 0x0
+				0x0864 0x3a 0x0
+				0x087c 0x2f 0x0
+				0x08c0 0x09 0x0
+				0x08c4 0x09 0x0
+				0x08c8 0x1a 0x0
+				0x08d0 0x01 0x0
+				0x08d4 0x07 0x0
+				0x08d8 0x31 0x0
+				0x08dc 0x31 0x0
+				0x08e0 0x03 0x0
+				0x08fc 0x02 0x0
+				0x0900 0x01 0x0
+				0x0908 0x12 0x0
+				0x0914 0x25 0x0
+				0x0918 0x00 0x0
+				0x091c 0x05 0x0
+				0x0920 0x01 0x0
+				0x0924 0x26 0x0
+				0x0928 0x12 0x0
+				0x0930 0x04 0x0
+				0x0934 0x04 0x0
+				0x0938 0x09 0x0
+				0x0954 0x15 0x0
+				0x0960 0x32 0x0
+				0x0968 0x7f 0x0
+				0x096c 0x07 0x0
+				0x0978 0x04 0x0
+				0x0980 0x70 0x0
+				0x0984 0x8b 0x0
+				0x0988 0x08 0x0
+				0x098c 0x09 0x0
+				0x0990 0x03 0x0
+				0x0994 0x04 0x0
+				0x0998 0x02 0x0
+				0x099c 0x0c 0x0
+				0x09a4 0x02 0x0
+				0x09c0 0x5c 0x0
+				0x09c4 0x3e 0x0
+				0x09c8 0x3f 0x0
+				0x0a30 0x01 0x0
+				0x0a34 0xa0 0x0
+				0x0a38 0x08 0x0
+				0x0aa4 0x01 0x0
+				0x0aac 0xc3 0x0
+				0x0ab0 0x00 0x0
+				0x0ab8 0x8c 0x0
+				0x0ac0 0x7f 0x0
+				0x0ac4 0x2a 0x0
+				0x0810 0x0c 0x0
+				0x0814 0x00 0x0
+				0x0acc 0x04 0x0
+				0x093c 0x20 0x0
+				0x100c 0x00 0x0
+				0x1018 0x0d 0x0
+				0x1060 0x01 0x0
+				0x1064 0x3a 0x0
+				0x107c 0x2f 0x0
+				0x10c0 0x09 0x0
+				0x10c4 0x09 0x0
+				0x10c8 0x1a 0x0
+				0x10d0 0x01 0x0
+				0x10d4 0x07 0x0
+				0x10d8 0x31 0x0
+				0x10dc 0x31 0x0
+				0x10e0 0x03 0x0
+				0x10fc 0x02 0x0
+				0x1100 0x01 0x0
+				0x1108 0x12 0x0
+				0x1114 0x25 0x0
+				0x1118 0x00 0x0
+				0x111c 0x05 0x0
+				0x1120 0x01 0x0
+				0x1124 0x26 0x0
+				0x1128 0x12 0x0
+				0x1130 0x04 0x0
+				0x1134 0x04 0x0
+				0x1138 0x09 0x0
+				0x1154 0x15 0x0
+				0x1160 0x32 0x0
+				0x1168 0x7f 0x0
+				0x116c 0x07 0x0
+				0x1178 0x04 0x0
+				0x1180 0x70 0x0
+				0x1184 0x8b 0x0
+				0x1188 0x08 0x0
+				0x118c 0x09 0x0
+				0x1190 0x03 0x0
+				0x1194 0x04 0x0
+				0x1198 0x02 0x0
+				0x119c 0x0c 0x0
+				0x11a4 0x02 0x0
+				0x11c0 0x5c 0x0
+				0x11c4 0x3e 0x0
+				0x11c8 0x3f 0x0
+				0x1230 0x01 0x0
+				0x1234 0xa0 0x0
+				0x1238 0x08 0x0
+				0x12a4 0x01 0x0
+				0x12ac 0xc3 0x0
+				0x12b0 0x00 0x0
+				0x12b8 0x8c 0x0
+				0x12c0 0x7f 0x0
+				0x12c4 0x2a 0x0
+				0x1010 0x0c 0x0
+				0x1014 0x0f 0x0
+				0x12cc 0x04 0x0
+				0x113c 0x20 0x0
+				0x195c 0x3f 0x0
+				0x1974 0x50 0x0
+				0x196c 0x9f 0x0
+				0x182c 0x19 0x0
+				0x1840 0x07 0x0
+				0x1854 0x17 0x0
+				0x1868 0x09 0x0
+				0x1800 0x00 0x0
+				0x0aa8 0x01 0x0
+				0x12a8 0x01 0x0
+				0x1808 0x01 0x0>;
+};
+
+&devfreq_l3lat_0 {
+	qcom,core-dev-table =
+		<  300000  300000000 >,
+		<  480000  403200000 >,
+		<  652800  480000000 >,
+		<  748800  576000000 >,
+		<  902400  652800000 >,
+		<  979200  748800000 >,
+		< 1132800  844800000 >,
+		< 1228800  940800000 >,
+		< 1324800 1036800000 >,
+		< 1420800 1132800000 >,
+		< 1516800 1209600000 >,
+		< 1612800 1401600000 >,
+		< 1689600 1497600000 >,
+		< 1766400 1593600000 >;
+};
+
+&devfreq_l3lat_4 {
+	qcom,core-dev-table =
+		<  300000  300000000 >,
+		<  825600  576000000 >,
+		< 1132800  748800000 >,
+		< 1363200  940800000 >,
+		< 1689600 1209600000 >,
+		< 1996800 1401600000 >,
+		< 2400000 1593600000 >;
+};
+
 &bwmon {
 	qcom,count-unit = <0x10000>;
+};
+
+&cpubw {
+	qcom,bw-tbl =
+		< MHZ_TO_MBPS(150, 16) >, /*  2288 MB/s */
+		< MHZ_TO_MBPS(300, 16) >, /*  4577 MB/s */
+		< MHZ_TO_MBPS(426, 16) >, /*  6500 MB/s */
+		< MHZ_TO_MBPS(533, 16) >, /*  8132 MB/s */
+		< MHZ_TO_MBPS(600, 16) >, /*  9155 MB/s */
+		< MHZ_TO_MBPS(806, 16) >, /* 12298 MB/s */
+		< MHZ_TO_MBPS(933, 16) >; /* 14236 MB/s */
+};
+
+&devfreq_cpufreq {
+	mincpubw-cpufreq {
+		cpu-to-dev-map-4 =
+			< 1881600 MHZ_TO_MBPS(200, 4) >,
+			< 2400000 MHZ_TO_MBPS(681, 4) >;
+	};
 };
 
 &clock_gcc {
@@ -641,10 +890,6 @@
 	compatible = "qcom,video_cc-sdm845-v2", "syscon";
 };
 
-&clock_aop {
-	compatible = "qcom,aop-qmp-clk-v2";
-};
-
 &msm_vidc {
 	qcom,allowed-clock-rates = <100000000 200000000 330000000
 		404000000 444000000 533000000>;
@@ -663,15 +908,16 @@
 
 &mdss_mdp {
 	clock-max-rate = <0 0 0 0 430000000 19200000 0>;
+	qcom,sde-min-core-ib-kbps = <4800000>;
 };
 
 &energy_costs {
 	CPU_COST_0: core-cost0 {
 		busy-cost-data = <
-			 300000 11
+			 300000 12
 			 403200 17
 			 480000 21
-			 576000 26
+			 576000 27
 			 652800 31
 			 748800 37
 			 825600 42
@@ -679,13 +925,13 @@
 			 979200 52
 			1056000 57
 			1132800 62
-			1228800 69
+			1228800 70
 			1324800 78
 			1420800 89
 			1516800 103
 			1612800 122
-			1689600 140
-			1766400 159
+			1689600 141
+			1766400 160
 		>;
 		idle-cost-data = <
 			22 18 14 12
@@ -693,37 +939,37 @@
 	};
 	CPU_COST_1: core-cost1 {
 		busy-cost-data = <
-			 300000 130
-			 403200 480
-			 480000 730
-			 576000 1030
-			 652800 1260
-			 748800 1530
-			 825600 1740
-			 902400 1930
-			 979200 2110
-			1056000 2290
-			1132800 2460
-			1209600 2630
-			1286400 2800
-			1363200 2980
-			1459200 3240
-			1536000 3490
-			1612800 3780
-			1689600 4120
-			1766400 4530
-			1843200 5020
-			1920000 5590
-			1996800 6230
+			 300000 189
+			 403200 523
+			 480000 763
+			 576000 1052
+			 652800 1273
+			 748800 1536
+			 825600 1736
+			 902400 1926
+			 979200 2108
+			1056000 2284
+			1132800 2456
+			1209600 2628
+			1286400 2804
+			1363200 2992
+			1459200 3255
+			1536000 3499
+			1612800 3786
+			1689600 4128
+			1766400 4535
+			1843200 5019
+			1920000 5583
+			1996800 6226
 			2092800 7120
-			2169600 7870
-			2246400 8620
-			2323200 9330
+			2169600 7876
+			2246400 8628
+			2323200 9344
 			2400000 10030
-			2476800 10830
-			2553600 12080
-			2630400 14580
-			2707200 19960
+			2476800 10806
+			2553600 12045
+			2649600 15686
+			2745600 25586
 		>;
 		idle-cost-data = <
 			100 80 60 40
@@ -785,11 +1031,111 @@
 			2400000 135
 			2476800 140
 			2553600 145
-			2630400 150
-			2707200 155
+			2649600 150
+			2745600 155
 		>;
 		idle-cost-data = <
 			4 3 2 1
 		>;
+	};
+};
+
+&gpu_gx_gdsc {
+	domain-addr = <&gpu_gx_domain_addr>;
+	sw-reset = <&gpu_gx_sw_reset>;
+	qcom,reset-aon-logic;
+};
+
+/* GPU overrides */
+&msm_gpu {
+	/* Updated chip ID */
+	qcom,chipid = <0x06030001>;
+	qcom,initial-pwrlevel = <5>;
+
+	qcom,gpu-pwrlevels {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = "qcom,gpu-pwrlevels";
+
+		qcom,gpu-pwrlevel@0 {
+			reg = <0>;
+			qcom,gpu-freq = <675000000>;
+			qcom,bus-freq = <12>;
+			qcom,bus-min = <10>;
+			qcom,bus-max = <12>;
+		};
+
+		qcom,gpu-pwrlevel@1 {
+			reg = <1>;
+			qcom,gpu-freq = <596000000>;
+			qcom,bus-freq = <10>;
+			qcom,bus-min = <9>;
+			qcom,bus-max = <11>;
+		};
+
+		qcom,gpu-pwrlevel@2 {
+			reg = <2>;
+			qcom,gpu-freq = <520000000>;
+			qcom,bus-freq = <9>;
+			qcom,bus-min = <8>;
+			qcom,bus-max = <10>;
+		};
+
+		qcom,gpu-pwrlevel@3 {
+			reg = <3>;
+			qcom,gpu-freq = <414000000>;
+			qcom,bus-freq = <8>;
+			qcom,bus-min = <7>;
+			qcom,bus-max = <9>;
+		};
+
+		qcom,gpu-pwrlevel@4 {
+			reg = <4>;
+			qcom,gpu-freq = <342000000>;
+			qcom,bus-freq = <6>;
+			qcom,bus-min = <5>;
+			qcom,bus-max = <7>;
+		};
+
+		qcom,gpu-pwrlevel@5 {
+			reg = <5>;
+			qcom,gpu-freq = <257000000>;
+			qcom,bus-freq = <4>;
+			qcom,bus-min = <3>;
+			qcom,bus-max = <5>;
+		};
+
+		qcom,gpu-pwrlevel@6 {
+			reg = <6>;
+			qcom,gpu-freq = <0>;
+			qcom,bus-freq = <0>;
+			qcom,bus-min = <0>;
+			qcom,bus-max = <0>;
+		};
+	};
+};
+
+&gmu {
+	qcom,gmu-pwrlevels {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = "qcom,gmu-pwrlevels";
+
+		qcom,gmu-pwrlevel@0 {
+			reg = <0>;
+			qcom,gmu-freq = <500000000>;
+		};
+
+		qcom,gmu-pwrlevel@1 {
+			reg = <1>;
+			qcom,gmu-freq = <200000000>;
+		};
+
+		qcom,gmu-pwrlevel@2 {
+			reg = <2>;
+			qcom,gmu-freq = <0>;
+		};
 	};
 };

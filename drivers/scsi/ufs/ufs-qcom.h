@@ -21,6 +21,7 @@
 #define MAX_UFS_QCOM_HOSTS	2
 #define MAX_U32                 (~(u32)0)
 #define MPHY_TX_FSM_STATE       0x41
+#define MPHY_RX_FSM_STATE       0xC1
 #define TX_FSM_HIBERN8          0x1
 #define HBRN8_POLL_TOUT_MS      100
 #define DEFAULT_CLK_RATE_HZ     1000000

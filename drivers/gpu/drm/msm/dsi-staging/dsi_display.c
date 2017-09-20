@@ -76,17 +76,47 @@ int dsi_display_set_backlight(void *display, u32 bl_lvl)
 {
 	struct dsi_display *dsi_display = display;
 	struct dsi_panel *panel;
+	u32 bl_scale, bl_scale_ad;
+	u64 bl_temp;
 	int rc = 0;
 
-	if (dsi_display == NULL)
+	if (dsi_display == NULL || dsi_display->panel == NULL)
 		return -EINVAL;
 
 	panel = dsi_display->panel;
+	panel->bl_config.bl_level = bl_lvl;
 
-	rc = dsi_panel_set_backlight(panel, bl_lvl);
+	/* scale backlight */
+	bl_scale = panel->bl_config.bl_scale;
+	bl_temp = bl_lvl * bl_scale / MAX_BL_SCALE_LEVEL;
+
+	bl_scale_ad = panel->bl_config.bl_scale_ad;
+	bl_temp = (u32)bl_temp * bl_scale_ad / MAX_AD_BL_SCALE_LEVEL;
+
+	pr_debug("bl_scale = %u, bl_scale_ad = %u, bl_lvl = %u\n",
+		bl_scale, bl_scale_ad, (u32)bl_temp);
+
+	rc = dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
+			DSI_CORE_CLK, DSI_CLK_ON);
+	if (rc) {
+		pr_err("[%s] failed to enable DSI core clocks, rc=%d\n",
+		       dsi_display->name, rc);
+		goto error;
+	}
+
+	rc = dsi_panel_set_backlight(panel, (u32)bl_temp);
 	if (rc)
 		pr_err("unable to set backlight\n");
 
+	rc = dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
+			DSI_CORE_CLK, DSI_CLK_OFF);
+	if (rc) {
+		pr_err("[%s] failed to disable DSI core clocks, rc=%d\n",
+		       dsi_display->name, rc);
+		goto error;
+	}
+
+error:
 	return rc;
 }
 

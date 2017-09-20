@@ -362,13 +362,13 @@ static int _sde_power_data_bus_set_quota(
 		ib_quota_nrt = max_t(u64, ib_quota_nrt,
 				SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA);
 	} else {
-		ab_quota_rt = max_t(u64, ab_quota_rt,
+		ab_quota_rt = min_t(u64, ab_quota_rt,
 				SDE_POWER_HANDLE_DISABLE_BUS_AB_QUOTA);
-		ib_quota_rt = max_t(u64, ib_quota_rt,
+		ib_quota_rt = min_t(u64, ib_quota_rt,
 				SDE_POWER_HANDLE_DISABLE_BUS_IB_QUOTA);
-		ab_quota_nrt = max_t(u64, ab_quota_nrt,
+		ab_quota_nrt = min_t(u64, ab_quota_nrt,
 				SDE_POWER_HANDLE_DISABLE_BUS_AB_QUOTA);
-		ib_quota_nrt = max_t(u64, ib_quota_nrt,
+		ib_quota_nrt = min_t(u64, ib_quota_nrt,
 				SDE_POWER_HANDLE_DISABLE_BUS_IB_QUOTA);
 	}
 
@@ -598,6 +598,23 @@ static void sde_power_reg_bus_unregister(u32 reg_bus_hdl)
 		msm_bus_scale_unregister_client(reg_bus_hdl);
 }
 
+int sde_power_data_bus_state_update(struct sde_power_handle *phandle,
+							bool enable)
+{
+	int i;
+
+	if (!phandle) {
+		pr_err("invalid param\n");
+		return -EINVAL;
+	}
+
+	for (i = SDE_POWER_HANDLE_DBUS_ID_MNOC;
+			i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++)
+		phandle->data_bus_handle[i].enable = enable;
+
+	return 0;
+}
+
 static int sde_power_data_bus_update(struct sde_power_data_bus_handle *pdbus,
 							bool enable)
 {
@@ -664,6 +681,12 @@ static int sde_power_reg_bus_update(u32 reg_bus_hdl, u32 usecase_ndx)
 }
 
 static int sde_power_data_bus_update(struct sde_power_data_bus_handle *pdbus,
+							bool enable)
+{
+	return 0;
+}
+
+int sde_power_data_bus_state_update(struct sde_power_handle *phandle,
 							bool enable)
 {
 	return 0;

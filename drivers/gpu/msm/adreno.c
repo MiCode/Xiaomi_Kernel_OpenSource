@@ -948,6 +948,9 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 	device->pwrctrl.bus_control = of_property_read_bool(node,
 		"qcom,bus-control");
 
+	device->pwrctrl.input_disable = of_property_read_bool(node,
+		"qcom,disable-wake-on-touch");
+
 	return 0;
 }
 
@@ -1091,15 +1094,19 @@ static int adreno_probe(struct platform_device *pdev)
 		adreno_dev->gpuhtw_llc_slice = NULL;
 	}
 
-	adreno_input_handler.private = device;
-
 #ifdef CONFIG_INPUT
-	/*
-	 * It isn't fatal if we cannot register the input handler.  Sad,
-	 * perhaps, but not fatal
-	 */
-	if (input_register_handler(&adreno_input_handler))
-		KGSL_DRV_ERR(device, "Unable to register the input handler\n");
+	if (!device->pwrctrl.input_disable) {
+		adreno_input_handler.private = device;
+		/*
+		 * It isn't fatal if we cannot register the input handler.  Sad,
+		 * perhaps, but not fatal
+		 */
+		if (input_register_handler(&adreno_input_handler)) {
+			adreno_input_handler.private = NULL;
+			KGSL_DRV_ERR(device,
+				"Unable to register the input handler\n");
+		}
+	}
 #endif
 out:
 	if (status) {
@@ -1153,7 +1160,8 @@ static int adreno_remove(struct platform_device *pdev)
 	_adreno_free_memories(adreno_dev);
 
 #ifdef CONFIG_INPUT
-	input_unregister_handler(&adreno_input_handler);
+	if (adreno_input_handler.private)
+		input_unregister_handler(&adreno_input_handler);
 #endif
 	adreno_sysfs_close(adreno_dev);
 
@@ -1325,8 +1333,7 @@ static int adreno_init(struct kgsl_device *device)
 
 	}
 
-	if (nopreempt == false &&
-		ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION)) {
+	if (nopreempt == false) {
 		int r = 0;
 
 		if (gpudev->preemption_init)
@@ -1450,6 +1457,10 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	/* make sure ADRENO_DEVICE_STARTED is not set here */
 	BUG_ON(test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv));
+
+	/* disallow l2pc during wake up to improve GPU wake up time */
+	kgsl_pwrctrl_update_l2pc(&adreno_dev->dev,
+			KGSL_L2PC_WAKEUP_TIMEOUT);
 
 	pm_qos_update_request(&device->pwrctrl.pm_qos_req_dma,
 			pmqos_wakeup_vote);
@@ -2453,7 +2464,7 @@ void adreno_spin_idle_debug(struct adreno_device *adreno_dev,
 
 	dev_err(device->dev, " hwfault=%8.8X\n", hwfault);
 
-	kgsl_device_snapshot(device, NULL);
+	kgsl_device_snapshot(device, NULL, adreno_gmu_gpu_fault(adreno_dev));
 }
 
 /**

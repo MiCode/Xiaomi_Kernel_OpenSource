@@ -24,6 +24,9 @@
 #define NMI_WATCHDOG_ENABLED      (1 << NMI_WATCHDOG_ENABLED_BIT)
 #define SOFT_WATCHDOG_ENABLED     (1 << SOFT_WATCHDOG_ENABLED_BIT)
 
+DECLARE_PER_CPU(unsigned long, hrtimer_interrupts);
+DECLARE_PER_CPU(unsigned long, hrtimer_interrupts_saved);
+
 /**
  * touch_nmi_watchdog - restart NMI watchdog timeout.
  *
@@ -31,8 +34,11 @@
  * may be used to reset the timeout - for code which intentionally
  * disables interrupts for a long time. This call is stateless.
  */
-#if defined(CONFIG_HAVE_NMI_WATCHDOG) || defined(CONFIG_HARDLOCKUP_DETECTOR)
+#if defined(CONFIG_HAVE_NMI_WATCHDOG) || defined(CONFIG_HARDLOCKUP_DETECTOR_NMI)
 #include <asm/nmi.h>
+#endif
+
+#if defined(CONFIG_HAVE_NMI_WATCHDOG) || defined(CONFIG_HARDLOCKUP_DETECTOR)
 extern void touch_nmi_watchdog(void);
 #else
 static inline void touch_nmi_watchdog(void)
@@ -130,6 +136,7 @@ extern int sysctl_hardlockup_all_cpu_backtrace;
 #define sysctl_softlockup_all_cpu_backtrace 0
 #define sysctl_hardlockup_all_cpu_backtrace 0
 #endif
+
 extern bool is_hardlockup(void);
 struct ctl_table;
 extern int proc_watchdog(struct ctl_table *, int ,

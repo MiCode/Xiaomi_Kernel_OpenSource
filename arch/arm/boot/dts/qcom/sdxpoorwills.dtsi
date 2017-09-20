@@ -175,6 +175,11 @@
 		status = "ok";
 	};
 
+	qcom,sps {
+		compatible = "qcom,msm_sps_4k";
+		qcom,pipe-attr-ee;
+	};
+
 	gdsc_pcie: qcom,gdsc@137004 {
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_pcie";
@@ -321,5 +326,6 @@
 	};
 };
 
+#include "pmxpoorwills.dtsi"
 #include "sdxpoorwills-regulator.dtsi"
 #include "sdxpoorwills-usb.dtsi"

@@ -179,9 +179,14 @@ int msm_vidc_query_ctrl(void *instance, struct v4l2_queryctrl *ctrl)
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES:
 		msm_vidc_ctrl_get_range(ctrl, &inst->capability.slice_bytes);
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_FRAME_RATE:
+	case V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE:
+		msm_vidc_ctrl_get_range(ctrl, &inst->capability.frame_rate);
+		break;
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
 	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_PROFILE:
 	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE:
+	case V4L2_CID_MPEG_VIDC_VIDEO_VP9_PROFILE:
 	{
 		prof_level_supported = &inst->capability.profile_level;
 		for (i = 0; i < prof_level_supported->profile_count; i++) {
@@ -200,6 +205,7 @@ int msm_vidc_query_ctrl(void *instance, struct v4l2_queryctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
 	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_TIER_LEVEL:
 	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_LEVEL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_VP9_LEVEL:
 	{
 		prof_level_supported = &inst->capability.profile_level;
 		for (i = 0; i < prof_level_supported->profile_count; i++) {
@@ -274,6 +280,8 @@ int msm_vidc_g_fmt(void *instance, struct v4l2_format *f)
 		break;
 	case V4L2_PIX_FMT_NV12_TP10_UBWC:
 		color_format = COLOR_FMT_NV12_BPP10_UBWC;
+	case V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010:
+		color_format = COLOR_FMT_P010;
 		break;
 	default:
 		dprintk(VIDC_DBG,
@@ -508,6 +516,12 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 		msm_comm_update_input_cr(inst, b->index, cr);
 	}
 
+	if (inst->session_type == MSM_VIDC_DECODER &&
+			b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		msm_comm_store_mark_data(&inst->etb_data, b->index,
+			b->m.planes[0].reserved[3], b->m.planes[0].reserved[4]);
+	}
+
 	q = msm_comm_get_vb2q(inst, b->type);
 	if (!q) {
 		dprintk(VIDC_ERR,
@@ -558,6 +572,13 @@ int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b)
 	for (i = 0; i < b->length; i++) {
 		b->m.planes[i].reserved[0] = b->m.planes[i].m.fd;
 		b->m.planes[i].reserved[1] = b->m.planes[i].data_offset;
+	}
+
+	if (inst->session_type == MSM_VIDC_DECODER &&
+			b->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		msm_comm_fetch_mark_data(&inst->fbd_data, b->index,
+			&b->m.planes[0].reserved[3],
+			&b->m.planes[0].reserved[4]);
 	}
 
 	return rc;
@@ -866,6 +887,13 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		goto fail_start;
 	}
 
+	rc = msm_vidc_check_scaling_supported(inst);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"This session scaling is not supported %pK\n", inst);
+		goto fail_start;
+	}
+
 	/* Decide work mode for current session */
 	rc = msm_vidc_decide_work_mode(inst);
 	if (rc) {
@@ -1021,6 +1049,14 @@ static int msm_vidc_start_streaming(struct vb2_queue *q, unsigned int count)
 		dprintk(VIDC_ERR,
 				"Failed to commit buffers queued before STREAM_ON to hardware: %d\n",
 				rc);
+		goto stream_start_failed;
+	}
+
+	rc = msm_vidc_send_pending_eos_buffers(inst);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"Failed : Send pending EOS buffs for Inst = %pK, %d\n",
+				inst, rc);
 		goto stream_start_failed;
 	}
 
@@ -1556,6 +1592,8 @@ void *msm_vidc_open(int core_id, int session_type)
 	INIT_MSM_VIDC_LIST(&inst->registeredbufs);
 	INIT_MSM_VIDC_LIST(&inst->reconbufs);
 	INIT_MSM_VIDC_LIST(&inst->eosbufs);
+	INIT_MSM_VIDC_LIST(&inst->etb_data);
+	INIT_MSM_VIDC_LIST(&inst->fbd_data);
 
 	kref_init(&inst->kref);
 
@@ -1663,6 +1701,8 @@ fail_mem_client:
 	DEINIT_MSM_VIDC_LIST(&inst->eosbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->freqs);
 	DEINIT_MSM_VIDC_LIST(&inst->input_crs);
+	DEINIT_MSM_VIDC_LIST(&inst->etb_data);
+	DEINIT_MSM_VIDC_LIST(&inst->fbd_data);
 
 	kfree(inst);
 	inst = NULL;
@@ -1674,6 +1714,7 @@ EXPORT_SYMBOL(msm_vidc_open);
 static void msm_vidc_cleanup_instance(struct msm_vidc_inst *inst)
 {
 	struct msm_vidc_buffer *temp, *dummy;
+	struct getprop_buf *temp_prop, *dummy_prop;
 
 	if (!inst) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -1706,6 +1747,10 @@ static void msm_vidc_cleanup_instance(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR,
 			"Failed to release persist buffers\n");
 
+	if (msm_comm_release_mark_data(inst))
+		dprintk(VIDC_ERR,
+			"Failed to release mark_data buffers\n");
+
 	/*
 	 * At this point all buffes should be with driver
 	 * irrespective of scenario
@@ -1721,10 +1766,18 @@ static void msm_vidc_cleanup_instance(struct msm_vidc_inst *inst)
 	if (inst->extradata_handle)
 		msm_comm_smem_free(inst, inst->extradata_handle);
 
-	debugfs_remove_recursive(inst->debugfs_root);
-
 	mutex_lock(&inst->pending_getpropq.lock);
-	WARN_ON(!list_empty(&inst->pending_getpropq.list));
+	if (!list_empty(&inst->pending_getpropq.list)) {
+		dprintk(VIDC_ERR,
+			"pending_getpropq not empty for instance %pK\n",
+			inst);
+		list_for_each_entry_safe(temp_prop, dummy_prop,
+			&inst->pending_getpropq.list, list) {
+			kfree(temp_prop->data);
+			list_del(&temp_prop->list);
+			kfree(temp_prop);
+		}
+	}
 	mutex_unlock(&inst->pending_getpropq.lock);
 }
 
@@ -1761,11 +1814,15 @@ int msm_vidc_destroy(struct msm_vidc_inst *inst)
 	DEINIT_MSM_VIDC_LIST(&inst->eosbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->freqs);
 	DEINIT_MSM_VIDC_LIST(&inst->input_crs);
+	DEINIT_MSM_VIDC_LIST(&inst->etb_data);
+	DEINIT_MSM_VIDC_LIST(&inst->fbd_data);
 
 	mutex_destroy(&inst->sync_lock);
 	mutex_destroy(&inst->bufq[CAPTURE_PORT].lock);
 	mutex_destroy(&inst->bufq[OUTPUT_PORT].lock);
 	mutex_destroy(&inst->lock);
+
+	msm_vidc_debugfs_deinit_inst(inst);
 
 	pr_info(VIDC_DBG_TAG "Closed video instance: %pK\n",
 			VIDC_MSG_PRIO2STRING(VIDC_INFO), inst);

@@ -212,6 +212,7 @@
 #define GCC_VS_CTRL_CLK_SRC					194
 #define GCC_VSENSOR_CLK_SRC					195
 #define GPLL4							196
+#define GPLL6							197
 
 /* GCC reset clocks */
 #define GCC_MMSS_BCR						0

@@ -1081,8 +1081,10 @@ static void sde_hw_rotator_setup_fetchengine(struct sde_hw_rotator_context *ctx,
 	int i;
 
 	if (ctx->rot->mode == ROT_REGDMA_ON) {
-		SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_CSR_REGDMA_INT_EN,
-				REGDMA_INT_MASK);
+		if (rot->irq_num >= 0)
+			SDE_ROTREG_WRITE(rot->mdss_base,
+					REGDMA_CSR_REGDMA_INT_EN,
+					REGDMA_INT_MASK);
 		SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_CSR_REGDMA_OP_MODE,
 				REGDMA_EN);
 	}
@@ -2522,6 +2524,55 @@ error:
 }
 
 /*
+ * sde_hw_rotator_cancel - cancel hw configuration for the given rotation entry
+ * @hw: Pointer to rotator resource
+ * @entry: Pointer to rotation entry
+ *
+ * This function cancels a previously configured rotation entry.
+ */
+static int sde_hw_rotator_cancel(struct sde_rot_hw_resource *hw,
+		struct sde_rot_entry *entry)
+{
+	struct sde_hw_rotator *rot;
+	struct sde_hw_rotator_resource_info *resinfo;
+	struct sde_hw_rotator_context *ctx;
+	unsigned long flags;
+
+	if (!hw || !entry) {
+		SDEROT_ERR("null hw resource/entry\n");
+		return -EINVAL;
+	}
+
+	resinfo = container_of(hw, struct sde_hw_rotator_resource_info, hw);
+	rot = resinfo->rot;
+
+	/* Lookup rotator context from session-id */
+	ctx = sde_hw_rotator_get_ctx(rot, entry->item.session_id,
+			entry->item.sequence_id, hw->wb_id);
+	if (!ctx) {
+		SDEROT_ERR("Cannot locate rotator ctx from sesison id:%d\n",
+				entry->item.session_id);
+		return -EINVAL;
+	}
+
+	spin_lock_irqsave(&rot->rotisr_lock, flags);
+	sde_hw_rotator_update_swts(rot, ctx, ctx->timestamp);
+	spin_unlock_irqrestore(&rot->rotisr_lock, flags);
+
+	SDEROT_EVTLOG(entry->item.session_id, ctx->timestamp);
+
+	if (rot->dbgmem) {
+		sde_hw_rotator_unmap_vaddr(&ctx->src_dbgbuf);
+		sde_hw_rotator_unmap_vaddr(&ctx->dst_dbgbuf);
+	}
+
+	/* Current rotator context job is finished, time to free up */
+	sde_hw_rotator_free_rotctx(rot, ctx);
+
+	return 0;
+}
+
+/*
  * sde_hw_rotator_kickoff - kickoff processing on the given entry
  * @hw: Pointer to rotator resource
  * @entry: Pointer to rotation entry
@@ -2649,7 +2700,9 @@ static int sde_rotator_hw_rev_init(struct sde_hw_rotator *rot)
 	SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_TIMESTAMP_REG, 0);
 
 	/* features exposed via mdss h/w version */
-	if (IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version, SDE_MDP_HW_REV_400)) {
+	if (IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version, SDE_MDP_HW_REV_400) ||
+		IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
+			SDE_MDP_HW_REV_410)) {
 		SDEROT_DBG("Supporting sys cache inline rotation\n");
 		set_bit(SDE_CAPS_SBUF_1,  mdata->sde_caps_map);
 		set_bit(SDE_CAPS_UBWC_2,  mdata->sde_caps_map);
@@ -3331,6 +3384,7 @@ int sde_rotator_r3_init(struct sde_rot_mgr *mgr)
 	mgr->ops_hw_alloc = sde_hw_rotator_alloc_ext;
 	mgr->ops_hw_free = sde_hw_rotator_free_ext;
 	mgr->ops_config_hw = sde_hw_rotator_config;
+	mgr->ops_cancel_hw = sde_hw_rotator_cancel;
 	mgr->ops_kickoff_entry = sde_hw_rotator_kickoff;
 	mgr->ops_wait_for_entry = sde_hw_rotator_wait4done;
 	mgr->ops_hw_validate_entry = sde_hw_rotator_validate_entry;
@@ -3349,8 +3403,11 @@ int sde_rotator_r3_init(struct sde_rot_mgr *mgr)
 		goto error_parse_dt;
 
 	rot->irq_num = platform_get_irq(mgr->pdev, 0);
-	if (rot->irq_num < 0) {
-		SDEROT_ERR("fail to get rotator irq\n");
+	if (rot->irq_num == -EPROBE_DEFER) {
+		SDEROT_INFO("irq master master not ready, defer probe\n");
+		return -EPROBE_DEFER;
+	} else if (rot->irq_num < 0) {
+		SDEROT_ERR("fail to get rotator irq, fallback to polling\n");
 	} else {
 		if (rot->mode == ROT_REGDMA_OFF)
 			ret = devm_request_threaded_irq(&mgr->pdev->dev,

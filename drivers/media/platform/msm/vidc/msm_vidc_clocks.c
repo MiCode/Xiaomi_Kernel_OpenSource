@@ -569,6 +569,12 @@ static int msm_vidc_set_clocks(struct msm_vidc_core *core)
 	mutex_lock(&core->lock);
 	list_for_each_entry(temp, &core->instances, list) {
 		freq += temp->clk_data.curr_freq;
+		if (temp->clk_data.turbo_mode) {
+			dprintk(VIDC_PROF,
+				"Found an instance with Turbo request\n");
+			freq = msm_vidc_max_freq(core);
+			break;
+		}
 	}
 	for (i = core->resources.allowed_clks_tbl_size - 1; i >= 0; i--) {
 		rate = allowed_clks_tbl[i].clock_rate;
@@ -587,19 +593,22 @@ static int msm_vidc_set_clocks(struct msm_vidc_core *core)
 	return rc;
 }
 
-int msm_vidc_update_operating_rate(struct msm_vidc_inst *inst)
+int msm_vidc_validate_operating_rate(struct msm_vidc_inst *inst,
+	u32 operating_rate)
 {
-	struct v4l2_ctrl *ctrl = NULL;
 	struct msm_vidc_inst *temp;
 	struct msm_vidc_core *core;
 	unsigned long max_freq, freq_left, ops_left, load, cycles, freq = 0;
 	unsigned long mbs_per_second;
+	int rc = 0;
+	u32 curr_operating_rate = 0;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s Invalid args\n", __func__);
 		return -EINVAL;
 	}
 	core = inst->core;
+	curr_operating_rate = inst->clk_data.operating_rate >> 16;
 
 	mutex_lock(&core->lock);
 	max_freq = msm_vidc_max_freq(core);
@@ -614,51 +623,35 @@ int msm_vidc_update_operating_rate(struct msm_vidc_inst *inst)
 
 	freq_left = max_freq - freq;
 
-	list_for_each_entry(temp, &core->instances, list) {
-
-		if (!temp ||
-				temp->state < MSM_VIDC_START_DONE ||
-				temp->state >= MSM_VIDC_RELEASE_RESOURCES_DONE)
-			continue;
-
-		mbs_per_second = msm_comm_get_inst_load_per_core(temp,
+	mbs_per_second = msm_comm_get_inst_load_per_core(inst,
 		LOAD_CALC_NO_QUIRKS);
 
-		cycles = temp->clk_data.entry->vpp_cycles;
-		if (temp->session_type == MSM_VIDC_ENCODER)
-			cycles = temp->flags & VIDC_LOW_POWER ?
-				temp->clk_data.entry->low_power_cycles :
-				cycles;
+	cycles = inst->clk_data.entry->vpp_cycles;
+	if (inst->session_type == MSM_VIDC_ENCODER)
+		cycles = inst->flags & VIDC_LOW_POWER ?
+			inst->clk_data.entry->low_power_cycles :
+			cycles;
 
-		load = cycles * mbs_per_second;
+	load = cycles * mbs_per_second;
 
-		ops_left = load ? (freq_left / load) : 0;
-		/* Convert remaining operating rate to Q16 format */
-		ops_left = ops_left << 16;
+	ops_left = load ? (freq_left / load) : 0;
 
-		ctrl = v4l2_ctrl_find(&temp->ctrl_handler,
-			V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE);
-		if (ctrl) {
-			dprintk(VIDC_DBG,
-				"%s: Before Range = %lld --> %lld\n",
-				ctrl->name, ctrl->minimum, ctrl->maximum);
-			dprintk(VIDC_DBG,
-				"%s: Before Def value = %lld Cur val = %d\n",
-				ctrl->name, ctrl->default_value, ctrl->val);
-			v4l2_ctrl_modify_range(ctrl, ctrl->minimum,
-				ctrl->val + ops_left, ctrl->step,
-				ctrl->default_value);
-			dprintk(VIDC_DBG,
-				"%s: Updated Range = %lld --> %lld\n",
-				ctrl->name, ctrl->minimum, ctrl->maximum);
-			dprintk(VIDC_DBG,
-				"%s: Updated Def value = %lld Cur val = %d\n",
-				ctrl->name, ctrl->default_value, ctrl->val);
-		}
+	operating_rate = operating_rate >> 16;
+
+	if ((curr_operating_rate + ops_left) >= operating_rate) {
+		dprintk(VIDC_DBG,
+			"Requestd operating rate is valid %u\n",
+			operating_rate);
+		rc = 0;
+	} else {
+		dprintk(VIDC_DBG,
+			"Current load is high for requested settings. Cannot set operating rate to %u\n",
+			operating_rate);
+		rc = -EINVAL;
 	}
 	mutex_unlock(&core->lock);
 
-	return 0;
+	return rc;
 }
 
 int msm_comm_scale_clocks(struct msm_vidc_inst *inst)
@@ -980,8 +973,8 @@ static inline int msm_vidc_power_save_mode_enable(struct msm_vidc_inst *inst,
 		return 0;
 	}
 	mbs_per_frame = msm_vidc_get_mbs_per_frame(inst);
-	if (mbs_per_frame >= inst->core->resources.max_hq_mbs_per_frame ||
-		inst->prop.fps >= inst->core->resources.max_hq_fps) {
+	if (mbs_per_frame > inst->core->resources.max_hq_mbs_per_frame ||
+		inst->prop.fps > inst->core->resources.max_hq_fps) {
 		enable = true;
 	}
 
@@ -1184,7 +1177,37 @@ decision_done:
 
 	rc = msm_comm_scale_clocks_and_bus(inst);
 
+	msm_print_core_status(core, VIDC_CORE_ID_1);
+	msm_print_core_status(core, VIDC_CORE_ID_2);
+
 	return rc;
 }
 
+void msm_print_core_status(struct msm_vidc_core *core, u32 core_id)
+{
+	struct msm_vidc_inst *inst = NULL;
 
+	dprintk(VIDC_PROF, "Instances running on core %u", core_id);
+	mutex_lock(&core->lock);
+	list_for_each_entry(inst, &core->instances, list) {
+
+		if (!((inst->clk_data.core_id & core_id) ||
+			  (inst->clk_data.core_id & VIDC_CORE_ID_3)))
+			continue;
+
+		dprintk(VIDC_PROF,
+			"inst %pK (%4ux%4u) to (%4ux%4u) %3u %s %s %s %s\n",
+			inst,
+			inst->prop.width[OUTPUT_PORT],
+			inst->prop.height[OUTPUT_PORT],
+			inst->prop.width[CAPTURE_PORT],
+			inst->prop.height[CAPTURE_PORT],
+			inst->prop.fps,
+			inst->session_type == MSM_VIDC_ENCODER ? "ENC" : "DEC",
+			inst->clk_data.work_mode == VIDC_WORK_MODE_1 ?
+				"WORK_MODE_1" : "WORK_MODE_2",
+			inst->flags & VIDC_LOW_POWER ? "LP" : "HQ",
+			inst->flags & VIDC_REALTIME ? "RealTime" : "NonRTime");
+	}
+	mutex_unlock(&core->lock);
+}

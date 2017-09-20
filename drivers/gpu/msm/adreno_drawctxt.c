@@ -533,7 +533,8 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 				drawctxt->internal_timestamp,
 				drawctxt->type, ret);
 		device->force_panic = 1;
-		kgsl_device_snapshot(device, context);
+		kgsl_device_snapshot(device, context,
+				adreno_gmu_gpu_fault(adreno_dev));
 	}
 
 	kgsl_sharedmem_writel(device, &device->memstore,

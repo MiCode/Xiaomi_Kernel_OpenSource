@@ -335,8 +335,8 @@ static struct ctl_table kern_table[] = {
 		.extra2		= &max_sched_granularity_ns,
 	},
 	{
-		.procname	= "sched_is_big_little",
-		.data		= &sysctl_sched_is_big_little,
+		.procname	= "sched_sync_hint_enable",
+		.data		= &sysctl_sched_sync_hint_enable,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
@@ -366,13 +366,6 @@ static struct ctl_table kern_table[] = {
 		.extra2		= &three,
 	},
 #endif
-	{
-		.procname	= "sched_sync_hint_enable",
-		.data		= &sysctl_sched_sync_hint_enable,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
-	},
 	{
 		.procname	= "sched_initial_task_util",
 		.data		= &sysctl_sched_initial_task_util,

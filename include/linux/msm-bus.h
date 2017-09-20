@@ -87,8 +87,8 @@ struct msm_bus_client_handle {
 	struct device *mas_dev;
 	u64 cur_act_ib;
 	u64 cur_act_ab;
-	u64 cur_slp_ib;
-	u64 cur_slp_ab;
+	u64 cur_dual_ib;
+	u64 cur_dual_ab;
 	bool active_only;
 };
 
@@ -125,7 +125,7 @@ msm_bus_scale_register(uint32_t mas, uint32_t slv, char *name,
 void msm_bus_scale_unregister(struct msm_bus_client_handle *cl);
 int msm_bus_scale_update_bw(struct msm_bus_client_handle *cl, u64 ab, u64 ib);
 int msm_bus_scale_update_bw_context(struct msm_bus_client_handle *cl,
-		u64 act_ab, u64 act_ib, u64 slp_ib, u64 slp_ab);
+		u64 act_ab, u64 act_ib, u64 dual_ib, u64 dual_ab);
 int msm_bus_scale_query_tcs_cmd(struct msm_bus_tcs_usecase *tcs_usecase,
 					uint32_t cl, unsigned int index);
 int msm_bus_scale_query_tcs_cmd_all(struct msm_bus_tcs_handle *tcs_handle,
@@ -192,7 +192,7 @@ msm_bus_scale_update_bw(struct msm_bus_client_handle *cl, u64 ab, u64 ib)
 
 static inline int
 msm_bus_scale_update_bw_context(struct msm_bus_client_handle *cl, u64 act_ab,
-				u64 act_ib, u64 slp_ib, u64 slp_ab)
+				u64 act_ib, u64 dual_ib, u64 dual_ab)
 
 {
 	return 0;

@@ -12,6 +12,7 @@
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
 #include "msm_drv.h"
+#include "sde_dbg.h"
 
 #include "sde_kms.h"
 #include "sde_connector.h"
@@ -107,7 +108,6 @@ static const struct backlight_ops sde_backlight_device_ops = {
 static int sde_backlight_setup(struct sde_connector *c_conn,
 					struct drm_device *dev)
 {
-	struct backlight_device *bl_device;
 	struct backlight_properties props;
 	struct dsi_display *display;
 	struct dsi_backlight_config *bl_config;
@@ -131,11 +131,12 @@ static int sde_backlight_setup(struct sde_connector *c_conn,
 	props.brightness = bl_config->brightness_max_level;
 	snprintf(bl_node_name, BL_NODE_NAME_SIZE, "panel%u-backlight",
 							display_count);
-	bl_device = backlight_device_register(bl_node_name, dev->dev,
+	c_conn->bl_device = backlight_device_register(bl_node_name, dev->dev,
 			c_conn, &sde_backlight_device_ops, &props);
-	if (IS_ERR_OR_NULL(bl_device)) {
+	if (IS_ERR_OR_NULL(c_conn->bl_device)) {
 		SDE_ERROR("Failed to register backlight: %ld\n",
-				    PTR_ERR(bl_device));
+				    PTR_ERR(c_conn->bl_device));
+		c_conn->bl_device = NULL;
 		return -ENODEV;
 	}
 	display_count++;
@@ -502,6 +503,8 @@ static void sde_connector_destroy(struct drm_connector *connector)
 		drm_property_unreference_blob(c_conn->blob_dither);
 	msm_property_destroy(&c_conn->property_info);
 
+	if (c_conn->bl_device)
+		backlight_device_unregister(c_conn->bl_device);
 	drm_connector_unregister(connector);
 	mutex_destroy(&c_conn->lock);
 	sde_fence_deinit(&c_conn->retire_fence);
@@ -522,7 +525,6 @@ static void _sde_connector_destroy_fb(struct sde_connector *c_conn,
 		return;
 	}
 
-	msm_framebuffer_cleanup(c_state->out_fb, c_state->aspace);
 	drm_framebuffer_unreference(c_state->out_fb);
 	c_state->out_fb = NULL;
 
@@ -603,7 +605,6 @@ sde_connector_atomic_duplicate_state(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn;
 	struct sde_connector_state *c_state, *c_oldstate;
-	int rc;
 
 	if (!connector || !connector->state) {
 		SDE_ERROR("invalid connector %pK\n", connector);
@@ -624,13 +625,8 @@ sde_connector_atomic_duplicate_state(struct drm_connector *connector)
 			&c_state->property_state, c_state->property_values);
 
 	/* additional handling for drm framebuffer objects */
-	if (c_state->out_fb) {
+	if (c_state->out_fb)
 		drm_framebuffer_reference(c_state->out_fb);
-		rc = msm_framebuffer_prepare(c_state->out_fb,
-				c_state->aspace);
-		if (rc)
-			SDE_ERROR("failed to prepare fb, %d\n", rc);
-	}
 
 	return &c_state->base;
 }
@@ -751,6 +747,42 @@ static int _sde_connector_set_roi_v1(
 	return 0;
 }
 
+static int _sde_connector_update_bl_scale(struct sde_connector *c_conn,
+		int idx,
+		uint64_t value)
+{
+	struct dsi_display *dsi_display = c_conn->display;
+	struct dsi_backlight_config *bl_config;
+	int rc = 0;
+
+	if (!dsi_display || !dsi_display->panel) {
+		pr_err("Invalid params(s) dsi_display %pK, panel %pK\n",
+			dsi_display,
+			((dsi_display) ? dsi_display->panel : NULL));
+		return -EINVAL;
+	}
+
+	bl_config = &dsi_display->panel->bl_config;
+	if (idx == CONNECTOR_PROP_BL_SCALE) {
+		bl_config->bl_scale = value;
+		if (value > MAX_BL_SCALE_LEVEL)
+			bl_config->bl_scale = MAX_BL_SCALE_LEVEL;
+		SDE_DEBUG("set to panel: bl_scale = %u, bl_level = %u\n",
+			bl_config->bl_scale, bl_config->bl_level);
+		rc = c_conn->ops.set_backlight(dsi_display,
+					       bl_config->bl_level);
+	} else if (idx == CONNECTOR_PROP_AD_BL_SCALE) {
+		bl_config->bl_scale_ad = value;
+		if (value > MAX_AD_BL_SCALE_LEVEL)
+			bl_config->bl_scale_ad = MAX_AD_BL_SCALE_LEVEL;
+		SDE_DEBUG("set to panel: bl_scale_ad = %u, bl_level = %u\n",
+			bl_config->bl_scale_ad, bl_config->bl_level);
+		rc = c_conn->ops.set_backlight(dsi_display,
+					       bl_config->bl_level);
+	}
+	return rc;
+}
+
 static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		struct drm_connector_state *state,
 		struct drm_property *property,
@@ -795,19 +827,11 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		} else {
 			msm_framebuffer_set_kmap(c_state->out_fb,
 					c_conn->fb_kmap);
-
-			if (c_state->out_fb->flags & DRM_MODE_FB_SECURE)
-				c_state->aspace =
-				c_conn->aspace[SDE_IOMMU_DOMAIN_SECURE];
-			else
-				c_state->aspace =
-				c_conn->aspace[SDE_IOMMU_DOMAIN_UNSECURE];
-
-			rc = msm_framebuffer_prepare(c_state->out_fb,
-					c_state->aspace);
-			if (rc)
-				SDE_ERROR("prep fb failed, %d\n", rc);
 		}
+		break;
+	case CONNECTOR_PROP_BL_SCALE:
+	case CONNECTOR_PROP_AD_BL_SCALE:
+		rc = _sde_connector_update_bl_scale(c_conn, idx, val);
 		break;
 	default:
 		break;
@@ -903,7 +927,18 @@ void sde_connector_complete_commit(struct drm_connector *connector,
 	}
 
 	/* signal connector's retire fence */
-	sde_fence_signal(&to_sde_connector(connector)->retire_fence, ts, 0);
+	sde_fence_signal(&to_sde_connector(connector)->retire_fence, ts, false);
+}
+
+void sde_connector_commit_reset(struct drm_connector *connector, ktime_t ts)
+{
+	if (!connector) {
+		SDE_ERROR("invalid connector\n");
+		return;
+	}
+
+	/* signal connector's retire fence */
+	sde_fence_signal(&to_sde_connector(connector)->retire_fence, ts, true);
 }
 
 static enum drm_connector_status
@@ -1165,6 +1200,8 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 		return ERR_PTR(-ENOMEM);
 	}
 
+	memset(&display_info, 0, sizeof(display_info));
+
 	rc = drm_connector_init(dev,
 			&c_conn->base,
 			&sde_connector_ops,
@@ -1297,6 +1334,14 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 	msm_property_install_range(&c_conn->property_info, "autorefresh",
 			0x0, 0, AUTOREFRESH_MAX_FRAME_CNT, 0,
 			CONNECTOR_PROP_AUTOREFRESH);
+
+	msm_property_install_range(&c_conn->property_info, "bl_scale",
+		0x0, 0, MAX_BL_SCALE_LEVEL, MAX_BL_SCALE_LEVEL,
+		CONNECTOR_PROP_BL_SCALE);
+
+	msm_property_install_range(&c_conn->property_info, "ad_bl_scale",
+		0x0, 0, MAX_AD_BL_SCALE_LEVEL, MAX_AD_BL_SCALE_LEVEL,
+		CONNECTOR_PROP_AD_BL_SCALE);
 
 	/* enum/bitmask properties */
 	msm_property_install_enum(&c_conn->property_info, "topology_name",

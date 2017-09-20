@@ -293,6 +293,13 @@ static int pil_mss_loadable_init(struct modem_data *drv,
 	if (res) {
 		q6->pdc_sync = devm_ioremap(&pdev->dev,
 						res->start, resource_size(res));
+		if (of_property_read_u32(pdev->dev.of_node,
+			"qcom,mss_pdc_offset", &q6->mss_pdc_offset)) {
+			dev_err(&pdev->dev,
+				"Offset for MSS PDC not specified\n");
+			return -EINVAL;
+		}
+
 	}
 
 	q6->alt_reset = NULL;

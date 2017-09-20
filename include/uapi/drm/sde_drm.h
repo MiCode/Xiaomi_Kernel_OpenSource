@@ -67,7 +67,7 @@
 #define SDE_DRM_BITMASK_COUNT       64
 
 /**
- * Framebuffer modes for "fb_translation_mode" PLANE property
+ * Framebuffer modes for "fb_translation_mode" PLANE and CONNECTOR property
  *
  * @SDE_DRM_FB_NON_SEC:          IOMMU configuration for this framebuffer mode
  *                               is non-secure domain and requires

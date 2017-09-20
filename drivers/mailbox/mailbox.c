@@ -115,11 +115,14 @@ static void tx_tick(struct mbox_chan *chan, int r)
 	/* Submit next message */
 	msg_submit(chan);
 
+	if (!mssg)
+		return;
+
 	/* Notify the client */
-	if (mssg && chan->cl->tx_done)
+	if (chan->cl->tx_done)
 		chan->cl->tx_done(chan->cl, mssg, r);
 
-	if (chan->cl->tx_block)
+	if (r != -ETIME && chan->cl->tx_block)
 		complete(&chan->tx_complete);
 }
 
@@ -272,7 +275,7 @@ int mbox_send_message(struct mbox_chan *chan, void *mssg)
 
 	msg_submit(chan);
 
-	if (chan->cl->tx_block && chan->active_req) {
+	if (chan->cl->tx_block) {
 		unsigned long wait;
 		int ret;
 
@@ -283,8 +286,8 @@ int mbox_send_message(struct mbox_chan *chan, void *mssg)
 
 		ret = wait_for_completion_timeout(&chan->tx_complete, wait);
 		if (ret == 0) {
-			t = -EIO;
-			tx_tick(chan, -EIO);
+			t = -ETIME;
+			tx_tick(chan, t);
 		}
 	}
 
@@ -293,8 +296,9 @@ int mbox_send_message(struct mbox_chan *chan, void *mssg)
 EXPORT_SYMBOL_GPL(mbox_send_message);
 
 /**
- * mbox_send_controller_data-	For client to submit a message to be
- *				sent only to the controller.
+ * mbox_write_controller_data -	For client to submit a message to be
+ *				written to the controller but not sent to
+ *				the remote processor.
  * @chan: Mailbox channel assigned to this client.
  * @mssg: Client specific message typecasted.
  *
@@ -305,7 +309,7 @@ EXPORT_SYMBOL_GPL(mbox_send_message);
  *	or transmission over chan (blocking mode).
  *	Negative value denotes failure.
  */
-int mbox_send_controller_data(struct mbox_chan *chan, void *mssg)
+int mbox_write_controller_data(struct mbox_chan *chan, void *mssg)
 {
 	unsigned long flags;
 	int err;
@@ -314,12 +318,12 @@ int mbox_send_controller_data(struct mbox_chan *chan, void *mssg)
 		return -EINVAL;
 
 	spin_lock_irqsave(&chan->lock, flags);
-	err = chan->mbox->ops->send_controller_data(chan, mssg);
+	err = chan->mbox->ops->write_controller_data(chan, mssg);
 	spin_unlock_irqrestore(&chan->lock, flags);
 
 	return err;
 }
-EXPORT_SYMBOL(mbox_send_controller_data);
+EXPORT_SYMBOL(mbox_write_controller_data);
 
 bool mbox_controller_is_idle(struct mbox_chan *chan)
 {

@@ -26,6 +26,9 @@ qcom,csiphy@ac65000 {
      reg-names = "csiphy";
      interrupts = <0 477 0>;
      interrupt-names = "csiphy";
+     regulator-names = "gdscr", "refgen";
+     gdscr-supply = <&titan_top_gdsc>;
+     refgen-supply = <&refgen>;
      clock-names = "camnoc_axi_clk", "soc_ahb_clk",
               "slow_ahb_src_clk", "cpas_ahb_clk",
               "cphy_rx_clk_src", "csiphy0_clk",
@@ -34,6 +37,5 @@ qcom,csiphy@ac65000 {
      clock-rates =
            <0 0 80000000 0 320000000 0 269333333 0 0 384000000>;
      clock-cntl-level = "turbo";
-     regulator-names = "gdscr";
      status = "ok";
 };

@@ -169,6 +169,19 @@ struct internal_buf {
 	enum buffer_owner buffer_ownership;
 };
 
+struct msm_vidc_csc_coeff {
+	u32 *vpe_csc_custom_matrix_coeff;
+	u32 *vpe_csc_custom_bias_coeff;
+	u32 *vpe_csc_custom_limit_coeff;
+};
+
+struct msm_vidc_buf_data {
+	struct list_head list;
+	u32 index;
+	u32 mark_data;
+	u32 mark_target;
+};
+
 struct msm_vidc_common_data {
 	char key[128];
 	int value;
@@ -182,11 +195,33 @@ struct msm_vidc_codec_data {
 	int low_power_cycles;
 };
 
+enum efuse_purpose {
+	SKU_VERSION = 0,
+};
+
+enum sku_version {
+	SKU_VERSION_0 = 0,
+	SKU_VERSION_1,
+	SKU_VERSION_2,
+};
+
+struct msm_vidc_efuse_data {
+	u32 start_address;
+	u32 size;
+	u32 mask;
+	u32 shift;
+	enum efuse_purpose purpose;
+};
+
 struct msm_vidc_platform_data {
 	struct msm_vidc_common_data *common_data;
 	unsigned int common_data_length;
 	struct msm_vidc_codec_data *codec_data;
 	unsigned int codec_data_length;
+	struct msm_vidc_csc_coeff csc_data;
+	struct msm_vidc_efuse_data *efuse_data;
+	unsigned int efuse_data_length;
+	unsigned int sku_version;
 };
 
 struct msm_vidc_format {
@@ -204,7 +239,7 @@ struct msm_vidc_drv {
 	int num_cores;
 	struct dentry *debugfs_root;
 	int thermal_level;
-	u32 platform_version;
+	u32 sku_version;
 };
 
 struct msm_video_device {
@@ -272,6 +307,7 @@ struct clock_data {
 	u32 opb_fourcc;
 	enum hal_work_mode work_mode;
 	bool low_latency_mode;
+	bool turbo_mode;
 };
 
 struct profile_data {
@@ -317,6 +353,7 @@ struct msm_vidc_core {
 	struct msm_vidc_capability *capabilities;
 	struct delayed_work fw_unload_work;
 	bool smmu_fault_handled;
+	bool trigger_ssr;
 	unsigned long min_freq;
 	unsigned long curr_freq;
 	struct vidc_bus_vote_data *vote_data;
@@ -341,6 +378,8 @@ struct msm_vidc_inst {
 	struct msm_vidc_list reconbufs;
 	struct msm_vidc_list eosbufs;
 	struct msm_vidc_list registeredbufs;
+	struct msm_vidc_list etb_data;
+	struct msm_vidc_list fbd_data;
 	struct buffer_requirements buff_req;
 	struct smem_client *mem_client;
 	struct v4l2_ctrl_handler ctrl_handler;
