@@ -4282,10 +4282,65 @@ static int venus_hfi_get_core_capabilities(void *dev)
 	return rc;
 }
 
+static void __noc_error_info(struct venus_hfi_device *device, u32 core_num)
+{
+	u32 vcodec_core_video_noc_base_offs, val;
+
+	if (!device) {
+		dprintk(VIDC_ERR, "%s: null device\n", __func__);
+		return;
+	}
+	if (!core_num) {
+		vcodec_core_video_noc_base_offs =
+			VCODEC_CORE0_VIDEO_NOC_BASE_OFFS;
+	} else if (core_num == 1) {
+		vcodec_core_video_noc_base_offs =
+			VCODEC_CORE1_VIDEO_NOC_BASE_OFFS;
+	} else {
+		dprintk(VIDC_ERR, "%s: invalid core_num %u\n",
+			__func__, core_num);
+		return;
+	}
+
+	val = __read_register(device, vcodec_core_video_noc_base_offs +
+			VCODEC_COREX_VIDEO_NOC_ERR_SWID_LOW_OFFS);
+	dprintk(VIDC_ERR, "CORE%d_NOC_ERR_SWID_LOW:     %#x\n", core_num, val);
+	val = __read_register(device, vcodec_core_video_noc_base_offs +
+			VCODEC_COREX_VIDEO_NOC_ERR_SWID_HIGH_OFFS);
+	dprintk(VIDC_ERR, "CORE%d_NOC_ERR_SWID_HIGH:    %#x\n", core_num, val);
+	val = __read_register(device, vcodec_core_video_noc_base_offs +
+			VCODEC_COREX_VIDEO_NOC_ERR_MAINCTL_LOW_OFFS);
+	dprintk(VIDC_ERR, "CORE%d_NOC_ERR_MAINCTL_LOW:  %#x\n", core_num, val);
+	val = __read_register(device, vcodec_core_video_noc_base_offs +
+			VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG0_LOW_OFFS);
+	dprintk(VIDC_ERR, "CORE%d_NOC_ERR_ERRLOG0_LOW:  %#x\n", core_num, val);
+	val = __read_register(device, vcodec_core_video_noc_base_offs +
+			VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG0_HIGH_OFFS);
+	dprintk(VIDC_ERR, "CORE%d_NOC_ERR_ERRLOG0_HIGH: %#x\n", core_num, val);
+	val = __read_register(device, vcodec_core_video_noc_base_offs +
+			VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG1_LOW_OFFS);
+	dprintk(VIDC_ERR, "CORE%d_NOC_ERR_ERRLOG1_LOW:  %#x\n", core_num, val);
+	val = __read_register(device, vcodec_core_video_noc_base_offs +
+			VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG1_HIGH_OFFS);
+	dprintk(VIDC_ERR, "CORE%d_NOC_ERR_ERRLOG1_HIGH: %#x\n", core_num, val);
+	val = __read_register(device, vcodec_core_video_noc_base_offs +
+			VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG2_LOW_OFFS);
+	dprintk(VIDC_ERR, "CORE%d_NOC_ERR_ERRLOG2_LOW:  %#x\n", core_num, val);
+	val = __read_register(device, vcodec_core_video_noc_base_offs +
+			VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG2_HIGH_OFFS);
+	dprintk(VIDC_ERR, "CORE%d_NOC_ERR_ERRLOG2_HIGH: %#x\n", core_num, val);
+	val = __read_register(device, vcodec_core_video_noc_base_offs +
+			VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG3_LOW_OFFS);
+	dprintk(VIDC_ERR, "CORE%d_NOC_ERR_ERRLOG3_LOW:  %#x\n", core_num, val);
+	val = __read_register(device, vcodec_core_video_noc_base_offs +
+			VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG3_HIGH_OFFS);
+	dprintk(VIDC_ERR, "CORE%d_NOC_ERR_ERRLOG3_HIGH: %#x\n", core_num, val);
+}
+
 static int venus_hfi_noc_error_info(void *dev)
 {
 	struct venus_hfi_device *device;
-	u32 val = 0;
+	const u32 core0 = 0, core1 = 1;
 
 	if (!dev) {
 		dprintk(VIDC_ERR, "%s: null device\n", __func__);
@@ -4296,44 +4351,13 @@ static int venus_hfi_noc_error_info(void *dev)
 	mutex_lock(&device->lock);
 	dprintk(VIDC_ERR, "%s: non error information\n", __func__);
 
-	val = __read_register(device, 0x0C500);
-	dprintk(VIDC_ERR, "NOC_ERR_SWID_LOW(0x00AA0C500):     %#x\n", val);
+	if (__read_register(device, VCODEC_CORE0_VIDEO_NOC_BASE_OFFS +
+			VCODEC_COREX_VIDEO_NOC_ERR_ERRVLD_LOW_OFFS))
+		__noc_error_info(device, core0);
 
-	val = __read_register(device, 0x0C504);
-	dprintk(VIDC_ERR, "NOC_ERR_SWID_HIGH(0x00AA0C504):    %#x\n", val);
-
-	val = __read_register(device, 0x0C508);
-	dprintk(VIDC_ERR, "NOC_ERR_MAINCTL_LOW(0x00AA0C508):  %#x\n", val);
-
-	val = __read_register(device, 0x0C510);
-	dprintk(VIDC_ERR, "NOC_ERR_ERRVLD_LOW(0x00AA0C510):   %#x\n", val);
-
-	val = __read_register(device, 0x0C518);
-	dprintk(VIDC_ERR, "NOC_ERR_ERRCLR_LOW(0x00AA0C518):   %#x\n", val);
-
-	val = __read_register(device, 0x0C520);
-	dprintk(VIDC_ERR, "NOC_ERR_ERRLOG0_LOW(0x00AA0C520):  %#x\n", val);
-
-	val = __read_register(device, 0x0C524);
-	dprintk(VIDC_ERR, "NOC_ERR_ERRLOG0_HIGH(0x00AA0C524): %#x\n", val);
-
-	val = __read_register(device, 0x0C528);
-	dprintk(VIDC_ERR, "NOC_ERR_ERRLOG1_LOW(0x00AA0C528):  %#x\n", val);
-
-	val = __read_register(device, 0x0C52C);
-	dprintk(VIDC_ERR, "NOC_ERR_ERRLOG1_HIGH(0x00AA0C52C): %#x\n", val);
-
-	val = __read_register(device, 0x0C530);
-	dprintk(VIDC_ERR, "NOC_ERR_ERRLOG2_LOW(0x00AA0C530):  %#x\n", val);
-
-	val = __read_register(device, 0x0C534);
-	dprintk(VIDC_ERR, "NOC_ERR_ERRLOG2_HIGH(0x00AA0C534): %#x\n", val);
-
-	val = __read_register(device, 0x0C538);
-	dprintk(VIDC_ERR, "NOC_ERR_ERRLOG3_LOW(0x00AA0C538):  %#x\n", val);
-
-	val = __read_register(device, 0x0C53C);
-	dprintk(VIDC_ERR, "NOC_ERR_ERRLOG3_HIGH(0x00AA0C53C): %#x\n", val);
+	if (__read_register(device, VCODEC_CORE1_VIDEO_NOC_BASE_OFFS +
+			VCODEC_COREX_VIDEO_NOC_ERR_ERRVLD_LOW_OFFS))
+		__noc_error_info(device, core1);
 
 	mutex_unlock(&device->lock);
 
