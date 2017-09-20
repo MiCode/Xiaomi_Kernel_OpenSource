@@ -2410,21 +2410,21 @@ static void sde_plane_rot_atomic_update(struct drm_plane *plane,
 	sde_plane_rot_submit_command(plane, state, SDE_HW_ROT_CMD_COMMIT);
 }
 
-void sde_plane_kickoff(struct drm_plane *plane)
+int sde_plane_kickoff_rot(struct drm_plane *plane)
 {
 	struct sde_plane_state *pstate;
 
 	if (!plane || !plane->state) {
 		SDE_ERROR("invalid plane\n");
-		return;
+		return -EINVAL;
 	}
 
 	pstate = to_sde_plane_state(plane->state);
 
 	if (!pstate->rot.rot_hw || !pstate->rot.rot_hw->ops.commit)
-		return;
+		return 0;
 
-	pstate->rot.rot_hw->ops.commit(pstate->rot.rot_hw,
+	return pstate->rot.rot_hw->ops.commit(pstate->rot.rot_hw,
 			&pstate->rot.rot_cmd,
 			SDE_HW_ROT_CMD_START);
 }
