@@ -355,6 +355,7 @@ struct dsi_panel_cmd_set {
  * @v_front_porch:    Vertical front porch in lines.
  * @v_sync_polarity:  Polarity of VSYNC (false is active low).
  * @refresh_rate:     Refresh rate in Hz.
+ * @clk_rate_hz:      DSI bit clock rate per lane in Hz.
  * @dsc_enabled:      DSC compression enabled.
  * @dsc:              DSC compression configuration.
  */
@@ -373,7 +374,7 @@ struct dsi_mode_info {
 	bool v_sync_polarity;
 
 	u32 refresh_rate;
-
+	u64 clk_rate_hz;
 	bool dsc_enabled;
 	struct msm_display_dsc_info *dsc;
 };
@@ -500,6 +501,7 @@ struct dsi_host_config {
  * @phy_timing_len:       Phy timing array length
  * @panel_jitter:         Panel jitter for RSC backoff
  * @panel_prefill_lines:  Panel prefill lines for RSC
+ * @clk_rate_hz:          DSI bit clock per lane in hz.
  * @topology:             Topology selected for the panel
  * @dsc:                  DSC compression info
  * @dsc_enabled:          DSC compression enabled
@@ -513,6 +515,7 @@ struct dsi_display_mode_priv_info {
 	u32 panel_jitter_numer;
 	u32 panel_jitter_denom;
 	u32 panel_prefill_lines;
+	u64 clk_rate_hz;
 
 	struct msm_display_topology topology;
 	struct msm_display_dsc_info dsc;

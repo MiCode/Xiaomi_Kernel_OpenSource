@@ -686,6 +686,21 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 				  struct device_node *of_node)
 {
 	int rc = 0;
+	u64 tmp64;
+	struct dsi_display_mode *display_mode;
+
+	display_mode = container_of(mode, struct dsi_display_mode, timing);
+
+	rc = of_property_read_u64(of_node,
+			"qcom,mdss-dsi-panel-clockrate", &tmp64);
+	if (rc == -EOVERFLOW) {
+		tmp64 = 0;
+		rc = of_property_read_u32(of_node,
+			"qcom,mdss-dsi-panel-clockrate", (u32 *)&tmp64);
+	}
+
+	mode->clk_rate_hz = !rc ? tmp64 : 0;
+	display_mode->priv_info->clk_rate_hz = mode->clk_rate_hz;
 
 	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-framerate",
 				  &mode->refresh_rate);
@@ -3077,6 +3092,7 @@ int dsi_panel_get_host_cfg_for_mode(struct dsi_panel *panel,
 	config->video_timing.dsc_enabled = mode->priv_info->dsc_enabled;
 	config->video_timing.dsc = &mode->priv_info->dsc;
 
+	config->bit_clk_rate_hz = mode->priv_info->clk_rate_hz;
 	config->esc_clk_rate_hz = 19200000;
 	mutex_unlock(&panel->panel_lock);
 	return rc;
