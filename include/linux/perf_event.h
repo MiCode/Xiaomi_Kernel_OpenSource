@@ -717,6 +717,9 @@ struct perf_event {
 #endif
 
 	struct list_head		sb_list;
+
+	/* Is this event shared with other events */
+	bool					shared;
 #endif /* CONFIG_PERF_EVENTS */
 };
 
