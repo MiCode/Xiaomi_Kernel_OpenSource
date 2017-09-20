@@ -108,14 +108,34 @@ enum hdmi_tx_feature_type {
  * @mode:             Current display mode.
  * @connected:        If HDMI display is connected.
  * @is_tpg_enabled:   TPG state.
+ * @hdmi_tx_version:  HDMI TX version
+ * @hdmi_tx_major_version: HDMI TX major version
+ * @max_pclk_khz: Max pixel clock supported
+ * @hdcp1_use_sw_keys: If HDCP1 engine uses SW keys
+ * @hdcp14_present: If the sink supports HDCP 1.4
+ * @hdcp22_present: If the sink supports HDCP 2.2
+ * @hdcp_status: Current HDCP status
+ * @sink_hdcp_ver: HDCP version of the sink
+ * @enc_lvl: Current encryption level
+ * @curr_hdr_state: Current HDR state of the HDMI connector
+ * @auth_state: Current authentication state of HDCP
+ * @sink_hdcp22_support: If the sink supports HDCP 2.2
+ * @src_hdcp22_support: If the source supports HDCP 2.2
+ * @hdcp_data: Call back data registered by the client with HDCP lib
+ * @hdcp_feat_data: Handle to HDCP feature data
+ * @hdcp_ops: Function ops registered by the client with the HDCP lib
+ * @ddc_ctrl: Handle to HDMI DDC Controller
  * @hpd_work:         HPD work structure.
  * @codec_ready:      If audio codec is ready.
  * @client_notify_pending: If there is client notification pending.
  * @irq_domain:       IRQ domain structure.
+ * @notifier:         CEC notifider to convey physical address information.
  * @pll_update_enable: if it's allowed to update HDMI PLL ppm.
  * @dc_enable:        If deep color is enabled. Only DC_30 so far.
  * @dc_feature_supported: If deep color feature is supported.
- * @notifier:         CEC notifider to convey physical address information.
+ * @bt2020_colorimetry: If BT2020 colorimetry is supported by sink
+ * @hdcp_cb_work: Callback function for HDCP
+ * @io: Handle to IO base addresses for HDMI
  * @root:             Debug fs root entry.
  */
 struct sde_hdmi {
@@ -146,6 +166,7 @@ struct sde_hdmi {
 	u32 hdcp14_present;
 	u32 hdcp22_present;
 	u8 hdcp_status;
+	u8 sink_hdcp_ver;
 	u32 enc_lvl;
 	u8 curr_hdr_state;
 	bool auth_state;

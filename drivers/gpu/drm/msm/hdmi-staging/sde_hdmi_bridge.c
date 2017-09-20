@@ -511,6 +511,11 @@ static void sde_hdmi_update_hdcp_info(struct drm_connector *connector)
 		}
 	}
 
+	if (display->sink_hdcp22_support)
+		display->sink_hdcp_ver = SDE_HDMI_HDCP_22;
+	else
+		display->sink_hdcp_ver = SDE_HDMI_HDCP_14;
+
 	/* update internal data about hdcp */
 	display->hdcp_data = fd;
 	display->hdcp_ops = ops;
@@ -543,6 +548,7 @@ static void _sde_hdmi_bridge_disable(struct drm_bridge *bridge)
 	mutex_lock(&display->display_lock);
 
 	display->pll_update_enable = false;
+	display->sink_hdcp_ver = SDE_HDMI_HDCP_NONE;
 
 	mutex_unlock(&display->display_lock);
 }
