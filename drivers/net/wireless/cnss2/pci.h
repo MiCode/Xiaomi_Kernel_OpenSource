@@ -137,5 +137,6 @@ int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv);
 void cnss_pci_stop_mhi(struct cnss_pci_data *pci_priv);
 void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv);
 void cnss_pci_clear_dump_info(struct cnss_pci_data *pci_priv);
+int cnss_pm_request_resume(struct cnss_pci_data *pci_priv);
 
 #endif /* _CNSS_PCI_H */

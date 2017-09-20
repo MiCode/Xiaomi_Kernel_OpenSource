@@ -685,6 +685,20 @@ out:
 }
 EXPORT_SYMBOL(cnss_auto_resume);
 
+int cnss_pm_request_resume(struct cnss_pci_data *pci_priv)
+{
+	struct pci_dev *pci_dev;
+
+	if (!pci_priv)
+		return -ENODEV;
+
+	pci_dev = pci_priv->pci_dev;
+	if (!pci_dev)
+		return -ENODEV;
+
+	return pm_request_resume(&pci_dev->dev);
+}
+
 int cnss_pci_alloc_fw_mem(struct cnss_pci_data *pci_priv)
 {
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
