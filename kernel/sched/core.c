@@ -9620,4 +9620,4 @@ void sched_exit(struct task_struct *p)
 }
 #endif /* CONFIG_SCHED_WALT */
 
-__read_mostly bool sched_predl;
+__read_mostly bool sched_predl = 1;
