@@ -35,6 +35,11 @@
 		ufshc2 = &ufshc_card; /* Removable UFS slot */
 	};
 
+	aliases {
+		serial0 = &qupv3_se12_2uart;
+		hsuart0 = &qupv3_se17_4uart;
+	};
+
 	cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;
