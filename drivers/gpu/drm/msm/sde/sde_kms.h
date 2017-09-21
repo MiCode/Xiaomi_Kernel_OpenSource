@@ -276,10 +276,12 @@ struct sde_kms_info {
 
 /**
  * SDE_KMS_INFO_DATALEN - Macro for accessing sde_kms_info data length
+ *			it adds an extra character length to count null.
  * @S: Pointer to sde_kms_info structure
  * Returns: Size of available byte data
  */
-#define SDE_KMS_INFO_DATALEN(S) ((S) ? ((struct sde_kms_info *)(S))->len : 0)
+#define SDE_KMS_INFO_DATALEN(S) ((S) ? ((struct sde_kms_info *)(S))->len + 1 \
+							: 0)
 
 /**
  * sde_kms_info_reset - reset sde_kms_info structure

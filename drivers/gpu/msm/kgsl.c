@@ -3469,7 +3469,7 @@ static int _sparse_add_to_bind_tree(struct kgsl_mem_entry *entry,
 	struct sparse_bind_object *new;
 	struct rb_node **node, *parent = NULL;
 
-	new = kzalloc(sizeof(*new), GFP_KERNEL);
+	new = kzalloc(sizeof(*new), GFP_ATOMIC);
 	if (new == NULL)
 		return -ENOMEM;
 
@@ -3503,7 +3503,6 @@ static int _sparse_rm_from_bind_tree(struct kgsl_mem_entry *entry,
 		struct sparse_bind_object *obj,
 		uint64_t v_offset, uint64_t size)
 {
-	spin_lock(&entry->bind_lock);
 	if (v_offset == obj->v_off && size >= obj->size) {
 		/*
 		 * We are all encompassing, remove the entry and free
@@ -3536,7 +3535,6 @@ static int _sparse_rm_from_bind_tree(struct kgsl_mem_entry *entry,
 
 		obj->size = v_offset - obj->v_off;
 
-		spin_unlock(&entry->bind_lock);
 		ret = _sparse_add_to_bind_tree(entry, v_offset + size,
 				obj->p_memdesc,
 				obj->p_off + (v_offset - obj->v_off) + size,
@@ -3546,19 +3544,16 @@ static int _sparse_rm_from_bind_tree(struct kgsl_mem_entry *entry,
 		return ret;
 	}
 
-	spin_unlock(&entry->bind_lock);
-
 	return 0;
 }
 
+/* entry->bind_lock must be held by the caller */
 static struct sparse_bind_object *_find_containing_bind_obj(
 		struct kgsl_mem_entry *entry,
 		uint64_t offset, uint64_t size)
 {
 	struct sparse_bind_object *obj = NULL;
 	struct rb_node *node = entry->bind_tree.rb_node;
-
-	spin_lock(&entry->bind_lock);
 
 	while (node != NULL) {
 		obj = rb_entry(node, struct sparse_bind_object, node);
@@ -3578,32 +3573,15 @@ static struct sparse_bind_object *_find_containing_bind_obj(
 		}
 	}
 
-	spin_unlock(&entry->bind_lock);
-
 	return obj;
 }
 
+/* entry->bind_lock must be held by the caller */
 static int _sparse_unbind(struct kgsl_mem_entry *entry,
 		struct sparse_bind_object *bind_obj,
 		uint64_t offset, uint64_t size)
 {
-	struct kgsl_memdesc *memdesc = bind_obj->p_memdesc;
-	struct kgsl_pagetable *pt = memdesc->pagetable;
 	int ret;
-
-	if (memdesc->cur_bindings < (size / PAGE_SIZE))
-		return -EINVAL;
-
-	memdesc->cur_bindings -= size / PAGE_SIZE;
-
-	ret = kgsl_mmu_unmap_offset(pt, memdesc,
-			entry->memdesc.gpuaddr, offset, size);
-	if (ret)
-		return ret;
-
-	ret = kgsl_mmu_sparse_dummy_map(pt, &entry->memdesc, offset, size);
-	if (ret)
-		return ret;
 
 	ret = _sparse_rm_from_bind_tree(entry, bind_obj, offset, size);
 	if (ret == 0) {
@@ -3618,6 +3596,8 @@ static long sparse_unbind_range(struct kgsl_sparse_binding_object *obj,
 	struct kgsl_mem_entry *virt_entry)
 {
 	struct sparse_bind_object *bind_obj;
+	struct kgsl_memdesc *memdesc;
+	struct kgsl_pagetable *pt;
 	int ret = 0;
 	uint64_t size = obj->size;
 	uint64_t tmp_size = obj->size;
@@ -3625,9 +3605,14 @@ static long sparse_unbind_range(struct kgsl_sparse_binding_object *obj,
 
 	while (size > 0 && ret == 0) {
 		tmp_size = size;
+
+		spin_lock(&virt_entry->bind_lock);
 		bind_obj = _find_containing_bind_obj(virt_entry, offset, size);
-		if (bind_obj == NULL)
+
+		if (bind_obj == NULL) {
+			spin_unlock(&virt_entry->bind_lock);
 			return 0;
+		}
 
 		if (bind_obj->v_off > offset) {
 			tmp_size = size - bind_obj->v_off - offset;
@@ -3644,7 +3629,28 @@ static long sparse_unbind_range(struct kgsl_sparse_binding_object *obj,
 				tmp_size = bind_obj->size;
 		}
 
+		memdesc = bind_obj->p_memdesc;
+		pt = memdesc->pagetable;
+
+		if (memdesc->cur_bindings < (tmp_size / PAGE_SIZE)) {
+			spin_unlock(&virt_entry->bind_lock);
+			return -EINVAL;
+		}
+
+		memdesc->cur_bindings -= tmp_size / PAGE_SIZE;
+
 		ret = _sparse_unbind(virt_entry, bind_obj, offset, tmp_size);
+		spin_unlock(&virt_entry->bind_lock);
+
+		ret = kgsl_mmu_unmap_offset(pt, memdesc,
+				virt_entry->memdesc.gpuaddr, offset, tmp_size);
+		if (ret)
+			return ret;
+
+		ret = kgsl_mmu_sparse_dummy_map(pt, memdesc, offset, tmp_size);
+		if (ret)
+			return ret;
+
 		if (ret == 0) {
 			offset += tmp_size;
 			size -= tmp_size;

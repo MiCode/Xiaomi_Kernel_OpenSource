@@ -516,7 +516,7 @@ struct sdhci_host {
  * Some controllers may use PIO mode to workaround HW issues in ADMA for
  * eMMC tuning commands.
  */
-#define SDHCI_QUIRK2_USE_PIO_FOR_EMMC_TUNING (1 << 23)
+#define SDHCI_QUIRK2_USE_PIO_FOR_EMMC_TUNING (1 << 29)
 
 
 	int irq;		/* Device IRQ */

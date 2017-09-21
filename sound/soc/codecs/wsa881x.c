@@ -968,6 +968,8 @@ static void wsa881x_init(struct snd_soc_codec *codec)
 
 	wsa881x->version = snd_soc_read(codec, WSA881X_CHIP_ID1);
 	wsa881x_regmap_defaults(wsa881x->regmap, wsa881x->version);
+	/* Enable software reset output from soundwire slave */
+	snd_soc_update_bits(codec, WSA881X_SWR_RESET_EN, 0x07, 0x07);
 	/* Bring out of analog reset */
 	snd_soc_update_bits(codec, WSA881X_CDC_RST_CTL, 0x02, 0x02);
 	/* Bring out of digital reset */
