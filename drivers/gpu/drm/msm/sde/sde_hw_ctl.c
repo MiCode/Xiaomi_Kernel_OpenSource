@@ -235,6 +235,22 @@ static inline int sde_hw_ctl_get_bitmask_dspp(struct sde_hw_ctl *ctx,
 	return 0;
 }
 
+static inline int sde_hw_ctl_get_bitmask_dspp_pavlut(struct sde_hw_ctl *ctx,
+		u32 *flushbits, enum sde_dspp dspp)
+{
+	switch (dspp) {
+	case DSPP_0:
+		*flushbits |= BIT(3);
+		break;
+	case DSPP_1:
+		*flushbits |= BIT(4);
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
 static inline int sde_hw_ctl_get_bitmask_intf(struct sde_hw_ctl *ctx,
 		u32 *flushbits, enum sde_intf intf)
 {
@@ -568,6 +584,7 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 	ops->get_bitmask_sspp = sde_hw_ctl_get_bitmask_sspp;
 	ops->get_bitmask_mixer = sde_hw_ctl_get_bitmask_mixer;
 	ops->get_bitmask_dspp = sde_hw_ctl_get_bitmask_dspp;
+	ops->get_bitmask_dspp_pavlut = sde_hw_ctl_get_bitmask_dspp_pavlut;
 	ops->get_bitmask_intf = sde_hw_ctl_get_bitmask_intf;
 	ops->get_bitmask_cdm = sde_hw_ctl_get_bitmask_cdm;
 	ops->get_bitmask_wb = sde_hw_ctl_get_bitmask_wb;
