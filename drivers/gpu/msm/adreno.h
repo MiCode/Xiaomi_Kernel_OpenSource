@@ -437,6 +437,9 @@ struct adreno_device {
 	unsigned int chipid;
 	unsigned long gmem_base;
 	unsigned long gmem_size;
+	unsigned long cx_dbgc_base;
+	unsigned int cx_dbgc_len;
+	void __iomem *cx_dbgc_virt;
 	const struct adreno_gpu_core *gpucore;
 	struct adreno_firmware fw[2];
 	size_t gpmu_cmds_size;
@@ -1062,6 +1065,13 @@ int adreno_efuse_map(struct adreno_device *adreno_dev);
 int adreno_efuse_read_u32(struct adreno_device *adreno_dev, unsigned int offset,
 		unsigned int *val);
 void adreno_efuse_unmap(struct adreno_device *adreno_dev);
+
+bool adreno_is_cx_dbgc_register(struct kgsl_device *device,
+		unsigned int offset);
+void adreno_cx_dbgc_regread(struct kgsl_device *adreno_device,
+		unsigned int offsetwords, unsigned int *value);
+void adreno_cx_dbgc_regwrite(struct kgsl_device *device,
+		unsigned int offsetwords, unsigned int value);
 
 #define ADRENO_TARGET(_name, _id) \
 static inline int adreno_is_##_name(struct adreno_device *adreno_dev) \
