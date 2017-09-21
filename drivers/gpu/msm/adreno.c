@@ -112,6 +112,11 @@ static struct adreno_device device_3d0 = {
 	.active_list_lock = __SPIN_LOCK_UNLOCKED(device_3d0.active_list_lock),
 	.gpu_llc_slice_enable = true,
 	.gpuhtw_llc_slice_enable = true,
+	.preempt = {
+		.preempt_level = 1,
+		.skipsaverestore = 1,
+		.usesgmem = 1,
+	},
 };
 
 /* Ptr to array for the current set of fault detect registers */

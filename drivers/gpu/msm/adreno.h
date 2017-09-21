@@ -258,6 +258,9 @@ enum adreno_preempt_states {
  * @work: A work struct for the preemption worker (for 5XX)
  * @token_submit: Indicates if a preempt token has been submitted in
  * current ringbuffer (for 4XX)
+ * preempt_level: The level of preemption (for 6XX)
+ * skipsaverestore: To skip saverestore during L1 preemption (for 6XX)
+ * usesgmem: enable GMEM save/restore across preemption (for 6XX)
  */
 struct adreno_preemption {
 	atomic_t state;
@@ -265,6 +268,9 @@ struct adreno_preemption {
 	struct timer_list timer;
 	struct work_struct work;
 	bool token_submit;
+	unsigned int preempt_level;
+	bool skipsaverestore;
+	bool usesgmem;
 };
 
 
@@ -483,10 +489,6 @@ struct adreno_device {
 	void *gpuhtw_llc_slice;
 	bool gpuhtw_llc_slice_enable;
 	unsigned int zap_loaded;
-	unsigned int preempt_level;
-	bool usesgmem;
-	bool skipsaverestore;
-
 };
 
 /**
