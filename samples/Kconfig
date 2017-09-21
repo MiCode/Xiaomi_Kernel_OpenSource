@@ -64,8 +64,7 @@ config SAMPLE_KDB
 
 config SAMPLE_QRTR_CLIENT
 	tristate "Build qrtr client sample -- loadable modules only"
-	depends on m
-	select QCOM_QMI_HELPERS
+	depends on QCOM_QMI_HELPERS && m
 	help
 	  Build an qrtr client sample driver, which demonstrates how to
 	  communicate with a remote QRTR service, using QMI encoded messages.

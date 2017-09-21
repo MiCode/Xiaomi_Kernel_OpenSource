@@ -68,7 +68,8 @@ config QCOM_PM
 	  low power modes.
 
 config QCOM_QMI_HELPERS
-	bool
+	bool "Qualcomm QMI Helpers"
+	depends on QRTR
 	help
 	  Helper library for handling QMI encoded messages.  QMI encoded
 	  messages are used in communication between the majority of QRTR
