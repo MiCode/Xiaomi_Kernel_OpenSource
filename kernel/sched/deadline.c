@@ -18,6 +18,8 @@
 
 #include <linux/slab.h>
 
+#include "walt.h"
+
 struct dl_bandwidth def_dl_bandwidth;
 
 static inline struct task_struct *dl_task_of(struct sched_dl_entity *dl_se)
