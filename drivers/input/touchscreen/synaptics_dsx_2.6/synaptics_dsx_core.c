@@ -56,7 +56,7 @@
 #define TYPE_B_PROTOCOL
 #endif
 
-#define WAKEUP_GESTURE false
+#define WAKEUP_GESTURE true
 
 #define NO_0D_WHILE_2D
 #define REPORT_2D_Z
@@ -4423,7 +4423,8 @@ static int synaptics_rmi4_fb_notifier_cb(struct notifier_block *self,
 				synaptics_secure_touch_stop(rmi4_data, false);
 			} else if (event == FB_EVENT_BLANK) {
 				transition = evdata->data;
-				if (*transition == FB_BLANK_POWERDOWN) {
+				if (*transition == FB_BLANK_POWERDOWN ||
+					*transition == FB_BLANK_VSYNC_SUSPEND) {
 					flush_work(
 						&(rmi4_data->fb_notify_work));
 					synaptics_rmi4_suspend(
@@ -4564,8 +4565,10 @@ static int synaptics_rmi4_suspend(struct device *dev)
 	synaptics_secure_touch_stop(rmi4_data, true);
 
 	if (rmi4_data->enable_wakeup_gesture) {
-		synaptics_rmi4_wakeup_gesture(rmi4_data, true);
-		enable_irq_wake(rmi4_data->irq);
+		if (!rmi4_data->suspend) {
+			synaptics_rmi4_wakeup_gesture(rmi4_data, true);
+			enable_irq_wake(rmi4_data->irq);
+		}
 		goto exit;
 	}
 
@@ -4591,7 +4594,7 @@ exit:
 	}
 	mutex_unlock(&exp_data.mutex);
 
-	if (!rmi4_data->suspend) {
+	if (!rmi4_data->suspend && !rmi4_data->enable_wakeup_gesture) {
 		synaptics_rmi4_enable_reg(rmi4_data, false);
 		synaptics_rmi4_get_reg(rmi4_data, false);
 	}
@@ -4620,8 +4623,10 @@ static int synaptics_rmi4_resume(struct device *dev)
 	synaptics_secure_touch_stop(rmi4_data, true);
 
 	if (rmi4_data->enable_wakeup_gesture) {
-		synaptics_rmi4_wakeup_gesture(rmi4_data, false);
-		disable_irq_wake(rmi4_data->irq);
+		if (rmi4_data->suspend) {
+			synaptics_rmi4_wakeup_gesture(rmi4_data, false);
+			disable_irq_wake(rmi4_data->irq);
+		}
 		goto exit;
 	}
 
