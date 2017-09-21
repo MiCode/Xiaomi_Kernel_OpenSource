@@ -1162,6 +1162,22 @@ static int dp_display_get_modes(struct dp_display *dp,
 	return ret;
 }
 
+
+static int dp_display_pre_kickoff(struct dp_display *dp_display,
+			struct drm_msm_ext_hdr_metadata *hdr)
+{
+	struct dp_display_private *dp;
+
+	if (!dp_display) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	dp = container_of(dp_display, struct dp_display_private, dp_display);
+
+	return dp->panel->setup_hdr(dp->panel, hdr);
+}
+
 static int dp_display_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -1203,6 +1219,7 @@ static int dp_display_probe(struct platform_device *pdev)
 	g_dp_display->request_irq   = dp_request_irq;
 	g_dp_display->get_debug     = dp_get_debug;
 	g_dp_display->send_hpd_event    = dp_display_send_hpd_event;
+	g_dp_display->pre_kickoff   = dp_display_pre_kickoff;
 
 	rc = component_add(&pdev->dev, &dp_display_comp_ops);
 	if (rc) {

@@ -564,6 +564,87 @@ end:
 	return min_link_rate_khz;
 }
 
+enum dp_panel_hdr_pixel_encoding {
+	RGB,
+	YCbCr444,
+	YCbCr422,
+	YCbCr420,
+	YONLY,
+	RAW,
+};
+
+enum dp_panel_hdr_rgb_colorimetry {
+	sRGB,
+	RGB_WIDE_GAMUT_FIXED_POINT,
+	RGB_WIDE_GAMUT_FLOATING_POINT,
+	ADOBERGB,
+	DCI_P3,
+	CUSTOM_COLOR_PROFILE,
+	ITU_R_BT_2020_RGB,
+};
+
+enum dp_panel_hdr_dynamic_range {
+	VESA,
+	CEA,
+};
+
+enum dp_panel_hdr_content_type {
+	NOT_DEFINED,
+	GRAPHICS,
+	PHOTO,
+	VIDEO,
+	GAME,
+};
+
+static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
+		struct drm_msm_ext_hdr_metadata *hdr_meta)
+{
+	int rc = 0;
+	struct dp_panel_private *panel;
+	struct dp_catalog_hdr_data *hdr;
+
+	if (!hdr_meta || !hdr_meta->hdr_state)
+		goto end;
+
+	if (!dp_panel) {
+		pr_err("invalid input\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+	hdr = &panel->catalog->hdr_data;
+
+	hdr->vsc_header_byte0 = 0x00;
+	hdr->vsc_header_byte1 = 0x07;
+	hdr->vsc_header_byte2 = 0x05;
+	hdr->vsc_header_byte3 = 0x13;
+
+	/* VSC SDP Payload for DB16 */
+	hdr->pixel_encoding = RGB;
+	hdr->colorimetry = ITU_R_BT_2020_RGB;
+
+	/* VSC SDP Payload for DB17 */
+	hdr->dynamic_range = CEA;
+	hdr->bpc = 10;
+
+	/* VSC SDP Payload for DB18 */
+	hdr->content_type = GRAPHICS;
+
+	hdr->vscext_header_byte0 = 0x00;
+	hdr->vscext_header_byte1 = 0x87;
+	hdr->vscext_header_byte2 = 0x1D;
+	hdr->vscext_header_byte3 = 0x13 << 2;
+
+	hdr->version = 0x01;
+
+	memcpy(&hdr->hdr_meta, hdr_meta, sizeof(hdr->hdr_meta));
+
+	panel->catalog->config_hdr(panel->catalog);
+end:
+	return rc;
+}
+
 struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 {
 	int rc = 0;
@@ -603,6 +684,7 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	dp_panel->set_dpcd = dp_panel_set_dpcd;
 
 	dp_panel_edid_register(panel);
+	dp_panel->setup_hdr = dp_panel_setup_hdr;
 
 	return dp_panel;
 error:
