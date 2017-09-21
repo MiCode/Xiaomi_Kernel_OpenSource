@@ -279,8 +279,9 @@ static void programmable_rot_fetch_config(struct sde_encoder_phys *phys_enc,
 		return;
 
 	SDE_DEBUG_VIDENC(vid_enc,
-		"rot_fetch_lines %u rot_fetch_start_vsync_counter %u\n",
-		rot_fetch_lines, rot_fetch_start_vsync_counter);
+		"rot_fetch_lines %u vfp_fetch_lines %u rot_fetch_start_vsync_counter %u\n",
+		rot_fetch_lines, vfp_fetch_lines,
+		rot_fetch_start_vsync_counter);
 
 	phys_enc->hw_ctl->ops.get_bitmask_intf(
 			phys_enc->hw_ctl, &flush_mask, vid_enc->hw_intf->idx);

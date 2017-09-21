@@ -1547,8 +1547,14 @@ u32 sde_plane_rot_calc_prefill(struct drm_plane *plane)
 				&blocksize, &blocksize);
 
 	prefill_line = blocksize + sde_kms->catalog->sbuf_headroom;
-
-	SDE_DEBUG("plane%d prefill:%u\n", plane->base.id, prefill_line);
+	prefill_line = mult_frac(prefill_line, rstate->out_src_h >> 16,
+			state->crtc_h);
+	SDE_DEBUG(
+		"plane%d.%d blk:%u head:%u vdst/vsrc:%u/%u prefill:%u\n",
+			plane->base.id, rstate->sequence_id,
+			blocksize, sde_kms->catalog->sbuf_headroom,
+			state->crtc_h, rstate->out_src_h >> 16,
+			prefill_line);
 
 	return prefill_line;
 }
