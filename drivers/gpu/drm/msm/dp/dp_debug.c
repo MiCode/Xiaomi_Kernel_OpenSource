@@ -107,6 +107,40 @@ end:
 	return len;
 }
 
+static ssize_t dp_debug_bw_code_write(struct file *file,
+		const char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char buf[SZ_8];
+	size_t len = 0;
+	u32 max_bw_code = 0;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	/* Leave room for termination char */
+	len = min_t(size_t, count, SZ_8 - 1);
+	if (copy_from_user(buf, user_buff, len))
+		return 0;
+
+	buf[len] = '\0';
+
+	if (kstrtoint(buf, 10, &max_bw_code) != 0)
+		return 0;
+
+	if (!is_link_rate_valid(max_bw_code)) {
+		pr_err("Unsupported bw code %d\n", max_bw_code);
+		return len;
+	}
+	debug->panel->max_bw_code = max_bw_code;
+	pr_debug("max_bw_code: %d\n", max_bw_code);
+
+	return len;
+}
+
 static ssize_t dp_debug_read_connected(struct file *file,
 		char __user *user_buff, size_t count, loff_t *ppos)
 {
@@ -349,6 +383,36 @@ error:
 	return -EINVAL;
 }
 
+static ssize_t dp_debug_bw_code_read(struct file *file,
+	char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char *buf;
+	u32 len = 0;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	buf = kzalloc(SZ_4K, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	len += snprintf(buf + len, (SZ_4K - len),
+			"max_bw_code = %d\n", debug->panel->max_bw_code);
+
+	if (copy_to_user(user_buff, buf, len)) {
+		kfree(buf);
+		return -EFAULT;
+	}
+
+	*ppos += len;
+	kfree(buf);
+	return len;
+}
+
 static const struct file_operations dp_debug_fops = {
 	.open = simple_open,
 	.read = dp_debug_read_info,
@@ -370,6 +434,12 @@ static const struct file_operations connected_fops = {
 	.read = dp_debug_read_connected,
 };
 
+static const struct file_operations bw_code_fops = {
+	.open = simple_open,
+	.read = dp_debug_bw_code_read,
+	.write = dp_debug_bw_code_write,
+};
+
 static int dp_debug_init(struct dp_debug *dp_debug)
 {
 	int rc = 0;
@@ -377,6 +447,7 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		struct dp_debug_private, dp_debug);
 	struct dentry *dir, *file, *edid_modes;
 	struct dentry *hpd, *connected;
+	struct dentry *max_bw_code;
 	struct dentry *root = debug->root;
 
 	dir = debugfs_create_dir(DEBUG_NAME, NULL);
@@ -420,6 +491,15 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		rc = PTR_ERR(connected);
 		pr_err("[%s] debugfs connected failed, rc=%d\n",
 			DEBUG_NAME, rc);
+		goto error_remove_dir;
+	}
+
+	max_bw_code = debugfs_create_file("max_bw_code", 0644, dir,
+			debug, &bw_code_fops);
+	if (IS_ERR_OR_NULL(max_bw_code)) {
+		rc = PTR_ERR(max_bw_code);
+		pr_err("[%s] debugfs max_bw_code failed, rc=%d\n",
+		       DEBUG_NAME, rc);
 		goto error_remove_dir;
 	}
 

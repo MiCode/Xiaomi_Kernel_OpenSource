@@ -71,6 +71,9 @@ struct dp_panel {
 	u32 vic;
 	u32 max_pclk_khz;
 
+	/* debug */
+	u32 max_bw_code;
+
 	int (*sde_edid_register)(struct dp_panel *dp_panel);
 	void (*sde_edid_deregister)(struct dp_panel *dp_panel);
 	int (*init_info)(struct dp_panel *dp_panel);

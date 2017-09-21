@@ -182,7 +182,9 @@ static int dp_panel_read_sink_caps(struct dp_panel *dp_panel,
 	rc = dp_panel_read_dpcd(dp_panel);
 	if (rc || !is_link_rate_valid(drm_dp_link_rate_to_bw_code(
 		dp_panel->link_info.rate)) || !is_lane_count_valid(
-		dp_panel->link_info.num_lanes)) {
+		dp_panel->link_info.num_lanes) ||
+		((drm_dp_link_rate_to_bw_code(dp_panel->link_info.rate)) >
+		dp_panel->max_bw_code)) {
 		pr_err("panel dpcd read failed/incorrect, set default params\n");
 		dp_panel_set_default_link_params(dp_panel);
 	}
@@ -501,6 +503,7 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 
 	dp_panel = &panel->dp_panel;
 	panel->aux_cfg_update_done = false;
+	dp_panel->max_bw_code = DP_LINK_BW_8_1;
 
 	dp_panel->sde_edid_register = dp_panel_edid_register;
 	dp_panel->sde_edid_deregister = dp_panel_edid_deregister;
