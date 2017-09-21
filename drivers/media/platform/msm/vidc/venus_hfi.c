@@ -1751,9 +1751,8 @@ static int venus_hfi_core_init(void *device)
 	if (rc || __iface_cmdq_write(dev, &version_pkt))
 		dprintk(VIDC_WARN, "Failed to send image version pkt to f/w\n");
 
-	rc = __enable_subcaches(device);
-	if (!rc)
-		__set_subcaches(device);
+	__enable_subcaches(device);
+	__set_subcaches(device);
 
 	if (dev->res->pm_qos_latency_us) {
 #ifdef CONFIG_SMP
@@ -3790,8 +3789,9 @@ static int __enable_subcaches(struct venus_hfi_device *device)
 	venus_hfi_for_each_subcache(device, sinfo) {
 		rc = llcc_slice_activate(sinfo->subcache);
 		if (rc) {
-			dprintk(VIDC_ERR, "Failed to activate %s: %d\n",
+			dprintk(VIDC_WARN, "Failed to activate %s: %d\n",
 				sinfo->name, rc);
+			msm_vidc_res_handle_fatal_hw_error(device->res, true);
 			goto err_activate_fail;
 		}
 		sinfo->isactive = true;
@@ -3806,7 +3806,7 @@ static int __enable_subcaches(struct venus_hfi_device *device)
 err_activate_fail:
 	__release_subcaches(device);
 	__disable_subcaches(device);
-	return -EINVAL;
+	return 0;
 }
 
 static int __set_subcaches(struct venus_hfi_device *device)
@@ -3848,25 +3848,25 @@ static int __set_subcaches(struct venus_hfi_device *device)
 
 		rc = __core_set_resource(device, &rhdr, (void *)sc_res_info);
 		if (rc) {
-			dprintk(VIDC_ERR, "Failed to set subcaches %d\n", rc);
+			dprintk(VIDC_WARN, "Failed to set subcaches %d\n", rc);
 			goto err_fail_set_subacaches;
 		}
-	}
 
-	venus_hfi_for_each_subcache(device, sinfo) {
-		if (sinfo->isactive == true)
-			sinfo->isset = true;
-	}
+		venus_hfi_for_each_subcache(device, sinfo) {
+			if (sinfo->isactive == true)
+				sinfo->isset = true;
+		}
 
-	dprintk(VIDC_DBG, "Set Subcaches done to Venus\n");
-	device->res->sys_cache_res_set = true;
+		dprintk(VIDC_DBG, "Set Subcaches done to Venus\n");
+		device->res->sys_cache_res_set = true;
+	}
 
 	return 0;
 
 err_fail_set_subacaches:
 	__disable_subcaches(device);
 
-	return rc;
+	return 0;
 }
 
 static int __release_subcaches(struct venus_hfi_device *device)
@@ -3905,13 +3905,13 @@ static int __release_subcaches(struct venus_hfi_device *device)
 
 		rc = __core_release_resource(device, &rhdr);
 		if (rc)
-			dprintk(VIDC_ERR,
+			dprintk(VIDC_WARN,
 				"Failed to release %d subcaches\n", c);
 	}
 
 	device->res->sys_cache_res_set = false;
 
-	return rc;
+	return 0;
 }
 
 static int __disable_subcaches(struct venus_hfi_device *device)
@@ -3929,7 +3929,7 @@ static int __disable_subcaches(struct venus_hfi_device *device)
 				sinfo->name);
 			rc = llcc_slice_deactivate(sinfo->subcache);
 			if (rc) {
-				dprintk(VIDC_ERR,
+				dprintk(VIDC_WARN,
 					"Failed to de-activate %s: %d\n",
 					sinfo->name, rc);
 			}
@@ -3937,7 +3937,7 @@ static int __disable_subcaches(struct venus_hfi_device *device)
 		}
 	}
 
-	return rc;
+	return 0;
 }
 
 static int __venus_power_on(struct venus_hfi_device *device)
@@ -4111,9 +4111,8 @@ static inline int __resume(struct venus_hfi_device *device)
 
 	__sys_set_debug(device, msm_vidc_fw_debug);
 
-	rc = __enable_subcaches(device);
-	if (!rc)
-		__set_subcaches(device);
+	__enable_subcaches(device);
+	__set_subcaches(device);
 
 	dprintk(VIDC_PROF, "Resumed from power collapse\n");
 exit:
