@@ -1009,11 +1009,17 @@ void ath10k_ce_enable_interrupts(struct ath10k *ar)
 	struct bus_opaque *ar_opaque = ath10k_bus_priv(ar);
 	int ce_id;
 	struct ath10k_ce_pipe *ce_state;
+	u8 ce_count;
 
+	if (QCA_REV_WCN3990(ar))
+		ce_count = CE_COUNT;
+	else
 	/* Skip the last copy engine, CE7 the diagnostic window, as that
 	 * uses polling and isn't initialized for interrupts.
 	 */
-	for (ce_id = 0; ce_id < CE_COUNT - 1; ce_id++) {
+		ce_count = CE_COUNT - 1;
+
+	for (ce_id = 0; ce_id < ce_count; ce_id++) {
 		ce_state  = &ar_opaque->ce_states[ce_id];
 		ath10k_ce_per_engine_handler_adjust(ce_state);
 	}
