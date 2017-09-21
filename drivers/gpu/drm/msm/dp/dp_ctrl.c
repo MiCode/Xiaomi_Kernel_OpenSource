@@ -1086,7 +1086,6 @@ static int dp_ctrl_host_init(struct dp_ctrl *dp_ctrl, bool flip)
 	catalog = ctrl->catalog;
 
 	catalog->usb_reset(ctrl->catalog, flip);
-	catalog->reset(ctrl->catalog);
 	catalog->phy_reset(ctrl->catalog);
 	catalog->enable_irq(ctrl->catalog, true);
 
@@ -1112,12 +1111,6 @@ static void dp_ctrl_host_deinit(struct dp_ctrl *dp_ctrl)
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
 	ctrl->catalog->enable_irq(ctrl->catalog, false);
-	ctrl->catalog->reset(ctrl->catalog);
-
-	/* Make sure DP is disabled before clk disable */
-	wmb();
-
-	dp_ctrl_disable_mainlink_clocks(ctrl);
 
 	pr_debug("Host deinitialized successfully\n");
 }
@@ -1390,8 +1383,14 @@ static void dp_ctrl_off(struct dp_ctrl *dp_ctrl)
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
 	ctrl->catalog->mainlink_ctrl(ctrl->catalog, false);
-	pr_debug("DP off done\n");
+	ctrl->catalog->reset(ctrl->catalog);
 
+	/* Make sure DP is disabled before clk disable */
+	wmb();
+
+	dp_ctrl_disable_mainlink_clocks(ctrl);
+
+	pr_debug("DP off done\n");
 }
 
 static void dp_ctrl_isr(struct dp_ctrl *dp_ctrl)
