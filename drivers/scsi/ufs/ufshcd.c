@@ -9708,6 +9708,8 @@ static void __ufshcd_shutdown_clkscaling(struct ufs_hba *hba)
 
 static void ufshcd_shutdown_clkscaling(struct ufs_hba *hba)
 {
+	if (!ufshcd_is_clkscaling_supported(hba))
+		return;
 	__ufshcd_shutdown_clkscaling(hba);
 	device_remove_file(hba->dev, &hba->clk_scaling.enable_attr);
 }
