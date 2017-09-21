@@ -356,6 +356,8 @@ struct smb_charger {
 	/* qnovo */
 	int			usb_icl_delta_ua;
 	int			pulse_cnt;
+
+	int			die_health;
 };
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);
