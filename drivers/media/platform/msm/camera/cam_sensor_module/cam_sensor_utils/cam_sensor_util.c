@@ -399,7 +399,7 @@ int32_t msm_camera_fill_vreg_params(
 
 	num_vreg = soc_info->num_rgltr;
 
-	if (num_vreg <= 0) {
+	if ((num_vreg <= 0) || (num_vreg >= CAM_SOC_MAX_REGULATOR)) {
 		CAM_ERR(CAM_SENSOR, "failed: num_vreg %d", num_vreg);
 		return -EINVAL;
 	}
@@ -1210,8 +1210,8 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 	gpio_num_info = ctrl->gpio_num_info;
 	num_vreg = soc_info->num_rgltr;
 
-	if ((num_vreg == 0) || (num_vreg > CAM_SOC_MAX_REGULATOR)) {
-		CAM_ERR(CAM_SENSOR, "Regulators are not initialized");
+	if ((num_vreg <= 0) || (num_vreg >= CAM_SOC_MAX_REGULATOR)) {
+		CAM_ERR(CAM_SENSOR, "failed: num_vreg %d", num_vreg);
 		return -EINVAL;
 	}
 
@@ -1555,6 +1555,11 @@ int msm_camera_power_down(struct cam_sensor_power_ctrl_t *ctrl,
 
 	gpio_num_info = ctrl->gpio_num_info;
 	num_vreg = soc_info->num_rgltr;
+
+	if ((num_vreg <= 0) || (num_vreg >= CAM_SOC_MAX_REGULATOR)) {
+		CAM_ERR(CAM_SENSOR, "failed: num_vreg %d", num_vreg);
+		return -EINVAL;
+	}
 
 	for (index = 0; index < ctrl->power_down_setting_size; index++) {
 		CAM_DBG(CAM_SENSOR, "index %d",  index);
