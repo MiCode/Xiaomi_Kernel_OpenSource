@@ -35,6 +35,10 @@
 	qcom,sensor-id = <0 1 2 3 4>;
 };
 
+&mss_mem {
+	reg = <0x88000000 0x7300000>;
+};
+
 &soc {
 	/* SD card 2.95 V supply */
 	sdc_vreg: sdc_vreg {
