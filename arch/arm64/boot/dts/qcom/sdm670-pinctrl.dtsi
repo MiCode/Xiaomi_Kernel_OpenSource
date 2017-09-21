@@ -1451,5 +1451,27 @@
 				};
 			};
 		};
+
+		/* Pinctrl setting for CAMERA GPIO key */
+		key_cam_snapshot {
+			key_cam_snapshot_default: key_cam_snapshot_default {
+				pins = "gpio91";
+				function = "normal";
+				input-enable;
+				bias-pull-up;
+				power-source = <0>;
+			};
+		};
+
+		key_cam_focus {
+			key_cam_focus_default: key_cam_focus_default {
+				pins = "gpio92";
+				function = "normal";
+				input-enable;
+				bias-pull-up;
+				power-source = <0>;
+			};
+		};
+
 	};
 };
