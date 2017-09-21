@@ -22,7 +22,7 @@
 #define CAM_IFE_CSID_RDI_MAX         4
 
 #define CSID_CSI2_RX_INFO_PHY_DL0_EOT_CAPTURED    BIT(0)
-#define CSID_CSI2_RX_NFO_PHY_DL1_EOT_CAPTURED     BIT(1)
+#define CSID_CSI2_RX_INFO_PHY_DL1_EOT_CAPTURED    BIT(1)
 #define CSID_CSI2_RX_INFO_PHY_DL2_EOT_CAPTURED    BIT(2)
 #define CSID_CSI2_RX_INFO_PHY_DL3_EOT_CAPTURED    BIT(3)
 #define CSID_CSI2_RX_INFO_PHY_DL0_SOT_CAPTURED    BIT(4)
@@ -64,6 +64,18 @@
 #define CSID_PATH_INFO_INPUT_SOF                  BIT(12)
 #define CSID_PATH_ERROR_PIX_COUNT                 BIT(13)
 #define CSID_PATH_ERROR_LINE_COUNT                BIT(14)
+
+/*
+ * Debug values enable the corresponding interrupts and debug logs provide
+ * necessary information
+ */
+#define CSID_DEBUG_ENABLE_SOF_IRQ                 BIT(0)
+#define CSID_DEBUG_ENABLE_EOF_IRQ                 BIT(1)
+#define CSID_DEBUG_ENABLE_SOT_IRQ                 BIT(2)
+#define CSID_DEBUG_ENABLE_EOT_IRQ                 BIT(3)
+#define CSID_DEBUG_ENABLE_SHORT_PKT_CAPTURE       BIT(4)
+#define CSID_DEBUG_ENABLE_LONG_PKT_CAPTURE        BIT(5)
+#define CSID_DEBUG_ENABLE_CPHY_PKT_CAPTURE        BIT(6)
 
 /* enum cam_csid_path_halt_mode select the path halt mode control */
 enum cam_csid_path_halt_mode {
@@ -187,7 +199,7 @@ struct cam_ife_csid_csi2_rx_reg_offset {
 	uint32_t csid_csi2_rx_captured_long_pkt_0_addr;
 	uint32_t csid_csi2_rx_captured_long_pkt_1_addr;
 	uint32_t csid_csi2_rx_captured_long_pkt_ftr_addr;
-	uint32_t csid_csi2_rx_captured_cphy_pkt_ftr_addr;
+	uint32_t csid_csi2_rx_captured_cphy_pkt_hdr_addr;
 	uint32_t csid_csi2_rx_lane0_misr_addr;
 	uint32_t csid_csi2_rx_lane1_misr_addr;
 	uint32_t csid_csi2_rx_lane2_misr_addr;
@@ -202,6 +214,14 @@ struct cam_ife_csid_csi2_rx_reg_offset {
 	uint32_t csi2_irq_mask_all;
 	uint32_t csi2_misr_enable_shift_val;
 	uint32_t csi2_vc_mode_shift_val;
+	uint32_t csi2_capture_long_pkt_en_shift;
+	uint32_t csi2_capture_short_pkt_en_shift;
+	uint32_t csi2_capture_cphy_pkt_en_shift;
+	uint32_t csi2_capture_long_pkt_dt_shift;
+	uint32_t csi2_capture_long_pkt_vc_shift;
+	uint32_t csi2_capture_short_pkt_vc_shift;
+	uint32_t csi2_capture_cphy_pkt_dt_shift;
+	uint32_t csi2_capture_cphy_pkt_vc_shift;
 };
 
 struct cam_ife_csid_csi2_tpg_reg_offset {
@@ -403,6 +423,8 @@ struct cam_ife_csid_path_cfg {
  * @csid_csi2_reset_complete: csi2 reset completion
  * @csid_ipp_reset_complete:  ipp reset completion
  * @csid_rdin_reset_complete: rdi n completion
+ * @csid_debug:               csid debug information to enable the SOT, EOT,
+ *                            SOF, EOF, measure etc in the csid hw
  *
  */
 struct cam_ife_csid_hw {
@@ -422,6 +444,7 @@ struct cam_ife_csid_hw {
 	struct completion                csid_csi2_complete;
 	struct completion                csid_ipp_complete;
 	struct completion    csid_rdin_complete[CAM_IFE_CSID_RDI_MAX];
+	uint64_t                         csid_debug;
 };
 
 int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,

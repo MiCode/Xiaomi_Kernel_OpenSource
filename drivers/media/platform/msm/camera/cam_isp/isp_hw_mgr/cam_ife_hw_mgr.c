@@ -13,6 +13,7 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/uaccess.h>
+#include <linux/debugfs.h>
 #include <uapi/media/cam_isp.h>
 #include "cam_smmu_api.h"
 #include "cam_req_mgr_workq.h"
@@ -1727,6 +1728,16 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 
 	cam_tasklet_start(ctx->common.tasklet_info);
 
+	/* set current csid debug information to CSID HW */
+	for (i = 0; i < CAM_IFE_CSID_HW_NUM_MAX; i++) {
+		if (g_ife_hw_mgr.csid_devices[i])
+			rc = g_ife_hw_mgr.csid_devices[i]->hw_ops.process_cmd(
+				g_ife_hw_mgr.csid_devices[i]->hw_priv,
+				CAM_IFE_CSID_SET_CSID_DEBUG,
+				&g_ife_hw_mgr.debug_cfg.csid_debug,
+				sizeof(g_ife_hw_mgr.debug_cfg.csid_debug));
+	}
+
 	/* INIT IFE Root: do nothing */
 
 	CAM_DBG(CAM_ISP, "INIT IFE CID ... in ctx id:%d",
@@ -3215,6 +3226,51 @@ static int cam_ife_hw_mgr_sort_dev_with_caps(
 	return 0;
 }
 
+static int cam_ife_set_csid_debug(void *data, u64 val)
+{
+	g_ife_hw_mgr.debug_cfg.csid_debug = val;
+	CAM_DBG(CAM_ISP, "Set CSID Debug value :%lld", val);
+	return 0;
+}
+
+static int cam_ife_get_csid_debug(void *data, u64 *val)
+{
+	*val = g_ife_hw_mgr.debug_cfg.csid_debug;
+	CAM_DBG(CAM_ISP, "Get CSID Debug value :%lld",
+		g_ife_hw_mgr.debug_cfg.csid_debug);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(cam_ife_csid_debug,
+	cam_ife_get_csid_debug,
+	cam_ife_set_csid_debug, "%16llu");
+
+static int cam_ife_hw_mgr_debug_register(void)
+{
+	g_ife_hw_mgr.debug_cfg.dentry = debugfs_create_dir("camera_ife",
+		NULL);
+
+	if (!g_ife_hw_mgr.debug_cfg.dentry) {
+		CAM_ERR(CAM_ISP, "failed to create dentry");
+		return -ENOMEM;
+	}
+
+	if (!debugfs_create_file("ife_csid_debug",
+		0644,
+		g_ife_hw_mgr.debug_cfg.dentry, NULL,
+		&cam_ife_csid_debug)) {
+		CAM_ERR(CAM_ISP, "failed to create cam_ife_csid_debug");
+		goto err;
+	}
+
+	return 0;
+
+err:
+	debugfs_remove_recursive(g_ife_hw_mgr.debug_cfg.dentry);
+	return -ENOMEM;
+}
+
 int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf)
 {
 	int rc = -EFAULT;
@@ -3380,6 +3436,8 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf)
 	hw_mgr_intf->hw_prepare_update = cam_ife_mgr_prepare_hw_update;
 	hw_mgr_intf->hw_config = cam_ife_mgr_config_hw;
 	hw_mgr_intf->hw_cmd = cam_ife_mgr_cmd;
+
+	cam_ife_hw_mgr_debug_register();
 	CAM_DBG(CAM_ISP, "Exit");
 
 	return 0;
