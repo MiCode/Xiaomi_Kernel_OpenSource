@@ -1291,7 +1291,7 @@ static int _sde_encoder_dsc_disable(struct sde_encoder_virt *sde_enc)
 		}
 		break;
 	default:
-		SDE_ERROR_ENC(sde_enc, "Unexpected topology:%d\n", topology);
+		SDE_DEBUG_ENC(sde_enc, "Unexpected topology:%d\n", topology);
 		return -EINVAL;
 	};
 
