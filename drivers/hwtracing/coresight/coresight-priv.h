@@ -157,7 +157,7 @@ extern int coresight_csr_hwctrl_set(uint64_t addr, uint32_t val);
 static inline void msm_qdss_csr_enable_bam_to_usb(void) {}
 static inline void msm_qdss_csr_disable_bam_to_usb(void) {}
 static inline void msm_qdss_csr_disable_flush(void) {}
-static inline int coresight_csr_hwctrl_set(uint64_t addr,	95
+static inline int coresight_csr_hwctrl_set(uint64_t addr,
 					   uint32_t val) { return -EINVAL; }
 #endif
 
