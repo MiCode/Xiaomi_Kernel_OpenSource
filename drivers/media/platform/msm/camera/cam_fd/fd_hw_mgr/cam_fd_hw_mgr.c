@@ -26,6 +26,7 @@
 #include "cam_fd_hw_soc.h"
 #include "cam_fd_hw_mgr_intf.h"
 #include "cam_fd_hw_mgr.h"
+#include "cam_trace.h"
 
 static struct cam_fd_hw_mgr g_fd_hw_mgr;
 
@@ -334,7 +335,7 @@ static int cam_fd_mgr_util_select_device(struct cam_fd_hw_mgr *hw_mgr,
 	/* Update required info in hw context */
 	hw_ctx->device_index = i;
 
-	CAM_DBG(CAM_FD, "ctx index=%d, hw_ctx=%d", hw_ctx->ctx_index,
+	CAM_DBG(CAM_FD, "ctx index=%d, device_index=%d", hw_ctx->ctx_index,
 		hw_ctx->device_index);
 
 	return 0;
@@ -835,6 +836,8 @@ static int cam_fd_mgr_util_submit_frame(void *priv, void *data)
 		return -EBUSY;
 	}
 
+	trace_cam_submit_to_hw("FD", frame_req->request_id);
+
 	list_del_init(&frame_req->list);
 	mutex_unlock(&hw_mgr->frame_req_mutex);
 
@@ -994,6 +997,8 @@ static int32_t cam_fd_mgr_workq_irq_cb(void *priv, void *data)
 
 		frame_abort = false;
 	}
+
+	trace_cam_irq_handled("FD", irq_type);
 
 notify_context:
 	/* Do a callback to inform frame done or stop done */
@@ -1229,7 +1234,7 @@ static int cam_fd_mgr_hw_start(void *hw_mgr_priv, void *mgr_start_args)
 		return -EPERM;
 	}
 
-	CAM_DBG(CAM_FD, "ctx index=%d, hw_ctx=%d", hw_ctx->ctx_index,
+	CAM_DBG(CAM_FD, "ctx index=%d, device_index=%d", hw_ctx->ctx_index,
 		hw_ctx->device_index);
 
 	rc = cam_fd_mgr_util_get_device(hw_mgr, hw_ctx, &hw_device);
@@ -1460,6 +1465,8 @@ static int cam_fd_mgr_hw_config(void *hw_mgr_priv, void *hw_config_args)
 	}
 
 	frame_req = config->priv;
+
+	trace_cam_apply_req("FD", frame_req->request_id);
 	CAM_DBG(CAM_FD, "FrameHWConfig : Frame[%lld]", frame_req->request_id);
 
 	frame_req->num_hw_update_entries = config->num_hw_update_entries;

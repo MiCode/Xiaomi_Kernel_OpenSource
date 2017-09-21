@@ -1875,7 +1875,7 @@ static int __cam_isp_ctx_apply_req(struct cam_context *ctx,
 	struct cam_isp_context *ctx_isp =
 		(struct cam_isp_context *) ctx->ctx_priv;
 
-	trace_cam_apply_req("ISP", apply);
+	trace_cam_apply_req("ISP", apply->request_id);
 	CAM_DBG(CAM_ISP, "Enter: apply req in Substate %d request _id:%lld",
 		 ctx_isp->substate_activated, apply->request_id);
 	if (ctx_isp->substate_machine[ctx_isp->substate_activated].

@@ -12,6 +12,7 @@
 
 #include "cam_fd_hw_core.h"
 #include "cam_fd_hw_soc.h"
+#include "cam_trace.h"
 
 #define CAM_FD_REG_VAL_PAIR_SIZE 256
 
@@ -30,6 +31,7 @@ static uint32_t cam_fd_cdm_write_reg_val_pair(uint32_t *buffer,
 static void cam_fd_hw_util_cdm_callback(uint32_t handle, void *userdata,
 	enum cam_cdm_cb_status status, uint32_t cookie)
 {
+	trace_cam_cdm_cb("FD", status);
 	CAM_DBG(CAM_FD, "CDM hdl=%x, udata=%pK, status=%d, cookie=%d",
 		handle, userdata, status, cookie);
 }
@@ -569,6 +571,8 @@ irqreturn_t cam_fd_hw_irq(int irq_num, void *data)
 			reg_value, num_irqs);
 		return -EINVAL;
 	}
+
+	trace_cam_irq_activated("FD", irq_type);
 
 	cam_fd_soc_register_write(soc_info, CAM_FD_REG_WRAPPER,
 		hw_static_info->wrapper_regs.irq_clear,
