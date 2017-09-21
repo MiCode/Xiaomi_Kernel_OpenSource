@@ -914,6 +914,8 @@ static int msm_gem_new_impl(struct drm_device *dev,
 		return -EINVAL;
 	}
 
+	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
+
 	if (!iommu_present(&platform_bus_type))
 		use_vram = true;
 	else if ((flags & MSM_BO_STOLEN) && priv->vram.size)
@@ -989,7 +991,7 @@ struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 		struct dma_buf *dmabuf, struct sg_table *sgt)
 {
 	struct msm_gem_object *msm_obj;
-	struct drm_gem_object *obj;
+	struct drm_gem_object *obj = NULL;
 	uint32_t size;
 	int ret, npages;
 
@@ -1001,7 +1003,12 @@ struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 
 	size = PAGE_ALIGN(dmabuf->size);
 
+	ret = mutex_lock_interruptible(&dev->struct_mutex);
+	if (ret)
+		return ERR_PTR(ret);
+
 	ret = msm_gem_new_impl(dev, size, MSM_BO_WC, dmabuf->resv, &obj);
+	mutex_unlock(&dev->struct_mutex);
 	if (ret)
 		goto fail;
 
