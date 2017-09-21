@@ -34,9 +34,6 @@
 
 #define PP_TIMEOUT_MAX_TRIALS	10
 
-/* wait for 2 vyncs only */
-#define CTL_START_TIMEOUT_MS	32
-
 /*
  * Tearcheck sync start and continue thresholds are empirically found
  * based on common panels In the future, may want to allow panels to override
@@ -1007,7 +1004,7 @@ static int _sde_encoder_phys_cmd_wait_for_ctl_start(
 
 	wait_info.wq = &phys_enc->pending_kickoff_wq;
 	wait_info.atomic_cnt = &phys_enc->pending_ctlstart_cnt;
-	wait_info.timeout_ms = CTL_START_TIMEOUT_MS;
+	wait_info.timeout_ms = KICKOFF_TIMEOUT_MS;
 
 	/* slave encoder doesn't enable for ppsplit */
 	if (_sde_encoder_phys_is_ppsplit_slave(phys_enc))
