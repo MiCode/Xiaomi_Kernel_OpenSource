@@ -1613,7 +1613,7 @@ int cnss_force_fw_assert(struct device *dev)
 
 	if (plat_priv->device_id == QCA6174_DEVICE_ID) {
 		cnss_pr_info("Forced FW assert is not supported\n");
-		return -EINVAL;
+		return -EOPNOTSUPP;
 	}
 
 	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
