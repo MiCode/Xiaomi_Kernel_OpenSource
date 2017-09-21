@@ -3153,6 +3153,10 @@ static int hdmi_tx_power_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 	if (hdmi_ctrl->panel_ops.off)
 		hdmi_ctrl->panel_ops.off(pdata);
 
+	hdmi_tx_set_mode(hdmi_ctrl, false);
+	hdmi_tx_phy_reset(hdmi_ctrl);
+	hdmi_tx_set_mode(hdmi_ctrl, true);
+
 	hdmi_tx_core_off(hdmi_ctrl);
 
 	hdmi_ctrl->panel_power_on = false;
