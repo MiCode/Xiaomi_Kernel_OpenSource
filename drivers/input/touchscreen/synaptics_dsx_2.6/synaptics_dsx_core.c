@@ -4577,9 +4577,10 @@ static int synaptics_rmi4_suspend(struct device *dev)
 	if (rmi4_data->ts_pinctrl) {
 		retval = pinctrl_select_state(rmi4_data->ts_pinctrl,
 		rmi4_data->pinctrl_state_suspend);
-		if (retval < 0)
+		if (retval < 0) {
 			dev_err(dev, "Cannot get idle pinctrl state\n");
 			goto err_pinctrl;
+		}
 	}
 exit:
 	mutex_lock(&exp_data.mutex);
