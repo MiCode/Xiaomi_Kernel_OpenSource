@@ -903,7 +903,7 @@
 			qcom,bus-dev = <&fab_mem_noc>;
 			qcom,bcms = <&bcm_sh3>;
 			qcom,ap-owned;
-			qcom,prio = <6>;
+			qcom,prio = <7>;
 		};
 
 		mas_qhm_memnoc_cfg: mas-qhm-memnoc-cfg {
