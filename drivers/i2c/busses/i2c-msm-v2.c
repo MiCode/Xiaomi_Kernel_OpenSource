@@ -2164,7 +2164,6 @@ static bool i2c_msm_xfer_next_buf(struct i2c_msm_ctrl *ctrl)
 
 			++cur_buf->msg_idx;
 			++cur_msg;
-			}
 		} else {
 			cur_buf->is_init = true;
 		}
