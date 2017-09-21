@@ -84,6 +84,10 @@ int dsi_display_set_backlight(void *display, u32 bl_lvl)
 		return -EINVAL;
 
 	panel = dsi_display->panel;
+
+	if (!dsi_panel_initialized(panel))
+		return -EINVAL;
+
 	panel->bl_config.bl_level = bl_lvl;
 
 	/* scale backlight */
