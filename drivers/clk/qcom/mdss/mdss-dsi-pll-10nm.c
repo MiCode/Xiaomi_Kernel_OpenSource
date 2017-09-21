@@ -665,7 +665,6 @@ error:
 
 static void dsi_pll_disable_sub(struct mdss_pll_resources *rsc)
 {
-	dsi_pll_disable_global_clk(rsc);
 	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_RBUF_CTRL, 0);
 	dsi_pll_disable_pll_bias(rsc);
 }
@@ -684,11 +683,20 @@ static void dsi_pll_disable(struct dsi_pll_vco_clk *vco)
 
 	pr_debug("stop PLL (%d)\n", rsc->index);
 
+	/*
+	 * To avoid any stray glitches while
+	 * abruptly powering down the PLL
+	 * make sure to gate the clock using
+	 * the clock enable bit before powering
+	 * down the PLL
+	 */
+	dsi_pll_disable_global_clk(rsc);
 	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_PLL_CNTRL, 0);
 	dsi_pll_disable_sub(rsc);
-	if (rsc->slave)
+	if (rsc->slave) {
+		dsi_pll_disable_global_clk(rsc->slave);
 		dsi_pll_disable_sub(rsc->slave);
-
+	}
 	/* flush, ensure all register writes are done*/
 	wmb();
 	rsc->pll_on = false;
