@@ -148,12 +148,14 @@ struct ath10k_snoc {
 	u32 *vaddr_rri_on_ddr;
 	bool is_driver_probed;
 	struct notifier_block modem_ssr_nb;
+	struct notifier_block pm_notifier;
 	void *modem_notify_handler;
 	struct ath10k_service_notifier_context *service_notifier;
 	struct notifier_block service_notifier_nb;
 	int total_domains;
 	struct notifier_block get_service_nb;
 	atomic_t fw_crashed;
+	atomic_t pm_ops_inprogress;
 	struct ath10k_snoc_qmi_config qmi_cfg;
 };
 
