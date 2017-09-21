@@ -589,6 +589,8 @@ static void sde_connector_atomic_destroy_state(struct drm_connector *connector,
 	if (c_state->out_fb)
 		_sde_connector_destroy_fb(c_conn, c_state);
 
+	__drm_atomic_helper_connector_destroy_state(&c_state->base);
+
 	if (!c_conn) {
 		kfree(c_state);
 	} else {
@@ -632,8 +634,7 @@ static void sde_connector_atomic_reset(struct drm_connector *connector)
 			&c_state->property_state,
 			c_state->property_values);
 
-	c_state->base.connector = connector;
-	connector->state = &c_state->base;
+	__drm_atomic_helper_connector_reset(connector, &c_state->base);
 }
 
 static struct drm_connector_state *
@@ -659,6 +660,9 @@ sde_connector_atomic_duplicate_state(struct drm_connector *connector)
 	msm_property_duplicate_state(&c_conn->property_info,
 			c_oldstate, c_state,
 			&c_state->property_state, c_state->property_values);
+
+	__drm_atomic_helper_connector_duplicate_state(connector,
+			&c_state->base);
 
 	/* additional handling for drm framebuffer objects */
 	if (c_state->out_fb)
