@@ -84,7 +84,9 @@
 #define CAM_ISP_DSP_MODE_ROUND                  2
 
 /* ISP Generic Cmd Buffer Blob types */
-#define CAM_ISP_GENERIC_BLOB_TYPE_HFR_CONFIG    0
+#define CAM_ISP_GENERIC_BLOB_TYPE_HFR_CONFIG      0
+#define CAM_ISP_GENERIC_BLOB_TYPE_CLOCK_CONFIG    1
+#define CAM_ISP_GENERIC_BLOB_TYPE_BW_CONFIG       2
 
 /* Query devices */
 /**
@@ -248,7 +250,7 @@ struct cam_isp_port_hfr_config {
 	uint32_t                       framedrop_pattern;
 	uint32_t                       framedrop_period;
 	uint32_t                       reserved;
-};
+} __attribute__((packed));
 
 /**
  * struct cam_isp_resource_hfr_config - Resource HFR configuration
@@ -261,7 +263,7 @@ struct cam_isp_resource_hfr_config {
 	uint32_t                       num_ports;
 	uint32_t                       reserved;
 	struct cam_isp_port_hfr_config port_hfr_config[1];
-};
+} __attribute__((packed));
 
 /**
  * struct cam_isp_dual_split_params - dual isp spilt parameters
@@ -317,6 +319,60 @@ struct cam_isp_dual_config {
 	uint32_t                           reserved;
 	struct cam_isp_dual_split_params   split_params;
 	struct cam_isp_dual_stripe_config  stripes[1];
-};
+} __attribute__((packed));
+
+/**
+ * struct cam_isp_clock_config - Clock configuration
+ *
+ * @usage_type:                 Usage type (Single/Dual)
+ * @num_rdi:                    Number of RDI votes
+ * @left_pix_hz:                Pixel Clock for Left ISP
+ * @right_pix_hz:               Pixel Clock for Right ISP, valid only if Dual
+ * @rdi_hz:                     RDI Clock. ISP clock will be max of RDI and
+ *                              PIX clocks. For a particular context which ISP
+ *                              HW the RDI is allocated to is not known to UMD.
+ *                              Hence pass the clock and let KMD decide.
+ */
+struct cam_isp_clock_config {
+	uint32_t                       usage_type;
+	uint32_t                       num_rdi;
+	uint64_t                       left_pix_hz;
+	uint64_t                       right_pix_hz;
+	uint64_t                       rdi_hz[1];
+} __attribute__((packed));
+
+/**
+ * struct cam_isp_bw_vote - Bandwidth vote information
+ *
+ * @resource_id:                Resource ID
+ * @reserved:                   Reserved field for alignment
+ * @cam_bw_bps:                 Bandwidth vote for CAMNOC
+ * @ext_bw_bps:                 Bandwidth vote for path-to-DDR after CAMNOC
+ */
+
+struct cam_isp_bw_vote {
+	uint32_t                       resource_id;
+	uint32_t                       reserved;
+	uint64_t                       cam_bw_bps;
+	uint64_t                       ext_bw_bps;
+} __attribute__((packed));
+
+/**
+ * struct cam_isp_bw_config - Bandwidth configuration
+ *
+ * @usage_type:                 Usage type (Single/Dual)
+ * @num_rdi:                    Number of RDI votes
+ * @left_pix_vote:              Bandwidth vote for left ISP
+ * @right_pix_vote:             Bandwidth vote for right ISP
+ * @rdi_vote:                   RDI bandwidth requirements
+ */
+
+struct cam_isp_bw_config {
+	uint32_t                       usage_type;
+	uint32_t                       num_rdi;
+	struct cam_isp_bw_vote         left_pix_vote;
+	struct cam_isp_bw_vote         right_pix_vote;
+	struct cam_isp_bw_vote         rdi_vote[1];
+} __attribute__((packed));
 
 #endif /* __UAPI_CAM_ISP_H__ */

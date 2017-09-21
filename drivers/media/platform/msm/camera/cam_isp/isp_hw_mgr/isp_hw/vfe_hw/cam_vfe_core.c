@@ -264,7 +264,9 @@ int cam_vfe_init_hw(void *hw_priv, void *init_hw_args, uint32_t arg_size)
 		goto deinint_vfe_res;
 	}
 
-	return 0;
+	vfe_hw->hw_state = CAM_HW_STATE_POWER_UP;
+	return rc;
+
 deinint_vfe_res:
 	if (isp_res && isp_res->deinit)
 		isp_res->deinit(isp_res, NULL, 0);
@@ -650,10 +652,11 @@ int cam_vfe_process_cmd(void *hw_priv, uint32_t cmd_type,
 	switch (cmd_type) {
 	case CAM_ISP_HW_CMD_GET_CHANGE_BASE:
 	case CAM_ISP_HW_CMD_GET_REG_UPDATE:
+	case CAM_ISP_HW_CMD_CLOCK_UPDATE:
+	case CAM_ISP_HW_CMD_BW_UPDATE:
 		rc = core_info->vfe_top->hw_ops.process_cmd(
 			core_info->vfe_top->top_priv, cmd_type, cmd_args,
 			arg_size);
-
 		break;
 	case CAM_ISP_HW_CMD_GET_BUF_UPDATE:
 	case CAM_ISP_HW_CMD_GET_HFR_UPDATE:
