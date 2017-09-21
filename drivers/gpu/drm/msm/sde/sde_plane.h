@@ -207,12 +207,11 @@ void sde_plane_get_ctl_flush(struct drm_plane *plane, struct sde_hw_ctl *ctl,
 		u32 *flush_sspp, u32 *flush_rot);
 
 /**
- * sde_plane_is_sbuf_mode - return status of stream buffer mode
- * @plane:   Pointer to DRM plane object
- * @prefill: Pointer to updated prefill in stream buffer mode (optional)
- * Returns: true if plane is in stream buffer mode
+ * sde_plane_rot_calc_prefill - calculate rotator start prefill
+ * @plane: Pointer to drm plane
+ * return: prefill time in line
  */
-bool sde_plane_is_sbuf_mode(struct drm_plane *plane, u32 *prefill);
+u32 sde_plane_rot_calc_prefill(struct drm_plane *plane);
 
 /**
  * sde_plane_restore - restore hw state if previously power collapsed

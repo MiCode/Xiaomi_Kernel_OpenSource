@@ -1518,7 +1518,7 @@ static struct sde_crtc_res_ops fbo_res_ops = {
  * @plane: Pointer to drm plane
  * return: prefill time in line
  */
-static u32 sde_plane_rot_calc_prefill(struct drm_plane *plane)
+u32 sde_plane_rot_calc_prefill(struct drm_plane *plane)
 {
 	struct drm_plane_state *state;
 	struct sde_plane_state *pstate;
@@ -1551,26 +1551,6 @@ static u32 sde_plane_rot_calc_prefill(struct drm_plane *plane)
 	SDE_DEBUG("plane%d prefill:%u\n", plane->base.id, prefill_line);
 
 	return prefill_line;
-}
-
-/**
- * sde_plane_is_sbuf_mode - check if sspp of given plane is in streaming
- *	buffer mode
- * @plane: Pointer to drm plane
- * @prefill: Pointer to prefill line count
- * return: true if sspp is in stream buffer mode
- */
-bool sde_plane_is_sbuf_mode(struct drm_plane *plane, u32 *prefill)
-{
-	struct sde_plane_state *pstate = plane && plane->state ?
-			to_sde_plane_state(plane->state) : NULL;
-	struct sde_plane_rot_state *rstate = pstate ? &pstate->rot : NULL;
-	bool sbuf_mode = rstate ? rstate->out_sbuf : false;
-
-	if (prefill)
-		*prefill = sde_plane_rot_calc_prefill(plane);
-
-	return sbuf_mode;
 }
 
 /**
@@ -2752,7 +2732,7 @@ void sde_plane_get_ctl_flush(struct drm_plane *plane, struct sde_hw_ctl *ctl,
 		return;
 
 	*flush_rot = 0x0;
-	if (sde_plane_is_sbuf_mode(plane, NULL) && rstate->rot_hw &&
+	if (rstate && rstate->out_sbuf && rstate->rot_hw &&
 			ctl->ops.get_bitmask_rot)
 		ctl->ops.get_bitmask_rot(ctl, flush_rot, rstate->rot_hw->idx);
 }
