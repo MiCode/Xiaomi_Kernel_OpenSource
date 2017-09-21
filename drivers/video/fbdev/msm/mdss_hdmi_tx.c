@@ -3177,6 +3177,7 @@ static int hdmi_tx_power_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 	void *pdata = hdmi_tx_get_fd(HDMI_TX_FEAT_PANEL);
 	void *edata = hdmi_tx_get_fd(HDMI_TX_FEAT_EDID);
 
+	hdmi_ctrl->hdcp_feature_on = hdcp_feature_on;
 	hdmi_ctrl->vic = hdmi_panel_get_vic(&panel_data->panel_info,
 				&hdmi_ctrl->ds_data);
 
