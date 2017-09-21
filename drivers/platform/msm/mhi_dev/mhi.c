@@ -1139,7 +1139,7 @@ static void mhi_dev_scheduler(struct work_struct *work)
 
 	mutex_unlock(&mhi_ctx->mhi_lock);
 
-	if (mhi->config_iatu)
+	if (mhi->config_iatu || mhi->mhi_int)
 		enable_irq(mhi->mhi_irq);
 	else
 		ep_pcie_mask_irq_event(mhi->phandle,
@@ -1940,7 +1940,7 @@ static void mhi_dev_enable(struct work_struct *work)
 		return;
 	}
 
-	if (mhi_ctx->config_iatu)
+	if (mhi_ctx->config_iatu || mhi_ctx->mhi_int)
 		enable_irq(mhi_ctx->mhi_irq);
 
 	mhi_update_state_info(MHI_STATE_CONNECTED);
@@ -2072,7 +2072,10 @@ static int get_device_tree_data(struct platform_device *pdev)
 		}
 	}
 
-	if (mhi->config_iatu) {
+	mhi_ctx->mhi_int = of_property_read_bool((&pdev->dev)->of_node,
+					"qcom,mhi-interrupt");
+
+	if (mhi->config_iatu || mhi_ctx->mhi_int) {
 		mhi->mhi_irq = platform_get_irq_byname(pdev, "mhi-device-inta");
 		if (mhi->mhi_irq < 0) {
 			pr_err("Invalid MHI device interrupt\n");
@@ -2249,7 +2252,7 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 	/* All set, notify the host */
 	mhi_dev_sm_set_ready();
 
-	if (mhi_ctx->config_iatu) {
+	if (mhi_ctx->config_iatu || mhi_ctx->mhi_int) {
 		rc = devm_request_irq(&pdev->dev, mhi_ctx->mhi_irq, mhi_dev_isr,
 			IRQF_TRIGGER_HIGH, "mhi_isr", mhi_ctx);
 		if (rc) {
