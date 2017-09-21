@@ -39,6 +39,125 @@ struct sde_hw_blk_reg_map {
 	u32 log_mask;
 };
 
+/**
+ * struct sde_hw_scaler3_de_cfg : QSEEDv3 detail enhancer configuration
+ * @enable:         detail enhancer enable/disable
+ * @sharpen_level1: sharpening strength for noise
+ * @sharpen_level2: sharpening strength for signal
+ * @ clip:          clip shift
+ * @ limit:         limit value
+ * @ thr_quiet:     quiet threshold
+ * @ thr_dieout:    dieout threshold
+ * @ thr_high:      low threshold
+ * @ thr_high:      high threshold
+ * @ prec_shift:    precision shift
+ * @ adjust_a:      A-coefficients for mapping curve
+ * @ adjust_b:      B-coefficients for mapping curve
+ * @ adjust_c:      C-coefficients for mapping curve
+ */
+struct sde_hw_scaler3_de_cfg {
+	u32 enable;
+	int16_t sharpen_level1;
+	int16_t sharpen_level2;
+	uint16_t clip;
+	uint16_t limit;
+	uint16_t thr_quiet;
+	uint16_t thr_dieout;
+	uint16_t thr_low;
+	uint16_t thr_high;
+	uint16_t prec_shift;
+	int16_t adjust_a[SDE_MAX_DE_CURVES];
+	int16_t adjust_b[SDE_MAX_DE_CURVES];
+	int16_t adjust_c[SDE_MAX_DE_CURVES];
+};
+
+
+/**
+ * struct sde_hw_scaler3_cfg : QSEEDv3 configuration
+ * @enable:        scaler enable
+ * @dir_en:        direction detection block enable
+ * @ init_phase_x: horizontal initial phase
+ * @ phase_step_x: horizontal phase step
+ * @ init_phase_y: vertical initial phase
+ * @ phase_step_y: vertical phase step
+ * @ preload_x:    horizontal preload value
+ * @ preload_y:    vertical preload value
+ * @ src_width:    source width
+ * @ src_height:   source height
+ * @ dst_width:    destination width
+ * @ dst_height:   destination height
+ * @ y_rgb_filter_cfg: y/rgb plane filter configuration
+ * @ uv_filter_cfg: uv plane filter configuration
+ * @ alpha_filter_cfg: alpha filter configuration
+ * @ blend_cfg:    blend coefficients configuration
+ * @ lut_flag:     scaler LUT update flags
+ *                 0x1 swap LUT bank
+ *                 0x2 update 2D filter LUT
+ *                 0x4 update y circular filter LUT
+ *                 0x8 update uv circular filter LUT
+ *                 0x10 update y separable filter LUT
+ *                 0x20 update uv separable filter LUT
+ * @ dir_lut_idx:  2D filter LUT index
+ * @ y_rgb_cir_lut_idx: y circular filter LUT index
+ * @ uv_cir_lut_idx: uv circular filter LUT index
+ * @ y_rgb_sep_lut_idx: y circular filter LUT index
+ * @ uv_sep_lut_idx: uv separable filter LUT index
+ * @ dir_lut:      pointer to 2D LUT
+ * @ cir_lut:      pointer to circular filter LUT
+ * @ sep_lut:      pointer to separable filter LUT
+ * @ de: detail enhancer configuration
+ */
+struct sde_hw_scaler3_cfg {
+	u32 enable;
+	u32 dir_en;
+	int32_t init_phase_x[SDE_MAX_PLANES];
+	int32_t phase_step_x[SDE_MAX_PLANES];
+	int32_t init_phase_y[SDE_MAX_PLANES];
+	int32_t phase_step_y[SDE_MAX_PLANES];
+
+	u32 preload_x[SDE_MAX_PLANES];
+	u32 preload_y[SDE_MAX_PLANES];
+	u32 src_width[SDE_MAX_PLANES];
+	u32 src_height[SDE_MAX_PLANES];
+
+	u32 dst_width;
+	u32 dst_height;
+
+	u32 y_rgb_filter_cfg;
+	u32 uv_filter_cfg;
+	u32 alpha_filter_cfg;
+	u32 blend_cfg;
+
+	u32 lut_flag;
+	u32 dir_lut_idx;
+
+	u32 y_rgb_cir_lut_idx;
+	u32 uv_cir_lut_idx;
+	u32 y_rgb_sep_lut_idx;
+	u32 uv_sep_lut_idx;
+	u32 *dir_lut;
+	size_t dir_len;
+	u32 *cir_lut;
+	size_t cir_len;
+	u32 *sep_lut;
+	size_t sep_len;
+
+	/*
+	 * Detail enhancer settings
+	 */
+	struct sde_hw_scaler3_de_cfg de;
+};
+
+struct sde_hw_scaler3_lut_cfg {
+	bool is_configured;
+	u32 *dir_lut;
+	size_t dir_len;
+	u32 *cir_lut;
+	size_t cir_len;
+	u32 *sep_lut;
+	size_t sep_len;
+};
+
 u32 *sde_hw_util_get_log_mask_ptr(void);
 
 void sde_reg_write(struct sde_hw_blk_reg_map *c,
@@ -57,6 +176,17 @@ int sde_reg_read(struct sde_hw_blk_reg_map *c, u32 reg_off);
 #define INTF_MISR_CTRL_FREE_RUN_MASK	BIT(31)
 
 void *sde_hw_util_get_dir(void);
+
+void sde_set_scaler_v2(struct sde_hw_scaler3_cfg *cfg,
+		const struct sde_drm_scaler_v2 *scale_v2);
+
+void sde_hw_setup_scaler3(struct sde_hw_blk_reg_map *c,
+		struct sde_hw_scaler3_cfg *scaler3_cfg,
+		u32 scaler_offset, u32 scaler_version,
+		const struct sde_format *format);
+
+u32 sde_hw_get_scaler3_ver(struct sde_hw_blk_reg_map *c,
+		u32 scaler_offset);
 
 void sde_hw_csc_setup(struct sde_hw_blk_reg_map  *c,
 		u32 csc_reg_off,

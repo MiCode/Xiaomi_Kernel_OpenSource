@@ -119,57 +119,6 @@
 #define COMP1_2_INIT_PHASE_Y               0x2C
 #define VIG_0_QSEED2_SHARP                 0x30
 
-/* SDE_SSPP_SCALER_QSEED3 */
-#define QSEED3_HW_VERSION                  0x00
-#define QSEED3_OP_MODE                     0x04
-#define QSEED3_RGB2Y_COEFF                 0x08
-#define QSEED3_PHASE_INIT                  0x0C
-#define QSEED3_PHASE_STEP_Y_H              0x10
-#define QSEED3_PHASE_STEP_Y_V              0x14
-#define QSEED3_PHASE_STEP_UV_H             0x18
-#define QSEED3_PHASE_STEP_UV_V             0x1C
-#define QSEED3_PRELOAD                     0x20
-#define QSEED3_DE_SHARPEN                  0x24
-#define QSEED3_DE_SHARPEN_CTL              0x28
-#define QSEED3_DE_SHAPE_CTL                0x2C
-#define QSEED3_DE_THRESHOLD                0x30
-#define QSEED3_DE_ADJUST_DATA_0            0x34
-#define QSEED3_DE_ADJUST_DATA_1            0x38
-#define QSEED3_DE_ADJUST_DATA_2            0x3C
-#define QSEED3_SRC_SIZE_Y_RGB_A            0x40
-#define QSEED3_SRC_SIZE_UV                 0x44
-#define QSEED3_DST_SIZE                    0x48
-#define QSEED3_COEF_LUT_CTRL               0x4C
-#define QSEED3_COEF_LUT_SWAP_BIT           0
-#define QSEED3_COEF_LUT_DIR_BIT            1
-#define QSEED3_COEF_LUT_Y_CIR_BIT          2
-#define QSEED3_COEF_LUT_UV_CIR_BIT         3
-#define QSEED3_COEF_LUT_Y_SEP_BIT          4
-#define QSEED3_COEF_LUT_UV_SEP_BIT         5
-#define QSEED3_BUFFER_CTRL                 0x50
-#define QSEED3_CLK_CTRL0                   0x54
-#define QSEED3_CLK_CTRL1                   0x58
-#define QSEED3_CLK_STATUS                  0x5C
-#define QSEED3_MISR_CTRL                   0x70
-#define QSEED3_MISR_SIGNATURE_0            0x74
-#define QSEED3_MISR_SIGNATURE_1            0x78
-#define QSEED3_PHASE_INIT_Y_H              0x90
-#define QSEED3_PHASE_INIT_Y_V              0x94
-#define QSEED3_PHASE_INIT_UV_H             0x98
-#define QSEED3_PHASE_INIT_UV_V             0x9C
-#define QSEED3_COEF_LUT                    0x100
-#define QSEED3_FILTERS                     5
-#define QSEED3_LUT_REGIONS                 4
-#define QSEED3_CIRCULAR_LUTS               9
-#define QSEED3_SEPARABLE_LUTS              10
-#define QSEED3_LUT_SIZE                    60
-#define QSEED3_ENABLE                      2
-#define QSEED3_DIR_LUT_SIZE                (200 * sizeof(u32))
-#define QSEED3_CIR_LUT_SIZE \
-	(QSEED3_LUT_SIZE * QSEED3_CIRCULAR_LUTS * sizeof(u32))
-#define QSEED3_SEP_LUT_SIZE \
-	(QSEED3_LUT_SIZE * QSEED3_SEPARABLE_LUTS * sizeof(u32))
-
 /*
  * Definitions for ViG op modes
  */
@@ -556,144 +505,12 @@ static void _sde_hw_sspp_setup_scaler(struct sde_hw_pipe *ctx,
 		pe->phase_step_y[SDE_SSPP_COMP_1_2]);
 }
 
-static void _sde_hw_sspp_setup_scaler3_lut(struct sde_hw_pipe *ctx,
-		struct sde_hw_scaler3_cfg *scaler3_cfg)
-{
-	u32 idx;
-	int i, j, filter;
-	int config_lut = 0x0;
-	unsigned long lut_flags;
-	u32 lut_addr, lut_offset, lut_len;
-	u32 *lut[QSEED3_FILTERS] = {NULL, NULL, NULL, NULL, NULL};
-	static const uint32_t offset[QSEED3_FILTERS][QSEED3_LUT_REGIONS][2] = {
-		{{18, 0x000}, {12, 0x120}, {12, 0x1E0}, {8, 0x2A0} },
-		{{6, 0x320}, {3, 0x3E0}, {3, 0x440}, {3, 0x4A0} },
-		{{6, 0x500}, {3, 0x5c0}, {3, 0x620}, {3, 0x680} },
-		{{6, 0x380}, {3, 0x410}, {3, 0x470}, {3, 0x4d0} },
-		{{6, 0x560}, {3, 0x5f0}, {3, 0x650}, {3, 0x6b0} },
-	};
-
-	if (_sspp_subblk_offset(ctx, SDE_SSPP_SCALER_QSEED3, &idx) ||
-		!scaler3_cfg)
-		return;
-
-	lut_flags = (unsigned long) scaler3_cfg->lut_flag;
-	if (test_bit(QSEED3_COEF_LUT_DIR_BIT, &lut_flags) &&
-		(scaler3_cfg->dir_len == QSEED3_DIR_LUT_SIZE)) {
-		lut[0] = scaler3_cfg->dir_lut;
-		config_lut = 1;
-	}
-	if (test_bit(QSEED3_COEF_LUT_Y_CIR_BIT, &lut_flags) &&
-		(scaler3_cfg->y_rgb_cir_lut_idx < QSEED3_CIRCULAR_LUTS) &&
-		(scaler3_cfg->cir_len == QSEED3_CIR_LUT_SIZE)) {
-		lut[1] = scaler3_cfg->cir_lut +
-			scaler3_cfg->y_rgb_cir_lut_idx * QSEED3_LUT_SIZE;
-		config_lut = 1;
-	}
-	if (test_bit(QSEED3_COEF_LUT_UV_CIR_BIT, &lut_flags) &&
-		(scaler3_cfg->uv_cir_lut_idx < QSEED3_CIRCULAR_LUTS) &&
-		(scaler3_cfg->cir_len == QSEED3_CIR_LUT_SIZE)) {
-		lut[2] = scaler3_cfg->cir_lut +
-			scaler3_cfg->uv_cir_lut_idx * QSEED3_LUT_SIZE;
-		config_lut = 1;
-	}
-	if (test_bit(QSEED3_COEF_LUT_Y_SEP_BIT, &lut_flags) &&
-		(scaler3_cfg->y_rgb_sep_lut_idx < QSEED3_SEPARABLE_LUTS) &&
-		(scaler3_cfg->sep_len == QSEED3_SEP_LUT_SIZE)) {
-		lut[3] = scaler3_cfg->sep_lut +
-			scaler3_cfg->y_rgb_sep_lut_idx * QSEED3_LUT_SIZE;
-		config_lut = 1;
-	}
-	if (test_bit(QSEED3_COEF_LUT_UV_SEP_BIT, &lut_flags) &&
-		(scaler3_cfg->uv_sep_lut_idx < QSEED3_SEPARABLE_LUTS) &&
-		(scaler3_cfg->sep_len == QSEED3_SEP_LUT_SIZE)) {
-		lut[4] = scaler3_cfg->sep_lut +
-			scaler3_cfg->uv_sep_lut_idx * QSEED3_LUT_SIZE;
-		config_lut = 1;
-	}
-
-	if (config_lut) {
-		for (filter = 0; filter < QSEED3_FILTERS; filter++) {
-			if (!lut[filter])
-				continue;
-			lut_offset = 0;
-			for (i = 0; i < QSEED3_LUT_REGIONS; i++) {
-				lut_addr = QSEED3_COEF_LUT + idx
-					+ offset[filter][i][1];
-				lut_len = offset[filter][i][0] << 2;
-				for (j = 0; j < lut_len; j++) {
-					SDE_REG_WRITE(&ctx->hw,
-						lut_addr,
-						(lut[filter])[lut_offset++]);
-					lut_addr += 4;
-				}
-			}
-		}
-	}
-
-	if (test_bit(QSEED3_COEF_LUT_SWAP_BIT, &lut_flags))
-		SDE_REG_WRITE(&ctx->hw, QSEED3_COEF_LUT_CTRL + idx, BIT(0));
-
-}
-
-static void _sde_hw_sspp_setup_scaler3_de(struct sde_hw_pipe *ctx,
-		struct sde_hw_scaler3_de_cfg *de_cfg)
-{
-	u32 idx;
-	u32 sharp_lvl, sharp_ctl, shape_ctl, de_thr;
-	u32 adjust_a, adjust_b, adjust_c;
-	struct sde_hw_blk_reg_map *hw;
-
-	if (_sspp_subblk_offset(ctx, SDE_SSPP_SCALER_QSEED3, &idx) || !de_cfg)
-		return;
-
-	if (!de_cfg->enable)
-		return;
-
-	hw = &ctx->hw;
-	sharp_lvl = (de_cfg->sharpen_level1 & 0x1FF) |
-		((de_cfg->sharpen_level2 & 0x1FF) << 16);
-
-	sharp_ctl = ((de_cfg->limit & 0xF) << 9) |
-		((de_cfg->prec_shift & 0x7) << 13) |
-		((de_cfg->clip & 0x7) << 16);
-
-	shape_ctl = (de_cfg->thr_quiet & 0xFF) |
-		((de_cfg->thr_dieout & 0x3FF) << 16);
-
-	de_thr = (de_cfg->thr_low & 0x3FF) |
-		((de_cfg->thr_high & 0x3FF) << 16);
-
-	adjust_a = (de_cfg->adjust_a[0] & 0x3FF) |
-		((de_cfg->adjust_a[1] & 0x3FF) << 10) |
-		((de_cfg->adjust_a[2] & 0x3FF) << 20);
-
-	adjust_b = (de_cfg->adjust_b[0] & 0x3FF) |
-		((de_cfg->adjust_b[1] & 0x3FF) << 10) |
-		((de_cfg->adjust_b[2] & 0x3FF) << 20);
-
-	adjust_c = (de_cfg->adjust_c[0] & 0x3FF) |
-		((de_cfg->adjust_c[1] & 0x3FF) << 10) |
-		((de_cfg->adjust_c[2] & 0x3FF) << 20);
-
-	SDE_REG_WRITE(hw, QSEED3_DE_SHARPEN + idx, sharp_lvl);
-	SDE_REG_WRITE(hw, QSEED3_DE_SHARPEN_CTL + idx, sharp_ctl);
-	SDE_REG_WRITE(hw, QSEED3_DE_SHAPE_CTL + idx, shape_ctl);
-	SDE_REG_WRITE(hw, QSEED3_DE_THRESHOLD + idx, de_thr);
-	SDE_REG_WRITE(hw, QSEED3_DE_ADJUST_DATA_0 + idx, adjust_a);
-	SDE_REG_WRITE(hw, QSEED3_DE_ADJUST_DATA_1 + idx, adjust_b);
-	SDE_REG_WRITE(hw, QSEED3_DE_ADJUST_DATA_2 + idx, adjust_c);
-
-}
-
 static void _sde_hw_sspp_setup_scaler3(struct sde_hw_pipe *ctx,
 		struct sde_hw_pipe_cfg *sspp,
 		struct sde_hw_pixel_ext *pe,
 		void *scaler_cfg)
 {
 	u32 idx;
-	u32 op_mode = 0;
-	u32 phase_init, preload, src_y_rgb, src_uv, dst;
 	struct sde_hw_scaler3_cfg *scaler3_cfg = scaler_cfg;
 
 	(void)pe;
@@ -701,93 +518,9 @@ static void _sde_hw_sspp_setup_scaler3(struct sde_hw_pipe *ctx,
 		|| !scaler3_cfg || !ctx || !ctx->cap || !ctx->cap->sblk)
 		return;
 
-	if (!scaler3_cfg->enable)
-		goto end;
-
-	op_mode |= BIT(0);
-	op_mode |= (scaler3_cfg->y_rgb_filter_cfg & 0x3) << 16;
-
-	if (SDE_FORMAT_IS_YUV(sspp->layout.format)) {
-		op_mode |= BIT(12);
-		op_mode |= (scaler3_cfg->uv_filter_cfg & 0x3) << 24;
-	}
-
-	op_mode |= (scaler3_cfg->blend_cfg & 1) << 31;
-	op_mode |= (scaler3_cfg->dir_en) ? BIT(4) : 0;
-
-	preload =
-		((scaler3_cfg->preload_x[0] & 0x7F) << 0) |
-		((scaler3_cfg->preload_y[0] & 0x7F) << 8) |
-		((scaler3_cfg->preload_x[1] & 0x7F) << 16) |
-		((scaler3_cfg->preload_y[1] & 0x7F) << 24);
-
-	src_y_rgb = (scaler3_cfg->src_width[0] & 0x1FFFF) |
-		((scaler3_cfg->src_height[0] & 0x1FFFF) << 16);
-
-	src_uv = (scaler3_cfg->src_width[1] & 0x1FFFF) |
-		((scaler3_cfg->src_height[1] & 0x1FFFF) << 16);
-
-	dst = (scaler3_cfg->dst_width & 0x1FFFF) |
-		((scaler3_cfg->dst_height & 0x1FFFF) << 16);
-
-	if (scaler3_cfg->de.enable) {
-		_sde_hw_sspp_setup_scaler3_de(ctx, &scaler3_cfg->de);
-		op_mode |= BIT(8);
-	}
-
-	if (scaler3_cfg->lut_flag)
-		_sde_hw_sspp_setup_scaler3_lut(ctx, scaler3_cfg);
-
-	if (ctx->cap->sblk->scaler_blk.version == 0x1002) {
-		phase_init =
-			((scaler3_cfg->init_phase_x[0] & 0x3F) << 0) |
-			((scaler3_cfg->init_phase_y[0] & 0x3F) << 8) |
-			((scaler3_cfg->init_phase_x[1] & 0x3F) << 16) |
-			((scaler3_cfg->init_phase_y[1] & 0x3F) << 24);
-		SDE_REG_WRITE(&ctx->hw, QSEED3_PHASE_INIT + idx, phase_init);
-	} else {
-		SDE_REG_WRITE(&ctx->hw, QSEED3_PHASE_INIT_Y_H + idx,
-			scaler3_cfg->init_phase_x[0] & 0x1FFFFF);
-		SDE_REG_WRITE(&ctx->hw, QSEED3_PHASE_INIT_Y_V + idx,
-			scaler3_cfg->init_phase_y[0] & 0x1FFFFF);
-		SDE_REG_WRITE(&ctx->hw, QSEED3_PHASE_INIT_UV_H + idx,
-			scaler3_cfg->init_phase_x[1] & 0x1FFFFF);
-		SDE_REG_WRITE(&ctx->hw, QSEED3_PHASE_INIT_UV_V + idx,
-			scaler3_cfg->init_phase_y[1] & 0x1FFFFF);
-	}
-
-	SDE_REG_WRITE(&ctx->hw, QSEED3_PHASE_STEP_Y_H + idx,
-		scaler3_cfg->phase_step_x[0] & 0xFFFFFF);
-
-	SDE_REG_WRITE(&ctx->hw, QSEED3_PHASE_STEP_Y_V + idx,
-		scaler3_cfg->phase_step_y[0] & 0xFFFFFF);
-
-	SDE_REG_WRITE(&ctx->hw, QSEED3_PHASE_STEP_UV_H + idx,
-		scaler3_cfg->phase_step_x[1] & 0xFFFFFF);
-
-	SDE_REG_WRITE(&ctx->hw, QSEED3_PHASE_STEP_UV_V + idx,
-		scaler3_cfg->phase_step_y[1] & 0xFFFFFF);
-
-	SDE_REG_WRITE(&ctx->hw, QSEED3_PRELOAD + idx, preload);
-
-	SDE_REG_WRITE(&ctx->hw, QSEED3_SRC_SIZE_Y_RGB_A + idx, src_y_rgb);
-
-	SDE_REG_WRITE(&ctx->hw, QSEED3_SRC_SIZE_UV + idx, src_uv);
-
-	SDE_REG_WRITE(&ctx->hw, QSEED3_DST_SIZE + idx, dst);
-
-end:
-	if (!SDE_FORMAT_IS_DX(sspp->layout.format))
-		op_mode |= BIT(14);
-
-	if (sspp->layout.format->alpha_enable) {
-		op_mode |= BIT(10);
-		if (ctx->cap->sblk->scaler_blk.version == 0x1002)
-			op_mode |= (scaler3_cfg->alpha_filter_cfg & 0x1) << 30;
-		else
-			op_mode |= (scaler3_cfg->alpha_filter_cfg & 0x3) << 29;
-	}
-	SDE_REG_WRITE(&ctx->hw, QSEED3_OP_MODE + idx, op_mode);
+	sde_hw_setup_scaler3(&ctx->hw, scaler3_cfg, idx,
+			ctx->cap->sblk->scaler_blk.version,
+			sspp->layout.format);
 }
 
 static u32 _sde_hw_sspp_get_scaler3_ver(struct sde_hw_pipe *ctx)
@@ -797,7 +530,7 @@ static u32 _sde_hw_sspp_get_scaler3_ver(struct sde_hw_pipe *ctx)
 	if (!ctx || _sspp_subblk_offset(ctx, SDE_SSPP_SCALER_QSEED3, &idx))
 		return 0;
 
-	return SDE_REG_READ(&ctx->hw, QSEED3_HW_VERSION + idx);
+	return sde_hw_get_scaler3_ver(&ctx->hw, idx);
 }
 
 /**
