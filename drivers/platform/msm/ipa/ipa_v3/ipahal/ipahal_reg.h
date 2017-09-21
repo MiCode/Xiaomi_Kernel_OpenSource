@@ -464,8 +464,6 @@ void ipahal_get_aggr_force_close_valmask(int ep_idx,
 void ipahal_get_fltrt_hash_flush_valmask(
 	struct ipahal_reg_fltrt_hash_flush *flush,
 	struct ipahal_reg_valmask *valmask);
-void ipahal_get_status_ep_valmask(int pipe_num,
-	struct ipahal_reg_valmask *valmask);
 
 #endif /* _IPAHAL_REG_H_ */
 
