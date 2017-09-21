@@ -1240,7 +1240,7 @@ static void gsi_set_clear_dbell(struct usb_ep *ep,
 */
 static bool gsi_check_ready_to_suspend(struct usb_ep *ep, bool f_suspend)
 {
-	u32	timeout = 1500;
+	u32	timeout = 500;
 	u32	reg = 0;
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct dwc3 *dwc = dep->dwc;
@@ -1253,6 +1253,7 @@ static bool gsi_check_ready_to_suspend(struct usb_ep *ep, bool f_suspend)
 			"Unable to suspend GSI ch. WR_CTRL_STATE != 0\n");
 			return false;
 		}
+		usleep_range(20, 22);
 	}
 	/* Check for U3 only if we are not handling Function Suspend */
 	if (!f_suspend) {
@@ -1934,6 +1935,7 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
 		reg = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG);
 		if (reg & PWR_EVNT_LPM_IN_L2_MASK)
 			break;
+		usleep_range(20, 30);
 	}
 	if (!(reg & PWR_EVNT_LPM_IN_L2_MASK))
 		dev_err(mdwc->dev, "could not transition HS PHY to L2\n");
