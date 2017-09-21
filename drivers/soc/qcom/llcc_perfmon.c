@@ -21,6 +21,7 @@
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/err.h>
+#include <linux/hrtimer.h>
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
 #include <linux/soc/qcom/llcc-qcom.h>
@@ -39,10 +40,12 @@
  * struct llcc_perfmon_counter_map	- llcc perfmon counter map info
  * @port_sel:		Port selected for configured counter
  * @event_sel:		Event selected for configured counter
+ * @counter_dump:	Cumulative counter dump
  */
 struct llcc_perfmon_counter_map {
 	unsigned int port_sel;
 	unsigned int event_sel;
+	unsigned long long counter_dump;
 };
 
 struct llcc_perfmon_private;
@@ -74,6 +77,8 @@ struct event_port_ops {
  * @filtered_ports:	Port filter enabled
  * @port_configd:	Number of perfmon port configuration supported
  * @mutex:		mutex to protect this structure
+ * @hrtimer:		hrtimer instance for timer functionality
+ * @expires:		timer expire time in nano seconds
  */
 struct llcc_perfmon_private {
 	struct regmap *llcc_map;
@@ -87,6 +92,8 @@ struct llcc_perfmon_private {
 	unsigned int filtered_ports;
 	unsigned int port_configd;
 	struct mutex mutex;
+	struct hrtimer hrtimer;
+	ktime_t expires;
 };
 
 static inline void llcc_bcast_write(struct llcc_perfmon_private *llcc_priv,
@@ -114,6 +121,34 @@ static void llcc_bcast_modify(struct llcc_perfmon_private *llcc_priv,
 	llcc_bcast_write(llcc_priv, offset, readval);
 }
 
+static void perfmon_counter_dump(struct llcc_perfmon_private *llcc_priv)
+{
+	uint32_t val;
+	unsigned int i, j;
+	unsigned long long total;
+
+	llcc_bcast_write(llcc_priv, PERFMON_DUMP, MONITOR_DUMP);
+	for (i = 0; i < llcc_priv->configured_counters - 1; i++) {
+		total = 0;
+		for (j = 0; j < llcc_priv->num_banks; j++) {
+			regmap_read(llcc_priv->llcc_map, llcc_priv->bank_off[j]
+					+ LLCC_COUNTER_n_VALUE(i), &val);
+			total += val;
+		}
+
+		llcc_priv->configured[i].counter_dump += total;
+	}
+
+	total = 0;
+	for (j = 0; j < llcc_priv->num_banks; j++) {
+		regmap_read(llcc_priv->llcc_map, llcc_priv->bank_off[j] +
+				LLCC_COUNTER_n_VALUE(i), &val);
+		total += val;
+	}
+
+	llcc_priv->configured[i].counter_dump += total;
+}
+
 static ssize_t perfmon_counter_dump_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -128,21 +163,73 @@ static ssize_t perfmon_counter_dump_show(struct device *dev,
 		return cnt;
 	}
 
-	llcc_bcast_write(llcc_priv, PERFMON_DUMP, MONITOR_DUMP);
+	if (llcc_priv->expires.tv64) {
+		perfmon_counter_dump(llcc_priv);
+		for (i = 0; i < llcc_priv->configured_counters - 1; i++) {
+			print = snprintf(buf, MAX_STRING_SIZE, "Port %02d,",
+					llcc_priv->configured[i].port_sel);
+			buf += print;
+			cnt += print;
+			print = snprintf(buf, MAX_STRING_SIZE, "Event %02d,",
+					llcc_priv->configured[i].event_sel);
+			buf += print;
+			cnt += print;
 
-	for (i = 0; i < llcc_priv->configured_counters - 1; i++) {
-		print = snprintf(buf, MAX_STRING_SIZE, "Port %02d,",
-				llcc_priv->configured[i].port_sel);
+			print = snprintf(buf, MAX_STRING_SIZE, "0x%016llx\n",
+				       llcc_priv->configured[i].counter_dump);
+			buf += print;
+			cnt += print;
+			llcc_priv->configured[i].counter_dump = 0;
+		}
+
+		print = snprintf(buf, MAX_STRING_SIZE, "CYCLE COUNT, ,");
 		buf += print;
 		cnt += print;
-		print = snprintf(buf, MAX_STRING_SIZE, "Event %02d,",
-				llcc_priv->configured[i].event_sel);
+		print = snprintf(buf, MAX_STRING_SIZE, "0x%016llx\n",
+			llcc_priv->configured[i].counter_dump);
+		buf += print;
+		cnt += print;
+		llcc_priv->configured[i].counter_dump = 0;
+		hrtimer_forward_now(&llcc_priv->hrtimer, llcc_priv->expires);
+	} else {
+		llcc_bcast_write(llcc_priv, PERFMON_DUMP, MONITOR_DUMP);
+
+		for (i = 0; i < llcc_priv->configured_counters - 1; i++) {
+			print = snprintf(buf, MAX_STRING_SIZE, "Port %02d,",
+					llcc_priv->configured[i].port_sel);
+			buf += print;
+			cnt += print;
+			print = snprintf(buf, MAX_STRING_SIZE, "Event %02d,",
+					llcc_priv->configured[i].event_sel);
+			buf += print;
+			cnt += print;
+			total = 0;
+			for (j = 0; j < llcc_priv->num_banks; j++) {
+				regmap_read(llcc_priv->llcc_map,
+						llcc_priv->bank_off[j]
+						+ LLCC_COUNTER_n_VALUE(i),
+						&val);
+				print = snprintf(buf, MAX_STRING_SIZE,
+						"0x%08x,", val);
+				buf += print;
+				cnt += print;
+				total += val;
+			}
+
+			print = snprintf(buf, MAX_STRING_SIZE, "0x%09llx\n",
+					total);
+			buf += print;
+			cnt += print;
+		}
+
+		print = snprintf(buf, MAX_STRING_SIZE, "CYCLE COUNT, ,");
 		buf += print;
 		cnt += print;
 		total = 0;
 		for (j = 0; j < llcc_priv->num_banks; j++) {
-			regmap_read(llcc_priv->llcc_map, llcc_priv->bank_off[j]
-					+ LLCC_COUNTER_n_VALUE(i), &val);
+			regmap_read(llcc_priv->llcc_map,
+					llcc_priv->bank_off[j] +
+					LLCC_COUNTER_n_VALUE(i), &val);
 			print = snprintf(buf, MAX_STRING_SIZE, "0x%08x,", val);
 			buf += print;
 			cnt += print;
@@ -154,22 +241,6 @@ static ssize_t perfmon_counter_dump_show(struct device *dev,
 		cnt += print;
 	}
 
-	print = snprintf(buf, MAX_STRING_SIZE, "CYCLE COUNT, ,");
-	buf += print;
-	cnt += print;
-	total = 0;
-	for (j = 0; j < llcc_priv->num_banks; j++) {
-		regmap_read(llcc_priv->llcc_map, llcc_priv->bank_off[j] +
-				LLCC_COUNTER_n_VALUE(i), &val);
-		print = snprintf(buf, MAX_STRING_SIZE, "0x%08x,", val);
-		buf += print;
-		cnt += print;
-		total += val;
-	}
-
-	print = snprintf(buf, MAX_STRING_SIZE, "0x%09llx\n", total);
-	buf += print;
-	cnt += print;
 	return cnt;
 }
 
@@ -459,13 +530,54 @@ static ssize_t perfmon_start_store(struct device *dev,
 			pr_err("start failed. perfmon not configured\n");
 
 		val = MANUAL_MODE | MONITOR_EN;
+		if (llcc_priv->expires.tv64) {
+		if (hrtimer_is_queued(&llcc_priv->hrtimer))
+			hrtimer_forward_now(&llcc_priv->hrtimer,
+					llcc_priv->expires);
+		else
+			hrtimer_start(&llcc_priv->hrtimer,
+					llcc_priv->expires,
+					HRTIMER_MODE_REL_PINNED);
+		}
+
 	} else {
+		if (llcc_priv->expires.tv64)
+			hrtimer_cancel(&llcc_priv->hrtimer);
+
 		if (!llcc_priv->configured_counters)
 			pr_err("stop failed. perfmon not configured\n");
 	}
 
 	mask = PERFMON_MODE_MONITOR_MODE_MASK | PERFMON_MODE_MONITOR_EN_MASK;
 	llcc_bcast_modify(llcc_priv, PERFMON_MODE, val, mask);
+
+
+	mutex_unlock(&llcc_priv->mutex);
+	return count;
+}
+
+static ssize_t perfmon_ns_periodic_dump_store(struct device *dev,
+		struct device_attribute *attr, const char *buf,
+		size_t count)
+{
+	struct llcc_perfmon_private *llcc_priv = dev_get_drvdata(dev);
+
+	if (kstrtos64(buf, 10, &llcc_priv->expires.tv64))
+		return -EINVAL;
+
+	mutex_lock(&llcc_priv->mutex);
+	if (!llcc_priv->expires.tv64) {
+		hrtimer_cancel(&llcc_priv->hrtimer);
+		mutex_unlock(&llcc_priv->mutex);
+		return count;
+	}
+
+	if (hrtimer_is_queued(&llcc_priv->hrtimer))
+		hrtimer_forward_now(&llcc_priv->hrtimer, llcc_priv->expires);
+	else
+		hrtimer_start(&llcc_priv->hrtimer, llcc_priv->expires,
+			      HRTIMER_MODE_REL_PINNED);
+
 	mutex_unlock(&llcc_priv->mutex);
 	return count;
 }
@@ -508,6 +620,7 @@ static DEVICE_ATTR_WO(perfmon_filter_config);
 static DEVICE_ATTR_WO(perfmon_filter_remove);
 static DEVICE_ATTR_WO(perfmon_start);
 static DEVICE_ATTR_RO(perfmon_scid_status);
+static DEVICE_ATTR_WO(perfmon_ns_periodic_dump);
 
 static struct attribute *llcc_perfmon_attrs[] = {
 	&dev_attr_perfmon_counter_dump.attr,
@@ -517,6 +630,7 @@ static struct attribute *llcc_perfmon_attrs[] = {
 	&dev_attr_perfmon_filter_remove.attr,
 	&dev_attr_perfmon_start.attr,
 	&dev_attr_perfmon_scid_status.attr,
+	&dev_attr_perfmon_ns_periodic_dump.attr,
 	NULL,
 };
 
@@ -989,6 +1103,16 @@ static void llcc_register_event_port(struct llcc_perfmon_private *llcc_priv,
 	llcc_priv->port_ops[event_port_num] = ops;
 }
 
+static enum hrtimer_restart llcc_perfmon_timer_handler(struct hrtimer *hrtimer)
+{
+	struct llcc_perfmon_private *llcc_priv = container_of(hrtimer,
+			struct llcc_perfmon_private, hrtimer);
+
+	perfmon_counter_dump(llcc_priv);
+	hrtimer_forward_now(&llcc_priv->hrtimer, llcc_priv->expires);
+	return HRTIMER_RESTART;
+}
+
 static int llcc_perfmon_probe(struct platform_device *pdev)
 {
 	int result = 0;
@@ -1038,12 +1162,18 @@ static int llcc_perfmon_probe(struct platform_device *pdev)
 	llcc_register_event_port(llcc_priv, &trp_port_ops, EVENT_PORT_TRP);
 	llcc_register_event_port(llcc_priv, &drp_port_ops, EVENT_PORT_DRP);
 	llcc_register_event_port(llcc_priv, &pmgr_port_ops, EVENT_PORT_PMGR);
+	hrtimer_init(&llcc_priv->hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	llcc_priv->hrtimer.function = llcc_perfmon_timer_handler;
+	llcc_priv->expires.tv64 = 0;
 	return 0;
 }
 
 static int llcc_perfmon_remove(struct platform_device *pdev)
 {
 	struct llcc_perfmon_private *llcc_priv = platform_get_drvdata(pdev);
+
+	while (hrtimer_active(&llcc_priv->hrtimer))
+		hrtimer_cancel(&llcc_priv->hrtimer);
 
 	mutex_destroy(&llcc_priv->mutex);
 	sysfs_remove_group(&pdev->dev.kobj, &llcc_perfmon_group);
