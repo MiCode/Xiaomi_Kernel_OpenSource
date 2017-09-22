@@ -405,8 +405,6 @@ struct hc_driver {
 			unsigned int intr_num);
 	dma_addr_t (*get_xfer_ring_dma_addr)(struct usb_hcd *hcd,
 			struct usb_device *udev, struct usb_host_endpoint *ep);
-	dma_addr_t (*get_dcba_dma_addr)(struct usb_hcd *hcd,
-			struct usb_device *udev);
 	int (*get_core_id)(struct usb_hcd *hcd);
 };
 
