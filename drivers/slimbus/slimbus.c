@@ -2397,6 +2397,8 @@ static int slim_sched_chans(struct slim_device *sb, u32 clkgear,
 		bool opensl1valid = false;
 		int maxctrlw1, maxctrlw3, i;
 
+		/* intitalize array to zero */
+		memset(opensl1, 0x0, sizeof(opensl1));
 		finalexp = (ctrl->sched.chc3[last3])->rootexp;
 		if (last1 >= 0) {
 			slc1 = ctrl->sched.chc1[coeff1];
