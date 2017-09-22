@@ -9,31 +9,45 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#include "sdm670-audio-overlay.dtsi"
 
-#include "sdm845-cdp.dtsi"
-#include "sdm845-interposer-pm660.dtsi"
+&pm660l_3 {
+	/delete-node/analog-codec;
+};
 
 &soc {
-	/delete-node/ ssusb@a800000;
-	/delete-node/ qusb@88e3000;
-	/delete-node/ ssphy@88eb000;
+	/delete-node/msm-sdw-codec@62ec1000;
+	/delete-node/cdc_pdm_pinctrl;
+	/delete-node/wsa_spkr_en1_pinctrl;
+	/delete-node/wsa_spkr_en2_pinctrl;
+	/delete-node/sdw_clk_data_pinctrl;
 };
 
-&usb0 {
-	extcon = <&pm660_pdphy>, <&pm660_pdphy>, <0> /* <&eud> */;
+&qupv3_se8_spi {
+	status = "okay";
 };
 
-&qusb_phy0 {
-	vdd-supply = <&pm660l_l1>;
-	vdda18-supply = <&pm660_l10>;
-	vdda33-supply = <&pm660l_l7>;
+&wcd9xxx_intc {
+	status = "okay";
+	qcom,gpio-connect = <&tlmm 54 0>;
 };
 
-&usb_qmp_dp_phy {
-	vdd-supply = <&pm660l_l1>; /* 0.88v */
-	core-supply = <&pm660_l1>; /* 1.2v */
+&wdsp_mgr {
+	status = "okay";
 };
 
-&pcie0 {
-	status = "disabled";
+&wdsp_glink {
+	status = "okay";
+};
+
+&wcd934x_cdc {
+	status = "okay";
+};
+
+&clock_audio_lnbb {
+	status = "okay";
+};
+
+&wcd_rst_gpio {
+	status = "okay";
 };

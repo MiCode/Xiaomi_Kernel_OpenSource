@@ -1406,6 +1406,22 @@
 			};
 		};
 
+		wcd_buck_vsel {
+			wcd_buck_vsel_default: wcd_buck_vsel_default{
+				mux {
+					pins = "gpio94";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio94";
+					drive-strength = <8>; /* 8 mA */
+					bias-pull-down; /* pull down */
+					output-high;
+				};
+			};
+		};
+
 		wcd_gnd_mic_swap {
 			wcd_gnd_mic_swap_idle: wcd_gnd_mic_swap_idle {
 				mux {

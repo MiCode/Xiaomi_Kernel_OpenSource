@@ -21,7 +21,7 @@
 
 #include "sdm845-sde-display.dtsi"
 #include "sdm845-interposer-sdm670-cdp.dtsi"
-
+#include "sdm845-interposer-sdm670-audio-overlay.dtsi"
 / {
 	model = "Qualcomm Technologies, Inc. SDM845 v1 Interposer SDM670 CDP";
 	compatible = "qcom,sdm845-cdp", "qcom,sdm845", "qcom,cdp";
