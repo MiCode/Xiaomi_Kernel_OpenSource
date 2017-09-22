@@ -1745,7 +1745,22 @@ EXPORT_SYMBOL(sde_rotator_inline_commit);
 
 void sde_rotator_inline_reg_dump(struct platform_device *pdev)
 {
-	sde_rot_dump_panic(false);
+	struct sde_rotator_device *rot_dev;
+
+	if (!pdev) {
+		SDEROT_ERR("invalid platform device\n");
+		return;
+	}
+
+	rot_dev = (struct sde_rotator_device *) platform_get_drvdata(pdev);
+	if (!rot_dev || !rot_dev->mgr) {
+		SDEROT_ERR("invalid rotator device\n");
+		return;
+	}
+
+	sde_rot_mgr_lock(rot_dev->mgr);
+	sde_rotator_core_dump(rot_dev->mgr);
+	sde_rot_mgr_unlock(rot_dev->mgr);
 }
 EXPORT_SYMBOL(sde_rotator_inline_reg_dump);
 

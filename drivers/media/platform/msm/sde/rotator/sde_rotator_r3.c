@@ -536,6 +536,8 @@ static struct sde_rot_regdump sde_rot_r3_regdump[] = {
 		SDE_ROT_REGDUMP_READ },
 	{ "SDEROT_VBIF_NRT", SDE_ROT_VBIF_NRT_OFFSET, 0x590,
 		SDE_ROT_REGDUMP_VBIF },
+	{ "SDEROT_REGDMA_RESET", ROTTOP_SW_RESET_OVERRIDE, 0,
+		SDE_ROT_REGDUMP_WRITE },
 };
 
 struct sde_rot_cdp_params {
@@ -780,10 +782,11 @@ static int sde_hw_rotator_reset(struct sde_hw_rotator *rot,
 }
 
 /**
- * sde_hw_rotator_dump_status - Dump hw rotator status on error
+ * _sde_hw_rotator_dump_status - Dump hw rotator status on error
  * @rot: Pointer to hw rotator
  */
-static void sde_hw_rotator_dump_status(struct sde_hw_rotator *rot, u32 *ubwcerr)
+static void _sde_hw_rotator_dump_status(struct sde_hw_rotator *rot,
+		u32 *ubwcerr)
 {
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	u32 reg = 0;
@@ -826,12 +829,35 @@ static void sde_hw_rotator_dump_status(struct sde_hw_rotator *rot, u32 *ubwcerr)
 		SDE_VBIF_READ(mdata, MMSS_VBIF_XIN_HALT_CTRL1),
 		SDE_VBIF_READ(mdata, MMSS_VBIF_AXI_HALT_CTRL1));
 
-	SDEROT_ERR(
-		"sbuf_status_plane0 = %x, sbuf_status_plane1 = %x\n",
-		SDE_ROTREG_READ(rot->mdss_base,
-			ROT_WB_SBUF_STATUS_PLANE0),
-		SDE_ROTREG_READ(rot->mdss_base,
-			ROT_WB_SBUF_STATUS_PLANE1));
+	SDEROT_ERR("sspp unpack wr: plane0 = %x, plane1 = %x, plane2 = %x\n",
+			SDE_ROTREG_READ(rot->mdss_base,
+				ROT_SSPP_FETCH_SMP_WR_PLANE0),
+			SDE_ROTREG_READ(rot->mdss_base,
+				ROT_SSPP_FETCH_SMP_WR_PLANE1),
+			SDE_ROTREG_READ(rot->mdss_base,
+				ROT_SSPP_FETCH_SMP_WR_PLANE2));
+	SDEROT_ERR("sspp unpack rd: plane0 = %x, plane1 = %x, plane2 = %x\n",
+			SDE_ROTREG_READ(rot->mdss_base,
+					ROT_SSPP_SMP_UNPACK_RD_PLANE0),
+			SDE_ROTREG_READ(rot->mdss_base,
+					ROT_SSPP_SMP_UNPACK_RD_PLANE1),
+			SDE_ROTREG_READ(rot->mdss_base,
+					ROT_SSPP_SMP_UNPACK_RD_PLANE2));
+	SDEROT_ERR("sspp: unpack_ln = %x, unpack_blk = %x, fill_lvl = %x\n",
+			SDE_ROTREG_READ(rot->mdss_base,
+				ROT_SSPP_UNPACK_LINE_COUNT),
+			SDE_ROTREG_READ(rot->mdss_base,
+				ROT_SSPP_UNPACK_BLK_COUNT),
+			SDE_ROTREG_READ(rot->mdss_base,
+				ROT_SSPP_FILL_LEVELS));
+
+	SDEROT_ERR("wb: sbuf0 = %x, sbuf1 = %x, sys_cache = %x\n",
+			SDE_ROTREG_READ(rot->mdss_base,
+				ROT_WB_SBUF_STATUS_PLANE0),
+			SDE_ROTREG_READ(rot->mdss_base,
+				ROT_WB_SBUF_STATUS_PLANE1),
+			SDE_ROTREG_READ(rot->mdss_base,
+				ROT_WB_SYS_CACHE_MODE));
 }
 
 /**
@@ -1952,7 +1978,7 @@ static u32 sde_hw_rotator_wait_done_regdma(
 			else if (status & REGDMA_INVALID_CMD)
 				SDEROT_ERR("REGDMA invalid command\n");
 
-			sde_hw_rotator_dump_status(rot, &ubwcerr);
+			_sde_hw_rotator_dump_status(rot, &ubwcerr);
 
 			if (ubwcerr || abort) {
 				/*
@@ -1997,12 +2023,12 @@ static u32 sde_hw_rotator_wait_done_regdma(
 		if (last_isr & REGDMA_INT_ERR_MASK) {
 			SDEROT_ERR("Rotator error, ts:0x%X/0x%X status:%x\n",
 				ctx->timestamp, swts, last_isr);
-			sde_hw_rotator_dump_status(rot, NULL);
+			_sde_hw_rotator_dump_status(rot, NULL);
 			status = ROT_ERROR_BIT;
 		} else if (pending) {
 			SDEROT_ERR("Rotator timeout, ts:0x%X/0x%X status:%x\n",
 				ctx->timestamp, swts, last_isr);
-			sde_hw_rotator_dump_status(rot, NULL);
+			_sde_hw_rotator_dump_status(rot, NULL);
 			status = ROT_ERROR_BIT;
 		} else {
 			status = 0;
@@ -2481,7 +2507,7 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 				if (status & BIT(0)) {
 					SDEROT_ERR("rotator busy 0x%x\n",
 							status);
-					sde_hw_rotator_dump_status(rot, NULL);
+					_sde_hw_rotator_dump_status(rot, NULL);
 					SDEROT_EVTLOG_TOUT_HANDLER("rot",
 							"vbif_dbg_bus",
 							"panic");
@@ -3494,6 +3520,21 @@ static int sde_hw_rotator_get_maxlinewidth(struct sde_rot_mgr *mgr)
 }
 
 /*
+ * sde_hw_rotator_dump_status - dump status to debug output
+ * @mgr: Pointer to rotator manager
+ * return: none
+ */
+static void sde_hw_rotator_dump_status(struct sde_rot_mgr *mgr)
+{
+	if (!mgr || !mgr->hw_data) {
+		SDEROT_ERR("null parameters\n");
+		return;
+	}
+
+	_sde_hw_rotator_dump_status(mgr->hw_data, NULL);
+}
+
+/*
  * sde_hw_rotator_parse_dt - parse r3 specific device tree settings
  * @hw_data: Pointer to rotator hw
  * @dev: Pointer to platform device
@@ -3622,6 +3663,7 @@ int sde_rotator_r3_init(struct sde_rot_mgr *mgr)
 	mgr->ops_hw_post_pmevent = sde_hw_rotator_post_pmevent;
 	mgr->ops_hw_get_downscale_caps = sde_hw_rotator_get_downscale_caps;
 	mgr->ops_hw_get_maxlinewidth = sde_hw_rotator_get_maxlinewidth;
+	mgr->ops_hw_dump_status = sde_hw_rotator_dump_status;
 
 	ret = sde_hw_rotator_parse_dt(mgr->hw_data, mgr->pdev);
 	if (ret)

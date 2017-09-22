@@ -3194,6 +3194,26 @@ void sde_rotator_core_destroy(struct sde_rot_mgr *mgr)
 	devm_kfree(dev, mgr);
 }
 
+void sde_rotator_core_dump(struct sde_rot_mgr *mgr)
+{
+	if (!mgr) {
+		SDEROT_ERR("null parameters\n");
+		return;
+	}
+
+	sde_rotator_resource_ctrl(mgr, true);
+	/* dump first snapshot */
+	if (mgr->ops_hw_dump_status)
+		mgr->ops_hw_dump_status(mgr->hw_data);
+
+	SDEROT_EVTLOG_TOUT_HANDLER("rot", "rot_dbg_bus", "vbif_dbg_bus");
+
+	/* dump second snapshot for comparison */
+	if (mgr->ops_hw_dump_status)
+		mgr->ops_hw_dump_status(mgr->hw_data);
+	sde_rotator_resource_ctrl(mgr, false);
+}
+
 static void sde_rotator_suspend_cancel_rot_work(struct sde_rot_mgr *mgr)
 {
 	struct sde_rot_file_private *priv, *priv_next;
