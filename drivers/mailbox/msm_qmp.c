@@ -27,7 +27,7 @@
 #define QMP_VERSION	0x1
 #define QMP_FEATURES	0x0
 #define QMP_TOUT_MS	5000
-#define QMP_TX_TOUT_MS	2000
+#define QMP_TX_TOUT_MS	1000
 
 #define QMP_MBOX_LINK_DOWN		0xFFFF0000
 #define QMP_MBOX_LINK_UP		0x0000FFFF
@@ -229,7 +229,7 @@ static void memcpy32_fromio(void *dest, void __iomem *src, size_t size)
 }
 
 /**
- * qmp_notify_timeout() - Notify client of tx timeout with -EIO
+ * qmp_notify_timeout() - Notify client of tx timeout with -ETIME
  * @work:	Structure for work that was scheduled.
  */
 static void qmp_notify_timeout(struct work_struct *work)
@@ -237,7 +237,7 @@ static void qmp_notify_timeout(struct work_struct *work)
 	struct delayed_work *dwork = to_delayed_work(work);
 	struct qmp_mbox *mbox = container_of(dwork, struct qmp_mbox, dwork);
 	struct mbox_chan *chan = &mbox->ctrl.chans[mbox->idx_in_flight];
-	int err = -EIO;
+	int err = -ETIME;
 	unsigned long flags;
 
 	spin_lock_irqsave(&mbox->tx_lock, flags);
@@ -246,6 +246,7 @@ static void qmp_notify_timeout(struct work_struct *work)
 		return;
 	}
 	pr_err("%s: qmp tx timeout for %d\n", __func__, mbox->idx_in_flight);
+	iowrite32(0, mbox->mdev->msgram + mbox->mcore_mbox_offset);
 	mbox->tx_sent = false;
 	spin_unlock_irqrestore(&mbox->tx_lock, flags);
 	mbox_chan_txdone(chan, err);
