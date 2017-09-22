@@ -456,7 +456,7 @@ static int sde_rsc_switch_to_idle(struct sde_rsc_priv *rsc)
 	} else if (rsc->hw_ops.state_update) {
 		rc = rsc->hw_ops.state_update(rsc, SDE_RSC_IDLE_STATE);
 		if (!rc)
-			rpmh_mode_solver_set(rsc->disp_rsc, false);
+			rpmh_mode_solver_set(rsc->disp_rsc, true);
 	}
 
 	return rc;
