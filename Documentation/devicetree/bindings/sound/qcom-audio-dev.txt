@@ -1371,6 +1371,13 @@ Required properties:
 				When clock rate is set to zero,
 				then external clock is assumed.
 
+ - qcom,msm-cpudai-tdm-afe-ebit-unsupported: Notify if ebit setting is needed
+					  When this is set , alongwith
+					  clock rate as zero then afe
+					  is not configured for clock.
+
+
+
  [Second Level Nodes]
 
 Required properties:
