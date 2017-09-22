@@ -32,7 +32,7 @@
 #include <asm/system_misc.h>
 
 #include <soc/qcom/socinfo.h>
-#include <soc/qcom/smem.h>
+#include <linux/soc/qcom/smem.h>
 #include <soc/qcom/boot_stats.h>
 
 #define BUILD_ID_LENGTH 32
@@ -534,8 +534,10 @@ uint32_t socinfo_get_pmic_die_revision(void)
 
 static char *socinfo_get_image_version_base_address(void)
 {
-	return smem_find(SMEM_IMAGE_VERSION_TABLE,
-				SMEM_IMAGE_VERSION_SIZE, 0, SMEM_ANY_HOST_FLAG);
+	size_t size;
+
+	return qcom_smem_get(QCOM_SMEM_HOST_ANY, SMEM_IMAGE_VERSION_TABLE,
+			&size);
 }
 
 enum msm_cpu socinfo_get_msm_cpu(void)
@@ -1452,14 +1454,13 @@ static void socinfo_select_format(void)
 int __init socinfo_init(void)
 {
 	static bool socinfo_init_done;
-	unsigned int size;
+	size_t size;
 	uint32_t soc_info_id;
 
 	if (socinfo_init_done)
 		return 0;
 
-	socinfo = smem_get_entry(SMEM_HW_SW_BUILD_ID, &size, 0,
-				 SMEM_ANY_HOST_FLAG);
+	socinfo = qcom_smem_get(QCOM_SMEM_HOST_ANY, SMEM_HW_SW_BUILD_ID, &size);
 	if (IS_ERR_OR_NULL(socinfo)) {
 		pr_warn("Can't find SMEM_HW_SW_BUILD_ID; falling back on dummy values.\n");
 		socinfo = setup_dummy_socinfo();
