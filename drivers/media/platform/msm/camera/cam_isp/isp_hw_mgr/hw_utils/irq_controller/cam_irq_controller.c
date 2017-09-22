@@ -329,6 +329,111 @@ free_evt_handler:
 	return rc;
 }
 
+int cam_irq_controller_enable_irq(void *irq_controller, uint32_t handle)
+{
+	struct cam_irq_controller  *controller  = irq_controller;
+	struct cam_irq_evt_handler *evt_handler = NULL;
+	struct cam_irq_evt_handler *evt_handler_temp;
+	unsigned long               flags;
+	unsigned int                i;
+	uint32_t                    irq_mask;
+	uint32_t                    found = 0;
+	int                         rc = -EINVAL;
+
+	if (!controller)
+		return rc;
+
+	list_for_each_entry_safe(evt_handler, evt_handler_temp,
+		&controller->evt_handler_list_head, list_node) {
+		if (evt_handler->index == handle) {
+			CAM_DBG(CAM_ISP, "enable item %d", handle);
+			found = 1;
+			rc = 0;
+			break;
+		}
+	}
+
+	if (!found)
+		return rc;
+
+	write_lock_irqsave(&controller->rw_lock, flags);
+	for (i = 0; i < controller->num_registers; i++) {
+		controller->irq_register_arr[i].
+		top_half_enable_mask[evt_handler->priority] |=
+			evt_handler->evt_bit_mask_arr[i];
+
+		irq_mask = cam_io_r_mb(controller->mem_base +
+			controller->irq_register_arr[i].
+			mask_reg_offset);
+		irq_mask |= evt_handler->evt_bit_mask_arr[i];
+
+		cam_io_w_mb(irq_mask, controller->mem_base +
+		controller->irq_register_arr[i].mask_reg_offset);
+	}
+	write_unlock_irqrestore(&controller->rw_lock, flags);
+
+	return rc;
+}
+
+int cam_irq_controller_disable_irq(void *irq_controller, uint32_t handle)
+{
+	struct cam_irq_controller  *controller  = irq_controller;
+	struct cam_irq_evt_handler *evt_handler = NULL;
+	struct cam_irq_evt_handler *evt_handler_temp;
+	unsigned long               flags;
+	unsigned int                i;
+	uint32_t                    irq_mask;
+	uint32_t                    found = 0;
+	int                         rc = -EINVAL;
+
+	if (!controller)
+		return rc;
+
+	list_for_each_entry_safe(evt_handler, evt_handler_temp,
+		&controller->evt_handler_list_head, list_node) {
+		if (evt_handler->index == handle) {
+			CAM_DBG(CAM_ISP, "disable item %d", handle);
+			found = 1;
+			rc = 0;
+			break;
+		}
+	}
+
+	if (!found)
+		return rc;
+
+	write_lock_irqsave(&controller->rw_lock, flags);
+	for (i = 0; i < controller->num_registers; i++) {
+		controller->irq_register_arr[i].
+		top_half_enable_mask[evt_handler->priority] &=
+			~(evt_handler->evt_bit_mask_arr[i]);
+
+		irq_mask = cam_io_r_mb(controller->mem_base +
+			controller->irq_register_arr[i].
+			mask_reg_offset);
+		irq_mask &= ~(evt_handler->evt_bit_mask_arr[i]);
+
+		cam_io_w_mb(irq_mask, controller->mem_base +
+			controller->irq_register_arr[i].
+			mask_reg_offset);
+
+		/* Clear the IRQ bits of this handler */
+		cam_io_w_mb(evt_handler->evt_bit_mask_arr[i],
+			controller->mem_base +
+			controller->irq_register_arr[i].
+			clear_reg_offset);
+
+		if (controller->global_clear_offset)
+			cam_io_w_mb(
+				controller->global_clear_bitmask,
+				controller->mem_base +
+				controller->global_clear_offset);
+	}
+	write_unlock_irqrestore(&controller->rw_lock, flags);
+
+	return rc;
+}
+
 int cam_irq_controller_unsubscribe_irq(void *irq_controller,
 	uint32_t handle)
 {
