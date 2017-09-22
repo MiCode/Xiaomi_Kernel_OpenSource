@@ -30,6 +30,11 @@ static long cam_cci_subdev_ioctl(struct v4l2_subdev *sd,
 {
 	int32_t rc = 0;
 
+	if (arg == NULL) {
+		CAM_ERR(CAM_CCI, "Invalid Args");
+		return rc;
+	}
+
 	switch (cmd) {
 	case VIDIOC_MSM_CCI_CFG:
 		rc = cam_cci_core_cfg(sd, arg);
@@ -43,6 +48,14 @@ static long cam_cci_subdev_ioctl(struct v4l2_subdev *sd,
 
 	return rc;
 }
+
+#ifdef CONFIG_COMPAT
+static long cam_cci_subdev_compat_ioctl(struct v4l2_subdev *sd,
+	unsigned int cmd, unsigned long arg)
+{
+	return cam_cci_subdev_ioctl(sd, cmd, NULL);
+}
+#endif
 
 irqreturn_t cam_cci_irq(int irq_num, void *data)
 {
@@ -162,6 +175,9 @@ static int cam_cci_irq_routine(struct v4l2_subdev *sd, u32 status,
 
 static struct v4l2_subdev_core_ops cci_subdev_core_ops = {
 	.ioctl = cam_cci_subdev_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl32 = cam_cci_subdev_compat_ioctl,
+#endif
 	.interrupt_service_routine = cam_cci_irq_routine,
 };
 
@@ -170,6 +186,34 @@ static const struct v4l2_subdev_ops cci_subdev_ops = {
 };
 
 static const struct v4l2_subdev_internal_ops cci_subdev_intern_ops;
+
+static struct v4l2_file_operations cci_v4l2_subdev_fops;
+
+static long cam_cci_subdev_do_ioctl(
+	struct file *file, unsigned int cmd, void *arg)
+{
+	struct video_device *vdev = video_devdata(file);
+	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
+
+	return cam_cci_subdev_ioctl(sd, cmd, NULL);
+}
+
+static long cam_cci_subdev_fops_ioctl(struct file *file, unsigned int cmd,
+	unsigned long arg)
+{
+	return video_usercopy(file, cmd, arg, cam_cci_subdev_do_ioctl);
+}
+
+#ifdef CONFIG_COMPAT
+static long cam_cci_subdev_fops_compat_ioctl(struct file *file,
+	unsigned int cmd, unsigned long arg)
+{
+	struct video_device *vdev = video_devdata(file);
+	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
+
+	return v4l2_subdev_call(sd, core, ioctl, cmd, NULL);
+}
+#endif
 
 static int cam_cci_platform_probe(struct platform_device *pdev)
 {
@@ -222,6 +266,13 @@ static int cam_cci_platform_probe(struct platform_device *pdev)
 	v4l2_set_subdevdata(&new_cci_dev->v4l2_dev_str.sd, new_cci_dev);
 	g_cci_subdev = &new_cci_dev->v4l2_dev_str.sd;
 
+	cam_register_subdev_fops(&cci_v4l2_subdev_fops);
+	cci_v4l2_subdev_fops.unlocked_ioctl = cam_cci_subdev_fops_ioctl;
+#ifdef CONFIG_COMPAT
+	cci_v4l2_subdev_fops.compat_ioctl32 =
+		cam_cci_subdev_fops_compat_ioctl;
+#endif
+
 	cpas_parms.cam_cpas_client_cb = NULL;
 	cpas_parms.cell_index = 0;
 	cpas_parms.dev = &pdev->dev;
@@ -271,6 +322,26 @@ static struct platform_driver cci_driver = {
 	},
 };
 
+static int cam_cci_assign_fops(void)
+{
+	struct v4l2_subdev *sd;
+
+	sd = g_cci_subdev;
+	if (!sd || !(sd->devnode)) {
+		CAM_ERR(CAM_CRM,
+			"Invalid args sd node: %pK", sd);
+		return -EINVAL;
+	}
+	sd->devnode->fops = &cci_v4l2_subdev_fops;
+
+	return 0;
+}
+
+static int __init cam_cci_late_init(void)
+{
+	return cam_cci_assign_fops();
+}
+
 static int __init cam_cci_init_module(void)
 {
 	return platform_driver_register(&cci_driver);
@@ -282,6 +353,7 @@ static void __exit cam_cci_exit_module(void)
 }
 
 module_init(cam_cci_init_module);
+late_initcall(cam_cci_late_init);
 module_exit(cam_cci_exit_module);
 MODULE_DESCRIPTION("MSM CCI driver");
 MODULE_LICENSE("GPL v2");
