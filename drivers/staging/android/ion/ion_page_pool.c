@@ -183,7 +183,7 @@ int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
 		freed += (1 << pool->order);
 	}
 
-	return ion_page_pool_total(pool, high);
+	return freed;
 }
 
 struct ion_page_pool *ion_page_pool_create(struct device *dev, gfp_t gfp_mask,
