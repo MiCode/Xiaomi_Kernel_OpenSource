@@ -1705,6 +1705,10 @@ static ssize_t ipa3_rm_read_stats(struct file *file, char __user *ubuf,
 {
 	int result, nbytes, cnt = 0;
 
+	/* deprecate if IPA PM is used */
+	if (ipa3_ctx->use_ipa_pm)
+		return 0;
+
 	result = ipa_rm_stat(dbg_buff, IPA_MAX_MSG_LEN);
 	if (result < 0) {
 		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
@@ -1715,6 +1719,45 @@ static ssize_t ipa3_rm_read_stats(struct file *file, char __user *ubuf,
 
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
+
+static ssize_t ipa3_pm_read_stats(struct file *file, char __user *ubuf,
+		size_t count, loff_t *ppos)
+{
+	int result, nbytes, cnt = 0;
+
+	if (!ipa3_ctx->use_ipa_pm)
+		return 0;
+
+	result = ipa_pm_stat(dbg_buff, IPA_MAX_MSG_LEN);
+	if (result < 0) {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+				"Error in printing PM stat %d\n", result);
+		cnt += nbytes;
+	} else
+		cnt += result;
+
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
+}
+
+static ssize_t ipa3_pm_ex_read_stats(struct file *file, char __user *ubuf,
+		size_t count, loff_t *ppos)
+{
+	int result, nbytes, cnt = 0;
+
+	if (!ipa3_ctx->use_ipa_pm)
+		return 0;
+
+	result = ipa_pm_exceptions_stat(dbg_buff, IPA_MAX_MSG_LEN);
+	if (result < 0) {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+				"Error in printing PM stat %d\n", result);
+		cnt += nbytes;
+	} else
+		cnt += result;
+
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
+}
+
 
 static void ipa_dump_status(struct ipahal_pkt_status *status)
 {
@@ -1940,6 +1983,15 @@ const struct file_operations ipa3_rm_stats = {
 	.read = ipa3_rm_read_stats,
 };
 
+static const struct file_operations ipa3_pm_stats = {
+	.read = ipa3_pm_read_stats,
+};
+
+
+static const struct file_operations ipa3_pm_ex_stats = {
+	.read = ipa3_pm_ex_read_stats,
+};
+
 const struct file_operations ipa3_active_clients = {
 	.read = ipa3_print_active_clients_log,
 	.write = ipa3_clear_active_clients_log,
@@ -2131,11 +2183,27 @@ void ipa3_debugfs_init(void)
 		goto fail;
 	}
 
-	dfile_rm_stats = debugfs_create_file("rm_stats",
-			read_only_mode, dent, 0, &ipa3_rm_stats);
-	if (!dfile_rm_stats || IS_ERR(dfile_rm_stats)) {
-		IPAERR("fail to create file for debug_fs rm_stats\n");
-		goto fail;
+	if (ipa3_ctx->use_ipa_pm) {
+		file = dfile_rm_stats = debugfs_create_file("pm_stats",
+			read_only_mode, dent, NULL, &ipa3_pm_stats);
+		if (!file || IS_ERR(file)) {
+			IPAERR("fail to create file for debug_fs pm_stats\n");
+			goto fail;
+		}
+
+		file = dfile_rm_stats = debugfs_create_file("pm_ex_stats",
+			read_only_mode, dent, NULL, &ipa3_pm_ex_stats);
+		if (!file || IS_ERR(file)) {
+			IPAERR("fail to create file for debugfs pm_ex_stats\n");
+			goto fail;
+		}
+	} else {
+		dfile_rm_stats = debugfs_create_file("rm_stats",
+				read_only_mode, dent, NULL, &ipa3_rm_stats);
+		if (!dfile_rm_stats || IS_ERR(dfile_rm_stats)) {
+			IPAERR("fail to create file for debug_fs rm_stats\n");
+			goto fail;
+		}
 	}
 
 	dfile_status_stats = debugfs_create_file("status_stats",

@@ -73,6 +73,8 @@
 
 #define IPA_TX_SEND_COMPL_NOP_DELAY_NS (2 * 1000 * 1000)
 
+#define IPA_APPS_BW_FOR_PM 700
+
 static struct sk_buff *ipa3_get_skb_ipa_rx(unsigned int len, gfp_t flags);
 static void ipa3_replenish_wlan_rx_cache(struct ipa3_sys_context *sys);
 static void ipa3_replenish_rx_cache(struct ipa3_sys_context *sys);
@@ -748,7 +750,10 @@ static void ipa3_handle_rx(struct ipa3_sys_context *sys)
 	int inactive_cycles = 0;
 	int cnt;
 
-	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+	if (ipa3_ctx->use_ipa_pm)
+		ipa_pm_activate_sync(sys->pm_hdl);
+	else
+		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	do {
 		cnt = ipa3_handle_rx_core(sys, true, true);
 		if (cnt == 0)
@@ -772,7 +777,10 @@ static void ipa3_handle_rx(struct ipa3_sys_context *sys)
 
 	trace_poll_to_intr3(sys->ep->client);
 	ipa3_rx_switch_to_intr_mode(sys);
-	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+	if (ipa3_ctx->use_ipa_pm)
+		ipa_pm_deferred_deactivate(sys->pm_hdl);
+	else
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 }
 
 static void ipa3_switch_to_intr_rx_work_func(struct work_struct *work)
@@ -797,6 +805,32 @@ enum hrtimer_restart ipa3_ring_doorbell_timer_fn(struct hrtimer *param)
 
 	queue_work(sys->wq, &sys->work);
 	return HRTIMER_NORESTART;
+}
+
+static void ipa_pm_sys_pipe_cb(void *p, enum ipa_pm_cb_event event)
+{
+	struct ipa3_sys_context *sys = (struct ipa3_sys_context *)p;
+
+	switch (event) {
+	case IPA_PM_CLIENT_ACTIVATED:
+		/*
+		 * this event is ignored as the sync version of activation
+		 * will be used.
+		 */
+		break;
+	case IPA_PM_REQUEST_WAKEUP:
+		/*
+		 * pipe will be unsuspended as part of
+		 * enabling IPA clocks
+		 */
+		ipa_pm_activate_sync(sys->pm_hdl);
+		ipa_pm_deferred_deactivate(sys->pm_hdl);
+		break;
+	default:
+		IPAERR("Unexpected event %d\n", event);
+		WARN_ON(1);
+		return;
+	}
 }
 
 /**
@@ -846,6 +880,9 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	memset(ep, 0, offsetof(struct ipa3_ep_context, sys));
 
 	if (!ep->sys) {
+		struct ipa_pm_register_params pm_reg;
+
+		memset(&pm_reg, 0, sizeof(pm_reg));
 		ep->sys = kzalloc(sizeof(struct ipa3_sys_context), GFP_KERNEL);
 		if (!ep->sys) {
 			IPAERR("failed to sys ctx for client %d\n",
@@ -884,6 +921,35 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		hrtimer_init(&ep->sys->db_timer, CLOCK_MONOTONIC,
 			HRTIMER_MODE_REL);
 		ep->sys->db_timer.function = ipa3_ring_doorbell_timer_fn;
+
+		/* create IPA PM resources for handling polling mode */
+		if (ipa3_ctx->use_ipa_pm &&
+			IPA_CLIENT_IS_CONS(sys_in->client)) {
+			pm_reg.name = ipa_clients_strings[sys_in->client];
+			pm_reg.callback = ipa_pm_sys_pipe_cb;
+			pm_reg.user_data = ep->sys;
+			pm_reg.group = IPA_PM_GROUP_APPS;
+			result = ipa_pm_register(&pm_reg, &ep->sys->pm_hdl);
+			if (result) {
+				IPAERR("failed to create IPA PM client %d\n",
+					result);
+				goto fail_pm;
+			}
+
+			result = ipa_pm_associate_ipa_cons_to_client(
+				ep->sys->pm_hdl, sys_in->client);
+			if (result) {
+				IPAERR("failed to associate IPA PM client\n");
+				goto fail_gen2;
+			}
+
+			result = ipa_pm_set_perf_profile(ep->sys->pm_hdl,
+				IPA_APPS_BW_FOR_PM);
+			if (result) {
+				IPAERR("failed to set profile IPA PM client\n");
+				goto fail_gen2;
+			}
+		}
 	} else {
 		memset(ep->sys, 0, offsetof(struct ipa3_sys_context, ep));
 	}
@@ -984,6 +1050,9 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	return 0;
 
 fail_gen2:
+	if (ipa3_ctx->use_ipa_pm)
+		ipa_pm_deregister(ep->sys->pm_hdl);
+fail_pm:
 	destroy_workqueue(ep->sys->repl_wq);
 fail_wq2:
 	destroy_workqueue(ep->sys->wq);
@@ -1402,7 +1471,8 @@ static void ipa3_wq_handle_rx(struct work_struct *work)
 	sys = container_of(work, struct ipa3_sys_context, work);
 
 	if (sys->ep->napi_enabled) {
-		IPA_ACTIVE_CLIENTS_INC_SPECIAL("NAPI");
+		if (!ipa3_ctx->use_ipa_pm)
+			IPA_ACTIVE_CLIENTS_INC_SPECIAL("NAPI");
 		sys->ep->client_notify(sys->ep->priv,
 				IPA_CLIENT_START_POLL, 0);
 	} else
@@ -3283,11 +3353,48 @@ static void ipa_gsi_irq_tx_notify_cb(struct gsi_chan_xfer_notify *notify)
 	}
 }
 
+void __ipa_gsi_irq_rx_scedule_poll(struct ipa3_sys_context *sys)
+{
+	bool clk_off;
+
+	atomic_set(&sys->curr_polling_state, 1);
+	ipa3_inc_acquire_wakelock();
+
+	/*
+	 * pm deactivate is done in wq context
+	 * or after NAPI poll
+	 */
+	if (ipa3_ctx->use_ipa_pm) {
+		clk_off = ipa_pm_activate(sys->pm_hdl);
+		if (!clk_off && sys->ep->napi_enabled) {
+			sys->ep->client_notify(sys->ep->priv,
+				IPA_CLIENT_START_POLL, 0);
+			return;
+		}
+		queue_work(sys->wq, &sys->work);
+		return;
+	}
+
+	if (sys->ep->napi_enabled) {
+		struct ipa_active_client_logging_info log;
+
+		IPA_ACTIVE_CLIENTS_PREP_SPECIAL(log, "NAPI");
+		clk_off = ipa3_inc_client_enable_clks_no_block(
+			&log);
+		if (!clk_off) {
+			sys->ep->client_notify(sys->ep->priv,
+				IPA_CLIENT_START_POLL, 0);
+			return;
+		}
+	}
+
+	queue_work(sys->wq, &sys->work);
+}
+
 static void ipa_gsi_irq_rx_notify_cb(struct gsi_chan_xfer_notify *notify)
 {
 	struct ipa3_sys_context *sys;
 	struct ipa3_rx_pkt_wrapper *rx_pkt_expected, *rx_pkt_rcvd;
-	int clk_off;
 
 	if (!notify) {
 		IPAERR("gsi notify is NULL.\n");
@@ -3317,22 +3424,7 @@ static void ipa_gsi_irq_rx_notify_cb(struct gsi_chan_xfer_notify *notify)
 			/* put the gsi channel into polling mode */
 			gsi_config_channel_mode(sys->ep->gsi_chan_hdl,
 				GSI_CHAN_MODE_POLL);
-			ipa3_inc_acquire_wakelock();
-			atomic_set(&sys->curr_polling_state, 1);
-			if (sys->ep->napi_enabled) {
-				struct ipa_active_client_logging_info log;
-
-				IPA_ACTIVE_CLIENTS_PREP_SPECIAL(log, "NAPI");
-				clk_off = ipa3_inc_client_enable_clks_no_block(
-					&log);
-				if (!clk_off)
-					sys->ep->client_notify(sys->ep->priv,
-						IPA_CLIENT_START_POLL, 0);
-				else
-					queue_work(sys->wq, &sys->work);
-			} else {
-				queue_work(sys->wq, &sys->work);
-			}
+			__ipa_gsi_irq_rx_scedule_poll(sys);
 		}
 		break;
 	default:
@@ -3734,7 +3826,10 @@ int ipa3_rx_poll(u32 clnt_hdl, int weight)
 	if (cnt < weight) {
 		ep->client_notify(ep->priv, IPA_CLIENT_COMP_NAPI, 0);
 		ipa3_rx_switch_to_intr_mode(ep->sys);
-		ipa3_dec_client_disable_clks_no_block(&log);
+		if (ipa3_ctx->use_ipa_pm)
+			ipa_pm_deferred_deactivate(ep->sys->pm_hdl);
+		else
+			ipa3_dec_client_disable_clks_no_block(&log);
 	}
 
 	return cnt;

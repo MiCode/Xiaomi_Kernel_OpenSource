@@ -50,6 +50,7 @@ struct ipa3_teth_bridge_ctx {
 	dev_t dev_num;
 	struct device *dev;
 	struct cdev cdev;
+	u32 modem_pm_hdl;
 };
 static struct ipa3_teth_bridge_ctx *ipa3_teth_ctx;
 
@@ -118,14 +119,25 @@ int ipa3_teth_bridge_init(struct teth_bridge_init_params *params)
 */
 int ipa3_teth_bridge_disconnect(enum ipa_client_type client)
 {
+	int res = 0;
+
 	TETH_DBG_FUNC_ENTRY();
-	ipa_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
-				 IPA_RM_RESOURCE_Q6_CONS);
-	ipa_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
-				 IPA_RM_RESOURCE_USB_CONS);
+	if (ipa_pm_is_used()) {
+		res = ipa_pm_deactivate_sync(ipa3_teth_ctx->modem_pm_hdl);
+		if (res) {
+			TETH_ERR("fail to deactivate modem %d\n", res);
+			return res;
+		}
+		res = ipa_pm_destroy();
+	} else {
+		ipa_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
+					IPA_RM_RESOURCE_Q6_CONS);
+		ipa_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
+					IPA_RM_RESOURCE_USB_CONS);
+	}
 	TETH_DBG_FUNC_EXIT();
 
-	return 0;
+	return res;
 }
 
 /**
@@ -140,8 +152,26 @@ int ipa3_teth_bridge_disconnect(enum ipa_client_type client)
 int ipa3_teth_bridge_connect(struct teth_bridge_connect_params *connect_params)
 {
 	int res = 0;
+	struct ipa_pm_register_params reg_params;
+
+	memset(&reg_params, 0, sizeof(reg_params));
 
 	TETH_DBG_FUNC_ENTRY();
+
+	if (ipa_pm_is_used()) {
+		reg_params.name = "MODEM (USB RMNET)";
+		reg_params.group = IPA_PM_GROUP_MODEM;
+		reg_params.skip_clk_vote = true;
+		res = ipa_pm_register(&reg_params,
+			&ipa3_teth_ctx->modem_pm_hdl);
+		if (res) {
+			TETH_ERR("fail to register with PM %d\n", res);
+			return res;
+		}
+
+		res = ipa_pm_activate_sync(ipa3_teth_ctx->modem_pm_hdl);
+		goto bail;
+	}
 
 	/* Build the dependency graph, first add_dependency call is sync
 	 * in order to make sure the IPA clocks are up before we continue
@@ -234,6 +264,8 @@ int ipa3_teth_bridge_driver_init(void)
 		res = -ENODEV;
 		goto fail_cdev_add;
 	}
+
+	ipa3_teth_ctx->modem_pm_hdl = ~0;
 	TETH_DBG("Tethering bridge driver init OK\n");
 
 	return 0;

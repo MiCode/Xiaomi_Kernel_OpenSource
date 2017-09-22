@@ -36,6 +36,7 @@
 #include "ipahal/ipahal_hw_stats.h"
 #include "../ipa_common_i.h"
 #include "ipa_uc_offload_i.h"
+#include "ipa_pm.h"
 
 #define DRV_NAME "ipa"
 #define NAT_DEV_NAME "ipaNatTable"
@@ -647,6 +648,7 @@ struct ipa3_sys_context {
 	struct workqueue_struct *wq;
 	struct workqueue_struct *repl_wq;
 	struct ipa3_status_stats *status_stat;
+	u32 pm_hdl;
 	/* ordering is important - other immutable fields go below */
 };
 
@@ -1315,6 +1317,7 @@ struct ipa3_context {
 	struct ipa_cne_evt ipa_cne_evt_req_cache[IPA_MAX_NUM_REQ_CACHE];
 	int num_ipa_cne_evt_req;
 	struct mutex ipa_cne_evt_lock;
+	bool use_ipa_pm;
 };
 
 struct ipa3_plat_drv_res {
@@ -1342,6 +1345,8 @@ struct ipa3_plat_drv_res {
 	bool tethered_flow_control;
 	u32 ipa_tz_unlock_reg_num;
 	struct ipa_tz_unlock_reg_info *ipa_tz_unlock_reg;
+	bool use_ipa_pm;
+	struct ipa_pm_init_params pm_init;
 };
 
 /**
@@ -2228,4 +2233,5 @@ int ipa3_alloc_common_event_ring(void);
 int ipa3_allocate_dma_task_for_gsi(void);
 void ipa3_free_dma_task_for_gsi(void);
 int ipa3_set_clock_plan_from_pm(int idx);
+void __ipa_gsi_irq_rx_scedule_poll(struct ipa3_sys_context *sys);
 #endif /* _IPA3_I_H_ */
