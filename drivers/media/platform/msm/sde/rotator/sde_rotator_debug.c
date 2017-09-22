@@ -638,18 +638,6 @@ static void sde_rot_evtlog_debug_work(struct work_struct *work)
 }
 
 /*
- * sde_rot_dump_panic - Issue evtlog dump and generic panic
- */
-void sde_rot_dump_panic(bool do_panic)
-{
-	sde_rot_evtlog_dump_all();
-	sde_rot_dump_reg_all();
-
-	if (do_panic)
-		panic("sde_rotator");
-}
-
-/*
  * sde_rot_evtlog_tout_handler - log dump timeout handler
  * @queue: boolean indicate putting log dump into queue
  * @name: function name having timeout
