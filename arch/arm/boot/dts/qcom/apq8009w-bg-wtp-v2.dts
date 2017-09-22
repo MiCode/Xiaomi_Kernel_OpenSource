@@ -168,3 +168,54 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart_console_sleep>;
 };
+
+/* Pinctrl dt nodes for interrupt and reset gpio for Synaptics controller */
+&ts_int_active {
+	mux {
+		pins = "gpio98";
+	};
+
+	config {
+		pins = "gpio98";
+	};
+};
+
+&ts_int_suspend {
+	mux {
+		pins = "gpio98";
+	};
+
+	config {
+		pins = "gpio98";
+	};
+};
+
+&ts_reset_active {
+	mux {
+		pins = "gpio16";
+	};
+
+	config {
+		pins = "gpio16";
+	};
+};
+
+&ts_reset_suspend {
+	mux {
+		pins = "gpio16";
+	};
+
+	config {
+		pins = "gpio16";
+	};
+};
+
+&ts_release {
+	mux {
+		pins = "gpio98", "gpio16";
+	};
+
+	config {
+		pins = "gpio98", "gpio16";
+	};
+};
