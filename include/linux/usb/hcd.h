@@ -452,7 +452,6 @@ extern int usb_hcd_sec_event_ring_cleanup(struct usb_device *udev,
 	unsigned int intr_num);
 extern dma_addr_t usb_hcd_get_sec_event_ring_dma_addr(struct usb_device *udev,
 		unsigned int intr_num);
-extern dma_addr_t usb_hcd_get_dcba_dma_addr(struct usb_device *udev);
 extern dma_addr_t usb_hcd_get_xfer_ring_dma_addr(struct usb_device *udev,
 	struct usb_host_endpoint *ep);
 extern int usb_hcd_get_controller_id(struct usb_device *udev);
