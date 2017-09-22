@@ -1527,6 +1527,8 @@ static void _a6xx_do_crashdump(struct kgsl_device *device)
 
 	crash_dump_valid = false;
 
+	if (!device->snapshot_crashdumper)
+		return;
 	if (a6xx_capturescript.gpuaddr == 0 ||
 		a6xx_crashdump_registers.gpuaddr == 0)
 		return;
