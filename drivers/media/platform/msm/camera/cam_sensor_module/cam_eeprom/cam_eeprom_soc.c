@@ -20,6 +20,96 @@
 #include "cam_eeprom_soc.h"
 #include "cam_debug_util.h"
 
+#define cam_eeprom_spi_parse_cmd(spi_dev, name, out)          \
+	{                                                     \
+		spi_dev->cmd_tbl.name.opcode = out[0];        \
+		spi_dev->cmd_tbl.name.addr_len = out[1];      \
+		spi_dev->cmd_tbl.name.dummy_len = out[2];     \
+		spi_dev->cmd_tbl.name.delay_intv = out[3];    \
+		spi_dev->cmd_tbl.name.delay_count = out[4];   \
+	}
+
+int cam_eeprom_spi_parse_of(struct cam_sensor_spi_client *spi_dev)
+{
+	int rc = -EFAULT;
+	uint32_t tmp[5];
+
+	rc  = of_property_read_u32_array(spi_dev->spi_master->dev.of_node,
+		"spiop-read", tmp, 5);
+	if (!rc) {
+		cam_eeprom_spi_parse_cmd(spi_dev, read, tmp);
+	} else {
+		CAM_ERR(CAM_EEPROM, "Failed to get read data");
+		return -EFAULT;
+	}
+
+	rc = of_property_read_u32_array(spi_dev->spi_master->dev.of_node,
+		"spiop-readseq", tmp, 5);
+	if (!rc) {
+		cam_eeprom_spi_parse_cmd(spi_dev, read_seq, tmp);
+	} else {
+		CAM_ERR(CAM_EEPROM, "Failed to get readseq data");
+		return -EFAULT;
+	}
+
+	rc = of_property_read_u32_array(spi_dev->spi_master->dev.of_node,
+		"spiop-queryid", tmp, 5);
+	if (!rc) {
+		cam_eeprom_spi_parse_cmd(spi_dev, query_id, tmp);
+	} else {
+		CAM_ERR(CAM_EEPROM, "Failed to get queryid data");
+		return -EFAULT;
+	}
+
+	rc = of_property_read_u32_array(spi_dev->spi_master->dev.of_node,
+		"spiop-pprog", tmp, 5);
+	if (!rc) {
+		cam_eeprom_spi_parse_cmd(spi_dev, page_program, tmp);
+	} else {
+		CAM_ERR(CAM_EEPROM, "Failed to get page program data");
+		return -EFAULT;
+	}
+
+	rc = of_property_read_u32_array(spi_dev->spi_master->dev.of_node,
+		"spiop-wenable", tmp, 5);
+	if (!rc) {
+		cam_eeprom_spi_parse_cmd(spi_dev, write_enable, tmp);
+	} else {
+		CAM_ERR(CAM_EEPROM, "Failed to get write enable data");
+		return rc;
+	}
+
+	rc = of_property_read_u32_array(spi_dev->spi_master->dev.of_node,
+		"spiop-readst", tmp, 5);
+	if (!rc) {
+		cam_eeprom_spi_parse_cmd(spi_dev, read_status, tmp);
+	} else {
+		CAM_ERR(CAM_EEPROM, "Failed to get readdst data");
+		return rc;
+	}
+
+	rc = of_property_read_u32_array(spi_dev->spi_master->dev.of_node,
+		"spiop-erase", tmp, 5);
+	if (!rc) {
+		cam_eeprom_spi_parse_cmd(spi_dev, erase, tmp);
+	} else {
+		CAM_ERR(CAM_EEPROM, "Failed to get erase data");
+		return rc;
+	}
+
+	rc = of_property_read_u32_array(spi_dev->spi_master->dev.of_node,
+		"eeprom-id", tmp, 2);
+	if (rc) {
+		CAM_ERR(CAM_EEPROM, "Failed to get eeprom id");
+		return rc;
+	}
+
+	spi_dev->mfr_id0 = tmp[0];
+	spi_dev->device_id0 = tmp[1];
+
+	return 0;
+}
+
 /*
  * cam_eeprom_parse_memory_map() - parse memory map in device node
  * @of:         device node

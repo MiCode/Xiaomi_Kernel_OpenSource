@@ -152,6 +152,12 @@ static int cam_eeprom_i2c_driver_probe(struct i2c_client *client,
 		goto probe_failure;
 	}
 
+	soc_private = kzalloc(sizeof(*soc_private), GFP_KERNEL);
+	if (!soc_private)
+		goto ectrl_free;
+
+	e_ctrl->soc_info.soc_private = soc_private;
+
 	i2c_set_clientdata(client, e_ctrl);
 
 	mutex_init(&(e_ctrl->eeprom_mutex));
@@ -304,6 +310,12 @@ static int cam_eeprom_spi_setup(struct spi_device *spi)
 	rc = cam_eeprom_parse_dt(e_ctrl);
 	if (rc) {
 		CAM_ERR(CAM_EEPROM, "failed: spi soc init rc %d", rc);
+		goto board_free;
+	}
+
+	rc = cam_eeprom_spi_parse_of(spi_client);
+	if (rc) {
+		CAM_ERR(CAM_EEPROM, "Device tree parsing error");
 		goto board_free;
 	}
 
