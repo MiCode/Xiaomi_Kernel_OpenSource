@@ -16,6 +16,7 @@
 
 #include "sdm670.dtsi"
 #include "sdm670-rumi.dtsi"
+#include "sdm670-int-codec-audio-overlay.dtsi"
 / {
 	model = "Qualcomm Technologies, Inc. SDM670 RUMI";
 	compatible = "qcom,sdm670-rumi", "qcom,sdm670", "qcom,rumi";
