@@ -832,6 +832,7 @@ struct adreno_gpudev {
 	/* GPU specific function hooks */
 	void (*irq_trace)(struct adreno_device *, unsigned int status);
 	void (*snapshot)(struct adreno_device *, struct kgsl_snapshot *);
+	void (*snapshot_gmu)(struct adreno_device *, struct kgsl_snapshot *);
 	void (*platform_setup)(struct adreno_device *);
 	void (*init)(struct adreno_device *);
 	void (*remove)(struct adreno_device *);
@@ -1005,6 +1006,9 @@ void adreno_shadermem_regread(struct kgsl_device *device,
 void adreno_snapshot(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot,
 		struct kgsl_context *context);
+
+void adreno_snapshot_gmu(struct kgsl_device *device,
+		struct kgsl_snapshot *snapshot);
 
 int adreno_reset(struct kgsl_device *device, int fault);
 
