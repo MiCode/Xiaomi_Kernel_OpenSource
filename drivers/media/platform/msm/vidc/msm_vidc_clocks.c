@@ -553,7 +553,8 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 static int msm_vidc_set_clocks(struct msm_vidc_core *core)
 {
 	struct hfi_device *hdev;
-	unsigned long freq = 0, rate = 0;
+	unsigned long freq_core_1 = 0, freq_core_2 = 0, rate = 0;
+	unsigned long freq_core_max = 0;
 	struct msm_vidc_inst *temp = NULL;
 	int rc = 0, i = 0;
 	struct allowed_clock_rates_table *allowed_clks_tbl = NULL;
@@ -568,20 +569,33 @@ static int msm_vidc_set_clocks(struct msm_vidc_core *core)
 
 	mutex_lock(&core->lock);
 	list_for_each_entry(temp, &core->instances, list) {
-		freq += temp->clk_data.curr_freq;
+
+		if (temp->clk_data.core_id == VIDC_CORE_ID_1)
+			freq_core_1 += temp->clk_data.min_freq;
+		else if (temp->clk_data.core_id == VIDC_CORE_ID_2)
+			freq_core_2 += temp->clk_data.min_freq;
+		else if (temp->clk_data.core_id == VIDC_CORE_ID_3) {
+			freq_core_1 += temp->clk_data.min_freq / 2;
+			freq_core_2 += temp->clk_data.min_freq / 2;
+		}
+
+		freq_core_max = max_t(unsigned long, freq_core_1, freq_core_2);
+
 		if (temp->clk_data.turbo_mode) {
 			dprintk(VIDC_PROF,
 				"Found an instance with Turbo request\n");
-			freq = msm_vidc_max_freq(core);
+			freq_core_max = msm_vidc_max_freq(core);
 			break;
 		}
 	}
+
 	for (i = core->resources.allowed_clks_tbl_size - 1; i >= 0; i--) {
 		rate = allowed_clks_tbl[i].clock_rate;
-		if (rate >= freq)
+		if (rate >= freq_core_max)
 			break;
 	}
-	core->min_freq = freq;
+
+	core->min_freq = freq_core_max;
 	core->curr_freq = rate;
 	mutex_unlock(&core->lock);
 
@@ -1018,16 +1032,20 @@ static int msm_vidc_move_core_to_power_save_mode(struct msm_vidc_core *core,
 }
 
 static u32 get_core_load(struct msm_vidc_core *core,
-	u32 core_id, bool lp_mode)
+	u32 core_id, bool lp_mode, bool real_time)
 {
 	struct msm_vidc_inst *inst = NULL;
 	u32 current_inst_mbs_per_sec = 0, load = 0;
+	bool real_time_mode = false;
 
 	mutex_lock(&core->lock);
 	list_for_each_entry(inst, &core->instances, list) {
 		u32 cycles, lp_cycles;
 
+		real_time_mode = inst->flags & VIDC_REALTIME ? true : false;
 		if (!(inst->clk_data.core_id & core_id))
+			continue;
+		if (real_time_mode != real_time)
 			continue;
 		if (inst->session_type == MSM_VIDC_DECODER) {
 			cycles = lp_cycles = inst->clk_data.entry->vpp_cycles;
@@ -1073,10 +1091,10 @@ int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst)
 	max_freq = msm_vidc_max_freq(inst->core);
 	inst->clk_data.core_id = 0;
 
-	core0_load = get_core_load(core, VIDC_CORE_ID_1, false);
-	core1_load = get_core_load(core, VIDC_CORE_ID_2, false);
-	core0_lp_load = get_core_load(core, VIDC_CORE_ID_1, true);
-	core1_lp_load = get_core_load(core, VIDC_CORE_ID_2, true);
+	core0_load = get_core_load(core, VIDC_CORE_ID_1, false, true);
+	core1_load = get_core_load(core, VIDC_CORE_ID_2, false, true);
+	core0_lp_load = get_core_load(core, VIDC_CORE_ID_1, true, true);
+	core1_lp_load = get_core_load(core, VIDC_CORE_ID_2, true, true);
 
 	min_load = min(core0_load, core1_load);
 	min_core_id = core0_load < core1_load ?
@@ -1095,9 +1113,9 @@ int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst)
 	current_inst_lp_load = msm_comm_get_inst_load(inst,
 		LOAD_CALC_NO_QUIRKS) * lp_cycles;
 
-	dprintk(VIDC_DBG, "Core 0 Load = %d Core 1 Load = %d\n",
+	dprintk(VIDC_DBG, "Core 0 RT Load = %d Core 1 RT Load = %d\n",
 		 core0_load, core1_load);
-	dprintk(VIDC_DBG, "Core 0 LP Load = %d Core 1 LP Load = %d\n",
+	dprintk(VIDC_DBG, "Core 0 RT LP Load = %d Core 1 RT LP Load = %d\n",
 		core0_lp_load, core1_lp_load);
 	dprintk(VIDC_DBG, "Max Load = %lu\n", max_freq);
 	dprintk(VIDC_DBG, "Current Load = %d Current LP Load = %d\n",
@@ -1191,12 +1209,12 @@ void msm_print_core_status(struct msm_vidc_core *core, u32 core_id)
 	mutex_lock(&core->lock);
 	list_for_each_entry(inst, &core->instances, list) {
 
-		if (!((inst->clk_data.core_id & core_id) ||
-			  (inst->clk_data.core_id & VIDC_CORE_ID_3)))
+		if ((inst->clk_data.core_id != core_id) &&
+			(inst->clk_data.core_id != VIDC_CORE_ID_3))
 			continue;
 
 		dprintk(VIDC_PROF,
-			"inst %pK (%4ux%4u) to (%4ux%4u) %3u %s %s %s %s\n",
+			"inst %pK (%4ux%4u) to (%4ux%4u) %3u %s %s %s %s %lu\n",
 			inst,
 			inst->prop.width[OUTPUT_PORT],
 			inst->prop.height[OUTPUT_PORT],
@@ -1207,7 +1225,8 @@ void msm_print_core_status(struct msm_vidc_core *core, u32 core_id)
 			inst->clk_data.work_mode == VIDC_WORK_MODE_1 ?
 				"WORK_MODE_1" : "WORK_MODE_2",
 			inst->flags & VIDC_LOW_POWER ? "LP" : "HQ",
-			inst->flags & VIDC_REALTIME ? "RealTime" : "NonRTime");
+			inst->flags & VIDC_REALTIME ? "RealTime" : "NonRTime",
+			inst->clk_data.min_freq);
 	}
 	mutex_unlock(&core->lock);
 }
