@@ -1263,38 +1263,46 @@ int ipa3_get_clients_from_rm_resource(
 		clients->names[i++] = IPA_CLIENT_USB_DPL_CONS;
 		break;
 	case IPA_RM_RESOURCE_HSIC_CONS:
-		clients->names[i++] = IPA_CLIENT_HSIC1_CONS;
+		if (ipa3_get_ep_mapping(IPA_CLIENT_HSIC1_CONS) != -1)
+			clients->names[i++] = IPA_CLIENT_HSIC1_CONS;
 		break;
 	case IPA_RM_RESOURCE_WLAN_CONS:
 		clients->names[i++] = IPA_CLIENT_WLAN1_CONS;
 		clients->names[i++] = IPA_CLIENT_WLAN2_CONS;
 		clients->names[i++] = IPA_CLIENT_WLAN3_CONS;
-		clients->names[i++] = IPA_CLIENT_WLAN4_CONS;
+		if (ipa3_get_ep_mapping(IPA_CLIENT_WLAN4_CONS) != -1)
+			clients->names[i++] = IPA_CLIENT_WLAN4_CONS;
 		break;
 	case IPA_RM_RESOURCE_MHI_CONS:
-		clients->names[i++] = IPA_CLIENT_MHI_CONS;
+		if (ipa3_get_ep_mapping(IPA_CLIENT_MHI_CONS) != -1)
+			clients->names[i++] = IPA_CLIENT_MHI_CONS;
 		break;
 	case IPA_RM_RESOURCE_ODU_ADAPT_CONS:
 		clients->names[i++] = IPA_CLIENT_ODU_EMB_CONS;
-		clients->names[i++] = IPA_CLIENT_ODU_TETH_CONS;
+		if (ipa3_get_ep_mapping(IPA_CLIENT_ODU_TETH_CONS) != -1)
+			clients->names[i++] = IPA_CLIENT_ODU_TETH_CONS;
 		break;
 	case IPA_RM_RESOURCE_ETHERNET_CONS:
-		clients->names[i++] = IPA_CLIENT_ETHERNET_CONS;
+		if (ipa3_get_ep_mapping(IPA_CLIENT_ETHERNET_CONS) != -1)
+			clients->names[i++] = IPA_CLIENT_ETHERNET_CONS;
 		break;
 	case IPA_RM_RESOURCE_USB_PROD:
 		clients->names[i++] = IPA_CLIENT_USB_PROD;
 		break;
 	case IPA_RM_RESOURCE_HSIC_PROD:
-		clients->names[i++] = IPA_CLIENT_HSIC1_PROD;
+		if (ipa3_get_ep_mapping(IPA_CLIENT_HSIC1_PROD) != -1)
+			clients->names[i++] = IPA_CLIENT_HSIC1_PROD;
 		break;
 	case IPA_RM_RESOURCE_MHI_PROD:
-		clients->names[i++] = IPA_CLIENT_MHI_PROD;
+		if (ipa3_get_ep_mapping(IPA_CLIENT_MHI_PROD) != -1)
+			clients->names[i++] = IPA_CLIENT_MHI_PROD;
 		break;
 	case IPA_RM_RESOURCE_ODU_ADAPT_PROD:
 		clients->names[i++] = IPA_CLIENT_ODU_PROD;
 		break;
 	case IPA_RM_RESOURCE_ETHERNET_PROD:
-		clients->names[i++] = IPA_CLIENT_ETHERNET_PROD;
+		if (ipa3_get_ep_mapping(IPA_CLIENT_ETHERNET_PROD) != -1)
+			clients->names[i++] = IPA_CLIENT_ETHERNET_PROD;
 		break;
 	default:
 		break;
@@ -1327,17 +1335,33 @@ bool ipa3_should_pipe_be_suspended(enum ipa_client_type client)
 	if (ep->keep_ipa_awake)
 		return false;
 
+	if (client == IPA_CLIENT_MHI_CONS &&
+		(ipa3_get_ep_mapping(IPA_CLIENT_MHI_CONS) != -1))
+		return true;
+
+	if (client == IPA_CLIENT_HSIC1_CONS &&
+		(ipa3_get_ep_mapping(IPA_CLIENT_HSIC1_CONS) != -1))
+		return true;
+
+	if (client == IPA_CLIENT_WLAN4_CONS &&
+		(ipa3_get_ep_mapping(IPA_CLIENT_WLAN4_CONS) != -1))
+		return true;
+
+	if (client == IPA_CLIENT_ODU_TETH_CONS &&
+		(ipa3_get_ep_mapping(IPA_CLIENT_ODU_TETH_CONS) != -1))
+		return true;
+
+	if (client == IPA_CLIENT_ETHERNET_CONS &&
+		(ipa3_get_ep_mapping(IPA_CLIENT_ETHERNET_CONS) != -1))
+		return true;
+
+
 	if (client == IPA_CLIENT_USB_CONS     ||
 	    client == IPA_CLIENT_USB_DPL_CONS ||
-	    client == IPA_CLIENT_MHI_CONS     ||
-	    client == IPA_CLIENT_HSIC1_CONS   ||
 	    client == IPA_CLIENT_WLAN1_CONS   ||
 	    client == IPA_CLIENT_WLAN2_CONS   ||
 	    client == IPA_CLIENT_WLAN3_CONS   ||
-	    client == IPA_CLIENT_WLAN4_CONS   ||
-	    client == IPA_CLIENT_ODU_EMB_CONS ||
-	    client == IPA_CLIENT_ODU_TETH_CONS ||
-	    client == IPA_CLIENT_ETHERNET_CONS)
+	    client == IPA_CLIENT_ODU_EMB_CONS)
 		return true;
 
 	return false;
