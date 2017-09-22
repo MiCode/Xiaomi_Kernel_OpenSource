@@ -1506,7 +1506,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	int cid = fl->cid;
 	int interrupted = 0;
 	int err = 0;
-	struct timespec invoket;
+	struct timespec invoket = {0};
 
 	if (fl->profile)
 		getnstimeofday(&invoket);
