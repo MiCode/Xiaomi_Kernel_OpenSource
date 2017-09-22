@@ -353,15 +353,6 @@
 			};
 		};
 
-		pm660_rradc: rradc@4500 {
-			compatible = "qcom,rradc";
-			reg = <0x4500 0x100>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-			#io-channel-cells = <1>;
-			qcom,pmic-revid = <&pm660_revid>;
-		};
-
 		bcl_sensor: bcl@4200 {
 			compatible = "qcom,msm-bcl-lmh";
 			reg = <0x4200 0xff>,
