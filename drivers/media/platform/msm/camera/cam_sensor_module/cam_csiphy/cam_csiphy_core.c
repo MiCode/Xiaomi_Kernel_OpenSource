@@ -449,6 +449,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			CAM_ERR(CAM_CSIPHY, "de-voting CPAS: %d", rc);
 			goto release_mutex;
 		}
+		csiphy_dev->csiphy_info.combo_mode = 0;
 		csiphy_dev->csiphy_state = CAM_CSIPHY_STOP;
 	}
 		break;
