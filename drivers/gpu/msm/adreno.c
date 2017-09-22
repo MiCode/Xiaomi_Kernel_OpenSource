@@ -2870,7 +2870,7 @@ static void adreno_power_stats(struct kgsl_device *device,
 			gpu_busy += adj;
 		}
 
-		if (kgsl_gmu_isenabled(device)) {
+		if (adreno_is_a6xx(adreno_dev)) {
 			/* clock sourced from XO */
 			stats->busy_time = gpu_busy * 10 / 192;
 		} else {
