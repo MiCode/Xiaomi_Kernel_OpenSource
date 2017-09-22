@@ -427,6 +427,13 @@ static int __cam_isp_ctx_notify_eof_in_actived_state(
 	return rc;
 }
 
+static int __cam_isp_ctx_reg_upd_in_hw_error(
+	struct cam_isp_context *ctx_isp, void *evt_data)
+{
+	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_SOF;
+	return 0;
+}
+
 static int __cam_isp_ctx_sof_in_activated_state(
 	struct cam_isp_context *ctx_isp, void *evt_data)
 {
@@ -689,8 +696,13 @@ static int __cam_isp_ctx_handle_error(struct cam_isp_context *ctx_isp,
 	void *evt_data)
 {
 	int                              rc = 0;
-	struct cam_ctx_request          *req;
+	uint32_t                         i = 0;
+	bool                             found = 0;
+	struct cam_ctx_request          *req = NULL;
+	struct cam_ctx_request          *req_temp;
+	struct cam_isp_ctx_req          *req_isp = NULL;
 	struct cam_req_mgr_error_notify  notify;
+	uint64_t                         error_request_id;
 
 	struct cam_context *ctx = ctx_isp->base;
 	struct cam_isp_hw_error_event_data  *error_event_data =
@@ -701,7 +713,7 @@ static int __cam_isp_ctx_handle_error(struct cam_isp_context *ctx_isp,
 	CAM_DBG(CAM_ISP, "Enter error_type = %d", error_type);
 	if ((error_type == CAM_ISP_HW_ERROR_OVERFLOW) ||
 		(error_type == CAM_ISP_HW_ERROR_BUSIF_OVERFLOW))
-		notify.error = CRM_KMD_ERR_FATAL;
+		notify.error = CRM_KMD_ERR_OVERFLOW;
 
 	/*
 	 * Need to check the active req
@@ -712,31 +724,92 @@ static int __cam_isp_ctx_handle_error(struct cam_isp_context *ctx_isp,
 	if (list_empty(&ctx->active_req_list)) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP,
 			"handling error with no active request");
-		rc = -EINVAL;
-		goto end;
+	} else {
+		list_for_each_entry_safe(req, req_temp,
+			&ctx->active_req_list, list) {
+			req_isp = (struct cam_isp_ctx_req *) req->req_priv;
+			if (!req_isp->bubble_report) {
+				for (i = 0; i < req_isp->num_fence_map_out;
+					i++) {
+					CAM_ERR(CAM_ISP, "req %llu, Sync fd %x",
+						req->request_id,
+						req_isp->fence_map_out[i].
+						sync_id);
+					if (req_isp->fence_map_out[i].sync_id
+						!= -1) {
+						rc = cam_sync_signal(
+						req_isp->fence_map_out[i].
+						sync_id,
+						CAM_SYNC_STATE_SIGNALED_ERROR);
+						req_isp->fence_map_out[i].
+						sync_id = -1;
+					}
+				}
+				list_del_init(&req->list);
+				list_add_tail(&req->list, &ctx->free_req_list);
+				ctx_isp->active_req_cnt--;
+			} else {
+				found = 1;
+				break;
+			}
+		}
 	}
 
-	req = list_first_entry(&ctx->active_req_list,
-				struct cam_ctx_request, list);
+	if (found) {
+		list_for_each_entry_safe_reverse(req, req_temp,
+			&ctx->active_req_list, list) {
+			req_isp = (struct cam_isp_ctx_req *) req->req_priv;
+			list_del_init(&req->list);
+			list_add(&req->list, &ctx->pending_req_list);
+			ctx_isp->active_req_cnt--;
+		}
+	}
+
+	do {
+		if (list_empty(&ctx->pending_req_list)) {
+			error_request_id = ctx_isp->last_applied_req_id + 1;
+			req_isp = NULL;
+			break;
+		}
+		req = list_first_entry(&ctx->pending_req_list,
+			struct cam_ctx_request, list);
+		req_isp = (struct cam_isp_ctx_req *) req->req_priv;
+		error_request_id = ctx_isp->last_applied_req_id;
+
+		if (req_isp->bubble_report)
+			break;
+
+		for (i = 0; i < req_isp->num_fence_map_out; i++) {
+			if (req_isp->fence_map_out[i].sync_id != -1)
+				rc = cam_sync_signal(
+					req_isp->fence_map_out[i].sync_id,
+					CAM_SYNC_STATE_SIGNALED_ERROR);
+			req_isp->fence_map_out[i].sync_id = -1;
+		}
+		list_del_init(&req->list);
+		list_add_tail(&req->list, &ctx->free_req_list);
+
+	} while (req->request_id < ctx_isp->last_applied_req_id);
+
 
 	if (ctx->ctx_crm_intf && ctx->ctx_crm_intf->notify_err) {
 		notify.link_hdl = ctx->link_hdl;
 		notify.dev_hdl = ctx->dev_hdl;
-		notify.req_id = req->request_id;
+		notify.req_id = error_request_id;
+
+		if (req_isp && req_isp->bubble_report)
+			notify.error = CRM_KMD_ERR_BUBBLE;
+
+		CAM_WARN(CAM_ISP, "Notify CRM: req %lld, frame %lld\n",
+			error_request_id, ctx_isp->frame_id);
 
 		ctx->ctx_crm_intf->notify_err(&notify);
-		CAM_ERR_RATE_LIMIT(CAM_ISP, "Notify CRM about ERROR frame %lld",
-			ctx_isp->frame_id);
+		ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_HW_ERROR;
 	} else {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "Can not notify ERRROR to CRM");
 		rc = -EFAULT;
 	}
 
-	list_del_init(&req->list);
-	list_add(&req->list, &ctx->pending_req_list);
-	/* might need to check if active list is empty */
-
-end:
 	CAM_DBG(CAM_ISP, "Exit");
 	return rc;
 }
@@ -746,7 +819,7 @@ static struct cam_isp_ctx_irq_ops
 	/* SOF */
 	{
 		.irq_ops = {
-			NULL,
+			__cam_isp_ctx_handle_error,
 			__cam_isp_ctx_sof_in_activated_state,
 			__cam_isp_ctx_reg_upd_in_sof,
 			__cam_isp_ctx_notify_sof_in_actived_state,
@@ -779,7 +852,7 @@ static struct cam_isp_ctx_irq_ops
 	/* BUBBLE */
 	{
 		.irq_ops = {
-			NULL,
+			__cam_isp_ctx_handle_error,
 			__cam_isp_ctx_sof_in_activated_state,
 			NULL,
 			__cam_isp_ctx_notify_sof_in_actived_state,
@@ -790,12 +863,23 @@ static struct cam_isp_ctx_irq_ops
 	/* Bubble Applied */
 	{
 		.irq_ops = {
-			NULL,
+			__cam_isp_ctx_handle_error,
 			__cam_isp_ctx_sof_in_activated_state,
 			__cam_isp_ctx_reg_upd_in_activated_state,
 			__cam_isp_ctx_epoch_in_bubble_applied,
 			NULL,
 			__cam_isp_ctx_buf_done_in_bubble_applied,
+		},
+	},
+	/* HW ERROR */
+	{
+		.irq_ops = {
+			NULL,
+			__cam_isp_ctx_sof_in_activated_state,
+			__cam_isp_ctx_reg_upd_in_hw_error,
+			NULL,
+			NULL,
+			NULL,
 		},
 	},
 	/* HALT */
@@ -878,7 +962,9 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 	} else {
 		spin_lock_bh(&ctx->lock);
 		ctx_isp->substate_activated = next_state;
-		CAM_DBG(CAM_ISP, "new state %d", next_state);
+		ctx_isp->last_applied_req_id = apply->request_id;
+		CAM_DBG(CAM_ISP, "new substate state %d, applied req %lld",
+			next_state, ctx_isp->last_applied_req_id);
 		spin_unlock_bh(&ctx->lock);
 	}
 end:
@@ -2203,4 +2289,3 @@ int cam_isp_context_deinit(struct cam_isp_context *ctx)
 	memset(ctx, 0, sizeof(*ctx));
 	return rc;
 }
-

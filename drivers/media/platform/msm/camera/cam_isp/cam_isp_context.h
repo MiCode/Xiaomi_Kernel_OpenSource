@@ -50,6 +50,7 @@ enum cam_isp_ctx_activated_substate {
 	CAM_ISP_CTX_ACTIVATED_EPOCH,
 	CAM_ISP_CTX_ACTIVATED_BUBBLE,
 	CAM_ISP_CTX_ACTIVATED_BUBBLE_APPLIED,
+	CAM_ISP_CTX_ACTIVATED_HW_ERROR,
 	CAM_ISP_CTX_ACTIVATED_HALT,
 	CAM_ISP_CTX_ACTIVATED_MAX,
 };
@@ -111,6 +112,7 @@ struct cam_isp_ctx_req {
  * @reported_req_id:       Last reported request id
  * @subscribe_event:       The irq event mask that CRM subscribes to, IFE will
  *                         invoke CRM cb at those event.
+ * @last_applied_req_id:   Last applied request id
  *
  */
 struct cam_isp_context {
@@ -129,6 +131,7 @@ struct cam_isp_context {
 	int32_t                          active_req_cnt;
 	int64_t                          reported_req_id;
 	uint32_t                         subscribe_event;
+	int64_t                          last_applied_req_id;
 };
 
 /**
