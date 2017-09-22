@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/gpio/gpio.h>
 #include "sdm670-pmic-overlay.dtsi"
 
 &ufsphy_mem {
@@ -115,7 +116,8 @@
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&key_cam_snapshot_default
-			     &key_cam_focus_default>;
+			     &key_cam_focus_default
+			     &key_vol_up_default>;
 
 		cam_snapshot {
 			label = "cam_snapshot";
@@ -132,6 +134,16 @@
 			gpios = <&tlmm 92 0>;
 			linux,input-type = <1>;
 			linux,code = <528>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+			linux,can-disable;
+		};
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&pm660l_gpios 7 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <115>;
 			gpio-key,wakeup;
 			debounce-interval = <15>;
 			linux,can-disable;
