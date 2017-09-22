@@ -60,3 +60,16 @@
 	qcom,wsa-devs = <&wsa881x_211_en>, <&wsa881x_213_en>;
 	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrLeft";
 };
+
+&vendor {
+	qrd_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "fg-gen3-batterydata-mlp356477-2800mah.dtsi"
+	};
+};
+
+&pm660_fg {
+	qcom,battery-data = <&qrd_batterydata>;
+	qcom,fg-jeita-thresholds = <0 15 45 55>;
+	qcom,battery-thermal-coefficients = [d2 50 ff];
+};
