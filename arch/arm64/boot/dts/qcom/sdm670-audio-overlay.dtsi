@@ -15,7 +15,7 @@
 #include <dt-bindings/clock/qcom,audio-ext-clk.h>
 
 &tavil_snd {
-	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>;
+	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
 	qcom,audio-routing =
 		"AIF4 VI", "MCLK",
 		"RX_BIAS", "MCLK",
@@ -88,7 +88,7 @@
 		"ADC2_IN", "ADC2_OUT",
 		"ADC3_IN", "ADC3_OUT";
 
-	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>;
+	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
 	qcom,msm-mclk-freq = <9600000>;
 	qcom,msm-mbhc-hphl-swh = <1>;
 	qcom,msm-mbhc-gnd-swh = <1>;

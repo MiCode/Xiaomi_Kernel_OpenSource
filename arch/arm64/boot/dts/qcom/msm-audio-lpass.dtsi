@@ -353,6 +353,20 @@
 		qcom,msm-cpudai-afe-clk-ver = <2>;
 	};
 
+	dai_quin_auxpcm: qcom,msm-quin-auxpcm {
+		compatible = "qcom,msm-auxpcm-dev";
+		qcom,msm-cpudai-auxpcm-mode = <0>, <0>;
+		qcom,msm-cpudai-auxpcm-sync = <1>, <1>;
+		qcom,msm-cpudai-auxpcm-frame = <5>, <4>;
+		qcom,msm-cpudai-auxpcm-quant = <2>, <2>;
+		qcom,msm-cpudai-auxpcm-num-slots = <1>, <1>;
+		qcom,msm-cpudai-auxpcm-slot-mapping = <1>, <1>;
+		qcom,msm-cpudai-auxpcm-data = <0>, <0>;
+		qcom,msm-cpudai-auxpcm-pcm-clk-rate = <2048000>, <2048000>;
+		qcom,msm-auxpcm-interface = "quinary";
+		qcom,msm-cpudai-afe-clk-ver = <2>;
+	};
+
 	hdmi_dba: qcom,msm-hdmi-dba-codec-rx {
 		compatible = "qcom,msm-hdmi-dba-codec-rx";
 		qcom,dba-bridge-chip = "adv7533";
@@ -519,6 +533,44 @@
 		dai_quat_tdm_tx_0: qcom,msm-dai-q6-tdm-quat-tx-0 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36913 >;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	qcom,msm-dai-tdm-quin-rx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37184>;
+		qcom,msm-cpudai-tdm-group-num-ports = <1>;
+		qcom,msm-cpudai-tdm-group-port-id = <36928>;
+		qcom,msm-cpudai-tdm-clk-rate = <1536000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <1>;
+		qcom,msm-cpudai-tdm-data-delay = <1>;
+		dai_quin_tdm_rx_0: qcom,msm-dai-q6-tdm-quin-rx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36928>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	qcom,msm-dai-tdm-quin-tx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37185>;
+		qcom,msm-cpudai-tdm-group-num-ports = <1>;
+		qcom,msm-cpudai-tdm-group-port-id = <36929>;
+		qcom,msm-cpudai-tdm-clk-rate = <1536000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <1>;
+		qcom,msm-cpudai-tdm-data-delay = <1>;
+		dai_quin_tdm_tx_0: qcom,msm-dai-q6-tdm-quin-tx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36929>;
 			qcom,msm-cpudai-tdm-data-align = <0>;
 		};
 	};
