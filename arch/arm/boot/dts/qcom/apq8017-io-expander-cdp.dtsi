@@ -1,0 +1,95 @@
+/*
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm8917-pinctrl.dtsi"
+#include "msm8917-camera-sensor-cdp.dtsi"
+
+&soc {
+	usbhub_vbus_vreg: usbhub_vbus_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "usbhub_vbus_vreg";
+		gpio = <&ioexp_gpios 3 0>;
+		enable-active-high;
+	};
+
+	usbeth_vbus_vreg: usbeth_vbus_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "usbeth_vbus_vreg";
+		gpio = <&ioexp_gpios 7 0>;
+		enable-active-high;
+		vin-supply = <&usbhub_vbus_vreg>;
+	};
+};
+
+/* SX1509q i/o expander */
+&i2c_2 {
+	status = "ok";
+	ioexp2_gpios: sx150x@3e {
+		status = "ok";
+		compatible = "sx1509q";
+		#gpio-cells = <2>;
+		gpio-controller;
+		reg = <0x3E>; /* I2C Client Addr */
+		sx150x,pullup_ena = <0x0>;
+		sx150x,pulldn_ena = <0x0>;
+		sx150x,float_ena = <0x00>;
+		sx150x,polarity = <0x0>;
+		sx150x,gpio_base= <300>;
+	};
+};
+
+/* SX1508q i/o expander */
+&i2c_4 {
+	status = "ok";
+	ioexp_gpios: sx150x@20 {
+		status = "ok";
+		compatible = "sx1508q";
+		#gpio-cells = <2>;
+		gpio-controller;
+		reg = <0x20>; /* I2C Client Addr */
+		sx150x,pullup_ena = <0x0>;
+		sx150x,pulldn_ena = <0x0>;
+		sx150x,float_ena = <0x00>;
+		sx150x,polarity = <0x0>;
+		sx150x,gpio_base = <200>;
+		vdd-supply = <&pm8917_l6>;
+		qcom,vdd-max-voltage = <1800000>;
+		qcom,vdd-min-voltage = <1800000>;
+	};
+	/* usb2533 flex hub */
+	usb2533@2c {
+		status = "disabled";
+		compatible = "qcom,usb2533-flex-hub";
+		reg = <0x2d>;
+		vbus-supply = <&usbeth_vbus_vreg>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb2533_hub_reset>;
+		qcom,hub-reset-gpio = <&tlmm 100 0>;
+		qcom,usbeth-reset-gpio = <&ioexp_gpios 5 0>;
+	};
+};
+
+/* KS8851 eth over spi */
+&spi_6 {
+	status = "ok";
+	ethernet@0 {
+		status = "ok";
+		compatible = "micrel,ks8851";
+		reg = <1>;  /* CS-1 */
+		interrupt-parent = <&tlmm>;
+		interrupts = <97 0>;
+		reset-gpios = <&ioexp_gpios 2 0>;
+		spi-max-frequency = <40000000>;
+	};
+};
+
