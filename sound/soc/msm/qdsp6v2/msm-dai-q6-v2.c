@@ -190,16 +190,21 @@ struct msm_dai_q6_auxpcm_dai_data {
 	struct msm_dai_q6_dai_data bdai_data; /* incoporate base DAI data */
 };
 
+static union afe_port_group_config group_cfg_tx;
+
 struct msm_dai_q6_tdm_dai_data {
 	DECLARE_BITMAP(status_mask, STATUS_MAX);
 	u32 rate;
 	u32 channels;
 	u32 bitwidth;
 	u32 num_group_ports;
+	bool afe_ebit_unsupported;
 	struct afe_clk_set clk_set; /* hold LPASS clock config. */
 	union afe_port_group_config group_cfg; /* hold tdm group config */
 	struct afe_tdm_port_config port_cfg; /* hold tdm config */
 };
+
+static bool afe_ebit_unsupported;
 
 /* MI2S format field for AFE_PORT_CMD_I2S_CONFIG command
  *  0: linear PCM
@@ -2049,7 +2054,7 @@ static struct snd_soc_dai_driver msm_dai_q6_afe_lb_tx_dai[] = {
 			.channels_min = 1,
 			.channels_max = 8,
 			.rate_min =     8000,
-			.rate_max =	48000,
+			.rate_max =     48000,
 		},
 		.id = AFE_LOOPBACK_TX,
 		.probe = msm_dai_q6_dai_probe,
@@ -4131,6 +4136,11 @@ static int msm_dai_tdm_q6_probe(struct platform_device *pdev)
 	dev_dbg(&pdev->dev, "%s: Clk Attribute from DT file %d\n",
 		__func__, tdm_clk_set.clk_attri);
 
+	afe_ebit_unsupported = of_property_read_bool(pdev->dev.of_node,
+				"qcom,msm-cpudai-tdm-afe-ebit-unsupported");
+
+	dev_dbg(&pdev->dev, "afe_ebit_unsupported %d\n", afe_ebit_unsupported);
+
 	/* other initializations within device group */
 	atomic_set(&tdm_group_ref[group_idx], 0);
 
@@ -4906,6 +4916,9 @@ static int msm_dai_q6_tdm_set_clk(
 {
 	int rc = 0;
 
+	pr_debug("dai_data->group_cfg.tdm_cfg.group_id = %d : %d\n",
+			dai_data->group_cfg.tdm_cfg.group_id,
+				dai_data->clk_set.clk_freq_in_hz);
 	switch (dai_data->group_cfg.tdm_cfg.group_id) {
 	case AFE_GROUP_DEVICE_ID_PRIMARY_TDM_RX:
 	case AFE_GROUP_DEVICE_ID_PRIMARY_TDM_TX:
@@ -5118,6 +5131,10 @@ static int msm_dai_q6_tdm_set_tdm_slot(struct snd_soc_dai *dai,
 	case 16:
 		cap_mask = 0xFFFF;
 		break;
+	case 4:
+		cap_mask = 0xF;
+		break;
+
 	default:
 		dev_err(dai->dev, "%s: invalid slots %d\n",
 			__func__, slots);
@@ -5160,6 +5177,11 @@ static int msm_dai_q6_tdm_set_tdm_slot(struct snd_soc_dai *dai,
 		tdm_group->nslots_per_frame = slots;
 		tdm_group->slot_width = slot_width;
 		tdm_group->slot_mask = rx_mask & cap_mask;
+		dev_dbg(dai->dev, "%s:Rx:tdm_group->nslots_per_frame %d\n"
+				"tdm_group->slot_width %d\n"
+				"tdm_group->slot_mask %d\n", __func__,
+				tdm_group->nslots_per_frame,
+				tdm_group->slot_width, tdm_group->slot_mask);
 		break;
 	case AFE_PORT_ID_PRIMARY_TDM_TX:
 	case AFE_PORT_ID_PRIMARY_TDM_TX_1:
@@ -5196,6 +5218,10 @@ static int msm_dai_q6_tdm_set_tdm_slot(struct snd_soc_dai *dai,
 		tdm_group->nslots_per_frame = slots;
 		tdm_group->slot_width = slot_width;
 		tdm_group->slot_mask = tx_mask & cap_mask;
+		dev_dbg(dai->dev, "%s:Tx:tdm_group->nslots_per_frame %d\n"
+			"tdm_group->slot_width %d,tdm_group->slot_mask %d\n"
+			"tx%d\n", __func__, tdm_group->nslots_per_frame,
+			tdm_group->slot_width, tdm_group->slot_mask, tx_mask);
 		break;
 	default:
 		dev_err(dai->dev, "%s: invalid dai id 0x%x\n",
@@ -5497,6 +5523,23 @@ static int msm_dai_q6_tdm_hw_params(struct snd_pcm_substream *substream,
 			custom_tdm_header->header[7]);
 	}
 
+	memcpy(&group_cfg_tx.group_cfg, &dai_data->group_cfg.group_cfg,
+			sizeof(dai_data->group_cfg.group_cfg));
+	memcpy(&group_cfg_tx.group_enable, &dai_data->group_cfg.group_enable,
+			sizeof(dai_data->group_cfg.group_enable));
+	memcpy(&group_cfg_tx.tdm_cfg, &dai_data->group_cfg.tdm_cfg,
+			sizeof(dai_data->group_cfg.tdm_cfg));
+	pr_debug("%s: TDM GROUP:\n"
+		"num_channels=%d sample_rate=%d bit_width=%d\n"
+		"nslots_per_frame=%d slot_width=%d slot_mask=0x%x\n",
+		__func__,
+		group_cfg_tx.tdm_cfg.num_channels,
+		group_cfg_tx.tdm_cfg.sample_rate,
+		group_cfg_tx.tdm_cfg.bit_width,
+		group_cfg_tx.tdm_cfg.nslots_per_frame,
+		group_cfg_tx.tdm_cfg.slot_width,
+		group_cfg_tx.tdm_cfg.slot_mask);
+
 	return 0;
 }
 
@@ -5508,6 +5551,8 @@ static int msm_dai_q6_tdm_prepare(struct snd_pcm_substream *substream,
 		dev_get_drvdata(dai->dev);
 	u16 group_id = dai_data->group_cfg.tdm_cfg.group_id;
 	int group_idx = 0;
+	u16 prim_port_id = 0;
+	u16 sec_port_id = 0;
 	atomic_t *group_ref = NULL;
 
 	group_idx = msm_dai_q6_get_group_idx(dai->id);
@@ -5528,39 +5573,102 @@ static int msm_dai_q6_tdm_prepare(struct snd_pcm_substream *substream,
 			/* TX and RX share the same clk.
 			AFE clk is enabled per group to simplify the logic.
 			DSP will monitor the clk count. */
-			rc = msm_dai_q6_tdm_set_clk(dai_data,
-				dai->id, true);
-			if (IS_ERR_VALUE(rc)) {
-				dev_err(dai->dev, "%s: fail to enable AFE clk 0x%x\n",
-					__func__, dai->id);
-				goto rtn;
+			if (!(dai_data->afe_ebit_unsupported &&
+			      !dai_data->clk_set.clk_freq_in_hz)) {
+				rc = msm_dai_q6_tdm_set_clk(dai_data,
+					dai->id, true);
+				if (IS_ERR_VALUE(rc)) {
+					dev_err(dai->dev, "%s: fail to enable AFE clk 0x%x\n",
+						__func__, dai->id);
+					goto rtn;
+				}
 			}
 			if (dai_data->num_group_ports > 1) {
+				dev_dbg(dai->dev, "%s:enable RX afe group\n",
+					__func__);
 				rc = afe_port_group_enable(group_id,
 					&dai_data->group_cfg, true);
 				if (IS_ERR_VALUE(rc)) {
-					dev_err(dai->dev, "%s: fail to enable AFE group 0x%x\n",
+					dev_err(dai->dev,
+						"%s:failed to enable grp %x\n",
 						__func__, group_id);
 					goto rtn;
 				}
 			}
 		}
+		/*
+		 * 8909 HW has a dependency where for Rx/Tx to work in TDM mode
+		 * We need to start a Tx or Rx port in the same group.
+		 * Hence for BG use TDM_TX when a RX session is requested and
+		 * use TDM_RX port when a TX session is requested as these ports
+		 * are unused as of now.
+		*/
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			prim_port_id = dai->id;
+			if (dai_data->afe_ebit_unsupported)
+				sec_port_id = AFE_PORT_ID_PRIMARY_TDM_TX;
+		} else {
+			prim_port_id = dai->id;
+			if (dai_data->afe_ebit_unsupported)
+				sec_port_id = AFE_PORT_ID_PRIMARY_TDM_RX;
+		}
+		dev_dbg(dai->dev, "\n%s:open prim port id %d TDM rate: %d\n"
+				"dai_data->port_cfg.tdm.slot_mask %x\n"
+				"dai_data->port_cfg.tdm.nslots_per_frame:%x\n",
+				__func__, prim_port_id,
+				dai_data->port_cfg.tdm.num_channels,
+				dai_data->port_cfg.tdm.slot_mask,
+				dai_data->port_cfg.tdm.nslots_per_frame);
 
-		rc = afe_tdm_port_start(dai->id, &dai_data->port_cfg,
+		rc = afe_tdm_port_start(prim_port_id, &dai_data->port_cfg,
 			dai_data->rate, dai_data->num_group_ports);
+
 		if (IS_ERR_VALUE(rc)) {
 			if (atomic_read(group_ref) == 0) {
 				afe_port_group_enable(group_id,
 					NULL, false);
-				msm_dai_q6_tdm_set_clk(dai_data,
-					dai->id, false);
+				if (!(dai_data->afe_ebit_unsupported &&
+				      !dai_data->clk_set.clk_freq_in_hz))
+					msm_dai_q6_tdm_set_clk(dai_data,
+						dai->id, false);
 			}
-			dev_err(dai->dev, "%s: fail to open AFE port 0x%x\n",
-				__func__, dai->id);
+			dev_err(dai->dev, "%s: open AFE port 0x%x\n",
+				__func__, prim_port_id);
 		} else {
 			set_bit(STATUS_PORT_STARTED,
 				dai_data->status_mask);
 			atomic_inc(group_ref);
+		}
+
+		dai_data->port_cfg.tdm.num_channels = 1;
+		dai_data->port_cfg.tdm.slot_mask = 1;
+		dai_data->port_cfg.tdm.nslots_per_frame = 4;
+
+		dev_dbg(dai->dev, "\n%s:open sec port id %d TDM rate: %d\n"
+			"dai_data->port_cfg.tdm.slot_mask %x\n"
+			"dai_data->port_cfg.tdm.nslotsper_frame:%x\n", __func__,
+			sec_port_id, dai_data->port_cfg.tdm.num_channels,
+			dai_data->port_cfg.tdm.slot_mask,
+			dai_data->port_cfg.tdm.nslots_per_frame);
+
+		if (sec_port_id != 0) {
+			rc = afe_tdm_port_start(sec_port_id,
+						&dai_data->port_cfg,
+						dai_data->rate, 4);
+			if (IS_ERR_VALUE(rc)) {
+				if (atomic_read(group_ref) == 0) {
+					afe_port_group_enable(group_id,
+						NULL, false);
+					msm_dai_q6_tdm_set_clk(dai_data,
+					dai->id, false);
+				}
+				dev_err(dai->dev, "%s: fail AFE port 0x%x\n",
+						__func__, sec_port_id);
+			} else {
+				set_bit(STATUS_PORT_STARTED,
+					dai_data->status_mask);
+				atomic_inc(group_ref);
+			}
 		}
 
 		/* TODO: need to monitor PCM/MI2S/TDM HW status */
@@ -5581,6 +5689,8 @@ static void msm_dai_q6_tdm_shutdown(struct snd_pcm_substream *substream,
 		dev_get_drvdata(dai->dev);
 	u16 group_id = dai_data->group_cfg.tdm_cfg.group_id;
 	int group_idx = 0;
+	u16 prim_port_id = 0;
+	u16 sec_port_id = 0;
 	atomic_t *group_ref = NULL;
 
 	group_idx = msm_dai_q6_get_group_idx(dai->id);
@@ -5595,11 +5705,30 @@ static void msm_dai_q6_tdm_shutdown(struct snd_pcm_substream *substream,
 	group_ref = &tdm_group_ref[group_idx];
 
 	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-		rc = afe_close(dai->id);
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			prim_port_id = dai->id;
+			if (dai_data->afe_ebit_unsupported)
+				sec_port_id = AFE_PORT_ID_PRIMARY_TDM_TX;
+		} else {
+			prim_port_id = dai->id;
+			if (dai_data->afe_ebit_unsupported)
+				sec_port_id = AFE_PORT_ID_PRIMARY_TDM_RX;
+		}
+
+		rc = afe_close(prim_port_id);
 		if (IS_ERR_VALUE(rc)) {
 			dev_err(dai->dev, "%s: fail to close AFE port 0x%x\n",
-				__func__, dai->id);
+				__func__, prim_port_id);
 		}
+
+		if (sec_port_id != 0) {
+			rc = afe_close(sec_port_id);
+			if (IS_ERR_VALUE(rc)) {
+				dev_err(dai->dev, "%s: fail AFE port 0x%x\n",
+					__func__, sec_port_id);
+			}
+		}
+
 		atomic_dec(group_ref);
 		clear_bit(STATUS_PORT_STARTED,
 			dai_data->status_mask);
@@ -5608,13 +5737,15 @@ static void msm_dai_q6_tdm_shutdown(struct snd_pcm_substream *substream,
 			rc = afe_port_group_enable(group_id,
 				NULL, false);
 			if (IS_ERR_VALUE(rc)) {
-				dev_err(dai->dev, "%s: fail to disable AFE group 0x%x\n",
+				dev_err(dai->dev,
+					"%s: failed to disable grp 0x%x\n",
 					__func__, group_id);
 			}
 			rc = msm_dai_q6_tdm_set_clk(dai_data,
 				dai->id, false);
 			if (IS_ERR_VALUE(rc)) {
-				dev_err(dai->dev, "%s: fail to disable AFE clk 0x%x\n",
+				dev_err(dai->dev,
+					"%s: fail to disable AFE clk 0x%x\n",
 					__func__, dai->id);
 			}
 		}
@@ -6985,6 +7116,32 @@ static int msm_dai_q6_tdm_dev_probe(struct platform_device *pdev)
 	dai_data->group_cfg.tdm_cfg = tdm_group_cfg;
 	/* copy static num group ports per parent node */
 	dai_data->num_group_ports = num_tdm_group_ports[group_idx];
+	dev_dbg(&pdev->dev, "TX group configuration tdm_dev_id 0x%x\n",
+				tdm_dev_id);
+
+	dai_data->afe_ebit_unsupported = afe_ebit_unsupported;
+
+	if (tdm_dev_id == AFE_PORT_ID_PRIMARY_TDM_TX ||
+		tdm_dev_id == AFE_PORT_ID_PRIMARY_TDM_TX_1 ||
+		tdm_dev_id == AFE_PORT_ID_PRIMARY_TDM_TX_2 ||
+		tdm_dev_id == AFE_PORT_ID_PRIMARY_TDM_TX_3) {
+		dev_dbg(&pdev->dev, "Copy TX group config id %d\n", tdm_dev_id);
+		/*memcpy (&group_cfg_tx,&dai_data->group_cfg ,
+				sizeof(dai_data->group_cfg));*/
+		memcpy(&group_cfg_tx.group_cfg,
+			&dai_data->group_cfg.group_cfg ,
+			sizeof(dai_data->group_cfg.group_cfg));
+		memcpy(&group_cfg_tx.group_enable,
+			&dai_data->group_cfg.group_enable,
+			sizeof(dai_data->group_cfg.group_enable));
+		memcpy(&group_cfg_tx.tdm_cfg,
+			&dai_data->group_cfg.tdm_cfg,
+			sizeof(dai_data->group_cfg.tdm_cfg));
+		dev_dbg(&pdev->dev,
+			"Copy TX group configuration Successfully tdm_id %d\n",
+			tdm_dev_id);
+	}
+
 
 	dev_set_drvdata(&pdev->dev, dai_data);
 
