@@ -20,6 +20,7 @@
 #include <linux/skbuff.h>
 #endif
 #include <linux/debugfs.h>
+#include <net/cnss_prealloc.h>
 
 static DEFINE_SPINLOCK(alloc_lock);
 
