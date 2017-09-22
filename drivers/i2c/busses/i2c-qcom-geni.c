@@ -191,13 +191,6 @@ static inline void qcom_geni_i2c_conf(struct geni_i2c_dev *gi2c, int dfs)
 
 static void geni_i2c_err(struct geni_i2c_dev *gi2c, int err)
 {
-	u32 m_cmd = readl_relaxed(gi2c->base + SE_GENI_M_CMD0);
-	u32 m_stat = readl_relaxed(gi2c->base + SE_GENI_M_IRQ_STATUS);
-	u32 geni_s = readl_relaxed(gi2c->base + SE_GENI_STATUS);
-	u32 geni_ios = readl_relaxed(gi2c->base + SE_GENI_IOS);
-	u32 dma = readl_relaxed(gi2c->base + SE_GENI_DMA_MODE_EN);
-	u32 rx_st, tx_st;
-
 	if (gi2c->cur)
 		GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
 			    "len:%d, slv-addr:0x%x, RD/WR:%d\n", gi2c->cur->len,
@@ -211,23 +204,9 @@ static void geni_i2c_err(struct geni_i2c_dev *gi2c, int err)
 		GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev, "%s\n",
 			     gi2c_log[err].msg);
 	}
-	if (gi2c->se_mode == GSI_ONLY)
-		goto err_out;
-
-	if (dma) {
-		rx_st = readl_relaxed(gi2c->base + SE_DMA_RX_IRQ_STAT);
-		tx_st = readl_relaxed(gi2c->base + SE_DMA_TX_IRQ_STAT);
-	} else {
-		rx_st = readl_relaxed(gi2c->base + SE_GENI_RX_FIFO_STATUS);
-		tx_st = readl_relaxed(gi2c->base + SE_GENI_TX_FIFO_STATUS);
-	}
-	GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
-		     "DMA:%d tx_stat:0x%x, rx_stat:0x%x, irq-stat:0x%x\n",
-		     dma, tx_st, rx_st, m_stat);
-err_out:
-	GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
-			     "m_cmd:0x%x, geni_status:0x%x, geni_ios:0x%x\n",
-			     m_cmd, geni_s, geni_ios);
+	GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev, "%s: se-mode:%d\n", __func__,
+							gi2c->se_mode);
+	geni_se_dump_dbg_regs(&gi2c->i2c_rsc, gi2c->base, gi2c->ipcl);
 err_ret:
 	gi2c->err = gi2c_log[err].err;
 }

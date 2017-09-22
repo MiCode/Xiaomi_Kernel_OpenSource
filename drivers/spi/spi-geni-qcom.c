@@ -298,7 +298,7 @@ static int select_xfer_mode(struct spi_master *spi,
 	 */
 	if (fifo_disable && !dma_chan_valid)
 		mode = -EINVAL;
-	else if (fifo_disable)
+	else if (dma_chan_valid)
 		mode = GSI_DMA;
 	else
 		mode = FIFO_MODE;
@@ -617,30 +617,32 @@ static int spi_geni_map_buf(struct spi_geni_master *mas,
 				struct spi_message *msg)
 {
 	struct spi_transfer *xfer;
-	struct device *gsi_dev = mas->dev;
+	int ret = 0;
 
 	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
 		if (xfer->rx_buf) {
-			xfer->rx_dma = dma_map_single(gsi_dev, xfer->rx_buf,
+			ret = geni_se_iommu_map_buf(mas->wrapper_dev,
+						&xfer->rx_dma, xfer->rx_buf,
 						xfer->len, DMA_FROM_DEVICE);
-			if (dma_mapping_error(mas->dev, xfer->rx_dma)) {
-				dev_err(mas->dev, "Err mapping buf\n");
-				return -ENOMEM;
+			if (ret) {
+				GENI_SE_ERR(mas->ipc, true, mas->dev,
+				"%s: Mapping Rx buffer %d\n", __func__, ret);
+				return ret;
 			}
 		}
 
 		if (xfer->tx_buf) {
-			xfer->tx_dma = dma_map_single(gsi_dev,
-				(void *)xfer->tx_buf, xfer->len, DMA_TO_DEVICE);
-			if (dma_mapping_error(gsi_dev, xfer->tx_dma)) {
-				dev_err(mas->dev, "Err mapping buf\n");
-				dma_unmap_single(gsi_dev, xfer->rx_dma,
-						xfer->len, DMA_FROM_DEVICE);
-				return -ENOMEM;
+			ret = geni_se_iommu_map_buf(mas->wrapper_dev,
+						&xfer->tx_dma,
+						(void *)xfer->tx_buf,
+						xfer->len, DMA_TO_DEVICE);
+			if (ret) {
+				GENI_SE_ERR(mas->ipc, true, mas->dev,
+				"%s: Mapping Tx buffer %d\n", __func__, ret);
+				return ret;
 			}
 		}
 	};
-
 	return 0;
 }
 
@@ -648,14 +650,13 @@ static void spi_geni_unmap_buf(struct spi_geni_master *mas,
 				struct spi_message *msg)
 {
 	struct spi_transfer *xfer;
-	struct device *gsi_dev = mas->dev;
 
 	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
 		if (xfer->rx_buf)
-			dma_unmap_single(gsi_dev, xfer->rx_dma,
+			geni_se_iommu_unmap_buf(mas->wrapper_dev, &xfer->rx_dma,
 						xfer->len, DMA_FROM_DEVICE);
 		if (xfer->tx_buf)
-			dma_unmap_single(gsi_dev, xfer->tx_dma,
+			geni_se_iommu_unmap_buf(mas->wrapper_dev, &xfer->tx_dma,
 						xfer->len, DMA_TO_DEVICE);
 	};
 }
@@ -709,7 +710,12 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 {
 	struct spi_geni_master *mas = spi_master_get_devdata(spi);
 	int ret = 0;
+	u32 max_speed = spi->cur_msg->spi->max_speed_hz;
+	struct se_geni_rsc *rsc = &mas->spi_rsc;
 
+	/* Adjust the AB/IB based on the max speed of the slave.*/
+	rsc->ib = max_speed * DEFAULT_BUS_WIDTH;
+	rsc->ab = max_speed * DEFAULT_BUS_WIDTH;
 	ret = pm_runtime_get_sync(mas->dev);
 	if (ret < 0) {
 		dev_err(mas->dev, "Error enabling SE resources\n");
@@ -900,6 +906,7 @@ static void handle_fifo_timeout(struct spi_geni_master *mas)
 {
 	unsigned long timeout;
 
+	geni_se_dump_dbg_regs(&mas->spi_rsc, mas->base, mas->ipc);
 	reinit_completion(&mas->xfer_done);
 	geni_cancel_m_cmd(mas->base);
 	geni_write_reg(0, mas->base, SE_GENI_TX_WATERMARK_REG);
@@ -986,6 +993,7 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 	}
 	return ret;
 err_gsi_geni_transfer_one:
+	geni_se_dump_dbg_regs(&mas->spi_rsc, mas->base, mas->ipc);
 	dmaengine_terminate_all(mas->tx);
 	return ret;
 err_fifo_geni_transfer_one:
