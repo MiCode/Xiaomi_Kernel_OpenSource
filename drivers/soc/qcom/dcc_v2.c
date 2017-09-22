@@ -148,11 +148,6 @@ struct dcc_drvdata {
 	struct class		*sram_class;
 	struct list_head	cfg_head[DCC_MAX_LINK_LIST];
 	uint32_t		nr_config[DCC_MAX_LINK_LIST];
-	void			*reg_buf;
-	struct msm_dump_data	reg_data;
-	bool			save_reg;
-	void			*sram_buf;
-	struct msm_dump_data	sram_data;
 	uint8_t			curr_list;
 	uint8_t			cti_trig;
 };
@@ -490,39 +485,6 @@ err:
 	return ret;
 }
 
-static void __dcc_reg_dump(struct dcc_drvdata *drvdata)
-{
-	uint32_t *reg_buf;
-	uint8_t i = 0;
-	uint8_t j;
-
-	if (!drvdata->reg_buf)
-		return;
-
-	drvdata->reg_data.version = DCC_REG_DUMP_VER;
-
-	reg_buf = drvdata->reg_buf;
-
-	reg_buf[i++] = dcc_readl(drvdata, DCC_HW_VERSION);
-	reg_buf[i++] = dcc_readl(drvdata, DCC_HW_INFO);
-	reg_buf[i++] = dcc_readl(drvdata, DCC_EXEC_CTRL);
-	reg_buf[i++] = dcc_readl(drvdata, DCC_STATUS);
-	reg_buf[i++] = dcc_readl(drvdata, DCC_CFG);
-	reg_buf[i++] = dcc_readl(drvdata, DCC_FDA_CURR);
-	reg_buf[i++] = dcc_readl(drvdata, DCC_LLA_CURR);
-
-	for (j = 0; j < DCC_MAX_LINK_LIST; j++)
-		reg_buf[i++] = dcc_readl(drvdata, DCC_LL_LOCK(j));
-	for (j = 0; j < DCC_MAX_LINK_LIST; j++)
-		reg_buf[i++] = dcc_readl(drvdata, DCC_LL_CFG(j));
-	for (j = 0; j < DCC_MAX_LINK_LIST; j++)
-		reg_buf[i++] = dcc_readl(drvdata, DCC_LL_BASE(j));
-	for (j = 0; j < DCC_MAX_LINK_LIST; j++)
-		reg_buf[i++] = dcc_readl(drvdata, DCC_FD_BASE(j));
-
-	drvdata->reg_data.magic = DCC_REG_DUMP_MAGIC_V2;
-}
-
 static void __dcc_first_crc(struct dcc_drvdata *drvdata)
 {
 	int i;
@@ -626,9 +588,6 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 					   DCC_LL_INT_ENABLE(list));
 		}
 	}
-	/* Save DCC registers */
-	if (drvdata->save_reg)
-		__dcc_reg_dump(drvdata);
 
 err:
 	mutex_unlock(&drvdata->mutex);
@@ -653,9 +612,6 @@ static void dcc_disable(struct dcc_drvdata *drvdata)
 	}
 	drvdata->ram_cfg = 0;
 	drvdata->ram_start = 0;
-	/* Save DCC registers */
-	if (drvdata->save_reg)
-		__dcc_reg_dump(drvdata);
 
 	mutex_unlock(&drvdata->mutex);
 }
@@ -1462,47 +1418,6 @@ static void dcc_sram_dev_exit(struct dcc_drvdata *drvdata)
 	dcc_sram_dev_deregister(drvdata);
 }
 
-static void dcc_allocate_dump_mem(struct dcc_drvdata *drvdata)
-{
-	int ret;
-	struct device *dev = drvdata->dev;
-	struct msm_dump_entry reg_dump_entry, sram_dump_entry;
-
-	/* Allocate memory for dcc reg dump */
-	drvdata->reg_buf = devm_kzalloc(dev, drvdata->reg_size, GFP_KERNEL);
-	if (drvdata->reg_buf) {
-		drvdata->reg_data.addr = virt_to_phys(drvdata->reg_buf);
-		drvdata->reg_data.len = drvdata->reg_size;
-		reg_dump_entry.id = MSM_DUMP_DATA_DCC_REG;
-		reg_dump_entry.addr = virt_to_phys(&drvdata->reg_data);
-		ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS,
-					     &reg_dump_entry);
-		if (ret) {
-			dev_err(dev, "DCC REG dump setup failed\n");
-			devm_kfree(dev, drvdata->reg_buf);
-		}
-	} else {
-		dev_err(dev, "DCC REG dump allocation failed\n");
-	}
-
-	/* Allocate memory for dcc sram dump */
-	drvdata->sram_buf = devm_kzalloc(dev, drvdata->ram_size, GFP_KERNEL);
-	if (drvdata->sram_buf) {
-		drvdata->sram_data.addr = virt_to_phys(drvdata->sram_buf);
-		drvdata->sram_data.len = drvdata->ram_size;
-		sram_dump_entry.id = MSM_DUMP_DATA_DCC_SRAM;
-		sram_dump_entry.addr = virt_to_phys(&drvdata->sram_data);
-		ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS,
-					     &sram_dump_entry);
-		if (ret) {
-			dev_err(dev, "DCC SRAM dump setup failed\n");
-			devm_kfree(dev, drvdata->sram_buf);
-		}
-	} else {
-		dev_err(dev, "DCC SRAM dump allocation failed\n");
-	}
-}
-
 static int dcc_probe(struct platform_device *pdev)
 {
 	int ret, i;
@@ -1542,9 +1457,6 @@ static int dcc_probe(struct platform_device *pdev)
 	if (ret)
 		return -EINVAL;
 
-	drvdata->save_reg = of_property_read_bool(pdev->dev.of_node,
-						  "qcom,save-reg");
-
 	mutex_init(&drvdata->mutex);
 
 	for (i = 0; i < DCC_MAX_LINK_LIST; i++) {
@@ -1580,7 +1492,6 @@ static int dcc_probe(struct platform_device *pdev)
 	if (ret)
 		goto err;
 
-	dcc_allocate_dump_mem(drvdata);
 	return 0;
 err:
 	return ret;
