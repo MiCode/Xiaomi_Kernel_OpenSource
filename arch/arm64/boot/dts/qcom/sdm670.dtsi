@@ -646,6 +646,14 @@
 		qcom,pipe-attr-ee;
 	};
 
+	qcom,qbt1000 {
+		compatible = "qcom,qbt1000";
+		clock-names = "core", "iface";
+		clock-frequency = <25000000>;
+		qcom,ipc-gpio = <&tlmm 121 0>;
+		qcom,finger-detect-gpio = <&tlmm 122 0>;
+	};
+
 	thermal_zones: thermal-zones {};
 
 	tsens0: tsens@c222000 {
