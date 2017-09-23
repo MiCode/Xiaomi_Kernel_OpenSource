@@ -1034,11 +1034,18 @@
 		#clock-cells = <1>;
 	};
 
-	clock_cpucc: qcom,cpucc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "cpucc_clocks";
+	clock_cpucc: qcom,cpucc@0x17d41000 {
+		compatible = "qcom,clk-cpu-osm-sdm670";
+		reg = <0x17d41000 0x1400>,
+			<0x17d43000 0x1400>,
+			<0x17d45800 0x1400>;
+		reg-names = "osm_l3_base", "osm_pwrcl_base", "osm_perfcl_base";
+
+		l3-devs = <&l3_cpu0 &l3_cpu6>;
+
+		clock-names = "xo_ao";
+		clocks = <&clock_rpmh RPMH_CXO_CLK_A>;
 		#clock-cells = <1>;
-		#reset-cells = <1>;
 	};
 
 	clock_aop: qcom,aopclk {
