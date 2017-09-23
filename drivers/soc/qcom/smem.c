@@ -647,6 +647,34 @@ int qcom_smem_get_free_space(unsigned host)
 }
 EXPORT_SYMBOL(qcom_smem_get_free_space);
 
+/**
+ * qcom_smem_virt_to_phys() - Convert SMEM address to physical address.
+ * @smem_address	Address of SMEM item (returned by qcom_smem_get())
+
+ * This function should only be used if an SMEM item needs to be handed off
+ * to a DMA engine.
+ */
+phys_addr_t qcom_smem_virt_to_phys(void *addr)
+{
+	phys_addr_t phys_addr = 0;
+	struct smem_region *area;
+	void *end;
+	int i;
+
+	if (!__smem)
+		return phys_addr;
+
+	for (i = 0; i < __smem->num_regions; i++) {
+		area = &__smem->regions[i];
+		end = area->virt_base + area->size;
+		if (addr >= area->virt_base && addr < end)
+			phys_addr = addr - area->virt_base + area->aux_base;
+	}
+
+	return phys_addr;
+}
+EXPORT_SYMBOL(qcom_smem_virt_to_phys);
+
 static int qcom_smem_get_sbl_version(struct qcom_smem *smem)
 {
 	struct smem_header *header;

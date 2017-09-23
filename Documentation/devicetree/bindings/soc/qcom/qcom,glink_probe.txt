@@ -1,0 +1,38 @@
+Qualcomm Technologies, Inc. GLINK Probe
+
+This binding describes the GLINK Probe driver, a device
+that initializes the GLINK edge pairs within the system.
+
+- compatible :
+	Usage: required
+	Value type: <stringlist>
+	Definition: must be "qcom,glink"
+
+= SUBNODES
+The GLINK probe node must contain subnodes that describes the
+edge-pairs. See qcom,glink.txt for details on how to describe them.
+
+In addition to the properties in qcom,glink.txt, The GLINK Probe driver
+requires the remote-pid and transport type to be specified in the subnodes.
+
+- transport :
+	Usage: required
+	Value type: <stringlist>
+	Definition: must be "smem", "mbox", or "spi"
+
+- qcom,remote-pid :
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: specifies the identifier of the remote proc of this edge.
+
+= EXAMPLE
+qcom,glink {
+	compatible = "qcom,glink";
+	modem {
+		transport = "smem";
+		qcom,remote-pid = <1>;
+		mboxes = <&apcs_glb 8>;
+		mbox-names = "mpss_smem";
+		interrupts = <GIC_SPI 449 IRQ_TYPE_EDGE_RISING>;
+	};
+};
