@@ -280,6 +280,10 @@ static int msm_unload(struct drm_device *dev)
 
 	if (gpu) {
 		mutex_lock(&dev->struct_mutex);
+		/*
+		 * XXX what do we do here?
+		 * pm_runtime_enable(&pdev->dev);
+		 */
 		gpu->funcs->pm_suspend(gpu);
 		mutex_unlock(&dev->struct_mutex);
 		gpu->funcs->destroy(gpu);
@@ -906,7 +910,9 @@ static int msm_gpu_show(struct drm_device *dev, struct seq_file *m)
 
 	if (gpu) {
 		seq_printf(m, "%s Status:\n", gpu->name);
+		pm_runtime_get_sync(&gpu->pdev->dev);
 		gpu->funcs->show(gpu, m);
+		pm_runtime_put_sync(&gpu->pdev->dev);
 	}
 
 	return 0;

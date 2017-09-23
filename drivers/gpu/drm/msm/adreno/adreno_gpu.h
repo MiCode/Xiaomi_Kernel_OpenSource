@@ -87,8 +87,10 @@ struct adreno_counter {
 	u32 lo;
 	u32 hi;
 	u32 sel;
+	int load_bit;
 	u32 countable;
 	u32 refcount;
+	u64 value;
 };
 
 struct adreno_counter_group {
@@ -99,11 +101,15 @@ struct adreno_counter_group {
 		int (*get)(struct msm_gpu *,
 			struct adreno_counter_group *, u32, u32 *, u32 *);
 		void (*enable)(struct msm_gpu *,
-			struct adreno_counter_group *, int);
+			struct adreno_counter_group *, int, bool);
 		u64 (*read)(struct msm_gpu *,
 			struct adreno_counter_group *, int);
 		void (*put)(struct msm_gpu *,
 			struct adreno_counter_group *, int);
+		void (*save)(struct msm_gpu *,
+			struct adreno_counter_group *);
+		void (*restore)(struct msm_gpu *,
+			struct adreno_counter_group *);
 	} funcs;
 };
 

@@ -48,8 +48,15 @@ int adreno_get_param(struct msm_gpu *gpu, uint32_t param, uint64_t *value)
 		*value = gpu->gpufreq[gpu->active_level];
 		return 0;
 	case MSM_PARAM_TIMESTAMP:
-		if (adreno_gpu->funcs->get_timestamp)
-			return adreno_gpu->funcs->get_timestamp(gpu, value);
+		if (adreno_gpu->funcs->get_timestamp) {
+			int ret;
+
+			pm_runtime_get_sync(&gpu->pdev->dev);
+			ret = adreno_gpu->funcs->get_timestamp(gpu, value);
+			pm_runtime_put_autosuspend(&gpu->pdev->dev);
+
+			return ret;
+		}
 		return -EINVAL;
 	case MSM_PARAM_NR_RINGS:
 		*value = gpu->nr_rings;
@@ -68,14 +75,25 @@ int adreno_hw_init(struct msm_gpu *gpu)
 	DBG("%s", gpu->name);
 
 	for (i = 0; i < gpu->nr_rings; i++) {
-		int ret = msm_gem_get_iova(gpu->rb[i]->bo, gpu->aspace,
-			&gpu->rb[i]->iova);
+		struct msm_ringbuffer *ring = gpu->rb[i];
+
+		int ret = msm_gem_get_iova(ring->bo, gpu->aspace,
+			&ring->iova);
 		if (ret) {
-			gpu->rb[i]->iova = 0;
+			ring->iova = 0;
 			dev_err(gpu->dev->dev,
 				"could not map ringbuffer %d: %d\n", i, ret);
 			return ret;
 		}
+
+		/* reset ringbuffer(s): */
+		/* No need for a lock here, nobody else is peeking in */
+		ring->cur = ring->start;
+		ring->next = ring->start;
+
+		/* reset completed fence seqno, discard anything pending: */
+		ring->memptrs->fence = adreno_submitted_fence(gpu, ring);
+		ring->memptrs->rptr  = 0;
 	}
 
 	/*
@@ -133,35 +151,22 @@ uint32_t adreno_submitted_fence(struct msm_gpu *gpu,
 void adreno_recover(struct msm_gpu *gpu)
 {
 	struct drm_device *dev = gpu->dev;
-	struct msm_ringbuffer *ring;
-	int ret, i;
+	int ret;
+
+	/*
+	 * XXX pm-runtime??  we *need* the device to be off after this
+	 * so maybe continuing to call ->pm_suspend/resume() is better?
+	 */
 
 	gpu->funcs->pm_suspend(gpu);
 
-	/* reset ringbuffer(s): */
-
-	FOR_EACH_RING(gpu, ring, i) {
-		if (!ring)
-			continue;
-
-		/* No need for a lock here, nobody else is peeking in */
-		ring->cur = ring->start;
-		ring->next = ring->start;
-
-		/* reset completed fence seqno, discard anything pending: */
-		ring->memptrs->fence = adreno_submitted_fence(gpu, ring);
-		ring->memptrs->rptr  = 0;
-	}
-
 	gpu->funcs->pm_resume(gpu);
 
-	disable_irq(gpu->irq);
-	ret = gpu->funcs->hw_init(gpu);
+	ret = msm_gpu_hw_init(gpu);
 	if (ret) {
 		dev_err(dev->dev, "gpu hw init failed: %d\n", ret);
 		/* hmm, oh well? */
 	}
-	enable_irq(gpu->irq);
 }
 
 void adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
@@ -520,6 +525,10 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	if (ret)
 		return ret;
 
+	pm_runtime_set_autosuspend_delay(&pdev->dev, DRM_MSM_INACTIVE_PERIOD);
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+
 	ret = request_firmware(&adreno_gpu->pm4, adreno_gpu->info->pm4fw, drm->dev);
 	if (ret) {
 		dev_err(drm->dev, "failed to load %s PM4 firmware: %d\n",
@@ -535,12 +544,18 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	return ret;
 }
 
-void adreno_gpu_cleanup(struct adreno_gpu *gpu)
+void adreno_gpu_cleanup(struct adreno_gpu *adreno_gpu)
 {
-	release_firmware(gpu->pm4);
-	release_firmware(gpu->pfp);
+	struct msm_gpu *gpu = &adreno_gpu->base;
+	struct drm_device *dev = gpu->dev;
+	struct msm_drm_private *priv = dev->dev_private;
+	struct platform_device *pdev = priv->gpu_pdev;
 
-	msm_gpu_cleanup(&gpu->base);
+	release_firmware(adreno_gpu->pm4);
+	release_firmware(adreno_gpu->pfp);
+
+	pm_runtime_disable(&pdev->dev);
+	msm_gpu_cleanup(gpu);
 }
 
 static void adreno_snapshot_os(struct msm_gpu *gpu,

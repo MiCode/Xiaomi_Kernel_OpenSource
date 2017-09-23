@@ -194,5 +194,7 @@ static inline bool a5xx_in_preempt(struct a5xx_gpu *a5xx_gpu)
 }
 
 int a5xx_counters_init(struct adreno_gpu *adreno_gpu);
+void a5xx_counters_save(struct msm_gpu *gpu);
+void a5xx_counters_restore(struct msm_gpu *gpu);
 
 #endif /* __A5XX_GPU_H__ */
