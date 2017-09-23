@@ -1822,18 +1822,62 @@ void fastrpc_glink_notify_tx_done(void *handle, const void *priv,
 {
 }
 
+static int fastrpc_search_ctx(uint64_t rctx)
+{
+	struct fastrpc_apps *me = &gfa;
+	struct fastrpc_file *fl;
+	struct hlist_node *n, *m;
+	struct smq_invoke_ctx *ictx = NULL;
+	struct smq_invoke_ctx *ctx;
+	int bfound = 0;
+
+	ctx = (struct smq_invoke_ctx *)(uint64_to_ptr(rctx));
+	if (!ctx)
+		return bfound;
+
+	spin_lock(&me->hlock);
+	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
+		if (ctx->fl != fl)
+			continue;
+		spin_lock(&fl->hlock);
+		hlist_for_each_entry_safe(ictx, m, &fl->clst.pending, hn) {
+			if (ptr_to_uint64(ictx) == rctx) {
+				bfound = 1;
+				break;
+			}
+		}
+		hlist_for_each_entry_safe(ictx, m, &fl->clst.interrupted, hn) {
+			if (ptr_to_uint64(ictx) == rctx) {
+				bfound = 1;
+				break;
+			}
+		}
+		spin_unlock(&fl->hlock);
+		if (bfound)
+			break;
+	}
+	spin_unlock(&me->hlock);
+	return bfound;
+}
+
 void fastrpc_glink_notify_rx(void *handle, const void *priv,
 	const void *pkt_priv, const void *ptr, size_t size)
 {
 	struct smq_invoke_rsp *rsp = (struct smq_invoke_rsp *)ptr;
-	int len = size;
+	int bfound = 0;
 
-	while (len >= sizeof(*rsp) && rsp) {
-		rsp->ctx = rsp->ctx & ~1;
-		context_notify_user(uint64_to_ptr(rsp->ctx), rsp->retval);
-		rsp++;
-		len = len - sizeof(*rsp);
+	if (!rsp || (size < sizeof(*rsp)))
+		goto bail;
+
+	bfound = fastrpc_search_ctx((uint64_t)(rsp->ctx & ~1));
+	if (!bfound) {
+		pr_err("adsprpc: invalid context %pK\n", (void *)rsp->ctx);
+		goto bail;
 	}
+
+	rsp->ctx = rsp->ctx & ~1;
+	context_notify_user(uint64_to_ptr(rsp->ctx), rsp->retval);
+bail:
 	glink_rx_done(handle, ptr, true);
 }
 
@@ -1899,6 +1943,8 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 		return 0;
 	cid = fl->cid;
 
+	(void)fastrpc_release_current_dsp_process(fl);
+
 	spin_lock(&fl->apps->hlock);
 	hlist_del_init(&fl->hn);
 	spin_unlock(&fl->apps->hlock);
@@ -1907,7 +1953,6 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 		kfree(fl);
 		return 0;
 	}
-	(void)fastrpc_release_current_dsp_process(fl);
 	spin_lock(&fl->hlock);
 	fl->file_close = 1;
 	spin_unlock(&fl->hlock);
