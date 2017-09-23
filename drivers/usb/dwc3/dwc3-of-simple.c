@@ -29,11 +29,13 @@
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/pm_runtime.h>
+#include <linux/regulator/consumer.h>
 
 struct dwc3_of_simple {
 	struct device		*dev;
 	struct clk		**clks;
 	int			num_clocks;
+	struct regulator	*gdsc;
 };
 
 static int dwc3_of_simple_clk_init(struct dwc3_of_simple *simple, int count)
@@ -96,6 +98,17 @@ static int dwc3_of_simple_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, simple);
 	simple->dev = dev;
 
+	simple->gdsc = devm_regulator_get(dev, "USB3_GDSC");
+	if (IS_ERR(simple->gdsc)) {
+		simple->gdsc = NULL;
+	} else {
+		ret = regulator_enable(simple->gdsc);
+		if (ret) {
+			dev_err(dev, "unable to enable usb3 gdsc\n");
+			return ret;
+		}
+	}
+
 	ret = dwc3_of_simple_clk_init(simple, of_clk_get_parent_count(np));
 	if (ret)
 		return ret;
@@ -127,6 +140,9 @@ static int dwc3_of_simple_remove(struct platform_device *pdev)
 		clk_disable_unprepare(simple->clks[i]);
 		clk_put(simple->clks[i]);
 	}
+
+	if (simple->gdsc)
+		regulator_disable(simple->gdsc);
 
 	of_platform_depopulate(dev);
 
