@@ -18,26 +18,25 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 
+static const char * const mhi_states_transition_str[STATE_TRANSITION_MAX] = {
+	[STATE_TRANSITION_RESET] = "RESET",
+	[STATE_TRANSITION_READY] = "READY",
+	[STATE_TRANSITION_M0] = "M0",
+	[STATE_TRANSITION_M1] = "M1",
+	[STATE_TRANSITION_M2] = "M2",
+	[STATE_TRANSITION_M3] = "M3",
+	[STATE_TRANSITION_BHI] = "BHI",
+	[STATE_TRANSITION_SBL] = "SBL",
+	[STATE_TRANSITION_AMSS] = "AMSS",
+	[STATE_TRANSITION_LINK_DOWN] = "LINK_DOWN",
+	[STATE_TRANSITION_WAKE] = "WAKE",
+	[STATE_TRANSITION_BHIE] = "BHIE",
+	[STATE_TRANSITION_RDDM] = "RDDM",
+	[STATE_TRANSITION_SYS_ERR] = "SYS_ERR",
+};
+
 const char *state_transition_str(enum STATE_TRANSITION state)
 {
-	static const char * const
-		mhi_states_transition_str[STATE_TRANSITION_MAX] = {
-		[STATE_TRANSITION_RESET] = "RESET",
-		[STATE_TRANSITION_READY] = "READY",
-		[STATE_TRANSITION_M0] = "M0",
-		[STATE_TRANSITION_M1] = "M1",
-		[STATE_TRANSITION_M2] = "M2",
-		[STATE_TRANSITION_M3] = "M3",
-		[STATE_TRANSITION_BHI] = "BHI",
-		[STATE_TRANSITION_SBL] = "SBL",
-		[STATE_TRANSITION_AMSS] = "AMSS",
-		[STATE_TRANSITION_LINK_DOWN] = "LINK_DOWN",
-		[STATE_TRANSITION_WAKE] = "WAKE",
-		[STATE_TRANSITION_BHIE] = "BHIE",
-		[STATE_TRANSITION_RDDM] = "RDDM",
-		[STATE_TRANSITION_SYS_ERR] = "SYS_ERR",
-	};
-
 	return (state < STATE_TRANSITION_MAX) ?
 		mhi_states_transition_str[state] : "Invalid";
 }
