@@ -158,6 +158,7 @@ static ssize_t cnss_dev_boot_debug_write(struct file *fp,
 	} else if (sysfs_streq(cmd, "enumerate")) {
 		ret = cnss_pci_init(plat_priv);
 	} else if (sysfs_streq(cmd, "download")) {
+		set_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state);
 		ret = cnss_pci_start_mhi(plat_priv->bus_priv);
 	} else if (sysfs_streq(cmd, "linkup")) {
 		ret = cnss_resume_pci_link(plat_priv->bus_priv);
