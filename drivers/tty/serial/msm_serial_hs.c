@@ -218,6 +218,7 @@ struct msm_hs_wakeup {
 };
 
 struct msm_hs_port {
+	bool startup_locked;
 	struct uart_port uport;
 	unsigned long imr_reg;  /* shadow value of UARTDM_IMR */
 	struct clk *clk;
@@ -292,6 +293,8 @@ static struct msm_hs_port *msm_hs_get_hs_port(int port_index);
 static void msm_hs_queue_rx_desc(struct msm_hs_port *msm_uport);
 static int disconnect_rx_endpoint(struct msm_hs_port *msm_uport);
 static int msm_hs_pm_resume(struct device *dev);
+static void msm_hs_pm_suspend(struct device *dev);
+
 
 #define UARTDM_TO_MSM(uart_port) \
 	container_of((uart_port), struct msm_hs_port, uport)
@@ -392,6 +395,8 @@ static void msm_hs_resource_unvote(struct msm_hs_port *msm_uport)
 {
 	struct uart_port *uport = &(msm_uport->uport);
 	int rc = atomic_read(&msm_uport->resource_count);
+	struct msm_hs_tx *tx = &msm_uport->tx;
+	struct msm_hs_rx *rx = &msm_uport->rx;
 
 	MSM_HS_DBG("%s(): power usage count %d", __func__, rc);
 	if (rc <= 0) {
@@ -400,8 +405,15 @@ static void msm_hs_resource_unvote(struct msm_hs_port *msm_uport)
 		return;
 	}
 	atomic_dec(&msm_uport->resource_count);
-	pm_runtime_mark_last_busy(uport->dev);
-	pm_runtime_put_autosuspend(uport->dev);
+
+	if (pm_runtime_enabled(uport->dev)) {
+		pm_runtime_mark_last_busy(uport->dev);
+		pm_runtime_put_autosuspend(uport->dev);
+	} else {
+		MSM_HS_DBG("%s():tx.flush:%d,in_flight:%d,rx.flush:%d\n",
+		__func__, tx->flush, tx->dma_in_flight, rx->flush);
+		msm_hs_pm_suspend(uport->dev);
+	}
 }
 
  /* Vote for resources before accessing them */
@@ -585,6 +597,8 @@ static void hex_dump_ipc(struct msm_hs_port *msm_uport, void *ipc_ctx,
 	char buf[(BUF_DUMP_SIZE * 3) + 2];
 	int len = 0;
 
+	if (msm_uport->ipc_debug_mask == FATAL_LEV)
+		return;
 	len = min(size, BUF_DUMP_SIZE);
 	/*
 	 * Print upto 32 data bytes, 32 bytes per line, 1 byte at a time and
@@ -635,6 +649,7 @@ static int msm_serial_loopback_enable_set(void *data, u64 val)
 	unsigned long flags;
 	int ret = 0;
 
+	msm_uport->startup_locked = true;
 	msm_hs_resource_vote(msm_uport);
 
 	if (val) {
@@ -654,7 +669,7 @@ static int msm_serial_loopback_enable_set(void *data, u64 val)
 	}
 	/* Calling CLOCK API. Hence mb() requires here. */
 	mb();
-
+	msm_uport->startup_locked = false;
 	msm_hs_resource_unvote(msm_uport);
 	return 0;
 }
@@ -666,11 +681,13 @@ static int msm_serial_loopback_enable_get(void *data, u64 *val)
 	unsigned long flags;
 	int ret = 0;
 
+	msm_uport->startup_locked = true;
 	msm_hs_resource_vote(msm_uport);
 
 	spin_lock_irqsave(&uport->lock, flags);
 	ret = msm_hs_read(&msm_uport->uport, UART_DM_MR2);
 	spin_unlock_irqrestore(&uport->lock, flags);
+	msm_uport->startup_locked = false;
 
 	msm_hs_resource_unvote(msm_uport);
 
@@ -828,6 +845,11 @@ static int msm_hs_spsconnect_rx(struct uart_port *uport)
 	struct sps_register_event *sps_event = &rx->prod.event;
 	unsigned long flags;
 
+	if (msm_uport->rx.pending_flag) {
+		MSM_HS_WARN("%s(): Buffers may be pending 0x%lx",
+			__func__, msm_uport->rx.pending_flag);
+	}
+
 	/* Establish connection between peripheral and memory endpoint */
 	ret = sps_connect(sps_pipe_handle, sps_config);
 	if (ret) {
@@ -843,9 +865,6 @@ static int msm_hs_spsconnect_rx(struct uart_port *uport)
 		goto reg_event_err;
 	}
 	spin_lock_irqsave(&uport->lock, flags);
-	if (msm_uport->rx.pending_flag)
-		MSM_HS_WARN("%s(): Buffers may be pending 0x%lx",
-		__func__, msm_uport->rx.pending_flag);
 	msm_uport->rx.queued_flag = 0;
 	msm_uport->rx.pending_flag = 0;
 	msm_uport->rx.rx_inx = 0;
@@ -1284,6 +1303,8 @@ static int disconnect_rx_endpoint(struct msm_hs_port *msm_uport)
 	int ret = 0;
 
 	ret = sps_rx_disconnect(sps_pipe_handle);
+	if (ret)
+		MSM_HS_ERR("%s(): sps_disconnect failed\n", __func__);
 
 	if (msm_uport->rx.pending_flag)
 		MSM_HS_WARN("%s(): Buffers may be pending 0x%lx",
@@ -1293,8 +1314,6 @@ static int disconnect_rx_endpoint(struct msm_hs_port *msm_uport)
 	msm_uport->rx.pending_flag = 0;
 	msm_uport->rx.rx_inx = 0;
 
-	if (ret)
-		MSM_HS_ERR("%s(): sps_disconnect failed\n", __func__);
 	msm_uport->rx.flush = FLUSH_SHUTDOWN;
 	MSM_HS_DBG("%s: Calling Completion\n", __func__);
 	wake_up(&msm_uport->bam_disconnect_wait);
@@ -1352,9 +1371,14 @@ static void msm_hs_stop_rx_locked(struct uart_port *uport)
 {
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 
-	if (msm_uport->pm_state != MSM_HS_PM_ACTIVE)
+	if (msm_uport->pm_state != MSM_HS_PM_ACTIVE) {
 		MSM_HS_WARN("%s(): Clocks are off\n", __func__);
-	else
+		/* Make sure resource_on doesn't get called */
+		if (msm_hs_clk_bus_vote(msm_uport))
+			MSM_HS_ERR("%s:Failed clock vote\n",  __func__);
+		msm_hs_disable_rx(uport);
+		msm_hs_clk_bus_unvote(msm_uport);
+	} else
 		msm_hs_disable_rx(uport);
 
 	if (msm_uport->rx.flush == FLUSH_NONE)
@@ -1364,11 +1388,19 @@ static void msm_hs_stop_rx_locked(struct uart_port *uport)
 static void msm_hs_disconnect_rx(struct uart_port *uport)
 {
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
+	struct msm_hs_rx *rx = &msm_uport->rx;
+	struct sps_pipe *sps_pipe_handle = rx->prod.pipe_handle;
+	u32 prod_empty = 0;
 
 	msm_hs_disable_rx(uport);
 	/* Disconnect the BAM RX pipe */
 	if (msm_uport->rx.flush == FLUSH_NONE)
 		msm_uport->rx.flush = FLUSH_STOP;
+
+	if (sps_is_pipe_empty(sps_pipe_handle, &prod_empty)) {
+		MSM_HS_WARN("%s():Pipe Not Empty, ret=%d, flush=%d\n",
+			__func__, prod_empty, msm_uport->rx.flush);
+	}
 	disconnect_rx_endpoint(msm_uport);
 	MSM_HS_DBG("%s(): rx->flush %d", __func__, msm_uport->rx.flush);
 }
@@ -1389,6 +1421,8 @@ void tx_timeout_handler(unsigned long arg)
 	if (UARTDM_ISR_CURRENT_CTS_BMSK & isr)
 		MSM_HS_WARN("%s(): CTS Disabled, ISR 0x%x", __func__, isr);
 	dump_uart_hs_registers(msm_uport);
+	/* Stop further loging */
+	MSM_HS_ERR("%s(): Stop IPC logging\n", __func__);
 }
 
 /*  Transmit the next chunk of data */
@@ -1832,11 +1866,27 @@ static void msm_hs_start_tx_locked(struct uart_port *uport)
 {
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 	struct msm_hs_tx *tx = &msm_uport->tx;
+	unsigned int isr;
+
+	if (msm_uport->startup_locked) {
+		MSM_HS_DBG("%s(): No Tx Request, startup_locked=%d\n",
+			__func__, msm_uport->startup_locked);
+		return;
+	}
 
 	/* Bail if transfer in progress */
 	if (tx->flush < FLUSH_STOP || tx->dma_in_flight) {
 		MSM_HS_INFO("%s(): retry, flush %d, dma_in_flight %d\n",
 			__func__, tx->flush, tx->dma_in_flight);
+
+		if (msm_uport->pm_state == MSM_HS_PM_ACTIVE) {
+			isr = msm_hs_read(uport, UART_DM_ISR);
+			if (UARTDM_ISR_CURRENT_CTS_BMSK & isr)
+			MSM_HS_DBG("%s():CTS 1: Peer is Busy, ISR 0x%x",
+						__func__, isr);
+		} else
+			MSM_HS_WARN("%s(): Clocks are off\n", __func__);
+
 		return;
 	}
 
@@ -2269,16 +2319,34 @@ void msm_hs_resource_off(struct msm_hs_port *msm_uport)
 {
 	struct uart_port *uport = &(msm_uport->uport);
 	unsigned int data;
+	int ret = 0;
 
 	MSM_HS_DBG("%s(): begin", __func__);
 	msm_hs_disable_flow_control(uport, false);
 	if (msm_uport->rx.flush == FLUSH_NONE)
 		msm_hs_disconnect_rx(uport);
+	else if (msm_uport->rx.flush != FLUSH_SHUTDOWN) {
+		MSM_HS_WARN("%s():Rx Flush=%d Not Expected\n",
+			__func__, msm_uport->rx.flush);
+		/* disable and disconnect rx */
+		ret = wait_event_timeout(msm_uport->rx.wait,
+			!msm_uport->rx.pending_flag, 500);
+		if (!ret)
+			MSM_HS_WARN("%s(): rx disconnect not complete",
+				__func__);
+		msm_hs_disconnect_rx(uport);
+	} else
+		MSM_HS_DBG("%s():Rx Flush=%d In Proper State\n",
+			__func__, msm_uport->rx.flush);
 
 	/* disable dlink */
-	if (msm_uport->tx.flush == FLUSH_NONE)
-		wait_event_timeout(msm_uport->tx.wait,
+	if (msm_uport->tx.flush == FLUSH_NONE) {
+		ret = wait_event_timeout(msm_uport->tx.wait,
 			msm_uport->tx.flush == FLUSH_STOP, 500);
+		if (!ret)
+			MSM_HS_WARN("%s(): tx disconnect not complete",
+					__func__);
+	}
 
 	if (msm_uport->tx.flush != FLUSH_SHUTDOWN) {
 		data = msm_hs_read(uport, UART_DM_DMEN);
@@ -2296,21 +2364,29 @@ void msm_hs_resource_on(struct msm_hs_port *msm_uport)
 	unsigned int data;
 	unsigned long flags;
 
+	if (msm_uport->startup_locked) {
+		MSM_HS_WARN("%s(): startup_locked=%d\n",
+			__func__, msm_uport->startup_locked);
+		return;
+	}
+
 	if (msm_uport->rx.flush == FLUSH_SHUTDOWN ||
 	msm_uport->rx.flush == FLUSH_STOP) {
 		msm_hs_write(uport, UART_DM_CR, RESET_RX);
 		data = msm_hs_read(uport, UART_DM_DMEN);
 		data |= UARTDM_RX_BAM_ENABLE_BMSK;
 		msm_hs_write(uport, UART_DM_DMEN, data);
-	}
+	} else
+		MSM_HS_DBG("%s():rx.flush=%d, Rx is not enabled\n",
+			__func__, msm_uport->rx.flush);
 
-	msm_hs_spsconnect_tx(msm_uport);
 	if (msm_uport->rx.flush == FLUSH_SHUTDOWN) {
 		msm_hs_spsconnect_rx(uport);
 		spin_lock_irqsave(&uport->lock, flags);
 		msm_hs_start_rx_locked(uport);
 		spin_unlock_irqrestore(&uport->lock, flags);
 	}
+	msm_hs_spsconnect_tx(msm_uport);
 }
 
 /* Request to turn off uart clock once pending TX is flushed */
@@ -2603,6 +2679,7 @@ static int msm_hs_startup(struct uart_port *uport)
 	struct sps_pipe *sps_pipe_handle_tx = tx->cons.pipe_handle;
 	struct sps_pipe *sps_pipe_handle_rx = rx->prod.pipe_handle;
 
+	msm_uport->startup_locked = true;
 	rfr_level = uport->fifosize;
 	if (rfr_level > 16)
 		rfr_level -= 16;
@@ -2654,6 +2731,9 @@ static int msm_hs_startup(struct uart_port *uport)
 	flush_kthread_worker(&msm_uport->rx.kworker);
 	if (rx->flush != FLUSH_SHUTDOWN)
 		disconnect_rx_endpoint(msm_uport);
+	else
+		MSM_HS_DBG("%s(): Rx Flush=%d In Proper state\n",
+			__func__, rx->flush);
 	ret = msm_hs_spsconnect_rx(uport);
 	if (ret) {
 		MSM_HS_ERR("msm_serial_hs: SPS connect failed for RX");
@@ -2729,6 +2809,7 @@ static int msm_hs_startup(struct uart_port *uport)
 	atomic_set(&msm_uport->client_req_state, 0);
 	LOG_USR_MSG(msm_uport->ipc_msm_hs_pwr_ctxt,
 			"%s: Client_Count 0\n", __func__);
+	msm_uport->startup_locked = false;
 	msm_hs_start_rx_locked(uport);
 
 	spin_unlock_irqrestore(&uport->lock, flags);
@@ -3157,6 +3238,8 @@ static void msm_hs_pm_suspend(struct device *dev)
 	msm_uport->pm_state = MSM_HS_PM_SUSPENDED;
 	msm_hs_resource_off(msm_uport);
 	obs_manage_irq(msm_uport, false);
+	if (!atomic_read(&msm_uport->client_req_state))
+		enable_wakeup_interrupt(msm_uport);
 	msm_hs_clk_bus_unvote(msm_uport);
 
 	/* For OBS, don't use wakeup interrupt, set gpio to suspended state */
@@ -3168,8 +3251,6 @@ static void msm_hs_pm_suspend(struct device *dev)
 				__func__);
 	}
 
-	if (!atomic_read(&msm_uport->client_req_state))
-		enable_wakeup_interrupt(msm_uport);
 	LOG_USR_MSG(msm_uport->ipc_msm_hs_pwr_ctxt,
 		"%s: PM State Suspended client_count %d\n", __func__,
 								client_count);
@@ -3691,9 +3772,14 @@ static void msm_hs_shutdown(struct uart_port *uport)
 			MSM_HS_WARN("%s(): rx disconnect not complete",
 				__func__);
 		msm_hs_disconnect_rx(uport);
+	} else {
+		MSM_HS_DBG("%s(): Rx Flush is in Proper state=%d\n",
+			__func__, msm_uport->rx.flush);
 	}
 
-	cancel_delayed_work_sync(&msm_uport->rx.flip_insert_work);
+	if (cancel_delayed_work_sync(&msm_uport->rx.flip_insert_work))
+		MSM_HS_DBG("%s(): Work was pending, canceled it\n",
+			__func__);
 	flush_workqueue(msm_uport->hsuart_wq);
 
 	/* BAM Disconnect for TX */
