@@ -30,6 +30,7 @@ static struct inode *f2fs_new_inode(struct inode *dir, umode_t mode)
 	nid_t ino;
 	struct inode *inode;
 	bool nid_free = false;
+	int xattr_size = 0;
 	int err;
 
 	inode = new_inode(dir->i_sb);
@@ -84,10 +85,22 @@ static struct inode *f2fs_new_inode(struct inode *dir, umode_t mode)
 
 	if (test_opt(sbi, INLINE_XATTR))
 		set_inode_flag(inode, FI_INLINE_XATTR);
+
 	if (test_opt(sbi, INLINE_DATA) && f2fs_may_inline_data(inode))
 		set_inode_flag(inode, FI_INLINE_DATA);
 	if (f2fs_may_inline_dentry(inode))
 		set_inode_flag(inode, FI_INLINE_DENTRY);
+
+	if (f2fs_sb_has_flexible_inline_xattr(sbi->sb)) {
+		f2fs_bug_on(sbi, !f2fs_has_extra_attr(inode));
+		if (f2fs_has_inline_xattr(inode))
+			xattr_size = sbi->inline_xattr_size;
+		/* Otherwise, will be 0 */
+	} else if (f2fs_has_inline_xattr(inode) ||
+				f2fs_has_inline_dentry(inode)) {
+		xattr_size = DEFAULT_INLINE_XATTR_ADDRS;
+	}
+	F2FS_I(inode)->i_inline_xattr_size = xattr_size;
 
 	f2fs_init_extent_tree(inode, NULL);
 
@@ -175,6 +188,9 @@ static int f2fs_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 	nid_t ino = 0;
 	int err;
 
+	if (unlikely(f2fs_cp_error(sbi)))
+		return -EIO;
+
 	dquot_initialize(dir);
 
 	inode = f2fs_new_inode(dir, mode);
@@ -216,6 +232,9 @@ static int f2fs_link(struct dentry *old_dentry, struct inode *dir,
 	struct inode *inode = d_inode(old_dentry);
 	struct f2fs_sb_info *sbi = F2FS_I_SB(dir);
 	int err;
+
+	if (unlikely(f2fs_cp_error(sbi)))
+		return -EIO;
 
 	if (f2fs_encrypted_inode(dir) &&
 			!fscrypt_has_permitted_context(dir, inode))
@@ -323,12 +342,15 @@ static struct dentry *f2fs_lookup(struct inode *dir, struct dentry *dentry,
 	struct inode *inode = NULL;
 	struct f2fs_dir_entry *de;
 	struct page *page;
-	nid_t ino;
+	struct dentry *new;
+	nid_t ino = -1;
 	int err = 0;
 	unsigned int root_ino = F2FS_ROOT_INO(F2FS_I_SB(dir));
 
+	trace_f2fs_lookup_start(dir, dentry, flags);
+
 	if (f2fs_encrypted_inode(dir)) {
-		int res = fscrypt_get_encryption_info(dir);
+		err = fscrypt_get_encryption_info(dir);
 
 		/*
 		 * DCACHE_ENCRYPTED_WITH_KEY is set if the dentry is
@@ -338,18 +360,22 @@ static struct dentry *f2fs_lookup(struct inode *dir, struct dentry *dentry,
 		if (fscrypt_has_encryption_key(dir))
 			fscrypt_set_encrypted_dentry(dentry);
 		fscrypt_set_d_op(dentry);
-		if (res && res != -ENOKEY)
-			return ERR_PTR(res);
+		if (err && err != -ENOKEY)
+			goto out;
 	}
 
-	if (dentry->d_name.len > F2FS_NAME_LEN)
-		return ERR_PTR(-ENAMETOOLONG);
+	if (dentry->d_name.len > F2FS_NAME_LEN) {
+		err = -ENAMETOOLONG;
+		goto out;
+	}
 
 	de = f2fs_find_entry(dir, &dentry->d_name, &page);
 	if (!de) {
-		if (IS_ERR(page))
-			return (struct dentry *)page;
-		return d_splice_alias(inode, dentry);
+		if (IS_ERR(page)) {
+			err = PTR_ERR(page);
+			goto out;
+		}
+		goto out_splice;
 	}
 
 	ino = le32_to_cpu(de->ino);
@@ -357,19 +383,21 @@ static struct dentry *f2fs_lookup(struct inode *dir, struct dentry *dentry,
 	f2fs_put_page(page, 0);
 
 	inode = f2fs_iget(dir->i_sb, ino);
-	if (IS_ERR(inode))
-		return ERR_CAST(inode);
+	if (IS_ERR(inode)) {
+		err = PTR_ERR(inode);
+		goto out;
+	}
 
 	if ((dir->i_ino == root_ino) && f2fs_has_inline_dots(dir)) {
 		err = __recover_dot_dentries(dir, root_ino);
 		if (err)
-			goto err_out;
+			goto out_iput;
 	}
 
 	if (f2fs_has_inline_dots(inode)) {
 		err = __recover_dot_dentries(inode, dir->i_ino);
 		if (err)
-			goto err_out;
+			goto out_iput;
 	}
 	if (f2fs_encrypted_inode(dir) &&
 	    (S_ISDIR(inode->i_mode) || S_ISLNK(inode->i_mode)) &&
@@ -378,12 +406,18 @@ static struct dentry *f2fs_lookup(struct inode *dir, struct dentry *dentry,
 			 "Inconsistent encryption contexts: %lu/%lu",
 			 dir->i_ino, inode->i_ino);
 		err = -EPERM;
-		goto err_out;
+		goto out_iput;
 	}
-	return d_splice_alias(inode, dentry);
-
-err_out:
+out_splice:
+	new = d_splice_alias(inode, dentry);
+	if (IS_ERR(new))
+		err = PTR_ERR(new);
+	trace_f2fs_lookup_end(dir, dentry, ino, err);
+	return new;
+out_iput:
 	iput(inode);
+out:
+	trace_f2fs_lookup_end(dir, dentry, ino, err);
 	return ERR_PTR(err);
 }
 
@@ -397,7 +431,11 @@ static int f2fs_unlink(struct inode *dir, struct dentry *dentry)
 
 	trace_f2fs_unlink_enter(dir, dentry);
 
+	if (unlikely(f2fs_cp_error(sbi)))
+		return -EIO;
+
 	dquot_initialize(dir);
+	dquot_initialize(inode);
 
 	de = f2fs_find_entry(dir, &dentry->d_name, &page);
 	if (!de) {
@@ -457,6 +495,9 @@ static int f2fs_symlink(struct inode *dir, struct dentry *dentry,
 	struct fscrypt_str disk_link = FSTR_INIT((char *)symname, len + 1);
 	struct fscrypt_symlink_data *sd = NULL;
 	int err;
+
+	if (unlikely(f2fs_cp_error(sbi)))
+		return -EIO;
 
 	if (f2fs_encrypted_inode(dir)) {
 		err = fscrypt_get_encryption_info(dir);
@@ -562,6 +603,9 @@ static int f2fs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 	struct inode *inode;
 	int err;
 
+	if (unlikely(f2fs_cp_error(sbi)))
+		return -EIO;
+
 	dquot_initialize(dir);
 
 	inode = f2fs_new_inode(dir, S_IFDIR | mode);
@@ -612,6 +656,8 @@ static int f2fs_mknod(struct inode *dir, struct dentry *dentry,
 	struct inode *inode;
 	int err = 0;
 
+	if (unlikely(f2fs_cp_error(sbi)))
+		return -EIO;
 	if (!new_valid_dev(rdev))
 		return -EINVAL;
 
@@ -705,6 +751,9 @@ out:
 
 static int f2fs_tmpfile(struct inode *dir, struct dentry *dentry, umode_t mode)
 {
+	if (unlikely(f2fs_cp_error(F2FS_I_SB(dir))))
+		return -EIO;
+
 	if (f2fs_encrypted_inode(dir)) {
 		int err = fscrypt_get_encryption_info(dir);
 		if (err)
@@ -716,6 +765,9 @@ static int f2fs_tmpfile(struct inode *dir, struct dentry *dentry, umode_t mode)
 
 static int f2fs_create_whiteout(struct inode *dir, struct inode **whiteout)
 {
+	if (unlikely(f2fs_cp_error(F2FS_I_SB(dir))))
+		return -EIO;
+
 	return __f2fs_tmpfile(dir, NULL, S_IFCHR | WHITEOUT_MODE, whiteout);
 }
 
@@ -734,6 +786,9 @@ static int f2fs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	struct f2fs_dir_entry *new_entry;
 	bool is_old_inline = f2fs_has_inline_dentry(old_dir);
 	int err = -ENOENT;
+
+	if (unlikely(f2fs_cp_error(sbi)))
+		return -EIO;
 
 	if ((f2fs_encrypted_inode(old_dir) &&
 			!fscrypt_has_encryption_key(old_dir)) ||
@@ -755,6 +810,9 @@ static int f2fs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	dquot_initialize(old_dir);
 
 	dquot_initialize(new_dir);
+
+	if (new_inode)
+		dquot_initialize(new_inode);
 
 	old_entry = f2fs_find_entry(old_dir, &old_dentry->d_name, &old_page);
 	if (!old_entry) {
@@ -923,6 +981,9 @@ static int f2fs_cross_rename(struct inode *old_dir, struct dentry *old_dentry,
 	struct f2fs_dir_entry *old_entry, *new_entry;
 	int old_nlink = 0, new_nlink = 0;
 	int err = -ENOENT;
+
+	if (unlikely(f2fs_cp_error(sbi)))
+		return -EIO;
 
 	if ((f2fs_encrypted_inode(old_dir) &&
 			!fscrypt_has_encryption_key(old_dir)) ||
