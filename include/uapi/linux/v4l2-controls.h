@@ -1225,6 +1225,13 @@ enum v4l2_mpeg_vidc_video_au_delimiter {
 	V4L2_MPEG_VIDC_VIDEO_AU_DELIMITER_ENABLED = 1
 };
 
+#define V4L2_CID_MPEG_VIDC_VIDEO_SEND_SKIPPED_FRAME \
+		(V4L2_CID_MPEG_MSM_VIDC_BASE + 103)
+enum v4l2_mpeg_vidc_video_venc_send_skipped_frame {
+	V4L2_MPEG_VIDC_VIDEO_SEND_SKIPPED_FRAME_DISABLE = 0,
+	V4L2_MPEG_VIDC_VIDEO_SEND_SKIPPED_FRAME_ENABLE = 1
+};
+
 
 /*  Camera class control IDs */
 

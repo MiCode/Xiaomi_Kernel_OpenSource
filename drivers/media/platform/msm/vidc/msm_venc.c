@@ -1423,7 +1423,16 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 			(1 << V4L2_CID_MPEG_VIDC_VIDEO_IFRAME_SIZE_UNLIMITED)),
 		.qmenu = iframe_sizes,
 	},
-
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_SEND_SKIPPED_FRAME,
+		.name = "Send encoder output buffer for skipped frames",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_SEND_SKIPPED_FRAME_DISABLE,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_SEND_SKIPPED_FRAME_ENABLE,
+		.default_value =
+			V4L2_MPEG_VIDC_VIDEO_SEND_SKIPPED_FRAME_DISABLE,
+		.step = 1,
+	}
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_venc_ctrls)
@@ -3712,6 +3721,25 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 				ctrl->val);
 		pdata = &iframesize_type;
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_SEND_SKIPPED_FRAME:
+		property_id = HAL_PARAM_VENC_SEND_OUTPUT_FOR_SKIPPED_FRAME;
+		switch (ctrl->val) {
+		case V4L2_MPEG_VIDC_VIDEO_SEND_SKIPPED_FRAME_ENABLE:
+			enable.enable = 1;
+			break;
+		case V4L2_MPEG_VIDC_VIDEO_SEND_SKIPPED_FRAME_DISABLE:
+			enable.enable = 0;
+			break;
+		default:
+			dprintk(VIDC_ERR,
+				"Invalid send skipped frames control value %d\n",
+				ctrl->val);
+			rc = -ENOTSUPP;
+			break;
+		}
+		pdata = &enable;
+		break;
+
 	default:
 		dprintk(VIDC_ERR, "Unsupported index: %x\n", ctrl->id);
 		rc = -ENOTSUPP;
