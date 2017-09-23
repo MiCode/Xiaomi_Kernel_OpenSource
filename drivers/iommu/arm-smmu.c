@@ -2393,6 +2393,8 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	if (ret)
 		return ret;
 
+	arm_smmu_secure_domain_lock(smmu_domain);
+
 	__saved_iova_start = iova;
 	idx_start = idx_end = 0;
 	sg_start = sg_end = sg;
@@ -2430,6 +2432,7 @@ out:
 		arm_smmu_unmap(domain, __saved_iova_start, size_to_unmap);
 		iova = __saved_iova_start;
 	}
+	arm_smmu_secure_domain_unlock(smmu_domain);
 	arm_smmu_domain_power_off(domain, smmu_domain->smmu);
 	return iova - __saved_iova_start;
 }
