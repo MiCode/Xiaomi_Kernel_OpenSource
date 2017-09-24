@@ -28,6 +28,20 @@
 /* offset of enable register from select register */
 #define VBIF2_PERF_EN_REG_SEL_OFF 16
 
+/* offset of clear register from select register for GBIF */
+#define GBIF_PERF_CLR_REG_SEL_OFF 1
+
+/* offset of enable register from select register for GBIF*/
+#define GBIF_PERF_EN_REG_SEL_OFF  2
+
+/* offset of clear register from the power enable register for GBIF*/
+#define GBIF_PWR_CLR_REG_EN_OFF    1
+
+/* */
+#define GBIF_PERF_RMW_MASK   0xFF
+/* */
+#define GBIF_PWR_RMW_MASK    0x10000
+
 /* offset of clear register from the enable register */
 #define VBIF2_PERF_PWR_CLR_REG_EN_OFF 8
 
@@ -612,14 +626,41 @@ static void _perfcounter_enable_vbif(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_perfcount_register *reg;
+	unsigned int shift = counter << 3;
 
 	reg = &counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF].regs[counter];
-	/* Write 1, followed by 0 to CLR register for clearing the counter */
-	kgsl_regwrite(device, reg->select - VBIF2_PERF_CLR_REG_SEL_OFF, 1);
-	kgsl_regwrite(device, reg->select - VBIF2_PERF_CLR_REG_SEL_OFF, 0);
-	kgsl_regwrite(device, reg->select, countable & VBIF2_PERF_CNT_SEL_MASK);
-	/* enable reg is 8 DWORDS before select reg */
-	kgsl_regwrite(device, reg->select - VBIF2_PERF_EN_REG_SEL_OFF, 1);
+
+	if (adreno_has_gbif(adreno_dev)) {
+		/*
+		 * Write 1, followed by 0 to CLR register for
+		 * clearing the counter
+		 */
+		kgsl_regrmw(device, reg->select - GBIF_PERF_CLR_REG_SEL_OFF,
+			1 << counter, 1);
+		kgsl_regrmw(device, reg->select - GBIF_PERF_CLR_REG_SEL_OFF,
+			1 << counter, 0);
+		/* select the desired countable */
+		kgsl_regrmw(device, reg->select,
+			GBIF_PERF_RMW_MASK << shift, countable << shift);
+		/* enable counter */
+		kgsl_regrmw(device, reg->select - GBIF_PERF_EN_REG_SEL_OFF,
+			1 << counter, 1);
+
+	} else {
+		/*
+		 * Write 1, followed by 0 to CLR register for
+		 * clearing the counter
+		 */
+		kgsl_regwrite(device,
+			reg->select - VBIF2_PERF_CLR_REG_SEL_OFF, 1);
+		kgsl_regwrite(device,
+			reg->select - VBIF2_PERF_CLR_REG_SEL_OFF, 0);
+		kgsl_regwrite(device,
+			reg->select, countable & VBIF2_PERF_CNT_SEL_MASK);
+		/* enable reg is 8 DWORDS before select reg */
+		kgsl_regwrite(device,
+			reg->select - VBIF2_PERF_EN_REG_SEL_OFF, 1);
+	}
 	reg->value = 0;
 }
 
@@ -630,10 +671,30 @@ static void _perfcounter_enable_vbif_pwr(struct adreno_device *adreno_dev,
 	struct adreno_perfcount_register *reg;
 
 	reg = &counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF_PWR].regs[counter];
-	/* Write 1, followed by 0 to CLR register for clearing the counter */
-	kgsl_regwrite(device, reg->select + VBIF2_PERF_PWR_CLR_REG_EN_OFF, 1);
-	kgsl_regwrite(device, reg->select + VBIF2_PERF_PWR_CLR_REG_EN_OFF, 0);
-	kgsl_regwrite(device, reg->select, 1);
+
+	if (adreno_has_gbif(adreno_dev)) {
+		/*
+		 * Write 1, followed by 0 to CLR register for
+		 * clearing the counter
+		 */
+		kgsl_regrmw(device, reg->select + GBIF_PWR_CLR_REG_EN_OFF,
+			GBIF_PWR_RMW_MASK << counter, 1);
+		kgsl_regrmw(device, reg->select + GBIF_PWR_CLR_REG_EN_OFF,
+			GBIF_PWR_RMW_MASK << counter, 0);
+		/* Enable the counter */
+		kgsl_regrmw(device, reg->select,
+			GBIF_PWR_RMW_MASK << counter, 1);
+	} else {
+		/*
+		 * Write 1, followed by 0 to CLR register for
+		 * clearing the counter
+		 */
+		kgsl_regwrite(device, reg->select +
+			VBIF2_PERF_PWR_CLR_REG_EN_OFF, 1);
+		kgsl_regwrite(device, reg->select +
+			VBIF2_PERF_PWR_CLR_REG_EN_OFF, 0);
+		kgsl_regwrite(device, reg->select, 1);
+	}
 	reg->value = 0;
 }
 

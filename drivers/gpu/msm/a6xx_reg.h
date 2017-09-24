@@ -764,6 +764,29 @@
 #define A6XX_VBIF_PERF_PWR_CNT_HIGH1            0x3119
 #define A6XX_VBIF_PERF_PWR_CNT_HIGH2            0x311a
 
+/* GBIF registers */
+#define A6XX_GBIF_HALT                    0x3c45
+#define A6XX_GBIF_HALT_ACK                0x3c46
+#define A6XX_GBIF_HALT_MASK               0x1
+
+#define A6XX_GBIF_PERF_PWR_CNT_EN         0x3cc0
+#define A6XX_GBIF_PERF_CNT_SEL            0x3cc2
+#define A6XX_GBIF_PERF_CNT_LOW0           0x3cc4
+#define A6XX_GBIF_PERF_CNT_LOW1           0x3cc5
+#define A6XX_GBIF_PERF_CNT_LOW2           0x3cc6
+#define A6XX_GBIF_PERF_CNT_LOW3           0x3cc7
+#define A6XX_GBIF_PERF_CNT_HIGH0          0x3cc8
+#define A6XX_GBIF_PERF_CNT_HIGH1          0x3cc9
+#define A6XX_GBIF_PERF_CNT_HIGH2          0x3cca
+#define A6XX_GBIF_PERF_CNT_HIGH3          0x3ccb
+#define A6XX_GBIF_PWR_CNT_LOW0            0x3ccc
+#define A6XX_GBIF_PWR_CNT_LOW1            0x3ccd
+#define A6XX_GBIF_PWR_CNT_LOW2            0x3cce
+#define A6XX_GBIF_PWR_CNT_HIGH0           0x3ccf
+#define A6XX_GBIF_PWR_CNT_HIGH1           0x3cd0
+#define A6XX_GBIF_PWR_CNT_HIGH2           0x3cd1
+
+
 /* CX_DBGC_CFG registers */
 #define A6XX_CX_DBGC_CFG_DBGBUS_SEL_A                   0x18400
 #define A6XX_CX_DBGC_CFG_DBGBUS_SEL_B                   0x18401

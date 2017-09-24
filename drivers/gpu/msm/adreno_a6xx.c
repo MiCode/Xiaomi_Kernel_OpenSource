@@ -50,10 +50,15 @@ static const struct adreno_vbif_data a630_vbif[] = {
 	{0, 0},
 };
 
-static const struct adreno_vbif_platform a6xx_vbif_platforms[] = {
-	{ adreno_is_a630, a630_vbif },
+static const struct adreno_vbif_data a615_gbif[] = {
+	{A6XX_RBBM_VBIF_CLIENT_QOS_CNTL, 0x3},
+	{0, 0},
 };
 
+static const struct adreno_vbif_platform a6xx_vbif_platforms[] = {
+	{ adreno_is_a630, a630_vbif },
+	{ adreno_is_a615, a615_gbif },
+};
 
 struct kgsl_hwcg_reg {
 	unsigned int off;
@@ -243,18 +248,6 @@ static struct reg_list_pair {
 	{ A6XX_PC_DBG_ECO_CNTL, 0x0 },
 	{ A6XX_RB_CONTEXT_SWITCH_GMEM_SAVE_RESTORE, 0x0 },
 };
-
-static void a6xx_platform_setup(struct adreno_device *adreno_dev)
-{
-	uint64_t addr;
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-
-	/* Calculate SP local and private mem addresses */
-	addr = ALIGN(ADRENO_UCHE_GMEM_BASE + adreno_dev->gmem_size, SZ_64K);
-	adreno_dev->sp_local_gpuaddr = addr;
-	adreno_dev->sp_pvt_gpuaddr = addr + SZ_64K;
-	gpudev->vbif_xin_halt_ctrl0_mask = A6XX_VBIF_XIN_HALT_CTRL0_MASK;
-}
 
 static void _update_always_on_regs(struct adreno_device *adreno_dev)
 {
@@ -2690,6 +2683,27 @@ static struct adreno_perfcount_register a6xx_perfcounters_vbif_pwr[] = {
 		A6XX_VBIF_PERF_PWR_CNT_HIGH2, -1, A6XX_VBIF_PERF_PWR_CNT_EN2 },
 };
 
+
+static struct adreno_perfcount_register a6xx_perfcounters_gbif[] = {
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A6XX_GBIF_PERF_CNT_LOW0,
+		A6XX_GBIF_PERF_CNT_HIGH0, -1, A6XX_GBIF_PERF_CNT_SEL },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A6XX_GBIF_PERF_CNT_LOW1,
+		A6XX_GBIF_PERF_CNT_HIGH1, -1, A6XX_GBIF_PERF_CNT_SEL },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A6XX_GBIF_PERF_CNT_LOW2,
+		A6XX_GBIF_PERF_CNT_HIGH2, -1, A6XX_GBIF_PERF_CNT_SEL },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A6XX_GBIF_PERF_CNT_LOW3,
+		A6XX_GBIF_PERF_CNT_HIGH3, -1, A6XX_GBIF_PERF_CNT_SEL },
+};
+
+static struct adreno_perfcount_register a6xx_perfcounters_gbif_pwr[] = {
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A6XX_GBIF_PWR_CNT_LOW0,
+		A6XX_GBIF_PWR_CNT_HIGH0, -1, A6XX_GBIF_PERF_PWR_CNT_EN },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A6XX_GBIF_PWR_CNT_LOW1,
+		A6XX_GBIF_PWR_CNT_HIGH1, -1, A6XX_GBIF_PERF_PWR_CNT_EN },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A6XX_GBIF_PWR_CNT_LOW2,
+		A6XX_GBIF_PWR_CNT_HIGH2, -1, A6XX_GBIF_PERF_PWR_CNT_EN },
+};
+
 static struct adreno_perfcount_register a6xx_perfcounters_pwr[] = {
 	{ KGSL_PERFCOUNTER_BROKEN, 0, 0, 0, 0, -1, 0 },
 	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0,
@@ -2800,6 +2814,35 @@ static int a6xx_enable_pwr_counters(struct adreno_device *adreno_dev,
 	return 0;
 }
 
+static void a6xx_platform_setup(struct adreno_device *adreno_dev)
+{
+	uint64_t addr;
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+
+	/* Calculate SP local and private mem addresses */
+	addr = ALIGN(ADRENO_UCHE_GMEM_BASE + adreno_dev->gmem_size, SZ_64K);
+	adreno_dev->sp_local_gpuaddr = addr;
+	adreno_dev->sp_pvt_gpuaddr = addr + SZ_64K;
+
+	if (adreno_has_gbif(adreno_dev)) {
+		a6xx_perfcounter_groups[KGSL_PERFCOUNTER_GROUP_VBIF].regs =
+				a6xx_perfcounters_gbif;
+		a6xx_perfcounter_groups[KGSL_PERFCOUNTER_GROUP_VBIF].reg_count
+				= ARRAY_SIZE(a6xx_perfcounters_gbif);
+
+		a6xx_perfcounter_groups[KGSL_PERFCOUNTER_GROUP_VBIF_PWR].regs =
+				a6xx_perfcounters_gbif_pwr;
+		a6xx_perfcounter_groups[KGSL_PERFCOUNTER_GROUP_VBIF].reg_count
+				= ARRAY_SIZE(a6xx_perfcounters_gbif_pwr);
+
+		gpudev->vbif_xin_halt_ctrl0_mask =
+				A6XX_GBIF_HALT_MASK;
+	} else
+		gpudev->vbif_xin_halt_ctrl0_mask =
+				A6XX_VBIF_XIN_HALT_CTRL0_MASK;
+}
+
+
 /* Register offset defines for A6XX, in order of enum adreno_regs */
 static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 
@@ -2859,6 +2902,8 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A6XX_VBIF_XIN_HALT_CTRL0),
 	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_XIN_HALT_CTRL1,
 				A6XX_VBIF_XIN_HALT_CTRL1),
+	ADRENO_REG_DEFINE(ADRENO_REG_GBIF_HALT, A6XX_GBIF_HALT),
+	ADRENO_REG_DEFINE(ADRENO_REG_GBIF_HALT_ACK, A6XX_GBIF_HALT_ACK),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO,
 				A6XX_GMU_ALWAYS_ON_COUNTER_L),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_ALWAYSON_COUNTER_HI,
