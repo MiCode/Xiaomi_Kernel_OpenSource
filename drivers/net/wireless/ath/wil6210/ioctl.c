@@ -223,6 +223,10 @@ int wil_ioctl(struct wil6210_priv *wil, void __user *data, int cmd)
 {
 	int ret;
 
+	ret = wil_pm_runtime_get(wil);
+	if (ret < 0)
+		return ret;
+
 	switch (cmd) {
 	case WIL_IOCTL_MEMIO:
 		ret = wil_ioc_memio_dword(wil, data);
@@ -235,8 +239,11 @@ int wil_ioctl(struct wil6210_priv *wil, void __user *data, int cmd)
 		break;
 	default:
 		wil_dbg_ioctl(wil, "Unsupported IOCTL 0x%04x\n", cmd);
+		wil_pm_runtime_put(wil);
 		return -ENOIOCTLCMD;
 	}
+
+	wil_pm_runtime_put(wil);
 
 	wil_dbg_ioctl(wil, "ioctl(0x%04x) -> %d\n", cmd, ret);
 	return ret;
