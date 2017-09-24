@@ -466,5 +466,11 @@
 		qcom,gpu-pwrlevels-0 {
 			qcom,initial-pwrlevel = <1>;
 		};
+
+		qcom,gpu-pwrlevels-2 {
+			qcom,initial-pwrlevel = <2>;
+
+		};
+
 	};
 };
