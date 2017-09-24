@@ -16,6 +16,7 @@
 #include "sdm670.dtsi"
 #include "sdm670-cdp.dtsi"
 #include "pm660a.dtsi"
+#include "sdm670-int-cdc-usbc-audio-overlay.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM670 PM660 + PM660A, USB-C Audio, CDP";
