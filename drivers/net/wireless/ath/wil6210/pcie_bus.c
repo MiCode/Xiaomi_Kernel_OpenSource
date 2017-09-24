@@ -21,6 +21,7 @@
 #include <linux/suspend.h>
 #include "wil6210.h"
 #include <linux/rtnetlink.h>
+#include <linux/pm_runtime.h>
 
 static bool use_msi = true;
 module_param(use_msi, bool, 0444);
@@ -316,6 +317,8 @@ static int wil_pcie_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	wil6210_debugfs_init(wil);
 	wil6210_sysfs_init(wil);
 
+	wil_pm_runtime_allow(wil);
+
 	return 0;
 
 bus_disable:
@@ -347,6 +350,8 @@ static void wil_pcie_remove(struct pci_dev *pdev)
 	unregister_pm_notifier(&wil->pm_notify);
 #endif /* CONFIG_PM_SLEEP */
 #endif /* CONFIG_PM */
+
+	wil_pm_runtime_forbid(wil);
 
 	wil6210_sysfs_remove(wil);
 	wil6210_debugfs_remove(wil);
@@ -477,10 +482,40 @@ static int wil6210_pm_resume(struct device *dev)
 }
 #endif /* CONFIG_PM_SLEEP */
 
+static int wil6210_pm_runtime_idle(struct device *dev)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct wil6210_priv *wil = pci_get_drvdata(pdev);
+
+	wil_dbg_pm(wil, "Runtime idle\n");
+
+	return wil_can_suspend(wil, true);
+}
+
+static int wil6210_pm_runtime_resume(struct device *dev)
+{
+	return wil6210_resume(dev, true);
+}
+
+static int wil6210_pm_runtime_suspend(struct device *dev)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct wil6210_priv *wil = pci_get_drvdata(pdev);
+
+	if (test_bit(wil_status_suspended, wil->status)) {
+		wil_dbg_pm(wil, "trying to suspend while suspended\n");
+		return 1;
+	}
+
+	return wil6210_suspend(dev, true);
+}
 #endif /* CONFIG_PM */
 
 static const struct dev_pm_ops wil6210_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(wil6210_pm_suspend, wil6210_pm_resume)
+	SET_RUNTIME_PM_OPS(wil6210_pm_runtime_suspend,
+			   wil6210_pm_runtime_resume,
+			   wil6210_pm_runtime_idle)
 };
 
 static struct pci_driver wil6210_driver = {
