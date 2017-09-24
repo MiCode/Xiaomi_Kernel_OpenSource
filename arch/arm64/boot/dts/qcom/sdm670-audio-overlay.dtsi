@@ -50,7 +50,6 @@
 	qcom,hph-en0-gpio = <&tavil_hph_en0>;
 	qcom,hph-en1-gpio = <&tavil_hph_en1>;
 	qcom,msm-mclk-freq = <9600000>;
-	qcom,usbc-analog-en1_gpio = <&wcd_usbc_analog_en1_gpio>;
 	asoc-codec = <&stub_codec>;
 	asoc-codec-names = "msm-stub-codec.1";
 	qcom,wsa-max-devs = <2>;

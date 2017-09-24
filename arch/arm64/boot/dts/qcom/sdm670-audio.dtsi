@@ -100,7 +100,7 @@
 	int_codec: sound {
 		status = "okay";
 		compatible = "qcom,sdm670-asoc-snd";
-		qcom,model = "sdm670-snd-card";
+		qcom,model = "sdm670-snd-card-mtp";
 		qcom,wcn-btfm;
 		qcom,mi2s-audio-intf;
 		qcom,auxpcm-audio-intf;
