@@ -720,6 +720,8 @@ static enum cam_vfe_bus_packer_format
 	case CAM_FORMAT_UBWC_TP10:
 	case CAM_FORMAT_TP10:
 		return PACKER_FMT_TP_10;
+	case CAM_FORMAT_ARGB_14:
+		return PACKER_FMT_ARGB_14;
 	default:
 		return PACKER_FMT_MAX;
 	}
@@ -905,8 +907,13 @@ static int cam_vfe_bus_acquire_wm(
 		rsrc_data->height = 0;
 		rsrc_data->stride = 1;
 		rsrc_data->en_cfg = 0x3;
-	} else {
-		/* Write master 5-6 DS ports , 9 - Raw dump , 10 PDAF */
+	}  else if (rsrc_data->index == 9) {
+		/* Write master 9 - Raw dump */
+		rsrc_data->width = rsrc_data->width * 2;
+		rsrc_data->stride = rsrc_data->width;
+		rsrc_data->en_cfg = 0x1;
+	}  else {
+		/* Write master 5-6 DS ports, 10 PDAF */
 		rsrc_data->width = rsrc_data->width * 4;
 		rsrc_data->height = rsrc_data->height / 2;
 		rsrc_data->en_cfg = 0x1;

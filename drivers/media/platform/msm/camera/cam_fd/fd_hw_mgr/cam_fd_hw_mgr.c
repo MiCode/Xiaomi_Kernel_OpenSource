@@ -26,6 +26,7 @@
 #include "cam_fd_hw_soc.h"
 #include "cam_fd_hw_mgr_intf.h"
 #include "cam_fd_hw_mgr.h"
+#include "cam_trace.h"
 
 static struct cam_fd_hw_mgr g_fd_hw_mgr;
 
@@ -334,7 +335,7 @@ static int cam_fd_mgr_util_select_device(struct cam_fd_hw_mgr *hw_mgr,
 	/* Update required info in hw context */
 	hw_ctx->device_index = i;
 
-	CAM_DBG(CAM_FD, "ctx index=%d, hw_ctx=%d", hw_ctx->ctx_index,
+	CAM_DBG(CAM_FD, "ctx index=%d, device_index=%d", hw_ctx->ctx_index,
 		hw_ctx->device_index);
 
 	return 0;
@@ -480,6 +481,53 @@ static int cam_fd_mgr_util_parse_generic_cmd_buffer(
 	return rc;
 }
 
+static int cam_fd_mgr_util_get_buf_map_requirement(uint32_t direction,
+	uint32_t resource_type, bool *need_io_map, bool *need_cpu_map)
+{
+	if (!need_io_map || !need_cpu_map) {
+		CAM_ERR(CAM_FD, "Invalid input pointers %pK %pK", need_io_map,
+			need_cpu_map);
+		return -EINVAL;
+	}
+
+	if (direction == CAM_BUF_INPUT) {
+		switch (resource_type) {
+		case CAM_FD_INPUT_PORT_ID_IMAGE:
+			*need_io_map = true;
+			*need_cpu_map = false;
+			break;
+		default:
+			CAM_WARN(CAM_FD, "Invalid port: dir %d, id %d",
+				direction, resource_type);
+			return -EINVAL;
+		}
+	} else if (direction == CAM_BUF_OUTPUT) {
+		switch (resource_type) {
+		case CAM_FD_OUTPUT_PORT_ID_RESULTS:
+			*need_io_map = true;
+			*need_cpu_map = true;
+			break;
+		case CAM_FD_OUTPUT_PORT_ID_RAW_RESULTS:
+			*need_io_map = true;
+			*need_cpu_map = true;
+			break;
+		case CAM_FD_OUTPUT_PORT_ID_WORK_BUFFER:
+			*need_io_map = true;
+			*need_cpu_map = false;
+			break;
+		default:
+			CAM_WARN(CAM_FD, "Invalid port: dir %d, id %d",
+				direction, resource_type);
+			return -EINVAL;
+		}
+	} else {
+		CAM_WARN(CAM_FD, "Invalid direction %d", direction);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int cam_fd_mgr_util_prepare_io_buf_info(int32_t iommu_hdl,
 	struct cam_hw_prepare_update_args *prepare,
 	struct cam_fd_hw_io_buffer *input_buf,
@@ -491,6 +539,7 @@ static int cam_fd_mgr_util_prepare_io_buf_info(int32_t iommu_hdl,
 	uint64_t io_addr[CAM_PACKET_MAX_PLANES];
 	uint64_t cpu_addr[CAM_PACKET_MAX_PLANES];
 	size_t size;
+	bool need_io_map, need_cpu_map;
 
 	/* Get IO Buf information */
 	num_out_buf = 0;
@@ -512,32 +561,55 @@ static int cam_fd_mgr_util_prepare_io_buf_info(int32_t iommu_hdl,
 			return -EINVAL;
 		}
 
+		rc = cam_fd_mgr_util_get_buf_map_requirement(
+			io_cfg[i].direction, io_cfg[i].resource_type,
+			&need_io_map, &need_cpu_map);
+		if (rc) {
+			CAM_WARN(CAM_FD, "Invalid io buff [%d] : %d %d %d",
+				i, io_cfg[i].direction,
+				io_cfg[i].resource_type, rc);
+			continue;
+		}
+
 		memset(io_addr, 0x0, sizeof(io_addr));
 		for (plane = 0; plane < CAM_PACKET_MAX_PLANES; plane++) {
 			if (!io_cfg[i].mem_handle[plane])
 				break;
 
-			rc = cam_mem_get_io_buf(io_cfg[i].mem_handle[plane],
-				iommu_hdl, &io_addr[plane], &size);
-			if ((rc) || (io_addr[plane] >> 32)) {
-				CAM_ERR(CAM_FD, "Invalid io addr for %d %d",
-					plane, rc);
-				return -ENOMEM;
+			io_addr[plane] = 0x0;
+			cpu_addr[plane] = 0x0;
+
+			if (need_io_map) {
+				rc = cam_mem_get_io_buf(
+					io_cfg[i].mem_handle[plane],
+					iommu_hdl, &io_addr[plane], &size);
+				if ((rc) || (io_addr[plane] >> 32)) {
+					CAM_ERR(CAM_FD,
+						"Invalid io buf %d %d %d %d",
+						io_cfg[i].direction,
+						io_cfg[i].resource_type, plane,
+						rc);
+					return -ENOMEM;
+				}
+
+				io_addr[plane] += io_cfg[i].offsets[plane];
 			}
 
-			/*
-			 * Buffers may be accessed by CPU as well, we do not
-			 * know at this point, so get both and send to HW layer
-			 */
-			rc = cam_mem_get_cpu_buf(io_cfg[i].mem_handle[plane],
-				&cpu_addr[plane], &size);
-			if (rc) {
-				CAM_ERR(CAM_FD, "unable to get buf address");
-				return rc;
-			}
+			if (need_cpu_map) {
+				rc = cam_mem_get_cpu_buf(
+					io_cfg[i].mem_handle[plane],
+					&cpu_addr[plane], &size);
+				if (rc) {
+					CAM_ERR(CAM_FD,
+						"Invalid cpu buf %d %d %d %d",
+						io_cfg[i].direction,
+						io_cfg[i].resource_type, plane,
+						rc);
+					return rc;
+				}
 
-			io_addr[plane] += io_cfg[i].offsets[plane];
-			cpu_addr[plane] += io_cfg[i].offsets[plane];
+				cpu_addr[plane] += io_cfg[i].offsets[plane];
+			}
 
 			CAM_DBG(CAM_FD, "IO Address[%d][%d] : %pK, %pK",
 				io_cfg[i].direction, plane, io_addr[plane],
@@ -764,6 +836,8 @@ static int cam_fd_mgr_util_submit_frame(void *priv, void *data)
 		return -EBUSY;
 	}
 
+	trace_cam_submit_to_hw("FD", frame_req->request_id);
+
 	list_del_init(&frame_req->list);
 	mutex_unlock(&hw_mgr->frame_req_mutex);
 
@@ -923,6 +997,8 @@ static int32_t cam_fd_mgr_workq_irq_cb(void *priv, void *data)
 
 		frame_abort = false;
 	}
+
+	trace_cam_irq_handled("FD", irq_type);
 
 notify_context:
 	/* Do a callback to inform frame done or stop done */
@@ -1158,7 +1234,7 @@ static int cam_fd_mgr_hw_start(void *hw_mgr_priv, void *mgr_start_args)
 		return -EPERM;
 	}
 
-	CAM_DBG(CAM_FD, "ctx index=%d, hw_ctx=%d", hw_ctx->ctx_index,
+	CAM_DBG(CAM_FD, "ctx index=%d, device_index=%d", hw_ctx->ctx_index,
 		hw_ctx->device_index);
 
 	rc = cam_fd_mgr_util_get_device(hw_mgr, hw_ctx, &hw_device);
@@ -1389,6 +1465,8 @@ static int cam_fd_mgr_hw_config(void *hw_mgr_priv, void *hw_config_args)
 	}
 
 	frame_req = config->priv;
+
+	trace_cam_apply_req("FD", frame_req->request_id);
 	CAM_DBG(CAM_FD, "FrameHWConfig : Frame[%lld]", frame_req->request_id);
 
 	frame_req->num_hw_update_entries = config->num_hw_update_entries;
