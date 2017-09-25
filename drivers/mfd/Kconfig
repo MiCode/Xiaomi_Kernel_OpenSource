@@ -1636,20 +1636,6 @@ config MSM_CDC_SUPPLY
 	  power supply enable or disable. This driver acts as interface
 	  between codec and regulator framework.
 
-config WCD9XXX_CODEC_CORE
-	tristate "WCD9XXX Codec Core"
-	select SLIMBUS
-	select SOUNDWIRE_WCD_CTRL
-	select MSM_CDC_SUPPLY
-	select MSM_CDC_PINCTRL
-	select REGMAP_ALLOW_WRITE_DEBUGFS
-	select PINCTRL_WCD
-	help
-	  WCD9XXX Core driver provides APIs for WCD drivers to reset,
-	  suspend/resume, regmap bus callback functions and read/write
-	  functions. This driver also hides the underlying bus related
-	  functionalities.
-
 menu "Multimedia Capabilities Port drivers"
 	depends on ARCH_SA1100
 

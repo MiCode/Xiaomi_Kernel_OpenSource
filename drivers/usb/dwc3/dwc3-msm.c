@@ -2857,8 +2857,7 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 }
 
 /*
- * Handle EUD based soft detach/attach event, and force USB high speed mode
- * functionality on receiving soft attach event.
+ * Handle EUD based soft detach/attach event
  *
  * @nb - notifier handler
  * @event - event information i.e. soft detach/attach event
@@ -2877,9 +2876,6 @@ static int dwc3_msm_eud_notifier(struct notifier_block *nb,
 	if (mdwc->vbus_active == event)
 		return NOTIFY_DONE;
 
-	/* Force USB High-Speed enumeration Only */
-	dwc->maximum_speed = USB_SPEED_HIGH;
-	dbg_event(0xFF, "Speed", dwc->maximum_speed);
 	mdwc->vbus_active = event;
 	if (dwc->is_drd && !mdwc->in_restart)
 		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
@@ -3971,7 +3967,7 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA)
 	}
 
 	ret = power_supply_set_property(mdwc->usb_psy,
-				POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
+				POWER_SUPPLY_PROP_SDP_CURRENT_MAX, &pval);
 	if (ret) {
 		dev_dbg(mdwc->dev, "power supply error when setting property\n");
 		return ret;

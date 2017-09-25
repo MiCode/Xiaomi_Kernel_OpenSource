@@ -518,7 +518,7 @@ struct sdhci_host {
  * Some controllers may use PIO mode to workaround HW issues in ADMA for
  * eMMC tuning commands.
  */
-#define SDHCI_QUIRK2_USE_PIO_FOR_EMMC_TUNING (1 << 23)
+#define SDHCI_QUIRK2_USE_PIO_FOR_EMMC_TUNING (1 << 29)
 
 
 	int irq;		/* Device IRQ */
@@ -569,6 +569,7 @@ struct sdhci_host {
 	bool bus_on;		/* Bus power prevents runtime suspend */
 	bool preset_enabled;	/* Preset is enabled */
 	bool pending_reset;	/* Cmd/data reset is pending */
+	bool cdr_support;
 
 	struct mmc_request *mrqs_done[SDHCI_MAX_MRQS];	/* Requests done */
 	struct mmc_request *mrq;	/* Current request */
@@ -670,6 +671,8 @@ struct sdhci_ops {
 	int	(*platform_execute_tuning)(struct sdhci_host *host, u32 opcode);
 	int	(*crypto_engine_cfg)(struct sdhci_host *host,
 				struct mmc_request *mrq, u32 slot);
+	int	(*crypto_engine_cmdq_cfg)(struct sdhci_host *host,
+			struct mmc_request *mrq, u32 slot, u64 *ice_ctx);
 	int	(*crypto_engine_reset)(struct sdhci_host *host);
 	void	(*crypto_cfg_reset)(struct sdhci_host *host, unsigned int slot);
 	void	(*set_uhs_signaling)(struct sdhci_host *host, unsigned int uhs);

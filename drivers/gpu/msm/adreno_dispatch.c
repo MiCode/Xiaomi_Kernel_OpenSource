@@ -1464,7 +1464,9 @@ int adreno_dispatcher_queue_cmds(struct kgsl_device_private *dev_priv,
 
 	spin_unlock(&drawctxt->lock);
 
-	kgsl_pwrctrl_update_l2pc(&adreno_dev->dev);
+	if (device->pwrctrl.l2pc_update_queue)
+		kgsl_pwrctrl_update_l2pc(&adreno_dev->dev,
+				KGSL_L2PC_QUEUE_TIMEOUT);
 
 	/* Add the context to the dispatcher pending list */
 	dispatcher_queue_context(adreno_dev, drawctxt);
@@ -2044,7 +2046,7 @@ replay:
 	kfree(replay);
 }
 
-static void do_header_and_snapshot(struct kgsl_device *device,
+static void do_header_and_snapshot(struct kgsl_device *device, int fault,
 		struct adreno_ringbuffer *rb, struct kgsl_drawobj_cmd *cmdobj)
 {
 	struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
@@ -2052,7 +2054,7 @@ static void do_header_and_snapshot(struct kgsl_device *device,
 	/* Always dump the snapshot on a non-drawobj failure */
 	if (cmdobj == NULL) {
 		adreno_fault_header(device, rb, NULL);
-		kgsl_device_snapshot(device, NULL);
+		kgsl_device_snapshot(device, NULL, fault & ADRENO_GMU_FAULT);
 		return;
 	}
 
@@ -2064,7 +2066,7 @@ static void do_header_and_snapshot(struct kgsl_device *device,
 	adreno_fault_header(device, rb, cmdobj);
 
 	if (!(drawobj->context->flags & KGSL_CONTEXT_NO_SNAPSHOT))
-		kgsl_device_snapshot(device, drawobj->context);
+		kgsl_device_snapshot(device, NULL, fault & ADRENO_GMU_FAULT);
 }
 
 static int dispatcher_do_fault(struct adreno_device *adreno_dev)
@@ -2137,7 +2139,7 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 	 * Deleting uninitialized timer will block for ever on kernel debug
 	 * disable build. Hence skip del timer if it is not initialized.
 	 */
-	if (adreno_is_preemption_enabled(adreno_dev))
+	if (adreno_is_preemption_execution_enabled(adreno_dev))
 		del_timer_sync(&adreno_dev->preempt.timer);
 
 	mutex_lock(&device->mutex);
@@ -2190,7 +2192,7 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 		adreno_readreg64(adreno_dev, ADRENO_REG_CP_IB1_BASE,
 			ADRENO_REG_CP_IB1_BASE_HI, &base);
 
-	do_header_and_snapshot(device, hung_rb, cmdobj);
+	do_header_and_snapshot(device, fault, hung_rb, cmdobj);
 
 	/* Turn off the KEEPALIVE vote from the ISR for hard fault */
 	if (gpudev->gpu_keepalive && fault & ADRENO_HARD_FAULT)

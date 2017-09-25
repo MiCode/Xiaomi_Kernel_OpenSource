@@ -343,6 +343,12 @@ static int sde_rotator_config_hw(struct sde_rot_hw_resource *hw,
 	return ret;
 }
 
+static int sde_rotator_cancel_hw(struct sde_rot_hw_resource *hw,
+	struct sde_rot_entry *entry)
+{
+	return 0;
+}
+
 static int sde_rotator_kickoff_entry(struct sde_rot_hw_resource *hw,
 	struct sde_rot_entry *entry)
 {
@@ -684,6 +690,7 @@ int sde_rotator_r1_init(struct sde_rot_mgr *mgr)
 
 	mgr->hw_data = hw_data;
 	mgr->ops_config_hw = sde_rotator_config_hw;
+	mgr->ops_cancel_hw = sde_rotator_cancel_hw;
 	mgr->ops_kickoff_entry = sde_rotator_kickoff_entry;
 	mgr->ops_wait_for_entry = sde_rotator_wait_for_entry;
 	mgr->ops_hw_alloc = sde_rotator_hw_alloc_ext;

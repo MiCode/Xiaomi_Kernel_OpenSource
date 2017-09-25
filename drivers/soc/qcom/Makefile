@@ -60,7 +60,6 @@ obj-$(CONFIG_MEM_SHARE_QMI_SERVICE)		+= memshare/
 obj-$(CONFIG_MSM_PIL_SSR_GENERIC) += subsys-pil-tz.o
 obj-$(CONFIG_MSM_PIL_MSS_QDSP6V5) += pil-q6v5.o pil-msa.o pil-q6v5-mss.o
 obj-$(CONFIG_MSM_PIL)   +=      peripheral-loader.o
-obj-$(CONFIG_MSM_AVTIMER) += avtimer.o
 
 obj-$(CONFIG_MSM_PERFORMANCE) += msm_performance.o
 
@@ -69,9 +68,9 @@ ifdef CONFIG_MSM_SUBSYSTEM_RESTART
        obj-y += subsystem_restart.o
        obj-y += ramdump.o
 endif
+obj-$(CONFIG_MSM_JTAGV8) += jtagv8.o jtagv8-etm.o
 obj-$(CONFIG_QCOM_COMMAND_DB) += cmd-db.o
 obj-$(CONFIG_MSM_QBT1000) += qbt1000.o
-obj-$(CONFIG_WCD_DSP_GLINK) += wcd-dsp-glink.o
 obj-$(CONFIG_MSM_EVENT_TIMER) += event_timer.o
 obj-$(CONFIG_MSM_IDLE_STATS)	+= lpm-stats.o
 obj-$(CONFIG_APSS_CORE_EA)	+= msm-core.o debug_core.o
@@ -79,4 +78,5 @@ obj-$(CONFIG_QCOM_DCC_V2) += dcc_v2.o
 obj-$(CONFIG_QTI_RPM_STATS_LOG) += rpm_stats.o
 obj-$(CONFIG_QCOM_SMCINVOKE) += smcinvoke.o
 obj-$(CONFIG_QMP_DEBUGFS_CLIENT) += qmp-debugfs-client.o
+obj-$(CONFIG_MSM_REMOTEQDSS) += remoteqdss.o
 obj-$(CONFIG_QSEE_IPC_IRQ_BRIDGE) += qsee_ipc_irq_bridge.o

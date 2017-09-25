@@ -49,7 +49,6 @@ static int sde_write_3d_gamut(struct sde_hw_blk_reg_map *hw,
 		break;
 	case GAMUT_3D_MODE_5:
 		*opcode = gamut_mode_5 << 2;
-		*opcode |= GAMUT_MAP_EN;
 		tbl_len = GAMUT_3D_MODE5_TBL_SZ;
 		tbl_off = GAMUT_MODE_5_OFF;
 		scale_off = GAMUT_SCALEB_OFFSET_OFF;
@@ -81,7 +80,8 @@ static int sde_write_3d_gamut(struct sde_hw_blk_reg_map *hw,
 		else
 			scale_tbl_len = GAMUT_3D_SCALEB_OFF_SZ;
 		for (i = 0; i < GAMUT_3D_SCALE_OFF_TBL_NUM; i++) {
-			scale_tbl_off = base + scale_off + i * scale_tbl_len;
+			scale_tbl_off = base + scale_off +
+					i * scale_tbl_len * sizeof(u32);
 			scale_data = &payload->scale_off[i][0];
 			for (j = 0; j < scale_tbl_len; j++)
 				SDE_REG_WRITE(hw,

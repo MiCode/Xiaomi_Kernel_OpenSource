@@ -52,6 +52,9 @@
 /* Driver should operate in profile mode with the co-processor */
 #define FASTRPC_MODE_PROFILE     2
 
+/* Set FastRPC session ID to 1 */
+#define FASTRPC_MODE_SESSION     4
+
 /* INIT a new process or attach to guestos */
 #define FASTRPC_INIT_ATTACH      0
 #define FASTRPC_INIT_CREATE      1

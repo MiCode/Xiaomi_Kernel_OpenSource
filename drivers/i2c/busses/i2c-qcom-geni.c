@@ -469,8 +469,8 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 		int stretch = (i < (num - 1));
 		dma_cookie_t tx_cookie, rx_cookie;
 		struct msm_gpi_tre *go_t = &gi2c->go_t;
-		struct device *rx_dev = gi2c->rx_c->device->dev;
-		struct device *tx_dev = gi2c->tx_c->device->dev;
+		struct device *rx_dev = gi2c->dev;
+		struct device *tx_dev = gi2c->dev;
 
 		gi2c->cur = &msgs[i];
 		if (!gi2c->cfg_sent) {

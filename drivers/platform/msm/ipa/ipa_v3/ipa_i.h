@@ -71,6 +71,8 @@
 
 #define IPA_IPC_LOG_PAGES 50
 
+#define IPA_MAX_NUM_REQ_CACHE 10
+
 #define IPADBG(fmt, args...) \
 	do { \
 		pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
@@ -1088,6 +1090,11 @@ struct ipa_hw_stats {
 	struct ipa_hw_stats_drop drop;
 };
 
+struct ipa_cne_evt {
+	struct ipa_wan_msg wan_msg;
+	struct ipa_msg_meta msg_meta;
+};
+
 /**
  * struct ipa3_context - IPA context
  * @class: pointer to the struct class
@@ -1267,6 +1274,7 @@ struct ipa3_context {
 	u32 enable_clock_scaling;
 	u32 curr_ipa_clk_rate;
 	bool q6_proxy_clk_vote_valid;
+	struct mutex q6_proxy_clk_vote_mutex;
 	u32 ipa_num_pipes;
 	dma_addr_t pkt_init_imm[IPA3_MAX_NUM_PIPES];
 	u32 pkt_init_imm_opcode;
@@ -1303,6 +1311,9 @@ struct ipa3_context {
 	struct ipa_tz_unlock_reg_info *ipa_tz_unlock_reg;
 	struct ipa_dma_task_info dma_task_info;
 	struct ipa_hw_stats hw_stats;
+	struct ipa_cne_evt ipa_cne_evt_req_cache[IPA_MAX_NUM_REQ_CACHE];
+	int num_ipa_cne_evt_req;
+	struct mutex ipa_cne_evt_lock;
 };
 
 struct ipa3_plat_drv_res {
@@ -1560,8 +1571,10 @@ struct ipa3_controller {
 	u32 ipa_clk_rate_turbo;
 	u32 ipa_clk_rate_nominal;
 	u32 ipa_clk_rate_svs;
+	u32 ipa_clk_rate_svs2;
 	u32 clock_scaling_bw_threshold_turbo;
 	u32 clock_scaling_bw_threshold_nominal;
+	u32 clock_scaling_bw_threshold_svs;
 	u32 ipa_reg_base_ofst;
 	u32 max_holb_tmr_val;
 	void (*ipa_sram_read_settings)(void);

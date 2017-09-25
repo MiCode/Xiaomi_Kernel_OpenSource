@@ -285,13 +285,15 @@ static inline int sde_encoder_phys_inc_pending(struct sde_encoder_phys *phys)
  * @base:	Baseclass physical encoder structure
  * @hw_intf:	Hardware interface to the intf registers
  * @timing_params: Current timing parameter
- * @rot_prefill_line: number of line to prefill for inline rotation; 0 disable
+ * @rot_fetch:	Prefill for inline rotation
+ * @rot_fetch_valid: true if rot_fetch is updated (reset in enc enable)
  */
 struct sde_encoder_phys_vid {
 	struct sde_encoder_phys base;
 	struct sde_hw_intf *hw_intf;
 	struct intf_timing_params timing_params;
-	u64 rot_prefill_line;
+	struct intf_prog_fetch rot_fetch;
+	bool rot_fetch_valid;
 };
 
 /**
@@ -348,6 +350,8 @@ struct sde_encoder_phys_cmd {
  * @intf_cfg:		Interface hardware configuration
  * @wb_roi:		Writeback region-of-interest
  * @wb_fmt:		Writeback pixel format
+ * @wb_fb:		Pointer to current writeback framebuffer
+ * @wb_aspace:		Pointer to current writeback address space
  * @frame_count:	Counter of completed writeback operations
  * @kickoff_count:	Counter of issued writeback operations
  * @aspace:		address space identifier for non-secure/secure domain
@@ -370,6 +374,8 @@ struct sde_encoder_phys_wb {
 	struct sde_hw_intf_cfg intf_cfg;
 	struct sde_rect wb_roi;
 	const struct sde_format *wb_fmt;
+	struct drm_framebuffer *wb_fb;
+	struct msm_gem_address_space *wb_aspace;
 	u32 frame_count;
 	u32 kickoff_count;
 	struct msm_gem_address_space *aspace[SDE_IOMMU_DOMAIN_MAX];

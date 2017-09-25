@@ -536,6 +536,16 @@ struct IpaHwOffloadSetUpCmdData_t {
 } __packed;
 
 /**
+ * struct IpaHwOffloadSetUpCmdData_t_v4_0  -
+ *
+ *
+ */
+struct IpaHwOffloadSetUpCmdData_t_v4_0 {
+	u32 protocol;
+	union IpaHwSetUpCmd SetupCh_params;
+} __packed;
+
+/**
  * struct IpaHwCommonChCmd  - Structure holding the parameters
  * for IPA_CPU_2_HW_CMD_OFFLOAD_TEAR_DOWN
  *
@@ -549,5 +559,11 @@ struct IpaHwOffloadCommonChCmdData_t {
 	u8 protocol;
 	union IpaHwCommonChCmd CommonCh_params;
 } __packed;
+
+struct IpaHwOffloadCommonChCmdData_t_v4_0 {
+	u32 protocol;
+	union IpaHwCommonChCmd CommonCh_params;
+} __packed;
+
 
 #endif /* _IPA_UC_OFFLOAD_I_H_ */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -142,17 +142,17 @@ EXPORT_SYMBOL(msm_bus_scale_update_bw);
  * act_ab: The average bandwidth(AB) in Bytes/s to be used in active context.
  * act_ib: The instantaneous bandwidth(IB) in Bytes/s to be used in active
  *         context.
- * slp_ib: The average bandwidth(AB) in Bytes/s to be used in dual context.
- * slp_ab: The instantaneous bandwidth(IB) in Bytes/s to be used in dual
+ * dual_ib: The average bandwidth(AB) in Bytes/s to be used in dual context.
+ * dual_ab: The instantaneous bandwidth(IB) in Bytes/s to be used in dual
  *         context.
  */
 int
 msm_bus_scale_update_bw_context(struct msm_bus_client_handle *cl, u64 act_ab,
-				u64 act_ib, u64 slp_ib, u64 slp_ab)
+				u64 act_ib, u64 dual_ib, u64 dual_ab)
 {
 	if (arb_ops.update_context)
 		return arb_ops.update_bw_context(cl, act_ab, act_ib,
-							slp_ab, slp_ib);
+							dual_ab, dual_ib);
 
 	return -EPROBE_DEFER;
 }

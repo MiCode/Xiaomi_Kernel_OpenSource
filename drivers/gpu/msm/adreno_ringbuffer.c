@@ -25,6 +25,7 @@
 #include "adreno_iommu.h"
 #include "adreno_pm4types.h"
 #include "adreno_ringbuffer.h"
+#include "adreno_trace.h"
 
 #include "a3xx_reg.h"
 #include "adreno_a5xx.h"
@@ -37,6 +38,7 @@
 	((_rb)->buffer_desc.gpuaddr + ((_pos) * sizeof(unsigned int)))
 
 static void adreno_get_submit_time(struct adreno_device *adreno_dev,
+		struct adreno_ringbuffer *rb,
 		struct adreno_submit_time *time)
 {
 	unsigned long flags;
@@ -65,6 +67,9 @@ static void adreno_get_submit_time(struct adreno_device *adreno_dev,
 			time->ticks &= 0xFFFFFFFF;
 	} else
 		time->ticks = 0;
+
+	/* Trace the GPU time to create a mapping to ftrace time */
+	trace_adreno_cmdbatch_sync(rb->drawctxt_active, time->ticks);
 
 	/* Get the kernel clock for time since boot */
 	time->ktime = local_clock();
@@ -148,7 +153,7 @@ void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb,
 	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
 
 	if (time != NULL)
-		adreno_get_submit_time(adreno_dev, time);
+		adreno_get_submit_time(adreno_dev, rb, time);
 
 	adreno_ringbuffer_wptr(adreno_dev, rb);
 }
@@ -284,7 +289,7 @@ int adreno_ringbuffer_probe(struct adreno_device *adreno_dev, bool nopreempt)
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int i;
 
-	if (nopreempt == false && ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
+	if (nopreempt == false)
 		adreno_dev->num_ringbuffers = gpudev->num_prio_levels;
 	else
 		adreno_dev->num_ringbuffers = 1;
@@ -473,11 +478,11 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 		total_sizedwords += 4;
 
 	if (gpudev->preemption_pre_ibsubmit &&
-				adreno_is_preemption_enabled(adreno_dev))
+			adreno_is_preemption_execution_enabled(adreno_dev))
 		total_sizedwords += 22;
 
 	if (gpudev->preemption_post_ibsubmit &&
-				adreno_is_preemption_enabled(adreno_dev))
+			adreno_is_preemption_execution_enabled(adreno_dev))
 		total_sizedwords += 5;
 
 	/*
@@ -523,7 +528,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	*ringcmds++ = cp_packet(adreno_dev, CP_NOP, 1);
 	*ringcmds++ = KGSL_CMD_IDENTIFIER;
 
-	if (adreno_is_preemption_enabled(adreno_dev) &&
+	if (adreno_is_preemption_execution_enabled(adreno_dev) &&
 				gpudev->preemption_pre_ibsubmit)
 		ringcmds += gpudev->preemption_pre_ibsubmit(
 					adreno_dev, rb, ringcmds, context);
@@ -660,7 +665,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 		ringcmds += cp_secure_mode(adreno_dev, ringcmds, 0);
 
 	if (gpudev->preemption_post_ibsubmit &&
-				adreno_is_preemption_enabled(adreno_dev))
+			adreno_is_preemption_execution_enabled(adreno_dev))
 		ringcmds += gpudev->preemption_post_ibsubmit(adreno_dev,
 			ringcmds);
 
@@ -864,12 +869,13 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 			dwords += 2;
 	}
 
-	if (adreno_is_preemption_enabled(adreno_dev)) {
-		if (gpudev->preemption_set_marker)
-			dwords += 4;
-		else if (gpudev->preemption_yield_enable)
+	if (adreno_is_preemption_execution_enabled(adreno_dev)) {
+		if (gpudev->preemption_yield_enable)
 			dwords += 8;
 	}
+
+	if (gpudev->set_marker)
+		dwords += 4;
 
 	link = kcalloc(dwords, sizeof(unsigned int), GFP_KERNEL);
 	if (!link) {
@@ -900,9 +906,8 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 			gpu_ticks_submitted));
 	}
 
-	if (gpudev->preemption_set_marker &&
-			adreno_is_preemption_enabled(adreno_dev))
-		cmds += gpudev->preemption_set_marker(cmds, 1);
+	if (gpudev->set_marker)
+		cmds += gpudev->set_marker(cmds, 1);
 
 	if (numibs) {
 		list_for_each_entry(ib, &cmdobj->cmdlist, node) {
@@ -925,10 +930,11 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		}
 	}
 
-	if (adreno_is_preemption_enabled(adreno_dev)) {
-		if (gpudev->preemption_set_marker)
-			cmds += gpudev->preemption_set_marker(cmds, 0);
-		else if (gpudev->preemption_yield_enable)
+	if (gpudev->set_marker)
+		cmds += gpudev->set_marker(cmds, 0);
+
+	if (adreno_is_preemption_execution_enabled(adreno_dev)) {
+		if (gpudev->preemption_yield_enable)
 			cmds += gpudev->preemption_yield_enable(cmds);
 	}
 

@@ -563,7 +563,7 @@ static int clk_osm_enable(struct clk_hw *hw)
 {
 	struct clk_osm *cpuclk = to_clk_osm(hw);
 
-	clk_osm_write_reg(cpuclk, 1, ENABLE_REG, OSM_BASE);
+	clk_osm_masked_write_reg(cpuclk, ENABLE_OSM, ENABLE_REG, ENABLE_OSM);
 
 	/* Make sure the write goes through before proceeding */
 	clk_osm_mb(cpuclk, OSM_BASE);

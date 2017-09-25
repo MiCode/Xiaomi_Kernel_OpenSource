@@ -13,6 +13,7 @@
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
 #include <linux/debugfs.h>
+#include <uapi/drm/sde_drm.h>
 
 #include "sde_encoder_phys.h"
 #include "sde_formats.h"
@@ -263,8 +264,10 @@ static void sde_encoder_phys_wb_setup_fb(struct sde_encoder_phys *phys_enc,
 	const struct msm_format *format;
 	int ret;
 	struct msm_gem_address_space *aspace;
+	u32 fb_mode;
 
-	if (!phys_enc || !phys_enc->sde_kms || !phys_enc->sde_kms->catalog) {
+	if (!phys_enc || !phys_enc->sde_kms || !phys_enc->sde_kms->catalog ||
+			!phys_enc->connector) {
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
@@ -275,12 +278,31 @@ static void sde_encoder_phys_wb_setup_fb(struct sde_encoder_phys *phys_enc,
 	memset(wb_cfg, 0, sizeof(struct sde_hw_wb_cfg));
 
 	wb_cfg->intf_mode = phys_enc->intf_mode;
-	wb_cfg->is_secure = (fb->flags & DRM_MODE_FB_SECURE) ? true : false;
+
+	fb_mode = sde_connector_get_property(phys_enc->connector->state,
+			CONNECTOR_PROP_FB_TRANSLATION_MODE);
+	if (phys_enc->enable_state == SDE_ENC_DISABLING)
+		wb_cfg->is_secure = false;
+	else if (fb_mode == SDE_DRM_FB_SEC)
+		wb_cfg->is_secure = true;
+	else
+		wb_cfg->is_secure = false;
+
 	aspace = (wb_cfg->is_secure) ?
 			wb_enc->aspace[SDE_IOMMU_DOMAIN_SECURE] :
 			wb_enc->aspace[SDE_IOMMU_DOMAIN_UNSECURE];
 
 	SDE_DEBUG("[fb_secure:%d]\n", wb_cfg->is_secure);
+
+	ret = msm_framebuffer_prepare(fb, aspace);
+	if (ret) {
+		SDE_ERROR("prep fb failed, %d\n", ret);
+		return;
+	}
+
+	/* cache framebuffer for cleanup in writeback done */
+	wb_enc->wb_fb = fb;
+	wb_enc->wb_aspace = aspace;
 
 	format = msm_framebuffer_format(fb);
 	if (!format) {
@@ -577,6 +599,10 @@ static void sde_encoder_phys_wb_setup(
 
 	memset(wb_roi, 0, sizeof(struct sde_rect));
 
+	/* clear writeback framebuffer - will be updated in setup_fb */
+	wb_enc->wb_fb = NULL;
+	wb_enc->wb_aspace = NULL;
+
 	if (phys_enc->enable_state == SDE_ENC_DISABLING) {
 		fb = wb_enc->fb_disable;
 		wb_roi->w = 0;
@@ -872,6 +898,13 @@ static int sde_encoder_phys_wb_wait_for_commit_done(
 				(u64)ktime_to_us(wb_enc->start_time);
 		SDE_DEBUG("wb:%d took %llu us\n",
 			wb_enc->wb_dev->wb_idx - WB_0, wb_time);
+	}
+
+	/* cleanup writeback framebuffer */
+	if (wb_enc->wb_fb && wb_enc->wb_aspace) {
+		msm_framebuffer_cleanup(wb_enc->wb_fb, wb_enc->wb_aspace);
+		wb_enc->wb_fb = NULL;
+		wb_enc->wb_aspace = NULL;
 	}
 
 	SDE_EVT32(DRMID(phys_enc->parent), WBID(wb_enc), wb_enc->frame_count,

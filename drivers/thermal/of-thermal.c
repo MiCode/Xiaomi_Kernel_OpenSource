@@ -80,6 +80,7 @@ struct __sensor_param {
  * @polling_delay: zone polling interval
  * @slope: slope of the temperature adjustment curve
  * @offset: offset of the temperature adjustment curve
+ * @default_disable: Keep the thermal zone disabled by default
  * @tzd: thermal zone device pointer for this sensor
  * @ntrips: number of trip points
  * @trips: an array of trip points (0..ntrips - 1)
@@ -96,6 +97,7 @@ struct __thermal_zone {
 	int slope;
 	int offset;
 	struct thermal_zone_device *tzd;
+	bool default_disable;
 
 	/* trip data */
 	int ntrips;
@@ -193,6 +195,12 @@ static int of_thermal_get_temp(struct thermal_zone_device *tz,
 
 	if (!data->senps || !data->senps->ops->get_temp)
 		return -EINVAL;
+	if (data->mode == THERMAL_DEVICE_DISABLED) {
+		*temp = tz->tzp->tracks_low ?
+				THERMAL_TEMP_INVALID_LOW :
+				THERMAL_TEMP_INVALID;
+		return 0;
+	}
 
 	return data->senps->ops->get_temp(data->senps->sensor_data, temp);
 }
@@ -507,6 +515,8 @@ static int of_thermal_aggregate_trip_types(struct thermal_zone_device *tz,
 	head = &data->senps->first_tz;
 	list_for_each_entry(data, head, list) {
 		zone = data->tzd;
+		if (data->mode == THERMAL_DEVICE_DISABLED)
+			continue;
 		for (trip = 0; trip < data->ntrips; trip++) {
 			of_thermal_get_trip_type(zone, trip, &type);
 			if (!(BIT(type) & trip_type_mask))
@@ -570,6 +580,8 @@ void of_thermal_handle_trip(struct thermal_zone_device *tz)
 	head = &data->senps->first_tz;
 	list_for_each_entry(data, head, list) {
 		zone = data->tzd;
+		if (data->mode == THERMAL_DEVICE_DISABLED)
+			continue;
 		thermal_zone_device_update(zone, THERMAL_EVENT_UNSPECIFIED);
 	}
 }
@@ -700,6 +712,7 @@ thermal_zone_of_sensor_register(struct device *dev, int sensor_id, void *data,
 	for_each_available_child_of_node(np, child) {
 		struct of_phandle_args sensor_specs;
 		int ret, id;
+		struct __thermal_zone *tz;
 
 		/* For now, thermal framework supports only 1 sensor per zone */
 		ret = of_parse_phandle_with_args(child, "thermal-sensors",
@@ -723,7 +736,10 @@ thermal_zone_of_sensor_register(struct device *dev, int sensor_id, void *data,
 			if (!IS_ERR(tzd)) {
 				if (!first_tzd)
 					first_tzd = tzd;
-				tzd->ops->set_mode(tzd, THERMAL_DEVICE_ENABLED);
+				tz = tzd->devdata;
+				if (!tz->default_disable)
+					tzd->ops->set_mode(tzd,
+						THERMAL_DEVICE_ENABLED);
 			}
 		}
 		of_node_put(sensor_specs.np);
@@ -847,7 +863,7 @@ struct thermal_zone_device *devm_thermal_of_virtual_sensor_register(
 	tzd = thermal_zone_get_zone_by_name(
 				sensor_data->virt_zone_name);
 	if (IS_ERR(tzd)) {
-		dev_err(dev, "sens:%s not available err: %ld\n",
+		dev_dbg(dev, "sens:%s not available err: %ld\n",
 				sensor_data->virt_zone_name,
 				PTR_ERR(tzd));
 		return tzd;
@@ -927,7 +943,8 @@ struct thermal_zone_device *devm_thermal_of_virtual_sensor_register(
 	*ptr = tzd;
 	devres_add(dev, ptr);
 
-	tzd->ops->set_mode(tzd, THERMAL_DEVICE_ENABLED);
+	if (!tz->default_disable)
+		tzd->ops->set_mode(tzd, THERMAL_DEVICE_ENABLED);
 
 	return tzd;
 }
@@ -1196,6 +1213,8 @@ __init *thermal_of_build_thermal_zone(struct device_node *np)
 	}
 	tz->polling_delay = prop;
 
+	tz->default_disable = of_property_read_bool(np,
+					"disable-thermal-zone");
 	/*
 	 * REVIST: for now, the thermal framework supports only
 	 * one sensor per thermal zone. Thus, we are considering

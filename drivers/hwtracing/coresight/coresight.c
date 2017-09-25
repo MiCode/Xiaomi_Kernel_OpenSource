@@ -29,7 +29,7 @@
 #include "coresight-priv.h"
 
 static DEFINE_MUTEX(coresight_mutex);
-
+static struct coresight_device *curr_sink;
 /**
  * struct coresight_node - elements of a path, from source to sink
  * @csdev:	Address of an element.
@@ -577,7 +577,7 @@ err_path:
 	coresight_release_path(csdev, path);
 	goto out;
 }
-EXPORT_SYMBOL_GPL(coresight_enable);
+EXPORT_SYMBOL(coresight_enable);
 
 static void __coresight_disable(struct coresight_device *csdev)
 {
@@ -604,7 +604,27 @@ void coresight_disable(struct coresight_device *csdev)
 	__coresight_disable(csdev);
 	mutex_unlock(&coresight_mutex);
 }
-EXPORT_SYMBOL_GPL(coresight_disable);
+EXPORT_SYMBOL(coresight_disable);
+
+void coresight_abort(void)
+{
+	if (!mutex_trylock(&coresight_mutex)) {
+		pr_err("coresight: abort could not be processed\n");
+		return;
+	}
+	if (!curr_sink)
+		goto out;
+
+	if (curr_sink->enable && sink_ops(curr_sink)->abort) {
+		sink_ops(curr_sink)->abort(curr_sink);
+		curr_sink->enable = false;
+	}
+
+out:
+	mutex_unlock(&coresight_mutex);
+}
+EXPORT_SYMBOL(coresight_abort);
+
 
 static ssize_t enable_sink_show(struct device *dev,
 				struct device_attribute *attr, char *buf)

@@ -88,6 +88,10 @@
 
 #define IPA_SMEM_SIZE (8 * 1024)
 
+#define IPA_GSI_CHANNEL_HALT_MIN_SLEEP 5000
+#define IPA_GSI_CHANNEL_HALT_MAX_SLEEP 10000
+#define IPA_GSI_CHANNEL_HALT_MAX_TRY 10
+
 /* round addresses for closes page per SMMU requirements */
 #define IPA_SMMU_ROUND_TO_PAGE(iova, pa, size, iova_p, pa_p, size_p) \
 	do { \
@@ -536,7 +540,7 @@ static void ipa3_wan_msg_free_cb(void *buff, u32 len, u32 type)
 	kfree(buff);
 }
 
-static int ipa3_send_wan_msg(unsigned long usr_param, uint8_t msg_type)
+static int ipa3_send_wan_msg(unsigned long usr_param, uint8_t msg_type, bool is_cache)
 {
 	int retval;
 	struct ipa_wan_msg *wan_msg;
@@ -562,6 +566,25 @@ static int ipa3_send_wan_msg(unsigned long usr_param, uint8_t msg_type)
 		IPAERR_RL("ipa3_send_msg failed: %d\n", retval);
 		kfree(wan_msg);
 		return retval;
+	}
+
+	if (is_cache) {
+		mutex_lock(&ipa3_ctx->ipa_cne_evt_lock);
+
+		/* cache the cne event */
+		memcpy(&ipa3_ctx->ipa_cne_evt_req_cache[
+			ipa3_ctx->num_ipa_cne_evt_req].wan_msg,
+			wan_msg,
+			sizeof(struct ipa_wan_msg));
+
+		memcpy(&ipa3_ctx->ipa_cne_evt_req_cache[
+			ipa3_ctx->num_ipa_cne_evt_req].msg_meta,
+			&msg_meta,
+			sizeof(struct ipa_msg_meta));
+
+		ipa3_ctx->num_ipa_cne_evt_req++;
+		ipa3_ctx->num_ipa_cne_evt_req %= IPA_MAX_NUM_REQ_CACHE;
+		mutex_unlock(&ipa3_ctx->ipa_cne_evt_lock);
 	}
 
 	return 0;
@@ -1520,21 +1543,21 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	case IPA_IOC_NOTIFY_WAN_UPSTREAM_ROUTE_ADD:
-		retval = ipa3_send_wan_msg(arg, WAN_UPSTREAM_ROUTE_ADD);
+		retval = ipa3_send_wan_msg(arg, WAN_UPSTREAM_ROUTE_ADD, true);
 		if (retval) {
 			IPAERR("ipa3_send_wan_msg failed: %d\n", retval);
 			break;
 		}
 		break;
 	case IPA_IOC_NOTIFY_WAN_UPSTREAM_ROUTE_DEL:
-		retval = ipa3_send_wan_msg(arg, WAN_UPSTREAM_ROUTE_DEL);
+		retval = ipa3_send_wan_msg(arg, WAN_UPSTREAM_ROUTE_DEL, true);
 		if (retval) {
 			IPAERR("ipa3_send_wan_msg failed: %d\n", retval);
 			break;
 		}
 		break;
 	case IPA_IOC_NOTIFY_WAN_EMBMS_CONNECTED:
-		retval = ipa3_send_wan_msg(arg, WAN_EMBMS_CONNECT);
+		retval = ipa3_send_wan_msg(arg, WAN_EMBMS_CONNECT, false);
 		if (retval) {
 			IPAERR("ipa3_send_wan_msg failed: %d\n", retval);
 			break;
@@ -1969,6 +1992,7 @@ static void ipa3_halt_q6_cons_gsi_channels(void)
 	int ep_idx;
 	int client_idx;
 	const struct ipa_gsi_ep_config *gsi_ep_cfg;
+	int i;
 	int ret;
 	int code = 0;
 
@@ -1988,6 +2012,19 @@ static void ipa3_halt_q6_cons_gsi_channels(void)
 			ret = gsi_halt_channel_ee(
 				gsi_ep_cfg->ipa_gsi_chan_num, gsi_ep_cfg->ee,
 				&code);
+			for (i = 0; i < IPA_GSI_CHANNEL_STOP_MAX_RETRY &&
+				ret == -GSI_STATUS_AGAIN; i++) {
+				IPADBG(
+				"ch %d ee %d with code %d\n is busy try again",
+					gsi_ep_cfg->ipa_gsi_chan_num,
+					gsi_ep_cfg->ee,
+					code);
+				usleep_range(IPA_GSI_CHANNEL_HALT_MIN_SLEEP,
+					IPA_GSI_CHANNEL_HALT_MAX_SLEEP);
+				ret = gsi_halt_channel_ee(
+					gsi_ep_cfg->ipa_gsi_chan_num,
+					gsi_ep_cfg->ee, &code);
+			}
 			if (ret == GSI_STATUS_SUCCESS)
 				IPADBG("halted gsi ch %d ee %d with code %d\n",
 				gsi_ep_cfg->ipa_gsi_chan_num,
@@ -3294,21 +3331,20 @@ static unsigned int ipa3_get_bus_vote(void)
 {
 	unsigned int idx = 1;
 
-	if (ipa3_ctx->curr_ipa_clk_rate == ipa3_ctx->ctrl->ipa_clk_rate_svs) {
+	if (ipa3_ctx->curr_ipa_clk_rate == ipa3_ctx->ctrl->ipa_clk_rate_svs2) {
 		idx = 1;
 	} else if (ipa3_ctx->curr_ipa_clk_rate ==
-			ipa3_ctx->ctrl->ipa_clk_rate_nominal) {
-		if (ipa3_ctx->ctrl->msm_bus_data_ptr->num_usecases <= 2)
-			idx = 1;
-		else
-			idx = 2;
+		ipa3_ctx->ctrl->ipa_clk_rate_svs) {
+		idx = 2;
+	} else if (ipa3_ctx->curr_ipa_clk_rate ==
+		ipa3_ctx->ctrl->ipa_clk_rate_nominal) {
+		idx = 3;
 	} else if (ipa3_ctx->curr_ipa_clk_rate ==
 			ipa3_ctx->ctrl->ipa_clk_rate_turbo) {
 		idx = ipa3_ctx->ctrl->msm_bus_data_ptr->num_usecases - 1;
 	} else {
 		WARN_ON(1);
 	}
-
 	IPADBG("curr %d idx %d\n", ipa3_ctx->curr_ipa_clk_rate, idx);
 
 	return idx;
@@ -3699,8 +3735,11 @@ int ipa3_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 		else if (bandwidth_mbps >=
 			ipa3_ctx->ctrl->clock_scaling_bw_threshold_nominal)
 			needed_voltage = IPA_VOLTAGE_NOMINAL;
-		else
+		else if (bandwidth_mbps >=
+			ipa3_ctx->ctrl->clock_scaling_bw_threshold_svs)
 			needed_voltage = IPA_VOLTAGE_SVS;
+		else
+			needed_voltage = IPA_VOLTAGE_SVS2;
 	} else {
 		IPADBG_LOW("Clock scaling is disabled\n");
 		needed_voltage = IPA_VOLTAGE_NOMINAL;
@@ -3708,6 +3747,9 @@ int ipa3_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 
 	needed_voltage = max(needed_voltage, floor_voltage);
 	switch (needed_voltage) {
+	case IPA_VOLTAGE_SVS2:
+		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_svs2;
+		break;
 	case IPA_VOLTAGE_SVS:
 		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_svs;
 		break;
@@ -4298,12 +4340,12 @@ static void ipa3_post_init_wq(struct work_struct *work)
 	ipa3_post_init(&ipa3_res, ipa3_ctx->dev);
 }
 
-static int ipa3_trigger_fw_loading_mdms(void)
+static int ipa3_manual_load_ipa_fws(void)
 {
 	int result;
 	const struct firmware *fw;
 
-	IPADBG("FW loading process initiated\n");
+	IPADBG("Manual FW loading process initiated\n");
 
 	result = request_firmware(&fw, IPA_FWS_PATH, ipa3_ctx->dev);
 	if (result < 0) {
@@ -4319,7 +4361,7 @@ static int ipa3_trigger_fw_loading_mdms(void)
 
 	result = ipa3_load_fws(fw, ipa3_res.transport_mem_base);
 	if (result) {
-		IPAERR("IPA FWs loading has failed\n");
+		IPAERR("Manual IPA FWs loading has failed\n");
 		release_firmware(fw);
 		return result;
 	}
@@ -4335,15 +4377,15 @@ static int ipa3_trigger_fw_loading_mdms(void)
 
 	release_firmware(fw);
 
-	IPADBG("FW loading process is complete\n");
+	IPADBG("Manual FW loading process is complete\n");
 	return 0;
 }
 
-static int ipa3_trigger_fw_loading_msms(void)
+static int ipa3_pil_load_ipa_fws(void)
 {
 	void *subsystem_get_retval = NULL;
 
-	IPADBG("FW loading process initiated\n");
+	IPADBG("PIL FW loading process initiated\n");
 
 	subsystem_get_retval = subsystem_get(IPA_SUBSYSTEM_NAME);
 	if (IS_ERR_OR_NULL(subsystem_get_retval)) {
@@ -4351,7 +4393,7 @@ static int ipa3_trigger_fw_loading_msms(void)
 		return -EINVAL;
 	}
 
-	IPADBG("FW loading process is complete\n");
+	IPADBG("PIL FW loading process is complete\n");
 	return 0;
 }
 
@@ -4377,11 +4419,8 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 	if (ipa3_is_ready())
 		return count;
 
-	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-
-	if (ipa3_is_msm_device()) {
-		result = ipa3_trigger_fw_loading_msms();
-	} else {
+	/* Check MHI configuration on MDM devices */
+	if (!ipa3_is_msm_device()) {
 		if (!strcasecmp(dbg_buff, "MHI")) {
 			ipa3_ctx->ipa_config_is_mhi = true;
 			pr_info(
@@ -4390,19 +4429,26 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 			pr_info(
 			"IPA is loading with non MHI configuration\n");
 		}
-		result = ipa3_trigger_fw_loading_mdms();
 	}
-	/* No IPAv3.x chipsets that don't support FW loading */
+
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
+	if (ipa3_is_msm_device() || (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5))
+		result = ipa3_pil_load_ipa_fws();
+	else
+		result = ipa3_manual_load_ipa_fws();
 
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	if (result) {
-		IPAERR("FW loading process has failed\n");
-			return result;
-	} else {
-			queue_work(ipa3_ctx->transport_power_mgmt_wq,
-				&ipa3_post_init_work);
+		IPAERR("IPA FW loading process has failed\n");
+		return result;
 	}
+
+	queue_work(ipa3_ctx->transport_power_mgmt_wq,
+		&ipa3_post_init_work);
+	pr_info("IPA FW loaded successfully\n");
+
 	return count;
 }
 
@@ -4849,6 +4895,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 
 	mutex_init(&ipa3_ctx->lock);
 	mutex_init(&ipa3_ctx->nat_mem.lock);
+	mutex_init(&ipa3_ctx->q6_proxy_clk_vote_mutex);
+	mutex_init(&ipa3_ctx->ipa_cne_evt_lock);
 
 	idr_init(&ipa3_ctx->ipa_idr);
 	spin_lock_init(&ipa3_ctx->idr_lock);

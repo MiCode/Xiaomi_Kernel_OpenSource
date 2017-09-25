@@ -66,7 +66,7 @@ struct geni_se_device {
 	struct msm_bus_client_handle *bus_bw;
 	u32 bus_mas_id;
 	u32 bus_slv_id;
-	spinlock_t ab_ib_lock;
+	struct mutex ab_ib_lock;
 	struct list_head ab_list_head;
 	struct list_head ib_list_head;
 	unsigned long cur_ab;
@@ -608,7 +608,6 @@ static bool geni_se_check_bus_bw(struct geni_se_device *geni_se_dev)
 static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 			     struct se_geni_rsc *rsc)
 {
-	unsigned long flags;
 	struct se_geni_rsc *tmp;
 	bool bus_bw_update = false;
 	int ret = 0;
@@ -616,7 +615,7 @@ static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 	if (unlikely(list_empty(&rsc->ab_list) || list_empty(&rsc->ib_list)))
 		return -EINVAL;
 
-	spin_lock_irqsave(&geni_se_dev->ab_ib_lock, flags);
+	mutex_lock(&geni_se_dev->ab_ib_lock);
 	list_del_init(&rsc->ab_list);
 	geni_se_dev->cur_ab -= rsc->ab;
 
@@ -629,8 +628,6 @@ static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 		geni_se_dev->cur_ib = 0;
 
 	bus_bw_update = geni_se_check_bus_bw(geni_se_dev);
-	spin_unlock_irqrestore(&geni_se_dev->ab_ib_lock, flags);
-
 	if (bus_bw_update)
 		ret = msm_bus_scale_update_bw(geni_se_dev->bus_bw,
 						geni_se_dev->cur_ab,
@@ -639,6 +636,7 @@ static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 		    "%s: %lu:%lu (%lu:%lu) %d\n", __func__,
 		    geni_se_dev->cur_ab, geni_se_dev->cur_ib,
 		    rsc->ab, rsc->ib, bus_bw_update);
+	mutex_unlock(&geni_se_dev->ab_ib_lock);
 	return ret;
 }
 
@@ -701,13 +699,12 @@ static int se_geni_clks_on(struct se_geni_rsc *rsc)
 static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 			     struct se_geni_rsc *rsc)
 {
-	unsigned long flags;
 	struct se_geni_rsc *tmp = NULL;
 	struct list_head *ins_list_head;
 	bool bus_bw_update = false;
 	int ret = 0;
 
-	spin_lock_irqsave(&geni_se_dev->ab_ib_lock, flags);
+	mutex_lock(&geni_se_dev->ab_ib_lock);
 	list_add(&rsc->ab_list, &geni_se_dev->ab_list_head);
 	geni_se_dev->cur_ab += rsc->ab;
 
@@ -723,8 +720,6 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 		geni_se_dev->cur_ib = rsc->ib;
 
 	bus_bw_update = geni_se_check_bus_bw(geni_se_dev);
-	spin_unlock_irqrestore(&geni_se_dev->ab_ib_lock, flags);
-
 	if (bus_bw_update)
 		ret = msm_bus_scale_update_bw(geni_se_dev->bus_bw,
 						geni_se_dev->cur_ab,
@@ -733,6 +728,7 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 		    "%s: %lu:%lu (%lu:%lu) %d\n", __func__,
 		    geni_se_dev->cur_ab, geni_se_dev->cur_ib,
 		    rsc->ab, rsc->ib, bus_bw_update);
+	mutex_unlock(&geni_se_dev->ab_ib_lock);
 	return ret;
 }
 
@@ -1330,7 +1326,7 @@ static int geni_se_probe(struct platform_device *pdev)
 	mutex_init(&geni_se_dev->iommu_lock);
 	INIT_LIST_HEAD(&geni_se_dev->ab_list_head);
 	INIT_LIST_HEAD(&geni_se_dev->ib_list_head);
-	spin_lock_init(&geni_se_dev->ab_ib_lock);
+	mutex_init(&geni_se_dev->ab_ib_lock);
 	geni_se_dev->log_ctx = ipc_log_context_create(NUM_LOG_PAGES,
 						dev_name(geni_se_dev->dev), 0);
 	if (!geni_se_dev->log_ctx)

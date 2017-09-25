@@ -685,7 +685,7 @@ static int a3xx_send_me_init(struct adreno_device *adreno_dev,
 		struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 		dev_err(device->dev, "CP initialization failed to idle\n");
-		kgsl_device_snapshot(device, NULL);
+		kgsl_device_snapshot(device, NULL, false);
 	}
 
 	return ret;
@@ -1823,7 +1823,7 @@ static int _ringbuffer_bootstrap_ucode(struct adreno_device *adreno_dev,
 
 	if (ret) {
 		KGSL_DRV_ERR(device, "microcode bootstrap failed to idle\n");
-		kgsl_device_snapshot(device, NULL);
+		kgsl_device_snapshot(device, NULL, false);
 	}
 
 	/* Clear the chicken bit for speed up on A430 and its derivatives */

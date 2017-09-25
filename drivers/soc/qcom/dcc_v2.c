@@ -598,7 +598,7 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 				   drvdata->ram_offset/4, DCC_LL_BASE(list));
 			dcc_writel(drvdata, drvdata->ram_start +
 				   drvdata->ram_offset/4, DCC_FD_BASE(list));
-			dcc_writel(drvdata, 0, DCC_LL_TIMEOUT(list));
+			dcc_writel(drvdata, 0xFFF, DCC_LL_TIMEOUT(list));
 		}
 
 		/* 4. Configure trigger, data sink and function type */

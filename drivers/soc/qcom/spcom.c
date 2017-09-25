@@ -1136,6 +1136,7 @@ struct spcom_client *spcom_register_client(struct spcom_client_info *info)
 	ch = spcom_find_channel_by_name(name);
 	if (!ch) {
 		pr_err("channel %s doesn't exist, load App first.\n", name);
+		kfree(client);
 		return NULL;
 	}
 
@@ -1322,6 +1323,7 @@ struct spcom_server *spcom_register_service(struct spcom_service_info *info)
 	ch = spcom_find_channel_by_name(name);
 	if (!ch) {
 		pr_err("channel %s doesn't exist, load App first.\n", name);
+		kfree(server);
 		return NULL;
 	}
 

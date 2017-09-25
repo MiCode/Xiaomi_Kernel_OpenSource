@@ -14,9 +14,11 @@
 	mdss_mdp: qcom,mdss_mdp@ae00000 {
 		compatible = "qcom,sde-kms";
 		reg = <0x0ae00000 0x81d40>,
-		      <0x0aeb0000 0x2008>;
+		      <0x0aeb0000 0x2008>,
+		      <0x0aeac000 0xf0>;
 		reg-names = "mdp_phys",
-			"vbif_phys";
+			"vbif_phys",
+			"regdma_phys";
 
 		clocks =
 			<&clock_gcc GCC_DISP_AHB_CLK>,
@@ -128,6 +130,9 @@
 		qcom,sde-has-idle-pc;
 		qcom,sde-max-bw-low-kbps = <9600000>;
 		qcom,sde-max-bw-high-kbps = <9600000>;
+		qcom,sde-min-core-ib-kbps = <2400000>;
+		qcom,sde-min-llcc-ib-kbps = <800000>;
+		qcom,sde-min-dram-ib-kbps = <800000>;
 		qcom,sde-dram-channels = <2>;
 		qcom,sde-num-nrt-paths = <0>;
 		qcom,sde-dspp-ad-version = <0x00040000>;
@@ -179,6 +184,9 @@
 		/* offsets are relative to "mdp_phys + qcom,sde-off */
 		qcom,sde-inline-rot-clk-ctrl = <0x2bc 0x8>, <0x2bc 0xc>;
 
+		qcom,sde-reg-dma-off = <0>;
+		qcom,sde-reg-dma-version = <0x1>;
+		qcom,sde-reg-dma-trigger-off = <0x119c>;
 
 		qcom,sde-sspp-vig-blocks {
 			qcom,sde-vig-csc-off = <0x1a00>;

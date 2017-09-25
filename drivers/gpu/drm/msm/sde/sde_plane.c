@@ -878,7 +878,6 @@ static int _sde_plane_get_aspace(
 			return -EINVAL;
 		break;
 	case SDE_DRM_FB_SEC_DIR_TRANS:
-	case SDE_DRM_FB_NON_SEC_DIR_TRANS:
 		*aspace = NULL;
 		break;
 	default:
@@ -1469,6 +1468,12 @@ static int _sde_plane_color_fill(struct sde_plane *psde,
 		if (psde->pipe_hw->ops.setup_pe)
 			psde->pipe_hw->ops.setup_pe(psde->pipe_hw,
 					&pstate->pixel_ext);
+
+		if (psde->pipe_hw->ops.setup_scaler &&
+				pstate->multirect_index != SDE_SSPP_RECT_1)
+			psde->pipe_hw->ops.setup_scaler(psde->pipe_hw,
+					&psde->pipe_cfg, &pstate->pixel_ext,
+					&pstate->scaler3_cfg);
 	}
 
 	return 0;
@@ -2785,6 +2790,18 @@ static int sde_plane_prepare_fb(struct drm_plane *plane,
 	new_rstate = &to_sde_plane_state(new_state)->rot;
 
 	if (pstate->aspace) {
+		/*
+		 * when transitioning from secure to non-secure,
+		 * plane->prepare_fb happens before the commit. In such case,
+		 * return early, as prepare_fb would be handled as part
+		 * of the transition after attaching the domains,
+		 * during the commit
+		 */
+		if (!pstate->aspace->domain_attached) {
+			SDE_DEBUG_PLANE(psde,
+			    "domain not attached, prepare_fb handled later\n");
+			return 0;
+		}
 		ret = msm_framebuffer_prepare(new_rstate->out_fb,
 				pstate->aspace);
 		if (ret) {

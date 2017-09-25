@@ -1535,7 +1535,7 @@ static int a4xx_send_me_init(struct adreno_device *adreno_dev,
 		struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 		dev_err(device->dev, "CP initialization failed to idle\n");
-		kgsl_device_snapshot(device, NULL);
+		kgsl_device_snapshot(device, NULL, false);
 	}
 
 	return ret;

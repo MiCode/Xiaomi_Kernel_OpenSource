@@ -12,6 +12,7 @@
 
 #include "sde_reg_dma.h"
 #include "sde_hw_reg_dma_v1.h"
+#include "sde_dbg.h"
 
 static int default_check_support(enum sde_reg_dma_features feature,
 		     enum sde_reg_dma_blk blk,
@@ -98,6 +99,9 @@ int sde_reg_dma_init(void __iomem *addr, struct sde_mdss_cfg *m,
 		rc = init_v1(&reg_dma);
 		if (rc)
 			DRM_DEBUG("init v1 dma ops failed\n");
+		else
+			sde_dbg_reg_register_base("reg_dma", addr,
+					reg_dma.caps->len);
 		break;
 	default:
 		break;

@@ -205,4 +205,14 @@
 #define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA11     (0x01C)
 #define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA12     (0x020)
 
+/* USB3 DP COM registers */
+#define USB3_DP_COM_RESET_OVRD_CTRL (0x1C)
+#define USB3_DP_COM_PHY_MODE_CTRL   (0x00)
+#define USB3_DP_COM_SW_RESET        (0x04)
+#define USB3_DP_COM_TYPEC_CTRL      (0x10)
+#define USB3_DP_COM_SWI_CTRL        (0x0c)
+#define USB3_DP_COM_POWER_DOWN_CTRL (0x08)
+
+
+
 #endif /* _DP_REG_H_ */

@@ -247,6 +247,7 @@ struct sde_connector_evt {
  * @fb_kmap: true if kernel mapping of framebuffer is requested
  * @event_table: Array of registered events
  * @event_lock: Lock object for event_table
+ * @bl_device: backlight device node
  */
 struct sde_connector {
 	struct drm_connector base;
@@ -277,6 +278,8 @@ struct sde_connector {
 	bool fb_kmap;
 	struct sde_connector_evt event_table[SDE_CONN_EVENT_COUNT];
 	spinlock_t event_lock;
+
+	struct backlight_device *bl_device;
 };
 
 /**
@@ -322,7 +325,6 @@ struct sde_connector {
  * struct sde_connector_state - private connector status structure
  * @base: Base drm connector structure
  * @out_fb: Pointer to output frame buffer, if applicable
- * @aspace: Address space for accessing frame buffer objects, if applicable
  * @property_state: Local storage for msm_prop properties
  * @property_values: Local cache of current connector property values
  * @rois: Regions of interest structure for mapping CRTC to Connector output
@@ -331,7 +333,6 @@ struct sde_connector {
 struct sde_connector_state {
 	struct drm_connector_state base;
 	struct drm_framebuffer *out_fb;
-	struct msm_gem_address_space *aspace;
 	struct msm_property_state property_state;
 	struct msm_property_value property_values[CONNECTOR_PROP_COUNT];
 
@@ -447,6 +448,13 @@ void sde_connector_prepare_fence(struct drm_connector *connector);
  * @ts: timestamp to be updated in the fence signalling
  */
 void sde_connector_complete_commit(struct drm_connector *connector, ktime_t ts);
+
+/**
+ * sde_connector_commit_reset - reset the completion signal
+ * @connector: Pointer to drm connector object
+ * @ts: timestamp to be updated in the fence signalling
+ */
+void sde_connector_commit_reset(struct drm_connector *connector, ktime_t ts);
 
 /**
  * sde_connector_get_info - query display specific information

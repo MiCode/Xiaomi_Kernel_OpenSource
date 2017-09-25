@@ -74,6 +74,7 @@ struct q6v5_data {
 	bool restart_reg_sec;
 	bool override_acc;
 	int override_acc_1;
+	int mss_pdc_offset;
 	bool ahb_clk_vote;
 	bool mx_spike_wa;
 };

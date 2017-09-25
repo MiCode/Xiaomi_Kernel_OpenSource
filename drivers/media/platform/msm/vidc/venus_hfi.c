@@ -110,7 +110,8 @@ static int venus_hfi_noc_error_info(void *dev);
  */
 static inline void __strict_check(struct venus_hfi_device *device)
 {
-	WARN_ON(!mutex_is_locked(&device->lock));
+	msm_vidc_res_handle_fatal_hw_error(device->res,
+		!mutex_is_locked(&device->lock));
 }
 
 static inline void __set_state(struct venus_hfi_device *device,
@@ -238,7 +239,8 @@ static void __sim_modify_cmd_packet(u8 *packet, struct venus_hfi_device *device)
 	}
 }
 
-static int __acquire_regulator(struct regulator_info *rinfo)
+static int __acquire_regulator(struct regulator_info *rinfo,
+				struct venus_hfi_device *device)
 {
 	int rc = 0;
 
@@ -266,7 +268,7 @@ static int __acquire_regulator(struct regulator_info *rinfo)
 	if (!regulator_is_enabled(rinfo->regulator)) {
 		dprintk(VIDC_WARN, "Regulator is not enabled %s\n",
 			rinfo->name);
-		WARN_ON(1);
+		msm_vidc_res_handle_fatal_hw_error(device->res, true);
 	}
 
 	return rc;
@@ -312,7 +314,7 @@ static int __hand_off_regulators(struct venus_hfi_device *device)
 	return rc;
 err_reg_handoff_failed:
 	venus_hfi_for_each_regulator_reverse_continue(device, rinfo, c)
-		__acquire_regulator(rinfo);
+		__acquire_regulator(rinfo, device);
 
 	return rc;
 }
@@ -624,7 +626,7 @@ static void __write_register(struct venus_hfi_device *device,
 	if (!device->power_enabled) {
 		dprintk(VIDC_WARN,
 			"HFI Write register failed : Power is OFF\n");
-		WARN_ON(1);
+		msm_vidc_res_handle_fatal_hw_error(device->res, true);
 		return;
 	}
 
@@ -655,7 +657,7 @@ static int __read_register(struct venus_hfi_device *device, u32 reg)
 	if (!device->power_enabled) {
 		dprintk(VIDC_WARN,
 			"HFI Read register failed : Power is OFF\n");
-		WARN_ON(1);
+		msm_vidc_res_handle_fatal_hw_error(device->res, true);
 		return -EINVAL;
 	}
 
@@ -1045,9 +1047,9 @@ static int venus_hfi_flush_debug_queue(void *dev)
 
 	mutex_lock(&device->lock);
 
-	if (device->power_enabled) {
-		dprintk(VIDC_DBG, "Venus is busy\n");
-		rc = -EBUSY;
+	if (!device->power_enabled) {
+		dprintk(VIDC_WARN, "%s: venus power off\n", __func__);
+		rc = -EINVAL;
 		goto exit;
 	}
 	__flush_debug_queue(device, NULL);
@@ -3065,7 +3067,11 @@ static int __response_handler(struct venus_hfi_device *device)
 		if (session_id) {
 			struct hal_session *session = NULL;
 
-			WARN_ON(upper_32_bits((uintptr_t)*session_id) != 0);
+			if (upper_32_bits((uintptr_t)*session_id) != 0) {
+				dprintk(VIDC_ERR,
+					"Upper 32-bits != 0 for sess_id=%pK\n",
+					*session_id);
+			}
 			session = __get_session(device,
 					(u32)(uintptr_t)*session_id);
 			if (!session) {
@@ -3668,7 +3674,8 @@ static int __protect_cp_mem(struct venus_hfi_device *device)
 	return rc;
 }
 
-static int __disable_regulator(struct regulator_info *rinfo)
+static int __disable_regulator(struct regulator_info *rinfo,
+				struct venus_hfi_device *device)
 {
 	int rc = 0;
 
@@ -3680,7 +3687,7 @@ static int __disable_regulator(struct regulator_info *rinfo)
 	 * is unknown.
 	 */
 
-	rc = __acquire_regulator(rinfo);
+	rc = __acquire_regulator(rinfo, device);
 	if (rc) {
 		/*
 		 * This is somewhat fatal, but nothing we can do
@@ -3706,7 +3713,7 @@ static int __disable_regulator(struct regulator_info *rinfo)
 disable_regulator_failed:
 
 	/* Bring attention to this issue */
-	WARN_ON(1);
+	msm_vidc_res_handle_fatal_hw_error(device->res, true);
 	return rc;
 }
 
@@ -3752,7 +3759,7 @@ static int __enable_regulators(struct venus_hfi_device *device)
 
 err_reg_enable_failed:
 	venus_hfi_for_each_regulator_reverse_continue(device, rinfo, c)
-		__disable_regulator(rinfo);
+		__disable_regulator(rinfo, device);
 
 	return rc;
 }
@@ -3765,7 +3772,7 @@ static int __disable_regulators(struct venus_hfi_device *device)
 	dprintk(VIDC_DBG, "Disabling regulators\n");
 
 	venus_hfi_for_each_regulator_reverse(device, rinfo)
-		__disable_regulator(rinfo);
+		__disable_regulator(rinfo, device);
 
 	return rc;
 }
@@ -4110,7 +4117,9 @@ static inline int __resume(struct venus_hfi_device *device)
 
 	dprintk(VIDC_PROF, "Resumed from power collapse\n");
 exit:
-	device->skip_pc_count = 0;
+	/* Don't reset skip_pc_count for SYS_PC_PREP cmd */
+	if (device->last_packet_type != HFI_CMD_SYS_PC_PREP)
+		device->skip_pc_count = 0;
 	return rc;
 err_reset_core:
 	__tzbsp_set_video_state(TZBSP_VIDEO_STATE_SUSPEND);

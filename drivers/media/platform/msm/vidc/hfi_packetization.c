@@ -21,15 +21,6 @@
  * space.  So before indexing them, we apply log2 to use a more
  * sensible index.
  */
-static int profile_table[] = {
-	[ilog2(HAL_H264_PROFILE_BASELINE)] = HFI_H264_PROFILE_BASELINE,
-	[ilog2(HAL_H264_PROFILE_MAIN)] = HFI_H264_PROFILE_MAIN,
-	[ilog2(HAL_H264_PROFILE_HIGH)] = HFI_H264_PROFILE_HIGH,
-	[ilog2(HAL_H264_PROFILE_CONSTRAINED_BASE)] =
-		HFI_H264_PROFILE_CONSTRAINED_BASE,
-	[ilog2(HAL_H264_PROFILE_CONSTRAINED_HIGH)] =
-		HFI_H264_PROFILE_CONSTRAINED_HIGH,
-};
 
 static int entropy_mode[] = {
 	[ilog2(HAL_H264_ENTROPY_CAVLC)] = HFI_H264_ENTROPY_CAVLC,
@@ -67,6 +58,8 @@ static int color_format[] = {
 	[ilog2(HAL_COLOR_FORMAT_NV12_UBWC)] =  HFI_COLOR_FORMAT_NV12_UBWC,
 	[ilog2(HAL_COLOR_FORMAT_NV12_TP10_UBWC)] =
 			HFI_COLOR_FORMAT_YUV420_TP10_UBWC,
+	/*P010 10bit format*/
+	[ilog2(HAL_COLOR_FORMAT_P010)] =  HFI_COLOR_FORMAT_P010,
 };
 
 static int nal_type[] = {
@@ -95,9 +88,6 @@ static inline int hal_to_hfi_type(int property, int hal_type)
 		hal_type = ilog2(hal_type);
 
 	switch (property) {
-	case HAL_PARAM_PROFILE_LEVEL_CURRENT:
-		return (hal_type >= ARRAY_SIZE(profile_table)) ?
-			-ENOTSUPP : profile_table[hal_type];
 	case HAL_PARAM_VENC_H264_ENTROPY_CONTROL:
 		return (hal_type >= ARRAY_SIZE(entropy_mode)) ?
 			-ENOTSUPP : entropy_mode[hal_type];
@@ -676,6 +666,26 @@ static u32 get_hfi_ltr_mode(enum ltr_mode ltr_mode_type)
 	return ltrmode;
 }
 
+static u32 get_hfi_work_mode(enum hal_work_mode work_mode)
+{
+	u32 hfi_work_mode;
+
+	switch (work_mode) {
+	case VIDC_WORK_MODE_1:
+		hfi_work_mode = HFI_WORKMODE_1;
+		break;
+	case VIDC_WORK_MODE_2:
+		hfi_work_mode = HFI_WORKMODE_2;
+		break;
+	default:
+		dprintk(VIDC_ERR, "Invalid work mode: %#x\n",
+			work_mode);
+		hfi_work_mode = HFI_WORKMODE_2;
+		break;
+	}
+	return hfi_work_mode;
+}
+
 int create_pkt_cmd_session_set_buffers(
 		struct hfi_cmd_session_set_buffers_packet *pkt,
 		struct hal_session *session,
@@ -1194,8 +1204,7 @@ int create_pkt_cmd_session_set_property(
 		 * HFI level
 		 */
 		hfi->level = prop->level;
-		hfi->profile = hal_to_hfi_type(HAL_PARAM_PROFILE_LEVEL_CURRENT,
-				prop->profile);
+		hfi->profile = prop->profile;
 		if (hfi->profile <= 0) {
 			hfi->profile = HFI_H264_PROFILE_HIGH;
 			dprintk(VIDC_WARN,
@@ -1411,6 +1420,9 @@ int create_pkt_cmd_session_set_property(
 		case HAL_FLIP_VERTICAL:
 			hfi->flip = HFI_FLIP_VERTICAL;
 			break;
+		case HAL_FLIP_BOTH:
+			hfi->flip = HFI_FLIP_HORIZONTAL | HFI_FLIP_VERTICAL;
+			break;
 		default:
 			dprintk(VIDC_ERR, "Invalid flip setting: %#x\n",
 				prop->flip);
@@ -1618,6 +1630,9 @@ int create_pkt_cmd_session_set_property(
 				HFI_PROPERTY_PARAM_VPE_COLOR_SPACE_CONVERSION;
 		hfi = (struct hfi_vpe_color_space_conversion *)
 			&pkt->rg_property_data[1];
+
+		hfi->input_color_primaries = hal->input_color_primaries;
+		hfi->custom_matrix_enabled = hal->custom_matrix_enabled;
 		memcpy(hfi->csc_matrix, hal->csc_matrix,
 				sizeof(hfi->csc_matrix));
 		memcpy(hfi->csc_bias, hal->csc_bias, sizeof(hfi->csc_bias));
@@ -1854,7 +1869,8 @@ int create_pkt_cmd_session_set_property(
 			(struct hfi_video_work_mode *)
 			&pkt->rg_property_data[1];
 
-		work_mode->video_work_mode = hal->video_work_mode;
+		work_mode->video_work_mode = get_hfi_work_mode(
+						hal->video_work_mode);
 
 		pkt->rg_property_data[0] =
 			HFI_PROPERTY_PARAM_WORK_MODE;

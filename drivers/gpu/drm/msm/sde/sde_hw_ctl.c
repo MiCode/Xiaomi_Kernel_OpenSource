@@ -36,9 +36,10 @@
 #define   CTL_ROT_START                 0x0CC
 
 #define CTL_MIXER_BORDER_OUT            BIT(24)
+#define CTL_FLUSH_MASK_ROT              BIT(27)
 #define CTL_FLUSH_MASK_CTL              BIT(17)
 
-#define SDE_REG_RESET_TIMEOUT_COUNT    20
+#define SDE_REG_RESET_TIMEOUT_US        2000
 
 static struct sde_ctl_cfg *_ctl_offset(enum sde_ctl ctl,
 		struct sde_mdss_cfg *m,
@@ -112,10 +113,6 @@ static u32 sde_hw_ctl_get_pending_flush(struct sde_hw_ctl *ctx)
 
 static inline void sde_hw_ctl_trigger_flush(struct sde_hw_ctl *ctx)
 {
-	struct sde_hw_reg_dma_ops *ops = sde_reg_dma_get_ops();
-
-	if (ops && ops->last_command)
-		ops->last_command(ctx, DMA_CTL_QUEUE0);
 
 	SDE_REG_WRITE(&ctx->hw, CTL_FLUSH, ctx->pending_flush_mask);
 }
@@ -123,6 +120,13 @@ static inline void sde_hw_ctl_trigger_flush(struct sde_hw_ctl *ctx)
 static inline u32 sde_hw_ctl_get_flush_register(struct sde_hw_ctl *ctx)
 {
 	struct sde_hw_blk_reg_map *c = &ctx->hw;
+	u32 rot_op_mode;
+
+	rot_op_mode = SDE_REG_READ(c, CTL_ROT_TOP) & 0x3;
+
+	/* rotate flush bit is undefined if offline mode, so ignore it */
+	if (rot_op_mode == SDE_CTL_ROT_OP_MODE_OFFLINE)
+		return SDE_REG_READ(c, CTL_FLUSH) & ~CTL_FLUSH_MASK_ROT;
 
 	return SDE_REG_READ(c, CTL_FLUSH);
 }
@@ -273,7 +277,7 @@ static inline int sde_hw_ctl_get_bitmask_rot(struct sde_hw_ctl *ctx,
 {
 	switch (rot) {
 	case ROT_0:
-		*flushbits |= BIT(27);
+		*flushbits |= CTL_FLUSH_MASK_ROT;
 		break;
 	default:
 		return -EINVAL;
@@ -294,14 +298,13 @@ static inline int sde_hw_ctl_get_bitmask_cdm(struct sde_hw_ctl *ctx,
 	return 0;
 }
 
-static u32 sde_hw_ctl_poll_reset_status(struct sde_hw_ctl *ctx, u32 count)
+static u32 sde_hw_ctl_poll_reset_status(struct sde_hw_ctl *ctx, u32 timeout_us)
 {
 	struct sde_hw_blk_reg_map *c = &ctx->hw;
+	ktime_t timeout;
 	u32 status;
 
-	/* protect to do at least one iteration */
-	if (!count)
-		count = 1;
+	timeout = ktime_add_us(ktime_get(), timeout_us);
 
 	/*
 	 * it takes around 30us to have mdp finish resetting its ctl path
@@ -309,10 +312,10 @@ static u32 sde_hw_ctl_poll_reset_status(struct sde_hw_ctl *ctx, u32 count)
 	 */
 	do {
 		status = SDE_REG_READ(c, CTL_SW_RESET);
-		status &= 0x01;
+		status &= 0x1;
 		if (status)
 			usleep_range(20, 50);
-	} while (status && --count > 0);
+	} while (status && ktime_compare_safe(ktime_get(), timeout) < 0);
 
 	return status;
 }
@@ -323,7 +326,7 @@ static int sde_hw_ctl_reset_control(struct sde_hw_ctl *ctx)
 
 	pr_debug("issuing hw ctl reset for ctl:%d\n", ctx->idx);
 	SDE_REG_WRITE(c, CTL_SW_RESET, 0x1);
-	if (sde_hw_ctl_poll_reset_status(ctx, SDE_REG_RESET_TIMEOUT_COUNT))
+	if (sde_hw_ctl_poll_reset_status(ctx, SDE_REG_RESET_TIMEOUT_US))
 		return -EINVAL;
 
 	return 0;
@@ -340,7 +343,7 @@ static int sde_hw_ctl_wait_reset_status(struct sde_hw_ctl *ctx)
 		return 0;
 
 	pr_debug("hw ctl reset is set for ctl:%d\n", ctx->idx);
-	if (sde_hw_ctl_poll_reset_status(ctx, SDE_REG_RESET_TIMEOUT_COUNT)) {
+	if (sde_hw_ctl_poll_reset_status(ctx, SDE_REG_RESET_TIMEOUT_US)) {
 		pr_err("hw recovery is not complete for ctl:%d\n", ctx->idx);
 		return -EINVAL;
 	}
@@ -357,6 +360,7 @@ static void sde_hw_ctl_clear_all_blendstages(struct sde_hw_ctl *ctx)
 		SDE_REG_WRITE(c, CTL_LAYER(LM_0 + i), 0);
 		SDE_REG_WRITE(c, CTL_LAYER_EXT(LM_0 + i), 0);
 		SDE_REG_WRITE(c, CTL_LAYER_EXT2(LM_0 + i), 0);
+		SDE_REG_WRITE(c, CTL_LAYER_EXT3(LM_0 + i), 0);
 	}
 }
 
@@ -538,6 +542,14 @@ static void sde_hw_ctl_setup_sbuf_cfg(struct sde_hw_ctl *ctx,
 	SDE_REG_WRITE(c, CTL_ROT_TOP, val);
 }
 
+static void sde_hw_reg_dma_flush(struct sde_hw_ctl *ctx)
+{
+	struct sde_hw_reg_dma_ops *ops = sde_reg_dma_get_ops();
+
+	if (ops && ops->last_command)
+		ops->last_command(ctx, DMA_CTL_QUEUE0);
+}
+
 static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 		unsigned long cap)
 {
@@ -559,6 +571,8 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 	ops->get_bitmask_intf = sde_hw_ctl_get_bitmask_intf;
 	ops->get_bitmask_cdm = sde_hw_ctl_get_bitmask_cdm;
 	ops->get_bitmask_wb = sde_hw_ctl_get_bitmask_wb;
+	ops->reg_dma_flush = sde_hw_reg_dma_flush;
+
 	if (cap & BIT(SDE_CTL_SBUF)) {
 		ops->get_bitmask_rot = sde_hw_ctl_get_bitmask_rot;
 		ops->setup_sbuf_cfg = sde_hw_ctl_setup_sbuf_cfg;

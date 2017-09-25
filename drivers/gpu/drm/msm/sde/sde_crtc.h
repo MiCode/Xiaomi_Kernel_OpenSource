@@ -91,6 +91,17 @@ struct sde_crtc_smmu_state_data {
 };
 
 /**
+ * @connectors    : Currently associated drm connectors for retire event
+ * @num_connectors: Number of associated drm connectors for retire event
+ * @list:	event list
+ */
+struct sde_crtc_retire_event {
+	struct drm_connector *connectors[MAX_CONNECTORS];
+	int num_connectors;
+	struct list_head list;
+};
+
+/**
  * struct sde_crtc_mixer: stores the map for each virtual pipeline in the CRTC
  * @hw_lm:	LM HW Driver context
  * @hw_ctl:	CTL Path HW driver context
@@ -182,6 +193,8 @@ struct sde_crtc_event {
  * @frame_events  : static allocation of in-flight frame events
  * @frame_event_list : available frame event list
  * @spin_lock     : spin lock for frame event, transaction status, etc...
+ * @retire_events  : static allocation of retire fence connector
+ * @retire_event_list : available retire fence connector list
  * @frame_done_comp    : for frame_event_done synchronization
  * @event_thread  : Pointer to event handler thread
  * @event_worker  : Event worker queue
@@ -239,6 +252,8 @@ struct sde_crtc {
 	struct sde_crtc_frame_event frame_events[SDE_CRTC_FRAME_EVENT_SIZE];
 	struct list_head frame_event_list;
 	spinlock_t spin_lock;
+	struct sde_crtc_retire_event retire_events[SDE_CRTC_FRAME_EVENT_SIZE];
+	struct list_head retire_event_list;
 	struct completion frame_done_comp;
 
 	/* for handling internal event thread */

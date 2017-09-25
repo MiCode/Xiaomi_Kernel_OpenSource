@@ -423,6 +423,8 @@ int ipa3_copy_ul_filter_rule_to_ipa(struct ipa_install_fltr_rule_req_msg_v01
 {
 	int i, j;
 
+	/* prevent multi-threads accessing rmnet_ipa3_ctx->num_q6_rules */
+	mutex_lock(&rmnet_ipa3_ctx->add_mux_channel_lock);
 	if (rule_req->filter_spec_ex_list_valid == true) {
 		rmnet_ipa3_ctx->num_q6_rules =
 			rule_req->filter_spec_ex_list_len;
@@ -431,6 +433,8 @@ int ipa3_copy_ul_filter_rule_to_ipa(struct ipa_install_fltr_rule_req_msg_v01
 	} else {
 		rmnet_ipa3_ctx->num_q6_rules = 0;
 		IPAWANERR("got no UL rules from modem\n");
+		mutex_unlock(&rmnet_ipa3_ctx->
+					add_mux_channel_lock);
 		return -EINVAL;
 	}
 
@@ -633,9 +637,13 @@ failure:
 	rmnet_ipa3_ctx->num_q6_rules = 0;
 	memset(ipa3_qmi_ctx->q6_ul_filter_rule, 0,
 		sizeof(ipa3_qmi_ctx->q6_ul_filter_rule));
+	mutex_unlock(&rmnet_ipa3_ctx->
+		add_mux_channel_lock);
 	return -EINVAL;
 
 success:
+	mutex_unlock(&rmnet_ipa3_ctx->
+		add_mux_channel_lock);
 	return 0;
 }
 
@@ -1086,7 +1094,6 @@ static int ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 	int ret = 0;
 	bool qmap_check;
 	struct ipa3_wwan_private *wwan_ptr = netdev_priv(dev);
-	struct ipa_tx_meta meta;
 
 	if (skb->protocol != htons(ETH_P_MAP)) {
 		IPAWANDBG_LOW
@@ -1142,17 +1149,11 @@ send:
 	}
 	/* IPA_RM checking end */
 
-	if (RMNET_MAP_GET_CD_BIT(skb)) {
-		memset(&meta, 0, sizeof(meta));
-		meta.pkt_init_dst_ep_valid = true;
-		meta.pkt_init_dst_ep_remote = true;
-		meta.pkt_init_dst_ep =
-			ipa3_get_ep_mapping(IPA_CLIENT_Q6_WAN_CONS);
-		ret = ipa3_tx_dp(IPA_CLIENT_APPS_WAN_PROD, skb, &meta);
-	} else {
-		ret = ipa3_tx_dp(IPA_CLIENT_APPS_WAN_PROD, skb, NULL);
-	}
-
+	/*
+	 * both data packets and command will be routed to
+	 * IPA_CLIENT_Q6_WAN_CONS based on status configuration
+	 */
+	ret = ipa3_tx_dp(IPA_CLIENT_APPS_WAN_PROD, skb, NULL);
 	if (ret) {
 		ret = NETDEV_TX_BUSY;
 		goto out;
@@ -1373,9 +1374,7 @@ static int handle3_egress_format(struct net_device *dev,
 	}
 
 	if ((e->u.data) & RMNET_IOCTL_EGRESS_FORMAT_AGGREGATION) {
-		IPAWANERR("WAN UL Aggregation not supported!!\n");
-		WARN_ON(1);
-		return -EINVAL;
+		IPAWANDBG("WAN UL Aggregation enabled\n");
 		ipa_wan_ep_cfg->ipa_ep_cfg.aggr.aggr_en = IPA_ENABLE_DEAGGR;
 		ipa_wan_ep_cfg->ipa_ep_cfg.aggr.aggr = IPA_QCMAP;
 
@@ -1429,8 +1428,13 @@ static int handle3_egress_format(struct net_device *dev,
 
 	if (rmnet_ipa3_ctx->num_q6_rules != 0) {
 		/* already got Q6 UL filter rules*/
-		if (ipa3_qmi_ctx->modem_cfg_emb_pipe_flt == false)
+		if (ipa3_qmi_ctx->modem_cfg_emb_pipe_flt == false) {
+			/* prevent multi-threads accessing num_q6_rules */
+			mutex_lock(&rmnet_ipa3_ctx->add_mux_channel_lock);
 			rc = ipa3_wwan_add_ul_flt_rule_to_ipa();
+			mutex_unlock(&rmnet_ipa3_ctx->
+				add_mux_channel_lock);
+		}
 		if (rc)
 			IPAWANERR("install UL rules failed\n");
 		else

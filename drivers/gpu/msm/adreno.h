@@ -397,6 +397,8 @@ struct adreno_gpu_core {
  * @profile_buffer: Memdesc holding the drawobj profiling buffer
  * @profile_index: Index to store the start/stop ticks in the profiling
  * buffer
+ * @pwrup_reglist: Memdesc holding the power up register list
+ * which is used by CP during preemption and IFPC
  * @sp_local_gpuaddr: Base GPU virtual address for SP local memory
  * @sp_pvt_gpuaddr: Base GPU virtual address for SP private memory
  * @lm_fw: The LM firmware handle
@@ -453,6 +455,7 @@ struct adreno_device {
 
 	struct kgsl_memdesc profile_buffer;
 	unsigned int profile_index;
+	struct kgsl_memdesc pwrup_reglist;
 	uint64_t sp_local_gpuaddr;
 	uint64_t sp_pvt_gpuaddr;
 	const struct firmware *lm_fw;
@@ -480,6 +483,10 @@ struct adreno_device {
 	void *gpuhtw_llc_slice;
 	bool gpuhtw_llc_slice_enable;
 	unsigned int zap_loaded;
+	unsigned int preempt_level;
+	bool usesgmem;
+	bool skipsaverestore;
+
 };
 
 /**
@@ -521,6 +528,7 @@ enum adreno_device_flags {
 	ADRENO_DEVICE_ISDB_ENABLED = 12,
 	ADRENO_DEVICE_CACHE_FLUSH_TS_SUSPENDED = 13,
 	ADRENO_DEVICE_HARD_RESET = 14,
+	ADRENO_DEVICE_PREEMPTION_EXECUTION = 15,
 };
 
 /**
@@ -848,7 +856,7 @@ struct adreno_gpudev {
 				unsigned int *cmds,
 				struct kgsl_context *context);
 	int (*preemption_yield_enable)(unsigned int *);
-	unsigned int (*preemption_set_marker)(unsigned int *cmds, int start);
+	unsigned int (*set_marker)(unsigned int *cmds, int start);
 	unsigned int (*preemption_post_ibsubmit)(
 				struct adreno_device *adreno_dev,
 				unsigned int *cmds);
@@ -1321,6 +1329,10 @@ static inline void adreno_set_gpu_fault(struct adreno_device *adreno_dev,
 	smp_wmb();
 }
 
+static inline bool adreno_gmu_gpu_fault(struct adreno_device *adreno_dev)
+{
+	return adreno_gpu_fault(adreno_dev) & ADRENO_GMU_FAULT;
+}
 
 /**
  * adreno_clear_gpu_fault() - Clear the GPU fault register
@@ -1543,10 +1555,22 @@ static inline void adreno_set_preempt_state(struct adreno_device *adreno_dev,
 	smp_wmb();
 }
 
-static inline bool adreno_is_preemption_enabled(
+static inline bool adreno_is_preemption_execution_enabled(
+				struct adreno_device *adreno_dev)
+{
+	return test_bit(ADRENO_DEVICE_PREEMPTION_EXECUTION, &adreno_dev->priv);
+}
+
+static inline bool adreno_is_preemption_setup_enabled(
 				struct adreno_device *adreno_dev)
 {
 	return test_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
+}
+
+static inline bool adreno_is_preemption_enabled(
+				struct adreno_device *adreno_dev)
+{
+	return 0;
 }
 /**
  * adreno_ctx_get_rb() - Return the ringbuffer that a context should
@@ -1571,7 +1595,7 @@ static inline struct adreno_ringbuffer *adreno_ctx_get_rb(
 	 * ringbuffer
 	 */
 
-	if (!adreno_is_preemption_enabled(adreno_dev))
+	if (!adreno_is_preemption_execution_enabled(adreno_dev))
 		return &(adreno_dev->ringbuffers[0]);
 
 	/*

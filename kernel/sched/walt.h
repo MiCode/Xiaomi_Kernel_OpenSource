@@ -24,12 +24,6 @@
 #define WINDOW_STATS_AVG		3
 #define WINDOW_STATS_INVALID_POLICY	4
 
-/* Min window size (in ns) = 20ms */
-#define MIN_SCHED_RAVG_WINDOW 20000000
-
-/* Max window size (in ns) = 1s */
-#define MAX_SCHED_RAVG_WINDOW 1000000000
-
 #define EXITING_TASK_MARKER	0xdeaddead
 
 #define FREQ_REPORT_MAX_CPU_LOAD_TOP_TASK	0

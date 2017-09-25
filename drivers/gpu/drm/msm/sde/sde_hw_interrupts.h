@@ -139,6 +139,16 @@ struct sde_hw_intr_ops {
 			int irq_idx);
 
 	/**
+	 * disable_irq_nolock - Disable IRQ based on IRQ index without lock
+	 * @intr:	HW interrupt handle
+	 * @irq_idx:	Lookup irq index return from irq_idx_lookup
+	 * @return:	0 for success, otherwise failure
+	 */
+	int (*disable_irq_nolock)(
+			struct sde_hw_intr *intr,
+			int irq_idx);
+
+	/**
 	 * clear_all_irqs - Clears all the interrupts (i.e. acknowledges
 	 *                  any asserted IRQs). Useful during reset.
 	 * @intr:	HW interrupt handle

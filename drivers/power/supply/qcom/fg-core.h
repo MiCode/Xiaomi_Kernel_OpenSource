@@ -105,7 +105,7 @@ enum sram_access_flags {
 };
 
 /* JEITA */
-enum {
+enum jeita_levels {
 	JEITA_COLD = 0,
 	JEITA_COOL,
 	JEITA_WARM,
@@ -252,6 +252,7 @@ enum ttf_mode {
 struct fg_dt_props {
 	bool	force_load_profile;
 	bool	hold_soc_while_full;
+	bool	linearize_soc;
 	bool	auto_recharge_soc;
 	int	cutoff_volt_mv;
 	int	empty_volt_mv;
@@ -433,6 +434,7 @@ struct fg_chip {
 	int			maint_soc;
 	int			delta_soc;
 	int			last_msoc;
+	int			last_recharge_volt_mv;
 	int			esr_timer_charging_default[NUM_ESR_TIMERS];
 	enum slope_limit_status	slope_limit_sts;
 	bool			profile_available;

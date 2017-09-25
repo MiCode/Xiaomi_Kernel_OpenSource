@@ -57,15 +57,19 @@
 
 #define PCS_BASE 0x800
 
-#define PCS_PORT(n, m) (PCS_BASE + n * m * 0x1000)
+#define PCS_PORT(n) (PCS_BASE + n * 0x1000)
 
-#define PCIE_N_SW_RESET(n, m)			(PCS_PORT(n, m) + 0x00)
-#define PCIE_N_POWER_DOWN_CONTROL(n, m)		(PCS_PORT(n, m) + 0x04)
-#define PCIE_N_PCS_STATUS(n, m)			(PCS_PORT(n, m) + 0x174)
+#define PCIE_N_SW_RESET(n)			(PCS_PORT(n) + 0x00)
+#define PCIE_N_POWER_DOWN_CONTROL(n)		(PCS_PORT(n) + 0x04)
+#define PCIE_N_PCS_STATUS(n)			(PCS_PORT(n) + 0x174)
 
-#define PCIE_COM_SW_RESET		0x400
-#define PCIE_COM_POWER_DOWN_CONTROL	0x404
-#define PCIE_COM_PCS_READY_STATUS	0x448
+#define PCIE_GEN3_COM_INTEGLOOP_GAIN1_MODE0	0x0154
+#define PCIE_GEN3_L0_DRVR_CTRL0			0x080c
+#define PCIE_GEN3_L0_RESET_GEN			0x0890
+#define PCIE_GEN3_L0_BIST_ERR_CNT1_STATUS	0x08a8
+#define PCIE_GEN3_L0_BIST_ERR_CNT2_STATUS	0x08ac
+#define PCIE_GEN3_L0_DEBUG_BUS_STATUS4		0x08bc
+#define PCIE_GEN3_PCIE_PHY_PCS_STATUS		0x1aac
 
 #define PCIE20_PARF_SYS_CTRL	     0x00
 #define PCIE20_PARF_PM_CTRL		0x20
@@ -150,6 +154,10 @@
 #define LINKDOWN_WAITING_US_MIN	   4900
 #define LINKDOWN_WAITING_US_MAX	   5100
 #define LINKDOWN_WAITING_COUNT	    200
+
+#define GEN1_SPEED 0x1
+#define GEN2_SPEED 0x2
+#define GEN3_SPEED 0x3
 
 #define PHY_READY_TIMEOUT_COUNT		   10
 #define XMLH_LINK_UP				  0x400
@@ -481,10 +489,11 @@ struct msm_pcie_dev_t {
 	bool				smmu_exist;
 	uint32_t			smmu_sid_base;
 	uint32_t			   n_fts;
+	uint32_t			max_link_speed;
 	bool				 ext_ref_clk;
-	bool				common_phy;
 	uint32_t			   ep_latency;
 	uint32_t			wr_halt_size;
+	uint32_t			slv_addr_space_size;
 	uint32_t			cpl_timeout;
 	uint32_t			current_bdf;
 	uint32_t			perst_delay_us_min;
@@ -518,9 +527,7 @@ struct msm_pcie_dev_t {
 	u32				num_ep;
 	bool				pending_ep_reg;
 	u32				phy_len;
-	u32				port_phy_len;
 	struct msm_pcie_phy_info_t	*phy_sequence;
-	struct msm_pcie_phy_info_t	*port_phy_sequence;
 	u32		ep_shadow[MAX_DEVICE_NUM][PCIE_CONF_SPACE_DW];
 	u32				  rc_shadow[PCIE_CONF_SPACE_DW];
 	bool				 shadow_en;
@@ -552,12 +559,6 @@ static u32 wr_offset;
 static u32 wr_mask;
 static u32 wr_value;
 static ulong corr_counter_limit = 5;
-
-/* counter to keep track if common PHY needs to be configured */
-static u32 num_rc_on;
-
-/* global lock for PCIe common PHY */
-static struct mutex com_phy_lock;
 
 /* Table to track info of PCIe devices */
 static struct msm_pcie_device_info
@@ -853,41 +854,13 @@ static void pcie_phy_init(struct msm_pcie_dev_t *dev)
 	}
 }
 
-static void pcie_pcs_port_phy_init(struct msm_pcie_dev_t *dev)
-{
-	int i;
-	struct msm_pcie_phy_info_t *phy_seq;
-
-	PCIE_DBG(dev, "RC%d: Initializing PCIe PHY Port\n", dev->rc_idx);
-
-	if (dev->port_phy_sequence) {
-		i =  dev->port_phy_len;
-		phy_seq = dev->port_phy_sequence;
-		while (i--) {
-			msm_pcie_write_reg(dev->phy,
-				phy_seq->offset,
-				phy_seq->val);
-			if (phy_seq->delay)
-				usleep_range(phy_seq->delay,
-					phy_seq->delay + 1);
-			phy_seq++;
-		}
-	}
-
-}
-
 static bool pcie_phy_is_ready(struct msm_pcie_dev_t *dev)
 {
-	if (dev->phy_ver >= 0x20) {
-		if (readl_relaxed(dev->phy +
-			PCIE_N_PCS_STATUS(dev->rc_idx, dev->common_phy)) &
-					BIT(6))
-			return false;
-		else
-			return true;
-	}
+	u32 pos = (dev->max_link_speed == GEN2_SPEED) ?
+		PCIE_N_PCS_STATUS(dev->rc_idx) :
+		PCIE_GEN3_PCIE_PHY_PCS_STATUS;
 
-	if (!(readl_relaxed(dev->phy + PCIE_COM_PCS_READY_STATUS) & 0x1))
+	if (readl_relaxed(dev->phy + pos) & BIT(6))
 		return false;
 	else
 		return true;
@@ -1093,8 +1066,6 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->pending_ep_reg ? "true" : "false");
 	PCIE_DBG_FS(dev, "phy_len is %d",
 		dev->phy_len);
-	PCIE_DBG_FS(dev, "port_phy_len is %d",
-		dev->port_phy_len);
 	PCIE_DBG_FS(dev, "disable_pc is %d",
 		dev->disable_pc);
 	PCIE_DBG_FS(dev, "l0s_supported is %s supported\n",
@@ -1139,12 +1110,12 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->smmu_sid_base);
 	PCIE_DBG_FS(dev, "n_fts: %d\n",
 		dev->n_fts);
-	PCIE_DBG_FS(dev, "common_phy: %d\n",
-		dev->common_phy);
 	PCIE_DBG_FS(dev, "ep_latency: %dms\n",
 		dev->ep_latency);
 	PCIE_DBG_FS(dev, "wr_halt_size: 0x%x\n",
 		dev->wr_halt_size);
+	PCIE_DBG_FS(dev, "slv_addr_space_size: 0x%x\n",
+		dev->slv_addr_space_size);
 	PCIE_DBG_FS(dev, "cpl_timeout: 0x%x\n",
 		dev->cpl_timeout);
 	PCIE_DBG_FS(dev, "current_bdf: 0x%x\n",
@@ -1171,6 +1142,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->linkdown_counter);
 	PCIE_DBG_FS(dev, "wake_counter: %lu\n",
 		dev->wake_counter);
+	PCIE_DBG_FS(dev, "max_link_speed: 0x%x\n",
+		dev->max_link_speed);
 	PCIE_DBG_FS(dev, "link_turned_on_counter: %lu\n",
 		dev->link_turned_on_counter);
 	PCIE_DBG_FS(dev, "link_turned_off_counter: %lu\n",
@@ -3400,31 +3373,6 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 			dev->rc_idx);
 	}
 
-	of_get_property(pdev->dev.of_node, "qcom,port-phy-sequence", &size);
-	if (size) {
-		dev->port_phy_sequence = (struct msm_pcie_phy_info_t *)
-			devm_kzalloc(&pdev->dev, size, GFP_KERNEL);
-
-		if (dev->port_phy_sequence) {
-			dev->port_phy_len =
-				size / sizeof(*dev->port_phy_sequence);
-
-			of_property_read_u32_array(pdev->dev.of_node,
-				"qcom,port-phy-sequence",
-				(unsigned int *)dev->port_phy_sequence,
-				size / sizeof(dev->port_phy_sequence->offset));
-		} else {
-			PCIE_ERR(dev,
-				"RC%d: Could not allocate memory for port phy init sequence.\n",
-				dev->rc_idx);
-			ret = -ENOMEM;
-			goto out;
-		}
-	} else {
-		PCIE_DBG(dev, "RC%d: port phy sequence is not present in DT\n",
-			dev->rc_idx);
-	}
-
 	for (i = 0; i < MSM_PCIE_MAX_CLK; i++) {
 		clk_info = &dev->clk[i];
 
@@ -3638,6 +3586,36 @@ static void msm_pcie_release_resources(struct msm_pcie_dev_t *dev)
 	dev->dev_io_res = NULL;
 }
 
+static void msm_pcie_setup_gen3(struct msm_pcie_dev_t *dev)
+{
+	PCIE_DBG(dev, "PCIe: RC%d: Setting up Gen3\n", dev->rc_idx);
+
+	msm_pcie_write_reg_field(dev->dm_core,
+		PCIE_GEN3_L0_DRVR_CTRL0, 0x1ff00, BIT(0));
+
+	msm_pcie_write_reg(dev->dm_core,
+		PCIE_GEN3_L0_BIST_ERR_CNT2_STATUS,
+		(0x05 << 14) | (0x05 << 10) | (0x0d <<  5));
+
+	msm_pcie_write_mask(dev->dm_core +
+		PCIE_GEN3_L0_BIST_ERR_CNT1_STATUS, BIT(4), 0);
+
+	msm_pcie_write_mask(dev->dm_core +
+		PCIE_GEN3_L0_RESET_GEN, BIT(0), 0);
+
+	/* configure PCIe preset */
+	msm_pcie_write_reg(dev->dm_core,
+		PCIE_GEN3_L0_DEBUG_BUS_STATUS4, 1);
+	msm_pcie_write_reg(dev->dm_core,
+		PCIE_GEN3_COM_INTEGLOOP_GAIN1_MODE0, 0x77777777);
+	msm_pcie_write_reg(dev->dm_core,
+		PCIE_GEN3_L0_DEBUG_BUS_STATUS4, 1);
+
+	msm_pcie_write_reg_field(dev->dm_core,
+		PCIE20_CAP + PCI_EXP_LNKCTL2,
+		PCI_EXP_LNKCAP_SLS, GEN3_SPEED);
+}
+
 static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 {
 	int ret = 0;
@@ -3726,15 +3704,8 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 			readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_MASK));
 	}
 
-	if (dev->dev_mem_res->end - dev->dev_mem_res->start > SZ_16M)
-		writel_relaxed(SZ_32M, dev->parf +
-			PCIE20_PARF_SLV_ADDR_SPACE_SIZE);
-	else if (dev->dev_mem_res->end - dev->dev_mem_res->start > SZ_8M)
-		writel_relaxed(SZ_16M, dev->parf +
-			PCIE20_PARF_SLV_ADDR_SPACE_SIZE);
-	else
-		writel_relaxed(SZ_8M, dev->parf +
-			PCIE20_PARF_SLV_ADDR_SPACE_SIZE);
+	writel_relaxed(dev->slv_addr_space_size, dev->parf +
+		PCIE20_PARF_SLV_ADDR_SPACE_SIZE);
 
 	if (dev->use_msi) {
 		PCIE_DBG(dev, "RC%d: enable WR halt.\n", dev->rc_idx);
@@ -3753,13 +3724,8 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 				PCIE20_PARF_AXI_MSTR_WR_ADDR_HALT));
 	}
 
-	mutex_lock(&com_phy_lock);
 	/* init PCIe PHY */
-	if (!num_rc_on)
-		pcie_phy_init(dev);
-
-	num_rc_on++;
-	mutex_unlock(&com_phy_lock);
+	pcie_phy_init(dev);
 
 	if (options & PM_PIPE_CLK) {
 		usleep_range(PHY_STABILIZATION_DELAY_US_MIN,
@@ -3770,6 +3736,12 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 		wmb();
 		if (ret)
 			goto link_fail;
+	}
+
+	/* check capability for max link speed */
+	if (!dev->max_link_speed) {
+		val = readl_relaxed(dev->dm_core + PCIE20_CAP + PCI_EXP_LNKCAP);
+		dev->max_link_speed = val & PCI_EXP_LNKCAP_SLS;
 	}
 
 	PCIE_DBG(dev, "RC%d: waiting for phy ready...\n", dev->rc_idx);
@@ -3795,8 +3767,6 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 		goto link_fail;
 	}
 
-	pcie_pcs_port_phy_init(dev);
-
 	if (dev->ep_latency)
 		usleep_range(dev->ep_latency * 1000, dev->ep_latency * 1000);
 
@@ -3811,6 +3781,10 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
 				1 - dev->gpio[MSM_PCIE_GPIO_PERST].on);
 	usleep_range(dev->perst_delay_us_min, dev->perst_delay_us_max);
+
+	/* setup Gen3 specific configurations */
+	if (dev->max_link_speed == GEN3_SPEED)
+		msm_pcie_setup_gen3(dev);
 
 	/* set max tlp read size */
 	msm_pcie_write_reg_field(dev->dm_core, PCIE20_DEVICE_CONTROL_STATUS,
@@ -3868,20 +3842,13 @@ link_fail:
 	if (dev->gpio[MSM_PCIE_GPIO_EP].num)
 		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_EP].num,
 				1 - dev->gpio[MSM_PCIE_GPIO_EP].on);
-	msm_pcie_write_reg(dev->phy,
-		PCIE_N_SW_RESET(dev->rc_idx, dev->common_phy), 0x1);
-	msm_pcie_write_reg(dev->phy,
-		PCIE_N_POWER_DOWN_CONTROL(dev->rc_idx, dev->common_phy), 0);
 
-	mutex_lock(&com_phy_lock);
-	num_rc_on--;
-	if (!num_rc_on && dev->common_phy) {
-		PCIE_DBG(dev, "PCIe: RC%d is powering down the common phy\n",
-			dev->rc_idx);
-		msm_pcie_write_reg(dev->phy, PCIE_COM_SW_RESET, 0x1);
-		msm_pcie_write_reg(dev->phy, PCIE_COM_POWER_DOWN_CONTROL, 0);
+	if (dev->max_link_speed != GEN3_SPEED) {
+		msm_pcie_write_reg(dev->phy,
+			PCIE_N_SW_RESET(dev->rc_idx), 0x1);
+		msm_pcie_write_reg(dev->phy,
+			PCIE_N_POWER_DOWN_CONTROL(dev->rc_idx), 0);
 	}
-	mutex_unlock(&com_phy_lock);
 
 	msm_pcie_pipe_clk_deinit(dev);
 	msm_pcie_clk_deinit(dev);
@@ -3919,20 +3886,12 @@ static void msm_pcie_disable(struct msm_pcie_dev_t *dev, u32 options)
 	gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
 				dev->gpio[MSM_PCIE_GPIO_PERST].on);
 
-	msm_pcie_write_reg(dev->phy,
-		PCIE_N_SW_RESET(dev->rc_idx, dev->common_phy), 0x1);
-	msm_pcie_write_reg(dev->phy,
-		PCIE_N_POWER_DOWN_CONTROL(dev->rc_idx, dev->common_phy), 0);
-
-	mutex_lock(&com_phy_lock);
-	num_rc_on--;
-	if (!num_rc_on && dev->common_phy) {
-		PCIE_DBG(dev, "PCIe: RC%d is powering down the common phy\n",
-			dev->rc_idx);
-		msm_pcie_write_reg(dev->phy, PCIE_COM_SW_RESET, 0x1);
-		msm_pcie_write_reg(dev->phy, PCIE_COM_POWER_DOWN_CONTROL, 0);
+	if (dev->max_link_speed != GEN3_SPEED) {
+		msm_pcie_write_reg(dev->phy,
+			PCIE_N_SW_RESET(dev->rc_idx), 0x1);
+		msm_pcie_write_reg(dev->phy,
+			PCIE_N_POWER_DOWN_CONTROL(dev->rc_idx), 0);
 	}
-	mutex_unlock(&com_phy_lock);
 
 	if (options & PM_CLK) {
 		msm_pcie_write_mask(dev->parf + PCIE20_PARF_PHY_CTRL, 0,
@@ -5382,12 +5341,12 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		PCIE_DBG(&msm_pcie_dev[rc_idx], "n-fts: 0x%x.\n",
 				msm_pcie_dev[rc_idx].n_fts);
 
-	msm_pcie_dev[rc_idx].common_phy =
-		of_property_read_bool((&pdev->dev)->of_node,
-				"qcom,common-phy");
-	PCIE_DBG(&msm_pcie_dev[rc_idx],
-		"PCIe: RC%d: Common PHY does %s exist.\n",
-		rc_idx, msm_pcie_dev[rc_idx].common_phy ? "" : "not");
+	msm_pcie_dev[rc_idx].max_link_speed = GEN2_SPEED;
+	ret = of_property_read_u32(pdev->dev.of_node,
+				"qcom,max-link-speed",
+				&msm_pcie_dev[rc_idx].max_link_speed);
+	PCIE_DBG(&msm_pcie_dev[rc_idx], "PCIe: RC%d: max-link-speed: 0x%x.\n",
+		rc_idx, msm_pcie_dev[rc_idx].max_link_speed);
 
 	msm_pcie_dev[rc_idx].ext_ref_clk =
 		of_property_read_bool((&pdev->dev)->of_node,
@@ -5418,6 +5377,14 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	else
 		PCIE_DBG(&msm_pcie_dev[rc_idx], "RC%d: wr-halt-size: 0x%x.\n",
 			rc_idx, msm_pcie_dev[rc_idx].wr_halt_size);
+
+	msm_pcie_dev[rc_idx].slv_addr_space_size = SZ_16M;
+	ret = of_property_read_u32(pdev->dev.of_node,
+				"qcom,slv-addr-space-size",
+				&msm_pcie_dev[rc_idx].slv_addr_space_size);
+	PCIE_DBG(&msm_pcie_dev[rc_idx],
+		"RC%d: slv-addr-space-size: 0x%x.\n",
+		rc_idx, msm_pcie_dev[rc_idx].slv_addr_space_size);
 
 	msm_pcie_dev[rc_idx].cpl_timeout = 0;
 	ret = of_property_read_u32((&pdev->dev)->of_node,
@@ -5519,9 +5486,7 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	msm_pcie_dev[rc_idx].num_ep = 0;
 	msm_pcie_dev[rc_idx].pending_ep_reg = false;
 	msm_pcie_dev[rc_idx].phy_len = 0;
-	msm_pcie_dev[rc_idx].port_phy_len = 0;
 	msm_pcie_dev[rc_idx].phy_sequence = NULL;
-	msm_pcie_dev[rc_idx].port_phy_sequence = NULL;
 	msm_pcie_dev[rc_idx].event_reg = NULL;
 	msm_pcie_dev[rc_idx].linkdown_counter = 0;
 	msm_pcie_dev[rc_idx].link_turned_on_counter = 0;
@@ -5730,7 +5695,6 @@ static int __init pcie_init(void)
 
 	pcie_drv.rc_num = 0;
 	mutex_init(&pcie_drv.drv_lock);
-	mutex_init(&com_phy_lock);
 
 	for (i = 0; i < MAX_RC_NUM; i++) {
 		snprintf(rc_name, MAX_RC_NAME_LEN, "pcie%d-short", i);
