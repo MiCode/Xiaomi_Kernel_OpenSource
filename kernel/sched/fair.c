@@ -5658,10 +5658,10 @@ static int __find_new_capacity(unsigned long util,
 
 	for (idx = 0; idx < sge->nr_cap_states; idx++) {
 		if (sge->cap_states[idx].cap >= util)
-			break;
+			return idx;
 	}
 
-	return idx;
+	return (sge->nr_cap_states - 1);
 }
 
 static int find_new_capacity(struct energy_env *eenv,
