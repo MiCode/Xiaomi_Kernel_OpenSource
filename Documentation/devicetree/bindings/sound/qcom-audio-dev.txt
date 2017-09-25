@@ -2459,6 +2459,10 @@ Optional properties:
 		6-pole-jack : Jack on the hardware is 6-pole.
 - clock-names : clock name defined for external clock.
 - clocks : external clock defined for codec clock.
+- qcom,msm-mbhc-hs-mic-max-threshold-mv : headset detection threshold. When micbias is
+					  not set to 2.7v, need scale in driver.
+- qcom,msm-mbhc-hs-mic-min-threshold-mv : headhpone detection threshold. When micbias is
+					  not set to 2.7v, need scale in driver.
 - qcom,hph-en1-gpio : GPIO to enable HiFi amplifiers.
 - qcom,hph-en0-gpio : GPIO to enable HiFi audio route to headset.
 - qcom,wsa-max-devs : Maximum number of WSA881x devices present in the target
@@ -2516,6 +2520,8 @@ Example:
 
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
+		qcom,msm-mbhc-hs-mic-max-threshold-mv = <1700>;
+		qcom,msm-mbhc-hs-mic-min-threshold-mv = <50>;
 		qcom,hph-en0-gpio = <&tavil_hph_en0>;
 		qcom,hph-en1-gpio = <&tavil_hph_en1>;
 		qcom,tavil-mclk-clk-freq = <9600000>;
