@@ -3603,7 +3603,8 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 					SDE_FORMAT_IS_TILE(fmt);
 			cdp_cfg->preload_ahead = SDE_WB_CDP_PRELOAD_AHEAD_64;
 
-			psde->pipe_hw->ops.setup_cdp(psde->pipe_hw, cdp_cfg);
+			psde->pipe_hw->ops.setup_cdp(psde->pipe_hw, cdp_cfg,
+					pstate->multirect_index);
 		}
 
 		if (psde->pipe_hw->ops.setup_sys_cache) {

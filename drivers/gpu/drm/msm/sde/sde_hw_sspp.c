@@ -85,6 +85,7 @@
 #define SSPP_TRAFFIC_SHAPER                0x130
 #define SSPP_CDP_CNTL                      0x134
 #define SSPP_UBWC_ERROR_STATUS             0x138
+#define SSPP_CDP_CNTL_REC1                 0x13c
 #define SSPP_TRAFFIC_SHAPER_PREFILL        0x150
 #define SSPP_TRAFFIC_SHAPER_REC1_PREFILL   0x154
 #define SSPP_TRAFFIC_SHAPER_REC1           0x158
@@ -873,15 +874,24 @@ static void sde_hw_sspp_setup_ts_prefill(struct sde_hw_pipe *ctx,
 }
 
 static void sde_hw_sspp_setup_cdp(struct sde_hw_pipe *ctx,
-		struct sde_hw_pipe_cdp_cfg *cfg)
+		struct sde_hw_pipe_cdp_cfg *cfg,
+		enum sde_sspp_multirect_index index)
 {
 	u32 idx;
 	u32 cdp_cntl = 0;
+	u32 cdp_cntl_offset = 0;
 
 	if (!ctx || !cfg)
 		return;
 
 	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx))
+		return;
+
+	if (index == SDE_SSPP_RECT_0)
+		cdp_cntl_offset = SSPP_CDP_CNTL;
+	else if (index == SDE_SSPP_RECT_1)
+		cdp_cntl_offset = SSPP_CDP_CNTL_REC1;
+	else
 		return;
 
 	if (cfg->enable)
@@ -893,7 +903,7 @@ static void sde_hw_sspp_setup_cdp(struct sde_hw_pipe *ctx,
 	if (cfg->preload_ahead == SDE_SSPP_CDP_PRELOAD_AHEAD_64)
 		cdp_cntl |= BIT(3);
 
-	SDE_REG_WRITE(&ctx->hw, SSPP_CDP_CNTL, cdp_cntl);
+	SDE_REG_WRITE(&ctx->hw, cdp_cntl_offset, cdp_cntl);
 }
 
 static void _setup_layer_ops(struct sde_hw_pipe *c,
