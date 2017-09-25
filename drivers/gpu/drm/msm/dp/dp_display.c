@@ -472,6 +472,8 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 	u32 max_pclk_from_edid = 0;
 	struct edid *edid;
 
+	dp->aux->init(dp->aux, dp->parser->aux_cfg);
+
 	rc = dp->panel->read_sink_caps(dp->panel, dp->dp_display.connector);
 	if (rc)
 		return rc;
@@ -515,7 +517,6 @@ static void dp_display_host_init(struct dp_display_private *dp)
 
 	dp->power->init(dp->power, flip);
 	dp->ctrl->init(dp->ctrl, flip);
-	dp->aux->init(dp->aux, dp->parser->aux_cfg);
 	enable_irq(dp->irq);
 	dp->core_initialized = true;
 }
@@ -527,7 +528,6 @@ static void dp_display_host_deinit(struct dp_display_private *dp)
 		return;
 	}
 
-	dp->aux->deinit(dp->aux);
 	dp->ctrl->deinit(dp->ctrl);
 	dp->power->deinit(dp->power);
 	disable_irq(dp->irq);
@@ -548,6 +548,8 @@ static void dp_display_process_hpd_low(struct dp_display_private *dp)
 		dp->audio->off(dp->audio);
 
 	dp_display_send_hpd_notification(dp, false);
+
+	dp->aux->deinit(dp->aux);
 }
 
 static int dp_display_usbpd_configure_cb(struct device *dev)
