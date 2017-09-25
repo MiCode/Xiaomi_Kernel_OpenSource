@@ -199,6 +199,14 @@ struct sde_connector_ops {
 	 * Returns: dst_format of display
 	 */
 	enum dsi_pixel_format (*get_dst_format)(void *display);
+
+	/**
+	 * post_kickoff - display to program post kickoff-time features
+	 * @connector: Pointer to drm connector structure
+	 * Returns: Zero on success
+	 */
+	int (*post_kickoff)(struct drm_connector *connector);
+
 };
 
 /**

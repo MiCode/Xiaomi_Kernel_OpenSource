@@ -130,11 +130,13 @@ msm_disable_outputs(struct drm_device *dev, struct drm_atomic_state *old_state)
 			continue;
 
 		if (msm_is_mode_seamless(
-				&connector->encoder->crtc->state->mode))
+			&connector->encoder->crtc->state->mode) ||
+			msm_is_mode_seamless_vrr(
+			&connector->encoder->crtc->state->adjusted_mode))
 			continue;
 
 		if (msm_is_mode_seamless_dms(
-			       &connector->encoder->crtc->state->adjusted_mode))
+			&connector->encoder->crtc->state->adjusted_mode))
 			continue;
 
 		funcs = encoder->helper_private;
@@ -169,7 +171,8 @@ msm_disable_outputs(struct drm_device *dev, struct drm_atomic_state *old_state)
 		if (!old_crtc_state->active)
 			continue;
 
-		if (msm_is_mode_seamless(&crtc->state->mode))
+		if (msm_is_mode_seamless(&crtc->state->mode) ||
+			msm_is_mode_seamless_vrr(&crtc->state->adjusted_mode))
 			continue;
 
 		if (msm_is_mode_seamless_dms(&crtc->state->adjusted_mode))
@@ -309,7 +312,8 @@ static void msm_atomic_helper_commit_modeset_enables(struct drm_device *dev,
 		if (!crtc->state->active)
 			continue;
 
-		if (msm_is_mode_seamless(&crtc->state->mode))
+		if (msm_is_mode_seamless(&crtc->state->mode) ||
+			msm_is_mode_seamless_vrr(&crtc->state->adjusted_mode))
 			continue;
 
 		funcs = crtc->helper_private;

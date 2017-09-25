@@ -127,6 +127,9 @@ enum msm_mdp_plane_property {
 
 enum msm_mdp_crtc_property {
 	CRTC_PROP_INFO,
+	CRTC_PROP_DEST_SCALER_LUT_ED,
+	CRTC_PROP_DEST_SCALER_LUT_CIR,
+	CRTC_PROP_DEST_SCALER_LUT_SEP,
 
 	/* # of blob properties */
 	CRTC_PROP_BLOBCOUNT,
@@ -148,6 +151,7 @@ enum msm_mdp_crtc_property {
 	CRTC_PROP_ROI_V1,
 	CRTC_PROP_SECURITY_LEVEL,
 	CRTC_PROP_IDLE_TIMEOUT,
+	CRTC_PROP_DEST_SCALER,
 
 	/* total # of properties */
 	CRTC_PROP_COUNT

@@ -119,4 +119,11 @@ int dsi_conn_pre_kickoff(struct drm_connector *connector,
 		void *display,
 		struct msm_display_kickoff_params *params);
 
+/**
+ * dsi_display_post_kickoff - program post kickoff-time features
+ * @connector: Pointer to drm connector structure
+ * Returns: Zero on success
+ */
+int dsi_conn_post_kickoff(struct drm_connector *connector);
+
 #endif /* _DSI_DRM_H_ */

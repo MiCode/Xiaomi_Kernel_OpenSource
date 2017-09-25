@@ -21,6 +21,7 @@
 #include "dsi_hw.h"
 #include "dsi_panel.h"
 #include "dsi_catalog.h"
+#include "sde_dbg.h"
 
 #define MMSS_MISC_CLAMP_REG_OFF           0x0014
 #define DSI_CTRL_DYNAMIC_FORCE_ON         (0x23F|BIT(8)|BIT(9)|BIT(11)|BIT(21))
@@ -218,6 +219,27 @@ u32 dsi_ctrl_hw_cmn_collect_misr(struct dsi_ctrl_hw *ctrl,
 }
 
 /**
+* set_timing_db() - enable/disable Timing DB register
+* @ctrl:          Pointer to controller host hardware.
+* @enable:        Enable/Disable flag.
+*
+* Enable or Disabe the Timing DB register.
+*/
+void dsi_ctrl_hw_cmn_set_timing_db(struct dsi_ctrl_hw *ctrl,
+				     bool enable)
+{
+	if (enable)
+		DSI_W32(ctrl, DSI_DSI_TIMING_DB_MODE, 0x1);
+	else
+		DSI_W32(ctrl, DSI_DSI_TIMING_DB_MODE, 0x0);
+
+	wmb(); /* make sure timing db registers are set */
+	pr_debug("[DSI_%d] ctrl timing DB set:%d\n", ctrl->index,
+				enable);
+	SDE_EVT32(ctrl->index, enable);
+}
+
+/**
  * set_video_timing() - set up the timing for video frame
  * @ctrl:          Pointer to controller host hardware.
  * @mode:          Video mode information.
@@ -290,6 +312,7 @@ void dsi_ctrl_hw_cmn_set_video_timing(struct dsi_ctrl_hw *ctrl,
 	DSI_W32(ctrl, DSI_MISR_VIDEO_CTRL, 0x10100);
 	DSI_W32(ctrl, DSI_DSI_TIMING_FLUSH, 0x1);
 	pr_debug("[DSI_%d] ctrl video parameters updated\n", ctrl->index);
+	SDE_EVT32(v_total, h_total);
 }
 
 /**
