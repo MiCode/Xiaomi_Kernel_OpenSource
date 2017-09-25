@@ -15,7 +15,7 @@
 #include <dt-bindings/clock/qcom,audio-ext-clk.h>
 
 &tavil_snd {
-	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>;
+	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
 	qcom,audio-routing =
 		"AIF4 VI", "MCLK",
 		"RX_BIAS", "MCLK",
@@ -88,7 +88,7 @@
 		"ADC2_IN", "ADC2_OUT",
 		"ADC3_IN", "ADC3_OUT";
 
-	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>;
+	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
 	qcom,msm-mclk-freq = <9600000>;
 	qcom,msm-mbhc-hphl-swh = <1>;
 	qcom,msm-mbhc-gnd-swh = <1>;
@@ -173,7 +173,7 @@
 		status = "okay";
 		compatible = "qcom,msm-sdw-codec";
 		reg = <0x62ec1000 0x0>;
-		interrupts = <0 161 0>;
+		interrupts = <0 88 0>;
 		interrupt-names = "swr_master_irq";
 		qcom,cdc-sdw-gpios = <&cdc_sdw_gpios>;
 
@@ -287,7 +287,7 @@
 
 		wcd_spi_0: wcd_spi {
 			compatible = "qcom,wcd-spi-v2";
-			qcom,master-bus-num = <8>;
+			qcom,master-bus-num = <0>;
 			qcom,chip-select = <0>;
 			qcom,max-frequency = <24000000>;
 			qcom,mem-base-addr = <0x100000>;
@@ -359,17 +359,5 @@
 			compatible = "qcom,msm-digital-codec";
 			reg = <0x62ec0000 0x0>;
 		};
-	};
-};
-
-&pm660_gpios {
-	gpio@c200 {
-		status = "ok";
-		qcom,mode = <1>;
-		qcom,pull = <4>;
-		qcom,vin-sel = <0>;
-		qcom,src-sel = <2>;
-		qcom,master-en = <1>;
-		qcom,out-strength = <2>;
 	};
 };
