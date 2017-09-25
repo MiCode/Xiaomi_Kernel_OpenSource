@@ -93,6 +93,8 @@ int32_t cam_actuator_slaveInfo_pkt_parser(struct cam_actuator_ctrl_t *a_ctrl,
 
 	i2c_info = (struct cam_cmd_i2c_info *)cmd_buf;
 	if (a_ctrl->io_master_info.master_type == CCI_MASTER) {
+		a_ctrl->io_master_info.cci_client->cci_i2c_master =
+			a_ctrl->cci_i2c_master;
 		a_ctrl->io_master_info.cci_client->i2c_freq_mode =
 			i2c_info->i2c_freq_mode;
 		a_ctrl->io_master_info.cci_client->sid =
@@ -554,7 +556,7 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 	case CAM_QUERY_CAP: {
 		struct cam_actuator_query_cap actuator_cap = {0};
 
-		actuator_cap.slot_info = a_ctrl->id;
+		actuator_cap.slot_info = a_ctrl->soc_info.index;
 		if (copy_to_user((void __user *) cmd->handle, &actuator_cap,
 			sizeof(struct cam_actuator_query_cap))) {
 			CAM_ERR(CAM_ACTUATOR, "Failed Copy to User");
