@@ -64,6 +64,51 @@ static int __cam_isp_ctx_enqueue_request_in_order(
 	return 0;
 }
 
+static const char *__cam_isp_resource_handle_id_to_type
+	(uint32_t resource_handle)
+{
+	switch (resource_handle) {
+	case CAM_ISP_IFE_OUT_RES_FULL:
+		return "CAM_ISP_IFE_OUT_RES_FULL";
+	case CAM_ISP_IFE_OUT_RES_DS4:
+		return "CAM_ISP_IFE_OUT_RES_DS4";
+	case CAM_ISP_IFE_OUT_RES_DS16:
+		return "CAM_ISP_IFE_OUT_RES_DS16";
+	case CAM_ISP_IFE_OUT_RES_RAW_DUMP:
+		return "CAM_ISP_IFE_OUT_RES_RAW_DUMP";
+	case CAM_ISP_IFE_OUT_RES_FD:
+		return "CAM_ISP_IFE_OUT_RES_FD";
+	case CAM_ISP_IFE_OUT_RES_PDAF:
+		return "CAM_ISP_IFE_OUT_RES_PDAF";
+	case CAM_ISP_IFE_OUT_RES_RDI_0:
+		return "CAM_ISP_IFE_OUT_RES_RDI_0";
+	case CAM_ISP_IFE_OUT_RES_RDI_1:
+		return "CAM_ISP_IFE_OUT_RES_RDI_1";
+	case CAM_ISP_IFE_OUT_RES_RDI_2:
+		return "CAM_ISP_IFE_OUT_RES_RDI_2";
+	case CAM_ISP_IFE_OUT_RES_RDI_3:
+		return "CAM_ISP_IFE_OUT_RES_RDI_3";
+	case CAM_ISP_IFE_OUT_RES_STATS_HDR_BE:
+		return "CAM_ISP_IFE_OUT_RES_STATS_HDR_BE";
+	case CAM_ISP_IFE_OUT_RES_STATS_HDR_BHIST:
+		return "CAM_ISP_IFE_OUT_RES_STATS_HDR_BHIST";
+	case CAM_ISP_IFE_OUT_RES_STATS_TL_BG:
+		return "CAM_ISP_IFE_OUT_RES_STATS_TL_BG";
+	case CAM_ISP_IFE_OUT_RES_STATS_BF:
+		return "CAM_ISP_IFE_OUT_RES_STATS_BF";
+	case CAM_ISP_IFE_OUT_RES_STATS_AWB_BG:
+		return "CAM_ISP_IFE_OUT_RES_STATS_AWB_BG";
+	case CAM_ISP_IFE_OUT_RES_STATS_BHIST:
+		return "CAM_ISP_IFE_OUT_RES_STATS_BHIST";
+	case CAM_ISP_IFE_OUT_RES_STATS_RS:
+		return "CAM_ISP_IFE_OUT_RES_STATS_RS";
+	case CAM_ISP_IFE_OUT_RES_STATS_CS:
+		return "CAM_ISP_IFE_OUT_RES_STATS_CS";
+	default:
+		return "CAM_ISP_Invalid_Resource_Type";
+	}
+}
+
 static uint64_t __cam_isp_ctx_get_event_ts(uint32_t evt_id, void *evt_data)
 {
 	uint64_t ts = 0;
@@ -99,6 +144,23 @@ static uint64_t __cam_isp_ctx_get_event_ts(uint32_t evt_id, void *evt_data)
 	}
 
 	return ts;
+}
+
+static void __cam_isp_ctx_handle_buf_done_fail_log(
+	struct cam_isp_ctx_req *req_isp)
+{
+	int i;
+
+	CAM_ERR_RATE_LIMIT(CAM_ISP,
+		"Resource Handles that fail to generate buf_done in prev frame");
+	for (i = 0; i < req_isp->num_fence_map_out; i++) {
+		if (req_isp->fence_map_out[i].sync_id != -1)
+		CAM_ERR_RATE_LIMIT(CAM_ISP,
+			"Resource_Handle: [%s] Sync_ID: [0x%x]",
+			__cam_isp_resource_handle_id_to_type(
+			req_isp->fence_map_out[i].resource_handle),
+			req_isp->fence_map_out[i].sync_id);
+	}
 }
 
 static int __cam_isp_ctx_handle_buf_done_in_activated_state(
@@ -143,8 +205,12 @@ static int __cam_isp_ctx_handle_buf_done_in_activated_state(
 		if (!bubble_state) {
 			CAM_DBG(CAM_ISP, "Sync with success: fd 0x%x",
 				   req_isp->fence_map_out[j].sync_id);
-			rc = cam_sync_signal(req_isp->fence_map_out[j].sync_id,
-				CAM_SYNC_STATE_SIGNALED_SUCCESS);
+			if (req_isp->fence_map_out[j].sync_id == -1)
+				__cam_isp_ctx_handle_buf_done_fail_log(req_isp);
+			else
+				rc = cam_sync_signal(req_isp->
+					fence_map_out[j].sync_id,
+					CAM_SYNC_STATE_SIGNALED_SUCCESS);
 			if (rc)
 				CAM_ERR(CAM_ISP, "Sync failed with rc = %d",
 					 rc);
@@ -731,14 +797,6 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 	 *
 	 */
 	ctx_isp = (struct cam_isp_context *) ctx->ctx_priv;
-	if (ctx_isp->active_req_cnt >=  2) {
-		CAM_ERR_RATE_LIMIT(CAM_ISP,
-			"Reject apply request due to congestion(cnt = %d)",
-			ctx_isp->active_req_cnt);
-		rc = -EFAULT;
-		goto end;
-	}
-
 	req = list_first_entry(&ctx->pending_req_list, struct cam_ctx_request,
 		list);
 
@@ -757,6 +815,14 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 	CAM_DBG(CAM_ISP, "Apply request %lld", req->request_id);
 	req_isp = (struct cam_isp_ctx_req *) req->req_priv;
 
+	if (ctx_isp->active_req_cnt >=  2) {
+		CAM_ERR_RATE_LIMIT(CAM_ISP,
+			"Reject apply request due to congestion(cnt = %d)",
+			ctx_isp->active_req_cnt);
+		__cam_isp_ctx_handle_buf_done_fail_log(req_isp);
+		rc = -EFAULT;
+		goto end;
+	}
 	req_isp->bubble_report = apply->report_if_bubble;
 
 	cfg.ctxt_to_hw_map = ctx_isp->hw_ctx;
