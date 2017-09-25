@@ -91,6 +91,11 @@ static struct {
 #define cpuhp_lock_acquire()      lock_map_acquire(&cpu_hotplug.dep_map)
 #define cpuhp_lock_release()      lock_map_release(&cpu_hotplug.dep_map)
 
+void cpu_hotplug_mutex_held(void)
+{
+	lockdep_assert_held(&cpu_hotplug.lock);
+}
+EXPORT_SYMBOL(cpu_hotplug_mutex_held);
 
 void get_online_cpus(void)
 {
