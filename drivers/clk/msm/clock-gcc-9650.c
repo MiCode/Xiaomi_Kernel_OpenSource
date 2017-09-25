@@ -96,6 +96,15 @@ static void __iomem *virt_apcsbase;
 			| BVAL(10, 8, s##_source_val), \
 	}
 
+static int vdd_corner_sdx20[] = {
+	RPM_REGULATOR_LEVEL_NONE,		/* VDD_DIG_NONE */
+	RPM_REGULATOR_LEVEL_MIN_SVS,		/* VDD_DIG_MIN */
+	RPM_REGULATOR_LEVEL_LOW_SVS,		/* VDD_DIG_LOWER */
+	RPM_REGULATOR_LEVEL_SVS,		/* VDD_DIG_LOW */
+	RPM_REGULATOR_LEVEL_NOM,		/* VDD_DIG_NOMINAL */
+	RPM_REGULATOR_LEVEL_TURBO,		/* VDD_DIG_HIGH */
+};
+
 static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 static DEFINE_VDD_REGULATORS(vdd_dig_ao, VDD_DIG_NUM, 1, vdd_corner, NULL);
 
@@ -1665,6 +1674,9 @@ static void msm_clocks_gcc_sdx20_fixup(void)
 	apss_ahb_clk_src.freq_tbl = ftbl_apss_ahb_clk_src_sdx20;
 	usb30_mock_utmi_clk_src.freq_tbl =
 		ftbl_usb30_mock_utmi_clk_src_sdx20;
+
+	vdd_dig.vdd_uv = vdd_corner_sdx20;
+	vdd_dig_ao.vdd_uv = vdd_corner_sdx20;
 
 	sdcc1_apps_clk_src.c.fmax[VDD_DIG_MIN] = 25000000;
 	sdcc1_apps_clk_src.c.fmax[VDD_DIG_LOWER] = 50000000;
