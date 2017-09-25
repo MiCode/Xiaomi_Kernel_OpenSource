@@ -390,6 +390,15 @@ config QCOM_EUD
 	  Embedded USB Debugger (EUD).
 	  If unsure, say N.
 
+config QCOM_MINIDUMP
+	bool "QCOM Minidump Support"
+	depends on QCOM_SMEM && QCOM_DLOAD_MODE
+	help
+	  This enables minidump feature. It allows various clients to
+	  register to dump their state at system bad state (panic/WDT,etc.,).
+	  Minidump would dump all registered entries, only when DLOAD mode
+	  is enabled.
+
 config QCOM_BUS_SCALING
 	bool "Bus scaling driver"
 	help
