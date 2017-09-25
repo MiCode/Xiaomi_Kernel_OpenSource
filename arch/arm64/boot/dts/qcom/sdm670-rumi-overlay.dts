@@ -13,6 +13,7 @@
 /dts-v1/;
 /plugin/;
 
+#include <dt-bindings/interrupt-controller/arm-gic.h>
 #include "sdm670-rumi.dtsi"
 
 / {

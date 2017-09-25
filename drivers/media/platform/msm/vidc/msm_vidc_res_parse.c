@@ -73,12 +73,6 @@ static inline void msm_vidc_free_cycles_per_mb_table(
 	res->clock_freq_tbl.clk_prof_entries = NULL;
 }
 
-static inline void msm_vidc_free_platform_version_table(
-		struct msm_vidc_platform_resources *res)
-{
-	res->pf_ver_tbl = NULL;
-}
-
 static inline void msm_vidc_free_reg_table(
 			struct msm_vidc_platform_resources *res)
 {
@@ -133,7 +127,6 @@ void msm_vidc_free_platform_resources(
 {
 	msm_vidc_free_clock_table(res);
 	msm_vidc_free_regulator_table(res);
-	msm_vidc_free_platform_version_table(res);
 	msm_vidc_free_allowed_clocks_table(res);
 	msm_vidc_free_reg_table(res);
 	msm_vidc_free_qdss_addr_table(res);
@@ -343,33 +336,6 @@ int msm_vidc_load_u32_table(struct platform_device *pdev,
 	return rc;
 }
 EXPORT_SYMBOL(msm_vidc_load_u32_table);
-
-static int msm_vidc_load_platform_version_table(
-		struct msm_vidc_platform_resources *res)
-{
-	int rc = 0;
-	struct platform_device *pdev = res->pdev;
-
-	if (!of_find_property(pdev->dev.of_node,
-			"qcom,platform-version", NULL)) {
-		dprintk(VIDC_DBG, "qcom,platform-version not found\n");
-		return 0;
-	}
-
-	rc = msm_vidc_load_u32_table(pdev, pdev->dev.of_node,
-			"qcom,platform-version",
-			sizeof(*res->pf_ver_tbl),
-			(u32 **)&res->pf_ver_tbl,
-			NULL);
-	if (rc) {
-		dprintk(VIDC_ERR,
-			"%s: failed to read platform version table\n",
-			__func__);
-		return rc;
-	}
-
-	return 0;
-}
 
 /* A comparator to compare loads (needed later on) */
 static int cmp(const void *a, const void *b)
@@ -712,6 +678,29 @@ err_load_clk_table_fail:
 	return rc;
 }
 
+static int msm_decide_dt_node(
+		struct msm_vidc_platform_resources *res) {
+	struct platform_device *pdev = res->pdev;
+	int rc = 0;
+	u32 sku_index = 0;
+
+	rc = of_property_read_u32(pdev->dev.of_node, "sku-index",
+			&sku_index);
+	if (rc) {
+		dprintk(VIDC_DBG, "'sku_index' not found in node\n");
+		return 0;
+	}
+
+	if (sku_index != res->sku_version) {
+		dprintk(VIDC_DBG,
+			"Failed to parser dt: sku_index %d res->sku_version - %d\n",
+			sku_index, res->sku_version);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int find_key_value(struct msm_vidc_platform_data *platform_data,
 	const char *key)
 {
@@ -742,6 +731,8 @@ int read_platform_resources_from_drv_data(
 
 	res->codec_data_count = platform_data->codec_data_length;
 	res->codec_data = platform_data->codec_data;
+
+	res->sku_version = platform_data->sku_version;
 
 	res->fw_name = "venus";
 
@@ -805,6 +796,11 @@ int read_platform_resources_from_dt(
 		return -ENOENT;
 	}
 
+	rc = msm_decide_dt_node(res);
+	if (rc)
+		return rc;
+
+
 	INIT_LIST_HEAD(&res->context_banks);
 
 	res->firmware_base = (phys_addr_t)firmware_base;
@@ -815,10 +811,6 @@ int read_platform_resources_from_dt(
 
 	kres = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	res->irq = kres ? kres->start : -1;
-
-	rc = msm_vidc_load_platform_version_table(res);
-	if (rc)
-		dprintk(VIDC_ERR, "Failed to load pf version table: %d\n", rc);
 
 	rc = msm_vidc_load_subcache_info(res);
 	if (rc)

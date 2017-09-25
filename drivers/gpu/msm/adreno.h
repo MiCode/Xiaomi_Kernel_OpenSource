@@ -1329,6 +1329,10 @@ static inline void adreno_set_gpu_fault(struct adreno_device *adreno_dev,
 	smp_wmb();
 }
 
+static inline bool adreno_gmu_gpu_fault(struct adreno_device *adreno_dev)
+{
+	return adreno_gpu_fault(adreno_dev) & ADRENO_GMU_FAULT;
+}
 
 /**
  * adreno_clear_gpu_fault() - Clear the GPU fault register

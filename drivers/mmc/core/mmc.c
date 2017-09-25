@@ -1357,10 +1357,6 @@ int mmc_hs400_to_hs200(struct mmc_card *card)
 	int err;
 	u8 val;
 
-	/* Reduce frequency to HS */
-	max_dtr = card->ext_csd.hs_max_dtr;
-	mmc_set_clock(host, max_dtr);
-
 	/* Switch HS400 to HS DDR */
 	val = EXT_CSD_TIMING_HS;
 	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL, EXT_CSD_HS_TIMING,
@@ -1370,6 +1366,10 @@ int mmc_hs400_to_hs200(struct mmc_card *card)
 		goto out_err;
 
 	mmc_set_timing(host, MMC_TIMING_MMC_DDR52);
+
+	/* Reduce frequency to HS */
+	max_dtr = card->ext_csd.hs_max_dtr;
+	mmc_set_clock(host, max_dtr);
 
 	err = mmc_switch_status(card, false);
 	if (err)
@@ -1416,7 +1416,7 @@ out_err:
 static int mmc_select_hs400es(struct mmc_card *card)
 {
 	struct mmc_host *host = card->host;
-	int err = 0;
+	int err = -EINVAL;
 	u8 val;
 
 	if (!(host->caps & MMC_CAP_8_BIT_DATA)) {
@@ -2148,7 +2148,7 @@ reinit:
 		err = mmc_select_hs400(card);
 		if (err)
 			goto free_card;
-	} else {
+	} else if (!mmc_card_hs400es(card)) {
 		/* Select the desired bus width optionally */
 		err = mmc_select_bus_width(card);
 		if (err > 0 && mmc_card_hs(card)) {
@@ -2159,11 +2159,11 @@ reinit:
 	}
 
 	card->clk_scaling_lowest = host->f_min;
-	if ((card->mmc_avail_type | EXT_CSD_CARD_TYPE_HS400) ||
-			(card->mmc_avail_type | EXT_CSD_CARD_TYPE_HS200))
+	if ((card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400) ||
+			(card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS200))
 		card->clk_scaling_highest = card->ext_csd.hs200_max_dtr;
-	else if ((card->mmc_avail_type | EXT_CSD_CARD_TYPE_HS) ||
-			(card->mmc_avail_type | EXT_CSD_CARD_TYPE_DDR_52))
+	else if ((card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS) ||
+			(card->mmc_avail_type & EXT_CSD_CARD_TYPE_DDR_52))
 		card->clk_scaling_highest = card->ext_csd.hs_max_dtr;
 	else
 		card->clk_scaling_highest = card->csd.max_dtr;

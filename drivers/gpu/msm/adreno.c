@@ -2464,7 +2464,7 @@ void adreno_spin_idle_debug(struct adreno_device *adreno_dev,
 
 	dev_err(device->dev, " hwfault=%8.8X\n", hwfault);
 
-	kgsl_device_snapshot(device, NULL);
+	kgsl_device_snapshot(device, NULL, adreno_gmu_gpu_fault(adreno_dev));
 }
 
 /**

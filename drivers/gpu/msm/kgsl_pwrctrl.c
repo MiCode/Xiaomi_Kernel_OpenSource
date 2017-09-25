@@ -2629,6 +2629,7 @@ static int
 _aware(struct kgsl_device *device)
 {
 	int status = 0;
+	struct gmu_device *gmu = &device->gmu;
 
 	switch (device->state) {
 	case KGSL_STATE_RESET:
@@ -2648,15 +2649,42 @@ _aware(struct kgsl_device *device)
 		kgsl_pwrscale_midframe_timer_cancel(device);
 		break;
 	case KGSL_STATE_SLUMBER:
+		/* if GMU already in FAULT */
+		if (kgsl_gmu_isenabled(device) &&
+			test_bit(GMU_FAULT, &gmu->flags)) {
+			status = -EINVAL;
+			break;
+		}
+
 		status = kgsl_pwrctrl_enable(device);
 		break;
 	default:
 		status = -EINVAL;
 	}
-	if (status)
+
+	if (status) {
+		if (kgsl_gmu_isenabled(device)) {
+			/* GMU hang recovery */
+			kgsl_pwrctrl_set_state(device, KGSL_STATE_RESET);
+			set_bit(GMU_FAULT, &gmu->flags);
+			status = kgsl_pwrctrl_enable(device);
+			if (status) {
+				/*
+				 * Cannot recover GMU failure
+				 * GPU will not be powered on
+				 */
+				WARN_ONCE(1, "Failed to recover GMU\n");
+			}
+
+			clear_bit(GMU_FAULT, &gmu->flags);
+			kgsl_pwrctrl_set_state(device, KGSL_STATE_AWARE);
+			return status;
+		}
+
 		kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
-	else
+	} else {
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_AWARE);
+	}
 	return status;
 }
 

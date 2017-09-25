@@ -430,10 +430,11 @@
 			<0xaf02000 0x1a0>,
 			<0x780000 0x621c>,
 			<0x88ea030 0x10>,
+			<0x88e8000 0x20>,
 			<0x0aee1000 0x034>;
 		reg-names = "dp_ctrl", "dp_phy", "dp_ln_tx0", "dp_ln_tx1",
 			"dp_mmss_cc", "qfprom_physical", "dp_pll",
-			"hdcp_physical";
+			"usb3_dp_com", "hdcp_physical";
 
 		interrupt-parent = <&mdss_mdp>;
 		interrupts = <12 0>;

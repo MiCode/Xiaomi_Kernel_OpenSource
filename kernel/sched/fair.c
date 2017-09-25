@@ -89,6 +89,7 @@ unsigned int sysctl_sched_is_big_little = 1;
 unsigned int sysctl_sched_sync_hint_enable = 1;
 unsigned int sysctl_sched_initial_task_util = 0;
 unsigned int sysctl_sched_cstate_aware = 1;
+DEFINE_PER_CPU_READ_MOSTLY(int, sched_load_boost);
 
 #ifdef CONFIG_SCHED_WALT
 unsigned int sysctl_sched_use_walt_cpu_util = 1;
@@ -7043,7 +7044,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			cpu_idle_idx = idle_get_state_idx(cpu_rq(i));
 
 			if (!need_idle &&
-			    add_capacity_margin(new_util_cum) <
+			    add_capacity_margin(new_util_cum, i) <
 			    capacity_curr_of(i)) {
 				if (sysctl_sched_cstate_aware) {
 					if (cpu_idle_idx < min_idle_idx) {

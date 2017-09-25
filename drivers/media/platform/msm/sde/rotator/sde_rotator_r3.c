@@ -1081,8 +1081,10 @@ static void sde_hw_rotator_setup_fetchengine(struct sde_hw_rotator_context *ctx,
 	int i;
 
 	if (ctx->rot->mode == ROT_REGDMA_ON) {
-		SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_CSR_REGDMA_INT_EN,
-				REGDMA_INT_MASK);
+		if (rot->irq_num >= 0)
+			SDE_ROTREG_WRITE(rot->mdss_base,
+					REGDMA_CSR_REGDMA_INT_EN,
+					REGDMA_INT_MASK);
 		SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_CSR_REGDMA_OP_MODE,
 				REGDMA_EN);
 	}
@@ -1435,8 +1437,7 @@ static void sde_hw_rotator_setup_wbengine(struct sde_hw_rotator_context *ctx,
 	wrptr = sde_hw_rotator_get_regdma_segment(ctx);
 
 	/* setup traffic shaper for 4k 30fps content or if prefill_bw is set */
-	if (!ctx->sbuf_mode &&
-			(ctx->is_traffic_shaping || cfg->prefill_bw)) {
+	if (ctx->is_traffic_shaping || cfg->prefill_bw) {
 		u32 bw;
 
 		/*
@@ -2698,7 +2699,9 @@ static int sde_rotator_hw_rev_init(struct sde_hw_rotator *rot)
 	SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_TIMESTAMP_REG, 0);
 
 	/* features exposed via mdss h/w version */
-	if (IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version, SDE_MDP_HW_REV_400)) {
+	if (IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version, SDE_MDP_HW_REV_400) ||
+		IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
+			SDE_MDP_HW_REV_410)) {
 		SDEROT_DBG("Supporting sys cache inline rotation\n");
 		set_bit(SDE_CAPS_SBUF_1,  mdata->sde_caps_map);
 		set_bit(SDE_CAPS_UBWC_2,  mdata->sde_caps_map);

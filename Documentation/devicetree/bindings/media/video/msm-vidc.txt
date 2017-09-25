@@ -7,9 +7,11 @@ Required properties:
 - compatible : one of:
 	- "qcom,msm-vidc"
         - "qcom,sdm845-vidc" : Invokes driver specific data for SDM845.
+        - "qcom,sdm670-vidc" : Invokes driver specific data for SDM670.
 
 Optional properties:
 - reg : offset and length of the register set for the device.
+- sku-index : sku version of the hardware.
 - interrupts : should contain the vidc interrupt.
 - qcom,reg-presets : list of offset-value pairs for registers to be written.
   The offsets are from the base offset specified in 'reg'. This is mainly

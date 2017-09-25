@@ -76,6 +76,13 @@ void sde_setup_dspp_pa_hue_v1_7(struct sde_hw_dspp *ctx, void *cfg);
 void sde_setup_dspp_pa_vlut_v1_7(struct sde_hw_dspp *ctx, void *cfg);
 
 /**
+ * sde_setup_dspp_pa_vlut_v1_8 - setup DSPP PA vLUT feature in v1.8 hardware
+ * @ctx: Pointer to DSPP context
+ * @cfg: Pointer to vLUT data
+ */
+void sde_setup_dspp_pa_vlut_v1_8(struct sde_hw_dspp *ctx, void *cfg);
+
+/**
  * sde_setup_dspp_gc_v1_7 - setup DSPP gc feature in v1.7 hardware
  * @ctx: Pointer to DSPP context
  * @cfg: Pointer to gc data

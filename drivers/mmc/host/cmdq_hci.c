@@ -145,6 +145,29 @@ static void cmdq_clear_set_irqs(struct cmdq_host *cq_host, u32 clear, u32 set)
 	mb();
 }
 
+static int cmdq_clear_task_poll(struct cmdq_host *cq_host, unsigned int tag)
+{
+	int retries = 100;
+
+	cmdq_clear_set_irqs(cq_host, CQIS_TCL, 0);
+	cmdq_writel(cq_host, 1<<tag, CQTCLR);
+	while (retries) {
+		/*
+		 * Task Clear register and doorbell,
+		 * both should indicate that task is cleared
+		 */
+		if ((cmdq_readl(cq_host, CQTCLR) & 1<<tag) ||
+			(cmdq_readl(cq_host, CQTDBR) & 1<<tag)) {
+			udelay(5);
+			retries--;
+			continue;
+		} else
+			break;
+	}
+
+	cmdq_clear_set_irqs(cq_host, 0, CQIS_TCL);
+	return retries ? 0 : -ETIMEDOUT;
+}
 
 #define DRV_NAME "cmdq-host"
 
@@ -345,6 +368,7 @@ static int cmdq_enable(struct mmc_host *mmc)
 {
 	int err = 0;
 	u32 cqcfg;
+	u32 cqcap = 0;
 	bool dcmd_enable;
 	struct cmdq_host *cq_host = mmc_cmdq_private(mmc);
 
@@ -372,6 +396,18 @@ static int cmdq_enable(struct mmc_host *mmc)
 
 	cqcfg = ((cq_host->caps & CMDQ_TASK_DESC_SZ_128 ? CQ_TASK_DESC_SZ : 0) |
 			(dcmd_enable ? CQ_DCMD : 0));
+
+	cqcap = cmdq_readl(cq_host, CQCAP);
+	if (cqcap & CQCAP_CS) {
+		/*
+		 * In case host controller supports cryptographic operations
+		 * then, it uses 128bit task descriptor. Upper 64 bits of task
+		 * descriptor would be used to pass crypto specific informaton.
+		 */
+		cq_host->caps |= CMDQ_CAP_CRYPTO_SUPPORT |
+				 CMDQ_TASK_DESC_SZ_128;
+		cqcfg |= CQ_ICE_ENABLE;
+	}
 
 	cmdq_writel(cq_host, cqcfg, CQCFG);
 	/* enable CQ_HOST */
@@ -688,6 +724,30 @@ static void cmdq_prep_dcmd_desc(struct mmc_host *mmc,
 		upper_32_bits(*task_desc));
 }
 
+static inline
+void cmdq_prep_crypto_desc(struct cmdq_host *cq_host, u64 *task_desc,
+			u64 ice_ctx)
+{
+	u64 *ice_desc = NULL;
+
+	if (cq_host->caps & CMDQ_CAP_CRYPTO_SUPPORT) {
+		/*
+		 * Get the address of ice context for the given task descriptor.
+		 * ice context is present in the upper 64bits of task descriptor
+		 * ice_conext_base_address = task_desc + 8-bytes
+		 */
+		ice_desc = (__le64 *)((u8 *)task_desc +
+						CQ_TASK_DESC_TASK_PARAMS_SIZE);
+		memset(ice_desc, 0, CQ_TASK_DESC_ICE_PARAMS_SIZE);
+
+		/*
+		 *  Assign upper 64bits data of task descritor with ice context
+		 */
+		if (ice_ctx)
+			*ice_desc = cpu_to_le64(ice_ctx);
+	}
+}
+
 static void cmdq_pm_qos_vote(struct sdhci_host *host, struct mmc_request *mrq)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -711,6 +771,7 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	u32 tag = mrq->cmdq_req->tag;
 	struct cmdq_host *cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
 	struct sdhci_host *host = mmc_priv(mmc);
+	u64 ice_ctx = 0;
 
 	if (!cq_host->enabled) {
 		pr_err("%s: CMDQ host not enabled yet !!!\n",
@@ -730,7 +791,7 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	}
 
 	if (cq_host->ops->crypto_cfg) {
-		err = cq_host->ops->crypto_cfg(mmc, mrq, tag);
+		err = cq_host->ops->crypto_cfg(mmc, mrq, tag, &ice_ctx);
 		if (err) {
 			pr_err("%s: failed to configure crypto: err %d tag %d\n",
 					mmc_hostname(mmc), err, tag);
@@ -743,6 +804,9 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	cmdq_prep_task_desc(mrq, &data, 1,
 			    (mrq->cmdq_req->cmdq_req_flags & QBR));
 	*task_desc = cpu_to_le64(data);
+
+	cmdq_prep_crypto_desc(cq_host, task_desc, ice_ctx);
+
 	cmdq_log_task_desc_history(cq_host, *task_desc, false);
 
 	err = cmdq_prep_tran_desc(mrq, cq_host, tag);
@@ -787,7 +851,8 @@ static void cmdq_finish_data(struct mmc_host *mmc, unsigned int tag)
 			    CMDQ_SEND_STATUS_TRIGGER, CQ_VENDOR_CFG);
 
 	cmdq_runtime_pm_put(cq_host);
-	if (cq_host->ops->crypto_cfg_reset)
+	if (!(cq_host->caps & CMDQ_CAP_CRYPTO_SUPPORT) &&
+			cq_host->ops->crypto_cfg_reset)
 		cq_host->ops->crypto_cfg_reset(mmc, tag);
 	mrq->done(mrq);
 }
@@ -801,6 +866,8 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 	struct mmc_request *mrq;
 	int ret;
 	u32 dbr_set = 0;
+	u32 dev_pend_set = 0;
+	int stat_err = 0;
 
 	status = cmdq_readl(cq_host, CQIS);
 
@@ -809,7 +876,9 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 	MMC_TRACE(mmc, "%s: CQIS: 0x%x err: %d\n",
 		__func__, status, err);
 
-	if (err || (status & CQIS_RED)) {
+	stat_err = status & (CQIS_RED | CQIS_GCE | CQIS_ICCE);
+
+	if (err || stat_err) {
 		err_info = cmdq_readl(cq_host, CQTERRI);
 		pr_err("%s: err: %d status: 0x%08x task-err-info (0x%08lx)\n",
 		       mmc_hostname(mmc), err, status, err_info);
@@ -912,7 +981,7 @@ skip_cqterri:
 		 * CQE detected a response error from device
 		 * In most cases, this would require a reset.
 		 */
-		if (status & CQIS_RED) {
+		if (stat_err & CQIS_RED) {
 			/*
 			 * will check if the RED error is due to a bkops
 			 * exception once the queue is empty
@@ -931,6 +1000,62 @@ skip_cqterri:
 			mrq->cmdq_req->resp_arg = cmdq_readl(cq_host, CQCRA);
 		}
 
+		/*
+		 * Generic Crypto error detected by CQE.
+		 * Its a fatal, would require cmdq reset.
+		 */
+		if (stat_err & CQIS_GCE) {
+			if (mrq->data)
+				mrq->data->error = -EIO;
+			pr_err("%s: Crypto generic error while processing task %lu!",
+				mmc_hostname(mmc), tag);
+			MMC_TRACE(mmc, "%s: GCE error detected with tag %lu\n",
+					__func__, tag);
+		}
+		/*
+		 * Invalid crypto config error detected by CQE, clear the task.
+		 * Task can be cleared only when CQE is halt state.
+		 */
+		if (stat_err & CQIS_ICCE) {
+			/*
+			 * Invalid Crypto Config Error is detected at the
+			 * beginning of the transfer before the actual execution
+			 * started. So just clear the task in CQE. No need to
+			 * clear in device. Only the task which caused ICCE has
+			 * to be cleared. Other tasks can be continue processing
+			 * The first task which is about to be prepared would
+			 * cause ICCE Error.
+			 */
+			dbr_set = cmdq_readl(cq_host, CQTDBR);
+			dev_pend_set = cmdq_readl(cq_host, CQDPT);
+			if (dbr_set ^ dev_pend_set)
+				tag = ffs(dbr_set ^ dev_pend_set) - 1;
+			mrq = get_req_by_tag(cq_host, tag);
+			pr_err("%s: Crypto config error while processing task %lu!",
+				mmc_hostname(mmc), tag);
+			MMC_TRACE(mmc, "%s: ICCE error with tag %lu\n",
+						__func__, tag);
+			if (mrq->data)
+				mrq->data->error = -EIO;
+			else if (mrq->cmd)
+				mrq->cmd->error = -EIO;
+			/*
+			 * If CQE is halted and tag is valid then clear the task
+			 * then un-halt CQE and set flag to skip error recovery.
+			 * If any of the condtions is not met thene it will
+			 * enter into default error recovery path.
+			 */
+			if (!ret && (dbr_set ^ dev_pend_set)) {
+				ret = cmdq_clear_task_poll(cq_host, tag);
+				if (ret) {
+					pr_err("%s: %s: task[%lu] clear failed ret=%d\n",
+						mmc_hostname(mmc),
+						__func__, tag, ret);
+				} else if (!cmdq_halt_poll(mmc, false)) {
+					mrq->cmdq_req->skip_err_handling = true;
+				}
+			}
+		}
 		cmdq_finish_data(mmc, tag);
 	} else {
 		cmdq_writel(cq_host, status, CQIS);
@@ -1001,6 +1126,7 @@ static int cmdq_halt_poll(struct mmc_host *mmc, bool halt)
 			cq_host->ops->clear_set_irqs(mmc, true);
 		cmdq_writel(cq_host, cmdq_readl(cq_host, CQCTL) & ~HALT,
 			    CQCTL);
+		mmc_host_clr_halt(mmc);
 		return 0;
 	}
 

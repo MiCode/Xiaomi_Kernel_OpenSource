@@ -306,33 +306,34 @@ static ssize_t dp_debug_read_info(struct file *file, char __user *user_buff,
 	/* Link Information */
 	rc = snprintf(buf + len, max_size,
 		"\tdp_link:\n\t\ttest_requested = %d\n",
-		debug->link->test_requested);
+		debug->link->sink_request);
 	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
 		goto error;
 
 	rc = snprintf(buf + len, max_size,
-		"\t\tlane_count = %d\n", debug->link->lane_count);
+		"\t\tlane_count = %d\n", debug->link->link_params.lane_count);
 	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
 		goto error;
 
 	rc = snprintf(buf + len, max_size,
-		"\t\tbw_code = %d\n", debug->link->bw_code);
+		"\t\tbw_code = %d\n", debug->link->link_params.bw_code);
 	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
 		goto error;
 
-	lclk = drm_dp_bw_code_to_link_rate(debug->link->bw_code) * 1000;
+	lclk = drm_dp_bw_code_to_link_rate(
+			debug->link->link_params.bw_code) * 1000;
 	rc = snprintf(buf + len, max_size,
 		"\t\tlclk = %lld\n", lclk);
 	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
 		goto error;
 
 	rc = snprintf(buf + len, max_size,
-		"\t\tv_level = %d\n", debug->link->v_level);
+		"\t\tv_level = %d\n", debug->link->phy_params.v_level);
 	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
 		goto error;
 
 	rc = snprintf(buf + len, max_size,
-		"\t\tp_level = %d\n", debug->link->p_level);
+		"\t\tp_level = %d\n", debug->link->phy_params.p_level);
 	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
 		goto error;
 

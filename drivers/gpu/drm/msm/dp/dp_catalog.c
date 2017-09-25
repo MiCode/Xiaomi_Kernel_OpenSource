@@ -15,9 +15,13 @@
 #define pr_fmt(fmt)	"[drm-dp] %s: " fmt, __func__
 
 #include <linux/delay.h>
+#include <drm/drm_dp_helper.h>
 
 #include "dp_catalog.h"
 #include "dp_reg.h"
+
+#define DP_GET_MSB(x)	(x >> 8)
+#define DP_GET_LSB(x)	(x & 0xff)
 
 #define dp_read(offset) readl_relaxed((offset))
 #define dp_write(offset, data) writel_relaxed((data), (offset))
@@ -277,6 +281,174 @@ static u32 dp_catalog_ctrl_read_hdcp_status(struct dp_catalog_ctrl *ctrl)
 	return dp_read(base + DP_HDCP_STATUS);
 }
 
+static void dp_catalog_ctrl_setup_infoframe_sdp(struct dp_catalog_ctrl *ctrl)
+{
+	struct dp_catalog_private *catalog;
+	void __iomem *base;
+	u32 header, data;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	dp_catalog_get_priv(ctrl);
+	base = catalog->io->ctrl_io.base;
+
+	header = dp_read(base + MMSS_DP_VSCEXT_0);
+	header |= ctrl->hdr_data.vsc_hdr_byte1;
+	dp_write(base + MMSS_DP_VSCEXT_0, header);
+
+	header = dp_read(base + MMSS_DP_VSCEXT_1);
+	header |= ctrl->hdr_data.vsc_hdr_byte1;
+	dp_write(base + MMSS_DP_VSCEXT_1, header);
+
+	header = dp_read(base + MMSS_DP_VSCEXT_1);
+	header |= ctrl->hdr_data.vsc_hdr_byte1;
+	dp_write(base + MMSS_DP_VSCEXT_1, header);
+
+	header =  ctrl->hdr_data.version;
+	header |=  ctrl->hdr_data.length << 8;
+	header |= ctrl->hdr_data.eotf << 16;
+	header |= (ctrl->hdr_data.descriptor_id << 24);
+	dp_write(base + MMSS_DP_VSCEXT_2, header);
+
+	data = (DP_GET_LSB(ctrl->hdr_data.display_primaries_x[0]) |
+		(DP_GET_MSB(ctrl->hdr_data.display_primaries_x[0]) << 8) |
+		(DP_GET_LSB(ctrl->hdr_data.display_primaries_y[0]) << 16) |
+		(DP_GET_MSB(ctrl->hdr_data.display_primaries_y[0]) << 24));
+	dp_write(base + MMSS_DP_VSCEXT_3, data);
+
+	data = (DP_GET_LSB(ctrl->hdr_data.display_primaries_x[1]) |
+		(DP_GET_MSB(ctrl->hdr_data.display_primaries_x[1]) << 8) |
+		(DP_GET_LSB(ctrl->hdr_data.display_primaries_y[1]) << 16) |
+		(DP_GET_MSB(ctrl->hdr_data.display_primaries_y[1]) << 24));
+	dp_write(base + MMSS_DP_VSCEXT_4, data);
+
+	data = (DP_GET_LSB(ctrl->hdr_data.display_primaries_x[2]) |
+		(DP_GET_MSB(ctrl->hdr_data.display_primaries_x[2]) << 8) |
+		(DP_GET_LSB(ctrl->hdr_data.display_primaries_y[2]) << 16) |
+		(DP_GET_MSB(ctrl->hdr_data.display_primaries_y[2]) << 24));
+	dp_write(base + MMSS_DP_VSCEXT_5, data);
+
+	data = (DP_GET_LSB(ctrl->hdr_data.white_point_x) |
+		(DP_GET_MSB(ctrl->hdr_data.white_point_x) << 8) |
+		(DP_GET_LSB(ctrl->hdr_data.white_point_y) << 16) |
+		(DP_GET_MSB(ctrl->hdr_data.white_point_y) << 24));
+	dp_write(base + MMSS_DP_VSCEXT_6, data);
+
+	data = (DP_GET_LSB(ctrl->hdr_data.max_luminance) |
+		(DP_GET_MSB(ctrl->hdr_data.max_luminance) << 8) |
+		(DP_GET_LSB(ctrl->hdr_data.min_luminance) << 16) |
+		(DP_GET_MSB(ctrl->hdr_data.min_luminance) << 24));
+	dp_write(base + MMSS_DP_VSCEXT_7, data);
+
+	data = (DP_GET_LSB(ctrl->hdr_data.max_content_light_level) |
+		(DP_GET_MSB(ctrl->hdr_data.max_content_light_level) << 8) |
+		(DP_GET_LSB(ctrl->hdr_data.max_average_light_level) << 16) |
+		(DP_GET_MSB(ctrl->hdr_data.max_average_light_level) << 24));
+	dp_write(base + MMSS_DP_VSCEXT_8, data);
+
+	dp_write(base + MMSS_DP_VSCEXT_9, 0x00);
+}
+
+static void dp_catalog_ctrl_setup_vsc_sdp(struct dp_catalog_ctrl *ctrl)
+{
+	struct dp_catalog_private *catalog;
+	void __iomem *base;
+	u32 value;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	dp_catalog_get_priv(ctrl);
+	base = catalog->io->ctrl_io.base;
+
+	value = dp_read(base + MMSS_DP_GENERIC0_0);
+	value |= ctrl->hdr_data.vsc_hdr_byte1;
+	dp_write(base + MMSS_DP_GENERIC0_0, value);
+
+	value = dp_read(base + MMSS_DP_GENERIC0_1);
+	value |= ctrl->hdr_data.vsc_hdr_byte2;
+	dp_write(base + MMSS_DP_GENERIC0_1, value);
+
+	value = dp_read(base + MMSS_DP_GENERIC0_1);
+	value |= ctrl->hdr_data.vsc_hdr_byte3;
+	dp_write(base + MMSS_DP_GENERIC0_1, value);
+
+	dp_write(base + MMSS_DP_GENERIC0_2, 0x00);
+	dp_write(base + MMSS_DP_GENERIC0_3, 0x00);
+	dp_write(base + MMSS_DP_GENERIC0_4, 0x00);
+	dp_write(base + MMSS_DP_GENERIC0_5, 0x00);
+
+	dp_write(base + MMSS_DP_GENERIC0_6, ctrl->hdr_data.pkt_payload);
+	dp_write(base + MMSS_DP_GENERIC0_7, 0x00);
+	dp_write(base + MMSS_DP_GENERIC0_8, 0x00);
+	dp_write(base + MMSS_DP_GENERIC0_9, 0x00);
+}
+
+static void dp_catalog_ctrl_config_hdr(struct dp_catalog_ctrl *ctrl)
+{
+	struct dp_catalog_private *catalog;
+	void __iomem *base;
+	u32 cfg, cfg2;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	dp_catalog_get_priv(ctrl);
+	base = catalog->io->ctrl_io.base;
+
+	cfg = dp_read(base + MMSS_DP_SDP_CFG);
+	/* VSCEXT_SDP_EN */
+	cfg |= BIT(16);
+
+	/* GEN0_SDP_EN */
+	cfg |= BIT(17);
+
+	dp_write(base + MMSS_DP_SDP_CFG, cfg);
+
+	cfg2 = dp_read(base + MMSS_DP_SDP_CFG2);
+	/* Generic0 SDP Payload is 19 bytes which is > 16, so Bit16 is 1 */
+	cfg2 |= BIT(16);
+	dp_write(base + MMSS_DP_SDP_CFG2, cfg2);
+
+	dp_catalog_ctrl_setup_vsc_sdp(ctrl);
+	dp_catalog_ctrl_setup_infoframe_sdp(ctrl);
+
+	cfg = dp_read(base + DP_MISC1_MISC0);
+	/* Indicates presence of VSC */
+	cfg |= BIT(6) << 8;
+
+	dp_write(base + DP_MISC1_MISC0, cfg);
+
+	cfg = dp_read(base + DP_CONFIGURATION_CTRL);
+	/* Send VSC */
+	cfg |= BIT(7);
+
+	switch (ctrl->hdr_data.bpc) {
+	default:
+	case 10:
+		cfg |= BIT(9);
+		break;
+	case 8:
+		cfg |= BIT(8);
+		break;
+	}
+
+	dp_write(base + DP_CONFIGURATION_CTRL, cfg);
+
+	cfg = dp_read(base + DP_COMPRESSION_MODE_CTRL);
+
+	/* Trigger SDP values in registers */
+	cfg |= BIT(8);
+	dp_write(base + DP_COMPRESSION_MODE_CTRL, cfg);
+}
+
 static void dp_catalog_ctrl_update_transfer_unit(struct dp_catalog_ctrl *ctrl)
 {
 	struct dp_catalog_private *catalog;
@@ -381,7 +553,7 @@ static void dp_catalog_ctrl_mainlink_ctrl(struct dp_catalog_ctrl *ctrl,
 static void dp_catalog_ctrl_config_misc(struct dp_catalog_ctrl *ctrl,
 					u32 cc, u32 tb)
 {
-	u32 misc_val = cc;
+	u32 misc_val;
 	struct dp_catalog_private *catalog;
 	void __iomem *base;
 
@@ -393,6 +565,8 @@ static void dp_catalog_ctrl_config_misc(struct dp_catalog_ctrl *ctrl,
 	dp_catalog_get_priv(ctrl);
 	base = catalog->io->ctrl_io.base;
 
+	misc_val = dp_read(base + DP_MISC1_MISC0);
+	misc_val |= cc;
 	misc_val |= (tb << 5);
 	misc_val |= BIT(0); /* Configure clock to synchronous mode */
 
@@ -408,7 +582,8 @@ static void dp_catalog_ctrl_config_msa(struct dp_catalog_ctrl *ctrl,
 	u32 mvid, nvid;
 	u64 mvid_calc;
 	u32 const nvid_fixed = 0x8000;
-	u32 const link_rate = 540000;
+	u32 const link_rate_hbr2 = 540000;
+	u32 const link_rate_hbr3 = 810000;
 	struct dp_catalog_private *catalog;
 	void __iomem *base_cc, *base_ctrl;
 
@@ -449,8 +624,11 @@ static void dp_catalog_ctrl_config_msa(struct dp_catalog_ctrl *ctrl,
 
 		pr_debug("rate = %d\n", rate);
 
-		if (link_rate == rate)
+		if (link_rate_hbr2 == rate)
 			nvid *= 2;
+
+		if (link_rate_hbr3 == rate)
+			nvid *= 3;
 	}
 
 	base_ctrl = catalog->io->ctrl_io.base;
@@ -491,6 +669,43 @@ static void dp_catalog_ctrl_set_pattern(struct dp_catalog_ctrl *ctrl,
 
 	if (cnt == 0)
 		pr_err("set link_train=%d failed\n", pattern);
+}
+
+static void dp_catalog_ctrl_usb_reset(struct dp_catalog_ctrl *ctrl, bool flip)
+{
+	struct dp_catalog_private *catalog;
+	void __iomem *base;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	dp_catalog_get_priv(ctrl);
+
+	base = catalog->io->usb3_dp_com.base;
+
+	dp_write(base + USB3_DP_COM_RESET_OVRD_CTRL, 0x0a);
+	dp_write(base + USB3_DP_COM_PHY_MODE_CTRL, 0x02);
+	dp_write(base + USB3_DP_COM_SW_RESET, 0x01);
+	/* make sure usb3 com phy software reset is done */
+	wmb();
+
+	if (!flip) /* CC1 */
+		dp_write(base + USB3_DP_COM_TYPEC_CTRL, 0x02);
+	else /* CC2 */
+		dp_write(base + USB3_DP_COM_TYPEC_CTRL, 0x03);
+
+	dp_write(base + USB3_DP_COM_SWI_CTRL, 0x00);
+	dp_write(base + USB3_DP_COM_SW_RESET, 0x00);
+	/* make sure the software reset is done */
+	wmb();
+
+	dp_write(base + USB3_DP_COM_POWER_DOWN_CTRL, 0x01);
+	dp_write(base + USB3_DP_COM_RESET_OVRD_CTRL, 0x00);
+	/* make sure phy is brought out of reset */
+	wmb();
+
 }
 
 static void dp_catalog_ctrl_reset(struct dp_catalog_ctrl *ctrl)
@@ -704,6 +919,82 @@ static void dp_catalog_ctrl_update_vx_px(struct dp_catalog_ctrl *ctrl,
 		pr_err("invalid vx (0x%x=0x%x), px (0x%x=0x%x\n",
 			v_level, value0, p_level, value1);
 	}
+}
+
+static void dp_catalog_ctrl_send_phy_pattern(struct dp_catalog_ctrl *ctrl,
+			u32 pattern)
+{
+	struct dp_catalog_private *catalog;
+	u32 value = 0x0;
+	void __iomem *base = NULL;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	dp_catalog_get_priv(ctrl);
+
+	base = catalog->io->ctrl_io.base;
+
+	dp_write(base + DP_STATE_CTRL, 0x0);
+
+	switch (pattern) {
+	case DP_TEST_PHY_PATTERN_D10_2_NO_SCRAMBLING:
+		dp_write(base + DP_STATE_CTRL, 0x1);
+		break;
+	case DP_TEST_PHY_PATTERN_SYMBOL_ERR_MEASUREMENT_CNT:
+		value &= ~(1 << 16);
+		dp_write(base + DP_HBR2_COMPLIANCE_SCRAMBLER_RESET, value);
+		value |= 0xFC;
+		dp_write(base + DP_HBR2_COMPLIANCE_SCRAMBLER_RESET, value);
+		dp_write(base + DP_MAINLINK_LEVELS, 0x2);
+		dp_write(base + DP_STATE_CTRL, 0x10);
+		break;
+	case DP_TEST_PHY_PATTERN_PRBS7:
+		dp_write(base + DP_STATE_CTRL, 0x20);
+		break;
+	case DP_TEST_PHY_PATTERN_80_BIT_CUSTOM_PATTERN:
+		dp_write(base + DP_STATE_CTRL, 0x40);
+		/* 00111110000011111000001111100000 */
+		dp_write(base + DP_TEST_80BIT_CUSTOM_PATTERN_REG0, 0x3E0F83E0);
+		/* 00001111100000111110000011111000 */
+		dp_write(base + DP_TEST_80BIT_CUSTOM_PATTERN_REG1, 0x0F83E0F8);
+		/* 1111100000111110 */
+		dp_write(base + DP_TEST_80BIT_CUSTOM_PATTERN_REG2, 0x0000F83E);
+		break;
+	case DP_TEST_PHY_PATTERN_HBR2_CTS_EYE_PATTERN:
+		value = BIT(16);
+		dp_write(base + DP_HBR2_COMPLIANCE_SCRAMBLER_RESET, value);
+		value |= 0xFC;
+		dp_write(base + DP_HBR2_COMPLIANCE_SCRAMBLER_RESET, value);
+		dp_write(base + DP_MAINLINK_LEVELS, 0x2);
+		dp_write(base + DP_STATE_CTRL, 0x10);
+		break;
+	default:
+		pr_debug("No valid test pattern requested: 0x%x\n", pattern);
+		return;
+	}
+
+	/* Make sure the test pattern is programmed in the hardware */
+	wmb();
+}
+
+static u32 dp_catalog_ctrl_read_phy_pattern(struct dp_catalog_ctrl *ctrl)
+{
+	struct dp_catalog_private *catalog;
+	void __iomem *base = NULL;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return 0;
+	}
+
+	dp_catalog_get_priv(ctrl);
+
+	base = catalog->io->ctrl_io.base;
+
+	return dp_read(base + DP_MAINLINK_READY);
 }
 
 /* panel related catalog functions */
@@ -937,6 +1228,7 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io)
 		.config_msa     = dp_catalog_ctrl_config_msa,
 		.set_pattern    = dp_catalog_ctrl_set_pattern,
 		.reset          = dp_catalog_ctrl_reset,
+		.usb_reset      = dp_catalog_ctrl_usb_reset,
 		.mainlink_ready = dp_catalog_ctrl_mainlink_ready,
 		.enable_irq     = dp_catalog_ctrl_enable_irq,
 		.hpd_config     = dp_catalog_ctrl_hpd_config,
@@ -944,8 +1236,11 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io)
 		.phy_lane_cfg   = dp_catalog_ctrl_phy_lane_cfg,
 		.update_vx_px   = dp_catalog_ctrl_update_vx_px,
 		.get_interrupt  = dp_catalog_ctrl_get_interrupt,
+		.config_hdr     = dp_catalog_ctrl_config_hdr,
 		.update_transfer_unit = dp_catalog_ctrl_update_transfer_unit,
 		.read_hdcp_status     = dp_catalog_ctrl_read_hdcp_status,
+		.send_phy_pattern    = dp_catalog_ctrl_send_phy_pattern,
+		.read_phy_pattern = dp_catalog_ctrl_read_phy_pattern,
 	};
 	struct dp_catalog_audio audio = {
 		.init       = dp_catalog_audio_init,

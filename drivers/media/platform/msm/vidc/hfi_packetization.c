@@ -1420,6 +1420,9 @@ int create_pkt_cmd_session_set_property(
 		case HAL_FLIP_VERTICAL:
 			hfi->flip = HFI_FLIP_VERTICAL;
 			break;
+		case HAL_FLIP_BOTH:
+			hfi->flip = HFI_FLIP_HORIZONTAL | HFI_FLIP_VERTICAL;
+			break;
 		default:
 			dprintk(VIDC_ERR, "Invalid flip setting: %#x\n",
 				prop->flip);

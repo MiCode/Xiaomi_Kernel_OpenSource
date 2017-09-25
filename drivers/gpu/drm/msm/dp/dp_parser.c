@@ -22,22 +22,15 @@ static void dp_parser_unmap_io_resources(struct dp_parser *parser)
 {
 	struct dp_io *io = &parser->io;
 
-	if (&io->ctrl_io)
-		msm_dss_iounmap(&io->ctrl_io);
-	if (&io->phy_io)
-		msm_dss_iounmap(&io->phy_io);
-	if (&io->ln_tx0_io)
-		msm_dss_iounmap(&io->ln_tx0_io);
-	if (&io->ln_tx1_io)
-		msm_dss_iounmap(&io->ln_tx0_io);
-	if (&io->dp_pll_io)
-		msm_dss_iounmap(&io->dp_pll_io);
-	if (&io->dp_cc_io)
-		msm_dss_iounmap(&io->dp_cc_io);
-	if (&io->qfprom_io)
-		msm_dss_iounmap(&io->qfprom_io);
-	if (&io->hdcp_io)
-		msm_dss_iounmap(&io->hdcp_io);
+	msm_dss_iounmap(&io->ctrl_io);
+	msm_dss_iounmap(&io->phy_io);
+	msm_dss_iounmap(&io->ln_tx0_io);
+	msm_dss_iounmap(&io->ln_tx0_io);
+	msm_dss_iounmap(&io->dp_pll_io);
+	msm_dss_iounmap(&io->dp_cc_io);
+	msm_dss_iounmap(&io->usb3_dp_com);
+	msm_dss_iounmap(&io->qfprom_io);
+	msm_dss_iounmap(&io->hdcp_io);
 }
 
 static int dp_parser_ctrl_res(struct dp_parser *parser)
@@ -81,6 +74,12 @@ static int dp_parser_ctrl_res(struct dp_parser *parser)
 	rc = msm_dss_ioremap_byname(pdev, &io->dp_pll_io, "dp_pll");
 	if (rc) {
 		pr_err("unable to remap DP PLL resources\n");
+		goto err;
+	}
+
+	rc = msm_dss_ioremap_byname(pdev, &io->usb3_dp_com, "usb3_dp_com");
+	if (rc) {
+		pr_err("unable to remap USB3 DP com resources\n");
 		goto err;
 	}
 

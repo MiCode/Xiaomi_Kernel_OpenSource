@@ -400,15 +400,6 @@
 			};
 
 			port@4 {
-				reg = <5>;
-				tpda_in_funnel_lpass: endpoint {
-					slave-mode;
-					remote-endpoint =
-						<&funnel_lpass_out_tpda>;
-				};
-			};
-
-			port@5 {
 				reg = <6>;
 				tpda_in_funnel_turing: endpoint {
 					slave-mode;
@@ -417,7 +408,7 @@
 				};
 			};
 
-			port@6 {
+			port@5 {
 				reg = <7>;
 				tpda_in_tpdm_vsense: endpoint {
 					slave-mode;
@@ -426,7 +417,7 @@
 				};
 			};
 
-			port@7 {
+			port@6 {
 				reg = <10>;
 				tpda_in_tpdm_qm: endpoint {
 					slave-mode;
@@ -435,7 +426,7 @@
 				};
 			};
 
-			port@8 {
+			port@7 {
 				reg = <11>;
 				tpda_in_tpdm_north: endpoint {
 					slave-mode;
@@ -444,7 +435,7 @@
 				};
 			};
 
-			port@9 {
+			port@8 {
 				reg = <13>;
 				tpda_in_tpdm_pimem: endpoint {
 					slave-mode;
@@ -541,67 +532,6 @@
 		port {
 			tpdm_modem_out_tpda_modem: endpoint {
 				remote-endpoint = <&tpda_modem_in_tpdm_modem>;
-			};
-		};
-	};
-
-	funnel_lpass: funnel@6845000 {
-		compatible = "arm,primecell";
-		arm,primecell-periphid = <0x0003b908>;
-
-		reg = <0x6845000 0x1000>;
-		reg-names = "funnel-base";
-
-		coresight-name = "coresight-funnel-lpass";
-
-		clocks = <&clock_aop QDSS_CLK>;
-		clock-names = "apb_pclk";
-
-		ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			port@0 {
-				reg = <0>;
-				funnel_lpass_out_tpda: endpoint {
-					remote-endpoint =
-					    <&tpda_in_funnel_lpass>;
-				};
-			};
-
-			port@1 {
-				reg = <0>;
-				funnel_lpass_in_tpdm_lpass: endpoint {
-					slave-mode;
-					remote-endpoint =
-					    <&tpdm_lpass_out_funnel_lpass>;
-				};
-			};
-
-			port@2 {
-				reg = <1>;
-				funnel_lpass_in_audio_etm0: endpoint {
-					slave-mode;
-					remote-endpoint =
-					    <&audio_etm0_out_funnel_lpass>;
-				};
-			};
-		};
-	};
-
-	tpdm_lpass: tpdm@6844000 {
-		compatible = "arm,primecell";
-		reg = <0x6844000 0x1000>;
-		reg-names = "tpdm-base";
-
-		coresight-name = "coresight-tpdm-lpass";
-
-		clocks = <&clock_aop QDSS_CLK>;
-		clock-names = "apb_pclk";
-
-		port {
-			tpdm_lpass_out_funnel_lpass: endpoint {
-				remote-endpoint = <&funnel_lpass_in_tpdm_lpass>;
 			};
 		};
 	};
@@ -1648,19 +1578,6 @@
 			modem_etm0_out_funnel_in2: endpoint {
 				remote-endpoint =
 					<&funnel_in2_in_modem_etm0>;
-			};
-		};
-	};
-
-	audio_etm0 {
-		compatible = "qcom,coresight-remote-etm";
-
-		coresight-name = "coresight-audio-etm0";
-		qcom,inst-id = <5>;
-
-		port {
-			audio_etm0_out_funnel_lpass: endpoint {
-				remote-endpoint = <&funnel_lpass_in_audio_etm0>;
 			};
 		};
 	};

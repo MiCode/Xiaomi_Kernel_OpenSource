@@ -878,7 +878,6 @@ static int _sde_plane_get_aspace(
 			return -EINVAL;
 		break;
 	case SDE_DRM_FB_SEC_DIR_TRANS:
-	case SDE_DRM_FB_NON_SEC_DIR_TRANS:
 		*aspace = NULL;
 		break;
 	default:
@@ -1469,6 +1468,12 @@ static int _sde_plane_color_fill(struct sde_plane *psde,
 		if (psde->pipe_hw->ops.setup_pe)
 			psde->pipe_hw->ops.setup_pe(psde->pipe_hw,
 					&pstate->pixel_ext);
+
+		if (psde->pipe_hw->ops.setup_scaler &&
+				pstate->multirect_index != SDE_SSPP_RECT_1)
+			psde->pipe_hw->ops.setup_scaler(psde->pipe_hw,
+					&psde->pipe_cfg, &pstate->pixel_ext,
+					&pstate->scaler3_cfg);
 	}
 
 	return 0;
@@ -1513,7 +1518,7 @@ static struct sde_crtc_res_ops fbo_res_ops = {
  * @plane: Pointer to drm plane
  * return: prefill time in line
  */
-static u32 sde_plane_rot_calc_prefill(struct drm_plane *plane)
+u32 sde_plane_rot_calc_prefill(struct drm_plane *plane)
 {
 	struct drm_plane_state *state;
 	struct sde_plane_state *pstate;
@@ -1542,30 +1547,16 @@ static u32 sde_plane_rot_calc_prefill(struct drm_plane *plane)
 				&blocksize, &blocksize);
 
 	prefill_line = blocksize + sde_kms->catalog->sbuf_headroom;
-
-	SDE_DEBUG("plane%d prefill:%u\n", plane->base.id, prefill_line);
+	prefill_line = mult_frac(prefill_line, rstate->out_src_h >> 16,
+			state->crtc_h);
+	SDE_DEBUG(
+		"plane%d.%d blk:%u head:%u vdst/vsrc:%u/%u prefill:%u\n",
+			plane->base.id, rstate->sequence_id,
+			blocksize, sde_kms->catalog->sbuf_headroom,
+			state->crtc_h, rstate->out_src_h >> 16,
+			prefill_line);
 
 	return prefill_line;
-}
-
-/**
- * sde_plane_is_sbuf_mode - check if sspp of given plane is in streaming
- *	buffer mode
- * @plane: Pointer to drm plane
- * @prefill: Pointer to prefill line count
- * return: true if sspp is in stream buffer mode
- */
-bool sde_plane_is_sbuf_mode(struct drm_plane *plane, u32 *prefill)
-{
-	struct sde_plane_state *pstate = plane && plane->state ?
-			to_sde_plane_state(plane->state) : NULL;
-	struct sde_plane_rot_state *rstate = pstate ? &pstate->rot : NULL;
-	bool sbuf_mode = rstate ? rstate->out_sbuf : false;
-
-	if (prefill)
-		*prefill = sde_plane_rot_calc_prefill(plane);
-
-	return sbuf_mode;
 }
 
 /**
@@ -2747,7 +2738,7 @@ void sde_plane_get_ctl_flush(struct drm_plane *plane, struct sde_hw_ctl *ctl,
 		return;
 
 	*flush_rot = 0x0;
-	if (sde_plane_is_sbuf_mode(plane, NULL) && rstate->rot_hw &&
+	if (rstate && rstate->out_sbuf && rstate->rot_hw &&
 			ctl->ops.get_bitmask_rot)
 		ctl->ops.get_bitmask_rot(ctl, flush_rot, rstate->rot_hw->idx);
 }
@@ -2785,6 +2776,18 @@ static int sde_plane_prepare_fb(struct drm_plane *plane,
 	new_rstate = &to_sde_plane_state(new_state)->rot;
 
 	if (pstate->aspace) {
+		/*
+		 * when transitioning from secure to non-secure,
+		 * plane->prepare_fb happens before the commit. In such case,
+		 * return early, as prepare_fb would be handled as part
+		 * of the transition after attaching the domains,
+		 * during the commit
+		 */
+		if (!pstate->aspace->domain_attached) {
+			SDE_DEBUG_PLANE(psde,
+			    "domain not attached, prepare_fb handled later\n");
+			return 0;
+		}
 		ret = msm_framebuffer_prepare(new_rstate->out_fb,
 				pstate->aspace);
 		if (ret) {
@@ -4061,51 +4064,11 @@ static inline void _sde_plane_set_scaler_v2(struct sde_plane *psde,
 			&pstate->property_state, PLANE_PROP_SCALER_V2);
 
 	/* populate from user space */
+	sde_set_scaler_v2(cfg, &scale_v2);
+
 	pe = &pstate->pixel_ext;
 	memset(pe, 0, sizeof(struct sde_hw_pixel_ext));
-	cfg->enable = scale_v2.enable;
-	cfg->dir_en = scale_v2.dir_en;
-	for (i = 0; i < SDE_MAX_PLANES; i++) {
-		cfg->init_phase_x[i] = scale_v2.init_phase_x[i];
-		cfg->phase_step_x[i] = scale_v2.phase_step_x[i];
-		cfg->init_phase_y[i] = scale_v2.init_phase_y[i];
-		cfg->phase_step_y[i] = scale_v2.phase_step_y[i];
 
-		cfg->preload_x[i] = scale_v2.preload_x[i];
-		cfg->preload_y[i] = scale_v2.preload_y[i];
-		cfg->src_width[i] = scale_v2.src_width[i];
-		cfg->src_height[i] = scale_v2.src_height[i];
-	}
-	cfg->dst_width = scale_v2.dst_width;
-	cfg->dst_height = scale_v2.dst_height;
-
-	cfg->y_rgb_filter_cfg = scale_v2.y_rgb_filter_cfg;
-	cfg->uv_filter_cfg = scale_v2.uv_filter_cfg;
-	cfg->alpha_filter_cfg = scale_v2.alpha_filter_cfg;
-	cfg->blend_cfg = scale_v2.blend_cfg;
-
-	cfg->lut_flag = scale_v2.lut_flag;
-	cfg->dir_lut_idx = scale_v2.dir_lut_idx;
-	cfg->y_rgb_cir_lut_idx = scale_v2.y_rgb_cir_lut_idx;
-	cfg->uv_cir_lut_idx = scale_v2.uv_cir_lut_idx;
-	cfg->y_rgb_sep_lut_idx = scale_v2.y_rgb_sep_lut_idx;
-	cfg->uv_sep_lut_idx = scale_v2.uv_sep_lut_idx;
-
-	cfg->de.enable = scale_v2.de.enable;
-	cfg->de.sharpen_level1 = scale_v2.de.sharpen_level1;
-	cfg->de.sharpen_level2 = scale_v2.de.sharpen_level2;
-	cfg->de.clip = scale_v2.de.clip;
-	cfg->de.limit = scale_v2.de.limit;
-	cfg->de.thr_quiet = scale_v2.de.thr_quiet;
-	cfg->de.thr_dieout = scale_v2.de.thr_dieout;
-	cfg->de.thr_low = scale_v2.de.thr_low;
-	cfg->de.thr_high = scale_v2.de.thr_high;
-	cfg->de.prec_shift = scale_v2.de.prec_shift;
-	for (i = 0; i < SDE_MAX_DE_CURVES; i++) {
-		cfg->de.adjust_a[i] = scale_v2.de.adjust_a[i];
-		cfg->de.adjust_b[i] = scale_v2.de.adjust_b[i];
-		cfg->de.adjust_c[i] = scale_v2.de.adjust_c[i];
-	}
 	for (i = 0; i < SDE_MAX_PLANES; i++) {
 		pe->left_ftch[i] = scale_v2.pe.left_ftch[i];
 		pe->right_ftch[i] = scale_v2.pe.right_ftch[i];

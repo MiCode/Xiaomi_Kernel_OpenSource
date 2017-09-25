@@ -560,6 +560,19 @@ int msm_comm_v4l2_to_hal(int id, int value)
 		default:
 			goto unknown_value;
 		}
+	case V4L2_CID_MPEG_VIDC_VIDEO_FLIP:
+		switch (value) {
+		case V4L2_CID_MPEG_VIDC_VIDEO_FLIP_NONE:
+			return HAL_FLIP_NONE;
+		case V4L2_CID_MPEG_VIDC_VIDEO_FLIP_HORI:
+			return HAL_FLIP_HORIZONTAL;
+		case V4L2_CID_MPEG_VIDC_VIDEO_FLIP_VERT:
+			return HAL_FLIP_VERTICAL;
+		case V4L2_CID_MPEG_VIDC_VIDEO_FLIP_BOTH:
+			return HAL_FLIP_BOTH;
+		default:
+			goto unknown_value;
+		}
 	case V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_MODE:
 		switch (value) {
 		case V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_DISABLED:
@@ -1437,6 +1450,9 @@ static void msm_vidc_comm_update_ctrl_limits(struct msm_vidc_inst *inst)
 				V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES,
 				&inst->capability.bframe);
 	}
+	msm_vidc_comm_update_ctrl(inst,
+		V4L2_CID_MPEG_VIDC_VIDEO_FRAME_RATE,
+		&inst->capability.frame_rate);
 }
 
 static void handle_session_init_done(enum hal_command_response cmd, void *data)
@@ -2161,6 +2177,7 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 				"Got SYS_ERR but unable to identify core\n");
 		return;
 	}
+	hdev = core->device;
 
 	mutex_lock(&core->lock);
 	if (core->state == VIDC_CORE_UNINIT) {
@@ -2181,7 +2198,6 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 		msm_vidc_queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_SYS_ERROR);
 		msm_comm_print_inst_info(inst);
 	}
-	hdev = core->device;
 	dprintk(VIDC_DBG, "Calling core_release\n");
 	rc = call_hfi_op(hdev, core_release, hdev->hfi_device_data);
 	if (rc) {
@@ -2272,6 +2288,8 @@ struct vb2_buffer *msm_comm_get_vb_using_vidc_buffer(
 	mutex_lock(&inst->bufq[port].lock);
 	found = false;
 	list_for_each_entry(vb, &q->queued_list, queued_entry) {
+		if (vb->state != VB2_BUF_STATE_ACTIVE)
+			continue;
 		if (msm_comm_compare_vb2_planes(inst, mbuf, vb)) {
 			found = true;
 			break;
@@ -3011,6 +3029,23 @@ int msm_comm_force_cleanup(struct msm_vidc_inst *inst)
 	return msm_vidc_deinit_core(inst);
 }
 
+static int msm_comm_session_init_done(int flipped_state,
+	struct msm_vidc_inst *inst)
+{
+	int rc;
+
+	dprintk(VIDC_DBG, "inst %pK: waiting for session init done\n", inst);
+	rc = wait_for_state(inst, flipped_state, MSM_VIDC_OPEN_DONE,
+			HAL_SESSION_INIT_DONE);
+	if (rc) {
+		dprintk(VIDC_ERR, "Session init failed for inst %pK\n", inst);
+		msm_comm_generate_sys_error(inst);
+		return rc;
+	}
+
+	return rc;
+}
+
 static int msm_comm_session_init(int flipped_state,
 	struct msm_vidc_inst *inst)
 {
@@ -3693,8 +3728,7 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 	case MSM_VIDC_OPEN_DONE:
-		rc = wait_for_state(inst, flipped_state, MSM_VIDC_OPEN_DONE,
-			HAL_SESSION_INIT_DONE);
+		rc = msm_comm_session_init_done(flipped_state, inst);
 		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 	case MSM_VIDC_LOAD_RESOURCES:
@@ -5470,10 +5504,6 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 			"Unsupported WxH = (%u)x(%u), max supported is - (%u)x(%u)\n",
 			output_width, output_height,
 			capability->width.max, capability->height.max);
-			rc = -ENOTSUPP;
-		}
-
-		if (!rc && msm_vidc_check_scaling_supported(inst)) {
 			rc = -ENOTSUPP;
 		}
 	}

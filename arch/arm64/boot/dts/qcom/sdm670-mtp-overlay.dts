@@ -22,8 +22,11 @@
 #include "sdm670-mtp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDM670 MTP";
+	model = "Qualcomm Technologies, Inc. SDM670 PM660 + PM660L MTP";
 	compatible = "qcom,sdm670-mtp", "qcom,sdm670", "qcom,mtp";
 	qcom,msm-id = <336 0x0>;
 	qcom,board-id = <8 0>;
+	qcom,pmic-id = <0x0001001b 0x0101011a 0x0 0x0>,
+		       <0x0001001b 0x0102001a 0x0 0x0>,
+		       <0x0001001b 0x0201011a 0x0 0x0>;
 };

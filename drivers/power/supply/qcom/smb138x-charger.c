@@ -111,7 +111,7 @@ module_param_named(
 	debug_mask, __debug_mask, int, 0600
 );
 
-irqreturn_t smb138x_handle_slave_chg_state_change(int irq, void *data)
+static irqreturn_t smb138x_handle_slave_chg_state_change(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb138x *chip = irq_data->parent_data;
@@ -169,6 +169,9 @@ static int smb138x_parse_dt(struct smb138x *chip)
 
 	chip->dt.suspend_input = of_property_read_bool(node,
 				"qcom,suspend-input");
+
+	chg->use_extcon = of_property_read_bool(node,
+				"qcom,use-extcon");
 
 	rc = of_property_read_u32(node,
 				"qcom,fcc-max-ua", &chip->dt.fcc_ua);
@@ -727,7 +730,7 @@ static int smb138x_init_parallel_psy(struct smb138x *chip)
  * VBUS REGULATOR REGISTRATION *
  ******************************/
 
-struct regulator_ops smb138x_vbus_reg_ops = {
+static struct regulator_ops smb138x_vbus_reg_ops = {
 	.enable		= smblib_vbus_regulator_enable,
 	.disable	= smblib_vbus_regulator_disable,
 	.is_enabled	= smblib_vbus_regulator_is_enabled,
@@ -769,7 +772,7 @@ static int smb138x_init_vbus_regulator(struct smb138x *chip)
  * VCONN REGULATOR REGISTRATION *
  ******************************/
 
-struct regulator_ops smb138x_vconn_reg_ops = {
+static struct regulator_ops smb138x_vconn_reg_ops = {
 	.enable		= smblib_vconn_regulator_enable,
 	.disable	= smblib_vconn_regulator_disable,
 	.is_enabled	= smblib_vconn_regulator_is_enabled,
@@ -1405,54 +1408,94 @@ static int smb138x_master_probe(struct smb138x *chip)
 	rc = smb138x_parse_dt(chip);
 	if (rc < 0) {
 		pr_err("Couldn't parse device tree rc=%d\n", rc);
-		return rc;
+		goto cleanup;
 	}
 
 	rc = smb138x_init_vbus_regulator(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize vbus regulator rc=%d\n",
 			rc);
-		return rc;
+		goto cleanup;
 	}
 
 	rc = smb138x_init_vconn_regulator(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize vconn regulator rc=%d\n",
 			rc);
-		return rc;
+		goto cleanup;
+	}
+
+	if (chg->use_extcon) {
+		/* extcon registration */
+		chg->extcon = devm_extcon_dev_allocate(chg->dev,
+							smblib_extcon_cable);
+		if (IS_ERR(chg->extcon)) {
+			rc = PTR_ERR(chg->extcon);
+			dev_err(chg->dev, "failed to allocate extcon device rc=%d\n",
+					rc);
+			goto cleanup;
+		}
+
+		chg->extcon->mutually_exclusive = smblib_extcon_exclusive;
+		rc = devm_extcon_dev_register(chg->dev, chg->extcon);
+		if (rc < 0) {
+			dev_err(chg->dev, "failed to register extcon device rc=%d\n",
+						rc);
+			goto cleanup;
+		}
+
+		/* Support reporting polarity and speed via properties */
+		rc = extcon_set_property_capability(chg->extcon,
+				EXTCON_USB, EXTCON_PROP_USB_TYPEC_POLARITY);
+		rc |= extcon_set_property_capability(chg->extcon,
+				EXTCON_USB, EXTCON_PROP_USB_SS);
+		rc |= extcon_set_property_capability(chg->extcon,
+				EXTCON_USB_HOST,
+				EXTCON_PROP_USB_TYPEC_POLARITY);
+		rc |= extcon_set_property_capability(chg->extcon,
+				EXTCON_USB_HOST, EXTCON_PROP_USB_SS);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"failed to configure extcon capabilities\n");
+			goto cleanup;
+		}
 	}
 
 	rc = smb138x_init_usb_psy(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize usb psy rc=%d\n", rc);
-		return rc;
+		goto cleanup;
 	}
 
 	rc = smb138x_init_batt_psy(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize batt psy rc=%d\n", rc);
-		return rc;
+		goto cleanup;
 	}
 
 	rc = smb138x_init_hw(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize hardware rc=%d\n", rc);
-		return rc;
+		goto cleanup;
 	}
 
 	rc = smb138x_determine_initial_status(chip);
 	if (rc < 0) {
 		pr_err("Couldn't determine initial status rc=%d\n",
 			rc);
-		return rc;
+		goto cleanup;
 	}
 
 	rc = smb138x_request_interrupts(chip);
 	if (rc < 0) {
 		pr_err("Couldn't request interrupts rc=%d\n", rc);
-		return rc;
+		goto cleanup;
 	}
 
+	return rc;
+
+cleanup:
+	smblib_deinit(chg);
 	return rc;
 }
 

@@ -519,10 +519,13 @@ static void msm_atomic_commit_dispatch(struct drm_device *dev,
 		 */
 		DRM_ERROR("failed to dispatch commit to any CRTC\n");
 		complete_commit(commit);
-	} else if (!commit->nonblock) {
+	} else if (!nonblock) {
 		kthread_flush_work(&commit->commit_work);
-		kfree(commit);
 	}
+
+	/* free nonblocking commits in this context, after processing */
+	if (!nonblock)
+		kfree(commit);
 }
 
 /**

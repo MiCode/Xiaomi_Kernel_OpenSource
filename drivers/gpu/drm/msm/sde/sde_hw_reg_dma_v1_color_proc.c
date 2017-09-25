@@ -44,7 +44,7 @@
 static struct sde_reg_dma_buffer *dspp_buf[REG_DMA_FEATURES_MAX][DSPP_MAX];
 
 static u32 feature_map[SDE_DSPP_MAX] = {
-	[SDE_DSPP_VLUT] = VLUT,
+	[SDE_DSPP_VLUT] = REG_DMA_FEATURES_MAX,
 	[SDE_DSPP_GAMUT] = GAMUT,
 	[SDE_DSPP_IGC] = IGC,
 	[SDE_DSPP_PCC] = PCC,

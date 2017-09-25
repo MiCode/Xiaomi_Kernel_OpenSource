@@ -178,7 +178,10 @@ static u32 dp_usbpd_gen_config_pkt(struct dp_usbpd_private *pd)
 	u32 config = 0;
 	const u32 ufp_d_config = 0x2, dp_ver = 0x1;
 
-	pin_cfg = pd->cap.dlink_pin_config;
+	if (pd->cap.receptacle_state)
+		pin_cfg = pd->cap.ulink_pin_config;
+	else
+		pin_cfg = pd->cap.dlink_pin_config;
 
 	for (pin = DP_USBPD_PIN_A; pin < DP_USBPD_PIN_MAX; pin++) {
 		if (pin_cfg & BIT(pin)) {
@@ -373,6 +376,18 @@ static void dp_usbpd_response_cb(struct usbpd_svid_handler *hdlr, u8 cmd,
 		dp_usbpd_get_status(pd);
 
 		pd->dp_usbpd.orientation = usbpd_get_plug_orientation(pd->pd);
+
+		/*
+		 * By default, USB reserves two lanes for Super Speed.
+		 * Which means DP has remaining two lanes to operate on.
+		 * If multi-function is not supported, request USB to
+		 * release the Super Speed lanes so that DP can use
+		 * all four lanes in case DPCD indicates support for
+		 * four lanes.
+		 */
+		if (!pd->dp_usbpd.multi_func)
+			pd->svid_handler.request_usb_ss_lane(pd->pd,
+				&pd->svid_handler);
 
 		if (pd->dp_cb && pd->dp_cb->configure)
 			pd->dp_cb->configure(pd->dev);

@@ -2683,6 +2683,21 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 		return 0;
 	}
 
+	if (in->client == IPA_CLIENT_APPS_WAN_PROD) {
+		sys->policy = IPA_POLICY_INTR_MODE;
+		sys->use_comm_evt_ring = true;
+		INIT_WORK(&sys->work, ipa3_send_nop_desc);
+
+		/*
+		 * enable source notification status for exception packets
+		 * (i.e. QMAP commands) to be routed to modem.
+		 */
+		sys->ep->status.status_en = true;
+		sys->ep->status.status_ep =
+			ipa3_get_ep_mapping(IPA_CLIENT_Q6_WAN_CONS);
+		return 0;
+	}
+
 	if (IPA_CLIENT_IS_MEMCPY_DMA_PROD(in->client)) {
 		sys->policy = IPA_POLICY_NOINTR_MODE;
 		return 0;

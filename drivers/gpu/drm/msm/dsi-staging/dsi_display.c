@@ -84,6 +84,10 @@ int dsi_display_set_backlight(void *display, u32 bl_lvl)
 		return -EINVAL;
 
 	panel = dsi_display->panel;
+
+	if (!dsi_panel_initialized(panel))
+		return -EINVAL;
+
 	panel->bl_config.bl_level = bl_lvl;
 
 	/* scale backlight */
@@ -95,10 +99,28 @@ int dsi_display_set_backlight(void *display, u32 bl_lvl)
 
 	pr_debug("bl_scale = %u, bl_scale_ad = %u, bl_lvl = %u\n",
 		bl_scale, bl_scale_ad, (u32)bl_temp);
+
+	rc = dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
+			DSI_CORE_CLK, DSI_CLK_ON);
+	if (rc) {
+		pr_err("[%s] failed to enable DSI core clocks, rc=%d\n",
+		       dsi_display->name, rc);
+		goto error;
+	}
+
 	rc = dsi_panel_set_backlight(panel, (u32)bl_temp);
 	if (rc)
 		pr_err("unable to set backlight\n");
 
+	rc = dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
+			DSI_CORE_CLK, DSI_CLK_OFF);
+	if (rc) {
+		pr_err("[%s] failed to disable DSI core clocks, rc=%d\n",
+		       dsi_display->name, rc);
+		goto error;
+	}
+
+error:
 	return rc;
 }
 
@@ -1690,7 +1712,9 @@ error_disable_clks:
 put_iova:
 	msm_gem_put_iova(display->tx_cmd_buf, aspace);
 free_gem:
+	mutex_lock(&display->drm_dev->struct_mutex);
 	msm_gem_free_object(display->tx_cmd_buf);
+	mutex_unlock(&display->drm_dev->struct_mutex);
 error:
 	return rc;
 }

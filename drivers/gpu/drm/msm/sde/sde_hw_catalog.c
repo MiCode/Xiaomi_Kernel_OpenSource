@@ -146,6 +146,9 @@ enum sde_prop {
 enum {
 	PERF_MAX_BW_LOW,
 	PERF_MAX_BW_HIGH,
+	PERF_MIN_CORE_IB,
+	PERF_MIN_LLCC_IB,
+	PERF_MIN_DRAM_IB,
 	PERF_CORE_IB_FF,
 	PERF_CORE_CLK_FF,
 	PERF_COMP_RATIO_RT,
@@ -376,6 +379,9 @@ static struct sde_prop_type sde_prop[] = {
 static struct sde_prop_type sde_perf_prop[] = {
 	{PERF_MAX_BW_LOW, "qcom,sde-max-bw-low-kbps", false, PROP_TYPE_U32},
 	{PERF_MAX_BW_HIGH, "qcom,sde-max-bw-high-kbps", false, PROP_TYPE_U32},
+	{PERF_MIN_CORE_IB, "qcom,sde-min-core-ib-kbps", false, PROP_TYPE_U32},
+	{PERF_MIN_LLCC_IB, "qcom,sde-min-llcc-ib-kbps", false, PROP_TYPE_U32},
+	{PERF_MIN_DRAM_IB, "qcom,sde-min-dram-ib-kbps", false, PROP_TYPE_U32},
 	{PERF_CORE_IB_FF, "qcom,sde-core-ib-ff", false, PROP_TYPE_STRING},
 	{PERF_CORE_CLK_FF, "qcom,sde-core-clk-ff", false, PROP_TYPE_STRING},
 	{PERF_COMP_RATIO_RT, "qcom,sde-comp-ratio-rt", false,
@@ -2691,6 +2697,18 @@ static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 			prop_exists[PERF_MAX_BW_HIGH] ?
 			PROP_VALUE_ACCESS(prop_value, PERF_MAX_BW_HIGH, 0) :
 			DEFAULT_MAX_BW_HIGH;
+	cfg->perf.min_core_ib =
+			prop_exists[PERF_MIN_CORE_IB] ?
+			PROP_VALUE_ACCESS(prop_value, PERF_MIN_CORE_IB, 0) :
+			DEFAULT_MAX_BW_LOW;
+	cfg->perf.min_llcc_ib =
+			prop_exists[PERF_MIN_LLCC_IB] ?
+			PROP_VALUE_ACCESS(prop_value, PERF_MIN_LLCC_IB, 0) :
+			DEFAULT_MAX_BW_LOW;
+	cfg->perf.min_dram_ib =
+			prop_exists[PERF_MIN_DRAM_IB] ?
+			PROP_VALUE_ACCESS(prop_value, PERF_MIN_DRAM_IB, 0) :
+			DEFAULT_MAX_BW_LOW;
 
 	/*
 	 * The following performance parameters (e.g. core_ib_ff) are
@@ -2873,7 +2891,8 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 	vig_list_size += ARRAY_SIZE(rgb_10bit_formats)
 		+ ARRAY_SIZE(tp10_ubwc_formats)
 		+ ARRAY_SIZE(p010_formats);
-	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400))
+	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400) ||
+		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_410)))
 		vig_list_size += ARRAY_SIZE(p010_ubwc_formats);
 
 	wb2_list_size += ARRAY_SIZE(rgb_10bit_formats)
@@ -2914,7 +2933,8 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 		ARRAY_SIZE(rgb_10bit_formats));
 	index += sde_copy_formats(sde_cfg->vig_formats, vig_list_size,
 		index, p010_formats, ARRAY_SIZE(p010_formats));
-	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400))
+	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400) ||
+		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_410)))
 		index += sde_copy_formats(sde_cfg->vig_formats,
 			vig_list_size, index, p010_ubwc_formats,
 			ARRAY_SIZE(p010_ubwc_formats));
@@ -2944,33 +2964,25 @@ static int _sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 
 	rc = sde_hardware_format_caps(sde_cfg, hw_rev);
 
-	switch (hw_rev) {
-	case SDE_HW_VER_170:
-	case SDE_HW_VER_171:
-	case SDE_HW_VER_172:
+	if (IS_MSM8996_TARGET(hw_rev)) {
 		/* update msm8996 target here */
 		sde_cfg->perf.min_prefill_lines = 21;
-		break;
-	case SDE_HW_VER_300:
-	case SDE_HW_VER_301:
+	} else if (IS_MSM8998_TARGET(hw_rev)) {
 		/* update msm8998 target here */
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->perf.min_prefill_lines = 25;
 		sde_cfg->vbif_qos_nlvl = 4;
 		sde_cfg->ts_prefill_rev = 1;
-		sde_cfg->perf.min_prefill_lines = 25;
-		break;
-	case SDE_HW_VER_400:
+	} else if (IS_SDM845_TARGET(hw_rev) || IS_SDM670_TARGET(hw_rev)) {
 		/* update sdm845 target here */
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->perf.min_prefill_lines = 24;
 		sde_cfg->vbif_qos_nlvl = 8;
 		sde_cfg->ts_prefill_rev = 2;
-		sde_cfg->perf.min_prefill_lines = 24;
-		break;
-	default:
+	} else {
+		SDE_ERROR("unsupported chipset id:%X\n", hw_rev);
 		sde_cfg->perf.min_prefill_lines = 0xffff;
-		break;
+		rc = -ENODEV;
 	}
 
 	return rc;

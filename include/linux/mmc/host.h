@@ -226,6 +226,7 @@ struct mmc_cmdq_req {
 	unsigned int		resp_arg;
 	unsigned int		dev_pend_tasks;
 	bool			resp_err;
+	bool			skip_err_handling;
 	int			tag; /* used for command queuing */
 	u8			ctx_id;
 };
@@ -543,6 +544,7 @@ struct mmc_host {
 	unsigned int		bus_resume_flags;
 #define MMC_BUSRESUME_MANUAL_RESUME	(1 << 0)
 #define MMC_BUSRESUME_NEEDS_RESUME	(1 << 1)
+	bool ignore_bus_resume_flags;
 
 	unsigned int		sdio_irqs;
 	struct task_struct	*sdio_irq_thread;

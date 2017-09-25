@@ -2618,10 +2618,10 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.string_defs = qdss_gsi_string_defs;
 		info.data_desc = &qdss_gsi_data_intf_desc;
 		info.data_str_idx = 0;
-		info.fs_in_desc = &qdss_gsi_hs_data_desc;
+		info.fs_in_desc = &qdss_gsi_fs_data_desc;
 		info.hs_in_desc = &qdss_gsi_hs_data_desc;
 		info.ss_in_desc = &qdss_gsi_ss_data_desc;
-		info.fs_desc_hdr = qdss_gsi_hs_data_only_desc;
+		info.fs_desc_hdr = qdss_gsi_fs_data_only_desc;
 		info.hs_desc_hdr = qdss_gsi_hs_data_only_desc;
 		info.ss_desc_hdr = qdss_gsi_ss_data_only_desc;
 		info.in_epname = "gsi-epin";

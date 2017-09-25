@@ -891,7 +891,7 @@ int smblib_set_icl_current(struct smb_charger *chg, int icl_ua)
 	bool override;
 
 	/* suspend and return if 25mA or less is requested */
-	if (icl_ua < USBIN_25MA)
+	if (icl_ua <= USBIN_25MA)
 		return smblib_set_usb_suspend(chg, true);
 
 	if (icl_ua == INT_MAX)
@@ -1017,7 +1017,7 @@ static int smblib_dc_icl_vote_callback(struct votable *votable, void *data,
 		icl_ua = 0;
 	}
 
-	suspend = (icl_ua < USBIN_25MA);
+	suspend = (icl_ua <= USBIN_25MA);
 	if (suspend)
 		goto suspend;
 
@@ -3358,6 +3358,10 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 		vote(chg->awake_votable, PL_DELAY_VOTER, true, 0);
 		schedule_delayed_work(&chg->pl_enable_work,
 					msecs_to_jiffies(PL_DELAY_MS));
+		/* vbus rising when APSD was disabled and PD_ACTIVE = 0 */
+		if (get_effective_result(chg->apsd_disable_votable) &&
+				!chg->pd_active)
+			pr_err("APSD disabled on vbus rising without PD\n");
 	} else {
 		if (chg->wa_flags & BOOST_BACK_WA) {
 			data = chg->irq_info[SWITCH_POWER_OK_IRQ].irq_data;
@@ -3642,6 +3646,37 @@ static void smblib_force_legacy_icl(struct smb_charger *chg, int pst)
 	}
 }
 
+static void smblib_notify_extcon_props(struct smb_charger *chg, int id)
+{
+	union extcon_property_value val;
+	union power_supply_propval prop_val;
+
+	smblib_get_prop_typec_cc_orientation(chg, &prop_val);
+	val.intval = ((prop_val.intval == 2) ? 1 : 0);
+	extcon_set_property(chg->extcon, id,
+				EXTCON_PROP_USB_TYPEC_POLARITY, val);
+
+	val.intval = true;
+	extcon_set_property(chg->extcon, id,
+				EXTCON_PROP_USB_SS, val);
+}
+
+static void smblib_notify_device_mode(struct smb_charger *chg, bool enable)
+{
+	if (enable)
+		smblib_notify_extcon_props(chg, EXTCON_USB);
+
+	extcon_set_state_sync(chg->extcon, EXTCON_USB, enable);
+}
+
+static void smblib_notify_usb_host(struct smb_charger *chg, bool enable)
+{
+	if (enable)
+		smblib_notify_extcon_props(chg, EXTCON_USB_HOST);
+
+	extcon_set_state_sync(chg->extcon, EXTCON_USB_HOST, enable);
+}
+
 #define HVDCP_DET_MS 2500
 static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 {
@@ -3664,6 +3699,8 @@ static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 		/* if not DCP then no hvdcp timeout happens. Enable pd here */
 		vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER,
 				false, 0);
+		if (chg->use_extcon)
+			smblib_notify_device_mode(chg, true);
 		break;
 	case OCP_CHARGER_BIT:
 	case FLOAT_CHARGER_BIT:
@@ -3749,6 +3786,10 @@ static void typec_sink_insertion(struct smb_charger *chg)
 	 */
 	vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER,
 			false, 0);
+	if (chg->use_extcon) {
+		smblib_notify_usb_host(chg, true);
+		chg->otg_present = true;
+	}
 }
 
 static void typec_sink_removal(struct smb_charger *chg)
@@ -3899,6 +3940,14 @@ unlock:
 
 	typec_sink_removal(chg);
 	smblib_update_usb_type(chg);
+
+	if (chg->use_extcon) {
+		if (chg->otg_present)
+			smblib_notify_usb_host(chg, false);
+		else
+			smblib_notify_device_mode(chg, false);
+	}
+	chg->otg_present = false;
 }
 
 static void smblib_handle_typec_insertion(struct smb_charger *chg)
@@ -4104,7 +4153,7 @@ irqreturn_t smblib_handle_switcher_power_ok(int irq, void *data)
 
 	/* skip suspending input if its already suspended by some other voter */
 	usb_icl = get_effective_result(chg->usb_icl_votable);
-	if ((stat & USE_USBIN_BIT) && usb_icl >= 0 && usb_icl < USBIN_25MA)
+	if ((stat & USE_USBIN_BIT) && usb_icl >= 0 && usb_icl <= USBIN_25MA)
 		return IRQ_HANDLED;
 
 	if (stat & USE_DCIN_BIT)

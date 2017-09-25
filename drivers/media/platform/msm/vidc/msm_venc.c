@@ -61,6 +61,14 @@ static const char *const mpeg_video_rotation[] = {
 	NULL
 };
 
+static const char *const mpeg_video_flip[] = {
+	"No Flip",
+	"Horizontal Flip",
+	"Vertical Flip",
+	"Both",
+	NULL
+};
+
 static const char *const h264_video_entropy_cabac_model[] = {
 	"Model 0",
 	"Model 1",
@@ -909,7 +917,16 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.minimum = 0,
 		.maximum = INT_MAX,
 		.default_value = 0,
-		.step = OPERATING_FRAME_RATE_STEP,
+		.step = 1,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_FRAME_RATE,
+		.name = "Set Encoder Frame rate",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 0,
+		.maximum = INT_MAX,
+		.default_value = 0,
+		.step = 1,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_VENC_BITRATE_TYPE,
@@ -1036,6 +1053,21 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.default_value = 0,
 		.step = 1,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_FLIP,
+		.name = "Flip",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_CID_MPEG_VIDC_VIDEO_FLIP_NONE,
+		.maximum = V4L2_CID_MPEG_VIDC_VIDEO_FLIP_BOTH,
+		.default_value = V4L2_CID_MPEG_VIDC_VIDEO_FLIP_NONE,
+		.menu_skip_mask = ~(
+		(1 << V4L2_CID_MPEG_VIDC_VIDEO_FLIP_NONE) |
+		(1 << V4L2_CID_MPEG_VIDC_VIDEO_FLIP_HORI) |
+		(1 << V4L2_CID_MPEG_VIDC_VIDEO_FLIP_VERT) |
+		(1 << V4L2_CID_MPEG_VIDC_VIDEO_FLIP_BOTH)
+		),
+		.qmenu = mpeg_video_flip,
+	},
 
 };
 
@@ -1111,6 +1143,13 @@ static struct msm_vidc_format venc_formats[] = {
 		.fourcc = V4L2_PIX_FMT_TME,
 		.get_frame_size = get_frame_size_compressed,
 		.type = CAPTURE_PORT,
+	},
+	{
+		.name = "YCbCr Semiplanar 4:2:0 10bit",
+		.description = "Y/CbCr 4:2:0 10bit",
+		.fourcc = V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010,
+		.get_frame_size = get_frame_size_p010,
+		.type = OUTPUT_PORT,
 	},
 };
 
@@ -1420,11 +1459,27 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION:
 	{
+		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_FLIP);
 		property_id = HAL_PARAM_VPE_ROTATION;
 		vpe_rotation.rotate = msm_comm_v4l2_to_hal(
 				V4L2_CID_MPEG_VIDC_VIDEO_ROTATION,
 				ctrl->val);
-		vpe_rotation.flip = HAL_FLIP_NONE;
+		vpe_rotation.flip = msm_comm_v4l2_to_hal(
+				V4L2_CID_MPEG_VIDC_VIDEO_FLIP,
+				temp_ctrl->val);
+		pdata = &vpe_rotation;
+		break;
+	}
+	case V4L2_CID_MPEG_VIDC_VIDEO_FLIP:
+	{
+		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_ROTATION);
+		property_id = HAL_PARAM_VPE_ROTATION;
+		vpe_rotation.rotate = msm_comm_v4l2_to_hal(
+				V4L2_CID_MPEG_VIDC_VIDEO_ROTATION,
+				temp_ctrl->val);
+		vpe_rotation.flip = msm_comm_v4l2_to_hal(
+				V4L2_CID_MPEG_VIDC_VIDEO_FLIP,
+				ctrl->val);
 		pdata = &vpe_rotation;
 		break;
 	}
@@ -1464,13 +1519,14 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		pdata = &multi_slice_control;
 		break;
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_DELIVERY_MODE: {
-		bool codec_avc =
+		bool codecs_supported =
+			inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_HEVC ||
 			inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_H264 ||
 			inst->fmts[CAPTURE_PORT].fourcc ==
 							V4L2_PIX_FMT_H264_NO_SC;
 
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
-		if (codec_avc && temp_ctrl->val ==
+		if (codecs_supported && temp_ctrl->val ==
 				V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_MB) {
 			property_id = HAL_PARAM_VENC_SLICE_DELIVERY_MODE;
 			enable.enable = true;
@@ -1817,12 +1873,27 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		}
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE:
-		dprintk(VIDC_DBG,
-			"inst(%pK) operating rate changed from %d to %d\n",
-			inst, inst->clk_data.operating_rate >> 16,
+		if (((ctrl->val >> 16) < inst->capability.frame_rate.min ||
+			 (ctrl->val >> 16) > inst->capability.frame_rate.max) &&
+			  ctrl->val != INT_MAX) {
+			dprintk(VIDC_ERR, "Invalid operating rate %u\n",
+				(ctrl->val >> 16));
+			rc = -ENOTSUPP;
+		} else if (ctrl->val == INT_MAX) {
+			dprintk(VIDC_DBG, "inst(%pK) Request for turbo mode\n",
+				inst);
+			inst->clk_data.turbo_mode = true;
+		} else if (msm_vidc_validate_operating_rate(inst, ctrl->val)) {
+			dprintk(VIDC_ERR, "Failed to set operating rate\n");
+			rc = -ENOTSUPP;
+		} else {
+			dprintk(VIDC_DBG,
+				"inst(%pK) operating rate changed from %d to %d\n",
+				inst, inst->clk_data.operating_rate >> 16,
 				ctrl->val >> 16);
-		inst->clk_data.operating_rate = ctrl->val;
-
+			inst->clk_data.operating_rate = ctrl->val;
+			inst->clk_data.turbo_mode = false;
+		}
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_VENC_BITRATE_TYPE:
 	{
@@ -2385,6 +2456,12 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 
 		inst->prop.width[CAPTURE_PORT] = f->fmt.pix_mp.width;
 		inst->prop.height[CAPTURE_PORT] = f->fmt.pix_mp.height;
+		rc = msm_vidc_check_session_supported(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s: session not supported\n", __func__);
+			goto exit;
+		}
 
 		frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
 		frame_sz.width = inst->prop.width[CAPTURE_PORT];
@@ -2443,6 +2520,12 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 
 		inst->prop.width[OUTPUT_PORT] = f->fmt.pix_mp.width;
 		inst->prop.height[OUTPUT_PORT] = f->fmt.pix_mp.height;
+		rc = msm_vidc_check_session_supported(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s: session not supported\n", __func__);
+			goto exit;
+		}
 
 		frame_sz.buffer_type = HAL_BUFFER_INPUT;
 		frame_sz.width = inst->prop.width[OUTPUT_PORT];

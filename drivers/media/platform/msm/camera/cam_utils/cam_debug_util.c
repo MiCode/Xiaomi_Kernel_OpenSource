@@ -83,6 +83,9 @@ const char *cam_get_module_name(unsigned int module_id)
 	case CAM_HFI:
 		name = "CAM-HFI";
 		break;
+	case CAM_OIS:
+		name = "CAM-OIS";
+		break;
 	default:
 		name = "CAM";
 		break;

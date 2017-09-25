@@ -3088,12 +3088,6 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 		 * above in sdhci_cmd_irq().
 		 */
 		if (data_cmd && (data_cmd->flags & MMC_RSP_BUSY)) {
-			if (intmask & SDHCI_INT_DATA_TIMEOUT) {
-				host->data_cmd = NULL;
-				data_cmd->error = -ETIMEDOUT;
-				sdhci_finish_mrq(host, data_cmd->mrq);
-				return;
-			}
 			if (intmask & SDHCI_INT_DATA_END) {
 				host->data_cmd = NULL;
 				/*
@@ -3108,8 +3102,21 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 				return;
 			}
 			if (host->quirks2 &
-				SDHCI_QUIRK2_IGNORE_DATATOUT_FOR_R1BCMD)
+				SDHCI_QUIRK2_IGNORE_DATATOUT_FOR_R1BCMD) {
+				pr_err_ratelimited("%s: %s: ignoring interrupt: 0x%08x due to DATATOUT_FOR_R1B quirk\n",
+						mmc_hostname(host->mmc),
+						__func__, intmask);
+				MMC_TRACE(host->mmc,
+					"%s: Quirk ignoring intr: 0x%08x\n",
+						__func__, intmask);
 				return;
+			}
+			if (intmask & SDHCI_INT_DATA_TIMEOUT) {
+				host->data_cmd = NULL;
+				data_cmd->error = -ETIMEDOUT;
+				sdhci_finish_mrq(host, data_cmd->mrq);
+				return;
+			}
 		}
 
 		/*
@@ -3689,7 +3696,7 @@ static void sdhci_cmdq_set_transfer_params(struct mmc_host *mmc)
 			ctrl |= SDHCI_CTRL_ADMA32;
 		sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 	}
-	if (host->ops->toggle_cdr)
+	if (host->ops->toggle_cdr && !host->cdr_support)
 		host->ops->toggle_cdr(host, false);
 }
 
@@ -3768,14 +3775,35 @@ static void sdhci_cmdq_post_cqe_halt(struct mmc_host *mmc)
 	sdhci_writel(host, SDHCI_INT_RESPONSE, SDHCI_INT_STATUS);
 }
 static int sdhci_cmdq_crypto_cfg(struct mmc_host *mmc,
-		struct mmc_request *mrq, u32 slot)
+		struct mmc_request *mrq, u32 slot, u64 *ice_ctx)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
+	int err = 0;
 
 	if (!host->is_crypto_en)
 		return 0;
 
-	return sdhci_crypto_cfg(host, mrq, slot);
+	if (host->crypto_reset_reqd && host->ops->crypto_engine_reset) {
+		err = host->ops->crypto_engine_reset(host);
+		if (err) {
+			pr_err("%s: crypto reset failed\n",
+					mmc_hostname(host->mmc));
+			goto out;
+		}
+		host->crypto_reset_reqd = false;
+	}
+
+	if (host->ops->crypto_engine_cmdq_cfg) {
+		err = host->ops->crypto_engine_cmdq_cfg(host, mrq,
+				slot, ice_ctx);
+		if (err) {
+			pr_err("%s: failed to configure crypto\n",
+					mmc_hostname(host->mmc));
+			goto out;
+		}
+	}
+out:
+	return err;
 }
 
 static void sdhci_cmdq_crypto_cfg_reset(struct mmc_host *mmc, unsigned int slot)
@@ -3835,7 +3863,7 @@ static void sdhci_cmdq_post_cqe_halt(struct mmc_host *mmc)
 }
 
 static int sdhci_cmdq_crypto_cfg(struct mmc_host *mmc,
-		struct mmc_request *mrq, u32 slot)
+		struct mmc_request *mrq, u32 slot, u64 *ice_ctx)
 {
 	return 0;
 }

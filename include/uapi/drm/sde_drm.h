@@ -295,6 +295,44 @@ struct sde_drm_scaler_v2 {
 	struct sde_drm_de_v1 de;
 };
 
+/* Number of dest scalers supported */
+#define SDE_MAX_DS_COUNT 2
+
+/*
+ * Destination scaler flag config
+ */
+#define SDE_DRM_DESTSCALER_ENABLE           0x1
+#define SDE_DRM_DESTSCALER_SCALE_UPDATE     0x2
+#define SDE_DRM_DESTSCALER_ENHANCER_UPDATE  0x4
+#define SDE_DRM_DESTSCALER_PU_ENABLE        0x8
+
+/**
+ * struct sde_drm_dest_scaler_cfg - destination scaler config structure
+ * @flags:      Flag to switch between mode for destination scaler
+ *              refer to destination scaler flag config
+ * @index:      Destination scaler selection index
+ * @lm_width:   Layer mixer width configuration
+ * @lm_height:  Layer mixer height configuration
+ * @scaler_cfg: The scaling parameters for all the mode except disable
+ *              Userspace pointer to struct sde_drm_scaler_v2
+ */
+struct sde_drm_dest_scaler_cfg {
+	uint32_t flags;
+	uint32_t index;
+	uint32_t lm_width;
+	uint32_t lm_height;
+	uint64_t scaler_cfg;
+};
+
+/**
+ * struct sde_drm_dest_scaler_data - destination scaler data struct
+ * @num_dest_scaler: Number of dest scalers to be configured
+ * @ds_cfg:          Destination scaler block configuration
+ */
+struct sde_drm_dest_scaler_data {
+	uint32_t num_dest_scaler;
+	struct sde_drm_dest_scaler_cfg ds_cfg[SDE_MAX_DS_COUNT];
+};
 
 /*
  * Define constants for struct sde_drm_csc

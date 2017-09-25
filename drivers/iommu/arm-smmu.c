@@ -427,6 +427,7 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_DYNAMIC		(1 << 3)
 #define ARM_SMMU_OPT_3LVL_TABLES	(1 << 4)
 #define ARM_SMMU_OPT_NO_ASID_RETENTION	(1 << 5)
+#define ARM_SMMU_OPT_DISABLE_ATOS	(1 << 6)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 	enum arm_smmu_implementation	model;
@@ -547,6 +548,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_DYNAMIC, "qcom,dynamic" },
 	{ ARM_SMMU_OPT_3LVL_TABLES, "qcom,use-3-lvl-tables" },
 	{ ARM_SMMU_OPT_NO_ASID_RETENTION, "qcom,no-asid-retention" },
+	{ ARM_SMMU_OPT_DISABLE_ATOS, "qcom,disable-atos" },
 	{ 0, NULL},
 };
 
@@ -2490,6 +2492,10 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	phys_addr_t ret = 0;
 	unsigned long flags;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+
+	if (smmu->options & ARM_SMMU_OPT_DISABLE_ATOS)
+		return 0;
 
 	if (smmu_domain->smmu->arch_ops &&
 	    smmu_domain->smmu->arch_ops->iova_to_phys_hard) {
@@ -2760,6 +2766,11 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 					& (1 << DOMAIN_ATTR_FAST));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_UPSTREAM_IOVA_ALLOCATOR:
+		*((int *)data) = !!(smmu_domain->attributes
+			& (1 << DOMAIN_ATTR_UPSTREAM_IOVA_ALLOCATOR));
+		ret = 0;
+		break;
 	case DOMAIN_ATTR_USE_UPSTREAM_HINT:
 		*((int *)data) = !!(smmu_domain->attributes &
 				   (1 << DOMAIN_ATTR_USE_UPSTREAM_HINT));
@@ -2911,6 +2922,12 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 			break;
 		}
 		smmu_domain->secure_vmid = *((int *)data);
+		break;
+	case DOMAIN_ATTR_UPSTREAM_IOVA_ALLOCATOR:
+		if (*((int *)data))
+			smmu_domain->attributes |=
+				1 << DOMAIN_ATTR_UPSTREAM_IOVA_ALLOCATOR;
+		ret = 0;
 		break;
 	case DOMAIN_ATTR_FAST:
 		if (*((int *)data))
@@ -3264,11 +3281,6 @@ static phys_addr_t qsmmuv2_iova_to_phys_hard(struct iommu_domain *domain,
 	unsigned long flags;
 	u32 sctlr, sctlr_orig, fsr;
 	void __iomem *cb_base;
-
-	if (smmu->model == QCOM_SMMUV2) {
-		dev_err(smmu->dev, "ATOS support is disabled\n");
-		return 0;
-	}
 
 	ret = arm_smmu_power_on(smmu_domain->smmu->pwr);
 	if (ret)

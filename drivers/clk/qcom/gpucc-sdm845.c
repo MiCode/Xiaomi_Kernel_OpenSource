@@ -224,6 +224,12 @@ static const struct freq_tbl ftbl_gpu_cc_gmu_clk_src_sdm845_v2[] = {
 	{ }
 };
 
+static const struct freq_tbl ftbl_gpu_cc_gmu_clk_src_sdm670[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(200000000, P_GPLL0_OUT_MAIN_DIV, 1.5, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 gpu_cc_gmu_clk_src = {
 	.cmd_rcgr = 0x1120,
 	.mnd_width = 0,
@@ -276,6 +282,18 @@ static const struct freq_tbl  ftbl_gpu_cc_gx_gfx3d_clk_src_sdm845_v2[] = {
 	F(596000000, P_CRC_DIV,  1, 0, 0),
 	F(675000000, P_CRC_DIV,  1, 0, 0),
 	F(710000000, P_CRC_DIV,  1, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_gpu_cc_gx_gfx3d_clk_src_sdm670[] = {
+	F(180000000, P_CRC_DIV,  1, 0, 0),
+	F(267000000, P_CRC_DIV,  1, 0, 0),
+	F(355000000, P_CRC_DIV,  1, 0, 0),
+	F(430000000, P_CRC_DIV,  1, 0, 0),
+	F(565000000, P_CRC_DIV,  1, 0, 0),
+	F(650000000, P_CRC_DIV,  1, 0, 0),
+	F(750000000, P_CRC_DIV,  1, 0, 0),
+	F(780000000, P_CRC_DIV,  1, 0, 0),
 	{ }
 };
 
@@ -585,6 +603,7 @@ static const struct qcom_cc_desc gpu_cc_gfx_sdm845_desc = {
 static const struct of_device_id gpu_cc_sdm845_match_table[] = {
 	{ .compatible = "qcom,gpucc-sdm845" },
 	{ .compatible = "qcom,gpucc-sdm845-v2" },
+	{ .compatible = "qcom,gpucc-sdm670" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gpu_cc_sdm845_match_table);
@@ -592,6 +611,7 @@ MODULE_DEVICE_TABLE(of, gpu_cc_sdm845_match_table);
 static const struct of_device_id gpu_cc_gfx_sdm845_match_table[] = {
 	{ .compatible = "qcom,gfxcc-sdm845" },
 	{ .compatible = "qcom,gfxcc-sdm845-v2" },
+	{ .compatible = "qcom,gfxcc-sdm670" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, gpu_cc_gfx_sdm845_match_table);
@@ -603,6 +623,15 @@ static void gpu_cc_sdm845_fixup_sdm845v2(struct regmap *regmap)
 
 	gpu_cc_gmu_clk_src.freq_tbl = ftbl_gpu_cc_gmu_clk_src_sdm845_v2;
 	gpu_cc_gmu_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 500000000;
+}
+
+static void gpu_cc_sdm845_fixup_sdm670(struct regmap *regmap)
+{
+	gpu_cc_sdm845_clocks[GPU_CC_PLL1] = &gpu_cc_pll1.clkr;
+	clk_fabia_pll_configure(&gpu_cc_pll1, regmap, &gpu_cc_pll1_config);
+
+	gpu_cc_gmu_clk_src.freq_tbl = ftbl_gpu_cc_gmu_clk_src_sdm670;
+	gpu_cc_gmu_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 0;
 }
 
 static void gpu_cc_gfx_sdm845_fixup_sdm845v2(void)
@@ -624,6 +653,28 @@ static void gpu_cc_gfx_sdm845_fixup_sdm845v2(void)
 				710000000;
 }
 
+static void gpu_cc_gfx_sdm845_fixup_sdm670(void)
+{
+	gpu_cc_gx_gfx3d_clk_src.freq_tbl =
+				ftbl_gpu_cc_gx_gfx3d_clk_src_sdm670;
+	gpu_cc_gx_gfx3d_clk_src.clkr.hw.init->rate_max[VDD_GX_MIN] =
+				180000000;
+	gpu_cc_gx_gfx3d_clk_src.clkr.hw.init->rate_max[VDD_GX_LOWER] =
+				267000000;
+	gpu_cc_gx_gfx3d_clk_src.clkr.hw.init->rate_max[VDD_GX_LOW] =
+				355000000;
+	gpu_cc_gx_gfx3d_clk_src.clkr.hw.init->rate_max[VDD_GX_LOW_L1] =
+				430000000;
+	gpu_cc_gx_gfx3d_clk_src.clkr.hw.init->rate_max[VDD_GX_NOMINAL] =
+				565000000;
+	gpu_cc_gx_gfx3d_clk_src.clkr.hw.init->rate_max[VDD_GX_NOMINAL_L1] =
+				650000000;
+	gpu_cc_gx_gfx3d_clk_src.clkr.hw.init->rate_max[VDD_GX_HIGH] =
+				750000000;
+	gpu_cc_gx_gfx3d_clk_src.clkr.hw.init->rate_max[VDD_GX_HIGH_L1] =
+				780000000;
+}
+
 static int gpu_cc_gfx_sdm845_fixup(struct platform_device *pdev)
 {
 	const char *compat = NULL;
@@ -635,6 +686,8 @@ static int gpu_cc_gfx_sdm845_fixup(struct platform_device *pdev)
 
 	if (!strcmp(compat, "qcom,gfxcc-sdm845-v2"))
 		gpu_cc_gfx_sdm845_fixup_sdm845v2();
+	else if (!strcmp(compat, "qcom,gfxcc-sdm670"))
+		gpu_cc_gfx_sdm845_fixup_sdm670();
 
 	return 0;
 }
@@ -651,6 +704,8 @@ static int gpu_cc_sdm845_fixup(struct platform_device *pdev,
 
 	if (!strcmp(compat, "qcom,gpucc-sdm845-v2"))
 		gpu_cc_sdm845_fixup_sdm845v2(regmap);
+	else if (!strcmp(compat, "qcom,gpucc-sdm670"))
+		gpu_cc_sdm845_fixup_sdm670(regmap);
 
 	return 0;
 }
