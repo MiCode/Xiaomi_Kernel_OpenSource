@@ -511,6 +511,16 @@ config AXP20X_POWER
 	  This driver provides support for the power supply features of
 	  AXP20x PMIC.
 
+config NX30P6093
+	bool "NX30P6093 Moisture detection driver"
+	depends on I2C
+	help
+	  Say Y here to enable the NX30P6093 Moisture detection peripheral.
+	  The driver periodically configures NX30P6093 HW module to impedance
+	  detection mode and handles the interrupts from NX30P6093 and force
+	  usb_psy to disable CC detection on the event of any water/debris
+	  detected at USBIN.
+
 source "drivers/power/supply/qcom/Kconfig"
 
 endif # POWER_SUPPLY
