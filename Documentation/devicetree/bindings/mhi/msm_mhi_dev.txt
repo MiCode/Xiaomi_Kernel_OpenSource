@@ -25,6 +25,7 @@ Optional property:
 		between host and device.
   - qcom,mhi-config-iatu: If property is present map the control and data region
 		between host and device using iatu.
+  - qcom,mhi-interrupt: If property is present register for mhi interrupt.
   - qcom,mhi-local-pa-base: The physical base address on the device used by the
 		MHI device driver to map the control and data region with the
 		MHI driver on the host. This property is required if iatu
