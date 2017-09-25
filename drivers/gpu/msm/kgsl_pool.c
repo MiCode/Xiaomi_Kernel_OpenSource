@@ -280,6 +280,17 @@ static int kgsl_pool_idx_lookup(unsigned int order)
 	return -ENOMEM;
 }
 
+static int kgsl_pool_get_retry_order(unsigned int order)
+{
+	int i;
+
+	for (i = kgsl_num_pools-1; i > 0; i--)
+		if (order >= kgsl_pools[i].pool_order)
+			return kgsl_pools[i].pool_order;
+
+	return 0;
+}
+
 /**
  * kgsl_pool_alloc_page() - Allocate a page of requested size
  * @page_size: Size of the page to be allocated
@@ -326,7 +337,7 @@ int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 	if (pool == NULL) {
 		/* Retry with lower order pages */
 		if (order > 0) {
-			size = PAGE_SIZE << --order;
+			size = PAGE_SIZE << kgsl_pool_get_retry_order(order);
 			goto eagain;
 		} else {
 			/*
