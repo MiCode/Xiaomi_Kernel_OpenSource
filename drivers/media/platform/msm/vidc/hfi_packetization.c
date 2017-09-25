@@ -666,6 +666,26 @@ static u32 get_hfi_ltr_mode(enum ltr_mode ltr_mode_type)
 	return ltrmode;
 }
 
+static u32 get_hfi_work_mode(enum hal_work_mode work_mode)
+{
+	u32 hfi_work_mode;
+
+	switch (work_mode) {
+	case VIDC_WORK_MODE_1:
+		hfi_work_mode = HFI_WORKMODE_1;
+		break;
+	case VIDC_WORK_MODE_2:
+		hfi_work_mode = HFI_WORKMODE_2;
+		break;
+	default:
+		dprintk(VIDC_ERR, "Invalid work mode: %#x\n",
+			work_mode);
+		hfi_work_mode = HFI_WORKMODE_2;
+		break;
+	}
+	return hfi_work_mode;
+}
+
 int create_pkt_cmd_session_set_buffers(
 		struct hfi_cmd_session_set_buffers_packet *pkt,
 		struct hal_session *session,
@@ -1846,7 +1866,8 @@ int create_pkt_cmd_session_set_property(
 			(struct hfi_video_work_mode *)
 			&pkt->rg_property_data[1];
 
-		work_mode->video_work_mode = hal->video_work_mode;
+		work_mode->video_work_mode = get_hfi_work_mode(
+						hal->video_work_mode);
 
 		pkt->rg_property_data[0] =
 			HFI_PROPERTY_PARAM_WORK_MODE;
