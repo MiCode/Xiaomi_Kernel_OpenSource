@@ -11,7 +11,7 @@
  * GNU General Public License for more details.
  */
 
-#include "sdm845-usb.dtsi"
+#include "sdm845-670-usb-common.dtsi"
 
 &soc {
 	/delete-node/ ssusb@a800000;
