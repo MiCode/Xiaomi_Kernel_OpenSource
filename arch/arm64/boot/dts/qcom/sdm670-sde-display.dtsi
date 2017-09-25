@@ -20,6 +20,7 @@
 #include "dsi-panel-nt35597-truly-dualmipi-wqxga-cmd.dtsi"
 #include "dsi-panel-nt35597-truly-dsc-wqxga-cmd.dtsi"
 #include "dsi-panel-nt35597-truly-dsc-wqxga-video.dtsi"
+#include "dsi-panel-nt36850-truly-dualmipi-wqhd-cmd.dtsi"
 #include <dt-bindings/clock/mdss-10nm-pll-clk.h>
 
 &soc {
@@ -192,7 +193,30 @@
 		ibb-supply = <&lcdb_ncp_vreg>;
 	};
 
-	dsi_sim_vid_display: qcom,dsi-display@4 {
+	dsi_dual_nt36850_truly_cmd_display: qcom,dsi-display@4 {
+		compatible = "qcom,dsi-display";
+		label = "dsi_dual_nt36850_truly_cmd_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
+		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
+		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
+			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
+		clock-names = "src_byte_clk", "src_pixel_clk";
+
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&sde_dsi_active &sde_te_active>;
+		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
+		qcom,platform-te-gpio = <&tlmm 10 0>;
+		qcom,platform-reset-gpio = <&tlmm 75 0>;
+
+		qcom,dsi-panel = <&dsi_dual_nt36850_truly_cmd>;
+		vddio-supply = <&pm660_l11>;
+		lab-supply = <&lcdb_ldo_vreg>;
+		ibb-supply = <&lcdb_ncp_vreg>;
+	};
+
+	dsi_sim_vid_display: qcom,dsi-display@5 {
 		compatible = "qcom,dsi-display";
 		label = "dsi_sim_vid_display";
 		qcom,display-type = "primary";
@@ -210,7 +234,7 @@
 		qcom,dsi-panel = <&dsi_sim_vid>;
 	};
 
-	dsi_dual_sim_vid_display: qcom,dsi-display@5 {
+	dsi_dual_sim_vid_display: qcom,dsi-display@6 {
 		compatible = "qcom,dsi-display";
 		label = "dsi_dual_sim_vid_display";
 		qcom,display-type = "primary";
@@ -228,7 +252,7 @@
 		qcom,dsi-panel = <&dsi_dual_sim_vid>;
 	};
 
-	dsi_sim_cmd_display: qcom,dsi-display@6 {
+	dsi_sim_cmd_display: qcom,dsi-display@7 {
 		compatible = "qcom,dsi-display";
 		label = "dsi_sim_cmd_display";
 		qcom,display-type = "primary";
@@ -246,7 +270,7 @@
 		qcom,dsi-panel = <&dsi_sim_cmd>;
 	};
 
-	dsi_dual_sim_cmd_display: qcom,dsi-display@7 {
+	dsi_dual_sim_cmd_display: qcom,dsi-display@8 {
 		compatible = "qcom,dsi-display";
 		label = "dsi_dual_sim_cmd_display";
 		qcom,display-type = "primary";
@@ -264,7 +288,7 @@
 		qcom,dsi-panel = <&dsi_dual_sim_cmd>;
 	};
 
-	dsi_sim_dsc_375_cmd_display: qcom,dsi-display@8 {
+	dsi_sim_dsc_375_cmd_display: qcom,dsi-display@9 {
 		compatible = "qcom,dsi-display";
 		label = "dsi_sim_dsc_375_cmd_display";
 		qcom,display-type = "primary";
@@ -282,7 +306,7 @@
 		qcom,dsi-panel = <&dsi_sim_dsc_375_cmd>;
 	};
 
-	dsi_dual_sim_dsc_375_cmd_display: qcom,dsi-display@9 {
+	dsi_dual_sim_dsc_375_cmd_display: qcom,dsi-display@10 {
 		compatible = "qcom,dsi-display";
 		label = "dsi_dual_sim_dsc_375_cmd_display";
 		qcom,display-type = "primary";
@@ -484,6 +508,20 @@
 						<2 2 1>, /* dsc merge */
 						<2 1 1>; /* 3d mux */
 			qcom,default-topology-index = <1>;
+		};
+	};
+};
+
+&dsi_dual_nt36850_truly_cmd {
+	qcom,mdss-dsi-t-clk-post = <0x0E>;
+	qcom,mdss-dsi-t-clk-pre = <0x30>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 1f 08 08 24 23 08
+				08 05 03 04 00];
+			qcom,display-topology = <2 0 2>,
+						<1 0 2>;
+			qcom,default-topology-index = <0>;
 		};
 	};
 };
