@@ -114,6 +114,7 @@ struct hfi_frame_process_info {
 	uint64_t request_id[CAM_FRAME_CMD_MAX];
 	uint32_t num_out_resources[CAM_FRAME_CMD_MAX];
 	uint32_t out_resource[CAM_FRAME_CMD_MAX][CAM_MAX_OUT_RES];
+	uint32_t in_resource[CAM_FRAME_CMD_MAX];
 	uint32_t fw_process_flag[CAM_FRAME_CMD_MAX];
 	struct cam_icp_clk_bw_request clk_info[CAM_FRAME_CMD_MAX];
 };
