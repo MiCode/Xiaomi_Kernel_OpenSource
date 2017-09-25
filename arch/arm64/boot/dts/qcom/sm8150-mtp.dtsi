@@ -18,6 +18,7 @@
 #include "sm8150-sde-display.dtsi"
 #include "sm8150-camera-sensor-mtp.dtsi"
 #include "sm8150-thermal-overlay.dtsi"
+#include "smb1390.dtsi"
 
 &qupv3_se12_2uart {
 	status = "ok";
@@ -542,4 +543,8 @@
 	io-channel-names = "usb_in_voltage",
 			   "usb_in_current",
 			   "chg_temp";
+};
+
+&smb1390_charger {
+	status = "ok";
 };

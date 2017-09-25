@@ -18,6 +18,7 @@
 #include "sm8150-sde-display.dtsi"
 #include "sm8150-camera-sensor-qrd.dtsi"
 #include "sm8150-thermal-overlay.dtsi"
+#include "smb1390.dtsi"
 
 &vendor {
 	bluetooth: bt_wcn3990 {
@@ -518,4 +519,8 @@
 	io-channel-names = "usb_in_voltage",
 			   "usb_in_current",
 			   "chg_temp";
+};
+
+&smb1390_charger {
+	status = "ok";
 };
