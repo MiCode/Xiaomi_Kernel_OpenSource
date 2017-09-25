@@ -29,6 +29,108 @@ struct param_outband {
 	phys_addr_t  paddr;
 };
 
+/* --------- Common Structures and Definitions------------- */
+/* Instance ID Definitions */
+#define INSTANCE_ID_0 0x0000
+
+struct mem_mapping_hdr {
+	/*
+	 * LSW of parameter data payload address. Supported values: any.
+	 * - Must be set to zero for in-band data.
+	 */
+	u32 data_payload_addr_lsw;
+
+	/*
+	 * MSW of Parameter data payload address. Supported values: any.
+	 * - Must be set to zero for in-band data.
+	 * - In the case of 32 bit Shared memory address, msw  field must be
+	 *   set to zero.
+	 * - In the case of 36 bit shared memory address, bit 31 to bit 4 of
+	 *   msw must be set to zero.
+	 */
+	u32 data_payload_addr_msw;
+
+	/*
+	 * Memory map handle returned by DSP through
+	 * ASM_CMD_SHARED_MEM_MAP_REGIONS command.
+	 * Supported Values: Any.
+	 * If mmhandle is NULL, the ParamData payloads are within the
+	 * message payload (in-band).
+	 * If mmhandle is non-NULL, the ParamData payloads begin at the
+	 * address specified in the address msw and lsw (out-of-band).
+	 */
+	u32 mem_map_handle;
+
+} __packed;
+
+/*
+ * Payload format for parameter data.
+ * Immediately following these structures are param_size bytes of parameter
+ * data.
+ */
+struct param_hdr_v1 {
+	/* Valid ID of the module. */
+	uint32_t module_id;
+
+	/* Valid ID of the parameter. */
+	uint32_t param_id;
+
+	/* The size of the parameter specified by the module/param ID combo */
+	uint16_t param_size;
+
+	/* This field must be set to zero. */
+	uint16_t reserved;
+} __packed;
+
+struct param_hdr_v2 {
+	/* Valid ID of the module. */
+	uint32_t module_id;
+
+	/* Valid ID of the parameter. */
+	uint32_t param_id;
+
+	/* The size of the parameter specified by the module/param ID combo */
+	uint32_t param_size;
+} __packed;
+
+struct param_hdr_v3 {
+	/* Valid ID of the module. */
+	uint32_t module_id;
+
+	/* Instance of the module. */
+	uint16_t instance_id;
+
+	/* This field must be set to zero. */
+	uint16_t reserved;
+
+	/* Valid ID of the parameter. */
+	uint32_t param_id;
+
+	/* The size of the parameter specified by the module/param ID combo */
+	uint32_t param_size;
+} __packed;
+
+/* A union of all param_hdr versions for versitility and max size */
+union param_hdrs {
+	struct param_hdr_v1 v1;
+	struct param_hdr_v2 v2;
+	struct param_hdr_v3 v3;
+};
+
+struct module_instance_info {
+	/* Module ID. */
+	u32 module_id;
+
+	/* Instance of the module */
+	u16 instance_id;
+
+	/* Reserved. This field must be set to zero. */
+	u16 reserved;
+} __packed;
+/* -------------------------------------------------------- */
+
+/* Begin service specific definitions and structures */
+
 #define ADSP_ADM_VERSION    0x00070000
 
 #define ADM_CMD_SHARED_MEM_MAP_REGIONS    0x00010322
