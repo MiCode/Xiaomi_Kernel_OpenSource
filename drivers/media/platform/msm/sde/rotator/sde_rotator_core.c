@@ -2383,7 +2383,7 @@ static int sde_rotator_config_session(struct sde_rot_mgr *mgr,
 	}
 
 	SDEROT_DBG(
-		"reconfig session id=%u in{%u,%u}f:%u out{%u,%u}f:%u fps:%d clk:%lu, bw:%llu\n",
+		"reconfig session id=%u in{%u,%u}f:%x out{%u,%u}f:%x fps:%d clk:%lu bw:%llu\n",
 		config->session_id, config->input.width, config->input.height,
 		config->input.format, config->output.width,
 		config->output.height, config->output.format,
@@ -3397,4 +3397,39 @@ int sde_rotator_session_config(struct sde_rot_mgr *mgr,
 	}
 
 	return sde_rotator_config_session(mgr, private, config);
+}
+
+/*
+ * sde_rotator_session_validate - validate session
+ */
+int sde_rotator_session_validate(struct sde_rot_mgr *mgr,
+	struct sde_rot_file_private *private,
+	struct sde_rotation_config *config)
+{
+	int ret;
+
+	if (!mgr || !private || !config) {
+		SDEROT_ERR("null parameters\n");
+		return -EINVAL;
+	}
+
+	SDEROT_DBG(
+		"validate session id=%u in{%u,%u}f:%x out{%u,%u}f:%x fps:%d\n",
+		config->session_id, config->input.width, config->input.height,
+		config->input.format, config->output.width,
+		config->output.height, config->output.format,
+		config->frame_rate);
+
+	ret = sde_rotator_verify_config_all(mgr, config);
+	if (ret) {
+		SDEROT_WARN("rotator verify format failed %d\n", ret);
+		return ret;
+	}
+
+	if (config->output.sbuf && mgr->sbuf_ctx != private && mgr->sbuf_ctx) {
+		SDEROT_WARN("too many sbuf sessions\n");
+		return -EBUSY;
+	}
+
+	return 0;
 }
