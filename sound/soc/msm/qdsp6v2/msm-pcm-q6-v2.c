@@ -122,7 +122,7 @@ static unsigned long msm_pcm_fe_topology[MSM_FRONTEND_DAI_MAX][MAX_PCM_STREAMS];
 
 /* default value is DTS (i.e read from device tree) */
 static char const *msm_pcm_fe_topology_text[] = {
-	"DTS", "ULL", "ULL_PP", "LL" };
+	"DTS", "ULL", "ULL_PP", "LL", "LEGACY" };
 
 static const struct soc_enum msm_pcm_fe_topology_enum[] = {
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(msm_pcm_fe_topology_text),
@@ -985,6 +985,8 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 		pdata->perf_mode_set = ULTRA_LOW_LATENCY_PCM_MODE;
 	else if (!strcmp(msm_pcm_fe_topology_text[topology], "LL"))
 		pdata->perf_mode_set = LOW_LATENCY_PCM_MODE;
+	else if (!strcmp(msm_pcm_fe_topology_text[topology], "LEGACY"))
+		pdata->perf_mode_set = LEGACY_PCM_MODE;
 	else
 		/* use the default from the device tree */
 		pdata->perf_mode_set = pdata->perf_mode;
