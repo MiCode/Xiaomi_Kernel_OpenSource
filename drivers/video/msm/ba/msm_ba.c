@@ -555,6 +555,24 @@ long msm_ba_private_ioctl(void *instance, int cmd, void *arg)
 		}
 	}
 		break;
+	case VIDIOC_CVBS_G_FIELD_STATUS: {
+		dprintk(BA_DBG, "VIDIOC_CVBS_G_FIELD_STATUS");
+		sd = inst->sd;
+		if (!sd) {
+			dprintk(BA_ERR, "No sd registered");
+			return -EINVAL;
+		}
+		if (s_ioctl) {
+			rc = v4l2_subdev_call(sd, core, ioctl, cmd, s_ioctl);
+			if (rc)
+				dprintk(BA_ERR, "%s failed: %ld on cmd: 0x%x",
+					__func__, rc, cmd);
+		} else {
+			dprintk(BA_ERR, "%s: NULL argument provided", __func__);
+			rc = -EINVAL;
+		}
+	}
+		break;
 	default:
 		dprintk(BA_WARN, "Not a typewriter! Command: 0x%x", cmd);
 		rc = -ENOTTY;

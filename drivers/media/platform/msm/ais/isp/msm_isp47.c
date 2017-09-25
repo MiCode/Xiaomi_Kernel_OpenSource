@@ -662,6 +662,37 @@ void msm_vfe47_process_epoch_irq(struct vfe_device *vfe_dev,
 	}
 }
 
+static void msm_isp47_process_sof_irq(struct vfe_device *vfe_dev,
+	uint32_t irq_status0, uint32_t irq_status1)
+{
+	int i, axi_src_idx[4], src_count = 0;
+	struct msm_vfe_axi_stream *pstream_info;
+	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
+
+	if (irq_status0 & BIT(0))
+		axi_src_idx[src_count++] = CAMIF_RAW;
+	if (irq_status1 & BIT(29))
+		axi_src_idx[src_count++] = RDI_INTF_0;
+	if (irq_status1 & BIT(30))
+		axi_src_idx[src_count++] = RDI_INTF_1;
+	if (irq_status1 & BIT(31))
+		axi_src_idx[src_count++] = RDI_INTF_2;
+
+	if (src_count == 0)
+		return;
+
+	for (i = 0; i < src_count; i++) {
+		pstream_info = &axi_data->stream_info[axi_src_idx[i]];
+
+		if (pstream_info->interlaced) {
+			vfe_dev->wakeupflag = true;
+			wake_up_interruptible(&vfe_dev->field_waitqueue);
+			/* currently we support only 1 interlaced instance */
+			break;
+		}
+	}
+}
+
 void msm_isp47_process_eof_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0)
 {
@@ -2718,6 +2749,7 @@ struct msm_vfe_hardware_info vfe47_hw_info = {
 			.process_stats_irq = msm_isp_process_stats_irq,
 			.process_epoch_irq = msm_vfe47_process_epoch_irq,
 			.config_irq = msm_vfe47_config_irq,
+			.process_sof_irq = msm_isp47_process_sof_irq,
 			.process_eof_irq = msm_isp47_process_eof_irq,
 		},
 		.axi_ops = {

@@ -164,6 +164,8 @@ struct msm_vfe_irq_ops {
 	void (*config_irq)(struct vfe_device *vfe_dev,
 		uint32_t irq_status0, uint32_t irq_status1,
 		enum msm_isp_irq_operation);
+	void (*process_sof_irq)(struct vfe_device *vfe_dev,
+		uint32_t irq_status0, uint32_t irq_status1);
 	void (*process_eof_irq)(struct vfe_device *vfe_dev,
 		uint32_t irq_status0);
 };
@@ -411,6 +413,12 @@ struct msm_vfe_frame_request_queue {
 
 #define MSM_VFE_REQUESTQ_SIZE 8
 
+struct msm_vfe_fields_info {
+	bool even_field;
+	struct timeval sof_ts;
+	struct timeval field_ts;
+};
+
 struct msm_vfe_axi_stream {
 	uint32_t frame_id;
 	enum msm_vfe_axi_state state;
@@ -457,6 +465,11 @@ struct msm_vfe_axi_stream {
 	enum msm_stream_memory_input_t  memory_input;
 	struct msm_isp_sw_framskip sw_skip;
 	uint8_t sw_ping_pong_bit;
+
+	bool interlaced;
+	struct msm_vfe_fields_info field_info[2];
+	uint32_t field_index;
+	uint32_t field_type;
 };
 
 struct msm_vfe_axi_composite_info {
@@ -798,6 +811,12 @@ struct vfe_device {
 	/* before halt irq info */
 	uint32_t recovery_irq0_mask;
 	uint32_t recovery_irq1_mask;
+
+	/* interlaced field info */
+	void *ba_inst_hdl;
+	struct task_struct *field_thread_id;
+	wait_queue_head_t field_waitqueue;
+	bool wakeupflag;
 };
 
 struct vfe_parent_device {

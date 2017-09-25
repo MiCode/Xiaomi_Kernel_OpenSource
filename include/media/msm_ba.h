@@ -18,6 +18,9 @@
 #include <media/v4l2-device.h>
 #include <linux/poll.h>
 
+/*  Control ID to fetch register Values */
+#define VIDIOC_CVBS_G_FIELD_STATUS _IOR('V', BASE_VIDIOC_PRIVATE + 5, int)
+
 enum msm_ba_ip {
 	BA_IP_CVBS_0 = 0,
 	BA_IP_CVBS_1,
