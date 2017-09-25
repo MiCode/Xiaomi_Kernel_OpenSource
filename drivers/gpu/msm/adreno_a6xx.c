@@ -265,7 +265,7 @@ static void a6xx_pwrup_reglist_init(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	if (kgsl_allocate_global(device, &adreno_dev->pwrup_reglist,
-		PAGE_SIZE, 0, KGSL_MEMDESC_PRIVILEGED,
+		PAGE_SIZE, KGSL_MEMFLAGS_GPUREADONLY, 0,
 		"powerup_register_list")) {
 		adreno_dev->pwrup_reglist.gpuaddr = 0;
 		return;
