@@ -305,6 +305,7 @@ static void _sde_fence_trigger(struct sde_fence_context *ctx, ktime_t ts)
 		spin_unlock_irqrestore(&ctx->lock, flags);
 
 		if (is_signaled) {
+			list_del_init(&fc->fence_list);
 			fence_put(&fc->base);
 			kref_put(&ctx->kref, sde_fence_destroy);
 		} else {
