@@ -15,6 +15,7 @@
 #include "sdm670-pmic-overlay.dtsi"
 #include "sdm670-audio-overlay.dtsi"
 #include "smb1355.dtsi"
+#include "sdm670-sde-display.dtsi"
 
 &qupv3_se9_2uart {
 	status = "disabled";
@@ -254,4 +255,28 @@
 		qcom,afe-power-on-delay-us = <6>;
 		qcom,afe-power-off-delay-us = <6>;
 	};
+};
+
+&dsi_dual_nt36850_truly_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,panel-mode-gpio = <&tlmm 76 0>;
+	qcom,mdss-dsi-mode-sel-gpio-state = "dual_port";
+	qcom,platform-reset-gpio = <&tlmm 75 0>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+};
+
+&dsi_dual_nt36850_truly_cmd_display {
+	 qcom,dsi-display-active;
+};
+
+&pm660l_wled {
+	status = "okay";
+	qcom,led-strings-list = [01 02];
+};
+
+&mdss_mdp {
+	#cooling-cells = <2>;
 };
