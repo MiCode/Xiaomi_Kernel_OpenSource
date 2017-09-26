@@ -205,6 +205,31 @@ Optional properties:
    (in the same order).
 - cam_vaf-supply : should contain regulator from which AF voltage is supplied
 
+* Qualcomm Technologies, Inc. MSM LASER LED
+
+Required properties:
+- cell-index : should contain unique identifier to differentiate
+    between multiple laser led modules
+- reg : should contain i2c slave address of the laser led and length of
+    data field which is 0x0
+- compatible :
+    - "qcom,laser-led"
+- qcom,cci-master : should contain i2c master id to be used for this camera
+    sensor
+    - 0 -> MASTER 0
+    - 1 -> MASTER 1
+
+Optional properties:
+- qcom,cam-vreg-name : should contain names of all regulators needed by this
+   laser led
+- qcom,cam-vreg-min-voltage : should contain minimum voltage level in microvolts
+   for regulators mentioned in qcom,cam-vreg-name property (in the same order)
+- qcom,cam-vreg-max-voltage : should contain maximum voltage level in microvolts
+   for regulators mentioned in qcom,cam-vreg-name property (in the same order)
+- qcom,cam-vreg-op-mode : should contain the maximum current in microamps
+   required from the regulators mentioned in the qcom,cam-vreg-name property
+   (in the same order).
+
 * Qualcomm Technologies, Inc. MSM OIS
 
 Required properties:
@@ -276,6 +301,13 @@ Example:
 		qcom,cam-vreg-max-voltage = <3000000>;
 		qcom,cam-vreg-op-mode = <100000>;
         };
+
+	laserled0: qcom,laserled@0 {
+		cell-index = <0>;
+		reg = <0x0>;
+		compatible = "qcom,laser-led";
+		qcom,cci-master = <1>;
+	};
 
 	qcom,camera@0 {
 		cell-index = <0>;
