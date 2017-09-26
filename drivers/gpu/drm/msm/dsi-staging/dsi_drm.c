@@ -632,10 +632,17 @@ int dsi_conn_post_kickoff(struct drm_connector *connector)
 	struct dsi_display_ctrl *m_ctrl, *ctrl;
 	int i, rc = 0;
 
-	if (!connector || !connector->state->best_encoder)
+	if (!connector || !connector->state) {
+		pr_err("invalid connector or connector state");
 		return -EINVAL;
+	}
 
 	encoder = connector->state->best_encoder;
+	if (!encoder) {
+		pr_debug("best encoder is not available");
+		return 0;
+	}
+
 	c_bridge = to_dsi_bridge(encoder->bridge);
 	adj_mode = c_bridge->dsi_mode;
 	display = c_bridge->display;
