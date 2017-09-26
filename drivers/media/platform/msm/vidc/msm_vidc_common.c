@@ -2384,8 +2384,8 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 	empty_buf_done = (struct vidc_hal_ebd *)&response->input_done;
 	/* If this is internal EOS buffer, handle it in driver */
 	if (is_eos_buffer(inst, empty_buf_done->packet_buffer)) {
-		dprintk(VIDC_DBG, "Received EOS buffer %pK\n",
-			(void *)(u64)empty_buf_done->packet_buffer);
+		dprintk(VIDC_DBG, "Received EOS buffer 0x%x\n",
+			empty_buf_done->packet_buffer);
 		goto exit;
 	}
 
@@ -3825,8 +3825,8 @@ int msm_vidc_send_pending_eos_buffers(struct msm_vidc_inst *inst)
 		data.timestamp = LLONG_MAX;
 		data.extradata_addr = data.device_addr;
 		data.extradata_size = 0;
-		dprintk(VIDC_DBG, "Queueing EOS buffer %pK\n",
-				(void *)(u64)data.device_addr);
+		dprintk(VIDC_DBG, "Queueing EOS buffer 0x%x\n",
+				data.device_addr);
 		hdev = inst->core->device;
 
 		rc = call_hfi_op(hdev, session_etb, inst->session,
@@ -5907,8 +5907,8 @@ int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 		goto exit;
 	}
 
-	fps = USEC_PER_SEC;
-	do_div(fps, us_per_frame);
+	fps = us_per_frame > USEC_PER_SEC ?
+		0 : USEC_PER_SEC / (u32)us_per_frame;
 
 	if (fps % 15 == 14 || fps % 24 == 23)
 		fps = fps + 1;
