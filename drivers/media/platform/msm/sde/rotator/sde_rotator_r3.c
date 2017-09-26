@@ -1596,7 +1596,7 @@ static void sde_hw_rotator_setup_wbengine(struct sde_hw_rotator_context *ctx,
 
 		/* use prefill bandwidth instead if specified */
 		if (cfg->prefill_bw)
-			bw = DIV_ROUND_UP(cfg->prefill_bw,
+			bw = DIV_ROUND_UP_SECTOR_T(cfg->prefill_bw,
 					TRAFFIC_SHAPE_VSYNC_CLK);
 
 		if (bw > 0xFF)
