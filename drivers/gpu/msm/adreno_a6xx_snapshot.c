@@ -557,6 +557,7 @@ static struct reg_list {
 	const unsigned int *regs;
 	unsigned int count;
 	const struct sel_reg *sel;
+	uint64_t offset;
 } a6xx_reg_list[] = {
 	{ a6xx_registers, ARRAY_SIZE(a6xx_registers) / 2, NULL },
 	{ a6xx_rb_rac_registers, ARRAY_SIZE(a6xx_rb_rac_registers) / 2,
@@ -589,7 +590,7 @@ static size_t a6xx_snapshot_registers(struct kgsl_device *device, u8 *buf,
 	struct kgsl_snapshot_regs *header = (struct kgsl_snapshot_regs *)buf;
 	struct reg_list *regs = (struct reg_list *)priv;
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
-	unsigned int *src = (unsigned int *)a6xx_crashdump_registers.hostptr;
+	unsigned int *src;
 	unsigned int j, k;
 	unsigned int count = 0;
 
@@ -602,6 +603,7 @@ static size_t a6xx_snapshot_registers(struct kgsl_device *device, u8 *buf,
 		return 0;
 	}
 
+	src = (unsigned int *)(a6xx_crashdump_registers.hostptr + regs->offset);
 	remain -= sizeof(*header);
 
 	for (j = 0; j < regs->count; j++) {
@@ -1918,6 +1920,8 @@ void a6xx_crashdump_init(struct adreno_device *adreno_dev)
 	/* For the registers, program a read command for each pair */
 	for (i = 0; i < ARRAY_SIZE(a6xx_reg_list); i++) {
 		struct reg_list *regs = &a6xx_reg_list[i];
+
+		regs->offset = offset;
 
 		/* Program the SEL_CNTL_CD register appropriately */
 		if (regs->sel) {
