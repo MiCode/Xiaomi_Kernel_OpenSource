@@ -20,6 +20,29 @@ TRACE_DEFINE_ENUM(THERMAL_TRIP_ACTIVE);
 			 { THERMAL_TRIP_PASSIVE,  "PASSIVE"},	\
 			 { THERMAL_TRIP_ACTIVE,   "ACTIVE"})
 
+TRACE_EVENT(thermal_query_temp,
+
+	TP_PROTO(struct thermal_zone_device *tz, int temp),
+
+	TP_ARGS(tz, temp),
+
+	TP_STRUCT__entry(
+		__string(thermal_zone, tz->type)
+		__field(int, id)
+		__field(int, temp)
+	),
+
+	TP_fast_assign(
+		__assign_str(thermal_zone, tz->type);
+		__entry->id = tz->id;
+		__entry->temp = temp;
+	),
+
+	TP_printk("thermal_zone=%s id=%d temp=%d",
+		__get_str(thermal_zone), __entry->id,
+		__entry->temp)
+);
+
 TRACE_EVENT(thermal_temperature,
 
 	TP_PROTO(struct thermal_zone_device *tz),

@@ -522,6 +522,7 @@ int thermal_zone_get_temp(struct thermal_zone_device *tz, int *temp)
 		if (!ret && *temp < crit_temp)
 			*temp = tz->emul_temperature;
 	}
+	trace_thermal_query_temp(tz, *temp);
 	mutex_unlock(&tz->lock);
 exit:
 	return ret;
