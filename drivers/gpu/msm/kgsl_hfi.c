@@ -278,8 +278,7 @@ int hfi_send_gmu_init(struct gmu_device *gmu, uint32_t boot_state)
 	int rc = 0;
 	struct pending_msg msg;
 
-	rc = hfi_send_msg(gmu, (struct hfi_msg_hdr *)&init_msg,
-			msg_size_dwords, &msg);
+	rc = hfi_send_msg(gmu, &init_msg.hdr, msg_size_dwords, &msg);
 	if (rc)
 		return rc;
 
@@ -309,8 +308,7 @@ int hfi_get_fw_version(struct gmu_device *gmu,
 	int rc = 0;
 	struct pending_msg msg;
 
-	rc = hfi_send_msg(gmu, (struct hfi_msg_hdr *)&fw_ver,
-			msg_size_dwords, &msg);
+	rc = hfi_send_msg(gmu, &fw_ver.hdr, msg_size_dwords, &msg);
 	if (rc)
 		return rc;
 
@@ -346,8 +344,7 @@ int hfi_send_lmconfig(struct gmu_device *gmu)
 		lmconfig.lm_enable_bitmask =
 			(1 << (gmu->lm_dcvs_level + 1)) - 1;
 
-	rc = hfi_send_msg(gmu, (struct hfi_msg_hdr *) &lmconfig,
-			msg_size_dwords, &msg);
+	rc = hfi_send_msg(gmu, &lmconfig.hdr, msg_size_dwords, &msg);
 	if (rc)
 		return rc;
 
@@ -388,8 +385,7 @@ int hfi_send_perftbl(struct gmu_device *gmu)
 
 	}
 
-	rc = hfi_send_msg(gmu, (struct hfi_msg_hdr *)&dcvstbl,
-			msg_size, &msg);
+	rc = hfi_send_msg(gmu, &dcvstbl.hdr, msg_size, &msg);
 	if (rc)
 		return rc;
 
@@ -441,8 +437,7 @@ int hfi_send_bwtbl(struct gmu_device *gmu)
 					gmu->rpmh_votes.cnoc_votes.
 					cmd_data[i][j];
 
-	rc = hfi_send_msg(gmu, (struct hfi_msg_hdr *) &bwtbl,
-			msg_size_dwords, &msg);
+	rc = hfi_send_msg(gmu, &bwtbl.hdr, msg_size_dwords, &msg);
 	if (rc)
 		return rc;
 
@@ -478,8 +473,7 @@ int hfi_send_dcvs_vote(struct gmu_device *gmu, uint32_t perf_idx,
 	int rc = 0;
 	struct pending_msg msg;
 
-	rc = hfi_send_msg(gmu, (struct hfi_msg_hdr *)&dcvs_cmd,
-			msg_size_dwords, &msg);
+	rc = hfi_send_msg(gmu, &dcvs_cmd.hdr, msg_size_dwords, &msg);
 	if (rc)
 		return rc;
 
@@ -511,8 +505,7 @@ int hfi_notify_slumber(struct gmu_device *gmu,
 	if (init_perf_idx >= MAX_GX_LEVELS || init_bw_idx >= MAX_GX_LEVELS)
 		return -EINVAL;
 
-	rc = hfi_send_msg(gmu, (struct hfi_msg_hdr *) &slumber_cmd,
-			msg_size_dwords, &msg);
+	rc = hfi_send_msg(gmu, &slumber_cmd.hdr, msg_size_dwords, &msg);
 	if (rc)
 		return rc;
 
