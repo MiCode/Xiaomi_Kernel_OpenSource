@@ -12,6 +12,16 @@
 
 &soc {
 
+	csr: csr@6001000 {
+		compatible = "qcom,coresight-csr";
+		reg = <0x6001000 0x1000>;
+		reg-names = "csr-base";
+
+		coresight-name = "coresight-csr";
+
+		qcom,blk-size = <1>;
+	};
+
 	replicator_qdss: replicator@6046000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b909>;
@@ -271,6 +281,9 @@
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
 
+		interrupts = <GIC_SPI 270 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "byte-cntr-irq";
+
 		port {
 			tmc_etr_in_replicator: endpoint {
 				slave-mode;
@@ -395,16 +408,6 @@
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
-	};
-
-	csr: csr@6001000 {
-		compatible = "qcom,coresight-csr";
-		reg = <0x6001000 0x1000>;
-		reg-names = "csr-base";
-
-		coresight-name = "coresight-csr";
-
-		qcom,blk-size = <1>;
 	};
 
 	funnel_in0: funnel@0x6041000 {
