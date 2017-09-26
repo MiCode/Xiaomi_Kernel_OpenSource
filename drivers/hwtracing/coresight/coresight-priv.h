@@ -160,7 +160,7 @@ static inline void msm_qdss_csr_disable_bam_to_usb(void) {}
 static inline void msm_qdss_csr_disable_flush(void) {}
 static inline int coresight_csr_hwctrl_set(uint64_t addr,
 					   uint32_t val) { return -EINVAL; }
-extern void coresight_csr_set_byte_cntr(uint32_t count) {}
+static inline void coresight_csr_set_byte_cntr(uint32_t count) {}
 #endif
 
 #endif
