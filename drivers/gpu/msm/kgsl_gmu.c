@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  *
  */
+#include <linux/module.h>
 #include <linux/types.h>
 #include <linux/device.h>
 #include <linux/iommu.h>
@@ -24,6 +25,13 @@
 #include "kgsl_hfi.h"
 #include "a6xx_reg.h"
 #include "adreno.h"
+
+#undef MODULE_PARAM_PREFIX
+#define MODULE_PARAM_PREFIX "kgsl_gmu."
+
+static bool nogmu;
+module_param(nogmu, bool, 0444);
+MODULE_PARM_DESC(nogmu, "Disable the GMU");
 
 #define GMU_CONTEXT_USER		0
 #define GMU_CONTEXT_KERNEL		1
@@ -109,9 +117,9 @@ bool kgsl_gmu_isenabled(struct kgsl_device *device)
 	struct gmu_device *gmu = &device->gmu;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
-	if (gmu->pdev && ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
+	if (!nogmu && gmu->pdev &&
+		ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
 		return true;
-
 	return false;
 }
 
