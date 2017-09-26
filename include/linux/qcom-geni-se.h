@@ -924,7 +924,7 @@ static inline int geni_se_iommu_free_buf(struct device *wrapper_dev,
 	return -ENXIO;
 }
 
-void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
+static void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
 				void *ipc)
 {
 }
