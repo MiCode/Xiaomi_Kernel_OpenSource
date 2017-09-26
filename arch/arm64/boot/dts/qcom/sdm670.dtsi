@@ -2395,3 +2395,4 @@
 #include "sdm670-usb.dtsi"
 #include "sdm670-gpu.dtsi"
 #include "sdm670-thermal.dtsi"
+#include "sdm670-bus.dtsi"
