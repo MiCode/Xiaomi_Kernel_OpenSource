@@ -311,6 +311,8 @@ power_down:
 data_mem_free:
 	kfree(e_ctrl->cal_data.mapdata);
 	kfree(e_ctrl->cal_data.map);
+	e_ctrl->cal_data.num_data = 0;
+	e_ctrl->cal_data.num_map = 0;
 	return rc;
 }
 
@@ -484,7 +486,7 @@ static int32_t cam_eeprom_init_pkt_parser(struct cam_eeprom_ctrl_t *e_ctrl,
 	uint16_t                        cmd_length_in_bytes = 0;
 	struct cam_cmd_i2c_info        *i2c_info = NULL;
 	int                             num_map = -1;
-	struct cam_eeprom_memory_map_t *map;
+	struct cam_eeprom_memory_map_t *map = NULL;
 	struct cam_eeprom_soc_private  *soc_private =
 		(struct cam_eeprom_soc_private *)e_ctrl->soc_info.soc_private;
 	struct cam_sensor_power_ctrl_t *power_info = &soc_private->power_info;
@@ -665,53 +667,60 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 	switch (csl_packet->header.op_code & 0xFFFFFF) {
 	case CAM_EEPROM_PACKET_OPCODE_INIT:
 		if (e_ctrl->userspace_probe == false) {
-			rc = cam_eeprom_get_cal_data(e_ctrl, csl_packet);
-			CAM_ERR(CAM_EEPROM,
-				"Eeprom already probed at kernel boot");
-			rc = -EINVAL;
-		break;
-		}
-		if (e_ctrl->cal_data.num_data == 0) {
-			rc = cam_eeprom_init_pkt_parser(e_ctrl, csl_packet);
-			if (rc) {
-				CAM_ERR(CAM_EEPROM,
-					"Failed in parsing the pkt");
+			rc = cam_eeprom_parse_read_memory_map(
+					e_ctrl->pdev->dev.of_node, e_ctrl);
+			if (rc < 0) {
+				CAM_ERR(CAM_EEPROM, "Failed: rc : %d", rc);
 				return rc;
 			}
-
-			e_ctrl->cal_data.mapdata =
-				kzalloc(e_ctrl->cal_data.num_data, GFP_KERNEL);
-			if (!e_ctrl->cal_data.mapdata) {
-				rc = -ENOMEM;
-				CAM_ERR(CAM_EEPROM, "failed");
-				goto error;
-			}
-
-			rc = cam_eeprom_power_up(e_ctrl,
-				&soc_private->power_info);
-			if (rc) {
-				CAM_ERR(CAM_EEPROM, "failed rc %d", rc);
-				goto memdata_free;
-			}
-
-			rc = cam_eeprom_read_memory(e_ctrl, &e_ctrl->cal_data);
-			if (rc) {
-				CAM_ERR(CAM_EEPROM,
-					"read_eeprom_memory failed");
-				goto power_down;
-			}
-
 			rc = cam_eeprom_get_cal_data(e_ctrl, csl_packet);
-			rc = cam_eeprom_power_down(e_ctrl);
-		} else {
-			CAM_DBG(CAM_EEPROM, "Already read eeprom");
+			kfree(e_ctrl->cal_data.mapdata);
+			kfree(e_ctrl->cal_data.map);
+			e_ctrl->cal_data.num_data = 0;
+			e_ctrl->cal_data.num_map = 0;
+			CAM_DBG(CAM_EEPROM,
+				"Returning the data using kernel probe");
+		break;
 		}
+		rc = cam_eeprom_init_pkt_parser(e_ctrl, csl_packet);
+		if (rc) {
+			CAM_ERR(CAM_EEPROM,
+				"Failed in parsing the pkt");
+			return rc;
+		}
+
+		e_ctrl->cal_data.mapdata =
+			kzalloc(e_ctrl->cal_data.num_data, GFP_KERNEL);
+		if (!e_ctrl->cal_data.mapdata) {
+			rc = -ENOMEM;
+			CAM_ERR(CAM_EEPROM, "failed");
+			goto error;
+		}
+
+		rc = cam_eeprom_power_up(e_ctrl,
+			&soc_private->power_info);
+		if (rc) {
+			CAM_ERR(CAM_EEPROM, "failed rc %d", rc);
+			goto memdata_free;
+		}
+
+		rc = cam_eeprom_read_memory(e_ctrl, &e_ctrl->cal_data);
+		if (rc) {
+			CAM_ERR(CAM_EEPROM,
+				"read_eeprom_memory failed");
+			goto power_down;
+		}
+
+		rc = cam_eeprom_get_cal_data(e_ctrl, csl_packet);
+		rc = cam_eeprom_power_down(e_ctrl);
+		kfree(e_ctrl->cal_data.mapdata);
+		kfree(e_ctrl->cal_data.map);
+		e_ctrl->cal_data.num_data = 0;
+		e_ctrl->cal_data.num_map = 0;
 		break;
 	default:
 		break;
 	}
-	kfree(e_ctrl->cal_data.mapdata);
-	kfree(e_ctrl->cal_data.map);
 	return rc;
 power_down:
 	rc = cam_eeprom_power_down(e_ctrl);
@@ -719,6 +728,8 @@ memdata_free:
 	kfree(e_ctrl->cal_data.mapdata);
 error:
 	kfree(e_ctrl->cal_data.map);
+	e_ctrl->cal_data.num_data = 0;
+	e_ctrl->cal_data.num_map = 0;
 	return rc;
 }
 
@@ -764,6 +775,23 @@ int32_t cam_eeprom_driver_cmd(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 			CAM_ERR(CAM_EEPROM, "Failed to acquire dev");
 			goto release_mutex;
 		}
+		break;
+	case CAM_RELEASE_DEV:
+		if (e_ctrl->bridge_intf.device_hdl == -1) {
+			CAM_ERR(CAM_EEPROM,
+				"Invalid Handles: link hdl: %d device hdl: %d",
+				e_ctrl->bridge_intf.device_hdl,
+				e_ctrl->bridge_intf.link_hdl);
+			rc = -EINVAL;
+			goto release_mutex;
+		}
+		rc = cam_destroy_device_hdl(e_ctrl->bridge_intf.device_hdl);
+		if (rc < 0)
+			CAM_ERR(CAM_EEPROM,
+				"failed in destroying the device hdl");
+		e_ctrl->bridge_intf.device_hdl = -1;
+		e_ctrl->bridge_intf.link_hdl = -1;
+		e_ctrl->bridge_intf.session_hdl = -1;
 		break;
 	case CAM_CONFIG_DEV:
 		rc = cam_eeprom_pkt_parse(e_ctrl, arg);
