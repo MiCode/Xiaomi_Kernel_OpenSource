@@ -43,7 +43,7 @@
 #define ICL_CHANGE_VOTER		"ICL_CHANGE_VOTER"
 #define PL_INDIRECT_VOTER		"PL_INDIRECT_VOTER"
 #define USBIN_I_VOTER			"USBIN_I_VOTER"
-#define FCC_CHANGE_VOTER		"FCC_CHANGE_VOTER"
+#define PL_FCC_LOW_VOTER		"PL_FCC_LOW_VOTER"
 
 struct pl_data {
 	int			pl_mode;
@@ -357,12 +357,26 @@ static void pl_taper_work(struct work_struct *work)
 	union power_supply_propval pval = {0, };
 	int rc;
 	int eff_fcc_ua;
+	int total_fcc_ua, master_fcc_ua, slave_fcc_ua = 0;
 
 	chip->taper_work_running = true;
 	while (true) {
-		/* exit immediately if parallel is disabled */
 		if (get_effective_result(chip->pl_disable_votable)) {
-			pl_dbg(chip, PR_PARALLEL, "terminating parallel not in progress\n");
+			/*
+			 * if parallel's FCC share is low, simply disable
+			 * parallel with TAPER_END_VOTER
+			 */
+			total_fcc_ua = get_effective_result_locked(
+					chip->fcc_votable);
+			get_fcc_split(chip, total_fcc_ua, &master_fcc_ua,
+					&slave_fcc_ua);
+			if (slave_fcc_ua <= MINIMUM_PARALLEL_FCC_UA) {
+				pl_dbg(chip, PR_PARALLEL, "terminating: parallel's share is low\n");
+				vote(chip->pl_disable_votable, TAPER_END_VOTER,
+						true, 0);
+			} else {
+				pl_dbg(chip, PR_PARALLEL, "terminating: parallel disabled\n");
+			}
 			goto done;
 		}
 
@@ -420,11 +434,11 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 
 		if (slave_fcc_ua > MINIMUM_PARALLEL_FCC_UA) {
 			chip->slave_fcc_ua = slave_fcc_ua;
-			vote(chip->pl_disable_votable, FCC_CHANGE_VOTER,
+			vote(chip->pl_disable_votable, PL_FCC_LOW_VOTER,
 							false, 0);
 		} else {
 			chip->slave_fcc_ua = 0;
-			vote(chip->pl_disable_votable, FCC_CHANGE_VOTER,
+			vote(chip->pl_disable_votable, PL_FCC_LOW_VOTER,
 							true, 0);
 		}
 	}
