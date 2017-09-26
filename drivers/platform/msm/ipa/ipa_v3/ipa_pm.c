@@ -1164,8 +1164,8 @@ int ipa_pm_set_perf_profile(u32 hdl, int throughput)
 	mutex_unlock(&ipa_pm_ctx->client_mutex);
 
 	spin_lock_irqsave(&client->state_lock, flags);
-	if (IPA_PM_STATE_ACTIVE(client->state || (client->group !=
-			IPA_PM_GROUP_DEFAULT))) {
+	if (IPA_PM_STATE_ACTIVE(client->state) || (client->group !=
+			IPA_PM_GROUP_DEFAULT)) {
 		spin_unlock_irqrestore(&client->state_lock, flags);
 		do_clk_scaling();
 		return 0;
