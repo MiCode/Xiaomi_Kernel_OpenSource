@@ -553,7 +553,7 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 	}
 	if (trigger == CAM_TRIGGER_POINT_EOF &&
 			(!(link->trigger_mask & CAM_TRIGGER_POINT_SOF))) {
-		CAM_ERR(CAM_CRM, "Applying for last SOF fails");
+		CAM_DBG(CAM_CRM, "Applying for last SOF fails");
 		return -EINVAL;
 	}
 
