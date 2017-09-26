@@ -5479,7 +5479,8 @@ static int ath10k_hw_scan(struct ieee80211_hw *hw,
 	struct ath10k_vif *arvif = ath10k_vif_to_arvif(vif);
 	struct cfg80211_scan_request *req = &hw_req->req;
 	struct wmi_start_scan_arg arg;
-	int ret = 0;
+	const u8 *ptr;
+	int ret = 0, ie_skip_len = 0;
 	int i;
 
 	mutex_lock(&ar->conf_mutex);
@@ -5511,8 +5512,16 @@ static int ath10k_hw_scan(struct ieee80211_hw *hw,
 	arg.scan_id = ATH10K_SCAN_ID;
 
 	if (req->ie_len) {
-		arg.ie_len = req->ie_len;
-		memcpy(arg.ie, req->ie, arg.ie_len);
+		if (QCA_REV_WCN3990(ar)) {
+			ptr = req->ie;
+			while (ptr[0] == WLAN_EID_SUPP_RATES ||
+			       ptr[0] == WLAN_EID_EXT_SUPP_RATES) {
+				ie_skip_len = ptr[1] + 2;
+				ptr += ie_skip_len;
+			}
+		}
+		arg.ie_len = req->ie_len - ie_skip_len;
+		memcpy(arg.ie, req->ie + ie_skip_len, arg.ie_len);
 	}
 
 	if (req->n_ssids) {
