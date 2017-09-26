@@ -93,6 +93,8 @@ static int ngd_slim_power_up(struct msm_slim_ctrl *dev, bool mdm_restart);
 static void ngd_dom_down(struct msm_slim_ctrl *dev);
 static int dsp_domr_notify_cb(struct notifier_block *n, unsigned long code,
 				void *_cmd);
+static int ngd_slim_qmi_svc_event_init(struct msm_slim_qmi *qmi);
+static void ngd_slim_qmi_svc_event_deinit(struct msm_slim_qmi *qmi);
 
 static irqreturn_t ngd_slim_interrupt(int irq, void *d)
 {
@@ -162,22 +164,62 @@ static irqreturn_t ngd_slim_interrupt(int irq, void *d)
 	return IRQ_HANDLED;
 }
 
-static int ngd_qmi_available(struct notifier_block *n, unsigned long code,
-				void *_cmd)
+static int ngd_slim_qmi_new_server(struct qmi_handle *hdl,
+				   struct qmi_service *service)
 {
-	struct msm_slim_qmi *qmi = container_of(n, struct msm_slim_qmi, nb);
+	struct msm_slim_qmi *qmi =
+		container_of(hdl, struct msm_slim_qmi, svc_event_hdl);
 	struct msm_slim_ctrl *dev =
 		container_of(qmi, struct msm_slim_ctrl, qmi);
-	SLIM_INFO(dev, "Slimbus QMI NGD CB received event:%ld\n", code);
-	switch (code) {
-	case QMI_SERVER_ARRIVE:
-		atomic_set(&dev->ssr_in_progress, 0);
-		schedule_work(&dev->dsp.dom_up);
-		break;
-	default:
-		break;
-	}
+
+	SLIM_INFO(dev, "Slimbus QMI new server event received\n");
+	qmi->svc_info.sq_family = AF_QIPCRTR;
+	qmi->svc_info.sq_node = service->node;
+	qmi->svc_info.sq_port = service->port;
+	atomic_set(&dev->ssr_in_progress, 0);
+	schedule_work(&dev->dsp.dom_up);
+
 	return 0;
+}
+
+static void ngd_slim_qmi_del_server(struct qmi_handle *hdl,
+				   struct qmi_service *service)
+{
+	struct msm_slim_qmi *qmi =
+		container_of(hdl, struct msm_slim_qmi, svc_event_hdl);
+
+	qmi->svc_info.sq_node = 0;
+	qmi->svc_info.sq_port = 0;
+}
+
+static struct qmi_ops ngd_slim_qmi_svc_event_ops = {
+	.new_server = ngd_slim_qmi_new_server,
+	.del_server = ngd_slim_qmi_del_server,
+};
+
+static int ngd_slim_qmi_svc_event_init(struct msm_slim_qmi *qmi)
+{
+	int ret = 0;
+
+	ret = qmi_handle_init(&qmi->svc_event_hdl, 0,
+				&ngd_slim_qmi_svc_event_ops, NULL);
+	if (ret < 0) {
+		pr_err("%s: qmi_handle_init failed: %d\n", __func__, ret);
+		return ret;
+	}
+
+	ret = qmi_add_lookup(&qmi->svc_event_hdl, SLIMBUS_QMI_SVC_ID,
+				SLIMBUS_QMI_SVC_V1, SLIMBUS_QMI_INS_ID);
+	if (ret < 0) {
+		pr_err("%s: qmi_add_lookup failed: %d\n", __func__, ret);
+		qmi_handle_release(&qmi->svc_event_hdl);
+	}
+	return ret;
+}
+
+static void ngd_slim_qmi_svc_event_deinit(struct msm_slim_qmi *qmi)
+{
+	qmi_handle_release(&qmi->svc_event_hdl);
 }
 
 static void ngd_reg_ssr(struct msm_slim_ctrl *dev)
@@ -1572,9 +1614,7 @@ static int ngd_notify_slaves(void *data)
 	struct list_head *pos, *next;
 	int ret, i = 0;
 
-	ret = qmi_svc_event_notifier_register(SLIMBUS_QMI_SVC_ID,
-				SLIMBUS_QMI_SVC_V1,
-				SLIMBUS_QMI_INS_ID, &dev->qmi.nb);
+	ret = ngd_slim_qmi_svc_event_init(&dev->qmi);
 	if (ret) {
 		pr_err("Slimbus QMI service registration failed:%d", ret);
 		return ret;
@@ -1927,7 +1967,6 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	}
 
 	INIT_WORK(&dev->dsp.dom_up, ngd_dom_up);
-	dev->qmi.nb.notifier_call = ngd_qmi_available;
 	pm_runtime_get_noresume(dev->dev);
 
 	/* Fire up the Rx message queue thread */
@@ -1982,9 +2021,7 @@ static int ngd_slim_remove(struct platform_device *pdev)
 	if (dev->sysfs_created)
 		sysfs_remove_file(&dev->dev->kobj,
 				&dev_attr_debug_mask.attr);
-	qmi_svc_event_notifier_unregister(SLIMBUS_QMI_SVC_ID,
-				SLIMBUS_QMI_SVC_V1,
-				SLIMBUS_QMI_INS_ID, &dev->qmi.nb);
+	ngd_slim_qmi_svc_event_deinit(&dev->qmi);
 	pm_runtime_disable(&pdev->dev);
 	if (dev->dsp.dom_t == MSM_SLIM_DOM_SS)
 		subsys_notif_unregister_notifier(dev->dsp.domr,
