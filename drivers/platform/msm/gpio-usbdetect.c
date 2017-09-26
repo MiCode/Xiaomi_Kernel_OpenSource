@@ -186,6 +186,14 @@ static int gpio_usbdetect_probe(struct platform_device *pdev)
 	enable_irq_wake(usb->id_det_irq);
 	dev_set_drvdata(&pdev->dev, usb);
 
+	if (usb->id_det_irq) {
+		gpio_usbdetect_id_irq(usb->id_det_irq, usb);
+		if (!usb->id_state) {
+			gpio_usbdetect_id_irq_thread(usb->id_det_irq, usb);
+			return 0;
+		}
+	}
+
 	/* Read and report initial VBUS state */
 	gpio_usbdetect_vbus_irq(usb->vbus_det_irq, usb);
 
