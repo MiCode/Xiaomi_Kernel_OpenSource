@@ -217,9 +217,19 @@ static int32_t cam_sensor_handle_continuous_write(
 		sizeof(cam_cmd_i2c_continuous_wr->reg_addr) +
 		sizeof(struct cam_cmd_read) *
 		(cam_cmd_i2c_continuous_wr->header.count));
-	i2c_list->op_code = cam_cmd_i2c_continuous_wr->header.op_code;
+	if (cam_cmd_i2c_continuous_wr->header.op_code ==
+		CAMERA_SENSOR_I2C_OP_CONT_WR_BRST)
+		i2c_list->op_code = CAM_SENSOR_I2C_WRITE_BURST;
+	else if (cam_cmd_i2c_continuous_wr->header.op_code ==
+		CAMERA_SENSOR_I2C_OP_CONT_WR_SEQN)
+		i2c_list->op_code = CAM_SENSOR_I2C_WRITE_SEQ;
+	else
+		return -EINVAL;
+
 	i2c_list->i2c_settings.addr_type =
 		cam_cmd_i2c_continuous_wr->header.addr_type;
+	i2c_list->i2c_settings.data_type =
+		cam_cmd_i2c_continuous_wr->header.data_type;
 
 	for (cnt = 0; cnt < (cam_cmd_i2c_continuous_wr->header.count);
 		cnt++) {
