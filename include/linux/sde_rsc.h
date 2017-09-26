@@ -259,7 +259,8 @@ static inline void sde_rsc_client_destroy(struct sde_rsc_client *client)
 
 static inline int sde_rsc_client_state_update(struct sde_rsc_client *client,
 	enum sde_rsc_state state,
-	struct sde_rsc_cmd_config *config, int crtc_id)
+	struct sde_rsc_cmd_config *config, int crtc_id,
+	int *wait_vblank_crtc_id)
 {
 	return 0;
 }
