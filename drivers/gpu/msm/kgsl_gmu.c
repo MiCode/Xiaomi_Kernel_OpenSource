@@ -182,8 +182,8 @@ static int alloc_and_map(struct gmu_device *gmu, unsigned int ctx_id,
 
 	if (ret) {
 		dev_err(&gmu->pdev->dev,
-				"gmu map err: gaddr=0x%016llX, paddr=0x%016llX\n",
-				md->gmuaddr, md->physaddr);
+				"gmu map err: gaddr=0x%016llX, paddr=0x%pa\n",
+				md->gmuaddr, &(md->physaddr));
 		free_gmu_mem(gmu, md);
 	}
 
