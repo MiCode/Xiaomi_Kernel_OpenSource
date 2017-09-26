@@ -41,11 +41,6 @@ unsigned long int queue_xmit[RMNET_STATS_QUEUE_XMIT_MAX * 2];
 module_param_array(queue_xmit, ulong, 0, 0444);
 MODULE_PARM_DESC(queue_xmit, "SKBs queued for transmit");
 
-static DEFINE_SPINLOCK(rmnet_deagg_count);
-unsigned long int deagg_count[RMNET_STATS_AGG_MAX];
-module_param_array(deagg_count, ulong, 0, 0444);
-MODULE_PARM_DESC(deagg_count, "SKBs De-aggregated");
-
 static DEFINE_SPINLOCK(rmnet_agg_count);
 unsigned long int agg_count[RMNET_STATS_AGG_MAX];
 module_param_array(agg_count, ulong, 0, 0444);
@@ -72,16 +67,7 @@ void rmnet_kfree_skb(struct sk_buff *skb, unsigned int reason)
 	skb_free[reason]++;
 	spin_unlock_irqrestore(&rmnet_skb_free_lock, flags);
 
-	if (likely(skb)) {
-		struct rmnet_phys_ep_conf_s *config;
-
-		config = (struct rmnet_phys_ep_conf_s *)rcu_dereference
-			 (skb->dev->rx_handler_data);
-		if (likely(config))
-			config->recycle(skb);
-		else
-			kfree_skb(skb);
-	}
+	kfree_skb(skb);
 }
 
 void rmnet_stats_queue_xmit(int rc, unsigned int reason)
@@ -106,16 +92,6 @@ void rmnet_stats_agg_pkts(int aggcount)
 	agg_count[RMNET_STATS_AGG_BUFF]++;
 	agg_count[RMNET_STATS_AGG_PKT] += aggcount;
 	spin_unlock_irqrestore(&rmnet_agg_count, flags);
-}
-
-void rmnet_stats_deagg_pkts(int aggcount)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&rmnet_deagg_count, flags);
-	deagg_count[RMNET_STATS_AGG_BUFF]++;
-	deagg_count[RMNET_STATS_AGG_PKT] += aggcount;
-	spin_unlock_irqrestore(&rmnet_deagg_count, flags);
 }
 
 void rmnet_stats_dl_checksum(unsigned int rc)
