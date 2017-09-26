@@ -30,7 +30,7 @@ snd-soc-msm8x16-objs += msm8952-slimbus.o msm8952-dai-links.o
 obj-$(CONFIG_SND_SOC_MSM8X16) += snd-soc-msm8x16.o
 
 # for MDM 9650 sound card driver
-snd-soc-mdm9650-objs := mdm9650.o
+snd-soc-mdm9650-objs := mdm9650.o msm-audio-pinctrl.o
 obj-$(CONFIG_SND_SOC_MDM9650) += snd-soc-mdm9650.o
 
 # for MDM 9607 sound card driver
