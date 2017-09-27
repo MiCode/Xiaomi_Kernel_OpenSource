@@ -1,4 +1,4 @@
-Qualcomm MSM8953 TLMM block
+Qualcomm Technologies, Inc. MSM8953 TLMM block
 
 This binding describes the Top Level Mode Multiplexer block found in the
 MSM8953 platform.
