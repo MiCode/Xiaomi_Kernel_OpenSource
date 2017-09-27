@@ -55,8 +55,7 @@ struct cpu_pmu_stats {
 struct cpu_grp_info {
 	cpumask_t cpus;
 	cpumask_t inited_cpus;
-	unsigned long cache_miss_event;
-	unsigned long inst_event;
+	unsigned int event_ids[NUM_EVENTS];
 	struct cpu_pmu_stats *cpustats;
 	struct memlat_hwmon hw;
 	struct notifier_block arm_memlat_cpu_notif;
@@ -129,7 +128,7 @@ static void delete_events(struct cpu_pmu_stats *cpustats)
 {
 	int i;
 
-	for (i = 0; i < NUM_EVENTS; i++) {
+	for (i = 0; i < ARRAY_SIZE(cpustats->events); i++) {
 		cpustats->events[i].prev_count = 0;
 		perf_event_release_kernel(cpustats->events[i].pevent);
 	}
@@ -182,7 +181,7 @@ static int set_events(struct cpu_grp_info *cpu_grp, int cpu)
 {
 	struct perf_event *pevent;
 	struct perf_event_attr *attr;
-	int err;
+	int err, i;
 	struct cpu_pmu_stats *cpustats = to_cpustats(cpu_grp, cpu);
 
 	/* Allocate an attribute for event initialization */
@@ -190,26 +189,15 @@ static int set_events(struct cpu_grp_info *cpu_grp, int cpu)
 	if (!attr)
 		return -ENOMEM;
 
-	attr->config = cpu_grp->inst_event;
-	pevent = perf_event_create_kernel_counter(attr, cpu, NULL, NULL, NULL);
-	if (IS_ERR(pevent))
-		goto err_out;
-	cpustats->events[INST_IDX].pevent = pevent;
-	perf_event_enable(cpustats->events[INST_IDX].pevent);
-
-	attr->config = cpu_grp->cache_miss_event;
-	pevent = perf_event_create_kernel_counter(attr, cpu, NULL, NULL, NULL);
-	if (IS_ERR(pevent))
-		goto err_out;
-	cpustats->events[CM_IDX].pevent = pevent;
-	perf_event_enable(cpustats->events[CM_IDX].pevent);
-
-	attr->config = CYC_EV;
-	pevent = perf_event_create_kernel_counter(attr, cpu, NULL, NULL, NULL);
-	if (IS_ERR(pevent))
-		goto err_out;
-	cpustats->events[CYC_IDX].pevent = pevent;
-	perf_event_enable(cpustats->events[CYC_IDX].pevent);
+	for (i = 0; i < ARRAY_SIZE(cpustats->events); i++) {
+		attr->config = cpu_grp->event_ids[i];
+		pevent = perf_event_create_kernel_counter(attr, cpu, NULL,
+							  NULL, NULL);
+		if (IS_ERR(pevent))
+			goto err_out;
+		cpustats->events[i].pevent = pevent;
+		perf_event_enable(pevent);
+	}
 
 	kfree(attr);
 	return 0;
@@ -310,7 +298,7 @@ static int arm_memlat_mon_driver_probe(struct platform_device *pdev)
 	struct memlat_hwmon *hw;
 	struct cpu_grp_info *cpu_grp;
 	int cpu, ret;
-	u32 cachemiss_ev, inst_ev;
+	u32 event_id;
 
 	cpu_grp = devm_kzalloc(dev, sizeof(*cpu_grp), GFP_KERNEL);
 	if (!cpu_grp)
@@ -341,22 +329,24 @@ static int arm_memlat_mon_driver_probe(struct platform_device *pdev)
 	if (!cpu_grp->cpustats)
 		return -ENOMEM;
 
+	cpu_grp->event_ids[CYC_IDX] = CYC_EV;
+
 	ret = of_property_read_u32(dev->of_node, "qcom,cachemiss-ev",
-			&cachemiss_ev);
+				   &event_id);
 	if (ret) {
 		dev_dbg(dev, "Cache Miss event not specified. Using def:0x%x\n",
-				L2DM_EV);
-		cachemiss_ev = L2DM_EV;
+			L2DM_EV);
+		event_id = L2DM_EV;
 	}
-	cpu_grp->cache_miss_event = cachemiss_ev;
+	cpu_grp->event_ids[CM_IDX] = event_id;
 
-	ret = of_property_read_u32(dev->of_node, "qcom,inst-ev", &inst_ev);
+	ret = of_property_read_u32(dev->of_node, "qcom,inst-ev", &event_id);
 	if (ret) {
 		dev_dbg(dev, "Inst event not specified. Using def:0x%x\n",
-				INST_EV);
-		inst_ev = INST_EV;
+			INST_EV);
+		event_id = INST_EV;
 	}
-	cpu_grp->inst_event = inst_ev;
+	cpu_grp->event_ids[INST_IDX] = event_id;
 
 	for_each_cpu(cpu, &cpu_grp->cpus)
 		to_devstats(cpu_grp, cpu)->id = cpu;
