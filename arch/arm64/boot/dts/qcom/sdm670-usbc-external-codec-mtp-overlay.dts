@@ -21,7 +21,7 @@
 
 #include "sdm670-mtp.dtsi"
 #include "sdm670-external-codec.dtsi"
-
+#include "sdm670-ext-cdc-usbc-audio.dtsi"
 / {
 	model = "Qualcomm Technologies, Inc. SDM670 PM660+PM660L, USB-C Audio, Ext. Audio Codec MTP";
 	compatible = "qcom,sdm670-mtp", "qcom,sdm670", "qcom,mtp";
