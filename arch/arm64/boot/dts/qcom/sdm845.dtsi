@@ -1545,12 +1545,6 @@
 		status = "disabled";
 	};
 
-	extcon_storage_cd: extcon_storage_cd {
-		compatible = "extcon-gpio";
-		extcon-id = <62>; /* EXTCON_MECHANICAL */
-		status = "disabled";
-	};
-
 	sdhc_2: sdhci@8804000 {
 		compatible = "qcom,sdhci-msm-v5";
 		reg = <0x8804000 0x1000>;
