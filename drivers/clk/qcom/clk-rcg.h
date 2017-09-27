@@ -23,8 +23,6 @@ struct freq_tbl {
 	u8 pre_div;
 	u16 m;
 	u16 n;
-	unsigned long src_freq;
-#define FIXED_FREQ_SRC   0
 };
 
 /**

@@ -37,7 +37,6 @@
 #include "vdd-level.h"
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
-#define F_SLEW(f, s, h, m, n, sf) { (f), (s), (2 * (h) - 1), (m), (n), (sf) }
 
 #define GCC_APCS_CLOCK_SLEEP_ENA_VOTE_OFFSET	0x52008
 #define CPUSS_AHB_CLK_SLEEP_ENA			BIT(21)
