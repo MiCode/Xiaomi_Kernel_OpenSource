@@ -474,6 +474,8 @@ static int cam_ife_hw_mgr_acquire_res_ife_out_rdi(
 		CAM_ERR(CAM_ISP, "invalid resource type");
 		goto err;
 	}
+	CAM_DBG(CAM_ISP, "vfe_in_res_id = %d, vfe_out_red_id = %d",
+		vfe_in_res_id, vfe_out_res_id);
 
 	vfe_acquire.rsrc_type = CAM_ISP_RESOURCE_VFE_OUT;
 	vfe_acquire.tasklet = ife_ctx->common.tasklet_info;
@@ -481,6 +483,9 @@ static int cam_ife_hw_mgr_acquire_res_ife_out_rdi(
 	ife_out_res = &ife_ctx->res_list_ife_out[vfe_out_res_id & 0xFF];
 	for (i = 0; i < in_port->num_out_res; i++) {
 		out_port = &in_port->data[i];
+
+		CAM_DBG(CAM_ISP, "i = %d, vfe_out_res_id = %d, out_port: %d",
+			i, vfe_out_res_id, out_port->res_type);
 
 		if (vfe_out_res_id != out_port->res_type)
 			continue;
@@ -503,7 +508,9 @@ static int cam_ife_hw_mgr_acquire_res_ife_out_rdi(
 	}
 
 	if (i == in_port->num_out_res) {
-		CAM_ERR(CAM_ISP, "Can not acquire out resource");
+		CAM_ERR(CAM_ISP,
+			"Cannot acquire out resource, i=%d, num_out_res=%d",
+			i, in_port->num_out_res);
 		goto err;
 	}
 
@@ -511,6 +518,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_out_rdi(
 	ife_out_res->is_dual_vfe = 0;
 	ife_out_res->res_id = vfe_out_res_id;
 	ife_out_res->res_type = CAM_ISP_RESOURCE_VFE_OUT;
+	ife_src_res->child[ife_src_res->num_children++] = ife_out_res;
 
 	return 0;
 err:
@@ -749,9 +757,11 @@ static int cam_ife_hw_mgr_acquire_res_ife_src(
 		 * csid resource and ife source resource
 		 */
 		csid_res->child[0] = ife_src_res;
-		csid_res->num_children = 1;
 		ife_src_res->parent = csid_res;
 		csid_res->child[csid_res->num_children++] = ife_src_res;
+		CAM_DBG(CAM_ISP, "csid_res=%d  num_children=%d ife_src_res=%d",
+			csid_res->res_id, csid_res->num_children,
+			ife_src_res->res_id);
 	}
 
 	return 0;
@@ -850,8 +860,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_ipp(
 
 	}
 	csid_res->parent = &ife_ctx->res_list_ife_in;
-	ife_ctx->res_list_ife_in.child[
-		ife_ctx->res_list_ife_in.num_children++] = csid_res;
+	CAM_DBG(CAM_ISP, "acquire res %d", csid_acquire.res_id);
 
 	return 0;
 err:
@@ -863,7 +872,6 @@ static enum cam_ife_pix_path_res_id
 	uint32_t                 out_port_type)
 {
 	enum cam_ife_pix_path_res_id path_id;
-
 	switch (out_port_type) {
 	case CAM_ISP_IFE_OUT_RES_RDI_0:
 		path_id = CAM_IFE_PIX_PATH_RES_RDI_0;
@@ -882,6 +890,8 @@ static enum cam_ife_pix_path_res_id
 		CAM_DBG(CAM_ISP, "maximum rdi output type exceeded");
 		break;
 	}
+
+	CAM_DBG(CAM_ISP, "out_port %d path_id %d", out_port_type, path_id);
 
 	return path_id;
 }
@@ -955,10 +965,8 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_rdi(
 		csid_res->is_dual_vfe = 0;
 		csid_res->hw_res[0] = csid_acquire.node_res;
 		csid_res->hw_res[1] = NULL;
-
+		CAM_DBG(CAM_ISP, "acquire res %d", csid_acquire.res_id);
 		csid_res->parent = &ife_ctx->res_list_ife_in;
-		ife_ctx->res_list_ife_in.child[
-			ife_ctx->res_list_ife_in.num_children++] = csid_res;
 	}
 
 	return 0;
@@ -1207,8 +1215,10 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv,
 	struct cam_isp_in_port_info       *in_port = NULL;
 	struct cam_isp_resource           *isp_resource = NULL;
 	struct cam_cdm_acquire_data        cdm_acquire;
-	uint32_t                           num_pix_port = 0;
-	uint32_t                           num_rdi_port = 0;
+	uint32_t                           num_pix_port_per_in = 0;
+	uint32_t                           num_rdi_port_per_in = 0;
+	uint32_t                           total_pix_port = 0;
+	uint32_t                           total_rdi_port = 0;
 
 	CAM_DBG(CAM_ISP, "Enter...");
 
@@ -1272,7 +1282,10 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv,
 			isp_resource[i].length);
 		if (in_port > 0) {
 			rc = cam_ife_mgr_acquire_hw_for_ctx(ife_ctx, in_port,
-				&num_pix_port, &num_rdi_port);
+				&num_pix_port_per_in, &num_rdi_port_per_in);
+			total_pix_port += num_pix_port_per_in;
+			total_rdi_port += num_rdi_port_per_in;
+
 			kfree(in_port);
 			if (rc) {
 				CAM_ERR(CAM_ISP, "can not acquire resource");
@@ -1288,7 +1301,7 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv,
 	}
 
 	/* Check whether context has only RDI resource */
-	if (!num_pix_port) {
+	if (!total_pix_port) {
 		ife_ctx->is_rdi_only_context = 1;
 		CAM_DBG(CAM_ISP, "RDI only context");
 	}
