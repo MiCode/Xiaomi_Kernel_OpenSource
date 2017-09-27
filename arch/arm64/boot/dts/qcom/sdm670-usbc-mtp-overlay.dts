@@ -20,6 +20,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #include "sdm670-mtp.dtsi"
+#include "sdm670-int-cdc-usbc-audio-overlay.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM670 PM660 + PM660L, USB-C Audio, MTP";
