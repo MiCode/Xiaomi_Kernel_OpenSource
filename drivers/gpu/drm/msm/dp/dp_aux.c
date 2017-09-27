@@ -107,6 +107,7 @@ static u32 dp_aux_write(struct dp_aux_private *aux,
 	}
 
 	aux->catalog->clear_trans(aux->catalog, false);
+	aux->catalog->clear_hw_interrupts(aux->catalog);
 
 	reg = 0; /* Transaction number == 1 */
 	if (!aux->native) { /* i2c */
@@ -203,6 +204,10 @@ static void dp_aux_native_handler(struct dp_aux_private *aux)
 		aux->aux_error_num = DP_AUX_ERR_TOUT;
 	if (isr & DP_INTR_NACK_DEFER)
 		aux->aux_error_num = DP_AUX_ERR_NACK;
+	if (isr & DP_INTR_AUX_ERROR) {
+		aux->aux_error_num = DP_AUX_ERR_PHY;
+		aux->catalog->clear_hw_interrupts(aux->catalog);
+	}
 
 	complete(&aux->comp);
 }
@@ -227,6 +232,10 @@ static void dp_aux_i2c_handler(struct dp_aux_private *aux)
 			aux->aux_error_num = DP_AUX_ERR_NACK;
 		if (isr & DP_INTR_I2C_DEFER)
 			aux->aux_error_num = DP_AUX_ERR_DEFER;
+		if (isr & DP_INTR_AUX_ERROR) {
+			aux->aux_error_num = DP_AUX_ERR_PHY;
+			aux->catalog->clear_hw_interrupts(aux->catalog);
+		}
 	}
 
 	complete(&aux->comp);
@@ -454,11 +463,11 @@ static void dp_aux_init(struct dp_aux *dp_aux, struct dp_aux_cfg *aux_cfg)
 
 	aux = container_of(dp_aux, struct dp_aux_private, dp_aux);
 
+	dp_aux_reset_phy_config_indices(aux_cfg);
+	aux->catalog->setup(aux->catalog, aux_cfg);
 	aux->catalog->reset(aux->catalog);
 	aux->catalog->enable(aux->catalog, true);
 	aux->retry_cnt = 0;
-	dp_aux_reset_phy_config_indices(aux_cfg);
-	aux->catalog->setup(aux->catalog, aux_cfg);
 }
 
 static void dp_aux_deinit(struct dp_aux *dp_aux)
