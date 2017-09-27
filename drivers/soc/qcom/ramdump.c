@@ -454,23 +454,6 @@ static int _do_ramdump(void *handle, struct ramdump_segment *segments,
 
 }
 
-static inline struct elf_shdr *elf_sheader(struct elfhdr *hdr)
-{
-	return (struct elf_shdr *)((size_t)hdr + (size_t)hdr->e_shoff);
-}
-
-static inline struct elf_shdr *elf_section(struct elfhdr *hdr, int idx)
-{
-	return &elf_sheader(hdr)[idx];
-}
-
-static inline char *elf_str_table(struct elfhdr *hdr)
-{
-	if (hdr->e_shstrndx == SHN_UNDEF)
-		return NULL;
-	return (char *)hdr + elf_section(hdr, hdr->e_shstrndx)->sh_offset;
-}
-
 static inline unsigned int set_section_name(const char *name,
 					    struct elfhdr *ehdr)
 {
