@@ -1676,6 +1676,9 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		quirks |= IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT;
 	if (is_iommu_pt_coherent(smmu_domain))
 		quirks |= IO_PGTABLE_QUIRK_NO_DMA;
+	if ((quirks & IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT) &&
+		(smmu->model == QCOM_SMMUV500))
+		quirks |= IO_PGTABLE_QUIRK_QSMMUV500_NON_SHAREABLE;
 
 	ret = arm_smmu_alloc_cb(domain, smmu, dev);
 	if (ret < 0)
