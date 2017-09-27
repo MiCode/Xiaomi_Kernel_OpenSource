@@ -1294,7 +1294,6 @@ void musb_host_tx(struct musb *musb, u8 epnum)
 					| MUSB_TXCSR_TXPKTRDY);
 		}
 			return;
-		mdelay(1);
 	}
 
 done:
