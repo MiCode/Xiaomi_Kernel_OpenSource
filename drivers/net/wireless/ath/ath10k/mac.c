@@ -5530,6 +5530,11 @@ static int ath10k_hw_scan(struct ieee80211_hw *hw,
 			arg.ssids[i].len  = req->ssids[i].ssid_len;
 			arg.ssids[i].ssid = req->ssids[i].ssid;
 		}
+		if (QCA_REV_WCN3990(ar)) {
+			arg.scan_ctrl_flags &=
+					~(WMI_SCAN_ADD_BCAST_PROBE_REQ |
+					  WMI_SCAN_CHAN_STAT_EVENT);
+		}
 	} else {
 		arg.scan_ctrl_flags |= WMI_SCAN_FLAG_PASSIVE;
 	}
@@ -6428,7 +6433,13 @@ static int ath10k_remain_on_channel(struct ieee80211_hw *hw,
 	arg.dwell_time_passive = scan_time_msec;
 	arg.max_scan_time = scan_time_msec;
 	arg.scan_ctrl_flags |= WMI_SCAN_FLAG_PASSIVE;
-	arg.scan_ctrl_flags |= WMI_SCAN_FILTER_PROBE_REQ;
+	if (QCA_REV_WCN3990(ar)) {
+		arg.scan_ctrl_flags &= ~(WMI_SCAN_FILTER_PROBE_REQ |
+					  WMI_SCAN_CHAN_STAT_EVENT |
+					  WMI_SCAN_ADD_BCAST_PROBE_REQ);
+	} else {
+		arg.scan_ctrl_flags |= WMI_SCAN_FILTER_PROBE_REQ;
+	}
 	arg.burst_duration_ms = duration;
 
 	ret = ath10k_start_scan(ar, &arg);
