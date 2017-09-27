@@ -29,6 +29,7 @@
 #include "dsi_clk.h"
 #include "dsi_pwr.h"
 #include "sde_dbg.h"
+#include "dsi_notify.h"
 
 #define to_dsi_display(x) container_of(x, struct dsi_display, host)
 #define INT_BASE_10 10
@@ -4041,6 +4042,8 @@ int dsi_display_prepare(struct dsi_display *display)
 
 	mutex_lock(&display->display_lock);
 
+	dsi_panel_notifier_call_chain(true, NULL);
+
 	mode = display->panel->cur_mode;
 
 	if (mode->dsi_mode_flags & DSI_MODE_FLAG_DMS) {
@@ -4453,6 +4456,8 @@ int dsi_display_unprepare(struct dsi_display *display)
 	}
 
 	mutex_lock(&display->display_lock);
+
+	dsi_panel_notifier_call_chain(false, NULL);
 
 	rc = dsi_display_wake_up(display);
 	if (rc)

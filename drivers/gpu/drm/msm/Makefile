@@ -132,6 +132,7 @@ msm_drm-$(CONFIG_DRM_MSM_DSI_STAGING) += dsi-staging/dsi_phy.o \
 				dsi-staging/dsi_ctrl.o \
 				dsi-staging/dsi_catalog.o \
 				dsi-staging/dsi_drm.o \
+				dsi-staging/dsi_notify.o \
 				dsi-staging/dsi_display.o \
 				dsi-staging/dsi_panel.o \
 				dsi-staging/dsi_clk_manager.o \
