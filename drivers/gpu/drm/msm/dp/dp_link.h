@@ -86,6 +86,7 @@ struct dp_link_params {
 struct dp_link {
 	u32 sink_request;
 	u32 test_response;
+	bool psm_enabled;
 
 	struct dp_link_sink_count sink_count;
 	struct dp_link_test_video test_video;
@@ -99,6 +100,9 @@ struct dp_link {
 	int (*adjust_levels)(struct dp_link *dp_link, u8 *link_status);
 	int (*send_psm_request)(struct dp_link *dp_link, bool req);
 	void (*send_test_response)(struct dp_link *dp_link);
+	int (*psm_config)(struct dp_link *dp_link,
+		struct drm_dp_link *link_info, bool enable);
+	void (*send_edid_checksum)(struct dp_link *dp_link, u8 checksum);
 };
 
 static inline char *dp_link_get_phy_test_pattern(u32 phy_test_pattern_sel)

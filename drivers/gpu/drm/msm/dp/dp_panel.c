@@ -27,8 +27,26 @@ struct dp_panel_private {
 	struct device *dev;
 	struct dp_panel dp_panel;
 	struct dp_aux *aux;
+	struct dp_link *link;
 	struct dp_catalog_panel *catalog;
 	bool aux_cfg_update_done;
+};
+
+static const struct dp_panel_info fail_safe = {
+	.h_active = 640,
+	.v_active = 480,
+	.h_back_porch = 48,
+	.h_front_porch = 16,
+	.h_sync_width = 96,
+	.h_active_low = 0,
+	.v_back_porch = 33,
+	.v_front_porch = 10,
+	.v_sync_width = 2,
+	.v_active_low = 0,
+	.h_skew = 0,
+	.refresh_rate = 60,
+	.pixel_clk_khz = 25200,
+	.bpp = 24,
 };
 
 static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
@@ -100,6 +118,23 @@ end:
 	return rc;
 }
 
+static int dp_panel_set_default_link_params(struct dp_panel *dp_panel)
+{
+	struct drm_dp_link *link_info;
+	const int default_bw_code = 162000;
+	const int default_num_lanes = 1;
+
+	if (!dp_panel) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+	link_info = &dp_panel->link_info;
+	link_info->rate = default_bw_code;
+	link_info->num_lanes = default_num_lanes;
+	pr_debug("link_rate=%d num_lanes=%d\n",
+		link_info->rate, link_info->num_lanes);
+	return 0;
+}
 
 static int dp_panel_read_edid(struct dp_panel *dp_panel,
 	struct drm_connector *connector)
@@ -145,14 +180,16 @@ static int dp_panel_read_sink_caps(struct dp_panel *dp_panel,
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 
 	rc = dp_panel_read_dpcd(dp_panel);
-	if (rc) {
-		pr_err("panel dpcd read failed\n");
-		return rc;
+	if (rc || !is_link_rate_valid(drm_dp_link_rate_to_bw_code(
+		dp_panel->link_info.rate)) || !is_lane_count_valid(
+		dp_panel->link_info.num_lanes)) {
+		pr_err("panel dpcd read failed/incorrect, set default params\n");
+		dp_panel_set_default_link_params(dp_panel);
 	}
 
 	rc = dp_panel_read_edid(dp_panel, connector);
 	if (rc) {
-		pr_err("panel edid read failed\n");
+		pr_err("panel edid read failed, set failsafe mode\n");
 		return rc;
 	}
 
@@ -191,6 +228,94 @@ static u32 dp_panel_get_max_pclk(struct dp_panel *dp_panel)
 		max_data_rate_khz, max_pclk_rate_khz);
 
 	return max_pclk_rate_khz;
+}
+
+static void dp_panel_set_test_mode(struct dp_panel_private *panel,
+		struct dp_display_mode *mode)
+{
+	struct dp_panel_info *pinfo = NULL;
+	struct dp_link_test_video *test_info = NULL;
+
+	if (!panel) {
+		pr_err("invalid params\n");
+		return;
+	}
+
+	pinfo = &mode->timing;
+	test_info = &panel->link->test_video;
+
+	pinfo->h_active = test_info->test_h_width;
+	pinfo->h_sync_width = test_info->test_hsync_width;
+	pinfo->h_back_porch = test_info->test_h_start -
+		test_info->test_hsync_width;
+	pinfo->h_front_porch = test_info->test_h_total -
+		(test_info->test_h_start + test_info->test_h_width);
+
+	pinfo->v_active = test_info->test_v_height;
+	pinfo->v_sync_width = test_info->test_vsync_width;
+	pinfo->v_back_porch = test_info->test_v_start -
+		test_info->test_vsync_width;
+	pinfo->v_front_porch = test_info->test_v_total -
+		(test_info->test_v_start + test_info->test_v_height);
+
+	pinfo->bpp = dp_link_bit_depth_to_bpp(test_info->test_bit_depth);
+	pinfo->h_active_low = test_info->test_hsync_pol;
+	pinfo->v_active_low = test_info->test_vsync_pol;
+
+	pinfo->refresh_rate = test_info->test_rr_n;
+	pinfo->pixel_clk_khz = test_info->test_h_total *
+		test_info->test_v_total * pinfo->refresh_rate;
+
+	if (test_info->test_rr_d == 0)
+		pinfo->pixel_clk_khz /= 1000;
+	else
+		pinfo->pixel_clk_khz /= 1001;
+
+	if (test_info->test_h_width == 640)
+		pinfo->pixel_clk_khz = 25170;
+}
+
+static int dp_panel_get_modes(struct dp_panel *dp_panel,
+	struct drm_connector *connector, struct dp_display_mode *mode)
+{
+	struct dp_panel_private *panel;
+
+	if (!dp_panel) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+
+	if (dp_panel->video_test) {
+		dp_panel_set_test_mode(panel, mode);
+		return 1;
+	} else if (dp_panel->edid_ctrl->edid) {
+		return _sde_edid_update_modes(connector, dp_panel->edid_ctrl);
+	} else { /* fail-safe mode */
+		memcpy(&mode->timing, &fail_safe,
+			sizeof(fail_safe));
+		return 1;
+	}
+}
+
+static void dp_panel_handle_sink_request(struct dp_panel *dp_panel)
+{
+	struct dp_panel_private *panel;
+
+	if (!dp_panel) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+
+	if (panel->link->sink_request & DP_TEST_LINK_EDID_READ) {
+		u8 checksum = sde_get_edid_checksum(dp_panel->edid_ctrl);
+
+		panel->link->send_edid_checksum(panel->link, checksum);
+		panel->link->send_test_response(panel->link);
+	}
 }
 
 static int dp_panel_timing_cfg(struct dp_panel *dp_panel)
@@ -351,28 +476,28 @@ end:
 	return min_link_rate_khz;
 }
 
-struct dp_panel *dp_panel_get(struct device *dev, struct dp_aux *aux,
-				struct dp_catalog_panel *catalog)
+struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 {
 	int rc = 0;
 	struct dp_panel_private *panel;
 	struct dp_panel *dp_panel;
 
-	if (!dev || !aux || !catalog) {
+	if (!in->dev || !in->catalog || !in->aux || !in->link) {
 		pr_err("invalid input\n");
 		rc = -EINVAL;
 		goto error;
 	}
 
-	panel = devm_kzalloc(dev, sizeof(*panel), GFP_KERNEL);
+	panel = devm_kzalloc(in->dev, sizeof(*panel), GFP_KERNEL);
 	if (!panel) {
 		rc = -ENOMEM;
 		goto error;
 	}
 
-	panel->dev = dev;
-	panel->aux = aux;
-	panel->catalog = catalog;
+	panel->dev = in->dev;
+	panel->aux = in->aux;
+	panel->catalog = in->catalog;
+	panel->link = in->link;
 
 	dp_panel = &panel->dp_panel;
 	panel->aux_cfg_update_done = false;
@@ -384,6 +509,8 @@ struct dp_panel *dp_panel_get(struct device *dev, struct dp_aux *aux,
 	dp_panel->read_sink_caps = dp_panel_read_sink_caps;
 	dp_panel->get_min_req_link_rate = dp_panel_get_min_req_link_rate;
 	dp_panel->get_max_pclk = dp_panel_get_max_pclk;
+	dp_panel->get_modes = dp_panel_get_modes;
+	dp_panel->handle_sink_request = dp_panel_handle_sink_request;
 
 	return dp_panel;
 error:

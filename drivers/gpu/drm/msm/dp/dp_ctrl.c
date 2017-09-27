@@ -69,7 +69,6 @@ struct dp_ctrl_private {
 	struct completion idle_comp;
 	struct completion video_comp;
 
-	bool psm_enabled;
 	bool orientation;
 	atomic_t aborted;
 
@@ -992,7 +991,10 @@ static int dp_ctrl_setup_main_link(struct dp_ctrl_private *ctrl, bool train)
 
 	ctrl->catalog->mainlink_ctrl(ctrl->catalog, true);
 
-	drm_dp_link_power_up(ctrl->aux->drm_aux, &ctrl->panel->link_info);
+	ret = ctrl->link->psm_config(ctrl->link,
+		&ctrl->panel->link_info, false);
+	if (ret)
+		goto end;
 
 	if (ctrl->link->sink_request & DP_TEST_LINK_PHY_TEST_PATTERN)
 		goto end;
