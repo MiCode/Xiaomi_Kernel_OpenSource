@@ -554,6 +554,13 @@ skip_sync_ep:
 	resp->interrupter_num = uaudio_qdev->intr_num;
 	resp->interrupter_num_valid = 1;
 
+	ret = usb_get_controller_id(subs->dev);
+	if (ret < 0)
+		goto err;
+
+	resp->controller_num =  ret;
+	resp->controller_num_valid = 1;
+
 	/*  map xhci data structures PA memory to iova */
 
 	/* event ring */
