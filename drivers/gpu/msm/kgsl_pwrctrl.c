@@ -244,12 +244,9 @@ static int kgsl_clk_set_rate(struct kgsl_device *device,
 	/* GMU scales GPU freq */
 	if (kgsl_gmu_isenabled(device)) {
 		/* If GMU has not been started, save it */
-		if (!(gmu->flags & GMU_HFI_ON)) {
-			/* In slumber the clock is off so we are done */
-			if (pwrlevel == (gmu->num_gpupwrlevels - 1))
-				return 0;
-
-			gmu->wakeup_pwrlevel = pwrlevel;
+		if (!test_bit(GMU_HFI_ON, &gmu->flags)) {
+			/* store clock change request */
+			set_bit(GMU_DCVS_REPLAY, &gmu->flags);
 			return 0;
 		}
 
@@ -259,6 +256,8 @@ static int kgsl_clk_set_rate(struct kgsl_device *device,
 			return -EINVAL;
 		}
 		ret = gmu_dcvs_set(gmu, pwrlevel, INVALID_DCVS_IDX);
+		/* indicate actual clock  change */
+		clear_bit(GMU_DCVS_REPLAY, &gmu->flags);
 	} else
 		/* Linux clock driver scales GPU freq */
 		ret = clk_set_rate(pwr->grp_clks[0], pl->gpu_freq);
@@ -412,7 +411,8 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	 */
 	kgsl_pwrctrl_set_thermal_cycle(pwr, new_level);
 
-	if (new_level == old_level)
+	if (new_level == old_level &&
+		!test_bit(GMU_DCVS_REPLAY, &device->gmu.flags))
 		return;
 
 	kgsl_pwrscale_update_stats(device);
@@ -2485,6 +2485,9 @@ static int kgsl_pwrctrl_enable(struct kgsl_device *device)
 static void kgsl_pwrctrl_disable(struct kgsl_device *device)
 {
 	if (kgsl_gmu_isenabled(device)) {
+		struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+
+		pwr->active_pwrlevel = pwr->num_pwrlevels - 1;
 		kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_OFF);
 		return gmu_stop(device);
 	}
