@@ -749,6 +749,20 @@ end:
 	return rc;
 }
 
+static void dp_display_deinit_sub_modules(struct dp_display_private *dp)
+{
+	dp_audio_put(dp->audio);
+	dp_ctrl_put(dp->ctrl);
+	dp_link_put(dp->link);
+	dp_panel_put(dp->panel);
+	dp_aux_put(dp->aux);
+	dp_power_put(dp->power);
+	dp_catalog_put(dp->catalog);
+	dp_parser_put(dp->parser);
+	dp_usbpd_put(dp->usbpd);
+	dp_debug_put(dp->debug);
+}
+
 static int dp_init_sub_modules(struct dp_display_private *dp)
 {
 	int rc = 0;
@@ -769,42 +783,48 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	if (IS_ERR(dp->usbpd)) {
 		rc = PTR_ERR(dp->usbpd);
 		pr_err("failed to initialize usbpd, rc = %d\n", rc);
-		goto err;
+		dp->usbpd = NULL;
+		goto error;
 	}
 
 	dp->parser = dp_parser_get(dp->pdev);
 	if (IS_ERR(dp->parser)) {
 		rc = PTR_ERR(dp->parser);
 		pr_err("failed to initialize parser, rc = %d\n", rc);
-		goto err;
+		dp->parser = NULL;
+		goto error_parser;
 	}
 
 	dp->catalog = dp_catalog_get(dev, &dp->parser->io);
 	if (IS_ERR(dp->catalog)) {
 		rc = PTR_ERR(dp->catalog);
 		pr_err("failed to initialize catalog, rc = %d\n", rc);
-		goto err;
+		dp->catalog = NULL;
+		goto error_catalog;
 	}
 
 	dp->power = dp_power_get(dp->parser);
 	if (IS_ERR(dp->power)) {
 		rc = PTR_ERR(dp->power);
 		pr_err("failed to initialize power, rc = %d\n", rc);
-		goto err;
+		dp->power = NULL;
+		goto error_power;
 	}
 
 	dp->aux = dp_aux_get(dev, &dp->catalog->aux, dp->parser->aux_cfg);
 	if (IS_ERR(dp->aux)) {
 		rc = PTR_ERR(dp->aux);
 		pr_err("failed to initialize aux, rc = %d\n", rc);
-		goto err;
+		dp->aux = NULL;
+		goto error_aux;
 	}
 
 	dp->link = dp_link_get(dev, dp->aux);
 	if (IS_ERR(dp->link)) {
 		rc = PTR_ERR(dp->link);
 		pr_err("failed to initialize link, rc = %d\n", rc);
-		goto err;
+		dp->link = NULL;
+		goto error_link;
 	}
 
 	panel_in.aux = dp->aux;
@@ -815,7 +835,8 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	if (IS_ERR(dp->panel)) {
 		rc = PTR_ERR(dp->panel);
 		pr_err("failed to initialize panel, rc = %d\n", rc);
-		goto err;
+		dp->panel = NULL;
+		goto error_panel;
 	}
 
 	ctrl_in.link = dp->link;
@@ -829,13 +850,16 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	if (IS_ERR(dp->ctrl)) {
 		rc = PTR_ERR(dp->ctrl);
 		pr_err("failed to initialize ctrl, rc = %d\n", rc);
-		goto err;
+		dp->ctrl = NULL;
+		goto error_ctrl;
 	}
 
 	dp->audio = dp_audio_get(dp->pdev, dp->panel, &dp->catalog->audio);
 	if (IS_ERR(dp->audio)) {
 		rc = PTR_ERR(dp->audio);
 		pr_err("failed to initialize audio, rc = %d\n", rc);
+		dp->audio = NULL;
+		goto error_audio;
 	}
 
 	dp->debug = dp_debug_get(dev, dp->panel, dp->usbpd,
@@ -843,9 +867,30 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	if (IS_ERR(dp->debug)) {
 		rc = PTR_ERR(dp->debug);
 		pr_err("failed to initialize debug, rc = %d\n", rc);
-		goto err;
+		dp->debug = NULL;
+		goto error_debug;
 	}
-err:
+
+	return rc;
+error_debug:
+	dp_audio_put(dp->audio);
+error_audio:
+	dp_ctrl_put(dp->ctrl);
+error_ctrl:
+	dp_panel_put(dp->panel);
+error_panel:
+	dp_link_put(dp->link);
+error_link:
+	dp_aux_put(dp->aux);
+error_aux:
+	dp_power_put(dp->power);
+error_power:
+	dp_catalog_put(dp->catalog);
+error_catalog:
+	dp_parser_put(dp->parser);
+error_parser:
+	dp_usbpd_put(dp->usbpd);
+error:
 	return rc;
 }
 
@@ -1140,8 +1185,11 @@ static int dp_display_probe(struct platform_device *pdev)
 	g_dp_display->get_test_bpp = dp_display_get_test_bpp;
 
 	rc = component_add(&pdev->dev, &dp_display_comp_ops);
-	if (rc)
+	if (rc) {
 		pr_err("component add failed, rc=%d\n", rc);
+		dp_display_deinit_sub_modules(dp);
+		devm_kfree(&pdev->dev, dp);
+	}
 
 	return rc;
 }
@@ -1165,20 +1213,6 @@ int dp_display_get_displays(void **displays, int count)
 int dp_display_get_num_of_displays(void)
 {
 	return 1;
-}
-
-static void dp_display_deinit_sub_modules(struct dp_display_private *dp)
-{
-	dp_audio_put(dp->audio);
-	dp_ctrl_put(dp->ctrl);
-	dp_link_put(dp->link);
-	dp_panel_put(dp->panel);
-	dp_aux_put(dp->aux);
-	dp_power_put(dp->power);
-	dp_catalog_put(dp->catalog);
-	dp_parser_put(dp->parser);
-	dp_usbpd_put(dp->usbpd);
-	dp_debug_put(dp->debug);
 }
 
 static int dp_display_remove(struct platform_device *pdev)

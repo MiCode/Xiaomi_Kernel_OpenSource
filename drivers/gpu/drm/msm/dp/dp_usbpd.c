@@ -464,7 +464,7 @@ struct dp_usbpd *dp_usbpd_get(struct device *dev, struct dp_usbpd_cb *cb)
 	if (rc) {
 		pr_err("pd registration failed\n");
 		rc = -ENODEV;
-		kfree(usbpd);
+		devm_kfree(dev, usbpd);
 		goto error;
 	}
 
@@ -485,5 +485,7 @@ void dp_usbpd_put(struct dp_usbpd *dp_usbpd)
 
 	usbpd = container_of(dp_usbpd, struct dp_usbpd_private, dp_usbpd);
 
-	kfree(usbpd);
+	usbpd_unregister_svid(usbpd->pd, &usbpd->svid_handler);
+
+	devm_kfree(usbpd->dev, usbpd);
 }

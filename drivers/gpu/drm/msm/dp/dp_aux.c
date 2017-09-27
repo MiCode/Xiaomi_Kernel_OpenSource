@@ -564,5 +564,7 @@ void dp_aux_put(struct dp_aux *dp_aux)
 
 	aux = container_of(dp_aux, struct dp_aux_private, dp_aux);
 
+	mutex_destroy(&aux->mutex);
+
 	devm_kfree(aux->dev, aux);
 }
