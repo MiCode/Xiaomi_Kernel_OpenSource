@@ -903,7 +903,13 @@ static struct cam_req_mgr_core_link *__cam_req_mgr_reserve_link(
 		CAM_ERR(CAM_CRM, "failed to create link, no mem");
 		return NULL;
 	}
-	in_q = &session->in_q;
+	in_q = (struct cam_req_mgr_req_queue *)
+		kzalloc(sizeof(struct cam_req_mgr_req_queue), GFP_KERNEL);
+	if (!in_q) {
+		CAM_ERR(CAM_CRM, "failed to create input queue, no mem");
+		kfree(link);
+		return NULL;
+	}
 	mutex_init(&link->lock);
 
 	mutex_lock(&link->lock);
@@ -929,7 +935,7 @@ static struct cam_req_mgr_core_link *__cam_req_mgr_reserve_link(
 }
 
 /**
- * __cam_req_mgr_reserve_link()
+ * __cam_req_mgr_unreserve_link()
  *
  * @brief  : Reserves one link data struct within session
  * @session: session identifier
@@ -961,6 +967,8 @@ static void __cam_req_mgr_unreserve_link(
 		CAM_DBG(CAM_CRM, "Active session links (%d)",
 			session->num_links);
 	}
+	kfree((*link)->req.in_q);
+	(*link)->req.in_q = NULL;
 	kfree(*link);
 	*link = NULL;
 	mutex_unlock(&session->lock);
@@ -1910,10 +1918,7 @@ create_subdev_failed:
 	cam_destroy_device_hdl(link->link_hdl);
 	link_info->link_hdl = 0;
 link_hdl_fail:
-	mutex_lock(&link->lock);
-	link->state = CAM_CRM_LINK_STATE_AVAILABLE;
-	mutex_unlock(&link->lock);
-
+	__cam_req_mgr_unreserve_link(cam_session, &link);
 	mutex_unlock(&g_crm_core_dev->crm_lock);
 	return rc;
 }
