@@ -91,6 +91,25 @@
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
 
+	qcom,mpm2-sleep-counter@4a3000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0x004a3000 0x1000>;
+		clock-frequency = <32768>;
+	};
+
+	qcom,msm-imem@66bf000 {
+		compatible = "qcom,msm-imem";
+		reg = <0x66bf000 0x1000>; /* Address and size of IMEM */
+		ranges = <0x0 0x66bf000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		boot_stats@6b0 {
+			compatible = "qcom,msm-imem-boot_stats";
+			reg = <0x6b0 32>;
+		};
+	};
+
 	sound-adp-agave {
 		compatible = "qcom,apq8096-asoc-snd-adp-agave";
 		qcom,model = "apq8096-adp-agave-snd-card";
