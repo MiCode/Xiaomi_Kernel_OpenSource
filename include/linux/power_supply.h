@@ -273,6 +273,7 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_CONNECTOR_TYPE,
 	POWER_SUPPLY_PROP_PARALLEL_BATFET_MODE,
 	POWER_SUPPLY_PROP_MIN_ICL,
+	POWER_SUPPLY_PROP_MOISTURE_DETECTED,
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT,
 	/* Properties of type `const char *' */
