@@ -37,6 +37,7 @@
 #include "sde_rotator_debug.h"
 
 #define RES_UHD              (3840*2160)
+#define MS_TO_US(t) ((t) * USEC_PER_MSEC)
 
 /* traffic shaping clock ticks = finish_time x 19.2MHz */
 #define TRAFFIC_SHAPE_CLKTICK_14MS   268800
@@ -48,7 +49,7 @@
 #define XIN_WRITEBACK		1
 
 /* wait for at most 2 vsync for lowest refresh rate (24hz) */
-#define KOFF_TIMEOUT		(42 * 32)
+#define KOFF_TIMEOUT		(42 * 8)
 
 /* default stream buffer headroom in lines */
 #define DEFAULT_SBUF_HEADROOM	20
@@ -647,12 +648,99 @@ static void sde_hw_rotator_disable_irq(struct sde_hw_rotator *rot)
 }
 
 /**
+ * sde_hw_rotator_reset - Reset rotator hardware
+ * @rot: pointer to hw rotator
+ * @ctx: pointer to current rotator context during the hw hang
+ */
+static int sde_hw_rotator_reset(struct sde_hw_rotator *rot,
+		struct sde_hw_rotator_context *ctx)
+{
+	struct sde_hw_rotator_context *rctx = NULL;
+	u32 int_mask = (REGDMA_INT_0_MASK | REGDMA_INT_1_MASK |
+			REGDMA_INT_2_MASK);
+	u32 last_ts[ROT_QUEUE_MAX] = {0,};
+	u32 latest_ts;
+	int elapsed_time, t;
+	int i, j;
+	unsigned long flags;
+
+	if (!rot || !ctx) {
+		SDEROT_ERR("NULL rotator context\n");
+		return -EINVAL;
+	}
+
+	if (ctx->q_id >= ROT_QUEUE_MAX) {
+		SDEROT_ERR("context q_id out of range: %d\n", ctx->q_id);
+		return -EINVAL;
+	}
+
+	/* sw reset the hw rotator */
+	SDE_ROTREG_WRITE(rot->mdss_base, ROTTOP_SW_RESET_OVERRIDE, 1);
+	usleep_range(MS_TO_US(10), MS_TO_US(20));
+	SDE_ROTREG_WRITE(rot->mdss_base, ROTTOP_SW_RESET_OVERRIDE, 0);
+
+	spin_lock_irqsave(&rot->rotisr_lock, flags);
+
+	/* update timestamp register with current context */
+	last_ts[ctx->q_id] = ctx->timestamp;
+	sde_hw_rotator_update_swts(rot, ctx, ctx->timestamp);
+	SDEROT_EVTLOG(ctx->timestamp);
+
+	/*
+	 * Search for any pending rot session, and look for last timestamp
+	 * per hw queue.
+	 */
+	for (i = 0; i < ROT_QUEUE_MAX; i++) {
+		latest_ts = atomic_read(&rot->timestamp[i]);
+		latest_ts &= SDE_REGDMA_SWTS_MASK;
+		elapsed_time = sde_hw_rotator_elapsed_swts(latest_ts,
+			last_ts[i]);
+
+		for (j = 0; j < SDE_HW_ROT_REGDMA_TOTAL_CTX; j++) {
+			rctx = rot->rotCtx[i][j];
+			if (rctx && rctx != ctx) {
+				rctx->last_regdma_isr_status = int_mask;
+				rctx->last_regdma_timestamp  = rctx->timestamp;
+
+				t = sde_hw_rotator_elapsed_swts(latest_ts,
+							rctx->timestamp);
+				if (t < elapsed_time) {
+					elapsed_time = t;
+					last_ts[i] = rctx->timestamp;
+					sde_hw_rotator_update_swts(rot, rctx,
+							last_ts[i]);
+				}
+
+				SDEROT_DBG("rotctx[%d][%d], ts:%d\n",
+						i, j, rctx->timestamp);
+				SDEROT_EVTLOG(i, j, rctx->timestamp,
+						last_ts[i]);
+			}
+		}
+	}
+
+	/* Finally wakeup all pending rotator context in queue */
+	for (i = 0; i < ROT_QUEUE_MAX; i++) {
+		for (j = 0; j < SDE_HW_ROT_REGDMA_TOTAL_CTX; j++) {
+			rctx = rot->rotCtx[i][j];
+			if (rctx && rctx != ctx)
+				wake_up_all(&rctx->regdma_waitq);
+		}
+	}
+
+	spin_unlock_irqrestore(&rot->rotisr_lock, flags);
+
+	return 0;
+}
+
+/**
  * sde_hw_rotator_dump_status - Dump hw rotator status on error
  * @rot: Pointer to hw rotator
  */
-static void sde_hw_rotator_dump_status(struct sde_hw_rotator *rot)
+static void sde_hw_rotator_dump_status(struct sde_hw_rotator *rot, u32 *ubwcerr)
 {
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+	u32 reg = 0;
 
 	SDEROT_ERR(
 		"op_mode = %x, int_en = %x, int_status = %x\n",
@@ -681,9 +769,11 @@ static void sde_hw_rotator_dump_status(struct sde_hw_rotator *rot)
 		SDE_ROTREG_READ(rot->mdss_base,
 			REGDMA_CSR_REGDMA_FSM_STATE));
 
+	reg = SDE_ROTREG_READ(rot->mdss_base, ROT_SSPP_UBWC_ERROR_STATUS);
+	if (ubwcerr)
+		*ubwcerr = reg;
 	SDEROT_ERR(
-		"UBWC decode status = %x, UBWC encode status = %x\n",
-		SDE_ROTREG_READ(rot->mdss_base, ROT_SSPP_UBWC_ERROR_STATUS),
+		"UBWC decode status = %x, UBWC encode status = %x\n", reg,
 		SDE_ROTREG_READ(rot->mdss_base, ROT_WB_UBWC_ERROR_STATUS));
 
 	SDEROT_ERR("VBIF XIN HALT status = %x VBIF AXI HALT status = %x\n",
@@ -1752,6 +1842,7 @@ static u32 sde_hw_rotator_wait_done_regdma(
 	u32 int_id;
 	u32 swts;
 	u32 sts = 0;
+	u32 ubwcerr = 0;
 	unsigned long flags;
 
 	if (rot->irq_num >= 0) {
@@ -1788,8 +1879,26 @@ static u32 sde_hw_rotator_wait_done_regdma(
 			else if (status & REGDMA_INVALID_CMD)
 				SDEROT_ERR("REGDMA invalid command\n");
 
-			sde_hw_rotator_dump_status(rot);
-			status = ROT_ERROR_BIT;
+			sde_hw_rotator_dump_status(rot, &ubwcerr);
+
+			if (ubwcerr) {
+				/*
+				 * Perform recovery for ROT SSPP UBWC decode
+				 * error.
+				 * - SW reset rotator hw block
+				 * - reset TS logic so all pending rotation
+				 *   in hw queue got done signalled
+				 */
+				spin_unlock_irqrestore(&rot->rotisr_lock,
+						flags);
+				if (!sde_hw_rotator_reset(rot, ctx))
+					status = REGDMA_INCOMPLETE_CMD;
+				else
+					status = ROT_ERROR_BIT;
+				spin_lock_irqsave(&rot->rotisr_lock, flags);
+			} else {
+				status = ROT_ERROR_BIT;
+			}
 		} else {
 			if (rc == 1)
 				SDEROT_WARN(
@@ -1815,12 +1924,12 @@ static u32 sde_hw_rotator_wait_done_regdma(
 		if (last_isr & REGDMA_INT_ERR_MASK) {
 			SDEROT_ERR("Rotator error, ts:0x%X/0x%X status:%x\n",
 				ctx->timestamp, swts, last_isr);
-			sde_hw_rotator_dump_status(rot);
+			sde_hw_rotator_dump_status(rot, NULL);
 			status = ROT_ERROR_BIT;
 		} else if (pending) {
 			SDEROT_ERR("Rotator timeout, ts:0x%X/0x%X status:%x\n",
 				ctx->timestamp, swts, last_isr);
-			sde_hw_rotator_dump_status(rot);
+			sde_hw_rotator_dump_status(rot, NULL);
 			status = ROT_ERROR_BIT;
 		} else {
 			status = 0;
@@ -1830,7 +1939,7 @@ static u32 sde_hw_rotator_wait_done_regdma(
 				last_isr);
 	}
 
-	sts = (status & ROT_ERROR_BIT) ? -ENODEV : 0;
+	sts = (status & (ROT_ERROR_BIT | REGDMA_INCOMPLETE_CMD)) ? -ENODEV : 0;
 
 	if (status & ROT_ERROR_BIT)
 		SDEROT_EVTLOG_TOUT_HANDLER("rot", "rot_dbg_bus",
@@ -2323,7 +2432,7 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 				if (status & BIT(0)) {
 					SDEROT_ERR("rotator busy 0x%x\n",
 							status);
-					sde_hw_rotator_dump_status(rot);
+					sde_hw_rotator_dump_status(rot, NULL);
 					SDEROT_EVTLOG_TOUT_HANDLER("rot",
 							"vbif_dbg_bus",
 							"panic");
