@@ -349,7 +349,7 @@ done:
  *  FCC  *
 **********/
 #define EFFICIENCY_PCT	80
-static void split_fcc(struct pl_data *chip, int total_ua,
+static void get_fcc_split(struct pl_data *chip, int total_ua,
 			int *master_ua, int *slave_ua)
 {
 	int rc, effective_total_ua, slave_limited_ua, hw_cc_delta_ua = 0,
@@ -388,7 +388,6 @@ static void split_fcc(struct pl_data *chip, int total_ua,
 	effective_total_ua = max(0, total_ua + hw_cc_delta_ua);
 	slave_limited_ua = min(effective_total_ua, bcl_ua);
 	*slave_ua = (slave_limited_ua * chip->slave_pct) / 100;
-	*slave_ua = (*slave_ua * chip->taper_pct) / 100;
 	/*
 	 * In USBIN_USBIN configuration with internal rsense parallel
 	 * charger's current goes through main charger's BATFET, keep
@@ -398,6 +397,8 @@ static void split_fcc(struct pl_data *chip, int total_ua,
 		*master_ua = max(0, total_ua);
 	else
 		*master_ua = max(0, total_ua - *slave_ua);
+
+	*slave_ua = (*slave_ua * chip->taper_pct) / 100;
 }
 
 static int pl_fcc_vote_callback(struct votable *votable, void *data,
@@ -425,7 +426,8 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 	}
 
 	if (chip->pl_mode != POWER_SUPPLY_PL_NONE) {
-		split_fcc(chip, total_fcc_ua, &master_fcc_ua, &slave_fcc_ua);
+		get_fcc_split(chip, total_fcc_ua,
+			&master_fcc_ua, &slave_fcc_ua);
 
 		pval.intval = slave_fcc_ua;
 		rc = power_supply_set_property(chip->pl_psy,
