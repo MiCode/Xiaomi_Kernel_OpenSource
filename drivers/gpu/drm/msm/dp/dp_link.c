@@ -60,42 +60,6 @@ struct dp_link_private {
 	u8 link_status[DP_LINK_STATUS_SIZE];
 };
 
-/**
- * mdss_dp_test_bit_depth_to_bpp() - convert test bit depth to bpp
- * @tbd: test bit depth
- *
- * Returns the bits per pixel (bpp) to be used corresponding to the
- * git bit depth value. This function assumes that bit depth has
- * already been validated.
- */
-static inline u32 dp_link_bit_depth_to_bpp(u32 tbd)
-{
-	u32 bpp;
-
-	/*
-	 * Few simplistic rules and assumptions made here:
-	 *    1. Bit depth is per color component
-	 *    2. If bit depth is unknown return 0
-	 *    3. Assume 3 color components
-	 */
-	switch (tbd) {
-	case DP_TEST_BIT_DEPTH_6:
-		bpp = 18;
-		break;
-	case DP_TEST_BIT_DEPTH_8:
-		bpp = 24;
-		break;
-	case DP_TEST_BIT_DEPTH_10:
-		bpp = 30;
-		break;
-	case DP_TEST_BIT_DEPTH_UNKNOWN:
-	default:
-		bpp = 0;
-	}
-
-	return bpp;
-}
-
 static char *dp_link_get_audio_test_pattern(u32 pattern)
 {
 	switch (pattern) {

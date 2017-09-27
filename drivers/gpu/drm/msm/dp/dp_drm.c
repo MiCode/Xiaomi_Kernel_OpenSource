@@ -375,6 +375,21 @@ enum drm_connector_status dp_connector_detect(struct drm_connector *conn,
 	return status;
 }
 
+void dp_connector_send_hpd_event(void *display)
+{
+	struct dp_display *dp;
+
+	if (!display) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	dp = display;
+
+	if (dp->send_hpd_event)
+		dp->send_hpd_event(dp);
+}
+
 int dp_connector_get_modes(struct drm_connector *connector,
 		void *display)
 {

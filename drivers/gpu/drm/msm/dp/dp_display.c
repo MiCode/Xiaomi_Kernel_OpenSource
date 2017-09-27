@@ -37,6 +37,7 @@
 #include "dp_debug.h"
 
 static struct dp_display *g_dp_display;
+#define HPD_STRING_SIZE 30
 
 struct dp_hdcp {
 	void *data;
@@ -434,10 +435,55 @@ static bool dp_display_is_sink_count_zero(struct dp_display_private *dp)
 		(dp->link->sink_count.count == 0);
 }
 
+static void dp_display_send_hpd_event(struct dp_display *dp_display)
+{
+	struct drm_device *dev = NULL;
+	struct dp_display_private *dp;
+	struct drm_connector *connector;
+	char name[HPD_STRING_SIZE], status[HPD_STRING_SIZE],
+		bpp[HPD_STRING_SIZE], pattern[HPD_STRING_SIZE];
+	char *envp[5];
+
+	if (!dp_display) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	dp = container_of(dp_display, struct dp_display_private, dp_display);
+	if (!dp) {
+		pr_err("invalid params\n");
+		return;
+	}
+	connector = dp->dp_display.connector;
+	dev = dp_display->connector->dev;
+
+	connector->status = connector->funcs->detect(connector, false);
+	pr_debug("[%s] status updated to %s\n",
+			      connector->name,
+			      drm_get_connector_status_name(connector->status));
+	snprintf(name, HPD_STRING_SIZE, "name=%s", connector->name);
+	snprintf(status, HPD_STRING_SIZE, "status=%s",
+		drm_get_connector_status_name(connector->status));
+	snprintf(bpp, HPD_STRING_SIZE, "bpp=%d",
+		dp_link_bit_depth_to_bpp(
+		dp->link->test_video.test_bit_depth));
+	snprintf(pattern, HPD_STRING_SIZE, "pattern=%d",
+		dp->link->test_video.test_video_pattern);
+
+	pr_debug("generating hotplug event [%s]:[%s] [%s] [%s]\n",
+		name, status, bpp, pattern);
+	envp[0] = name;
+	envp[1] = status;
+	envp[2] = bpp;
+	envp[3] = pattern;
+	envp[4] = NULL;
+	kobject_uevent_env(&dev->primary->kdev->kobj, KOBJ_CHANGE,
+			envp);
+}
+
 static int dp_display_send_hpd_notification(struct dp_display_private *dp,
 		bool hpd)
 {
-
 	if ((hpd && dp->dp_display.is_connected) ||
 			(!hpd && !dp->dp_display.is_connected)) {
 		pr_info("HPD already %s\n", (hpd ? "on" : "off"));
@@ -446,7 +492,7 @@ static int dp_display_send_hpd_notification(struct dp_display_private *dp,
 
 	dp->dp_display.is_connected = hpd;
 	reinit_completion(&dp->notification_comp);
-	drm_helper_hpd_irq_event(dp->dp_display.connector->dev);
+	dp_display_send_hpd_event(&dp->dp_display);
 
 	if (!wait_for_completion_timeout(&dp->notification_comp, HZ * 2)) {
 		pr_warn("%s timeout\n", hpd ? "connect" : "disconnect");
@@ -1024,6 +1070,7 @@ static int dp_display_probe(struct platform_device *pdev)
 	g_dp_display->unprepare     = dp_display_unprepare;
 	g_dp_display->request_irq   = dp_request_irq;
 	g_dp_display->get_debug     = dp_get_debug;
+	g_dp_display->send_hpd_event    = dp_display_send_hpd_event;
 
 	rc = component_add(&pdev->dev, &dp_display_comp_ops);
 	if (rc)
