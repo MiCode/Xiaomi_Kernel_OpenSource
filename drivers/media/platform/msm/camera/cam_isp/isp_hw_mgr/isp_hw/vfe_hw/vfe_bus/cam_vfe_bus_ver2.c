@@ -1746,7 +1746,7 @@ static int cam_vfe_bus_acquire_vfe_out(void *bus_priv, void *acquire_args,
 	int                                     i;
 	enum cam_vfe_bus_ver2_vfe_out_type      vfe_out_res_id;
 	uint32_t                                format;
-	uint32_t                                num_wm;
+	int                                     num_wm;
 	uint32_t                                subscribe_irq;
 	uint32_t                                client_done_mask;
 	struct cam_vfe_bus_ver2_priv           *ver2_bus_priv = bus_priv;
