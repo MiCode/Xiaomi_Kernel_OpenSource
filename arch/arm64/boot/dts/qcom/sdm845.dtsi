@@ -36,7 +36,6 @@
 
 	aliases {
 		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
-		ufshc2 = &ufshc_card; /* Removable UFS slot */
 		pci-domain0 = &pcie0;
 		pci-domain1 = &pcie1;
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
@@ -1549,96 +1548,6 @@
 	extcon_storage_cd: extcon_storage_cd {
 		compatible = "extcon-gpio";
 		extcon-id = <62>; /* EXTCON_MECHANICAL */
-		status = "disabled";
-	};
-
-	ufsphy_card: ufsphy_card@1da7000 {
-		reg = <0x1da7000 0xda8>; /* PHY regs */
-		reg-names = "phy_mem";
-		#phy-cells = <0>;
-
-		lanes-per-direction = <1>;
-
-		clock-names = "ref_clk_src",
-			"ref_clk",
-			"ref_aux_clk";
-		clocks = <&clock_rpmh RPMH_CXO_CLK>,
-			<&clock_gcc GCC_UFS_CARD_CLKREF_CLK>,
-			<&clock_gcc GCC_UFS_CARD_PHY_AUX_HW_CTL_CLK>;
-
-		status = "disabled";
-	};
-
-	ufshc_card: ufshc_card@1da4000 {
-		compatible = "qcom,ufshc";
-		reg = <0x1da4000 0x2500>;
-		interrupts = <0 125 0>;
-		phys = <&ufsphy_card>;
-		phy-names = "ufsphy";
-
-		lanes-per-direction = <1>;
-		dev-ref-clk-freq = <0>; /* 19.2 MHz */
-
-		clock-names =
-			"core_clk",
-			"bus_aggr_clk",
-			"iface_clk",
-			"core_clk_unipro",
-			"core_clk_ice",
-			"ref_clk",
-			"tx_lane0_sync_clk",
-			"rx_lane0_sync_clk";
-		clocks =
-			<&clock_gcc GCC_UFS_CARD_AXI_HW_CTL_CLK>,
-			<&clock_gcc GCC_AGGRE_UFS_CARD_AXI_HW_CTL_CLK>,
-			<&clock_gcc GCC_UFS_CARD_AHB_CLK>,
-			<&clock_gcc GCC_UFS_CARD_UNIPRO_CORE_HW_CTL_CLK>,
-			<&clock_gcc GCC_UFS_CARD_ICE_CORE_HW_CTL_CLK>,
-			<&clock_rpmh RPMH_CXO_CLK>,
-			<&clock_gcc GCC_UFS_CARD_TX_SYMBOL_0_CLK>,
-			<&clock_gcc GCC_UFS_CARD_RX_SYMBOL_0_CLK>;
-		freq-table-hz =
-			<50000000 200000000>,
-			<0 0>,
-			<0 0>,
-			<37500000 150000000>,
-			<75000000 300000000>,
-			<0 0>,
-			<0 0>,
-			<0 0>;
-
-		qcom,msm-bus,name = "ufshc_card";
-		qcom,msm-bus,num-cases = <9>;
-		qcom,msm-bus,num-paths = <2>;
-		qcom,msm-bus,vectors-KBps =
-		<122 512 0 0>, <1 756 0 0>,          /* No vote */
-		<122 512 922 0>, <1 756 1000 0>,     /* PWM G1 */
-		<122 512 127796 0>, <1 756 1000 0>,  /* HS G1 RA */
-		<122 512 255591 0>, <1 756 1000 0>,  /* HS G2 RA */
-		<122 512 2097152 0>, <1 756 102400 0>,  /* HS G3 RA */
-		<122 512 149422 0>, <1 756 1000 0>,  /* HS G1 RB */
-		<122 512 298189 0>, <1 756 1000 0>,  /* HS G2 RB */
-		<122 512 2097152 0>, <1 756 102400 0>,  /* HS G3 RB */
-		<122 512 7643136 0>, <1 756 307200 0>; /* Max. bandwidth */
-		qcom,bus-vector-names = "MIN",
-		"PWM_G1_L1",
-		"HS_RA_G1_L1", "HS_RA_G2_L1", "HS_RA_G3_L1",
-		"HS_RB_G1_L1", "HS_RB_G2_L1", "HS_RB_G3_L1",
-		"MAX";
-
-		/* PM QoS */
-		qcom,pm-qos-cpu-groups = <0x0f 0xf0>;
-		qcom,pm-qos-cpu-group-latency-us = <70 70>;
-		qcom,pm-qos-default-cpu = <0>;
-
-		/*
-		 * Note: this instance doesn't have control over UFS device
-		 * reset
-		 */
-
-		resets = <&clock_gcc GCC_UFS_CARD_BCR>;
-		reset-names = "core_reset";
-
 		status = "disabled";
 	};
 
