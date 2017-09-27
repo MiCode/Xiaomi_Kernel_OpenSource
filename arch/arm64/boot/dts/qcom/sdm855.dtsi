@@ -522,8 +522,11 @@
 	};
 
 	clock_gcc: qcom,gcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gcc_clocks";
+		compatible = "qcom,gcc-sdm855";
+		reg = <0x100000 0x1f0000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&pm855l_s6_level>;
+		vdd_cx_ao-supply = <&pm855l_s6_level_ao>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
