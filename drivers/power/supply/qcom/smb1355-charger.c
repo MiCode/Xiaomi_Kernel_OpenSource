@@ -613,6 +613,7 @@ static struct smb_irq_info smb1355_irqs[] = {
 	[0] = {
 		.name		= "wdog-bark",
 		.handler	= smb1355_handle_wdog_bark,
+		.wake		= true,
 	},
 	[1] = {
 		.name		= "chg-state-change",
