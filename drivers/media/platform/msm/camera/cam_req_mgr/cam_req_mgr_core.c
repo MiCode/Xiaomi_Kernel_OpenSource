@@ -414,7 +414,7 @@ static int __cam_req_mgr_send_req(struct cam_req_mgr_core_link *link,
 		}
 	}
 	if (rc < 0) {
-		CAM_ERR(CAM_CRM, "APPLY FAILED pd %d req_id %lld",
+		CAM_ERR_RATE_LIMIT(CAM_CRM, "APPLY FAILED pd %d req_id %lld",
 			dev->dev_info.p_delay, apply_req.request_id);
 		/* Apply req failed notify already applied devs */
 		for (; i >= 0; i--) {
@@ -525,7 +525,8 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 
 	if (trigger == CAM_TRIGGER_POINT_SOF) {
 		if (link->trigger_mask) {
-			CAM_ERR(CAM_CRM, "Applying for last EOF fails");
+			CAM_ERR_RATE_LIMIT(CAM_CRM,
+				"Applying for last EOF fails");
 			return -EINVAL;
 		}
 		rc = __cam_req_mgr_check_link_is_ready(link, slot->idx);
@@ -542,7 +543,7 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 				 * ready, don't expect to enter here.
 				 * @TODO: gracefully handle if recovery fails.
 				 */
-				CAM_ERR(CAM_CRM,
+				CAM_ERR_RATE_LIMIT(CAM_CRM,
 					"FATAL recovery cant finish idx %d status %d",
 					in_q->rd_idx,
 					in_q->slot[in_q->rd_idx].status);
@@ -1178,7 +1179,7 @@ int cam_req_mgr_process_add_req(void *priv, void *data)
 		}
 	}
 	if (!tbl) {
-		CAM_ERR(CAM_CRM, "dev_hdl not found %x, %x %x",
+		CAM_ERR_RATE_LIMIT(CAM_CRM, "dev_hdl not found %x, %x %x",
 			add_req->dev_hdl,
 			link->l_dev[0].dev_hdl,
 			link->l_dev[1].dev_hdl);
@@ -1267,8 +1268,9 @@ int cam_req_mgr_process_error(void *priv, void *data)
 	if (err_info->error == CRM_KMD_ERR_BUBBLE) {
 		idx = __cam_req_mgr_find_slot_for_req(in_q, err_info->req_id);
 		if (idx < 0) {
-			CAM_ERR(CAM_CRM, "req_id %lld not found in input queue",
-			err_info->req_id);
+			CAM_ERR_RATE_LIMIT(CAM_CRM,
+				"req_id %lld not found in input queue",
+				err_info->req_id);
 		} else {
 			CAM_DBG(CAM_CRM, "req_id %lld found at idx %d",
 				err_info->req_id, idx);
@@ -1377,6 +1379,12 @@ static int cam_req_mgr_process_trigger(void *priv, void *data)
 		__cam_req_mgr_inc_idx(&in_q->rd_idx, 1, in_q->num_slots);
 	}
 	rc = __cam_req_mgr_process_req(link, trigger_data->trigger);
+	if (rc)
+		CAM_ERR_RATE_LIMIT(CAM_CRM,
+			"link_hdl %x frame_id %lld, trigger %x\n",
+			trigger_data->link_hdl,
+			trigger_data->frame_id,
+			trigger_data->trigger);
 	mutex_unlock(&link->req.lock);
 
 end:
@@ -1430,7 +1438,7 @@ static int cam_req_mgr_cb_add_req(struct cam_req_mgr_add_request *add_req)
 
 	task = cam_req_mgr_workq_get_task(link->workq);
 	if (!task) {
-		CAM_ERR(CAM_CRM, "no empty task dev %x req %lld",
+		CAM_ERR_RATE_LIMIT(CAM_CRM, "no empty task dev %x req %lld",
 			add_req->dev_hdl, add_req->req_id);
 		rc = -EBUSY;
 		goto end;

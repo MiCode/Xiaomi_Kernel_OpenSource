@@ -203,29 +203,29 @@ void *cam_get_device_priv(int32_t dev_hdl)
 
 	spin_lock_bh(&hdl_tbl_lock);
 	if (!hdl_tbl) {
-		CAM_ERR(CAM_CRM, "Hdl tbl is NULL");
+		CAM_ERR_RATE_LIMIT(CAM_CRM, "Hdl tbl is NULL");
 		goto device_priv_fail;
 	}
 
 	idx = CAM_REQ_MGR_GET_HDL_IDX(dev_hdl);
 	if (idx >= CAM_REQ_MGR_MAX_HANDLES) {
-		CAM_ERR(CAM_CRM, "Invalid idx");
+		CAM_ERR_RATE_LIMIT(CAM_CRM, "Invalid idx");
 		goto device_priv_fail;
 	}
 
 	if (hdl_tbl->hdl[idx].state != HDL_ACTIVE) {
-		CAM_ERR(CAM_CRM, "Invalid state");
+		CAM_ERR_RATE_LIMIT(CAM_CRM, "Invalid state");
 		goto device_priv_fail;
 	}
 
 	type = CAM_REQ_MGR_GET_HDL_TYPE(dev_hdl);
 	if (HDL_TYPE_DEV != type && HDL_TYPE_SESSION != type) {
-		CAM_ERR(CAM_CRM, "Invalid type");
+		CAM_ERR_RATE_LIMIT(CAM_CRM, "Invalid type");
 		goto device_priv_fail;
 	}
 
 	if (hdl_tbl->hdl[idx].hdl_value != dev_hdl) {
-		CAM_ERR(CAM_CRM, "Invalid hdl");
+		CAM_ERR_RATE_LIMIT(CAM_CRM, "Invalid hdl");
 		goto device_priv_fail;
 	}
 

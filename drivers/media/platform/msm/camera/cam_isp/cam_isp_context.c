@@ -256,7 +256,7 @@ static int __cam_isp_ctx_notify_sof_in_actived_state(
 		__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
 			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 	} else {
-		CAM_ERR(CAM_ISP, "Can not notify SOF to CRM");
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "Can not notify SOF to CRM");
 		rc = -EFAULT;
 	}
 
@@ -574,7 +574,8 @@ static int __cam_isp_ctx_handle_error(struct cam_isp_context *ctx_isp,
 	 */
 
 	if (list_empty(&ctx->active_req_list)) {
-		CAM_ERR(CAM_ISP, "handling error with no active request");
+		CAM_ERR_RATE_LIMIT(CAM_ISP,
+			"handling error with no active request");
 		rc = -EINVAL;
 		goto end;
 	}
@@ -588,10 +589,10 @@ static int __cam_isp_ctx_handle_error(struct cam_isp_context *ctx_isp,
 		notify.req_id = req->request_id;
 
 		ctx->ctx_crm_intf->notify_err(&notify);
-		CAM_ERR(CAM_ISP, "Notify CRM about ERROR frame %lld",
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "Notify CRM about ERROR frame %lld",
 			ctx_isp->frame_id);
 	} else {
-		CAM_ERR(CAM_ISP, "Can not notify ERRROR to CRM");
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "Can not notify ERRROR to CRM");
 		rc = -EFAULT;
 	}
 
@@ -724,7 +725,7 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 
 	rc = ctx->hw_mgr_intf->hw_config(ctx->hw_mgr_intf->hw_mgr_priv, &cfg);
 	if (rc) {
-		CAM_ERR(CAM_ISP, "Can not apply the configuration");
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "Can not apply the configuration");
 	} else {
 		spin_lock_bh(&ctx->lock);
 		ctx_isp->substate_activated = next_state;
@@ -964,7 +965,7 @@ static int __cam_isp_ctx_rdi_only_sof_in_top_state(
 		__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
 			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 	} else {
-		CAM_ERR(CAM_ISP, "Can not notify SOF to CRM");
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "Can not notify SOF to CRM");
 	}
 
 	if (list_empty(&ctx->active_req_list))
@@ -1883,14 +1884,16 @@ static int __cam_isp_ctx_apply_req(struct cam_context *ctx,
 		rc = ctx_isp->substate_machine[ctx_isp->substate_activated].
 			crm_ops.apply_req(ctx, apply);
 	} else {
-		CAM_ERR(CAM_ISP, "No handle function in activated substate %d",
-			 ctx_isp->substate_activated);
+		CAM_ERR_RATE_LIMIT(CAM_ISP,
+			"No handle function in activated substate %d",
+			ctx_isp->substate_activated);
 		rc = -EFAULT;
 	}
 
 	if (rc)
-		CAM_ERR(CAM_ISP, "Apply failed in active substate %d",
-			 ctx_isp->substate_activated);
+		CAM_ERR_RATE_LIMIT(CAM_ISP,
+			"Apply failed in active substate %d",
+			ctx_isp->substate_activated);
 	return rc;
 }
 
