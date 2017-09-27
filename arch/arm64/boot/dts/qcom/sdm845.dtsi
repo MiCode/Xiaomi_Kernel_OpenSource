@@ -2563,7 +2563,7 @@
 	qcom,qsee_ipc_irq_bridge {
 		compatible = "qcom,qsee-ipc-irq-bridge";
 
-		qcom,qsee-ipq-irq-spss {
+		qcom,qsee-ipc-irq-spss {
 			qcom,rx-irq-clr = <0x1888008 0x4>;
 			qcom,rx-irq-clr-mask = <0x1>;
 			qcom,dev-name = "qsee_ipc_irq_spss";
