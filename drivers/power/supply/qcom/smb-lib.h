@@ -69,6 +69,7 @@ enum print_reason {
 #define PL_FCC_LOW_VOTER		"PL_FCC_LOW_VOTER"
 #define WBC_VOTER			"WBC_VOTER"
 #define OV_VOTER			"OV_VOTER"
+#define MOISTURE_VOTER			"MOISTURE_VOTER"
 
 #define VCONN_MAX_ATTEMPTS	3
 #define OTG_MAX_ATTEMPTS	3
@@ -293,6 +294,7 @@ struct smb_charger {
 	struct votable		*hvdcp_hw_inov_dis_votable;
 	struct votable		*usb_irq_enable_votable;
 	struct votable		*typec_irq_disable_votable;
+	struct votable		*disable_power_role_switch;
 
 	/* work */
 	struct work_struct	bms_update_work;
