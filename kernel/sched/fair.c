@@ -6996,7 +6996,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			if (is_reserved(i))
 				continue;
 
-			if (sched_cpu_high_irqload(cpu))
+			if (sched_cpu_high_irqload(i))
 				continue;
 
 			/*
