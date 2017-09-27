@@ -30,7 +30,7 @@
 #include <soc/qcom/ramdump.h>
 #include <soc/qcom/scm.h>
 
-#include <soc/qcom/smem.h>
+#include <linux/soc/qcom/smem.h>
 
 #include "peripheral-loader.h"
 
@@ -788,15 +788,14 @@ static struct pil_reset_ops pil_ops_trusted = {
 
 static void log_failure_reason(const struct pil_tz_data *d)
 {
-	u32 size;
+	size_t size;
 	char *smem_reason, reason[MAX_SSR_REASON_LEN];
 	const char *name = d->subsys_desc.name;
 
 	if (d->smem_id == -1)
 		return;
 
-	smem_reason = smem_get_entry_no_rlock(d->smem_id, &size, 0,
-							SMEM_ANY_HOST_FLAG);
+	smem_reason = qcom_smem_get(QCOM_SMEM_HOST_ANY, d->smem_id, &size);
 	if (!smem_reason || !size) {
 		pr_err("%s SFR: (unknown, smem_get_entry_no_rlock failed).\n",
 									name);
@@ -807,7 +806,7 @@ static void log_failure_reason(const struct pil_tz_data *d)
 		return;
 	}
 
-	strlcpy(reason, smem_reason, min(size, MAX_SSR_REASON_LEN));
+	strlcpy(reason, smem_reason, min(size, (size_t)MAX_SSR_REASON_LEN));
 	pr_err("%s subsystem failure reason: %s.\n", name, reason);
 
 	smem_reason[0] = '\0';
