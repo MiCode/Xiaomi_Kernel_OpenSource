@@ -75,6 +75,7 @@ struct dp_catalog_aux {
 	void (*setup)(struct dp_catalog_aux *aux,
 			struct dp_aux_cfg *aux_cfg);
 	void (*get_irq)(struct dp_catalog_aux *aux, bool cmd_busy);
+	void (*clear_hw_interrupts)(struct dp_catalog_aux *aux);
 };
 
 struct dp_catalog_ctrl {
