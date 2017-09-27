@@ -62,6 +62,7 @@ struct intf_status {
  * @ get_status: returns if timing engine is enabled or not
  * @ setup_misr: enables/disables MISR in HW register
  * @ collect_misr: reads and stores MISR data from HW register
+ * @ get_line_count: reads current vertical line counter
  */
 struct sde_hw_intf_ops {
 	void (*setup_timing_gen)(struct sde_hw_intf *intf,
@@ -84,6 +85,8 @@ struct sde_hw_intf_ops {
 			bool enable, u32 frame_count);
 
 	u32 (*collect_misr)(struct sde_hw_intf *intf);
+
+	u32 (*get_line_count)(struct sde_hw_intf *intf);
 };
 
 struct sde_hw_intf {

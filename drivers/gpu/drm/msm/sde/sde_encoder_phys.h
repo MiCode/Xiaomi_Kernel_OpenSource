@@ -130,6 +130,7 @@ struct sde_encoder_virt_ops {
  * @restore:			Restore all the encoder configs.
  * @is_autorefresh_enabled:	provides the autorefresh current
  *                              enable/disable state.
+ * @get_line_count:		Obtain current vertical line count
  */
 
 struct sde_encoder_phys_ops {
@@ -172,6 +173,7 @@ struct sde_encoder_phys_ops {
 	void (*prepare_idle_pc)(struct sde_encoder_phys *phys_enc);
 	void (*restore)(struct sde_encoder_phys *phys);
 	bool (*is_autorefresh_enabled)(struct sde_encoder_phys *phys);
+	int (*get_line_count)(struct sde_encoder_phys *phys);
 };
 
 /**
