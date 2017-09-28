@@ -666,6 +666,15 @@ static void sde_hdmi_tx_hdcp_cb_work(struct work_struct *work)
 		}
 
 		break;
+		case HDCP_STATE_AUTH_FAIL_NOREAUTH:
+		if (hdmi_ctrl->hdcp1_use_sw_keys && hdmi_ctrl->hdcp14_present) {
+			if (hdmi_ctrl->auth_state && !hdmi_ctrl->hdcp22_present)
+				hdcp1_set_enc(false);
+		}
+
+		hdmi_ctrl->auth_state = false;
+
+		break;
 	case HDCP_STATE_AUTH_ENC_NONE:
 		hdmi_ctrl->enc_lvl = HDCP_STATE_AUTH_ENC_NONE;
 		if (sde_hdmi_tx_is_panel_on(hdmi_ctrl))
