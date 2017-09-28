@@ -34,6 +34,7 @@
 		<26 512 0 1536000>,
 		<26 512 0 3070000>;
 
+	/delete-node/qcom,gpu-mempools;
 	/delete-node/qcom,gpu-pwrlevels;
 
 	/* Power levels */
