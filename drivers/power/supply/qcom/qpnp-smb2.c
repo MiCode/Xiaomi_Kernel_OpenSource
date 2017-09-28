@@ -188,6 +188,11 @@ static int __weak_chg_icl_ua = 500000;
 module_param_named(
 	weak_chg_icl_ua, __weak_chg_icl_ua, int, 0600);
 
+static int __try_sink_enabled = 1;
+module_param_named(
+	try_sink_enabled, __try_sink_enabled, int, 0600
+);
+
 #define MICRO_1P5A		1500000
 #define MICRO_P1A		100000
 #define OTG_DEFAULT_DEGLITCH_TIME_MS	50
@@ -1037,7 +1042,10 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 		val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_DIE_HEALTH:
-		rc = smblib_get_prop_die_health(chg, val);
+		if (chg->die_health == -EINVAL)
+			rc = smblib_get_prop_die_health(chg, val);
+		else
+			val->intval = chg->die_health;
 		break;
 	case POWER_SUPPLY_PROP_DP_DM:
 		val->intval = chg->pulse_cnt;
@@ -1145,6 +1153,10 @@ static int smb2_batt_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
 		rc = smblib_set_prop_input_current_limited(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_DIE_HEALTH:
+		chg->die_health = val->intval;
+		power_supply_changed(chg->batt_psy);
+		break;
 	default:
 		rc = -EINVAL;
 	}
@@ -1166,6 +1178,7 @@ static int smb2_batt_prop_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
 	case POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED:
 	case POWER_SUPPLY_PROP_SW_JEITA_ENABLED:
+	case POWER_SUPPLY_PROP_DIE_HEALTH:
 		return 1;
 	default:
 		break;
@@ -1644,15 +1657,6 @@ static int smb2_init_hw(struct smb2 *chip)
 	rc = smb2_config_wipower_input_power(chip, chip->dt.wipower_max_uw);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't configure wipower rc=%d\n", rc);
-		return rc;
-	}
-
-	/* disable SW STAT override */
-	rc = smblib_masked_write(chg, STAT_CFG_REG,
-				 STAT_SW_OVERRIDE_CFG_BIT, 0);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't disable SW STAT override rc=%d\n",
-			rc);
 		return rc;
 	}
 
@@ -2244,9 +2248,11 @@ static int smb2_probe(struct platform_device *pdev)
 	chg->dev = &pdev->dev;
 	chg->param = v1_params;
 	chg->debug_mask = &__debug_mask;
+	chg->try_sink_enabled = &__try_sink_enabled;
 	chg->weak_chg_icl_ua = &__weak_chg_icl_ua;
 	chg->mode = PARALLEL_MASTER;
 	chg->irq_info = smb2_irqs;
+	chg->die_health = -EINVAL;
 	chg->name = "PMI";
 
 	chg->regmap = dev_get_regmap(chg->dev->parent, NULL);

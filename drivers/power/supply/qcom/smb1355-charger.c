@@ -146,6 +146,8 @@ struct smb1355 {
 
 	struct power_supply	*parallel_psy;
 	struct pmic_revid_data	*pmic_rev_id;
+
+	int			c_health;
 };
 
 static bool is_secure(struct smb1355 *chip, int addr)
@@ -434,7 +436,10 @@ static int smb1355_parallel_get_prop(struct power_supply *psy,
 		val->intval = POWER_SUPPLY_PL_USBMID_USBMID;
 		break;
 	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
-		val->intval = smb1355_get_prop_connector_health(chip);
+		if (chip->c_health == -EINVAL)
+			val->intval = smb1355_get_prop_connector_health(chip);
+		else
+			val->intval = chip->c_health;
 		break;
 	default:
 		pr_err_ratelimited("parallel psy get prop %d not supported\n",
@@ -497,6 +502,10 @@ static int smb1355_parallel_set_prop(struct power_supply *psy,
 		rc = smb1355_set_charge_param(chip, &chip->param.fcc,
 						val->intval);
 		break;
+	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
+		chip->c_health = val->intval;
+		power_supply_changed(chip->parallel_psy);
+		break;
 	default:
 		pr_debug("parallel power supply set prop %d not supported\n",
 			prop);
@@ -509,6 +518,13 @@ static int smb1355_parallel_set_prop(struct power_supply *psy,
 static int smb1355_parallel_prop_is_writeable(struct power_supply *psy,
 					      enum power_supply_property prop)
 {
+	switch (prop) {
+	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
+		return 1;
+	default:
+		break;
+	}
+
 	return 0;
 }
 
@@ -714,6 +730,7 @@ static int smb1355_probe(struct platform_device *pdev)
 
 	chip->dev = &pdev->dev;
 	chip->param = v1_params;
+	chip->c_health = -EINVAL;
 	chip->name = "smb1355";
 	mutex_init(&chip->write_lock);
 
@@ -763,14 +780,26 @@ static int smb1355_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void smb1355_shutdown(struct platform_device *pdev)
+{
+	struct smb1355 *chip = platform_get_drvdata(pdev);
+	int rc;
+
+	/* disable parallel charging path */
+	rc = smb1355_set_parallel_charging(chip, true);
+	if (rc < 0)
+		pr_err("Couldn't disable parallel path rc=%d\n", rc);
+}
+
 static struct platform_driver smb1355_driver = {
 	.driver	= {
 		.name		= "qcom,smb1355-charger",
 		.owner		= THIS_MODULE,
 		.of_match_table	= match_table,
 	},
-	.probe	= smb1355_probe,
-	.remove	= smb1355_remove,
+	.probe		= smb1355_probe,
+	.remove		= smb1355_remove,
+	.shutdown	= smb1355_shutdown,
 };
 module_platform_driver(smb1355_driver);
 
