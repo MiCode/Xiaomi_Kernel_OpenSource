@@ -699,7 +699,7 @@ void msm_vfe47_process_epoch_irq(struct vfe_device *vfe_dev,
 void msm_isp47_preprocess_camif_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0)
 {
-	if (irq_status0 & BIT(1))
+	if (irq_status0 & BIT(3))
 		vfe_dev->axi_data.src_info[VFE_PIX_0].accept_frame = false;
 	if (irq_status0 & BIT(0))
 		vfe_dev->axi_data.src_info[VFE_PIX_0].accept_frame = true;
@@ -1368,6 +1368,7 @@ void msm_vfe47_cfg_camif(struct vfe_device *vfe_dev,
 	struct msm_vfe_pix_cfg *pix_cfg)
 {
 	uint16_t first_pixel, last_pixel, first_line, last_line;
+	uint16_t epoch_line1;
 	struct msm_vfe_camif_cfg *camif_cfg = &pix_cfg->camif_cfg;
 	struct msm_vfe_testgen_cfg *testgen_cfg = &pix_cfg->testgen_cfg;
 	uint32_t val, subsample_period, subsample_pattern;
@@ -1390,6 +1391,14 @@ void msm_vfe47_cfg_camif(struct vfe_device *vfe_dev,
 	last_pixel = camif_cfg->last_pixel;
 	first_line = camif_cfg->first_line;
 	last_line = camif_cfg->last_line;
+	epoch_line1 = camif_cfg->epoch_line1;
+
+	if ((epoch_line1 <= 0) || (epoch_line1 > last_line))
+		epoch_line1 = last_line - 50;
+
+	if ((last_line - epoch_line1) > 100)
+		epoch_line1 = last_line - 100;
+
 	subsample_period = camif_cfg->subsample_cfg.irq_subsample_period;
 	subsample_pattern = camif_cfg->subsample_cfg.irq_subsample_pattern;
 
@@ -1420,6 +1429,13 @@ void msm_vfe47_cfg_camif(struct vfe_device *vfe_dev,
 	msm_camera_io_w(first_line << 16 | last_line,
 	vfe_dev->vfe_base + 0x48C);
 
+	/*configure EPOCH0: 20 lines, and
+	* configure EPOCH1: epoch_line1 before EOF
+	*/
+	msm_camera_io_w_mb(0x140000 | epoch_line1,
+		vfe_dev->vfe_base + 0x4A0);
+	pr_debug("%s:%d: epoch_line1: %d\n",
+		__func__, __LINE__, epoch_line1);
 	msm_camera_io_w(((irq_sub_period - 1) << 8) | 0 << 5 |
 		(frame_sub_period - 1), vfe_dev->vfe_base + 0x494);
 	msm_camera_io_w(0xFFFFFFFF, vfe_dev->vfe_base + 0x498);
@@ -1597,7 +1613,7 @@ void msm_vfe47_update_camif_state(struct vfe_device *vfe_dev,
 	val = msm_camera_io_r(vfe_dev->vfe_base + 0x47C);
 	if (update_state == ENABLE_CAMIF) {
 		vfe_dev->hw_info->vfe_ops.irq_ops.config_irq(vfe_dev,
-					0x15, 0x91,
+					0x1F, 0x91,
 					MSM_ISP_IRQ_ENABLE);
 
 		if ((vfe_dev->hvx_cmd > HVX_DISABLE) &&
@@ -1618,8 +1634,6 @@ void msm_vfe47_update_camif_state(struct vfe_device *vfe_dev,
 		msm_camera_io_w(val, vfe_dev->vfe_base + 0x47C);
 		msm_camera_io_w_mb(0x4, vfe_dev->vfe_base + 0x478);
 		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x478);
-		/* configure EPOCH0 for 20 lines */
-		msm_camera_io_w_mb(0x140000, vfe_dev->vfe_base + 0x4A0);
 		/* testgen GO*/
 		if (vfe_dev->axi_data.src_info[VFE_PIX_0].input_mux == TESTGEN)
 			msm_camera_io_w(1, vfe_dev->vfe_base + 0xC58);
