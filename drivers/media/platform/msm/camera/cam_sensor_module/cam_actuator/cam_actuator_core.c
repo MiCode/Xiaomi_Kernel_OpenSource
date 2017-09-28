@@ -401,12 +401,16 @@ static int32_t cam_actuator_vreg_control(
 		return -EINVAL;
 	}
 
-	if (config)
+	if (config) {
+		rc = cam_soc_util_request_platform_resource(soc_info,
+			NULL, NULL);
 		rc = cam_soc_util_enable_platform_resource(soc_info, false, 0,
 			false);
-	else
+	} else {
+		rc = cam_soc_util_release_platform_resource(soc_info);
 		rc = cam_soc_util_disable_platform_resource(soc_info, false,
 			false);
+	}
 
 	return rc;
 }
