@@ -1725,6 +1725,8 @@ static int find_lowest_rq(struct task_struct *task)
 	unsigned long best_capacity;
 	unsigned long util, best_cpu_util = ULONG_MAX;
 	unsigned long tutil = task_util(task);
+	int best_cpu_idle_idx = INT_MAX;
+	int cpu_idle_idx = -1;
 	bool placement_boost;
 
 	/* Make sure the mask is initialized first */
@@ -1787,20 +1789,43 @@ retry:
 			 * double count rt task load.
 			 */
 			util = cpu_util(cpu);
-			if (!__cpu_overutilized(cpu, util + tutil)) {
-				if (cpu_isolated(cpu))
-					continue;
 
-				if (sched_cpu_high_irqload(cpu))
-					continue;
+			if (__cpu_overutilized(cpu, util + tutil))
+				continue;
 
-				if (best_cpu_util > util ||
-				    (best_cpu_util == util &&
-				     cpu == task_cpu(task))) {
-					best_cpu_util = util;
-					best_cpu = cpu;
-				}
+			if (cpu_isolated(cpu))
+				continue;
+
+			if (sched_cpu_high_irqload(cpu))
+				continue;
+
+			/* Find the least loaded CPU */
+			if (util > best_cpu_util)
+				continue;
+
+			/*
+			 * If the previous CPU has same load, keep it as
+			 * best_cpu.
+			 */
+			if (best_cpu_util == util && best_cpu == task_cpu(task))
+				continue;
+
+			/*
+			 * If candidate CPU is the previous CPU, select it.
+			 * Otherwise, if its load is same with best_cpu and in
+			 * a shallower C-state, select it.
+			 */
+			cpu_idle_idx = idle_get_state_idx(cpu_rq(cpu));
+			if (cpu != task_cpu(task) &&
+			    sysctl_sched_cstate_aware) {
+				if (best_cpu_util == util &&
+				    best_cpu_idle_idx < cpu_idle_idx)
+					continue;
 			}
+
+			best_cpu_idle_idx = cpu_idle_idx;
+			best_cpu_util = util;
+			best_cpu = cpu;
 		}
 
 		if (best_cpu != -1) {
