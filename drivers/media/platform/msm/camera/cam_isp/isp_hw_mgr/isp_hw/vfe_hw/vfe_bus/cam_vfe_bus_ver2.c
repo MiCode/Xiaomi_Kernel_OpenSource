@@ -94,6 +94,9 @@ struct cam_vfe_bus_ver2_common_data {
 	struct cam_vfe_bus_irq_evt_payload          evt_payload[
 		CAM_VFE_BUS_VER2_PAYLOAD_MAX];
 	struct list_head                            free_payload_list;
+	struct mutex                                bus_mutex;
+	uint32_t                                    secure_mode;
+	uint32_t                                    num_sec_out;
 };
 
 struct cam_vfe_bus_ver2_wm_resource_data {
@@ -168,6 +171,7 @@ struct cam_vfe_bus_ver2_vfe_out_data {
 	uint32_t                         max_width;
 	uint32_t                         max_height;
 	struct cam_cdm_utils_ops        *cdm_util_ops;
+	uint32_t                         secure_mode;
 };
 
 struct cam_vfe_bus_ver2_priv {
@@ -183,6 +187,10 @@ struct cam_vfe_bus_ver2_priv {
 
 	uint32_t                            irq_handle;
 };
+
+static int cam_vfe_bus_process_cmd(
+	struct cam_isp_resource_node *priv,
+	uint32_t cmd_type, void *cmd_args, uint32_t arg_size);
 
 static int cam_vfe_bus_get_evt_payload(
 	struct cam_vfe_bus_ver2_common_data  *common_data,
@@ -326,6 +334,34 @@ static int cam_vfe_bus_ver2_get_intra_client_mask(
 	}
 
 	return rc;
+}
+
+static bool cam_vfe_bus_can_be_secure(uint32_t out_type)
+{
+	switch (out_type) {
+	case CAM_VFE_BUS_VER2_VFE_OUT_FULL:
+	case CAM_VFE_BUS_VER2_VFE_OUT_DS4:
+	case CAM_VFE_BUS_VER2_VFE_OUT_DS16:
+	case CAM_VFE_BUS_VER2_VFE_OUT_FD:
+	case CAM_VFE_BUS_VER2_VFE_OUT_RAW_DUMP:
+	case CAM_VFE_BUS_VER2_VFE_OUT_RDI0:
+	case CAM_VFE_BUS_VER2_VFE_OUT_RDI1:
+	case CAM_VFE_BUS_VER2_VFE_OUT_RDI2:
+		return true;
+
+	case CAM_VFE_BUS_VER2_VFE_OUT_PDAF:
+	case CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BE:
+	case CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BHIST:
+	case CAM_VFE_BUS_VER2_VFE_OUT_STATS_TL_BG:
+	case CAM_VFE_BUS_VER2_VFE_OUT_STATS_BF:
+	case CAM_VFE_BUS_VER2_VFE_OUT_STATS_AWB_BG:
+	case CAM_VFE_BUS_VER2_VFE_OUT_STATS_BHIST:
+	case CAM_VFE_BUS_VER2_VFE_OUT_STATS_RS:
+	case CAM_VFE_BUS_VER2_VFE_OUT_STATS_CS:
+	case CAM_VFE_BUS_VER2_VFE_OUT_STATS_IHIST:
+	default:
+		return false;
+	}
 }
 
 static enum cam_vfe_bus_ver2_vfe_out_type
@@ -846,7 +882,7 @@ static int cam_vfe_bus_acquire_wm(
 			case PLANE_Y:
 				break;
 			default:
-				CAM_ERR(CAM_ISP, "Invalid plane %d\n", plane);
+				CAM_ERR(CAM_ISP, "Invalid plane %d", plane);
 				return -EINVAL;
 			}
 			break;
@@ -862,7 +898,7 @@ static int cam_vfe_bus_acquire_wm(
 			case PLANE_Y:
 				break;
 			default:
-				CAM_ERR(CAM_ISP, "Invalid plane %d\n", plane);
+				CAM_ERR(CAM_ISP, "Invalid plane %d", plane);
 				return -EINVAL;
 			}
 			break;
@@ -877,7 +913,7 @@ static int cam_vfe_bus_acquire_wm(
 			case PLANE_Y:
 				break;
 			default:
-				CAM_ERR(CAM_ISP, "Invalid plane %d\n", plane);
+				CAM_ERR(CAM_ISP, "Invalid plane %d", plane);
 				return -EINVAL;
 			}
 			break;
@@ -891,12 +927,12 @@ static int cam_vfe_bus_acquire_wm(
 			case PLANE_Y:
 				break;
 			default:
-				CAM_ERR(CAM_ISP, "Invalid plane %d\n", plane);
+				CAM_ERR(CAM_ISP, "Invalid plane %d", plane);
 				return -EINVAL;
 			}
 			break;
 		default:
-			CAM_ERR(CAM_ISP, "Invalid format %d\n",
+			CAM_ERR(CAM_ISP, "Invalid format %d",
 				rsrc_data->format);
 			return -EINVAL;
 		}
@@ -1068,7 +1104,7 @@ static int cam_vfe_bus_handle_wm_done_top_half(uint32_t evt_id,
 
 	wm_res = th_payload->handler_priv;
 	if (!wm_res) {
-		CAM_ERR_RATE_LIMIT(CAM_ISP, "Error! No resource\n");
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "Error: No resource");
 		return -ENODEV;
 	}
 
@@ -1080,7 +1116,7 @@ static int cam_vfe_bus_handle_wm_done_top_half(uint32_t evt_id,
 	rc  = cam_vfe_bus_get_evt_payload(rsrc_data->common_data, &evt_payload);
 	if (rc) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP,
-			"No tasklet_cmd is free in queue\n");
+			"No tasklet_cmd is free in queue");
 		return rc;
 	}
 
@@ -1177,10 +1213,8 @@ static int cam_vfe_bus_deinit_wm_resource(
 
 	rsrc_data = wm_res->res_priv;
 	wm_res->res_priv = NULL;
-	if (!rsrc_data) {
-		CAM_ERR(CAM_ISP, "Error! WM res priv is NULL");
+	if (!rsrc_data)
 		return -ENOMEM;
-	}
 	kfree(rsrc_data);
 
 	return 0;
@@ -1472,7 +1506,7 @@ static int cam_vfe_bus_handle_comp_done_top_half(uint32_t evt_id,
 
 	comp_grp = th_payload->handler_priv;
 	if (!comp_grp) {
-		CAM_ERR_RATE_LIMIT(CAM_ISP, "Error! No resource\n");
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "No resource");
 		return -ENODEV;
 	}
 
@@ -1484,7 +1518,7 @@ static int cam_vfe_bus_handle_comp_done_top_half(uint32_t evt_id,
 	rc  = cam_vfe_bus_get_evt_payload(rsrc_data->common_data, &evt_payload);
 	if (rc) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP,
-			"No tasklet_cmd is free in queue\n");
+			"No tasklet_cmd is free in queue");
 		return rc;
 	}
 
@@ -1611,7 +1645,7 @@ static int cam_vfe_bus_handle_comp_done_bottom_half(
 		break;
 	default:
 		rc = CAM_VFE_IRQ_STATUS_ERR;
-		CAM_ERR(CAM_ISP, "Error! Invalid comp_grp_type %u",
+		CAM_ERR(CAM_ISP, "Invalid comp_grp_type %u",
 			rsrc_data->comp_grp_type);
 		break;
 	}
@@ -1632,10 +1666,9 @@ static int cam_vfe_bus_init_comp_grp(uint32_t index,
 
 	rsrc_data = kzalloc(sizeof(struct cam_vfe_bus_ver2_comp_grp_data),
 		GFP_KERNEL);
-	if (!rsrc_data) {
-		CAM_DBG(CAM_ISP, "Failed to alloc for comp_grp_priv");
+	if (!rsrc_data)
 		return -ENOMEM;
-	}
+
 	comp_grp->res_priv = rsrc_data;
 
 	comp_grp->res_state = CAM_ISP_RESOURCE_STATE_AVAILABLE;
@@ -1682,10 +1715,26 @@ static int cam_vfe_bus_deinit_comp_grp(
 	comp_grp->res_priv = NULL;
 
 	if (!rsrc_data) {
-		CAM_ERR(CAM_ISP, "Error! comp_grp_priv is NULL");
+		CAM_ERR(CAM_ISP, "comp_grp_priv is NULL");
 		return -ENODEV;
 	}
 	kfree(rsrc_data);
+
+	return 0;
+}
+
+static int cam_vfe_bus_get_secure_mode(void *priv, void *cmd_args,
+	uint32_t arg_size)
+{
+	bool *mode = cmd_args;
+	struct cam_isp_resource_node *res =
+		(struct cam_isp_resource_node *) priv;
+	struct cam_vfe_bus_ver2_vfe_out_data *rsrc_data =
+		(struct cam_vfe_bus_ver2_vfe_out_data *)res->res_priv;
+
+	*mode =
+		(rsrc_data->secure_mode == CAM_SECURE_MODE_SECURE) ?
+		true : false;
 
 	return 0;
 }
@@ -1697,7 +1746,7 @@ static int cam_vfe_bus_acquire_vfe_out(void *bus_priv, void *acquire_args,
 	int                                     i;
 	enum cam_vfe_bus_ver2_vfe_out_type      vfe_out_res_id;
 	uint32_t                                format;
-	uint32_t                                num_wm;
+	int                                     num_wm;
 	uint32_t                                subscribe_irq;
 	uint32_t                                client_done_mask;
 	struct cam_vfe_bus_ver2_priv           *ver2_bus_priv = bus_priv;
@@ -1705,6 +1754,7 @@ static int cam_vfe_bus_acquire_vfe_out(void *bus_priv, void *acquire_args,
 	struct cam_vfe_hw_vfe_out_acquire_args *out_acquire_args;
 	struct cam_isp_resource_node           *rsrc_node = NULL;
 	struct cam_vfe_bus_ver2_vfe_out_data   *rsrc_data = NULL;
+	uint32_t                                secure_caps = 0, mode;
 
 	if (!bus_priv || !acquire_args) {
 		CAM_ERR(CAM_ISP, "Invalid Param");
@@ -1734,6 +1784,33 @@ static int cam_vfe_bus_acquire_vfe_out(void *bus_priv, void *acquire_args,
 	}
 
 	rsrc_data = rsrc_node->res_priv;
+	secure_caps = cam_vfe_bus_can_be_secure(
+		rsrc_data->out_type);
+	mode = out_acquire_args->out_port_info->secure_mode;
+	mutex_lock(&rsrc_data->common_data->bus_mutex);
+	if (secure_caps) {
+		if (!rsrc_data->common_data->num_sec_out) {
+			rsrc_data->secure_mode = mode;
+			rsrc_data->common_data->secure_mode = mode;
+		} else {
+			if (mode == rsrc_data->common_data->secure_mode) {
+				rsrc_data->secure_mode =
+					rsrc_data->common_data->secure_mode;
+			} else {
+				rc = -EINVAL;
+				CAM_ERR_RATE_LIMIT(CAM_ISP,
+					"Mismatch: Acquire mode[%d], drvr mode[%d]",
+					rsrc_data->common_data->secure_mode,
+					mode);
+				mutex_unlock(
+					&rsrc_data->common_data->bus_mutex);
+				return -EINVAL;
+			}
+		}
+		rsrc_data->common_data->num_sec_out++;
+	}
+	mutex_unlock(&rsrc_data->common_data->bus_mutex);
+
 	rsrc_data->num_wm = num_wm;
 	rsrc_node->res_id = out_acquire_args->out_port_info->res_type;
 	rsrc_node->tasklet_info = acq_args->tasklet;
@@ -1814,6 +1891,7 @@ static int cam_vfe_bus_release_vfe_out(void *bus_priv, void *release_args,
 	uint32_t i;
 	struct cam_isp_resource_node          *vfe_out = NULL;
 	struct cam_vfe_bus_ver2_vfe_out_data  *rsrc_data = NULL;
+	uint32_t                               secure_caps = 0;
 
 	if (!bus_priv || !release_args) {
 		CAM_ERR(CAM_ISP, "Invalid input bus_priv %pK release_args %pK",
@@ -1825,7 +1903,7 @@ static int cam_vfe_bus_release_vfe_out(void *bus_priv, void *release_args,
 	rsrc_data = vfe_out->res_priv;
 
 	if (vfe_out->res_state != CAM_ISP_RESOURCE_STATE_RESERVED) {
-		CAM_ERR(CAM_ISP, "Error! Invalid resource state:%d",
+		CAM_ERR(CAM_ISP, "Invalid resource state:%d",
 			vfe_out->res_state);
 	}
 
@@ -1840,6 +1918,32 @@ static int cam_vfe_bus_release_vfe_out(void *bus_priv, void *release_args,
 	vfe_out->tasklet_info = NULL;
 	vfe_out->cdm_ops = NULL;
 	rsrc_data->cdm_util_ops = NULL;
+
+	secure_caps = cam_vfe_bus_can_be_secure(rsrc_data->out_type);
+	mutex_lock(&rsrc_data->common_data->bus_mutex);
+	if (secure_caps) {
+		if (rsrc_data->secure_mode ==
+			rsrc_data->common_data->secure_mode) {
+			rsrc_data->common_data->num_sec_out--;
+			rsrc_data->secure_mode =
+				CAM_SECURE_MODE_NON_SECURE;
+		} else {
+			/*
+			 * The validity of the mode is properly
+			 * checked while acquiring the output port.
+			 * not expected to reach here, unless there is
+			 * some corruption.
+			 */
+			CAM_ERR(CAM_ISP, "driver[%d],resource[%d] mismatch",
+				rsrc_data->common_data->secure_mode,
+				rsrc_data->secure_mode);
+		}
+
+		if (!rsrc_data->common_data->num_sec_out)
+			rsrc_data->common_data->secure_mode =
+				CAM_SECURE_MODE_NON_SECURE;
+	}
+	mutex_unlock(&rsrc_data->common_data->bus_mutex);
 
 	if (vfe_out->res_state == CAM_ISP_RESOURCE_STATE_RESERVED)
 		vfe_out->res_state = CAM_ISP_RESOURCE_STATE_AVAILABLE;
@@ -1865,7 +1969,7 @@ static int cam_vfe_bus_start_vfe_out(
 	CAM_DBG(CAM_ISP, "Start resource index %d", rsrc_data->out_type);
 
 	if (vfe_out->res_state != CAM_ISP_RESOURCE_STATE_RESERVED) {
-		CAM_ERR(CAM_ISP, "Error! Invalid resource state:%d",
+		CAM_ERR(CAM_ISP, "Invalid resource state:%d",
 			vfe_out->res_state);
 		return -EACCES;
 	}
@@ -1972,7 +2076,6 @@ static int cam_vfe_bus_init_vfe_out_resource(uint32_t index,
 	rsrc_data = kzalloc(sizeof(struct cam_vfe_bus_ver2_vfe_out_data),
 		GFP_KERNEL);
 	if (!rsrc_data) {
-		CAM_DBG(CAM_ISP, "Error! Failed to alloc for vfe out priv");
 		rc = -ENOMEM;
 		return rc;
 	}
@@ -1988,12 +2091,14 @@ static int cam_vfe_bus_init_vfe_out_resource(uint32_t index,
 		ver2_hw_info->vfe_out_hw_info[index].max_width;
 	rsrc_data->max_height  =
 		ver2_hw_info->vfe_out_hw_info[index].max_height;
+	rsrc_data->secure_mode = CAM_SECURE_MODE_NON_SECURE;
 
 	vfe_out->start = cam_vfe_bus_start_vfe_out;
 	vfe_out->stop = cam_vfe_bus_stop_vfe_out;
 	vfe_out->top_half_handler = cam_vfe_bus_handle_vfe_out_done_top_half;
 	vfe_out->bottom_half_handler =
 		cam_vfe_bus_handle_vfe_out_done_bottom_half;
+	vfe_out->process_cmd = cam_vfe_bus_process_cmd;
 	vfe_out->hw_intf = ver2_bus_priv->common_data.hw_intf;
 
 	return 0;
@@ -2014,10 +2119,8 @@ static int cam_vfe_bus_deinit_vfe_out_resource(
 	INIT_LIST_HEAD(&vfe_out->list);
 	vfe_out->res_priv = NULL;
 
-	if (!rsrc_data) {
-		CAM_ERR(CAM_ISP, "Error! vfe out priv is NULL");
+	if (!rsrc_data)
 		return -ENOMEM;
-	}
 	kfree(rsrc_data);
 
 	return 0;
@@ -2394,7 +2497,7 @@ static int cam_vfe_bus_init_hw(void *hw_priv,
 	uint32_t                         top_irq_reg_mask[2] = {0};
 
 	if (!bus_priv) {
-		CAM_ERR(CAM_ISP, "Error! Invalid args");
+		CAM_ERR(CAM_ISP, "Invalid args");
 		return -EINVAL;
 	}
 
@@ -2425,7 +2528,7 @@ static int cam_vfe_bus_deinit_hw(void *hw_priv,
 	int                              rc;
 
 	if (!bus_priv || (bus_priv->irq_handle <= 0)) {
-		CAM_ERR(CAM_ISP, "Error! Invalid args");
+		CAM_ERR(CAM_ISP, "Error: Invalid args");
 		return -EINVAL;
 	}
 
@@ -2438,13 +2541,20 @@ static int cam_vfe_bus_deinit_hw(void *hw_priv,
 	return rc;
 }
 
-static int cam_vfe_bus_process_cmd(void *priv,
+static int __cam_vfe_bus_process_cmd(void *priv,
+	uint32_t cmd_type, void *cmd_args, uint32_t arg_size)
+{
+	return cam_vfe_bus_process_cmd(priv, cmd_type, cmd_args, arg_size);
+}
+
+static int cam_vfe_bus_process_cmd(
+	struct cam_isp_resource_node *priv,
 	uint32_t cmd_type, void *cmd_args, uint32_t arg_size)
 {
 	int rc = -EINVAL;
 
 	if (!priv || !cmd_args) {
-		CAM_ERR_RATE_LIMIT(CAM_ISP, "Error! Invalid input arguments\n");
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "Invalid input arguments");
 		return -EINVAL;
 	}
 
@@ -2455,8 +2565,11 @@ static int cam_vfe_bus_process_cmd(void *priv,
 	case CAM_VFE_HW_CMD_GET_HFR_UPDATE:
 		rc = cam_vfe_bus_update_hfr(priv, cmd_args, arg_size);
 		break;
+	case CAM_VFE_HW_CMD_GET_SECURE_MODE:
+		rc = cam_vfe_bus_get_secure_mode(priv, cmd_args, arg_size);
+		break;
 	default:
-		CAM_ERR_RATE_LIMIT(CAM_ISP, "Inval camif process command:%d\n",
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "Invalid camif process command:%d",
 			cmd_type);
 		break;
 	}
@@ -2503,18 +2616,21 @@ int cam_vfe_bus_ver2_init(
 	}
 	vfe_bus_local->bus_priv = bus_priv;
 
+	bus_priv->common_data.num_sec_out        = 0;
+	bus_priv->common_data.secure_mode        = CAM_SECURE_MODE_NON_SECURE;
 	bus_priv->common_data.core_index         = soc_info->index;
 	bus_priv->common_data.mem_base           =
 		CAM_SOC_GET_REG_MAP_START(soc_info, VFE_CORE_BASE_IDX);
 	bus_priv->common_data.hw_intf            = hw_intf;
 	bus_priv->common_data.vfe_irq_controller = vfe_irq_controller;
 	bus_priv->common_data.common_reg         = &ver2_hw_info->common_reg;
+	mutex_init(&bus_priv->common_data.bus_mutex);
 
 	rc = cam_irq_controller_init(drv_name, bus_priv->common_data.mem_base,
 		&ver2_hw_info->common_reg.irq_reg_info,
 		&bus_priv->common_data.bus_irq_controller);
 	if (rc) {
-		CAM_ERR(CAM_ISP, "Error! cam_irq_controller_init failed");
+		CAM_ERR(CAM_ISP, "cam_irq_controller_init failed");
 		goto free_bus_priv;
 	}
 
@@ -2526,7 +2642,7 @@ int cam_vfe_bus_ver2_init(
 		rc = cam_vfe_bus_init_wm_resource(i, bus_priv, bus_hw_info,
 			&bus_priv->bus_client[i]);
 		if (rc < 0) {
-			CAM_ERR(CAM_ISP, "Error! Init WM failed rc=%d", rc);
+			CAM_ERR(CAM_ISP, "Init WM failed rc=%d", rc);
 			goto deinit_wm;
 		}
 	}
@@ -2564,7 +2680,7 @@ int cam_vfe_bus_ver2_init(
 	vfe_bus_local->hw_ops.deinit       = cam_vfe_bus_deinit_hw;
 	vfe_bus_local->top_half_handler    = cam_vfe_bus_ver2_handle_irq;
 	vfe_bus_local->bottom_half_handler = NULL;
-	vfe_bus_local->hw_ops.process_cmd  = cam_vfe_bus_process_cmd;
+	vfe_bus_local->hw_ops.process_cmd  = __cam_vfe_bus_process_cmd;
 
 	*vfe_bus = vfe_bus_local;
 
@@ -2607,14 +2723,14 @@ int cam_vfe_bus_ver2_deinit(
 	struct cam_vfe_bus              *vfe_bus_local;
 
 	if (!vfe_bus || !*vfe_bus) {
-		CAM_ERR(CAM_ISP, "Error! Invalid input");
+		CAM_ERR(CAM_ISP, "Invalid input");
 		return -EINVAL;
 	}
 	vfe_bus_local = *vfe_bus;
 
 	bus_priv = vfe_bus_local->bus_priv;
 	if (!bus_priv) {
-		CAM_ERR(CAM_ISP, "Error! bus_priv is NULL");
+		CAM_ERR(CAM_ISP, "bus_priv is NULL");
 		rc = -ENODEV;
 		goto free_bus_local;
 	}
@@ -2627,21 +2743,21 @@ int cam_vfe_bus_ver2_deinit(
 		rc = cam_vfe_bus_deinit_wm_resource(&bus_priv->bus_client[i]);
 		if (rc < 0)
 			CAM_ERR(CAM_ISP,
-				"Error! Deinit WM failed rc=%d", rc);
+				"Deinit WM failed rc=%d", rc);
 	}
 
 	for (i = 0; i < CAM_VFE_BUS_VER2_COMP_GRP_MAX; i++) {
 		rc = cam_vfe_bus_deinit_comp_grp(&bus_priv->comp_grp[i]);
 		if (rc < 0)
 			CAM_ERR(CAM_ISP,
-				"Error! Deinit Comp Grp failed rc=%d", rc);
+				"Deinit Comp Grp failed rc=%d", rc);
 	}
 
 	for (i = 0; i < CAM_VFE_BUS_VER2_VFE_OUT_MAX; i++) {
 		rc = cam_vfe_bus_deinit_vfe_out_resource(&bus_priv->vfe_out[i]);
 		if (rc < 0)
 			CAM_ERR(CAM_ISP,
-				"Error! Deinit VFE Out failed rc=%d", rc);
+				"Deinit VFE Out failed rc=%d", rc);
 	}
 
 	INIT_LIST_HEAD(&bus_priv->free_comp_grp);
@@ -2652,8 +2768,9 @@ int cam_vfe_bus_ver2_deinit(
 		&bus_priv->common_data.bus_irq_controller);
 	if (rc)
 		CAM_ERR(CAM_ISP,
-			"Error! Deinit IRQ Controller failed rc=%d", rc);
+			"Deinit IRQ Controller failed rc=%d", rc);
 
+	mutex_destroy(&bus_priv->common_data.bus_mutex);
 	kfree(vfe_bus_local->bus_priv);
 
 free_bus_local:

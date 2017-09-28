@@ -59,25 +59,27 @@ static int cam_spi_txfr_read(struct spi_device *spi, char *txbuf,
  * instruction and the data length.
  */
 static void cam_set_addr(uint32_t addr, uint8_t addr_len,
-	enum camera_sensor_i2c_type type,
+	enum camera_sensor_i2c_type addr_type,
 	char *str)
 {
-	int i, len;
-
 	if (!addr_len)
 		return;
 
-	if (addr_len < type)
-		CAM_DBG(CAM_EEPROM, "omitting higher bits in address");
-
-	/* only support transfer MSB first for now */
-	len = addr_len - type;
-	for (i = len; i < addr_len; i++) {
-		if (i >= 0)
-			str[i] = (addr >> (BITS_PER_BYTE * (addr_len - i - 1)))
-				& 0xFF;
+	if (addr_type == CAMERA_SENSOR_I2C_TYPE_BYTE) {
+		str[0] = addr;
+	} else if (addr_type == CAMERA_SENSOR_I2C_TYPE_WORD) {
+		str[0] = addr >> 8;
+		str[1] = addr;
+	} else if (addr_type == CAMERA_SENSOR_I2C_TYPE_3B) {
+		str[0] = addr >> 16;
+		str[1] = addr >> 8;
+		str[2] = addr;
+	} else {
+		str[0] = addr >> 24;
+		str[1] = addr >> 16;
+		str[2] = addr >> 8;
+		str[3] = addr;
 	}
-
 }
 
 /**
@@ -105,6 +107,7 @@ static void cam_set_addr(uint32_t addr, uint8_t addr_len,
  */
 static int32_t cam_spi_tx_helper(struct camera_io_master *client,
 	struct cam_camera_spi_inst *inst, uint32_t addr, uint8_t *data,
+	enum camera_sensor_i2c_type addr_type,
 	uint32_t num_byte, char *tx, char *rx)
 {
 	int32_t rc = -EINVAL;
@@ -112,10 +115,6 @@ static int32_t cam_spi_tx_helper(struct camera_io_master *client,
 	char *ctx = NULL, *crx = NULL;
 	uint32_t len, hlen;
 	uint8_t retries = client->spi_client->retries;
-	enum camera_sensor_i2c_type addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
-
-	if (addr_type >= CAMERA_SENSOR_I2C_TYPE_MAX)
-		return rc;
 
 	hlen = cam_camera_spi_get_hlen(inst);
 	len = hlen + num_byte;
@@ -166,6 +165,7 @@ out:
 
 static int32_t cam_spi_tx_read(struct camera_io_master *client,
 	struct cam_camera_spi_inst *inst, uint32_t addr, uint8_t *data,
+	enum camera_sensor_i2c_type addr_type,
 	uint32_t num_byte, char *tx, char *rx)
 {
 	int32_t rc = -EINVAL;
@@ -173,12 +173,6 @@ static int32_t cam_spi_tx_read(struct camera_io_master *client,
 	char *ctx = NULL, *crx = NULL;
 	uint32_t hlen;
 	uint8_t retries = client->spi_client->retries;
-	enum camera_sensor_i2c_type addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
-
-	if ((addr_type != CAMERA_SENSOR_I2C_TYPE_WORD)
-		&& (addr_type != CAMERA_SENSOR_I2C_TYPE_BYTE)
-		&& (addr_type != CAMERA_SENSOR_I2C_TYPE_3B))
-		return rc;
 
 	hlen = cam_camera_spi_get_hlen(inst);
 	if (tx) {
@@ -204,14 +198,8 @@ static int32_t cam_spi_tx_read(struct camera_io_master *client,
 	}
 
 	ctx[0] = inst->opcode;
-	if (addr_type == CAMERA_SENSOR_I2C_TYPE_3B) {
-		cam_set_addr(addr, inst->addr_len, addr_type,
-			ctx + 1);
-	} else {
-		ctx[1] = (addr >> BITS_PER_BYTE) & 0xFF;
-		ctx[2] = (addr & 0xFF);
-		ctx[3] = 0;
-	}
+	cam_set_addr(addr, inst->addr_len, addr_type, ctx + 1);
+
 	CAM_DBG(CAM_EEPROM, "tx(%u): %02x %02x %02x %02x", hlen, ctx[0],
 		ctx[1], ctx[2],	ctx[3]);
 	while ((rc = cam_spi_txfr_read(spi, ctx, crx, hlen, num_byte))
@@ -235,18 +223,23 @@ out:
 
 int cam_spi_read(struct camera_io_master *client,
 	uint32_t addr, uint32_t *data,
+	enum camera_sensor_i2c_type addr_type,
 	enum camera_sensor_i2c_type data_type)
 {
 	int rc = -EINVAL;
 	uint8_t temp[CAMERA_SENSOR_I2C_TYPE_MAX];
 
-	if ((data_type <= CAMERA_SENSOR_I2C_TYPE_INVALID)
-		|| (data_type >= CAMERA_SENSOR_I2C_TYPE_MAX))
+	if (addr_type <= CAMERA_SENSOR_I2C_TYPE_INVALID
+		|| addr_type >= CAMERA_SENSOR_I2C_TYPE_MAX
+		|| data_type <= CAMERA_SENSOR_I2C_TYPE_INVALID
+		|| data_type >= CAMERA_SENSOR_I2C_TYPE_MAX) {
+		CAM_ERR(CAM_SENSOR, "Failed with addr/data_type verification");
 		return rc;
+	}
 
 	rc = cam_spi_tx_read(client,
 		&client->spi_client->cmd_tbl.read, addr, &temp[0],
-		data_type, NULL, NULL);
+		addr_type, data_type, NULL, NULL);
 	if (rc < 0) {
 		CAM_ERR(CAM_SENSOR, "failed %d", rc);
 		return rc;
@@ -254,23 +247,50 @@ int cam_spi_read(struct camera_io_master *client,
 
 	if (data_type == CAMERA_SENSOR_I2C_TYPE_BYTE)
 		*data = temp[0];
-	else
+	else if (data_type == CAMERA_SENSOR_I2C_TYPE_WORD)
 		*data = (temp[0] << BITS_PER_BYTE) | temp[1];
+	else if (data_type == CAMERA_SENSOR_I2C_TYPE_3B)
+		*data = (temp[0] << 16 | temp[1] << 8 | temp[2]);
+	else
+		*data = (temp[0] << 24 | temp[1] << 16 | temp[2] << 8 |
+			temp[3]);
 
 	CAM_DBG(CAM_SENSOR, "addr 0x%x, data %u", addr, *data);
 	return rc;
 }
 
+int32_t cam_spi_read_seq(struct camera_io_master *client,
+	uint32_t addr, uint8_t *data,
+	enum camera_sensor_i2c_type addr_type, int32_t num_bytes)
+{
+	if ((addr_type <= CAMERA_SENSOR_I2C_TYPE_INVALID)
+		|| (addr_type >= CAMERA_SENSOR_I2C_TYPE_MAX)) {
+		CAM_ERR(CAM_SENSOR, "Failed with addr_type verification");
+		return -EINVAL;
+	}
+
+	if (num_bytes == 0) {
+		CAM_ERR(CAM_SENSOR, "num_byte: 0x%x", num_bytes);
+		return -EINVAL;
+	}
+
+	return cam_spi_tx_helper(client,
+		&client->spi_client->cmd_tbl.read_seq, addr, data,
+		addr_type, num_bytes, NULL, NULL);
+}
+
 int cam_spi_query_id(struct camera_io_master *client,
-	uint32_t addr, uint8_t *data, uint32_t num_byte)
+	uint32_t addr, enum camera_sensor_i2c_type addr_type,
+	uint8_t *data, uint32_t num_byte)
 {
 	return cam_spi_tx_helper(client,
-		&client->spi_client->cmd_tbl.query_id, addr, data, num_byte,
-		NULL, NULL);
+		&client->spi_client->cmd_tbl.query_id,
+		addr, data, addr_type, num_byte, NULL, NULL);
 }
 
 static int32_t cam_spi_read_status_reg(
-	struct camera_io_master *client, uint8_t *status)
+	struct camera_io_master *client, uint8_t *status,
+	enum camera_sensor_i2c_type addr_type)
 {
 	struct cam_camera_spi_inst *rs =
 		&client->spi_client->cmd_tbl.read_status;
@@ -279,16 +299,17 @@ static int32_t cam_spi_read_status_reg(
 		CAM_ERR(CAM_SENSOR, "not implemented yet");
 		return -ENXIO;
 	}
-	return cam_spi_tx_helper(client, rs, 0, status, 1, NULL, NULL);
+	return cam_spi_tx_helper(client, rs, 0, status,
+		addr_type, 1, NULL, NULL);
 }
 
 static int32_t cam_spi_device_busy(struct camera_io_master *client,
-	uint8_t *busy)
+	uint8_t *busy, enum camera_sensor_i2c_type addr_type)
 {
 	int rc;
 	uint8_t st = 0;
 
-	rc = cam_spi_read_status_reg(client,  &st);
+	rc = cam_spi_read_status_reg(client, &st, addr_type);
 	if (rc < 0) {
 		CAM_ERR(CAM_SENSOR, "failed to read status reg");
 		return rc;
@@ -298,14 +319,15 @@ static int32_t cam_spi_device_busy(struct camera_io_master *client,
 }
 
 static int32_t cam_spi_wait(struct camera_io_master *client,
-	struct cam_camera_spi_inst *inst)
+	struct cam_camera_spi_inst *inst,
+	enum camera_sensor_i2c_type addr_type)
 {
 	uint8_t busy;
 	int i, rc;
 
 	CAM_DBG(CAM_SENSOR, "op 0x%x wait start", inst->opcode);
 	for (i = 0; i < inst->delay_count; i++) {
-		rc = cam_spi_device_busy(client, &busy);
+		rc = cam_spi_device_busy(client, &busy, addr_type);
 		if (rc < 0)
 			return rc;
 		if (!busy)
@@ -321,8 +343,8 @@ static int32_t cam_spi_wait(struct camera_io_master *client,
 	return 0;
 }
 
-static int32_t cam_spi_write_enable(
-	struct camera_io_master *client)
+static int32_t cam_spi_write_enable(struct camera_io_master *client,
+	enum camera_sensor_i2c_type addr_type)
 {
 	struct cam_camera_spi_inst *we =
 		&client->spi_client->cmd_tbl.write_enable;
@@ -334,7 +356,8 @@ static int32_t cam_spi_write_enable(
 		CAM_ERR(CAM_SENSOR, "not implemented yet");
 		return -EINVAL;
 	}
-	rc = cam_spi_tx_helper(client, we, 0, NULL, 0, NULL, NULL);
+	rc = cam_spi_tx_helper(client, we, 0, NULL, addr_type,
+		0, NULL, NULL);
 	if (rc < 0)
 		CAM_ERR(CAM_SENSOR, "write enable failed");
 	return rc;
@@ -354,7 +377,9 @@ static int32_t cam_spi_write_enable(
  * used outside cam_spi_write_seq().
  */
 static int32_t cam_spi_page_program(struct camera_io_master *client,
-	uint32_t addr, uint8_t *data, uint16_t len, uint8_t *tx)
+	uint32_t addr, uint8_t *data,
+	enum camera_sensor_i2c_type addr_type,
+	uint16_t len, uint8_t *tx)
 {
 	int rc;
 	struct cam_camera_spi_inst *pg =
@@ -362,10 +387,9 @@ static int32_t cam_spi_page_program(struct camera_io_master *client,
 	struct spi_device *spi = client->spi_client->spi_master;
 	uint8_t retries = client->spi_client->retries;
 	uint8_t header_len = sizeof(pg->opcode) + pg->addr_len + pg->dummy_len;
-	enum camera_sensor_i2c_type addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
 
 	CAM_DBG(CAM_SENSOR, "addr 0x%x, size 0x%x", addr, len);
-	rc = cam_spi_write_enable(client);
+	rc = cam_spi_write_enable(client, addr_type);
 	if (rc < 0)
 		return rc;
 	memset(tx, 0, header_len);
@@ -375,7 +399,7 @@ static int32_t cam_spi_page_program(struct camera_io_master *client,
 	CAM_DBG(CAM_SENSOR, "tx(%u): %02x %02x %02x %02x",
 		len, tx[0], tx[1], tx[2], tx[3]);
 	while ((rc = spi_write(spi, tx, len + header_len)) && retries) {
-		rc = cam_spi_wait(client, pg);
+		rc = cam_spi_wait(client, pg, addr_type);
 		msleep(client->spi_client->retry_delay);
 		retries--;
 	}
@@ -383,41 +407,54 @@ static int32_t cam_spi_page_program(struct camera_io_master *client,
 		CAM_ERR(CAM_SENSOR, "failed %d", rc);
 		return rc;
 	}
-	rc = cam_spi_wait(client, pg);
+	rc = cam_spi_wait(client, pg, addr_type);
 		return rc;
 }
 
 int cam_spi_write(struct camera_io_master *client,
-	uint32_t addr, uint16_t data,
+	uint32_t addr, uint32_t data,
+	enum camera_sensor_i2c_type addr_type,
 	enum camera_sensor_i2c_type data_type)
 {
 	struct cam_camera_spi_inst *pg =
 		&client->spi_client->cmd_tbl.page_program;
 	uint8_t header_len = sizeof(pg->opcode) + pg->addr_len + pg->dummy_len;
 	uint16_t len = 0;
-	char buf[2];
+	char buf[CAMERA_SENSOR_I2C_TYPE_MAX];
 	char *tx;
 	int rc = -EINVAL;
-	enum camera_sensor_i2c_type addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
 
-	if ((addr_type >= CAMERA_SENSOR_I2C_TYPE_MAX)
-		|| (data_type != CAMERA_SENSOR_I2C_TYPE_BYTE
-		&& data_type != CAMERA_SENSOR_I2C_TYPE_WORD))
+	if ((addr_type <= CAMERA_SENSOR_I2C_TYPE_INVALID)
+		|| (addr_type >= CAMERA_SENSOR_I2C_TYPE_MAX)
+		|| (data_type <= CAMERA_SENSOR_I2C_TYPE_INVALID)
+		|| (data_type != CAMERA_SENSOR_I2C_TYPE_MAX))
 		return rc;
+
 	CAM_DBG(CAM_EEPROM, "Data: 0x%x", data);
 	len = header_len + (uint8_t)data_type;
 	tx = kmalloc(len, GFP_KERNEL | GFP_DMA);
 	if (!tx)
 		goto NOMEM;
+
 	if (data_type == CAMERA_SENSOR_I2C_TYPE_BYTE) {
 		buf[0] = data;
 		CAM_DBG(CAM_EEPROM, "Byte %d: 0x%x", len, buf[0]);
 	} else if (data_type == CAMERA_SENSOR_I2C_TYPE_WORD) {
 		buf[0] = (data >> BITS_PER_BYTE) & 0x00FF;
 		buf[1] = (data & 0x00FF);
+	} else if (data_type == CAMERA_SENSOR_I2C_TYPE_3B) {
+		buf[0] = (data >> 16) & 0x00FF;
+		buf[1] = (data >> 8) & 0x00FF;
+		buf[2] = (data & 0x00FF);
+	} else {
+		buf[0] = (data >> 24) & 0x00FF;
+		buf[1] = (data >> 16) & 0x00FF;
+		buf[2] = (data >> 8) & 0x00FF;
+		buf[3] = (data & 0x00FF);
 	}
+
 	rc = cam_spi_page_program(client, addr, buf,
-		(uint16_t)data_type, tx);
+		addr_type, data_type, tx);
 	if (rc < 0)
 		goto ERROR;
 	goto OUT;
@@ -442,18 +479,22 @@ int cam_spi_write_table(struct camera_io_master *client,
 
 	if (!client || !write_setting)
 		return rc;
-	if (write_setting->addr_type >= CAMERA_SENSOR_I2C_TYPE_MAX
-		|| (write_setting->data_type != CAMERA_SENSOR_I2C_TYPE_BYTE
-		&& write_setting->data_type != CAMERA_SENSOR_I2C_TYPE_WORD))
+
+	if ((write_setting->addr_type <= CAMERA_SENSOR_I2C_TYPE_INVALID)
+		|| (write_setting->addr_type >= CAMERA_SENSOR_I2C_TYPE_MAX)
+		|| (write_setting->data_type <= CAMERA_SENSOR_I2C_TYPE_INVALID)
+		|| (write_setting->data_type >= CAMERA_SENSOR_I2C_TYPE_MAX))
 		return rc;
+
 	reg_setting = write_setting->reg_setting;
-	client_addr_type = addr_type;
+	client_addr_type = write_setting->addr_type;
 	addr_type = write_setting->addr_type;
 	for (i = 0; i < write_setting->size; i++) {
 		CAM_DBG(CAM_SENSOR, "addr %x data %x",
 			reg_setting->reg_addr, reg_setting->reg_data);
-		rc = cam_spi_write(client, reg_setting->reg_addr,
-			reg_setting->reg_data, write_setting->data_type);
+		rc = cam_spi_write(client,
+			reg_setting->reg_addr, reg_setting->reg_data,
+			write_setting->addr_type, write_setting->data_type);
 		if (rc < 0)
 			break;
 		reg_setting++;

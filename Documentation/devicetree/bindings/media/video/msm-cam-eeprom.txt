@@ -278,6 +278,46 @@ First Level Node - CAM EEPROM device
   Value type: <u32>
   Definition: should specify the power on sequence delay time in ms.
 
+- spiop-read
+  Usage: required
+  Value type: <u32>
+  Definition: this array provides SPI read operation related data.
+
+- spiop-readseq
+  Usage: required
+  Value type: <u32>
+  Definition: this array provides SPI read sequence operation realted data.
+
+- spiop-queryid
+  Usage: required
+  Value type: <u32>
+  Definition: this array provides SPI query eeprom id operation related data.
+
+- spiop-pprog:
+  Usage: required
+  Value type: <u32>
+  Definition: this array provides SPI page program operation related data.
+
+- spiop-wenable
+  Usage: required
+  Value type: <u32>
+  Definition: this array provides SPI write enable operation related data.
+
+- spiop-readst
+  Usage: required
+  Value type: <u32>
+  Definition: this array provides SPI read destination operation related data.
+
+- spiop-erase
+  Usage: required
+  Value type: <u32>
+  Definition: this array provides SPI erase operation related data.
+
+- eeprom-idx
+  Usage: required
+  Value type: <u32>
+  Definition: this array provides eeprom id realted data.
+
 - xxxx-supply
   Usage: required
   Value type: <phandle>
@@ -385,6 +425,10 @@ Example:
 		cell-index = <0>;
 		reg = <0x0>;
 		qcom,eeprom-name = "msm_eeprom";
+		eeprom-id0 = <0xF8 0x15>;
+		eeprom-id1 = <0xEF 0x15>;
+		eeprom-id2 = <0xC2 0x36>;
+		eeprom-id3 = <0xC8 0x15>;
 		compatible = "qcom,eeprom";
 		qcom,slave-addr = <0x60>;
 		qcom,num-blocks = <2>;
@@ -400,6 +444,13 @@ Example:
 		qcom,cmm-data-compressed;
 		qcom,cmm-data-offset = <0>;
 		qcom,cmm-data-size = <0>;
+		spiop-read = <0x03 3 0 0 0>;
+		spiop-readseq = <0x03 3 0 0 0>;
+		spiop-queryid = <0x90 3 0 0 0>;
+		spiop-pprog = <0x02 3 0 3 100>;
+		spiop-wenable = <0x06 0 0 0 0>;
+		spiop-readst = <0x05 0 0 0 0>;
+		spiop-erase = <0x20 3 0 10 100>;
 		qcom,cam-power-seq-type = "sensor_vreg",
 			"sensor_vreg", "sensor_clk",
 			"sensor_gpio", "sensor_gpio";

@@ -78,13 +78,22 @@ uint16_t cam_camera_spi_get_hlen(struct cam_camera_spi_inst *inst)
 
 int cam_spi_read(struct camera_io_master *client,
 	uint32_t addr, uint32_t *data,
+	enum camera_sensor_i2c_type addr_type,
 	enum camera_sensor_i2c_type data_type);
 
+int cam_spi_read_seq(struct camera_io_master *client,
+	uint32_t addr, uint8_t *data,
+	enum camera_sensor_i2c_type addr_type,
+	int32_t num_bytes);
+
 int cam_spi_query_id(struct camera_io_master *client,
-	uint32_t addr, uint8_t *data, uint32_t num_byte);
+	uint32_t addr,
+	enum camera_sensor_i2c_type addr_type,
+	uint8_t *data, uint32_t num_byte);
 
 int cam_spi_write(struct camera_io_master *client,
-	uint32_t addr, uint16_t data,
+	uint32_t addr, uint32_t data,
+	enum camera_sensor_i2c_type addr_type,
 	enum camera_sensor_i2c_type data_type);
 
 int cam_spi_write_table(struct camera_io_master *client,

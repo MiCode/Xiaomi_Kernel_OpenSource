@@ -124,7 +124,7 @@ int cam_packet_util_get_kmd_buffer(struct cam_packet *packet,
 }
 
 int cam_packet_util_process_patches(struct cam_packet *packet,
-	int32_t iommu_hdl)
+	int32_t iommu_hdl, int32_t sec_mmu_hdl)
 {
 	struct cam_patch_desc *patch_desc = NULL;
 	uint64_t   iova_addr;
@@ -136,6 +136,7 @@ int cam_packet_util_process_patches(struct cam_packet *packet,
 	size_t     src_buf_size;
 	int        i;
 	int        rc = 0;
+	int32_t    hdl;
 
 	/* process patch descriptor */
 	patch_desc = (struct cam_patch_desc *)
@@ -146,8 +147,11 @@ int cam_packet_util_process_patches(struct cam_packet *packet,
 			sizeof(struct cam_patch_desc));
 
 	for (i = 0; i < packet->num_patches; i++) {
+
+		hdl = cam_mem_is_secure_buf(patch_desc[i].src_buf_hdl) ?
+			sec_mmu_hdl : iommu_hdl;
 		rc = cam_mem_get_io_buf(patch_desc[i].src_buf_hdl,
-			iommu_hdl, &iova_addr, &src_buf_size);
+			hdl, &iova_addr, &src_buf_size);
 		if (rc < 0) {
 			CAM_ERR(CAM_UTIL, "unable to get src buf address");
 			return rc;

@@ -56,6 +56,11 @@ Second Level Node - CAM SMMU context bank device or firmware device
   Value type: <string>
   Definition: Should specify a string label to identify the context bank.
 
+- qcom,secure-cb
+  Usage: optional
+  Value type: boolean
+  Definition: Specifies if the context bank is a secure context bank.
+
 =============================================
 Third Level Node - CAM SMMU memory map device
 =============================================

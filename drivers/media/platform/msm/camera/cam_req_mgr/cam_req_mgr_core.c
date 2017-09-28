@@ -414,7 +414,7 @@ static int __cam_req_mgr_send_req(struct cam_req_mgr_core_link *link,
 		}
 	}
 	if (rc < 0) {
-		CAM_ERR(CAM_CRM, "APPLY FAILED pd %d req_id %lld",
+		CAM_ERR_RATE_LIMIT(CAM_CRM, "APPLY FAILED pd %d req_id %lld",
 			dev->dev_info.p_delay, apply_req.request_id);
 		/* Apply req failed notify already applied devs */
 		for (; i >= 0; i--) {
@@ -525,7 +525,8 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 
 	if (trigger == CAM_TRIGGER_POINT_SOF) {
 		if (link->trigger_mask) {
-			CAM_ERR(CAM_CRM, "Applying for last EOF fails");
+			CAM_ERR_RATE_LIMIT(CAM_CRM,
+				"Applying for last EOF fails");
 			return -EINVAL;
 		}
 		rc = __cam_req_mgr_check_link_is_ready(link, slot->idx);
@@ -542,7 +543,7 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 				 * ready, don't expect to enter here.
 				 * @TODO: gracefully handle if recovery fails.
 				 */
-				CAM_ERR(CAM_CRM,
+				CAM_ERR_RATE_LIMIT(CAM_CRM,
 					"FATAL recovery cant finish idx %d status %d",
 					in_q->rd_idx,
 					in_q->slot[in_q->rd_idx].status);
@@ -553,7 +554,7 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 	}
 	if (trigger == CAM_TRIGGER_POINT_EOF &&
 			(!(link->trigger_mask & CAM_TRIGGER_POINT_SOF))) {
-		CAM_ERR(CAM_CRM, "Applying for last SOF fails");
+		CAM_DBG(CAM_CRM, "Applying for last SOF fails");
 		return -EINVAL;
 	}
 
@@ -902,7 +903,13 @@ static struct cam_req_mgr_core_link *__cam_req_mgr_reserve_link(
 		CAM_ERR(CAM_CRM, "failed to create link, no mem");
 		return NULL;
 	}
-	in_q = &session->in_q;
+	in_q = (struct cam_req_mgr_req_queue *)
+		kzalloc(sizeof(struct cam_req_mgr_req_queue), GFP_KERNEL);
+	if (!in_q) {
+		CAM_ERR(CAM_CRM, "failed to create input queue, no mem");
+		kfree(link);
+		return NULL;
+	}
 	mutex_init(&link->lock);
 
 	mutex_lock(&link->lock);
@@ -928,7 +935,7 @@ static struct cam_req_mgr_core_link *__cam_req_mgr_reserve_link(
 }
 
 /**
- * __cam_req_mgr_reserve_link()
+ * __cam_req_mgr_unreserve_link()
  *
  * @brief  : Reserves one link data struct within session
  * @session: session identifier
@@ -960,6 +967,8 @@ static void __cam_req_mgr_unreserve_link(
 		CAM_DBG(CAM_CRM, "Active session links (%d)",
 			session->num_links);
 	}
+	kfree((*link)->req.in_q);
+	(*link)->req.in_q = NULL;
 	kfree(*link);
 	*link = NULL;
 	mutex_unlock(&session->lock);
@@ -1178,7 +1187,7 @@ int cam_req_mgr_process_add_req(void *priv, void *data)
 		}
 	}
 	if (!tbl) {
-		CAM_ERR(CAM_CRM, "dev_hdl not found %x, %x %x",
+		CAM_ERR_RATE_LIMIT(CAM_CRM, "dev_hdl not found %x, %x %x",
 			add_req->dev_hdl,
 			link->l_dev[0].dev_hdl,
 			link->l_dev[1].dev_hdl);
@@ -1267,8 +1276,9 @@ int cam_req_mgr_process_error(void *priv, void *data)
 	if (err_info->error == CRM_KMD_ERR_BUBBLE) {
 		idx = __cam_req_mgr_find_slot_for_req(in_q, err_info->req_id);
 		if (idx < 0) {
-			CAM_ERR(CAM_CRM, "req_id %lld not found in input queue",
-			err_info->req_id);
+			CAM_ERR_RATE_LIMIT(CAM_CRM,
+				"req_id %lld not found in input queue",
+				err_info->req_id);
 		} else {
 			CAM_DBG(CAM_CRM, "req_id %lld found at idx %d",
 				err_info->req_id, idx);
@@ -1430,7 +1440,7 @@ static int cam_req_mgr_cb_add_req(struct cam_req_mgr_add_request *add_req)
 
 	task = cam_req_mgr_workq_get_task(link->workq);
 	if (!task) {
-		CAM_ERR(CAM_CRM, "no empty task dev %x req %lld",
+		CAM_ERR_RATE_LIMIT(CAM_CRM, "no empty task dev %x req %lld",
 			add_req->dev_hdl, add_req->req_id);
 		rc = -EBUSY;
 		goto end;
@@ -1902,10 +1912,7 @@ create_subdev_failed:
 	cam_destroy_device_hdl(link->link_hdl);
 	link_info->link_hdl = 0;
 link_hdl_fail:
-	mutex_lock(&link->lock);
-	link->state = CAM_CRM_LINK_STATE_AVAILABLE;
-	mutex_unlock(&link->lock);
-
+	__cam_req_mgr_unreserve_link(cam_session, &link);
 	mutex_unlock(&g_crm_core_dev->crm_lock);
 	return rc;
 }

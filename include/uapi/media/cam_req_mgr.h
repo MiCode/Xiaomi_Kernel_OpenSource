@@ -216,7 +216,8 @@ struct cam_req_mgr_sync_mode {
 /* Maximum allowed buffers in existence */
 #define CAM_MEM_BUFQ_MAX                        1024
 
-#define CAM_MEM_MGR_HDL_IDX_SIZE                16
+#define CAM_MEM_MGR_SECURE_BIT_POS              15
+#define CAM_MEM_MGR_HDL_IDX_SIZE                15
 #define CAM_MEM_MGR_HDL_FD_SIZE                 16
 #define CAM_MEM_MGR_HDL_IDX_END_POS             16
 #define CAM_MEM_MGR_HDL_FD_END_POS              32
@@ -224,10 +225,18 @@ struct cam_req_mgr_sync_mode {
 #define CAM_MEM_MGR_HDL_IDX_MASK      ((1 << CAM_MEM_MGR_HDL_IDX_SIZE) - 1)
 
 #define GET_MEM_HANDLE(idx, fd) \
-	((idx << (CAM_MEM_MGR_HDL_IDX_END_POS - CAM_MEM_MGR_HDL_IDX_SIZE)) | \
+	((idx & CAM_MEM_MGR_HDL_IDX_MASK) | \
 	(fd << (CAM_MEM_MGR_HDL_FD_END_POS - CAM_MEM_MGR_HDL_FD_SIZE))) \
 
 #define CAM_MEM_MGR_GET_HDL_IDX(hdl) (hdl & CAM_MEM_MGR_HDL_IDX_MASK)
+
+#define CAM_MEM_MGR_SET_SECURE_HDL(hdl, flag) \
+	((flag) ? (hdl |= (1 << CAM_MEM_MGR_SECURE_BIT_POS)) : \
+	((hdl) &= ~(1 << CAM_MEM_MGR_SECURE_BIT_POS)))
+
+#define CAM_MEM_MGR_IS_SECURE_HDL(hdl) \
+	(((hdl) & \
+	(1<<CAM_MEM_MGR_SECURE_BIT_POS)) >> CAM_MEM_MGR_SECURE_BIT_POS)
 
 /**
  * memory allocation type

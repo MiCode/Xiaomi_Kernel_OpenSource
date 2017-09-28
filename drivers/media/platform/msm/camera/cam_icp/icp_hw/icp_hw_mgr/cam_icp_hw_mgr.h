@@ -114,6 +114,7 @@ struct hfi_frame_process_info {
 	uint64_t request_id[CAM_FRAME_CMD_MAX];
 	uint32_t num_out_resources[CAM_FRAME_CMD_MAX];
 	uint32_t out_resource[CAM_FRAME_CMD_MAX][CAM_MAX_OUT_RES];
+	uint32_t in_resource[CAM_FRAME_CMD_MAX];
 	uint32_t fw_process_flag[CAM_FRAME_CMD_MAX];
 	struct cam_icp_clk_bw_request clk_info[CAM_FRAME_CMD_MAX];
 };
@@ -226,6 +227,7 @@ struct cam_icp_clk_info {
  * @icp_debug_clk: Set clock based on debug value
  * @icp_default_clk: Set this clok if user doesn't supply
  * @clk_info: Clock info of hardware
+ * @secure_mode: Flag to enable/disable secure camera
  */
 struct cam_icp_hw_mgr {
 	struct mutex hw_mgr_mutex;
@@ -255,6 +257,7 @@ struct cam_icp_hw_mgr {
 	uint64_t icp_debug_clk;
 	uint64_t icp_default_clk;
 	struct cam_icp_clk_info clk_info[ICP_CLK_HW_MAX];
+	bool secure_mode;
 };
 
 static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args);
