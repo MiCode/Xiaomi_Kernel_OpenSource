@@ -80,15 +80,13 @@ static int devfreq_vbif_ev_handler(struct devfreq *devfreq,
 	case DEVFREQ_GOV_START:
 		mutex_lock(&df_lock);
 		df = devfreq;
-		if (df->profile->get_dev_status)
-			ret = df->profile->get_dev_status(df->dev.parent,
-					&stat);
-		else
-			ret = 0;
-		if (ret || !stat.private_data)
-			pr_warn("Device doesn't take AB votes!\n");
-		else
+		if (df->profile->get_dev_status &&
+			!df->profile->get_dev_status(df->dev.parent, &stat) &&
+			stat.private_data)
 			dev_ab = stat.private_data;
+		else
+			pr_warn("Device doesn't take AB votes!\n");
+
 		mutex_unlock(&df_lock);
 
 		ret = devfreq_vbif_update_bw(0, 0);
