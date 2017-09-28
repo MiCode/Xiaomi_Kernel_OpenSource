@@ -900,7 +900,11 @@ static void _regwrite(void __iomem *regbase,
  */
 static void _load_gmu_rpmh_ucode(struct kgsl_device *device)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_device *gmu = &device->gmu;
+
+	/* Disable SDE clock gating */
+	kgsl_gmu_regwrite(device, A6XX_GPU_RSCC_RSC_STATUS0_DRV0, BIT(24));
 
 	/* Setup RSC PDC handshake for sleep and wakeup */
 	kgsl_gmu_regwrite(device, A6XX_RSCC_PDC_SLAVE_ID_DRV0, 1);
@@ -921,8 +925,9 @@ static void _load_gmu_rpmh_ucode(struct kgsl_device *device)
 	kgsl_gmu_regwrite(device, A6XX_RSCC_PDC_MATCH_VALUE_LO, 0x4510);
 	kgsl_gmu_regwrite(device, A6XX_RSCC_PDC_MATCH_VALUE_HI, 0x4514);
 
-	/* Enable timestamp event */
-	kgsl_gmu_regwrite(device, A6XX_RSCC_TIMESTAMP_UNIT1_EN_DRV0, 1);
+	/* Enable timestamp event for v1 only */
+	if (adreno_is_a630v1(adreno_dev))
+		kgsl_gmu_regwrite(device, A6XX_RSCC_TIMESTAMP_UNIT1_EN_DRV0, 1);
 
 	/* Load RSC sequencer uCode for sleep and wakeup */
 	kgsl_gmu_regwrite(device, A6XX_RSCC_SEQ_MEM_0_DRV0, 0xA7A506A0);
@@ -932,11 +937,11 @@ static void _load_gmu_rpmh_ucode(struct kgsl_device *device)
 	kgsl_gmu_regwrite(device, A6XX_RSCC_SEQ_MEM_0_DRV0 + 4, 0x0020E8A8);
 
 	/* Load PDC sequencer uCode for power up and power down sequence */
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0, 0xFFBFA1E1);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0 + 1, 0xE0A4A3A2);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0 + 2, 0xE2848382);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0 + 3, 0xFDBDE4E3);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0 + 4, 0x00002081);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0, 0xFEBEA1E1);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0 + 1, 0xA5A4A3A2);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0 + 2, 0x8382A6E0);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0 + 3, 0xBCE3E284);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0 + 4, 0x002081FC);
 
 	/* Set TCS commands used by PDC sequence for low power modes */
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS0_CMD_ENABLE_BANK, 7);
@@ -1447,35 +1452,49 @@ error_rsc:
 static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = &device->gmu;
-	const struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	int val;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	int ret;
 
-	/* RSC sleep sequence */
-	kgsl_gmu_regwrite(device, A6XX_RSCC_TIMESTAMP_UNIT1_EN_DRV0, 1);
+	/* RSC sleep sequence is different on v1 */
+	if (adreno_is_a630v1(adreno_dev))
+		kgsl_gmu_regwrite(device, A6XX_RSCC_TIMESTAMP_UNIT1_EN_DRV0, 1);
+
 	kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 1);
 	wmb();
 
-	if (timed_poll_check(device,
-			A6XX_RSCC_TIMESTAMP_UNIT1_OUTPUT_DRV0,
-			BIT(0),
-			GPU_START_TIMEOUT,
-			BIT(0))) {
+	if (adreno_is_a630v1(adreno_dev))
+		ret = timed_poll_check(device,
+				A6XX_RSCC_TIMESTAMP_UNIT1_OUTPUT_DRV0,
+				BIT(0),
+				GPU_START_TIMEOUT,
+				BIT(0));
+	else
+		ret = timed_poll_check(device,
+				A6XX_GPU_RSCC_RSC_STATUS0_DRV0,
+				BIT(16),
+				GPU_START_TIMEOUT,
+				BIT(16));
+
+	if (ret) {
 		dev_err(&gmu->pdev->dev, "GPU RSC power off fail\n");
-		return -EINVAL;
+		return -ETIMEDOUT;
 	}
 
-	/* Read to clear the timestamp */
-	kgsl_gmu_regread(device, A6XX_RSCC_TIMESTAMP_UNIT0_TIMESTAMP_L_DRV0,
-			&val);
-	kgsl_gmu_regread(device, A6XX_RSCC_TIMESTAMP_UNIT0_TIMESTAMP_H_DRV0,
-			&val);
+	/* Read to clear the timestamp valid signal. Don't care what we read. */
+	if (adreno_is_a630v1(adreno_dev)) {
+		kgsl_gmu_regread(device,
+				A6XX_RSCC_TIMESTAMP_UNIT0_TIMESTAMP_L_DRV0,
+				&ret);
+		kgsl_gmu_regread(device,
+				A6XX_RSCC_TIMESTAMP_UNIT0_TIMESTAMP_H_DRV0,
+				&ret);
+	}
+
 	kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 0);
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM) &&
-		test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
+			test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
 		kgsl_gmu_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 0);
-
-	/* FIXME: v2 has different procedure to trigger sequence */
 
 	return 0;
 }
