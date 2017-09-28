@@ -898,6 +898,7 @@ static struct {
 	 { ADRENO_QUIRK_DISABLE_LMLOADKILL,
 			"qcom,gpu-quirk-lmloadkill-disable" },
 	{ ADRENO_QUIRK_HFI_USE_REG, "qcom,gpu-quirk-hfi-use-reg" },
+	{ ADRENO_QUIRK_SECVID_SET_ONCE, "qcom,gpu-quirk-secvid-set-once" },
 };
 
 static int adreno_of_get_power(struct adreno_device *adreno_dev,
@@ -1389,9 +1390,10 @@ static bool regulators_left_on(struct kgsl_device *device)
 static void _set_secvid(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	static bool set;
 
 	/* Program GPU contect protection init values */
-	if (device->mmu.secured) {
+	if (device->mmu.secured && !set) {
 		if (adreno_is_a4xx(adreno_dev))
 			adreno_writereg(adreno_dev,
 				ADRENO_REG_RBBM_SECVID_TRUST_CONFIG, 0x2);
@@ -1405,6 +1407,8 @@ static void _set_secvid(struct kgsl_device *device)
 		adreno_writereg(adreno_dev,
 			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_SIZE,
 			KGSL_IOMMU_SECURE_SIZE);
+		if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_SECVID_SET_ONCE))
+			set = true;
 	}
 }
 
