@@ -636,6 +636,8 @@ enum adreno_regs {
 	ADRENO_REG_VBIF_XIN_HALT_CTRL0,
 	ADRENO_REG_VBIF_XIN_HALT_CTRL1,
 	ADRENO_REG_VBIF_VERSION,
+	ADRENO_REG_GBIF_HALT,
+	ADRENO_REG_GBIF_HALT_ACK,
 	ADRENO_REG_GMU_AO_INTERRUPT_EN,
 	ADRENO_REG_GMU_AO_HOST_INTERRUPT_CLR,
 	ADRENO_REG_GMU_AO_HOST_INTERRUPT_STATUS,
@@ -1801,6 +1803,47 @@ static inline void adreno_perfcntr_active_oob_put(
 	kgsl_active_count_put(KGSL_DEVICE(adreno_dev));
 }
 
+static inline bool adreno_has_gbif(struct adreno_device *adreno_dev)
+{
+	if (adreno_is_a615(adreno_dev))
+		return true;
+	else
+		return false;
+}
+
+/**
+ * adreno_wait_for_vbif_halt_ack() - wait for VBIF acknowledgment
+ * for given HALT request.
+ * @ack_reg: register offset to wait for acknowledge
+ */
+static inline int adreno_wait_for_vbif_halt_ack(struct kgsl_device *device,
+	int ack_reg)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	unsigned long wait_for_vbif;
+	unsigned int mask = gpudev->vbif_xin_halt_ctrl0_mask;
+	unsigned int val;
+	int ret = 0;
+
+	/* wait for the transactions to clear */
+	wait_for_vbif = jiffies + msecs_to_jiffies(100);
+	while (1) {
+		adreno_readreg(adreno_dev, ack_reg,
+			&val);
+		if ((val & mask) == mask)
+			break;
+		if (time_after(jiffies, wait_for_vbif)) {
+			KGSL_DRV_ERR(device,
+				"Wait limit reached for VBIF XIN Halt\n");
+			ret = -ETIMEDOUT;
+			break;
+		}
+	}
+
+	return ret;
+}
+
 /**
  * adreno_vbif_clear_pending_transactions() - Clear transactions in VBIF pipe
  * @device: Pointer to the device whose VBIF pipe is to be cleared
@@ -1811,26 +1854,20 @@ static inline int adreno_vbif_clear_pending_transactions(
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned int mask = gpudev->vbif_xin_halt_ctrl0_mask;
-	unsigned int val;
-	unsigned long wait_for_vbif;
 	int ret = 0;
 
-	adreno_writereg(adreno_dev, ADRENO_REG_VBIF_XIN_HALT_CTRL0, mask);
-	/* wait for the transactions to clear */
-	wait_for_vbif = jiffies + msecs_to_jiffies(100);
-	while (1) {
-		adreno_readreg(adreno_dev,
-			ADRENO_REG_VBIF_XIN_HALT_CTRL1, &val);
-		if ((val & mask) == mask)
-			break;
-		if (time_after(jiffies, wait_for_vbif)) {
-			KGSL_DRV_ERR(device,
-				"Wait limit reached for VBIF XIN Halt\n");
-			ret = -ETIMEDOUT;
-			break;
-		}
+	if (adreno_has_gbif(adreno_dev)) {
+		adreno_writereg(adreno_dev, ADRENO_REG_GBIF_HALT, mask);
+		ret = adreno_wait_for_vbif_halt_ack(device,
+				ADRENO_REG_GBIF_HALT_ACK);
+		adreno_writereg(adreno_dev, ADRENO_REG_GBIF_HALT, 0);
+	} else {
+		adreno_writereg(adreno_dev, ADRENO_REG_VBIF_XIN_HALT_CTRL0,
+			mask);
+		ret = adreno_wait_for_vbif_halt_ack(device,
+				ADRENO_REG_VBIF_XIN_HALT_CTRL1);
+		adreno_writereg(adreno_dev, ADRENO_REG_VBIF_XIN_HALT_CTRL0, 0);
 	}
-	adreno_writereg(adreno_dev, ADRENO_REG_VBIF_XIN_HALT_CTRL0, 0);
 	return ret;
 }
 

@@ -1357,6 +1357,7 @@ static void a6xx_snapshot_debugbus(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot)
 {
 	int i;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_CNTLT,
 		(0xf << A6XX_DBGC_CFG_DBGBUS_CNTLT_SEGT_SHIFT) |
@@ -1447,9 +1448,12 @@ static void a6xx_snapshot_debugbus(struct kgsl_device *device,
 			(void *) &a6xx_dbgc_debugbus_blocks[i]);
 	}
 
-	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUGBUS,
-			snapshot, a6xx_snapshot_vbif_debugbus_block,
-			(void *) &a6xx_vbif_debugbus_blocks);
+	/* Skip if GPU has GBIF */
+	if (!adreno_has_gbif(adreno_dev))
+		kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_DEBUGBUS,
+				snapshot, a6xx_snapshot_vbif_debugbus_block,
+				(void *) &a6xx_vbif_debugbus_blocks);
 
 	if (a6xx_cx_dbgc) {
 		for (i = 0; i < ARRAY_SIZE(a6xx_cx_dbgc_debugbus_blocks); i++) {
@@ -1584,9 +1588,10 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 		snapshot, a6xx_snapshot_pre_crashdump_regs, NULL);
 
 	/* Dump vbif registers as well which get affected by crash dumper */
-	adreno_snapshot_vbif_registers(device, snapshot,
-		a6xx_vbif_snapshot_registers,
-		ARRAY_SIZE(a6xx_vbif_snapshot_registers));
+	if (!adreno_has_gbif(adreno_dev))
+		adreno_snapshot_vbif_registers(device, snapshot,
+			a6xx_vbif_snapshot_registers,
+			ARRAY_SIZE(a6xx_vbif_snapshot_registers));
 
 	/* Try to run the crash dumper */
 	if (sptprac_on)
