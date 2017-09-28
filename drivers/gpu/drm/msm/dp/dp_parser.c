@@ -240,6 +240,9 @@ static int dp_parser_gpio(struct dp_parser *parser)
 
 	mp->gpio_config = devm_kzalloc(dev,
 		sizeof(struct dss_gpio) * ARRAY_SIZE(dp_gpios), GFP_KERNEL);
+	if (!mp->gpio_config)
+		return -ENOMEM;
+
 	mp->num_gpio = ARRAY_SIZE(dp_gpios);
 
 	for (i = 0; i < ARRAY_SIZE(dp_gpios); i++) {

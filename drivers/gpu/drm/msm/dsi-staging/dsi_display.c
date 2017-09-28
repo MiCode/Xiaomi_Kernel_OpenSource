@@ -3311,6 +3311,8 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	display->name = of_get_property(pdev->dev.of_node, "label", NULL);
+	if (!display->name)
+		display->name = "unknown";
 
 	if (!boot_displays_parsed) {
 		boot_displays[DSI_PRIMARY].boot_disp_en = false;
