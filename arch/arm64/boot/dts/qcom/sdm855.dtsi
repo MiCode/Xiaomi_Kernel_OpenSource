@@ -582,7 +582,7 @@
 		clock-names = "xo";
 		qcom,proxy-clock-names = "xo";
 
-		vdd_cx-supply = <&pm855_s1_level>;
+		vdd_cx-supply = <&pm855l_s6_level>;
 		qcom,proxy-reg-names = "vdd_cx";
 
 		qcom,firmware-name = "modem";
@@ -617,7 +617,7 @@
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x17300000 0x00100>;
 
-		vdd_cx-supply = <&pm855l_s4_level>;
+		vdd_cx-supply = <&pm855l_s6_level>;
 		qcom,proxy-reg-names = "vdd_cx";
 
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
