@@ -514,25 +514,19 @@ enum drm_mode_status dp_connector_mode_valid(struct drm_connector *connector,
 	dp_disp = display;
 	debug = dp_disp->get_debug(dp_disp);
 
-	if (debug->debug_en) {
-		if (mode->hdisplay == debug->hdisplay &&
-				mode->vdisplay == debug->vdisplay &&
-				mode->vrefresh == debug->vrefresh &&
-				mode->clock <= dp_disp->max_pclk_khz)
-			return MODE_OK;
-		else
-			return MODE_ERROR;
-	} else {
-		if (mode->vrefresh == 0) {
-			int vrefresh = (mode->clock * 1000) /
-				(mode->vtotal * mode->htotal);
-			if (vrefresh > 60)
-				return MODE_BAD;
-		}
+	mode->vrefresh = drm_mode_vrefresh(mode);
 
-		if (mode->clock > dp_disp->max_pclk_khz)
-			return MODE_BAD;
-		else
-			return MODE_OK;
-	}
+	if (mode->vrefresh > 60)
+		return MODE_BAD;
+
+	if (mode->clock > dp_disp->max_pclk_khz)
+		return MODE_BAD;
+
+	if (debug->debug_en && (mode->hdisplay != debug->hdisplay ||
+			mode->vdisplay != debug->vdisplay ||
+			mode->vrefresh != debug->vrefresh ||
+			mode->picture_aspect_ratio != debug->aspect_ratio))
+		return MODE_BAD;
+
+	return MODE_OK;
 }
