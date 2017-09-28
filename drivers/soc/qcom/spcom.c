@@ -206,10 +206,8 @@ struct spcom_channel {
 	 * Only one rx/tx transaction at a time (request + response).
 	 */
 	int ref_count;
-	u32 pid;
 
-	/* link UP/DOWN callback */
-	void (*notify_link_state_cb)(bool up);
+	u32 pid; /* debug only to find user space application */
 
 	/* abort flags */
 	bool rx_abort;
@@ -732,6 +730,7 @@ static int spcom_open(struct spcom_channel *ch, unsigned int timeout_msec)
 	long timeleft;
 	const char *name;
 	void *handle;
+	u32 pid = current_pid();
 
 	mutex_lock(&ch->lock);
 	name = ch->name;
@@ -745,7 +744,7 @@ static int spcom_open(struct spcom_channel *ch, unsigned int timeout_msec)
 	}
 
 	pr_debug("ch [%s] opened by PID [%d], count [%d]\n",
-		 name, ch->pid, ch->ref_count);
+		 name, pid, ch->ref_count);
 
 	pr_debug("Open channel [%s] timeout_msec [%d].\n", name, timeout_msec);
 
@@ -773,7 +772,7 @@ static int spcom_open(struct spcom_channel *ch, unsigned int timeout_msec)
 	/* init channel context after successful open */
 	ch->glink_handle = handle;
 	ch->ref_count++;
-	ch->pid = current_pid();
+	ch->pid = pid;
 	ch->txn_id = INITIAL_TXN_ID;
 
 	mutex_unlock(&ch->lock);
@@ -2479,9 +2478,14 @@ static unsigned int spcom_device_poll(struct file *filp,
 		done = (spcom_dev->link_state == GLINK_LINK_STATE_UP);
 		break;
 	case SPCOM_POLL_CH_CONNECT:
+		/*
+		 * ch is not expected to be NULL since user must call open()
+		 * to get FD before it can call poll().
+		 * open() will fail if no ch related to the char-device.
+		 */
 		if (ch == NULL) {
 			pr_err("invalid ch pointer, file [%s].\n", name);
-			return -EINVAL;
+			return POLLERR;
 		}
 		pr_debug("ch [%s] SPCOM_POLL_CH_CONNECT.\n", name);
 		if (wait) {
@@ -2782,7 +2786,7 @@ static int __init spcom_init(void)
 {
 	int ret;
 
-	pr_info("spcom driver version 1.1 17-July-2017.\n");
+	pr_info("spcom driver version 1.2 23-Aug-2017.\n");
 
 	ret = platform_driver_register(&spcom_driver);
 	if (ret)
