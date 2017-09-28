@@ -2587,9 +2587,11 @@ static int thermal_pm_notify(struct notifier_block *nb,
 	case PM_POST_SUSPEND:
 		atomic_set(&in_suspend, 0);
 		list_for_each_entry(tz, &thermal_tz_list, node) {
+			mutex_lock(&tz->lock);
 			thermal_zone_device_reset(tz);
-			thermal_zone_device_update(tz,
-						   THERMAL_EVENT_UNSPECIFIED);
+			mod_delayed_work(system_freezable_power_efficient_wq,
+						&tz->poll_queue, 0);
+			mutex_unlock(&tz->lock);
 		}
 		break;
 	default:
