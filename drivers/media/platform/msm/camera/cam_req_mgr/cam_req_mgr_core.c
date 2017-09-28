@@ -1387,12 +1387,6 @@ static int cam_req_mgr_process_trigger(void *priv, void *data)
 		__cam_req_mgr_inc_idx(&in_q->rd_idx, 1, in_q->num_slots);
 	}
 	rc = __cam_req_mgr_process_req(link, trigger_data->trigger);
-	if (rc)
-		CAM_ERR_RATE_LIMIT(CAM_CRM,
-			"link_hdl %x frame_id %lld, trigger %x\n",
-			trigger_data->link_hdl,
-			trigger_data->frame_id,
-			trigger_data->trigger);
 	mutex_unlock(&link->req.lock);
 
 end:
