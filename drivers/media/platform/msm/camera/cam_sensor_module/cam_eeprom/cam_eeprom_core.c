@@ -754,7 +754,7 @@ int32_t cam_eeprom_driver_cmd(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 	mutex_lock(&(e_ctrl->eeprom_mutex));
 	switch (cmd->op_code) {
 	case CAM_QUERY_CAP:
-		eeprom_cap.slot_info = e_ctrl->subdev_id;
+		eeprom_cap.slot_info = e_ctrl->soc_info.index;
 		if (e_ctrl->userspace_probe == false)
 			eeprom_cap.eeprom_kernel_probe = true;
 		else

@@ -496,7 +496,7 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 	mutex_lock(&(o_ctrl->ois_mutex));
 	switch (cmd->op_code) {
 	case CAM_QUERY_CAP:
-		ois_cap.slot_info = o_ctrl->subdev_id;
+		ois_cap.slot_info = o_ctrl->soc_info.index;
 
 		if (copy_to_user((void __user *) cmd->handle,
 			&ois_cap,
