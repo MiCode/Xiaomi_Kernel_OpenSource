@@ -1949,27 +1949,14 @@ static int __cam_isp_ctx_release_dev_in_activated(struct cam_context *ctx,
 	struct cam_release_dev_cmd *cmd)
 {
 	int rc = 0;
-	struct cam_isp_context *ctx_isp =
-		(struct cam_isp_context *) ctx->ctx_priv;
 
-	__cam_isp_ctx_stop_dev_in_activated_unlock(ctx);
+	rc = __cam_isp_ctx_stop_dev_in_activated_unlock(ctx);
+	if (rc)
+		CAM_ERR(CAM_ISP, "Stop device failed rc=%d", rc);
 
-	if (ctx_isp->hw_ctx) {
-		struct cam_hw_release_args   arg;
-
-		arg.ctxt_to_hw_map = ctx_isp->hw_ctx;
-		ctx->hw_mgr_intf->hw_release(ctx->hw_mgr_intf->hw_mgr_priv,
-			&arg);
-		ctx_isp->hw_ctx = NULL;
-	}
-
-	ctx->session_hdl = 0;
-	ctx->dev_hdl = 0;
-	ctx->link_hdl = 0;
-	ctx->ctx_crm_intf = NULL;
-
-	ctx->state =  CAM_CTX_AVAILABLE;
-	trace_cam_context_state("ISP", ctx);
+	rc = __cam_isp_ctx_release_dev_in_top_state(ctx, cmd);
+	if (rc)
+		CAM_ERR(CAM_ISP, "Release device failed rc=%d", rc);
 
 	return rc;
 }
