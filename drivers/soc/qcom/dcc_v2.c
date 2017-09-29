@@ -22,6 +22,7 @@
 #include <linux/uaccess.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/scm.h>
+#include <dt-bindings/soc/qcom,dcc_v2.h>
 
 #define TIMEOUT_US		(100)
 
@@ -1088,14 +1089,30 @@ static ssize_t dcc_store_interrupt_disable(struct device *dev,
 static DEVICE_ATTR(interrupt_disable, 0644,
 		   dcc_show_interrupt_disable, dcc_store_interrupt_disable);
 
+static int dcc_add_loop(struct dcc_drvdata *drvdata, unsigned long loop_cnt)
+{
+	struct dcc_config_entry *entry;
+
+	entry = devm_kzalloc(drvdata->dev, sizeof(*entry), GFP_KERNEL);
+	if (!entry)
+		return -ENOMEM;
+
+	entry->loop_cnt = min_t(uint32_t, loop_cnt, MAX_LOOP_CNT);
+	entry->index = drvdata->nr_config[drvdata->curr_list]++;
+	entry->desc_type = DCC_LOOP_TYPE;
+	INIT_LIST_HEAD(&entry->list);
+	list_add_tail(&entry->list, &drvdata->cfg_head[drvdata->curr_list]);
+
+	return 0;
+}
+
 static ssize_t dcc_store_loop(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t size)
 {
-	int ret = size;
+	int ret;
 	unsigned long loop_cnt;
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
-	struct dcc_config_entry *entry;
 
 	mutex_lock(&drvdata->mutex);
 
@@ -1110,18 +1127,12 @@ static ssize_t dcc_store_loop(struct device *dev,
 		goto err;
 	}
 
-	entry = devm_kzalloc(drvdata->dev, sizeof(*entry), GFP_KERNEL);
-	if (!entry) {
-		ret = -ENOMEM;
+	ret = dcc_add_loop(drvdata, loop_cnt);
+	if (ret)
 		goto err;
-	}
 
-	entry->loop_cnt = min_t(uint32_t, loop_cnt, MAX_LOOP_CNT);
-	entry->index = drvdata->nr_config[drvdata->curr_list]++;
-	entry->desc_type = DCC_LOOP_TYPE;
-	INIT_LIST_HEAD(&entry->list);
-	list_add_tail(&entry->list, &drvdata->cfg_head[drvdata->curr_list]);
-
+	mutex_unlock(&drvdata->mutex);
+	return size;
 err:
 	mutex_unlock(&drvdata->mutex);
 	return ret;
@@ -1171,16 +1182,37 @@ err:
 }
 static DEVICE_ATTR(rd_mod_wr, 0200, NULL, dcc_rd_mod_wr);
 
+static int dcc_add_write(struct dcc_drvdata *drvdata, unsigned int addr,
+			 unsigned int write_val, int apb_bus)
+{
+	struct dcc_config_entry *entry;
+
+	entry = devm_kzalloc(drvdata->dev, sizeof(*entry), GFP_KERNEL);
+	if (!entry)
+		return -ENOMEM;
+
+	entry->desc_type = DCC_WRITE_TYPE;
+	entry->base = addr & BM(4, 31);
+	entry->offset = addr - entry->base;
+	entry->write_val = write_val;
+	entry->index = drvdata->nr_config[drvdata->curr_list]++;
+	entry->len = 1;
+	entry->apb_bus = apb_bus;
+	INIT_LIST_HEAD(&entry->list);
+	list_add_tail(&entry->list, &drvdata->cfg_head[drvdata->curr_list]);
+
+	return 0;
+}
+
 static ssize_t dcc_write(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t size)
 {
-	int ret = size;
+	int ret;
 	int nval;
 	unsigned int addr, write_val;
-	int apb_bus;
+	int apb_bus = 0;
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
-	struct dcc_config_entry *entry;
 
 	mutex_lock(&drvdata->mutex);
 
@@ -1197,23 +1229,15 @@ static ssize_t dcc_write(struct device *dev,
 		goto err;
 	}
 
-	entry = devm_kzalloc(drvdata->dev, sizeof(*entry), GFP_KERNEL);
-	if (!entry) {
-		ret = -ENOMEM;
+	if (nval == 3 && apb_bus != 0)
+		apb_bus = 1;
+
+	ret = dcc_add_write(drvdata, addr, write_val, apb_bus);
+	if (ret)
 		goto err;
-	}
 
-	if (nval == 3)
-		entry->apb_bus = true;
-
-	entry->desc_type = DCC_WRITE_TYPE;
-	entry->base = addr & BM(4, 31);
-	entry->offset = addr - entry->base;
-	entry->write_val = write_val;
-	entry->index = drvdata->nr_config[drvdata->curr_list]++;
-	entry->len = 1;
-	INIT_LIST_HEAD(&entry->list);
-	list_add_tail(&entry->list, &drvdata->cfg_head[drvdata->curr_list]);
+	mutex_unlock(&drvdata->mutex);
+	return size;
 err:
 	mutex_unlock(&drvdata->mutex);
 	return ret;
@@ -1418,6 +1442,64 @@ static void dcc_sram_dev_exit(struct dcc_drvdata *drvdata)
 	dcc_sram_dev_deregister(drvdata);
 }
 
+static void dcc_configure_list(struct dcc_drvdata *drvdata,
+			       struct device_node *np)
+{
+	int ret, i;
+	const __be32 *prop;
+	uint32_t len, entry, val1, val2, apb_bus;
+	uint32_t curr_link_list;
+
+	ret = of_property_read_u32(np, "qcom,curr-link-list",
+				   &curr_link_list);
+	if (ret)
+		return;
+
+	if (curr_link_list >= DCC_MAX_LINK_LIST) {
+		dev_err(drvdata->dev, "List configuration failed");
+		return;
+	}
+	drvdata->curr_list = curr_link_list;
+
+	prop = of_get_property(np, "qcom,link-list", &len);
+	if (prop) {
+		len /= sizeof(__be32);
+		i = 0;
+		while (i < len) {
+			entry = be32_to_cpu(prop[i++]);
+			val1 = be32_to_cpu(prop[i++]);
+			val2 = be32_to_cpu(prop[i++]);
+			apb_bus = be32_to_cpu(prop[i++]);
+
+			switch (entry) {
+			case DCC_READ:
+				ret = dcc_config_add(drvdata, val1,
+						     val2, apb_bus);
+				break;
+			case DCC_WRITE:
+				ret = dcc_add_write(drvdata, val1,
+						    val2, apb_bus);
+				break;
+			case DCC_LOOP:
+				ret = dcc_add_loop(drvdata, val1);
+				break;
+			default:
+				ret = -EINVAL;
+			}
+
+			if (ret) {
+				dev_err(drvdata->dev,
+					"DCC init time config failed err:%d\n",
+					ret);
+				break;
+			}
+		}
+
+		if (!ret)
+			dcc_enable(drvdata);
+	}
+}
+
 static int dcc_probe(struct platform_device *pdev)
 {
 	int ret, i;
@@ -1492,6 +1574,8 @@ static int dcc_probe(struct platform_device *pdev)
 	if (ret)
 		goto err;
 
+	dcc_configure_list(drvdata, pdev->dev.of_node);
+
 	return 0;
 err:
 	return ret;
@@ -1527,13 +1611,7 @@ static int __init dcc_init(void)
 {
 	return platform_driver_register(&dcc_driver);
 }
-module_init(dcc_init);
-
-static void __exit dcc_exit(void)
-{
-	platform_driver_unregister(&dcc_driver);
-}
-module_exit(dcc_exit);
+pure_initcall(dcc_init);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MSM data capture and compare engine");
