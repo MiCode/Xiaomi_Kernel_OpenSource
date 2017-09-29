@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,6 +67,7 @@
 #define REG_LAB_PRECHARGE_CTL		0x5E
 #define REG_LAB_SOFT_START_CTL		0x5F
 #define REG_LAB_SPARE_CTL		0x60
+#define REG_LAB_MISC_CTL		0x60 /* PMI8998/PM660A */
 #define REG_LAB_PFM_CTL			0x62
 
 /* LAB registers for PM660A */
@@ -138,6 +139,9 @@
 /* REG_LAB_SPARE_CTL */
 #define LAB_SPARE_TOUCH_WAKE_BIT	BIT(3)
 #define LAB_SPARE_DISABLE_SCP_BIT	BIT(0)
+
+/* REG_LAB_MISC_CTL */
+#define LAB_AUTO_GM_BIT			BIT(4)
 
 /* REG_LAB_PFM_CTL */
 #define LAB_PFM_EN_BIT			BIT(7)
@@ -1866,7 +1870,7 @@ static int qpnp_labibb_save_settings(struct qpnp_labibb *labibb)
 static int qpnp_labibb_ttw_enter_ibb_common(struct qpnp_labibb *labibb)
 {
 	int rc = 0;
-	u8 val;
+	u8 val, mask;
 
 	val = 0;
 	rc = qpnp_labibb_write(labibb, labibb->ibb_base + REG_IBB_PD_CTL,
@@ -1886,10 +1890,16 @@ static int qpnp_labibb_ttw_enter_ibb_common(struct qpnp_labibb *labibb)
 		return rc;
 	}
 
-	val = IBB_WAIT_MBG_OK;
+	if (labibb->pmic_rev_id->pmic_subtype == PMI8998_SUBTYPE) {
+		val = 0;
+		mask = IBB_DIS_DLY_MASK;
+	} else {
+		val = IBB_WAIT_MBG_OK;
+		mask = IBB_DIS_DLY_MASK | IBB_WAIT_MBG_OK;
+	}
+
 	rc = qpnp_labibb_sec_masked_write(labibb, labibb->ibb_base,
-				REG_IBB_PWRUP_PWRDN_CTL_2,
-				IBB_DIS_DLY_MASK | IBB_WAIT_MBG_OK, val);
+				REG_IBB_PWRUP_PWRDN_CTL_2, mask, val);
 	if (rc < 0) {
 		pr_err("write to register %x failed rc = %d\n",
 			REG_IBB_PWRUP_PWRDN_CTL_2, rc);
@@ -1965,7 +1975,7 @@ static int qpnp_labibb_ttw_enter_ibb_pmi8950(struct qpnp_labibb *labibb)
 static int qpnp_labibb_regulator_ttw_mode_enter(struct qpnp_labibb *labibb)
 {
 	int rc = 0;
-	u8 val;
+	u8 val, reg;
 
 	/* Save the IBB settings before they get modified for TTW mode */
 	if (!labibb->ibb_settings_saved) {
@@ -2027,10 +2037,17 @@ static int qpnp_labibb_regulator_ttw_mode_enter(struct qpnp_labibb *labibb)
 		}
 
 		val = LAB_SPARE_DISABLE_SCP_BIT;
+
 		if (labibb->pmic_rev_id->pmic_subtype != PMI8950_SUBTYPE)
 			val |= LAB_SPARE_TOUCH_WAKE_BIT;
-		rc = qpnp_labibb_write(labibb, labibb->lab_base +
-				REG_LAB_SPARE_CTL, &val, 1);
+
+		if (labibb->pmic_rev_id->pmic_subtype == PMI8998_SUBTYPE) {
+			reg = REG_LAB_MISC_CTL;
+			val |= LAB_AUTO_GM_BIT;
+		} else {
+			reg = REG_LAB_SPARE_CTL;
+		}
+		rc = qpnp_labibb_write(labibb, labibb->lab_base + reg, &val, 1);
 		if (rc < 0) {
 			pr_err("qpnp_labibb_write register %x failed rc = %d\n",
 				REG_LAB_SPARE_CTL, rc);
@@ -2060,7 +2077,15 @@ static int qpnp_labibb_regulator_ttw_mode_enter(struct qpnp_labibb *labibb)
 	case PMI8950_SUBTYPE:
 		rc = qpnp_labibb_ttw_enter_ibb_pmi8950(labibb);
 		break;
+	case PMI8998_SUBTYPE:
+		rc = labibb->lab_ver_ops->ps_ctl(labibb, 70, true);
+		if (rc < 0)
+			break;
+
+		rc = qpnp_ibb_ps_config(labibb, true);
+		break;
 	}
+
 	if (rc < 0) {
 		pr_err("Failed to configure TTW-enter for IBB rc=%d\n", rc);
 		return rc;
@@ -2093,7 +2118,7 @@ static int qpnp_labibb_ttw_exit_ibb_common(struct qpnp_labibb *labibb)
 static int qpnp_labibb_regulator_ttw_mode_exit(struct qpnp_labibb *labibb)
 {
 	int rc = 0;
-	u8 val;
+	u8 val, reg;
 
 	if (!labibb->ibb_settings_saved) {
 		pr_err("IBB settings are not saved!\n");
@@ -2127,8 +2152,14 @@ static int qpnp_labibb_regulator_ttw_mode_exit(struct qpnp_labibb *labibb)
 		}
 
 		val = 0;
-		rc = qpnp_labibb_write(labibb, labibb->lab_base +
-					REG_LAB_SPARE_CTL, &val, 1);
+		if (labibb->pmic_rev_id->pmic_subtype == PMI8998_SUBTYPE) {
+			reg = REG_LAB_MISC_CTL;
+			val |= LAB_AUTO_GM_BIT;
+		} else {
+			reg = REG_LAB_SPARE_CTL;
+		}
+
+		rc = qpnp_labibb_write(labibb, labibb->lab_base + reg, &val, 1);
 		if (rc < 0) {
 			pr_err("qpnp_labibb_write register %x failed rc = %d\n",
 					REG_LAB_SPARE_CTL, rc);
@@ -3967,6 +3998,9 @@ static int qpnp_labibb_check_ttw_supported(struct qpnp_labibb *labibb)
 		labibb->ttw_force_lab_on = false;
 		break;
 	case PMI8950_SUBTYPE:
+		/* TTW supported for all revisions */
+		break;
+	case PMI8998_SUBTYPE:
 		/* TTW supported for all revisions */
 		break;
 	default:
