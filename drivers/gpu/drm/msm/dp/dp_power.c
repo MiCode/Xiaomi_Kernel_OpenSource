@@ -562,6 +562,15 @@ static int dp_power_deinit(struct dp_power *dp_power)
 	power = container_of(dp_power, struct dp_power_private, dp_power);
 
 	dp_power_clk_enable(dp_power, DP_CORE_PM, false);
+	/*
+	 * If the display power on event was not successful, for example if
+	 * there was a link training failure, then the link clocks could
+	 * possibly still be on. In this scenario, we need to turn off the
+	 * link clocks as soon as the cable is disconnected so that the clock
+	 * state is cleaned up before subsequent connection events.
+	 */
+	if (power->link_clks_on)
+		dp_power_clk_enable(dp_power, DP_CTRL_PM, false);
 	rc = sde_power_resource_enable(power->phandle,
 			power->dp_core_client, false);
 	if (rc) {
