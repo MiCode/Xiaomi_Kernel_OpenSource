@@ -2298,19 +2298,19 @@
 		};
 
 		LLCC_1: llcc_1_dcache {
-			qcom,dump-size = <0x114100>;
+			qcom,dump-size = <0x1141c0>;
 		};
 
 		LLCC_2: llcc_2_dcache {
-			qcom,dump-size = <0x114100>;
+			qcom,dump-size = <0x1141c0>;
 		};
 
 		LLCC_3: llcc_3_dcache {
-			qcom,dump-size = <0x114100>;
+			qcom,dump-size = <0x1141c0>;
 		};
 
 		LLCC_4: llcc_4_dcache {
-			qcom,dump-size = <0x114100>;
+			qcom,dump-size = <0x1141c0>;
 		};
 	};
 
