@@ -832,6 +832,13 @@ int f2fs_preallocate_blocks(struct inode *inode, loff_t pos,
 	struct f2fs_map_blocks map;
 	int err = 0;
 
+	/* convert inline data for Direct I/O*/
+	if (dio) {
+		err = f2fs_convert_inline_inode(inode);
+		if (err)
+			return err;
+	}
+
 	map.m_lblk = F2FS_BLK_ALIGN(pos);
 	map.m_len = F2FS_BYTES_TO_BLK(pos + count);
 	if (map.m_len > map.m_lblk)
@@ -841,15 +848,11 @@ int f2fs_preallocate_blocks(struct inode *inode, loff_t pos,
 
 	map.m_next_pgofs = NULL;
 
-	if (dio) {
-		err = f2fs_convert_inline_inode(inode);
-		if (err)
-			return err;
+	if (dio)
 		return f2fs_map_blocks(inode, &map, 1,
 			__force_buffered_io(inode, WRITE) ?
 				F2FS_GET_BLOCK_PRE_AIO :
 				F2FS_GET_BLOCK_PRE_DIO);
-	}
 	if (pos + count > MAX_INLINE_DATA(inode)) {
 		err = f2fs_convert_inline_inode(inode);
 		if (err)
