@@ -637,6 +637,14 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
 	SDE_EVT32_VERBOSE(SDE_EVTLOG_FUNC_EXIT);
+
+	if (sde_kms->cont_splash_en) {
+		SDE_DEBUG("Disabling cont_splash feature\n");
+		sde_kms->cont_splash_en = false;
+		sde_power_resource_enable(&priv->phandle,
+				sde_kms->core_client, false);
+		SDE_DEBUG("removing Vote for MDP Resources\n");
+	}
 }
 
 static void sde_kms_wait_for_commit_done(struct msm_kms *kms,
@@ -2539,6 +2547,7 @@ static int _sde_kms_cont_splash_res_init(struct sde_kms *sde_kms)
 			splash_data->ctl_ids[splash_data->ctl_top_cnt] =
 							i + CTL_0;
 			splash_data->ctl_top_cnt++;
+			sde_kms->cont_splash_en = true;
 		}
 	}
 
@@ -2925,7 +2934,11 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		SDE_DEBUG("added genpd provider %s\n", sde_kms->genpd.name);
 	}
 
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
+	if (sde_kms->cont_splash_en)
+		SDE_DEBUG("Skipping MDP Resources disable\n");
+	else
+		sde_power_resource_enable(&priv->phandle,
+						sde_kms->core_client, false);
 
 	return 0;
 
