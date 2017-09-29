@@ -616,6 +616,27 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 	}
 };
 
+#define CTL_BASE_OFFSET	0x2000
+#define CTL_TOP_OFFSET(index) (CTL_BASE_OFFSET + (0x200 * (index)) + CTL_TOP)
+
+void sde_get_ctl_top_for_cont_splash(void __iomem *mmio,
+		struct ctl_top *top, int index)
+{
+	if (!mmio || !top) {
+		SDE_ERROR("invalid input parameters\n");
+		return;
+	}
+
+	top->value = readl_relaxed(mmio + CTL_TOP_OFFSET(index));
+	top->intf_sel = (top->value >> 4) & 0xf;
+	top->pp_sel = (top->value >> 8) & 0x7;
+	top->dspp_sel = (top->value >> 11) & 0x3;
+	top->mode_sel = (top->value >> 17) & 0x1;
+
+	SDE_DEBUG("ctl[%d]_top->0x%x,pp_sel=0x%x,dspp_sel=0x%x,intf_sel=0x%x\n",
+	       index, top->value, top->pp_sel, top->dspp_sel, top->intf_sel);
+}
+
 static struct sde_hw_blk_ops sde_hw_ops = {
 	.start = NULL,
 	.stop = NULL,
