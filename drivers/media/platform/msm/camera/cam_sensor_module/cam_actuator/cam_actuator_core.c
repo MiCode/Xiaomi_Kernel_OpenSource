@@ -372,6 +372,7 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 		add_req.link_hdl = a_ctrl->bridge_intf.link_hdl;
 		add_req.req_id = csl_packet->header.request_id;
 		add_req.dev_hdl = a_ctrl->bridge_intf.device_hdl;
+		add_req.skip_before_applying = 0;
 		if (a_ctrl->bridge_intf.crm_cb &&
 			a_ctrl->bridge_intf.crm_cb->add_req)
 			a_ctrl->bridge_intf.crm_cb->add_req(&add_req);
