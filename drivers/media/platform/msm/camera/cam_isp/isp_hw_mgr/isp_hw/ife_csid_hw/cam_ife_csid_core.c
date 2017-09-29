@@ -85,6 +85,7 @@ static int cam_ife_csid_get_format_rdi(
 	case CAM_FORMAT_MIPI_RAW_8:
 		switch (out_format) {
 		case CAM_FORMAT_MIPI_RAW_8:
+		case CAM_FORMAT_PLAIN128:
 			*decode_fmt = 0xf;
 			break;
 		case CAM_FORMAT_PLAIN8:
@@ -99,6 +100,7 @@ static int cam_ife_csid_get_format_rdi(
 	case CAM_FORMAT_MIPI_RAW_10:
 		switch (out_format) {
 		case CAM_FORMAT_MIPI_RAW_10:
+		case CAM_FORMAT_PLAIN128:
 			*decode_fmt = 0xf;
 			break;
 		case CAM_FORMAT_PLAIN16_10:
