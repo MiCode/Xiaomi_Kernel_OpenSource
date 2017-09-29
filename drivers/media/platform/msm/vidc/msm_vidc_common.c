@@ -6310,10 +6310,26 @@ struct msm_vidc_buffer *msm_comm_get_vidc_buffer(struct msm_vidc_inst *inst,
 	}
 
 	mutex_lock(&inst->registeredbufs.lock);
-	list_for_each_entry(mbuf, &inst->registeredbufs.list, list) {
-		if (msm_comm_compare_dma_planes(inst, mbuf, dma_planes)) {
-			found = true;
-			break;
+	if (inst->session_type == MSM_VIDC_DECODER) {
+		list_for_each_entry(mbuf, &inst->registeredbufs.list, list) {
+			if (msm_comm_compare_dma_planes(inst, mbuf,
+					dma_planes)) {
+				found = true;
+				break;
+			}
+		}
+	} else {
+		/*
+		 * for encoder, client may queue the same buffer with different
+		 * fd before driver returned old buffer to the client. This
+		 * buffer should be treated as new buffer. Search the list with
+		 * fd so that it will be treated as new msm_vidc_buffer.
+		 */
+		list_for_each_entry(mbuf, &inst->registeredbufs.list, list) {
+			if (msm_comm_compare_vb2_planes(inst, mbuf, vb2)) {
+				found = true;
+				break;
+			}
 		}
 	}
 
