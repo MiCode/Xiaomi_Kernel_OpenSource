@@ -699,7 +699,7 @@ static void _set_ordinals(struct adreno_device *adreno_dev,
 		*cmds++ = lower_32_bits(gpuaddr);
 		*cmds++ = upper_32_bits(gpuaddr);
 		/* Size is in dwords */
-		*cmds++ = sizeof(a6xx_pwrup_reglist) >> 2;
+		*cmds++ = 0;
 	}
 
 	/* Pad rest of the cmds with 0's */
