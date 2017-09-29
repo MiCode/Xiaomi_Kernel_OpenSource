@@ -9,19 +9,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
-
-/dts-v1/;
-
-#include "sdm670.dtsi"
-#include "sdm670-mtp.dtsi"
 #include "sdm670-audio-overlay.dtsi"
 
-/ {
-	model = "Qualcomm Technologies, Inc. SDM670 PM660 + PM660L MTP";
-	compatible = "qcom,sdm670-mtp", "qcom,sdm670", "qcom,mtp";
-	qcom,board-id = <8 0>;
-	qcom,pmic-id = <0x0001001b 0x0101011a 0x0 0x0>,
-		       <0x0001001b 0x0102001a 0x0 0x0>,
-		       <0x0001001b 0x0201011a 0x0 0x0>;
+&int_codec {
+	qcom,msm-mbhc-usbc-audio-supported = <1>;
+	qcom,usbc-analog-en1-gpio = <&wcd_usbc_analog_en1_gpio>;
 };

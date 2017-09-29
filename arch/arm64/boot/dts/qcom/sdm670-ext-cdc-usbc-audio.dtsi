@@ -1,4 +1,5 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/*
+ * Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -9,4 +10,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include "sdm670-audio-overlay.dtsi"
+
+&tavil_snd {
+	qcom,msm-mbhc-usbc-audio-supported = <1>;
+	qcom,usbc-analog-en1-gpio = <&wcd_usbc_analog_en1_gpio>;
+};
