@@ -17,6 +17,8 @@
 
 #define QCA8337_PHY_ID		0x004dd036
 #define ATH8030_PHY_ID		0x004dd076
+#define ATH8031_PHY_ID		0x004dd074
+#define ATH8035_PHY_ID		0x004dd072
 #define QCA8337_ID_QCA8337	0x13
 #define QCA8337_NUM_PORTS					7
 /* Make sure that port0 is the cpu port */

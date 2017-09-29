@@ -1991,8 +1991,10 @@ void emac_mac_down(struct emac_adapter *adpt, u32 ctrl)
 		if (adpt->irq[i].irq)
 			free_irq(adpt->irq[i].irq, &adpt->irq[i]);
 
-	if ((ATH8030_PHY_ID == adpt->phydev->phy_id) &&
-	    (adpt->phy.is_ext_phy_connect)) {
+	if (((ATH8030_PHY_ID == adpt->phydev->phy_id) ||
+	     (ATH8031_PHY_ID == adpt->phydev->phy_id) ||
+	     (ATH8035_PHY_ID == adpt->phydev->phy_id)) &&
+	   (adpt->phy.is_ext_phy_connect)) {
 		phy_disconnect(adpt->phydev);
 		adpt->phy.is_ext_phy_connect = 0;
 	}
@@ -3212,10 +3214,14 @@ err_undo_napi:
 err_init_mdio_gpio:
 	adpt->gpio_off(adpt, true, true);
 err_clk_init:
-	if (ATH8030_PHY_ID == adpt->phydev->phy_id)
+	if ((ATH8030_PHY_ID == adpt->phydev->phy_id) ||
+	    (ATH8031_PHY_ID == adpt->phydev->phy_id) ||
+	    (ATH8035_PHY_ID == adpt->phydev->phy_id))
 		emac_disable_clks(adpt);
 err_ldo_init:
-	if (ATH8030_PHY_ID == adpt->phydev->phy_id)
+	if ((ATH8030_PHY_ID == adpt->phydev->phy_id) ||
+	    (ATH8031_PHY_ID == adpt->phydev->phy_id) ||
+	    (ATH8035_PHY_ID == adpt->phydev->phy_id))
 		emac_disable_regulator(adpt, EMAC_VREG1, EMAC_VREG5);
 err_get_resource:
 	free_netdev(netdev);
