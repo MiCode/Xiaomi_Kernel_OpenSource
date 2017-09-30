@@ -14,6 +14,8 @@
 
 #include "cam_eeprom_dev.h"
 
+int cam_eeprom_spi_parse_of(struct cam_sensor_spi_client *client);
+
 int cam_eeprom_parse_dt_memory_map(struct device_node *of,
 	struct cam_eeprom_memory_block_t *data);
 

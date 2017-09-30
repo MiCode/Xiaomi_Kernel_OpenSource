@@ -67,6 +67,13 @@
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 #endif
 
+enum cam_csiphy_state {
+	CAM_CSIPHY_ACQUIRE,
+	CAM_CSIPHY_RELEASE,
+	CAM_CSIPHY_START,
+	CAM_CSIPHY_STOP,
+};
+
 /**
  * struct csiphy_reg_parms_t
  * @mipi_csiphy_glbl_irq_cmd_addr: CSIPhy irq addr
@@ -150,6 +157,32 @@ struct csiphy_ctrl_t {
 };
 
 /**
+ * cam_csiphy_param: Provides cmdbuffer structre
+ * @lane_mask     :  Lane mask details
+ * @lane_assign   :  Lane sensor will be using
+ * @csiphy_3phase :  Mentions DPHY or CPHY
+ * @combo_mode    :  Info regarding combo_mode is enable / disable
+ * @lane_cnt      :  Total number of lanes
+ * @reserved
+ * @3phase        :  Details whether 3Phase / 2Phase operation
+ * @settle_time   :  Settling time in ms
+ * @settle_time_combo_sensor   :  Settling time in ms
+ * @data_rate     :  Data rate in mbps
+ *
+ */
+struct cam_csiphy_param {
+	uint16_t    lane_mask;
+	uint16_t    lane_assign;
+	uint8_t     csiphy_3phase;
+	uint8_t     combo_mode;
+	uint8_t     lane_cnt;
+	uint8_t     secure_mode;
+	uint64_t    settle_time;
+	uint64_t    settle_time_combo_sensor;
+	uint64_t    data_rate;
+};
+
+/**
  * struct csiphy_device
  * @pdev: Platform device
  * @irq: Interrupt structure
@@ -171,6 +204,7 @@ struct csiphy_ctrl_t {
  * @ref_count: Reference count
  * @clk_lane: Clock lane
  * @acquire_count: Acquire device count
+ * @start_dev_count: Start count
  * @is_acquired_dev_combo_mode:
  *    Flag that mentions whether already acquired
  *   device is for combo mode
@@ -178,7 +212,7 @@ struct csiphy_ctrl_t {
 struct csiphy_device {
 	struct mutex mutex;
 	uint32_t hw_version;
-	uint32_t csiphy_state;
+	enum cam_csiphy_state csiphy_state;
 	struct csiphy_ctrl_t *ctrl_reg;
 	uint32_t csiphy_max_clk;
 	struct msm_cam_clk_info csiphy_3p_clk_info[2];
@@ -190,14 +224,16 @@ struct csiphy_device {
 	uint8_t is_csiphy_3phase_hw;
 	uint8_t num_irq_registers;
 	struct cam_subdev v4l2_dev_str;
-	struct cam_csiphy_info *csiphy_info;
+	struct cam_csiphy_param csiphy_info;
 	struct intf_params bridge_intf;
 	uint32_t clk_lane;
 	uint32_t acquire_count;
+	uint32_t start_dev_count;
 	char device_name[20];
 	uint32_t is_acquired_dev_combo_mode;
 	struct cam_hw_soc_info   soc_info;
 	uint32_t cpas_handle;
+	uint32_t config_count;
 };
 
 #endif /* _CAM_CSIPHY_DEV_H_ */
