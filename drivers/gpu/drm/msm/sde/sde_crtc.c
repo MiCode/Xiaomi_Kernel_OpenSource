@@ -3228,7 +3228,7 @@ static void sde_crtc_destroy_state(struct drm_crtc *crtc,
 static int _sde_crtc_wait_for_frame_done(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc;
-	int ret, rc = 0;
+	int ret, rc = 0, i;
 
 	if (!crtc) {
 		SDE_ERROR("invalid argument\n");
@@ -3241,7 +3241,17 @@ static int _sde_crtc_wait_for_frame_done(struct drm_crtc *crtc)
 		return 0;
 	}
 
-	SDE_EVT32_VERBOSE(DRMID(crtc), SDE_EVTLOG_FUNC_ENTRY);
+	SDE_EVT32(DRMID(crtc), SDE_EVTLOG_FUNC_ENTRY);
+
+	/*
+	 * flush all the event thread work to make sure all the
+	 * FRAME_EVENTS from encoder are propagated to crtc
+	 */
+	for (i = 0; i < ARRAY_SIZE(sde_crtc->frame_events); i++) {
+		if (list_empty(&sde_crtc->frame_events[i].list))
+			kthread_flush_work(&sde_crtc->frame_events[i].work);
+	}
+
 	ret = wait_for_completion_timeout(&sde_crtc->frame_done_comp,
 			msecs_to_jiffies(SDE_FRAME_DONE_TIMEOUT));
 	if (!ret) {
