@@ -42,15 +42,16 @@ enum cam_vfe_bus_ver2_comp_grp_type {
 };
 
 enum cam_vfe_bus_ver2_vfe_out_type {
+	CAM_VFE_BUS_VER2_VFE_OUT_RDI0,
+	CAM_VFE_BUS_VER2_VFE_OUT_RDI1,
+	CAM_VFE_BUS_VER2_VFE_OUT_RDI2,
+	CAM_VFE_BUS_VER2_VFE_OUT_RDI3,
 	CAM_VFE_BUS_VER2_VFE_OUT_FULL,
 	CAM_VFE_BUS_VER2_VFE_OUT_DS4,
 	CAM_VFE_BUS_VER2_VFE_OUT_DS16,
 	CAM_VFE_BUS_VER2_VFE_OUT_RAW_DUMP,
 	CAM_VFE_BUS_VER2_VFE_OUT_FD,
 	CAM_VFE_BUS_VER2_VFE_OUT_PDAF,
-	CAM_VFE_BUS_VER2_VFE_OUT_RDI0,
-	CAM_VFE_BUS_VER2_VFE_OUT_RDI1,
-	CAM_VFE_BUS_VER2_VFE_OUT_RDI2,
 	CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BE,
 	CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BHIST,
 	CAM_VFE_BUS_VER2_VFE_OUT_STATS_TL_BG,
@@ -160,11 +161,13 @@ struct cam_vfe_bus_ver2_vfe_out_hw_info {
  * @vfe_out_hw_info:  VFE output capability
  */
 struct cam_vfe_bus_ver2_hw_info {
-	struct cam_vfe_bus_ver2_reg_offset_common  common_reg;
+	struct cam_vfe_bus_ver2_reg_offset_common common_reg;
+	uint32_t num_client;
 	struct cam_vfe_bus_ver2_reg_offset_bus_client
 		bus_client_reg[CAM_VFE_BUS_VER2_MAX_CLIENTS];
 	struct cam_vfe_bus_ver2_reg_offset_comp_grp
 		comp_grp_reg[CAM_VFE_BUS_VER2_COMP_GRP_MAX];
+	uint32_t num_out;
 	struct cam_vfe_bus_ver2_vfe_out_hw_info
 		vfe_out_hw_info[CAM_VFE_BUS_VER2_VFE_OUT_MAX];
 };
