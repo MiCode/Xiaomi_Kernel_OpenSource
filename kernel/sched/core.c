@@ -3305,6 +3305,7 @@ void scheduler_tick(void)
 	bool early_notif;
 	u32 old_load;
 	struct related_thread_group *grp;
+	unsigned int flag = 0;
 
 	sched_clock_tick();
 
@@ -3321,10 +3322,12 @@ void scheduler_tick(void)
 	cpu_load_update_active(rq);
 	calc_global_load_tick(rq);
 	sched_freq_tick(cpu);
-	cpufreq_update_util(rq, 0);
 
 	early_notif = early_detection_notify(rq, wallclock);
+	if (early_notif)
+		flag = SCHED_CPUFREQ_WALT | SCHED_CPUFREQ_EARLY_DET;
 
+	cpufreq_update_util(rq, flag);
 	raw_spin_unlock(&rq->lock);
 
 	if (early_notif)
