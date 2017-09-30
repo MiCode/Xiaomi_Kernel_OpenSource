@@ -1713,6 +1713,9 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		quirks |= IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT;
 	if (is_iommu_pt_coherent(smmu_domain))
 		quirks |= IO_PGTABLE_QUIRK_PAGE_TABLE_COHERENT;
+	if ((quirks & IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT) &&
+		(smmu->model == QCOM_SMMUV500))
+		quirks |= IO_PGTABLE_QUIRK_QSMMUV500_NON_SHAREABLE;
 
 	tlb = &arm_smmu_gather_ops;
 	if (smmu->options & ARM_SMMU_OPT_QCOM_MMU500_ERRATA1)
