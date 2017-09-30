@@ -1,0 +1,23 @@
+Qualcomm Technologies, Inc. NPU Clock & Reset Controller Binding
+----------------------------------------------------------------
+
+Required properties :
+- compatible : must contain "qcom,npucc-sdm855".
+- reg : shall contain base register location and length.
+- reg-names: names of registers listed in the same order as in
+	     the reg property.
+- #clock-cells : shall contain 1.
+- #reset-cells : shall contain 1.
+
+Optional properties :
+- vdd_<rail>-supply: The logic rail supply.
+
+Example:
+	clock_npucc: qcom,npucc {
+		compatible = "qcom,npucc-sdm855";
+		reg = <0x9910000 0x10000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&pm855l_s6_level>;
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
