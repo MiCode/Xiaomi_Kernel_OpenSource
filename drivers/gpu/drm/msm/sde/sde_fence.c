@@ -206,9 +206,9 @@ static int _sde_fence_create_fd(void *fence_ctx, uint32_t val)
 	/* create fd */
 	fd = get_unused_fd_flags(0);
 	if (fd < 0) {
-		fence_put(&sde_fence->base);
 		SDE_ERROR("failed to get_unused_fd_flags(), %s\n",
 							sde_fence->name);
+		fence_put(&sde_fence->base);
 		goto exit;
 	}
 
@@ -217,8 +217,8 @@ static int _sde_fence_create_fd(void *fence_ctx, uint32_t val)
 	if (sync_file == NULL) {
 		put_unused_fd(fd);
 		fd = -EINVAL;
-		fence_put(&sde_fence->base);
 		SDE_ERROR("couldn't create fence, %s\n", sde_fence->name);
+		fence_put(&sde_fence->base);
 		goto exit;
 	}
 
