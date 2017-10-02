@@ -223,7 +223,7 @@ static int kgsl_bus_scale_request(struct kgsl_device *device,
 	}
 
 	if (ret)
-		KGSL_PWR_ERR(device, "GPU BW scaling failure\n");
+		KGSL_PWR_ERR(device, "GPU BW scaling failure: %d\n", ret);
 
 	return ret;
 }
@@ -263,7 +263,7 @@ static int kgsl_clk_set_rate(struct kgsl_device *device,
 		ret = clk_set_rate(pwr->grp_clks[0], pl->gpu_freq);
 
 	if (ret)
-		KGSL_PWR_ERR(device, "GPU clk freq set failure\n");
+		KGSL_PWR_ERR(device, "GPU clk freq set failure: %d\n", ret);
 
 	return ret;
 }
