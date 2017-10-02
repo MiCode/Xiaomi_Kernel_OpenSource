@@ -5003,7 +5003,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	if (result) {
 		IPAERR("Failed to alloc pkt_init payload\n");
 		result = -ENODEV;
-		goto fail_create_apps_resource;
+		goto fail_allok_pkt_init;
 	}
 
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5)
@@ -5013,6 +5013,13 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 
 	init_completion(&ipa3_ctx->init_completion_obj);
 	init_completion(&ipa3_ctx->uc_loaded_completion_obj);
+
+	result = ipa3_dma_setup();
+	if (result) {
+		IPAERR("Failed to setup IPA DMA\n");
+		result = -ENODEV;
+		goto fail_ipa_dma_setup;
+	}
 
 	/*
 	 * We can't register the GSI driver yet, as it expects
@@ -5026,7 +5033,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		if (result) {
 			IPAERR("gsi pre FW loading config failed\n");
 			result = -ENODEV;
-			goto fail_ipa_init_interrupts;
+			goto fail_gsi_pre_fw_load_init;
 		}
 	}
 
@@ -5046,8 +5053,13 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	return 0;
 
 fail_cdev_add:
-fail_ipa_init_interrupts:
-	if (!ipa3_ctx->use_ipa_pm)
+fail_gsi_pre_fw_load_init:
+	ipa3_dma_shutdown();
+fail_ipa_dma_setup:
+fail_allok_pkt_init:
+	if (ipa3_ctx->use_ipa_pm)
+		ipa_pm_destroy();
+	else
 		ipa_rm_delete_resource(IPA_RM_RESOURCE_APPS_CONS);
 fail_create_apps_resource:
 	if (!ipa3_ctx->use_ipa_pm)
@@ -5058,6 +5070,7 @@ fail_nat_dev_add:
 fail_device_create:
 	unregister_chrdev_region(ipa3_ctx->dev_num, 1);
 fail_alloc_chrdev_region:
+	idr_destroy(&ipa3_ctx->ipa_idr);
 	rset = &ipa3_ctx->reap_rt_tbl_set[IPA_IP_v6];
 	idr_destroy(&rset->rule_ids);
 	rset = &ipa3_ctx->reap_rt_tbl_set[IPA_IP_v4];
@@ -5066,7 +5079,6 @@ fail_alloc_chrdev_region:
 	idr_destroy(&ipa3_ctx->rt_tbl_set[IPA_IP_v4].rule_ids);
 	ipa3_free_dma_task_for_gsi();
 fail_dma_task:
-	idr_destroy(&ipa3_ctx->ipa_idr);
 	kmem_cache_destroy(ipa3_ctx->rx_pkt_wrapper_cache);
 fail_rx_pkt_wrapper_cache:
 	kmem_cache_destroy(ipa3_ctx->tx_pkt_wrapper_cache);
