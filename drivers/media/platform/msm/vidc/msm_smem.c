@@ -80,6 +80,8 @@ static int msm_ion_get_device_address(struct smem_client *smem_client,
 			dprintk(VIDC_ERR,
 				"Size mismatch! Dmabuf size: %zu Expected Size: %lu",
 				buf->size, *buffer_size);
+			msm_vidc_res_handle_fatal_hw_error(smem_client->res,
+					true);
 			goto mem_buf_size_mismatch;
 		}
 		/* Prepare a dma buf for dma on the given device */
@@ -327,6 +329,7 @@ static int msm_ion_map_dma_buf(struct msm_vidc_inst *inst,
 	if (ion_flags & ION_FLAG_SECURE)
 		smem->flags |= SMEM_SECURE;
 
+	buffer_size = smem->size;
 	rc = msm_ion_get_device_address(inst->mem_client, ion_handle,
 			align, &iova, &buffer_size, smem->flags,
 			smem->buffer_type, &smem->mapping_info);
