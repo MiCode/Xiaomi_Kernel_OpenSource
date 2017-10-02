@@ -84,17 +84,6 @@
 	/delete-property/ qcom,vddp-ref-clk-supply;
 };
 
-&ufsphy_card {
-	/delete-property/ vdda-phy-supply;
-	/delete-property/ vdda-pll-supply;
-};
-
-&ufshc_card {
-	/delete-property/ vcc-supply;
-	/delete-property/ vccq2-supply;
-	/delete-property/ qcom,vddp-ref-clk-supply;
-};
-
 &sdhc_2 {
 	/delete-property/ vdd-supply;
 	/delete-property/ vdd-io-supply;

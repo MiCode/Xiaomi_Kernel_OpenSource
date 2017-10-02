@@ -220,34 +220,6 @@
 	status = "ok";
 };
 
-&ufsphy_card {
-	compatible = "qcom,ufs-phy-qmp-v3";
-
-	vdda-phy-supply = <&pm8998_l1>; /* 0.88v */
-	vdda-pll-supply = <&pm8998_l26>; /* 1.2v */
-	vdda-phy-max-microamp = <62900>;
-	vdda-pll-max-microamp = <18300>;
-
-	status = "ok";
-};
-
-&ufshc_card {
-	vdd-hba-supply = <&ufs_card_gdsc>;
-	vdd-hba-fixed-regulator;
-	vcc-supply = <&pm8998_l21>;
-	vcc-voltage-level = <2950000 2960000>;
-	vccq2-supply = <&pm8998_s4>;
-	vcc-max-microamp = <300000>;
-	vccq2-max-microamp = <300000>;
-
-	qcom,vddp-ref-clk-supply = <&pm8998_l2>;
-	qcom,vddp-ref-clk-max-microamp = <100>;
-
-	extcon = <&extcon_storage_cd>;
-
-	status = "ok";
-};
-
 &sdhc_2 {
 	vdd-supply = <&pm8998_l21>;
 	qcom,vdd-voltage-level = <2950000 2960000>;
