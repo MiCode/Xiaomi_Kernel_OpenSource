@@ -62,8 +62,12 @@ struct i2c_pmic {
 	struct irq_domain	*domain;
 	struct i2c_pmic_periph	*periph;
 	struct pinctrl		*pinctrl;
+	struct mutex		irq_complete;
 	const char		*pinctrl_name;
 	int			num_periphs;
+	int			summary_irq;
+	bool			resume_completed;
+	bool			irq_waiting;
 };
 
 static void i2c_pmic_irq_bus_lock(struct irq_data *d)
@@ -400,6 +404,16 @@ static irqreturn_t i2c_pmic_irq_handler(int irq, void *dev_id)
 	unsigned int summary_status;
 	int rc, i;
 
+	mutex_lock(&chip->irq_complete);
+	chip->irq_waiting = true;
+	if (!chip->resume_completed) {
+		pr_debug("IRQ triggered before device-resume\n");
+		disable_irq_nosync(irq);
+		mutex_unlock(&chip->irq_complete);
+		return IRQ_HANDLED;
+	}
+	chip->irq_waiting = false;
+
 	for (i = 0; i < DIV_ROUND_UP(chip->num_periphs, BITS_PER_BYTE); i++) {
 		rc = regmap_read(chip->regmap, I2C_INTR_STATUS_BASE + i,
 				&summary_status);
@@ -415,6 +429,8 @@ static irqreturn_t i2c_pmic_irq_handler(int irq, void *dev_id)
 		periph = &chip->periph[i * 8];
 		i2c_pmic_summary_status_handler(chip, periph, summary_status);
 	}
+
+	mutex_unlock(&chip->irq_complete);
 
 	return IRQ_HANDLED;
 }
@@ -559,6 +575,9 @@ static int i2c_pmic_probe(struct i2c_client *client,
 		}
 	}
 
+	chip->resume_completed = true;
+	mutex_init(&chip->irq_complete);
+
 	rc = devm_request_threaded_irq(&client->dev, client->irq, NULL,
 				       i2c_pmic_irq_handler,
 				       IRQF_ONESHOT | IRQF_SHARED,
@@ -568,6 +587,7 @@ static int i2c_pmic_probe(struct i2c_client *client,
 		goto cleanup;
 	}
 
+	chip->summary_irq = client->irq;
 	enable_irq_wake(client->irq);
 
 probe_children:
@@ -594,6 +614,17 @@ static int i2c_pmic_remove(struct i2c_client *client)
 }
 
 #ifdef CONFIG_PM_SLEEP
+static int i2c_pmic_suspend_noirq(struct device *dev)
+{
+	struct i2c_pmic *chip = dev_get_drvdata(dev);
+
+	if (chip->irq_waiting) {
+		pr_err_ratelimited("Aborting suspend, an interrupt was detected while suspending\n");
+		return -EBUSY;
+	}
+	return 0;
+}
+
 static int i2c_pmic_suspend(struct device *dev)
 {
 	struct i2c_pmic *chip = dev_get_drvdata(dev);
@@ -617,6 +648,11 @@ static int i2c_pmic_suspend(struct device *dev)
 		if (rc < 0)
 			pr_err_ratelimited("Couldn't enable 0x%04x wake irqs 0x%02x rc=%d\n",
 			       periph->addr, periph->wake, rc);
+	}
+	if (!rc) {
+		mutex_lock(&chip->irq_complete);
+		chip->resume_completed = false;
+		mutex_unlock(&chip->irq_complete);
 	}
 
 	return rc;
@@ -647,10 +683,38 @@ static int i2c_pmic_resume(struct device *dev)
 			       periph->addr, periph->synced[IRQ_EN_SET], rc);
 	}
 
+	mutex_lock(&chip->irq_complete);
+	chip->resume_completed = true;
+	if (chip->irq_waiting) {
+		mutex_unlock(&chip->irq_complete);
+		/* irq was pending, call the handler */
+		i2c_pmic_irq_handler(chip->summary_irq, chip);
+		enable_irq(chip->summary_irq);
+	} else {
+		mutex_unlock(&chip->irq_complete);
+	}
+
 	return rc;
 }
+#else
+static int i2c_pmic_suspend(struct device *dev)
+{
+	return 0;
+}
+static int i2c_pmic_resume(struct device *dev)
+{
+	return 0;
+}
+static int i2c_pmic_suspend_noirq(struct device *dev)
+{
+	return 0
+}
 #endif
-static SIMPLE_DEV_PM_OPS(i2c_pmic_pm_ops, i2c_pmic_suspend, i2c_pmic_resume);
+static const struct dev_pm_ops i2c_pmic_pm_ops = {
+	.suspend	= i2c_pmic_suspend,
+	.suspend_noirq	= i2c_pmic_suspend_noirq,
+	.resume		= i2c_pmic_resume,
+};
 
 static const struct of_device_id i2c_pmic_match_table[] = {
 	{ .compatible = "qcom,i2c-pmic", },
