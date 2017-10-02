@@ -1,0 +1,57 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/msm/msm-bus-ids.h>
+
+&soc {
+	/* QUPv3 South Instances */
+	qupv3_0: qcom,qupv3_0_geni_se@8c0000 {
+		compatible = "qcom,qupv3-geni-se";
+		reg = <0x8c0000 0x6000>;
+		qcom,bus-mas-id = <MSM_BUS_MASTER_BLSP_1>;
+		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
+		qcom,iommu-s1-bypass;
+
+		iommu_qupv3_0_geni_se_cb: qcom,iommu_qupv3_0_geni_se_cb {
+			compatible = "qcom,qupv3-geni-se-cb";
+			iommus = <&apps_smmu 0xc3 0x0>;
+		};
+	};
+
+	/* QUPv3 North Instances */
+	qupv3_1: qcom,qupv3_1_geni_se@ac0000 {
+		compatible = "qcom,qupv3-geni-se";
+		reg = <0xac0000 0x6000>;
+		qcom,bus-mas-id = <MSM_BUS_MASTER_BLSP_2>;
+		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
+		qcom,iommu-s1-bypass;
+
+		iommu_qupv3_1_geni_se_cb: qcom,iommu_qupv3_1_geni_se_cb {
+			compatible = "qcom,qupv3-geni-se-cb";
+			iommus = <&apps_smmu 0x603 0x0>;
+		};
+	};
+
+	/* QUPv3 East Instances */
+	qupv3_2: qcom,qupv3_2_geni_se@cc0000 {
+		compatible = "qcom,qupv3-geni-se";
+		reg = <0xcc0000 0x6000>;
+		qcom,bus-mas-id = <MSM_BUS_MASTER_BLSP_2>;
+		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
+		qcom,iommu-s1-bypass;
+
+		iommu_qupv3_2_geni_se_cb: qcom,iommu_qupv3_2_geni_se_cb {
+			compatible = "qcom,qupv3-geni-se-cb";
+			iommus = <&apps_smmu 0x7a3 0x0>;
+		};
+	};
+};
