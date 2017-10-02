@@ -60,7 +60,6 @@ MODULE_PARM_DESC(fbc_bypass,
 
 static int cnss_set_pci_config_space(struct cnss_pci_data *pci_priv, bool save)
 {
-	int ret = 0;
 	struct pci_dev *pci_dev = pci_priv->pci_dev;
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 	bool link_down_or_recovery;
@@ -80,12 +79,8 @@ static int cnss_set_pci_config_space(struct cnss_pci_data *pci_priv, bool save)
 		}
 	} else {
 		if (link_down_or_recovery) {
-			ret = msm_pcie_recover_config(pci_dev);
-			if (ret) {
-				cnss_pr_err("Failed to recover PCI config space, err = %d\n",
-					    ret);
-				return ret;
-			}
+			pci_load_saved_state(pci_dev, pci_priv->default_state);
+			pci_restore_state(pci_dev);
 		} else if (pci_priv->saved_state) {
 			pci_load_and_free_saved_state(pci_dev,
 						      &pci_priv->saved_state);
@@ -100,27 +95,15 @@ static int cnss_set_pci_link(struct cnss_pci_data *pci_priv, bool link_up)
 {
 	int ret = 0;
 	struct pci_dev *pci_dev = pci_priv->pci_dev;
-	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
-	bool link_down_or_recovery;
-
-	if (!plat_priv)
-		return -ENODEV;
-
-	link_down_or_recovery = pci_priv->pci_link_down_ind ||
-		(test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state));
 
 	ret = msm_pcie_pm_control(link_up ? MSM_PCIE_RESUME :
 				  MSM_PCIE_SUSPEND,
 				  pci_dev->bus->number,
 				  pci_dev, NULL,
-				  link_down_or_recovery ?
-				  PM_OPTIONS_LINK_DOWN :
 				  PM_OPTIONS_DEFAULT);
 	if (ret) {
-		cnss_pr_err("Failed to %s PCI link with %s option, err = %d\n",
-			    link_up ? "resume" : "suspend",
-			    link_down_or_recovery ? "link down" : "default",
-			    ret);
+		cnss_pr_err("Failed to %s PCI link with default option, err = %d\n",
+			    link_up ? "resume" : "suspend", ret);
 		return ret;
 	}
 
@@ -1443,6 +1426,9 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	if (ret)
 		goto dereg_pci_event;
 
+	pci_save_state(pci_dev);
+	pci_priv->default_state = pci_store_saved_state(pci_dev);
+
 	switch (pci_dev->device) {
 	case QCA6174_DEVICE_ID:
 		pci_read_config_word(pci_dev, QCA6174_REV_ID_OFFSET,
@@ -1513,6 +1499,8 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 	default:
 		break;
 	}
+
+	pci_load_and_free_saved_state(pci_dev, &pci_priv->saved_state);
 
 	cnss_pci_disable_bus(pci_priv);
 	cnss_dereg_pci_event(pci_priv);
