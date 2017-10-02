@@ -1172,30 +1172,37 @@
 };
 
 &bps_gdsc {
+	parent-supply = <&pm855l_s5_level>;
 	status = "ok";
 };
 
 &ipe_0_gdsc {
+	parent-supply = <&pm855l_s5_level>;
 	status = "ok";
 };
 
 &ipe_1_gdsc {
+	parent-supply = <&pm855l_s5_level>;
 	status = "ok";
 };
 
 &ife_0_gdsc {
+	parent-supply = <&pm855l_s5_level>;
 	status = "ok";
 };
 
 &ife_1_gdsc {
+	parent-supply = <&pm855l_s5_level>;
 	status = "ok";
 };
 
 &titan_top_gdsc {
+	parent-supply = <&pm855l_s5_level>;
 	status = "ok";
 };
 
 &mdss_core_gdsc {
+	parent-supply = <&pm855l_s5_level>;
 	status = "ok";
 };
 
@@ -1204,18 +1211,22 @@
 };
 
 &gpu_gx_gdsc {
+	parent-supply = <&pm855l_s2_level>;
 	status = "ok";
 };
 
 &mvsc_gdsc {
+	parent-supply = <&pm855l_s5_level>;
 	status = "ok";
 };
 
 &mvs0_gdsc {
+	parent-supply = <&pm855l_s5_level>;
 	status = "ok";
 };
 
 &mvs1_gdsc {
+	parent-supply = <&pm855l_s5_level>;
 	status = "ok";
 };
 
