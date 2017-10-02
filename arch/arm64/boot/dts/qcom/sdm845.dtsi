@@ -847,7 +847,7 @@
 
 	llccbw: qcom,llccbw {
 		compatible = "qcom,devbw";
-		governor = "powersave";
+		governor = "performance";
 		qcom,src-dst-ports =
 			<MSM_BUS_MASTER_LLCC MSM_BUS_SLAVE_EBI_CH0>;
 		qcom,active-only;
