@@ -1697,6 +1697,119 @@ end:
 	drm_modeset_unlock_all(dev);
 }
 
+static int _sde_kms_helper_reset_custom_properties(struct sde_kms *sde_kms,
+		struct drm_atomic_state *state)
+{
+	struct drm_device *dev = sde_kms->dev;
+	struct drm_plane *plane;
+	struct drm_plane_state *plane_state;
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *crtc_state;
+	struct drm_connector *conn;
+	struct drm_connector_state *conn_state;
+	int ret = 0;
+
+	drm_for_each_plane(plane, dev) {
+		plane_state = drm_atomic_get_plane_state(state, plane);
+		if (IS_ERR(plane_state)) {
+			ret = PTR_ERR(plane_state);
+			SDE_ERROR("error %d getting plane %d state\n",
+					ret, DRMID(plane));
+			return ret;
+		}
+
+		ret = sde_plane_helper_reset_custom_properties(plane,
+				plane_state);
+		if (ret) {
+			SDE_ERROR("error %d resetting plane props %d\n",
+					ret, DRMID(plane));
+			return ret;
+		}
+	}
+	drm_for_each_crtc(crtc, dev) {
+		crtc_state = drm_atomic_get_crtc_state(state, crtc);
+		if (IS_ERR(crtc_state)) {
+			ret = PTR_ERR(crtc_state);
+			SDE_ERROR("error %d getting crtc %d state\n",
+					ret, DRMID(crtc));
+			return ret;
+		}
+
+		ret = sde_crtc_helper_reset_custom_properties(crtc, crtc_state);
+		if (ret) {
+			SDE_ERROR("error %d resetting crtc props %d\n",
+					ret, DRMID(crtc));
+			return ret;
+		}
+	}
+
+	drm_for_each_connector(conn, dev) {
+		conn_state = drm_atomic_get_connector_state(state, conn);
+		if (IS_ERR(conn_state)) {
+			ret = PTR_ERR(conn_state);
+			SDE_ERROR("error %d getting connector %d state\n",
+					ret, DRMID(conn));
+			return ret;
+		}
+
+		ret = sde_connector_helper_reset_custom_properties(conn,
+				conn_state);
+		if (ret) {
+			SDE_ERROR("error %d resetting connector props %d\n",
+					ret, DRMID(conn));
+			return ret;
+		}
+	}
+
+	return ret;
+}
+
+static void sde_kms_lastclose(struct msm_kms *kms)
+{
+	struct sde_kms *sde_kms;
+	struct drm_device *dev;
+	struct drm_atomic_state *state;
+	int ret, i;
+
+	if (!kms) {
+		SDE_ERROR("invalid argument\n");
+		return;
+	}
+
+	sde_kms = to_sde_kms(kms);
+	dev = sde_kms->dev;
+
+	state = drm_atomic_state_alloc(dev);
+	if (!state)
+		return;
+
+	state->acquire_ctx = dev->mode_config.acquire_ctx;
+
+	for (i = 0; i < TEARDOWN_DEADLOCK_RETRY_MAX; i++) {
+		/* add reset of custom properties to the state */
+		ret = _sde_kms_helper_reset_custom_properties(sde_kms, state);
+		if (ret)
+			break;
+
+		ret = drm_atomic_commit(state);
+		if (ret != -EDEADLK)
+			break;
+
+		drm_atomic_state_clear(state);
+		drm_atomic_legacy_backoff(state);
+		SDE_DEBUG("deadlock backoff on attempt %d\n", i);
+	}
+
+	if (ret) {
+		/**
+		 * on success, atomic state object ownership transfers to
+		 * framework, otherwise, free it here
+		 */
+		drm_atomic_state_free(state);
+		SDE_ERROR("failed to run last close: %d\n", ret);
+	}
+}
+
 static int sde_kms_check_secure_transition(struct msm_kms *kms,
 		struct drm_atomic_state *state)
 {
@@ -2026,6 +2139,7 @@ static const struct msm_kms_funcs kms_funcs = {
 	.irq_uninstall   = sde_irq_uninstall,
 	.irq             = sde_irq,
 	.preclose        = sde_kms_preclose,
+	.lastclose       = sde_kms_lastclose,
 	.prepare_fence   = sde_kms_prepare_fence,
 	.prepare_commit  = sde_kms_prepare_commit,
 	.commit          = sde_kms_commit,

@@ -598,4 +598,15 @@ int sde_connector_get_dither_cfg(struct drm_connector *conn,
  */
 void sde_connector_schedule_status_work(struct drm_connector *conn, bool en);
 
+/**
+ * sde_connector_helper_reset_properties - reset properties to default values in
+ *	the given DRM connector state object
+ * @connector: Pointer to DRM connector object
+ * @connector_state: Pointer to DRM connector state object
+ * Returns: 0 on success, negative errno on failure
+ */
+int sde_connector_helper_reset_custom_properties(
+		struct drm_connector *connector,
+		struct drm_connector_state *connector_state);
+
 #endif /* _SDE_CONNECTOR_H_ */
