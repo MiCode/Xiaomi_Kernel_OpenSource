@@ -4482,7 +4482,7 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 			CRTC_PROP_ROT_CLK);
 
 	msm_property_install_range(&sde_crtc->property_info,
-		"idle_timeout", IDLE_TIMEOUT, 0, U64_MAX, 0,
+		"idle_time", IDLE_TIMEOUT, 0, U64_MAX, 0,
 		CRTC_PROP_IDLE_TIMEOUT);
 
 	msm_property_install_blob(&sde_crtc->property_info, "capabilities",
