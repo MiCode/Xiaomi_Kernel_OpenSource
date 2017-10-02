@@ -135,7 +135,8 @@ struct drm_panel_esd_config {
 	u32 *status_cmds_rlen;
 	u32 *status_valid_params;
 	u32 *status_value;
-	unsigned char *return_buf;
+	u8 *return_buf;
+	u8 *status_buf;
 	u32 groups;
 };
 
