@@ -40,8 +40,6 @@
 #define DISP_CC_MISC_CMD	0x8000
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
-#define F_SLEW(f, s, h, m, n, src_freq) { (f), (s), (2 * (h) - 1), (m), (n), \
-					(src_freq) }
 
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_CX_NUM, 1, vdd_corner);
 
