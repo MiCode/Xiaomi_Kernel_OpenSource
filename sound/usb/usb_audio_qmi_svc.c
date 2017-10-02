@@ -411,9 +411,12 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 	int protocol, card_num, pcm_dev_num;
 	void *hdr_ptr;
 	u8 *xfer_buf;
-	u32 len, mult, remainder, xfer_buf_len;
-	unsigned long va, tr_data_va = 0, tr_sync_va = 0, xfer_buf_va = 0;
-	phys_addr_t xhci_pa, xfer_buf_pa;
+	u32 len, mult, remainder, xfer_buf_len, sg_len, i, total_len = 0;
+	unsigned long va, va_sg, tr_data_va = 0, tr_sync_va = 0;
+	phys_addr_t xhci_pa, xfer_buf_pa, tr_data_pa = 0, tr_sync_pa = 0;
+	dma_addr_t dma;
+	struct sg_table sgt;
+	struct scatterlist *sg;
 
 	iface = usb_ifnum_to_if(subs->dev, subs->interface);
 	if (!iface) {
@@ -527,13 +530,13 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 	memcpy(&resp->std_as_data_ep_desc, &ep->desc, sizeof(ep->desc));
 	resp->std_as_data_ep_desc_valid = 1;
 
-	xhci_pa = usb_get_xfer_ring_dma_addr(subs->dev, ep);
-	if (!xhci_pa) {
+	tr_data_pa = usb_get_xfer_ring_phys_addr(subs->dev, ep, &dma);
+	if (!tr_data_pa) {
 		pr_err("%s:failed to get data ep ring dma address\n", __func__);
 		goto err;
 	}
 
-	resp->xhci_mem_info.tr_data.pa = xhci_pa;
+	resp->xhci_mem_info.tr_data.pa = dma;
 
 	if (subs->sync_endpoint) {
 		ep = usb_pipe_endpoint(subs->dev, subs->sync_endpoint->pipe);
@@ -544,13 +547,13 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 		memcpy(&resp->std_as_sync_ep_desc, &ep->desc, sizeof(ep->desc));
 		resp->std_as_sync_ep_desc_valid = 1;
 
-		xhci_pa = usb_get_xfer_ring_dma_addr(subs->dev, ep);
-		if (!xhci_pa) {
+		tr_sync_pa = usb_get_xfer_ring_phys_addr(subs->dev, ep, &dma);
+		if (!tr_sync_pa) {
 			pr_err("%s:failed to get sync ep ring dma address\n",
 				__func__);
 			goto err;
 		}
-		resp->xhci_mem_info.tr_sync.pa = xhci_pa;
+		resp->xhci_mem_info.tr_sync.pa = dma;
 	}
 
 skip_sync_ep:
@@ -573,8 +576,8 @@ skip_sync_ep:
 			ret);
 		goto err;
 	}
-	xhci_pa = usb_get_sec_event_ring_dma_addr(subs->dev,
-			resp->interrupter_num);
+	xhci_pa = usb_get_sec_event_ring_phys_addr(subs->dev,
+			resp->interrupter_num, &dma);
 	if (!xhci_pa) {
 		pr_err("%s: failed to get sec event ring dma address\n",
 		__func__);
@@ -587,7 +590,7 @@ skip_sync_ep:
 
 	resp->xhci_mem_info.evt_ring.va = PREPEND_SID_TO_IOVA(va,
 						uaudio_qdev->sid);
-	resp->xhci_mem_info.evt_ring.pa = xhci_pa;
+	resp->xhci_mem_info.evt_ring.pa = dma;
 	resp->xhci_mem_info.evt_ring.size = PAGE_SIZE;
 	uaudio_qdev->er_phys_addr = xhci_pa;
 
@@ -598,8 +601,7 @@ skip_sync_ep:
 	resp->speed_info_valid = 1;
 
 	/* data transfer ring */
-	xhci_pa = resp->xhci_mem_info.tr_data.pa;
-	va = uaudio_iommu_map(MEM_XFER_RING, xhci_pa, PAGE_SIZE);
+	va = uaudio_iommu_map(MEM_XFER_RING, tr_data_pa, PAGE_SIZE);
 	if (!va)
 		goto unmap_er;
 
@@ -613,7 +615,7 @@ skip_sync_ep:
 		goto skip_sync;
 
 	xhci_pa = resp->xhci_mem_info.tr_sync.pa;
-	va = uaudio_iommu_map(MEM_XFER_RING, xhci_pa, PAGE_SIZE);
+	va = uaudio_iommu_map(MEM_XFER_RING, tr_sync_pa, PAGE_SIZE);
 	if (!va)
 		goto unmap_data;
 
@@ -642,18 +644,32 @@ skip_sync:
 	if (!xfer_buf)
 		goto unmap_sync;
 
+	dma_get_sgtable(subs->dev->bus->sysdev, &sgt, xfer_buf, xfer_buf_pa,
+			len);
+
+	va = 0;
+	for_each_sg(sgt.sgl, sg, sgt.nents, i) {
+		sg_len = PAGE_ALIGN(sg->offset + sg->length);
+		va_sg = uaudio_iommu_map(MEM_XFER_BUF,
+			page_to_phys(sg_page(sg)), sg_len);
+		if (!va_sg)
+			goto unmap_xfer_buf;
+
+		if (!va)
+			va = va_sg;
+
+		total_len += sg_len;
+	}
+
 	resp->xhci_mem_info.xfer_buff.pa = xfer_buf_pa;
 	resp->xhci_mem_info.xfer_buff.size = len;
 
-	va = uaudio_iommu_map(MEM_XFER_BUF, xfer_buf_pa, len);
-	if (!va)
-		goto unmap_sync;
-
-	xfer_buf_va = va;
 	resp->xhci_mem_info.xfer_buff.va = PREPEND_SID_TO_IOVA(va,
 						uaudio_qdev->sid);
 
 	resp->xhci_mem_info_valid = 1;
+
+	sg_free_table(&sgt);
 
 	if (!atomic_read(&uadev[card_num].in_use)) {
 		kref_init(&uadev[card_num].kref);
@@ -680,7 +696,7 @@ skip_sync:
 	uadev[card_num].info[info_idx].data_xfer_ring_size = PAGE_SIZE;
 	uadev[card_num].info[info_idx].sync_xfer_ring_va = tr_sync_va;
 	uadev[card_num].info[info_idx].sync_xfer_ring_size = PAGE_SIZE;
-	uadev[card_num].info[info_idx].xfer_buf_va = xfer_buf_va;
+	uadev[card_num].info[info_idx].xfer_buf_va = va;
 	uadev[card_num].info[info_idx].xfer_buf_pa = xfer_buf_pa;
 	uadev[card_num].info[info_idx].xfer_buf_size = len;
 	uadev[card_num].info[info_idx].xfer_buf = xfer_buf;
@@ -695,7 +711,8 @@ skip_sync:
 	return 0;
 
 unmap_xfer_buf:
-	uaudio_iommu_unmap(MEM_XFER_BUF, xfer_buf_va, len);
+	if (va)
+		uaudio_iommu_unmap(MEM_XFER_BUF, va, total_len);
 unmap_sync:
 	usb_free_coherent(subs->dev, len, xfer_buf, xfer_buf_pa);
 	uaudio_iommu_unmap(MEM_XFER_RING, tr_sync_va, PAGE_SIZE);
