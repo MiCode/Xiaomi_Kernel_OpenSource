@@ -704,7 +704,10 @@ static void _sde_plane_set_input_fence(struct sde_plane *psde,
 		sde_sync_put(pstate->input_fence);
 
 	/* get fence pointer for later */
-	pstate->input_fence = sde_sync_get(fd);
+	if (fd == 0)
+		pstate->input_fence = NULL;
+	else
+		pstate->input_fence = sde_sync_get(fd);
 
 	SDE_DEBUG_PLANE(psde, "0x%llX\n", fd);
 }
@@ -3833,6 +3836,56 @@ void sde_plane_restore(struct drm_plane *plane)
 
 	/* last plane state is same as current state */
 	sde_plane_atomic_update(plane, plane->state);
+}
+
+int sde_plane_helper_reset_custom_properties(struct drm_plane *plane,
+		struct drm_plane_state *plane_state)
+{
+	struct sde_plane *psde;
+	struct sde_plane_state *pstate;
+	struct drm_property *drm_prop;
+	enum msm_mdp_plane_property prop_idx;
+
+	if (!plane || !plane_state) {
+		SDE_ERROR("invalid params\n");
+		return -EINVAL;
+	}
+
+	psde = to_sde_plane(plane);
+	pstate = to_sde_plane_state(plane_state);
+
+	for (prop_idx = 0; prop_idx < PLANE_PROP_COUNT; prop_idx++) {
+		uint64_t val = pstate->property_values[prop_idx].value;
+		uint64_t def;
+		int ret;
+
+		drm_prop = msm_property_index_to_drm_property(
+				&psde->property_info, prop_idx);
+		if (!drm_prop) {
+			/* not all props will be installed, based on caps */
+			SDE_DEBUG_PLANE(psde, "invalid property index %d\n",
+					prop_idx);
+			continue;
+		}
+
+		def = msm_property_get_default(&psde->property_info, prop_idx);
+		if (val == def)
+			continue;
+
+		SDE_DEBUG_PLANE(psde, "set prop %s idx %d from %llu to %llu\n",
+				drm_prop->name, prop_idx, val, def);
+
+		ret = drm_atomic_plane_set_property(plane, plane_state,
+				drm_prop, def);
+		if (ret) {
+			SDE_ERROR_PLANE(psde,
+					"set property failed, idx %d ret %d\n",
+					prop_idx, ret);
+			continue;
+		}
+	}
+
+	return 0;
 }
 
 /* helper to install properties which are common to planes and crtcs */

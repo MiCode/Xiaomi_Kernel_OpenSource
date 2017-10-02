@@ -1008,9 +1008,9 @@ static void msm_lastclose(struct drm_device *dev)
 	} else {
 		drm_modeset_lock_all(dev);
 		msm_disable_all_modes(dev);
-		drm_modeset_unlock_all(dev);
 		if (kms && kms->funcs && kms->funcs->lastclose)
 			kms->funcs->lastclose(kms);
+		drm_modeset_unlock_all(dev);
 	}
 }
 

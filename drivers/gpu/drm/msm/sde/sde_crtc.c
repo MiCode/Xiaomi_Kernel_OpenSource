@@ -1749,15 +1749,17 @@ static int _sde_crtc_set_dest_scaler_lut(struct sde_crtc *sde_crtc,
 	}
 
 	if (sde_crtc->scl3_lut_cfg->is_configured) {
-		SDE_DEBUG("lut already configured\n");
+		SDE_DEBUG("%s: lut already configured\n", sde_crtc->name);
 		return 0;
 	}
 
 	lut_data = msm_property_get_blob(&sde_crtc->property_info,
 			&cstate->property_state, &len, lut_idx);
 	if (!lut_data || !len) {
-		SDE_ERROR("lut(%d): no data, len(%zu)\n", lut_idx, len);
-		return -ENODATA;
+		SDE_DEBUG("%s: lut(%d): cleared: %pK, %zu\n", sde_crtc->name,
+				lut_idx, lut_data, len);
+		lut_data = NULL;
+		len = 0;
 	}
 
 	cfg = sde_crtc->scl3_lut_cfg;
@@ -1781,8 +1783,7 @@ static int _sde_crtc_set_dest_scaler_lut(struct sde_crtc *sde_crtc,
 		break;
 	}
 
-	if (cfg->dir_lut && cfg->cir_lut && cfg->sep_lut)
-		cfg->is_configured = true;
+	cfg->is_configured = cfg->dir_lut && cfg->cir_lut && cfg->sep_lut;
 
 	return ret;
 }
@@ -4481,6 +4482,57 @@ void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file)
 	_sde_crtc_complete_flip(crtc, file);
 }
 
+int sde_crtc_helper_reset_custom_properties(struct drm_crtc *crtc,
+		struct drm_crtc_state *crtc_state)
+{
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *cstate;
+	struct drm_property *drm_prop;
+	enum msm_mdp_crtc_property prop_idx;
+
+	if (!crtc || !crtc_state) {
+		SDE_ERROR("invalid params\n");
+		return -EINVAL;
+	}
+
+	sde_crtc = to_sde_crtc(crtc);
+	cstate = to_sde_crtc_state(crtc_state);
+
+	for (prop_idx = 0; prop_idx < CRTC_PROP_COUNT; prop_idx++) {
+		uint64_t val = cstate->property_values[prop_idx].value;
+		uint64_t def;
+		int ret;
+
+		drm_prop = msm_property_index_to_drm_property(
+				&sde_crtc->property_info, prop_idx);
+		if (!drm_prop) {
+			/* not all props will be installed, based on caps */
+			SDE_DEBUG("%s: invalid property index %d\n",
+					sde_crtc->name, prop_idx);
+			continue;
+		}
+
+		def = msm_property_get_default(&sde_crtc->property_info,
+				prop_idx);
+		if (val == def)
+			continue;
+
+		SDE_DEBUG("%s: set prop %s idx %d from %llu to %llu\n",
+				sde_crtc->name, drm_prop->name, prop_idx, val,
+				def);
+
+		ret = drm_atomic_crtc_set_property(crtc, crtc_state, drm_prop,
+				def);
+		if (ret) {
+			SDE_ERROR("%s: set property failed, idx %d ret %d\n",
+					sde_crtc->name, prop_idx, ret);
+			continue;
+		}
+	}
+
+	return 0;
+}
+
 /**
  * sde_crtc_install_properties - install all drm properties for crtc
  * @crtc: Pointer to drm crtc structure
@@ -4525,7 +4577,7 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 		SDE_CRTC_INPUT_FENCE_TIMEOUT, CRTC_PROP_INPUT_FENCE_TIMEOUT);
 
 	msm_property_install_range(&sde_crtc->property_info, "output_fence",
-			0x0, 0, INR_OPEN_MAX, 0x0, CRTC_PROP_OUTPUT_FENCE);
+			0x0, 0, INR_OPEN_MAX, 0, CRTC_PROP_OUTPUT_FENCE);
 
 	msm_property_install_range(&sde_crtc->property_info,
 			"output_fence_offset", 0x0, 0, 1, 0,

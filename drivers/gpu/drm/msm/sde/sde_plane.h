@@ -294,4 +294,14 @@ int sde_plane_color_fill(struct drm_plane *plane,
  */
 void sde_plane_set_revalidate(struct drm_plane *plane, bool enable);
 
+/**
+ * sde_plane_helper_reset_properties - reset properties to default values in the
+ *	given DRM plane state object
+ * @plane: Pointer to DRM plane object
+ * @plane_state: Pointer to DRM plane state object
+ * Returns: 0 on success, negative errno on failure
+ */
+int sde_plane_helper_reset_custom_properties(struct drm_plane *plane,
+		struct drm_plane_state *plane_state);
+
 #endif /* _SDE_PLANE_H_ */

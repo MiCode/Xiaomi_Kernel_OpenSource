@@ -83,8 +83,6 @@ struct msm_file_private {
 
 enum msm_mdp_plane_property {
 	/* blob properties, always put these first */
-	PLANE_PROP_SCALER_V1,
-	PLANE_PROP_SCALER_V2,
 	PLANE_PROP_CSC_V1,
 	PLANE_PROP_INFO,
 	PLANE_PROP_SCALER_LUT_ED,
@@ -116,6 +114,8 @@ enum msm_mdp_plane_property {
 	PLANE_PROP_ROT_DST_H,
 	PLANE_PROP_PREFILL_SIZE,
 	PLANE_PROP_PREFILL_TIME,
+	PLANE_PROP_SCALER_V1,
+	PLANE_PROP_SCALER_V2,
 
 	/* enum/bitmask properties */
 	PLANE_PROP_ROTATION,
