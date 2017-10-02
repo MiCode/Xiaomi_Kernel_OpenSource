@@ -475,12 +475,31 @@ static long clk_alpha_pll_round_rate(struct clk_hw *hw, unsigned long rate,
 	return clamp(rate, min_freq, max_freq);
 }
 
-static void clk_alpha_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
+static void print_pll_registers(struct seq_file *f, struct clk_hw *hw,
+		struct clk_register_data *pll_regs, int size,
+		struct clk_register_data *pll_vote_reg)
 {
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
-	int size, i, val;
+	int i, val;
 
-	static struct clk_register_data data[] = {
+	for (i = 0; i < size; i++) {
+		regmap_read(pll->clkr.regmap, pll->offset + pll_regs[i].offset,
+					&val);
+		seq_printf(f, "%20s: 0x%.8x\n", pll_regs[i].name, val);
+	}
+
+	regmap_read(pll->clkr.regmap, pll->offset + PLL_MODE, &val);
+
+	if (val & PLL_FSM_ENA) {
+		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
+					pll_vote_reg->offset, &val);
+		seq_printf(f, "%20s: 0x%.8x\n", pll_vote_reg->name, val);
+	}
+}
+
+static void clk_alpha_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
+{
+	static struct clk_register_data pll_regs[] = {
 		{"PLL_MODE", 0x0},
 		{"PLL_L_VAL", 0x4},
 		{"PLL_ALPHA_VAL", 0x8},
@@ -489,25 +508,12 @@ static void clk_alpha_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 		{"PLL_CONFIG_CTL", 0x18},
 	};
 
-	static struct clk_register_data data1[] = {
-		{"APSS_PLL_VOTE", 0x0},
+	static struct clk_register_data pll_vote_reg = {
+		"APSS_PLL_VOTE", 0x0
 	};
 
-	size = ARRAY_SIZE(data);
-
-	for (i = 0; i < size; i++) {
-		regmap_read(pll->clkr.regmap, pll->offset + data[i].offset,
-					&val);
-		seq_printf(f, "%20s: 0x%.8x\n", data[i].name, val);
-	}
-
-	regmap_read(pll->clkr.regmap, pll->offset + data[0].offset, &val);
-
-	if (val & PLL_FSM_ENA) {
-		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
-					data1[0].offset, &val);
-		seq_printf(f, "%20s: 0x%.8x\n", data1[0].name, val);
-	}
+	print_pll_registers(f, hw, pll_regs, ARRAY_SIZE(pll_regs),
+							&pll_vote_reg);
 }
 
 static int trion_pll_is_enabled(struct clk_alpha_pll *pll,
@@ -793,6 +799,26 @@ static int clk_trion_pll_is_enabled(struct clk_hw *hw)
 	return trion_pll_is_enabled(pll, pll->clkr.regmap);
 }
 
+static void clk_trion_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
+{
+	static struct clk_register_data pll_regs[] = {
+		{"PLL_MODE", 0x0},
+		{"PLL_L_VAL", 0x4},
+		{"PLL_CAL_L_VAL", 0x8},
+		{"PLL_USER_CTL", 0xC},
+		{"PLL_CONFIG_CTL", 0x18},
+		{"PLL_OPMODE", 0x38},
+		{"PLL_ALPHA_VAL", 0x40},
+	};
+
+	static struct clk_register_data pll_vote_reg = {
+		"APSS_PLL_VOTE", 0x0
+	};
+
+	print_pll_registers(f, hw, pll_regs, ARRAY_SIZE(pll_regs),
+							&pll_vote_reg);
+}
+
 const struct clk_ops clk_alpha_pll_ops = {
 	.enable = clk_alpha_pll_enable,
 	.disable = clk_alpha_pll_disable,
@@ -823,6 +849,7 @@ const struct clk_ops clk_trion_pll_ops = {
 	.recalc_rate = clk_trion_pll_recalc_rate,
 	.round_rate = clk_alpha_pll_round_rate,
 	.set_rate = clk_trion_pll_set_rate,
+	.list_registers = clk_trion_pll_list_registers,
 };
 EXPORT_SYMBOL_GPL(clk_trion_pll_ops);
 
@@ -832,6 +859,7 @@ const struct clk_ops clk_trion_fixed_pll_ops = {
 	.is_enabled = clk_trion_pll_is_enabled,
 	.recalc_rate = clk_trion_pll_recalc_rate,
 	.round_rate = clk_alpha_pll_round_rate,
+	.list_registers = clk_trion_pll_list_registers,
 };
 EXPORT_SYMBOL_GPL(clk_trion_fixed_pll_ops);
 
