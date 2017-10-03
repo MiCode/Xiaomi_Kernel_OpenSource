@@ -3070,7 +3070,46 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 	}
 }
 
-void sde_encoder_kickoff(struct drm_encoder *drm_enc)
+/**
+ * _sde_encoder_reset_ctl_hw - reset h/w configuration for all ctl's associated
+ *	with the specified encoder, and unstage all pipes from it
+ * @encoder:	encoder pointer
+ * Returns: 0 on success
+ */
+static int _sde_encoder_reset_ctl_hw(struct drm_encoder *drm_enc)
+{
+	struct sde_encoder_virt *sde_enc;
+	struct sde_encoder_phys *phys;
+	unsigned int i;
+	int rc = 0;
+
+	if (!drm_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return -EINVAL;
+	}
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+
+	SDE_ATRACE_BEGIN("encoder_release_lm");
+	SDE_DEBUG_ENC(sde_enc, "\n");
+
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		phys = sde_enc->phys_encs[i];
+		if (!phys)
+			continue;
+
+		SDE_EVT32(DRMID(drm_enc), phys->intf_idx - INTF_0);
+
+		rc = sde_encoder_helper_reset_mixers(phys, NULL);
+		if (rc)
+			SDE_EVT32(DRMID(drm_enc), rc, SDE_EVTLOG_ERROR);
+	}
+
+	SDE_ATRACE_END("encoder_release_lm");
+	return rc;
+}
+
+void sde_encoder_kickoff(struct drm_encoder *drm_enc, bool is_error)
 {
 	struct sde_encoder_virt *sde_enc;
 	struct sde_encoder_phys *phys;
@@ -3092,6 +3131,10 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc)
 	mod_timer(&sde_enc->frame_done_timer, jiffies +
 		((atomic_read(&sde_enc->frame_done_timeout) * HZ) / 1000));
 
+	/* create a 'no pipes' commit to release buffers on errors */
+	if (is_error)
+		_sde_encoder_reset_ctl_hw(drm_enc);
+
 	/* All phys encs are ready to go, trigger the kickoff */
 	_sde_encoder_kickoff_phys(sde_enc);
 
@@ -3112,7 +3155,7 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc)
 	SDE_ATRACE_END("encoder_kickoff");
 }
 
-int sde_encoder_helper_hw_release(struct sde_encoder_phys *phys_enc,
+int sde_encoder_helper_reset_mixers(struct sde_encoder_phys *phys_enc,
 		struct drm_framebuffer *fb)
 {
 	struct drm_encoder *drm_enc;
@@ -3129,8 +3172,6 @@ int sde_encoder_helper_hw_release(struct sde_encoder_phys *phys_enc,
 	memset(&mixer, 0, sizeof(mixer));
 
 	/* reset associated CTL/LMs */
-	if (phys_enc->hw_ctl->ops.clear_pending_flush)
-		phys_enc->hw_ctl->ops.clear_pending_flush(phys_enc->hw_ctl);
 	if (phys_enc->hw_ctl->ops.clear_all_blendstages)
 		phys_enc->hw_ctl->ops.clear_all_blendstages(phys_enc->hw_ctl);
 
@@ -3170,7 +3211,7 @@ int sde_encoder_helper_hw_release(struct sde_encoder_phys *phys_enc,
 	}
 
 	if (!lm_valid) {
-		SDE_DEBUG_ENC(to_sde_encoder_virt(drm_enc), "lm not found\n");
+		SDE_ERROR_ENC(to_sde_encoder_virt(drm_enc), "lm not found\n");
 		return -EFAULT;
 	}
 	return 0;

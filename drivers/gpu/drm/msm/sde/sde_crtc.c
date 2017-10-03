@@ -1504,6 +1504,7 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 
 		lm->ops.setup_alpha_out(lm, mixer[i].mixer_op_mode);
 
+		mixer[i].pipe_mask = mixer[i].flush_mask;
 		mixer[i].flush_mask |= ctl->ops.get_bitmask_mixer(ctl,
 			mixer[i].hw_lm->idx);
 
@@ -3313,6 +3314,34 @@ static void _sde_crtc_commit_kickoff_rot(struct drm_crtc *crtc,
 	SDE_ATRACE_END("crtc_kickoff_rot");
 }
 
+/**
+ * _sde_crtc_remove_pipe_flush - remove staged pipes from flush mask
+ * @sde_crtc: Pointer to sde crtc structure
+ */
+static void _sde_crtc_remove_pipe_flush(struct sde_crtc *sde_crtc)
+{
+	struct sde_crtc_mixer *mixer;
+	struct sde_hw_ctl *ctl;
+	u32 i, flush_mask;
+
+	if (!sde_crtc)
+		return;
+
+	mixer = sde_crtc->mixers;
+	for (i = 0; i < sde_crtc->num_mixers; i++) {
+		ctl = mixer[i].hw_ctl;
+		if (!ctl || !ctl->ops.get_pending_flush ||
+				!ctl->ops.clear_pending_flush ||
+				!ctl->ops.update_pending_flush)
+			continue;
+
+		flush_mask = ctl->ops.get_pending_flush(ctl);
+		flush_mask &= ~mixer[i].pipe_mask;
+		ctl->ops.clear_pending_flush(ctl);
+		ctl->ops.update_pending_flush(ctl, flush_mask);
+	}
+}
+
 void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 {
 	struct drm_encoder *encoder;
@@ -3321,6 +3350,7 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
 	struct sde_crtc_state *cstate;
+	bool is_error;
 	int ret;
 
 	if (!crtc) {
@@ -3330,6 +3360,7 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	dev = crtc->dev;
 	sde_crtc = to_sde_crtc(crtc);
 	sde_kms = _sde_crtc_get_kms(crtc);
+	is_error = false;
 
 	if (!sde_kms || !sde_kms->dev || !sde_kms->dev->dev_private) {
 		SDE_ERROR("invalid argument\n");
@@ -3396,7 +3427,11 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 		SDE_ERROR("crtc%d wait for frame done failed;frame_pending%d\n",
 				crtc->base.id,
 				atomic_read(&sde_crtc->frame_pending));
-		goto end;
+
+		is_error = true;
+
+		/* force offline rotation mode since the commit has no pipes */
+		cstate->sbuf_cfg.rot_op_mode = SDE_CTL_ROT_OP_MODE_OFFLINE;
 	}
 
 	if (atomic_inc_return(&sde_crtc->frame_pending) == 1) {
@@ -3423,14 +3458,16 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 
 	sde_vbif_clear_errors(sde_kms);
 
+	if (is_error)
+		_sde_crtc_remove_pipe_flush(sde_crtc);
+
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 		if (encoder->crtc != crtc)
 			continue;
 
-		sde_encoder_kickoff(encoder);
+		sde_encoder_kickoff(encoder, is_error);
 	}
 
-end:
 	reinit_completion(&sde_crtc->frame_done_comp);
 	SDE_ATRACE_END("crtc_commit");
 	return;

@@ -522,12 +522,12 @@ void sde_encoder_helper_split_config(
 		enum sde_intf interface);
 
 /**
- * sde_encoder_helper_hw_release - prepare for h/w reset during disable
+ * sde_encoder_helper_reset_mixers - reset mixers associated with phys enc
  * @phys_enc: Pointer to physical encoder structure
  * @fb: Optional fb for specifying new mixer output resolution, may be NULL
  * Return: Zero on success
  */
-int sde_encoder_helper_hw_release(struct sde_encoder_phys *phys_enc,
+int sde_encoder_helper_reset_mixers(struct sde_encoder_phys *phys_enc,
 		struct drm_framebuffer *fb);
 
 /**
