@@ -2294,9 +2294,11 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	kgsl_clk_set_rate(device, pwr->num_pwrlevels - 1);
 
-	kgsl_pwrctrl_clk_set_rate(pwr->grp_clks[6],
-		clk_round_rate(pwr->grp_clks[6], KGSL_RBBMTIMER_CLK_FREQ),
-		clocks[6]);
+	if (pwr->grp_clks[6] != NULL)
+		kgsl_pwrctrl_clk_set_rate(pwr->grp_clks[6],
+			clk_round_rate(pwr->grp_clks[6],
+			KGSL_RBBMTIMER_CLK_FREQ),
+			clocks[6]);
 
 	_isense_clk_set_rate(pwr, pwr->num_pwrlevels - 1);
 
