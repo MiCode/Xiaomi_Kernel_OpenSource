@@ -43,7 +43,7 @@
 	};
 
 	chosen {
-		bootargs = "rcupdate.rcu_expedited=1";
+		bootargs = "rcupdate.rcu_expedited=1 core_ctl_disable_cpumask=6-7";
 	};
 
 	cpus {
