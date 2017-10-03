@@ -22,6 +22,7 @@ detection on PCIO port
 
 Required properties:
 - compatible : "qcom,gladiator-hang-detect" or "qcom,gladiator-hang-detect-v2"
+				or "qcom,gladiator-hang-detect-v3"
 - qcom, threshold-arr:
 		Array of APCS_COMMON_GLADIATOR_HANG_THRESHOLD_n register
 		address

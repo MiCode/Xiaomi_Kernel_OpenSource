@@ -460,6 +460,12 @@ static struct attribute *hang_attrs_v2[] = {
 	NULL
 };
 
+static struct attribute *hang_attrs_v3[] = {
+	&hang_attr_ace_threshold.attr,
+	&hang_attr_ace_enable.attr,
+	NULL
+};
+
 static struct attribute_group hang_attr_group = {
 	.attrs = hang_attrs,
 };
@@ -467,6 +473,7 @@ static struct attribute_group hang_attr_group = {
 static const struct of_device_id msm_gladiator_hang_detect_table[] = {
 	{ .compatible = "qcom,gladiator-hang-detect" },
 	{ .compatible = "qcom,gladiator-hang-detect-v2" },
+	{ .compatible = "qcom,gladiator-hang-detect-v3" },
 	{}
 };
 
@@ -503,6 +510,11 @@ static int msm_gladiator_hang_detect_probe(struct platform_device *pdev)
 		hang_det->IO_offset = 1;
 		NR_GLA_REG = 2;
 		hang_attr_group.attrs = hang_attrs_v2;
+	} else if (of_device_is_compatible(node,
+			"qcom,gladiator-hang-detect-v3")) {
+		hang_det->ACE_offset = 0;
+		NR_GLA_REG = 1;
+		hang_attr_group.attrs = hang_attrs_v3;
 	}
 
 	hang_det->threshold = devm_kzalloc(&pdev->dev,
