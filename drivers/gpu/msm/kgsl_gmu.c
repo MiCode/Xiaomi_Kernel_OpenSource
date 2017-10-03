@@ -1468,10 +1468,6 @@ int gmu_start(struct kgsl_device *device)
 		break;
 	}
 
-	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
-		gpudev->oob_clear(adreno_dev,
-				OOB_BOOT_SLUMBER_CLEAR_MASK);
-
 	return ret;
 
 error_gmu:
@@ -1479,44 +1475,23 @@ error_gmu:
 	return ret;
 }
 
-#define GMU_IDLE_TIMEOUT	10 /* ms */
-
 /* Caller shall ensure GPU is ready for SLUMBER */
 void gmu_stop(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = &device->gmu;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	unsigned long t;
-	bool idle = false;
-	unsigned int reg;
+	bool idle = true;
 
 	if (!test_bit(GMU_CLK_ON, &gmu->flags))
 		return;
 
-	t = jiffies + msecs_to_jiffies(GMU_IDLE_TIMEOUT);
-	while (!time_after(jiffies, t)) {
-		adreno_read_gmureg(ADRENO_DEVICE(device),
-			ADRENO_REG_GMU_RPMH_POWER_STATE, &reg);
-		if (reg == device->gmu.idle_level) {
-			idle = true;
-			break;
-		}
-		/* Wait 100us to reduce unnecessary AHB bus traffic */
-		udelay(100);
-		cond_resched();
-	}
-
-	/* Double check one last time */
-	if (idle == false) {
-		adreno_read_gmureg(ADRENO_DEVICE(device),
-			ADRENO_REG_GMU_RPMH_POWER_STATE, &reg);
-		if (reg == device->gmu.idle_level)
-			idle = true;
-	}
+	/* Wait for the lowest idle level we requested */
+	if (gpudev->wait_for_lowest_idle &&
+			gpudev->wait_for_lowest_idle(adreno_dev))
+		idle = false;
 
 	gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_NOTIFY_SLUMBER, 0, 0);
-
 	if (!idle || (gpudev->wait_for_gmu_idle &&
 			gpudev->wait_for_gmu_idle(adreno_dev))) {
 		dev_err(&gmu->pdev->dev, "Stopping GMU before it is idle\n");

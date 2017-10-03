@@ -1026,6 +1026,15 @@ static int timed_poll_check(struct kgsl_device *device,
 }
 
 /*
+ * The lowest 16 bits of this value are the number of XO clock cycles
+ * for main hysteresis. This is the first hysteresis. Here we set it
+ * to 0x5DC cycles, or 78.1 us. The highest 16 bits of this value are
+ * the number of XO clock cycles for short hysteresis. This happens
+ * after main hysteresis. Here we set it to 0xA cycles, or 0.5 us.
+ */
+#define GMU_PWR_COL_HYST 0x000A05DC
+
+/*
  * a6xx_gmu_power_config() - Configure and enable GMU's low power mode
  * setting based on ADRENO feature flags.
  * @device: Pointer to KGSL device
@@ -1056,13 +1065,13 @@ static void a6xx_gmu_power_config(struct kgsl_device *device)
 		/* fall through */
 	case GPU_HW_IFPC:
 		kgsl_gmu_regwrite(device, A6XX_GMU_PWR_COL_INTER_FRAME_HYST,
-				0x000A0080);
+				GMU_PWR_COL_HYST);
 		kgsl_gmu_regrmw(device, A6XX_GMU_PWR_COL_INTER_FRAME_CTRL, 0,
 				IFPC_ENABLE_MASK);
 		/* fall through */
 	case GPU_HW_SPTP_PC:
 		kgsl_gmu_regwrite(device, A6XX_GMU_PWR_COL_SPTPRAC_HYST,
-				0x000A0080);
+				GMU_PWR_COL_HYST);
 		kgsl_gmu_regrmw(device, A6XX_GMU_PWR_COL_INTER_FRAME_CTRL, 0,
 				SPTP_ENABLE_MASK);
 		/* fall through */
@@ -1281,21 +1290,12 @@ static bool a6xx_gx_is_on(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int val;
-	bool state;
 
 	if (!kgsl_gmu_isenabled(device))
 		return true;
 
 	kgsl_gmu_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &val);
-	state = !(val & (GX_GDSC_POWER_OFF | GX_CLK_OFF));
-
-	/* If GMU is holding on to the fence then we cannot dump any GX stuff */
-	kgsl_gmu_regread(device, A6XX_GMU_AO_AHB_FENCE_CTRL, &val);
-	if (val)
-		return false;
-
-	return state;
-
+	return !(val & (GX_GDSC_POWER_OFF | GX_CLK_OFF));
 }
 
 /*
@@ -1366,12 +1366,13 @@ static int a6xx_notify_slumber(struct kgsl_device *device)
 	/* Disable the power counter so that the GMU is not busy */
 	kgsl_gmu_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 0);
 
-	/* Turn off SPTPRAC before GMU turns off GX */
-	a6xx_sptprac_disable(adreno_dev);
+	/* Turn off SPTPRAC if we own it */
+	if (gmu->idle_level < GPU_HW_SPTP_PC)
+		a6xx_sptprac_disable(adreno_dev);
 
 	if (!ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
 		ret = hfi_notify_slumber(gmu, perf_idx, bus_level);
-		return ret;
+		goto out;
 	}
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_BOOT_SLUMBER_OPTION,
@@ -1397,6 +1398,9 @@ static int a6xx_notify_slumber(struct kgsl_device *device)
 		}
 	}
 
+out:
+	/* Make sure the fence is in ALLOW mode */
+	kgsl_gmu_regwrite(device, A6XX_GMU_AO_AHB_FENCE_CTRL, 0);
 	return ret;
 }
 
@@ -1742,6 +1746,53 @@ static bool a6xx_hw_isidle(struct adreno_device *adreno_dev)
 	if (reg & GPUBUSYIGNAHB)
 		return false;
 	return true;
+}
+
+static int a6xx_wait_for_lowest_idle(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct gmu_device *gmu = &device->gmu;
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	unsigned int reg;
+	unsigned long t;
+
+	if (!kgsl_gmu_isenabled(device))
+		return 0;
+
+	t = jiffies + msecs_to_jiffies(GMU_IDLE_TIMEOUT);
+	while (!time_after(jiffies, t)) {
+		adreno_read_gmureg(ADRENO_DEVICE(device),
+				ADRENO_REG_GMU_RPMH_POWER_STATE, &reg);
+
+		/* SPTPRAC PC has the same idle level as IFPC */
+		if ((reg == gmu->idle_level) ||
+				(gmu->idle_level == GPU_HW_SPTP_PC &&
+				reg == GPU_HW_IFPC)) {
+			/* IFPC is not complete until GX is off */
+			if (gmu->idle_level != GPU_HW_IFPC ||
+					!gpudev->gx_is_on(adreno_dev))
+				return 0;
+		}
+
+		/* Wait 100us to reduce unnecessary AHB bus traffic */
+		udelay(100);
+		cond_resched();
+	}
+
+	/* Check one last time */
+	adreno_read_gmureg(ADRENO_DEVICE(device),
+			ADRENO_REG_GMU_RPMH_POWER_STATE, &reg);
+	if ((reg == gmu->idle_level) ||
+			(gmu->idle_level == GPU_HW_SPTP_PC &&
+			reg == GPU_HW_IFPC)) {
+		if (gmu->idle_level != GPU_HW_IFPC ||
+				!gpudev->gx_is_on(adreno_dev))
+			return 0;
+	}
+
+	dev_err(&gmu->pdev->dev,
+			"Timeout waiting for lowest idle level: %d\n", reg);
+	return -ETIMEDOUT;
 }
 
 static int a6xx_wait_for_gmu_idle(struct adreno_device *adreno_dev)
@@ -2939,6 +2990,8 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A6XX_GMU_ALWAYS_ON_COUNTER_L),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_ALWAYSON_COUNTER_HI,
 				A6XX_GMU_ALWAYS_ON_COUNTER_H),
+	ADRENO_REG_DEFINE(ADRENO_REG_GMU_AO_AHB_FENCE_CTRL,
+				A6XX_GMU_AO_AHB_FENCE_CTRL),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_AO_INTERRUPT_EN,
 				A6XX_GMU_AO_INTERRUPT_EN),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_AO_HOST_INTERRUPT_CLR,
@@ -3019,6 +3072,7 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.gpu_keepalive = a6xx_gpu_keepalive,
 	.rpmh_gpu_pwrctrl = a6xx_rpmh_gpu_pwrctrl,
 	.hw_isidle = a6xx_hw_isidle, /* Replaced by NULL if GMU is disabled */
+	.wait_for_lowest_idle = a6xx_wait_for_lowest_idle,
 	.wait_for_gmu_idle = a6xx_wait_for_gmu_idle,
 	.iommu_fault_block = a6xx_iommu_fault_block,
 	.reset = a6xx_reset,

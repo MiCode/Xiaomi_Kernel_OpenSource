@@ -454,6 +454,22 @@ int hfi_send_bwtbl(struct gmu_device *gmu)
 	return rc;
 }
 
+static int hfi_send_test(struct gmu_device *gmu)
+{
+	struct hfi_test_cmd test_msg = {
+		.hdr = {
+			.id = H2F_MSG_TEST,
+			.size = sizeof(test_msg) >> 2,
+			.type = HFI_MSG_CMD,
+		},
+	};
+	uint32_t msg_size_dwords = (sizeof(test_msg)) >> 2;
+	struct pending_msg msg;
+
+	return hfi_send_msg(gmu, (struct hfi_msg_hdr *)&test_msg.hdr,
+			msg_size_dwords, &msg);
+}
+
 int hfi_send_dcvs_vote(struct gmu_device *gmu, uint32_t perf_idx,
 		uint32_t bw_idx, enum rpm_ack_type ack_type)
 {
@@ -614,10 +630,17 @@ int hfi_start(struct gmu_device *gmu, uint32_t boot_state)
 
 		result = hfi_send_lmconfig(gmu);
 		if (result) {
-			dev_err(dev, "Failire enabling limits management (%d)\n",
-				result);
+			dev_err(dev, "Failure enabling LM (%d)\n",
+					result);
 			return result;
 		}
+	}
+
+	/* Tell the GMU we are sending no more HFIs until the next boot */
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
+		result = hfi_send_test(gmu);
+		if (result)
+			return result;
 	}
 
 	set_bit(GMU_HFI_ON, &gmu->flags);
