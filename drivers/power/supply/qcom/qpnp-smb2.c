@@ -1663,6 +1663,18 @@ static int smb2_init_hw(struct smb2 *chip)
 		return rc;
 	}
 
+	/*
+	 * allow DRP.DFP time to exceed by tPDdebounce time.
+	 */
+	rc = smblib_masked_write(chg, TAPER_TIMER_SEL_CFG_REG,
+				TYPEC_DRP_DFP_TIME_CFG_BIT,
+				TYPEC_DRP_DFP_TIME_CFG_BIT);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't configure DRP.DFP time rc=%d\n",
+			rc);
+		return rc;
+	}
+
 	/* configure float charger options */
 	switch (chip->dt.float_option) {
 	case 1:
