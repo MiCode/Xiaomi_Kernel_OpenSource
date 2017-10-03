@@ -405,7 +405,8 @@ struct request *blk_mq_alloc_request(struct request_queue *q, unsigned int op,
 	struct request *rq;
 	int ret;
 
-	ret = blk_queue_enter(q, flags & BLK_MQ_REQ_NOWAIT);
+	ret = blk_queue_enter(q, !(flags & BLK_MQ_REQ_NOWAIT) ? op :
+			op | REQ_NOWAIT);
 	if (ret)
 		return ERR_PTR(ret);
 
