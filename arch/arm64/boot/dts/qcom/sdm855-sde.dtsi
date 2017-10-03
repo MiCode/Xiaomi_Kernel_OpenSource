@@ -226,16 +226,19 @@
 			qcom,sde-vig-qseed-size = <0xa0>;
 			qcom,sde-vig-gamut = <0x1d00 0x00050000>;
 			qcom,sde-vig-igc = <0x1d00 0x00050000>;
+			qcom,sde-vig-inverse-pma;
 		};
 
 		qcom,sde-sspp-dma-blocks {
 			dgm@0 {
 				qcom,sde-dma-igc = <0x400 0x00050000>;
 				qcom,sde-dma-gc = <0x600 0x00050000>;
+				qcom,sde-dma-inverse-pma;
 			};
 			dgm@1 {
 				qcom,sde-dma-igc = <0x1400 0x00050000>;
 				qcom,sde-dma-gc = <0x600 0x00050000>;
+				qcom,sde-dma-inverse-pma;
 			};
 		};
 
