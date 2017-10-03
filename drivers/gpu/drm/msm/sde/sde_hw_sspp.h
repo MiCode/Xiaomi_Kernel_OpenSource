@@ -502,9 +502,11 @@ struct sde_hw_sspp_ops {
 	 * setup_cdp - setup client driven prefetch
 	 * @ctx: Pointer to pipe context
 	 * @cfg: Pointer to cdp configuration
+	 * @index: rectangle index in multirect
 	 */
 	void (*setup_cdp)(struct sde_hw_pipe *ctx,
-			struct sde_hw_pipe_cdp_cfg *cfg);
+			struct sde_hw_pipe_cdp_cfg *cfg,
+			enum sde_sspp_multirect_index index);
 
 	/**
 	 * setup_secure_address - setup secureity status of the source address
