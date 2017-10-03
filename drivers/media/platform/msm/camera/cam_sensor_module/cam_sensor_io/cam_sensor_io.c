@@ -173,6 +173,9 @@ int32_t camera_io_release(struct camera_io_master *io_master_info)
 	if (io_master_info->master_type == CCI_MASTER) {
 		return cam_sensor_cci_i2c_util(io_master_info->cci_client,
 			MSM_CCI_RELEASE);
+	} else if ((io_master_info->master_type == I2C_MASTER) ||
+			(io_master_info->master_type == SPI_MASTER)) {
+		return 0;
 	} else {
 		CAM_ERR(CAM_SENSOR, "Invalid Comm. Master:%d",
 			io_master_info->master_type);
