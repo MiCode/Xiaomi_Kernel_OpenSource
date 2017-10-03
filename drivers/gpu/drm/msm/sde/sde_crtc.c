@@ -3256,17 +3256,17 @@ static int _sde_crtc_wait_for_frame_done(struct drm_crtc *crtc)
 	return rc;
 }
 
-static void _sde_crtc_commit_kickoff_rot(struct drm_crtc *crtc,
+static int _sde_crtc_commit_kickoff_rot(struct drm_crtc *crtc,
 		struct sde_crtc_state *cstate)
 {
 	struct drm_plane *plane;
 	struct sde_crtc *sde_crtc;
 	struct sde_hw_ctl *ctl, *master_ctl;
 	u32 flush_mask;
-	int i;
+	int i, rc = 0;
 
 	if (!crtc || !cstate)
-		return;
+		return -EINVAL;
 
 	sde_crtc = to_sde_crtc(crtc);
 
@@ -3280,7 +3280,7 @@ static void _sde_crtc_commit_kickoff_rot(struct drm_crtc *crtc,
 	 * the hardware out of sbuf mode.
 	 */
 	if (!sde_crtc->sbuf_flush_mask_old && !sde_crtc->sbuf_flush_mask)
-		return;
+		return 0;
 
 	flush_mask = sde_crtc->sbuf_flush_mask_old | sde_crtc->sbuf_flush_mask;
 	sde_crtc->sbuf_flush_mask_old = sde_crtc->sbuf_flush_mask;
@@ -3289,29 +3289,47 @@ static void _sde_crtc_commit_kickoff_rot(struct drm_crtc *crtc,
 
 	if (cstate->sbuf_cfg.rot_op_mode != SDE_CTL_ROT_OP_MODE_OFFLINE) {
 		drm_atomic_crtc_for_each_plane(plane, crtc) {
-			sde_plane_kickoff(plane);
+			rc = sde_plane_kickoff_rot(plane);
+			if (rc) {
+				SDE_ERROR("crtc%d cancelling inline rotation\n",
+						crtc->base.id);
+				SDE_EVT32(DRMID(crtc), SDE_EVTLOG_ERROR);
+
+				/* revert to offline on errors */
+				cstate->sbuf_cfg.rot_op_mode =
+					SDE_CTL_ROT_OP_MODE_OFFLINE;
+				break;
+			}
 		}
 	}
 
 	master_ctl = NULL;
 	for (i = 0; i < sde_crtc->num_mixers; i++) {
 		ctl = sde_crtc->mixers[i].hw_ctl;
-		if (!ctl || !ctl->ops.setup_sbuf_cfg ||
-				!ctl->ops.update_pending_flush)
+		if (!ctl)
 			continue;
 
 		if (!master_ctl || master_ctl->idx > ctl->idx)
 			master_ctl = ctl;
-
-		ctl->ops.setup_sbuf_cfg(ctl, &cstate->sbuf_cfg);
-		ctl->ops.update_pending_flush(ctl, flush_mask);
 	}
 
-	if (cstate->sbuf_cfg.rot_op_mode == SDE_CTL_ROT_OP_MODE_INLINE_ASYNC &&
-			master_ctl && master_ctl->ops.trigger_rot_start)
-		master_ctl->ops.trigger_rot_start(master_ctl);
+	/* only update sbuf_cfg and flush for master ctl */
+	if (master_ctl && master_ctl->ops.setup_sbuf_cfg &&
+			master_ctl->ops.update_pending_flush) {
+		master_ctl->ops.setup_sbuf_cfg(master_ctl, &cstate->sbuf_cfg);
+		master_ctl->ops.update_pending_flush(master_ctl, flush_mask);
+
+		/* explicitly trigger rotator for async modes */
+		if (cstate->sbuf_cfg.rot_op_mode ==
+				SDE_CTL_ROT_OP_MODE_INLINE_ASYNC &&
+				master_ctl->ops.trigger_rot_start) {
+			master_ctl->ops.trigger_rot_start(master_ctl);
+			SDE_EVT32(DRMID(crtc), master_ctl->idx - CTL_0);
+		}
+	}
 
 	SDE_ATRACE_END("crtc_kickoff_rot");
+	return rc;
 }
 
 /**
@@ -3417,7 +3435,8 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	 * can start as soon as it's ready.
 	 */
 	if (cstate->sbuf_cfg.rot_op_mode == SDE_CTL_ROT_OP_MODE_INLINE_ASYNC)
-		_sde_crtc_commit_kickoff_rot(crtc, cstate);
+		if (_sde_crtc_commit_kickoff_rot(crtc, cstate))
+			is_error = true;
 
 	/* wait for frame_event_done completion */
 	SDE_ATRACE_BEGIN("wait_for_frame_done_event");
@@ -3454,7 +3473,8 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	 * offline mode.
 	 */
 	if (cstate->sbuf_cfg.rot_op_mode != SDE_CTL_ROT_OP_MODE_INLINE_ASYNC)
-		_sde_crtc_commit_kickoff_rot(crtc, cstate);
+		if (_sde_crtc_commit_kickoff_rot(crtc, cstate))
+			is_error = true;
 
 	sde_vbif_clear_errors(sde_kms);
 
