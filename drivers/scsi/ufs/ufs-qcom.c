@@ -344,9 +344,15 @@ static int ufs_qcom_enable_hw_clk_gating(struct ufs_hba *hba)
 	if (err)
 		goto out;
 
-	err = ufshcd_dme_rmw(hba, DME_VS_CORE_CLK_CTRL_DME_HW_CGC_EN,
-				DME_VS_CORE_CLK_CTRL_DME_HW_CGC_EN,
-				DME_VS_CORE_CLK_CTRL);
+	if (!((host->hw_ver.major == 4) && (host->hw_ver.minor == 0) &&
+	     (host->hw_ver.step == 0))) {
+		err = ufshcd_dme_rmw(hba, DME_VS_CORE_CLK_CTRL_DME_HW_CGC_EN,
+					DME_VS_CORE_CLK_CTRL_DME_HW_CGC_EN,
+					DME_VS_CORE_CLK_CTRL);
+	} else {
+		dev_err(hba->dev, "%s: skipping DME_HW_CGC_EN set\n",
+			__func__);
+	}
 out:
 	return err;
 }
