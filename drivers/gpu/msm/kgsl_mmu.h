@@ -42,6 +42,7 @@ struct kgsl_pagetable {
 	struct list_head list;
 	unsigned int name;
 	struct kobject *kobj;
+	struct work_struct destroy_ws;
 
 	struct {
 		atomic_t entries;
