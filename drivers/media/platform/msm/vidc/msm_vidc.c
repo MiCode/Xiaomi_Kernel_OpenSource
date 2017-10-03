@@ -621,6 +621,17 @@ int msm_vidc_streamoff(void *instance, enum v4l2_buf_type i)
 			"Failed to find buffer queue for type = %d\n", i);
 		return -EINVAL;
 	}
+
+	if (!inst->in_reconfig) {
+		dprintk(VIDC_DBG, "%s: inst %pK release resources\n",
+			__func__, inst);
+		rc = msm_comm_try_state(inst, MSM_VIDC_RELEASE_RESOURCES_DONE);
+		if (rc)
+			dprintk(VIDC_ERR,
+				"%s: inst %pK move to rel res done failed\n",
+				__func__, inst);
+	}
+
 	dprintk(VIDC_DBG, "Calling streamoff\n");
 	mutex_lock(&q->lock);
 	rc = vb2_streamoff(&q->vb2_bufq, i);
