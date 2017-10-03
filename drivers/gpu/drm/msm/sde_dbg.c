@@ -2664,6 +2664,7 @@ void sde_dbg_dump(bool queue_work, const char *name, ...)
 				dump_dbgbus_sde;
 		sde_dbg_base.dbgbus_vbif_rt.cmn.include_in_deferred_work =
 				dump_dbgbus_vbif_rt;
+		sde_dbg_base.dump_all = dump_all;
 		schedule_work(&sde_dbg_base.dump_work);
 	} else {
 		_sde_dump_array(blk_arr, blk_len, do_panic, name,
