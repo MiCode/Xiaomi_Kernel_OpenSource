@@ -511,8 +511,12 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			goto release_mutex;
 		}
 
-		CAM_DBG(CAM_SENSOR, "Probe Succeeded on the slot: %d",
-			s_ctrl->soc_info.index);
+		CAM_INFO(CAM_SENSOR,
+			"Probe Succees, slot:%d slave_addr: 0x%x, slave_id: %d",
+			s_ctrl->soc_info.index,
+			s_ctrl->sensordata->slave_info.sensor_slave_addr,
+			s_ctrl->sensordata->slave_info.sensor_id);
+
 		rc = cam_sensor_power_down(s_ctrl);
 		if (rc < 0) {
 			CAM_ERR(CAM_SENSOR, "fail in Sensor Power Down");
