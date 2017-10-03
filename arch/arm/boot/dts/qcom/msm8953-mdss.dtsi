@@ -89,6 +89,8 @@
 		qcom,mdss-has-decimation;
 		qcom,mdss-has-non-scalar-rgb;
 		qcom,mdss-has-rotator-downscale;
+		qcom,mdss-rot-downscale-min = <2>;
+		qcom,mdss-rot-downscale-max = <16>;
 		qcom,mdss-idle-power-collapse-enabled;
 		qcom,mdss-rot-block-size = <64>;
 		qcom,mdss-ppb-off = <0x00000330>;
