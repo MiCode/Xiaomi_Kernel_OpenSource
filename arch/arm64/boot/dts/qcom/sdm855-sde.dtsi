@@ -234,11 +234,13 @@
 				qcom,sde-dma-igc = <0x400 0x00050000>;
 				qcom,sde-dma-gc = <0x600 0x00050000>;
 				qcom,sde-dma-inverse-pma;
+				qcom,sde-dma-csc-off = <0x200>;
 			};
 			dgm@1 {
 				qcom,sde-dma-igc = <0x1400 0x00050000>;
 				qcom,sde-dma-gc = <0x600 0x00050000>;
 				qcom,sde-dma-inverse-pma;
+				qcom,sde-dma-csc-off = <0x1200>;
 			};
 		};
 
