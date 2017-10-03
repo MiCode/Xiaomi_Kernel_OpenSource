@@ -868,7 +868,7 @@ static int ipa_test_mhi_suite_teardown(void *priv)
  *
  * To be run during tests
  * 1. MHI init (Ready state)
- * 2. Conditional MHO start and connect (M0 state)
+ * 2. Conditional MHI start and connect (M0 state)
  */
 static int ipa_mhi_test_initialize_driver(bool skip_start_and_conn)
 {
@@ -879,7 +879,6 @@ static int ipa_mhi_test_initialize_driver(bool skip_start_and_conn)
 	struct ipa_mhi_connect_params cons_params;
 	struct ipa_mhi_mmio_register_set *p_mmio;
 	struct ipa_mhi_channel_context_array *p_ch_ctx_array;
-	bool is_dma;
 	u64 phys_addr;
 
 	IPA_UT_LOG("Entry\n");
@@ -910,29 +909,6 @@ static int ipa_mhi_test_initialize_driver(bool skip_start_and_conn)
 		IPA_UT_LOG("timeout waiting for READY event");
 		IPA_UT_TEST_FAIL_REPORT("failed waiting for state ready");
 		return -ETIME;
-	}
-
-	if (ipa_mhi_is_using_dma(&is_dma)) {
-		IPA_UT_LOG("is_dma checkign failed. Is MHI loaded?\n");
-		IPA_UT_TEST_FAIL_REPORT("failed checking using dma");
-		return -EPERM;
-	}
-
-	if (is_dma) {
-		IPA_UT_LOG("init ipa_dma\n");
-		rc = ipa_dma_init();
-		if (rc && rc != -EFAULT) {
-			IPA_UT_LOG("ipa_dma_init failed, %d\n", rc);
-			IPA_UT_TEST_FAIL_REPORT("failed init dma");
-			return rc;
-		}
-		IPA_UT_LOG("enable ipa_dma\n");
-		rc = ipa_dma_enable();
-		if (rc && rc != -EPERM) {
-			IPA_UT_LOG("ipa_dma_enable failed, %d\n", rc);
-			IPA_UT_TEST_FAIL_REPORT("failed enable dma");
-			return rc;
-		}
 	}
 
 	if (!skip_start_and_conn) {
@@ -1545,7 +1521,7 @@ static int ipa_mhi_test_suspend(bool force, bool should_success)
 	}
 
 	if (!should_success && rc != -EAGAIN) {
-		IPA_UT_LOG("ipa_mhi_suspenddid not return -EAGAIN fail %d\n",
+		IPA_UT_LOG("ipa_mhi_suspend did not return -EAGAIN fail %d\n",
 			rc);
 		IPA_UT_TEST_FAIL_REPORT("suspend succeeded unexpectedly");
 		return -EFAULT;
