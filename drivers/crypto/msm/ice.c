@@ -866,7 +866,7 @@ static int qcom_ice_restore_key_config(struct ice_device *ice_dev)
 static int qcom_ice_init_clocks(struct ice_device *ice)
 {
 	int ret = -EINVAL;
-	struct ice_clk_info *clki;
+	struct ice_clk_info *clki = NULL;
 	struct device *dev = ice->pdev;
 	struct list_head *head = &ice->clk_list_head;
 
@@ -910,7 +910,7 @@ out:
 static int qcom_ice_enable_clocks(struct ice_device *ice, bool enable)
 {
 	int ret = 0;
-	struct ice_clk_info *clki;
+	struct ice_clk_info *clki = NULL;
 	struct device *dev = ice->pdev;
 	struct list_head *head = &ice->clk_list_head;
 
@@ -1586,12 +1586,14 @@ struct platform_device *qcom_ice_get_pdevice(struct device_node *node)
 		if (ice_dev->pdev->of_node == node) {
 			pr_info("%s: found ice device %pK\n", __func__,
 			ice_dev);
+			ice_pdev = to_platform_device(ice_dev->pdev);
 			break;
 		}
 	}
 
-	ice_pdev = to_platform_device(ice_dev->pdev);
-	pr_info("%s: matching platform device %pK\n", __func__, ice_pdev);
+	if (ice_pdev)
+		pr_info("%s: matching platform device %pK\n", __func__,
+			ice_pdev);
 out:
 	return ice_pdev;
 }
@@ -1611,11 +1613,11 @@ static struct ice_device *get_ice_device_from_storage_type
 		if (!strcmp(ice_dev->ice_instance_type, storage_type)) {
 			pr_debug("%s: found ice device %pK\n",
 				__func__, ice_dev);
-			break;
+			return ice_dev;
 		}
 	}
 out:
-	return ice_dev;
+	return NULL;
 }
 
 static int enable_ice_setup(struct ice_device *ice_dev)
