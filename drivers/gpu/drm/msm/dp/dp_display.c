@@ -498,7 +498,7 @@ static int dp_display_send_hpd_notification(struct dp_display_private *dp,
 	reinit_completion(&dp->notification_comp);
 	dp_display_send_hpd_event(&dp->dp_display);
 
-	if (!wait_for_completion_timeout(&dp->notification_comp, HZ * 2)) {
+	if (!wait_for_completion_timeout(&dp->notification_comp, HZ * 5)) {
 		pr_warn("%s timeout\n", hpd ? "connect" : "disconnect");
 		return -EINVAL;
 	}
