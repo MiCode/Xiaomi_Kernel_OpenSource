@@ -18,10 +18,11 @@
 #include <soc/qcom/scm.h>
 #include <cam_mem_mgr.h>
 
-static int cam_csiphy_mem_dmp_param;
-module_param(cam_csiphy_mem_dmp_param, int, 0644);
 #define SCM_SVC_CAMERASS 0x18
 #define SECURE_SYSCALL_ID 0x6
+
+static int csiphy_dump;
+module_param(csiphy_dump, int, 0644);
 
 static int cam_csiphy_notify_secure_mode(int phy, bool protect)
 {
@@ -572,7 +573,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			goto release_mutex;
 		}
 		rc = cam_csiphy_config_dev(csiphy_dev);
-		if (cam_csiphy_mem_dmp_param == 1)
+		if (csiphy_dump == 1)
 			cam_csiphy_mem_dmp(&csiphy_dev->soc_info);
 
 		if (rc < 0) {
