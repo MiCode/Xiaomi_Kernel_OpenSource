@@ -11,7 +11,7 @@ dtbo	:= $(addprefix $(obj)/,$(dtbo))
 ifneq ($(DTC_OVERLAY_TEST_EXT),)
 DTC_OVERLAY_TEST = $(DTC_OVERLAY_TEST_EXT)
 quiet_cmd_dtbo_verify	= VERIFY  $@
-cmd_dtbo_verify = $(DTC_OVERLAY_TEST) $(addprefix $(obj)/,$($(@F)-base)) $@ $(dot-target).dtb
+cmd_dtbo_verify = $(DTC_OVERLAY_TEST) $(addprefix $(obj)/,$($(@F)-base)) $@ $(dot-target).tmp
 else
 cmd_dtbo_verify = true
 endif
