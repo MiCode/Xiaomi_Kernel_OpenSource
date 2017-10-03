@@ -3131,14 +3131,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (!mdwc)
 		return -ENOMEM;
 
-	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64))) {
-		dev_err(&pdev->dev, "setting DMA mask to 64 failed.\n");
-		if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32))) {
-			dev_err(&pdev->dev, "setting DMA mask to 32 failed.\n");
-			return -EOPNOTSUPP;
-		}
-	}
-
 	platform_set_drvdata(pdev, mdwc);
 	mdwc->dev = &pdev->dev;
 
@@ -3330,6 +3322,15 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	ret = dwc3_msm_init_iommu(mdwc);
 	if (ret)
 		goto err;
+
+	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64))) {
+		dev_err(&pdev->dev, "setting DMA mask to 64 failed.\n");
+		if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32))) {
+			dev_err(&pdev->dev, "setting DMA mask to 32 failed.\n");
+			ret = -EOPNOTSUPP;
+			goto uninit_iommu;
+		}
+	}
 
 	/* Assumes dwc3 is the first DT child of dwc3-msm */
 	dwc3_node = of_get_next_available_child(node, NULL);
