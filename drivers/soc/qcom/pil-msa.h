@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +22,7 @@ struct modem_data {
 	struct subsys_device *subsys;
 	struct subsys_desc subsys_desc;
 	void *ramdump_dev;
+	void *minidump_dev;
 	bool crash_shutdown;
 	u32 pas_id;
 	bool ignore_errors;
