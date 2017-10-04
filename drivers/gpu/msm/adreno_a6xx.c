@@ -1411,7 +1411,9 @@ static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 	int val;
 
 	kgsl_gmu_regread(device, A6XX_GPU_CC_GX_DOMAIN_MISC, &val);
-	WARN_ON(!(val & 0x1));
+	if (!(val & 0x1))
+		dev_err_ratelimited(&gmu->pdev->dev,
+			"GMEM CLAMP IO not set while GFX rail off\n");
 
 	/* RSC wake sequence */
 	kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, BIT(1));
