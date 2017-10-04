@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Linux Foundation. All rights reserved.
+ * Copyright (c) 2015,2017, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -117,6 +117,9 @@ static ssize_t ufs_qcom_dbg_testbus_cfg_write(struct file *file,
 	int ret = 0;
 	int major;
 	int minor;
+	unsigned long flags;
+	struct ufs_hba *hba = host->hba;
+
 
 	ret = simple_write_to_buffer(configuration, TESTBUS_CFG_BUFF_LINE_SIZE,
 		&buff_pos, ubuf, cnt);
@@ -142,8 +145,15 @@ static ssize_t ufs_qcom_dbg_testbus_cfg_write(struct file *file,
 		goto out;
 	}
 
+	if (!ufs_qcom_testbus_cfg_is_ok(host, major, minor)) {
+		ret = -EPERM;
+		goto out;
+	}
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
 	host->testbus.select_major = (u8)major;
 	host->testbus.select_minor = (u8)minor;
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
 	/*
 	 * Sanity check of the {major, minor} tuple is done in the
