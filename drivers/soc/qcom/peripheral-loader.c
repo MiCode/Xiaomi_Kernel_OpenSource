@@ -213,7 +213,8 @@ static int pil_do_minidump(struct pil_desc *desc, void *ramdump_dev)
  * Calls the ramdump API with a list of segments generated from the addresses
  * that the descriptor corresponds to.
  */
-int pil_do_ramdump(struct pil_desc *desc, void *ramdump_dev)
+int pil_do_ramdump(struct pil_desc *desc,
+		   void *ramdump_dev, void *minidump_dev)
 {
 	struct ramdump_segment *ramdump_segs, *s;
 	struct pil_priv *priv = desc->priv;
@@ -244,7 +245,7 @@ int pil_do_ramdump(struct pil_desc *desc, void *ramdump_dev)
 				MD_SS_ENCR_DONE) {
 				pr_debug("Dumping Minidump for %s\n",
 					desc->name);
-				return pil_do_minidump(desc, ramdump_dev);
+				return pil_do_minidump(desc, minidump_dev);
 			}
 			pr_debug("Minidump aborted for %s\n", desc->name);
 			return -EINVAL;
