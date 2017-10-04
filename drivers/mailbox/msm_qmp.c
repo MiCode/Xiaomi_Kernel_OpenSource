@@ -359,7 +359,7 @@ static int qmp_send_data(struct mbox_chan *chan, void *data)
 	addr = mdev->msgram + mbox->mcore_mbox_offset;
 	if (mbox->tx_sent) {
 		spin_unlock_irqrestore(&mbox->tx_lock, flags);
-		return -EBUSY;
+		return -EAGAIN;
 	}
 
 	if (pkt->size + sizeof(pkt->size) > mbox->mcore_mbox_size) {
