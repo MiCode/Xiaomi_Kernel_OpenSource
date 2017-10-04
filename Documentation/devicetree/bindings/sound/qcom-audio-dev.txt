@@ -2640,6 +2640,11 @@ mclk frequency needs to be configured for internal and external PA.
 - qcom,cdc-comp-gpios : phandle for compander gpios.
 - qcom,cdc-dmic-gpios : phandle for Digital mic clk and data gpios.
 - qcom,cdc-sdw-gpios : phandle for soundwire clk and data gpios.
+- qcom,pri-mi2s-gpios : phandle for primary MI2S clk, word select and data gpios.
+- qcom,sec-mi2s-gpios : phandle for secondary MI2S clk, word select and data gpios.
+- qcom,tert-mi2s-gpios : phandle for tertiary MI2S clk, word select and data gpios.
+- qcom,quat-mi2s-gpios : phandle for quaternary MI2S clk, word select and data gpios.
+- qcom,quin-mi2s-gpios : phandle for quinary MI2S clk, word select and data gpios.
 - qcom,msm-mbhc-moist-cfg: This property is used to set moisture detection
 		threshold values for different codecs. First parameter is V(voltage)
 		second one is i(current), third one is r (resistance). Depending on the
@@ -2746,6 +2751,11 @@ Optional properties:
 - qcom,wsa-max-devs : Maximum number of WSA881x devices present in the target
 - qcom,wsa-devs : List of phandles for all possible WSA881x devices supported for the target
 - qcom,wsa-aux-dev-prefix : Name prefix with Left/Right configuration for WSA881x device
+- qcom,pri-mi2s-gpios : phandle for primary MI2S clk, word select and data gpios.
+- qcom,sec-mi2s-gpios : phandle for secondary MI2S clk, word select and data gpios.
+- qcom,tert-mi2s-gpios : phandle for tertiary MI2S clk, word select and data gpios.
+- qcom,quat-mi2s-gpios : phandle for quaternary MI2S clk, word select and data gpios.
+- qcom,quin-mi2s-gpios : phandle for quinary MI2S clk, word select and data gpios.
 
 Example:
 
