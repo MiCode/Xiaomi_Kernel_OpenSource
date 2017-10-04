@@ -123,7 +123,7 @@ void sched_get_nr_running_avg(int *avg, int *iowait_avg, int *big_avg,
 EXPORT_SYMBOL(sched_get_nr_running_avg);
 
 #define BUSY_NR_RUN		3
-#define BUSY_LOAD_FACTOR	2
+#define BUSY_LOAD_FACTOR	10
 static inline void update_last_busy_time(int cpu, bool dequeue,
 				unsigned long prev_nr_run, u64 curr_time)
 {
