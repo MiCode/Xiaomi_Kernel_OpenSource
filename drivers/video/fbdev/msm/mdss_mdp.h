@@ -995,6 +995,8 @@ struct mdss_overlay_private {
 	struct task_struct *thread;
 
 	u8 secure_transition_state;
+
+	bool cache_null_commit; /* Cache if preceding commit was NULL */
 };
 
 struct mdss_mdp_set_ot_params {
