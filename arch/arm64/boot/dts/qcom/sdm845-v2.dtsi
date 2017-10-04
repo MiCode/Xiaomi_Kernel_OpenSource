@@ -1475,9 +1475,10 @@
 
 		compatible = "qcom,gmu-pwrlevels";
 
+		/* GMU power levels must go from lowest to highest */
 		qcom,gmu-pwrlevel@0 {
 			reg = <0>;
-			qcom,gmu-freq = <500000000>;
+			qcom,gmu-freq = <0>;
 		};
 
 		qcom,gmu-pwrlevel@1 {
@@ -1487,7 +1488,7 @@
 
 		qcom,gmu-pwrlevel@2 {
 			reg = <2>;
-			qcom,gmu-freq = <0>;
+			qcom,gmu-freq = <500000000>;
 		};
 	};
 };
