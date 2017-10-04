@@ -28,7 +28,7 @@
 		gdscr-supply = <&titan_top_gdsc>;
 		regulator-names = "gdscr";
 		csi-vdd-voltage = <1200000>;
-		mipi-csi-vdd-supply = <&pm8998_l26>;
+		mipi-csi-vdd-supply = <&pm8998_l1>;
 		clocks = <&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
 			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
@@ -62,7 +62,7 @@
 		gdscr-supply = <&titan_top_gdsc>;
 		regulator-names = "gdscr";
 		csi-vdd-voltage = <1200000>;
-		mipi-csi-vdd-supply = <&pm8998_l26>;
+		mipi-csi-vdd-supply = <&pm8998_l1>;
 		clocks = <&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
 			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
@@ -97,7 +97,7 @@
 		gdscr-supply = <&titan_top_gdsc>;
 		regulator-names = "gdscr";
 		csi-vdd-voltage = <1200000>;
-		mipi-csi-vdd-supply = <&pm8998_l26>;
+		mipi-csi-vdd-supply = <&pm8998_l1>;
 		clocks = <&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
 			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
