@@ -549,6 +549,7 @@ static void _sde_hdmi_bridge_disable(struct drm_bridge *bridge)
 
 	display->pll_update_enable = false;
 	display->sink_hdcp_ver = SDE_HDMI_HDCP_NONE;
+	display->sink_hdcp22_support = false;
 
 	mutex_unlock(&display->display_lock);
 }
