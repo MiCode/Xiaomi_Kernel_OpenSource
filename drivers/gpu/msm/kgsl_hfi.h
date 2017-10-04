@@ -115,7 +115,7 @@ enum hfi_f2h_qpri {
 	HFI_F2H_QPRI_DEBUG = 40,
 };
 
-#define HFI_RSP_TIMEOUT 500 /* msec */
+#define HFI_RSP_TIMEOUT 5000 /* msec */
 #define HFI_H2F_CMD_IRQ_MASK BIT(0)
 
 enum hfi_msg_type {
