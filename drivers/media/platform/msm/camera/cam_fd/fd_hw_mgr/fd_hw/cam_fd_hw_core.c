@@ -661,7 +661,6 @@ int cam_fd_hw_init(void *hw_priv, void *init_hw_args, uint32_t arg_size)
 
 	if (fd_hw->open_count > 0) {
 		rc = 0;
-		mutex_unlock(&fd_hw->hw_mutex);
 		goto cdm_streamon;
 	}
 
@@ -681,12 +680,13 @@ int cam_fd_hw_init(void *hw_priv, void *init_hw_args, uint32_t arg_size)
 
 	fd_hw->hw_state = CAM_HW_STATE_POWER_UP;
 	fd_core->core_state = CAM_FD_CORE_STATE_IDLE;
+
+cdm_streamon:
 	fd_hw->open_count++;
 	CAM_DBG(CAM_FD, "FD HW Init ref count after %d", fd_hw->open_count);
 
 	mutex_unlock(&fd_hw->hw_mutex);
 
-cdm_streamon:
 	if (init_args->ctx_hw_private) {
 		struct cam_fd_ctx_hw_private *ctx_hw_private =
 			init_args->ctx_hw_private;
@@ -712,7 +712,7 @@ unlock_return:
 int cam_fd_hw_deinit(void *hw_priv, void *deinit_hw_args, uint32_t arg_size)
 {
 	struct cam_hw_info *fd_hw = hw_priv;
-	struct cam_fd_core *fd_core;
+	struct cam_fd_core *fd_core = NULL;
 	struct cam_fd_hw_deinit_args *deinit_args =
 		(struct cam_fd_hw_deinit_args *)deinit_hw_args;
 	int rc = 0;
@@ -728,23 +728,7 @@ int cam_fd_hw_deinit(void *hw_priv, void *deinit_hw_args, uint32_t arg_size)
 		return -EINVAL;
 	}
 
-	fd_core = (struct cam_fd_core *)fd_hw->core_info;
-
-	if (deinit_args->ctx_hw_private) {
-		struct cam_fd_ctx_hw_private *ctx_hw_private =
-			deinit_args->ctx_hw_private;
-
-		rc = cam_cdm_stream_off(ctx_hw_private->cdm_handle);
-		if (rc) {
-			CAM_ERR(CAM_FD,
-				"Failed in CDM StreamOff, handle=0x%x, rc=%d",
-				ctx_hw_private->cdm_handle, rc);
-			return rc;
-		}
-	}
-
 	mutex_lock(&fd_hw->hw_mutex);
-
 	if (fd_hw->open_count == 0) {
 		mutex_unlock(&fd_hw->hw_mutex);
 		CAM_ERR(CAM_FD, "Error Unbalanced deinit");
@@ -754,9 +738,9 @@ int cam_fd_hw_deinit(void *hw_priv, void *deinit_hw_args, uint32_t arg_size)
 	fd_hw->open_count--;
 	CAM_DBG(CAM_FD, "FD HW ref count=%d", fd_hw->open_count);
 
-	if (fd_hw->open_count) {
+	if (fd_hw->open_count > 0) {
 		rc = 0;
-		goto unlock_return;
+		goto positive_ref_cnt;
 	}
 
 	rc = cam_fd_soc_disable_resources(&fd_hw->soc_info);
@@ -764,9 +748,26 @@ int cam_fd_hw_deinit(void *hw_priv, void *deinit_hw_args, uint32_t arg_size)
 		CAM_ERR(CAM_FD, "Failed in Disable SOC, rc=%d", rc);
 
 	fd_hw->hw_state = CAM_HW_STATE_POWER_DOWN;
+	fd_core = (struct cam_fd_core *)fd_hw->core_info;
+
+	/* With the ref_cnt correct, this should never happen */
+	WARN_ON(!fd_core);
+
 	fd_core->core_state = CAM_FD_CORE_STATE_POWERDOWN;
 
-unlock_return:
+positive_ref_cnt:
+	if (deinit_args->ctx_hw_private) {
+		struct cam_fd_ctx_hw_private *ctx_hw_private =
+			deinit_args->ctx_hw_private;
+
+		rc = cam_cdm_stream_off(ctx_hw_private->cdm_handle);
+		if (rc) {
+			CAM_ERR(CAM_FD,
+				"Failed in CDM StreamOff, handle=0x%x, rc=%d",
+				ctx_hw_private->cdm_handle, rc);
+		}
+	}
+
 	mutex_unlock(&fd_hw->hw_mutex);
 	return rc;
 }
