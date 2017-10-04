@@ -425,7 +425,13 @@ static void activate_work_func(struct work_struct *work)
 	activate_client(client->hdl);
 
 	mutex_lock(&ipa_pm_ctx->client_mutex);
-	client->callback(client->callback_params, IPA_PM_CLIENT_ACTIVATED);
+	if (client->callback) {
+		client->callback(client->callback_params,
+			IPA_PM_CLIENT_ACTIVATED);
+	} else {
+		IPA_PM_ERR("client has no callback");
+		WARN_ON(1);
+	}
 	mutex_unlock(&ipa_pm_ctx->client_mutex);
 
 	IPA_PM_DBG_STATE(client->hdl, client->name, client->state);
@@ -677,8 +683,7 @@ int ipa_pm_register(struct ipa_pm_register_params *params, u32 *hdl)
 {
 	struct ipa_pm_client *client;
 
-	if (params == NULL || hdl == NULL || params->name == NULL
-		|| params->callback == NULL) {
+	if (params == NULL || hdl == NULL || params->name == NULL) {
 		IPA_PM_ERR("Invalid Params\n");
 		return -EINVAL;
 	}
@@ -1115,9 +1120,14 @@ int ipa_pm_handle_suspend(u32 pipe_bitmask)
 		if (pipe_bitmask & (1 << i)) {
 			client = ipa_pm_ctx->clients_by_pipe[i];
 			if (client && client_notified[client->hdl] == false) {
-				client->callback(client->callback_params,
-					IPA_PM_REQUEST_WAKEUP);
-				client_notified[client->hdl] = true;
+				if (client->callback) {
+					client->callback(client->callback_params
+						, IPA_PM_REQUEST_WAKEUP);
+					client_notified[client->hdl] = true;
+				} else {
+					IPA_PM_ERR("client has no callback");
+					WARN_ON(1);
+				}
 			}
 		}
 	}
