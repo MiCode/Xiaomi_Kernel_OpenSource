@@ -199,7 +199,7 @@ static struct cam_ife_csid_csi2_rx_reg_offset
 	.csid_csi2_rx_captured_long_pkt_0_addr        = 0x130,
 	.csid_csi2_rx_captured_long_pkt_1_addr        = 0x134,
 	.csid_csi2_rx_captured_long_pkt_ftr_addr      = 0x138,
-	.csid_csi2_rx_captured_cphy_pkt_ftr_addr      = 0x13c,
+	.csid_csi2_rx_captured_cphy_pkt_hdr_addr      = 0x13c,
 	.csid_csi2_rx_lane0_misr_addr                 = 0x150,
 	.csid_csi2_rx_lane1_misr_addr                 = 0x154,
 	.csid_csi2_rx_lane2_misr_addr                 = 0x158,
@@ -213,6 +213,14 @@ static struct cam_ife_csid_csi2_rx_reg_offset
 	.csi2_irq_mask_all                            = 0xFFFFFFF,
 	.csi2_misr_enable_shift_val                   = 6,
 	.csi2_vc_mode_shift_val                       = 2,
+	.csi2_capture_long_pkt_en_shift               = 0,
+	.csi2_capture_short_pkt_en_shift              = 1,
+	.csi2_capture_cphy_pkt_en_shift               = 2,
+	.csi2_capture_long_pkt_dt_shift               = 4,
+	.csi2_capture_long_pkt_vc_shift               = 10,
+	.csi2_capture_short_pkt_vc_shift              = 15,
+	.csi2_capture_cphy_pkt_dt_shift               = 20,
+	.csi2_capture_cphy_pkt_vc_shift               = 26,
 };
 
 static struct cam_ife_csid_csi2_tpg_reg_offset
@@ -236,9 +244,10 @@ static struct cam_ife_csid_csi2_tpg_reg_offset
 	.csid_tpg_cgen_n_y1_addr                      = 0x664,
 	.csid_tpg_cgen_n_y2_addr                      = 0x668,
 
-	/*configurations */
+	/* configurations */
 	.tpg_dtn_cfg_offset                           = 0xc,
 	.tpg_cgen_cfg_offset                          = 0x20,
+	.tpg_cpas_ife_reg_offset                      = 0x28,
 };
 
 static struct cam_ife_csid_common_reg_offset

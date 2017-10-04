@@ -1168,6 +1168,7 @@
 
 &clock_camcc {
 	compatible = "qcom,cam_cc-sdm845-v2", "syscon";
+	qcom,cam_cc_csi3phytimer_clk_src-opp-handle = <&cam_csiphy3>;
 };
 
 &clock_dispcc {

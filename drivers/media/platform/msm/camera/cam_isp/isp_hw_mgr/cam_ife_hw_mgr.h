@@ -81,6 +81,18 @@ struct ctx_base_info {
 };
 
 /**
+ * struct cam_ife_hw_mgr_debug - contain the debug information
+ *
+ * @dentry:              Debugfs entry
+ * @csid_debug:          csid debug information
+ *
+ */
+struct cam_ife_hw_mgr_debug {
+	struct dentry                  *dentry;
+	uint64_t                        csid_debug;
+};
+
+/**
  * struct cam_vfe_hw_mgr_ctx - IFE HW manager Context object
  *
  * @list:                   used by the ctx list.
@@ -142,7 +154,6 @@ struct cam_ife_hw_mgr_ctx {
 	uint32_t                        eof_cnt[CAM_IFE_HW_NUM_MAX];
 	atomic_t                        overflow_pending;
 	uint32_t                        is_rdi_only_context;
-
 };
 
 /**
@@ -176,6 +187,7 @@ struct cam_ife_hw_mgr {
 						CAM_IFE_CSID_HW_NUM_MAX];
 	struct cam_vfe_hw_get_hw_cap   ife_dev_caps[CAM_IFE_HW_NUM_MAX];
 	struct cam_req_mgr_core_workq  *workq;
+	struct cam_ife_hw_mgr_debug     debug_cfg;
 };
 
 /**

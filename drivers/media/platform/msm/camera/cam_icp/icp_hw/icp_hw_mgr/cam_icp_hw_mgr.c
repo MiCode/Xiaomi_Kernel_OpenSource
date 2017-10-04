@@ -47,7 +47,6 @@
 #include "cam_debug_util.h"
 #include "cam_soc_util.h"
 
-#define ICP_WORKQ_NUM_TASK      30
 #define ICP_WORKQ_TASK_CMD_TYPE 1
 #define ICP_WORKQ_TASK_MSG_TYPE 2
 
@@ -295,6 +294,7 @@ static bool cam_icp_update_clk_busy(struct cam_icp_hw_mgr *hw_mgr,
 {
 	uint32_t next_clk_level;
 	uint32_t actual_clk;
+	bool rc = false;
 
 	/* 1. if current request frame cycles(fc) are more than previous
 	 *      frame fc
@@ -308,7 +308,8 @@ static bool cam_icp_update_clk_busy(struct cam_icp_hw_mgr *hw_mgr,
 	 * 2. if current fc is less than or equal to previous  frame fc
 	 *      Still Bump up the clock to next available level
 	 *      if it is available, then update clock, make overclk cnt to
-	 *      zero
+	 *      zero. If the clock is already at highest clock rate then
+	 *      no need to update the clock
 	 */
 	mutex_lock(&hw_mgr->hw_mgr_mutex);
 	ctx_data->clk_info.curr_fc = clk_info->frame_cycles;
@@ -326,14 +327,19 @@ static bool cam_icp_update_clk_busy(struct cam_icp_hw_mgr *hw_mgr,
 				ctx_data, hw_mgr_clk_info->curr_clk);
 			hw_mgr_clk_info->curr_clk = next_clk_level;
 		}
+		rc = true;
 	} else {
-		hw_mgr_clk_info->curr_clk =
+		next_clk_level =
 			cam_icp_get_next_clk_rate(hw_mgr, ctx_data,
 			hw_mgr_clk_info->curr_clk);
+		if (hw_mgr_clk_info->curr_clk < next_clk_level) {
+			hw_mgr_clk_info->curr_clk = next_clk_level;
+			rc = true;
+		}
 	}
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
-	return true;
+	return rc;
 }
 
 static bool cam_icp_update_clk_overclk_free(struct cam_icp_hw_mgr *hw_mgr,
@@ -581,8 +587,9 @@ static bool cam_icp_check_bw_update(struct cam_icp_hw_mgr *hw_mgr,
 	rc = cam_icp_update_bw(hw_mgr, ctx_data, hw_mgr_clk_info,
 		clk_info, busy);
 
-	CAM_DBG(CAM_ICP, "bw = %d update_bw = %d",
-		hw_mgr_clk_info->uncompressed_bw, rc);
+	CAM_DBG(CAM_ICP, "ubw = %lld, cbw = %lld, update_bw = %d",
+		hw_mgr_clk_info->uncompressed_bw,
+		hw_mgr_clk_info->compressed_bw, rc);
 
 	return rc;
 }

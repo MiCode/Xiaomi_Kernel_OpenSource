@@ -118,6 +118,7 @@ update_req_mgr:
 		CAM_DBG(CAM_SENSOR, " Rxed Req Id: %lld",
 			 csl_packet->header.request_id);
 		add_req.dev_hdl = s_ctrl->bridge_intf.device_hdl;
+		add_req.skip_before_applying = 0;
 		if (s_ctrl->bridge_intf.crm_cb &&
 			s_ctrl->bridge_intf.crm_cb->add_req)
 			s_ctrl->bridge_intf.crm_cb->add_req(&add_req);

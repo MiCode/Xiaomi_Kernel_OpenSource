@@ -81,8 +81,8 @@ struct cam_vfe_bus_ver2_reg_offset_common {
 	uint32_t dual_comp_error_status;
 	uint32_t dual_comp_ovrwr_status;
 	uint32_t addr_sync_cfg;
-	uint32_t addr_syn_frame_hdr;
-	uint32_t addr_syn_no_sync;
+	uint32_t addr_sync_frame_hdr;
+	uint32_t addr_sync_no_sync;
 };
 
 /*
@@ -130,9 +130,12 @@ struct cam_vfe_bus_ver2_reg_offset_bus_client {
  * struct cam_vfe_bus_ver2_reg_offset_comp_grp:
  *
  * @Brief:        Register offsets for Composite Group registers
+ * comp_mask:     Comp group register address
+ * addr_sync_mask:Address sync group register address
  */
 struct cam_vfe_bus_ver2_reg_offset_comp_grp {
 	uint32_t                            comp_mask;
+	uint32_t                            addr_sync_mask;
 };
 
 /*

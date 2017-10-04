@@ -183,6 +183,12 @@
 		/delete-property/ cam_vio-supply;
 		/delete-property/ cam_vana-supply;
 	};
+
+	qcom,cam-sensor@3 {
+		/delete-property/ cam_vio-supply;
+		/delete-property/ cam_vana-supply;
+	};
+
 };
 
 &clock_gcc {

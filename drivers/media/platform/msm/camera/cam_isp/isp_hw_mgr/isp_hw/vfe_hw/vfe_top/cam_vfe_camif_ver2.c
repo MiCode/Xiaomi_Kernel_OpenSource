@@ -158,7 +158,13 @@ static int cam_vfe_camif_resource_start(
 	/*config vfe core*/
 	val = (rsrc_data->pix_pattern <<
 			rsrc_data->reg_data->pixel_pattern_shift);
+	if (rsrc_data->sync_mode == CAM_ISP_HW_SYNC_SLAVE)
+		val |= (1 << rsrc_data->reg_data->extern_reg_update_shift);
+
 	cam_io_w_mb(val, rsrc_data->mem_base + rsrc_data->common_reg->core_cfg);
+
+	CAM_DBG(CAM_ISP, "hw id:%d core_cfg val:%d", camif_res->hw_intf->hw_idx,
+		val);
 
 	cam_io_w_mb(0x00400040, rsrc_data->mem_base +
 		rsrc_data->camif_reg->camif_config);

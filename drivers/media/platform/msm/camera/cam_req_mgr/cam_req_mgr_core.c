@@ -180,6 +180,15 @@ static int __cam_req_mgr_traverse(struct cam_req_mgr_traverse *traverse_data)
 		tbl->pd, curr_idx, tbl->slot[curr_idx].state,
 		tbl->skip_traverse, traverse_data->in_q->slot[curr_idx].status);
 
+	if (tbl->inject_delay > 0) {
+		CAM_DBG(CAM_CRM, "Injecting Delay of one frame");
+		apply_data[tbl->pd].req_id = -1;
+		tbl->inject_delay--;
+		/* This pd table is not ready to proceed with asked idx */
+		SET_FAILURE_BIT(traverse_data->result, tbl->pd);
+		return -EAGAIN;
+	}
+
 	/* Check if req is ready or in skip mode or pd tbl is in skip mode */
 	if (tbl->slot[curr_idx].state == CRM_REQ_STATE_READY ||
 		traverse_data->in_q->slot[curr_idx].skip_idx == 1 ||
@@ -1210,6 +1219,10 @@ int cam_req_mgr_process_add_req(void *priv, void *data)
 		mutex_unlock(&link->req.lock);
 		goto end;
 	}
+
+	if (add_req->skip_before_applying > tbl->inject_delay)
+		tbl->inject_delay = add_req->skip_before_applying;
+
 	slot = &tbl->slot[idx];
 	if (slot->state != CRM_REQ_STATE_PENDING &&
 		slot->state != CRM_REQ_STATE_EMPTY) {
@@ -1452,6 +1465,7 @@ static int cam_req_mgr_cb_add_req(struct cam_req_mgr_add_request *add_req)
 	dev_req->req_id = add_req->req_id;
 	dev_req->link_hdl = add_req->link_hdl;
 	dev_req->dev_hdl = add_req->dev_hdl;
+	dev_req->skip_before_applying = add_req->skip_before_applying;
 	task->process_cb = &cam_req_mgr_process_add_req;
 	rc = cam_req_mgr_workq_enqueue_task(task, link, CRM_TASK_PRIORITY_0);
 	CAM_DBG(CAM_CRM, "X: dev %x dev req %lld",

@@ -54,14 +54,19 @@ int cam_isp_add_change_base(
  *                         left or right VFE/IFE instance.
  *
  * @prepare:               Contain the  packet and HW update variables
- * @dual_type:             Left of right command buffers to be extracted
- *
+ * @split_id:              Left or right command buffers to be extracted
+ * @base_idx:              Base or dev index of the IFE/VFE HW instance
+ * @res_list_isp_out:      IFE /VFE out resource list
+ * @size_isp_out:          Size of the res_list_isp_out array
  * @return:                0 for success
  *                         -EINVAL for Fail
  */
 int cam_isp_add_command_buffers(
-	struct cam_hw_prepare_update_args    *prepare,
-	enum cam_isp_hw_split_id              split_id);
+	struct cam_hw_prepare_update_args  *prepare,
+	enum cam_isp_hw_split_id            split_id,
+	uint32_t                            base_idx,
+	struct cam_ife_hw_mgr_res          *res_list_isp_out,
+	uint32_t                            size_isp_out);
 
 /**
  * @brief                  Add io buffer configurations in the HW entries list
