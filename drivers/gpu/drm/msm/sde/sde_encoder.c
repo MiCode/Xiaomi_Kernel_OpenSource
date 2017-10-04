@@ -3075,18 +3075,18 @@ static void sde_encoder_vsync_event_work_handler(struct kthread_work *work)
 			nsecs_to_jiffies(ktime_to_ns(wakeup_time)));
 }
 
-void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
+int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 		struct sde_encoder_kickoff_params *params)
 {
 	struct sde_encoder_virt *sde_enc;
 	struct sde_encoder_phys *phys;
 	bool needs_hw_reset = false;
 	unsigned int i;
-	int rc;
+	int rc, ret = 0;
 
 	if (!drm_enc || !params) {
 		SDE_ERROR("invalid args\n");
-		return;
+		return -EINVAL;
 	}
 	sde_enc = to_sde_encoder_virt(drm_enc);
 
@@ -3098,8 +3098,12 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		phys = sde_enc->phys_encs[i];
 		if (phys) {
-			if (phys->ops.prepare_for_kickoff)
-				phys->ops.prepare_for_kickoff(phys, params);
+			if (phys->ops.prepare_for_kickoff) {
+				rc = phys->ops.prepare_for_kickoff(
+						phys, params);
+				if (rc)
+					ret = rc;
+			}
 			if (phys->enable_state == SDE_ENC_ERR_NEEDS_HW_RESET)
 				needs_hw_reset = true;
 			_sde_encoder_setup_dither(phys);
@@ -3125,17 +3129,23 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 
 	if (sde_enc->cur_master && sde_enc->cur_master->connector) {
 		rc = sde_connector_pre_kickoff(sde_enc->cur_master->connector);
-		if (rc)
+		if (rc) {
 			SDE_ERROR_ENC(sde_enc, "kickoff conn%d failed rc %d\n",
 					sde_enc->cur_master->connector->base.id,
 					rc);
+			ret = rc;
+		}
 	}
 
 	if (sde_encoder_is_dsc_enabled(drm_enc)) {
 		rc = _sde_encoder_dsc_setup(sde_enc, params);
-		if (rc)
+		if (rc) {
 			SDE_ERROR_ENC(sde_enc, "failed to setup DSC: %d\n", rc);
+			ret = rc;
+		}
 	}
+
+	return ret;
 }
 
 /**

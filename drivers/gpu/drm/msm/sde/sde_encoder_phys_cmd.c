@@ -984,7 +984,7 @@ static void sde_encoder_phys_cmd_get_hw_resources(
 	hw_res->intfs[phys_enc->intf_idx - INTF_0] = INTF_MODE_CMD;
 }
 
-static void sde_encoder_phys_cmd_prepare_for_kickoff(
+static int sde_encoder_phys_cmd_prepare_for_kickoff(
 		struct sde_encoder_phys *phys_enc,
 		struct sde_encoder_kickoff_params *params)
 {
@@ -994,7 +994,7 @@ static void sde_encoder_phys_cmd_prepare_for_kickoff(
 
 	if (!phys_enc || !phys_enc->hw_pp) {
 		SDE_ERROR("invalid encoder\n");
-		return;
+		return -EINVAL;
 	}
 	SDE_DEBUG_CMDENC(cmd_enc, "pp %d\n", phys_enc->hw_pp->idx - PINGPONG_0);
 
@@ -1018,6 +1018,7 @@ static void sde_encoder_phys_cmd_prepare_for_kickoff(
 	SDE_DEBUG_CMDENC(cmd_enc, "pp:%d pending_cnt %d\n",
 			phys_enc->hw_pp->idx - PINGPONG_0,
 			atomic_read(&phys_enc->pending_kickoff_cnt));
+	return ret;
 }
 
 static int _sde_encoder_phys_cmd_wait_for_ctl_start(
