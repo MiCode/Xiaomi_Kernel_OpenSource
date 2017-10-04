@@ -1568,6 +1568,8 @@ static void isense_cold_trimm(struct kgsl_device *device)
 	kgsl_gmu_regwrite(device, A6XX_GPU_CS_AMP_CALIBRATION_DONE, 1);
 
 }
+
+#define GPU_LIMIT_THRESHOLD_ENABLE	BIT(31)
 /*
  * a6xx_gmu_fw_start() - set up GMU and start FW
  * @device: Pointer to KGSL device
@@ -1651,7 +1653,7 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM) &&
 		test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag)) {
 		kgsl_gmu_regwrite(device, A6XX_GPU_GMU_CX_GMU_PWR_THRESHOLD,
-			lm_limit(adreno_dev));
+			GPU_LIMIT_THRESHOLD_ENABLE | lm_limit(adreno_dev));
 		isense_cold_trimm(device);
 	}
 
