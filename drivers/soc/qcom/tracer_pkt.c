@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -100,7 +100,7 @@ int tracer_pkt_init(void *data, size_t data_len,
 	pkt_hdr->reserved = 0;
 	pkt_hdr->id_valid = 0;
 	pkt_hdr->qdss_tracing = qdss_tracing ? true : false;
-	if (pkt_priv_len > MAX_CC_WLEN * sizeof(uint32_t))
+	if (pkt_priv_len >= MAX_CC_WLEN * sizeof(uint32_t))
 		pkt_hdr->ccl = MAX_CC_WLEN;
 	else
 		pkt_hdr->ccl = pkt_priv_len/sizeof(uint32_t) +
