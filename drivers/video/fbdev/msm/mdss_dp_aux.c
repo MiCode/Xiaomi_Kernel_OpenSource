@@ -1543,7 +1543,7 @@ static void dp_sink_parse_sink_count(struct mdss_dp_drv_pdata *ep)
 	data = *bp++;
 
 	/* BIT 7, BIT 5:0 */
-	ep->sink_count.count = (data & BIT(7)) << 6 | (data & 0x63);
+	ep->sink_count.count = (data & BIT(7)) >> 1 | (data & 0x3F);
 	/* BIT 6*/
 	ep->sink_count.cp_ready = data & BIT(6);
 
