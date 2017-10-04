@@ -67,7 +67,7 @@ static int cam_vfe_rdi_get_reg_update(
 	rsrc_data = rdi_res->res_priv;
 	reg_val_pair[0] = rsrc_data->rdi_reg->reg_update_cmd;
 	reg_val_pair[1] = rsrc_data->reg_data->reg_update_cmd_data;
-	CAM_DBG(CAM_ISP, "Error - RDI%d reg_update_cmd %x",
+	CAM_DBG(CAM_ISP, "RDI%d reg_update_cmd %x",
 		rdi_res->res_id - CAM_ISP_HW_VFE_IN_RDI0, reg_val_pair[1]);
 
 	cdm_util_ops->cdm_write_regrandom(cdm_args->cmd_buf_addr,
