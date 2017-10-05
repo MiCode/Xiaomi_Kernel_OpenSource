@@ -636,10 +636,10 @@ uint32_t core_set_dolby_manufacturer_id(int manufacturer_id)
 	return rc;
 }
 
-bool q6core_is_adsp_ready(void)
+int q6core_is_adsp_ready(void)
 {
 	int rc = 0;
-	bool ret = false;
+	int ret = false;
 	struct apr_hdr hdr;
 
 	pr_debug("%s: enter\n", __func__);
@@ -666,7 +666,7 @@ bool q6core_is_adsp_ready(void)
 		if (rc > 0 && q6core_lcl.bus_bw_resp_received) {
 			/* ensure to read updated param by callback thread */
 			rmb();
-			ret = !!q6core_lcl.param;
+			ret = q6core_lcl.param;
 		}
 	}
 bail:
