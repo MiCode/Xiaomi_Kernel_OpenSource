@@ -38,6 +38,7 @@ struct cluster_data {
 	unsigned int active_cpus;
 	unsigned int num_cpus;
 	unsigned int nr_isolated_cpus;
+	unsigned int nr_not_preferred_cpus;
 #ifdef CONFIG_SCHED_CORE_ROTATE
 	unsigned long set_max;
 	unsigned long set_cur;
@@ -350,6 +351,7 @@ static ssize_t store_not_preferred(struct cluster_data *state,
 	unsigned int val[MAX_CPUS_PER_CLUSTER];
 	unsigned long flags;
 	int ret;
+	int not_preferred_count = 0;
 
 	ret = sscanf(buf, "%u %u %u %u %u %u\n",
 			&val[0], &val[1], &val[2], &val[3],
@@ -361,7 +363,9 @@ static ssize_t store_not_preferred(struct cluster_data *state,
 	for (i = 0; i < state->num_cpus; i++) {
 		c = &per_cpu(cpu_state, i + state->first_cpu);
 		c->not_preferred = val[i];
+		not_preferred_count += !!val[i];
 	}
+	state->nr_not_preferred_cpus = not_preferred_count;
 	spin_unlock_irqrestore(&state_lock, flags);
 
 	return count;
@@ -793,8 +797,16 @@ static void try_to_isolate(struct cluster_data *cluster, unsigned int need)
 			continue;
 		if (cluster->active_cpus == need)
 			break;
-		/* Don't offline busy CPUs. */
+		/* Don't isolate busy CPUs. */
 		if (c->is_busy)
+			continue;
+
+		/*
+		 * We isolate only the not_preferred CPUs. If none
+		 * of the CPUs are selected as not_preferred, then
+		 * all CPUs are eligible for isolation.
+		 */
+		if (cluster->nr_not_preferred_cpus && !c->not_preferred)
 			continue;
 
 		if (!should_we_isolate(c->cpu, cluster))
@@ -1109,6 +1121,7 @@ static int cluster_init(const struct cpumask *mask)
 	cluster->set_cur = cluster->set_max - 1;
 #endif
 	cluster->enable = true;
+	cluster->nr_not_preferred_cpus = 0;
 	INIT_LIST_HEAD(&cluster->lru);
 	spin_lock_init(&cluster->pending_lock);
 
