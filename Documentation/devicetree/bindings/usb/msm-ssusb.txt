@@ -64,6 +64,8 @@ Optional properties :
 	  device provides both "USB" and "USB-HOST" events.
 - qcom,pm-qos-latency: This represents max tolerable CPU latency in microsecs,
 	which is used as a vote by driver to get max performance in perf mode.
+- qcom,no-wakeup-src-in-hostmode: If present then driver doesn't use wakeup_source APIs
+  in host mode. This allows PM suspend to happen irrespective of runtimePM state of host.
 
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".
