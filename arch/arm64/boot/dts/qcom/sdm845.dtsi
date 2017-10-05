@@ -846,6 +846,7 @@
 		interrupt-controller;
 		#interrupt-cells = <4>;
 		cell-index = <0>;
+		qcom,enable-ahb-bus-workaround;
 	};
 
 	spmi_debug_bus: qcom,spmi-debug@6b22000 {
