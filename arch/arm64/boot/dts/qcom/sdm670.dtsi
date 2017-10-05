@@ -1978,8 +1978,11 @@
 		qcom,pm-qos-legacy-latency-us = <70 70>, <70 70>;
 
 		clocks = <&clock_gcc GCC_SDCC1_AHB_CLK>,
-			<&clock_gcc GCC_SDCC1_APPS_CLK>;
-		clock-names = "iface_clk", "core_clk";
+			<&clock_gcc GCC_SDCC1_APPS_CLK>,
+			<&clock_gcc GCC_SDCC1_ICE_CORE_CLK>;
+		clock-names = "iface_clk", "core_clk", "ice_core_clk";
+
+		qcom,ice-clk-rates = <300000000 75000000>;
 
 		qcom,nonremovable;
 
