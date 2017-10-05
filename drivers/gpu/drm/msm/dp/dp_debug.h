@@ -28,6 +28,7 @@
  */
 struct dp_debug {
 	bool debug_en;
+	int aspect_ratio;
 	int vdisplay;
 	int hdisplay;
 	int vrefresh;
