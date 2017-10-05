@@ -98,7 +98,7 @@
 			};
 		};
 
-		smb138x_parallel_slave: qcom,smb138x-parallel-slave@1000 {
+		smb1381_charger: qcom,smb1381-charger@1000 {
 			compatible = "qcom,smb138x-parallel-slave";
 			qcom,pmic-revid = <&smb138x_revid>;
 			reg = <0x1000 0x700>;
