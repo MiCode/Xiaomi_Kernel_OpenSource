@@ -289,6 +289,7 @@ static const struct of_device_id msm_vidc_dt_match[] = {
 		.compatible = "qcom,sdm670-vidc",
 		.data = &sdm670_data,
 	},
+	{},
 };
 
 MODULE_DEVICE_TABLE(of, msm_vidc_dt_match);
