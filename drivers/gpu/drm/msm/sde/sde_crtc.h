@@ -277,6 +277,7 @@ struct sde_crtc {
 	struct sde_power_event *power_event;
 
 	struct sde_core_perf_params cur_perf;
+	struct sde_core_perf_params new_perf;
 
 	struct mutex rp_lock;
 	struct list_head rp_head;
