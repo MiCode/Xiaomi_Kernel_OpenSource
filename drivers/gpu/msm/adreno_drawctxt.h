@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,6 +39,7 @@ struct kgsl_context;
  * @pending: Priority list node for the dispatcher list of pending contexts
  * @wq: Workqueue structure for contexts to sleep pending room in the queue
  * @waiting: Workqueue structure for contexts waiting for a timestamp or event
+ * @timeout: Workqueue structure for contexts waiting to invalidate
  * @queued: Number of commands queued in the cmdqueue
  * @fault_policy: GFT fault policy set in cmdbatch_skip_cmd();
  * @debug_root: debugfs entry for this context.
@@ -67,6 +68,7 @@ struct adreno_context {
 	struct plist_node pending;
 	wait_queue_head_t wq;
 	wait_queue_head_t waiting;
+	wait_queue_head_t timeout;
 
 	int queued;
 	unsigned int fault_policy;

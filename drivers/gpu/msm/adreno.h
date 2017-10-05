@@ -182,6 +182,7 @@ enum adreno_gpurev {
 #define ADRENO_TIMEOUT_FAULT BIT(2)
 #define ADRENO_IOMMU_PAGE_FAULT BIT(3)
 #define ADRENO_PREEMPT_FAULT BIT(4)
+#define ADRENO_CTX_DETATCH_TIMEOUT_FAULT BIT(5)
 
 #define ADRENO_SPTP_PC_CTRL 0
 #define ADRENO_PPD_CTRL     1
@@ -564,6 +565,8 @@ enum adreno_regs {
 	ADRENO_REG_RBBM_RBBM_CTL,
 	ADRENO_REG_UCHE_INVALIDATE0,
 	ADRENO_REG_UCHE_INVALIDATE1,
+	ADRENO_REG_RBBM_PERFCTR_RBBM_0_LO,
+	ADRENO_REG_RBBM_PERFCTR_RBBM_0_HI,
 	ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_LO,
 	ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
 	ADRENO_REG_RBBM_SECVID_TRUST_CONTROL,
@@ -1489,4 +1492,25 @@ static inline void adreno_ringbuffer_set_pagetable(struct adreno_ringbuffer *rb,
 	spin_unlock_irqrestore(&rb->preempt_lock, flags);
 }
 
+static inline bool is_power_counter_overflow(struct adreno_device *adreno_dev,
+	unsigned int reg, unsigned int prev_val, unsigned int *perfctr_pwr_hi)
+{
+	unsigned int val;
+	bool ret = false;
+
+	/*
+	 * If prev_val is zero, it is first read after perf counter reset.
+	 * So set perfctr_pwr_hi register to zero.
+	 */
+	if (prev_val == 0) {
+		*perfctr_pwr_hi = 0;
+		return ret;
+	}
+	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_PERFCTR_RBBM_0_HI, &val);
+	if (val != *perfctr_pwr_hi) {
+		*perfctr_pwr_hi = val;
+		ret = true;
+	}
+	return ret;
+}
 #endif /*__ADRENO_H */

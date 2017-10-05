@@ -281,7 +281,8 @@ dtb-$(CONFIG_ARCH_SDM450) += sdm450-rcm.dtb \
 	sdm450-mtp.dtb \
 	sdm450-qrd.dtb \
 	sdm450-pmi8940-mtp.dtb \
-	sdm450-pmi8937-mtp.dtb
+	sdm450-pmi8937-mtp.dtb \
+	sdm450-iot-mtp.dtb
 
 dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-rumi.dtb \
 	mdm9607-cdp.dtb \

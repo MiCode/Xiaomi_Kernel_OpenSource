@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,7 +21,12 @@
 extern void *wcnss_prealloc_get(unsigned int size);
 extern int wcnss_prealloc_put(void *ptr);
 extern int wcnss_pre_alloc_reset(void);
+
+#if !defined(CONFIG_WCNSS_MEM_PRE_ALLOC) || !defined(CONFIG_SLUB_DEBUG)
+static inline void wcnss_prealloc_check_memory_leak(void) {}
+#else
 void wcnss_prealloc_check_memory_leak(void);
+#endif
 
 extern void wcnss_skb_prealloc_check_memory_leak(void);
 extern int wcnss_skb_pre_alloc_reset(void);

@@ -818,6 +818,9 @@ struct mdss_panel_data {
 	/* To store dsc cfg name passed by bootloader */
 	char dsc_cfg_np_name[MDSS_MAX_PANEL_LEN];
 	struct mdss_panel_data *next;
+
+	int panel_te_gpio;
+	struct completion te_done;
 };
 
 struct mdss_panel_debugfs_info {

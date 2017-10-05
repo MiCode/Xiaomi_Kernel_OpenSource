@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -104,8 +104,38 @@ static struct logger_device *logger_device_is_registered(
  */
 static int logger_dispatch_skb(struct sk_buff *skb)
 {
+	struct nlmsghdr *nlh;
+	struct logger_context *ctx;
+	struct logger_device *cur;
+	struct logger_event_handler *evt;
+	int handled = 0;
+
+	ctx = logger_get_ctx();
+	if (!ctx)
+		return -ENOENT;
+
 	pr_info("skb_len: %d, skb_data_len: %d\n",
 		skb->len, skb->data_len);
+
+	if (skb->len < sizeof(struct nlmsghdr))
+		return 0;
+
+	nlh = (struct nlmsghdr *)skb->data;
+	list_for_each_entry(cur, &ctx->dev_list, list) {
+		list_for_each_entry(evt, &cur->event_list, list) {
+			if (nlh->nlmsg_type == evt->event) {
+				if (evt->cb) {
+					handled = 1;
+					evt->cb(skb);
+				}
+				/* Break inside loop, next dev */
+				break;
+			}
+		}
+	}
+
+	if (!handled)
+		pr_info("Not handled msg type: %d\n", nlh->nlmsg_type);
 
 	return 0;
 }

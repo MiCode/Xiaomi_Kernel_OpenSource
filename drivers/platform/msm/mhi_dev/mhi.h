@@ -557,6 +557,9 @@ struct mhi_dev {
 
 	/* MHI state info */
 	enum mhi_ctrl_info		ctrl_info;
+
+	/*Register for interrupt*/
+	bool				mhi_int;
 };
 
 enum mhi_msg_level {

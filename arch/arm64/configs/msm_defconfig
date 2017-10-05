@@ -1,5 +1,4 @@
 # CONFIG_USELIB is not set
-# CONFIG_USELIB is not set
 CONFIG_AUDIT=y
 # CONFIG_AUDITSYSCALL is not set
 CONFIG_NO_HZ=y

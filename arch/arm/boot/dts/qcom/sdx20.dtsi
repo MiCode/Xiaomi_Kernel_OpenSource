@@ -353,6 +353,7 @@
 
 	qcom,pcie-phy-ver = <5>;
 	qcom,pcie-perst-enum;
+	qcom,pcie-mhi-a7-irq;
 	status = "disabled";
 };
 
@@ -392,6 +393,7 @@
 	interrupts = <0 119 0>;
 	interrupt-names = "mhi-device-inta";
 	qcom,mhi-ifc-id = <0x030317cb>;
+	qcom,mhi-interrupt;
 	status = "disabled";
 };
 

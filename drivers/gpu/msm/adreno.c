@@ -1163,6 +1163,10 @@ static int adreno_init(struct kgsl_device *device)
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int ret;
 
+	if (!adreno_is_a3xx(adreno_dev))
+		kgsl_sharedmem_set(device, &device->scratch, 0, 0,
+				device->scratch.size);
+
 	ret = kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
 	if (ret)
 		return ret;
@@ -2227,8 +2231,6 @@ static int adreno_soft_reset(struct kgsl_device *device)
 			adreno_support_64bit(adreno_dev))
 		gpudev->enable_64bit(adreno_dev);
 
-	/* Restore physical performance counter values after soft reset */
-	adreno_perfcounter_restore(adreno_dev);
 
 	/* Reinitialize the GPU */
 	gpudev->start(adreno_dev);
@@ -2254,6 +2256,9 @@ static int adreno_soft_reset(struct kgsl_device *device)
 		device->reset_counter++;
 		set_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
 	}
+
+	/* Restore physical performance counter values after soft reset */
+	adreno_perfcounter_restore(adreno_dev);
 
 	return ret;
 }
@@ -2409,9 +2414,9 @@ static void adreno_read(struct kgsl_device *device, void __iomem *base,
 		unsigned int mem_len)
 {
 
-	unsigned int __iomem *reg;
+	void __iomem *reg;
 	BUG_ON(offsetwords*sizeof(uint32_t) >= mem_len);
-	reg = (unsigned int __iomem *)(base + (offsetwords << 2));
+	reg = (base + (offsetwords << 2));
 
 	if (!in_interrupt())
 		kgsl_pre_hwaccess(device);
@@ -2451,7 +2456,7 @@ static void adreno_regwrite(struct kgsl_device *device,
 				unsigned int offsetwords,
 				unsigned int value)
 {
-	unsigned int __iomem *reg;
+	void __iomem *reg;
 
 	BUG_ON(offsetwords*sizeof(uint32_t) >= device->reg_len);
 
@@ -2461,7 +2466,7 @@ static void adreno_regwrite(struct kgsl_device *device,
 	trace_kgsl_regwrite(device, offsetwords, value);
 
 	kgsl_cffdump_regwrite(device, offsetwords << 2, value);
-	reg = (unsigned int __iomem *)(device->reg_virt + (offsetwords << 2));
+	reg = (device->reg_virt + (offsetwords << 2));
 
 	/*ensure previous writes post before this one,
 	 * i.e. act like normal writel() */
@@ -2615,21 +2620,38 @@ static inline s64 adreno_ticks_to_us(u32 ticks, u32 freq)
 	return ticks / freq;
 }
 
-static unsigned int counter_delta(struct kgsl_device *device,
+static inline unsigned int counter_delta(struct kgsl_device *device,
 			unsigned int reg, unsigned int *counter)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int val;
 	unsigned int ret = 0;
+	bool overflow = true;
+	static unsigned int perfctr_pwr_hi;
 
 	/* Read the value */
 	kgsl_regread(device, reg, &val);
 
+	if (adreno_is_a5xx(adreno_dev) && reg == adreno_getreg
+		(adreno_dev, ADRENO_REG_RBBM_PERFCTR_RBBM_0_LO))
+		overflow = is_power_counter_overflow(adreno_dev, reg,
+				*counter, &perfctr_pwr_hi);
+
 	/* Return 0 for the first read */
 	if (*counter != 0) {
-		if (val < *counter)
-			ret = (0xFFFFFFFF - *counter) + val;
-		else
+		if (val >= *counter) {
 			ret = val - *counter;
+		} else if (overflow == true) {
+			ret = (0xFFFFFFFF - *counter) + val;
+		} else {
+			/*
+			 * Since KGSL got abnormal value from the counter,
+			 * We will drop the value from being accumulated.
+			 */
+			pr_warn_once("KGSL: Abnormal value :0x%x (0x%x) from perf counter : 0x%x\n",
+					val, *counter, reg);
+			return 0;
+		}
 	}
 
 	*counter = val;
