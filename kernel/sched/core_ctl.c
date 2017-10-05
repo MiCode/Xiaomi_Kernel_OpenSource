@@ -637,26 +637,27 @@ int core_ctl_set_boost(bool boost)
 
 	spin_lock_irqsave(&state_lock, flags);
 	for_each_cluster(cluster, index) {
-		if (cluster->is_big_cluster) {
-			if (boost) {
-				boost_state_changed = !cluster->boost;
-				++cluster->boost;
+		if (boost) {
+			boost_state_changed = !cluster->boost;
+			++cluster->boost;
+		} else {
+			if (!cluster->boost) {
+				pr_err("Error turning off boost. Boost already turned off\n");
+				ret = -EINVAL;
+				break;
 			} else {
-				if (!cluster->boost) {
-					pr_err("Error turning off boost. Boost already turned off\n");
-					ret = -EINVAL;
-				} else {
-					--cluster->boost;
-					boost_state_changed = !cluster->boost;
-				}
+				--cluster->boost;
+				boost_state_changed = !cluster->boost;
 			}
-			break;
 		}
 	}
 	spin_unlock_irqrestore(&state_lock, flags);
 
-	if (boost_state_changed)
-		apply_need(cluster);
+	if (boost_state_changed) {
+		index = 0;
+		for_each_cluster(cluster, index)
+			apply_need(cluster);
+	}
 
 	trace_core_ctl_set_boost(cluster->boost, ret);
 
