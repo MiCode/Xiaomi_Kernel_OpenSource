@@ -176,12 +176,22 @@ static struct usb_descriptor_header *qdss_ss_data_only_desc[] = {
 };
 
 /* string descriptors: */
-#define QDSS_DATA_IDX	0
-#define QDSS_CTRL_IDX	1
+#define QDSS_DATA_IDX		0
+#define QDSS_CTRL_IDX		1
+#define MSM_QDSS_DATA_IDX	2
+#define MSM_QDSS_CTRL_IDX	3
+#define MDM_QDSS_DATA_IDX	4
+#define MDM_QDSS_CTRL_IDX	5
+#define DPL_DATA_IDX		6
 
 static struct usb_string qdss_string_defs[] = {
-	[QDSS_DATA_IDX].s = "QDSS DATA",
-	[QDSS_CTRL_IDX].s = "QDSS CTRL",
+	[QDSS_DATA_IDX].s = "QDSS Data",
+	[QDSS_CTRL_IDX].s = "QDSS Control",
+	[MSM_QDSS_DATA_IDX].s = "MSM QDSS Data",
+	[MSM_QDSS_CTRL_IDX].s = "MSM QDSS Control",
+	[MDM_QDSS_DATA_IDX].s = "MDM QDSS Data",
+	[MDM_QDSS_CTRL_IDX].s = "MDM QDSS Control",
+	[DPL_DATA_IDX].s = "DPL Data",
 	{}, /* end of list */
 };
 
@@ -990,6 +1000,7 @@ static int qdss_bind_config(struct usb_configuration *c, unsigned char portno)
 	char *name;
 	enum transport_type dxport;
 	struct usb_function *f;
+	int str_data_id, str_ctrl_id;
 
 	dxport = qdss_ports[portno].data_xport;
 
@@ -1001,17 +1012,30 @@ static int qdss_bind_config(struct usb_configuration *c, unsigned char portno)
 	}
 	qdss = qdss_ports[portno].port;
 
-	if (qdss_string_defs[QDSS_DATA_IDX].id == 0) {
+	str_data_id = QDSS_DATA_IDX;
+	str_ctrl_id = QDSS_CTRL_IDX;
+
+	if (dxport == USB_GADGET_XPORT_BAM2BAM) {
+		str_data_id = MSM_QDSS_DATA_IDX;
+		str_ctrl_id = MSM_QDSS_CTRL_IDX;
+	} else if (dxport == USB_GADGET_XPORT_PCIE) {
+		str_data_id = MDM_QDSS_DATA_IDX;
+		str_ctrl_id = MDM_QDSS_CTRL_IDX;
+	} else if (dxport == USB_GADGET_XPORT_ETHER) {
+		str_data_id = DPL_DATA_IDX;
+	}
+
+	if (qdss_string_defs[str_data_id].id == 0) {
 		status = usb_string_id(c->cdev);
 		if (status < 0)
 			return status;
-		qdss_string_defs[QDSS_DATA_IDX].id = status;
+		qdss_string_defs[str_data_id].id = status;
 		qdss_data_intf_desc.iInterface = status;
 		if (qdss->debug_inface_enabled) {
 			status = usb_string_id(c->cdev);
 			if (status < 0)
 				return status;
-			qdss_string_defs[QDSS_CTRL_IDX].id = status;
+			qdss_string_defs[str_ctrl_id].id = status;
 			qdss_ctrl_intf_desc.iInterface = status;
 		}
 	}
