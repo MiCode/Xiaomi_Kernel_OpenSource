@@ -527,6 +527,7 @@ static void msm_geni_serial_poll_cancel_tx(struct uart_port *uport)
 static void msm_geni_serial_abort_rx(struct uart_port *uport)
 {
 	unsigned int irq_clear = S_CMD_DONE_EN;
+	unsigned int io_op_ctrl = DEFAULT_IO_OUTPUT_CTRL_MSK;
 
 	geni_abort_s_cmd(uport->membase);
 	/* Ensure this goes through before polling. */
@@ -535,7 +536,10 @@ static void msm_geni_serial_abort_rx(struct uart_port *uport)
 	msm_geni_serial_poll_bit(uport, SE_GENI_S_CMD_CTRL_REG,
 					S_GENI_CMD_ABORT, false);
 	geni_write_reg_nolog(irq_clear, uport->membase, SE_GENI_S_IRQ_CLEAR);
+	geni_write_reg(io_op_ctrl, uport->membase, GENI_OUTPUT_CTRL);
 	geni_write_reg(FORCE_DEFAULT, uport->membase, GENI_FORCE_DEFAULT_REG);
+	/* Ensure this goes through before returning. */
+	mb();
 }
 
 #ifdef CONFIG_CONSOLE_POLL
@@ -1469,6 +1473,9 @@ static int msm_geni_serial_port_setup(struct uart_port *uport)
 	ret = geni_se_select_mode(uport->membase, msm_port->xfer_mode);
 	if (ret)
 		goto exit_portsetup;
+
+	geni_write_reg(0x7F, uport->membase, GENI_OUTPUT_CTRL);
+	geni_write_reg(FORCE_DEFAULT, uport->membase, GENI_FORCE_DEFAULT_REG);
 
 	msm_port->port_setup = true;
 	/*
