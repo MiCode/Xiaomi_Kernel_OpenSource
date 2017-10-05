@@ -204,32 +204,48 @@ static int dp_panel_read_sink_caps(struct dp_panel *dp_panel,
 	return 0;
 }
 
-static u32 dp_panel_get_max_pclk(struct dp_panel *dp_panel)
+static u32 dp_panel_get_supported_bpp(struct dp_panel *dp_panel,
+		u32 mode_edid_bpp, u32 mode_pclk_khz)
 {
 	struct drm_dp_link *link_info;
-	const u8 num_components = 3;
-	u32 bpc = 0, bpp = 0, max_data_rate_khz = 0, max_pclk_rate_khz = 0;
+	const u32 max_supported_bpp = 30, min_supported_bpp = 18;
+	u32 bpp = 0, data_rate_khz = 0;
 
-	if (!dp_panel) {
+	bpp = min_t(u32, mode_edid_bpp, max_supported_bpp);
+
+	link_info = &dp_panel->link_info;
+	data_rate_khz = link_info->num_lanes * link_info->rate * 8;
+
+	while (bpp > min_supported_bpp) {
+		if (mode_pclk_khz * bpp <= data_rate_khz)
+			break;
+		bpp -= 6;
+	}
+
+	return bpp;
+}
+
+static u32 dp_panel_get_mode_bpp(struct dp_panel *dp_panel,
+		u32 mode_edid_bpp, u32 mode_pclk_khz)
+{
+	struct dp_panel_private *panel;
+	u32 bpp = mode_edid_bpp;
+
+	if (!dp_panel || !mode_edid_bpp || !mode_pclk_khz) {
 		pr_err("invalid input\n");
 		return 0;
 	}
 
-	link_info = &dp_panel->link_info;
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 
-	bpc = sde_get_sink_bpc(dp_panel->edid_ctrl);
-	bpp = bpc * num_components;
-	if (!bpp)
-		bpp = DP_PANEL_DEFAULT_BPP;
+	if (dp_panel->video_test)
+		bpp = dp_link_bit_depth_to_bpp(
+				panel->link->test_video.test_bit_depth);
+	else
+		bpp = dp_panel_get_supported_bpp(dp_panel, mode_edid_bpp,
+				mode_pclk_khz);
 
-	max_data_rate_khz = (link_info->num_lanes * link_info->rate * 8);
-	max_pclk_rate_khz = max_data_rate_khz / bpp;
-
-	pr_debug("bpp=%d, max_lane_cnt=%d\n", bpp, link_info->num_lanes);
-	pr_debug("max_data_rate=%dKHz, max_pclk_rate=%dKHz\n",
-		max_data_rate_khz, max_pclk_rate_khz);
-
-	return max_pclk_rate_khz;
+	return bpp;
 }
 
 static void dp_panel_set_test_mode(struct dp_panel_private *panel,
@@ -445,9 +461,6 @@ static int dp_panel_init_panel_info(struct dp_panel *dp_panel)
 	pr_info("bpp = %d\n", pinfo->bpp);
 	pr_info("active low (h|v)=(%d|%d)\n", pinfo->h_active_low,
 		pinfo->v_active_low);
-
-	pinfo->bpp = max_t(u32, 18, min_t(u32, pinfo->bpp, 30));
-	pr_info("updated bpp = %d\n", pinfo->bpp);
 end:
 	return rc;
 }
@@ -511,7 +524,7 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	dp_panel->timing_cfg = dp_panel_timing_cfg;
 	dp_panel->read_sink_caps = dp_panel_read_sink_caps;
 	dp_panel->get_min_req_link_rate = dp_panel_get_min_req_link_rate;
-	dp_panel->get_max_pclk = dp_panel_get_max_pclk;
+	dp_panel->get_mode_bpp = dp_panel_get_mode_bpp;
 	dp_panel->get_modes = dp_panel_get_modes;
 	dp_panel->handle_sink_request = dp_panel_handle_sink_request;
 

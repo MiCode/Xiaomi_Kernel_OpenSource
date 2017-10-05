@@ -512,7 +512,6 @@ static int dp_display_send_hpd_notification(struct dp_display_private *dp,
 static int dp_display_process_hpd_high(struct dp_display_private *dp)
 {
 	int rc = 0;
-	u32 max_pclk_from_edid = 0;
 	struct edid *edid;
 
 	dp->aux->init(dp->aux, dp->parser->aux_cfg);
@@ -538,11 +537,7 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 
 	dp->panel->handle_sink_request(dp->panel);
 
-	max_pclk_from_edid = dp->panel->get_max_pclk(dp->panel);
-
-	dp->dp_display.max_pclk_khz = min(max_pclk_from_edid,
-		dp->parser->max_pclk_khz);
-
+	dp->dp_display.max_pclk_khz = dp->parser->max_pclk_khz;
 notify:
 	dp_display_send_hpd_notification(dp, true);
 
@@ -909,6 +904,7 @@ error:
 static int dp_display_set_mode(struct dp_display *dp_display,
 		struct dp_display_mode *mode)
 {
+	const u32 num_components = 3, default_bpp = 24;
 	struct dp_display_private *dp;
 
 	if (!dp_display) {
@@ -918,6 +914,14 @@ static int dp_display_set_mode(struct dp_display *dp_display,
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 
 	mutex_lock(&dp->session_lock);
+	mode->timing.bpp =
+		dp_display->connector->display_info.bpc * num_components;
+	if (!mode->timing.bpp)
+		mode->timing.bpp = default_bpp;
+
+	mode->timing.bpp = dp->panel->get_mode_bpp(dp->panel,
+			mode->timing.bpp, mode->timing.pixel_clk_khz);
+
 	dp->panel->pinfo = mode->timing;
 	dp->panel->init_info(dp->panel);
 	mutex_unlock(&dp->session_lock);
@@ -1113,10 +1117,35 @@ static int dp_display_unprepare(struct dp_display *dp)
 	return 0;
 }
 
-static int dp_display_validate_mode(struct dp_display *dp,
-	struct dp_display_mode *mode)
+static int dp_display_validate_mode(struct dp_display *dp, u32 mode_pclk_khz)
 {
-	return 0;
+	const u32 num_components = 3, default_bpp = 24;
+	struct dp_display_private *dp_display;
+	struct drm_dp_link *link_info;
+	u32 mode_rate_khz = 0, supported_rate_khz = 0, mode_bpp = 0;
+
+	if (!dp || !mode_pclk_khz) {
+		pr_err("invalid params\n");
+		return -EINVAL;
+	}
+
+	dp_display = container_of(dp, struct dp_display_private, dp_display);
+	link_info = &dp_display->panel->link_info;
+
+	mode_bpp = dp->connector->display_info.bpc * num_components;
+	if (!mode_bpp)
+		mode_bpp = default_bpp;
+
+	mode_bpp = dp_display->panel->get_mode_bpp(dp_display->panel,
+			mode_bpp, mode_pclk_khz);
+
+	mode_rate_khz = mode_pclk_khz * mode_bpp;
+	supported_rate_khz = link_info->num_lanes * link_info->rate * 8;
+
+	if (mode_rate_khz > supported_rate_khz)
+		return MODE_BAD;
+
+	return MODE_OK;
 }
 
 static int dp_display_get_modes(struct dp_display *dp,
@@ -1137,38 +1166,6 @@ static int dp_display_get_modes(struct dp_display *dp,
 	if (dp_mode->timing.pixel_clk_khz)
 		dp->max_pclk_khz = dp_mode->timing.pixel_clk_khz;
 	return ret;
-}
-
-static bool dp_display_check_video_test(struct dp_display *dp)
-{
-	struct dp_display_private *dp_display;
-
-	if (!dp) {
-		pr_err("invalid params\n");
-		return false;
-	}
-
-	dp_display = container_of(dp, struct dp_display_private, dp_display);
-
-	if (dp_display->panel->video_test)
-		return true;
-
-	return false;
-}
-
-static int dp_display_get_test_bpp(struct dp_display *dp)
-{
-	struct dp_display_private *dp_display;
-
-	if (!dp) {
-		pr_err("invalid params\n");
-		return 0;
-	}
-
-	dp_display = container_of(dp, struct dp_display_private, dp_display);
-
-	return dp_link_bit_depth_to_bpp(
-		dp_display->link->test_video.test_bit_depth);
 }
 
 static int dp_display_probe(struct platform_device *pdev)
@@ -1212,8 +1209,6 @@ static int dp_display_probe(struct platform_device *pdev)
 	g_dp_display->request_irq   = dp_request_irq;
 	g_dp_display->get_debug     = dp_get_debug;
 	g_dp_display->send_hpd_event    = dp_display_send_hpd_event;
-	g_dp_display->is_video_test = dp_display_check_video_test;
-	g_dp_display->get_test_bpp = dp_display_get_test_bpp;
 
 	rc = component_add(&pdev->dev, &dp_display_comp_ops);
 	if (rc) {
