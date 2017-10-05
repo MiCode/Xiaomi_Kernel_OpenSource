@@ -22,6 +22,7 @@
 #include <linux/regmap.h>
 #include <linux/delay.h>
 #include <linux/qpnp/qpnp-revid.h>
+#include <linux/power_supply.h>
 
 #define FG_ADC_RR_EN_CTL			0x46
 #define FG_ADC_RR_SKIN_TEMP_LSB			0x50
@@ -192,8 +193,7 @@
 #define FG_RR_ADC_STS_CHANNEL_READING_MASK	0x3
 #define FG_RR_ADC_STS_CHANNEL_STS		0x2
 
-#define FG_RR_CONV_CONTINUOUS_TIME_MIN_US	50000
-#define FG_RR_CONV_CONTINUOUS_TIME_MAX_US	51000
+#define FG_RR_CONV_CONTINUOUS_TIME_MIN_MS	50
 #define FG_RR_CONV_MAX_RETRY_CNT		50
 #define FG_RR_TP_REV_VERSION1		21
 #define FG_RR_TP_REV_VERSION2		29
@@ -235,6 +235,7 @@ struct rradc_chip {
 	struct device_node		*revid_dev_node;
 	struct pmic_revid_data		*pmic_fab_id;
 	int volt;
+	struct power_supply		*usb_trig;
 };
 
 struct rradc_channels {
@@ -726,6 +727,24 @@ static int rradc_disable_continuous_mode(struct rradc_chip *chip)
 	return rc;
 }
 
+static bool rradc_is_usb_present(struct rradc_chip *chip)
+{
+	union power_supply_propval pval;
+	int rc;
+	bool usb_present = false;
+
+	if (!chip->usb_trig) {
+		pr_debug("USB property not present\n");
+		return usb_present;
+	}
+
+	rc = power_supply_get_property(chip->usb_trig,
+			POWER_SUPPLY_PROP_PRESENT, &pval);
+	usb_present = (rc < 0) ? 0 : pval.intval;
+
+	return usb_present;
+}
+
 static int rradc_check_status_ready_with_retry(struct rradc_chip *chip,
 		struct rradc_chan_prop *prop, u8 *buf, u16 status)
 {
@@ -745,8 +764,18 @@ static int rradc_check_status_ready_with_retry(struct rradc_chip *chip,
 			(retry_cnt < FG_RR_CONV_MAX_RETRY_CNT)) {
 		pr_debug("%s is not ready; nothing to read:0x%x\n",
 			rradc_chans[prop->channel].datasheet_name, buf[0]);
-		usleep_range(FG_RR_CONV_CONTINUOUS_TIME_MIN_US,
-				FG_RR_CONV_CONTINUOUS_TIME_MAX_US);
+
+		if (((prop->channel == RR_ADC_CHG_TEMP) ||
+			(prop->channel == RR_ADC_SKIN_TEMP) ||
+			(prop->channel == RR_ADC_USBIN_I) ||
+			(prop->channel == RR_ADC_DIE_TEMP)) &&
+					((!rradc_is_usb_present(chip)))) {
+			pr_debug("USB not present for %d\n", prop->channel);
+			rc = -ENODATA;
+			break;
+		}
+
+		msleep(FG_RR_CONV_CONTINUOUS_TIME_MIN_MS);
 		retry_cnt++;
 		rc = rradc_read(chip, status, buf, 1);
 		if (rc < 0) {
@@ -764,7 +793,7 @@ static int rradc_check_status_ready_with_retry(struct rradc_chip *chip,
 static int rradc_read_channel_with_continuous_mode(struct rradc_chip *chip,
 			struct rradc_chan_prop *prop, u8 *buf)
 {
-	int rc = 0;
+	int rc = 0, ret = 0;
 	u16 status = 0;
 
 	rc = rradc_enable_continuous_mode(chip);
@@ -777,23 +806,25 @@ static int rradc_read_channel_with_continuous_mode(struct rradc_chip *chip,
 	rc = rradc_read(chip, status, buf, 1);
 	if (rc < 0) {
 		pr_err("status read failed:%d\n", rc);
-		return rc;
+		ret = rc;
+		goto disable;
 	}
 
 	rc = rradc_check_status_ready_with_retry(chip, prop,
 						buf, status);
 	if (rc < 0) {
 		pr_err("Status read failed:%d\n", rc);
-		return rc;
+		ret = rc;
 	}
 
+disable:
 	rc = rradc_disable_continuous_mode(chip);
 	if (rc < 0) {
 		pr_err("Failed to switch to non continuous mode\n");
-		return rc;
+		ret = rc;
 	}
 
-	return rc;
+	return ret;
 }
 
 static int rradc_enable_batt_id_channel(struct rradc_chip *chip, bool enable)
@@ -1148,6 +1179,10 @@ static int rradc_probe(struct platform_device *pdev)
 	indio_dev->info = &rradc_info;
 	indio_dev->channels = chip->iio_chans;
 	indio_dev->num_channels = chip->nchannels;
+
+	chip->usb_trig = power_supply_get_by_name("usb");
+	if (!chip->usb_trig)
+		pr_debug("Error obtaining usb power supply\n");
 
 	return devm_iio_device_register(dev, indio_dev);
 }
