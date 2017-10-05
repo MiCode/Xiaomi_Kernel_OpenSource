@@ -123,10 +123,10 @@ static struct pdc_pin sdm845_data[] = {
 	{119, 666}, /* core_bi_px_to_mpm[2] */
 	{120, 667}, /* core_bi_px_to_mpm[3] */
 	{121, 668}, /* core_bi_px_to_mpm[4] */
-	{122, 669}, /* core_bi_px_gpio_41 */
-	{123, 670}, /* core_bi_px_gpio_89 */
-	{124, 671}, /* core_bi_px_gpio_31 */
-	{125, 672}, /* core_bi_px_gpio_49 */
+	{122, 662}, /* core_bi_px_gpio_41 */
+	{123, 663}, /* core_bi_px_gpio_89 */
+	{124, 664}, /* core_bi_px_gpio_31 */
+	{125, 665}, /* core_bi_px_gpio_49 */
 	{-1}
 };
 
