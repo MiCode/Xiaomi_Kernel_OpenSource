@@ -910,8 +910,23 @@ static int geni_i2c_runtime_resume(struct device *dev)
 
 static int geni_i2c_suspend_noirq(struct device *device)
 {
-	if (!pm_runtime_status_suspended(device))
+	struct geni_i2c_dev *gi2c = dev_get_drvdata(device);
+	int ret;
+
+	/* Make sure no transactions are pending */
+	ret = i2c_trylock_bus(&gi2c->adap, I2C_LOCK_SEGMENT);
+	if (!ret) {
+		GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
+				"late I2C transaction request\n");
 		return -EBUSY;
+	}
+	if (!pm_runtime_status_suspended(device)) {
+		geni_i2c_runtime_suspend(device);
+		pm_runtime_disable(device);
+		pm_runtime_set_suspended(device);
+		pm_runtime_enable(device);
+	}
+	i2c_unlock_bus(&gi2c->adap, I2C_LOCK_SEGMENT);
 	return 0;
 }
 #else
