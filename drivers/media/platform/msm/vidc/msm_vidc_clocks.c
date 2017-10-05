@@ -708,9 +708,9 @@ int msm_comm_scale_clocks(struct msm_vidc_inst *inst)
 
 	if (inst->clk_data.buffer_counter < DCVS_FTB_WINDOW ||
 		!msm_vidc_clock_scaling)
-		inst->clk_data.curr_freq = msm_vidc_max_freq(inst->core);
+		inst->clk_data.min_freq = msm_vidc_max_freq(inst->core);
 	else
-		inst->clk_data.curr_freq = freq;
+		inst->clk_data.min_freq = freq;
 
 	msm_vidc_set_clocks(inst->core);
 
