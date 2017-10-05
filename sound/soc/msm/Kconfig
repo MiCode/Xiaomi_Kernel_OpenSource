@@ -20,6 +20,16 @@ config SND_SOC_QDSP6V2
 	 audio drivers. This includes q6asm, q6adm,
 	 q6afe interfaces to DSP using apr.
 
+config SND_SOC_QDSP6V2_VM
+	tristate "SoC ALSA audio driver for QDSP6V2 virtualization"
+	depends on MSM_QDSP6_APRV2_VM
+	help
+	 To add support for MSM QDSP6V2 virtualization
+	 Soc Audio.
+	 This will enable sound soc platform specific
+	 audio drivers. This includes q6asm, q6adm,
+	 q6afe interfaces to DSP using virtualized apr.
+
 config SND_SOC_QDSP_DEBUG
 	bool "QDSP Audio Driver Debug Feature"
 	help
@@ -69,7 +79,7 @@ config DTS_SRS_TM
 
 config QTI_PP
 	bool "Enable QTI PP"
-	depends on SND_SOC_MSM_QDSP6V2_INTF
+	depends on SND_SOC_MSM_QDSP6V2_INTF || SND_SOC_QDSP6V2_VM
 	help
 	 To add support for default QTI post processing.
 	 This support is to configure the post processing
@@ -160,6 +170,23 @@ config SND_SOC_MSM8996
 	 interfaces with DSP, also it will enable
 	 the machine driver and the corresponding
 	 DAI-links
+
+config SND_SOC_MSM8996_VM
+	tristate "SoC Machine driver for MSM8996 virtualization"
+	select SND_SOC_QDSP6V2_VM
+	select SND_SOC_MSM_STUB
+	select SND_SOC_MSM_HOSTLESS_PCM
+	select SND_DYNAMIC_MINORS
+	select MSM_QDSP6_APRV2_VM
+	select MSM_QDSP6V2_CODECS
+	select QTI_PP
+	help
+	 To add support for SoC audio on MSM8996
+	 virtualization platform.
+	 This will enable sound soc drivers which
+	 interfaces with DSP using virtualized apr,
+	 also it will enable the machine driver and
+	 the corresponding DAI-links
 
 config SND_SOC_MSM8X16
 	tristate "SoC Machine driver for MSM8916"
