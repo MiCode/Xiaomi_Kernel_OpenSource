@@ -1987,6 +1987,7 @@
 	qcom,lpass@15700000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x15700000 0x00100>;
+		reg-names = "base_reg";
 		interrupts = <0 162 1>;
 
 		vdd_cx-supply = <&pm660l_l9_level>;
@@ -2019,6 +2020,7 @@
 	qcom,turing@1a300000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x1a300000 0x00100>;
+		reg-names = "base_reg";
 		interrupts = <0 518 1>;
 
 		vdd_cx-supply = <&pm660l_s3_level>;
