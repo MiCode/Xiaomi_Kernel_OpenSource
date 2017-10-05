@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1258,8 +1258,10 @@ static int wsa881x_i2c_probe(struct i2c_client *client,
 
 	if ((client->addr == WSA881X_I2C_SPK0_SLAVE1_ADDR ||
 		client->addr == WSA881X_I2C_SPK1_SLAVE1_ADDR) &&
-		(pdata->status == WSA881X_STATUS_PROBING))
+		(pdata->status == WSA881X_STATUS_PROBING)) {
+		wsa881x_probing_count++;
 		return ret;
+	}
 
 	if (pdata->status == WSA881X_STATUS_I2C) {
 		dev_dbg(&client->dev, "%s:probe for other slaves\n"
@@ -1342,6 +1344,7 @@ static int wsa881x_i2c_probe(struct i2c_client *client,
 			dev_err(&client->dev,
 				"failed to ping wsa with addr:%x, ret = %d\n",
 						client->addr, ret);
+			wsa881x_probing_count++;
 			goto err1;
 		}
 		pdata->version = wsa881x_i2c_read_device(pdata,
