@@ -1,6 +1,6 @@
 config MSM_QDSP6V2_CODECS
 	bool "Audio QDSP6V2 APR support"
-	depends on MSM_SMD
+	depends on MSM_SMD || MSM_HAB
 	help
 	  Enable Audio codecs with APR IPC protocol support between
 	  application processor and QDSP6 for B-family. APR is
