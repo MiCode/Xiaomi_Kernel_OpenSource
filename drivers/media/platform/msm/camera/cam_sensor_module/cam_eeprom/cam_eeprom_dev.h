@@ -154,7 +154,6 @@ struct cam_eeprom_intf_params {
  * @cci_i2c_master  :   I2C structure
  * @v4l2_dev_str    :   V4L2 device structure
  * @bridge_intf     :   bridge interface params
- * @subdev_id       :   subdev id
  * @userspace_probe :   flag indicates userspace or kernel probe
  * @cal_data        :   Calibration data
  * @device_name     :   Device name
@@ -171,7 +170,6 @@ struct cam_eeprom_ctrl_t {
 	struct cam_subdev v4l2_dev_str;
 	struct cam_eeprom_intf_params bridge_intf;
 	enum msm_camera_device_type_t eeprom_device_type;
-	uint32_t subdev_id;
 	bool userspace_probe;
 	struct cam_eeprom_memory_block_t cal_data;
 	char device_name[20];

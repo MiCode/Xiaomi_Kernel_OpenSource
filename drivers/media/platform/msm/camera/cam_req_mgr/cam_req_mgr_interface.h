@@ -216,15 +216,18 @@ struct cam_req_mgr_error_notify {
 
 /**
  * struct cam_req_mgr_add_request
- * @link_hdl : link identifier
- * @dev_hdl  : device handle which has sent this req id
- * @req_id   : req id which device is ready to process
- *
+ * @link_hdl             : link identifier
+ * @dev_hdl              : device handle which has sent this req id
+ * @req_id               : req id which device is ready to process
+ * @skip_before_applying : before applying req mgr introduce bubble
+ *                         by not sending request to device/s.
+ *                         ex: IFE and Flash
  */
 struct cam_req_mgr_add_request {
 	int32_t  link_hdl;
 	int32_t  dev_hdl;
 	uint64_t req_id;
+	uint32_t skip_before_applying;
 };
 
 

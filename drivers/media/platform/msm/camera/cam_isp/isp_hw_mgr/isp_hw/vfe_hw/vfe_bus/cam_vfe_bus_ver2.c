@@ -12,6 +12,7 @@
 
 #include <linux/ratelimit.h>
 #include <linux/slab.h>
+#include <uapi/media/cam_isp.h>
 #include "cam_io_util.h"
 #include "cam_debug_util.h"
 #include "cam_cdm_util.h"
@@ -34,14 +35,18 @@ static const char drv_name[] = "vfe_bus";
 
 #define CAM_VFE_BUS_VER2_PAYLOAD_MAX             256
 
-#define CAM_VFE_RDI_BUS_DEFAULT_WIDTH           0xFF01
-#define CAM_VFE_RDI_BUS_DEFAULT_STRIDE          0xFF01
+#define CAM_VFE_RDI_BUS_DEFAULT_WIDTH               0xFF01
+#define CAM_VFE_RDI_BUS_DEFAULT_STRIDE              0xFF01
+#define CAM_VFE_BUS_INTRA_CLIENT_MASK               0x3
+#define CAM_VFE_BUS_ADDR_SYNC_INTRA_CLIENT_SHIFT    8
+#define CAM_VFE_BUS_ADDR_NO_SYNC_DEFAULT_VAL        0xFFFFF
 
 #define ALIGNUP(value, alignment) \
 	((value + alignment - 1) / alignment * alignment)
 
 #define MAX_BUF_UPDATE_REG_NUM   \
-	(sizeof(struct cam_vfe_bus_ver2_reg_offset_bus_client)/4)
+	((sizeof(struct cam_vfe_bus_ver2_reg_offset_bus_client) +  \
+	sizeof(struct cam_vfe_bus_ver2_reg_offset_ubwc_client))/4)
 #define MAX_REG_VAL_PAIR_SIZE    \
 	(MAX_BUF_UPDATE_REG_NUM * 2 * CAM_PACKET_MAX_PLANES)
 
@@ -97,6 +102,7 @@ struct cam_vfe_bus_ver2_common_data {
 	struct mutex                                bus_mutex;
 	uint32_t                                    secure_mode;
 	uint32_t                                    num_sec_out;
+	uint32_t                                    addr_no_sync;
 };
 
 struct cam_vfe_bus_ver2_wm_resource_data {
@@ -133,6 +139,7 @@ struct cam_vfe_bus_ver2_wm_resource_data {
 	uint32_t             framedrop_pattern;
 
 	uint32_t             en_cfg;
+	uint32_t             is_dual;
 };
 
 struct cam_vfe_bus_ver2_comp_grp_data {
@@ -148,6 +155,7 @@ struct cam_vfe_bus_ver2_comp_grp_data {
 	uint32_t                         dual_slave_core;
 	uint32_t                         intra_client_mask;
 	uint32_t                         composite_mask;
+	uint32_t                         addr_sync_mode;
 
 	uint32_t                         acquire_dev_cnt;
 	uint32_t                         irq_trigger_cnt;
@@ -284,7 +292,7 @@ static int cam_vfe_bus_ver2_get_intra_client_mask(
 	case CAM_VFE_BUS_VER2_VFE_CORE_0:
 		switch (dual_slave_core) {
 		case CAM_VFE_BUS_VER2_VFE_CORE_1:
-			*intra_client_mask = 0x1;
+			*intra_client_mask = 0x3;
 			break;
 		case CAM_VFE_BUS_VER2_VFE_CORE_2:
 			*intra_client_mask = 0x2;
@@ -770,10 +778,10 @@ static int cam_vfe_bus_acquire_wm(
 	void                                  *ctx,
 	enum cam_vfe_bus_ver2_vfe_out_type     vfe_out_res_id,
 	enum cam_vfe_bus_plane_type            plane,
-	enum cam_isp_hw_split_id               split_id,
 	uint32_t                               subscribe_irq,
 	struct cam_isp_resource_node         **wm_res,
-	uint32_t                              *client_done_mask)
+	uint32_t                              *client_done_mask,
+	uint32_t                               is_dual)
 {
 	uint32_t wm_idx = 0;
 	struct cam_isp_resource_node              *wm_res_local = NULL;
@@ -802,6 +810,9 @@ static int cam_vfe_bus_acquire_wm(
 
 	rsrc_data->width = out_port_info->width;
 	rsrc_data->height = out_port_info->height;
+	rsrc_data->is_dual = is_dual;
+	/* Set WM offset value to default */
+	rsrc_data->offset  = 0;
 	CAM_DBG(CAM_ISP, "WM %d width %d height %d", rsrc_data->index,
 		rsrc_data->width, rsrc_data->height);
 
@@ -815,6 +826,7 @@ static int cam_vfe_bus_acquire_wm(
 		case CAM_FORMAT_MIPI_RAW_14:
 		case CAM_FORMAT_MIPI_RAW_16:
 		case CAM_FORMAT_MIPI_RAW_20:
+		case CAM_FORMAT_PLAIN128:
 			rsrc_data->width = CAM_VFE_RDI_BUS_DEFAULT_WIDTH;
 			rsrc_data->height = 0;
 			rsrc_data->stride = CAM_VFE_RDI_BUS_DEFAULT_STRIDE;
@@ -858,10 +870,6 @@ static int cam_vfe_bus_acquire_wm(
 		case CAM_FORMAT_PLAIN64:
 			rsrc_data->en_cfg = 0x1;
 			rsrc_data->pack_fmt = 0xA;
-			break;
-		case CAM_FORMAT_PLAIN128:
-			rsrc_data->en_cfg = 0x1;
-			rsrc_data->pack_fmt = 0x0;
 			break;
 		default:
 			CAM_ERR(CAM_ISP, "Unsupported RDI format %d",
@@ -990,6 +998,7 @@ static int cam_vfe_bus_release_wm(void   *bus_priv,
 	rsrc_data->init_cfg_done = false;
 	rsrc_data->hfr_cfg_done = false;
 	rsrc_data->en_cfg = 0;
+	rsrc_data->is_dual = 0;
 
 	wm_res->tasklet_info = NULL;
 	wm_res->res_state = CAM_ISP_RESOURCE_STATE_AVAILABLE;
@@ -1280,6 +1289,7 @@ static int cam_vfe_bus_acquire_comp_grp(
 	if (!comp_grp_local) {
 		/* First find a free group */
 		if (is_dual) {
+			CAM_DBG(CAM_ISP, "Acquire dual comp group");
 			if (list_empty(&ver2_bus_priv->free_dual_comp_grp)) {
 				CAM_ERR(CAM_ISP, "No Free Composite Group");
 				return -ENODEV;
@@ -1292,7 +1302,10 @@ static int cam_vfe_bus_acquire_comp_grp(
 				dual_slave_core,
 				comp_grp_local->hw_intf->hw_idx,
 				&rsrc_data->intra_client_mask);
+			if (rc)
+				return rc;
 		} else {
+			CAM_DBG(CAM_ISP, "Acquire comp group");
 			if (list_empty(&ver2_bus_priv->free_comp_grp)) {
 				CAM_ERR(CAM_ISP, "No Free Composite Group");
 				return -ENODEV;
@@ -1312,6 +1325,11 @@ static int cam_vfe_bus_acquire_comp_grp(
 		rsrc_data->unique_id = unique_id;
 		rsrc_data->comp_grp_local_idx = bus_comp_grp_id;
 
+		if (is_master)
+			rsrc_data->addr_sync_mode = 0;
+		else
+			rsrc_data->addr_sync_mode = 1;
+
 		list_add_tail(&comp_grp_local->list,
 			&ver2_bus_priv->used_comp_grp);
 
@@ -1326,6 +1344,8 @@ static int cam_vfe_bus_acquire_comp_grp(
 			return -EBUSY;
 		}
 	}
+
+	CAM_DBG(CAM_ISP, "Comp Grp type %u", rsrc_data->comp_grp_type);
 
 	rsrc_data->ctx = ctx;
 	rsrc_data->acquire_dev_cnt++;
@@ -1359,6 +1379,7 @@ static int cam_vfe_bus_release_comp_grp(
 	}
 
 	in_rsrc_data = in_comp_grp->res_priv;
+	CAM_DBG(CAM_ISP, "Comp Grp type %u", in_rsrc_data->comp_grp_type);
 
 	list_for_each_entry(comp_grp, &ver2_bus_priv->used_comp_grp, list) {
 		if (comp_grp == in_comp_grp) {
@@ -1381,6 +1402,7 @@ static int cam_vfe_bus_release_comp_grp(
 		in_rsrc_data->comp_grp_local_idx = CAM_VFE_BUS_COMP_GROUP_NONE;
 		in_rsrc_data->composite_mask = 0;
 		in_rsrc_data->dual_slave_core = CAM_VFE_BUS_VER2_VFE_CORE_MAX;
+		in_rsrc_data->addr_sync_mode = 0;
 
 		comp_grp->tasklet_info = NULL;
 		comp_grp->res_state = CAM_ISP_RESOURCE_STATE_AVAILABLE;
@@ -1405,55 +1427,103 @@ static int cam_vfe_bus_release_comp_grp(
 static int cam_vfe_bus_start_comp_grp(struct cam_isp_resource_node *comp_grp)
 {
 	int rc = 0;
+	uint32_t addr_sync_cfg;
 	struct cam_vfe_bus_ver2_comp_grp_data      *rsrc_data =
 		comp_grp->res_priv;
 	struct cam_vfe_bus_ver2_common_data        *common_data =
 		rsrc_data->common_data;
 	uint32_t bus_irq_reg_mask[CAM_VFE_BUS_IRQ_MAX] = {0};
 
+	CAM_DBG(CAM_ISP, "comp group id:%d streaming state:%d",
+		rsrc_data->comp_grp_type, comp_grp->res_state);
+
 	cam_io_w_mb(rsrc_data->composite_mask, common_data->mem_base +
 		rsrc_data->hw_regs->comp_mask);
+	if (comp_grp->res_state == CAM_ISP_RESOURCE_STATE_STREAMING)
+		return 0;
 
 	CAM_DBG(CAM_ISP, "composite_mask is 0x%x", rsrc_data->composite_mask);
 	CAM_DBG(CAM_ISP, "composite_mask addr 0x%x",
 		rsrc_data->hw_regs->comp_mask);
 
 	if (rsrc_data->comp_grp_type >= CAM_VFE_BUS_VER2_COMP_GRP_DUAL_0 &&
-		rsrc_data->comp_grp_type <= CAM_VFE_BUS_VER2_COMP_GRP_DUAL_5 &&
-		rsrc_data->is_master) {
+		rsrc_data->comp_grp_type <= CAM_VFE_BUS_VER2_COMP_GRP_DUAL_5) {
 		int dual_comp_grp = (rsrc_data->comp_grp_type -
 			CAM_VFE_BUS_VER2_COMP_GRP_DUAL_0);
-		int intra_client_en = cam_io_r_mb(common_data->mem_base +
-			common_data->common_reg->dual_master_comp_cfg);
 
-		/* 2 Bits per comp_grp. Hence left shift by comp_grp * 2 */
-		intra_client_en |=
-			(rsrc_data->intra_client_mask << dual_comp_grp * 2);
+		if (rsrc_data->is_master) {
+			int intra_client_en = cam_io_r_mb(
+				common_data->mem_base +
+				common_data->common_reg->dual_master_comp_cfg);
 
-		cam_io_w_mb(intra_client_en, common_data->mem_base +
-			common_data->common_reg->dual_master_comp_cfg);
+			/*
+			 * 2 Bits per comp_grp. Hence left shift by
+			 * comp_grp * 2
+			 */
+			intra_client_en |=
+				(rsrc_data->intra_client_mask <<
+					(dual_comp_grp * 2));
 
-		bus_irq_reg_mask[CAM_VFE_BUS_IRQ_REG2] = (1 << dual_comp_grp);
+			cam_io_w_mb(intra_client_en, common_data->mem_base +
+				common_data->common_reg->dual_master_comp_cfg);
+
+			bus_irq_reg_mask[CAM_VFE_BUS_IRQ_REG2] =
+				(1 << dual_comp_grp);
+		}
+
+		CAM_DBG(CAM_ISP, "addr_sync_mask addr 0x%x",
+			rsrc_data->hw_regs->addr_sync_mask);
+		cam_io_w_mb(rsrc_data->composite_mask, common_data->mem_base +
+			rsrc_data->hw_regs->addr_sync_mask);
+
+		addr_sync_cfg = cam_io_r_mb(common_data->mem_base +
+			common_data->common_reg->addr_sync_cfg);
+		addr_sync_cfg |= (rsrc_data->addr_sync_mode << dual_comp_grp);
+		/*
+		 * 2 Bits per dual_comp_grp. dual_comp_grp stats at bit number
+		 * 8. Hence left shift cdual_comp_grp dual comp_grp * 2 and
+		 * add 8
+		 */
+		addr_sync_cfg |=
+			(rsrc_data->intra_client_mask <<
+				((dual_comp_grp * 2) +
+				CAM_VFE_BUS_ADDR_SYNC_INTRA_CLIENT_SHIFT));
+		cam_io_w_mb(addr_sync_cfg, common_data->mem_base +
+			common_data->common_reg->addr_sync_cfg);
+
+		common_data->addr_no_sync &= ~(rsrc_data->composite_mask);
+		cam_io_w_mb(common_data->addr_no_sync, common_data->mem_base +
+			common_data->common_reg->addr_sync_no_sync);
+		CAM_DBG(CAM_ISP, "addr_sync_cfg: 0x%x addr_no_sync_cfg: 0x%x",
+			addr_sync_cfg, common_data->addr_no_sync);
 	} else {
 		/* IRQ bits for COMP GRP start at 5. So add 5 to the shift */
 		bus_irq_reg_mask[CAM_VFE_BUS_IRQ_REG0] =
 			(1 << (rsrc_data->comp_grp_type + 5));
 	}
 
-	/* Subscribe IRQ */
+	/*
+	 * For Dual composite subscribe IRQ only for master
+	 * For regular composite, subscribe IRQ always
+	 */
 	CAM_DBG(CAM_ISP, "Subscribe COMP_GRP%d IRQ", rsrc_data->comp_grp_type);
-	comp_grp->irq_handle = cam_irq_controller_subscribe_irq(
-		common_data->bus_irq_controller, CAM_IRQ_PRIORITY_1,
-		bus_irq_reg_mask, comp_grp,
-		comp_grp->top_half_handler,
-		cam_ife_mgr_do_tasklet_buf_done,
-		comp_grp->tasklet_info, cam_tasklet_enqueue_cmd);
-	if (comp_grp->irq_handle < 0) {
-		CAM_ERR(CAM_ISP, "Subscribe IRQ failed for comp_grp %d",
-			rsrc_data->comp_grp_type);
-		return -EFAULT;
+	if (((rsrc_data->comp_grp_type >= CAM_VFE_BUS_VER2_COMP_GRP_DUAL_0 &&
+		rsrc_data->comp_grp_type <= CAM_VFE_BUS_VER2_COMP_GRP_DUAL_5) &&
+		(rsrc_data->is_master)) ||
+		(rsrc_data->comp_grp_type >= CAM_VFE_BUS_VER2_COMP_GRP_0 &&
+		rsrc_data->comp_grp_type <= CAM_VFE_BUS_VER2_COMP_GRP_5)) {
+		comp_grp->irq_handle = cam_irq_controller_subscribe_irq(
+			common_data->bus_irq_controller, CAM_IRQ_PRIORITY_1,
+			bus_irq_reg_mask, comp_grp,
+			comp_grp->top_half_handler,
+			cam_ife_mgr_do_tasklet_buf_done,
+			comp_grp->tasklet_info, cam_tasklet_enqueue_cmd);
+		if (comp_grp->irq_handle < 0) {
+			CAM_ERR(CAM_ISP, "Subscribe IRQ failed for comp_grp %d",
+				rsrc_data->comp_grp_type);
+			return -EFAULT;
+		}
 	}
-
 	comp_grp->res_state = CAM_ISP_RESOURCE_STATE_STREAMING;
 
 	return rc;
@@ -1462,32 +1532,65 @@ static int cam_vfe_bus_start_comp_grp(struct cam_isp_resource_node *comp_grp)
 static int cam_vfe_bus_stop_comp_grp(struct cam_isp_resource_node *comp_grp)
 {
 	int rc = 0;
+	uint32_t addr_sync_cfg;
 	struct cam_vfe_bus_ver2_comp_grp_data      *rsrc_data =
 		comp_grp->res_priv;
 	struct cam_vfe_bus_ver2_common_data        *common_data =
 		rsrc_data->common_data;
 
 	/* Unsubscribe IRQ */
-	rc = cam_irq_controller_unsubscribe_irq(
-		common_data->bus_irq_controller,
-		comp_grp->irq_handle);
+	if (((rsrc_data->comp_grp_type >= CAM_VFE_BUS_VER2_COMP_GRP_DUAL_0 &&
+		rsrc_data->comp_grp_type <= CAM_VFE_BUS_VER2_COMP_GRP_DUAL_5) &&
+		(rsrc_data->is_master)) ||
+		(rsrc_data->comp_grp_type >= CAM_VFE_BUS_VER2_COMP_GRP_0 &&
+		rsrc_data->comp_grp_type <= CAM_VFE_BUS_VER2_COMP_GRP_5)) {
+		rc = cam_irq_controller_unsubscribe_irq(
+			common_data->bus_irq_controller,
+			comp_grp->irq_handle);
+	}
 
 	cam_io_w_mb(rsrc_data->composite_mask, common_data->mem_base +
 		rsrc_data->hw_regs->comp_mask);
 	if (rsrc_data->comp_grp_type >= CAM_VFE_BUS_VER2_COMP_GRP_DUAL_0 &&
-		rsrc_data->comp_grp_type <= CAM_VFE_BUS_VER2_COMP_GRP_DUAL_5 &&
-		rsrc_data->is_master) {
+		rsrc_data->comp_grp_type <= CAM_VFE_BUS_VER2_COMP_GRP_DUAL_5) {
+
 		int dual_comp_grp = (rsrc_data->comp_grp_type -
 			CAM_VFE_BUS_VER2_COMP_GRP_DUAL_0);
-		int intra_client_en = cam_io_r_mb(common_data->mem_base +
-			common_data->common_reg->dual_master_comp_cfg);
 
-		/* 2 Bits per comp_grp. Hence left shift by comp_grp * 2 */
-		intra_client_en &=
-			~(rsrc_data->intra_client_mask << dual_comp_grp * 2);
+		if (rsrc_data->is_master) {
+			int intra_client_en = cam_io_r_mb(
+				common_data->mem_base +
+				common_data->common_reg->dual_master_comp_cfg);
 
-		cam_io_w_mb(intra_client_en, common_data->mem_base +
-			common_data->common_reg->dual_master_comp_cfg);
+			/*
+			 * 2 Bits per comp_grp. Hence left shift by
+			 * comp_grp * 2
+			 */
+			intra_client_en &=
+				~(rsrc_data->intra_client_mask <<
+					dual_comp_grp * 2);
+
+			cam_io_w_mb(intra_client_en, common_data->mem_base +
+				common_data->common_reg->dual_master_comp_cfg);
+		}
+
+		addr_sync_cfg = cam_io_r_mb(common_data->mem_base +
+			common_data->common_reg->addr_sync_cfg);
+		addr_sync_cfg &= ~(1 << dual_comp_grp);
+		addr_sync_cfg &= ~(CAM_VFE_BUS_INTRA_CLIENT_MASK <<
+			((dual_comp_grp * 2) +
+			CAM_VFE_BUS_ADDR_SYNC_INTRA_CLIENT_SHIFT));
+		cam_io_w_mb(addr_sync_cfg, common_data->mem_base +
+			common_data->common_reg->addr_sync_cfg);
+
+		cam_io_w_mb(0, common_data->mem_base +
+			rsrc_data->hw_regs->addr_sync_mask);
+		common_data->addr_no_sync |= rsrc_data->composite_mask;
+		cam_io_w_mb(common_data->addr_no_sync, common_data->mem_base +
+			common_data->common_reg->addr_sync_no_sync);
+		CAM_DBG(CAM_ISP, "addr_sync_cfg: 0x% addr_no_sync_cfg: 0x%x",
+			addr_sync_cfg, common_data->addr_no_sync);
+
 	}
 
 	comp_grp->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
@@ -1514,6 +1617,7 @@ static int cam_vfe_bus_handle_comp_done_top_half(uint32_t evt_id,
 
 	CAM_DBG(CAM_ISP, "IRQ status_0 = %x", th_payload->evt_status_arr[0]);
 	CAM_DBG(CAM_ISP, "IRQ status_1 = %x", th_payload->evt_status_arr[1]);
+	CAM_DBG(CAM_ISP, "IRQ status_2 = %x", th_payload->evt_status_arr[2]);
 
 	rc  = cam_vfe_bus_get_evt_payload(rsrc_data->common_data, &evt_payload);
 	if (rc) {
@@ -1636,7 +1740,7 @@ static int cam_vfe_bus_handle_comp_done_bottom_half(
 			if (rsrc_data->irq_trigger_cnt ==
 				rsrc_data->acquire_dev_cnt) {
 				cam_ife_irq_regs[CAM_IFE_IRQ_BUS_REG_STATUS2] &=
-					~BIT(comp_grp_id + 5);
+					~BIT(comp_grp_id);
 				rsrc_data->irq_trigger_cnt = 0;
 			}
 			rc = CAM_VFE_IRQ_STATUS_SUCCESS;
@@ -1818,10 +1922,12 @@ static int cam_vfe_bus_acquire_vfe_out(void *bus_priv, void *acquire_args,
 	rsrc_data->cdm_util_ops = out_acquire_args->cdm_ops;
 
 	/* Reserve Composite Group */
-	if (num_wm > 1 || (out_acquire_args->out_port_info->comp_grp_id >
-		CAM_ISP_RES_COMP_GROUP_NONE &&
-		out_acquire_args->out_port_info->comp_grp_id <
-		CAM_ISP_RES_COMP_GROUP_ID_MAX)) {
+		if (num_wm > 1 || (out_acquire_args->is_dual) ||
+			(out_acquire_args->out_port_info->comp_grp_id >
+			CAM_ISP_RES_COMP_GROUP_NONE &&
+			out_acquire_args->out_port_info->comp_grp_id <
+			CAM_ISP_RES_COMP_GROUP_ID_MAX)) {
+
 		rc = cam_vfe_bus_acquire_comp_grp(ver2_bus_priv,
 			out_acquire_args->out_port_info,
 			acq_args->tasklet,
@@ -1852,10 +1958,10 @@ static int cam_vfe_bus_acquire_vfe_out(void *bus_priv, void *acquire_args,
 			out_acquire_args->ctx,
 			vfe_out_res_id,
 			i,
-			out_acquire_args->split_id,
 			subscribe_irq,
 			&rsrc_data->wm_res[i],
-			&client_done_mask);
+			&client_done_mask,
+			out_acquire_args->is_dual);
 		if (rc) {
 			CAM_ERR(CAM_ISP,
 				"VFE%d WM acquire failed for Out %d rc=%d",
@@ -1980,28 +2086,6 @@ static int cam_vfe_bus_start_vfe_out(
 	if (rsrc_data->comp_grp)
 		rc = cam_vfe_bus_start_comp_grp(rsrc_data->comp_grp);
 
-	/* BUS_WR_INPUT_IF_ADDR_SYNC_CFG */
-	cam_io_w_mb(0x0, rsrc_data->common_data->mem_base + 0x0000207C);
-	/*  BUS_WR_INPUT_IF_ADDR_SYNC_FRAME_HEADER */
-	cam_io_w_mb(0x0, rsrc_data->common_data->mem_base + 0x00002080);
-	/* BUS_WR_INPUT_IF_ADDR_SYNC_NO_SYNC */
-	cam_io_w_mb(0xFFFFF, rsrc_data->common_data->mem_base + 0x00002084);
-	/*  BUS_WR_INPUT_IF_ADDR_SYNC_0 */
-	cam_io_w_mb(0x0, rsrc_data->common_data->mem_base + 0x00002088);
-	cam_io_w_mb(0x0, rsrc_data->common_data->mem_base + 0x0000208c);
-	cam_io_w_mb(0x0, rsrc_data->common_data->mem_base + 0x00002090);
-	cam_io_w_mb(0x0, rsrc_data->common_data->mem_base + 0x00002094);
-	cam_io_w_mb(0x0, rsrc_data->common_data->mem_base + 0x00002098);
-	cam_io_w_mb(0x0, rsrc_data->common_data->mem_base + 0x0000209c);
-	cam_io_w_mb(0x0, rsrc_data->common_data->mem_base + 0x000020a0);
-	cam_io_w_mb(0x0, rsrc_data->common_data->mem_base + 0x000020a4);
-
-	/* no clock gating at bus input */
-	cam_io_w_mb(0xFFFFF, rsrc_data->common_data->mem_base + 0x0000200C);
-
-	/* BUS_WR_TEST_BUS_CTRL */
-	cam_io_w_mb(0x0, rsrc_data->common_data->mem_base + 0x0000211C);
-
 	vfe_out->res_state = CAM_ISP_RESOURCE_STATE_STREAMING;
 	return rc;
 }
@@ -2029,7 +2113,6 @@ static int cam_vfe_bus_stop_vfe_out(
 
 	for (i = 0; i < rsrc_data->num_wm; i++)
 		rc = cam_vfe_bus_stop_wm(rsrc_data->wm_res[i]);
-
 
 	vfe_out->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
 	return rc;
@@ -2149,11 +2232,6 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 	uint32_t  i, j, size = 0;
 	uint32_t  frame_inc = 0;
 
-	/*
-	 * Need the entire buf io config so we can get the stride info
-	 * for the wm.
-	 */
-
 	bus_priv = (struct cam_vfe_bus_ver2_priv  *) priv;
 	update_buf =  (struct cam_isp_hw_get_buf_update *) cmd_args;
 
@@ -2184,6 +2262,12 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 		}
 
 		wm_data = vfe_out_data->wm_res[i]->res_priv;
+
+		/* update width register */
+		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+			wm_data->hw_regs->buffer_width_cfg,
+			wm_data->width);
+		CAM_DBG(CAM_ISP, "image width 0x%x", wm_data->width);
 
 		/* For initial configuration program all bus registers */
 		if ((wm_data->stride != io_cfg->planes[i].plane_stride ||
@@ -2255,7 +2339,12 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 			CAM_DBG(CAM_ISP, "packer cfg 0x%x",
 				wm_data->packer_cfg);
 
-			if (wm_data->tile_cfg != io_cfg->planes[i].tile_config
+			if (wm_data->is_dual) {
+				CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+					wm_data->hw_regs->ubwc_regs->tile_cfg,
+					wm_data->tile_cfg);
+			} else if ((wm_data->tile_cfg !=
+				io_cfg->planes[i].tile_config)
 				|| !wm_data->init_cfg_done) {
 				CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
 					wm_data->hw_regs->ubwc_regs->tile_cfg,
@@ -2265,7 +2354,22 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 			}
 			CAM_DBG(CAM_ISP, "tile cfg 0x%x", wm_data->tile_cfg);
 
-			if (wm_data->h_init != io_cfg->planes[i].h_init ||
+			if (wm_data->is_dual) {
+				if ((wm_data->h_init != wm_data->offset) ||
+					!wm_data->init_cfg_done) {
+				/*
+				 * For dual ife h init value need to take from
+				 * offset.Striping config update offset value
+				 */
+					CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair,
+						j,
+						wm_data->hw_regs->ubwc_regs->
+						h_init,
+						wm_data->offset);
+					wm_data->h_init = wm_data->offset;
+				}
+			} else if (wm_data->h_init !=
+				io_cfg->planes[i].h_init ||
 				!wm_data->init_cfg_done) {
 				CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
 					wm_data->hw_regs->ubwc_regs->h_init,
@@ -2337,8 +2441,9 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 				io_cfg->planes[i].meta_size));
 		else
 			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
-				wm_data->hw_regs->image_addr,
-				update_buf->image_buf[i]);
+			wm_data->hw_regs->image_addr,
+			update_buf->image_buf[i] +
+			wm_data->offset);
 
 		CAM_DBG(CAM_ISP, "image address 0x%x", reg_val_pair[j-1]);
 
@@ -2478,6 +2583,50 @@ static int cam_vfe_bus_update_hfr(void *priv, void *cmd_args,
 	return 0;
 }
 
+static int cam_vfe_bus_update_stripe_cfg(void *priv, void *cmd_args,
+	uint32_t arg_size)
+{
+	struct cam_vfe_bus_ver2_priv                *bus_priv;
+	struct cam_isp_hw_dual_isp_update_args      *stripe_args;
+	struct cam_vfe_bus_ver2_vfe_out_data        *vfe_out_data = NULL;
+	struct cam_vfe_bus_ver2_wm_resource_data    *wm_data = NULL;
+	struct cam_isp_dual_stripe_config           *stripe_config;
+	uint32_t outport_id, ports_plane_idx, i;
+
+	bus_priv = (struct cam_vfe_bus_ver2_priv  *) priv;
+	stripe_args = (struct cam_isp_hw_dual_isp_update_args *)cmd_args;
+
+	vfe_out_data = (struct cam_vfe_bus_ver2_vfe_out_data *)
+		stripe_args->res->res_priv;
+
+	if (!vfe_out_data) {
+		CAM_ERR(CAM_ISP, "Failed! Invalid data");
+		return -EINVAL;
+	}
+
+	outport_id = stripe_args->res->res_id & 0xFF;
+	if (stripe_args->res->res_id < CAM_ISP_IFE_OUT_RES_BASE ||
+		stripe_args->res->res_id >= CAM_ISP_IFE_OUT_RES_MAX)
+		return 0;
+
+	ports_plane_idx = (stripe_args->split_id *
+	(stripe_args->dual_cfg->num_ports * CAM_PACKET_MAX_PLANES)) +
+	(outport_id * CAM_PACKET_MAX_PLANES);
+	for (i = 0; i < vfe_out_data->num_wm; i++) {
+		wm_data = vfe_out_data->wm_res[i]->res_priv;
+		stripe_config = (struct cam_isp_dual_stripe_config  *)
+			&stripe_args->dual_cfg->stripes[ports_plane_idx + i];
+		wm_data->width = stripe_config->width;
+		wm_data->offset = stripe_config->offset;
+		wm_data->tile_cfg = stripe_config->tileconfig;
+		CAM_DBG(CAM_ISP, "id:%x wm:%d width:0x%x offset:%x tilecfg:%x",
+			stripe_args->res->res_id, i, wm_data->width,
+			wm_data->offset, wm_data->tile_cfg);
+	}
+
+	return 0;
+}
+
 static int cam_vfe_bus_start_hw(void *hw_priv,
 	void *start_hw_args, uint32_t arg_size)
 {
@@ -2517,6 +2666,21 @@ static int cam_vfe_bus_init_hw(void *hw_priv,
 		CAM_ERR(CAM_ISP, "Failed to subscribe BUS IRQ");
 		return -EFAULT;
 	}
+
+	/* BUS_WR_INPUT_IF_ADDR_SYNC_FRAME_HEADER */
+	cam_io_w_mb(0x0, bus_priv->common_data.mem_base +
+		bus_priv->common_data.common_reg->addr_sync_frame_hdr);
+
+	/* no clock gating at bus input */
+	cam_io_w_mb(0xFFFFF, bus_priv->common_data.mem_base + 0x0000200C);
+
+	/* BUS_WR_TEST_BUS_CTRL */
+	cam_io_w_mb(0x0, bus_priv->common_data.mem_base + 0x0000211C);
+
+	/* if addr_no_sync has default value then config the addr no sync reg */
+	cam_io_w_mb(CAM_VFE_BUS_ADDR_NO_SYNC_DEFAULT_VAL,
+		bus_priv->common_data.mem_base +
+		bus_priv->common_data.common_reg->addr_sync_no_sync);
 
 	return 0;
 }
@@ -2567,6 +2731,9 @@ static int cam_vfe_bus_process_cmd(
 		break;
 	case CAM_VFE_HW_CMD_GET_SECURE_MODE:
 		rc = cam_vfe_bus_get_secure_mode(priv, cmd_args, arg_size);
+		break;
+	case CAM_VFE_HW_CMD_STRIPE_UPDATE:
+		rc = cam_vfe_bus_update_stripe_cfg(priv, cmd_args, arg_size);
 		break;
 	default:
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "Invalid camif process command:%d",
@@ -2624,6 +2791,9 @@ int cam_vfe_bus_ver2_init(
 	bus_priv->common_data.hw_intf            = hw_intf;
 	bus_priv->common_data.vfe_irq_controller = vfe_irq_controller;
 	bus_priv->common_data.common_reg         = &ver2_hw_info->common_reg;
+	bus_priv->common_data.addr_no_sync       =
+		CAM_VFE_BUS_ADDR_NO_SYNC_DEFAULT_VAL;
+
 	mutex_init(&bus_priv->common_data.bus_mutex);
 
 	rc = cam_irq_controller_init(drv_name, bus_priv->common_data.mem_base,

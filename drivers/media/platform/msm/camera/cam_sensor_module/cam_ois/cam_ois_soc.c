@@ -90,13 +90,6 @@ int cam_ois_driver_soc_init(struct cam_ois_ctrl_t *o_ctrl)
 		return -EINVAL;
 	}
 
-	rc = of_property_read_u32(of_node, "cell-index",
-		&o_ctrl->subdev_id);
-	if (rc < 0) {
-		CAM_ERR(CAM_OIS, "failed rc %d", rc);
-		return rc;
-	}
-
 	if (o_ctrl->ois_device_type == MSM_CAMERA_PLATFORM_DEVICE) {
 		rc = of_property_read_u32(of_node, "cci-master",
 			&o_ctrl->cci_i2c_master);

@@ -338,6 +338,7 @@ int cam_cdm_stream_ops_internal(void *hw_priv,
 				}
 			} else {
 				client->stream_on = false;
+				rc = 0;
 				CAM_DBG(CAM_CDM,
 					"Client stream off success =%d",
 					cdm_hw->open_count);
