@@ -58,6 +58,7 @@ memory allocation over a PCIe bridge
                                 a pipe reset via the IPA uC is required
 - qcom,ipa-wdi2:                Boolean context flag to indicate whether
                                 using wdi-2.0 or not
+- qcom,throughput-threshold:    An array of throughput threshold for NOM and TURBO.
 - qcom,use-64-bit-dma-mask:     Boolean context flag to indicate whether
                                 using 64bit dma mask or not
 - qcom,use-dma-zone:            Boolean context flag to indicate whether memory
