@@ -4117,8 +4117,7 @@ static irqreturn_t fg_dma_grant_irq_handler(int irq, void *data)
 	}
 
 	fg_dbg(chip, FG_IRQ, "irq %d triggered, status:%d\n", irq, status);
-	if (status & MEM_GNT_BIT)
-		complete_all(&chip->mem_grant);
+	complete_all(&chip->mem_grant);
 
 	return IRQ_HANDLED;
 }
