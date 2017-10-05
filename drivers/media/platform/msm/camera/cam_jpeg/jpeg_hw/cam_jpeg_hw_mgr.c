@@ -651,6 +651,11 @@ static int cam_jpeg_mgr_release_hw(void *hw_mgr_priv, void *release_hw_args)
 	dev_type = ctx_data->jpeg_dev_acquire_info.dev_type;
 
 	mutex_lock(&hw_mgr->hw_mgr_mutex);
+	if (hw_mgr->cdm_info[dev_type][0].ref_cnt == 0) {
+		mutex_unlock(&hw_mgr->hw_mgr_mutex);
+		CAM_ERR(CAM_JPEG, "Error Unbalanced deinit");
+		return -EFAULT;
+	}
 
 	hw_mgr->cdm_info[dev_type][0].ref_cnt--;
 	if (!(hw_mgr->cdm_info[dev_type][0].ref_cnt)) {
@@ -790,7 +795,7 @@ static int cam_jpeg_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 	if (!g_jpeg_hw_mgr.devices[dev_type][0]->hw_ops.init) {
 		CAM_ERR(CAM_JPEG, "hw op init null ");
 		rc = -EINVAL;
-		goto start_cdm_hdl_failed;
+		goto init_failed;
 	}
 	rc = g_jpeg_hw_mgr.devices[dev_type][0]->hw_ops.init(
 		g_jpeg_hw_mgr.devices[dev_type][0]->hw_priv,
@@ -798,7 +803,7 @@ static int cam_jpeg_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 		sizeof(ctx_data));
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "Failed to Init %d HW", dev_type);
-		goto start_cdm_hdl_failed;
+		goto init_failed;
 	}
 
 	if (hw_mgr->cdm_info[dev_type][0].ref_cnt == 1)
@@ -833,9 +838,16 @@ static int cam_jpeg_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 	return rc;
 
 copy_to_user_failed:
-	cam_cdm_stream_off(hw_mgr->cdm_info[dev_type][0].cdm_handle);
+	if (hw_mgr->cdm_info[dev_type][0].ref_cnt == 1)
+		cam_cdm_stream_off(hw_mgr->cdm_info[dev_type][0].cdm_handle);
 start_cdm_hdl_failed:
-	cam_cdm_release(hw_mgr->cdm_info[dev_type][0].cdm_handle);
+	if (g_jpeg_hw_mgr.devices[dev_type][0]->hw_ops.deinit)
+		g_jpeg_hw_mgr.devices[dev_type][0]->hw_ops.deinit(
+			g_jpeg_hw_mgr.devices[dev_type][0]->hw_priv, NULL, 0);
+init_failed:
+	if (hw_mgr->cdm_info[dev_type][0].ref_cnt == 1)
+		cam_cdm_release(hw_mgr->cdm_info[dev_type][0].cdm_handle);
+	hw_mgr->cdm_info[dev_type][0].ref_cnt--;
 acq_cdm_hdl_failed:
 	kfree(ctx_data->cdm_cmd);
 	cam_jpeg_mgr_release_ctx(hw_mgr, ctx_data);
