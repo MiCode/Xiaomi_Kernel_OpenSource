@@ -821,4 +821,26 @@ struct mdp_hdr_stream {
 	uint32_t content_type;
 	uint32_t reserved[5];
 };
+
+/* hdr hdmi state takes possible values of 1, 2 and 4 respectively */
+#define HDR_ENABLE  (1 << 0)
+#define HDR_DISABLE (1 << 1)
+#define HDR_RESET   (1 << 2)
+
+/*
+ * HDR Control
+ * This encapsulates the HDR metadata as well as a state control
+ * for the HDR metadata as required by the HDMI spec to send the
+ * relevant metadata depending on the state of the HDR playback.
+ * hdr_state: Controls HDR state, takes values HDR_ENABLE, HDR_DISABLE
+ * and HDR_RESET.
+ * hdr_meta: Metadata sent by the userspace for the HDR clip.
+ */
+
+#define DRM_MSM_EXT_PANEL_HDR_CTRL
+struct mdp_hdr_stream_ctrl {
+	__u8 hdr_state;                   /* HDR state */
+	struct mdp_hdr_stream hdr_stream; /* HDR metadata */
+};
+
 #endif
