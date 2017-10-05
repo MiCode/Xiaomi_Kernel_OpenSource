@@ -1448,12 +1448,13 @@ static int msm_pcm_add_compress_control(struct snd_soc_pcm_runtime *rtd)
 	if (pdata) {
 		if (!pdata->pcm) {
 			pdata->pcm = rtd->pcm;
-			snd_soc_add_platform_controls(rtd->platform,
-						      pcm_compress_control,
-						      ARRAY_SIZE
-						      (pcm_compress_control));
-			pr_debug("%s: add control success plt = %pK\n",
-				 __func__, rtd->platform);
+			ret = snd_soc_add_platform_controls(rtd->platform,
+							pcm_compress_control,
+							ARRAY_SIZE
+							(pcm_compress_control));
+			if (ret < 0)
+				pr_err("%s: failed add ctl %s. err = %d\n",
+					__func__, mixer_str, ret);
 		}
 	} else {
 		pr_err("%s: NULL pdata\n", __func__);
@@ -1603,24 +1604,47 @@ done:
 	return ret;
 }
 
+static int msm_pcm_playback_pan_scale_ctl_info(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_BYTES;
+	uinfo->count = sizeof(struct asm_stream_pan_ctrl_params);
+	return 0;
+}
+
 static int msm_pcm_playback_pan_scale_ctl_put(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
 	int ret = 0;
 	int len = 0;
 	int i = 0;
-	struct snd_pcm_usr *usr_info = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_component *usr_info = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_platform *platform;
+	struct msm_plat_data *pdata;
 	struct snd_pcm_substream *substream;
 	struct msm_audio *prtd;
 	struct asm_stream_pan_ctrl_params pan_param;
-
+	char *usr_value = NULL;
+	uint32_t *gain_ptr = NULL;
 	if (!usr_info) {
 		pr_err("%s: usr_info is null\n", __func__);
 		ret = -EINVAL;
 		goto done;
 	}
 
-	substream = usr_info->pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
+	platform = snd_soc_component_to_platform(usr_info);
+	if (!platform) {
+		pr_err("%s: platform is null\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+	pdata = dev_get_drvdata(platform->dev);
+	if (!pdata) {
+		pr_err("%s: pdata is null\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+	substream = pdata->pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
 	if (!substream) {
 		pr_err("%s substream not found\n", __func__);
 		ret = -EINVAL;
@@ -1637,54 +1661,71 @@ static int msm_pcm_playback_pan_scale_ctl_put(struct snd_kcontrol *kcontrol,
 		ret = -EINVAL;
 		goto done;
 	}
-	pan_param.num_output_channels =
-			ucontrol->value.integer.value[len++];
+	usr_value = (char *) ucontrol->value.bytes.data;
+	if (!usr_value) {
+		pr_err("%s ucontrol data is null\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+	memcpy(&pan_param.num_output_channels, &usr_value[len],
+				sizeof(pan_param.num_output_channels));
+	len += sizeof(pan_param.num_output_channels);
 	if (pan_param.num_output_channels >
 		PCM_FORMAT_MAX_NUM_CHANNEL) {
 		ret = -EINVAL;
 		goto done;
 	}
-	pan_param.num_input_channels =
-			ucontrol->value.integer.value[len++];
+	memcpy(&pan_param.num_input_channels, &usr_value[len],
+				sizeof(pan_param.num_input_channels));
+	len += sizeof(pan_param.num_input_channels);
 	if (pan_param.num_input_channels >
 		PCM_FORMAT_MAX_NUM_CHANNEL) {
 		ret = -EINVAL;
 		goto done;
 	}
 
-	if (ucontrol->value.integer.value[len++]) {
-		for (i = 0; i < pan_param.num_output_channels; i++) {
-			pan_param.output_channel_map[i] =
-				ucontrol->value.integer.value[len++];
-		}
+	if (usr_value[len++]) {
+		memcpy(pan_param.output_channel_map, &usr_value[len],
+			(pan_param.num_output_channels *
+			sizeof(pan_param.output_channel_map[0])));
+		len += (pan_param.num_output_channels *
+			sizeof(pan_param.output_channel_map[0]));
 	}
-	if (ucontrol->value.integer.value[len++]) {
-		for (i = 0; i < pan_param.num_input_channels; i++) {
-			pan_param.input_channel_map[i] =
-				ucontrol->value.integer.value[len++];
-		}
+	if (usr_value[len++]) {
+		memcpy(pan_param.input_channel_map, &usr_value[len],
+			(pan_param.num_input_channels *
+			sizeof(pan_param.input_channel_map[0])));
+		len += (pan_param.num_input_channels *
+			sizeof(pan_param.input_channel_map[0]));
 	}
-	if (ucontrol->value.integer.value[len++]) {
+	if (usr_value[len++]) {
+		gain_ptr = (uint32_t *) &usr_value[len];
 		for (i = 0; i < pan_param.num_output_channels *
 			pan_param.num_input_channels; i++) {
 			pan_param.gain[i] =
-				!(ucontrol->value.integer.value[len++] > 0) ?
+				!(gain_ptr[i] > 0) ?
 				0 : 2 << 13;
+			len += sizeof(pan_param.gain[i]);
 		}
+		len += (pan_param.num_input_channels *
+		pan_param.num_output_channels * sizeof(pan_param.gain[0]));
 	}
 
 	ret = q6asm_set_mfc_panning_params(prtd->audio_client,
 					   &pan_param);
 	len -= pan_param.num_output_channels *
-	       pan_param.num_input_channels;
-	for (i = 0; i < pan_param.num_output_channels *
-		pan_param.num_input_channels; i++) {
-		/*
-		 * The data userspace passes is already in Q14 format.
-		 * For volume gain is in Q28.
-		 */
-		pan_param.gain[i] =
-				ucontrol->value.integer.value[len++] << 14;
+		pan_param.num_input_channels * sizeof(pan_param.gain[0]);
+	if (gain_ptr) {
+		for (i = 0; i < pan_param.num_output_channels *
+			pan_param.num_input_channels; i++) {
+			/*
+			 * The data userspace passes is already in Q14 format.
+			 * For volume gain is in Q28.
+			 */
+			pan_param.gain[i] =
+				(gain_ptr[i]) << 14;
+			len += sizeof(pan_param.gain[i]);
+		}
 	}
 	ret = q6asm_set_vol_ctrl_gain_pair(prtd->audio_client,
 					   &pan_param);
@@ -1701,40 +1742,60 @@ static int msm_pcm_playback_pan_scale_ctl_get(struct snd_kcontrol *kcontrol,
 
 static int msm_add_stream_pan_scale_controls(struct snd_soc_pcm_runtime *rtd)
 {
-	struct snd_pcm *pcm;
-	struct snd_pcm_usr *pan_ctl_info;
-	struct snd_kcontrol *kctl;
 	const char *playback_mixer_ctl_name = "Audio Stream";
 	const char *deviceNo = "NN";
 	const char *suffix = "Pan Scale Control";
-	int ctl_len, ret = 0;
+	char *mixer_str = NULL;
+	int ctl_len;
+	int ret = 0;
+	struct msm_plat_data *pdata;
+	struct snd_kcontrol_new pan_scale_control[1] = {
+		{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "?",
+		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
+		.info = msm_pcm_playback_pan_scale_ctl_info,
+		.get = msm_pcm_playback_pan_scale_ctl_get,
+		.put = msm_pcm_playback_pan_scale_ctl_put,
+		.private_value = 0,
+		}
+	};
 
 	if (!rtd) {
-		pr_err("%s: rtd is NULL\n", __func__);
+		pr_err("%s: NULL rtd\n", __func__);
+		return -EINVAL;
+	}
+
+	ctl_len = strlen(playback_mixer_ctl_name) + 1 +
+	strlen(deviceNo) + 1 + strlen(suffix) + 1;
+	mixer_str = kzalloc(ctl_len, GFP_KERNEL);
+	if (!mixer_str) {
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	snprintf(mixer_str, ctl_len, "%s %d %s",
+	playback_mixer_ctl_name, rtd->pcm->device, suffix);
+	pan_scale_control[0].name = mixer_str;
+	pan_scale_control[0].private_value = rtd->dai_link->be_id;
+	pr_debug("%s: Registering new mixer ctl %s\n", __func__, mixer_str);
+	pdata = dev_get_drvdata(rtd->platform->dev);
+	if (pdata) {
+		if (!pdata->pcm)
+			pdata->pcm = rtd->pcm;
+		ret = snd_soc_add_platform_controls(rtd->platform,
+							pan_scale_control,
+							ARRAY_SIZE
+							(pan_scale_control));
+		if (ret < 0)
+			pr_err("%s: failed add ctl %s. err = %d\n",
+					__func__, mixer_str, ret);
+	} else {
+		pr_err("%s: NULL pdata\n", __func__);
 		ret = -EINVAL;
-		goto done;
 	}
 
-	pcm = rtd->pcm;
-	ctl_len = strlen(playback_mixer_ctl_name) + 1 + strlen(deviceNo) + 1 +
-			 strlen(suffix) + 1;
-
-	ret = snd_pcm_add_usr_ctls(pcm, SNDRV_PCM_STREAM_PLAYBACK,
-				   NULL, 1, ctl_len, rtd->dai_link->be_id,
-				   &pan_ctl_info);
-
-	if (ret < 0) {
-		pr_err("%s: failed add ctl %s. err = %d\n",
-			__func__, suffix, ret);
-		goto done;
-	}
-	kctl = pan_ctl_info->kctl;
-	snprintf(kctl->id.name, ctl_len, "%s %d %s", playback_mixer_ctl_name,
-		 rtd->pcm->device, suffix);
-	kctl->put = msm_pcm_playback_pan_scale_ctl_put;
-	kctl->get = msm_pcm_playback_pan_scale_ctl_get;
-	pr_debug("%s: Registering new mixer ctl = %s\n", __func__,
-		 kctl->id.name);
+	kfree(mixer_str);
 done:
 	return ret;
 
@@ -1746,18 +1807,28 @@ static int msm_pcm_playback_dnmix_ctl_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm_pcm_playback_dnmix_ctl_info(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_BYTES;
+	uinfo->count = sizeof(struct asm_stream_pan_ctrl_params);
+	return 0;
+}
+
 static int msm_pcm_playback_dnmix_ctl_put(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
 	int ret = 0;
 	int len = 0;
-	int i = 0;
-	struct snd_pcm_usr *usr_info = snd_kcontrol_chip(kcontrol);
+
+	struct snd_soc_component *usr_info = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_platform *platform;
+	struct msm_plat_data *pdata;
 	struct snd_pcm_substream *substream;
 	struct msm_audio *prtd;
 	struct asm_stream_pan_ctrl_params dnmix_param;
-
-	int be_id = ucontrol->value.integer.value[len++];
+	char *usr_value;
+	int be_id = 0;
 	int stream_id = 0;
 
 	if (!usr_info) {
@@ -1765,7 +1836,19 @@ static int msm_pcm_playback_dnmix_ctl_put(struct snd_kcontrol *kcontrol,
 		ret = -EINVAL;
 		goto done;
 	}
-	substream = usr_info->pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
+	platform = snd_soc_component_to_platform(usr_info);
+	if (!platform) {
+		pr_err("%s platform is null\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+	pdata = dev_get_drvdata(platform->dev);
+	if (!pdata) {
+		pr_err("%s pdata is null\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+	substream = pdata->pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
 	if (!substream) {
 		pr_err("%s substream not found\n", __func__);
 		ret = -EINVAL;
@@ -1781,40 +1864,51 @@ static int msm_pcm_playback_dnmix_ctl_put(struct snd_kcontrol *kcontrol,
 		ret = -EINVAL;
 		goto done;
 	}
+	usr_value = (char *) ucontrol->value.bytes.data;
+	if (!usr_value) {
+		pr_err("%s usrvalue is null\n", __func__);
+		goto done;
+	}
+	memcpy(&be_id, usr_value, sizeof(be_id));
+	len += sizeof(be_id);
 	stream_id = prtd->audio_client->session;
-	dnmix_param.num_output_channels =
-				ucontrol->value.integer.value[len++];
+	memcpy(&dnmix_param.num_output_channels, &usr_value[len],
+				sizeof(dnmix_param.num_output_channels));
+	len += sizeof(dnmix_param.num_output_channels);
 	if (dnmix_param.num_output_channels >
 		PCM_FORMAT_MAX_NUM_CHANNEL) {
 		ret = -EINVAL;
 		goto done;
 	}
-	dnmix_param.num_input_channels =
-				ucontrol->value.integer.value[len++];
+	memcpy(&dnmix_param.num_input_channels, &usr_value[len],
+				sizeof(dnmix_param.num_input_channels));
+	len += sizeof(dnmix_param.num_input_channels);
 	if (dnmix_param.num_input_channels >
 		PCM_FORMAT_MAX_NUM_CHANNEL) {
 		ret = -EINVAL;
 		goto done;
 	}
-
-	if (ucontrol->value.integer.value[len++]) {
-		for (i = 0; i < dnmix_param.num_output_channels; i++) {
-			dnmix_param.output_channel_map[i] =
-				ucontrol->value.integer.value[len++];
-		}
+	if (usr_value[len++]) {
+		memcpy(dnmix_param.output_channel_map, &usr_value[len],
+			(dnmix_param.num_output_channels *
+			sizeof(dnmix_param.output_channel_map[0])));
+		len += (dnmix_param.num_output_channels *
+				sizeof(dnmix_param.output_channel_map[0]));
 	}
-	if (ucontrol->value.integer.value[len++]) {
-		for (i = 0; i < dnmix_param.num_input_channels; i++) {
-			dnmix_param.input_channel_map[i] =
-				ucontrol->value.integer.value[len++];
-		}
+	if (usr_value[len++]) {
+		memcpy(dnmix_param.input_channel_map, &usr_value[len],
+			(dnmix_param.num_input_channels *
+			sizeof(dnmix_param.input_channel_map[0])));
+		len += (dnmix_param.num_input_channels *
+				sizeof(dnmix_param.input_channel_map[0]));
 	}
-	if (ucontrol->value.integer.value[len++]) {
-		for (i = 0; i < dnmix_param.num_output_channels *
-				dnmix_param.num_input_channels; i++) {
-			dnmix_param.gain[i] =
-					ucontrol->value.integer.value[len++];
-		}
+	if (usr_value[len++]) {
+		memcpy(dnmix_param.gain, (uint32_t *) &usr_value[len],
+			(dnmix_param.num_input_channels *
+			dnmix_param.num_output_channels *
+			sizeof(dnmix_param.gain[0])));
+		len += (dnmix_param.num_input_channels *
+		dnmix_param.num_output_channels * sizeof(dnmix_param.gain[0]));
 	}
 	msm_routing_set_downmix_control_data(be_id,
 					     stream_id,
@@ -1826,39 +1920,58 @@ done:
 
 static int msm_add_device_down_mix_controls(struct snd_soc_pcm_runtime *rtd)
 {
-	struct snd_pcm *pcm;
-	struct snd_pcm_usr *usr_info;
-	struct snd_kcontrol *kctl;
 	const char *playback_mixer_ctl_name = "Audio Device";
 	const char *deviceNo = "NN";
 	const char *suffix = "Downmix Control";
-	int ctl_len, ret = 0;
+	char *mixer_str = NULL;
+	int ctl_len = 0, ret = 0;
+	struct msm_plat_data *pdata;
+	struct snd_kcontrol_new device_downmix_control[1] = {
+		{
+			.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+			.name = "?",
+			.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
+			.info = msm_pcm_playback_dnmix_ctl_info,
+			.get = msm_pcm_playback_dnmix_ctl_get,
+			.put = msm_pcm_playback_dnmix_ctl_put,
+			.private_value = 0,
+		}
+	};
 
 	if (!rtd) {
-		pr_err("%s: rtd is NULL\n", __func__);
+		pr_err("%s NULL rtd\n", __func__);
 		ret = -EINVAL;
 		goto done;
 	}
-
-	pcm = rtd->pcm;
 	ctl_len = strlen(playback_mixer_ctl_name) + 1 +
-			 strlen(deviceNo) + 1 + strlen(suffix) + 1;
-	ret = snd_pcm_add_usr_ctls(pcm, SNDRV_PCM_STREAM_PLAYBACK,
-				   NULL, 1, ctl_len, rtd->dai_link->be_id,
-				   &usr_info);
-	if (ret < 0) {
-		pr_err("%s: downmix control add failed: %d\n",
-			__func__, ret);
+	strlen(deviceNo) + 1 + strlen(suffix) + 1;
+	mixer_str = kzalloc(ctl_len, GFP_KERNEL);
+	if (!mixer_str) {
+		ret = -ENOMEM;
 		goto done;
 	}
 
-	kctl = usr_info->kctl;
-	snprintf(kctl->id.name, ctl_len, "%s %d %s",
-		 playback_mixer_ctl_name, rtd->pcm->device, suffix);
-	kctl->put = msm_pcm_playback_dnmix_ctl_put;
-	kctl->get = msm_pcm_playback_dnmix_ctl_get;
-	pr_debug("%s: downmix control name = %s\n",
-		 __func__, playback_mixer_ctl_name);
+	snprintf(mixer_str, ctl_len, "%s %d %s",
+	playback_mixer_ctl_name, rtd->pcm->device, suffix);
+	device_downmix_control[0].name = mixer_str;
+	device_downmix_control[0].private_value = rtd->dai_link->be_id;
+	pr_debug("%s: Registering new mixer ctl %s\n", __func__, mixer_str);
+	pdata = dev_get_drvdata(rtd->platform->dev);
+	if (pdata) {
+		if (!pdata->pcm)
+			pdata->pcm = rtd->pcm;
+		ret = snd_soc_add_platform_controls(rtd->platform,
+						      device_downmix_control,
+						      ARRAY_SIZE
+						      (device_downmix_control));
+		if (ret < 0)
+			pr_err("%s: failed add ctl %s. err = %d\n",
+				 __func__, mixer_str, ret);
+	} else {
+		pr_err("%s: NULL pdata\n", __func__);
+		ret = -EINVAL;
+	}
+	kfree(mixer_str);
 done:
 	return ret;
 }
