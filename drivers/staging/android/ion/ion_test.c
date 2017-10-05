@@ -42,8 +42,7 @@ struct ion_test_data {
 };
 
 static int ion_handle_test_dma(struct device *dev, struct dma_buf *dma_buf,
-			       void __user *ptr, size_t offset, size_t size,
-			       bool write)
+		void __user *ptr, size_t offset, size_t size, bool write)
 {
 	int ret = 0;
 	struct dma_buf_attachment *attach;
@@ -99,7 +98,7 @@ err:
 }
 
 static int ion_handle_test_kernel(struct dma_buf *dma_buf, void __user *ptr,
-				  size_t offset, size_t size, bool write)
+		size_t offset, size_t size, bool write)
 {
 	int ret;
 	unsigned long page_offset = offset >> PAGE_SHIFT;
@@ -110,7 +109,7 @@ static int ion_handle_test_kernel(struct dma_buf *dma_buf, void __user *ptr,
 	if (offset > dma_buf->size || size > dma_buf->size - offset)
 		return -EINVAL;
 
-	ret = dma_buf_begin_cpu_access(dma_buf, dir);
+	ret = dma_buf_begin_cpu_access(dma_buf, offset, size, dir);
 	if (ret)
 		return ret;
 
@@ -140,12 +139,12 @@ static int ion_handle_test_kernel(struct dma_buf *dma_buf, void __user *ptr,
 		copy_offset = 0;
 	}
 err:
-	dma_buf_end_cpu_access(dma_buf, dir);
+	dma_buf_end_cpu_access(dma_buf, offset, size, dir);
 	return ret;
 }
 
 static long ion_test_ioctl(struct file *filp, unsigned int cmd,
-			   unsigned long arg)
+						unsigned long arg)
 {
 	struct ion_test_data *test_data = filp->private_data;
 	int ret = 0;
@@ -180,19 +179,17 @@ static long ion_test_ioctl(struct file *filp, unsigned int cmd,
 	case ION_IOC_TEST_DMA_MAPPING:
 	{
 		ret = ion_handle_test_dma(test_data->dev, test_data->dma_buf,
-					  u64_to_uptr(data.test_rw.ptr),
-					  data.test_rw.offset,
-					  data.test_rw.size,
-					  data.test_rw.write);
+					u64_to_uptr(data.test_rw.ptr),
+					data.test_rw.offset, data.test_rw.size,
+					data.test_rw.write);
 		break;
 	}
 	case ION_IOC_TEST_KERNEL_MAPPING:
 	{
 		ret = ion_handle_test_kernel(test_data->dma_buf,
-					     u64_to_uptr(data.test_rw.ptr),
-					     data.test_rw.offset,
-					     data.test_rw.size,
-					     data.test_rw.write);
+					u64_to_uptr(data.test_rw.ptr),
+					data.test_rw.offset, data.test_rw.size,
+					data.test_rw.write);
 		break;
 	}
 	default:
@@ -211,7 +208,7 @@ static int ion_test_open(struct inode *inode, struct file *file)
 	struct ion_test_data *data;
 	struct miscdevice *miscdev = file->private_data;
 
-	data = kzalloc(sizeof(*data), GFP_KERNEL);
+	data = kzalloc(sizeof(struct ion_test_data), GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
 
@@ -245,7 +242,7 @@ static int __init ion_test_probe(struct platform_device *pdev)
 	struct ion_test_device *testdev;
 
 	testdev = devm_kzalloc(&pdev->dev, sizeof(struct ion_test_device),
-			       GFP_KERNEL);
+				GFP_KERNEL);
 	if (!testdev)
 		return -ENOMEM;
 
@@ -288,8 +285,8 @@ static int __init ion_test_init(void)
 {
 	ion_test_pdev = platform_device_register_simple("ion-test",
 							-1, NULL, 0);
-	if (IS_ERR(ion_test_pdev))
-		return PTR_ERR(ion_test_pdev);
+	if (!ion_test_pdev)
+		return -ENODEV;
 
 	return platform_driver_probe(&ion_test_platform_driver, ion_test_probe);
 }
