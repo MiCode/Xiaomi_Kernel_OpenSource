@@ -1024,10 +1024,12 @@ static int spcom_get_next_request_size(struct spcom_channel *ch)
 			 ch->name, ch->actual_rx_size);
 		goto exit_ready;
 	}
+	mutex_unlock(&ch->lock); /* unlock while waiting */
 
 	pr_debug("Wait for Rx Done, ch [%s].\n", ch->name);
 	wait_for_completion(&ch->rx_done);
 
+	mutex_lock(&ch->lock); /* re-lock after waiting */
 	/* Check Rx Abort on SP reset */
 	if (ch->rx_abort) {
 		pr_err("rx aborted.\n");
