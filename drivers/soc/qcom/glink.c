@@ -1653,6 +1653,8 @@ void ch_purge_intent_lists(struct channel_ctx *ctx)
 				&ctx->local_rx_intent_list, list) {
 		ctx->notify_rx_abort(ctx, ctx->user_priv,
 				ptr_intent->pkt_priv);
+		ctx->transport_ptr->ops->deallocate_rx_intent(
+					ctx->transport_ptr->ops, ptr_intent);
 		list_del(&ptr_intent->list);
 		kfree(ptr_intent);
 	}
@@ -3667,6 +3669,8 @@ static void glink_dummy_xprt_ctx_release(struct rwref_lock *xprt_st_lock)
 	GLINK_INFO("%s: freeing transport [%s->%s]context\n", __func__,
 				xprt_ctx->name,
 				xprt_ctx->edge);
+	kfree(xprt_ctx->ops);
+	xprt_ctx->ops = NULL;
 	kfree(xprt_ctx);
 }
 
