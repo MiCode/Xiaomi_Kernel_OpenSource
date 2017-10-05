@@ -1096,6 +1096,11 @@ static int __ipa_validate_flt_rule(const struct ipa_flt_rule *rule,
 				goto error;
 			}
 		}
+	} else {
+		if (rule->rt_tbl_idx > 0) {
+			IPAERR("invalid RT tbl\n");
+			goto error;
+		}
 	}
 
 	if (rule->rule_id) {
@@ -1346,6 +1351,11 @@ static int __ipa_mdfy_flt_rule(struct ipa_flt_rule_mdfy *frule,
 				IPAERR_RL("invalid RT tbl\n");
 				goto error;
 			}
+		}
+	} else {
+		if (frule->rule.rt_tbl_idx > 0) {
+			IPAERR("invalid RT tbl\n");
+			goto error;
 		}
 	}
 

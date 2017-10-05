@@ -1039,6 +1039,11 @@ static int __ipa_add_flt_rule(struct ipa_flt_tbl *tbl, enum ipa_ip_type ip,
 				goto error;
 			}
 		}
+	} else {
+		if (rule->rt_tbl_idx > 0) {
+			IPAERR_RL("invalid RT tbl\n");
+			goto error;
+		}
 	}
 
 	entry = kmem_cache_zalloc(ipa_ctx->flt_rule_cache, GFP_KERNEL);
@@ -1159,6 +1164,11 @@ static int __ipa_mdfy_flt_rule(struct ipa_flt_rule_mdfy *frule,
 				IPAERR_RL("invalid RT tbl\n");
 				goto error;
 			}
+		}
+	} else {
+		if (frule->rule.rt_tbl_idx > 0) {
+			IPAERR_RL("invalid RT tbl\n");
+			goto error;
 		}
 	}
 
