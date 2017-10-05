@@ -183,7 +183,7 @@
 		};
 
 		smmu_kms_unsec: qcom,smmu_kms_unsec_cb {
-			compatible = "qcom,smmu_kms_unsec";
+			compatible = "qcom,smmu_sde_unsec";
 			iommus = <&mdp_smmu 0>;
 		};
 
