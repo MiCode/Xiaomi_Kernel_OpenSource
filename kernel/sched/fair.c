@@ -6313,7 +6313,7 @@ static inline int find_idlest_cpu(struct sched_domain *sd, struct task_struct *p
 {
 	int wu = sd_flag & SD_BALANCE_WAKE;
 	int cas_cpu = -1;
-	int new_cpu = prev_cpu;
+	int new_cpu = cpu;
 
 	if (wu) {
 		schedstat_inc(p->se.statistics.nr_wakeups_cas_attempts);
