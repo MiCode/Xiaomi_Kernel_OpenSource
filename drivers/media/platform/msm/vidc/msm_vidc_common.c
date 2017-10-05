@@ -1686,6 +1686,11 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 		event_notify->crop_data.height;
 	inst->prop.crop_info.width =
 		event_notify->crop_data.width;
+	/* HW returns progressive_only flag in pic_struct. */
+	inst->pic_struct =
+		event_notify->pic_struct ?
+		MSM_VIDC_PIC_STRUCT_PROGRESSIVE :
+		MSM_VIDC_PIC_STRUCT_MAYBE_INTERLACED;
 
 	ptr = (u32 *)seq_changed_event.u.data;
 	ptr[0] = event_notify->height;
