@@ -2246,32 +2246,7 @@
 		compatible = "qcom,devbw";
 		governor = "performance";
 		qcom,src-dst-ports =
-			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_LLCC>;
-		qcom,active-only;
-		qcom,bw-tbl =
-			< MHZ_TO_MBPS(150, 16) >, /*  2288 MB/s */
-			< MHZ_TO_MBPS(300, 16) >, /*  4577 MB/s */
-			< MHZ_TO_MBPS(466, 16) >, /*  7110 MB/s */
-			< MHZ_TO_MBPS(600, 16) >, /*  9155 MB/s */
-			< MHZ_TO_MBPS(806, 16) >, /* 12298 MB/s */
-			< MHZ_TO_MBPS(933, 16) >; /* 14236 MB/s */
-	};
-
-	bwmon: qcom,cpu-bwmon {
-		compatible = "qcom,bimc-bwmon4";
-		reg = <0x1436400 0x300>, <0x1436300 0x200>;
-		reg-names = "base", "global_base";
-		interrupts = <0 581 4>;
-		qcom,mport = <0>;
-		qcom,hw-timer-hz = <19200000>;
-		qcom,target-dev = <&cpubw>;
-	};
-
-	llccbw: qcom,llccbw {
-		compatible = "qcom,devbw";
-		governor = "powersave";
-		qcom,src-dst-ports =
-			<MSM_BUS_MASTER_LLCC MSM_BUS_SLAVE_EBI_CH0>;
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_EBI_CH0>;
 		qcom,active-only;
 		qcom,bw-tbl =
 			< MHZ_TO_MBPS( 100, 4) >, /* 381 MB/s */
@@ -2287,16 +2262,14 @@
 			< MHZ_TO_MBPS(1804, 4) >; /* 6881 MB/s */
 	};
 
-	llcc_bwmon: qcom,llcc-bwmon {
-		compatible = "qcom,bimc-bwmon5";
-		reg = <0x0114a000 0x1000>;
-		reg-names = "base";
-		interrupts = <GIC_SPI 580 IRQ_TYPE_LEVEL_HIGH>;
+	bwmon: qcom,cpu-bwmon {
+		compatible = "qcom,bimc-bwmon4";
+		reg = <0x1436400 0x300>, <0x1436300 0x200>;
+		reg-names = "base", "global_base";
+		interrupts = <0 581 4>;
+		qcom,mport = <0>;
 		qcom,hw-timer-hz = <19200000>;
-		qcom,target-dev = <&llccbw>;
-		qcom,count-unit = <0x200000>;
-		qcom,byte-mid-mask = <0xe000>;
-		qcom,byte-mid-match = <0xe000>;
+		qcom,target-dev = <&cpubw>;
 	};
 
 	memlat_cpu0: qcom,memlat-cpu0 {
