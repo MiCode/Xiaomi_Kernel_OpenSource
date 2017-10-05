@@ -1293,6 +1293,16 @@ config SCHED_CORE_CTL
 
 	  If unsure, say N here.
 
+config SCHED_CORE_ROTATE
+	bool "Scheduler core rotation"
+	depends on SMP
+	help
+	  This options enables the core rotation functionality in
+	  the scheduler. Scheduler with core rotation aims to utilize
+	  CPUs evenly.
+
+	  If unsure, say N here.
+
 config CHECKPOINT_RESTORE
 	bool "Checkpoint/restore support" if EXPERT
 	select PROC_CHILDREN

@@ -9624,3 +9624,50 @@ void sched_exit(struct task_struct *p)
 #endif /* CONFIG_SCHED_WALT */
 
 __read_mostly bool sched_predl = 1;
+
+#ifdef CONFIG_SCHED_CORE_ROTATE
+int
+find_first_cpu_bit(struct task_struct *p, const cpumask_t *search_cpus,
+		   struct sched_group *sg_target, bool *avoid_prev_cpu,
+		   bool *do_rotate, struct find_first_cpu_bit_env *env)
+{
+	int i = -1;
+	unsigned long mcc;
+	int cpu = smp_processor_id();
+
+	mcc = cpu_rq(cpu)->rd->max_cpu_capacity.val;
+
+	/* do rotation only for big CPUs. */
+	*do_rotate = (cpumask_first(search_cpus) < nr_cpu_ids &&
+		     capacity_orig_of(cpumask_first(search_cpus)) == mcc);
+
+	if (*do_rotate) {
+		if (time_before_eq(jiffies, *env->avoid_prev_cpu_last +
+				   env->interval))
+			return *env->rotate_cpu_start;
+
+		spin_lock(env->rotate_lock);
+		if (time_after(jiffies, *env->avoid_prev_cpu_last +
+					env->interval)) {
+			cpumask_t tmpmask;
+
+			*env->avoid_prev_cpu_last = jiffies;
+			*avoid_prev_cpu = true;
+
+			cpumask_copy(&tmpmask, sched_group_cpus(sg_target));
+			cpumask_andnot(&tmpmask, &tmpmask, cpu_isolated_mask);
+
+			i = cpumask_next(*env->rotate_cpu_start, &tmpmask);
+			if (i >= nr_cpu_ids)
+				i = cpumask_first(&tmpmask) - 1;
+			/* Change start CPU every interval. */
+			*env->rotate_cpu_start = i;
+		} else {
+			i = *env->rotate_cpu_start;
+		}
+		spin_unlock(env->rotate_lock);
+	}
+
+	return i;
+}
+#endif
