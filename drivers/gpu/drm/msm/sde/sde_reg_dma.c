@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -69,11 +69,15 @@ static int default_last_command(struct sde_hw_ctl *ctl,
 	return 0;
 }
 
+static void default_dump_reg(void)
+{
+}
+
 static struct sde_hw_reg_dma reg_dma = {
 	.ops = {default_check_support, default_setup_payload,
 		default_kick_off, default_reset, default_alloc_reg_dma_buf,
 		default_dealloc_reg_dma, default_buf_reset_reg_dma,
-		default_last_command},
+		default_last_command, default_dump_reg},
 };
 
 int sde_reg_dma_init(void __iomem *addr, struct sde_mdss_cfg *m,
@@ -118,7 +122,7 @@ void sde_reg_dma_deinit(void)
 	.ops = {default_check_support, default_setup_payload,
 		default_kick_off, default_reset, default_alloc_reg_dma_buf,
 		default_dealloc_reg_dma, default_buf_reset_reg_dma,
-		default_last_command},
+		default_last_command, default_dump_reg},
 	};
 
 	if (!reg_dma.drm_dev || !reg_dma.caps)
