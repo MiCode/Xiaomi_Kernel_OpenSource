@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -261,7 +261,6 @@ struct wlfw_fw_version_info {
 enum icnss_msa_perm {
 	ICNSS_MSA_PERM_HLOS_ALL = 0,
 	ICNSS_MSA_PERM_WLAN_HW_RW = 1,
-	ICNSS_MSA_PERM_DUMP_COLLECT = 2,
 	ICNSS_MSA_PERM_MAX,
 };
 
