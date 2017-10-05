@@ -20,22 +20,251 @@
 #include <linux/platform_device.h>
 #include <linux/of_device.h>
 #include <linux/msm_audio_ion.h>
+#include <linux/habmm.h>
 #include "../../../staging/android/ion/ion_priv.h"
 #include "../../../staging/android/ion/ion_hvenv_driver.h"
 
 #define MSM_AUDIO_ION_PROBED (1 << 0)
 
+#define MSM_AUDIO_SMMU_VM_CMD_MAP 0x00000001
+#define MSM_AUDIO_SMMU_VM_CMD_UNMAP 0x00000002
+#define MSM_AUDIO_SMMU_VM_HAB_MINOR_ID 1
+
 struct msm_audio_ion_private {
 	bool smmu_enabled;
 	bool audioheap_enabled;
 	u8 device_status;
+	struct list_head smmu_map_list;
+	struct mutex smmu_map_mutex;
+};
+
+struct msm_audio_smmu_map_data {
+	struct ion_client *client;
+	struct ion_handle *handle;
+	u32 export_id;
+	struct list_head list;
+};
+
+struct msm_audio_smmu_vm_map_cmd {
+	int cmd_id;
+	u32 export_id;
+	u32 buf_size;
+};
+
+struct msm_audio_smmu_vm_map_cmd_rsp {
+	int status;
+	u64 addr;
+};
+
+struct msm_audio_smmu_vm_unmap_cmd {
+	int cmd_id;
+	u32 export_id;
+};
+
+struct msm_audio_smmu_vm_unmap_cmd_rsp {
+	int status;
 };
 
 static struct msm_audio_ion_private msm_audio_ion_data = {0,};
+static u32 msm_audio_ion_hab_handle;
 
 static int msm_audio_ion_get_phys(struct ion_client *client,
 				struct ion_handle *handle,
-				ion_phys_addr_t *addr, size_t *len);
+				ion_phys_addr_t *addr, size_t *len,
+				void *vaddr);
+
+static int msm_audio_ion_smmu_map(struct ion_client *client,
+		struct ion_handle *handle,
+		ion_phys_addr_t *addr, size_t *len, void *vaddr)
+{
+	int rc;
+	u32 export_id;
+	u32 cmd_rsp_size;
+	bool exported = false;
+	struct msm_audio_smmu_vm_map_cmd_rsp cmd_rsp;
+	struct msm_audio_smmu_map_data *map_data = NULL;
+	struct msm_audio_smmu_vm_map_cmd smmu_map_cmd;
+
+	rc = ion_handle_get_size(client, handle, len);
+	if (rc) {
+		pr_err("%s: ion_handle_get_size failed, client = %pK, handle = %pK, rc = %d\n",
+			__func__, client, handle, rc);
+		goto err;
+	}
+
+	/* Data required to track per buffer mapping */
+	map_data = kzalloc(sizeof(*map_data), GFP_KERNEL);
+	if (!map_data) {
+		rc = -ENOMEM;
+		goto err;
+	}
+
+	/* Export the buffer to physical VM */
+	rc = habmm_export(msm_audio_ion_hab_handle, vaddr, *len,
+		&export_id, 0);
+	if (rc) {
+		pr_err("%s: habmm_export failed vaddr = %pK, len = %zd, rc = %d\n",
+			__func__, vaddr, *len, rc);
+		goto err;
+	}
+
+	exported = true;
+	smmu_map_cmd.cmd_id = MSM_AUDIO_SMMU_VM_CMD_MAP;
+	smmu_map_cmd.export_id = export_id;
+	smmu_map_cmd.buf_size = *len;
+
+	mutex_lock(&(msm_audio_ion_data.smmu_map_mutex));
+	rc = habmm_socket_send(msm_audio_ion_hab_handle,
+		(void *)&smmu_map_cmd, sizeof(smmu_map_cmd), 0);
+	if (rc) {
+		pr_err("%s: habmm_socket_send failed %d\n",
+			__func__, rc);
+		mutex_unlock(&(msm_audio_ion_data.smmu_map_mutex));
+		goto err;
+	}
+
+	cmd_rsp_size = sizeof(cmd_rsp);
+	rc = habmm_socket_recv(msm_audio_ion_hab_handle,
+		(void *)&cmd_rsp,
+		&cmd_rsp_size,
+		0xFFFFFFFF,
+		0);
+	if (rc) {
+		pr_err("%s: habmm_socket_recv failed %d\n",
+			__func__, rc);
+		mutex_unlock(&(msm_audio_ion_data.smmu_map_mutex));
+		goto err;
+	}
+	mutex_unlock(&(msm_audio_ion_data.smmu_map_mutex));
+
+	if (cmd_rsp_size != sizeof(cmd_rsp)) {
+		pr_err("%s: invalid size for cmd rsp %lu, expected %lu\n",
+			__func__, cmd_rsp_size, sizeof(cmd_rsp));
+		rc = -EIO;
+		goto err;
+	}
+
+	if (cmd_rsp.status) {
+		pr_err("%s: SMMU map command failed %d\n",
+			__func__, cmd_rsp.status);
+		rc = cmd_rsp.status;
+		goto err;
+	}
+
+	*addr = (ion_phys_addr_t)cmd_rsp.addr;
+
+	map_data->client = client;
+	map_data->handle = handle;
+	map_data->export_id = export_id;
+
+	mutex_lock(&(msm_audio_ion_data.smmu_map_mutex));
+	list_add_tail(&(map_data->list),
+		&(msm_audio_ion_data.smmu_map_list));
+	mutex_unlock(&(msm_audio_ion_data.smmu_map_mutex));
+
+	return 0;
+
+err:
+	if (exported)
+		(void)habmm_unexport(msm_audio_ion_hab_handle, export_id, 0);
+
+	kfree(map_data);
+
+	return rc;
+}
+
+static int msm_audio_ion_smmu_unmap(struct ion_client *client,
+				struct ion_handle *handle)
+{
+	int rc;
+	bool found = false;
+	u32 cmd_rsp_size;
+	struct msm_audio_smmu_vm_unmap_cmd_rsp cmd_rsp;
+	struct msm_audio_smmu_map_data *map_data, *next;
+	struct msm_audio_smmu_vm_unmap_cmd smmu_unmap_cmd;
+
+	/*
+	 * Though list_for_each_entry_safe is delete safe, lock
+	 * should be explicitly acquired to avoid race condition
+	 * on adding elements to the list.
+	 */
+	mutex_lock(&(msm_audio_ion_data.smmu_map_mutex));
+	list_for_each_entry_safe(map_data, next,
+		&(msm_audio_ion_data.smmu_map_list), list) {
+
+		if (map_data->handle == handle && map_data->client == client) {
+			found = true;
+			smmu_unmap_cmd.cmd_id = MSM_AUDIO_SMMU_VM_CMD_UNMAP;
+			smmu_unmap_cmd.export_id = map_data->export_id;
+
+			rc = habmm_socket_send(msm_audio_ion_hab_handle,
+				(void *)&smmu_unmap_cmd,
+				sizeof(smmu_unmap_cmd), 0);
+			if (rc) {
+				pr_err("%s: habmm_socket_send failed %d\n",
+					__func__, rc);
+				goto err;
+			}
+
+			cmd_rsp_size = sizeof(cmd_rsp);
+			rc = habmm_socket_recv(msm_audio_ion_hab_handle,
+				(void *)&cmd_rsp,
+				&cmd_rsp_size,
+				0xFFFFFFFF,
+				0);
+			if (rc) {
+				pr_err("%s: habmm_socket_recv failed %d\n",
+					__func__, rc);
+				goto err;
+			}
+
+			if (cmd_rsp_size != sizeof(cmd_rsp)) {
+				pr_err("%s: invalid size for cmd rsp %lu\n",
+					__func__, cmd_rsp_size);
+				rc = -EIO;
+				goto err;
+			}
+
+			if (cmd_rsp.status) {
+				pr_err("%s: SMMU unmap command failed %d\n",
+					__func__, cmd_rsp.status);
+				rc = cmd_rsp.status;
+				goto err;
+			}
+
+			rc = habmm_unexport(msm_audio_ion_hab_handle,
+				map_data->export_id, 0xFFFFFFFF);
+			if (rc) {
+				pr_err("%s: habmm_unexport failed export_id = %d, rc = %d\n",
+					__func__, map_data->export_id, rc);
+			}
+
+			list_del(&(map_data->list));
+			kfree(map_data);
+			break;
+		}
+	}
+	mutex_unlock(&(msm_audio_ion_data.smmu_map_mutex));
+
+	if (!found) {
+		pr_err("%s: cannot find map_data ion_handle %pK, ion_client %pK\n",
+			__func__, handle, client);
+		rc = -EINVAL;
+	}
+
+	return rc;
+
+err:
+	if (found) {
+		(void)habmm_unexport(msm_audio_ion_hab_handle,
+			map_data->export_id, 0xFFFFFFFF);
+		list_del(&(map_data->list));
+		kfree(map_data);
+	}
+
+	mutex_unlock(&(msm_audio_ion_data.smmu_map_mutex));
+	return rc;
+}
 
 int msm_audio_ion_alloc(const char *name, struct ion_client **client,
 			struct ion_handle **handle, size_t bufsz,
@@ -82,13 +311,6 @@ int msm_audio_ion_alloc(const char *name, struct ion_client **client,
 		msm_audio_ion_data.audioheap_enabled = 1;
 	}
 
-	rc = msm_audio_ion_get_phys(*client, *handle, paddr, pa_len);
-	if (rc) {
-		pr_err("%s: ION Get Physical for AUDIO failed, rc = %d\n",
-			__func__, rc);
-		goto err_ion_handle;
-	}
-
 	*vaddr = ion_map_kernel(*client, *handle);
 	if (IS_ERR_OR_NULL((void *)*vaddr)) {
 		pr_err("%s: ION memory mapping for AUDIO failed\n", __func__);
@@ -102,8 +324,17 @@ int msm_audio_ion_alloc(const char *name, struct ion_client **client,
 		memset((void *)*vaddr, 0, bufsz);
 	}
 
+	rc = msm_audio_ion_get_phys(*client, *handle, paddr, pa_len, *vaddr);
+	if (rc) {
+		pr_err("%s: ION Get Physical for AUDIO failed, rc = %d\n",
+			__func__, rc);
+		goto err_get_phys;
+	}
+
 	return rc;
 
+err_get_phys:
+	ion_unmap_kernel(*client, *handle);
 err_ion_handle:
 	ion_free(*client, *handle);
 err_ion_client:
@@ -163,13 +394,6 @@ int msm_audio_ion_import(const char *name, struct ion_client **client,
 		}
 	}
 
-	rc = msm_audio_ion_get_phys(*client, *handle, paddr, pa_len);
-	if (rc) {
-		pr_err("%s: ION Get Physical for AUDIO failed, rc = %d\n",
-				__func__, rc);
-		goto err_ion_handle;
-	}
-
 	*vaddr = ion_map_kernel(*client, *handle);
 	if (IS_ERR_OR_NULL((void *)*vaddr)) {
 		pr_err("%s: ION memory mapping for AUDIO failed\n", __func__);
@@ -179,8 +403,17 @@ int msm_audio_ion_import(const char *name, struct ion_client **client,
 	pr_debug("%s: mapped address = %pK, size=%zd\n", __func__,
 		*vaddr, bufsz);
 
+	rc = msm_audio_ion_get_phys(*client, *handle, paddr, pa_len, *vaddr);
+	if (rc) {
+		pr_err("%s: ION Get Physical for AUDIO failed, rc = %d\n",
+			__func__, rc);
+		goto err_get_phys;
+	}
+
 	return 0;
 
+err_get_phys:
+	ion_unmap_kernel(*client, *handle);
 err_ion_handle:
 	ion_free(*client, *handle);
 err_destroy_client:
@@ -193,16 +426,25 @@ err:
 
 int msm_audio_ion_free(struct ion_client *client, struct ion_handle *handle)
 {
+	int ret = 0;
+
 	if (!client || !handle) {
 		pr_err("%s Invalid params\n", __func__);
 		return -EINVAL;
+	}
+
+	if (msm_audio_ion_data.smmu_enabled) {
+		ret = msm_audio_ion_smmu_unmap(client, handle);
+		if (ret)
+			pr_err("%s: smmu unmap failed with ret %d\n",
+				__func__, ret);
 	}
 
 	ion_unmap_kernel(client, handle);
 
 	ion_free(client, handle);
 	msm_audio_ion_client_destroy(client);
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(msm_audio_ion_free);
 
@@ -359,14 +601,6 @@ int msm_audio_ion_import_legacy(const char *name, struct ion_client *client,
 		}
 	}
 
-	rc = msm_audio_ion_get_phys(client, *handle, paddr, pa_len);
-	if (rc) {
-		pr_err("%s: ION Get Physical for AUDIO failed, rc = %d\n",
-			__func__, rc);
-		rc = -EINVAL;
-		goto err_ion_handle;
-	}
-
 	/*Need to add condition SMMU enable or not */
 	*vaddr = ion_map_kernel(client, *handle);
 	if (IS_ERR_OR_NULL((void *)*vaddr)) {
@@ -378,8 +612,17 @@ int msm_audio_ion_import_legacy(const char *name, struct ion_client *client,
 	if (bufsz != 0)
 		memset((void *)*vaddr, 0, bufsz);
 
+	rc = msm_audio_ion_get_phys(client, *handle, paddr, pa_len, *vaddr);
+	if (rc) {
+		pr_err("%s: ION Get Physical for AUDIO failed, rc = %d\n",
+			__func__, rc);
+		goto err_get_phys;
+	}
+
 	return 0;
 
+err_get_phys:
+	ion_unmap_kernel(client, *handle);
 err_ion_handle:
 	ion_free(client, *handle);
 err:
@@ -398,7 +641,7 @@ int msm_audio_ion_free_legacy(struct ion_client *client,
 
 static int msm_audio_ion_get_phys(struct ion_client *client,
 		struct ion_handle *handle,
-		ion_phys_addr_t *addr, size_t *len)
+		ion_phys_addr_t *addr, size_t *len, void *vaddr)
 {
 	int rc = 0;
 
@@ -406,14 +649,12 @@ static int msm_audio_ion_get_phys(struct ion_client *client,
 		msm_audio_ion_data.smmu_enabled);
 
 	if (msm_audio_ion_data.smmu_enabled) {
-		rc = ion_phys(client, handle, addr, len);
+		rc = msm_audio_ion_smmu_map(client, handle, addr, len, vaddr);
 		if (rc) {
-			pr_err("%s: ion_phys failed, err = %d\n",
+			pr_err("%s: failed to do smmu map, err = %d\n",
 				__func__, rc);
 			goto err;
 		}
-		/* Append the SMMU SID information to the IOVA address */
-		*addr |= (1 << 32);
 	} else {
 		rc = ion_phys(client, handle, addr, len);
 	}
@@ -430,20 +671,9 @@ static const struct of_device_id msm_audio_ion_dt_match[] = {
 };
 MODULE_DEVICE_TABLE(of, msm_audio_ion_dt_match);
 
-u32 msm_audio_ion_get_smmu_sid_mode32(void)
-{
-	if (msm_audio_ion_data.smmu_enabled)
-		return 1;
-	else
-		return 0;
-}
-
 u32 msm_audio_populate_upper_32_bits(ion_phys_addr_t pa)
 {
-	if (sizeof(ion_phys_addr_t) == sizeof(u32))
-		return msm_audio_ion_get_smmu_sid_mode32();
-	else
-		return upper_32_bits(pa);
+	return upper_32_bits(pa);
 }
 
 static int msm_audio_ion_probe(struct platform_device *pdev)
@@ -467,6 +697,25 @@ static int msm_audio_ion_probe(struct platform_device *pdev)
 	pr_info("%s: SMMU is %s\n", __func__,
 		(smmu_enabled) ? "Enabled" : "Disabled");
 
+	if (smmu_enabled) {
+		rc = habmm_socket_open(&msm_audio_ion_hab_handle,
+			HAB_MMID_CREATE(MM_AUD_3,
+				MSM_AUDIO_SMMU_VM_HAB_MINOR_ID),
+			0xFFFFFFFF,
+			HABMM_SOCKET_OPEN_FLAGS_SINGLE_BE_SINGLE_FE);
+		if (rc) {
+			pr_err("%s: habmm_socket_open failed %d\n",
+				__func__, rc);
+			return rc;
+		}
+
+		pr_info("%s: msm_audio_ion_hab_handle %x\n",
+			__func__, msm_audio_ion_hab_handle);
+
+		INIT_LIST_HEAD(&msm_audio_ion_data.smmu_map_list);
+		mutex_init(&(msm_audio_ion_data.smmu_map_mutex));
+	}
+
 	if (!rc)
 		msm_audio_ion_data.device_status |= MSM_AUDIO_ION_PROBED;
 
@@ -475,8 +724,15 @@ static int msm_audio_ion_probe(struct platform_device *pdev)
 
 static int msm_audio_ion_remove(struct platform_device *pdev)
 {
+	if (msm_audio_ion_data.smmu_enabled) {
+		if (msm_audio_ion_hab_handle)
+			habmm_socket_close(msm_audio_ion_hab_handle);
+
+		mutex_destroy(&(msm_audio_ion_data.smmu_map_mutex));
+	}
 	msm_audio_ion_data.smmu_enabled = 0;
 	msm_audio_ion_data.device_status = 0;
+
 	return 0;
 }
 
