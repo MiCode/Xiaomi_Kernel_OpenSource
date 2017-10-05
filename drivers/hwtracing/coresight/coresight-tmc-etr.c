@@ -994,7 +994,7 @@ int tmc_read_prepare_etr(struct tmc_drvdata *drvdata)
 		goto out;
 	}
 
-	if (!drvdata->byte_cntr || drvdata->byte_cntr->enable) {
+	if (drvdata->byte_cntr && drvdata->byte_cntr->enable) {
 		ret = -EINVAL;
 		goto out;
 	}

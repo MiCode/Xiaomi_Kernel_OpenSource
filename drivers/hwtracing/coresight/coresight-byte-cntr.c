@@ -341,7 +341,7 @@ struct byte_cntr *byte_cntr_init(struct amba_device *adev,
 	if (byte_cntr_irq < 0)
 		return NULL;
 
-	byte_cntr_data = devm_kmalloc(dev, sizeof(*byte_cntr_data), GFP_KERNEL);
+	byte_cntr_data = devm_kzalloc(dev, sizeof(*byte_cntr_data), GFP_KERNEL);
 	if (!byte_cntr_data)
 		return NULL;
 
@@ -363,7 +363,6 @@ struct byte_cntr *byte_cntr_init(struct amba_device *adev,
 	}
 
 	tmcdrvdata = drvdata;
-	byte_cntr_data->block_size = 0;
 	byte_cntr_data->byte_cntr_irq = byte_cntr_irq;
 	atomic_set(&byte_cntr_data->irq_cnt, 0);
 	init_waitqueue_head(&byte_cntr_data->wq);
