@@ -1098,8 +1098,7 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 		rc = msm_comm_g_ctrl_for_id(inst,
 			V4L2_CID_MPEG_VIDC_VIDEO_CONTINUE_DATA_TRANSFER);
 
-		if ((!IS_ERR_VALUE(rc) && rc == true) ||
-				is_thumbnail_session(inst)) {
+		if (!IS_ERR_VALUE(rc) && rc == true) {
 			event = V4L2_EVENT_SEQ_CHANGED_SUFFICIENT;
 
 			if (msm_comm_get_stream_output_mode(inst) ==
