@@ -27,11 +27,9 @@
 
 #define NORTH	0x00500000
 #define SOUTH	0x00900000
-#define WEST	0x00100000
-
-#define DUMMY	0x0
+#define EAST	0x00100000
 #define REG_SIZE 0x1000
-#define PINGROUP(id, base, f1, f2, f3, f4, f5, f6, f7, f8, f9)	\
+#define PINGROUP(id, base, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10)	\
 	{						\
 		.name = "gpio" #id,			\
 		.pins = gpio##id##_pins,		\
@@ -46,9 +44,10 @@
 			msm_mux_##f6,			\
 			msm_mux_##f7,			\
 			msm_mux_##f8,			\
-			msm_mux_##f9			\
+			msm_mux_##f9,			\
+			msm_mux_##f10			\
 		},					\
-		.nfuncs = 10,				\
+		.nfuncs = 11,				\
 		.ctl_reg = base + REG_SIZE * id,		\
 		.io_reg = base + 0x4 + REG_SIZE * id,		\
 		.intr_cfg_reg = base + 0x8 + REG_SIZE * id,	\
@@ -119,7 +118,7 @@
 		.intr_detection_bit = -1,		\
 		.intr_detection_width = -1,		\
 	}
-static const struct pinctrl_pin_desc sdm670_pins[] = {
+static const struct pinctrl_pin_desc sdm845_pins[] = {
 	PINCTRL_PIN(0, "GPIO_0"),
 	PINCTRL_PIN(1, "GPIO_1"),
 	PINCTRL_PIN(2, "GPIO_2"),
@@ -178,10 +177,23 @@ static const struct pinctrl_pin_desc sdm670_pins[] = {
 	PINCTRL_PIN(55, "GPIO_55"),
 	PINCTRL_PIN(56, "GPIO_56"),
 	PINCTRL_PIN(57, "GPIO_57"),
+	PINCTRL_PIN(58, "GPIO_58"),
+	PINCTRL_PIN(59, "GPIO_59"),
+	PINCTRL_PIN(60, "GPIO_60"),
+	PINCTRL_PIN(61, "GPIO_61"),
+	PINCTRL_PIN(62, "GPIO_62"),
+	PINCTRL_PIN(63, "GPIO_63"),
+	PINCTRL_PIN(64, "GPIO_64"),
 	PINCTRL_PIN(65, "GPIO_65"),
 	PINCTRL_PIN(66, "GPIO_66"),
 	PINCTRL_PIN(67, "GPIO_67"),
 	PINCTRL_PIN(68, "GPIO_68"),
+	PINCTRL_PIN(69, "GPIO_69"),
+	PINCTRL_PIN(70, "GPIO_70"),
+	PINCTRL_PIN(71, "GPIO_71"),
+	PINCTRL_PIN(72, "GPIO_72"),
+	PINCTRL_PIN(73, "GPIO_73"),
+	PINCTRL_PIN(74, "GPIO_74"),
 	PINCTRL_PIN(75, "GPIO_75"),
 	PINCTRL_PIN(76, "GPIO_76"),
 	PINCTRL_PIN(77, "GPIO_77"),
@@ -211,6 +223,7 @@ static const struct pinctrl_pin_desc sdm670_pins[] = {
 	PINCTRL_PIN(101, "GPIO_101"),
 	PINCTRL_PIN(102, "GPIO_102"),
 	PINCTRL_PIN(103, "GPIO_103"),
+	PINCTRL_PIN(104, "GPIO_104"),
 	PINCTRL_PIN(105, "GPIO_105"),
 	PINCTRL_PIN(106, "GPIO_106"),
 	PINCTRL_PIN(107, "GPIO_107"),
@@ -256,14 +269,10 @@ static const struct pinctrl_pin_desc sdm670_pins[] = {
 	PINCTRL_PIN(147, "GPIO_147"),
 	PINCTRL_PIN(148, "GPIO_148"),
 	PINCTRL_PIN(149, "GPIO_149"),
-	PINCTRL_PIN(150, "SDC1_RCLK"),
-	PINCTRL_PIN(151, "SDC1_CLK"),
-	PINCTRL_PIN(152, "SDC1_CMD"),
-	PINCTRL_PIN(153, "SDC1_DATA"),
-	PINCTRL_PIN(154, "SDC2_CLK"),
-	PINCTRL_PIN(155, "SDC2_CMD"),
-	PINCTRL_PIN(156, "SDC2_DATA"),
-	PINCTRL_PIN(157, "UFS_RESET"),
+	PINCTRL_PIN(150, "SDC2_CLK"),
+	PINCTRL_PIN(151, "SDC2_CMD"),
+	PINCTRL_PIN(152, "SDC2_DATA"),
+	PINCTRL_PIN(153, "UFS_RESET"),
 };
 
 #define DECLARE_MSM_GPIO_PINS(pin) \
@@ -419,39 +428,12 @@ DECLARE_MSM_GPIO_PINS(147);
 DECLARE_MSM_GPIO_PINS(148);
 DECLARE_MSM_GPIO_PINS(149);
 
-static const unsigned int sdc1_rclk_pins[] = { 150 };
-static const unsigned int sdc1_clk_pins[] = { 151 };
-static const unsigned int sdc1_cmd_pins[] = { 152 };
-static const unsigned int sdc1_data_pins[] = { 153 };
-static const unsigned int sdc2_clk_pins[] = { 154 };
-static const unsigned int sdc2_cmd_pins[] = { 155 };
-static const unsigned int sdc2_data_pins[] = { 156 };
-static const unsigned int ufs_reset_pins[] = { 157 };
+static const unsigned int sdc2_clk_pins[] = { 150 };
+static const unsigned int sdc2_cmd_pins[] = { 151 };
+static const unsigned int sdc2_data_pins[] = { 152 };
+static const unsigned int ufs_reset_pins[] = { 153 };
 
-enum sdm670_functions {
-	msm_mux_qup0,
-	msm_mux_gpio,
-	msm_mux_qup9,
-	msm_mux_qdss_cti,
-	msm_mux_ddr_pxi0,
-	msm_mux_ddr_bist,
-	msm_mux_atest_tsens2,
-	msm_mux_vsense_trigger,
-	msm_mux_atest_usb1,
-	msm_mux_qup_l4,
-	msm_mux_GP_PDM1,
-	msm_mux_qup_l5,
-	msm_mux_mdp_vsync,
-	msm_mux_qup_l6,
-	msm_mux_wlan2_adc1,
-	msm_mux_atest_usb11,
-	msm_mux_ddr_pxi2,
-	msm_mux_edp_lcd,
-	msm_mux_dbg_out,
-	msm_mux_wlan2_adc0,
-	msm_mux_atest_usb10,
-	msm_mux_m_voc,
-	msm_mux_tsif1_sync,
+enum sdm845_functions {
 	msm_mux_ddr_pxi3,
 	msm_mux_cam_mclk,
 	msm_mux_pll_bypassnl,
@@ -480,22 +462,19 @@ enum sdm670_functions {
 	msm_mux_cci_timer4,
 	msm_mux_qdss_gpio11,
 	msm_mux_qdss_gpio12,
-	msm_mux_JITTER_BIST,
 	msm_mux_qup2,
 	msm_mux_qdss_gpio13,
-	msm_mux_PLL_BIST,
 	msm_mux_qdss_gpio14,
-	msm_mux_AGERA_PLL,
 	msm_mux_phase_flag1,
 	msm_mux_qdss_gpio15,
-	msm_mux_atest_tsens,
 	msm_mux_phase_flag2,
 	msm_mux_qup11,
 	msm_mux_qup14,
 	msm_mux_pci_e0,
-	msm_mux_QUP_L4,
-	msm_mux_QUP_L5,
-	msm_mux_QUP_L6,
+	msm_mux_jitter_bist,
+	msm_mux_pll_bist,
+	msm_mux_atest_tsens,
+	msm_mux_agera_pll,
 	msm_mux_usb_phy,
 	msm_mux_lpass_slimbus,
 	msm_mux_sd_write,
@@ -506,26 +485,35 @@ enum sdm670_functions {
 	msm_mux_phase_flag16,
 	msm_mux_qup10,
 	msm_mux_phase_flag11,
-	msm_mux_GP_PDM0,
 	msm_mux_phase_flag12,
-	msm_mux_wlan1_adc1,
-	msm_mux_atest_usb13,
-	msm_mux_ddr_pxi1,
 	msm_mux_phase_flag13,
-	msm_mux_wlan1_adc0,
-	msm_mux_atest_usb12,
 	msm_mux_phase_flag17,
 	msm_mux_qua_mi2s,
 	msm_mux_gcc_gp1,
 	msm_mux_phase_flag18,
+	msm_mux_phase_flag19,
+	msm_mux_phase_flag20,
+	msm_mux_cri_trng0,
+	msm_mux_phase_flag21,
+	msm_mux_cri_trng1,
+	msm_mux_phase_flag22,
+	msm_mux_cri_trng,
+	msm_mux_phase_flag23,
+	msm_mux_phase_flag24,
 	msm_mux_pri_mi2s,
+	msm_mux_sp_cmu,
+	msm_mux_phase_flag25,
 	msm_mux_qup8,
-	msm_mux_wsa_clk,
 	msm_mux_pri_mi2s_ws,
-	msm_mux_wsa_data,
+	msm_mux_spkr_i2s,
+	msm_mux_audio_ref,
+	msm_mux_tsense_pwm1,
+	msm_mux_tsense_pwm2,
+	msm_mux_btfm_slimbus,
 	msm_mux_atest_usb2,
-	msm_mux_atest_usb23,
 	msm_mux_ter_mi2s,
+	msm_mux_phase_flag7,
+	msm_mux_atest_usb23,
 	msm_mux_phase_flag8,
 	msm_mux_atest_usb22,
 	msm_mux_phase_flag9,
@@ -533,12 +521,11 @@ enum sdm670_functions {
 	msm_mux_phase_flag4,
 	msm_mux_atest_usb20,
 	msm_mux_sec_mi2s,
-	msm_mux_GP_PDM2,
 	msm_mux_qup15,
 	msm_mux_qup5,
-	msm_mux_copy_gp,
 	msm_mux_tsif1_clk,
 	msm_mux_qup4,
+	msm_mux_qspi_cs,
 	msm_mux_tgu_ch3,
 	msm_mux_phase_flag10,
 	msm_mux_tsif1_en,
@@ -550,29 +537,33 @@ enum sdm670_functions {
 	msm_mux_phase_flag0,
 	msm_mux_tsif1_data,
 	msm_mux_sdc4_cmd,
+	msm_mux_qspi0,
 	msm_mux_tgu_ch1,
 	msm_mux_tsif2_error,
 	msm_mux_sdc43,
+	msm_mux_qspi1,
 	msm_mux_vfr_1,
 	msm_mux_tgu_ch2,
 	msm_mux_tsif2_clk,
 	msm_mux_sdc4_clk,
 	msm_mux_qup7,
+	msm_mux_qspi2,
 	msm_mux_tsif2_en,
 	msm_mux_sdc42,
+	msm_mux_qspi3,
 	msm_mux_tsif2_data,
 	msm_mux_sdc41,
+	msm_mux_qspi_clk,
 	msm_mux_tsif2_sync,
 	msm_mux_sdc40,
 	msm_mux_phase_flag3,
 	msm_mux_ldo_en,
 	msm_mux_ldo_update,
 	msm_mux_phase_flag14,
-	msm_mux_prng_rosc,
 	msm_mux_phase_flag15,
-	msm_mux_phase_flag5,
 	msm_mux_pci_e1,
-	msm_mux_COPY_PHASE,
+	msm_mux_prng_rosc,
+	msm_mux_phase_flag5,
 	msm_mux_uim2_data,
 	msm_mux_qup13,
 	msm_mux_uim2_clk,
@@ -584,8 +575,7 @@ enum sdm670_functions {
 	msm_mux_uim1_present,
 	msm_mux_uim_batt,
 	msm_mux_edp_hot,
-	msm_mux_NAV_PPS,
-	msm_mux_GPS_TX,
+	msm_mux_nav_pps,
 	msm_mux_atest_char,
 	msm_mux_adsp_ext,
 	msm_mux_atest_char3,
@@ -603,98 +593,36 @@ enum sdm670_functions {
 	msm_mux_phase_flag30,
 	msm_mux_phase_flag31,
 	msm_mux_mss_lte,
+	msm_mux_qup0,
+	msm_mux_gpio,
+	msm_mux_qup9,
+	msm_mux_qdss_cti,
+	msm_mux_ddr_pxi0,
+	msm_mux_ddr_bist,
+	msm_mux_atest_tsens2,
+	msm_mux_vsense_trigger,
+	msm_mux_atest_usb1,
+	msm_mux_qup_l4,
+	msm_mux_wlan1_adc1,
+	msm_mux_atest_usb13,
+	msm_mux_ddr_pxi1,
+	msm_mux_qup_l5,
+	msm_mux_wlan1_adc0,
+	msm_mux_atest_usb12,
+	msm_mux_mdp_vsync,
+	msm_mux_qup_l6,
+	msm_mux_wlan2_adc1,
+	msm_mux_atest_usb11,
+	msm_mux_ddr_pxi2,
+	msm_mux_edp_lcd,
+	msm_mux_dbg_out,
+	msm_mux_wlan2_adc0,
+	msm_mux_atest_usb10,
+	msm_mux_m_voc,
+	msm_mux_tsif1_sync,
 	msm_mux_NA,
 };
 
-static const char * const qup0_groups[] = {
-	"gpio0", "gpio1", "gpio2", "gpio3",
-};
-static const char * const gpio_groups[] = {
-	"gpio0", "gpio1", "gpio2", "gpio3", "gpio4", "gpio5", "gpio6", "gpio7",
-	"gpio8", "gpio9", "gpio10", "gpio11", "gpio12", "gpio13", "gpio14",
-	"gpio15", "gpio16", "gpio17", "gpio18", "gpio19", "gpio20", "gpio21",
-	"gpio22", "gpio23", "gpio24", "gpio25", "gpio26", "gpio27", "gpio28",
-	"gpio29", "gpio30", "gpio31", "gpio32", "gpio33", "gpio34", "gpio35",
-	"gpio36", "gpio37", "gpio38", "gpio39", "gpio40", "gpio41", "gpio42",
-	"gpio43", "gpio44", "gpio45", "gpio46", "gpio47", "gpio48", "gpio49",
-	"gpio50", "gpio51", "gpio52", "gpio53", "gpio54", "gpio55", "gpio56",
-	"gpio57", "gpio65", "gpio66", "gpio67", "gpio68", "gpio75", "gpio76",
-	"gpio77", "gpio78", "gpio79", "gpio80", "gpio81", "gpio82", "gpio83",
-	"gpio84", "gpio85", "gpio86", "gpio87", "gpio88", "gpio89", "gpio90",
-	"gpio91", "gpio92", "gpio93", "gpio94", "gpio95", "gpio96", "gpio97",
-	"gpio98", "gpio99", "gpio100", "gpio101", "gpio102", "gpio103",
-	"gpio105", "gpio106", "gpio107", "gpio108", "gpio109", "gpio110",
-	"gpio111", "gpio112", "gpio113", "gpio114", "gpio115", "gpio116",
-	"gpio117", "gpio118", "gpio119", "gpio120", "gpio121", "gpio122",
-	"gpio123", "gpio124", "gpio125", "gpio126", "gpio127", "gpio128",
-	"gpio129", "gpio130", "gpio131", "gpio132", "gpio133", "gpio134",
-	"gpio135", "gpio136", "gpio137", "gpio138", "gpio139", "gpio140",
-	"gpio141", "gpio142", "gpio143", "gpio144", "gpio145", "gpio146",
-	"gpio147", "gpio148", "gpio149",
-};
-static const char * const qup9_groups[] = {
-	"gpio4", "gpio5", "gpio6", "gpio7",
-};
-static const char * const qdss_cti_groups[] = {
-	"gpio4", "gpio5", "gpio51", "gpio52", "gpio90", "gpio91",
-};
-static const char * const ddr_pxi0_groups[] = {
-	"gpio6", "gpio7",
-};
-static const char * const ddr_bist_groups[] = {
-	"gpio7", "gpio8", "gpio9", "gpio10",
-};
-static const char * const atest_tsens2_groups[] = {
-	"gpio7",
-};
-static const char * const vsense_trigger_groups[] = {
-	"gpio7",
-};
-static const char * const atest_usb1_groups[] = {
-	"gpio7",
-};
-static const char * const qup_l4_groups[] = {
-	"gpio8", "gpio105", "gpio123",
-};
-static const char * const GP_PDM1_groups[] = {
-	"gpio8", "gpio66",
-};
-static const char * const qup_l5_groups[] = {
-	"gpio9", "gpio106", "gpio124",
-};
-static const char * const mdp_vsync_groups[] = {
-	"gpio10", "gpio11", "gpio12", "gpio97", "gpio98",
-};
-static const char * const qup_l6_groups[] = {
-	"gpio10", "gpio107", "gpio125",
-};
-static const char * const wlan2_adc1_groups[] = {
-	"gpio10",
-};
-static const char * const atest_usb11_groups[] = {
-	"gpio10",
-};
-static const char * const ddr_pxi2_groups[] = {
-	"gpio10", "gpio11",
-};
-static const char * const edp_lcd_groups[] = {
-	"gpio11",
-};
-static const char * const dbg_out_groups[] = {
-	"gpio11",
-};
-static const char * const wlan2_adc0_groups[] = {
-	"gpio11",
-};
-static const char * const atest_usb10_groups[] = {
-	"gpio11",
-};
-static const char * const m_voc_groups[] = {
-	"gpio12",
-};
-static const char * const tsif1_sync_groups[] = {
-	"gpio12",
-};
 static const char * const ddr_pxi3_groups[] = {
 	"gpio12", "gpio13",
 };
@@ -741,7 +669,7 @@ static const char * const cci_timer0_groups[] = {
 	"gpio21",
 };
 static const char * const gcc_gp2_groups[] = {
-	"gpio21",
+	"gpio21", "gpio58",
 };
 static const char * const qdss_gpio8_groups[] = {
 	"gpio21", "gpio75",
@@ -750,7 +678,7 @@ static const char * const cci_timer1_groups[] = {
 	"gpio22",
 };
 static const char * const gcc_gp3_groups[] = {
-	"gpio22",
+	"gpio22", "gpio59",
 };
 static const char * const qdss_gpio_groups[] = {
 	"gpio22", "gpio30", "gpio123", "gpio124",
@@ -779,32 +707,20 @@ static const char * const qdss_gpio11_groups[] = {
 static const char * const qdss_gpio12_groups[] = {
 	"gpio26", "gpio80",
 };
-static const char * const JITTER_BIST_groups[] = {
-	"gpio26", "gpio35",
-};
 static const char * const qup2_groups[] = {
 	"gpio27", "gpio28", "gpio29", "gpio30",
 };
 static const char * const qdss_gpio13_groups[] = {
 	"gpio27", "gpio93",
 };
-static const char * const PLL_BIST_groups[] = {
-	"gpio27", "gpio36",
-};
 static const char * const qdss_gpio14_groups[] = {
 	"gpio28", "gpio43",
-};
-static const char * const AGERA_PLL_groups[] = {
-	"gpio28", "gpio37",
 };
 static const char * const phase_flag1_groups[] = {
 	"gpio29",
 };
 static const char * const qdss_gpio15_groups[] = {
 	"gpio29", "gpio44",
-};
-static const char * const atest_tsens_groups[] = {
-	"gpio29",
 };
 static const char * const phase_flag2_groups[] = {
 	"gpio30",
@@ -818,20 +734,23 @@ static const char * const qup14_groups[] = {
 static const char * const pci_e0_groups[] = {
 	"gpio35", "gpio36",
 };
-static const char * const QUP_L4_groups[] = {
-	"gpio35", "gpio75",
+static const char * const jitter_bist_groups[] = {
+	"gpio35",
 };
-static const char * const QUP_L5_groups[] = {
-	"gpio36", "gpio76",
+static const char * const pll_bist_groups[] = {
+	"gpio36",
 };
-static const char * const QUP_L6_groups[] = {
-	"gpio37", "gpio77",
+static const char * const atest_tsens_groups[] = {
+	"gpio36",
+};
+static const char * const agera_pll_groups[] = {
+	"gpio37",
 };
 static const char * const usb_phy_groups[] = {
 	"gpio38",
 };
 static const char * const lpass_slimbus_groups[] = {
-	"gpio39",
+	"gpio39", "gpio70", "gpio71", "gpio72",
 };
 static const char * const sd_write_groups[] = {
 	"gpio40",
@@ -857,35 +776,17 @@ static const char * const qup10_groups[] = {
 static const char * const phase_flag11_groups[] = {
 	"gpio53",
 };
-static const char * const GP_PDM0_groups[] = {
-	"gpio54", "gpio95",
-};
 static const char * const phase_flag12_groups[] = {
 	"gpio54",
 };
-static const char * const wlan1_adc1_groups[] = {
-	"gpio54",
-};
-static const char * const atest_usb13_groups[] = {
-	"gpio54",
-};
-static const char * const ddr_pxi1_groups[] = {
-	"gpio54", "gpio55",
-};
 static const char * const phase_flag13_groups[] = {
-	"gpio55",
-};
-static const char * const wlan1_adc0_groups[] = {
-	"gpio55",
-};
-static const char * const atest_usb12_groups[] = {
 	"gpio55",
 };
 static const char * const phase_flag17_groups[] = {
 	"gpio56",
 };
 static const char * const qua_mi2s_groups[] = {
-	"gpio57",
+	"gpio57", "gpio58", "gpio59", "gpio60", "gpio61", "gpio62", "gpio63",
 };
 static const char * const gcc_gp1_groups[] = {
 	"gpio57", "gpio78",
@@ -893,29 +794,74 @@ static const char * const gcc_gp1_groups[] = {
 static const char * const phase_flag18_groups[] = {
 	"gpio57",
 };
+static const char * const phase_flag19_groups[] = {
+	"gpio58",
+};
+static const char * const phase_flag20_groups[] = {
+	"gpio59",
+};
+static const char * const cri_trng0_groups[] = {
+	"gpio60",
+};
+static const char * const phase_flag21_groups[] = {
+	"gpio60",
+};
+static const char * const cri_trng1_groups[] = {
+	"gpio61",
+};
+static const char * const phase_flag22_groups[] = {
+	"gpio61",
+};
+static const char * const cri_trng_groups[] = {
+	"gpio62",
+};
+static const char * const phase_flag23_groups[] = {
+	"gpio62",
+};
+static const char * const phase_flag24_groups[] = {
+	"gpio63",
+};
 static const char * const pri_mi2s_groups[] = {
-	"gpio65", "gpio67", "gpio68",
+	"gpio64", "gpio65", "gpio67", "gpio68",
+};
+static const char * const sp_cmu_groups[] = {
+	"gpio64",
+};
+static const char * const phase_flag25_groups[] = {
+	"gpio64",
 };
 static const char * const qup8_groups[] = {
 	"gpio65", "gpio66", "gpio67", "gpio68",
 };
-static const char * const wsa_clk_groups[] = {
-	"gpio65",
-};
 static const char * const pri_mi2s_ws_groups[] = {
 	"gpio66",
 };
-static const char * const wsa_data_groups[] = {
-	"gpio66",
+static const char * const spkr_i2s_groups[] = {
+	"gpio69", "gpio70", "gpio71", "gpio72",
+};
+static const char * const audio_ref_groups[] = {
+	"gpio69",
+};
+static const char * const tsense_pwm1_groups[] = {
+	"gpio71",
+};
+static const char * const tsense_pwm2_groups[] = {
+	"gpio71",
+};
+static const char * const btfm_slimbus_groups[] = {
+	"gpio73", "gpio74",
 };
 static const char * const atest_usb2_groups[] = {
-	"gpio67",
-};
-static const char * const atest_usb23_groups[] = {
-	"gpio68",
+	"gpio73",
 };
 static const char * const ter_mi2s_groups[] = {
-	"gpio75", "gpio76", "gpio77", "gpio78",
+	"gpio74", "gpio75", "gpio76", "gpio77", "gpio78",
+};
+static const char * const phase_flag7_groups[] = {
+	"gpio74",
+};
+static const char * const atest_usb23_groups[] = {
+	"gpio74",
 };
 static const char * const phase_flag8_groups[] = {
 	"gpio75",
@@ -938,23 +884,20 @@ static const char * const atest_usb20_groups[] = {
 static const char * const sec_mi2s_groups[] = {
 	"gpio79", "gpio80", "gpio81", "gpio82", "gpio83",
 };
-static const char * const GP_PDM2_groups[] = {
-	"gpio79",
-};
 static const char * const qup15_groups[] = {
 	"gpio81", "gpio82", "gpio83", "gpio84",
 };
 static const char * const qup5_groups[] = {
 	"gpio85", "gpio86", "gpio87", "gpio88",
 };
-static const char * const copy_gp_groups[] = {
-	"gpio86",
-};
 static const char * const tsif1_clk_groups[] = {
 	"gpio89",
 };
 static const char * const qup4_groups[] = {
 	"gpio89", "gpio90", "gpio91", "gpio92",
+};
+static const char * const qspi_cs_groups[] = {
+	"gpio89", "gpio90",
 };
 static const char * const tgu_ch3_groups[] = {
 	"gpio89",
@@ -989,6 +932,9 @@ static const char * const tsif1_data_groups[] = {
 static const char * const sdc4_cmd_groups[] = {
 	"gpio91",
 };
+static const char * const qspi0_groups[] = {
+	"gpio91",
+};
 static const char * const tgu_ch1_groups[] = {
 	"gpio91",
 };
@@ -996,6 +942,9 @@ static const char * const tsif2_error_groups[] = {
 	"gpio92",
 };
 static const char * const sdc43_groups[] = {
+	"gpio92",
+};
+static const char * const qspi1_groups[] = {
 	"gpio92",
 };
 static const char * const vfr_1_groups[] = {
@@ -1013,16 +962,25 @@ static const char * const sdc4_clk_groups[] = {
 static const char * const qup7_groups[] = {
 	"gpio93", "gpio94", "gpio95", "gpio96",
 };
+static const char * const qspi2_groups[] = {
+	"gpio93",
+};
 static const char * const tsif2_en_groups[] = {
 	"gpio94",
 };
 static const char * const sdc42_groups[] = {
 	"gpio94",
 };
+static const char * const qspi3_groups[] = {
+	"gpio94",
+};
 static const char * const tsif2_data_groups[] = {
 	"gpio95",
 };
 static const char * const sdc41_groups[] = {
+	"gpio95",
+};
+static const char * const qspi_clk_groups[] = {
 	"gpio95",
 };
 static const char * const tsif2_sync_groups[] = {
@@ -1043,19 +1001,16 @@ static const char * const ldo_update_groups[] = {
 static const char * const phase_flag14_groups[] = {
 	"gpio99",
 };
-static const char * const prng_rosc_groups[] = {
-	"gpio99", "gpio102",
-};
 static const char * const phase_flag15_groups[] = {
 	"gpio100",
-};
-static const char * const phase_flag5_groups[] = {
-	"gpio101",
 };
 static const char * const pci_e1_groups[] = {
 	"gpio102", "gpio103",
 };
-static const char * const COPY_PHASE_groups[] = {
+static const char * const prng_rosc_groups[] = {
+	"gpio102",
+};
+static const char * const phase_flag5_groups[] = {
 	"gpio103",
 };
 static const char * const uim2_data_groups[] = {
@@ -1091,12 +1046,9 @@ static const char * const uim_batt_groups[] = {
 static const char * const edp_hot_groups[] = {
 	"gpio113",
 };
-static const char * const NAV_PPS_groups[] = {
+static const char * const nav_pps_groups[] = {
 	"gpio114", "gpio114", "gpio115", "gpio115", "gpio128", "gpio128",
 	"gpio129", "gpio129", "gpio143", "gpio143",
-};
-static const char * const GPS_TX_groups[] = {
-	"gpio114", "gpio115", "gpio128", "gpio129", "gpio143", "gpio145",
 };
 static const char * const atest_char_groups[] = {
 	"gpio117",
@@ -1149,31 +1101,112 @@ static const char * const phase_flag31_groups[] = {
 static const char * const mss_lte_groups[] = {
 	"gpio144", "gpio145",
 };
+static const char * const qup0_groups[] = {
+	"gpio0", "gpio1", "gpio2", "gpio3",
+};
+static const char * const gpio_groups[] = {
+	"gpio0", "gpio1", "gpio2", "gpio3", "gpio4", "gpio5", "gpio6", "gpio7",
+	"gpio8", "gpio9", "gpio10", "gpio11", "gpio12", "gpio13", "gpio14",
+	"gpio15", "gpio16", "gpio17", "gpio18", "gpio19", "gpio20", "gpio21",
+	"gpio22", "gpio23", "gpio24", "gpio25", "gpio26", "gpio27", "gpio28",
+	"gpio29", "gpio30", "gpio31", "gpio32", "gpio33", "gpio34", "gpio35",
+	"gpio36", "gpio37", "gpio38", "gpio39", "gpio40", "gpio41", "gpio42",
+	"gpio43", "gpio44", "gpio45", "gpio46", "gpio47", "gpio48", "gpio49",
+	"gpio50", "gpio51", "gpio52", "gpio53", "gpio54", "gpio55", "gpio56",
+	"gpio57", "gpio58", "gpio59", "gpio60", "gpio61", "gpio62", "gpio63",
+	"gpio64", "gpio65", "gpio66", "gpio67", "gpio68", "gpio69", "gpio70",
+	"gpio71", "gpio72", "gpio73", "gpio74", "gpio75", "gpio76", "gpio77",
+	"gpio78", "gpio79", "gpio80", "gpio81", "gpio82", "gpio83", "gpio84",
+	"gpio85", "gpio86", "gpio87", "gpio88", "gpio89", "gpio90", "gpio91",
+	"gpio92", "gpio93", "gpio94", "gpio95", "gpio96", "gpio97", "gpio98",
+	"gpio99", "gpio100", "gpio101", "gpio102", "gpio103", "gpio104",
+	"gpio105", "gpio106", "gpio107", "gpio108", "gpio109", "gpio110",
+	"gpio111", "gpio112", "gpio113", "gpio114", "gpio115", "gpio116",
+	"gpio117", "gpio118", "gpio119", "gpio120", "gpio121", "gpio122",
+	"gpio123", "gpio124", "gpio125", "gpio126", "gpio127", "gpio128",
+	"gpio129", "gpio130", "gpio131", "gpio132", "gpio133", "gpio134",
+	"gpio135", "gpio136", "gpio137", "gpio138", "gpio139", "gpio140",
+	"gpio141", "gpio142", "gpio143", "gpio144", "gpio145", "gpio146",
+	"gpio147", "gpio148", "gpio149",
+};
+static const char * const qup9_groups[] = {
+	"gpio4", "gpio5", "gpio6", "gpio7",
+};
+static const char * const qdss_cti_groups[] = {
+	"gpio4", "gpio5", "gpio51", "gpio52", "gpio62", "gpio63", "gpio90",
+	"gpio91",
+};
+static const char * const ddr_pxi0_groups[] = {
+	"gpio6", "gpio7",
+};
+static const char * const ddr_bist_groups[] = {
+	"gpio7", "gpio8", "gpio9", "gpio10",
+};
+static const char * const atest_tsens2_groups[] = {
+	"gpio7",
+};
+static const char * const vsense_trigger_groups[] = {
+	"gpio7",
+};
+static const char * const atest_usb1_groups[] = {
+	"gpio7",
+};
+static const char * const qup_l4_groups[] = {
+	"gpio8", "gpio35", "gpio105", "gpio123",
+};
+static const char * const wlan1_adc1_groups[] = {
+	"gpio8",
+};
+static const char * const atest_usb13_groups[] = {
+	"gpio8",
+};
+static const char * const ddr_pxi1_groups[] = {
+	"gpio8", "gpio9",
+};
+static const char * const qup_l5_groups[] = {
+	"gpio9", "gpio36", "gpio106", "gpio124",
+};
+static const char * const wlan1_adc0_groups[] = {
+	"gpio9",
+};
+static const char * const atest_usb12_groups[] = {
+	"gpio9",
+};
+static const char * const mdp_vsync_groups[] = {
+	"gpio10", "gpio11", "gpio12", "gpio97", "gpio98",
+};
+static const char * const qup_l6_groups[] = {
+	"gpio10", "gpio37", "gpio107", "gpio125",
+};
+static const char * const wlan2_adc1_groups[] = {
+	"gpio10",
+};
+static const char * const atest_usb11_groups[] = {
+	"gpio10",
+};
+static const char * const ddr_pxi2_groups[] = {
+	"gpio10", "gpio11",
+};
+static const char * const edp_lcd_groups[] = {
+	"gpio11",
+};
+static const char * const dbg_out_groups[] = {
+	"gpio11",
+};
+static const char * const wlan2_adc0_groups[] = {
+	"gpio11",
+};
+static const char * const atest_usb10_groups[] = {
+	"gpio11",
+};
+static const char * const m_voc_groups[] = {
+	"gpio12",
+};
+static const char * const tsif1_sync_groups[] = {
+	"gpio12",
+};
 
-static const struct msm_function sdm670_functions[] = {
-	FUNCTION(qup0),
-	FUNCTION(gpio),
-	FUNCTION(qup9),
-	FUNCTION(qdss_cti),
-	FUNCTION(ddr_pxi0),
-	FUNCTION(ddr_bist),
-	FUNCTION(atest_tsens2),
-	FUNCTION(vsense_trigger),
-	FUNCTION(atest_usb1),
-	FUNCTION(qup_l4),
-	FUNCTION(GP_PDM1),
-	FUNCTION(qup_l5),
-	FUNCTION(mdp_vsync),
-	FUNCTION(qup_l6),
-	FUNCTION(wlan2_adc1),
-	FUNCTION(atest_usb11),
-	FUNCTION(ddr_pxi2),
-	FUNCTION(edp_lcd),
-	FUNCTION(dbg_out),
-	FUNCTION(wlan2_adc0),
-	FUNCTION(atest_usb10),
-	FUNCTION(m_voc),
-	FUNCTION(tsif1_sync),
+static const struct msm_function sdm845_functions[] = {
 	FUNCTION(ddr_pxi3),
 	FUNCTION(cam_mclk),
 	FUNCTION(pll_bypassnl),
@@ -1202,22 +1235,19 @@ static const struct msm_function sdm670_functions[] = {
 	FUNCTION(cci_timer4),
 	FUNCTION(qdss_gpio11),
 	FUNCTION(qdss_gpio12),
-	FUNCTION(JITTER_BIST),
 	FUNCTION(qup2),
 	FUNCTION(qdss_gpio13),
-	FUNCTION(PLL_BIST),
 	FUNCTION(qdss_gpio14),
-	FUNCTION(AGERA_PLL),
 	FUNCTION(phase_flag1),
 	FUNCTION(qdss_gpio15),
-	FUNCTION(atest_tsens),
 	FUNCTION(phase_flag2),
 	FUNCTION(qup11),
 	FUNCTION(qup14),
 	FUNCTION(pci_e0),
-	FUNCTION(QUP_L4),
-	FUNCTION(QUP_L5),
-	FUNCTION(QUP_L6),
+	FUNCTION(jitter_bist),
+	FUNCTION(pll_bist),
+	FUNCTION(atest_tsens),
+	FUNCTION(agera_pll),
 	FUNCTION(usb_phy),
 	FUNCTION(lpass_slimbus),
 	FUNCTION(sd_write),
@@ -1228,26 +1258,35 @@ static const struct msm_function sdm670_functions[] = {
 	FUNCTION(phase_flag16),
 	FUNCTION(qup10),
 	FUNCTION(phase_flag11),
-	FUNCTION(GP_PDM0),
 	FUNCTION(phase_flag12),
-	FUNCTION(wlan1_adc1),
-	FUNCTION(atest_usb13),
-	FUNCTION(ddr_pxi1),
 	FUNCTION(phase_flag13),
-	FUNCTION(wlan1_adc0),
-	FUNCTION(atest_usb12),
 	FUNCTION(phase_flag17),
 	FUNCTION(qua_mi2s),
 	FUNCTION(gcc_gp1),
 	FUNCTION(phase_flag18),
+	FUNCTION(phase_flag19),
+	FUNCTION(phase_flag20),
+	FUNCTION(cri_trng0),
+	FUNCTION(phase_flag21),
+	FUNCTION(cri_trng1),
+	FUNCTION(phase_flag22),
+	FUNCTION(cri_trng),
+	FUNCTION(phase_flag23),
+	FUNCTION(phase_flag24),
 	FUNCTION(pri_mi2s),
+	FUNCTION(sp_cmu),
+	FUNCTION(phase_flag25),
 	FUNCTION(qup8),
-	FUNCTION(wsa_clk),
 	FUNCTION(pri_mi2s_ws),
-	FUNCTION(wsa_data),
+	FUNCTION(spkr_i2s),
+	FUNCTION(audio_ref),
+	FUNCTION(tsense_pwm1),
+	FUNCTION(tsense_pwm2),
+	FUNCTION(btfm_slimbus),
 	FUNCTION(atest_usb2),
-	FUNCTION(atest_usb23),
 	FUNCTION(ter_mi2s),
+	FUNCTION(phase_flag7),
+	FUNCTION(atest_usb23),
 	FUNCTION(phase_flag8),
 	FUNCTION(atest_usb22),
 	FUNCTION(phase_flag9),
@@ -1255,12 +1294,11 @@ static const struct msm_function sdm670_functions[] = {
 	FUNCTION(phase_flag4),
 	FUNCTION(atest_usb20),
 	FUNCTION(sec_mi2s),
-	FUNCTION(GP_PDM2),
 	FUNCTION(qup15),
 	FUNCTION(qup5),
-	FUNCTION(copy_gp),
 	FUNCTION(tsif1_clk),
 	FUNCTION(qup4),
+	FUNCTION(qspi_cs),
 	FUNCTION(tgu_ch3),
 	FUNCTION(phase_flag10),
 	FUNCTION(tsif1_en),
@@ -1272,29 +1310,33 @@ static const struct msm_function sdm670_functions[] = {
 	FUNCTION(phase_flag0),
 	FUNCTION(tsif1_data),
 	FUNCTION(sdc4_cmd),
+	FUNCTION(qspi0),
 	FUNCTION(tgu_ch1),
 	FUNCTION(tsif2_error),
 	FUNCTION(sdc43),
+	FUNCTION(qspi1),
 	FUNCTION(vfr_1),
 	FUNCTION(tgu_ch2),
 	FUNCTION(tsif2_clk),
 	FUNCTION(sdc4_clk),
 	FUNCTION(qup7),
+	FUNCTION(qspi2),
 	FUNCTION(tsif2_en),
 	FUNCTION(sdc42),
+	FUNCTION(qspi3),
 	FUNCTION(tsif2_data),
 	FUNCTION(sdc41),
+	FUNCTION(qspi_clk),
 	FUNCTION(tsif2_sync),
 	FUNCTION(sdc40),
 	FUNCTION(phase_flag3),
 	FUNCTION(ldo_en),
 	FUNCTION(ldo_update),
 	FUNCTION(phase_flag14),
-	FUNCTION(prng_rosc),
 	FUNCTION(phase_flag15),
-	FUNCTION(phase_flag5),
 	FUNCTION(pci_e1),
-	FUNCTION(COPY_PHASE),
+	FUNCTION(prng_rosc),
+	FUNCTION(phase_flag5),
 	FUNCTION(uim2_data),
 	FUNCTION(qup13),
 	FUNCTION(uim2_clk),
@@ -1306,8 +1348,7 @@ static const struct msm_function sdm670_functions[] = {
 	FUNCTION(uim1_present),
 	FUNCTION(uim_batt),
 	FUNCTION(edp_hot),
-	FUNCTION(NAV_PPS),
-	FUNCTION(GPS_TX),
+	FUNCTION(nav_pps),
 	FUNCTION(atest_char),
 	FUNCTION(adsp_ext),
 	FUNCTION(atest_char3),
@@ -1325,6 +1366,33 @@ static const struct msm_function sdm670_functions[] = {
 	FUNCTION(phase_flag30),
 	FUNCTION(phase_flag31),
 	FUNCTION(mss_lte),
+	FUNCTION(qup0),
+	FUNCTION(gpio),
+	FUNCTION(qup9),
+	FUNCTION(qdss_cti),
+	FUNCTION(ddr_pxi0),
+	FUNCTION(ddr_bist),
+	FUNCTION(atest_tsens2),
+	FUNCTION(vsense_trigger),
+	FUNCTION(atest_usb1),
+	FUNCTION(qup_l4),
+	FUNCTION(wlan1_adc1),
+	FUNCTION(atest_usb13),
+	FUNCTION(ddr_pxi1),
+	FUNCTION(qup_l5),
+	FUNCTION(wlan1_adc0),
+	FUNCTION(atest_usb12),
+	FUNCTION(mdp_vsync),
+	FUNCTION(qup_l6),
+	FUNCTION(wlan2_adc1),
+	FUNCTION(atest_usb11),
+	FUNCTION(ddr_pxi2),
+	FUNCTION(edp_lcd),
+	FUNCTION(dbg_out),
+	FUNCTION(wlan2_adc0),
+	FUNCTION(atest_usb10),
+	FUNCTION(m_voc),
+	FUNCTION(tsif1_sync),
 };
 
 /* Every pin is maintained as a single group, and missing or non-existing pin
@@ -1332,260 +1400,285 @@ static const struct msm_function sdm670_functions[] = {
  * pin descriptor registered with pinctrl core.
  * Clients would not be able to request these dummy pin groups.
  */
-static const struct msm_pingroup sdm670_groups[] = {
-	[0] = PINGROUP(0, SOUTH, qup0, NA, NA, NA, NA, NA, NA, NA, NA),
-	[1] = PINGROUP(1, SOUTH, qup0, NA, NA, NA, NA, NA, NA, NA, NA),
-	[2] = PINGROUP(2, SOUTH, qup0, NA, NA, NA, NA, NA, NA, NA, NA),
-	[3] = PINGROUP(3, SOUTH, qup0, NA, NA, NA, NA, NA, NA, NA, NA),
-	[4] = PINGROUP(4, NORTH, qup9, qdss_cti, NA, NA, NA, NA, NA, NA, NA),
-	[5] = PINGROUP(5, NORTH, qup9, qdss_cti, NA, NA, NA, NA, NA, NA, NA),
-	[6] = PINGROUP(6, NORTH, qup9, NA, ddr_pxi0, NA, NA, NA, NA, NA, NA),
-	[7] = PINGROUP(7, NORTH, qup9, ddr_bist, NA, atest_tsens2,
-		       vsense_trigger, atest_usb1, ddr_pxi0, NA, NA),
-	[8] = PINGROUP(8, WEST, qup_l4, GP_PDM1, ddr_bist, NA, NA, NA, NA, NA,
+static const struct msm_pingroup sdm845_groups[] = {
+	[0] = PINGROUP(0, EAST, qup0, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[1] = PINGROUP(1, EAST, qup0, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[2] = PINGROUP(2, EAST, qup0, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[3] = PINGROUP(3, EAST, qup0, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[4] = PINGROUP(4, NORTH, qup9, qdss_cti, NA, NA, NA, NA, NA, NA, NA,
 		       NA),
-	[9] = PINGROUP(9, WEST, qup_l5, ddr_bist, NA, NA, NA, NA, NA, NA, NA),
-	[10] = PINGROUP(10, NORTH, mdp_vsync, qup_l6, ddr_bist, wlan2_adc1,
-			atest_usb11, ddr_pxi2, NA, NA, NA),
-	[11] = PINGROUP(11, NORTH, mdp_vsync, edp_lcd, dbg_out, wlan2_adc0,
-			atest_usb10, ddr_pxi2, NA, NA, NA),
+	[5] = PINGROUP(5, NORTH, qup9, qdss_cti, NA, NA, NA, NA, NA, NA, NA,
+		       NA),
+	[6] = PINGROUP(6, NORTH, qup9, NA, ddr_pxi0, NA, NA, NA, NA, NA, NA,
+		       NA),
+	[7] = PINGROUP(7, NORTH, qup9, ddr_bist, NA, atest_tsens2,
+		       vsense_trigger, atest_usb1, ddr_pxi0, NA, NA, NA),
+	[8] = PINGROUP(8, EAST, qup_l4, NA, ddr_bist, NA, NA, wlan1_adc1,
+		       atest_usb13, ddr_pxi1, NA, NA),
+	[9] = PINGROUP(9, EAST, qup_l5, ddr_bist, NA, wlan1_adc0, atest_usb12,
+		       ddr_pxi1, NA, NA, NA, NA),
+	[10] = PINGROUP(10, EAST, mdp_vsync, qup_l6, ddr_bist, wlan2_adc1,
+			atest_usb11, ddr_pxi2, NA, NA, NA, NA),
+	[11] = PINGROUP(11, EAST, mdp_vsync, edp_lcd, dbg_out, wlan2_adc0,
+			atest_usb10, ddr_pxi2, NA, NA, NA, NA),
 	[12] = PINGROUP(12, SOUTH, mdp_vsync, m_voc, tsif1_sync, ddr_pxi3, NA,
-			NA, NA, NA, NA),
-	[13] = PINGROUP(13, WEST, cam_mclk, pll_bypassnl, qdss_gpio0, ddr_pxi3,
 			NA, NA, NA, NA, NA),
-	[14] = PINGROUP(14, WEST, cam_mclk, pll_reset, qdss_gpio1, NA, NA, NA,
-			NA, NA, NA),
-	[15] = PINGROUP(15, WEST, cam_mclk, qdss_gpio2, NA, NA, NA, NA, NA, NA,
-			NA),
-	[16] = PINGROUP(16, WEST, cam_mclk, qdss_gpio3, NA, NA, NA, NA, NA, NA,
-			NA),
-	[17] = PINGROUP(17, WEST, cci_i2c, qup1, qdss_gpio4, NA, NA, NA, NA,
-			NA, NA),
-	[18] = PINGROUP(18, WEST, cci_i2c, qup1, NA, qdss_gpio5, NA, NA, NA,
-			NA, NA),
-	[19] = PINGROUP(19, WEST, cci_i2c, qup1, NA, qdss_gpio6, NA, NA, NA,
-			NA, NA),
-	[20] = PINGROUP(20, WEST, cci_i2c, qup1, NA, qdss_gpio7, NA, NA, NA,
-			NA, NA),
-	[21] = PINGROUP(21, WEST, cci_timer0, gcc_gp2, qdss_gpio8, NA, NA, NA,
-			NA, NA, NA),
-	[22] = PINGROUP(22, WEST, cci_timer1, gcc_gp3, qdss_gpio, NA, NA, NA,
-			NA, NA, NA),
-	[23] = PINGROUP(23, WEST, cci_timer2, qdss_gpio9, NA, NA, NA, NA, NA,
-			NA, NA),
-	[24] = PINGROUP(24, WEST, cci_timer3, cci_async, qdss_gpio10, NA, NA,
+	[13] = PINGROUP(13, SOUTH, cam_mclk, pll_bypassnl, qdss_gpio0,
+			ddr_pxi3, NA, NA, NA, NA, NA, NA),
+	[14] = PINGROUP(14, SOUTH, cam_mclk, pll_reset, qdss_gpio1, NA, NA, NA,
 			NA, NA, NA, NA),
-	[25] = PINGROUP(25, WEST, cci_timer4, cci_async, qdss_gpio11, NA, NA,
+	[15] = PINGROUP(15, SOUTH, cam_mclk, qdss_gpio2, NA, NA, NA, NA, NA,
+			NA, NA, NA),
+	[16] = PINGROUP(16, SOUTH, cam_mclk, qdss_gpio3, NA, NA, NA, NA, NA,
+			NA, NA, NA),
+	[17] = PINGROUP(17, SOUTH, cci_i2c, qup1, qdss_gpio4, NA, NA, NA, NA,
+			NA, NA, NA),
+	[18] = PINGROUP(18, SOUTH, cci_i2c, qup1, NA, qdss_gpio5, NA, NA, NA,
+			NA, NA, NA),
+	[19] = PINGROUP(19, SOUTH, cci_i2c, qup1, NA, qdss_gpio6, NA, NA, NA,
+			NA, NA, NA),
+	[20] = PINGROUP(20, SOUTH, cci_i2c, qup1, NA, qdss_gpio7, NA, NA, NA,
+			NA, NA, NA),
+	[21] = PINGROUP(21, SOUTH, cci_timer0, gcc_gp2, qdss_gpio8, NA, NA, NA,
 			NA, NA, NA, NA),
-	[26] = PINGROUP(26, WEST, cci_async, qdss_gpio12, JITTER_BIST, NA, NA,
+	[22] = PINGROUP(22, SOUTH, cci_timer1, gcc_gp3, qdss_gpio, NA, NA, NA,
 			NA, NA, NA, NA),
-	[27] = PINGROUP(27, WEST, qup2, qdss_gpio13, PLL_BIST, NA, NA, NA, NA,
+	[23] = PINGROUP(23, SOUTH, cci_timer2, qdss_gpio9, NA, NA, NA, NA, NA,
+			NA, NA, NA),
+	[24] = PINGROUP(24, SOUTH, cci_timer3, cci_async, qdss_gpio10, NA, NA,
+			NA, NA, NA, NA, NA),
+	[25] = PINGROUP(25, SOUTH, cci_timer4, cci_async, qdss_gpio11, NA, NA,
+			NA, NA, NA, NA, NA),
+	[26] = PINGROUP(26, SOUTH, cci_async, qdss_gpio12, NA, NA, NA, NA, NA,
+			NA, NA, NA),
+	[27] = PINGROUP(27, EAST, qup2, qdss_gpio13, NA, NA, NA, NA, NA, NA,
 			NA, NA),
-	[28] = PINGROUP(28, WEST, qup2, qdss_gpio14, AGERA_PLL, NA, NA, NA, NA,
+	[28] = PINGROUP(28, EAST, qup2, qdss_gpio14, NA, NA, NA, NA, NA, NA,
 			NA, NA),
-	[29] = PINGROUP(29, WEST, qup2, NA, phase_flag1, qdss_gpio15,
-			atest_tsens, NA, NA, NA, NA),
-	[30] = PINGROUP(30, WEST, qup2, phase_flag2, qdss_gpio, NA, NA, NA, NA,
+	[29] = PINGROUP(29, EAST, qup2, NA, phase_flag1, qdss_gpio15, NA, NA,
+			NA, NA, NA, NA),
+	[30] = PINGROUP(30, EAST, qup2, phase_flag2, qdss_gpio, NA, NA, NA, NA,
+			NA, NA, NA),
+	[31] = PINGROUP(31, NORTH, qup11, qup14, NA, NA, NA, NA, NA, NA, NA,
+			NA),
+	[32] = PINGROUP(32, NORTH, qup11, qup14, NA, NA, NA, NA, NA, NA, NA,
+			NA),
+	[33] = PINGROUP(33, NORTH, qup11, qup14, NA, NA, NA, NA, NA, NA, NA,
+			NA),
+	[34] = PINGROUP(34, NORTH, qup11, qup14, NA, NA, NA, NA, NA, NA, NA,
+			NA),
+	[35] = PINGROUP(35, SOUTH, pci_e0, qup_l4, jitter_bist, NA, NA, NA, NA,
+			NA, NA, NA),
+	[36] = PINGROUP(36, SOUTH, pci_e0, qup_l5, pll_bist, NA, atest_tsens,
+			NA, NA, NA, NA, NA),
+	[37] = PINGROUP(37, SOUTH, qup_l6, agera_pll, NA, NA, NA, NA, NA, NA,
 			NA, NA),
-	[31] = PINGROUP(31, WEST, qup11, qup14, NA, NA, NA, NA, NA, NA, NA),
-	[32] = PINGROUP(32, WEST, qup11, qup14, NA, NA, NA, NA, NA, NA, NA),
-	[33] = PINGROUP(33, WEST, qup11, qup14, NA, NA, NA, NA, NA, NA, NA),
-	[34] = PINGROUP(34, WEST, qup11, qup14, NA, NA, NA, NA, NA, NA, NA),
-	[35] = PINGROUP(35, NORTH, pci_e0, QUP_L4, JITTER_BIST, NA, NA, NA, NA,
+	[38] = PINGROUP(38, NORTH, usb_phy, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[39] = PINGROUP(39, EAST, lpass_slimbus, NA, NA, NA, NA, NA, NA, NA,
 			NA, NA),
-	[36] = PINGROUP(36, NORTH, pci_e0, QUP_L5, PLL_BIST, NA, NA, NA, NA,
+	[40] = PINGROUP(40, SOUTH, sd_write, tsif1_error, NA, NA, NA, NA, NA,
+			NA, NA, NA),
+	[41] = PINGROUP(41, EAST, qup3, NA, qdss_gpio6, NA, NA, NA, NA, NA, NA,
+			NA),
+	[42] = PINGROUP(42, EAST, qup3, NA, qdss_gpio7, NA, NA, NA, NA, NA, NA,
+			NA),
+	[43] = PINGROUP(43, EAST, qup3, NA, qdss_gpio14, NA, NA, NA, NA, NA,
 			NA, NA),
-	[37] = PINGROUP(37, NORTH, QUP_L6, AGERA_PLL, NA, NA, NA, NA, NA, NA,
-			NA),
-	[38] = PINGROUP(38, NORTH, usb_phy, NA, NA, NA, NA, NA, NA, NA, NA),
-	[39] = PINGROUP(39, NORTH, lpass_slimbus, NA, NA, NA, NA, NA, NA, NA,
-			NA),
-	[40] = PINGROUP(40, NORTH, sd_write, tsif1_error, NA, NA, NA, NA, NA,
+	[44] = PINGROUP(44, EAST, qup3, NA, qdss_gpio15, NA, NA, NA, NA, NA,
 			NA, NA),
-	[41] = PINGROUP(41, SOUTH, qup3, NA, qdss_gpio6, NA, NA, NA, NA, NA,
+	[45] = PINGROUP(45, EAST, qup6, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[46] = PINGROUP(46, EAST, qup6, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[47] = PINGROUP(47, EAST, qup6, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[48] = PINGROUP(48, EAST, qup6, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[49] = PINGROUP(49, NORTH, qup12, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[50] = PINGROUP(50, NORTH, qup12, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[51] = PINGROUP(51, NORTH, qup12, qdss_cti, NA, NA, NA, NA, NA, NA, NA,
 			NA),
-	[42] = PINGROUP(42, SOUTH, qup3, NA, qdss_gpio7, NA, NA, NA, NA, NA,
-			NA),
-	[43] = PINGROUP(43, SOUTH, qup3, NA, qdss_gpio14, NA, NA, NA, NA, NA,
-			NA),
-	[44] = PINGROUP(44, SOUTH, qup3, NA, qdss_gpio15, NA, NA, NA, NA, NA,
-			NA),
-	[45] = PINGROUP(45, SOUTH, qup6, NA, NA, NA, NA, NA, NA, NA, NA),
-	[46] = PINGROUP(46, SOUTH, qup6, NA, NA, NA, NA, NA, NA, NA, NA),
-	[47] = PINGROUP(47, SOUTH, qup6, NA, NA, NA, NA, NA, NA, NA, NA),
-	[48] = PINGROUP(48, SOUTH, qup6, NA, NA, NA, NA, NA, NA, NA, NA),
-	[49] = PINGROUP(49, NORTH, qup12, NA, NA, NA, NA, NA, NA, NA, NA),
-	[50] = PINGROUP(50, NORTH, qup12, NA, NA, NA, NA, NA, NA, NA, NA),
-	[51] = PINGROUP(51, NORTH, qup12, qdss_cti, NA, NA, NA, NA, NA, NA, NA),
 	[52] = PINGROUP(52, NORTH, qup12, phase_flag16, qdss_cti, NA, NA, NA,
-			NA, NA, NA),
-	[53] = PINGROUP(53, NORTH, qup10, phase_flag11, NA, NA, NA, NA, NA, NA,
-			NA),
-	[54] = PINGROUP(54, NORTH, qup10, GP_PDM0, phase_flag12, NA,
-			wlan1_adc1, atest_usb13, ddr_pxi1, NA, NA),
-	[55] = PINGROUP(55, NORTH, qup10, phase_flag13, NA, wlan1_adc0,
-			atest_usb12, ddr_pxi1, NA, NA, NA),
-	[56] = PINGROUP(56, NORTH, qup10, phase_flag17, NA, NA, NA, NA, NA, NA,
-			NA),
-	[57] = PINGROUP(57, NORTH, qua_mi2s, gcc_gp1, phase_flag18, NA, NA, NA,
-			NA, NA, NA),
-	[58] = PINGROUP(58, DUMMY, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[59] = PINGROUP(59, DUMMY, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[60] = PINGROUP(60, DUMMY, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[61] = PINGROUP(61, DUMMY, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[62] = PINGROUP(62, DUMMY, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[63] = PINGROUP(63, DUMMY, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[64] = PINGROUP(64, DUMMY, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[65] = PINGROUP(65, NORTH, pri_mi2s, qup8, wsa_clk, NA, NA, NA, NA, NA,
-			NA),
-	[66] = PINGROUP(66, NORTH, pri_mi2s_ws, qup8, wsa_data, GP_PDM1, NA,
 			NA, NA, NA, NA),
-	[67] = PINGROUP(67, NORTH, pri_mi2s, qup8, NA, atest_usb2, NA, NA, NA,
+	[53] = PINGROUP(53, NORTH, qup10, phase_flag11, NA, NA, NA, NA, NA, NA,
 			NA, NA),
-	[68] = PINGROUP(68, NORTH, pri_mi2s, qup8, NA, atest_usb23, NA, NA, NA,
+	[54] = PINGROUP(54, NORTH, qup10, NA, phase_flag12, NA, NA, NA, NA, NA,
 			NA, NA),
-	[69] = PINGROUP(69, DUMMY, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[70] = PINGROUP(70, DUMMY, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[71] = PINGROUP(71, DUMMY, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[72] = PINGROUP(72, DUMMY, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[73] = PINGROUP(73, DUMMY, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[74] = PINGROUP(74, DUMMY, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[75] = PINGROUP(75, NORTH, ter_mi2s, phase_flag8, qdss_gpio8,
-			atest_usb22, QUP_L4, NA, NA, NA, NA),
-	[76] = PINGROUP(76, NORTH, ter_mi2s, phase_flag9, qdss_gpio9,
-			atest_usb21, QUP_L5, NA, NA, NA, NA),
-	[77] = PINGROUP(77, NORTH, ter_mi2s, phase_flag4, qdss_gpio10,
-			atest_usb20, QUP_L6, NA, NA, NA, NA),
-	[78] = PINGROUP(78, NORTH, ter_mi2s, gcc_gp1, NA, NA, NA, NA, NA, NA,
+	[55] = PINGROUP(55, NORTH, qup10, phase_flag13, NA, NA, NA, NA, NA, NA,
+			NA, NA),
+	[56] = PINGROUP(56, NORTH, qup10, phase_flag17, NA, NA, NA, NA, NA, NA,
+			NA, NA),
+	[57] = PINGROUP(57, NORTH, qua_mi2s, gcc_gp1, phase_flag18, NA, NA, NA,
+			NA, NA, NA, NA),
+	[58] = PINGROUP(58, NORTH, qua_mi2s, gcc_gp2, phase_flag19, NA, NA, NA,
+			NA, NA, NA, NA),
+	[59] = PINGROUP(59, NORTH, qua_mi2s, gcc_gp3, phase_flag20, NA, NA, NA,
+			NA, NA, NA, NA),
+	[60] = PINGROUP(60, NORTH, qua_mi2s, cri_trng0, phase_flag21, NA, NA,
+			NA, NA, NA, NA, NA),
+	[61] = PINGROUP(61, NORTH, qua_mi2s, cri_trng1, phase_flag22, NA, NA,
+			NA, NA, NA, NA, NA),
+	[62] = PINGROUP(62, NORTH, qua_mi2s, cri_trng, phase_flag23, qdss_cti,
+			NA, NA, NA, NA, NA, NA),
+	[63] = PINGROUP(63, NORTH, qua_mi2s, NA, phase_flag24, qdss_cti, NA,
+			NA, NA, NA, NA, NA),
+	[64] = PINGROUP(64, NORTH, pri_mi2s, sp_cmu, phase_flag25, NA, NA, NA,
+			NA, NA, NA, NA),
+	[65] = PINGROUP(65, NORTH, pri_mi2s, qup8, NA, NA, NA, NA, NA, NA, NA,
 			NA),
-	[79] = PINGROUP(79, NORTH, sec_mi2s, GP_PDM2, NA, qdss_gpio11, NA, NA,
+	[66] = PINGROUP(66, NORTH, pri_mi2s_ws, qup8, NA, NA, NA, NA, NA, NA,
+			NA, NA),
+	[67] = PINGROUP(67, NORTH, pri_mi2s, qup8, NA, NA, NA, NA, NA, NA, NA,
+			NA),
+	[68] = PINGROUP(68, NORTH, pri_mi2s, qup8, NA, NA, NA, NA, NA, NA, NA,
+			NA),
+	[69] = PINGROUP(69, EAST, spkr_i2s, audio_ref, NA, NA, NA, NA, NA, NA,
+			NA, NA),
+	[70] = PINGROUP(70, EAST, lpass_slimbus, spkr_i2s, NA, NA, NA, NA, NA,
+			NA, NA, NA),
+	[71] = PINGROUP(71, EAST, lpass_slimbus, spkr_i2s, tsense_pwm1,
+			tsense_pwm2, NA, NA, NA, NA, NA, NA),
+	[72] = PINGROUP(72, EAST, lpass_slimbus, spkr_i2s, NA, NA, NA, NA, NA,
+			NA, NA, NA),
+	[73] = PINGROUP(73, EAST, btfm_slimbus, atest_usb2, NA, NA, NA, NA, NA,
+			NA, NA, NA),
+	[74] = PINGROUP(74, EAST, btfm_slimbus, ter_mi2s, phase_flag7,
+			atest_usb23, NA, NA, NA, NA, NA, NA),
+	[75] = PINGROUP(75, EAST, ter_mi2s, phase_flag8, qdss_gpio8,
+			atest_usb22, NA, NA, NA, NA, NA, NA),
+	[76] = PINGROUP(76, EAST, ter_mi2s, phase_flag9, qdss_gpio9,
+			atest_usb21, NA, NA, NA, NA, NA, NA),
+	[77] = PINGROUP(77, EAST, ter_mi2s, phase_flag4, qdss_gpio10,
+			atest_usb20, NA, NA, NA, NA, NA, NA),
+	[78] = PINGROUP(78, EAST, ter_mi2s, gcc_gp1, NA, NA, NA, NA, NA, NA,
+			NA, NA),
+	[79] = PINGROUP(79, NORTH, sec_mi2s, NA, NA, qdss_gpio11, NA, NA, NA,
 			NA, NA, NA),
 	[80] = PINGROUP(80, NORTH, sec_mi2s, NA, qdss_gpio12, NA, NA, NA, NA,
-			NA, NA),
-	[81] = PINGROUP(81, NORTH, sec_mi2s, qup15, NA, NA, NA, NA, NA, NA, NA),
-	[82] = PINGROUP(82, NORTH, sec_mi2s, qup15, NA, NA, NA, NA, NA, NA, NA),
-	[83] = PINGROUP(83, NORTH, sec_mi2s, qup15, NA, NA, NA, NA, NA, NA, NA),
-	[84] = PINGROUP(84, NORTH, qup15, NA, NA, NA, NA, NA, NA, NA, NA),
-	[85] = PINGROUP(85, SOUTH, qup5, NA, NA, NA, NA, NA, NA, NA, NA),
-	[86] = PINGROUP(86, SOUTH, qup5, copy_gp, NA, NA, NA, NA, NA, NA, NA),
-	[87] = PINGROUP(87, SOUTH, qup5, NA, NA, NA, NA, NA, NA, NA, NA),
-	[88] = PINGROUP(88, SOUTH, qup5, NA, NA, NA, NA, NA, NA, NA, NA),
-	[89] = PINGROUP(89, SOUTH, tsif1_clk, qup4, tgu_ch3, phase_flag10, NA,
-			NA, NA, NA, NA),
-	[90] = PINGROUP(90, SOUTH, tsif1_en, mdp_vsync0, qup4, mdp_vsync1,
-			mdp_vsync2, mdp_vsync3, tgu_ch0, phase_flag0, qdss_cti),
-	[91] = PINGROUP(91, SOUTH, tsif1_data, sdc4_cmd, qup4, tgu_ch1, NA,
-			qdss_cti, NA, NA, NA),
-	[92] = PINGROUP(92, SOUTH, tsif2_error, sdc43, qup4, vfr_1, tgu_ch2,
-			NA, NA, NA, NA),
-	[93] = PINGROUP(93, SOUTH, tsif2_clk, sdc4_clk, qup7, NA, qdss_gpio13,
-			NA, NA, NA, NA),
-	[94] = PINGROUP(94, SOUTH, tsif2_en, sdc42, qup7, NA, NA, NA, NA, NA,
-			NA),
-	[95] = PINGROUP(95, SOUTH, tsif2_data, sdc41, qup7, GP_PDM0, NA, NA,
 			NA, NA, NA),
-	[96] = PINGROUP(96, SOUTH, tsif2_sync, sdc40, qup7, phase_flag3, NA,
-			NA, NA, NA, NA),
-	[97] = PINGROUP(97, WEST, NA, NA, mdp_vsync, ldo_en, NA, NA, NA, NA,
+	[81] = PINGROUP(81, NORTH, sec_mi2s, qup15, NA, NA, NA, NA, NA, NA, NA,
 			NA),
-	[98] = PINGROUP(98, WEST, NA, mdp_vsync, ldo_update, NA, NA, NA, NA,
+	[82] = PINGROUP(82, NORTH, sec_mi2s, qup15, NA, NA, NA, NA, NA, NA, NA,
+			NA),
+	[83] = PINGROUP(83, NORTH, sec_mi2s, qup15, NA, NA, NA, NA, NA, NA, NA,
+			NA),
+	[84] = PINGROUP(84, NORTH, qup15, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[85] = PINGROUP(85, EAST, qup5, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[86] = PINGROUP(86, EAST, qup5, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[87] = PINGROUP(87, EAST, qup5, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[88] = PINGROUP(88, EAST, qup5, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[89] = PINGROUP(89, SOUTH, tsif1_clk, qup4, qspi_cs, tgu_ch3,
+			phase_flag10, NA, NA, NA, NA, NA),
+	[90] = PINGROUP(90, SOUTH, tsif1_en, mdp_vsync0, qup4, qspi_cs,
+			mdp_vsync1, mdp_vsync2, mdp_vsync3, tgu_ch0,
+			phase_flag0, qdss_cti),
+	[91] = PINGROUP(91, SOUTH, tsif1_data, sdc4_cmd, qup4, qspi0, tgu_ch1,
+			NA, qdss_cti, NA, NA, NA),
+	[92] = PINGROUP(92, SOUTH, tsif2_error, sdc43, qup4, qspi1, vfr_1,
+			tgu_ch2, NA, NA, NA, NA),
+	[93] = PINGROUP(93, SOUTH, tsif2_clk, sdc4_clk, qup7, qspi2, NA,
+			qdss_gpio13, NA, NA, NA, NA),
+	[94] = PINGROUP(94, SOUTH, tsif2_en, sdc42, qup7, qspi3, NA, NA, NA,
+			NA, NA, NA),
+	[95] = PINGROUP(95, SOUTH, tsif2_data, sdc41, qup7, qspi_clk, NA, NA,
+			NA, NA, NA, NA),
+	[96] = PINGROUP(96, SOUTH, tsif2_sync, sdc40, qup7, phase_flag3, NA,
+			NA, NA, NA, NA, NA),
+	[97] = PINGROUP(97, NORTH, NA, NA, mdp_vsync, ldo_en, NA, NA, NA, NA,
 			NA, NA),
-	[99] = PINGROUP(99, NORTH, phase_flag14, prng_rosc, NA, NA, NA, NA, NA,
+	[98] = PINGROUP(98, NORTH, NA, mdp_vsync, ldo_update, NA, NA, NA, NA,
+			NA, NA, NA),
+	[99] = PINGROUP(99, NORTH, phase_flag14, NA, NA, NA, NA, NA, NA, NA,
 			NA, NA),
-	[100] = PINGROUP(100, WEST, phase_flag15, NA, NA, NA, NA, NA, NA, NA,
-			 NA),
-	[101] = PINGROUP(101, WEST, NA, phase_flag5, NA, NA, NA, NA, NA, NA,
-			 NA),
-	[102] = PINGROUP(102, WEST, pci_e1, prng_rosc, NA, NA, NA, NA, NA, NA,
-			 NA),
-	[103] = PINGROUP(103, WEST, pci_e1, COPY_PHASE, NA, NA, NA, NA, NA, NA,
-			 NA),
-	[104] = PINGROUP(104, DUMMY, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[100] = PINGROUP(100, NORTH, phase_flag15, NA, NA, NA, NA, NA, NA, NA,
+			 NA, NA),
+	[101] = PINGROUP(101, NORTH, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[102] = PINGROUP(102, NORTH, pci_e1, prng_rosc, NA, NA, NA, NA, NA, NA,
+			 NA, NA),
+	[103] = PINGROUP(103, NORTH, pci_e1, phase_flag5, NA, NA, NA, NA, NA,
+			 NA, NA, NA),
+	[104] = PINGROUP(104, NORTH, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	[105] = PINGROUP(105, NORTH, uim2_data, qup13, qup_l4, NA, NA, NA, NA,
-			 NA, NA),
+			 NA, NA, NA),
 	[106] = PINGROUP(106, NORTH, uim2_clk, qup13, qup_l5, NA, NA, NA, NA,
-			 NA, NA),
+			 NA, NA, NA),
 	[107] = PINGROUP(107, NORTH, uim2_reset, qup13, qup_l6, NA, NA, NA, NA,
-			 NA, NA),
+			 NA, NA, NA),
 	[108] = PINGROUP(108, NORTH, uim2_present, qup13, NA, NA, NA, NA, NA,
-			 NA, NA),
-	[109] = PINGROUP(109, NORTH, uim1_data, NA, NA, NA, NA, NA, NA, NA, NA),
-	[110] = PINGROUP(110, NORTH, uim1_clk, NA, NA, NA, NA, NA, NA, NA, NA),
+			 NA, NA, NA),
+	[109] = PINGROUP(109, NORTH, uim1_data, NA, NA, NA, NA, NA, NA, NA, NA,
+			 NA),
+	[110] = PINGROUP(110, NORTH, uim1_clk, NA, NA, NA, NA, NA, NA, NA, NA,
+			 NA),
 	[111] = PINGROUP(111, NORTH, uim1_reset, NA, NA, NA, NA, NA, NA, NA,
-			 NA),
+			 NA, NA),
 	[112] = PINGROUP(112, NORTH, uim1_present, NA, NA, NA, NA, NA, NA, NA,
-			 NA),
+			 NA, NA),
 	[113] = PINGROUP(113, NORTH, uim_batt, edp_hot, NA, NA, NA, NA, NA, NA,
-			 NA),
-	[114] = PINGROUP(114, WEST, NA, NAV_PPS, NAV_PPS, GPS_TX, NA, NA, NA,
 			 NA, NA),
-	[115] = PINGROUP(115, WEST, NA, NAV_PPS, NAV_PPS, GPS_TX, NA, NA, NA,
+	[114] = PINGROUP(114, NORTH, NA, nav_pps, nav_pps, NA, NA, NA, NA, NA,
 			 NA, NA),
-	[116] = PINGROUP(116, SOUTH, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[115] = PINGROUP(115, NORTH, NA, nav_pps, nav_pps, NA, NA, NA, NA, NA,
+			 NA, NA),
+	[116] = PINGROUP(116, NORTH, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	[117] = PINGROUP(117, NORTH, NA, qdss_gpio0, atest_char, NA, NA, NA,
-			 NA, NA, NA),
+			 NA, NA, NA, NA),
 	[118] = PINGROUP(118, NORTH, adsp_ext, NA, qdss_gpio1, atest_char3, NA,
-			 NA, NA, NA, NA),
+			 NA, NA, NA, NA, NA),
 	[119] = PINGROUP(119, NORTH, NA, qdss_gpio2, atest_char2, NA, NA, NA,
-			 NA, NA, NA),
-	[120] = PINGROUP(120, NORTH, NA, qdss_gpio3, atest_char1, NA, NA, NA,
-			 NA, NA, NA),
-	[121] = PINGROUP(121, NORTH, NA, qdss_gpio4, atest_char0, NA, NA, NA,
-			 NA, NA, NA),
-	[122] = PINGROUP(122, NORTH, NA, qdss_gpio5, NA, NA, NA, NA, NA, NA,
-			 NA),
-	[123] = PINGROUP(123, NORTH, qup_l4, NA, qdss_gpio, NA, NA, NA, NA, NA,
-			 NA),
-	[124] = PINGROUP(124, NORTH, qup_l5, NA, qdss_gpio, NA, NA, NA, NA, NA,
-			 NA),
-	[125] = PINGROUP(125, NORTH, qup_l6, NA, NA, NA, NA, NA, NA, NA, NA),
-	[126] = PINGROUP(126, NORTH, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[127] = PINGROUP(127, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[128] = PINGROUP(128, WEST, NAV_PPS, NAV_PPS, GPS_TX, NA, NA, NA, NA,
-			 NA, NA),
-	[129] = PINGROUP(129, WEST, NAV_PPS, NAV_PPS, GPS_TX, NA, NA, NA, NA,
-			 NA, NA),
-	[130] = PINGROUP(130, WEST, qlink_request, NA, NA, NA, NA, NA, NA, NA,
-			 NA),
-	[131] = PINGROUP(131, WEST, qlink_enable, NA, NA, NA, NA, NA, NA, NA,
-			 NA),
-	[132] = PINGROUP(132, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[133] = PINGROUP(133, NORTH, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[134] = PINGROUP(134, NORTH, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[135] = PINGROUP(135, WEST, NA, pa_indicator, NA, NA, NA, NA, NA, NA,
-			 NA),
-	[136] = PINGROUP(136, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[137] = PINGROUP(137, WEST, NA, NA, phase_flag26, NA, NA, NA, NA, NA,
-			 NA),
-	[138] = PINGROUP(138, WEST, NA, NA, phase_flag27, NA, NA, NA, NA, NA,
-			 NA),
-	[139] = PINGROUP(139, WEST, NA, phase_flag28, NA, NA, NA, NA, NA, NA,
-			 NA),
-	[140] = PINGROUP(140, WEST, NA, NA, phase_flag6, NA, NA, NA, NA, NA,
-			 NA),
-	[141] = PINGROUP(141, WEST, NA, phase_flag29, NA, NA, NA, NA, NA, NA,
-			 NA),
-	[142] = PINGROUP(142, WEST, NA, phase_flag30, NA, NA, NA, NA, NA, NA,
-			 NA),
-	[143] = PINGROUP(143, WEST, NA, NAV_PPS, NAV_PPS, GPS_TX, phase_flag31,
 			 NA, NA, NA, NA),
-	[144] = PINGROUP(144, SOUTH, mss_lte, NA, NA, NA, NA, NA, NA, NA, NA),
-	[145] = PINGROUP(145, SOUTH, mss_lte, GPS_TX, NA, NA, NA, NA, NA, NA,
+	[120] = PINGROUP(120, NORTH, NA, qdss_gpio3, atest_char1, NA, NA, NA,
+			 NA, NA, NA, NA),
+	[121] = PINGROUP(121, NORTH, NA, qdss_gpio4, atest_char0, NA, NA, NA,
+			 NA, NA, NA, NA),
+	[122] = PINGROUP(122, EAST, NA, qdss_gpio5, NA, NA, NA, NA, NA, NA, NA,
 			 NA),
-	[146] = PINGROUP(146, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[147] = PINGROUP(147, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[148] = PINGROUP(148, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[149] = PINGROUP(149, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[150] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x99000, 15, 0),
-	[151] = SDC_QDSD_PINGROUP(sdc1_clk, 0x99000, 13, 6),
-	[152] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x99000, 11, 3),
-	[153] = SDC_QDSD_PINGROUP(sdc1_data, 0x99000, 9, 0),
-	[154] = SDC_QDSD_PINGROUP(sdc2_clk, 0x9a000, 14, 6),
-	[155] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x9a000, 11, 3),
-	[156] = SDC_QDSD_PINGROUP(sdc2_data, 0x9a000, 9, 0),
-	[157] = UFS_RESET(ufs_reset, 0x9f000),
+	[123] = PINGROUP(123, EAST, qup_l4, NA, qdss_gpio, NA, NA, NA, NA, NA,
+			 NA, NA),
+	[124] = PINGROUP(124, EAST, qup_l5, NA, qdss_gpio, NA, NA, NA, NA, NA,
+			 NA, NA),
+	[125] = PINGROUP(125, EAST, qup_l6, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[126] = PINGROUP(126, EAST, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[127] = PINGROUP(127, NORTH, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[128] = PINGROUP(128, NORTH, nav_pps, nav_pps, NA, NA, NA, NA, NA, NA,
+			 NA, NA),
+	[129] = PINGROUP(129, NORTH, nav_pps, nav_pps, NA, NA, NA, NA, NA, NA,
+			 NA, NA),
+	[130] = PINGROUP(130, NORTH, qlink_request, NA, NA, NA, NA, NA, NA, NA,
+			 NA, NA),
+	[131] = PINGROUP(131, NORTH, qlink_enable, NA, NA, NA, NA, NA, NA, NA,
+			 NA, NA),
+	[132] = PINGROUP(132, NORTH, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[133] = PINGROUP(133, NORTH, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[134] = PINGROUP(134, NORTH, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[135] = PINGROUP(135, NORTH, NA, pa_indicator, NA, NA, NA, NA, NA, NA,
+			 NA, NA),
+	[136] = PINGROUP(136, NORTH, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[137] = PINGROUP(137, NORTH, NA, NA, phase_flag26, NA, NA, NA, NA, NA,
+			 NA, NA),
+	[138] = PINGROUP(138, NORTH, NA, NA, phase_flag27, NA, NA, NA, NA, NA,
+			 NA, NA),
+	[139] = PINGROUP(139, NORTH, NA, phase_flag28, NA, NA, NA, NA, NA, NA,
+			 NA, NA),
+	[140] = PINGROUP(140, NORTH, NA, NA, phase_flag6, NA, NA, NA, NA, NA,
+			 NA, NA),
+	[141] = PINGROUP(141, NORTH, NA, phase_flag29, NA, NA, NA, NA, NA, NA,
+			 NA, NA),
+	[142] = PINGROUP(142, NORTH, NA, phase_flag30, NA, NA, NA, NA, NA, NA,
+			 NA, NA),
+	[143] = PINGROUP(143, NORTH, NA, nav_pps, nav_pps, NA, phase_flag31,
+			 NA, NA, NA, NA, NA),
+	[144] = PINGROUP(144, NORTH, mss_lte, NA, NA, NA, NA, NA, NA, NA, NA,
+			 NA),
+	[145] = PINGROUP(145, NORTH, mss_lte, NA, NA, NA, NA, NA, NA, NA, NA,
+			 NA),
+	[146] = PINGROUP(146, NORTH, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[147] = PINGROUP(147, NORTH, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[148] = PINGROUP(148, NORTH, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[149] = PINGROUP(149, NORTH, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[150] = SDC_QDSD_PINGROUP(sdc2_clk, 0x99a000, 14, 6),
+	[151] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x99a000, 11, 3),
+	[152] = SDC_QDSD_PINGROUP(sdc2_data, 0x99a000, 9, 0),
+	[153] = UFS_RESET(ufs_reset, 0x99f000),
 };
-static const struct msm_dir_conn sdm670_dir_conn[] = {
+
+static const struct msm_dir_conn sdm845_dir_conn[] = {
 	{1, 510},
 	{3, 511},
 	{5, 512},
@@ -1615,8 +1708,17 @@ static const struct msm_dir_conn sdm670_dir_conn[] = {
 	{54, 536},
 	{56, 537},
 	{57, 538},
+	{58, 539},
+	{59, 540},
+	{60, 541},
+	{61, 542},
+	{62, 543},
+	{63, 544},
+	{64, 545},
 	{66, 546},
 	{68, 547},
+	{71, 548},
+	{73, 549},
 	{77, 550},
 	{78, 551},
 	{79, 552},
@@ -1633,6 +1735,7 @@ static const struct msm_dir_conn sdm670_dir_conn[] = {
 	{97, 563},
 	{101, 564},
 	{103, 565},
+	{104, 566},
 	{115, 570},
 	{116, 571},
 	{117, 572},
@@ -1653,50 +1756,50 @@ static const struct msm_dir_conn sdm670_dir_conn[] = {
 	{145, 623},
 };
 
-static const struct msm_pinctrl_soc_data sdm670_pinctrl = {
-	.pins = sdm670_pins,
-	.npins = ARRAY_SIZE(sdm670_pins),
-	.functions = sdm670_functions,
-	.nfunctions = ARRAY_SIZE(sdm670_functions),
-	.groups = sdm670_groups,
-	.ngroups = ARRAY_SIZE(sdm670_groups),
+static const struct msm_pinctrl_soc_data sdm845_pinctrl = {
+	.pins = sdm845_pins,
+	.npins = ARRAY_SIZE(sdm845_pins),
+	.functions = sdm845_functions,
+	.nfunctions = ARRAY_SIZE(sdm845_functions),
+	.groups = sdm845_groups,
+	.ngroups = ARRAY_SIZE(sdm845_groups),
 	.ngpios = 150,
-	.dir_conn = sdm670_dir_conn,
-	.n_dir_conns = ARRAY_SIZE(sdm670_dir_conn),
+	.dir_conn = sdm845_dir_conn,
+	.n_dir_conns = ARRAY_SIZE(sdm845_dir_conn),
 };
 
-static int sdm670_pinctrl_probe(struct platform_device *pdev)
+static int sdm845_pinctrl_probe(struct platform_device *pdev)
 {
-	return msm_pinctrl_probe(pdev, &sdm670_pinctrl);
+	return msm_pinctrl_probe(pdev, &sdm845_pinctrl);
 }
 
-static const struct of_device_id sdm670_pinctrl_of_match[] = {
-	{ .compatible = "qcom,sdm670-pinctrl", },
+static const struct of_device_id sdm845_pinctrl_of_match[] = {
+	{ .compatible = "qcom,sdm845-pinctrl-v2", },
 	{ },
 };
 
-static struct platform_driver sdm670_pinctrl_driver = {
+static struct platform_driver sdm845_pinctrl_driver = {
 	.driver = {
-		.name = "sdm670-pinctrl",
+		.name = "sdm845-v2-pinctrl",
 		.owner = THIS_MODULE,
-		.of_match_table = sdm670_pinctrl_of_match,
+		.of_match_table = sdm845_pinctrl_of_match,
 	},
-	.probe = sdm670_pinctrl_probe,
+	.probe = sdm845_pinctrl_probe,
 	.remove = msm_pinctrl_remove,
 };
 
-static int __init sdm670_pinctrl_init(void)
+static int __init sdm845_pinctrl_init(void)
 {
-	return platform_driver_register(&sdm670_pinctrl_driver);
+	return platform_driver_register(&sdm845_pinctrl_driver);
 }
-arch_initcall(sdm670_pinctrl_init);
+arch_initcall(sdm845_pinctrl_init);
 
-static void __exit sdm670_pinctrl_exit(void)
+static void __exit sdm845_pinctrl_exit(void)
 {
-	platform_driver_unregister(&sdm670_pinctrl_driver);
+	platform_driver_unregister(&sdm845_pinctrl_driver);
 }
-module_exit(sdm670_pinctrl_exit);
+module_exit(sdm845_pinctrl_exit);
 
-MODULE_DESCRIPTION("QTI sdm670 pinctrl driver");
+MODULE_DESCRIPTION("QTI sdm845-v2 pinctrl driver");
 MODULE_LICENSE("GPL v2");
-MODULE_DEVICE_TABLE(of, sdm670_pinctrl_of_match);
+MODULE_DEVICE_TABLE(of, sdm845_pinctrl_of_match);

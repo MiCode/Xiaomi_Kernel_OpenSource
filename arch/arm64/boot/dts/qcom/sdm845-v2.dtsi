@@ -25,6 +25,10 @@
 /delete-node/ &apc0_cpr;
 /delete-node/ &apc1_cpr;
 
+&tlmm {
+	compatible = "qcom,sdm845-pinctrl-v2";
+};
+
 &soc {
 	/* CPR controller regulators */
 	apc0_cpr: cprh-ctrl@17dc0000 {

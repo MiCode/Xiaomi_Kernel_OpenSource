@@ -6,7 +6,7 @@ SDM845 platform.
 - compatible:
 	Usage: required
 	Value type: <string>
-	Definition: must be "qcom,sdm845-pinctrl"
+	Definition: must be "qcom,sdm845-pinctrl" or "qcom,sdm845-pinctrl-v2"
 
 - reg:
 	Usage: required
