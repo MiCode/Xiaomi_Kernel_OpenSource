@@ -2556,15 +2556,6 @@ static int dp_link_rate_down_shift(struct mdss_dp_drv_pdata *ep)
 	return ret;
 }
 
-int mdss_dp_aux_set_sink_power_state(struct mdss_dp_drv_pdata *ep, char state)
-{
-	int ret;
-
-	ret = dp_aux_write_buf(ep, 0x600, &state, 1, 0);
-	pr_debug("state=%d ret=%d\n", state, ret);
-	return ret;
-}
-
 static void dp_clear_training_pattern(struct mdss_dp_drv_pdata *ep)
 {
 	int usleep_time;
