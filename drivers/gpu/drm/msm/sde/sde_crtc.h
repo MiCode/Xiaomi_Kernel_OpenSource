@@ -256,6 +256,7 @@ struct sde_crtc {
 	struct list_head user_event_list;
 
 	struct mutex crtc_lock;
+	struct mutex crtc_cp_lock;
 
 	atomic_t frame_pending;
 	struct sde_crtc_frame_event frame_events[SDE_CRTC_FRAME_EVENT_SIZE];
