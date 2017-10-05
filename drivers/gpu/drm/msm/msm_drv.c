@@ -2151,7 +2151,9 @@ static int msm_pdev_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_OF
 	add_components(&pdev->dev, &match, "connectors");
+#ifndef CONFIG_QCOM_KGSL
 	add_components(&pdev->dev, &match, "gpus");
+#endif
 #else
 	/* For non-DT case, it kinda sucks.  We don't actually have a way
 	 * to know whether or not we are waiting for certain devices (or if
