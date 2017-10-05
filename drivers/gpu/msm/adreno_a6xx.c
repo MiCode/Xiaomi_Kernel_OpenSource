@@ -937,42 +937,42 @@ static void _load_gmu_rpmh_ucode(struct kgsl_device *device)
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0 + 4, 0x002081FC);
 
 	/* Set TCS commands used by PDC sequence for low power modes */
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS0_CMD_ENABLE_BANK, 7);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS0_CMD_WAIT_FOR_CMPL_BANK, 0);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS0_CONTROL, 0);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS0_CMD0_MSGID, 0x10108);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS0_CMD0_ADDR, 0x30010);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS0_CMD0_DATA, 1);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS0_CMD0_MSGID + PDC_CMD_OFFSET, 0x10108);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS0_CMD0_ADDR + PDC_CMD_OFFSET, 0x30000);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS0_CMD0_DATA + PDC_CMD_OFFSET, 0x0);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS0_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS0_CMD0_ADDR + PDC_CMD_OFFSET * 2, 0x30080);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS0_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x0);
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CMD_ENABLE_BANK, 7);
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CMD_WAIT_FOR_CMPL_BANK, 0);
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CONTROL, 0);
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CMD0_MSGID, 0x10108);
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CMD0_ADDR, 0x30010);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CMD0_DATA, 2);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CMD0_DATA, 1);
 	_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS1_CMD0_MSGID + PDC_CMD_OFFSET, 0x10108);
 	_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS1_CMD0_ADDR + PDC_CMD_OFFSET, 0x30000);
 	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET, 0x3);
+			PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET, 0x0);
 	_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS1_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
 	_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS1_CMD0_ADDR + PDC_CMD_OFFSET * 2, 0x30080);
 	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x3);
+			PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x0);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CMD_ENABLE_BANK, 7);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CMD_WAIT_FOR_CMPL_BANK, 0);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CONTROL, 0);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CMD0_MSGID, 0x10108);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CMD0_ADDR, 0x30010);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CMD0_DATA, 2);
+	_regwrite(gmu->pdc_reg_virt,
+			PDC_GPU_TCS3_CMD0_MSGID + PDC_CMD_OFFSET, 0x10108);
+	_regwrite(gmu->pdc_reg_virt,
+			PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET, 0x30000);
+	_regwrite(gmu->pdc_reg_virt,
+			PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET, 0x3);
+	_regwrite(gmu->pdc_reg_virt,
+			PDC_GPU_TCS3_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
+	_regwrite(gmu->pdc_reg_virt,
+			PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET * 2, 0x30080);
+	_regwrite(gmu->pdc_reg_virt,
+			PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x3);
 
 	/* Setup GPU PDC */
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_START_ADDR, 0);
