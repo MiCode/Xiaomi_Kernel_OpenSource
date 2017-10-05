@@ -3512,6 +3512,263 @@ struct afe_param_id_set_topology_cfg {
 	u32		topology_id;
 } __packed;
 
+/*
+ * This command is used by client to request the LPASS resources.
+ * Currently this command supports only LPAIF DMA resources.
+ * Allocated resources will be in control of remote client until
+ * they get released.
+ *
+ * If all the requested resources are available then response status in
+ * AFE_CMDRSP_REQUEST_LPASS_RESOURCES payload will
+ * be updated with ADSP_EOK, otherwise it will be ADSP_EFAILED.
+ *
+ * This command is variable payload size command, and size depends
+ * on the type of resource requested.
+ *
+ * For example, if client requests AFE_LPAIF_DMA_RESOURCE_ID
+ * resources, afe_cmd_request_lpass_resources structure will
+ * be followed with the afe_cmd_request_lpass_dma_resources
+ * structure.
+ *
+ * AFE_CMDRSP_REQUEST_LPASS_RESOURCES is the response for
+ * this command, which returns the allocated resources.
+ *
+ * @apr_hdr_fields
+ *  Opcode -- AFE_CMD_REQUEST_LPASS_RESOURCES
+ *
+ * @return
+ *  #AFE_CMDRSP_REQUEST_LPASS_RESOURCES
+ */
+#define AFE_CMD_REQUEST_LPASS_RESOURCES    0x00010109
+
+/* Macro for requesting LPAIF DMA resources */
+#define AFE_LPAIF_DMA_RESOURCE_ID    0x00000001
+
+struct afe_cmd_request_lpass_resources {
+	/*
+	 * LPASS Resource ID
+	 * @values:
+	 * - AFE_LPAIF_DMA_RESOURCE_ID
+	 */
+	u32 resource_id;
+} __packed;
+
+/*
+ * AFE_CMD_REQUEST_LPASS_RESOURCES uses this structure when
+ * client is requesting LPAIF DMA resources.
+ *
+ * Number of read DMA channels and write DMA channels varies from chipset to
+ * chipset. HLOS needs to make sure that when it requests LPASS DMA
+ * resources, it should not impact the concurrencies which
+ * are mandatory for a given chipset.
+ */
+
+/* Macro for AFE LPAIF default DMA data type */
+#define AFE_LPAIF_DEFAULT_DMA_TYPE     0x0
+
+struct afe_cmd_request_lpass_dma_resources {
+	/*
+	 * LPASS DMA Type
+	 * @values:
+	 * - AFE_LPAIF_DEFAULT_DMA_TYPE
+	 */
+	u8 dma_type;
+	/*
+	 * Number of read DMA channels required
+	 * @values: >=0
+	 * - 0 indicates channels are not requested
+	 */
+	u8 num_read_dma_channels;
+	/*
+	 * Number of write DMA channels required
+	 * @values: >=0
+	 * - 0 indicates channels are not requested
+	 */
+	u8 num_write_dma_channels;
+	/*
+	 * Reserved field for 4 byte alignment
+	 * @values: 0
+	 */
+	u8 reserved;
+} __packed;
+
+struct afe_request_lpass_dma_resources_command {
+	struct apr_hdr hdr;
+	struct afe_cmd_request_lpass_resources resources;
+	struct afe_cmd_request_lpass_dma_resources dma_resources;
+} __packed;
+
+/*
+ * This is the response for the command AFE_CMD_REQUEST_LPASS_RESOURCES.
+ * Payload of this command is variable.
+ *
+ * Resources allocated successfully or not, are determined by the "status"
+ * in the payload. If status is ADSP_EOK, then resources are
+ * allocated successfully and allocated resource information
+ * follows.
+ *
+ * For example, if the response resource id is AFE_LPAIF_DMA_RESOURCE_ID,
+ * afe_cmdrsp_request_lpass_dma_resources structure will
+ * follow after afe_cmdrsp_request_lpass_resources.
+ *
+ * If status is ADSP_EFAILED, this indicates requested resources
+ * are not allocated successfully. In this case the payload following
+ * this structure is invalid.
+ * @apr_hdr_fields
+ *  Opcode -- AFE_CMDRSP_REQUEST_LPASS_RESOURCES
+*/
+#define AFE_CMDRSP_REQUEST_LPASS_RESOURCES    0x0001010A
+
+struct afe_cmdrsp_request_lpass_resources {
+	/*
+	 * ADSP_EOK if all requested resources are allocated.
+	 * ADSP_EFAILED if resource allocation is failed.
+	 */
+	u32 status;
+	/*
+	 * Returned LPASS DMA resource ID
+	 * @values:
+	 * - AFE_LPAIF_DMA_RESOURCE_ID
+	 */
+	u32 resource_id;
+} __packed;
+
+/*
+ * This command will be sent as a payload for
+ * AFE_CMDRSP_REQUEST_LPASS_RESOURCES, when the LPAIF DMA resources
+ * were requested. Payload of this command is variable, which
+ * follows after the afe_cmdrsp_request_lpass_dma_resources structure.
+ * The size in bytes following this structure is sum of
+ * num_read_dma_channels and num_write_dma_channels.
+ *
+ * If the resource allocation is successful, then the payload contains
+ * the valid DMA channel indices.
+ *
+ * For example, if number of requested DMA read channels is 2, and they
+ * are successfully allocated, the variable payload contains
+ * valid DMA channel index values in first two bytes array.
+ *
+ * In the failure case this payload can be ignored, and all the values will be
+ * initialized with zeros.
+ *
+ * An example payload of the command response is below:
+ * <struct afe_cmdrsp_request_lpass_resources>
+ * <struct afe_cmdrsp_request_lpass_dma_resources>
+ * read DMA index value for each byte.
+ * write DMA index value for each byte.
+ * padded zeros, if sum of num_read_dma_channels and num_write_dma_channels
+ * are not multiples of 4.
+*/
+
+struct afe_cmdrsp_request_lpass_dma_resources {
+	/*
+	 * LPASS DMA Type
+	 * @values:
+	 * - AFE_LPAIF_DEFAULT_DMA_TYPE
+	 */
+	u8 dma_type;
+	/*
+	 * Returned number of read DMA channels allocated
+	 * @values: >=0
+	 */
+	u8 num_read_dma_channels;
+	/*
+	 * Returned number of write DMA channels allocated
+	 * @values: >=0
+	 */
+	u8 num_write_dma_channels;
+	/*
+	 * Reserved field for 4 byte alignment
+	 * @values: 0
+	 */
+	u8 reserved;
+} __packed;
+
+/*
+ * This command is for releasing resources which are allocated as
+ * part of AFE_CMD_REQUEST_LPASS_RESOURCES.
+ *
+ * Payload of this command is variable, which follows
+ * after the afe_cmd_release_lpass_resources structure.
+ *
+ * If release resource is AFE_LPAIF_DMA_RESOURCE_ID
+ * afe_cmd_release_lpass_dma_resources structure will be
+ * followed after afe_cmd_release_lpass_resources.
+ *
+ *
+ * @apr_hdr_fields
+ *  Opcode -- AFE_CMD_RELEASE_LPASS_RESOURCES
+
+ * @return
+ *   #APRv2 IBASIC RSP Result
+*/
+#define AFE_CMD_RELEASE_LPASS_RESOURCES       0x0001010B
+
+struct afe_cmd_release_lpass_resources {
+	/*
+	 * LPASS DMA resource ID
+	 * @values:
+	 * - AFE_LPAIF_DMA_RESOURCE_ID
+	 */
+	u32 resource_id;
+} __packed;
+
+/*
+ * This payload to be appended as part of AFE_CMD_RELEASE_LPASS_RESOURCES
+ * when resource id AFE_LPAIF_DMA_RESOURCE_ID is used.
+ *
+ * Payload of this command is variable, which will be followed after the
+ * afe_cmd_release_lpass_dma_resources structure.
+ * The variable payload's size in bytes is sum of
+ * num_read_dma_channels and num_write_dma_channels.
+ * Variable payload data contains the valid DMA channel indices which are
+ * allocated as part of AFE_CMD_REQUEST_LPASS_RESOURCES.
+ *
+ * For example, if number of DMA read channels released are 2,
+ * the variable payload contains valid DMA channel
+ * index values in first two bytes of variable payload.
+ * Client needs to fill the same DMA channel indices were returned
+ * as part of AFE_CMD_RELEASE_LPASS_RESOURCES, otherwise
+ * ADSP will return the error.
+ *
+ * An example payload of the release command is below:
+ * <struct afe_cmd_release_lpass_resources>
+ * <struct afe_cmd_release_lpass_dma_resources>
+ * read DMA index value for each byte.
+ * write DMA index value for each byte.
+*/
+
+struct afe_cmd_release_lpass_dma_resources {
+	/*
+	 * LPASS DMA Type
+	 * @values:
+	 * - AFE_LPAIF_DEFAULT_DMA_TYPE
+	 */
+	u8 dma_type;
+	/*
+	 * Number of read DMA channels to be released
+	 * @values: >=0
+	 * - 0 indicates channels are not released
+	 */
+	u8 num_read_dma_channels;
+	/*
+	 * Number of write DMA channels to be released
+	 * @values: >=0
+	 * - 0 indicates channels are not released
+	 */
+	u8 num_write_dma_channels;
+	/*
+	 * Reserved field for 4 byte alignment
+	 * @values: 0
+	 */
+	u8 reserved;
+} __packed;
+
+struct afe_release_lpass_dma_resources_command {
+	struct apr_hdr hdr;
+	struct afe_cmd_release_lpass_resources resources;
+	struct afe_cmd_release_lpass_dma_resources dma_resources;
+} __packed;
 
 /*
  * Generic encoder module ID.
