@@ -1198,7 +1198,6 @@
 
 &refgen {
 	status = "ok";
-	regulator-always-on;
 };
 
 &spss_utils {
