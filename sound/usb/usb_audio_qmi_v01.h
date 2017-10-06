@@ -84,6 +84,7 @@ enum usb_audio_device_speed_enum_v01 {
 	USB_AUDIO_DEVICE_SPEED_FULL_V01 = 2,
 	USB_AUDIO_DEVICE_SPEED_HIGH_V01 = 3,
 	USB_AUDIO_DEVICE_SPEED_SUPER_V01 = 4,
+	USB_AUDIO_DEVICE_SPEED_SUPER_PLUS_V01 = 5,
 	USB_AUDIO_DEVICE_SPEED_ENUM_MAX_VAL_V01 = INT_MAX,
 };
 
@@ -157,8 +158,10 @@ struct qmi_uaudio_stream_ind_msg_v01 {
 	struct apps_mem_info_v01 xhci_mem_info;
 	uint8_t interrupter_num_valid;
 	uint8_t interrupter_num;
+	uint8_t controller_num_valid;
+	uint8_t controller_num;
 };
-#define QMI_UAUDIO_STREAM_IND_MSG_V01_MAX_MSG_LEN 177
+#define QMI_UAUDIO_STREAM_IND_MSG_V01_MAX_MSG_LEN 181
 extern struct elem_info qmi_uaudio_stream_ind_msg_v01_ei[];
 
 #endif
