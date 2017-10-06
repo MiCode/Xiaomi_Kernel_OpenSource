@@ -1554,6 +1554,7 @@ struct wmi_tlv_wow_add_del_event_cmd {
 
 struct wmi_tlv_wow_enable_cmd {
 	__le32 enable;
+	__le32 pause_iface_config;
 } __packed;
 
 struct wmi_tlv_wow_host_wakeup_ind {
