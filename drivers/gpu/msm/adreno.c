@@ -1712,8 +1712,6 @@ static int adreno_stop(struct kgsl_device *device)
 		}
 	}
 
-	adreno_set_active_ctxs_null(adreno_dev);
-
 	adreno_dispatcher_stop(adreno_dev);
 
 	adreno_ringbuffer_stop(adreno_dev);
@@ -1751,6 +1749,12 @@ static int adreno_stop(struct kgsl_device *device)
 	adreno_vbif_clear_pending_transactions(device);
 
 	kgsl_mmu_stop(&device->mmu);
+
+	/*
+	 * At this point, MMU is turned off so we can safely
+	 * destroy any pending contexts and their pagetables
+	 */
+	adreno_set_active_ctxs_null(adreno_dev);
 
 	clear_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
 
