@@ -4000,7 +4000,7 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 		} else {
 			pr_err("%s: %s: partition switch failed err = %d\n",
 				md->disk->disk_name, __func__, err);
-			ret = 0;
+			ret = err;
 			goto out;
 		}
 	}
