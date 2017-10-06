@@ -116,7 +116,7 @@
 #define HDCP_CREATE_DEVICE_ID(x)               (HDCP_DEVICE_ID | (x))
 
 #define HDCP_TXMTR_HDMI                        HDCP_CREATE_DEVICE_ID(1)
-
+#define HDCP_TXMTR_DP                          HDCP_CREATE_DEVICE_ID(2)
 #define HDCP_TXMTR_SERVICE_ID                 0x0001000
 #define SERVICE_CREATE_CMD(x)                 (HDCP_TXMTR_SERVICE_ID | x)
 
@@ -639,7 +639,8 @@ static int hdcp_lib_get_next_message(struct hdcp_lib_handle *handle,
 	case LC_SEND_L_PRIME_MESSAGE_ID:
 		return SKE_SEND_EKS_MESSAGE_ID;
 	case SKE_SEND_EKS_MESSAGE_ID:
-		if (!handle->repeater_flag)
+		if (!handle->repeater_flag &&
+			handle->device_type == HDCP_TXMTR_DP)
 			return SKE_SEND_TYPE_ID;
 	case SKE_SEND_TYPE_ID:
 	case REPEATER_AUTH_STREAM_READY_MESSAGE_ID:
@@ -1778,6 +1779,19 @@ exit:
 	return rc;
 }
 
+static void hdcp_lib_prep_type_id(struct hdcp_lib_handle *handle,
+	struct hdmi_hdcp_wakeup_data *cdata)
+{
+	memset(handle->listener_buf, 0, MAX_TX_MESSAGE_SIZE);
+	handle->listener_buf[0] = SKE_SEND_TYPE_ID;
+	handle->msglen = 2;
+	cdata->cmd = HDMI_HDCP_WKUP_CMD_SEND_MESSAGE;
+	cdata->send_msg_buf = handle->listener_buf;
+	cdata->send_msg_len = handle->msglen;
+	handle->last_msg = hdcp_lib_get_next_message(handle,
+						cdata);
+}
+
 static void hdcp_lib_msg_sent(struct hdcp_lib_handle *handle)
 {
 	struct hdmi_hdcp_wakeup_data cdata = { HDMI_HDCP_WKUP_CMD_INVALID };
@@ -1802,18 +1816,29 @@ static void hdcp_lib_msg_sent(struct hdcp_lib_handle *handle)
 		cdata.cmd = HDMI_HDCP_WKUP_CMD_LINK_POLL;
 		break;
 	case SKE_SEND_EKS_MESSAGE_ID:
+		/*
+		 * a) if its a repeater irrespective of device type we
+		 *    start CMD_LINK_POLL to trigger repeater auth
+		 * b) if its not a repeater and device is DP we
+		 *    first send the SKE_SEND_TYPE_ID and upon success
+		 *    enable encryption
+		 * c) if its not a repeater and device is HDMI we
+		 *    dont send SKE_SEND_TYPE_ID and enable encryption
+		 *    and start part III of authentication
+		 */
 		if (handle->repeater_flag) {
 			/* poll for link check */
 			cdata.cmd = HDMI_HDCP_WKUP_CMD_LINK_POLL;
-		} else {
-			memset(handle->listener_buf, 0, MAX_TX_MESSAGE_SIZE);
-			handle->listener_buf[0] = SKE_SEND_TYPE_ID;
-			handle->msglen = 2;
-			cdata.cmd = HDMI_HDCP_WKUP_CMD_SEND_MESSAGE;
-			cdata.send_msg_buf = handle->listener_buf;
-			cdata.send_msg_len = handle->msglen;
-			handle->last_msg = hdcp_lib_get_next_message(handle,
-						&cdata);
+		} else if (handle->device_type == HDCP_TXMTR_DP) {
+			hdcp_lib_prep_type_id(handle, &cdata);
+		} else if (handle->device_type == HDCP_TXMTR_HDMI) {
+			if (!hdcp_lib_enable_encryption(handle)) {
+				handle->authenticated = true;
+				cdata.cmd = HDMI_HDCP_WKUP_CMD_STATUS_SUCCESS;
+				hdcp_lib_wakeup_client(handle, &cdata);
+			}
+			/* poll for link check */
+			cdata.cmd = HDMI_HDCP_WKUP_CMD_LINK_POLL;
 		}
 		break;
 	case REPEATER_AUTH_SEND_ACK_MESSAGE_ID:
