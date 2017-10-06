@@ -133,11 +133,13 @@ int sde_wb_config(struct drm_device *drm_dev, void *data,
  * @connector: Pointer to drm connector structure
  * @info: Pointer to connector info
  * @display: Pointer to private display structure
+ * @mode_info: Pointer to the mode info structure
  * Returns: Zero on success
  */
 int sde_wb_connector_post_init(struct drm_connector *connector,
 		void *info,
-		void *display);
+		void *display,
+		struct msm_mode_info *mode_info);
 
 /**
  * sde_wb_connector_detect - perform writeback connection status detection
@@ -280,7 +282,8 @@ int sde_wb_config(struct drm_device *drm_dev, void *data,
 static inline
 int sde_wb_connector_post_init(struct drm_connector *connector,
 		void *info,
-		void *display)
+		void *display,
+		struct msm_mode_info *mode_info)
 {
 	return 0;
 }

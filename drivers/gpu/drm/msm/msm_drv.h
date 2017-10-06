@@ -409,6 +409,7 @@ struct msm_display_topology {
  * @clk_rate:	     DSI bit clock per lane in HZ.
  * @topology:        supported topology for the mode
  * @comp_info:       compression info supported
+ * @roi_caps:        panel roi capabilities
  */
 struct msm_mode_info {
 	uint32_t frame_rate;
@@ -419,6 +420,7 @@ struct msm_mode_info {
 	uint64_t clk_rate;
 	struct msm_display_topology topology;
 	struct msm_compression_info comp_info;
+	struct msm_roi_caps roi_caps;
 };
 
 /**

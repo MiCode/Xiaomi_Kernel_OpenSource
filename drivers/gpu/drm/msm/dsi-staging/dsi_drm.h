@@ -37,11 +37,13 @@ struct dsi_bridge {
  * @connector: Pointer to drm connector structure
  * @info: Pointer to sde connector info structure
  * @display: Pointer to private display handle
+ * @mode_info: Pointer to mode info structure
  * Returns: Zero on success
  */
 int dsi_conn_post_init(struct drm_connector *connector,
 		void *info,
-		void *display);
+		void *display,
+		struct msm_mode_info *mode_info);
 
 /**
  * dsi_conn_detect - callback to determine if connector is connected

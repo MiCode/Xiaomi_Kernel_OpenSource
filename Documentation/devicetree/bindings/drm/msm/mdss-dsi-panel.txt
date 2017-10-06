@@ -340,13 +340,15 @@ Optional properties:
 					"single_roi": default enable mode, only single roi is sent to panel
 					"dual_roi": two rois are merged into one big roi. Panel ddic should be able
 					to process two roi's along with the DCS command to send two rois.
-					disabled if property is not specified.
+					disabled if property is not specified. This property is specified
+					per timing node to support resolution restrictions.
 - qcom,mdss-dsi-horizontal-line-idle:	List of width ranges (EC - SC) in pixels indicating
 					additional idle time in dsi clock cycles that is needed
 					to compensate for smaller line width.
 - qcom,partial-update-roi-merge:	Boolean indicates roi combination is need
 					and function has been provided for dcs
-					2A/2B command.
+					2A/2B command. This property is specified per timing node to support
+					resolution restrictions.
 - qcom,dcs-cmd-by-left:			Boolean to indicate that dcs command are sent
 					through the left DSI controller only in a dual-dsi configuration
 - qcom,mdss-dsi-panel-hdr-enabled:      Boolean to indicate HDR support in panel.
@@ -383,7 +385,8 @@ Optional properties:
 - qcom,suspend-ulps-enabled:		Boolean to enable support for ULPS mode for panels during suspend state.
 - qcom,panel-roi-alignment:		Specifies the panel ROI alignment restrictions on its
 					left, top, width, height alignments and minimum width and
-					height values
+					height values. This property is specified per timing node to support
+					resolution's alignment restrictions.
 - qcom,esd-check-enabled:		Boolean used to enable ESD recovery feature.
 - qcom,mdss-dsi-panel-status-command:	A byte stream formed by multiple dcs packets based on
 					qcom dsi controller protocol, to read the panel status.
@@ -654,7 +657,6 @@ Example:
 		qcom,mdss-tear-check-rd-ptr-trigger-intr = <1281>;
 		qcom,mdss-tear-check-frame-rate = <6000>;
 		qcom,mdss-dsi-reset-sequence = <1 2>, <0 10>, <1 10>;
-		qcom,partial-update-enabled = "single_roi";
 		qcom,dcs-cmd-by-left;
 		qcom,mdss-dsi-lp11-init;
 		qcom,mdss-dsi-init-delay-us = <100>;
@@ -662,7 +664,6 @@ Example:
 		mdss-dsi-tx-eot-append;
 		qcom,ulps-enabled;
 		qcom,suspend-ulps-enabled;
-		qcom,panel-roi-alignment = <4 4 2 2 20 20>;
 		qcom,esd-check-enabled;
 		qcom,mdss-dsi-panel-status-command = [06 01 00 01 05 00 02 0A 08];
 		qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
@@ -721,6 +722,8 @@ Example:
 				qcom,mdss-dsc-config-by-manufacture-cmd;
 				qcom,display-topology = <1 1 1>;
 				qcom,default-topology-index = <0>;
+				qcom,partial-update-enabled = "single_roi";
+				qcom,panel-roi-alignment = <4 4 2 2 20 20>;
 			};
 		};
 		qcom,panel-supply-entries {

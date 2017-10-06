@@ -1178,13 +1178,45 @@ static int _sde_crtc_check_rois(struct drm_crtc *crtc,
 		struct drm_crtc_state *state)
 {
 	struct sde_crtc *sde_crtc;
-	int lm_idx;
-	int rc;
+	struct sde_crtc_state *sde_crtc_state;
+	struct drm_encoder *drm_enc;
+	struct msm_mode_info mode_info;
+	int rc, lm_idx;
 
 	if (!crtc || !state)
 		return -EINVAL;
 
+	memset(&mode_info, 0, sizeof(mode_info));
+
 	sde_crtc = to_sde_crtc(crtc);
+
+	drm_for_each_encoder(drm_enc, crtc->dev) {
+		if (drm_enc->crtc != crtc)
+			continue;
+
+		sde_encoder_get_mode_info(drm_enc, &mode_info);
+	}
+
+	if (!mode_info.roi_caps.enabled)
+		return 0;
+
+	sde_crtc_state = to_sde_crtc_state(state);
+	if (sde_crtc_state->user_roi_list.num_rects >
+					mode_info.roi_caps.num_roi) {
+		SDE_ERROR("roi count is more than supported limit, %d > %d\n",
+				sde_crtc_state->user_roi_list.num_rects,
+				mode_info.roi_caps.num_roi);
+		return -E2BIG;
+	}
+
+	/**
+	 * TODO: Need to check against ROI alignment restrictions if partial
+	 * update support is added for destination scalar configurations
+	 */
+	if (sde_crtc_state->num_ds_enabled) {
+		SDE_ERROR("DS and PU concurrency is not supported\n");
+		return -EINVAL;
+	}
 
 	rc = _sde_crtc_set_crtc_roi(crtc, state);
 	if (rc)

@@ -293,8 +293,7 @@ static const struct drm_bridge_funcs dp_bridge_ops = {
 };
 
 int dp_connector_post_init(struct drm_connector *connector,
-		void *info,
-		void *display)
+		void *info, void *display, struct msm_mode_info *mode_info)
 {
 	struct dp_display *dp_display = display;
 
