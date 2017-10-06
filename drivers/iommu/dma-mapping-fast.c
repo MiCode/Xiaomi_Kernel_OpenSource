@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/pci.h>
+#include <trace/events/iommu.h>
 
 #include <soc/qcom/secure_buffer.h>
 #include <linux/arm-smmu-errata.h>
@@ -405,6 +406,8 @@ static dma_addr_t fast_smmu_map_page(struct device *dev, struct page *page,
 	fast_dmac_clean_range(mapping, pmd, pmd + nptes);
 
 	spin_unlock_irqrestore(&mapping->lock, flags);
+
+	trace_map(mapping->domain, iova, phys_to_map, len, prot);
 	return iova + offset_from_phys_to_map;
 
 fail_free_iova:
@@ -436,6 +439,8 @@ static void fast_smmu_unmap_page(struct device *dev, dma_addr_t iova,
 	fast_dmac_clean_range(mapping, pmd, pmd + nptes);
 	__fast_smmu_free_iova(mapping, iova - offset, len);
 	spin_unlock_irqrestore(&mapping->lock, flags);
+
+	trace_unmap(mapping->domain, iova - offset, len, len);
 }
 
 static void fast_smmu_sync_single_for_cpu(struct device *dev,
