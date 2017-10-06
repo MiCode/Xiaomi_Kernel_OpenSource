@@ -28,7 +28,6 @@ Optional:
 - qcom,lan-rx-ring-size: size of LAN rx ring, default is 192
 - qcom,arm-smmu: SMMU is present and ARM SMMU driver is used
 - qcom,msm-smmu: SMMU is present and QSMMU driver is used
-- qcom,smmu-s1-bypass: Boolean context flag to set SMMU to S1 bypass
 - qcom,smmu-fast-map: Boolean context flag to set SMMU to fastpath mode
 - ipa_smmu_ap: AP general purpose SMMU device
 	compatible "qcom,ipa-smmu-ap-cb"
@@ -122,6 +121,9 @@ IPA SMMU sub nodes
 
 -compatible: "qcom,ipa-smmu-uc-cb" - represents IPA uC context bank (for uC
 					offload scenarios).
+
+- qcom,smmu-s1-bypass: Boolean context flag to set SMMU to S1 bypass.
+
 - iommus : the phandle and stream IDs for the SMMU used by this root
 
 - qcom,iova-mapping: specifies the start address and size of iova space.

@@ -255,7 +255,7 @@ static struct {
 	bool present;
 	bool arm_smmu;
 	bool fast_map;
-	bool s1_bypass;
+	bool s1_bypass_arr[IPA_SMMU_CB_MAX];
 	bool use_64_bit_dma_mask;
 	u32 ipa_base;
 	u32 ipa_size;
@@ -435,14 +435,6 @@ static void ipa3_active_clients_log_destroy(void)
 	spin_unlock_irqrestore(&ipa3_ctx->ipa3_active_clients_logging.lock,
 		flags);
 }
-
-enum ipa_smmu_cb_type {
-	IPA_SMMU_CB_AP,
-	IPA_SMMU_CB_WLAN,
-	IPA_SMMU_CB_UC,
-	IPA_SMMU_CB_MAX
-
-};
 
 static struct ipa_smmu_cb_ctx smmu_cb[IPA_SMMU_CB_MAX];
 
@@ -4430,8 +4422,6 @@ static int ipa3_pil_load_ipa_fws(void)
 	if (IS_ERR_OR_NULL(subsystem_get_retval)) {
 		IPAERR("Unable to trigger PIL process for FW loading\n");
 		return -EINVAL;
-	} else {
-		subsystem_put(subsystem_get_retval);
 	}
 
 	IPADBG("PIL FW loading process is complete\n");
@@ -4643,10 +4633,14 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->pdev = ipa_dev;
 	ipa3_ctx->uc_pdev = ipa_dev;
 	ipa3_ctx->smmu_present = smmu_info.present;
-	if (!ipa3_ctx->smmu_present)
-		ipa3_ctx->smmu_s1_bypass = true;
-	else
-		ipa3_ctx->smmu_s1_bypass = smmu_info.s1_bypass;
+	if (!ipa3_ctx->smmu_present) {
+		for (i = 0; i < IPA_SMMU_CB_MAX; i++)
+			ipa3_ctx->s1_bypass_arr[i] = true;
+	} else {
+		for (i = 0; i < IPA_SMMU_CB_MAX; i++)
+			ipa3_ctx->s1_bypass_arr[i] = smmu_info.s1_bypass_arr[i];
+	}
+
 	ipa3_ctx->ipa_wrapper_base = resource_p->ipa_mem_base;
 	ipa3_ctx->ipa_wrapper_size = resource_p->ipa_mem_size;
 	ipa3_ctx->ipa_hw_type = resource_p->ipa_hw_type;
@@ -5489,7 +5483,8 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 	}
 	cb->valid = true;
 
-	if (smmu_info.s1_bypass) {
+	if (of_property_read_bool(dev->of_node, "qcom,smmu-s1-bypass")) {
+		smmu_info.s1_bypass_arr[IPA_SMMU_CB_WLAN] = true;
 		if (iommu_domain_set_attr(cb->iommu,
 					DOMAIN_ATTR_S1_BYPASS,
 					&bypass)) {
@@ -5497,8 +5492,9 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 			cb->valid = false;
 			return -EIO;
 		}
-		IPADBG("SMMU S1 BYPASS\n");
+		IPADBG("WLAN SMMU S1 BYPASS\n");
 	} else {
+		smmu_info.s1_bypass_arr[IPA_SMMU_CB_WLAN] = false;
 		if (iommu_domain_set_attr(cb->iommu,
 					DOMAIN_ATTR_ATOMIC,
 					&atomic_ctx)) {
@@ -5506,7 +5502,7 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 			cb->valid = false;
 			return -EIO;
 		}
-		IPADBG("SMMU ATTR ATOMIC\n");
+		IPADBG(" WLAN SMMU ATTR ATOMIC\n");
 
 		if (smmu_info.fast_map) {
 			if (iommu_domain_set_attr(cb->iommu,
@@ -5519,6 +5515,9 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 			IPADBG("SMMU fast map set\n");
 		}
 	}
+
+	pr_info("IPA smmu_info.s1_bypass_arr[WLAN]=%d smmu_info.fast_map=%d\n",
+		smmu_info.s1_bypass_arr[IPA_SMMU_CB_WLAN], smmu_info.fast_map);
 
 	ret = iommu_attach_device(cb->iommu, dev);
 	if (ret) {
@@ -5607,20 +5606,23 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 	cb->valid = true;
 
 	IPADBG("UC CB PROBE sub pdev=%p set attribute\n", dev);
-	if (smmu_info.s1_bypass) {
+
+	if (of_property_read_bool(dev->of_node, "qcom,smmu-s1-bypass")) {
+		smmu_info.s1_bypass_arr[IPA_SMMU_CB_UC] = true;
 		if (iommu_domain_set_attr(cb->mapping->domain,
-				DOMAIN_ATTR_S1_BYPASS,
-				&bypass)) {
+			DOMAIN_ATTR_S1_BYPASS,
+			&bypass)) {
 			IPAERR("couldn't set bypass\n");
 			arm_iommu_release_mapping(cb->mapping);
 			cb->valid = false;
 			return -EIO;
 		}
-		IPADBG("SMMU S1 BYPASS\n");
+		IPADBG("UC SMMU S1 BYPASS\n");
 	} else {
+		smmu_info.s1_bypass_arr[IPA_SMMU_CB_UC] = false;
 		if (iommu_domain_set_attr(cb->mapping->domain,
-				DOMAIN_ATTR_ATOMIC,
-				&atomic_ctx)) {
+			DOMAIN_ATTR_ATOMIC,
+			&atomic_ctx)) {
 			IPAERR("couldn't set domain as atomic\n");
 			arm_iommu_release_mapping(cb->mapping);
 			cb->valid = false;
@@ -5630,8 +5632,8 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 
 		if (smmu_info.fast_map) {
 			if (iommu_domain_set_attr(cb->mapping->domain,
-					DOMAIN_ATTR_FAST,
-					&fast)) {
+				DOMAIN_ATTR_FAST,
+				&fast)) {
 				IPAERR("couldn't set fast map\n");
 				arm_iommu_release_mapping(cb->mapping);
 				cb->valid = false;
@@ -5640,6 +5642,9 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 			IPADBG("SMMU fast map set\n");
 		}
 	}
+
+	pr_info("IPA smmu_info.s1_bypass_arr[UC]=%d smmu_info.fast_map=%d\n",
+		smmu_info.s1_bypass_arr[IPA_SMMU_CB_UC], smmu_info.fast_map);
 
 	IPADBG("UC CB PROBE sub pdev=%p attaching IOMMU device\n", dev);
 	ret = arm_iommu_attach_device(cb->dev, cb->mapping);
@@ -5707,7 +5712,9 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	IPADBG("SMMU mapping created\n");
 	cb->valid = true;
 
-	if (smmu_info.s1_bypass) {
+	if (of_property_read_bool(dev->of_node,
+		"qcom,smmu-s1-bypass")) {
+		smmu_info.s1_bypass_arr[IPA_SMMU_CB_AP] = true;
 		if (iommu_domain_set_attr(cb->mapping->domain,
 				DOMAIN_ATTR_S1_BYPASS,
 				&bypass)) {
@@ -5716,8 +5723,9 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 			cb->valid = false;
 			return -EIO;
 		}
-		IPADBG("SMMU S1 BYPASS\n");
+		IPADBG("AP/USB SMMU S1 BYPASS\n");
 	} else {
+		smmu_info.s1_bypass_arr[IPA_SMMU_CB_AP] = false;
 		if (iommu_domain_set_attr(cb->mapping->domain,
 				DOMAIN_ATTR_ATOMIC,
 				&atomic_ctx)) {
@@ -5726,7 +5734,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 			cb->valid = false;
 			return -EIO;
 		}
-		IPADBG("SMMU atomic set\n");
+		IPADBG("AP/USB SMMU atomic set\n");
 
 		if (iommu_domain_set_attr(cb->mapping->domain,
 				DOMAIN_ATTR_FAST,
@@ -5738,6 +5746,9 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		}
 		IPADBG("SMMU fast map set\n");
 	}
+
+	pr_info("IPA smmu_info.s1_bypass_arr[AP]=%d smmu_info.fast_map=%d\n",
+		smmu_info.s1_bypass_arr[IPA_SMMU_CB_AP], smmu_info.fast_map);
 
 	result = arm_iommu_attach_device(cb->dev, cb->mapping);
 	if (result) {
@@ -5922,17 +5933,12 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 
 	if (of_property_read_bool(pdev_p->dev.of_node, "qcom,arm-smmu")) {
 		if (of_property_read_bool(pdev_p->dev.of_node,
-		    "qcom,smmu-s1-bypass"))
-			smmu_info.s1_bypass = true;
-		if (of_property_read_bool(pdev_p->dev.of_node,
 			"qcom,smmu-fast-map"))
 			smmu_info.fast_map = true;
 		if (of_property_read_bool(pdev_p->dev.of_node,
 			"qcom,use-64-bit-dma-mask"))
 			smmu_info.use_64_bit_dma_mask = true;
 		smmu_info.arm_smmu = true;
-		pr_info("IPA smmu_info.s1_bypass=%d smmu_info.fast_map=%d\n",
-			smmu_info.s1_bypass, smmu_info.fast_map);
 	} else if (of_property_read_bool(pdev_p->dev.of_node,
 				"qcom,msm-smmu")) {
 		IPAERR("Legacy IOMMU not supported\n");
