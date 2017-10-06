@@ -958,6 +958,7 @@ static void rmnet_mhi_cb(struct mhi_cb_info *cb_info)
 {
 	struct rmnet_mhi_private *rmnet_mhi_ptr;
 	struct mhi_result *result;
+	char ifalias[IFALIASZ];
 	int r = 0;
 
 	if (!cb_info || !cb_info->result) {
@@ -979,9 +980,16 @@ static void rmnet_mhi_cb(struct mhi_cb_info *cb_info)
 		 * as we set mhi_enabled = 0, we gurantee rest of
 		 * driver will not touch any critical data.
 		*/
+		snprintf(ifalias, sizeof(ifalias), "%s", "unidentified_netdev");
 		write_lock_irq(&rmnet_mhi_ptr->pm_lock);
 		rmnet_mhi_ptr->mhi_enabled = 0;
 		write_unlock_irq(&rmnet_mhi_ptr->pm_lock);
+		/* Set unidentified_net_dev string to ifalias
+		 * on error notification
+		*/
+		rtnl_lock();
+		dev_set_alias(rmnet_mhi_ptr->dev, ifalias, strlen(ifalias));
+		rtnl_unlock();
 
 		if (cb_info->chan == rmnet_mhi_ptr->rx_channel) {
 			rmnet_log(rmnet_mhi_ptr, MSG_INFO,
