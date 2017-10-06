@@ -910,6 +910,10 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 			"PLL_ENABLE", 0x0, 0, 1, 0,
 			CONNECTOR_PROP_PLL_ENABLE);
 
+	msm_property_install_volatile_range(&c_conn->property_info,
+			"HDCP_VERSION", 0x0, 0, U8_MAX, 0,
+			CONNECTOR_PROP_HDCP_VERSION);
+
 	/* enum/bitmask properties */
 	msm_property_install_enum(&c_conn->property_info, "topology_name",
 			DRM_MODE_PROP_IMMUTABLE, 0, e_topology_name,

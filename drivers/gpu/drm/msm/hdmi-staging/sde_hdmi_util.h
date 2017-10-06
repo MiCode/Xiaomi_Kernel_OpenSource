@@ -105,6 +105,10 @@
 #define SDE_HDMI_USE_EXTENDED_COLORIMETRY 0x3
 #define SDE_HDMI_BT2020_COLORIMETRY 0x6
 
+#define SDE_HDMI_HDCP_22 0x22
+#define SDE_HDMI_HDCP_14 0x14
+#define SDE_HDMI_HDCP_NONE 0x0
+
 /*
  * Bits 1:0 in HDMI_HW_DDC_CTRL that dictate how the HDCP 2.2 RxStatus will be
  * read by the hardware
