@@ -83,6 +83,10 @@ struct ipa3_qmi_context {
 	int num_ipa_fltr_installed_notif_req_msg;
 	struct ipa_fltr_installed_notif_req_msg_v01
 		ipa_fltr_installed_notif_req_msg_cache[MAX_NUM_QMI_RULE_CACHE];
+	int num_ipa_configure_ul_firewall_rules_req_msg;
+	struct ipa_configure_ul_firewall_rules_req_msg_v01
+		ipa_configure_ul_firewall_rules_req_msg_cache
+						[MAX_NUM_QMI_RULE_CACHE];
 	bool modem_cfg_emb_pipe_flt;
 };
 
@@ -190,6 +194,9 @@ int ipa3_qmi_filter_request_send(
 int ipa3_qmi_filter_request_ex_send(
 	struct ipa_install_fltr_rule_req_ex_msg_v01 *req);
 
+int ipa3_qmi_ul_filter_request_send(
+	struct ipa_configure_ul_firewall_rules_req_msg_v01 *req);
+
 /* sending filter-installed-notify-request to modem*/
 int ipa3_qmi_filter_notify_send(struct ipa_fltr_installed_notif_req_msg_v01
 		*req);
@@ -283,6 +290,12 @@ static inline void ipa3_qmi_service_exit(void) { }
 /* sending filter-install-request to modem*/
 static inline int ipa3_qmi_filter_request_send(
 	struct ipa_install_fltr_rule_req_msg_v01 *req)
+{
+	return -EPERM;
+}
+
+static inline int ipa3_qmi_ul_filter_request_send(
+	struct ipa_configure_ul_firewall_rules_req_msg_v01 *req)
 {
 	return -EPERM;
 }
