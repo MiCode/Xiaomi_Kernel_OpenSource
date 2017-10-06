@@ -38,11 +38,13 @@ struct sde_connector_ops {
 	 * @connector: Pointer to drm connector structure
 	 * @info: Pointer to sde connector info structure
 	 * @display: Pointer to private display handle
+	 * @mode_info: Pointer to mode info structure
 	 * Returns: Zero on success
 	 */
 	int (*post_init)(struct drm_connector *connector,
 			void *info,
-			void *display);
+			void *display,
+			struct msm_mode_info *mode_info);
 
 	/**
 	 * detect - determine if connector is connected
@@ -591,6 +593,20 @@ static inline bool sde_connector_needs_offset(struct drm_connector *connector)
  */
 int sde_connector_get_dither_cfg(struct drm_connector *conn,
 		struct drm_connector_state *state, void **cfg, size_t *len);
+
+/**
+ * sde_connector_set_info - set connector property value
+ * @conn: Pointer to drm_connector struct
+ * Returns: Zero on success
+ */
+int sde_connector_set_info(struct drm_connector *conn);
+
+/**
+ * sde_connector_roi_v1_check_roi - validate connector ROI
+ * @conn_state: Pointer to drm_connector_state struct
+ * Returns: Zero on success
+ */
+int sde_connector_roi_v1_check_roi(struct drm_connector_state *conn_state);
 
 /**
  * sde_connector_schedule_status_work - manage ESD thread

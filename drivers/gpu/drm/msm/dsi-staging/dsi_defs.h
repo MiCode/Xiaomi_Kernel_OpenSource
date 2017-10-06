@@ -358,6 +358,7 @@ struct dsi_panel_cmd_set {
  * @clk_rate_hz:      DSI bit clock rate per lane in Hz.
  * @dsc_enabled:      DSC compression enabled.
  * @dsc:              DSC compression configuration.
+ * @roi_caps:         Panel ROI capabilities.
  */
 struct dsi_mode_info {
 	u32 h_active;
@@ -377,6 +378,7 @@ struct dsi_mode_info {
 	u64 clk_rate_hz;
 	bool dsc_enabled;
 	struct msm_display_dsc_info *dsc;
+	struct msm_roi_caps roi_caps;
 };
 
 /**
@@ -505,6 +507,7 @@ struct dsi_host_config {
  * @topology:             Topology selected for the panel
  * @dsc:                  DSC compression info
  * @dsc_enabled:          DSC compression enabled
+ * @roi_caps:		  Panel ROI capabilities
  */
 struct dsi_display_mode_priv_info {
 	struct dsi_panel_cmd_set cmd_sets[DSI_CMD_SET_MAX];
@@ -520,6 +523,7 @@ struct dsi_display_mode_priv_info {
 	struct msm_display_topology topology;
 	struct msm_display_dsc_info dsc;
 	bool dsc_enabled;
+	struct msm_roi_caps roi_caps;
 };
 
 /**

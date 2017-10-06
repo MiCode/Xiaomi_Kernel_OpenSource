@@ -366,7 +366,8 @@ struct sde_kms_info {
  * @S: Pointer to sde_kms_info structure
  * Returns: Pointer to byte data
  */
-#define SDE_KMS_INFO_DATA(S)    ((S) ? ((struct sde_kms_info *)(S))->data : 0)
+#define SDE_KMS_INFO_DATA(S)    ((S) ? ((struct sde_kms_info *)(S))->data \
+							: NULL)
 
 /**
  * SDE_KMS_INFO_DATALEN - Macro for accessing sde_kms_info data length

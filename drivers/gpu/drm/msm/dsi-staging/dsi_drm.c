@@ -330,6 +330,11 @@ int dsi_conn_get_mode_info(const struct drm_display_mode *drm_mode,
 			sizeof(dsi_mode.priv_info->dsc));
 	}
 
+	if (dsi_mode.priv_info->roi_caps.enabled) {
+		memcpy(&mode_info->roi_caps, &dsi_mode.priv_info->roi_caps,
+			sizeof(dsi_mode.priv_info->roi_caps));
+	}
+
 	return 0;
 }
 
@@ -344,8 +349,7 @@ static const struct drm_bridge_funcs dsi_bridge_ops = {
 };
 
 int dsi_conn_post_init(struct drm_connector *connector,
-		void *info,
-		void *display)
+		void *info, void *display, struct msm_mode_info *mode_info)
 {
 	struct dsi_display *dsi_display = display;
 	struct dsi_panel *panel;
@@ -444,23 +448,23 @@ int dsi_conn_post_init(struct drm_connector *connector,
 		break;
 	}
 
-	if (panel->roi_caps.enabled) {
+	if (mode_info && mode_info->roi_caps.enabled) {
 		sde_kms_info_add_keyint(info, "partial_update_num_roi",
-				panel->roi_caps.num_roi);
+				mode_info->roi_caps.num_roi);
 		sde_kms_info_add_keyint(info, "partial_update_xstart",
-				panel->roi_caps.align.xstart_pix_align);
+				mode_info->roi_caps.align.xstart_pix_align);
 		sde_kms_info_add_keyint(info, "partial_update_walign",
-				panel->roi_caps.align.width_pix_align);
+				mode_info->roi_caps.align.width_pix_align);
 		sde_kms_info_add_keyint(info, "partial_update_wmin",
-				panel->roi_caps.align.min_width);
+				mode_info->roi_caps.align.min_width);
 		sde_kms_info_add_keyint(info, "partial_update_ystart",
-				panel->roi_caps.align.ystart_pix_align);
+				mode_info->roi_caps.align.ystart_pix_align);
 		sde_kms_info_add_keyint(info, "partial_update_halign",
-				panel->roi_caps.align.height_pix_align);
+				mode_info->roi_caps.align.height_pix_align);
 		sde_kms_info_add_keyint(info, "partial_update_hmin",
-				panel->roi_caps.align.min_height);
+				mode_info->roi_caps.align.min_height);
 		sde_kms_info_add_keyint(info, "partial_update_roimerge",
-				panel->roi_caps.merge_rois);
+				mode_info->roi_caps.merge_rois);
 	}
 
 end:

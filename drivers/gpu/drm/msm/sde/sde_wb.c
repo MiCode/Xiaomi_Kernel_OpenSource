@@ -353,8 +353,7 @@ int sde_wb_get_mode_info(const struct drm_display_mode *drm_mode,
 }
 
 int sde_wb_connector_post_init(struct drm_connector *connector,
-		void *info,
-		void *display)
+		void *info, void *display, struct msm_mode_info *mode_info)
 {
 	struct sde_connector *c_conn;
 	struct sde_wb_device *wb_dev = display;
