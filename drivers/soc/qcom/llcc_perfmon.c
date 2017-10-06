@@ -470,12 +470,44 @@ static ssize_t perfmon_start_store(struct device *dev,
 	return count;
 }
 
+static ssize_t perfmon_scid_status_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct llcc_perfmon_private *llcc_priv = dev_get_drvdata(dev);
+	uint32_t val;
+	unsigned int i, offset;
+	ssize_t cnt = 0, print;
+
+	for (i = 0; i < SCID_MAX; i++) {
+		offset = TRP_SCID_n_STATUS(i);
+		llcc_bcast_read(llcc_priv, offset, &val);
+		if (val & TRP_SCID_STATUS_ACTIVE_MASK)
+			print = snprintf(buf, MAX_STRING_SIZE, "SCID %02d %10s",
+					i, "ACTIVE");
+		else
+			print = snprintf(buf, MAX_STRING_SIZE, "SCID %02d %10s",
+					i, "DEACTIVE");
+
+		buf += print;
+		cnt += print;
+
+		val = (val & TRP_SCID_STATUS_CURRENT_CAP_MASK)
+			>> TRP_SCID_STATUS_CURRENT_CAP_SHIFT;
+		print = snprintf(buf, MAX_STRING_SIZE, ",0x%08x\n", val);
+		buf += print;
+		cnt += print;
+	}
+
+	return cnt;
+}
+
 static DEVICE_ATTR_RO(perfmon_counter_dump);
 static DEVICE_ATTR_WO(perfmon_configure);
 static DEVICE_ATTR_WO(perfmon_remove);
 static DEVICE_ATTR_WO(perfmon_filter_config);
 static DEVICE_ATTR_WO(perfmon_filter_remove);
 static DEVICE_ATTR_WO(perfmon_start);
+static DEVICE_ATTR_RO(perfmon_scid_status);
 
 static struct attribute *llcc_perfmon_attrs[] = {
 	&dev_attr_perfmon_counter_dump.attr,
@@ -484,6 +516,7 @@ static struct attribute *llcc_perfmon_attrs[] = {
 	&dev_attr_perfmon_filter_config.attr,
 	&dev_attr_perfmon_filter_remove.attr,
 	&dev_attr_perfmon_start.attr,
+	&dev_attr_perfmon_scid_status.attr,
 	NULL,
 };
 
