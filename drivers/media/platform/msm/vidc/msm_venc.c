@@ -1317,6 +1317,18 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL:
 	{
+		struct v4l2_ctrl *hybrid_hp = TRY_GET_CTRL(
+			V4L2_CID_MPEG_VIDC_VIDEO_HYBRID_HIERP_MODE);
+		if ((ctrl->val ==
+				V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_CBR_VFR
+			|| ctrl->val ==
+			 V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_VFR)
+			&& hybrid_hp->val) {
+			dprintk(VIDC_ERR,
+				"CBR_VFR/VBR_VFR not allowed with Hybrid HP\n");
+			rc = -ENOTSUPP;
+			break;
+		}
 		property_id = HAL_PARAM_VENC_RATE_CONTROL;
 		property_val = ctrl->val;
 		pdata = &property_val;
@@ -1756,10 +1768,26 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		pdata = &enable;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_HYBRID_HIERP_MODE:
+	{
+		struct v4l2_ctrl *rate_control;
+
+		rate_control =
+			TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL);
+		if ((rate_control->val ==
+				V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_CBR_VFR ||
+			rate_control->val ==
+				V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_VFR)
+			&& ctrl->val) {
+			dprintk(VIDC_ERR,
+				"Hybrid HP not allowed with CBR_VFR/VBR_VFR\n");
+			rc = -ENOTSUPP;
+			break;
+		}
 		property_id = HAL_PARAM_VENC_HIER_P_HYBRID_MODE;
 		hyb_hierp.layers = ctrl->val;
 		pdata = &hyb_hierp;
 		break;
+	}
 	case V4L2_CID_VIDC_QBUF_MODE:
 		property_id = HAL_PARAM_SYNC_BASED_INTERRUPT;
 		enable.enable = ctrl->val == V4L2_VIDC_QBUF_BATCHED;
