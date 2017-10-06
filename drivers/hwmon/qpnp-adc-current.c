@@ -27,17 +27,11 @@
 #include <linux/spmi.h>
 #include <linux/platform_device.h>
 #include <linux/of_irq.h>
-#ifdef CONFIG_WAKELOCK
-#include <linux/wakelock.h>
-#endif
 #include <linux/interrupt.h>
 #include <linux/completion.h>
 #include <linux/hwmon-sysfs.h>
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/platform_device.h>
-#ifdef CONFIG_WAKELOCK
-#include <linux/wakelock.h>
-#endif
 
 /* QPNP IADC register definition */
 #define QPNP_IADC_REVISION1				0x0
