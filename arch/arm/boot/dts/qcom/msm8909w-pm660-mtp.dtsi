@@ -80,6 +80,16 @@
 		/delete-property/ vdd-supply;
 		/delete-property/ vlogic-supply;
 	};
+
+	avago@39 {
+		/delete-property/ vdd-supply;
+		/delete-property/ vio-supply;
+	};
+
+	akm@c {
+		/delete-property/ vdd-supply;
+		/delete-property/ vio-supply;
+	};
 };
 
 &i2c_3 {
