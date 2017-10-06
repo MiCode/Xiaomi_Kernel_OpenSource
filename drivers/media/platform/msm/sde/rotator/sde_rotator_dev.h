@@ -90,9 +90,12 @@ struct sde_rotator_vbinfo {
  * @list: list head for submit/retire list
  * @submit_work: submit work structure
  * @retire_work: retire work structure
- * @request: Pointer to core layer rotator manager request
+ * @req: Pointer to core layer rotator manager request
+ *	 Request can be freed by core layer during sde_rotator_stop_streaming.
+ *	 Avoid dereference in dev layer if possible.
  * @ctx: Pointer to parent context
  * @committed: true if request committed to hardware
+ * @sequence_id: sequence identifier of this request
  */
 struct sde_rotator_request {
 	struct list_head list;
@@ -101,6 +104,7 @@ struct sde_rotator_request {
 	struct sde_rot_entry_container *req;
 	struct sde_rotator_ctx *ctx;
 	bool committed;
+	u32 sequence_id;
 };
 
 /*
