@@ -230,13 +230,15 @@ void sde_vbif_set_ot_limit(struct sde_kms *sde_kms,
 
 	for (i = 0; i < ARRAY_SIZE(sde_kms->hw_vbif); i++) {
 		if (sde_kms->hw_vbif[i] &&
-				sde_kms->hw_vbif[i]->idx == params->vbif_idx)
+				sde_kms->hw_vbif[i]->idx == params->vbif_idx) {
 			vbif = sde_kms->hw_vbif[i];
+			break;
+		}
 	}
 
 	if (!vbif || !mdp) {
 		SDE_DEBUG("invalid arguments vbif %d mdp %d\n",
-				vbif != 0, mdp != 0);
+				vbif != NULL, mdp != NULL);
 		return;
 	}
 
@@ -273,6 +275,58 @@ void sde_vbif_set_ot_limit(struct sde_kms *sde_kms,
 		mdp->ops.setup_clk_force_ctrl(mdp, params->clk_ctrl, false);
 exit:
 	return;
+}
+
+bool sde_vbif_set_xin_halt(struct sde_kms *sde_kms,
+		struct sde_vbif_set_xin_halt_params *params)
+{
+	struct sde_hw_vbif *vbif = NULL;
+	struct sde_hw_mdp *mdp;
+	bool forced_on = false;
+	int ret, i;
+
+	if (!sde_kms || !params) {
+		SDE_ERROR("invalid arguments\n");
+		return false;
+	}
+	mdp = sde_kms->hw_mdp;
+
+	for (i = 0; i < ARRAY_SIZE(sde_kms->hw_vbif); i++) {
+		if (sde_kms->hw_vbif[i] &&
+				sde_kms->hw_vbif[i]->idx == params->vbif_idx) {
+			vbif = sde_kms->hw_vbif[i];
+			break;
+		}
+	}
+
+	if (!vbif || !mdp) {
+		SDE_DEBUG("invalid arguments vbif %d mdp %d\n",
+				vbif != NULL, mdp != NULL);
+		return false;
+	}
+
+	if (!mdp->ops.setup_clk_force_ctrl ||
+			!vbif->ops.set_halt_ctrl)
+		return false;
+
+	if (params->enable) {
+		forced_on = mdp->ops.setup_clk_force_ctrl(mdp,
+				params->clk_ctrl, true);
+
+		vbif->ops.set_halt_ctrl(vbif, params->xin_id, true);
+
+		ret = _sde_vbif_wait_for_xin_halt(vbif, params->xin_id);
+		if (ret)
+			SDE_EVT32(vbif->idx, params->xin_id, SDE_EVTLOG_ERROR);
+	} else {
+		vbif->ops.set_halt_ctrl(vbif, params->xin_id, false);
+
+		if (params->forced_on)
+			mdp->ops.setup_clk_force_ctrl(mdp,
+					params->clk_ctrl, false);
+	}
+
+	return forced_on;
 }
 
 void sde_vbif_set_qos_remap(struct sde_kms *sde_kms,
