@@ -4741,6 +4741,9 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		       mmc_hostname(host->mmc), __func__, ret);
 		device_remove_file(&pdev->dev, &msm_host->auto_cmd21_attr);
 	}
+	if (sdhci_msm_is_bootdevice(&pdev->dev))
+		mmc_flush_detect_work(host->mmc);
+
 	/* Successful initialization */
 	goto out;
 
