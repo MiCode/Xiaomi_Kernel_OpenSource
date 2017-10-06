@@ -2530,6 +2530,11 @@ static int _sde_crtc_set_dest_scaler(struct sde_crtc *sde_crtc,
 	}
 
 	count = ds_data.num_dest_scaler;
+	if (!count) {
+		SDE_DEBUG("no ds data available\n");
+		return 0;
+	}
+
 	if (!sde_crtc->num_mixers || count > sde_crtc->num_mixers ||
 		(count && (count != sde_crtc->num_mixers) &&
 		!(ds_data.ds_cfg[0].flags & SDE_DRM_DESTSCALER_PU_ENABLE))) {
