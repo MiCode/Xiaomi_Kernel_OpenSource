@@ -32,54 +32,58 @@
 
 #define IPAWANDBG(fmt, args...) \
 	do { \
-		pr_debug(DEV_NAME " %s:%d " fmt, __func__, __LINE__, ## args); \
+		pr_debug(DEV_NAME " %s:%d " fmt, __func__,\
+				__LINE__, ## args); \
 		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
-			DEV_NAME " %s:%d " fmt, ## args); \
+				DEV_NAME " %s:%d " fmt, ## args); \
 		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
-			DEV_NAME " %s:%d " fmt, ## args); \
+				DEV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
 
 #define IPAWANDBG_LOW(fmt, args...) \
 	do { \
-		pr_debug(DEV_NAME " %s:%d " fmt, __func__, __LINE__, ## args); \
+		pr_debug(DEV_NAME " %s:%d " fmt, __func__,\
+				__LINE__, ## args); \
 		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
-			DEV_NAME " %s:%d " fmt, ## args); \
+				DEV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
 #define IPAWANERR(fmt, args...) \
 	do { \
-		pr_err(DEV_NAME " %s:%d " fmt, __func__, __LINE__, ## args); \
+		pr_err(DEV_NAME " %s:%d " fmt, __func__,\
+				__LINE__, ## args); \
 		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
-			DEV_NAME " %s:%d " fmt, ## args); \
+				DEV_NAME " %s:%d " fmt, ## args); \
 		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
-			DEV_NAME " %s:%d " fmt, ## args); \
+				DEV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
 #define IPAWANINFO(fmt, args...) \
 	do { \
-		pr_info(DEV_NAME " %s:%d " fmt, __func__, __LINE__, ## args); \
+		pr_info(DEV_NAME " %s:%d " fmt, __func__,\
+				__LINE__, ## args); \
 		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
-			DEV_NAME " %s:%d " fmt, ## args); \
+				DEV_NAME " %s:%d " fmt, ## args); \
 		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
-			DEV_NAME " %s:%d " fmt, ## args); \
+				DEV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
 extern struct ipa3_qmi_context *ipa3_qmi_ctx;
 
 struct ipa3_qmi_context {
-struct ipa_ioc_ext_intf_prop q6_ul_filter_rule[MAX_NUM_Q6_RULE];
-u32 q6_ul_filter_rule_hdl[MAX_NUM_Q6_RULE];
-int num_ipa_install_fltr_rule_req_msg;
-struct ipa_install_fltr_rule_req_msg_v01
+	struct ipa_ioc_ext_intf_prop q6_ul_filter_rule[MAX_NUM_Q6_RULE];
+	u32 q6_ul_filter_rule_hdl[MAX_NUM_Q6_RULE];
+	int num_ipa_install_fltr_rule_req_msg;
+	struct ipa_install_fltr_rule_req_msg_v01
 		ipa_install_fltr_rule_req_msg_cache[MAX_NUM_QMI_RULE_CACHE];
-int num_ipa_install_fltr_rule_req_ex_msg;
-struct ipa_install_fltr_rule_req_ex_msg_v01
+	int num_ipa_install_fltr_rule_req_ex_msg;
+	struct ipa_install_fltr_rule_req_ex_msg_v01
 		ipa_install_fltr_rule_req_ex_msg_cache[MAX_NUM_QMI_RULE_CACHE];
-int num_ipa_fltr_installed_notif_req_msg;
-struct ipa_fltr_installed_notif_req_msg_v01
+	int num_ipa_fltr_installed_notif_req_msg;
+	struct ipa_fltr_installed_notif_req_msg_v01
 		ipa_fltr_installed_notif_req_msg_cache[MAX_NUM_QMI_RULE_CACHE];
-bool modem_cfg_emb_pipe_flt;
+	bool modem_cfg_emb_pipe_flt;
 };
 
 struct ipa3_rmnet_mux_val {
@@ -95,56 +99,69 @@ extern struct elem_info ipa3_init_modem_driver_req_msg_data_v01_ei[];
 extern struct elem_info ipa3_init_modem_driver_resp_msg_data_v01_ei[];
 extern struct elem_info ipa3_indication_reg_req_msg_data_v01_ei[];
 extern struct elem_info ipa3_indication_reg_resp_msg_data_v01_ei[];
-extern struct elem_info ipa3_master_driver_init_complt_ind_msg_data_v01_ei[];
+
+extern struct elem_info
+	ipa3_master_driver_init_complt_ind_msg_data_v01_ei[];
 extern struct elem_info ipa3_install_fltr_rule_req_msg_data_v01_ei[];
 extern struct elem_info ipa3_install_fltr_rule_resp_msg_data_v01_ei[];
 extern struct elem_info ipa3_fltr_installed_notif_req_msg_data_v01_ei[];
 extern struct elem_info ipa3_fltr_installed_notif_resp_msg_data_v01_ei[];
-extern struct elem_info ipa3_enable_force_clear_datapath_req_msg_data_v01_ei[];
-extern struct elem_info ipa3_enable_force_clear_datapath_resp_msg_data_v01_ei[];
-extern struct elem_info ipa3_disable_force_clear_datapath_req_msg_data_v01_ei[];
+
+extern struct elem_info
+	ipa3_enable_force_clear_datapath_req_msg_data_v01_ei[];
+extern struct elem_info
+	ipa3_enable_force_clear_datapath_resp_msg_data_v01_ei[];
+extern struct elem_info
+	ipa3_disable_force_clear_datapath_req_msg_data_v01_ei[];
 extern struct elem_info
 	ipa3_disable_force_clear_datapath_resp_msg_data_v01_ei[];
 extern struct elem_info ipa3_config_req_msg_data_v01_ei[];
 extern struct elem_info ipa3_config_resp_msg_data_v01_ei[];
 extern struct elem_info ipa3_get_data_stats_req_msg_data_v01_ei[];
 extern struct elem_info ipa3_get_data_stats_resp_msg_data_v01_ei[];
-extern struct elem_info ipa3_get_apn_data_stats_req_msg_data_v01_ei[];
-extern struct elem_info ipa3_get_apn_data_stats_resp_msg_data_v01_ei[];
-extern struct elem_info ipa3_set_data_usage_quota_req_msg_data_v01_ei[];
-extern struct elem_info ipa3_set_data_usage_quota_resp_msg_data_v01_ei[];
-extern struct elem_info ipa3_data_usage_quota_reached_ind_msg_data_v01_ei[];
-extern struct elem_info ipa3_stop_data_usage_quota_req_msg_data_v01_ei[];
-extern struct elem_info ipa3_stop_data_usage_quota_resp_msg_data_v01_ei[];
-extern struct elem_info ipa3_init_modem_driver_cmplt_req_msg_data_v01_ei[];
-extern struct elem_info ipa3_init_modem_driver_cmplt_resp_msg_data_v01_ei[];
-extern struct elem_info ipa3_install_fltr_rule_req_ex_msg_data_v01_ei[];
-extern struct elem_info ipa3_install_fltr_rule_resp_ex_msg_data_v01_ei[];
 
-	extern struct elem_info
-		ipa3_install_fltr_rule_req_ex_msg_data_v01_ei[];
-	extern struct elem_info
-		ipa3_install_fltr_rule_resp_ex_msg_data_v01_ei[];
-	extern struct elem_info
-		ipa3_ul_firewall_rule_type_data_v01_ei[];
-	extern struct elem_info
-		ipa3_ul_firewall_config_result_type_data_v01_ei[];
-	extern struct elem_info
-		ipa3_per_client_stats_info_type_data_v01_ei[];
-	extern struct elem_info
-		ipa3_enable_per_client_stats_req_msg_data_v01_ei[];
-	extern struct elem_info
-		ipa3_enable_per_client_stats_resp_msg_data_v01_ei[];
-	extern struct elem_info
-		ipa3_get_stats_per_client_req_msg_data_v01_ei[];
-	extern struct elem_info
-		ipa3_get_stats_per_client_resp_msg_data_v01_ei[];
-	extern struct elem_info
-		ipa3_configure_ul_firewall_rules_req_msg_data_v01_ei[];
-	extern struct elem_info
-		ipa3_configure_ul_firewall_rules_resp_msg_data_v01_ei[];
-	extern struct elem_info
-		ipa3_configure_ul_firewall_rules_ind_msg_data_v01_ei[];
+extern struct elem_info
+	ipa3_get_apn_data_stats_req_msg_data_v01_ei[];
+extern struct elem_info
+	ipa3_get_apn_data_stats_resp_msg_data_v01_ei[];
+extern struct elem_info
+	ipa3_set_data_usage_quota_req_msg_data_v01_ei[];
+extern struct elem_info
+	ipa3_set_data_usage_quota_resp_msg_data_v01_ei[];
+extern struct elem_info
+	ipa3_data_usage_quota_reached_ind_msg_data_v01_ei[];
+extern struct elem_info
+	ipa3_stop_data_usage_quota_req_msg_data_v01_ei[];
+extern struct elem_info
+	ipa3_stop_data_usage_quota_resp_msg_data_v01_ei[];
+extern struct elem_info
+	ipa3_init_modem_driver_cmplt_req_msg_data_v01_ei[];
+extern struct elem_info
+	ipa3_init_modem_driver_cmplt_resp_msg_data_v01_ei[];
+extern struct elem_info
+	ipa3_install_fltr_rule_req_ex_msg_data_v01_ei[];
+extern struct elem_info
+	ipa3_install_fltr_rule_resp_ex_msg_data_v01_ei[];
+extern struct elem_info
+	ipa3_ul_firewall_rule_type_data_v01_ei[];
+extern struct elem_info
+	ipa3_ul_firewall_config_result_type_data_v01_ei[];
+extern struct elem_info
+	ipa3_per_client_stats_info_type_data_v01_ei[];
+extern struct elem_info
+	ipa3_enable_per_client_stats_req_msg_data_v01_ei[];
+extern struct elem_info
+	ipa3_enable_per_client_stats_resp_msg_data_v01_ei[];
+extern struct elem_info
+	ipa3_get_stats_per_client_req_msg_data_v01_ei[];
+extern struct elem_info
+	ipa3_get_stats_per_client_resp_msg_data_v01_ei[];
+extern struct elem_info
+	ipa3_configure_ul_firewall_rules_req_msg_data_v01_ei[];
+extern struct elem_info
+	ipa3_configure_ul_firewall_rules_resp_msg_data_v01_ei[];
+extern struct elem_info
+	ipa3_configure_ul_firewall_rules_ind_msg_data_v01_ei[];
 
 /**
  * struct ipa3_rmnet_context - IPA rmnet context
@@ -219,6 +236,16 @@ int rmnet_ipa3_query_tethering_stats_all(
 	struct wan_ioctl_query_tether_stats_all *data);
 
 int rmnet_ipa3_reset_tethering_stats(struct wan_ioctl_reset_tether_stats *data);
+int rmnet_ipa3_set_lan_client_info(struct wan_ioctl_lan_client_info *data);
+
+int rmnet_ipa3_clear_lan_client_info(struct wan_ioctl_lan_client_info *data);
+
+int rmnet_ipa3_send_lan_client_msg(struct wan_ioctl_send_lan_client_msg *data);
+
+int rmnet_ipa3_enable_per_client_stats(bool *data);
+
+int rmnet_ipa3_query_per_client_stats(
+	struct wan_ioctl_query_per_client_stats *data);
 
 int ipa3_qmi_get_data_stats(struct ipa_get_data_stats_req_msg_v01 *req,
 	struct ipa_get_data_stats_resp_msg_v01 *resp);
@@ -231,6 +258,14 @@ int ipa3_qmi_set_data_quota(struct ipa_set_data_usage_quota_req_msg_v01 *req);
 int ipa3_qmi_stop_data_qouta(void);
 
 void ipa3_q6_handshake_complete(bool ssr_bootup);
+
+int ipa3_qmi_enable_per_client_stats(
+	struct ipa_enable_per_client_stats_req_msg_v01 *req,
+	struct ipa_enable_per_client_stats_resp_msg_v01 *resp);
+
+int ipa3_qmi_get_per_client_packet_stats(
+	struct ipa_get_stats_per_client_req_msg_v01 *req,
+	struct ipa_get_stats_per_client_resp_msg_v01 *resp);
 
 void ipa3_qmi_init(void);
 
@@ -348,12 +383,28 @@ static inline int ipa3_qmi_stop_data_qouta(void)
 
 static inline void ipa3_q6_handshake_complete(bool ssr_bootup) { }
 
+static inline int ipa3_qmi_enable_per_client_stats(
+	struct ipa_enable_per_client_stats_req_msg_v01 *req,
+	struct ipa_enable_per_client_stats_resp_msg_v01 *resp)
+{
+	return -EPERM;
+}
+
+static inline int ipa3_qmi_get_per_client_packet_stats(
+	struct ipa_get_stats_per_client_req_msg_v01 *req,
+	struct ipa_get_stats_per_client_resp_msg_v01 *resp)
+{
+	return -EPERM;
+}
+
 static inline void ipa3_qmi_init(void)
 {
+
 }
 
 static inline void ipa3_qmi_cleanup(void)
 {
+
 }
 
 #endif /* CONFIG_RMNET_IPA3 */
