@@ -48,6 +48,19 @@
 #define KGSL_PWR_DEL_LIMIT 1
 #define KGSL_PWR_SET_LIMIT 2
 
+/*
+ * The effective duration of qos request in usecs at queue time.
+ * After timeout, qos request is cancelled automatically.
+ * Kept 80ms default, inline with default GPU idle time.
+ */
+#define KGSL_L2PC_QUEUE_TIMEOUT	(80 * 1000)
+
+/*
+ * The effective duration of qos request in usecs at wakeup time.
+ * After timeout, qos request is cancelled automatically.
+ */
+#define KGSL_L2PC_WAKEUP_TIMEOUT (10 * 1000)
+
 enum kgsl_pwrctrl_timer_type {
 	KGSL_PWR_IDLE_TIMER,
 	KGSL_PWR_DEEP_NAP_TIMER,
@@ -129,6 +142,7 @@ struct kgsl_regulator {
  * @irq_name - resource name for the IRQ
  * @clk_stats - structure of clock statistics
  * @l2pc_cpus_mask - mask to avoid L2PC on masked CPUs
+ * @l2pc_update_queue - Boolean flag to avoid L2PC on masked CPUs at queue time
  * @l2pc_cpus_qos - qos structure to avoid L2PC on CPUs
  * @pm_qos_req_dma - the power management quality of service structure
  * @pm_qos_active_latency - allowed CPU latency in microseconds when active
@@ -185,6 +199,7 @@ struct kgsl_pwrctrl {
 	const char *irq_name;
 	struct kgsl_clk_stats clk_stats;
 	unsigned int l2pc_cpus_mask;
+	bool l2pc_update_queue;
 	struct pm_qos_request l2pc_cpus_qos;
 	struct pm_qos_request pm_qos_req_dma;
 	unsigned int pm_qos_active_latency;
@@ -253,5 +268,6 @@ int kgsl_active_count_wait(struct kgsl_device *device, int count);
 void kgsl_pwrctrl_busy_time(struct kgsl_device *device, u64 time, u64 busy);
 void kgsl_pwrctrl_set_constraint(struct kgsl_device *device,
 			struct kgsl_pwr_constraint *pwrc, uint32_t id);
-void kgsl_pwrctrl_update_l2pc(struct kgsl_device *device);
+void kgsl_pwrctrl_update_l2pc(struct kgsl_device *device,
+			unsigned long timeout_us);
 #endif /* __KGSL_PWRCTRL_H */

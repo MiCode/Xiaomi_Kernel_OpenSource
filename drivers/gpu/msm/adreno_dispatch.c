@@ -985,6 +985,7 @@ int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
 {
 	struct adreno_dispatcher_cmdqueue *dispatch_q =
 				ADRENO_CMDBATCH_DISPATCH_CMDQUEUE(cmdbatch);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
 
 	spin_lock(&drawctxt->lock);
@@ -1160,7 +1161,9 @@ int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
 
 	spin_unlock(&drawctxt->lock);
 
-	kgsl_pwrctrl_update_l2pc(&adreno_dev->dev);
+	if (device->pwrctrl.l2pc_update_queue)
+		kgsl_pwrctrl_update_l2pc(&adreno_dev->dev,
+				KGSL_L2PC_QUEUE_TIMEOUT);
 
 	/* Add the context to the dispatcher pending list */
 	dispatcher_queue_context(adreno_dev, drawctxt);
