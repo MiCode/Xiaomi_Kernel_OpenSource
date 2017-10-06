@@ -3847,7 +3847,8 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 				atomic_read(&sde_crtc->frame_pending));
 
 	SDE_EVT32(DRMID(crtc), sde_crtc->enabled, sde_crtc->suspend,
-			sde_crtc->vblank_requested);
+			sde_crtc->vblank_requested,
+			crtc->state->active, crtc->state->enable);
 	if (sde_crtc->enabled && !sde_crtc->suspend &&
 			sde_crtc->vblank_requested) {
 		ret = _sde_crtc_vblank_enable_no_lock(sde_crtc, false);
@@ -3892,11 +3893,14 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	/**
 	 * All callbacks are unregistered and frame done waits are complete
 	 * at this point. No buffers are accessed by hardware.
-	 * reset the fence timeline if there is any issue.
+	 * reset the fence timeline if crtc will not be enabled for this commit
 	 */
-	sde_fence_signal(&sde_crtc->output_fence, ktime_get(), true);
-	for (i = 0; i < cstate->num_connectors; ++i)
-		sde_connector_commit_reset(cstate->connectors[i], ktime_get());
+	if (!crtc->state->active || !crtc->state->enable) {
+		sde_fence_signal(&sde_crtc->output_fence, ktime_get(), true);
+		for (i = 0; i < cstate->num_connectors; ++i)
+			sde_connector_commit_reset(cstate->connectors[i],
+					ktime_get());
+	}
 
 	memset(sde_crtc->mixers, 0, sizeof(sde_crtc->mixers));
 	sde_crtc->num_mixers = 0;
