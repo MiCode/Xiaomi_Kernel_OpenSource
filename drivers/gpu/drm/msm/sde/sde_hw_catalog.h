@@ -858,8 +858,8 @@ struct sde_perf_cdp_cfg {
  * @downscaling_prefill_lines  downscaling latency in lines
  * @amortizable_theshold minimum y position for traffic shaping prefill
  * @min_prefill_lines  minimum pipeline latency in lines
- * @safe_lut_tbl: LUT tables for safe signals
  * @danger_lut_tbl: LUT tables for danger signals
+ * @sfe_lut_tbl: LUT tables for safe signals
  * @qos_lut_tbl: LUT tables for QoS signals
  * @cdp_cfg            cdp use case configurations
  */
@@ -882,8 +882,8 @@ struct sde_perf_cfg {
 	u32 downscaling_prefill_lines;
 	u32 amortizable_threshold;
 	u32 min_prefill_lines;
-	u32 safe_lut_tbl[SDE_QOS_LUT_USAGE_MAX];
 	u32 danger_lut_tbl[SDE_QOS_LUT_USAGE_MAX];
+	struct sde_qos_lut_tbl sfe_lut_tbl[SDE_QOS_LUT_USAGE_MAX];
 	struct sde_qos_lut_tbl qos_lut_tbl[SDE_QOS_LUT_USAGE_MAX];
 	struct sde_perf_cdp_cfg cdp_cfg[SDE_PERF_CDP_USAGE_MAX];
 };
