@@ -1480,6 +1480,9 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 	/* SCTLR */
 	reg = SCTLR_CFCFG | SCTLR_CFIE | SCTLR_CFRE | SCTLR_AFE | SCTLR_TRE;
 
+	/* Ensure bypass transactions are Non-shareable */
+	reg |= SCTLR_SHCFG_NSH << SCTLR_SHCFG_SHIFT;
+
 	if (attributes & (1 << DOMAIN_ATTR_CB_STALL_DISABLE)) {
 		reg &= ~SCTLR_CFCFG;
 		reg |= SCTLR_HUPCF;
@@ -1894,7 +1897,8 @@ static void arm_smmu_write_s2cr(struct arm_smmu_device *smmu, int idx)
 	struct arm_smmu_s2cr *s2cr = smmu->s2crs + idx;
 	u32 reg = (s2cr->type & S2CR_TYPE_MASK) << S2CR_TYPE_SHIFT |
 		  (s2cr->cbndx & S2CR_CBNDX_MASK) << S2CR_CBNDX_SHIFT |
-		  (s2cr->privcfg & S2CR_PRIVCFG_MASK) << S2CR_PRIVCFG_SHIFT;
+		  (s2cr->privcfg & S2CR_PRIVCFG_MASK) << S2CR_PRIVCFG_SHIFT |
+		  S2CR_SHCFG_NSH << S2CR_SHCFG_SHIFT;
 
 	if (smmu->features & ARM_SMMU_FEAT_EXIDS && smmu->smrs &&
 	    smmu->smrs[idx].valid)
@@ -3500,6 +3504,10 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 
 	if (smmu->features & ARM_SMMU_FEAT_EXIDS)
 		reg |= sCR0_EXIDENABLE;
+
+	/* Force bypass transaction to be Non-Shareable & not io-coherent */
+	reg &= ~(sCR0_SHCFG_MASK << sCR0_SHCFG_SHIFT);
+	reg |= sCR0_SHCFG_NSH << sCR0_SHCFG_SHIFT;
 
 	/* Push the button */
 	arm_smmu_tlb_sync_global(smmu);
