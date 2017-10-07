@@ -280,7 +280,7 @@
 	qcom,platform-te-gpio = <&tlmm 10 0>;
 };
 
-&dsi_dual_nt35597_truly_video {
+&dsi_dual_nt35597_truly_video_display {
 	qcom,dsi-display-active;
 };
 
