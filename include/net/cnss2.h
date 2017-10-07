@@ -153,14 +153,8 @@ extern int cnss_get_platform_cap(struct cnss_platform_cap *cap);
 extern int cnss_get_soc_info(struct device *dev, struct cnss_soc_info *info);
 extern void cnss_set_driver_status(enum cnss_driver_status driver_status);
 extern int cnss_request_bus_bandwidth(int bandwidth);
-extern int cnss_set_wlan_unsafe_channel(u16 *unsafe_ch_list, u16 ch_count);
-extern int cnss_get_wlan_unsafe_channel(u16 *unsafe_ch_list, u16 *ch_count,
-					u16 buf_len);
-extern int cnss_wlan_set_dfs_nol(const void *info, u16 info_len);
-extern int cnss_wlan_get_dfs_nol(void *info, u16 info_len);
 extern int cnss_power_up(struct device *dev);
 extern int cnss_power_down(struct device *dev);
-extern u8 *cnss_common_get_wlan_mac_address(struct device *dev, uint32_t *num);
 extern void cnss_request_pm_qos(u32 qos_val);
 extern void cnss_remove_pm_qos(void);
 extern void cnss_lock_pm_sem(void);
