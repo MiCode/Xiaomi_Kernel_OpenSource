@@ -17,6 +17,7 @@
 #include "msm8917-pmi8950-cdp.dtsi"
 #include "apq8017-rome.dtsi"
 #include "apq8017-audio.dtsi"
+#include "apq8017-pmi8950-cdp-wcd-rome.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ8017-PMI8950 CDP \
