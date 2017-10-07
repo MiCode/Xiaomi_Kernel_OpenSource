@@ -372,6 +372,8 @@ static int cam_cpastop_poweron(struct cam_hw_info *cpas_hw)
 				&camnoc_info->specific[i].safe_lut);
 			cam_cpas_util_reg_update(cpas_hw, CAM_CPAS_REG_CAMNOC,
 				&camnoc_info->specific[i].ubwc_ctl);
+			cam_cpas_util_reg_update(cpas_hw, CAM_CPAS_REG_CAMNOC,
+				&camnoc_info->specific[i].flag_out_set0_low);
 		}
 	}
 
