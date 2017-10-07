@@ -203,6 +203,7 @@ struct sdhci_msm_host {
 	int	pwr_irq;	/* power irq */
 	struct clk	 *clk;     /* main SD/MMC bus clock */
 	struct clk	 *pclk;    /* SDHC peripheral bus clock */
+	struct clk	 *bus_aggr_clk; /* Axi clock shared with UFS */
 	struct clk	 *bus_clk; /* SDHC bus voter clock */
 	struct clk	 *ff_clk; /* CDC calibration fixed feedback clock */
 	struct clk	 *sleep_clk; /* CDC calibration sleep clock */
