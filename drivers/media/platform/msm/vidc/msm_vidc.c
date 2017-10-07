@@ -835,7 +835,8 @@ static inline int msm_vidc_verify_buffer_counts(struct msm_vidc_inst *inst)
 
 	/* For decoder No need to sanity till LOAD_RESOURCES */
 	if (inst->session_type == MSM_VIDC_DECODER &&
-			inst->state < MSM_VIDC_LOAD_RESOURCES_DONE) {
+			(inst->state < MSM_VIDC_LOAD_RESOURCES_DONE ||
+			inst->state >= MSM_VIDC_RELEASE_RESOURCES_DONE)) {
 		dprintk(VIDC_DBG,
 			"No need to verify buffer counts : %pK\n", inst);
 		return 0;
