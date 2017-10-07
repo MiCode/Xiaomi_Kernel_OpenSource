@@ -1606,6 +1606,8 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 					&rmnet_ipa3_ctx->add_mux_channel_lock);
 				return -EFAULT;
 			}
+			extend_ioctl_data.u.rmnet_mux_val.vchannel_name
+				[IFNAMSIZ-1] = '\0';
 			IPAWANDBG("ADD_MUX_CHANNEL(%d, name: %s)\n",
 			ext_ioctl_data.u.rmnet_mux_val.mux_id,
 			ext_ioctl_data.u.rmnet_mux_val.vchannel_name);
