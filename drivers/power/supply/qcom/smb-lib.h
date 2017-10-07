@@ -306,6 +306,7 @@ struct smb_charger {
 	int			dcp_icl_ua;
 	int			fake_capacity;
 	bool			step_chg_enabled;
+	bool			sw_jeita_enabled;
 	bool			is_hdc;
 	bool			chg_done;
 	bool			micro_usb_mode;
@@ -325,6 +326,7 @@ struct smb_charger {
 	bool			pr_swap_in_progress;
 	int			typec_mode;
 	u32			jeita_status;
+	int			usb_icl_change_irq_enabled;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -498,6 +500,7 @@ int smblib_get_prop_fcc_delta(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_icl_override(struct smb_charger *chg, bool override);
 int smblib_dp_dm(struct smb_charger *chg, int val);
+int smblib_disable_hw_jeita(struct smb_charger *chg, bool disable);
 int smblib_rerun_aicl(struct smb_charger *chg);
 int smblib_set_icl_current(struct smb_charger *chg, int icl_ua);
 int smblib_get_icl_current(struct smb_charger *chg, int *icl_ua);
