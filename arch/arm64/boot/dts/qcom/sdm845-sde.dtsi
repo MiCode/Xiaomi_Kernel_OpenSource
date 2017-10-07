@@ -158,7 +158,18 @@
 
 		qcom,sde-danger-lut = <0x0000000f 0x0000ffff 0x00000000
 			0x00000000>;
-		qcom,sde-safe-lut = <0xfffc 0xff00 0xffff 0xffff>;
+		qcom,sde-safe-lut-linear =
+			<4 0xfff8>,
+			<0 0xfff0>;
+		qcom,sde-safe-lut-macrotile =
+			<10 0xfe00>,
+			<11 0xfc00>,
+			<12 0xf800>,
+			<0 0xf000>;
+		qcom,sde-safe-lut-nrt =
+			<0 0xffff>;
+		qcom,sde-safe-lut-cwb =
+			<0 0xffff>;
 		qcom,sde-qos-lut-linear =
 			<4 0x00000000 0x00000357>,
 			<5 0x00000000 0x00003357>,
