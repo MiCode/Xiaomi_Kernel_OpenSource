@@ -2742,6 +2742,10 @@ static int _kgsl_gpumem_sync_cache(struct kgsl_mem_entry *entry,
 	int cacheop;
 	int mode;
 
+	 /* Cache ops are not allowed on secure memory */
+	if (entry->memdesc.flags & KGSL_MEMFLAGS_SECURE)
+		return 0;
+
 	/*
 	 * Flush is defined as (clean | invalidate).  If both bits are set, then
 	 * do a flush, otherwise check for the individual bits and clean or inv
