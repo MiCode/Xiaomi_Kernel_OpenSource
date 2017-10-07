@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  * Copyright (c) 2017, Linaro Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -14,8 +14,12 @@
 #ifndef __QMI_HELPERS_H__
 #define __QMI_HELPERS_H__
 
+#include <linux/idr.h>
 #include <linux/qrtr.h>
 #include <linux/types.h>
+#include <linux/mutex.h>
+#include <linux/workqueue.h>
+#include <linux/completion.h>
 
 /**
  * qmi_header - wireformat header of QMI messages
