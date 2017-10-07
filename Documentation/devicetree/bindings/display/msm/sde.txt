@@ -331,9 +331,22 @@ Optional properties:
 - qcom,sde-danger-lut:		A 4 cell property, with a format of <linear,
 				tile, nrt, cwb>,
 				indicating the danger luts on sspp.
-- qcom,sde-safe-lut:		A 4 cell property, with a format of <linear,
-				tile, nrt, cwb>,
-				indicating the safe luts on sspp.
+- qcom,sde-safe-lut-linear:	Array of 2 cell property, with a format of
+				<fill level, lut> in ascending fill level
+				indicating the safe luts for linear format on sspp.
+				Zero fill level on the last entry identifies the default lut.
+- qcom,sde-safe-lut-macrotile:	Array of 2 cell property, with a format of
+				<fill level, lut> in ascending fill level
+				indicating the safe luts for macrotile format on sspp.
+				Zero fill level on the last entry identifies the default lut.
+- qcom,sde-safe-lut-nrt:	Array of 2 cell property, with a format of
+				<fill level, lut> in ascending fill level
+				indicating the safe luts for nrt (e.g wfd) on sspp.
+				Zero fill level on the last entry identifies the default lut.
+- qcom,sde-safe-lut-cwb:	Array of 2 cell property, with a format of
+				<fill level, lut> in ascending fill level
+				indicating the safe luts for cwb on sspp.
+				Zero fill level on the last entry identifies the default lut.
 - qcom,sde-qos-lut-linear:	Array of 3 cell property, with a format of
 				<fill level, lut hi, lut lo> in ascending fill level
 				indicating the qos luts for linear format on sspp.

@@ -166,7 +166,10 @@ enum {
 	PERF_XTRA_PREFILL_LINES,
 	PERF_AMORTIZABLE_THRESHOLD,
 	PERF_DANGER_LUT,
-	PERF_SAFE_LUT,
+	PERF_SAFE_LUT_LINEAR,
+	PERF_SAFE_LUT_MACROTILE,
+	PERF_SAFE_LUT_NRT,
+	PERF_SAFE_LUT_CWB,
 	PERF_QOS_LUT_LINEAR,
 	PERF_QOS_LUT_MACROTILE,
 	PERF_QOS_LUT_NRT,
@@ -424,7 +427,14 @@ static struct sde_prop_type sde_perf_prop[] = {
 	{PERF_AMORTIZABLE_THRESHOLD, "qcom,sde-amortizable-threshold",
 			false, PROP_TYPE_U32},
 	{PERF_DANGER_LUT, "qcom,sde-danger-lut", false, PROP_TYPE_U32_ARRAY},
-	{PERF_SAFE_LUT, "qcom,sde-safe-lut", false, PROP_TYPE_U32_ARRAY},
+	{PERF_SAFE_LUT_LINEAR, "qcom,sde-safe-lut-linear", false,
+			PROP_TYPE_U32_ARRAY},
+	{PERF_SAFE_LUT_MACROTILE, "qcom,sde-safe-lut-macrotile", false,
+			PROP_TYPE_U32_ARRAY},
+	{PERF_SAFE_LUT_NRT, "qcom,sde-safe-lut-nrt", false,
+			PROP_TYPE_U32_ARRAY},
+	{PERF_SAFE_LUT_CWB, "qcom,sde-safe-lut-cwb", false,
+			PROP_TYPE_U32_ARRAY},
 	{PERF_QOS_LUT_LINEAR, "qcom,sde-qos-lut-linear", false,
 			PROP_TYPE_U32_ARRAY},
 	{PERF_QOS_LUT_MACROTILE, "qcom,sde-qos-lut-macrotile", false,
@@ -433,6 +443,7 @@ static struct sde_prop_type sde_perf_prop[] = {
 			PROP_TYPE_U32_ARRAY},
 	{PERF_QOS_LUT_CWB, "qcom,sde-qos-lut-cwb", false,
 			PROP_TYPE_U32_ARRAY},
+
 	{PERF_CDP_SETTING, "qcom,sde-cdp-setting", false,
 			PROP_TYPE_U32_ARRAY},
 };
@@ -2805,8 +2816,23 @@ static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 	if (rc)
 		goto freeprop;
 
-	rc = _validate_dt_entry(np, &sde_perf_prop[PERF_SAFE_LUT], 1,
-			&prop_count[PERF_SAFE_LUT], NULL);
+	rc = _validate_dt_entry(np, &sde_perf_prop[PERF_SAFE_LUT_LINEAR], 1,
+			&prop_count[PERF_SAFE_LUT_LINEAR], NULL);
+	if (rc)
+		goto freeprop;
+
+	rc = _validate_dt_entry(np, &sde_perf_prop[PERF_SAFE_LUT_MACROTILE], 1,
+			&prop_count[PERF_SAFE_LUT_MACROTILE], NULL);
+	if (rc)
+		goto freeprop;
+
+	rc = _validate_dt_entry(np, &sde_perf_prop[PERF_SAFE_LUT_NRT], 1,
+			&prop_count[PERF_SAFE_LUT_NRT], NULL);
+	if (rc)
+		goto freeprop;
+
+	rc = _validate_dt_entry(np, &sde_perf_prop[PERF_SAFE_LUT_CWB], 1,
+			&prop_count[PERF_SAFE_LUT_CWB], NULL);
 	if (rc)
 		goto freeprop;
 
@@ -2931,15 +2957,46 @@ static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 		}
 	}
 
-	if (prop_exists[PERF_SAFE_LUT] && prop_count[PERF_SAFE_LUT] <=
-			SDE_QOS_LUT_USAGE_MAX) {
-		for (j = 0; j < prop_count[PERF_SAFE_LUT]; j++) {
-			cfg->perf.safe_lut_tbl[j] =
-					PROP_VALUE_ACCESS(prop_value,
-						PERF_SAFE_LUT, j);
-			SDE_DEBUG("safe usage:%d lut:0x%x\n",
-					j, cfg->perf.safe_lut_tbl[j]);
+	for (j = 0; j < SDE_QOS_LUT_USAGE_MAX; j++) {
+		static const u32 safe_key[SDE_QOS_LUT_USAGE_MAX] = {
+			[SDE_QOS_LUT_USAGE_LINEAR] =
+					PERF_SAFE_LUT_LINEAR,
+			[SDE_QOS_LUT_USAGE_MACROTILE] =
+					PERF_SAFE_LUT_MACROTILE,
+			[SDE_QOS_LUT_USAGE_NRT] =
+					PERF_SAFE_LUT_NRT,
+			[SDE_QOS_LUT_USAGE_CWB] =
+					PERF_SAFE_LUT_CWB,
+		};
+		const u32 entry_size = 2;
+		int m, count;
+		int key = safe_key[j];
+
+		if (!prop_exists[key])
+			continue;
+
+		count = prop_count[key] / entry_size;
+
+		cfg->perf.sfe_lut_tbl[j].entries = kcalloc(count,
+			sizeof(struct sde_qos_lut_entry), GFP_KERNEL);
+		if (!cfg->perf.sfe_lut_tbl[j].entries) {
+			rc = -ENOMEM;
+			goto freeprop;
 		}
+
+		for (k = 0, m = 0; k < count; k++, m += entry_size) {
+			u64 lut_lo;
+
+			cfg->perf.sfe_lut_tbl[j].entries[k].fl =
+					PROP_VALUE_ACCESS(prop_value, key, m);
+			lut_lo = PROP_VALUE_ACCESS(prop_value, key, m + 1);
+			cfg->perf.sfe_lut_tbl[j].entries[k].lut = lut_lo;
+			SDE_DEBUG("safe usage:%d.%d fl:%d lut:0x%llx\n",
+				j, k,
+				cfg->perf.sfe_lut_tbl[j].entries[k].fl,
+				cfg->perf.sfe_lut_tbl[j].entries[k].lut);
+		}
+		cfg->perf.sfe_lut_tbl[j].nentry = count;
 	}
 
 	for (j = 0; j < SDE_QOS_LUT_USAGE_MAX; j++) {

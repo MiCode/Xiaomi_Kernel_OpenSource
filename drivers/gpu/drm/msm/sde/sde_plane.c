@@ -223,6 +223,7 @@ static inline int _sde_plane_calc_fill_level(struct drm_plane *plane,
 	u32 fixed_buff_size;
 	u32 total_fl;
 	u32 hflip_bytes;
+	u32 unused_space;
 
 	if (!plane || !fmt || !plane->state || !src_width || !fmt->bpp) {
 		SDE_ERROR("invalid arguments\n");
@@ -250,29 +251,36 @@ static inline int _sde_plane_calc_fill_level(struct drm_plane *plane,
 		hflip_bytes = 0;
 
 	if (fmt->fetch_planes == SDE_PLANE_PSEUDO_PLANAR) {
+
+		unused_space = 23 * 128;
 		if (fmt->chroma_sample == SDE_CHROMA_420) {
 			/* NV12 */
-			total_fl = (fixed_buff_size / 2 - hflip_bytes) /
-				((src_width + 32) * fmt->bpp);
+			total_fl = (fixed_buff_size / 2 - hflip_bytes -
+				unused_space) / ((src_width + 32) * fmt->bpp);
 		} else {
 			/* non NV12 */
-			total_fl = (fixed_buff_size / 2 - hflip_bytes) * 2 /
-				((src_width + 32) * fmt->bpp);
+			total_fl = (fixed_buff_size / 2 - hflip_bytes -
+				unused_space) * 2 / ((src_width + 32) *
+				fmt->bpp);
 		}
 	} else {
+
+		unused_space = 6 * 128;
 		if (pstate->multirect_mode == SDE_SSPP_MULTIRECT_PARALLEL) {
-			total_fl = (fixed_buff_size / 2 - hflip_bytes) * 2 /
-				((src_width + 32) * fmt->bpp);
+			total_fl = (fixed_buff_size / 2 - hflip_bytes -
+				unused_space) * 2 / ((src_width + 32) *
+				fmt->bpp);
 		} else {
-			total_fl = (fixed_buff_size - hflip_bytes) * 2 /
-				((src_width + 32) * fmt->bpp);
+			total_fl = (fixed_buff_size - hflip_bytes -
+				unused_space) * 2 / ((src_width + 32) *
+				fmt->bpp);
 		}
 	}
 
-	SDE_DEBUG("plane%u: pnum:%d fmt: %4.4s w:%u hf:%d fl:%u\n",
+	SDE_DEBUG("plane%u: pnum:%d fmt: %4.4s w:%u hf:%d us:%d fl:%u\n",
 			plane->base.id, psde->pipe - SSPP_VIG0,
 			(char *)&fmt->base.pixel_format,
-			src_width, hflip_bytes, total_fl);
+			src_width, hflip_bytes, unused_space, total_fl);
 
 	return total_fl;
 }
@@ -375,6 +383,7 @@ static void _sde_plane_set_danger_lut(struct drm_plane *plane,
 	struct sde_plane *psde;
 	const struct sde_format *fmt = NULL;
 	u32 danger_lut, safe_lut;
+	u32 total_fl = 0, lut_usage;
 
 	if (!plane || !fb) {
 		SDE_ERROR("invalid arguments\n");
@@ -393,26 +402,28 @@ static void _sde_plane_set_danger_lut(struct drm_plane *plane,
 	if (!psde->is_rt_pipe) {
 		danger_lut = psde->catalog->perf.danger_lut_tbl
 				[SDE_QOS_LUT_USAGE_NRT];
-		safe_lut = psde->catalog->perf.safe_lut_tbl
-				[SDE_QOS_LUT_USAGE_NRT];
+		lut_usage = SDE_QOS_LUT_USAGE_NRT;
 	} else {
 		fmt = sde_get_sde_format_ext(
 				fb->pixel_format,
 				fb->modifier,
 				drm_format_num_planes(fb->pixel_format));
+		total_fl = _sde_plane_calc_fill_level(plane, fmt,
+				psde->pipe_cfg.src_rect.w);
 
 		if (fmt && SDE_FORMAT_IS_LINEAR(fmt)) {
 			danger_lut = psde->catalog->perf.danger_lut_tbl
 					[SDE_QOS_LUT_USAGE_LINEAR];
-			safe_lut = psde->catalog->perf.safe_lut_tbl
-					[SDE_QOS_LUT_USAGE_LINEAR];
+			lut_usage = SDE_QOS_LUT_USAGE_LINEAR;
 		} else {
 			danger_lut = psde->catalog->perf.danger_lut_tbl
 					[SDE_QOS_LUT_USAGE_MACROTILE];
-			safe_lut = psde->catalog->perf.safe_lut_tbl
-					[SDE_QOS_LUT_USAGE_MACROTILE];
+			lut_usage = SDE_QOS_LUT_USAGE_MACROTILE;
 		}
 	}
+
+	safe_lut = (u32) _sde_plane_get_qos_lut(
+			&psde->catalog->perf.sfe_lut_tbl[lut_usage], total_fl);
 
 	psde->pipe_qos_cfg.danger_lut = danger_lut;
 	psde->pipe_qos_cfg.safe_lut = safe_lut;
@@ -423,11 +434,11 @@ static void _sde_plane_set_danger_lut(struct drm_plane *plane,
 			psde->pipe_qos_cfg.danger_lut,
 			psde->pipe_qos_cfg.safe_lut);
 
-	SDE_DEBUG("plane%u: pnum:%d fmt: %4.4s mode:%d luts[0x%x, 0x%x]\n",
+	SDE_DEBUG("plane%u: pnum:%d fmt:%4.4s mode:%d fl:%d luts[0x%x,0x%x]\n",
 		plane->base.id,
 		psde->pipe - SSPP_VIG0,
 		fmt ? (char *)&fmt->base.pixel_format : NULL,
-		fmt ? fmt->fetch_mode : -1,
+		fmt ? fmt->fetch_mode : -1, total_fl,
 		psde->pipe_qos_cfg.danger_lut,
 		psde->pipe_qos_cfg.safe_lut);
 
