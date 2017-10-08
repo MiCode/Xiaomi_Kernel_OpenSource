@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, 2018, The Linux Foundation. All rights reserved.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -1825,6 +1825,10 @@ static int msm_gcc_probe(struct platform_device *pdev)
 				"Unable to get vdd_stromer_dig regulator!!!\n");
 		return PTR_ERR(vdd_stromer_pll.regulator[0]);
 	}
+
+	/* Use use_max_uv for vdd_dig and vdd_stromer_pll */
+	vdd_dig.use_max_uV = true;
+	vdd_stromer_pll.use_max_uV = true;
 
 	 /*Vote for GPLL0 to turn on. Needed by acpuclock. */
 	regval = readl_relaxed(GCC_REG_BASE(APCS_GPLL_ENA_VOTE));
