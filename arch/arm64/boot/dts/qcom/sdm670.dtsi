@@ -2245,9 +2245,12 @@
 	};
 
 	qcom,icnss@18800000 {
-		status = "disabled";
 		compatible = "qcom,icnss";
-		reg = <0x18800000 0x800000>;
+		reg = <0x18800000 0x800000>,
+		      <0xa0000000 0x10000000>,
+		      <0xb0000000 0x10000>;
+		reg-names = "membase", "smmu_iova_base", "smmu_iova_ipa";
+		iommus = <&apps_smmu 0x0040 0x1>;
 		interrupts = <0 414 0 /* CE0 */ >,
 			     <0 415 0 /* CE1 */ >,
 			     <0 416 0 /* CE2 */ >,
