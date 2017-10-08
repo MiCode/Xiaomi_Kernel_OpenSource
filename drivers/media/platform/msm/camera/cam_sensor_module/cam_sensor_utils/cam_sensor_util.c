@@ -250,7 +250,7 @@ static int32_t cam_sensor_handle_continuous_write(
 }
 
 /**
- * Name : cam_sensor_i2c_pkt_parser
+ * Name : cam_sensor_i2c_command_parser
  * Description : Parse CSL CCI packet and apply register settings
  * Parameters :  s_ctrl  input/output    sub_device
  *              arg     input           cam_control
@@ -260,7 +260,7 @@ static int32_t cam_sensor_handle_continuous_write(
  * WAIT + n x RND_WR with num_cmd_buf = 1. Do not exepect RD/WR
  * with different cmd_type and op_code in one command buffer.
  */
-int cam_sensor_i2c_pkt_parser(struct i2c_settings_array *i2c_reg_settings,
+int cam_sensor_i2c_command_parser(struct i2c_settings_array *i2c_reg_settings,
 	struct cam_cmd_buf_desc   *cmd_desc, int32_t num_cmd_buffers)
 {
 	int16_t                   rc = 0, i = 0;
