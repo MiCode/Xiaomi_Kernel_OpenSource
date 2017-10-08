@@ -1637,6 +1637,10 @@
 		qcom,client-id = <0x00000001>;
 	};
 
+	qcom,msm_gsi {
+		compatible = "qcom,msm_gsi";
+	};
+
 	qcom,rmnet-ipa {
 		compatible = "qcom,rmnet-ipa3";
 		qcom,rmnet-ipa-ssr;
