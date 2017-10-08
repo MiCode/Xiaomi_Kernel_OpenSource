@@ -83,9 +83,9 @@ static int cam_ois_vreg_control(struct cam_ois_ctrl_t *o_ctrl,
 		rc = cam_soc_util_enable_platform_resource(soc_info, false, 0,
 			false);
 	} else {
-		rc = cam_soc_util_release_platform_resource(soc_info);
 		rc = cam_soc_util_disable_platform_resource(soc_info, false,
 			false);
+		rc = cam_soc_util_release_platform_resource(soc_info);
 	}
 
 	return rc;
@@ -109,15 +109,6 @@ static int cam_ois_power_up(struct cam_ois_ctrl_t *o_ctrl)
 	if (soc_info->gpio_data &&
 		gpio_num_info &&
 		gpio_num_info->valid[SENSOR_VAF] == 1) {
-		rc = cam_soc_util_request_platform_resource(&o_ctrl->soc_info,
-			NULL, NULL);
-		rc = cam_soc_util_enable_platform_resource(&o_ctrl->soc_info,
-			false, 0, false);
-		if (rc < 0) {
-			CAM_ERR(CAM_OIS, "Failed in req gpio: %d", rc);
-			return rc;
-		}
-
 		gpio_set_value_cansleep(
 			gpio_num_info->gpio_num[SENSOR_VAF],
 			1);
@@ -136,12 +127,6 @@ static int cam_ois_power_down(struct cam_ois_ctrl_t *o_ctrl)
 		&o_ctrl->soc_info;
 	struct msm_camera_gpio_num_info *gpio_num_info = NULL;
 
-	rc = cam_ois_vreg_control(o_ctrl, 0);
-	if (rc < 0) {
-		CAM_ERR(CAM_OIS, "Failed %d");
-		return rc;
-	}
-
 	gpio_num_info = o_ctrl->gpio_num_info;
 
 	if (soc_info->gpio_data &&
@@ -151,14 +136,11 @@ static int cam_ois_power_down(struct cam_ois_ctrl_t *o_ctrl)
 		gpio_set_value_cansleep(
 			gpio_num_info->gpio_num[SENSOR_VAF],
 			GPIOF_OUT_INIT_LOW);
-
-		rc = cam_soc_util_release_platform_resource(&o_ctrl->soc_info);
-		rc |= cam_soc_util_disable_platform_resource(&o_ctrl->soc_info,
-					0, 0);
-		if (rc < 0)
-			CAM_ERR(CAM_OIS,
-				"Failed to disable platform resources: %d", rc);
 	}
+
+	rc = cam_ois_vreg_control(o_ctrl, 0);
+	if (rc < 0)
+		CAM_ERR(CAM_OIS, "Disable regualtor Failed %d", rc);
 
 	return rc;
 }
