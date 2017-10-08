@@ -50,24 +50,20 @@
 		pm660l_gpios: pinctrl@c000 {
 			compatible = "qcom,spmi-gpio";
 			reg = <0xc000 0xc00>;
-			interrupts = <0x2 0xc0 0 IRQ_TYPE_NONE>,
-					<0x2 0xc2 0 IRQ_TYPE_NONE>,
+			interrupts = <0x2 0xc2 0 IRQ_TYPE_NONE>,
 					<0x2 0xc3 0 IRQ_TYPE_NONE>,
 					<0x2 0xc4 0 IRQ_TYPE_NONE>,
 					<0x2 0xc5 0 IRQ_TYPE_NONE>,
 					<0x2 0xc6 0 IRQ_TYPE_NONE>,
 					<0x2 0xc7 0 IRQ_TYPE_NONE>,
-					<0x2 0xc8 0 IRQ_TYPE_NONE>,
-					<0x2 0xca 0 IRQ_TYPE_NONE>,
-					<0x2 0xcb 0 IRQ_TYPE_NONE>;
-			interrupt-names = "pm660l_gpio1", "pm660l_gpio3",
-					"pm660l_gpio4", "pm660l_gpio5",
-					"pm660l_gpio6", "pm660l_gpio7",
-					"pm660l_gpio8", "pm660l_gpio9",
-					"pm660l_gpio11", "pm660l_gpio12";
+					<0x2 0xc8 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pm660l_gpio3", "pm660l_gpio4",
+					"pm660l_gpio5", "pm660l_gpio6",
+					"pm660l_gpio7", "pm660l_gpio8",
+					"pm660l_gpio9";
 			gpio-controller;
 			#gpio-cells = <2>;
-			qcom,gpios-disallowed = <2 10>;
+			qcom,gpios-disallowed = <1 2 10 11 12>;
 		};
 	};
 
