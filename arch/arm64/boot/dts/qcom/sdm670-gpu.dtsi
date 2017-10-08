@@ -289,12 +289,12 @@
 
 			qcom,gmu-pwrlevel@0 {
 				reg = <0>;
-				qcom,gmu-freq = <200000000>;
+				qcom,gmu-freq = <0>;
 			};
 
 			qcom,gmu-pwrlevel@1 {
 				reg = <1>;
-				qcom,gmu-freq = <0>;
+				qcom,gmu-freq = <200000000>;
 			};
 		};
 
