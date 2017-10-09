@@ -3274,7 +3274,7 @@ static int msm_nand_parse_smem_ptable(int *nr_parts)
 	temp_ptable = smem_get_entry(SMEM_AARM_PARTITION_TABLE, &len, 0,
 					SMEM_ANY_HOST_FLAG);
 
-	if (!temp_ptable) {
+	if (IS_ERR_OR_NULL(temp_ptable)) {
 		pr_err("Error reading partition table header\n");
 		goto out;
 	}
@@ -3314,7 +3314,7 @@ static int msm_nand_parse_smem_ptable(int *nr_parts)
 	 */
 	temp_ptable = smem_get_entry(SMEM_AARM_PARTITION_TABLE, &len, 0,
 					SMEM_ANY_HOST_FLAG);
-	if (!temp_ptable) {
+	if (IS_ERR_OR_NULL(temp_ptable)) {
 		pr_err("Error reading partition table\n");
 		goto out;
 	}
@@ -3328,10 +3328,12 @@ static int msm_nand_parse_smem_ptable(int *nr_parts)
 			continue;
 		/* Convert name to lower case and discard the initial chars */
 		mtd_part[i].name        = pentry->name;
+		strsep(&(mtd_part[i].name), delimiter);
+		if (!mtd_part[i].name)
+			mtd_part[i].name = pentry->name;
 		for (j = 0; j < strlen(mtd_part[i].name); j++)
 			*(mtd_part[i].name + j) =
 				tolower(*(mtd_part[i].name + j));
-		strsep(&(mtd_part[i].name), delimiter);
 		mtd_part[i].offset      = pentry->offset;
 		mtd_part[i].mask_flags  = pentry->attr;
 		mtd_part[i].size        = pentry->length;
