@@ -321,11 +321,6 @@ int sde_evtlog_get_filter(struct sde_dbg_evtlog *evtlog, int index,
  */
 void sde_rsc_debug_dump(u32 mux_sel);
 
-/**
- * dsi_ctrl_debug_dump - dump dsi debug dump status
- */
-void dsi_ctrl_debug_dump(void);
-
 #else
 static inline struct sde_dbg_evtlog *sde_evtlog_init(void)
 {
@@ -410,11 +405,6 @@ static inline int sde_evtlog_get_filter(struct sde_dbg_evtlog *evtlog,
 static inline void sde_rsc_debug_dump(u32 mux_sel)
 {
 }
-
-static inline void dsi_ctrl_debug_dump(void)
-{
-}
-
 #endif /* defined(CONFIG_DEBUG_FS) */
 
 
