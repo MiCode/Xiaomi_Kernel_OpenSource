@@ -12,7 +12,7 @@ config CNSS
 
 config CNSS_ASYNC
 	bool "Enable/disable cnss pci platform driver asynchronous probe"
-	depends on CNSS
+	depends on CNSS || CNSS2
 	---help---
 	 If enabled, CNSS PCI platform driver would do asynchronous probe.
 	 Using asynchronous probe will allow CNSS PCI platform driver to
