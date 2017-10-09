@@ -1642,6 +1642,7 @@
 			<0 0>,
 			<0 0>;
 
+		non-removable;
 		qcom,msm-bus,name = "ufshc_mem";
 		qcom,msm-bus,num-cases = <12>;
 		qcom,msm-bus,num-paths = <2>;
