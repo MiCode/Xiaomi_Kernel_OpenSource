@@ -44,7 +44,6 @@
 
 /* offsets from sde top address for the debug buses */
 #define DBGBUS_SSPP0	0x188
-#define DBGBUS_AXI_INTF	0x194
 #define DBGBUS_SSPP1	0x298
 #define DBGBUS_DSPP	0x348
 #define DBGBUS_PERIPH	0x418
@@ -67,7 +66,6 @@
 /* print debug ranges in groups of 4 u32s */
 #define REG_DUMP_ALIGN		16
 
-#define RSC_DEBUG_MUX_SEL_SDM845 9
 /**
  * struct sde_dbg_reg_offset - tracking for start and end of region
  * @start: start offset
@@ -130,8 +128,7 @@ struct sde_debug_bus_entry {
 	u32 wr_addr;
 	u32 block_id;
 	u32 test_id;
-	void (*analyzer)(void __iomem *mem_base,
-				struct sde_debug_bus_entry *entry, u32 val);
+	void (*analyzer)(struct sde_debug_bus_entry *entry, u32 val);
 };
 
 struct vbif_debug_bus_entry {
@@ -199,15 +196,15 @@ static struct sde_dbg_base {
 /* sde_dbg_base_evtlog - global pointer to main sde event log for macro use */
 struct sde_dbg_evtlog *sde_dbg_base_evtlog;
 
-static void _sde_debug_bus_xbar_dump(void __iomem *mem_base,
-		struct sde_debug_bus_entry *entry, u32 val)
+static void _sde_debug_bus_xbar_dump(struct sde_debug_bus_entry *entry,
+		u32 val)
 {
 	dev_err(sde_dbg_base.dev, "xbar 0x%x %d %d 0x%x\n",
 			entry->wr_addr, entry->block_id, entry->test_id, val);
 }
 
-static void _sde_debug_bus_lm_dump(void __iomem *mem_base,
-		struct sde_debug_bus_entry *entry, u32 val)
+static void _sde_debug_bus_lm_dump(struct sde_debug_bus_entry *entry,
+		u32 val)
 {
 	if (!(val & 0xFFF000))
 		return;
@@ -216,8 +213,8 @@ static void _sde_debug_bus_lm_dump(void __iomem *mem_base,
 			entry->wr_addr, entry->block_id, entry->test_id, val);
 }
 
-static void _sde_debug_bus_ppb0_dump(void __iomem *mem_base,
-		struct sde_debug_bus_entry *entry, u32 val)
+static void _sde_debug_bus_ppb0_dump(struct sde_debug_bus_entry *entry,
+		u32 val)
 {
 	if (!(val & BIT(15)))
 		return;
@@ -226,37 +223,14 @@ static void _sde_debug_bus_ppb0_dump(void __iomem *mem_base,
 			entry->wr_addr, entry->block_id, entry->test_id, val);
 }
 
-static void _sde_debug_bus_ppb1_dump(void __iomem *mem_base,
-		struct sde_debug_bus_entry *entry, u32 val)
+static void _sde_debug_bus_ppb1_dump(struct sde_debug_bus_entry *entry,
+		u32 val)
 {
 	if (!(val & BIT(15)))
 		return;
 
 	dev_err(sde_dbg_base.dev, "ppb1 0x%x %d %d 0x%x\n",
 			entry->wr_addr, entry->block_id, entry->test_id, val);
-}
-
-static void _sde_debug_bus_axi_dump_sdm845(void __iomem *mem_base,
-		struct sde_debug_bus_entry *entry, u32 val)
-{
-	u32 status, i;
-
-	if (!mem_base || !entry)
-		return;
-
-	for (i = 0; i <= RSC_DEBUG_MUX_SEL_SDM845; i++) {
-		sde_rsc_debug_dump(i);
-
-		/* make sure that mux_sel updated */
-		wmb();
-
-		/* read status again after rsc routes the debug bus */
-		status = readl_relaxed(mem_base + DBGBUS_DSPP_STATUS);
-
-		dev_err(sde_dbg_base.dev, "rsc mux_sel:%d 0x%x %d %d 0x%x\n",
-			i, entry->wr_addr, entry->block_id,
-			entry->test_id, status);
-	}
 }
 
 static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
@@ -2012,9 +1986,6 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_PERIPH, 71, 3},
 	{ DBGBUS_PERIPH, 71, 4},
 	{ DBGBUS_PERIPH, 71, 5},
-
-	/* axi - should be last entry */
-	{ DBGBUS_AXI_INTF, 62, 0, _sde_debug_bus_axi_dump_sdm845},
 };
 
 static struct vbif_debug_bus_entry vbif_dbg_bus_msm8998[] = {
@@ -2361,7 +2332,7 @@ static void _sde_dbg_dump_sde_dbg_bus(struct sde_dbg_sde_debug_bus *bus)
 		}
 
 		if (head->analyzer)
-			head->analyzer(mem_base, head, status);
+			head->analyzer(head, status);
 
 		/* Disable debug bus once we are done */
 		writel_relaxed(0, mem_base + head->wr_addr);
