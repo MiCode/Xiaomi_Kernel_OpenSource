@@ -90,7 +90,7 @@ static void linear_map_bio(struct dm_target *ti, struct bio *bio)
 {
 	struct linear_c *lc = ti->private;
 
-	bio->bi_bdev = lc->dev->bdev;
+	bio_set_dev(bio, lc->dev->bdev);
 	if (bio_sectors(bio) || bio_op(bio) == REQ_OP_ZONE_RESET)
 		bio->bi_iter.bi_sector =
 			linear_map_sector(ti, bio->bi_iter.bi_sector);
@@ -193,21 +193,6 @@ size_t dm_linear_dax_copy_from_iter(struct dm_target *ti, pgoff_t pgoff,
 }
 EXPORT_SYMBOL_GPL(dm_linear_dax_copy_from_iter);
 
-void dm_linear_dax_flush(struct dm_target *ti, pgoff_t pgoff, void *addr,
-		size_t size)
-{
-	struct linear_c *lc = ti->private;
-	struct block_device *bdev = lc->dev->bdev;
-	struct dax_device *dax_dev = lc->dev->dax_dev;
-	sector_t dev_sector, sector = pgoff * PAGE_SECTORS;
-
-	dev_sector = linear_map_sector(ti, sector);
-	if (bdev_dax_pgoff(bdev, dev_sector, ALIGN(size, PAGE_SIZE), &pgoff))
-		return;
-	dax_flush(dax_dev, pgoff, addr, size);
-}
-EXPORT_SYMBOL_GPL(dm_linear_dax_flush);
-
 static struct target_type linear_target = {
 	.name   = "linear",
 	.version = {1, 4, 0},
@@ -222,7 +207,6 @@ static struct target_type linear_target = {
 	.iterate_devices = dm_linear_iterate_devices,
 	.direct_access = dm_linear_direct_access,
 	.dax_copy_from_iter = dm_linear_dax_copy_from_iter,
-	.dax_flush = dm_linear_dax_flush,
 };
 
 int __init dm_linear_init(void)

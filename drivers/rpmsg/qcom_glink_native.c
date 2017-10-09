@@ -23,6 +23,7 @@
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <linux/rpmsg.h>
+#include <linux/sizes.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
 #include <linux/mailbox_client.h>
@@ -937,11 +938,11 @@ static int qcom_glink_rx_open_ack(struct qcom_glink *glink, unsigned int lcid)
 
 	spin_lock(&glink->idr_lock);
 	channel = idr_find(&glink->lcids, lcid);
+	spin_unlock(&glink->idr_lock);
 	if (!channel) {
 		dev_err(glink->dev, "Invalid open ack packet\n");
 		return -EINVAL;
 	}
-	spin_unlock(&glink->idr_lock);
 
 	complete(&channel->open_ack);
 
@@ -956,7 +957,7 @@ static irqreturn_t qcom_glink_native_intr(int irq, void *data)
 	unsigned int param2;
 	unsigned int avail;
 	unsigned int cmd;
-	int ret;
+	int ret = 0;
 
 	for (;;) {
 		avail = qcom_glink_rx_avail(glink);
@@ -993,8 +994,6 @@ static irqreturn_t qcom_glink_native_intr(int irq, void *data)
 
 			mbox_send_message(glink->mbox_chan, NULL);
 			mbox_client_txdone(glink->mbox_chan, 0);
-
-			ret = 0;
 			break;
 		case RPM_CMD_INTENT:
 			qcom_glink_handle_intent(glink, param1, param2, avail);
@@ -1012,7 +1011,6 @@ static irqreturn_t qcom_glink_native_intr(int irq, void *data)
 			qcom_glink_rx_advance(glink, ALIGN(sizeof(msg), 8));
 			break;
 		default:
-			qcom_glink_rx_advance(glink, ALIGN(sizeof(msg), 8));
 			dev_err(glink->dev, "unhandled rx cmd: %d\n", cmd);
 			ret = -EINVAL;
 			break;
@@ -1264,7 +1262,7 @@ static int __qcom_glink_send(struct glink_channel *channel,
 	ret = qcom_glink_tx(glink, &req, sizeof(req), data, len, wait);
 
 	/* Mark intent available if we failed */
-	if (ret)
+	if (ret && intent)
 		intent->in_use = false;
 
 	return ret;
@@ -1572,6 +1570,7 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 
 	return glink;
 }
+EXPORT_SYMBOL_GPL(qcom_glink_native_probe);
 
 static int qcom_glink_remove_device(struct device *dev, void *data)
 {
@@ -1604,8 +1603,10 @@ void qcom_glink_native_remove(struct qcom_glink *glink)
 	spin_unlock_irqrestore(&glink->idr_lock, flags);
 	mbox_free_channel(glink->mbox_chan);
 }
+EXPORT_SYMBOL_GPL(qcom_glink_native_remove);
 
 void qcom_glink_native_unregister(struct qcom_glink *glink)
 {
 	device_unregister(glink->dev);
 }
+EXPORT_SYMBOL_GPL(qcom_glink_native_unregister);

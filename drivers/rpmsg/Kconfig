@@ -30,8 +30,8 @@ config RPMSG_QCOM_GLINK_RPM
 config RPMSG_QCOM_GLINK_SMEM
 	tristate "Qualcomm SMEM Glink driver"
 	select RPMSG_QCOM_GLINK_NATIVE
-	depends on HAS_IOMEM
 	depends on MAILBOX
+	depends on QCOM_SMEM
 	help
 	  Say y here to enable support for the GLINK SMEM communication driver,
 	  which provides support for using the GLINK communication protocol

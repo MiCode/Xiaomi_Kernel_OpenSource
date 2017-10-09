@@ -68,6 +68,7 @@ static bool is_dma_coherent(struct device *dev, unsigned long attrs)
 
 	return is_coherent;
 }
+static struct gen_pool *atomic_pool __ro_after_init;
 
 static struct gen_pool *atomic_pool;
 #define NO_KERNEL_MAPPING_DUMMY 0x2222
@@ -561,7 +562,7 @@ static int __init atomic_pool_init(void)
 
 		gen_pool_set_algo(atomic_pool,
 				  gen_pool_first_fit_order_align,
-				  (void *)PAGE_SHIFT);
+				  NULL);
 
 		pr_info("DMA: preallocated %zu KiB pool for atomic allocations\n",
 			atomic_pool_size / 1024);

@@ -16,6 +16,7 @@ PMIC's from Qualcomm.
 		    "qcom,pm8941-gpio"
 		    "qcom,pm8994-gpio"
 		    "qcom,pma8084-gpio"
+		    "qcom,pmi8994-gpio"
 
 		    And must contain either "qcom,spmi-gpio" or "qcom,ssbi-gpio"
 		    if the device is on an spmi bus or an ssbi bus respectively
@@ -96,24 +97,24 @@ to specify in a pin configuration subnode:
 		    gpio1-gpio36 for pm8941
 		    gpio1-gpio22 for pm8994
 		    gpio1-gpio22 for pma8084
+		    gpio1-gpio10 for pmi8994
 
 - function:
 	Usage: required
 	Value type: <string>
 	Definition: Specify the alternative function to be configured for the
 		    specified pins.  Valid values are:
-			"normal",
-			"paired",
-			"func1",
-			"func2",
-			"dtest1",
-			"dtest2",
-			"dtest3",
-			"dtest4",
+		    "normal",
+		    "paired",
+		    "func1",
+		    "func2",
+		    "dtest1",
+		    "dtest2",
+		    "dtest3",
+		    "dtest4",
 		    And following values are supported by LV/MV GPIO subtypes:
-			"func3",
-			"func4",
-			"analog"
+		    "func3",
+		    "func4"
 
 - bias-disable:
 	Usage: optional
@@ -198,28 +199,24 @@ to specify in a pin configuration subnode:
 	Value type: <none>
 	Definition: The specified pins are configured in open-source mode.
 
+- qcom,analog-pass:
+	Usage: optional
+	Value type: <none>
+	Definition: The specified pins are configured in analog-pass-through mode.
+
 - qcom,atest:
 	Usage: optional
 	Value type: <u32>
 	Definition: Selects ATEST rail to route to GPIO when it's configured
-		    in analog-pass-through mode by specifying "analog" function.
-		    Valid values are 0-3 corresponding to PMIC_GPIO_AOUT_ATESTx
-		    defined in <dt-bindings/pinctrl/qcom,pmic-gpio.h>.
+		    in analog-pass-through mode.
+		    Valid values are 1-4 corresponding to ATEST1 to ATEST4.
 
 - qcom,dtest-buffer:
 	Usage: optional
 	Value type: <u32>
 	Definition: Selects DTEST rail to route to GPIO when it's configured
-		    as a digital input.
-		    For LV/MV GPIO subtypes, the valid values are 0-3
-		    corresponding to PMIC_GPIO_DIN_DTESTx defined in
-		    <dt-bindings/pinctrl/qcom,pmic-gpio.h>. Only one
-		    DTEST rail can be selected at a time.
-		    For 4CH/8CH GPIO subtypes, supported values are 1-15.
-		    4 DTEST rails are supported in total and more than 1 DTEST
-		    rail can be selected simultaneously. Each bit of the
-		    4 LSBs represent one DTEST rail, such as [3:0] = 0101
-		    means both DTEST1 and DTEST3 are selected.
+		    as digital input.
+		    Valid values are 1-4 corresponding to DTEST1 to DTEST4.
 
 Example:
 

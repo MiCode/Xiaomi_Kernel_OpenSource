@@ -653,7 +653,7 @@ static int syslog_action_restricted(int type)
 	       type != SYSLOG_ACTION_SIZE_BUFFER;
 }
 
-int check_syslog_permissions(int type, int source)
+static int check_syslog_permissions(int type, int source)
 {
 	/*
 	 * If this is from /proc/kmsg and we've already opened it, then we've
@@ -681,7 +681,6 @@ int check_syslog_permissions(int type, int source)
 ok:
 	return security_syslog(type);
 }
-EXPORT_SYMBOL_GPL(check_syslog_permissions);
 
 static void append_char(char **pp, char *e, char c)
 {
@@ -1439,7 +1438,7 @@ int do_syslog(int type, char __user *buf, int len, int source)
 
 	error = check_syslog_permissions(type, source);
 	if (error)
-		goto out;
+		return error;
 
 	switch (type) {
 	case SYSLOG_ACTION_CLOSE:	/* Close log */
@@ -1447,20 +1446,16 @@ int do_syslog(int type, char __user *buf, int len, int source)
 	case SYSLOG_ACTION_OPEN:	/* Open log */
 		break;
 	case SYSLOG_ACTION_READ:	/* Read from log */
-		error = -EINVAL;
 		if (!buf || len < 0)
-			goto out;
-		error = 0;
+			return -EINVAL;
 		if (!len)
-			goto out;
-		if (!access_ok(VERIFY_WRITE, buf, len)) {
-			error = -EFAULT;
-			goto out;
-		}
+			return 0;
+		if (!access_ok(VERIFY_WRITE, buf, len))
+			return -EFAULT;
 		error = wait_event_interruptible(log_wait,
 						 syslog_seq != log_next_seq);
 		if (error)
-			goto out;
+			return error;
 		error = syslog_print(buf, len);
 		break;
 	/* Read/clear last kernel messages */
@@ -1469,16 +1464,12 @@ int do_syslog(int type, char __user *buf, int len, int source)
 		/* FALL THRU */
 	/* Read last kernel messages */
 	case SYSLOG_ACTION_READ_ALL:
-		error = -EINVAL;
 		if (!buf || len < 0)
-			goto out;
-		error = 0;
+			return -EINVAL;
 		if (!len)
-			goto out;
-		if (!access_ok(VERIFY_WRITE, buf, len)) {
-			error = -EFAULT;
-			goto out;
-		}
+			return 0;
+		if (!access_ok(VERIFY_WRITE, buf, len))
+			return -EFAULT;
 		error = syslog_print_all(buf, len, clear);
 		break;
 	/* Clear ring buffer */
@@ -1500,15 +1491,13 @@ int do_syslog(int type, char __user *buf, int len, int source)
 		break;
 	/* Set level of messages printed to console */
 	case SYSLOG_ACTION_CONSOLE_LEVEL:
-		error = -EINVAL;
 		if (len < 1 || len > 8)
-			goto out;
+			return -EINVAL;
 		if (len < minimum_console_loglevel)
 			len = minimum_console_loglevel;
 		console_loglevel = len;
 		/* Implicitly re-enable logging to console */
 		saved_console_loglevel = LOGLEVEL_DEFAULT;
-		error = 0;
 		break;
 	/* Number of chars in the log buffer */
 	case SYSLOG_ACTION_SIZE_UNREAD:
@@ -1530,7 +1519,6 @@ int do_syslog(int type, char __user *buf, int len, int source)
 			u64 seq = syslog_seq;
 			u32 idx = syslog_idx;
 
-			error = 0;
 			while (seq < log_next_seq) {
 				struct printk_log *msg = log_from_idx(idx);
 
@@ -1550,7 +1538,7 @@ int do_syslog(int type, char __user *buf, int len, int source)
 		error = -EINVAL;
 		break;
 	}
-out:
+
 	return error;
 }
 
@@ -1702,10 +1690,10 @@ asmlinkage int vprintk_emit(int facility, int level,
 {
 	static char textbuf[LOG_LINE_MAX];
 	char *text = textbuf;
-	size_t text_len = 0;
+	size_t text_len;
 	enum log_flags lflags = 0;
 	unsigned long flags;
-	int printed_len = 0;
+	int printed_len;
 	bool in_sched = false;
 
 	if (level == LOGLEVEL_SCHED) {
@@ -1762,7 +1750,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 	if (dict)
 		lflags |= LOG_PREFIX|LOG_NEWLINE;
 
-	printed_len += log_output(facility, level, lflags, dict, dictlen, text, text_len);
+	printed_len = log_output(facility, level, lflags, dict, dictlen, text, text_len);
 
 	logbuf_unlock_irqrestore(flags);
 
@@ -2658,9 +2646,8 @@ void __init console_init(void)
  * makes it difficult to diagnose problems that occur during this time.
  *
  * To mitigate this problem somewhat, only unregister consoles whose memory
- * intersects with the init section. Note that code exists elsewhere to get
- * rid of the boot console as soon as the proper console shows up, so there
- * won't be side-effects from postponing the removal.
+ * intersects with the init section. Note that all other boot consoles will
+ * get unregistred when the real preferred console is registered.
  */
 static int __init printk_late_init(void)
 {
@@ -2668,16 +2655,23 @@ static int __init printk_late_init(void)
 	int ret;
 
 	for_each_console(con) {
-		if (!keep_bootcon && con->flags & CON_BOOT) {
+		if (!(con->flags & CON_BOOT))
+			continue;
+
+		/* Check addresses that might be used for enabled consoles. */
+		if (init_section_intersects(con, sizeof(*con)) ||
+		    init_section_contains(con->write, 0) ||
+		    init_section_contains(con->read, 0) ||
+		    init_section_contains(con->device, 0) ||
+		    init_section_contains(con->unblank, 0) ||
+		    init_section_contains(con->data, 0)) {
 			/*
-			 * Make sure to unregister boot consoles whose data
-			 * resides in the init section before the init section
-			 * is discarded. Boot consoles whose data will stick
-			 * around will automatically be unregistered when the
-			 * proper console replaces them.
+			 * Please, consider moving the reported consoles out
+			 * of the init section.
 			 */
-			if (init_section_intersects(con, sizeof(*con)))
-				unregister_console(con);
+			pr_warn("bootconsole [%s%d] uses init memory and must be disabled even before the real one is ready\n",
+				con->name, con->index);
+			unregister_console(con);
 		}
 	}
 	ret = cpuhp_setup_state_nocalls(CPUHP_PRINTK_DEAD, "printk:dead", NULL,

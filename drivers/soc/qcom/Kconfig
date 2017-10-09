@@ -1,6 +1,8 @@
 #
 # QCOM Soc drivers
 #
+menu "Qualcomm SoC drivers"
+
 config QCOM_CPUSS_DUMP
 	bool "CPU Subsystem Dumping support"
 	help
@@ -9,6 +11,15 @@ config QCOM_CPUSS_DUMP
 	  cpu subsystem to an allocated buffer. This allows for analysis of the
 	  the entities if corruption is suspected.
 	  If unsure, say N
+
+config QCOM_GLINK_SSR
+	tristate "Qualcomm Glink SSR driver"
+	depends on RPMSG
+	depends on QCOM_RPROC_COMMON
+	help
+	  Say y here to enable GLINK SSR support. The GLINK SSR driver
+	  implements the SSR protocol for notifying the remote processor about
+	  neighboring subsystems going up or down.
 
 config QCOM_GSBI
         tristate "QCOM General Serial Bus Interface"
@@ -340,3 +351,5 @@ config QCOM_GLINK
 	  The GLINK RPMSG Plugin is currently designed to plugin with the
 	  remote proc framework as a subdev. This module is responsible for
 	  creating the glink transports when remote proc is disabled.
+
+endmenu
