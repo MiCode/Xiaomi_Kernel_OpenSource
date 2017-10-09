@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -98,6 +98,8 @@ struct msm_isp_buffer {
 	struct timeval *tv;
 	/* Indicates whether buffer is used as ping ot pong buffer */
 	uint32_t pingpong_bit;
+	/* Indicates buffer is reconfig due to drop frame */
+	uint32_t is_drop_reconfig;
 
 	/*Native buffer*/
 	struct list_head list;
