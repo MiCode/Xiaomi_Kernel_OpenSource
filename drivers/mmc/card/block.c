@@ -1040,6 +1040,12 @@ static int mmc_blk_ioctl_rpmb_cmd(struct block_device *bdev,
 		goto idata_free;
 	}
 
+	/*
+	 * Ensure rpmb_req_pending flag is synchronized between multiple
+	 * entities which may use rpmb ioclts with a lock.
+	 */
+	mutex_lock(&card->host->rpmb_req_mutex);
+	atomic_set(&card->host->rpmb_req_pending, 1);
 	mmc_get_card(card);
 
 	if (mmc_card_doing_bkops(card)) {
@@ -1155,6 +1161,9 @@ static int mmc_blk_ioctl_rpmb_cmd(struct block_device *bdev,
 
 cmd_rel_host:
 	mmc_put_card(card);
+	atomic_set(&card->host->rpmb_req_pending, 0);
+	mutex_unlock(&card->host->rpmb_req_mutex);
+
 
 idata_free:
 	for (i = 0; i < MMC_IOC_MAX_RPMB_CMD; i++) {
