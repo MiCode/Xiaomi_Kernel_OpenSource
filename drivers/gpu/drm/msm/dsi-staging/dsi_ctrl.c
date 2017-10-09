@@ -1030,7 +1030,8 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 				msecs_to_jiffies(DSI_CTRL_TX_TO_MS));
 
 		if (ret == 0) {
-			u32 status = 0;
+			u32 status = dsi_ctrl->hw.ops.get_interrupt_status(
+								&dsi_ctrl->hw);
 			u32 mask = DSI_CMD_MODE_DMA_DONE;
 
 			if (status & mask) {
