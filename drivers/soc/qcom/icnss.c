@@ -37,6 +37,7 @@
 #include <linux/uaccess.h>
 #include <linux/etherdevice.h>
 #include <linux/of_gpio.h>
+#include <linux/soc/qcom/qmi.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/icnss.h>
 #include <soc/qcom/secure_buffer.h>
@@ -689,7 +690,7 @@ static int icnss_driver_event_server_arrive(void *data)
 	set_bit(ICNSS_WLFW_EXISTS, &penv->state);
 	clear_bit(ICNSS_FW_DOWN, &penv->state);
 
-	ret = icnss_connect_to_fw_server(penv);
+	ret = icnss_connect_to_fw_server(penv, data);
 	if (ret)
 		goto fail;
 
@@ -749,7 +750,7 @@ fail:
 
 static int icnss_driver_event_server_exit(void *data)
 {
-	if (!penv || !penv->wlfw_clnt)
+	if (!penv)
 		return -ENODEV;
 
 	icnss_pr_info("WLAN FW Service Disconnected: 0x%lx\n", penv->state);
