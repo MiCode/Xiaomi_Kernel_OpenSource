@@ -321,6 +321,7 @@ out:
 	putname(pname);
 	return ret;
 }
+EXPORT_SYMBOL_GPL(bpf_obj_get_user);
 
 static void bpf_evict_inode(struct inode *inode)
 {
