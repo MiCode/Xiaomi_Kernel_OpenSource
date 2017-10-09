@@ -1116,6 +1116,7 @@ int __meminit vmemmap_populate(unsigned long start, unsigned long end, int node,
 	pgd_t *pgdp;
 	pud_t *pudp;
 	pmd_t *pmdp;
+	int ret = 0;
 
 	do {
 		next = pmd_addr_end(addr, end);
@@ -1133,15 +1134,23 @@ int __meminit vmemmap_populate(unsigned long start, unsigned long end, int node,
 			void *p = NULL;
 
 			p = vmemmap_alloc_block_buf(PMD_SIZE, node);
-			if (!p)
-				return -ENOMEM;
+			if (!p) {
+#ifdef CONFIG_MEMORY_HOTPLUG
+				vmemmap_free(start, end, altmap);
+#endif
+				ret = -ENOMEM;
+				break;
+			}
 
 			pmd_set_huge(pmdp, __pa(p), __pgprot(PROT_SECT_NORMAL));
 		} else
 			vmemmap_verify((pte_t *)pmdp, node, addr, next);
 	} while (addr = next, addr != end);
 
-	return 0;
+	if (ret)
+		return vmemmap_populate_basepages(start, end, node);
+	else
+		return ret;
 }
 #endif	/* !ARM64_SWAPPER_USES_SECTION_MAPS */
 void vmemmap_free(unsigned long start, unsigned long end,
