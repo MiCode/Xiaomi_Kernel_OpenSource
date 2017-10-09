@@ -14,6 +14,9 @@
 #include "sde_hw_reg_dma_v1.h"
 #include "sde_dbg.h"
 
+#define REG_DMA_VER_1_0 0x00010000
+#define REG_DMA_VER_1_1 0x00010001
+
 static int default_check_support(enum sde_reg_dma_features feature,
 		     enum sde_reg_dma_blk blk,
 		     bool *is_supported)
@@ -99,10 +102,15 @@ int sde_reg_dma_init(void __iomem *addr, struct sde_mdss_cfg *m,
 		return 0;
 
 	switch (reg_dma.caps->version) {
-	case 1:
+	case REG_DMA_VER_1_0:
 		rc = init_v1(&reg_dma);
 		if (rc)
 			DRM_DEBUG("init v1 dma ops failed\n");
+		break;
+	case REG_DMA_VER_1_1:
+		rc = init_v11(&reg_dma);
+		if (rc)
+			DRM_DEBUG("init v11 dma ops failed\n");
 		break;
 	default:
 		break;
@@ -129,7 +137,10 @@ void sde_reg_dma_deinit(void)
 		return;
 
 	switch (reg_dma.caps->version) {
-	case 1:
+	case REG_DMA_VER_1_0:
+		deinit_v1();
+		break;
+	case REG_DMA_VER_1_1:
 		deinit_v1();
 		break;
 	default:

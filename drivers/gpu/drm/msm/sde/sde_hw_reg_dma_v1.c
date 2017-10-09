@@ -24,7 +24,8 @@
 
 #define DECODE_SEL_OP (BIT(HW_BLK_SELECT))
 #define REG_WRITE_OP ((BIT(REG_SINGLE_WRITE)) | (BIT(REG_BLK_WRITE_SINGLE)) | \
-	(BIT(REG_BLK_WRITE_INC)) | (BIT(REG_BLK_WRITE_MULTIPLE)))
+	(BIT(REG_BLK_WRITE_INC)) | (BIT(REG_BLK_WRITE_MULTIPLE)) | \
+	(BIT(REG_SINGLE_MODIFY)))
 
 #define REG_DMA_OPS (DECODE_SEL_OP | REG_WRITE_OP)
 #define IS_OP_ALLOWED(op, buf_op) (BIT(op) & buf_op)
@@ -41,12 +42,14 @@
 
 
 #define GRP_VIG_HW_BLK_SELECT (VIG0 | VIG1 | VIG2 | VIG3)
+#define GRP_DMA_HW_BLK_SELECT (DMA0 | DMA1 | DMA2 | DMA3)
 #define GRP_DSPP_HW_BLK_SELECT (DSPP0 | DSPP1 | DSPP2 | DSPP3)
 #define BUFFER_SPACE_LEFT(cfg) ((cfg)->dma_buf->buffer_size - \
 			(cfg)->dma_buf->index)
 
-#define SINGLE_REG_WRITE_OPCODE (BIT(28))
 #define REL_ADDR_OPCODE (BIT(27))
+#define SINGLE_REG_WRITE_OPCODE (BIT(28))
+#define SINGLE_REG_MODIFY_OPCODE (BIT(29))
 #define HW_INDEX_REG_WRITE_OPCODE (BIT(28) | BIT(29))
 #define AUTO_INC_REG_WRITE_OPCODE (BIT(30))
 #define BLK_REG_WRITE_OPCODE (BIT(30) | BIT(28))
@@ -74,7 +77,8 @@ static u32 ops_mem_size[REG_DMA_SETUP_OPS_MAX] = {
 	[REG_BLK_WRITE_INC] = sizeof(u32) * 2,
 	[REG_BLK_WRITE_MULTIPLE] = sizeof(u32) * 2,
 	[HW_BLK_SELECT] = sizeof(u32) * 2,
-	[REG_SINGLE_WRITE] = sizeof(u32) * 2
+	[REG_SINGLE_WRITE] = sizeof(u32) * 2,
+	[REG_SINGLE_MODIFY] = sizeof(u32) * 3,
 };
 
 static u32 queue_sel[DMA_CTL_QUEUE_MAX] = {
@@ -107,6 +111,10 @@ static u32 ctl_trigger_done_mask[CTL_MAX][DMA_CTL_QUEUE_MAX] = {
 	[CTL_2][1] = BIT(23),
 	[CTL_3][0] = BIT(19),
 	[CTL_3][1] = BIT(24),
+	[CTL_4][0] = BIT(25),
+	[CTL_4][1] = BIT(27),
+	[CTL_5][0] = BIT(26),
+	[CTL_5][1] = BIT(28),
 };
 
 static int validate_dma_cfg(struct sde_reg_dma_setup_ops_cfg *cfg);
@@ -119,6 +127,7 @@ static int write_single_reg(struct sde_reg_dma_setup_ops_cfg *cfg);
 static int write_multi_reg_index(struct sde_reg_dma_setup_ops_cfg *cfg);
 static int write_multi_reg_inc(struct sde_reg_dma_setup_ops_cfg *cfg);
 static int write_multi_lut_reg(struct sde_reg_dma_setup_ops_cfg *cfg);
+static int write_single_modify(struct sde_reg_dma_setup_ops_cfg *cfg);
 static int write_last_cmd(struct sde_reg_dma_setup_ops_cfg *cfg);
 static int reset_reg_dma_buffer_v1(struct sde_reg_dma_buffer *lut_buf);
 static int check_support_v1(enum sde_reg_dma_features feature,
@@ -138,6 +147,7 @@ static reg_dma_internal_ops write_dma_op_params[REG_DMA_SETUP_OPS_MAX] = {
 	[REG_BLK_WRITE_SINGLE] = write_multi_reg_inc,
 	[REG_BLK_WRITE_INC] = write_multi_reg_index,
 	[REG_BLK_WRITE_MULTIPLE] = write_multi_lut_reg,
+	[REG_SINGLE_MODIFY] = write_single_modify,
 };
 
 static reg_dma_internal_ops validate_dma_op_params[REG_DMA_SETUP_OPS_MAX] = {
@@ -146,6 +156,7 @@ static reg_dma_internal_ops validate_dma_op_params[REG_DMA_SETUP_OPS_MAX] = {
 	[REG_BLK_WRITE_SINGLE] = validate_write_reg,
 	[REG_BLK_WRITE_INC] = validate_write_reg,
 	[REG_BLK_WRITE_MULTIPLE] = validate_write_multi_lut_reg,
+	[REG_SINGLE_MODIFY] = validate_write_reg,
 };
 
 static struct sde_reg_dma_buffer *last_cmd_buf[CTL_MAX];
@@ -168,6 +179,18 @@ static void get_decode_sel(unsigned long blk, u32 *decode_sel)
 			break;
 		case VIG3:
 			*decode_sel |= BIT(3);
+			break;
+		case DMA0:
+			*decode_sel |= BIT(5);
+			break;
+		case DMA1:
+			*decode_sel |= BIT(6);
+			break;
+		case DMA2:
+			*decode_sel |= BIT(7);
+			break;
+		case DMA3:
+			*decode_sel |= BIT(8);
 			break;
 		case DSPP0:
 			*decode_sel |= BIT(17);
@@ -268,6 +291,23 @@ static int write_single_reg(struct sde_reg_dma_setup_ops_cfg *cfg)
 	return 0;
 }
 
+static int write_single_modify(struct sde_reg_dma_setup_ops_cfg *cfg)
+{
+	u32 *loc = NULL;
+
+	loc =  (u32 *)((u8 *)cfg->dma_buf->vaddr +
+			cfg->dma_buf->index);
+	loc[0] = SINGLE_REG_MODIFY_OPCODE;
+	loc[0] |= (cfg->blk_offset & MAX_RELATIVE_OFF);
+	loc[1] = cfg->mask;
+	loc[2] = *cfg->data;
+	cfg->dma_buf->index += ops_mem_size[cfg->ops];
+	cfg->dma_buf->ops_completed |= REG_WRITE_OP;
+	cfg->dma_buf->next_op_allowed = REG_WRITE_OP | DECODE_SEL_OP;
+
+	return 0;
+}
+
 static int write_decode_sel(struct sde_reg_dma_setup_ops_cfg *cfg)
 {
 	u32 *loc = NULL;
@@ -276,7 +316,7 @@ static int write_decode_sel(struct sde_reg_dma_setup_ops_cfg *cfg)
 			cfg->dma_buf->index);
 	loc[0] = reg_dma_decode_sel;
 	get_decode_sel(cfg->blk, &loc[1]);
-	cfg->dma_buf->index += sizeof(u32) * 2;
+	cfg->dma_buf->index += ops_mem_size[cfg->ops];
 	cfg->dma_buf->ops_completed |= DECODE_SEL_OP;
 	cfg->dma_buf->next_op_allowed = REG_WRITE_OP;
 
@@ -351,9 +391,13 @@ static int validate_write_decode_sel(struct sde_reg_dma_setup_ops_cfg *cfg)
 		DRM_ERROR("blk set as 0\n");
 		return -EINVAL;
 	}
-	/* DSPP and VIG can't be combined */
-	if ((cfg->blk & GRP_VIG_HW_BLK_SELECT) &&
-		(cfg->blk & GRP_DSPP_HW_BLK_SELECT)) {
+	/* VIG, DMA and DSPP can't be combined */
+	if (((cfg->blk & GRP_VIG_HW_BLK_SELECT) &&
+		(cfg->blk & GRP_DSPP_HW_BLK_SELECT)) ||
+		((cfg->blk & GRP_DMA_HW_BLK_SELECT) &&
+		(cfg->blk & GRP_DSPP_HW_BLK_SELECT)) ||
+		((cfg->blk & GRP_VIG_HW_BLK_SELECT) &&
+		(cfg->blk & GRP_DMA_HW_BLK_SELECT))) {
 		DRM_ERROR("invalid blk combination %x\n",
 			    cfg->blk);
 		return -EINVAL;
@@ -559,6 +603,39 @@ int init_v1(struct sde_hw_reg_dma *cfg)
 	for (i = CTL_1; i < ARRAY_SIZE(reg_dma_ctl_queue_off); i++)
 		reg_dma_ctl_queue_off[i] = reg_dma_ctl_queue_off[i - 1] +
 			(sizeof(u32) * 4);
+
+	return 0;
+}
+
+int init_v11(struct sde_hw_reg_dma *cfg)
+{
+	int ret = 0, i = 0;
+
+	ret = init_v1(cfg);
+	if (ret) {
+		DRM_ERROR("failed to initialize v1: ret %d\n", ret);
+		return -EINVAL;
+	}
+
+	/* initialize register offsets and v1_supported based on version */
+	reg_dma_register_count = 133;
+	reg_dma_decode_sel = 0x180ac114;
+	reg_dma_opmode_offset = 0x4;
+	reg_dma_ctl0_queue0_cmd0_offset = 0x14;
+	reg_dma_intr_status_offset = 0x160;
+	reg_dma_intr_4_status_offset = 0x170;
+	reg_dma_intr_clear_offset = 0x1a0;
+	reg_dma_ctl_trigger_offset = 0xd4;
+	reg_dma_ctl0_reset_offset = 0x200;
+
+	reg_dma_ctl_queue_off[CTL_0] = reg_dma_ctl0_queue0_cmd0_offset;
+	for (i = CTL_1; i < ARRAY_SIZE(reg_dma_ctl_queue_off); i++)
+		reg_dma_ctl_queue_off[i] = reg_dma_ctl_queue_off[i - 1] +
+			(sizeof(u32) * 4);
+
+	v1_supported[IGC] = DSPP_IGC | GRP_DSPP_HW_BLK_SELECT |
+				GRP_VIG_HW_BLK_SELECT | GRP_DMA_HW_BLK_SELECT;
+	v1_supported[GC] = GRP_DMA_HW_BLK_SELECT | GRP_DSPP_HW_BLK_SELECT;
 
 	return 0;
 }
