@@ -65,8 +65,8 @@ static const struct adreno_vbif_platform a5xx_vbif_platforms[] = {
 };
 
 static void a5xx_irq_storm_worker(struct work_struct *work);
-static int _read_fw2_block_header(uint32_t *header, uint32_t id,
-	uint32_t major, uint32_t minor);
+static int _read_fw2_block_header(uint32_t *header, uint32_t remain,
+	uint32_t id, uint32_t major, uint32_t minor);
 static void a5xx_gpmu_reset(struct work_struct *work);
 static int a5xx_gpmu_init(struct adreno_device *adreno_dev);
 
@@ -709,6 +709,7 @@ static int _load_gpmu_firmware(struct adreno_device *adreno_dev)
 	if (data[1] != GPMU_FIRMWARE_ID)
 		goto err;
 	ret = _read_fw2_block_header(&data[2],
+		data[0] - 2,
 		GPMU_FIRMWARE_ID,
 		adreno_dev->gpucore->gpmu_major,
 		adreno_dev->gpucore->gpmu_minor);
@@ -1231,8 +1232,8 @@ void a5xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 	kgsl_regwrite(device, A5XX_RBBM_ISDB_CNT, on ? 0x00000182 : 0x00000180);
 }
 
-static int _read_fw2_block_header(uint32_t *header, uint32_t id,
-				uint32_t major, uint32_t minor)
+static int _read_fw2_block_header(uint32_t *header, uint32_t remain,
+			uint32_t id, uint32_t major, uint32_t minor)
 {
 	uint32_t header_size;
 	int i = 1;
@@ -1242,7 +1243,8 @@ static int _read_fw2_block_header(uint32_t *header, uint32_t id,
 
 	header_size = header[0];
 	/* Headers have limited size and always occur as pairs of words */
-	if (header_size > MAX_HEADER_SIZE || header_size % 2)
+	if (header_size >  MAX_HEADER_SIZE || header_size >= remain ||
+				header_size % 2 || header_size == 0)
 		return -EINVAL;
 	/* Sequences must have an identifying id first thing in their header */
 	if (id == GPMU_SEQUENCE_ID) {
@@ -1337,6 +1339,7 @@ static void _load_regfile(struct adreno_device *adreno_dev)
 		/* For now ignore blocks other than the LM sequence */
 		if (block[4] == LM_SEQUENCE_ID) {
 			ret = _read_fw2_block_header(&block[2],
+				block_size - 2,
 				GPMU_SEQUENCE_ID,
 				adreno_dev->gpucore->lm_major,
 				adreno_dev->gpucore->lm_minor);
