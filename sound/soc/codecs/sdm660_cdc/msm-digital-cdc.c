@@ -56,6 +56,12 @@ static unsigned long tx_digital_gain_reg[] = {
 	MSM89XX_CDC_CORE_TX5_VOL_CTL_GAIN,
 };
 
+#define SDM660_TX_UNMUTE_DELAY_MS 40
+static int tx_unmute_delay = SDM660_TX_UNMUTE_DELAY_MS;
+module_param(tx_unmute_delay, int,
+	S_IRUGO | S_IWUSR | S_IWGRP);
+MODULE_PARM_DESC(tx_unmute_delay, "delay to unmute the tx path");
+
 static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
 
 struct snd_soc_codec *registered_digcodec;
@@ -959,6 +965,9 @@ static int msm_dig_cdc_codec_enable_dec(struct snd_soc_dapm_widget *w,
 		/* enable HPF */
 		snd_soc_update_bits(codec, tx_mux_ctl_reg, 0x08, 0x00);
 
+		schedule_delayed_work(
+			    &msm_dig_cdc->tx_mute_dwork[decimator - 1].dwork,
+			    msecs_to_jiffies(tx_unmute_delay));
 		if (tx_hpf_work[decimator - 1].tx_hpf_cut_of_freq !=
 				CF_MIN_3DB_150HZ) {
 
@@ -972,20 +981,14 @@ static int msm_dig_cdc_codec_enable_dec(struct snd_soc_dapm_widget *w,
 				  snd_soc_read(codec,
 				  tx_digital_gain_reg[w->shift + offset])
 				  );
-		if (pdata->lb_mode) {
-			pr_debug("%s: loopback mode unmute the DEC\n",
-							__func__);
-			snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x01, 0x00);
-		}
-				snd_soc_update_bits(codec, tx_vol_ctl_reg,
-						0x01, 0x00);
-
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x01, 0x01);
 		msleep(20);
 		snd_soc_update_bits(codec, tx_mux_ctl_reg, 0x08, 0x08);
 		cancel_delayed_work_sync(&tx_hpf_work[decimator - 1].dwork);
+		cancel_delayed_work_sync(
+			&msm_dig_cdc->tx_mute_dwork[decimator - 1].dwork);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		snd_soc_update_bits(codec, dec_reset_reg, 1 << w->shift,
@@ -1226,6 +1229,35 @@ int msm_dig_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 }
 EXPORT_SYMBOL(msm_dig_codec_info_create_codec_entry);
 
+static void sdm660_tx_mute_update_callback(struct work_struct *work)
+{
+	struct tx_mute_work *tx_mute_dwork;
+	struct snd_soc_codec *codec = NULL;
+	struct msm_dig_priv *dig_cdc;
+	struct delayed_work *delayed_work;
+	u16 tx_vol_ctl_reg = 0;
+	u8 decimator = 0, i;
+
+	delayed_work = to_delayed_work(work);
+	tx_mute_dwork = container_of(delayed_work, struct tx_mute_work, dwork);
+	dig_cdc = tx_mute_dwork->dig_cdc;
+	codec = dig_cdc->codec;
+
+	for (i = 0; i < (NUM_DECIMATORS - 1); i++) {
+		if (dig_cdc->dec_active[i])
+			decimator = i + 1;
+		if (decimator && decimator < NUM_DECIMATORS) {
+			/* unmute decimators corresponding to Tx DAI's*/
+			tx_vol_ctl_reg =
+				MSM89XX_CDC_CORE_TX1_VOL_CTL_CFG +
+					32 * (decimator - 1);
+				snd_soc_update_bits(codec, tx_vol_ctl_reg,
+					0x01, 0x00);
+		}
+		decimator = 0;
+	}
+}
+
 static int msm_dig_cdc_soc_probe(struct snd_soc_codec *codec)
 {
 	struct msm_dig_priv *msm_dig_cdc = dev_get_drvdata(codec->dev);
@@ -1242,6 +1274,10 @@ static int msm_dig_cdc_soc_probe(struct snd_soc_codec *codec)
 		tx_hpf_work[i].decimator = i + 1;
 		INIT_DELAYED_WORK(&tx_hpf_work[i].dwork,
 			tx_hpf_corner_freq_callback);
+		msm_dig_cdc->tx_mute_dwork[i].dig_cdc = msm_dig_cdc;
+		msm_dig_cdc->tx_mute_dwork[i].decimator = i + 1;
+		INIT_DELAYED_WORK(&msm_dig_cdc->tx_mute_dwork[i].dwork,
+			sdm660_tx_mute_update_callback);
 	}
 
 	for (i = 0; i < MSM89XX_RX_MAX; i++)
@@ -1926,63 +1962,8 @@ static const struct snd_kcontrol_new msm_dig_snd_controls[] = {
 		MSM89XX_CDC_CORE_TX5_MUX_CTL, 3, 1, 0),
 };
 
-static int msm_dig_cdc_digital_mute(struct snd_soc_dai *dai, int mute)
-{
-	struct snd_soc_codec *codec = NULL;
-	u16 tx_vol_ctl_reg = 0;
-	u8 decimator = 0, i;
-	struct msm_dig_priv *dig_cdc;
-
-	pr_debug("%s: Digital Mute val = %d\n", __func__, mute);
-
-	if (!dai || !dai->codec) {
-		pr_err("%s: Invalid params\n", __func__);
-		return -EINVAL;
-	}
-	codec = dai->codec;
-	dig_cdc = snd_soc_codec_get_drvdata(codec);
-
-	if (dai->id == AIF1_PB) {
-		dev_dbg(codec->dev, "%s: Not capture use case skip\n",
-			__func__);
-		return 0;
-	}
-
-	mute = (mute) ? 1 : 0;
-	if (!mute) {
-		/*
-		 * 15 ms is an emperical value for the mute time
-		 * that was arrived by checking the pop level
-		 * to be inaudible
-		 */
-		usleep_range(15000, 15010);
-	}
-
-	if (dai->id == AIF3_SVA) {
-		snd_soc_update_bits(codec,
-			MSM89XX_CDC_CORE_TX5_VOL_CTL_CFG, 0x01, mute);
-		goto ret;
-	}
-	for (i = 0; i < (NUM_DECIMATORS - 1); i++) {
-		if (dig_cdc->dec_active[i])
-			decimator = i + 1;
-		if (decimator && decimator < NUM_DECIMATORS) {
-			/* mute/unmute decimators corresponding to Tx DAI's */
-			tx_vol_ctl_reg =
-			MSM89XX_CDC_CORE_TX1_VOL_CTL_CFG +
-					32 * (decimator - 1);
-			snd_soc_update_bits(codec, tx_vol_ctl_reg,
-					    0x01, mute);
-		}
-		decimator = 0;
-	}
-ret:
-	return 0;
-}
-
 static struct snd_soc_dai_ops msm_dig_dai_ops = {
 	.hw_params = msm_dig_cdc_hw_params,
-	.digital_mute = msm_dig_cdc_digital_mute,
 };
 
 
