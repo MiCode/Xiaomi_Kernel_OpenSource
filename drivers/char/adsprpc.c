@@ -2088,8 +2088,11 @@ static int fastrpc_glink_open(int cid)
 	cfg->notify_rx_intent_req = fastrpc_glink_notify_rx_intent_req;
 	handle = glink_open(cfg);
 	VERIFY(err, !IS_ERR_OR_NULL(handle));
-	if (err)
+	if (err) {
+		if (link->port_state == FASTRPC_LINK_CONNECTING)
+			link->port_state = FASTRPC_LINK_DISCONNECTED;
 		goto bail;
+	}
 	me->channel[cid].chan = handle;
 bail:
 	return err;
