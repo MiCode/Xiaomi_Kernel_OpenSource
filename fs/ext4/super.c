@@ -1130,7 +1130,8 @@ static int ext4_set_context(struct inode *inode, const void *ctx, size_t len,
 			ext4_clear_inode_state(inode,
 					EXT4_STATE_MAY_INLINE_DATA);
 			/*
-			 * Update inode->i_flags - e.g. S_DAX may get disabled
+			 * Update inode->i_flags - S_ENCRYPTED will be enabled,
+			 * S_DAX may be disabled
 			 */
 			ext4_set_inode_flags(inode);
 		}
@@ -1151,7 +1152,10 @@ retry:
 				    ctx, len, 0);
 	if (!res) {
 		ext4_set_inode_flag(inode, EXT4_INODE_ENCRYPT);
-		/* Update inode->i_flags - e.g. S_DAX may get disabled */
+		/*
+		 * Update inode->i_flags - S_ENCRYPTED will be enabled,
+		 * S_DAX may be disabled
+		 */
 		ext4_set_inode_flags(inode);
 		res = ext4_mark_inode_dirty(handle, inode);
 		if (res)
