@@ -1604,12 +1604,19 @@ static int mmc_select_timing(struct mmc_card *card)
 	/* For Enhance Strobe HS400 flow */
 	if (card->ext_csd.strobe_support &&
 	    card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400 &&
-	    card->host->caps & MMC_CAP_8_BIT_DATA)
-		err = mmc_select_hs400es(card);
-	else if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS200)
+	    card->host->caps & MMC_CAP_8_BIT_DATA) {
+		err = mmc_select_hs400(card);
+		if (err) {
+			pr_err("%s: %s: mmc_select_hs400 failed : %d\n",
+					mmc_hostname(card->host), __func__,
+					err);
+			err = mmc_select_hs400es(card);
+		}
+	} else if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS200) {
 		err = mmc_select_hs200(card);
-	else if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS)
+	} else if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS) {
 		err = mmc_select_hs(card);
+	}
 
 	if (err && err != -EBADMSG)
 		return err;
