@@ -42,7 +42,7 @@
 #include <linux/msm_bcl.h>
 #include <linux/ktime.h>
 #include <linux/extcon.h>
-#include "pmic-voter.h"
+#include <linux/pmic-voter.h>
 
 /* Mask/Bit helpers */
 #define _SMB_MASK(BITS, POS) \
@@ -420,61 +420,61 @@ static const unsigned int smbchg_extcon_cable[] = {
 
 static int smbchg_debug_mask;
 module_param_named(
-	debug_mask, smbchg_debug_mask, int, S_IRUSR | S_IWUSR
+	debug_mask, smbchg_debug_mask, int, 00600
 );
 
 static int smbchg_parallel_en = 1;
 module_param_named(
-	parallel_en, smbchg_parallel_en, int, S_IRUSR | S_IWUSR
+	parallel_en, smbchg_parallel_en, int, 00600
 );
 
 static int smbchg_main_chg_fcc_percent = 50;
 module_param_named(
 	main_chg_fcc_percent, smbchg_main_chg_fcc_percent,
-	int, S_IRUSR | S_IWUSR
+	int, 00600
 );
 
 static int smbchg_main_chg_icl_percent = 60;
 module_param_named(
 	main_chg_icl_percent, smbchg_main_chg_icl_percent,
-	int, S_IRUSR | S_IWUSR
+	int, 00600
 );
 
 static int smbchg_default_hvdcp_icl_ma = 1800;
 module_param_named(
 	default_hvdcp_icl_ma, smbchg_default_hvdcp_icl_ma,
-	int, S_IRUSR | S_IWUSR
+	int, 00600
 );
 
 static int smbchg_default_hvdcp3_icl_ma = 3000;
 module_param_named(
 	default_hvdcp3_icl_ma, smbchg_default_hvdcp3_icl_ma,
-	int, S_IRUSR | S_IWUSR
+	int, 00600
 );
 
 static int smbchg_default_dcp_icl_ma = 1800;
 module_param_named(
 	default_dcp_icl_ma, smbchg_default_dcp_icl_ma,
-	int, S_IRUSR | S_IWUSR
+	int, 00600
 );
 
 static int wipower_dyn_icl_en;
 module_param_named(
 	dynamic_icl_wipower_en, wipower_dyn_icl_en,
-	int, S_IRUSR | S_IWUSR
+	int, 00600
 );
 
 static int wipower_dcin_interval = ADC_MEAS1_INTERVAL_2P0MS;
 module_param_named(
 	wipower_dcin_interval, wipower_dcin_interval,
-	int, S_IRUSR | S_IWUSR
+	int, 00600
 );
 
 #define WIPOWER_DEFAULT_HYSTERISIS_UV	250000
 static int wipower_dcin_hyst_uv = WIPOWER_DEFAULT_HYSTERISIS_UV;
 module_param_named(
 	wipower_dcin_hyst_uv, wipower_dcin_hyst_uv,
-	int, S_IRUSR | S_IWUSR
+	int, 00600
 );
 
 #define pr_smb(reason, fmt, ...)				\
@@ -804,6 +804,7 @@ static char *usb_type_str[] = {
 static int get_type(u8 type_reg)
 {
 	unsigned long type = type_reg;
+
 	type >>= TYPE_BITS_OFFSET;
 	return find_first_bit(&type, N_TYPE_BITS);
 }
@@ -2121,8 +2122,6 @@ static void smbchg_parallel_usb_enable(struct smbchg_chip *chip,
 					supplied_parallel_fcc_ma);
 
 	chip->parallel.enabled_once = true;
-
-	return;
 }
 
 static bool smbchg_is_parallel_usb_ok(struct smbchg_chip *chip,
@@ -4127,7 +4126,7 @@ static int smbchg_trim_add_steps(int prev_trim, int delta_steps)
 	else if (scale_code > CENTER_TRIM_CODE)
 		linear_scale = scale_code - (CENTER_TRIM_CODE + 1);
 
-	/* check if we can accomodate delta steps with just the offset */
+	/* check if we can accommodate delta steps with just the offset */
 	if (linear_offset + delta_steps >= 0
 			&& linear_offset + delta_steps <= MAX_LIN_CODE) {
 		linear_offset += delta_steps;
@@ -4317,7 +4316,6 @@ stop:
 reschedule:
 	schedule_delayed_work(&chip->vfloat_adjust_work,
 			msecs_to_jiffies(VFLOAT_RESAMPLE_DELAY_MS));
-	return;
 }
 
 static int smbchg_charging_status_change(struct smbchg_chip *chip)
@@ -4957,7 +4955,7 @@ static int wait_for_src_detect(struct smbchg_chip *chip, bool high)
 	if (high == src_detect)
 		return 0;
 
-	pr_err("src detect didnt go to a %s state, still at %s, tries = %d, rc = %d\n",
+	pr_err("src detect didn't go to a %s state, still at %s, tries = %d, rc = %d\n",
 			high ? "risen" : "lowered",
 			src_detect ? "high" : "low",
 			tries, rc);
@@ -5564,6 +5562,7 @@ static void update_typec_otg_status(struct smbchg_chip *chip, int mode,
 					bool force)
 {
 	union power_supply_propval pval = {0, };
+
 	pr_smb(PR_TYPEC, "typec mode = %d\n", mode);
 
 	if (mode == POWER_SUPPLY_TYPE_DFP) {
@@ -5635,7 +5634,8 @@ static int smbchg_usb_set_property(struct power_supply *psy,
 }
 
 static int
-smbchg_usb_is_writeable(struct power_supply *psy, enum power_supply_property psp)
+smbchg_usb_is_writeable(struct power_supply *psy,
+			enum power_supply_property psp)
 {
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
@@ -5760,7 +5760,7 @@ static int smbchg_battery_set_property(struct power_supply *psy,
 			 * Trigger a panic if there is an error while switching
 			 * buck frequency. This will prevent LS FET damage.
 			 */
-			BUG_ON(1);
+			WARN_ON(1);
 		}
 
 		rc = smbchg_otg_pulse_skip_disable(chip,
@@ -6575,6 +6575,7 @@ static int determine_initial_status(struct smbchg_chip *chip)
 
 	if (chip->usb_present) {
 		int rc = 0;
+
 		pr_smb(PR_MISC, "setting usb dp=f dm=f\n");
 		if (chip->dpdm_reg && !regulator_is_enabled(chip->dpdm_reg))
 			rc = regulator_enable(chip->dpdm_reg);
@@ -6621,6 +6622,7 @@ static const char * const bpd_label[] = {
 static inline int get_bpd(const char *name)
 {
 	int i = 0;
+
 	for (i = 0; i < ARRAY_SIZE(bpd_label); i++) {
 		if (strcmp(bpd_label[i], name) == 0)
 			return i;
@@ -6898,9 +6900,9 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 		if (chip->iterm_disabled) {
 			dev_err(chip->dev, "Error: Both iterm_disabled and iterm_ma set\n");
 			return -EINVAL;
-		} else {
-			smbchg_iterm_set(chip, chip->iterm_ma);
 		}
+
+		smbchg_iterm_set(chip, chip->iterm_ma);
 	}
 
 	/* set the safety time voltage */
@@ -7140,7 +7142,7 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 	return rc;
 }
 
-static struct of_device_id smbchg_match_table[] = {
+static const struct of_device_id smbchg_match_table[] = {
 	{
 		.compatible     = "qcom,qpnp-smbcharger",
 	},
@@ -7157,7 +7159,7 @@ do {									\
 		prop = -EINVAL;						\
 									\
 	retval = of_property_read_u32(chip->pdev->dev.of_node,		\
-					"qcom," dt_property	,	\
+					"qcom," dt_property,	\
 					&prop);				\
 									\
 	if ((retval == -EINVAL) && optional)				\
@@ -7196,10 +7198,9 @@ static int smb_parse_wipower_map_dt(struct smbchg_chip *chip,
 	num = total_elements / RANGE_ENTRY;
 	map->entries = devm_kzalloc(chip->dev,
 			num * sizeof(struct ilim_entry), GFP_KERNEL);
-	if (!map->entries) {
-		dev_err(chip->dev, "kzalloc failed for default ilim\n");
+	if (!map->entries)
 		return -ENOMEM;
-	}
+
 	for (i = 0; i < num; i++) {
 		map->entries[i].vmin_uv =  be32_to_cpup(data++);
 		map->entries[i].vmax_uv =  be32_to_cpup(data++);
@@ -7584,7 +7585,7 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 				"batt-low", vbat_low_handler, flags);
 			if (rc < 0)
 				return rc;
-		
+
 			enable_irq_wake(chip->batt_hot_irq);
 			enable_irq_wake(chip->batt_warm_irq);
 			enable_irq_wake(chip->batt_cool_irq);
@@ -7667,8 +7668,8 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 				"temp-shutdown", chg_hot_handler, flags);
 			if (rc < 0)
 				return rc;
-			rc = smbchg_request_irq(chip, child, chip->wdog_timeout_irq,
-				"wdog-timeout",
+			rc = smbchg_request_irq(chip, child,
+				chip->wdog_timeout_irq, "wdog-timeout",
 				wdog_timeout_handler, flags);
 			if (rc < 0)
 				return rc;
@@ -7828,8 +7829,7 @@ static int create_debugfs_entries(struct smbchg_chip *chip)
 	}
 
 	ent = debugfs_create_file("force_dcin_icl_check",
-				  S_IFREG | S_IWUSR | S_IRUGO,
-				  chip->debug_root, chip,
+				  00100644, chip->debug_root, chip,
 				  &force_dcin_icl_ops);
 	if (!ent) {
 		dev_err(chip->dev,
@@ -8189,7 +8189,7 @@ static int smbchg_probe(struct platform_device *pdev)
 	rc = smbchg_hw_init(chip);
 	if (rc < 0) {
 		dev_err(&pdev->dev,
-			"Unable to intialize hardware rc = %d\n", rc);
+			"Unable to initialize hardware rc = %d\n", rc);
 		goto out;
 	}
 
