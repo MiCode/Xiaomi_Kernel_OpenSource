@@ -1253,6 +1253,11 @@ static int cam_ife_csid_enable_csi2(
 		CSID_CSI2_RX_ERROR_LANE3_FIFO_OVERFLOW |
 		CSID_CSI2_RX_ERROR_CPHY_EOT_RECEPTION |
 		CSID_CSI2_RX_ERROR_CPHY_SOT_RECEPTION |
+		CSID_CSI2_RX_ERROR_CRC |
+		CSID_CSI2_RX_ERROR_ECC |
+		CSID_CSI2_RX_ERROR_MMAPPED_VC_DT |
+		CSID_CSI2_RX_ERROR_STREAM_UNDERFLOW |
+		CSID_CSI2_RX_ERROR_UNBOUNDED_FRAME |
 		CSID_CSI2_RX_ERROR_CPHY_PH_CRC;
 
 	/* Enable the interrupt based on csid debug info set */
@@ -2545,8 +2550,8 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 	struct cam_ife_csid_hw          *csid_hw;
 	struct cam_hw_soc_info          *soc_info;
 	struct cam_ife_csid_reg_offset  *csid_reg;
-	uint32_t i, irq_status_top, irq_status_rx, irq_status_ipp = 0,
-		irq_status_rdi[4];
+	uint32_t i, irq_status_top, irq_status_rx, irq_status_ipp = 0;
+	uint32_t irq_status_rdi[4] = {0, 0, 0, 0};
 	uint32_t val;
 
 	csid_hw = (struct cam_ife_csid_hw *)data;
@@ -2593,8 +2598,12 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
 		csid_reg->cmn_reg->csid_irq_cmd_addr);
 
+	CAM_DBG(CAM_ISP, "irq_status_top = 0x%x", irq_status_top);
 	CAM_DBG(CAM_ISP, "irq_status_rx = 0x%x", irq_status_rx);
 	CAM_DBG(CAM_ISP, "irq_status_ipp = 0x%x", irq_status_ipp);
+	CAM_DBG(CAM_ISP, "irq_status_rdi0= 0x%x", irq_status_rdi[0]);
+	CAM_DBG(CAM_ISP, "irq_status_rdi1= 0x%x", irq_status_rdi[1]);
+	CAM_DBG(CAM_ISP, "irq_status_rdi2= 0x%x", irq_status_rdi[2]);
 
 	if (irq_status_top) {
 		CAM_DBG(CAM_ISP, "CSID global reset complete......Exit");
@@ -2609,35 +2618,55 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 	}
 
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_LANE0_FIFO_OVERFLOW) {
-		pr_err_ratelimited("CSID:%d lane 0 over flow",
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d lane 0 over flow",
 			 csid_hw->hw_intf->hw_idx);
 	}
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_LANE1_FIFO_OVERFLOW) {
-		pr_err_ratelimited("CSID:%d lane 1 over flow",
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d lane 1 over flow",
 			 csid_hw->hw_intf->hw_idx);
 	}
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_LANE2_FIFO_OVERFLOW) {
-		pr_err_ratelimited("CSID:%d lane 2 over flow",
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d lane 2 over flow",
 			 csid_hw->hw_intf->hw_idx);
 	}
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_LANE3_FIFO_OVERFLOW) {
-		pr_err_ratelimited("CSID:%d lane 3 over flow",
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d lane 3 over flow",
 			 csid_hw->hw_intf->hw_idx);
 	}
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_TG_FIFO_OVERFLOW) {
-		pr_err_ratelimited("CSID:%d TG OVER  FLOW",
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d TG OVER  FLOW",
 			 csid_hw->hw_intf->hw_idx);
 	}
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_CPHY_EOT_RECEPTION) {
-		pr_err_ratelimited("CSID:%d CPHY_EOT_RECEPTION",
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d CPHY_EOT_RECEPTION",
 			 csid_hw->hw_intf->hw_idx);
 	}
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_CPHY_SOT_RECEPTION) {
-		pr_err_ratelimited("CSID:%d CPHY_SOT_RECEPTION",
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d CPHY_SOT_RECEPTION",
 			 csid_hw->hw_intf->hw_idx);
 	}
 	if (irq_status_rx & CSID_CSI2_RX_ERROR_CPHY_PH_CRC) {
-		pr_err_ratelimited("CSID:%d CPHY_PH_CRC",
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d CPHY_PH_CRC",
+			 csid_hw->hw_intf->hw_idx);
+	}
+	if (irq_status_rx & CSID_CSI2_RX_ERROR_CRC) {
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d ERROR_CRC",
+			 csid_hw->hw_intf->hw_idx);
+	}
+	if (irq_status_rx & CSID_CSI2_RX_ERROR_ECC) {
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d ERROR_ECC",
+			 csid_hw->hw_intf->hw_idx);
+	}
+	if (irq_status_rx & CSID_CSI2_RX_ERROR_MMAPPED_VC_DT) {
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d MMAPPED_VC_DT",
+			 csid_hw->hw_intf->hw_idx);
+	}
+		if (irq_status_rx & CSID_CSI2_RX_ERROR_STREAM_UNDERFLOW) {
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d ERROR_STREAM_UNDERFLOW",
+			 csid_hw->hw_intf->hw_idx);
+	}
+	if (irq_status_rx & CSID_CSI2_RX_ERROR_UNBOUNDED_FRAME) {
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d UNBOUNDED_FRAME",
 			 csid_hw->hw_intf->hw_idx);
 	}
 
