@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -108,7 +108,6 @@ enum {
  * @SDE_SSPP_CSC_10BIT,      Support of 10-bit Color space conversion
  * @SDE_SSPP_HSIC,           Global HSIC control
  * @SDE_SSPP_MEMCOLOR        Memory Color Support
- * @SDE_SSPP_IGC,            Inverse gamma correction
  * @SDE_SSPP_PCC,            Color correction support
  * @SDE_SSPP_CURSOR,         SSPP can be used as a cursor layer
  * @SDE_SSPP_QOS,            SSPP support QoS control, danger/safe/creq
@@ -120,6 +119,10 @@ enum {
  * @SDE_SSPP_TS_PREFILL      Supports prefill with traffic shaper
  * @SDE_SSPP_TS_PREFILL_REC1 Supports prefill with traffic shaper multirec
  * @SDE_SSPP_CDP             Supports client driven prefetch
+ * @SDE_SSPP_VIG_IGC,        VIG 1D LUT IGC
+ * @SDE_SSPP_VIG_GAMUT,      VIG 3D LUT Gamut
+ * @SDE_SSPP_DMA_IGC,        DMA 1D LUT IGC
+ * @SDE_SSPP_DMA_GC,         DMA 1D LUT GC
  * @SDE_SSPP_MAX             maximum value
  */
 enum {
@@ -131,7 +134,6 @@ enum {
 	SDE_SSPP_CSC_10BIT,
 	SDE_SSPP_HSIC,
 	SDE_SSPP_MEMCOLOR,
-	SDE_SSPP_IGC,
 	SDE_SSPP_PCC,
 	SDE_SSPP_CURSOR,
 	SDE_SSPP_QOS,
@@ -143,6 +145,10 @@ enum {
 	SDE_SSPP_TS_PREFILL,
 	SDE_SSPP_TS_PREFILL_REC1,
 	SDE_SSPP_CDP,
+	SDE_SSPP_VIG_IGC,
+	SDE_SSPP_VIG_GAMUT,
+	SDE_SSPP_DMA_IGC,
+	SDE_SSPP_DMA_GC,
 	SDE_SSPP_MAX
 };
 
