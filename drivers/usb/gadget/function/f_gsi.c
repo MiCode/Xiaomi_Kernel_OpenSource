@@ -1577,6 +1577,7 @@ static void gsi_rndis_command_complete(struct usb_ep *ep,
 		struct usb_request *req)
 {
 	struct f_gsi *rndis = req->context;
+	rndis_init_msg_type *buf;
 	int status;
 
 	if (req->status != 0) {
@@ -1589,6 +1590,16 @@ static void gsi_rndis_command_complete(struct usb_ep *ep,
 	if (status < 0)
 		log_event_err("RNDIS command error %d, %d/%d",
 			status, req->actual, req->length);
+
+	buf = (rndis_init_msg_type *)req->buf;
+	if (buf->MessageType == RNDIS_MSG_INIT) {
+		rndis->d_port.in_aggr_size = min_t(u32,
+					rndis->d_port.in_aggr_size,
+					rndis->params->dl_max_xfer_size);
+		log_event_dbg("RNDIS host dl_aggr_size:%d in_aggr_size:%d\n",
+				rndis->params->dl_max_xfer_size,
+				rndis->d_port.in_aggr_size);
+	}
 }
 
 static void
