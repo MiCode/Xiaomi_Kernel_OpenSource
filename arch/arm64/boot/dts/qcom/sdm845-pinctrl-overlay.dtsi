@@ -20,6 +20,18 @@
 		};
 	};
 
+	qnovo_fet_ctrl {
+		qnovo_fet_ctrl_default: qnovo_fet_ctrl_default {
+			pins = "gpio6";
+			function = "func1";
+			output-low;
+			input-disable;
+			bias-disable;
+			power-source = <0>;
+			qcom,drive-strength = <1>;
+		};
+	};
+
 	usb2_vbus_det {
 		usb2_vbus_det_default: usb2_vbus_det_default {
 			pins = "gpio8";
