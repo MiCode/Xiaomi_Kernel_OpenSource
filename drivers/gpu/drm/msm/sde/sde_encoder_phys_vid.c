@@ -279,8 +279,9 @@ static void programmable_rot_fetch_config(struct sde_encoder_phys *phys_enc,
 		return;
 
 	SDE_DEBUG_VIDENC(vid_enc,
-		"rot_fetch_lines %u rot_fetch_start_vsync_counter %u\n",
-		rot_fetch_lines, rot_fetch_start_vsync_counter);
+		"rot_fetch_lines %u vfp_fetch_lines %u rot_fetch_start_vsync_counter %u\n",
+		rot_fetch_lines, vfp_fetch_lines,
+		rot_fetch_start_vsync_counter);
 
 	phys_enc->hw_ctl->ops.get_bitmask_intf(
 			phys_enc->hw_ctl, &flush_mask, vid_enc->hw_intf->idx);
@@ -482,13 +483,19 @@ static void _sde_encoder_phys_vid_setup_irq_hw_idx(
 {
 	struct sde_encoder_irq *irq;
 
+	/*
+	 * Initialize irq->hw_idx only when irq is not registered.
+	 * Prevent invalidating irq->irq_idx as modeset may be
+	 * called many times during dfps.
+	 */
+
 	irq = &phys_enc->irq[INTR_IDX_VSYNC];
-	irq->hw_idx = phys_enc->intf_idx;
-	irq->irq_idx = -EINVAL;
+	if (irq->irq_idx < 0)
+		irq->hw_idx = phys_enc->intf_idx;
 
 	irq = &phys_enc->irq[INTR_IDX_UNDERRUN];
-	irq->hw_idx = phys_enc->intf_idx;
-	irq->irq_idx = -EINVAL;
+	if (irq->irq_idx < 0)
+		irq->hw_idx = phys_enc->intf_idx;
 }
 
 static void sde_encoder_phys_vid_mode_set(
@@ -898,6 +905,24 @@ static u32 sde_encoder_phys_vid_collect_misr(struct sde_encoder_phys *phys_enc)
 		vid_enc->hw_intf->ops.collect_misr(vid_enc->hw_intf) : 0;
 }
 
+static int sde_encoder_phys_vid_get_line_count(
+		struct sde_encoder_phys *phys_enc)
+{
+	struct sde_encoder_phys_vid *vid_enc;
+
+	if (!phys_enc)
+		return -EINVAL;
+
+	if (!sde_encoder_phys_vid_is_master(phys_enc))
+		return -EINVAL;
+
+	vid_enc = to_sde_encoder_phys_vid(phys_enc);
+	if (!vid_enc->hw_intf || !vid_enc->hw_intf->ops.get_line_count)
+		return -EINVAL;
+
+	return vid_enc->hw_intf->ops.get_line_count(vid_enc->hw_intf);
+}
+
 static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 {
 	ops->is_master = sde_encoder_phys_vid_is_master;
@@ -918,6 +943,7 @@ static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->setup_misr = sde_encoder_phys_vid_setup_misr;
 	ops->collect_misr = sde_encoder_phys_vid_collect_misr;
 	ops->hw_reset = sde_encoder_helper_hw_reset;
+	ops->get_line_count = sde_encoder_phys_vid_get_line_count;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_vid_init(

@@ -127,6 +127,9 @@ enum msm_mdp_plane_property {
 
 enum msm_mdp_crtc_property {
 	CRTC_PROP_INFO,
+	CRTC_PROP_DEST_SCALER_LUT_ED,
+	CRTC_PROP_DEST_SCALER_LUT_CIR,
+	CRTC_PROP_DEST_SCALER_LUT_SEP,
 
 	/* # of blob properties */
 	CRTC_PROP_BLOBCOUNT,
@@ -148,6 +151,7 @@ enum msm_mdp_crtc_property {
 	CRTC_PROP_ROI_V1,
 	CRTC_PROP_SECURITY_LEVEL,
 	CRTC_PROP_IDLE_TIMEOUT,
+	CRTC_PROP_DEST_SCALER,
 
 	/* total # of properties */
 	CRTC_PROP_COUNT
@@ -208,12 +212,14 @@ enum msm_display_compression_type {
  * @MSM_DISPLAY_CAP_CMD_MODE:           Command mode supported
  * @MSM_DISPLAY_CAP_HOT_PLUG:           Hot plug detection supported
  * @MSM_DISPLAY_CAP_EDID:               EDID supported
+ * @MSM_DISPLAY_ESD_ENABLED:            ESD feature enabled
  */
 enum msm_display_caps {
 	MSM_DISPLAY_CAP_VID_MODE	= BIT(0),
 	MSM_DISPLAY_CAP_CMD_MODE	= BIT(1),
 	MSM_DISPLAY_CAP_HOT_PLUG	= BIT(2),
 	MSM_DISPLAY_CAP_EDID		= BIT(3),
+	MSM_DISPLAY_ESD_ENABLED		= BIT(4),
 };
 
 /**

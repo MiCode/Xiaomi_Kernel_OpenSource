@@ -621,6 +621,16 @@ struct blink_on_off_time {
 	u32 off_ms;
 };
 
+struct wil_debugfs_iomem_data {
+	void *offset;
+	struct wil6210_priv *wil;
+};
+
+struct wil_debugfs_data {
+	struct wil_debugfs_iomem_data *data_arr;
+	int iomem_data_count;
+};
+
 extern struct blink_on_off_time led_blink_time[WIL_LED_TIME_LAST];
 extern u8 led_id;
 extern u8 led_polarity;
@@ -713,6 +723,7 @@ struct wil6210_priv {
 	u8 abft_len;
 	u8 wakeup_trigger;
 	struct wil_suspend_stats suspend_stats;
+	struct wil_debugfs_data dbg_data;
 
 	void *platform_handle;
 	struct wil_platform_ops platform_ops;
@@ -870,6 +881,7 @@ int wil_up(struct wil6210_priv *wil);
 int __wil_up(struct wil6210_priv *wil);
 int wil_down(struct wil6210_priv *wil);
 int __wil_down(struct wil6210_priv *wil);
+void wil_refresh_fw_capabilities(struct wil6210_priv *wil);
 void wil_mbox_ring_le2cpus(struct wil6210_mbox_ring *r);
 int wil_find_cid(struct wil6210_priv *wil, const u8 *mac);
 void wil_set_ethtoolops(struct net_device *ndev);
@@ -1013,6 +1025,11 @@ int wil_ioctl(struct wil6210_priv *wil, void __user *data, int cmd);
 int wil_request_firmware(struct wil6210_priv *wil, const char *name,
 			 bool load);
 bool wil_fw_verify_file_exists(struct wil6210_priv *wil, const char *name);
+
+void wil_pm_runtime_allow(struct wil6210_priv *wil);
+void wil_pm_runtime_forbid(struct wil6210_priv *wil);
+int wil_pm_runtime_get(struct wil6210_priv *wil);
+void wil_pm_runtime_put(struct wil6210_priv *wil);
 
 int wil_can_suspend(struct wil6210_priv *wil, bool is_runtime);
 int wil_suspend(struct wil6210_priv *wil, bool is_runtime);

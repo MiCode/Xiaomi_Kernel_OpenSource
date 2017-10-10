@@ -84,17 +84,6 @@
 	/delete-property/ qcom,vddp-ref-clk-supply;
 };
 
-&ufsphy_card {
-	/delete-property/ vdda-phy-supply;
-	/delete-property/ vdda-pll-supply;
-};
-
-&ufshc_card {
-	/delete-property/ vcc-supply;
-	/delete-property/ vccq2-supply;
-	/delete-property/ qcom,vddp-ref-clk-supply;
-};
-
 &sdhc_2 {
 	/delete-property/ vdd-supply;
 	/delete-property/ vdd-io-supply;
@@ -222,11 +211,11 @@
 
 &clock_gpucc {
 	/delete-property/ vdd_cx-supply;
+	/delete-property/ vdd_mx-supply;
 };
 
 &clock_gfx {
 	/delete-property/ vdd_gfx-supply;
-	/delete-property/ vdd_mx-supply;
 };
 
 &pil_modem {

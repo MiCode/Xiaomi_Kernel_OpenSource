@@ -40,8 +40,6 @@
 #define DISP_CC_MISC_CMD	0x8000
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
-#define F_SLEW(f, s, h, m, n, src_freq) { (f), (s), (2 * (h) - 1), (m), (n), \
-					(src_freq) }
 
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_CX_NUM, 1, vdd_corner);
 
@@ -379,6 +377,20 @@ static const struct freq_tbl ftbl_disp_cc_mdss_mdp_clk_src_sdm845_v2[] = {
 	F(150000000, P_GPLL0_OUT_MAIN, 4, 0, 0),
 	F(171428571, P_GPLL0_OUT_MAIN, 3.5, 0, 0),
 	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
+	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
+	F(344000000, P_DISP_CC_PLL0_OUT_MAIN, 2.5, 0, 0),
+	F(430000000, P_DISP_CC_PLL0_OUT_MAIN, 2, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_disp_cc_mdss_mdp_clk_src_sdm670[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(85714286, P_GPLL0_OUT_MAIN, 7, 0, 0),
+	F(100000000, P_GPLL0_OUT_MAIN, 6, 0, 0),
+	F(150000000, P_GPLL0_OUT_MAIN, 4, 0, 0),
+	F(171428571, P_GPLL0_OUT_MAIN, 3.5, 0, 0),
+	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
+	F(286670000, P_DISP_CC_PLL0_OUT_MAIN, 3, 0, 0),
 	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
 	F(344000000, P_DISP_CC_PLL0_OUT_MAIN, 2.5, 0, 0),
 	F(430000000, P_DISP_CC_PLL0_OUT_MAIN, 2, 0, 0),
@@ -1022,23 +1034,23 @@ MODULE_DEVICE_TABLE(of, disp_cc_sdm845_match_table);
 static void disp_cc_sdm845_fixup_sdm845v2(struct regmap *regmap)
 {
 	clk_fabia_pll_configure(&disp_cc_pll0, regmap,
-					&disp_cc_pll0_config_v2);
+		&disp_cc_pll0_config_v2);
 	disp_cc_mdss_byte0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] =
 		180000000;
 	disp_cc_mdss_byte0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] =
 		275000000;
 	disp_cc_mdss_byte0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
-		358000000;
+		328580000;
 	disp_cc_mdss_byte1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] =
 		180000000;
 	disp_cc_mdss_byte1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] =
 		275000000;
 	disp_cc_mdss_byte1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
-		358000000;
+		328580000;
 	disp_cc_mdss_dp_pixel1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] =
-		337500000;
+		337500;
 	disp_cc_mdss_dp_pixel_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] =
-		337500000;
+		337500;
 	disp_cc_mdss_mdp_clk_src.freq_tbl =
 		ftbl_disp_cc_mdss_mdp_clk_src_sdm845_v2;
 	disp_cc_mdss_mdp_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] =
@@ -1051,9 +1063,13 @@ static void disp_cc_sdm845_fixup_sdm845v2(struct regmap *regmap)
 		280000000;
 	disp_cc_mdss_pclk0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] =
 		430000000;
+	disp_cc_mdss_pclk0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
+		430000000;
 	disp_cc_mdss_pclk1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] =
 		280000000;
 	disp_cc_mdss_pclk1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] =
+		430000000;
+	disp_cc_mdss_pclk1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
 		430000000;
 	disp_cc_mdss_rot_clk_src.freq_tbl =
 		ftbl_disp_cc_mdss_rot_clk_src_sdm845_v2;
@@ -1068,6 +1084,13 @@ static void disp_cc_sdm845_fixup_sdm845v2(struct regmap *regmap)
 static void disp_cc_sdm845_fixup_sdm670(struct regmap *regmap)
 {
 	disp_cc_sdm845_fixup_sdm845v2(regmap);
+
+	disp_cc_mdss_mdp_clk_src.freq_tbl =
+		ftbl_disp_cc_mdss_mdp_clk_src_sdm670;
+	disp_cc_mdss_byte0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
+		358000000;
+	disp_cc_mdss_byte1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
+		358000000;
 }
 
 static int disp_cc_sdm845_fixup(struct platform_device *pdev,

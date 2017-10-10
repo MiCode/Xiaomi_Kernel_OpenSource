@@ -24,6 +24,8 @@
 #include "kgsl_snapshot.h"
 #include "adreno_cp_parser.h"
 
+static void kgsl_snapshot_save_frozen_objs(struct work_struct *work);
+
 /* Placeholder for list of ib objects that contain all objects in that IB */
 
 struct kgsl_snapshot_cp_obj {
@@ -182,8 +184,7 @@ static size_t snapshot_os(struct kgsl_device *device,
 	context = kgsl_context_get(device, header->current_context);
 
 	/* Get the current PT base */
-	if (!IS_ERR(priv))
-		header->ptbase = kgsl_mmu_get_current_ttbr0(&device->mmu);
+	header->ptbase = kgsl_mmu_get_current_ttbr0(&device->mmu);
 
 	/* And the PID for the task leader */
 	if (context) {
@@ -202,6 +203,44 @@ static size_t snapshot_os(struct kgsl_device *device,
 	read_lock(&device->context_lock);
 	idr_for_each(&device->context_idr, snapshot_context_info, NULL);
 	read_unlock(&device->context_lock);
+
+	/* Return the size of the data segment */
+	return size;
+}
+
+/* Snapshot the Linux specific information */
+static size_t snapshot_os_no_ctxt(struct kgsl_device *device,
+	u8 *buf, size_t remain, void *priv)
+{
+	struct kgsl_snapshot_linux_v2 *header =
+		(struct kgsl_snapshot_linux_v2 *)buf;
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	size_t size = sizeof(*header);
+
+	/* Make sure there is enough room for the data */
+	if (remain < size) {
+		SNAPSHOT_ERR_NOMEM(device, "OS");
+		return 0;
+	}
+
+	memset(header, 0, sizeof(*header));
+
+	header->osid = KGSL_SNAPSHOT_OS_LINUX_V3;
+
+	/* Get the kernel build information */
+	strlcpy(header->release, init_utsname()->release,
+			sizeof(header->release));
+	strlcpy(header->version, init_utsname()->version,
+			sizeof(header->version));
+
+	/* Get the Unix time for the timestamp */
+	header->seconds = get_seconds();
+
+	/* Remember the power information */
+	header->power_flags = pwr->power_flags;
+	header->power_level = pwr->active_pwrlevel;
+	header->power_interval_timeout = pwr->interval_timeout;
+	header->grpclk = kgsl_get_clkrate(pwr->grp_clks[0]);
 
 	/* Return the size of the data segment */
 	return size;
@@ -663,14 +702,24 @@ void kgsl_device_snapshot(struct kgsl_device *device,
 	snapshot->size += sizeof(*header);
 
 	/* Build the Linux specific header */
-	/* Context err is implied a GMU fault, so limit dump */
-	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_OS,
-			snapshot, snapshot_os,
-			IS_ERR(context) ? context : NULL);
+	/* We either want to only dump GMU, or we want to dump GPU and GMU */
+	if (gmu_fault) {
+		/* Dump only the GMU */
+		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_OS,
+				snapshot, snapshot_os_no_ctxt, NULL);
 
-	/* Get the device specific sections */
-	if (device->ftbl->snapshot)
-		device->ftbl->snapshot(device, snapshot, context);
+		if (device->ftbl->snapshot_gmu)
+			device->ftbl->snapshot_gmu(device, snapshot);
+	} else {
+		/* Dump GPU and GMU */
+		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_OS,
+				snapshot, snapshot_os, NULL);
+
+		if (device->ftbl->snapshot)
+			device->ftbl->snapshot(device, snapshot, context);
+		if (device->ftbl->snapshot_gmu)
+			device->ftbl->snapshot_gmu(device, snapshot);
+	}
 
 	/*
 	 * The timestamp is the seconds since boot so it is easier to match to
@@ -1193,7 +1242,7 @@ static size_t _mempool_add_object(struct kgsl_snapshot *snapshot, u8 *data,
  * is taken
  * @work: The work item that scheduled this work
  */
-void kgsl_snapshot_save_frozen_objs(struct work_struct *work)
+static void kgsl_snapshot_save_frozen_objs(struct work_struct *work)
 {
 	struct kgsl_snapshot *snapshot = container_of(work,
 				struct kgsl_snapshot, work);
@@ -1204,6 +1253,9 @@ void kgsl_snapshot_save_frozen_objs(struct work_struct *work)
 
 	if (IS_ERR_OR_NULL(device))
 		return;
+
+	if (snapshot->gmu_fault)
+		goto gmu_only;
 
 	kgsl_snapshot_process_ib_obj_list(snapshot);
 
@@ -1251,6 +1303,7 @@ done:
 			       "snapshot: Active IB2:%016llx not dumped\n",
 				snapshot->ib2base);
 
+gmu_only:
 	complete_all(&snapshot->dump_gate);
 	BUG_ON(device->force_panic);
 }

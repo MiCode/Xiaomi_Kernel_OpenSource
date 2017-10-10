@@ -110,6 +110,8 @@ void a6xx_preemption_context_destroy(struct kgsl_context *context);
 
 void a6xx_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot);
+void a6xx_snapshot_gmu(struct adreno_device *adreno_dev,
+		struct kgsl_snapshot *snapshot);
 
 void a6xx_crashdump_init(struct adreno_device *adreno_dev);
 #endif

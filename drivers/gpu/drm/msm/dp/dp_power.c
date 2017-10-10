@@ -612,8 +612,12 @@ error:
 
 void dp_power_put(struct dp_power *dp_power)
 {
-	struct dp_power_private *power = container_of(dp_power,
-			struct dp_power_private, dp_power);
+	struct dp_power_private *power = NULL;
+
+	if (!dp_power)
+		return;
+
+	power = container_of(dp_power, struct dp_power_private, dp_power);
 
 	devm_kfree(&power->pdev->dev, power);
 }

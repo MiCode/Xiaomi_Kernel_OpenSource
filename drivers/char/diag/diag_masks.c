@@ -1982,7 +1982,8 @@ int diag_copy_to_user_log_mask(char __user *buf, size_t count,
 
 void diag_send_updates_peripheral(uint8_t peripheral)
 {
-	diag_send_feature_mask_update(peripheral);
+	if (!driver->feature[peripheral].sent_feature_mask)
+		diag_send_feature_mask_update(peripheral);
 	/*
 	 * Masks (F3, logs and events) will be sent to
 	 * peripheral immediately following feature mask update only

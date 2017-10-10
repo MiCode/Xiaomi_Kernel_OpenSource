@@ -1961,20 +1961,3 @@ void ipahal_get_fltrt_hash_flush_valmask(
 
 	valmask->mask = valmask->val;
 }
-
-void ipahal_get_status_ep_valmask(int pipe_num,
-	struct ipahal_reg_valmask *valmask)
-{
-	if (!valmask) {
-		IPAHAL_ERR("Input error\n");
-		return;
-	}
-
-	valmask->val =
-		(pipe_num & IPA_ENDP_STATUS_n_STATUS_ENDP_BMSK) <<
-		IPA_ENDP_STATUS_n_STATUS_ENDP_SHFT;
-
-	valmask->mask =
-		IPA_ENDP_STATUS_n_STATUS_ENDP_BMSK <<
-		IPA_ENDP_STATUS_n_STATUS_ENDP_SHFT;
-}

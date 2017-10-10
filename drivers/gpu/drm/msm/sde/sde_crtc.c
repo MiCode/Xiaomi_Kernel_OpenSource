@@ -611,6 +611,18 @@ static void _sde_crtc_deinit_events(struct sde_crtc *sde_crtc)
 		return;
 }
 
+/**
+ * sde_crtc_destroy_dest_scaler - free memory allocated for scaler lut
+ * @sde_crtc: Pointer to sde crtc
+ */
+static void _sde_crtc_destroy_dest_scaler(struct sde_crtc *sde_crtc)
+{
+	if (!sde_crtc)
+		return;
+
+	kfree(sde_crtc->scl3_lut_cfg);
+}
+
 static void sde_crtc_destroy(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
@@ -624,6 +636,7 @@ static void sde_crtc_destroy(struct drm_crtc *crtc)
 		drm_property_unreference_blob(sde_crtc->blob_info);
 	msm_property_destroy(&sde_crtc->property_info);
 	sde_cp_crtc_destroy_properties(crtc);
+	_sde_crtc_destroy_dest_scaler(sde_crtc);
 
 	sde_fence_deinit(&sde_crtc->output_fence);
 	_sde_crtc_deinit_events(sde_crtc);
@@ -639,8 +652,9 @@ static bool sde_crtc_mode_fixup(struct drm_crtc *crtc,
 {
 	SDE_DEBUG("\n");
 
-	if (msm_is_mode_seamless(adjusted_mode) &&
-		(!crtc->enabled || crtc->state->active_changed)) {
+	if ((msm_is_mode_seamless(adjusted_mode) ||
+			msm_is_mode_seamless_vrr(adjusted_mode)) &&
+		(!crtc->enabled)) {
 		SDE_ERROR("crtc state prevents seamless transition\n");
 		return false;
 	}
@@ -790,7 +804,7 @@ void sde_crtc_get_crtc_roi(struct drm_crtc_state *state,
 }
 
 static int _sde_crtc_set_roi_v1(struct drm_crtc_state *state,
-		void *usr_ptr)
+		void __user *usr_ptr)
 {
 	struct drm_crtc *crtc;
 	struct sde_crtc_state *cstate;
@@ -912,23 +926,6 @@ static int _sde_crtc_set_crtc_roi(struct drm_crtc *crtc,
 
 	sde_kms_rect_merge_rectangles(&crtc_state->user_roi_list, crtc_roi);
 
-	/*
-	 * for 3dmux dsc, make sure is full ROI, since current driver doesn't
-	 * support partial update for this configuration.
-	 */
-	if (!sde_kms_rect_is_null(crtc_roi) &&
-		_sde_crtc_setup_is_3dmux_dsc(state)) {
-		struct drm_display_mode *adj_mode = &state->adjusted_mode;
-
-		if (crtc_roi->w != adj_mode->hdisplay ||
-			crtc_roi->h != adj_mode->vdisplay) {
-			SDE_ERROR("%s: unsupported top roi[%d %d] wxh[%d %d]\n",
-				sde_crtc->name, crtc_roi->w, crtc_roi->h,
-				adj_mode->hdisplay, adj_mode->vdisplay);
-			return -EINVAL;
-		}
-	}
-
 	SDE_DEBUG("%s: crtc roi (%d,%d,%d,%d)\n", sde_crtc->name,
 			crtc_roi->x, crtc_roi->y, crtc_roi->w, crtc_roi->h);
 
@@ -998,6 +995,18 @@ static int _sde_crtc_set_lm_roi(struct drm_crtc *crtc,
 
 	SDE_DEBUG("%s: lm%d roi (%d,%d,%d,%d)\n", sde_crtc->name, lm_idx,
 			lm_roi->x, lm_roi->y, lm_roi->w, lm_roi->h);
+
+	/*
+	 * partial update is not supported with 3dmux dsc or dest scaler.
+	 * hence, crtc roi must match the mixer dimensions.
+	 */
+	if (crtc_state->num_ds_enabled ||
+		_sde_crtc_setup_is_3dmux_dsc(state)) {
+		if (memcmp(lm_roi, lm_bounds, sizeof(struct sde_rect))) {
+			SDE_ERROR("Unsupported: Dest scaler/3d mux DSC + PU\n");
+			return -EINVAL;
+		}
+	}
 
 	/* if any dimension is zero, clear all dimensions for clarity */
 	if (sde_kms_rect_is_null(lm_roi))
@@ -1263,7 +1272,7 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	struct sde_hw_stage_cfg *stage_cfg;
 	struct sde_rect plane_crtc_roi;
 
-	u32 flush_mask, flush_sbuf, flush_tmp;
+	u32 flush_mask, flush_sbuf;
 	uint32_t stage_idx, lm_idx;
 	int zpos_cnt[SDE_STAGE_MAX + 1] = { 0 };
 	int i;
@@ -1279,10 +1288,9 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	lm = mixer->hw_lm;
 	stage_cfg = &sde_crtc->stage_cfg;
 	cstate = to_sde_crtc_state(crtc->state);
-	flush_sbuf = 0x0;
 
-	cstate->sbuf_cfg.rot_op_mode = SDE_CTL_ROT_OP_MODE_OFFLINE;
 	cstate->sbuf_prefill_line = 0;
+	sde_crtc->sbuf_flush_mask = 0x0;
 
 	drm_atomic_crtc_for_each_plane(plane, crtc) {
 		state = plane->state;
@@ -1297,17 +1305,14 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 		pstate = to_sde_plane_state(state);
 		fb = state->fb;
 
-		if (sde_plane_is_sbuf_mode(plane, &prefill))
-			cstate->sbuf_cfg.rot_op_mode =
-					SDE_CTL_ROT_OP_MODE_INLINE_SYNC;
+		prefill = sde_plane_rot_calc_prefill(plane);
 		if (prefill > cstate->sbuf_prefill_line)
 			cstate->sbuf_prefill_line = prefill;
 
-		sde_plane_get_ctl_flush(plane, ctl, &flush_mask, &flush_tmp);
+		sde_plane_get_ctl_flush(plane, ctl, &flush_mask, &flush_sbuf);
 
-		/* persist rotator flush bit(s) for one more commit */
-		flush_mask |= cstate->sbuf_flush_mask | flush_tmp;
-		flush_sbuf |= flush_tmp;
+		/* save sbuf flush value for later */
+		sde_crtc->sbuf_flush_mask |= flush_sbuf;
 
 		SDE_DEBUG("crtc %d stage:%d - plane %d sspp %d fb %d\n",
 				crtc->base.id,
@@ -1331,8 +1336,7 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 				state->src_w >> 16, state->src_h >> 16,
 				state->crtc_x, state->crtc_y,
 				state->crtc_w, state->crtc_h,
-				flush_tmp ? cstate->sbuf_cfg.rot_op_mode :
-				SDE_CTL_ROT_OP_MODE_OFFLINE);
+				flush_sbuf != 0);
 
 		stage_idx = zpos_cnt[pstate->stage]++;
 		stage_cfg->stage[pstate->stage][stage_idx] =
@@ -1358,8 +1362,6 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 						1 << pstate->stage;
 		}
 	}
-
-	cstate->sbuf_flush_mask = flush_sbuf;
 
 	if (lm && lm->ops.setup_dim_layer) {
 		cstate = to_sde_crtc_state(crtc->state);
@@ -1502,6 +1504,7 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 
 		lm->ops.setup_alpha_out(lm, mixer[i].mixer_op_mode);
 
+		mixer[i].pipe_mask = mixer[i].flush_mask;
 		mixer[i].flush_mask |= ctl->ops.get_bitmask_mixer(ctl,
 			mixer[i].hw_lm->idx);
 
@@ -1665,8 +1668,6 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 			smmu_state->transition_type = post_commit ?
 				POST_COMMIT : PRE_COMMIT;
 			ops |= SDE_KMS_OPS_CRTC_SECURE_STATE_CHANGE;
-			if (translation_mode == SDE_DRM_FB_SEC)
-				ops |= SDE_KMS_OPS_PREPARE_PLANE_FB;
 			if (old_valid_fb)
 				ops |= SDE_KMS_OPS_WAIT_FOR_TX_DONE;
 		} else if ((smmu_state->state == DETACHED) ||
@@ -1674,8 +1675,7 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 			smmu_state->state = ATTACH_ALL_REQ;
 			smmu_state->transition_type = post_commit ?
 				POST_COMMIT : PRE_COMMIT;
-			ops |= SDE_KMS_OPS_CRTC_SECURE_STATE_CHANGE |
-				SDE_KMS_OPS_PREPARE_PLANE_FB;
+			ops |= SDE_KMS_OPS_CRTC_SECURE_STATE_CHANGE;
 			if (old_valid_fb)
 				ops |= (SDE_KMS_OPS_WAIT_FOR_TX_DONE |
 				 SDE_KMS_OPS_CLEANUP_PLANE_FB);
@@ -1734,6 +1734,64 @@ static int _sde_crtc_scm_call(int vmid)
 	}
 
 	kfree(sec_sid);
+	return ret;
+}
+
+/**
+ * _sde_crtc_setup_scaler3_lut - Set up scaler lut
+ * LUTs are configured only once during boot
+ * @sde_crtc: Pointer to sde crtc
+ * @cstate: Pointer to sde crtc state
+ */
+static int _sde_crtc_set_dest_scaler_lut(struct sde_crtc *sde_crtc,
+		struct sde_crtc_state *cstate, uint32_t lut_idx)
+{
+	struct sde_hw_scaler3_lut_cfg *cfg;
+	u32 *lut_data = NULL;
+	size_t len = 0;
+	int ret = 0;
+
+	if (!sde_crtc || !cstate || !sde_crtc->scl3_lut_cfg) {
+		SDE_ERROR("invalid args\n");
+		return -EINVAL;
+	}
+
+	if (sde_crtc->scl3_lut_cfg->is_configured) {
+		SDE_DEBUG("lut already configured\n");
+		return 0;
+	}
+
+	lut_data = msm_property_get_blob(&sde_crtc->property_info,
+			&cstate->property_state, &len, lut_idx);
+	if (!lut_data || !len) {
+		SDE_ERROR("lut(%d): no data, len(%zu)\n", lut_idx, len);
+		return -ENODATA;
+	}
+
+	cfg = sde_crtc->scl3_lut_cfg;
+
+	switch (lut_idx) {
+	case CRTC_PROP_DEST_SCALER_LUT_ED:
+		cfg->dir_lut = lut_data;
+		cfg->dir_len = len;
+		break;
+	case CRTC_PROP_DEST_SCALER_LUT_CIR:
+		cfg->cir_lut = lut_data;
+		cfg->cir_len = len;
+		break;
+	case CRTC_PROP_DEST_SCALER_LUT_SEP:
+		cfg->sep_lut = lut_data;
+		cfg->sep_len = len;
+		break;
+	default:
+		ret = -EINVAL;
+		SDE_ERROR("invalid LUT index = %d", lut_idx);
+		break;
+	}
+
+	if (cfg->dir_lut && cfg->cir_lut && cfg->sep_lut)
+		cfg->is_configured = true;
+
 	return ret;
 }
 
@@ -1853,6 +1911,105 @@ int sde_crtc_secure_ctrl(struct drm_crtc *crtc, bool post_commit)
 error:
 	smmu_state->transition_error = ret ? true : false;
 	return ret;
+}
+
+/**
+ * _sde_crtc_dest_scaler_setup - Set up dest scaler block
+ * @crtc: Pointer to drm crtc
+ */
+static void _sde_crtc_dest_scaler_setup(struct drm_crtc *crtc)
+{
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *cstate;
+	struct sde_hw_mixer *hw_lm;
+	struct sde_hw_ctl *hw_ctl;
+	struct sde_hw_ds *hw_ds;
+	struct sde_hw_ds_cfg *cfg;
+	struct sde_kms *kms;
+	u32 flush_mask = 0, op_mode = 0;
+	u32 lm_idx = 0, num_mixers = 0;
+	int i, count = 0;
+
+	if (!crtc)
+		return;
+
+	sde_crtc   = to_sde_crtc(crtc);
+	cstate = to_sde_crtc_state(crtc->state);
+	kms    = _sde_crtc_get_kms(crtc);
+	num_mixers = sde_crtc->num_mixers;
+
+	SDE_DEBUG("crtc%d\n", crtc->base.id);
+
+	if (!cstate->ds_dirty) {
+		SDE_DEBUG("no change in settings, skip commit\n");
+	} else if (!kms || !kms->catalog) {
+		SDE_ERROR("invalid parameters\n");
+	} else if (!kms->catalog->mdp[0].has_dest_scaler) {
+		SDE_DEBUG("dest scaler feature not supported\n");
+	} else if (num_mixers > CRTC_DUAL_MIXERS) {
+		SDE_ERROR("invalid number mixers: %d\n", num_mixers);
+	} else if (!sde_crtc->scl3_lut_cfg->is_configured) {
+		SDE_DEBUG("no LUT data available\n");
+	} else {
+		count = cstate->num_ds_enabled ? cstate->num_ds : num_mixers;
+
+		for (i = 0; i < count; i++) {
+			cfg = &cstate->ds_cfg[i];
+
+			if (!cfg->flags)
+				continue;
+
+			lm_idx = cfg->ndx;
+			hw_lm  = sde_crtc->mixers[lm_idx].hw_lm;
+			hw_ctl = sde_crtc->mixers[lm_idx].hw_ctl;
+			hw_ds  = sde_crtc->mixers[lm_idx].hw_ds;
+
+			/* Setup op mode - Dual/single */
+			if (cfg->flags & SDE_DRM_DESTSCALER_ENABLE)
+				op_mode |= BIT(hw_ds->idx - DS_0);
+
+			if ((i == count-1) && hw_ds->ops.setup_opmode) {
+				op_mode |= (cstate->num_ds_enabled ==
+					CRTC_DUAL_MIXERS) ?
+					SDE_DS_OP_MODE_DUAL : 0;
+				hw_ds->ops.setup_opmode(hw_ds, op_mode);
+				SDE_EVT32(DRMID(crtc), op_mode);
+			}
+
+			/* Setup scaler */
+			if ((cfg->flags & SDE_DRM_DESTSCALER_SCALE_UPDATE) ||
+				(cfg->flags &
+					SDE_DRM_DESTSCALER_ENHANCER_UPDATE)) {
+				if (hw_ds->ops.setup_scaler)
+					hw_ds->ops.setup_scaler(hw_ds,
+							cfg->scl3_cfg,
+							sde_crtc->scl3_lut_cfg);
+
+				/**
+				 * Clear the flags as the block doesn't have to
+				 * be programmed in each commit if no updates
+				 */
+				cfg->flags &= ~SDE_DRM_DESTSCALER_SCALE_UPDATE;
+				cfg->flags &=
+					~SDE_DRM_DESTSCALER_ENHANCER_UPDATE;
+			}
+
+			/*
+			 * Dest scaler shares the flush bit of the LM in control
+			 */
+			if (cfg->set_lm_flush && hw_lm && hw_ctl &&
+				hw_ctl->ops.get_bitmask_mixer) {
+				flush_mask = hw_ctl->ops.get_bitmask_mixer(
+						hw_ctl, hw_lm->idx);
+				SDE_DEBUG("Set lm[%d] flush = %d",
+					hw_lm->idx, flush_mask);
+				hw_ctl->ops.update_pending_flush(hw_ctl,
+								flush_mask);
+			}
+			cfg->set_lm_flush = false;
+		}
+		cstate->ds_dirty = false;
+	}
 }
 
 void sde_crtc_prepare_commit(struct drm_crtc *crtc,
@@ -2261,7 +2418,7 @@ static void _sde_crtc_set_input_fence_timeout(struct sde_crtc_state *cstate)
  * @user_ptr:    User ptr for sde_drm_dim_layer_v1 struct
  */
 static void _sde_crtc_set_dim_layer_v1(struct sde_crtc_state *cstate,
-		void *usr_ptr)
+		void __user *usr_ptr)
 {
 	struct sde_drm_dim_layer_v1 dim_layer_v1;
 	struct sde_drm_dim_layer_cfg *user_cfg;
@@ -2323,6 +2480,363 @@ static void _sde_crtc_set_dim_layer_v1(struct sde_crtc_state *cstate,
 }
 
 /**
+ * _sde_crtc_dest_scaler_init - allocate memory for scaler lut
+ * @sde_crtc    :  Pointer to sde crtc
+ * @catalog :  Pointer to mdss catalog info
+ */
+static void _sde_crtc_dest_scaler_init(struct sde_crtc *sde_crtc,
+				struct sde_mdss_cfg *catalog)
+{
+	if (!sde_crtc || !catalog)
+		return;
+
+	if (!catalog->mdp[0].has_dest_scaler) {
+		SDE_DEBUG("dest scaler feature not supported\n");
+		return;
+	}
+
+	sde_crtc->scl3_lut_cfg = kzalloc(sizeof(struct sde_hw_scaler3_lut_cfg),
+				GFP_KERNEL);
+	if (!sde_crtc->scl3_lut_cfg)
+		SDE_ERROR("failed to create scale LUT for dest scaler");
+}
+
+/**
+ * _sde_crtc_set_dest_scaler - copy dest scaler settings from userspace
+ * @sde_crtc   :  Pointer to sde crtc
+ * @cstate :  Pointer to sde crtc state
+ * @usr_ptr:  User ptr for sde_drm_dest_scaler_data struct
+ */
+static int _sde_crtc_set_dest_scaler(struct sde_crtc *sde_crtc,
+				struct sde_crtc_state *cstate,
+				void __user *usr_ptr)
+{
+	struct sde_drm_dest_scaler_data ds_data;
+	struct sde_drm_dest_scaler_cfg *ds_cfg_usr;
+	struct sde_drm_scaler_v2 scaler_v2;
+	void __user *scaler_v2_usr;
+	int i, count, ret = 0;
+
+	if (!sde_crtc || !cstate) {
+		SDE_ERROR("invalid sde_crtc/state\n");
+		return -EINVAL;
+	}
+
+	SDE_DEBUG("crtc %s\n", sde_crtc->name);
+
+	cstate->num_ds = 0;
+	cstate->ds_dirty = false;
+	if (!usr_ptr) {
+		SDE_DEBUG("ds data removed\n");
+		return 0;
+	}
+
+	if (copy_from_user(&ds_data, usr_ptr, sizeof(ds_data))) {
+		SDE_ERROR("failed to copy dest scaler data from user\n");
+		return -EINVAL;
+	}
+
+	count = ds_data.num_dest_scaler;
+	if (!sde_crtc->num_mixers || count > sde_crtc->num_mixers ||
+		(count && (count != sde_crtc->num_mixers) &&
+		!(ds_data.ds_cfg[0].flags & SDE_DRM_DESTSCALER_PU_ENABLE))) {
+		SDE_ERROR("invalid config:num ds(%d), mixers(%d),flags(%d)\n",
+			count, sde_crtc->num_mixers, ds_data.ds_cfg[0].flags);
+		return -EINVAL;
+	}
+
+	/* Populate from user space */
+	for (i = 0; i < count; i++) {
+		ds_cfg_usr = &ds_data.ds_cfg[i];
+
+		cstate->ds_cfg[i].ndx = ds_cfg_usr->index;
+		cstate->ds_cfg[i].flags = ds_cfg_usr->flags;
+		cstate->ds_cfg[i].lm_width = ds_cfg_usr->lm_width;
+		cstate->ds_cfg[i].lm_height = ds_cfg_usr->lm_height;
+		cstate->ds_cfg[i].scl3_cfg = NULL;
+
+		if (ds_cfg_usr->scaler_cfg) {
+			scaler_v2_usr =
+			(void __user *)((uintptr_t)ds_cfg_usr->scaler_cfg);
+
+			memset(&scaler_v2, 0, sizeof(scaler_v2));
+
+			cstate->ds_cfg[i].scl3_cfg =
+				kzalloc(sizeof(struct sde_hw_scaler3_cfg),
+					GFP_KERNEL);
+
+			if (!cstate->ds_cfg[i].scl3_cfg) {
+				ret = -ENOMEM;
+				goto err;
+			}
+
+			if (copy_from_user(&scaler_v2, scaler_v2_usr,
+					sizeof(scaler_v2))) {
+				SDE_ERROR("scale data:copy from user failed\n");
+				ret = -EINVAL;
+				goto err;
+			}
+
+			sde_set_scaler_v2(cstate->ds_cfg[i].scl3_cfg,
+					&scaler_v2);
+
+			SDE_DEBUG("en(%d)dir(%d)de(%d) src(%dx%d) dst(%dx%d)\n",
+				scaler_v2.enable, scaler_v2.dir_en,
+				scaler_v2.de.enable, scaler_v2.src_width[0],
+				scaler_v2.src_height[0], scaler_v2.dst_width,
+				scaler_v2.dst_height);
+			SDE_EVT32_VERBOSE(DRMID(&sde_crtc->base),
+				scaler_v2.enable, scaler_v2.dir_en,
+				scaler_v2.de.enable, scaler_v2.src_width[0],
+				scaler_v2.src_height[0], scaler_v2.dst_width,
+				scaler_v2.dst_height);
+		}
+
+		SDE_DEBUG("ds cfg[%d]-ndx(%d) flags(%d) lm(%dx%d)\n",
+			i, ds_cfg_usr->index, ds_cfg_usr->flags,
+			ds_cfg_usr->lm_width, ds_cfg_usr->lm_height);
+		SDE_EVT32_VERBOSE(DRMID(&sde_crtc->base), i, ds_cfg_usr->index,
+			ds_cfg_usr->flags, ds_cfg_usr->lm_width,
+			ds_cfg_usr->lm_height);
+	}
+
+	cstate->num_ds = count;
+	cstate->ds_dirty = true;
+	return 0;
+
+err:
+	for (; i >= 0; i--)
+		kfree(cstate->ds_cfg[i].scl3_cfg);
+
+	return ret;
+}
+
+/**
+ * _sde_crtc_check_dest_scaler_data - validate the dest scaler data
+ * @crtc  :  Pointer to drm crtc
+ * @state :  Pointer to drm crtc state
+ */
+static int _sde_crtc_check_dest_scaler_data(struct drm_crtc *crtc,
+				struct drm_crtc_state *state)
+{
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *cstate;
+	struct drm_display_mode *mode;
+	struct sde_kms *kms;
+	struct sde_hw_ds *hw_ds;
+	struct sde_hw_ds_cfg *cfg;
+	u32 i, ret = 0, lm_idx;
+	u32 num_ds_enable = 0;
+	u32 max_in_width = 0, max_out_width = 0;
+	u32 prev_lm_width = 0, prev_lm_height = 0;
+
+	if (!crtc || !state)
+		return -EINVAL;
+
+	sde_crtc = to_sde_crtc(crtc);
+	cstate = to_sde_crtc_state(state);
+	kms = _sde_crtc_get_kms(crtc);
+	mode = &state->adjusted_mode;
+
+	SDE_DEBUG("crtc%d\n", crtc->base.id);
+
+	if (!cstate->ds_dirty && !cstate->num_ds_enabled) {
+		SDE_DEBUG("dest scaler property not set, skip validation\n");
+		return 0;
+	}
+
+	if (!kms || !kms->catalog) {
+		SDE_ERROR("invalid parameters\n");
+		return -EINVAL;
+	}
+
+	if (!kms->catalog->mdp[0].has_dest_scaler) {
+		SDE_DEBUG("dest scaler feature not supported\n");
+		return 0;
+	}
+
+	if (!sde_crtc->num_mixers) {
+		SDE_ERROR("mixers not allocated\n");
+		return -EINVAL;
+	}
+
+	/**
+	 * Check if sufficient hw resources are
+	 * available as per target caps & topology
+	 */
+	if (sde_crtc->num_mixers > CRTC_DUAL_MIXERS) {
+		SDE_ERROR("invalid config: mixers(%d) max(%d)\n",
+			sde_crtc->num_mixers, CRTC_DUAL_MIXERS);
+		ret = -EINVAL;
+		goto err;
+	}
+
+	for (i = 0; i < sde_crtc->num_mixers; i++) {
+		if (!sde_crtc->mixers[i].hw_lm || !sde_crtc->mixers[i].hw_ds) {
+			SDE_ERROR("insufficient HW resources allocated\n");
+			ret = -EINVAL;
+			goto err;
+		}
+	}
+
+	/**
+	 * Check if DS needs to be enabled or disabled
+	 * In case of enable, validate the data
+	 */
+	if (!cstate->ds_dirty || !cstate->num_ds ||
+		!(cstate->ds_cfg[0].flags & SDE_DRM_DESTSCALER_ENABLE)) {
+		SDE_DEBUG("disable dest scaler,dirty(%d)num(%d)flags(%d)\n",
+			cstate->ds_dirty, cstate->num_ds,
+			cstate->ds_cfg[0].flags);
+		goto disable;
+	}
+
+	/**
+	 * No of dest scalers shouldn't exceed hw ds block count and
+	 * also, match the num of mixers unless it is partial update
+	 * left only/right only use case - currently PU + DS is not supported
+	 */
+	if (cstate->num_ds > kms->catalog->ds_count ||
+		((cstate->num_ds != sde_crtc->num_mixers) &&
+		!(cstate->ds_cfg[0].flags & SDE_DRM_DESTSCALER_PU_ENABLE))) {
+		SDE_ERROR("invalid cfg: num_ds(%d), hw_ds_cnt(%d) flags(%d)\n",
+			cstate->num_ds, kms->catalog->ds_count,
+			cstate->ds_cfg[0].flags);
+		ret = -EINVAL;
+		goto err;
+	}
+
+	/* Validate the DS data */
+	for (i = 0; i < cstate->num_ds; i++) {
+		cfg = &cstate->ds_cfg[i];
+		lm_idx = cfg->ndx;
+
+		/**
+		 * Validate against topology
+		 * No of dest scalers should match the num of mixers
+		 * unless it is partial update left only/right only use case
+		 */
+		if (lm_idx >= sde_crtc->num_mixers || (i != lm_idx &&
+			!(cfg->flags & SDE_DRM_DESTSCALER_PU_ENABLE))) {
+			SDE_ERROR("invalid user data(%d):idx(%d), flags(%d)\n",
+				i, lm_idx, cfg->flags);
+			ret = -EINVAL;
+			goto err;
+		}
+
+		hw_ds = sde_crtc->mixers[lm_idx].hw_ds;
+
+		if (!max_in_width && !max_out_width) {
+			max_in_width = hw_ds->scl->top->maxinputwidth;
+			max_out_width = hw_ds->scl->top->maxoutputwidth;
+
+			if (cstate->num_ds == CRTC_DUAL_MIXERS)
+				max_in_width -= SDE_DS_OVERFETCH_SIZE;
+
+			SDE_DEBUG("max DS width [%d,%d] for num_ds = %d\n",
+				max_in_width, max_out_width, cstate->num_ds);
+		}
+
+		/* Check LM width and height */
+		if (cfg->lm_width > (mode->hdisplay/sde_crtc->num_mixers) ||
+			cfg->lm_height > mode->vdisplay ||
+			!cfg->lm_width || !cfg->lm_height) {
+			SDE_ERROR("invalid lm size[%d,%d] display [%d,%d]\n",
+				cfg->lm_width,
+				cfg->lm_height,
+				mode->hdisplay/sde_crtc->num_mixers,
+				mode->vdisplay);
+			ret = -E2BIG;
+			goto err;
+		}
+
+		if (!prev_lm_width && !prev_lm_height) {
+			prev_lm_width = cfg->lm_width;
+			prev_lm_height = cfg->lm_height;
+		} else {
+			if (cfg->lm_width != prev_lm_width ||
+				cfg->lm_height != prev_lm_height) {
+				SDE_ERROR("lm size:left[%d,%d], right[%d %d]\n",
+					cfg->lm_width, cfg->lm_height,
+					prev_lm_width, prev_lm_height);
+				ret = -EINVAL;
+				goto err;
+			}
+		}
+
+		/* Check scaler data */
+		if (cfg->flags & SDE_DRM_DESTSCALER_SCALE_UPDATE ||
+			cfg->flags & SDE_DRM_DESTSCALER_ENHANCER_UPDATE) {
+			if (!cfg->scl3_cfg) {
+				ret = -EINVAL;
+				SDE_ERROR("null scale data\n");
+				goto err;
+			}
+			if (cfg->scl3_cfg->src_width[0] > max_in_width ||
+				cfg->scl3_cfg->dst_width > max_out_width ||
+				!cfg->scl3_cfg->src_width[0] ||
+				!cfg->scl3_cfg->dst_width) {
+				SDE_ERROR("scale width(%d %d) for ds-%d:\n",
+					cfg->scl3_cfg->src_width[0],
+					cfg->scl3_cfg->dst_width,
+					hw_ds->idx - DS_0);
+				SDE_ERROR("scale_en = %d, DE_en =%d\n",
+					cfg->scl3_cfg->enable,
+					cfg->scl3_cfg->de.enable);
+
+				cfg->flags &=
+					~SDE_DRM_DESTSCALER_SCALE_UPDATE;
+				cfg->flags &=
+					~SDE_DRM_DESTSCALER_ENHANCER_UPDATE;
+
+				ret = -EINVAL;
+				goto err;
+			}
+		}
+
+		if (cfg->flags & SDE_DRM_DESTSCALER_ENABLE)
+			num_ds_enable++;
+
+		/**
+		 * Validation successful, indicator for flush to be issued
+		 */
+		cfg->set_lm_flush = true;
+
+		SDE_DEBUG("ds[%d]: flags = 0x%X\n",
+			hw_ds->idx - DS_0, cfg->flags);
+	}
+
+disable:
+	SDE_DEBUG("dest scaler enable status, old = %d, new = %d",
+		cstate->num_ds_enabled, num_ds_enable);
+	SDE_EVT32(DRMID(crtc), cstate->num_ds_enabled, num_ds_enable,
+		cstate->ds_dirty);
+
+	if (cstate->num_ds_enabled != num_ds_enable) {
+		/* Disabling destination scaler */
+		if (!num_ds_enable) {
+			for (i = 0; i < sde_crtc->num_mixers; i++) {
+				cfg = &cstate->ds_cfg[i];
+				cfg->ndx = i;
+				/* Update scaler settings in disable case */
+				cfg->flags = SDE_DRM_DESTSCALER_SCALE_UPDATE;
+				cfg->scl3_cfg->enable = 0;
+				cfg->scl3_cfg->de.enable = 0;
+				cfg->set_lm_flush = true;
+			}
+		}
+		cstate->num_ds_enabled = num_ds_enable;
+		cstate->ds_dirty = true;
+	}
+
+	return 0;
+
+err:
+	cstate->ds_dirty = false;
+	return ret;
+}
+
+/**
  * _sde_crtc_wait_for_fences - wait for incoming framebuffer sync fences
  * @crtc: Pointer to CRTC object
  */
@@ -2379,11 +2893,12 @@ static void _sde_crtc_setup_mixer_for_encoder(
 	struct sde_crtc_mixer *mixer;
 	struct sde_hw_ctl *last_valid_ctl = NULL;
 	int i;
-	struct sde_rm_hw_iter lm_iter, ctl_iter, dspp_iter;
+	struct sde_rm_hw_iter lm_iter, ctl_iter, dspp_iter, ds_iter;
 
 	sde_rm_init_hw_iter(&lm_iter, enc->base.id, SDE_HW_BLK_LM);
 	sde_rm_init_hw_iter(&ctl_iter, enc->base.id, SDE_HW_BLK_CTL);
 	sde_rm_init_hw_iter(&dspp_iter, enc->base.id, SDE_HW_BLK_DSPP);
+	sde_rm_init_hw_iter(&ds_iter, enc->base.id, SDE_HW_BLK_DS);
 
 	/* Set up all the mixers and ctls reserved by this encoder */
 	for (i = sde_crtc->num_mixers; i < ARRAY_SIZE(sde_crtc->mixers); i++) {
@@ -2414,6 +2929,10 @@ static void _sde_crtc_setup_mixer_for_encoder(
 		(void) sde_rm_get_hw(rm, &dspp_iter);
 		mixer->hw_dspp = (struct sde_hw_dspp *)dspp_iter.hw;
 
+		/* DS may be null */
+		(void) sde_rm_get_hw(rm, &ds_iter);
+		mixer->hw_ds = (struct sde_hw_ds *)ds_iter.hw;
+
 		mixer->encoder = enc;
 
 		sde_crtc->num_mixers++;
@@ -2421,6 +2940,9 @@ static void _sde_crtc_setup_mixer_for_encoder(
 				i, mixer->hw_lm->idx - LM_0);
 		SDE_DEBUG("setup mixer %d: ctl %d\n",
 				i, mixer->hw_ctl->idx - CTL_0);
+		if (mixer->hw_ds)
+			SDE_DEBUG("setup mixer %d: ds %d\n",
+				i, mixer->hw_ds->idx - DS_0);
 	}
 }
 
@@ -2430,6 +2952,7 @@ static void _sde_crtc_setup_mixers(struct drm_crtc *crtc)
 	struct drm_encoder *enc;
 
 	sde_crtc->num_mixers = 0;
+	sde_crtc->mixers_swapped = false;
 	memset(sde_crtc->mixers, 0, sizeof(sde_crtc->mixers));
 
 	mutex_lock(&sde_crtc->crtc_lock);
@@ -2479,13 +3002,14 @@ static void _sde_crtc_setup_lm_bounds(struct drm_crtc *crtc,
 	cstate = to_sde_crtc_state(state);
 
 	adj_mode = &state->adjusted_mode;
-	crtc_split_width = sde_crtc_mixer_width(sde_crtc, adj_mode);
+	crtc_split_width = sde_crtc_get_mixer_width(sde_crtc, cstate, adj_mode);
 
 	for (i = 0; i < sde_crtc->num_mixers; i++) {
 		cstate->lm_bounds[i].x = crtc_split_width * i;
 		cstate->lm_bounds[i].y = 0;
 		cstate->lm_bounds[i].w = crtc_split_width;
-		cstate->lm_bounds[i].h = adj_mode->vdisplay;
+		cstate->lm_bounds[i].h =
+			sde_crtc_get_mixer_height(sde_crtc, cstate, adj_mode);
 		memcpy(&cstate->lm_roi[i], &cstate->lm_bounds[i],
 				sizeof(cstate->lm_roi[i]));
 		SDE_EVT32_VERBOSE(DRMID(crtc), i,
@@ -2556,6 +3080,7 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 		return;
 
 	_sde_crtc_blend_setup(crtc);
+	_sde_crtc_dest_scaler_setup(crtc);
 
 	/*
 	 * Since CP properties use AXI buffer to program the
@@ -2731,17 +3256,120 @@ static int _sde_crtc_wait_for_frame_done(struct drm_crtc *crtc)
 	return rc;
 }
 
-void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
+static int _sde_crtc_commit_kickoff_rot(struct drm_crtc *crtc,
+		struct sde_crtc_state *cstate)
 {
 	struct drm_plane *plane;
+	struct sde_crtc *sde_crtc;
+	struct sde_hw_ctl *ctl, *master_ctl;
+	u32 flush_mask;
+	int i, rc = 0;
+
+	if (!crtc || !cstate)
+		return -EINVAL;
+
+	sde_crtc = to_sde_crtc(crtc);
+
+	/*
+	 * Update sbuf configuration and flush bits if a flush
+	 * mask has been defined for either the current or
+	 * previous commit.
+	 *
+	 * Updates are also required for the first commit after
+	 * sbuf_flush_mask becomes 0x0, to properly transition
+	 * the hardware out of sbuf mode.
+	 */
+	if (!sde_crtc->sbuf_flush_mask_old && !sde_crtc->sbuf_flush_mask)
+		return 0;
+
+	flush_mask = sde_crtc->sbuf_flush_mask_old | sde_crtc->sbuf_flush_mask;
+	sde_crtc->sbuf_flush_mask_old = sde_crtc->sbuf_flush_mask;
+
+	SDE_ATRACE_BEGIN("crtc_kickoff_rot");
+
+	if (cstate->sbuf_cfg.rot_op_mode != SDE_CTL_ROT_OP_MODE_OFFLINE) {
+		drm_atomic_crtc_for_each_plane(plane, crtc) {
+			rc = sde_plane_kickoff_rot(plane);
+			if (rc) {
+				SDE_ERROR("crtc%d cancelling inline rotation\n",
+						crtc->base.id);
+				SDE_EVT32(DRMID(crtc), SDE_EVTLOG_ERROR);
+
+				/* revert to offline on errors */
+				cstate->sbuf_cfg.rot_op_mode =
+					SDE_CTL_ROT_OP_MODE_OFFLINE;
+				break;
+			}
+		}
+	}
+
+	master_ctl = NULL;
+	for (i = 0; i < sde_crtc->num_mixers; i++) {
+		ctl = sde_crtc->mixers[i].hw_ctl;
+		if (!ctl)
+			continue;
+
+		if (!master_ctl || master_ctl->idx > ctl->idx)
+			master_ctl = ctl;
+	}
+
+	/* only update sbuf_cfg and flush for master ctl */
+	if (master_ctl && master_ctl->ops.setup_sbuf_cfg &&
+			master_ctl->ops.update_pending_flush) {
+		master_ctl->ops.setup_sbuf_cfg(master_ctl, &cstate->sbuf_cfg);
+		master_ctl->ops.update_pending_flush(master_ctl, flush_mask);
+
+		/* explicitly trigger rotator for async modes */
+		if (cstate->sbuf_cfg.rot_op_mode ==
+				SDE_CTL_ROT_OP_MODE_INLINE_ASYNC &&
+				master_ctl->ops.trigger_rot_start) {
+			master_ctl->ops.trigger_rot_start(master_ctl);
+			SDE_EVT32(DRMID(crtc), master_ctl->idx - CTL_0);
+		}
+	}
+
+	SDE_ATRACE_END("crtc_kickoff_rot");
+	return rc;
+}
+
+/**
+ * _sde_crtc_remove_pipe_flush - remove staged pipes from flush mask
+ * @sde_crtc: Pointer to sde crtc structure
+ */
+static void _sde_crtc_remove_pipe_flush(struct sde_crtc *sde_crtc)
+{
+	struct sde_crtc_mixer *mixer;
+	struct sde_hw_ctl *ctl;
+	u32 i, flush_mask;
+
+	if (!sde_crtc)
+		return;
+
+	mixer = sde_crtc->mixers;
+	for (i = 0; i < sde_crtc->num_mixers; i++) {
+		ctl = mixer[i].hw_ctl;
+		if (!ctl || !ctl->ops.get_pending_flush ||
+				!ctl->ops.clear_pending_flush ||
+				!ctl->ops.update_pending_flush)
+			continue;
+
+		flush_mask = ctl->ops.get_pending_flush(ctl);
+		flush_mask &= ~mixer[i].pipe_mask;
+		ctl->ops.clear_pending_flush(ctl);
+		ctl->ops.update_pending_flush(ctl, flush_mask);
+	}
+}
+
+void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
+{
 	struct drm_encoder *encoder;
 	struct drm_device *dev;
 	struct sde_crtc *sde_crtc;
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
 	struct sde_crtc_state *cstate;
-	struct sde_hw_ctl *ctl;
-	int ret, i;
+	bool is_error;
+	int ret;
 
 	if (!crtc) {
 		SDE_ERROR("invalid argument\n");
@@ -2750,6 +3378,7 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	dev = crtc->dev;
 	sde_crtc = to_sde_crtc(crtc);
 	sde_kms = _sde_crtc_get_kms(crtc);
+	is_error = false;
 
 	if (!sde_kms || !sde_kms->dev || !sde_kms->dev->dev_private) {
 		SDE_ERROR("invalid argument\n");
@@ -2768,6 +3397,11 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 		return;
 
 	SDE_ATRACE_BEGIN("crtc_commit");
+
+	/* default to ASYNC mode for inline rotation */
+	cstate->sbuf_cfg.rot_op_mode = sde_crtc->sbuf_flush_mask ?
+		SDE_CTL_ROT_OP_MODE_INLINE_ASYNC : SDE_CTL_ROT_OP_MODE_OFFLINE;
+
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 		struct sde_encoder_kickoff_params params = { 0 };
 
@@ -2782,7 +3416,27 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 		params.affected_displays = _sde_crtc_get_displays_affected(crtc,
 				crtc->state);
 		sde_encoder_prepare_for_kickoff(encoder, &params);
+
+		/*
+		 * For inline ASYNC modes, the flush bits are not written
+		 * to hardware atomically, so avoid using it if a video
+		 * mode encoder is active on this CRTC.
+		 */
+		if (cstate->sbuf_cfg.rot_op_mode ==
+				SDE_CTL_ROT_OP_MODE_INLINE_ASYNC &&
+				sde_encoder_get_intf_mode(encoder) ==
+				INTF_MODE_VIDEO)
+			cstate->sbuf_cfg.rot_op_mode =
+				SDE_CTL_ROT_OP_MODE_INLINE_SYNC;
 	}
+
+	/*
+	 * For ASYNC inline modes, kick off the rotator now so that the H/W
+	 * can start as soon as it's ready.
+	 */
+	if (cstate->sbuf_cfg.rot_op_mode == SDE_CTL_ROT_OP_MODE_INLINE_ASYNC)
+		if (_sde_crtc_commit_kickoff_rot(crtc, cstate))
+			is_error = true;
 
 	/* wait for frame_event_done completion */
 	SDE_ATRACE_BEGIN("wait_for_frame_done_event");
@@ -2792,41 +3446,48 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 		SDE_ERROR("crtc%d wait for frame done failed;frame_pending%d\n",
 				crtc->base.id,
 				atomic_read(&sde_crtc->frame_pending));
-		goto end;
+
+		is_error = true;
+
+		/* force offline rotation mode since the commit has no pipes */
+		cstate->sbuf_cfg.rot_op_mode = SDE_CTL_ROT_OP_MODE_OFFLINE;
 	}
 
 	if (atomic_inc_return(&sde_crtc->frame_pending) == 1) {
 		/* acquire bandwidth and other resources */
 		SDE_DEBUG("crtc%d first commit\n", crtc->base.id);
-		SDE_EVT32(DRMID(crtc), SDE_EVTLOG_FUNC_CASE1);
+		SDE_EVT32(DRMID(crtc), cstate->sbuf_cfg.rot_op_mode,
+				SDE_EVTLOG_FUNC_CASE1);
 	} else {
 		SDE_DEBUG("crtc%d commit\n", crtc->base.id);
-		SDE_EVT32(DRMID(crtc), SDE_EVTLOG_FUNC_CASE2);
+		SDE_EVT32(DRMID(crtc), cstate->sbuf_cfg.rot_op_mode,
+				SDE_EVTLOG_FUNC_CASE2);
 	}
 	sde_crtc->play_count++;
 
-	if (cstate->sbuf_cfg.rot_op_mode != SDE_CTL_ROT_OP_MODE_OFFLINE) {
-		drm_atomic_crtc_for_each_plane(plane, crtc) {
-			sde_plane_kickoff(plane);
-		}
-	}
-
-	for (i = 0; i < sde_crtc->num_mixers; i++) {
-		ctl = sde_crtc->mixers[i].hw_ctl;
-		if (ctl && ctl->ops.setup_sbuf_cfg)
-			ctl->ops.setup_sbuf_cfg(ctl, &cstate->sbuf_cfg);
-	}
+	/*
+	 * For SYNC inline modes, delay the kick off until after the
+	 * wait for frame done in case the wait times out.
+	 *
+	 * Also perform a final kickoff when transitioning back to
+	 * offline mode.
+	 */
+	if (cstate->sbuf_cfg.rot_op_mode != SDE_CTL_ROT_OP_MODE_INLINE_ASYNC)
+		if (_sde_crtc_commit_kickoff_rot(crtc, cstate))
+			is_error = true;
 
 	sde_vbif_clear_errors(sde_kms);
+
+	if (is_error)
+		_sde_crtc_remove_pipe_flush(sde_crtc);
 
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 		if (encoder->crtc != crtc)
 			continue;
 
-		sde_encoder_kickoff(encoder);
+		sde_encoder_kickoff(encoder, is_error);
 	}
 
-end:
 	reinit_completion(&sde_crtc->frame_done_comp);
 	SDE_ATRACE_END("crtc_commit");
 	return;
@@ -3001,8 +3662,15 @@ static void sde_crtc_reset(struct drm_crtc *crtc)
 	}
 
 	/* revert suspend actions, if necessary */
-	if (sde_kms_is_suspend_state(crtc->dev))
+	if (sde_kms_is_suspend_state(crtc->dev)) {
 		_sde_crtc_set_suspend(crtc, false);
+
+		if (!sde_crtc_is_reset_required(crtc)) {
+			SDE_DEBUG("avoiding reset for crtc:%d\n",
+					crtc->base.id);
+			return;
+		}
+	}
 
 	/* remove previous state, if present */
 	if (crtc->state) {
@@ -3152,6 +3820,10 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 
 	SDE_DEBUG("crtc%d\n", crtc->base.id);
 
+	for (i = 0; i < cstate->num_connectors; i++)
+		sde_connector_schedule_status_work(cstate->connectors[i],
+							false);
+
 	if (sde_kms_is_suspend_state(crtc->dev))
 		_sde_crtc_set_suspend(crtc, true);
 
@@ -3226,6 +3898,7 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 
 	memset(sde_crtc->mixers, 0, sizeof(sde_crtc->mixers));
 	sde_crtc->num_mixers = 0;
+	sde_crtc->mixers_swapped = false;
 
 	/* disable clk & bw control until clk & bw properties are set */
 	cstate->bw_control = false;
@@ -3243,13 +3916,15 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 	struct sde_crtc_irq_info *node = NULL;
 	struct drm_event event;
 	u32 power_on;
-	int ret;
+	int ret, i;
+	struct sde_crtc_state *cstate;
 
 	if (!crtc || !crtc->dev || !crtc->dev->dev_private) {
 		SDE_ERROR("invalid crtc\n");
 		return;
 	}
 	priv = crtc->dev->dev_private;
+	cstate = to_sde_crtc_state(crtc->state);
 
 	SDE_DEBUG("crtc%d\n", crtc->base.id);
 	SDE_EVT32_VERBOSE(DRMID(crtc));
@@ -3300,6 +3975,9 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 		SDE_POWER_EVENT_POST_ENABLE | SDE_POWER_EVENT_POST_DISABLE |
 		SDE_POWER_EVENT_PRE_DISABLE,
 		sde_crtc_handle_power_event, crtc, sde_crtc->name);
+
+	for (i = 0; i < cstate->num_connectors; i++)
+		sde_connector_schedule_status_work(cstate->connectors[i], true);
 }
 
 struct plane_state {
@@ -3508,7 +4186,14 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 
 	memset(pipe_staged, 0, sizeof(pipe_staged));
 
-	mixer_width = sde_crtc_mixer_width(sde_crtc, mode);
+	rc = _sde_crtc_check_dest_scaler_data(crtc, state);
+	if (rc) {
+		SDE_ERROR("crtc%d failed dest scaler check %d\n",
+			crtc->base.id, rc);
+		goto end;
+	}
+
+	mixer_width = sde_crtc_get_mixer_width(sde_crtc, cstate, mode);
 
 	_sde_crtc_setup_is_ppsplit(state);
 	_sde_crtc_setup_lm_bounds(crtc, state);
@@ -3861,7 +4546,7 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 			CRTC_PROP_ROT_CLK);
 
 	msm_property_install_range(&sde_crtc->property_info,
-		"idle_timeout", IDLE_TIMEOUT, 0, U64_MAX, 0,
+		"idle_time", IDLE_TIMEOUT, 0, U64_MAX, 0,
 		CRTC_PROP_IDLE_TIMEOUT);
 
 	msm_property_install_blob(&sde_crtc->property_info, "capabilities",
@@ -3901,6 +4586,39 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 		if (catalog->smart_dma_rev == SDE_SSPP_SMART_DMA_V2)
 			sde_kms_info_add_keystr(info,
 					"smart_dma_rev", "smart_dma_v2");
+	}
+
+	if (catalog->mdp[0].has_dest_scaler) {
+		sde_kms_info_add_keyint(info, "has_dest_scaler",
+				catalog->mdp[0].has_dest_scaler);
+		sde_kms_info_add_keyint(info, "dest_scaler_count",
+					catalog->ds_count);
+
+		if (catalog->ds[0].top) {
+			sde_kms_info_add_keyint(info,
+					"max_dest_scaler_input_width",
+					catalog->ds[0].top->maxinputwidth);
+			sde_kms_info_add_keyint(info,
+					"max_dest_scaler_output_width",
+					catalog->ds[0].top->maxinputwidth);
+			sde_kms_info_add_keyint(info, "max_dest_scale_up",
+					catalog->ds[0].top->maxupscale);
+		}
+
+		if (catalog->ds[0].features & BIT(SDE_SSPP_SCALER_QSEED3)) {
+			msm_property_install_volatile_range(
+					&sde_crtc->property_info, "dest_scaler",
+					0x0, 0, ~0, 0, CRTC_PROP_DEST_SCALER);
+			msm_property_install_blob(&sde_crtc->property_info,
+					"ds_lut_ed", 0,
+					CRTC_PROP_DEST_SCALER_LUT_ED);
+			msm_property_install_blob(&sde_crtc->property_info,
+					"ds_lut_cir", 0,
+					CRTC_PROP_DEST_SCALER_LUT_CIR);
+			msm_property_install_blob(&sde_crtc->property_info,
+					"ds_lut_sep", 0,
+					CRTC_PROP_DEST_SCALER_LUT_SEP);
+		}
 	}
 
 	sde_kms_info_add_keyint(info, "has_src_split", catalog->has_src_split);
@@ -3987,10 +4705,22 @@ static int sde_crtc_atomic_set_property(struct drm_crtc *crtc,
 				_sde_crtc_set_input_fence_timeout(cstate);
 				break;
 			case CRTC_PROP_DIM_LAYER_V1:
-				_sde_crtc_set_dim_layer_v1(cstate, (void *)val);
+				_sde_crtc_set_dim_layer_v1(cstate,
+							(void __user *)val);
 				break;
 			case CRTC_PROP_ROI_V1:
-				ret = _sde_crtc_set_roi_v1(state, (void *)val);
+				ret = _sde_crtc_set_roi_v1(state,
+							(void __user *)val);
+				break;
+			case CRTC_PROP_DEST_SCALER:
+				ret = _sde_crtc_set_dest_scaler(sde_crtc,
+						cstate, (void __user *)val);
+				break;
+			case CRTC_PROP_DEST_SCALER_LUT_ED:
+			case CRTC_PROP_DEST_SCALER_LUT_CIR:
+			case CRTC_PROP_DEST_SCALER_LUT_SEP:
+				ret = _sde_crtc_set_dest_scaler_lut(sde_crtc,
+								cstate, idx);
 				break;
 			case CRTC_PROP_CORE_CLK:
 			case CRTC_PROP_CORE_AB:
@@ -4138,7 +4868,7 @@ static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 
 	mutex_lock(&sde_crtc->crtc_lock);
 	mode = &crtc->state->adjusted_mode;
-	out_width = sde_crtc_mixer_width(sde_crtc, mode);
+	out_width = sde_crtc_get_mixer_width(sde_crtc, cstate, mode);
 
 	seq_printf(s, "crtc:%d width:%d height:%d\n", crtc->base.id,
 				mode->hdisplay, mode->vdisplay);
@@ -4672,6 +5402,9 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 			sizeof(struct sde_crtc_state));
 
 	sde_crtc_install_properties(crtc, kms->catalog);
+
+	/* Init dest scaler */
+	_sde_crtc_dest_scaler_init(sde_crtc, kms->catalog);
 
 	/* Install color processing properties */
 	sde_cp_crtc_init(crtc);

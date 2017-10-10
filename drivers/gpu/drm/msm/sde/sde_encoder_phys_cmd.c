@@ -34,9 +34,6 @@
 
 #define PP_TIMEOUT_MAX_TRIALS	10
 
-/* wait for 2 vyncs only */
-#define CTL_START_TIMEOUT_MS	32
-
 /*
  * Tearcheck sync start and continue thresholds are empirically found
  * based on common panels In the future, may want to allow panels to override
@@ -897,6 +894,30 @@ static void _sde_encoder_phys_cmd_connect_te(
 	phys_enc->hw_pp->ops.connect_external_te(phys_enc->hw_pp, enable);
 }
 
+static void sde_encoder_phys_cmd_prepare_idle_pc(
+		struct sde_encoder_phys *phys_enc)
+{
+	_sde_encoder_phys_cmd_connect_te(phys_enc, false);
+}
+
+static int sde_encoder_phys_cmd_get_line_count(
+		struct sde_encoder_phys *phys_enc)
+{
+	struct sde_hw_pingpong *hw_pp;
+
+	if (!phys_enc || !phys_enc->hw_pp)
+		return -EINVAL;
+
+	if (!sde_encoder_phys_cmd_is_master(phys_enc))
+		return -EINVAL;
+
+	hw_pp = phys_enc->hw_pp;
+	if (!hw_pp->ops.get_line_count)
+		return -EINVAL;
+
+	return hw_pp->ops.get_line_count(hw_pp);
+}
+
 static void sde_encoder_phys_cmd_disable(struct sde_encoder_phys *phys_enc)
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
@@ -1007,7 +1028,7 @@ static int _sde_encoder_phys_cmd_wait_for_ctl_start(
 
 	wait_info.wq = &phys_enc->pending_kickoff_wq;
 	wait_info.atomic_cnt = &phys_enc->pending_ctlstart_cnt;
-	wait_info.timeout_ms = CTL_START_TIMEOUT_MS;
+	wait_info.timeout_ms = KICKOFF_TIMEOUT_MS;
 
 	/* slave encoder doesn't enable for ppsplit */
 	if (_sde_encoder_phys_is_ppsplit_slave(phys_enc))
@@ -1239,9 +1260,11 @@ static void sde_encoder_phys_cmd_init_ops(
 	ops->irq_control = sde_encoder_phys_cmd_irq_control;
 	ops->update_split_role = sde_encoder_phys_cmd_update_split_role;
 	ops->restore = sde_encoder_phys_cmd_enable_helper;
+	ops->prepare_idle_pc = sde_encoder_phys_cmd_prepare_idle_pc;
 	ops->is_autorefresh_enabled =
 			sde_encoder_phys_cmd_is_autorefresh_enabled;
 	ops->handle_post_kickoff = sde_encoder_phys_cmd_handle_post_kickoff;
+	ops->get_line_count = sde_encoder_phys_cmd_get_line_count;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_cmd_init(

@@ -23,6 +23,8 @@
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include <dt-bindings/clock/qcom,aop-qmp.h>
 
+#define MHZ_TO_MBPS(mhz, w) ((mhz * 1000000 * w) / (1024 * 1024))
+
 / {
 	model = "Qualcomm Technologies, Inc. SDM670";
 	compatible = "qcom,sdm670";
@@ -536,24 +538,6 @@
 			reg = <0 0x93d00000 0 0x1e00000>;
 		};
 
-		pil_ipa_fw_mem: pil_ipa_fw_region@95b00000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0 0x95b00000 0 0x10000>;
-		};
-
-		pil_ipa_gsi_mem: pil_ipa_gsi_region@95b10000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0 0x95b10000 0 0x5000>;
-		};
-
-		pil_gpu_mem: pil_gpu_region@95b15000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0 0x95b15000 0 0x1000>;
-		};
-
 		adsp_mem: adsp_region {
 			compatible = "shared-dma-pool";
 			alloc-ranges = <0 0x00000000 0 0xffffffff>;
@@ -614,6 +598,10 @@
 
 #include "sdm670-vidc.dtsi"
 
+#include "sdm670-sde-pll.dtsi"
+
+#include "sdm670-sde.dtsi"
+
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
@@ -644,6 +632,14 @@
 	qcom,sps {
 		compatible = "qcom,msm_sps_4k";
 		qcom,pipe-attr-ee;
+	};
+
+	qcom,qbt1000 {
+		compatible = "qcom,qbt1000";
+		clock-names = "core", "iface";
+		clock-frequency = <25000000>;
+		qcom,ipc-gpio = <&tlmm 121 0>;
+		qcom,finger-detect-gpio = <&tlmm 122 0>;
 	};
 
 	thermal_zones: thermal-zones {};
@@ -793,6 +789,7 @@
 		reg-names = "cc_base";
 		vdd_cx-supply = <&pm660l_s3_level>;
 		vdd_mx-supply = <&pm660l_s1_level>;
+		qcom,gpu_cc_gmu_clk_src-opp-handle = <&gmu>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -802,6 +799,7 @@
 		reg = <0x5090000 0x9000>;
 		reg-names = "cc_base";
 		vdd_gfx-supply = <&pm660l_s2_level>;
+		qcom,gpu_cc_gx_gfx3d_clk_src-opp-handle = <&msm_gpu>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -833,7 +831,7 @@
 	};
 
 	clock_aop: qcom,aopclk {
-		compatible = "qcom,aop-qmp-clk-v2";
+		compatible = "qcom,aop-qmp-clk-v1";
 		#clock-cells = <1>;
 		mboxes = <&qmp_aop 0>;
 		mbox-names = "qdss_clk";
@@ -1391,6 +1389,15 @@
 		interrupts = <0 17 0>;
 	};
 
+	eud: qcom,msm-eud@88e0000 {
+		compatible = "qcom,msm-eud";
+		interrupt-names = "eud_irq";
+		interrupts = <GIC_SPI 492 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0x88e0000 0x2000>;
+		reg-names = "eud_base";
+		status = "disabled";
+	};
+
 	qcom,llcc@1100000 {
 		compatible = "qcom,llcc-core", "syscon", "simple-mfd";
 		reg = <0x1100000 0x250000>;
@@ -1619,6 +1626,13 @@
 		status = "ok";
 	};
 
+	qcom,rmtfs_sharedmem@0 {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x0 0x200000>;
+		reg-names = "rmtfs";
+		qcom,client-id = <0x00000001>;
+	};
+
 	qcom,rmnet-ipa {
 		compatible = "qcom,rmnet-ipa3";
 		qcom,rmnet-ipa-ssr;
@@ -1659,17 +1673,17 @@
 			<90 512 80000 640000>,
 			<90 585 80000 640000>,
 			<1 676 80000 80000>,
-			<143 777 0 150000>,
+			<143 777 0 150>, /* IB defined for IPA clk in MHz*/
 		/* NOMINAL */
 			<90 512 206000 960000>,
 			<90 585 206000 960000>,
 			<1 676 206000 160000>,
-			<143 777 0 300000>,
+			<143 777 0 300>, /* IB defined for IPA clk in MHz*/
 		/* TURBO */
 			<90 512 206000 3600000>,
 			<90 585 206000 3600000>,
 			<1 676 206000 300000>,
-			<143 777 0 355333>;
+			<143 777 0 355>; /* IB defined for IPA clk in MHz*/
 		qcom,bus-vector-names = "MIN", "SVS", "NOMINAL", "TURBO";
 
 		/* IPA RAM mmap */
@@ -1919,6 +1933,46 @@
 
 		qcom,devfreq,freq-table = <50000000 200000000>;
 
+		qcom,msm-bus,name = "sdhc1";
+		qcom,msm-bus,num-cases = <9>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			/* No vote */
+			<78 512 0 0>, <1 606 0 0>,
+			/* 400 KB/s*/
+			<78 512 1046 1600>,
+			<1 606 1600 1600>,
+			/* 20 MB/s */
+			<78 512 52286 80000>,
+			<1 606 80000 80000>,
+			/* 25 MB/s */
+			<78 512 65360 100000>,
+			<1 606 100000 100000>,
+			/* 50 MB/s */
+			<78 512 130718 200000>,
+			<1 606 133320 133320>,
+			/* 100 MB/s */
+			<78 512 130718 200000>,
+			<1 606 150000 150000>,
+			/* 200 MB/s */
+			<78 512 261438 400000>,
+			<1 606 300000 300000>,
+			/* 400 MB/s */
+			<78 512 261438 400000>,
+			<1 606 300000 300000>,
+			/* Max. bandwidth */
+			<78 512 1338562 4096000>,
+			<1 606 1338562 4096000>;
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+			100000000 200000000 400000000 4294967295>;
+
+		/* PM QoS */
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <70 70>;
+		qcom,pm-qos-cpu-groups = <0x3f 0xc0>;
+		qcom,pm-qos-cmdq-latency-us = <70 70>, <70 70>;
+		qcom,pm-qos-legacy-latency-us = <70 70>, <70 70>;
+
 		clocks = <&clock_gcc GCC_SDCC1_AHB_CLK>,
 			<&clock_gcc GCC_SDCC1_APPS_CLK>;
 		clock-names = "iface_clk", "core_clk";
@@ -1946,6 +2000,43 @@
 				      "SDR104";
 
 		qcom,devfreq,freq-table = <50000000 201500000>;
+
+		qcom,msm-bus,name = "sdhc2";
+		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			/* No vote */
+			<81 512 0 0>, <1 608 0 0>,
+			/* 400 KB/s*/
+			<81 512 1046 1600>,
+			<1 608 1600 1600>,
+			/* 20 MB/s */
+			<81 512 52286 80000>,
+			<1 608 80000 80000>,
+			/* 25 MB/s */
+			<81 512 65360 100000>,
+			<1 608 100000 100000>,
+			/* 50 MB/s */
+			<81 512 130718 200000>,
+			<1 608 133320 133320>,
+			/* 100 MB/s */
+			<81 512 261438 200000>,
+			<1 608 150000 150000>,
+			/* 200 MB/s */
+			<81 512 261438 400000>,
+			<1 608 300000 300000>,
+			/* Max. bandwidth */
+			<81 512 1338562 4096000>,
+			<1 608 1338562 4096000>;
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+			100000000 200000000 4294967295>;
+
+		/* PM QoS */
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <70 70>;
+		qcom,pm-qos-cpu-groups = <0x3f 0xc0>;
+		qcom,pm-qos-legacy-latency-us = <70 70>, <70 70>;
+
 		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
 			<&clock_gcc GCC_SDCC2_APPS_CLK>;
 		clock-names = "iface_clk", "core_clk";
@@ -2055,8 +2146,220 @@
 		qcom,wlan-msa-memory = <0x100000>;
 		qcom,smmu-s1-bypass;
 	};
+
+	cpubw: qcom,cpubw {
+		compatible = "qcom,devbw";
+		governor = "performance";
+		qcom,src-dst-ports =
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_LLCC>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			< MHZ_TO_MBPS(150, 16) >, /*  2288 MB/s */
+			< MHZ_TO_MBPS(300, 16) >, /*  4577 MB/s */
+			< MHZ_TO_MBPS(466, 16) >, /*  7110 MB/s */
+			< MHZ_TO_MBPS(600, 16) >, /*  9155 MB/s */
+			< MHZ_TO_MBPS(806, 16) >, /* 12298 MB/s */
+			< MHZ_TO_MBPS(933, 16) >; /* 14236 MB/s */
+	};
+
+	bwmon: qcom,cpu-bwmon {
+		compatible = "qcom,bimc-bwmon4";
+		reg = <0x1436400 0x300>, <0x1436300 0x200>;
+		reg-names = "base", "global_base";
+		interrupts = <0 581 4>;
+		qcom,mport = <0>;
+		qcom,hw-timer-hz = <19200000>;
+		qcom,target-dev = <&cpubw>;
+	};
+
+	llccbw: qcom,llccbw {
+		compatible = "qcom,devbw";
+		governor = "powersave";
+		qcom,src-dst-ports =
+			<MSM_BUS_MASTER_LLCC MSM_BUS_SLAVE_EBI_CH0>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			< MHZ_TO_MBPS( 100, 4) >, /* 381 MB/s */
+			< MHZ_TO_MBPS( 200, 4) >, /* 762 MB/s */
+			< MHZ_TO_MBPS( 300, 4) >, /* 1144 MB/s */
+			< MHZ_TO_MBPS( 451, 4) >, /* 1720 MB/s */
+			< MHZ_TO_MBPS( 547, 4) >, /* 2086 MB/s */
+			< MHZ_TO_MBPS( 681, 4) >, /* 2597 MB/s */
+			< MHZ_TO_MBPS( 768, 4) >, /* 2929 MB/s */
+			< MHZ_TO_MBPS(1017, 4) >, /* 3879 MB/s */
+			< MHZ_TO_MBPS(1353, 4) >, /* 5161 MB/s */
+			< MHZ_TO_MBPS(1555, 4) >, /* 5931 MB/s */
+			< MHZ_TO_MBPS(1804, 4) >; /* 6881 MB/s */
+	};
+
+	llcc_bwmon: qcom,llcc-bwmon {
+		compatible = "qcom,bimc-bwmon5";
+		reg = <0x0114a000 0x1000>;
+		reg-names = "base";
+		interrupts = <GIC_SPI 580 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,hw-timer-hz = <19200000>;
+		qcom,target-dev = <&llccbw>;
+		qcom,count-unit = <0x200000>;
+		qcom,byte-mid-mask = <0xe000>;
+		qcom,byte-mid-match = <0xe000>;
+	};
+
+	memlat_cpu0: qcom,memlat-cpu0 {
+		compatible = "qcom,devbw";
+		governor = "powersave";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			< MHZ_TO_MBPS( 100, 4) >, /* 381 MB/s */
+			< MHZ_TO_MBPS( 200, 4) >, /* 762 MB/s */
+			< MHZ_TO_MBPS( 300, 4) >, /* 1144 MB/s */
+			< MHZ_TO_MBPS( 451, 4) >, /* 1720 MB/s */
+			< MHZ_TO_MBPS( 547, 4) >, /* 2086 MB/s */
+			< MHZ_TO_MBPS( 681, 4) >, /* 2597 MB/s */
+			< MHZ_TO_MBPS( 768, 4) >, /* 2929 MB/s */
+			< MHZ_TO_MBPS(1017, 4) >, /* 3879 MB/s */
+			< MHZ_TO_MBPS(1353, 4) >, /* 5161 MB/s */
+			< MHZ_TO_MBPS(1555, 4) >, /* 5931 MB/s */
+			< MHZ_TO_MBPS(1804, 4) >; /* 6881 MB/s */
+	};
+
+	memlat_cpu4: qcom,memlat-cpu4 {
+		compatible = "qcom,devbw";
+		governor = "powersave";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		status = "ok";
+		qcom,bw-tbl =
+			< MHZ_TO_MBPS( 100, 4) >, /* 381 MB/s */
+			< MHZ_TO_MBPS( 200, 4) >, /* 762 MB/s */
+			< MHZ_TO_MBPS( 300, 4) >, /* 1144 MB/s */
+			< MHZ_TO_MBPS( 451, 4) >, /* 1720 MB/s */
+			< MHZ_TO_MBPS( 547, 4) >, /* 2086 MB/s */
+			< MHZ_TO_MBPS( 681, 4) >, /* 2597 MB/s */
+			< MHZ_TO_MBPS( 768, 4) >, /* 2929 MB/s */
+			< MHZ_TO_MBPS(1017, 4) >, /* 3879 MB/s */
+			< MHZ_TO_MBPS(1353, 4) >, /* 5161 MB/s */
+			< MHZ_TO_MBPS(1555, 4) >, /* 5931 MB/s */
+			< MHZ_TO_MBPS(1804, 4) >; /* 6881 MB/s */
+	};
+
+	devfreq_memlat_0: qcom,cpu0-memlat-mon {
+		compatible = "qcom,arm-memlat-mon";
+		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,target-dev = <&memlat_cpu0>;
+		qcom,cachemiss-ev = <0x24>;
+		qcom,core-dev-table =
+			<  748800 MHZ_TO_MBPS( 300, 4) >,
+			<  998400 MHZ_TO_MBPS( 451, 4) >,
+			< 1209600 MHZ_TO_MBPS( 547, 4) >,
+			< 1497600 MHZ_TO_MBPS( 768, 4) >,
+			< 1728000 MHZ_TO_MBPS(1017, 4) >;
+	};
+
+	devfreq_memlat_4: qcom,cpu4-memlat-mon {
+		compatible = "qcom,arm-memlat-mon";
+		qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
+		qcom,target-dev = <&memlat_cpu4>;
+		qcom,cachemiss-ev = <0x24>;
+		qcom,core-dev-table =
+			<  787200 MHZ_TO_MBPS( 300, 4) >,
+			< 1113600 MHZ_TO_MBPS( 547, 4) >,
+			< 1344000 MHZ_TO_MBPS(1017, 4) >,
+			< 1900800 MHZ_TO_MBPS(1555, 4) >,
+			< 2438400 MHZ_TO_MBPS(1804, 4) >;
+	};
+
+	l3_cpu0: qcom,l3-cpu0 {
+		compatible = "devfreq-simple-dev";
+		clock-names = "devfreq_clk";
+		clocks = <&clock_cpucc L3_CLUSTER0_VOTE_CLK>;
+		governor = "performance";
+	};
+
+	l3_cpu4: qcom,l3-cpu4 {
+		compatible = "devfreq-simple-dev";
+		clock-names = "devfreq_clk";
+		clocks = <&clock_cpucc L3_CLUSTER1_VOTE_CLK>;
+		governor = "performance";
+	};
+
+	devfreq_l3lat_0: qcom,cpu0-l3lat-mon {
+		compatible = "qcom,arm-memlat-mon";
+		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,target-dev = <&l3_cpu0>;
+		qcom,cachemiss-ev = <0x17>;
+		qcom,core-dev-table =
+			<  748800  566400000 >,
+			<  998400  787200000 >,
+			< 1209660  940800000 >,
+			< 1497600 1190400000 >,
+			< 1612800 1382400000 >,
+			< 1728000 1440000000 >;
+	};
+
+	devfreq_l3lat_4: qcom,cpu4-l3lat-mon {
+		compatible = "qcom,arm-memlat-mon";
+		qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
+		qcom,target-dev = <&l3_cpu4>;
+		qcom,cachemiss-ev = <0x17>;
+		qcom,core-dev-table =
+			< 1113600  566400000 >,
+			< 1344000  787200000 >,
+			< 1728000  940800000 >,
+			< 1900800 1190400000 >,
+			< 2438400 1440000000 >;
+	};
+
+	mincpubw: qcom,mincpubw {
+		compatible = "qcom,devbw";
+		governor = "powersave";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			< MHZ_TO_MBPS( 100, 4) >, /* 381 MB/s */
+			< MHZ_TO_MBPS( 200, 4) >, /* 762 MB/s */
+			< MHZ_TO_MBPS( 300, 4) >, /* 1144 MB/s */
+			< MHZ_TO_MBPS( 451, 4) >, /* 1720 MB/s */
+			< MHZ_TO_MBPS( 547, 4) >, /* 2086 MB/s */
+			< MHZ_TO_MBPS( 681, 4) >, /* 2597 MB/s */
+			< MHZ_TO_MBPS( 768, 4) >, /* 2929 MB/s */
+			< MHZ_TO_MBPS(1017, 4) >, /* 3879 MB/s */
+			< MHZ_TO_MBPS(1353, 4) >, /* 5161 MB/s */
+			< MHZ_TO_MBPS(1555, 4) >, /* 5931 MB/s */
+			< MHZ_TO_MBPS(1804, 4) >; /* 6881 MB/s */
+	};
+
+	devfreq-cpufreq {
+		mincpubw-cpufreq {
+			target-dev = <&mincpubw>;
+			cpu-to-dev-map-0 =
+				<  748800 MHZ_TO_MBPS( 300, 4) >,
+				< 1209600 MHZ_TO_MBPS( 451, 4) >,
+				< 1612000 MHZ_TO_MBPS( 547, 4) >,
+				< 1728000 MHZ_TO_MBPS( 768, 4) >;
+			cpu-to-dev-map-4 =
+				< 1113600 MHZ_TO_MBPS( 300, 4) >,
+				< 1344000 MHZ_TO_MBPS( 547, 4) >,
+				< 1728000 MHZ_TO_MBPS( 768, 4) >,
+				< 1900800 MHZ_TO_MBPS(1017, 4) >,
+				< 2438400 MHZ_TO_MBPS(1804, 4) >;
+		};
+	};
+
+	gpu_gx_domain_addr: syscon@0x5091508 {
+		compatible = "syscon";
+		reg = <0x5091508 0x4>;
+	};
+
+	gpu_gx_sw_reset: syscon@0x5091008 {
+		compatible = "syscon";
+		reg = <0x5091008 0x4>;
+	};
 };
 
+#include "pm660.dtsi"
+#include "pm660l.dtsi"
+#include "sdm670-regulator.dtsi"
 #include "sdm670-pinctrl.dtsi"
 #include "msm-arm-smmu-sdm670.dtsi"
 #include "msm-gdsc-sdm845.dtsi"
@@ -2131,6 +2434,9 @@
 	clocks = <&clock_gfx GPU_CC_GX_GFX3D_CLK_SRC>;
 	qcom,force-enable-root-clk;
 	parent-supply = <&pm660l_s2_level>;
+	domain-addr = <&gpu_gx_domain_addr>;
+	sw-reset = <&gpu_gx_sw_reset>;
+	qcom,reset-aon-logic;
 	status = "ok";
 };
 
@@ -2148,10 +2454,8 @@
 	status = "ok";
 };
 
-#include "pm660.dtsi"
-#include "pm660l.dtsi"
-#include "sdm670-regulator.dtsi"
 #include "sdm670-audio.dtsi"
 #include "sdm670-usb.dtsi"
 #include "sdm670-gpu.dtsi"
 #include "sdm670-thermal.dtsi"
+#include "sdm670-bus.dtsi"

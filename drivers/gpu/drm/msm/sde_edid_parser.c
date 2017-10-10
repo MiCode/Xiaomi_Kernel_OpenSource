@@ -605,6 +605,30 @@ u32 sde_get_sink_bpc(void *input)
 	}
 }
 
+u8 sde_get_edid_checksum(void *input)
+{
+	struct sde_edid_ctrl *edid_ctrl = (struct sde_edid_ctrl *)(input);
+	struct edid *edid = NULL, *last_block = NULL;
+	u8 *raw_edid = NULL;
+
+	if (!edid_ctrl || !edid_ctrl->edid) {
+		SDE_ERROR("invalid edid input\n");
+		return 0;
+	}
+
+	edid = edid_ctrl->edid;
+
+	raw_edid = (u8 *)edid;
+	raw_edid += (edid->extensions * EDID_LENGTH);
+	last_block = (struct edid *)raw_edid;
+
+	if (last_block)
+		return last_block->checksum;
+
+	SDE_ERROR("Invalid block, no checksum\n");
+	return 0;
+}
+
 bool sde_detect_hdmi_monitor(void *input)
 {
 	struct sde_edid_ctrl *edid_ctrl = (struct sde_edid_ctrl *)(input);

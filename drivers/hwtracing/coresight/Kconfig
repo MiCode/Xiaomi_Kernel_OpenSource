@@ -156,6 +156,17 @@ config CORESIGHT_EVENT
           occurrence. These events can be controlled by using module
           parameters.
 
+config CORESIGHT_TGU
+	bool "CoreSight Trigger Generation Unit driver"
+	help
+	  This driver provides support for Trigger Generation Unit that is
+	  used to detect patterns or sequences on a given set of signals.
+	  TGU is used to monitor a particular bus within a given region to
+	  detect illegal transaction sequences or slave responses. It is also
+	  used to monitor a data stream to detect protocol violations and to
+	  provide a trigger point for centering data around a specific event
+	  within the trace data buffer.
+
 config CORESIGHT_CSR
 	bool "CoreSight Slave Register driver"
 	help

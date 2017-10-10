@@ -29,7 +29,6 @@
 		qcom,mdss-dsi-lane-1-state;
 		qcom,mdss-dsi-lane-2-state;
 		qcom,mdss-dsi-lane-3-state;
-		qcom,cmd-sync-wait-broadcast;
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-reset-sequence = <1 20>, <0 20>, <1 50>;
@@ -76,7 +75,7 @@
 					15 01 00 00 00 00 02 5D 81
 					15 01 00 00 00 00 02 5E 00
 					15 01 00 00 00 00 02 5F 01
-					15 01 00 00 00 00 02 72 31
+					15 01 00 00 00 00 02 72 11
 					15 01 00 00 00 00 02 68 03
 					/* CMD2_P4 */
 					15 01 00 00 00 00 02 FF 24

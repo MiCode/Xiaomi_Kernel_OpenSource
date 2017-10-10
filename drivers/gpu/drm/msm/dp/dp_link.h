@@ -86,6 +86,7 @@ struct dp_link_params {
 struct dp_link {
 	u32 sink_request;
 	u32 test_response;
+	bool psm_enabled;
 
 	struct dp_link_sink_count sink_count;
 	struct dp_link_test_video test_video;
@@ -99,6 +100,9 @@ struct dp_link {
 	int (*adjust_levels)(struct dp_link *dp_link, u8 *link_status);
 	int (*send_psm_request)(struct dp_link *dp_link, bool req);
 	void (*send_test_response)(struct dp_link *dp_link);
+	int (*psm_config)(struct dp_link *dp_link,
+		struct drm_dp_link *link_info, bool enable);
+	void (*send_edid_checksum)(struct dp_link *dp_link, u8 checksum);
 };
 
 static inline char *dp_link_get_phy_test_pattern(u32 phy_test_pattern_sel)
@@ -123,6 +127,42 @@ static inline char *dp_link_get_phy_test_pattern(u32 phy_test_pattern_sel)
 	default:
 		return "unknown";
 	}
+}
+
+/**
+ * mdss_dp_test_bit_depth_to_bpp() - convert test bit depth to bpp
+ * @tbd: test bit depth
+ *
+ * Returns the bits per pixel (bpp) to be used corresponding to the
+ * git bit depth value. This function assumes that bit depth has
+ * already been validated.
+ */
+static inline u32 dp_link_bit_depth_to_bpp(u32 tbd)
+{
+	u32 bpp;
+
+	/*
+	 * Few simplistic rules and assumptions made here:
+	 *    1. Bit depth is per color component
+	 *    2. If bit depth is unknown return 0
+	 *    3. Assume 3 color components
+	 */
+	switch (tbd) {
+	case DP_TEST_BIT_DEPTH_6:
+		bpp = 18;
+		break;
+	case DP_TEST_BIT_DEPTH_8:
+		bpp = 24;
+		break;
+	case DP_TEST_BIT_DEPTH_10:
+		bpp = 30;
+		break;
+	case DP_TEST_BIT_DEPTH_UNKNOWN:
+	default:
+		bpp = 0;
+	}
+
+	return bpp;
 }
 
 /**

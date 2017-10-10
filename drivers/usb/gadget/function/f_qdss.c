@@ -338,7 +338,7 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 	struct usb_gadget *gadget = c->cdev->gadget;
 	struct f_qdss *qdss = func_to_qdss(f);
 	struct usb_ep *ep;
-	int iface;
+	int iface, id;
 
 	pr_debug("qdss_bind\n");
 
@@ -356,6 +356,12 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 	qdss_data_intf_desc.bInterfaceNumber = iface;
 	qdss->data_iface_id = iface;
 
+	id = usb_string_id(c->cdev);
+	if (id < 0)
+		return id;
+	qdss_string_defs[QDSS_DATA_IDX].id = id;
+	qdss_data_intf_desc.iInterface = id;
+
 	if (qdss->debug_inface_enabled) {
 		/* Allocate ctrl I/F */
 		iface = usb_interface_id(c, f);
@@ -365,6 +371,11 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 		}
 		qdss_ctrl_intf_desc.bInterfaceNumber = iface;
 		qdss->ctrl_iface_id = iface;
+		id = usb_string_id(c->cdev);
+		if (id < 0)
+			return id;
+		qdss_string_defs[QDSS_CTRL_IDX].id = id;
+		qdss_ctrl_intf_desc.iInterface = id;
 	}
 
 	ep = usb_ep_autoconfig_ss(gadget, &qdss_ss_data_desc,

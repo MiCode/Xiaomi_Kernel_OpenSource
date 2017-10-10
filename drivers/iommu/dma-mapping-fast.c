@@ -855,29 +855,28 @@ static void fast_smmu_reserve_pci_windows(struct device *dev,
 	spin_unlock_irqrestore(&mapping->lock, flags);
 }
 
-
 /**
- * fast_smmu_attach_device
+ * fast_smmu_init_mapping
  * @dev: valid struct device pointer
  * @mapping: io address space mapping structure (returned from
- *	fast_smmu_create_mapping)
+ *	arm_iommu_create_mapping)
  *
- * Attaches specified io address space mapping to the provided device,
- * this replaces the dma operations (dma_map_ops pointer) with the
- * IOMMU aware version. More than one client might be attached to
- * the same io address space mapping.
+ * Called the first time a device is attached to this mapping.
+ * Not for dma client use.
  */
-int fast_smmu_attach_device(struct device *dev,
+int fast_smmu_init_mapping(struct device *dev,
 			    struct dma_iommu_mapping *mapping)
 {
-	int atomic_domain = 1;
+	int err, atomic_domain = 1;
 	struct iommu_domain *domain = mapping->domain;
 	struct iommu_group *group;
 	struct iommu_pgtbl_info info;
 	u64 size = (u64)mapping->bits << PAGE_SHIFT;
 
-	if (mapping->base + size > (SZ_1G * 4ULL))
+	if (mapping->base + size > (SZ_1G * 4ULL)) {
+		dev_err(dev, "Iova end address too large\n");
 		return -EINVAL;
+	}
 
 	if (iommu_domain_set_attr(domain, DOMAIN_ATTR_ATOMIC,
 				  &atomic_domain))
@@ -894,54 +893,67 @@ int fast_smmu_attach_device(struct device *dev,
 	group = dev->iommu_group;
 	if (!group) {
 		dev_err(dev, "No iommu associated with device\n");
-		return -ENODEV;
+		err = -ENODEV;
+		goto release_mapping;
 	}
 
 	if (iommu_get_domain_for_dev(dev)) {
 		dev_err(dev, "Device already attached to other iommu_domain\n");
-		return -EINVAL;
+		err = -EINVAL;
+		goto release_mapping;
 	}
 
-	if (iommu_attach_group(mapping->domain, group))
-		return -EINVAL;
+	/*
+	 * Need to attach prior to calling DOMAIN_ATTR_PGTBL_INFO and then
+	 * detach to be in the expected state. Its a bit messy.
+	 */
+	if (iommu_attach_group(mapping->domain, group)) {
+		err = -EINVAL;
+		goto release_mapping;
+	}
 
 	if (iommu_domain_get_attr(domain, DOMAIN_ATTR_PGTBL_INFO,
 				  &info)) {
 		dev_err(dev, "Couldn't get page table info\n");
-		fast_smmu_detach_device(dev, mapping);
-		return -EINVAL;
+		err = -EINVAL;
+		goto detach_group;
 	}
 	mapping->fast->pgtbl_pmds = info.pmds;
 
 	if (iommu_domain_get_attr(domain, DOMAIN_ATTR_PAGE_TABLE_IS_COHERENT,
-				  &mapping->fast->is_smmu_pt_coherent))
-		return -EINVAL;
+				  &mapping->fast->is_smmu_pt_coherent)) {
+		err = -EINVAL;
+		goto detach_group;
+	}
 
 	mapping->fast->notifier.notifier_call = fast_smmu_notify;
 	av8l_register_notify(&mapping->fast->notifier);
 
-	dev->archdata.mapping = mapping;
-	set_dma_ops(dev, &fast_smmu_dma_ops);
-
+	iommu_detach_group(mapping->domain, group);
+	mapping->ops = &fast_smmu_dma_ops;
 	return 0;
+
+detach_group:
+	iommu_detach_group(mapping->domain, group);
+release_mapping:
+	kfree(mapping->fast->bitmap);
+	kfree(mapping->fast);
+	return err;
 }
-EXPORT_SYMBOL(fast_smmu_attach_device);
 
 /**
- * fast_smmu_detach_device
- * @dev: valid struct device pointer
+ * fast_smmu_release_mapping
+ * @kref: dma_iommu_mapping->kref
  *
- * Detaches the provided device from a previously attached map.
- * This voids the dma operations (dma_map_ops pointer)
+ * Cleans up the given iommu mapping.
  */
-void fast_smmu_detach_device(struct device *dev,
-			     struct dma_iommu_mapping *mapping)
+void fast_smmu_release_mapping(struct kref *kref)
 {
-	iommu_detach_group(mapping->domain, dev->iommu_group);
-	dev->archdata.mapping = NULL;
-	set_dma_ops(dev, NULL);
+	struct dma_iommu_mapping *mapping =
+		container_of(kref, struct dma_iommu_mapping, kref);
 
 	kvfree(mapping->fast->bitmap);
 	kfree(mapping->fast);
+	iommu_domain_free(mapping->domain);
+	kfree(mapping);
 }
-EXPORT_SYMBOL(fast_smmu_detach_device);

@@ -1631,6 +1631,8 @@ static int fg_adjust_ki_coeff_full_soc(struct fg_chip *chip, int batt_temp)
 
 	if (batt_temp < 0)
 		ki_coeff_full_soc = 0;
+	else if (chip->charge_status == POWER_SUPPLY_STATUS_DISCHARGING)
+		ki_coeff_full_soc = chip->dt.ki_coeff_full_soc_dischg;
 	else
 		ki_coeff_full_soc = KI_COEFF_FULL_SOC_DEFAULT;
 
@@ -1748,12 +1750,12 @@ static int fg_charge_full_update(struct fg_chip *chip)
 
 	/* We need 2 most significant bytes here */
 	bsoc = (u32)bsoc >> 16;
-	rc = fg_get_msoc(chip, &msoc);
+	rc = fg_get_msoc_raw(chip, &msoc_raw);
 	if (rc < 0) {
-		pr_err("Error in getting msoc, rc=%d\n", rc);
+		pr_err("Error in getting msoc_raw, rc=%d\n", rc);
 		goto out;
 	}
-	msoc_raw = DIV_ROUND_CLOSEST(msoc * FULL_SOC_RAW, FULL_CAPACITY);
+	msoc = DIV_ROUND_CLOSEST(msoc_raw * FULL_CAPACITY, FULL_SOC_RAW);
 
 	fg_dbg(chip, FG_STATUS, "msoc: %d bsoc: %x health: %d status: %d full: %d\n",
 		msoc, bsoc, chip->health, chip->charge_status,
@@ -2507,7 +2509,6 @@ static void status_change_work(struct work_struct *work)
 		goto out;
 	}
 
-	chip->prev_charge_status = chip->charge_status;
 	chip->charge_status = prop.intval;
 	rc = power_supply_get_property(chip->batt_psy,
 			POWER_SUPPLY_PROP_CHARGE_TYPE, &prop);
@@ -3300,20 +3301,21 @@ static int fg_force_esr_meas(struct fg_chip *chip)
 	int rc;
 	int esr_uohms;
 
+	mutex_lock(&chip->qnovo_esr_ctrl_lock);
 	/* force esr extraction enable */
 	rc = fg_sram_masked_write(chip, ESR_EXTRACTION_ENABLE_WORD,
 			ESR_EXTRACTION_ENABLE_OFFSET, BIT(0), BIT(0),
 			FG_IMA_DEFAULT);
 	if (rc < 0) {
 		pr_err("failed to enable esr extn rc=%d\n", rc);
-		return rc;
+		goto out;
 	}
 
 	rc = fg_masked_write(chip, BATT_INFO_QNOVO_CFG(chip),
 			LD_REG_CTRL_BIT, 0);
 	if (rc < 0) {
 		pr_err("Error in configuring qnovo_cfg rc=%d\n", rc);
-		return rc;
+		goto out;
 	}
 
 	rc = fg_masked_write(chip, BATT_INFO_TM_MISC1(chip),
@@ -3321,24 +3323,36 @@ static int fg_force_esr_meas(struct fg_chip *chip)
 			ESR_REQ_CTL_BIT | ESR_REQ_CTL_EN_BIT);
 	if (rc < 0) {
 		pr_err("Error in configuring force ESR rc=%d\n", rc);
-		return rc;
+		goto out;
 	}
+
+	/*
+	 * Release and grab the lock again after 1.5 seconds so that prepare
+	 * callback can succeed if the request comes in between.
+	 */
+	mutex_unlock(&chip->qnovo_esr_ctrl_lock);
 
 	/* wait 1.5 seconds for hw to measure ESR */
 	msleep(1500);
+
+	mutex_lock(&chip->qnovo_esr_ctrl_lock);
 	rc = fg_masked_write(chip, BATT_INFO_TM_MISC1(chip),
 			ESR_REQ_CTL_BIT | ESR_REQ_CTL_EN_BIT,
 			0);
 	if (rc < 0) {
 		pr_err("Error in restoring force ESR rc=%d\n", rc);
-		return rc;
+		goto out;
 	}
+
+	/* If qnovo is disabled, then leave ESR extraction enabled */
+	if (!chip->qnovo_enable)
+		goto done;
 
 	rc = fg_masked_write(chip, BATT_INFO_QNOVO_CFG(chip),
 			LD_REG_CTRL_BIT, LD_REG_CTRL_BIT);
 	if (rc < 0) {
 		pr_err("Error in restoring qnovo_cfg rc=%d\n", rc);
-		return rc;
+		goto out;
 	}
 
 	/* force esr extraction disable */
@@ -3347,36 +3361,46 @@ static int fg_force_esr_meas(struct fg_chip *chip)
 			FG_IMA_DEFAULT);
 	if (rc < 0) {
 		pr_err("failed to disable esr extn rc=%d\n", rc);
-		return rc;
+		goto out;
 	}
 
+done:
 	fg_get_battery_resistance(chip, &esr_uohms);
 	fg_dbg(chip, FG_STATUS, "ESR uohms = %d\n", esr_uohms);
-
+out:
+	mutex_unlock(&chip->qnovo_esr_ctrl_lock);
 	return rc;
 }
 
 static int fg_prepare_for_qnovo(struct fg_chip *chip, int qnovo_enable)
 {
-	int rc;
+	int rc = 0;
 
+	mutex_lock(&chip->qnovo_esr_ctrl_lock);
 	/* force esr extraction disable when qnovo enables */
 	rc = fg_sram_masked_write(chip, ESR_EXTRACTION_ENABLE_WORD,
 			ESR_EXTRACTION_ENABLE_OFFSET,
 			BIT(0), qnovo_enable ? 0 : BIT(0),
 			FG_IMA_DEFAULT);
-	if (rc < 0)
+	if (rc < 0) {
 		pr_err("Error in configuring esr extraction rc=%d\n", rc);
+		goto out;
+	}
 
 	rc = fg_masked_write(chip, BATT_INFO_QNOVO_CFG(chip),
 			LD_REG_CTRL_BIT,
 			qnovo_enable ? LD_REG_CTRL_BIT : 0);
 	if (rc < 0) {
 		pr_err("Error in configuring qnovo_cfg rc=%d\n", rc);
-		return rc;
+		goto out;
 	}
-	fg_dbg(chip, FG_STATUS, "Prepared for Qnovo\n");
-	return 0;
+
+	fg_dbg(chip, FG_STATUS, "%s for Qnovo\n",
+		qnovo_enable ? "Prepared" : "Unprepared");
+	chip->qnovo_enable = qnovo_enable;
+out:
+	mutex_unlock(&chip->qnovo_esr_ctrl_lock);
+	return rc;
 }
 
 static void ttf_work(struct work_struct *work)
@@ -4503,7 +4527,11 @@ static int fg_parse_slope_limit_coefficients(struct fg_chip *chip)
 static int fg_parse_ki_coefficients(struct fg_chip *chip)
 {
 	struct device_node *node = chip->dev->of_node;
-	int rc, i;
+	int rc, i, temp;
+
+	rc = of_property_read_u32(node, "qcom,ki-coeff-full-dischg", &temp);
+	if (!rc)
+		chip->dt.ki_coeff_full_soc_dischg = temp;
 
 	rc = fg_parse_dt_property_u32_array(node, "qcom,ki-coeff-soc-dischg",
 		chip->dt.ki_coeff_soc, KI_COEFF_SOC_LEVELS);
@@ -4972,7 +5000,6 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	chip->debug_mask = &fg_gen3_debug_mask;
 	chip->irqs = fg_irqs;
 	chip->charge_status = -EINVAL;
-	chip->prev_charge_status = -EINVAL;
 	chip->ki_coeff_full_soc = -EINVAL;
 	chip->online_status = -EINVAL;
 	chip->regmap = dev_get_regmap(chip->dev->parent, NULL);
@@ -5045,6 +5072,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	mutex_init(&chip->cl.lock);
 	mutex_init(&chip->ttf.lock);
 	mutex_init(&chip->charge_full_lock);
+	mutex_init(&chip->qnovo_esr_ctrl_lock);
 	init_completion(&chip->soc_update);
 	init_completion(&chip->soc_ready);
 	init_completion(&chip->mem_grant);

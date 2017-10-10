@@ -1264,6 +1264,13 @@ static irqreturn_t msm_geni_serial_isr(int isr, void *dev)
 		goto exit_geni_serial_isr;
 	}
 
+	if (s_irq_status & S_RX_FIFO_WR_ERR_EN) {
+		uport->icount.buf_overrun++;
+		IPC_LOG_MSG(msm_port->ipc_log_misc,
+			"%s.sirq 0x%x buf_overrun:%d\n",
+			__func__, s_irq_status, uport->icount.buf_overrun);
+	}
+
 	if (!dma) {
 		if ((m_irq_status & m_irq_en) &
 		    (M_TX_FIFO_WATERMARK_EN | M_CMD_DONE_EN))

@@ -1973,6 +1973,7 @@ static void cam_cc_sdm845_fixup_sdm845v2(void)
 		&cam_cc_csi3phytimer_clk_src.clkr;
 	cam_cc_cphy_rx_clk_src.freq_tbl = ftbl_cam_cc_cphy_rx_clk_src_sdm845_v2;
 	cam_cc_cphy_rx_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 384000000;
+	cam_cc_cphy_rx_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 384000000;
 	cam_cc_fd_core_clk_src.freq_tbl = ftbl_cam_cc_fd_core_clk_src_sdm845_v2;
 	cam_cc_fd_core_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 384000000;
 	cam_cc_icp_clk_src.freq_tbl = ftbl_cam_cc_icp_clk_src_sdm845_v2;
@@ -1985,6 +1986,9 @@ static void cam_cc_sdm845_fixup_sdm845v2(void)
 	cam_cc_lrme_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] = 320000000;
 	cam_cc_lrme_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] = 400000000;
 	cam_cc_slow_ahb_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 80000000;
+	cam_cc_slow_ahb_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 80000000;
+	cam_cc_slow_ahb_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
+		80000000;
 }
 
 static void cam_cc_sdm845_fixup_sdm670(void)
