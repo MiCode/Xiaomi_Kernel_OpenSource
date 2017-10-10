@@ -1512,6 +1512,34 @@ static int mdss_dsi_wait4video_eng_busy(struct mdss_dsi_ctrl_pdata *ctrl)
 	return ret;
 }
 
+static void mdss_dsi_wait4active_region(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	int in_blanking = 0;
+	int retry_count = 0;
+
+	if (ctrl->panel_mode != DSI_VIDEO_MODE)
+		return;
+
+	while (retry_count != MAX_BTA_WAIT_RETRY) {
+		mdss_dsi_wait4video_eng_busy(ctrl);
+		in_blanking = ctrl->mdp_callback->fxn(
+			ctrl->mdp_callback->data,
+			MDP_INTF_CALLBACK_CHECK_LINE_COUNT);
+
+		if (in_blanking) {
+			pr_debug("%s: not in active region\n", __func__);
+			retry_count++;
+		} else
+			break;
+	};
+
+	if (retry_count == MAX_BTA_WAIT_RETRY)
+		MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl",
+			"dsi0_phy", "dsi1_ctrl", "dsi1_phy",
+			"vbif", "vbif_nrt", "dbg_bus",
+			"vbif_dbg_bus", "dsi_dbg_bus", "panic");
+}
+
 /**
  * mdss_dsi_bta_status_check() - Check dsi panel status through bta check
  * @ctrl_pdata: pointer to the dsi controller structure
@@ -1527,8 +1555,6 @@ int mdss_dsi_bta_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	int ret = 0;
 	unsigned long flag;
 	int ignore_underflow = 0;
-	int retry_count = 0;
-	int in_blanking = 0;
 
 	if (ctrl_pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -1554,24 +1580,8 @@ int mdss_dsi_bta_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	reinit_completion(&ctrl_pdata->bta_comp);
 	mdss_dsi_enable_irq(ctrl_pdata, DSI_BTA_TERM);
 	spin_unlock_irqrestore(&ctrl_pdata->mdp_lock, flag);
-wait:
-	mdss_dsi_wait4video_eng_busy(ctrl_pdata);
-	if (ctrl_pdata->panel_mode == DSI_VIDEO_MODE) {
-		in_blanking = ctrl_pdata->mdp_callback->fxn(
-			ctrl_pdata->mdp_callback->data,
-			MDP_INTF_CALLBACK_CHECK_LINE_COUNT);
-		/* Try for maximum of 5 attempts */
-		if (in_blanking && (retry_count < MAX_BTA_WAIT_RETRY)) {
-			pr_debug("%s: not in active region\n", __func__);
-			retry_count++;
-			goto wait;
-		}
-	}
-	if (retry_count == MAX_BTA_WAIT_RETRY)
-		MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl",
-			"dsi0_phy", "dsi1_ctrl", "dsi1_phy",
-			"vbif", "vbif_nrt", "dbg_bus",
-			"vbif_dbg_bus", "dsi_dbg_bus", "panic");
+
+	mdss_dsi_wait4active_region(ctrl_pdata);
 
 	/* mask out overflow errors */
 	if (ignore_underflow)
@@ -1991,7 +2001,7 @@ do_send:
 			goto end;
 		}
 
-		mdss_dsi_wait4video_eng_busy(ctrl);
+		mdss_dsi_wait4active_region(ctrl);
 
 		mdss_dsi_enable_irq(ctrl, DSI_CMD_TERM);
 		if (use_dma_tpg)
@@ -2029,7 +2039,7 @@ skip_max_pkt_size:
 			wmb(); /* make sure the RDBK registers are cleared */
 		}
 
-		mdss_dsi_wait4video_eng_busy(ctrl);	/* video mode only */
+		mdss_dsi_wait4active_region(ctrl);
 		mdss_dsi_enable_irq(ctrl, DSI_CMD_TERM);
 		/* transmit read comamnd to client */
 		if (use_dma_tpg)
