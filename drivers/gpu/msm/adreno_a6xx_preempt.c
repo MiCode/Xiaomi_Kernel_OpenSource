@@ -204,7 +204,7 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 	struct adreno_ringbuffer *next;
-	uint64_t ttbr0;
+	uint64_t ttbr0, gpuaddr;
 	unsigned int contextidr;
 	unsigned long flags;
 	uint32_t preempt_level, usesgmem, skipsaverestore;
@@ -282,17 +282,13 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 		A6XX_CP_CONTEXT_SWITCH_PRIV_NON_SECURE_RESTORE_ADDR_HI,
 		upper_32_bits(next->preemption_desc.gpuaddr));
 
-	if (next->drawctxt_active) {
-		struct kgsl_context *context = &next->drawctxt_active->base;
-		uint64_t gpuaddr = context->user_ctxt_record->memdesc.gpuaddr;
+	kgsl_sharedmem_readq(&device->scratch, &gpuaddr,
+		SCRATCH_PREEMPTION_CTXT_RESTORE_ADDR_OFFSET(next->id));
 
-		kgsl_regwrite(device,
-			A6XX_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_LO,
-			lower_32_bits(gpuaddr));
-		kgsl_regwrite(device,
-			A6XX_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_HI,
-			upper_32_bits(gpuaddr));
-	}
+	kgsl_regwrite(device, A6XX_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_LO,
+		lower_32_bits(gpuaddr));
+	kgsl_regwrite(device, A6XX_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_HI,
+		upper_32_bits(gpuaddr));
 
 	adreno_dev->next_rb = next;
 
@@ -397,11 +393,14 @@ unsigned int a6xx_preemption_pre_ibsubmit(
 		unsigned int *cmds, struct kgsl_context *context)
 {
 	unsigned int *cmds_orig = cmds;
+	uint64_t gpuaddr = 0;
 
-	if (context)
+	if (context) {
+		gpuaddr = context->user_ctxt_record->memdesc.gpuaddr;
 		*cmds++ = cp_type7_packet(CP_SET_PSEUDO_REGISTER, 15);
-	else
+	} else {
 		*cmds++ = cp_type7_packet(CP_SET_PSEUDO_REGISTER, 12);
+	}
 
 	/* NULL SMMU_INFO buffer - we track in KMD */
 	*cmds++ = SET_PSEUDO_REGISTER_SAVE_REGISTER_SMMU_INFO;
@@ -414,7 +413,6 @@ unsigned int a6xx_preemption_pre_ibsubmit(
 	cmds += cp_gpuaddr(adreno_dev, cmds, 0);
 
 	if (context) {
-		uint64_t gpuaddr = context->user_ctxt_record->memdesc.gpuaddr;
 
 		*cmds++ = SET_PSEUDO_REGISTER_SAVE_REGISTER_NON_PRIV_SAVE_ADDR;
 		cmds += cp_gpuaddr(adreno_dev, cmds, gpuaddr);
@@ -431,6 +429,20 @@ unsigned int a6xx_preemption_pre_ibsubmit(
 	cmds += cp_gpuaddr(adreno_dev, cmds,
 			rb->perfcounter_save_restore_desc.gpuaddr);
 
+	if (context) {
+		struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+		struct adreno_context *drawctxt = ADRENO_CONTEXT(context);
+		struct adreno_ringbuffer *rb = drawctxt->rb;
+		uint64_t dest =
+			SCRATCH_PREEMPTION_CTXT_RESTORE_GPU_ADDR(device,
+			rb->id);
+
+		*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 2);
+		cmds += cp_gpuaddr(adreno_dev, cmds, dest);
+		*cmds++ = lower_32_bits(gpuaddr);
+		*cmds++ = upper_32_bits(gpuaddr);
+	}
+
 	return (unsigned int) (cmds - cmds_orig);
 }
 
@@ -438,6 +450,18 @@ unsigned int a6xx_preemption_post_ibsubmit(struct adreno_device *adreno_dev,
 	unsigned int *cmds)
 {
 	unsigned int *cmds_orig = cmds;
+	struct adreno_ringbuffer *rb = adreno_dev->cur_rb;
+
+	if (rb) {
+		struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+		uint64_t dest = SCRATCH_PREEMPTION_CTXT_RESTORE_GPU_ADDR(device,
+			rb->id);
+
+		*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 2);
+		cmds += cp_gpuaddr(adreno_dev, cmds, dest);
+		*cmds++ = 0;
+		*cmds++ = 0;
+	}
 
 	*cmds++ = cp_type7_packet(CP_CONTEXT_SWITCH_YIELD, 4);
 	cmds += cp_gpuaddr(adreno_dev, cmds, 0x0);

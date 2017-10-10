@@ -494,11 +494,11 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 
 	if (gpudev->preemption_pre_ibsubmit &&
 			adreno_is_preemption_execution_enabled(adreno_dev))
-		total_sizedwords += 22;
+		total_sizedwords += 27;
 
 	if (gpudev->preemption_post_ibsubmit &&
 			adreno_is_preemption_execution_enabled(adreno_dev))
-		total_sizedwords += 5;
+		total_sizedwords += 10;
 
 	/*
 	 * a5xx uses 64 bit memory address. pm4 commands that involve read/write
