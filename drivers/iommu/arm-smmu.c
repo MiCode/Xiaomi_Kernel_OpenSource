@@ -2405,10 +2405,6 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	if (!ops)
 		return -ENODEV;
 
-	ret = arm_smmu_domain_power_on(domain, smmu_domain->smmu);
-	if (ret)
-		return ret;
-
 	arm_smmu_secure_domain_lock(smmu_domain);
 
 	__saved_iova_start = iova;
@@ -2449,7 +2445,6 @@ out:
 		iova = __saved_iova_start;
 	}
 	arm_smmu_secure_domain_unlock(smmu_domain);
-	arm_smmu_domain_power_off(domain, smmu_domain->smmu);
 	return iova - __saved_iova_start;
 }
 
