@@ -216,6 +216,7 @@ enum {
 	VIG_PCC_PROP,
 	VIG_GAMUT_PROP,
 	VIG_IGC_PROP,
+	VIG_INVERSE_PMA,
 	VIG_PROP_MAX,
 };
 
@@ -229,6 +230,7 @@ enum {
 enum {
 	DMA_IGC_PROP,
 	DMA_GC_PROP,
+	DMA_DGM_INVERSE_PMA,
 	DMA_PROP_MAX,
 };
 
@@ -507,6 +509,7 @@ static struct sde_prop_type vig_prop[] = {
 	{VIG_PCC_PROP, "qcom,sde-vig-pcc", false, PROP_TYPE_U32_ARRAY},
 	{VIG_GAMUT_PROP, "qcom,sde-vig-gamut", false, PROP_TYPE_U32_ARRAY},
 	{VIG_IGC_PROP, "qcom,sde-vig-igc", false, PROP_TYPE_U32_ARRAY},
+	{VIG_INVERSE_PMA, "qcom,sde-vig-inverse-pma", false, PROP_TYPE_BOOL},
 };
 
 static struct sde_prop_type rgb_prop[] = {
@@ -518,6 +521,8 @@ static struct sde_prop_type rgb_prop[] = {
 static struct sde_prop_type dma_prop[] = {
 	{DMA_IGC_PROP, "qcom,sde-dma-igc", false, PROP_TYPE_U32_ARRAY},
 	{DMA_GC_PROP, "qcom,sde-dma-gc", false, PROP_TYPE_U32_ARRAY},
+	{DMA_DGM_INVERSE_PMA, "qcom,sde-dma-inverse-pma", false,
+		PROP_TYPE_BOOL},
 };
 
 static struct sde_prop_type ctl_prop[] = {
@@ -1064,6 +1069,9 @@ static void _sde_sspp_setup_vig(struct sde_mdss_cfg *sde_cfg,
 		set_bit(SDE_SSPP_VIG_IGC, &sspp->features);
 	}
 
+	if (PROP_VALUE_ACCESS(prop_value, VIG_INVERSE_PMA, 0))
+		set_bit(SDE_SSPP_INVERSE_PMA, &sspp->features);
+
 	sblk->format_list = sde_cfg->vig_formats;
 	sblk->virt_format_list = sde_cfg->dma_formats;
 }
@@ -1191,6 +1199,11 @@ static void _sde_sspp_setup_dma(struct sde_mdss_cfg *sde_cfg,
 			sblk->gc_blk[i].len = 0;
 			set_bit(SDE_SSPP_DMA_GC, &sspp->features);
 		}
+
+		if (PROP_VALUE_ACCESS(&prop_value[i * DMA_PROP_MAX],
+			DMA_DGM_INVERSE_PMA, 0))
+			set_bit(SDE_SSPP_DGM_INVERSE_PMA, &sspp->features);
+
 	}
 }
 
@@ -1299,8 +1312,10 @@ static int sde_sspp_parse_dt(struct device_node *np,
 			dgm_prop_value = kzalloc(dgm_count * DMA_PROP_MAX *
 					sizeof(struct sde_prop_value),
 					GFP_KERNEL);
-			if (!dgm_prop_value)
-				return -ENOMEM;
+			if (!dgm_prop_value) {
+				rc = -ENOMEM;
+				goto end;
+			}
 			for (i = 0; i < dgm_count; i++)
 				sde_dgm_parse_dt(snp, i,
 					&dgm_prop_value[i * DMA_PROP_MAX],

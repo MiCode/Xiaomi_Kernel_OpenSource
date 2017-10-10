@@ -142,6 +142,8 @@ enum {
  * @SDE_SSPP_VIG_GAMUT,      VIG 3D LUT Gamut
  * @SDE_SSPP_DMA_IGC,        DMA 1D LUT IGC
  * @SDE_SSPP_DMA_GC,         DMA 1D LUT GC
+ * @SDE_SSPP_INVERSE_PMA     Alpha unmultiply (PMA) support
+ * @SDE_SSPP_DGM_INVERSE_PMA Alpha unmultiply (PMA) support in DGM block
  * @SDE_SSPP_MAX             maximum value
  */
 enum {
@@ -168,6 +170,8 @@ enum {
 	SDE_SSPP_VIG_GAMUT,
 	SDE_SSPP_DMA_IGC,
 	SDE_SSPP_DMA_GC,
+	SDE_SSPP_INVERSE_PMA,
+	SDE_SSPP_DGM_INVERSE_PMA,
 	SDE_SSPP_MAX
 };
 

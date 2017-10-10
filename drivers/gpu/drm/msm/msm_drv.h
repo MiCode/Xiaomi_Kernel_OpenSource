@@ -121,6 +121,7 @@ enum msm_mdp_plane_property {
 	PLANE_PROP_SCALER_V1,
 	PLANE_PROP_SCALER_V2,
 	PLANE_PROP_ROT_OUT_FB,
+	PLANE_PROP_INVERSE_PMA,
 
 	/* enum/bitmask properties */
 	PLANE_PROP_BLEND_OP,

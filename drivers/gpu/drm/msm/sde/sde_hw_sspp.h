@@ -545,6 +545,15 @@ struct sde_hw_sspp_ops {
 	void (*setup_secure_address)(struct sde_hw_pipe *ctx,
 			enum sde_sspp_multirect_index index,
 		bool enable);
+
+	/**
+	 * setup_inverse_pma - enable/disable alpha unmultiply unit (PMA)
+	 * @ctx: Pointer to pipe context
+	 * @index: Rectangle index in multirect
+	 * @enable: PMA enable/disable settings
+	 */
+	void (*setup_inverse_pma)(struct sde_hw_pipe *ctx,
+			enum sde_sspp_multirect_index index, u32 enable);
 };
 
 /**

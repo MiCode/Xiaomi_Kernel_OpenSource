@@ -48,6 +48,11 @@
 #define SSPP_EXCL_REC_SIZE_REC1            0x184
 #define SSPP_EXCL_REC_XY_REC1              0x188
 
+/* SSPP_DGM */
+#define SSPP_DGM_OP_MODE                   0x804
+#define SSPP_DGM_OP_MODE_REC1              0x1804
+#define SSPP_GAMUT_UNMULT_MODE             0x1EA0
+
 #define MDSS_MDP_OP_DEINTERLACE            BIT(22)
 #define MDSS_MDP_OP_DEINTERLACE_ODD        BIT(23)
 #define MDSS_MDP_OP_IGC_ROM_1              BIT(18)
@@ -985,6 +990,42 @@ static void _setup_layer_ops_colorproc(struct sde_hw_pipe *c,
 	}
 }
 
+static void sde_hw_sspp_setup_inverse_pma(struct sde_hw_pipe *ctx,
+			enum sde_sspp_multirect_index index, u32 enable)
+{
+	u32 op_mode = 0;
+
+	if (!ctx || (index == SDE_SSPP_RECT_1))
+		return;
+
+	if (enable)
+		op_mode |= BIT(0);
+
+	SDE_REG_WRITE(&ctx->hw, SSPP_GAMUT_UNMULT_MODE, op_mode);
+}
+
+static void sde_hw_sspp_setup_dgm_inverse_pma(struct sde_hw_pipe *ctx,
+			enum sde_sspp_multirect_index index, u32 enable)
+{
+	u32 offset = SSPP_DGM_OP_MODE;
+	u32 op_mode = 0;
+
+	if (!ctx)
+		return;
+
+	if (index == SDE_SSPP_RECT_1)
+		offset = SSPP_DGM_OP_MODE_REC1;
+
+	op_mode = SDE_REG_READ(&ctx->hw, offset);
+
+	if (enable)
+		op_mode |= BIT(0);
+	else
+		op_mode &= ~BIT(0);
+
+	SDE_REG_WRITE(&ctx->hw, offset, op_mode);
+}
+
 static void _setup_layer_ops(struct sde_hw_pipe *c,
 		unsigned long features)
 {
@@ -1036,6 +1077,11 @@ static void _setup_layer_ops(struct sde_hw_pipe *c,
 		c->ops.setup_cdp = sde_hw_sspp_setup_cdp;
 
 	_setup_layer_ops_colorproc(c, features);
+
+	if (test_bit(SDE_SSPP_DGM_INVERSE_PMA, &features))
+		c->ops.setup_inverse_pma = sde_hw_sspp_setup_dgm_inverse_pma;
+	else if (test_bit(SDE_SSPP_INVERSE_PMA, &features))
+		c->ops.setup_inverse_pma = sde_hw_sspp_setup_inverse_pma;
 }
 
 static struct sde_sspp_cfg *_sspp_offset(enum sde_sspp sspp,
