@@ -377,7 +377,7 @@ int sdhci_msm_ice_cmdq_cfg(struct sdhci_host *host,
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	int err = 0;
-	short key_index;
+	short key_index = 0;
 	sector_t lba = 0;
 	unsigned int bypass = SDHCI_MSM_ICE_ENABLE_BYPASS;
 	struct request *req;
@@ -411,6 +411,37 @@ int sdhci_msm_ice_cmdq_cfg(struct sdhci_host *host,
 		/* For ICE versions earlier to ICE3.0 */
 		sdhci_msm_ice_update_cfg(host, lba, slot, bypass, key_index);
 	}
+	return 0;
+}
+
+int sdhci_msm_ice_cfg_end(struct sdhci_host *host, struct mmc_request *mrq)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	int err = 0;
+	struct request *req;
+
+	if (!host->is_crypto_en)
+		return 0;
+
+	if (msm_host->ice.state != SDHCI_MSM_ICE_STATE_ACTIVE) {
+		pr_err("%s: ice is in invalid state %d\n",
+			mmc_hostname(host->mmc), msm_host->ice.state);
+		return -EINVAL;
+	}
+
+	req = mrq->req;
+	if (req) {
+		if (msm_host->ice.vops->config_end) {
+			err = msm_host->ice.vops->config_end(req);
+			if (err) {
+				pr_err("%s: ice config end failed %d\n",
+						mmc_hostname(host->mmc), err);
+				return err;
+			}
+		}
+	}
+
 	return 0;
 }
 

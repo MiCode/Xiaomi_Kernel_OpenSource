@@ -537,16 +537,6 @@ config MSM_PERFORMANCE
 	  online at any given point in time. This module can also restrict
 	  max freq or min freq of cpu cluster
 
-config MSM_PERFORMANCE_HOTPLUG_ON
-	bool "Hotplug functionality through msm_performance turned on"
-	depends on MSM_PERFORMANCE
-	default y
-	help
-	  If some other core-control driver is present turn off the core-control
-	  capability of msm_performance driver. Setting this flag to false will
-	  compile out the nodes needed for core-control functionality through
-	  msm_performance.
-
 config MSM_CDSP_LOADER
 	tristate "CDSP loader support"
 	depends on MSM_GLINK

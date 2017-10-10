@@ -207,6 +207,10 @@ int ipa3_qmi_stop_data_qouta(void);
 
 void ipa3_q6_handshake_complete(bool ssr_bootup);
 
+int ipa3_wwan_set_modem_perf_profile(int throughput);
+
+int ipa3_wwan_set_modem_state(struct wan_ioctl_notify_wan_state *state);
+
 void ipa3_qmi_init(void);
 
 void ipa3_qmi_cleanup(void);
@@ -322,6 +326,11 @@ static inline int ipa3_qmi_stop_data_qouta(void)
 }
 
 static inline void ipa3_q6_handshake_complete(bool ssr_bootup) { }
+
+static inline int ipa3_wwan_set_modem_perf_profile(int throughput)
+{
+	return -EPERM;
+}
 
 static inline void ipa3_qmi_init(void)
 {

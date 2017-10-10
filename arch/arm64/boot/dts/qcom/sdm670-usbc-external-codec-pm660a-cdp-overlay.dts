@@ -22,6 +22,7 @@
 #include "sdm670-cdp.dtsi"
 #include "pm660a.dtsi"
 #include "sdm670-external-codec.dtsi"
+#include "sdm670-ext-cdc-usbc-audio.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM670 PM660+PM660A, USB-C Audio, Ext. Audio Codec CDP";

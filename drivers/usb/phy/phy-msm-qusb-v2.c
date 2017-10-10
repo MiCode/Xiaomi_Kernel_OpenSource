@@ -63,6 +63,17 @@
 #define LINESTATE_DP			BIT(0)
 #define LINESTATE_DM			BIT(1)
 
+/* eud related registers */
+#define EUD_SW_ATTACH_DET	0x1018
+#define EUD_INT1_EN_MASK	0x0024
+
+/* EUD interrupt mask bits */
+#define EUD_INT_RX		BIT(0)
+#define EUD_INT_TX		BIT(1)
+#define EUD_INT_VBUS		BIT(2)
+#define EUD_INT_CHGR		BIT(3)
+#define EUD_INT_SAFE_MODE	BIT(4)
+
 unsigned int phy_tune1;
 module_param(phy_tune1, uint, 0644);
 MODULE_PARM_DESC(phy_tune1, "QUSB PHY v2 TUNE1");
@@ -81,6 +92,7 @@ struct qusb_phy {
 	struct usb_phy		phy;
 	struct mutex		lock;
 	void __iomem		*base;
+	void __iomem		*eud_base;
 	void __iomem		*efuse_reg;
 
 	struct clk		*ref_clk_src;
@@ -664,6 +676,22 @@ static int qusb_phy_dpdm_regulator_enable(struct regulator_dev *rdev)
 			return ret;
 		}
 		qphy->dpdm_enable = true;
+
+		if (qphy->eud_base) {
+			if (qphy->cfg_ahb_clk)
+				clk_prepare_enable(qphy->cfg_ahb_clk);
+			writel_relaxed(BIT(0),
+					qphy->eud_base + EUD_SW_ATTACH_DET);
+			/* to flush above write before next write */
+			wmb();
+
+			writel_relaxed(EUD_INT_VBUS | EUD_INT_CHGR,
+					qphy->eud_base + EUD_INT1_EN_MASK);
+			/* to flush above write before turning off clk */
+			wmb();
+			if (qphy->cfg_ahb_clk)
+				clk_disable_unprepare(qphy->cfg_ahb_clk);
+		}
 	}
 
 	return ret;
@@ -678,6 +706,16 @@ static int qusb_phy_dpdm_regulator_disable(struct regulator_dev *rdev)
 				__func__, qphy->dpdm_enable);
 
 	if (qphy->dpdm_enable) {
+		if (qphy->eud_base) {
+			if (qphy->cfg_ahb_clk)
+				clk_prepare_enable(qphy->cfg_ahb_clk);
+			writel_relaxed(0, qphy->eud_base + EUD_SW_ATTACH_DET);
+			/* to flush above write before turning off clk */
+			wmb();
+			if (qphy->cfg_ahb_clk)
+				clk_disable_unprepare(qphy->cfg_ahb_clk);
+		}
+
 		ret = qusb_phy_enable_power(qphy, false);
 		if (ret < 0) {
 			dev_dbg(qphy->phy.dev,
@@ -781,6 +819,17 @@ static int qusb_phy_probe(struct platform_device *pdev)
 				"DT Value for efuse is invalid.\n");
 				return -EINVAL;
 			}
+		}
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+							"eud_base");
+	if (res) {
+		qphy->eud_base = devm_ioremap(dev, res->start,
+					resource_size(res));
+		if (IS_ERR(qphy->eud_base)) {
+			dev_dbg(dev, "couldn't ioremap eud_base\n");
+			qphy->eud_base = NULL;
 		}
 	}
 

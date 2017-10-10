@@ -93,7 +93,7 @@ static int32_t cam_flash_driver_cmd(struct cam_flash_ctrl *fctrl,
 		break;
 	}
 	case CAM_QUERY_CAP: {
-		struct cam_flash_query_cap_info flash_cap;
+		struct cam_flash_query_cap_info flash_cap = {0};
 
 		CAM_DBG(CAM_FLASH, "CAM_QUERY_CAP");
 		flash_cap.slot_info = fctrl->soc_info.index;

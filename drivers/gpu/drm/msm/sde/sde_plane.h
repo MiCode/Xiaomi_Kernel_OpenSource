@@ -129,6 +129,7 @@ enum sde_plane_sclcheck_state {
  * @multirect_index: index of the rectangle of SSPP
  * @multirect_mode: parallel or time multiplex multirect mode
  * @pending:	whether the current update is still pending
+ * @defer_prepare_fb:	indicate if prepare_fb call was deferred
  * @scaler3_cfg: configuration data for scaler3
  * @pixel_ext: configuration data for pixel extensions
  * @scaler_check_state: indicates status of user provided pixel extension data
@@ -146,6 +147,7 @@ struct sde_plane_state {
 	uint32_t multirect_index;
 	uint32_t multirect_mode;
 	bool pending;
+	bool defer_prepare_fb;
 
 	/* scaler configuration */
 	struct sde_hw_scaler3_cfg scaler3_cfg;
@@ -226,10 +228,11 @@ void sde_plane_restore(struct drm_plane *plane);
 void sde_plane_flush(struct drm_plane *plane);
 
 /**
- * sde_plane_kickoff - final plane operations before commit kickoff
+ * sde_plane_kickoff_rot - final plane rotator operations before commit kickoff
  * @plane: Pointer to drm plane structure
+ * Returns: Zero on success
  */
-void sde_plane_kickoff(struct drm_plane *plane);
+int sde_plane_kickoff_rot(struct drm_plane *plane);
 
 /**
  * sde_plane_set_error: enable/disable error condition

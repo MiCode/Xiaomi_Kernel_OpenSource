@@ -30,7 +30,7 @@
 #define CAM_FD_IRQ_TO_MASK(irq)        (1 << (irq))
 #define CAM_FD_MASK_TO_IRQ(mask, irq)  ((mask) >> (irq))
 
-#define CAM_FD_HW_HALT_RESET_TIMEOUT   3000
+#define CAM_FD_HW_HALT_RESET_TIMEOUT   100
 
 /**
  * enum cam_fd_core_state - FD Core internal states

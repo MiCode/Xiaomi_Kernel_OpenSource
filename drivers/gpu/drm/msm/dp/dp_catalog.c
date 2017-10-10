@@ -131,6 +131,58 @@ end:
 	return rc;
 }
 
+static int dp_catalog_aux_clear_trans(struct dp_catalog_aux *aux, bool read)
+{
+	int rc = 0;
+	u32 data = 0;
+	struct dp_catalog_private *catalog;
+	void __iomem *base;
+
+	if (!aux) {
+		pr_err("invalid input\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	dp_catalog_get_priv(aux);
+	base = catalog->io->ctrl_io.base;
+
+	if (read) {
+		data = dp_read(base + DP_AUX_TRANS_CTRL);
+		data &= ~BIT(9);
+		dp_write(base + DP_AUX_TRANS_CTRL, data);
+	} else {
+		dp_write(base + DP_AUX_TRANS_CTRL, 0);
+	}
+end:
+	return rc;
+}
+
+static void dp_catalog_aux_clear_hw_interrupts(struct dp_catalog_aux *aux)
+{
+	struct dp_catalog_private *catalog;
+	void __iomem *phy_base;
+	u32 data = 0;
+
+	if (!aux) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	dp_catalog_get_priv(aux);
+	phy_base = catalog->io->phy_io.base;
+
+	data = dp_read(phy_base + DP_PHY_AUX_INTERRUPT_STATUS);
+	pr_debug("PHY_AUX_INTERRUPT_STATUS=0x%08x\n", data);
+
+	dp_write(phy_base + DP_PHY_AUX_INTERRUPT_CLEAR, 0x1f);
+	wmb(); /* make sure 0x1f is written before next write */
+	dp_write(phy_base + DP_PHY_AUX_INTERRUPT_CLEAR, 0x9f);
+	wmb(); /* make sure 0x9f is written before next write */
+	dp_write(phy_base + DP_PHY_AUX_INTERRUPT_CLEAR, 0);
+	wmb(); /* make sure register is cleared */
+}
+
 static void dp_catalog_aux_reset(struct dp_catalog_aux *aux)
 {
 	u32 aux_ctrl;
@@ -153,6 +205,7 @@ static void dp_catalog_aux_reset(struct dp_catalog_aux *aux)
 
 	aux_ctrl &= ~BIT(1);
 	dp_write(base + DP_AUX_CTRL, aux_ctrl);
+	wmb(); /* make sure AUX reset is done here */
 }
 
 static void dp_catalog_aux_enable(struct dp_catalog_aux *aux, bool enable)
@@ -172,14 +225,15 @@ static void dp_catalog_aux_enable(struct dp_catalog_aux *aux, bool enable)
 	aux_ctrl = dp_read(base + DP_AUX_CTRL);
 
 	if (enable) {
+		aux_ctrl |= BIT(0);
+		dp_write(base + DP_AUX_CTRL, aux_ctrl);
+		wmb(); /* make sure AUX module is enabled */
 		dp_write(base + DP_TIMEOUT_COUNT, 0xffff);
 		dp_write(base + DP_AUX_LIMITS, 0xffff);
-		aux_ctrl |= BIT(0);
 	} else {
 		aux_ctrl &= ~BIT(0);
+		dp_write(base + DP_AUX_CTRL, aux_ctrl);
 	}
-
-	dp_write(base + DP_AUX_CTRL, aux_ctrl);
 }
 
 static void dp_catalog_aux_update_cfg(struct dp_catalog_aux *aux,
@@ -219,13 +273,12 @@ static void dp_catalog_aux_setup(struct dp_catalog_aux *aux,
 
 	dp_catalog_get_priv(aux);
 
-	dp_write(catalog->io->phy_io.base + DP_PHY_PD_CTL, 0x02);
+	dp_write(catalog->io->phy_io.base + DP_PHY_PD_CTL, 0x65);
 	wmb(); /* make sure PD programming happened */
-	dp_write(catalog->io->phy_io.base + DP_PHY_PD_CTL, 0x7d);
 
 	/* Turn on BIAS current for PHY/PLL */
 	dp_write(catalog->io->dp_pll_io.base +
-		QSERDES_COM_BIAS_EN_CLKBUFLR_EN, 0x3f);
+		QSERDES_COM_BIAS_EN_CLKBUFLR_EN, 0x1b);
 
 	/* DP AUX CFG register programming */
 	for (i = 0; i < PHY_AUX_CFG_MAX; i++) {
@@ -237,6 +290,7 @@ static void dp_catalog_aux_setup(struct dp_catalog_aux *aux,
 	}
 
 	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_INTERRUPT_MASK, 0x1F);
+	wmb(); /* make sure AUX configuration is done before enabling it */
 }
 
 static void dp_catalog_aux_get_irq(struct dp_catalog_aux *aux, bool cmd_busy)
@@ -252,9 +306,6 @@ static void dp_catalog_aux_get_irq(struct dp_catalog_aux *aux, bool cmd_busy)
 
 	dp_catalog_get_priv(aux);
 	base = catalog->io->ctrl_io.base;
-
-	if (cmd_busy)
-		dp_write(base + DP_AUX_TRANS_CTRL, 0x0);
 
 	aux->isr = dp_read(base + DP_INTR_STATUS);
 	aux->isr &= ~DP_INTR_MASK1;
@@ -1213,11 +1264,13 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io)
 		.read_data     = dp_catalog_aux_read_data,
 		.write_data    = dp_catalog_aux_write_data,
 		.write_trans   = dp_catalog_aux_write_trans,
+		.clear_trans   = dp_catalog_aux_clear_trans,
 		.reset         = dp_catalog_aux_reset,
 		.update_aux_cfg = dp_catalog_aux_update_cfg,
 		.enable        = dp_catalog_aux_enable,
 		.setup         = dp_catalog_aux_setup,
 		.get_irq       = dp_catalog_aux_get_irq,
+		.clear_hw_interrupts = dp_catalog_aux_clear_hw_interrupts,
 	};
 	struct dp_catalog_ctrl ctrl = {
 		.state_ctrl     = dp_catalog_ctrl_state_ctrl,

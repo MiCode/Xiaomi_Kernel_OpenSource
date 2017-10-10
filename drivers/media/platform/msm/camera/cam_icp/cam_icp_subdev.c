@@ -41,8 +41,8 @@
 struct cam_icp_subdev {
 	struct cam_subdev sd;
 	struct cam_node *node;
-	struct cam_context ctx[CAM_CTX_MAX];
-	struct cam_icp_context ctx_icp[CAM_CTX_MAX];
+	struct cam_context ctx[CAM_ICP_CTX_MAX];
+	struct cam_icp_context ctx_icp[CAM_ICP_CTX_MAX];
 	struct mutex icp_lock;
 	int32_t open_cnt;
 	int32_t reserved;
@@ -164,7 +164,7 @@ static int cam_icp_probe(struct platform_device *pdev)
 		goto hw_init_fail;
 	}
 
-	for (i = 0; i < CAM_CTX_MAX; i++) {
+	for (i = 0; i < CAM_ICP_CTX_MAX; i++) {
 		g_icp_dev.ctx_icp[i].base = &g_icp_dev.ctx[i];
 		rc = cam_icp_context_init(&g_icp_dev.ctx_icp[i],
 					hw_mgr_intf);
@@ -175,7 +175,7 @@ static int cam_icp_probe(struct platform_device *pdev)
 	}
 
 	rc = cam_node_init(node, hw_mgr_intf, g_icp_dev.ctx,
-				CAM_CTX_MAX, CAM_ICP_DEV_NAME);
+				CAM_ICP_CTX_MAX, CAM_ICP_DEV_NAME);
 	if (rc) {
 		CAM_ERR(CAM_ICP, "ICP node init failed");
 		goto ctx_fail;
@@ -220,7 +220,7 @@ static int cam_icp_remove(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	for (i = 0; i < CAM_CTX_MAX; i++)
+	for (i = 0; i < CAM_ICP_CTX_MAX; i++)
 		cam_icp_context_deinit(&g_icp_dev.ctx_icp[i]);
 	cam_node_deinit(g_icp_dev.node);
 	cam_subdev_remove(&g_icp_dev.sd);

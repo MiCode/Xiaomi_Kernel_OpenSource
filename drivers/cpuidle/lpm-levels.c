@@ -1606,7 +1606,7 @@ static int lpm_suspend_enter(suspend_state_t state)
 	 * clocks that are enabled and preventing the system level
 	 * LPMs(XO and Vmin).
 	 */
-	clock_debug_print_enabled();
+	clock_debug_print_enabled(true);
 
 	psci_enter_sleep(lpm_cpu, idx, false);
 

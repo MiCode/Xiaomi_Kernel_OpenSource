@@ -67,6 +67,7 @@ struct dp_catalog_aux {
 	u32 (*read_data)(struct dp_catalog_aux *aux);
 	int (*write_data)(struct dp_catalog_aux *aux);
 	int (*write_trans)(struct dp_catalog_aux *aux);
+	int (*clear_trans)(struct dp_catalog_aux *aux, bool read);
 	void (*reset)(struct dp_catalog_aux *aux);
 	void (*enable)(struct dp_catalog_aux *aux, bool enable);
 	void (*update_aux_cfg)(struct dp_catalog_aux *aux,
@@ -74,6 +75,7 @@ struct dp_catalog_aux {
 	void (*setup)(struct dp_catalog_aux *aux,
 			struct dp_aux_cfg *aux_cfg);
 	void (*get_irq)(struct dp_catalog_aux *aux, bool cmd_busy);
+	void (*clear_hw_interrupts)(struct dp_catalog_aux *aux);
 };
 
 struct dp_catalog_ctrl {

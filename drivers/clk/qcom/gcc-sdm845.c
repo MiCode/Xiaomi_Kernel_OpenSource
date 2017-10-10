@@ -4180,6 +4180,7 @@ static void gcc_sdm845_fixup_sdm845v2(void)
 		240000000;
 	gcc_ufs_phy_axi_clk_src.freq_tbl =
 		ftbl_gcc_ufs_card_axi_clk_src_sdm845_v2;
+	gcc_vsensor_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 600000000;
 }
 
 static void gcc_sdm845_fixup_sdm670(void)
@@ -4250,16 +4251,14 @@ static void gcc_sdm845_fixup_sdm670(void)
 
 	gcc_cpuss_rbcpr_clk_src.freq_tbl = ftbl_gcc_cpuss_rbcpr_clk_src_sdm670;
 	gcc_cpuss_rbcpr_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
-					50000000;
-	gcc_sdcc2_apps_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] =
-					50000000;
+		50000000;
+	gcc_sdcc2_apps_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 50000000;
 	gcc_sdcc2_apps_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
-					100000000;
+		100000000;
 	gcc_sdcc2_apps_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
-					201500000;
+		201500000;
 	gcc_sdcc4_apps_clk_src.freq_tbl = ftbl_gcc_sdcc4_apps_clk_src_sdm670;
-	gcc_sdcc4_apps_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] =
-					33333333;
+	gcc_sdcc4_apps_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 33333333;
 }
 
 static int gcc_sdm845_fixup(struct platform_device *pdev)

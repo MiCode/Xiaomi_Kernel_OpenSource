@@ -566,6 +566,11 @@ int msm_bus_commit_data(struct list_head *clist)
 		bcm_clist_add(node);
 	}
 
+	if (!cur_rsc) {
+		MSM_BUS_ERR("%s: Error for cur_rsc is NULL.\n", __func__);
+		return ret;
+	}
+
 	cur_mbox = cur_rsc->rscdev->mbox;
 	cur_bcm_clist = cur_rsc->rscdev->bcm_clist;
 

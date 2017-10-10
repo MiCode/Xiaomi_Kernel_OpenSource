@@ -24,6 +24,7 @@
 #include <linux/qcom-geni-se.h>
 #include <linux/msm_gpi.h>
 #include <linux/spi/spi.h>
+#include <linux/spi/spi-geni-qcom.h>
 
 #define SPI_NUM_CHIPSELECT	(4)
 #define SPI_XFER_TIMEOUT_MS	(250)
@@ -66,6 +67,11 @@
 
 /* SPI_TX/SPI_RX_TRANS_LEN fields */
 #define TRANS_LEN_MSK		(GENMASK(23, 0))
+
+/* SE_SPI_DELAY_COUNTERS */
+#define SPI_INTER_WORDS_DELAY_MSK	(GENMASK(9, 0))
+#define SPI_CS_CLK_DELAY_MSK		(GENMASK(19, 10))
+#define SPI_CS_CLK_DELAY_SHFT		(10)
 
 /* M_CMD OP codes for SPI */
 #define SPI_TX_ONLY		(1)
@@ -229,6 +235,8 @@ static int setup_fifo_params(struct spi_device *spi_slv,
 	int ret = 0;
 	int idx;
 	int div;
+	struct spi_geni_qcom_ctrl_data *delay_params = NULL;
+	u32 spi_delay_params = 0;
 
 	loopback_cfg &= ~LOOPBACK_MSK;
 	cpol &= ~CPOL;
@@ -245,6 +253,22 @@ static int setup_fifo_params(struct spi_device *spi_slv,
 
 	if (spi_slv->mode & SPI_CS_HIGH)
 		demux_output_inv |= BIT(spi_slv->chip_select);
+
+	if (spi_slv->controller_data) {
+		u32 cs_clk_delay = 0;
+		u32 inter_words_delay = 0;
+
+		delay_params =
+		(struct spi_geni_qcom_ctrl_data *) spi_slv->controller_data;
+		cs_clk_delay =
+		(delay_params->spi_cs_clk_delay << SPI_CS_CLK_DELAY_SHFT)
+							& SPI_CS_CLK_DELAY_MSK;
+		inter_words_delay =
+			delay_params->spi_inter_words_delay &
+						SPI_INTER_WORDS_DELAY_MSK;
+		spi_delay_params =
+		(inter_words_delay | cs_clk_delay);
+	}
 
 	demux_sel = spi_slv->chip_select;
 	mas->cur_speed_hz = spi_slv->max_speed_hz;
@@ -267,12 +291,13 @@ static int setup_fifo_params(struct spi_device *spi_slv,
 	geni_write_reg(demux_output_inv, mas->base, SE_SPI_DEMUX_OUTPUT_INV);
 	geni_write_reg(clk_sel, mas->base, SE_GENI_CLK_SEL);
 	geni_write_reg(m_clk_cfg, mas->base, GENI_SER_M_CLK_CFG);
+	geni_write_reg(spi_delay_params, mas->base, SE_SPI_DELAY_COUNTERS);
 	GENI_SE_DBG(mas->ipc, false, mas->dev,
 		"%s:Loopback%d demux_sel0x%x demux_op_inv 0x%x clk_cfg 0x%x\n",
 		__func__, loopback_cfg, demux_sel, demux_output_inv, m_clk_cfg);
 	GENI_SE_DBG(mas->ipc, false, mas->dev,
-		"%s:clk_sel 0x%x cpol %d cpha %d\n", __func__,
-							clk_sel, cpol, cpha);
+		"%s:clk_sel 0x%x cpol %d cpha %d delay 0x%x\n", __func__,
+					clk_sel, cpol, cpha, spi_delay_params);
 	/* Ensure message level attributes are written before returning */
 	mb();
 setup_fifo_params_exit:
@@ -298,7 +323,7 @@ static int select_xfer_mode(struct spi_master *spi,
 	 */
 	if (fifo_disable && !dma_chan_valid)
 		mode = -EINVAL;
-	else if (fifo_disable)
+	else if (dma_chan_valid)
 		mode = GSI_DMA;
 	else
 		mode = FIFO_MODE;
@@ -306,7 +331,8 @@ static int select_xfer_mode(struct spi_master *spi,
 }
 
 static struct msm_gpi_tre *setup_config0_tre(struct spi_transfer *xfer,
-				struct spi_geni_master *mas, u16 mode)
+				struct spi_geni_master *mas, u16 mode,
+				u32 cs_clk_delay, u32 inter_words_delay)
 {
 	struct msm_gpi_tre *c0_tre = &mas->gsi[mas->num_xfers].config0_tre;
 	u8 flags = 0;
@@ -340,12 +366,16 @@ static struct msm_gpi_tre *setup_config0_tre(struct spi_transfer *xfer,
 	}
 	c0_tre->dword[0] = MSM_GPI_SPI_CONFIG0_TRE_DWORD0(pack, flags,
 								word_len);
-	c0_tre->dword[1] = MSM_GPI_SPI_CONFIG0_TRE_DWORD1(0, 0, 0);
+	c0_tre->dword[1] = MSM_GPI_SPI_CONFIG0_TRE_DWORD1(0, cs_clk_delay,
+							inter_words_delay);
 	c0_tre->dword[2] = MSM_GPI_SPI_CONFIG0_TRE_DWORD2(idx, div);
 	c0_tre->dword[3] = MSM_GPI_SPI_CONFIG0_TRE_DWORD3(0, 0, 0, 1);
 	GENI_SE_DBG(mas->ipc, false, mas->dev,
 		"%s: flags 0x%x word %d pack %d idx %d div %d\n",
 		__func__, flags, word_len, pack, idx, div);
+	GENI_SE_DBG(mas->ipc, false, mas->dev,
+		"%s: cs_clk_delay %d inter_words_delay %d\n", __func__,
+				 cs_clk_delay, inter_words_delay);
 	return c0_tre;
 }
 
@@ -503,13 +533,27 @@ static int setup_gsi_xfer(struct spi_transfer *xfer,
 	u32 rx_len = 0;
 	int go_flags = 0;
 	unsigned long flags = DMA_PREP_INTERRUPT | DMA_CTRL_ACK;
+	struct spi_geni_qcom_ctrl_data *delay_params = NULL;
+	u32 cs_clk_delay = 0;
+	u32 inter_words_delay = 0;
+
+	if (spi_slv->controller_data) {
+		delay_params =
+		(struct spi_geni_qcom_ctrl_data *) spi_slv->controller_data;
+
+		cs_clk_delay =
+			delay_params->spi_cs_clk_delay;
+		inter_words_delay =
+			delay_params->spi_inter_words_delay;
+	}
 
 	if ((xfer->bits_per_word != mas->cur_word_len) ||
 		(xfer->speed_hz != mas->cur_speed_hz)) {
 		mas->cur_word_len = xfer->bits_per_word;
 		mas->cur_speed_hz = xfer->speed_hz;
 		tx_nent++;
-		c0_tre = setup_config0_tre(xfer, mas, spi_slv->mode);
+		c0_tre = setup_config0_tre(xfer, mas, spi_slv->mode,
+					cs_clk_delay, inter_words_delay);
 		if (IS_ERR_OR_NULL(c0_tre)) {
 			dev_err(mas->dev, "%s:Err setting c0tre:%d\n",
 							__func__, ret);
@@ -617,30 +661,32 @@ static int spi_geni_map_buf(struct spi_geni_master *mas,
 				struct spi_message *msg)
 {
 	struct spi_transfer *xfer;
-	struct device *gsi_dev = mas->dev;
+	int ret = 0;
 
 	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
 		if (xfer->rx_buf) {
-			xfer->rx_dma = dma_map_single(gsi_dev, xfer->rx_buf,
+			ret = geni_se_iommu_map_buf(mas->wrapper_dev,
+						&xfer->rx_dma, xfer->rx_buf,
 						xfer->len, DMA_FROM_DEVICE);
-			if (dma_mapping_error(mas->dev, xfer->rx_dma)) {
-				dev_err(mas->dev, "Err mapping buf\n");
-				return -ENOMEM;
+			if (ret) {
+				GENI_SE_ERR(mas->ipc, true, mas->dev,
+				"%s: Mapping Rx buffer %d\n", __func__, ret);
+				return ret;
 			}
 		}
 
 		if (xfer->tx_buf) {
-			xfer->tx_dma = dma_map_single(gsi_dev,
-				(void *)xfer->tx_buf, xfer->len, DMA_TO_DEVICE);
-			if (dma_mapping_error(gsi_dev, xfer->tx_dma)) {
-				dev_err(mas->dev, "Err mapping buf\n");
-				dma_unmap_single(gsi_dev, xfer->rx_dma,
-						xfer->len, DMA_FROM_DEVICE);
-				return -ENOMEM;
+			ret = geni_se_iommu_map_buf(mas->wrapper_dev,
+						&xfer->tx_dma,
+						(void *)xfer->tx_buf,
+						xfer->len, DMA_TO_DEVICE);
+			if (ret) {
+				GENI_SE_ERR(mas->ipc, true, mas->dev,
+				"%s: Mapping Tx buffer %d\n", __func__, ret);
+				return ret;
 			}
 		}
 	};
-
 	return 0;
 }
 
@@ -648,14 +694,13 @@ static void spi_geni_unmap_buf(struct spi_geni_master *mas,
 				struct spi_message *msg)
 {
 	struct spi_transfer *xfer;
-	struct device *gsi_dev = mas->dev;
 
 	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
 		if (xfer->rx_buf)
-			dma_unmap_single(gsi_dev, xfer->rx_dma,
+			geni_se_iommu_unmap_buf(mas->wrapper_dev, &xfer->rx_dma,
 						xfer->len, DMA_FROM_DEVICE);
 		if (xfer->tx_buf)
-			dma_unmap_single(gsi_dev, xfer->tx_dma,
+			geni_se_iommu_unmap_buf(mas->wrapper_dev, &xfer->tx_dma,
 						xfer->len, DMA_TO_DEVICE);
 	};
 }
@@ -709,7 +754,12 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 {
 	struct spi_geni_master *mas = spi_master_get_devdata(spi);
 	int ret = 0;
+	u32 max_speed = spi->cur_msg->spi->max_speed_hz;
+	struct se_geni_rsc *rsc = &mas->spi_rsc;
 
+	/* Adjust the AB/IB based on the max speed of the slave.*/
+	rsc->ib = max_speed * DEFAULT_BUS_WIDTH;
+	rsc->ab = max_speed * DEFAULT_BUS_WIDTH;
 	ret = pm_runtime_get_sync(mas->dev);
 	if (ret < 0) {
 		dev_err(mas->dev, "Error enabling SE resources\n");
@@ -900,6 +950,7 @@ static void handle_fifo_timeout(struct spi_geni_master *mas)
 {
 	unsigned long timeout;
 
+	geni_se_dump_dbg_regs(&mas->spi_rsc, mas->base, mas->ipc);
 	reinit_completion(&mas->xfer_done);
 	geni_cancel_m_cmd(mas->base);
 	geni_write_reg(0, mas->base, SE_GENI_TX_WATERMARK_REG);
@@ -986,6 +1037,7 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 	}
 	return ret;
 err_gsi_geni_transfer_one:
+	geni_se_dump_dbg_regs(&mas->spi_rsc, mas->base, mas->ipc);
 	dmaengine_terminate_all(mas->tx);
 	return ret;
 err_fifo_geni_transfer_one:

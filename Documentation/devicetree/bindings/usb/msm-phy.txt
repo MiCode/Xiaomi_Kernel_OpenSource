@@ -159,6 +159,7 @@ Optional properties:
    "efuse_addr": EFUSE address to read and update analog tune parameter.
    "emu_phy_base" : phy base address used for programming emulation target phy.
    "ref_clk_addr" : ref_clk bcr address used for on/off ref_clk before reset.
+   "eud_base" : EUD device register address space to use EUD pet functionality.
  - clocks: a list of phandles to the PHY clocks. Use as per
    Documentation/devicetree/bindings/clock/clock-bindings.txt
  - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"

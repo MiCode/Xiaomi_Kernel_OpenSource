@@ -10,44 +10,17 @@
  * GNU General Public License for more details.
  */
 
-#include "sdm670-audio.dtsi"
 
 &msm_audio_ion {
 	iommus = <&apps_smmu 0x1821 0x0>;
 	qcom,smmu-sid-mask = /bits/ 64 <0xf>;
 };
 
-&qupv3_se8_spi {
-	status = "okay";
-};
-
-&pm660l_3 {
-	/delete-node/analog-codec;
-};
-
 &soc {
-	/delete-node/msm-sdw-codec@62ec1000;
 	/delete-node/sound;
-	/delete-node/cdc_pdm_pinctrl;
-	/delete-node/wsa_spkr_en1_pinctrl;
-	/delete-node/wsa_spkr_en2_pinctrl;
-	/delete-node/sdw_clk_data_pinctrl;
 };
 
-&msm_audio_ion {
-	iommus = <&apps_smmu 0x1821 0x0>;
-};
-
-&wcd9xxx_intc {
-	status = "okay";
-	qcom,gpio-connect = <&tlmm 54 0>;
-};
-
-&wdsp_mgr {
-	status = "okay";
-};
-
-&wdsp_glink {
+&tavil_snd {
 	status = "okay";
 };
 
@@ -58,24 +31,3 @@
 &dai_slim {
 	status = "okay";
 };
-
-&wcd934x_cdc {
-	status = "okay";
-};
-
-&clock_audio_lnbb {
-	status = "okay";
-};
-
-&wcd_rst_gpio {
-	status = "okay";
-};
-
-&wcd9xxx_intc {
-	status = "okay";
-};
-
-&tavil_snd {
-	status = "okay";
-};
-

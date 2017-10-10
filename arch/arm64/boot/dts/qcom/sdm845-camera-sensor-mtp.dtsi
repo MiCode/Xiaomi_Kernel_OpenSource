@@ -111,7 +111,7 @@
 		rgltr-min-voltage = <2800000>;
 		rgltr-max-voltage = <2800000>;
 		rgltr-load-current = <0>;
-		status = "disabled";
+		status = "ok";
 	};
 
 	eeprom_rear: qcom,eeprom@0 {

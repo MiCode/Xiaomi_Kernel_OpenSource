@@ -1460,9 +1460,10 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 	struct sde_rotator_device *rot_dev;
 	struct sde_rotator_request *request = NULL;
 	struct sde_rot_entry_container *req = NULL;
+	struct sde_rotation_config rotcfg;
 	ktime_t *ts;
 	u32 flags = 0;
-	int i, ret;
+	int i, ret = 0;
 
 	if (!handle || !cmd) {
 		SDEROT_ERR("invalid rotator handle/cmd\n");
@@ -1584,11 +1585,8 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 			ret = -ENOMEM;
 			goto error_init_request;
 		}
-	}
 
-	if (cmd_type == SDE_ROTATOR_INLINE_CMD_VALIDATE) {
-		struct sde_rotation_config rotcfg;
-
+		/* initialize session configuration */
 		memset(&rotcfg, 0, sizeof(struct sde_rotation_config));
 		rotcfg.flags = flags;
 		rotcfg.frame_rate = cmd->fps;
@@ -1606,31 +1604,34 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 		rotcfg.output.comp_ratio.numer = 1;
 		rotcfg.output.comp_ratio.denom = 1;
 		rotcfg.output.sbuf = true;
+	}
 
-		if (memcmp(&rotcfg, &ctx->rotcfg, sizeof(rotcfg))) {
-			ret = sde_rotator_session_config(rot_dev->mgr,
-					ctx->private, &rotcfg);
-			if (ret) {
-				SDEROT_WARN("fail session config s:%d\n",
-						ctx->session_id);
-				goto error_session_config;
-			}
+	if (cmd_type == SDE_ROTATOR_INLINE_CMD_VALIDATE) {
 
-			ctx->rotcfg = rotcfg;
-		}
-
-		ret = sde_rotator_validate_request(rot_dev->mgr, ctx->private,
-				req);
+		ret = sde_rotator_session_validate(rot_dev->mgr,
+				ctx->private, &rotcfg);
 		if (ret) {
-			SDEROT_WARN("fail validate request s:%d\n",
+			SDEROT_WARN("fail session validation s:%d\n",
 					ctx->session_id);
-			goto error_validate_request;
+			goto error_session_validate;
 		}
 
 		devm_kfree(rot_dev->dev, req);
 		req = NULL;
 
 	} else if (cmd_type == SDE_ROTATOR_INLINE_CMD_COMMIT) {
+
+		if (memcmp(&rotcfg, &ctx->rotcfg, sizeof(rotcfg))) {
+			ret = sde_rotator_session_config(rot_dev->mgr,
+					ctx->private, &rotcfg);
+			if (ret) {
+				SDEROT_ERR("fail session config s:%d\n",
+						ctx->session_id);
+				goto error_session_config;
+			}
+
+			ctx->rotcfg = rotcfg;
+		}
 
 		request = list_first_entry_or_null(&ctx->retired_list,
 				struct sde_rotator_request, list);
@@ -1745,7 +1746,7 @@ error_handle_request:
 	sde_rotator_update_retire_sequence(request);
 	sde_rotator_retire_request(request);
 error_retired_list:
-error_validate_request:
+error_session_validate:
 error_session_config:
 	devm_kfree(rot_dev->dev, req);
 error_invalid_handle:
@@ -2183,6 +2184,7 @@ static int sde_rotator_qbuf(struct file *file, void *fh,
 	if (ret < 0)
 		SDEDEV_ERR(ctx->rot_dev->dev, "fail qbuf s:%d t:%d r:%d\n",
 				ctx->session_id, buf->type, ret);
+	SDEROT_EVTLOG(buf->type, buf->bytesused, buf->length, buf->m.fd, ret);
 
 	return ret;
 }
@@ -2365,6 +2367,7 @@ static int sde_rotator_cropcap(struct file *file, void *fh,
 	a->pixelaspect.numerator = 1;
 	a->pixelaspect.denominator = 1;
 
+	SDEROT_EVTLOG(format->fmt.pix.width, format->fmt.pix.height, a->type);
 	return 0;
 }
 
@@ -2612,13 +2615,6 @@ static long sde_rotator_private_ioctl(struct file *file, void *fh,
 						ctx->session_id);
 				return ret;
 			}
-
-			/**
-			 * Loose any reference to sync fence once we pass
-			 * it to user. Driver does not clean up user
-			 * unclosed fence descriptors.
-			 */
-			vbinfo->fence = NULL;
 
 			/**
 			 * Cache fence descriptor in case user calls this

@@ -289,6 +289,18 @@ static u32 sde_hw_intf_collect_misr(struct sde_hw_intf *intf)
 	return SDE_REG_READ(c, INTF_MISR_SIGNATURE);
 }
 
+static u32 sde_hw_intf_get_line_count(struct sde_hw_intf *intf)
+{
+	struct sde_hw_blk_reg_map *c;
+
+	if (!intf)
+		return 0;
+
+	c = &intf->hw;
+
+	return SDE_REG_READ(c, INTF_LINE_COUNT);
+}
+
 static void _setup_intf_ops(struct sde_hw_intf_ops *ops,
 		unsigned long cap)
 {
@@ -298,6 +310,7 @@ static void _setup_intf_ops(struct sde_hw_intf_ops *ops,
 	ops->enable_timing = sde_hw_intf_enable_timing_engine;
 	ops->setup_misr = sde_hw_intf_setup_misr;
 	ops->collect_misr = sde_hw_intf_collect_misr;
+	ops->get_line_count = sde_hw_intf_get_line_count;
 	if (cap & BIT(SDE_INTF_ROT_START))
 		ops->setup_rot_start = sde_hw_intf_setup_rot_start;
 }

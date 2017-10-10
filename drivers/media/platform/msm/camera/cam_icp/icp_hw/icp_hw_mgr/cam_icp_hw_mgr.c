@@ -880,6 +880,12 @@ static int cam_icp_mgr_handle_frame_process(uint32_t *msg_ptr, int flag)
 	buf_data.request_id = hfi_frame_process->request_id[idx];
 	ctx_data->ctxt_event_cb(ctx_data->context_priv, flag, &buf_data);
 	hfi_frame_process->request_id[idx] = 0;
+	if (ctx_data->hfi_frame_process.in_resource[idx] > 0) {
+		CAM_DBG(CAM_ICP, "Delete merged sync in object: %d",
+			ctx_data->hfi_frame_process.in_resource[idx]);
+		cam_sync_destroy(ctx_data->hfi_frame_process.in_resource[idx]);
+		ctx_data->hfi_frame_process.in_resource[idx] = 0;
+	}
 	clear_bit(idx, ctx_data->hfi_frame_process.bitmap);
 	hfi_frame_process->fw_process_flag[idx] = false;
 	mutex_unlock(&ctx_data->ctx_mutex);
@@ -1550,6 +1556,7 @@ static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args)
 	cam_icp_mgr_device_deinit(hw_mgr);
 	cam_icp_free_hfi_mem();
 	hw_mgr->fw_download = false;
+	hw_mgr->secure_mode = CAM_SECURE_MODE_NON_SECURE;
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
 	return rc;
@@ -1973,13 +1980,16 @@ static int cam_icp_mgr_process_cmd_desc(struct cam_icp_hw_mgr *hw_mgr,
 	return rc;
 }
 
-static void cam_icp_mgr_process_io_cfg(struct cam_icp_hw_mgr *hw_mgr,
+static int cam_icp_mgr_process_io_cfg(struct cam_icp_hw_mgr *hw_mgr,
 	struct cam_icp_hw_ctx_data *ctx_data,
 	struct cam_packet *packet,
-	struct cam_hw_prepare_update_args *prepare_args)
+	struct cam_hw_prepare_update_args *prepare_args,
+	int32_t index)
 {
-	int i, j, k;
+	int i, j, k, rc = 0;
 	struct cam_buf_io_cfg *io_cfg_ptr = NULL;
+	int32_t sync_in_obj[CAM_MAX_OUT_RES];
+	int32_t merged_sync_in_obj;
 
 	io_cfg_ptr = (struct cam_buf_io_cfg *) ((uint32_t *) &packet->payload +
 				packet->io_configs_offset/4);
@@ -1988,8 +1998,7 @@ static void cam_icp_mgr_process_io_cfg(struct cam_icp_hw_mgr *hw_mgr,
 
 	for (i = 0, j = 0, k = 0; i < packet->num_io_configs; i++) {
 		if (io_cfg_ptr[i].direction == CAM_BUF_INPUT) {
-			prepare_args->in_map_entries[j++].sync_id =
-				io_cfg_ptr[i].fence;
+			sync_in_obj[j++] = io_cfg_ptr[i].fence;
 			prepare_args->num_in_map_entries++;
 		} else {
 			prepare_args->out_map_entries[k++].sync_id =
@@ -1999,6 +2008,33 @@ static void cam_icp_mgr_process_io_cfg(struct cam_icp_hw_mgr *hw_mgr,
 		CAM_DBG(CAM_ICP, "dir[%d]: %u, fence: %u",
 			i, io_cfg_ptr[i].direction, io_cfg_ptr[i].fence);
 	}
+
+	if (prepare_args->num_in_map_entries > 1) {
+		rc = cam_sync_merge(&sync_in_obj[0],
+			prepare_args->num_in_map_entries, &merged_sync_in_obj);
+		if (rc) {
+			prepare_args->num_out_map_entries = 0;
+			prepare_args->num_in_map_entries = 0;
+			return rc;
+		}
+
+		ctx_data->hfi_frame_process.in_resource[index] =
+			merged_sync_in_obj;
+		prepare_args->in_map_entries[0].sync_id = merged_sync_in_obj;
+		prepare_args->num_in_map_entries = 1;
+		CAM_DBG(CAM_ICP, "Merged Sync obj = %d", merged_sync_in_obj);
+	} else if (prepare_args->num_in_map_entries == 1) {
+		prepare_args->in_map_entries[0].sync_id = sync_in_obj[0];
+		prepare_args->num_in_map_entries = 1;
+		ctx_data->hfi_frame_process.in_resource[index] = 0;
+	} else {
+		CAM_ERR(CAM_ICP, "No input fences");
+		prepare_args->num_in_map_entries = 0;
+		ctx_data->hfi_frame_process.in_resource[index] = 0;
+		rc = -EINVAL;
+	}
+
+	return rc;
 }
 
 static int cam_icp_packet_generic_blob_handler(void *user_data,
@@ -2146,21 +2182,28 @@ static int cam_icp_mgr_prepare_hw_update(void *hw_mgr_priv,
 	}
 
 	/* Update Buffer Address from handles and patch information */
-	rc = cam_packet_util_process_patches(packet, hw_mgr->iommu_hdl);
+	rc = cam_packet_util_process_patches(packet, hw_mgr->iommu_hdl,
+		hw_mgr->iommu_sec_hdl);
 	if (rc) {
 		mutex_unlock(&ctx_data->ctx_mutex);
 		return rc;
 	}
 
-	cam_icp_mgr_process_io_cfg(hw_mgr, ctx_data,
-		packet, prepare_args);
-
 	rc = cam_icp_mgr_update_hfi_frame_process(ctx_data, packet,
 		prepare_args, &idx);
 	if (rc) {
-		if (prepare_args->in_map_entries[0].sync_id > 0)
+		mutex_unlock(&ctx_data->ctx_mutex);
+		return rc;
+	}
+
+	rc = cam_icp_mgr_process_io_cfg(hw_mgr, ctx_data,
+		packet, prepare_args, idx);
+	if (rc) {
+		if (ctx_data->hfi_frame_process.in_resource[idx] > 0)
 			cam_sync_destroy(
-				prepare_args->in_map_entries[0].sync_id);
+				ctx_data->hfi_frame_process.in_resource[idx]);
+		clear_bit(idx, ctx_data->hfi_frame_process.bitmap);
+		ctx_data->hfi_frame_process.request_id[idx] = -1;
 		mutex_unlock(&ctx_data->ctx_mutex);
 		return rc;
 	}
@@ -2195,6 +2238,13 @@ static int cam_icp_mgr_send_abort_status(struct cam_icp_hw_ctx_data *ctx_data)
 
 		/* now release memory for hfi frame process command */
 		hfi_frame_process->request_id[idx] = 0;
+		if (ctx_data->hfi_frame_process.in_resource[idx] > 0) {
+			CAM_DBG(CAM_ICP, "Delete merged sync in object: %d",
+				ctx_data->hfi_frame_process.in_resource[idx]);
+			cam_sync_destroy(
+				ctx_data->hfi_frame_process.in_resource[idx]);
+			ctx_data->hfi_frame_process.in_resource[idx] = 0;
+	}
 		clear_bit(idx, ctx_data->hfi_frame_process.bitmap);
 	}
 	mutex_unlock(&ctx_data->ctx_mutex);
@@ -2239,6 +2289,7 @@ static int cam_icp_mgr_release_hw(void *hw_mgr_priv, void *release_hw_args)
 			NULL, 0);
 		cam_icp_mgr_hw_close(hw_mgr, NULL);
 		cam_icp_hw_mgr_reset_clk_info(hw_mgr);
+		hw_mgr->secure_mode = CAM_SECURE_MODE_NON_SECURE;
 	}
 
 	return rc;
@@ -2384,6 +2435,12 @@ static int cam_icp_get_acquire_info(struct cam_icp_hw_mgr *hw_mgr,
 		sizeof(struct cam_icp_acquire_dev_info)))
 		return -EFAULT;
 
+	if (icp_dev_acquire_info.secure_mode > CAM_SECURE_MODE_SECURE) {
+		CAM_ERR(CAM_ICP, "Invalid mode:%d",
+			icp_dev_acquire_info.secure_mode);
+		return -EINVAL;
+	}
+
 	if (icp_dev_acquire_info.num_out_res > ICP_MAX_OUTPUT_SUPPORTED) {
 		CAM_ERR(CAM_ICP, "num of out resources exceeding : %u",
 			icp_dev_acquire_info.num_out_res);
@@ -2396,28 +2453,46 @@ static int cam_icp_get_acquire_info(struct cam_icp_hw_mgr *hw_mgr,
 		return -EFAULT;
 	}
 
+	if (!hw_mgr->ctxt_cnt) {
+		hw_mgr->secure_mode = icp_dev_acquire_info.secure_mode;
+	} else {
+		if (hw_mgr->secure_mode != icp_dev_acquire_info.secure_mode) {
+			CAM_ERR(CAM_ICP,
+				"secure mode mismatch driver:%d, context:%d",
+				hw_mgr->secure_mode,
+				icp_dev_acquire_info.secure_mode);
+			return -EINVAL;
+		}
+	}
+
 	acquire_size = sizeof(struct cam_icp_acquire_dev_info) +
 		(icp_dev_acquire_info.num_out_res *
 		sizeof(struct cam_icp_res_info));
 	ctx_data->icp_dev_acquire_info = kzalloc(acquire_size, GFP_KERNEL);
-	if (!ctx_data->icp_dev_acquire_info)
+	if (!ctx_data->icp_dev_acquire_info) {
+		if (!hw_mgr->ctxt_cnt)
+			hw_mgr->secure_mode = CAM_SECURE_MODE_NON_SECURE;
 		return -ENOMEM;
+	}
 
 	if (copy_from_user(ctx_data->icp_dev_acquire_info,
 		(void __user *)args->acquire_info, acquire_size)) {
+		if (!hw_mgr->ctxt_cnt)
+			hw_mgr->secure_mode = CAM_SECURE_MODE_NON_SECURE;
 		kfree(ctx_data->icp_dev_acquire_info);
 		ctx_data->icp_dev_acquire_info = NULL;
 		return -EFAULT;
 	}
 
-	CAM_DBG(CAM_ICP, "%x %x %x %x %x %x %x",
+	CAM_DBG(CAM_ICP, "%x %x %x %x %x %x %x %u",
 		ctx_data->icp_dev_acquire_info->dev_type,
 		ctx_data->icp_dev_acquire_info->in_res.format,
 		ctx_data->icp_dev_acquire_info->in_res.width,
 		ctx_data->icp_dev_acquire_info->in_res.height,
 		ctx_data->icp_dev_acquire_info->in_res.fps,
 		ctx_data->icp_dev_acquire_info->num_out_res,
-		ctx_data->icp_dev_acquire_info->scratch_mem_size);
+		ctx_data->icp_dev_acquire_info->scratch_mem_size,
+		hw_mgr->secure_mode);
 
 	p_icp_out = ctx_data->icp_dev_acquire_info->out_res;
 	for (i = 0; i < icp_dev_acquire_info.num_out_res; i++)
@@ -2470,18 +2545,10 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 		goto acquire_info_failed;
 	icp_dev_acquire_info = ctx_data->icp_dev_acquire_info;
 
-	/* Get IOCONFIG command info */
-	if (icp_dev_acquire_info->secure_mode)
-		rc = cam_mem_get_io_buf(
-			icp_dev_acquire_info->io_config_cmd_handle,
-			hw_mgr->iommu_sec_hdl,
-			&io_buf_addr, &io_buf_size);
-	else
-		rc = cam_mem_get_io_buf(
-			icp_dev_acquire_info->io_config_cmd_handle,
-			hw_mgr->iommu_hdl,
-			&io_buf_addr, &io_buf_size);
-
+	rc = cam_mem_get_io_buf(
+		icp_dev_acquire_info->io_config_cmd_handle,
+		hw_mgr->iommu_hdl,
+		&io_buf_addr, &io_buf_size);
 	if (rc) {
 		CAM_ERR(CAM_ICP, "unable to get src buf info from io desc");
 		goto get_io_buf_failed;
@@ -2808,6 +2875,7 @@ int cam_icp_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl)
 	hw_mgr_intf->download_fw = cam_icp_mgr_download_fw;
 	hw_mgr_intf->hw_close = cam_icp_mgr_hw_close;
 
+	icp_hw_mgr.secure_mode = CAM_SECURE_MODE_NON_SECURE;
 	mutex_init(&icp_hw_mgr.hw_mgr_mutex);
 	spin_lock_init(&icp_hw_mgr.hw_mgr_lock);
 
@@ -2820,7 +2888,7 @@ int cam_icp_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl)
 
 	rc = cam_smmu_get_handle("icp", &icp_hw_mgr.iommu_hdl);
 	if (rc) {
-		CAM_ERR(CAM_ICP, "icp get iommu handle failed: %d", rc);
+		CAM_ERR(CAM_ICP, "get mmu handle failed: %d", rc);
 		goto icp_get_hdl_failed;
 	}
 
@@ -2828,6 +2896,12 @@ int cam_icp_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl)
 	if (rc) {
 		CAM_ERR(CAM_ICP, "icp attach failed: %d", rc);
 		goto icp_attach_failed;
+	}
+
+	rc = cam_smmu_get_handle("cam-secure", &icp_hw_mgr.iommu_sec_hdl);
+	if (rc) {
+		CAM_ERR(CAM_ICP, "get secure mmu handle failed: %d", rc);
+		goto secure_hdl_failed;
 	}
 
 	rc = cam_icp_mgr_create_wq();
@@ -2839,6 +2913,9 @@ int cam_icp_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl)
 	return rc;
 
 icp_wq_create_failed:
+	cam_smmu_destroy_handle(icp_hw_mgr.iommu_sec_hdl);
+	icp_hw_mgr.iommu_sec_hdl = -1;
+secure_hdl_failed:
 	cam_smmu_ops(icp_hw_mgr.iommu_hdl, CAM_SMMU_DETACH);
 icp_attach_failed:
 	cam_smmu_destroy_handle(icp_hw_mgr.iommu_hdl);

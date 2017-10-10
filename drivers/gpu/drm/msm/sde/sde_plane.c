@@ -916,6 +916,22 @@ static inline void _sde_plane_set_scanout(struct drm_plane *plane,
 		return;
 	}
 
+	/*
+	 * framebuffer prepare is deferred for prepare_fb calls that
+	 * happen during the transition from secure to non-secure.
+	 * Handle the prepare at this point for such cases. This can be
+	 * expected for one or two frames during the transition.
+	 */
+	if (aspace && pstate->defer_prepare_fb) {
+		ret = msm_framebuffer_prepare(fb, pstate->aspace);
+		if (ret) {
+			SDE_ERROR_PLANE(psde,
+				"failed to prepare framebuffer %d\n", ret);
+			return;
+		}
+		pstate->defer_prepare_fb = false;
+	}
+
 	ret = sde_format_populate_layout(aspace, fb, &pipe_cfg->layout);
 	if (ret == -EAGAIN)
 		SDE_DEBUG_PLANE(psde, "not updating same src addrs\n");
@@ -2117,6 +2133,13 @@ static int sde_plane_rot_prepare_fb(struct drm_plane *plane,
 		}
 	}
 
+	if (new_pstate->defer_prepare_fb) {
+		SDE_DEBUG(
+		    "plane%d, domain not attached, prepare fb handled later\n",
+		    plane->base.id);
+		return 0;
+	}
+
 	/* prepare rotator input buffer */
 	ret = msm_framebuffer_prepare(new_state->fb, new_pstate->aspace);
 	if (ret) {
@@ -2386,6 +2409,7 @@ static void sde_plane_rot_atomic_update(struct drm_plane *plane,
 	struct drm_plane_state *state;
 	struct sde_plane_state *pstate;
 	struct sde_plane_rot_state *rstate;
+	int ret = 0;
 
 	if (!plane || !plane->state) {
 		SDE_ERROR("invalid plane/state\n");
@@ -2407,24 +2431,57 @@ static void sde_plane_rot_atomic_update(struct drm_plane *plane,
 	if (!rstate->out_sbuf || !rstate->rot_hw)
 		return;
 
+	/*
+	 * framebuffer prepare is deferred for prepare_fb calls that
+	 * happen during the transition from secure to non-secure.
+	 * Handle the prepare at this point for rotator in such cases.
+	 * This can be expected for one or two frames during the transition.
+	 */
+	if (pstate->aspace && pstate->defer_prepare_fb) {
+		/* prepare rotator input buffer */
+		ret = msm_framebuffer_prepare(state->fb, pstate->aspace);
+		if (ret) {
+			SDE_ERROR("p%d failed to prepare input fb %d\n",
+							plane->base.id, ret);
+			return;
+		}
+
+		/* prepare rotator output buffer */
+		if (sde_plane_enabled(state) && rstate->out_fb) {
+			ret = msm_framebuffer_prepare(rstate->out_fb,
+						pstate->aspace);
+			if (ret) {
+				SDE_ERROR(
+				  "p%d failed to prepare inline fb %d\n",
+				  plane->base.id, ret);
+				goto error_prepare_output_buffer;
+			}
+		}
+	}
+
 	sde_plane_rot_submit_command(plane, state, SDE_HW_ROT_CMD_COMMIT);
+
+	return;
+
+error_prepare_output_buffer:
+	msm_framebuffer_cleanup(state->fb, pstate->aspace);
 }
 
-void sde_plane_kickoff(struct drm_plane *plane)
+int sde_plane_kickoff_rot(struct drm_plane *plane)
 {
 	struct sde_plane_state *pstate;
 
 	if (!plane || !plane->state) {
 		SDE_ERROR("invalid plane\n");
-		return;
+		return -EINVAL;
 	}
 
 	pstate = to_sde_plane_state(plane->state);
 
 	if (!pstate->rot.rot_hw || !pstate->rot.rot_hw->ops.commit)
-		return;
+		return 0;
 
-	pstate->rot.rot_hw->ops.commit(pstate->rot.rot_hw,
+	return pstate->rot.rot_hw->ops.commit(pstate->rot.rot_hw,
 			&pstate->rot.rot_cmd,
 			SDE_HW_ROT_CMD_START);
 }
@@ -2765,29 +2822,33 @@ static int sde_plane_prepare_fb(struct drm_plane *plane,
 		return ret;
 	}
 
-	/*cache aspace */
+	/* cache aspace */
 	pstate->aspace = aspace;
+
+	/*
+	 * when transitioning from secure to non-secure,
+	 * plane->prepare_fb happens before the commit. In such case,
+	 * defer the prepare_fb and handled it late, during the commit
+	 * after attaching the domains as part of the transition
+	 */
+	pstate->defer_prepare_fb = (aspace && !aspace->domain_attached) ?
+							true : false;
+
 	ret = sde_plane_rot_prepare_fb(plane, new_state);
 	if (ret) {
 		SDE_ERROR("failed to prepare rot framebuffer\n");
 		return ret;
 	}
 
+	if (pstate->defer_prepare_fb) {
+		SDE_DEBUG_PLANE(psde,
+		    "domain not attached, prepare_fb handled later\n");
+		return 0;
+	}
+
 	new_rstate = &to_sde_plane_state(new_state)->rot;
 
 	if (pstate->aspace) {
-		/*
-		 * when transitioning from secure to non-secure,
-		 * plane->prepare_fb happens before the commit. In such case,
-		 * return early, as prepare_fb would be handled as part
-		 * of the transition after attaching the domains,
-		 * during the commit
-		 */
-		if (!pstate->aspace->domain_attached) {
-			SDE_DEBUG_PLANE(psde,
-			    "domain not attached, prepare_fb handled later\n");
-			return 0;
-		}
 		ret = msm_framebuffer_prepare(new_rstate->out_fb,
 				pstate->aspace);
 		if (ret) {
@@ -3542,7 +3603,8 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 					SDE_FORMAT_IS_TILE(fmt);
 			cdp_cfg->preload_ahead = SDE_WB_CDP_PRELOAD_AHEAD_64;
 
-			psde->pipe_hw->ops.setup_cdp(psde->pipe_hw, cdp_cfg);
+			psde->pipe_hw->ops.setup_cdp(psde->pipe_hw, cdp_cfg,
+					pstate->multirect_index);
 		}
 
 		if (psde->pipe_hw->ops.setup_sys_cache) {
@@ -4324,6 +4386,11 @@ static void sde_plane_reset(struct drm_plane *plane)
 
 	psde = to_sde_plane(plane);
 	SDE_DEBUG_PLANE(psde, "\n");
+
+	if (plane->state && !sde_crtc_is_reset_required(plane->state->crtc)) {
+		SDE_DEBUG_PLANE(psde, "avoid reset for plane\n");
+		return;
+	}
 
 	/* remove previous state, if present */
 	if (plane->state) {

@@ -113,7 +113,6 @@ extern bool msm_vidc_syscache_disable;
 
 #define MSM_VIDC_ERROR(value)					\
 	do {							\
-		dprintk(VIDC_DBG, "Fatal Level = %d\n", value);\
 		BUG_ON(value);					\
 	} while (0)
 
