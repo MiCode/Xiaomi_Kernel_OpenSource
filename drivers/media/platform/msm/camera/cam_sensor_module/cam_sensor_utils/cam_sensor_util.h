@@ -34,7 +34,7 @@ int cam_get_dt_power_setting_data(struct device_node *of_node,
 int msm_camera_pinctrl_init
 	(struct msm_pinctrl_info *sensor_pctrl, struct device *dev);
 
-int cam_sensor_i2c_pkt_parser(struct i2c_settings_array *i2c_reg_settings,
+int cam_sensor_i2c_command_parser(struct i2c_settings_array *i2c_reg_settings,
 	struct cam_cmd_buf_desc *cmd_desc, int32_t num_cmd_buffers);
 
 int32_t delete_request(struct i2c_settings_array *i2c_array);
