@@ -532,9 +532,11 @@
 		#reset-cells = <1>;
 	};
 
-	clock_videocc: qcom,videocc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "videocc_clocks";
+	clock_videocc: qcom,videocc@ab00000 {
+		compatible = "qcom,videocc-sdm855";
+		reg = <0xab00000 0x10000>;
+		reg-names = "cc_base";
+		vdd_mm-supply = <&pm855l_s5_level>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};

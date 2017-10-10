@@ -19,11 +19,7 @@
 #define VIDEO_CC_MVS0_CORE_CLK					2
 #define VIDEO_CC_MVS1_CORE_CLK					3
 #define VIDEO_CC_MVSC_CORE_CLK					4
-#define VIDEO_PLL0						5
-
-#define VIDEO_CC_INTERFACE_BCR					0
-#define VIDEO_CC_MVS0_BCR					1
-#define VIDEO_CC_MVS1_BCR					2
-#define VIDEO_CC_MVSC_BCR					3
+#define VIDEO_CC_XO_CLK						5
+#define VIDEO_PLL0						6
 
 #endif
