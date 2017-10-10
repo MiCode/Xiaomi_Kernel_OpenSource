@@ -6447,17 +6447,24 @@ static int msm_pcie_pm_resume(struct pci_dev *dev,
 		 dev->bus->number, dev->bus->primary);
 
 	if (!(options & MSM_PCIE_CONFIG_NO_CFG_RESTORE)) {
-		PCIE_DBG(pcie_dev,
-			"RC%d: entry of PCI framework restore state\n",
-			pcie_dev->rc_idx);
+		if (pcie_dev->saved_state) {
+			PCIE_DBG(pcie_dev,
+				 "RC%d: entry of PCI framework restore state\n",
+				 pcie_dev->rc_idx);
 
-		pci_load_and_free_saved_state(dev,
-				&pcie_dev->saved_state);
-		pci_restore_state(dev);
+			pci_load_and_free_saved_state(dev,
+						      &pcie_dev->saved_state);
+			pci_restore_state(dev);
 
-		PCIE_DBG(pcie_dev,
-			"RC%d: exit of PCI framework restore state\n",
-			pcie_dev->rc_idx);
+			PCIE_DBG(pcie_dev,
+				 "RC%d: exit of PCI framework restore state\n",
+				 pcie_dev->rc_idx);
+		} else {
+			PCIE_DBG(pcie_dev,
+				 "RC%d: restore rc config space using shadow recovery\n",
+				 pcie_dev->rc_idx);
+			msm_pcie_cfg_recover(pcie_dev, true);
+		}
 	}
 
 	if (pcie_dev->bridge_found) {
