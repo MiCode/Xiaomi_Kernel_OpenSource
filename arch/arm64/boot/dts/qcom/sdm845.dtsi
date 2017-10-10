@@ -210,7 +210,7 @@
 				qcom,dump-size = <0x14000>;
 			};
 			L1_TLB_400: l1-tlb {
-				qcom,dump-size = <0x3c000>;
+				qcom,dump-size = <0x3c00>;
 			};
 		};
 
@@ -241,7 +241,7 @@
 				qcom,dump-size = <0x14000>;
 			};
 			L1_TLB_500: l1-tlb {
-				qcom,dump-size = <0x3c000>;
+				qcom,dump-size = <0x3c00>;
 			};
 		};
 
@@ -272,7 +272,7 @@
 				qcom,dump-size = <0x14000>;
 			};
 			L1_TLB_600: l1-tlb {
-				qcom,dump-size = <0x3c000>;
+				qcom,dump-size = <0x3c00>;
 			};
 		};
 
@@ -303,7 +303,7 @@
 				qcom,dump-size = <0x14000>;
 			};
 			L1_TLB_700: l1-tlb {
-				qcom,dump-size = <0x3c000>;
+				qcom,dump-size = <0x3c00>;
 			};
 		};
 
