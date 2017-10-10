@@ -122,8 +122,9 @@
 		cam_vana-supply = <&pmi8998_bob>;
 		cam_vdig-supply = <&camera_rear_ldo>;
 		cam_clk-supply = <&titan_top_gdsc>;
+		cam_vaf-supply = <&actuator_regulator>;
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
-			"cam_clk";
+			"cam_clk", "cam_vaf";
 		rgltr-cntrl-support;
 		rgltr-min-voltage = <0 3312000 1050000 0>;
 		rgltr-max-voltage = <0 3600000 1050000 0>;
@@ -165,8 +166,9 @@
 		cam_vio-supply = <&pm8998_lvs1>;
 		cam_vana-supply = <&pmi8998_bob>;
 		cam_clk-supply = <&titan_top_gdsc>;
+		cam_vaf-supply = <&actuator_regulator>;
 		regulator-names = "cam_vdig", "cam_vio", "cam_vana",
-			"cam_clk";
+			"cam_clk", "cam_vaf";
 		rgltr-cntrl-support;
 		rgltr-min-voltage = <1050000 0 3312000 0>;
 		rgltr-max-voltage = <1050000 0 3600000 0>;
@@ -179,14 +181,17 @@
 				 &cam_sensor_rear2_suspend>;
 		gpios = <&tlmm 15 0>,
 			<&tlmm 9 0>,
-			<&tlmm 8 0>;
+			<&tlmm 8 0>,
+			<&tlmm 27 0>;
 		gpio-reset = <1>;
 		gpio-vana = <2>;
-		gpio-req-tbl-num = <0 1 2>;
-		gpio-req-tbl-flags = <1 0 0>;
+		gpio-vaf = <3>;
+		gpio-req-tbl-num = <0 1 2 3>;
+		gpio-req-tbl-flags = <1 0 0 0>;
 		gpio-req-tbl-label = "CAMIF_MCLK1",
 					"CAM_RESET1",
-					"CAM_VANA1";
+					"CAM_VANA1",
+					"CAM_VAF";
 		sensor-position = <0>;
 		sensor-mode = <0>;
 		cci-master = <1>;
@@ -205,8 +210,9 @@
 		cam_vana-supply = <&pmi8998_bob>;
 		cam_vdig-supply = <&camera_ldo>;
 		cam_clk-supply = <&titan_top_gdsc>;
+		cam_vaf-supply = <&actuator_regulator>;
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
-			"cam_clk";
+			"cam_clk", "cam_vaf";
 		rgltr-cntrl-support;
 		rgltr-min-voltage = <0 3312000 1050000 0>;
 		rgltr-max-voltage = <0 3600000 1050000 0>;
