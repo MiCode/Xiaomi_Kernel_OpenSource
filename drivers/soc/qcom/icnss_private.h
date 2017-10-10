@@ -227,8 +227,6 @@ struct icnss_stats {
 	uint32_t rejuvenate_ack_err;
 };
 
-#define MAX_NO_OF_MAC_ADDR 4
-
 #define WLFW_MAX_TIMESTAMP_LEN 32
 #define WLFW_MAX_BUILD_ID_LEN 128
 #define WLFW_MAX_NUM_MEMORY_REGIONS 2
@@ -238,11 +236,6 @@ struct icnss_stats {
 #define WLFW_MAX_NUM_CE 12
 #define WLFW_MAX_NUM_SVC 24
 #define WLFW_MAX_NUM_SHADOW_REG 24
-
-struct icnss_wlan_mac_addr {
-	u8 mac_addr[MAX_NO_OF_MAC_ADDR][ETH_ALEN];
-	uint32_t no_of_mac_addr_set;
-};
 
 struct service_notifier_context {
 	void *handle;
@@ -338,8 +331,6 @@ struct icnss_priv {
 	uint8_t *diag_reg_read_buf;
 	atomic_t pm_count;
 	struct ramdump_device *msa0_dump_dev;
-	bool is_wlan_mac_set;
-	struct icnss_wlan_mac_addr wlan_mac_addr;
 	bool bypass_s1_smmu;
 	u8 cause_for_rejuvenation;
 	u8 requesting_sub_system;
