@@ -613,7 +613,6 @@ irqreturn_t cam_irq_controller_handle_irq(int irq_num, void *priv)
 					i, j, need_th_processing[j]);
 		}
 	}
-	read_unlock(&controller->rw_lock);
 	CAM_DBG(CAM_ISP, "unlocked controller %pK name %s rw_lock %pK",
 		controller, controller->name, &controller->rw_lock);
 
@@ -632,6 +631,7 @@ irqreturn_t cam_irq_controller_handle_irq(int irq_num, void *priv)
 				&controller->th_list_head[i]);
 		}
 	}
+	read_unlock(&controller->rw_lock);
 
 	return IRQ_HANDLED;
 }
