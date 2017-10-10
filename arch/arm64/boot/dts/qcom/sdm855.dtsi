@@ -1102,7 +1102,7 @@
 		cdsp {
 			qcom,remote-pid = <5>;
 			transport = "smem";
-			mboxes = <&apcs_glb 5>;
+			mboxes = <&apcs_glb 4>;
 			mbox-names = "cdsp_smem";
 			interrupts = <GIC_SPI 574 IRQ_TYPE_EDGE_RISING>;
 		};
