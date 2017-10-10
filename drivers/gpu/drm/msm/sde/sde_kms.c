@@ -2229,6 +2229,41 @@ fail:
 	return ret;
 }
 
+static void _sde_kms_pm_qos_add_request(struct sde_kms *sde_kms)
+{
+	struct pm_qos_request *req;
+	u32 cpu_mask;
+	u32 cpu_dma_latency;
+	int cpu;
+
+	if (!sde_kms || !sde_kms->catalog)
+		return;
+
+	cpu_mask = sde_kms->catalog->perf.cpu_mask;
+	cpu_dma_latency = sde_kms->catalog->perf.cpu_dma_latency;
+	if (!cpu_mask)
+		return;
+
+	req = &sde_kms->pm_qos_cpu_req;
+	req->type = PM_QOS_REQ_AFFINE_CORES;
+	cpumask_empty(&req->cpus_affine);
+	for_each_possible_cpu(cpu) {
+		if ((1 << cpu) & cpu_mask)
+			cpumask_set_cpu(cpu, &req->cpus_affine);
+	}
+	pm_qos_add_request(req, PM_QOS_CPU_DMA_LATENCY, cpu_dma_latency);
+
+	SDE_EVT32_VERBOSE(cpu_mask, cpu_dma_latency);
+}
+
+static void _sde_kms_pm_qos_remove_request(struct sde_kms *sde_kms)
+{
+	if (!sde_kms || !sde_kms->catalog || !sde_kms->catalog->perf.cpu_mask)
+		return;
+
+	pm_qos_remove_request(&sde_kms->pm_qos_cpu_req);
+}
+
 static void sde_kms_handle_power_event(u32 event_type, void *usr)
 {
 	struct sde_kms *sde_kms = usr;
@@ -2244,7 +2279,9 @@ static void sde_kms_handle_power_event(u32 event_type, void *usr)
 	if (event_type == SDE_POWER_EVENT_POST_ENABLE) {
 		sde_irq_update(msm_kms, true);
 		sde_vbif_init_memtypes(sde_kms);
+		_sde_kms_pm_qos_add_request(sde_kms);
 	} else if (event_type == SDE_POWER_EVENT_PRE_DISABLE) {
+		_sde_kms_pm_qos_remove_request(sde_kms);
 		sde_irq_update(msm_kms, false);
 	}
 }
