@@ -3059,6 +3059,11 @@ int smblib_get_prop_fcc_delta(struct smb_charger *chg,
 {
 	int rc, jeita_cc_delta_ua = 0;
 
+	if (chg->sw_jeita_enabled) {
+		val->intval = 0;
+		return 0;
+	}
+
 	rc = smblib_get_jeita_cc_delta(chg, &jeita_cc_delta_ua);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't get jeita cc delta rc=%d\n", rc);

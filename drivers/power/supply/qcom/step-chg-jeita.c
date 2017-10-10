@@ -123,7 +123,7 @@ static struct jeita_fcc_cfg jeita_fcc_config = {
 		/* TEMP_LOW	TEMP_HIGH	FCC */
 		{0,		100,		600000},
 		{101,		200,		2000000},
-		{201,		450,		3000000},
+		{201,		450,		3450000},
 		{451,		550,		600000},
 	},
 };
@@ -135,7 +135,7 @@ static struct jeita_fv_cfg jeita_fv_config = {
 	.fv_cfg		= {
 		/* TEMP_LOW	TEMP_HIGH	FCC */
 		{0,		100,		4200000},
-		{101,		450,		4400000},
+		{101,		450,		4350000},
 		{451,		550,		4200000},
 	},
 };
