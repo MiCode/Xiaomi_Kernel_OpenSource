@@ -105,7 +105,7 @@ static void fts_interrupt_enable(struct fts_ts_info *info);
 static int fts_init_hw(struct fts_ts_info *info);
 static int fts_mode_handler(struct fts_ts_info *info, int force);
 static int fts_command(struct fts_ts_info *info, unsigned char cmd);
-
+static void fts_unblank(struct fts_ts_info *info);
 static int fts_chip_initialization(struct fts_ts_info *info);
 
 void touch_callback(unsigned int status)
@@ -1487,8 +1487,12 @@ static int fts_init(struct fts_ts_info *info)
 
 	error = fts_interrupt_install(info);
 
-	if (error != OK)
+	if (error != OK) {
 		logError(1,  "%s Init (1) error (ERROR  = %08X)\n", error);
+		return error;
+	}
+
+	fts_unblank(info);
 
 	return error;
 }
@@ -1771,6 +1775,26 @@ static int fts_fb_state_chg_callback(struct notifier_block *nb, unsigned long va
 	}
 	return NOTIFY_OK;
 
+}
+
+static void fts_unblank(struct fts_ts_info *info)
+{
+	int i;
+
+	for (i = 0; i < TOUCH_ID_MAX; i++) {
+		input_mt_slot(info->input_dev, i);
+		input_mt_report_slot_state(info->input_dev,
+			(i < FINGER_MAX) ? MT_TOOL_FINGER : MT_TOOL_PEN, 0);
+	}
+	input_sync(info->input_dev);
+
+	info->resume_bit = 1;
+
+	fts_mode_handler(info, 0);
+
+	info->sensor_sleep = false;
+
+	fts_enableInterrupt();
 }
 
 static struct notifier_block fts_noti_block = {
