@@ -173,7 +173,7 @@ static ssize_t rpmstats_show(struct kobject *kobj,
 	if (prvdata.read_idx < prvdata.num_records)
 		prvdata.len = msm_rpmstats_copy_stats(&prvdata);
 
-	return snprintf(buf, prvdata.len, prvdata.buf);
+	return snprintf(buf, prvdata.len, "%s", prvdata.buf);
 }
 
 static int msm_rpmstats_create_sysfs(struct msm_rpmstats_platform_data *pd)
