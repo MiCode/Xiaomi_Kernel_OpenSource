@@ -780,8 +780,10 @@ msm_get_build_id(struct device *dev,
 		   struct device_attribute *attr,
 		   char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%-.32s\n",
-			socinfo_get_build_id());
+	if (socinfo_get_build_id())
+		return snprintf(buf, PAGE_SIZE, "%-.32s\n",
+				socinfo_get_build_id());
+	return 0;
 }
 
 static ssize_t
