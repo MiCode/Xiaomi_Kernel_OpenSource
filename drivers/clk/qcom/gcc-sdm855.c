@@ -1754,7 +1754,7 @@ static struct clk_branch gcc_camera_ahb_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_camera_ahb_clk",
-			.flags = CLK_IS_CRITICAL,
+			.flags = CLK_IS_CRITICAL | BRANCH_HALT_DELAY,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -1794,7 +1794,7 @@ static struct clk_branch gcc_camera_xo_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_camera_xo_clk",
-			.flags = CLK_IS_CRITICAL,
+			.flags = CLK_IS_CRITICAL | BRANCH_HALT_DELAY,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -1961,7 +1961,7 @@ static struct clk_branch gcc_disp_ahb_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_disp_ahb_clk",
-			.flags = CLK_IS_CRITICAL,
+			.flags = CLK_IS_CRITICAL | BRANCH_HALT_DELAY,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -2001,7 +2001,7 @@ static struct clk_branch gcc_disp_xo_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_disp_xo_clk",
-			.flags = CLK_IS_CRITICAL,
+			.flags = CLK_IS_CRITICAL | BRANCH_HALT_DELAY,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -4059,7 +4059,7 @@ static struct clk_branch gcc_video_ahb_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_video_ahb_clk",
-			.flags = CLK_IS_CRITICAL,
+			.flags = CLK_IS_CRITICAL | BRANCH_HALT_DELAY,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -4112,7 +4112,7 @@ static struct clk_branch gcc_video_xo_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_video_xo_clk",
-			.flags = CLK_IS_CRITICAL,
+			.flags = CLK_IS_CRITICAL | BRANCH_HALT_DELAY,
 			.ops = &clk_branch2_ops,
 		},
 	},
