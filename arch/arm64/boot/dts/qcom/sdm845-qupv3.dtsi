@@ -78,6 +78,9 @@
 		clocks = <&clock_gcc GCC_QUPV3_WRAP0_S0_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
+		dmas = <&gpi_dma0 0 0 3 64 0>,
+			<&gpi_dma0 1 0 3 64 0>;
+		dma-names = "tx", "rx";
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se0_i2c_active>;
 		pinctrl-1 = <&qupv3_se0_i2c_sleep>;
@@ -95,6 +98,9 @@
 		clocks = <&clock_gcc GCC_QUPV3_WRAP0_S1_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
+		dmas = <&gpi_dma0 0 1 3 64 0>,
+			<&gpi_dma0 1 1 3 64 0>;
+		dma-names = "tx", "rx";
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se1_i2c_active>;
 		pinctrl-1 = <&qupv3_se1_i2c_sleep>;
@@ -112,6 +118,9 @@
 		clocks = <&clock_gcc GCC_QUPV3_WRAP0_S2_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
+		dmas = <&gpi_dma0 0 2 3 64 0>,
+			<&gpi_dma0 1 2 3 64 0>;
+		dma-names = "tx", "rx";
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se2_i2c_active>;
 		pinctrl-1 = <&qupv3_se2_i2c_sleep>;
@@ -129,6 +138,9 @@
 		clocks = <&clock_gcc GCC_QUPV3_WRAP0_S3_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
+		dmas = <&gpi_dma0 0 3 3 64 0>,
+			<&gpi_dma0 1 3 3 64 0>;
+		dma-names = "tx", "rx";
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se3_i2c_active>;
 		pinctrl-1 = <&qupv3_se3_i2c_sleep>;
@@ -146,6 +158,9 @@
 		clocks = <&clock_gcc GCC_QUPV3_WRAP0_S4_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
+		dmas = <&gpi_dma0 0 4 3 64 0>,
+			<&gpi_dma0 1 4 3 64 0>;
+		dma-names = "tx", "rx";
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se4_i2c_active>;
 		pinctrl-1 = <&qupv3_se4_i2c_sleep>;
@@ -163,6 +178,9 @@
 		clocks = <&clock_gcc GCC_QUPV3_WRAP0_S5_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
+		dmas = <&gpi_dma0 0 5 3 64 0>,
+			<&gpi_dma0 1 5 3 64 0>;
+		dma-names = "tx", "rx";
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se5_i2c_active>;
 		pinctrl-1 = <&qupv3_se5_i2c_sleep>;
@@ -180,6 +198,9 @@
 		clocks = <&clock_gcc GCC_QUPV3_WRAP0_S6_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
+		dmas = <&gpi_dma0 0 6 3 64 0>,
+			<&gpi_dma0 1 6 3 64 0>;
+		dma-names = "tx", "rx";
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se6_i2c_active>;
 		pinctrl-1 = <&qupv3_se6_i2c_sleep>;
@@ -197,6 +218,9 @@
 		clocks = <&clock_gcc GCC_QUPV3_WRAP0_S7_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
+		dmas = <&gpi_dma0 0 7 3 64 0>,
+			<&gpi_dma0 1 7 3 64 0>;
+		dma-names = "tx", "rx";
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se7_i2c_active>;
 		pinctrl-1 = <&qupv3_se7_i2c_sleep>;
@@ -442,6 +466,9 @@
 		clocks = <&clock_gcc GCC_QUPV3_WRAP1_S0_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_1_M_AHB_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_1_S_AHB_CLK>;
+		dmas = <&gpi_dma1 0 0 3 64 0>,
+			<&gpi_dma1 1 0 3 64 0>;
+		dma-names = "tx", "rx";
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se8_i2c_active>;
 		pinctrl-1 = <&qupv3_se8_i2c_sleep>;
@@ -459,6 +486,9 @@
 		clocks = <&clock_gcc GCC_QUPV3_WRAP1_S1_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_1_M_AHB_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_1_S_AHB_CLK>;
+		dmas = <&gpi_dma1 0 1 3 64 0>,
+			<&gpi_dma1 1 1 3 64 0>;
+		dma-names = "tx", "rx";
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se9_i2c_active>;
 		pinctrl-1 = <&qupv3_se9_i2c_sleep>;
@@ -476,6 +506,9 @@
 		clocks = <&clock_gcc GCC_QUPV3_WRAP1_S2_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_1_M_AHB_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_1_S_AHB_CLK>;
+		dmas = <&gpi_dma1 0 2 3 64 0>,
+			<&gpi_dma1 1 2 3 64 0>;
+		dma-names = "tx", "rx";
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se10_i2c_active>;
 		pinctrl-1 = <&qupv3_se10_i2c_sleep>;
@@ -493,6 +526,9 @@
 		clocks = <&clock_gcc GCC_QUPV3_WRAP1_S3_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_1_M_AHB_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_1_S_AHB_CLK>;
+		dmas = <&gpi_dma1 0 3 3 64 0>,
+			<&gpi_dma1 1 3 3 64 0>;
+		dma-names = "tx", "rx";
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se11_i2c_active>;
 		pinctrl-1 = <&qupv3_se11_i2c_sleep>;
@@ -510,6 +546,9 @@
 		clocks = <&clock_gcc GCC_QUPV3_WRAP1_S4_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_1_M_AHB_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_1_S_AHB_CLK>;
+		dmas = <&gpi_dma1 0 4 3 64 0>,
+			<&gpi_dma1 1 4 3 64 0>;
+		dma-names = "tx", "rx";
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se12_i2c_active>;
 		pinctrl-1 = <&qupv3_se12_i2c_sleep>;
@@ -527,6 +566,9 @@
 		clocks = <&clock_gcc GCC_QUPV3_WRAP1_S5_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_1_M_AHB_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_1_S_AHB_CLK>;
+		dmas = <&gpi_dma1 0 5 3 64 0>,
+			<&gpi_dma1 1 5 3 64 0>;
+		dma-names = "tx", "rx";
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se13_i2c_active>;
 		pinctrl-1 = <&qupv3_se13_i2c_sleep>;
@@ -544,6 +586,9 @@
 		clocks = <&clock_gcc GCC_QUPV3_WRAP1_S6_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_1_M_AHB_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_1_S_AHB_CLK>;
+		dmas = <&gpi_dma1 0 6 3 64 0>,
+			<&gpi_dma1 1 6 3 64 0>;
+		dma-names = "tx", "rx";
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se14_i2c_active>;
 		pinctrl-1 = <&qupv3_se14_i2c_sleep>;
@@ -561,6 +606,9 @@
 		clocks = <&clock_gcc GCC_QUPV3_WRAP1_S7_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_1_M_AHB_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_1_S_AHB_CLK>;
+		dmas = <&gpi_dma1 0 7 3 64 0>,
+			<&gpi_dma1 1 7 3 64 0>;
+		dma-names = "tx", "rx";
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se15_i2c_active>;
 		pinctrl-1 = <&qupv3_se15_i2c_sleep>;
