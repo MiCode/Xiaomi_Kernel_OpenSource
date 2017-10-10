@@ -80,6 +80,7 @@ struct uaudio_dev {
 	/* audio control interface */
 	struct usb_host_interface *ctrl_intf;
 	unsigned int card_num;
+	unsigned int usb_core_id;
 	atomic_t in_use;
 	struct kref kref;
 	wait_queue_head_t disconnect_wq;
@@ -181,6 +182,8 @@ get_speed_info(enum usb_device_speed udev_speed)
 		return USB_AUDIO_DEVICE_SPEED_HIGH_V01;
 	case USB_SPEED_SUPER:
 		return USB_AUDIO_DEVICE_SPEED_SUPER_V01;
+	case USB_SPEED_SUPER_PLUS:
+		return USB_AUDIO_DEVICE_SPEED_SUPER_PLUS_V01;
 	default:
 		pr_err("%s: udev speed %d\n", __func__, udev_speed);
 		return USB_AUDIO_DEVICE_SPEED_INVALID_V01;
@@ -690,6 +693,7 @@ skip_sync:
 	}
 
 	uadev[card_num].card_num = card_num;
+	uadev[card_num].usb_core_id = resp->controller_num;
 
 	/* cache intf specific info to use it for unmap and free xfer buf */
 	uadev[card_num].info[info_idx].data_xfer_ring_va = tr_data_va;
@@ -811,6 +815,8 @@ static void uaudio_disconnect_cb(struct snd_usb_audio *chip)
 		pr_debug("%s: sending qmi indication disconnect\n", __func__);
 		disconnect_ind.dev_event = USB_AUDIO_DEV_DISCONNECT_V01;
 		disconnect_ind.slot_id = dev->udev->slot_id;
+		disconnect_ind.controller_num = dev->usb_core_id;
+		disconnect_ind.controller_num_valid = 1;
 		ret = qmi_send_ind(svc->uaudio_svc_hdl, svc->curr_conn,
 				&uaudio_stream_ind_desc, &disconnect_ind,
 				sizeof(disconnect_ind));
