@@ -34,12 +34,14 @@
  *            parmeter depends on the rmnet_mode
  */
 struct rmnet_logical_ep_conf_s {
+	struct net_device *egress_dev;
+	struct timespec last_flush_time;
+	long curr_time_limit;
+	unsigned int flush_byte_count;
+	unsigned int curr_byte_threshold;
 	u8 refcount;
 	u8 rmnet_mode;
 	u8 mux_id;
-	struct timespec flush_time;
-	unsigned int flush_byte_count;
-	struct net_device *egress_dev;
 };
 
 /**
