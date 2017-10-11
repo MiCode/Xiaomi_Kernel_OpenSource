@@ -3941,6 +3941,22 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 	SDE_EVT32_VERBOSE(DRMID(crtc));
 	sde_crtc = to_sde_crtc(crtc);
 
+	mutex_lock(&sde_crtc->crtc_lock);
+	SDE_EVT32(DRMID(crtc), sde_crtc->enabled, sde_crtc->suspend,
+			sde_crtc->vblank_requested);
+
+	/* return early if crtc is already enabled */
+	if (sde_crtc->enabled) {
+		if (msm_is_mode_seamless_dms(&crtc->state->adjusted_mode))
+			SDE_DEBUG("%s extra crtc enable expected during DMS\n",
+					sde_crtc->name);
+		else
+			WARN(1, "%s unexpected crtc enable\n", sde_crtc->name);
+
+		mutex_unlock(&sde_crtc->crtc_lock);
+		return;
+	}
+
 	drm_for_each_encoder(encoder, crtc->dev) {
 		if (encoder->crtc != crtc)
 			continue;
@@ -3948,9 +3964,6 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 				sde_crtc_frame_event_cb, (void *)crtc);
 	}
 
-	mutex_lock(&sde_crtc->crtc_lock);
-	SDE_EVT32(DRMID(crtc), sde_crtc->enabled, sde_crtc->suspend,
-			sde_crtc->vblank_requested);
 	if (!sde_crtc->enabled && !sde_crtc->suspend &&
 			sde_crtc->vblank_requested) {
 		ret = _sde_crtc_vblank_enable_no_lock(sde_crtc, true);
@@ -5376,6 +5389,7 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 	INIT_LIST_HEAD(&sde_crtc->rp_head);
 
 	init_completion(&sde_crtc->frame_done_comp);
+	sde_crtc->enabled = false;
 
 	INIT_LIST_HEAD(&sde_crtc->frame_event_list);
 	INIT_LIST_HEAD(&sde_crtc->user_event_list);
