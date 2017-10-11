@@ -11,6 +11,7 @@
 #include <linux/irq_work.h>
 #include <linux/tick.h>
 #include <linux/slab.h>
+#include <linux/sched_energy.h>
 
 #include "cpupri.h"
 #include "cpudeadline.h"
@@ -2708,10 +2709,20 @@ extern void sched_boost_parse_dt(void);
 extern void clear_ed_task(struct task_struct *p, struct rq *rq);
 extern bool early_detection_notify(struct rq *rq, u64 wallclock);
 
-static inline unsigned int power_cost(int cpu, u64 demand)
+static inline unsigned int power_cost(int cpu, bool max)
 {
-	return cpu_max_possible_capacity(cpu);
+	struct sched_group_energy *sge = sge_array[cpu][SD_LEVEL1];
+
+	if (!sge || !sge->nr_cap_states)
+		return cpu_max_possible_capacity(cpu);
+
+	if (max)
+		return sge->cap_states[sge->nr_cap_states - 1].power;
+	else
+		return sge->cap_states[0].power;
 }
+
+extern void walt_sched_energy_populated_callback(void);
 
 #else	/* CONFIG_SCHED_WALT */
 
@@ -2829,10 +2840,12 @@ static inline bool early_detection_notify(struct rq *rq, u64 wallclock)
 	return 0;
 }
 
-static inline unsigned int power_cost(int cpu, u64 demand)
+static inline unsigned int power_cost(int cpu, bool max)
 {
 	return SCHED_CAPACITY_SCALE;
 }
+
+static inline void walt_sched_energy_populated_callback(void) { }
 
 #endif	/* CONFIG_SCHED_WALT */
 

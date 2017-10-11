@@ -2145,7 +2145,7 @@ compare_clusters(void *priv, struct list_head *a, struct list_head *b)
 	return ret;
 }
 
-void sort_clusters(void)
+static void sort_clusters(void)
 {
 	struct sched_cluster *cluster;
 	struct list_head new_head;
@@ -2155,9 +2155,9 @@ void sort_clusters(void)
 
 	for_each_sched_cluster(cluster) {
 		cluster->max_power_cost = power_cost(cluster_first_cpu(cluster),
-							       max_task_load());
+							       true);
 		cluster->min_power_cost = power_cost(cluster_first_cpu(cluster),
-							       0);
+							       false);
 
 		if (cluster->max_power_cost > tmp_max)
 			tmp_max = cluster->max_power_cost;
@@ -2174,6 +2174,13 @@ void sort_clusters(void)
 	 * cluster_head visible.
 	 */
 	move_list(&cluster_head, &new_head, false);
+}
+
+void walt_sched_energy_populated_callback(void)
+{
+	mutex_lock(&cluster_lock);
+	sort_clusters();
+	mutex_unlock(&cluster_lock);
 }
 
 static void update_all_clusters_stats(void)
