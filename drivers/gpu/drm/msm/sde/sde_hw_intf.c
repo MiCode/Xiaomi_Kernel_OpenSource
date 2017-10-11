@@ -9,6 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#include <linux/iopoll.h>
 
 #include "sde_hwio.h"
 #include "sde_hw_catalog.h"
@@ -69,6 +70,21 @@
 #define INTF_MISR_SIGNATURE		0x184
 
 #define INTF_MUX                        0x25C
+#define INTF_TEAR_MDP_VSYNC_SEL         0x280
+#define INTF_TEAR_TEAR_CHECK_EN         0x284
+#define INTF_TEAR_SYNC_CONFIG_VSYNC     0x288
+#define INTF_TEAR_SYNC_CONFIG_HEIGHT    0x28C
+#define INTF_TEAR_SYNC_WRCOUNT          0x290
+#define INTF_TEAR_VSYNC_INIT_VAL        0x294
+#define INTF_TEAR_INT_COUNT_VAL         0x298
+#define INTF_TEAR_SYNC_THRESH           0x29C
+#define INTF_TEAR_START_POS             0x2A0
+#define INTF_TEAR_RD_PTR_IRQ            0x2A4
+#define INTF_TEAR_WR_PTR_IRQ            0x2A8
+#define INTF_TEAR_OUT_LINE_COUNT        0x2AC
+#define INTF_TEAR_LINE_COUNT            0x2B0
+#define INTF_TEAR_AUTOREFRESH_CONFIG    0x2B4
+#define INTF_TEAR_TEAR_DETECT_CTRL      0x2B8
 
 static struct sde_intf_cfg *_intf_offset(enum sde_intf intf,
 		struct sde_mdss_cfg *m,
@@ -321,6 +337,163 @@ static u32 sde_hw_intf_get_line_count(struct sde_hw_intf *intf)
 	return SDE_REG_READ(c, INTF_LINE_COUNT);
 }
 
+static int sde_hw_intf_setup_te_config(struct sde_hw_intf *intf,
+		struct sde_hw_tear_check *te)
+{
+	struct sde_hw_blk_reg_map *c;
+	int cfg;
+
+	if (!intf)
+		return -EINVAL;
+
+	c = &intf->hw;
+
+	cfg = BIT(19); /* VSYNC_COUNTER_EN */
+	if (te->hw_vsync_mode)
+		cfg |= BIT(20);
+
+	cfg |= te->vsync_count;
+
+	SDE_REG_WRITE(c, INTF_TEAR_SYNC_CONFIG_VSYNC, cfg);
+	SDE_REG_WRITE(c, INTF_TEAR_SYNC_CONFIG_HEIGHT, te->sync_cfg_height);
+	SDE_REG_WRITE(c, INTF_TEAR_VSYNC_INIT_VAL, te->vsync_init_val);
+	SDE_REG_WRITE(c, INTF_TEAR_RD_PTR_IRQ, te->rd_ptr_irq);
+	SDE_REG_WRITE(c, INTF_TEAR_START_POS, te->start_pos);
+	SDE_REG_WRITE(c, INTF_TEAR_SYNC_THRESH,
+			((te->sync_threshold_continue << 16) |
+			 te->sync_threshold_start));
+	SDE_REG_WRITE(c, INTF_TEAR_SYNC_WRCOUNT,
+			(te->start_pos + te->sync_threshold_start + 1));
+
+	return 0;
+}
+
+static int sde_hw_intf_setup_autorefresh_config(struct sde_hw_intf *intf,
+		struct sde_hw_autorefresh *cfg)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 refresh_cfg;
+
+	if (!intf || !cfg)
+		return -EINVAL;
+
+	c = &intf->hw;
+
+	if (cfg->enable)
+		refresh_cfg = BIT(31) | cfg->frame_count;
+	else
+		refresh_cfg = 0;
+
+	SDE_REG_WRITE(c, INTF_TEAR_AUTOREFRESH_CONFIG, refresh_cfg);
+
+	return 0;
+}
+
+static int sde_hw_intf_get_autorefresh_config(struct sde_hw_intf *intf,
+		struct sde_hw_autorefresh *cfg)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 val;
+
+	if (!intf || !cfg)
+		return -EINVAL;
+
+	c = &intf->hw;
+	val = SDE_REG_READ(c, INTF_TEAR_AUTOREFRESH_CONFIG);
+	cfg->enable = (val & BIT(31)) >> 31;
+	cfg->frame_count = val & 0xffff;
+
+	return 0;
+}
+
+static int sde_hw_intf_poll_timeout_wr_ptr(struct sde_hw_intf *intf,
+		u32 timeout_us)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 val;
+	int rc;
+
+	if (!intf)
+		return -EINVAL;
+
+	c = &intf->hw;
+	rc = readl_poll_timeout(c->base_off + c->blk_off + INTF_TEAR_LINE_COUNT,
+			val, (val & 0xffff) >= 1, 10, timeout_us);
+
+	return rc;
+}
+
+static int sde_hw_intf_enable_te(struct sde_hw_intf *intf, bool enable)
+{
+	struct sde_hw_blk_reg_map *c;
+
+	if (!intf)
+		return -EINVAL;
+
+	c = &intf->hw;
+	SDE_REG_WRITE(c, INTF_TEAR_TEAR_CHECK_EN, enable);
+	return 0;
+}
+
+static int sde_hw_intf_connect_external_te(struct sde_hw_intf *intf,
+		bool enable_external_te)
+{
+	struct sde_hw_blk_reg_map *c = &intf->hw;
+	u32 cfg;
+	int orig;
+
+	if (!intf)
+		return -EINVAL;
+
+	c = &intf->hw;
+	cfg = SDE_REG_READ(c, INTF_TEAR_SYNC_CONFIG_VSYNC);
+	orig = (bool)(cfg & BIT(20));
+	if (enable_external_te)
+		cfg |= BIT(20);
+	else
+		cfg &= ~BIT(20);
+	SDE_REG_WRITE(c, INTF_TEAR_SYNC_CONFIG_VSYNC, cfg);
+
+	return orig;
+}
+
+static int sde_hw_intf_get_vsync_info(struct sde_hw_intf *intf,
+		struct sde_hw_pp_vsync_info *info)
+{
+	struct sde_hw_blk_reg_map *c = &intf->hw;
+	u32 val;
+
+	if (!intf || !info)
+		return -EINVAL;
+
+	c = &intf->hw;
+
+	val = SDE_REG_READ(c, INTF_TEAR_VSYNC_INIT_VAL);
+	info->rd_ptr_init_val = val & 0xffff;
+
+	val = SDE_REG_READ(c, INTF_TEAR_INT_COUNT_VAL);
+	info->rd_ptr_frame_count = (val & 0xffff0000) >> 16;
+	info->rd_ptr_line_count = val & 0xffff;
+
+	val = SDE_REG_READ(c, INTF_TEAR_LINE_COUNT);
+	info->wr_ptr_line_count = val & 0xffff;
+
+	return 0;
+}
+
+static void sde_hw_intf_vsync_sel(struct sde_hw_intf *intf,
+		u32 vsync_source)
+{
+	struct sde_hw_blk_reg_map *c;
+
+	if (!intf)
+		return;
+
+	c = &intf->hw;
+
+	SDE_REG_WRITE(c, INTF_TEAR_MDP_VSYNC_SEL, (vsync_source & 0xf));
+}
+
 static void _setup_intf_ops(struct sde_hw_intf_ops *ops,
 		unsigned long cap)
 {
@@ -333,8 +506,20 @@ static void _setup_intf_ops(struct sde_hw_intf_ops *ops,
 	ops->get_line_count = sde_hw_intf_get_line_count;
 	if (cap & BIT(SDE_INTF_ROT_START))
 		ops->setup_rot_start = sde_hw_intf_setup_rot_start;
+
 	if (cap & BIT(SDE_INTF_INPUT_CTRL))
 		ops->bind_pingpong_blk = sde_hw_intf_bind_pingpong_blk;
+
+	if (cap & BIT(SDE_INTF_TE)) {
+		ops->setup_tearcheck = sde_hw_intf_setup_te_config;
+		ops->enable_tearcheck = sde_hw_intf_enable_te;
+		ops->connect_external_te = sde_hw_intf_connect_external_te;
+		ops->get_vsync_info = sde_hw_intf_get_vsync_info;
+		ops->setup_autorefresh = sde_hw_intf_setup_autorefresh_config;
+		ops->get_autorefresh = sde_hw_intf_get_autorefresh_config;
+		ops->poll_timeout_wr_ptr = sde_hw_intf_poll_timeout_wr_ptr;
+		ops->vsync_sel = sde_hw_intf_vsync_sel;
+	}
 }
 
 static struct sde_hw_blk_ops sde_hw_ops = {
