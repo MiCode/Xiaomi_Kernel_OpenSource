@@ -42,6 +42,7 @@ struct dp_aux_private {
 	bool no_send_stop;
 	u32 offset;
 	u32 segment;
+	atomic_t aborted;
 
 	struct drm_dp_aux drm_aux;
 };
@@ -279,6 +280,20 @@ static void dp_aux_reconfig(struct dp_aux *dp_aux)
 	aux->catalog->reset(aux->catalog);
 }
 
+static void dp_aux_abort_transaction(struct dp_aux *dp_aux)
+{
+	struct dp_aux_private *aux;
+
+	if (!dp_aux) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	aux = container_of(dp_aux, struct dp_aux_private, dp_aux);
+
+	atomic_set(&aux->aborted, 1);
+}
+
 static void dp_aux_update_offset_and_segment(struct dp_aux_private *aux,
 		struct drm_dp_aux_msg *input_msg)
 {
@@ -377,6 +392,11 @@ static ssize_t dp_aux_transfer(struct drm_dp_aux *drm_aux,
 
 	mutex_lock(&aux->mutex);
 
+	if (atomic_read(&aux->aborted)) {
+		ret = -ETIMEDOUT;
+		goto unlock_exit;
+	}
+
 	aux->native = msg->request & (DP_AUX_NATIVE_WRITE & DP_AUX_NATIVE_READ);
 
 	/* Ignore address only message */
@@ -411,7 +431,7 @@ static ssize_t dp_aux_transfer(struct drm_dp_aux *drm_aux,
 	}
 
 	ret = dp_aux_cmd_fifo_tx(aux, msg);
-	if ((ret < 0) && aux->native) {
+	if ((ret < 0) && aux->native && !atomic_read(&aux->aborted)) {
 		aux->retry_cnt++;
 		if (!(aux->retry_cnt % retry_count))
 			aux->catalog->update_aux_cfg(aux->catalog,
@@ -467,6 +487,7 @@ static void dp_aux_init(struct dp_aux *dp_aux, struct dp_aux_cfg *aux_cfg)
 	aux->catalog->setup(aux->catalog, aux_cfg);
 	aux->catalog->reset(aux->catalog);
 	aux->catalog->enable(aux->catalog, true);
+	atomic_set(&aux->aborted, 0);
 	aux->retry_cnt = 0;
 }
 
@@ -481,6 +502,7 @@ static void dp_aux_deinit(struct dp_aux *dp_aux)
 
 	aux = container_of(dp_aux, struct dp_aux_private, dp_aux);
 
+	atomic_set(&aux->aborted, 1);
 	aux->catalog->enable(aux->catalog, false);
 }
 
@@ -558,6 +580,7 @@ struct dp_aux *dp_aux_get(struct device *dev, struct dp_catalog_aux *catalog,
 	dp_aux->drm_aux_register = dp_aux_register;
 	dp_aux->drm_aux_deregister = dp_aux_deregister;
 	dp_aux->reconfig = dp_aux_reconfig;
+	dp_aux->abort = dp_aux_abort_transaction;
 
 	return dp_aux;
 error:
