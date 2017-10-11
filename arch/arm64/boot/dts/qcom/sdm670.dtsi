@@ -726,6 +726,73 @@
 		qcom,pipe-attr-ee;
 	};
 
+	qcom_cedev: qcedev@1de0000 {
+		compatible = "qcom,qcedev";
+		reg = <0x1de0000 0x20000>,
+			<0x1dc4000 0x24000>;
+		reg-names = "crypto-base","crypto-bam-base";
+		interrupts = <0 272 0>;
+		qcom,bam-pipe-pair = <3>;
+		qcom,ce-hw-instance = <0>;
+		qcom,ce-device = <0>;
+		qcom,ce-hw-shared;
+		qcom,bam-ee = <0>;
+		qcom,msm-bus,name = "qcedev-noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<125 512 0 0>,
+				<125 512 393600 393600>;
+		clock-names = "core_clk_src", "core_clk",
+				"iface_clk", "bus_clk";
+		clocks = <&clock_gcc GCC_CE1_CLK>,
+				 <&clock_gcc GCC_CE1_CLK>,
+				 <&clock_gcc GCC_CE1_AHB_CLK>,
+				 <&clock_gcc GCC_CE1_AXI_CLK>;
+		qcom,ce-opp-freq = <171430000>;
+		qcom,request-bw-before-clk;
+		qcom,smmu-s1-bypass;
+		iommus = <&apps_smmu 0x706 0x3>,
+			 <&apps_smmu 0x716 0x3>;
+	};
+
+	qcom_crypto: qcrypto@1de0000 {
+		compatible = "qcom,qcrypto";
+		reg = <0x1de0000 0x20000>,
+			<0x1dc4000 0x24000>;
+		reg-names = "crypto-base","crypto-bam-base";
+		interrupts = <0 272 0>;
+		qcom,bam-pipe-pair = <2>;
+		qcom,ce-hw-instance = <0>;
+		qcom,ce-device = <0>;
+		qcom,bam-ee = <0>;
+		qcom,ce-hw-shared;
+		qcom,clk-mgmt-sus-res;
+		qcom,msm-bus,name = "qcrypto-noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<125 512 0 0>,
+			<125 512 393600 393600>;
+		clock-names = "core_clk_src", "core_clk",
+				"iface_clk", "bus_clk";
+		clocks = <&clock_gcc GCC_CE1_CLK>,
+				 <&clock_gcc GCC_CE1_CLK>,
+				 <&clock_gcc GCC_CE1_AHB_CLK>,
+				 <&clock_gcc GCC_CE1_AXI_CLK>;
+		qcom,ce-opp-freq = <171430000>;
+		qcom,request-bw-before-clk;
+		qcom,use-sw-aes-cbc-ecb-ctr-algo;
+		qcom,use-sw-aes-xts-algo;
+		qcom,use-sw-aes-ccm-algo;
+		qcom,use-sw-aead-algo;
+		qcom,use-sw-ahash-algo;
+		qcom,use-sw-hmac-algo;
+		qcom,smmu-s1-bypass;
+		iommus = <&apps_smmu 0x704 0x3>,
+			 <&apps_smmu 0x714 0x3>;
+	};
+
 	qcom,qbt1000 {
 		compatible = "qcom,qbt1000";
 		clock-names = "core", "iface";
