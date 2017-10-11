@@ -29,7 +29,6 @@ struct dp_panel_private {
 	struct dp_aux *aux;
 	struct dp_link *link;
 	struct dp_catalog_panel *catalog;
-	bool aux_cfg_update_done;
 	bool custom_edid;
 	bool custom_dpcd;
 	bool panel_on;
@@ -86,7 +85,11 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
 			dp_panel->dpcd, (DP_RECEIVER_CAP_SIZE + 1));
 		if (rlen < (DP_RECEIVER_CAP_SIZE + 1)) {
 			pr_err("dpcd read failed, rlen=%d\n", rlen);
-			rc = -EINVAL;
+			if (rlen == -ETIMEDOUT)
+				rc = rlen;
+			else
+				rc = -EINVAL;
+
 			goto end;
 		}
 
@@ -202,8 +205,6 @@ static int dp_panel_set_dpcd(struct dp_panel *dp_panel, u8 *dpcd)
 static int dp_panel_read_edid(struct dp_panel *dp_panel,
 	struct drm_connector *connector)
 {
-	int retry_cnt = 0;
-	const int max_retry = 10;
 	struct dp_panel_private *panel;
 
 	if (!dp_panel) {
@@ -218,24 +219,19 @@ static int dp_panel_read_edid(struct dp_panel *dp_panel,
 		return 0;
 	}
 
-	do {
-		sde_get_edid(connector, &panel->aux->drm_aux->ddc,
-			(void **)&dp_panel->edid_ctrl);
-		if (!dp_panel->edid_ctrl->edid) {
-			pr_err("EDID read failed\n");
-			retry_cnt++;
-			panel->aux->reconfig(panel->aux);
-			panel->aux_cfg_update_done = true;
-		} else {
-			u8 *buf = (u8 *)dp_panel->edid_ctrl->edid;
-			u32 size = buf[0x7F] ? 256 : 128;
+	sde_get_edid(connector, &panel->aux->drm_aux->ddc,
+		(void **)&dp_panel->edid_ctrl);
+	if (!dp_panel->edid_ctrl->edid) {
+		pr_err("EDID read failed\n");
+	} else {
+		u8 *buf = (u8 *)dp_panel->edid_ctrl->edid;
+		u32 size = buf[0x7E] ? 256 : 128;
 
-			print_hex_dump(KERN_DEBUG, "[drm-dp] SINK EDID: ",
-				DUMP_PREFIX_NONE, 16, 1, buf, size, false);
+		print_hex_dump(KERN_DEBUG, "[drm-dp] SINK EDID: ",
+			DUMP_PREFIX_NONE, 16, 1, buf, size, false);
 
-			return 0;
-		}
-	} while (retry_cnt < max_retry);
+		return 0;
+	}
 
 	return -EINVAL;
 }
@@ -259,6 +255,10 @@ static int dp_panel_read_sink_caps(struct dp_panel *dp_panel,
 		dp_panel->link_info.num_lanes) ||
 		((drm_dp_link_rate_to_bw_code(dp_panel->link_info.rate)) >
 		dp_panel->max_bw_code)) {
+		if ((rc == -ETIMEDOUT) || (rc == -ENODEV)) {
+			pr_err("DPCD read failed, return early\n");
+			return rc;
+		}
 		pr_err("panel dpcd read failed/incorrect, set default params\n");
 		dp_panel_set_default_link_params(dp_panel);
 	}
@@ -267,12 +267,6 @@ static int dp_panel_read_sink_caps(struct dp_panel *dp_panel,
 	if (rc) {
 		pr_err("panel edid read failed, set failsafe mode\n");
 		return rc;
-	}
-
-	if (panel->aux_cfg_update_done) {
-		pr_debug("read DPCD with updated AUX config\n");
-		dp_panel_read_dpcd(dp_panel);
-		panel->aux_cfg_update_done = false;
 	}
 
 	return 0;
@@ -765,7 +759,6 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	panel->link = in->link;
 
 	dp_panel = &panel->dp_panel;
-	panel->aux_cfg_update_done = false;
 	dp_panel->max_bw_code = DP_LINK_BW_8_1;
 	dp_panel->spd_enabled = true;
 	memcpy(panel->spd_vendor_name, vendor_name, (sizeof(u8) * 8));

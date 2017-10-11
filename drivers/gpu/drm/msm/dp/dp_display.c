@@ -456,6 +456,8 @@ static int dp_display_send_hpd_notification(struct dp_display_private *dp,
 		pr_warn("%s timeout\n", hpd ? "connect" : "disconnect");
 		/* cancel any pending request */
 		dp->ctrl->abort(dp->ctrl);
+		dp->aux->abort(dp->aux);
+
 		return -EINVAL;
 	}
 
@@ -475,8 +477,14 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 	}
 
 	rc = dp->panel->read_sink_caps(dp->panel, dp->dp_display.connector);
-	if (rc)
-		goto notify;
+	if (rc) {
+		if (rc == -ETIMEDOUT) {
+			pr_err("Sink cap read failed, skip notification\n");
+			goto end;
+		} else {
+			goto notify;
+		}
+	}
 
 	dp->link->process_request(dp->link);
 
@@ -637,6 +645,7 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 
 	/* cancel any pending request */
 	dp->ctrl->abort(dp->ctrl);
+	dp->aux->abort(dp->aux);
 
 	/* wait for idle state */
 	flush_workqueue(dp->wq);
@@ -716,6 +725,7 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 	} else {
 		/* cancel any pending request */
 		dp->ctrl->abort(dp->ctrl);
+		dp->aux->abort(dp->aux);
 
 		/* wait for idle state */
 		flush_workqueue(dp->wq);
@@ -946,6 +956,8 @@ static int dp_display_enable(struct dp_display *dp_display)
 		goto end;
 	}
 
+	dp->aux->init(dp->aux, dp->parser->aux_cfg);
+
 	rc = dp->ctrl->on(dp->ctrl);
 
 	if (dp->debug->tpg_state)
@@ -984,8 +996,6 @@ static int dp_display_post_enable(struct dp_display *dp_display)
 		dp->audio->on(dp->audio);
 	}
 
-	complete_all(&dp->notification_comp);
-
 	dp_display_update_hdcp_info(dp);
 
 	if (dp_display_is_hdcp_enabled(dp)) {
@@ -996,6 +1006,7 @@ static int dp_display_post_enable(struct dp_display *dp_display)
 	}
 
 end:
+	complete_all(&dp->notification_comp);
 	mutex_unlock(&dp->session_lock);
 	return 0;
 }

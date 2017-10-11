@@ -760,18 +760,18 @@ static int dp_ctrl_update_sink_vx_px(struct dp_ctrl_private *ctrl,
 	return drm_dp_dpcd_write(ctrl->aux->drm_aux, 0x103, buf, 4);
 }
 
-static void dp_ctrl_update_vx_px(struct dp_ctrl_private *ctrl)
+static int dp_ctrl_update_vx_px(struct dp_ctrl_private *ctrl)
 {
 	struct dp_link *link = ctrl->link;
 
 	ctrl->catalog->update_vx_px(ctrl->catalog,
 		link->phy_params.v_level, link->phy_params.p_level);
 
-	dp_ctrl_update_sink_vx_px(ctrl, link->phy_params.v_level,
+	return dp_ctrl_update_sink_vx_px(ctrl, link->phy_params.v_level,
 		link->phy_params.p_level);
 }
 
-static void dp_ctrl_train_pattern_set(struct dp_ctrl_private *ctrl,
+static int dp_ctrl_train_pattern_set(struct dp_ctrl_private *ctrl,
 		u8 pattern)
 {
 	u8 buf[4];
@@ -779,7 +779,8 @@ static void dp_ctrl_train_pattern_set(struct dp_ctrl_private *ctrl,
 	pr_debug("sink: pattern=%x\n", pattern);
 
 	buf[0] = pattern;
-	drm_dp_dpcd_write(ctrl->aux->drm_aux, DP_TRAINING_PATTERN_SET, buf, 1);
+	return drm_dp_dpcd_write(ctrl->aux->drm_aux,
+		DP_TRAINING_PATTERN_SET, buf, 1);
 }
 
 static int dp_ctrl_read_link_status(struct dp_ctrl_private *ctrl,
@@ -816,9 +817,18 @@ static int dp_ctrl_link_train_1(struct dp_ctrl_private *ctrl)
 	wmb();
 
 	ctrl->catalog->set_pattern(ctrl->catalog, 0x01);
-	dp_ctrl_train_pattern_set(ctrl, DP_TRAINING_PATTERN_1 |
+	ret = dp_ctrl_train_pattern_set(ctrl, DP_TRAINING_PATTERN_1 |
 		DP_LINK_SCRAMBLING_DISABLE); /* train_1 */
-	dp_ctrl_update_vx_px(ctrl);
+	if (ret <= 0) {
+		ret = -EINVAL;
+		return ret;
+	}
+
+	ret = dp_ctrl_update_vx_px(ctrl);
+	if (ret <= 0) {
+		ret = -EINVAL;
+		return ret;
+	}
 
 	tries = 0;
 	old_v_level = ctrl->link->phy_params.v_level;
@@ -855,7 +865,11 @@ static int dp_ctrl_link_train_1(struct dp_ctrl_private *ctrl)
 		pr_debug("clock recovery not done, adjusting vx px\n");
 
 		ctrl->link->adjust_levels(ctrl->link, link_status);
-		dp_ctrl_update_vx_px(ctrl);
+		ret = dp_ctrl_update_vx_px(ctrl);
+		if (ret <= 0) {
+			ret = -EINVAL;
+			break;
+		}
 	}
 
 	return ret;
@@ -909,9 +923,18 @@ static int dp_ctrl_link_training_2(struct dp_ctrl_private *ctrl)
 	else
 		pattern = DP_TRAINING_PATTERN_2;
 
-	dp_ctrl_update_vx_px(ctrl);
+	ret = dp_ctrl_update_vx_px(ctrl);
+	if (ret <= 0) {
+		ret = -EINVAL;
+		return ret;
+	}
 	ctrl->catalog->set_pattern(ctrl->catalog, pattern);
-	dp_ctrl_train_pattern_set(ctrl, pattern | DP_RECOVERED_CLOCK_OUT_EN);
+	ret = dp_ctrl_train_pattern_set(ctrl,
+		pattern | DP_RECOVERED_CLOCK_OUT_EN);
+	if (ret <= 0) {
+		ret = -EINVAL;
+		return ret;
+	}
 
 	do  {
 		drm_dp_link_train_channel_eq_delay(ctrl->panel->dpcd);
@@ -931,7 +954,11 @@ static int dp_ctrl_link_training_2(struct dp_ctrl_private *ctrl)
 		tries++;
 
 		ctrl->link->adjust_levels(ctrl->link, link_status);
-		dp_ctrl_update_vx_px(ctrl);
+		ret = dp_ctrl_update_vx_px(ctrl);
+		if (ret <= 0) {
+			ret = -EINVAL;
+			break;
+		}
 	} while (1);
 
 	return ret;
@@ -953,9 +980,16 @@ static int dp_ctrl_link_train(struct dp_ctrl_private *ctrl)
 		ctrl->link->link_params.bw_code);
 	link_info.capabilities = ctrl->panel->link_info.capabilities;
 
-	drm_dp_link_configure(ctrl->aux->drm_aux, &link_info);
-	drm_dp_dpcd_write(ctrl->aux->drm_aux, DP_MAIN_LINK_CHANNEL_CODING_SET,
-				&encoding, 1);
+	ret = drm_dp_link_configure(ctrl->aux->drm_aux, &link_info);
+	if (ret)
+		goto end;
+
+	ret = drm_dp_dpcd_write(ctrl->aux->drm_aux,
+		DP_MAIN_LINK_CHANNEL_CODING_SET, &encoding, 1);
+	if (ret <= 0) {
+		ret = -EINVAL;
+		goto end;
+	}
 
 	ret = dp_ctrl_link_train_1(ctrl);
 	if (ret) {
