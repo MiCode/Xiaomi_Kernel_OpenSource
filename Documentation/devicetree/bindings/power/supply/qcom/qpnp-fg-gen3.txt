@@ -208,14 +208,14 @@ First Level Node - FG Gen3 device
 	Value type: <u32>
 	Definition: Lower limit of battery temperature to start the capacity
 		    learning. If this is not specified, then the default value
-		    used will be 150. Unit is in decidegC.
+		    used will be 150 (15 C). Unit is in decidegC.
 
 - qcom,cl-max-temp
 	Usage:      optional
 	Value type: <u32>
 	Definition: Upper limit of battery temperature to start the capacity
 		    learning. If this is not specified, then the default value
-		    used will be 450 (45C). Unit is in decidegC.
+		    used will be 500 (50 C). Unit is in decidegC.
 
 - qcom,cl-max-increment
 	Usage:      optional
