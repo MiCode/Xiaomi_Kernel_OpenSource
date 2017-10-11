@@ -786,6 +786,11 @@ DEFINE_EVENT(sched_task_util, sched_task_util_imbalance,
 	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff, bool need_idle),
 	TP_ARGS(p, task_cpu, task_util, nominated_cpu, target_cpu, ediff, need_idle)
 );
+
+DEFINE_EVENT(sched_task_util, sched_task_util_need_idle,
+	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff, bool need_idle),
+	TP_ARGS(p, task_cpu, task_util, nominated_cpu, target_cpu, ediff, need_idle)
+);
 #endif
 
 /*
