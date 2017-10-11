@@ -27,6 +27,7 @@ struct rq;
 struct cpuidle_state;
 
 extern __read_mostly bool sched_predl;
+extern unsigned int sched_smp_overlap_capacity;
 
 #ifdef CONFIG_SCHED_WALT
 extern unsigned int sched_ravg_window;

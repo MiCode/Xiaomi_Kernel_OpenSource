@@ -6819,7 +6819,7 @@ is_packing_eligible(struct task_struct *p, unsigned long task_util,
 	return cpu_cap_idx_pack == cpu_cap_idx_spread;
 }
 
-static unsigned int sched_smp_overlap_capacity = SCHED_CAPACITY_SCALE;
+unsigned int sched_smp_overlap_capacity = SCHED_CAPACITY_SCALE;
 
 static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 {
