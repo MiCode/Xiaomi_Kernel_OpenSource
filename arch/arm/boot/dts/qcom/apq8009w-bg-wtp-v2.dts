@@ -131,7 +131,7 @@
 		qcom,bg-spi {
 			compatible = "qcom,bg-spi";
 			reg = <0>;
-			spi-max-frequency = <19200000>;
+			spi-max-frequency = <16000000>;
 			interrupt-parent = <&msm_gpio>;
 			qcom,irq-gpio = <&msm_gpio 110 1>;
 		};
