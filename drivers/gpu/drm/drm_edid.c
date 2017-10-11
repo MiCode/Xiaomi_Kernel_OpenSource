@@ -96,6 +96,14 @@ struct detailed_mode_closure {
 #define LEVEL_GTF2	2
 #define LEVEL_CVT	3
 
+/*Enum storing luminance types for HDR blocks in EDID*/
+enum luminance_value {
+	NO_LUMINANCE_DATA = 3,
+	MAXIMUM_LUMINANCE = 4,
+	FRAME_AVERAGE_LUMINANCE = 5,
+	MINIMUM_LUMINANCE = 6
+};
+
 static const struct edid_quirk {
 	char vendor[4];
 	int product_id;
@@ -2781,7 +2789,9 @@ add_detailed_modes(struct drm_connector *connector, struct edid *edid,
 #define VIDEO_BLOCK     0x02
 #define VENDOR_BLOCK    0x03
 #define SPEAKER_BLOCK	0x04
+#define HDR_STATIC_METADATA_EXTENDED_DATA_BLOCK 0x06
 #define USE_EXTENDED_TAG 0x07
+#define VIDEO_CAPABILITY_BLOCK	0x07
 #define EXT_VIDEO_CAPABILITY_BLOCK 0x00
 #define EXT_VIDEO_DATA_BLOCK_420	0x0E
 #define EXT_VIDEO_CAP_BLOCK_Y420CMDB 0x0F
@@ -3767,6 +3777,72 @@ drm_parse_hdmi_vsdb_audio(struct drm_connector *connector, const u8 *db)
 		      connector->audio_latency[1]);
 }
 
+static u8 *
+drm_edid_find_extended_tag_block(struct edid *edid, int blk_id)
+{
+	u8 *db = NULL;
+	u8 *cea = NULL;
+
+	if (!edid)
+		return NULL;
+
+	cea = drm_find_cea_extension(edid);
+
+	if (cea && cea_revision(cea) >= 3) {
+		int i, start, end;
+
+		if (cea_db_offsets(cea, &start, &end))
+			return NULL;
+
+		for_each_cea_db(cea, i, start, end) {
+			db = &cea[i];
+			if ((cea_db_tag(db) == USE_EXTENDED_TAG) &&
+				(db[1] == blk_id))
+				return db;
+		}
+	}
+	return NULL;
+}
+
+/*
+ * add_YCbCr420VDB_modes - add the modes found in Ycbcr420 VDB block
+ * @connector: connector corresponding to the HDMI sink
+ * @edid: handle to the EDID structure
+ * Parses the YCbCr420 VDB block and adds the modes to @connector.
+ */
+static int
+add_YCbCr420VDB_modes(struct drm_connector *connector, struct edid *edid)
+{
+
+	const u8 *db = NULL;
+	u32 i = 0;
+	u32 modes = 0;
+	u32 video_format = 0;
+	u8 len = 0;
+
+	/*Find the YCbCr420 VDB*/
+	db = drm_edid_find_extended_tag_block(edid, EXT_VIDEO_DATA_BLOCK_420);
+	/* Offset to byte 3 */
+	if (db) {
+		len = db[0] & 0x1F;
+		db += 2;
+		for (i = 0; i < len - 1; i++) {
+			struct drm_display_mode *mode;
+
+			video_format = *(db + i) & 0x7F;
+			mode = drm_display_mode_from_vic_index(connector,
+					db, len-1, i);
+			if (mode) {
+				DRM_DEBUG_KMS("Adding mode for vic = %d\n",
+				video_format);
+				drm_mode_probed_add(connector, mode);
+				modes++;
+			}
+		}
+	}
+	return modes;
+}
+
 static void
 monitor_name(struct detailed_timing *t, void *data)
 {
@@ -3804,7 +3880,7 @@ void drm_edid_get_monitor_name(struct edid *edid, char *name, int bufsize)
 {
 	int name_length;
 	char buf[13];
-	
+
 	if (bufsize <= 0)
 		return;
 
@@ -4635,6 +4711,7 @@ int drm_add_edid_modes(struct drm_connector *connector, struct edid *edid)
 	num_modes += add_cea_modes(connector, edid);
 	num_modes += add_alternate_cea_modes(connector, edid);
 	num_modes += add_displayid_detailed_modes(connector, edid);
+	num_modes += add_YCbCr420VDB_modes(connector, edid);
 	if (edid->features & DRM_EDID_FEATURE_DEFAULT_GTF)
 		num_modes += add_inferred_modes(connector, edid);
 

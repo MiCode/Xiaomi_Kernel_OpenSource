@@ -334,6 +334,7 @@
 # define DP_LINK_BW_1_62		    0x06
 # define DP_LINK_BW_2_7			    0x0a
 # define DP_LINK_BW_5_4			    0x14    /* 1.2 */
+# define DP_LINK_BW_8_1			    0x1e
 
 #define DP_LANE_COUNT_SET	            0x101
 # define DP_LANE_COUNT_MASK		    0x0f
@@ -516,6 +517,8 @@
 # define DP_TEST_LINK_EDID_READ		    (1 << 2)
 # define DP_TEST_LINK_PHY_TEST_PATTERN	    (1 << 3) /* DPCD >= 1.1 */
 # define DP_TEST_LINK_FAUX_PATTERN	    (1 << 4) /* DPCD >= 1.2 */
+# define DP_TEST_LINK_AUDIO_PATTERN     (1 << 5)
+# define DP_TEST_LINK_AUDIO_DISABLED_VIDEO (1 << 6)
 
 #define DP_TEST_LINK_RATE		    0x219
 # define DP_LINK_RATE_162		    (0x6)
@@ -590,6 +593,14 @@
 # define DP_TEST_CRC_SUPPORTED		    (1 << 5)
 # define DP_TEST_COUNT_MASK		    0xf
 
+#define DP_TEST_PHY_PATTERN		    0x248
+# define DP_TEST_PHY_PATTERN_NONE			0x0
+# define DP_TEST_PHY_PATTERN_D10_2_NO_SCRAMBLING	0x1
+# define DP_TEST_PHY_PATTERN_SYMBOL_ERR_MEASUREMENT_CNT 0x2
+# define DP_TEST_PHY_PATTERN_PRBS7			0x3
+# define DP_TEST_PHY_PATTERN_80_BIT_CUSTOM_PATTERN	0x4
+# define DP_TEST_PHY_PATTERN_HBR2_CTS_EYE_PATTERN	0x5
+
 #define DP_TEST_RESPONSE		    0x260
 # define DP_TEST_ACK			    (1 << 0)
 # define DP_TEST_NAK			    (1 << 1)
@@ -599,6 +610,19 @@
 
 #define DP_TEST_SINK			    0x270
 # define DP_TEST_SINK_START		    (1 << 0)
+
+#define DP_TEST_AUDIO_MODE		    0x271
+
+#define DP_TEST_AUDIO_PATTERN_TYPE	    0x272
+
+#define DP_TEST_AUDIO_PERIOD_CH1	    0x273
+#define DP_TEST_AUDIO_PERIOD_CH2	    0x274
+#define DP_TEST_AUDIO_PERIOD_CH3	    0x275
+#define DP_TEST_AUDIO_PERIOD_CH4	    0x276
+#define DP_TEST_AUDIO_PERIOD_CH5	    0x277
+#define DP_TEST_AUDIO_PERIOD_CH6	    0x278
+#define DP_TEST_AUDIO_PERIOD_CH7	    0x279
+#define DP_TEST_AUDIO_PERIOD_CH8	    0x27A
 
 #define DP_PAYLOAD_TABLE_UPDATE_STATUS      0x2c0   /* 1.2 MST */
 # define DP_PAYLOAD_TABLE_UPDATED           (1 << 0)

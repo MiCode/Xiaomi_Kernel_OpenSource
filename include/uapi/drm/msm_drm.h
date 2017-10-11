@@ -26,6 +26,7 @@
 #define __MSM_DRM_H__
 
 #include "drm.h"
+#include "sde_drm.h"
 
 #if defined(__cplusplus)
 extern "C" {
@@ -254,6 +255,63 @@ struct drm_msm_gem_madvise {
 	__u32 retained;       /* out, whether backing store still exists */
 };
 
+/* HDR WRGB x and y index */
+#define DISPLAY_PRIMARIES_WX 0
+#define DISPLAY_PRIMARIES_WY 1
+#define DISPLAY_PRIMARIES_RX 2
+#define DISPLAY_PRIMARIES_RY 3
+#define DISPLAY_PRIMARIES_GX 4
+#define DISPLAY_PRIMARIES_GY 5
+#define DISPLAY_PRIMARIES_BX 6
+#define DISPLAY_PRIMARIES_BY 7
+#define DISPLAY_PRIMARIES_MAX 8
+
+struct drm_panel_hdr_properties {
+	__u32 hdr_enabled;
+
+	/* WRGB X and y values arrayed in format */
+	/* [WX, WY, RX, RY, GX, GY, BX, BY] */
+	__u32 display_primaries[DISPLAY_PRIMARIES_MAX];
+
+	/* peak brightness supported by panel */
+	__u32 peak_brightness;
+	/* Blackness level supported by panel */
+	__u32 blackness_level;
+};
+
+/**
+ * struct drm_msm_event_req - Payload to event enable/disable ioctls.
+ * @object_id: DRM object id. e.g.: for crtc pass crtc id.
+ * @object_type: DRM object type. e.g.: for crtc set it to DRM_MODE_OBJECT_CRTC.
+ * @event: Event for which notification is being enabled/disabled.
+ *         e.g.: for Histogram set - DRM_EVENT_HISTOGRAM.
+ * @client_context: Opaque pointer that will be returned during event response
+ *                  notification.
+ * @index: Object index(e.g.: crtc index), optional for user-space to set.
+ *         Driver will override value based on object_id and object_type.
+ */
+struct drm_msm_event_req {
+	__u32 object_id;
+	__u32 object_type;
+	__u32 event;
+	__u64 client_context;
+	__u32 index;
+};
+
+/**
+ * struct drm_msm_event_resp - payload returned when read is called for
+ *                            custom notifications.
+ * @base: Event type and length of complete notification payload.
+ * @info: Contains information about DRM that which raised this event.
+ * @data: Custom payload that driver returns for event type.
+ *        size of data = base.length - (sizeof(base) + sizeof(info))
+ */
+struct drm_msm_event_resp {
+	struct drm_event base;
+	struct drm_msm_event_req info;
+	__u8 data[];
+};
+
 #define DRM_MSM_GET_PARAM              0x00
 /* placeholder:
 #define DRM_MSM_SET_PARAM              0x01
@@ -266,6 +324,19 @@ struct drm_msm_gem_madvise {
 #define DRM_MSM_WAIT_FENCE             0x07
 #define DRM_MSM_GEM_MADVISE            0x08
 
+#define DRM_SDE_WB_CONFIG              0x40
+#define DRM_MSM_REGISTER_EVENT         0x41
+#define DRM_MSM_DEREGISTER_EVENT       0x42
+#define DRM_MSM_RMFB2                  0x43
+
+/* sde custom events */
+#define DRM_EVENT_HISTOGRAM 0x80000000
+#define DRM_EVENT_AD_BACKLIGHT 0x80000001
+#define DRM_EVENT_CRTC_POWER 0x80000002
+#define DRM_EVENT_SYS_BACKLIGHT 0x80000003
+#define DRM_EVENT_SDE_POWER 0x80000004
+#define DRM_EVENT_IDLE_NOTIFY 0x80000005
+
 #define DRM_IOCTL_MSM_GET_PARAM        DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GET_PARAM, struct drm_msm_param)
 #define DRM_IOCTL_MSM_GEM_NEW          DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GEM_NEW, struct drm_msm_gem_new)
 #define DRM_IOCTL_MSM_GEM_INFO         DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GEM_INFO, struct drm_msm_gem_info)
@@ -274,6 +345,14 @@ struct drm_msm_gem_madvise {
 #define DRM_IOCTL_MSM_GEM_SUBMIT       DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GEM_SUBMIT, struct drm_msm_gem_submit)
 #define DRM_IOCTL_MSM_WAIT_FENCE       DRM_IOW (DRM_COMMAND_BASE + DRM_MSM_WAIT_FENCE, struct drm_msm_wait_fence)
 #define DRM_IOCTL_MSM_GEM_MADVISE      DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GEM_MADVISE, struct drm_msm_gem_madvise)
+#define DRM_IOCTL_SDE_WB_CONFIG \
+	DRM_IOW((DRM_COMMAND_BASE + DRM_SDE_WB_CONFIG), struct sde_drm_wb_cfg)
+#define DRM_IOCTL_MSM_REGISTER_EVENT   DRM_IOW((DRM_COMMAND_BASE + \
+			DRM_MSM_REGISTER_EVENT), struct drm_msm_event_req)
+#define DRM_IOCTL_MSM_DEREGISTER_EVENT DRM_IOW((DRM_COMMAND_BASE + \
+			DRM_MSM_DEREGISTER_EVENT), struct drm_msm_event_req)
+#define DRM_IOCTL_MSM_RMFB2 DRM_IOW((DRM_COMMAND_BASE + \
+			DRM_MSM_RMFB2), unsigned int)
 
 #if defined(__cplusplus)
 }
