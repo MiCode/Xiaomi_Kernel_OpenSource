@@ -580,6 +580,9 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 	}
 		break;
 	case CAM_STOP_DEV: {
+		struct i2c_settings_array *i2c_set = NULL;
+		int i;
+
 		rc = camera_io_release(&a_ctrl->io_master_info);
 		if (rc < 0)
 			CAM_ERR(CAM_ACTUATOR, "Failed in releasing CCI");
@@ -587,6 +590,17 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 		if (rc < 0) {
 			CAM_ERR(CAM_ACTUATOR, "Actuator Power down failed");
 			goto release_mutex;
+		}
+		for (i = 0; i < MAX_PER_FRAME_ARRAY; i++) {
+			i2c_set = &(a_ctrl->i2c_data.per_frame[i]);
+
+			if (i2c_set->is_settings_valid == 1) {
+				rc = delete_request(i2c_set);
+				if (rc < 0)
+					CAM_ERR(CAM_SENSOR,
+						"delete request: %lld rc: %d",
+						i2c_set->request_id, rc);
+			}
 		}
 	}
 		break;
@@ -626,5 +640,52 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 release_mutex:
 	mutex_unlock(&(a_ctrl->actuator_mutex));
 
+	return rc;
+}
+
+int32_t cam_actuator_flush_request(struct cam_req_mgr_flush_request *flush_req)
+{
+	int32_t rc = 0, i;
+	uint32_t cancel_req_id_found = 0;
+	struct cam_actuator_ctrl_t *a_ctrl = NULL;
+	struct i2c_settings_array *i2c_set = NULL;
+
+	if (!flush_req)
+		return -EINVAL;
+
+	a_ctrl = (struct cam_actuator_ctrl_t *)
+		cam_get_device_priv(flush_req->dev_hdl);
+	if (!a_ctrl) {
+		CAM_ERR(CAM_ACTUATOR, "Device data is NULL");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < MAX_PER_FRAME_ARRAY; i++) {
+		i2c_set = &(a_ctrl->i2c_data.per_frame[i]);
+
+		if ((flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ)
+				&& (i2c_set->request_id != flush_req->req_id))
+			continue;
+
+		if (i2c_set->is_settings_valid == 1) {
+			rc = delete_request(i2c_set);
+			if (rc < 0)
+				CAM_ERR(CAM_ACTUATOR,
+					"delete request: %lld rc: %d",
+					i2c_set->request_id, rc);
+
+			if (flush_req->type ==
+				CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ) {
+				cancel_req_id_found = 1;
+				break;
+			}
+		}
+	}
+
+	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ &&
+		!cancel_req_id_found)
+		CAM_DBG(CAM_ACTUATOR,
+			"Flush request id:%lld not found in the pending list",
+			flush_req->req_id);
 	return rc;
 }
