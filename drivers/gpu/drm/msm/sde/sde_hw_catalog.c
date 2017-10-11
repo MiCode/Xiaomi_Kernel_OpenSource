@@ -231,6 +231,7 @@ enum {
 	DMA_IGC_PROP,
 	DMA_GC_PROP,
 	DMA_DGM_INVERSE_PMA,
+	DMA_CSC_OFF,
 	DMA_PROP_MAX,
 };
 
@@ -523,6 +524,7 @@ static struct sde_prop_type dma_prop[] = {
 	{DMA_GC_PROP, "qcom,sde-dma-gc", false, PROP_TYPE_U32_ARRAY},
 	{DMA_DGM_INVERSE_PMA, "qcom,sde-dma-inverse-pma", false,
 		PROP_TYPE_BOOL},
+	{DMA_CSC_OFF, "qcom,sde-dma-csc-off", false, PROP_TYPE_U32},
 };
 
 static struct sde_prop_type ctl_prop[] = {
@@ -1175,6 +1177,7 @@ static void _sde_sspp_setup_dma(struct sde_mdss_cfg *sde_cfg,
 
 	sblk->num_igc_blk = dgm_count;
 	sblk->num_gc_blk = dgm_count;
+	sblk->num_dgm_csc_blk = dgm_count;
 	for (i = 0; i < dgm_count; i++) {
 		if (prop_exists[i][DMA_IGC_PROP]) {
 			sblk->igc_blk[i].id = SDE_SSPP_DMA_IGC;
@@ -1204,6 +1207,14 @@ static void _sde_sspp_setup_dma(struct sde_mdss_cfg *sde_cfg,
 			DMA_DGM_INVERSE_PMA, 0))
 			set_bit(SDE_SSPP_DGM_INVERSE_PMA, &sspp->features);
 
+		if (prop_exists[i][DMA_CSC_OFF]) {
+			sblk->dgm_csc_blk[i].id = SDE_SSPP_DGM_CSC;
+			snprintf(sblk->csc_blk.name, SDE_HW_BLK_NAME_LEN,
+				"sspp_dgm_csc%u", sspp->id - SSPP_DMA0);
+			set_bit(SDE_SSPP_DGM_CSC, &sspp->features);
+			sblk->dgm_csc_blk[i].base = PROP_VALUE_ACCESS(
+				&prop_value[i * DMA_PROP_MAX], DMA_CSC_OFF, 0);
+		}
 	}
 }
 
@@ -1370,7 +1381,6 @@ static int sde_sspp_parse_dt(struct device_node *np,
 			_sde_sspp_setup_cursor(sde_cfg, sspp, sblk, NULL,
 								&cursor_count);
 		} else if (!strcmp(type, "dma")) {
-			/* No prop values for DMA pipes */
 			_sde_sspp_setup_dma(sde_cfg, sspp, sblk,
 				dgm_prop_exists, dgm_prop_value, &dma_count,
 				dgm_count);

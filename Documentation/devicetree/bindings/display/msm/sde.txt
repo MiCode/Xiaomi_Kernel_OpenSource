@@ -228,6 +228,7 @@ Optional properties:
 				-- qcom,sde-dma-gc: offset and version of DMA GC
 				-- qcom,sde-dma-inverse-pma: Boolean property to indicate if
 				inverse PMA feature is available on DMA pipe
+				-- qcom,sde-dma-csc-off: offset of CSC hardware
 - qcom,sde-sspp-rgb-blocks:	A node that lists the blocks inside the RGB hardware. The
 				block entries will contain the offset and version (if needed)
 				of each feature block. The presence of a block entry
@@ -692,11 +693,13 @@ Example:
 		qcom,sde-dma-igc = <0x400 0x00050000>;
 		qcom,sde-dma-gc = <0x600 0x00050000>;
 		qcom,sde-dma-inverse-pma;
+		qcom,sde-dma-csc-off = <0x200>;
 	}
 	dgm@1 {
 		qcom,sde-dma-igc = <0x1400 0x00050000>;
 		qcom,sde-dma-gc = <0x600 0x00050000>;
 		qcom,sde-dma-inverse-pma;
+		qcom,sde-dma-csc-off = <0x1200>;
 	}
     };
 

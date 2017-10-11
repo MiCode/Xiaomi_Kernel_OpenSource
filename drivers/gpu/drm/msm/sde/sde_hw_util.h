@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -187,6 +187,9 @@ void sde_hw_setup_scaler3(struct sde_hw_blk_reg_map *c,
 
 u32 sde_hw_get_scaler3_ver(struct sde_hw_blk_reg_map *c,
 		u32 scaler_offset);
+
+void sde_hw_csc_matrix_coeff_setup(struct sde_hw_blk_reg_map *c,
+		u32 csc_reg_off, struct sde_csc_cfg *data);
 
 void sde_hw_csc_setup(struct sde_hw_blk_reg_map  *c,
 		u32 csc_reg_off,

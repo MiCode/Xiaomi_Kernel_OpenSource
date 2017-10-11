@@ -3736,6 +3736,7 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 			pstate->dirty |= SDE_PLANE_DIRTY_RECTS;
 			break;
 		case PLANE_PROP_CSC_V1:
+		case PLANE_PROP_CSC_DMA_V1:
 		case PLANE_PROP_INVERSE_PMA:
 			pstate->dirty |= SDE_PLANE_DIRTY_FORMAT;
 			break;
@@ -3987,6 +3988,10 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 			psde->pipe_hw->ops.setup_inverse_pma(psde->pipe_hw,
 				pstate->multirect_index, pma_mode);
 		}
+
+		if (psde->pipe_hw->ops.setup_dgm_csc)
+			psde->pipe_hw->ops.setup_dgm_csc(psde->pipe_hw,
+				pstate->multirect_index, psde->csc_usr_ptr);
 	}
 
 	sde_color_process_plane_setup(plane);
@@ -4326,6 +4331,12 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 		sde_kms_info_add_keyint(info, "inverse_pma", 1);
 	}
 
+	if (psde->features & BIT(SDE_SSPP_DGM_CSC)) {
+		msm_property_install_volatile_range(
+			&psde->property_info, "csc_dma_v1", 0x0,
+			0, ~0, 0, PLANE_PROP_CSC_DMA_V1);
+		sde_kms_info_add_keyint(info, "csc_dma_v1", 1);
+	}
 	msm_property_set_blob(&psde->property_info, &psde->blob_info,
 			info->data, SDE_KMS_INFO_DATALEN(info),
 			PLANE_PROP_INFO);
@@ -4602,6 +4613,7 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 				_sde_plane_set_input_fence(psde, pstate, val);
 				break;
 			case PLANE_PROP_CSC_V1:
+			case PLANE_PROP_CSC_DMA_V1:
 				_sde_plane_set_csc_v1(psde, (void *)val);
 				break;
 			case PLANE_PROP_SCALER_V1:

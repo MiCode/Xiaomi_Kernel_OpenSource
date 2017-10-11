@@ -1026,6 +1026,31 @@ static void sde_hw_sspp_setup_dgm_inverse_pma(struct sde_hw_pipe *ctx,
 	SDE_REG_WRITE(&ctx->hw, offset, op_mode);
 }
 
+static void sde_hw_sspp_setup_dgm_csc(struct sde_hw_pipe *ctx,
+		enum sde_sspp_multirect_index index, struct sde_csc_cfg *data)
+{
+	u32 idx = 0;
+	u32 offset;
+	u32 op_mode = 0;
+	const struct sde_sspp_sub_blks *sblk;
+
+	if (!ctx || !ctx->cap || !ctx->cap->sblk)
+		return;
+
+	sblk = ctx->cap->sblk;
+	if (index == SDE_SSPP_RECT_1)
+		idx = 1;
+
+	offset = sblk->dgm_csc_blk[idx].base;
+	if (data) {
+		op_mode |= BIT(0);
+		sde_hw_csc_matrix_coeff_setup(&ctx->hw,
+			offset + CSC_10BIT_OFFSET, data);
+	}
+
+	SDE_REG_WRITE(&ctx->hw, offset, op_mode);
+}
+
 static void _setup_layer_ops(struct sde_hw_pipe *c,
 		unsigned long features)
 {
@@ -1054,6 +1079,9 @@ static void _setup_layer_ops(struct sde_hw_pipe *c,
 	if (test_bit(SDE_SSPP_CSC, &features) ||
 		test_bit(SDE_SSPP_CSC_10BIT, &features))
 		c->ops.setup_csc = sde_hw_sspp_setup_csc;
+
+	if (test_bit(SDE_SSPP_DGM_CSC, &features))
+		c->ops.setup_dgm_csc = sde_hw_sspp_setup_dgm_csc;
 
 	if (test_bit(SDE_SSPP_SCALER_QSEED2, &features)) {
 		c->ops.setup_sharpening = sde_hw_sspp_setup_sharpening;
