@@ -1553,11 +1553,7 @@ ath10k_wmi_tlv_op_gen_start_scan(struct ath10k *ar,
 	cmd->ie_len = __cpu_to_le32(arg->ie_len);
 	cmd->num_probes = __cpu_to_le32(3);
 
-	if (QCA_REV_WCN3990(ar)) {
-		cmd->common.scan_ctrl_flags = ar->fw_flags->flags;
-		cmd->common.scan_ctrl_flags |=
-					__cpu_to_le32(WMI_SCAN_CHAN_STAT_EVENT);
-	} else {
+	if (!QCA_REV_WCN3990(ar)) {
 		cmd->common.scan_ctrl_flags ^=
 			__cpu_to_le32(WMI_SCAN_FILTER_PROBE_REQ);
 	}

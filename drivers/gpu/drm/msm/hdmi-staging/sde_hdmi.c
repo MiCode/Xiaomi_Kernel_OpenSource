@@ -2153,6 +2153,8 @@ int sde_hdmi_get_property(struct drm_connector *connector,
 	mutex_lock(&hdmi_display->display_lock);
 	if (property_index == CONNECTOR_PROP_PLL_ENABLE)
 		*value = hdmi_display->pll_update_enable ? 1 : 0;
+	if (property_index == CONNECTOR_PROP_HDCP_VERSION)
+		*value = hdmi_display->sink_hdcp_ver;
 	mutex_unlock(&hdmi_display->display_lock);
 
 	return rc;

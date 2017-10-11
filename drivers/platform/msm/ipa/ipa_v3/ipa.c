@@ -143,6 +143,9 @@
 #define IPA_IOC_ALLOC_NAT_MEM32 _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_ALLOC_NAT_MEM, \
 				compat_uptr_t)
+#define IPA_IOC_ALLOC_NAT_TABLE32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_ALLOC_NAT_TABLE, \
+				compat_uptr_t)
 #define IPA_IOC_V4_INIT_NAT32 _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_V4_INIT_NAT, \
 				compat_uptr_t)
@@ -151,6 +154,9 @@
 				compat_uptr_t)
 #define IPA_IOC_V4_DEL_NAT32 _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_V4_DEL_NAT, \
+				compat_uptr_t)
+#define IPA_IOC_DEL_NAT_TABLE32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_DEL_NAT_TABLE, \
 				compat_uptr_t)
 #define IPA_IOC_GET_NAT_OFFSET32 _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_GET_NAT_OFFSET, \
@@ -207,6 +213,18 @@ struct ipa3_ioc_nat_alloc_mem32 {
 	compat_size_t size;
 	compat_off_t offset;
 };
+
+/**
+* struct ipa_ioc_nat_ipv6ct_table_alloc32 - table memory allocation
+* properties
+* @size: input parameter, size of table in bytes
+* @offset: output parameter, offset into page in case of system memory
+*/
+struct ipa_ioc_nat_ipv6ct_table_alloc32 {
+	compat_size_t size;
+	compat_off_t offset;
+};
+
 #endif
 
 #define IPA_TZ_UNLOCK_ATTRIBUTE 0x0C0311
@@ -619,8 +637,10 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	u8 header[128] = { 0 };
 	u8 *param = NULL;
 	struct ipa_ioc_nat_alloc_mem nat_mem;
+	struct ipa_ioc_nat_ipv6ct_table_alloc table_alloc;
 	struct ipa_ioc_v4_nat_init nat_init;
 	struct ipa_ioc_v4_nat_del nat_del;
+	struct ipa_ioc_nat_ipv6ct_table_del table_del;
 	struct ipa_ioc_rm_dependency rm_depend;
 	size_t sz;
 	int pre_entry;
@@ -659,6 +679,26 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 		}
 		break;
+
+	case IPA_IOC_ALLOC_NAT_TABLE:
+		if (copy_from_user(&table_alloc, (const void __user *)arg,
+			sizeof(struct ipa_ioc_nat_ipv6ct_table_alloc))) {
+			retval = -EFAULT;
+			break;
+		}
+
+		if (ipa3_allocate_nat_table(&table_alloc)) {
+			retval = -EFAULT;
+			break;
+		}
+		if (table_alloc.offset &&
+			copy_to_user((void __user *)arg, &table_alloc, sizeof(
+				struct ipa_ioc_nat_ipv6ct_table_alloc))) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
+
 	case IPA_IOC_V4_INIT_NAT:
 		if (copy_from_user((u8 *)&nat_init, (u8 *)arg,
 					sizeof(struct ipa_ioc_v4_nat_init))) {
@@ -714,6 +754,18 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 		}
 		if (ipa3_nat_del_cmd(&nat_del)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
+
+	case IPA_IOC_DEL_NAT_TABLE:
+		if (copy_from_user(&table_del, (const void __user *)arg,
+			sizeof(struct ipa_ioc_nat_ipv6ct_table_del))) {
+			retval = -EFAULT;
+			break;
+		}
+		if (ipa3_del_nat_table(&table_del)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -2997,6 +3049,34 @@ static void ipa3_teardown_apps_pipes(void)
 }
 
 #ifdef CONFIG_COMPAT
+static long compat_ipa3_nat_ipv6ct_alloc_table(unsigned long arg,
+	int (alloc_func)(struct ipa_ioc_nat_ipv6ct_table_alloc *))
+{
+	long retval;
+	struct ipa_ioc_nat_ipv6ct_table_alloc32 table_alloc32;
+	struct ipa_ioc_nat_ipv6ct_table_alloc table_alloc;
+
+	retval = copy_from_user(&table_alloc32, (const void __user *)arg,
+		sizeof(struct ipa_ioc_nat_ipv6ct_table_alloc32));
+	if (retval)
+		return retval;
+
+	table_alloc.size = (size_t)table_alloc32.size;
+	table_alloc.offset = (off_t)table_alloc32.offset;
+
+	retval = alloc_func(&table_alloc);
+	if (retval)
+		return retval;
+
+	if (table_alloc.offset) {
+		table_alloc32.offset = (compat_off_t)table_alloc.offset;
+		retval = copy_to_user((void __user *)arg, &table_alloc32,
+			sizeof(struct ipa_ioc_nat_ipv6ct_table_alloc32));
+	}
+
+	return retval;
+}
+
 long compat_ipa3_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int retval = 0;
@@ -3068,6 +3148,9 @@ long compat_ipa3_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 ret:
 		return retval;
+	case IPA_IOC_ALLOC_NAT_TABLE32:
+		return compat_ipa3_nat_ipv6ct_alloc_table(arg,
+			ipa3_allocate_nat_table);
 	case IPA_IOC_V4_INIT_NAT32:
 		cmd = IPA_IOC_V4_INIT_NAT;
 		break;
@@ -3076,6 +3159,9 @@ ret:
 		break;
 	case IPA_IOC_V4_DEL_NAT32:
 		cmd = IPA_IOC_V4_DEL_NAT;
+		break;
+	case IPA_IOC_DEL_NAT_TABLE32:
+		cmd = IPA_IOC_DEL_NAT_TABLE;
 		break;
 	case IPA_IOC_GET_NAT_OFFSET32:
 		cmd = IPA_IOC_GET_NAT_OFFSET;

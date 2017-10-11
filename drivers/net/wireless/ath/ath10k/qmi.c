@@ -719,6 +719,7 @@ static int ath10k_snoc_driver_event_server_exit(struct ath10k *ar)
 	atomic_set(&qmi_cfg->fw_ready, 0);
 	qmi_cfg->msa_ready = false;
 	atomic_set(&qmi_cfg->server_connected, 0);
+	qmi_handle_destroy(qmi_cfg->wlfw_clnt);
 	return 0;
 }
 
@@ -896,5 +897,6 @@ void ath10k_snoc_stop_qmi_service(struct ath10k *ar)
 					  WLFW_SERVICE_INS_ID_V01,
 					  &qmi_cfg->wlfw_clnt_nb);
 	destroy_workqueue(qmi_cfg->event_wq);
+	qmi_handle_destroy(qmi_cfg->wlfw_clnt);
 	qmi_cfg = NULL;
 }

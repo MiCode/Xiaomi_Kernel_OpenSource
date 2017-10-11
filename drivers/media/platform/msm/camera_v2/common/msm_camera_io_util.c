@@ -424,7 +424,7 @@ int msm_camera_config_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
 			curr_vreg = &cam_vreg[j];
 			reg_ptr[j] = regulator_get(dev,
 				curr_vreg->reg_name);
-			if (IS_ERR(reg_ptr[j])) {
+			if (IS_ERR_OR_NULL(reg_ptr[j])) {
 				pr_err("%s: %s get failed\n",
 					 __func__,
 					 curr_vreg->reg_name);
@@ -531,7 +531,7 @@ int msm_camera_enable_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
 					continue;
 			} else
 				j = i;
-			if (IS_ERR(reg_ptr[j])) {
+			if (IS_ERR_OR_NULL(reg_ptr[j])) {
 				pr_err("%s: %s null regulator\n",
 					__func__, cam_vreg[j].reg_name);
 				goto disable_vreg;

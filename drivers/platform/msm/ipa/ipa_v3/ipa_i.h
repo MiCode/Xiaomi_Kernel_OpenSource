@@ -38,7 +38,6 @@
 #include "ipa_uc_offload_i.h"
 
 #define DRV_NAME "ipa"
-#define NAT_DEV_NAME "ipaNatTable"
 #define IPA_COOKIE 0x57831603
 #define IPA_RT_RULE_COOKIE 0x57831604
 #define IPA_RT_TBL_COOKIE 0x57831605
@@ -1640,12 +1639,15 @@ int ipa3_reset_flt(enum ipa_ip_type ip);
  * NAT
  */
 int ipa3_allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem);
+int ipa3_allocate_nat_table(
+	struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc);
 
 int ipa3_nat_init_cmd(struct ipa_ioc_v4_nat_init *init);
 
 int ipa3_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma);
 
 int ipa3_nat_del_cmd(struct ipa_ioc_v4_nat_del *del);
+int ipa3_del_nat_table(struct ipa_ioc_nat_ipv6ct_table_del *del);
 
 /*
  * Messaging

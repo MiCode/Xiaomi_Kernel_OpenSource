@@ -1179,7 +1179,7 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 				__func__, inst, &event_notify->packet_buffer,
 				&event_notify->extra_data_buffer);
 
-		if (inst->state == MSM_VIDC_CORE_INVALID ||
+		if (inst->state >= MSM_VIDC_STOP ||
 				inst->core->state == VIDC_CORE_INVALID) {
 			dprintk(VIDC_DBG,
 					"Event release buf ref received in invalid state - discard\n");

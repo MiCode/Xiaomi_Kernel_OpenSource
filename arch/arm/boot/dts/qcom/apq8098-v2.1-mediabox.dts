@@ -101,6 +101,10 @@
 	status = "disabled";
 };
 
+&pcie0 {
+	qcom,boot-option = <0x0>;
+};
+
 &soc {
 	qcom,msm-dai-mi2s {
 		dai_mi2s3: qcom,msm-dai-q6-mi2s-quat {

@@ -4507,6 +4507,13 @@ static int ath10k_start(struct ieee80211_hw *hw)
 		goto err_core_stop;
 	}
 
+	param = ar->wmi.pdev_param->idle_ps_config;
+	ret = ath10k_wmi_pdev_set_param(ar, param, 1);
+	if (ret) {
+		ath10k_warn(ar, "failed to enable idle_ps_config: %d\n", ret);
+		goto err_core_stop;
+	}
+
 	if (test_bit(WMI_SERVICE_ADAPTIVE_OCS, ar->wmi.svc_map)) {
 		ret = ath10k_wmi_adaptive_qcs(ar, true);
 		if (ret) {
@@ -5472,7 +5479,8 @@ static int ath10k_hw_scan(struct ieee80211_hw *hw,
 	struct ath10k_vif *arvif = ath10k_vif_to_arvif(vif);
 	struct cfg80211_scan_request *req = &hw_req->req;
 	struct wmi_start_scan_arg arg;
-	int ret = 0;
+	const u8 *ptr;
+	int ret = 0, ie_skip_len = 0;
 	int i;
 
 	mutex_lock(&ar->conf_mutex);
@@ -5504,8 +5512,16 @@ static int ath10k_hw_scan(struct ieee80211_hw *hw,
 	arg.scan_id = ATH10K_SCAN_ID;
 
 	if (req->ie_len) {
-		arg.ie_len = req->ie_len;
-		memcpy(arg.ie, req->ie, arg.ie_len);
+		if (QCA_REV_WCN3990(ar)) {
+			ptr = req->ie;
+			while (ptr[0] == WLAN_EID_SUPP_RATES ||
+			       ptr[0] == WLAN_EID_EXT_SUPP_RATES) {
+				ie_skip_len = ptr[1] + 2;
+				ptr += ie_skip_len;
+			}
+		}
+		arg.ie_len = req->ie_len - ie_skip_len;
+		memcpy(arg.ie, req->ie + ie_skip_len, arg.ie_len);
 	}
 
 	if (req->n_ssids) {
@@ -5513,6 +5529,11 @@ static int ath10k_hw_scan(struct ieee80211_hw *hw,
 		for (i = 0; i < arg.n_ssids; i++) {
 			arg.ssids[i].len  = req->ssids[i].ssid_len;
 			arg.ssids[i].ssid = req->ssids[i].ssid;
+		}
+		if (QCA_REV_WCN3990(ar)) {
+			arg.scan_ctrl_flags &=
+					~(WMI_SCAN_ADD_BCAST_PROBE_REQ |
+					  WMI_SCAN_CHAN_STAT_EVENT);
 		}
 	} else {
 		arg.scan_ctrl_flags |= WMI_SCAN_FLAG_PASSIVE;
@@ -6412,7 +6433,13 @@ static int ath10k_remain_on_channel(struct ieee80211_hw *hw,
 	arg.dwell_time_passive = scan_time_msec;
 	arg.max_scan_time = scan_time_msec;
 	arg.scan_ctrl_flags |= WMI_SCAN_FLAG_PASSIVE;
-	arg.scan_ctrl_flags |= WMI_SCAN_FILTER_PROBE_REQ;
+	if (QCA_REV_WCN3990(ar)) {
+		arg.scan_ctrl_flags &= ~(WMI_SCAN_FILTER_PROBE_REQ |
+					  WMI_SCAN_CHAN_STAT_EVENT |
+					  WMI_SCAN_ADD_BCAST_PROBE_REQ);
+	} else {
+		arg.scan_ctrl_flags |= WMI_SCAN_FILTER_PROBE_REQ;
+	}
 	arg.burst_duration_ms = duration;
 
 	ret = ath10k_start_scan(ar, &arg);

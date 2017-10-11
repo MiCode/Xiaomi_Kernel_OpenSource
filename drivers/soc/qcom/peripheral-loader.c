@@ -164,12 +164,17 @@ static int pil_do_minidump(struct pil_desc *desc, void *ramdump_dev)
 	int ss_mdump_seg_cnt;
 	int ret, i;
 
+	if (!ramdump_dev)
+		return -ENODEV;
+
 	memcpy(&offset, &priv->minidump, sizeof(priv->minidump));
 	offset = offset + sizeof(priv->minidump->md_ss_smem_regions_baseptr);
 	/* There are 3 encryption keys which also need to be dumped */
 	ss_mdump_seg_cnt = readb_relaxed(offset) +
 				NUM_OF_ENCRYPTED_KEY;
 
+	pr_debug("SMEM base to read minidump segments is 0x%x\n",
+			__raw_readl(priv->minidump));
 	subsys_smem_base = ioremap(__raw_readl(priv->minidump),
 				   ss_mdump_seg_cnt * sizeof(*region_info));
 	region_info =
@@ -191,6 +196,9 @@ static int pil_do_minidump(struct pil_desc *desc, void *ramdump_dev)
 		s->address = __raw_readl(offset);
 		offset = offset + sizeof(region_info->region_base_address);
 		s->size = __raw_readl(offset);
+		pr_debug("Dumping segment %s with address %pK and size 0x%x\n",
+				s->name, (void *)s->address,
+				(unsigned int)s->size);
 		s++;
 		region_info++;
 	}
@@ -199,7 +207,6 @@ static int pil_do_minidump(struct pil_desc *desc, void *ramdump_dev)
 	if (ret)
 		pil_err(desc, "%s: Ramdump collection failed for subsys %s rc:%d\n",
 			__func__, desc->name, ret);
-	writel_relaxed(0, &priv->minidump->md_ss_smem_regions_baseptr);
 	writeb_relaxed(1, &priv->minidump->md_ss_ssr_cause);
 
 	if (desc->subsys_vmid > 0)
@@ -216,16 +223,28 @@ static int pil_do_minidump(struct pil_desc *desc, void *ramdump_dev)
  * Calls the ramdump API with a list of segments generated from the addresses
  * that the descriptor corresponds to.
  */
-int pil_do_ramdump(struct pil_desc *desc, void *ramdump_dev)
+int pil_do_ramdump(struct pil_desc *desc,
+		   void *ramdump_dev, void *minidump_dev)
 {
 	struct pil_priv *priv = desc->priv;
 	struct pil_seg *seg;
 	int count = 0, ret;
 	struct ramdump_segment *ramdump_segs, *s;
+	void __iomem *offset;
 
-	if (priv->minidump && (__raw_readl(priv->minidump) > 0))
-		return pil_do_minidump(desc, ramdump_dev);
+	memcpy(&offset, &priv->minidump, sizeof(priv->minidump));
+	/*
+	 * Collect minidump if smem base is initialized,
+	 * ssr cause is 0. No need to check encryption status
+	 */
+	if (priv->minidump
+	&& (__raw_readl(priv->minidump) != 0)
+	&& (readb_relaxed(offset + sizeof(u32) + 2 * sizeof(u8)) == 0)) {
+		pr_debug("Dumping Minidump for %s\n", desc->name);
+		return pil_do_minidump(desc, minidump_dev);
 
+	}
+	pr_debug("Continuing with full SSR dump for %s\n", desc->name);
 	list_for_each_entry(seg, &priv->segs, list)
 		count++;
 
