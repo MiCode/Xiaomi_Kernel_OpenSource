@@ -434,9 +434,6 @@ extern struct usb_hcd *usb_create_shared_hcd(const struct hc_driver *driver,
 extern struct usb_hcd *usb_get_hcd(struct usb_hcd *hcd);
 extern void usb_put_hcd(struct usb_hcd *hcd);
 extern int usb_hcd_is_primary_hcd(struct usb_hcd *hcd);
-extern int usb_add_hcd(struct usb_hcd *hcd,
-		unsigned int irqnum, unsigned long irqflags);
-extern void usb_remove_hcd(struct usb_hcd *hcd);
 extern int usb_hcd_find_raw_port_number(struct usb_hcd *hcd, int port1);
 
 struct platform_device;
@@ -636,15 +633,6 @@ extern int hcd_bus_suspend(struct usb_device *rhdev, pm_message_t msg);
 extern int hcd_bus_resume(struct usb_device *rhdev, pm_message_t msg);
 #endif /* CONFIG_PM */
 
-#ifdef CONFIG_PM_RUNTIME
-extern void usb_hcd_resume_root_hub(struct usb_hcd *hcd);
-#else
-static inline void usb_hcd_resume_root_hub(struct usb_hcd *hcd)
-{
-	return;
-}
-#endif /* CONFIG_PM_RUNTIME */
-
 /*-------------------------------------------------------------------------*/
 
 #if defined(CONFIG_USB_MON) || defined(CONFIG_USB_MON_MODULE)
@@ -709,6 +697,29 @@ extern struct rw_semaphore ehci_cf_port_reset_rwsem;
 #define USB_OHCI_LOADED		1
 #define USB_EHCI_LOADED		2
 extern unsigned long usb_hcds_loaded;
+
+#ifdef CONFIG_USB
+extern int usb_add_hcd(struct usb_hcd *hcd,
+		unsigned int irqnum, unsigned long irqflags);
+extern void usb_remove_hcd(struct usb_hcd *hcd);
+#ifdef CONFIG_PM_RUNTIME
+extern void usb_hcd_resume_root_hub(struct usb_hcd *hcd);
+#else
+static inline void usb_hcd_resume_root_hub(struct usb_hcd *hcd) {}
+#endif /* CONFIG_PM_RUNTIME */
+
+#else  /* CONFIG_USB */
+
+static inline int usb_add_hcd(struct usb_hcd *hcd,
+		unsigned int irqnum, unsigned long irqflags)
+{
+	return 0;
+}
+
+static inline void usb_remove_hcd(struct usb_hcd *hcd) {}
+static inline void usb_hcd_resume_root_hub(struct usb_hcd *hcd) {}
+
+#endif /* CONFIG_USB */
 
 #endif /* __KERNEL__ */
 
