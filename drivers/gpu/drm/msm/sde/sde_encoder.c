@@ -1558,8 +1558,8 @@ static int _sde_encoder_dsc_setup(struct sde_encoder_virt *sde_enc,
 	return ret;
 }
 
-static void _sde_encoder_update_vsync_source(struct sde_encoder_virt *sde_enc,
-			struct msm_display_info *disp_info, bool is_dummy)
+void sde_encoder_helper_vsync_config(struct sde_encoder_phys *phys_enc,
+			u32 vsync_source, bool is_dummy)
 {
 	struct sde_vsync_source_cfg vsync_cfg = { 0 };
 	struct msm_drm_private *priv;
@@ -1567,11 +1567,11 @@ static void _sde_encoder_update_vsync_source(struct sde_encoder_virt *sde_enc,
 	struct sde_hw_mdp *hw_mdptop;
 	struct drm_encoder *drm_enc;
 	struct msm_mode_info mode_info;
+	struct sde_encoder_virt *sde_enc;
 	int i, rc = 0;
 
-	if (!sde_enc || !disp_info) {
-		SDE_ERROR("invalid param sde_enc:%d or disp_info:%d\n",
-					sde_enc != NULL, disp_info != NULL);
+	if (!sde_enc) {
+		SDE_ERROR("invalid param sde_enc:%d\n", sde_enc != NULL);
 		return;
 	} else if (sde_enc->num_phys_encs > ARRAY_SIZE(sde_enc->hw_pp)) {
 		SDE_ERROR("invalid num phys enc %d/%d\n",
@@ -1579,6 +1579,8 @@ static void _sde_encoder_update_vsync_source(struct sde_encoder_virt *sde_enc,
 				(int) ARRAY_SIZE(sde_enc->hw_pp));
 		return;
 	}
+
+	sde_enc = to_sde_encoder_virt(phys_enc->parent);
 
 	drm_enc = &sde_enc->base;
 	/* this pointers are checked in virt_enable_helper */
@@ -1602,22 +1604,51 @@ static void _sde_encoder_update_vsync_source(struct sde_encoder_virt *sde_enc,
 		return;
 	}
 
-	if (hw_mdptop->ops.setup_vsync_source &&
-			disp_info->capabilities & MSM_DISPLAY_CAP_CMD_MODE) {
+	if (hw_mdptop->ops.setup_vsync_source) {
 		for (i = 0; i < sde_enc->num_phys_encs; i++)
 			vsync_cfg.ppnumber[i] = sde_enc->hw_pp[i]->idx;
 
 		vsync_cfg.pp_count = sde_enc->num_phys_encs;
 		vsync_cfg.frame_rate = mode_info.frame_rate;
-		if (is_dummy)
-			vsync_cfg.vsync_source = SDE_VSYNC_SOURCE_WD_TIMER_1;
-		else if (disp_info->is_te_using_watchdog_timer)
-			vsync_cfg.vsync_source = SDE_VSYNC_SOURCE_WD_TIMER_0;
-		else
-			vsync_cfg.vsync_source = SDE_VSYNC0_SOURCE_GPIO;
 		vsync_cfg.is_dummy = is_dummy;
 
 		hw_mdptop->ops.setup_vsync_source(hw_mdptop, &vsync_cfg);
+	}
+}
+
+static void _sde_encoder_update_vsync_source(struct sde_encoder_virt *sde_enc,
+			struct msm_display_info *disp_info, bool is_dummy)
+{
+	struct sde_encoder_phys *phys;
+	int i, rc = 0;
+	u32 vsync_source;
+
+	if (!sde_enc || !disp_info) {
+		SDE_ERROR("invalid param sde_enc:%d or disp_info:%d\n",
+					sde_enc != NULL, disp_info != NULL);
+		return;
+	} else if (sde_enc->num_phys_encs > ARRAY_SIZE(sde_enc->hw_pp)) {
+		SDE_ERROR("invalid num phys enc %d/%d\n",
+				sde_enc->num_phys_encs,
+				(int) ARRAY_SIZE(sde_enc->hw_pp));
+		return;
+	}
+
+	if (disp_info->capabilities & MSM_DISPLAY_CAP_CMD_MODE) {
+		if (is_dummy)
+			vsync_source = SDE_VSYNC_SOURCE_WD_TIMER_1;
+		else if (disp_info->is_te_using_watchdog_timer)
+			vsync_source = SDE_VSYNC_SOURCE_WD_TIMER_0;
+		else
+			vsync_source = SDE_VSYNC0_SOURCE_GPIO;
+
+		for (i = 0; i < sde_enc->num_phys_encs; i++) {
+			phys = sde_enc->phys_encs[i];
+
+			if (phys && phys->ops.setup_vsync_source)
+				phys->ops.setup_vsync_source(phys,
+					vsync_source, is_dummy);
+		}
 	}
 }
 

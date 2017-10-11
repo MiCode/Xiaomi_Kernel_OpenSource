@@ -1718,6 +1718,10 @@ static int sde_intf_parse_dt(struct device_node *np,
 			set_bit(SDE_INTF_ROT_START, &intf->features);
 		if (IS_SDE_CTL_REV_100(sde_cfg->ctl_rev))
 			set_bit(SDE_INTF_INPUT_CTRL, &intf->features);
+
+		if (IS_SDE_MAJOR_MINOR_SAME((sde_cfg->hwversion),
+				SDE_HW_VER_500))
+			set_bit(SDE_INTF_TE, &intf->features);
 	}
 
 end:
@@ -2894,7 +2898,7 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 	cfg->mdp[0].smart_panel_align_mode =
 		PROP_VALUE_ACCESS(prop_value, SMART_PANEL_ALIGN_MODE, 0);
 
-	major_version = SDE_HW_MAJOR(sde_cfg->hwversion);
+	major_version = SDE_HW_MAJOR(cfg->hwversion);
 	if (major_version < SDE_HW_MAJOR(SDE_HW_VER_500))
 		set_bit(SDE_MDP_VSYNC_SEL, &cfg->mdp[0].features);
 
