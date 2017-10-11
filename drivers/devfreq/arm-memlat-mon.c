@@ -36,6 +36,7 @@ enum ev_index {
 	INST_IDX,
 	CM_IDX,
 	CYC_IDX,
+	STALL_CYC_IDX,
 	NUM_EVENTS
 };
 #define INST_EV		0x08
@@ -105,12 +106,19 @@ static void read_perf_counters(int cpu, struct cpu_grp_info *cpu_grp)
 {
 	struct cpu_pmu_stats *cpustats = to_cpustats(cpu_grp, cpu);
 	struct dev_stats *devstats = to_devstats(cpu_grp, cpu);
-	unsigned long cyc_cnt;
+	unsigned long cyc_cnt, stall_cnt;
 
 	devstats->inst_count = read_event(&cpustats->events[INST_IDX]);
 	devstats->mem_count = read_event(&cpustats->events[CM_IDX]);
 	cyc_cnt = read_event(&cpustats->events[CYC_IDX]);
 	devstats->freq = compute_freq(cpustats, cyc_cnt);
+	if (cpustats->events[STALL_CYC_IDX].pevent) {
+		stall_cnt = read_event(&cpustats->events[STALL_CYC_IDX]);
+		stall_cnt = min(stall_cnt, cyc_cnt);
+		devstats->stall_pct = mult_frac(100, stall_cnt, cyc_cnt);
+	} else {
+		devstats->stall_pct = 100;
+	}
 }
 
 static unsigned long get_cnt(struct memlat_hwmon *hw)
@@ -130,7 +138,10 @@ static void delete_events(struct cpu_pmu_stats *cpustats)
 
 	for (i = 0; i < ARRAY_SIZE(cpustats->events); i++) {
 		cpustats->events[i].prev_count = 0;
-		perf_event_release_kernel(cpustats->events[i].pevent);
+		if (cpustats->events[i].pevent) {
+			perf_event_release_kernel(cpustats->events[i].pevent);
+			cpustats->events[i].pevent = NULL;
+		}
 	}
 }
 
@@ -149,6 +160,7 @@ static void stop_hwmon(struct memlat_hwmon *hw)
 		devstats->inst_count = 0;
 		devstats->mem_count = 0;
 		devstats->freq = 0;
+		devstats->stall_pct = 0;
 	}
 	mutex_lock(&list_lock);
 	if (!cpumask_equal(&cpu_grp->cpus, &cpu_grp->inited_cpus))
@@ -182,6 +194,7 @@ static int set_events(struct cpu_grp_info *cpu_grp, int cpu)
 	struct perf_event *pevent;
 	struct perf_event_attr *attr;
 	int err, i;
+	unsigned int event_id;
 	struct cpu_pmu_stats *cpustats = to_cpustats(cpu_grp, cpu);
 
 	/* Allocate an attribute for event initialization */
@@ -190,7 +203,11 @@ static int set_events(struct cpu_grp_info *cpu_grp, int cpu)
 		return -ENOMEM;
 
 	for (i = 0; i < ARRAY_SIZE(cpustats->events); i++) {
-		attr->config = cpu_grp->event_ids[i];
+		event_id = cpu_grp->event_ids[i];
+		if (!event_id)
+			continue;
+
+		attr->config = event_id;
 		pevent = perf_event_create_kernel_counter(attr, cpu, NULL,
 							  NULL, NULL);
 		if (IS_ERR(pevent))
@@ -347,6 +364,13 @@ static int arm_memlat_mon_driver_probe(struct platform_device *pdev)
 		event_id = INST_EV;
 	}
 	cpu_grp->event_ids[INST_IDX] = event_id;
+
+	ret = of_property_read_u32(dev->of_node, "qcom,stall-cycle-ev",
+				   &event_id);
+	if (ret)
+		dev_dbg(dev, "Stall cycle event not specified. Event ignored.\n");
+	else
+		cpu_grp->event_ids[STALL_CYC_IDX] = event_id;
 
 	for_each_cpu(cpu, &cpu_grp->cpus)
 		to_devstats(cpu_grp, cpu)->id = cpu;
