@@ -960,7 +960,7 @@
 		reg-names = "slimbus_physical", "slimbus_bam_physical";
 		interrupts = <0 291 0>, <0 292 0>;
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
-		status = "disabled";
+		status = "ok";
 		qcom,iommu-s1-bypass;
 
 		iommu_slim_qca_ctrl_cb: qcom,iommu_slim_ctrl_cb {
@@ -968,6 +968,13 @@
 			iommus = <&apps_smmu 0x1833 0x0>;
 		};
 
+		/* Slimbus Slave DT for WCN3990 */
+		btfmslim_codec: wcn3990 {
+			compatible = "qcom,btfmslim_slave";
+			elemental-addr = [00 01 20 02 17 02];
+			qcom,btfm-slim-ifd = "btfmslim_slave_ifd";
+			qcom,btfm-slim-ifd-elemental-addr = [00 00 20 02 17 02];
+		};
 	};
 
 	wdog: qcom,wdt@17980000{
