@@ -799,6 +799,15 @@ static irqreturn_t gmu_irq_handler(int irq, void *data)
 	if (status & GMU_INT_HOST_AHB_BUS_ERR)
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"AHB bus error interrupt received\n");
+	if (status & GMU_INT_FENCE_ERR) {
+		unsigned int fence_status;
+
+		adreno_read_gmureg(ADRENO_DEVICE(device),
+			ADRENO_REG_GMU_AHB_FENCE_STATUS, &fence_status);
+		dev_err_ratelimited(&gmu->pdev->dev,
+			"FENCE error interrupt received %x\n", fence_status);
+	}
+
 	if (status & ~GMU_AO_INT_MASK)
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"Unhandled GMU interrupts 0x%lx\n",
