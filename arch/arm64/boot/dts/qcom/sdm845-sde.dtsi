@@ -202,6 +202,9 @@
 
 		qcom,sde-cdp-setting = <1 1>, <1 0>;
 
+		qcom,sde-qos-cpu-mask = <0x3>;
+		qcom,sde-qos-cpu-dma-latency = <300>;
+
 		qcom,sde-inline-rotator = <&mdss_rotator 0>;
 		qcom,sde-inline-rot-xin = <10 11>;
 		qcom,sde-inline-rot-xin-type = "sspp", "wb";
