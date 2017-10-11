@@ -2226,6 +2226,21 @@
 		};
 	};
 
+	bluetooth: bt_wcn3990 {
+		compatible = "qca,wcn3990";
+		qca,bt-vdd-core-supply = <&pm660_l9>;
+		qca,bt-vdd-pa-supply = <&pm660_l6>;
+		qca,bt-vdd-ldo-supply = <&pm660_l19>;
+
+		qca,bt-vdd-core-voltage-level = <1800000 1900000>;
+		qca,bt-vdd-pa-voltage-level = <1304000 1370000>;
+		qca,bt-vdd-ldo-voltage-level = <3312000 3400000>;
+
+		qca,bt-vdd-core-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-pa-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-ldo-current-level = <1>; /* LPM/PFM */
+	};
+
 	qcom,icnss@18800000 {
 		status = "disabled";
 		compatible = "qcom,icnss";
