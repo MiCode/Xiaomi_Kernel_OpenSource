@@ -194,6 +194,7 @@ enum sde_enc_rc_states {
  *				clks and resources after IDLE_TIMEOUT time.
  * @vsync_event_work:		worker to handle vsync event for autorefresh
  * @topology:                   topology of the display
+ * @vblank_enabled:		boolean to track userspace vblank vote
  * @rsc_config:			rsc configuration for display vtotal, fps, etc.
  * @cur_conn_roi:		current connector roi
  * @prv_conn_roi:		previous connector roi to optimize if unchanged
@@ -240,6 +241,7 @@ struct sde_encoder_virt {
 	struct kthread_delayed_work delayed_off_work;
 	struct kthread_work vsync_event_work;
 	struct msm_display_topology topology;
+	bool vblank_enabled;
 
 	struct sde_rsc_cmd_config rsc_config;
 	struct sde_rect cur_conn_roi;
@@ -1450,6 +1452,44 @@ static void _sde_encoder_irq_control(struct drm_encoder *drm_enc, bool enable)
 
 }
 
+/* keep track of the userspace vblank during modeset */
+static void _sde_encoder_modeset_helper_locked(struct drm_encoder *drm_enc,
+		u32 sw_event)
+{
+	struct sde_encoder_virt *sde_enc;
+	bool enable;
+	int i;
+
+	if (!drm_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	SDE_DEBUG_ENC(sde_enc, "sw_event:%d, vblank_enabled:%d\n",
+			sw_event, sde_enc->vblank_enabled);
+
+	/* nothing to do if vblank not enabled by userspace */
+	if (!sde_enc->vblank_enabled)
+		return;
+
+	/* disable vblank on pre_modeset */
+	if (sw_event == SDE_ENC_RC_EVENT_PRE_MODESET)
+		enable = false;
+	/* enable vblank on post_modeset */
+	else if (sw_event == SDE_ENC_RC_EVENT_POST_MODESET)
+		enable = true;
+	else
+		return;
+
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
+		if (phys && phys->ops.control_vblank_irq)
+			phys->ops.control_vblank_irq(phys, enable);
+	}
+}
+
 struct sde_rsc_client *sde_encoder_get_rsc_client(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc;
@@ -1791,6 +1831,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		}
 
 		_sde_encoder_irq_control(drm_enc, false);
+		_sde_encoder_modeset_helper_locked(drm_enc, sw_event);
 
 		SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
 			SDE_ENC_RC_STATE_MODESET, SDE_EVTLOG_FUNC_CASE5);
@@ -1813,6 +1854,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 			return -EINVAL;
 		}
 
+		_sde_encoder_modeset_helper_locked(drm_enc, sw_event);
 		_sde_encoder_irq_control(drm_enc, true);
 
 		_sde_encoder_update_rsc_client(drm_enc, NULL, true);
@@ -2287,6 +2329,7 @@ void sde_encoder_register_vblank_callback(struct drm_encoder *drm_enc,
 		if (phys && phys->ops.control_vblank_irq)
 			phys->ops.control_vblank_irq(phys, enable);
 	}
+	sde_enc->vblank_enabled = enable;
 }
 
 void sde_encoder_register_frame_event_callback(struct drm_encoder *drm_enc,
@@ -3767,6 +3810,7 @@ struct drm_encoder *sde_encoder_init(
 	kthread_init_delayed_work(&sde_enc->delayed_off_work,
 			sde_encoder_off_work);
 	sde_enc->idle_timeout = IDLE_TIMEOUT;
+	sde_enc->vblank_enabled = false;
 
 	kthread_init_work(&sde_enc->vsync_event_work,
 			sde_encoder_vsync_event_work_handler);
