@@ -99,6 +99,7 @@ enum {
  * @SDE_MDP_UBWC_1_0,      This chipsets supports Universal Bandwidth
  *                         compression initial revision
  * @SDE_MDP_UBWC_1_5,      Universal Bandwidth compression version 1.5
+ * @SDE_MDP_VSYNC_SEL      Vsync selection for command mode panels
  * @SDE_MDP_MAX            Maximum value
 
  */
@@ -108,6 +109,7 @@ enum {
 	SDE_MDP_BWC,
 	SDE_MDP_UBWC_1_0,
 	SDE_MDP_UBWC_1_5,
+	SDE_MDP_VSYNC_SEL,
 	SDE_MDP_MAX
 };
 

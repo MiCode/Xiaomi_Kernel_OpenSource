@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -220,28 +220,16 @@ static void sde_hw_get_danger_status(struct sde_hw_mdp *mdp,
 	status->wb[WB_3] = 0;
 }
 
-static void sde_hw_setup_vsync_source(struct sde_hw_mdp *mdp,
+static void _update_vsync_source(struct sde_hw_mdp *mdp,
 		struct sde_vsync_source_cfg *cfg)
 {
 	struct sde_hw_blk_reg_map *c;
 	u32 reg, wd_load_value, wd_ctl, wd_ctl2, i;
-	static const u32 pp_offset[PINGPONG_MAX] = {0xC, 0x8, 0x4, 0x13, 0x18};
 
-	if (!mdp || !cfg || (cfg->pp_count > ARRAY_SIZE(cfg->ppnumber)))
+	if (!mdp || !cfg)
 		return;
 
 	c = &mdp->hw;
-	reg = SDE_REG_READ(c, MDP_VSYNC_SEL);
-	for (i = 0; i < cfg->pp_count; i++) {
-		int pp_idx = cfg->ppnumber[i] - PINGPONG_0;
-
-		if (pp_idx >= ARRAY_SIZE(pp_offset))
-			continue;
-
-		reg &= ~(0xf << pp_offset[pp_idx]);
-		reg |= (cfg->vsync_source & 0xf) << pp_offset[pp_idx];
-	}
-	SDE_REG_WRITE(c, MDP_VSYNC_SEL, reg);
 
 	if (cfg->vsync_source >= SDE_VSYNC_SOURCE_WD_TIMER_4 &&
 			cfg->vsync_source <= SDE_VSYNC_SOURCE_WD_TIMER_0) {
@@ -291,6 +279,39 @@ static void sde_hw_setup_vsync_source(struct sde_hw_mdp *mdp,
 		wmb();
 	}
 }
+
+static void sde_hw_setup_vsync_source(struct sde_hw_mdp *mdp,
+		struct sde_vsync_source_cfg *cfg)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 reg, wd_load_value, wd_ctl, wd_ctl2, i;
+	static const u32 pp_offset[PINGPONG_MAX] = {0xC, 0x8, 0x4, 0x13, 0x18};
+
+	if (!mdp || !cfg || (cfg->pp_count > ARRAY_SIZE(cfg->ppnumber)))
+		return;
+
+	c = &mdp->hw;
+	reg = SDE_REG_READ(c, MDP_VSYNC_SEL);
+	for (i = 0; i < cfg->pp_count; i++) {
+		int pp_idx = cfg->ppnumber[i] - PINGPONG_0;
+
+		if (pp_idx >= ARRAY_SIZE(pp_offset))
+			continue;
+
+		reg &= ~(0xf << pp_offset[pp_idx]);
+		reg |= (cfg->vsync_source & 0xf) << pp_offset[pp_idx];
+	}
+	SDE_REG_WRITE(c, MDP_VSYNC_SEL, reg);
+
+	_update_vsync_source(mdp, cfg);
+}
+
+static void sde_hw_setup_vsync_source_v1(struct sde_hw_mdp *mdp,
+		struct sde_vsync_source_cfg *cfg)
+{
+	_update_vsync_source(mdp, cfg);
+}
+
 
 static void sde_hw_get_safe_status(struct sde_hw_mdp *mdp,
 		struct sde_danger_safe_status *status)
@@ -378,6 +399,11 @@ static void _setup_mdp_ops(struct sde_hw_mdp_ops *ops,
 	ops->setup_dce = sde_hw_setup_dce;
 	ops->reset_ubwc = sde_hw_reset_ubwc;
 	ops->intf_audio_select = sde_hw_intf_audio_select;
+	if (cap & BIT(SDE_MDP_VSYNC_SEL))
+		ops->setup_vsync_source = sde_hw_setup_vsync_source;
+	else
+		ops->setup_vsync_source = sde_hw_setup_vsync_source_v1;
+
 }
 
 static const struct sde_mdp_cfg *_top_offset(enum sde_mdp mdp,
