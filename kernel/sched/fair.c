@@ -6975,7 +6975,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 
 	curr_util = boosted_task_util(cpu_rq(cpu)->curr);
 
-	need_idle = wake_to_idle(p);
+	need_idle = wake_to_idle(p) || schedtune_prefer_idle(p);
 
 	grp = task_related_thread_group(p);
 	if (grp && grp->preferred_cluster)
