@@ -1710,7 +1710,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		else
 			idle_timeout = sde_enc->idle_timeout;
 
-		if (!autorefresh_enabled)
+		if (!autorefresh_enabled && idle_timeout)
 			kthread_queue_delayed_work(
 				&disp_thread->worker,
 				&sde_enc->delayed_off_work,
