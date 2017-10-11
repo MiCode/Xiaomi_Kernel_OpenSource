@@ -132,14 +132,6 @@
 	};
 };
 
-&apc0_cpr {
-	qcom,cpr-ignore-invalid-fuses;
-};
-
-&apc1_cpr {
-	qcom,cpr-ignore-invalid-fuses;
-};
-
 &pmi8998_charger {
 	qcom,suspend-input;
 };

@@ -1222,10 +1222,6 @@
 			"pwrcl_sequencer", "perfcl_sequencer", "l3_efuse",
 			"pwrcl_efuse", "perfcl_efuse";
 
-		vdd-l3-supply = <&apc0_l3_vreg>;
-		vdd-pwrcl-supply = <&apc0_pwrcl_vreg>;
-		vdd-perfcl-supply = <&apc1_perfcl_vreg>;
-
 		l3-dev0 = <&l3_cpu0>;
 		l3-dev4 = <&l3_cpu4>;
 
