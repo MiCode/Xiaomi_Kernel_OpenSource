@@ -1527,47 +1527,6 @@ static int msm_geni_serial_port_setup(struct uart_port *uport)
 	 * framework.
 	 */
 	mb();
-	if (!uart_console(uport)) {
-		char name[30];
-
-		memset(name, 0, sizeof(name));
-		if (!msm_port->ipc_log_rx) {
-			scnprintf(name, sizeof(name), "%s%s",
-					dev_name(uport->dev), "_rx");
-			msm_port->ipc_log_rx = ipc_log_context_create(
-					IPC_LOG_TX_RX_PAGES, name, 0);
-			if (!msm_port->ipc_log_rx)
-				dev_info(uport->dev, "Err in Rx IPC Log\n");
-		}
-		memset(name, 0, sizeof(name));
-		if (!msm_port->ipc_log_tx) {
-			scnprintf(name, sizeof(name), "%s%s",
-					dev_name(uport->dev), "_tx");
-			msm_port->ipc_log_tx = ipc_log_context_create(
-					IPC_LOG_TX_RX_PAGES, name, 0);
-			if (!msm_port->ipc_log_tx)
-				dev_info(uport->dev, "Err in Tx IPC Log\n");
-		}
-		memset(name, 0, sizeof(name));
-		if (!msm_port->ipc_log_pwr) {
-			scnprintf(name, sizeof(name), "%s%s",
-					dev_name(uport->dev), "_pwr");
-			msm_port->ipc_log_pwr = ipc_log_context_create(
-					IPC_LOG_PWR_PAGES, name, 0);
-			if (!msm_port->ipc_log_pwr)
-				dev_info(uport->dev, "Err in Pwr IPC Log\n");
-		}
-		memset(name, 0, sizeof(name));
-		if (!msm_port->ipc_log_misc) {
-			scnprintf(name, sizeof(name), "%s%s",
-					dev_name(uport->dev), "_misc");
-			msm_port->ipc_log_misc = ipc_log_context_create(
-					IPC_LOG_MISC_PAGES, name, 0);
-			if (!msm_port->ipc_log_misc)
-				dev_info(uport->dev, "Err in Misc IPC Log\n");
-		}
-
-	}
 exit_portsetup:
 	return ret;
 }
@@ -2093,13 +2052,55 @@ static void console_unregister(struct uart_driver *drv)
 }
 #endif /* defined(CONFIG_SERIAL_CORE_CONSOLE) || defined(CONFIG_CONSOLE_POLL) */
 
-static void msm_geni_serial_debug_init(struct uart_port *uport)
+static void msm_geni_serial_debug_init(struct uart_port *uport, bool console)
 {
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
 
 	msm_port->dbg = debugfs_create_dir(dev_name(uport->dev), NULL);
 	if (IS_ERR_OR_NULL(msm_port->dbg))
 		dev_err(uport->dev, "Failed to create dbg dir\n");
+
+	if (!console) {
+		char name[30];
+
+		memset(name, 0, sizeof(name));
+		if (!msm_port->ipc_log_rx) {
+			scnprintf(name, sizeof(name), "%s%s",
+					dev_name(uport->dev), "_rx");
+			msm_port->ipc_log_rx = ipc_log_context_create(
+					IPC_LOG_TX_RX_PAGES, name, 0);
+			if (!msm_port->ipc_log_rx)
+				dev_info(uport->dev, "Err in Rx IPC Log\n");
+		}
+		memset(name, 0, sizeof(name));
+		if (!msm_port->ipc_log_tx) {
+			scnprintf(name, sizeof(name), "%s%s",
+					dev_name(uport->dev), "_tx");
+			msm_port->ipc_log_tx = ipc_log_context_create(
+					IPC_LOG_TX_RX_PAGES, name, 0);
+			if (!msm_port->ipc_log_tx)
+				dev_info(uport->dev, "Err in Tx IPC Log\n");
+		}
+		memset(name, 0, sizeof(name));
+		if (!msm_port->ipc_log_pwr) {
+			scnprintf(name, sizeof(name), "%s%s",
+					dev_name(uport->dev), "_pwr");
+			msm_port->ipc_log_pwr = ipc_log_context_create(
+					IPC_LOG_PWR_PAGES, name, 0);
+			if (!msm_port->ipc_log_pwr)
+				dev_info(uport->dev, "Err in Pwr IPC Log\n");
+		}
+		memset(name, 0, sizeof(name));
+		if (!msm_port->ipc_log_misc) {
+			scnprintf(name, sizeof(name), "%s%s",
+					dev_name(uport->dev), "_misc");
+			msm_port->ipc_log_misc = ipc_log_context_create(
+					IPC_LOG_MISC_PAGES, name, 0);
+			if (!msm_port->ipc_log_misc)
+				dev_info(uport->dev, "Err in Misc IPC Log\n");
+		}
+
+	}
 }
 
 static const struct uart_ops msm_geni_console_pops = {
@@ -2327,7 +2328,7 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 				line, uport->fifosize, is_console);
 	device_create_file(uport->dev, &dev_attr_loopback);
 	device_create_file(uport->dev, &dev_attr_xfer_mode);
-	msm_geni_serial_debug_init(uport);
+	msm_geni_serial_debug_init(uport, is_console);
 	dev_port->port_setup = false;
 	return uart_add_one_port(drv, uport);
 
