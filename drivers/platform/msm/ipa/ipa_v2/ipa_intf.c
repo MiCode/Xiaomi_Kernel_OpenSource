@@ -234,6 +234,7 @@ int ipa_query_intf(struct ipa_ioc_query_intf *lookup)
 	}
 
 	mutex_lock(&ipa_ctx->lock);
+	lookup->name[IPA_RESOURCE_NAME_MAX-1] = '\0';
 	list_for_each_entry(entry, &ipa_ctx->intf_list, link) {
 		if (!strcmp(entry->name, lookup->name)) {
 			lookup->num_tx_props = entry->num_tx_props;
@@ -269,6 +270,7 @@ int ipa_query_intf_tx_props(struct ipa_ioc_query_intf_tx_props *tx)
 	}
 
 	mutex_lock(&ipa_ctx->lock);
+	tx->name[IPA_RESOURCE_NAME_MAX-1] = '\0';
 	list_for_each_entry(entry, &ipa_ctx->intf_list, link) {
 		if (!strcmp(entry->name, tx->name)) {
 			/* add the entry check */
@@ -310,6 +312,7 @@ int ipa_query_intf_rx_props(struct ipa_ioc_query_intf_rx_props *rx)
 	}
 
 	mutex_lock(&ipa_ctx->lock);
+	rx->name[IPA_RESOURCE_NAME_MAX-1] = '\0';
 	list_for_each_entry(entry, &ipa_ctx->intf_list, link) {
 		if (!strcmp(entry->name, rx->name)) {
 			/* add the entry check */

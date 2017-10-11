@@ -1374,6 +1374,7 @@ int ipa2_get_hdr(struct ipa_ioc_get_hdr *lookup)
 		return -EINVAL;
 	}
 	mutex_lock(&ipa_ctx->lock);
+	lookup->name[IPA_RESOURCE_NAME_MAX-1] = '\0';
 	entry = __ipa_find_hdr(lookup->name);
 	if (entry) {
 		lookup->hdl = entry->id;
@@ -1496,6 +1497,7 @@ int ipa2_copy_hdr(struct ipa_ioc_copy_hdr *copy)
 		return -EINVAL;
 	}
 	mutex_lock(&ipa_ctx->lock);
+	copy->name[IPA_RESOURCE_NAME_MAX-1] = '\0';
 	entry = __ipa_find_hdr(copy->name);
 	if (entry) {
 		memcpy(copy->hdr, entry->hdr, entry->hdr_len);
