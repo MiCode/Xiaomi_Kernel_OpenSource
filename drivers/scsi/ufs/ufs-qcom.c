@@ -1987,6 +1987,18 @@ static void ufs_qcom_pm_qos_remove(struct ufs_qcom_host *host)
 }
 #endif /* CONFIG_SMP */
 
+#define	ANDROID_BOOT_DEV_MAX	30
+static char android_boot_dev[ANDROID_BOOT_DEV_MAX];
+
+#ifndef MODULE
+static int __init get_android_boot_dev(char *str)
+{
+	strlcpy(android_boot_dev, str, ANDROID_BOOT_DEV_MAX);
+	return 1;
+}
+__setup("androidboot.bootdevice=", get_android_boot_dev);
+#endif
+
 /*
  * ufs_qcom_parse_lpm - read from DTS whether LPM modes should be disabled.
  */
@@ -2676,6 +2688,24 @@ static int ufs_qcom_probe(struct platform_device *pdev)
 {
 	int err;
 	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
+
+	/*
+	 * On qcom platforms, bootdevice is the primary storage
+	 * device. This device can either be eMMC or UFS.
+	 * The type of device connected is detected at runtime.
+	 * So, if an eMMC device is connected, and this function
+	 * is invoked, it would turn-off the regulator if it detects
+	 * that the storage device is not ufs.
+	 * These regulators are turned ON by the bootloaders & turning
+	 * them off without sending PON may damage the connected device.
+	 * Hence, check for the connected device early-on & don't turn-off
+	 * the regulators.
+	 */
+	if (of_property_read_bool(np, "non-removable") &&
+	    strlen(android_boot_dev) &&
+	    strcmp(android_boot_dev, dev_name(dev)))
+		return -ENODEV;
 
 	/* Perform generic probe */
 	err = ufshcd_pltfrm_init(pdev, &ufs_hba_qcom_variant);
