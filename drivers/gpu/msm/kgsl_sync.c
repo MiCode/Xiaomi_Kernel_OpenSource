@@ -339,10 +339,10 @@ int kgsl_sync_timeline_create(struct kgsl_context *context)
 		return -ENOENT;
 
 	snprintf(ktimeline_name, sizeof(ktimeline_name),
-		"%s_%.15s(%d)-%.15s(%d)-%d",
-		context->device->name,
+		"%s_%d-%.15s(%d)-%.15s(%d)",
+		context->device->name, context->id,
 		current->group_leader->comm, current->group_leader->pid,
-		current->comm, current->pid, context->id);
+		current->comm, current->pid);
 
 	ktimeline = kzalloc(sizeof(*ktimeline), GFP_KERNEL);
 	if (ktimeline == NULL) {
