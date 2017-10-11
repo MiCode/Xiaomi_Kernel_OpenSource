@@ -358,6 +358,7 @@
 		reg-cam-base = <0x40000 0x42000>;
 		interrupt-names = "cpas_camnoc";
 		interrupts = <0 459 0>;
+		qcom,cpas-hw-ver = <0x170100>; /* Titan v170 v1.0.0 */
 		regulator-names = "camss-vdd";
 		camss-vdd-supply = <&titan_top_gdsc>;
 		clock-names = "gcc_ahb_clk",

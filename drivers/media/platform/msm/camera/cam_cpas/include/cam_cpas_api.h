@@ -37,6 +37,20 @@ enum cam_cpas_reg_base {
 };
 
 /**
+ * enum cam_cpas_hw_version - Enum for Titan CPAS HW Versions
+ */
+enum cam_cpas_hw_version {
+	CAM_CPAS_TITAN_NONE = 0,
+	CAM_CPAS_TITAN_170_V100 = 0x170100,
+	CAM_CPAS_TITAN_170_V110 = 0x170110,
+	CAM_CPAS_TITAN_170_V120 = 0x170120,
+	CAM_CPAS_TITAN_175_V100 = 0x175100,
+	CAM_CPAS_TITAN_175_V101 = 0x175101,
+	CAM_CPAS_TITAN_MAX
+};
+
+
+/**
  * enum cam_camnoc_irq_type - Enum for camnoc irq types
  *
  * @CAM_CAMNOC_IRQ_SLAVE_ERROR: Each slave port in CAMNOC (3 QSB ports and
@@ -308,5 +322,18 @@ int cam_cpas_get_hw_info(
 	uint32_t                 *camera_family,
 	struct cam_hw_version    *camera_version,
 	struct cam_hw_version    *cpas_version);
+
+/**
+ * cam_cpas_get_cpas_hw_version()
+ *
+ * @brief: API to get camera cpas hw version
+ *
+ * @hw_version  : Camera cpas hw version
+ *
+ * @return 0 on success.
+ *
+ */
+int cam_cpas_get_cpas_hw_version(
+	uint32_t				 *hw_version);
 
 #endif /* _CAM_CPAS_API_H_ */

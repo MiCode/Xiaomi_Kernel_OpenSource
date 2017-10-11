@@ -25,6 +25,7 @@
 #include "cam_vfe_bus_ver2.h"
 #include "cam_vfe_core.h"
 #include "cam_debug_util.h"
+#include "cam_cpas_api.h"
 
 static const char drv_name[] = "vfe_bus";
 
@@ -281,8 +282,11 @@ static int cam_vfe_bus_ver2_get_intra_client_mask(
 	uint32_t                          *intra_client_mask)
 {
 	int rc = 0;
+	uint32_t camera_hw_version = 0;
+	uint32_t version_based_intra_client_mask = 0x1;
 
 	*intra_client_mask = 0;
+
 
 	if (dual_slave_core == current_core) {
 		CAM_ERR(CAM_ISP,
@@ -290,14 +294,25 @@ static int cam_vfe_bus_ver2_get_intra_client_mask(
 		return -EINVAL;
 	}
 
+	rc = cam_cpas_get_cpas_hw_version(&camera_hw_version);
+
+	CAM_DBG(CAM_ISP, "CPAS VERSION %d", camera_hw_version);
+
+	switch (camera_hw_version) {
+	case CAM_CPAS_TITAN_170_V100:
+		version_based_intra_client_mask = 0x3;
+		break;
+	default:
+		version_based_intra_client_mask = 0x1;
+		break;
+	}
+
+
 	switch (current_core) {
 	case CAM_VFE_BUS_VER2_VFE_CORE_0:
 		switch (dual_slave_core) {
 		case CAM_VFE_BUS_VER2_VFE_CORE_1:
-			*intra_client_mask = 0x3;
-			break;
-		case CAM_VFE_BUS_VER2_VFE_CORE_2:
-			*intra_client_mask = 0x2;
+			*intra_client_mask = version_based_intra_client_mask;
 			break;
 		default:
 			CAM_ERR(CAM_ISP, "Invalid value for slave core %u",
@@ -309,25 +324,7 @@ static int cam_vfe_bus_ver2_get_intra_client_mask(
 	case CAM_VFE_BUS_VER2_VFE_CORE_1:
 		switch (dual_slave_core) {
 		case CAM_VFE_BUS_VER2_VFE_CORE_0:
-			*intra_client_mask = 0x1;
-			break;
-		case CAM_VFE_BUS_VER2_VFE_CORE_2:
-			*intra_client_mask = 0x2;
-			break;
-		default:
-			CAM_ERR(CAM_ISP, "Invalid value for slave core %u",
-				dual_slave_core);
-			rc = -EINVAL;
-			break;
-		}
-		break;
-	case CAM_VFE_BUS_VER2_VFE_CORE_2:
-		switch (dual_slave_core) {
-		case CAM_VFE_BUS_VER2_VFE_CORE_0:
-			*intra_client_mask = 0x1;
-			break;
-		case CAM_VFE_BUS_VER2_VFE_CORE_1:
-			*intra_client_mask = 0x2;
+			*intra_client_mask = version_based_intra_client_mask;
 			break;
 		default:
 			CAM_ERR(CAM_ISP, "Invalid value for slave core %u",
