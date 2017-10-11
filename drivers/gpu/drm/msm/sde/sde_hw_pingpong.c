@@ -427,18 +427,20 @@ static void _setup_pingpong_ops(struct sde_hw_pingpong_ops *ops,
 {
 	u32 version = 0;
 
-	ops->setup_tearcheck = sde_hw_pp_setup_te_config;
-	ops->enable_tearcheck = sde_hw_pp_enable_te;
-	ops->connect_external_te = sde_hw_pp_connect_external_te;
-	ops->get_vsync_info = sde_hw_pp_get_vsync_info;
-	ops->setup_autorefresh = sde_hw_pp_setup_autorefresh_config;
+	if (hw_cap->features & BIT(SDE_PINGPONG_TE)) {
+		ops->setup_tearcheck = sde_hw_pp_setup_te_config;
+		ops->enable_tearcheck = sde_hw_pp_enable_te;
+		ops->connect_external_te = sde_hw_pp_connect_external_te;
+		ops->get_vsync_info = sde_hw_pp_get_vsync_info;
+		ops->setup_autorefresh = sde_hw_pp_setup_autorefresh_config;
+		ops->get_autorefresh = sde_hw_pp_get_autorefresh_config;
+		ops->poll_timeout_wr_ptr = sde_hw_pp_poll_timeout_wr_ptr;
+		ops->get_line_count = sde_hw_pp_get_line_count;
+	}
 	ops->setup_dsc = sde_hw_pp_setup_dsc;
 	ops->enable_dsc = sde_hw_pp_dsc_enable;
 	ops->disable_dsc = sde_hw_pp_dsc_disable;
 	ops->get_dsc_status = sde_hw_pp_get_dsc_status;
-	ops->get_autorefresh = sde_hw_pp_get_autorefresh_config;
-	ops->poll_timeout_wr_ptr = sde_hw_pp_poll_timeout_wr_ptr;
-	ops->get_line_count = sde_hw_pp_get_line_count;
 
 	version = SDE_COLOR_PROCESS_MAJOR(hw_cap->sblk->dither.version);
 	switch (version) {
