@@ -53,6 +53,8 @@
 		.intr_cfg_reg = base + 0x8 + REG_SIZE * id,	\
 		.intr_status_reg = base + 0xc + REG_SIZE * id,	\
 		.intr_target_reg = base + 0x8 + REG_SIZE * id,	\
+		.dir_conn_reg = (base == NORTH) ? base + 0xa4000 : \
+			((base == SOUTH) ? base + 0xa8000 : base + 0x9e000), \
 		.mux_bit = 2,			\
 		.pull_bit = 0,			\
 		.drv_bit = 6,			\
@@ -67,6 +69,7 @@
 		.intr_polarity_bit = 1,		\
 		.intr_detection_bit = 2,	\
 		.intr_detection_width = 2,	\
+		.dir_conn_en_bit = 8,	        \
 	}
 
 #define SDC_QDSD_PINGROUP(pg_name, ctl, pull, drv)	\
@@ -1747,6 +1750,7 @@ static const struct msm_dir_conn sdm845_dir_conn[] = {
 	{123, 613},
 	{124, 614},
 	{125, 615},
+	{126, 616},
 	{127, 617},
 	{128, 618},
 	{129, 619},
@@ -1754,6 +1758,14 @@ static const struct msm_dir_conn sdm845_dir_conn[] = {
 	{132, 621},
 	{133, 622},
 	{145, 623},
+	{0, 216},
+	{0, 215},
+	{0, 214},
+	{0, 213},
+	{0, 212},
+	{0, 211},
+	{0, 210},
+	{0, 209},
 };
 
 static const struct msm_pinctrl_soc_data sdm845_pinctrl = {
@@ -1766,6 +1778,7 @@ static const struct msm_pinctrl_soc_data sdm845_pinctrl = {
 	.ngpios = 150,
 	.dir_conn = sdm845_dir_conn,
 	.n_dir_conns = ARRAY_SIZE(sdm845_dir_conn),
+	.dir_conn_irq_base = 216,
 };
 
 static int sdm845_pinctrl_probe(struct platform_device *pdev)
