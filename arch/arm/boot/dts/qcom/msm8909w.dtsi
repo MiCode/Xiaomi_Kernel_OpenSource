@@ -101,10 +101,6 @@
 		<55 512 393600 393600>;
 };
 
-&venus_qseecom_mem {
-	size = <0 0x0400000>;
-};
-
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_auo_cx_qvga_cmd>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
