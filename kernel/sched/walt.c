@@ -2178,8 +2178,32 @@ static void sort_clusters(void)
 
 void walt_sched_energy_populated_callback(void)
 {
+	struct sched_cluster *cluster;
+	int prev_max = 0;
+
 	mutex_lock(&cluster_lock);
+
+	if (num_clusters == 1) {
+		sysctl_sched_is_big_little = 0;
+		mutex_unlock(&cluster_lock);
+		return;
+	}
+
 	sort_clusters();
+
+	for_each_sched_cluster(cluster) {
+		if (cluster->min_power_cost > prev_max) {
+			prev_max = cluster->max_power_cost;
+			continue;
+		}
+		/*
+		 * We assume no overlap in the power curves of
+		 * clusters on a big.LITTLE system.
+		 */
+		sysctl_sched_is_big_little = 0;
+		break;
+	}
+
 	mutex_unlock(&cluster_lock);
 }
 
