@@ -54,7 +54,7 @@ static struct msm_vidc_codec_data sdm845_codec_data[] =  {
 	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_VIDC_ENCODER, 125, 675, 320),
 	CODEC_ENTRY(V4L2_PIX_FMT_HEVC, MSM_VIDC_ENCODER, 125, 675, 320),
 	CODEC_ENTRY(V4L2_PIX_FMT_VP8, MSM_VIDC_ENCODER, 125, 675, 320),
-	CODEC_ENTRY(V4L2_PIX_FMT_TME, MSM_VIDC_ENCODER, 125, 675, 320),
+	CODEC_ENTRY(V4L2_PIX_FMT_TME, MSM_VIDC_ENCODER, 0, 540, 540),
 	CODEC_ENTRY(V4L2_PIX_FMT_MPEG2, MSM_VIDC_DECODER, 50, 200, 200),
 	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_VIDC_DECODER, 50, 200, 200),
 	CODEC_ENTRY(V4L2_PIX_FMT_HEVC, MSM_VIDC_DECODER, 50, 200, 200),
@@ -119,7 +119,7 @@ static struct msm_vidc_common_data sdm845_common_data[] = {
 	},
 	{
 		.key = "qcom,max-hw-load",
-		.value = 2563200,
+		.value = 3110400,	/* 4096x2160@90 */
 	},
 	{
 		.key = "qcom,max-hq-mbs-per-frame",

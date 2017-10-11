@@ -82,9 +82,12 @@ static void _setup_dspp_ops(struct sde_hw_dspp *c, unsigned long features)
 			} else if (c->cap->sblk->vlut.version ==
 					(SDE_COLOR_PROCESS_VER(0x1, 0x8))) {
 				ret = reg_dmav1_init_dspp_op_v4(i, c->idx);
-				if (ret)
+				if (!ret)
 					c->ops.setup_vlut =
 					reg_dmav1_setup_dspp_vlutv18;
+				else
+					c->ops.setup_vlut =
+					sde_setup_dspp_pa_vlut_v1_8;
 			}
 			break;
 		case SDE_DSPP_GAMUT:

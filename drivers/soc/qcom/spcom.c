@@ -206,10 +206,8 @@ struct spcom_channel {
 	 * Only one rx/tx transaction at a time (request + response).
 	 */
 	int ref_count;
-	u32 pid;
 
-	/* link UP/DOWN callback */
-	void (*notify_link_state_cb)(bool up);
+	u32 pid; /* debug only to find user space application */
 
 	/* abort flags */
 	bool rx_abort;
@@ -493,13 +491,10 @@ static void spcom_notify_state(void *handle, const void *priv,
 
 		ch->glink_state = event;
 
-		/*
-		 * if spcom_notify_state() is called within glink_open()
-		 * then ch->glink_handle is not updated yet.
-		 */
-		if (!ch->glink_handle) {
-			pr_debug("update glink_handle, ch [%s].\n", ch->name);
-			ch->glink_handle = handle;
+		if (!handle) {
+			pr_err("inavlid glink_handle, ch [%s].\n", ch->name);
+			mutex_unlock(&ch->lock);
+			return;
 		}
 
 		/* signal before unlock mutex & before calling glink */
@@ -512,8 +507,7 @@ static void spcom_notify_state(void *handle, const void *priv,
 		 */
 
 		pr_debug("call glink_queue_rx_intent() ch [%s].\n", ch->name);
-		ret = glink_queue_rx_intent(ch->glink_handle,
-					    ch, ch->rx_buf_size);
+		ret = glink_queue_rx_intent(handle, ch, ch->rx_buf_size);
 		if (ret) {
 			pr_err("glink_queue_rx_intent() err [%d]\n", ret);
 		} else {
@@ -736,6 +730,7 @@ static int spcom_open(struct spcom_channel *ch, unsigned int timeout_msec)
 	long timeleft;
 	const char *name;
 	void *handle;
+	u32 pid = current_pid();
 
 	mutex_lock(&ch->lock);
 	name = ch->name;
@@ -749,7 +744,7 @@ static int spcom_open(struct spcom_channel *ch, unsigned int timeout_msec)
 	}
 
 	pr_debug("ch [%s] opened by PID [%d], count [%d]\n",
-		 name, ch->pid, ch->ref_count);
+		 name, pid, ch->ref_count);
 
 	pr_debug("Open channel [%s] timeout_msec [%d].\n", name, timeout_msec);
 
@@ -777,7 +772,7 @@ static int spcom_open(struct spcom_channel *ch, unsigned int timeout_msec)
 	/* init channel context after successful open */
 	ch->glink_handle = handle;
 	ch->ref_count++;
-	ch->pid = current_pid();
+	ch->pid = pid;
 	ch->txn_id = INITIAL_TXN_ID;
 
 	mutex_unlock(&ch->lock);
@@ -1026,10 +1021,12 @@ static int spcom_get_next_request_size(struct spcom_channel *ch)
 			 ch->name, ch->actual_rx_size);
 		goto exit_ready;
 	}
+	mutex_unlock(&ch->lock); /* unlock while waiting */
 
 	pr_debug("Wait for Rx Done, ch [%s].\n", ch->name);
 	wait_for_completion(&ch->rx_done);
 
+	mutex_lock(&ch->lock); /* re-lock after waiting */
 	/* Check Rx Abort on SP reset */
 	if (ch->rx_abort) {
 		pr_err("rx aborted.\n");
@@ -2027,6 +2024,7 @@ static int spcom_handle_get_req_size(struct spcom_channel *ch,
 				      void *buf,
 				      uint32_t size)
 {
+	int ret = -1;
 	uint32_t next_req_size = 0;
 
 	if (size < sizeof(next_req_size)) {
@@ -2034,7 +2032,10 @@ static int spcom_handle_get_req_size(struct spcom_channel *ch,
 		return -EINVAL;
 	}
 
-	next_req_size = spcom_get_next_request_size(ch);
+	ret = spcom_get_next_request_size(ch);
+	if (ret < 0)
+		return ret;
+	next_req_size = (uint32_t) ret;
 
 	memcpy(buf, &next_req_size, sizeof(next_req_size));
 	pr_debug("next_req_size [%d].\n", next_req_size);
@@ -2139,18 +2140,20 @@ static int spcom_handle_read(struct spcom_channel *ch,
 			      void *buf,
 			      uint32_t size)
 {
+	int ret = -1;
+
 	if (size == SPCOM_GET_NEXT_REQUEST_SIZE) {
 		pr_debug("get next request size, ch [%s].\n", ch->name);
 		ch->is_server = true;
-		size = spcom_handle_get_req_size(ch, buf, size);
+		ret = spcom_handle_get_req_size(ch, buf, size);
 	} else {
 		pr_debug("get request/response, ch [%s].\n", ch->name);
-		size = spcom_handle_read_req_resp(ch, buf, size);
+		ret = spcom_handle_read_req_resp(ch, buf, size);
 	}
 
 	pr_debug("ch [%s] , size = %d.\n", ch->name, size);
 
-	return size;
+	return ret;
 }
 
 /*======================================================================*/
@@ -2302,6 +2305,7 @@ static ssize_t spcom_device_write(struct file *filp,
 	char *buf;
 	struct spcom_channel *ch;
 	const char *name = file_to_filename(filp);
+	int buf_size = 0;
 
 	pr_debug("Write file [%s] size [%d] pos [%d].\n",
 		 name, (int) size, (int) *f_pos);
@@ -2328,6 +2332,7 @@ static ssize_t spcom_device_write(struct file *filp,
 			   (int) size, (int) SPCOM_MAX_COMMAND_SIZE);
 		return -EINVAL;
 	}
+	buf_size = size; /* explicit casting size_t to int */
 
 	if (*f_pos != 0) {
 		pr_err("offset should be zero, no sparse buffer.\n");
@@ -2345,7 +2350,7 @@ static ssize_t spcom_device_write(struct file *filp,
 		return -EFAULT;
 	}
 
-	ret = spcom_handle_write(ch, buf, size);
+	ret = spcom_handle_write(ch, buf, buf_size);
 	if (ret) {
 		pr_err("handle command error [%d].\n", ret);
 		kfree(buf);
@@ -2373,6 +2378,7 @@ static ssize_t spcom_device_read(struct file *filp, char __user *user_buff,
 	char *buf;
 	struct spcom_channel *ch;
 	const char *name = file_to_filename(filp);
+	uint32_t buf_size = 0;
 
 	pr_debug("Read file [%s], size = %d bytes.\n", name, (int) size);
 
@@ -2381,6 +2387,7 @@ static ssize_t spcom_device_read(struct file *filp, char __user *user_buff,
 		pr_err("invalid parameters.\n");
 		return -EINVAL;
 	}
+	buf_size = size; /* explicit casting size_t to uint32_t */
 
 	ch = filp->private_data;
 
@@ -2398,7 +2405,7 @@ static ssize_t spcom_device_read(struct file *filp, char __user *user_buff,
 	if (buf == NULL)
 		return -ENOMEM;
 
-	ret = spcom_handle_read(ch, buf, size);
+	ret = spcom_handle_read(ch, buf, buf_size);
 	if (ret < 0) {
 		pr_err("read error [%d].\n", ret);
 		kfree(buf);
@@ -2481,9 +2488,14 @@ static unsigned int spcom_device_poll(struct file *filp,
 		done = (spcom_dev->link_state == GLINK_LINK_STATE_UP);
 		break;
 	case SPCOM_POLL_CH_CONNECT:
+		/*
+		 * ch is not expected to be NULL since user must call open()
+		 * to get FD before it can call poll().
+		 * open() will fail if no ch related to the char-device.
+		 */
 		if (ch == NULL) {
 			pr_err("invalid ch pointer, file [%s].\n", name);
-			return -EINVAL;
+			return POLLERR;
 		}
 		pr_debug("ch [%s] SPCOM_POLL_CH_CONNECT.\n", name);
 		if (wait) {
@@ -2784,7 +2796,7 @@ static int __init spcom_init(void)
 {
 	int ret;
 
-	pr_info("spcom driver version 1.1 17-July-2017.\n");
+	pr_info("spcom driver version 1.2 23-Aug-2017.\n");
 
 	ret = platform_driver_register(&spcom_driver);
 	if (ret)

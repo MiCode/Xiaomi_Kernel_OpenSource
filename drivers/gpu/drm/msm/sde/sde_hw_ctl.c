@@ -89,6 +89,11 @@ static inline void sde_hw_ctl_trigger_pending(struct sde_hw_ctl *ctx)
 
 static inline void sde_hw_ctl_trigger_rot_start(struct sde_hw_ctl *ctx)
 {
+	/* ROT flush bit is latched during ROT start, so set it first */
+	if (CTL_FLUSH_MASK_ROT & ctx->pending_flush_mask) {
+		ctx->pending_flush_mask &= ~CTL_FLUSH_MASK_ROT;
+		SDE_REG_WRITE(&ctx->hw, CTL_FLUSH, CTL_FLUSH_MASK_ROT);
+	}
 	SDE_REG_WRITE(&ctx->hw, CTL_ROT_START, BIT(0));
 }
 
@@ -228,6 +233,22 @@ static inline int sde_hw_ctl_get_bitmask_dspp(struct sde_hw_ctl *ctx,
 		break;
 	case DSPP_1:
 		*flushbits |= BIT(14);
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static inline int sde_hw_ctl_get_bitmask_dspp_pavlut(struct sde_hw_ctl *ctx,
+		u32 *flushbits, enum sde_dspp dspp)
+{
+	switch (dspp) {
+	case DSPP_0:
+		*flushbits |= BIT(3);
+		break;
+	case DSPP_1:
+		*flushbits |= BIT(4);
 		break;
 	default:
 		return -EINVAL;
@@ -568,6 +589,7 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 	ops->get_bitmask_sspp = sde_hw_ctl_get_bitmask_sspp;
 	ops->get_bitmask_mixer = sde_hw_ctl_get_bitmask_mixer;
 	ops->get_bitmask_dspp = sde_hw_ctl_get_bitmask_dspp;
+	ops->get_bitmask_dspp_pavlut = sde_hw_ctl_get_bitmask_dspp_pavlut;
 	ops->get_bitmask_intf = sde_hw_ctl_get_bitmask_intf;
 	ops->get_bitmask_cdm = sde_hw_ctl_get_bitmask_cdm;
 	ops->get_bitmask_wb = sde_hw_ctl_get_bitmask_wb;

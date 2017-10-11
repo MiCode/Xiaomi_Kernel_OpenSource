@@ -12,7 +12,6 @@
 
 #include "sdm845-mtp.dtsi"
 #include "sdm845-interposer-pm660.dtsi"
-#include "sdm845-interposer-sdm670-audio.dtsi"
 
 &qupv3_se10_i2c {
 	/delete-node/ qcom,smb1355@8;

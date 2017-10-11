@@ -2196,7 +2196,8 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 			"%s: Send sys error for inst %pK\n", __func__, inst);
 		change_inst_state(inst, MSM_VIDC_CORE_INVALID);
 		msm_vidc_queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_SYS_ERROR);
-		msm_comm_print_inst_info(inst);
+		if (!core->trigger_ssr)
+			msm_comm_print_inst_info(inst);
 	}
 	dprintk(VIDC_DBG, "Calling core_release\n");
 	rc = call_hfi_op(hdev, core_release, hdev->hfi_device_data);
@@ -4776,6 +4777,7 @@ void msm_comm_release_eos_buffers(struct msm_vidc_inst *inst)
 	mutex_lock(&inst->eosbufs.lock);
 	list_for_each_entry_safe(buf, next, &inst->eosbufs.list, list) {
 		list_del(&buf->list);
+		msm_comm_smem_free(inst, &buf->smem);
 		kfree(buf);
 	}
 	INIT_LIST_HEAD(&inst->eosbufs.list);
@@ -5323,8 +5325,7 @@ static int msm_vidc_load_supported(struct msm_vidc_inst *inst)
 		LOAD_CALC_IGNORE_NON_REALTIME_LOAD;
 
 	if (inst->state == MSM_VIDC_OPEN_DONE) {
-		max_load_adj = inst->core->resources.max_load +
-			inst->capability.mbs_per_frame.max;
+		max_load_adj = inst->core->resources.max_load;
 		num_mbs_per_sec = msm_comm_get_load(inst->core,
 					MSM_VIDC_DECODER, quirks);
 		num_mbs_per_sec += msm_comm_get_load(inst->core,

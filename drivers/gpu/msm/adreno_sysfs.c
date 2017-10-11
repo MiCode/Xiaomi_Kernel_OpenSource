@@ -165,7 +165,6 @@ static int _ft_hang_intr_status_store(struct adreno_device *adreno_dev,
 
 	if (test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv)) {
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_ACTIVE);
-		adreno_irqctrl(adreno_dev, 1);
 	} else if (device->state == KGSL_STATE_INIT) {
 		ret = -EACCES;
 		change_bit(ADRENO_DEVICE_HANG_INTR, &adreno_dev->priv);

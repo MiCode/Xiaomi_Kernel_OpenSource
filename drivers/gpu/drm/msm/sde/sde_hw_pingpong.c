@@ -302,6 +302,33 @@ static int sde_hw_pp_get_vsync_info(struct sde_hw_pingpong *pp,
 	return 0;
 }
 
+static u32 sde_hw_pp_get_line_count(struct sde_hw_pingpong *pp)
+{
+	struct sde_hw_blk_reg_map *c = &pp->hw;
+	u32 height, init;
+	u32 line = 0xFFFF;
+
+	if (!pp)
+		return 0;
+	c = &pp->hw;
+
+	init = SDE_REG_READ(c, PP_VSYNC_INIT_VAL) & 0xFFFF;
+	height = SDE_REG_READ(c, PP_SYNC_CONFIG_HEIGHT) & 0xFFFF;
+
+	if (height < init)
+		goto line_count_exit;
+
+	line = SDE_REG_READ(c, PP_INT_COUNT_VAL) & 0xFFFF;
+
+	if (line < init)
+		line += (0xFFFF - init);
+	else
+		line -= init;
+
+line_count_exit:
+	return line;
+}
+
 static void _setup_pingpong_ops(struct sde_hw_pingpong_ops *ops,
 	const struct sde_pingpong_cfg *hw_cap)
 {
@@ -317,6 +344,7 @@ static void _setup_pingpong_ops(struct sde_hw_pingpong_ops *ops,
 	ops->disable_dsc = sde_hw_pp_dsc_disable;
 	ops->get_autorefresh = sde_hw_pp_get_autorefresh_config;
 	ops->poll_timeout_wr_ptr = sde_hw_pp_poll_timeout_wr_ptr;
+	ops->get_line_count = sde_hw_pp_get_line_count;
 
 	version = SDE_COLOR_PROCESS_MAJOR(hw_cap->sblk->dither.version);
 	switch (version) {

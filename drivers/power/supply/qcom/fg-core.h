@@ -287,6 +287,7 @@ struct fg_dt_props {
 	int	esr_pulse_thresh_ma;
 	int	esr_meas_curr_ma;
 	int	bmd_en_delay_ms;
+	int	ki_coeff_full_soc_dischg;
 	int	jeita_thresholds[NUM_JEITA_LEVELS];
 	int	ki_coeff_soc[KI_COEFF_SOC_LEVELS];
 	int	ki_coeff_med_dischg[KI_COEFF_SOC_LEVELS];
@@ -416,6 +417,7 @@ struct fg_chip {
 	struct mutex		bus_lock;
 	struct mutex		sram_rw_lock;
 	struct mutex		charge_full_lock;
+	struct mutex		qnovo_esr_ctrl_lock;
 	u32			batt_soc_base;
 	u32			batt_info_base;
 	u32			mem_if_base;
@@ -424,7 +426,6 @@ struct fg_chip {
 	int			batt_id_ohms;
 	int			ki_coeff_full_soc;
 	int			charge_status;
-	int			prev_charge_status;
 	int			charge_done;
 	int			charge_type;
 	int			online_status;
@@ -450,6 +451,7 @@ struct fg_chip {
 	bool			slope_limit_en;
 	bool			use_ima_single_mode;
 	bool			use_dma;
+	bool			qnovo_enable;
 	struct completion	soc_update;
 	struct completion	soc_ready;
 	struct completion	mem_grant;

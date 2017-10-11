@@ -4875,6 +4875,7 @@ int ufshcd_change_power_mode(struct ufs_hba *hba,
 
 		memcpy(&hba->pwr_info, pwr_mode,
 			sizeof(struct ufs_pa_layer_attr));
+		hba->ufs_stats.power_mode_change_cnt++;
 	}
 
 	return ret;
@@ -7170,6 +7171,12 @@ static int ufshcd_reset_and_restore(struct ufs_hba *hba)
 	} while (err && --retries);
 
 	/*
+	 * There is no point proceeding even after failing
+	 * to recover after multiple retries.
+	 */
+	if (err && ufshcd_is_embedded_dev(hba))
+		BUG();
+	/*
 	 * After reset the door-bell might be cleared, complete
 	 * outstanding requests in s/w here.
 	 */
@@ -7633,9 +7640,6 @@ static void ufshcd_tune_unipro_params(struct ufs_hba *hba)
 static void ufshcd_clear_dbg_ufs_stats(struct ufs_hba *hba)
 {
 	int err_reg_hist_size = sizeof(struct ufs_uic_err_reg_hist);
-
-	hba->ufs_stats.hibern8_exit_cnt = 0;
-	hba->ufs_stats.last_hibern8_exit_tstamp = ktime_set(0, 0);
 
 	memset(&hba->ufs_stats.pa_err, 0, err_reg_hist_size);
 	memset(&hba->ufs_stats.dl_err, 0, err_reg_hist_size);
@@ -9708,6 +9712,8 @@ static void __ufshcd_shutdown_clkscaling(struct ufs_hba *hba)
 
 static void ufshcd_shutdown_clkscaling(struct ufs_hba *hba)
 {
+	if (!ufshcd_is_clkscaling_supported(hba))
+		return;
 	__ufshcd_shutdown_clkscaling(hba);
 	device_remove_file(hba->dev, &hba->clk_scaling.enable_attr);
 }

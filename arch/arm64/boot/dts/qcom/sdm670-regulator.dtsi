@@ -642,4 +642,14 @@
 			qcom,init-voltage = <3312000>;
 		};
 	};
+
+	refgen: refgen-regulator@ff1000 {
+		compatible = "qcom,refgen-regulator";
+		reg = <0xff1000 0x60>;
+		regulator-name = "refgen";
+		regulator-enable-ramp-delay = <5>;
+		proxy-supply = <&refgen>;
+		qcom,proxy-consumer-enable;
+		regulator-always-on;
+	};
 };

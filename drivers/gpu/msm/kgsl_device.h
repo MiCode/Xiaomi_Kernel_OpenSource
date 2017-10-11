@@ -151,6 +151,8 @@ struct kgsl_functable {
 	unsigned int (*gpuid)(struct kgsl_device *device, unsigned int *chipid);
 	void (*snapshot)(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot, struct kgsl_context *context);
+	void (*snapshot_gmu)(struct kgsl_device *device,
+		struct kgsl_snapshot *snapshot);
 	irqreturn_t (*irq_handler)(struct kgsl_device *device);
 	int (*drain)(struct kgsl_device *device);
 	/*
@@ -706,7 +708,6 @@ int kgsl_device_snapshot_init(struct kgsl_device *device);
 void kgsl_device_snapshot(struct kgsl_device *device,
 			struct kgsl_context *context, bool gmu_fault);
 void kgsl_device_snapshot_close(struct kgsl_device *device);
-void kgsl_snapshot_save_frozen_objs(struct work_struct *work);
 
 void kgsl_events_init(void);
 void kgsl_events_exit(void);

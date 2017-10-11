@@ -1457,6 +1457,7 @@ extern void trigger_load_balance(struct rq *rq);
 
 extern void set_cpus_allowed_common(struct task_struct *p, const struct cpumask *new_mask);
 
+bool __cpu_overutilized(int cpu, unsigned long util);
 bool cpu_overutilized(int cpu);
 
 #endif
@@ -2291,7 +2292,7 @@ static inline void cpufreq_update_util(struct rq *rq, unsigned int flags)
 
 #ifdef CONFIG_SCHED_WALT
 	unsigned int exception_flags = SCHED_CPUFREQ_INTERCLUSTER_MIG |
-						SCHED_CPUFREQ_PL;
+				SCHED_CPUFREQ_PL | SCHED_CPUFREQ_EARLY_DET;
 
 	/*
 	 * Skip if we've already reported, but not if this is an inter-cluster

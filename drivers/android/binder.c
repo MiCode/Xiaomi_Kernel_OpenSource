@@ -2480,7 +2480,6 @@ static int binder_translate_handle(struct flat_binder_object *fp,
 			     (u64)node->ptr);
 		binder_node_unlock(node);
 	} else {
-		int ret;
 		struct binder_ref_data dest_rdata;
 
 		binder_node_unlock(node);
@@ -3522,11 +3521,13 @@ static int binder_thread_write(struct binder_proc *proc,
 				BUG_ON(buf_node->proc != proc);
 				w = binder_dequeue_work_head_ilocked(
 						&buf_node->async_todo);
-				if (!w)
+				if (!w) {
 					buf_node->has_async_transaction = 0;
-				else
+				} else {
 					binder_enqueue_work_ilocked(
-							w, &thread->todo);
+							w, &proc->todo);
+					binder_wakeup_proc_ilocked(proc);
+				}
 				binder_node_inner_unlock(buf_node);
 			}
 			trace_binder_transaction_buffer_release(buffer);
@@ -3670,22 +3671,12 @@ static int binder_thread_write(struct binder_proc *proc,
 				ref->death = death;
 				if (ref->node->proc == NULL) {
 					ref->death->work.type = BINDER_WORK_DEAD_BINDER;
-					if (thread->looper &
-					    (BINDER_LOOPER_STATE_REGISTERED |
-					     BINDER_LOOPER_STATE_ENTERED))
-						binder_enqueue_work(
-							proc,
-							&ref->death->work,
-							&thread->todo);
-					else {
-						binder_inner_proc_lock(proc);
-						binder_enqueue_work_ilocked(
-							&ref->death->work,
-							&proc->todo);
-						binder_wakeup_proc_ilocked(
-							proc);
-						binder_inner_proc_unlock(proc);
-					}
+
+					binder_inner_proc_lock(proc);
+					binder_enqueue_work_ilocked(
+						&ref->death->work, &proc->todo);
+					binder_wakeup_proc_ilocked(proc);
+					binder_inner_proc_unlock(proc);
 				}
 			} else {
 				if (ref->death == NULL) {
@@ -3800,12 +3791,6 @@ static void binder_stat_br(struct binder_proc *proc,
 		atomic_inc(&proc->stats.br[_IOC_NR(cmd)]);
 		atomic_inc(&thread->stats.br[_IOC_NR(cmd)]);
 	}
-}
-
-static int binder_has_thread_work(struct binder_thread *thread)
-{
-	return !binder_worklist_empty(thread->proc, &thread->todo) ||
-		thread->looper_need_return;
 }
 
 static int binder_put_node_cmd(struct binder_proc *proc,
@@ -4438,12 +4423,9 @@ static unsigned int binder_poll(struct file *filp,
 
 	binder_inner_proc_unlock(thread->proc);
 
-	if (binder_has_work(thread, wait_for_proc_work))
-		return POLLIN;
-
 	poll_wait(filp, &thread->wait, wait);
 
-	if (binder_has_thread_work(thread))
+	if (binder_has_work(thread, wait_for_proc_work))
 		return POLLIN;
 
 	return 0;
@@ -4596,6 +4578,8 @@ static long binder_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	/*pr_info("binder_ioctl: %d:%d %x %lx\n",
 			proc->pid, current->pid, cmd, arg);*/
+
+	binder_selftest_alloc(&proc->alloc);
 
 	trace_binder_ioctl(cmd, arg);
 
@@ -5442,6 +5426,8 @@ static void print_binder_proc_stats(struct seq_file *m,
 	count = binder_alloc_get_allocated_count(&proc->alloc);
 	seq_printf(m, "  buffers: %d\n", count);
 
+	binder_alloc_print_pages(m, &proc->alloc);
+
 	count = 0;
 	binder_inner_proc_lock(proc);
 	list_for_each_entry(w, &proc->todo, entry) {
@@ -5637,6 +5623,8 @@ static int __init binder_init(void)
 	char *device_name, *device_names;
 	struct binder_device *device;
 	struct hlist_node *tmp;
+
+	binder_alloc_shrinker_init();
 
 	atomic_set(&binder_transaction_log.cur, ~0U);
 	atomic_set(&binder_transaction_log_failed.cur, ~0U);

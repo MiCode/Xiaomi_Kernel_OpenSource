@@ -63,6 +63,7 @@ struct dp_usbpd {
 	bool hpd_irq;
 	bool alt_mode_cfg_done;
 	bool debug_en;
+	bool forced_disconnect;
 
 	int (*connect)(struct dp_usbpd *dp_usbpd, bool hpd);
 };

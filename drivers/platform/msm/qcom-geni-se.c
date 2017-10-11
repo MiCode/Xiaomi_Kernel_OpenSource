@@ -1247,6 +1247,79 @@ int geni_se_iommu_free_buf(struct device *wrapper_dev, dma_addr_t *iova,
 }
 EXPORT_SYMBOL(geni_se_iommu_free_buf);
 
+/**
+ * geni_se_dump_dbg_regs() - Print relevant registers that capture most
+ *			accurately the state of an SE.
+ * @_dev:		Pointer to the SE's device.
+ * @iomem:		Base address of the SE's register space.
+ * @ipc:		IPC log context handle.
+ *
+ * This function is used to print out all the registers that capture the state
+ * of an SE to help debug any errors.
+ *
+ * Return:	None
+ */
+void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
+				void *ipc)
+{
+	u32 m_cmd0 = 0;
+	u32 m_irq_status = 0;
+	u32 geni_status = 0;
+	u32 geni_ios = 0;
+	u32 dma_rx_irq = 0;
+	u32 dma_tx_irq = 0;
+	u32 rx_fifo_status = 0;
+	u32 tx_fifo_status = 0;
+	u32 se_dma_dbg = 0;
+	u32 m_cmd_ctrl = 0;
+	u32 se_dma_rx_len = 0;
+	u32 se_dma_rx_len_in = 0;
+	u32 se_dma_tx_len = 0;
+	u32 se_dma_tx_len_in = 0;
+	struct geni_se_device *geni_se_dev;
+
+	if (!ipc)
+		return;
+
+	geni_se_dev = dev_get_drvdata(rsc->wrapper_dev);
+	if (unlikely(!geni_se_dev || !geni_se_dev->bus_bw))
+		return;
+	mutex_lock(&geni_se_dev->ab_ib_lock);
+	if (unlikely(list_empty(&rsc->ab_list) || list_empty(&rsc->ib_list))) {
+		GENI_SE_DBG(ipc, false, NULL, "%s: Clocks not on\n", __func__);
+		goto exit_geni_se_dump_dbg_regs;
+	}
+	m_cmd0 = geni_read_reg(base, SE_GENI_M_CMD0);
+	m_irq_status = geni_read_reg(base, SE_GENI_M_IRQ_STATUS);
+	geni_status = geni_read_reg(base, SE_GENI_STATUS);
+	geni_ios = geni_read_reg(base, SE_GENI_IOS);
+	dma_rx_irq = geni_read_reg(base, SE_DMA_TX_IRQ_STAT);
+	dma_tx_irq = geni_read_reg(base, SE_DMA_RX_IRQ_STAT);
+	rx_fifo_status = geni_read_reg(base, SE_GENI_RX_FIFO_STATUS);
+	tx_fifo_status = geni_read_reg(base, SE_GENI_TX_FIFO_STATUS);
+	se_dma_dbg = geni_read_reg(base, SE_DMA_DEBUG_REG0);
+	m_cmd_ctrl = geni_read_reg(base, SE_GENI_M_CMD_CTRL_REG);
+	se_dma_rx_len = geni_read_reg(base, SE_DMA_RX_LEN);
+	se_dma_rx_len_in = geni_read_reg(base, SE_DMA_RX_LEN_IN);
+	se_dma_tx_len = geni_read_reg(base, SE_DMA_TX_LEN);
+	se_dma_tx_len_in = geni_read_reg(base, SE_DMA_TX_LEN_IN);
+
+	GENI_SE_DBG(ipc, false, NULL,
+	"%s: m_cmd0:0x%x, m_irq_status:0x%x, geni_status:0x%x, geni_ios:0x%x\n",
+	__func__, m_cmd0, m_irq_status, geni_status, geni_ios);
+	GENI_SE_DBG(ipc, false, NULL,
+	"dma_rx_irq:0x%x, dma_tx_irq:0x%x, rx_fifo_sts:0x%x, tx_fifo_sts:0x%x\n"
+	, dma_rx_irq, dma_tx_irq, rx_fifo_status, tx_fifo_status);
+	GENI_SE_DBG(ipc, false, NULL,
+	"se_dma_dbg:0x%x, m_cmd_ctrl:0x%x, dma_rxlen:0x%x, dma_rxlen_in:0x%x\n",
+	se_dma_dbg, m_cmd_ctrl, se_dma_rx_len, se_dma_rx_len_in);
+	GENI_SE_DBG(ipc, false, NULL,
+	"dma_txlen:0x%x, dma_txlen_in:0x%x\n", se_dma_tx_len, se_dma_tx_len_in);
+exit_geni_se_dump_dbg_regs:
+	mutex_unlock(&geni_se_dev->ab_ib_lock);
+}
+EXPORT_SYMBOL(geni_se_dump_dbg_regs);
+
 static const struct of_device_id geni_se_dt_match[] = {
 	{ .compatible = "qcom,qupv3-geni-se", },
 	{ .compatible = "qcom,qupv3-geni-se-cb", },

@@ -9,3 +9,21 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+#include "sdm670-ext-codec-audio-overlay.dtsi"
+
+&int_codec {
+	status = "disabled";
+};
+
+&tavil_snd {
+	status = "okay";
+};
+
+&slim_aud {
+	status = "okay";
+};
+
+&dai_slim {
+	status = "okay";
+};

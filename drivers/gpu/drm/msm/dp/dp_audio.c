@@ -771,8 +771,10 @@ struct dp_audio *dp_audio_get(struct platform_device *pdev,
 	dp_audio->off = dp_audio_off;
 
 	rc = dp_audio_init_ext_disp(audio);
-	if (rc)
+	if (rc) {
+		devm_kfree(&pdev->dev, audio);
 		goto error;
+	}
 
 	catalog->init(catalog);
 
@@ -790,5 +792,5 @@ void dp_audio_put(struct dp_audio *dp_audio)
 
 	audio = container_of(dp_audio, struct dp_audio_private, dp_audio);
 
-	kzfree(audio);
+	devm_kfree(&audio->pdev->dev, audio);
 }

@@ -5658,10 +5658,10 @@ static int __find_new_capacity(unsigned long util,
 
 	for (idx = 0; idx < sge->nr_cap_states; idx++) {
 		if (sge->cap_states[idx].cap >= util)
-			break;
+			return idx;
 	}
 
-	return idx;
+	return (sge->nr_cap_states - 1);
 }
 
 static int find_new_capacity(struct energy_env *eenv,
@@ -6161,15 +6161,15 @@ static inline bool task_fits_spare(struct task_struct *p, int cpu)
 	return __task_fits(p, cpu, cpu_util(cpu));
 }
 
-static bool __cpu_overutilized(int cpu, int delta)
+bool __cpu_overutilized(int cpu, unsigned long util)
 {
-	return (capacity_orig_of(cpu) * 1024) <
-	       ((cpu_util(cpu) + delta) * sysctl_sched_capacity_margin);
+	return (capacity_orig_of(cpu) * 1024 <
+		util * sysctl_sched_capacity_margin);
 }
 
 bool cpu_overutilized(int cpu)
 {
-	return __cpu_overutilized(cpu, 0);
+	return __cpu_overutilized(cpu, cpu_util(cpu));
 }
 
 #ifdef CONFIG_SCHED_TUNE
@@ -6996,7 +6996,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			if (is_reserved(i))
 				continue;
 
-			if (sched_cpu_high_irqload(cpu))
+			if (sched_cpu_high_irqload(i))
 				continue;
 
 			/*
@@ -7188,7 +7188,9 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 		task_util_boosted = 0;
 #endif
 		/* Not enough spare capacity on previous cpu */
-		if (__cpu_overutilized(task_cpu(p), task_util_boosted)) {
+		if (__cpu_overutilized(task_cpu(p),
+				       cpu_util(task_cpu(p)) +
+						task_util_boosted)) {
 			trace_sched_task_util_overutilzed(p, task_cpu(p),
 						task_util(p), target_cpu,
 						target_cpu, 0, need_idle);

@@ -132,6 +132,45 @@ static u64 __maybe_unused gic_read_iar(void)
 }
 #endif
 
+/*
+ * gic_show_pending_irq - Shows the pending interrupts
+ * Note: Interrupts should be disabled on the cpu from which
+ * this is called to get accurate list of pending interrupts.
+ */
+void gic_show_pending_irqs(void)
+{
+	void __iomem *base;
+	u32 pending[32], enabled;
+	unsigned int j;
+
+	base = gic_data.dist_base;
+	for (j = 0; j * 32 < gic_data.irq_nr; j++) {
+		enabled = readl_relaxed(base +
+					GICD_ISENABLER + j * 4);
+		pending[j] = readl_relaxed(base +
+					GICD_ISPENDR + j * 4);
+		pending[j] &= enabled;
+		pr_err("Pending irqs[%d] %x\n", j, pending[j]);
+	}
+}
+
+/*
+ * get_gic_highpri_irq - Returns next high priority interrupt on current CPU
+ */
+unsigned int get_gic_highpri_irq(void)
+{
+	unsigned long flags;
+	unsigned int val = 0;
+
+	local_irq_save(flags);
+	val = read_gicreg(ICC_HPPIR1_EL1);
+	local_irq_restore(flags);
+
+	if (val >= 1020)
+		return 0;
+	return val;
+}
+
 static void gic_enable_redist(bool enable)
 {
 	void __iomem *rbase;

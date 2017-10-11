@@ -363,12 +363,15 @@ static int sde_hdcp_1x_read(struct sde_hdcp_1x *hdcp,
 			if (bytes_read != read_size) {
 				pr_err("fail: offset(0x%x), size(0x%x), rc(0x%x)\n",
 					offset, read_size, bytes_read);
+				rc = -EIO;
 				break;
 			}
 
 			buf += read_size;
-			offset += read_size;
 			size -= read_size;
+
+			if (!realign)
+				offset += read_size;
 		} while (size > 0);
 	}
 
@@ -393,6 +396,7 @@ static int sde_hdcp_1x_write(struct sde_hdcp_1x *hdcp,
 			if (bytes_written != write_size) {
 				pr_err("fail: offset(0x%x), size(0x%x), rc(0x%x)\n",
 					offset, write_size, bytes_written);
+				rc = -EIO;
 				break;
 			}
 

@@ -537,6 +537,7 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 {
 	int required_headroom, additional_header_length, ckresult;
 	struct rmnet_map_header_s *map_header;
+	int non_linear_skb;
 
 	additional_header_length = 0;
 
@@ -565,9 +566,11 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 		rmnet_stats_ul_checksum(ckresult);
 	}
 
+	non_linear_skb = (orig_dev->features & NETIF_F_GSO) &&
+			 skb_is_nonlinear(skb);
+
 	if ((!(config->egress_data_format &
-	    RMNET_EGRESS_FORMAT_AGGREGATION)) ||
-	    ((orig_dev->features & NETIF_F_GSO) && skb_is_nonlinear(skb)))
+	    RMNET_EGRESS_FORMAT_AGGREGATION)) || non_linear_skb)
 		map_header = rmnet_map_add_map_header
 		(skb, additional_header_length, RMNET_MAP_NO_PAD_BYTES);
 	else
@@ -589,7 +592,8 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 
 	skb->protocol = htons(ETH_P_MAP);
 
-	if (config->egress_data_format & RMNET_EGRESS_FORMAT_AGGREGATION) {
+	if ((config->egress_data_format & RMNET_EGRESS_FORMAT_AGGREGATION) &&
+	    !non_linear_skb) {
 		rmnet_map_aggregate(skb, config);
 		return RMNET_MAP_CONSUMED;
 	}

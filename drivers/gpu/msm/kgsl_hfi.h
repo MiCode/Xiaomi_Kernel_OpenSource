@@ -228,6 +228,10 @@ struct hfi_bwtable_cmd {
 	uint32_t ddr_cmd_data[MAX_GX_LEVELS][MAX_BW_CMDS];
 };
 
+struct hfi_test_cmd {
+	struct hfi_msg_hdr hdr;
+};
+
 struct arc_vote_desc {
 	/* In case of GPU freq vote, primary is GX, secondary is MX
 	 * in case of GMU freq vote, primary is CX, secondary is MX
