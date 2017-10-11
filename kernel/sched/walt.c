@@ -2556,6 +2556,11 @@ static void _set_preferred_cluster(struct related_thread_group *grp)
 	if (list_empty(&grp->tasks))
 		return;
 
+	if (!sysctl_sched_is_big_little) {
+		grp->preferred_cluster = sched_cluster[0];
+		return;
+	}
+
 	wallclock = ktime_get_ns();
 
 	/*
