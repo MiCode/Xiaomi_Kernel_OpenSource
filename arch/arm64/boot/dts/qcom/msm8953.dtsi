@@ -348,6 +348,32 @@
 		};
 	};
 
+	cpubw_compute: qcom,cpubw-compute {
+		compatible = "qcom,arm-cpu-mon";
+		qcom,cpulist = < &CPU0 &CPU1 &CPU2 &CPU3
+				&CPU4 &CPU5 &CPU6 &CPU7 >;
+		qcom,target-dev = <&cpubw>;
+		qcom,core-dev-table =
+				 <  652800  1611>,
+				 < 1036800  3221>,
+				 < 1401600  5859>,
+				 < 1689600  6445>,
+				 < 1804800  7104>,
+				 < 1958400  7104>,
+				 < 2208000  7104>;
+	};
+
+	mincpubw_compute: qcom,mincpubw-compute {
+		compatible = "qcom,arm-cpu-mon";
+		qcom,cpulist = < &CPU0 &CPU1 &CPU2 &CPU3
+				&CPU4 &CPU5 &CPU6 &CPU7 >;
+		qcom,target-dev = <&mincpubw>;
+		qcom,core-dev-table =
+				<  652800 1611 >,
+				< 1401600 3221 >,
+				< 2208000 5859 >;
+	};
+
 	qcom,ipc-spinlock@1905000 {
 		compatible = "qcom,ipc-spinlock-sfpb";
 		reg = <0x1905000 0x8000>;
