@@ -111,28 +111,4 @@
 #define CAM_CC_QDSS_DEBUG_XO_CLK				94
 #define CAM_CC_SLOW_AHB_CLK_SRC					95
 
-#define CAM_CC_BPS_BCR						0
-#define CAM_CC_CAMNOC_BCR					1
-#define CAM_CC_CCI_BCR						2
-#define CAM_CC_CPAS_BCR						3
-#define CAM_CC_CSI0PHY_BCR					4
-#define CAM_CC_CSI1PHY_BCR					5
-#define CAM_CC_CSI2PHY_BCR					6
-#define CAM_CC_CSI3PHY_BCR					7
-#define CAM_CC_FD_BCR						8
-#define CAM_CC_ICP_BCR						9
-#define CAM_CC_IFE_0_BCR					10
-#define CAM_CC_IFE_1_BCR					11
-#define CAM_CC_IFE_LITE_0_BCR					12
-#define CAM_CC_IFE_LITE_1_BCR					13
-#define CAM_CC_IPE_0_BCR					14
-#define CAM_CC_IPE_1_BCR					15
-#define CAM_CC_JPEG_BCR						16
-#define CAM_CC_LRME_BCR						17
-#define CAM_CC_MCLK0_BCR					18
-#define CAM_CC_MCLK1_BCR					19
-#define CAM_CC_MCLK2_BCR					20
-#define CAM_CC_MCLK3_BCR					21
-#define CAM_CC_QDSS_DEBUG_BCR					22
-
 #endif

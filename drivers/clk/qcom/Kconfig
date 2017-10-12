@@ -231,3 +231,12 @@ config MSM_VIDEOCC_SDM855
 	  SDM855 devices.
 	  Say Y if you want to support video devices and functionality such as
 	  video encode/decode.
+
+config MSM_CAMCC_SDM855
+	tristate "SDM855 Camera Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc
+	  SDM855 devices.
+          Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
