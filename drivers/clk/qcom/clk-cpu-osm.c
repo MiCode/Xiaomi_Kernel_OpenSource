@@ -268,6 +268,7 @@ static struct clk_osm l3_clk = {
 
 static DEFINE_CLK_VOTER(l3_cluster0_vote_clk, l3_clk, 0);
 static DEFINE_CLK_VOTER(l3_cluster1_vote_clk, l3_clk, 0);
+static DEFINE_CLK_VOTER(l3_misc_vote_clk, l3_clk, 0);
 
 static struct clk_osm pwrcl_clk = {
 	.cluster_num = 1,
@@ -380,6 +381,7 @@ static struct clk_hw *osm_qcom_clk_hws[] = {
 	[L3_CLK] = &l3_clk.hw,
 	[L3_CLUSTER0_VOTE_CLK] = &l3_cluster0_vote_clk.hw,
 	[L3_CLUSTER1_VOTE_CLK] = &l3_cluster1_vote_clk.hw,
+	[L3_MISC_VOTE_CLK] = &l3_misc_vote_clk.hw,
 	[PWRCL_CLK] = &pwrcl_clk.hw,
 	[CPU0_PWRCL_CLK] = &cpu0_pwrcl_clk.hw,
 	[CPU1_PWRCL_CLK] = &cpu1_pwrcl_clk.hw,
@@ -979,6 +981,8 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 			"clk: Failed to enable cluster0 clock for L3\n");
 	WARN(clk_prepare_enable(l3_cluster1_vote_clk.hw.clk),
 			"clk: Failed to enable cluster1 clock for L3\n");
+	WARN(clk_prepare_enable(l3_misc_vote_clk.hw.clk),
+			"clk: Failed to enable misc clock for L3\n");
 
 	populate_opp_table(pdev);
 
