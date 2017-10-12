@@ -48,7 +48,8 @@ struct memlat_node {
 static LIST_HEAD(memlat_list);
 static DEFINE_MUTEX(list_lock);
 
-static int use_cnt;
+static int memlat_use_cnt;
+static int compute_use_cnt;
 static DEFINE_MUTEX(state_lock);
 
 #define show_attr(name) \
@@ -240,8 +241,7 @@ static int devfreq_memlat_get_freq(struct devfreq *df,
 		if (hw->core_stats[i].mem_count)
 			ratio /= hw->core_stats[i].mem_count;
 
-		if (!hw->core_stats[i].inst_count
-		    || !hw->core_stats[i].freq)
+		if (!hw->core_stats[i].freq)
 			continue;
 
 		trace_memlat_dev_meas(dev_name(df->dev.parent),
@@ -280,16 +280,26 @@ static int devfreq_memlat_get_freq(struct devfreq *df,
 gov_attr(ratio_ceil, 1U, 10000U);
 gov_attr(stall_floor, 0U, 100U);
 
-static struct attribute *dev_attr[] = {
+static struct attribute *memlat_dev_attr[] = {
 	&dev_attr_ratio_ceil.attr,
 	&dev_attr_stall_floor.attr,
 	&dev_attr_freq_map.attr,
 	NULL,
 };
 
-static struct attribute_group dev_attr_group = {
+static struct attribute *compute_dev_attr[] = {
+	&dev_attr_freq_map.attr,
+	NULL,
+};
+
+static struct attribute_group memlat_dev_attr_group = {
 	.name = "mem_latency",
-	.attrs = dev_attr,
+	.attrs = memlat_dev_attr,
+};
+
+static struct attribute_group compute_dev_attr_group = {
+	.name = "compute",
+	.attrs = compute_dev_attr,
 };
 
 #define MIN_MS	10U
@@ -338,6 +348,12 @@ static struct devfreq_governor devfreq_gov_memlat = {
 	.event_handler = devfreq_memlat_ev_handler,
 };
 
+static struct devfreq_governor devfreq_gov_compute = {
+	.name = "compute",
+	.get_target_freq = devfreq_memlat_get_freq,
+	.event_handler = devfreq_memlat_ev_handler,
+};
+
 #define NUM_COLS	2
 static struct core_dev_map *init_core_dev_map(struct device *dev,
 		char *prop_name)
@@ -380,20 +396,17 @@ static struct core_dev_map *init_core_dev_map(struct device *dev,
 	return tbl;
 }
 
-int register_memlat(struct device *dev, struct memlat_hwmon *hw)
+static struct memlat_node *register_common(struct device *dev,
+					   struct memlat_hwmon *hw)
 {
-	int ret = 0;
 	struct memlat_node *node;
 
 	if (!hw->dev && !hw->of_node)
-		return -EINVAL;
+		return ERR_PTR(-EINVAL);
 
 	node = devm_kzalloc(dev, sizeof(*node), GFP_KERNEL);
 	if (!node)
-		return -ENOMEM;
-
-	node->gov = &devfreq_gov_memlat;
-	node->attr_grp = &dev_attr_group;
+		return ERR_PTR(-ENOMEM);
 
 	node->ratio_ceil = 10;
 	node->hw = hw;
@@ -401,20 +414,68 @@ int register_memlat(struct device *dev, struct memlat_hwmon *hw)
 	hw->freq_map = init_core_dev_map(dev, "qcom,core-dev-table");
 	if (!hw->freq_map) {
 		dev_err(dev, "Couldn't find the core-dev freq table!\n");
-		return -EINVAL;
+		return ERR_PTR(-EINVAL);
 	}
 
 	mutex_lock(&list_lock);
 	list_add_tail(&node->list, &memlat_list);
 	mutex_unlock(&list_lock);
 
+	return node;
+}
+
+int register_compute(struct device *dev, struct memlat_hwmon *hw)
+{
+	struct memlat_node *node;
+	int ret = 0;
+
+	node = register_common(dev, hw);
+	if (IS_ERR(node)) {
+		ret = PTR_ERR(node);
+		goto out;
+	}
+
 	mutex_lock(&state_lock);
-	if (!use_cnt)
-		ret = devfreq_add_governor(&devfreq_gov_memlat);
+	node->gov = &devfreq_gov_compute;
+	node->attr_grp = &compute_dev_attr_group;
+
+	if (!compute_use_cnt)
+		ret = devfreq_add_governor(&devfreq_gov_compute);
 	if (!ret)
-		use_cnt++;
+		compute_use_cnt++;
 	mutex_unlock(&state_lock);
 
+out:
+	if (!ret)
+		dev_info(dev, "Compute governor registered.\n");
+	else
+		dev_err(dev, "Compute governor registration failed!\n");
+
+	return ret;
+}
+
+int register_memlat(struct device *dev, struct memlat_hwmon *hw)
+{
+	struct memlat_node *node;
+	int ret = 0;
+
+	node = register_common(dev, hw);
+	if (IS_ERR(node)) {
+		ret = PTR_ERR(node);
+		goto out;
+	}
+
+	mutex_lock(&state_lock);
+	node->gov = &devfreq_gov_memlat;
+	node->attr_grp = &memlat_dev_attr_group;
+
+	if (!memlat_use_cnt)
+		ret = devfreq_add_governor(&devfreq_gov_memlat);
+	if (!ret)
+		memlat_use_cnt++;
+	mutex_unlock(&state_lock);
+
+out:
 	if (!ret)
 		dev_info(dev, "Memory Latency governor registered.\n");
 	else
