@@ -222,10 +222,20 @@ int diag_md_get_peripheral(int ctxt)
 	struct diagfwd_info *fwd_info = NULL;
 
 	peripheral = GET_BUF_PERIPHERAL(ctxt);
-	if (peripheral < 0 || peripheral > NUM_PERIPHERALS)
+
+	/* Check for peripheral value within bounds
+	 * of peripherals and UPD combined.
+	 */
+	if (peripheral < 0 || peripheral > NUM_MD_SESSIONS)
 		return -EINVAL;
 
 	if (peripheral == APPS_DATA)
+		return peripheral;
+
+	/* With peripheral value bound checked
+	 * return user pd value.
+	 */
+	if (peripheral > NUM_PERIPHERALS)
 		return peripheral;
 
 	type = GET_BUF_TYPE(ctxt);
