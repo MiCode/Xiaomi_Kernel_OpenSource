@@ -433,6 +433,7 @@ rpmh_regulator_send_aggregate_requests(struct rpmh_vreg *vreg)
 	bool sleep_set_differs = aggr_vreg->sleep_request_sent;
 	bool wait_for_ack = aggr_vreg->always_wait_for_ack
 				|| aggr_vreg->next_wait_for_ack;
+	bool resend_active = false;
 	int i, j, max_reg_index, rc;
 	enum rpmh_state state;
 	u32 sent_mask;
@@ -471,6 +472,12 @@ rpmh_regulator_send_aggregate_requests(struct rpmh_vreg *vreg)
 			if ((req_active.reg[i] != req_sleep.reg[i])
 			    && (req_sleep.valid & BIT(i))) {
 				sleep_set_differs = true;
+				/*
+				 * Resend full active set request so that
+				 * all parameters are specified in the wake-only
+				 * state request.
+				 */
+				resend_active = !aggr_vreg->use_awake_state;
 				break;
 			}
 		}
@@ -523,7 +530,7 @@ rpmh_regulator_send_aggregate_requests(struct rpmh_vreg *vreg)
 		if ((req_active.valid & BIT(i))
 		    && (!(aggr_vreg->aggr_req_active.valid & BIT(i))
 			|| aggr_vreg->aggr_req_active.reg[i]
-				!= req_active.reg[i])) {
+				!= req_active.reg[i] || resend_active)) {
 			cmd[j].addr = aggr_vreg->addr + i * 4;
 			cmd[j].data = req_active.reg[i];
 			j++;
