@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -139,7 +139,6 @@ module_param(poolsize_qsc_usb, uint, 0);
 
 /* This is the max number of user-space clients supported at initialization*/
 static unsigned int max_clients = 15;
-static unsigned int threshold_client_limit = 50;
 module_param(max_clients, uint, 0);
 
 /* Timer variables */
@@ -339,7 +338,7 @@ static int diagchar_open(struct inode *inode, struct file *file)
 		if (i < driver->num_clients) {
 			diag_add_client(i, file);
 		} else {
-			if (i < threshold_client_limit) {
+			if (i < THRESHOLD_CLIENT_LIMIT) {
 				driver->num_clients++;
 				temp = krealloc(driver->client_map
 					, (driver->num_clients) * sizeof(struct
@@ -369,11 +368,17 @@ static int diagchar_open(struct inode *inode, struct file *file)
 			}
 		}
 		driver->data_ready[i] = 0x0;
+		atomic_set(&driver->data_ready_notif[i], 0);
 		driver->data_ready[i] |= MSG_MASKS_TYPE;
+		atomic_inc(&driver->data_ready_notif[i]);
 		driver->data_ready[i] |= EVENT_MASKS_TYPE;
+		atomic_inc(&driver->data_ready_notif[i]);
 		driver->data_ready[i] |= LOG_MASKS_TYPE;
+		atomic_inc(&driver->data_ready_notif[i]);
 		driver->data_ready[i] |= DCI_LOG_MASKS_TYPE;
+		atomic_inc(&driver->data_ready_notif[i]);
 		driver->data_ready[i] |= DCI_EVENT_MASKS_TYPE;
+		atomic_inc(&driver->data_ready_notif[i]);
 
 		if (driver->ref_count == 0)
 			diag_mempool_init();
@@ -1831,6 +1836,7 @@ static int diag_ioctl_lsm_deinit(void)
 	}
 
 	driver->data_ready[i] |= DEINIT_TYPE;
+	atomic_inc(&driver->data_ready_notif[i]);
 	mutex_unlock(&driver->diagchar_mutex);
 	wake_up_interruptible(&driver->wait_q);
 
@@ -2927,16 +2933,6 @@ static int diag_user_process_apps_data(const char __user *buf, int len,
 	return 0;
 }
 
-static int check_data_ready(int index)
-{
-	int data_type = 0;
-
-	mutex_lock(&driver->diagchar_mutex);
-	data_type = driver->data_ready[index];
-	mutex_unlock(&driver->diagchar_mutex);
-	return data_type;
-}
-
 static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 			  loff_t *ppos)
 {
@@ -2963,7 +2959,8 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		pr_err("diag: bad address from user side\n");
 		return -EFAULT;
 	}
-	wait_event_interruptible(driver->wait_q, (check_data_ready(index)) > 0);
+	wait_event_interruptible(driver->wait_q,
+			atomic_read(&driver->data_ready_notif[index]) > 0);
 
 	mutex_lock(&driver->diagchar_mutex);
 
@@ -2974,6 +2971,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		/*Copy the type of data being passed*/
 		data_type = driver->data_ready[index] & USER_SPACE_DATA_TYPE;
 		driver->data_ready[index] ^= USER_SPACE_DATA_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
 		COPY_USER_SPACE_OR_EXIT(buf, data_type, sizeof(int));
 		/* place holder for number of data field */
 		ret += sizeof(int);
@@ -2987,11 +2985,13 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		/* In case, the thread wakes up and the logging mode is
 		not memory device any more, the condition needs to be cleared */
 		driver->data_ready[index] ^= USER_SPACE_DATA_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
 	}
 
 	if (driver->data_ready[index] & HDLC_SUPPORT_TYPE) {
 		data_type = driver->data_ready[index] & HDLC_SUPPORT_TYPE;
 		driver->data_ready[index] ^= HDLC_SUPPORT_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
 		COPY_USER_SPACE_OR_EXIT(buf, data_type, sizeof(int));
 		mutex_lock(&driver->md_session_lock);
 		session_info = diag_md_session_get_pid(current->tgid);
@@ -3013,6 +3013,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		data_type = driver->data_ready[index] & DEINIT_TYPE;
 		COPY_USER_SPACE_OR_EXIT(buf, data_type, 4);
 		driver->data_ready[index] ^= DEINIT_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
 		mutex_unlock(&driver->diagchar_mutex);
 		diag_remove_client_entry(file);
 		return ret;
@@ -3034,6 +3035,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		if (write_len > 0)
 			ret += write_len;
 		driver->data_ready[index] ^= MSG_MASKS_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
 		goto exit;
 	}
 
@@ -3067,6 +3069,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		}
 		mutex_unlock(&driver->md_session_lock);
 		driver->data_ready[index] ^= EVENT_MASKS_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
 		goto exit;
 	}
 
@@ -3086,6 +3089,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		if (write_len > 0)
 			ret += write_len;
 		driver->data_ready[index] ^= LOG_MASKS_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
 		goto exit;
 	}
 
@@ -3097,6 +3101,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 					*(driver->apps_req_buf),
 					driver->apps_req_buf_len);
 		driver->data_ready[index] ^= PKT_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
 		driver->in_busy_pktdata = 0;
 		goto exit;
 	}
@@ -3108,6 +3113,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		COPY_USER_SPACE_OR_EXIT(buf+4, *(driver->dci_pkt_buf),
 					driver->dci_pkt_length);
 		driver->data_ready[index] ^= DCI_PKT_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
 		driver->in_busy_dcipktdata = 0;
 		goto exit;
 	}
@@ -3120,6 +3126,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		COPY_USER_SPACE_OR_EXIT(buf + 8, (dci_ops_tbl[DCI_LOCAL_PROC].
 				event_mask_composite), DCI_EVENT_MASK_SIZE);
 		driver->data_ready[index] ^= DCI_EVENT_MASKS_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
 		goto exit;
 	}
 
@@ -3131,6 +3138,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		COPY_USER_SPACE_OR_EXIT(buf+8, (dci_ops_tbl[DCI_LOCAL_PROC].
 				log_mask_composite), DCI_LOG_MASK_SIZE);
 		driver->data_ready[index] ^= DCI_LOG_MASKS_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
 		goto exit;
 	}
 
@@ -3162,6 +3170,7 @@ exit:
 			exit_stat = diag_copy_dci(buf, count, entry, &ret);
 			mutex_lock(&driver->diagchar_mutex);
 			driver->data_ready[index] ^= DCI_DATA_TYPE;
+			atomic_dec(&driver->data_ready_notif[index]);
 			mutex_unlock(&driver->diagchar_mutex);
 			if (exit_stat == 1) {
 				mutex_unlock(&driver->dci_mutex);
