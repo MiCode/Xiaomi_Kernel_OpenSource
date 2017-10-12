@@ -11,3 +11,9 @@
  */
 
 #include "sdm845-qvr.dtsi"
+
+&vendor {
+	qcom,battery-data {
+		#include "fg-gen3-batterydata-mlp356477-2800mah.dtsi"
+	};
+};
