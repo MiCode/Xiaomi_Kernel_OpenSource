@@ -3667,9 +3667,6 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	int ret = 0;
 
-	if (!dwc->xhci)
-		return -EINVAL;
-
 	/*
 	 * The vbus_reg pointer could have multiple values
 	 * NULL: regulator_get() hasn't been called, or was previously deferred
@@ -3720,15 +3717,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 
 		mdwc->usbdev_nb.notifier_call = msm_dwc3_usbdev_notify;
 		usb_register_atomic_notify(&mdwc->usbdev_nb);
-		/*
-		 * FIXME If micro A cable is disconnected during system suspend,
-		 * xhci platform device will be removed before runtime pm is
-		 * enabled for xhci device. Due to this, disable_depth becomes
-		 * greater than one and runtimepm is not enabled for next microA
-		 * connect. Fix this by calling pm_runtime_init for xhci device.
-		 */
-		pm_runtime_init(&dwc->xhci->dev);
-		ret = platform_device_add(dwc->xhci);
+		ret = dwc3_host_init(dwc);
 		if (ret) {
 			dev_err(mdwc->dev,
 				"%s: failed to add XHCI pdev ret=%d\n",
@@ -3796,7 +3785,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		}
 
 		mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
-		platform_device_del(dwc->xhci);
+		dwc3_host_exit(dwc);
 		usb_unregister_notify(&mdwc->host_nb);
 
 		dwc3_usb3_phy_suspend(dwc, false);
