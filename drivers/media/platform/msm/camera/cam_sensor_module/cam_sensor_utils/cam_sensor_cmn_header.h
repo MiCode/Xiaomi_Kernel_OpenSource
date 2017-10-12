@@ -154,7 +154,7 @@ enum cam_sensor_packet_opcodes {
 	CAM_SENSOR_PACKET_OPCODE_SENSOR_UPDATE,
 	CAM_SENSOR_PACKET_OPCODE_SENSOR_INITIAL_CONFIG,
 	CAM_SENSOR_PACKET_OPCODE_SENSOR_PROBE,
-	CAM_SENSOR_PACKET_OPCODE_SENSOR_RESCONFIG,
+	CAM_SENSOR_PACKET_OPCODE_SENSOR_CONFIG,
 	CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMOFF,
 	CAM_SENSOR_PACKET_OPCODE_SENSOR_NOP = 127
 };
@@ -282,7 +282,7 @@ struct i2c_settings_array {
 
 struct i2c_data_settings {
 	struct i2c_settings_array init_settings;
-	struct i2c_settings_array res_settings;
+	struct i2c_settings_array config_settings;
 	struct i2c_settings_array streamon_settings;
 	struct i2c_settings_array streamoff_settings;
 	struct i2c_settings_array *per_frame;
