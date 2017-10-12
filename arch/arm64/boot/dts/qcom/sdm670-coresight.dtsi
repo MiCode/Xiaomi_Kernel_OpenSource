@@ -775,7 +775,6 @@
 		arm,primecell-periphid = <0x0003b968>;
 		reg = <0x6860000 0x1000>;
 		reg-names = "tpdm-base";
-		status = "disabled";
 
 		coresight-name = "coresight-tpdm-turing";
 
