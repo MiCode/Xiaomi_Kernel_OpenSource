@@ -33,6 +33,7 @@ static DEFINE_SPINLOCK(noc_lock);
 #define MAX_SAT_FIELD (NOC_QOS_SATn_SAT_BMSK >> NOC_QOS_SATn_SAT_SHFT)
 #define MIN_SAT_FIELD	1
 #define MIN_BW_FIELD	1
+#define QM_BASE	0x010B8000
 #define MSM_BUS_FAB_MEM_NOC 6152
 
 #define NOC_QOS_REG_BASE(b, o)		((b) + (o))
@@ -107,6 +108,16 @@ enum noc_qos_id_saturationn {
 	NOC_QOS_SATn_SAT_SHFT		= 0x0,
 };
 
+#define QM_CLn_TH_LVL_MUX_ADDR(b, o, n, d)	\
+	(NOC_QOS_REG_BASE(b, o) + 0x8C0 + (d) * (n))
+enum qm_cl_id_th_lvl_mux_cfg {
+	QM_CLn_TH_LVL_SW_OVERRD_BMSK	= 0x80000000,
+	QM_CLn_TH_LVL_SW_OVERRD_SHFT	= 0x1F,
+	QM_CLn_TH_LVL_SW_BMSK		= 0x00000007,
+	QM_CLn_TH_LVL_SW_SHFT		= 0x0,
+};
+
+static void __iomem *qm_base;
 static void __iomem *memnoc_qos_base;
 
 static int noc_div(uint64_t *a, uint32_t b)
@@ -158,6 +169,18 @@ static uint32_t noc_ws(uint64_t bw, uint32_t sat, uint32_t qos_freq)
 	return 0;
 }
 #define MAX_WS(bw, timebase) noc_ws((bw), MAX_SAT_FIELD, (timebase))
+
+static void noc_set_qm_th_lvl_cfg(void __iomem *base, uint32_t off,
+		uint32_t n, uint32_t delta,
+		uint32_t override_val, uint32_t override)
+{
+	writel_relaxed(((override << QM_CLn_TH_LVL_SW_OVERRD_SHFT) |
+		(override_val & QM_CLn_TH_LVL_SW_BMSK)),
+		QM_CLn_TH_LVL_MUX_ADDR(base, off, n, delta));
+
+	/* Ensure QM CFG is set before exiting */
+	wmb();
+}
 
 static void noc_set_qos_dflt_prio(void __iomem *base, uint32_t qos_off,
 		uint32_t mport, uint32_t qos_delta,
@@ -355,6 +378,16 @@ static int msm_bus_noc_qos_init(struct msm_bus_node_device_type *info,
 		goto err_qos_init;
 	}
 
+	if (!qm_base) {
+		qm_base = ioremap_nocache(QM_BASE, 0x4000);
+		if (!qm_base) {
+			MSM_BUS_ERR("%s: Error remapping address 0x%zx",
+				__func__, (size_t)QM_BASE);
+			ret = -ENOMEM;
+			goto err_qos_init;
+		}
+	}
+
 	spin_lock_irqsave(&noc_lock, flags);
 
 	if (fabdev->node_info->id == MSM_BUS_FAB_MEM_NOC)
@@ -395,45 +428,17 @@ int msm_bus_noc_throttle_wa(bool enable)
 
 	spin_lock_irqsave(&noc_lock, flags);
 
-	if (!memnoc_qos_base) {
-		MSM_BUS_ERR("Memnoc QoS Base address not found!");
+	if (!qm_base) {
+		MSM_BUS_ERR("QM CFG base address not found!");
 		goto noc_throttle_exit;
 	}
 
 	if (enable) {
-		noc_set_qos_limit_bw(memnoc_qos_base, 0x10000, 2,
-								0x1000, 0x1B);
-		noc_set_qos_limit_bw(memnoc_qos_base, 0x10000, 3,
-								0x1000, 0x1B);
-		noc_set_qos_limit_bw(memnoc_qos_base, 0x10000, 10,
-								0x1000, 0x30);
-		noc_set_qos_limit_bw(memnoc_qos_base, 0x10000, 11,
-								0x1000, 0x30);
-		noc_enable_qos_limiter(memnoc_qos_base, 0x10000, 10,
-								0x1000, 1);
-		noc_enable_qos_limiter(memnoc_qos_base, 0x10000, 11,
-								0x1000, 1);
-		noc_enable_qos_limiter(memnoc_qos_base, 0x10000, 2,
-								0x1000, 1);
-		noc_enable_qos_limiter(memnoc_qos_base, 0x10000, 3,
-								0x1000, 1);
+		noc_set_qm_th_lvl_cfg(qm_base, 0x1000, 8, 0x4, 0x3, 0x1);
+		noc_set_qm_th_lvl_cfg(qm_base, 0x1000, 9, 0x4, 0x3, 0x1);
 	} else {
-		noc_enable_qos_limiter(memnoc_qos_base, 0x10000, 2,
-								0x1000, 0);
-		noc_enable_qos_limiter(memnoc_qos_base, 0x10000, 3,
-								0x1000, 0);
-		noc_enable_qos_limiter(memnoc_qos_base, 0x10000, 10,
-								0x1000, 0);
-		noc_enable_qos_limiter(memnoc_qos_base, 0x10000, 11,
-								0x1000, 0);
-		noc_set_qos_limit_bw(memnoc_qos_base, 0x10000, 2,
-								0x1000, 0);
-		noc_set_qos_limit_bw(memnoc_qos_base, 0x10000, 3,
-								0x1000, 0);
-		noc_set_qos_limit_bw(memnoc_qos_base, 0x10000, 10,
-								0x1000, 0);
-		noc_set_qos_limit_bw(memnoc_qos_base, 0x10000, 11,
-								0x1000, 0);
+		noc_set_qm_th_lvl_cfg(qm_base, 0x1000, 8, 0x4, 0, 0);
+		noc_set_qm_th_lvl_cfg(qm_base, 0x1000, 9, 0x4, 0, 0);
 	}
 
 noc_throttle_exit:
