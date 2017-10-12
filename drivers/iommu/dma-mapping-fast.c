@@ -867,7 +867,7 @@ static void fast_smmu_reserve_pci_windows(struct device *dev,
 int fast_smmu_init_mapping(struct device *dev,
 			    struct dma_iommu_mapping *mapping)
 {
-	int err, atomic_domain = 1;
+	int err;
 	struct iommu_domain *domain = mapping->domain;
 	struct iommu_group *group;
 	struct iommu_pgtbl_info info;
@@ -877,10 +877,6 @@ int fast_smmu_init_mapping(struct device *dev,
 		dev_err(dev, "Iova end address too large\n");
 		return -EINVAL;
 	}
-
-	if (iommu_domain_set_attr(domain, DOMAIN_ATTR_ATOMIC,
-				  &atomic_domain))
-		return -EINVAL;
 
 	mapping->fast = __fast_smmu_create_mapping_sized(mapping->base, size);
 	if (IS_ERR(mapping->fast))
