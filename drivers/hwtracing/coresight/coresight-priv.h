@@ -35,6 +35,7 @@
 #define TIMEOUT_US		100
 #define BM(lsb, msb)		((BIT(msb) - BIT(lsb)) + BIT(msb))
 #define BMVAL(val, lsb, msb)	((val & GENMASK(msb, lsb)) >> lsb)
+#define BVAL(val, n)            ((val & BIT(n)) >> n)
 
 #define ETM_MODE_EXCL_KERN	BIT(30)
 #define ETM_MODE_EXCL_USER	BIT(31)
@@ -136,6 +137,26 @@ static inline void coresight_write_reg_pair(void __iomem *addr, u64 val,
 		writel_relaxed((u32)(val >> 32), addr + hi_offset);
 }
 
+static inline bool coresight_authstatus_enabled(void __iomem *addr)
+{
+	int ret;
+	unsigned int auth_val;
+
+	if (!addr)
+		return false;
+
+	auth_val = readl_relaxed(addr + CORESIGHT_AUTHSTATUS);
+
+	if ((BMVAL(auth_val, 0, 1) == 0x2) ||
+		(BMVAL(auth_val, 2, 3) == 0x2) ||
+		(BMVAL(auth_val, 4, 5) == 0x2) ||
+		(BMVAL(auth_val, 6, 7) == 0x2))
+		ret = false;
+	else
+		ret = true;
+
+	return ret;
+}
 void coresight_disable_path(struct list_head *path);
 int coresight_enable_path(struct list_head *path, u32 mode);
 struct coresight_device *coresight_get_sink(struct list_head *path);
