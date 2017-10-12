@@ -536,6 +536,7 @@ struct arm_smmu_domain {
 
 	bool				qsmmuv500_errata1_init;
 	bool				qsmmuv500_errata1_client;
+	bool				qsmmuv500_errata2_min_align;
 };
 
 static DEFINE_SPINLOCK(arm_smmu_devices_lock);
@@ -2898,6 +2899,10 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 			& (1 << DOMAIN_ATTR_CB_STALL_DISABLE));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_QCOM_MMU500_ERRATA_MIN_ALIGN:
+		*((int *)data) = smmu_domain->qsmmuv500_errata2_min_align;
+		ret = 0;
+		break;
 	default:
 		ret = -ENODEV;
 		break;
@@ -4395,6 +4400,9 @@ IOMMU_OF_DECLARE(cavium_smmuv2, "cavium,smmu-v2", arm_smmu_of_init);
 
 #define TBU_DBG_TIMEOUT_US		30000
 
+#define QSMMUV500_ACTLR_DEEP_PREFETCH_MASK	0x3
+#define QSMMUV500_ACTLR_DEEP_PREFETCH_SHIFT	0x8
+
 
 struct actlr_setting {
 	struct arm_smmu_smr smr;
@@ -4871,6 +4879,14 @@ static void qsmmuv500_init_cb(struct arm_smmu_domain *smmu_domain,
 			ARM_SMMU_CB(smmu, smmu_domain->cfg.cbndx);
 
 	writel_relaxed(iommudata->actlr, cb_base + ARM_SMMU_CB_ACTLR);
+
+	/*
+	 * Prefetch only works properly if the start and end of all
+	 * buffers in the page table are aligned to 16 Kb.
+	 */
+	if ((iommudata->actlr >> QSMMUV500_ACTLR_DEEP_PREFETCH_SHIFT) &&
+			QSMMUV500_ACTLR_DEEP_PREFETCH_MASK)
+		smmu_domain->qsmmuv500_errata2_min_align = true;
 
 	/*
 	 * Flush the context bank after modifying ACTLR to ensure there
