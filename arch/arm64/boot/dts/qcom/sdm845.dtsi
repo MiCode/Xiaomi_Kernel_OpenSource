@@ -1131,6 +1131,15 @@
 		};
 	};
 
+	devfreq_compute: qcom,devfreq-compute {
+		compatible = "qcom,arm-cpu-mon";
+		qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
+		qcom,target-dev = <&mincpubw>;
+		qcom,core-dev-table =
+			< 1881600 MHZ_TO_MBPS(200, 4) >,
+			< 2208000 MHZ_TO_MBPS(681, 4) >;
+	};
+
 	clock_rpmh: qcom,rpmhclk {
 		compatible = "qcom,rpmh-clk-sdm845";
 		#clock-cells = <1>;
