@@ -722,7 +722,7 @@ static int _get_nearest_pwrlevel(struct kgsl_pwrctrl *pwr, unsigned int clock)
 {
 	int i;
 
-	for (i = pwr->num_pwrlevels - 1; i >= 0; i--) {
+	for (i = pwr->num_pwrlevels - 2; i >= 0; i--) {
 		if (abs(pwr->pwrlevels[i].gpu_freq - clock) < 5000000)
 			return i;
 	}
