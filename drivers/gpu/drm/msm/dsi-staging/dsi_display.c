@@ -131,18 +131,19 @@ static int dsi_display_cmd_engine_enable(struct dsi_display *display)
 	int i;
 	struct dsi_display_ctrl *m_ctrl, *ctrl;
 
+	m_ctrl = &display->ctrl[display->cmd_master_idx];
+	mutex_lock(&m_ctrl->ctrl->ctrl_lock);
+
 	if (display->cmd_engine_refcount > 0) {
 		display->cmd_engine_refcount++;
-		return 0;
+		goto done;
 	}
-
-	m_ctrl = &display->ctrl[display->cmd_master_idx];
 
 	rc = dsi_ctrl_set_cmd_engine_state(m_ctrl->ctrl, DSI_CTRL_ENGINE_ON);
 	if (rc) {
 		pr_err("[%s] failed to enable cmd engine, rc=%d\n",
 		       display->name, rc);
-		goto error;
+		goto done;
 	}
 
 	for (i = 0; i < display->ctrl_count; i++) {
@@ -160,10 +161,11 @@ static int dsi_display_cmd_engine_enable(struct dsi_display *display)
 	}
 
 	display->cmd_engine_refcount++;
-	return rc;
+	goto done;
 error_disable_master:
 	(void)dsi_ctrl_set_cmd_engine_state(m_ctrl->ctrl, DSI_CTRL_ENGINE_OFF);
-error:
+done:
+	mutex_unlock(&m_ctrl->ctrl->ctrl_lock);
 	return rc;
 }
 
@@ -173,15 +175,17 @@ static int dsi_display_cmd_engine_disable(struct dsi_display *display)
 	int i;
 	struct dsi_display_ctrl *m_ctrl, *ctrl;
 
+	m_ctrl = &display->ctrl[display->cmd_master_idx];
+	mutex_lock(&m_ctrl->ctrl->ctrl_lock);
+
 	if (display->cmd_engine_refcount == 0) {
 		pr_err("[%s] Invalid refcount\n", display->name);
-		return 0;
+		goto done;
 	} else if (display->cmd_engine_refcount > 1) {
 		display->cmd_engine_refcount--;
-		return 0;
+		goto done;
 	}
 
-	m_ctrl = &display->ctrl[display->cmd_master_idx];
 	for (i = 0; i < display->ctrl_count; i++) {
 		ctrl = &display->ctrl[i];
 		if (!ctrl->ctrl || (ctrl == m_ctrl))
@@ -203,6 +207,8 @@ static int dsi_display_cmd_engine_disable(struct dsi_display *display)
 
 error:
 	display->cmd_engine_refcount = 0;
+done:
+	mutex_unlock(&m_ctrl->ctrl->ctrl_lock);
 	return rc;
 }
 
