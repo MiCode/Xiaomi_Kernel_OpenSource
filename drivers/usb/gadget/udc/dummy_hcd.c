@@ -173,6 +173,8 @@ struct dummy_hcd {
 
 	struct usb_device		*udev;
 	struct list_head		urbp_list;
+	struct urbp			*next_frame_urbp;
+
 	u32				stream_en_ep;
 	u8				num_stream[30 / 2];
 
@@ -976,7 +978,12 @@ static int dummy_udc_probe(struct platform_device *pdev)
 	memzero_explicit(&dum->gadget, sizeof(struct usb_gadget));
 	dum->gadget.name = gadget_name;
 	dum->gadget.ops = &dummy_ops;
-	dum->gadget.max_speed = USB_SPEED_SUPER;
+	if (mod_data.is_super_speed)
+		dum->gadget.max_speed = USB_SPEED_SUPER;
+	else if (mod_data.is_high_speed)
+		dum->gadget.max_speed = USB_SPEED_HIGH;
+	else
+		dum->gadget.max_speed = USB_SPEED_FULL;
 
 	dum->gadget.dev.parent = &pdev->dev;
 	init_dummy_udc_hw(dum);
@@ -1186,6 +1193,8 @@ static int dummy_urb_enqueue(
 
 	list_add_tail(&urbp->urbp_list, &dum_hcd->urbp_list);
 	urb->hcpriv = urbp;
+	if (!dum_hcd->next_frame_urbp)
+		dum_hcd->next_frame_urbp = urbp;
 	if (usb_pipetype(urb->pipe) == PIPE_CONTROL)
 		urb->error_count = 1;		/* mark as a new urb */
 
@@ -1689,6 +1698,7 @@ static void dummy_timer(unsigned long _dum_hcd)
 		spin_unlock_irqrestore(&dum->lock, flags);
 		return;
 	}
+	dum_hcd->next_frame_urbp = NULL;
 
 	for (i = 0; i < DUMMY_ENDPOINTS; i++) {
 		if (!ep_name[i])
@@ -1704,6 +1714,10 @@ restart:
 		struct dummy_ep		*ep = NULL;
 		int			type;
 		int			status = -EINPROGRESS;
+
+		/* stop when we reach URBs queued after the timer interrupt */
+		if (urbp == dum_hcd->next_frame_urbp)
+			break;
 
 		urb = urbp->urb;
 		if (urb->unlinked)
@@ -2492,8 +2506,6 @@ static struct hc_driver dummy_hcd = {
 	.product_desc =		"Dummy host controller",
 	.hcd_priv_size =	sizeof(struct dummy_hcd),
 
-	.flags =		HCD_USB3 | HCD_SHARED,
-
 	.reset =		dummy_setup,
 	.start =		dummy_start,
 	.stop =			dummy_stop,
@@ -2522,8 +2534,12 @@ static int dummy_hcd_probe(struct platform_device *pdev)
 	dev_info(&pdev->dev, "%s, driver " DRIVER_VERSION "\n", driver_desc);
 	dum = *((void **)dev_get_platdata(&pdev->dev));
 
-	if (!mod_data.is_super_speed)
+	if (mod_data.is_super_speed)
+		dummy_hcd.flags = HCD_USB3 | HCD_SHARED;
+	else if (mod_data.is_high_speed)
 		dummy_hcd.flags = HCD_USB2;
+	else
+		dummy_hcd.flags = HCD_USB11;
 	hs_hcd = usb_create_hcd(&dummy_hcd, &pdev->dev, dev_name(&pdev->dev));
 	if (!hs_hcd)
 		return -ENOMEM;
