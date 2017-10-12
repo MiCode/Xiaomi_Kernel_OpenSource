@@ -1098,6 +1098,13 @@ struct ipa_cne_evt {
 	struct ipa_msg_meta msg_meta;
 };
 
+enum ipa_smmu_cb_type {
+	IPA_SMMU_CB_AP,
+	IPA_SMMU_CB_WLAN,
+	IPA_SMMU_CB_UC,
+	IPA_SMMU_CB_MAX
+};
+
 /**
  * struct ipa3_context - IPA context
  * @class: pointer to the struct class
@@ -1296,7 +1303,7 @@ struct ipa3_context {
 	bool apply_rg10_wa;
 	bool gsi_ch20_wa;
 	bool smmu_present;
-	bool smmu_s1_bypass;
+	bool s1_bypass_arr[IPA_SMMU_CB_MAX];
 	u32 wdi_map_cnt;
 	struct wakeup_source w_lock;
 	struct ipa3_wakelock_ref_cnt wakelock_ref_cnt;

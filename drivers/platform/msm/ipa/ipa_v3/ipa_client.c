@@ -488,7 +488,7 @@ int ipa3_smmu_map_peer_reg(phys_addr_t phys_addr, bool map)
 	struct iommu_domain *smmu_domain;
 	int res;
 
-	if (ipa3_ctx->smmu_s1_bypass)
+	if (ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP])
 		return 0;
 
 	smmu_domain = ipa3_get_smmu_domain();
@@ -520,7 +520,7 @@ int ipa3_smmu_map_peer_buff(u64 iova, phys_addr_t phys_addr, u32 size, bool map)
 	struct iommu_domain *smmu_domain;
 	int res;
 
-	if (ipa3_ctx->smmu_s1_bypass)
+	if (ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP])
 		return 0;
 
 	smmu_domain = ipa3_get_smmu_domain();

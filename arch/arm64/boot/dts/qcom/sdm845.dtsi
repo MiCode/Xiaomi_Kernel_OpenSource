@@ -2824,7 +2824,6 @@
 		qcom,ipa-wdi2;
 		qcom,use-64-bit-dma-mask;
 		qcom,arm-smmu;
-		qcom,smmu-s1-bypass;
 		qcom,bandwidth-vote-for-ipa;
 		qcom,msm-bus,name = "ipa";
 		qcom,msm-bus,num-cases = <5>;
@@ -2949,15 +2948,23 @@
 			compatible = "qcom,ipa-smmu-ap-cb";
 			iommus = <&apps_smmu 0x720 0x0>;
 			qcom,iova-mapping = <0x20000000 0x40000000>;
+			qcom,additional-mapping =
+			/* modem tables in IMEM */
+			<0x146BD000 0x146BD000 0x2000>;
 		};
 
 		ipa_smmu_wlan: ipa_smmu_wlan {
 			compatible = "qcom,ipa-smmu-wlan-cb";
+			qcom,smmu-s1-bypass;
 			iommus = <&apps_smmu 0x721 0x0>;
+			qcom,additional-mapping =
+			/* ipa-uc ram */
+			<0x1E60000 0x1E60000 0x80000>;
 		};
 
 		ipa_smmu_uc: ipa_smmu_uc {
 			compatible = "qcom,ipa-smmu-uc-cb";
+			qcom,smmu-s1-bypass;
 			iommus = <&apps_smmu 0x722 0x0>;
 			qcom,iova-mapping = <0x40000000 0x20000000>;
 		};

@@ -136,8 +136,8 @@ static void ipa3_wq_write_done_common(struct ipa3_sys_context *sys,
 					DMA_TO_DEVICE);
 			} else {
 				dma_unmap_page(ipa3_ctx->pdev,
-					next_pkt->mem.phys_base,
-					next_pkt->mem.size,
+					tx_pkt->mem.phys_base,
+					tx_pkt->mem.size,
 					DMA_TO_DEVICE);
 			}
 		}
