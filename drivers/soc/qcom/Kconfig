@@ -590,13 +590,6 @@ config MSM_QBT1000
 	  trusted apps, unloading them and marshalling buffers to the
 	  trusted fingerprint app.
 
-config APSS_CORE_EA
-	depends on CPU_FREQ && PM_OPP
-	bool "Qualcomm Technology Inc specific power aware driver"
-	help
-	  Platform specific power aware driver to provide power
-	  and temperature information to the scheduler.
-
 if MSM_PM
 menuconfig MSM_IDLE_STATS
 	bool "Collect idle statistics"
