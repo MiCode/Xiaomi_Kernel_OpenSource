@@ -734,6 +734,35 @@
 		qcom,finger-detect-gpio = <&tlmm 122 0>;
 	};
 
+	qcom_seecom: qseecom@86d00000 {
+		compatible = "qcom,qseecom";
+		reg = <0x86d00000 0x2200000>;
+		reg-names = "secapp-region";
+		qcom,hlos-num-ce-hw-instances = <1>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,disk-encrypt-pipe-pair = <2>;
+		qcom,support-fde;
+		qcom,no-clock-support;
+		qcom,appsbl-qseecom-support;
+		qcom,msm-bus,name = "qseecom-noc";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<125 512 0 0>,
+				<125 512 200000 400000>,
+				<125 512 300000 800000>,
+				<125 512 400000 1000000>;
+		clock-names = "core_clk_src", "core_clk",
+					 "iface_clk", "bus_clk";
+		clocks = <&clock_gcc GCC_CE1_CLK>,
+			 <&clock_gcc GCC_CE1_CLK>,
+			 <&clock_gcc GCC_CE1_AHB_CLK>,
+			 <&clock_gcc GCC_CE1_AXI_CLK>;
+		qcom,ce-opp-freq = <171430000>;
+		qcom,qsee-reentrancy-support = <2>;
+	};
+
 	thermal_zones: thermal-zones {};
 
 	tsens0: tsens@c222000 {
