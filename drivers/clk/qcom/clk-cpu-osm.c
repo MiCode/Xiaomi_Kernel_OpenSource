@@ -637,12 +637,12 @@ static u32 find_voltage(struct clk_osm *c, unsigned long rate)
 	return -EINVAL;
 }
 
-static int add_opp(struct clk_osm *c, struct device *dev)
+static int add_opp(struct clk_osm *c, struct device **device_list, int count)
 {
 	unsigned long rate = 0;
 	u32 uv;
 	long rc;
-	int j = 0;
+	int i, j = 0;
 	unsigned long min_rate = c->hw.init->rate_max[0];
 	unsigned long max_rate =
 			c->hw.init->rate_max[c->hw.init->num_rate_max - 1];
@@ -655,10 +655,12 @@ static int add_opp(struct clk_osm *c, struct device *dev)
 			return -EINVAL;
 		}
 
-		rc = dev_pm_opp_add(dev, rate, uv);
-		if (rc) {
-			pr_warn("failed to add OPP for %lu\n", rate);
-			return rc;
+		for (i = 0; i < count; i++) {
+			rc = dev_pm_opp_add(device_list[i], rate, uv);
+			if (rc) {
+				pr_warn("failed to add OPP for %lu\n", rate);
+				return rc;
+			}
 		}
 
 		/*
@@ -667,13 +669,18 @@ static int add_opp(struct clk_osm *c, struct device *dev)
 		 * this information will be used by thermal mitigation and the
 		 * scheduler.
 		 */
-		if (rate == min_rate)
-			pr_info("Set OPP pair (%lu Hz, %d uv) on %s\n",
-				rate, uv, dev_name(dev));
+		if (rate == min_rate) {
+			for (i = 0; i < count; i++) {
+				pr_info("Set OPP pair (%lu Hz, %d uv) on %s\n",
+					rate, uv, dev_name(device_list[i]));
+			}
+		}
 
 		if (rate == max_rate && max_rate != min_rate) {
-			pr_info("Set OPP pair (%lu Hz, %d uv) on %s\n",
-				rate, uv, dev_name(dev));
+			for (i = 0; i < count; i++) {
+				pr_info("Set OPP pair (%lu Hz, %d uv) on %s\n",
+					rate, uv, dev_name(device_list[i]));
+			}
 			break;
 		}
 
@@ -683,14 +690,70 @@ static int add_opp(struct clk_osm *c, struct device *dev)
 	return 0;
 }
 
+static int derive_device_list(struct device **device_list,
+				struct device_node *np,
+				char *phandle_name, int count)
+{
+	int i;
+	struct platform_device *pdev;
+	struct device_node *dev_node;
+
+	for (i = 0; i < count; i++) {
+		dev_node = of_parse_phandle(np, phandle_name, i);
+		if (!dev_node) {
+			pr_err("Unable to get device_node pointer for opp-handle (%s)\n",
+					phandle_name);
+			return -ENODEV;
+		}
+
+		pdev = of_find_device_by_node(dev_node);
+		if (!pdev) {
+			pr_err("Unable to find platform_device node for opp-handle (%s)\n",
+						phandle_name);
+			return -ENODEV;
+		}
+		device_list[i] = &pdev->dev;
+	}
+	return 0;
+}
+
+static void populate_l3_opp_table(struct device_node *np, char *phandle_name)
+{
+	struct device **device_list;
+	int len, count, ret = 0;
+
+	if (of_find_property(np, phandle_name, &len)) {
+		count = len / sizeof(u32);
+
+		device_list = kcalloc(count, sizeof(struct device *),
+							GFP_KERNEL);
+		if (!device_list)
+			return;
+
+		ret = derive_device_list(device_list, np, phandle_name, count);
+		if (ret < 0) {
+			pr_err("Failed to fill device_list for %s\n",
+							phandle_name);
+			return;
+		}
+	} else {
+		pr_debug("Unable to find %s\n", phandle_name);
+		return;
+	}
+
+	if (add_opp(&l3_clk, device_list, count))
+		pr_err("Failed to add OPP levels for %s\n", phandle_name);
+
+	kfree(device_list);
+}
+
 static void populate_opp_table(struct platform_device *pdev)
 {
 	int cpu;
 	struct device *cpu_dev;
 	struct clk_osm *c, *parent;
 	struct clk_hw *hw_parent;
-	struct device_node *l3_node_0, *l3_node_4;
-	struct platform_device *l3_dev_0, *l3_dev_4;
+	struct device_node *np = pdev->dev.of_node;
 
 	for_each_possible_cpu(cpu) {
 		c = logical_cpu_to_clk(cpu);
@@ -703,40 +766,12 @@ static void populate_opp_table(struct platform_device *pdev)
 		parent = to_clk_osm(hw_parent);
 		cpu_dev = get_cpu_device(cpu);
 		if (cpu_dev)
-			if (add_opp(parent, cpu_dev))
+			if (add_opp(parent, &cpu_dev, 1))
 				pr_err("Failed to add OPP levels for %s\n",
 					dev_name(cpu_dev));
 	}
 
-	l3_node_0 = of_parse_phandle(pdev->dev.of_node, "l3-dev0", 0);
-	if (!l3_node_0) {
-		pr_err("can't find the L3 cluster 0 dt node\n");
-		return;
-	}
-
-	l3_dev_0 = of_find_device_by_node(l3_node_0);
-	if (!l3_dev_0) {
-		pr_err("can't find the L3 cluster 0 dt device\n");
-		return;
-	}
-
-	if (add_opp(&l3_clk, &l3_dev_0->dev))
-		pr_err("Failed to add OPP levels for L3 cluster 0\n");
-
-	l3_node_4 = of_parse_phandle(pdev->dev.of_node, "l3-dev4", 0);
-	if (!l3_node_4) {
-		pr_err("can't find the L3 cluster 1 dt node\n");
-		return;
-	}
-
-	l3_dev_4 = of_find_device_by_node(l3_node_4);
-	if (!l3_dev_4) {
-		pr_err("can't find the L3 cluster 1 dt device\n");
-		return;
-	}
-
-	if (add_opp(&l3_clk, &l3_dev_4->dev))
-		pr_err("Failed to add OPP levels for L3 cluster 1\n");
+	populate_l3_opp_table(np, "l3-devs");
 }
 
 static u64 clk_osm_get_cpu_cycle_counter(int cpu)
