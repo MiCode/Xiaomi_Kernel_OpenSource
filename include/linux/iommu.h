@@ -42,6 +42,7 @@
  * if the IOMMU page table format is equivalent.
  */
 #define IOMMU_PRIV	(1 << 5)
+#define IOMMU_GUARD	(1 << 28) /* Guard Page */
 /* Use upstream device's bus attribute */
 #define IOMMU_USE_UPSTREAM_HINT	(1 << 6)
 
@@ -153,6 +154,7 @@ enum iommu_attr {
 	DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
 	DOMAIN_ATTR_CB_STALL_DISABLE,
 	DOMAIN_ATTR_BITMAP_IOVA_ALLOCATOR,
+	DOMAIN_ATTR_QCOM_MMU500_ERRATA_MIN_IOVA_ALIGN,
 	DOMAIN_ATTR_MAX,
 };
 

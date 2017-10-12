@@ -21,6 +21,9 @@
 #include <linux/vmalloc.h>
 #include <linux/pci.h>
 
+#include <soc/qcom/secure_buffer.h>
+#include <linux/arm-smmu-errata.h>
+
 /* some redundant definitions... :( TODO: move to io-pgtable-fast.h */
 #define FAST_PAGE_SHIFT		12
 #define FAST_PAGE_SIZE (1UL << FAST_PAGE_SHIFT)
@@ -153,9 +156,18 @@ static dma_addr_t __fast_smmu_alloc_iova(struct dma_fast_smmu_mapping *mapping,
 					 unsigned long attrs,
 					 size_t size)
 {
-	unsigned long bit, prev_search_start, nbits = size >> FAST_PAGE_SHIFT;
-	unsigned long align = (1 << get_order(size)) - 1;
+	unsigned long bit, prev_search_start, nbits;
+	unsigned long align;
+	unsigned long guard_len;
+	dma_addr_t iova;
 
+	if (mapping->min_iova_align)
+		guard_len = ALIGN(size, mapping->min_iova_align) - size;
+	else
+		guard_len = 0;
+
+	nbits = (size + guard_len) >> FAST_PAGE_SHIFT;
+	align = (1 << get_order(size + guard_len)) - 1;
 	bit = bitmap_find_next_zero_area(
 		mapping->bitmap, mapping->num_4k_pages, mapping->next_start,
 		nbits, align);
@@ -192,7 +204,16 @@ static dma_addr_t __fast_smmu_alloc_iova(struct dma_fast_smmu_mapping *mapping,
 		av8l_fast_clear_stale_ptes(mapping->pgtbl_pmds, skip_sync);
 	}
 
-	return (bit << FAST_PAGE_SHIFT) + mapping->base;
+	iova =  (bit << FAST_PAGE_SHIFT) + mapping->base;
+	if (guard_len &&
+		iommu_map(mapping->domain, iova + size,
+			page_to_phys(mapping->guard_page),
+			guard_len, ARM_SMMU_GUARD_PROT)) {
+
+		bitmap_clear(mapping->bitmap, bit, nbits);
+		return DMA_ERROR_CODE;
+	}
+	return iova;
 }
 
 /*
@@ -286,7 +307,17 @@ static void __fast_smmu_free_iova(struct dma_fast_smmu_mapping *mapping,
 				  dma_addr_t iova, size_t size)
 {
 	unsigned long start_bit = (iova - mapping->base) >> FAST_PAGE_SHIFT;
-	unsigned long nbits = size >> FAST_PAGE_SHIFT;
+	unsigned long nbits;
+	unsigned long guard_len;
+
+	if (mapping->min_iova_align) {
+		guard_len = ALIGN(size, mapping->min_iova_align) - size;
+		iommu_unmap(mapping->domain, iova + size, guard_len);
+	} else {
+		guard_len = 0;
+	}
+	nbits = (size + guard_len) >> FAST_PAGE_SHIFT;
+
 
 	/*
 	 * We don't invalidate TLBs on unmap.  We invalidate TLBs on map
@@ -403,7 +434,7 @@ static void fast_smmu_unmap_page(struct device *dev, dma_addr_t iova,
 	spin_lock_irqsave(&mapping->lock, flags);
 	av8l_fast_unmap_public(pmd, len);
 	fast_dmac_clean_range(mapping, pmd, pmd + nptes);
-	__fast_smmu_free_iova(mapping, iova, len);
+	__fast_smmu_free_iova(mapping, iova - offset, len);
 	spin_unlock_irqrestore(&mapping->lock, flags);
 }
 
@@ -708,7 +739,7 @@ static void fast_smmu_dma_unmap_resource(
 
 	iommu_unmap(mapping->domain, addr - offset, len);
 	spin_lock_irqsave(&mapping->lock, flags);
-	__fast_smmu_free_iova(mapping, addr, len);
+	__fast_smmu_free_iova(mapping, addr - offset, len);
 	spin_unlock_irqrestore(&mapping->lock, flags);
 }
 
@@ -856,6 +887,28 @@ static void fast_smmu_reserve_pci_windows(struct device *dev,
 	spin_unlock_irqrestore(&mapping->lock, flags);
 }
 
+static int fast_smmu_errata_init(struct dma_iommu_mapping *mapping)
+{
+	struct dma_fast_smmu_mapping *fast = mapping->fast;
+	int vmid = VMID_HLOS;
+	int min_iova_align = 0;
+
+	iommu_domain_get_attr(mapping->domain,
+			DOMAIN_ATTR_QCOM_MMU500_ERRATA_MIN_IOVA_ALIGN,
+			&min_iova_align);
+	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_SECURE_VMID, &vmid);
+	if (vmid >= VMID_LAST || vmid < 0)
+		vmid = VMID_HLOS;
+
+	if (min_iova_align) {
+		fast->min_iova_align = ARM_SMMU_MIN_IOVA_ALIGN;
+		fast->guard_page = arm_smmu_errata_get_guard_page(vmid);
+		if (!fast->guard_page)
+			return -ENOMEM;
+	}
+	return 0;
+}
+
 /**
  * fast_smmu_init_mapping
  * @dev: valid struct device pointer
@@ -883,6 +936,9 @@ int fast_smmu_init_mapping(struct device *dev,
 		return -ENOMEM;
 	mapping->fast->domain = domain;
 	mapping->fast->dev = dev;
+
+	if (fast_smmu_errata_init(mapping))
+		goto release_mapping;
 
 	fast_smmu_reserve_pci_windows(dev, mapping->fast);
 
