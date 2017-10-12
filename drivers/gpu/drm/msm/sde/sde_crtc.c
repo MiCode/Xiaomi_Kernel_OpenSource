@@ -1124,7 +1124,7 @@ static int _sde_crtc_check_planes_within_crtc_roi(struct drm_crtc *crtc,
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *crtc_state;
 	const struct sde_rect *crtc_roi;
-	struct drm_plane_state *pstate;
+	const struct drm_plane_state *pstate;
 	struct drm_plane *plane;
 
 	if (!crtc || !state)
@@ -1143,10 +1143,9 @@ static int _sde_crtc_check_planes_within_crtc_roi(struct drm_crtc *crtc,
 	if (sde_kms_rect_is_null(crtc_roi))
 		return 0;
 
-	drm_atomic_crtc_state_for_each_plane(plane, state) {
+	drm_atomic_crtc_state_for_each_plane_state(plane, pstate, state) {
 		struct sde_rect plane_roi, intersection;
 
-		pstate = drm_atomic_get_plane_state(state->state, plane);
 		if (IS_ERR_OR_NULL(pstate)) {
 			int rc = PTR_ERR(pstate);
 
