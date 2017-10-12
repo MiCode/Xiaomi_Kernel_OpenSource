@@ -477,6 +477,15 @@
 		qcom,invert = <1>;		/* Output high */
 		status = "okay";
 	};
+
+	mpp@a500 { /* MPP 6 */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,vin-sel = <2>;		/* S4 1.8V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;		/* Enable GPIO */
+		status = "okay";
+	};
 };
 
 &pm8994_vadc {
