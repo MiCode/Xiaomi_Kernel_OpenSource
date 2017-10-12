@@ -36,6 +36,25 @@ static const struct of_device_id cam_isp_dt_match[] = {
 	{}
 };
 
+static int cam_isp_subdev_close(struct v4l2_subdev *sd,
+	struct v4l2_subdev_fh *fh)
+{
+	struct cam_node *node = v4l2_get_subdevdata(sd);
+
+	if (!node) {
+		CAM_ERR(CAM_ISP, "Node ptr is NULL");
+		return -EINVAL;
+	}
+
+	cam_node_shutdown(node);
+
+	return 0;
+}
+
+static const struct v4l2_subdev_internal_ops cam_isp_subdev_internal_ops = {
+	.close = cam_isp_subdev_close,
+};
+
 static int cam_isp_dev_remove(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -64,6 +83,7 @@ static int cam_isp_dev_probe(struct platform_device *pdev)
 	struct cam_hw_mgr_intf         hw_mgr_intf;
 	struct cam_node               *node;
 
+	g_isp_dev.sd.internal_ops = &cam_isp_subdev_internal_ops;
 	/* Initialze the v4l2 subdevice first. (create cam_node) */
 	rc = cam_subdev_probe(&g_isp_dev.sd, pdev, CAM_ISP_DEV_NAME,
 		CAM_IFE_DEVICE_TYPE);

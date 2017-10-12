@@ -1454,9 +1454,9 @@ static int __cam_isp_ctx_release_dev_in_top_state(struct cam_context *ctx,
 		ctx_isp->hw_ctx = NULL;
 	}
 
-	ctx->session_hdl = 0;
-	ctx->dev_hdl = 0;
-	ctx->link_hdl = 0;
+	ctx->session_hdl = -1;
+	ctx->dev_hdl = -1;
+	ctx->link_hdl = -1;
 	ctx->ctx_crm_intf = NULL;
 	ctx_isp->frame_id = 0;
 	ctx_isp->active_req_cnt = 0;

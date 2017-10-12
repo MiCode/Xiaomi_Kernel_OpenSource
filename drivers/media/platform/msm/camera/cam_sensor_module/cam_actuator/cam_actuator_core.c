@@ -326,7 +326,7 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 		}
 	} else if ((csl_packet->header.op_code & 0xFFFFFF) ==
 		CAM_ACTUATOR_PACKET_AUTO_MOVE_LENS) {
-		a_ctrl->act_apply_state =
+		a_ctrl->setting_apply_state =
 			ACT_APPLY_SETTINGS_NOW;
 
 		i2c_data = &(a_ctrl->i2c_data);
@@ -469,6 +469,34 @@ static int32_t cam_actuator_power_down(struct cam_actuator_ctrl_t *a_ctrl)
 	return rc;
 }
 
+void cam_actuator_shutdown(struct cam_actuator_ctrl_t *a_ctrl)
+{
+	int rc;
+
+	if (a_ctrl->cam_act_state == CAM_ACTUATOR_INIT)
+		return;
+
+	if (a_ctrl->cam_act_state == CAM_ACTUATOR_START) {
+		rc = camera_io_release(&a_ctrl->io_master_info);
+		if (rc < 0)
+			CAM_ERR(CAM_ACTUATOR, "Failed in releasing CCI");
+		rc = cam_actuator_power_down(a_ctrl);
+		if (rc < 0)
+			CAM_ERR(CAM_ACTUATOR, "Actuator Power down failed");
+		a_ctrl->cam_act_state = CAM_ACTUATOR_ACQUIRE;
+	}
+
+	if (a_ctrl->cam_act_state == CAM_ACTUATOR_ACQUIRE) {
+		rc = cam_destroy_device_hdl(a_ctrl->bridge_intf.device_hdl);
+		if (rc < 0)
+			CAM_ERR(CAM_ACTUATOR, "destroying  dhdl failed");
+		a_ctrl->bridge_intf.device_hdl = -1;
+		a_ctrl->bridge_intf.link_hdl = -1;
+		a_ctrl->bridge_intf.session_hdl = -1;
+	}
+	a_ctrl->cam_act_state = CAM_ACTUATOR_INIT;
+}
+
 int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 	void *arg)
 {
@@ -521,7 +549,7 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 			rc = -EFAULT;
 			goto release_mutex;
 		}
-
+		a_ctrl->cam_act_state = CAM_ACTUATOR_ACQUIRE;
 	}
 		break;
 	case CAM_RELEASE_DEV: {
@@ -538,6 +566,7 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 		a_ctrl->bridge_intf.device_hdl = -1;
 		a_ctrl->bridge_intf.link_hdl = -1;
 		a_ctrl->bridge_intf.session_hdl = -1;
+		a_ctrl->cam_act_state = CAM_ACTUATOR_INIT;
 	}
 		break;
 	case CAM_QUERY_CAP: {
@@ -577,6 +606,7 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 			rc = -EINVAL;
 			goto release_mutex;
 		}
+		a_ctrl->cam_act_state = CAM_ACTUATOR_START;
 	}
 		break;
 	case CAM_STOP_DEV: {
@@ -602,17 +632,18 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 						i2c_set->request_id, rc);
 			}
 		}
+		a_ctrl->cam_act_state = CAM_ACTUATOR_ACQUIRE;
 	}
 		break;
 	case CAM_CONFIG_DEV: {
-		a_ctrl->act_apply_state =
+		a_ctrl->setting_apply_state =
 			ACT_APPLY_SETTINGS_LATER;
 		rc = cam_actuator_i2c_pkt_parse(a_ctrl, arg);
 		if (rc < 0) {
 			CAM_ERR(CAM_ACTUATOR, "Failed in actuator Parsing");
 		}
 
-		if (a_ctrl->act_apply_state ==
+		if (a_ctrl->setting_apply_state ==
 			ACT_APPLY_SETTINGS_NOW) {
 			rc = cam_actuator_apply_settings(a_ctrl,
 				&a_ctrl->i2c_data.init_settings);
@@ -630,8 +661,6 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 			}
 		}
 	}
-		break;
-	case CAM_SD_SHUTDOWN:
 		break;
 	default:
 		CAM_ERR(CAM_ACTUATOR, "Invalid Opcode %d", cmd->op_code);

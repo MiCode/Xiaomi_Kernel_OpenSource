@@ -17,12 +17,6 @@
 #include "cam_node.h"
 #include "cam_trace.h"
 #include "cam_debug_util.h"
-static void  __cam_node_handle_shutdown(struct cam_node *node)
-{
-	if (node->hw_mgr_intf.hw_close)
-		node->hw_mgr_intf.hw_close(node->hw_mgr_intf.hw_mgr_priv,
-			NULL);
-}
 
 static int __cam_node_handle_query_cap(struct cam_node *node,
 	struct cam_query_cap_cmd *query)
@@ -307,6 +301,29 @@ int cam_node_deinit(struct cam_node *node)
 	return 0;
 }
 
+int cam_node_shutdown(struct cam_node *node)
+{
+	int i = 0;
+
+	if (!node)
+		return -EINVAL;
+
+	for (i = 0; i < node->ctx_size; i++) {
+		if (node->ctx_list[i].dev_hdl >= 0) {
+			cam_context_shutdown(&(node->ctx_list[i]));
+			cam_destroy_device_hdl(node->ctx_list[i].dev_hdl);
+			list_add_tail(&(node->ctx_list[i].list),
+				&node->free_ctx_list);
+		}
+	}
+
+	if (node->hw_mgr_intf.hw_close)
+		node->hw_mgr_intf.hw_close(node->hw_mgr_intf.hw_mgr_priv,
+			NULL);
+
+	return 0;
+}
+
 int cam_node_init(struct cam_node *node, struct cam_hw_mgr_intf *hw_mgr_intf,
 	struct cam_context *ctx_list, uint32_t ctx_size, char *name)
 {
@@ -456,9 +473,6 @@ int cam_node_handle_ioctl(struct cam_node *node, struct cam_control *cmd)
 		}
 		break;
 	}
-	case CAM_SD_SHUTDOWN:
-		__cam_node_handle_shutdown(node);
-		break;
 	default:
 		CAM_ERR(CAM_CORE, "Unknown op code %d", cmd->op_code);
 		rc = -EINVAL;

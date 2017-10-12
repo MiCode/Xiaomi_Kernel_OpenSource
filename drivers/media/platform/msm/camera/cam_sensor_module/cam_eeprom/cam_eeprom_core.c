@@ -733,6 +733,35 @@ error:
 	return rc;
 }
 
+void cam_eeprom_shutdown(struct cam_eeprom_ctrl_t *e_ctrl)
+{
+	int rc;
+
+	if (e_ctrl->cam_eeprom_state == CAM_EEPROM_INIT)
+		return;
+
+	if (e_ctrl->cam_eeprom_state == CAM_EEPROM_START) {
+		rc = camera_io_release(&e_ctrl->io_master_info);
+		if (rc < 0)
+			CAM_ERR(CAM_EEPROM, "Failed in releasing CCI");
+		rc = cam_eeprom_power_down(e_ctrl);
+		if (rc < 0)
+			CAM_ERR(CAM_EEPROM, "EEPROM Power down failed");
+		e_ctrl->cam_eeprom_state = CAM_EEPROM_ACQUIRE;
+	}
+
+	if (e_ctrl->cam_eeprom_state == CAM_EEPROM_ACQUIRE) {
+		rc = cam_destroy_device_hdl(e_ctrl->bridge_intf.device_hdl);
+		if (rc < 0)
+			CAM_ERR(CAM_EEPROM, "destroying the device hdl");
+		e_ctrl->bridge_intf.device_hdl = -1;
+		e_ctrl->bridge_intf.link_hdl = -1;
+		e_ctrl->bridge_intf.session_hdl = -1;
+	}
+
+	e_ctrl->cam_eeprom_state = CAM_EEPROM_INIT;
+}
+
 /**
  * cam_eeprom_driver_cmd - Handle eeprom cmds
  * @e_ctrl:     ctrl structure
@@ -775,6 +804,7 @@ int32_t cam_eeprom_driver_cmd(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 			CAM_ERR(CAM_EEPROM, "Failed to acquire dev");
 			goto release_mutex;
 		}
+		e_ctrl->cam_eeprom_state = CAM_EEPROM_ACQUIRE;
 		break;
 	case CAM_RELEASE_DEV:
 		if (e_ctrl->bridge_intf.device_hdl == -1) {
@@ -792,6 +822,7 @@ int32_t cam_eeprom_driver_cmd(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 		e_ctrl->bridge_intf.device_hdl = -1;
 		e_ctrl->bridge_intf.link_hdl = -1;
 		e_ctrl->bridge_intf.session_hdl = -1;
+		e_ctrl->cam_eeprom_state = CAM_EEPROM_INIT;
 		break;
 	case CAM_CONFIG_DEV:
 		rc = cam_eeprom_pkt_parse(e_ctrl, arg);

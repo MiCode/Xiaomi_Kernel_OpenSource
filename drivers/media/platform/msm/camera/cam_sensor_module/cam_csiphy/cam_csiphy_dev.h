@@ -68,10 +68,9 @@
 #endif
 
 enum cam_csiphy_state {
+	CAM_CSIPHY_INIT,
 	CAM_CSIPHY_ACQUIRE,
-	CAM_CSIPHY_RELEASE,
 	CAM_CSIPHY_START,
-	CAM_CSIPHY_STOP,
 };
 
 /**

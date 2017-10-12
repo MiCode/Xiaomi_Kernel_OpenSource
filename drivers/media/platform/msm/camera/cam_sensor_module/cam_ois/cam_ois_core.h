@@ -16,5 +16,12 @@
 
 int cam_ois_driver_cmd(struct cam_ois_ctrl_t *e_ctrl, void *arg);
 
+/**
+ * @o_ctrl: OIS ctrl structure
+ *
+ * This API handles the shutdown ioctl/close
+ */
+void cam_ois_shutdown(struct cam_ois_ctrl_t *o_ctrl);
+
 #endif
 /* _CAM_OIS_CORE_H_ */
