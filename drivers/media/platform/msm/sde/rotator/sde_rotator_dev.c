@@ -2018,6 +2018,18 @@ static long sde_rotator_compat_ioctl32(struct file *file,
 }
 #endif
 
+static int sde_rotator_ctrl_subscribe_event(struct v4l2_fh *fh,
+				const struct v4l2_event_subscription *sub)
+{
+	return -EINVAL;
+}
+
+static int sde_rotator_event_unsubscribe(struct v4l2_fh *fh,
+			   const struct v4l2_event_subscription *sub)
+{
+	return -EINVAL;
+}
+
 /* V4l2 ioctl handlers */
 static const struct v4l2_ioctl_ops sde_rotator_ioctl_ops = {
 	.vidioc_querycap          = sde_rotator_querycap,
@@ -2044,8 +2056,8 @@ static const struct v4l2_ioctl_ops sde_rotator_ioctl_ops = {
 	.vidioc_s_priority	  = sde_rotator_s_priority,
 	.vidioc_default           = sde_rotator_private_ioctl,
 	.vidioc_log_status        = v4l2_ctrl_log_status,
-	.vidioc_subscribe_event   = v4l2_ctrl_subscribe_event,
-	.vidioc_unsubscribe_event = v4l2_event_unsubscribe,
+	.vidioc_subscribe_event   = sde_rotator_ctrl_subscribe_event,
+	.vidioc_unsubscribe_event = sde_rotator_event_unsubscribe,
 };
 
 /*
