@@ -1284,10 +1284,9 @@ void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
 	geni_se_dev = dev_get_drvdata(rsc->wrapper_dev);
 	if (unlikely(!geni_se_dev || !geni_se_dev->bus_bw))
 		return;
-	mutex_lock(&geni_se_dev->ab_ib_lock);
 	if (unlikely(list_empty(&rsc->ab_list) || list_empty(&rsc->ib_list))) {
 		GENI_SE_DBG(ipc, false, NULL, "%s: Clocks not on\n", __func__);
-		goto exit_geni_se_dump_dbg_regs;
+		return;
 	}
 	m_cmd0 = geni_read_reg(base, SE_GENI_M_CMD0);
 	m_irq_status = geni_read_reg(base, SE_GENI_M_IRQ_STATUS);
@@ -1315,8 +1314,6 @@ void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
 	se_dma_dbg, m_cmd_ctrl, se_dma_rx_len, se_dma_rx_len_in);
 	GENI_SE_DBG(ipc, false, NULL,
 	"dma_txlen:0x%x, dma_txlen_in:0x%x\n", se_dma_tx_len, se_dma_tx_len_in);
-exit_geni_se_dump_dbg_regs:
-	mutex_unlock(&geni_se_dev->ab_ib_lock);
 }
 EXPORT_SYMBOL(geni_se_dump_dbg_regs);
 
