@@ -32,6 +32,7 @@ Optional properties:
 		      This may be a shared regulator that is already voted
 		      on in the PIL proxy voting code (and also managed by the
 		      modem on its own), hence we mark it as as optional.
+- vdd_mss-uV:         Voltage to set for vdd_mss.
 - vdd_pll-supply:     Reference to the regulator that supplies the PLL's rail.
 - qcom,vdd_pll:       Voltage to be set for the PLL's rail.
 - reg-names:          "cxrail_bhs_reg" - control register for modem power
