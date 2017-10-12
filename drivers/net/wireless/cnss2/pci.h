@@ -65,6 +65,7 @@ struct cnss_pci_data {
 	bool pci_link_state;
 	bool pci_link_down_ind;
 	struct pci_saved_state *saved_state;
+	struct pci_saved_state *default_state;
 	struct msm_pcie_register_event msm_pci_event;
 	atomic_t auto_suspended;
 	bool monitor_wake_intr;
