@@ -24,7 +24,7 @@
 
 &sdhc_1 {
 	vdd-supply = <&sdc_vreg>;
-	vdd-io-supply = <&pmd9650_l6>;
+	vdd-io-supply = <&pmd9650_l7>;
 	qcom,vdd-io-voltage-level = <1800000 1800000>;
 	qcom,vdd-io-always-on;
 	qcom,vdd-io-current-level = <200 10000>;
