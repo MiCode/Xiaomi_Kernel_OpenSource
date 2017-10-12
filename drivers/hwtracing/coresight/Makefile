@@ -21,3 +21,5 @@ obj-$(CONFIG_CORESIGHT_CPU_DEBUG) += coresight-cpu-debug.o
 obj-$(CONFIG_CORESIGHT_CATU) += coresight-catu.o
 obj-$(CONFIG_CORESIGHT_CTI) += coresight-cti.o
 obj-$(CONFIG_CORESIGHT_OST) += coresight-ost.o
+obj-$(CONFIG_CORESIGHT_TPDA) += coresight-tpda.o
+obj-$(CONFIG_CORESIGHT_TPDM) += coresight-tpdm.o
