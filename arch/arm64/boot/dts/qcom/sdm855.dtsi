@@ -669,7 +669,10 @@
 		qcom,proxy-clock-names = "xo";
 
 		vdd_cx-supply = <&pm855l_s6_level>;
-		qcom,proxy-reg-names = "vdd_cx";
+		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		vdd_mss-supply = <&pm855_s1_level>;
+		qcom,vdd_mss-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		qcom,proxy-reg-names = "vdd_cx", "vdd_mss";
 
 		qcom,firmware-name = "modem";
 		memory-region = <&pil_modem_mem>;
