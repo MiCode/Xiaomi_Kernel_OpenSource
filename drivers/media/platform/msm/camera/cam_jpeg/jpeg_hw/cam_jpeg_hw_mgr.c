@@ -312,6 +312,8 @@ static int cam_jpeg_mgr_process_cmd(void *priv, void *data)
 	struct cam_jpeg_set_irq_cb irq_cb;
 	struct cam_jpeg_hw_cfg_req *p_cfg_req = NULL;
 	struct cam_hw_done_event_data buf_data;
+	uint32_t size = 0;
+	uint32_t mem_cam_base = 0;
 
 	if (!hw_mgr || !task_data) {
 		CAM_ERR(CAM_JPEG, "Invalid arguments %pK %pK",
@@ -425,11 +427,35 @@ static int cam_jpeg_mgr_process_cmd(void *priv, void *data)
 	cdm_cmd->cookie = 0;
 	cdm_cmd->cmd_arrary_count = 0;
 
-	rc = cam_jpeg_insert_cdm_change_base(config_args,
-		ctx_data, hw_mgr);
-	if (rc) {
-		CAM_ERR(CAM_JPEG, "insert change base failed %d", rc);
-		goto end_callcb;
+	/* if for backward compat */
+	if (config_args->hw_update_entries[CAM_JPEG_CHBASE].handle) {
+		rc = cam_jpeg_insert_cdm_change_base(config_args,
+			ctx_data, hw_mgr);
+		if (rc) {
+			CAM_ERR(CAM_JPEG, "insert change base failed %d", rc);
+			goto end_callcb;
+		}
+	} else {
+		mem_cam_base = hw_mgr->cdm_reg_map[dev_type][0]->
+			mem_cam_base;
+		size = hw_mgr->cdm_info[dev_type][0].cdm_ops->
+			cdm_required_size_changebase();
+		hw_mgr->cdm_info[dev_type][0].cdm_ops->
+			cdm_write_changebase(ctx_data->cmd_chbase_buf_addr,
+			hw_mgr->cdm_reg_map[dev_type][0]->mem_cam_base);
+		ctx_data->cdm_cmd_chbase->cmd_arrary_count = 1;
+		ctx_data->cdm_cmd_chbase->type =
+			CAM_CDM_BL_CMD_TYPE_KERNEL_IOVA;
+		ctx_data->cdm_cmd_chbase->flag = false;
+		ctx_data->cdm_cmd_chbase->userdata = NULL;
+		ctx_data->cdm_cmd_chbase->cookie = 0;
+		ctx_data->cdm_cmd_chbase->cmd[0].bl_addr.kernel_iova =
+			ctx_data->cmd_chbase_buf_addr;
+		ctx_data->cdm_cmd_chbase->cmd[0].offset = 0;
+		ctx_data->cdm_cmd_chbase->cmd[0].len = size;
+		cam_cdm_submit_bls(hw_mgr->cdm_info[dev_type][0].
+			cdm_handle,
+			ctx_data->cdm_cmd_chbase);
 	}
 
 	CAM_DBG(CAM_JPEG, "num hw up %d", config_args->num_hw_update_entries);
@@ -633,10 +659,13 @@ static int cam_jpeg_mgr_prepare_hw_update(void *hw_mgr_priv,
 		return -EINVAL;
 	}
 
-	rc = cam_packet_util_validate_packet(packet);
-	if (rc) {
-		CAM_ERR(CAM_JPEG, "invalid packet %d", rc);
-		return rc;
+	/* if for backward compat */
+	if (packet->kmd_cmd_buf_index != -1) {
+		rc = cam_packet_util_validate_packet(packet);
+		if (rc) {
+			CAM_ERR(CAM_JPEG, "invalid packet %d", rc);
+			return rc;
+		}
 	}
 
 	if ((packet->num_cmd_buf > 5) || !packet->num_patches ||
@@ -686,12 +715,16 @@ static int cam_jpeg_mgr_prepare_hw_update(void *hw_mgr_priv,
 			i, io_cfg_ptr[i].direction, io_cfg_ptr[i].fence);
 	}
 
-
 	j = prepare_args->num_hw_update_entries;
-	rc = cam_packet_util_get_kmd_buffer(packet, &kmd_buf);
-	if (rc) {
-		CAM_ERR(CAM_JPEG, "get kmd buf failed %d", rc);
-		return rc;
+	/* if-else for backward compat */
+	if (packet->kmd_cmd_buf_index != -1) {
+		rc = cam_packet_util_get_kmd_buffer(packet, &kmd_buf);
+		if (rc) {
+			CAM_ERR(CAM_JPEG, "get kmd buf failed %d", rc);
+			return rc;
+		}
+	} else {
+		memset(&kmd_buf, 0x0, sizeof(kmd_buf));
 	}
 	/* fill kmd buf info into 1st hw update entry */
 	prepare_args->hw_update_entries[j].len =
