@@ -231,6 +231,16 @@ struct sde_connector_ops {
 	 * Returns: positive value for success, negetive or zero for failure
 	 */
 	int (*check_status)(void *display);
+
+	/**
+	 * cmd_transfer - Transfer command to the connected display panel
+	 * @display: Pointer to private display handle
+	 * @cmd_buf: Command buffer
+	 * @cmd_buf_len: Command buffer length in bytes
+	 * Returns: Zero for success, negetive for failure
+	 */
+	int (*cmd_transfer)(void *display, const char *cmd_buf,
+			u32 cmd_buf_len);
 };
 
 /**
@@ -290,6 +300,7 @@ struct sde_connector_evt {
  * @bl_scale_dirty: Flag to indicate PP BL scale value(s) is changed
  * @bl_scale: BL scale value for ABA feature
  * @bl_scale_ad: BL scale value for AD feature
+ * last_cmd_tx_sts: status of the last command transfer
  */
 struct sde_connector {
 	struct drm_connector base;
@@ -330,6 +341,8 @@ struct sde_connector {
 	bool bl_scale_dirty;
 	u32 bl_scale;
 	u32 bl_scale_ad;
+
+	bool last_cmd_tx_sts;
 };
 
 /**

@@ -564,6 +564,87 @@ int dsi_display_check_status(void *display)
 	return rc;
 }
 
+static int dsi_display_cmd_prepare(const char *cmd_buf, u32 cmd_buf_len,
+		struct dsi_cmd_desc *cmd, u8 *payload, u32 payload_len)
+{
+	int i;
+
+	memset(cmd, 0x00, sizeof(*cmd));
+	cmd->msg.type = cmd_buf[0];
+	cmd->last_command = (cmd_buf[1] == 1 ? true : false);
+	cmd->msg.channel = cmd_buf[2];
+	cmd->msg.flags = cmd_buf[3];
+	cmd->msg.ctrl = 0;
+	cmd->post_wait_ms = cmd_buf[4];
+	cmd->msg.tx_len = ((cmd_buf[5] << 8) | (cmd_buf[6]));
+
+	if (cmd->msg.tx_len > payload_len) {
+		pr_err("Incorrect payload length tx_len %ld, payload_len %d\n",
+				cmd->msg.tx_len, payload_len);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < cmd->msg.tx_len; i++)
+		payload[i] = cmd_buf[7 + i];
+
+	cmd->msg.tx_buf = payload;
+	return 0;
+}
+
+static int dsi_display_ctrl_get_host_init_state(struct dsi_display *dsi_display,
+		bool *state)
+{
+	struct dsi_display_ctrl *ctrl;
+	int i, rc = -EINVAL;
+
+	for (i = 0 ; i < dsi_display->ctrl_count; i++) {
+		ctrl = &dsi_display->ctrl[i];
+		rc = dsi_ctrl_get_host_engine_init_state(ctrl->ctrl, state);
+		if (rc)
+			break;
+	}
+	return rc;
+}
+
+int dsi_display_cmd_transfer(void *display, const char *cmd_buf,
+		u32 cmd_buf_len)
+{
+	struct dsi_display *dsi_display = display;
+	struct dsi_cmd_desc cmd;
+	u8 cmd_payload[MAX_CMD_PAYLOAD_SIZE];
+	int rc = 0;
+	bool state = false;
+
+	if (!dsi_display || !cmd_buf) {
+		pr_err("[DSI] invalid params\n");
+		return -EINVAL;
+	}
+
+	pr_debug("[DSI] Display command transfer\n");
+
+	rc = dsi_display_cmd_prepare(cmd_buf, cmd_buf_len,
+			&cmd, cmd_payload, MAX_CMD_PAYLOAD_SIZE);
+	if (rc) {
+		pr_err("[DSI] command prepare failed. rc %d\n", rc);
+		return rc;
+	}
+
+	mutex_lock(&dsi_display->display_lock);
+	rc = dsi_display_ctrl_get_host_init_state(dsi_display, &state);
+	if (rc || !state) {
+		pr_err("[DSI] Invalid host state %d rc %d\n",
+				state, rc);
+		rc = -EPERM;
+		goto end;
+	}
+
+	rc = dsi_display->host.ops->transfer(&dsi_display->host,
+			&cmd.msg);
+end:
+	mutex_unlock(&dsi_display->display_lock);
+	return rc;
+}
+
 int dsi_display_soft_reset(void *display)
 {
 	struct dsi_display *dsi_display;
