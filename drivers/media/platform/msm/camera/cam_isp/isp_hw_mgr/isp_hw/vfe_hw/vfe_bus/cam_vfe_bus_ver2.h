@@ -21,7 +21,6 @@
 enum cam_vfe_bus_ver2_vfe_core_id {
 	CAM_VFE_BUS_VER2_VFE_CORE_0,
 	CAM_VFE_BUS_VER2_VFE_CORE_1,
-	CAM_VFE_BUS_VER2_VFE_CORE_2,
 	CAM_VFE_BUS_VER2_VFE_CORE_MAX,
 };
 
