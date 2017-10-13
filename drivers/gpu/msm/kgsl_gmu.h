@@ -22,11 +22,13 @@
 
 #define GMU_INT_WDOG_BITE		BIT(0)
 #define GMU_INT_RSCC_COMP		BIT(1)
+#define GMU_INT_FENCE_ERR		BIT(3)
 #define GMU_INT_DBD_WAKEUP		BIT(4)
 #define GMU_INT_HOST_AHB_BUS_ERR	BIT(5)
 #define GMU_AO_INT_MASK		\
 		(GMU_INT_WDOG_BITE |	\
-		GMU_INT_HOST_AHB_BUS_ERR)
+		GMU_INT_HOST_AHB_BUS_ERR |	\
+		GMU_INT_FENCE_ERR)
 
 #define MAX_GMUFW_SIZE	0x2000	/* in dwords */
 #define FENCE_RANGE_MASK	((0x1 << 31) | (0x0A << 18) | (0x8A0))
