@@ -28,6 +28,7 @@ struct smem_client {
 	void *clnt;
 	struct msm_vidc_platform_resources *res;
 	enum session_type session_type;
+	bool tme_encode_mode;
 };
 
 static int msm_ion_get_device_address(struct smem_client *smem_client,
@@ -771,6 +772,13 @@ void *msm_smem_new_client(enum smem_type mtype,
 	return client;
 }
 
+void msm_smem_set_tme_encode_mode(struct smem_client *client, bool enable)
+{
+	if (!client)
+		return;
+	client->tme_encode_mode = enable;
+}
+
 int msm_smem_alloc(struct smem_client *client, size_t size,
 		u32 align, u32 flags, enum hal_buffer buffer_type,
 		int map_kernel, struct msm_smem *smem)
@@ -863,7 +871,8 @@ struct context_bank_info *msm_smem_get_context_bank(void *clt,
 	if (is_secure && client->session_type == MSM_VIDC_ENCODER) {
 		if (buffer_type == HAL_BUFFER_INPUT)
 			buffer_type = HAL_BUFFER_OUTPUT;
-		else if (buffer_type == HAL_BUFFER_OUTPUT)
+		else if (buffer_type == HAL_BUFFER_OUTPUT &&
+			!client->tme_encode_mode)
 			buffer_type = HAL_BUFFER_INPUT;
 	}
 
