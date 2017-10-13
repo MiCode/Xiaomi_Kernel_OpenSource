@@ -11,8 +11,6 @@
  * GNU General Public License for more details.
  */
 
-#include "msm8917.dtsi"
-
 / {
 	model = "Qualcomm Technologies, Inc. APQ8017-PMI8950 CDP \
 						with WCD codec/Rome card";
