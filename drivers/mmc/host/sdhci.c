@@ -2701,8 +2701,8 @@ static void sdhci_post_req(struct mmc_host *mmc, struct mmc_request *mrq,
 
 	data->host_cookie = COOKIE_UNMAPPED;
 
-	if (host->ops->pre_req)
-		host->ops->pre_req(host, mrq);
+	if (host->ops->post_req)
+		host->ops->post_req(host, mrq);
 }
 
 static void sdhci_pre_req(struct mmc_host *mmc, struct mmc_request *mrq,
@@ -2714,6 +2714,9 @@ static void sdhci_pre_req(struct mmc_host *mmc, struct mmc_request *mrq,
 
 	if (host->flags & SDHCI_REQ_USE_DMA)
 		sdhci_pre_dma_transfer(host, mrq->data, COOKIE_PRE_MAPPED);
+
+	if (host->ops->pre_req)
+		host->ops->pre_req(host, mrq);
 }
 
 static inline bool sdhci_has_requests(struct sdhci_host *host)
