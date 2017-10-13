@@ -716,7 +716,7 @@ static int spi_geni_prepare_message(struct spi_master *spi,
 	if (mas->cur_xfer_mode == FIFO_MODE) {
 		geni_se_select_mode(mas->base, FIFO_MODE);
 		reinit_completion(&mas->xfer_done);
-		setup_fifo_params(spi_msg->spi, spi);
+		ret = setup_fifo_params(spi_msg->spi, spi);
 	} else if (mas->cur_xfer_mode == GSI_DMA) {
 		mas->num_tx_eot = 0;
 		mas->num_rx_eot = 0;
@@ -1199,6 +1199,7 @@ static int spi_geni_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct platform_device *wrapper_pdev;
 	struct device_node *wrapper_ph_node;
+	bool rt_pri;
 
 	spi = spi_alloc_master(&pdev->dev, sizeof(struct spi_geni_master));
 	if (!spi) {
@@ -1292,6 +1293,10 @@ static int spi_geni_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Err getting IO region\n");
 		goto spi_geni_probe_err;
 	}
+
+	rt_pri = of_property_read_bool(pdev->dev.of_node, "qcom,rt");
+	if (rt_pri)
+		spi->rt = true;
 
 	geni_mas->phys_addr = res->start;
 	geni_mas->size = resource_size(res);
