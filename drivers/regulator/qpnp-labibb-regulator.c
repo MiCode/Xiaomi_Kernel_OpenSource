@@ -3272,7 +3272,7 @@ static int qpnp_ibb_dt_init(struct qpnp_labibb *labibb,
 				struct device_node *of_node)
 {
 	int rc = 0;
-	u32 i, tmp = 0;
+	u32 i = 0, tmp = 0;
 	u8 val, mask;
 
 	/*
@@ -3306,37 +3306,48 @@ static int qpnp_ibb_dt_init(struct qpnp_labibb *labibb,
 	rc = of_property_read_u32(of_node,
 		"qcom,qpnp-ibb-lab-pwrdn-delay", &tmp);
 	if (!rc) {
-		for (val = 0; val < ARRAY_SIZE(ibb_pwrdn_dly_table); val++)
-			if (ibb_pwrdn_dly_table[val] == tmp)
-				break;
+		if (tmp > 0) {
+			for (i = 0; i < ARRAY_SIZE(ibb_pwrdn_dly_table); i++) {
+				if (ibb_pwrdn_dly_table[i] == tmp)
+					break;
+			}
 
-		if (val == ARRAY_SIZE(ibb_pwrdn_dly_table)) {
-			pr_err("Invalid value in qcom,qpnp-ibb-lab-pwrdn-delay\n");
-			return -EINVAL;
+			if (i == ARRAY_SIZE(ibb_pwrdn_dly_table)) {
+				pr_err("Invalid value in qcom,qpnp-ibb-lab-pwrdn-delay\n");
+				return -EINVAL;
+			}
 		}
 
 		labibb->ibb_vreg.pwrdn_dly = tmp;
-		val |= IBB_PWRUP_PWRDN_CTL_1_EN_DLY2;
+
+		if (tmp > 0)
+			val = i | IBB_PWRUP_PWRDN_CTL_1_EN_DLY2;
+
 		mask |= IBB_PWRUP_PWRDN_CTL_1_EN_DLY2;
 	}
 
 	rc = of_property_read_u32(of_node,
 			"qcom,qpnp-ibb-lab-pwrup-delay", &tmp);
 	if (!rc) {
-		for (i = 0; i < ARRAY_SIZE(ibb_pwrup_dly_table); i++)
-			if (ibb_pwrup_dly_table[i] == tmp)
-				break;
+		if (tmp > 0) {
+			for (i = 0; i < ARRAY_SIZE(ibb_pwrup_dly_table); i++) {
+				if (ibb_pwrup_dly_table[i] == tmp)
+					break;
+			}
 
-		if (i == ARRAY_SIZE(ibb_pwrup_dly_table)) {
-			pr_err("Invalid value in qcom,qpnp-ibb-lab-pwrup-delay\n");
-			return -EINVAL;
+			if (i == ARRAY_SIZE(ibb_pwrup_dly_table)) {
+				pr_err("Invalid value in qcom,qpnp-ibb-lab-pwrup-delay\n");
+				return -EINVAL;
+			}
 		}
 
 		labibb->ibb_vreg.pwrup_dly = tmp;
 
+		if (tmp > 0)
+			val |= IBB_PWRUP_PWRDN_CTL_1_EN_DLY1;
+
 		val |= (i << IBB_PWRUP_PWRDN_CTL_1_DLY1_SHIFT);
-		val |= (IBB_PWRUP_PWRDN_CTL_1_EN_DLY1 |
-			IBB_PWRUP_PWRDN_CTL_1_LAB_VREG_OK);
+		val |= IBB_PWRUP_PWRDN_CTL_1_LAB_VREG_OK;
 		mask |= (IBB_PWRUP_PWRDN_CTL_1_EN_DLY1 |
 			IBB_PWRUP_PWRDN_CTL_1_DLY1_MASK |
 			IBB_PWRUP_PWRDN_CTL_1_LAB_VREG_OK);
