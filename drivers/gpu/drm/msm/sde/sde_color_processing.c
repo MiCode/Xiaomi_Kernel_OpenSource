@@ -52,6 +52,10 @@ static void dspp_pcc_install_property(struct drm_crtc *crtc);
 
 static void dspp_hsic_install_property(struct drm_crtc *crtc);
 
+static void dspp_memcolor_install_property(struct drm_crtc *crtc);
+
+static void dspp_sixzone_install_property(struct drm_crtc *crtc);
+
 static void dspp_ad_install_property(struct drm_crtc *crtc);
 
 static void dspp_vlut_install_property(struct drm_crtc *crtc);
@@ -85,6 +89,8 @@ static void sde_cp_notify_hist_event(struct drm_crtc *crtc_drm, void *arg);
 do { \
 	func[SDE_DSPP_PCC] = dspp_pcc_install_property; \
 	func[SDE_DSPP_HSIC] = dspp_hsic_install_property; \
+	func[SDE_DSPP_MEMCOLOR] = dspp_memcolor_install_property; \
+	func[SDE_DSPP_SIXZONE] = dspp_sixzone_install_property; \
 	func[SDE_DSPP_AD] = dspp_ad_install_property; \
 	func[SDE_DSPP_VLUT] = dspp_vlut_install_property; \
 	func[SDE_DSPP_GAMUT] = dspp_gamut_install_property; \
@@ -109,7 +115,10 @@ enum {
 	SDE_CP_CRTC_DSPP_PCC,
 	SDE_CP_CRTC_DSPP_GC,
 	SDE_CP_CRTC_DSPP_HSIC,
-	SDE_CP_CRTC_DSPP_MEMCOLOR,
+	SDE_CP_CRTC_DSPP_MEMCOL_SKIN,
+	SDE_CP_CRTC_DSPP_MEMCOL_SKY,
+	SDE_CP_CRTC_DSPP_MEMCOL_FOLIAGE,
+	SDE_CP_CRTC_DSPP_MEMCOL_PROT,
 	SDE_CP_CRTC_DSPP_SIXZONE,
 	SDE_CP_CRTC_DSPP_GAMUT,
 	SDE_CP_CRTC_DSPP_DITHER,
@@ -671,12 +680,33 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 			}
 			hw_dspp->ops.setup_pa_hsic(hw_dspp, &hw_cfg);
 			break;
-		case SDE_CP_CRTC_DSPP_MEMCOLOR:
-			if (!hw_dspp || !hw_dspp->ops.setup_pa_memcolor) {
+		case SDE_CP_CRTC_DSPP_MEMCOL_SKIN:
+			if (!hw_dspp || !hw_dspp->ops.setup_pa_memcol_skin) {
 				ret = -EINVAL;
 				continue;
 			}
-			hw_dspp->ops.setup_pa_memcolor(hw_dspp, &hw_cfg);
+			hw_dspp->ops.setup_pa_memcol_skin(hw_dspp, &hw_cfg);
+			break;
+		case SDE_CP_CRTC_DSPP_MEMCOL_SKY:
+			if (!hw_dspp || !hw_dspp->ops.setup_pa_memcol_sky) {
+				ret = -EINVAL;
+				continue;
+			}
+			hw_dspp->ops.setup_pa_memcol_sky(hw_dspp, &hw_cfg);
+			break;
+		case SDE_CP_CRTC_DSPP_MEMCOL_FOLIAGE:
+			if (!hw_dspp || !hw_dspp->ops.setup_pa_memcol_foliage) {
+				ret = -EINVAL;
+				continue;
+			}
+			hw_dspp->ops.setup_pa_memcol_foliage(hw_dspp, &hw_cfg);
+			break;
+		case SDE_CP_CRTC_DSPP_MEMCOL_PROT:
+			if (!hw_dspp || !hw_dspp->ops.setup_pa_memcol_prot) {
+				ret = -EINVAL;
+				continue;
+			}
+			hw_dspp->ops.setup_pa_memcol_prot(hw_dspp, &hw_cfg);
 			break;
 		case SDE_CP_CRTC_DSPP_SIXZONE:
 			if (!hw_dspp || !hw_dspp->ops.setup_sixzone) {
@@ -1193,6 +1223,69 @@ static void dspp_hsic_install_property(struct drm_crtc *crtc)
 			"SDE_DSPP_PA_HSIC_V", version);
 		sde_cp_crtc_install_blob_property(crtc, feature_name,
 			SDE_CP_CRTC_DSPP_HSIC, sizeof(struct drm_msm_pa_hsic));
+		break;
+	default:
+		DRM_ERROR("version %d not supported\n", version);
+		break;
+	}
+}
+
+static void dspp_memcolor_install_property(struct drm_crtc *crtc)
+{
+	char feature_name[256];
+	struct sde_kms *kms = NULL;
+	struct sde_mdss_cfg *catalog = NULL;
+	u32 version;
+
+	kms = get_kms(crtc);
+	catalog = kms->catalog;
+	version = catalog->dspp[0].sblk->memcolor.version >> 16;
+	switch (version) {
+	case 1:
+		snprintf(feature_name, ARRAY_SIZE(feature_name), "%s%d",
+			"SDE_DSPP_PA_MEMCOL_SKIN_V", version);
+		sde_cp_crtc_install_blob_property(crtc, feature_name,
+			SDE_CP_CRTC_DSPP_MEMCOL_SKIN,
+			sizeof(struct drm_msm_memcol));
+		snprintf(feature_name, ARRAY_SIZE(feature_name), "%s%d",
+			"SDE_DSPP_PA_MEMCOL_SKY_V", version);
+		sde_cp_crtc_install_blob_property(crtc, feature_name,
+			SDE_CP_CRTC_DSPP_MEMCOL_SKY,
+			sizeof(struct drm_msm_memcol));
+		snprintf(feature_name, ARRAY_SIZE(feature_name), "%s%d",
+			"SDE_DSPP_PA_MEMCOL_FOLIAGE_V", version);
+		sde_cp_crtc_install_blob_property(crtc, feature_name,
+			SDE_CP_CRTC_DSPP_MEMCOL_FOLIAGE,
+			sizeof(struct drm_msm_memcol));
+		snprintf(feature_name, ARRAY_SIZE(feature_name), "%s%d",
+			"SDE_DSPP_PA_MEMCOL_PROT_V", version);
+		sde_cp_crtc_install_blob_property(crtc, feature_name,
+			SDE_CP_CRTC_DSPP_MEMCOL_PROT,
+			sizeof(struct drm_msm_memcol));
+		break;
+	default:
+		DRM_ERROR("version %d not supported\n", version);
+		break;
+	}
+}
+
+static void dspp_sixzone_install_property(struct drm_crtc *crtc)
+{
+	char feature_name[256];
+	struct sde_kms *kms = NULL;
+	struct sde_mdss_cfg *catalog = NULL;
+	u32 version;
+
+	kms = get_kms(crtc);
+	catalog = kms->catalog;
+	version = catalog->dspp[0].sblk->sixzone.version >> 16;
+	switch (version) {
+	case 1:
+		snprintf(feature_name, ARRAY_SIZE(feature_name), "%s%d",
+			"SDE_DSPP_PA_SIXZONE_V", version);
+		sde_cp_crtc_install_blob_property(crtc, feature_name,
+			SDE_CP_CRTC_DSPP_SIXZONE,
+			sizeof(struct drm_msm_sixzone));
 		break;
 	default:
 		DRM_ERROR("version %d not supported\n", version);

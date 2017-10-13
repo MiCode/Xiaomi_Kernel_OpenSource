@@ -14,6 +14,8 @@
 #include "sde_hw_color_processing_v1_7.h"
 #include "sde_hw_ctl.h"
 
+#define REG_MASK_SHIFT(n, shift) ((REG_MASK(n)) << (shift))
+
 #define PA_HUE_VIG_OFF		0x110
 #define PA_SAT_VIG_OFF		0x114
 #define PA_VAL_VIG_OFF		0x118
@@ -78,18 +80,44 @@
 #define DSPP_OP_PA_FOL_EN	BIT(6)
 #define DSPP_OP_PA_SKY_EN	BIT(7)
 
+#define DSPP_SZ_ADJ_CURVE_P1_OFF	0x4
+#define DSPP_SZ_THRESHOLDS_OFF	0x8
+#define DSPP_PA_PWL_HOLD_OFF	0x40
+
+#define DSPP_MEMCOL_SIZE0	0x14
+#define DSPP_MEMCOL_SIZE1	0x8
+#define DSPP_MEMCOL_PWL0_OFF	0x0
+#define DSPP_MEMCOL_PWL2_OFF	0x3C
+#define DSPP_MEMCOL_HOLD_SIZE	0x4
+
+#define DSPP_MEMCOL_PROT_VAL_EN BIT(24)
+#define DSPP_MEMCOL_PROT_SAT_EN BIT(23)
+#define DSPP_MEMCOL_PROT_HUE_EN BIT(22)
+#define DSPP_MEMCOL_PROT_CONT_EN BIT(18)
+#define DSPP_MEMCOL_PROT_SIXZONE_EN BIT(17)
+#define DSPP_MEMCOL_PROT_BLEND_EN BIT(3)
+
+#define DSPP_MEMCOL_MASK \
+	(DSPP_OP_PA_SKIN_EN | DSPP_OP_PA_SKY_EN | DSPP_OP_PA_FOL_EN)
+
+#define DSPP_MEMCOL_PROT_MASK \
+	(DSPP_MEMCOL_PROT_HUE_EN | DSPP_MEMCOL_PROT_SAT_EN | \
+	DSPP_MEMCOL_PROT_VAL_EN | DSPP_MEMCOL_PROT_CONT_EN | \
+	DSPP_MEMCOL_PROT_SIXZONE_EN | DSPP_MEMCOL_PROT_BLEND_EN)
+
 #define PA_VIG_DISABLE_REQUIRED(x) \
 			!((x) & (VIG_OP_PA_SKIN_EN | VIG_OP_PA_SKY_EN | \
 			VIG_OP_PA_FOL_EN | VIG_OP_PA_HUE_EN | \
 			VIG_OP_PA_SAT_EN | VIG_OP_PA_VAL_EN | \
 			VIG_OP_PA_CONT_EN))
 
-
 #define PA_DSPP_DISABLE_REQUIRED(x) \
 			!((x) & (DSPP_OP_PA_SKIN_EN | DSPP_OP_PA_SKY_EN | \
 			DSPP_OP_PA_FOL_EN | DSPP_OP_PA_HUE_EN | \
 			DSPP_OP_PA_SAT_EN | DSPP_OP_PA_VAL_EN | \
-			DSPP_OP_PA_CONT_EN | DSPP_OP_PA_HIST_EN))
+			DSPP_OP_PA_CONT_EN | DSPP_OP_PA_HIST_EN | \
+			DSPP_OP_SZ_HUE_EN | DSPP_OP_SZ_SAT_EN | \
+			DSPP_OP_SZ_VAL_EN))
 
 #define DSPP_OP_PCC_ENABLE	BIT(0)
 #define PCC_OP_MODE_OFF		0
@@ -293,6 +321,79 @@ void sde_setup_dspp_pa_hsic_v17(struct sde_hw_dspp *ctx, void *cfg)
 	__setup_pa_cont(&ctx->hw, &ctx->cap->sblk->hsic, cont, DSPP);
 }
 
+void sde_setup_dspp_sixzone_v17(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct drm_msm_sixzone *sixzone;
+	u32 opcode = 0, local_opcode = 0;
+	u32 reg = 0, hold = 0, local_hold = 0;
+	u32 addr = 0;
+	int i = 0;
+
+	if (!ctx || !cfg) {
+		DRM_ERROR("invalid param ctx %pK cfg %pK\n", ctx, cfg);
+		return;
+	}
+
+	opcode = SDE_REG_READ(&ctx->hw, ctx->cap->sblk->hsic.base);
+
+	if (!hw_cfg->payload) {
+		DRM_DEBUG_DRIVER("disable sixzone feature\n");
+		opcode &= ~(DSPP_OP_SZ_HUE_EN | DSPP_OP_SZ_SAT_EN |
+			DSPP_OP_SZ_VAL_EN);
+		if (PA_DSPP_DISABLE_REQUIRED(opcode))
+			opcode &= ~DSPP_OP_PA_EN;
+		SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->hsic.base, opcode);
+		return;
+	}
+
+	if (hw_cfg->len != sizeof(struct drm_msm_sixzone)) {
+		DRM_ERROR("invalid size of payload len %d exp %zd\n",
+			hw_cfg->len, sizeof(struct drm_msm_sixzone));
+		return;
+	}
+
+	sixzone = hw_cfg->payload;
+
+	reg = BIT(26);
+	SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->sixzone.base, reg);
+
+	addr = ctx->cap->sblk->sixzone.base + DSPP_SZ_ADJ_CURVE_P1_OFF;
+	for (i = 0; i < SIXZONE_LUT_SIZE; i++) {
+		SDE_REG_WRITE(&ctx->hw, addr, sixzone->curve[i].p1);
+		SDE_REG_WRITE(&ctx->hw, (addr - 4), sixzone->curve[i].p0);
+	}
+
+	addr = ctx->cap->sblk->sixzone.base + DSPP_SZ_THRESHOLDS_OFF;
+	SDE_REG_WRITE(&ctx->hw, addr, sixzone->threshold);
+	SDE_REG_WRITE(&ctx->hw, (addr + 4), sixzone->adjust_p0);
+	SDE_REG_WRITE(&ctx->hw, (addr + 8), sixzone->adjust_p1);
+
+	hold = SDE_REG_READ(&ctx->hw,
+		(ctx->cap->sblk->hsic.base + DSPP_PA_PWL_HOLD_OFF));
+	local_hold = ((sixzone->sat_hold & REG_MASK(2)) << 12);
+	local_hold |= ((sixzone->val_hold & REG_MASK(2)) << 14);
+	hold &= ~REG_MASK_SHIFT(4, 12);
+	hold |= local_hold;
+	SDE_REG_WRITE(&ctx->hw,
+		(ctx->cap->sblk->hsic.base + DSPP_PA_PWL_HOLD_OFF),
+		hold);
+
+	if (sixzone->flags & SIXZONE_HUE_ENABLE)
+		local_opcode |= DSPP_OP_SZ_HUE_EN;
+	if (sixzone->flags & SIXZONE_SAT_ENABLE)
+		local_opcode |= DSPP_OP_SZ_SAT_EN;
+	if (sixzone->flags & SIXZONE_VAL_ENABLE)
+		local_opcode |= DSPP_OP_SZ_VAL_EN;
+
+	if (local_opcode)
+		local_opcode |= DSPP_OP_PA_EN;
+
+	opcode &= ~REG_MASK_SHIFT(3, 29);
+	opcode |= local_opcode;
+	SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->hsic.base, opcode);
+}
+
 void sde_setup_pipe_pa_memcol_v1_7(struct sde_hw_pipe *ctx,
 				   enum sde_memcolor_type type,
 				   void *cfg)
@@ -354,6 +455,220 @@ void sde_setup_pipe_pa_memcol_v1_7(struct sde_hw_pipe *ctx,
 
 	op |= VIG_OP_PA_EN | mc_en;
 	SDE_REG_WRITE(&ctx->hw, base, op);
+}
+
+static void __setup_dspp_memcol(struct sde_hw_dspp *ctx,
+		enum sde_memcolor_type type,
+		struct drm_msm_memcol *memcolor)
+{
+	u32 addr = 0, offset = 0, idx = 0;
+	u32 hold = 0, local_hold = 0, hold_shift = 0;
+
+	switch (type) {
+	case MEMCOLOR_SKIN:
+		idx = 0;
+		break;
+	case MEMCOLOR_SKY:
+		idx = 1;
+		break;
+	case MEMCOLOR_FOLIAGE:
+		idx = 2;
+		break;
+	default:
+		DRM_ERROR("Invalid memory color type %d\n", type);
+		return;
+	}
+
+	offset = DSPP_MEMCOL_PWL0_OFF + (idx * DSPP_MEMCOL_SIZE0);
+	addr = ctx->cap->sblk->memcolor.base + offset;
+	hold_shift = idx * DSPP_MEMCOL_HOLD_SIZE;
+
+	SDE_REG_WRITE(&ctx->hw, addr, memcolor->color_adjust_p0);
+	addr += 4;
+	SDE_REG_WRITE(&ctx->hw, addr, memcolor->color_adjust_p1);
+	addr += 4;
+	SDE_REG_WRITE(&ctx->hw, addr, memcolor->hue_region);
+	addr += 4;
+	SDE_REG_WRITE(&ctx->hw, addr, memcolor->sat_region);
+	addr += 4;
+	SDE_REG_WRITE(&ctx->hw, addr, memcolor->val_region);
+
+	offset = DSPP_MEMCOL_PWL2_OFF + (idx * DSPP_MEMCOL_SIZE1);
+	addr = ctx->cap->sblk->memcolor.base + offset;
+
+	SDE_REG_WRITE(&ctx->hw, addr, memcolor->color_adjust_p2);
+	addr += 4;
+	SDE_REG_WRITE(&ctx->hw, addr, memcolor->blend_gain);
+
+	addr = ctx->cap->sblk->hsic.base + DSPP_PA_PWL_HOLD_OFF;
+	hold = SDE_REG_READ(&ctx->hw, addr);
+	local_hold = ((memcolor->sat_hold & REG_MASK(2)) << hold_shift);
+	local_hold |=
+		((memcolor->val_hold & REG_MASK(2)) << (hold_shift + 2));
+	hold &= ~REG_MASK_SHIFT(4, hold_shift);
+	hold |= local_hold;
+	SDE_REG_WRITE(&ctx->hw, addr, hold);
+}
+
+void sde_setup_dspp_memcol_skin_v17(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct drm_msm_memcol *memcolor;
+	u32 opcode = 0;
+
+	if (!ctx || !cfg) {
+		DRM_ERROR("invalid param ctx %pK cfg %pK\n", ctx, cfg);
+		return;
+	}
+
+	opcode = SDE_REG_READ(&ctx->hw, ctx->cap->sblk->hsic.base);
+
+	if (!hw_cfg->payload) {
+		DRM_DEBUG_DRIVER("disable memcolor skin feature\n");
+		opcode &= ~(DSPP_OP_PA_SKIN_EN);
+		if (PA_DSPP_DISABLE_REQUIRED(opcode))
+			opcode &= ~DSPP_OP_PA_EN;
+		SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->hsic.base, opcode);
+		return;
+	}
+
+	if (hw_cfg->len != sizeof(struct drm_msm_memcol)) {
+		DRM_ERROR("invalid size of payload len %d exp %zd\n",
+			hw_cfg->len, sizeof(struct drm_msm_memcol));
+		return;
+	}
+
+	memcolor = hw_cfg->payload;
+
+	__setup_dspp_memcol(ctx, MEMCOLOR_SKIN, memcolor);
+
+	opcode |= (DSPP_OP_PA_SKIN_EN | DSPP_OP_PA_EN);
+	SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->hsic.base, opcode);
+}
+
+void sde_setup_dspp_memcol_sky_v17(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct drm_msm_memcol *memcolor;
+	u32 opcode = 0;
+
+	if (!ctx || !cfg) {
+		DRM_ERROR("invalid param ctx %pK cfg %pK\n", ctx, cfg);
+		return;
+	}
+
+	opcode = SDE_REG_READ(&ctx->hw, ctx->cap->sblk->hsic.base);
+
+	if (!hw_cfg->payload) {
+		DRM_DEBUG_DRIVER("disable memcolor sky feature\n");
+		opcode &= ~(DSPP_OP_PA_SKY_EN);
+		if (PA_DSPP_DISABLE_REQUIRED(opcode))
+			opcode &= ~DSPP_OP_PA_EN;
+		SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->hsic.base, opcode);
+		return;
+	}
+
+	if (hw_cfg->len != sizeof(struct drm_msm_memcol)) {
+		DRM_ERROR("invalid size of payload len %d exp %zd\n",
+			hw_cfg->len, sizeof(struct drm_msm_memcol));
+		return;
+	}
+
+	memcolor = hw_cfg->payload;
+
+	__setup_dspp_memcol(ctx, MEMCOLOR_SKY, memcolor);
+
+	opcode |= (DSPP_OP_PA_SKY_EN | DSPP_OP_PA_EN);
+	SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->hsic.base, opcode);
+}
+
+void sde_setup_dspp_memcol_foliage_v17(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct drm_msm_memcol *memcolor;
+	u32 opcode = 0;
+
+	if (!ctx || !cfg) {
+		DRM_ERROR("invalid param ctx %pK cfg %pK\n", ctx, cfg);
+		return;
+	}
+
+	opcode = SDE_REG_READ(&ctx->hw, ctx->cap->sblk->hsic.base);
+
+	if (!hw_cfg->payload) {
+		DRM_DEBUG_DRIVER("disable memcolor foliage feature\n");
+		opcode &= ~(DSPP_OP_PA_FOL_EN);
+		if (PA_DSPP_DISABLE_REQUIRED(opcode))
+			opcode &= ~DSPP_OP_PA_EN;
+		SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->hsic.base, opcode);
+		return;
+	}
+
+	if (hw_cfg->len != sizeof(struct drm_msm_memcol)) {
+		DRM_ERROR("invalid size of payload len %d exp %zd\n",
+			hw_cfg->len, sizeof(struct drm_msm_memcol));
+		return;
+	}
+
+	memcolor = hw_cfg->payload;
+
+	__setup_dspp_memcol(ctx, MEMCOLOR_FOLIAGE, memcolor);
+
+	opcode |= (DSPP_OP_PA_FOL_EN | DSPP_OP_PA_EN);
+	SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->hsic.base, opcode);
+}
+
+void sde_setup_dspp_memcol_prot_v17(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct drm_msm_memcol *memcolor;
+	u32 opcode = 0, local_opcode = 0;
+
+	if (!ctx || !cfg) {
+		DRM_ERROR("invalid param ctx %pK cfg %pK\n", ctx, cfg);
+		return;
+	}
+
+	opcode = SDE_REG_READ(&ctx->hw, ctx->cap->sblk->hsic.base);
+
+	if (!hw_cfg->payload) {
+		DRM_DEBUG_DRIVER("disable memcolor prot feature\n");
+		opcode &= ~(DSPP_MEMCOL_PROT_MASK);
+		if (PA_DSPP_DISABLE_REQUIRED(opcode))
+			opcode &= ~DSPP_OP_PA_EN;
+		SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->hsic.base, opcode);
+		return;
+	}
+
+	if (hw_cfg->len != sizeof(struct drm_msm_memcol)) {
+		DRM_ERROR("invalid size of payload len %d exp %zd\n",
+			hw_cfg->len, sizeof(struct drm_msm_memcol));
+		return;
+	}
+
+	memcolor = hw_cfg->payload;
+
+	if (memcolor->prot_flags) {
+		if (memcolor->prot_flags & MEMCOL_PROT_HUE)
+			local_opcode |= DSPP_MEMCOL_PROT_HUE_EN;
+		if (memcolor->prot_flags & MEMCOL_PROT_SAT)
+			local_opcode |= DSPP_MEMCOL_PROT_SAT_EN;
+		if (memcolor->prot_flags & MEMCOL_PROT_VAL)
+			local_opcode |= DSPP_MEMCOL_PROT_VAL_EN;
+		if (memcolor->prot_flags & MEMCOL_PROT_CONT)
+			local_opcode |= DSPP_MEMCOL_PROT_CONT_EN;
+		if (memcolor->prot_flags & MEMCOL_PROT_SIXZONE)
+			local_opcode |= DSPP_MEMCOL_PROT_SIXZONE_EN;
+		if (memcolor->prot_flags & MEMCOL_PROT_BLEND)
+			local_opcode |= DSPP_MEMCOL_PROT_BLEND_EN;
+	}
+
+	if (local_opcode) {
+		local_opcode |= DSPP_OP_PA_EN;
+		opcode &= ~(DSPP_MEMCOL_PROT_MASK);
+		opcode |= local_opcode;
+		SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->hsic.base, opcode);
+	}
 }
 
 void sde_setup_dspp_pcc_v1_7(struct sde_hw_dspp *ctx, void *cfg)
