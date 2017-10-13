@@ -53,6 +53,7 @@
 #include <soc/qcom/secure_buffer.h>
 #include <linux/of_platform.h>
 #include <linux/msm-bus.h>
+#include <trace/events/iommu.h>
 #include <dt-bindings/msm/msm-bus-ids.h>
 
 #include <linux/amba/bus.h>
@@ -4735,10 +4736,12 @@ static int __init arm_smmu_init(void)
 {
 	static bool registered;
 	int ret = 0;
+	ktime_t cur;
 
 	if (registered)
 		return 0;
 
+	cur = ktime_get();
 	ret = platform_driver_register(&qsmmuv500_tbu_driver);
 	if (ret)
 		return ret;
@@ -4748,6 +4751,8 @@ static int __init arm_smmu_init(void)
 	ret = register_iommu_sec_ptbl();
 #endif
 	registered = !ret;
+	trace_smmu_init(ktime_us_delta(ktime_get(), cur));
+
 	return ret;
 }
 
