@@ -968,6 +968,7 @@ enum qpnp_state_request {
  * @PMIC_THERM inputs the units in millidegC.
  */
 struct qpnp_adc_tm_btm_param {
+	uint32_t				full_scale_code;
 	int32_t					high_temp;
 	int32_t					low_temp;
 	int32_t					high_thr;
@@ -1026,13 +1027,13 @@ struct qpnp_vadc_scaling_ratio {
 /**
  * struct qpnp_adc_properties - Represent the ADC properties.
  * @adc_reference: Reference voltage for QPNP ADC.
- * @bitresolution: ADC bit resolution for QPNP ADC.
+ * @full_scale_code: Full scale value with intrinsic offset removed.
  * @biploar: Polarity for QPNP ADC.
  * @adc_hc: Represents using HC variant of the ADC controller.
  */
 struct qpnp_adc_properties {
 	uint32_t	adc_vdd_reference;
-	uint32_t	bitresolution;
+	uint32_t	full_scale_code;
 	bool		bipolar;
 	bool		adc_hc;
 };
