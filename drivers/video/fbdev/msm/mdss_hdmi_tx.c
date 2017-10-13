@@ -1577,12 +1577,14 @@ static void hdmi_tx_hdcp_cb_work(struct work_struct *work)
 			rc = hdmi_tx_config_avmute(hdmi_ctrl, false);
 		}
 
-		if (hdmi_ctrl->hdcp1_use_sw_keys && hdmi_ctrl->hdcp14_present)
-			hdcp1_set_enc(true);
+		if (hdmi_ctrl->hdcp1_use_sw_keys && hdmi_ctrl->hdcp14_present) {
+			if (!hdmi_ctrl->hdcp22_present)
+				hdcp1_set_enc(true);
+		}
 		break;
 	case HDCP_STATE_AUTH_FAIL:
 		if (hdmi_ctrl->hdcp1_use_sw_keys && hdmi_ctrl->hdcp14_present) {
-			if (hdmi_ctrl->auth_state)
+			if (hdmi_ctrl->auth_state && !hdmi_ctrl->hdcp22_present)
 				hdcp1_set_enc(false);
 		}
 
