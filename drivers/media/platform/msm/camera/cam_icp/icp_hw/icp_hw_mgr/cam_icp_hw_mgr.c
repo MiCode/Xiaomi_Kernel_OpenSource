@@ -1183,12 +1183,52 @@ int32_t cam_icp_hw_mgr_cb(uint32_t irq_status, void *data)
 
 static void cam_icp_free_hfi_mem(void)
 {
+	int rc;
 	cam_smmu_dealloc_firmware(icp_hw_mgr.iommu_hdl);
 	cam_mem_mgr_release_mem(&icp_hw_mgr.hfi_mem.qtbl);
 	cam_mem_mgr_release_mem(&icp_hw_mgr.hfi_mem.cmd_q);
 	cam_mem_mgr_release_mem(&icp_hw_mgr.hfi_mem.msg_q);
 	cam_mem_mgr_release_mem(&icp_hw_mgr.hfi_mem.dbg_q);
-	cam_mem_mgr_release_mem(&icp_hw_mgr.hfi_mem.sec_heap);
+	rc = cam_mem_mgr_free_memory_region(&icp_hw_mgr.hfi_mem.sec_heap);
+	if (rc)
+		CAM_ERR(CAM_ICP, "failed to unreserve sec heap");
+}
+
+static int cam_icp_alloc_secheap_mem(struct cam_mem_mgr_memory_desc *secheap)
+{
+	int rc;
+	struct cam_mem_mgr_request_desc alloc;
+	struct cam_mem_mgr_memory_desc out;
+	struct cam_smmu_region_info secheap_info;
+
+	memset(&alloc, 0, sizeof(alloc));
+	memset(&out, 0, sizeof(out));
+
+	rc = cam_smmu_get_region_info(icp_hw_mgr.iommu_hdl,
+		CAM_SMMU_REGION_SECHEAP,
+		&secheap_info);
+	if (rc) {
+		CAM_ERR(CAM_ICP, "Unable to get secheap memory info");
+		return rc;
+	}
+
+	alloc.size = secheap_info.iova_len;
+	alloc.align = 0;
+	alloc.flags = 0;
+	alloc.smmu_hdl = icp_hw_mgr.iommu_hdl;
+	rc = cam_mem_mgr_reserve_memory_region(&alloc,
+		CAM_SMMU_REGION_SECHEAP,
+		&out);
+	if (rc) {
+		CAM_ERR(CAM_ICP, "Unable to reserve secheap memory");
+		return rc;
+	}
+
+	*secheap = out;
+	CAM_DBG(CAM_ICP, "kva: %llX, iova: %x, hdl: %x, len: %lld",
+		out.kva, out.iova, out.mem_handle, out.len);
+
+	return rc;
 }
 
 static int cam_icp_alloc_shared_mem(struct cam_mem_mgr_memory_desc *qtbl)
@@ -1280,9 +1320,9 @@ static int cam_icp_allocate_hfi_mem(void)
 		goto dbg_q_alloc_failed;
 	}
 
-	rc = cam_icp_alloc_shared_mem(&icp_hw_mgr.hfi_mem.sec_heap);
+	rc = cam_icp_alloc_secheap_mem(&icp_hw_mgr.hfi_mem.sec_heap);
 	if (rc) {
-		CAM_ERR(CAM_ICP, "Unable to allocate sec heap q memory");
+		CAM_ERR(CAM_ICP, "Unable to allocate sec heap memory");
 		goto sec_heap_alloc_failed;
 	}
 

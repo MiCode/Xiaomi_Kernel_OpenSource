@@ -45,7 +45,8 @@ enum cam_smmu_region_id {
 	CAM_SMMU_REGION_FIRMWARE,
 	CAM_SMMU_REGION_SHARED,
 	CAM_SMMU_REGION_SCRATCH,
-	CAM_SMMU_REGION_IO
+	CAM_SMMU_REGION_IO,
+	CAM_SMMU_REGION_SECHEAP
 };
 
 /**
@@ -290,4 +291,29 @@ int cam_smmu_dealloc_firmware(int32_t smmu_hdl);
 int cam_smmu_get_region_info(int32_t smmu_hdl,
 	enum cam_smmu_region_id region_id,
 	struct cam_smmu_region_info *region_info);
+
+/**
+ * @brief Reserves secondary heap
+ *
+ * @param smmu_hdl: SMMU handle identifying the context bank
+ * @param ion_fd: ION fd backing the secondary heap in DDR
+ * @param iova: IOVA of secondary heap after reservation has completed
+ * @param request_len: Length of secondary heap after reservation has completed
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_smmu_reserve_sec_heap(int32_t smmu_hdl,
+	int ion_fd,
+	dma_addr_t *iova,
+	size_t *request_len);
+
+/**
+ * @brief Releases secondary heap
+ *
+ * @param smmu_hdl: SMMU handle identifying the context bank
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_smmu_release_sec_heap(int32_t smmu_hdl);
+
 #endif /* _CAM_SMMU_API_H_ */
