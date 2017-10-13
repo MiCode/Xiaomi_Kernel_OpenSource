@@ -2437,7 +2437,7 @@
 			< MHZ_TO_MBPS(1804, 4) >; /* 6881 MB/s */
 	};
 
-	memlat_cpu4: qcom,memlat-cpu4 {
+	memlat_cpu6: qcom,memlat-cpu6 {
 		compatible = "qcom,devbw";
 		governor = "powersave";
 		qcom,src-dst-ports = <1 512>;
@@ -2459,9 +2459,9 @@
 
 	devfreq_memlat_0: qcom,cpu0-memlat-mon {
 		compatible = "qcom,arm-memlat-mon";
-		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3 &CPU4 &CPU5>;
 		qcom,target-dev = <&memlat_cpu0>;
-		qcom,cachemiss-ev = <0x24>;
+		qcom,cachemiss-ev = <0x2a>;
 		qcom,core-dev-table =
 			<  748800 MHZ_TO_MBPS( 300, 4) >,
 			<  998400 MHZ_TO_MBPS( 451, 4) >,
@@ -2470,11 +2470,11 @@
 			< 1728000 MHZ_TO_MBPS(1017, 4) >;
 	};
 
-	devfreq_memlat_4: qcom,cpu4-memlat-mon {
+	devfreq_memlat_6: qcom,cpu6-memlat-mon {
 		compatible = "qcom,arm-memlat-mon";
-		qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
-		qcom,target-dev = <&memlat_cpu4>;
-		qcom,cachemiss-ev = <0x24>;
+		qcom,cpulist = <&CPU6 &CPU7>;
+		qcom,target-dev = <&memlat_cpu6>;
+		qcom,cachemiss-ev = <0x2a>;
 		qcom,core-dev-table =
 			<  787200 MHZ_TO_MBPS( 300, 4) >,
 			< 1113600 MHZ_TO_MBPS( 547, 4) >,
@@ -2490,7 +2490,7 @@
 		governor = "performance";
 	};
 
-	l3_cpu4: qcom,l3-cpu4 {
+	l3_cpu6: qcom,l3-cpu6 {
 		compatible = "devfreq-simple-dev";
 		clock-names = "devfreq_clk";
 		clocks = <&clock_cpucc L3_CLUSTER1_VOTE_CLK>;
@@ -2499,7 +2499,7 @@
 
 	devfreq_l3lat_0: qcom,cpu0-l3lat-mon {
 		compatible = "qcom,arm-memlat-mon";
-		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3 &CPU4 &CPU5>;
 		qcom,target-dev = <&l3_cpu0>;
 		qcom,cachemiss-ev = <0x17>;
 		qcom,core-dev-table =
@@ -2511,10 +2511,10 @@
 			< 1728000 1440000000 >;
 	};
 
-	devfreq_l3lat_4: qcom,cpu4-l3lat-mon {
+	devfreq_l3lat_6: qcom,cpu6-l3lat-mon {
 		compatible = "qcom,arm-memlat-mon";
-		qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
-		qcom,target-dev = <&l3_cpu4>;
+		qcom,cpulist = <&CPU6 &CPU7>;
+		qcom,target-dev = <&l3_cpu6>;
 		qcom,cachemiss-ev = <0x17>;
 		qcom,core-dev-table =
 			< 1113600  566400000 >,
@@ -2551,7 +2551,7 @@
 				< 1209600 MHZ_TO_MBPS( 451, 4) >,
 				< 1612000 MHZ_TO_MBPS( 547, 4) >,
 				< 1728000 MHZ_TO_MBPS( 768, 4) >;
-			cpu-to-dev-map-4 =
+			cpu-to-dev-map-6 =
 				< 1113600 MHZ_TO_MBPS( 300, 4) >,
 				< 1344000 MHZ_TO_MBPS( 547, 4) >,
 				< 1728000 MHZ_TO_MBPS( 768, 4) >,
