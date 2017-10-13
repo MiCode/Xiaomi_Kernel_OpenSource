@@ -3705,20 +3705,20 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned mA)
 	union power_supply_propval pval = {0};
 	int ret, psy_type;
 
-	if (mdwc->max_power == mA)
-		return 0;
-
 	psy_type = get_psy_type(mdwc);
-	if (psy_type == POWER_SUPPLY_TYPE_USB) {
-		dev_info(mdwc->dev, "Avail curr from USB = %u\n", mA);
-		/* Set max current limit in uA */
-		pval.intval = 1000 * mA;
-	} else if (psy_type == POWER_SUPPLY_TYPE_USB_FLOAT) {
+	if (psy_type == POWER_SUPPLY_TYPE_USB_FLOAT) {
 		pval.intval = -ETIMEDOUT;
-	} else {
-		return 0;
+		goto set_prop;
 	}
 
+	if (mdwc->max_power == mA || psy_type != POWER_SUPPLY_TYPE_USB)
+		return 0;
+
+	dev_info(mdwc->dev, "Avail curr from USB = %u\n", mA);
+	/* Set max current limit in uA */
+	pval.intval = 1000 * mA;
+
+set_prop:
 	ret = power_supply_set_property(mdwc->usb_psy,
 				POWER_SUPPLY_PROP_SDP_CURRENT_MAX, &pval);
 	if (ret) {
