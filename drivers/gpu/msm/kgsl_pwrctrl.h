@@ -237,6 +237,12 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 int kgsl_pwrctrl_init_sysfs(struct kgsl_device *device);
 void kgsl_pwrctrl_uninit_sysfs(struct kgsl_device *device);
 int kgsl_pwrctrl_change_state(struct kgsl_device *device, int state);
+int kgsl_clk_set_rate(struct kgsl_device *device,
+	unsigned int pwrlevel);
+unsigned int kgsl_pwrctrl_adjust_pwrlevel(struct kgsl_device *device,
+	unsigned int new_level);
+void kgsl_pwrctrl_set_thermal_cycle(struct kgsl_device *device,
+	unsigned int new_level);
 
 static inline unsigned long kgsl_get_clkrate(struct clk *clk)
 {
