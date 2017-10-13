@@ -469,7 +469,8 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	total_sizedwords += (secured_ctxt) ? 26 : 0;
 
 	/* _seq mem write for each submission */
-	total_sizedwords += 4;
+	if (adreno_is_a5xx(adreno_dev))
+		total_sizedwords += 4;
 
 	/* context rollover */
 	if (adreno_is_a3xx(adreno_dev))
@@ -622,9 +623,11 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	 * early detection of timestamp interrupt storms to stave
 	 * off system collapse.
 	 */
-	ringcmds += cp_mem_write(adreno_dev, ringcmds,
-		MEMSTORE_ID_GPU_ADDR(device, KGSL_MEMSTORE_GLOBAL,
-			ref_wait_ts), ++_seq_cnt);
+	if (adreno_is_a5xx(adreno_dev))
+		ringcmds += cp_mem_write(adreno_dev, ringcmds,
+				MEMSTORE_ID_GPU_ADDR(device,
+				KGSL_MEMSTORE_GLOBAL,
+				ref_wait_ts), ++_seq_cnt);
 
 	/*
 	 * end-of-pipeline timestamp.  If per context timestamps is not
