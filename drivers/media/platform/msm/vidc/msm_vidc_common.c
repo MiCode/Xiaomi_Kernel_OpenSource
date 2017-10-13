@@ -3336,20 +3336,11 @@ int msm_comm_suspend(int core_id)
 	}
 
 	mutex_lock(&core->lock);
-	if (core->state != VIDC_CORE_INIT_DONE) {
-		dprintk(VIDC_ERR,
-				"%s - fw is not in proper state, skip suspend\n",
-				__func__);
-		rc = -EINVAL;
-		goto exit;
-	}
-
 	rc = call_hfi_op(hdev, suspend, hdev->hfi_device_data);
 	if (rc)
 		dprintk(VIDC_WARN, "Failed to suspend\n");
-
-exit:
 	mutex_unlock(&core->lock);
+
 	return rc;
 }
 
