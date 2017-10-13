@@ -45,6 +45,9 @@ static void tmc_etr_enable_hw(struct tmc_drvdata *drvdata)
 		axictl |= TMC_AXICTL_ARCACHE_OS;
 	}
 
+	axictl = (axictl &
+		  ~(TMC_AXICTL_CACHE_CTL_B0 | TMC_AXICTL_CACHE_CTL_B1)) |
+		  TMC_AXICTL_CACHE_CTL_B0 | TMC_AXICTL_CACHE_CTL_B1;
 	writel_relaxed(axictl, drvdata->base + TMC_AXICTL);
 	tmc_write_dba(drvdata, drvdata->paddr);
 	/*
