@@ -166,6 +166,8 @@ Generic board variants:
 - VR device:
   compatible = "qcom,qvr"
 
+- HDK device:
+  compatible = "qcom,hdk"
 
 Boards (SoC type + board variant):
 
@@ -279,6 +281,7 @@ compatible = "qcom,sdm845-qvr"
 compatible = "qcom,sda845-cdp"
 compatible = "qcom,sda845-mtp"
 compatible = "qcom,sda845-qrd"
+compatible = "qcom,sda845-hdk"
 compatible = "qcom,sdm670-rumi"
 compatible = "qcom,sdm670-cdp"
 compatible = "qcom,sdm670-mtp"
