@@ -177,4 +177,12 @@ config CORESIGHT_HWEVENT
 	  Hardware Event across STM interface. It configures Coresight
 	  Hardware Event mux control registers to select hardware events
 	  based on user input.
+
+config CORESIGHT_DUMMY
+	bool "Dummy driver support"
+	help
+	  Enables support for dummy driver. Dummy driver can be	used for
+	  CoreSight sources/sinks that are owned and configured by some
+	  other subsystem and use Linux drivers to configure rest of trace
+	  path.
 endif
