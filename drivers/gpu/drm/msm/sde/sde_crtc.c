@@ -1599,6 +1599,8 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 	SDE_DEBUG("crtc%d, secure_level%d old_valid_fb%d\n",
 			crtc->base.id, secure_level, old_valid_fb);
 
+	SDE_EVT32_VERBOSE(DRMID(crtc), secure_level, smmu_state->state,
+			old_valid_fb, SDE_EVTLOG_FUNC_ENTRY);
 	/**
 	 * SMMU operations need to be delayed in case of
 	 * video mode panels when switching back to non_secure
@@ -1681,6 +1683,11 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 
 	SDE_DEBUG("SMMU State:%d, type:%d ops:%x\n", smmu_state->state,
 			smmu_state->transition_type, ops);
+	/* log only during actual transition times */
+	if (ops)
+		SDE_EVT32(DRMID(crtc), secure_level, translation_mode,
+				smmu_state->state, smmu_state->transition_type,
+				ops, old_valid_fb, SDE_EVTLOG_FUNC_EXIT);
 	return ops;
 }
 
@@ -1724,6 +1731,9 @@ static int _sde_crtc_scm_call(int vmid)
 		SDE_ERROR("Error:scm_call2, vmid (%lld): ret%d\n",
 				desc.args[3], ret);
 	}
+	SDE_EVT32(mem_protect_sd_ctrl_id,
+			desc.args[0], desc.args[3], num_sids,
+			sec_sid[0], sec_sid[1], ret);
 
 	kfree(sec_sid);
 	return ret;
@@ -1819,6 +1829,9 @@ int sde_crtc_secure_ctrl(struct drm_crtc *crtc, bool post_commit)
 	smmu_state = &sde_crtc->smmu_state;
 	old_smmu_state = smmu_state->state;
 
+	SDE_EVT32(DRMID(crtc), smmu_state->state, smmu_state->transition_type,
+			post_commit, SDE_EVTLOG_FUNC_ENTRY);
+
 	if ((!smmu_state->transition_type) ||
 	    ((smmu_state->transition_type == POST_COMMIT) && !post_commit))
 		/* Bail out */
@@ -1903,6 +1916,9 @@ int sde_crtc_secure_ctrl(struct drm_crtc *crtc, bool post_commit)
 
 error:
 	smmu_state->transition_error = ret ? true : false;
+	SDE_EVT32(DRMID(crtc), smmu_state->state, smmu_state->transition_type,
+			smmu_state->transition_error, ret,
+			SDE_EVTLOG_FUNC_EXIT);
 	return ret;
 }
 

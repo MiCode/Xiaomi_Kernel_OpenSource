@@ -433,8 +433,7 @@ static int sde_kms_prepare_secure_transition(struct msm_kms *kms,
 		 * secure transition can be initiated.
 		 */
 		ops = sde_crtc_get_secure_transition_ops(crtc,
-				old_crtc_state,
-				old_valid_fb);
+				old_crtc_state, old_valid_fb);
 		if (ops < 0) {
 			SDE_ERROR("invalid secure operations %x\n", ops);
 			return ops;
@@ -444,9 +443,8 @@ static int sde_kms_prepare_secure_transition(struct msm_kms *kms,
 			goto no_ops;
 
 		SDE_DEBUG("%d:secure operations(%x) started on state:%pK\n",
-				crtc->base.id,
-				ops,
-				crtc->state);
+				crtc->base.id, ops, crtc->state);
+		SDE_EVT32(DRMID(crtc), ops, crtc->state, old_valid_fb);
 
 		/* 3. Perform operations needed for secure transition */
 		if  (ops & SDE_KMS_OPS_WAIT_FOR_TX_DONE) {
@@ -485,6 +483,7 @@ static int sde_kms_prepare_secure_transition(struct msm_kms *kms,
 				}
 			}
 		}
+		SDE_EVT32(DRMID(crtc), SDE_EVTLOG_FUNC_EXIT);
 		SDE_DEBUG("secure operations completed\n");
 	}
 

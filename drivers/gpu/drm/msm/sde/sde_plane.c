@@ -909,7 +909,8 @@ static inline void _sde_plane_set_scanout(struct drm_plane *plane,
 {
 	struct sde_plane *psde;
 	struct msm_gem_address_space *aspace = NULL;
-	int ret;
+	int ret, mode;
+	bool secure = false;
 
 	if (!plane || !pstate || !pipe_cfg || !fb) {
 		SDE_ERROR(
@@ -937,6 +938,7 @@ static inline void _sde_plane_set_scanout(struct drm_plane *plane,
 	 * expected for one or two frames during the transition.
 	 */
 	if (aspace && pstate->defer_prepare_fb) {
+		SDE_EVT32(DRMID(plane), psde->pipe, aspace->domain_attached);
 		ret = msm_framebuffer_prepare(fb, pstate->aspace);
 		if (ret) {
 			SDE_ERROR_PLANE(psde,
@@ -945,6 +947,9 @@ static inline void _sde_plane_set_scanout(struct drm_plane *plane,
 		}
 		pstate->defer_prepare_fb = false;
 	}
+	mode = sde_plane_get_property(pstate, PLANE_PROP_FB_TRANSLATION_MODE);
+	if ((mode == SDE_DRM_FB_SEC) || (mode == SDE_DRM_FB_SEC_DIR_TRANS))
+		secure = true;
 
 	ret = sde_format_populate_layout(aspace, fb, &pipe_cfg->layout);
 	if (ret == -EAGAIN)
@@ -963,7 +968,8 @@ static inline void _sde_plane_set_scanout(struct drm_plane *plane,
 				pipe_cfg->layout.plane_size[2],
 				pipe_cfg->layout.plane_addr[3],
 				pipe_cfg->layout.plane_size[3],
-				pstate->multirect_index);
+				pstate->multirect_index,
+				secure);
 		psde->pipe_hw->ops.setup_sourceaddress(psde->pipe_hw, pipe_cfg,
 						pstate->multirect_index);
 	}
@@ -2148,6 +2154,7 @@ static int sde_plane_rot_prepare_fb(struct drm_plane *plane,
 	}
 
 	if (new_pstate->defer_prepare_fb) {
+		SDE_EVT32(DRMID(plane));
 		SDE_DEBUG(
 		    "plane%d, domain not attached, prepare fb handled later\n",
 		    plane->base.id);
@@ -2452,6 +2459,7 @@ static void sde_plane_rot_atomic_update(struct drm_plane *plane,
 	 * This can be expected for one or two frames during the transition.
 	 */
 	if (pstate->aspace && pstate->defer_prepare_fb) {
+		SDE_EVT32(DRMID(plane), pstate->aspace->domain_attached);
 		/* prepare rotator input buffer */
 		ret = msm_framebuffer_prepare(state->fb, pstate->aspace);
 		if (ret) {
@@ -2855,6 +2863,7 @@ static int sde_plane_prepare_fb(struct drm_plane *plane,
 	}
 
 	if (pstate->defer_prepare_fb) {
+		SDE_EVT32(DRMID(plane), psde->pipe);
 		SDE_DEBUG_PLANE(psde,
 		    "domain not attached, prepare_fb handled later\n");
 		return 0;
