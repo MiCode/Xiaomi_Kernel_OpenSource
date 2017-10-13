@@ -497,12 +497,16 @@
 			 <&clock_mmss clk_mmss_mdss_dp_link_clk>,
 			 <&clock_mmss clk_mmss_mdss_dp_link_intf_clk>,
 			 <&clock_mmss clk_mmss_mdss_dp_crypto_clk>,
-			 <&clock_mmss clk_mmss_mdss_dp_pixel_clk>;
+			 <&clock_mmss clk_mmss_mdss_dp_pixel_clk>,
+			 <&mdss_dp_pll clk_vco_divided_clk_src_mux>,
+			 <&mdss_dp_pll clk_vco_divsel_two_clk_src>,
+			 <&mdss_dp_pll clk_vco_divsel_four_clk_src>;
 		clock-names = "core_mnoc_clk", "core_iface_clk", "core_bus_clk",
 			"core_mdp_core_clk", "core_alt_iface_clk",
 			"core_aux_clk", "core_ref_clk_src", "core_ref_clk",
 			"ctrl_link_clk", "ctrl_link_iface_clk",
-			"ctrl_crypto_clk", "ctrl_pixel_clk";
+			"ctrl_crypto_clk", "ctrl_pixel_clk", "pixel_parent",
+			"pixel_clk_two_div", "pixel_clk_four_div";
 
 		qcom,dp-usbpd-detection = <&pmi8998_pdphy>;
 
