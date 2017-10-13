@@ -76,6 +76,7 @@ its hardware characteristcs.
 		- "qcom,coresight-tpda"
 		- "qcom,coresight-tpdm"
 		- "qcom,coresight-hwevent"
+		- "qcom,coresight-dummy"
 
 	* port or ports: same as above.
 
