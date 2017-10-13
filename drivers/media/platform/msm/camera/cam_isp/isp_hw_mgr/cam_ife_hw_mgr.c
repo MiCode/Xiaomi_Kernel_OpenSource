@@ -778,10 +778,11 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_ipp(
 	uint32_t                            cid_res_id)
 {
 	int rc = -1;
-	int i, j;
+	int i;
 
 	struct cam_ife_hw_mgr               *ife_hw_mgr;
 	struct cam_ife_hw_mgr_res           *csid_res;
+	struct cam_ife_hw_mgr_res           *cid_res;
 	struct cam_hw_intf                   *hw_intf;
 	struct cam_csid_hw_reserve_resource_args  csid_acquire;
 
@@ -800,69 +801,64 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_ipp(
 	csid_acquire.in_port = in_port;
 	csid_acquire.out_port = in_port->data;
 
-	if (in_port->usage_type)
-		csid_acquire.sync_mode = CAM_ISP_HW_SYNC_MASTER;
-	else
-		csid_acquire.sync_mode = CAM_ISP_HW_SYNC_NONE;
-
-
-
-	for (i = 0; i < CAM_IFE_CSID_HW_NUM_MAX; i++) {
-		if (!ife_hw_mgr->csid_devices[i])
-			continue;
-
-		hw_intf = ife_hw_mgr->csid_devices[i];
-		rc = hw_intf->hw_ops.reserve(hw_intf->hw_priv, &csid_acquire,
-			sizeof(csid_acquire));
-		if (rc)
-			continue;
-		else
-			break;
-	}
-
-	if (i == CAM_IFE_CSID_HW_NUM_MAX) {
-		CAM_ERR(CAM_ISP, "Can not acquire ife csid ipp resource");
-		goto err;
-	}
-
-	CAM_DBG(CAM_ISP, "acquired csid(%d) left ipp resource successfully",
-		 i);
-
 	csid_res->res_type = CAM_ISP_RESOURCE_PIX_PATH;
 	csid_res->res_id = CAM_IFE_PIX_PATH_RES_IPP;
 	csid_res->is_dual_vfe = in_port->usage_type;
-	csid_res->hw_res[0] = csid_acquire.node_res;
-	csid_res->hw_res[1] = NULL;
 
-	if (csid_res->is_dual_vfe) {
-		csid_acquire.sync_mode = CAM_ISP_HW_SYNC_SLAVE;
-		csid_acquire.master_idx = csid_res->hw_res[0]->hw_intf->hw_idx;
+	if (in_port->usage_type)
+		csid_res->is_dual_vfe = 1;
+	else {
+		csid_res->is_dual_vfe = 0;
+		csid_acquire.sync_mode = CAM_ISP_HW_SYNC_MASTER;
+	}
 
-		for (j = i + 1; j < CAM_IFE_CSID_HW_NUM_MAX; j++) {
-			if (!ife_hw_mgr->csid_devices[j])
+	list_for_each_entry(cid_res, &ife_ctx->res_list_ife_cid,
+		list) {
+		if (cid_res->res_id != cid_res_id)
+			continue;
+
+		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+			if (!cid_res->hw_res[i])
 				continue;
 
-			hw_intf = ife_hw_mgr->csid_devices[j];
+			csid_acquire.node_res = NULL;
+			if (csid_res->is_dual_vfe) {
+				if (i == CAM_ISP_HW_SPLIT_LEFT)
+					csid_acquire.sync_mode =
+						CAM_ISP_HW_SYNC_MASTER;
+				else
+					csid_acquire.sync_mode =
+						CAM_ISP_HW_SYNC_SLAVE;
+			}
+
+			hw_intf = ife_hw_mgr->csid_devices[
+				cid_res->hw_res[i]->hw_intf->hw_idx];
 			rc = hw_intf->hw_ops.reserve(hw_intf->hw_priv,
 				&csid_acquire, sizeof(csid_acquire));
-			if (rc)
-				continue;
-			else
-				break;
+			if (rc) {
+				CAM_ERR(CAM_ISP,
+					"Cannot acquire ife csid ipp resource");
+				goto err;
+			}
+
+			csid_res->hw_res[i] = csid_acquire.node_res;
+			CAM_DBG(CAM_ISP,
+				"acquired csid(%s)=%d ipp rsrc successfully",
+				(i == 0) ? "left" : "right",
+				hw_intf->hw_idx);
+
 		}
 
-		if (j == CAM_IFE_CSID_HW_NUM_MAX) {
+		if (i == CAM_IFE_CSID_HW_NUM_MAX) {
 			CAM_ERR(CAM_ISP,
-				"Can not acquire ife csid rdi resrouce");
+				"Can not acquire ife csid ipp resource");
 			goto err;
 		}
-		csid_res->hw_res[1] = csid_acquire.node_res;
 
-		CAM_DBG(CAM_ISP,
-			"acquired csid(%d)right ipp resrouce successfully", j);
-
+		csid_res->parent = cid_res;
+		cid_res->child[cid_res->num_children++] = csid_res;
 	}
-	csid_res->parent = &ife_ctx->res_list_ife_in;
+
 	CAM_DBG(CAM_ISP, "acquire res %d", csid_acquire.res_id);
 
 	return 0;
@@ -909,7 +905,8 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_rdi(
 
 	struct cam_ife_hw_mgr               *ife_hw_mgr;
 	struct cam_ife_hw_mgr_res           *csid_res;
-	struct cam_hw_intf                   *hw_intf;
+	struct cam_ife_hw_mgr_res           *cid_res;
+	struct cam_hw_intf                  *hw_intf;
 	struct cam_isp_out_port_info        *out_port;
 	struct cam_csid_hw_reserve_resource_args  csid_acquire;
 
@@ -934,6 +931,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_rdi(
 		 * between the csid rdi type and out port rdi type
 		 */
 
+		memset(&csid_acquire, 0, sizeof(csid_acquire));
 		csid_acquire.res_id =
 			cam_ife_hw_mgr_get_ife_csid_rdi_res_type(
 				out_port->res_type);
@@ -944,37 +942,58 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_rdi(
 		csid_acquire.out_port = out_port;
 		csid_acquire.sync_mode = CAM_ISP_HW_SYNC_NONE;
 
-		for (j = 0; j < CAM_IFE_CSID_HW_NUM_MAX; j++) {
-			if (!ife_hw_mgr->csid_devices[j])
+		list_for_each_entry(cid_res, &ife_ctx->res_list_ife_cid,
+			list) {
+			if (cid_res->res_id != cid_res_id)
 				continue;
 
-			hw_intf = ife_hw_mgr->csid_devices[j];
-			rc = hw_intf->hw_ops.reserve(hw_intf->hw_priv,
-				&csid_acquire, sizeof(csid_acquire));
-			if (rc)
-				continue;
-			else
+			for (j = 0; j < CAM_ISP_HW_SPLIT_MAX; j++) {
+				if (!cid_res->hw_res[j])
+					continue;
+
+				csid_acquire.node_res = NULL;
+
+				hw_intf = ife_hw_mgr->csid_devices[
+					cid_res->hw_res[j]->hw_intf->hw_idx];
+				rc = hw_intf->hw_ops.reserve(hw_intf->hw_priv,
+					&csid_acquire, sizeof(csid_acquire));
+				if (rc) {
+					CAM_DBG(CAM_ISP,
+					 "CSID Path reserve failed hw=%d rc=%d",
+					 hw_intf->hw_idx, rc);
+					continue;
+				}
+
+				/* RDI does not need Dual ISP. Break */
 				break;
-		}
+			}
 
-		if (j == CAM_IFE_CSID_HW_NUM_MAX) {
-			CAM_ERR(CAM_ISP,
-				"Can not acquire ife csid rdi resource");
-			goto err;
-		}
+			if (j == CAM_ISP_HW_SPLIT_MAX &&
+				csid_acquire.node_res == NULL) {
+				CAM_ERR(CAM_ISP,
+					"acquire csid rdi rsrc failed, cid %d",
+					cid_res_id);
+				goto err;
+			}
 
-		csid_res->res_type = CAM_ISP_RESOURCE_PIX_PATH;
-		csid_res->res_id = csid_acquire.res_id;
-		csid_res->is_dual_vfe = 0;
-		csid_res->hw_res[0] = csid_acquire.node_res;
-		csid_res->hw_res[1] = NULL;
-		CAM_DBG(CAM_ISP, "acquire res %d", csid_acquire.res_id);
-		csid_res->parent = &ife_ctx->res_list_ife_in;
+			csid_res->res_type = CAM_ISP_RESOURCE_PIX_PATH;
+			csid_res->res_id = csid_acquire.res_id;
+			csid_res->is_dual_vfe = 0;
+			csid_res->hw_res[0] = csid_acquire.node_res;
+			csid_res->hw_res[1] = NULL;
+			CAM_DBG(CAM_ISP, "acquire res %d",
+				csid_acquire.res_id);
+			csid_res->parent = cid_res;
+			cid_res->child[cid_res->num_children++] =
+				csid_res;
+
+			/* Done with cid_res_id. Break */
+			break;
+		}
 	}
 
 	return 0;
 err:
-	/* resource resources at entry funciton */
 	return rc;
 }
 

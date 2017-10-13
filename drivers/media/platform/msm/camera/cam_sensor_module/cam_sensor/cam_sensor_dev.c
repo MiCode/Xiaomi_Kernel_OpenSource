@@ -163,6 +163,9 @@ static int32_t cam_sensor_driver_i2c_probe(struct i2c_client *client,
 	}
 
 	INIT_LIST_HEAD(&(s_ctrl->i2c_data.init_settings.list_head));
+	INIT_LIST_HEAD(&(s_ctrl->i2c_data.res_settings.list_head));
+	INIT_LIST_HEAD(&(s_ctrl->i2c_data.streamon_settings.list_head));
+	INIT_LIST_HEAD(&(s_ctrl->i2c_data.streamoff_settings.list_head));
 
 	for (i = 0; i < MAX_PER_FRAME_ARRAY; i++)
 		INIT_LIST_HEAD(&(s_ctrl->i2c_data.per_frame[i].list_head));
@@ -269,6 +272,9 @@ static int32_t cam_sensor_driver_platform_probe(
 	}
 
 	INIT_LIST_HEAD(&(s_ctrl->i2c_data.init_settings.list_head));
+	INIT_LIST_HEAD(&(s_ctrl->i2c_data.res_settings.list_head));
+	INIT_LIST_HEAD(&(s_ctrl->i2c_data.streamon_settings.list_head));
+	INIT_LIST_HEAD(&(s_ctrl->i2c_data.streamoff_settings.list_head));
 
 	for (i = 0; i < MAX_PER_FRAME_ARRAY; i++)
 		INIT_LIST_HEAD(&(s_ctrl->i2c_data.per_frame[i].list_head));

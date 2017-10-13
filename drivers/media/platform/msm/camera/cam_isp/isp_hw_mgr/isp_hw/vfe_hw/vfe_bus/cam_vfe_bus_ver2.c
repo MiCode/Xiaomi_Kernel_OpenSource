@@ -184,6 +184,8 @@ struct cam_vfe_bus_ver2_vfe_out_data {
 
 struct cam_vfe_bus_ver2_priv {
 	struct cam_vfe_bus_ver2_common_data common_data;
+	uint32_t                            num_client;
+	uint32_t                            num_out;
 
 	struct cam_isp_resource_node  bus_client[CAM_VFE_BUS_VER2_MAX_CLIENTS];
 	struct cam_isp_resource_node  comp_grp[CAM_VFE_BUS_VER2_COMP_GRP_MAX];
@@ -394,6 +396,8 @@ static enum cam_vfe_bus_ver2_vfe_out_type
 		return CAM_VFE_BUS_VER2_VFE_OUT_RDI1;
 	case CAM_ISP_IFE_OUT_RES_RDI_2:
 		return CAM_VFE_BUS_VER2_VFE_OUT_RDI2;
+	case CAM_ISP_IFE_OUT_RES_RDI_3:
+		return CAM_VFE_BUS_VER2_VFE_OUT_RDI3;
 	case CAM_ISP_IFE_OUT_RES_STATS_HDR_BE:
 		return CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BE;
 	case CAM_ISP_IFE_OUT_RES_STATS_HDR_BHIST:
@@ -425,6 +429,7 @@ static int cam_vfe_bus_get_num_wm(
 	case CAM_VFE_BUS_VER2_VFE_OUT_RDI0:
 	case CAM_VFE_BUS_VER2_VFE_OUT_RDI1:
 	case CAM_VFE_BUS_VER2_VFE_OUT_RDI2:
+	case CAM_VFE_BUS_VER2_VFE_OUT_RDI3:
 		switch (format) {
 		case CAM_FORMAT_MIPI_RAW_8:
 		case CAM_FORMAT_MIPI_RAW_10:
@@ -551,6 +556,42 @@ static int cam_vfe_bus_get_wm_idx(
 	int wm_idx = -1;
 
 	switch (vfe_out_res_id) {
+	case CAM_VFE_BUS_VER2_VFE_OUT_RDI0:
+		switch (plane) {
+		case PLANE_Y:
+			wm_idx = 0;
+			break;
+		default:
+			break;
+		}
+		break;
+	case CAM_VFE_BUS_VER2_VFE_OUT_RDI1:
+		switch (plane) {
+		case PLANE_Y:
+			wm_idx = 1;
+			break;
+		default:
+			break;
+		}
+		break;
+	case CAM_VFE_BUS_VER2_VFE_OUT_RDI2:
+		switch (plane) {
+		case PLANE_Y:
+			wm_idx = 2;
+			break;
+		default:
+			break;
+		}
+		break;
+	case CAM_VFE_BUS_VER2_VFE_OUT_RDI3:
+		switch (plane) {
+		case PLANE_Y:
+			wm_idx = 3;
+			break;
+		default:
+			break;
+		}
+		break;
 	case CAM_VFE_BUS_VER2_VFE_OUT_FULL:
 		switch (plane) {
 		case PLANE_Y:
@@ -606,33 +647,6 @@ static int cam_vfe_bus_get_wm_idx(
 		switch (plane) {
 		case PLANE_Y:
 			wm_idx = 10;
-			break;
-		default:
-			break;
-		}
-		break;
-	case CAM_VFE_BUS_VER2_VFE_OUT_RDI0:
-		switch (plane) {
-		case PLANE_Y:
-			wm_idx = 0;
-			break;
-		default:
-			break;
-		}
-		break;
-	case CAM_VFE_BUS_VER2_VFE_OUT_RDI1:
-		switch (plane) {
-		case PLANE_Y:
-			wm_idx = 1;
-			break;
-		default:
-			break;
-		}
-		break;
-	case CAM_VFE_BUS_VER2_VFE_OUT_RDI2:
-		switch (plane) {
-		case PLANE_Y:
-			wm_idx = 2;
 			break;
 		default:
 			break;
@@ -792,7 +806,7 @@ static int cam_vfe_bus_acquire_wm(
 
 	/* No need to allocate for BUS VER2. VFE OUT to WM is fixed. */
 	wm_idx = cam_vfe_bus_get_wm_idx(vfe_out_res_id, plane);
-	if (wm_idx < 0 || wm_idx >= CAM_VFE_BUS_VER2_MAX_CLIENTS) {
+	if (wm_idx < 0 || wm_idx >= ver2_bus_priv->num_client) {
 		CAM_ERR(CAM_ISP, "Unsupported VFE out %d plane %d",
 			vfe_out_res_id, plane);
 		return -EINVAL;
@@ -2168,7 +2182,8 @@ static int cam_vfe_bus_init_vfe_out_resource(uint32_t index,
 	vfe_out->res_state = CAM_ISP_RESOURCE_STATE_AVAILABLE;
 	INIT_LIST_HEAD(&vfe_out->list);
 
-	rsrc_data->out_type    = index;
+	rsrc_data->out_type    =
+		ver2_hw_info->vfe_out_hw_info[index].vfe_out_type;
 	rsrc_data->common_data = &ver2_bus_priv->common_data;
 	rsrc_data->max_width   =
 		ver2_hw_info->vfe_out_hw_info[index].max_width;
@@ -2783,6 +2798,8 @@ int cam_vfe_bus_ver2_init(
 	}
 	vfe_bus_local->bus_priv = bus_priv;
 
+	bus_priv->num_client                     = ver2_hw_info->num_client;
+	bus_priv->num_out                        = ver2_hw_info->num_out;
 	bus_priv->common_data.num_sec_out        = 0;
 	bus_priv->common_data.secure_mode        = CAM_SECURE_MODE_NON_SECURE;
 	bus_priv->common_data.core_index         = soc_info->index;
@@ -2808,7 +2825,7 @@ int cam_vfe_bus_ver2_init(
 	INIT_LIST_HEAD(&bus_priv->free_dual_comp_grp);
 	INIT_LIST_HEAD(&bus_priv->used_comp_grp);
 
-	for (i = 0; i < CAM_VFE_BUS_VER2_MAX_CLIENTS; i++) {
+	for (i = 0; i < bus_priv->num_client; i++) {
 		rc = cam_vfe_bus_init_wm_resource(i, bus_priv, bus_hw_info,
 			&bus_priv->bus_client[i]);
 		if (rc < 0) {
@@ -2826,7 +2843,7 @@ int cam_vfe_bus_ver2_init(
 		}
 	}
 
-	for (i = 0; i < CAM_VFE_BUS_VER2_VFE_OUT_MAX; i++) {
+	for (i = 0; i < bus_priv->num_out; i++) {
 		rc = cam_vfe_bus_init_vfe_out_resource(i, bus_priv, bus_hw_info,
 			&bus_priv->vfe_out[i]);
 		if (rc < 0) {
@@ -2859,7 +2876,7 @@ int cam_vfe_bus_ver2_init(
 
 deinit_vfe_out:
 	if (i < 0)
-		i = CAM_VFE_BUS_VER2_VFE_OUT_MAX;
+		i = bus_priv->num_out;
 	for (--i; i >= 0; i--)
 		cam_vfe_bus_deinit_vfe_out_resource(&bus_priv->vfe_out[i]);
 
@@ -2871,7 +2888,7 @@ deinit_comp_grp:
 
 deinit_wm:
 	if (i < 0)
-		i = CAM_VFE_BUS_VER2_MAX_CLIENTS;
+		i = bus_priv->num_client;
 	for (--i; i >= 0; i--)
 		cam_vfe_bus_deinit_wm_resource(&bus_priv->bus_client[i]);
 
@@ -2909,7 +2926,7 @@ int cam_vfe_bus_ver2_deinit(
 	for (i = 0; i < CAM_VFE_BUS_VER2_PAYLOAD_MAX; i++)
 		INIT_LIST_HEAD(&bus_priv->common_data.evt_payload[i].list);
 
-	for (i = 0; i < CAM_VFE_BUS_VER2_MAX_CLIENTS; i++) {
+	for (i = 0; i < bus_priv->num_client; i++) {
 		rc = cam_vfe_bus_deinit_wm_resource(&bus_priv->bus_client[i]);
 		if (rc < 0)
 			CAM_ERR(CAM_ISP,
@@ -2923,7 +2940,7 @@ int cam_vfe_bus_ver2_deinit(
 				"Deinit Comp Grp failed rc=%d", rc);
 	}
 
-	for (i = 0; i < CAM_VFE_BUS_VER2_VFE_OUT_MAX; i++) {
+	for (i = 0; i < bus_priv->num_out; i++) {
 		rc = cam_vfe_bus_deinit_vfe_out_resource(&bus_priv->vfe_out[i]);
 		if (rc < 0)
 			CAM_ERR(CAM_ISP,

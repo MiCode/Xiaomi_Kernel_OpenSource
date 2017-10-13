@@ -507,8 +507,6 @@ int cam_vfe_stop(void *hw_priv, void *stop_args, uint32_t arg_size)
 			core_info->vfe_top->top_priv, isp_res,
 			sizeof(struct cam_isp_resource_node));
 	} else if (isp_res->res_type == CAM_ISP_RESOURCE_VFE_OUT) {
-		cam_irq_controller_unsubscribe_irq(
-			core_info->vfe_irq_controller, isp_res->irq_handle);
 		rc = core_info->vfe_bus->hw_ops.stop(isp_res, NULL, 0);
 	} else {
 		CAM_ERR(CAM_ISP, "Invalid res type:%d", isp_res->res_type);

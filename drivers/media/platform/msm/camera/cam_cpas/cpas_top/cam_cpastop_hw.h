@@ -110,6 +110,7 @@ struct cam_camnoc_specific {
 	struct cam_cpas_reg danger_lut;
 	struct cam_cpas_reg safe_lut;
 	struct cam_cpas_reg ubwc_ctl;
+	struct cam_cpas_reg flag_out_set0_low;
 };
 
 /**
