@@ -158,6 +158,8 @@ enable_disable_rxport:
 
 	if (is_fm_port(port_num))
 		reg_val = en | CHRK_SB_PGD_PORT_WM_L8;
+	else if (port_num == CHRK_SB_PGD_PORT_TX_SCO)
+		reg_val = enable ? en | CHRK_SB_PGD_PORT_WM_L1 : en;
 	else
 		reg_val = enable ? en | CHRK_SB_PGD_PORT_WM_LB : en;
 
