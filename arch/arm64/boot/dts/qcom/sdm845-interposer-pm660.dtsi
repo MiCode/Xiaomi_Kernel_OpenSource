@@ -230,6 +230,10 @@
 &soc {
 	/delete-node/ gpio_keys;
 
+	qcom,mss@4080000 {
+		/delete-property/ vdd_mss-supply;
+	};
+
 	qcom,lpass@17300000 {
 		/delete-property/ vdd_cx-supply;
 	};
