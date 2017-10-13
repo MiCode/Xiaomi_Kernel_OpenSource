@@ -112,6 +112,9 @@ static int cam_fd_hw_util_fdwrapper_sync_reset(struct cam_hw_info *fd_hw)
 	/* Before triggering reset to HW, clear the reset complete */
 	reinit_completion(&fd_core->reset_complete);
 
+	cam_fd_soc_register_write(soc_info, CAM_FD_REG_CORE,
+		hw_static_info->core_regs.control, 0x1);
+
 	if (hw_static_info->enable_errata_wa.single_irq_only) {
 		cam_fd_soc_register_write(soc_info, CAM_FD_REG_WRAPPER,
 			hw_static_info->wrapper_regs.irq_mask,
@@ -125,9 +128,6 @@ static int cam_fd_hw_util_fdwrapper_sync_reset(struct cam_hw_info *fd_hw)
 		msecs_to_jiffies(CAM_FD_HW_HALT_RESET_TIMEOUT));
 	if (time_left <= 0)
 		CAM_WARN(CAM_FD, "HW reset timeout time_left=%d", time_left);
-
-	cam_fd_soc_register_write(soc_info, CAM_FD_REG_CORE,
-		hw_static_info->core_regs.control, 0x1);
 
 	CAM_DBG(CAM_FD, "FD Wrapper SW Sync Reset complete");
 
@@ -424,9 +424,10 @@ static int cam_fd_hw_util_processcmd_frame_done(struct cam_hw_info *fd_hw,
 	struct cam_fd_hw_req_private *req_private;
 	uint32_t base, face_cnt;
 	uint32_t *buffer;
+	unsigned long flags;
 	int i;
 
-	spin_lock(&fd_core->spin_lock);
+	spin_lock_irqsave(&fd_core->spin_lock, flags);
 	if ((fd_core->core_state != CAM_FD_CORE_STATE_IDLE) ||
 		(fd_core->results_valid == false) ||
 		!fd_core->hw_req_private) {
@@ -434,12 +435,12 @@ static int cam_fd_hw_util_processcmd_frame_done(struct cam_hw_info *fd_hw,
 			"Invalid state for results state=%d, results=%d %pK",
 			fd_core->core_state, fd_core->results_valid,
 			fd_core->hw_req_private);
-		spin_unlock(&fd_core->spin_lock);
+		spin_unlock_irqrestore(&fd_core->spin_lock, flags);
 		return -EINVAL;
 	}
 	fd_core->core_state = CAM_FD_CORE_STATE_READING_RESULTS;
 	req_private = fd_core->hw_req_private;
-	spin_unlock(&fd_core->spin_lock);
+	spin_unlock_irqrestore(&fd_core->spin_lock, flags);
 
 	/*
 	 * Copy the register value as is into output buffers.
@@ -511,10 +512,10 @@ static int cam_fd_hw_util_processcmd_frame_done(struct cam_hw_info *fd_hw,
 		}
 	}
 
-	spin_lock(&fd_core->spin_lock);
+	spin_lock_irqsave(&fd_core->spin_lock, flags);
 	fd_core->hw_req_private = NULL;
 	fd_core->core_state = CAM_FD_CORE_STATE_IDLE;
-	spin_unlock(&fd_core->spin_lock);
+	spin_unlock_irqrestore(&fd_core->spin_lock, flags);
 
 	return 0;
 }
@@ -776,6 +777,9 @@ int cam_fd_hw_reset(void *hw_priv, void *reset_core_args, uint32_t arg_size)
 {
 	struct cam_hw_info *fd_hw = (struct cam_hw_info *)hw_priv;
 	struct cam_fd_core *fd_core;
+	struct cam_fd_hw_static_info *hw_static_info;
+	struct cam_hw_soc_info *soc_info;
+	unsigned long flags;
 	int rc;
 
 	if (!fd_hw) {
@@ -784,18 +788,23 @@ int cam_fd_hw_reset(void *hw_priv, void *reset_core_args, uint32_t arg_size)
 	}
 
 	fd_core = (struct cam_fd_core *)fd_hw->core_info;
+	hw_static_info = fd_core->hw_static_info;
+	soc_info = &fd_hw->soc_info;
 
-	spin_lock(&fd_core->spin_lock);
+	spin_lock_irqsave(&fd_core->spin_lock, flags);
 	if (fd_core->core_state == CAM_FD_CORE_STATE_RESET_PROGRESS) {
 		CAM_ERR(CAM_FD, "Reset not allowed in %d state",
 			fd_core->core_state);
-		spin_unlock(&fd_core->spin_lock);
+		spin_unlock_irqrestore(&fd_core->spin_lock, flags);
 		return -EINVAL;
 	}
 
 	fd_core->results_valid = false;
 	fd_core->core_state = CAM_FD_CORE_STATE_RESET_PROGRESS;
-	spin_unlock(&fd_core->spin_lock);
+	spin_unlock_irqrestore(&fd_core->spin_lock, flags);
+
+	cam_fd_soc_register_write(soc_info, CAM_FD_REG_WRAPPER,
+		hw_static_info->wrapper_regs.cgc_disable, 0x1);
 
 	rc = cam_fd_hw_util_fdwrapper_halt(fd_hw);
 	if (rc) {
@@ -809,9 +818,12 @@ int cam_fd_hw_reset(void *hw_priv, void *reset_core_args, uint32_t arg_size)
 		return rc;
 	}
 
-	spin_lock(&fd_core->spin_lock);
+	cam_fd_soc_register_write(soc_info, CAM_FD_REG_WRAPPER,
+		hw_static_info->wrapper_regs.cgc_disable, 0x0);
+
+	spin_lock_irqsave(&fd_core->spin_lock, flags);
 	fd_core->core_state = CAM_FD_CORE_STATE_IDLE;
-	spin_unlock(&fd_core->spin_lock);
+	spin_unlock_irqrestore(&fd_core->spin_lock, flags);
 
 	return rc;
 }
@@ -824,6 +836,7 @@ int cam_fd_hw_start(void *hw_priv, void *hw_start_args, uint32_t arg_size)
 	struct cam_fd_hw_cmd_start_args *start_args =
 		(struct cam_fd_hw_cmd_start_args *)hw_start_args;
 	struct cam_fd_ctx_hw_private *ctx_hw_private;
+	unsigned long flags;
 	int rc;
 
 	if (!hw_priv || !start_args) {
@@ -841,11 +854,11 @@ int cam_fd_hw_start(void *hw_priv, void *hw_start_args, uint32_t arg_size)
 	fd_core = (struct cam_fd_core *)fd_hw->core_info;
 	hw_static_info = fd_core->hw_static_info;
 
-	spin_lock(&fd_core->spin_lock);
+	spin_lock_irqsave(&fd_core->spin_lock, flags);
 	if (fd_core->core_state != CAM_FD_CORE_STATE_IDLE) {
 		CAM_ERR(CAM_FD, "Cannot start in %d state",
 			fd_core->core_state);
-		spin_unlock(&fd_core->spin_lock);
+		spin_unlock_irqrestore(&fd_core->spin_lock, flags);
 		return -EINVAL;
 	}
 
@@ -858,7 +871,7 @@ int cam_fd_hw_start(void *hw_priv, void *hw_start_args, uint32_t arg_size)
 	fd_core->hw_req_private = start_args->hw_req_private;
 	fd_core->core_state = CAM_FD_CORE_STATE_PROCESSING;
 	fd_core->results_valid = false;
-	spin_unlock(&fd_core->spin_lock);
+	spin_unlock_irqrestore(&fd_core->spin_lock, flags);
 
 	ctx_hw_private = start_args->ctx_hw_private;
 
@@ -903,9 +916,9 @@ int cam_fd_hw_start(void *hw_priv, void *hw_start_args, uint32_t arg_size)
 
 	return 0;
 error:
-	spin_lock(&fd_core->spin_lock);
+	spin_lock_irqsave(&fd_core->spin_lock, flags);
 	fd_core->core_state = CAM_FD_CORE_STATE_IDLE;
-	spin_unlock(&fd_core->spin_lock);
+	spin_unlock_irqrestore(&fd_core->spin_lock, flags);
 
 	return rc;
 }
@@ -914,6 +927,9 @@ int cam_fd_hw_halt_reset(void *hw_priv, void *stop_args, uint32_t arg_size)
 {
 	struct cam_hw_info *fd_hw = (struct cam_hw_info *)hw_priv;
 	struct cam_fd_core *fd_core;
+	struct cam_fd_hw_static_info *hw_static_info;
+	struct cam_hw_soc_info *soc_info;
+	unsigned long flags;
 	int rc;
 
 	if (!fd_hw) {
@@ -922,19 +938,24 @@ int cam_fd_hw_halt_reset(void *hw_priv, void *stop_args, uint32_t arg_size)
 	}
 
 	fd_core = (struct cam_fd_core *)fd_hw->core_info;
+	hw_static_info = fd_core->hw_static_info;
+	soc_info = &fd_hw->soc_info;
 
-	spin_lock(&fd_core->spin_lock);
+	spin_lock_irqsave(&fd_core->spin_lock, flags);
 	if ((fd_core->core_state == CAM_FD_CORE_STATE_POWERDOWN) ||
 		(fd_core->core_state == CAM_FD_CORE_STATE_RESET_PROGRESS)) {
 		CAM_ERR(CAM_FD, "Reset not allowed in %d state",
 			fd_core->core_state);
-		spin_unlock(&fd_core->spin_lock);
+		spin_unlock_irqrestore(&fd_core->spin_lock, flags);
 		return -EINVAL;
 	}
 
 	fd_core->results_valid = false;
 	fd_core->core_state = CAM_FD_CORE_STATE_RESET_PROGRESS;
-	spin_unlock(&fd_core->spin_lock);
+	spin_unlock_irqrestore(&fd_core->spin_lock, flags);
+
+	cam_fd_soc_register_write(soc_info, CAM_FD_REG_WRAPPER,
+		hw_static_info->wrapper_regs.cgc_disable, 0x1);
 
 	rc = cam_fd_hw_util_fdwrapper_halt(fd_hw);
 	if (rc) {
@@ -949,9 +970,12 @@ int cam_fd_hw_halt_reset(void *hw_priv, void *stop_args, uint32_t arg_size)
 		return rc;
 	}
 
-	spin_lock(&fd_core->spin_lock);
+	cam_fd_soc_register_write(soc_info, CAM_FD_REG_WRAPPER,
+		hw_static_info->wrapper_regs.cgc_disable, 0x0);
+
+	spin_lock_irqsave(&fd_core->spin_lock, flags);
 	fd_core->core_state = CAM_FD_CORE_STATE_IDLE;
-	spin_unlock(&fd_core->spin_lock);
+	spin_unlock_irqrestore(&fd_core->spin_lock, flags);
 
 	return rc;
 }

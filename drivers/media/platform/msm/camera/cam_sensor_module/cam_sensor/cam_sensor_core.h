@@ -40,10 +40,12 @@ int cam_sensor_power(struct v4l2_subdev *sd, int on);
 /**
  * @s_ctrl: Sensor ctrl structure
  * @req_id: Request id
+ * @opcode: opcode for settings
  *
  * This API applies the req_id settings to sensor
  */
-int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl, int64_t req_id);
+int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl, int64_t req_id,
+	enum cam_sensor_packet_opcodes opcode);
 
 /**
  * @apply: Req mgr structure for applying request

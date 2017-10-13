@@ -317,7 +317,7 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 		cmd_buf += (sizeof(struct cam_cmd_i2c_info)/sizeof(uint32_t));
 		i2c_data->init_settings.request_id = 0;
 		i2c_reg_settings->is_settings_valid = 1;
-		rc = cam_sensor_i2c_pkt_parser(i2c_reg_settings,
+		rc = cam_sensor_i2c_command_parser(i2c_reg_settings,
 			&cmd_desc[1], 1);
 		if (rc < 0) {
 			CAM_ERR(CAM_ACTUATOR, "Actuator pkt parsing failed: %d",
@@ -338,7 +338,7 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 		offset = (uint32_t *)&csl_packet->payload;
 		offset += csl_packet->cmd_buf_offset / sizeof(uint32_t);
 		cmd_desc = (struct cam_cmd_buf_desc *)(offset);
-		rc = cam_sensor_i2c_pkt_parser(i2c_reg_settings,
+		rc = cam_sensor_i2c_command_parser(i2c_reg_settings,
 			cmd_desc, 1);
 		if (rc < 0) {
 			CAM_ERR(CAM_ACTUATOR, "Actuator pkt parsing failed: %d",
@@ -358,7 +358,7 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 		offset = (uint32_t *)&csl_packet->payload;
 		offset += csl_packet->cmd_buf_offset / sizeof(uint32_t);
 		cmd_desc = (struct cam_cmd_buf_desc *)(offset);
-		rc = cam_sensor_i2c_pkt_parser(i2c_reg_settings,
+		rc = cam_sensor_i2c_command_parser(i2c_reg_settings,
 			cmd_desc, 1);
 		if (rc < 0) {
 			CAM_ERR(CAM_ACTUATOR, "Actuator pkt parsing failed: %d",
@@ -401,12 +401,16 @@ static int32_t cam_actuator_vreg_control(
 		return -EINVAL;
 	}
 
-	if (config)
+	if (config) {
+		rc = cam_soc_util_request_platform_resource(soc_info,
+			NULL, NULL);
 		rc = cam_soc_util_enable_platform_resource(soc_info, false, 0,
 			false);
-	else
+	} else {
 		rc = cam_soc_util_disable_platform_resource(soc_info, false,
 			false);
+		rc = cam_soc_util_release_platform_resource(soc_info);
+	}
 
 	return rc;
 }
@@ -429,15 +433,6 @@ static int32_t cam_actuator_power_up(struct cam_actuator_ctrl_t *a_ctrl)
 	if (soc_info->gpio_data &&
 		gpio_num_info &&
 		gpio_num_info->valid[SENSOR_VAF] == 1) {
-		rc = cam_soc_util_request_platform_resource(&a_ctrl->soc_info,
-			NULL, NULL);
-		rc = cam_soc_util_enable_platform_resource(&a_ctrl->soc_info,
-			false, 0, false);
-		if (rc < 0) {
-			CAM_ERR(CAM_ACTUATOR, "Failed in req gpio: %d", rc);
-			return rc;
-		}
-
 		gpio_set_value_cansleep(
 			gpio_num_info->gpio_num[SENSOR_VAF],
 			1);
@@ -456,12 +451,6 @@ static int32_t cam_actuator_power_down(struct cam_actuator_ctrl_t *a_ctrl)
 		&a_ctrl->soc_info;
 	struct msm_camera_gpio_num_info *gpio_num_info = NULL;
 
-	rc = cam_actuator_vreg_control(a_ctrl, 0);
-	if (rc < 0) {
-		CAM_ERR(CAM_ACTUATOR, "Failed %d");
-		return rc;
-	}
-
 	gpio_num_info = a_ctrl->gpio_num_info;
 
 	if (soc_info->gpio_data &&
@@ -471,14 +460,11 @@ static int32_t cam_actuator_power_down(struct cam_actuator_ctrl_t *a_ctrl)
 		gpio_set_value_cansleep(
 			gpio_num_info->gpio_num[SENSOR_VAF],
 			GPIOF_OUT_INIT_LOW);
-
-		rc = cam_soc_util_release_platform_resource(&a_ctrl->soc_info);
-		rc |= cam_soc_util_disable_platform_resource(&a_ctrl->soc_info,
-					0, 0);
-		if (rc < 0)
-			CAM_ERR(CAM_ACTUATOR,
-				"Failed to disable platform resources: %d", rc);
 	}
+
+	rc = cam_actuator_vreg_control(a_ctrl, 0);
+	if (rc < 0)
+		CAM_ERR(CAM_ACTUATOR, "Disable Regulator Failed: %d", rc);
 
 	return rc;
 }
@@ -594,6 +580,9 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 	}
 		break;
 	case CAM_STOP_DEV: {
+		struct i2c_settings_array *i2c_set = NULL;
+		int i;
+
 		rc = camera_io_release(&a_ctrl->io_master_info);
 		if (rc < 0)
 			CAM_ERR(CAM_ACTUATOR, "Failed in releasing CCI");
@@ -601,6 +590,17 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 		if (rc < 0) {
 			CAM_ERR(CAM_ACTUATOR, "Actuator Power down failed");
 			goto release_mutex;
+		}
+		for (i = 0; i < MAX_PER_FRAME_ARRAY; i++) {
+			i2c_set = &(a_ctrl->i2c_data.per_frame[i]);
+
+			if (i2c_set->is_settings_valid == 1) {
+				rc = delete_request(i2c_set);
+				if (rc < 0)
+					CAM_ERR(CAM_SENSOR,
+						"delete request: %lld rc: %d",
+						i2c_set->request_id, rc);
+			}
 		}
 	}
 		break;
@@ -640,5 +640,52 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 release_mutex:
 	mutex_unlock(&(a_ctrl->actuator_mutex));
 
+	return rc;
+}
+
+int32_t cam_actuator_flush_request(struct cam_req_mgr_flush_request *flush_req)
+{
+	int32_t rc = 0, i;
+	uint32_t cancel_req_id_found = 0;
+	struct cam_actuator_ctrl_t *a_ctrl = NULL;
+	struct i2c_settings_array *i2c_set = NULL;
+
+	if (!flush_req)
+		return -EINVAL;
+
+	a_ctrl = (struct cam_actuator_ctrl_t *)
+		cam_get_device_priv(flush_req->dev_hdl);
+	if (!a_ctrl) {
+		CAM_ERR(CAM_ACTUATOR, "Device data is NULL");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < MAX_PER_FRAME_ARRAY; i++) {
+		i2c_set = &(a_ctrl->i2c_data.per_frame[i]);
+
+		if ((flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ)
+				&& (i2c_set->request_id != flush_req->req_id))
+			continue;
+
+		if (i2c_set->is_settings_valid == 1) {
+			rc = delete_request(i2c_set);
+			if (rc < 0)
+				CAM_ERR(CAM_ACTUATOR,
+					"delete request: %lld rc: %d",
+					i2c_set->request_id, rc);
+
+			if (flush_req->type ==
+				CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ) {
+				cancel_req_id_found = 1;
+				break;
+			}
+		}
+	}
+
+	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ &&
+		!cancel_req_id_found)
+		CAM_DBG(CAM_ACTUATOR,
+			"Flush request id:%lld not found in the pending list",
+			flush_req->req_id);
 	return rc;
 }
