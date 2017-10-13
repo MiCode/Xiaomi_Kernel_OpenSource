@@ -134,7 +134,8 @@ extern void pil_shutdown(struct pil_desc *desc);
 extern void pil_free_memory(struct pil_desc *desc);
 extern void pil_desc_release(struct pil_desc *desc);
 extern phys_addr_t pil_get_entry_addr(struct pil_desc *desc);
-extern int pil_do_ramdump(struct pil_desc *desc, void *ramdump_dev);
+extern int pil_do_ramdump(struct pil_desc *desc, void *ramdump_dev,
+			  void *minidump_dev);
 extern int pil_assign_mem_to_subsys(struct pil_desc *desc, phys_addr_t addr,
 						size_t size);
 extern int pil_assign_mem_to_linux(struct pil_desc *desc, phys_addr_t addr,
@@ -154,7 +155,8 @@ static inline phys_addr_t pil_get_entry_addr(struct pil_desc *desc)
 {
 	return 0;
 }
-static inline int pil_do_ramdump(struct pil_desc *desc, void *ramdump_dev)
+static inline int pil_do_ramdump(struct pil_desc *desc,
+		void *ramdump_dev, void *minidump_dev)
 {
 	return 0;
 }

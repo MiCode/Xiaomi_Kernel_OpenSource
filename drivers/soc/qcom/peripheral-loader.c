@@ -164,6 +164,9 @@ static int pil_do_minidump(struct pil_desc *desc, void *ramdump_dev)
 	int ss_mdump_seg_cnt;
 	int ret, i;
 
+	if (!ramdump_dev)
+		return -ENODEV;
+
 	memcpy(&offset, &priv->minidump, sizeof(priv->minidump));
 	offset = offset + sizeof(priv->minidump->md_ss_smem_regions_baseptr);
 	/* There are 3 encryption keys which also need to be dumped */
@@ -220,7 +223,8 @@ static int pil_do_minidump(struct pil_desc *desc, void *ramdump_dev)
  * Calls the ramdump API with a list of segments generated from the addresses
  * that the descriptor corresponds to.
  */
-int pil_do_ramdump(struct pil_desc *desc, void *ramdump_dev)
+int pil_do_ramdump(struct pil_desc *desc,
+		   void *ramdump_dev, void *minidump_dev)
 {
 	struct pil_priv *priv = desc->priv;
 	struct pil_seg *seg;
@@ -237,7 +241,7 @@ int pil_do_ramdump(struct pil_desc *desc, void *ramdump_dev)
 	&& (__raw_readl(priv->minidump) != 0)
 	&& (readb_relaxed(offset + sizeof(u32) + 2 * sizeof(u8)) == 0)) {
 		pr_debug("Dumping Minidump for %s\n", desc->name);
-		return pil_do_minidump(desc, ramdump_dev);
+		return pil_do_minidump(desc, minidump_dev);
 
 	}
 	pr_debug("Continuing with full SSR dump for %s\n", desc->name);
