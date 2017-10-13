@@ -188,3 +188,31 @@
 &usb_qmp_dp_phy {
 	status = "disabled";
 };
+
+&mdss_mdp {
+	status = "disabled";
+};
+
+&sde_rscc {
+	status = "disabled";
+};
+
+&mdss_rotator {
+	status = "disabled";
+};
+
+&mdss_dsi0 {
+	status = "disabled";
+};
+
+&mdss_dsi1 {
+	status = "disabled";
+};
+
+&mdss_dsi_phy0 {
+	status = "disabled";
+};
+
+&mdss_dsi_phy1 {
+	status = "disabled";
+};

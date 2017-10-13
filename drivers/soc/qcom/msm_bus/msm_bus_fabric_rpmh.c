@@ -566,6 +566,11 @@ int msm_bus_commit_data(struct list_head *clist)
 		bcm_clist_add(node);
 	}
 
+	if (!cur_rsc) {
+		MSM_BUS_ERR("%s: Error for cur_rsc is NULL.\n", __func__);
+		return ret;
+	}
+
 	cur_mbox = cur_rsc->rscdev->mbox;
 	cur_bcm_clist = cur_rsc->rscdev->bcm_clist;
 
@@ -1004,6 +1009,7 @@ static int msm_bus_dev_init_qos(struct device *dev, void *data)
 
 				bus_node_info->fabdev->noc_ops.qos_init(
 					node_dev,
+					bus_node_info,
 					bus_node_info->fabdev->qos_base,
 					bus_node_info->fabdev->base_offset,
 					bus_node_info->fabdev->qos_off,

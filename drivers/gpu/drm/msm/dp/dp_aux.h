@@ -25,6 +25,7 @@ enum dp_aux_error {
 	DP_AUX_ERR_NACK	= -3,
 	DP_AUX_ERR_DEFER	= -4,
 	DP_AUX_ERR_NACK_DEFER	= -5,
+	DP_AUX_ERR_PHY	= -6,
 };
 
 struct dp_aux {

@@ -84,7 +84,7 @@
 /* QDSP6v65 parameters */
 #define QDSP6SS_BOOT_CORE_START		(0x400)
 #define QDSP6SS_BOOT_CMD		(0x404)
-#define QDSP6SS_BOOT_STATUS		(0x408)
+#define MSS_STATUS			(0x40)
 #define QDSP6SS_SLEEP			(0x3C)
 #define SLEEP_CHECK_MAX_LOOPS		(200)
 #define BOOT_FSM_TIMEOUT		(100)
@@ -410,8 +410,8 @@ static int __pil_q6v65_reset(struct pil_desc *pil)
 	writel_relaxed(1, drv->reg_base + QDSP6SS_BOOT_CMD);
 
 	/* Wait for boot FSM to complete */
-	ret = readl_poll_timeout(drv->reg_base + QDSP6SS_BOOT_STATUS, val,
-			val != 0, 10, BOOT_FSM_TIMEOUT);
+	ret = readl_poll_timeout(drv->rmb_base + MSS_STATUS, val,
+			(val & BIT(1)) != 0, 10, BOOT_FSM_TIMEOUT);
 
 	if (ret) {
 		dev_err(drv->desc.dev, "Boot FSM failed to complete.\n");

@@ -26,6 +26,7 @@
 #include "sde_kms.h"
 #include "sde_core_perf.h"
 #include "sde_hw_blk.h"
+#include "sde_hw_ds.h"
 
 #define SDE_CRTC_NAME_SIZE	12
 
@@ -106,17 +107,21 @@ struct sde_crtc_retire_event {
  * @hw_lm:	LM HW Driver context
  * @hw_ctl:	CTL Path HW driver context
  * @hw_dspp:	DSPP HW driver context
+ * @hw_ds:	DS HW driver context
  * @encoder:	Encoder attached to this lm & ctl
- * @mixer_op_mode: mixer blending operation mode
+ * @mixer_op_mode:	mixer blending operation mode
  * @flush_mask:	mixer flush mask for ctl, mixer and pipe
+ * @pipe_mask:	mixer flush mask for pipe
  */
 struct sde_crtc_mixer {
 	struct sde_hw_mixer *hw_lm;
 	struct sde_hw_ctl *hw_ctl;
-	struct sde_hw_dspp  *hw_dspp;
+	struct sde_hw_dspp *hw_dspp;
+	struct sde_hw_ds *hw_ds;
 	struct drm_encoder *encoder;
 	u32 mixer_op_mode;
 	u32 flush_mask;
+	u32 pipe_mask;
 };
 
 /**
@@ -204,10 +209,13 @@ struct sde_crtc_event {
  * @misr_enable   : boolean entry indicates misr enable/disable status.
  * @misr_frame_count  : misr frame count provided by client
  * @misr_data     : store misr data before turning off the clocks.
+ * @sbuf_flush_mask: flush mask for inline rotator
+ * @sbuf_flush_mask_old: inline rotator flush mask for previous commit
  * @power_event   : registered power event handle
  * @cur_perf      : current performance committed to clock/bandwidth driver
  * @rp_lock       : serialization lock for resource pool
  * @rp_head       : list of active resource pool
+ * @scl3_cfg_lut  : qseed3 lut config
  */
 struct sde_crtc {
 	struct drm_crtc base;
@@ -218,6 +226,7 @@ struct sde_crtc {
 	u32 num_mixers;
 	bool mixers_swapped;
 	struct sde_crtc_mixer mixers[CRTC_DUAL_MIXERS];
+	struct sde_hw_scaler3_lut_cfg *scl3_lut_cfg;
 
 	struct drm_pending_vblank_event *event;
 	u32 vsync_count;
@@ -247,6 +256,7 @@ struct sde_crtc {
 	struct list_head user_event_list;
 
 	struct mutex crtc_lock;
+	struct mutex crtc_cp_lock;
 
 	atomic_t frame_pending;
 	struct sde_crtc_frame_event frame_events[SDE_CRTC_FRAME_EVENT_SIZE];
@@ -264,6 +274,9 @@ struct sde_crtc {
 	u32 misr_frame_count;
 	u32 misr_data[CRTC_DUAL_MIXERS];
 
+	u32 sbuf_flush_mask;
+	u32 sbuf_flush_mask_old;
+
 	struct sde_power_event *power_event;
 
 	struct sde_core_perf_params cur_perf;
@@ -272,6 +285,9 @@ struct sde_crtc {
 	struct list_head rp_head;
 
 	struct sde_crtc_smmu_state_data smmu_state;
+
+	/* blob for histogram data */
+	struct drm_property_blob *hist_blob;
 };
 
 #define to_sde_crtc(x) container_of(x, struct sde_crtc, base)
@@ -337,7 +353,6 @@ struct sde_crtc_respool {
  * @base: Base drm crtc state structure
  * @connectors    : Currently associated drm connectors
  * @num_connectors: Number of associated drm connectors
- * @intf_mode     : Interface mode of the primary connector
  * @rsc_client    : sde rsc client when mode is valid
  * @is_ppsplit    : Whether current topology requires PPSplit special handling
  * @bw_control    : true if bw/clk controlled by core bw/clk properties
@@ -354,17 +369,19 @@ struct sde_crtc_respool {
  * @input_fence_timeout_ns : Cached input fence timeout, in ns
  * @num_dim_layers: Number of dim layers
  * @dim_layer: Dim layer configs
+ * @num_ds: Number of destination scalers to be configured
+ * @num_ds_enabled: Number of destination scalers enabled
+ * @ds_dirty: Boolean to indicate if dirty or not
+ * @ds_cfg: Destination scaler config
  * @new_perf: new performance state being requested
  * @sbuf_cfg: stream buffer configuration
  * @sbuf_prefill_line: number of line for inline rotator prefetch
- * @sbuf_flush_mask: flush mask for inline rotator
  */
 struct sde_crtc_state {
 	struct drm_crtc_state base;
 
 	struct drm_connector *connectors[MAX_CONNECTORS];
 	int num_connectors;
-	enum sde_intf_mode intf_mode;
 	struct sde_rsc_client *rsc_client;
 	bool rsc_update;
 	bool bw_control;
@@ -381,13 +398,39 @@ struct sde_crtc_state {
 	uint64_t input_fence_timeout_ns;
 	uint32_t num_dim_layers;
 	struct sde_hw_dim_layer dim_layer[SDE_MAX_DIM_LAYERS];
+	uint32_t num_ds;
+	uint32_t num_ds_enabled;
+	bool ds_dirty;
+	struct sde_hw_ds_cfg ds_cfg[SDE_MAX_DS_COUNT];
 
 	struct sde_core_perf_params new_perf;
 	struct sde_ctl_sbuf_cfg sbuf_cfg;
 	u32 sbuf_prefill_line;
-	u32 sbuf_flush_mask;
 
 	struct sde_crtc_respool rp;
+};
+
+enum sde_crtc_irq_state {
+	IRQ_NOINIT,
+	IRQ_ENABLED,
+	IRQ_DISABLED,
+};
+
+/**
+ * sde_crtc_irq_info - crtc interrupt info
+ * @irq: interrupt callback
+ * @event: event type of the interrupt
+ * @func: function pointer to enable/disable the interrupt
+ * @list: list of user customized event in crtc
+ * @ref_count: reference count for the interrupt
+ */
+struct sde_crtc_irq_info {
+	struct sde_irq_callback irq;
+	u32 event;
+	int (*func)(struct drm_crtc *crtc, bool en,
+			struct sde_irq_callback *irq);
+	struct list_head list;
+	enum sde_crtc_irq_state state;
 };
 
 #define to_sde_crtc_state(x) \
@@ -402,14 +445,41 @@ struct sde_crtc_state {
 #define sde_crtc_get_property(S, X) \
 	((S) && ((X) < CRTC_PROP_COUNT) ? ((S)->property_values[(X)].value) : 0)
 
-static inline int sde_crtc_mixer_width(struct sde_crtc *sde_crtc,
-	struct drm_display_mode *mode)
+/**
+ * sde_crtc_get_mixer_width - get the mixer width
+ * Mixer width will be same as panel width(/2 for split)
+ * unless destination scaler feature is enabled
+ */
+static inline int sde_crtc_get_mixer_width(struct sde_crtc *sde_crtc,
+	struct sde_crtc_state *cstate, struct drm_display_mode *mode)
 {
-	if (!sde_crtc || !mode)
+	u32 mixer_width;
+
+	if (!sde_crtc || !cstate || !mode)
 		return 0;
 
-	return  sde_crtc->num_mixers == CRTC_DUAL_MIXERS ?
-		mode->hdisplay / CRTC_DUAL_MIXERS : mode->hdisplay;
+	if (cstate->num_ds_enabled)
+		mixer_width = cstate->ds_cfg[0].lm_width;
+	else
+		mixer_width = (sde_crtc->num_mixers == CRTC_DUAL_MIXERS ?
+			mode->hdisplay / CRTC_DUAL_MIXERS : mode->hdisplay);
+
+	return mixer_width;
+}
+
+/**
+ * sde_crtc_get_mixer_height - get the mixer height
+ * Mixer height will be same as panel height unless
+ * destination scaler feature is enabled
+ */
+static inline int sde_crtc_get_mixer_height(struct sde_crtc *sde_crtc,
+		struct sde_crtc_state *cstate, struct drm_display_mode *mode)
+{
+	if (!sde_crtc || !cstate || !mode)
+		return 0;
+
+	return (cstate->num_ds_enabled ?
+			cstate->ds_cfg[0].lm_height : mode->vdisplay);
 }
 
 /**
@@ -500,8 +570,8 @@ static inline enum sde_crtc_client_type sde_crtc_get_client_type(
 	if (!cstate)
 		return NRT_CLIENT;
 
-	return cstate->rsc_client ? RT_RSC_CLIENT :
-	    (cstate->intf_mode == INTF_MODE_WB_LINE ? NRT_CLIENT : RT_CLIENT);
+	return sde_crtc_get_intf_mode(crtc) == INTF_MODE_WB_LINE ? NRT_CLIENT :
+			(cstate->rsc_client ? RT_RSC_CLIENT : RT_CLIENT);
 }
 
 /**
@@ -528,6 +598,30 @@ static inline u32 sde_crtc_get_inline_prefill(struct drm_crtc *crtc)
 	cstate = to_sde_crtc_state(crtc->state);
 	return cstate->sbuf_cfg.rot_op_mode != SDE_CTL_ROT_OP_MODE_OFFLINE ?
 		cstate->sbuf_prefill_line : 0;
+}
+
+/**
+ * sde_crtc_is_reset_required - validate the reset request based on the
+ *	pm_suspend and crtc's active status. crtc's are left active
+ *	on pm_suspend during LP1/LP2 states, as the display is still
+ *	left ON. Avoid reset for the subsequent pm_resume in such cases.
+ * @crtc: Pointer to crtc
+ * return: false if in suspend state and crtc active, true otherwise
+ */
+static inline bool sde_crtc_is_reset_required(struct drm_crtc *crtc)
+{
+	/*
+	 * reset is required even when there is no crtc_state as it is required
+	 * to create the initial state object
+	 */
+	if (!crtc || !crtc->state)
+		return true;
+
+	/* reset not required if crtc is active during suspend state */
+	if (sde_kms_is_suspend_state(crtc->dev) && crtc->state->active)
+		return false;
+
+	return true;
 }
 
 /**

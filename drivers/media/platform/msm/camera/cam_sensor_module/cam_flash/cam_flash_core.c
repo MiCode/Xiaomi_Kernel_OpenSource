@@ -334,7 +334,8 @@ int cam_flash_apply_setting(struct cam_flash_ctrl *fctrl,
 		flash_data = &fctrl->per_frame[frame_offset];
 
 		if ((flash_data->opcode == CAMERA_SENSOR_FLASH_OP_FIREHIGH) &&
-			(flash_data->cmn_attr.is_settings_valid)) {
+			(flash_data->cmn_attr.is_settings_valid) &&
+			(flash_data->cmn_attr.request_id == req_id)) {
 			/* Turn On Flash */
 			if (fctrl->flash_state == CAM_FLASH_STATE_INIT) {
 				rc = cam_flash_high(fctrl, flash_data);
@@ -348,7 +349,8 @@ int cam_flash_apply_setting(struct cam_flash_ctrl *fctrl,
 			}
 		} else if ((flash_data->opcode ==
 			CAMERA_SENSOR_FLASH_OP_FIRELOW) &&
-			(flash_data->cmn_attr.is_settings_valid)) {
+			(flash_data->cmn_attr.is_settings_valid) &&
+			(flash_data->cmn_attr.request_id == req_id)) {
 			/* Turn On Torch */
 			if (fctrl->flash_state == CAM_FLASH_STATE_INIT) {
 				rc = cam_flash_low(fctrl, flash_data);
@@ -361,7 +363,8 @@ int cam_flash_apply_setting(struct cam_flash_ctrl *fctrl,
 				fctrl->flash_state = CAM_FLASH_STATE_LOW;
 			}
 		} else if ((flash_data->opcode == CAMERA_SENSOR_FLASH_OP_OFF) &&
-			(flash_data->cmn_attr.is_settings_valid)) {
+			(flash_data->cmn_attr.is_settings_valid) &&
+			(flash_data->cmn_attr.request_id == req_id)) {
 			if ((fctrl->flash_state != CAM_FLASH_STATE_RELEASE) ||
 				(fctrl->flash_state != CAM_FLASH_STATE_INIT)) {
 				rc = cam_flash_off(fctrl);
@@ -374,10 +377,7 @@ int cam_flash_apply_setting(struct cam_flash_ctrl *fctrl,
 				}
 			}
 		} else {
-			CAM_ERR(CAM_FLASH, "Wrong opcode : %d",
-				flash_data->opcode);
-			rc = -EINVAL;
-			goto apply_setting_err;
+			CAM_DBG(CAM_FLASH, "NOP opcode: req_id: %u", req_id);
 		}
 	}
 
@@ -470,6 +470,19 @@ int cam_flash_parser(struct cam_flash_ctrl *fctrl, void *arg)
 			csl_packet->cmd_buf_offset);
 		frame_offset = csl_packet->header.request_id %
 			MAX_PER_FRAME_ARRAY;
+		if (fctrl->per_frame[frame_offset].cmn_attr.is_settings_valid
+			== true) {
+			fctrl->per_frame[frame_offset].cmn_attr.request_id = 0;
+			fctrl->per_frame[frame_offset].
+				cmn_attr.is_settings_valid = false;
+			for (i = 0;
+			i < fctrl->per_frame[frame_offset].cmn_attr.count;
+			i++) {
+				fctrl->per_frame[frame_offset].
+					led_current_ma[i] = 0;
+			}
+		}
+
 		fctrl->per_frame[frame_offset].cmn_attr.request_id =
 			csl_packet->header.request_id;
 		fctrl->per_frame[frame_offset].cmn_attr.is_settings_valid =
@@ -479,6 +492,10 @@ int cam_flash_parser(struct cam_flash_ctrl *fctrl, void *arg)
 			(uint64_t *)&generic_ptr, &len_of_buffer);
 		cmd_buf = (uint32_t *)((uint8_t *)generic_ptr +
 			cmd_desc->offset);
+
+		if (!cmd_buf)
+			return -EINVAL;
+
 		cmn_hdr = (struct common_header *)cmd_buf;
 
 		switch (cmn_hdr->cmd_type) {
@@ -487,6 +504,11 @@ int cam_flash_parser(struct cam_flash_ctrl *fctrl, void *arg)
 				"CAMERA_FLASH_CMD_TYPE_OPS case called");
 			flash_operation_info =
 				(struct cam_flash_set_on_off *) cmd_buf;
+			if (!flash_operation_info) {
+				CAM_ERR(CAM_FLASH, "flash_operation_info Null");
+				return -EINVAL;
+			}
+
 			fctrl->per_frame[frame_offset].opcode =
 				flash_operation_info->opcode;
 			fctrl->per_frame[frame_offset].cmn_attr.count =
@@ -502,7 +524,6 @@ int cam_flash_parser(struct cam_flash_ctrl *fctrl, void *arg)
 				cmn_hdr->cmd_type);
 			return -EINVAL;
 		}
-
 		break;
 	}
 	case CAM_FLASH_PACKET_OPCODE_NON_REALTIME_SET_OPS: {
@@ -596,6 +617,8 @@ int cam_flash_parser(struct cam_flash_ctrl *fctrl, void *arg)
 		break;
 	}
 	case CAM_PKT_NOP_OPCODE: {
+		CAM_DBG(CAM_FLASH, "NOP Packet is Received: req_id: %u",
+			csl_packet->header.request_id);
 		goto update_req_mgr;
 	}
 	default:
@@ -611,6 +634,13 @@ update_req_mgr:
 		add_req.link_hdl = fctrl->bridge_intf.link_hdl;
 		add_req.req_id = csl_packet->header.request_id;
 		add_req.dev_hdl = fctrl->bridge_intf.device_hdl;
+
+		if ((csl_packet->header.op_code & 0xFFFFF) ==
+			CAM_FLASH_PACKET_OPCODE_SET_OPS)
+			add_req.skip_before_applying = 1;
+		else
+			add_req.skip_before_applying = 0;
+
 		if (fctrl->bridge_intf.crm_cb &&
 			fctrl->bridge_intf.crm_cb->add_req)
 			fctrl->bridge_intf.crm_cb->add_req(&add_req);
@@ -625,7 +655,7 @@ int cam_flash_publish_dev_info(struct cam_req_mgr_device_info *info)
 	info->dev_id = CAM_REQ_MGR_DEVICE_FLASH;
 	strlcpy(info->name, CAM_FLASH_NAME, sizeof(info->name));
 	info->p_delay = CAM_FLASH_PIPELINE_DELAY;
-	info->trigger = CAM_TRIGGER_POINT_EOF;
+	info->trigger = CAM_TRIGGER_POINT_SOF;
 	return 0;
 }
 

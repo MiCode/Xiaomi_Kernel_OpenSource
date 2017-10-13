@@ -100,6 +100,13 @@ int cam_jpeg_enc_init_hw(void *device_priv,
 		return -EINVAL;
 	}
 
+
+	mutex_lock(&core_info->core_mutex);
+	if (++core_info->ref_count > 1) {
+		mutex_unlock(&core_info->core_mutex);
+		return 0;
+	}
+
 	cpas_vote.ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	cpas_vote.ahb_vote.vote.level = CAM_SVS_VOTE;
 	cpas_vote.axi_vote.compressed_bw = JPEG_TURBO_VOTE;
@@ -107,15 +114,26 @@ int cam_jpeg_enc_init_hw(void *device_priv,
 
 	rc = cam_cpas_start(core_info->cpas_handle,
 		&cpas_vote.ahb_vote, &cpas_vote.axi_vote);
-	if (rc)
+	if (rc) {
 		CAM_ERR(CAM_JPEG, "cpass start failed: %d", rc);
+		goto cpas_failed;
+	}
 
 	rc = cam_jpeg_enc_enable_soc_resources(soc_info);
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "soc enable is failed %d", rc);
-		cam_cpas_stop(core_info->cpas_handle);
+		goto soc_failed;
 	}
 
+	mutex_unlock(&core_info->core_mutex);
+
+	return 0;
+
+soc_failed:
+	cam_cpas_stop(core_info->cpas_handle);
+cpas_failed:
+	--core_info->ref_count;
+	mutex_unlock(&core_info->core_mutex);
 	return rc;
 }
 
@@ -141,6 +159,19 @@ int cam_jpeg_enc_deinit_hw(void *device_priv,
 		return -EINVAL;
 	}
 
+	mutex_lock(&core_info->core_mutex);
+	if (--core_info->ref_count > 0) {
+		mutex_unlock(&core_info->core_mutex);
+		return 0;
+	}
+
+	if (core_info->ref_count < 0) {
+		CAM_ERR(CAM_JPEG, "ref cnt %d", core_info->ref_count);
+		core_info->ref_count = 0;
+		mutex_unlock(&core_info->core_mutex);
+		return -EFAULT;
+	}
+
 	rc = cam_jpeg_enc_disable_soc_resources(soc_info);
 	if (rc)
 		CAM_ERR(CAM_JPEG, "soc enable failed %d", rc);
@@ -148,6 +179,8 @@ int cam_jpeg_enc_deinit_hw(void *device_priv,
 	rc = cam_cpas_stop(core_info->cpas_handle);
 	if (rc)
 		CAM_ERR(CAM_JPEG, "cpas stop failed: %d", rc);
+
+	mutex_unlock(&core_info->core_mutex);
 
 	return 0;
 }

@@ -16,6 +16,8 @@
 #include "sdm845-interposer-sdm670.dtsi"
 #include "sdm845-sde-display.dtsi"
 #include "sdm845-interposer-sdm670-cdp.dtsi"
+#include "sdm670-audio.dtsi"
+#include "sdm845-interposer-sdm670-audio.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM sdm845 v1 Interposer SDM670 CDP";

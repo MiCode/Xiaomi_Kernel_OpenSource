@@ -50,6 +50,9 @@
 #define WAN_IOC_QUERY_TETHER_STATS_ALL32 _IOWR(WAN_IOC_MAGIC, \
 		WAN_IOCTL_QUERY_TETHER_STATS_ALL, \
 		compat_uptr_t)
+#define WAN_IOC_NOTIFY_WAN_STATE32 _IOWR(WAN_IOC_MAGIC, \
+		WAN_IOCTL_NOTIFY_WAN_STATE, \
+		compat_uptr_t)
 #endif
 
 static unsigned int dev_num = 1;
@@ -316,6 +319,27 @@ static long ipa3_wan_ioctl(struct file *filp,
 		}
 		break;
 
+	case WAN_IOC_NOTIFY_WAN_STATE:
+		IPAWANDBG_LOW("device %s got WAN_IOC_NOTIFY_WAN_STATE :>>>\n",
+			DRIVER_NAME);
+		pyld_sz = sizeof(struct wan_ioctl_notify_wan_state);
+		param = kzalloc(pyld_sz, GFP_KERNEL);
+		if (!param) {
+			retval = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(param, (u8 __user *)arg, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+
+		if (ipa3_wwan_set_modem_state(
+			(struct wan_ioctl_notify_wan_state *)param)) {
+			IPAWANERR("WAN_IOC_NOTIFY_WAN_STATE failed\n");
+			retval = -EFAULT;
+			break;
+		}
+		break;
 	default:
 		retval = -ENOTTY;
 	}

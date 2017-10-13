@@ -115,7 +115,7 @@ enum hfi_f2h_qpri {
 	HFI_F2H_QPRI_DEBUG = 40,
 };
 
-#define HFI_RSP_TIMEOUT 500 /* msec */
+#define HFI_RSP_TIMEOUT 5000 /* msec */
 #define HFI_H2F_CMD_IRQ_MASK BIT(0)
 
 enum hfi_msg_type {
@@ -226,6 +226,10 @@ struct hfi_bwtable_cmd {
 	uint32_t cnoc_cmd_data[MAX_CNOC_LEVELS][MAX_CNOC_CMDS];
 	uint32_t ddr_cmd_addrs[MAX_BW_CMDS];
 	uint32_t ddr_cmd_data[MAX_GX_LEVELS][MAX_BW_CMDS];
+};
+
+struct hfi_test_cmd {
+	struct hfi_msg_hdr hdr;
 };
 
 struct arc_vote_desc {

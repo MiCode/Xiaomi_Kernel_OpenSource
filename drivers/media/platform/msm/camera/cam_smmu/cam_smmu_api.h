@@ -204,6 +204,19 @@ void cam_smmu_reg_client_page_fault_handler(int handle,
  */
 int cam_smmu_get_iova(int handle, int ion_fd,
 	dma_addr_t *paddr_ptr, size_t *len_ptr);
+
+/**
+ * @brief Maps memory from an ION fd into IOVA space
+ *
+ * @param handle: SMMU handle identifying the secure context bank to map to
+ * @param ion_fd: ION fd of memory to map to
+ * @param paddr_ptr: Pointer IOVA address that will be returned
+ * @param len_ptr: Length of memory mapped
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_smmu_get_stage2_iova(int handle, int ion_fd,
+	dma_addr_t *paddr_ptr, size_t *len_ptr);
 /**
  * @brief Unmaps memory from context bank
  *
@@ -217,27 +230,28 @@ int cam_smmu_put_iova(int handle, int ion_fd);
 /**
  * @brief Maps secure memory for SMMU handle
  *
- * @param handle: SMMU handle identifying context bank
+ * @param handle: SMMU handle identifying secure context bank
  * @param ion_fd: ION fd to map securely
  * @param dir: DMA Direction for the mapping
+ * @param client: Ion client passed by caller
  * @param dma_addr: Returned IOVA address after mapping
  * @param len_ptr: Length of memory mapped
  *
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
-int cam_smmu_map_sec_iova(int handle,
-	int ion_fd, enum cam_smmu_map_dir dir,
-	dma_addr_t *dma_addr, size_t *len_ptr);
+int cam_smmu_map_stage2_iova(int handle,
+	int ion_fd, enum cam_smmu_map_dir dir, struct ion_client *client,
+	ion_phys_addr_t *dma_addr, size_t *len_ptr);
 
 /**
  * @brief Unmaps secure memopry for SMMU handle
  *
- * @param handle: SMMU handle identifying context bank
+ * @param handle: SMMU handle identifying secure context bank
  * @param ion_fd: ION fd to unmap
  *
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
-int cam_smmu_unmap_sec_iova(int handle, int ion_fd);
+int cam_smmu_unmap_stage2_iova(int handle, int ion_fd);
 
 
 /**

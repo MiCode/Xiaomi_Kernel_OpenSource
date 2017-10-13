@@ -1139,7 +1139,9 @@ static void sde_encoder_phys_wb_disable(struct sde_encoder_phys *phys_enc)
 	}
 
 	/* reset h/w before final flush */
-	if (sde_encoder_helper_hw_release(phys_enc, wb_enc->fb_disable))
+	if (phys_enc->hw_ctl->ops.clear_pending_flush)
+		phys_enc->hw_ctl->ops.clear_pending_flush(phys_enc->hw_ctl);
+	if (sde_encoder_helper_reset_mixers(phys_enc, wb_enc->fb_disable))
 		goto exit;
 
 	phys_enc->enable_state = SDE_ENC_DISABLING;

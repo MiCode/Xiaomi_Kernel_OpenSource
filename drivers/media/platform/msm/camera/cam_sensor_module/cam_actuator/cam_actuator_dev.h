@@ -75,7 +75,6 @@ struct intf_params {
  * @cci_i2c_master: I2C structure
  * @io_master_info: Information about the communication master
  * @actuator_mutex: Actuator mutex
- * @id: Cell Index
  * @act_apply_state: Actuator settings aRegulator config
  * @gconf: GPIO config
  * @pinctrl_info: Pinctrl information
@@ -91,7 +90,6 @@ struct cam_actuator_ctrl_t {
 	struct camera_io_master io_master_info;
 	struct cam_hw_soc_info soc_info;
 	struct mutex actuator_mutex;
-	uint32_t id;
 	enum msm_actuator_state_t act_apply_state;
 	struct msm_camera_gpio_num_info *gpio_num_info;
 	uint8_t cam_pinctrl_status;

@@ -595,6 +595,15 @@ static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_ip_v4_filter_init(
 	return pyld;
 }
 
+static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_dummy(
+	enum ipahal_imm_cmd_name cmd, const void *params, bool is_atomic_ctx)
+{
+	IPAHAL_ERR("no construct function for IMM_CMD=%s, IPA ver %d\n",
+		ipahal_imm_cmd_name_str(cmd), ipahal_ctx->hw_type);
+	WARN_ON(1);
+	return NULL;
+}
+
 /*
  * struct ipahal_imm_cmd_obj - immediate command H/W information for
  *  specific IPA version
@@ -668,8 +677,8 @@ static struct ipahal_imm_cmd_obj
 		12},
 	/* NAT_DMA was renamed to TABLE_DMA for IPAv4 */
 	[IPA_HW_v4_0][IPA_IMM_CMD_NAT_DMA] = {
-		NULL,
-		-1 },
+		ipa_imm_cmd_construct_dummy,
+		-1},
 	[IPA_HW_v4_0][IPA_IMM_CMD_TABLE_DMA] = {
 		ipa_imm_cmd_construct_table_dma_ipav4,
 		14},

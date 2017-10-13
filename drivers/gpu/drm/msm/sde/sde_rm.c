@@ -18,6 +18,7 @@
 #include "sde_hw_ctl.h"
 #include "sde_hw_cdm.h"
 #include "sde_hw_dspp.h"
+#include "sde_hw_ds.h"
 #include "sde_hw_pingpong.h"
 #include "sde_hw_intf.h"
 #include "sde_hw_wb.h"
@@ -32,6 +33,7 @@
 #define RM_RQ_LOCK(r) ((r)->top_ctrl & BIT(SDE_RM_TOPCTL_RESERVE_LOCK))
 #define RM_RQ_CLEAR(r) ((r)->top_ctrl & BIT(SDE_RM_TOPCTL_RESERVE_CLEAR))
 #define RM_RQ_DSPP(r) ((r)->top_ctrl & BIT(SDE_RM_TOPCTL_DSPP))
+#define RM_RQ_DS(r) ((r)->top_ctrl & BIT(SDE_RM_TOPCTL_DS))
 #define RM_IS_TOPOLOGY_MATCH(t, r) ((t).num_lm == (r).num_lm && \
 				(t).num_comp_enc == (r).num_enc && \
 				(t).num_intf == (r).num_intf)
@@ -234,6 +236,9 @@ static void _sde_rm_hw_destroy(enum sde_hw_blk_type type, void *hw)
 	case SDE_HW_BLK_DSPP:
 		sde_hw_dspp_destroy(hw);
 		break;
+	case SDE_HW_BLK_DS:
+		sde_hw_ds_destroy(hw);
+		break;
 	case SDE_HW_BLK_CTL:
 		sde_hw_ctl_destroy(hw);
 		break;
@@ -304,7 +309,7 @@ int sde_rm_destroy(struct sde_rm *rm)
 static int _sde_rm_hw_blk_create(
 		struct sde_rm *rm,
 		struct sde_mdss_cfg *cat,
-		void *mmio,
+		void __iomem *mmio,
 		enum sde_hw_blk_type type,
 		uint32_t id,
 		void *hw_catalog_info)
@@ -321,6 +326,9 @@ static int _sde_rm_hw_blk_create(
 		break;
 	case SDE_HW_BLK_DSPP:
 		hw = sde_hw_dspp_init(id, mmio, cat);
+		break;
+	case SDE_HW_BLK_DS:
+		hw = sde_hw_ds_init(id, mmio, cat);
 		break;
 	case SDE_HW_BLK_CTL:
 		hw = sde_hw_ctl_init(id, mmio, cat);
@@ -375,7 +383,7 @@ static int _sde_rm_hw_blk_create(
 
 int sde_rm_init(struct sde_rm *rm,
 		struct sde_mdss_cfg *cat,
-		void *mmio,
+		void __iomem *mmio,
 		struct drm_device *dev)
 {
 	int rc, i;
@@ -441,6 +449,17 @@ int sde_rm_init(struct sde_rm *rm,
 		if (rc) {
 			SDE_ERROR("failed: dspp hw not available\n");
 			goto fail;
+		}
+	}
+
+	if (cat->mdp[0].has_dest_scaler) {
+		for (i = 0; i < cat->ds_count; i++) {
+			rc = _sde_rm_hw_blk_create(rm, cat, mmio, SDE_HW_BLK_DS,
+					cat->ds[i].id, &cat->ds[i]);
+			if (rc) {
+				SDE_ERROR("failed: ds hw not available\n");
+				goto fail;
+			}
 		}
 	}
 
@@ -543,18 +562,22 @@ static bool _sde_rm_check_lm_and_get_connected_blks(
 		struct sde_rm_requirements *reqs,
 		struct sde_rm_hw_blk *lm,
 		struct sde_rm_hw_blk **dspp,
+		struct sde_rm_hw_blk **ds,
 		struct sde_rm_hw_blk **pp,
 		struct sde_rm_hw_blk *primary_lm)
 {
 	const struct sde_lm_cfg *lm_cfg = to_sde_hw_mixer(lm->hw)->cap;
 	const struct sde_pingpong_cfg *pp_cfg;
 	struct sde_rm_hw_iter iter;
+	bool is_valid_dspp, is_valid_ds, ret;
 
 	*dspp = NULL;
+	*ds = NULL;
 	*pp = NULL;
 
-	SDE_DEBUG("check lm %d: dspp %d pp %d\n", lm_cfg->id, lm_cfg->dspp,
-			lm_cfg->pingpong);
+	SDE_DEBUG("check lm %d: dspp %d ds %d pp %d\n",
+			   lm_cfg->id, lm_cfg->dspp,
+			   lm_cfg->ds, lm_cfg->pingpong);
 
 	/* Check if this layer mixer is a peer of the proposed primary LM */
 	if (primary_lm) {
@@ -568,13 +591,28 @@ static bool _sde_rm_check_lm_and_get_connected_blks(
 		}
 	}
 
-	/* Matches user requirements? */
-	if ((RM_RQ_DSPP(reqs) && lm_cfg->dspp == DSPP_MAX) ||
-			(!RM_RQ_DSPP(reqs) && lm_cfg->dspp != DSPP_MAX)) {
-		SDE_DEBUG("dspp req mismatch lm %d reqdspp %d, lm->dspp %d\n",
-				lm_cfg->id, (bool)(RM_RQ_DSPP(reqs)),
-				lm_cfg->dspp);
-		return false;
+	is_valid_dspp = (lm_cfg->dspp != DSPP_MAX) ? true : false;
+	is_valid_ds = (lm_cfg->ds != DS_MAX) ? true : false;
+
+	/**
+	 * RM_RQ_X: specification of which LMs to choose
+	 * is_valid_X: indicates whether LM is tied with block X
+	 * ret: true if given LM matches the user requirement, false otherwise
+	 */
+	if (RM_RQ_DSPP(reqs) && RM_RQ_DS(reqs))
+		ret = (is_valid_dspp && is_valid_ds);
+	else if (RM_RQ_DSPP(reqs))
+		ret = is_valid_dspp;
+	else if (RM_RQ_DS(reqs))
+		ret = is_valid_ds;
+	else
+		ret = !(is_valid_dspp || is_valid_ds);
+
+	if (!ret) {
+		SDE_DEBUG("fail:lm(%d)req_dspp(%d)dspp(%d)req_ds(%d)ds(%d)\n",
+			lm_cfg->id, (bool)(RM_RQ_DSPP(reqs)), lm_cfg->dspp,
+			(bool)(RM_RQ_DS(reqs)), lm_cfg->ds);
+		return ret;
 	}
 
 	/* Already reserved? */
@@ -605,6 +643,28 @@ static bool _sde_rm_check_lm_and_get_connected_blks(
 		}
 	}
 
+	if (lm_cfg->ds != DS_MAX) {
+		sde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_DS);
+		while (_sde_rm_get_hw_locked(rm, &iter)) {
+			if (iter.blk->id == lm_cfg->ds) {
+				*ds = iter.blk;
+				break;
+			}
+		}
+
+		if (!*ds) {
+			SDE_DEBUG("lm %d failed to retrieve ds %d\n", lm->id,
+					lm_cfg->ds);
+			return false;
+		}
+
+		if (RESERVED_BY_OTHER(*ds, rsvp)) {
+			SDE_DEBUG("lm %d ds %d already reserved\n",
+					lm->id, (*ds)->id);
+			return false;
+		}
+	}
+
 	sde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_PINGPONG);
 	while (_sde_rm_get_hw_locked(rm, &iter)) {
 		if (iter.blk->id == lm_cfg->pingpong) {
@@ -622,6 +682,7 @@ static bool _sde_rm_check_lm_and_get_connected_blks(
 		SDE_DEBUG("lm %d pp %d already reserved\n", lm->id,
 				(*pp)->id);
 		*dspp = NULL;
+		*ds = NULL;
 		return false;
 	}
 
@@ -630,6 +691,7 @@ static bool _sde_rm_check_lm_and_get_connected_blks(
 			!(test_bit(SDE_PINGPONG_SPLIT, &pp_cfg->features))) {
 		SDE_DEBUG("pp %d doesn't support ppsplit\n", pp_cfg->id);
 		*dspp = NULL;
+		*ds = NULL;
 		return false;
 	}
 
@@ -644,6 +706,7 @@ static int _sde_rm_reserve_lms(
 {
 	struct sde_rm_hw_blk *lm[MAX_BLOCKS];
 	struct sde_rm_hw_blk *dspp[MAX_BLOCKS];
+	struct sde_rm_hw_blk *ds[MAX_BLOCKS];
 	struct sde_rm_hw_blk *pp[MAX_BLOCKS];
 	struct sde_rm_hw_iter iter_i, iter_j;
 	int lm_count = 0;
@@ -660,14 +723,16 @@ static int _sde_rm_reserve_lms(
 			_sde_rm_get_hw_locked(rm, &iter_i)) {
 		memset(&lm, 0, sizeof(lm));
 		memset(&dspp, 0, sizeof(dspp));
+		memset(&ds, 0, sizeof(ds));
 		memset(&pp, 0, sizeof(pp));
 
 		lm_count = 0;
 		lm[lm_count] = iter_i.blk;
 
-		if (!_sde_rm_check_lm_and_get_connected_blks(rm, rsvp, reqs,
-				lm[lm_count], &dspp[lm_count], &pp[lm_count],
-				NULL))
+		if (!_sde_rm_check_lm_and_get_connected_blks(
+				rm, rsvp, reqs, lm[lm_count],
+				&dspp[lm_count], &ds[lm_count],
+				&pp[lm_count], NULL))
 			continue;
 
 		++lm_count;
@@ -680,8 +745,9 @@ static int _sde_rm_reserve_lms(
 			if (iter_i.blk == iter_j.blk)
 				continue;
 
-			if (!_sde_rm_check_lm_and_get_connected_blks(rm, rsvp,
-					reqs, iter_j.blk, &dspp[lm_count],
+			if (!_sde_rm_check_lm_and_get_connected_blks(
+					rm, rsvp, reqs, iter_j.blk,
+					&dspp[lm_count], &ds[lm_count],
 					&pp[lm_count], iter_i.blk))
 				continue;
 
@@ -704,8 +770,12 @@ static int _sde_rm_reserve_lms(
 		if (dspp[i])
 			dspp[i]->rsvp_nxt = rsvp;
 
+		if (ds[i])
+			ds[i]->rsvp_nxt = rsvp;
+
 		SDE_EVT32(lm[i]->type, rsvp->enc_id, lm[i]->id, pp[i]->id,
-				dspp[i] ? dspp[i]->id : 0);
+				dspp[i] ? dspp[i]->id : 0,
+				ds[i] ? ds[i]->id : 0);
 	}
 
 	if (reqs->topology->top_name == SDE_RM_TOPOLOGY_PPSPLIT) {
@@ -1017,6 +1087,15 @@ static int _sde_rm_populate_requirements(
 	/* DSC blocks are hardwired for control path 0 and 1 */
 	if (reqs->topology->num_comp_enc)
 		reqs->top_ctrl |= BIT(SDE_RM_TOPCTL_DSPP);
+
+	/**
+	 * Set the requirement based on caps if not set from user space
+	 * This will ensure to select LM tied with DS blocks
+	 * Currently, DS blocks are tied with LM 0 and LM 1 (primary display)
+	 */
+	if (!RM_RQ_DS(reqs) && rm->hw_mdp->caps->has_dest_scaler &&
+		conn_state->connector->connector_type == DRM_MODE_CONNECTOR_DSI)
+		reqs->top_ctrl |= BIT(SDE_RM_TOPCTL_DS);
 
 	SDE_DEBUG("top_ctrl: 0x%llX num_h_tiles: %d\n", reqs->top_ctrl,
 			reqs->hw_res.display_num_of_h_tiles);

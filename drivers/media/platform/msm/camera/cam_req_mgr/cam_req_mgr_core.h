@@ -173,6 +173,7 @@ struct cam_req_mgr_tbl_slot {
  * @pd_delta      : differnce between this table's pipeline delay and next
  * @num_slots     : number of request slots present in the table
  * @slot          : array of slots tracking requests availability at devices
+ * @inject_delay  : insert extra bubbling for flash type of use cases
  */
 struct cam_req_mgr_req_tbl {
 	int32_t                     id;
@@ -184,6 +185,7 @@ struct cam_req_mgr_req_tbl {
 	int32_t                     pd_delta;
 	int32_t                     num_slots;
 	struct cam_req_mgr_tbl_slot slot[MAX_REQ_SLOTS];
+	uint32_t                    inject_delay;
 };
 
 /**
@@ -315,7 +317,6 @@ struct cam_req_mgr_core_session {
 	int32_t                       session_hdl;
 	uint32_t                      num_links;
 	struct cam_req_mgr_core_link *links[MAX_LINKS_PER_SESSION];
-	struct cam_req_mgr_req_queue  in_q;
 	struct list_head              entry;
 	struct mutex                  lock;
 	int32_t                       force_err_recovery;

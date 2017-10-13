@@ -1785,6 +1785,22 @@ out:
 	return err;
 }
 
+static int sdhci_crypto_cfg_end(struct sdhci_host *host,
+				struct mmc_request *mrq)
+{
+	int err = 0;
+
+	if (host->ops->crypto_engine_cfg_end) {
+		err = host->ops->crypto_engine_cfg_end(host, mrq);
+		if (err) {
+			pr_err("%s: failed to configure crypto\n",
+					mmc_hostname(host->mmc));
+			return err;
+		}
+	}
+	return 0;
+}
+
 static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	struct sdhci_host *host;
@@ -2876,6 +2892,7 @@ static bool sdhci_request_done(struct sdhci_host *host)
 	mmiowb();
 	spin_unlock_irqrestore(&host->lock, flags);
 
+	sdhci_crypto_cfg_end(host, mrq);
 	mmc_request_done(host->mmc, mrq);
 
 	return false;
@@ -3775,7 +3792,7 @@ static void sdhci_cmdq_post_cqe_halt(struct mmc_host *mmc)
 	sdhci_writel(host, SDHCI_INT_RESPONSE, SDHCI_INT_STATUS);
 }
 static int sdhci_cmdq_crypto_cfg(struct mmc_host *mmc,
-		struct mmc_request *mrq, u32 slot)
+		struct mmc_request *mrq, u32 slot, u64 *ice_ctx)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
 	int err = 0;
@@ -3794,7 +3811,8 @@ static int sdhci_cmdq_crypto_cfg(struct mmc_host *mmc,
 	}
 
 	if (host->ops->crypto_engine_cmdq_cfg) {
-		err = host->ops->crypto_engine_cmdq_cfg(host, mrq, slot, NULL);
+		err = host->ops->crypto_engine_cmdq_cfg(host, mrq,
+				slot, ice_ctx);
 		if (err) {
 			pr_err("%s: failed to configure crypto\n",
 					mmc_hostname(host->mmc));
@@ -3803,6 +3821,17 @@ static int sdhci_cmdq_crypto_cfg(struct mmc_host *mmc,
 	}
 out:
 	return err;
+}
+
+static int sdhci_cmdq_crypto_cfg_end(struct mmc_host *mmc,
+					struct mmc_request *mrq)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+
+	if (!host->is_crypto_en)
+		return 0;
+
+	return sdhci_crypto_cfg_end(host, mrq);
 }
 
 static void sdhci_cmdq_crypto_cfg_reset(struct mmc_host *mmc, unsigned int slot)
@@ -3862,7 +3891,13 @@ static void sdhci_cmdq_post_cqe_halt(struct mmc_host *mmc)
 }
 
 static int sdhci_cmdq_crypto_cfg(struct mmc_host *mmc,
-		struct mmc_request *mrq, u32 slot)
+		struct mmc_request *mrq, u32 slot, u64 *ice_ctx)
+{
+	return 0;
+}
+
+static int sdhci_cmdq_crypto_cfg_end(struct mmc_host *mmc,
+				struct mmc_request *mrq)
 {
 	return 0;
 }
@@ -3883,6 +3918,7 @@ static const struct cmdq_host_ops sdhci_cmdq_ops = {
 	.post_cqe_halt = sdhci_cmdq_post_cqe_halt,
 	.set_transfer_params = sdhci_cmdq_set_transfer_params,
 	.crypto_cfg	= sdhci_cmdq_crypto_cfg,
+	.crypto_cfg_end	= sdhci_cmdq_crypto_cfg_end,
 	.crypto_cfg_reset	= sdhci_cmdq_crypto_cfg_reset,
 };
 

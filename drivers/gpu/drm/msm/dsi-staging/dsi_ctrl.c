@@ -38,6 +38,8 @@
 #define DSI_CTRL_TX_TO_MS     200
 
 #define TO_ON_OFF(x) ((x) ? "ON" : "OFF")
+
+#define CEIL(x, y)              (((x) + ((y)-1)) / (y))
 /**
  * enum dsi_ctrl_driver_ops - controller driver ops
  */
@@ -884,10 +886,47 @@ static int dsi_ctrl_copy_and_pad_cmd(struct dsi_ctrl *dsi_ctrl,
 		buf[3] |= BIT(6);
 
 	buf[3] |= BIT(7);
+
+	/* send embedded BTA for read commands */
+	if ((buf[2] & 0x3f) == MIPI_DSI_DCS_READ)
+		buf[3] |= BIT(5);
+
 	*buffer = buf;
 	*size = len;
 
 	return rc;
+}
+
+static void dsi_ctrl_wait_for_video_done(struct dsi_ctrl *dsi_ctrl)
+{
+	u32 v_total = 0, v_blank = 0, sleep_ms = 0, fps = 0, ret;
+	struct dsi_mode_info *timing;
+
+	if (dsi_ctrl->host_config.panel_mode != DSI_OP_VIDEO_MODE)
+		return;
+
+	dsi_ctrl->hw.ops.clear_interrupt_status(&dsi_ctrl->hw,
+				DSI_VIDEO_MODE_FRAME_DONE);
+
+	dsi_ctrl_enable_status_interrupt(dsi_ctrl,
+				DSI_SINT_VIDEO_MODE_FRAME_DONE, NULL);
+	reinit_completion(&dsi_ctrl->irq_info.vid_frame_done);
+	ret = wait_for_completion_timeout(
+			&dsi_ctrl->irq_info.vid_frame_done,
+			msecs_to_jiffies(DSI_CTRL_TX_TO_MS));
+	if (ret <= 0)
+		pr_debug("wait for video done failed\n");
+	dsi_ctrl_disable_status_interrupt(dsi_ctrl,
+				DSI_SINT_VIDEO_MODE_FRAME_DONE);
+
+	timing = &(dsi_ctrl->host_config.video_timing);
+	v_total = timing->v_sync_width + timing->v_back_porch +
+			timing->v_front_porch + timing->v_active;
+	v_blank = timing->v_sync_width + timing->v_back_porch;
+	fps = timing->refresh_rate;
+
+	sleep_ms = CEIL((v_blank * 1000), (v_total * fps)) + 1;
+	udelay(sleep_ms * 1000);
 }
 
 static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
@@ -971,6 +1010,7 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 	}
 
 	if (!(flags & DSI_CTRL_CMD_DEFER_TRIGGER)) {
+		dsi_ctrl_wait_for_video_done(dsi_ctrl);
 		dsi_ctrl_enable_status_interrupt(dsi_ctrl,
 					DSI_SINT_CMD_MODE_DMA_DONE, NULL);
 		reinit_completion(&dsi_ctrl->irq_info.cmd_dma_done);
@@ -1026,6 +1066,7 @@ static int dsi_set_max_return_size(struct dsi_ctrl *dsi_ctrl,
 {
 	int rc = 0;
 	u8 tx[2] = { (u8)(size & 0xFF), (u8)(size >> 8) };
+	u32 flags = DSI_CTRL_CMD_FETCH_MEMORY;
 	struct mipi_dsi_msg msg = {
 		.channel = rx_msg->channel,
 		.type = MIPI_DSI_SET_MAXIMUM_RETURN_PACKET_SIZE,
@@ -1033,11 +1074,63 @@ static int dsi_set_max_return_size(struct dsi_ctrl *dsi_ctrl,
 		.tx_buf = tx,
 	};
 
-	rc = dsi_message_tx(dsi_ctrl, &msg, 0x0);
+	rc = dsi_message_tx(dsi_ctrl, &msg, flags);
 	if (rc)
 		pr_err("failed to send max return size packet, rc=%d\n", rc);
 
 	return rc;
+}
+
+/* Helper functions to support DCS read operation */
+static int dsi_parse_short_read1_resp(const struct mipi_dsi_msg *msg,
+		unsigned char *buff)
+{
+	u8 *data = msg->rx_buf;
+	int read_len = 1;
+
+	if (!data)
+		return 0;
+
+	/* remove dcs type */
+	if (msg->rx_len >= 1)
+		data[0] = buff[1];
+	else
+		read_len = 0;
+
+	return read_len;
+}
+
+static int dsi_parse_short_read2_resp(const struct mipi_dsi_msg *msg,
+		unsigned char *buff)
+{
+	u8 *data = msg->rx_buf;
+	int read_len = 2;
+
+	if (!data)
+		return 0;
+
+	/* remove dcs type */
+	if (msg->rx_len >= 2) {
+		data[0] = buff[1];
+		data[1] = buff[2];
+	} else {
+		read_len = 0;
+	}
+
+	return read_len;
+}
+
+static int dsi_parse_long_read_resp(const struct mipi_dsi_msg *msg,
+		unsigned char *buff)
+{
+	if (!msg->rx_buf)
+		return 0;
+
+	/* remove dcs type */
+	if (msg->rx_buf && msg->rx_len)
+		memcpy(msg->rx_buf, buff + 4, msg->rx_len);
+
+	return msg->rx_len;
 }
 
 static int dsi_message_rx(struct dsi_ctrl *dsi_ctrl,
@@ -1045,12 +1138,13 @@ static int dsi_message_rx(struct dsi_ctrl *dsi_ctrl,
 			  u32 flags)
 {
 	int rc = 0;
-	u32 rd_pkt_size;
-	u32 total_read_len;
-	u32 bytes_read = 0, tot_bytes_read = 0;
-	u32 current_read_len;
+	u32 rd_pkt_size, total_read_len, hw_read_cnt;
+	u32 current_read_len = 0, total_bytes_read = 0;
 	bool short_resp = false;
 	bool read_done = false;
+	u32 dlen, diff, rlen = msg->rx_len;
+	unsigned char *buff;
+	char cmd;
 
 	if (msg->rx_len <= 2) {
 		short_resp = true;
@@ -1066,6 +1160,7 @@ static int dsi_message_rx(struct dsi_ctrl *dsi_ctrl,
 
 		total_read_len = current_read_len + 6;
 	}
+	buff = msg->rx_buf;
 
 	while (!read_done) {
 		rc = dsi_set_max_return_size(dsi_ctrl, msg, rd_pkt_size);
@@ -1075,23 +1170,78 @@ static int dsi_message_rx(struct dsi_ctrl *dsi_ctrl,
 			goto error;
 		}
 
+		/* clear RDBK_DATA registers before proceeding */
+		dsi_ctrl->hw.ops.clear_rdbk_register(&dsi_ctrl->hw);
+
 		rc = dsi_message_tx(dsi_ctrl, msg, flags);
 		if (rc) {
 			pr_err("Message transmission failed, rc=%d\n", rc);
 			goto error;
 		}
 
+		dlen = dsi_ctrl->hw.ops.get_cmd_read_data(&dsi_ctrl->hw,
+					buff, total_bytes_read,
+					total_read_len, rd_pkt_size,
+					&hw_read_cnt);
+		if (!dlen)
+			goto error;
 
-		tot_bytes_read += bytes_read;
 		if (short_resp)
+			break;
+
+		if (rlen <= current_read_len) {
+			diff = current_read_len - rlen;
 			read_done = true;
-		else if (msg->rx_len <= tot_bytes_read)
-			read_done = true;
+		} else {
+			diff = 0;
+			rlen -= current_read_len;
+		}
+
+		dlen -= 2; /* 2 bytes of CRC */
+		dlen -= diff;
+		buff += dlen;
+		total_bytes_read += dlen;
+		if (!read_done) {
+			current_read_len = 14; /* Not first read */
+			if (rlen < current_read_len)
+				rd_pkt_size += rlen;
+			else
+				rd_pkt_size += current_read_len;
+		}
 	}
+
+	if (hw_read_cnt < 16 && !short_resp)
+		buff = msg->rx_buf + (16 - hw_read_cnt);
+	else
+		buff = msg->rx_buf;
+
+	/* parse the data read from panel */
+	cmd = buff[0];
+	switch (cmd) {
+	case MIPI_DSI_RX_ACKNOWLEDGE_AND_ERROR_REPORT:
+		pr_err("Rx ACK_ERROR\n");
+		rc = 0;
+		break;
+	case MIPI_DSI_RX_GENERIC_SHORT_READ_RESPONSE_1BYTE:
+	case MIPI_DSI_RX_DCS_SHORT_READ_RESPONSE_1BYTE:
+		rc = dsi_parse_short_read1_resp(msg, buff);
+		break;
+	case MIPI_DSI_RX_GENERIC_SHORT_READ_RESPONSE_2BYTE:
+	case MIPI_DSI_RX_DCS_SHORT_READ_RESPONSE_2BYTE:
+		rc = dsi_parse_short_read2_resp(msg, buff);
+		break;
+	case MIPI_DSI_RX_GENERIC_LONG_READ_RESPONSE:
+	case MIPI_DSI_RX_DCS_LONG_READ_RESPONSE:
+		rc = dsi_parse_long_read_resp(msg, buff);
+		break;
+	default:
+		pr_warn("Invalid response\n");
+		rc = 0;
+	}
+
 error:
 	return rc;
 }
-
 
 static int dsi_enable_ulps(struct dsi_ctrl *dsi_ctrl)
 {
@@ -1193,7 +1343,9 @@ static int dsi_ctrl_buffer_deinit(struct dsi_ctrl *dsi_ctrl)
 
 		msm_gem_put_iova(dsi_ctrl->tx_cmd_buf, aspace);
 
+		mutex_lock(&dsi_ctrl->drm_dev->struct_mutex);
 		msm_gem_free_object(dsi_ctrl->tx_cmd_buf);
+		mutex_unlock(&dsi_ctrl->drm_dev->struct_mutex);
 		dsi_ctrl->tx_cmd_buf = NULL;
 	}
 
@@ -1429,6 +1581,26 @@ static struct platform_driver dsi_ctrl_driver = {
 	},
 };
 
+#if defined(CONFIG_DEBUG_FS)
+
+void dsi_ctrl_debug_dump(void)
+{
+	struct list_head *pos, *tmp;
+	struct dsi_ctrl *ctrl = NULL;
+
+	mutex_lock(&dsi_ctrl_list_lock);
+	list_for_each_safe(pos, tmp, &dsi_ctrl_list) {
+		struct dsi_ctrl_list_item *n;
+
+		n = list_entry(pos, struct dsi_ctrl_list_item, list);
+		ctrl = n->ctrl;
+		pr_err("dsi ctrl:%d\n", ctrl->cell_index);
+		ctrl->hw.ops.debug_bus(&ctrl->hw);
+	}
+	mutex_unlock(&dsi_ctrl_list_lock);
+}
+
+#endif
 /**
  * dsi_ctrl_get() - get a dsi_ctrl handle from an of_node
  * @of_node:    of_node of the DSI controller.
@@ -1645,8 +1817,55 @@ int dsi_ctrl_async_timing_update(struct dsi_ctrl *dsi_ctrl,
 
 	host_mode = &dsi_ctrl->host_config.video_timing;
 	memcpy(host_mode, timing, sizeof(*host_mode));
-
+	dsi_ctrl->hw.ops.set_timing_db(&dsi_ctrl->hw, true);
 	dsi_ctrl->hw.ops.set_video_timing(&dsi_ctrl->hw, host_mode);
+
+exit:
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
+	return rc;
+}
+
+/**
+ * dsi_ctrl_timing_db_update() - update only controller Timing DB
+ * @dsi_ctrl:          DSI controller handle.
+ * @enable:            Enable/disable Timing DB register
+ *
+ *  Update timing db register value during dfps usecases
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_timing_db_update(struct dsi_ctrl *dsi_ctrl,
+		bool enable)
+{
+	int rc = 0;
+
+	if (!dsi_ctrl) {
+		pr_err("Invalid dsi_ctrl\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+
+	rc = dsi_ctrl_check_state(dsi_ctrl, DSI_CTRL_OP_ASYNC_TIMING,
+			DSI_CTRL_ENGINE_ON);
+	if (rc) {
+		pr_err("[DSI_%d] Controller state check failed, rc=%d\n",
+		       dsi_ctrl->cell_index, rc);
+		goto exit;
+	}
+
+	/*
+	 * Add HW recommended delay for dfps feature.
+	 * When prefetch is enabled, MDSS HW works on 2 vsync
+	 * boundaries i.e. mdp_vsync and panel_vsync.
+	 * In the current implementation we are only waiting
+	 * for mdp_vsync. We need to make sure that interface
+	 * flush is after panel_vsync. So, added the recommended
+	 * delays after dfps update.
+	 */
+	usleep_range(2000, 2010);
+
+	dsi_ctrl->hw.ops.set_timing_db(&dsi_ctrl->hw, enable);
 
 exit:
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
@@ -2146,7 +2365,7 @@ int dsi_ctrl_update_host_config(struct dsi_ctrl *ctrl,
 		goto error;
 	}
 
-	if (!(flags & DSI_MODE_FLAG_SEAMLESS)) {
+	if (!(flags & (DSI_MODE_FLAG_SEAMLESS | DSI_MODE_FLAG_VRR))) {
 		rc = dsi_ctrl_update_link_freqs(ctrl, config, clk_handle);
 		if (rc) {
 			pr_err("[%s] failed to update link frequencies, rc=%d\n",
@@ -2231,8 +2450,8 @@ int dsi_ctrl_cmd_transfer(struct dsi_ctrl *dsi_ctrl,
 
 	if (flags & DSI_CTRL_CMD_READ) {
 		rc = dsi_message_rx(dsi_ctrl, msg, flags);
-		if (rc)
-			pr_err("read message failed, rc=%d\n", rc);
+		if (rc <= 0)
+			pr_err("read message failed read length, rc=%d\n", rc);
 	} else {
 		rc = dsi_message_tx(dsi_ctrl, msg, flags);
 		if (rc)

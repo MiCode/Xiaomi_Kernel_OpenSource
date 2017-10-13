@@ -286,7 +286,7 @@ static int32_t cam_actuator_driver_platform_probe(
 	}
 
 	/* Fill platform device id*/
-	pdev->id = a_ctrl->id;
+	pdev->id = a_ctrl->soc_info.index;
 
 	rc = cam_actuator_init_subdev(a_ctrl);
 	if (rc)

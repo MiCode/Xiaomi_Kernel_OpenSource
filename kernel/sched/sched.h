@@ -1457,6 +1457,7 @@ extern void trigger_load_balance(struct rq *rq);
 
 extern void set_cpus_allowed_common(struct task_struct *p, const struct cpumask *new_mask);
 
+bool __cpu_overutilized(int cpu, unsigned long util);
 bool cpu_overutilized(int cpu);
 
 #endif
@@ -2291,7 +2292,7 @@ static inline void cpufreq_update_util(struct rq *rq, unsigned int flags)
 
 #ifdef CONFIG_SCHED_WALT
 	unsigned int exception_flags = SCHED_CPUFREQ_INTERCLUSTER_MIG |
-						SCHED_CPUFREQ_PL;
+				SCHED_CPUFREQ_PL | SCHED_CPUFREQ_EARLY_DET;
 
 	/*
 	 * Skip if we've already reported, but not if this is an inter-cluster
@@ -2840,3 +2841,17 @@ static inline bool energy_aware(void)
 {
 	return sched_feat(ENERGY_AWARE);
 }
+
+#ifdef CONFIG_SCHED_CORE_ROTATE
+struct find_first_cpu_bit_env {
+	unsigned long *avoid_prev_cpu_last;
+	int *rotate_cpu_start;
+	int interval;
+	spinlock_t *rotate_lock;
+};
+
+int
+find_first_cpu_bit(struct task_struct *p, const cpumask_t *search_cpus,
+		   struct sched_group *sg_target, bool *avoid_prev_cpu,
+		   bool *do_rotate, struct find_first_cpu_bit_env *env);
+#endif

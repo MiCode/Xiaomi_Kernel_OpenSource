@@ -1264,6 +1264,13 @@ static irqreturn_t msm_geni_serial_isr(int isr, void *dev)
 		goto exit_geni_serial_isr;
 	}
 
+	if (s_irq_status & S_RX_FIFO_WR_ERR_EN) {
+		uport->icount.buf_overrun++;
+		IPC_LOG_MSG(msm_port->ipc_log_misc,
+			"%s.sirq 0x%x buf_overrun:%d\n",
+			__func__, s_irq_status, uport->icount.buf_overrun);
+	}
+
 	if (!dma) {
 		if ((m_irq_status & m_irq_en) &
 		    (M_TX_FIFO_WATERMARK_EN | M_CMD_DONE_EN))
@@ -1421,9 +1428,7 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 	msm_geni_serial_stop_rx(uport);
 	spin_unlock_irqrestore(&uport->lock, flags);
 
-	if (uart_console(uport)) {
-		se_geni_resources_off(&msm_port->serial_rsc);
-	} else {
+	if (!uart_console(uport)) {
 		msm_geni_serial_power_off(uport);
 		if (msm_port->wakeup_irq > 0) {
 			irq_set_irq_wake(msm_port->wakeup_irq, 0);
@@ -2073,6 +2078,21 @@ static void msm_geni_serial_debug_init(struct uart_port *uport)
 		dev_err(uport->dev, "Failed to create dbg dir\n");
 }
 
+static void msm_geni_serial_cons_pm(struct uart_port *uport,
+		unsigned int new_state, unsigned int old_state)
+{
+	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
+
+	if (unlikely(!uart_console(uport)))
+		return;
+
+	if (new_state == UART_PM_STATE_ON && old_state == UART_PM_STATE_OFF)
+		se_geni_resources_on(&msm_port->serial_rsc);
+	else if (new_state == UART_PM_STATE_OFF &&
+			old_state == UART_PM_STATE_ON)
+		se_geni_resources_off(&msm_port->serial_rsc);
+}
+
 static const struct uart_ops msm_geni_console_pops = {
 	.tx_empty = msm_geni_serial_tx_empty,
 	.stop_tx = msm_geni_serial_stop_tx,
@@ -2089,6 +2109,7 @@ static const struct uart_ops msm_geni_console_pops = {
 	.poll_get_char	= msm_geni_serial_get_char,
 	.poll_put_char	= msm_geni_serial_poll_put_char,
 #endif
+	.pm = msm_geni_serial_cons_pm,
 };
 
 static const struct uart_ops msm_geni_serial_pops = {
@@ -2413,7 +2434,6 @@ static int msm_geni_serial_sys_resume_noirq(struct device *dev)
 
 	if (uart_console(uport) &&
 	    console_suspend_enabled && uport->suspended) {
-		se_geni_resources_on(&port->serial_rsc);
 		uart_resume_port((struct uart_driver *)uport->private_data,
 									uport);
 		disable_irq(uport->irq);

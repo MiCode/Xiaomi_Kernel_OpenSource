@@ -100,6 +100,10 @@ conditions.
 		  Some hardware may not have full support for atos debugging
 		  in tandem with other features like power collapse.
 
+- qcom,mmu500-errata-1:
+		  An array of <sid mask>.
+		  Indicates the SIDs for which the workaround is required.
+
 - qcom,deferred-regulator-disable-delay : The time delay for deferred regulator
                   disable in ms. In case of unmap call, regulator is
                   enabled/disabled. This may introduce additional delay. For

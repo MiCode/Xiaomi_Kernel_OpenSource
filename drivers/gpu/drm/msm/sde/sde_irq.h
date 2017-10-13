@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,5 +55,12 @@ void sde_irq_uninstall(struct msm_kms *kms);
  * @return:		interrupt handling status
  */
 irqreturn_t sde_irq(struct msm_kms *kms);
+
+/**
+ * sde_irq_update - enable/disable IRQ line
+ * @kms:		pointer to kms context
+ * @enable:		enable:true, disable:false
+ */
+void sde_irq_update(struct msm_kms *kms, bool enable);
 
 #endif /* __SDE_IRQ_H__ */

@@ -17,12 +17,6 @@
 #include "dp_link.h"
 #include "dp_panel.h"
 
-enum dp_lane_count {
-	DP_LANE_COUNT_1	= 1,
-	DP_LANE_COUNT_2	= 2,
-	DP_LANE_COUNT_4	= 4,
-};
-
 enum dynamic_range {
 	DP_DYNAMIC_RANGE_RGB_VESA = 0x00,
 	DP_DYNAMIC_RANGE_RGB_CEA = 0x01,
@@ -59,42 +53,6 @@ struct dp_link_private {
 	struct dp_link_request request;
 	u8 link_status[DP_LINK_STATUS_SIZE];
 };
-
-/**
- * mdss_dp_test_bit_depth_to_bpp() - convert test bit depth to bpp
- * @tbd: test bit depth
- *
- * Returns the bits per pixel (bpp) to be used corresponding to the
- * git bit depth value. This function assumes that bit depth has
- * already been validated.
- */
-static inline u32 dp_link_bit_depth_to_bpp(u32 tbd)
-{
-	u32 bpp;
-
-	/*
-	 * Few simplistic rules and assumptions made here:
-	 *    1. Bit depth is per color component
-	 *    2. If bit depth is unknown return 0
-	 *    3. Assume 3 color components
-	 */
-	switch (tbd) {
-	case DP_TEST_BIT_DEPTH_6:
-		bpp = 18;
-		break;
-	case DP_TEST_BIT_DEPTH_8:
-		bpp = 24;
-		break;
-	case DP_TEST_BIT_DEPTH_10:
-		bpp = 30;
-		break;
-	case DP_TEST_BIT_DEPTH_UNKNOWN:
-	default:
-		bpp = 0;
-	}
-
-	return bpp;
-}
 
 static char *dp_link_get_audio_test_pattern(u32 pattern)
 {
@@ -659,33 +617,6 @@ exit:
 }
 
 /**
- * dp_link_is_link_rate_valid() - validates the link rate
- * @lane_rate: link rate requested by the sink
- *
- * Returns true if the requested link rate is supported.
- */
-static bool dp_link_is_link_rate_valid(u32 bw_code)
-{
-	return ((bw_code == DP_LINK_BW_1_62) ||
-		(bw_code == DP_LINK_BW_2_7) ||
-		(bw_code == DP_LINK_BW_5_4) ||
-		(bw_code == DP_LINK_BW_8_1));
-}
-
-/**
- * dp_link_is_lane_count_valid() - validates the lane count
- * @lane_count: lane count requested by the sink
- *
- * Returns true if the requested lane count is supported.
- */
-static bool dp_link_is_lane_count_valid(u32 lane_count)
-{
-	return (lane_count == DP_LANE_COUNT_1) ||
-		(lane_count == DP_LANE_COUNT_2) ||
-		(lane_count == DP_LANE_COUNT_4);
-}
-
-/**
  * dp_link_parse_link_training_params() - parses link training parameters from
  * DPCD
  * @link: Display Port Driver data
@@ -710,7 +641,7 @@ static int dp_link_parse_link_training_params(struct dp_link_private *link)
 	}
 	data = bp;
 
-	if (!dp_link_is_link_rate_valid(data)) {
+	if (!is_link_rate_valid(data)) {
 		pr_err("invalid link rate = 0x%x\n", data);
 		ret = -EINVAL;
 		goto exit;
@@ -729,7 +660,7 @@ static int dp_link_parse_link_training_params(struct dp_link_private *link)
 	data = bp;
 	data &= 0x1F;
 
-	if (!dp_link_is_lane_count_valid(data)) {
+	if (!is_lane_count_valid(data)) {
 		pr_err("invalid lane count = 0x%x\n", data);
 		ret = -EINVAL;
 		goto exit;
@@ -1021,7 +952,6 @@ static int dp_link_process_link_training_request(struct dp_link_private *link)
 static void dp_link_send_test_response(struct dp_link *dp_link)
 {
 	struct dp_link_private *link = NULL;
-	u32 const test_response_addr = 0x260;
 	u32 const response_len = 0x1;
 
 	if (!dp_link) {
@@ -1031,10 +961,52 @@ static void dp_link_send_test_response(struct dp_link *dp_link)
 
 	link = container_of(dp_link, struct dp_link_private, dp_link);
 
-	drm_dp_dpcd_write(link->aux->drm_aux, test_response_addr,
+	drm_dp_dpcd_write(link->aux->drm_aux, DP_TEST_RESPONSE,
 			&dp_link->test_response, response_len);
 }
 
+static int dp_link_psm_config(struct dp_link *dp_link,
+	struct drm_dp_link *link_info, bool enable)
+{
+	struct dp_link_private *link = NULL;
+	int ret = 0;
+
+	if (!dp_link) {
+		pr_err("invalid params\n");
+		return -EINVAL;
+	}
+
+	link = container_of(dp_link, struct dp_link_private, dp_link);
+
+	if (enable)
+		ret = drm_dp_link_power_down(link->aux->drm_aux, link_info);
+	else
+		ret = drm_dp_link_power_up(link->aux->drm_aux, link_info);
+
+	if (ret)
+		pr_err("Failed to %s low power mode\n",
+			(enable ? "enter" : "exit"));
+	else
+		dp_link->psm_enabled = enable;
+
+	return ret;
+}
+
+static void dp_link_send_edid_checksum(struct dp_link *dp_link, u8 checksum)
+{
+	struct dp_link_private *link = NULL;
+	u32 const response_len = 0x1;
+
+	if (!dp_link) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	link = container_of(dp_link, struct dp_link_private, dp_link);
+
+	drm_dp_dpcd_write(link->aux->drm_aux, DP_TEST_EDID_CHECKSUM,
+			&checksum, response_len);
+}
 
 static int dp_link_parse_vx_px(struct dp_link_private *link)
 {
@@ -1131,8 +1103,8 @@ static int dp_link_process_phy_test_pattern_request(
 	test_link_rate = link->request.test_link_rate;
 	test_lane_count = link->request.test_lane_count;
 
-	if (!dp_link_is_link_rate_valid(test_link_rate) ||
-		!dp_link_is_lane_count_valid(test_lane_count)) {
+	if (!is_link_rate_valid(test_link_rate) ||
+		!is_lane_count_valid(test_lane_count)) {
 		pr_err("Invalid params: link rate = 0x%x, lane count = 0x%x\n",
 				test_link_rate, test_lane_count);
 		return -EINVAL;
@@ -1555,6 +1527,8 @@ struct dp_link *dp_link_get(struct device *dev, struct dp_aux *aux)
 	dp_link->adjust_levels          = dp_link_adjust_levels;
 	dp_link->send_psm_request       = dp_link_send_psm_request;
 	dp_link->send_test_response     = dp_link_send_test_response;
+	dp_link->psm_config             = dp_link_psm_config;
+	dp_link->send_edid_checksum     = dp_link_send_edid_checksum;
 
 	return dp_link;
 error:

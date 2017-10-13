@@ -179,6 +179,13 @@ int cam_vfe_init_hw(void *hw_priv, void *init_hw_args, uint32_t arg_size)
 
 	CAM_DBG(CAM_ISP, "Enable soc done");
 
+	/* Do HW Reset */
+	rc = cam_vfe_reset(hw_priv, NULL, 0);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Reset Failed rc=%d", rc);
+		goto disable_soc;
+	}
+
 	rc = core_info->vfe_bus->hw_ops.init(core_info->vfe_bus->bus_priv,
 		NULL, 0);
 	if (rc) {
@@ -186,18 +193,7 @@ int cam_vfe_init_hw(void *hw_priv, void *init_hw_args, uint32_t arg_size)
 		goto disable_soc;
 	}
 
-	/* Do HW Reset */
-	rc = cam_vfe_reset(hw_priv, NULL, 0);
-	if (rc) {
-		CAM_ERR(CAM_ISP, "Reset Failed rc=%d", rc);
-		goto deinit_bus;
-	}
-
 	return 0;
-
-deinit_bus:
-	core_info->vfe_bus->hw_ops.deinit(core_info->vfe_bus->bus_priv,
-		NULL, 0);
 disable_soc:
 	cam_vfe_disable_soc_resources(soc_info);
 decrement_open_cnt:
@@ -561,6 +557,7 @@ int cam_vfe_process_cmd(void *hw_priv, uint32_t cmd_type,
 		break;
 	case CAM_VFE_HW_CMD_GET_BUF_UPDATE:
 	case CAM_VFE_HW_CMD_GET_HFR_UPDATE:
+	case CAM_VFE_HW_CMD_STRIPE_UPDATE:
 		rc = core_info->vfe_bus->hw_ops.process_cmd(
 			core_info->vfe_bus->bus_priv, cmd_type, cmd_args,
 			arg_size);

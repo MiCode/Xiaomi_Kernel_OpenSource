@@ -52,6 +52,8 @@ static int cam_mem_util_get_dma_dir(uint32_t flags)
 		rc = DMA_FROM_DEVICE;
 	else if (flags & CAM_MEM_FLAG_HW_READ_WRITE)
 		rc = DMA_BIDIRECTIONAL;
+	else if (flags & CAM_MEM_FLAG_PROTECTED_MODE)
+		rc = DMA_BIDIRECTIONAL;
 
 	return rc;
 }
@@ -211,10 +213,16 @@ int cam_mem_get_io_buf(int32_t buf_handle, int32_t mmu_handle,
 		goto handle_mismatch;
 	}
 
-	rc = cam_smmu_get_iova(mmu_handle,
-		tbl.bufq[idx].fd,
-		iova_ptr,
-		len_ptr);
+	if (CAM_MEM_MGR_IS_SECURE_HDL(buf_handle))
+		rc = cam_smmu_get_stage2_iova(mmu_handle,
+			tbl.bufq[idx].fd,
+			iova_ptr,
+			len_ptr);
+	else
+		rc = cam_smmu_get_iova(mmu_handle,
+			tbl.bufq[idx].fd,
+			iova_ptr,
+			len_ptr);
 	if (rc < 0)
 		CAM_ERR(CAM_CRM, "fail to get buf hdl :%d", buf_handle);
 
@@ -376,10 +384,12 @@ static int cam_mem_util_ion_alloc(struct cam_mem_mgr_alloc_cmd *cmd,
 	uint32_t ion_flag = 0;
 	int rc;
 
-	if (cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE)
+	if (cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE) {
 		heap_id = ION_HEAP(ION_SECURE_DISPLAY_HEAP_ID);
-	else
+		ion_flag |= ION_FLAG_SECURE | ION_FLAG_CP_CAMERA;
+	} else {
 		heap_id = ION_HEAP(ION_SYSTEM_HEAP_ID);
+	}
 
 	if (cmd->flags & CAM_MEM_FLAG_CACHE)
 		ion_flag |= ION_FLAG_CACHED;
@@ -466,10 +476,11 @@ static int cam_mem_util_map_hw_va(uint32_t flags,
 
 	if (flags & CAM_MEM_FLAG_PROTECTED_MODE) {
 		for (i = 0; i < num_hdls; i++) {
-			rc = cam_smmu_map_sec_iova(mmu_hdls[i],
+			rc = cam_smmu_map_stage2_iova(mmu_hdls[i],
 				fd,
 				dir,
-				(dma_addr_t *)hw_vaddr,
+				tbl.client,
+				(ion_phys_addr_t *)hw_vaddr,
 				len);
 
 			if (rc < 0) {
@@ -498,7 +509,7 @@ static int cam_mem_util_map_hw_va(uint32_t flags,
 multi_map_fail:
 	if (flags & CAM_MEM_FLAG_PROTECTED_MODE)
 		for (--i; i > 0; i--)
-			cam_smmu_unmap_sec_iova(mmu_hdls[i], fd);
+			cam_smmu_unmap_stage2_iova(mmu_hdls[i], fd);
 	else
 		for (--i; i > 0; i--)
 			cam_smmu_unmap_iova(mmu_hdls[i],
@@ -543,8 +554,9 @@ int cam_mem_mgr_alloc_and_map(struct cam_mem_mgr_alloc_cmd *cmd)
 		goto slot_fail;
 	}
 
-	if (cmd->flags & CAM_MEM_FLAG_HW_READ_WRITE ||
-		cmd->flags & CAM_MEM_FLAG_HW_SHARED_ACCESS) {
+	if ((cmd->flags & CAM_MEM_FLAG_HW_READ_WRITE) ||
+		(cmd->flags & CAM_MEM_FLAG_HW_SHARED_ACCESS) ||
+		(cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE)) {
 
 		enum cam_smmu_region_id region;
 
@@ -570,6 +582,8 @@ int cam_mem_mgr_alloc_and_map(struct cam_mem_mgr_alloc_cmd *cmd)
 	tbl.bufq[idx].fd = ion_fd;
 	tbl.bufq[idx].flags = cmd->flags;
 	tbl.bufq[idx].buf_handle = GET_MEM_HANDLE(idx, ion_fd);
+	if (cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE)
+		CAM_MEM_MGR_SET_SECURE_HDL(tbl.bufq[idx].buf_handle, true);
 	tbl.bufq[idx].kmdvaddr = 0;
 
 	if (cmd->num_hdl > 0)
@@ -630,7 +644,8 @@ int cam_mem_mgr_map(struct cam_mem_mgr_map_cmd *cmd)
 		return -EINVAL;
 	}
 
-	if (cmd->flags & CAM_MEM_FLAG_HW_READ_WRITE) {
+	if ((cmd->flags & CAM_MEM_FLAG_HW_READ_WRITE) ||
+		(cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE)) {
 		rc = cam_mem_util_map_hw_va(cmd->flags,
 			cmd->mmu_hdls,
 			cmd->num_hdl,
@@ -652,6 +667,8 @@ int cam_mem_mgr_map(struct cam_mem_mgr_map_cmd *cmd)
 	tbl.bufq[idx].fd = cmd->fd;
 	tbl.bufq[idx].flags = cmd->flags;
 	tbl.bufq[idx].buf_handle = GET_MEM_HANDLE(idx, cmd->fd);
+	if (cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE)
+		CAM_MEM_MGR_SET_SECURE_HDL(tbl.bufq[idx].buf_handle, true);
 	tbl.bufq[idx].kmdvaddr = 0;
 
 	if (cmd->num_hdl > 0)
@@ -699,7 +716,7 @@ static int cam_mem_util_unmap_hw_va(int32_t idx,
 
 	if (flags & CAM_MEM_FLAG_PROTECTED_MODE) {
 		for (i = 0; i < num_hdls; i++) {
-			rc = cam_smmu_unmap_sec_iova(mmu_hdls[i], fd);
+			rc = cam_smmu_unmap_stage2_iova(mmu_hdls[i], fd);
 			if (rc < 0)
 				goto unmap_end;
 		}
@@ -741,8 +758,9 @@ static int cam_mem_util_unmap(int32_t idx)
 			region = CAM_SMMU_REGION_IO;
 	}
 
-	if (tbl.bufq[idx].flags & CAM_MEM_FLAG_HW_READ_WRITE ||
-		tbl.bufq[idx].flags & CAM_MEM_FLAG_HW_SHARED_ACCESS)
+	if ((tbl.bufq[idx].flags & CAM_MEM_FLAG_HW_READ_WRITE) ||
+		(tbl.bufq[idx].flags & CAM_MEM_FLAG_HW_SHARED_ACCESS) ||
+		(tbl.bufq[idx].flags & CAM_MEM_FLAG_PROTECTED_MODE))
 		rc = cam_mem_util_unmap_hw_va(idx, region);
 
 

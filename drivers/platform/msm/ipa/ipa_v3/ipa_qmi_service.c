@@ -798,9 +798,8 @@ int ipa3_qmi_filter_notify_send(
 
 	/* check if the filter rules from IPACM is valid */
 	if (req->rule_id_len == 0) {
-		IPAWANERR(" delete UL filter rule for pipe %d\n",
+		IPAWANDBG(" delete UL filter rule for pipe %d\n",
 		req->source_pipe_index);
-		return -EINVAL;
 	} else if (req->rule_id_len > QMI_IPA_MAX_FILTERS_V01) {
 		IPAWANERR(" UL filter rule for pipe %d exceed max (%u)\n",
 		req->source_pipe_index,
@@ -1214,7 +1213,6 @@ void ipa3_qmi_stop_workqueues(void)
 /* voting for bus BW to ipa_rm*/
 int ipa3_vote_for_bus_bw(uint32_t *bw_mbps)
 {
-	struct ipa_rm_perf_profile profile;
 	int ret;
 
 	if (bw_mbps == NULL) {
@@ -1222,16 +1220,13 @@ int ipa3_vote_for_bus_bw(uint32_t *bw_mbps)
 		return -EINVAL;
 	}
 
-	memset(&profile, 0, sizeof(profile));
-	profile.max_supported_bandwidth_mbps = *bw_mbps;
-	ret = ipa_rm_set_perf_profile(IPA_RM_RESOURCE_Q6_PROD,
-			&profile);
+	ret = ipa3_wwan_set_modem_perf_profile(*bw_mbps);
 	if (ret)
 		IPAWANERR("Failed to set perf profile to BW %u\n",
-			profile.max_supported_bandwidth_mbps);
+			*bw_mbps);
 	else
 		IPAWANDBG("Succeeded to set perf profile to BW %u\n",
-			profile.max_supported_bandwidth_mbps);
+			*bw_mbps);
 
 	return ret;
 }

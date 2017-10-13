@@ -12,6 +12,7 @@
 
 #include "cam_fd_hw_core.h"
 #include "cam_fd_hw_soc.h"
+#include "cam_trace.h"
 
 #define CAM_FD_REG_VAL_PAIR_SIZE 256
 
@@ -30,6 +31,7 @@ static uint32_t cam_fd_cdm_write_reg_val_pair(uint32_t *buffer,
 static void cam_fd_hw_util_cdm_callback(uint32_t handle, void *userdata,
 	enum cam_cdm_cb_status status, uint32_t cookie)
 {
+	trace_cam_cdm_cb("FD", status);
 	CAM_DBG(CAM_FD, "CDM hdl=%x, udata=%pK, status=%d, cookie=%d",
 		handle, userdata, status, cookie);
 }
@@ -110,9 +112,6 @@ static int cam_fd_hw_util_fdwrapper_sync_reset(struct cam_hw_info *fd_hw)
 	/* Before triggering reset to HW, clear the reset complete */
 	reinit_completion(&fd_core->reset_complete);
 
-	cam_fd_soc_register_write(soc_info, CAM_FD_REG_CORE,
-		hw_static_info->core_regs.control, 0x1);
-
 	if (hw_static_info->enable_errata_wa.single_irq_only) {
 		cam_fd_soc_register_write(soc_info, CAM_FD_REG_WRAPPER,
 			hw_static_info->wrapper_regs.irq_mask,
@@ -124,13 +123,11 @@ static int cam_fd_hw_util_fdwrapper_sync_reset(struct cam_hw_info *fd_hw)
 
 	time_left = wait_for_completion_timeout(&fd_core->reset_complete,
 		msecs_to_jiffies(CAM_FD_HW_HALT_RESET_TIMEOUT));
-	if (time_left <= 0) {
-		CAM_ERR(CAM_FD, "HW reset wait failed time_left=%d", time_left);
-		return -EPERM;
-	}
+	if (time_left <= 0)
+		CAM_WARN(CAM_FD, "HW reset timeout time_left=%d", time_left);
 
 	cam_fd_soc_register_write(soc_info, CAM_FD_REG_CORE,
-		hw_static_info->core_regs.control, 0x0);
+		hw_static_info->core_regs.control, 0x1);
 
 	CAM_DBG(CAM_FD, "FD Wrapper SW Sync Reset complete");
 
@@ -148,9 +145,6 @@ static int cam_fd_hw_util_fdwrapper_halt(struct cam_hw_info *fd_hw)
 	/* Before triggering halt to HW, clear halt complete */
 	reinit_completion(&fd_core->halt_complete);
 
-	cam_fd_soc_register_write(soc_info, CAM_FD_REG_CORE,
-		hw_static_info->core_regs.control, 0x1);
-
 	if (hw_static_info->enable_errata_wa.single_irq_only) {
 		cam_fd_soc_register_write(soc_info, CAM_FD_REG_WRAPPER,
 			hw_static_info->wrapper_regs.irq_mask,
@@ -162,13 +156,8 @@ static int cam_fd_hw_util_fdwrapper_halt(struct cam_hw_info *fd_hw)
 
 	time_left = wait_for_completion_timeout(&fd_core->halt_complete,
 		msecs_to_jiffies(CAM_FD_HW_HALT_RESET_TIMEOUT));
-	if (time_left <= 0) {
-		CAM_ERR(CAM_FD, "HW halt wait failed time_left=%d", time_left);
-		return -EPERM;
-	}
-
-	cam_fd_soc_register_write(soc_info, CAM_FD_REG_CORE,
-		hw_static_info->core_regs.control, 0x0);
+	if (time_left <= 0)
+		CAM_WARN(CAM_FD, "HW halt timeout time_left=%d", time_left);
 
 	CAM_DBG(CAM_FD, "FD Wrapper Halt complete");
 
@@ -397,12 +386,22 @@ static int cam_fd_hw_util_processcmd_prestart(struct cam_hw_info *fd_hw,
 	prestart_args->pre_config_buf_size =
 		prestart_args->size - available_size;
 
-	/*
-	 * Currently, no post config commands, we trigger HW start directly
-	 * from start(). Start trigger command can be inserted into CDM
-	 * as post config commands.
-	 */
-	prestart_args->post_config_buf_size = 0;
+	/* Insert start trigger command into CDM as post config commands. */
+	num_cmds = cam_fd_cdm_write_reg_val_pair(reg_val_pair, 0,
+		hw_static_info->core_regs.control, 0x2);
+	size = ctx_hw_private->cdm_ops->cdm_required_size_reg_random(
+		num_cmds/2);
+	if ((size * 4) > available_size) {
+		CAM_ERR(CAM_FD, "Insufficient size:%d , expected size:%d",
+			available_size, size);
+		return -ENOMEM;
+	}
+	ctx_hw_private->cdm_ops->cdm_write_regrandom(cmd_buf_addr, num_cmds/2,
+		reg_val_pair);
+	cmd_buf_addr += size;
+	available_size -= (size * 4);
+
+	prestart_args->post_config_buf_size = size * 4;
 
 	CAM_DBG(CAM_FD, "PreConfig [%pK %d], PostConfig[%pK %d]",
 		prestart_args->cmd_buf_addr, prestart_args->pre_config_buf_size,
@@ -573,6 +572,8 @@ irqreturn_t cam_fd_hw_irq(int irq_num, void *data)
 		return -EINVAL;
 	}
 
+	trace_cam_irq_activated("FD", irq_type);
+
 	cam_fd_soc_register_write(soc_info, CAM_FD_REG_WRAPPER,
 		hw_static_info->wrapper_regs.irq_clear,
 		hw_static_info->irq_mask);
@@ -660,7 +661,6 @@ int cam_fd_hw_init(void *hw_priv, void *init_hw_args, uint32_t arg_size)
 
 	if (fd_hw->open_count > 0) {
 		rc = 0;
-		mutex_unlock(&fd_hw->hw_mutex);
 		goto cdm_streamon;
 	}
 
@@ -680,12 +680,13 @@ int cam_fd_hw_init(void *hw_priv, void *init_hw_args, uint32_t arg_size)
 
 	fd_hw->hw_state = CAM_HW_STATE_POWER_UP;
 	fd_core->core_state = CAM_FD_CORE_STATE_IDLE;
+
+cdm_streamon:
 	fd_hw->open_count++;
 	CAM_DBG(CAM_FD, "FD HW Init ref count after %d", fd_hw->open_count);
 
 	mutex_unlock(&fd_hw->hw_mutex);
 
-cdm_streamon:
 	if (init_args->ctx_hw_private) {
 		struct cam_fd_ctx_hw_private *ctx_hw_private =
 			init_args->ctx_hw_private;
@@ -711,7 +712,7 @@ unlock_return:
 int cam_fd_hw_deinit(void *hw_priv, void *deinit_hw_args, uint32_t arg_size)
 {
 	struct cam_hw_info *fd_hw = hw_priv;
-	struct cam_fd_core *fd_core;
+	struct cam_fd_core *fd_core = NULL;
 	struct cam_fd_hw_deinit_args *deinit_args =
 		(struct cam_fd_hw_deinit_args *)deinit_hw_args;
 	int rc = 0;
@@ -727,23 +728,7 @@ int cam_fd_hw_deinit(void *hw_priv, void *deinit_hw_args, uint32_t arg_size)
 		return -EINVAL;
 	}
 
-	fd_core = (struct cam_fd_core *)fd_hw->core_info;
-
-	if (deinit_args->ctx_hw_private) {
-		struct cam_fd_ctx_hw_private *ctx_hw_private =
-			deinit_args->ctx_hw_private;
-
-		rc = cam_cdm_stream_off(ctx_hw_private->cdm_handle);
-		if (rc) {
-			CAM_ERR(CAM_FD,
-				"Failed in CDM StreamOff, handle=0x%x, rc=%d",
-				ctx_hw_private->cdm_handle, rc);
-			return rc;
-		}
-	}
-
 	mutex_lock(&fd_hw->hw_mutex);
-
 	if (fd_hw->open_count == 0) {
 		mutex_unlock(&fd_hw->hw_mutex);
 		CAM_ERR(CAM_FD, "Error Unbalanced deinit");
@@ -753,9 +738,9 @@ int cam_fd_hw_deinit(void *hw_priv, void *deinit_hw_args, uint32_t arg_size)
 	fd_hw->open_count--;
 	CAM_DBG(CAM_FD, "FD HW ref count=%d", fd_hw->open_count);
 
-	if (fd_hw->open_count) {
+	if (fd_hw->open_count > 0) {
 		rc = 0;
-		goto unlock_return;
+		goto positive_ref_cnt;
 	}
 
 	rc = cam_fd_soc_disable_resources(&fd_hw->soc_info);
@@ -763,9 +748,26 @@ int cam_fd_hw_deinit(void *hw_priv, void *deinit_hw_args, uint32_t arg_size)
 		CAM_ERR(CAM_FD, "Failed in Disable SOC, rc=%d", rc);
 
 	fd_hw->hw_state = CAM_HW_STATE_POWER_DOWN;
+	fd_core = (struct cam_fd_core *)fd_hw->core_info;
+
+	/* With the ref_cnt correct, this should never happen */
+	WARN_ON(!fd_core);
+
 	fd_core->core_state = CAM_FD_CORE_STATE_POWERDOWN;
 
-unlock_return:
+positive_ref_cnt:
+	if (deinit_args->ctx_hw_private) {
+		struct cam_fd_ctx_hw_private *ctx_hw_private =
+			deinit_args->ctx_hw_private;
+
+		rc = cam_cdm_stream_off(ctx_hw_private->cdm_handle);
+		if (rc) {
+			CAM_ERR(CAM_FD,
+				"Failed in CDM StreamOff, handle=0x%x, rc=%d",
+				ctx_hw_private->cdm_handle, rc);
+		}
+	}
+
 	mutex_unlock(&fd_hw->hw_mutex);
 	return rc;
 }
@@ -794,6 +796,12 @@ int cam_fd_hw_reset(void *hw_priv, void *reset_core_args, uint32_t arg_size)
 	fd_core->results_valid = false;
 	fd_core->core_state = CAM_FD_CORE_STATE_RESET_PROGRESS;
 	spin_unlock(&fd_core->spin_lock);
+
+	rc = cam_fd_hw_util_fdwrapper_halt(fd_hw);
+	if (rc) {
+		CAM_ERR(CAM_FD, "Failed in HALT rc=%d", rc);
+		return rc;
+	}
 
 	rc = cam_fd_hw_util_fdwrapper_sync_reset(fd_hw);
 	if (rc) {
@@ -892,9 +900,6 @@ int cam_fd_hw_start(void *hw_priv, void *hw_start_args, uint32_t arg_size)
 		rc = -EINVAL;
 		goto error;
 	}
-
-	cam_fd_soc_register_write(&fd_hw->soc_info, CAM_FD_REG_CORE,
-		hw_static_info->core_regs.control, 0x2);
 
 	return 0;
 error:

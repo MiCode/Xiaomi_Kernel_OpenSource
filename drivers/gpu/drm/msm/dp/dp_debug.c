@@ -74,7 +74,7 @@ static ssize_t dp_debug_write_edid_modes(struct file *file,
 	struct dp_debug_private *debug = file->private_data;
 	char buf[SZ_32];
 	size_t len = 0;
-	int hdisplay = 0, vdisplay = 0, vrefresh = 0;
+	int hdisplay = 0, vdisplay = 0, vrefresh = 0, aspect_ratio;
 
 	if (!debug)
 		return -ENODEV;
@@ -89,7 +89,8 @@ static ssize_t dp_debug_write_edid_modes(struct file *file,
 
 	buf[len] = '\0';
 
-	if (sscanf(buf, "%d %d %d", &hdisplay, &vdisplay, &vrefresh) != 3)
+	if (sscanf(buf, "%d %d %d %d", &hdisplay, &vdisplay, &vrefresh,
+				&aspect_ratio) != 4)
 		goto clear;
 
 	if (!hdisplay || !vdisplay || !vrefresh)
@@ -99,11 +100,46 @@ static ssize_t dp_debug_write_edid_modes(struct file *file,
 	debug->dp_debug.hdisplay = hdisplay;
 	debug->dp_debug.vdisplay = vdisplay;
 	debug->dp_debug.vrefresh = vrefresh;
+	debug->dp_debug.aspect_ratio = aspect_ratio;
 	goto end;
 clear:
 	pr_debug("clearing debug modes\n");
 	debug->dp_debug.debug_en = false;
 end:
+	return len;
+}
+
+static ssize_t dp_debug_bw_code_write(struct file *file,
+		const char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char buf[SZ_8];
+	size_t len = 0;
+	u32 max_bw_code = 0;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	/* Leave room for termination char */
+	len = min_t(size_t, count, SZ_8 - 1);
+	if (copy_from_user(buf, user_buff, len))
+		return 0;
+
+	buf[len] = '\0';
+
+	if (kstrtoint(buf, 10, &max_bw_code) != 0)
+		return 0;
+
+	if (!is_link_rate_valid(max_bw_code)) {
+		pr_err("Unsupported bw code %d\n", max_bw_code);
+		return len;
+	}
+	debug->panel->max_bw_code = max_bw_code;
+	pr_debug("max_bw_code: %d\n", max_bw_code);
+
 	return len;
 }
 
@@ -164,11 +200,11 @@ static ssize_t dp_debug_read_edid_modes(struct file *file,
 
 	list_for_each_entry(mode, &connector->modes, head) {
 		len += snprintf(buf + len, SZ_4K - len,
-		"%s %d %d %d %d %d %d %d %d %d 0x%x\n",
-		mode->name, mode->vrefresh, mode->hdisplay,
-		mode->hsync_start, mode->hsync_end, mode->htotal,
-		mode->vdisplay, mode->vsync_start, mode->vsync_end,
-		mode->vtotal, mode->flags);
+		"%s %d %d %d %d %d %d %d %d %d %d 0x%x\n",
+		mode->name, mode->vrefresh, mode->picture_aspect_ratio,
+		mode->hdisplay, mode->hsync_start, mode->hsync_end,
+		mode->htotal, mode->vdisplay, mode->vsync_start,
+		mode->vsync_end, mode->vtotal, mode->flags);
 	}
 
 	if (copy_to_user(user_buff, buf, len)) {
@@ -349,6 +385,36 @@ error:
 	return -EINVAL;
 }
 
+static ssize_t dp_debug_bw_code_read(struct file *file,
+	char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char *buf;
+	u32 len = 0;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	buf = kzalloc(SZ_4K, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	len += snprintf(buf + len, (SZ_4K - len),
+			"max_bw_code = %d\n", debug->panel->max_bw_code);
+
+	if (copy_to_user(user_buff, buf, len)) {
+		kfree(buf);
+		return -EFAULT;
+	}
+
+	*ppos += len;
+	kfree(buf);
+	return len;
+}
+
 static const struct file_operations dp_debug_fops = {
 	.open = simple_open,
 	.read = dp_debug_read_info,
@@ -370,6 +436,12 @@ static const struct file_operations connected_fops = {
 	.read = dp_debug_read_connected,
 };
 
+static const struct file_operations bw_code_fops = {
+	.open = simple_open,
+	.read = dp_debug_bw_code_read,
+	.write = dp_debug_bw_code_write,
+};
+
 static int dp_debug_init(struct dp_debug *dp_debug)
 {
 	int rc = 0;
@@ -377,6 +449,7 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		struct dp_debug_private, dp_debug);
 	struct dentry *dir, *file, *edid_modes;
 	struct dentry *hpd, *connected;
+	struct dentry *max_bw_code;
 	struct dentry *root = debug->root;
 
 	dir = debugfs_create_dir(DEBUG_NAME, NULL);
@@ -423,6 +496,15 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		goto error_remove_dir;
 	}
 
+	max_bw_code = debugfs_create_file("max_bw_code", 0644, dir,
+			debug, &bw_code_fops);
+	if (IS_ERR_OR_NULL(max_bw_code)) {
+		rc = PTR_ERR(max_bw_code);
+		pr_err("[%s] debugfs max_bw_code failed, rc=%d\n",
+		       DEBUG_NAME, rc);
+		goto error_remove_dir;
+	}
+
 	root = dir;
 	return rc;
 error_remove_dir:
@@ -463,7 +545,11 @@ struct dp_debug *dp_debug_get(struct device *dev, struct dp_panel *panel,
 	dp_debug->hdisplay = 0;
 	dp_debug->vrefresh = 0;
 
-	dp_debug_init(dp_debug);
+	rc = dp_debug_init(dp_debug);
+	if (rc) {
+		devm_kfree(dev, debug);
+		goto error;
+	}
 
 	return dp_debug;
 error:
@@ -495,5 +581,5 @@ void dp_debug_put(struct dp_debug *dp_debug)
 
 	dp_debug_deinit(dp_debug);
 
-	kzfree(debug);
+	devm_kfree(debug->dev, debug);
 }

@@ -765,20 +765,16 @@ static void process_diagid(uint8_t *buf, uint32_t len,
 			fwd_info_data->diagid_root = ctrl_pkt.diag_id;
 		} else {
 			i = fwd_info_cmd->num_pd - 2;
-			if (i >= 0)
+			if (i >= 0 && i < MAX_PERIPHERAL_UPD)
 				fwd_info_cmd->diagid_user[i] =
 				ctrl_pkt.diag_id;
 
 			i = fwd_info_data->num_pd - 2;
-			if (i >= 0)
+			if (i >= 0 && i < MAX_PERIPHERAL_UPD)
 				fwd_info_data->diagid_user[i] =
 				ctrl_pkt.diag_id;
 		}
 	}
-
-	if (root_str)
-		driver->diag_id_sent[peripheral] = 0;
-
 
 	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 		"diag: peripheral = %d: diag_id string = %s,diag_id = %d\n",
@@ -796,22 +792,24 @@ static void process_diagid(uint8_t *buf, uint32_t len,
 		pr_err("diag: Unable to send diag id ctrl packet to peripheral %d, err: %d\n",
 		       peripheral, err);
 	} else {
-	/*
-	 * Masks (F3, logs and events) will be sent to
-	 * peripheral immediately following feature mask update only
-	 * if diag_id support is not present or
-	 * diag_id support is present and diag_id has been sent to
-	 * peripheral.
-	 * With diag_id being sent now, mask will be updated
-	 * to peripherals.
-	 */
-		driver->diag_id_sent[peripheral] = 1;
+		/*
+		 * Masks (F3, logs and events) will be sent to
+		 * peripheral immediately following feature mask update only
+		 * if diag_id support is not present or
+		 * diag_id support is present and diag_id has been sent to
+		 * peripheral.
+		 * With diag_id being sent now, mask will be updated
+		 * to peripherals.
+		 */
+		if (root_str) {
+			driver->diag_id_sent[peripheral] = 1;
+			diag_send_updates_peripheral(peripheral);
+		}
+		diagfwd_buffers_init(fwd_info_data);
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 		"diag: diag_id sent = %d to peripheral = %d with diag_id = %d for %s :\n",
 			driver->diag_id_sent[peripheral], peripheral,
 			ctrl_pkt.diag_id, process_name);
-		diag_send_updates_peripheral(peripheral);
-		diagfwd_buffers_init(fwd_info_data);
 	}
 }
 

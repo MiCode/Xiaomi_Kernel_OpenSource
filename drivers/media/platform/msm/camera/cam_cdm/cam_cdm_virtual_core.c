@@ -131,8 +131,10 @@ int cam_virtual_cdm_submit_bl(struct cam_hw_info *cdm_hw,
 				cdm_cmd->cmd[i].len, client->data.base_array,
 				client->data.base_array_cnt, core->bl_tag);
 			if (rc) {
-				CAM_ERR(CAM_CDM, "write failed for cnt=%d:%d",
-					i, req->data->cmd_arrary_count);
+				CAM_ERR(CAM_CDM,
+					"write failed for cnt=%d:%d len %u",
+					i, req->data->cmd_arrary_count,
+					cdm_cmd->cmd[i].len);
 				break;
 			}
 		} else {

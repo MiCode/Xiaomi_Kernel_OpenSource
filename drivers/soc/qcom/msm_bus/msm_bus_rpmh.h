@@ -42,6 +42,7 @@ struct link_node {
 /* New types introduced for adhoc topology */
 struct msm_bus_noc_ops {
 	int (*qos_init)(struct msm_bus_node_device_type *dev,
+			struct msm_bus_node_device_type *fabdev,
 			void __iomem *qos_base, uint32_t qos_off,
 			uint32_t qos_delta, uint32_t qos_freq);
 	int (*set_bw)(struct msm_bus_node_device_type *dev,

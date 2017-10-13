@@ -325,18 +325,8 @@
 
 		msm_cam_smmu_secure {
 			compatible = "qcom,msm-cam-smmu-cb";
-			iommus = <&apps_smmu 0x1001 0x0>;
 			label = "cam-secure";
-			cam_secure_iova_mem_map: iova-mem-map {
-				/* Secure IO region is approximately 3.4 GB */
-				iova-mem-region-io {
-					iova-region-name = "io";
-					iova-region-start = <0x7400000>;
-					iova-region-len = <0xd8c00000>;
-					iova-region-id = <0x3>;
-					status = "ok";
-				};
-			};
+			qcom,secure-cb;
 		};
 
 		msm_cam_smmu_fd {
@@ -827,7 +817,6 @@
 			"soc_ahb_clk",
 			"cpas_ahb_clk",
 			"camnoc_axi_clk",
-			"icp_apb_clk",
 			"icp_clk",
 			"icp_clk_src";
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>,
@@ -836,11 +825,10 @@
 				<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 				<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
 				<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
-				<&clock_camcc CAM_CC_ICP_APB_CLK>,
 				<&clock_camcc CAM_CC_ICP_CLK>,
 				<&clock_camcc CAM_CC_ICP_CLK_SRC>;
 
-		clock-rates = <0 0 400000000 0 0 0 0 0 600000000>;
+		clock-rates = <0 0 400000000 0 0 0 0 600000000>;
 		clock-cntl-level = "turbo";
 		fw_name = "CAMERA_ICP.elf";
 		status = "ok";

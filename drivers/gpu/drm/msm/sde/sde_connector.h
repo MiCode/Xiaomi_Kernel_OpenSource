@@ -199,6 +199,26 @@ struct sde_connector_ops {
 	 * Returns: dst_format of display
 	 */
 	enum dsi_pixel_format (*get_dst_format)(void *display);
+
+	/**
+	 * post_kickoff - display to program post kickoff-time features
+	 * @connector: Pointer to drm connector structure
+	 * Returns: Zero on success
+	 */
+	int (*post_kickoff)(struct drm_connector *connector);
+
+	/**
+	 * send_hpd_event - send HPD uevent notification to userspace
+	 * @display: Pointer to private display structure
+	 */
+	void (*send_hpd_event)(void *display);
+
+	/**
+	 * check_status - check status of connected display panel
+	 * @display: Pointer to private display handle
+	 * Returns: positive value for success, negetive or zero for failure
+	 */
+	int (*check_status)(void *display);
 };
 
 /**
@@ -248,6 +268,8 @@ struct sde_connector_evt {
  * @event_table: Array of registered events
  * @event_lock: Lock object for event_table
  * @bl_device: backlight device node
+ * @status_work: work object to perform status checks
+ * @force_panel_dead: variable to trigger forced ESD recovery
  */
 struct sde_connector {
 	struct drm_connector base;
@@ -280,6 +302,8 @@ struct sde_connector {
 	spinlock_t event_lock;
 
 	struct backlight_device *bl_device;
+	struct delayed_work status_work;
+	u32 force_panel_dead;
 };
 
 /**
@@ -566,5 +590,12 @@ static inline bool sde_connector_needs_offset(struct drm_connector *connector)
  */
 int sde_connector_get_dither_cfg(struct drm_connector *conn,
 		struct drm_connector_state *state, void **cfg, size_t *len);
+
+/**
+ * sde_connector_schedule_status_work - manage ESD thread
+ * conn: Pointer to drm_connector struct
+ * @en: flag to start/stop ESD thread
+ */
+void sde_connector_schedule_status_work(struct drm_connector *conn, bool en);
 
 #endif /* _SDE_CONNECTOR_H_ */

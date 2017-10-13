@@ -19,6 +19,8 @@
 #include <linux/sched.h>
 #include <linux/atomic.h>
 #include <linux/ecm_ipa.h>
+#include "../ipa_common_i.h"
+#include "../ipa_v3/ipa_pm.h"
 
 #define DRIVER_NAME "ecm_ipa"
 #define ECM_IPA_IPV4_HDR_NAME "ecm_eth_ipv4"
@@ -120,6 +122,7 @@ enum ecm_ipa_operation {
  * @usb_to_ipa_client: producer client
  * @ipa_rm_resource_name_prod: IPA resource manager producer resource
  * @ipa_rm_resource_name_cons: IPA resource manager consumer resource
+ * @pm_hdl: handle for IPA PM
  */
 struct ecm_ipa_dev {
 	struct net_device *net;
@@ -137,6 +140,7 @@ struct ecm_ipa_dev {
 	enum ipa_client_type usb_to_ipa_client;
 	enum ipa_rm_resource_name ipa_rm_resource_name_prod;
 	enum ipa_rm_resource_name ipa_rm_resource_name_cons;
+	u32 pm_hdl;
 };
 
 static int ecm_ipa_open(struct net_device *net);
@@ -158,6 +162,8 @@ static void ecm_ipa_rm_notify
 static struct net_device_stats *ecm_ipa_get_stats(struct net_device *net);
 static int ecm_ipa_create_rm_resource(struct ecm_ipa_dev *ecm_ipa_ctx);
 static void ecm_ipa_destroy_rm_resource(struct ecm_ipa_dev *ecm_ipa_ctx);
+static int ecm_ipa_register_pm_client(struct ecm_ipa_dev *ecm_ipa_ctx);
+static void ecm_ipa_deregister_pm_client(struct ecm_ipa_dev *ecm_ipa_ctx);
 static int resource_request(struct ecm_ipa_dev *ecm_ipa_ctx);
 static void resource_release(struct ecm_ipa_dev *ecm_ipa_ctx);
 static netdev_tx_t ecm_ipa_start_xmit
@@ -403,27 +409,34 @@ int ecm_ipa_connect(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl, void *priv)
 	ECM_IPA_DEBUG("usb_to_ipa_client = %d\n",
 		      ecm_ipa_ctx->usb_to_ipa_client);
 
-	ecm_ipa_ctx->ipa_rm_resource_name_cons =
-		ipa_get_rm_resource_from_ep(ipa_to_usb_hdl);
-	if (ecm_ipa_ctx->ipa_rm_resource_name_cons < 0) {
-		ECM_IPA_ERROR("Error getting CONS RM resource from handle %d\n",
+	if (ipa_pm_is_used()) {
+		retval = ecm_ipa_register_pm_client(ecm_ipa_ctx);
+	} else {
+		ecm_ipa_ctx->ipa_rm_resource_name_cons =
+			ipa_get_rm_resource_from_ep(ipa_to_usb_hdl);
+		if (ecm_ipa_ctx->ipa_rm_resource_name_cons < 0) {
+			ECM_IPA_ERROR(
+			"Error getting CONS RM resource from handle %d\n",
+				      ecm_ipa_ctx->ipa_rm_resource_name_cons);
+			return -EINVAL;
+		}
+		ECM_IPA_DEBUG("ipa_rm_resource_name_cons = %d\n",
 			      ecm_ipa_ctx->ipa_rm_resource_name_cons);
-		return -EINVAL;
-	}
-	ECM_IPA_DEBUG("ipa_rm_resource_name_cons = %d\n",
-		      ecm_ipa_ctx->ipa_rm_resource_name_cons);
 
-	ecm_ipa_ctx->ipa_rm_resource_name_prod =
-		ipa_get_rm_resource_from_ep(usb_to_ipa_hdl);
-	if (ecm_ipa_ctx->ipa_rm_resource_name_prod < 0) {
-		ECM_IPA_ERROR("Error getting PROD RM resource from handle %d\n",
+		ecm_ipa_ctx->ipa_rm_resource_name_prod =
+			ipa_get_rm_resource_from_ep(usb_to_ipa_hdl);
+		if (ecm_ipa_ctx->ipa_rm_resource_name_prod < 0) {
+			ECM_IPA_ERROR(
+			"Error getting PROD RM resource from handle %d\n",
+				      ecm_ipa_ctx->ipa_rm_resource_name_prod);
+			return -EINVAL;
+		}
+		ECM_IPA_DEBUG("ipa_rm_resource_name_prod = %d\n",
 			      ecm_ipa_ctx->ipa_rm_resource_name_prod);
-		return -EINVAL;
-	}
-	ECM_IPA_DEBUG("ipa_rm_resource_name_prod = %d\n",
-		      ecm_ipa_ctx->ipa_rm_resource_name_prod);
 
-	retval = ecm_ipa_create_rm_resource(ecm_ipa_ctx);
+		retval = ecm_ipa_create_rm_resource(ecm_ipa_ctx);
+	}
+
 	if (retval) {
 		ECM_IPA_ERROR("fail on RM create\n");
 		goto fail_create_rm;
@@ -488,7 +501,10 @@ int ecm_ipa_connect(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl, void *priv)
 fail:
 	ecm_ipa_deregister_properties();
 fail_create_rm:
-	ecm_ipa_destroy_rm_resource(ecm_ipa_ctx);
+	if (ipa_pm_is_used())
+		ecm_ipa_deregister_pm_client(ecm_ipa_ctx);
+	else
+		ecm_ipa_destroy_rm_resource(ecm_ipa_ctx);
 	return retval;
 }
 EXPORT_SYMBOL(ecm_ipa_connect);
@@ -746,7 +762,10 @@ int ecm_ipa_disconnect(void *priv)
 	netif_stop_queue(ecm_ipa_ctx->net);
 	ECM_IPA_DEBUG("queue stopped\n");
 
-	ecm_ipa_destroy_rm_resource(ecm_ipa_ctx);
+	if (ipa_pm_is_used())
+		ecm_ipa_deregister_pm_client(ecm_ipa_ctx);
+	else
+		ecm_ipa_destroy_rm_resource(ecm_ipa_ctx);
 
 	outstanding_dropped_pkts =
 		atomic_read(&ecm_ipa_ctx->outstanding_pkts);
@@ -1117,15 +1136,65 @@ static void ecm_ipa_destroy_rm_resource(struct ecm_ipa_dev *ecm_ipa_ctx)
 	ECM_IPA_LOG_EXIT();
 }
 
+static void ecm_ipa_pm_cb(void *p, enum ipa_pm_cb_event event)
+{
+	struct ecm_ipa_dev *ecm_ipa_ctx = p;
+
+	ECM_IPA_LOG_ENTRY();
+	if (event != IPA_PM_CLIENT_ACTIVATED) {
+		ECM_IPA_ERROR("unexpected event %d\n", event);
+		WARN_ON(1);
+		return;
+	}
+
+	if (netif_queue_stopped(ecm_ipa_ctx->net)) {
+		ECM_IPA_DEBUG("Resource Granted - starting queue\n");
+		netif_start_queue(ecm_ipa_ctx->net);
+	}
+	ECM_IPA_LOG_EXIT();
+}
+
+static int ecm_ipa_register_pm_client(struct ecm_ipa_dev *ecm_ipa_ctx)
+{
+	int result;
+	struct ipa_pm_register_params pm_reg;
+
+	memset(&pm_reg, 0, sizeof(pm_reg));
+	pm_reg.name = ecm_ipa_ctx->net->name;
+	pm_reg.user_data = ecm_ipa_ctx;
+	pm_reg.callback = ecm_ipa_pm_cb;
+	pm_reg.group = IPA_PM_GROUP_APPS;
+	result = ipa_pm_register(&pm_reg, &ecm_ipa_ctx->pm_hdl);
+	if (result) {
+		ECM_IPA_ERROR("failed to create IPA PM client %d\n", result);
+		return result;
+	}
+	return 0;
+}
+
+static void ecm_ipa_deregister_pm_client(struct ecm_ipa_dev *ecm_ipa_ctx)
+{
+	ipa_pm_deactivate_sync(ecm_ipa_ctx->pm_hdl);
+	ipa_pm_deregister(ecm_ipa_ctx->pm_hdl);
+	ecm_ipa_ctx->pm_hdl = ~0;
+}
+
 static int resource_request(struct ecm_ipa_dev *ecm_ipa_ctx)
 {
+	if (ipa_pm_is_used())
+		return ipa_pm_activate(ecm_ipa_ctx->pm_hdl);
+
 	return ipa_rm_inactivity_timer_request_resource(
 		IPA_RM_RESOURCE_STD_ECM_PROD);
 }
 
 static void resource_release(struct ecm_ipa_dev *ecm_ipa_ctx)
 {
-	ipa_rm_inactivity_timer_release_resource(IPA_RM_RESOURCE_STD_ECM_PROD);
+	if (ipa_pm_is_used())
+		ipa_pm_deferred_deactivate(ecm_ipa_ctx->pm_hdl);
+	else
+		ipa_rm_inactivity_timer_release_resource(
+			IPA_RM_RESOURCE_STD_ECM_PROD);
 }
 
 /**

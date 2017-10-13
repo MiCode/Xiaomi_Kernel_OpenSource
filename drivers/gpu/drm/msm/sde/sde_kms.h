@@ -20,6 +20,7 @@
 #define __SDE_KMS_H__
 
 #include <linux/msm_ion.h>
+#include <linux/pm_domain.h>
 
 #include "msm_drv.h"
 #include "msm_kms.h"
@@ -107,6 +108,9 @@
 #define SDE_KMS_OPS_CLEANUP_PLANE_FB                       BIT(2)
 #define SDE_KMS_OPS_PREPARE_PLANE_FB                       BIT(3)
 
+/* ESD status check interval in miliseconds */
+#define STATUS_CHECK_INTERVAL_MS 5000
+
 /*
  * struct sde_irq_callback - IRQ callback handlers
  * @list: list to callback
@@ -172,6 +176,9 @@ struct sde_kms {
 	struct drm_device *dev;
 	int core_rev;
 	struct sde_mdss_cfg *catalog;
+
+	struct generic_pm_domain genpd;
+	bool genpd_init;
 
 	struct msm_gem_address_space *aspace[MSM_SMMU_DOMAIN_MAX];
 	struct sde_power_client *core_client;

@@ -100,6 +100,7 @@ enum sde_hw_blk_type {
 	SDE_HW_BLK_SSPP,
 	SDE_HW_BLK_LM,
 	SDE_HW_BLK_DSPP,
+	SDE_HW_BLK_DS,
 	SDE_HW_BLK_CTL,
 	SDE_HW_BLK_CDM,
 	SDE_HW_BLK_PINGPONG,
@@ -174,6 +175,13 @@ enum sde_dspp {
 	DSPP_2,
 	DSPP_3,
 	DSPP_MAX
+};
+
+enum sde_ds {
+	DS_TOP,
+	DS_0,
+	DS_1,
+	DS_MAX
 };
 
 enum sde_ctl {
@@ -489,6 +497,7 @@ struct sde_mdss_color {
 #define SDE_DBG_MASK_VBIF     (1 << 10)
 #define SDE_DBG_MASK_DSC      (1 << 11)
 #define SDE_DBG_MASK_ROT      (1 << 12)
+#define SDE_DBG_MASK_DS       (1 << 13)
 
 /**
  * struct sde_hw_cp_cfg: hardware dspp/lm feature payload.

@@ -2060,7 +2060,7 @@ static int clk_osm_get_lut(struct platform_device *pdev,
 			last_entry = true;
 		}
 	}
-	fmax_temp[k] = abs_fmax;
+	fmax_temp[k++] = abs_fmax;
 
 	osm_clks_init[c->cluster_num].rate_max = devm_kzalloc(&pdev->dev,
 						 k * sizeof(unsigned long),

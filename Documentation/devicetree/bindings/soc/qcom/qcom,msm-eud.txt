@@ -10,6 +10,10 @@ Required properties:
  - interrupts:  Interrupt number
  - reg: Should be address and size of EUD register space
  - reg-names: Should be "eud_base"
+ - clocks: a list of phandles to the PHY clocks. Use as per
+   Documentation/devicetree/bindings/clock/clock-bindings.txt
+ - clock-names: Names of the clocks in 1-1 correspondence with
+   the "clocks" property.
 
 Driver notifies clients via extcon for VBUS spoof attach/detach
 and charger enable/disable events. Clients registered for these
@@ -23,6 +27,8 @@ An example for EUD device node:
 		interrupts = <GIC_SPI 492 IRQ_TYPE_LEVEL_HIGH>;
 		reg = <0x88e0000 0x4000>;
 		reg-names = "eud_base";
+		clocks = <&clock_gcc GCC_USB_PHY_CFG_AHB2PHY_CLK>;
+		clock-names = "cfg_ahb_clk";
 	};
 
 An example for EUD extcon client:

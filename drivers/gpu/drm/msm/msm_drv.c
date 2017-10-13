@@ -57,53 +57,6 @@
 #define MSM_VERSION_MINOR	2
 #define MSM_VERSION_PATCHLEVEL	0
 
-#define TEARDOWN_DEADLOCK_RETRY_MAX 5
-#define HPD_STRING_SIZE 30
-
-static void msm_drm_helper_hotplug_event(struct drm_device *dev)
-{
-	struct drm_connector *connector;
-	char name[HPD_STRING_SIZE], status[HPD_STRING_SIZE];
-	char const *connector_name;
-	char *envp[3];
-
-	if (!dev) {
-		DRM_ERROR("hotplug_event failed, invalid input\n");
-		return;
-	}
-
-	if (!dev->mode_config.poll_enabled)
-		return;
-
-	mutex_lock(&dev->mode_config.mutex);
-	drm_for_each_connector(connector, dev) {
-		/* Only handle HPD capable connectors. */
-		if (!(connector->polled & DRM_CONNECTOR_POLL_HPD))
-			continue;
-
-		connector->status = connector->funcs->detect(connector, false);
-
-		if (connector->name)
-			connector_name = connector->name;
-		else
-			connector_name = "unknown";
-
-		snprintf(name, HPD_STRING_SIZE, "name=%s", connector_name);
-
-		snprintf(status, HPD_STRING_SIZE, "status=%s",
-			drm_get_connector_status_name(connector->status));
-
-		DRM_DEBUG("generating hotplug event [%s]: [%s]\n",
-			name, status);
-		envp[0] = name;
-		envp[1] = status;
-		envp[2] = NULL;
-		kobject_uevent_env(&dev->primary->kdev->kobj, KOBJ_CHANGE,
-				envp);
-	}
-	mutex_unlock(&dev->mode_config.mutex);
-}
-
 static void msm_fb_output_poll_changed(struct drm_device *dev)
 {
 	struct msm_drm_private *priv = NULL;
@@ -117,8 +70,6 @@ static void msm_fb_output_poll_changed(struct drm_device *dev)
 
 	if (priv->fbdev)
 		drm_fb_helper_hotplug_event(priv->fbdev);
-	else
-		msm_drm_helper_hotplug_event(dev);
 }
 
 /**
@@ -1416,7 +1367,9 @@ void msm_mode_object_event_notify(struct drm_mode_object *obj,
 			continue;
 		len = event->length + sizeof(struct drm_msm_event_resp);
 		if (node->base.file_priv->event_space < len) {
-			DRM_ERROR("Insufficient space to notify\n");
+			DRM_ERROR("Insufficient space %d for event %x len %d\n",
+				node->base.file_priv->event_space, event->type,
+				len);
 			continue;
 		}
 		notify = kzalloc(len, GFP_ATOMIC);

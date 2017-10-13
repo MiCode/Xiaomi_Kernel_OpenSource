@@ -396,6 +396,7 @@ struct sde_rot_bus_data_type {
  * @pixel_per_clk: rotator hardware performance in pixel for clock
  * @fudge_factor: fudge factor for clock calculation
  * @overhead: software overhead for offline rotation in msec
+ * @min_rot_clk: minimum rotator clock rate
  * @sbuf_ctx: pointer to sbuf session context
  * @ops_xxx: function pointers of rotator HAL layer
  * @hw_data: private handle of rotator HAL layer
@@ -443,6 +444,7 @@ struct sde_rot_mgr {
 	struct sde_mult_factor pixel_per_clk;
 	struct sde_mult_factor fudge_factor;
 	struct sde_mult_factor overhead;
+	unsigned long min_rot_clk;
 
 	struct sde_rot_file_private *sbuf_ctx;
 
@@ -598,6 +600,17 @@ void sde_rotator_session_close(struct sde_rot_mgr *mgr,
  * return: 0 if success; error code otherwise
  */
 int sde_rotator_session_config(struct sde_rot_mgr *mgr,
+	struct sde_rot_file_private *private,
+	struct sde_rotation_config *config);
+
+/*
+ * sde_rotator_session_validate - validate session configuration
+ * @mgr: Pointer to rotator manager
+ * @private: Pointer to per file session
+ * @config: Pointer to rotator configuration
+ * return: 0 if success; error code otherwise
+ */
+int sde_rotator_session_validate(struct sde_rot_mgr *mgr,
 	struct sde_rot_file_private *private,
 	struct sde_rotation_config *config);
 

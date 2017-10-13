@@ -59,6 +59,8 @@
 #define SPMI_OWNERSHIP_TABLE_REG(N)	(0x0700 + (4 * (N)))
 #define SPMI_OWNERSHIP_PERIPH2OWNER(X)	((X) & 0x7)
 
+#define SPMI_PROTOCOL_IRQ_STATUS	0x6000
+
 /* Channel Status fields */
 enum pmic_arb_chnl_status {
 	PMIC_ARB_STATUS_DONE	= BIT(0),
@@ -148,6 +150,8 @@ struct apid_data {
  * @ver_ops:		version dependent operations.
  * @ppid_to_apid	in-memory copy of PPID -> channel (APID) mapping table.
  *			v2 only.
+ * @ahb_bus_wa:		Use AHB bus workaround to avoid write transaction
+ *			corruption on some PMIC arbiter v5 platforms.
  */
 struct spmi_pmic_arb {
 	void __iomem		*rd_base;
@@ -172,6 +176,7 @@ struct spmi_pmic_arb {
 	u16			*ppid_to_apid;
 	u16			last_apid;
 	struct apid_data	apid_data[PMIC_ARB_MAX_PERIPHS];
+	bool			ahb_bus_wa;
 };
 
 /**
@@ -217,6 +222,16 @@ struct pmic_arb_ver_ops {
 static inline void pmic_arb_base_write(struct spmi_pmic_arb *pa,
 				       u32 offset, u32 val)
 {
+	if (pa->ahb_bus_wa) {
+		/* AHB bus register dummy read for workaround. */
+		readl_relaxed(pa->cnfg + SPMI_PROTOCOL_IRQ_STATUS);
+		/*
+		 * Ensure that the read completes before initiating the
+		 * subsequent register write.
+		 */
+		mb();
+	}
+
 	writel_relaxed(val, pa->wr_base + offset);
 }
 
@@ -1342,6 +1357,9 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 	}
 
 	pa->ee = ee;
+
+	pa->ahb_bus_wa = of_property_read_bool(pdev->dev.of_node,
+					"qcom,enable-ahb-bus-workaround");
 
 	pa->mapping_table = devm_kcalloc(&ctrl->dev, PMIC_ARB_MAX_PERIPHS - 1,
 					sizeof(*pa->mapping_table), GFP_KERNEL);

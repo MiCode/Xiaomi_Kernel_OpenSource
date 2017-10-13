@@ -36,6 +36,7 @@
 struct memlat_node {
 	unsigned int ratio_ceil;
 	bool mon_started;
+	bool already_zero;
 	struct list_head list;
 	void *orig_data;
 	struct memlat_hwmon *hw;
@@ -224,7 +225,7 @@ static void gov_stop(struct devfreq *df)
 static int devfreq_memlat_get_freq(struct devfreq *df,
 					unsigned long *freq)
 {
-	int i, lat_dev;
+	int i, lat_dev = 0;
 	struct memlat_node *node = df->data;
 	struct memlat_hwmon *hw = node->hw;
 	unsigned long max_freq = 0;
@@ -238,15 +239,15 @@ static int devfreq_memlat_get_freq(struct devfreq *df,
 		if (hw->core_stats[i].mem_count)
 			ratio /= hw->core_stats[i].mem_count;
 
+		if (!hw->core_stats[i].inst_count
+		    || !hw->core_stats[i].freq)
+			continue;
+
 		trace_memlat_dev_meas(dev_name(df->dev.parent),
 					hw->core_stats[i].id,
 					hw->core_stats[i].inst_count,
 					hw->core_stats[i].mem_count,
 					hw->core_stats[i].freq, ratio);
-
-		if (!hw->core_stats[i].inst_count
-		    || !hw->core_stats[i].freq)
-			continue;
 
 		if (ratio <= node->ratio_ceil
 		    && hw->core_stats[i].freq > max_freq) {
@@ -255,8 +256,10 @@ static int devfreq_memlat_get_freq(struct devfreq *df,
 		}
 	}
 
-	if (max_freq) {
+	if (max_freq)
 		max_freq = core_to_dev_freq(node, max_freq);
+
+	if (max_freq || !node->already_zero) {
 		trace_memlat_dev_update(dev_name(df->dev.parent),
 					hw->core_stats[lat_dev].id,
 					hw->core_stats[lat_dev].inst_count,
@@ -264,6 +267,8 @@ static int devfreq_memlat_get_freq(struct devfreq *df,
 					hw->core_stats[lat_dev].freq,
 					max_freq);
 	}
+
+	node->already_zero = !max_freq;
 
 	*freq = max_freq;
 	return 0;

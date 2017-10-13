@@ -1711,6 +1711,19 @@ static struct task_struct *pick_highest_pushable_task(struct rq *rq, int cpu)
 	return NULL;
 }
 
+#ifdef CONFIG_SCHED_CORE_ROTATE
+static int rotate_cpu_start;
+static DEFINE_SPINLOCK(rotate_lock);
+static unsigned long avoid_prev_cpu_last;
+
+static struct find_first_cpu_bit_env first_cpu_bit_env = {
+	.avoid_prev_cpu_last = &avoid_prev_cpu_last,
+	.rotate_cpu_start = &rotate_cpu_start,
+	.interval = HZ,
+	.rotate_lock = &rotate_lock,
+};
+#endif
+
 static DEFINE_PER_CPU(cpumask_var_t, local_cpu_mask);
 
 static int find_lowest_rq(struct task_struct *task)
@@ -1719,17 +1732,24 @@ static int find_lowest_rq(struct task_struct *task)
 	struct sched_group *sg, *sg_target;
 	struct cpumask *lowest_mask = this_cpu_cpumask_var_ptr(local_cpu_mask);
 	int this_cpu = smp_processor_id();
-	int cpu, best_cpu;
+	int cpu = -1, best_cpu;
 	struct cpumask search_cpu, backup_search_cpu;
 	unsigned long cpu_capacity;
 	unsigned long best_capacity;
 	unsigned long util, best_cpu_util = ULONG_MAX;
+	unsigned long best_cpu_util_cum = ULONG_MAX;
+	unsigned long util_cum;
+	unsigned long tutil = task_util(task);
 	int best_cpu_idle_idx = INT_MAX;
 	int cpu_idle_idx = -1;
-	long new_util_cum;
-	int max_spare_cap_cpu = -1;
-	long max_spare_cap = -LONG_MAX;
 	bool placement_boost;
+#ifdef CONFIG_SCHED_CORE_ROTATE
+	bool do_rotate = false;
+	bool avoid_prev_cpu = false;
+#else
+#define do_rotate false
+#define avoid_prev_cpu false
+#endif
 
 	/* Make sure the mask is initialized first */
 	if (unlikely(!lowest_mask))
@@ -1761,6 +1781,10 @@ static int find_lowest_rq(struct task_struct *task)
 
 		sg = sd->groups;
 		do {
+			if (!cpumask_intersects(lowest_mask,
+						sched_group_cpus(sg)))
+				continue;
+
 			cpu = group_first_cpu(sg);
 			cpu_capacity = capacity_orig_of(cpu);
 
@@ -1778,68 +1802,98 @@ static int find_lowest_rq(struct task_struct *task)
 		} while (sg = sg->next, sg != sd->groups);
 		rcu_read_unlock();
 
-		cpumask_and(&search_cpu, lowest_mask,
-			    sched_group_cpus(sg_target));
-		cpumask_copy(&backup_search_cpu, lowest_mask);
-		cpumask_andnot(&backup_search_cpu, &backup_search_cpu,
-			       &search_cpu);
+		if (sg_target) {
+			cpumask_and(&search_cpu, lowest_mask,
+				    sched_group_cpus(sg_target));
+			cpumask_copy(&backup_search_cpu, lowest_mask);
+			cpumask_andnot(&backup_search_cpu, &backup_search_cpu,
+				       &search_cpu);
+
+#ifdef CONFIG_SCHED_CORE_ROTATE
+			cpu = find_first_cpu_bit(task, &search_cpu, sg_target,
+						 &avoid_prev_cpu, &do_rotate,
+						 &first_cpu_bit_env);
+#endif
+		} else {
+			cpumask_copy(&search_cpu, lowest_mask);
+			cpumask_clear(&backup_search_cpu);
+			cpu = -1;
+		}
 
 retry:
-		for_each_cpu(cpu, &search_cpu) {
+		while ((cpu = cpumask_next(cpu, &search_cpu)) < nr_cpu_ids) {
+			cpumask_clear_cpu(cpu, &search_cpu);
+
 			/*
 			 * Don't use capcity_curr_of() since it will
 			 * double count rt task load.
 			 */
 			util = cpu_util(cpu);
-			if (!cpu_overutilized(cpu)) {
-				if (cpu_isolated(cpu))
+
+			if (avoid_prev_cpu && cpu == task_cpu(task))
+				continue;
+
+			if (__cpu_overutilized(cpu, util + tutil))
+				continue;
+
+			if (cpu_isolated(cpu))
+				continue;
+
+			if (sched_cpu_high_irqload(cpu))
+				continue;
+
+			/* Find the least loaded CPU */
+			if (util > best_cpu_util)
+				continue;
+
+			/*
+			 * If the previous CPU has same load, keep it as
+			 * best_cpu.
+			 */
+			if (best_cpu_util == util && best_cpu == task_cpu(task))
+				continue;
+
+			/*
+			 * If candidate CPU is the previous CPU, select it.
+			 * Otherwise, if its load is same with best_cpu and in
+			 * a shallower C-state, select it.  If all above
+			 * conditions are same, select the least cumulative
+			 * window demand CPU.
+			 */
+			if (sysctl_sched_cstate_aware)
+				cpu_idle_idx = idle_get_state_idx(cpu_rq(cpu));
+
+			util_cum = cpu_util_cum(cpu, 0);
+			if (cpu != task_cpu(task) && best_cpu_util == util) {
+				if (best_cpu_idle_idx < cpu_idle_idx)
 					continue;
 
-				if (sched_cpu_high_irqload(cpu))
+				if (best_cpu_idle_idx == cpu_idle_idx &&
+				    best_cpu_util_cum < util_cum)
 					continue;
-
-				new_util_cum = cpu_util_cum(cpu, 0);
-
-				if (!task_in_cum_window_demand(cpu_rq(cpu),
-							       task))
-					new_util_cum += task_util(task);
-
-				trace_sched_cpu_util(task, cpu, task_util(task),
-						     0, new_util_cum, 0);
-
-				if (sysctl_sched_cstate_aware)
-					cpu_idle_idx =
-					     idle_get_state_idx(cpu_rq(cpu));
-
-				if (add_capacity_margin(new_util_cum, cpu) <
-				    capacity_curr_of(cpu)) {
-					if (cpu_idle_idx < best_cpu_idle_idx ||
-					    (best_cpu != task_cpu(task) &&
-					     (best_cpu_idle_idx ==
-					      cpu_idle_idx &&
-					      best_cpu_util > util))) {
-						best_cpu_util = util;
-						best_cpu = cpu;
-						best_cpu_idle_idx =
-						    cpu_idle_idx;
-					}
-				} else {
-					long spare_cap = capacity_of(cpu) -
-							 util;
-
-					if (spare_cap > 0 &&
-					    max_spare_cap < spare_cap) {
-						max_spare_cap_cpu = cpu;
-						max_spare_cap = spare_cap;
-					}
-				}
 			}
+
+			best_cpu_idle_idx = cpu_idle_idx;
+			best_cpu_util_cum = util_cum;
+			best_cpu_util = util;
+			best_cpu = cpu;
 		}
+
+#ifdef CONFIG_SCHED_CORE_ROTATE
+		if (do_rotate) {
+			/*
+			 * We started iteration somewhere in the middle of
+			 * cpumask.  Iterate once again from bit 0 to the
+			 * previous starting point bit.
+			 */
+			do_rotate = false;
+			cpu = -1;
+			goto retry;
+		}
+#endif
 
 		if (best_cpu != -1) {
 			return best_cpu;
-		} else if (max_spare_cap_cpu != -1) {
-			return max_spare_cap_cpu;
 		} else if (!cpumask_empty(&backup_search_cpu)) {
 			cpumask_copy(&search_cpu, &backup_search_cpu);
 			cpumask_clear(&backup_search_cpu);

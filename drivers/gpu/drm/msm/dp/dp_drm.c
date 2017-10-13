@@ -48,7 +48,15 @@ static void convert_to_dp_mode(const struct drm_display_mode *drm_mode,
 
 	dp_mode->timing.v_front_porch = drm_mode->vsync_start -
 					 drm_mode->vdisplay;
-	dp_mode->timing.bpp = dp->connector->display_info.bpc * num_components;
+
+	if (dp->is_video_test(dp))
+		dp_mode->timing.bpp = dp->get_test_bpp(dp);
+	else
+		dp_mode->timing.bpp = dp->connector->display_info.bpc *
+		num_components;
+
+	if (!dp_mode->timing.bpp)
+		dp_mode->timing.bpp = 24;
 
 	dp_mode->timing.refresh_rate = drm_mode->vrefresh;
 
@@ -375,26 +383,65 @@ enum drm_connector_status dp_connector_detect(struct drm_connector *conn,
 	return status;
 }
 
+void dp_connector_send_hpd_event(void *display)
+{
+	struct dp_display *dp;
+
+	if (!display) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	dp = display;
+
+	if (dp->send_hpd_event)
+		dp->send_hpd_event(dp);
+}
+
 int dp_connector_get_modes(struct drm_connector *connector,
 		void *display)
 {
 	int rc = 0;
 	struct dp_display *dp;
+	struct dp_display_mode *dp_mode = NULL;
+	struct drm_display_mode *m, drm_mode;
 
 	if (!connector || !display)
-		return -EINVAL;
+		return 0;
 
 	dp = display;
+
+	dp_mode = kzalloc(sizeof(*dp_mode),  GFP_KERNEL);
+	if (!dp_mode)
+		return 0;
+
 	/* pluggable case assumes EDID is read when HPD */
 	if (dp->is_connected) {
-		rc = dp->get_modes(dp);
+		rc = dp->get_modes(dp, dp_mode);
 		if (!rc)
 			pr_err("failed to get DP sink modes, rc=%d\n", rc);
+
+		if (dp_mode->timing.pixel_clk_khz) { /* valid DP mode */
+			memset(&drm_mode, 0x0, sizeof(drm_mode));
+			convert_to_drm_mode(dp_mode, &drm_mode);
+			m = drm_mode_duplicate(connector->dev, &drm_mode);
+			if (!m) {
+				pr_err("failed to add mode %ux%u\n",
+				       drm_mode.hdisplay,
+				       drm_mode.vdisplay);
+				kfree(dp_mode);
+				return 0;
+			}
+			m->width_mm = connector->display_info.width_mm;
+			m->height_mm = connector->display_info.height_mm;
+			drm_mode_probed_add(connector, m);
+		}
 	} else {
 		pr_err("No sink connected\n");
 	}
+	kfree(dp_mode);
 
-	return 0;
+	return rc;
 }
 
 int dp_drm_bridge_init(void *data, struct drm_encoder *encoder)
@@ -467,18 +514,19 @@ enum drm_mode_status dp_connector_mode_valid(struct drm_connector *connector,
 	dp_disp = display;
 	debug = dp_disp->get_debug(dp_disp);
 
-	if (debug->debug_en) {
-		if (mode->hdisplay == debug->hdisplay &&
-				mode->vdisplay == debug->vdisplay &&
-				mode->vrefresh == debug->vrefresh &&
-				mode->clock <= dp_disp->max_pclk_khz)
-			return MODE_OK;
-		else
-			return MODE_ERROR;
-	} else {
-		if (mode->clock > dp_disp->max_pclk_khz)
-			return MODE_BAD;
-		else
-			return MODE_OK;
-	}
+	mode->vrefresh = drm_mode_vrefresh(mode);
+
+	if (mode->vrefresh > 60)
+		return MODE_BAD;
+
+	if (mode->clock > dp_disp->max_pclk_khz)
+		return MODE_BAD;
+
+	if (debug->debug_en && (mode->hdisplay != debug->hdisplay ||
+			mode->vdisplay != debug->vdisplay ||
+			mode->vrefresh != debug->vrefresh ||
+			mode->picture_aspect_ratio != debug->aspect_ratio))
+		return MODE_BAD;
+
+	return MODE_OK;
 }

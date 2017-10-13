@@ -8,6 +8,7 @@
 #define CAM_SENSOR_PROBE_CMD   (CAM_COMMON_OPCODE_MAX + 1)
 #define CAM_FLASH_MAX_LED_TRIGGERS 3
 #define MAX_OIS_NAME_SIZE 32
+#define CAM_CSIPHY_SECURE_MODE_ENABLED 1
 /**
  * struct cam_sensor_query_cap - capabilities info for sensor
  *
@@ -316,15 +317,15 @@ struct cam_cmd_unconditional_wait {
 
 /**
  * cam_csiphy_info: Provides cmdbuffer structre
- * @lane_mask     :  Lane mask details
- * @lane_assign   :  Lane sensor will be using
- * @csiphy_3phase :  Total number of lanes
- * @combo_mode    :  Info regarding combo_mode is enable / disable
- * @lane_cnt      :  Total number of lanes
- * @reserved
- * @3phase        :  Details whether 3Phase / 2Phase operation
- * @settle_time   :  Settling time in ms
- * @data_rate     :  Data rate
+ * @lane_mask     : Lane mask details
+ * @lane_assign   : Lane sensor will be using
+ * @csiphy_3phase : Total number of lanes
+ * @combo_mode    : Info regarding combo_mode is enable / disable
+ * @lane_cnt      : Total number of lanes
+ * @secure_mode   : Secure mode flag to enable / disable
+ * @3phase        : Details whether 3Phase / 2Phase operation
+ * @settle_time   : Settling time in ms
+ * @data_rate     : Data rate
  *
  */
 struct cam_csiphy_info {
@@ -333,7 +334,7 @@ struct cam_csiphy_info {
 	uint8_t     csiphy_3phase;
 	uint8_t     combo_mode;
 	uint8_t     lane_cnt;
-	uint8_t     reserved;
+	uint8_t     secure_mode;
 	uint64_t    settle_time;
 	uint64_t    data_rate;
 } __attribute__((packed));

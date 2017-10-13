@@ -9,7 +9,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
 #include <linux/atomic.h>
 #include <linux/errno.h>
 #include <linux/etherdevice.h>
@@ -27,6 +26,8 @@
 #include <linux/random.h>
 #include <linux/rndis_ipa.h>
 #include <linux/workqueue.h>
+#include "../ipa_common_i.h"
+#include "../ipa_v3/ipa_pm.h"
 
 #define CREATE_TRACE_POINTS
 #include "rndis_ipa_trace.h"
@@ -160,6 +161,7 @@ enum rndis_ipa_operation {
  * state is changed to RNDIS_IPA_CONNECTED_AND_UP
  * @xmit_error_delayed_work: work item for cases where IPA driver Tx fails
  * @state_lock: used to protect the state variable.
+ * @pm_hdl: handle for IPA PM framework
  */
 struct rndis_ipa_dev {
 	struct net_device *net;
@@ -188,6 +190,7 @@ struct rndis_ipa_dev {
 	void (*device_ready_notify)(void);
 	struct delayed_work xmit_error_delayed_work;
 	spinlock_t state_lock; /* Spinlock for the state variable.*/
+	u32 pm_hdl;
 };
 
 /**
@@ -233,6 +236,8 @@ static void rndis_ipa_rm_notify
 	unsigned long data);
 static int rndis_ipa_create_rm_resource(struct rndis_ipa_dev *rndis_ipa_ctx);
 static int rndis_ipa_destroy_rm_resource(struct rndis_ipa_dev *rndis_ipa_ctx);
+static int rndis_ipa_register_pm_client(struct rndis_ipa_dev *rndis_ipa_ctx);
+static int rndis_ipa_deregister_pm_client(struct rndis_ipa_dev *rndis_ipa_ctx);
 static bool rx_filter(struct sk_buff *skb);
 static bool tx_filter(struct sk_buff *skb);
 static bool rm_enabled(struct rndis_ipa_dev *rndis_ipa_ctx);
@@ -701,7 +706,10 @@ int rndis_ipa_pipe_connect_notify(
 		return -EINVAL;
 	}
 
-	result = rndis_ipa_create_rm_resource(rndis_ipa_ctx);
+	if (ipa_pm_is_used())
+		result = rndis_ipa_register_pm_client(rndis_ipa_ctx);
+	else
+		result = rndis_ipa_create_rm_resource(rndis_ipa_ctx);
 	if (result) {
 		RNDIS_IPA_ERROR("fail on RM create\n");
 		goto fail_create_rm;
@@ -763,7 +771,10 @@ int rndis_ipa_pipe_connect_notify(
 	return 0;
 
 fail:
-	rndis_ipa_destroy_rm_resource(rndis_ipa_ctx);
+	if (ipa_pm_is_used())
+		rndis_ipa_deregister_pm_client(rndis_ipa_ctx);
+	else
+		rndis_ipa_destroy_rm_resource(rndis_ipa_ctx);
 fail_create_rm:
 	return result;
 }
@@ -1235,7 +1246,10 @@ int rndis_ipa_pipe_disconnect_notify(void *private)
 	rndis_ipa_ctx->net->stats.tx_dropped += outstanding_dropped_pkts;
 	atomic_set(&rndis_ipa_ctx->outstanding_pkts, 0);
 
-	retval = rndis_ipa_destroy_rm_resource(rndis_ipa_ctx);
+	if (ipa_pm_is_used())
+		retval = rndis_ipa_deregister_pm_client(rndis_ipa_ctx);
+	else
+		retval = rndis_ipa_destroy_rm_resource(rndis_ipa_ctx);
 	if (retval) {
 		RNDIS_IPA_ERROR("Fail to clean RM\n");
 		return retval;
@@ -1772,6 +1786,29 @@ fail_rm_create:
 	return result;
 }
 
+static void rndis_ipa_pm_cb(void *p, enum ipa_pm_cb_event event)
+{
+	struct rndis_ipa_dev *rndis_ipa_ctx = p;
+
+	RNDIS_IPA_LOG_ENTRY();
+
+	if (event != IPA_PM_CLIENT_ACTIVATED) {
+		RNDIS_IPA_ERROR("unexpected event %d\n", event);
+		WARN_ON(1);
+		return;
+	}
+	RNDIS_IPA_DEBUG("Resource Granted\n");
+
+	if (netif_queue_stopped(rndis_ipa_ctx->net)) {
+		RNDIS_IPA_DEBUG("starting queue\n");
+		netif_start_queue(rndis_ipa_ctx->net);
+	} else {
+		RNDIS_IPA_DEBUG("queue already awake\n");
+	}
+
+	RNDIS_IPA_LOG_EXIT();
+}
+
 /**
  * rndis_ipa_destroy_rm_resource() - delete the dependency and destroy
  * the resource done on rndis_ipa_create_rm_resource()
@@ -1831,6 +1868,33 @@ bail:
 	return result;
 }
 
+static int rndis_ipa_register_pm_client(struct rndis_ipa_dev *rndis_ipa_ctx)
+{
+	int result;
+	struct ipa_pm_register_params pm_reg;
+
+	memset(&pm_reg, 0, sizeof(pm_reg));
+
+	pm_reg.name = rndis_ipa_ctx->net->name;
+	pm_reg.user_data = rndis_ipa_ctx;
+	pm_reg.callback = rndis_ipa_pm_cb;
+	pm_reg.group = IPA_PM_GROUP_APPS;
+	result = ipa_pm_register(&pm_reg, &rndis_ipa_ctx->pm_hdl);
+	if (result) {
+		RNDIS_IPA_ERROR("failed to create IPA PM client %d\n", result);
+		return result;
+	}
+	return 0;
+}
+
+static int rndis_ipa_deregister_pm_client(struct rndis_ipa_dev *rndis_ipa_ctx)
+{
+	ipa_pm_deactivate_sync(rndis_ipa_ctx->pm_hdl);
+	ipa_pm_deregister(rndis_ipa_ctx->pm_hdl);
+	rndis_ipa_ctx->pm_hdl = ~0;
+	return 0;
+}
+
 /**
  * resource_request() - request for the Netdev resource
  * @rndis_ipa_ctx: main driver context
@@ -1849,11 +1913,14 @@ static int resource_request(struct rndis_ipa_dev *rndis_ipa_ctx)
 	int result = 0;
 
 	if (!rm_enabled(rndis_ipa_ctx))
-		goto out;
-	result = ipa_rm_inactivity_timer_request_resource(
+		return result;
+
+	if (ipa_pm_is_used())
+		return ipa_pm_activate(rndis_ipa_ctx->pm_hdl);
+
+	return ipa_rm_inactivity_timer_request_resource(
 			DRV_RESOURCE_ID);
-out:
-	return result;
+
 }
 
 /**
@@ -1868,9 +1935,12 @@ out:
 static void resource_release(struct rndis_ipa_dev *rndis_ipa_ctx)
 {
 	if (!rm_enabled(rndis_ipa_ctx))
-		goto out;
-	ipa_rm_inactivity_timer_release_resource(DRV_RESOURCE_ID);
-out:
+		return;
+	if (ipa_pm_is_used())
+		ipa_pm_deferred_deactivate(rndis_ipa_ctx->pm_hdl);
+	else
+		ipa_rm_inactivity_timer_release_resource(DRV_RESOURCE_ID);
+
 	return;
 }
 

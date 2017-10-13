@@ -152,6 +152,12 @@ static int cam_eeprom_i2c_driver_probe(struct i2c_client *client,
 		goto probe_failure;
 	}
 
+	soc_private = kzalloc(sizeof(*soc_private), GFP_KERNEL);
+	if (!soc_private)
+		goto ectrl_free;
+
+	e_ctrl->soc_info.soc_private = soc_private;
+
 	i2c_set_clientdata(client, e_ctrl);
 
 	mutex_init(&(e_ctrl->eeprom_mutex));
@@ -173,15 +179,6 @@ static int cam_eeprom_i2c_driver_probe(struct i2c_client *client,
 	if (rc) {
 		CAM_ERR(CAM_EEPROM, "failed: to update i2c info rc %d", rc);
 		goto free_soc;
-	}
-
-	if (e_ctrl->userspace_probe == false) {
-		rc = cam_eeprom_parse_read_memory_map(soc_info->dev->of_node,
-			e_ctrl);
-		if (rc) {
-			CAM_ERR(CAM_EEPROM, "failed: read mem map rc %d", rc);
-			goto free_soc;
-		}
 	}
 
 	soc_private = (struct cam_eeprom_soc_private *)(id->driver_data);
@@ -242,8 +239,6 @@ static int cam_eeprom_i2c_driver_remove(struct i2c_client *client)
 		return -EINVAL;
 	}
 
-	kfree(e_ctrl->cal_data.mapdata);
-	kfree(e_ctrl->cal_data.map);
 	if (soc_private) {
 		kfree(soc_private->power_info.gpio_num_info);
 		kfree(soc_private);
@@ -307,13 +302,10 @@ static int cam_eeprom_spi_setup(struct spi_device *spi)
 		goto board_free;
 	}
 
-	if (e_ctrl->userspace_probe == false) {
-		rc = cam_eeprom_parse_read_memory_map(soc_info->dev->of_node,
-			e_ctrl);
-		if (rc) {
-			CAM_ERR(CAM_EEPROM, "failed: read mem map rc %d", rc);
-			goto board_free;
-		}
+	rc = cam_eeprom_spi_parse_of(spi_client);
+	if (rc) {
+		CAM_ERR(CAM_EEPROM, "Device tree parsing error");
+		goto board_free;
 	}
 
 	rc = cam_eeprom_init_subdev(e_ctrl);
@@ -369,8 +361,6 @@ static int cam_eeprom_spi_driver_remove(struct spi_device *sdev)
 	}
 
 	kfree(e_ctrl->io_master_info.spi_client);
-	kfree(e_ctrl->cal_data.mapdata);
-	kfree(e_ctrl->cal_data.map);
 	soc_private =
 		(struct cam_eeprom_soc_private *)e_ctrl->soc_info.soc_private;
 	if (soc_private) {
@@ -426,15 +416,6 @@ static int32_t cam_eeprom_platform_driver_probe(
 	if (rc) {
 		CAM_ERR(CAM_EEPROM, "failed: to update i2c info rc %d", rc);
 		goto free_soc;
-	}
-
-	if (e_ctrl->userspace_probe == false) {
-		rc = cam_eeprom_parse_read_memory_map(pdev->dev.of_node,
-			e_ctrl);
-		if (rc) {
-			CAM_ERR(CAM_EEPROM, "failed: read mem map rc %d", rc);
-			goto free_soc;
-		}
 	}
 
 	rc = cam_eeprom_init_subdev(e_ctrl);

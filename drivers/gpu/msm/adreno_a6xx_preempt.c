@@ -635,6 +635,9 @@ void a6xx_preemption_context_destroy(struct kgsl_context *context)
 		return;
 
 	gpumem_free_entry(context->user_ctxt_record);
+
+	/* Put the extra ref from gpumem_alloc_entry() */
+	kgsl_mem_entry_put(context->user_ctxt_record);
 }
 
 int a6xx_preemption_context_init(struct kgsl_context *context)
@@ -645,6 +648,10 @@ int a6xx_preemption_context_init(struct kgsl_context *context)
 	if (!adreno_is_preemption_setup_enabled(adreno_dev))
 		return 0;
 
+	/*
+	 * gpumem_alloc_entry takes an extra refcount. Put it only when
+	 * destroying the context to keep the context record valid
+	 */
 	context->user_ctxt_record = gpumem_alloc_entry(context->dev_priv,
 			A6XX_CP_CTXRECORD_USER_RESTORE_SIZE, 0);
 	if (IS_ERR(context->user_ctxt_record)) {

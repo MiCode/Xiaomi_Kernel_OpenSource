@@ -81,6 +81,12 @@ struct io_pgtable_cfg {
 	 *
 	 * IO_PGTABLE_QUIRK_PAGE_TABLE_COHERENT: Set the page table as
 	 *	coherent.
+	 *
+	 * IO_PGTABLE_QUIRK_QSMMUV500_NON_SHAREABLE:
+	 *	Having page tables which are non coherent, but cached in a
+	 *	system cache requires SH=Non-Shareable. This applies to the
+	 *	qsmmuv500 model. For data buffers SH=Non-Shareable is not
+	 *	required.
 	 */
 	#define IO_PGTABLE_QUIRK_ARM_NS		BIT(0)
 	#define IO_PGTABLE_QUIRK_NO_PERMS	BIT(1)
@@ -88,6 +94,7 @@ struct io_pgtable_cfg {
 	#define IO_PGTABLE_QUIRK_ARM_MTK_4GB	BIT(3)
 	#define IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT	BIT(4)
 	#define IO_PGTABLE_QUIRK_PAGE_TABLE_COHERENT BIT(5)
+	#define IO_PGTABLE_QUIRK_QSMMUV500_NON_SHAREABLE BIT(6)
 	unsigned long			quirks;
 	unsigned long			pgsize_bitmap;
 	unsigned int			ias;

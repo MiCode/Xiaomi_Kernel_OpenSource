@@ -14,13 +14,15 @@
 struct dma_iommu_mapping {
 	/* iommu specific data */
 	struct iommu_domain	*domain;
+	bool			init;
+	struct kref		kref;
+	const struct dma_map_ops *ops;
 
+	/* Protects bitmap */
+	spinlock_t		lock;
 	void			*bitmap;
 	size_t			bits;
 	dma_addr_t		base;
-
-	spinlock_t		lock;
-	struct kref		kref;
 
 	struct dma_fast_smmu_mapping *fast;
 };

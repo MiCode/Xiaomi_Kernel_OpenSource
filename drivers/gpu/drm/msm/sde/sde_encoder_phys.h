@@ -125,9 +125,12 @@ struct sde_encoder_virt_ops {
  *				SDE_ENC_ERR_NEEDS_HW_RESET state
  * @irq_control:		Handler to enable/disable all the encoder IRQs
  * @update_split_role:		Update the split role of the phys enc
+ * @prepare_idle_pc:		phys encoder can update the vsync_enable status
+ *                              on idle power collapse prepare
  * @restore:			Restore all the encoder configs.
  * @is_autorefresh_enabled:	provides the autorefresh current
  *                              enable/disable state.
+ * @get_line_count:		Obtain current vertical line count
  */
 
 struct sde_encoder_phys_ops {
@@ -167,8 +170,10 @@ struct sde_encoder_phys_ops {
 	void (*irq_control)(struct sde_encoder_phys *phys, bool enable);
 	void (*update_split_role)(struct sde_encoder_phys *phys_enc,
 			enum sde_enc_split_role role);
+	void (*prepare_idle_pc)(struct sde_encoder_phys *phys_enc);
 	void (*restore)(struct sde_encoder_phys *phys);
 	bool (*is_autorefresh_enabled)(struct sde_encoder_phys *phys);
+	int (*get_line_count)(struct sde_encoder_phys *phys);
 };
 
 /**
@@ -517,12 +522,12 @@ void sde_encoder_helper_split_config(
 		enum sde_intf interface);
 
 /**
- * sde_encoder_helper_hw_release - prepare for h/w reset during disable
+ * sde_encoder_helper_reset_mixers - reset mixers associated with phys enc
  * @phys_enc: Pointer to physical encoder structure
  * @fb: Optional fb for specifying new mixer output resolution, may be NULL
  * Return: Zero on success
  */
-int sde_encoder_helper_hw_release(struct sde_encoder_phys *phys_enc,
+int sde_encoder_helper_reset_mixers(struct sde_encoder_phys *phys_enc,
 		struct drm_framebuffer *fb);
 
 /**

@@ -146,6 +146,14 @@ bool sde_detect_hdmi_monitor(void *edid_ctrl);
 u32 sde_get_sink_bpc(void *edid_ctrl);
 
 /**
+ * sde_get_edid_checksum() - return the checksum of last block of EDID.
+ * @input:     Handle to the edid_ctrl structure.
+ *
+ * Return: checksum of the last EDID block.
+ */
+u8 sde_get_edid_checksum(void *input);
+
+/**
  * _sde_edid_update_modes() - populate EDID modes.
  * @edid_ctrl:     Handle to the edid_ctrl structure.
  *

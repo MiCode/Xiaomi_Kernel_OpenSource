@@ -916,6 +916,22 @@ static inline void _sde_plane_set_scanout(struct drm_plane *plane,
 		return;
 	}
 
+	/*
+	 * framebuffer prepare is deferred for prepare_fb calls that
+	 * happen during the transition from secure to non-secure.
+	 * Handle the prepare at this point for such cases. This can be
+	 * expected for one or two frames during the transition.
+	 */
+	if (aspace && pstate->defer_prepare_fb) {
+		ret = msm_framebuffer_prepare(fb, pstate->aspace);
+		if (ret) {
+			SDE_ERROR_PLANE(psde,
+				"failed to prepare framebuffer %d\n", ret);
+			return;
+		}
+		pstate->defer_prepare_fb = false;
+	}
+
 	ret = sde_format_populate_layout(aspace, fb, &pipe_cfg->layout);
 	if (ret == -EAGAIN)
 		SDE_DEBUG_PLANE(psde, "not updating same src addrs\n");
@@ -1518,7 +1534,7 @@ static struct sde_crtc_res_ops fbo_res_ops = {
  * @plane: Pointer to drm plane
  * return: prefill time in line
  */
-static u32 sde_plane_rot_calc_prefill(struct drm_plane *plane)
+u32 sde_plane_rot_calc_prefill(struct drm_plane *plane)
 {
 	struct drm_plane_state *state;
 	struct sde_plane_state *pstate;
@@ -1547,30 +1563,16 @@ static u32 sde_plane_rot_calc_prefill(struct drm_plane *plane)
 				&blocksize, &blocksize);
 
 	prefill_line = blocksize + sde_kms->catalog->sbuf_headroom;
-
-	SDE_DEBUG("plane%d prefill:%u\n", plane->base.id, prefill_line);
+	prefill_line = mult_frac(prefill_line, rstate->out_src_h >> 16,
+			state->crtc_h);
+	SDE_DEBUG(
+		"plane%d.%d blk:%u head:%u vdst/vsrc:%u/%u prefill:%u\n",
+			plane->base.id, rstate->sequence_id,
+			blocksize, sde_kms->catalog->sbuf_headroom,
+			state->crtc_h, rstate->out_src_h >> 16,
+			prefill_line);
 
 	return prefill_line;
-}
-
-/**
- * sde_plane_is_sbuf_mode - check if sspp of given plane is in streaming
- *	buffer mode
- * @plane: Pointer to drm plane
- * @prefill: Pointer to prefill line count
- * return: true if sspp is in stream buffer mode
- */
-bool sde_plane_is_sbuf_mode(struct drm_plane *plane, u32 *prefill)
-{
-	struct sde_plane_state *pstate = plane && plane->state ?
-			to_sde_plane_state(plane->state) : NULL;
-	struct sde_plane_rot_state *rstate = pstate ? &pstate->rot : NULL;
-	bool sbuf_mode = rstate ? rstate->out_sbuf : false;
-
-	if (prefill)
-		*prefill = sde_plane_rot_calc_prefill(plane);
-
-	return sbuf_mode;
 }
 
 /**
@@ -2131,6 +2133,13 @@ static int sde_plane_rot_prepare_fb(struct drm_plane *plane,
 		}
 	}
 
+	if (new_pstate->defer_prepare_fb) {
+		SDE_DEBUG(
+		    "plane%d, domain not attached, prepare fb handled later\n",
+		    plane->base.id);
+		return 0;
+	}
+
 	/* prepare rotator input buffer */
 	ret = msm_framebuffer_prepare(new_state->fb, new_pstate->aspace);
 	if (ret) {
@@ -2400,6 +2409,7 @@ static void sde_plane_rot_atomic_update(struct drm_plane *plane,
 	struct drm_plane_state *state;
 	struct sde_plane_state *pstate;
 	struct sde_plane_rot_state *rstate;
+	int ret = 0;
 
 	if (!plane || !plane->state) {
 		SDE_ERROR("invalid plane/state\n");
@@ -2421,24 +2431,57 @@ static void sde_plane_rot_atomic_update(struct drm_plane *plane,
 	if (!rstate->out_sbuf || !rstate->rot_hw)
 		return;
 
+	/*
+	 * framebuffer prepare is deferred for prepare_fb calls that
+	 * happen during the transition from secure to non-secure.
+	 * Handle the prepare at this point for rotator in such cases.
+	 * This can be expected for one or two frames during the transition.
+	 */
+	if (pstate->aspace && pstate->defer_prepare_fb) {
+		/* prepare rotator input buffer */
+		ret = msm_framebuffer_prepare(state->fb, pstate->aspace);
+		if (ret) {
+			SDE_ERROR("p%d failed to prepare input fb %d\n",
+							plane->base.id, ret);
+			return;
+		}
+
+		/* prepare rotator output buffer */
+		if (sde_plane_enabled(state) && rstate->out_fb) {
+			ret = msm_framebuffer_prepare(rstate->out_fb,
+						pstate->aspace);
+			if (ret) {
+				SDE_ERROR(
+				  "p%d failed to prepare inline fb %d\n",
+				  plane->base.id, ret);
+				goto error_prepare_output_buffer;
+			}
+		}
+	}
+
 	sde_plane_rot_submit_command(plane, state, SDE_HW_ROT_CMD_COMMIT);
+
+	return;
+
+error_prepare_output_buffer:
+	msm_framebuffer_cleanup(state->fb, pstate->aspace);
 }
 
-void sde_plane_kickoff(struct drm_plane *plane)
+int sde_plane_kickoff_rot(struct drm_plane *plane)
 {
 	struct sde_plane_state *pstate;
 
 	if (!plane || !plane->state) {
 		SDE_ERROR("invalid plane\n");
-		return;
+		return -EINVAL;
 	}
 
 	pstate = to_sde_plane_state(plane->state);
 
 	if (!pstate->rot.rot_hw || !pstate->rot.rot_hw->ops.commit)
-		return;
+		return 0;
 
-	pstate->rot.rot_hw->ops.commit(pstate->rot.rot_hw,
+	return pstate->rot.rot_hw->ops.commit(pstate->rot.rot_hw,
 			&pstate->rot.rot_cmd,
 			SDE_HW_ROT_CMD_START);
 }
@@ -2752,7 +2795,7 @@ void sde_plane_get_ctl_flush(struct drm_plane *plane, struct sde_hw_ctl *ctl,
 		return;
 
 	*flush_rot = 0x0;
-	if (sde_plane_is_sbuf_mode(plane, NULL) && rstate->rot_hw &&
+	if (rstate && rstate->out_sbuf && rstate->rot_hw &&
 			ctl->ops.get_bitmask_rot)
 		ctl->ops.get_bitmask_rot(ctl, flush_rot, rstate->rot_hw->idx);
 }
@@ -2779,29 +2822,33 @@ static int sde_plane_prepare_fb(struct drm_plane *plane,
 		return ret;
 	}
 
-	/*cache aspace */
+	/* cache aspace */
 	pstate->aspace = aspace;
+
+	/*
+	 * when transitioning from secure to non-secure,
+	 * plane->prepare_fb happens before the commit. In such case,
+	 * defer the prepare_fb and handled it late, during the commit
+	 * after attaching the domains as part of the transition
+	 */
+	pstate->defer_prepare_fb = (aspace && !aspace->domain_attached) ?
+							true : false;
+
 	ret = sde_plane_rot_prepare_fb(plane, new_state);
 	if (ret) {
 		SDE_ERROR("failed to prepare rot framebuffer\n");
 		return ret;
 	}
 
+	if (pstate->defer_prepare_fb) {
+		SDE_DEBUG_PLANE(psde,
+		    "domain not attached, prepare_fb handled later\n");
+		return 0;
+	}
+
 	new_rstate = &to_sde_plane_state(new_state)->rot;
 
 	if (pstate->aspace) {
-		/*
-		 * when transitioning from secure to non-secure,
-		 * plane->prepare_fb happens before the commit. In such case,
-		 * return early, as prepare_fb would be handled as part
-		 * of the transition after attaching the domains,
-		 * during the commit
-		 */
-		if (!pstate->aspace->domain_attached) {
-			SDE_DEBUG_PLANE(psde,
-			    "domain not attached, prepare_fb handled later\n");
-			return 0;
-		}
 		ret = msm_framebuffer_prepare(new_rstate->out_fb,
 				pstate->aspace);
 		if (ret) {
@@ -2821,19 +2868,75 @@ static int sde_plane_prepare_fb(struct drm_plane *plane,
 	return 0;
 }
 
+/**
+ * _sde_plane_fetch_halt - halts vbif transactions for a plane
+ * @plane: Pointer to plane
+ * Returns: 0 on success
+ */
+static int _sde_plane_fetch_halt(struct drm_plane *plane)
+{
+	struct sde_plane *psde;
+	int xin_id;
+	enum sde_clk_ctrl_type clk_ctrl;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+
+	psde = to_sde_plane(plane);
+	if (!plane || !plane->dev || !psde->pipe_hw) {
+		SDE_ERROR("invalid arguments\n");
+		return -EINVAL;
+	}
+
+	priv = plane->dev->dev_private;
+	if (!priv || !priv->kms) {
+		SDE_ERROR("invalid KMS reference\n");
+		return -EINVAL;
+	}
+
+	sde_kms = to_sde_kms(priv->kms);
+	clk_ctrl = psde->pipe_hw->cap->clk_ctrl;
+	xin_id = psde->pipe_hw->cap->xin_id;
+	SDE_DEBUG_PLANE(psde, "pipe:%d xin_id:%d clk_ctrl:%d\n",
+			psde->pipe - SSPP_VIG0, xin_id, clk_ctrl);
+	SDE_EVT32_VERBOSE(psde, psde->pipe - SSPP_VIG0, xin_id, clk_ctrl);
+
+	return sde_vbif_halt_plane_xin(sde_kms, xin_id, clk_ctrl);
+}
+
 static void sde_plane_cleanup_fb(struct drm_plane *plane,
 		struct drm_plane_state *old_state)
 {
 	struct sde_plane *psde = to_sde_plane(plane);
 	struct sde_plane_state *old_pstate;
 	struct sde_plane_rot_state *old_rstate;
+	int ret;
 
-	if (!old_state || !old_state->fb)
+	if (!old_state || !old_state->fb || !plane || !plane->state)
 		return;
 
 	old_pstate = to_sde_plane_state(old_state);
 
 	SDE_DEBUG_PLANE(psde, "FB[%u]\n", old_state->fb->base.id);
+
+	/*
+	 * plane->state gets populated for next frame after swap_state. If
+	 * plane->state->crtc pointer is not populated then it is not used in
+	 * the next frame, hence making it an unused plane.
+	 */
+	if ((plane->state->crtc == NULL) && !psde->is_virtual) {
+		SDE_DEBUG_PLANE(psde, "unused pipe:%u\n",
+			       psde->pipe - SSPP_VIG0);
+
+		/* halt this plane now */
+		ret = _sde_plane_fetch_halt(plane);
+		if (ret) {
+			SDE_ERROR_PLANE(psde,
+				       "unused pipe %u halt failed\n",
+				       psde->pipe - SSPP_VIG0);
+			SDE_EVT32(DRMID(plane), psde->pipe - SSPP_VIG0,
+				       ret, SDE_EVTLOG_ERROR);
+		}
+	}
 
 	old_rstate = &old_pstate->rot;
 
@@ -3556,7 +3659,8 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 					SDE_FORMAT_IS_TILE(fmt);
 			cdp_cfg->preload_ahead = SDE_WB_CDP_PRELOAD_AHEAD_64;
 
-			psde->pipe_hw->ops.setup_cdp(psde->pipe_hw, cdp_cfg);
+			psde->pipe_hw->ops.setup_cdp(psde->pipe_hw, cdp_cfg,
+					pstate->multirect_index);
 		}
 
 		if (psde->pipe_hw->ops.setup_sys_cache) {
@@ -4078,51 +4182,11 @@ static inline void _sde_plane_set_scaler_v2(struct sde_plane *psde,
 			&pstate->property_state, PLANE_PROP_SCALER_V2);
 
 	/* populate from user space */
+	sde_set_scaler_v2(cfg, &scale_v2);
+
 	pe = &pstate->pixel_ext;
 	memset(pe, 0, sizeof(struct sde_hw_pixel_ext));
-	cfg->enable = scale_v2.enable;
-	cfg->dir_en = scale_v2.dir_en;
-	for (i = 0; i < SDE_MAX_PLANES; i++) {
-		cfg->init_phase_x[i] = scale_v2.init_phase_x[i];
-		cfg->phase_step_x[i] = scale_v2.phase_step_x[i];
-		cfg->init_phase_y[i] = scale_v2.init_phase_y[i];
-		cfg->phase_step_y[i] = scale_v2.phase_step_y[i];
 
-		cfg->preload_x[i] = scale_v2.preload_x[i];
-		cfg->preload_y[i] = scale_v2.preload_y[i];
-		cfg->src_width[i] = scale_v2.src_width[i];
-		cfg->src_height[i] = scale_v2.src_height[i];
-	}
-	cfg->dst_width = scale_v2.dst_width;
-	cfg->dst_height = scale_v2.dst_height;
-
-	cfg->y_rgb_filter_cfg = scale_v2.y_rgb_filter_cfg;
-	cfg->uv_filter_cfg = scale_v2.uv_filter_cfg;
-	cfg->alpha_filter_cfg = scale_v2.alpha_filter_cfg;
-	cfg->blend_cfg = scale_v2.blend_cfg;
-
-	cfg->lut_flag = scale_v2.lut_flag;
-	cfg->dir_lut_idx = scale_v2.dir_lut_idx;
-	cfg->y_rgb_cir_lut_idx = scale_v2.y_rgb_cir_lut_idx;
-	cfg->uv_cir_lut_idx = scale_v2.uv_cir_lut_idx;
-	cfg->y_rgb_sep_lut_idx = scale_v2.y_rgb_sep_lut_idx;
-	cfg->uv_sep_lut_idx = scale_v2.uv_sep_lut_idx;
-
-	cfg->de.enable = scale_v2.de.enable;
-	cfg->de.sharpen_level1 = scale_v2.de.sharpen_level1;
-	cfg->de.sharpen_level2 = scale_v2.de.sharpen_level2;
-	cfg->de.clip = scale_v2.de.clip;
-	cfg->de.limit = scale_v2.de.limit;
-	cfg->de.thr_quiet = scale_v2.de.thr_quiet;
-	cfg->de.thr_dieout = scale_v2.de.thr_dieout;
-	cfg->de.thr_low = scale_v2.de.thr_low;
-	cfg->de.thr_high = scale_v2.de.thr_high;
-	cfg->de.prec_shift = scale_v2.de.prec_shift;
-	for (i = 0; i < SDE_MAX_DE_CURVES; i++) {
-		cfg->de.adjust_a[i] = scale_v2.de.adjust_a[i];
-		cfg->de.adjust_b[i] = scale_v2.de.adjust_b[i];
-		cfg->de.adjust_c[i] = scale_v2.de.adjust_c[i];
-	}
 	for (i = 0; i < SDE_MAX_PLANES; i++) {
 		pe->left_ftch[i] = scale_v2.pe.left_ftch[i];
 		pe->right_ftch[i] = scale_v2.pe.right_ftch[i];
@@ -4378,6 +4442,11 @@ static void sde_plane_reset(struct drm_plane *plane)
 
 	psde = to_sde_plane(plane);
 	SDE_DEBUG_PLANE(psde, "\n");
+
+	if (plane->state && !sde_crtc_is_reset_required(plane->state->crtc)) {
+		SDE_DEBUG_PLANE(psde, "avoid reset for plane\n");
+		return;
+	}
 
 	/* remove previous state, if present */
 	if (plane->state) {

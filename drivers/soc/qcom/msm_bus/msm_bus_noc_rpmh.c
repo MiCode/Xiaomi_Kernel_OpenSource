@@ -15,9 +15,13 @@
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/msm-bus-board.h>
+#include <linux/msm-bus.h>
+#include <linux/spinlock.h>
 #include "msm_bus_core.h"
 #include "msm_bus_noc.h"
 #include "msm_bus_rpmh.h"
+
+static DEFINE_SPINLOCK(noc_lock);
 
 /* NOC_QOS generic */
 #define __CLZ(x) ((8 * sizeof(uint32_t)) - 1 - __fls(x))
@@ -29,6 +33,7 @@
 #define MAX_SAT_FIELD (NOC_QOS_SATn_SAT_BMSK >> NOC_QOS_SATn_SAT_SHFT)
 #define MIN_SAT_FIELD	1
 #define MIN_BW_FIELD	1
+#define MSM_BUS_FAB_MEM_NOC 6152
 
 #define NOC_QOS_REG_BASE(b, o)		((b) + (o))
 
@@ -102,6 +107,8 @@ enum noc_qos_id_saturationn {
 	NOC_QOS_SATn_SAT_SHFT		= 0x0,
 };
 
+static void __iomem *memnoc_qos_base;
+
 static int noc_div(uint64_t *a, uint32_t b)
 {
 	if ((*a > 0) && (*a < b)) {
@@ -169,38 +176,10 @@ static void noc_set_qos_dflt_prio(void __iomem *base, uint32_t qos_off,
 	wmb();
 }
 
-static void noc_set_qos_limiter(void __iomem *base, uint32_t qos_off,
-		uint32_t mport, uint32_t qos_delta,
-		struct msm_bus_noc_limiter *lim, uint32_t lim_en)
+static void noc_enable_qos_limiter(void __iomem *base, uint32_t qos_off,
+		uint32_t mport, uint32_t qos_delta, uint32_t lim_en)
 {
 	uint32_t reg_val, val;
-
-	reg_val = readl_relaxed(NOC_QOS_MAINCTL_LOWn_ADDR(base, qos_off, mport,
-		qos_delta));
-
-	writel_relaxed((reg_val & (~(NOC_QOS_MCTL_LIMIT_ENn_BMSK))),
-		NOC_QOS_MAINCTL_LOWn_ADDR(base, qos_off, mport, qos_delta));
-
-	/* Ensure we disable limiter before config*/
-	wmb();
-
-	reg_val = readl_relaxed(NOC_QOS_LIMITBWn_ADDR(base, qos_off, mport,
-		qos_delta));
-	val = lim->bw << NOC_QOS_LIMITBW_BWn_SHFT;
-	writel_relaxed(((reg_val & (~(NOC_QOS_LIMITBW_BWn_BMSK))) |
-		(val & NOC_QOS_LIMITBW_BWn_BMSK)),
-		NOC_QOS_LIMITBWn_ADDR(base, qos_off, mport, qos_delta));
-
-	reg_val = readl_relaxed(NOC_QOS_LIMITBWn_ADDR(base, qos_off, mport,
-		qos_delta));
-	val = lim->sat << NOC_QOS_LIMITBW_SATn_SHFT;
-	writel_relaxed(((reg_val & (~(NOC_QOS_LIMITBW_SATn_BMSK))) |
-		(val & NOC_QOS_LIMITBW_SATn_BMSK)),
-		NOC_QOS_LIMITBWn_ADDR(base, qos_off, mport, qos_delta));
-
-	/* Ensure qos limiter settings in place before possibly enabling */
-	wmb();
-
 	reg_val = readl_relaxed(NOC_QOS_MAINCTL_LOWn_ADDR(base, qos_off, mport,
 		qos_delta));
 	val = lim_en << NOC_QOS_MCTL_LIMIT_ENn_SHFT;
@@ -208,7 +187,48 @@ static void noc_set_qos_limiter(void __iomem *base, uint32_t qos_off,
 		(val & NOC_QOS_MCTL_LIMIT_ENn_BMSK)),
 		NOC_QOS_MAINCTL_LOWn_ADDR(base, qos_off, mport, qos_delta));
 
+	/* Ensure we disable/enable limiter before exiting*/
 	wmb();
+}
+
+static void noc_set_qos_limit_bw(void __iomem *base, uint32_t qos_off,
+		uint32_t mport, uint32_t qos_delta, uint32_t bw)
+{
+	uint32_t reg_val, val;
+	reg_val = readl_relaxed(NOC_QOS_LIMITBWn_ADDR(base, qos_off, mport,
+		qos_delta));
+	val = bw << NOC_QOS_LIMITBW_BWn_SHFT;
+	writel_relaxed(((reg_val & (~(NOC_QOS_LIMITBW_BWn_BMSK))) |
+		(val & NOC_QOS_LIMITBW_BWn_BMSK)),
+		NOC_QOS_LIMITBWn_ADDR(base, qos_off, mport, qos_delta));
+
+	/* Ensure we set limiter bw before exiting*/
+	wmb();
+}
+
+static void noc_set_qos_limit_sat(void __iomem *base, uint32_t qos_off,
+		uint32_t mport, uint32_t qos_delta, uint32_t sat)
+{
+	uint32_t reg_val, val;
+	reg_val = readl_relaxed(NOC_QOS_LIMITBWn_ADDR(base, qos_off, mport,
+		qos_delta));
+	val = sat << NOC_QOS_LIMITBW_SATn_SHFT;
+	writel_relaxed(((reg_val & (~(NOC_QOS_LIMITBW_SATn_BMSK))) |
+		(val & NOC_QOS_LIMITBW_SATn_BMSK)),
+		NOC_QOS_LIMITBWn_ADDR(base, qos_off, mport, qos_delta));
+
+	/* Ensure we set limiter sat before exiting*/
+	wmb();
+}
+
+static void noc_set_qos_limiter(void __iomem *base, uint32_t qos_off,
+		uint32_t mport, uint32_t qos_delta,
+		struct msm_bus_noc_limiter *lim, uint32_t lim_en)
+{
+	noc_enable_qos_limiter(base, qos_off, mport, qos_delta, 0);
+	noc_set_qos_limit_bw(base, qos_off, mport, qos_delta, lim->bw);
+	noc_set_qos_limit_sat(base, qos_off, mport, qos_delta, lim->sat);
+	noc_enable_qos_limiter(base, qos_off, mport, qos_delta, lim_en);
 }
 
 static void noc_set_qos_regulator(void __iomem *base, uint32_t qos_off,
@@ -317,6 +337,7 @@ void msm_bus_noc_get_qos_bw(void __iomem *base, uint32_t qos_off,
 }
 
 static int msm_bus_noc_qos_init(struct msm_bus_node_device_type *info,
+				struct msm_bus_node_device_type *fabdev,
 				void __iomem *qos_base,
 				uint32_t qos_off, uint32_t qos_delta,
 				uint32_t qos_freq)
@@ -324,6 +345,7 @@ static int msm_bus_noc_qos_init(struct msm_bus_node_device_type *info,
 	struct msm_bus_noc_qos_params *qos_params;
 	int ret = 0;
 	int i;
+	unsigned long flags;
 
 	qos_params = &info->node_info->qos_params;
 
@@ -332,6 +354,11 @@ static int msm_bus_noc_qos_init(struct msm_bus_node_device_type *info,
 		ret = 0;
 		goto err_qos_init;
 	}
+
+	spin_lock_irqsave(&noc_lock, flags);
+
+	if (fabdev->node_info->id == MSM_BUS_FAB_MEM_NOC)
+		memnoc_qos_base = qos_base;
 
 	for (i = 0; i < info->node_info->num_qports; i++) {
 		noc_set_qos_dflt_prio(qos_base, qos_off,
@@ -356,9 +383,86 @@ static int msm_bus_noc_qos_init(struct msm_bus_node_device_type *info,
 					qos_delta,
 					qos_params->urg_fwd_en);
 	}
+	spin_unlock_irqrestore(&noc_lock, flags);
+
 err_qos_init:
 	return ret;
 }
+
+int msm_bus_noc_throttle_wa(bool enable)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&noc_lock, flags);
+
+	if (!memnoc_qos_base) {
+		MSM_BUS_ERR("Memnoc QoS Base address not found!");
+		goto noc_throttle_exit;
+	}
+
+	if (enable) {
+		noc_set_qos_limit_bw(memnoc_qos_base, 0x10000, 2,
+								0x1000, 0x1B);
+		noc_set_qos_limit_bw(memnoc_qos_base, 0x10000, 3,
+								0x1000, 0x1B);
+		noc_set_qos_limit_bw(memnoc_qos_base, 0x10000, 10,
+								0x1000, 0x30);
+		noc_set_qos_limit_bw(memnoc_qos_base, 0x10000, 11,
+								0x1000, 0x30);
+		noc_enable_qos_limiter(memnoc_qos_base, 0x10000, 10,
+								0x1000, 1);
+		noc_enable_qos_limiter(memnoc_qos_base, 0x10000, 11,
+								0x1000, 1);
+		noc_enable_qos_limiter(memnoc_qos_base, 0x10000, 2,
+								0x1000, 1);
+		noc_enable_qos_limiter(memnoc_qos_base, 0x10000, 3,
+								0x1000, 1);
+	} else {
+		noc_enable_qos_limiter(memnoc_qos_base, 0x10000, 2,
+								0x1000, 0);
+		noc_enable_qos_limiter(memnoc_qos_base, 0x10000, 3,
+								0x1000, 0);
+		noc_enable_qos_limiter(memnoc_qos_base, 0x10000, 10,
+								0x1000, 0);
+		noc_enable_qos_limiter(memnoc_qos_base, 0x10000, 11,
+								0x1000, 0);
+		noc_set_qos_limit_bw(memnoc_qos_base, 0x10000, 2,
+								0x1000, 0);
+		noc_set_qos_limit_bw(memnoc_qos_base, 0x10000, 3,
+								0x1000, 0);
+		noc_set_qos_limit_bw(memnoc_qos_base, 0x10000, 10,
+								0x1000, 0);
+		noc_set_qos_limit_bw(memnoc_qos_base, 0x10000, 11,
+								0x1000, 0);
+	}
+
+noc_throttle_exit:
+	spin_unlock_irqrestore(&noc_lock, flags);
+	return 0;
+}
+EXPORT_SYMBOL(msm_bus_noc_throttle_wa);
+
+int msm_bus_noc_priority_wa(bool enable)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&noc_lock, flags);
+	if (!memnoc_qos_base) {
+		MSM_BUS_ERR("Memnoc QoS Base address not found!");
+		goto noc_priority_exit;
+	}
+
+	if (enable)
+		noc_set_qos_dflt_prio(memnoc_qos_base, 0x10000, 0,
+								0x1000, 7);
+	else
+		noc_set_qos_dflt_prio(memnoc_qos_base, 0x10000, 0,
+								0x1000, 6);
+noc_priority_exit:
+	spin_unlock_irqrestore(&noc_lock, flags);
+	return 0;
+}
+EXPORT_SYMBOL(msm_bus_noc_priority_wa);
 
 int msm_bus_noc_set_ops(struct msm_bus_node_device_type *bus_dev)
 {

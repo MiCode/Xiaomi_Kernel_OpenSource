@@ -28,6 +28,7 @@
 #include "dsi_drm.h"
 #include "dsi_clk.h"
 #include "dsi_pwr.h"
+#include "sde_dbg.h"
 
 #define to_dsi_display(x) container_of(x, struct dsi_display, host)
 #define INT_BASE_10 10
@@ -84,6 +85,10 @@ int dsi_display_set_backlight(void *display, u32 bl_lvl)
 		return -EINVAL;
 
 	panel = dsi_display->panel;
+
+	if (!dsi_panel_initialized(panel))
+		return -EINVAL;
+
 	panel->bl_config.bl_level = bl_lvl;
 
 	/* scale backlight */
@@ -117,6 +122,282 @@ int dsi_display_set_backlight(void *display, u32 bl_lvl)
 	}
 
 error:
+	return rc;
+}
+
+static int dsi_display_cmd_engine_enable(struct dsi_display *display)
+{
+	int rc = 0;
+	int i;
+	struct dsi_display_ctrl *m_ctrl, *ctrl;
+
+	if (display->cmd_engine_refcount > 0) {
+		display->cmd_engine_refcount++;
+		return 0;
+	}
+
+	m_ctrl = &display->ctrl[display->cmd_master_idx];
+
+	rc = dsi_ctrl_set_cmd_engine_state(m_ctrl->ctrl, DSI_CTRL_ENGINE_ON);
+	if (rc) {
+		pr_err("[%s] failed to enable cmd engine, rc=%d\n",
+		       display->name, rc);
+		goto error;
+	}
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		if (!ctrl->ctrl || (ctrl == m_ctrl))
+			continue;
+
+		rc = dsi_ctrl_set_cmd_engine_state(ctrl->ctrl,
+						   DSI_CTRL_ENGINE_ON);
+		if (rc) {
+			pr_err("[%s] failed to enable cmd engine, rc=%d\n",
+			       display->name, rc);
+			goto error_disable_master;
+		}
+	}
+
+	display->cmd_engine_refcount++;
+	return rc;
+error_disable_master:
+	(void)dsi_ctrl_set_cmd_engine_state(m_ctrl->ctrl, DSI_CTRL_ENGINE_OFF);
+error:
+	return rc;
+}
+
+static int dsi_display_cmd_engine_disable(struct dsi_display *display)
+{
+	int rc = 0;
+	int i;
+	struct dsi_display_ctrl *m_ctrl, *ctrl;
+
+	if (display->cmd_engine_refcount == 0) {
+		pr_err("[%s] Invalid refcount\n", display->name);
+		return 0;
+	} else if (display->cmd_engine_refcount > 1) {
+		display->cmd_engine_refcount--;
+		return 0;
+	}
+
+	m_ctrl = &display->ctrl[display->cmd_master_idx];
+	for (i = 0; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		if (!ctrl->ctrl || (ctrl == m_ctrl))
+			continue;
+
+		rc = dsi_ctrl_set_cmd_engine_state(ctrl->ctrl,
+						   DSI_CTRL_ENGINE_OFF);
+		if (rc)
+			pr_err("[%s] failed to enable cmd engine, rc=%d\n",
+			       display->name, rc);
+	}
+
+	rc = dsi_ctrl_set_cmd_engine_state(m_ctrl->ctrl, DSI_CTRL_ENGINE_OFF);
+	if (rc) {
+		pr_err("[%s] failed to enable cmd engine, rc=%d\n",
+		       display->name, rc);
+		goto error;
+	}
+
+error:
+	display->cmd_engine_refcount = 0;
+	return rc;
+}
+
+static bool dsi_display_validate_reg_read(struct dsi_panel *panel)
+{
+	int i, j = 0;
+	int len = 0, *lenp;
+	int group = 0, count = 0;
+	struct dsi_display_mode *mode;
+	struct drm_panel_esd_config *config;
+
+	if (!panel)
+		return false;
+
+	config = &(panel->esd_config);
+
+	lenp = config->status_valid_params ?: config->status_cmds_rlen;
+	mode = panel->cur_mode;
+	count = mode->priv_info->cmd_sets[DSI_CMD_SET_PANEL_STATUS].count;
+
+	for (i = 0; i < count; i++)
+		len += lenp[i];
+
+	for (i = 0; i < len; i++)
+		j += len;
+
+	for (j = 0; j < config->groups; ++j) {
+		for (i = 0; i < len; ++i) {
+			if (config->return_buf[i] !=
+				config->status_value[group + i])
+				break;
+		}
+
+		if (i == len)
+			return true;
+		group += len;
+	}
+
+	return false;
+}
+
+static int dsi_display_read_status(struct dsi_display_ctrl *ctrl,
+		struct dsi_panel *panel)
+{
+	int i, rc = 0, count = 0, start = 0, *lenp;
+	struct drm_panel_esd_config *config;
+	struct dsi_cmd_desc *cmds;
+	u32 flags = 0;
+
+	if (!panel)
+		return -EINVAL;
+
+	config = &(panel->esd_config);
+	lenp = config->status_valid_params ?: config->status_cmds_rlen;
+	count = config->status_cmd.count;
+	cmds = config->status_cmd.cmds;
+	flags = (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ);
+
+	for (i = 0; i < count; ++i) {
+		memset(config->status_buf, 0x0, SZ_4K);
+		cmds[i].msg.rx_buf = config->status_buf;
+		cmds[i].msg.rx_len = config->status_cmds_rlen[i];
+		rc = dsi_ctrl_cmd_transfer(ctrl->ctrl, &cmds[i].msg, flags);
+		if (rc <= 0) {
+			pr_err("rx cmd transfer failed rc=%d\n", rc);
+			goto error;
+		}
+
+		memcpy(config->return_buf + start,
+			config->status_buf, lenp[i]);
+		start += lenp[i];
+	}
+
+error:
+	return rc;
+}
+
+static int dsi_display_validate_status(struct dsi_display_ctrl *ctrl,
+		struct dsi_panel *panel)
+{
+	int rc = 0;
+
+	rc = dsi_display_read_status(ctrl, panel);
+	if (rc <= 0) {
+		goto exit;
+	} else {
+		/*
+		 * panel status read successfully.
+		 * check for validity of the data read back.
+		 */
+		rc = dsi_display_validate_reg_read(panel);
+		if (!rc) {
+			rc = -EINVAL;
+			goto exit;
+		}
+	}
+
+exit:
+	return rc;
+}
+
+static int dsi_display_status_reg_read(struct dsi_display *display)
+{
+	int rc = 0, i;
+	struct dsi_display_ctrl *m_ctrl, *ctrl;
+
+	pr_debug(" ++\n");
+
+	m_ctrl = &display->ctrl[display->cmd_master_idx];
+
+	rc = dsi_display_cmd_engine_enable(display);
+	if (rc) {
+		pr_err("cmd engine enable failed\n");
+		return -EPERM;
+	}
+
+	rc = dsi_display_validate_status(m_ctrl, display->panel);
+	if (rc <= 0) {
+		pr_err("[%s] read status failed on master,rc=%d\n",
+		       display->name, rc);
+		goto exit;
+	}
+
+	if (!display->panel->sync_broadcast_en)
+		goto exit;
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		if (ctrl == m_ctrl)
+			continue;
+
+		rc = dsi_display_validate_status(ctrl, display->panel);
+		if (rc <= 0) {
+			pr_err("[%s] read status failed on master,rc=%d\n",
+			       display->name, rc);
+			goto exit;
+		}
+	}
+
+exit:
+	dsi_display_cmd_engine_disable(display);
+	return rc;
+}
+
+static int dsi_display_status_bta_request(struct dsi_display *display)
+{
+	int rc = 0;
+
+	pr_debug(" ++\n");
+	/* TODO: trigger SW BTA and wait for acknowledgment */
+
+	return rc;
+}
+
+static int dsi_display_status_check_te(struct dsi_display *display)
+{
+	int rc = 0;
+
+	pr_debug(" ++\n");
+	/* TODO: wait for TE interrupt from panel */
+
+	return rc;
+}
+
+int dsi_display_check_status(void *display)
+{
+	struct dsi_display *dsi_display = display;
+	struct dsi_panel *panel;
+	u32 status_mode;
+	int rc = 0;
+
+	if (dsi_display == NULL)
+		return -EINVAL;
+
+	panel = dsi_display->panel;
+
+	status_mode = panel->esd_config.status_mode;
+
+	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
+		DSI_ALL_CLKS, DSI_CLK_ON);
+
+	if (status_mode == ESD_MODE_REG_READ) {
+		rc = dsi_display_status_reg_read(dsi_display);
+	} else if (status_mode == ESD_MODE_SW_BTA) {
+		rc = dsi_display_status_bta_request(dsi_display);
+	} else if (status_mode == ESD_MODE_PANEL_TE) {
+		rc = dsi_display_status_check_te(dsi_display);
+	} else {
+		pr_warn("unsupported check status mode\n");
+		panel->esd_config.esd_enabled = false;
+	}
+
+	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
+		DSI_ALL_CLKS, DSI_CLK_OFF);
+
 	return rc;
 }
 
@@ -1206,87 +1487,6 @@ static int dsi_display_ctrl_deinit(struct dsi_display *display)
 	return rc;
 }
 
-static int dsi_display_cmd_engine_enable(struct dsi_display *display)
-{
-	int rc = 0;
-	int i;
-	struct dsi_display_ctrl *m_ctrl, *ctrl;
-
-	if (display->cmd_engine_refcount > 0) {
-		display->cmd_engine_refcount++;
-		return 0;
-	}
-
-	m_ctrl = &display->ctrl[display->cmd_master_idx];
-
-	rc = dsi_ctrl_set_cmd_engine_state(m_ctrl->ctrl, DSI_CTRL_ENGINE_ON);
-	if (rc) {
-		pr_err("[%s] failed to enable cmd engine, rc=%d\n",
-		       display->name, rc);
-		goto error;
-	}
-
-	for (i = 0; i < display->ctrl_count; i++) {
-		ctrl = &display->ctrl[i];
-		if (!ctrl->ctrl || (ctrl == m_ctrl))
-			continue;
-
-		rc = dsi_ctrl_set_cmd_engine_state(ctrl->ctrl,
-						   DSI_CTRL_ENGINE_ON);
-		if (rc) {
-			pr_err("[%s] failed to enable cmd engine, rc=%d\n",
-			       display->name, rc);
-			goto error_disable_master;
-		}
-	}
-
-	display->cmd_engine_refcount++;
-	return rc;
-error_disable_master:
-	(void)dsi_ctrl_set_cmd_engine_state(m_ctrl->ctrl, DSI_CTRL_ENGINE_OFF);
-error:
-	return rc;
-}
-
-static int dsi_display_cmd_engine_disable(struct dsi_display *display)
-{
-	int rc = 0;
-	int i;
-	struct dsi_display_ctrl *m_ctrl, *ctrl;
-
-	if (display->cmd_engine_refcount == 0) {
-		pr_err("[%s] Invalid refcount\n", display->name);
-		return 0;
-	} else if (display->cmd_engine_refcount > 1) {
-		display->cmd_engine_refcount--;
-		return 0;
-	}
-
-	m_ctrl = &display->ctrl[display->cmd_master_idx];
-	for (i = 0; i < display->ctrl_count; i++) {
-		ctrl = &display->ctrl[i];
-		if (!ctrl->ctrl || (ctrl == m_ctrl))
-			continue;
-
-		rc = dsi_ctrl_set_cmd_engine_state(ctrl->ctrl,
-						   DSI_CTRL_ENGINE_OFF);
-		if (rc)
-			pr_err("[%s] failed to enable cmd engine, rc=%d\n",
-			       display->name, rc);
-	}
-
-	rc = dsi_ctrl_set_cmd_engine_state(m_ctrl->ctrl, DSI_CTRL_ENGINE_OFF);
-	if (rc) {
-		pr_err("[%s] failed to enable cmd engine, rc=%d\n",
-		       display->name, rc);
-		goto error;
-	}
-
-error:
-	display->cmd_engine_refcount = 0;
-	return rc;
-}
-
 static int dsi_display_ctrl_host_enable(struct dsi_display *display)
 {
 	int rc = 0;
@@ -1708,7 +1908,9 @@ error_disable_clks:
 put_iova:
 	msm_gem_put_iova(display->tx_cmd_buf, aspace);
 free_gem:
+	mutex_lock(&display->drm_dev->struct_mutex);
 	msm_gem_free_object(display->tx_cmd_buf);
+	mutex_unlock(&display->drm_dev->struct_mutex);
 error:
 	return rc;
 }
@@ -2551,7 +2753,7 @@ error:
 }
 
 static int dsi_display_dfps_calc_front_porch(
-		u64 clk_hz,
+		u32 old_fps,
 		u32 new_fps,
 		u32 a_total,
 		u32 b_total,
@@ -2559,6 +2761,7 @@ static int dsi_display_dfps_calc_front_porch(
 		u32 *b_fp_out)
 {
 	s32 b_fp_new;
+	int add_porches, diff;
 
 	if (!b_fp_out) {
 		pr_err("Invalid params");
@@ -2570,15 +2773,22 @@ static int dsi_display_dfps_calc_front_porch(
 		return -EINVAL;
 	}
 
-	/**
+	/*
 	 * Keep clock, other porches constant, use new fps, calc front porch
-	 * clk = (hor * ver * fps)
-	 * hfront = clk / (vtotal * fps)) - hactive - hback - hsync
+	 * new_vtotal = old_vtotal * (old_fps / new_fps )
+	 * new_vfp - old_vfp = new_vtotal - old_vtotal
+	 * new_vfp = old_vfp + old_vtotal * ((old_fps - new_fps)/ new_fps)
 	 */
-	b_fp_new = (clk_hz / (a_total * new_fps)) - (b_total - b_fp);
+	diff = abs(old_fps - new_fps);
+	add_porches = mult_frac(b_total, diff, new_fps);
 
-	pr_debug("clk %llu fps %u a %u b %u b_fp %u new_fp %d\n",
-			clk_hz, new_fps, a_total, b_total, b_fp, b_fp_new);
+	if (old_fps > new_fps)
+		b_fp_new = b_fp + add_porches;
+	else
+		b_fp_new = b_fp - add_porches;
+
+	pr_debug("fps %u a %u b %u b_fp %u new_fp %d\n",
+			new_fps, a_total, b_total, b_fp, b_fp_new);
 
 	if (b_fp_new < 0) {
 		pr_err("Invalid new_hfp calcluated%d\n", b_fp_new);
@@ -2594,14 +2804,25 @@ static int dsi_display_dfps_calc_front_porch(
 	return 0;
 }
 
+/**
+ * dsi_display_get_dfps_timing() - Get the new dfps values.
+ * @display:         DSI display handle.
+ * @adj_mode:        Mode value structure to be changed.
+ *                   It contains old timing values and latest fps value.
+ *                   New timing values are updated based on new fps.
+ * @curr_refresh_rate:  Current fps rate.
+ *                      If zero , current fps rate is taken from
+ *                      display->panel->cur_mode.
+ * Return: error code.
+ */
 static int dsi_display_get_dfps_timing(struct dsi_display *display,
-				       struct dsi_display_mode *adj_mode)
+			struct dsi_display_mode *adj_mode,
+				u32 curr_refresh_rate)
 {
 	struct dsi_dfps_capabilities dfps_caps;
 	struct dsi_display_mode per_ctrl_mode;
 	struct dsi_mode_info *timing;
 	struct dsi_ctrl *m_ctrl;
-	u64 clk_hz;
 
 	int rc = 0;
 
@@ -2620,20 +2841,27 @@ static int dsi_display_get_dfps_timing(struct dsi_display *display,
 	per_ctrl_mode = *adj_mode;
 	adjust_timing_by_ctrl_count(display, &per_ctrl_mode);
 
-	if (!dsi_display_is_seamless_dfps_possible(display,
-			&per_ctrl_mode, dfps_caps.type)) {
-		pr_err("seamless dynamic fps not supported for mode\n");
-		return -EINVAL;
+	if (!curr_refresh_rate) {
+		if (!dsi_display_is_seamless_dfps_possible(display,
+				&per_ctrl_mode, dfps_caps.type)) {
+			pr_err("seamless dynamic fps not supported for mode\n");
+			return -EINVAL;
+		}
+		if (display->panel->cur_mode) {
+			curr_refresh_rate =
+				display->panel->cur_mode->timing.refresh_rate;
+		} else {
+			pr_err("cur_mode is not initialized\n");
+			return -EINVAL;
+		}
 	}
-
 	/* TODO: Remove this direct reference to the dsi_ctrl */
-	clk_hz = m_ctrl->clk_freq.pix_clk_rate;
 	timing = &per_ctrl_mode.timing;
 
 	switch (dfps_caps.type) {
 	case DSI_DFPS_IMMEDIATE_VFP:
 		rc = dsi_display_dfps_calc_front_porch(
-				clk_hz,
+				curr_refresh_rate,
 				timing->refresh_rate,
 				DSI_H_TOTAL(timing),
 				DSI_V_TOTAL(timing),
@@ -2643,7 +2871,7 @@ static int dsi_display_get_dfps_timing(struct dsi_display *display,
 
 	case DSI_DFPS_IMMEDIATE_HFP:
 		rc = dsi_display_dfps_calc_front_porch(
-				clk_hz,
+				curr_refresh_rate,
 				timing->refresh_rate,
 				DSI_V_TOTAL(timing),
 				DSI_H_TOTAL(timing),
@@ -2672,7 +2900,7 @@ static bool dsi_display_validate_mode_seamless(struct dsi_display *display,
 	}
 
 	/* Currently the only seamless transition is dynamic fps */
-	rc = dsi_display_get_dfps_timing(display, adj_mode);
+	rc = dsi_display_get_dfps_timing(display, adj_mode, 0);
 	if (rc) {
 		pr_debug("Dynamic FPS not supported for seamless\n");
 	} else {
@@ -2712,7 +2940,8 @@ static int dsi_display_set_mode_sub(struct dsi_display *display,
 	memcpy(&display->config.lane_map, &display->lane_map,
 	       sizeof(display->lane_map));
 
-	if (mode->dsi_mode_flags & DSI_MODE_FLAG_DFPS) {
+	if (mode->dsi_mode_flags &
+			(DSI_MODE_FLAG_DFPS | DSI_MODE_FLAG_VRR)) {
 		rc = dsi_display_dfps_update(display, mode);
 		if (rc) {
 			pr_err("[%s]DSI dfps update failed, rc=%d\n",
@@ -3384,6 +3613,9 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 		break;
 	}
 
+	if (display->panel->esd_config.esd_enabled)
+		info->capabilities |= MSM_DISPLAY_ESD_ENABLED;
+
 	memcpy(&info->roi_caps, &display->panel->roi_caps,
 			sizeof(info->roi_caps));
 
@@ -3490,6 +3722,7 @@ int dsi_display_get_modes(struct dsi_display *display,
 
 		for (i = 0; i < num_dfps_rates; i++) {
 			struct dsi_display_mode *sub_mode = &modes[array_idx];
+			u32 curr_refresh_rate;
 
 			if (!sub_mode) {
 				pr_err("invalid mode data\n");
@@ -3499,9 +3732,15 @@ int dsi_display_get_modes(struct dsi_display *display,
 			memcpy(sub_mode, &panel_mode, sizeof(panel_mode));
 
 			if (dfps_caps.dfps_support) {
+				curr_refresh_rate =
+					sub_mode->timing.refresh_rate;
 				sub_mode->timing.refresh_rate =
 					dfps_caps.min_refresh_rate +
 					(i % num_dfps_rates);
+
+				dsi_display_get_dfps_timing(display,
+					sub_mode, curr_refresh_rate);
+
 				sub_mode->pixel_clk_khz =
 					(DSI_H_TOTAL(&sub_mode->timing) *
 					DSI_V_TOTAL(&sub_mode->timing) *
@@ -3509,6 +3748,102 @@ int dsi_display_get_modes(struct dsi_display *display,
 			}
 			array_idx++;
 		}
+	}
+
+error:
+	mutex_unlock(&display->display_lock);
+	return rc;
+}
+
+/**
+ * dsi_display_validate_mode_vrr() - Validate if varaible refresh case.
+ * @display:     DSI display handle.
+ * @cur_dsi_mode:   Current DSI mode.
+ * @mode:        Mode value structure to be validated.
+ *               MSM_MODE_FLAG_SEAMLESS_VRR flag is set if there
+ *               is change in fps but vactive and hactive are same.
+ * Return: error code.
+ */
+int dsi_display_validate_mode_vrr(struct dsi_display *display,
+			struct dsi_display_mode *cur_dsi_mode,
+			struct dsi_display_mode *mode)
+{
+	int rc = 0;
+	struct dsi_display_mode adj_mode, cur_mode;
+	struct dsi_dfps_capabilities dfps_caps;
+	u32 curr_refresh_rate;
+
+	if (!display || !mode) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	if (!display->panel || !display->panel->cur_mode) {
+		pr_debug("Current panel mode not set\n");
+		return rc;
+	}
+
+	mutex_lock(&display->display_lock);
+
+	adj_mode = *mode;
+	cur_mode = *cur_dsi_mode;
+
+	if ((cur_mode.timing.refresh_rate != adj_mode.timing.refresh_rate) &&
+		(cur_mode.timing.v_active == adj_mode.timing.v_active) &&
+		(cur_mode.timing.h_active == adj_mode.timing.h_active)) {
+
+		curr_refresh_rate = cur_mode.timing.refresh_rate;
+		rc = dsi_panel_get_dfps_caps(display->panel, &dfps_caps);
+		if (rc) {
+			pr_err("[%s] failed to get dfps caps from panel\n",
+					display->name);
+			goto error;
+		}
+
+		cur_mode.timing.refresh_rate =
+			adj_mode.timing.refresh_rate;
+
+		rc = dsi_display_get_dfps_timing(display,
+			&cur_mode, curr_refresh_rate);
+		if (rc) {
+			pr_err("[%s] seamless vrr not possible rc=%d\n",
+			display->name, rc);
+			goto error;
+		}
+		switch (dfps_caps.type) {
+		/*
+		 * Ignore any round off factors in porch calculation.
+		 * Worse case is set to 5.
+		 */
+		case DSI_DFPS_IMMEDIATE_VFP:
+			if (abs(DSI_V_TOTAL(&cur_mode.timing) -
+				DSI_V_TOTAL(&adj_mode.timing)) > 5)
+				pr_err("Mismatch vfp fps:%d new:%d given:%d\n",
+				adj_mode.timing.refresh_rate,
+				cur_mode.timing.v_front_porch,
+				adj_mode.timing.v_front_porch);
+			break;
+
+		case DSI_DFPS_IMMEDIATE_HFP:
+			if (abs(DSI_H_TOTAL(&cur_mode.timing) -
+				DSI_H_TOTAL(&adj_mode.timing)) > 5)
+				pr_err("Mismatch hfp fps:%d new:%d given:%d\n",
+				adj_mode.timing.refresh_rate,
+				cur_mode.timing.h_front_porch,
+				adj_mode.timing.h_front_porch);
+			break;
+
+		default:
+			pr_err("Unsupported DFPS mode %d\n",
+				dfps_caps.type);
+			rc = -ENOTSUPP;
+		}
+
+		pr_debug("Mode switch is seamless variable refresh\n");
+		mode->dsi_mode_flags |= DSI_MODE_FLAG_VRR;
+		SDE_EVT32(curr_refresh_rate, adj_mode.timing.refresh_rate,
+				cur_mode.timing.h_front_porch,
+				adj_mode.timing.h_front_porch);
 	}
 
 error:

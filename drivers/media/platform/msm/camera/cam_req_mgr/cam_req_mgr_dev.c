@@ -500,6 +500,12 @@ void cam_video_device_cleanup(void)
 	g_dev.video = NULL;
 }
 
+void cam_register_subdev_fops(struct v4l2_file_operations *fops)
+{
+	*fops = v4l2_subdev_fops;
+}
+EXPORT_SYMBOL(cam_register_subdev_fops);
+
 int cam_register_subdev(struct cam_subdev *csd)
 {
 	struct v4l2_subdev *sd;

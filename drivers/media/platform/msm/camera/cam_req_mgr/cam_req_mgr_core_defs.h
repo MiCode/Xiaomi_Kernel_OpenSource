@@ -15,13 +15,9 @@
 #define CRM_TRACE_ENABLE 0
 #define CRM_DEBUG_MUTEX 0
 
-#define SET_SUCCESS_BIT(ret, pd)	{\
-	(ret) |= (1 << (pd));	\
-	}
+#define SET_SUCCESS_BIT(ret, pd)  (ret |= (1 << (pd)))
 
-#define SET_FAILURE_BIT(ret, pd)	{\
-	(ret) &= (0 << (pd));	\
-	}
+#define SET_FAILURE_BIT(ret, pd)  (ret &= (~(1 << (pd))))
 
 #define CRM_GET_REQ_ID(in_q, idx) in_q->slot[idx].req_id
 

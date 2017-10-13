@@ -95,7 +95,6 @@ struct cam_ois_intf_params {
  * @i2c_mode_data   :   ois i2c mode settings
  * @i2c_calib_data  :   ois i2c calib settings
  * @ois_device_type :   ois device type
- * @subdev_id       :   subdev id
  * @ois_name        :   ois name
  * @ois_fw_flag     :   flag for firmware download
  * @is_ois_calib    :   flag for Calibration data
@@ -116,7 +115,6 @@ struct cam_ois_ctrl_t {
 	struct i2c_settings_array i2c_calib_data;
 	struct i2c_settings_array i2c_mode_data;
 	enum msm_camera_device_type_t ois_device_type;
-	uint32_t subdev_id;
 	char device_name[20];
 	char ois_name[32];
 	uint8_t ois_fw_flag;

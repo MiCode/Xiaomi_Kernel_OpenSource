@@ -56,6 +56,7 @@
 
 #define PIL_NUM_DESC		10
 #define NUM_OF_ENCRYPTED_KEY	3
+#define MAX_LEN 96
 static void __iomem *pil_info_base;
 static void __iomem *pil_minidump_base;
 
@@ -836,6 +837,23 @@ static int pil_parse_devicetree(struct pil_desc *desc)
 	return 0;
 }
 
+static int pil_notify_aop(struct pil_desc *desc, char *status)
+{
+	struct qmp_pkt pkt;
+	char mbox_msg[MAX_LEN];
+
+	if (!desc->signal_aop)
+		return 0;
+
+	snprintf(mbox_msg, MAX_LEN,
+		"{class: image, res: load_state, name: %s, val: %s}",
+		desc->name, status);
+	pkt.size = MAX_LEN;
+	pkt.data = mbox_msg;
+
+	return mbox_send_message(desc->mbox, &pkt);
+}
+
 /* Synchronize request_firmware() with suspend */
 static DECLARE_RWSEM(pil_pm_rwsem);
 
@@ -856,6 +874,12 @@ int pil_boot(struct pil_desc *desc)
 	struct pil_priv *priv = desc->priv;
 	bool mem_protect = false;
 	bool hyp_assign = false;
+
+	ret = pil_notify_aop(desc, "on");
+	if (ret < 0) {
+		pil_err(desc, "Failed to send ON message to AOP rc:%d\n", ret);
+		return ret;
+	}
 
 	if (desc->shutdown_fail)
 		pil_err(desc, "Subsystem shutdown failed previously!\n");
@@ -1015,6 +1039,7 @@ out:
 			priv->region = NULL;
 		}
 		pil_release_mmap(desc);
+		pil_notify_aop(desc, "off");
 	}
 	return ret;
 }
@@ -1026,6 +1051,7 @@ EXPORT_SYMBOL(pil_boot);
  */
 void pil_shutdown(struct pil_desc *desc)
 {
+	int ret;
 	struct pil_priv *priv = desc->priv;
 
 	if (desc->ops->shutdown) {
@@ -1043,6 +1069,9 @@ void pil_shutdown(struct pil_desc *desc)
 		pil_proxy_unvote(desc, 1);
 	else
 		flush_delayed_work(&priv->proxy);
+	ret = pil_notify_aop(desc, "off");
+	if (ret < 0)
+		pr_warn("pil: failed to send OFF message to AOP rc:%d\n", ret);
 	desc->modem_ssr = true;
 }
 EXPORT_SYMBOL(pil_shutdown);

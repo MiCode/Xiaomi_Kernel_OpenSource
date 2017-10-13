@@ -16,11 +16,13 @@
 #include <linux/delay.h>
 #include <linux/iopoll.h>
 
+#include "dsi_catalog.h"
 #include "dsi_ctrl_hw.h"
 #include "dsi_ctrl_reg.h"
 #include "dsi_hw.h"
 #include "dsi_panel.h"
 #include "dsi_catalog.h"
+#include "sde_dbg.h"
 
 #define MMSS_MISC_CLAMP_REG_OFF           0x0014
 #define DSI_CTRL_DYNAMIC_FORCE_ON         (0x23F|BIT(8)|BIT(9)|BIT(11)|BIT(21))
@@ -218,6 +220,27 @@ u32 dsi_ctrl_hw_cmn_collect_misr(struct dsi_ctrl_hw *ctrl,
 }
 
 /**
+* set_timing_db() - enable/disable Timing DB register
+* @ctrl:          Pointer to controller host hardware.
+* @enable:        Enable/Disable flag.
+*
+* Enable or Disabe the Timing DB register.
+*/
+void dsi_ctrl_hw_cmn_set_timing_db(struct dsi_ctrl_hw *ctrl,
+				     bool enable)
+{
+	if (enable)
+		DSI_W32(ctrl, DSI_DSI_TIMING_DB_MODE, 0x1);
+	else
+		DSI_W32(ctrl, DSI_DSI_TIMING_DB_MODE, 0x0);
+
+	wmb(); /* make sure timing db registers are set */
+	pr_debug("[DSI_%d] ctrl timing DB set:%d\n", ctrl->index,
+				enable);
+	SDE_EVT32(ctrl->index, enable);
+}
+
+/**
  * set_video_timing() - set up the timing for video frame
  * @ctrl:          Pointer to controller host hardware.
  * @mode:          Video mode information.
@@ -290,6 +313,7 @@ void dsi_ctrl_hw_cmn_set_video_timing(struct dsi_ctrl_hw *ctrl,
 	DSI_W32(ctrl, DSI_MISR_VIDEO_CTRL, 0x10100);
 	DSI_W32(ctrl, DSI_DSI_TIMING_FLUSH, 0x1);
 	pr_debug("[DSI_%d] ctrl video parameters updated\n", ctrl->index);
+	SDE_EVT32(v_total, h_total);
 }
 
 /**
@@ -424,6 +448,18 @@ void dsi_ctrl_hw_cmn_video_engine_setup(struct dsi_ctrl_hw *ctrl,
 	pr_debug("[DSI_%d] Video engine setup done\n", ctrl->index);
 }
 
+void dsi_ctrl_hw_cmn_debug_bus(struct dsi_ctrl_hw *ctrl)
+{
+	u32 reg = 0;
+
+	DSI_W32(ctrl, DSI_DEBUG_BUS_CTL, 0x181);
+
+	/* make sure that debug test point is enabled */
+	wmb();
+	reg = DSI_R32(ctrl, DSI_DEBUG_BUS_STATUS);
+
+	pr_err("[DSI_%d] debug bus status:0x%x\n", ctrl->index, reg);
+}
 /**
  * cmd_engine_setup() - setup dsi host controller for command mode
  * @ctrl:          Pointer to the controller host hardware.
@@ -674,6 +710,22 @@ void dsi_ctrl_hw_cmn_trigger_command_dma(struct dsi_ctrl_hw *ctrl)
 }
 
 /**
+ * clear_rdbk_reg() - clear previously read panel data.
+ * @ctrl:          Pointer to the controller host hardware.
+ *
+ * This function is called before sending DSI Rx command to
+ * panel in order to clear if any stale data remaining from
+ * previous read operation.
+ */
+void dsi_ctrl_hw_cmn_clear_rdbk_reg(struct dsi_ctrl_hw *ctrl)
+{
+	DSI_W32(ctrl, DSI_RDBK_DATA_CTRL, 0x1);
+	wmb(); /* ensure read back register is reset */
+	DSI_W32(ctrl, DSI_RDBK_DATA_CTRL, 0x0);
+	wmb(); /* ensure read back register is cleared */
+}
+
+/**
  * get_cmd_read_data() - get data read from the peripheral
  * @ctrl:           Pointer to the controller host hardware.
  * @rd_buf:         Buffer where data will be read into.
@@ -684,16 +736,16 @@ void dsi_ctrl_hw_cmn_trigger_command_dma(struct dsi_ctrl_hw *ctrl)
 u32 dsi_ctrl_hw_cmn_get_cmd_read_data(struct dsi_ctrl_hw *ctrl,
 				     u8 *rd_buf,
 				     u32 read_offset,
-				     u32 total_read_len)
+				     u32 rx_byte,
+				     u32 pkt_size,
+				     u32 *hw_read_cnt)
 {
 	u32 *lp, *temp, data;
-	int i, j = 0, cnt;
+	int i, j = 0, cnt, off;
 	u32 read_cnt;
-	u32 rx_byte = 0;
 	u32 repeated_bytes = 0;
 	u8 reg[16] = {0};
-	u32 pkt_size = 0;
-	int buf_offset = read_offset;
+	bool ack_err = false;
 
 	lp = (u32 *)rd_buf;
 	temp = (u32 *)reg;
@@ -702,28 +754,49 @@ u32 dsi_ctrl_hw_cmn_get_cmd_read_data(struct dsi_ctrl_hw *ctrl,
 	if (cnt > 4)
 		cnt = 4;
 
-	if (rx_byte == 4)
-		read_cnt = 4;
-	else
-		read_cnt = pkt_size + 6;
+	read_cnt = (DSI_R32(ctrl, DSI_RDBK_DATA_CTRL) >> 16);
+	ack_err = (rx_byte == 4) ? (read_cnt == 8) :
+			((read_cnt - 4) == (pkt_size + 6));
+
+	if (ack_err)
+		read_cnt -= 4;
+	if (!read_cnt) {
+		pr_err("Panel detected error, no data read\n");
+		return 0;
+	}
 
 	if (read_cnt > 16) {
-		int bytes_shifted;
+		int bytes_shifted, data_lost = 0, rem_header = 0;
 
-		bytes_shifted = read_cnt - 16;
-		repeated_bytes = buf_offset - bytes_shifted;
+		bytes_shifted = read_cnt - rx_byte;
+		if (bytes_shifted >= 4)
+			data_lost = bytes_shifted - 4; /* remove DCS header */
+		else
+			rem_header = 4 - bytes_shifted; /* remaining header */
+
+		repeated_bytes = (read_offset - 4) - data_lost + rem_header;
 	}
 
-	for (i = cnt - 1; i >= 0; i--) {
-		data = DSI_R32(ctrl, DSI_RDBK_DATA0 + i*4);
-		*temp++ = ntohl(data);
+	off = DSI_RDBK_DATA0;
+	off += ((cnt - 1) * 4);
+
+	for (i = 0; i < cnt; i++) {
+		data = DSI_R32(ctrl, off);
+		if (!repeated_bytes)
+			*lp++ = ntohl(data);
+		else
+			*temp++ = ntohl(data);
+		off -= 4;
 	}
 
-	for (i = repeated_bytes; i < 16; i++)
-		rd_buf[j++] = reg[i];
+	if (repeated_bytes) {
+		for (i = repeated_bytes; i < 16; i++)
+			rd_buf[j++] = reg[i];
+	}
 
-	pr_debug("[DSI_%d] Read %d bytes\n", ctrl->index, j);
-	return j;
+	*hw_read_cnt = read_cnt;
+	pr_debug("[DSI_%d] Read %d bytes\n", ctrl->index, rx_byte);
+	return rx_byte;
 }
 
 /**

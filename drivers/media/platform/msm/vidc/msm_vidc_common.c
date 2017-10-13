@@ -1686,6 +1686,11 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 		event_notify->crop_data.height;
 	inst->prop.crop_info.width =
 		event_notify->crop_data.width;
+	/* HW returns progressive_only flag in pic_struct. */
+	inst->pic_struct =
+		event_notify->pic_struct ?
+		MSM_VIDC_PIC_STRUCT_PROGRESSIVE :
+		MSM_VIDC_PIC_STRUCT_MAYBE_INTERLACED;
 
 	ptr = (u32 *)seq_changed_event.u.data;
 	ptr[0] = event_notify->height;
@@ -2196,7 +2201,8 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 			"%s: Send sys error for inst %pK\n", __func__, inst);
 		change_inst_state(inst, MSM_VIDC_CORE_INVALID);
 		msm_vidc_queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_SYS_ERROR);
-		msm_comm_print_inst_info(inst);
+		if (!core->trigger_ssr)
+			msm_comm_print_inst_info(inst);
 	}
 	dprintk(VIDC_DBG, "Calling core_release\n");
 	rc = call_hfi_op(hdev, core_release, hdev->hfi_device_data);
@@ -3383,7 +3389,7 @@ static int set_output_buffers(struct msm_vidc_inst *inst,
 	enum hal_buffer buffer_type)
 {
 	int rc = 0;
-	struct internal_buf *binfo;
+	struct internal_buf *binfo = NULL;
 	u32 smem_flags = 0, buffer_size;
 	struct hal_buffer_requirements *output_buf, *extradata_buf;
 	int i;
@@ -3492,10 +3498,10 @@ static int set_output_buffers(struct msm_vidc_inst *inst,
 	}
 	return rc;
 fail_set_buffers:
-	kfree(binfo);
-fail_kzalloc:
 	msm_comm_smem_free(inst, &binfo->smem);
 err_no_mem:
+	kfree(binfo);
+fail_kzalloc:
 	return rc;
 }
 
@@ -4776,6 +4782,7 @@ void msm_comm_release_eos_buffers(struct msm_vidc_inst *inst)
 	mutex_lock(&inst->eosbufs.lock);
 	list_for_each_entry_safe(buf, next, &inst->eosbufs.list, list) {
 		list_del(&buf->list);
+		msm_comm_smem_free(inst, &buf->smem);
 		kfree(buf);
 	}
 	INIT_LIST_HEAD(&inst->eosbufs.list);
@@ -5323,8 +5330,7 @@ static int msm_vidc_load_supported(struct msm_vidc_inst *inst)
 		LOAD_CALC_IGNORE_NON_REALTIME_LOAD;
 
 	if (inst->state == MSM_VIDC_OPEN_DONE) {
-		max_load_adj = inst->core->resources.max_load +
-			inst->capability.mbs_per_frame.max;
+		max_load_adj = inst->core->resources.max_load;
 		num_mbs_per_sec = msm_comm_get_load(inst->core,
 					MSM_VIDC_DECODER, quirks);
 		num_mbs_per_sec += msm_comm_get_load(inst->core,
@@ -6328,10 +6334,26 @@ struct msm_vidc_buffer *msm_comm_get_vidc_buffer(struct msm_vidc_inst *inst,
 	}
 
 	mutex_lock(&inst->registeredbufs.lock);
-	list_for_each_entry(mbuf, &inst->registeredbufs.list, list) {
-		if (msm_comm_compare_dma_planes(inst, mbuf, dma_planes)) {
-			found = true;
-			break;
+	if (inst->session_type == MSM_VIDC_DECODER) {
+		list_for_each_entry(mbuf, &inst->registeredbufs.list, list) {
+			if (msm_comm_compare_dma_planes(inst, mbuf,
+					dma_planes)) {
+				found = true;
+				break;
+			}
+		}
+	} else {
+		/*
+		 * for encoder, client may queue the same buffer with different
+		 * fd before driver returned old buffer to the client. This
+		 * buffer should be treated as new buffer. Search the list with
+		 * fd so that it will be treated as new msm_vidc_buffer.
+		 */
+		list_for_each_entry(mbuf, &inst->registeredbufs.list, list) {
+			if (msm_comm_compare_vb2_planes(inst, mbuf, vb2)) {
+				found = true;
+				break;
+			}
 		}
 	}
 

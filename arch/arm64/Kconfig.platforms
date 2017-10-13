@@ -139,6 +139,15 @@ config ARCH_SDM670
 	  This enables support for the SDM670 chipset. If you do not
 	  wish to build a kernel that runs on this chipset, say 'N' here.
 
+config ARCH_MSM8953
+	bool "Enable Support for Qualcomm Technologies Inc. MSM8953"
+	depends on ARCH_QCOM
+	select COMMON_CLK_QCOM
+	select QCOM_GDSC
+	help
+	  This enables support for the MSM8953 chipset. If you do not
+	  wish to build a kernel that runs on this chipset, say 'N' here.
+
 config ARCH_ROCKCHIP
 	bool "Rockchip Platforms"
 	select ARCH_HAS_RESET_CONTROLLER

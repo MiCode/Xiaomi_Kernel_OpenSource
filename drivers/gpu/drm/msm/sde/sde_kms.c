@@ -545,7 +545,9 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 	struct msm_drm_private *priv;
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *old_crtc_state;
-	int i;
+	struct drm_connector *connector;
+	struct drm_connector_state *old_conn_state;
+	int i, rc = 0;
 
 	if (!kms || !old_state)
 		return;
@@ -557,6 +559,19 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 
 	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i)
 		sde_crtc_complete_commit(crtc, old_crtc_state);
+
+	for_each_connector_in_state(old_state, connector, old_conn_state, i) {
+		struct sde_connector *c_conn;
+
+		c_conn = to_sde_connector(connector);
+		if (!c_conn->ops.post_kickoff)
+			continue;
+		rc = c_conn->ops.post_kickoff(connector);
+		if (rc) {
+			pr_err("Connector Post kickoff failed rc=%d\n",
+					 rc);
+		}
+	}
 
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
@@ -758,6 +773,8 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.set_power = dsi_display_set_power,
 		.get_mode_info = dsi_conn_get_mode_info,
 		.get_dst_format = dsi_display_get_dst_format,
+		.post_kickoff = dsi_conn_post_kickoff,
+		.check_status = dsi_display_check_status,
 	};
 	static const struct sde_connector_ops wb_ops = {
 		.post_init =    sde_wb_connector_post_init,
@@ -767,7 +784,8 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.get_info =     sde_wb_get_info,
 		.soft_reset =   NULL,
 		.get_mode_info = sde_wb_get_mode_info,
-		.get_dst_format = NULL
+		.get_dst_format = NULL,
+		.check_status = NULL,
 	};
 	static const struct sde_connector_ops dp_ops = {
 		.post_init  = dp_connector_post_init,
@@ -776,6 +794,8 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.mode_valid = dp_connector_mode_valid,
 		.get_info   = dp_connector_get_info,
 		.get_mode_info  = dp_connector_get_mode_info,
+		.send_hpd_event = dp_connector_send_hpd_event,
+		.check_status = NULL,
 	};
 	struct msm_display_info info;
 	struct drm_encoder *encoder;
@@ -1403,6 +1423,12 @@ static void _sde_kms_hw_destroy(struct sde_kms *sde_kms,
 	if (!priv)
 		return;
 
+	if (sde_kms->genpd_init) {
+		sde_kms->genpd_init = false;
+		pm_genpd_remove(&sde_kms->genpd);
+		of_genpd_del_provider(pdev->dev.of_node);
+	}
+
 	if (sde_kms->hw_intr)
 		sde_hw_intr_destroy(sde_kms->hw_intr);
 	sde_kms->hw_intr = NULL;
@@ -1543,15 +1569,132 @@ static void sde_kms_destroy(struct msm_kms *kms)
 	kfree(sde_kms);
 }
 
+static void _sde_kms_plane_force_remove(struct drm_plane *plane,
+			struct drm_atomic_state *state)
+{
+	struct drm_plane_state *plane_state;
+	int ret = 0;
+
+	if (!plane->crtc)
+		return;
+
+	plane_state = drm_atomic_get_plane_state(state, plane);
+	if (IS_ERR(plane_state)) {
+		ret = PTR_ERR(plane_state);
+		SDE_ERROR("error %d getting plane %d state\n",
+				ret, plane->base.id);
+		return;
+	}
+
+	plane->old_fb = plane->fb;
+
+	SDE_DEBUG("disabling plane %d\n", plane->base.id);
+
+	ret = __drm_atomic_helper_disable_plane(plane, plane_state);
+	if (ret != 0)
+		SDE_ERROR("error %d disabling plane %d\n", ret,
+				plane->base.id);
+}
+
+static int _sde_kms_remove_fbs(struct sde_kms *sde_kms, struct drm_file *file,
+		struct drm_atomic_state *state)
+{
+	struct drm_device *dev = sde_kms->dev;
+	struct drm_framebuffer *fb, *tfb;
+	struct list_head fbs;
+	struct drm_plane *plane;
+	int ret = 0;
+	u32 plane_mask = 0;
+
+	INIT_LIST_HEAD(&fbs);
+
+	list_for_each_entry_safe(fb, tfb, &file->fbs, filp_head) {
+		if (drm_framebuffer_read_refcount(fb) > 1) {
+			list_move_tail(&fb->filp_head, &fbs);
+
+			drm_for_each_plane(plane, dev) {
+				if (plane->fb == fb) {
+					plane_mask |=
+						1 << drm_plane_index(plane);
+					 _sde_kms_plane_force_remove(
+								plane, state);
+				}
+			}
+		} else {
+			list_del_init(&fb->filp_head);
+			drm_framebuffer_unreference(fb);
+		}
+	}
+
+	if (list_empty(&fbs)) {
+		SDE_DEBUG("skip commit as no fb(s)\n");
+		drm_atomic_state_free(state);
+		return 0;
+	}
+
+	SDE_DEBUG("committing after removing all the pipes\n");
+	ret = drm_atomic_commit(state);
+
+	if (ret) {
+		/*
+		 * move the fbs back to original list, so it would be
+		 * handled during drm_release
+		 */
+		list_for_each_entry_safe(fb, tfb, &fbs, filp_head)
+			list_move_tail(&fb->filp_head, &file->fbs);
+
+		SDE_ERROR("atomic commit failed in preclose, ret:%d\n", ret);
+		goto end;
+	}
+
+	while (!list_empty(&fbs)) {
+		fb = list_first_entry(&fbs, typeof(*fb), filp_head);
+
+		list_del_init(&fb->filp_head);
+		drm_framebuffer_unreference(fb);
+	}
+
+end:
+	drm_atomic_clean_old_fb(dev, plane_mask, ret);
+
+	return ret;
+}
+
 static void sde_kms_preclose(struct msm_kms *kms, struct drm_file *file)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
 	struct drm_device *dev = sde_kms->dev;
 	struct msm_drm_private *priv = dev->dev_private;
 	unsigned int i;
+	struct drm_atomic_state *state = NULL;
+	int ret = 0;
 
 	for (i = 0; i < priv->num_crtcs; i++)
 		sde_crtc_cancel_pending_flip(priv->crtcs[i], file);
+
+	drm_modeset_lock_all(dev);
+	state = drm_atomic_state_alloc(dev);
+	if (!state) {
+		ret = -ENOMEM;
+		goto end;
+	}
+
+	state->acquire_ctx = dev->mode_config.acquire_ctx;
+
+	for (i = 0; i < TEARDOWN_DEADLOCK_RETRY_MAX; i++) {
+		ret = _sde_kms_remove_fbs(sde_kms, file, state);
+		if (ret != -EDEADLK)
+			break;
+		drm_atomic_state_clear(state);
+		drm_atomic_legacy_backoff(state);
+	}
+
+end:
+	if ((ret != 0) && state)
+		drm_atomic_state_free(state);
+
+	SDE_DEBUG("sde preclose done, ret:%d\n", ret);
+	drm_modeset_unlock_all(dev);
 }
 
 static int sde_kms_check_secure_transition(struct msm_kms *kms,
@@ -1685,6 +1828,8 @@ static void _sde_kms_post_open(struct msm_kms *kms, struct drm_file *file)
 {
 	struct drm_device *dev = NULL;
 	struct sde_kms *sde_kms = NULL;
+	struct drm_connector *connector = NULL;
+	struct sde_connector *sde_conn = NULL;
 
 	if (!kms) {
 		SDE_ERROR("invalid kms\n");
@@ -1699,8 +1844,22 @@ static void _sde_kms_post_open(struct msm_kms *kms, struct drm_file *file)
 		return;
 	}
 
-	if (dev->mode_config.funcs->output_poll_changed)
-		dev->mode_config.funcs->output_poll_changed(dev);
+	if (!dev->mode_config.poll_enabled)
+		return;
+
+	mutex_lock(&dev->mode_config.mutex);
+	drm_for_each_connector(connector, dev) {
+		/* Only handle HPD capable connectors. */
+		if (!(connector->polled & DRM_CONNECTOR_POLL_HPD))
+			continue;
+
+		sde_conn = to_sde_connector(connector);
+
+		if (sde_conn->ops.send_hpd_event)
+			sde_conn->ops.send_hpd_event(sde_conn->display);
+	}
+	mutex_unlock(&dev->mode_config.mutex);
+
 }
 
 static int sde_kms_pm_suspend(struct device *dev)
@@ -1960,12 +2119,71 @@ fail:
 static void sde_kms_handle_power_event(u32 event_type, void *usr)
 {
 	struct sde_kms *sde_kms = usr;
+	struct msm_kms *msm_kms;
 
+	msm_kms = &sde_kms->base;
 	if (!sde_kms)
 		return;
 
-	if (event_type == SDE_POWER_EVENT_POST_ENABLE)
+	SDE_DEBUG("event_type:%d\n", event_type);
+	SDE_EVT32_VERBOSE(event_type);
+
+	if (event_type == SDE_POWER_EVENT_POST_ENABLE) {
+		sde_irq_update(msm_kms, true);
 		sde_vbif_init_memtypes(sde_kms);
+	} else if (event_type == SDE_POWER_EVENT_PRE_DISABLE) {
+		sde_irq_update(msm_kms, false);
+	}
+}
+
+#define genpd_to_sde_kms(domain) container_of(domain, struct sde_kms, genpd)
+
+static int sde_kms_pd_enable(struct generic_pm_domain *genpd)
+{
+	struct sde_kms *sde_kms = genpd_to_sde_kms(genpd);
+	struct drm_device *dev;
+	struct msm_drm_private *priv;
+	int rc;
+
+	SDE_DEBUG("\n");
+
+	dev = sde_kms->dev;
+	if (!dev)
+		return -EINVAL;
+
+	priv = dev->dev_private;
+	if (!priv)
+		return -EINVAL;
+
+	SDE_EVT32(genpd->device_count);
+
+	rc = sde_power_resource_enable(&priv->phandle, priv->pclient, true);
+
+	return rc;
+}
+
+static int sde_kms_pd_disable(struct generic_pm_domain *genpd)
+{
+	struct sde_kms *sde_kms = genpd_to_sde_kms(genpd);
+	struct drm_device *dev;
+	struct msm_drm_private *priv;
+	int rc;
+
+	SDE_DEBUG("\n");
+
+	dev = sde_kms->dev;
+	if (!dev)
+		return -EINVAL;
+
+	priv = dev->dev_private;
+	if (!priv)
+		return -EINVAL;
+
+	SDE_EVT32(genpd->device_count);
+
+	rc = sde_power_resource_enable(&priv->phandle, priv->pclient, false);
+
+	return rc;
 }
 
 static int sde_kms_hw_init(struct msm_kms *kms)
@@ -2193,12 +2411,41 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	 */
 	sde_kms_handle_power_event(SDE_POWER_EVENT_POST_ENABLE, sde_kms);
 	sde_kms->power_event = sde_power_handle_register_event(&priv->phandle,
-			SDE_POWER_EVENT_POST_ENABLE,
+			SDE_POWER_EVENT_POST_ENABLE |
+			SDE_POWER_EVENT_PRE_DISABLE,
 			sde_kms_handle_power_event, sde_kms, "kms");
 
+	/* initialize power domain if defined */
+	if (of_find_property(dev->dev->of_node, "#power-domain-cells", NULL)) {
+		sde_kms->genpd.name = dev->unique;
+		sde_kms->genpd.power_off = sde_kms_pd_disable;
+		sde_kms->genpd.power_on = sde_kms_pd_enable;
+
+		rc = pm_genpd_init(&sde_kms->genpd, NULL, true);
+		if (rc < 0) {
+			SDE_ERROR("failed to init genpd provider %s: %d\n",
+					sde_kms->genpd.name, rc);
+			goto genpd_err;
+		}
+
+		rc = of_genpd_add_provider_simple(dev->dev->of_node,
+				&sde_kms->genpd);
+		if (rc < 0) {
+			SDE_ERROR("failed to add genpd provider %s: %d\n",
+					sde_kms->genpd.name, rc);
+			pm_genpd_remove(&sde_kms->genpd);
+			goto genpd_err;
+		}
+
+		sde_kms->genpd_init = true;
+		SDE_DEBUG("added genpd provider %s\n", sde_kms->genpd.name);
+	}
+
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
+
 	return 0;
 
+genpd_err:
 drm_obj_init_err:
 	sde_core_perf_destroy(&sde_kms->perf);
 hw_intr_init_err:

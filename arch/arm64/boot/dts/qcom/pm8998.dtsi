@@ -192,6 +192,33 @@
 			qcom,fast-avg-setup = <0>;
 			#thermal-sensor-cells = <1>;
 		};
+
+		pm8998_div_clk1: qcom,clkdiv@5b00 {
+			compatible = "qcom,qpnp-clkdiv";
+			reg = <0x5b00 0x100>;
+			#clock-cells = <1>;
+			qcom,cxo-freq = <19200000>;
+			qcom,clkdiv-id = <1>;
+			qcom,clkdiv-init-freq = <19200000>;
+		};
+
+		pm8998_div_clk2: qcom,clkdiv@5c00 {
+			compatible = "qcom,qpnp-clkdiv";
+			reg = <0x5c00 0x100>;
+			#clock-cells = <1>;
+			qcom,cxo-freq = <19200000>;
+			qcom,clkdiv-id = <2>;
+			qcom,clkdiv-init-freq = <19200000>;
+		};
+
+		pm8998_div_clk3: qcom,clkdiv@5d00 {
+			compatible = "qcom,qpnp-clkdiv";
+			reg = <0x5d00 0x100>;
+			#clock-cells = <1>;
+			qcom,cxo-freq = <19200000>;
+			qcom,clkdiv-id = <3>;
+			qcom,clkdiv-init-freq = <19200000>;
+		};
 	};
 
 	qcom,pm8998@1 {

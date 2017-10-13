@@ -78,6 +78,7 @@
 			snps,disable-clk-gating;
 			snps,has-lpm-erratum;
 			snps,hird-threshold = /bits/ 8 <0x10>;
+			usb-core-id = <0>;
 		};
 
 		qcom,usbbam@a704000 {
@@ -116,8 +117,9 @@
 	qusb_phy0: qusb@88e2000 {
 		compatible = "qcom,qusb2phy-v2";
 		reg = <0x088e2000 0x400>,
-			<0x007801e8 0x4>;
-		reg-names = "qusb_phy_base", "efuse_addr";
+			<0x007801e8 0x4>,
+			<0x088e0000 0x2000>;
+		reg-names = "qusb_phy_base", "efuse_addr", "eud_base";
 
 		qcom,efuse-bit-pos = <25>;
 		qcom,efuse-num-bits = <3>;
@@ -385,6 +387,7 @@
 			snps,disable-clk-gating;
 			snps,has-lpm-erratum;
 			snps,hird-threshold = /bits/ 8 <0x10>;
+			usb-core-id = <1>;
 		};
 	};
 

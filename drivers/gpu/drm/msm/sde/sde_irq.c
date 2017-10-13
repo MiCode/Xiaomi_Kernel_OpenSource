@@ -19,6 +19,30 @@
 #include "sde_irq.h"
 #include "sde_core_irq.h"
 
+static uint32_t g_sde_irq_status;
+
+void sde_irq_update(struct msm_kms *msm_kms, bool enable)
+{
+	int irq_num;
+	struct sde_kms *sde_kms = to_sde_kms(msm_kms);
+
+	if (!msm_kms || !sde_kms) {
+		SDE_ERROR("invalid kms arguments\n");
+		return;
+	}
+
+	irq_num = platform_get_irq(sde_kms->dev->platformdev, 0);
+	if (irq_num < 0) {
+		SDE_ERROR("invalid irq number\n");
+		return;
+	}
+
+	if (enable)
+		enable_irq(irq_num);
+	else
+		disable_irq(irq_num);
+}
+
 irqreturn_t sde_irq(struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
@@ -26,6 +50,9 @@ irqreturn_t sde_irq(struct msm_kms *kms)
 
 	sde_kms->hw_intr->ops.get_interrupt_sources(sde_kms->hw_intr,
 			&interrupts);
+
+	/* store irq status in case of irq-storm debugging */
+	g_sde_irq_status = interrupts;
 
 	/*
 	 * Taking care of MDP interrupt
@@ -40,13 +67,30 @@ irqreturn_t sde_irq(struct msm_kms *kms)
 	 */
 	while (interrupts) {
 		irq_hw_number_t hwirq = fls(interrupts) - 1;
+		unsigned int mapping;
+		int rc;
 
-		generic_handle_irq(irq_find_mapping(
-				sde_kms->irq_controller.domain, hwirq));
+		mapping = irq_find_mapping(sde_kms->irq_controller.domain,
+				hwirq);
+		if (mapping == 0) {
+			SDE_EVT32(hwirq, SDE_EVTLOG_ERROR);
+			goto error;
+		}
+
+		rc = generic_handle_irq(mapping);
+		if (rc < 0) {
+			SDE_EVT32(hwirq, mapping, rc, SDE_EVTLOG_ERROR);
+			goto error;
+		}
+
 		interrupts &= ~(1 << hwirq);
 	}
 
 	return IRQ_HANDLED;
+
+error:
+	/* bad situation, inform irq system, it may disable overall MDSS irq */
+	return IRQ_NONE;
 }
 
 void sde_irq_preinstall(struct msm_kms *kms)

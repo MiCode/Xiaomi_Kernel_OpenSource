@@ -1693,6 +1693,12 @@ static int venus_hfi_core_init(void *device)
 
 	dev->bus_vote.data =
 		kzalloc(sizeof(struct vidc_bus_vote_data), GFP_KERNEL);
+	if (!dev->bus_vote.data) {
+		dprintk(VIDC_ERR, "Bus vote data memory is not allocated\n");
+		rc = -ENOMEM;
+		goto err_no_mem;
+	}
+
 	dev->bus_vote.data_count = 1;
 	dev->bus_vote.data->power_mode = VIDC_POWER_TURBO;
 
@@ -1751,9 +1757,8 @@ static int venus_hfi_core_init(void *device)
 	if (rc || __iface_cmdq_write(dev, &version_pkt))
 		dprintk(VIDC_WARN, "Failed to send image version pkt to f/w\n");
 
-	rc = __enable_subcaches(device);
-	if (!rc)
-		__set_subcaches(device);
+	__enable_subcaches(device);
+	__set_subcaches(device);
 
 	if (dev->res->pm_qos_latency_us) {
 #ifdef CONFIG_SMP
@@ -1770,6 +1775,7 @@ err_core_init:
 	__set_state(dev, VENUS_STATE_DEINIT);
 	__unload_fw(dev);
 err_load_fw:
+err_no_mem:
 	dprintk(VIDC_ERR, "Core init failed\n");
 	mutex_unlock(&dev->lock);
 	return rc;
@@ -3790,8 +3796,9 @@ static int __enable_subcaches(struct venus_hfi_device *device)
 	venus_hfi_for_each_subcache(device, sinfo) {
 		rc = llcc_slice_activate(sinfo->subcache);
 		if (rc) {
-			dprintk(VIDC_ERR, "Failed to activate %s: %d\n",
+			dprintk(VIDC_WARN, "Failed to activate %s: %d\n",
 				sinfo->name, rc);
+			msm_vidc_res_handle_fatal_hw_error(device->res, true);
 			goto err_activate_fail;
 		}
 		sinfo->isactive = true;
@@ -3806,7 +3813,7 @@ static int __enable_subcaches(struct venus_hfi_device *device)
 err_activate_fail:
 	__release_subcaches(device);
 	__disable_subcaches(device);
-	return -EINVAL;
+	return 0;
 }
 
 static int __set_subcaches(struct venus_hfi_device *device)
@@ -3848,25 +3855,25 @@ static int __set_subcaches(struct venus_hfi_device *device)
 
 		rc = __core_set_resource(device, &rhdr, (void *)sc_res_info);
 		if (rc) {
-			dprintk(VIDC_ERR, "Failed to set subcaches %d\n", rc);
+			dprintk(VIDC_WARN, "Failed to set subcaches %d\n", rc);
 			goto err_fail_set_subacaches;
 		}
-	}
 
-	venus_hfi_for_each_subcache(device, sinfo) {
-		if (sinfo->isactive == true)
-			sinfo->isset = true;
-	}
+		venus_hfi_for_each_subcache(device, sinfo) {
+			if (sinfo->isactive == true)
+				sinfo->isset = true;
+		}
 
-	dprintk(VIDC_DBG, "Set Subcaches done to Venus\n");
-	device->res->sys_cache_res_set = true;
+		dprintk(VIDC_DBG, "Set Subcaches done to Venus\n");
+		device->res->sys_cache_res_set = true;
+	}
 
 	return 0;
 
 err_fail_set_subacaches:
 	__disable_subcaches(device);
 
-	return rc;
+	return 0;
 }
 
 static int __release_subcaches(struct venus_hfi_device *device)
@@ -3905,13 +3912,13 @@ static int __release_subcaches(struct venus_hfi_device *device)
 
 		rc = __core_release_resource(device, &rhdr);
 		if (rc)
-			dprintk(VIDC_ERR,
+			dprintk(VIDC_WARN,
 				"Failed to release %d subcaches\n", c);
 	}
 
 	device->res->sys_cache_res_set = false;
 
-	return rc;
+	return 0;
 }
 
 static int __disable_subcaches(struct venus_hfi_device *device)
@@ -3929,7 +3936,7 @@ static int __disable_subcaches(struct venus_hfi_device *device)
 				sinfo->name);
 			rc = llcc_slice_deactivate(sinfo->subcache);
 			if (rc) {
-				dprintk(VIDC_ERR,
+				dprintk(VIDC_WARN,
 					"Failed to de-activate %s: %d\n",
 					sinfo->name, rc);
 			}
@@ -3937,7 +3944,7 @@ static int __disable_subcaches(struct venus_hfi_device *device)
 		}
 	}
 
-	return rc;
+	return 0;
 }
 
 static int __venus_power_on(struct venus_hfi_device *device)
@@ -4111,9 +4118,8 @@ static inline int __resume(struct venus_hfi_device *device)
 
 	__sys_set_debug(device, msm_vidc_fw_debug);
 
-	rc = __enable_subcaches(device);
-	if (!rc)
-		__set_subcaches(device);
+	__enable_subcaches(device);
+	__set_subcaches(device);
 
 	dprintk(VIDC_PROF, "Resumed from power collapse\n");
 exit:
@@ -4282,10 +4288,65 @@ static int venus_hfi_get_core_capabilities(void *dev)
 	return rc;
 }
 
+static void __noc_error_info(struct venus_hfi_device *device, u32 core_num)
+{
+	u32 vcodec_core_video_noc_base_offs, val;
+
+	if (!device) {
+		dprintk(VIDC_ERR, "%s: null device\n", __func__);
+		return;
+	}
+	if (!core_num) {
+		vcodec_core_video_noc_base_offs =
+			VCODEC_CORE0_VIDEO_NOC_BASE_OFFS;
+	} else if (core_num == 1) {
+		vcodec_core_video_noc_base_offs =
+			VCODEC_CORE1_VIDEO_NOC_BASE_OFFS;
+	} else {
+		dprintk(VIDC_ERR, "%s: invalid core_num %u\n",
+			__func__, core_num);
+		return;
+	}
+
+	val = __read_register(device, vcodec_core_video_noc_base_offs +
+			VCODEC_COREX_VIDEO_NOC_ERR_SWID_LOW_OFFS);
+	dprintk(VIDC_ERR, "CORE%d_NOC_ERR_SWID_LOW:     %#x\n", core_num, val);
+	val = __read_register(device, vcodec_core_video_noc_base_offs +
+			VCODEC_COREX_VIDEO_NOC_ERR_SWID_HIGH_OFFS);
+	dprintk(VIDC_ERR, "CORE%d_NOC_ERR_SWID_HIGH:    %#x\n", core_num, val);
+	val = __read_register(device, vcodec_core_video_noc_base_offs +
+			VCODEC_COREX_VIDEO_NOC_ERR_MAINCTL_LOW_OFFS);
+	dprintk(VIDC_ERR, "CORE%d_NOC_ERR_MAINCTL_LOW:  %#x\n", core_num, val);
+	val = __read_register(device, vcodec_core_video_noc_base_offs +
+			VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG0_LOW_OFFS);
+	dprintk(VIDC_ERR, "CORE%d_NOC_ERR_ERRLOG0_LOW:  %#x\n", core_num, val);
+	val = __read_register(device, vcodec_core_video_noc_base_offs +
+			VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG0_HIGH_OFFS);
+	dprintk(VIDC_ERR, "CORE%d_NOC_ERR_ERRLOG0_HIGH: %#x\n", core_num, val);
+	val = __read_register(device, vcodec_core_video_noc_base_offs +
+			VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG1_LOW_OFFS);
+	dprintk(VIDC_ERR, "CORE%d_NOC_ERR_ERRLOG1_LOW:  %#x\n", core_num, val);
+	val = __read_register(device, vcodec_core_video_noc_base_offs +
+			VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG1_HIGH_OFFS);
+	dprintk(VIDC_ERR, "CORE%d_NOC_ERR_ERRLOG1_HIGH: %#x\n", core_num, val);
+	val = __read_register(device, vcodec_core_video_noc_base_offs +
+			VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG2_LOW_OFFS);
+	dprintk(VIDC_ERR, "CORE%d_NOC_ERR_ERRLOG2_LOW:  %#x\n", core_num, val);
+	val = __read_register(device, vcodec_core_video_noc_base_offs +
+			VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG2_HIGH_OFFS);
+	dprintk(VIDC_ERR, "CORE%d_NOC_ERR_ERRLOG2_HIGH: %#x\n", core_num, val);
+	val = __read_register(device, vcodec_core_video_noc_base_offs +
+			VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG3_LOW_OFFS);
+	dprintk(VIDC_ERR, "CORE%d_NOC_ERR_ERRLOG3_LOW:  %#x\n", core_num, val);
+	val = __read_register(device, vcodec_core_video_noc_base_offs +
+			VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG3_HIGH_OFFS);
+	dprintk(VIDC_ERR, "CORE%d_NOC_ERR_ERRLOG3_HIGH: %#x\n", core_num, val);
+}
+
 static int venus_hfi_noc_error_info(void *dev)
 {
 	struct venus_hfi_device *device;
-	u32 val = 0;
+	const u32 core0 = 0, core1 = 1;
 
 	if (!dev) {
 		dprintk(VIDC_ERR, "%s: null device\n", __func__);
@@ -4296,44 +4357,13 @@ static int venus_hfi_noc_error_info(void *dev)
 	mutex_lock(&device->lock);
 	dprintk(VIDC_ERR, "%s: non error information\n", __func__);
 
-	val = __read_register(device, 0x0C500);
-	dprintk(VIDC_ERR, "NOC_ERR_SWID_LOW(0x00AA0C500):     %#x\n", val);
+	if (__read_register(device, VCODEC_CORE0_VIDEO_NOC_BASE_OFFS +
+			VCODEC_COREX_VIDEO_NOC_ERR_ERRVLD_LOW_OFFS))
+		__noc_error_info(device, core0);
 
-	val = __read_register(device, 0x0C504);
-	dprintk(VIDC_ERR, "NOC_ERR_SWID_HIGH(0x00AA0C504):    %#x\n", val);
-
-	val = __read_register(device, 0x0C508);
-	dprintk(VIDC_ERR, "NOC_ERR_MAINCTL_LOW(0x00AA0C508):  %#x\n", val);
-
-	val = __read_register(device, 0x0C510);
-	dprintk(VIDC_ERR, "NOC_ERR_ERRVLD_LOW(0x00AA0C510):   %#x\n", val);
-
-	val = __read_register(device, 0x0C518);
-	dprintk(VIDC_ERR, "NOC_ERR_ERRCLR_LOW(0x00AA0C518):   %#x\n", val);
-
-	val = __read_register(device, 0x0C520);
-	dprintk(VIDC_ERR, "NOC_ERR_ERRLOG0_LOW(0x00AA0C520):  %#x\n", val);
-
-	val = __read_register(device, 0x0C524);
-	dprintk(VIDC_ERR, "NOC_ERR_ERRLOG0_HIGH(0x00AA0C524): %#x\n", val);
-
-	val = __read_register(device, 0x0C528);
-	dprintk(VIDC_ERR, "NOC_ERR_ERRLOG1_LOW(0x00AA0C528):  %#x\n", val);
-
-	val = __read_register(device, 0x0C52C);
-	dprintk(VIDC_ERR, "NOC_ERR_ERRLOG1_HIGH(0x00AA0C52C): %#x\n", val);
-
-	val = __read_register(device, 0x0C530);
-	dprintk(VIDC_ERR, "NOC_ERR_ERRLOG2_LOW(0x00AA0C530):  %#x\n", val);
-
-	val = __read_register(device, 0x0C534);
-	dprintk(VIDC_ERR, "NOC_ERR_ERRLOG2_HIGH(0x00AA0C534): %#x\n", val);
-
-	val = __read_register(device, 0x0C538);
-	dprintk(VIDC_ERR, "NOC_ERR_ERRLOG3_LOW(0x00AA0C538):  %#x\n", val);
-
-	val = __read_register(device, 0x0C53C);
-	dprintk(VIDC_ERR, "NOC_ERR_ERRLOG3_HIGH(0x00AA0C53C): %#x\n", val);
+	if (__read_register(device, VCODEC_CORE1_VIDEO_NOC_BASE_OFFS +
+			VCODEC_COREX_VIDEO_NOC_ERR_ERRVLD_LOW_OFFS))
+		__noc_error_info(device, core1);
 
 	mutex_unlock(&device->lock);
 

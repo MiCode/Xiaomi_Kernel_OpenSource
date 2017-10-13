@@ -557,6 +557,7 @@ static struct reg_list {
 	const unsigned int *regs;
 	unsigned int count;
 	const struct sel_reg *sel;
+	uint64_t offset;
 } a6xx_reg_list[] = {
 	{ a6xx_registers, ARRAY_SIZE(a6xx_registers) / 2, NULL },
 	{ a6xx_rb_rac_registers, ARRAY_SIZE(a6xx_rb_rac_registers) / 2,
@@ -569,64 +570,56 @@ static struct reg_list {
 	(((_a)[(2 * (_i)) + 1] - (_a)[2 * (_i)]) + 1)
 
 static size_t a6xx_legacy_snapshot_registers(struct kgsl_device *device,
-		u8 *buf, size_t remain)
+		u8 *buf, size_t remain, struct reg_list *regs)
 {
-	unsigned int i;
-	size_t used = 0;
+	struct kgsl_snapshot_registers snapshot_regs = {
+		.regs = regs->regs,
+		.count = regs->count,
+	};
 
-	for (i = 0; i < ARRAY_SIZE(a6xx_reg_list); i++) {
-		struct reg_list *regs = &a6xx_reg_list[i];
-		struct kgsl_snapshot_registers snapshot_regs = {
-			.regs = regs->regs,
-			.count = regs->count,
-		};
+	if (regs->sel)
+		kgsl_regwrite(device, regs->sel->host_reg, regs->sel->val);
 
-		if (regs->sel)
-			kgsl_regwrite(device, regs->sel->host_reg,
-				regs->sel->val);
-		used += kgsl_snapshot_dump_registers(device, buf + used,
-						remain - used, &snapshot_regs);
-	}
-	return used;
+	return kgsl_snapshot_dump_registers(device, buf, remain,
+		&snapshot_regs);
 }
 
 static size_t a6xx_snapshot_registers(struct kgsl_device *device, u8 *buf,
 		size_t remain, void *priv)
 {
 	struct kgsl_snapshot_regs *header = (struct kgsl_snapshot_regs *)buf;
+	struct reg_list *regs = (struct reg_list *)priv;
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
-	unsigned int *src = (unsigned int *)a6xx_crashdump_registers.hostptr;
-	unsigned int i, j, k;
+	unsigned int *src;
+	unsigned int j, k;
 	unsigned int count = 0;
 
 	if (crash_dump_valid == false)
-		return a6xx_legacy_snapshot_registers(device, buf, remain);
+		return a6xx_legacy_snapshot_registers(device, buf, remain,
+			regs);
 
 	if (remain < sizeof(*header)) {
 		SNAPSHOT_ERR_NOMEM(device, "REGISTERS");
 		return 0;
 	}
 
+	src = (unsigned int *)(a6xx_crashdump_registers.hostptr + regs->offset);
 	remain -= sizeof(*header);
 
-	for (i = 0; i < ARRAY_SIZE(a6xx_reg_list); i++) {
-		struct reg_list *regs = &a6xx_reg_list[i];
+	for (j = 0; j < regs->count; j++) {
+		unsigned int start = regs->regs[2 * j];
+		unsigned int end = regs->regs[(2 * j) + 1];
 
-		for (j = 0; j < regs->count; j++) {
-			unsigned int start = regs->regs[2 * j];
-			unsigned int end = regs->regs[(2 * j) + 1];
+		if (remain < ((end - start) + 1) * 8) {
+			SNAPSHOT_ERR_NOMEM(device, "REGISTERS");
+			goto out;
+		}
 
-			if (remain < ((end - start) + 1) * 8) {
-				SNAPSHOT_ERR_NOMEM(device, "REGISTERS");
-				goto out;
-			}
+		remain -= ((end - start) + 1) * 8;
 
-			remain -= ((end - start) + 1) * 8;
-
-			for (k = start; k <= end; k++, count++) {
-				*data++ = k;
-				*data++ = *src++;
-			}
+		for (k = start; k <= end; k++, count++) {
+			*data++ = k;
+			*data++ = *src++;
 		}
 	}
 
@@ -1366,6 +1359,7 @@ static void a6xx_snapshot_debugbus(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot)
 {
 	int i;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_CNTLT,
 		(0xf << A6XX_DBGC_CFG_DBGBUS_CNTLT_SEGT_SHIFT) |
@@ -1456,9 +1450,12 @@ static void a6xx_snapshot_debugbus(struct kgsl_device *device,
 			(void *) &a6xx_dbgc_debugbus_blocks[i]);
 	}
 
-	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUGBUS,
-			snapshot, a6xx_snapshot_vbif_debugbus_block,
-			(void *) &a6xx_vbif_debugbus_blocks);
+	/* Skip if GPU has GBIF */
+	if (!adreno_has_gbif(adreno_dev))
+		kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_DEBUGBUS,
+				snapshot, a6xx_snapshot_vbif_debugbus_block,
+				(void *) &a6xx_vbif_debugbus_blocks);
 
 	if (a6xx_cx_dbgc) {
 		for (i = 0; i < ARRAY_SIZE(a6xx_cx_dbgc_debugbus_blocks); i++) {
@@ -1471,10 +1468,18 @@ static void a6xx_snapshot_debugbus(struct kgsl_device *device,
 	}
 }
 
-static void a6xx_snapshot_gmu(struct kgsl_device *device,
+/*
+ * a6xx_snapshot_gmu() - A6XX GMU snapshot function
+ * @adreno_dev: Device being snapshotted
+ * @snapshot: Pointer to the snapshot instance
+ *
+ * This is where all of the A6XX GMU specific bits and pieces are grabbed
+ * into the snapshot memory
+ */
+void a6xx_snapshot_gmu(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	if (!kgsl_gmu_isenabled(device))
@@ -1519,6 +1524,8 @@ static void _a6xx_do_crashdump(struct kgsl_device *device)
 
 	crash_dump_valid = false;
 
+	if (!device->snapshot_crashdumper)
+		return;
 	if (a6xx_capturescript.gpuaddr == 0 ||
 		a6xx_crashdump_registers.gpuaddr == 0)
 		return;
@@ -1570,33 +1577,38 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_snapshot_data *snap_data = gpudev->snapshot_data;
 	bool sptprac_on;
+	unsigned int i;
+
+	/* Make sure the fence is in ALLOW mode so registers can be read */
+	kgsl_regwrite(device, A6XX_GMU_AO_AHB_FENCE_CTRL, 0);
 
 	/* GMU TCM data dumped through AHB */
-	a6xx_snapshot_gmu(device, snapshot);
+	a6xx_snapshot_gmu(adreno_dev, snapshot);
 
 	sptprac_on = gpudev->sptprac_is_on(adreno_dev);
 
 	/* Return if the GX is off */
-	if (!gpudev->gx_is_on(adreno_dev)) {
-		pr_err("GX is off. Only dumping GMU data in snapshot\n");
+	if (!gpudev->gx_is_on(adreno_dev))
 		return;
-	}
 
 	/* Dump the registers which get affected by crash dumper trigger */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
 		snapshot, a6xx_snapshot_pre_crashdump_regs, NULL);
 
 	/* Dump vbif registers as well which get affected by crash dumper */
-	adreno_snapshot_vbif_registers(device, snapshot,
-		a6xx_vbif_snapshot_registers,
-		ARRAY_SIZE(a6xx_vbif_snapshot_registers));
+	if (!adreno_has_gbif(adreno_dev))
+		adreno_snapshot_vbif_registers(device, snapshot,
+			a6xx_vbif_snapshot_registers,
+			ARRAY_SIZE(a6xx_vbif_snapshot_registers));
 
 	/* Try to run the crash dumper */
 	if (sptprac_on)
 		_a6xx_do_crashdump(device);
 
-	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
-		snapshot, a6xx_snapshot_registers, NULL);
+	for (i = 0; i < ARRAY_SIZE(a6xx_reg_list); i++) {
+		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
+			snapshot, a6xx_snapshot_registers, &a6xx_reg_list[i]);
+	}
 
 	/* CP_SQE indexed registers */
 	kgsl_snapshot_indexed_registers(device, snapshot,
@@ -1919,6 +1931,8 @@ void a6xx_crashdump_init(struct adreno_device *adreno_dev)
 	/* For the registers, program a read command for each pair */
 	for (i = 0; i < ARRAY_SIZE(a6xx_reg_list); i++) {
 		struct reg_list *regs = &a6xx_reg_list[i];
+
+		regs->offset = offset;
 
 		/* Program the SEL_CNTL_CD register appropriately */
 		if (regs->sel) {

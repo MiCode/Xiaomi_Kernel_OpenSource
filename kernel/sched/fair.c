@@ -5034,6 +5034,19 @@ static void dequeue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 DEFINE_PER_CPU(cpumask_var_t, load_balance_mask);
 DEFINE_PER_CPU(cpumask_var_t, select_idle_mask);
 
+#ifdef CONFIG_SCHED_CORE_ROTATE
+static int rotate_cpu_start;
+static DEFINE_SPINLOCK(rotate_lock);
+static unsigned long avoid_prev_cpu_last;
+
+static struct find_first_cpu_bit_env first_cpu_bit_env = {
+	.avoid_prev_cpu_last = &avoid_prev_cpu_last,
+	.rotate_cpu_start = &rotate_cpu_start,
+	.interval = HZ,
+	.rotate_lock = &rotate_lock,
+};
+#endif
+
 #ifdef CONFIG_NO_HZ_COMMON
 /*
  * per rq 'load' arrray crap; XXX kill this.
@@ -5658,10 +5671,10 @@ static int __find_new_capacity(unsigned long util,
 
 	for (idx = 0; idx < sge->nr_cap_states; idx++) {
 		if (sge->cap_states[idx].cap >= util)
-			break;
+			return idx;
 	}
 
-	return idx;
+	return (sge->nr_cap_states - 1);
 }
 
 static int find_new_capacity(struct energy_env *eenv,
@@ -6161,15 +6174,15 @@ static inline bool task_fits_spare(struct task_struct *p, int cpu)
 	return __task_fits(p, cpu, cpu_util(cpu));
 }
 
-static bool __cpu_overutilized(int cpu, int delta)
+bool __cpu_overutilized(int cpu, unsigned long util)
 {
-	return (capacity_orig_of(cpu) * 1024) <
-	       ((cpu_util(cpu) + delta) * sysctl_sched_capacity_margin);
+	return (capacity_orig_of(cpu) * 1024 <
+		util * sysctl_sched_capacity_margin);
 }
 
 bool cpu_overutilized(int cpu)
 {
-	return __cpu_overutilized(cpu, 0);
+	return __cpu_overutilized(cpu, cpu_util(cpu));
 }
 
 #ifdef CONFIG_SCHED_TUNE
@@ -6883,7 +6896,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	int target_cpu, targeted_cpus = 0;
 	unsigned long task_util_boosted = 0, curr_util = 0;
 	long new_util, new_util_cum;
-	int i;
+	int i = -1;
 	int ediff = -1;
 	int cpu = smp_processor_id();
 	int min_util_cpu = -1;
@@ -6902,8 +6915,17 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	enum sched_boost_policy placement_boost = task_sched_boost(p) ?
 				sched_boost_policy() : SCHED_BOOST_NONE;
 	struct related_thread_group *grp;
+	cpumask_t search_cpus;
+	int prev_cpu = task_cpu(p);
+#ifdef CONFIG_SCHED_CORE_ROTATE
+	bool do_rotate = false;
+	bool avoid_prev_cpu = false;
+#else
+#define do_rotate false
+#define avoid_prev_cpu false
+#endif
 
-	sd = rcu_dereference(per_cpu(sd_ea, task_cpu(p)));
+	sd = rcu_dereference(per_cpu(sd_ea, prev_cpu));
 
 	if (!sd)
 		return target;
@@ -6922,7 +6944,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 		rtg_target = &grp->preferred_cluster->cpus;
 
 	if (sync && bias_to_waker_cpu(p, cpu, rtg_target)) {
-		trace_sched_task_util_bias_to_waker(p, task_cpu(p),
+		trace_sched_task_util_bias_to_waker(p, prev_cpu,
 					task_util(p), cpu, cpu, 0, need_idle);
 		return cpu;
 	}
@@ -6985,18 +7007,34 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 
 		target_cpu = -1;
 
+		cpumask_copy(&search_cpus, tsk_cpus_allowed(p));
+		cpumask_and(&search_cpus, &search_cpus,
+			    sched_group_cpus(sg_target));
+
+#ifdef CONFIG_SCHED_CORE_ROTATE
+		i = find_first_cpu_bit(p, &search_cpus, sg_target,
+				       &avoid_prev_cpu, &do_rotate,
+				       &first_cpu_bit_env);
+
+retry:
+#endif
 		/* Find cpu with sufficient capacity */
-		for_each_cpu_and(i, tsk_cpus_allowed(p), sched_group_cpus(sg_target)) {
+		while ((i = cpumask_next(i, &search_cpus)) < nr_cpu_ids) {
+			cpumask_clear_cpu(i, &search_cpus);
+
 			if (cpu_isolated(i))
 				continue;
 
 			if (isolated_candidate == -1)
 				isolated_candidate = i;
 
+			if (avoid_prev_cpu && i == prev_cpu)
+				continue;
+
 			if (is_reserved(i))
 				continue;
 
-			if (sched_cpu_high_irqload(cpu))
+			if (sched_cpu_high_irqload(i))
 				continue;
 
 			/*
@@ -7061,9 +7099,9 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 						    new_util ||
 						    (target_cpu_util ==
 						     new_util &&
-						     (i == task_cpu(p) ||
+						     (i == prev_cpu ||
 						      (target_cpu !=
-						       task_cpu(p) &&
+						       prev_cpu &&
 						       target_cpu_new_util_cum >
 						       new_util_cum))))) {
 						min_idle_idx_cpu = i;
@@ -7075,6 +7113,9 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 					}
 				} else if (cpu_rq(i)->nr_running) {
 					target_cpu = i;
+#ifdef CONFIG_SCHED_CORE_ROTATE
+					do_rotate = false;
+#endif
 					break;
 				}
 			} else if (!need_idle) {
@@ -7114,6 +7155,19 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			}
 		}
 
+#ifdef CONFIG_SCHED_CORE_ROTATE
+		if (do_rotate) {
+			/*
+			 * We started iteration somewhere in the middle of
+			 * cpumask.  Iterate once again from bit 0 to the
+			 * previous starting point bit.
+			 */
+			do_rotate = false;
+			i = -1;
+			goto retry;
+		}
+#endif
+
 		if (target_cpu == -1 ||
 		    (target_cpu != min_util_cpu && !safe_to_pack &&
 		     !is_packing_eligible(p, task_util_boosted, sg_target,
@@ -7148,7 +7202,8 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 		}
 	}
 
-	if (target_cpu != task_cpu(p) && !cpu_isolated(task_cpu(p))) {
+	if (target_cpu != task_cpu(p) && !avoid_prev_cpu &&
+	    !cpu_isolated(task_cpu(p))) {
 		struct energy_env eenv = {
 			.util_delta	= task_util(p),
 			.src_cpu	= task_cpu(p),
@@ -7188,7 +7243,9 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 		task_util_boosted = 0;
 #endif
 		/* Not enough spare capacity on previous cpu */
-		if (__cpu_overutilized(task_cpu(p), task_util_boosted)) {
+		if (__cpu_overutilized(task_cpu(p),
+				       cpu_util(task_cpu(p)) +
+						task_util_boosted)) {
 			trace_sched_task_util_overutilzed(p, task_cpu(p),
 						task_util(p), target_cpu,
 						target_cpu, 0, need_idle);

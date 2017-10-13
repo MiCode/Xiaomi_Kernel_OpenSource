@@ -73,6 +73,7 @@
 #define CAM_ISP_PACKET_META_DMI_COMMON          6
 #define CAM_ISP_PACKET_META_CLOCK               7
 #define CAM_ISP_PACKET_META_CSID                8
+#define CAM_ISP_PACKET_META_DUAL_CONFIG         9
 #define CAM_ISP_PACKET_META_GENERIC_BLOB        10
 #define CAM_ISP_PACKET_META_MAX                 11
 
@@ -259,6 +260,62 @@ struct cam_isp_resource_hfr_config {
 	uint32_t                       num_io_configs;
 	uint32_t                       reserved;
 	struct cam_isp_port_hfr_config io_hfr_config[1];
+};
+
+/**
+ * struct cam_isp_dual_split_params - dual isp spilt parameters
+ *
+ * @split_point:                Split point information x, where (0 < x < width)
+ *                              left ISP's input ends at x + righ padding and
+ *                              Right ISP's input starts at x - left padding
+ * @right_padding:              Padding added past the split point for left
+ *                              ISP's input
+ * @left_padding:               Padding added before split point for right
+ *                              ISP's input
+ * @reserved:                   Reserved filed for alignment
+ *
+ */
+struct cam_isp_dual_split_params {
+	uint32_t                       split_point;
+	uint32_t                       right_padding;
+	uint32_t                       left_padding;
+	uint32_t                       reserved;
+};
+
+/**
+ * struct cam_isp_dual_stripe_config - stripe config per bus client
+ *
+ * @offset:                     Start horizontal offset relative to
+ *                              output buffer
+ *                              In UBWC mode, this value indicates the H_INIT
+ *                              value in pixel
+ * @width:                      Width of the stripe in bytes
+ * @tileconfig                  Ubwc meta tile config. Contain the partial
+ *                              tile info
+ * @port_id:                    port id of ISP output
+ *
+ */
+struct cam_isp_dual_stripe_config {
+	uint32_t                       offset;
+	uint32_t                       width;
+	uint32_t                       tileconfig;
+	uint32_t                       port_id;
+};
+
+/**
+ * struct cam_isp_dual_config - dual isp configuration
+ *
+ * @num_ports                   Number of isp output ports
+ * @reserved                    Reserved field for alignment
+ * @split_params:               Inpput split parameters
+ * @stripes:                    Stripe information
+ *
+ */
+struct cam_isp_dual_config {
+	uint32_t                           num_ports;
+	uint32_t                           reserved;
+	struct cam_isp_dual_split_params   split_params;
+	struct cam_isp_dual_stripe_config  stripes[1];
 };
 
 #endif /* __UAPI_CAM_ISP_H__ */

@@ -28,6 +28,7 @@ static void dsi_catalog_cmn_init(struct dsi_ctrl_hw *ctrl,
 	ctrl->ops.video_engine_en        = dsi_ctrl_hw_cmn_video_engine_en;
 	ctrl->ops.video_engine_setup     = dsi_ctrl_hw_cmn_video_engine_setup;
 	ctrl->ops.set_video_timing       = dsi_ctrl_hw_cmn_set_video_timing;
+	ctrl->ops.set_timing_db          = dsi_ctrl_hw_cmn_set_timing_db;
 	ctrl->ops.cmd_engine_setup       = dsi_ctrl_hw_cmn_cmd_engine_setup;
 	ctrl->ops.setup_cmd_stream       = dsi_ctrl_hw_cmn_setup_cmd_stream;
 	ctrl->ops.ctrl_en                = dsi_ctrl_hw_cmn_ctrl_en;
@@ -58,6 +59,9 @@ static void dsi_catalog_cmn_init(struct dsi_ctrl_hw *ctrl,
 	ctrl->ops.phy_reset_config = dsi_ctrl_hw_cmn_phy_reset_config;
 	ctrl->ops.setup_misr = dsi_ctrl_hw_cmn_setup_misr;
 	ctrl->ops.collect_misr = dsi_ctrl_hw_cmn_collect_misr;
+	ctrl->ops.debug_bus = dsi_ctrl_hw_cmn_debug_bus;
+	ctrl->ops.get_cmd_read_data = dsi_ctrl_hw_cmn_get_cmd_read_data;
+	ctrl->ops.clear_rdbk_register = dsi_ctrl_hw_cmn_clear_rdbk_reg;
 
 	switch (version) {
 	case DSI_CTRL_VERSION_1_4:

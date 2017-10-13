@@ -118,6 +118,7 @@ update_req_mgr:
 		CAM_DBG(CAM_SENSOR, " Rxed Req Id: %lld",
 			 csl_packet->header.request_id);
 		add_req.dev_hdl = s_ctrl->bridge_intf.device_hdl;
+		add_req.skip_before_applying = 0;
 		if (s_ctrl->bridge_intf.crm_cb &&
 			s_ctrl->bridge_intf.crm_cb->add_req)
 			s_ctrl->bridge_intf.crm_cb->add_req(&add_req);
@@ -813,28 +814,26 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 					return rc;
 				}
 			}
-			del_req_id = (req_id +
-				MAX_PER_FRAME_ARRAY -
-				MAX_SYSTEM_PIPELINE_DELAY) %
-				MAX_PER_FRAME_ARRAY;
-			CAM_DBG(CAM_SENSOR, "Deleting the Request: %d",
-				del_req_id);
-			if (req_id >
-				s_ctrl->i2c_data.per_frame[del_req_id].
-				request_id) {
-				s_ctrl->i2c_data.per_frame[del_req_id].
-					request_id = 0;
-				rc = delete_request(
-					&(s_ctrl->i2c_data.
-					per_frame[del_req_id]));
-				if (rc < 0)
-					CAM_ERR(CAM_SENSOR,
-						"Delete request Fail:%d rc:%d",
-						del_req_id, rc);
-			}
 		} else {
 			CAM_DBG(CAM_SENSOR,
 				"Invalid/NOP request to apply: %lld", req_id);
+		}
+
+		del_req_id = (req_id + MAX_PER_FRAME_ARRAY -
+			MAX_SYSTEM_PIPELINE_DELAY) % MAX_PER_FRAME_ARRAY;
+		CAM_DBG(CAM_SENSOR, "Deleting the Request: %d", del_req_id);
+
+		if ((req_id >
+			 s_ctrl->i2c_data.per_frame[del_req_id].request_id) &&
+			(s_ctrl->i2c_data.per_frame[del_req_id].
+				is_settings_valid == 1)) {
+			s_ctrl->i2c_data.per_frame[del_req_id].request_id = 0;
+			rc = delete_request(
+				&(s_ctrl->i2c_data.per_frame[del_req_id]));
+			if (rc < 0)
+				CAM_ERR(CAM_SENSOR,
+					"Delete request Fail:%d rc:%d",
+					del_req_id, rc);
 		}
 	}
 	return rc;
@@ -855,7 +854,7 @@ int32_t cam_sensor_apply_request(struct cam_req_mgr_apply_request *apply)
 		return -EINVAL;
 	}
 	CAM_DBG(CAM_SENSOR, " Req Id: %lld", apply->request_id);
-	trace_cam_apply_req("Sensor", apply);
+	trace_cam_apply_req("Sensor", apply->request_id);
 	rc = cam_sensor_apply_settings(s_ctrl, apply->request_id);
 	return rc;
 }

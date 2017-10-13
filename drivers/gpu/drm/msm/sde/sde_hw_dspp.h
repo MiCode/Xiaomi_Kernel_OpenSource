@@ -38,6 +38,13 @@ struct sde_hw_dspp_ops {
 	void (*read_histogram)(struct sde_hw_dspp *ctx, void *cfg);
 
 	/**
+	 * lock_histogram - lock dspp histogram buffer
+	 * @ctx: Pointer to dspp context
+	 * @cfg: Pointer to configuration
+	 */
+	void (*lock_histogram)(struct sde_hw_dspp *ctx, void *cfg);
+
+	/**
 	 * setup_igc - update dspp igc
 	 * @ctx: Pointer to dspp context
 	 * @cfg: Pointer to configuration

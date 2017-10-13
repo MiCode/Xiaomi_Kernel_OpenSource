@@ -351,7 +351,7 @@ static void tmc_etr_sg_mem_reset(uint32_t *vaddr, uint32_t size)
 	tmc_etr_sg_tbl_flush(vaddr, size);
 }
 
-static void tmc_etr_sg_rwp_pos(struct tmc_drvdata *drvdata, uint32_t rwp)
+void tmc_etr_sg_rwp_pos(struct tmc_drvdata *drvdata, uint32_t rwp)
 {
 	uint32_t i = 0, pte_n = 0, last_pte;
 	uint32_t *virt_st_tbl, *virt_pte;
@@ -403,6 +403,7 @@ static void tmc_etr_sg_rwp_pos(struct tmc_drvdata *drvdata, uint32_t rwp)
 			break;
 	}
 }
+EXPORT_SYMBOL(tmc_etr_sg_rwp_pos);
 
 static void tmc_etr_mem_reset(struct tmc_drvdata *drvdata)
 {
@@ -831,6 +832,8 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev, u32 mode)
 	drvdata->sticky_enable = true;
 out:
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
+		tmc_etr_byte_cntr_start(drvdata->byte_cntr);
 	mutex_unlock(&drvdata->mem_lock);
 
 	if (!ret)
@@ -919,6 +922,7 @@ static void tmc_disable_etr_sink(struct coresight_device *csdev)
 	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
 		coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
 		coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
+		tmc_etr_byte_cntr_stop(drvdata->byte_cntr);
 	}
 out:
 	mutex_unlock(&drvdata->mem_lock);
@@ -986,6 +990,11 @@ int tmc_read_prepare_etr(struct tmc_drvdata *drvdata)
 
 	/* If drvdata::buf is NULL the trace data has been read already */
 	if (drvdata->buf == NULL) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (drvdata->byte_cntr && drvdata->byte_cntr->enable) {
 		ret = -EINVAL;
 		goto out;
 	}

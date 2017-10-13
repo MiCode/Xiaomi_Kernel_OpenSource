@@ -33,6 +33,7 @@
 #define WAN_IOCTL_QUERY_DL_FILTER_STATS  8
 #define WAN_IOCTL_ADD_FLT_RULE_EX        9
 #define WAN_IOCTL_QUERY_TETHER_STATS_ALL  10
+#define WAN_IOCTL_NOTIFY_WAN_STATE  11
 
 /* User space may not have this defined. */
 #ifndef IFNAMSIZ
@@ -126,6 +127,10 @@ struct wan_ioctl_query_dl_filter_stats {
 	uint32_t index;
 };
 
+struct wan_ioctl_notify_wan_state {
+	uint8_t up;
+};
+
 #define WAN_IOC_ADD_FLT_RULE _IOWR(WAN_IOC_MAGIC, \
 		WAN_IOCTL_ADD_FLT_RULE, \
 		struct ipa_install_fltr_rule_req_msg_v01 *)
@@ -169,5 +174,9 @@ struct wan_ioctl_query_dl_filter_stats {
 #define WAN_IOC_QUERY_TETHER_STATS_ALL _IOWR(WAN_IOC_MAGIC, \
 		WAN_IOCTL_QUERY_TETHER_STATS_ALL, \
 		struct wan_ioctl_query_tether_stats_all *)
+
+#define WAN_IOC_NOTIFY_WAN_STATE _IOWR(WAN_IOC_MAGIC, \
+		WAN_IOCTL_NOTIFY_WAN_STATE, \
+		struct wan_ioctl_notify_wan_state *)
 
 #endif /* _RMNET_IPA_FD_IOCTL_H */

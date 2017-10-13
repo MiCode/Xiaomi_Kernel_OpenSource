@@ -34,6 +34,32 @@
 #define DP_INTR_FRAME_END		BIT(6)
 #define DP_INTR_CRC_UPDATED		BIT(9)
 
+#define HDR_PRIMARIES_COUNT   3
+
+struct dp_catalog_hdr_data {
+	u32 vsc_hdr_byte0;
+	u32 vsc_hdr_byte1;
+	u32 vsc_hdr_byte2;
+	u32 vsc_hdr_byte3;
+	u32 pkt_payload;
+
+	u32 bpc;
+
+	u32 version;
+	u32 length;
+	u32 eotf;
+	u32 descriptor_id;
+
+	u32 display_primaries_x[HDR_PRIMARIES_COUNT];
+	u32 display_primaries_y[HDR_PRIMARIES_COUNT];
+	u32 white_point_x;
+	u32 white_point_y;
+	u32 max_luminance;
+	u32 min_luminance;
+	u32 max_content_light_level;
+	u32 max_average_light_level;
+};
+
 struct dp_catalog_aux {
 	u32 data;
 	u32 isr;
@@ -41,6 +67,7 @@ struct dp_catalog_aux {
 	u32 (*read_data)(struct dp_catalog_aux *aux);
 	int (*write_data)(struct dp_catalog_aux *aux);
 	int (*write_trans)(struct dp_catalog_aux *aux);
+	int (*clear_trans)(struct dp_catalog_aux *aux, bool read);
 	void (*reset)(struct dp_catalog_aux *aux);
 	void (*enable)(struct dp_catalog_aux *aux, bool enable);
 	void (*update_aux_cfg)(struct dp_catalog_aux *aux,
@@ -48,6 +75,7 @@ struct dp_catalog_aux {
 	void (*setup)(struct dp_catalog_aux *aux,
 			struct dp_aux_cfg *aux_cfg);
 	void (*get_irq)(struct dp_catalog_aux *aux, bool cmd_busy);
+	void (*clear_hw_interrupts)(struct dp_catalog_aux *aux);
 };
 
 struct dp_catalog_ctrl {
@@ -55,6 +83,7 @@ struct dp_catalog_ctrl {
 	u32 valid_boundary;
 	u32 valid_boundary2;
 	u32 isr;
+	struct dp_catalog_hdr_data hdr_data;
 
 	void (*state_ctrl)(struct dp_catalog_ctrl *ctrl, u32 state);
 	void (*config_ctrl)(struct dp_catalog_ctrl *ctrl, u32 config);
@@ -75,6 +104,7 @@ struct dp_catalog_ctrl {
 	void (*update_vx_px)(struct dp_catalog_ctrl *ctrl, u8 v_level,
 				u8 p_level);
 	void (*get_interrupt)(struct dp_catalog_ctrl *ctrl);
+	void (*config_hdr)(struct dp_catalog_ctrl *ctrl);
 	void (*update_transfer_unit)(struct dp_catalog_ctrl *ctrl);
 	u32 (*read_hdcp_status)(struct dp_catalog_ctrl *ctrl);
 	void (*send_phy_pattern)(struct dp_catalog_ctrl *ctrl,
