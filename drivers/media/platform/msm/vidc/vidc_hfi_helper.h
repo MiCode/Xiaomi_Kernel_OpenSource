@@ -321,6 +321,10 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x033)
 #define  HFI_PROPERTY_PARAM_VENC_IFRAMESIZE			\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x034)
+#define  HFI_PROPERTY_PARAM_VENC_SEND_OUTPUT_FOR_SKIPPED_FRAMES	\
+	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x035)
+#define  HFI_PROPERTY_PARAM_VENC_HDR10_PQ_SEI			\
+	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x036)
 
 #define HFI_PROPERTY_CONFIG_VENC_COMMON_START				\
 	(HFI_DOMAIN_BASE_VENC + HFI_ARCH_COMMON_OFFSET + 0x6000)
@@ -1058,4 +1062,24 @@ struct hfi_cmd_sys_test_ssr_packet {
 	u32 packet_type;
 	u32 trigger_type;
 };
+
+struct hfi_mastering_display_colour_sei_payload {
+	u32 display_primariesX[3];
+	u32 display_primariesY[3];
+	u32 white_pointX;
+	u32 white_pointY;
+	u32 max_display_mastering_luminance;
+	u32 min_display_mastering_luminance;
+};
+
+struct hfi_content_light_level_sei_payload {
+	u32 max_content_light;
+	u32 max_pic_average_light;
+};
+
+struct hfi_hdr10_pq_sei {
+	struct hfi_mastering_display_colour_sei_payload mdisp_info;
+	struct hfi_content_light_level_sei_payload cll_info;
+};
+
 #endif
