@@ -402,6 +402,7 @@ struct qpnp_wled {
 	bool			ovp_irq_disabled;
 	bool			auto_calib_enabled;
 	bool			auto_calib_done;
+	bool			module_dis_perm;
 	ktime_t			start_ovp_fault_time;
 };
 
@@ -597,6 +598,9 @@ static int qpnp_wled_module_en(struct qpnp_wled *wled,
 				u16 base_addr, bool state)
 {
 	int rc;
+
+	if (wled->module_dis_perm)
+		return 0;
 
 	rc = qpnp_wled_masked_write_reg(wled,
 			QPNP_WLED_MODULE_EN_REG(base_addr),
@@ -1215,6 +1219,7 @@ static int wled_auto_calibrate(struct qpnp_wled *wled)
 
 	if (!sink_config) {
 		pr_warn("No valid WLED sinks found\n");
+		wled->module_dis_perm = true;
 		goto failed_calib;
 	}
 
