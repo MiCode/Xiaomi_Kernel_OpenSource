@@ -19,7 +19,6 @@
 #include <linux/kernel.h>
 #include <linux/device.h>
 #include <linux/dma-buf.h>
-#include <linux/msm_ion.h>
 
 #include "sde_rotator_hwio.h"
 #include "sde_rotator_base.h"
@@ -73,7 +72,6 @@ struct sde_rot_data_type;
 struct sde_fb_data {
 	uint32_t offset;
 	struct dma_buf *buffer;
-	struct ion_handle *handle;
 	int memory_id;
 	int id;
 	uint32_t flags;
@@ -86,7 +84,6 @@ struct sde_layer_plane {
 	/* DMA buffer file descriptor information. */
 	int fd;
 	struct dma_buf *buffer;
-	struct ion_handle *handle;
 
 	/* i/o virtual address & length */
 	dma_addr_t addr;
@@ -204,4 +201,6 @@ int sde_mdp_data_check(struct sde_mdp_data *data,
 			struct sde_mdp_format_params *fmt);
 
 void sde_mdp_data_free(struct sde_mdp_data *data, bool rotator, int dir);
+
+struct dma_buf *sde_rot_get_dmabuf(struct sde_mdp_img_data *data);
 #endif /* __SDE_ROTATOR_UTIL_H__ */

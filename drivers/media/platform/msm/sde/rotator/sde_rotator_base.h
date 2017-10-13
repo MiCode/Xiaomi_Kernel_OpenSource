@@ -264,8 +264,6 @@ struct sde_rot_data_type {
 	struct sde_rot_lut_cfg lut_cfg[SDE_ROT_OP_MAX];
 	struct sde_rot_lut_cfg inline_lut_cfg[SDE_ROT_OP_MAX];
 
-	struct ion_client *iclient;
-
 	bool clk_always_on;
 };
 

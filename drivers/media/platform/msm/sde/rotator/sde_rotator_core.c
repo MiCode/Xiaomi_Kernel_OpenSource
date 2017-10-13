@@ -573,7 +573,6 @@ static int sde_rotator_import_buffer(struct sde_layer_buffer *buffer,
 		planes[i].memory_id = buffer->planes[i].fd;
 		planes[i].offset = buffer->planes[i].offset;
 		planes[i].buffer = buffer->planes[i].buffer;
-		planes[i].handle = buffer->planes[i].handle;
 		planes[i].addr = buffer->planes[i].addr;
 		planes[i].len = buffer->planes[i].len;
 	}
