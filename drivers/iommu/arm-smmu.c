@@ -4254,16 +4254,20 @@ static int __init arm_smmu_init(void)
 {
 	static bool registered;
 	int ret = 0;
+	ktime_t cur;
 
 	if (registered)
 		return 0;
 
+	cur = ktime_get();
 	ret = platform_driver_register(&qsmmuv500_tbu_driver);
 	if (ret)
 		return ret;
 
 	ret = platform_driver_register(&arm_smmu_driver);
 	registered = !ret;
+	trace_smmu_init(ktime_us_delta(ktime_get(), cur));
+
 	return ret;
 }
 

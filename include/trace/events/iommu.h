@@ -217,6 +217,24 @@ DEFINE_EVENT(iommu_errata_tlbi, errata_failed,
 
 	TP_ARGS(dev, time)
 );
+
+TRACE_EVENT(smmu_init,
+
+	TP_PROTO(u64 time),
+
+	TP_ARGS(time),
+
+	TP_STRUCT__entry(
+		__field(u64, time)
+	),
+
+	TP_fast_assign(
+		__entry->time = time;
+	),
+
+	TP_printk("ARM SMMU init latency: %lld us", __entry->time)
+);
+
 #endif /* _TRACE_IOMMU_H */
 
 /* This part must be outside protection */
