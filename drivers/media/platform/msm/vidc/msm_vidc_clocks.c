@@ -22,6 +22,19 @@
 #define MSM_VIDC_MIN_UBWC_COMPRESSION_RATIO (1 << 16)
 #define MSM_VIDC_MAX_UBWC_COMPRESSION_RATIO (5 << 16)
 
+static inline void msm_dcvs_print_dcvs_stats(struct clock_data *dcvs)
+{
+	dprintk(VIDC_PROF,
+		"DCVS: Load_Low %d, Load Norm %d, Load High %d\n",
+		dcvs->load_low,
+		dcvs->load_norm,
+		dcvs->load_high);
+
+	dprintk(VIDC_PROF,
+		"DCVS: min_threshold %d, max_threshold %d\n",
+		dcvs->min_threshold, dcvs->max_threshold);
+}
+
 static inline unsigned long int get_ubwc_compression_ratio(
 	struct ubwc_cr_stats_info_type ubwc_stats_info)
 {
@@ -509,6 +522,14 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 	unsigned long vpp_cycles = 0, vsp_cycles = 0;
 	u32 vpp_cycles_per_mb;
 	u32 mbs_per_second;
+	struct msm_vidc_core *core = NULL;
+	int i = 0;
+	struct allowed_clock_rates_table *allowed_clks_tbl = NULL;
+	u64 rate = 0;
+	struct clock_data *dcvs = NULL;
+
+	core = inst->core;
+	dcvs = &inst->clk_data;
 
 	mbs_per_second = msm_comm_get_inst_load_per_core(inst,
 		LOAD_CALC_NO_QUIRKS);
@@ -543,6 +564,22 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 	}
 
 	freq = max(vpp_cycles, vsp_cycles);
+
+	dprintk(VIDC_DBG, "Update DCVS Load\n");
+	allowed_clks_tbl = core->resources.allowed_clks_tbl;
+	for (i = core->resources.allowed_clks_tbl_size - 1; i >= 0; i--) {
+		rate = allowed_clks_tbl[i].clock_rate;
+		if (rate >= freq)
+			break;
+	}
+
+	dcvs->load_norm = rate;
+	dcvs->load_low = i < (core->resources.allowed_clks_tbl_size - 1) ?
+		allowed_clks_tbl[i+1].clock_rate : dcvs->load_norm;
+	dcvs->load_high = i > 0 ? allowed_clks_tbl[i-1].clock_rate :
+		dcvs->load_norm;
+
+	msm_dcvs_print_dcvs_stats(dcvs);
 
 	dprintk(VIDC_PROF, "%s Inst %pK : Filled Len = %d Freq = %lu\n",
 		__func__, inst, filled_len, freq);
@@ -796,19 +833,6 @@ int msm_comm_init_clocks_and_bus_data(struct msm_vidc_inst *inst)
 	return rc;
 }
 
-static inline void msm_dcvs_print_dcvs_stats(struct clock_data *dcvs)
-{
-	dprintk(VIDC_PROF,
-		"DCVS: Load_Low %d, Load Norm %d, Load High %d\n",
-		dcvs->load_low,
-		dcvs->load_norm,
-		dcvs->load_high);
-
-	dprintk(VIDC_PROF,
-		"DCVS: min_threshold %d, max_threshold %d\n",
-		dcvs->min_threshold, dcvs->max_threshold);
-}
-
 void msm_clock_data_reset(struct msm_vidc_inst *inst)
 {
 	struct msm_vidc_core *core;
@@ -852,6 +876,10 @@ void msm_clock_data_reset(struct msm_vidc_inst *inst)
 		}
 		dcvs->max_threshold = output_buf_req->buffer_count_actual -
 			output_buf_req->buffer_count_min_host + 1;
+		/* Compensate for decode only frames */
+		if (inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_VP9)
+			dcvs->max_threshold += 2;
+
 		dcvs->min_threshold =
 			msm_vidc_get_extra_buff_count(inst, dcvs->buffer_type);
 	} else {
