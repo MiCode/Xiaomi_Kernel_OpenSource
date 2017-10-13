@@ -1608,7 +1608,7 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 		if (encoder->crtc != crtc)
 			continue;
 
-		post_commit &= sde_encoder_check_mode(encoder,
+		post_commit |= sde_encoder_check_mode(encoder,
 						MSM_DISPLAY_CAP_VID_MODE);
 	}
 
