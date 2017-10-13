@@ -717,4 +717,11 @@ void dsi_ctrl_isr_configure(struct dsi_ctrl *dsi_ctrl, bool enable);
  * @enable:		   variable to control enable/disable irq line
  */
 void dsi_ctrl_irq_update(struct dsi_ctrl *dsi_ctrl, bool enable);
+
+/**
+ * dsi_ctrl_get_host_engine_init_state() - Return host init state
+ */
+int dsi_ctrl_get_host_engine_init_state(struct dsi_ctrl *dsi_ctrl,
+		bool *state);
+
 #endif /* _DSI_CTRL_H_ */
