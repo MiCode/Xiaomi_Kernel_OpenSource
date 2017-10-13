@@ -952,6 +952,7 @@ struct dwc3_scratchpad_array {
  * @imod_interval: set the interrupt moderation interval in 250ns
  *			increments or 0 to disable.
  * @create_reg_debugfs: create debugfs entry to allow dwc3 register dump
+ * @xhci_imod_value: imod value to use with xhci
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -1147,6 +1148,7 @@ struct dwc3 {
 	int			last_fifo_depth;
 	struct dwc3_gadget_events	dbg_gadget_events;
 	bool			create_reg_debugfs;
+	u32			xhci_imod_value;
 };
 
 /* -------------------------------------------------------------------------- */
