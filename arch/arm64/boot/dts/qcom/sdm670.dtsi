@@ -2288,6 +2288,7 @@
 		reg-names = "base", "global_base";
 		interrupts = <0 581 4>;
 		qcom,mport = <0>;
+		qcom,count-unit = <0x10000>;
 		qcom,hw-timer-hz = <19200000>;
 		qcom,target-dev = <&cpubw>;
 	};
