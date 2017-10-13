@@ -1,0 +1,14 @@
+#
+# SPMI Simulator driver configuration
+#
+menuconfig SPMI_SIMULATOR
+	tristate "SPMI Controller Simulator"
+	help
+	  The SPMI Controller Simulator provides a means to simulate registers
+	  within the SPMI address space.  Each register can be read and written.
+	  Additionally, callback functions can be defined per register by
+	  other drivers which simulate the behavior of PMIC peripherals.
+
+if SPMI_SIMULATOR
+
+endif
