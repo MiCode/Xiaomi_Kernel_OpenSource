@@ -1488,6 +1488,16 @@ static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 					HAL_BUFFER_INPUT);
 			return -EINVAL;
 		}
+
+		if (inst->session_type == MSM_VIDC_DECODER &&
+			!(inst->flags & VIDC_THUMBNAIL) &&
+			inst->fmts[OUTPUT_PORT].fourcc ==
+				V4L2_PIX_FMT_VP9 &&
+			bufreq->buffer_count_min_host <
+				MIN_NUM_OUTPUT_BUFFERS_VP9)
+			bufreq->buffer_count_min_host =
+				MIN_NUM_OUTPUT_BUFFERS_VP9;
+
 		ctrl->val = bufreq->buffer_count_min_host;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_TME_PAYLOAD_VERSION:
