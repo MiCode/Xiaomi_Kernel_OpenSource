@@ -404,6 +404,7 @@ static int32_t cam_eeprom_platform_driver_probe(
 		goto free_cci_client;
 	}
 	e_ctrl->soc_info.soc_private = soc_private;
+	soc_private->power_info.dev = &pdev->dev;
 
 	/* Initialize mutex */
 	mutex_init(&(e_ctrl->eeprom_mutex));
