@@ -17,6 +17,7 @@
 #include "apq8017-no-pmi-cdp.dtsi"
 #include "apq8017-rome.dtsi"
 #include "apq8017-audio.dtsi"
+#include "apq8017-io-expander-cdp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ8017 CDP no-PMI \
