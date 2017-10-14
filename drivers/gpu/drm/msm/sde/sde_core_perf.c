@@ -304,18 +304,27 @@ static int _sde_core_select_clk_lvl(struct sde_kms *kms,
 	return clk_round_rate(kms->perf.core_clk, clk_rate);
 }
 
-static u32 _sde_core_perf_get_core_clk_rate(struct sde_kms *kms)
+static u32 _sde_core_perf_get_core_clk_rate(struct sde_kms *kms,
+	struct sde_core_perf_params *crct_perf, struct drm_crtc *crtc)
 {
 	u32 clk_rate = 0;
-	struct drm_crtc *crtc;
+	struct drm_crtc *tmp_crtc;
 	struct sde_crtc_state *sde_cstate;
 	int ncrtc = 0;
+	u32 tmp_rate;
 
-	drm_for_each_crtc(crtc, kms->dev) {
-		if (_sde_core_perf_crtc_is_power_on(crtc)) {
-			sde_cstate = to_sde_crtc_state(crtc->state);
-			clk_rate = max(sde_cstate->new_perf.core_clk_rate,
-							clk_rate);
+	drm_for_each_crtc(tmp_crtc, kms->dev) {
+		if (_sde_core_perf_crtc_is_power_on(tmp_crtc)) {
+
+			if (crtc->base.id == tmp_crtc->base.id) {
+				/* for current CRTC, use the cached value */
+				tmp_rate = crct_perf->core_clk_rate;
+			} else {
+				sde_cstate = to_sde_crtc_state(tmp_crtc->state);
+				tmp_rate = sde_cstate->new_perf.core_clk_rate;
+			}
+
+			clk_rate = max(tmp_rate, clk_rate);
 			clk_rate = clk_round_rate(kms->perf.core_clk, clk_rate);
 		}
 		ncrtc++;
@@ -359,8 +368,18 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 
 	SDE_ATRACE_BEGIN(__func__);
 
+	/*
+	 * cache the performance numbers in the crtc prior to the
+	 * crtc kickoff, so the same numbers are used during the
+	 * perf update that happens post kickoff.
+	 */
+
+	if (params_changed)
+		memcpy(&sde_crtc->new_perf, &sde_cstate->new_perf,
+			   sizeof(struct sde_core_perf_params));
+
 	old = &sde_crtc->cur_perf;
-	new = &sde_cstate->new_perf;
+	new = &sde_crtc->new_perf;
 
 	if (_sde_core_perf_crtc_is_power_on(crtc) && !stop_req) {
 		/*
@@ -401,7 +420,7 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 	 * use the new clock for the rotator bw calculation.
 	 */
 	if (update_clk)
-		clk_rate = _sde_core_perf_get_core_clk_rate(kms);
+		clk_rate = _sde_core_perf_get_core_clk_rate(kms, old, crtc);
 
 	if (update_bus)
 		_sde_core_perf_crtc_update_bus(kms, crtc, clk_rate);
@@ -412,7 +431,9 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 	 */
 	if (update_clk) {
 		SDE_ATRACE_INT(kms->perf.clk_name, clk_rate);
-		SDE_EVT32(kms->dev, stop_req, clk_rate);
+		SDE_EVT32(kms->dev, stop_req, clk_rate, params_changed,
+				  old->core_clk_rate, new->core_clk_rate);
+
 		ret = sde_power_clk_set_rate(&priv->phandle,
 				kms->perf.clk_name, clk_rate);
 		if (ret) {
