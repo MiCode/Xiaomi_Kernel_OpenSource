@@ -96,6 +96,7 @@ struct sde_crtc_frame_event {
  * @pending       : Whether any page-flip events are pending signal
  * @spin_lock     : spin lock for frame event, transaction status, etc...
  * @cur_perf      : current performance committed to clock/bandwidth driver
+ * @new_perf      : new performance committed to clock/bandwidth driver
  */
 struct sde_crtc {
 	struct drm_crtc base;
@@ -137,6 +138,7 @@ struct sde_crtc {
 	spinlock_t spin_lock;
 
 	struct sde_core_perf_params cur_perf;
+	struct sde_core_perf_params new_perf;
 };
 
 #define to_sde_crtc(x) container_of(x, struct sde_crtc, base)
