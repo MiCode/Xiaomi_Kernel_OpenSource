@@ -329,8 +329,6 @@
 
 &soc {
 	/* Delete all regulators */
-	/delete-node/ cprh-ctrl@17dc0000;
-	/delete-node/ cprh-ctrl@17db0000;
 	/delete-node/ rpmh-regulator-ebilvl;
 	/delete-node/ rpmh-regulator-smpa2;
 	/delete-node/ rpmh-regulator-smpa3;
