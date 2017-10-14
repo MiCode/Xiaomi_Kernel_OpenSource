@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -75,6 +75,31 @@ static bool _sde_core_video_mode_intf_connected(struct drm_crtc *crtc)
 	return false;
 }
 
+static void _sde_core_perf_calc_crtc(struct drm_crtc *crtc,
+	struct drm_crtc_state *state,
+	struct sde_core_perf_params *perf)
+{
+	struct sde_crtc_state *sde_cstate;
+
+	if (!crtc || !state || !perf) {
+		SDE_ERROR("invalid parameters\n");
+		return;
+	}
+
+	sde_cstate = to_sde_crtc_state(state);
+	memset(perf, 0, sizeof(struct sde_core_perf_params));
+
+	perf->bw_ctl = sde_crtc_get_property(sde_cstate, CRTC_PROP_CORE_AB);
+	perf->max_per_pipe_ib =
+		sde_crtc_get_property(sde_cstate, CRTC_PROP_CORE_IB);
+	perf->core_clk_rate =
+		sde_crtc_get_property(sde_cstate, CRTC_PROP_CORE_CLK);
+
+	SDE_DEBUG("crtc=%d clk_rate=%u ib=%llu ab=%llu\n",
+			  crtc->base.id, perf->core_clk_rate,
+			  perf->max_per_pipe_ib, perf->bw_ctl);
+}
+
 int sde_core_perf_crtc_check(struct drm_crtc *crtc,
 		struct drm_crtc_state *state)
 {
@@ -102,7 +127,11 @@ int sde_core_perf_crtc_check(struct drm_crtc *crtc,
 
 	sde_cstate = to_sde_crtc_state(state);
 
-	bw_sum_of_intfs = sde_crtc_get_property(sde_cstate, CRTC_PROP_CORE_AB);
+	/* swap state and obtain new values */
+	sde_cstate->cur_perf = sde_cstate->new_perf;
+	_sde_core_perf_calc_crtc(crtc, state, &sde_cstate->new_perf);
+
+	bw_sum_of_intfs = sde_cstate->new_perf.bw_ctl;
 
 	drm_for_each_crtc(tmp_crtc, crtc->dev) {
 		if (_sde_core_perf_crtc_is_power_on(tmp_crtc) &&
@@ -110,7 +139,7 @@ int sde_core_perf_crtc_check(struct drm_crtc *crtc,
 			struct sde_crtc_state *tmp_cstate =
 					to_sde_crtc_state(tmp_crtc->state);
 
-			bw_sum_of_intfs += tmp_cstate->cur_perf.bw_ctl;
+			bw_sum_of_intfs += tmp_cstate->new_perf.bw_ctl;
 		}
 	}
 
@@ -126,36 +155,16 @@ int sde_core_perf_crtc_check(struct drm_crtc *crtc,
 	SDE_DEBUG("final threshold bw limit = %d\n", threshold);
 
 	if (!threshold) {
-		sde_cstate->cur_perf.bw_ctl = 0;
+		sde_cstate->new_perf = sde_cstate->cur_perf;
 		SDE_ERROR("no bandwidth limits specified\n");
 		return -E2BIG;
 	} else if (bw > threshold) {
-		sde_cstate->cur_perf.bw_ctl = 0;
+		sde_cstate->new_perf = sde_cstate->cur_perf;
 		SDE_DEBUG("exceeds bandwidth: %ukb > %ukb\n", bw, threshold);
 		return -E2BIG;
 	}
 
 	return 0;
-}
-
-static void _sde_core_perf_calc_crtc(struct sde_kms *kms,
-		struct drm_crtc *crtc,
-		struct sde_core_perf_params *perf)
-{
-	struct sde_crtc_state *sde_cstate;
-
-	sde_cstate = to_sde_crtc_state(crtc->state);
-	memset(perf, 0, sizeof(struct sde_core_perf_params));
-
-	perf->bw_ctl = sde_crtc_get_property(sde_cstate, CRTC_PROP_CORE_AB);
-	perf->max_per_pipe_ib =
-			sde_crtc_get_property(sde_cstate, CRTC_PROP_CORE_IB);
-	perf->core_clk_rate =
-			sde_crtc_get_property(sde_cstate, CRTC_PROP_CORE_CLK);
-
-	SDE_DEBUG("crtc=%d clk_rate=%u ib=%llu ab=%llu\n",
-			crtc->base.id, perf->core_clk_rate,
-			perf->max_per_pipe_ib, perf->bw_ctl);
 }
 
 static u64 _sde_core_perf_crtc_calc_client_vote(struct sde_kms *kms,
@@ -175,13 +184,13 @@ static u64 _sde_core_perf_crtc_calc_client_vote(struct sde_kms *kms,
 					to_sde_crtc_state(tmp_crtc->state);
 
 			perf->max_per_pipe_ib = max(perf->max_per_pipe_ib,
-				sde_cstate->cur_perf.max_per_pipe_ib);
+				sde_cstate->new_perf.max_per_pipe_ib);
 
-			bw_sum_of_intfs += sde_cstate->cur_perf.bw_ctl;
+			bw_sum_of_intfs += sde_cstate->new_perf.bw_ctl;
 
 			SDE_DEBUG("crtc=%d bw=%llu\n",
 				tmp_crtc->base.id,
-				sde_cstate->cur_perf.bw_ctl);
+				sde_cstate->new_perf.bw_ctl);
 		}
 	}
 
@@ -308,7 +317,7 @@ static u32 _sde_core_perf_get_core_clk_rate(struct sde_kms *kms)
 	drm_for_each_crtc(crtc, kms->dev) {
 		if (_sde_core_perf_crtc_is_power_on(crtc)) {
 			sde_cstate = to_sde_crtc_state(crtc->state);
-			clk_rate = max(sde_cstate->cur_perf.core_clk_rate,
+			clk_rate = max(sde_cstate->new_perf.core_clk_rate,
 							clk_rate);
 			clk_rate = clk_round_rate(kms->perf.core_clk, clk_rate);
 		}
@@ -357,9 +366,6 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 	new = &sde_cstate->new_perf;
 
 	if (_sde_core_perf_crtc_is_power_on(crtc) && !stop_req) {
-		if (params_changed)
-			_sde_core_perf_calc_crtc(kms, crtc, new);
-
 		/*
 		 * cases for bus bandwidth update.
 		 * 1. new bandwidth vote or writeback output vote
