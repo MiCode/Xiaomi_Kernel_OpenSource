@@ -77,6 +77,9 @@
 #define FASTRPC_STATIC_HANDLE_MAX (20)
 #define FASTRPC_LATENCY_CTRL_ENB  (1)
 
+#define INIT_FILELEN_MAX (2*1024*1024)
+#define INIT_MEMLEN_MAX  (8*1024*1024)
+
 #define PERF_END (void)0
 
 #define PERF(enb, cnt, ff) \
@@ -1093,9 +1096,10 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		list[i].pgidx = ipage - pages;
 		ipage++;
 	}
+
 	/* map ion buffers */
 	PERF(ctx->fl->profile, ctx->fl->perf.map,
-	for (i = 0; i < inbufs + outbufs; ++i) {
+	for (i = 0; rpra && i < inbufs + outbufs; ++i) {
 		struct fastrpc_mmap *map = ctx->maps[i];
 		uint64_t buf = ptr_to_uint64(lpra[i].buf.pv);
 		ssize_t len = lpra[i].buf.len;
@@ -1203,7 +1207,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			uint64_to_ptr(rpra[i].buf.pv + rpra[i].buf.len));
 	}
 	PERF_END);
-	for (i = bufs; i < bufs + handles; i++) {
+	for (i = bufs; rpra && i < bufs + handles; i++) {
 		rpra[i].dma.fd = ctx->fds[i];
 		rpra[i].dma.len = (uint32_t)lpra[i].buf.len;
 		rpra[i].dma.offset = (uint32_t)(uintptr_t)lpra[i].buf.pv;
@@ -1491,8 +1495,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	if (fl->profile && !interrupted) {
 		if (invoke->handle != FASTRPC_STATIC_HANDLE_LISTENER)
 			fl->perf.invoke += getnstimediff(&invoket);
-		if (!(invoke->handle >= 0 &&
-			invoke->handle <= FASTRPC_STATIC_HANDLE_MAX))
+		if (invoke->handle > FASTRPC_STATIC_HANDLE_MAX)
 			fl->perf.count++;
 	}
 	return err;
@@ -1551,6 +1554,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 			if (err)
 				goto bail;
 		}
+
 		inbuf.pageslen = 1;
 		VERIFY(err, !fastrpc_mmap_create(fl, init->memfd, 0,
 				init->mem, init->memlen, mflags, &mem));
@@ -2382,6 +2386,13 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 						sizeof(p.mmap)));
 		if (err)
 			goto bail;
+
+		VERIFY(err, !IS_ERR_OR_NULL(p.mmap.vaddrin));
+		if (err)
+			goto bail;
+		VERIFY(err, p.mmap.size > 0);
+		if (err)
+			goto bail;
 		VERIFY(err, 0 == (err = fastrpc_internal_mmap(fl, &p.mmap)));
 		if (err)
 			goto bail;
@@ -2392,6 +2403,13 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 	case FASTRPC_IOCTL_MUNMAP:
 		VERIFY(err, 0 == copy_from_user(&p.munmap, param,
 						sizeof(p.munmap)));
+		if (err)
+			goto bail;
+		VERIFY(err, !IS_ERR_OR_NULL(
+				uint64_to_ptr((uint64_t)p.munmap.vaddrout)));
+		if (err)
+			goto bail;
+		VERIFY(err, p.munmap.size > 0);
 		if (err)
 			goto bail;
 		VERIFY(err, 0 == (err = fastrpc_internal_munmap(fl,
@@ -2471,7 +2489,11 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 		if (err)
 			goto bail;
 		VERIFY(err, p.init.init.filelen >= 0 &&
-			p.init.init.memlen >= 0);
+			p.init.init.filelen < INIT_FILELEN_MAX);
+		if (err)
+			goto bail;
+		VERIFY(err, p.init.init.memlen >= 0 &&
+			p.init.init.memlen < INIT_MEMLEN_MAX);
 		if (err)
 			goto bail;
 		VERIFY(err, 0 == fastrpc_init_process(fl, &p.init));
