@@ -588,6 +588,10 @@ static int sde_hw_rot_commit(struct sde_hw_rot *hw, struct sde_hw_rot_cmd *data,
 		cmd_type = SDE_ROTATOR_INLINE_CMD_CLEANUP;
 		priv_handle = data->priv_handle;
 		break;
+	case SDE_HW_ROT_CMD_RESET:
+		cmd_type = SDE_ROTATOR_INLINE_CMD_ABORT;
+		priv_handle = data->priv_handle;
+		break;
 	default:
 		SDE_ERROR("invalid hw rotator command %d\n", hw_cmd);
 		return -EINVAL;
