@@ -582,6 +582,7 @@ static int wait_for_err_ready(struct subsys_device *subsys)
 {
 	int ret;
 
+	return 0;
 	/*
 	 * If subsys is using generic_irq in which case err_ready_irq will be 0,
 	 * don't return.
