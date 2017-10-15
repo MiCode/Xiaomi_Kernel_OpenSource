@@ -449,6 +449,8 @@ struct sde_rot_mgr {
 			struct sde_rot_entry *entry);
 	int (*ops_cancel_hw)(struct sde_rot_hw_resource *hw,
 			struct sde_rot_entry *entry);
+	int (*ops_abort_hw)(struct sde_rot_hw_resource *hw,
+			struct sde_rot_entry *entry);
 	int (*ops_kickoff_entry)(struct sde_rot_hw_resource *hw,
 			struct sde_rot_entry *entry);
 	int (*ops_wait_for_entry)(struct sde_rot_hw_resource *hw,
@@ -668,6 +670,19 @@ int sde_rotator_req_wait_start(struct sde_rot_mgr *mgr,
 void sde_rotator_req_finish(struct sde_rot_mgr *mgr,
 	struct sde_rot_file_private *private,
 	struct sde_rot_entry_container *req);
+
+/*
+ * sde_rotator_abort_inline_request - abort inline rotation request after start
+ *	This function allows inline rotation requests to be aborted after
+ *	sde_rotator_req_set_start has already been issued.
+ * @mgr: Pointer to rotator manager
+ * @private: Pointer to rotator manager per file context
+ * @req: Pointer to rotation request
+ * return: none
+ */
+void sde_rotator_abort_inline_request(struct sde_rot_mgr *mgr,
+		struct sde_rot_file_private *private,
+		struct sde_rot_entry_container *req);
 
 /*
  * sde_rotator_handle_request_common - add the given request to rotator
