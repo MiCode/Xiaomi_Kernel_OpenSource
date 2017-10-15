@@ -9,7 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
+#include "sdm670-camera-sensor-qrd.dtsi"
 #include "sdm670-pmic-overlay.dtsi"
 #include "sdm670-audio-overlay.dtsi"
 #include "sdm670-sde-display.dtsi"
