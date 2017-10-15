@@ -4068,6 +4068,7 @@ static const struct qcom_cc_desc gcc_sdm845_desc = {
 static const struct of_device_id gcc_sdm845_match_table[] = {
 	{ .compatible = "qcom,gcc-sdm845" },
 	{ .compatible = "qcom,gcc-sdm845-v2" },
+	{ .compatible = "qcom,gcc-sdm845-v2.1" },
 	{ .compatible = "qcom,gcc-sdm670" },
 	{ }
 };
@@ -4267,7 +4268,8 @@ static int gcc_sdm845_fixup(struct platform_device *pdev)
 	if (!compat || (compatlen <= 0))
 		return -EINVAL;
 
-	if (!strcmp(compat, "qcom,gcc-sdm845-v2"))
+	if (!strcmp(compat, "qcom,gcc-sdm845-v2") ||
+			!strcmp(compat, "qcom,gcc-sdm845-v2.1"))
 		gcc_sdm845_fixup_sdm845v2();
 	else if (!strcmp(compat, "qcom,gcc-sdm670"))
 		gcc_sdm845_fixup_sdm670();
@@ -4322,8 +4324,8 @@ static int gcc_sdm845_probe(struct platform_device *pdev)
 	regmap_update_bits(regmap, GCC_MMSS_MISC, 0x3, 0x3);
 	regmap_update_bits(regmap, GCC_GPU_MISC, 0x3, 0x3);
 
-	/* Keep this clock on all the time on SDM845 v1 */
-	if (of_device_is_compatible(pdev->dev.of_node, "qcom,gcc-sdm845"))
+	/* Keep this clock on all the times except on SDM845 v2.1 */
+	if (!of_device_is_compatible(pdev->dev.of_node, "qcom,gcc-sdm845-v2.1"))
 		clk_prepare_enable(gcc_aggre_noc_pcie_tbu_clk.clkr.hw.clk);
 
 	/* DFS clock registration */
