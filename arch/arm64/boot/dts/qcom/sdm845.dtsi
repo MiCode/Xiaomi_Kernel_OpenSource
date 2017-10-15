@@ -1481,7 +1481,7 @@
 		vdd_mx-supply = <&pm8998_s6_level>;
 		vdd_mx-uV = <RPMH_REGULATOR_LEVEL_TURBO>;
 		vdd_mss-supply = <&pm8005_s2_level>;
-		vdd_mss-uV = <RPMH_REGULATOR_LEVEL_NOM>;
+		vdd_mss-uV = <RPMH_REGULATOR_LEVEL_TURBO>;
 		qcom,firmware-name = "modem";
 		qcom,pil-self-auth;
 		qcom,sysmon-id = <0>;
