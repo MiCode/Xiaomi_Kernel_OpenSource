@@ -1474,7 +1474,7 @@ static void _sde_crtc_swap_mixers_for_right_partial_update(
  * _sde_crtc_blend_setup - configure crtc mixers
  * @crtc: Pointer to drm crtc structure
  */
-static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
+static void _sde_crtc_blend_setup(struct drm_crtc *crtc, bool add_planes)
 {
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *sde_crtc_state;
@@ -1520,7 +1520,8 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 	/* initialize stage cfg */
 	memset(&sde_crtc->stage_cfg, 0, sizeof(struct sde_hw_stage_cfg));
 
-	_sde_crtc_blend_setup_mixer(crtc, sde_crtc, mixer);
+	if (add_planes)
+		_sde_crtc_blend_setup_mixer(crtc, sde_crtc, mixer);
 
 	for (i = 0; i < sde_crtc->num_mixers; i++) {
 		const struct sde_rect *lm_roi = &sde_crtc_state->lm_roi[i];
@@ -3135,7 +3136,7 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	if (unlikely(!sde_crtc->num_mixers))
 		return;
 
-	_sde_crtc_blend_setup(crtc);
+	_sde_crtc_blend_setup(crtc, true);
 	_sde_crtc_dest_scaler_setup(crtc);
 
 	/*
@@ -3426,7 +3427,104 @@ static void _sde_crtc_remove_pipe_flush(struct sde_crtc *sde_crtc)
 	}
 }
 
-void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
+/**
+ * _sde_crtc_reset_hw - attempt hardware reset on errors
+ * @crtc: Pointer to DRM crtc instance
+ * @old_state: Pointer to crtc state for previous commit
+ * Returns: Zero if current commit should still be attempted
+ */
+static int _sde_crtc_reset_hw(struct drm_crtc *crtc,
+		struct drm_crtc_state *old_state)
+{
+	struct drm_plane *plane_halt[MAX_PLANES];
+	struct drm_plane *plane;
+	const struct drm_plane_state *pstate;
+	struct sde_crtc *sde_crtc;
+	struct sde_hw_ctl *ctl;
+	signed int i, plane_count;
+	int rc;
+
+	if (!crtc || !old_state)
+		return -EINVAL;
+	sde_crtc = to_sde_crtc(crtc);
+
+	for (i = 0; i < sde_crtc->num_mixers; ++i) {
+		ctl = sde_crtc->mixers[i].hw_ctl;
+		if (!ctl || !ctl->ops.reset)
+			continue;
+
+		rc = ctl->ops.reset(ctl);
+		if (rc) {
+			SDE_DEBUG("crtc%d: ctl%d reset failure\n",
+					crtc->base.id, ctl->idx - CTL_0);
+			SDE_EVT32(DRMID(crtc), ctl->idx - CTL_0,
+					SDE_EVTLOG_ERROR);
+			break;
+		}
+	}
+
+	/* early out if simple ctl reset succeeded */
+	if (i == sde_crtc->num_mixers) {
+		SDE_EVT32(DRMID(crtc), i);
+		return false;
+	}
+
+	SDE_DEBUG("crtc%d: issuing hard reset\n", DRMID(crtc));
+
+	/* force all components in the system into reset at the same time */
+	for (i = 0; i < sde_crtc->num_mixers; ++i) {
+		ctl = sde_crtc->mixers[i].hw_ctl;
+		if (!ctl || !ctl->ops.hard_reset)
+			continue;
+
+		SDE_EVT32(DRMID(crtc), ctl->idx - CTL_0);
+		ctl->ops.hard_reset(ctl, true);
+	}
+
+	plane_count = 0;
+	drm_atomic_crtc_state_for_each_plane(plane, old_state) {
+		if (plane_count >= ARRAY_SIZE(plane_halt))
+			break;
+
+		plane_halt[plane_count++] = plane;
+		sde_plane_halt_requests(plane, true);
+		sde_plane_set_revalidate(plane, true);
+	}
+
+	/* reset both previous... */
+	for_each_plane_in_state(old_state->state, plane, pstate, i) {
+		if (pstate->crtc != crtc)
+			continue;
+
+		sde_plane_reset_rot(plane, (struct drm_plane_state *)pstate);
+	}
+
+	/* ...and current rotation attempts, if applicable */
+	drm_atomic_crtc_for_each_plane(plane, crtc) {
+		pstate = plane->state;
+		if (!pstate)
+			continue;
+
+		sde_plane_reset_rot(plane, (struct drm_plane_state *)pstate);
+	}
+
+	/* take h/w components out of reset */
+	for (i = plane_count - 1; i >= 0; --i)
+		sde_plane_halt_requests(plane_halt[i], false);
+
+	for (i = 0; i < sde_crtc->num_mixers; ++i) {
+		ctl = sde_crtc->mixers[i].hw_ctl;
+		if (!ctl || !ctl->ops.hard_reset)
+			continue;
+
+		ctl->ops.hard_reset(ctl, false);
+	}
+
+	return -EAGAIN;
+}
+
+void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
+		struct drm_crtc_state *old_state)
 {
 	struct drm_encoder *encoder;
 	struct drm_device *dev;
@@ -3434,7 +3532,7 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
 	struct sde_crtc_state *cstate;
-	bool is_error;
+	bool is_error, reset_req;
 	int ret;
 
 	if (!crtc) {
@@ -3445,6 +3543,7 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	sde_crtc = to_sde_crtc(crtc);
 	sde_kms = _sde_crtc_get_kms(crtc);
 	is_error = false;
+	reset_req = false;
 
 	if (!sde_kms || !sde_kms->dev || !sde_kms->dev->dev_private) {
 		SDE_ERROR("invalid argument\n");
@@ -3481,7 +3580,8 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 		params.inline_rotate_prefill = cstate->sbuf_prefill_line;
 		params.affected_displays = _sde_crtc_get_displays_affected(crtc,
 				crtc->state);
-		sde_encoder_prepare_for_kickoff(encoder, &params);
+		if (sde_encoder_prepare_for_kickoff(encoder, &params))
+			reset_req = true;
 
 		/*
 		 * For inline ASYNC modes, the flush bits are not written
@@ -3503,6 +3603,20 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	if (cstate->sbuf_cfg.rot_op_mode == SDE_CTL_ROT_OP_MODE_INLINE_ASYNC)
 		if (_sde_crtc_commit_kickoff_rot(crtc, cstate))
 			is_error = true;
+
+	/*
+	 * Optionally attempt h/w recovery if any errors were detected while
+	 * preparing for the kickoff
+	 */
+	if (reset_req) {
+		if (_sde_crtc_reset_hw(crtc, old_state))
+			is_error = true;
+
+		/* force offline rotation mode since the commit has no pipes */
+		if (is_error)
+			cstate->sbuf_cfg.rot_op_mode =
+				SDE_CTL_ROT_OP_MODE_OFFLINE;
+	}
 
 	/* wait for frame_event_done completion */
 	SDE_ATRACE_BEGIN("wait_for_frame_done_event");
@@ -3544,14 +3658,16 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 
 	sde_vbif_clear_errors(sde_kms);
 
-	if (is_error)
+	if (is_error) {
 		_sde_crtc_remove_pipe_flush(sde_crtc);
+		_sde_crtc_blend_setup(crtc, false);
+	}
 
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 		if (encoder->crtc != crtc)
 			continue;
 
-		sde_encoder_kickoff(encoder, is_error);
+		sde_encoder_kickoff(encoder, false);
 	}
 
 	reinit_completion(&sde_crtc->frame_done_comp);

@@ -2578,11 +2578,12 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 	phys->ops.trigger_flush(phys);
 
 	if (ctl->ops.get_pending_flush)
-		SDE_EVT32(DRMID(drm_enc), phys->intf_idx, pending_kickoff_cnt,
-			ctl->idx, ctl->ops.get_pending_flush(ctl));
+		SDE_EVT32(DRMID(drm_enc), phys->intf_idx - INTF_0,
+			pending_kickoff_cnt, ctl->idx - CTL_0,
+			ctl->ops.get_pending_flush(ctl));
 	else
-		SDE_EVT32(DRMID(drm_enc), phys->intf_idx, ctl->idx,
-						pending_kickoff_cnt);
+		SDE_EVT32(DRMID(drm_enc), phys->intf_idx - INTF_0,
+			ctl->idx - CTL_0, pending_kickoff_cnt);
 }
 
 /**
@@ -2641,7 +2642,7 @@ void sde_encoder_helper_trigger_start(struct sde_encoder_phys *phys_enc)
 	ctl = phys_enc->hw_ctl;
 	if (ctl && ctl->ops.trigger_start) {
 		ctl->ops.trigger_start(ctl);
-		SDE_EVT32(DRMID(phys_enc->parent), ctl->idx);
+		SDE_EVT32(DRMID(phys_enc->parent), ctl->idx - CTL_0);
 	}
 }
 
@@ -2724,12 +2725,6 @@ void sde_encoder_helper_hw_reset(struct sde_encoder_phys *phys_enc)
 								"panic");
 			}
 		}
-	}
-
-	rc = ctl->ops.reset(ctl);
-	if (rc) {
-		SDE_ERROR_ENC(sde_enc, "ctl %d reset failure\n",  ctl->idx);
-		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus", "panic");
 	}
 
 	phys_enc->enable_state = SDE_ENC_ENABLED;

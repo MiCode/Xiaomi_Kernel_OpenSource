@@ -4461,15 +4461,6 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 	return ret;
 }
 
-static int sde_plane_set_property(struct drm_plane *plane,
-		struct drm_property *property, uint64_t val)
-{
-	SDE_DEBUG("\n");
-
-	return sde_plane_atomic_set_property(plane,
-			plane->state, property, val);
-}
-
 static int sde_plane_atomic_get_property(struct drm_plane *plane,
 		const struct drm_plane_state *state,
 		struct drm_property *property, uint64_t *val)
@@ -4873,7 +4864,7 @@ static const struct drm_plane_funcs sde_plane_funcs = {
 		.update_plane = drm_atomic_helper_update_plane,
 		.disable_plane = drm_atomic_helper_disable_plane,
 		.destroy = sde_plane_destroy,
-		.set_property = sde_plane_set_property,
+		.set_property = drm_atomic_helper_plane_set_property,
 		.atomic_set_property = sde_plane_atomic_set_property,
 		.atomic_get_property = sde_plane_atomic_get_property,
 		.reset = sde_plane_reset,

@@ -33,6 +33,9 @@
 #define to_sde_encoder_phys_vid(x) \
 	container_of(x, struct sde_encoder_phys_vid, base)
 
+/* maximum number of consecutive kickoff errors */
+#define KICKOFF_MAX_ERRORS	2
+
 static bool sde_encoder_phys_vid_is_master(
 		struct sde_encoder_phys *phys_enc)
 {
@@ -794,8 +797,30 @@ static int sde_encoder_phys_vid_prepare_for_kickoff(
 	if (rc) {
 		SDE_ERROR_VIDENC(vid_enc, "ctl %d reset failure: %d\n",
 				ctl->idx, rc);
-		sde_encoder_helper_unregister_irq(phys_enc, INTR_IDX_VSYNC);
-		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus", "panic");
+
+		++vid_enc->error_count;
+		if (vid_enc->error_count >= KICKOFF_MAX_ERRORS) {
+			vid_enc->error_count = KICKOFF_MAX_ERRORS;
+
+			sde_encoder_helper_unregister_irq(
+					phys_enc, INTR_IDX_VSYNC);
+			SDE_DBG_DUMP("panic");
+			sde_encoder_helper_register_irq(
+					phys_enc, INTR_IDX_VSYNC);
+		} else if (vid_enc->error_count == 1) {
+			SDE_EVT32(DRMID(phys_enc->parent), SDE_EVTLOG_FATAL);
+
+			sde_encoder_helper_unregister_irq(
+					phys_enc, INTR_IDX_VSYNC);
+			SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus");
+			sde_encoder_helper_register_irq(
+					phys_enc, INTR_IDX_VSYNC);
+		}
+
+		/* request a ctl reset before the next flush */
+		phys_enc->enable_state = SDE_ENC_ERR_NEEDS_HW_RESET;
+	} else {
+		vid_enc->error_count = 0;
 	}
 
 	programmable_rot_fetch_config(phys_enc, params->inline_rotate_prefill);

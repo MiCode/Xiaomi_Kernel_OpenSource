@@ -30,6 +30,7 @@
 #define   CTL_START                     0x01C
 #define   CTL_PREPARE                   0x0d0
 #define   CTL_SW_RESET                  0x030
+#define   CTL_SW_RESET_OVERRIDE         0x060
 #define   CTL_LAYER_EXTN_OFFSET         0x40
 #define   CTL_ROT_TOP                   0x0C0
 #define   CTL_ROT_FLUSH                 0x0C4
@@ -345,12 +346,21 @@ static int sde_hw_ctl_reset_control(struct sde_hw_ctl *ctx)
 {
 	struct sde_hw_blk_reg_map *c = &ctx->hw;
 
-	pr_debug("issuing hw ctl reset for ctl:%d\n", ctx->idx);
+	pr_debug("issuing hw ctl reset for ctl:%d\n", ctx->idx - CTL_0);
 	SDE_REG_WRITE(c, CTL_SW_RESET, 0x1);
 	if (sde_hw_ctl_poll_reset_status(ctx, SDE_REG_RESET_TIMEOUT_US))
 		return -EINVAL;
 
 	return 0;
+}
+
+static void sde_hw_ctl_hard_reset(struct sde_hw_ctl *ctx, bool enable)
+{
+	struct sde_hw_blk_reg_map *c = &ctx->hw;
+
+	pr_debug("hw ctl hard reset for ctl:%d, %d\n",
+			ctx->idx - CTL_0, enable);
+	SDE_REG_WRITE(c, CTL_SW_RESET_OVERRIDE, enable);
 }
 
 static int sde_hw_ctl_wait_reset_status(struct sde_hw_ctl *ctx)
@@ -586,6 +596,7 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 	ops->trigger_pending = sde_hw_ctl_trigger_pending;
 	ops->setup_intf_cfg = sde_hw_ctl_intf_cfg;
 	ops->reset = sde_hw_ctl_reset_control;
+	ops->hard_reset = sde_hw_ctl_hard_reset;
 	ops->wait_reset_status = sde_hw_ctl_wait_reset_status;
 	ops->clear_all_blendstages = sde_hw_ctl_clear_all_blendstages;
 	ops->setup_blendstage = sde_hw_ctl_setup_blendstage;
