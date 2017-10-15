@@ -15,8 +15,19 @@
 #include <linux/slab.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
+#include <soc/qcom/socinfo.h>
 #include "cam_soc_util.h"
 #include "cam_debug_util.h"
+
+int cam_soc_util_get_soc_id(void)
+{
+	return socinfo_get_id();
+}
+
+int cam_soc_util_get_soc_version(void)
+{
+	return socinfo_get_version();
+}
 
 int cam_soc_util_get_level_from_string(const char *string,
 	enum cam_vote_level *level)

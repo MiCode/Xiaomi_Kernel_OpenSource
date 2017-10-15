@@ -25,6 +25,12 @@
 
 #include "cam_io_util.h"
 
+/* SOC ID and SOC version */
+#define SOC_ID_SDM845       321
+#define SOC_ID_SDM670       336
+#define SOC_VERSION_HW1     0x10000
+#define SOC_VERSION_HW2     0x20000
+
 #define NO_SET_RATE  -1
 #define INIT_RATE    -2
 
@@ -581,4 +587,13 @@ static inline uint32_t cam_soc_util_r_mb(struct cam_hw_soc_info *soc_info,
 int cam_soc_util_reg_dump(struct cam_hw_soc_info *soc_info,
 	uint32_t base_index, uint32_t offset, int size);
 
+/**
+ * cam_soc_util_get_soc_id: Provides SOC Id
+ */
+int cam_soc_util_get_soc_id(void);
+
+/**
+ * cam_soc_util_get_soc_version: Provides SOC Version
+ */
+int cam_soc_util_get_soc_version(void);
 #endif /* _CAM_SOC_UTIL_H_ */

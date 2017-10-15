@@ -41,6 +41,8 @@
 #define HFI_REG_QTBL_PTR                        0x58
 #define HFI_REG_UNCACHED_HEAP_PTR               0x5C
 #define HFI_REG_UNCACHED_HEAP_SIZE              0x60
+#define HFI_REG_API_VER                         0x64
+#define HFI_REG_FW_DEBUG                        0x6C
 /* end of ICP CSR registers */
 
 /* flags for ICP CSR registers */

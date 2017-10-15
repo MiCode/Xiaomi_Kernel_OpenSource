@@ -831,6 +831,7 @@
 		clock-rates = <0 0 400000000 0 0 0 0 600000000>;
 		clock-cntl-level = "turbo";
 		fw_name = "CAMERA_ICP.elf";
+		ubwc_cfg = <0x7F 0x1FF>;
 		status = "ok";
 	};
 

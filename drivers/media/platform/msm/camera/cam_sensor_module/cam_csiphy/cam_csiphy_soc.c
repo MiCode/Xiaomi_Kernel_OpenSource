@@ -109,6 +109,7 @@ int32_t cam_csiphy_enable_hw(struct csiphy_device *csiphy_dev)
 
 	cam_csiphy_reset(csiphy_dev);
 
+	CAM_ERR(CAM_CSIPHY, "cam_csiphy_enable_hw success");
 	return rc;
 
 

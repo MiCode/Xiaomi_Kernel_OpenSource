@@ -58,6 +58,7 @@ static int32_t cam_icp_validate_fw(const uint8_t *elf)
 {
 	struct elf32_hdr *elf_hdr;
 
+	CAM_ERR(CAM_ICP, "E");
 	if (!elf) {
 		CAM_ERR(CAM_ICP, "Invalid params");
 		return -EINVAL;
@@ -82,6 +83,7 @@ static int32_t cam_icp_validate_fw(const uint8_t *elf)
 		return -EINVAL;
 	}
 
+	CAM_ERR(CAM_ICP, "X");
 	return 0;
 }
 
@@ -162,7 +164,7 @@ static int32_t cam_icp_program_fw(const uint8_t *elf,
 		if (prg_hdr->p_flags == 0)
 			continue;
 
-		CAM_DBG(CAM_ICP, "Loading FW header size: %u",
+		CAM_ERR(CAM_ICP, "Loading FW header size: %u",
 			prg_hdr->p_filesz);
 		if (prg_hdr->p_filesz != 0) {
 			src = (u8 *)((u8 *)elf + prg_hdr->p_offset);
@@ -170,6 +172,9 @@ static int32_t cam_icp_program_fw(const uint8_t *elf,
 						prg_hdr->p_vaddr);
 
 			memcpy_toio(dest, src, prg_hdr->p_filesz);
+			//for (j = 0; j < 64; j++)
+			//	pr_err("%hhu ", dest[j]);
+			//pr_err("\n");
 		}
 	}
 
@@ -367,6 +372,7 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 	struct cam_hw_soc_info *soc_info = NULL;
 	struct cam_a5_device_core_info *core_info = NULL;
 	struct cam_a5_device_hw_info *hw_info = NULL;
+	struct a5_soc_info *a5_soc = NULL;
 	int rc = 0;
 
 	if (!device_priv) {
@@ -455,6 +461,14 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 			cam_cpas_stop(core_info->cpas_handle);
 			core_info->cpas_start = false;
 		}
+		break;
+	case CAM_ICP_A5_CMD_UBWC_CFG:
+		a5_soc = soc_info->soc_private;
+		if (!a5_soc) {
+			CAM_ERR(CAM_ICP, "A5 private soc info is NULL");
+			return -EINVAL;
+		}
+		rc = hfi_cmd_ubwc_config(a5_soc->ubwc_cfg);
 		break;
 	default:
 		break;

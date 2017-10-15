@@ -51,6 +51,31 @@
 
 #define ICP_OVER_CLK_THRESHOLD  15
 
+#define NUM_BPS_MASK            0xFF000000
+#define NUM_IPE_MASK            0x00FF0000
+#define NUM_CDM_MASK            0x0000FF00
+#define NUM_BPS_SHIFT           24
+#define NUM_IPE_SHIFT           16
+#define NUM_CDM_SHIFT           8
+
+#define API_VER_MAJOR_MASK      0xFF000000
+#define API_VER_MINOR_MASK      0x00FF0000
+#define API_VER_REV_MASK        0x0000FFFF
+#define API_VER_MAJOR_SHIFT     24
+#define API_VER_MINOR_SHIFT     16
+#define API_VER_REV_SHIFT       0
+
+#define DEV_MAJOR_MASK          0xF0000000
+#define DEV_MINOR_MASK          0x0FFF0000
+#define DEV_INCR_MASK           0x0000FFFF
+#define DEV_MAJOR_SHIFT         28
+#define DEV_MINOR_SHIFT         16
+#define DEV_INCR_SHIFT          0
+
+#define CPAS_IPE0_BIT           0x1000
+#define CPAS_IPE1_BIT           0x2000
+#define CPAS_BPS_BIT            0x400
+
 /**
  * struct icp_hfi_mem_info
  * @qtbl: Memory info of queue table
@@ -230,6 +255,9 @@ struct cam_icp_clk_info {
  * @icp_default_clk: Set this clok if user doesn't supply
  * @clk_info: Clock info of hardware
  * @secure_mode: Flag to enable/disable secure camera
+ * @ipe0_enable: Flag for IPE0
+ * @ipe1_enable: Flag for IPE1
+ * @bps_enable: Flag for BPS
  */
 struct cam_icp_hw_mgr {
 	struct mutex hw_mgr_mutex;
@@ -260,6 +288,9 @@ struct cam_icp_hw_mgr {
 	uint64_t icp_default_clk;
 	struct cam_icp_clk_info clk_info[ICP_CLK_HW_MAX];
 	bool secure_mode;
+	bool ipe0_enable;
+	bool ipe1_enable;
+	bool bps_enable;
 };
 
 static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args);

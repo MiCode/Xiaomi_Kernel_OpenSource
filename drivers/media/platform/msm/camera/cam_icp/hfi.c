@@ -27,6 +27,7 @@
 #include "hfi_intf.h"
 #include "cam_icp_hw_mgr_intf.h"
 #include "cam_debug_util.h"
+#include "cam_soc_util.h"
 
 #define HFI_VERSION_INFO_MAJOR_VAL  1
 #define HFI_VERSION_INFO_MINOR_VAL  1
@@ -38,9 +39,6 @@
 #define HFI_VERSION_INFO_MINOR_SHFT  8
 #define HFI_VERSION_INFO_STEP_BMSK   0xFF
 #define HFI_VERSION_INFO_STEP_SHFT  0
-
-#define SOC_VERSION_HW1             0x10000
-#define SOC_VERSION_HW2             0x20000
 
 static struct hfi_info *g_hfi;
 unsigned int g_icp_mmu_hdl;
@@ -195,6 +193,33 @@ int hfi_read_message(uint32_t *pmsg, uint8_t q_id)
 err:
 	mutex_unlock(&hfi_msg_q_mutex);
 	return rc;
+}
+
+int hfi_cmd_ubwc_config(uint32_t *ubwc_cfg)
+{
+	uint8_t *prop;
+	struct hfi_cmd_prop *dbg_prop;
+	uint32_t size = 0;
+
+	size = sizeof(struct hfi_cmd_prop) +
+		sizeof(struct hfi_cmd_ubwc_cfg);
+
+	prop = kzalloc(size, GFP_KERNEL);
+	if (!prop)
+		return -ENOMEM;
+
+	dbg_prop = (struct hfi_cmd_prop *)prop;
+	dbg_prop->size = size;
+	dbg_prop->pkt_type = HFI_CMD_SYS_SET_PROPERTY;
+	dbg_prop->num_prop = 1;
+	dbg_prop->prop_data[0] = HFI_PROP_SYS_UBWC_CFG;
+	dbg_prop->prop_data[1] = ubwc_cfg[0];
+	dbg_prop->prop_data[2] = ubwc_cfg[1];
+
+	hfi_write_cmd(prop);
+	kfree(prop);
+
+	return 0;
 }
 
 int hfi_enable_ipe_bps_pc(bool enable)
@@ -354,7 +379,9 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 	struct hfi_qtbl *qtbl;
 	struct hfi_qtbl_hdr *qtbl_hdr;
 	struct hfi_q_hdr *cmd_q_hdr, *msg_q_hdr, *dbg_q_hdr;
-	uint32_t hw_version, soc_version, fw_version, status = 0;
+	uint32_t hw_version, fw_version, status = 0;
+	uint32_t soc_id, soc_version, reg_val = 0;
+	uint32_t data = 0;
 
 	mutex_lock(&hfi_cmd_q_mutex);
 	mutex_lock(&hfi_msg_q_mutex);
@@ -374,7 +401,9 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 
 	memcpy(&g_hfi->map, hfi_mem, sizeof(g_hfi->map));
 	g_hfi->hfi_state = HFI_DEINIT;
-	soc_version = socinfo_get_version();
+	soc_version = cam_soc_util_get_soc_version();
+	soc_id = cam_soc_util_get_soc_id();
+	//cam_hfi_enable_cpu(icp_base);
 	if (debug) {
 		cam_io_w_mb(
 		(uint32_t)(ICP_FLAG_CSR_A5_EN | ICP_FLAG_CSR_WAKE_UP_EN |
@@ -385,10 +414,11 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 		ICP_FLAG_CSR_WAKE_UP_EN | ICP_CSR_EN_CLKGATE_WFI),
 		icp_base + HFI_REG_A5_CSR_A5_CONTROL);
 	} else {
+		// if (soc_id == SOC_ID_SDM845 && soc_version == SOC_VERSION_HW1)
+		reg_val = ICP_CSR_EN_CLKGATE_WFI;
+
 		cam_io_w((uint32_t)ICP_FLAG_CSR_A5_EN |
-			ICP_FLAG_CSR_WAKE_UP_EN |
-			((soc_version == SOC_VERSION_HW1) ?
-			(ICP_CSR_EN_CLKGATE_WFI) : (0x0)),
+			ICP_FLAG_CSR_WAKE_UP_EN | reg_val,
 			icp_base + HFI_REG_A5_CSR_A5_CONTROL);
 	}
 
@@ -525,8 +555,18 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 	}
 
 	fw_version = cam_io_r(icp_base + HFI_REG_FW_VERSION);
-	CAM_DBG(CAM_HFI, "hw version : : [%x], fw version : [%x]",
-		hw_version, fw_version);
+	data = cam_io_r(icp_base + HFI_REG_A5_CSR_A5_STATUS);
+	CAM_ERR(CAM_HFI, "hw version : : [%x], fw version : [%x] fw debug : [%x] status = %d A5 status = [%x]",
+		hw_version, fw_version, cam_io_r(icp_base + HFI_REG_FW_DEBUG), status, data);
+	while (1) {
+		CAM_ERR(CAM_HFI, "hw version : : [%x], fw version : [%x] fw debug : [%x] status = %d A5 status = [%x] API ver = [%x]",
+			hw_version, cam_io_r(icp_base + HFI_REG_FW_VERSION),
+			cam_io_r(icp_base + HFI_REG_FW_DEBUG), cam_io_r(icp_base + HFI_REG_ICP_HOST_INIT_RESPONSE),
+			cam_io_r(icp_base + HFI_REG_A5_CSR_A5_STATUS), cam_io_r(icp_base + HFI_REG_API_VER));
+			if (cam_io_r(icp_base + HFI_REG_ICP_HOST_INIT_RESPONSE) == ICP_INIT_RESP_SUCCESS)
+				break;
+		msleep(1000);
+	};
 
 	g_hfi->csr_base = icp_base;
 	g_hfi->hfi_state = HFI_READY;
