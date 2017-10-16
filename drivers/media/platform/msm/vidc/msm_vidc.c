@@ -1223,10 +1223,7 @@ int msm_vidc_enum_framesizes(void *instance, struct v4l2_frmsizeenum *fsize)
 	}
 
 	if (capability) {
-		fsize->type = capability->width.step_size == 1 &&
-				capability->height.step_size == 1 ?
-				V4L2_FRMSIZE_TYPE_CONTINUOUS :
-				V4L2_FRMSIZE_TYPE_STEPWISE;
+		fsize->type = V4L2_FRMSIZE_TYPE_STEPWISE;
 		fsize->stepwise.min_width = capability->width.min;
 		fsize->stepwise.max_width = capability->width.max;
 		fsize->stepwise.step_width = capability->width.step_size;
