@@ -273,6 +273,22 @@ static irqreturn_t smb1355_handle_wdog_bark(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t smb1355_handle_temperature_change(int irq, void *data)
+{
+	struct smb1355 *chip = data;
+
+	if (chip->parallel_psy)
+		power_supply_changed(chip->parallel_psy);
+
+	return IRQ_HANDLED;
+}
+
+static int smb1355_determine_initial_status(struct smb1355 *chip)
+{
+	smb1355_handle_temperature_change(0, chip);
+	return 0;
+}
+
 /*****************************
  * PARALLEL PSY REGISTRATION *
  *****************************/
@@ -648,6 +664,10 @@ static struct smb_irq_info smb1355_irqs[] = {
 		.handler	= smb1355_handle_chg_state_change,
 		.wake		= true,
 	},
+	[2] = {
+		.name		= "temperature-change",
+		.handler	= smb1355_handle_temperature_change,
+	},
 };
 
 static int smb1355_get_irq_index_byname(const char *irq_name)
@@ -769,6 +789,13 @@ static int smb1355_probe(struct platform_device *pdev)
 	rc = smb1355_init_parallel_psy(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize parallel psy rc=%d\n", rc);
+		goto cleanup;
+	}
+
+	rc = smb1355_determine_initial_status(chip);
+	if (rc < 0) {
+		pr_err("Couldn't determine initial status rc=%d\n",
+			rc);
 		goto cleanup;
 	}
 
