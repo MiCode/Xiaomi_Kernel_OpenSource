@@ -579,6 +579,7 @@ static int osm_cpufreq_cpu_init(struct cpufreq_policy *policy)
 		goto err;
 	}
 
+	policy->dvfs_possible_from_any_cpu = true;
 	policy->driver_data = c;
 	return 0;
 
