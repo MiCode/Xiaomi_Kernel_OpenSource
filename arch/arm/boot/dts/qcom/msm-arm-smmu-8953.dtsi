@@ -23,6 +23,7 @@
 		#global-interrupts = <1>;
 		interrupts = <0 199 0>, <0 225 0>, <0 232 0>,
 				<0 233 0>, <0 234 0>;
+		qcom,deferred-regulator-disable-delay = <80>;
 		qcom,register-save;
 		qcom,skip-init;
 		qcom,dynamic;
