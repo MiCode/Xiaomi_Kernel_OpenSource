@@ -1210,6 +1210,8 @@
 &mdss_mdp {
 	clock-max-rate = <0 0 0 0 430000000 19200000 0>;
 	qcom,sde-min-core-ib-kbps = <4800000>;
+	qcom,sde-max-bw-low-kbps = <9600000>;
+	qcom,sde-max-bw-high-kbps = <9600000>;
 };
 
 &mdss_dsi0 {
