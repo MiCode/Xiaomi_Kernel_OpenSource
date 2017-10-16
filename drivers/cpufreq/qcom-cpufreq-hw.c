@@ -118,6 +118,7 @@ static int qcom_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 	policy->fast_switch_possible = true;
 	policy->freq_table = c->table;
 	policy->driver_data = c;
+	policy->dvfs_possible_from_any_cpu = true;
 
 	em_register_perf_domain(policy->cpus, ret, &em_cb);
 
