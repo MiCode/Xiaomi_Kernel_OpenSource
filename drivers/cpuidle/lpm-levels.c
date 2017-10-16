@@ -439,7 +439,7 @@ static uint64_t lpm_cpuidle_predict(struct cpuidle_device *dev,
 	uint32_t *min_residency = get_per_cpu_min_residency(dev->cpu);
 	uint32_t *max_residency = get_per_cpu_max_residency(dev->cpu);
 
-	if (!lpm_prediction)
+	if (!lpm_prediction || !cpu->lpm_prediction)
 		return 0;
 
 	/*
@@ -621,7 +621,7 @@ static int cpu_power_select(struct cpuidle_device *dev,
 		struct power_params *pwr_params = &level->pwr;
 		bool allow;
 
-		allow = lpm_cpu_mode_allow(dev->cpu, i, true);
+		allow = i ? lpm_cpu_mode_allow(dev->cpu, i, true) : true;
 
 		if (!allow)
 			continue;
