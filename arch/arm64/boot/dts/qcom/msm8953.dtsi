@@ -13,7 +13,9 @@
 
 #include "skeleton64.dtsi"
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8953";
@@ -764,3 +766,7 @@
 		cell-index = <0>;
 	};
 };
+
+#include "pm8953-rpm-regulator.dtsi"
+#include "pm8953.dtsi"
+#include "msm8953-regulator.dtsi"
