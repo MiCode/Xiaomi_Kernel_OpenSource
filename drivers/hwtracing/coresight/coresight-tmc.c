@@ -21,6 +21,7 @@
 #include <linux/of.h>
 #include <linux/coresight.h>
 #include <linux/amba/bus.h>
+#include <asm/dma-iommu.h>
 
 #include "coresight-priv.h"
 #include "coresight-tmc.h"
@@ -446,6 +447,47 @@ static ssize_t block_size_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(block_size);
 
+static int tmc_iommu_init(struct tmc_drvdata *drvdata)
+{
+	struct device_node *node = drvdata->dev->of_node;
+	int ret = 0;
+
+	if (!of_property_read_bool(node, "iommus"))
+		return 0;
+
+	drvdata->iommu_mapping = arm_iommu_create_mapping(&amba_bustype,
+							0, (SZ_1G * 4ULL));
+	if (IS_ERR_OR_NULL(drvdata->iommu_mapping)) {
+		dev_err(drvdata->dev, "Create mapping failed, err = %d\n", ret);
+		ret = PTR_ERR(drvdata->iommu_mapping);
+		goto iommu_map_err;
+	}
+
+	ret = arm_iommu_attach_device(drvdata->dev, drvdata->iommu_mapping);
+	if (ret) {
+		dev_err(drvdata->dev, "Attach device failed, err = %d\n", ret);
+		goto iommu_attach_fail;
+	}
+
+	return ret;
+
+iommu_attach_fail:
+	arm_iommu_release_mapping(drvdata->iommu_mapping);
+iommu_map_err:
+	return ret;
+}
+
+static void tmc_iommu_deinit(struct tmc_drvdata *drvdata)
+{
+	if (!drvdata->iommu_mapping)
+		return;
+
+	arm_iommu_detach_device(drvdata->dev);
+	arm_iommu_release_mapping(drvdata->iommu_mapping);
+
+	drvdata->iommu_mapping = NULL;
+}
+
 static struct attribute *coresight_tmc_etf_attrs[] = {
 	&dev_attr_trigger_cntr.attr,
 	&dev_attr_buffer_size.attr,
@@ -653,18 +695,30 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 		drvdata->byte_cntr = byte_cntr_init(adev, drvdata);
 	}
 
+	ret = tmc_iommu_init(drvdata);
+	if (ret) {
+		dev_err(dev, "TMC SMMU init failed, err =%d\n", ret);
+		goto out;
+	}
+
 	drvdata->csdev = coresight_register(&desc);
 	if (IS_ERR(drvdata->csdev)) {
 		ret = PTR_ERR(drvdata->csdev);
-		goto out;
+		goto out_iommu_deinit;
 	}
 
 	drvdata->miscdev.name = pdata->name;
 	drvdata->miscdev.minor = MISC_DYNAMIC_MINOR;
 	drvdata->miscdev.fops = &tmc_fops;
 	ret = misc_register(&drvdata->miscdev);
-	if (ret)
+	if (ret) {
 		coresight_unregister(drvdata->csdev);
+		goto out_iommu_deinit;
+	}
+	return ret;
+
+out_iommu_deinit:
+	tmc_iommu_deinit(drvdata);
 out:
 	return ret;
 }

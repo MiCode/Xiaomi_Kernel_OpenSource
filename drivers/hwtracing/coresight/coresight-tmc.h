@@ -227,6 +227,7 @@ struct tmc_drvdata {
 	struct coresight_cti	*cti_reset;
 	enum tmc_etr_out_mode	out_mode;
 	struct byte_cntr	*byte_cntr;
+	struct dma_iommu_mapping *iommu_mapping;
 };
 
 struct etr_buf_operations {
