@@ -1488,10 +1488,14 @@ static int mdss_dsi_wait4video_eng_busy(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	int ret = 0;
 	u32 v_total = 0, v_blank = 0, sleep_ms = 0, fps = 0;
-	struct mdss_panel_info *pinfo = &ctrl->panel_data.panel_info;
+	struct mdss_panel_info *pinfo;
 
-	if (ctrl->panel_mode == DSI_CMD_MODE)
+	/* for dsi 2.1 and above dma scheduling is used */
+	if ((!ctrl) || (ctrl->panel_mode == DSI_CMD_MODE) ||
+		(ctrl->shared_data->hw_rev > MDSS_DSI_HW_REV_200))
 		return ret;
+
+	pinfo = &ctrl->panel_data.panel_info;
 
 	if (ctrl->ctrl_state & CTRL_STATE_MDP_ACTIVE) {
 		mdss_dsi_wait4video_done(ctrl);
@@ -1512,12 +1516,39 @@ static int mdss_dsi_wait4video_eng_busy(struct mdss_dsi_ctrl_pdata *ctrl)
 	return ret;
 }
 
+static void mdss_dsi_schedule_dma_cmd(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	u32 v_blank, val = 0x0;
+	struct mdss_panel_info *pinfo;
+
+	/* for dsi 2.0 and below dma scheduling is not supported */
+	if ((!ctrl) || (ctrl->panel_mode == DSI_CMD_MODE) ||
+		(ctrl->shared_data->hw_rev < MDSS_DSI_HW_REV_201))
+		return;
+
+	pinfo = &ctrl->panel_data.panel_info;
+	v_blank = pinfo->lcdc.v_back_porch + pinfo->lcdc.v_pulse_width;
+
+	/* DMA_SCHEDULE_CTRL */
+	val = MIPI_INP(ctrl->ctrl_io.base + 0x100);
+	val = val | (1 << 28); /* DMA_SCHEDULE_EN */
+	MIPI_OUTP(ctrl->ctrl_io.base + 0x100, val);
+	val |= (pinfo->yres + v_blank);
+	MIPI_OUTP(ctrl->ctrl_io.base + 0x100, val); /* DMA_SCHEDULE_LINE */
+	wmb();
+
+	pr_debug("%s schedule at line %x", __func__, val);
+	MDSS_XLOG(ctrl->ndx, val);
+}
+
 static void mdss_dsi_wait4active_region(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	int in_blanking = 0;
 	int retry_count = 0;
 
-	if (ctrl->panel_mode != DSI_VIDEO_MODE)
+	/* for dsi 2.1 and above dma scheduling is used */
+	if ((!ctrl) || (ctrl->panel_mode != DSI_VIDEO_MODE) ||
+		(ctrl->shared_data->hw_rev > MDSS_DSI_HW_REV_200))
 		return;
 
 	while (retry_count != MAX_BTA_WAIT_RETRY) {
@@ -2204,6 +2235,10 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 	MIPI_OUTP((ctrl->ctrl_base) + 0x04c, len);
 	wmb();
 
+	/* schedule dma cmds at start of blanking region */
+	mdss_dsi_schedule_dma_cmd(ctrl);
+
+	/* DSI_CMD_MODE_DMA_SW_TRIGGER */
 	MIPI_OUTP((ctrl->ctrl_base) + 0x090, 0x01);
 	wmb();
 	MDSS_XLOG(ctrl->dma_addr, len);
