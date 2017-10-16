@@ -31,6 +31,7 @@ static int ipc_router_glink_xprt_debug_mask;
 module_param_named(debug_mask, ipc_router_glink_xprt_debug_mask,
 		   int, S_IRUGO | S_IWUSR | S_IWGRP);
 
+#define IPCRTR_INTENT_REQ_TIMEOUT_MS 5000
 #if defined(DEBUG)
 #define D(x...) do { \
 if (ipc_router_glink_xprt_debug_mask) \
@@ -604,6 +605,7 @@ static void glink_xprt_ch_open(struct ipc_router_glink_xprt *glink_xprtp)
 	open_cfg.notify_state = glink_xprt_notify_state;
 	open_cfg.notify_rx_intent_req = glink_xprt_notify_rx_intent_req;
 	open_cfg.priv = glink_xprtp;
+	open_cfg.rx_intent_req_timeout_ms = IPCRTR_INTENT_REQ_TIMEOUT_MS;
 
 	glink_xprtp->pil = msm_ipc_load_subsystem(glink_xprtp);
 	glink_xprtp->ch_hndl =  glink_open(&open_cfg);
