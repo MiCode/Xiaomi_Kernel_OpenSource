@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/cpufreq.h>
@@ -118,6 +118,7 @@ static int qcom_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 	policy->fast_switch_possible = true;
 	policy->freq_table = c->table;
 	policy->driver_data = c;
+	policy->dvfs_possible_from_any_cpu = true;
 
 	em_register_perf_domain(policy->cpus, ret, &em_cb);
 
