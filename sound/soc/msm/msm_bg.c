@@ -20,6 +20,7 @@
 #include <linux/module.h>
 #include <linux/workqueue.h>
 #include <linux/input.h>
+#include <linux/regulator/consumer.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -32,6 +33,8 @@
 
 
 #define DRV_NAME "msm-bg-asoc-wcd"
+
+#define SPEAK_VREG_NAME "vdd-spkr"
 
 #define BTSCO_RATE_8KHZ 8000
 #define BTSCO_RATE_16KHZ 16000
@@ -143,6 +146,7 @@ struct msm8916_asoc_mach_data {
 	void __iomem *vaddr_gpio_mux_pcm_ctl;
 	void __iomem *vaddr_gpio_mux_sec_pcm_ctl;
 	struct device_node *pri_mi2s_gpio_p;
+	struct regulator *spkr_vreg;
 };
 
 static inline int param_is_mask(int p)
@@ -2157,7 +2161,35 @@ static int msm_bg_asoc_machine_probe(struct platform_device *pdev)
 			ret);
 		goto err;
 	}
+	if (of_get_property(
+		pdev->dev.of_node,
+		SPEAK_VREG_NAME "-supply", NULL)) {
+		pdata->spkr_vreg = regulator_get(&pdev->dev, SPEAK_VREG_NAME);
+		if (IS_ERR(pdata->spkr_vreg)) {
+			ret = PTR_ERR(pdata->spkr_vreg);
+			pr_err("VDD-speaker get failed error=%d\n", ret);
+			goto err;
+		}
+
+		ret = regulator_set_voltage(
+			pdata->spkr_vreg, 1800000, 1800000);
+		if (ret) {
+			pr_err("VDD-speaker set voltage failed error=%d\n",
+					 ret);
+			goto err_vreg_regulator;
+		} else {
+			ret = regulator_enable(pdata->spkr_vreg);
+			if (ret) {
+				pr_err("VDD-speaker voltage enable\n"
+					 "\nfailed error=%d\n", ret);
+				goto err_vreg_regulator;
+			}
+		}
+	}
 	return 0;
+
+err_vreg_regulator:
+	regulator_put(pdata->spkr_vreg);
 err:
 	if (pdata->vaddr_gpio_mux_spkr_ctl)
 		iounmap(pdata->vaddr_gpio_mux_spkr_ctl);
