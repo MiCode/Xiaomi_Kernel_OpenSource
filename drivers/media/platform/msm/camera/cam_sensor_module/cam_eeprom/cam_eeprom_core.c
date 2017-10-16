@@ -307,7 +307,7 @@ int32_t cam_eeprom_parse_read_memory_map(struct device_node *of_node,
 		CAM_ERR(CAM_EEPROM, "failed: eeprom power down rc %d", rc);
 	return rc;
 power_down:
-	rc = cam_eeprom_power_down(e_ctrl);
+	cam_eeprom_power_down(e_ctrl);
 data_mem_free:
 	kfree(e_ctrl->cal_data.mapdata);
 	kfree(e_ctrl->cal_data.map);
@@ -723,7 +723,7 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 	}
 	return rc;
 power_down:
-	rc = cam_eeprom_power_down(e_ctrl);
+	cam_eeprom_power_down(e_ctrl);
 memdata_free:
 	kfree(e_ctrl->cal_data.mapdata);
 error:
