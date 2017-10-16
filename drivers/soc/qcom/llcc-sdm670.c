@@ -57,13 +57,14 @@
 	}
 
 static struct llcc_slice_config sdm670_data[] =  {
-	SCT_ENTRY("cpuss", 1, 1, 512, 1, 1, 0xF,  0x0, 0, 0, 0, 1, 1),
-	SCT_ENTRY("vidsc0", 2, 2, 64,  2, 1, 0xF,  0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("vidsc1", 3, 3, 64,  2, 1, 0xF,  0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("rotator", 4, 4, 384, 2, 1, 0xF,  0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("modem",  8, 8, 512, 1, 0, 0xF,  0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("gpuhtw", 11, 11, 128, 1, 1, 0xF,  0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("gpu",    12, 12, 384, 1, 1, 0xF,  0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("cpuss", 1, 1, 512, 1, 0, 0xF, 0x0, 0, 0, 1, 1, 1),
+	SCT_ENTRY("rotator", 4, 4, 384, 2, 1, 0x0, 0xE, 2, 0, 1, 1, 0),
+	SCT_ENTRY("voice", 5, 5, 512, 1, 0, 0xF, 0x0, 0, 0, 1, 1, 0),
+	SCT_ENTRY("audio", 6, 6, 512, 1, 0, 0xF, 0x0, 0, 0, 1, 1, 0),
+	SCT_ENTRY("modem",  8, 8, 512, 1, 0, 0xF,  0x0, 0, 0, 1, 1, 0),
+	SCT_ENTRY("gpu", 12, 12, 384, 1, 1, 0x0, 0x0, 0, 0, 1, 1, 0),
+	SCT_ENTRY("mmuhwt", 13, 13, 512, 1, 0, 0x0, 0x8, 0, 0, 1, 0, 1),
+	SCT_ENTRY("audiohw", 22, 22, 512, 1, 1, 0xF, 0x0, 0, 0, 1, 1, 0),
 };
 
 static int sdm670_qcom_llcc_probe(struct platform_device *pdev)
