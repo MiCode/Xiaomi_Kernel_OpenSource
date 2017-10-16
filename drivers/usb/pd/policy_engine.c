@@ -1038,6 +1038,16 @@ static void phy_msg_received(struct usbpd *pd, enum pd_sop_type sop,
 static void phy_shutdown(struct usbpd *pd)
 {
 	usbpd_dbg(&pd->dev, "shutdown");
+
+	if (pd->vconn_enabled) {
+		regulator_disable(pd->vconn);
+		pd->vconn_enabled = false;
+	}
+
+	if (pd->vbus_enabled) {
+		regulator_disable(pd->vbus);
+		pd->vbus_enabled = false;
+	}
 }
 
 static enum hrtimer_restart pd_timeout(struct hrtimer *timer)
