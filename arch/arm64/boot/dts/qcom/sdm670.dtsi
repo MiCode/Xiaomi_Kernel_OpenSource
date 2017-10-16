@@ -2351,6 +2351,12 @@
 			iommus = <&apps_smmu 0x1805 0x0>;
 			dma-coherent;
 		};
+		qcom,msm_fastrpc_compute_cb12 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&apps_smmu 0x1806 0x0>;
+			dma-coherent;
+		};
 	};
 
 	bluetooth: bt_wcn3990 {
