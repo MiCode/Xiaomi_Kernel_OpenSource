@@ -1086,6 +1086,16 @@ config REGULATOR_RPM_SMD
 	  be used on systems which contain an RPM which communicates with the
 	  application processor over SMD.
 
+config REGULATOR_SPM
+	bool "SPM regulator driver"
+	depends on SPMI
+	help
+	  Enable support for the SPM regulator driver which is used for
+	  setting voltages of processor supply regulators via the SPM module
+	  found inside chips of Qualcomm Technologies Inc. The SPM regulator
+	  driver can be used on QTI SoCs where the APSS processor cores are
+	  supplied by their own PMIC regulator.
+
 config REGULATOR_STUB
 	tristate "Stub Regulator"
 	help
