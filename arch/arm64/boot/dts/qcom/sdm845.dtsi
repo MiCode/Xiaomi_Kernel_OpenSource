@@ -1551,7 +1551,9 @@
 
 		vdd_cx-supply = <&pm8998_l27_level>;
 		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
-		qcom,proxy-reg-names = "vdd_cx";
+		vdd_mx-supply = <&pm8998_l4_level>;
+		qcom,vdd_mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
+		qcom,proxy-reg-names = "vdd_cx", "vdd_mx";
 		qcom,keep-proxy-regs-on;
 
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
