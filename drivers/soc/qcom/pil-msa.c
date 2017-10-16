@@ -469,6 +469,13 @@ int pil_mss_make_proxy_votes(struct pil_desc *pil)
 									ret);
 			goto out;
 		}
+		ret = regulator_enable(drv->vreg);
+		if (ret) {
+			dev_err(pil->dev, "Failed to enable vreg(rc:%d)\n",
+				ret);
+			regulator_set_voltage(drv->vreg, 0, INT_MAX);
+			goto out;
+		}
 	}
 
 	ret = pil_q6v5_make_proxy_votes(pil);
