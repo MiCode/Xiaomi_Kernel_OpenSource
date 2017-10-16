@@ -2356,6 +2356,7 @@ static int mdp3_panel_register_done(struct mdss_panel_data *pdata)
 	if (pdata->panel_info.cont_splash_enabled == false)
 		mdp3_res->allow_iommu_update = true;
 
+	mdss_res->pdata = pdata;
 	return rc;
 }
 
@@ -2441,6 +2442,7 @@ static int mdp3_debug_init(struct platform_device *pdev)
 	mdss_res->mdss_util = mdp3_res->mdss_util;
 
 	mdata->debug_inf.debug_enable_clock = mdp3_debug_enable_clock;
+	mdata->mdp_rev = mdp3_res->mdp_rev;
 
 	rc = mdss_debugfs_init(mdata);
 	if (rc)
