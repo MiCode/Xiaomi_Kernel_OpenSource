@@ -28,6 +28,7 @@
 #include <linux/of.h>
 #include <linux/coresight.h>
 #include <linux/amba/bus.h>
+#include <asm/dma-iommu.h>
 
 #include "coresight-priv.h"
 #include "coresight-tmc.h"
@@ -457,6 +458,47 @@ static ssize_t block_size_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(block_size);
 
+static int tmc_iommu_init(struct tmc_drvdata *drvdata)
+{
+	struct device_node *node = drvdata->dev->of_node;
+	int atomic_ctx = 1, ret = 0;
+
+	if (!of_property_read_bool(node, "iommus"))
+		return 0;
+
+	drvdata->iommu_mapping = arm_iommu_create_mapping(&amba_bustype,
+							0, (SZ_1G * 4ULL));
+	if (IS_ERR(drvdata->iommu_mapping)) {
+		dev_err(drvdata->dev, "Create mapping failed, err = %d\n", ret);
+		ret = PTR_ERR(drvdata->iommu_mapping);
+		goto iommu_map_err;
+	}
+
+	ret = arm_iommu_attach_device(drvdata->dev, drvdata->iommu_mapping);
+	if (ret) {
+		dev_err(drvdata->dev, "Attach device failed, err = %d\n", ret);
+		goto iommu_attach_fail;
+	}
+
+	return ret;
+
+iommu_attach_fail:
+	arm_iommu_release_mapping(drvdata->iommu_mapping);
+iommu_map_err:
+	return ret;
+}
+
+static void tmc_iommu_deinit(struct tmc_drvdata *drvdata)
+{
+	if (!drvdata->iommu_mapping)
+		return;
+
+	arm_iommu_detach_device(drvdata->dev);
+	arm_iommu_release_mapping(drvdata->iommu_mapping);
+
+	drvdata->iommu_mapping = NULL;
+}
+
 static struct attribute *coresight_tmc_etf_attrs[] = {
 	&dev_attr_trigger_cntr.attr,
 	NULL,
@@ -590,6 +632,12 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 
 	pm_runtime_put(&adev->dev);
 
+	ret = tmc_iommu_init(drvdata);
+	if (ret) {
+		dev_err(dev, "TMC SMMU init failed, err =%d\n", ret);
+		goto out;
+	}
+
 	ctidata = of_get_coresight_cti_data(dev, adev->dev.of_node);
 	if (IS_ERR(ctidata)) {
 		dev_err(dev, "invalid cti data\n");
@@ -618,7 +666,7 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 		desc.ops = &tmc_etr_cs_ops;
 		ret = tmc_etr_setup_caps(drvdata, devid, id->data);
 		if (ret)
-			goto out;
+			goto out_iommu_deinit;
 		desc.groups = coresight_tmc_etr_groups;
 		desc.subtype.sink_subtype = CORESIGHT_DEV_SUBTYPE_SINK_BUFFER;
 
@@ -626,7 +674,7 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 
 		ret = tmc_etr_bam_init(adev, drvdata);
 		if (ret)
-			goto out;
+			goto out_iommu_deinit;
 		break;
 	case TMC_CONFIG_TYPE_ETF:
 		desc.type = CORESIGHT_DEV_TYPE_LINKSINK;
@@ -637,21 +685,27 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 	default:
 		pr_err("%s: Unsupported TMC config\n", pdata->name);
 		ret = -EINVAL;
-		goto out;
+		goto out_iommu_deinit;
 	}
 
 	drvdata->csdev = coresight_register(&desc);
 	if (IS_ERR(drvdata->csdev)) {
 		ret = PTR_ERR(drvdata->csdev);
-		goto out;
+		goto out_iommu_deinit;
 	}
 
 	drvdata->miscdev.name = pdata->name;
 	drvdata->miscdev.minor = MISC_DYNAMIC_MINOR;
 	drvdata->miscdev.fops = &tmc_fops;
 	ret = misc_register(&drvdata->miscdev);
-	if (ret)
+	if (ret) {
+		tmc_iommu_deinit(drvdata);
 		coresight_unregister(drvdata->csdev);
+	}
+	return ret;
+
+out_iommu_deinit:
+	tmc_iommu_deinit(drvdata);
 out:
 	return ret;
 }

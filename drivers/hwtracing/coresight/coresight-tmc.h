@@ -220,6 +220,7 @@ struct tmc_drvdata {
 	struct coresight_cti	*cti_flush;
 	struct coresight_cti	*cti_reset;
 	struct byte_cntr	*byte_cntr;
+	struct dma_iommu_mapping *iommu_mapping;
 };
 
 /* Generic functions */
