@@ -2766,8 +2766,12 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 			f->name,
 			gadget_is_superspeed(c->cdev->gadget) ? "super" :
 			gadget_is_dualspeed(c->cdev->gadget) ? "dual" : "full",
-			gsi->d_port.in_ep->name, gsi->d_port.out_ep->name,
-			gsi->c_port.notify->name);
+			(gsi->d_port.in_ep == NULL ? "NULL" :
+					gsi->d_port.in_ep->name),
+			(gsi->d_port.out_ep == NULL ? "NULL" :
+					gsi->d_port.out_ep->name),
+			(gsi->c_port.notify == NULL ? "NULL" :
+					gsi->c_port.notify->name));
 	return 0;
 
 dereg_rndis:
