@@ -199,7 +199,7 @@ static void sugov_get_util(unsigned long *util, unsigned long *max, int cpu)
 	*util = min(rq->cfs.avg.util_avg, cfs_max);
 	*max = cfs_max;
 
-	*util = cpu_util_freq(cpu);
+	*util = cpu_util_freq(cpu, &loadcpu->walt_load);
 }
 
 static void sugov_set_iowait_boost(struct sugov_cpu *sg_cpu, u64 time,
