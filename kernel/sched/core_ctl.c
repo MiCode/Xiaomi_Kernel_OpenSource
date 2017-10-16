@@ -474,16 +474,19 @@ static void update_running_avg(void)
 	int max_nr, big_max_nr;
 	struct cluster_data *cluster;
 	unsigned int index = 0;
+	unsigned long flags;
 
 	sched_get_nr_running_avg(&avg, &iowait_avg, &big_avg,
 				 &max_nr, &big_max_nr);
 
+	spin_lock_irqsave(&state_lock, flags);
 	for_each_cluster(cluster, index) {
 		if (!cluster->inited)
 			continue;
 		cluster->nrrun = cluster->is_big_cluster ? big_avg : avg;
 		cluster->max_nr = cluster->is_big_cluster ? big_max_nr : max_nr;
 	}
+	spin_unlock_irqrestore(&state_lock, flags);
 }
 
 #define MAX_NR_THRESHOLD	4
@@ -668,6 +671,7 @@ void core_ctl_check(u64 window_start)
 	struct cpu_data *c;
 	struct cluster_data *cluster;
 	unsigned int index = 0;
+	unsigned long flags;
 
 	if (unlikely(!initialized))
 		return;
@@ -677,6 +681,7 @@ void core_ctl_check(u64 window_start)
 
 	core_ctl_check_timestamp = window_start;
 
+	spin_lock_irqsave(&state_lock, flags);
 	for_each_possible_cpu(cpu) {
 
 		c = &per_cpu(cpu_state, cpu);
@@ -687,6 +692,7 @@ void core_ctl_check(u64 window_start)
 
 		c->busy = sched_get_cpu_util(cpu);
 	}
+	spin_unlock_irqrestore(&state_lock, flags);
 
 	update_running_avg();
 
