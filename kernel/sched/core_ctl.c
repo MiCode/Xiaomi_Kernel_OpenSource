@@ -22,6 +22,8 @@
 #include <linux/syscore_ops.h>
 
 #include <trace/events/sched.h>
+#include "sched.h"
+#include "walt.h"
 
 #define MAX_CPUS_PER_CLUSTER 6
 #define MAX_CLUSTERS 2
@@ -557,7 +559,8 @@ static bool eval_need(struct cluster_data *cluster)
 		list_for_each_entry(c, &cluster->lru, sib) {
 			bool old_is_busy = c->is_busy;
 
-			if (c->busy >= cluster->busy_up_thres[thres_idx])
+			if (c->busy >= cluster->busy_up_thres[thres_idx] ||
+			    sched_cpu_high_irqload(c->cpu))
 				c->is_busy = true;
 			else if (c->busy < cluster->busy_down_thres[thres_idx])
 				c->is_busy = false;
