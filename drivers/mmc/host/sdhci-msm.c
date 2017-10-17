@@ -1281,6 +1281,11 @@ retry:
 			pr_debug("%s: %s: found *** good *** phase = %d\n",
 				mmc_hostname(mmc), __func__, phase);
 		} else {
+			/* Ignore crc errors occurred during tuning */
+			if (cmd.error)
+				mmc->err_stats[MMC_ERR_CMD_CRC]--;
+			else if (data.error)
+				mmc->err_stats[MMC_ERR_DAT_CRC]--;
 			pr_debug("%s: %s: found ## bad ## phase = %d\n",
 				mmc_hostname(mmc), __func__, phase);
 		}
