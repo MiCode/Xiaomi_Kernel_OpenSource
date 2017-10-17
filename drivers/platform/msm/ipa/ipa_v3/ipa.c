@@ -236,8 +236,8 @@ static DECLARE_DELAYED_WORK(ipa3_transport_release_resource_work,
 	ipa3_transport_release_resource);
 static void ipa_gsi_notify_cb(struct gsi_per_notify *notify);
 
-static void ipa3_post_init_wq(struct work_struct *work);
-static DECLARE_WORK(ipa3_post_init_work, ipa3_post_init_wq);
+static void ipa3_load_ipa_fw(struct work_struct *work);
+static DECLARE_WORK(ipa3_fw_loading_work, ipa3_load_ipa_fw);
 
 static void ipa_dec_clients_disable_clks_on_wq(struct work_struct *work);
 static DECLARE_WORK(ipa_dec_clients_disable_clks_on_wq_work,
@@ -4366,11 +4366,6 @@ fail_register_device:
 	return result;
 }
 
-static void ipa3_post_init_wq(struct work_struct *work)
-{
-	ipa3_post_init(&ipa3_res, ipa3_ctx->dev);
-}
-
 static int ipa3_manual_load_ipa_fws(void)
 {
 	int result;
@@ -4428,11 +4423,36 @@ static int ipa3_pil_load_ipa_fws(void)
 	return 0;
 }
 
+static void ipa3_load_ipa_fw(struct work_struct *work)
+{
+	int result;
+
+	IPADBG("Entry\n");
+
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
+	if (ipa3_is_msm_device() || (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5))
+		result = ipa3_pil_load_ipa_fws();
+	else
+		result = ipa3_manual_load_ipa_fws();
+
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+
+	if (result) {
+		IPAERR("IPA FW loading process has failed\n");
+		return;
+	}
+	pr_info("IPA FW loaded successfully\n");
+
+	result = ipa3_post_init(&ipa3_res, ipa3_ctx->dev);
+	if (result)
+		IPAERR("IPA post init failed %d\n", result);
+}
+
 static ssize_t ipa3_write(struct file *file, const char __user *buf,
 			  size_t count, loff_t *ppos)
 {
 	unsigned long missing;
-	int result = -EINVAL;
 
 	char dbg_buff[16] = { 0 };
 
@@ -4465,24 +4485,10 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 		}
 	}
 
-	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-
-	if (ipa3_is_msm_device() || (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5))
-		result = ipa3_pil_load_ipa_fws();
-	else
-		result = ipa3_manual_load_ipa_fws();
-
-	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
-
-	if (result) {
-		IPAERR("IPA FW loading process has failed\n");
-		return result;
-	}
-
 	queue_work(ipa3_ctx->transport_power_mgmt_wq,
-		&ipa3_post_init_work);
-	pr_info("IPA FW loaded successfully\n");
+		&ipa3_fw_loading_work);
 
+	IPADBG("Scheduled a work to load IPA FW\n");
 	return count;
 }
 
