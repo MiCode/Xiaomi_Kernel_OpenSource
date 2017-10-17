@@ -64,8 +64,9 @@ struct sugov_cpu {
 	struct update_util_data update_util;
 	struct sugov_policy *sg_policy;
 
-	unsigned long iowait_boost;
-	unsigned long iowait_boost_max;
+	bool iowait_boost_pending;
+	unsigned int iowait_boost;
+	unsigned int iowait_boost_max;
 	u64 last_update;
 
 	/* The fields below are only needed when sharing a policy. */
@@ -224,30 +225,54 @@ static void sugov_set_iowait_boost(struct sugov_cpu *sg_cpu, u64 time,
 				   unsigned int flags)
 {
 	if (flags & SCHED_CPUFREQ_IOWAIT) {
-		sg_cpu->iowait_boost = sg_cpu->iowait_boost_max;
+		if (sg_cpu->iowait_boost_pending)
+			return;
+
+		sg_cpu->iowait_boost_pending = true;
+
+		if (sg_cpu->iowait_boost) {
+			sg_cpu->iowait_boost <<= 1;
+			if (sg_cpu->iowait_boost > sg_cpu->iowait_boost_max)
+				sg_cpu->iowait_boost = sg_cpu->iowait_boost_max;
+		} else {
+			sg_cpu->iowait_boost = sg_cpu->sg_policy->policy->min;
+		}
 	} else if (sg_cpu->iowait_boost) {
 		s64 delta_ns = time - sg_cpu->last_update;
 
 		/* Clear iowait_boost if the CPU apprears to have been idle. */
-		if (delta_ns > TICK_NSEC)
+		if (delta_ns > TICK_NSEC) {
 			sg_cpu->iowait_boost = 0;
+			sg_cpu->iowait_boost_pending = false;
+		}
 	}
 }
 
 static void sugov_iowait_boost(struct sugov_cpu *sg_cpu, unsigned long *util,
 			       unsigned long *max)
 {
-	unsigned long boost_util = sg_cpu->iowait_boost;
-	unsigned long boost_max = sg_cpu->iowait_boost_max;
+	unsigned int boost_util, boost_max;
 
-	if (!boost_util)
+	if (!sg_cpu->iowait_boost)
 		return;
+
+	if (sg_cpu->iowait_boost_pending) {
+		sg_cpu->iowait_boost_pending = false;
+	} else {
+		sg_cpu->iowait_boost >>= 1;
+		if (sg_cpu->iowait_boost < sg_cpu->sg_policy->policy->min) {
+			sg_cpu->iowait_boost = 0;
+			return;
+		}
+	}
+
+	boost_util = sg_cpu->iowait_boost;
+	boost_max = sg_cpu->iowait_boost_max;
 
 	if (*util * boost_max < *max * boost_util) {
 		*util = boost_util;
 		*max = boost_max;
 	}
-	sg_cpu->iowait_boost >>= 1;
 }
 
 #ifdef CONFIG_NO_HZ_COMMON
@@ -320,6 +345,7 @@ static unsigned int sugov_next_freq_shared(struct sugov_cpu *sg_cpu)
 		delta_ns = last_freq_update_time - j_sg_cpu->last_update;
 		if (delta_ns > TICK_NSEC) {
 			j_sg_cpu->iowait_boost = 0;
+			j_sg_cpu->iowait_boost_pending = false;
 			continue;
 		}
 		if (j_sg_cpu->flags & SCHED_CPUFREQ_DL)
@@ -589,7 +615,6 @@ static int sugov_init(struct cpufreq_policy *policy)
 {
 	struct sugov_policy *sg_policy;
 	struct sugov_tunables *tunables;
-	unsigned int lat;
 	int ret = 0;
 
 	/* State should be equivalent to EXIT */
@@ -628,12 +653,19 @@ static int sugov_init(struct cpufreq_policy *policy)
 		goto stop_kthread;
 	}
 
-	tunables->up_rate_limit_us = LATENCY_MULTIPLIER;
-	tunables->down_rate_limit_us = LATENCY_MULTIPLIER;
-	lat = policy->cpuinfo.transition_latency / NSEC_PER_USEC;
-	if (lat) {
-		tunables->up_rate_limit_us *= lat;
-		tunables->down_rate_limit_us *= lat;
+	if (policy->up_transition_delay_us && policy->down_transition_delay_us) {
+		tunables->up_rate_limit_us = policy->up_transition_delay_us;
+		tunables->down_rate_limit_us = policy->down_transition_delay_us;
+	} else {
+		unsigned int lat;
+
+                tunables->up_rate_limit_us = LATENCY_MULTIPLIER;
+                tunables->down_rate_limit_us = LATENCY_MULTIPLIER;
+		lat = policy->cpuinfo.transition_latency / NSEC_PER_USEC;
+		if (lat) {
+                        tunables->up_rate_limit_us *= lat;
+                        tunables->down_rate_limit_us *= lat;
+                }
 	}
 
 	policy->governor_data = sg_policy;
