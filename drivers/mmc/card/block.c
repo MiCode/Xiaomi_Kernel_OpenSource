@@ -3461,6 +3461,8 @@ static enum blk_eh_timer_return mmc_blk_cmdq_req_timed_out(struct request *req)
 	else
 		mrq->data->error = -ETIMEDOUT;
 
+	host->err_stats[MMC_ERR_CMDQ_REQ_TIMEOUT]++;
+
 	if (mrq->cmd && mrq->cmd->error) {
 		if (!(mrq->req->cmd_flags & REQ_PREFLUSH)) {
 			/*
