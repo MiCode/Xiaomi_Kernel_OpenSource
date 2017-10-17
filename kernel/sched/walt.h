@@ -87,7 +87,7 @@ walt_adjust_nr_big_tasks(struct rq *rq, int delta, bool inc)
 	if (sched_disable_window_stats)
 		return;
 
-	//sched_update_nr_prod(cpu_of(rq), 0, true);
+	sched_update_nr_prod(cpu_of(rq), 0, true);
 	rq->walt_stats.nr_big_tasks += inc ? delta : -delta;
 
 	BUG_ON(rq->walt_stats.nr_big_tasks < 0);
