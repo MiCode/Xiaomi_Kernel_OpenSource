@@ -51,6 +51,40 @@
 				linux,code = <114>;
 			};
 		};
+
+		pmxpoorwills_gpios: pinctrl@c000 {
+			compatible = "qcom,spmi-gpio";
+			reg = <0xc000 0x900>;
+			interrupts = <0x0 0xc1 0 IRQ_TYPE_NONE>,
+					<0x0 0xc2 0 IRQ_TYPE_NONE>,
+					<0x0 0xc3 0 IRQ_TYPE_NONE>,
+					<0x0 0xc4 0 IRQ_TYPE_NONE>,
+					<0x0 0xc5 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pmxpoorwills_gpio2",
+					  "pmxpoorwills_gpio3",
+					  "pmxpoorwills_gpio4",
+					  "pmxpoorwills_gpio5",
+					  "pmxpoorwills_gpio6";
+			gpio-controller;
+			#gpio-cells = <2>;
+			qcom,gpios-disallowed = <1 7 8 9>;
+		};
+
+		pmxpoorwills_rtc: qcom,pmxpoorwills_rtc {
+			compatible = "qcom,qpnp-rtc";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			qcom,qpnp-rtc-write = <0>;
+			qcom,qpnp-rtc-alarm-pwrup = <0>;
+
+			qcom,pmxpoorwills_rtc_rw@6000 {
+				reg = <0x6000 0x100>;
+			};
+			qcom,pmxpoorwills_rtc_alarm@6100 {
+				reg = <0x6100 0x100>;
+				interrupts = <0x0 0x61 0x1 IRQ_TYPE_NONE>;
+			};
+		};
 	};
 
 	qcom,pmxpoorwills@1 {
@@ -58,5 +92,45 @@
 		reg = <0x1 SPMI_USID>;
 		#address-cells = <2>;
 		#size-cells = <0>;
+
+		pmxpoorwills_pwm_1: pwm@bc00 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xbc00 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <0>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+
+		pmxpoorwills_pwm_2: pwm@bd00 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xbd00 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <1>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+
+		pmxpoorwills_pwm_3: pwm@be00 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xbe00 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <2>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+
+		pmxpoorwills_pwm_4: pwm@bf00 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xbf00 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <3>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
 	};
 };

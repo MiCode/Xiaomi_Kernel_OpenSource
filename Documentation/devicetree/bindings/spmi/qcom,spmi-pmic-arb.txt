@@ -42,6 +42,11 @@ Required properties:
     cell 4: interrupt flags indicating level-sense information, as defined in
             dt-bindings/interrupt-controller/irq.h
 
+Optional properties:
+- qcom,enable-ahb-bus-workaround : Boolean flag which indicates that the AHB bus
+				   workaround sequence should be used for SPMI
+				   write transactions to avoid corruption
+
 Example V1 PMIC-Arbiter:
 
 	spmi {

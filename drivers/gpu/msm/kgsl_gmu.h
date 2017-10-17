@@ -70,15 +70,12 @@
 #define OOB_DCVS_SET_MASK		BIT(23)
 #define OOB_DCVS_CHECK_MASK		BIT(31)
 #define OOB_DCVS_CLEAR_MASK		BIT(31)
-#define OOB_CPINIT_SET_MASK		BIT(16)
-#define OOB_CPINIT_CHECK_MASK		BIT(24)
-#define OOB_CPINIT_CLEAR_MASK		BIT(24)
+#define OOB_GPU_SET_MASK		BIT(16)
+#define OOB_GPU_CHECK_MASK		BIT(24)
+#define OOB_GPU_CLEAR_MASK		BIT(24)
 #define OOB_PERFCNTR_SET_MASK		BIT(17)
 #define OOB_PERFCNTR_CHECK_MASK		BIT(25)
 #define OOB_PERFCNTR_CLEAR_MASK		BIT(25)
-#define OOB_GPU_SET_MASK		BIT(18)
-#define OOB_GPU_CHECK_MASK		BIT(26)
-#define OOB_GPU_CLEAR_MASK		BIT(26)
 
 /* Bits for the flags field in the gmu structure */
 enum gmu_flags {

@@ -57,8 +57,6 @@
 #define MSM_VERSION_MINOR	2
 #define MSM_VERSION_PATCHLEVEL	0
 
-#define TEARDOWN_DEADLOCK_RETRY_MAX 5
-
 static void msm_fb_output_poll_changed(struct drm_device *dev)
 {
 	struct msm_drm_private *priv = NULL;
@@ -1369,7 +1367,9 @@ void msm_mode_object_event_notify(struct drm_mode_object *obj,
 			continue;
 		len = event->length + sizeof(struct drm_msm_event_resp);
 		if (node->base.file_priv->event_space < len) {
-			DRM_ERROR("Insufficient space to notify\n");
+			DRM_ERROR("Insufficient space %d for event %x len %d\n",
+				node->base.file_priv->event_space, event->type,
+				len);
 			continue;
 		}
 		notify = kzalloc(len, GFP_ATOMIC);

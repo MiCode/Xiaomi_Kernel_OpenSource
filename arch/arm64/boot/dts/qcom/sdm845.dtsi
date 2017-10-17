@@ -79,7 +79,7 @@
 			};
 			L1_I_0: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0xa000>;
+				qcom,dump-size = <0x12000>;
 			};
 			L1_D_0: l1-dcache {
 				compatible = "arm,arch-cache";
@@ -110,7 +110,7 @@
 			};
 			L1_I_100: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0xa000>;
+				qcom,dump-size = <0x12000>;
 			};
 			L1_D_100: l1-dcache {
 				compatible = "arm,arch-cache";
@@ -141,7 +141,7 @@
 			};
 			L1_I_200: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0xa000>;
+				qcom,dump-size = <0x12000>;
 			};
 			L1_D_200: l1-dcache {
 				compatible = "arm,arch-cache";
@@ -172,7 +172,7 @@
 			};
 			L1_I_300: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0xa000>;
+				qcom,dump-size = <0x12000>;
 			};
 			L1_D_300: l1-dcache {
 				compatible = "arm,arch-cache";
@@ -203,7 +203,7 @@
 			};
 			L1_I_400: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x14000>;
+				qcom,dump-size = <0x24000>;
 			};
 			L1_D_400: l1-dcache {
 				compatible = "arm,arch-cache";
@@ -234,7 +234,7 @@
 			};
 			L1_I_500: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x14000>;
+				qcom,dump-size = <0x24000>;
 			};
 			L1_D_500: l1-dcache {
 				compatible = "arm,arch-cache";
@@ -265,7 +265,7 @@
 			};
 			L1_I_600: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x14000>;
+				qcom,dump-size = <0x24000>;
 			};
 			L1_D_600: l1-dcache {
 				compatible = "arm,arch-cache";
@@ -296,7 +296,7 @@
 			};
 			L1_I_700: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x14000>;
+				qcom,dump-size = <0x24000>;
 			};
 			L1_D_700: l1-dcache {
 				compatible = "arm,arch-cache";
@@ -846,6 +846,7 @@
 		interrupt-controller;
 		#interrupt-cells = <4>;
 		cell-index = <0>;
+		qcom,enable-ahb-bus-workaround;
 	};
 
 	spmi_debug_bus: qcom,spmi-debug@6b22000 {
@@ -2280,6 +2281,10 @@
 			max-slices = <32>;
 		};
 
+		qcom,llcc-perfmon {
+			compatible = "qcom,llcc-perfmon";
+		};
+
 		qcom,llcc-erp {
 			compatible = "qcom,llcc-erp";
 			interrupt-names = "ecc_irq";
@@ -2718,7 +2723,7 @@
 			<0x1dc4000 0x24000>;
 		reg-names = "crypto-base","crypto-bam-base";
 		interrupts = <0 272 0>;
-		qcom,bam-pipe-pair = <1>;
+		qcom,bam-pipe-pair = <3>;
 		qcom,ce-hw-instance = <0>;
 		qcom,ce-device = <0>;
 		qcom,ce-hw-shared;
@@ -2737,9 +2742,9 @@
 			 <&clock_gcc GCC_CE1_AXI_CLK>;
 		qcom,ce-opp-freq = <171430000>;
 		qcom,request-bw-before-clk;
-		qcom,smmu-s1-bypass;
-		iommus = <&apps_smmu 0x702 0x1>,
-			 <&apps_smmu 0x712 0x1>;
+		qcom,smmu-s1-enable;
+		iommus = <&apps_smmu 0x706 0x1>,
+			 <&apps_smmu 0x716 0x1>;
 	};
 
 	qcom_msmhdcp: qcom,msm_hdcp {
@@ -2778,9 +2783,9 @@
 		qcom,use-sw-ahash-algo;
 		qcom,use-sw-aead-algo;
 		qcom,use-sw-hmac-algo;
-		qcom,smmu-s1-bypass;
-		iommus = <&apps_smmu 0x704 0x3>,
-			 <&apps_smmu 0x714 0x3>;
+		qcom,smmu-s1-enable;
+		iommus = <&apps_smmu 0x704 0x1>,
+			 <&apps_smmu 0x714 0x1>;
 	};
 
 	qcom,msm_gsi {

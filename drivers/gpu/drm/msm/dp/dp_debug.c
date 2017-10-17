@@ -74,7 +74,7 @@ static ssize_t dp_debug_write_edid_modes(struct file *file,
 	struct dp_debug_private *debug = file->private_data;
 	char buf[SZ_32];
 	size_t len = 0;
-	int hdisplay = 0, vdisplay = 0, vrefresh = 0;
+	int hdisplay = 0, vdisplay = 0, vrefresh = 0, aspect_ratio;
 
 	if (!debug)
 		return -ENODEV;
@@ -89,7 +89,8 @@ static ssize_t dp_debug_write_edid_modes(struct file *file,
 
 	buf[len] = '\0';
 
-	if (sscanf(buf, "%d %d %d", &hdisplay, &vdisplay, &vrefresh) != 3)
+	if (sscanf(buf, "%d %d %d %d", &hdisplay, &vdisplay, &vrefresh,
+				&aspect_ratio) != 4)
 		goto clear;
 
 	if (!hdisplay || !vdisplay || !vrefresh)
@@ -99,6 +100,7 @@ static ssize_t dp_debug_write_edid_modes(struct file *file,
 	debug->dp_debug.hdisplay = hdisplay;
 	debug->dp_debug.vdisplay = vdisplay;
 	debug->dp_debug.vrefresh = vrefresh;
+	debug->dp_debug.aspect_ratio = aspect_ratio;
 	goto end;
 clear:
 	pr_debug("clearing debug modes\n");
@@ -198,11 +200,11 @@ static ssize_t dp_debug_read_edid_modes(struct file *file,
 
 	list_for_each_entry(mode, &connector->modes, head) {
 		len += snprintf(buf + len, SZ_4K - len,
-		"%s %d %d %d %d %d %d %d %d %d 0x%x\n",
-		mode->name, mode->vrefresh, mode->hdisplay,
-		mode->hsync_start, mode->hsync_end, mode->htotal,
-		mode->vdisplay, mode->vsync_start, mode->vsync_end,
-		mode->vtotal, mode->flags);
+		"%s %d %d %d %d %d %d %d %d %d %d 0x%x\n",
+		mode->name, mode->vrefresh, mode->picture_aspect_ratio,
+		mode->hdisplay, mode->hsync_start, mode->hsync_end,
+		mode->htotal, mode->vdisplay, mode->vsync_start,
+		mode->vsync_end, mode->vtotal, mode->flags);
 	}
 
 	if (copy_to_user(user_buff, buf, len)) {

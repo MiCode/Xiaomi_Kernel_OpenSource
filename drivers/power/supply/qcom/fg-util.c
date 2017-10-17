@@ -492,6 +492,33 @@ out:
 	return rc;
 }
 
+int fg_dump_regs(struct fg_chip *chip)
+{
+	int i, rc;
+	u8 buf[256];
+
+	if (!chip)
+		return -EINVAL;
+
+	rc = fg_read(chip, chip->batt_soc_base, buf, sizeof(buf));
+	if (rc < 0)
+		return rc;
+
+	pr_info("batt_soc_base registers:\n");
+	for (i = 0; i < sizeof(buf); i++)
+		pr_info("%04x:%02x\n", chip->batt_soc_base + i, buf[i]);
+
+	rc = fg_read(chip, chip->mem_if_base, buf, sizeof(buf));
+	if (rc < 0)
+		return rc;
+
+	pr_info("mem_if_base registers:\n");
+	for (i = 0; i < sizeof(buf); i++)
+		pr_info("%04x:%02x\n", chip->mem_if_base + i, buf[i]);
+
+	return 0;
+}
+
 int64_t twos_compliment_extend(int64_t val, int sign_bit_pos)
 {
 	int i, nbytes = DIV_ROUND_UP(sign_bit_pos, 8);

@@ -81,6 +81,7 @@ static struct sde_cdm_cfg *_cdm_offset(enum sde_cdm cdm,
 		if (cdm == m->cdm[i].id) {
 			b->base_off = addr;
 			b->blk_off = m->cdm[i].base;
+			b->length = m->cdm[i].len;
 			b->hwversion = m->hwversion;
 			b->log_mask = SDE_DBG_MASK_CDM;
 			return &m->cdm[i];

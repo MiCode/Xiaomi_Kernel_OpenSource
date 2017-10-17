@@ -162,7 +162,7 @@ struct qce_device {
 	bool cadence_flag;
 	uint8_t *dummyreq_in_buf;
 	struct dma_iommu_mapping *smmu_mapping;
-	bool bypass_s1_smmu;
+	bool enable_s1_smmu;
 };
 
 static void print_notify_debug(struct sps_event_notify *notify);
@@ -5716,8 +5716,8 @@ static int __qce_get_device_tree_data(struct platform_device *pdev,
 		pce_dev->ce_opp_freq_hz = CE_CLK_100MHZ;
 	}
 
-	if (of_property_read_bool((&pdev->dev)->of_node, "qcom,smmu-s1-bypass"))
-		pce_dev->bypass_s1_smmu = true;
+	if (of_property_read_bool((&pdev->dev)->of_node, "qcom,smmu-s1-enable"))
+		pce_dev->enable_s1_smmu = true;
 
 	pce_dev->ce_bam_info.dest_pipe_index	=
 			2 * pce_dev->ce_bam_info.pipe_pair_index;
@@ -5963,7 +5963,7 @@ static void qce_iommu_release_iomapping(struct qce_device *pce_dev)
 static int qce_smmu_init(struct qce_device *pce_dev)
 {
 	struct dma_iommu_mapping *mapping;
-	int s1_bypass = 1;
+	int attr = 1;
 	int ret = 0;
 
 	mapping = arm_iommu_create_mapping(&platform_bus_type,
@@ -5975,9 +5975,16 @@ static int qce_smmu_init(struct qce_device *pce_dev)
 	}
 
 	ret = iommu_domain_set_attr(mapping->domain,
-				DOMAIN_ATTR_S1_BYPASS, &s1_bypass);
+				DOMAIN_ATTR_ATOMIC, &attr);
 	if (ret < 0) {
-		pr_err("Set s1_bypass attribute failed, err = %d\n", ret);
+		pr_err("Set ATOMIC attr failed, err = %d\n", ret);
+		goto ext_fail_set_attr;
+	}
+
+	ret = iommu_domain_set_attr(mapping->domain,
+				DOMAIN_ATTR_UPSTREAM_IOVA_ALLOCATOR, &attr);
+	if (ret < 0) {
+		pr_err("Set UPSTREAM_IOVA_ALLOCATOR failed, err = %d\n", ret);
 		goto ext_fail_set_attr;
 	}
 
@@ -6020,6 +6027,13 @@ void *qce_open(struct platform_device *pdev, int *rc)
 		goto err_pce_dev;
 	}
 
+	if (pce_dev->enable_s1_smmu) {
+		if (qce_smmu_init(pce_dev)) {
+			*rc = -EIO;
+			goto err_pce_dev;
+		}
+	}
+
 	for (i = 0; i < MAX_QCE_ALLOC_BAM_REQ; i++)
 		atomic_set(&pce_dev->ce_request_info[i].in_use, false);
 	pce_dev->ce_request_index = 0;
@@ -6051,13 +6065,6 @@ void *qce_open(struct platform_device *pdev, int *rc)
 	if (*rc)
 		goto err_enable_clk;
 
-	if (pce_dev->bypass_s1_smmu) {
-		if (qce_smmu_init(pce_dev)) {
-			*rc = -EIO;
-			goto err_smmu;
-		}
-	}
-
 	if (_probe_ce_engine(pce_dev)) {
 		*rc = -ENXIO;
 		goto err;
@@ -6084,9 +6091,6 @@ void *qce_open(struct platform_device *pdev, int *rc)
 	mutex_unlock(&qce_iomap_mutex);
 	return pce_dev;
 err:
-	if (pce_dev->bypass_s1_smmu)
-		qce_iommu_release_iomapping(pce_dev);
-err_smmu:
 	qce_disable_clk(pce_dev);
 
 err_enable_clk:
@@ -6099,6 +6103,9 @@ err_mem:
 		dma_free_coherent(pce_dev->pdev, pce_dev->memsize,
 			pce_dev->coh_vmem, pce_dev->coh_pmem);
 err_iobase:
+	if (pce_dev->enable_s1_smmu)
+		qce_iommu_release_iomapping(pce_dev);
+
 	if (pce_dev->iobase)
 		iounmap(pce_dev->iobase);
 err_pce_dev:
@@ -6128,7 +6135,7 @@ int qce_close(void *handle)
 	kfree(pce_dev->dummyreq_in_buf);
 	kfree(pce_dev->iovec_vmem);
 
-	if (pce_dev->bypass_s1_smmu)
+	if (pce_dev->enable_s1_smmu)
 		qce_iommu_release_iomapping(pce_dev);
 
 	qce_disable_clk(pce_dev);

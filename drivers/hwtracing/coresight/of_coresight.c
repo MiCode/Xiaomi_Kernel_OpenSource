@@ -182,8 +182,8 @@ struct coresight_platform_data *of_get_coresight_platform_data(
 		} while (ep);
 	}
 
-	/* Affinity defaults to CPU0 */
-	pdata->cpu = 0;
+	/* Affinity defaults to invalid */
+	pdata->cpu = -1;
 	dn = of_parse_phandle(node, "cpu", 0);
 	for (cpu = 0; dn && cpu < nr_cpu_ids; cpu++) {
 		if (dn == of_get_cpu_node(cpu, NULL)) {

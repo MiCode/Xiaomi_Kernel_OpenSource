@@ -25,6 +25,10 @@
 /delete-node/ &apc0_cpr;
 /delete-node/ &apc1_cpr;
 
+&tlmm {
+	compatible = "qcom,sdm845-pinctrl-v2";
+};
+
 &soc {
 	/* CPR controller regulators */
 	apc0_cpr: cprh-ctrl@17dc0000 {
@@ -1194,7 +1198,6 @@
 
 &refgen {
 	status = "ok";
-	regulator-always-on;
 };
 
 &spss_utils {
@@ -1506,7 +1509,7 @@
 			    0x40 0x194 /* PLL_BIAS_CONTROL_1 */
 			    0x20 0x198 /* PLL_BIAS_CONTROL_2 */
 			    0x21 0x214 /* PWR_CTRL2 */
-			    0x00 0x220 /* IMP_CTRL1 */
+			    0x07 0x220 /* IMP_CTRL1 */
 			    0x58 0x224 /* IMP_CTRL2 */
 			    0x45 0x240 /* TUNE1 */
 			    0x29 0x244 /* TUNE2 */

@@ -174,6 +174,17 @@ struct drm_msm_igc_lut {
 	__u32 strength;
 };
 
+#define HIST_V_SIZE 256
+/**
+ * struct drm_msm_hist - histogram feature structure
+ * @flags: for customizing operations
+ * @data: histogram data
+ */
+struct drm_msm_hist {
+	__u64 flags;
+	__u32 data[HIST_V_SIZE];
+};
+
 #define AD4_LUT_GRP0_SIZE 33
 #define AD4_LUT_GRP1_SIZE 32
 /*

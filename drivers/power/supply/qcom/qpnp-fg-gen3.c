@@ -3730,6 +3730,7 @@ static int fg_notifier_cb(struct notifier_block *nb,
 		return NOTIFY_OK;
 
 	if ((strcmp(psy->desc->name, "battery") == 0)
+		|| (strcmp(psy->desc->name, "parallel") == 0)
 		|| (strcmp(psy->desc->name, "usb") == 0)) {
 		/*
 		 * We cannot vote for awake votable here as that takes
@@ -4116,8 +4117,7 @@ static irqreturn_t fg_dma_grant_irq_handler(int irq, void *data)
 	}
 
 	fg_dbg(chip, FG_IRQ, "irq %d triggered, status:%d\n", irq, status);
-	if (status & MEM_GNT_BIT)
-		complete_all(&chip->mem_grant);
+	complete_all(&chip->mem_grant);
 
 	return IRQ_HANDLED;
 }

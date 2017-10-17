@@ -2863,10 +2863,13 @@ static int mmc_resume(struct mmc_host *host)
 	int err = 0;
 
 	MMC_TRACE(host, "%s: Enter\n", __func__);
+	err = _mmc_resume(host);
+	pm_runtime_set_active(&host->card->dev);
+	pm_runtime_mark_last_busy(&host->card->dev);
 	pm_runtime_enable(&host->card->dev);
-
 	MMC_TRACE(host, "%s: Exit err: %d\n", __func__, err);
-	return 0;
+
+	return err;
 }
 
 #define MAX_DEFER_SUSPEND_COUNTER 20

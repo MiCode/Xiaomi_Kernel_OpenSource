@@ -64,7 +64,7 @@
 
 		qcom,highest-bank-bit = <14>;
 
-		qcom,min-access-length = <64>;
+		qcom,min-access-length = <32>;
 
 		qcom,ubwc-mode = <2>;
 
