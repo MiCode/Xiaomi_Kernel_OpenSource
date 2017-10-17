@@ -183,24 +183,28 @@
 #define HW_SOC_ID_M8953		(293)
 
 #define etm_writel(etm, val, off)	\
+		   writel_relaxed_no_log(val, etm->base + off)
+#define etm_writel_log(etm, val, off)	\
 		   __raw_writel(val, etm->base + off)
+
 #define etm_readl(etm, off)		\
-		  __raw_readl(etm->base + off)
+		   readl_relaxed_no_log(etm->base + off)
 
 #define etm_writeq(etm, val, off)	\
-		   __raw_writeq(val, etm->base + off)
+		   writeq_relaxed_no_log(val, etm->base + off)
+
 #define etm_readq(etm, off)		\
-		  __raw_readq(etm->base + off)
+		   readq_relaxed_no_log(etm->base + off)
 
 #define ETM_LOCK(base)							\
 do {									\
 	mb(); /* ensure configuration take effect before we lock it */	\
-	etm_writel(base, 0x0, CORESIGHT_LAR);				\
+	etm_writel_log(base, 0x0, CORESIGHT_LAR);			\
 } while (0)
 
 #define ETM_UNLOCK(base)						\
 do {									\
-	etm_writel(base, CORESIGHT_UNLOCK, CORESIGHT_LAR);		\
+	etm_writel_log(base, CORESIGHT_UNLOCK, CORESIGHT_LAR);		\
 	mb(); /* ensure unlock take effect before we configure */	\
 } while (0)
 
