@@ -968,7 +968,10 @@ static int sdhci_msm_cm_dll_sdc4_calibration(struct sdhci_host *host)
 	 * Reprogramming the value in case it might have been modified by
 	 * bootloaders.
 	 */
-	if (msm_host->rclk_delay_fix) {
+	if (msm_host->pdata->rclk_wa) {
+		writel_relaxed(msm_host->pdata->ddr_config, host->ioaddr +
+			msm_host_offset->CORE_DDR_CONFIG_2);
+	} else if (msm_host->rclk_delay_fix) {
 		writel_relaxed(DDR_CONFIG_2_POR_VAL, host->ioaddr +
 			msm_host_offset->CORE_DDR_CONFIG_2);
 	} else {
@@ -1985,6 +1988,9 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 	pdata->sdr104_wa = of_property_read_bool(np, "qcom,sdr104-wa");
 	msm_host->regs_restore.is_supported =
 		of_property_read_bool(np, "qcom,restore-after-cx-collapse");
+
+	if (!of_property_read_u32(np, "qcom,ddr-config", &pdata->ddr_config))
+		pdata->rclk_wa = true;
 
 	return pdata;
 out:
