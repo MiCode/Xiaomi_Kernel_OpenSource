@@ -2223,6 +2223,9 @@ static int hdmi_tx_read_sink_info(struct hdmi_tx_ctrl *hdmi_ctrl)
 	DSS_REG_W_ND(io, HDMI_DDC_ARBITRATION,
 		DSS_REG_R(io, HDMI_DDC_ARBITRATION) & ~(BIT(4)));
 
+	/* Set/Reset HDMI max TMDS clock supported by source */
+	hdmi_edid_set_max_pclk_rate(data, hdmi_ctrl->max_pclk_khz);
+
 	if (!hdmi_ctrl->custom_edid && !hdmi_ctrl->sim_mode) {
 		hdmi_ddc_config(&hdmi_ctrl->ddc_ctrl);
 
