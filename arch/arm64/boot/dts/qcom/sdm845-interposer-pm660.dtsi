@@ -54,6 +54,18 @@
 	ibb-supply = <&lcdb_ncp_vreg>;
 };
 
+&dsi_dual_nt35597_video_display {
+	vddio-supply = <&pm660_l11>;
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
+};
+
+&dsi_dual_nt35597_cmd_display {
+	vddio-supply = <&pm660_l11>;
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
+};
+
 &sde_dp {
 	status = "disabled";
 	/delete-property/ vdda-1p2-supply;
