@@ -1152,6 +1152,20 @@
 		interrupt-names ="pmic_id_irq";
 	};
 
+	qcom,msm-lpass-resource-manager {
+		compatible = "qcom,lpass-resource-manager";
+		qcom,lpass-lpaif-reg = <0x09100000 0x20000>;
+		qcom,lpass-max-rddma = <5>;
+		qcom,lpass-max-wrdma = <4>;
+		qcom,num-reserved-rddma = <0>;
+		qcom,num-reserved-wrdma = <0>;
+		qcom,reserved-rddma = <0>;
+		qcom,reserved-wrdma = <0>;
+		qcom,early-audio-enabled = <0>;
+		qcom,max-num-pcm-intf = <4>;
+		qcom,early-audio-pcm = <2>;
+	};
+
 	loopback1: qcom,msm-pcm-loopback-low-latency {
 		compatible = "qcom,msm-pcm-loopback";
 		qcom,msm-pcm-loopback-low-latency;
