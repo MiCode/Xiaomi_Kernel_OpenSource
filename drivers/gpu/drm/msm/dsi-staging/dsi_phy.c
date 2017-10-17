@@ -290,6 +290,10 @@ static int dsi_phy_settings_init(struct platform_device *pdev,
 
 	/* Actual timing values are dependent on panel */
 	timing->count_per_lane = phy->ver_info->timing_cfg_count;
+
+	phy->allow_phy_power_off = of_property_read_bool(pdev->dev.of_node,
+			"qcom,panel-allow-phy-poweroff");
+
 	return 0;
 err:
 	lane->count_per_lane = 0;
@@ -876,6 +880,8 @@ int dsi_phy_idle_ctrl(struct msm_dsi_phy *phy, bool enable)
 		return -EINVAL;
 	}
 
+	pr_debug("[%s] enable=%d\n", phy->name, enable);
+
 	mutex_lock(&phy->phy_lock);
 	if (enable) {
 		if (phy->hw.ops.phy_idle_on)
@@ -884,7 +890,17 @@ int dsi_phy_idle_ctrl(struct msm_dsi_phy *phy, bool enable)
 		if (phy->hw.ops.regulator_enable)
 			phy->hw.ops.regulator_enable(&phy->hw,
 				&phy->cfg.regulators);
+
+		if (phy->hw.ops.enable)
+			phy->hw.ops.enable(&phy->hw, &phy->cfg);
+
+		phy->dsi_phy_state = DSI_PHY_ENGINE_ON;
 	} else {
+		phy->dsi_phy_state = DSI_PHY_ENGINE_OFF;
+
+		if (phy->hw.ops.disable)
+			phy->hw.ops.disable(&phy->hw, &phy->cfg);
+
 		if (phy->hw.ops.phy_idle_off)
 			phy->hw.ops.phy_idle_off(&phy->hw);
 	}
