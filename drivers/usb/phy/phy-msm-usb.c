@@ -1462,6 +1462,7 @@ phcd_retry:
 
 	if (motg->lpm_flags & PHY_RETENTIONED ||
 		(motg->caps & ALLOW_VDD_MIN_WITH_RETENTION_DISABLED)) {
+		regulator_disable(hsusb_vdd);
 		msm_hsusb_config_vddcx(0);
 	}
 
@@ -1587,6 +1588,8 @@ static int msm_otg_resume(struct msm_otg *motg)
 	if (motg->lpm_flags & PHY_RETENTIONED ||
 		(motg->caps & ALLOW_VDD_MIN_WITH_RETENTION_DISABLED)) {
 		msm_hsusb_config_vddcx(1);
+		ret = regulator_enable(hsusb_vdd);
+		WARN(ret, "hsusb_vdd LDO enable failed\n");
 		msm_otg_disable_phy_hv_int(motg);
 		msm_otg_exit_phy_retention(motg);
 		motg->lpm_flags &= ~PHY_RETENTIONED;
