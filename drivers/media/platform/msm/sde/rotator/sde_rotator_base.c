@@ -139,6 +139,43 @@ static bool force_on_xin_clk(u32 bit_off, u32 clk_ctl_reg_off, bool enable)
 	return clk_forced_on;
 }
 
+void sde_mdp_halt_vbif_xin(struct sde_mdp_vbif_halt_params *params)
+{
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+	u32 reg_val;
+	bool forced_on;
+
+	if (!mdata || !params || !params->reg_off_mdp_clk_ctrl) {
+		SDEROT_ERR("null input parameter\n");
+		return;
+	}
+
+	if (params->xin_id > MMSS_VBIF_NRT_VBIF_CLK_FORCE_CTRL0_XIN1) {
+		SDEROT_ERR("xin_id:%d exceed max limit\n", params->xin_id);
+		return;
+	}
+
+	forced_on = force_on_xin_clk(params->bit_off_mdp_clk_ctrl,
+		params->reg_off_mdp_clk_ctrl, true);
+
+	SDEROT_EVTLOG(forced_on, params->xin_id);
+
+	reg_val = SDE_VBIF_READ(mdata, MMSS_VBIF_XIN_HALT_CTRL0);
+	SDE_VBIF_WRITE(mdata, MMSS_VBIF_XIN_HALT_CTRL0,
+		reg_val | BIT(params->xin_id));
+
+	/* this is a polling operation */
+	sde_mdp_wait_for_xin_halt(params->xin_id);
+
+	reg_val = SDE_VBIF_READ(mdata, MMSS_VBIF_XIN_HALT_CTRL0);
+	SDE_VBIF_WRITE(mdata, MMSS_VBIF_XIN_HALT_CTRL0,
+		reg_val & ~BIT(params->xin_id));
+
+	if (forced_on)
+		force_on_xin_clk(params->bit_off_mdp_clk_ctrl,
+			params->reg_off_mdp_clk_ctrl, false);
+}
+
 u32 sde_mdp_get_ot_limit(u32 width, u32 height, u32 pixfmt, u32 fps, u32 is_rd)
 {
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
