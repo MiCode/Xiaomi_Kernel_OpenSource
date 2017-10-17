@@ -130,7 +130,7 @@ static reg_dma_internal_ops validate_dma_op_params[REG_DMA_SETUP_OPS_MAX] = {
 	[REG_BLK_WRITE_MULTIPLE] = validate_write_multi_lut_reg,
 };
 
-static struct sde_reg_dma_buffer *last_cmd_buf;
+static struct sde_reg_dma_buffer *last_cmd_buf[CTL_MAX];
 
 static void get_decode_sel(unsigned long blk, u32 *decode_sel)
 {
@@ -479,17 +479,32 @@ static int write_kick_off_v1(struct sde_reg_dma_kickoff_cfg *cfg)
 
 int init_v1(struct sde_hw_reg_dma *cfg)
 {
-	int i = 0;
+	int i = 0, rc = 0;
 
 	if (!cfg)
 		return -EINVAL;
 
 	reg_dma = cfg;
-	if (!last_cmd_buf) {
-		last_cmd_buf = alloc_reg_dma_buf_v1(REG_DMA_HEADERS_BUFFER_SZ);
-		if (IS_ERR_OR_NULL(last_cmd_buf))
-			return -EINVAL;
+	for (i = CTL_0; i < CTL_MAX; i++) {
+		if (!last_cmd_buf[i]) {
+			last_cmd_buf[i] =
+			    alloc_reg_dma_buf_v1(REG_DMA_HEADERS_BUFFER_SZ);
+			if (IS_ERR_OR_NULL(last_cmd_buf[i])) {
+				rc = -EINVAL;
+				break;
+			}
+		}
 	}
+	if (rc) {
+		for (i = 0; i < CTL_MAX; i++) {
+			if (!last_cmd_buf[i])
+				continue;
+			dealloc_reg_dma_v1(last_cmd_buf[i]);
+			last_cmd_buf[i] = NULL;
+		}
+		return rc;
+	}
+
 	reg_dma->ops.check_support = check_support_v1;
 	reg_dma->ops.setup_payload = setup_payload_v1;
 	reg_dma->ops.kick_off = kick_off_v1;
@@ -772,19 +787,19 @@ static int last_cmd_v1(struct sde_hw_ctl *ctl, enum sde_reg_dma_queue q)
 	struct sde_reg_dma_setup_ops_cfg cfg;
 	struct sde_reg_dma_kickoff_cfg kick_off;
 
-	if (!last_cmd_buf || !ctl || q >= DMA_CTL_QUEUE_MAX) {
-		DRM_ERROR("invalid param buf %pK ctl %pK q %d\n", last_cmd_buf,
-				ctl, q);
+	if (!ctl || ctl->idx >= CTL_MAX || q >= DMA_CTL_QUEUE_MAX) {
+		DRM_ERROR("ctl %pK q %d index %d\n", ctl, q,
+				((ctl) ? ctl->idx : -1));
 		return -EINVAL;
 	}
 
-	if (!last_cmd_buf->iova) {
-		DRM_DEBUG("iova not set, possible secure session\n");
+	if (!last_cmd_buf[ctl->idx] || !last_cmd_buf[ctl->idx]->iova) {
+		DRM_DEBUG("invalid last cmd buf for idx %d\n", ctl->idx);
 		return 0;
 	}
 
-	cfg.dma_buf = last_cmd_buf;
-	reset_reg_dma_buffer_v1(last_cmd_buf);
+	cfg.dma_buf = last_cmd_buf[ctl->idx];
+	reset_reg_dma_buffer_v1(last_cmd_buf[ctl->idx]);
 	if (validate_last_cmd(&cfg)) {
 		DRM_ERROR("validate buf failed\n");
 		return -EINVAL;
@@ -800,7 +815,7 @@ static int last_cmd_v1(struct sde_hw_ctl *ctl, enum sde_reg_dma_queue q)
 	kick_off.trigger_mode = WRITE_IMMEDIATE;
 	kick_off.last_command = 1;
 	kick_off.op = REG_DMA_WRITE;
-	kick_off.dma_buf = last_cmd_buf;
+	kick_off.dma_buf = last_cmd_buf[ctl->idx];
 	if (kick_off_v1(&kick_off)) {
 		DRM_ERROR("kick off last cmd failed\n");
 		return -EINVAL;
@@ -811,7 +826,11 @@ static int last_cmd_v1(struct sde_hw_ctl *ctl, enum sde_reg_dma_queue q)
 
 void deinit_v1(void)
 {
-	if (last_cmd_buf)
-		dealloc_reg_dma_v1(last_cmd_buf);
-	last_cmd_buf = NULL;
+	int i = 0;
+
+	for (i = CTL_0; i < CTL_MAX; i++) {
+		if (last_cmd_buf[i])
+			dealloc_reg_dma_v1(last_cmd_buf[i]);
+		last_cmd_buf[i] = NULL;
+	}
 }
