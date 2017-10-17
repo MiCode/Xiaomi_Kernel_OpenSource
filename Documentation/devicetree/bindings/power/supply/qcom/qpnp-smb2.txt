@@ -183,6 +183,15 @@ Charger specific properties:
   Value type: bool
   Definition: Boolean flag which when present enables sw compensation for jeita
 
+- qcom,battery-data
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the phandle of the node which contains the battery
+		profiles supported on the device. This is only specified
+		when step charging and sw-jeita configurations are desired
+		to be get from these properties defined in battery profile:
+		qcom,step-chg-ranges, qcom,jeita-fcc-ranges, qcom,jeita-fv-ranges.
+
 =============================================
 Second Level Nodes - SMB2 Charger Peripherals
 =============================================
