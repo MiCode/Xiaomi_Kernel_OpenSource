@@ -1500,10 +1500,10 @@ static int ipa_fltrt_calc_extra_wrd_bytes(
 static int ipa_fltrt_generate_hw_rule_bdy_from_eq(
 		const struct ipa_ipfltri_rule_eq *attrib, u8 **buf)
 {
-	int num_offset_meq_32 = attrib->num_offset_meq_32;
-	int num_ihl_offset_range_16 = attrib->num_ihl_offset_range_16;
-	int num_ihl_offset_meq_32 = attrib->num_ihl_offset_meq_32;
-	int num_offset_meq_128 = attrib->num_offset_meq_128;
+	uint8_t num_offset_meq_32 = attrib->num_offset_meq_32;
+	uint8_t num_ihl_offset_range_16 = attrib->num_ihl_offset_range_16;
+	uint8_t num_ihl_offset_meq_32 = attrib->num_ihl_offset_meq_32;
+	uint8_t num_offset_meq_128 = attrib->num_offset_meq_128;
 	int i;
 	int extra_bytes;
 	u8 *extra;
