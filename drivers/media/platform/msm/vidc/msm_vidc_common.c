@@ -5471,15 +5471,15 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	rotation =  msm_comm_g_ctrl_for_id(inst,
 					V4L2_CID_MPEG_VIDC_VIDEO_ROTATION);
 
-	output_height = inst->prop.height[CAPTURE_PORT];
-	output_width = inst->prop.width[CAPTURE_PORT];
+	output_height = ALIGN(inst->prop.height[CAPTURE_PORT], 16);
+	output_width = ALIGN(inst->prop.width[CAPTURE_PORT], 16);
 
 	if ((output_width != output_height) &&
 		(rotation == V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_90 ||
 		rotation == V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_270)) {
 
-		output_width = inst->prop.height[CAPTURE_PORT];
-		output_height = inst->prop.width[CAPTURE_PORT];
+		output_width = ALIGN(inst->prop.height[CAPTURE_PORT], 16);
+		output_height = ALIGN(inst->prop.width[CAPTURE_PORT], 16);
 		dprintk(VIDC_DBG,
 			"Rotation=%u Swapped Output W=%u H=%u to check capability",
 			rotation, output_width, output_height);
