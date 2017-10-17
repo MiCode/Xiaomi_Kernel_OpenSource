@@ -281,5 +281,6 @@ struct cam_icp_hw_mgr {
 };
 
 static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args);
-static int cam_icp_mgr_download_fw(void *hw_mgr_priv, void *download_fw_args);
+static int cam_icp_mgr_hw_open(void *hw_mgr_priv, void *download_fw_args);
+
 #endif /* CAM_ICP_HW_MGR_H */
