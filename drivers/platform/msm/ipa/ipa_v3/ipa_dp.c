@@ -3816,7 +3816,7 @@ int ipa3_rx_poll(u32 clnt_hdl, int weight)
 		cnt += IPA_WAN_AGGR_PKT_CNT;
 		total_cnt++;
 
-		if (ep->sys->len == 0 || total_cnt >= ep->sys->rx_pool_sz) {
+		if (ep->sys->len == 0) {
 			total_cnt = 0;
 			cnt = cnt-1;
 			break;
