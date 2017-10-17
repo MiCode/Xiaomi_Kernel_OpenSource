@@ -268,7 +268,8 @@
 		compatible = "qcom,kgsl-smmu-v2";
 
 		reg = <0x05040000 0x10000>;
-		qcom,protect = <0x40000 0x10000>;
+		/* CB5(ATOS) & CB5/6/7 are protected by HYP */
+		qcom,protect = <0x40000 0xc000>;
 		qcom,micro-mmu-control = <0x6000>;
 
 		clocks =<&clock_gcc GCC_GPU_CFG_AHB_CLK>,
