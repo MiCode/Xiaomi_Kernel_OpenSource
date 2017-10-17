@@ -851,10 +851,11 @@ static int cam_vfe_bus_acquire_wm(
 			rsrc_data->stride = rsrc_data->width;
 			break;
 		case CAM_FORMAT_PLAIN16_10:
-			rsrc_data->en_cfg = 0x1;
-			rsrc_data->pack_fmt = 0x2;
-			rsrc_data->width = rsrc_data->width * 2;
-			rsrc_data->stride = rsrc_data->width;
+			rsrc_data->width = CAM_VFE_RDI_BUS_DEFAULT_WIDTH;
+			rsrc_data->height = 0;
+			rsrc_data->stride = CAM_VFE_RDI_BUS_DEFAULT_STRIDE;
+			rsrc_data->pack_fmt = 0x0;
+			rsrc_data->en_cfg = 0x3;
 			break;
 		case CAM_FORMAT_PLAIN16_12:
 			rsrc_data->en_cfg = 0x1;
