@@ -56,6 +56,9 @@ struct bpf_map {
 	struct work_struct work;
 	atomic_t usercnt;
 	struct bpf_map *inner_map_meta;
+#ifdef CONFIG_SECURITY
+	void *security;
+#endif
 };
 
 /* function argument constraints */
@@ -186,6 +189,9 @@ struct bpf_prog_aux {
 	struct bpf_map **used_maps;
 	struct bpf_prog *prog;
 	struct user_struct *user;
+#ifdef CONFIG_SECURITY
+	void *security;
+#endif
 	union {
 		struct work_struct work;
 		struct rcu_head	rcu;
