@@ -121,6 +121,12 @@
 #define PCIE20_PLR_IATU_LTAR	     0x918
 #define PCIE20_PLR_IATU_UTAR	     0x91c
 
+
+#define PCIE20_PORT_LINK_CTRL_REG	0x710
+#define PCIE20_GEN3_RELATED_REG	0x890
+#define PCIE20_PIPE_LOOPBACK_CONTROL	0x8b8
+#define LOOPBACK_BASE_ADDR_OFFSET	0x8000
+
 #define PCIE20_CTRL1_TYPE_CFG0		0x04
 #define PCIE20_CTRL1_TYPE_CFG1		0x05
 
@@ -551,7 +557,6 @@ struct msm_pcie_dev_t {
 	struct pinctrl_state		*pins_sleep;
 	struct msm_pcie_device_info   pcidev_table[MAX_DEVICE_NUM];
 };
-
 
 /* debug mask sys interface */
 static int msm_pcie_debug_mask;
@@ -1218,6 +1223,14 @@ static void msm_pcie_shadow_dump(struct msm_pcie_dev_t *dev, bool rc)
 static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 					u32 testcase)
 {
+	phys_addr_t dbi_base_addr =
+		dev->res[MSM_PCIE_RES_DM_CORE].resource->start;
+	phys_addr_t loopback_lbar_phy =
+		dbi_base_addr + LOOPBACK_BASE_ADDR_OFFSET;
+	static uint32_t loopback_val = 0x1;
+	static u64 loopback_ddr_phy;
+	static uint32_t *loopback_ddr_vir;
+	static void __iomem *loopback_lbar_vir;
 	int ret, i;
 	u32 base_sel_size = 0;
 	u32 val = 0;
@@ -1630,6 +1643,282 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 			readl_relaxed(dev->res[base_sel - 1].base + (i + 24)),
 			readl_relaxed(dev->res[base_sel - 1].base + (i + 28)));
 		}
+		break;
+	case 14:
+		PCIE_DBG_FS(dev,
+			"PCIe: RC%d: Allocate 4K DDR memory and map LBAR.\n",
+			dev->rc_idx);
+		loopback_ddr_vir = dma_alloc_coherent(&dev->pdev->dev,
+			(SZ_1K * sizeof(*loopback_ddr_vir)),
+			&loopback_ddr_phy, GFP_KERNEL);
+		if (!loopback_ddr_vir) {
+			PCIE_DBG_FS(dev,
+				"PCIe: RC%d: failed to dma_alloc_coherent.\n",
+				dev->rc_idx);
+		} else {
+			PCIE_DBG_FS(dev,
+				"PCIe: RC%d: VIR DDR memory address: 0x%pK\n",
+				dev->rc_idx, loopback_ddr_vir);
+			PCIE_DBG_FS(dev,
+				"PCIe: RC%d: PHY DDR memory address: 0x%llx\n",
+				dev->rc_idx, loopback_ddr_phy);
+		}
+
+		PCIE_DBG_FS(dev, "PCIe: RC%d: map LBAR: 0x%llx\n",
+			dev->rc_idx, loopback_lbar_phy);
+		loopback_lbar_vir = devm_ioremap(&dev->pdev->dev,
+			loopback_lbar_phy, SZ_4K);
+		if (!loopback_lbar_vir) {
+			PCIE_DBG_FS(dev, "PCIe: RC%d: failed to map 0x%llx\n",
+				dev->rc_idx, loopback_lbar_phy);
+		} else {
+			PCIE_DBG_FS(dev,
+				"PCIe: RC%d: successfully mapped 0x%llx to 0x%pK\n",
+				dev->rc_idx, loopback_lbar_phy,
+				loopback_lbar_vir);
+		}
+		break;
+	case 15:
+		PCIE_DBG_FS(dev,
+			"PCIe: RC%d: Release 4K DDR memory and unmap LBAR.\n",
+			dev->rc_idx);
+
+		if (loopback_ddr_vir) {
+			dma_free_coherent(&dev->pdev->dev, SZ_4K,
+				loopback_ddr_vir, loopback_ddr_phy);
+			loopback_ddr_vir = NULL;
+		}
+
+		if (loopback_lbar_vir) {
+			devm_iounmap(&dev->pdev->dev,
+				loopback_lbar_vir);
+			loopback_lbar_vir = NULL;
+		}
+		break;
+	case 16:
+		PCIE_DBG_FS(dev,
+			"PCIe: RC%d: Print DDR and LBAR addresses.\n",
+			dev->rc_idx);
+
+		if (!loopback_ddr_vir || !loopback_lbar_vir) {
+			PCIE_DBG_FS(dev,
+				"PCIe: RC%d: DDR or LBAR address is not mapped\n",
+				dev->rc_idx);
+			break;
+		}
+
+		PCIE_DBG_FS(dev,
+			"PCIe: RC%d: PHY DDR address: 0x%llx\n",
+			dev->rc_idx, loopback_ddr_phy);
+		PCIE_DBG_FS(dev,
+			"PCIe: RC%d: VIR DDR address: 0x%pK\n",
+			dev->rc_idx, loopback_ddr_vir);
+		PCIE_DBG_FS(dev,
+			"PCIe: RC%d: PHY LBAR address: 0x%llx\n",
+			dev->rc_idx, loopback_lbar_phy);
+		PCIE_DBG_FS(dev,
+			"PCIe: RC%d: VIR LBAR address: 0x%pK\n",
+			dev->rc_idx, loopback_lbar_vir);
+		break;
+	case 17:
+		PCIE_DBG_FS(dev,
+			"PCIe: RC%d: Configure Loopback.\n",
+			dev->rc_idx);
+
+		writel_relaxed(0x10000,
+			dev->dm_core + PCIE20_GEN3_RELATED_REG);
+		PCIE_DBG_FS(dev,
+			"PCIe: RC%d: 0x%llx: 0x%x\n",
+			dev->rc_idx,
+			dbi_base_addr + PCIE20_GEN3_RELATED_REG,
+			readl_relaxed(dev->dm_core +
+				PCIE20_GEN3_RELATED_REG));
+
+		writel_relaxed(0x80000001,
+			dev->dm_core + PCIE20_PIPE_LOOPBACK_CONTROL);
+		PCIE_DBG_FS(dev,
+			"PCIe: RC%d: 0x%llx: 0x%x\n",
+			dev->rc_idx,
+			dbi_base_addr + PCIE20_PIPE_LOOPBACK_CONTROL,
+			readl_relaxed(dev->dm_core +
+				PCIE20_PIPE_LOOPBACK_CONTROL));
+
+		writel_relaxed(0x00010124,
+			dev->dm_core + PCIE20_PORT_LINK_CTRL_REG);
+		PCIE_DBG_FS(dev,
+			"PCIe: RC%d: 0x%llx: 0x%x\n",
+			dev->rc_idx,
+			dbi_base_addr + PCIE20_PORT_LINK_CTRL_REG,
+			readl_relaxed(dev->dm_core +
+				PCIE20_PORT_LINK_CTRL_REG));
+		break;
+	case 18:
+		PCIE_DBG_FS(dev, "PCIe: RC%d: Setup iATU.\n", dev->rc_idx);
+
+		if (!loopback_ddr_vir) {
+			PCIE_DBG_FS(dev,
+				"PCIe: RC%d: DDR address is not mapped.\n",
+				dev->rc_idx);
+			break;
+		}
+
+		writel_relaxed(0x0, dev->dm_core + PCIE20_PLR_IATU_VIEWPORT);
+		PCIE_DBG_FS(dev,
+			"PCIe: RC%d: PCIE20_PLR_IATU_VIEWPORT:\t0x%llx: 0x%x\n",
+			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_VIEWPORT,
+			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_VIEWPORT));
+
+		writel_relaxed(0x0, dev->dm_core + PCIE20_PLR_IATU_CTRL1);
+		PCIE_DBG_FS(dev,
+			"PCIe: RC%d: PCIE20_PLR_IATU_CTRL1:\t0x%llx: 0x%x\n",
+			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_CTRL1,
+			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_CTRL1));
+
+		writel_relaxed(loopback_lbar_phy,
+			dev->dm_core + PCIE20_PLR_IATU_LBAR);
+		PCIE_DBG_FS(dev,
+			"PCIe: RC%d: PCIE20_PLR_IATU_LBAR:\t0x%llx: 0x%x\n",
+			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_LBAR,
+			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_LBAR));
+
+		writel_relaxed(0x0, dev->dm_core + PCIE20_PLR_IATU_UBAR);
+		PCIE_DBG_FS(dev,
+			"PCIe: RC%d: PCIE20_PLR_IATU_UBAR:\t0x%llx: 0x%x\n",
+			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_UBAR,
+			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_UBAR));
+
+		writel_relaxed(loopback_lbar_phy + 0xfff,
+			dev->dm_core + PCIE20_PLR_IATU_LAR);
+		PCIE_DBG_FS(dev,
+			"PCIe: RC%d: PCIE20_PLR_IATU_LAR:\t0x%llx: 0x%x\n",
+			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_LAR,
+			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_LAR));
+
+		writel_relaxed(loopback_ddr_phy,
+			dev->dm_core + PCIE20_PLR_IATU_LTAR);
+		PCIE_DBG_FS(dev,
+			"PCIe: RC%d: PCIE20_PLR_IATU_LTAR:\t0x%llx: 0x%x\n",
+			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_LTAR,
+			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_LTAR));
+
+		writel_relaxed(0, dev->dm_core + PCIE20_PLR_IATU_UTAR);
+		PCIE_DBG_FS(dev,
+			"PCIe: RC%d: PCIE20_PLR_IATU_UTAR:\t0x%llx: 0x%x\n",
+			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_UTAR,
+			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_UTAR));
+
+		writel_relaxed(0x80000000,
+			dev->dm_core + PCIE20_PLR_IATU_CTRL2);
+		PCIE_DBG_FS(dev,
+			"PCIe: RC%d: PCIE20_PLR_IATU_CTRL2:\t0x%llx: 0x%x\n",
+			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_CTRL2,
+			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_CTRL2));
+		break;
+	case 19:
+		PCIE_DBG_FS(dev,
+			"PCIe: RC%d: Read DDR values.\n",
+			dev->rc_idx);
+
+		if (!loopback_ddr_vir) {
+			PCIE_DBG_FS(dev,
+				"PCIe: RC%d: DDR is not mapped\n",
+				dev->rc_idx);
+			break;
+		}
+
+		for (i = 0; i < SZ_1K; i += 8) {
+			PCIE_DBG_FS(dev,
+				"0x%04x %08x %08x %08x %08x %08x %08x %08x %08x\n",
+				i,
+				loopback_ddr_vir[i],
+				loopback_ddr_vir[i + 1],
+				loopback_ddr_vir[i + 2],
+				loopback_ddr_vir[i + 3],
+				loopback_ddr_vir[i + 4],
+				loopback_ddr_vir[i + 5],
+				loopback_ddr_vir[i + 6],
+				loopback_ddr_vir[i + 7]);
+		}
+		break;
+	case 20:
+		PCIE_DBG_FS(dev,
+			"PCIe: RC%d: Read LBAR values.\n",
+			dev->rc_idx);
+
+		if (!loopback_lbar_vir) {
+			PCIE_DBG_FS(dev,
+				"PCIe: RC%d: LBAR address is not mapped\n",
+				dev->rc_idx);
+			break;
+		}
+
+		for (i = 0; i < SZ_4K; i += 32) {
+			PCIE_DBG_FS(dev,
+				"0x%04x %08x %08x %08x %08x %08x %08x %08x %08x\n",
+				i,
+				readl_relaxed(loopback_lbar_vir + i),
+				readl_relaxed(loopback_lbar_vir + (i + 4)),
+				readl_relaxed(loopback_lbar_vir + (i + 8)),
+				readl_relaxed(loopback_lbar_vir + (i + 12)),
+				readl_relaxed(loopback_lbar_vir + (i + 16)),
+				readl_relaxed(loopback_lbar_vir + (i + 20)),
+				readl_relaxed(loopback_lbar_vir + (i + 24)),
+				readl_relaxed(loopback_lbar_vir + (i + 28)));
+		}
+		break;
+	case 21:
+		PCIE_DBG_FS(dev, "PCIe: RC%d: Write 0x%x to DDR.\n",
+			dev->rc_idx, loopback_val);
+
+		if (!loopback_ddr_vir) {
+			PCIE_DBG_FS(dev,
+				"PCIe: RC%d: DDR address is not mapped\n",
+				dev->rc_idx);
+			break;
+		}
+
+		memset(loopback_ddr_vir, loopback_val,
+			(SZ_1K * sizeof(*loopback_ddr_vir)));
+
+		if (unlikely(loopback_val == UINT_MAX))
+			loopback_val = 1;
+		else
+			loopback_val++;
+		break;
+	case 22:
+		PCIE_DBG_FS(dev, "PCIe: RC%d: Write 0x%x to LBAR.\n",
+			dev->rc_idx, loopback_val);
+
+		if (!loopback_lbar_vir) {
+			PCIE_DBG_FS(dev,
+				"PCIe: RC%d: LBAR address is not mapped\n",
+				dev->rc_idx);
+			break;
+		}
+
+		for (i = 0; i < SZ_4K; i += 32) {
+			writel_relaxed(loopback_val,
+				loopback_lbar_vir + i),
+			writel_relaxed(loopback_val,
+				loopback_lbar_vir + (i + 4)),
+			writel_relaxed(loopback_val,
+				loopback_lbar_vir + (i + 8)),
+			writel_relaxed(loopback_val,
+				loopback_lbar_vir + (i + 12)),
+			writel_relaxed(loopback_val,
+				loopback_lbar_vir + (i + 16)),
+			writel_relaxed(loopback_val,
+				loopback_lbar_vir + (i + 20)),
+			writel_relaxed(loopback_val,
+				loopback_lbar_vir + (i + 24)),
+			writel_relaxed(loopback_val,
+				loopback_lbar_vir + (i + 28));
+		}
+
+		if (unlikely(loopback_val == UINT_MAX))
+			loopback_val = 1;
+		else
+			loopback_val++;
 		break;
 	default:
 		PCIE_DBG_FS(dev, "Invalid testcase: %d.\n", testcase);
