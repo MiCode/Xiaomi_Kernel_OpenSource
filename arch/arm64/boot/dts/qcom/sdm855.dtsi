@@ -1215,7 +1215,6 @@
 				  <SLEEP_TCS   3>,
 				  <WAKE_TCS    3>,
 				  <CONTROL_TCS 1>;
-		status = "disabled";
 	};
 
 	disp_rsc: mailbox@af20000 {
@@ -1229,7 +1228,6 @@
 				  <SLEEP_TCS   0>,
 				  <WAKE_TCS    0>,
 				  <CONTROL_TCS 0>;
-		status = "disabled";
 	};
 
 	apcs_glb: mailbox@17c00000 {
@@ -1277,7 +1275,6 @@
 	system_pm {
 		compatible = "qcom,system-pm";
 		mboxes = <&apps_rsc 0>;
-		status = "disabled";
 	};
 
 	cmd_db: qcom,cmd-db@c3f000c {
