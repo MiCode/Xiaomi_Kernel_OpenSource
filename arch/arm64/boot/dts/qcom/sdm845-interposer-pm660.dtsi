@@ -252,6 +252,7 @@
 
 	qcom,ssc@5c00000 {
 		/delete-property/ vdd_cx-supply;
+		/delete-property/ vdd_mx-supply;
 	};
 
 	qcom,spss@1880000 {
