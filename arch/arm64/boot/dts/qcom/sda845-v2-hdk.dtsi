@@ -11,6 +11,7 @@
  */
 
 #include "sdm845-qvr.dtsi"
+#include "sdm845-camera-sensor-mtp.dtsi"
 
 &vendor {
 	qcom,battery-data {
