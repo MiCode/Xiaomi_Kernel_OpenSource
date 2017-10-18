@@ -434,6 +434,7 @@ struct fg_chip {
 	struct mutex		sram_rw_lock;
 	struct mutex		charge_full_lock;
 	struct mutex		qnovo_esr_ctrl_lock;
+	spinlock_t		suspend_lock;
 	u32			batt_soc_base;
 	u32			batt_info_base;
 	u32			mem_if_base;
@@ -470,6 +471,7 @@ struct fg_chip {
 	bool			use_ima_single_mode;
 	bool			use_dma;
 	bool			qnovo_enable;
+	bool			suspended;
 	struct completion	soc_update;
 	struct completion	soc_ready;
 	struct delayed_work	profile_load_work;
