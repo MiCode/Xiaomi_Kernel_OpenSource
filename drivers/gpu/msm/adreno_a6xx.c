@@ -2096,8 +2096,7 @@ static int a6xx_microcode_read(struct adreno_device *adreno_dev)
 	return _load_gmu_firmware(device);
 }
 
-#define VBIF_RESET_ACK_TIMEOUT	100
-#define VBIF_RESET_ACK_MASK	0x00f0
+#define GBIF_CX_HALT_MASK BIT(1)
 
 static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 {
@@ -2137,6 +2136,13 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 
 	if (!vbif_acked)
 		return -ETIMEDOUT;
+
+	/*
+	 * GBIF GX halt will be released automatically by sw_reset.
+	 * Release GBIF CX halt after sw_reset
+	 */
+	if (adreno_has_gbif(adreno_dev))
+		kgsl_regrmw(device, A6XX_GBIF_HALT, GBIF_CX_HALT_MASK, 0);
 
 	a6xx_sptprac_enable(adreno_dev);
 
@@ -2354,8 +2360,14 @@ static int a6xx_reset(struct kgsl_device *device, int fault)
 			udelay(100);
 		}
 
-		if (acked)
-			ret = adreno_soft_reset(device);
+		if (acked) {
+			/* Make sure VBIF/GBIF is cleared before resetting */
+			ret = adreno_vbif_clear_pending_transactions(device);
+
+			if (ret == 0)
+				ret = adreno_soft_reset(device);
+		}
+
 		if (ret)
 			KGSL_DEV_ERR_ONCE(device, "Device soft reset failed\n");
 	}
@@ -3692,6 +3704,9 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A6XX_VBIF_XIN_HALT_CTRL0),
 	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_XIN_HALT_CTRL1,
 				A6XX_VBIF_XIN_HALT_CTRL1),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_GPR0_CNTL, A6XX_RBBM_GPR0_CNTL),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_VBIF_GX_RESET_STATUS,
+				A6XX_RBBM_VBIF_GX_RESET_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_GBIF_HALT, A6XX_GBIF_HALT),
 	ADRENO_REG_DEFINE(ADRENO_REG_GBIF_HALT_ACK, A6XX_GBIF_HALT_ACK),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO,
