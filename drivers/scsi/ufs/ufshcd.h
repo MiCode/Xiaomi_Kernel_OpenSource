@@ -873,6 +873,7 @@ struct ufs_hba {
 	/* Work Queues */
 	struct work_struct eh_work;
 	struct work_struct eeh_work;
+	struct work_struct rls_work;
 
 	/* HBA Errors */
 	u32 errors;
@@ -987,6 +988,7 @@ struct ufs_hba {
 	int latency_hist_enabled;
 	struct io_latency_state io_lat_s;
 	struct ufs_desc_size desc_size;
+	bool restore_needed;
 };
 
 static inline void ufshcd_mark_shutdown_ongoing(struct ufs_hba *hba)
