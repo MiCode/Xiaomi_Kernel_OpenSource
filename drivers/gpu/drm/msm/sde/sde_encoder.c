@@ -177,8 +177,6 @@ enum sde_enc_rc_states {
  *				Bit0 = phys_encs[0] etc.
  * @crtc_frame_event_cb:	callback handler for frame event
  * @crtc_frame_event_cb_data:	callback handler private data
- * @frame_done_timeout:		frame done timeout in Hz
- * @frame_done_timer:		watchdog timer for frame done event
  * @vsync_event_timer:		vsync timer
  * @rsc_client:			rsc client pointer
  * @rsc_state_init:		boolean to indicate rsc config init
@@ -224,8 +222,6 @@ struct sde_encoder_virt {
 	void (*crtc_frame_event_cb)(void *, u32 event);
 	void *crtc_frame_event_cb_data;
 
-	atomic_t frame_done_timeout;
-	struct timer_list frame_done_timer;
 	struct timer_list vsync_event_timer;
 
 	struct sde_rsc_client *rsc_client;
@@ -2224,12 +2220,6 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	 */
 	_sde_encoder_dsc_disable(sde_enc);
 
-	/* after phys waits for frame-done, should be no more frames pending */
-	if (atomic_xchg(&sde_enc->frame_done_timeout, 0)) {
-		SDE_ERROR("enc%d timeout pending\n", drm_enc->base.id);
-		del_timer_sync(&sde_enc->frame_done_timer);
-	}
-
 	sde_encoder_resource_control(drm_enc, SDE_ENC_RC_EVENT_STOP);
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
@@ -2385,9 +2375,6 @@ static void sde_encoder_frame_done_callback(
 		}
 
 		if (!sde_enc->frame_busy_mask[0]) {
-			atomic_set(&sde_enc->frame_done_timeout, 0);
-			del_timer(&sde_enc->frame_done_timer);
-
 			sde_encoder_resource_control(drm_enc,
 					SDE_ENC_RC_EVENT_FRAME_DONE);
 
@@ -3147,12 +3134,6 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc, bool is_error)
 
 	SDE_DEBUG_ENC(sde_enc, "\n");
 
-	atomic_set(&sde_enc->frame_done_timeout,
-			SDE_FRAME_DONE_TIMEOUT * 1000 /
-			drm_enc->crtc->state->adjusted_mode.vrefresh);
-	mod_timer(&sde_enc->frame_done_timer, jiffies +
-		((atomic_read(&sde_enc->frame_done_timeout) * HZ) / 1000));
-
 	/* create a 'no pipes' commit to release buffers on errors */
 	if (is_error)
 		_sde_encoder_reset_ctl_hw(drm_enc);
@@ -3714,36 +3695,6 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 	return ret;
 }
 
-static void sde_encoder_frame_done_timeout(unsigned long data)
-{
-	struct drm_encoder *drm_enc = (struct drm_encoder *) data;
-	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
-	struct msm_drm_private *priv;
-	u32 event;
-
-	if (!drm_enc || !drm_enc->dev || !drm_enc->dev->dev_private) {
-		SDE_ERROR("invalid parameters\n");
-		return;
-	}
-	priv = drm_enc->dev->dev_private;
-
-	if (!sde_enc->frame_busy_mask[0] || !sde_enc->crtc_frame_event_cb) {
-		SDE_DEBUG_ENC(sde_enc, "invalid timeout\n");
-		SDE_EVT32(DRMID(drm_enc), sde_enc->frame_busy_mask[0], 0);
-		return;
-	} else if (!atomic_xchg(&sde_enc->frame_done_timeout, 0)) {
-		SDE_ERROR_ENC(sde_enc, "invalid timeout\n");
-		SDE_EVT32(DRMID(drm_enc), 0, 1);
-		return;
-	}
-
-	SDE_ERROR_ENC(sde_enc, "frame done timeout\n");
-
-	event = SDE_ENCODER_FRAME_EVENT_ERROR;
-	SDE_EVT32(DRMID(drm_enc), event);
-	sde_enc->crtc_frame_event_cb(sde_enc->crtc_frame_event_cb_data, event);
-}
-
 static const struct drm_encoder_helper_funcs sde_encoder_helper_funcs = {
 	.mode_set = sde_encoder_virt_mode_set,
 	.disable = sde_encoder_virt_disable,
@@ -3786,10 +3737,6 @@ struct drm_encoder *sde_encoder_init(
 	drm_enc = &sde_enc->base;
 	drm_encoder_init(dev, drm_enc, &sde_encoder_funcs, drm_enc_mode, NULL);
 	drm_encoder_helper_add(drm_enc, &sde_encoder_helper_funcs);
-
-	atomic_set(&sde_enc->frame_done_timeout, 0);
-	setup_timer(&sde_enc->frame_done_timer, sde_encoder_frame_done_timeout,
-			(unsigned long) sde_enc);
 
 	if ((disp_info->intf_type == DRM_MODE_CONNECTOR_DSI) &&
 			disp_info->is_primary)
