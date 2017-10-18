@@ -689,7 +689,8 @@ static int _sde_encoder_phys_vid_wait_for_vblank(
 		struct sde_encoder_phys *phys_enc, bool notify)
 {
 	struct sde_encoder_wait_info wait_info;
-	int ret;
+	int ret = 0;
+	u32 event = 0;
 
 	if (!phys_enc) {
 		pr_err("invalid encoder\n");
@@ -702,11 +703,10 @@ static int _sde_encoder_phys_vid_wait_for_vblank(
 
 	if (!sde_encoder_phys_vid_is_master(phys_enc)) {
 		/* signal done for slave video encoder, unless it is pp-split */
-		if (!_sde_encoder_phys_is_ppsplit(phys_enc) &&
-			notify && phys_enc->parent_ops.handle_frame_done)
-			phys_enc->parent_ops.handle_frame_done(
-					phys_enc->parent, phys_enc,
-					SDE_ENCODER_FRAME_EVENT_DONE);
+		if (!_sde_encoder_phys_is_ppsplit(phys_enc) && notify) {
+			event = SDE_ENCODER_FRAME_EVENT_DONE;
+			goto end;
+		}
 		return 0;
 	}
 
@@ -714,13 +714,20 @@ static int _sde_encoder_phys_vid_wait_for_vblank(
 	ret = sde_encoder_helper_wait_for_irq(phys_enc, INTR_IDX_VSYNC,
 			&wait_info);
 
-	if (ret == -ETIMEDOUT) {
-		sde_encoder_helper_report_irq_timeout(phys_enc, INTR_IDX_VSYNC);
-	} else if (!ret && notify && phys_enc->parent_ops.handle_frame_done)
+	if (ret == -ETIMEDOUT)
+		event = SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE
+				| SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE
+				| SDE_ENCODER_FRAME_EVENT_ERROR;
+	else if (!ret && notify)
+		event = SDE_ENCODER_FRAME_EVENT_DONE;
+
+end:
+	SDE_EVT32(DRMID(phys_enc->parent), event, notify, ret,
+			ret ? SDE_EVTLOG_FATAL : 0);
+	if (phys_enc->parent_ops.handle_frame_done && event)
 		phys_enc->parent_ops.handle_frame_done(
 				phys_enc->parent, phys_enc,
 				SDE_ENCODER_FRAME_EVENT_DONE);
-
 	return ret;
 }
 
