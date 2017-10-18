@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3198,6 +3198,77 @@
 				function = "tsif2_sync";
 				drive_strength = <2>;	/* 2 mA */
 				bias-pull-down;		/* pull down */
+			};
+		};
+
+		ap2mdm {
+			ap2mdm_active: ap2mdm_active {
+				mux {
+					/* ap2mdm-status
+					 * ap2mdm-errfatal
+					 * ap2mdm-vddmin
+					 */
+					pins = "gpio21", "gpio23";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio21", "gpio23";
+					drive-strength = <16>;
+					bias-disable;
+				};
+			};
+			ap2mdm_sleep: ap2mdm_sleep {
+				mux {
+					/* ap2mdm-status
+					 * ap2mdm-errfatal
+					 * ap2mdm-vddmin
+					 */
+					pins = "gpio21", "gpio23";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio21", "gpio23";
+					drive-strength = <8>;
+					bias-disable;
+				};
+
+			};
+		};
+
+		mdm2ap {
+			mdm2ap_active: mdm2ap_active {
+				mux {
+				/* mdm2ap-status
+				 * mdm2ap-errfatal
+				 * mdm2ap-vddmin
+				 */
+					pins = "gpio22", "gpio20";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio22", "gpio20";
+					drive-strength = <8>;
+					bias-disable;
+				};
+			};
+			mdm2ap_sleep: mdm2ap_sleep {
+				mux {
+					/* mdm2ap-status
+					 * mdm2ap-errfatal
+					 * mdm2ap-vddmin
+					 */
+					pins = "gpio22", "gpio20";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio22", "gpio20";
+					drive-strength = <8>;
+					bias-disable;
+				};
 			};
 		};
 	};
