@@ -3964,7 +3964,7 @@ static int _sha_hmac_setkey(struct crypto_ahash *tfm, const u8 *key,
 	struct qcrypto_sha_ctx *sha_ctx = crypto_tfm_ctx(&tfm->base);
 	uint8_t	*in_buf;
 	int ret = 0;
-	struct scatterlist sg;
+	struct scatterlist sg = {0};
 	struct ahash_request *ahash_req;
 	struct completion ahash_req_complete;
 
