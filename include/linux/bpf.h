@@ -47,6 +47,9 @@ struct bpf_map {
 	const struct bpf_map_ops *ops;
 	struct work_struct work;
 	atomic_t usercnt;
+#ifdef CONFIG_SECURITY
+	void *security;
+#endif
 };
 
 struct bpf_map_type_list {
@@ -180,6 +183,9 @@ struct bpf_prog_aux {
 	struct bpf_map **used_maps;
 	struct bpf_prog *prog;
 	struct user_struct *user;
+#ifdef CONFIG_SECURITY
+	void *security;
+#endif
 	union {
 		struct work_struct work;
 		struct rcu_head	rcu;
