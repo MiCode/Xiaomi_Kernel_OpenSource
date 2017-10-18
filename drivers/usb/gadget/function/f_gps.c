@@ -413,6 +413,7 @@ static void gps_disable(struct usb_function *f)
 
 	usb_ep_disable(dev->notify);
 	dev->notify->driver_data = NULL;
+	dev->is_suspended = false;
 
 	atomic_set(&dev->online, 0);
 
