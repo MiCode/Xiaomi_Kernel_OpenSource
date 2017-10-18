@@ -41,6 +41,9 @@
 #include <net/strparser.h>
 #include <net/tcp.h>
 
+#define SOCK_CREATE_FLAG_MASK \
+	(BPF_F_NUMA_NODE | BPF_F_RDONLY | BPF_F_WRONLY)
+
 struct bpf_stab {
 	struct bpf_map map;
 	struct sock **sock_map;
@@ -508,7 +511,7 @@ static struct bpf_map *sock_map_alloc(union bpf_attr *attr)
 
 	/* check sanity of attributes */
 	if (attr->max_entries == 0 || attr->key_size != 4 ||
-	    attr->value_size != 4 || attr->map_flags & ~BPF_F_NUMA_NODE)
+	    attr->value_size != 4 || attr->map_flags & ~SOCK_CREATE_FLAG_MASK)
 		return ERR_PTR(-EINVAL);
 
 	if (attr->value_size > KMALLOC_MAX_SIZE)

@@ -406,7 +406,8 @@ static int trie_delete_elem(struct bpf_map *map, void *key)
 #define LPM_KEY_SIZE_MAX	LPM_KEY_SIZE(LPM_DATA_SIZE_MAX)
 #define LPM_KEY_SIZE_MIN	LPM_KEY_SIZE(LPM_DATA_SIZE_MIN)
 
-#define LPM_CREATE_FLAG_MASK	(BPF_F_NO_PREALLOC | BPF_F_NUMA_NODE)
+#define LPM_CREATE_FLAG_MASK	(BPF_F_NO_PREALLOC | BPF_F_NUMA_NODE |	\
+				 BPF_F_RDONLY | BPF_F_WRONLY)
 
 static struct bpf_map *trie_alloc(union bpf_attr *attr)
 {
