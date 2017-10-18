@@ -31,7 +31,7 @@ struct dp_ctrl {
 	void (*push_idle)(struct dp_ctrl *dp_ctrl);
 	void (*abort)(struct dp_ctrl *dp_ctrl);
 	void (*isr)(struct dp_ctrl *dp_ctrl);
-	void (*handle_sink_request)(struct dp_ctrl *dp_ctrl);
+	bool (*handle_sink_request)(struct dp_ctrl *dp_ctrl);
 };
 
 struct dp_ctrl_in {

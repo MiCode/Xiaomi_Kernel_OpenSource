@@ -671,6 +671,8 @@ static void dp_display_handle_video_request(struct dp_display_private *dp)
 
 static int dp_display_handle_hpd_irq(struct dp_display_private *dp)
 {
+	bool req_handled;
+
 	if (dp->link->sink_request & DS_PORT_STATUS_CHANGED) {
 		dp_display_send_hpd_notification(dp, false);
 
@@ -682,7 +684,18 @@ static int dp_display_handle_hpd_irq(struct dp_display_private *dp)
 		return dp_display_process_hpd_high(dp);
 	}
 
-	dp->ctrl->handle_sink_request(dp->ctrl);
+	mutex_lock(&dp->audio->ops_lock);
+	req_handled = dp->ctrl->handle_sink_request(dp->ctrl);
+	mutex_unlock(&dp->audio->ops_lock);
+
+	/*
+	 * reconfigure audio if test was executed
+	 * which could have changed the contoller's state
+	 */
+	if (req_handled && dp->audio_supported) {
+		dp->audio->off(dp->audio);
+		dp->audio->on(dp->audio);
+	}
 
 	dp_display_handle_video_request(dp);
 
