@@ -1162,7 +1162,6 @@ static void sde_rotator_update_retire_sequence(
 		struct sde_rotator_request *request)
 {
 	struct sde_rotator_ctx *ctx;
-	struct sde_rot_entry_container *req;
 
 	if (!request || !request->ctx) {
 		SDEROT_ERR("invalid parameters\n");
@@ -1170,11 +1169,7 @@ static void sde_rotator_update_retire_sequence(
 	}
 
 	ctx = request->ctx;
-	req = request->req;
-
-	if (req && req->entries && req->count)
-		ctx->retired_sequence_id =
-				req->entries[req->count - 1].item.sequence_id;
+	ctx->retired_sequence_id = request->sequence_id;
 
 	wake_up(&ctx->wait_queue);
 
@@ -1199,6 +1194,7 @@ static void sde_rotator_retire_request(struct sde_rotator_request *request)
 	ctx = request->ctx;
 
 	request->req = NULL;
+	request->sequence_id = 0;
 	request->committed = false;
 	spin_lock(&ctx->list_lock);
 	list_del_init(&request->list);
@@ -1216,17 +1212,14 @@ static void sde_rotator_retire_request(struct sde_rotator_request *request)
 static bool sde_rotator_is_request_retired(struct sde_rotator_request *request)
 {
 	struct sde_rotator_ctx *ctx;
-	struct sde_rot_entry_container *req;
 	u32 sequence_id;
 	s32 retire_delta;
 
-	if (!request || !request->ctx || !request->req ||
-			!request->req->entries || !request->req->count)
+	if (!request || !request->ctx)
 		return true;
 
 	ctx = request->ctx;
-	req = request->req;
-	sequence_id = req->entries[req->count - 1].item.sequence_id;
+	sequence_id = request->sequence_id;
 
 	retire_delta = (s32) (ctx->retired_sequence_id - sequence_id);
 
@@ -1643,6 +1636,7 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 		}
 
 		request->req = req;
+		request->sequence_id = req->entries[0].item.sequence_id;
 
 		spin_lock(&ctx->list_lock);
 		list_del_init(&request->list);
@@ -3000,6 +2994,8 @@ static int sde_rotator_process_buffers(struct sde_rotator_ctx *ctx,
 
 	sde_rotator_queue_request(rot_dev->mgr, ctx->private, req);
 	request->req = req;
+	request->sequence_id = item.sequence_id;
+	request->committed = true;
 
 	return 0;
 error_handle_request:
@@ -3008,6 +3004,8 @@ error_init_request:
 error_fence_wait:
 error_null_buffer:
 	request->req = NULL;
+	request->sequence_id = 0;
+	request->committed = false;
 	return ret;
 }
 
