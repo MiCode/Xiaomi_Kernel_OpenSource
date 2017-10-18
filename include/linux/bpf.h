@@ -246,6 +246,9 @@ int bpf_prog_test_run_skb(struct bpf_prog *prog, const union bpf_attr *kattr,
 #ifdef CONFIG_BPF_SYSCALL
 DECLARE_PER_CPU(int, bpf_prog_active);
 
+extern const struct file_operations bpf_map_fops;
+extern const struct file_operations bpf_prog_fops;
+
 #define BPF_PROG_TYPE(_id, _ops) \
 	extern const struct bpf_verifier_ops _ops;
 #define BPF_MAP_TYPE(_id, _ops) \
