@@ -64,6 +64,43 @@ Profile data node optional properties:
 			battery thermistor. This should be exactly 6 bytes
 			in length.
 			Example: [01 02 03 04 05 06]
+- qcom,soc-based-step-chg: A bool property to indicate if the battery will
+			perform SoC (State of Charge) based step charging.
+			If yes, the low and high thresholds defined in
+			"qcom,step-chg-ranges" tuples should be assigned as
+			SoC values in percentage.
+- qcom,step-chg-ranges: Array of tuples in which a tuple describes a range
+			data of step charging setting.
+			A range contains following 3 integer elements:
+			[0]: the low threshold of battery votlage in uV
+			     or SoC (State of Charge) in percentage when
+			     SoC based step charge is used;
+			[1]: the high threshold of battery voltage in uV
+			     or SoC in percentage when SoC based step charge
+			     is used;
+			[2]: the FCC (full charging current) in uA when battery
+			     voltage or SoC falls between the low and high
+			     thresholds.
+			The threshold values in range should be in ascending
+			and shouldn't overlap. It support 8 ranges at max.
+- qcom,jeita-fcc-ranges: Array of tuples in which a tuple describes a range
+			data of sw-jeita FCC (full charging current) setting.
+			A range contains following 3 integer elements:
+			[0]: the low threshold of battery temperature in deci-degree;
+			[1]: the high threshold of battery temperature in deci-degree;
+			[2]: the FCC in uA when battery temperature falls between
+			     the low and high thresholds.
+			The threshold values in range should be in ascending
+			and shouldn't overlap. It support 8 ranges at max.
+- qcom,jeita-fv-ranges: Array of tuples in which a tuple describes a range
+			data of sw-jeita FV (float voltage) setting.
+			A range contains following 3 integer elements:
+			[0]: the low threshold of battery temperature in deci-degree;
+			[1]: the high threshold of battery temperature in deci-degree;
+			[3]: the FV in uV when battery temperature falls between
+			     the low and high thresholds.
+			The threshold values in range should be in ascending
+			and shouldn't overlap. It support 8 ranges at max.
 
 Profile data node required subnodes:
 - qcom,fcc-temp-lut : An 1-dimensional lookup table node that encodes
@@ -128,6 +165,16 @@ qcom,palladium-batterydata {
 	qcom,v-cutoff-uv = <3400000>;
 	qcom,chg-term-ua = <100000>;
 	qcom,batt-id-kohm = <75>;
+	qcom,step-chg-ranges = <3600000 4000000 3000000
+				4001000 4200000 2800000
+				4201000 4400000 2000000>;
+	qcom,jeita-fcc-ranges = <0      100     600000
+				 101    200     2000000
+				 201    450     3000000
+				 451    550     600000>;
+	qcom,jeita-fv-ranges = <0      100     4200000
+				101    450     4350000
+				451    550     4200000>;
 	qcom,battery-type = "palladium_1500mah";
 
 	qcom,fcc-temp-lut {
