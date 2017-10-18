@@ -65,6 +65,8 @@
 
 #define IPA_IPC_LOG_PAGES 50
 
+#define IPA_PM_THRESHOLD_MAX 2
+
 #define IPADBG(fmt, args...) \
 	do { \
 		pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
@@ -1360,6 +1362,7 @@ struct ipa3_plat_drv_res {
 	bool ipa_bam_remote_mode;
 	bool modem_cfg_emb_pipe_flt;
 	bool ipa_wdi2;
+	u32 default_threshold[IPA_PM_THRESHOLD_MAX];
 	bool use_64_bit_dma_mask;
 	u32 wan_rx_ring_size;
 	u32 lan_rx_ring_size;

@@ -4893,6 +4893,14 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_bind;
 	}
 
+	if (resource_p->default_threshold[0] > 0)
+		ipa3_ctx->ctrl->clock_scaling_bw_threshold_nominal =
+		resource_p->default_threshold[0];
+
+	if (resource_p->default_threshold[1] > 0)
+		ipa3_ctx->ctrl->clock_scaling_bw_threshold_turbo =
+		resource_p->default_threshold[1];
+
 	if (ipa3_bus_scale_table) {
 		IPADBG("Use bus scaling info from device tree\n");
 		ipa3_ctx->ctrl->msm_bus_data_ptr = ipa3_bus_scale_table;
@@ -5451,6 +5459,14 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	IPADBG(": WDI-2.0 = %s\n",
 			ipa_drv_res->ipa_wdi2
 			? "True" : "False");
+
+	/* Updat BW for NOM and TURBO TPUT threshold from Device Tree*/
+	result = of_property_read_u32_array(pdev->dev.of_node,
+		"qcom,throughput-threshold",
+		ipa_drv_res->default_threshold,
+		IPA_PM_THRESHOLD_MAX);
+	if (result)
+		IPAERR("failed to read qcom,throughput-thresholds\n");
 
 	ipa_drv_res->use_64_bit_dma_mask =
 			of_property_read_bool(pdev->dev.of_node,
