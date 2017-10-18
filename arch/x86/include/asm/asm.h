@@ -32,6 +32,7 @@
 #define _ASM_ADD	__ASM_SIZE(add)
 #define _ASM_SUB	__ASM_SIZE(sub)
 #define _ASM_XADD	__ASM_SIZE(xadd)
+#define _ASM_MUL	__ASM_SIZE(mul)
 
 #define _ASM_AX		__ASM_REG(ax)
 #define _ASM_BX		__ASM_REG(bx)
@@ -123,6 +124,17 @@
 	_ASM_EXTABLE_HANDLE(from, to, ex_handler_ext)
 
 /* For C file, we already have NOKPROBE_SYMBOL macro */
+#endif
+
+#ifndef __ASSEMBLY__
+/*
+ * This output constraint should be used for any inline asm which has a "call"
+ * instruction.  Otherwise the asm may be inserted before the frame pointer
+ * gets set up by the containing function.  If you forget to do this, objtool
+ * may print a "call without frame pointer save/setup" warning.
+ */
+register unsigned int __asm_call_sp asm("esp");
+#define ASM_CALL_CONSTRAINT "+r" (__asm_call_sp)
 #endif
 
 #endif /* _ASM_X86_ASM_H */
