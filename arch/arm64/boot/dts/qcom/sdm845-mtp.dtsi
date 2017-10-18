@@ -277,10 +277,12 @@
 
 &smb1355_charger_0 {
 	status = "ok";
+	qcom,disable-ctm;
 };
 
 &smb1355_charger_1 {
 	status = "ok";
+	qcom,disable-ctm;
 };
 
 &qupv3_se9_2uart {
