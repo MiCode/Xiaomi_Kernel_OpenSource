@@ -36,9 +36,6 @@
 #include "clk-alpha-pll.h"
 #include "vdd-level-sdm845.h"
 
-#define GCC_APCS_CLOCK_SLEEP_ENA_VOTE_OFFSET	0x52008
-#define CPUSS_AHB_CLK_SLEEP_ENA			BIT(21)
-#define SYS_NOC_CPUSS_AHB_CLK_SLEEP_ENA		BIT(0)
 #define GCC_MMSS_MISC				0x09FFC
 #define GCC_GPU_MISC				0x71028
 
@@ -4287,14 +4284,6 @@ static int gcc_sdm845_probe(struct platform_device *pdev)
 	regmap = qcom_cc_map(pdev, &gcc_sdm845_desc);
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
-
-	/*
-	 * Set the *_SLEEP_ENA bits to allow certain cpuss* clocks to be
-	 * turned off by hardware during certain apps low power modes.
-	 */
-	regmap_update_bits(regmap, GCC_APCS_CLOCK_SLEEP_ENA_VOTE_OFFSET,
-		CPUSS_AHB_CLK_SLEEP_ENA | SYS_NOC_CPUSS_AHB_CLK_SLEEP_ENA,
-		CPUSS_AHB_CLK_SLEEP_ENA | SYS_NOC_CPUSS_AHB_CLK_SLEEP_ENA);
 
 	vdd_cx.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_cx");
 	if (IS_ERR(vdd_cx.regulator[0])) {
