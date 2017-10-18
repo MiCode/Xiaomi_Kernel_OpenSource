@@ -95,7 +95,7 @@ static void ion_carveout_heap_free(struct ion_buffer *buffer)
 	struct ion_heap *heap = buffer->heap;
 	struct sg_table *table = buffer->sg_table;
 	struct page *page = sg_page(table->sgl);
-	phys_addr_t paddr = PFN_PHYS(page_to_pfn(page));
+	phys_addr_t paddr = page_to_phys(page);
 
 	ion_heap_buffer_zero(buffer);
 
