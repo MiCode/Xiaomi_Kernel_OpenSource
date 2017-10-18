@@ -610,6 +610,11 @@
 			size = <0 0x800000>;
 		};
 
+		cont_splash_memory: cont_splash_region@9d400000 {
+			reg = <0x0 0x9d400000 0x0 0x02400000>;
+			label = "cont_splash_region";
+		};
+
 		secure_display_memory: secure_display_region {
 			compatible = "shared-dma-pool";
 			alloc-ranges = <0 0x00000000 0 0xffffffff>;
