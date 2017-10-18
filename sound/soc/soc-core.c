@@ -319,7 +319,7 @@ static void soc_init_component_debugfs(struct snd_soc_component *component)
 	}
 
 	if (!component->debugfs_root) {
-		dev_warn(component->dev,
+		dev_dbg(component->dev,
 			"ASoC: Failed to create component debugfs directory\n");
 		return;
 	}
@@ -345,7 +345,7 @@ static void soc_init_codec_debugfs(struct snd_soc_component *component)
 					  codec->component.debugfs_root,
 					  codec, &codec_reg_fops);
 	if (!debugfs_reg)
-		dev_warn(codec->dev,
+		dev_dbg(codec->dev,
 			"ASoC: Failed to create codec register debugfs file\n");
 }
 
