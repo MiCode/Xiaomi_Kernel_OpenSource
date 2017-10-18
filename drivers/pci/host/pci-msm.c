@@ -558,6 +558,32 @@ static int msm_pcie_debug_mask;
 module_param_named(debug_mask, msm_pcie_debug_mask,
 			    int, 0644);
 
+/*
+ * For each bit set, invert the default capability
+ * option for the corresponding root complex
+ * and its devices.
+ */
+static int msm_pcie_invert_l0s_support;
+module_param_named(invert_l0s_support, msm_pcie_invert_l0s_support,
+			    int, 0644);
+static int msm_pcie_invert_l1_support;
+module_param_named(invert_l1_support, msm_pcie_invert_l1_support,
+			    int, 0644);
+static int msm_pcie_invert_l1ss_support;
+module_param_named(invert_l1ss_support, msm_pcie_invert_l1ss_support,
+			    int, 0644);
+static int msm_pcie_invert_aer_support;
+module_param_named(invert_aer_support, msm_pcie_invert_aer_support,
+			    int, 0644);
+
+/*
+ * For each bit set, keep the resources on when link training fails
+ * or linkdown occurs for the corresponding root complex
+ */
+static int msm_pcie_keep_resources_on;
+module_param_named(keep_resources_on, msm_pcie_keep_resources_on,
+			    int, 0644);
+
 /* debugfs values */
 static u32 rc_sel;
 static u32 base_sel;
@@ -3882,6 +3908,9 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	goto out;
 
 link_fail:
+	if (msm_pcie_keep_resources_on & BIT(dev->rc_idx))
+		goto out;
+
 	if (dev->gpio[MSM_PCIE_GPIO_EP].num)
 		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_EP].num,
 				1 - dev->gpio[MSM_PCIE_GPIO_EP].on);
@@ -4075,8 +4104,9 @@ static int msm_pcie_config_device_table(struct device *dev, void *pdev)
 					if (pcie_dev->num_ep > 1)
 						pcie_dev->pending_ep_reg = true;
 
-					msm_pcie_config_ep_aer(pcie_dev,
-						&dev_table_t[index]);
+					if (pcie_dev->aer_enable)
+						msm_pcie_config_ep_aer(pcie_dev,
+							&dev_table_t[index]);
 
 					break;
 				}
@@ -4590,8 +4620,10 @@ static irqreturn_t handle_linkdown_irq(int irq, void *data)
 			panic("User has chosen to panic on linkdown\n");
 
 		/* assert PERST */
-		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
-				dev->gpio[MSM_PCIE_GPIO_PERST].on);
+		if (!(msm_pcie_keep_resources_on & BIT(dev->rc_idx)))
+			gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
+					dev->gpio[MSM_PCIE_GPIO_PERST].on);
+
 		PCIE_ERR(dev, "PCIe link is down for RC%d\n", dev->rc_idx);
 
 		if (dev->num_ep > 1) {
@@ -5294,16 +5326,25 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	msm_pcie_dev[rc_idx].l0s_supported =
 		of_property_read_bool((&pdev->dev)->of_node,
 				"qcom,l0s-supported");
+	if (msm_pcie_invert_l0s_support & BIT(rc_idx))
+		msm_pcie_dev[rc_idx].l0s_supported =
+			!msm_pcie_dev[rc_idx].l0s_supported;
 	PCIE_DBG(&msm_pcie_dev[rc_idx], "L0s is %s supported.\n",
 		msm_pcie_dev[rc_idx].l0s_supported ? "" : "not");
 	msm_pcie_dev[rc_idx].l1_supported =
 		of_property_read_bool((&pdev->dev)->of_node,
 				"qcom,l1-supported");
+	if (msm_pcie_invert_l1_support & BIT(rc_idx))
+		msm_pcie_dev[rc_idx].l1_supported =
+			!msm_pcie_dev[rc_idx].l1_supported;
 	PCIE_DBG(&msm_pcie_dev[rc_idx], "L1 is %s supported.\n",
 		msm_pcie_dev[rc_idx].l1_supported ? "" : "not");
 	msm_pcie_dev[rc_idx].l1ss_supported =
 		of_property_read_bool((&pdev->dev)->of_node,
 				"qcom,l1ss-supported");
+	if (msm_pcie_invert_l1ss_support & BIT(rc_idx))
+		msm_pcie_dev[rc_idx].l1ss_supported =
+			!msm_pcie_dev[rc_idx].l1ss_supported;
 	PCIE_DBG(&msm_pcie_dev[rc_idx], "L1ss is %s supported.\n",
 		msm_pcie_dev[rc_idx].l1ss_supported ? "" : "not");
 	msm_pcie_dev[rc_idx].common_clk_en =
@@ -5557,6 +5598,8 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	msm_pcie_dev[rc_idx].suspending = false;
 	msm_pcie_dev[rc_idx].wake_counter = 0;
 	msm_pcie_dev[rc_idx].aer_enable = true;
+	if (msm_pcie_invert_aer_support)
+		msm_pcie_dev[rc_idx].aer_enable = false;
 	msm_pcie_dev[rc_idx].power_on = false;
 	msm_pcie_dev[rc_idx].use_msi = false;
 	msm_pcie_dev[rc_idx].use_pinctrl = false;
