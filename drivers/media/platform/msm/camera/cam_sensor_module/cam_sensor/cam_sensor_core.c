@@ -686,9 +686,18 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			rc = -EFAULT;
 			goto release_mutex;
 		}
+		s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
 	}
 		break;
 	case CAM_RELEASE_DEV: {
+		if (s_ctrl->sensor_state != CAM_SENSOR_ACQUIRE) {
+			rc = -EINVAL;
+			CAM_WARN(CAM_SENSOR,
+			"Not in right state to release : %d",
+			s_ctrl->sensor_state);
+			goto release_mutex;
+		}
+
 		cam_sensor_release_resource(s_ctrl);
 		if (s_ctrl->bridge_intf.device_hdl == -1) {
 			CAM_ERR(CAM_SENSOR,
@@ -705,6 +714,8 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		s_ctrl->bridge_intf.device_hdl = -1;
 		s_ctrl->bridge_intf.link_hdl = -1;
 		s_ctrl->bridge_intf.session_hdl = -1;
+
+		s_ctrl->sensor_state = CAM_SENSOR_INIT;
 	}
 		break;
 	case CAM_QUERY_CAP: {
@@ -720,6 +731,14 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		break;
 	}
 	case CAM_START_DEV: {
+		if (s_ctrl->sensor_state != CAM_SENSOR_ACQUIRE) {
+			rc = -EINVAL;
+			CAM_WARN(CAM_SENSOR,
+			"Not in right state to start : %d",
+			s_ctrl->sensor_state);
+			goto release_mutex;
+		}
+
 		if (s_ctrl->i2c_data.streamon_settings.is_settings_valid &&
 			(s_ctrl->i2c_data.streamon_settings.request_id == 0)) {
 			rc = cam_sensor_apply_settings(s_ctrl, 0,
@@ -734,6 +753,14 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 	}
 		break;
 	case CAM_STOP_DEV: {
+		if (s_ctrl->sensor_state != CAM_SENSOR_START) {
+			rc = -EINVAL;
+			CAM_WARN(CAM_SENSOR,
+			"Not in right state to stop : %d",
+			s_ctrl->sensor_state);
+			goto release_mutex;
+		}
+
 		if (s_ctrl->i2c_data.streamoff_settings.is_settings_valid &&
 			(s_ctrl->i2c_data.streamoff_settings.request_id == 0)) {
 			rc = cam_sensor_apply_settings(s_ctrl, 0,
@@ -748,6 +775,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			CAM_ERR(CAM_SENSOR, "Sensor Power Down failed");
 			goto release_mutex;
 		}
+		s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
 	}
 		break;
 	case CAM_CONFIG_DEV: {

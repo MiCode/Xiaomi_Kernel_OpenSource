@@ -553,6 +553,14 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 	}
 		break;
 	case CAM_RELEASE_DEV: {
+		if (a_ctrl->cam_act_state != CAM_ACTUATOR_ACQUIRE) {
+			rc = -EINVAL;
+			CAM_WARN(CAM_ACTUATOR,
+			"Not in right state to release : %d",
+			a_ctrl->cam_act_state);
+			goto release_mutex;
+		}
+
 		if (a_ctrl->bridge_intf.device_hdl == -1) {
 			CAM_ERR(CAM_ACTUATOR, "link hdl: %d device hdl: %d",
 				a_ctrl->bridge_intf.device_hdl,
@@ -582,6 +590,14 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 	}
 		break;
 	case CAM_START_DEV: {
+		if (a_ctrl->cam_act_state != CAM_ACTUATOR_ACQUIRE) {
+			rc = -EINVAL;
+			CAM_WARN(CAM_ACTUATOR,
+			"Not in right state to start : %d",
+			a_ctrl->cam_act_state);
+			goto release_mutex;
+		}
+
 		rc = cam_actuator_power_up(a_ctrl);
 		if (rc < 0) {
 			CAM_ERR(CAM_ACTUATOR, " Actuator Power up failed");
@@ -612,6 +628,14 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 	case CAM_STOP_DEV: {
 		struct i2c_settings_array *i2c_set = NULL;
 		int i;
+
+		if (a_ctrl->cam_act_state != CAM_ACTUATOR_START) {
+			rc = -EINVAL;
+			CAM_WARN(CAM_ACTUATOR,
+			"Not in right state to stop : %d",
+			a_ctrl->cam_act_state);
+			goto release_mutex;
+		}
 
 		rc = camera_io_release(&a_ctrl->io_master_info);
 		if (rc < 0)

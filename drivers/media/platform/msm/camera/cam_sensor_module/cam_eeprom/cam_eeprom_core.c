@@ -289,6 +289,8 @@ int32_t cam_eeprom_parse_read_memory_map(struct device_node *of_node,
 		CAM_ERR(CAM_EEPROM, "failed: eeprom power up rc %d", rc);
 		goto data_mem_free;
 	}
+
+	e_ctrl->cam_eeprom_state = CAM_EEPROM_CONFIG;
 	if (e_ctrl->eeprom_device_type == MSM_CAMERA_SPI_DEVICE) {
 		rc = cam_eeprom_match_id(e_ctrl);
 		if (rc) {
@@ -305,6 +307,8 @@ int32_t cam_eeprom_parse_read_memory_map(struct device_node *of_node,
 	rc = cam_eeprom_power_down(e_ctrl);
 	if (rc)
 		CAM_ERR(CAM_EEPROM, "failed: eeprom power down rc %d", rc);
+
+	e_ctrl->cam_eeprom_state = CAM_EEPROM_ACQUIRE;
 	return rc;
 power_down:
 	cam_eeprom_power_down(e_ctrl);
@@ -313,6 +317,7 @@ data_mem_free:
 	kfree(e_ctrl->cal_data.map);
 	e_ctrl->cal_data.num_data = 0;
 	e_ctrl->cal_data.num_map = 0;
+	e_ctrl->cam_eeprom_state = CAM_EEPROM_ACQUIRE;
 	return rc;
 }
 
@@ -704,6 +709,7 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 			goto memdata_free;
 		}
 
+		e_ctrl->cam_eeprom_state = CAM_EEPROM_CONFIG;
 		rc = cam_eeprom_read_memory(e_ctrl, &e_ctrl->cal_data);
 		if (rc) {
 			CAM_ERR(CAM_EEPROM,
@@ -713,6 +719,7 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 
 		rc = cam_eeprom_get_cal_data(e_ctrl, csl_packet);
 		rc = cam_eeprom_power_down(e_ctrl);
+		e_ctrl->cam_eeprom_state = CAM_EEPROM_ACQUIRE;
 		kfree(e_ctrl->cal_data.mapdata);
 		kfree(e_ctrl->cal_data.map);
 		e_ctrl->cal_data.num_data = 0;
@@ -730,6 +737,7 @@ error:
 	kfree(e_ctrl->cal_data.map);
 	e_ctrl->cal_data.num_data = 0;
 	e_ctrl->cal_data.num_map = 0;
+	e_ctrl->cam_eeprom_state = CAM_EEPROM_ACQUIRE;
 	return rc;
 }
 
@@ -740,10 +748,7 @@ void cam_eeprom_shutdown(struct cam_eeprom_ctrl_t *e_ctrl)
 	if (e_ctrl->cam_eeprom_state == CAM_EEPROM_INIT)
 		return;
 
-	if (e_ctrl->cam_eeprom_state == CAM_EEPROM_START) {
-		rc = camera_io_release(&e_ctrl->io_master_info);
-		if (rc < 0)
-			CAM_ERR(CAM_EEPROM, "Failed in releasing CCI");
+	if (e_ctrl->cam_eeprom_state == CAM_EEPROM_CONFIG) {
 		rc = cam_eeprom_power_down(e_ctrl);
 		if (rc < 0)
 			CAM_ERR(CAM_EEPROM, "EEPROM Power down failed");
@@ -754,6 +759,7 @@ void cam_eeprom_shutdown(struct cam_eeprom_ctrl_t *e_ctrl)
 		rc = cam_destroy_device_hdl(e_ctrl->bridge_intf.device_hdl);
 		if (rc < 0)
 			CAM_ERR(CAM_EEPROM, "destroying the device hdl");
+
 		e_ctrl->bridge_intf.device_hdl = -1;
 		e_ctrl->bridge_intf.link_hdl = -1;
 		e_ctrl->bridge_intf.session_hdl = -1;
@@ -807,6 +813,14 @@ int32_t cam_eeprom_driver_cmd(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 		e_ctrl->cam_eeprom_state = CAM_EEPROM_ACQUIRE;
 		break;
 	case CAM_RELEASE_DEV:
+		if (e_ctrl->cam_eeprom_state != CAM_EEPROM_ACQUIRE) {
+			rc = -EINVAL;
+			CAM_WARN(CAM_EEPROM,
+			"Not in right state to release : %d",
+			e_ctrl->cam_eeprom_state);
+			goto release_mutex;
+		}
+
 		if (e_ctrl->bridge_intf.device_hdl == -1) {
 			CAM_ERR(CAM_EEPROM,
 				"Invalid Handles: link hdl: %d device hdl: %d",

@@ -531,6 +531,13 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 		o_ctrl->cam_ois_state = CAM_OIS_ACQUIRE;
 		break;
 	case CAM_START_DEV:
+		if (o_ctrl->cam_ois_state != CAM_OIS_ACQUIRE) {
+			rc = -EINVAL;
+			CAM_WARN(CAM_OIS,
+			"Not in right state for start : %d",
+			o_ctrl->cam_ois_state);
+		}
+
 		rc = cam_ois_power_up(o_ctrl);
 		if (rc) {
 			CAM_ERR(CAM_OIS, " OIS Power up failed");
@@ -574,6 +581,13 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 		}
 		break;
 	case CAM_RELEASE_DEV:
+		if (o_ctrl->cam_ois_state != CAM_OIS_ACQUIRE) {
+			rc = -EINVAL;
+			CAM_WARN(CAM_OIS,
+			"Not in right state for release : %d",
+			o_ctrl->cam_ois_state);
+		}
+
 		if (o_ctrl->bridge_intf.device_hdl == -1) {
 			CAM_ERR(CAM_OIS, "link hdl: %d device hdl: %d",
 				o_ctrl->bridge_intf.device_hdl,
@@ -590,6 +604,13 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 		o_ctrl->cam_ois_state = CAM_OIS_INIT;
 		break;
 	case CAM_STOP_DEV:
+		if (o_ctrl->cam_ois_state != CAM_OIS_START) {
+			rc = -EINVAL;
+			CAM_WARN(CAM_OIS,
+			"Not in right state for stop : %d",
+			o_ctrl->cam_ois_state);
+		}
+
 		rc = camera_io_release(&o_ctrl->io_master_info);
 		if (rc < 0)
 			CAM_ERR(CAM_OIS, "Failed in releasing CCI");
