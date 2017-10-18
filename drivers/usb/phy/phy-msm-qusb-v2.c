@@ -1040,21 +1040,6 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	/* ldo24 is turned on and eud is pet irrespective of cable
-	 * cable connection status by boot sw. Assume usb cable is not
-	 * connected and perform detach pet. If usb cable is connected,
-	 * eud hw will be pet in the dpdm callback.
-	 */
-	if (qphy->eud_base) {
-		if (qphy->cfg_ahb_clk)
-			clk_prepare_enable(qphy->cfg_ahb_clk);
-
-		writel_relaxed(0, qphy->eud_base + EUD_SW_ATTACH_DET);
-
-		if (qphy->cfg_ahb_clk)
-			clk_disable_unprepare(qphy->cfg_ahb_clk);
-	}
-
 	ret = qusb_phy_regulator_init(qphy);
 	if (ret)
 		usb_remove_phy(&qphy->phy);
