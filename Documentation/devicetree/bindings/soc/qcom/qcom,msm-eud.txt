@@ -14,6 +14,9 @@ Required properties:
    Documentation/devicetree/bindings/clock/clock-bindings.txt
  - clock-names: Names of the clocks in 1-1 correspondence with
    the "clocks" property.
+ - <supply-name>-supply: phandle to the regulator device tree node
+   Required "supply-name" examples are:
+	"vdda33" : 3.3v supply to eud.
 
 Driver notifies clients via extcon for VBUS spoof attach/detach
 and charger enable/disable events. Clients registered for these
@@ -29,6 +32,7 @@ An example for EUD device node:
 		reg-names = "eud_base";
 		clocks = <&clock_gcc GCC_USB_PHY_CFG_AHB2PHY_CLK>;
 		clock-names = "cfg_ahb_clk";
+		vdda33-supply = <&pm8998_l24>;
 	};
 
 An example for EUD extcon client:

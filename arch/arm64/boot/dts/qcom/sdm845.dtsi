@@ -1641,6 +1641,7 @@
 		reg-names = "eud_base";
 		clocks = <&clock_gcc GCC_USB_PHY_CFG_AHB2PHY_CLK>;
 		clock-names = "cfg_ahb_clk";
+		vdda33-supply = <&pm8998_l24>;
 		status = "ok";
 	};
 
