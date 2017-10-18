@@ -30,10 +30,7 @@
 #include <linux/delay.h>
 #include <linux/completion.h>
 
-#if defined(CONFIG_FB)
-#include <linux/notifier.h>
-#include <linux/fb.h>
-#endif
+#include <linux/msm_drm_notify.h>
 
 #define HBTP_INPUT_NAME			"hbtp_input"
 #define DISP_COORDS_SIZE		2
@@ -50,9 +47,7 @@ struct hbtp_data {
 	struct mutex sensormutex;
 	struct hbtp_sensor_data *sensor_data;
 	bool touch_status[HBTP_MAX_FINGER];
-#if defined(CONFIG_FB)
-	struct notifier_block fb_notif;
-#endif
+	struct notifier_block dsi_panel_notif;
 	struct pinctrl *ts_pinctrl;
 	struct pinctrl_state *gpio_state_active;
 	struct pinctrl_state *gpio_state_suspend;
@@ -61,7 +56,7 @@ struct hbtp_data {
 	struct pinctrl_state *ddic_rst_state_suspend;
 	u32 ts_pinctrl_seq_delay;
 	u32 ddic_pinctrl_seq_delay[HBTP_PINCTRL_DDIC_SEQ_NUM];
-	u32 fb_resume_seq_delay;
+	u32 dsi_panel_resume_seq_delay;
 	bool lcd_on;
 	bool power_suspended;
 	bool power_sync_enabled;
@@ -99,43 +94,39 @@ static struct hbtp_data *hbtp;
 
 static struct kobject *sensor_kobject;
 
-#if defined(CONFIG_FB)
-static int hbtp_fb_suspend(struct hbtp_data *ts);
-static int hbtp_fb_early_resume(struct hbtp_data *ts);
-static int hbtp_fb_resume(struct hbtp_data *ts);
-#endif
+static int hbtp_dsi_panel_suspend(struct hbtp_data *ts);
+static int hbtp_dsi_panel_early_resume(struct hbtp_data *ts);
+static int hbtp_dsi_panel_resume(struct hbtp_data *ts);
 
-#if defined(CONFIG_FB)
-static int fb_notifier_callback(struct notifier_block *self,
+static int dsi_panel_notifier_callback(struct notifier_block *self,
 				 unsigned long event, void *data)
 {
 	int blank;
-	struct fb_event *evdata = data;
+	struct msm_drm_notifier *evdata = data;
 	struct hbtp_data *hbtp_data =
-	container_of(self, struct hbtp_data, fb_notif);
-
-	if (evdata && evdata->data && hbtp_data &&
-		(event == FB_EARLY_EVENT_BLANK ||
-		event == FB_R_EARLY_EVENT_BLANK)) {
-		blank = *(int *)(evdata->data);
-		if (event == FB_EARLY_EVENT_BLANK) {
-			if (blank == FB_BLANK_UNBLANK) {
+	container_of(self, struct hbtp_data, dsi_panel_notif);
+	if (evdata && hbtp_data &&
+		((event == MSM_DRM_EARLY_EVENT_BLANK) ||
+			(event == MSM_DRM_R_EARLY_EVENT_BLANK))) {
+		blank = evdata->blank;
+		if (event == MSM_DRM_EARLY_EVENT_BLANK) {
+			if (blank == MSM_DRM_BLANK_UNBLANK) {
 				pr_debug("%s: receives EARLY_BLANK:UNBLANK\n",
 					__func__);
 				hbtp_data->lcd_on = true;
-				hbtp_fb_early_resume(hbtp_data);
-			} else if (blank == FB_BLANK_POWERDOWN) {
+				hbtp_dsi_panel_early_resume(hbtp_data);
+			} else if (blank == MSM_DRM_BLANK_POWERDOWN) {
 				pr_debug("%s: receives EARLY_BLANK:POWERDOWN\n",
 					__func__);
 				hbtp_data->lcd_on = false;
 			}
-		} else if (event == FB_R_EARLY_EVENT_BLANK) {
-			if (blank == FB_BLANK_UNBLANK) {
+		} else if (event == MSM_DRM_R_EARLY_EVENT_BLANK) {
+			if (blank == MSM_DRM_BLANK_UNBLANK) {
 				pr_debug("%s: receives R_EARLY_BALNK:UNBLANK\n",
 					__func__);
 				hbtp_data->lcd_on = false;
-				hbtp_fb_suspend(hbtp_data);
-			} else if (blank == FB_BLANK_POWERDOWN) {
+				hbtp_dsi_panel_suspend(hbtp_data);
+			} else if (blank == MSM_DRM_BLANK_POWERDOWN) {
 				pr_debug("%s: receives R_EARLY_BALNK:POWERDOWN\n",
 					__func__);
 				hbtp_data->lcd_on = true;
@@ -143,20 +134,19 @@ static int fb_notifier_callback(struct notifier_block *self,
 		}
 	}
 
-	if (evdata && evdata->data && hbtp_data &&
-		event == FB_EVENT_BLANK) {
-		blank = *(int *)(evdata->data);
-		if (blank == FB_BLANK_POWERDOWN) {
+	if (evdata && hbtp_data &&
+		event == MSM_DRM_EVENT_BLANK) {
+		blank = evdata->blank;
+		if (blank == MSM_DRM_BLANK_POWERDOWN) {
 			pr_debug("%s: receives BLANK:POWERDOWN\n", __func__);
-			hbtp_fb_suspend(hbtp_data);
-		} else if (blank == FB_BLANK_UNBLANK) {
+			hbtp_dsi_panel_suspend(hbtp_data);
+		} else if (blank == MSM_DRM_BLANK_UNBLANK) {
 			pr_debug("%s: receives BLANK:UNBLANK\n", __func__);
-			hbtp_fb_resume(hbtp_data);
+			hbtp_dsi_panel_resume(hbtp_data);
 		}
 	}
 	return 0;
 }
-#endif
 
 static ssize_t hbtp_sensor_roi_show(struct file *dev, struct kobject *kobj,
 		struct bin_attribute *attr, char *buf, loff_t pos,
@@ -752,6 +742,7 @@ static long hbtp_input_ioctl_handler(struct file *file, unsigned int cmd,
 		switch (afe_power_ctrl) {
 		case HBTP_AFE_POWER_ENABLE_SYNC:
 			pr_debug("%s: power_sync is enabled\n", __func__);
+
 			if (!hbtp->manage_pin_ctrl || !hbtp->manage_power_dig ||
 				!hbtp->manage_afe_power_ana) {
 				pr_err("%s: power/pin is not available\n",
@@ -759,6 +750,7 @@ static long hbtp_input_ioctl_handler(struct file *file, unsigned int cmd,
 				return -EFAULT;
 			}
 			mutex_lock(&hbtp->mutex);
+#if 0
 			error = hbtp_pdev_power_on(hbtp, true);
 			if (error) {
 				mutex_unlock(&hbtp->mutex);
@@ -772,6 +764,7 @@ static long hbtp_input_ioctl_handler(struct file *file, unsigned int cmd,
 				hbtp_pdev_power_on(hbtp, false);
 				return error;
 			}
+#endif
 			hbtp->power_sync_enabled = true;
 			mutex_unlock(&hbtp->mutex);
 			pr_debug("%s: power_sync option is enabled\n",
@@ -1134,7 +1127,7 @@ static int hbtp_pinctrl_init(struct hbtp_data *data)
 	}
 
 	if (of_property_read_u32(np, "qcom,fb-resume-delay-us",
-			&data->fb_resume_seq_delay)) {
+			&data->dsi_panel_resume_seq_delay)) {
 		dev_warn(&data->pdev->dev, "Can not find fb resume seq delay\n");
 	}
 
@@ -1164,7 +1157,7 @@ error:
 	return rc;
 }
 
-static int hbtp_fb_suspend(struct hbtp_data *ts)
+static int hbtp_dsi_panel_suspend(struct hbtp_data *ts)
 {
 	int rc;
 	char *envp[2] = {HBTP_EVENT_TYPE_DISPLAY, NULL};
@@ -1221,14 +1214,14 @@ err_pin_disable:
 	return rc;
 }
 
-static int hbtp_fb_early_resume(struct hbtp_data *ts)
+static int hbtp_dsi_panel_early_resume(struct hbtp_data *ts)
 {
 	char *envp[2] = {HBTP_EVENT_TYPE_DISPLAY, NULL};
 	int rc;
 
 	mutex_lock(&hbtp->mutex);
 
-	pr_debug("%s: hbtp_fb_early_resume\n", __func__);
+	pr_debug("%s: hbtp_dsi_panel_early_resume\n", __func__);
 
 	if (ts->pdev && ts->power_sync_enabled) {
 		pr_debug("%s: power_sync is enabled\n", __func__);
@@ -1274,13 +1267,20 @@ static int hbtp_fb_early_resume(struct hbtp_data *ts)
 					__func__);
 			}
 
-			if (ts->fb_resume_seq_delay) {
-				usleep_range(ts->fb_resume_seq_delay,
-					ts->fb_resume_seq_delay +
+			if (ts->dsi_panel_resume_seq_delay) {
+				usleep_range(ts->dsi_panel_resume_seq_delay,
+					ts->dsi_panel_resume_seq_delay +
 					HBTP_HOLD_DURATION_US);
-				pr_err("%s: fb_resume_seq_delay = %u\n",
-					__func__, ts->fb_resume_seq_delay);
+				pr_err("%s: dsi_panel_resume_seq_delay = %u\n",
+					__func__, ts->dsi_panel_resume_seq_delay);
 			}
+		}
+	} else {
+		pr_debug("%s: power_sync is disabled, send uevent\n", __func__);
+
+		if (ts->input_dev) {
+			kobject_uevent_env(&ts->input_dev->dev.kobj,
+				KOBJ_ONLINE, envp);
 		}
 	}
 	mutex_unlock(&hbtp->mutex);
@@ -1293,7 +1293,7 @@ err_power_on:
 	return rc;
 }
 
-static int hbtp_fb_resume(struct hbtp_data *ts)
+static int hbtp_dsi_panel_resume(struct hbtp_data *ts)
 {
 	char *envp[2] = {HBTP_EVENT_TYPE_DISPLAY, NULL};
 
@@ -1376,6 +1376,26 @@ static int hbtp_pdev_probe(struct platform_device *pdev)
 		hbtp->vcc_dig = vcc_dig;
 	}
 
+	if (!hbtp->manage_pin_ctrl || !hbtp->manage_power_dig ||
+		!hbtp->manage_afe_power_ana) {
+		pr_err("%s: power/pin is not available\n",
+			__func__);
+		return error;
+	}
+
+	error = hbtp_pdev_power_on(hbtp, true);
+	if (error) {
+		pr_err("%s: failed to power on\n", __func__);
+		return error;
+	}
+
+	error  = hbtp_pinctrl_enable(hbtp, true);
+	if (error) {
+		pr_err("%s: failed to enable pins\n", __func__);
+		hbtp_pdev_power_on(hbtp, false);
+		return error;
+	}
+
 	return 0;
 }
 
@@ -1429,8 +1449,8 @@ static ssize_t hbtp_display_pwr_store(struct kobject *kobj,
 		return 0;
 	}
 	hbtp->display_status = status;
-	if (!hbtp->input_dev) {
-		pr_err("hbtp: hbtp->input_dev not ready!\n");
+	if (!hbtp || !hbtp->input_dev) {
+		pr_err("hbtp: hbtp or hbtp->input_dev not ready!\n");
 		mutex_unlock(&hbtp->mutex);
 		return ret;
 	}
@@ -1485,15 +1505,13 @@ static int __init hbtp_init(void)
 		goto err_misc_reg;
 	}
 
-#if defined(CONFIG_FB)
-	hbtp->fb_notif.notifier_call = fb_notifier_callback;
-	error = fb_register_client(&hbtp->fb_notif);
+	hbtp->dsi_panel_notif.notifier_call = dsi_panel_notifier_callback;
+	error = msm_drm_panel_register_client(&hbtp->dsi_panel_notif);
 	if (error) {
-		pr_err("%s: Unable to register fb_notifier: %d\n",
+		pr_err("%s: Unable to register dsi_panel_notifier: %d\n",
 			HBTP_INPUT_NAME, error);
-		goto err_fb_reg;
+		goto err_dsi_panel_reg;
 	}
-#endif
 
 	sensor_kobject = kobject_create_and_add("hbtpsensor", kernel_kobj);
 	if (!sensor_kobject) {
@@ -1542,10 +1560,8 @@ err_sysfs_create_vibdata:
 err_sysfs_create_capdata:
 	kobject_put(sensor_kobject);
 err_kobject_create:
-#if defined(CONFIG_FB)
-	fb_unregister_client(&hbtp->fb_notif);
-err_fb_reg:
-#endif
+	msm_drm_panel_unregister_client(&hbtp->dsi_panel_notif);
+err_dsi_panel_reg:
 	misc_deregister(&hbtp_input_misc);
 err_misc_reg:
 	kfree(hbtp->sensor_data);
@@ -1566,9 +1582,7 @@ static void __exit hbtp_exit(void)
 	if (hbtp->input_dev)
 		input_unregister_device(hbtp->input_dev);
 
-#if defined(CONFIG_FB)
-	fb_unregister_client(&hbtp->fb_notif);
-#endif
+	msm_drm_panel_unregister_client(&hbtp->dsi_panel_notif);
 
 	platform_driver_unregister(&hbtp_pdev_driver);
 
