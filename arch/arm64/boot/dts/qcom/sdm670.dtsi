@@ -2712,3 +2712,7 @@
 #include "sdm670-gpu.dtsi"
 #include "sdm670-thermal.dtsi"
 #include "sdm670-bus.dtsi"
+
+&pm660_div_clk {
+	status = "ok";
+};
