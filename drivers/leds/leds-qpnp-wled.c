@@ -106,10 +106,8 @@
 #define QPNP_WLED_BOOST_DUTY_MIN_NS	26
 #define QPNP_WLED_BOOST_DUTY_MAX_NS	156
 #define QPNP_WLED_DEF_BOOST_DUTY_NS	104
-#define QPNP_WLED_SWITCH_FREQ_MASK	0x70
-#define QPNP_WLED_SWITCH_FREQ_800_KHZ	800
-#define QPNP_WLED_SWITCH_FREQ_1600_KHZ	1600
-#define QPNP_WLED_SWITCH_FREQ_OVERWRITE 0x80
+#define QPNP_WLED_SWITCH_FREQ_MASK	GENMASK(3, 0)
+#define QPNP_WLED_SWITCH_FREQ_OVERWRITE BIT(7)
 #define QPNP_WLED_OVP_MASK		GENMASK(1, 0)
 #define QPNP_WLED_TEST4_EN_DEB_BYPASS_ILIM_BIT	BIT(6)
 #define QPNP_WLED_TEST4_EN_SH_FOR_SS_BIT	BIT(5)
@@ -404,6 +402,7 @@ struct qpnp_wled {
 	bool			ovp_irq_disabled;
 	bool			auto_calib_enabled;
 	bool			auto_calib_done;
+	bool			module_dis_perm;
 	ktime_t			start_ovp_fault_time;
 };
 
@@ -599,6 +598,9 @@ static int qpnp_wled_module_en(struct qpnp_wled *wled,
 				u16 base_addr, bool state)
 {
 	int rc;
+
+	if (wled->module_dis_perm)
+		return 0;
 
 	rc = qpnp_wled_masked_write_reg(wled,
 			QPNP_WLED_MODULE_EN_REG(base_addr),
@@ -1098,7 +1100,7 @@ static int qpnp_wled_set_disp(struct qpnp_wled *wled, u16 base_addr)
 	return 0;
 }
 
-#define AUTO_CALIB_BRIGHTNESS		16
+#define AUTO_CALIB_BRIGHTNESS		200
 static int wled_auto_calibrate(struct qpnp_wled *wled)
 {
 	int rc = 0, i;
@@ -1128,6 +1130,17 @@ static int wled_auto_calibrate(struct qpnp_wled *wled)
 		goto failed_calib;
 	}
 
+	if (wled->en_cabc) {
+		for (i = 0; i < wled->max_strings; i++) {
+			reg = 0;
+			rc = qpnp_wled_masked_write_reg(wled,
+				QPNP_WLED_CABC_REG(wled->sink_base, i),
+				QPNP_WLED_CABC_MASK, reg);
+			if (rc < 0)
+				goto failed_calib;
+		}
+	}
+
 	/* disable all sinks */
 	rc = qpnp_wled_write_reg(wled,
 		 QPNP_WLED_CURR_SINK_REG(wled->sink_base), 0);
@@ -1135,21 +1148,6 @@ static int wled_auto_calibrate(struct qpnp_wled *wled)
 		pr_err("Failed to disable all sinks rc=%d\n", rc);
 		goto failed_calib;
 	}
-
-	rc = qpnp_wled_masked_write_reg(wled,
-		QPNP_WLED_MODULE_EN_REG(wled->ctrl_base),
-		QPNP_WLED_MODULE_EN_MASK,
-		QPNP_WLED_MODULE_EN_MASK);
-	if (rc < 0) {
-		pr_err("Failed to enable WLED module rc=%d\n", rc);
-		goto failed_calib;
-	}
-	/*
-	 * Delay for the WLED soft-start, check the OVP status
-	 * only after soft-start is complete
-	 */
-	usleep_range(QPNP_WLED_SOFT_START_DLY_US,
-			QPNP_WLED_SOFT_START_DLY_US + 1000);
 
 	/* iterate through the strings one by one */
 	for (i = 0; i < wled->max_strings; i++) {
@@ -1174,6 +1172,15 @@ static int wled_auto_calibrate(struct qpnp_wled *wled)
 			goto failed_calib;
 		}
 
+		/* Enable the module */
+		rc = qpnp_wled_masked_write_reg(wled,
+			QPNP_WLED_MODULE_EN_REG(wled->ctrl_base),
+			QPNP_WLED_MODULE_EN_MASK, QPNP_WLED_MODULE_EN_MASK);
+		if (rc < 0) {
+			pr_err("Failed to enable WLED module rc=%d\n", rc);
+			goto failed_calib;
+		}
+
 		/* delay for WLED soft-start */
 		usleep_range(QPNP_WLED_SOFT_START_DLY_US,
 				QPNP_WLED_SOFT_START_DLY_US + 1000);
@@ -1190,6 +1197,15 @@ static int wled_auto_calibrate(struct qpnp_wled *wled)
 						i + 1);
 		else
 			sink_valid |= sink_test;
+
+		/* Disable the module */
+		rc = qpnp_wled_masked_write_reg(wled,
+			QPNP_WLED_MODULE_EN_REG(wled->ctrl_base),
+			QPNP_WLED_MODULE_EN_MASK, 0);
+		if (rc < 0) {
+			pr_err("Failed to disable WLED module rc=%d\n", rc);
+			goto failed_calib;
+		}
 	}
 
 	if (sink_valid == sink_config) {
@@ -1203,14 +1219,7 @@ static int wled_auto_calibrate(struct qpnp_wled *wled)
 
 	if (!sink_config) {
 		pr_warn("No valid WLED sinks found\n");
-		goto failed_calib;
-	}
-
-	rc = qpnp_wled_masked_write_reg(wled,
-			QPNP_WLED_MODULE_EN_REG(wled->ctrl_base),
-			QPNP_WLED_MODULE_EN_MASK, 0);
-	if (rc < 0) {
-		pr_err("Failed to disable WLED module rc=%d\n", rc);
+		wled->module_dis_perm = true;
 		goto failed_calib;
 	}
 
@@ -1224,6 +1233,15 @@ static int wled_auto_calibrate(struct qpnp_wled *wled)
 
 	/* MODULATOR_EN setting for valid sinks */
 	for (i = 0; i < wled->max_strings; i++) {
+		if (wled->en_cabc) {
+			reg = 1 << QPNP_WLED_CABC_SHIFT;
+			rc = qpnp_wled_masked_write_reg(wled,
+				QPNP_WLED_CABC_REG(wled->sink_base, i),
+				QPNP_WLED_CABC_MASK, reg);
+			if (rc < 0)
+				goto failed_calib;
+		}
+
 		if (sink_config & (1 << (QPNP_WLED_CURR_SINK_SHIFT + i)))
 			reg = (QPNP_WLED_MOD_EN << QPNP_WLED_MOD_EN_SHFT);
 		else
@@ -1785,20 +1803,23 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 		return rc;
 
 	/* Configure the SWITCHING FREQ register */
-	if (wled->switch_freq_khz == QPNP_WLED_SWITCH_FREQ_1600_KHZ)
-		temp = QPNP_WLED_SWITCH_FREQ_1600_KHZ_CODE;
+	if (wled->switch_freq_khz == 1600)
+		reg = QPNP_WLED_SWITCH_FREQ_1600_KHZ_CODE;
 	else
-		temp = QPNP_WLED_SWITCH_FREQ_800_KHZ_CODE;
+		reg = QPNP_WLED_SWITCH_FREQ_800_KHZ_CODE;
 
-	rc = qpnp_wled_read_reg(wled,
-			QPNP_WLED_SWITCH_FREQ_REG(wled->ctrl_base), &reg);
+	/*
+	 * Do not set the overwrite bit when switching frequency is selected
+	 * for AMOLED. This register is in logic reset block which can cause
+	 * the value to be overwritten during module enable/disable.
+	 */
+	mask = QPNP_WLED_SWITCH_FREQ_MASK | QPNP_WLED_SWITCH_FREQ_OVERWRITE;
+	if (!wled->disp_type_amoled)
+		reg |= QPNP_WLED_SWITCH_FREQ_OVERWRITE;
+
+	rc = qpnp_wled_masked_write_reg(wled,
+			QPNP_WLED_SWITCH_FREQ_REG(wled->ctrl_base), mask, reg);
 	if (rc < 0)
-		return rc;
-	reg &= QPNP_WLED_SWITCH_FREQ_MASK;
-	reg |= (temp | QPNP_WLED_SWITCH_FREQ_OVERWRITE);
-	rc = qpnp_wled_write_reg(wled,
-			QPNP_WLED_SWITCH_FREQ_REG(wled->ctrl_base), reg);
-	if (rc)
 		return rc;
 
 	rc = qpnp_wled_ovp_config(wled);
@@ -2237,7 +2258,7 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 		return rc;
 	}
 
-	wled->switch_freq_khz = QPNP_WLED_SWITCH_FREQ_800_KHZ;
+	wled->switch_freq_khz = wled->disp_type_amoled ? 1600 : 800;
 	rc = of_property_read_u32(pdev->dev.of_node,
 			"qcom,switch-freq-khz", &temp_val);
 	if (!rc) {
