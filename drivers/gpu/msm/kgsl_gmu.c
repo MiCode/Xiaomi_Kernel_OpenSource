@@ -1283,7 +1283,7 @@ static int gmu_enable_gdsc(struct gmu_device *gmu)
 	return ret;
 }
 
-#define CX_GDSC_TIMEOUT	500	/* ms */
+#define CX_GDSC_TIMEOUT	5000	/* ms */
 static int gmu_disable_gdsc(struct gmu_device *gmu)
 {
 	int ret;
@@ -1302,7 +1302,7 @@ static int gmu_disable_gdsc(struct gmu_device *gmu)
 	/*
 	 * After GX GDSC is off, CX GDSC must be off
 	 * Voting off alone from GPU driver cannot
-	 * Guarantee CX GDSC off. Polling with 10ms
+	 * Guarantee CX GDSC off. Polling with 5s
 	 * timeout to ensure
 	 */
 	t = jiffies + msecs_to_jiffies(CX_GDSC_TIMEOUT);
