@@ -255,7 +255,7 @@ out:
 }
 
 static void *bpf_obj_do_get(const struct filename *pathname,
-			    enum bpf_type *type)
+			    enum bpf_type *type, int flags)
 {
 	struct inode *inode;
 	struct path path;
@@ -267,7 +267,7 @@ static void *bpf_obj_do_get(const struct filename *pathname,
 		return ERR_PTR(ret);
 
 	inode = d_backing_inode(path.dentry);
-	ret = inode_permission(inode, MAY_WRITE);
+	ret = inode_permission(inode, ACC_MODE(flags));
 	if (ret)
 		goto out;
 
@@ -286,18 +286,23 @@ out:
 	return ERR_PTR(ret);
 }
 
-int bpf_obj_get_user(const char __user *pathname)
+int bpf_obj_get_user(const char __user *pathname, int flags)
 {
 	enum bpf_type type = BPF_TYPE_UNSPEC;
 	struct filename *pname;
 	int ret = -ENOENT;
+	int f_flags;
 	void *raw;
+
+	f_flags = bpf_get_file_flag(flags);
+	if (f_flags < 0)
+		return f_flags;
 
 	pname = getname(pathname);
 	if (IS_ERR(pname))
 		return PTR_ERR(pname);
 
-	raw = bpf_obj_do_get(pname, &type);
+	raw = bpf_obj_do_get(pname, &type, f_flags);
 	if (IS_ERR(raw)) {
 		ret = PTR_ERR(raw);
 		goto out;
@@ -306,7 +311,7 @@ int bpf_obj_get_user(const char __user *pathname)
 	if (type == BPF_TYPE_PROG)
 		ret = bpf_prog_new_fd(raw);
 	else if (type == BPF_TYPE_MAP)
-		ret = bpf_map_new_fd(raw);
+		ret = bpf_map_new_fd(raw, f_flags);
 	else
 		goto out;
 
