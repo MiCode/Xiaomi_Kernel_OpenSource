@@ -59,7 +59,7 @@ struct dp_panel_in {
 
 struct dp_panel {
 	/* dpcd raw data */
-	u8 dpcd[DP_RECEIVER_CAP_SIZE];
+	u8 dpcd[DP_RECEIVER_CAP_SIZE + 1];
 	u8 ds_ports[DP_MAX_DOWNSTREAM_PORTS];
 
 	struct drm_dp_link link_info;
@@ -85,6 +85,7 @@ struct dp_panel {
 		struct drm_connector *connector, struct dp_display_mode *mode);
 	void (*handle_sink_request)(struct dp_panel *dp_panel);
 	int (*set_edid)(struct dp_panel *dp_panel, u8 *edid);
+	int (*set_dpcd)(struct dp_panel *dp_panel, u8 *dpcd);
 };
 
 /**
