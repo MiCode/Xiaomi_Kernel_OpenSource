@@ -199,7 +199,7 @@ static ssize_t bpf_dummy_write(struct file *filp, const char __user *buf,
 	return -EINVAL;
 }
 
-static const struct file_operations bpf_map_fops = {
+const struct file_operations bpf_map_fops = {
 #ifdef CONFIG_PROC_FS
 	.show_fdinfo	= bpf_map_show_fdinfo,
 #endif
@@ -748,7 +748,7 @@ static int bpf_prog_release(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-static const struct file_operations bpf_prog_fops = {
+const struct file_operations bpf_prog_fops = {
         .release = bpf_prog_release,
 	.read		= bpf_dummy_read,
 	.write		= bpf_dummy_write,

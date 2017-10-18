@@ -237,6 +237,9 @@ DECLARE_PER_CPU(int, bpf_prog_active);
 void bpf_register_prog_type(struct bpf_prog_type_list *tl);
 void bpf_register_map_type(struct bpf_map_type_list *tl);
 
+extern const struct file_operations bpf_map_fops;
+extern const struct file_operations bpf_prog_fops;
+
 struct bpf_prog *bpf_prog_get(u32 ufd);
 struct bpf_prog *bpf_prog_get_type(u32 ufd, enum bpf_prog_type type);
 struct bpf_prog *bpf_prog_add(struct bpf_prog *prog, int i);
