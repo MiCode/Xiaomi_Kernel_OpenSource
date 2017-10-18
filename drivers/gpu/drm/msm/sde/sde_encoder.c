@@ -2614,6 +2614,29 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 
 	pending_flush = 0x0;
 
+	/*
+	 * Trigger LUT DMA flush, this might need a wait, so we need
+	 * to do this outside of the atomic context
+	 */
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+		bool wait_for_dma = false;
+
+		if (!phys || phys->enable_state == SDE_ENC_DISABLED)
+			continue;
+
+		ctl = phys->hw_ctl;
+		if (!ctl)
+			continue;
+
+		if (phys->ops.wait_dma_trigger)
+			wait_for_dma = phys->ops.wait_dma_trigger(phys);
+
+		if (phys->hw_ctl->ops.reg_dma_flush)
+			phys->hw_ctl->ops.reg_dma_flush(phys->hw_ctl,
+					wait_for_dma);
+	}
+
 	/* update pending counts and trigger kickoff ctl flush atomically */
 	spin_lock_irqsave(&sde_enc->enc_spinlock, lock_flags);
 
@@ -2641,8 +2664,7 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 				phys->split_role == ENC_ROLE_SLAVE) &&
 				phys->split_role != ENC_ROLE_SKIP)
 			set_bit(i, sde_enc->frame_busy_mask);
-		if (phys->hw_ctl->ops.reg_dma_flush)
-			phys->hw_ctl->ops.reg_dma_flush(phys->hw_ctl, false);
+
 		if (!phys->ops.needs_single_flush ||
 				!phys->ops.needs_single_flush(phys))
 			_sde_encoder_trigger_flush(&sde_enc->base, phys, 0x0);

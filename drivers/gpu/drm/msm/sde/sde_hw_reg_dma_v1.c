@@ -15,6 +15,7 @@
 #include "sde_hw_reg_dma_v1.h"
 #include "msm_drv.h"
 #include "msm_mmu.h"
+#include "sde_dbg.h"
 
 #define GUARD_BYTES (BIT(8) - 1)
 #define ALIGNED_OFFSET (U32_MAX & ~(GUARD_BYTES))
@@ -848,6 +849,7 @@ static int last_cmd_v1(struct sde_hw_ctl *ctl, enum sde_reg_dma_queue q,
 	memset(&hw, 0, sizeof(hw));
 	SET_UP_REG_DMA_REG(hw, reg_dma);
 
+	SDE_EVT32(SDE_EVTLOG_FUNC_ENTRY, mode);
 	if (mode == REG_DMA_WAIT4_COMP) {
 		rc = readl_poll_timeout(hw.base_off + hw.blk_off +
 			reg_dma_int_status_off, val,
@@ -856,6 +858,7 @@ static int last_cmd_v1(struct sde_hw_ctl *ctl, enum sde_reg_dma_queue q,
 		if (rc)
 			DRM_ERROR("poll wait failed %d val %x mask %x\n",
 			    rc, val, ctl_trigger_done_mask[ctl->idx][q]);
+		SDE_EVT32(SDE_EVTLOG_FUNC_EXIT, mode);
 	}
 
 	return 0;
