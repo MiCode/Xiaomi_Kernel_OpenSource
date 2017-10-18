@@ -746,6 +746,10 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 	if (rc)
 		pr_err("qcom,mdss-dsi-h-sync-skew is not defined, rc=%d\n", rc);
 
+	pr_debug("panel horz active:%d front_portch:%d back_porch:%d sync_skew:%d\n",
+		mode->h_active, mode->h_front_porch, mode->h_back_porch,
+		mode->h_sync_width);
+
 	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-height",
 				  &mode->v_active);
 	if (rc) {
@@ -777,6 +781,9 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 		       rc);
 		goto error;
 	}
+	pr_debug("panel vert active:%d front_portch:%d back_porch:%d pulse_width:%d\n",
+		mode->v_active, mode->v_front_porch, mode->v_back_porch,
+		mode->v_sync_width);
 
 error:
 	return rc;
@@ -2176,7 +2183,9 @@ static int dsi_panel_parse_dsc_params(struct dsi_display_mode *mode,
 
 	intf_width = mode->timing.h_active;
 	if (intf_width % priv_info->dsc.slice_width) {
-		pr_err("invalid slice width for the panel\n");
+		pr_err("invalid slice width for the intf width:%d slice width:%d\n",
+			intf_width, priv_info->dsc.slice_width);
+		rc = -EINVAL;
 		goto error;
 	}
 
