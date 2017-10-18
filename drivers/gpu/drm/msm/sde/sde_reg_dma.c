@@ -64,7 +64,7 @@ static int default_buf_reset_reg_dma(struct sde_reg_dma_buffer *lut_buf)
 }
 
 static int default_last_command(struct sde_hw_ctl *ctl,
-		enum sde_reg_dma_queue q)
+		enum sde_reg_dma_queue q, enum sde_reg_dma_last_cmd_mode mode)
 {
 	return 0;
 }
