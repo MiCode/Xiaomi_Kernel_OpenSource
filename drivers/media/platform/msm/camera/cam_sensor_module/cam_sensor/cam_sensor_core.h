@@ -83,4 +83,11 @@ int cam_sensor_establish_link(struct cam_req_mgr_core_dev_link_setup *link);
  */
 int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl, void *arg);
 
+/**
+ * @s_ctrl: Sensor ctrl structure
+ *
+ * This API handles the camera sensor close/shutdown
+ */
+void cam_sensor_shutdown(struct cam_sensor_ctrl_t *s_ctrl);
+
 #endif /* _CAM_SENSOR_CORE_H_ */

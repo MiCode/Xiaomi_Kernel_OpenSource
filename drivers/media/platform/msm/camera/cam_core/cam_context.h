@@ -186,12 +186,22 @@ struct cam_context {
 };
 
 /**
+ * cam_context_shutdown()
+ *
+ * @brief:        Calls while device close or shutdown
+ *
+ * @ctx:          Object pointer for cam_context
+ *
+ */
+int cam_context_shutdown(struct cam_context *ctx);
+
+/**
  * cam_context_handle_crm_get_dev_info()
  *
  * @brief:        Handle get device information command
  *
- * @ctx:                   Object pointer for cam_context
- * @info:                  Device information returned
+ * @ctx:          Object pointer for cam_context
+ * @info:         Device information returned
  *
  */
 int cam_context_handle_crm_get_dev_info(struct cam_context *ctx,
@@ -202,8 +212,8 @@ int cam_context_handle_crm_get_dev_info(struct cam_context *ctx,
  *
  * @brief:        Handle link command
  *
- * @ctx:                   Object pointer for cam_context
- * @link:                  Link command payload
+ * @ctx:          Object pointer for cam_context
+ * @link:         Link command payload
  *
  */
 int cam_context_handle_crm_link(struct cam_context *ctx,
@@ -214,8 +224,8 @@ int cam_context_handle_crm_link(struct cam_context *ctx,
  *
  * @brief:        Handle unlink command
  *
- * @ctx:                   Object pointer for cam_context
- * @unlink:                Unlink command payload
+ * @ctx:          Object pointer for cam_context
+ * @unlink:       Unlink command payload
  *
  */
 int cam_context_handle_crm_unlink(struct cam_context *ctx,
@@ -226,8 +236,8 @@ int cam_context_handle_crm_unlink(struct cam_context *ctx,
  *
  * @brief:        Handle apply request command
  *
- * @ctx:                   Object pointer for cam_context
- * @apply:                 Apply request command payload
+ * @ctx:          Object pointer for cam_context
+ * @apply:        Apply request command payload
  *
  */
 int cam_context_handle_crm_apply_req(struct cam_context *ctx,
@@ -238,8 +248,8 @@ int cam_context_handle_crm_apply_req(struct cam_context *ctx,
  *
  * @brief:        Handle flush request command
  *
- * @ctx:                   Object pointer for cam_context
- * @apply:                 Flush request command payload
+ * @ctx:          Object pointer for cam_context
+ * @apply:        Flush request command payload
  *
  */
 int cam_context_handle_crm_flush_req(struct cam_context *ctx,
@@ -250,8 +260,8 @@ int cam_context_handle_crm_flush_req(struct cam_context *ctx,
  *
  * @brief:        Handle acquire device command
  *
- * @ctx:                   Object pointer for cam_context
- * @cmd:                   Acquire device command payload
+ * @ctx:          Object pointer for cam_context
+ * @cmd:          Acquire device command payload
  *
  */
 int cam_context_handle_acquire_dev(struct cam_context *ctx,
@@ -262,8 +272,8 @@ int cam_context_handle_acquire_dev(struct cam_context *ctx,
  *
  * @brief:        Handle release device command
  *
- * @ctx:                   Object pointer for cam_context
- * @cmd:                   Release device command payload
+ * @ctx:          Object pointer for cam_context
+ * @cmd:          Release device command payload
  *
  */
 int cam_context_handle_release_dev(struct cam_context *ctx,
@@ -274,8 +284,8 @@ int cam_context_handle_release_dev(struct cam_context *ctx,
  *
  * @brief:        Handle config device command
  *
- * @ctx:                   Object pointer for cam_context
- * @cmd:                   Config device command payload
+ * @ctx:          Object pointer for cam_context
+ * @cmd:          Config device command payload
  *
  */
 int cam_context_handle_config_dev(struct cam_context *ctx,
@@ -286,8 +296,8 @@ int cam_context_handle_config_dev(struct cam_context *ctx,
  *
  * @brief:        Handle start device command
  *
- * @ctx:                   Object pointer for cam_context
- * @cmd:                   Start device command payload
+ * @ctx:          Object pointer for cam_context
+ * @cmd:          Start device command payload
  *
  */
 int cam_context_handle_start_dev(struct cam_context *ctx,
@@ -298,8 +308,8 @@ int cam_context_handle_start_dev(struct cam_context *ctx,
  *
  * @brief:        Handle stop device command
  *
- * @ctx:                   Object pointer for cam_context
- * @cmd:                   Stop device command payload
+ * @ctx:          Object pointer for cam_context
+ * @cmd:          Stop device command payload
  *
  */
 int cam_context_handle_stop_dev(struct cam_context *ctx,
@@ -310,7 +320,7 @@ int cam_context_handle_stop_dev(struct cam_context *ctx,
  *
  * @brief:        Camera context deinitialize function
  *
- * @ctx:                   Object pointer for cam_context
+ * @ctx:          Object pointer for cam_context
  *
  */
 int cam_context_deinit(struct cam_context *ctx);

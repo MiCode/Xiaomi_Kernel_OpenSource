@@ -53,4 +53,11 @@ int32_t cam_actuator_establish_link(
  */
 int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl, void *arg);
 
+/**
+ * @a_ctrl: Actuator ctrl structure
+ *
+ * This API handles the shutdown ioctl/close
+ */
+void cam_actuator_shutdown(struct cam_actuator_ctrl_t *a_ctrl);
+
 #endif /* _CAM_ACTUATOR_CORE_H_ */

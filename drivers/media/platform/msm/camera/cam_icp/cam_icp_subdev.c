@@ -114,7 +114,7 @@ static int cam_icp_subdev_close(struct v4l2_subdev *sd,
 		goto end;
 	}
 
-	rc = hw_mgr_intf->hw_close(hw_mgr_intf->hw_mgr_priv, NULL);
+	rc = cam_node_shutdown(node);
 	if (rc < 0) {
 		CAM_ERR(CAM_ICP, "HW close failed");
 		goto end;

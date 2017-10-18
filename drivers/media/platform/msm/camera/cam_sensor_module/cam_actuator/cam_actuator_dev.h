@@ -48,9 +48,16 @@
 #define ACTUATOR_MAX_POLL_COUNT 10
 
 
-enum msm_actuator_state_t {
+enum cam_actuator_apply_state_t {
 	ACT_APPLY_SETTINGS_NOW,
 	ACT_APPLY_SETTINGS_LATER,
+};
+
+enum cam_actator_state {
+	CAM_ACTUATOR_INIT,
+	CAM_ACTUATOR_ACQUIRE,
+	CAM_ACTUATOR_START,
+	CAM_ACTUATOR_RELEASE,
 };
 
 /**
@@ -76,6 +83,9 @@ struct intf_params {
  * @io_master_info: Information about the communication master
  * @actuator_mutex: Actuator mutex
  * @act_apply_state: Actuator settings aRegulator config
+ * @id: Cell Index
+ * @res_apply_state: Actuator settings apply state
+ * @cam_act_state:   Actuator state
  * @gconf: GPIO config
  * @pinctrl_info: Pinctrl information
  * @v4l2_dev_str: V4L2 device structure
@@ -90,7 +100,9 @@ struct cam_actuator_ctrl_t {
 	struct camera_io_master io_master_info;
 	struct cam_hw_soc_info soc_info;
 	struct mutex actuator_mutex;
-	enum msm_actuator_state_t act_apply_state;
+	uint32_t id;
+	enum cam_actuator_apply_state_t setting_apply_state;
+	enum cam_actator_state cam_act_state;
 	struct msm_camera_gpio_num_info *gpio_num_info;
 	uint8_t cam_pinctrl_status;
 	struct cam_subdev v4l2_dev_str;

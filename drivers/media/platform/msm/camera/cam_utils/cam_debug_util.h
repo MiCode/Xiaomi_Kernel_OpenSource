@@ -119,7 +119,7 @@ const char *cam_get_module_name(unsigned int module_id);
  * @brief :     This Macro will prevent error print logs with ratelimit
  */
 #define CAM_ERR_RATE_LIMIT(__module, fmt, args...)                 \
-	pr_err_ratelimited("CAM_ERR: %s: %s: %d\n" fmt,            \
+	pr_err_ratelimited("CAM_ERR: %s: %s: %d" fmt "\n",            \
 		cam_get_module_name(__module), __func__,  __LINE__, ##args)
 
 #endif /* _CAM_DEBUG_UTIL_H_ */

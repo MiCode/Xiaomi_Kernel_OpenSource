@@ -809,7 +809,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_ipp(
 		csid_res->is_dual_vfe = 1;
 	else {
 		csid_res->is_dual_vfe = 0;
-		csid_acquire.sync_mode = CAM_ISP_HW_SYNC_MASTER;
+		csid_acquire.sync_mode = CAM_ISP_HW_SYNC_NONE;
 	}
 
 	list_for_each_entry(cid_res, &ife_ctx->res_list_ife_cid,
