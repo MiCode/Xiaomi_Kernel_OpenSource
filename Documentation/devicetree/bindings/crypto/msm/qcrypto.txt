@@ -40,7 +40,7 @@ Optional properties:
 	required. For other targets such as fsm, they do not perform
 	bus scaling. It is not required for those targets.
 
-  - qcom,smmu-s1-bypass : Boolean flag to bypass SMMU stage 1 translation.
+  - qcom,smmu-s1-enable : Boolean flag to bypass SMMU stage 1 translation.
   - iommus : A list of phandle and IOMMU specifier pairs that describe the IOMMU master interfaces of the device.
 
 Example:

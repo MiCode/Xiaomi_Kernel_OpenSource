@@ -1686,6 +1686,11 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 		event_notify->crop_data.height;
 	inst->prop.crop_info.width =
 		event_notify->crop_data.width;
+	/* HW returns progressive_only flag in pic_struct. */
+	inst->pic_struct =
+		event_notify->pic_struct ?
+		MSM_VIDC_PIC_STRUCT_PROGRESSIVE :
+		MSM_VIDC_PIC_STRUCT_MAYBE_INTERLACED;
 
 	ptr = (u32 *)seq_changed_event.u.data;
 	ptr[0] = event_notify->height;
@@ -3384,7 +3389,7 @@ static int set_output_buffers(struct msm_vidc_inst *inst,
 	enum hal_buffer buffer_type)
 {
 	int rc = 0;
-	struct internal_buf *binfo;
+	struct internal_buf *binfo = NULL;
 	u32 smem_flags = 0, buffer_size;
 	struct hal_buffer_requirements *output_buf, *extradata_buf;
 	int i;
@@ -3493,10 +3498,10 @@ static int set_output_buffers(struct msm_vidc_inst *inst,
 	}
 	return rc;
 fail_set_buffers:
-	kfree(binfo);
-fail_kzalloc:
 	msm_comm_smem_free(inst, &binfo->smem);
 err_no_mem:
+	kfree(binfo);
+fail_kzalloc:
 	return rc;
 }
 
@@ -6329,10 +6334,26 @@ struct msm_vidc_buffer *msm_comm_get_vidc_buffer(struct msm_vidc_inst *inst,
 	}
 
 	mutex_lock(&inst->registeredbufs.lock);
-	list_for_each_entry(mbuf, &inst->registeredbufs.list, list) {
-		if (msm_comm_compare_dma_planes(inst, mbuf, dma_planes)) {
-			found = true;
-			break;
+	if (inst->session_type == MSM_VIDC_DECODER) {
+		list_for_each_entry(mbuf, &inst->registeredbufs.list, list) {
+			if (msm_comm_compare_dma_planes(inst, mbuf,
+					dma_planes)) {
+				found = true;
+				break;
+			}
+		}
+	} else {
+		/*
+		 * for encoder, client may queue the same buffer with different
+		 * fd before driver returned old buffer to the client. This
+		 * buffer should be treated as new buffer. Search the list with
+		 * fd so that it will be treated as new msm_vidc_buffer.
+		 */
+		list_for_each_entry(mbuf, &inst->registeredbufs.list, list) {
+			if (msm_comm_compare_vb2_planes(inst, mbuf, vb2)) {
+				found = true;
+				break;
+			}
 		}
 	}
 

@@ -1006,9 +1006,13 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		bool from_idle, int predicted)
 {
 	struct lpm_cluster_level *level = &cluster->levels[idx];
+	struct cpumask online_cpus;
+
+	cpumask_and(&online_cpus, &cluster->num_children_in_sync,
+					cpu_online_mask);
 
 	if (!cpumask_equal(&cluster->num_children_in_sync, &cluster->child_cpus)
-			|| is_IPI_pending(&cluster->num_children_in_sync)) {
+			|| is_IPI_pending(&online_cpus)) {
 		return -EPERM;
 	}
 

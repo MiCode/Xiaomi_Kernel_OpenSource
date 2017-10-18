@@ -210,7 +210,7 @@
 				config {
 					pins = "gpio37";
 					drive-strength = <2>;
-					bias-pull-down;
+					bias-pull-up;
 				};
 			};
 		};

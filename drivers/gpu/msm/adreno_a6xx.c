@@ -265,7 +265,7 @@ static void a6xx_pwrup_reglist_init(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	if (kgsl_allocate_global(device, &adreno_dev->pwrup_reglist,
-		PAGE_SIZE, 0, KGSL_MEMDESC_PRIVILEGED,
+		PAGE_SIZE, KGSL_MEMFLAGS_GPUREADONLY, 0,
 		"powerup_register_list")) {
 		adreno_dev->pwrup_reglist.gpuaddr = 0;
 		return;
@@ -699,7 +699,7 @@ static void _set_ordinals(struct adreno_device *adreno_dev,
 		*cmds++ = lower_32_bits(gpuaddr);
 		*cmds++ = upper_32_bits(gpuaddr);
 		/* Size is in dwords */
-		*cmds++ = sizeof(a6xx_pwrup_reglist) >> 2;
+		*cmds++ = 0;
 	}
 
 	/* Pad rest of the cmds with 0's */
@@ -937,42 +937,42 @@ static void _load_gmu_rpmh_ucode(struct kgsl_device *device)
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0 + 4, 0x002081FC);
 
 	/* Set TCS commands used by PDC sequence for low power modes */
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS0_CMD_ENABLE_BANK, 7);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS0_CMD_WAIT_FOR_CMPL_BANK, 0);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS0_CONTROL, 0);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS0_CMD0_MSGID, 0x10108);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS0_CMD0_ADDR, 0x30010);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS0_CMD0_DATA, 1);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS0_CMD0_MSGID + PDC_CMD_OFFSET, 0x10108);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS0_CMD0_ADDR + PDC_CMD_OFFSET, 0x30000);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS0_CMD0_DATA + PDC_CMD_OFFSET, 0x0);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS0_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS0_CMD0_ADDR + PDC_CMD_OFFSET * 2, 0x30080);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS0_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x0);
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CMD_ENABLE_BANK, 7);
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CMD_WAIT_FOR_CMPL_BANK, 0);
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CONTROL, 0);
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CMD0_MSGID, 0x10108);
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CMD0_ADDR, 0x30010);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CMD0_DATA, 2);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CMD0_DATA, 1);
 	_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS1_CMD0_MSGID + PDC_CMD_OFFSET, 0x10108);
 	_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS1_CMD0_ADDR + PDC_CMD_OFFSET, 0x30000);
 	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET, 0x3);
+			PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET, 0x0);
 	_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS1_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
 	_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS1_CMD0_ADDR + PDC_CMD_OFFSET * 2, 0x30080);
 	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x3);
+			PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x0);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CMD_ENABLE_BANK, 7);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CMD_WAIT_FOR_CMPL_BANK, 0);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CONTROL, 0);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CMD0_MSGID, 0x10108);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CMD0_ADDR, 0x30010);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CMD0_DATA, 2);
+	_regwrite(gmu->pdc_reg_virt,
+			PDC_GPU_TCS3_CMD0_MSGID + PDC_CMD_OFFSET, 0x10108);
+	_regwrite(gmu->pdc_reg_virt,
+			PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET, 0x30000);
+	_regwrite(gmu->pdc_reg_virt,
+			PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET, 0x3);
+	_regwrite(gmu->pdc_reg_virt,
+			PDC_GPU_TCS3_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
+	_regwrite(gmu->pdc_reg_virt,
+			PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET * 2, 0x30080);
+	_regwrite(gmu->pdc_reg_virt,
+			PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x3);
 
 	/* Setup GPU PDC */
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_START_ADDR, 0);
@@ -1014,7 +1014,6 @@ static int timed_poll_check(struct kgsl_device *device,
 			return 0;
 		/* Wait 100us to reduce unnecessary AHB bus traffic */
 		udelay(100);
-		cond_resched();
 	} while (!time_after(jiffies, t));
 
 	/* Double check one last time */
@@ -1411,7 +1410,9 @@ static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 	int val;
 
 	kgsl_gmu_regread(device, A6XX_GPU_CC_GX_DOMAIN_MISC, &val);
-	WARN_ON(!(val & 0x1));
+	if (!(val & 0x1))
+		dev_err_ratelimited(&gmu->pdev->dev,
+			"GMEM CLAMP IO not set while GFX rail off\n");
 
 	/* RSC wake sequence */
 	kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, BIT(1));
@@ -1568,6 +1569,8 @@ static void isense_cold_trimm(struct kgsl_device *device)
 	kgsl_gmu_regwrite(device, A6XX_GPU_CS_AMP_CALIBRATION_DONE, 1);
 
 }
+
+#define GPU_LIMIT_THRESHOLD_ENABLE	BIT(31)
 /*
  * a6xx_gmu_fw_start() - set up GMU and start FW
  * @device: Pointer to KGSL device
@@ -1651,7 +1654,7 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM) &&
 		test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag)) {
 		kgsl_gmu_regwrite(device, A6XX_GPU_GMU_CX_GMU_PWR_THRESHOLD,
-			lm_limit(adreno_dev));
+			GPU_LIMIT_THRESHOLD_ENABLE | lm_limit(adreno_dev));
 		isense_cold_trimm(device);
 	}
 
@@ -1776,7 +1779,6 @@ static int a6xx_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 
 		/* Wait 100us to reduce unnecessary AHB bus traffic */
 		udelay(100);
-		cond_resched();
 	}
 
 	/* Check one last time */
@@ -2925,6 +2927,20 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 }
 
 
+static unsigned int a6xx_ccu_invalidate(struct adreno_device *adreno_dev,
+	unsigned int *cmds)
+{
+	/* CCU_INVALIDATE_DEPTH */
+	*cmds++ = cp_packet(adreno_dev, CP_EVENT_WRITE, 1);
+	*cmds++ = 24;
+
+	/* CCU_INVALIDATE_COLOR */
+	*cmds++ = cp_packet(adreno_dev, CP_EVENT_WRITE, 1);
+	*cmds++ = 25;
+
+	return 4;
+}
+
 /* Register offset defines for A6XX, in order of enum adreno_regs */
 static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 
@@ -3086,4 +3102,5 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.preemption_context_destroy = a6xx_preemption_context_destroy,
 	.gx_is_on = a6xx_gx_is_on,
 	.sptprac_is_on = a6xx_sptprac_is_on,
+	.ccu_invalidate = a6xx_ccu_invalidate,
 };

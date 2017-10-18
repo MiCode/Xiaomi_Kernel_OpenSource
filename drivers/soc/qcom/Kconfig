@@ -71,6 +71,16 @@ config QCOM_LLCC_AMON_PANIC
 	  deadlock detection mode AMON will trigger an interrupt if some LLCC request
 	  ages out.
 
+config QCOM_LLCC_PERFMON
+	tristate "Qualcomm Technologies, Inc. LLCC Perfmon driver"
+	depends on QCOM_LLCC
+	help
+	  This option enables driver for LLCC Performance monitor block. Using
+	  this various events in different LLCC sub block ports can be monitored.
+	  This is used for performance and debug activity and exports SYSFS
+	  interface. SYSFS interface used for configure and dump the LLCC
+	  performance events.
+
 config QCOM_PM
 	bool "Qualcomm Power Management"
 	depends on ARCH_QCOM && !ARM64
@@ -375,16 +385,6 @@ config MSM_SMP2P
 	  32-bit values by specifying a unique string and
 	  remote processor ID.
 
-config MSM_SMP2P_TEST
-	bool "SMSM Point-to-Point Test"
-	depends on MSM_SMP2P
-	help
-	  Enables loopback and unit testing support for
-	  SMP2P. Loopback support is used by other
-	  processors to do unit testing. Unit tests
-	  are used to verify the local and remote
-	  implementations.
-
 config MSM_IPC_ROUTER_SMD_XPRT
 	depends on MSM_SMD
 	depends on IPC_ROUTER
@@ -536,16 +536,6 @@ config MSM_PERFORMANCE
 	  It ensures that no more than a user specified number of CPUs stay
 	  online at any given point in time. This module can also restrict
 	  max freq or min freq of cpu cluster
-
-config MSM_PERFORMANCE_HOTPLUG_ON
-	bool "Hotplug functionality through msm_performance turned on"
-	depends on MSM_PERFORMANCE
-	default y
-	help
-	  If some other core-control driver is present turn off the core-control
-	  capability of msm_performance driver. Setting this flag to false will
-	  compile out the nodes needed for core-control functionality through
-	  msm_performance.
 
 config MSM_CDSP_LOADER
 	tristate "CDSP loader support"

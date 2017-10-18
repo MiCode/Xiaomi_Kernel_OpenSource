@@ -6,6 +6,7 @@
 #define MSM_VIDC_HAL_INTERLACE_COLOR_FORMAT_NV12	0x2
 #define MSM_VIDC_HAL_INTERLACE_COLOR_FORMAT_NV12_UBWC	0x8002
 #define MSM_VIDC_4x_1 0x1
+#define MSM_VIDC_EXTRADATA_FRAME_QP_ADV 0x1
 
 struct msm_vidc_extradata_header {
 	unsigned int size;
@@ -137,6 +138,10 @@ struct msm_vidc_stream_userdata_payload {
 
 struct msm_vidc_frame_qp_payload {
 	unsigned int frame_qp;
+	unsigned int qp_sum;
+	unsigned int skip_qp_sum;
+	unsigned int skip_num_blocks;
+	unsigned int total_num_blocks;
 };
 
 struct msm_vidc_frame_bits_info_payload {

@@ -48,14 +48,6 @@
 #define MEM_PROTECT_SD_CTRL_SWITCH 0x18
 #define MDP_DEVICE_ID            0x1A
 
-struct sde_crtc_irq_info {
-	struct sde_irq_callback irq;
-	u32 event;
-	int (*func)(struct drm_crtc *crtc, bool en,
-			struct sde_irq_callback *irq);
-	struct list_head list;
-};
-
 struct sde_crtc_custom_events {
 	u32 event;
 	int (*func)(struct drm_crtc *crtc, bool en,
@@ -70,7 +62,8 @@ static int sde_crtc_idle_interrupt_handler(struct drm_crtc *crtc_drm,
 static struct sde_crtc_custom_events custom_events[] = {
 	{DRM_EVENT_AD_BACKLIGHT, sde_cp_ad_interrupt},
 	{DRM_EVENT_CRTC_POWER, sde_crtc_power_interrupt_handler},
-	{DRM_EVENT_IDLE_NOTIFY, sde_crtc_idle_interrupt_handler}
+	{DRM_EVENT_IDLE_NOTIFY, sde_crtc_idle_interrupt_handler},
+	{DRM_EVENT_HISTOGRAM, sde_cp_hist_interrupt},
 };
 
 /* default input fence timeout, in ms */
@@ -3229,7 +3222,7 @@ static void sde_crtc_destroy_state(struct drm_crtc *crtc,
 static int _sde_crtc_wait_for_frame_done(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc;
-	int ret, rc = 0;
+	int ret, rc = 0, i;
 
 	if (!crtc) {
 		SDE_ERROR("invalid argument\n");
@@ -3242,7 +3235,17 @@ static int _sde_crtc_wait_for_frame_done(struct drm_crtc *crtc)
 		return 0;
 	}
 
-	SDE_EVT32_VERBOSE(DRMID(crtc), SDE_EVTLOG_FUNC_ENTRY);
+	SDE_EVT32(DRMID(crtc), SDE_EVTLOG_FUNC_ENTRY);
+
+	/*
+	 * flush all the event thread work to make sure all the
+	 * FRAME_EVENTS from encoder are propagated to crtc
+	 */
+	for (i = 0; i < ARRAY_SIZE(sde_crtc->frame_events); i++) {
+		if (list_empty(&sde_crtc->frame_events[i].list))
+			kthread_flush_work(&sde_crtc->frame_events[i].work);
+	}
+
 	ret = wait_for_completion_timeout(&sde_crtc->frame_done_comp,
 			msecs_to_jiffies(SDE_FRAME_DONE_TIMEOUT));
 	if (!ret) {
@@ -5471,6 +5474,8 @@ static int _sde_crtc_event_enable(struct sde_kms *kms,
 
 	if (!ret) {
 		spin_lock_irqsave(&crtc->spin_lock, flags);
+		/* irq is regiestered and enabled and set the state */
+		node->state = IRQ_ENABLED;
 		list_add_tail(&node->list, &crtc->user_event_list);
 		spin_unlock_irqrestore(&crtc->spin_lock, flags);
 	} else {
@@ -5494,7 +5499,6 @@ static int _sde_crtc_event_disable(struct sde_kms *kms,
 	spin_lock_irqsave(&crtc->spin_lock, flags);
 	list_for_each_entry(node, &crtc->user_event_list, list) {
 		if (node->event == event) {
-			list_del(&node->list);
 			found = true;
 			break;
 		}
@@ -5510,12 +5514,15 @@ static int _sde_crtc_event_disable(struct sde_kms *kms,
 	 * no need to disable/de-register.
 	 */
 	if (!crtc_drm->enabled) {
+		list_del(&node->list);
 		kfree(node);
 		return 0;
 	}
 	priv = kms->dev->dev_private;
 	sde_power_resource_enable(&priv->phandle, kms->core_client, true);
 	ret = node->func(crtc_drm, false, &node->irq);
+	list_del(&node->list);
+	kfree(node);
 	sde_power_resource_enable(&priv->phandle, kms->core_client, false);
 	return ret;
 }

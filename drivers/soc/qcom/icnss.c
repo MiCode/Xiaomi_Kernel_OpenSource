@@ -2636,7 +2636,10 @@ event_post:
 	clear_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state);
 
 	fw_down_data.crashed = event_data->crashed;
-	icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_DOWN, &fw_down_data);
+	if (test_bit(ICNSS_DRIVER_PROBED, &priv->state) &&
+	      !test_bit(ICNSS_PD_RESTART, &priv->state))
+		icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_DOWN,
+					 &fw_down_data);
 	icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
 				ICNSS_EVENT_SYNC, event_data);
 done:

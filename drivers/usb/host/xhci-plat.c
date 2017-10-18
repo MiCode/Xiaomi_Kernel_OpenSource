@@ -307,7 +307,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 
 	hcd_to_bus(xhci->shared_hcd)->skip_resume = true;
 
-	if (device_property_read_bool(sysdev, "usb3-lpm-capable"))
+	if (device_property_read_bool(&pdev->dev, "usb3-lpm-capable"))
 		xhci->quirks |= XHCI_LPM_SUPPORT;
 
 	if (device_property_read_bool(&pdev->dev, "quirk-broken-port-ped"))

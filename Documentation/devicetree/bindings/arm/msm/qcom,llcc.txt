@@ -31,6 +31,9 @@ Reports single and double bit errors in the data and tag ram of LLCC.
 4. LLCC AMON Driver:
 Keeps track of the data progress within the internal channels of LLCC.
 
+5. LLCC Performance Monitor
+Used to monitor the events of LLCC sub blocks.
+
 == llcc device ==
 
 Require Properties:
@@ -106,6 +109,10 @@ Example:
 		qcom,llcc-amon {
 			compatible = "qcom,llcc-amon";
 			qcom,fg-cnt = <0x7>;
+		};
+
+		qcom,llcc-perfmon {
+			compatible = "qcom,llcc-perfmon";
 		};
 	};
 
