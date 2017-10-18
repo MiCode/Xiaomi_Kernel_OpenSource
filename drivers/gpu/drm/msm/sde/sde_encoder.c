@@ -2642,7 +2642,7 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 				phys->split_role != ENC_ROLE_SKIP)
 			set_bit(i, sde_enc->frame_busy_mask);
 		if (phys->hw_ctl->ops.reg_dma_flush)
-			phys->hw_ctl->ops.reg_dma_flush(phys->hw_ctl);
+			phys->hw_ctl->ops.reg_dma_flush(phys->hw_ctl, false);
 		if (!phys->ops.needs_single_flush ||
 				!phys->ops.needs_single_flush(phys))
 			_sde_encoder_trigger_flush(&sde_enc->base, phys, 0x0);
