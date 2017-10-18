@@ -21,6 +21,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #include "sdm670-mtp.dtsi"
+#include "sdm670-external-codec.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS605 PM660 + PM660L Ext. Audio Codec MTP";
