@@ -465,12 +465,16 @@ static int dp_audio_info_setup(struct platform_device *pdev,
 		goto end;
 	}
 
+	mutex_lock(&audio->dp_audio.ops_lock);
+
 	audio->channels = params->num_of_channels;
 
 	dp_audio_setup_sdp(audio);
 	dp_audio_setup_acr(audio);
 	dp_audio_safe_to_exit_level(audio);
 	dp_audio_enable(audio, true);
+
+	mutex_unlock(&audio->dp_audio.ops_lock);
 end:
 	return rc;
 }
@@ -545,7 +549,9 @@ static void dp_audio_teardown_done(struct platform_device *pdev)
 	if (IS_ERR(audio))
 		return;
 
+	mutex_lock(&audio->dp_audio.ops_lock);
 	dp_audio_enable(audio, false);
+	mutex_unlock(&audio->dp_audio.ops_lock);
 
 	complete_all(&audio->hpd_comp);
 
@@ -756,6 +762,8 @@ struct dp_audio *dp_audio_get(struct platform_device *pdev,
 
 	dp_audio = &audio->dp_audio;
 
+	mutex_init(&dp_audio->ops_lock);
+
 	dp_audio->on  = dp_audio_on;
 	dp_audio->off = dp_audio_off;
 
@@ -780,6 +788,7 @@ void dp_audio_put(struct dp_audio *dp_audio)
 		return;
 
 	audio = container_of(dp_audio, struct dp_audio_private, dp_audio);
+	mutex_destroy(&dp_audio->ops_lock);
 
 	devm_kfree(&audio->pdev->dev, audio);
 }
