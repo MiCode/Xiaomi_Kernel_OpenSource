@@ -19,6 +19,7 @@
 #include <linux/clk.h>
 #include <linux/debugfs.h>
 #include <linux/delay.h>
+#include <linux/jiffies.h>
 #include <linux/gpio.h>
 #include <linux/iopoll.h>
 #include <linux/kernel.h>
@@ -146,6 +147,9 @@
 #define LINK_UP_TIMEOUT_US_MIN		    5000
 #define LINK_UP_TIMEOUT_US_MAX		    5100
 #define LINK_UP_CHECK_MAX_COUNT		   20
+#define EP_UP_TIMEOUT_US_MIN	1000
+#define EP_UP_TIMEOUT_US_MAX	1005
+#define EP_UP_TIMEOUT_US	1000000
 #define PHY_STABILIZATION_DELAY_US_MIN	  995
 #define PHY_STABILIZATION_DELAY_US_MAX	  1005
 #define POWER_DOWN_DELAY_US_MIN		10
@@ -3626,6 +3630,7 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	uint32_t val;
 	long int retries = 0;
 	int link_check_count = 0;
+	unsigned long ep_up_timeout = 0;
 
 	PCIE_DBG(dev, "RC%d: entry\n", dev->rc_idx);
 
@@ -3786,6 +3791,8 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 				1 - dev->gpio[MSM_PCIE_GPIO_PERST].on);
 	usleep_range(dev->perst_delay_us_min, dev->perst_delay_us_max);
 
+	ep_up_timeout = jiffies + usecs_to_jiffies(EP_UP_TIMEOUT_US);
+
 	/* setup Gen3 specific configurations */
 	if (dev->max_link_speed == GEN3_SPEED)
 		msm_pcie_setup_gen3(dev);
@@ -3825,6 +3832,11 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 		goto link_fail;
 	}
 
+	dev->link_status = MSM_PCIE_LINK_ENABLED;
+	dev->power_on = true;
+	dev->suspending = false;
+	dev->link_turned_on_counter++;
+
 	if (dev->switch_latency) {
 		PCIE_DBG(dev, "switch_latency: %dms\n",
 			dev->switch_latency);
@@ -3837,6 +3849,28 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 
 	msm_pcie_config_controller(dev);
 
+	/* check endpoint configuration space is accessible */
+	while (time_before(jiffies, ep_up_timeout)) {
+		if (readl_relaxed(dev->conf) != PCIE_LINK_DOWN)
+			break;
+		usleep_range(EP_UP_TIMEOUT_US_MIN, EP_UP_TIMEOUT_US_MAX);
+	}
+
+	if (readl_relaxed(dev->conf) != PCIE_LINK_DOWN) {
+		PCIE_DBG(dev,
+			"PCIe: RC%d: endpoint config space is accessible\n",
+			dev->rc_idx);
+	} else {
+		PCIE_ERR(dev,
+			"PCIe: RC%d: endpoint config space is not accessible\n",
+			dev->rc_idx);
+		dev->link_status = MSM_PCIE_LINK_DISABLED;
+		dev->power_on = false;
+		dev->link_turned_off_counter++;
+		ret = -ENODEV;
+		goto link_fail;
+	}
+
 	if (!dev->msi_gicm_addr)
 		msm_pcie_config_msi_controller(dev);
 
@@ -3844,11 +3878,6 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 
 	if (dev->enumerated)
 		pci_walk_bus(dev->dev->bus, &msm_pcie_config_device, dev);
-
-	dev->link_status = MSM_PCIE_LINK_ENABLED;
-	dev->power_on = true;
-	dev->suspending = false;
-	dev->link_turned_on_counter++;
 
 	goto out;
 
