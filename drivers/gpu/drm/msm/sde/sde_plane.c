@@ -34,14 +34,6 @@
 #include "sde_plane.h"
 #include "sde_color_processing.h"
 
-static bool suspend_blank = true;
-module_param(suspend_blank, bool, 0400);
-MODULE_PARM_DESC(suspend_blank,
-		"If set, active planes will force their outputs to black,\n"
-		"by temporarily enabling the color fill, when recovering\n"
-		"from a system resume instead of attempting to display the\n"
-		"last provided frame buffer.");
-
 #define SDE_DEBUG_PLANE(pl, fmt, ...) SDE_DEBUG("plane%d " fmt,\
 		(pl) ? (pl)->base.base.id : -1, ##__VA_ARGS__)
 
@@ -1752,10 +1744,6 @@ void sde_plane_flush(struct drm_plane *plane)
 					pp->pipe_hw->ops.setup_csc)
 			pp->pipe_hw->ops.setup_csc(pp->pipe_hw, pp->csc_ptr);
 	}
-
-	/* force black color fill during suspend */
-	if (msm_is_suspend_state(plane->dev) && suspend_blank)
-		_sde_plane_color_fill(pp, 0x0, 0x0);
 
 	/* flag h/w flush complete */
 	if (plane->state)
