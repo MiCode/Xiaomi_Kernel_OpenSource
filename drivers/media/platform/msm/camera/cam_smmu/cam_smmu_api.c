@@ -88,6 +88,12 @@ struct scratch_mapping {
 	dma_addr_t base;
 };
 
+struct secheap_buf_info {
+	struct dma_buf *buf;
+	struct dma_buf_attachment *attach;
+	struct sg_table *table;
+};
+
 struct cam_context_bank_info {
 	struct device *dev;
 	struct dma_iommu_mapping *mapping;
@@ -99,7 +105,9 @@ struct cam_context_bank_info {
 	uint8_t firmware_support;
 	uint8_t shared_support;
 	uint8_t io_support;
+	uint8_t secheap_support;
 	bool is_fw_allocated;
+	bool is_secheap_allocated;
 
 	struct scratch_mapping scratch_map;
 	struct gen_pool *shared_mem_pool;
@@ -108,6 +116,8 @@ struct cam_context_bank_info {
 	struct cam_smmu_region_info firmware_info;
 	struct cam_smmu_region_info shared_info;
 	struct cam_smmu_region_info io_info;
+	struct cam_smmu_region_info secheap_info;
+	struct secheap_buf_info secheap_buf;
 
 	struct list_head smmu_buf_list;
 	struct mutex lock;
@@ -1125,6 +1135,15 @@ int cam_smmu_get_region_info(int32_t smmu_hdl,
 		region_info->iova_start = cb->io_info.iova_start;
 		region_info->iova_len = cb->io_info.iova_len;
 		break;
+	case CAM_SMMU_REGION_SECHEAP:
+		if (!cb->secheap_support) {
+			CAM_ERR(CAM_SMMU, "Secondary heap not supported");
+			mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+			return -ENODEV;
+		}
+		region_info->iova_start = cb->secheap_info.iova_start;
+		region_info->iova_len = cb->secheap_info.iova_len;
+		break;
 	default:
 		CAM_ERR(CAM_SMMU, "Invalid region id: %d for smmu hdl: %X",
 			smmu_hdl, region_id);
@@ -1136,6 +1155,153 @@ int cam_smmu_get_region_info(int32_t smmu_hdl,
 	return 0;
 }
 EXPORT_SYMBOL(cam_smmu_get_region_info);
+
+int cam_smmu_reserve_sec_heap(int32_t smmu_hdl,
+	int ion_fd,
+	dma_addr_t *iova,
+	size_t *request_len)
+{
+	struct secheap_buf_info *secheap_buf = NULL;
+	size_t size = 0;
+	uint32_t sec_heap_iova = 0;
+	size_t sec_heap_iova_len = 0;
+	int idx;
+	int rc = 0;
+
+	idx = GET_SMMU_TABLE_IDX(smmu_hdl);
+	if (idx < 0 || idx >= iommu_cb_set.cb_num) {
+		CAM_ERR(CAM_SMMU,
+			"Error: handle or index invalid. idx = %d hdl = %x",
+			idx, smmu_hdl);
+		return -EINVAL;
+	}
+
+	if (!iommu_cb_set.cb_info[idx].secheap_support) {
+		CAM_ERR(CAM_SMMU, "Secondary heap not supported");
+		return -EINVAL;
+	}
+
+	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
+
+	if (iommu_cb_set.cb_info[idx].is_secheap_allocated) {
+		CAM_ERR(CAM_SMMU, "Trying to allocate secheap twice");
+		rc = -ENOMEM;
+		mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+		return rc;
+	}
+
+	secheap_buf = &iommu_cb_set.cb_info[idx].secheap_buf;
+	secheap_buf->buf = dma_buf_get(ion_fd);
+	if (IS_ERR_OR_NULL(secheap_buf->buf)) {
+		rc = PTR_ERR(secheap_buf->buf);
+		CAM_ERR(CAM_SMMU, "Error: dma get buf failed. fd = %d", ion_fd);
+		mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+		goto err_out;
+	}
+
+	secheap_buf->attach = dma_buf_attach(secheap_buf->buf,
+		iommu_cb_set.cb_info[idx].dev);
+	if (IS_ERR_OR_NULL(secheap_buf->attach)) {
+		rc = PTR_ERR(secheap_buf->attach);
+		CAM_ERR(CAM_SMMU, "Error: dma buf attach failed");
+		mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+		goto err_put;
+	}
+
+	secheap_buf->table = dma_buf_map_attachment(secheap_buf->attach,
+		DMA_BIDIRECTIONAL);
+	if (IS_ERR_OR_NULL(secheap_buf->table)) {
+		rc = PTR_ERR(secheap_buf->table);
+		CAM_ERR(CAM_SMMU, "Error: dma buf map attachment failed");
+		mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+		goto err_detach;
+	}
+
+	sec_heap_iova = iommu_cb_set.cb_info[idx].secheap_info.iova_start;
+	sec_heap_iova_len = iommu_cb_set.cb_info[idx].secheap_info.iova_len;
+	size = iommu_map_sg(iommu_cb_set.cb_info[idx].mapping->domain,
+		sec_heap_iova,
+		secheap_buf->table->sgl,
+		secheap_buf->table->nents,
+		IOMMU_READ | IOMMU_WRITE);
+	if (size != sec_heap_iova_len) {
+		CAM_ERR(CAM_SMMU, "IOMMU mapping failed");
+		mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+		goto err_unmap_sg;
+	}
+
+	iommu_cb_set.cb_info[idx].is_secheap_allocated = true;
+	*iova = (uint32_t)sec_heap_iova;
+	*request_len = sec_heap_iova_len;
+	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+
+	return rc;
+
+err_unmap_sg:
+	dma_buf_unmap_attachment(secheap_buf->attach,
+		secheap_buf->table,
+		DMA_BIDIRECTIONAL);
+err_detach:
+	dma_buf_detach(secheap_buf->buf,
+		secheap_buf->attach);
+err_put:
+	dma_buf_put(secheap_buf->buf);
+err_out:
+	return rc;
+}
+EXPORT_SYMBOL(cam_smmu_reserve_sec_heap);
+
+int cam_smmu_release_sec_heap(int32_t smmu_hdl)
+{
+	int idx;
+	size_t size = 0;
+	uint32_t sec_heap_iova = 0;
+	size_t sec_heap_iova_len = 0;
+	struct secheap_buf_info *secheap_buf = NULL;
+
+	idx = GET_SMMU_TABLE_IDX(smmu_hdl);
+	if (idx < 0 || idx >= iommu_cb_set.cb_num) {
+		CAM_ERR(CAM_SMMU,
+			"Error: handle or index invalid. idx = %d hdl = %x",
+			idx, smmu_hdl);
+		return -EINVAL;
+	}
+
+	if (!iommu_cb_set.cb_info[idx].secheap_support) {
+		CAM_ERR(CAM_SMMU, "Secondary heap not supported");
+		return -EINVAL;
+	}
+	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
+
+	if (!iommu_cb_set.cb_info[idx].is_secheap_allocated) {
+		CAM_ERR(CAM_SMMU, "Trying to release secheap twice");
+		mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+		return -ENOMEM;
+	}
+
+	secheap_buf = &iommu_cb_set.cb_info[idx].secheap_buf;
+	sec_heap_iova = iommu_cb_set.cb_info[idx].secheap_info.iova_start;
+	sec_heap_iova_len = iommu_cb_set.cb_info[idx].secheap_info.iova_len;
+
+	size = iommu_unmap(iommu_cb_set.cb_info[idx].mapping->domain,
+		sec_heap_iova,
+		sec_heap_iova_len);
+	if (size != sec_heap_iova_len) {
+		CAM_ERR(CAM_SMMU, "Failed: Unmapped = %zu, requested = %zu",
+			size,
+			sec_heap_iova_len);
+	}
+
+	dma_buf_unmap_attachment(secheap_buf->attach,
+		secheap_buf->table, DMA_BIDIRECTIONAL);
+	dma_buf_detach(secheap_buf->buf, secheap_buf->attach);
+	dma_buf_put(secheap_buf->buf);
+	iommu_cb_set.cb_info[idx].is_secheap_allocated = false;
+	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(cam_smmu_release_sec_heap);
 
 static int cam_smmu_map_buffer_and_add_to_list(int idx, int ion_fd,
 	 enum dma_data_direction dma_dir, dma_addr_t *paddr_ptr,
@@ -2373,6 +2539,7 @@ static int cam_smmu_setup_cb(struct cam_context_bank_info *cb,
 
 	cb->dev = dev;
 	cb->is_fw_allocated = false;
+	cb->is_secheap_allocated = false;
 
 	/* Create a pool with 4K granularity for supporting shared memory */
 	if (cb->shared_support) {
@@ -2573,6 +2740,11 @@ static int cam_smmu_get_memory_regions_info(struct device_node *of_node,
 			cb->io_support = 1;
 			cb->io_info.iova_start = region_start;
 			cb->io_info.iova_len = region_len;
+			break;
+		case CAM_SMMU_REGION_SECHEAP:
+			cb->secheap_support = 1;
+			cb->secheap_info.iova_start = region_start;
+			cb->secheap_info.iova_len = region_len;
 			break;
 		default:
 			CAM_ERR(CAM_SMMU,
