@@ -71,6 +71,197 @@
 		};
 	};
 
+	replicator_swao: replicator@6b0a000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b909>;
+
+		reg = <0x6b0a000 0x1000>;
+		reg-names = "replicator-base";
+
+		coresight-name = "coresight-replicator-swao";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				replicator_swao_in_tmc_etf_swao: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&tmc_etf_swao_out_replicator>;
+				};
+			};
+
+			port@1 {
+				reg = <0>;
+				replicator_swao_out_funnel_in2: endpoint {
+					remote-endpoint =
+					      <&funnel_in2_in_replicator_swao>;
+				};
+			};
+		};
+	};
+
+	tmc_etf_swao: tmc@6b09000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b961>;
+
+		reg = <0x6b09000 0x1000>;
+		reg-names = "tmc-base";
+
+		coresight-name = "coresight-tmc-etf-swao";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				tmc_etf_swao_out_replicator: endpoint {
+					remote-endpoint=
+					  <&replicator_swao_in_tmc_etf_swao>;
+				};
+			};
+
+			port@1 {
+				reg = <0>;
+				tmc_etf_swao_in_funnel_swao: endpoint {
+					slave-mode;
+					remote-endpoint=
+					  <&funnel_swao_out_tmc_etf_swao>;
+				};
+			};
+		};
+	};
+
+	funnel_swao:funnel@0x6b08000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b908>;
+
+		reg = <0x6b08000 0x1000>;
+		reg-names = "funnel-base";
+
+		coresight-name = "coresight-funnel-swao";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				funnel_swao_out_tmc_etf_swao: endpoint {
+					remote-endpoint =
+						<&tmc_etf_swao_in_funnel_swao>;
+				};
+			};
+
+			port@1 {
+				reg = <7>;
+				funnel_swao_in_tpda_swao: endpoint {
+					slave-mode;
+					remote-endpoint=
+						<&tpda_swao_out_funnel_swao>;
+				};
+			};
+		};
+	};
+
+	tpda_swao: tpda@6b01000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b969>;
+		reg = <0x6b01000 0x1000>;
+		reg-names = "tpda-base";
+
+		coresight-name = "coresight-tpda-swao";
+
+		qcom,tpda-atid = <71>;
+		qcom,dsb-elem-size = <1 32>;
+		qcom,cmb-elem-size = <0 64>;
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				tpda_swao_out_funnel_swao: endpoint {
+					remote-endpoint =
+						<&funnel_swao_in_tpda_swao>;
+				};
+			};
+
+			port@1 {
+				reg = <0>;
+				tpda_swao_in_tpdm_swao0: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&tpdm_swao0_out_tpda_swao>;
+				};
+			};
+
+			port@2 {
+				reg = <1>;
+				tpda_swao_in_tpdm_swao1: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&tpdm_swao1_out_tpda_swao>;
+				};
+			};
+		};
+	};
+
+	tpdm_swao0: tpdm@6b02000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b968>;
+
+		reg = <0x6b02000 0x1000>;
+		reg-names = "tpdm-base";
+
+		coresight-name = "coresight-tpdm-swao-0";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		port {
+			tpdm_swao0_out_tpda_swao: endpoint {
+			remote-endpoint = <&tpda_swao_in_tpdm_swao0>;
+			 };
+		};
+	};
+
+	tpdm_swao1: tpdm@6b03000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b968>;
+		reg = <0x6b03000 0x1000>;
+		reg-names = "tpdm-base";
+
+		coresight-name="coresight-tpdm-swao-1";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		qcom,msr-fix-req;
+
+		port {
+			tpdm_swao1_out_tpda_swao: endpoint {
+				remote-endpoint = <&tpda_swao_in_tpdm_swao1>;
+			};
+		};
+	};
+
 	tmc_etf: tmc@6047000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b961>;
@@ -322,6 +513,14 @@
 			};
 
 			port@2 {
+				reg = <1>;
+				funnel_in2_in_replicator_swao: endpoint {
+					slave-mode;
+					remote-endpoint =
+					  <&replicator_swao_out_funnel_in2>;
+				};
+			};
+			port@3 {
 				reg = <5>;
 				funnel_in2_in_funnel_apss_merg: endpoint {
 					slave-mode;
@@ -329,7 +528,6 @@
 					  <&funnel_apss_merg_out_funnel_in2>;
 				};
 			};
-
 		};
 	};
 
@@ -544,6 +742,8 @@
 
 		coresight-name = "coresight-tpdm-center";
 
+		qcom,msr-fix-req;
+
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
 
@@ -559,6 +759,8 @@
 		arm,primecell-periphid = <0x0003b968>;
 		reg = <0x6a24000 0x1000>;
 		reg-names = "tpdm-base";
+
+		qcom,msr-fix-req;
 
 		coresight-name = "coresight-tpdm-north";
 
@@ -644,6 +846,116 @@
 		};
 	};
 
+	tpda_llm_silver: tpda@78c0000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b969>;
+		reg = <0x78c0000 0x1000>;
+		reg-names = "tpda-base";
+
+		coresight-name = "coresight-tpda-llm-silver";
+
+		qcom,tpda-atid = <72>;
+		qcom,cmb-elem-size = <0 32>;
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				tpda_llm_silver_out_funnel_apss_merg: endpoint {
+				remote-endpoint =
+					<&funnel_apss_merg_in_tpda_llm_silver>;
+				};
+			};
+
+			port@1 {
+				reg = <0>;
+				tpda_llm_silver_in_tpdm_llm_silver: endpoint {
+				slave-mode;
+				remote-endpoint =
+					<&tpdm_llm_silver_out_tpda_llm_silver>;
+				};
+			};
+		};
+	};
+
+	tpdm_llm_silver: tpdm@78a0000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b968>;
+		reg = <0x78a0000 0x1000>;
+		reg-names = "tpdm-base";
+
+		coresight-name = "coresight-tpdm-llm-silver";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		port {
+			tpdm_llm_silver_out_tpda_llm_silver: endpoint {
+				remote-endpoint =
+					<&tpda_llm_silver_in_tpdm_llm_silver>;
+			};
+		};
+	};
+
+	tpda_llm_gold: tpda@78d0000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b969>;
+		reg = <0x78d0000 0x1000>;
+		reg-names = "tpda-base";
+
+		coresight-name = "coresight-tpda-llm-gold";
+
+		qcom,tpda-atid = <73>;
+		qcom,cmb-elem-size = <0 32>;
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				tpda_llm_gold_out_funnel_apss_merg: endpoint {
+					remote-endpoint =
+					  <&funnel_apss_merg_in_tpda_llm_gold>;
+				};
+			};
+
+			port@1 {
+				reg = <0>;
+				tpda_llm_gold_in_tpdm_llm_gold: endpoint {
+					slave-mode;
+					remote-endpoint =
+					  <&tpdm_llm_gold_out_tpda_llm_gold>;
+				};
+			};
+		};
+	};
+
+	tpdm_llm_gold: tpdm@78b0000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b968>;
+		reg = <0x78b0000 0x1000>;
+		reg-names = "tpdm-base";
+
+		coresight-name = "coresight-tpdm-llm-gold";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		port {
+			tpdm_llm_gold_out_tpda_llm_gold: endpoint {
+				remote-endpoint =
+				    <&tpda_llm_gold_in_tpdm_llm_gold>;
+			};
+		};
+	};
+
 	funnel_dl_mm: funnel@6c0b000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b908>;
@@ -686,6 +998,8 @@
 		reg-names = "tpdm-base";
 
 		coresight-name = "coresight-tpdm-mm";
+
+		qcom,msr-fix-req;
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -777,6 +1091,8 @@
 		reg-names = "tpdm-base";
 		status = "disabled";
 
+		qcom,msr-fix-req;
+
 		coresight-name = "coresight-tpdm-turing";
 
 		clocks = <&clock_aop QDSS_CLK>;
@@ -832,6 +1148,8 @@
 		reg-names = "tpdm-base";
 
 		coresight-name = "coresight-tpdm-ddr";
+
+		qcom,msr-fix-req;
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -1669,6 +1987,22 @@
 					slave-mode;
 					remote-endpoint =
 					    <&tpda_apss_out_funnel_apss_merg>;
+				};
+			};
+			port@4 {
+				reg = <5>;
+				funnel_apss_merg_in_tpda_llm_silver: endpoint {
+					slave-mode;
+					remote-endpoint =
+					<&tpda_llm_silver_out_funnel_apss_merg>;
+				};
+			};
+			port@5 {
+				reg = <6>;
+				funnel_apss_merg_in_tpda_llm_gold: endpoint {
+					slave-mode;
+					remote-endpoint =
+					  <&tpda_llm_gold_out_funnel_apss_merg>;
 				};
 			};
 		};
