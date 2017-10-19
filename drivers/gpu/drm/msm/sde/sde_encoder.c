@@ -506,11 +506,6 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 
 	SDE_EVT32(DRMID(drm_enc));
 
-	if (atomic_xchg(&sde_enc->frame_done_timeout, 0)) {
-		SDE_ERROR("enc%d timeout pending\n", drm_enc->base.id);
-		del_timer_sync(&sde_enc->frame_done_timer);
-	}
-
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
@@ -521,6 +516,12 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 			atomic_set(&phys->vsync_cnt, 0);
 			atomic_set(&phys->underrun_cnt, 0);
 		}
+	}
+
+	/* after phys waits for frame-done, should be no more frames pending */
+	if (atomic_xchg(&sde_enc->frame_done_timeout, 0)) {
+		SDE_ERROR("enc%d timeout pending\n", drm_enc->base.id);
+		del_timer_sync(&sde_enc->frame_done_timer);
 	}
 
 	if (sde_enc->cur_master && sde_enc->cur_master->ops.disable)
