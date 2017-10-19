@@ -1470,6 +1470,22 @@ int adreno_set_unsecured_mode(struct adreno_device *adreno_dev,
 	return ret;
 }
 
+static void adreno_set_active_ctxs_null(struct adreno_device *adreno_dev)
+{
+	int i;
+	struct adreno_ringbuffer *rb;
+
+	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
+		if (rb->drawctxt_active)
+			kgsl_context_put(&(rb->drawctxt_active->base));
+		rb->drawctxt_active = NULL;
+
+		kgsl_sharedmem_writel(KGSL_DEVICE(adreno_dev),
+			&rb->pagetable_desc, PT_INFO_OFFSET(current_rb_ptname),
+			0);
+	}
+}
+
 /**
  * _adreno_start - Power up the GPU and prepare to accept commands
  * @adreno_dev: Pointer to an adreno_device structure
@@ -1506,6 +1522,9 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	status = kgsl_pwrctrl_change_state(device, KGSL_STATE_AWARE);
 	if (status)
 		goto error_pwr_off;
+
+	/* Set any stale active contexts to NULL */
+	adreno_set_active_ctxs_null(adreno_dev);
 
 	/* Set the bit to indicate that we've just powered on */
 	set_bit(ADRENO_DEVICE_PWRON, &adreno_dev->priv);
@@ -1689,22 +1708,6 @@ int adreno_start(struct kgsl_device *device, int priority)
 		set_user_nice(current, nice);
 
 	return ret;
-}
-
-static void adreno_set_active_ctxs_null(struct adreno_device *adreno_dev)
-{
-	int i;
-	struct adreno_ringbuffer *rb;
-
-	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
-		if (rb->drawctxt_active)
-			kgsl_context_put(&(rb->drawctxt_active->base));
-		rb->drawctxt_active = NULL;
-
-		kgsl_sharedmem_writel(KGSL_DEVICE(adreno_dev),
-			&rb->pagetable_desc, PT_INFO_OFFSET(current_rb_ptname),
-			0);
-	}
 }
 
 static int adreno_stop(struct kgsl_device *device)
