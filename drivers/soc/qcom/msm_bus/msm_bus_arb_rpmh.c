@@ -417,6 +417,7 @@ static int getpath(struct device *src_dev, int dest, const char *cl_name)
 
 	while ((!found && !list_empty(&traverse_list))) {
 		struct msm_bus_node_device_type *bus_node = NULL;
+		unsigned int i;
 		/* Locate dest_id in the traverse list */
 		list_for_each_entry(bus_node, &traverse_list, link) {
 			if (bus_node->node_info->id == dest) {
@@ -425,7 +426,6 @@ static int getpath(struct device *src_dev, int dest, const char *cl_name)
 			}
 		}
 
-		unsigned int i;
 		/* Setup the new edge list */
 		list_for_each_entry(bus_node, &traverse_list, link) {
 			/* Setup list of black-listed nodes */
