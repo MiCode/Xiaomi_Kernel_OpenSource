@@ -21,6 +21,7 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/sched/topology.h>
+#include <linux/cpuset.h>
 
 DEFINE_PER_CPU(unsigned long, freq_scale) = SCHED_CAPACITY_SCALE;
 
@@ -53,6 +54,9 @@ static ssize_t cpu_capacity_show(struct device *dev,
 	return sprintf(buf, "%lu\n", topology_get_cpu_scale(NULL, cpu->dev.id));
 }
 
+static void update_topology_flags_workfn(struct work_struct *work);
+static DECLARE_WORK(update_topology_flags_work, update_topology_flags_workfn);
+
 static ssize_t cpu_capacity_store(struct device *dev,
 				  struct device_attribute *attr,
 				  const char *buf,
@@ -78,6 +82,9 @@ static ssize_t cpu_capacity_store(struct device *dev,
 		topology_set_cpu_scale(i, new_capacity);
 	mutex_unlock(&cpu_scale_mutex);
 
+	if (topology_detect_flags())
+		schedule_work(&update_topology_flags_work);
+
 	return count;
 }
 
@@ -101,6 +108,113 @@ static int register_cpu_capacity_sysctl(void)
 	return 0;
 }
 subsys_initcall(register_cpu_capacity_sysctl);
+
+enum asym_cpucap_type { no_asym, asym_thread, asym_core, asym_die };
+static enum asym_cpucap_type asym_cpucap = no_asym;
+
+/*
+ * Walk cpu topology to determine sched_domain flags.
+ *
+ * SD_ASYM_CPUCAPACITY: Indicates the lowest level that spans all cpu
+ * capacities found in the system for all cpus, i.e. the flag is set
+ * at the same level for all systems. The current algorithm implements
+ * this by looking for higher capacities, which doesn't work for all
+ * conceivable topology, but don't complicate things until it is
+ * necessary.
+ */
+int topology_detect_flags(void)
+{
+	unsigned long max_capacity, capacity;
+	enum asym_cpucap_type asym_level = no_asym;
+	int cpu, die_cpu, core, thread, flags_changed = 0;
+
+	for_each_possible_cpu(cpu) {
+		max_capacity = 0;
+
+		if (asym_level >= asym_thread)
+			goto check_core;
+
+		for_each_cpu(thread, topology_sibling_cpumask(cpu)) {
+			capacity = topology_get_cpu_scale(NULL, thread);
+
+			if (capacity > max_capacity) {
+				if (max_capacity != 0)
+					asym_level = asym_thread;
+
+				max_capacity = capacity;
+			}
+		}
+
+check_core:
+		if (asym_level >= asym_core)
+			goto check_die;
+
+		for_each_cpu(core, topology_core_cpumask(cpu)) {
+			capacity = topology_get_cpu_scale(NULL, core);
+
+			if (capacity > max_capacity) {
+				if (max_capacity != 0)
+					asym_level = asym_core;
+
+				max_capacity = capacity;
+			}
+		}
+check_die:
+		for_each_possible_cpu(die_cpu) {
+			capacity = topology_get_cpu_scale(NULL, die_cpu);
+
+			if (capacity > max_capacity) {
+				if (max_capacity != 0) {
+					asym_level = asym_die;
+					goto done;
+				}
+			}
+		}
+	}
+
+done:
+	if (asym_cpucap != asym_level) {
+		asym_cpucap = asym_level;
+		flags_changed = 1;
+		pr_debug("topology flag change detected\n");
+	}
+
+	return flags_changed;
+}
+
+int topology_smt_flags(void)
+{
+	return asym_cpucap == asym_thread ? SD_ASYM_CPUCAPACITY : 0;
+}
+
+int topology_core_flags(void)
+{
+	return asym_cpucap == asym_core ? SD_ASYM_CPUCAPACITY : 0;
+}
+
+int topology_cpu_flags(void)
+{
+	return asym_cpucap == asym_die ? SD_ASYM_CPUCAPACITY : 0;
+}
+
+static int update_topology = 0;
+
+int topology_update_cpu_topology(void)
+{
+	return update_topology;
+}
+
+/*
+ * Updating the sched_domains can't be done directly from cpufreq callbacks
+ * due to locking, so queue the work for later.
+ */
+static void update_topology_flags_workfn(struct work_struct *work)
+{
+	update_topology = 1;
+	rebuild_sched_domains();
+	pr_debug("sched_domain hierarchy rebuilt, flags updated\n");
+	update_topology = 0;
+}
 
 static u32 capacity_scale;
 static u32 *raw_capacity;
@@ -207,6 +321,8 @@ init_cpu_capacity_callback(struct notifier_block *nb,
 
 	if (cpumask_empty(cpus_to_visit)) {
 		topology_normalize_cpu_scale();
+		if (topology_detect_flags())
+			schedule_work(&update_topology_flags_work);
 		free_raw_capacity();
 		pr_debug("cpu_capacity: parsing done\n");
 		schedule_work(&parsing_done_work);
