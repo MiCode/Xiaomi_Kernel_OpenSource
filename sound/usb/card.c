@@ -316,6 +316,7 @@ static int snd_usb_create_streams(struct snd_usb_audio *chip, int ctrlif)
 	case UAC_VERSION_1: {
 		void *control_header;
 		struct uac1_ac_header_descriptor *h1;
+		int rest_bytes;
 
 		control_header = snd_usb_find_csint_desc(host_iface->extra,
 					host_iface->extralen, NULL, UAC_HEADER);
@@ -324,9 +325,29 @@ static int snd_usb_create_streams(struct snd_usb_audio *chip, int ctrlif)
 			return -EINVAL;
 		}
 
+		rest_bytes = (void *)(host_iface->extra + host_iface->extralen) -
+			control_header;
+
+		/* just to be sure -- this shouldn't hit at all */
+		if (rest_bytes <= 0) {
+			dev_err(&dev->dev, "invalid control header\n");
+			return -EINVAL;
+		}
+
 		h1 = control_header;
+
+		if (rest_bytes < sizeof(*h1)) {
+			dev_err(&dev->dev, "too short v1 buffer descriptor\n");
+			return -EINVAL;
+		}
+
 		if (!h1->bInCollection) {
 			dev_info(&dev->dev, "skipping empty audio interface (v1)\n");
+			return -EINVAL;
+		}
+
+		if (rest_bytes < h1->bLength) {
+			dev_err(&dev->dev, "invalid buffer length (v1)\n");
 			return -EINVAL;
 		}
 
