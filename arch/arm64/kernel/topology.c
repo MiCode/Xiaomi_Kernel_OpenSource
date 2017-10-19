@@ -280,7 +280,38 @@ void store_cpu_topology(unsigned int cpuid)
 
 topology_populated:
 	update_siblings_masks(cpuid);
+	topology_detect_flags();
 }
+
+#ifdef CONFIG_SCHED_SMT
+static int smt_flags(void)
+{
+	return cpu_smt_flags() | topology_smt_flags();
+}
+#endif
+
+#ifdef CONFIG_SCHED_MC
+static int core_flags(void)
+{
+	return cpu_core_flags() | topology_core_flags();
+}
+#endif
+
+static int cpu_flags(void)
+{
+	return topology_cpu_flags();
+}
+
+static struct sched_domain_topology_level arm64_topology[] = {
+#ifdef CONFIG_SCHED_SMT
+	{ cpu_smt_mask, smt_flags, SD_INIT_NAME(SMT) },
+#endif
+#ifdef CONFIG_SCHED_MC
+	{ cpu_coregroup_mask, core_flags, SD_INIT_NAME(MC) },
+#endif
+	{ cpu_cpu_mask, cpu_flags, SD_INIT_NAME(DIE) },
+	{ NULL, }
+};
 
 static void __init reset_cpu_topology(void)
 {
@@ -310,4 +341,6 @@ void __init init_cpu_topology(void)
 	 */
 	if (of_have_populated_dt() && parse_dt_topology())
 		reset_cpu_topology();
+	else
+		set_sched_topology(arm64_topology);
 }
