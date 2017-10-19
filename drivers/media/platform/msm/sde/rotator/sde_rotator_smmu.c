@@ -36,6 +36,14 @@
 #define SMMU_SDE_ROT_SEC	"qcom,smmu_sde_rot_sec"
 #define SMMU_SDE_ROT_UNSEC	"qcom,smmu_sde_rot_unsec"
 
+#ifndef SZ_4G
+#define SZ_4G	(((size_t) SZ_1G) * 4)
+#endif
+
+#ifndef SZ_2G
+#define SZ_2G	(((size_t) SZ_1G) * 2)
+#endif
+
 struct sde_smmu_domain {
 	char *ctx_name;
 	int domain;
@@ -487,9 +495,9 @@ static int sde_smmu_fault_handler(struct iommu_domain *domain,
 }
 
 static struct sde_smmu_domain sde_rot_unsec = {
-	"rot_0", SDE_IOMMU_DOMAIN_ROT_UNSECURE, SZ_128K, (SZ_1G - SZ_128K)};
+	"rot_0", SDE_IOMMU_DOMAIN_ROT_UNSECURE, SZ_2G, (SZ_4G - SZ_2G)};
 static struct sde_smmu_domain sde_rot_sec = {
-	"rot_1", SDE_IOMMU_DOMAIN_ROT_SECURE, SZ_1G, SZ_2G};
+	"rot_1", SDE_IOMMU_DOMAIN_ROT_SECURE, SZ_2G, (SZ_4G - SZ_2G)};
 
 static const struct of_device_id sde_smmu_dt_match[] = {
 	{ .compatible = SMMU_SDE_ROT_UNSEC, .data = &sde_rot_unsec},
