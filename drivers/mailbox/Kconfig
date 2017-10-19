@@ -178,4 +178,11 @@ config QTI_RPMH_MBOX
 	  Support for communication with the hardened-RPM blocks in
 	  Qualcomm Technologies Inc (QTI) SoCs using TCS hardware mailbox.
 
+config MSM_QMP
+         bool "QTI Mailbox Protocol(QMP)"
+         help
+           QMP is a lightweight communication protocol for sending messages to
+           a remote processor. This protocol fits into the Generic Mailbox
+           Framework. QMP uses a mailbox located in shared memory.
+
 endif
