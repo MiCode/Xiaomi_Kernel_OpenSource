@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015,2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,7 @@ enum mhi_dev_event {
 };
 
 int mhi_dev_sm_init(struct mhi_dev *dev);
+int mhi_dev_sm_exit(struct mhi_dev *dev);
 int mhi_dev_sm_set_ready(void);
 int mhi_dev_notify_sm_event(enum mhi_dev_event event);
 int mhi_dev_sm_get_mhi_state(enum mhi_dev_state *state);
