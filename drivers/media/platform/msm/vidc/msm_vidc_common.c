@@ -5293,6 +5293,8 @@ int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 		return -EINVAL;
 	}
 	hdev = core->device;
+
+	mutex_lock(&core->lock);
 	if (core->state == VIDC_CORE_INIT_DONE) {
 		/*
 		 * In current implementation user-initiated SSR triggers
@@ -5308,7 +5310,11 @@ int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 				__func__);
 			core->trigger_ssr = false;
 		}
+	} else {
+		dprintk(VIDC_WARN, "%s: video core %pK not initialized\n",
+			__func__, core);
 	}
+	mutex_unlock(&core->lock);
 
 	return rc;
 }
