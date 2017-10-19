@@ -22,6 +22,8 @@
 #include <linux/syscore_ops.h>
 
 #include <trace/events/sched.h>
+#include "sched.h"
+#include "walt.h"
 
 #define MAX_CPUS_PER_CLUSTER 6
 #define MAX_CLUSTERS 2
@@ -555,10 +557,16 @@ static bool eval_need(struct cluster_data *cluster)
 		cluster->active_cpus = get_active_cpu_count(cluster);
 		thres_idx = cluster->active_cpus ? cluster->active_cpus - 1 : 0;
 		list_for_each_entry(c, &cluster->lru, sib) {
-			if (c->busy >= cluster->busy_up_thres[thres_idx])
+			bool old_is_busy = c->is_busy;
+
+			if (c->busy >= cluster->busy_up_thres[thres_idx] ||
+			    sched_cpu_high_irqload(c->cpu))
 				c->is_busy = true;
 			else if (c->busy < cluster->busy_down_thres[thres_idx])
 				c->is_busy = false;
+
+			trace_core_ctl_set_busy(c->cpu, c->busy, old_is_busy,
+						c->is_busy);
 			need_cpus += c->is_busy;
 		}
 		need_cpus = apply_task_need(cluster, need_cpus);
@@ -597,17 +605,6 @@ static void apply_need(struct cluster_data *cluster)
 {
 	if (eval_need(cluster))
 		wake_up_core_ctl_thread(cluster);
-}
-
-static void core_ctl_set_busy(struct cpu_data *c, unsigned int busy)
-{
-	unsigned int old_is_busy = c->is_busy;
-
-	if (c->busy == busy)
-		return;
-
-	c->busy = busy;
-	trace_core_ctl_set_busy(c->cpu, busy, old_is_busy, c->is_busy);
 }
 
 /* ========================= core count enforcement ==================== */
@@ -668,7 +665,6 @@ EXPORT_SYMBOL(core_ctl_set_boost);
 void core_ctl_check(u64 window_start)
 {
 	int cpu;
-	unsigned int busy;
 	struct cpu_data *c;
 	struct cluster_data *cluster;
 	unsigned int index = 0;
@@ -689,8 +685,7 @@ void core_ctl_check(u64 window_start)
 		if (!cluster || !cluster->inited)
 			continue;
 
-		busy = sched_get_cpu_util(cpu);
-		core_ctl_set_busy(c, busy);
+		c->busy = sched_get_cpu_util(cpu);
 	}
 
 	update_running_avg();
