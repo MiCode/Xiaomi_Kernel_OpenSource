@@ -98,12 +98,34 @@ uint32_t cam_sync_util_get_group_object_state(struct sync_table_row *table,
 	return CAM_SYNC_STATE_SIGNALED_ERROR;
 }
 
+static int cam_sync_util_get_group_object_remaining_count(
+	struct sync_table_row *table,
+	uint32_t *sync_objs,
+	uint32_t num_objs)
+{
+	int i;
+	struct sync_table_row *child_row = NULL;
+	int remaining_count = 0;
+
+	if (!table || !sync_objs)
+		return -EINVAL;
+
+	for (i = 0; i < num_objs; i++) {
+		child_row = table + sync_objs[i];
+		if (child_row->state == CAM_SYNC_STATE_ACTIVE)
+			remaining_count++;
+	}
+
+	return remaining_count;
+}
+
 int cam_sync_init_group_object(struct sync_table_row *table,
 	uint32_t idx,
 	uint32_t *sync_objs,
 	uint32_t num_objs)
 {
 	int i;
+	int remaining;
 	struct sync_child_info *child_info;
 	struct sync_parent_info *parent_info;
 	struct sync_table_row *row = table + idx;
@@ -156,7 +178,16 @@ int cam_sync_init_group_object(struct sync_table_row *table,
 	row->sync_id = idx;
 	row->state = cam_sync_util_get_group_object_state(table,
 		sync_objs, num_objs);
-	row->remaining = num_objs;
+	remaining = cam_sync_util_get_group_object_remaining_count(table,
+		sync_objs, num_objs);
+	if (remaining < 0) {
+		CAM_ERR(CAM_SYNC, "Failed getting remaining count");
+		spin_unlock_bh(&sync_dev->row_spinlocks[idx]);
+		return -ENODEV;
+	}
+
+	row->remaining = remaining;
+
 	init_completion(&row->signaled);
 	INIT_LIST_HEAD(&row->callback_list);
 	INIT_LIST_HEAD(&row->user_payload_list);
