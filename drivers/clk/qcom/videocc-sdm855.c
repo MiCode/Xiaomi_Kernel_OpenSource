@@ -100,8 +100,8 @@ static const struct freq_tbl ftbl_video_cc_iris_clk_src[] = {
 	F(225000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
 	F(300000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
 	F(365000000, P_VIDEO_PLL0_OUT_MAIN, 3, 0, 0),
-	F(444000000, P_VIDEO_PLL0_OUT_MAIN, 3, 0, 0),
-	F(533000000, P_VIDEO_PLL0_OUT_MAIN, 3, 0, 0),
+	F(432000000, P_VIDEO_PLL0_OUT_MAIN, 3, 0, 0),
+	F(480000000, P_VIDEO_PLL0_OUT_MAIN, 3, 0, 0),
 	{ }
 };
 
@@ -125,8 +125,8 @@ static struct clk_rcg2 video_cc_iris_clk_src = {
 			[VDD_LOWER] = 225000000,
 			[VDD_LOW] = 300000000,
 			[VDD_LOW_L1] = 365000000,
-			[VDD_NOMINAL] = 444000000,
-			[VDD_HIGH] = 533000000},
+			[VDD_NOMINAL] = 432000000,
+			[VDD_HIGH] = 480000000},
 	},
 };
 

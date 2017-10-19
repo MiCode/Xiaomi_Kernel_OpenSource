@@ -58,6 +58,7 @@ enum {
 	P_GPLL4_OUT_MAIN,
 	P_GPLL5_OUT_MAIN,
 	P_GPLL7_OUT_MAIN,
+	P_GPLL9_OUT_MAIN,
 	P_SLEEP_CLK,
 };
 
@@ -188,6 +189,7 @@ static const char * const gcc_parent_names_7[] = {
 static const struct parent_map gcc_parent_map_8[] = {
 	{ P_BI_TCXO, 0 },
 	{ P_GPLL0_OUT_MAIN, 1 },
+	{ P_GPLL9_OUT_MAIN, 2 },
 	{ P_GPLL4_OUT_MAIN, 5 },
 	{ P_GPLL0_OUT_EVEN, 6 },
 	{ P_CORE_BI_PLL_TEST_SE, 7 },
@@ -196,6 +198,7 @@ static const struct parent_map gcc_parent_map_8[] = {
 static const char * const gcc_parent_names_8[] = {
 	"bi_tcxo",
 	"gpll0",
+	"gpll9",
 	"gpll4",
 	"gpll0_out_even",
 	"core_bi_pll_test_se",
@@ -1165,7 +1168,7 @@ static const struct freq_tbl ftbl_gcc_sdcc2_apps_clk_src[] = {
 	F(25000000, P_GPLL0_OUT_MAIN, 12, 1, 2),
 	F(50000000, P_GPLL0_OUT_MAIN, 12, 0, 0),
 	F(100000000, P_GPLL0_OUT_MAIN, 6, 0, 0),
-	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
+	F(201500000, P_GPLL4_OUT_MAIN, 4, 0, 0),
 	{ }
 };
 
@@ -1178,16 +1181,15 @@ static struct clk_rcg2 gcc_sdcc2_apps_clk_src = {
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_sdcc2_apps_clk_src",
 		.parent_names = gcc_parent_names_8,
-		.num_parents = 5,
+		.num_parents = 6,
 		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 9600000,
-			[VDD_LOWER] = 19200000,
+			[VDD_MIN] = 19200000,
 			[VDD_LOW] = 100000000,
-			[VDD_LOW_L1] = 200000000},
+			[VDD_LOW_L1] = 201600000},
 	},
 };
 
@@ -1216,10 +1218,9 @@ static struct clk_rcg2 gcc_sdcc4_apps_clk_src = {
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 9600000,
-			[VDD_LOWER] = 19200000,
+			[VDD_MIN] = 19200000,
 			[VDD_LOW] = 50000000,
-			[VDD_NOMINAL] = 100000000},
+			[VDD_LOW_L1] = 100000000},
 	},
 };
 
