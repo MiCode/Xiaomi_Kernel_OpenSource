@@ -202,6 +202,7 @@ struct sde_kms {
 
 	struct sde_hw_intr *hw_intr;
 	struct sde_irq irq_obj;
+	int irq_num;	/* mdss irq number */
 
 	struct sde_core_perf perf;
 

@@ -23,7 +23,6 @@ static uint32_t g_sde_irq_status;
 
 void sde_irq_update(struct msm_kms *msm_kms, bool enable)
 {
-	int irq_num;
 	struct sde_kms *sde_kms = to_sde_kms(msm_kms);
 
 	if (!msm_kms || !sde_kms) {
@@ -31,16 +30,10 @@ void sde_irq_update(struct msm_kms *msm_kms, bool enable)
 		return;
 	}
 
-	irq_num = platform_get_irq(sde_kms->dev->platformdev, 0);
-	if (irq_num < 0) {
-		SDE_ERROR("invalid irq number\n");
-		return;
-	}
-
 	if (enable)
-		enable_irq(irq_num);
+		enable_irq(sde_kms->irq_num);
 	else
-		disable_irq(irq_num);
+		disable_irq(sde_kms->irq_num);
 }
 
 irqreturn_t sde_irq(struct msm_kms *kms)
@@ -103,6 +96,15 @@ void sde_irq_preinstall(struct msm_kms *kms)
 	}
 
 	sde_core_irq_preinstall(sde_kms);
+
+	sde_kms->irq_num = platform_get_irq(sde_kms->dev->platformdev, 0);
+	if (sde_kms->irq_num < 0) {
+		SDE_ERROR("invalid irq number %d\n", sde_kms->irq_num);
+		return;
+	}
+
+	/* disable irq until power event enables it */
+	irq_set_status_flags(sde_kms->irq_num, IRQ_NOAUTOEN);
 }
 
 int sde_irq_postinstall(struct msm_kms *kms)
