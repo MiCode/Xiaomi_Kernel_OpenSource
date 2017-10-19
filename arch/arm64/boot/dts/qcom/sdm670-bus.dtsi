@@ -713,10 +713,10 @@
 				&slv_qhs_ipa &slv_qhs_cpr_cx
 				&slv_qhs_a1_noc_cfg &slv_qhs_aoss
 				&slv_qhs_prng &slv_qhs_vsense_ctrl_cfg
-				&slv_qhs_qupv3_south &slv_qhs_spdm
-				&slv_qhs_crypto0_cfg &slv_qhs_pimem_cfg
-				&slv_qhs_tlmm_north &slv_qhs_clk_ctl
-				&slv_qhs_imem_cfg>;
+				&slv_qhs_emmc_cfg &slv_qhs_qupv3_south
+				&slv_qhs_spdm &slv_qhs_crypto0_cfg
+				&slv_qhs_pimem_cfg &slv_qhs_tlmm_north
+				&slv_qhs_clk_ctl &slv_qhs_imem_cfg>;
 			qcom,bus-dev = <&fab_config_noc>;
 			qcom,bcms = <&bcm_cn0>;
 		};
@@ -741,10 +741,11 @@
 				&slv_qhs_usb3_0 &slv_qhs_ipa
 				&slv_qhs_cpr_cx &slv_qhs_a1_noc_cfg
 				&slv_qhs_aoss &slv_qhs_prng
-				&slv_qhs_vsense_ctrl_cfg &slv_qhs_qupv3_south
-				&slv_qhs_spdm &slv_qhs_crypto0_cfg
-				&slv_qhs_pimem_cfg &slv_qhs_tlmm_north
-				&slv_qhs_clk_ctl &slv_qhs_imem_cfg>;
+				&slv_qhs_vsense_ctrl_cfg &slv_qhs_emmc_cfg
+				&slv_qhs_qupv3_south &slv_qhs_spdm
+				&slv_qhs_crypto0_cfg &slv_qhs_pimem_cfg
+				&slv_qhs_tlmm_north &slv_qhs_clk_ctl
+				&slv_qhs_imem_cfg>;
 			qcom,bus-dev = <&fab_config_noc>;
 			qcom,bcms = <&bcm_cn0>;
 		};
@@ -1373,6 +1374,15 @@
 		slv_qhs_display_cfg:slv-qhs-display-cfg {
 			cell-id = <MSM_BUS_SLAVE_DISPLAY_CFG>;
 			label = "slv-qhs-display-cfg";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,bcms = <&bcm_cn0>;
+		};
+
+		slv_qhs_emmc_cfg:slv-qhs-emmc-cfg {
+			cell-id = <MSM_BUS_SLAVE_EMMC_CFG>;
+			label = "slv-qhs-emmc-cfg";
 			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
 			qcom,bus-dev = <&fab_config_noc>;
