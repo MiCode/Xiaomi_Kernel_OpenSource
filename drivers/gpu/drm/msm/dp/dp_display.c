@@ -277,7 +277,6 @@ static void dp_display_deinitialize_hdcp(struct dp_display_private *dp)
 static int dp_display_initialize_hdcp(struct dp_display_private *dp)
 {
 	struct sde_hdcp_init_data hdcp_init_data;
-	struct resource *res;
 	int rc = 0;
 
 	if (!dp) {
@@ -293,15 +292,6 @@ static int dp_display_initialize_hdcp(struct dp_display_private *dp)
 		goto error;
 	}
 
-	res = platform_get_resource_byname(dp->pdev,
-		IORESOURCE_MEM, "dp_ctrl");
-	if (!res) {
-		pr_err("Error getting dp ctrl resource\n");
-		rc = -EINVAL;
-		goto error;
-	}
-
-	hdcp_init_data.phy_addr      = res->start;
 	hdcp_init_data.client_id     = HDCP_CLIENT_DP;
 	hdcp_init_data.drm_aux       = dp->aux->drm_aux;
 	hdcp_init_data.cb_data       = (void *)dp;
@@ -310,6 +300,10 @@ static int dp_display_initialize_hdcp(struct dp_display_private *dp)
 	hdcp_init_data.sec_access    = true;
 	hdcp_init_data.notify_status = dp_display_notify_hdcp_status_cb;
 	hdcp_init_data.core_io       = &dp->parser->io.ctrl_io;
+	hdcp_init_data.dp_ahb        = &dp->parser->io.dp_ahb;
+	hdcp_init_data.dp_aux        = &dp->parser->io.dp_aux;
+	hdcp_init_data.dp_link       = &dp->parser->io.dp_link;
+	hdcp_init_data.dp_p0         = &dp->parser->io.dp_p0;
 	hdcp_init_data.qfprom_io     = &dp->parser->io.qfprom_io;
 	hdcp_init_data.hdcp_io       = &dp->parser->io.hdcp_io;
 	hdcp_init_data.revision      = &dp->panel->link_info.revision;

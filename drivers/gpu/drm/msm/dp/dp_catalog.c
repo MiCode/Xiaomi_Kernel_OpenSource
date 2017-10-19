@@ -84,7 +84,7 @@ static u32 dp_catalog_aux_read_data(struct dp_catalog_aux *aux)
 	}
 
 	dp_catalog_get_priv(aux);
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_aux.base;
 
 	return dp_read(base + DP_AUX_DATA);
 end:
@@ -104,7 +104,7 @@ static int dp_catalog_aux_write_data(struct dp_catalog_aux *aux)
 	}
 
 	dp_catalog_get_priv(aux);
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_aux.base;
 
 	dp_write(base + DP_AUX_DATA, aux->data);
 end:
@@ -124,7 +124,7 @@ static int dp_catalog_aux_write_trans(struct dp_catalog_aux *aux)
 	}
 
 	dp_catalog_get_priv(aux);
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_aux.base;
 
 	dp_write(base + DP_AUX_TRANS_CTRL, aux->data);
 end:
@@ -145,7 +145,7 @@ static int dp_catalog_aux_clear_trans(struct dp_catalog_aux *aux, bool read)
 	}
 
 	dp_catalog_get_priv(aux);
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_aux.base;
 
 	if (read) {
 		data = dp_read(base + DP_AUX_TRANS_CTRL);
@@ -195,7 +195,7 @@ static void dp_catalog_aux_reset(struct dp_catalog_aux *aux)
 	}
 
 	dp_catalog_get_priv(aux);
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_aux.base;
 
 	aux_ctrl = dp_read(base + DP_AUX_CTRL);
 
@@ -220,7 +220,7 @@ static void dp_catalog_aux_enable(struct dp_catalog_aux *aux, bool enable)
 	}
 
 	dp_catalog_get_priv(aux);
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_aux.base;
 
 	aux_ctrl = dp_read(base + DP_AUX_CTRL);
 
@@ -297,7 +297,7 @@ static void dp_catalog_aux_get_irq(struct dp_catalog_aux *aux, bool cmd_busy)
 {
 	u32 ack;
 	struct dp_catalog_private *catalog;
-	void __iomem *base;
+	void __iomem *ahb_base;
 
 	if (!aux) {
 		pr_err("invalid input\n");
@@ -305,14 +305,14 @@ static void dp_catalog_aux_get_irq(struct dp_catalog_aux *aux, bool cmd_busy)
 	}
 
 	dp_catalog_get_priv(aux);
-	base = catalog->io->ctrl_io.base;
+	ahb_base = catalog->io->dp_ahb.base;
 
-	aux->isr = dp_read(base + DP_INTR_STATUS);
+	aux->isr = dp_read(ahb_base + DP_INTR_STATUS);
 	aux->isr &= ~DP_INTR_MASK1;
 	ack = aux->isr & DP_INTERRUPT_STATUS1;
 	ack <<= 1;
 	ack |= DP_INTR_MASK1;
-	dp_write(base + DP_INTR_STATUS, ack);
+	dp_write(ahb_base + DP_INTR_STATUS, ack);
 }
 
 /* controller related catalog functions */
@@ -327,7 +327,7 @@ static u32 dp_catalog_ctrl_read_hdcp_status(struct dp_catalog_ctrl *ctrl)
 	}
 
 	dp_catalog_get_priv(ctrl);
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_ahb.base;
 
 	return dp_read(base + DP_HDCP_STATUS);
 }
@@ -345,8 +345,8 @@ static void dp_catalog_panel_setup_infoframe_sdp(struct dp_catalog_panel *panel)
 	}
 
 	dp_catalog_get_priv(panel);
-	base = catalog->io->ctrl_io.base;
 	hdr = &panel->hdr_data.hdr_meta;
+	base = catalog->io->dp_link.base;
 
 	header = dp_read(base + MMSS_DP_VSCEXT_0);
 	header |= panel->hdr_data.vscext_header_byte1;
@@ -416,7 +416,7 @@ static void dp_catalog_panel_setup_vsc_sdp(struct dp_catalog_panel *panel)
 	}
 
 	dp_catalog_get_priv(panel);
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_link.base;
 
 	value = dp_read(base + MMSS_DP_GENERIC0_0);
 	value |= panel->hdr_data.vsc_header_byte1;
@@ -459,7 +459,7 @@ static void dp_catalog_panel_config_hdr(struct dp_catalog_panel *panel)
 	}
 
 	dp_catalog_get_priv(panel);
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_link.base;
 
 	cfg = dp_read(base + MMSS_DP_SDP_CFG);
 	/* VSCEXT_SDP_EN */
@@ -518,7 +518,7 @@ static void dp_catalog_ctrl_update_transfer_unit(struct dp_catalog_ctrl *ctrl)
 	}
 
 	dp_catalog_get_priv(ctrl);
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_link.base;
 
 	dp_write(base + DP_VALID_BOUNDARY, ctrl->valid_boundary);
 	dp_write(base + DP_TU, ctrl->dp_tu);
@@ -536,7 +536,7 @@ static void dp_catalog_ctrl_state_ctrl(struct dp_catalog_ctrl *ctrl, u32 state)
 	}
 
 	dp_catalog_get_priv(ctrl);
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_link.base;
 
 	dp_write(base + DP_STATE_CTRL, state);
 }
@@ -544,7 +544,7 @@ static void dp_catalog_ctrl_state_ctrl(struct dp_catalog_ctrl *ctrl, u32 state)
 static void dp_catalog_ctrl_config_ctrl(struct dp_catalog_ctrl *ctrl, u32 cfg)
 {
 	struct dp_catalog_private *catalog;
-	void __iomem *base;
+	void __iomem *link_base;
 
 	if (!ctrl) {
 		pr_err("invalid input\n");
@@ -552,11 +552,11 @@ static void dp_catalog_ctrl_config_ctrl(struct dp_catalog_ctrl *ctrl, u32 cfg)
 	}
 
 	dp_catalog_get_priv(ctrl);
-	base = catalog->io->ctrl_io.base;
+	link_base = catalog->io->dp_link.base;
 
 	pr_debug("DP_CONFIGURATION_CTRL=0x%x\n", cfg);
 
-	dp_write(base + DP_CONFIGURATION_CTRL, cfg);
+	dp_write(link_base + DP_CONFIGURATION_CTRL, cfg);
 }
 
 static void dp_catalog_ctrl_lane_mapping(struct dp_catalog_ctrl *ctrl)
@@ -570,9 +570,9 @@ static void dp_catalog_ctrl_lane_mapping(struct dp_catalog_ctrl *ctrl)
 	}
 
 	dp_catalog_get_priv(ctrl);
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_link.base;
 
-	dp_write(base + DP_LOGICAL2PHYSCIAL_LANE_MAPPING, 0xe4);
+	dp_write(base + DP_LOGICAL2PHYSICAL_LANE_MAPPING, 0xe4);
 }
 
 static void dp_catalog_ctrl_mainlink_ctrl(struct dp_catalog_ctrl *ctrl,
@@ -588,7 +588,7 @@ static void dp_catalog_ctrl_mainlink_ctrl(struct dp_catalog_ctrl *ctrl,
 	}
 
 	dp_catalog_get_priv(ctrl);
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_link.base;
 
 	if (enable) {
 		dp_write(base + DP_MAINLINK_CTRL, 0x02000000);
@@ -619,7 +619,7 @@ static void dp_catalog_ctrl_config_misc(struct dp_catalog_ctrl *ctrl,
 	}
 
 	dp_catalog_get_priv(ctrl);
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_link.base;
 
 	misc_val |= (tb << 5);
 	misc_val |= BIT(0); /* Configure clock to synchronous mode */
@@ -685,7 +685,7 @@ static void dp_catalog_ctrl_config_msa(struct dp_catalog_ctrl *ctrl,
 			nvid *= 3;
 	}
 
-	base_ctrl = catalog->io->ctrl_io.base;
+	base_ctrl = catalog->io->dp_link.base;
 	pr_debug("mvid=0x%x, nvid=0x%x\n", mvid, nvid);
 	dp_write(base_ctrl + DP_SOFTWARE_MVID, mvid);
 	dp_write(base_ctrl + DP_SOFTWARE_NVID, nvid);
@@ -705,7 +705,7 @@ static void dp_catalog_ctrl_set_pattern(struct dp_catalog_ctrl *ctrl,
 	}
 
 	dp_catalog_get_priv(ctrl);
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_link.base;
 
 	bit = 1;
 	bit <<= (pattern - 1);
@@ -774,7 +774,7 @@ static void dp_catalog_ctrl_reset(struct dp_catalog_ctrl *ctrl)
 	}
 
 	dp_catalog_get_priv(ctrl);
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_ahb.base;
 
 	sw_reset = dp_read(base + DP_SW_RESET);
 
@@ -799,7 +799,7 @@ static bool dp_catalog_ctrl_mainlink_ready(struct dp_catalog_ctrl *ctrl)
 	}
 
 	dp_catalog_get_priv(ctrl);
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_link.base;
 
 	while (--cnt) {
 		/* DP_MAINLINK_READY */
@@ -826,7 +826,7 @@ static void dp_catalog_ctrl_enable_irq(struct dp_catalog_ctrl *ctrl,
 	}
 
 	dp_catalog_get_priv(ctrl);
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_ahb.base;
 
 	if (enable) {
 		dp_write(base + DP_INTR_STATUS, DP_INTR_MASK1);
@@ -848,7 +848,7 @@ static void dp_catalog_ctrl_hpd_config(struct dp_catalog_ctrl *ctrl, bool en)
 	}
 
 	dp_catalog_get_priv(ctrl);
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_aux.base;
 
 	if (en) {
 		u32 reftimer = dp_read(base + DP_DP_HPD_REFTIMER);
@@ -879,7 +879,7 @@ static void dp_catalog_ctrl_get_interrupt(struct dp_catalog_ctrl *ctrl)
 	}
 
 	dp_catalog_get_priv(ctrl);
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_ahb.base;
 
 	ctrl->isr = dp_read(base + DP_INTR_STATUS2);
 	ctrl->isr &= ~DP_INTR_MASK2;
@@ -900,7 +900,7 @@ static void dp_catalog_ctrl_phy_reset(struct dp_catalog_ctrl *ctrl)
 	}
 
 	dp_catalog_get_priv(ctrl);
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_ahb.base;
 
 	dp_write(base + DP_PHY_CTRL, 0x5); /* bit 0 & 2 */
 	usleep_range(1000, 1010); /* h/w recommended delay */
@@ -989,7 +989,7 @@ static void dp_catalog_ctrl_send_phy_pattern(struct dp_catalog_ctrl *ctrl,
 
 	dp_catalog_get_priv(ctrl);
 
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_link.base;
 
 	dp_write(base + DP_STATE_CTRL, 0x0);
 
@@ -1046,7 +1046,7 @@ static u32 dp_catalog_ctrl_read_phy_pattern(struct dp_catalog_ctrl *ctrl)
 
 	dp_catalog_get_priv(ctrl);
 
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_link.base;
 
 	return dp_read(base + DP_MAINLINK_READY);
 }
@@ -1063,7 +1063,7 @@ static int dp_catalog_panel_timing_cfg(struct dp_catalog_panel *panel)
 	}
 
 	dp_catalog_get_priv(panel);
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_link.base;
 
 	dp_write(base + DP_TOTAL_HOR_VER, panel->total);
 	dp_write(base + DP_START_HOR_VER_FROM_SYNC, panel->sync_start);
@@ -1123,7 +1123,7 @@ static void dp_catalog_audio_config_sdp(struct dp_catalog_audio *audio)
 		return;
 
 	dp_catalog_get_priv(audio);
-	base = catalog->io->ctrl_io.base;
+	base = catalog->io->dp_link.base;
 
 	/* AUDIO_TIMESTAMP_SDP_EN */
 	sdp_cfg |= BIT(1);
@@ -1162,7 +1162,7 @@ static void dp_catalog_audio_get_header(struct dp_catalog_audio *audio)
 
 	dp_catalog_get_priv(audio);
 
-	base    = catalog->io->ctrl_io.base;
+	base    = catalog->io->dp_link.base;
 	sdp_map = catalog->audio_map;
 	sdp     = audio->sdp_type;
 	header  = audio->sdp_header;
@@ -1184,7 +1184,7 @@ static void dp_catalog_audio_set_header(struct dp_catalog_audio *audio)
 
 	dp_catalog_get_priv(audio);
 
-	base    = catalog->io->ctrl_io.base;
+	base    = catalog->io->dp_link.base;
 	sdp_map = catalog->audio_map;
 	sdp     = audio->sdp_type;
 	header  = audio->sdp_header;
@@ -1202,7 +1202,7 @@ static void dp_catalog_audio_config_acr(struct dp_catalog_audio *audio)
 	dp_catalog_get_priv(audio);
 
 	select = audio->data;
-	base   = catalog->io->ctrl_io.base;
+	base   = catalog->io->dp_link.base;
 
 	acr_ctrl = select << 4 | BIT(31) | BIT(8) | BIT(14);
 
@@ -1219,7 +1219,7 @@ static void dp_catalog_audio_safe_to_exit_level(struct dp_catalog_audio *audio)
 
 	dp_catalog_get_priv(audio);
 
-	base   = catalog->io->ctrl_io.base;
+	base   = catalog->io->dp_link.base;
 	safe_to_exit_level = audio->data;
 
 	mainlink_levels = dp_read(base + DP_MAINLINK_LEVELS);
@@ -1241,7 +1241,7 @@ static void dp_catalog_audio_enable(struct dp_catalog_audio *audio)
 
 	dp_catalog_get_priv(audio);
 
-	base   = catalog->io->ctrl_io.base;
+	base   = catalog->io->dp_link.base;
 	enable = !!audio->data;
 
 	audio_ctrl = dp_read(base + MMSS_DP_AUDIO_CFG);

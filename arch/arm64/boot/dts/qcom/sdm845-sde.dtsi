@@ -577,7 +577,10 @@
 		vdda-1p2-supply = <&pm8998_l26>;
 		vdda-0p9-supply = <&pm8998_l1>;
 
-		reg =	<0xae90000 0xa84>,
+		reg =	<0xae90000 0x0dc>,
+			<0xae90200 0x0c0>,
+			<0xae90400 0x508>,
+			<0xae90a00 0x094>,
 			<0x88eaa00 0x200>,
 			<0x88ea200 0x200>,
 			<0x88ea600 0x200>,
@@ -586,7 +589,9 @@
 			<0x88ea030 0x10>,
 			<0x88e8000 0x20>,
 			<0x0aee1000 0x034>;
-		reg-names = "dp_ctrl", "dp_phy", "dp_ln_tx0", "dp_ln_tx1",
+		/* dp_ctrl: dp_ahb, dp_aux, dp_link, dp_p0 */
+		reg-names = "dp_ahb", "dp_aux", "dp_link",
+			"dp_p0", "dp_phy", "dp_ln_tx0", "dp_ln_tx1",
 			"dp_mmss_cc", "qfprom_physical", "dp_pll",
 			"usb3_dp_com", "hdcp_physical";
 
