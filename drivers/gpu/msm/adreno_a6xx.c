@@ -1027,11 +1027,11 @@ static int timed_poll_check(struct kgsl_device *device,
 /*
  * The lowest 16 bits of this value are the number of XO clock cycles
  * for main hysteresis. This is the first hysteresis. Here we set it
- * to 0x5DC cycles, or 78.1 us. The highest 16 bits of this value are
+ * to 0x1680 cycles, or 300 us. The highest 16 bits of this value are
  * the number of XO clock cycles for short hysteresis. This happens
  * after main hysteresis. Here we set it to 0xA cycles, or 0.5 us.
  */
-#define GMU_PWR_COL_HYST 0x000A05DC
+#define GMU_PWR_COL_HYST 0x000A1680
 
 /*
  * a6xx_gmu_power_config() - Configure and enable GMU's low power mode

@@ -86,7 +86,7 @@ static void adreno_get_submit_time(struct adreno_device *adreno_dev,
  * This delay must be less than the IFPC main hysteresis or
  * the GMU will start shutting down before we try again.
  */
-#define GMU_WAKEUP_DELAY 20
+#define GMU_WAKEUP_DELAY 10
 /* Max amount of tries to wake up the GMU. */
 #define GMU_WAKEUP_RETRY_MAX 60
 
