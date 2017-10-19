@@ -610,7 +610,7 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_irq *irq_params = gpudev->irq;
 	irqreturn_t ret = IRQ_NONE;
-	unsigned int status = 0, fence = 0, tmp, int_bit;
+	unsigned int status = 0, fence = 0, fence_retries = 0, tmp, int_bit;
 	int i;
 
 	atomic_inc(&adreno_dev->pending_irq_refcnt);
@@ -627,13 +627,24 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 
 	/*
 	 * If the AHB fence is not in ALLOW mode when we receive an RBBM
-	 * interrupt, something went wrong. Set a fault and change the
-	 * fence to ALLOW so we can clear the interrupt.
+	 * interrupt, something went wrong. This means that we cannot proceed
+	 * since the IRQ status and clear registers are not accessible.
+	 * This is usually harmless because the GMU will abort power collapse
+	 * and change the fence back to ALLOW. Poll so that this can happen.
 	 */
-	adreno_readreg(adreno_dev, ADRENO_REG_GMU_AO_AHB_FENCE_CTRL, &fence);
-	if (fence != 0) {
-		KGSL_DRV_CRIT_RATELIMIT(device, "AHB fence is stuck in ISR\n");
-		return ret;
+	if (kgsl_gmu_isenabled(device)) {
+		do {
+			adreno_readreg(adreno_dev,
+					ADRENO_REG_GMU_AO_AHB_FENCE_CTRL,
+					&fence);
+
+			if (fence_retries == FENCE_RETRY_MAX) {
+				KGSL_DRV_CRIT_RATELIMIT(device,
+						"AHB fence stuck in ISR\n");
+				return ret;
+			}
+			fence_retries++;
+		} while (fence != 0);
 	}
 
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS, &status);
