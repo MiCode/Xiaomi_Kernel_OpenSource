@@ -1179,9 +1179,10 @@ static int _sde_crtc_check_rois(struct drm_crtc *crtc,
 {
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *sde_crtc_state;
-	struct drm_encoder *drm_enc;
 	struct msm_mode_info mode_info;
-	int rc, lm_idx;
+	struct drm_connector *conn;
+	struct drm_connector_state *conn_state;
+	int rc, lm_idx, i;
 
 	if (!crtc || !state)
 		return -EINVAL;
@@ -1190,11 +1191,20 @@ static int _sde_crtc_check_rois(struct drm_crtc *crtc,
 
 	sde_crtc = to_sde_crtc(crtc);
 
-	drm_for_each_encoder(drm_enc, crtc->dev) {
-		if (drm_enc->crtc != crtc)
-			continue;
+	if (hweight_long(state->connector_mask) != 1) {
+		SDE_ERROR("invalid connector count(%d) for crtc: %d\n",
+			(int)hweight_long(state->connector_mask),
+			crtc->base.id);
+		return -EINVAL;
+	}
 
-		sde_encoder_get_mode_info(drm_enc, &mode_info);
+	for_each_connector_in_state(state->state, conn, conn_state, i) {
+		rc = sde_connector_get_mode_info(conn_state, &mode_info);
+		if (rc) {
+			SDE_ERROR("failed to get mode info\n");
+			return -EINVAL;
+		}
+		break;
 	}
 
 	if (!mode_info.roi_caps.enabled)
