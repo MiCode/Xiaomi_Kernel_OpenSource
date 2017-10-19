@@ -4134,6 +4134,7 @@ unsigned int mmc_calc_max_discard(struct mmc_card *card)
 
 	if (!host->max_busy_timeout ||
 			(host->caps2 & MMC_CAP2_MAX_DISCARD_SIZE))
+		return UINT_MAX;
 
 	/*
 	 * Without erase_group_def set, MMC erase timeout depends on clock
