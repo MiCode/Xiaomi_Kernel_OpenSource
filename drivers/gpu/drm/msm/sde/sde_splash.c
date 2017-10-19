@@ -22,6 +22,7 @@
 #include "sde_hw_util.h"
 #include "sde_hw_intf.h"
 #include "sde_hw_catalog.h"
+#include "dsi_display.h"
 
 #define MDP_SSPP_TOP0_OFF		0x1000
 #define DISP_INTF_SEL			0x004
@@ -37,6 +38,9 @@
 #define SDE_LK_EXIT_VALUE		0xDEADBEEF
 
 #define SDE_LK_EXIT_MAX_LOOP		20
+
+static DEFINE_MUTEX(sde_splash_lock);
+
 /*
  * In order to free reseved memory from bootup, and we are not
  * able to call the __init free functions, so we need to free
@@ -279,6 +283,15 @@ static void _sde_splash_destroy_splash_node(struct sde_splash_info *sinfo)
 	sinfo->splash_mem_size = NULL;
 }
 
+static void _sde_splash_get_connector_ref_cnt(struct sde_splash_info *sinfo,
+					u32 *hdmi_cnt, u32 *dsi_cnt)
+{
+	mutex_lock(&sde_splash_lock);
+	*hdmi_cnt = sinfo->hdmi_connector_cnt;
+	*dsi_cnt = sinfo->dsi_connector_cnt;
+	mutex_unlock(&sde_splash_lock);
+}
+
 static int _sde_splash_free_resource(struct msm_mmu *mmu,
 		struct sde_splash_info *sinfo, enum splash_connector_type conn)
 {
@@ -442,12 +455,12 @@ int sde_splash_get_handoff_status(struct msm_kms *kms)
 	if (num_of_display_on) {
 		sinfo->handoff = true;
 		sinfo->program_scratch_regs = true;
+		sinfo->lk_is_exited = false;
 	} else {
 		sinfo->handoff = false;
 		sinfo->program_scratch_regs = false;
+		sinfo->lk_is_exited = true;
 	}
-
-	sinfo->lk_is_exited = false;
 
 	return 0;
 }
@@ -505,15 +518,29 @@ void sde_splash_setup_connector_count(struct sde_splash_info *sinfo,
 	}
 }
 
+bool sde_splash_get_lk_complete_status(struct sde_splash_info *sinfo)
+{
+	bool ret = 0;
+
+	mutex_lock(&sde_splash_lock);
+	ret = !sinfo->handoff && !sinfo->lk_is_exited;
+	mutex_unlock(&sde_splash_lock);
+
+	return ret;
+}
+
 int sde_splash_clean_up_free_resource(struct msm_kms *kms,
-			struct sde_power_handle *phandle, int connector_type)
+				struct sde_power_handle *phandle,
+				int connector_type, void *display)
 {
 	struct sde_kms *sde_kms;
 	struct sde_splash_info *sinfo;
 	struct msm_mmu *mmu;
+	struct dsi_display *dsi_display = display;
 	int ret = 0;
-	static bool hdmi_is_released;
-	static bool dsi_is_released;
+	int hdmi_conn_count = 0;
+	int dsi_conn_count = 0;
+	static const char *last_commit_display_type = "unknown";
 
 	if (!phandle || !kms) {
 		SDE_ERROR("invalid phandle/kms.\n");
@@ -527,16 +554,20 @@ int sde_splash_clean_up_free_resource(struct msm_kms *kms,
 		return -EINVAL;
 	}
 
-	/* When both hdmi's and dsi's resource are freed,
-	 * 1. Destroy splash node objects.
-	 * 2. Release the memory which LK's stack is running on.
-	 * 3. Withdraw AHB data bus bandwidth voting.
-	 */
-	if (sinfo->hdmi_connector_cnt == 0 &&
-			sinfo->dsi_connector_cnt == 0) {
+	_sde_splash_get_connector_ref_cnt(sinfo, &hdmi_conn_count,
+						&dsi_conn_count);
+
+	mutex_lock(&sde_splash_lock);
+	if (hdmi_conn_count == 0 && dsi_conn_count == 0 &&
+					!sinfo->lk_is_exited) {
+		/* When both hdmi's and dsi's handoff are finished,
+		 * 1. Destroy splash node objects.
+		 * 2. Release the memory which LK's stack is running on.
+		 * 3. Withdraw AHB data bus bandwidth voting.
+		 */
 		DRM_INFO("HDMI and DSI resource handoff is completed\n");
 
-		sinfo->lk_is_exited = false;
+		sinfo->lk_is_exited = true;
 
 		_sde_splash_destroy_splash_node(sinfo);
 
@@ -546,6 +577,7 @@ int sde_splash_clean_up_free_resource(struct msm_kms *kms,
 		sde_power_data_bus_bandwidth_ctrl(phandle,
 				sde_kms->core_client, false);
 
+		mutex_unlock(&sde_splash_lock);
 		return 0;
 	}
 
@@ -553,25 +585,36 @@ int sde_splash_clean_up_free_resource(struct msm_kms *kms,
 
 	switch (connector_type) {
 	case DRM_MODE_CONNECTOR_HDMIA:
-		if (!hdmi_is_released)
+		if (sinfo->hdmi_connector_cnt == 1) {
 			sinfo->hdmi_connector_cnt--;
 
-		if ((sinfo->hdmi_connector_cnt == 0) && (!hdmi_is_released)) {
-			hdmi_is_released = true;
-
 			ret = _sde_splash_free_resource(mmu,
-				sinfo, SPLASH_HDMI);
+					sinfo, SPLASH_HDMI);
 		}
 		break;
 	case DRM_MODE_CONNECTOR_DSI:
-		if (!dsi_is_released)
-			sinfo->dsi_connector_cnt--;
+		/*
+		 * Basically, we have commits coming on two DSI connectors.
+		 * So when releasing DSI resource, it's ensured that the
+		 * coming commits should happen on different DSIs, to promise
+		 * the handoff has finished on the two DSIs, then it's safe
+		 * to release DSI resource, otherwise, problem happens when
+		 * freeing memory, while DSI0 or DSI1 is still visiting
+		 * the memory.
+		 */
+		if (strcmp(dsi_display->display_type, "unknown") &&
+			strcmp(last_commit_display_type,
+					dsi_display->display_type)) {
+			if (sinfo->dsi_connector_cnt > 1)
+				sinfo->dsi_connector_cnt--;
+			else if (sinfo->dsi_connector_cnt == 1) {
+				ret = _sde_splash_free_resource(mmu,
+					sinfo, SPLASH_DSI);
 
-		if ((sinfo->dsi_connector_cnt == 0) && (!dsi_is_released)) {
-			dsi_is_released = true;
+				sinfo->dsi_connector_cnt--;
+			}
 
-			ret = _sde_splash_free_resource(mmu,
-				sinfo, SPLASH_DSI);
+			last_commit_display_type = dsi_display->display_type;
 		}
 		break;
 	default:
@@ -579,6 +622,8 @@ int sde_splash_clean_up_free_resource(struct msm_kms *kms,
 		SDE_ERROR("%s: invalid connector_type %d\n",
 				__func__, connector_type);
 	}
+
+	mutex_unlock(&sde_splash_lock);
 
 	return ret;
 }
@@ -603,6 +648,7 @@ int sde_splash_clean_up_exit_lk(struct msm_kms *kms)
 	}
 
 	/* Monitor LK's status and tell it to exit. */
+	mutex_lock(&sde_splash_lock);
 	if (sinfo->program_scratch_regs) {
 		if (_sde_splash_lk_check(sde_kms->hw_intr))
 			_sde_splash_notify_lk_exit(sde_kms->hw_intr);
@@ -610,6 +656,7 @@ int sde_splash_clean_up_exit_lk(struct msm_kms *kms)
 		sinfo->handoff = false;
 		sinfo->program_scratch_regs = false;
 	}
+	mutex_unlock(&sde_splash_lock);
 
 	if (!sde_kms->aspace[0] || !sde_kms->aspace[0]->mmu) {
 		/* We do not return fault value here, to ensure
@@ -631,6 +678,5 @@ int sde_splash_clean_up_exit_lk(struct msm_kms *kms)
 		}
 	}
 
-	sinfo->lk_is_exited = true;
 	return 0;
 }

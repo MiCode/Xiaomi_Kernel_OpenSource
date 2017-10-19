@@ -751,10 +751,23 @@ error:
 static void sde_hdcp_1x_enable_sink_irq_hpd(struct sde_hdcp_1x *hdcp)
 {
 	int rc;
+	u8 const required_major = 1, required_minor = 2;
+	u8 sink_major = 0, sink_minor = 0;
 	u8 enable_hpd_irq = 0x1;
+	u16 version;
 
-	if (hdcp->current_tp.ds_type != DS_REPEATER)
+	if (hdcp->init_data.client_id == HDCP_CLIENT_HDMI)
 		return;
+
+	version = *hdcp->init_data.version;
+	sink_major = (version >> 4) & 0x0f;
+	sink_minor = version & 0x0f;
+
+	if ((sink_minor < required_minor) || (sink_major < required_major) ||
+		(hdcp->current_tp.ds_type != DS_REPEATER)) {
+		pr_debug("sink irq hpd not enabled\n");
+		return;
+	}
 
 	rc = sde_hdcp_1x_write(hdcp, &hdcp->sink_addr.ainfo, &enable_hpd_irq);
 	if (IS_ERR_VALUE(rc))
@@ -1295,6 +1308,11 @@ static void sde_hdcp_1x_auth_work(struct work_struct *work)
 	if (rc)
 		goto end;
 
+
+end:
+	if (rc && !sde_hdcp_1x_state(HDCP_STATE_INACTIVE))
+		hdcp->hdcp_state = HDCP_STATE_AUTH_FAIL;
+
 	/*
 	 * Disabling software DDC before going into part3 to make sure
 	 * there is no Arbitration between software and hardware for DDC
@@ -1302,9 +1320,6 @@ static void sde_hdcp_1x_auth_work(struct work_struct *work)
 	if (hdcp->init_data.client_id == HDCP_CLIENT_HDMI)
 		DSS_REG_W_ND(io, HDMI_DDC_ARBITRATION, DSS_REG_R(io,
 				HDMI_DDC_ARBITRATION) | (BIT(4)));
-end:
-	if (rc && !sde_hdcp_1x_state(HDCP_STATE_INACTIVE))
-		hdcp->hdcp_state = HDCP_STATE_AUTH_FAIL;
 
 	sde_hdcp_1x_update_auth_status(hdcp);
 }
@@ -1498,6 +1513,10 @@ static int sde_hdcp_1x_isr(void *input)
 		SDE_HDCP_DEBUG("%s: AUTH FAIL, LINK0_STATUS=0x%08x\n",
 			SDE_HDCP_STATE_NAME, link_status);
 
+		/* Clear AUTH_FAIL_INFO as well */
+		DSS_REG_W(io, isr->int_reg,
+			(hdcp_int_val | isr->auth_fail_info_ack));
+
 		if (sde_hdcp_1x_state(HDCP_STATE_AUTHENTICATED)) {
 			hdcp->hdcp_state = HDCP_STATE_AUTH_FAIL;
 			sde_hdcp_1x_update_auth_status(hdcp);
@@ -1505,9 +1524,6 @@ static int sde_hdcp_1x_isr(void *input)
 			complete_all(&hdcp->r0_checked);
 		}
 
-		/* Clear AUTH_FAIL_INFO as well */
-		DSS_REG_W(io, isr->int_reg,
-			(hdcp_int_val | isr->auth_fail_info_ack));
 	}
 
 	if (hdcp_int_val & isr->tx_req_int) {

@@ -835,6 +835,8 @@ void mdss_dp_sw_config_msa(struct mdss_dp_drv_pdata *dp)
 		pr_debug("pixel_m=0x%x, pixel_n=0x%x\n", pixel_m, pixel_n);
 		mvid = (pixel_m & 0xFFFF) * 5;
 		nvid = (0xFFFF & (~pixel_n)) + (pixel_m & 0xFFFF);
+		if (dp->link_rate == DP_LINK_RATE_540)
+			nvid *= 2;
 	}
 
 	pr_debug("mvid=0x%x, nvid=0x%x\n", mvid, nvid);
