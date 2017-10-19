@@ -507,17 +507,8 @@ static void qusb_phy_shutdown(struct usb_phy *phy)
 
 	dev_dbg(phy->dev, "%s\n", __func__);
 
-	qusb_phy_enable_clocks(qphy, true);
+	qusb_phy_enable_power(qphy, false);
 
-	/* Disable the PHY */
-	writel_relaxed(readl_relaxed(qphy->base + qphy->phy_reg[PWR_CTRL1]) |
-			PWR_CTRL1_POWR_DOWN,
-			qphy->base + qphy->phy_reg[PWR_CTRL1]);
-
-	/* Makes sure that above write goes through */
-	wmb();
-
-	qusb_phy_enable_clocks(qphy, false);
 }
 
 static u32 qusb_phy_get_linestate(struct qusb_phy *qphy)
