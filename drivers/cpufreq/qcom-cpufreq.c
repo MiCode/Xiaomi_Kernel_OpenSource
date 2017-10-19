@@ -91,12 +91,6 @@ static int msm_cpufreq_target(struct cpufreq_policy *policy,
 	}
 
 	table = policy->freq_table;
-	if (!table) {
-		pr_err("cpufreq: Failed to get frequency table for CPU%u\n",
-		       policy->cpu);
-		ret = -ENODEV;
-		goto done;
-	}
 	if (per_cpu(cached_resolve_freq, first_cpu) == target_freq)
 		index = per_cpu(cached_resolve_idx, first_cpu);
 	else
