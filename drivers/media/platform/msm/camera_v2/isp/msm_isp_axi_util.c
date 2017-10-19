@@ -678,7 +678,7 @@ void msm_isp_update_framedrop_reg(struct vfe_device *vfe_dev,
 					MSM_VFE_STREAM_STOP_PERIOD;
 		}
 
-		if (stream_info->undelivered_request_cnt > 0)
+		if (stream_info->undelivered_request_cnt == 1)
 			stream_info->current_framedrop_period =
 				MSM_VFE_STREAM_STOP_PERIOD;
 
