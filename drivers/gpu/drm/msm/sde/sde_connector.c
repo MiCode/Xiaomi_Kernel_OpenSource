@@ -346,6 +346,23 @@ int sde_connector_get_dither_cfg(struct drm_connector *conn,
 	return 0;
 }
 
+int sde_connector_get_mode_info(struct drm_connector_state *conn_state,
+	struct msm_mode_info *mode_info)
+{
+	struct sde_connector_state *sde_conn_state = NULL;
+
+	if (!conn_state || !mode_info) {
+		SDE_ERROR("Invalid arguments\n");
+		return -EINVAL;
+	}
+
+	sde_conn_state = to_sde_connector_state(conn_state);
+	memcpy(mode_info, &sde_conn_state->mode_info,
+		sizeof(sde_conn_state->mode_info));
+
+	return 0;
+}
+
 int sde_connector_get_info(struct drm_connector *connector,
 		struct msm_display_info *info)
 {
@@ -730,7 +747,7 @@ int sde_connector_roi_v1_check_roi(struct drm_connector_state *conn_state)
 	struct sde_connector *c_conn = NULL;
 	struct msm_mode_info mode_info;
 	struct sde_connector_state *c_state;
-	int rc, i, w, h;
+	int i, w, h;
 
 	if (!conn_state)
 		return -EINVAL;
@@ -740,11 +757,7 @@ int sde_connector_roi_v1_check_roi(struct drm_connector_state *conn_state)
 	c_state = to_sde_connector_state(conn_state);
 	c_conn = to_sde_connector(conn_state->connector);
 
-	rc = sde_encoder_get_mode_info(c_conn->encoder, &mode_info);
-	if (rc) {
-		SDE_ERROR_CONN(c_conn, "get mode info error: %d\n", rc);
-		return rc;
-	}
+	memcpy(&mode_info, &c_state->mode_info, sizeof(c_state->mode_info));
 
 	if (!mode_info.roi_caps.enabled)
 		return 0;
@@ -1347,16 +1360,18 @@ static const struct drm_connector_helper_funcs sde_connector_helper_ops = {
 	.best_encoder = sde_connector_best_encoder,
 };
 
-int sde_connector_set_info(struct drm_connector *conn)
+int sde_connector_set_info(struct drm_connector *conn,
+				struct drm_connector_state *state)
 {
 	struct sde_kms_info *info;
 	struct sde_connector *c_conn = NULL;
+	struct sde_connector_state *sde_conn_state = NULL;
 	struct msm_mode_info mode_info;
 	int rc = 0;
 
 	c_conn = to_sde_connector(conn);
-	if (!c_conn || !c_conn->encoder) {
-		SDE_ERROR("invalid connector/encoder object\n");
+	if (!c_conn) {
+		SDE_ERROR("invalid argument\n");
 		return -EINVAL;
 	}
 
@@ -1371,10 +1386,17 @@ int sde_connector_set_info(struct drm_connector *conn)
 	if (!info)
 		return -ENOMEM;
 
-	rc = sde_encoder_get_mode_info(c_conn->encoder, &mode_info);
-	if (rc) {
-		SDE_ERROR_CONN(c_conn, "failed to get mode info, rc: %d", rc);
-		goto exit;
+	if (state) {
+		sde_conn_state = to_sde_connector_state(state);
+		memcpy(&mode_info, &sde_conn_state->mode_info,
+			sizeof(sde_conn_state->mode_info));
+	} else {
+		/**
+		 * connector state is assigned only on first atomic_commit.
+		 * But this function is allowed to be invoked during
+		 * probe/init sequence. So not throwing an error.
+		 */
+		SDE_DEBUG_CONN(c_conn, "invalid connector state\n");
 	}
 
 	sde_kms_info_reset(info);
@@ -1507,7 +1529,7 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 			DRM_MODE_PROP_IMMUTABLE,
 			CONNECTOR_PROP_SDE_INFO);
 
-	rc = sde_connector_set_info(&c_conn->base);
+	rc = sde_connector_set_info(&c_conn->base, c_conn->base.state);
 	if (rc) {
 		SDE_ERROR_CONN(c_conn,
 			"failed to setup connector info, rc = %d\n", rc);

@@ -169,13 +169,6 @@ enum sde_intf_mode sde_encoder_get_intf_mode(struct drm_encoder *encoder);
 void sde_encoder_virt_restore(struct drm_encoder *encoder);
 
 /**
- * sde_encoder_is_dsc_enabled - check if encoder is in DSC mode
- * @drm_enc: Pointer to drm encoder object
- * @Return: true if encoder is in DSC mode
- */
-bool sde_encoder_is_dsc_enabled(struct drm_encoder *drm_enc);
-
-/**
  * sde_encoder_is_dsc_merge - check if encoder is in DSC merge mode
  * @drm_enc: Pointer to drm encoder object
  * @Return: true if encoder is in DSC merge mode
@@ -221,14 +214,5 @@ void sde_encoder_prepare_commit(struct drm_encoder *drm_enc);
  */
 void sde_encoder_set_idle_timeout(struct drm_encoder *drm_enc,
 							u32 idle_timeout);
-
-/**
- * sde_encoder_get_mode_info - get information on the current mode
- * @drm_enc:    Pointer to previously created drm encoder structure
- * @mode_info:  Pointer to the mode info structure
- * @return: zero on success
- */
-int sde_encoder_get_mode_info(struct drm_encoder *drm_enc,
-	struct msm_mode_info *mode_info);
 
 #endif /* __SDE_ENCODER_H__ */
