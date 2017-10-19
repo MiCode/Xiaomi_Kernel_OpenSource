@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -112,6 +112,8 @@
 		qcom,mdss-highest-bank-bit = <0x2>;
 		qcom,mdss-has-decimation;
 		qcom,mdss-has-rotator-downscale;
+		qcom,mdss-rot-downscale-min = <2>;
+		qcom,mdss-rot-downscale-max = <16>;
 		qcom,mdss-idle-power-collapse-enabled;
 		clocks = <&clock_mmss clk_mdss_ahb_clk>,
 			 <&clock_mmss clk_mdss_axi_clk>,

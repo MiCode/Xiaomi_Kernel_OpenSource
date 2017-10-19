@@ -34,6 +34,7 @@
 #include "../codecs/wcd9xxx-common.h"
 #include "../codecs/wcd9335.h"
 #include "../codecs/wsa881x.h"
+#include "../codecs/tlv320aic3x.h"
 
 /* Spk control */
 #define MDM_SPK_ON 1
@@ -77,7 +78,7 @@
 #define CLOCK_OFF 0
 
 /* Machine driver Name*/
-#define DRV_NAME "mdm9650-asoc-tasha"
+#define DRV_NAME "mdm9650-asoc-snd"
 
 enum mi2s_pcm_mux {
 	PRI_MI2S_PCM,
@@ -229,6 +230,7 @@ static int mdm_set_lpass_clk_v1(struct snd_soc_pcm_runtime *rtd,
 				u16 mode)
 {
 	struct snd_soc_card *card = rtd->card;
+	struct mdm_machine_data *pdata = snd_soc_card_get_drvdata(card);
 	struct afe_clk_cfg lpass_clks = lpass_default;
 	int bit_clk_freq = (rate * 2 * NO_OF_BITS_PER_SAMPLE);
 	int ret;
@@ -236,10 +238,19 @@ static int mdm_set_lpass_clk_v1(struct snd_soc_pcm_runtime *rtd,
 	dev_dbg(card->dev, "%s: Setting clock using v1\n", __func__);
 
 	if (mode) {
-		lpass_clks.clk_set_mode = Q6AFE_LPASS_MODE_CLK1_VALID;
-		lpass_clks.clk_val1 = bit_clk_freq;
-		if (!enable)
+		/* enable mclk for the automotive card */
+		if (!strcmp(card->name, "mdm-auto-i2s-snd-card"))
+			lpass_clks.clk_set_mode = Q6AFE_LPASS_MODE_BOTH_VALID;
+		else
+			lpass_clks.clk_set_mode = Q6AFE_LPASS_MODE_CLK1_VALID;
+
+		if (enable) {
+			lpass_clks.clk_val1 = bit_clk_freq;
+			lpass_clks.clk_val2 = pdata->mclk_freq;
+		} else {
 			lpass_clks.clk_val1 = Q6AFE_LPASS_IBIT_CLK_DISABLE;
+			lpass_clks.clk_val2 = Q6AFE_LPASS_OSR_CLK_DISABLE;
+		}
 
 		ret = afe_set_lpass_clock(mi2s_port, &lpass_clks);
 		if (ret < 0) {
@@ -440,7 +451,8 @@ static int mdm_mi2s_startup(struct snd_pcm_substream *substream)
 				goto err;
 			}
 			ret = snd_soc_dai_set_fmt(codec_dai,
-					SND_SOC_DAIFMT_CBS_CFS);
+					SND_SOC_DAIFMT_CBS_CFS |
+					SND_SOC_DAIFMT_I2S);
 			if (ret < 0) {
 				mdm_mi2s_clk_ctl(rtd, false,
 						0, pdata->prim_mi2s_mode);
@@ -448,6 +460,12 @@ static int mdm_mi2s_startup(struct snd_pcm_substream *substream)
 					"%s Set fmt for codec dai failed\n",
 					__func__);
 			}
+			ret = snd_soc_dai_set_sysclk(codec_dai,
+					CLKIN_MCLK,
+					pdata->mclk_freq, SND_SOC_CLOCK_OUT);
+			if (ret < 0)
+				pr_err("%s Set sysclk for codec dai failed\n",
+					__func__);
 		} else {
 			/*
 			 * Disable bit clk in slave mode for QC codec.
@@ -1499,6 +1517,27 @@ done:
 	return ret;
 }
 
+static int mdm_mi2s_audrx_init_auto(struct snd_soc_pcm_runtime *rtd)
+{
+	int ret = 0;
+	struct snd_soc_codec *codec = rtd->codec;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+
+	pr_debug("%s dev_name %s\n", __func__, dev_name(cpu_dai->dev));
+
+	rtd->pmdown_time = 0;
+	ret = snd_soc_add_codec_controls(codec, mdm_snd_controls,
+					 ARRAY_SIZE(mdm_snd_controls));
+	if (ret < 0) {
+		pr_err("%s: add_codec_controls failed, %d\n",
+			__func__, ret);
+		goto done;
+	}
+
+done:
+	return ret;
+}
+
 static void *def_tasha_mbhc_cal(void)
 {
 	void *tasha_wcd_cal;
@@ -1914,37 +1953,6 @@ static struct snd_soc_dai_link mdm_dai[] = {
 	},
 	/* Backend DAI Links */
 	{
-		.name = LPASS_BE_PRI_MI2S_RX,
-		.stream_name = "Primary MI2S Playback",
-		.cpu_dai_name = "msm-dai-q6-mi2s.0",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "tasha_codec",
-		.codec_dai_name = "tasha_i2s_rx1",
-		.no_pcm = 1,
-		.dpcm_playback = 1,
-		.be_id = MSM_BACKEND_DAI_PRI_MI2S_RX,
-		.init  = &mdm_mi2s_audrx_init,
-		.be_hw_params_fixup = &mdm_mi2s_rx_be_hw_params_fixup,
-		.ops = &mdm_mi2s_be_ops,
-		.ignore_pmdown_time = 1,
-		.ignore_suspend = 1,
-	},
-	{
-		.name = LPASS_BE_PRI_MI2S_TX,
-		.stream_name = "Primary MI2S Capture",
-		.cpu_dai_name = "msm-dai-q6-mi2s.0",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "tasha_codec",
-		.codec_dai_name = "tasha_i2s_tx1",
-		.no_pcm = 1,
-		.dpcm_capture = 1,
-		.be_id = MSM_BACKEND_DAI_PRI_MI2S_TX,
-		.be_hw_params_fixup = &mdm_mi2s_tx_be_hw_params_fixup,
-		.ops = &mdm_mi2s_be_ops,
-		.ignore_pmdown_time = 1,
-		.ignore_suspend = 1,
-	},
-	{
 		.name = LPASS_BE_AFE_PCM_RX,
 		.stream_name = "AFE Playback",
 		.cpu_dai_name = "msm-dai-q6-dev.224",
@@ -2101,10 +2109,86 @@ static struct snd_soc_dai_link mdm_dai[] = {
 	},
 };
 
-static struct snd_soc_card snd_soc_card_mdm = {
+static struct snd_soc_dai_link mdm_tasha_dai[] = {
+	/* Backend DAI Links */
+	{
+		.name = LPASS_BE_PRI_MI2S_RX,
+		.stream_name = "Primary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.0",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tasha_codec",
+		.codec_dai_name = "tasha_i2s_rx1",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_PRI_MI2S_RX,
+		.init  = &mdm_mi2s_audrx_init,
+		.be_hw_params_fixup = &mdm_mi2s_rx_be_hw_params_fixup,
+		.ops = &mdm_mi2s_be_ops,
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_PRI_MI2S_TX,
+		.stream_name = "Primary MI2S Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.0",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tasha_codec",
+		.codec_dai_name = "tasha_i2s_tx1",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_PRI_MI2S_TX,
+		.be_hw_params_fixup = &mdm_mi2s_tx_be_hw_params_fixup,
+		.ops = &mdm_mi2s_be_ops,
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
+};
+
+static struct snd_soc_dai_link mdm_auto_dai[] = {
+	/* Backend DAI Links */
+	{
+		.name = LPASS_BE_PRI_MI2S_RX,
+		.stream_name = "Primary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.0",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tlv320aic3x-codec",
+		.codec_dai_name = "tlv320aic3x-hifi",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_PRI_MI2S_RX,
+		.init  = &mdm_mi2s_audrx_init_auto,
+		.be_hw_params_fixup = &mdm_mi2s_rx_be_hw_params_fixup,
+		.ops = &mdm_mi2s_be_ops,
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_PRI_MI2S_TX,
+		.stream_name = "Primary MI2S Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.0",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tlv320aic3x-codec",
+		.codec_dai_name = "tlv320aic3x-hifi",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_PRI_MI2S_TX,
+		.be_hw_params_fixup = &mdm_mi2s_tx_be_hw_params_fixup,
+		.ops = &mdm_mi2s_be_ops,
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
+};
+
+static struct snd_soc_dai_link *mdm_tasha_dai_links;
+
+static struct snd_soc_dai_link *mdm_auto_dai_links;
+
+static struct snd_soc_card snd_soc_card_mdm_tasha = {
 	.name = "mdm-tasha-i2s-snd-card",
-	.dai_link = mdm_dai,
-	.num_links = ARRAY_SIZE(mdm_dai),
+};
+
+static struct snd_soc_card snd_soc_card_mdm_auto = {
+	.name = "mdm-auto-i2s-snd-card",
 };
 
 static int mdm_populate_dai_link_component_of_node(
@@ -2357,12 +2441,68 @@ static int mdm_init_wsa_dev(struct platform_device *pdev,
 	return 0;
 }
 
+static const struct of_device_id mdm_asoc_machine_of_match[]  = {
+	{ .compatible = "qcom,mdm-audio-tasha",
+	  .data = "tasha_codec"},
+	{ .compatible = "qcom,mdm-audio-auto",
+	  .data = "auto_codec"},
+	{},
+};
+
+static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
+{
+	struct snd_soc_card *card = NULL;
+	struct snd_soc_dai_link *dailink;
+	const struct of_device_id *match;
+	int len_1, len_2;
+
+	match = of_match_node(mdm_asoc_machine_of_match, dev->of_node);
+	if (!match) {
+		dev_err(dev, "%s: No DT match found for sound card\n",
+				__func__);
+		return NULL;
+	}
+
+	if (!strcmp(match->data, "tasha_codec")) {
+		len_1 = ARRAY_SIZE(mdm_dai);
+		len_2 = len_1 + ARRAY_SIZE(mdm_tasha_dai);
+		mdm_tasha_dai_links = devm_kcalloc(dev, len_2,
+			sizeof(*mdm_tasha_dai_links), GFP_KERNEL);
+		if (!mdm_tasha_dai_links)
+			return NULL;
+		card = &snd_soc_card_mdm_tasha;
+		memcpy(mdm_tasha_dai_links, mdm_dai, sizeof(mdm_dai));
+		memcpy(mdm_tasha_dai_links + len_1, mdm_tasha_dai,
+		       sizeof(mdm_tasha_dai));
+		dailink = mdm_tasha_dai_links;
+	} else if (!strcmp(match->data, "auto_codec")) {
+		len_1 = ARRAY_SIZE(mdm_dai);
+		len_2 = len_1 + ARRAY_SIZE(mdm_auto_dai);
+		mdm_auto_dai_links = devm_kcalloc(dev, len_2,
+			sizeof(*mdm_auto_dai_links), GFP_KERNEL);
+		if (!mdm_auto_dai_links)
+			return NULL;
+		card = &snd_soc_card_mdm_auto;
+		memcpy(mdm_auto_dai_links, mdm_dai, sizeof(mdm_dai));
+		memcpy(mdm_auto_dai_links + len_1, mdm_auto_dai,
+		       sizeof(mdm_auto_dai));
+		dailink = mdm_auto_dai_links;
+	}
+
+	if (card) {
+		card->dai_link = dailink;
+		card->num_links = len_2;
+	}
+
+	return card;
+}
 
 static int mdm_asoc_machine_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct mdm_machine_data *pdata;
-	struct snd_soc_card *card = &snd_soc_card_mdm;
+	struct snd_soc_card *card;
+	const struct of_device_id *match;
 
 	if (!pdev->dev.of_node) {
 		dev_err(&pdev->dev,
@@ -2370,22 +2510,35 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 
 		return -EINVAL;
 	}
+
+	match = of_match_node(mdm_asoc_machine_of_match, pdev->dev.of_node);
+	if (!match) {
+		dev_err(&pdev->dev, "%s: No DT match found for sound card\n",
+				__func__);
+		return -EINVAL;
+	}
+
 	pdata = devm_kzalloc(&pdev->dev, sizeof(struct mdm_machine_data),
 			     GFP_KERNEL);
 	if (!pdata)
 		return -ENOMEM;
 
-	ret = of_property_read_u32(pdev->dev.of_node,
-				   "qcom,tasha-mclk-clk-freq",
-				   &pdata->mclk_freq);
-	if (ret) {
-		dev_err(&pdev->dev,
-			"%s Looking up %s property in node %s failed",
-			__func__, "qcom,tasha-mclk-clk-freq",
-			pdev->dev.of_node->full_name);
+	if (!strcmp(match->data, "tasha_codec")) {
+		ret = of_property_read_u32(pdev->dev.of_node,
+					   "qcom,tasha-mclk-clk-freq",
+					   &pdata->mclk_freq);
+		if (ret) {
+			dev_err(&pdev->dev,
+				"%s Looking up %s property in node %s failed",
+				__func__, "qcom,tasha-mclk-clk-freq",
+				pdev->dev.of_node->full_name);
 
-		goto err;
+			goto err;
+		}
+	} else {
+		pdata->mclk_freq = MDM_MCLK_CLK_12P288MHZ;
 	}
+
 	/* At present only 12.288MHz is supported on MDM. */
 	if (q6afe_check_osr_clk_freq(pdata->mclk_freq)) {
 		dev_err(&pdev->dev, "%s Unsupported tasha mclk freq %u\n",
@@ -2408,6 +2561,13 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 	atomic_set(&sec_mi2s_ref_count, 0);
 	pdata->prim_clk_usrs = 0;
 
+	card = populate_snd_card_dailinks(&pdev->dev);
+	if (!card) {
+		dev_err(&pdev->dev, "%s: Card uninitialized\n", __func__);
+		ret = -EINVAL;
+		goto err;
+	}
+
 	card->dev = &pdev->dev;
 	platform_set_drvdata(pdev, card);
 	snd_soc_card_set_drvdata(card, pdata);
@@ -2415,18 +2575,23 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 	ret = snd_soc_of_parse_card_name(card, "qcom,model");
 	if (ret)
 		goto err;
-	ret = snd_soc_of_parse_audio_routing(card, "qcom,audio-routing");
-	if (ret)
-		goto err;
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,audio-routing")) {
+		ret = snd_soc_of_parse_audio_routing(card,
+						     "qcom,audio-routing");
+		if (ret)
+			goto err;
+	}
 	ret = mdm_populate_dai_link_component_of_node(card);
 	if (ret) {
 		ret = -EPROBE_DEFER;
 		goto err;
 	}
 
-	ret = mdm_init_wsa_dev(pdev, card);
-	if (ret)
-		goto err;
+	if (!strcmp(match->data, "tasha_codec")) {
+		ret = mdm_init_wsa_dev(pdev, card);
+		if (ret)
+			goto err;
+	}
 
 	ret = snd_soc_register_card(card);
 	if (ret == -EPROBE_DEFER) {
@@ -2496,11 +2661,6 @@ static int mdm_asoc_machine_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
-static const struct of_device_id mdm_asoc_machine_of_match[]  = {
-	{ .compatible = "qcom,mdm-audio-tasha", },
-	{},
-};
 
 static struct platform_driver mdm_asoc_machine_driver = {
 	.driver = {

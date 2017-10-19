@@ -42,7 +42,7 @@
 		};
 		mss_mem: mss_region@88000000 {
 			compatible = "removed-dma-pool";
-			no-map;
+			no-map-fixup;
 			reg = <0x88000000 0x6E00000>;
 			label = "mss_mem";
 		};
@@ -1356,6 +1356,12 @@
 
 	pcm_dtmf: qcom,msm-pcm-dtmf {
 		compatible = "qcom,msm-pcm-dtmf";
+	};
+
+	cpu-pmu {
+		compatible = "arm,cortex-a7-pmu";
+		qcom,irq-is-percpu;
+		interrupts = <1 8 0x100>;
 	};
 
 	dai_pri_auxpcm: qcom,msm-pri-auxpcm {
