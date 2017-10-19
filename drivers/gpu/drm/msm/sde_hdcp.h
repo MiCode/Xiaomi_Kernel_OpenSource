@@ -42,6 +42,10 @@ enum sde_hdcp_states {
 
 struct sde_hdcp_init_data {
 	struct dss_io_data *core_io;
+	struct dss_io_data *dp_ahb;
+	struct dss_io_data *dp_aux;
+	struct dss_io_data *dp_link;
+	struct dss_io_data *dp_p0;
 	struct dss_io_data *qfprom_io;
 	struct dss_io_data *hdcp_io;
 	struct drm_dp_aux *drm_aux;
