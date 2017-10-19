@@ -2330,9 +2330,6 @@ int msm_comm_vb2_buffer_done(struct msm_vidc_inst *inst,
 			__func__, vb->type);
 		return -EINVAL;
 	}
-	msm_vidc_debugfs_update(inst, port == CAPTURE_PORT ?
-			MSM_VIDC_DEBUGFS_EVENT_FBD :
-			MSM_VIDC_DEBUGFS_EVENT_EBD);
 
 	mutex_lock(&inst->bufq[port].lock);
 	vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
@@ -2458,6 +2455,7 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 	 */
 	msm_comm_put_vidc_buffer(inst, mbuf);
 	msm_comm_vb2_buffer_done(inst, vb2);
+	msm_vidc_debugfs_update(inst, MSM_VIDC_DEBUGFS_EVENT_EBD);
 	kref_put_mbuf(mbuf);
 exit:
 	put_inst(inst);
@@ -2659,6 +2657,7 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 	 */
 	msm_comm_put_vidc_buffer(inst, mbuf);
 	msm_comm_vb2_buffer_done(inst, vb2);
+	msm_vidc_debugfs_update(inst, MSM_VIDC_DEBUGFS_EVENT_FBD);
 	kref_put_mbuf(mbuf);
 
 exit:
