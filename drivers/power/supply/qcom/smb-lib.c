@@ -3827,7 +3827,7 @@ static int typec_try_sink(struct smb_charger *chg)
 	 * give opportunity to the other side to be a SRC,
 	 * for tDRPTRY + Tccdebounce time
 	 */
-	msleep(100);
+	msleep(120);
 
 	rc = smblib_read(chg, TYPE_C_STATUS_4_REG, &stat);
 	if (rc < 0) {
