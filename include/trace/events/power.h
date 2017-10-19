@@ -801,6 +801,29 @@ TRACE_EVENT(sugov_util_update,
 		      __entry->pl, __entry->flags)
 );
 
+TRACE_EVENT(sugov_next_freq,
+	    TP_PROTO(unsigned int cpu, unsigned long util, unsigned long max,
+		     unsigned int freq),
+	    TP_ARGS(cpu, util, max, freq),
+	    TP_STRUCT__entry(
+		    __field(	unsigned int,	cpu)
+		    __field(	unsigned long,	util)
+		    __field(	unsigned long,	max)
+		    __field(	unsigned int,	freq)
+	    ),
+	    TP_fast_assign(
+		    __entry->cpu = cpu;
+		    __entry->util = util;
+		    __entry->max = max;
+		    __entry->freq = freq;
+	    ),
+	    TP_printk("cpu=%u util=%lu max=%lu freq=%u",
+		      __entry->cpu,
+		      __entry->util,
+		      __entry->max,
+		      __entry->freq)
+);
+
 DECLARE_EVENT_CLASS(kpm_module,
 
 	TP_PROTO(unsigned int managed_cpus, unsigned int max_cpus),
