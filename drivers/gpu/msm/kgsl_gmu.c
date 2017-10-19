@@ -1372,6 +1372,31 @@ static void gmu_snapshot(struct kgsl_device *device)
 	gmu->fault_count++;
 }
 
+static void gmu_change_gpu_pwrlevel(struct kgsl_device *device,
+	unsigned int new_level) {
+
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	unsigned int old_level = pwr->active_pwrlevel;
+
+	/*
+	 * Update the level according to any thermal,
+	 * max/min, or power constraints.
+	 */
+	new_level = kgsl_pwrctrl_adjust_pwrlevel(device, new_level);
+
+	/*
+	 * If thermal cycling is required and the new level hits the
+	 * thermal limit, kick off the cycling.
+	 */
+	kgsl_pwrctrl_set_thermal_cycle(device, new_level);
+
+	pwr->active_pwrlevel = new_level;
+	pwr->previous_pwrlevel = old_level;
+
+	/* Request adjusted DCVS level */
+	kgsl_clk_set_rate(device, pwr->active_pwrlevel);
+}
+
 /* To be called to power on both GPU and GMU */
 int gmu_start(struct kgsl_device *device)
 {
@@ -1406,8 +1431,7 @@ int gmu_start(struct kgsl_device *device)
 			goto error_gmu;
 
 		/* Request default DCVS level */
-		kgsl_pwrctrl_pwrlevel_change(device, pwr->default_pwrlevel);
-
+		gmu_change_gpu_pwrlevel(device, pwr->default_pwrlevel);
 		msm_bus_scale_client_update_request(gmu->pcl, 0);
 		break;
 
@@ -1426,7 +1450,7 @@ int gmu_start(struct kgsl_device *device)
 		if (ret)
 			goto error_gmu;
 
-		kgsl_pwrctrl_pwrlevel_change(device, pwr->default_pwrlevel);
+		gmu_change_gpu_pwrlevel(device, pwr->default_pwrlevel);
 		break;
 
 	case KGSL_STATE_RESET:
@@ -1448,7 +1472,7 @@ int gmu_start(struct kgsl_device *device)
 				goto error_gmu;
 
 			/* Send DCVS level prior to reset*/
-			kgsl_pwrctrl_pwrlevel_change(device,
+			gmu_change_gpu_pwrlevel(device,
 				pwr->default_pwrlevel);
 		} else {
 			/* GMU fast boot */
