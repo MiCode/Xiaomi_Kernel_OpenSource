@@ -22,9 +22,19 @@
 		status = "ok";
 	};
 
-	led_flash_front: qcom,camera-flash@1 {
+	led_flash_rear_aux: qcom,camera-flash@1 {
 		cell-index = <1>;
 		reg = <0x01 0x00>;
+		compatible = "qcom,camera-flash";
+		flash-source = <&pmi8998_flash0 &pmi8998_flash1>;
+		torch-source = <&pmi8998_torch0 &pmi8998_torch1 >;
+		switch-source = <&pmi8998_switch0>;
+		status = "ok";
+	};
+
+	led_flash_front: qcom,camera-flash@2 {
+		cell-index = <2>;
+		reg = <0x02 0x00>;
 		compatible = "qcom,camera-flash";
 		flash-source = <&pmi8998_flash2>;
 		torch-source = <&pmi8998_torch2>;
@@ -306,6 +316,7 @@
 		sensor-position-pitch = <0>;
 		sensor-position-yaw = <180>;
 		actuator-src = <&actuator_rear_aux>;
+		led-flash-src = <&led_flash_rear_aux>;
 		eeprom-src = <&eeprom_rear_aux>;
 		cam_vdig-supply = <&camera_ldo>;
 		cam_vio-supply = <&pm8998_lvs1>;

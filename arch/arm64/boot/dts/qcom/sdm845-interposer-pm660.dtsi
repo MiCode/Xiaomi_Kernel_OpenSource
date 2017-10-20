@@ -142,6 +142,12 @@
 	/delete-property/ switch-source;
 };
 
+&led_flash_rear_aux {
+	/delete-property/ flash-source;
+	/delete-property/ torch-source;
+	/delete-property/ switch-source;
+};
+
 &led_flash_front {
 	/delete-property/ flash-source;
 	/delete-property/ torch-source;
