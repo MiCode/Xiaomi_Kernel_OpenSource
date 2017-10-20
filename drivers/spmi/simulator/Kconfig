@@ -27,4 +27,12 @@ config PM855B_PMIC_SIMULATOR
 	  in conjunction with the SPMI Controller Simulator to help test PMIC
 	  peripheral drivers before physical PMIC chips are available.
 
+config PM855L_PMIC_SIMULATOR
+	tristate "Qualcomm Technologies, Inc. PM855L PMIC Simulator"
+	help
+	  The PM855L PMIC Simulator configures the read/write permissions of all
+	  PM855L SPMI registers and loads default register values.  It is used
+	  in conjunction with the SPMI Controller Simulator to help test PMIC
+	  peripheral drivers before physical PMIC chips are available.
+
 endif
