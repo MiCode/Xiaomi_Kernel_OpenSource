@@ -19,6 +19,10 @@
 	compatible = "qcom,msm8996";
 	qcom,msm-id = <246 0x0>;
 
+	aliases {
+		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
+	};
+
 	psci {
 		compatible = "arm,psci";
 		method = "smc";
@@ -84,6 +88,46 @@
 			compatible = "qcom,msm-imem-boot_stats";
 			reg = <0x6b0 32>;
 		};
+	};
+
+	sdhc_2: sdhci@74a4900 {
+		compatible = "qcom,sdhci-msm";
+		reg = <0x74a4900 0x314>, <0x74a4000 0x800>;
+		reg-names = "hc_mem", "core_mem";
+
+		interrupts = <0 125 0>, <0 221 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_sdcc2_ahb_clk>,
+			 <&clock_gcc clk_gcc_sdcc2_apps_clk>;
+
+		qcom,large-address-bus;
+		qcom,bus-width = <4>;
+
+		qcom,devfreq,freq-table = <20000000 200000000>;
+
+		qcom,msm-bus,name = "sdhc2";
+		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <81 512 0 0>, /* No vote */
+				<81 512 1600 3200>,    /* 400 KB/s*/
+				<81 512 80000 160000>, /* 20 MB/s */
+				<81 512 100000 200000>, /* 25 MB/s */
+				<81 512 200000 400000>, /* 50 MB/s */
+				<81 512 400000 800000>, /* 100 MB/s */
+				<81 512 800000 800000>, /* 200 MB/s */
+				<81 512 2048000 4096000>; /* Max. bandwidth */
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+						100000000 200000000 4294967295>;
+
+		qcom,pm-qos-cpu-groups = <0x03 0x0c>;
+		qcom,pm-qos-legacy-latency-us = <70 70>, <70 70>;
+		qcom,pm-qos-irq-type = "affine_cores";
+		qcom,pm-qos-irq-cpu = <0>;
+		qcom,pm-qos-irq-latency = <70 70>;
+
+		status = "disabled";
 	};
 
 	sound-adp-agave {
@@ -816,5 +860,19 @@
 		regulator-name = "gdsc_hlos1_vote_lpass_adsp";
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <7>;
+	};
+
+	pm8994_l21: regulator-l21 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8994_l21";
+		regulator-min-microvolt = <2950000>;
+		regulator-max-microvolt = <2950000>;
+	};
+
+	pm8994_l13: regulator-l13 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8994_l13";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <2950000>;
 	};
 };
