@@ -44,6 +44,7 @@ struct lpm_cpu {
 	int nlevels;
 	unsigned int psci_mode_shift;
 	unsigned int psci_mode_mask;
+	bool lpm_prediction;
 	struct cpuidle_driver *drv;
 	struct lpm_cluster *parent;
 };
