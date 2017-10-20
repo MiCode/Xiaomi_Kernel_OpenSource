@@ -901,6 +901,15 @@ config QCOM_EARLY_RANDOM
 	  may not be truly random. Select this option to make an early call
 	  to get some random data to put in the pool. If unsure, say N.
 
+config QCOM_QDSS_BRIDGE
+	bool "Configure bridge driver for Qualcomm MDM"
+	depends on MSM_MHI
+	help
+	  The driver will help route diag traffic over the QDSS sub-system to
+	  USB on APPS side. The driver acts as a bridge between the PCIE MHI
+	  and USB interface. The amount of buffer memory allocated at runtime
+	  can be modified via module params. If unsure, say N.
+
 config WCD_DSP_GLINK
 	tristate "WCD DSP GLINK Driver"
 	depends on MSM_GLINK
