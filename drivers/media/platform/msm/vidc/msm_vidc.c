@@ -1171,14 +1171,17 @@ static void msm_vidc_buf_queue(struct vb2_buffer *vb2)
 
 	mbuf = msm_comm_get_vidc_buffer(inst, vb2);
 	if (IS_ERR_OR_NULL(mbuf)) {
-		if (PTR_ERR(mbuf) != -EEXIST)
-			print_vb2_buffer(VIDC_ERR, "failed to get vidc-buf",
-				inst, vb2);
-		return;
+		if (PTR_ERR(mbuf) == -EEXIST)
+			return;
+		print_vb2_buffer(VIDC_ERR, "failed to get vidc-buf",
+			inst, vb2);
+		rc = -EINVAL;
+		goto error;
 	}
 	if (!kref_get_mbuf(inst, mbuf)) {
 		dprintk(VIDC_ERR, "%s: mbuf not found\n", __func__);
-		return;
+		rc = -EINVAL;
+		goto error;
 	}
 
 	rc = msm_comm_qbuf(inst, mbuf);
@@ -1186,6 +1189,10 @@ static void msm_vidc_buf_queue(struct vb2_buffer *vb2)
 		print_vidc_buffer(VIDC_ERR, "failed qbuf", inst, mbuf);
 
 	kref_put_mbuf(mbuf);
+
+error:
+	if (rc)
+		msm_comm_generate_session_error(inst);
 }
 
 static const struct vb2_ops msm_vidc_vb2q_ops = {

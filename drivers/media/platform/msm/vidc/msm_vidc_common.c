@@ -70,8 +70,6 @@ const char *const mpeg_video_vidc_extradata[] = {
 	"Extradata UBWC CR stats info",
 };
 
-static void msm_comm_generate_session_error(struct msm_vidc_inst *inst);
-static void msm_comm_generate_sys_error(struct msm_vidc_inst *inst);
 static void handle_session_error(enum hal_command_response cmd, void *data);
 static void msm_vidc_print_running_insts(struct msm_vidc_core *core);
 
@@ -5517,7 +5515,7 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	return rc;
 }
 
-static void msm_comm_generate_session_error(struct msm_vidc_inst *inst)
+void msm_comm_generate_session_error(struct msm_vidc_inst *inst)
 {
 	enum hal_command_response cmd = HAL_SESSION_ERROR;
 	struct msm_vidc_cb_cmd_done response = {0};
@@ -5532,7 +5530,7 @@ static void msm_comm_generate_session_error(struct msm_vidc_inst *inst)
 	handle_session_error(cmd, (void *)&response);
 }
 
-static void msm_comm_generate_sys_error(struct msm_vidc_inst *inst)
+void msm_comm_generate_sys_error(struct msm_vidc_inst *inst)
 {
 	struct msm_vidc_core *core;
 	enum hal_command_response cmd = HAL_SYS_ERROR;
