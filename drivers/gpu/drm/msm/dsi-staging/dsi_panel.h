@@ -191,6 +191,16 @@ static inline bool dsi_panel_initialized(struct dsi_panel *panel)
 	return panel->panel_initialized;
 }
 
+static inline void dsi_panel_acquire_panel_lock(struct dsi_panel *panel)
+{
+	mutex_lock(&panel->panel_lock);
+}
+
+static inline void dsi_panel_release_panel_lock(struct dsi_panel *panel)
+{
+	mutex_unlock(&panel->panel_lock);
+}
+
 struct dsi_panel *dsi_panel_get(struct device *parent,
 				struct device_node *of_node,
 				int topology_override);
