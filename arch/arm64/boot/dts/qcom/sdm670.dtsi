@@ -2205,6 +2205,8 @@
 
 		qcom,ice-clk-rates = <300000000 75000000>;
 
+		qcom,ddr-config = <0xC3040873>;
+
 		qcom,nonremovable;
 
 		qcom,scaling-lower-bus-speed-mode = "DDR52";
