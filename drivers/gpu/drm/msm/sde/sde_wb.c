@@ -162,7 +162,9 @@ int sde_wb_connector_set_modes(struct sde_wb_device *wb_dev,
 		u32 count_modes, struct drm_mode_modeinfo __user *modes,
 		bool connected)
 {
+	struct drm_mode_modeinfo *modeinfo = NULL;
 	int ret = 0;
+	int i;
 
 	if (!wb_dev || !wb_dev->connector ||
 			(wb_dev->connector->connector_type !=
@@ -176,6 +178,56 @@ int sde_wb_connector_set_modes(struct sde_wb_device *wb_dev,
 	if (connected) {
 		SDE_DEBUG("connect\n");
 
+		if (count_modes && modes) {
+			modeinfo = kcalloc(count_modes,
+					sizeof(struct drm_mode_modeinfo),
+					GFP_KERNEL);
+			if (!modeinfo) {
+				SDE_ERROR("invalid params\n");
+				ret = -ENOMEM;
+				goto error;
+			}
+
+			if (copy_from_user(modeinfo, modes,
+					count_modes *
+					sizeof(struct drm_mode_modeinfo))) {
+				SDE_ERROR("failed to copy modes\n");
+				kfree(modeinfo);
+				ret = -EFAULT;
+				goto error;
+			}
+
+			for (i = 0; i < count_modes; i++) {
+				struct drm_display_mode dispmode;
+
+				memset(&dispmode, 0, sizeof(dispmode));
+				ret = drm_mode_convert_umode(&dispmode,
+						&modeinfo[i]);
+				if (ret) {
+					SDE_ERROR(
+						"failed to convert mode %d:\"%s\" %d %d %d %d %d %d %d %d %d %d 0x%x 0x%x status:%d rc:%d\n",
+						i,
+						modeinfo[i].name,
+						modeinfo[i].vrefresh,
+						modeinfo[i].clock,
+						modeinfo[i].hdisplay,
+						modeinfo[i].hsync_start,
+						modeinfo[i].hsync_end,
+						modeinfo[i].htotal,
+						modeinfo[i].vdisplay,
+						modeinfo[i].vsync_start,
+						modeinfo[i].vsync_end,
+						modeinfo[i].vtotal,
+						modeinfo[i].type,
+						modeinfo[i].flags,
+						dispmode.status,
+						ret);
+					kfree(modeinfo);
+					goto error;
+				}
+			}
+		}
+
 		if (wb_dev->modes) {
 			wb_dev->count_modes = 0;
 
@@ -183,29 +235,8 @@ int sde_wb_connector_set_modes(struct sde_wb_device *wb_dev,
 			wb_dev->modes = NULL;
 		}
 
-		if (count_modes && modes) {
-			wb_dev->modes = kcalloc(count_modes,
-					sizeof(struct drm_mode_modeinfo),
-					GFP_KERNEL);
-			if (!wb_dev->modes) {
-				SDE_ERROR("invalid params\n");
-				ret = -ENOMEM;
-				goto error;
-			}
-
-			if (copy_from_user(wb_dev->modes, modes,
-					count_modes *
-					sizeof(struct drm_mode_modeinfo))) {
-				SDE_ERROR("failed to copy modes\n");
-				kfree(wb_dev->modes);
-				wb_dev->modes = NULL;
-				ret = -EFAULT;
-				goto error;
-			}
-
-			wb_dev->count_modes = count_modes;
-		}
-
+		wb_dev->count_modes = count_modes;
+		wb_dev->modes = modeinfo;
 		wb_dev->detect_status = connector_status_connected;
 	} else {
 		SDE_DEBUG("disconnect\n");
@@ -289,22 +320,30 @@ int sde_wb_get_info(struct msm_display_info *info, void *display)
 }
 
 int sde_wb_get_mode_info(const struct drm_display_mode *drm_mode,
-	struct msm_mode_info *mode_info, u32 max_mixer_width)
+	struct msm_mode_info *mode_info, u32 max_mixer_width, void *display)
 {
 	const u32 dual_lm = 2;
 	const u32 single_lm = 1;
 	const u32 single_intf = 1;
 	const u32 no_enc = 0;
 	struct msm_display_topology *topology;
+	struct sde_wb_device *wb_dev = display;
+	u16 hdisplay;
+	int i;
 
-	if (!drm_mode || !mode_info || !max_mixer_width) {
+	if (!drm_mode || !mode_info || !max_mixer_width || !display) {
 		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 
+	hdisplay = drm_mode->hdisplay;
+
+	/* find maximum display width to support */
+	for (i = 0; i < wb_dev->count_modes; i++)
+		hdisplay = max(hdisplay, wb_dev->modes[i].hdisplay);
+
 	topology = &mode_info->topology;
-	topology->num_lm = (max_mixer_width <= drm_mode->hdisplay) ?
-							dual_lm : single_lm;
+	topology->num_lm = (max_mixer_width <= hdisplay) ? dual_lm : single_lm;
 	topology->num_enc = no_enc;
 	topology->num_intf = single_intf;
 

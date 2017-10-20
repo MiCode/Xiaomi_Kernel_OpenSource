@@ -78,11 +78,12 @@ enum drm_mode_status dp_connector_mode_valid(struct drm_connector *connector,
  * @drm_mode: Display mode set for the display
  * @mode_info: Out parameter. Information of the mode
  * @max_mixer_width: max width supported by HW layer mixer
+ * @display: Pointer to private display structure
  * Returns: zero on success
  */
 int dp_connector_get_mode_info(const struct drm_display_mode *drm_mode,
 		struct msm_mode_info *mode_info,
-		u32 max_mixer_width);
+		u32 max_mixer_width, void *display);
 
 int dp_connector_get_info(struct msm_display_info *info, void *display);
 
