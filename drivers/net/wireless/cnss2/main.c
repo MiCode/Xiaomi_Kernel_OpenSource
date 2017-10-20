@@ -58,6 +58,7 @@ MODULE_PARM_DESC(enable_waltest, "Enable to handle firmware waltest");
 enum cnss_debug_quirks {
 	LINK_DOWN_SELF_RECOVERY,
 	SKIP_DEVICE_BOOT,
+	USE_CORE_ONLY_FW,
 };
 
 unsigned long quirks;
@@ -1107,6 +1108,12 @@ static int cnss_qca6290_powerup(struct cnss_plat_data *plat_priv)
 		    !pci_priv->pci_link_down_ind && timeout)
 			mod_timer(&plat_priv->fw_boot_timer,
 				  jiffies + msecs_to_jiffies(timeout >> 1));
+		return 0;
+	}
+
+	if (test_bit(USE_CORE_ONLY_FW, &quirks)) {
+		clear_bit(CNSS_FW_BOOT_RECOVERY, &plat_priv->driver_state);
+		clear_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state);
 		return 0;
 	}
 
