@@ -18,6 +18,7 @@ Required properties :
 			"qcom,gcc-mdm9615"
 			"qcom,gcc-sdm845"
 			"qcom,gcc-sdm845-v2"
+			"qcom,gcc-sdm845-v2.1"
 			"qcom,gcc-sdm670"
 			"qcom,debugcc-sdm845"
 
