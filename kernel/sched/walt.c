@@ -2337,10 +2337,58 @@ static struct notifier_block notifier_policy_block = {
 	.notifier_call = cpufreq_notifier_policy
 };
 
+static int cpufreq_notifier_trans(struct notifier_block *nb,
+		unsigned long val, void *data)
+{
+	struct cpufreq_freqs *freq = (struct cpufreq_freqs *)data;
+	unsigned int cpu = freq->cpu, new_freq = freq->new;
+	unsigned long flags;
+	struct sched_cluster *cluster;
+	struct cpumask policy_cpus = cpu_rq(cpu)->freq_domain_cpumask;
+	int i, j;
+
+	if (val != CPUFREQ_POSTCHANGE)
+		return NOTIFY_DONE;
+
+	if (cpu_cur_freq(cpu) == new_freq)
+		return NOTIFY_OK;
+
+	for_each_cpu(i, &policy_cpus) {
+		cluster = cpu_rq(i)->cluster;
+
+		if (!use_cycle_counter) {
+			for_each_cpu(j, &cluster->cpus) {
+				struct rq *rq = cpu_rq(j);
+
+				raw_spin_lock_irqsave(&rq->lock, flags);
+				update_task_ravg(rq->curr, rq, TASK_UPDATE,
+						 ktime_get_ns(), 0);
+				raw_spin_unlock_irqrestore(&rq->lock, flags);
+			}
+		}
+
+		cluster->cur_freq = new_freq;
+		cpumask_andnot(&policy_cpus, &policy_cpus, &cluster->cpus);
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block notifier_trans_block = {
+	.notifier_call = cpufreq_notifier_trans
+};
+
 static int register_walt_callback(void)
 {
-	return cpufreq_register_notifier(&notifier_policy_block,
-					 CPUFREQ_POLICY_NOTIFIER);
+	int ret;
+
+	ret = cpufreq_register_notifier(&notifier_policy_block,
+					CPUFREQ_POLICY_NOTIFIER);
+	if (!ret)
+		ret = cpufreq_register_notifier(&notifier_trans_block,
+						CPUFREQ_TRANSITION_NOTIFIER);
+
+	return ret;
 }
 /*
  * cpufreq callbacks can be registered at core_initcall or later time.
