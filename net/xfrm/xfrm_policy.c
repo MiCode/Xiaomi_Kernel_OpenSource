@@ -1406,7 +1406,8 @@ xfrm_tmpl_resolve_one(struct xfrm_policy *policy, const struct flowi *fl,
 			remote = &tmpl->id.daddr;
 			local = &tmpl->saddr;
 			if (xfrm_addr_any(local, tmpl->encap_family)) {
-				error = xfrm_get_saddr(net, &tmp, remote, tmpl->encap_family, 0);
+				error = xfrm_get_saddr(net, &tmp, remote,
+						       tmpl->encap_family, 0);
 				if (error)
 					goto fail;
 				local = &tmp;
