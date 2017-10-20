@@ -1044,6 +1044,8 @@ static int cnss_qca6174_shutdown(struct cnss_plat_data *plat_priv)
 	if (!pci_priv)
 		return -ENODEV;
 
+	cnss_pm_request_resume(pci_priv);
+
 	cnss_driver_call_remove(plat_priv);
 
 	cnss_request_bus_bandwidth(CNSS_BUS_WIDTH_NONE);
@@ -1147,6 +1149,8 @@ static int cnss_qca6290_shutdown(struct cnss_plat_data *plat_priv)
 
 	if (!pci_priv)
 		return -ENODEV;
+
+	cnss_pm_request_resume(pci_priv);
 
 	cnss_driver_call_remove(plat_priv);
 
