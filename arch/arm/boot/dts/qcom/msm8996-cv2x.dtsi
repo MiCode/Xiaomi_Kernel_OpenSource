@@ -342,6 +342,8 @@
 &pcie2 {
 	/* Enumerate MDM on wake interrupt */
 	qcom,boot-option = <0x0>;
+	/delete-property/ qcom,l1-supported;
+	/delete-property/ qcom,l1ss-supported;
 };
 
 &mdm3 {
