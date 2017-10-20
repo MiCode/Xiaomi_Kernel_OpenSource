@@ -1646,7 +1646,9 @@ struct dsi_ctrl *dsi_ctrl_get(struct device_node *of_node)
 	mutex_lock(&ctrl->ctrl_lock);
 	if (ctrl->refcount == 1) {
 		pr_err("[%s] Device in use\n", ctrl->name);
+		mutex_unlock(&ctrl->ctrl_lock);
 		ctrl = ERR_PTR(-EBUSY);
+		return ctrl;
 	} else {
 		ctrl->refcount++;
 	}
