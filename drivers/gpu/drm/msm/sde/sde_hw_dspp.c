@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,7 @@ static struct sde_dspp_cfg *_dspp_offset(enum sde_dspp dspp,
 		if (dspp == m->dspp[i].id) {
 			b->base_off = addr;
 			b->blk_off = m->dspp[i].base;
+			b->length = m->dspp[i].len;
 			b->hwversion = m->hwversion;
 			b->log_mask = SDE_DBG_MASK_DSPP;
 			return &m->dspp[i];
