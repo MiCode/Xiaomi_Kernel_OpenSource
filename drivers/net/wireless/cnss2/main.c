@@ -565,8 +565,14 @@ out:
 
 static int cnss_driver_call_probe(struct cnss_plat_data *plat_priv)
 {
-	int ret;
+	int ret = 0;
 	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
+
+	if (test_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state)) {
+		clear_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state);
+		cnss_pr_dbg("Skip driver probe\n");
+		goto out;
+	}
 
 	if (!plat_priv->driver_ops) {
 		cnss_pr_err("driver_ops is NULL\n");
@@ -604,6 +610,13 @@ out:
 static int cnss_driver_call_remove(struct cnss_plat_data *plat_priv)
 {
 	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
+
+	if (test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state) ||
+	    test_bit(CNSS_FW_BOOT_RECOVERY, &plat_priv->driver_state) ||
+	    test_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Skip driver remove\n");
+		return 0;
+	}
 
 	if (!plat_priv->driver_ops) {
 		cnss_pr_err("driver_ops is NULL\n");
@@ -998,11 +1011,6 @@ static int cnss_qca6174_powerup(struct cnss_plat_data *plat_priv)
 		return -ENODEV;
 	}
 
-	if (!plat_priv->driver_ops) {
-		cnss_pr_err("driver_ops is NULL!\n");
-		return -EINVAL;
-	}
-
 	ret = cnss_power_on_device(plat_priv);
 	if (ret) {
 		cnss_pr_err("Failed to power on device, err = %d\n", ret);
@@ -1036,15 +1044,8 @@ static int cnss_qca6174_shutdown(struct cnss_plat_data *plat_priv)
 	if (!pci_priv)
 		return -ENODEV;
 
-	if (test_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state))
-		goto skip_driver_remove;
-
-	if (!plat_priv->driver_ops)
-		return -EINVAL;
-
 	cnss_driver_call_remove(plat_priv);
 
-skip_driver_remove:
 	cnss_request_bus_bandwidth(CNSS_BUS_WIDTH_NONE);
 	cnss_pci_set_monitor_wake_intr(pci_priv, false);
 	cnss_pci_set_auto_suspended(pci_priv, 0);
@@ -1147,17 +1148,8 @@ static int cnss_qca6290_shutdown(struct cnss_plat_data *plat_priv)
 	if (!pci_priv)
 		return -ENODEV;
 
-	if (test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state) ||
-	    test_bit(CNSS_FW_BOOT_RECOVERY, &plat_priv->driver_state) ||
-	    test_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state))
-		goto skip_driver_remove;
-
-	if (!plat_priv->driver_ops)
-		return -EINVAL;
-
 	cnss_driver_call_remove(plat_priv);
 
-skip_driver_remove:
 	cnss_request_bus_bandwidth(CNSS_BUS_WIDTH_NONE);
 	cnss_pci_set_monitor_wake_intr(pci_priv, false);
 	cnss_pci_set_auto_suspended(pci_priv, 0);
