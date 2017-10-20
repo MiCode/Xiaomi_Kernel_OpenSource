@@ -385,7 +385,6 @@ struct sde_rot_bus_data_type {
  * @reg_bus: register bus configuration state
  * @module_power: power/clock configuration state
  * @regulator_enable: true if foot switch is enabled; false otherwise
- * @rsc_client: pointer to rsc client handle
  * @res_ref_cnt: reference count of how many times resource is requested
  * @rot_enable_clk_cnt: reference count of how many times clock is requested
  * @rot_clk: array of rotator and periphery clocks
@@ -430,8 +429,6 @@ struct sde_rot_mgr {
 	/* Module power is only used for regulator management */
 	struct sde_module_power module_power;
 	bool regulator_enable;
-
-	struct sde_rsc_client *rsc_client;
 
 	int res_ref_cnt;
 	int rot_enable_clk_cnt;
@@ -766,6 +763,15 @@ static inline void sde_rot_mgr_lock(struct sde_rot_mgr *mgr)
 static inline void sde_rot_mgr_unlock(struct sde_rot_mgr *mgr)
 {
 	mutex_unlock(&mgr->lock);
+}
+
+/*
+ * sde_rot_mgr_pd_enabled - return true if power domain is enabled
+ * @mgr: Pointer to rotator manager
+ */
+static inline bool sde_rot_mgr_pd_enabled(struct sde_rot_mgr *mgr)
+{
+	return mgr && mgr->device && mgr->device->pm_domain;
 }
 
 #if defined(CONFIG_PM)
