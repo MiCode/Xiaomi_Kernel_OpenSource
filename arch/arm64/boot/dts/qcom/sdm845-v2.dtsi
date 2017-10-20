@@ -274,7 +274,7 @@
 	mincpubw-cpufreq {
 		cpu-to-dev-map-4 =
 			< 1881600 MHZ_TO_MBPS(200, 4) >,
-			< 2400000 MHZ_TO_MBPS(681, 4) >;
+			< 2400000 MHZ_TO_MBPS(1017, 4) >;
 	};
 };
 
