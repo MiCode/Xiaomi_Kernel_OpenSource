@@ -138,8 +138,6 @@ static int msm_rng_direct_read(struct msm_rng_device *msm_rng_dev,
 
 		/* read FIFO */
 		val = readl_relaxed(base + PRNG_DATA_OUT_OFFSET);
-		if (!val)
-			break;	/* no data to read so just bail */
 
 		/* write data back to callers pointer */
 		*(retdata++) = val;
