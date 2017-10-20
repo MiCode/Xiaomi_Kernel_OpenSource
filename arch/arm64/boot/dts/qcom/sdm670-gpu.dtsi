@@ -239,7 +239,7 @@
 
 		gfx3d_secure: gfx3d_secure {
 			compatible = "qcom,smmu-kgsl-cb";
-			iommus = <&kgsl_smmu 2>;
+			iommus = <&kgsl_smmu 2>, <&kgsl_smmu 1>;
 		};
 	};
 
