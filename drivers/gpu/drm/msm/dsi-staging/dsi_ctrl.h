@@ -46,6 +46,9 @@
 #define DSI_CTRL_CMD_FETCH_MEMORY     0x20
 #define DSI_CTRL_CMD_LAST_COMMAND     0x40
 
+/* max size supported for dsi cmd transfer using TPG */
+#define DSI_CTRL_MAX_CMD_FIFO_STORE_SIZE 64
+
 /**
  * enum dsi_power_state - defines power states for dsi controller.
  * @DSI_CTRL_POWER_VREG_OFF:    Digital and analog supplies for DSI controller
@@ -191,8 +194,9 @@ struct dsi_ctrl_interrupts {
  *                       Origin is top left of this CTRL.
  * @tx_cmd_buf:          Tx command buffer.
  * @cmd_buffer_iova:     cmd buffer mapped address.
- * @vaddr:		 CPU virtual address of cmd buffer.
  * @cmd_buffer_size:     Size of command buffer.
+ * @vaddr:               CPU virtual address of cmd buffer.
+ * @secure_mode:         Indicates if secure-session is in progress
  * @debugfs_root:        Root for debugfs entries.
  * @misr_enable:         Frame MISR enable/disable
  * @misr_cache:          Cached Frame MISR value
@@ -236,6 +240,7 @@ struct dsi_ctrl {
 	u32 cmd_buffer_iova;
 	u32 cmd_len;
 	void *vaddr;
+	u32 secure_mode;
 
 	/* Debug Information */
 	struct dentry *debugfs_root;

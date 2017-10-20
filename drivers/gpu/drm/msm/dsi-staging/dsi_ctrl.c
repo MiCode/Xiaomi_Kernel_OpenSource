@@ -955,9 +955,27 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 	u8 *cmdbuf;
 	struct dsi_mode_info *timing;
 
+	/* override cmd fetch mode during secure session */
+	if (dsi_ctrl->secure_mode) {
+		flags &= ~DSI_CTRL_CMD_FETCH_MEMORY;
+		flags |= DSI_CTRL_CMD_FIFO_STORE;
+		pr_debug("[%s] override to TPG during secure session\n",
+				dsi_ctrl->name);
+	}
+
 	rc = mipi_dsi_create_packet(&packet, msg);
 	if (rc) {
 		pr_err("Failed to create message packet, rc=%d\n", rc);
+		goto error;
+	}
+
+	/* fail cmds more than the supported size in TPG mode */
+	if ((flags & DSI_CTRL_CMD_FIFO_STORE) &&
+			(msg->tx_len > DSI_CTRL_MAX_CMD_FIFO_STORE_SIZE)) {
+		pr_err("[%s] TPG cmd size:%zd not supported, secure:%d\n",
+				dsi_ctrl->name, msg->tx_len,
+				dsi_ctrl->secure_mode);
+		rc = -ENOTSUPP;
 		goto error;
 	}
 
@@ -1554,6 +1572,7 @@ static int dsi_ctrl_dev_probe(struct platform_device *pdev)
 	mutex_unlock(&dsi_ctrl_list_lock);
 
 	mutex_init(&dsi_ctrl->ctrl_lock);
+	dsi_ctrl->secure_mode = false;
 
 	dsi_ctrl->pdev = pdev;
 	platform_set_drvdata(pdev, dsi_ctrl);
