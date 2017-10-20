@@ -134,6 +134,7 @@
 #include "msm8953-pm.dtsi"
 #include "msm8953-bus.dtsi"
 #include "msm8953-coresight.dtsi"
+#include "msm-arm-smmu-8953.dtsi"
 
 &soc {
 	#address-cells = <1>;
