@@ -95,6 +95,8 @@
 			interrupt-names = "eoc-int-en-set";
 			qcom,adc-full-scale-code = <0x70e4>;
 			qcom,adc-vdd-reference = <1875>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&ambient_therm_default>;
 
 			chan@6 {
 				label = "die_temp";
