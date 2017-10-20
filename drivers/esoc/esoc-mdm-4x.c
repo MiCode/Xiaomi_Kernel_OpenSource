@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -794,6 +794,28 @@ err_state_active:
 	mdm->gpio_state_running = NULL;
 	return retval;
 }
+
+static void mdm_release_ipc_gpio(struct mdm_ctrl *mdm)
+{
+	int i;
+
+	if (!mdm)
+		return;
+
+	for (i = 0; i < NUM_GPIOS; ++i)
+		if (gpio_is_valid(MDM_GPIO(mdm, i)))
+			gpio_free(MDM_GPIO(mdm, i));
+}
+
+static void mdm_free_irq(struct mdm_ctrl *mdm)
+{
+	if (!mdm)
+		return;
+
+	free_irq(mdm->errfatal_irq, mdm);
+	free_irq(mdm->status_irq, mdm);
+}
+
 static int mdm9x25_setup_hw(struct mdm_ctrl *mdm,
 					const struct mdm_ops *ops,
 					struct platform_device *pdev)
@@ -1028,6 +1050,108 @@ static int mdm9x55_setup_hw(struct mdm_ctrl *mdm,
 	return 0;
 }
 
+static int sdxpoorwills_setup_hw(struct mdm_ctrl *mdm,
+				const struct mdm_ops *ops,
+				struct platform_device *pdev)
+{
+	int ret;
+	struct device_node *node;
+	struct esoc_clink *esoc;
+	const struct esoc_clink_ops *clink_ops = ops->clink_ops;
+	const struct mdm_pon_ops *pon_ops = ops->pon_ops;
+
+	mdm->dev = &pdev->dev;
+	mdm->pon_ops = pon_ops;
+	node = pdev->dev.of_node;
+
+	esoc = devm_kzalloc(mdm->dev, sizeof(*esoc), GFP_KERNEL);
+	if (IS_ERR_OR_NULL(esoc)) {
+		dev_err(mdm->dev, "cannot allocate esoc device\n");
+		return PTR_ERR(esoc);
+	}
+
+	esoc->pdev = pdev;
+
+	mdm->mdm_queue = alloc_workqueue("mdm_queue", 0, 0);
+	if (!mdm->mdm_queue) {
+		dev_err(mdm->dev, "could not create mdm_queue\n");
+		return -ENOMEM;
+	}
+
+	mdm->irq_mask = 0;
+	mdm->ready = false;
+
+	ret = mdm_dt_parse_gpios(mdm);
+	if (ret) {
+		dev_err(mdm->dev, "Failed to parse DT gpios\n");
+		goto err_destroy_wrkq;
+	}
+
+	ret = mdm_pon_dt_init(mdm);
+	if (ret) {
+		dev_err(mdm->dev, "Failed to parse PON DT gpio\n");
+		goto err_destroy_wrkq;
+	}
+
+	ret = mdm_pinctrl_init(mdm);
+	if (ret) {
+		dev_err(mdm->dev, "Failed to init pinctrl\n");
+		goto err_destroy_wrkq;
+	}
+
+	ret = mdm_pon_setup(mdm);
+	if (ret) {
+		dev_err(mdm->dev, "Failed to setup PON\n");
+		goto err_destroy_wrkq;
+	}
+
+	ret = mdm_configure_ipc(mdm, pdev);
+	if (ret) {
+		dev_err(mdm->dev, "Failed to configure the ipc\n");
+		goto err_release_ipc;
+	}
+
+	esoc->name = SDXPOORWILLS_LABEL;
+	esoc->link_name = SDXPOORWILLS_PCIE;
+
+	ret = of_property_read_string(node, "qcom,mdm-link-info",
+					&esoc->link_info);
+	if (ret)
+		dev_info(mdm->dev, "esoc link info missing\n");
+
+	esoc->clink_ops = clink_ops;
+	esoc->parent = mdm->dev;
+	esoc->owner = THIS_MODULE;
+	esoc->np = pdev->dev.of_node;
+	set_esoc_clink_data(esoc, mdm);
+
+	ret = esoc_clink_register(esoc);
+	if (ret) {
+		dev_err(mdm->dev, "esoc registration failed\n");
+		goto err_free_irq;
+	}
+	dev_dbg(mdm->dev, "esoc registration done\n");
+
+	init_completion(&mdm->debug_done);
+	INIT_WORK(&mdm->mdm_status_work, mdm_status_fn);
+	INIT_WORK(&mdm->restart_reason_work, mdm_get_restart_reason);
+	INIT_DELAYED_WORK(&mdm->mdm2ap_status_check_work, mdm2ap_status_check);
+	mdm->get_restart_reason = false;
+	mdm->debug_fail = false;
+	mdm->esoc = esoc;
+	mdm->init = 0;
+
+	return 0;
+
+err_free_irq:
+	mdm_free_irq(mdm);
+err_release_ipc:
+	mdm_release_ipc_gpio(mdm);
+err_destroy_wrkq:
+	destroy_workqueue(mdm->mdm_queue);
+	return ret;
+}
+
 static struct esoc_clink_ops mdm_cops = {
 	.cmd_exe = mdm_cmd_exe,
 	.get_status = mdm_get_status,
@@ -1053,6 +1177,12 @@ static struct mdm_ops mdm9x55_ops = {
 	.pon_ops = &mdm9x55_pon_ops,
 };
 
+static struct mdm_ops sdxpoorwills_ops = {
+	.clink_ops = &mdm_cops,
+	.config_hw = sdxpoorwills_setup_hw,
+	.pon_ops = &sdxpoorwills_pon_ops,
+};
+
 static const struct of_device_id mdm_dt_match[] = {
 	{ .compatible = "qcom,ext-mdm9x25",
 		.data = &mdm9x25_ops, },
@@ -1060,6 +1190,8 @@ static const struct of_device_id mdm_dt_match[] = {
 		.data = &mdm9x35_ops, },
 	{ .compatible = "qcom,ext-mdm9x55",
 		.data = &mdm9x55_ops, },
+	{ .compatible = "qcom,ext-sdxpoorwills",
+		.data = &sdxpoorwills_ops, },
 	{},
 };
 MODULE_DEVICE_TABLE(of, mdm_dt_match);
