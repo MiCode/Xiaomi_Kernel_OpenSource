@@ -21,8 +21,26 @@
 #include "cam_req_mgr_debug.h"
 #include "cam_trace.h"
 #include "cam_debug_util.h"
+#include "cam_req_mgr_dev.h"
 
 static struct cam_req_mgr_core_device *g_crm_core_dev;
+
+
+void cam_req_mgr_handle_core_shutdown(void)
+{
+	struct cam_req_mgr_core_session *session;
+	struct cam_req_mgr_core_session *tsession;
+	struct cam_req_mgr_session_info ses_info;
+
+	if (!list_empty(&g_crm_core_dev->session_head)) {
+		list_for_each_entry_safe(session, tsession,
+			&g_crm_core_dev->session_head, entry) {
+			ses_info.session_hdl =
+				session->session_hdl;
+			cam_req_mgr_destroy_session(&ses_info);
+		}
+	}
+}
 
 static int __cam_req_mgr_setup_payload(struct cam_req_mgr_core_workq *workq)
 {

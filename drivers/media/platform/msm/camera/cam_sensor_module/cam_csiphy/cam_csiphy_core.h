@@ -49,4 +49,11 @@ int cam_csiphy_core_cfg(void *csiphy_dev, void *arg);
  */
 irqreturn_t cam_csiphy_irq(int irq_num, void *data);
 
+/**
+ * @csiphy_dev: CSIPhy device structure
+ *
+ * This API handles the CSIPhy close
+ */
+void cam_csiphy_shutdown(struct csiphy_device *csiphy_dev);
+
 #endif /* _CAM_CSIPHY_CORE_H_ */

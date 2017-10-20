@@ -34,7 +34,7 @@ static uint32_t irq_reg_offset[CAM_IFE_IRQ_REGISTERS_MAX] = {
 
 static uint32_t camif_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
 	0x0003FD1F,
-	0x0FFF7EB3,
+	0x0FFF7EBC,
 };
 
 static uint32_t rdi_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {

@@ -151,9 +151,6 @@ static unsigned int cam_req_mgr_poll(struct file *f,
 
 static int cam_req_mgr_close(struct file *filep)
 {
-	struct v4l2_subdev *sd;
-	struct cam_control cam_ctrl;
-
 	mutex_lock(&g_dev.cam_lock);
 
 	if (g_dev.open_cnt <= 0) {
@@ -161,14 +158,7 @@ static int cam_req_mgr_close(struct file *filep)
 		return -EINVAL;
 	}
 
-	cam_ctrl.op_code = CAM_SD_SHUTDOWN;
-	list_for_each_entry(sd, &g_dev.v4l2_dev->subdevs, list) {
-		if (!(sd->flags & V4L2_SUBDEV_FL_HAS_DEVNODE))
-			continue;
-		v4l2_subdev_call(sd, core, ioctl, VIDIOC_CAM_CONTROL,
-			&cam_ctrl);
-	}
-
+	cam_req_mgr_handle_core_shutdown();
 	g_dev.open_cnt--;
 	v4l2_fh_release(filep);
 

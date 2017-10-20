@@ -31,6 +31,13 @@
 #define DEFINE_MSM_MUTEX(mutexname) \
 	static struct mutex mutexname = __MUTEX_INITIALIZER(mutexname)
 
+enum cam_ois_state {
+	CAM_OIS_INIT,
+	CAM_OIS_ACQUIRE,
+	CAM_OIS_START,
+	CAM_OIS_RELEASE,
+};
+
 /**
  * struct cam_ois_registered_driver_t - registered driver info
  * @platform_driver      :   flag indicates if platform driver is registered
@@ -95,6 +102,7 @@ struct cam_ois_intf_params {
  * @i2c_mode_data   :   ois i2c mode settings
  * @i2c_calib_data  :   ois i2c calib settings
  * @ois_device_type :   ois device type
+ * @cam_ois_state   :   ois_device_state
  * @ois_name        :   ois name
  * @ois_fw_flag     :   flag for firmware download
  * @is_ois_calib    :   flag for Calibration data
@@ -115,6 +123,7 @@ struct cam_ois_ctrl_t {
 	struct i2c_settings_array i2c_calib_data;
 	struct i2c_settings_array i2c_mode_data;
 	enum msm_camera_device_type_t ois_device_type;
+	enum cam_ois_state cam_ois_state;
 	char device_name[20];
 	char ois_name[32];
 	uint8_t ois_fw_flag;

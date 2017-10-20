@@ -115,56 +115,6 @@ client_fail:
 	return rc;
 }
 
-static int cam_mem_mgr_cleanup_table(void)
-{
-	int i;
-
-	mutex_lock(&tbl.m_lock);
-	for (i = 1; i < CAM_MEM_BUFQ_MAX; i++) {
-		if (!tbl.bufq[i].active) {
-			CAM_DBG(CAM_CRM,
-				"Buffer inactive at idx=%d, continuing", i);
-			continue;
-		} else {
-			CAM_ERR(CAM_CRM,
-				"Active buffer at idx=%d, possible leak", i);
-		}
-
-		mutex_lock(&tbl.bufq[i].q_lock);
-		ion_free(tbl.client, tbl.bufq[i].i_hdl);
-		tbl.bufq[i].fd = -1;
-		tbl.bufq[i].flags = 0;
-		tbl.bufq[i].buf_handle = -1;
-		tbl.bufq[i].vaddr = 0;
-		tbl.bufq[i].len = 0;
-		memset(tbl.bufq[i].hdls, 0,
-			sizeof(int32_t) * tbl.bufq[i].num_hdl);
-		tbl.bufq[i].num_hdl = 0;
-		tbl.bufq[i].i_hdl = NULL;
-		tbl.bufq[i].active = false;
-		mutex_unlock(&tbl.bufq[i].q_lock);
-		mutex_destroy(&tbl.bufq[i].q_lock);
-	}
-	bitmap_zero(tbl.bitmap, tbl.bits);
-	/* We need to reserve slot 0 because 0 is invalid */
-	set_bit(0, tbl.bitmap);
-	mutex_unlock(&tbl.m_lock);
-
-	return 0;
-}
-
-void cam_mem_mgr_deinit(void)
-{
-	cam_mem_mgr_cleanup_table();
-	mutex_lock(&tbl.m_lock);
-	bitmap_zero(tbl.bitmap, tbl.bits);
-	kfree(tbl.bitmap);
-	tbl.bitmap = NULL;
-	cam_mem_util_client_destroy();
-	mutex_unlock(&tbl.m_lock);
-	mutex_destroy(&tbl.m_lock);
-}
-
 static int32_t cam_mem_get_slot(void)
 {
 	int32_t idx;
@@ -732,6 +682,70 @@ static int cam_mem_util_unmap_hw_va(int32_t idx,
 
 unmap_end:
 	return rc;
+}
+
+static void cam_mem_mgr_unmap_active_buf(int idx)
+{
+	enum cam_smmu_region_id region = CAM_SMMU_REGION_SHARED;
+
+	if (tbl.bufq[idx].flags & CAM_MEM_FLAG_HW_SHARED_ACCESS)
+		region = CAM_SMMU_REGION_SHARED;
+	else if (tbl.bufq[idx].flags & CAM_MEM_FLAG_HW_READ_WRITE)
+		region = CAM_SMMU_REGION_IO;
+
+	cam_mem_util_unmap_hw_va(idx, region);
+}
+
+static int cam_mem_mgr_cleanup_table(void)
+{
+	int i;
+
+	mutex_lock(&tbl.m_lock);
+	for (i = 1; i < CAM_MEM_BUFQ_MAX; i++) {
+		if (!tbl.bufq[i].active) {
+			CAM_DBG(CAM_CRM,
+				"Buffer inactive at idx=%d, continuing", i);
+			continue;
+		} else {
+			CAM_INFO(CAM_CRM,
+			"Active buffer at idx=%d, possible leak needs unmapping",
+			i);
+			cam_mem_mgr_unmap_active_buf(i);
+		}
+
+		mutex_lock(&tbl.bufq[i].q_lock);
+		ion_free(tbl.client, tbl.bufq[i].i_hdl);
+		tbl.bufq[i].fd = -1;
+		tbl.bufq[i].flags = 0;
+		tbl.bufq[i].buf_handle = -1;
+		tbl.bufq[i].vaddr = 0;
+		tbl.bufq[i].len = 0;
+		memset(tbl.bufq[i].hdls, 0,
+			sizeof(int32_t) * tbl.bufq[i].num_hdl);
+		tbl.bufq[i].num_hdl = 0;
+		tbl.bufq[i].i_hdl = NULL;
+		tbl.bufq[i].active = false;
+		mutex_unlock(&tbl.bufq[i].q_lock);
+		mutex_destroy(&tbl.bufq[i].q_lock);
+	}
+	bitmap_zero(tbl.bitmap, tbl.bits);
+	/* We need to reserve slot 0 because 0 is invalid */
+	set_bit(0, tbl.bitmap);
+	mutex_unlock(&tbl.m_lock);
+
+	return 0;
+}
+
+void cam_mem_mgr_deinit(void)
+{
+	cam_mem_mgr_cleanup_table();
+	mutex_lock(&tbl.m_lock);
+	bitmap_zero(tbl.bitmap, tbl.bits);
+	kfree(tbl.bitmap);
+	tbl.bitmap = NULL;
+	cam_mem_util_client_destroy();
+	mutex_unlock(&tbl.m_lock);
+	mutex_destroy(&tbl.m_lock);
 }
 
 static int cam_mem_util_unmap(int32_t idx)

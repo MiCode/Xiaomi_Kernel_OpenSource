@@ -36,6 +36,26 @@ static int cam_context_handle_hw_event(void *context, uint32_t evt_id,
 	return rc;
 }
 
+int cam_context_shutdown(struct cam_context *ctx)
+{
+	int rc = 0;
+
+	if (ctx->state_machine[ctx->state].ioctl_ops.stop_dev) {
+		rc = ctx->state_machine[ctx->state].ioctl_ops.stop_dev(
+			ctx, NULL);
+		if (rc < 0)
+			CAM_ERR(CAM_CORE, "Error while dev stop %d", rc);
+	}
+	if (ctx->state_machine[ctx->state].ioctl_ops.release_dev) {
+		rc = ctx->state_machine[ctx->state].ioctl_ops.release_dev(
+			ctx, NULL);
+		if (rc < 0)
+			CAM_ERR(CAM_CORE, "Error while dev release %d", rc);
+	}
+
+	return rc;
+}
+
 int cam_context_handle_crm_get_dev_info(struct cam_context *ctx,
 	struct cam_req_mgr_device_info *info)
 {
@@ -334,7 +354,7 @@ int cam_context_init(struct cam_context *ctx,
 	}
 
 	memset(ctx, 0, sizeof(*ctx));
-
+	ctx->dev_hdl = -1;
 	INIT_LIST_HEAD(&ctx->list);
 	mutex_init(&ctx->ctx_mutex);
 	spin_lock_init(&ctx->lock);

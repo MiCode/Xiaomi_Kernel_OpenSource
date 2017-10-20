@@ -461,6 +461,35 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 	return rc;
 }
 
+void cam_ois_shutdown(struct cam_ois_ctrl_t *o_ctrl)
+{
+	int rc;
+
+	if (o_ctrl->cam_ois_state == CAM_OIS_INIT)
+		return;
+
+	if (o_ctrl->cam_ois_state == CAM_OIS_START) {
+		rc = camera_io_release(&o_ctrl->io_master_info);
+		if (rc < 0)
+			CAM_ERR(CAM_OIS, "Failed in releasing CCI");
+		rc = cam_ois_power_down(o_ctrl);
+		if (rc < 0)
+			CAM_ERR(CAM_OIS, "OIS Power down failed");
+		o_ctrl->cam_ois_state = CAM_OIS_ACQUIRE;
+	}
+
+	if (o_ctrl->cam_ois_state == CAM_OIS_ACQUIRE) {
+		rc = cam_destroy_device_hdl(o_ctrl->bridge_intf.device_hdl);
+		if (rc < 0)
+			CAM_ERR(CAM_OIS, "destroying the device hdl");
+		o_ctrl->bridge_intf.device_hdl = -1;
+		o_ctrl->bridge_intf.link_hdl = -1;
+		o_ctrl->bridge_intf.session_hdl = -1;
+	}
+
+	o_ctrl->cam_ois_state = CAM_OIS_INIT;
+}
+
 /**
  * cam_ois_driver_cmd - Handle ois cmds
  * @e_ctrl:     ctrl structure
@@ -499,6 +528,7 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 			CAM_ERR(CAM_OIS, "Failed to acquire dev");
 			goto release_mutex;
 		}
+		o_ctrl->cam_ois_state = CAM_OIS_ACQUIRE;
 		break;
 	case CAM_START_DEV:
 		rc = cam_ois_power_up(o_ctrl);
@@ -534,6 +564,7 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 				goto pwr_dwn;
 			}
 		}
+		o_ctrl->cam_ois_state = CAM_OIS_START;
 		break;
 	case CAM_CONFIG_DEV:
 		rc = cam_ois_pkt_parse(o_ctrl, arg);
@@ -556,6 +587,7 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 		o_ctrl->bridge_intf.device_hdl = -1;
 		o_ctrl->bridge_intf.link_hdl = -1;
 		o_ctrl->bridge_intf.session_hdl = -1;
+		o_ctrl->cam_ois_state = CAM_OIS_INIT;
 		break;
 	case CAM_STOP_DEV:
 		rc = camera_io_release(&o_ctrl->io_master_info);
@@ -566,6 +598,7 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 			CAM_ERR(CAM_OIS, "OIS Power down failed");
 			goto release_mutex;
 		}
+		o_ctrl->cam_ois_state = CAM_OIS_ACQUIRE;
 		break;
 	default:
 		CAM_ERR(CAM_OIS, "invalid opcode");
