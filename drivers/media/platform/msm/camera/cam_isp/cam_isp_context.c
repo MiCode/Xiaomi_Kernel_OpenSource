@@ -1781,7 +1781,7 @@ static int __cam_isp_ctx_config_dev_in_acquired(struct cam_context *ctx,
 
 	rc = __cam_isp_ctx_config_dev_in_top_state(ctx, cmd);
 
-	if (!rc && ctx->link_hdl) {
+	if (!rc && (ctx->link_hdl >= 0)) {
 		ctx->state = CAM_CTX_READY;
 		trace_cam_context_state("ISP", ctx);
 	}
@@ -1819,7 +1819,7 @@ static int __cam_isp_ctx_unlink_in_acquired(struct cam_context *ctx,
 {
 	int rc = 0;
 
-	ctx->link_hdl = 0;
+	ctx->link_hdl = -1;
 	ctx->ctx_crm_intf = NULL;
 
 	return rc;
@@ -1905,7 +1905,7 @@ static int __cam_isp_ctx_unlink_in_ready(struct cam_context *ctx,
 {
 	int rc = 0;
 
-	ctx->link_hdl = 0;
+	ctx->link_hdl = -1;
 	ctx->ctx_crm_intf = NULL;
 	ctx->state = CAM_CTX_ACQUIRED;
 	trace_cam_context_state("ISP", ctx);

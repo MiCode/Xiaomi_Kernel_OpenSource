@@ -355,6 +355,8 @@ int cam_context_init(struct cam_context *ctx,
 
 	memset(ctx, 0, sizeof(*ctx));
 	ctx->dev_hdl = -1;
+	ctx->link_hdl = -1;
+	ctx->session_hdl = -1;
 	INIT_LIST_HEAD(&ctx->list);
 	mutex_init(&ctx->ctx_mutex);
 	spin_lock_init(&ctx->lock);
