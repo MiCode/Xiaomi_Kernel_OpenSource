@@ -300,6 +300,11 @@ int cam_sync_merge(int32_t *sync_obj, uint32_t num_objs, int32_t *merged_obj)
 	int rc;
 	long idx = 0;
 
+	if (!sync_obj || !merged_obj) {
+		CAM_ERR(CAM_SYNC, "Invalid pointer(s)");
+		return -EINVAL;
+	}
+
 	rc = cam_sync_util_validate_merge(sync_obj,
 		num_objs);
 	if (rc < 0) {
