@@ -123,7 +123,7 @@
 };
 
 &int_codec {
-	qcom,model = "sdm660-skuw-snd-card";
+	qcom,model = "sdm670-skuw-snd-card";
 	qcom,audio-routing =
 		"RX_BIAS", "INT_MCLK0",
 		"SPK_RX_BIAS", "INT_MCLK0",
