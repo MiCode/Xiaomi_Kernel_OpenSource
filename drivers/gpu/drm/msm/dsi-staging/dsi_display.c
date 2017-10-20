@@ -382,7 +382,7 @@ int dsi_display_check_status(void *display)
 	struct dsi_display *dsi_display = display;
 	struct dsi_panel *panel;
 	u32 status_mode;
-	int rc = 0;
+	int rc = 0x1;
 
 	if (dsi_display == NULL)
 		return -EINVAL;
@@ -390,6 +390,14 @@ int dsi_display_check_status(void *display)
 	panel = dsi_display->panel;
 
 	status_mode = panel->esd_config.status_mode;
+
+	mutex_lock(&dsi_display->display_lock);
+
+	if (!panel->panel_initialized) {
+		pr_debug("Panel not initialized\n");
+		mutex_unlock(&dsi_display->display_lock);
+		return rc;
+	}
 
 	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
 		DSI_ALL_CLKS, DSI_CLK_ON);
@@ -407,6 +415,7 @@ int dsi_display_check_status(void *display)
 
 	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
 		DSI_ALL_CLKS, DSI_CLK_OFF);
+	mutex_unlock(&dsi_display->display_lock);
 
 	return rc;
 }
