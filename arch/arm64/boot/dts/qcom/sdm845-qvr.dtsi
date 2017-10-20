@@ -83,6 +83,10 @@
 	status = "okay";
 };
 
+&qupv3_se9_2uart {
+	status = "ok";
+};
+
 &ufsphy_mem {
 	compatible = "qcom,ufs-phy-qmp-v3";
 
