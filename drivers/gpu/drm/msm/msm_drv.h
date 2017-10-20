@@ -615,6 +615,9 @@ struct msm_drm_private {
 
 	/* msm drv debug root node */
 	struct dentry *debug_root;
+
+	/* update the flag when msm driver receives shutdown notification */
+	bool shutdown_in_progress;
 };
 
 /* get struct msm_kms * from drm_device * */
