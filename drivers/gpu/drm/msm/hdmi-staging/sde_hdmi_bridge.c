@@ -435,6 +435,19 @@ static void _sde_hdmi_bridge_setup_deep_color(struct hdmi *hdmi)
 		vbi_pkt_reg = hdmi_read(hdmi, REG_HDMI_VBI_PKT_CTRL);
 		vbi_pkt_reg |= BIT(5) | BIT(4);
 		hdmi_write(hdmi, REG_HDMI_VBI_PKT_CTRL, vbi_pkt_reg);
+	} else {
+		hdmi_ctrl_reg = hdmi_read(hdmi, REG_HDMI_CTRL);
+
+		/* disable GC CD override */
+		hdmi_ctrl_reg &= ~BIT(27);
+		/* disable deep color for RGB888/YUV444/YUV420 30 bits */
+		hdmi_ctrl_reg &= ~BIT(24);
+		hdmi_write(hdmi, REG_HDMI_CTRL, hdmi_ctrl_reg);
+
+		/* disable the GC packet sending */
+		vbi_pkt_reg = hdmi_read(hdmi, REG_HDMI_VBI_PKT_CTRL);
+		vbi_pkt_reg &= ~(BIT(5) | BIT(4));
+		hdmi_write(hdmi, REG_HDMI_VBI_PKT_CTRL, vbi_pkt_reg);
 	}
 }
 
