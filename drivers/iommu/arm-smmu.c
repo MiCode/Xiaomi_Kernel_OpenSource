@@ -2959,11 +2959,22 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 				1 << DOMAIN_ATTR_UPSTREAM_IOVA_ALLOCATOR;
 		ret = 0;
 		break;
+	/*
+	 * fast_smmu_unmap_page() and fast_smmu_alloc_iova() both
+	 * expect that the bus/clock/regulator are already on. Thus also
+	 * force DOMAIN_ATTR_ATOMIC to bet set.
+	 */
 	case DOMAIN_ATTR_FAST:
-		if (*((int *)data))
+	{
+		int fast = *((int *)data);
+
+		if (fast) {
 			smmu_domain->attributes |= 1 << DOMAIN_ATTR_FAST;
+			smmu_domain->attributes |= 1 << DOMAIN_ATTR_ATOMIC;
+		}
 		ret = 0;
 		break;
+	}
 	case DOMAIN_ATTR_USE_UPSTREAM_HINT:
 		/* can't be changed while attached */
 		if (smmu_domain->smmu != NULL) {
