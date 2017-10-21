@@ -55,6 +55,11 @@ unsigned int sysctl_sched_latency			= 6000000ULL;
 unsigned int normalized_sysctl_sched_latency		= 6000000ULL;
 
 /*
+ * Enable/disable honoring sync flag in energy-aware wakeups.
+ */
+unsigned int sysctl_sched_sync_hint_enable = 1;
+
+/*
  * The initial- and re-scaling of tunables is configurable
  *
  * Options are:
@@ -6343,12 +6348,20 @@ static bool cpu_overutilized(int cpu)
 	return (capacity_of(cpu) * 1024) < (cpu_util(cpu) * capacity_margin);
 }
 
-static int select_energy_cpu_brute(struct task_struct *p, int prev_cpu)
+static int select_energy_cpu_brute(struct task_struct *p, int prev_cpu, int sync)
 {
 	int i;
 	int min_diff = 0, energy_cpu = prev_cpu, spare_cpu = prev_cpu;
 	unsigned long max_spare = 0;
 	struct sched_domain *sd;
+
+	if (sysctl_sched_sync_hint_enable && sync) {
+		int cpu = smp_processor_id();
+
+		if (cpumask_test_cpu(cpu, &p->cpus_allowed)) {
+			return cpu;
+		}
+	}
 
 	sd = rcu_dereference(per_cpu(sd_ea, prev_cpu));
 
@@ -6427,7 +6440,7 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 	rcu_read_lock();
 	sd = rcu_dereference(cpu_rq(prev_cpu)->sd);
 	if (energy_aware() && sd && !sd_overutilized(sd)) {
-		new_cpu = select_energy_cpu_brute(p, prev_cpu);
+		new_cpu = select_energy_cpu_brute(p, prev_cpu, sync);
 		goto unlock;
 	}
 
