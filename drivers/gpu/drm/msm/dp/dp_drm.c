@@ -510,9 +510,6 @@ enum drm_mode_status dp_connector_mode_valid(struct drm_connector *connector,
 
 	mode->vrefresh = drm_mode_vrefresh(mode);
 
-	if (mode->vrefresh > 60)
-		return MODE_BAD;
-
 	if (mode->clock > dp_disp->max_pclk_khz)
 		return MODE_BAD;
 

@@ -991,11 +991,6 @@ static int dp_ctrl_setup_main_link(struct dp_ctrl_private *ctrl, bool train)
 
 	ctrl->catalog->mainlink_ctrl(ctrl->catalog, true);
 
-	ret = ctrl->link->psm_config(ctrl->link,
-		&ctrl->panel->link_info, false);
-	if (ret)
-		goto end;
-
 	if (ctrl->link->sink_request & DP_TEST_LINK_PHY_TEST_PATTERN)
 		goto end;
 

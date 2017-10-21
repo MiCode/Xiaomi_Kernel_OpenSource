@@ -986,8 +986,6 @@ static int dp_link_psm_config(struct dp_link *dp_link,
 	if (ret)
 		pr_err("Failed to %s low power mode\n",
 			(enable ? "enter" : "exit"));
-	else
-		dp_link->psm_enabled = enable;
 
 	return ret;
 }
