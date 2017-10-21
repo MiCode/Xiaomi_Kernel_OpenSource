@@ -616,6 +616,15 @@ config MSM_QDSP6_APRV2
           used by audio driver to configure QDSP6's
           ASM, ADM and AFE.
 
+config MSM_QDSP6_APRV2_VM
+        bool "Audio QDSP6 APRv2 virtualization support"
+        depends on MSM_HAB
+        help
+          Enable APRv2 IPC protocol support over
+          HAB between application processor and
+          QDSP6. APR is used by audio driver to
+          configure QDSP6's ASM, ADM and AFE.
+
 config MSM_QDSP6_APRV3
 	bool "Audio QDSP6 APRv3 support"
 	depends on MSM_SMD
@@ -800,7 +809,8 @@ config MSM_EVENT_TIMER
 
 config MSM_AVTIMER
 	tristate "Avtimer Driver"
-	depends on MSM_QDSP6_APRV2 || MSM_QDSP6_APRV3 || MSM_QDSP6_APRV2_GLINK
+	depends on MSM_QDSP6_APRV2 || MSM_QDSP6_APRV3 || MSM_QDSP6_APRV2_GLINK || \
+		MSM_QDSP6_APRV2_VM
 	help
 		This driver gets the Q6 out of power collapsed state and
 		exposes ioctl control to read avtimer tick.
