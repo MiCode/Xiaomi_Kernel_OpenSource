@@ -132,6 +132,8 @@ struct sde_encoder_virt_ops {
  * @is_autorefresh_enabled:	provides the autorefresh current
  *                              enable/disable state.
  * @get_line_count:		Obtain current vertical line count
+ * @wait_dma_trigger:		Returns true if lut dma has to trigger and wait
+ *                              unitl transaction is complete.
  */
 
 struct sde_encoder_phys_ops {
@@ -176,6 +178,7 @@ struct sde_encoder_phys_ops {
 	void (*restore)(struct sde_encoder_phys *phys);
 	bool (*is_autorefresh_enabled)(struct sde_encoder_phys *phys);
 	int (*get_line_count)(struct sde_encoder_phys *phys);
+	bool (*wait_dma_trigger)(struct sde_encoder_phys *phys);
 };
 
 /**

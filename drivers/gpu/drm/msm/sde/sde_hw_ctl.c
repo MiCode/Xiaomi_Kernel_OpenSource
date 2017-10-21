@@ -565,12 +565,13 @@ static void sde_hw_ctl_setup_sbuf_cfg(struct sde_hw_ctl *ctx,
 	SDE_REG_WRITE(c, CTL_ROT_TOP, val);
 }
 
-static void sde_hw_reg_dma_flush(struct sde_hw_ctl *ctx)
+static void sde_hw_reg_dma_flush(struct sde_hw_ctl *ctx, bool blocking)
 {
 	struct sde_hw_reg_dma_ops *ops = sde_reg_dma_get_ops();
 
 	if (ops && ops->last_command)
-		ops->last_command(ctx, DMA_CTL_QUEUE0);
+		ops->last_command(ctx, DMA_CTL_QUEUE0,
+		    (blocking ? REG_DMA_WAIT4_COMP : REG_DMA_NOWAIT));
 }
 
 static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
