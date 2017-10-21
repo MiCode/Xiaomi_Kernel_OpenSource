@@ -200,9 +200,13 @@ static ssize_t dp_debug_write_hpd(struct file *file,
 	if (kstrtoint(buf, 10, &hpd) != 0)
 		goto end;
 
-	debug->usbpd->connect(debug->usbpd, hpd);
+	hpd &= 0x3;
+
+	debug->dp_debug.psm_enabled = !!(hpd & BIT(1));
+
+	debug->usbpd->simulate_connect(debug->usbpd, !!(hpd & BIT(0)));
 end:
-	return -len;
+	return len;
 }
 
 static ssize_t dp_debug_write_edid_modes(struct file *file,
