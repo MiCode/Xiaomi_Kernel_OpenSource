@@ -1979,26 +1979,18 @@ static int upstream_iommu_init_mapping(struct device *dev,
 					struct dma_iommu_mapping *mapping)
 {
 	struct iommu_domain *domain = mapping->domain;
-	struct iommu_group *group = dev->iommu_group;
 	dma_addr_t base = mapping->base;
 	u64 size = mapping->bits << PAGE_SHIFT;
 
 	if (iommu_get_dma_cookie(domain))
 		return -EINVAL;
 
-	/* Need to attach to get geometry */
-	if (iommu_attach_group(domain, group))
+	if (iommu_dma_init_domain(domain, base, size, dev))
 		goto out_put_cookie;
 
-	if (iommu_dma_init_domain(domain, base, size, dev))
-		goto out_detach_group;
-
 	mapping->ops = &iommu_dma_ops;
-	iommu_detach_group(domain, group);
 	return 0;
 
-out_detach_group:
-	iommu_detach_group(domain, group);
 out_put_cookie:
 	iommu_put_dma_cookie(domain);
 	return -EINVAL;
@@ -2060,19 +2052,7 @@ static int arm_iommu_init_mapping(struct device *dev,
 {
 	int err = -EINVAL;
 	int s1_bypass = 0, is_fast = 0, is_upstream = 0;
-	struct iommu_group *group;
 	dma_addr_t iova_end;
-
-	group = dev->iommu_group;
-	if (!group) {
-		dev_err(dev, "No iommu associated with device\n");
-		return -EINVAL;
-	}
-
-	if (iommu_get_domain_for_dev(dev)) {
-		dev_err(dev, "Device already attached to other iommu_domain\n");
-		return -EINVAL;
-	}
 
 	if (mapping->init) {
 		kref_get(&mapping->kref);
@@ -2128,14 +2108,28 @@ int arm_iommu_attach_device(struct device *dev,
 			    struct dma_iommu_mapping *mapping)
 {
 	int err;
+	struct iommu_domain *domain = mapping->domain;
+	struct iommu_group *group = dev->iommu_group;
+
+	if (!group) {
+		dev_err(dev, "No iommu associated with device\n");
+		return -EINVAL;
+	}
+
+	if (iommu_get_domain_for_dev(dev)) {
+		dev_err(dev, "Device already attached to other iommu_domain\n");
+		return -EINVAL;
+	}
+
+	err = iommu_attach_group(domain, group);
+	if (err)
+		return err;
 
 	err = arm_iommu_init_mapping(dev, mapping);
-	if (err)
+	if (err) {
+		iommu_detach_group(domain, group);
 		return err;
-
-	err = iommu_attach_group(mapping->domain, dev->iommu_group);
-	if (err)
-		return err;
+	}
 
 	dev->archdata.mapping = mapping;
 	set_dma_ops(dev, mapping->ops);
