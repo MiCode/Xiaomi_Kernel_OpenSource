@@ -82,6 +82,8 @@ enum gsi_intr_type {
  * @irq:        IRQ number
  * @phys_addr:  physical address of GSI block
  * @size:       register size of GSI block
+ * @mhi_er_id_limits_valid: valid flag for mhi_er_id_limits
+ * @mhi_er_id_limits: MHI event ring start and end ids
  * @notify_cb:  general notification callback
  * @req_clk_cb: callback to request peripheral clock
  *		granted should be set to true if request is completed
@@ -105,6 +107,8 @@ struct gsi_per_props {
 	unsigned int irq;
 	phys_addr_t phys_addr;
 	unsigned long size;
+	bool mhi_er_id_limits_valid;
+	uint32_t mhi_er_id_limits[2];
 	void (*notify_cb)(struct gsi_per_notify *notify);
 	void (*req_clk_cb)(void *user_data, bool *granted);
 	int (*rel_clk_cb)(void *user_data);

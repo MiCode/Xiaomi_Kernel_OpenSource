@@ -79,6 +79,8 @@ memory allocation over a PCIe bridge
 - qcom,rx-polling-sleep-ms:	Receive Polling Timeout in millisecond,
 				default is 1 millisecond.
 - qcom,ipa-polling-iteration:	IPA Polling Iteration Count,default is 40.
+- qcom,mhi-event-ring-id-limits: Two elements property. Start and End limits
+					for MHI event rings ids.
 - qcom,ipa-tz-unlock-reg:       Register start addresses and ranges which
                                 need to be unlocked by TZ.
 
