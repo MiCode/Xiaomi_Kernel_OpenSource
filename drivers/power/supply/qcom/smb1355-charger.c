@@ -62,6 +62,9 @@
 #define CHGR_BATTOV_CFG_REG			(CHGR_BASE + 0x70)
 #define BATTOV_SETTING_MASK			GENMASK(7, 0)
 
+#define CHGR_PRE_TO_FAST_THRESHOLD_CFG_REG	(CHGR_BASE + 0x74)
+#define PRE_TO_FAST_CHARGE_THRESHOLD_MASK	GENMASK(2, 0)
+
 #define POWER_MODE_HICCUP_CFG			(BATIF_BASE + 0x72)
 #define MAX_HICCUP_DUETO_BATDIS_MASK		GENMASK(5, 2)
 #define HICCUP_TIMEOUT_CFG_MASK			GENMASK(1, 0)
@@ -615,6 +618,15 @@ static int smb1355_init_hw(struct smb1355 *chip)
 				 VCHG_EN_CFG_BIT, VCHG_EN_CFG_BIT);
 	if (rc < 0) {
 		pr_err("Couldn't enable parallel current sensing rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	/* set Pre-to-Fast Charging Threshold 2.6V */
+	rc = smb1355_masked_write(chip, CHGR_PRE_TO_FAST_THRESHOLD_CFG_REG,
+				 PRE_TO_FAST_CHARGE_THRESHOLD_MASK, 0);
+	if (rc < 0) {
+		pr_err("Couldn't set PRE_TO_FAST_CHARGE_THRESHOLD rc=%d\n",
 			rc);
 		return rc;
 	}
