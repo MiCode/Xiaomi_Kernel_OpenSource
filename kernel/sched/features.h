@@ -90,4 +90,8 @@ SCHED_FEAT(WA_BIAS, true)
  * Energy aware scheduling. Use platform energy model to guide scheduling
  * decisions optimizing for energy efficiency.
  */
+#ifdef CONFIG_DEFAULT_USE_ENERGY_AWARE
+SCHED_FEAT(ENERGY_AWARE, true)
+#else
 SCHED_FEAT(ENERGY_AWARE, false)
+#endif
