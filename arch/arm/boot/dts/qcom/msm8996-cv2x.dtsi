@@ -43,6 +43,7 @@
 		pinctrl-0 = <&pmx_pps>;
 		gpios = <&tlmm 22 0>;
 		status = "okay";
+		use-system-time-ts;
 	};
 
 	gpio_fan {
