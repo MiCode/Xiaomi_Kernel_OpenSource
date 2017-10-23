@@ -26,6 +26,7 @@ obj-$(CONFIG_MDM_GCC_9615) += gcc-mdm9615.o
 obj-$(CONFIG_MDM_LCC_9615) += lcc-mdm9615.o
 obj-$(CONFIG_MSM_CAMCC_SDM855) += camcc-sdm855.o
 obj-$(CONFIG_MSM_CLK_AOP_QMP) += clk-aop-qmp.o
+obj-$(CONFIG_MSM_DISPCC_SDM855) += dispcc-sdm855.o
 obj-$(CONFIG_MSM_GCC_8660) += gcc-msm8660.o
 obj-$(CONFIG_MSM_GCC_8916) += gcc-msm8916.o
 obj-$(CONFIG_MSM_GCC_8960) += gcc-msm8960.o
