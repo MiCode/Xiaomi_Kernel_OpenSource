@@ -1,0 +1,1037 @@
+Qualcomm Technologies Inc Audio devices for ALSA sound SoC
+
+* msm-pcm
+
+Required properties:
+
+ - compatible : "qcom,msm-pcm-dsp"
+
+ - qcom,msm-pcm-dsp-id : device node id
+
+* msm-pcm-low-latency
+
+Required properties:
+
+ - compatible : "qcom,msm-pcm-dsp"
+
+ - qcom,msm-pcm-dsp-id : device node id
+
+Optional properties:
+
+ - qcom,msm-pcm-low-latency : Flag indicating whether
+   the device node is of type low latency.
+
+ - qcom,latency-level : Flag indicating whether the device node
+                        is of type regular low latency or ultra
+                        low latency.
+                        regular : regular low latency stream
+                        ultra : ultra low latency stream
+                        ull-pp : ultra low latency stream with post-processing capability
+
+* msm-pcm-dsp-noirq
+
+Required properties:
+
+ - compatible : "qcom,msm-pcm-dsp-noirq";
+
+Optional properties:
+
+ - qcom,msm-pcm-low-latency : Flag indicating whether
+                              the device node is of type low latency.
+
+ - qcom,latency-level : Flag indicating whether the device node
+                        is of type low latency or ultra low latency
+                        ultra : ultra low latency stream
+                        ull-pp : ultra low latency stream with post-processing capability
+* msm-pcm-routing
+
+Required properties:
+
+ - compatible : "qcom,msm-pcm-routing"
+
+* msm-pcm-lpa
+
+Required properties:
+
+ - compatible : "qcom,msm-pcm-lpa"
+
+* msm-compr-dsp
+
+Required properties:
+
+ - compatible : "qcom,msm-compr-dsp"
+
+* msm-compress-dsp
+
+Required properties:
+
+ - compatible : "qcom,msm-compress-dsp"
+
+Optional properties:
+ - qcom,adsp-version:
+        This property can be used to specify the ADSP version/name.
+        Based on ADSP version, we decide if we have to use older
+        ADSP APIs or newer. Right now we are adding "MDSP 1.2" for
+        8909 purpose. If the ADSP version is anything other than this
+        we use new ADSP APIs.
+
+* msm-voip-dsp
+
+Required properties:
+
+ - compatible : "qcom,msm-voip-dsp"
+
+* msm-pcm-voice
+
+Required properties:
+
+ - compatible : "qcom,msm-pcm-voice"
+ - qcom,destroy-cvd : Flag indicating whether to destroy cvd at
+                      the end of call for low memory targets
+
+* msm-voice-host-pcm
+
+Required properties:
+
+ - compatible : "qcom,msm-voice-host-pcm"
+
+* msm-voice-svc
+
+Required properties:
+
+ - compatible : "qcom,msm-voice-svc"
+
+* msm-stub-codec
+
+Required properties:
+
+ - compatible : "qcom,msm-stub-codec"
+
+* msm-hdmi-dba-codec-rx
+
+Required properties:
+
+ - compatible : "qcom,msm-hdmi-dba-codec-rx"
+ - qcom,dba-bridge-chip: String info to indicate which bridge-chip
+                         is used for HDMI using DBA.
+
+* msm-dai-fe
+
+Required properties:
+
+ - compatible : "qcom,msm-dai-fe"
+
+* msm-pcm-afe
+
+Required properties:
+
+ - compatible : "qcom,msm-pcm-afe"
+
+* msm-pcm-dtmf
+
+Required properties:
+
+ - compatible : "qcom,msm-pcm-dtmf"
+ - qcom,msm-pcm-dtmf : Enable DTMF driver in Audio. DTMF driver is
+   used for generation and detection of DTMF tones, when user is in
+   active voice call. APR commands are sent from DTMF driver to ADSP.
+
+* msm-dai-stub
+
+[First Level Nodes]
+
+Required properties:
+
+ - compatible : "msm-dai-stub"
+
+[Second Level Nodes]
+
+Required properties:
+
+ - compatible : "qcom,msm-dai-stub-dev"
+ - qcom,msm-dai-stub-dev-id : Stub dai port ID value is from 0 to 3.
+   This enables stub CPU dai in Audio. The stub dai is used when
+   there is no real backend in Audio.
+
+* msm-dai-q6-spdif
+
+Optional properties:
+
+ - compatible : "msm-dai-q6-spdif"
+
+* msm-dai-q6-hdmi
+
+Required properties:
+ - compatible : "msm-dai-q6-hdmi"
+ - qcom,msm-dai-q6-dev-id : The hdmi multi channel port ID.
+   It is passed onto the dsp from the apps to form an audio
+   path to the HDMI device. Currently the only supported value
+   is 8, which indicates the rx path used for audio playback
+   on HDMI device.
+
+* msm-lsm-client
+
+Required properties:
+
+ - compatible : "qcom,msm-lsm-client"
+
+* msm-pcm-loopback
+
+Required properties:
+
+ - compatible : "qcom,msm-pcm-loopback"
+
+Optional properties:
+
+ - qcom,msm-pcm-loopback-low-latency : Flag indicating whether
+   the device node is of type low latency.
+
+* msm-transcode-loopback
+
+Required properties:
+
+ - compatible : "qcom,msm-transcode-loopback"
+
+* msm-dai-q6
+
+[First Level Nodes]
+
+Required properties:
+
+ - compatible : "msm-dai-q6"
+
+Optional properties:
+
+ - qcom,ext-spk-amp-supply : External speaker amplifier power supply.
+ - qcom,ext-spk-amp-gpio : External speaker amplifier enable signal.
+
+[Second Level Nodes]
+
+Required properties:
+
+ - compatible : "qcom,msm-dai-q6-dev"
+ - qcom,msm-dai-q6-dev-id : The slimbus multi channel port ID
+                            Value is from 16384 to 16397.
+                            BT SCO port ID value from 12288 to 12289.
+                            RT Proxy port ID values from 224 to 225 and 240 to
+                            241.
+                            FM Rx and TX port ID values from 12292 to 12293.
+                            incall record Rx and TX port ID values from 32771 to 32772.
+                            inCall Music Delivery port ID is 32773.
+                            incall Music 2 Delivery port ID is 32770.
+
+* msm-auxpcm
+
+Required properties:
+
+ - compatible :                           "qcom,msm-auxpcm-dev"
+
+ - qcom,msm-cpudai-auxpcm-mode:           mode information. The first value is
+                                          for 8khz mode, the second is for
+                                          16khz
+                                          0 - for PCM
+
+ - qcom,msm-cpudai-auxpcm-sync:           sync information. The first value is
+                                          for 8khz mode, the second is for
+                                          16khz
+
+ - qcom,msm-cpudai-auxpcm-frame:          No.of bytes per frame. The first
+                                          value is for 8khz mode, the second
+                                          is for 16khz
+                                          5 - 256BPF
+                                          4 - 128BPF
+
+ - qcom,msm-cpudai-auxpcm-quant:          Type of quantization. The first
+                                          value is for 8khz mode, the second
+                                          is for 16khz
+                                          2 - Linear quantization
+
+ - qcom,msm-cpudai-auxpcm-num-slots:      Number of slots per mode in the
+                                          msm-cpudai-auxpcm-slot-mapping
+                                          array.
+                                          The first value is for 8khz mode, the
+                                          second is for 16khz. Max number of
+                                          slots supported by DSP is 4, anything
+                                          above 4 will be truncated to 4 when
+                                          sent to DSP.
+
+ - qcom,msm-cpudai-auxpcm-slot-mapping:   Array of slot numbers for multi
+                                          slot scenario. The first array
+                                          is for 8khz mode, the second is
+                                          for 16khz. The size of the array
+                                          is determined by the value in
+                                          qcom,msm-cpudai-auxpcm-num-slots
+
+ - qcom,msm-cpudai-auxpcm-data:           Data field - 0. The first value is
+                                          for 8khz mode, the second is for
+                                          16khz
+
+ - qcom,msm-cpudai-auxpcm-pcm-clk-rate:   Clock rate for pcm - 2048000. The
+                                          first value is for 8khz mode, the
+                                          second is for 16KHz mode. When clock
+                                          rate is set to zero, then external
+                                          clock is assumed.
+
+ - qcom,msm-auxpcm-interface:             name of AUXPCM interface "primary"
+                                          indicates primary AUXPCM interface
+                                          "secondary" indicates secondary
+                                          AUXPCM interface
+Optional properties:
+
+- pinctrl-names:                          Pinctrl state names for each pin
+                                          group configuration.
+- pinctrl-x:                              Defines pinctrl state for each pin
+                                          group
+- qcom,msm-cpudai-afe-clk-ver:            Indicates version of AFE clock
+                                          interface to be used for enabling
+                                          PCM clock. If not defined, selects
+                                          default AFE clock interface.
+
+* msm-pcm-hostless
+
+Required properties:
+
+ - compatible : "qcom,msm-pcm-hostless"
+
+* msm-ocmem-audio
+
+Required properties:
+
+ - compatible :                            "qcom,msm-ocmem-audio"
+
+ - qcom,msm_bus,name:                      Client name
+
+ - qcom,msm_bus,num_cases:                 Total number of use cases
+
+ - qcom,msm_bus,active_only:               Context flag for requests in active
+                                           or dual (active & sleep) contex
+
+ - qcom,msm_bus,num_paths:                 Total number of master-slave pairs
+
+ - qcom,msm_bus,vectors:                   Arrays of unsigned integers
+                                           representing:
+                                               master-id, slave-id, arbitrated
+                                               bandwidth,
+                                               instantaneous bandwidth
+* wcd9xxx_intc
+
+Required properties:
+
+ - compatible :                            "qcom,wcd9xxx-irq"
+
+ - interrupt-controller :                  Mark this device node as an
+                                           interrupt controller
+
+ - #interrupt-cells :                      Should be 1
+
+ - interrupt-parent :                      Parent interrupt controller
+
+ - qcom,gpio-connect                       Gpio that connects to parent
+                                           interrupt controller
+
+* audio-ext-clk-up
+
+Required properties:
+
+ - compatible :                            "qcom,audio-ref-clk"
+
+ - qcom,audio-ref-clk-gpio  :               PMIC or APQ gpio that will be
+                                            requested to enable reference
+                                            or external clock.
+
+Optional properties:
+
+ - qcom,node_has_rpm_clock:                 Boolean property used to indicate
+                                            whether ref. clock can be enabled
+                                            with a gpio toggle or Kernel clock
+                                            API call.
+
+ - clock-names:                             Name of the PMIC clock that needs
+                                            to be enabled for audio ref clock.
+                                            This clock is set as parent.
+
+ - clocks:                                  phandle reference to the parent
+                                            clock.
+
+ - qcom,mclk-clk-reg:                       Indicate the register address for mclk.
+
+* audio_slimslave
+
+Required properties:
+
+ - compatible :                            "qcom,audio-slimslave"
+
+ - elemental-addr:                         slimbus slave enumeration address.
+
+* msm-cpe-lsm
+
+Required properties:
+
+ - compatible : "qcom,msm-cpe-lsm"
+ - qcom,msm-cpe-lsm-id : lsm afe port ID. CPE lsm driver uses
+   this property to find out the input afe port ID. Currently
+   only supported values are 1 and 3.
+
+* wcd_us_euro_gpio
+
+Required properties:
+
+ - compatible : "qcom,msm-cdc-pinctrl"
+
+Optional properties:
+ - qcom,lpi-gpios : This boolean property is added if GPIOs are under
+                    LPI TLMM.
+
+* msm-dai-slim
+
+Required properties:
+
+ - compatible :                            "qcom,msm-dai-slim"
+
+ - elemental-addr:                         slimbus slave enumeration address.
+
+* wcd_gpio_ctrl
+
+Required properties:
+
+ - compatible :                            "qcom,msm-cdc-pinctrl"
+
+ - qcom,cdc-rst-n-gpio :                   TLMM GPIO number
+
+ - pinctrl-names:                          Pinctrl state names for each pin
+                                           group configuration.
+ - pinctrl-x:                              Defines pinctrl state for each pin
+                                           group.
+* msm_cdc_pinctrl
+
+Required properties:
+
+ - compatible :                            "qcom,msm-cdc-pinctrl"
+
+ - pinctrl-names:                          Pinctrl state names for each pin
+                                           group configuration.
+ - pinctrl-x:                              Defines pinctrl state for each pin
+                                           group.
+
+* wcd_dsp_glink
+
+Required properties:
+
+ - compatible :                            "qcom,wcd-dsp-glink"
+
+* msm_ext_disp_audio_codec_rx
+
+Required properties:
+
+ - compatible :                            "qcom,msm-ext-disp-audio-codec-rx"
+
+Example:
+
+	qcom,msm-pcm {
+		compatible = "qcom,msm-pcm-dsp";
+		qcom,msm-pcm-dsp-id = <0>;
+	};
+
+	qcom,msm-pcm-low-latency {
+		compatible = "qcom,msm-pcm-dsp";
+		qcom,msm-pcm-dsp-id = <1>;
+		qcom,msm-pcm-low-latency;
+	};
+
+	qcom,msm-pcm-loopback-low-latency {
+		compatible = "qcom,msm-pcm-loopback";
+		qcom,msm-pcm-loopback-low-latency;
+	};
+
+	qcom,msm-pcm-routing {
+		compatible = "qcom,msm-pcm-routing";
+	};
+
+	qcom,msm-pcm-lpa {
+		compatible = "qcom,msm-pcm-lpa";
+	};
+
+	qcom,msm-compr-dsp {
+		compatible = "qcom,msm-compr-dsp";
+	};
+
+	qcom,msm-compress-dsp {
+		compatible = "qcom,msm-compress-dsp";
+	};
+
+	qcom,msm-voip-dsp {
+		compatible = "qcom,msm-voip-dsp";
+	};
+
+	qcom,msm-pcm-voice {
+		compatible = "qcom,msm-pcm-voice";
+		qcom,destroy-cvd;
+	};
+
+	qcom,msm-voice-host-pcm {
+		compatible = "qcom,msm-voice-host-pcm";
+	};
+
+	qcom,msm-stub-codec {
+		compatible = "qcom,msm-stub-codec";
+	};
+
+	qcom,msm-dai-fe {
+		compatible = "qcom,msm-dai-fe";
+	};
+
+	qcom,msm-pcm-dtmf {
+		compatible = "qcom,msm-pcm-dtmf";
+	};
+
+	qcom,msm-dai-stub {
+		compatible = "qcom,msm-dai-stub";
+	};
+
+	qcom,msm-dai-q6-spdif {
+		compatible = "qcom,msm-dai-q6-spdif";
+	};
+
+	qcom,msm-dai-q6-hdmi {
+		compatible = "qcom,msm-dai-q6-hdmi";
+		qcom,msm-dai-q6-dev-id = <8>;
+	};
+
+	dai_dp: qcom,msm-dai-q6-dp {
+		compatible = "qcom,msm-dai-q6-hdmi";
+		qcom,msm-dai-q6-dev-id = <24608>;
+	};
+
+	qcom,msm-dai-q6 {
+		compatible = "qcom,msm-dai-q6";
+		qcom,msm-dai-q6-sb-0-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16384>;
+		};
+
+		qcom,msm-dai-q6-sb-0-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16385>;
+		};
+
+		qcom,msm-dai-q6-sb-1-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16386>;
+		};
+
+		qcom,msm-dai-q6-sb-1-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16387>;
+		};
+
+		qcom,msm-dai-q6-sb-3-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16390>;
+		};
+
+		qcom,msm-dai-q6-sb-3-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16391>;
+		};
+
+		qcom,msm-dai-q6-sb-4-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16392>;
+		};
+
+		qcom,msm-dai-q6-sb-4-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16393>;
+		};
+
+		qcom,msm-dai-q6-sb-5-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16395>;
+		};
+
+		qcom,msm-dai-q6-sb-6-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16396>;
+		};
+
+		qcom,msm-dai-q6-sb-6-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16397>;
+		};
+
+		qcom,msm-dai-q6-bt-sco-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <12288>;
+		};
+
+		qcom,msm-dai-q6-bt-sco-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <12289>;
+		};
+
+		qcom,msm-dai-q6-int-fm-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <12292>;
+		};
+
+		qcom,msm-dai-q6-int-fm-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <12293>;
+		};
+
+		qcom,msm-dai-q6-be-afe-pcm-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <224>;
+		};
+
+		qcom,msm-dai-q6-be-afe-pcm-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <225>;
+		};
+
+		qcom,msm-dai-q6-afe-proxy-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <241>;
+		};
+
+		qcom,msm-dai-q6-afe-proxy-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <240>;
+		};
+
+		qcom,msm-dai-q6-incall-record-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <32771>;
+		};
+
+		qcom,msm-dai-q6-incall-record-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <32772>;
+		};
+
+		qcom,msm-dai-q6-incall-music-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <32773>;
+		};
+
+		qcom,msm-dai-q6-incall-music-2-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <32770>;
+		};
+	};
+
+	qcom,msm-pri-auxpcm {
+		qcom,msm-cpudai-auxpcm-mode = <1>, <1>;
+		qcom,msm-cpudai-auxpcm-sync = <1>, <1>;
+		qcom,msm-cpudai-auxpcm-frame = <5>, <4>;
+		qcom,msm-cpudai-auxpcm-quant = <2>, <2>;
+		qcom,msm-cpudai-auxpcm-num-slots = <4>, <4>;
+		qcom,msm-cpudai-auxpcm-slot-mapping = <1 0 0 0>, <1 3 0 0>;
+		qcom,msm-cpudai-auxpcm-data = <0>, <0>;
+		qcom,msm-cpudai-auxpcm-pcm-clk-rate = <2048000>, <2048000>;
+		qcom,msm-auxpcm-interface = "primary";
+		compatible = "qcom,msm-auxpcm-dev";
+		pinctrl-names = "default", "idle";
+		pinctrl-0 = <&pri_aux_pcm_active &pri_aux_pcm_din_active>;
+		pinctrl-1 = <&pri_aux_pcm_sleep &pri_aux_pcm_din_sleep>;
+	};
+
+	qcom,msm-pcm-hostless {
+		compatible = "qcom,msm-pcm-hostless";
+	};
+
+	qcom,msm-ocmem-audio {
+		compatible = "qcom,msm-ocmem-audio";
+		qcom,msm_bus,name = "audio-ocmem";
+		qcom,msm_bus,num_cases = <2>;
+		qcom,msm_bus,active_only = <0>;
+		qcom,msm_bus,num_paths = <1>;
+		qcom,msm_bus,vectors =
+			<11 604 0 0>,
+			<11 604 32505856 325058560>;
+	};
+
+	wcd9xxx_intc: wcd9xxx-irq {
+		compatible = "qcom,wcd9xxx-irq";
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		interrupt-parent = <&msmgpio>;
+		interrupts = <72 0>;
+		interrupt-names = "cdc-int";
+	};
+
+	clock_audio: audio_ext_clk {
+		compatible = "qcom,audio-ref-clk";
+		qcom,audio-ref-clk-gpios = <&pm8994_gpios 15 0>;
+		clock-names = "osr_clk";
+		clocks = <&clock_rpm clk_div_clk1>;
+		qcom,node_has_rpm_clock;
+		#clock-cells = <1>;
+		pinctrl-names = "sleep", "active";
+		pinctrl-0 = <&spkr_i2s_clk_sleep>;
+		pinctrl-1 = <&spkr_i2s_clk_active>;
+	};
+
+	audio_slimslave {
+		compatible = "qcom,audio-slimslave";
+		elemental-addr = [ff ff ff ff 17 02];
+	};
+
+	msm_dai_slim {
+		compatible = "qcom,msm_dai_slim";
+		elemental-addr = [ff ff ff fe 17 02];
+	};
+
+	wcd_gpio_ctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		qcom,cdc-rst-n-gpio = <&tlmm 64 0>;
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_reset_active>;
+		pinctrl-1 = <&cdc_reset_sleep>;
+	};
+
+	msm_cdc_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_reset_active>;
+		pinctrl-1 = <&cdc_reset_sleep>;
+	};
+
+	wcd_dsp_glink {
+		compatible = "qcom,wcd-dsp-glink";
+	};
+
+	msm_ext_disp_audio_codec_rx {
+		compatible = "qcom,msm-ext-disp-audio-codec-rx";
+	};
+
+* msm-dai-mi2s
+
+[First Level Nodes]
+
+Required properties:
+
+ - compatible : "msm-dai-mi2s"
+
+ [Second Level Nodes]
+
+Required properties:
+
+ - compatible : "qcom,msm-dai-q6-mi2s"
+ - qcom,msm-dai-q6-mi2s-dev-id: MSM or MDM can use Slimbus or I2S interface to
+				transfer data to (WCD9XXX) codec.
+				If slimbus interface is used then "msm-dai-q6"
+				needs to be filled with correct data for
+				slimbus interface.
+				The sections "msm-dai-mi2s" is used by MDM or
+				MSM to use I2S interface with codec.
+				This section is used by CPU driver in ASOC MSM
+				to configure MI2S interface. MSM internally
+				has multiple MI2S namely Primary, Secondary,
+				Tertiary and Quaternary MI2S.
+				They are represented with id 0, 1, 2, 3
+				respectively.
+				The field "qcom,msm-dai-q6-mi2s-dev-id"
+				represents which of the MI2S block is used.
+				These MI2S are connected to I2S interface.
+
+ - qcom,msm-mi2s-rx-lines:	Each MI2S interface in MSM has one or more SD
+				lines. These lines are used for data transfer
+				between codec and MSM.
+				This element in indicates which output RX lines
+				are used in the MI2S interface.
+
+ - qcom,msm-mi2s-tx-lines:  	Each MI2S interface in MSM has one or more SD
+				lines. These lines are used for data transfer
+				between codec and MSM.
+				This element in indicates which input TX lines
+				are used in the MI2S interface.
+
+Optional properties:
+
+- pinctrl-names:		Pinctrl state names for each pin group
+				configuration.
+- pinctrl-x: 			Defines pinctrl state for each pin group
+
+Example:
+
+qcom,msm-dai-mi2s {
+		compatible = "qcom,msm-dai-mi2s";
+		qcom,msm-dai-q6-mi2s-prim {
+			compatible = "qcom,msm-dai-q6-mi2s";
+			qcom,msm-dai-q6-mi2s-dev-id = <0>;
+			qcom,msm-mi2s-rx-lines = <2>;
+			qcom,msm-mi2s-tx-lines = <1>;
+			pinctrl-names = "default", "idle";
+			pinctrl-0 = <&tert_mi2s_active &tert_mi2s_sd0_active>;
+			pinctrl-1 = <&tert_mi2s_sleep &tert_mi2s_sd0_sleep>;
+		};
+};
+
+* msm-adsp-loader
+
+Required properties:
+ - compatible : "qcom,adsp-loader"
+ - qcom,adsp-state:
+	It is possible that some MSM use PIL to load the ADSP image. While
+	other MSM may use SBL to load the ADSP image at boot. Audio APR needs
+	state of ADSP to register and enable APR to be used for sending commands
+	to ADSP. so adsp-state represents the state of ADSP to ADSP loader.
+	Value of 0 indicates ADSP loader needs to use PIL and value of 2 means
+	ADSP image is already loaded by SBL.
+
+Optional properties:
+ - qcom,proc-img-to-load:
+	This property can be used to override default ADSP
+	loading by PIL. Based on string input, different proc is
+	loaded. Right now we are adding option "modem"
+	for 8916 purpose. Default image will be "adsp" which
+	will load LPASS Q6 for other targets as expected.
+	"adsp" option need not be explicitly mentioned in
+	DTSI file, as it is default option.
+
+Example:
+
+qcom,msm-adsp-loader {
+	compatible = "qcom,adsp-loader";
+	qcom,adsp-state = <2>;
+	qcom,proc-img-to-load = "modem";
+};
+
+* msm-audio-ion
+
+Required properties:
+ - compatible : "qcom,msm-audio-ion"
+
+Optional properties:
+ - qcom,smmu-version:
+	version ID to provide info regarding smmu version
+	used in chipset. If ARM SMMU HW - use id value as 1,
+	If QSMMU HW - use id value as 2.
+
+ - qcom,smmu-sid-mask:
+	Mask for the Stream ID part of SMMU SID.
+
+ - qcom,smmu-enabled:
+        It is possible that some MSM have SMMU in ADSP.  While other MSM use
+	no SMMU. Audio lib introduce wrapper for ION APIs. The wrapper needs
+        presence of SMMU in ADSP to handle ION APIs differently.
+        Presence of this property means ADSP has SMMU in it.
+ - iommus:
+	A phandle parsed by smmu driver. Number of entries will vary across
+	targets.
+
+Example:
+
+	qcom,msm-audio-ion {
+		compatible = "qcom,msm-audio-ion;
+		qcom,smmu-enabled;
+	};
+
+* msm-dai-tdm
+
+[First Level Nodes]
+
+Required properties:
+
+ - compatible : "qcom,msm-dai-tdm"
+ - qcom,msm-cpudai-tdm-group-id: ID of the group device. TDM interface
+				supports up to 8 groups:
+				Primary RX: 	37120
+				Primary TX: 	37121
+				Secondary RX: 	37136
+				Secondary TX: 	37137
+				Tertiary RX: 	37152
+				Tertiary TX: 	37153
+				Quaternary RX: 	37168
+				Quaternary TX: 	37169
+
+ - qcom,msm-cpudai-tdm-group-num-ports:	Number of ports in
+				msm-cpudai-tdm-group-port-id array.
+				Max number of ports supported by DSP is 8.
+
+ - qcom,msm-cpudai-tdm-group-port-id: Array of TDM port IDs of the group.
+				The size of the array is determined by
+				the value in msm-cpudai-tdm-group-num-ports.
+				Each group supports up to 8 ports:
+				Primary RX: 	36864, 36866, 36868, 36870,
+								36872, 36874, 36876, 36878
+				Primary TX: 	36865, 36867, 36869, 36871,
+								36873, 36875, 36877, 36879
+				Secondary RX: 	36880, 36882, 36884, 36886,
+								36888, 36890, 36892, 36894
+				Secondary TX:	36881, 36883, 36885, 36887,
+								36889, 36891, 36893, 36895
+				Tertiary RX: 	36896, 36898, 36900, 36902,
+								36904, 36906, 36908, 36910
+				Tertiary TX: 	36897, 36899, 36901, 36903,
+								36905, 36907, 36909, 36911
+				Quaternary RX:	36912, 36914, 36916, 36918,
+								36920, 36922, 36924, 36926
+				Quaternary TX:	36913, 36915, 36917, 36919,
+								36921, 36923, 36925, 36927
+
+ - qcom,msm-cpudai-tdm-clk-rate: Clock rate for tdm - 12288000.
+				When clock rate is set to zero,
+				then external clock is assumed.
+
+ - qcom,msm-cpudai-tdm-clk-internal: Clock Source.
+				0 - EBIT clock from clk tree
+				1 - IBIT clock from clk tree
+
+ - qcom,msm-cpudai-tdm-sync-mode: Synchronization setting.
+				0 - Short sync bit mode
+				1 - Long sync mode
+				2 - Short sync slot mode
+
+ - qcom,msm-cpudai-tdm-sync-src: Synchronization source.
+				0 - External source
+				1 - Internal source
+
+ - qcom,msm-cpudai-tdm-data-out: Data out signal to drive with other masters.
+				0 - Disable
+				1 - Enable
+
+ - qcom,msm-cpudai-tdm-invert-sync: Invert the sync.
+				0 - Normal
+				1 - Invert
+
+ - qcom,msm-cpudai-tdm-data-delay: Number of bit clock to delay data
+				with respect to sync edge.
+				0 - 0 bit clock cycle
+				1 - 1 bit clock cycle
+				2 - 2 bit clock cycle
+
+ [Second Level Nodes]
+
+Required properties:
+
+ - compatible : "qcom,msm-dai-q6-tdm"
+ - qcom,msm-dai-q6-mi2s-dev-id: TDM port ID.
+
+ - qcom,msm-cpudai-tdm-data-align: Indicate how data is packed
+				within the slot. For example, 32 slot width in case of
+				sample bit width is 24.
+				0 - MSB
+				1 - LSB
+
+Optional properties:
+
+ - qcom,msm-cpudai-tdm-header-start-offset: TDM Custom header start offset
+				in bytes from this sub-frame. The bytes is counted from 0.
+				0 is mapped to the 1st byte in or out of
+				the digital serial data line this sub-frame belong to.
+				Supported value: 0, 4, 8.
+
+ - qcom,msm-cpudai-tdm-header-width: Header width per frame followed.
+				2 bytes for MOST/TDM case.
+				Supported value: 2.
+
+ - qcom,msm-cpudai-tdm-header-num-frame-repeat: Number of header followed.
+				Supported value: 8.
+
+ - pinctrl-names: Pinctrl state names for each pin group
+				configuration.
+
+ - pinctrl-x: Defines pinctrl state for each pin group.
+
+Example:
+
+	qcom,msm-dai-tdm-quat-rx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37168>;
+		qcom,msm-cpudai-tdm-group-num-ports = <1>;
+		qcom,msm-cpudai-tdm-group-port-id = <36912>;
+		qcom,msm-cpudai-tdm-clk-rate = <12288000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <0>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <0>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&quat_tdm_active &quat_tdm_dout_active>;
+		pinctrl-1 = <&quat_tdm_sleep &quat_tdm_dout_sleep>;
+		dai_quat_tdm_rx_0: qcom,msm-dai-q6-tdm-quat-rx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36912>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+			qcom,msm-cpudai-tdm-header-start-offset = <0>;
+			qcom,msm-cpudai-tdm-header-width = <2>;
+			qcom,msm-cpudai-tdm-header-num-frame-repeat = <8>;
+		};
+	};
+
+* MSMSTUB ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,sdm855-asoc-snd-stub" for SDM855 target.
+- qcom,model : The user-visible name of this sound card.
+- qcom,tasha-mclk-clk-freq : MCLK frequency value for tasha codec
+- asoc-platform: This is phandle list containing the references to platform device
+		 nodes that are used as part of the sound card dai-links.
+- asoc-platform-names: This property contains list of platform names. The order of
+		       the platform names should match to that of the phandle order
+		       given in "asoc-platform".
+- asoc-cpu: This is phandle list containing the references to cpu dai device nodes
+	    that are used as part of the sound card dai-links.
+- asoc-cpu-names: This property contains list of cpu dai names. The order of the
+		  cpu dai names should match to that of the phandle order given
+		  in "asoc-cpu". The cpu names are in the form of "%s.%d" form,
+		  where the id (%d) field represents the back-end AFE port id that
+		  this CPU dai is associated with.
+- asoc-codec: This is phandle list containing the references to codec dai device
+	      nodes that are used as part of the sound card dai-links.
+- asoc-codec-names: This property contains list of codec dai names. The order of the
+		    codec dai names should match to that of the phandle order given
+		    in "asoc-codec".
+Optional properties:
+- qcom,wsa-max-devs : Maximum number of WSA881x devices present in the target
+
+Example:
+
+	sound_stub {
+		compatible = "qcom,sdm855-asoc-snd-stub";
+		qcom,model = "sdm855-stub-snd-card";
+
+		qcom,tasha-mclk-clk-freq = <9600000>;
+		asoc-platform = <&pcm0>;
+		asoc-platform-names = "msm-pcm-dsp.0";
+		asoc-cpu = <&sb_0_rx>, <&sb_0_tx>;
+		asoc-cpu-names = "msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385";
+		asoc-codec = <&stub_codec>;
+		asoc-codec-names = "msm-stub-codec.1";
+		qcom,wsa-max-devs = <0>;
+	};
+
+* WCD DSP manager driver
+
+Required properties:
+- compatible : "qcom,wcd-dsp-mgr"
+- qcom,wdsp-components : This is phandle list containing the references to the
+			 components of the manager driver. Manager driver will
+			 register to component framework with these phandles.
+- qcom,img-filename : String property to provide the dsp image file name that is
+		     to be read from file system and downloaded to dsp memory
+Optional properties:
+- qcom,wdsp-cmpnt-dev-name : Property that manager driver will parse, but defined
+			     in the child's DT entry that is given to manager driver
+			     with phandle. This property will be used by the manager
+			     driver in case the manager driver cannot match child's
+			     of_node pointer to registered phandle.
+
+Example:
+
+	qcom,wcd-dsp-mgr {
+		compatible = "qcom,wcd-dsp-mgr";
+		qcom,wdsp-components = <&wcd934x_cdc 0>,
+				       <&wcd_spi_0 1>,
+				       <&glink_spi 2>;
+		qcom,img-filename = "cpe_9340";
+	};
+
+Example of child node that would have qcom,wdsp-cmpnt-dev-name property
+
+	wcd934x_cdc: tavil_codec {
+		qcom,wdsp-cmpnt-dev-name = "tavil_codec";
+	};
