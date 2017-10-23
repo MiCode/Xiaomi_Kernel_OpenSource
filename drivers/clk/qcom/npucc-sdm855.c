@@ -167,9 +167,9 @@ static const struct freq_tbl ftbl_npu_cc_cal_dp_clk_src[] = {
 	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
 	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
 	F(350000000, P_NPU_CC_PLL1_OUT_EVEN, 2, 0, 0),
-	F(466666667, P_NPU_CC_PLL0_OUT_EVEN, 3, 0, 0),
-	F(700000000, P_NPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
-	F(800000000, P_NPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
+	F(400000000, P_NPU_CC_PLL0_OUT_EVEN, 3, 0, 0),
+	F(600000000, P_NPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
+	F(715000000, P_NPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
 	{ }
 };
 
@@ -192,9 +192,9 @@ static struct clk_rcg2 npu_cc_cal_dp_clk_src = {
 			[VDD_MIN] = 200000000,
 			[VDD_LOWER] = 300000000,
 			[VDD_LOW] = 350000000,
-			[VDD_LOW_L1] = 466666667,
-			[VDD_NOMINAL] = 700000000,
-			[VDD_HIGH] = 800000000},
+			[VDD_LOW_L1] = 400000000,
+			[VDD_NOMINAL] = 600000000,
+			[VDD_HIGH] = 715000000},
 	},
 };
 
