@@ -1093,6 +1093,13 @@
 
 		status = "ok";
 
+		qcom,msm-bus,name = "pil-npu";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<154 10070 0 0>,
+			<154 10070 0 1>;
+
 		qcom,pas-id = <23>;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,firmware-name = "npu";
@@ -1118,6 +1125,13 @@
 		qcom,ssctl-instance-id = <0x17>;
 		qcom,firmware-name = "cdsp";
 		memory-region = <&pil_cdsp_mem>;
+
+		qcom,msm-bus,name = "pil-cdsp";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<154 10070 0 0>,
+			<154 10070 0 1>;
 
 		/* Inputs from turing */
 		interrupts-extended = <&pdc 0 578 1>,
