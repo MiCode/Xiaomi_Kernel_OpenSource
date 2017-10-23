@@ -358,7 +358,8 @@ static int parse_legacy_cluster_params(struct device_node *node,
 	int ret;
 	struct lpm_match {
 		char *devname;
-		int (*set_mode)(struct low_power_ops *, int, bool);
+		int (*set_mode)(struct low_power_ops *, int,
+					struct lpm_cluster_level *);
 	};
 	struct lpm_match match_tbl[] = {
 		{"l2", set_l2_mode},
@@ -595,6 +596,8 @@ static int parse_cluster_level(struct device_node *node,
 					"qcom,disable-dynamic-int-routing");
 	level->last_core_only = of_property_read_bool(node,
 					"qcom,last-core-only");
+	level->no_cache_flush = of_property_read_bool(node,
+					"qcom,no-cache-flush");
 
 	key = "parse_power_params";
 	ret = parse_power_params(node, &level->pwr);

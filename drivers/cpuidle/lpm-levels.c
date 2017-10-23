@@ -354,10 +354,12 @@ static void msm_pm_set_timer(uint32_t modified_time_us)
 	hrtimer_start(&lpm_hrtimer, modified_ktime, HRTIMER_MODE_REL_PINNED);
 }
 
-int set_l2_mode(struct low_power_ops *ops, int mode, bool notify_rpm)
+int set_l2_mode(struct low_power_ops *ops, int mode,
+				struct lpm_cluster_level *level)
 {
 	int lpm = mode;
 	int rc = 0;
+	bool notify_rpm = level->notify_rpm;
 	struct low_power_ops *cpu_ops = per_cpu(cpu_cluster,
 			smp_processor_id())->lpm_dev;
 
@@ -369,7 +371,10 @@ int set_l2_mode(struct low_power_ops *ops, int mode, bool notify_rpm)
 	case MSM_SPM_MODE_STANDALONE_POWER_COLLAPSE:
 	case MSM_SPM_MODE_POWER_COLLAPSE:
 	case MSM_SPM_MODE_FASTPC:
-		cpu_ops->tz_flag = MSM_SCM_L2_OFF;
+		if (level->no_cache_flush)
+			cpu_ops->tz_flag = MSM_SCM_L2_GDHS;
+		else
+			cpu_ops->tz_flag = MSM_SCM_L2_OFF;
 		coresight_cti_ctx_save();
 		break;
 	case MSM_SPM_MODE_GDHS:
@@ -400,8 +405,10 @@ int set_l2_mode(struct low_power_ops *ops, int mode, bool notify_rpm)
 	return rc;
 }
 
-int set_l3_mode(struct low_power_ops *ops, int mode, bool notify_rpm)
+int set_l3_mode(struct low_power_ops *ops, int mode,
+				struct lpm_cluster_level *level)
 {
+	bool notify_rpm = level->notify_rpm;
 	struct low_power_ops *cpu_ops = per_cpu(cpu_cluster,
 			smp_processor_id())->lpm_dev;
 
@@ -418,8 +425,10 @@ int set_l3_mode(struct low_power_ops *ops, int mode, bool notify_rpm)
 }
 
 
-int set_system_mode(struct low_power_ops *ops, int mode, bool notify_rpm)
+int set_system_mode(struct low_power_ops *ops, int mode,
+				struct lpm_cluster_level *level)
 {
+	bool notify_rpm = level->notify_rpm;
 	return msm_spm_config_low_power_mode(ops->spm, mode, notify_rpm);
 }
 
@@ -434,7 +443,7 @@ static int set_device_mode(struct lpm_cluster *cluster, int ndevice,
 	ops = &cluster->lpm_dev[ndevice];
 	if (ops && ops->set_mode)
 		return ops->set_mode(ops, level->mode[ndevice],
-				level->notify_rpm);
+				level);
 	else
 		return -EINVAL;
 }
