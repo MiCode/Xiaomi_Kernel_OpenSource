@@ -2438,10 +2438,27 @@ static inline void cpufreq_update_util(struct rq *rq, unsigned int flags)
 {
 	struct update_util_data *data;
 
+#ifdef CONFIG_SCHED_WALT
+	unsigned int exception_flags = SCHED_CPUFREQ_INTERCLUSTER_MIG |
+				SCHED_CPUFREQ_PL | SCHED_CPUFREQ_EARLY_DET;
+
+	/*
+	 * Skip if we've already reported, but not if this is an inter-cluster
+	 * migration. Also only allow WALT update sites.
+	 */
+	if (!(flags & SCHED_CPUFREQ_WALT))
+		return;
+	if (!sched_disable_window_stats &&
+		(rq->load_reported_window == rq->window_start) &&
+		!(flags & exception_flags))
+		return;
+	rq->load_reported_window = rq->window_start;
+#endif
+
 	data = rcu_dereference_sched(*per_cpu_ptr(&cpufreq_update_util_data,
-						  cpu_of(rq)));
+					cpu_of(rq)));
 	if (data)
-		data->func(data, rq_clock(rq), flags);
+		data->func(data, ktime_get_ns(), flags);
 }
 #else
 static inline void cpufreq_update_util(struct rq *rq, unsigned int flags) {}
