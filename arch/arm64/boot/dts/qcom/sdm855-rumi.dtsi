@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include "msm-audio-lpass.dtsi"
+
 &soc {
 	usb_emu_phy: usb_emu_phy@a720000 {
 		compatible = "qcom,usb-emu-phy";
@@ -56,6 +58,19 @@
 			     <0 424 0 /* CE10 */ >,
 			     <0 425 0 /* CE11 */ >;
 		qcom,wlan-msa-memory = <0x100000>;
+	};
+
+	sound-stub {
+		compatible = "qcom,sdm855-asoc-snd-stub";
+		qcom,model = "sdm855-stub-snd-card";
+
+		asoc-platform = <&pcm0>;
+		asoc-platform-names = "msm-pcm-dsp.0";
+		asoc-cpu = <&sb_0_rx>, <&sb_0_tx>;
+		asoc-cpu-names = "msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385";
+		asoc-codec = <&stub_codec>;
+		asoc-codec-names = "msm-stub-codec.1";
+		qcom,wsa-max-devs = <0>;
 	};
 };
 

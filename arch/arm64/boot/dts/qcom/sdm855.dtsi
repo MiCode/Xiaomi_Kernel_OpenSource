@@ -2248,3 +2248,4 @@
 #include "sdm855-qupv3.dtsi"
 #include "sdm855-npu.dtsi"
 #include "sdm855-pm.dtsi"
+#include "sdm855-audio.dtsi"
