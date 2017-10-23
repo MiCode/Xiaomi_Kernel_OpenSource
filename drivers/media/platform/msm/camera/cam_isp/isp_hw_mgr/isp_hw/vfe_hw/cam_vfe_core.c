@@ -125,9 +125,6 @@ int cam_vfe_reset_irq_top_half(uint32_t    evt_id,
 	CAM_DBG(CAM_ISP, "IRQ status_0 = 0x%x", th_payload->evt_status_arr[0]);
 
 	if (th_payload->evt_status_arr[0] & (1<<31)) {
-		CAM_DBG(CAM_ISP, "Calling Complete for RESET CMD");
-		complete(handler_priv->reset_complete);
-
 		/*
 		 * Clear All IRQs to avoid spurious IRQs immediately
 		 * after Reset Done.
@@ -135,6 +132,9 @@ int cam_vfe_reset_irq_top_half(uint32_t    evt_id,
 		cam_io_w(0xFFFFFFFF, handler_priv->mem_base + 0x64);
 		cam_io_w(0xFFFFFFFF, handler_priv->mem_base + 0x68);
 		cam_io_w(0x1, handler_priv->mem_base + 0x58);
+		CAM_DBG(CAM_ISP, "Calling Complete for RESET CMD");
+		complete(handler_priv->reset_complete);
+
 
 		rc = 0;
 	}
