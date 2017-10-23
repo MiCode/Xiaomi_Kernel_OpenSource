@@ -757,17 +757,22 @@ static int __ipa_validate_flt_rule(const struct ipa_flt_rule *rule,
 				goto error;
 			}
 		}
+	} else {
+		if (rule->rt_tbl_idx > 0) {
+			IPAERR("invalid RT tbl\n");
+			goto error;
+		}
 	}
 
 	if (rule->rule_id) {
-		if (!(rule->rule_id & ipahal_get_rule_id_hi_bit())) {
+		if ((rule->rule_id < ipahal_get_rule_id_hi_bit()) ||
+		(rule->rule_id >= ((ipahal_get_rule_id_hi_bit()<<1)-1))) {
 			IPAERR("invalid rule_id provided 0x%x\n"
 				"rule_id with bit 0x%x are auto generated\n",
 				rule->rule_id, ipahal_get_rule_id_hi_bit());
 			goto error;
 		}
 	}
-
 	return 0;
 
 error:
@@ -866,7 +871,8 @@ static int __ipa_add_flt_rule(struct ipa3_flt_tbl *tbl, enum ipa_ip_type ip,
 ipa_insert_failed:
 	list_del(&entry->link);
 	/* if rule id was allocated from idr, remove it */
-	if (!(entry->rule_id & ipahal_get_rule_id_hi_bit()))
+	if ((entry->rule_id < ipahal_get_rule_id_hi_bit()) &&
+		(entry->rule_id >= ipahal_get_low_rule_id()))
 		idr_remove(&entry->tbl->rule_ids, entry->rule_id);
 	kmem_cache_free(ipa3_ctx->flt_rule_cache, entry);
 
@@ -913,7 +919,8 @@ static int __ipa_add_flt_rule_after(struct ipa3_flt_tbl *tbl,
 ipa_insert_failed:
 	list_del(&entry->link);
 	/* if rule id was allocated from idr, remove it */
-	if (!(entry->rule_id & ipahal_get_rule_id_hi_bit()))
+	if ((entry->rule_id < ipahal_get_rule_id_hi_bit()) &&
+		(entry->rule_id >= ipahal_get_low_rule_id()))
 		idr_remove(&entry->tbl->rule_ids, entry->rule_id);
 	kmem_cache_free(ipa3_ctx->flt_rule_cache, entry);
 
@@ -947,7 +954,8 @@ static int __ipa_del_flt_rule(u32 rule_hdl)
 		entry->tbl->rule_cnt, entry->rule_id);
 	entry->cookie = 0;
 	/* if rule id was allocated from idr, remove it */
-	if (!(entry->rule_id & ipahal_get_rule_id_hi_bit()))
+	if ((entry->rule_id < ipahal_get_rule_id_hi_bit()) &&
+		(entry->rule_id >= ipahal_get_low_rule_id()))
 		idr_remove(&entry->tbl->rule_ids, entry->rule_id);
 
 	kmem_cache_free(ipa3_ctx->flt_rule_cache, entry);
@@ -1002,6 +1010,11 @@ static int __ipa_mdfy_flt_rule(struct ipa_flt_rule_mdfy *frule,
 				IPAERR_RL("invalid RT tbl\n");
 				goto error;
 			}
+		}
+	} else {
+		if (frule->rule.rt_tbl_idx > 0) {
+			IPAERR_RL("invalid RT tbl\n");
+			goto error;
 		}
 	}
 
@@ -1367,7 +1380,8 @@ int ipa3_reset_flt(enum ipa_ip_type ip)
 			if (entry->rt_tbl)
 				entry->rt_tbl->ref_cnt--;
 			/* if rule id was allocated from idr, remove it */
-			if (!(entry->rule_id & ipahal_get_rule_id_hi_bit()))
+			if ((entry->rule_id < ipahal_get_rule_id_hi_bit()) &&
+				(entry->rule_id >= ipahal_get_low_rule_id()))
 				idr_remove(&entry->tbl->rule_ids,
 					entry->rule_id);
 			entry->cookie = 0;
