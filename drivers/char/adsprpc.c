@@ -61,7 +61,6 @@
 #define M_FDLIST	(16)
 #define M_CRCLIST	(64)
 #define SESSION_ID_INDEX (30)
-#define FASTRPC_CTX_MAGIC (0xbeeddeed)
 
 #define IS_CACHE_ALIGNED(x) (((x) & ((L1_CACHE_BYTES)-1)) == 0)
 
@@ -177,7 +176,6 @@ struct smq_invoke_ctx {
 	struct overlap **overps;
 	struct smq_msg msg;
 	uint32_t *crc;
-	unsigned int magic;
 };
 
 struct fastrpc_ctx_lst {
@@ -866,7 +864,6 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 	ctx->pid = current->pid;
 	ctx->tgid = fl->tgid;
 	init_completion(&ctx->work);
-	ctx->magic = FASTRPC_CTX_MAGIC;
 
 	spin_lock(&fl->hlock);
 	hlist_add_head(&ctx->hn, &clst->pending);
@@ -902,7 +899,6 @@ static void context_free(struct smq_invoke_ctx *ctx)
 	for (i = 0; i < nbufs; ++i)
 		fastrpc_mmap_free(ctx->maps[i]);
 	fastrpc_buf_free(ctx->buf, 1);
-	ctx->magic = 0;
 	kfree(ctx);
 }
 
@@ -1826,26 +1822,64 @@ void fastrpc_glink_notify_tx_done(void *handle, const void *priv,
 {
 }
 
+static int fastrpc_search_ctx(uint64_t rctx)
+{
+	struct fastrpc_apps *me = &gfa;
+	struct fastrpc_file *fl;
+	struct hlist_node *n, *m;
+	struct smq_invoke_ctx *ictx = NULL;
+	struct smq_invoke_ctx *ctx;
+	int bfound = 0;
+	unsigned long flags;
+	unsigned long flags1;
+
+	ctx = (struct smq_invoke_ctx *)(uint64_to_ptr(rctx));
+	if (!ctx)
+		return bfound;
+
+	spin_lock_irqsave(&me->hlock, flags);
+	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
+		if (ctx->fl != fl)
+			continue;
+		spin_lock_irqsave(&fl->hlock, flags1);
+		hlist_for_each_entry_safe(ictx, m, &fl->clst.pending, hn) {
+			if (ptr_to_uint64(ictx) == rctx) {
+				bfound = 1;
+				break;
+			}
+		}
+		hlist_for_each_entry_safe(ictx, m, &fl->clst.interrupted, hn) {
+			if (ptr_to_uint64(ictx) == rctx) {
+				bfound = 1;
+				break;
+			}
+		}
+		spin_unlock_irqrestore(&fl->hlock, flags1);
+		if (bfound)
+			break;
+	}
+	spin_unlock_irqrestore(&me->hlock, flags);
+	return bfound;
+}
+
 void fastrpc_glink_notify_rx(void *handle, const void *priv,
 	const void *pkt_priv, const void *ptr, size_t size)
 {
 	struct smq_invoke_rsp *rsp = (struct smq_invoke_rsp *)ptr;
-	struct smq_invoke_ctx *ctx;
-	int err = 0;
+	int bfound = 0;
 
-	VERIFY(err, (rsp && size >= sizeof(*rsp)));
-	if (err)
+	if (!rsp || (size < sizeof(*rsp)))
 		goto bail;
 
-	ctx = (struct smq_invoke_ctx *)(uint64_to_ptr(rsp->ctx & ~1));
-	VERIFY(err, (ctx && ctx->magic == FASTRPC_CTX_MAGIC));
-	if (err)
+	bfound = fastrpc_search_ctx((uint64_t)(rsp->ctx & ~1));
+	if (!bfound) {
+		pr_err("adsprpc: invalid context %pK\n", (void *)rsp->ctx);
 		goto bail;
+	}
 
-	context_notify_user(ctx, rsp->retval);
+	rsp->ctx = rsp->ctx & ~1;
+	context_notify_user(uint64_to_ptr(rsp->ctx), rsp->retval);
 bail:
-	if (err)
-		pr_err("adsprpc: invalid response or context\n");
 	glink_rx_done(handle, ptr, true);
 }
 
