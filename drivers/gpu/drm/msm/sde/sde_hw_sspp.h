@@ -293,12 +293,14 @@ struct sde_hw_sspp_ops {
 	/**
 	 * setup_format - setup pixel format cropping rectangle, flip
 	 * @ctx: Pointer to pipe context
-	 * @cfg: Pointer to pipe config structure
+	 * @fmt: Pointer to sde_format structure
+	 * @blend_enabled: flag indicating blend enabled or disabled on plane
 	 * @flags: Extra flags for format config
 	 * @index: rectangle index in multirect
 	 */
 	void (*setup_format)(struct sde_hw_pipe *ctx,
-			const struct sde_format *fmt, u32 flags,
+			const struct sde_format *fmt,
+			bool blend_enabled, u32 flags,
 			enum sde_sspp_multirect_index index);
 
 	/**
