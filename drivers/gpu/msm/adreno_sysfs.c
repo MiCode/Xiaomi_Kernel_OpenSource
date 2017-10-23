@@ -54,50 +54,38 @@ static unsigned int _ft_policy_show(struct adreno_device *adreno_dev)
 static int _preempt_level_store(struct adreno_device *adreno_dev,
 		unsigned int val)
 {
-	struct adreno_preemption *preempt = &adreno_dev->preempt;
-
 	if (val <= 2)
-		preempt->preempt_level = val;
+		adreno_dev->preempt_level = val;
 	return 0;
 }
 
 static unsigned int _preempt_level_show(struct adreno_device *adreno_dev)
 {
-	struct adreno_preemption *preempt = &adreno_dev->preempt;
-
-	return preempt->preempt_level;
+	return adreno_dev->preempt_level;
 }
 
 static int _usesgmem_store(struct adreno_device *adreno_dev,
 		unsigned int val)
 {
-	struct adreno_preemption *preempt = &adreno_dev->preempt;
-
-	preempt->usesgmem = val ? 1 : 0;
+	adreno_dev->usesgmem = val ? 1 : 0;
 	return 0;
 }
 
 static unsigned int _usesgmem_show(struct adreno_device *adreno_dev)
 {
-	struct adreno_preemption *preempt = &adreno_dev->preempt;
-
-	return preempt->usesgmem;
+	return adreno_dev->usesgmem;
 }
 
 static int _skipsaverestore_store(struct adreno_device *adreno_dev,
 		unsigned int val)
 {
-	struct adreno_preemption *preempt = &adreno_dev->preempt;
-
-	preempt->skipsaverestore = val ? 1 : 0;
+	adreno_dev->skipsaverestore = val ? 1 : 0;
 	return 0;
 }
 
 static unsigned int _skipsaverestore_show(struct adreno_device *adreno_dev)
 {
-	struct adreno_preemption *preempt = &adreno_dev->preempt;
-
-	return preempt->skipsaverestore;
+	return adreno_dev->skipsaverestore;
 }
 
 static int _ft_pagefault_policy_store(struct adreno_device *adreno_dev,
