@@ -1180,7 +1180,7 @@ static int rsc_drv_probe(struct platform_device *pdev)
 
 		if (tcs->num_tcs > MAX_TCS_PER_TYPE ||
 			st + tcs->num_tcs > max_tcs ||
-			st + tcs->num_tcs >= sizeof(tcs->tcs_mask))
+			st + tcs->num_tcs >= 8 * sizeof(tcs->tcs_mask))
 			return -EINVAL;
 
 		tcs->tcs_mask = ((1 << tcs->num_tcs) - 1) << st;
