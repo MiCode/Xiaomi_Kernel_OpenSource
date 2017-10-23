@@ -17,6 +17,8 @@
 
 #include "peripheral-loader.h"
 
+#define VDD_MSS_UV	1000000
+
 struct modem_data {
 	struct q6v5_data *q6;
 	struct subsys_device *subsys;

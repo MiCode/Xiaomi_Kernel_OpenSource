@@ -35,6 +35,7 @@
 #include "pil-q6v5.h"
 #include "pil-msa.h"
 
+#define MAX_VDD_MSS_UV		1150000
 #define PROXY_TIMEOUT_MS	10000
 #define MAX_SSR_REASON_LEN	256U
 #define STOP_ACK_TIMEOUT_MS	1000
@@ -331,6 +332,19 @@ static int pil_mss_loadable_init(struct modem_data *drv,
 		q6->vreg = devm_regulator_get(&pdev->dev, "vdd_mss");
 		if (IS_ERR(q6->vreg))
 			return PTR_ERR(q6->vreg);
+
+		ret = regulator_set_voltage(q6->vreg, VDD_MSS_UV,
+						MAX_VDD_MSS_UV);
+		if (ret)
+			dev_err(&pdev->dev, "Failed to set vreg voltage(rc:%d)\n",
+									ret);
+
+		ret = regulator_set_load(q6->vreg, 100000);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "Failed to set vreg mode(rc:%d)\n",
+									ret);
+			return ret;
+		}
 	}
 
 	q6->vreg_mx = devm_regulator_get(&pdev->dev, "vdd_mx");
