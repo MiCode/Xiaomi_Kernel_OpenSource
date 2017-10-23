@@ -3211,6 +3211,10 @@ int cam_ife_mgr_do_tasklet(void *handler_priv, void *evt_payload_priv)
 		return IRQ_HANDLED;
 	}
 
+	CAM_DBG(CAM_ISP, "Calling EOF");
+	cam_ife_hw_mgr_handle_eof_for_camif_hw_res(ife_hwr_mgr_ctx,
+		evt_payload_priv);
+
 	CAM_DBG(CAM_ISP, "Calling SOF");
 	/* SOF IRQ */
 	cam_ife_hw_mgr_handle_sof(ife_hwr_mgr_ctx,
@@ -3224,8 +3228,6 @@ int cam_ife_mgr_do_tasklet(void *handler_priv, void *evt_payload_priv)
 	CAM_DBG(CAM_ISP, "Calling EPOCH");
 	/* EPOCH IRQ */
 	cam_ife_hw_mgr_handle_epoch_for_camif_hw_res(ife_hwr_mgr_ctx,
-		evt_payload_priv);
-	cam_ife_hw_mgr_handle_eof_for_camif_hw_res(ife_hwr_mgr_ctx,
 		evt_payload_priv);
 
 	return IRQ_HANDLED;
