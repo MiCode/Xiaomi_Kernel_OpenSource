@@ -514,6 +514,54 @@
 		};
 
 		nfc {
+			nfcw_int_active: nfcw_int_active {
+				mux {
+					pins = "gpio50";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio50";
+					drive-strength = <6>;
+					bias-pull-up;
+				};
+			};
+
+			nfcw_int_suspend: nfcw_int_suspend {
+				mux {
+					pins = "gpio50";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio50";
+					drive-strength = <6>;
+					bias-pull-up;
+				};
+			};
+
+			nfcw_disable_active: nfcw_disable_active {
+				mux {
+					pins = "gpio36";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio36";
+					drive-strength = <6>;
+					bias-pull-up;
+				};
+			};
+
+			nfcw_disable_suspend: nfcw_disable_suspend {
+				mux {
+					pins = "gpio36";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio36";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
 			nfc_int_active: nfc_int_active {
 				mux {
 					pins = "gpio21";
