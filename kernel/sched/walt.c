@@ -490,8 +490,8 @@ u64 freq_policy_load(struct rq *rq)
 	}
 
 done:
-	//trace_sched_load_to_gov(rq, aggr_grp_load, tt_load, freq_aggr_thresh,
-	//			load, reporting_policy);
+	trace_sched_load_to_gov(rq, aggr_grp_load, tt_load, freq_aggr_thresh,
+				load, reporting_policy);
 	return load;
 }
 
@@ -996,9 +996,9 @@ static u32 get_pred_busy(struct rq *rq, struct task_struct *p,
 	 */
 	ret = max(runtime, ret);
 out:
-	//trace_sched_update_pred_demand(rq, p, runtime,
-	//	mult_frac((unsigned int)cur_freq_runtime, 100,
-	//		  sched_ravg_window), ret);
+	trace_sched_update_pred_demand(rq, p, runtime,
+		mult_frac((unsigned int)cur_freq_runtime, 100,
+			  sched_ravg_window), ret);
 	return ret;
 }
 
@@ -1696,8 +1696,7 @@ static void update_history(struct rq *rq, struct task_struct *p,
 	p->ravg.pred_demand = pred_demand;
 
 done:
-	//trace_sched_update_history(rq, p, runtime, samples, event);
-	return;
+	trace_sched_update_history(rq, p, runtime, samples, event);
 }
 
 static u64 add_to_task_demand(struct rq *rq, struct task_struct *p, u64 delta)
@@ -1874,7 +1873,7 @@ update_task_rq_cpu_cycles(struct task_struct *p, struct rq *rq, int event,
 
 	p->cpu_cycles = cur_cycles;
 
-	//trace_sched_get_task_cpu_cycles(cpu, event, rq->cc.cycles, rq->cc.time);
+	trace_sched_get_task_cpu_cycles(cpu, event, rq->cc.cycles, rq->cc.time);
 }
 
 static inline void run_walt_irq_work(u64 old_window_start, struct rq *rq)
@@ -1914,10 +1913,10 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 	update_cpu_busy_time(p, rq, event, wallclock, irqtime);
 	update_task_pred_demand(rq, p, event);
 done:
-	//trace_sched_update_task_ravg(p, rq, event, wallclock, irqtime,
-	//			rq->cc.cycles, rq->cc.time, &rq->grp_time);
-	//trace_sched_update_task_ravg_mini(p, rq, event, wallclock, irqtime,
-	//			rq->cc.cycles, rq->cc.time, &rq->grp_time);
+	trace_sched_update_task_ravg(p, rq, event, wallclock, irqtime,
+				rq->cc.cycles, rq->cc.time, &rq->grp_time);
+	trace_sched_update_task_ravg_mini(p, rq, event, wallclock, irqtime,
+				rq->cc.cycles, rq->cc.time, &rq->grp_time);
 
 	p->ravg.mark_start = wallclock;
 
@@ -2493,7 +2492,7 @@ static void _set_preferred_cluster(struct related_thread_group *grp)
 	grp->preferred_cluster = best_cluster(grp,
 			combined_demand, group_boost);
 	grp->last_update = ktime_get_ns();
-	//trace_sched_set_preferred_cluster(grp, combined_demand);
+	trace_sched_set_preferred_cluster(grp, combined_demand);
 }
 
 void set_preferred_cluster(struct related_thread_group *grp)
@@ -2979,7 +2978,7 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 	p->ravg.curr_window_cpu[cpu] = p->ravg.curr_window;
 	p->ravg.prev_window_cpu[cpu] = p->ravg.prev_window;
 
-	//trace_sched_migration_update_sum(p, migrate_type, rq);
+	trace_sched_migration_update_sum(p, migrate_type, rq);
 
 	BUG_ON((s64)*src_curr_runnable_sum < 0);
 	BUG_ON((s64)*src_prev_runnable_sum < 0);
