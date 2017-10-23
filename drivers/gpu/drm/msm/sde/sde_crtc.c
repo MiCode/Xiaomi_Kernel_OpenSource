@@ -2307,6 +2307,9 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 	struct drm_crtc *crtc;
 	struct sde_crtc *sde_crtc;
 	struct sde_kms *sde_kms;
+	struct drm_plane *plane;
+	u32 ubwc_error;
+	bool frame_done_event = false;
 	unsigned long flags;
 	bool in_clone_mode = false;
 
@@ -2362,6 +2365,7 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 			SDE_EVT32_VERBOSE(DRMID(crtc), fevent->event,
 							SDE_EVTLOG_FUNC_CASE3);
 		}
+		frame_done_event = true;
 	}
 
 	if (fevent->event & SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE) {
@@ -2381,6 +2385,21 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 	if (fevent->event & SDE_ENCODER_FRAME_EVENT_PANEL_DEAD)
 		SDE_ERROR("crtc%d ts:%lld received panel dead event\n",
 				crtc->base.id, ktime_to_ns(fevent->ts));
+
+	if (frame_done_event) {
+		drm_for_each_plane_mask(plane, crtc->dev,
+						sde_crtc->plane_mask_old) {
+			ubwc_error = sde_plane_get_ubwc_error(plane);
+			if (ubwc_error) {
+				SDE_EVT32(DRMID(crtc), DRMID(plane),
+						ubwc_error, SDE_EVTLOG_ERROR);
+				SDE_DEBUG("crtc%d plane %d ubwc_error %d\n",
+						DRMID(crtc), DRMID(plane),
+						ubwc_error);
+				sde_plane_clear_ubwc_error(plane);
+			}
+		}
+	}
 
 	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
 	list_add_tail(&fevent->list, &sde_crtc->frame_event_list);
@@ -3660,6 +3679,7 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 	SDE_ATRACE_BEGIN("flush_event_thread");
 	_sde_crtc_flush_event_thread(crtc);
 	SDE_ATRACE_END("flush_event_thread");
+	sde_crtc->plane_mask_old = crtc->state->plane_mask;
 
 	if (atomic_inc_return(&sde_crtc->frame_pending) == 1) {
 		/* acquire bandwidth and other resources */

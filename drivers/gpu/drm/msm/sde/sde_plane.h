@@ -364,4 +364,16 @@ bool sde_plane_is_sec_ui_allowed(struct drm_plane *plane);
 void sde_plane_secure_ctrl_xin_client(struct drm_plane *plane,
 		struct drm_crtc *crtc);
 
+/*
+ * sde_plane_get_ubwc_error - gets the ubwc error code
+ * @plane: Pointer to DRM plane object
+ */
+u32 sde_plane_get_ubwc_error(struct drm_plane *plane);
+
+/*
+ * sde_plane_clear_ubwc_error - clears the ubwc error code
+ * @plane: Pointer to DRM plane object
+ */
+void sde_plane_clear_ubwc_error(struct drm_plane *plane);
+
 #endif /* _SDE_PLANE_H_ */
