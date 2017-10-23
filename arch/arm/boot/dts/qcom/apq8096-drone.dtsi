@@ -582,7 +582,7 @@
 		qcom,cs-out = <3>;      /* 20 MA */
 		qcom,master-en = <1>;		/* Enable GPIO */
 		qcom,invert = <1>;
-		status = "okay";
+		status = "disabled";
 	};
 
 	mpp@a600 { /* MPP 7 - TP83 */
@@ -601,7 +601,7 @@
 		qcom,cs-out = <3>;      /* 20 MA */
 		qcom,master-en = <1>;		/* Enable GPIO */
 		qcom,invert = <1>;
-		status = "okay";
+		status = "disabled";
 	};
 };
 
