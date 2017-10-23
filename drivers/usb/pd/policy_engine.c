@@ -2302,8 +2302,11 @@ static void usbpd_sm(struct work_struct *w)
 					&val);
 
 			/* save the PDOs so userspace can further evaluate */
-			memcpy(&pd->received_pdos, rx_msg->payload,
+			memset(&pd->received_pdos, 0,
 					sizeof(pd->received_pdos));
+			memcpy(&pd->received_pdos, rx_msg->payload,
+					min_t(size_t, rx_msg->data_len,
+						sizeof(pd->received_pdos)));
 			pd->src_cap_id++;
 
 			usbpd_set_state(pd, PE_SNK_EVALUATE_CAPABILITY);
@@ -2411,8 +2414,11 @@ static void usbpd_sm(struct work_struct *w)
 	case PE_SNK_READY:
 		if (IS_DATA(rx_msg, MSG_SOURCE_CAPABILITIES)) {
 			/* save the PDOs so userspace can further evaluate */
-			memcpy(&pd->received_pdos, rx_msg->payload,
+			memset(&pd->received_pdos, 0,
 					sizeof(pd->received_pdos));
+			memcpy(&pd->received_pdos, rx_msg->payload,
+					min_t(size_t, rx_msg->data_len,
+						sizeof(pd->received_pdos)));
 			pd->src_cap_id++;
 
 			usbpd_set_state(pd, PE_SNK_EVALUATE_CAPABILITY);
