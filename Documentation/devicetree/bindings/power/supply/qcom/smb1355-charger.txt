@@ -29,6 +29,13 @@ Charger specific properties:
   Definition: Should specify the phandle of SMB's revid module. This is used
 	      to identify the SMB subtype.
 
+- qcom,disable-ctm
+  Usage:      optional
+  Value type: <empty>
+  Definition: boolean flag. Usually a thermistor near usb/typeC connector is
+	      connected to AUX. Set this flag to indicate the thermistor
+	      doesn't exist.
+
 ================================================
 Second Level Nodes - SMB1355 Charger Peripherals
 ================================================
