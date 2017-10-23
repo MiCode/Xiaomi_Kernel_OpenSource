@@ -1839,6 +1839,7 @@
 		qcom,sysmon-id = <1>;
 		qcom,ssctl-instance-id = <0x14>;
 		qcom,firmware-name = "adsp";
+		qcom,signal-aop;
 		memory-region = <&pil_adsp_mem>;
 
 		/* GPIO inputs from lpass */
@@ -1849,6 +1850,9 @@
 
 		/* GPIO output to lpass */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
+
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "adsp-pil";
 		status = "ok";
 	};
 
@@ -2067,6 +2071,7 @@
 		qcom,sysmon-id = <0>;
 		qcom,ssctl-instance-id = <0x12>;
 		qcom,override-acc;
+		qcom,signal-aop;
 		qcom,qdsp6v65-1-0;
 		qcom,mss_pdc_offset = <9>;
 		status = "ok";
@@ -2082,6 +2087,9 @@
 
 		/* GPIO output to mss */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
+
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "mss-pil";
 		qcom,mba-mem@0 {
 			compatible = "qcom,pil-mba-mem";
 			memory-region = <&pil_mba_mem>;
@@ -2133,6 +2141,7 @@
 		qcom,sysmon-id = <7>;
 		qcom,ssctl-instance-id = <0x17>;
 		qcom,firmware-name = "cdsp";
+		qcom,signal-aop;
 		memory-region = <&pil_cdsp_mem>;
 
 		/* GPIO inputs from turing */
@@ -2143,6 +2152,9 @@
 
 		/* GPIO output to turing*/
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_5_out 0 0>;
+
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "cdsp-pil";
 		status = "ok";
 	};
 
