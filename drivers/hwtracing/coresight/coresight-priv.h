@@ -35,6 +35,7 @@
 #define TIMEOUT_US		100
 #define BM(lsb, msb)		((BIT(msb) - BIT(lsb)) + BIT(msb))
 #define BMVAL(val, lsb, msb)	((val & GENMASK(msb, lsb)) >> lsb)
+#define BVAL(val, n)            ((val & BIT(n)) >> n)
 
 #define ETM_MODE_EXCL_KERN	BIT(30)
 #define ETM_MODE_EXCL_USER	BIT(31)
@@ -136,13 +137,35 @@ static inline void coresight_write_reg_pair(void __iomem *addr, u64 val,
 		writel_relaxed((u32)(val >> 32), addr + hi_offset);
 }
 
+static inline bool coresight_authstatus_enabled(void __iomem *addr)
+{
+	int ret;
+	unsigned int auth_val;
+
+	if (!addr)
+		return false;
+
+	auth_val = readl_relaxed(addr + CORESIGHT_AUTHSTATUS);
+
+	if ((BMVAL(auth_val, 0, 1) == 0x2) ||
+		(BMVAL(auth_val, 2, 3) == 0x2) ||
+		(BMVAL(auth_val, 4, 5) == 0x2) ||
+		(BMVAL(auth_val, 6, 7) == 0x2))
+		ret = false;
+	else
+		ret = true;
+
+	return ret;
+}
 void coresight_disable_path(struct list_head *path);
 int coresight_enable_path(struct list_head *path, u32 mode);
 struct coresight_device *coresight_get_sink(struct list_head *path);
 struct coresight_device *coresight_get_enabled_sink(bool reset);
 struct list_head *coresight_build_path(struct coresight_device *csdev,
 				       struct coresight_device *sink);
-void coresight_release_path(struct list_head *path);
+struct coresight_device *coresight_get_source(struct list_head *path);
+void coresight_release_path(struct coresight_device *csdev,
+			    struct list_head *path);
 
 #ifdef CONFIG_CORESIGHT_SOURCE_ETM3X
 extern int etm_readl_cp14(u32 off, unsigned int *val);
@@ -152,4 +175,16 @@ static inline int etm_readl_cp14(u32 off, unsigned int *val) { return 0; }
 static inline int etm_writel_cp14(u32 off, u32 val) { return 0; }
 #endif
 
+#ifdef CONFIG_CORESIGHT_CSR
+extern void msm_qdss_csr_enable_bam_to_usb(void);
+extern void msm_qdss_csr_disable_bam_to_usb(void);
+extern void msm_qdss_csr_disable_flush(void);
+extern int coresight_csr_hwctrl_set(uint64_t addr, uint32_t val);
+#else
+static inline void msm_qdss_csr_enable_bam_to_usb(void) {}
+static inline void msm_qdss_csr_disable_bam_to_usb(void) {}
+static inline void msm_qdss_csr_disable_flush(void) {}
+static inline int coresight_csr_hwctrl_set(uint64_t addr, uint32_t val)
+							{ return -EINVAL; }
+#endif
 #endif

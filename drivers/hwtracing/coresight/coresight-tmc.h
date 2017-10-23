@@ -74,6 +74,8 @@
 
 #define TMC_AXICTL_PROT_CTL_B0	BIT(0)
 #define TMC_AXICTL_PROT_CTL_B1	BIT(1)
+#define TMC_AXICTL_CACHE_CTL_B0	BIT(2)
+#define TMC_AXICTL_CACHE_CTL_B1	BIT(3)
 #define TMC_AXICTL_SCT_GAT_MODE	BIT(7)
 #define TMC_AXICTL_WR_BURST_16	0xF00
 /* Write-back Read and Write-allocate */
@@ -167,6 +169,8 @@ struct tmc_drvdata {
 	u32			mode;
 	enum tmc_config_type	config_type;
 	enum tmc_mem_intf_width	memwidth;
+	struct mutex		mem_lock;
+	u32			mem_size;
 	u32			trigger_cntr;
 	u32			etr_caps;
 };

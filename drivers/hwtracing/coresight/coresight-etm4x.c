@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -62,7 +62,7 @@ static void etm4_os_unlock(struct etmv4_drvdata *drvdata)
 static bool etm4_arch_supported(u8 arch)
 {
 	switch (arch) {
-	case ETM_ARCH_V4:
+	case ETM_ARCH_MAJOR_V4:
 		break;
 	default:
 		return false;
@@ -490,7 +490,7 @@ static void etm4_init_arch_data(void *info)
 	 * TRCARCHMIN, bits[7:4] architecture the minor version number
 	 * TRCARCHMAJ, bits[11:8] architecture major versin number
 	 */
-	drvdata->arch = BMVAL(etmidr1, 4, 11);
+	drvdata->arch = BMVAL(etmidr1, 8, 11);
 
 	/* maximum size of resources */
 	etmidr2 = readl_relaxed(drvdata->base + TRCIDR2);
@@ -536,8 +536,8 @@ static void etm4_init_arch_data(void *info)
 	else
 		drvdata->sysstall = false;
 
-	/* NUMPROC, bits[30:28] the number of PEs available for tracing */
-	drvdata->nr_pe = BMVAL(etmidr3, 28, 30);
+	/* NUMPROC, bits[13:12, 30:28] the number of PEs available for trace */
+	drvdata->nr_pe = (BMVAL(etmidr3, 12, 13) << 3) | BMVAL(etmidr3, 28, 30);
 
 	/* NOOVERFLOW, bit[31] is trace overflow prevention supported */
 	if (BMVAL(etmidr3, 31, 31))
@@ -987,12 +987,16 @@ static int etm4_probe(struct amba_device *adev, const struct amba_id *id)
 	drvdata->cpu = pdata ? pdata->cpu : 0;
 
 	cpus_read_lock();
-	etmdrvdata[drvdata->cpu] = drvdata;
-
-	if (smp_call_function_single(drvdata->cpu,
-				etm4_init_arch_data,  drvdata, 1))
+	ret = smp_call_function_single(drvdata->cpu,
+					etm4_init_arch_data, drvdata, 1);
+	if (ret) {
 		dev_err(dev, "ETM arch init failed\n");
-
+		cpus_read_unlock();
+		return ret;
+	} else if (etm4_arch_supported(drvdata->arch) == false) {
+		cpus_read_unlock();
+		return -EINVAL;
+	}
 	if (!etm4_count++) {
 		cpuhp_setup_state_nocalls_cpuslocked(CPUHP_AP_ARM_CORESIGHT_STARTING,
 						     "arm/coresight4:starting",
@@ -1006,11 +1010,6 @@ static int etm4_probe(struct amba_device *adev, const struct amba_id *id)
 	}
 
 	cpus_read_unlock();
-
-	if (etm4_arch_supported(drvdata->arch) == false) {
-		ret = -EINVAL;
-		goto err_arch_supported;
-	}
 
 	etm4_init_trace_id(drvdata);
 	etm4_set_default(&drvdata->config);
@@ -1034,6 +1033,7 @@ static int etm4_probe(struct amba_device *adev, const struct amba_id *id)
 	}
 
 	pm_runtime_put(&adev->dev);
+	etmdrvdata[drvdata->cpu] = drvdata;
 	dev_info(dev, "%s initialized\n", (char *)id->data);
 
 	if (boot_enable) {

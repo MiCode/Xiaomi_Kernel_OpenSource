@@ -24,6 +24,7 @@ config CORESIGHT_LINKS_AND_SINKS
 config CORESIGHT_LINK_AND_SINK_TMC
 	bool "Coresight generic TMC driver"
 	depends on CORESIGHT_LINKS_AND_SINKS
+	select CORESIGHT_CSR
 	help
 	  This enables support for the Trace Memory Controller driver.
 	  Depending on its configuration the device can act as a link (embedded
@@ -83,6 +84,7 @@ config CORESIGHT_STM
 	depends on (ARM && !(CPU_32v3 || CPU_32v4 || CPU_32v4T)) || ARM64
 	select CORESIGHT_LINKS_AND_SINKS
 	select STM
+	select CORESIGHT_OST
 	help
 	  This driver provides support for hardware assisted software
 	  instrumentation based tracing. This is primarily used for
@@ -110,4 +112,80 @@ config CORESIGHT_CTI
 	  used to input or output i.e. pass cross trigger events from one
 	  hardware component to another. It can also be used to pass
 	  software generated events.
+
+config CORESIGHT_OST
+	bool "CoreSight OST framework"
+	depends on CORESIGHT_STM
+	help
+	  This driver enables the support for Open System Trace packets in STM.
+	  This is primarily intended to be used as a layer on top of underlying
+	  physical byte transport mechanisms.
+
+config CORESIGHT_TPDA
+	bool "CoreSight Trace, Profiling & Diagnostics Aggregator driver"
+	help
+	  This driver provides support for configuring aggregator. This is
+	  primarily useful for pulling the data sets from one or more
+	  attached monitors and pushing the resultant data out. Multiple
+	  monitors are connected on different input ports of TPDA.
+
+config CORESIGHT_TPDM
+	bool "CoreSight Trace, Profiling & Diagnostics Monitor driver"
+	help
+	  This driver provides support for configuring monitor. Monitors are
+	  primarily responsible for data set collection and support the
+	  ability to collect any permutation of data set types. Monitors are
+	  also responsible for interaction with system cross triggering.
+
+config CORESIGHT_TPDM_DEFAULT_ENABLE
+	bool "Turn on TPDM tracing by default"
+	depends on CORESIGHT_TPDM
+	help
+	  Turns on CoreSight TPDM tracing for different data set types by
+	  default. Otherwise, tracing is disabled by default but can be
+	  enabled via sysfs.
+
+	  If unsure, say 'N' here to avoid potential power and performance
+	  penalty.
+
+config CORESIGHT_HWEVENT
+	bool "CoreSight Hardware Event driver"
+	depends on CORESIGHT_STM
+	select CORESIGHT_CSR
+	help
+	  This driver provides support for monitoring and tracing CoreSight
+	  Hardware Event across STM interface. It configures Coresight
+	  Hardware Event mux control registers to select hardware events
+	  based on user input.
+
+config CORESIGHT_DUMMY
+	bool "Dummy driver support"
+	help
+	  Enables support for dummy driver. Dummy driver can be
+	  used for CoreSight sources/sinks that are owned and configured by some other
+	  subsystem and use Linux drivers to configure rest of trace path.
+
+config CORESIGHT_REMOTE_ETM
+	bool "Remote processor ETM trace support"
+	depends on MSM_QMI_INTERFACE
+	help
+	  Enables support for ETM trace collection on remote processor using
+	  CoreSight framework. Enabling this will allow turning on ETM
+	  tracing on remote processor via sysfs by configuring the required
+	  CoreSight components.
+
+config CORESIGHT_REMOTE_ETM_DEFAULT_ENABLE
+	int "default enable ETM for Remote processor based on instance id"
+	depends on CORESIGHT_REMOTE_ETM
+	help
+	  Support for enabling separated Remote processor ETM tracing. Depends
+	  on if instance id bit is set.
+
+config CORESIGHT_CSR
+	bool "CoreSight Slave Register driver"
+	help
+	  This driver provides support for CoreSight Slave Register block
+	  that hosts miscellaneous configuration registers.
+	  Those configuration registers can be used to control, various
+	  coresight configurations.
 endif
