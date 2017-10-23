@@ -534,6 +534,9 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 				&adreno_dev->ft_pf_policy))
 		total_sizedwords += 1;
 
+	if (gpudev->set_marker)
+		total_sizedwords += 4;
+
 	ringcmds = adreno_ringbuffer_allocspace(rb, total_sizedwords);
 	if (IS_ERR(ringcmds))
 		return PTR_ERR(ringcmds);
@@ -552,6 +555,9 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 		*ringcmds++ = cp_packet(adreno_dev, CP_NOP, 1);
 		*ringcmds++ = KGSL_CMD_INTERNAL_IDENTIFIER;
 	}
+
+	if (gpudev->set_marker)
+		ringcmds += gpudev->set_marker(ringcmds, 1);
 
 	if (flags & KGSL_CMD_FLAGS_PWRON_FIXUP) {
 		/* Disable protected mode for the fixup */
@@ -666,6 +672,9 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 			MEMSTORE_RB_GPU_ADDR(device, rb, eoptimestamp));
 		*ringcmds++ = timestamp;
 	}
+
+	if (gpudev->set_marker)
+		ringcmds += gpudev->set_marker(ringcmds, 0);
 
 	if (adreno_is_a3xx(adreno_dev)) {
 		/* Dummy set-constant to trigger context rollover */
@@ -891,9 +900,6 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 			dwords += 8;
 	}
 
-	if (gpudev->set_marker)
-		dwords += 4;
-
 	if (gpudev->ccu_invalidate)
 		dwords += 4;
 
@@ -926,9 +932,6 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 			gpu_ticks_submitted));
 	}
 
-	if (gpudev->set_marker)
-		cmds += gpudev->set_marker(cmds, 1);
-
 	if (numibs) {
 		list_for_each_entry(ib, &cmdobj->cmdlist, node) {
 			/*
@@ -952,9 +955,6 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 
 	if (gpudev->ccu_invalidate)
 		cmds += gpudev->ccu_invalidate(adreno_dev, cmds);
-
-	if (gpudev->set_marker)
-		cmds += gpudev->set_marker(cmds, 0);
 
 	if (adreno_is_preemption_execution_enabled(adreno_dev)) {
 		if (gpudev->preemption_yield_enable)
