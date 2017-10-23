@@ -707,6 +707,7 @@
 		reg = <0x17300000 0x00100>;
 
 		vdd_cx-supply = <&pm855l_s6_level>;
+		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
 		qcom,proxy-reg-names = "vdd_cx";
 
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
