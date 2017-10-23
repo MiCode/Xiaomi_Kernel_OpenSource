@@ -115,7 +115,7 @@ static int qpnp_pbs_wait_for_ack(struct qpnp_pbs *pbs, u8 bit_pos)
 	u16 retries = 2000;
 	u8 val;
 
-	while (retries--) {
+	while (retries) {
 		rc = qpnp_pbs_read(pbs, pbs->base +
 					PBS_CLIENT_SCRATCH2, &val, 1);
 		if (rc < 0) {
@@ -144,6 +144,7 @@ static int qpnp_pbs_wait_for_ack(struct qpnp_pbs *pbs, u8 bit_pos)
 		}
 
 		usleep_range(QPNP_PBS_RETRY_SLEEP, QPNP_PBS_RETRY_SLEEP + 100);
+		retries--;
 	}
 
 	if (!retries) {
@@ -282,11 +283,8 @@ int qpnp_pbs_trigger_event(struct device_node *dev_node, u8 bitmap)
 
 error:
 	/* Clear all the requested bitmap */
-	rc = qpnp_pbs_masked_write(pbs, pbs->base + PBS_CLIENT_SCRATCH1,
+	qpnp_pbs_masked_write(pbs, pbs->base + PBS_CLIENT_SCRATCH1,
 						bitmap, 0);
-	if (rc < 0)
-		pr_err("Failed to clear %x reg bit rc=%d\n",
-					PBS_CLIENT_SCRATCH1, rc);
 out:
 	mutex_unlock(&pbs->pbs_lock);
 
