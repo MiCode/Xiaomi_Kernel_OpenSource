@@ -712,4 +712,14 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
  */
 int sde_crtc_secure_ctrl(struct drm_crtc *crtc, bool post_commit);
 
+/**
+ * sde_crtc_helper_reset_properties - reset properties to default values in the
+ *	given DRM CRTC state object
+ * @crtc: Pointer to DRM crtc object
+ * @crtc_state: Pointer to DRM crtc state object
+ * Returns: 0 on success, negative errno on failure
+ */
+int sde_crtc_helper_reset_custom_properties(struct drm_crtc *crtc,
+		struct drm_crtc_state *crtc_state);
+
 #endif /* _SDE_CRTC_H_ */
