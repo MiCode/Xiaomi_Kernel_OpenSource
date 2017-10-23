@@ -1830,18 +1830,16 @@ static int fastrpc_search_ctx(uint64_t rctx)
 	struct smq_invoke_ctx *ictx = NULL;
 	struct smq_invoke_ctx *ctx;
 	int bfound = 0;
-	unsigned long flags;
-	unsigned long flags1;
 
 	ctx = (struct smq_invoke_ctx *)(uint64_to_ptr(rctx));
 	if (!ctx)
 		return bfound;
 
-	spin_lock_irqsave(&me->hlock, flags);
+	spin_lock(&me->hlock);
 	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
 		if (ctx->fl != fl)
 			continue;
-		spin_lock_irqsave(&fl->hlock, flags1);
+		spin_lock(&fl->hlock);
 		hlist_for_each_entry_safe(ictx, m, &fl->clst.pending, hn) {
 			if (ptr_to_uint64(ictx) == rctx) {
 				bfound = 1;
@@ -1854,11 +1852,11 @@ static int fastrpc_search_ctx(uint64_t rctx)
 				break;
 			}
 		}
-		spin_unlock_irqrestore(&fl->hlock, flags1);
+		spin_unlock(&fl->hlock);
 		if (bfound)
 			break;
 	}
-	spin_unlock_irqrestore(&me->hlock, flags);
+	spin_unlock(&me->hlock);
 	return bfound;
 }
 
