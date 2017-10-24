@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -76,6 +76,7 @@
 
 	aliases {
 		qpic_nand1 = &qnand_1;
+		pci-domain0 = &pcie0;
 		sdhc1 = &sdhc_1; /* SDC1 eMMC/SD/SDIO slot */
 	};
 
@@ -778,6 +779,7 @@
 #include "sdxpoorwills-regulator.dtsi"
 #include "sdxpoorwills-smp2p.dtsi"
 #include "sdxpoorwills-usb.dtsi"
+#include "sdxpoorwills-pcie.dtsi"
 #include "sdxpoorwills-bus.dtsi"
 #include "sdxpoorwills-thermal.dtsi"
 #include "sdxpoorwills-audio.dtsi"
