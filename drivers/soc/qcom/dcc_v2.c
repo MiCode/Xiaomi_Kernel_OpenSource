@@ -536,7 +536,7 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 
 	mutex_lock(&drvdata->mutex);
 
-	memset_io(drvdata->ram_base, 0, drvdata->ram_size);
+	memset_io(drvdata->ram_base, 0xDE, drvdata->ram_size);
 
 	for (list = 0; list < DCC_MAX_LINK_LIST; list++) {
 
