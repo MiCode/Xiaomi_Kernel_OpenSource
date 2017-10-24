@@ -659,6 +659,12 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 		(struct cam_eeprom_soc_private *)e_ctrl->soc_info.soc_private;
 
 	ioctl_ctrl = (struct cam_control *)arg;
+
+	if (ioctl_ctrl->handle_type != CAM_HANDLE_USER_POINTER) {
+		CAM_ERR(CAM_EEPROM, "Invalid Handle Type");
+		return -EINVAL;
+	}
+
 	if (copy_from_user(&dev_config, (void __user *) ioctl_ctrl->handle,
 		sizeof(dev_config)))
 		return -EFAULT;
@@ -669,6 +675,14 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 			"error in converting command Handle Error: %d", rc);
 		return rc;
 	}
+
+	if (dev_config.offset > pkt_len) {
+		CAM_ERR(CAM_EEPROM,
+			"Offset is out of bound: off: %lld, %zu",
+			dev_config.offset, pkt_len);
+		return -EINVAL;
+	}
+
 	csl_packet = (struct cam_packet *)
 		(generic_pkt_addr + dev_config.offset);
 	switch (csl_packet->header.op_code & 0xFFFFFF) {
