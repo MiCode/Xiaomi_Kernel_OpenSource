@@ -654,10 +654,15 @@
 	};
 
 	clock_cpucc: qcom,cpucc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "cpucc_clocks";
+		compatible = "qcom,clk-cpu-osm";
+		reg = <0x18321000 0x1400>,
+			<0x18323000 0x1400>,
+			<0x18325800 0x1400>,
+			<0x18327800 0x1400>;
+		reg-names = "osm_l3_base", "osm_pwrcl_base",
+			"osm_perfcl_base", "osm_perfpcl_base";
+
 		#clock-cells = <1>;
-		#reset-cells = <1>;
 	};
 
 	pil_modem: qcom,mss@4080000 {
