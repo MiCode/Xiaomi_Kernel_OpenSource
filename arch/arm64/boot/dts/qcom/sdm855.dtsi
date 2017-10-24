@@ -500,6 +500,10 @@
 
 #include "sdm855-gdsc.dtsi"
 
+#include "sdm855-sde-pll.dtsi"
+#include "sdm855-sde.dtsi"
+#include "sdm855-sde-display.dtsi"
+
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
