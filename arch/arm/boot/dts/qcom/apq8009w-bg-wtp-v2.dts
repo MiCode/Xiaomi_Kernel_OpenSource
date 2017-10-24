@@ -185,6 +185,7 @@
 
 &audio_codec_bg {
 	status = "ok";
+	vdd-spkr-supply = <&pm660_l11>;
 };
 
 &bg_cdc {
