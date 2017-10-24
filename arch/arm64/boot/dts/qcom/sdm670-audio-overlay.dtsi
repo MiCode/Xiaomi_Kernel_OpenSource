@@ -64,6 +64,8 @@
 		"RX_BIAS", "INT_MCLK0",
 		"SPK_RX_BIAS", "INT_MCLK0",
 		"INT_LDO_H", "INT_MCLK0",
+		"RX_I2S_CLK", "INT_MCLK0",
+		"TX_I2S_CLK", "INT_MCLK0",
 		"MIC BIAS External", "Handset Mic",
 		"MIC BIAS External2", "Headset Mic",
 		"MIC BIAS External", "Secondary Mic",
