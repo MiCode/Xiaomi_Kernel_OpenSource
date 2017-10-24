@@ -68,6 +68,7 @@ static int mdss_dp_process_phy_test_pattern_request(
 		struct mdss_dp_drv_pdata *dp);
 static int mdss_dp_send_audio_notification(
 	struct mdss_dp_drv_pdata *dp, int val);
+static void mdss_dp_reset_sw_state(struct mdss_dp_drv_pdata *dp);
 
 static inline void mdss_dp_reset_sink_count(struct mdss_dp_drv_pdata *dp)
 {
@@ -1515,7 +1516,12 @@ static int mdss_dp_setup_main_link(struct mdss_dp_drv_pdata *dp, bool train)
 
 	pr_debug("enter\n");
 	mdss_dp_mainlink_ctrl(&dp->ctrl_io, true);
-	mdss_dp_aux_set_sink_power_state(dp, SINK_POWER_ON);
+	ret = mdss_dp_aux_send_psm_request(dp, false);
+	if (ret) {
+		pr_err("Failed to exit low power mode, rc=%d\n", ret);
+		goto end;
+	}
+
 	reinit_completion(&dp->video_comp);
 
 	if (mdss_dp_is_phy_test_pattern_requested(dp))
@@ -1602,15 +1608,6 @@ static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv, bool lt_needed)
 
 		dp_drv->power_on = true;
 
-		if (dp_drv->psm_enabled) {
-			ret = mdss_dp_aux_send_psm_request(dp_drv, false);
-			if (ret) {
-				pr_err("Failed to exit low power mode, rc=%d\n",
-					ret);
-				goto exit_loop;
-			}
-		}
-
 		ret = mdss_dp_setup_main_link(dp_drv, lt_needed);
 
 exit_loop:
@@ -1678,15 +1675,6 @@ int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 	reinit_completion(&dp_drv->idle_comp);
 
 	mdss_dp_configure_source_params(dp_drv, ln_map);
-
-	if (dp_drv->psm_enabled) {
-		ret = mdss_dp_aux_send_psm_request(dp_drv, false);
-		if (ret) {
-			pr_err("Failed to exit low power mode, rc=%d\n", ret);
-			goto exit;
-		}
-	}
-
 
 link_training:
 	dp_drv->power_on = true;
@@ -3015,6 +3003,7 @@ static int mdss_dp_sysfs_create(struct mdss_dp_drv_pdata *dp,
 
 static void mdss_dp_mainlink_push_idle(struct mdss_panel_data *pdata)
 {
+	bool cable_connected;
 	struct mdss_dp_drv_pdata *dp_drv = NULL;
 	const int idle_pattern_completion_timeout_ms = 3 * HZ / 100;
 
@@ -3033,6 +3022,15 @@ static void mdss_dp_mainlink_push_idle(struct mdss_panel_data *pdata)
 		pr_err("DP Controller not powered on\n");
 		mutex_unlock(&dp_drv->train_mutex);
 		return;
+	}
+
+	/* power down the sink if cable is still connected */
+	mutex_lock(&dp_drv->attention_lock);
+	cable_connected = dp_drv->cable_connected;
+	mutex_unlock(&dp_drv->attention_lock);
+	if (cable_connected && dp_drv->alt_mode.dp_status.hpd_high) {
+		if (mdss_dp_aux_send_psm_request(dp_drv, true))
+			pr_err("Failed to enter low power mode\n");
 	}
 
 	reinit_completion(&dp_drv->idle_comp);
@@ -3155,6 +3153,10 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 			pr_err("DP Controller not powered on\n");
 			break;
 		}
+		if (!atomic_read(&dp->notification_pending)) {
+			pr_debug("blank when cable is connected\n");
+			kthread_park(dp->ev_thread);
+		}
 		if (dp_is_hdcp_enabled(dp)) {
 			dp->hdcp_status = HDCP_STATE_INACTIVE;
 
@@ -3194,8 +3196,10 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 		 * when you connect DP sink while the
 		 * device is in suspend state.
 		 */
-		if ((!dp->power_on) && (dp->dp_initialized))
+		if ((!dp->power_on) && (dp->dp_initialized)) {
 			rc = mdss_dp_host_deinit(dp);
+			kthread_park(dp->ev_thread);
+		}
 
 		/*
 		 * For DP suspend/resume use case, CHECK_PARAMS is
@@ -3207,8 +3211,11 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 			dp->suspend_vic = dp->vic;
 		break;
 	case MDSS_EVENT_RESUME:
-		if (dp->suspend_vic != HDMI_VFRMT_UNKNOWN)
+		if (dp->suspend_vic != HDMI_VFRMT_UNKNOWN) {
 			dp_init_panel_info(dp, dp->suspend_vic);
+			mdss_dp_reset_sw_state(dp);
+			kthread_unpark(dp->ev_thread);
+		}
 		break;
 	default:
 		pr_debug("unhandled event=%d\n", event);
