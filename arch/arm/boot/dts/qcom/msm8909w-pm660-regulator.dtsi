@@ -326,9 +326,6 @@
 			reg = <0x1400 0x100>;
 			regulator-min-microvolt = <1052000>;
 			regulator-max-microvolt = <1352000>;
-
-			/* TODO: remove after SAW support is enabled */
-			qcom,bypass-spm;
 		};
 	};
 };
