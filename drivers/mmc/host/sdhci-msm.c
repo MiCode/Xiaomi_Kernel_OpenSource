@@ -1406,6 +1406,32 @@ free_gpios:
 	return ret;
 }
 
+static int sdhci_msm_config_pinctrl_drv_type(struct sdhci_msm_pltfm_data *pdata,
+		unsigned int clock)
+{
+	int ret = 0;
+
+	if (clock > 150000000) {
+		if (pdata->pctrl_data->pins_drv_type_200MHz)
+			ret = pinctrl_select_state(pdata->pctrl_data->pctrl,
+				pdata->pctrl_data->pins_drv_type_200MHz);
+	} else if (clock > 75000000) {
+		if (pdata->pctrl_data->pins_drv_type_100MHz)
+			ret = pinctrl_select_state(pdata->pctrl_data->pctrl,
+				pdata->pctrl_data->pins_drv_type_100MHz);
+	} else if (clock > 400000) {
+		if (pdata->pctrl_data->pins_drv_type_50MHz)
+			ret = pinctrl_select_state(pdata->pctrl_data->pctrl,
+				pdata->pctrl_data->pins_drv_type_50MHz);
+	} else {
+		if (pdata->pctrl_data->pins_drv_type_400KHz)
+			ret = pinctrl_select_state(pdata->pctrl_data->pctrl,
+				pdata->pctrl_data->pins_drv_type_400KHz);
+	}
+
+	return ret;
+}
+
 static int sdhci_msm_setup_pinctrl(struct sdhci_msm_pltfm_data *pdata,
 		bool enable)
 {
@@ -1586,6 +1612,27 @@ static int sdhci_msm_parse_pinctrl_info(struct device *dev,
 		dev_err(dev, "Could not get sleep pinstates, err:%d\n", ret);
 		goto out;
 	}
+
+	pctrl_data->pins_drv_type_400KHz = pinctrl_lookup_state(
+			pctrl_data->pctrl, "ds_400KHz");
+	if (IS_ERR(pctrl_data->pins_drv_type_400KHz))
+		dev_dbg(dev, "Could not get 400K pinstates, err:%d\n", ret);
+
+	pctrl_data->pins_drv_type_50MHz = pinctrl_lookup_state(
+			pctrl_data->pctrl, "ds_50MHz");
+	if (IS_ERR(pctrl_data->pins_drv_type_50MHz))
+		dev_dbg(dev, "Could not get 50M pinstates, err:%d\n", ret);
+
+	pctrl_data->pins_drv_type_100MHz = pinctrl_lookup_state(
+			pctrl_data->pctrl, "ds_100MHz");
+	if (IS_ERR(pctrl_data->pins_drv_type_100MHz))
+		dev_dbg(dev, "Could not get 100M pinstates, err:%d\n", ret);
+
+	pctrl_data->pins_drv_type_200MHz = pinctrl_lookup_state(
+			pctrl_data->pctrl, "ds_200MHz");
+	if (IS_ERR(pctrl_data->pins_drv_type_200MHz))
+		dev_dbg(dev, "Could not get 200M pinstates, err:%d\n", ret);
+
 	pdata->pctrl_data = pctrl_data;
 out:
 	return ret;
@@ -3349,6 +3396,16 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 		}
 		msm_host->clk_rate = sup_clock;
 		host->clock = clock;
+
+		/* Configure pinctrl drive type according to
+		 * current clock rate
+		 */
+		rc = sdhci_msm_config_pinctrl_drv_type(msm_host->pdata, clock);
+		if (rc)
+			pr_err("%s: %s: Failed to set pinctrl drive type for clock rate %u (%d)\n",
+					mmc_hostname(host->mmc), __func__,
+					clock, rc);
+
 		/*
 		 * Update the bus vote in case of frequency change due to
 		 * clock scaling.
