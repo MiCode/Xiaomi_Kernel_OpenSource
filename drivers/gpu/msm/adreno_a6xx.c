@@ -1591,6 +1591,12 @@ static int a6xx_oob_set(struct adreno_device *adreno_dev,
 		set = BIT(30 - req * 2);
 		check = BIT(31 - req);
 
+		if ((device->gmu.hfi.version & 0x1F) == 0) {
+			/* LEGACY for intermediate oobs */
+			set = BIT(req + 16);
+			check = BIT(req + 16);
+		}
+
 		if (req >= 6) {
 			dev_err(&device->gmu.pdev->dev,
 					"OOB_set(0x%x) invalid\n", set);
@@ -1640,6 +1646,9 @@ static inline void a6xx_oob_clear(struct adreno_device *adreno_dev,
 					"OOB_clear(0x%x) invalid\n", clear);
 			return;
 		}
+		/* LEGACY for intermediate oobs */
+		if ((device->gmu.hfi.version & 0x1F) == 0)
+			clear = BIT(req + 24);
 	} else
 		clear = BIT(req + 24);
 
