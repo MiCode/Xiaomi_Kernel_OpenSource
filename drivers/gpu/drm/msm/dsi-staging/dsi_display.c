@@ -790,6 +790,20 @@ static int dsi_display_debugfs_init(struct dsi_display *display)
 		}
 	}
 
+	if (!debugfs_create_bool("ulps_enable", 0600, dir,
+			&display->panel->ulps_enabled)) {
+		pr_err("[%s] debugfs create ulps enable file failed\n",
+		       display->name);
+		goto error_remove_dir;
+	}
+
+	if (!debugfs_create_bool("ulps_suspend_enable", 0600, dir,
+			&display->panel->ulps_suspend_enabled)) {
+		pr_err("[%s] debugfs create ulps-suspend enable file failed\n",
+		       display->name);
+		goto error_remove_dir;
+	}
+
 	display->root = dir;
 	return rc;
 error_remove_dir:
@@ -826,12 +840,17 @@ static int dsi_display_is_ulps_req_valid(struct dsi_display *display,
 
 	pr_debug("checking ulps req validity\n");
 
-	if (!dsi_panel_ulps_feature_enabled(display->panel))
+	if (!dsi_panel_ulps_feature_enabled(display->panel) &&
+			!display->panel->ulps_suspend_enabled) {
+		pr_debug("%s: ULPS feature is not enabled\n", __func__);
 		return false;
+	}
 
-	/* TODO: ULPS during suspend */
-	if (!dsi_panel_initialized(display->panel))
+	if (!dsi_panel_initialized(display->panel) &&
+			!display->panel->ulps_suspend_enabled) {
+		pr_debug("%s: panel not yet initialized\n", __func__);
 		return false;
+	}
 
 	if (enable && display->ulps_enabled) {
 		pr_debug("ULPS already enabled\n");
@@ -2337,22 +2356,27 @@ int dsi_pre_clkoff_cb(void *priv,
 	if ((clk & DSI_LINK_CLK) && (new_state == DSI_CLK_OFF)) {
 		/*
 		 * If ULPS feature is enabled, enter ULPS first.
+		 * However, when blanking the panel, we should enter ULPS
+		 * only if ULPS during suspend feature is enabled.
 		 */
-		if (dsi_panel_initialized(display->panel) &&
-			dsi_panel_ulps_feature_enabled(display->panel)) {
+		if (!dsi_panel_initialized(display->panel)) {
+			if (display->panel->ulps_suspend_enabled)
+				rc = dsi_display_set_ulps(display, true);
+		} else if (dsi_panel_ulps_feature_enabled(display->panel)) {
 			rc = dsi_display_set_ulps(display, true);
-			if (rc) {
-				pr_err("%s: failed enable ulps, rc = %d\n",
-			       __func__, rc);
-			}
 		}
+		if (rc)
+			pr_err("%s: failed enable ulps, rc = %d\n",
+			       __func__, rc);
 	}
 
 	if ((clk & DSI_CORE_CLK) && (new_state == DSI_CLK_OFF)) {
 		/*
-		 * Enable DSI clamps only if entering idle power collapse.
+		 * Enable DSI clamps only if entering idle power collapse or
+		 * when ULPS during suspend is enabled..
 		 */
-		if (dsi_panel_initialized(display->panel)) {
+		if (dsi_panel_initialized(display->panel) ||
+			display->panel->ulps_suspend_enabled) {
 			dsi_display_phy_idle_off(display);
 			rc = dsi_display_set_clamp(display, true);
 			if (rc)
@@ -4635,17 +4659,27 @@ int dsi_display_prepare(struct dsi_display *display)
 		goto error_panel_post_unprep;
 	}
 
-	rc = dsi_display_phy_sw_reset(display);
-	if (rc) {
-		pr_err("[%s] failed to reset phy, rc=%d\n", display->name, rc);
-		goto error_ctrl_clk_off;
-	}
+	/*
+	 * If ULPS during suspend feature is enabled, then DSI PHY was
+	 * left on during suspend. In this case, we do not need to reset/init
+	 * PHY. This would have already been done when the CORE clocks are
+	 * turned on. However, if cont splash is disabled, the first time DSI
+	 * is powered on, phy init needs to be done unconditionally.
+	 */
+	if (!display->panel->ulps_suspend_enabled || !display->ulps_enabled) {
+		rc = dsi_display_phy_sw_reset(display);
+		if (rc) {
+			pr_err("[%s] failed to reset phy, rc=%d\n",
+				display->name, rc);
+			goto error_ctrl_clk_off;
+		}
 
-	rc = dsi_display_phy_enable(display);
-	if (rc) {
-		pr_err("[%s] failed to enable DSI PHY, rc=%d\n",
-		       display->name, rc);
-		goto error_ctrl_clk_off;
+		rc = dsi_display_phy_enable(display);
+		if (rc) {
+			pr_err("[%s] failed to enable DSI PHY, rc=%d\n",
+			       display->name, rc);
+			goto error_ctrl_clk_off;
+		}
 	}
 
 	rc = dsi_display_set_clk_src(display);
@@ -5132,10 +5166,12 @@ int dsi_display_unprepare(struct dsi_display *display)
 		pr_err("[%s] failed to deinit controller, rc=%d\n",
 		       display->name, rc);
 
-	rc = dsi_display_phy_disable(display);
-	if (rc)
-		pr_err("[%s] failed to disable DSI PHY, rc=%d\n",
-		       display->name, rc);
+	if (!display->panel->ulps_suspend_enabled) {
+		rc = dsi_display_phy_disable(display);
+		if (rc)
+			pr_err("[%s] failed to disable DSI PHY, rc=%d\n",
+			       display->name, rc);
+	}
 
 	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
 			DSI_CORE_CLK, DSI_CLK_OFF);
