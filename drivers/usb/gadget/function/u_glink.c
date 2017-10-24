@@ -42,6 +42,8 @@ struct glink_channel {
 	struct work_struct	connect_w;
 	struct work_struct	disconnect_w;
 
+	struct completion	close_done;
+
 	unsigned long		to_modem;
 	unsigned long		to_host;
 };
@@ -132,9 +134,12 @@ static void glink_ctrl_disconnect_w(struct work_struct *w)
 	struct glink_channel *ch_info = container_of(w, struct glink_channel,
 							disconnect_w);
 
+	pr_debug("%s: close glink channel %pK\n", __func__, ch_info->handle);
 	if (ch_info->handle) {
-		pr_debug("%s: close glink channel\n", __func__);
+		reinit_completion(&ch_info->close_done);
 		glink_close(ch_info->handle);
+		wait_for_completion(&ch_info->close_done);
+		pr_debug("%s: glink channel closed\n", __func__);
 	}
 }
 
@@ -365,6 +370,7 @@ static void glink_notify_state(void *handle, const void *priv, unsigned event)
 		break;
 	case GLINK_LOCAL_DISCONNECTED:
 		ch_info->handle = NULL;
+		complete(&ch_info->close_done);
 	case GLINK_REMOTE_DISCONNECTED:
 		if (gr && gr->disconnect)
 			gr->disconnect(gr);
@@ -406,9 +412,6 @@ int glink_ctrl_connect(struct grmnet *gr, u8 client_num)
 	ch_info->open_cfg.notify_tx_done = glink_ctrl_tx_done;
 	ch_info->open_cfg.notify_state = glink_notify_state;
 	ch_info->open_cfg.priv = ch_info;
-
-	ch_info->channel_state =  GLINK_REMOTE_DISCONNECTED;
-	ch_info->handle = NULL;
 
 	spin_lock_irqsave(&ch_info->port_lock, flags);
 	ch_info->port = gr;
@@ -532,8 +535,7 @@ int glink_ctrl_setup(enum ctrl_client client_num, unsigned int count,
 		return PTR_ERR(link_info.handle);
 	}
 
-	glink_ctrl_wq = alloc_workqueue("glink_ctrl",
-			WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
+	glink_ctrl_wq = alloc_ordered_workqueue("glink_ctrl", WQ_MEM_RECLAIM);
 	if (!glink_ctrl_wq) {
 		pr_err("%s: Unable to create workqueue glink_ctrl\n",
 				__func__);
@@ -546,11 +548,15 @@ int glink_ctrl_setup(enum ctrl_client client_num, unsigned int count,
 
 	INIT_WORK(&intent_work.work, glink_ctrl_intent_worker);
 
+	ch_info->channel_state =  GLINK_LOCAL_DISCONNECTED;
+	ch_info->handle = NULL;
+
 	spin_lock_init(&ch_info->port_lock);
 	INIT_LIST_HEAD(&ch_info->tx_q);
 	INIT_WORK(&ch_info->write_w, glink_ctrl_write_w);
 	INIT_WORK(&ch_info->connect_w, glink_ctrl_connect_w);
 	INIT_WORK(&ch_info->disconnect_w, glink_ctrl_disconnect_w);
+	init_completion(&ch_info->close_done);
 	*port_idx = client_num;
 
 	return 0;
