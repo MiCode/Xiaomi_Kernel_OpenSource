@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -601,7 +601,7 @@ struct slim_controller {
 	int			(*framer_handover)(struct slim_controller *ctrl,
 				struct slim_framer *new_framer);
 	int			(*port_xfer)(struct slim_controller *ctrl,
-				u8 pn, phys_addr_t iobuf, u32 len,
+				u8 pn, void *buf, u32 len,
 				struct completion *comp);
 	enum slim_port_err	(*port_xfer_status)(struct slim_controller *ctr,
 				u8 pn, phys_addr_t *done_buf, u32 *done_len);
@@ -869,7 +869,7 @@ extern int slim_config_mgrports(struct slim_device *sb, u32 *ph, int nports,
  * Client will call slim_port_get_xfer_status to get error and/or number of
  * bytes transferred if used asynchronously.
  */
-extern int slim_port_xfer(struct slim_device *sb, u32 ph, phys_addr_t iobuf,
+extern int slim_port_xfer(struct slim_device *sb, u32 ph, void *buf,
 				u32 len, struct completion *comp);
 
 /*
