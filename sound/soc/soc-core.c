@@ -319,7 +319,7 @@ static void soc_init_component_debugfs(struct snd_soc_component *component)
 	}
 
 	if (!component->debugfs_root) {
-		dev_warn(component->dev,
+		dev_dbg(component->dev,
 			"ASoC: Failed to create component debugfs directory\n");
 		return;
 	}
@@ -345,7 +345,7 @@ static void soc_init_codec_debugfs(struct snd_soc_component *component)
 					  codec->component.debugfs_root,
 					  codec, &codec_reg_fops);
 	if (!debugfs_reg)
-		dev_warn(codec->dev,
+		dev_dbg(codec->dev,
 			"ASoC: Failed to create codec register debugfs file\n");
 }
 
@@ -976,10 +976,26 @@ EXPORT_SYMBOL_GPL(snd_soc_resume);
 static const struct snd_soc_dai_ops null_dai_ops = {
 };
 
-static struct snd_soc_component *soc_find_component(
+/**
+ * soc_find_component: find a component from component_list in ASoC core
+ *
+ * @of_node: of_node of the component to query.
+ * @name: name of the component to query.
+ *
+ * function to find out if a component is already registered with ASoC core.
+ *
+ * Returns component handle for success, else NULL error.
+ */
+struct snd_soc_component *soc_find_component(
 	const struct device_node *of_node, const char *name)
 {
 	struct snd_soc_component *component;
+
+	if (!of_node && !name) {
+		pr_err("%s: Either of_node or name must be valid\n",
+			__func__);
+		return NULL;
+	}
 
 	lockdep_assert_held(&client_mutex);
 
@@ -994,6 +1010,7 @@ static struct snd_soc_component *soc_find_component(
 
 	return NULL;
 }
+EXPORT_SYMBOL(soc_find_component);
 
 /**
  * snd_soc_find_dai - Find a registered DAI
@@ -3702,7 +3719,8 @@ static int snd_soc_codec_set_bias_level(struct snd_soc_dapm_context *dapm,
  */
 void snd_soc_card_change_online_state(struct snd_soc_card *soc_card, int online)
 {
-	snd_card_change_online_state(soc_card->snd_card, online);
+	if (soc_card && soc_card->snd_card)
+		snd_card_change_online_state(soc_card->snd_card, online);
 }
 EXPORT_SYMBOL(snd_soc_card_change_online_state);
 
