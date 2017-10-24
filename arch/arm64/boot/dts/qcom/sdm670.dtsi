@@ -2597,6 +2597,12 @@
 		};
 	};
 
+	cpu_pmu: cpu-pmu {
+		compatible = "arm,armv8-pmuv3";
+		qcom,irq-is-percpu;
+		interrupts = <1 5 4>;
+	};
+
 	gpu_gx_domain_addr: syscon@0x5091508 {
 		compatible = "syscon";
 		reg = <0x5091508 0x4>;
