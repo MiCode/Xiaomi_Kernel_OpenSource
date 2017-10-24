@@ -3481,6 +3481,60 @@ static int _sde_crtc_reset_hw(struct drm_crtc *crtc,
 	return -EAGAIN;
 }
 
+/**
+ * _sde_crtc_prepare_for_kickoff_rot - rotator related kickoff preparation
+ * @dev: Pointer to drm device
+ * @crtc: Pointer to crtc structure
+ * Returns: true on preparation errors
+ */
+static bool _sde_crtc_prepare_for_kickoff_rot(struct drm_device *dev,
+		struct drm_crtc *crtc)
+{
+	struct drm_encoder *encoder;
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *cstate;
+
+	if (!crtc || !dev) {
+		SDE_ERROR("invalid argument(s)\n");
+		return false;
+	}
+	sde_crtc = to_sde_crtc(crtc);
+	cstate = to_sde_crtc_state(crtc->state);
+
+	/* default to ASYNC mode for inline rotation */
+	cstate->sbuf_cfg.rot_op_mode = sde_crtc->sbuf_flush_mask ?
+		SDE_CTL_ROT_OP_MODE_INLINE_ASYNC : SDE_CTL_ROT_OP_MODE_OFFLINE;
+
+	if (cstate->sbuf_cfg.rot_op_mode == SDE_CTL_ROT_OP_MODE_OFFLINE)
+		return false;
+
+	/* extra steps needed for inline ASYNC modes */
+	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
+		if (encoder->crtc != crtc)
+			continue;
+
+		/*
+		 * For inline ASYNC modes, the flush bits are not written
+		 * to hardware atomically, so avoid using it if a video
+		 * mode encoder is active on this CRTC.
+		 */
+		if (sde_encoder_get_intf_mode(encoder) == INTF_MODE_VIDEO) {
+			cstate->sbuf_cfg.rot_op_mode =
+				SDE_CTL_ROT_OP_MODE_INLINE_SYNC;
+			return false;
+		}
+	}
+
+	/*
+	 * For ASYNC inline modes, kick off the rotator now so that the H/W
+	 * can start as soon as it's ready.
+	 */
+	if (_sde_crtc_commit_kickoff_rot(crtc, cstate))
+		return true;
+
+	return false;
+}
+
 void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 		struct drm_crtc_state *old_state)
 {
@@ -3500,7 +3554,6 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 	dev = crtc->dev;
 	sde_crtc = to_sde_crtc(crtc);
 	sde_kms = _sde_crtc_get_kms(crtc);
-	is_error = false;
 	reset_req = false;
 
 	if (!sde_kms || !sde_kms->dev || !sde_kms->dev->dev_private) {
@@ -3521,9 +3574,7 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 
 	SDE_ATRACE_BEGIN("crtc_commit");
 
-	/* default to ASYNC mode for inline rotation */
-	cstate->sbuf_cfg.rot_op_mode = sde_crtc->sbuf_flush_mask ?
-		SDE_CTL_ROT_OP_MODE_INLINE_ASYNC : SDE_CTL_ROT_OP_MODE_OFFLINE;
+	is_error = _sde_crtc_prepare_for_kickoff_rot(dev, crtc);
 
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 		struct sde_encoder_kickoff_params params = { 0 };
@@ -3540,27 +3591,7 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 				crtc->state);
 		if (sde_encoder_prepare_for_kickoff(encoder, &params))
 			reset_req = true;
-
-		/*
-		 * For inline ASYNC modes, the flush bits are not written
-		 * to hardware atomically, so avoid using it if a video
-		 * mode encoder is active on this CRTC.
-		 */
-		if (cstate->sbuf_cfg.rot_op_mode ==
-				SDE_CTL_ROT_OP_MODE_INLINE_ASYNC &&
-				sde_encoder_get_intf_mode(encoder) ==
-				INTF_MODE_VIDEO)
-			cstate->sbuf_cfg.rot_op_mode =
-				SDE_CTL_ROT_OP_MODE_INLINE_SYNC;
 	}
-
-	/*
-	 * For ASYNC inline modes, kick off the rotator now so that the H/W
-	 * can start as soon as it's ready.
-	 */
-	if (cstate->sbuf_cfg.rot_op_mode == SDE_CTL_ROT_OP_MODE_INLINE_ASYNC)
-		if (_sde_crtc_commit_kickoff_rot(crtc, cstate))
-			is_error = true;
 
 	/*
 	 * Optionally attempt h/w recovery if any errors were detected while
