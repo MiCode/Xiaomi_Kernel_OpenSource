@@ -169,7 +169,6 @@ int64_t hfi_read_message(uint32_t *pmsg, uint8_t q_id)
 
 	read_ptr = (uint32_t *)(read_q + q->qhdr_read_idx);
 	write_ptr = (uint32_t *)(read_q + q->qhdr_write_idx);
-	size_in_words = (*read_ptr) >> BYTE_WORD_SHIFT;
 
 	if (write_ptr > read_ptr)
 		size_in_words = write_ptr - read_ptr;
