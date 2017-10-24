@@ -522,6 +522,8 @@
 						00 00 00 00
 						00 00 00 80];
 		qcom,platform-regulator-settings = [1d 1d 1d 1d 1d];
+		qcom,panel-allow-phy-poweroff;
+		qcom,dsi-phy-regulator-min-datarate-bps = <1200000000>;
 		qcom,phy-supply-entries {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -555,6 +557,8 @@
 						00 00 00 00
 						00 00 00 00
 						00 00 00 80];
+		qcom,panel-allow-phy-poweroff;
+		qcom,dsi-phy-regulator-min-datarate-bps = <1200000000>;
 		qcom,phy-supply-entries {
 			#address-cells = <1>;
 			#size-cells = <0>;
