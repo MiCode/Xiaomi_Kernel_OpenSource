@@ -29,3 +29,6 @@
 	status = "ok";
 };
 
+&qnand_1 {
+	status = "ok";
+};

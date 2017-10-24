@@ -54,6 +54,10 @@
 		};
 	};
 
+	aliases {
+		qpic_nand1 = &qnand_1;
+	};
+
 	soc: soc { };
 };
 
@@ -192,6 +196,30 @@
 		regulator-name = "gdsc_pcie";
 		reg = <0x00137004 0x4>;
 		status = "ok";
+	};
+
+	qnand_1: nand@1b00000 {
+		compatible = "qcom,msm-nand";
+		reg = < 0x01b00000 0x10000>,
+			<0x01b04000 0x1a000>;
+		reg-names = "nand_phys",
+			"bam_phys";
+		qcom,reg-adjustment-offset = <0x4000>;
+		qcom,qpic-clk-rpmh;
+
+		interrupts = <0 135 0>;
+		interrupt-names = "bam_irq";
+
+		qcom,msm-bus,name = "qpic_nand";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+
+		qcom,msm-bus,vectors-KBps =
+			<91 512 0 0>,
+			/* Voting for max b/w on PNOC bus for now */
+			<91 512 400000 400000>;
+
+		status = "disabled";
 	};
 
 	qcom,msm-imem@8600000 {
