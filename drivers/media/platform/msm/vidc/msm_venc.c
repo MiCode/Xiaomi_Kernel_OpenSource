@@ -1068,6 +1068,135 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		),
 		.qmenu = mpeg_video_flip,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VENC_HDR_INFO,
+		.name = "Enable/Disable HDR INFO",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = V4L2_MPEG_VIDC_VENC_HDR_INFO_DISABLED,
+		.maximum = V4L2_MPEG_VIDC_VENC_HDR_INFO_ENABLED,
+		.default_value = V4L2_MPEG_VIDC_VENC_HDR_INFO_DISABLED,
+		.step = 1,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VENC_RGB_PRIMARY_00,
+		.name = "RGB PRIMARIES[0][0]",
+		.type = V4L2_CTRL_TYPE_U32,
+		.minimum = 0,
+		.maximum = UINT_MAX,
+		.default_value = 0,
+		.step = 1,
+		.qmenu = NULL,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VENC_RGB_PRIMARY_01,
+		.name = "RGB PRIMARIES[0][1]",
+		.type = V4L2_CTRL_TYPE_U32,
+		.minimum = 0,
+		.maximum = UINT_MAX,
+		.default_value = 0,
+		.step = 1,
+		.qmenu = NULL,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VENC_RGB_PRIMARY_10,
+		.name = "RGB PRIMARIES[1][0]",
+		.type = V4L2_CTRL_TYPE_U32,
+		.minimum = 0,
+		.maximum = UINT_MAX,
+		.default_value = 0,
+		.step = 1,
+		.qmenu = NULL,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VENC_RGB_PRIMARY_11,
+		.name = "RGB PRIMARIES[1][1]",
+		.type = V4L2_CTRL_TYPE_U32,
+		.minimum = 0,
+		.maximum = UINT_MAX,
+		.default_value = 0,
+		.step = 1,
+		.qmenu = NULL,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VENC_RGB_PRIMARY_20,
+		.name = "RGB PRIMARIES[2][0]",
+		.type = V4L2_CTRL_TYPE_U32,
+		.minimum = 0,
+		.maximum = UINT_MAX,
+		.default_value = 0,
+		.step = 1,
+		.qmenu = NULL,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VENC_RGB_PRIMARY_21,
+		.name = "RGB PRIMARIES[2][1]",
+		.type = V4L2_CTRL_TYPE_U32,
+		.minimum = 0,
+		.maximum = UINT_MAX,
+		.default_value = 0,
+		.step = 1,
+		.qmenu = NULL,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VENC_WHITEPOINT_X,
+		.name = "WHITE POINT X",
+		.type = V4L2_CTRL_TYPE_U32,
+		.minimum = 0,
+		.maximum = UINT_MAX,
+		.default_value = 0,
+		.step = 1,
+		.qmenu = NULL,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VENC_WHITEPOINT_Y,
+		.name = "WHITE POINT Y",
+		.type = V4L2_CTRL_TYPE_U32,
+		.minimum = 0,
+		.maximum = UINT_MAX,
+		.default_value = 0,
+		.step = 1,
+		.qmenu = NULL,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VENC_MAX_DISP_LUM,
+		.name = "MAX DISPLAY LUMINANCE",
+		.type =  V4L2_CTRL_TYPE_U32,
+		.minimum = 0,
+		.maximum = UINT_MAX,
+		.default_value = 0,
+		.step = 1,
+		.qmenu = NULL,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VENC_MIN_DISP_LUM,
+		.name = "MIN DISPLAY LUMINANCE",
+		.type = V4L2_CTRL_TYPE_U32,
+		.minimum = 0,
+		.maximum = UINT_MAX,
+		.default_value = 0,
+		.step = 1,
+		.qmenu = NULL,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VENC_MAX_CLL,
+		.name = "MAX CLL",
+		.type = V4L2_CTRL_TYPE_U32,
+		.minimum = 0,
+		.maximum = UINT_MAX,
+		.default_value = 0,
+		.step = 1,
+		.qmenu = NULL,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VENC_MAX_FLL,
+		.name = "MAX FLL",
+		.type = V4L2_CTRL_TYPE_U32,
+		.minimum = 0,
+		.maximum = UINT_MAX,
+		.default_value = 0,
+		.step = 1,
+		.qmenu = NULL,
+	},
 
 };
 
@@ -2095,6 +2224,19 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP_MAX:
 	case V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP_MAX:
 	case V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP_MAX:
+	case V4L2_CID_MPEG_VIDC_VENC_HDR_INFO:
+	case V4L2_CID_MPEG_VIDC_VENC_RGB_PRIMARY_00:
+	case V4L2_CID_MPEG_VIDC_VENC_RGB_PRIMARY_01:
+	case V4L2_CID_MPEG_VIDC_VENC_RGB_PRIMARY_10:
+	case V4L2_CID_MPEG_VIDC_VENC_RGB_PRIMARY_11:
+	case V4L2_CID_MPEG_VIDC_VENC_RGB_PRIMARY_20:
+	case V4L2_CID_MPEG_VIDC_VENC_RGB_PRIMARY_21:
+	case V4L2_CID_MPEG_VIDC_VENC_WHITEPOINT_X:
+	case V4L2_CID_MPEG_VIDC_VENC_WHITEPOINT_Y:
+	case V4L2_CID_MPEG_VIDC_VENC_MAX_DISP_LUM:
+	case V4L2_CID_MPEG_VIDC_VENC_MIN_DISP_LUM:
+	case V4L2_CID_MPEG_VIDC_VENC_MAX_CLL:
+	case V4L2_CID_MPEG_VIDC_VENC_MAX_FLL:
 		dprintk(VIDC_DBG, "Set the control : %#x using ext ctrl\n",
 			ctrl->id);
 		break;
@@ -2133,6 +2275,11 @@ int msm_venc_s_ext_ctrl(struct msm_vidc_inst *inst,
 	struct hal_frame_size blur_res;
 	struct hal_quantization_range qp_range;
 	struct hal_quantization qp;
+	struct hal_hdr10_pq_sei hdr10_sei_params;
+	struct msm_vidc_mastering_display_colour_sei_payload *mdisp_sei
+		= &(hdr10_sei_params.disp_color_sei);
+	struct msm_vidc_content_light_level_sei_payload *cll_sei
+		= &(hdr10_sei_params.cll_sei);
 
 	if (!inst || !inst->core || !inst->core->device || !ctrl) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
@@ -2280,6 +2427,75 @@ int msm_venc_s_ext_ctrl(struct msm_vidc_inst *inst,
 			}
 			i++;
 			}
+			break;
+		case V4L2_CID_MPEG_VIDC_VENC_HDR_INFO:
+			if (control[i].value ==
+				V4L2_MPEG_VIDC_VENC_HDR_INFO_DISABLED)
+				break;
+			memset(&hdr10_sei_params, 0, sizeof(hdr10_sei_params));
+			i++;
+			while (i < ctrl->count) {
+				switch (control[i].id) {
+				case V4L2_CID_MPEG_VIDC_VENC_RGB_PRIMARY_00:
+					mdisp_sei->nDisplayPrimariesX[0] =
+						control[i].value;
+					break;
+				case V4L2_CID_MPEG_VIDC_VENC_RGB_PRIMARY_01:
+					mdisp_sei->nDisplayPrimariesY[0] =
+						control[i].value;
+					break;
+				case V4L2_CID_MPEG_VIDC_VENC_RGB_PRIMARY_10:
+					mdisp_sei->nDisplayPrimariesX[1] =
+						control[i].value;
+					break;
+				case V4L2_CID_MPEG_VIDC_VENC_RGB_PRIMARY_11:
+					mdisp_sei->nDisplayPrimariesY[1] =
+						control[i].value;
+					break;
+				case V4L2_CID_MPEG_VIDC_VENC_RGB_PRIMARY_20:
+					mdisp_sei->nDisplayPrimariesX[2] =
+						control[i].value;
+					break;
+				case V4L2_CID_MPEG_VIDC_VENC_RGB_PRIMARY_21:
+					mdisp_sei->nDisplayPrimariesY[2] =
+						control[i].value;
+					break;
+				case V4L2_CID_MPEG_VIDC_VENC_WHITEPOINT_X:
+					mdisp_sei->nWhitePointX =
+						control[i].value;
+					break;
+				case V4L2_CID_MPEG_VIDC_VENC_WHITEPOINT_Y:
+					mdisp_sei->nWhitePointY =
+						control[i].value;
+					break;
+				case V4L2_CID_MPEG_VIDC_VENC_MAX_DISP_LUM:
+					mdisp_sei->
+						nMaxDisplayMasteringLuminance =
+						control[i].value;
+					break;
+				case V4L2_CID_MPEG_VIDC_VENC_MIN_DISP_LUM:
+					mdisp_sei->
+						nMinDisplayMasteringLuminance =
+						control[i].value;
+					break;
+				case V4L2_CID_MPEG_VIDC_VENC_MAX_CLL:
+					cll_sei->nMaxContentLight =
+						control[i].value;
+					break;
+				case V4L2_CID_MPEG_VIDC_VENC_MAX_FLL:
+					cll_sei->nMaxPicAverageLight =
+						control[i].value;
+					break;
+				default:
+					dprintk(VIDC_ERR,
+							"Unknown Ctrl:%d, not part of HDR Info",
+							control[i].id);
+				}
+				i++;
+			}
+			property_id =
+				HAL_PARAM_VENC_HDR10_PQ_SEI;
+			pdata = &hdr10_sei_params;
 			break;
 		default:
 			dprintk(VIDC_ERR, "Invalid id set: %d\n",
