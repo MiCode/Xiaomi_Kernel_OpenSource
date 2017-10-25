@@ -79,6 +79,24 @@ static long cam_actuator_init_subdev_do_ioctl(struct v4l2_subdev *sd,
 }
 #endif
 
+static int cam_actuator_subdev_close(struct v4l2_subdev *sd,
+	struct v4l2_subdev_fh *fh)
+{
+	struct cam_actuator_ctrl_t *a_ctrl =
+		v4l2_get_subdevdata(sd);
+
+	if (!a_ctrl) {
+		CAM_ERR(CAM_ACTUATOR, "a_ctrl ptr is NULL");
+		return -EINVAL;
+	}
+
+	mutex_lock(&(a_ctrl->actuator_mutex));
+	cam_actuator_shutdown(a_ctrl);
+	mutex_unlock(&(a_ctrl->actuator_mutex));
+
+	return 0;
+}
+
 static struct v4l2_subdev_core_ops cam_actuator_subdev_core_ops = {
 	.ioctl = cam_actuator_subdev_ioctl,
 #ifdef CONFIG_COMPAT
@@ -90,7 +108,9 @@ static struct v4l2_subdev_ops cam_actuator_subdev_ops = {
 	.core = &cam_actuator_subdev_core_ops,
 };
 
-static const struct v4l2_subdev_internal_ops cam_actuator_internal_ops;
+static const struct v4l2_subdev_internal_ops cam_actuator_internal_ops = {
+	.close = cam_actuator_subdev_close,
+};
 
 static int cam_actuator_init_subdev(struct cam_actuator_ctrl_t *a_ctrl)
 {
@@ -191,6 +211,9 @@ static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client,
 		cam_actuator_apply_request;
 
 	v4l2_set_subdevdata(&(a_ctrl->v4l2_dev_str.sd), a_ctrl);
+
+	a_ctrl->cam_act_state = CAM_ACTUATOR_INIT;
+
 	return rc;
 free_mem:
 	kfree(a_ctrl->i2c_data.per_frame);
@@ -286,8 +309,7 @@ static int32_t cam_actuator_driver_platform_probe(
 	}
 
 	/* Fill platform device id*/
-	a_ctrl->id = a_ctrl->soc_info.index;
-	pdev->id = a_ctrl->id;
+	pdev->id = a_ctrl->soc_info.index;
 
 	rc = cam_actuator_init_subdev(a_ctrl);
 	if (rc)
@@ -308,6 +330,8 @@ static int32_t cam_actuator_driver_platform_probe(
 		cam_actuator_establish_link;
 	a_ctrl->bridge_intf.ops.apply_req =
 		cam_actuator_apply_request;
+	a_ctrl->bridge_intf.ops.flush_req =
+		cam_actuator_flush_request;
 
 	platform_set_drvdata(pdev, a_ctrl);
 	v4l2_set_subdevdata(&a_ctrl->v4l2_dev_str.sd, a_ctrl);

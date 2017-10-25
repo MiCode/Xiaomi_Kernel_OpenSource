@@ -33,7 +33,7 @@
 
 #define CAM_MAX_OUT_RES         6
 
-#define ICP_WORKQ_NUM_TASK      30
+#define ICP_WORKQ_NUM_TASK      100
 #define ICP_WORKQ_TASK_CMD_TYPE 1
 #define ICP_WORKQ_TASK_MSG_TYPE 2
 
@@ -124,6 +124,7 @@ struct hfi_frame_process_info {
  * @curr_fc: Context latest request frame cycles
  * @rt_flag: Flag to indicate real time request
  * @base_clk: Base clock to process the request
+ * @reserved: Reserved field
  * #uncompressed_bw: Current bandwidth voting
  * @compressed_bw: Current compressed bandwidth voting
  * @clk_rate: Supported clock rates for the context
@@ -132,8 +133,9 @@ struct cam_ctx_clk_info {
 	uint32_t curr_fc;
 	uint32_t rt_flag;
 	uint32_t base_clk;
-	uint32_t uncompressed_bw;
-	uint32_t compressed_bw;
+	uint32_t reserved;
+	uint64_t uncompressed_bw;
+	uint64_t compressed_bw;
 	int32_t clk_rate[CAM_MAX_VOTE];
 };
 /**
@@ -196,8 +198,8 @@ struct cam_icp_clk_info {
 	uint32_t curr_clk;
 	uint32_t threshold;
 	uint32_t over_clked;
-	uint32_t uncompressed_bw;
-	uint32_t compressed_bw;
+	uint64_t uncompressed_bw;
+	uint64_t compressed_bw;
 };
 
 /**

@@ -291,6 +291,13 @@ int msm_hdmi_register_audio_codec(struct platform_device *pdev,
 	return msm_ext_disp_register_audio_codec(pdev, ops);
 }
 
+/**
+ * Register audio codec ops to display driver
+ * for HDMI/Display Port usecase support.
+ *
+ * @return 0 on success, negative value on error
+ *
+ */
 int msm_ext_disp_register_audio_codec(struct platform_device *pdev,
 		struct msm_ext_disp_audio_codec_ops *ops)
 {
@@ -330,6 +337,7 @@ end:
 
 	return ret;
 }
+EXPORT_SYMBOL(msm_ext_disp_register_audio_codec);
 
 static int msm_ext_disp_validate_intf(struct msm_ext_disp_init_data *init_data)
 {

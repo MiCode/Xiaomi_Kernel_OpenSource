@@ -173,6 +173,7 @@ struct cam_req_mgr_tbl_slot {
  * @pd_delta      : differnce between this table's pipeline delay and next
  * @num_slots     : number of request slots present in the table
  * @slot          : array of slots tracking requests availability at devices
+ * @inject_delay  : insert extra bubbling for flash type of use cases
  */
 struct cam_req_mgr_req_tbl {
 	int32_t                     id;
@@ -184,6 +185,7 @@ struct cam_req_mgr_req_tbl {
 	int32_t                     pd_delta;
 	int32_t                     num_slots;
 	struct cam_req_mgr_tbl_slot slot[MAX_REQ_SLOTS];
+	uint32_t                    inject_delay;
 };
 
 /**
@@ -404,5 +406,11 @@ int cam_req_mgr_core_device_init(void);
  * @brief: cleanp crm core
  */
 int cam_req_mgr_core_device_deinit(void);
+
+/**
+ * cam_req_mgr_handle_core_shutdown()
+ * @brief: Handles camera close
+ */
+void cam_req_mgr_handle_core_shutdown(void);
 #endif
 

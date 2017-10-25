@@ -79,11 +79,10 @@
 			<&clock_gpucc GPU_CC_CXO_CLK>,
 			<&clock_gcc GCC_DDRSS_GPU_AXI_CLK>,
 			<&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
-			<&clock_gpucc GPU_CC_CX_GMU_CLK>,
-			<&clock_gpucc GPU_CC_AHB_CLK>;
+			<&clock_gpucc GPU_CC_CX_GMU_CLK>;
 
 		clock-names = "core_clk", "rbbmtimer_clk", "mem_clk",
-				"mem_iface_clk", "gmu_clk", "ahb_clk";
+				"mem_iface_clk", "gmu_clk";
 
 		/* Bus Scale Settings */
 		qcom,gpubw-dev = <&gpubw>;
@@ -275,11 +274,10 @@
 		clocks = <&clock_gpucc GPU_CC_CX_GMU_CLK>,
 				<&clock_gpucc GPU_CC_CXO_CLK>,
 				<&clock_gcc GCC_DDRSS_GPU_AXI_CLK>,
-				<&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
-				<&clock_gpucc GPU_CC_AHB_CLK>;
+				<&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>;
 
 		clock-names = "gmu_clk", "cxo_clk", "axi_clk",
-				"memnoc_clk", "ahb_clk";
+				"memnoc_clk";
 
 		qcom,gmu-pwrlevels {
 			#address-cells = <1>;
@@ -289,12 +287,12 @@
 
 			qcom,gmu-pwrlevel@0 {
 				reg = <0>;
-				qcom,gmu-freq = <200000000>;
+				qcom,gmu-freq = <0>;
 			};
 
 			qcom,gmu-pwrlevel@1 {
 				reg = <1>;
-				qcom,gmu-freq = <0>;
+				qcom,gmu-freq = <200000000>;
 			};
 		};
 

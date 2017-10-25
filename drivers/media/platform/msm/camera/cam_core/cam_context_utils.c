@@ -180,9 +180,9 @@ int32_t cam_context_release_dev_to_hw(struct cam_context *ctx,
 	ctx->hw_mgr_intf->hw_release(ctx->hw_mgr_intf->hw_mgr_priv, &arg);
 	ctx->ctxt_to_hw_map = NULL;
 
-	ctx->session_hdl = 0;
-	ctx->dev_hdl = 0;
-	ctx->link_hdl = 0;
+	ctx->session_hdl = -1;
+	ctx->dev_hdl = -1;
+	ctx->link_hdl = -1;
 
 	while (!list_empty(&ctx->active_req_list)) {
 		req = list_first_entry(&ctx->active_req_list,

@@ -1161,8 +1161,8 @@ static int perf_event_cpu_hp_init(void)
 {
 	int ret;
 
-	ret = cpuhp_setup_state_nocalls(CPUHP_AP_NOTIFY_ONLINE,
-				"PERF_EVENT/CPUHP_AP_NOTIFY_ONLINE",
+	ret = cpuhp_setup_state_nocalls(CPUHP_AP_NOTIFY_PERF_ONLINE,
+				"PERF_EVENT/CPUHP_AP_NOTIFY_PERF_ONLINE",
 				perf_event_hotplug_coming_up,
 				perf_event_hotplug_going_down);
 	if (ret)

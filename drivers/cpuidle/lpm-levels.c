@@ -84,12 +84,13 @@ struct lpm_cluster *lpm_root_node;
 static bool lpm_prediction = true;
 module_param_named(lpm_prediction, lpm_prediction, bool, 0664);
 
-static uint32_t ref_stddev = 100;
+static uint32_t ref_stddev = 500;
 module_param_named(ref_stddev, ref_stddev, uint, 0664);
 
-static uint32_t tmr_add = 100;
+static uint32_t tmr_add = 1000;
 module_param_named(tmr_add, tmr_add, uint, 0664);
 
+static uint32_t ref_premature_cnt = 1;
 static uint32_t bias_hyst;
 module_param_named(bias_hyst, bias_hyst, uint, 0664);
 
@@ -436,8 +437,9 @@ static uint64_t lpm_cpuidle_predict(struct cpuidle_device *dev,
 	int64_t thresh = LLONG_MAX;
 	struct lpm_history *history = &per_cpu(hist, dev->cpu);
 	uint32_t *min_residency = get_per_cpu_min_residency(dev->cpu);
+	uint32_t *max_residency = get_per_cpu_max_residency(dev->cpu);
 
-	if (!lpm_prediction)
+	if (!lpm_prediction || !cpu->lpm_prediction)
 		return 0;
 
 	/*
@@ -522,9 +524,17 @@ again:
 					total += history->resi[i];
 				}
 			}
-			if (failed > (MAXSAMPLES/2)) {
+			if (failed >= ref_premature_cnt) {
 				*idx_restrict = j;
 				do_div(total, failed);
+				for (i = 0; i < j; i++) {
+					if (total < max_residency[i]) {
+						*idx_restrict = i+1;
+						total = max_residency[i];
+						break;
+					}
+				}
+
 				*idx_restrict_time = total;
 				history->stime = ktime_to_us(ktime_get())
 						+ *idx_restrict_time;
@@ -615,7 +625,7 @@ static int cpu_power_select(struct cpuidle_device *dev,
 		struct power_params *pwr_params = &level->pwr;
 		bool allow;
 
-		allow = lpm_cpu_mode_allow(dev->cpu, i, true);
+		allow = i ? lpm_cpu_mode_allow(dev->cpu, i, true) : true;
 
 		if (!allow)
 			continue;
@@ -1006,9 +1016,13 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		bool from_idle, int predicted)
 {
 	struct lpm_cluster_level *level = &cluster->levels[idx];
+	struct cpumask online_cpus;
+
+	cpumask_and(&online_cpus, &cluster->num_children_in_sync,
+					cpu_online_mask);
 
 	if (!cpumask_equal(&cluster->num_children_in_sync, &cluster->child_cpus)
-			|| is_IPI_pending(&cluster->num_children_in_sync)) {
+			|| is_IPI_pending(&online_cpus)) {
 		return -EPERM;
 	}
 
@@ -1460,7 +1474,8 @@ static int cluster_cpuidle_register(struct lpm_cluster *cl)
 			struct lpm_cpu_level *cpu_level = &lpm_cpu->levels[i];
 
 			snprintf(st->name, CPUIDLE_NAME_LEN, "C%u\n", i);
-			snprintf(st->desc, CPUIDLE_DESC_LEN, cpu_level->name);
+			snprintf(st->desc, CPUIDLE_DESC_LEN, "%s",
+					cpu_level->name);
 			st->flags = 0;
 			st->exit_latency = cpu_level->pwr.latency_us;
 			st->power_usage = cpu_level->pwr.ss_power;

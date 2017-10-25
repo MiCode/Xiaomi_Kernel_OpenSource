@@ -1867,6 +1867,9 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event)
 		dev_dbg(mdwc->dev, "DWC3_GSI_EVT_BUF_SETUP\n");
 		for (i = 0; i < mdwc->num_gsi_event_buffers; i++) {
 			evt = mdwc->gsi_ev_buff[i];
+			if (!evt)
+				break;
+
 			dev_dbg(mdwc->dev, "Evt buf %p dma %08llx length %d\n",
 				evt->buf, (unsigned long long) evt->dma,
 				evt->length);
@@ -1892,6 +1895,9 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event)
 		break;
 	case DWC3_GSI_EVT_BUF_CLEANUP:
 		dev_dbg(mdwc->dev, "DWC3_GSI_EVT_BUF_CLEANUP\n");
+		if (!mdwc->gsi_ev_buff)
+			break;
+
 		for (i = 0; i < mdwc->num_gsi_event_buffers; i++) {
 			evt = mdwc->gsi_ev_buff[i];
 			evt->lpos = 0;
@@ -1911,6 +1917,9 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event)
 		break;
 	case DWC3_GSI_EVT_BUF_FREE:
 		dev_dbg(mdwc->dev, "DWC3_GSI_EVT_BUF_FREE\n");
+		if (!mdwc->gsi_ev_buff)
+			break;
+
 		for (i = 0; i < mdwc->num_gsi_event_buffers; i++) {
 			evt = mdwc->gsi_ev_buff[i];
 			if (evt)
@@ -3145,7 +3154,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	ret = dwc3_msm_get_clk_gdsc(mdwc);
 	if (ret) {
 		dev_err(&pdev->dev, "error getting clock or gdsc.\n");
-		return ret;
+		goto err;
 	}
 
 	mdwc->id_state = DWC3_ID_FLOAT;
@@ -3441,22 +3450,18 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	return 0;
 
 put_dwc3:
-	platform_device_put(mdwc->dwc3);
 	if (mdwc->bus_perf_client)
 		msm_bus_scale_unregister_client(mdwc->bus_perf_client);
+
 uninit_iommu:
 	if (mdwc->iommu_map) {
 		arm_iommu_detach_device(mdwc->dev);
 		arm_iommu_release_mapping(mdwc->iommu_map);
 	}
+	of_platform_depopulate(&pdev->dev);
 err:
+	destroy_workqueue(mdwc->dwc3_wq);
 	return ret;
-}
-
-static int dwc3_msm_remove_children(struct device *dev, void *data)
-{
-	device_unregister(dev);
-	return 0;
 }
 
 static int dwc3_msm_remove(struct platform_device *pdev)
@@ -3495,8 +3500,7 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 
 	if (mdwc->hs_phy)
 		mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
-	platform_device_put(mdwc->dwc3);
-	device_for_each_child(&pdev->dev, NULL, dwc3_msm_remove_children);
+	of_platform_depopulate(&pdev->dev);
 
 	dbg_event(0xFF, "Remov put", 0);
 	pm_runtime_disable(mdwc->dev);
@@ -3663,9 +3667,6 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	int ret = 0;
 
-	if (!dwc->xhci)
-		return -EINVAL;
-
 	/*
 	 * The vbus_reg pointer could have multiple values
 	 * NULL: regulator_get() hasn't been called, or was previously deferred
@@ -3716,15 +3717,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 
 		mdwc->usbdev_nb.notifier_call = msm_dwc3_usbdev_notify;
 		usb_register_atomic_notify(&mdwc->usbdev_nb);
-		/*
-		 * FIXME If micro A cable is disconnected during system suspend,
-		 * xhci platform device will be removed before runtime pm is
-		 * enabled for xhci device. Due to this, disable_depth becomes
-		 * greater than one and runtimepm is not enabled for next microA
-		 * connect. Fix this by calling pm_runtime_init for xhci device.
-		 */
-		pm_runtime_init(&dwc->xhci->dev);
-		ret = platform_device_add(dwc->xhci);
+		ret = dwc3_host_init(dwc);
 		if (ret) {
 			dev_err(mdwc->dev,
 				"%s: failed to add XHCI pdev ret=%d\n",
@@ -3792,7 +3785,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		}
 
 		mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
-		platform_device_del(dwc->xhci);
+		dwc3_host_exit(dwc);
 		usb_unregister_notify(&mdwc->host_nb);
 
 		dwc3_usb3_phy_suspend(dwc, false);
@@ -3952,20 +3945,20 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA)
 	union power_supply_propval pval = {0};
 	int ret, psy_type;
 
-	if (mdwc->max_power == mA)
-		return 0;
-
 	psy_type = get_psy_type(mdwc);
-	if (psy_type == POWER_SUPPLY_TYPE_USB) {
-		dev_info(mdwc->dev, "Avail curr from USB = %u\n", mA);
-		/* Set max current limit in uA */
-		pval.intval = 1000 * mA;
-	} else if (psy_type == POWER_SUPPLY_TYPE_USB_FLOAT) {
+	if (psy_type == POWER_SUPPLY_TYPE_USB_FLOAT) {
 		pval.intval = -ETIMEDOUT;
-	} else {
-		return 0;
+		goto set_prop;
 	}
 
+	if (mdwc->max_power == mA || psy_type != POWER_SUPPLY_TYPE_USB)
+		return 0;
+
+	dev_info(mdwc->dev, "Avail curr from USB = %u\n", mA);
+	/* Set max current limit in uA */
+	pval.intval = 1000 * mA;
+
+set_prop:
 	ret = power_supply_set_property(mdwc->usb_psy,
 				POWER_SUPPLY_PROP_SDP_CURRENT_MAX, &pval);
 	if (ret) {

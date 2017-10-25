@@ -38,6 +38,13 @@ struct sde_hw_dspp_ops {
 	void (*read_histogram)(struct sde_hw_dspp *ctx, void *cfg);
 
 	/**
+	 * lock_histogram - lock dspp histogram buffer
+	 * @ctx: Pointer to dspp context
+	 * @cfg: Pointer to configuration
+	 */
+	void (*lock_histogram)(struct sde_hw_dspp *ctx, void *cfg);
+
+	/**
 	 * setup_igc - update dspp igc
 	 * @ctx: Pointer to dspp context
 	 * @cfg: Pointer to configuration
@@ -45,11 +52,11 @@ struct sde_hw_dspp_ops {
 	void (*setup_igc)(struct sde_hw_dspp *ctx, void *cfg);
 
 	/**
-	 * setup_pa - setup dspp pa
+	 * setup_pa_hsic - setup dspp pa hsic
 	 * @ctx: Pointer to dspp context
 	 * @cfg: Pointer to configuration
 	 */
-	void (*setup_pa)(struct sde_hw_dspp *dspp, void *cfg);
+	void (*setup_pa_hsic)(struct sde_hw_dspp *dspp, void *cfg);
 
 	/**
 	 * setup_pcc - setup dspp pcc
@@ -66,11 +73,32 @@ struct sde_hw_dspp_ops {
 	void (*setup_sharpening)(struct sde_hw_dspp *ctx, void *cfg);
 
 	/**
-	 * setup_pa_memcolor - setup dspp memcolor
+	 * setup_pa_memcol_skin - setup dspp memcolor skin
 	 * @ctx: Pointer to dspp context
 	 * @cfg: Pointer to configuration
 	 */
-	void (*setup_pa_memcolor)(struct sde_hw_dspp *ctx, void *cfg);
+	void (*setup_pa_memcol_skin)(struct sde_hw_dspp *ctx, void *cfg);
+
+	/**
+	 * setup_pa_memcol_sky - setup dspp memcolor sky
+	 * @ctx: Pointer to dspp context
+	 * @cfg: Pointer to configuration
+	 */
+	void (*setup_pa_memcol_sky)(struct sde_hw_dspp *ctx, void *cfg);
+
+	/**
+	 * setup_pa_memcol_foliage - setup dspp memcolor foliage
+	 * @ctx: Pointer to dspp context
+	 * @cfg: Pointer to configuration
+	 */
+	void (*setup_pa_memcol_foliage)(struct sde_hw_dspp *ctx, void *cfg);
+
+	/**
+	 * setup_pa_memcol_prot - setup dspp memcolor protection
+	 * @ctx: Pointer to dspp context
+	 * @cfg: Pointer to configuration
+	 */
+	void (*setup_pa_memcol_prot)(struct sde_hw_dspp *ctx, void *cfg);
 
 	/**
 	 * setup_sixzone - setup dspp six zone
@@ -92,34 +120,6 @@ struct sde_hw_dspp_ops {
 	 * @cfg: Pointer to configuration
 	 */
 	void (*setup_dither)(struct sde_hw_dspp *ctx, void *cfg);
-
-	/**
-	 * setup_hue - setup dspp PA hue
-	 * @ctx: Pointer to dspp context
-	 * @cfg: Pointer to configuration
-	 */
-	void (*setup_hue)(struct sde_hw_dspp *ctx, void *cfg);
-
-	/**
-	 * setup_sat - setup dspp PA saturation
-	 * @ctx: Pointer to dspp context
-	 * @cfg: Pointer to configuration
-	 */
-	void (*setup_sat)(struct sde_hw_dspp *ctx, void *cfg);
-
-	/**
-	 * setup_val - setup dspp PA value
-	 * @ctx: Pointer to dspp context
-	 * @cfg: Pointer to configuration
-	 */
-	void (*setup_val)(struct sde_hw_dspp *ctx, void *cfg);
-
-	/**
-	 * setup_cont - setup dspp PA contrast
-	 * @ctx: Pointer to dspp context
-	 * @cfg: Pointer to configuration
-	 */
-	void (*setup_cont)(struct sde_hw_dspp *ctx, void *cfg);
 
 	/**
 	 * setup_vlut - setup dspp PA VLUT

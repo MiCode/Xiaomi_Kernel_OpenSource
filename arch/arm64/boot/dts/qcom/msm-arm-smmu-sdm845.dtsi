@@ -35,10 +35,8 @@
 				<GIC_SPI 369 IRQ_TYPE_EDGE_RISING>,
 				<GIC_SPI 370 IRQ_TYPE_EDGE_RISING>,
 				<GIC_SPI 371 IRQ_TYPE_EDGE_RISING>;
-		clock-names =	"gcc_gpu_memnoc_gfx_clk",
-				"gpu_cc_ahb_clk";
-		clocks = <&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
-			<&clock_gpucc GPU_CC_AHB_CLK>;
+		clock-names =	"gcc_gpu_memnoc_gfx_clk";
+		clocks = <&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>;
 		attach-impl-defs =
 				<0x6000 0x2378>,
 				<0x6060 0x1055>,
@@ -316,6 +314,7 @@
 	};
 
 	kgsl_iommu_test_device {
+		status = "disabled";
 		compatible = "iommu-debug-test";
 		/*
 		 * 0x7 isn't a valid sid, but should pass the sid sanity check.

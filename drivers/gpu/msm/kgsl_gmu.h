@@ -22,11 +22,13 @@
 
 #define GMU_INT_WDOG_BITE		BIT(0)
 #define GMU_INT_RSCC_COMP		BIT(1)
+#define GMU_INT_FENCE_ERR		BIT(3)
 #define GMU_INT_DBD_WAKEUP		BIT(4)
 #define GMU_INT_HOST_AHB_BUS_ERR	BIT(5)
 #define GMU_AO_INT_MASK		\
 		(GMU_INT_WDOG_BITE |	\
-		GMU_INT_HOST_AHB_BUS_ERR)
+		GMU_INT_HOST_AHB_BUS_ERR |	\
+		GMU_INT_FENCE_ERR)
 
 #define MAX_GMUFW_SIZE	0x2000	/* in dwords */
 #define FENCE_RANGE_MASK	((0x1 << 31) | (0x0A << 18) | (0x8A0))
@@ -70,15 +72,12 @@
 #define OOB_DCVS_SET_MASK		BIT(23)
 #define OOB_DCVS_CHECK_MASK		BIT(31)
 #define OOB_DCVS_CLEAR_MASK		BIT(31)
-#define OOB_CPINIT_SET_MASK		BIT(16)
-#define OOB_CPINIT_CHECK_MASK		BIT(24)
-#define OOB_CPINIT_CLEAR_MASK		BIT(24)
+#define OOB_GPU_SET_MASK		BIT(16)
+#define OOB_GPU_CHECK_MASK		BIT(24)
+#define OOB_GPU_CLEAR_MASK		BIT(24)
 #define OOB_PERFCNTR_SET_MASK		BIT(17)
 #define OOB_PERFCNTR_CHECK_MASK		BIT(25)
 #define OOB_PERFCNTR_CLEAR_MASK		BIT(25)
-#define OOB_GPU_SET_MASK		BIT(18)
-#define OOB_GPU_CHECK_MASK		BIT(26)
-#define OOB_GPU_CLEAR_MASK		BIT(26)
 
 /* Bits for the flags field in the gmu structure */
 enum gmu_flags {

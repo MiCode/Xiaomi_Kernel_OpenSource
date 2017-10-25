@@ -71,6 +71,8 @@ struct msm_gem_vma;
 #define MAX_BRIDGES    8
 #define MAX_CONNECTORS 8
 
+#define TEARDOWN_DEADLOCK_RETRY_MAX 5
+
 struct msm_file_private {
 	/* currently we don't do anything useful with this.. but when
 	 * per-context address spaces are supported we'd keep track of
@@ -404,6 +406,7 @@ struct msm_display_topology {
  * @prefill_lines:   prefill lines based on porches.
  * @jitter_numer:	display panel jitter numerator configuration
  * @jitter_denom:	display panel jitter denominator configuration
+ * @clk_rate:	     DSI bit clock per lane in HZ.
  * @topology:        supported topology for the mode
  * @comp_info:       compression info supported
  */
@@ -413,6 +416,7 @@ struct msm_mode_info {
 	uint32_t prefill_lines;
 	uint32_t jitter_numer;
 	uint32_t jitter_denom;
+	uint64_t clk_rate;
 	struct msm_display_topology topology;
 	struct msm_compression_info comp_info;
 };
@@ -431,6 +435,7 @@ struct msm_mode_info {
  *                      this is max width supported by controller
  * @max_height:         Max height of display. In case of hot pluggable display
  *                      this is max height supported by controller
+ * @clk_rate:           DSI bit clock per lane in HZ.
  * @is_primary:         Set to true if display is primary display
  * @is_te_using_watchdog_timer:  Boolean to indicate watchdog TE is
  *				 used instead of panel TE in cmd mode panels
@@ -450,6 +455,7 @@ struct msm_display_info {
 
 	uint32_t max_width;
 	uint32_t max_height;
+	uint64_t clk_rate;
 
 	bool is_primary;
 	bool is_te_using_watchdog_timer;
@@ -609,6 +615,9 @@ struct msm_drm_private {
 
 	/* msm drv debug root node */
 	struct dentry *debug_root;
+
+	/* update the flag when msm driver receives shutdown notification */
+	bool shutdown_in_progress;
 };
 
 /* get struct msm_kms * from drm_device * */

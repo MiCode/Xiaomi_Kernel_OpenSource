@@ -30,6 +30,14 @@ int32_t cam_actuator_apply_request(struct cam_req_mgr_apply_request *apply);
 int32_t cam_actuator_publish_dev_info(struct cam_req_mgr_device_info *info);
 
 /**
+ * @flush: Req mgr structure for flushing request
+ *
+ * This API flushes the request that is mentioned
+ */
+int cam_actuator_flush_request(struct cam_req_mgr_flush_request *flush);
+
+
+/**
  * @link: Link setup info
  *
  * This API establishes link actuator subdevice with req mgr
@@ -44,5 +52,12 @@ int32_t cam_actuator_establish_link(
  * This API handles the camera control argument reached to actuator
  */
 int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl, void *arg);
+
+/**
+ * @a_ctrl: Actuator ctrl structure
+ *
+ * This API handles the shutdown ioctl/close
+ */
+void cam_actuator_shutdown(struct cam_actuator_ctrl_t *a_ctrl);
 
 #endif /* _CAM_ACTUATOR_CORE_H_ */

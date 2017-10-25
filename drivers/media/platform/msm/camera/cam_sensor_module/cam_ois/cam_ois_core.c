@@ -77,12 +77,16 @@ static int cam_ois_vreg_control(struct cam_ois_ctrl_t *o_ctrl,
 		return -EINVAL;
 	}
 
-	if (config)
+	if (config) {
+		rc = cam_soc_util_request_platform_resource(soc_info,
+			NULL, NULL);
 		rc = cam_soc_util_enable_platform_resource(soc_info, false, 0,
 			false);
-	else
+	} else {
 		rc = cam_soc_util_disable_platform_resource(soc_info, false,
 			false);
+		rc = cam_soc_util_release_platform_resource(soc_info);
+	}
 
 	return rc;
 }
@@ -105,15 +109,6 @@ static int cam_ois_power_up(struct cam_ois_ctrl_t *o_ctrl)
 	if (soc_info->gpio_data &&
 		gpio_num_info &&
 		gpio_num_info->valid[SENSOR_VAF] == 1) {
-		rc = cam_soc_util_request_platform_resource(&o_ctrl->soc_info,
-			NULL, NULL);
-		rc = cam_soc_util_enable_platform_resource(&o_ctrl->soc_info,
-			false, 0, false);
-		if (rc < 0) {
-			CAM_ERR(CAM_OIS, "Failed in req gpio: %d", rc);
-			return rc;
-		}
-
 		gpio_set_value_cansleep(
 			gpio_num_info->gpio_num[SENSOR_VAF],
 			1);
@@ -132,12 +127,6 @@ static int cam_ois_power_down(struct cam_ois_ctrl_t *o_ctrl)
 		&o_ctrl->soc_info;
 	struct msm_camera_gpio_num_info *gpio_num_info = NULL;
 
-	rc = cam_ois_vreg_control(o_ctrl, 0);
-	if (rc < 0) {
-		CAM_ERR(CAM_OIS, "Failed %d");
-		return rc;
-	}
-
 	gpio_num_info = o_ctrl->gpio_num_info;
 
 	if (soc_info->gpio_data &&
@@ -147,14 +136,11 @@ static int cam_ois_power_down(struct cam_ois_ctrl_t *o_ctrl)
 		gpio_set_value_cansleep(
 			gpio_num_info->gpio_num[SENSOR_VAF],
 			GPIOF_OUT_INIT_LOW);
-
-		rc = cam_soc_util_release_platform_resource(&o_ctrl->soc_info);
-		rc |= cam_soc_util_disable_platform_resource(&o_ctrl->soc_info,
-					0, 0);
-		if (rc < 0)
-			CAM_ERR(CAM_OIS,
-				"Failed to disable platform resources: %d", rc);
 	}
+
+	rc = cam_ois_vreg_control(o_ctrl, 0);
+	if (rc < 0)
+		CAM_ERR(CAM_OIS, "Disable regualtor Failed %d", rc);
 
 	return rc;
 }
@@ -430,7 +416,7 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 		i2c_reg_settings = &(o_ctrl->i2c_init_data);
 		i2c_reg_settings->is_settings_valid = 1;
 		i2c_reg_settings->request_id = 0;
-		rc = cam_sensor_i2c_pkt_parser(i2c_reg_settings,
+		rc = cam_sensor_i2c_command_parser(i2c_reg_settings,
 			&cmd_desc[1], 1);
 		if (rc < 0) {
 			CAM_ERR(CAM_OIS, "OIS pkt parsing failed: %d",
@@ -442,7 +428,7 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 			i2c_reg_settings = &(o_ctrl->i2c_calib_data);
 			i2c_reg_settings->is_settings_valid = 1;
 			i2c_reg_settings->request_id = 0;
-			rc = cam_sensor_i2c_pkt_parser(i2c_reg_settings,
+			rc = cam_sensor_i2c_command_parser(i2c_reg_settings,
 				&cmd_desc[2], 1);
 			if (rc < 0) {
 				CAM_ERR(CAM_OIS,
@@ -458,7 +444,7 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 		i2c_reg_settings = &(o_ctrl->i2c_mode_data);
 		i2c_reg_settings->is_settings_valid = 1;
 		i2c_reg_settings->request_id = 0;
-		rc = cam_sensor_i2c_pkt_parser(i2c_reg_settings,
+		rc = cam_sensor_i2c_command_parser(i2c_reg_settings,
 			cmd_desc, 1);
 		if (rc < 0) {
 			CAM_ERR(CAM_OIS, "OIS pkt parsing failed: %d", rc);
@@ -473,6 +459,35 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 		break;
 	}
 	return rc;
+}
+
+void cam_ois_shutdown(struct cam_ois_ctrl_t *o_ctrl)
+{
+	int rc;
+
+	if (o_ctrl->cam_ois_state == CAM_OIS_INIT)
+		return;
+
+	if (o_ctrl->cam_ois_state == CAM_OIS_START) {
+		rc = camera_io_release(&o_ctrl->io_master_info);
+		if (rc < 0)
+			CAM_ERR(CAM_OIS, "Failed in releasing CCI");
+		rc = cam_ois_power_down(o_ctrl);
+		if (rc < 0)
+			CAM_ERR(CAM_OIS, "OIS Power down failed");
+		o_ctrl->cam_ois_state = CAM_OIS_ACQUIRE;
+	}
+
+	if (o_ctrl->cam_ois_state == CAM_OIS_ACQUIRE) {
+		rc = cam_destroy_device_hdl(o_ctrl->bridge_intf.device_hdl);
+		if (rc < 0)
+			CAM_ERR(CAM_OIS, "destroying the device hdl");
+		o_ctrl->bridge_intf.device_hdl = -1;
+		o_ctrl->bridge_intf.link_hdl = -1;
+		o_ctrl->bridge_intf.session_hdl = -1;
+	}
+
+	o_ctrl->cam_ois_state = CAM_OIS_INIT;
 }
 
 /**
@@ -496,7 +511,7 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 	mutex_lock(&(o_ctrl->ois_mutex));
 	switch (cmd->op_code) {
 	case CAM_QUERY_CAP:
-		ois_cap.slot_info = o_ctrl->subdev_id;
+		ois_cap.slot_info = o_ctrl->soc_info.index;
 
 		if (copy_to_user((void __user *) cmd->handle,
 			&ois_cap,
@@ -513,6 +528,7 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 			CAM_ERR(CAM_OIS, "Failed to acquire dev");
 			goto release_mutex;
 		}
+		o_ctrl->cam_ois_state = CAM_OIS_ACQUIRE;
 		break;
 	case CAM_START_DEV:
 		rc = cam_ois_power_up(o_ctrl);
@@ -548,6 +564,7 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 				goto pwr_dwn;
 			}
 		}
+		o_ctrl->cam_ois_state = CAM_OIS_START;
 		break;
 	case CAM_CONFIG_DEV:
 		rc = cam_ois_pkt_parse(o_ctrl, arg);
@@ -570,6 +587,7 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 		o_ctrl->bridge_intf.device_hdl = -1;
 		o_ctrl->bridge_intf.link_hdl = -1;
 		o_ctrl->bridge_intf.session_hdl = -1;
+		o_ctrl->cam_ois_state = CAM_OIS_INIT;
 		break;
 	case CAM_STOP_DEV:
 		rc = camera_io_release(&o_ctrl->io_master_info);
@@ -580,6 +598,7 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 			CAM_ERR(CAM_OIS, "OIS Power down failed");
 			goto release_mutex;
 		}
+		o_ctrl->cam_ois_state = CAM_OIS_ACQUIRE;
 		break;
 	default:
 		CAM_ERR(CAM_OIS, "invalid opcode");

@@ -239,6 +239,11 @@ static struct {
 #define cpuhp_lock_acquire()      lock_map_acquire(&cpu_hotplug.dep_map)
 #define cpuhp_lock_release()      lock_map_release(&cpu_hotplug.dep_map)
 
+void cpu_hotplug_mutex_held(void)
+{
+	lockdep_assert_held(&cpu_hotplug.lock);
+}
+EXPORT_SYMBOL(cpu_hotplug_mutex_held);
 
 void get_online_cpus(void)
 {
@@ -893,6 +898,7 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen,
 	struct cpuhp_cpu_state *st = per_cpu_ptr(&cpuhp_state, cpu);
 	int prev_state, ret = 0;
 	bool hasdied = false;
+	u64 start_time = 0;
 
 	if (num_online_cpus() == 1)
 		return -EBUSY;
@@ -904,6 +910,8 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen,
 		return -EBUSY;
 
 	cpu_hotplug_begin();
+	if (trace_cpuhp_latency_enabled())
+		start_time = sched_clock();
 
 	cpuhp_tasks_frozen = tasks_frozen;
 
@@ -942,6 +950,7 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen,
 
 	hasdied = prev_state != st->state && st->state == CPUHP_OFFLINE;
 out:
+	trace_cpuhp_latency(cpu, 0, start_time, ret);
 	cpu_hotplug_done();
 	/* This post dead nonsense must die */
 	if (!ret && hasdied)
@@ -1015,8 +1024,11 @@ static int _cpu_up(unsigned int cpu, int tasks_frozen, enum cpuhp_state target)
 	struct cpuhp_cpu_state *st = per_cpu_ptr(&cpuhp_state, cpu);
 	struct task_struct *idle;
 	int ret = 0;
+	u64 start_time = 0;
 
 	cpu_hotplug_begin();
+	if (trace_cpuhp_latency_enabled())
+		start_time = sched_clock();
 
 	if (!cpu_present(cpu)) {
 		ret = -EINVAL;
@@ -1064,6 +1076,7 @@ static int _cpu_up(unsigned int cpu, int tasks_frozen, enum cpuhp_state target)
 	target = min((int)target, CPUHP_BRINGUP_CPU);
 	ret = cpuhp_up_callbacks(cpu, st, target);
 out:
+	trace_cpuhp_latency(cpu, 1, start_time, ret);
 	cpu_hotplug_done();
 	return ret;
 }

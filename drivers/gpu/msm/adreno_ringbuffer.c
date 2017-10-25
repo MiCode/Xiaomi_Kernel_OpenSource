@@ -86,7 +86,7 @@ static void adreno_get_submit_time(struct adreno_device *adreno_dev,
  * This delay must be less than the IFPC main hysteresis or
  * the GMU will start shutting down before we try again.
  */
-#define GMU_WAKEUP_DELAY 20
+#define GMU_WAKEUP_DELAY 10
 /* Max amount of tries to wake up the GMU. */
 #define GMU_WAKEUP_RETRY_MAX 60
 
@@ -225,8 +225,9 @@ int adreno_ringbuffer_start(struct adreno_device *adreno_dev,
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
 		kgsl_sharedmem_set(device, &(rb->buffer_desc),
 				0, 0xAA, KGSL_RB_SIZE);
-		kgsl_sharedmem_writel(device, &device->scratch,
-				SCRATCH_RPTR_OFFSET(rb->id), 0);
+		if (!adreno_is_a3xx(adreno_dev))
+			kgsl_sharedmem_writel(device, &device->scratch,
+					SCRATCH_RPTR_OFFSET(rb->id), 0);
 		rb->wptr = 0;
 		rb->_wptr = 0;
 		rb->wptr_preempt_end = 0xFFFFFFFF;
@@ -287,9 +288,16 @@ static int _adreno_ringbuffer_probe(struct adreno_device *adreno_dev,
 
 int adreno_ringbuffer_probe(struct adreno_device *adreno_dev, bool nopreempt)
 {
-	int status = 0;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	int i;
+	int i, status;
+
+	if (!adreno_is_a3xx(adreno_dev)) {
+		status = kgsl_allocate_global(device, &device->scratch,
+				PAGE_SIZE, 0, 0, "scratch");
+		if (status != 0)
+			return status;
+	}
 
 	if (nopreempt == false)
 		adreno_dev->num_ringbuffers = gpudev->num_prio_levels;
@@ -325,8 +333,12 @@ static void _adreno_ringbuffer_close(struct adreno_device *adreno_dev,
 
 void adreno_ringbuffer_close(struct adreno_device *adreno_dev)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
 	int i;
+
+	if (!adreno_is_a3xx(adreno_dev))
+		kgsl_free_global(device, &device->scratch);
 
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i)
 		_adreno_ringbuffer_close(adreno_dev, rb);
@@ -469,7 +481,8 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	total_sizedwords += (secured_ctxt) ? 26 : 0;
 
 	/* _seq mem write for each submission */
-	total_sizedwords += 4;
+	if (adreno_is_a5xx(adreno_dev))
+		total_sizedwords += 4;
 
 	/* context rollover */
 	if (adreno_is_a3xx(adreno_dev))
@@ -622,9 +635,11 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	 * early detection of timestamp interrupt storms to stave
 	 * off system collapse.
 	 */
-	ringcmds += cp_mem_write(adreno_dev, ringcmds,
-		MEMSTORE_ID_GPU_ADDR(device, KGSL_MEMSTORE_GLOBAL,
-			ref_wait_ts), ++_seq_cnt);
+	if (adreno_is_a5xx(adreno_dev))
+		ringcmds += cp_mem_write(adreno_dev, ringcmds,
+				MEMSTORE_ID_GPU_ADDR(device,
+				KGSL_MEMSTORE_GLOBAL,
+				ref_wait_ts), ++_seq_cnt);
 
 	/*
 	 * end-of-pipeline timestamp.  If per context timestamps is not

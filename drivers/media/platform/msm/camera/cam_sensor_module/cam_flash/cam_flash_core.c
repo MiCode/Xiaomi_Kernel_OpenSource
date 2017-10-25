@@ -45,6 +45,7 @@ int cam_flash_prepare(struct cam_flash_ctrl *flash_ctrl,
 			return rc;
 		}
 		flash_ctrl->is_regulator_enabled = false;
+		flash_ctrl->flash_state = CAM_FLASH_STATE_RELEASE;
 	} else {
 		CAM_ERR(CAM_FLASH, "Wrong Flash State : %d",
 			flash_ctrl->flash_state);
@@ -634,6 +635,13 @@ update_req_mgr:
 		add_req.link_hdl = fctrl->bridge_intf.link_hdl;
 		add_req.req_id = csl_packet->header.request_id;
 		add_req.dev_hdl = fctrl->bridge_intf.device_hdl;
+
+		if ((csl_packet->header.op_code & 0xFFFFF) ==
+			CAM_FLASH_PACKET_OPCODE_SET_OPS)
+			add_req.skip_before_applying = 1;
+		else
+			add_req.skip_before_applying = 0;
+
 		if (fctrl->bridge_intf.crm_cb &&
 			fctrl->bridge_intf.crm_cb->add_req)
 			fctrl->bridge_intf.crm_cb->add_req(&add_req);
@@ -648,7 +656,7 @@ int cam_flash_publish_dev_info(struct cam_req_mgr_device_info *info)
 	info->dev_id = CAM_REQ_MGR_DEVICE_FLASH;
 	strlcpy(info->name, CAM_FLASH_NAME, sizeof(info->name));
 	info->p_delay = CAM_FLASH_PIPELINE_DELAY;
-	info->trigger = CAM_TRIGGER_POINT_EOF;
+	info->trigger = CAM_TRIGGER_POINT_SOF;
 	return 0;
 }
 
@@ -742,6 +750,41 @@ int cam_flash_flush_request(struct cam_req_mgr_flush_request *flush)
 			fctrl->per_frame[frame_offset].led_current_ma[i] = 0;
 	}
 	return rc;
+}
+
+void cam_flash_shutdown(struct cam_flash_ctrl *fctrl)
+{
+	int rc, i, j;
+
+	for (i = 0; i < MAX_PER_FRAME_ARRAY; i++) {
+		fctrl->per_frame[i].cmn_attr.request_id = 0;
+		fctrl->per_frame[i].cmn_attr.is_settings_valid = false;
+		fctrl->per_frame[i].cmn_attr.count = 0;
+		for (j = 0; j < CAM_FLASH_MAX_LED_TRIGGERS; j++)
+			fctrl->per_frame[i].led_current_ma[j] = 0;
+	}
+
+	cam_flash_flush_nrt(fctrl);
+
+	if ((fctrl->flash_state != CAM_FLASH_STATE_RELEASE) &&
+		(fctrl->is_regulator_enabled == true)) {
+		rc = cam_flash_prepare(fctrl, CAM_FLASH_STATE_RELEASE);
+		if (rc)
+			CAM_ERR(CAM_FLASH, "Disable Regulator Failed ret = %d",
+				rc);
+	}
+
+	if (fctrl->bridge_intf.device_hdl != -1) {
+		rc = cam_destroy_device_hdl(fctrl->bridge_intf.
+			device_hdl);
+		if (rc)
+			CAM_ERR(CAM_FLASH,
+				"Failed in destroying the device Handle rc= %d",
+				rc);
+		fctrl->bridge_intf.device_hdl = -1;
+		fctrl->bridge_intf.link_hdl = -1;
+		fctrl->bridge_intf.session_hdl = -1;
+	}
 }
 
 int cam_flash_apply_request(struct cam_req_mgr_apply_request *apply)

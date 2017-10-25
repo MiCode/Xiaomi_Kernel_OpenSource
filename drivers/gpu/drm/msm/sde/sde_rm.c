@@ -419,8 +419,8 @@ int sde_rm_init(struct sde_rm *rm,
 		struct sde_lm_cfg *lm = &cat->mixer[i];
 
 		if (lm->pingpong == PINGPONG_MAX) {
-			SDE_DEBUG("skip mixer %d without pingpong\n", lm->id);
-			continue;
+			SDE_ERROR("mixer %d without pingpong\n", lm->id);
+			goto fail;
 		}
 
 		rc = _sde_rm_hw_blk_create(rm, cat, mmio, SDE_HW_BLK_LM,
@@ -570,14 +570,16 @@ static bool _sde_rm_check_lm_and_get_connected_blks(
 	const struct sde_pingpong_cfg *pp_cfg;
 	struct sde_rm_hw_iter iter;
 	bool is_valid_dspp, is_valid_ds, ret;
+	u32 display_pref;
 
 	*dspp = NULL;
 	*ds = NULL;
 	*pp = NULL;
+	display_pref = lm_cfg->features & BIT(SDE_DISP_PRIMARY_PREF);
 
-	SDE_DEBUG("check lm %d: dspp %d ds %d pp %d\n",
-			   lm_cfg->id, lm_cfg->dspp,
-			   lm_cfg->ds, lm_cfg->pingpong);
+	SDE_DEBUG("check lm %d: dspp %d ds %d pp %d display_pref: %d\n",
+		lm_cfg->id, lm_cfg->dspp, lm_cfg->ds,
+		lm_cfg->pingpong, display_pref);
 
 	/* Check if this layer mixer is a peer of the proposed primary LM */
 	if (primary_lm) {
@@ -591,28 +593,39 @@ static bool _sde_rm_check_lm_and_get_connected_blks(
 		}
 	}
 
-	is_valid_dspp = (lm_cfg->dspp != DSPP_MAX) ? true : false;
-	is_valid_ds = (lm_cfg->ds != DS_MAX) ? true : false;
+	/* bypass rest of the checks if LM for primary display is found */
+	if (!display_pref) {
+		is_valid_dspp = (lm_cfg->dspp != DSPP_MAX) ? true : false;
+		is_valid_ds = (lm_cfg->ds != DS_MAX) ? true : false;
 
-	/**
-	 * RM_RQ_X: specification of which LMs to choose
-	 * is_valid_X: indicates whether LM is tied with block X
-	 * ret: true if given LM matches the user requirement, false otherwise
-	 */
-	if (RM_RQ_DSPP(reqs) && RM_RQ_DS(reqs))
-		ret = (is_valid_dspp && is_valid_ds);
-	else if (RM_RQ_DSPP(reqs))
-		ret = is_valid_dspp;
-	else if (RM_RQ_DS(reqs))
-		ret = is_valid_ds;
-	else
-		ret = !(is_valid_dspp || is_valid_ds);
+		/**
+		 * RM_RQ_X: specification of which LMs to choose
+		 * is_valid_X: indicates whether LM is tied with block X
+		 * ret: true if given LM matches the user requirement,
+		 *      false otherwise
+		 */
+		if (RM_RQ_DSPP(reqs) && RM_RQ_DS(reqs))
+			ret = (is_valid_dspp && is_valid_ds);
+		else if (RM_RQ_DSPP(reqs))
+			ret = is_valid_dspp;
+		else if (RM_RQ_DS(reqs))
+			ret = is_valid_ds;
+		else
+			ret = !(is_valid_dspp || is_valid_ds);
 
-	if (!ret) {
-		SDE_DEBUG("fail:lm(%d)req_dspp(%d)dspp(%d)req_ds(%d)ds(%d)\n",
-			lm_cfg->id, (bool)(RM_RQ_DSPP(reqs)), lm_cfg->dspp,
-			(bool)(RM_RQ_DS(reqs)), lm_cfg->ds);
-		return ret;
+		if (!ret) {
+			SDE_DEBUG(
+				"fail:lm(%d)req_dspp(%d)dspp(%d)req_ds(%d)ds(%d)\n",
+				lm_cfg->id, (bool)(RM_RQ_DSPP(reqs)),
+				lm_cfg->dspp, (bool)(RM_RQ_DS(reqs)),
+				lm_cfg->ds);
+			return ret;
+		}
+	} else if (!(reqs->hw_res.is_primary && display_pref)) {
+		SDE_DEBUG(
+			"display preference is not met. is_primary: %d display_pref: %d\n",
+			(int)reqs->hw_res.is_primary, (int)display_pref);
+		return false;
 	}
 
 	/* Already reserved? */
@@ -804,6 +817,7 @@ static int _sde_rm_reserve_lms(
 static int _sde_rm_reserve_ctls(
 		struct sde_rm *rm,
 		struct sde_rm_rsvp *rsvp,
+		struct sde_rm_requirements *reqs,
 		const struct sde_rm_topology_def *top)
 {
 	struct sde_rm_hw_blk *ctls[MAX_BLOCKS];
@@ -816,21 +830,34 @@ static int _sde_rm_reserve_ctls(
 	while (_sde_rm_get_hw_locked(rm, &iter)) {
 		const struct sde_hw_ctl *ctl = to_sde_hw_ctl(iter.blk->hw);
 		unsigned long features = ctl->caps->features;
-		bool has_split_display, has_ppsplit;
+		bool has_split_display, has_ppsplit, primary_pref;
 
 		if (RESERVED_BY_OTHER(iter.blk, rsvp))
 			continue;
 
 		has_split_display = BIT(SDE_CTL_SPLIT_DISPLAY) & features;
 		has_ppsplit = BIT(SDE_CTL_PINGPONG_SPLIT) & features;
+		primary_pref = BIT(SDE_CTL_PRIMARY_PREF) & features;
 
 		SDE_DEBUG("ctl %d caps 0x%lX\n", iter.blk->id, features);
 
-		if (top->needs_split_display != has_split_display)
-			continue;
+		/*
+		 * bypass rest feature checks on finding CTL preferred
+		 * for primary displays.
+		 */
+		if (!primary_pref) {
+			if (top->needs_split_display != has_split_display)
+				continue;
 
-		if (top->top_name == SDE_RM_TOPOLOGY_PPSPLIT && !has_ppsplit)
+			if (top->top_name == SDE_RM_TOPOLOGY_PPSPLIT &&
+					!has_ppsplit)
+				continue;
+		} else if (!(reqs->hw_res.is_primary && primary_pref)) {
+			SDE_DEBUG(
+				"display pref not met. is_primary: %d primary_pref: %d\n",
+				reqs->hw_res.is_primary, primary_pref);
 			continue;
+		}
 
 		ctls[i] = iter.blk;
 		SDE_DEBUG("ctl %d match\n", iter.blk->id);
@@ -1032,11 +1059,11 @@ static int _sde_rm_make_next_rsvp(
 	 * - Check mixers without Split Display
 	 * - Only then allow to grab from CTLs with split display capability
 	 */
-	_sde_rm_reserve_ctls(rm, rsvp, reqs->topology);
+	_sde_rm_reserve_ctls(rm, rsvp, reqs, reqs->topology);
 	if (ret && !reqs->topology->needs_split_display) {
 		memcpy(&topology, reqs->topology, sizeof(topology));
 		topology.needs_split_display = true;
-		_sde_rm_reserve_ctls(rm, rsvp, &topology);
+		_sde_rm_reserve_ctls(rm, rsvp, reqs, &topology);
 	}
 	if (ret) {
 		SDE_ERROR("unable to find appropriate CTL\n");
@@ -1083,10 +1110,6 @@ static int _sde_rm_populate_requirements(
 		SDE_ERROR("invalid topology for the display\n");
 		return -EINVAL;
 	}
-
-	/* DSC blocks are hardwired for control path 0 and 1 */
-	if (reqs->topology->num_comp_enc)
-		reqs->top_ctrl |= BIT(SDE_RM_TOPCTL_DSPP);
 
 	/**
 	 * Set the requirement based on caps if not set from user space
@@ -1143,6 +1166,33 @@ static struct drm_connector *_sde_rm_get_connector(
 			return conn;
 
 	return NULL;
+}
+
+int sde_rm_update_topology(struct drm_connector_state *conn_state,
+	struct msm_display_topology *topology)
+{
+	int i, ret = 0;
+	struct msm_display_topology top;
+	enum sde_rm_topology_name top_name = SDE_RM_TOPOLOGY_NONE;
+
+	if (!conn_state)
+		return -EINVAL;
+
+	if (topology) {
+		top = *topology;
+		for (i = 0; i < SDE_RM_TOPOLOGY_MAX; i++)
+			if (RM_IS_TOPOLOGY_MATCH(g_top_table[i], top)) {
+				top_name = g_top_table[i].top_name;
+				break;
+			}
+	}
+
+	ret = msm_property_set_property(
+			sde_connector_get_propinfo(conn_state->connector),
+			sde_connector_get_property_state(conn_state),
+			CONNECTOR_PROP_TOPOLOGY_NAME, top_name);
+
+	return ret;
 }
 
 /**
@@ -1226,12 +1276,6 @@ void sde_rm_release(struct sde_rm *rm, struct drm_encoder *enc)
 		SDE_DEBUG("release rsvp[s%de%d]\n", rsvp->seq,
 				rsvp->enc_id);
 		_sde_rm_release_rsvp(rm, rsvp, conn);
-
-		(void) msm_property_set_property(
-				sde_connector_get_propinfo(conn),
-				sde_connector_get_property_state(conn->state),
-				CONNECTOR_PROP_TOPOLOGY_NAME,
-				SDE_RM_TOPOLOGY_NONE);
 	}
 
 end:
@@ -1246,18 +1290,6 @@ static int _sde_rm_commit_rsvp(
 	struct sde_rm_hw_blk *blk;
 	enum sde_hw_blk_type type;
 	int ret = 0;
-
-	ret = msm_property_set_property(
-			sde_connector_get_propinfo(conn_state->connector),
-			sde_connector_get_property_state(conn_state),
-			CONNECTOR_PROP_TOPOLOGY_NAME,
-			rsvp->topology);
-	if (ret) {
-		SDE_ERROR("failed to set topology name property, ret %d\n",
-				ret);
-		_sde_rm_release_rsvp(rm, rsvp, conn_state->connector);
-		return ret;
-	}
 
 	/* Swap next rsvp to be the active */
 	for (type = 0; type < SDE_HW_BLK_MAX; type++) {
@@ -1343,12 +1375,6 @@ int sde_rm_reserve(
 		_sde_rm_release_rsvp(rm, rsvp_cur, conn_state->connector);
 		rsvp_cur = NULL;
 		_sde_rm_print_rsvps(rm, SDE_RM_STAGE_AFTER_CLEAR);
-		(void) msm_property_set_property(
-				sde_connector_get_propinfo(
-						conn_state->connector),
-				sde_connector_get_property_state(conn_state),
-				CONNECTOR_PROP_TOPOLOGY_NAME,
-				SDE_RM_TOPOLOGY_NONE);
 	}
 
 	/* Check the proposed reservation, store it in hw's "next" field */

@@ -62,6 +62,9 @@
 #define CHGR_BATTOV_CFG_REG			(CHGR_BASE + 0x70)
 #define BATTOV_SETTING_MASK			GENMASK(7, 0)
 
+#define CHGR_PRE_TO_FAST_THRESHOLD_CFG_REG	(CHGR_BASE + 0x74)
+#define PRE_TO_FAST_CHARGE_THRESHOLD_MASK	GENMASK(2, 0)
+
 #define POWER_MODE_HICCUP_CFG			(BATIF_BASE + 0x72)
 #define MAX_HICCUP_DUETO_BATDIS_MASK		GENMASK(5, 2)
 #define HICCUP_TIMEOUT_CFG_MASK			GENMASK(1, 0)
@@ -268,6 +271,22 @@ static irqreturn_t smb1355_handle_wdog_bark(int irq, void *data)
 		pr_err("Couldn't pet the dog rc=%d\n", rc);
 
 	return IRQ_HANDLED;
+}
+
+static irqreturn_t smb1355_handle_temperature_change(int irq, void *data)
+{
+	struct smb1355 *chip = data;
+
+	if (chip->parallel_psy)
+		power_supply_changed(chip->parallel_psy);
+
+	return IRQ_HANDLED;
+}
+
+static int smb1355_determine_initial_status(struct smb1355 *chip)
+{
+	smb1355_handle_temperature_change(0, chip);
+	return 0;
 }
 
 /*****************************
@@ -619,6 +638,15 @@ static int smb1355_init_hw(struct smb1355 *chip)
 		return rc;
 	}
 
+	/* set Pre-to-Fast Charging Threshold 2.6V */
+	rc = smb1355_masked_write(chip, CHGR_PRE_TO_FAST_THRESHOLD_CFG_REG,
+				 PRE_TO_FAST_CHARGE_THRESHOLD_MASK, 0);
+	if (rc < 0) {
+		pr_err("Couldn't set PRE_TO_FAST_CHARGE_THRESHOLD rc=%d\n",
+			rc);
+		return rc;
+	}
+
 	return 0;
 }
 
@@ -635,6 +663,10 @@ static struct smb_irq_info smb1355_irqs[] = {
 		.name		= "chg-state-change",
 		.handler	= smb1355_handle_chg_state_change,
 		.wake		= true,
+	},
+	[2] = {
+		.name		= "temperature-change",
+		.handler	= smb1355_handle_temperature_change,
 	},
 };
 
@@ -757,6 +789,13 @@ static int smb1355_probe(struct platform_device *pdev)
 	rc = smb1355_init_parallel_psy(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize parallel psy rc=%d\n", rc);
+		goto cleanup;
+	}
+
+	rc = smb1355_determine_initial_status(chip);
+	if (rc < 0) {
+		pr_err("Couldn't determine initial status rc=%d\n",
+			rc);
 		goto cleanup;
 	}
 

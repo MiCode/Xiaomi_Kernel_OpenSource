@@ -223,7 +223,7 @@ static int kgsl_bus_scale_request(struct kgsl_device *device,
 	}
 
 	if (ret)
-		KGSL_PWR_ERR(device, "GPU BW scaling failure\n");
+		KGSL_PWR_ERR(device, "GPU BW scaling failure: %d\n", ret);
 
 	return ret;
 }
@@ -233,7 +233,7 @@ static int kgsl_bus_scale_request(struct kgsl_device *device,
  * @device: Pointer to the kgsl_device struct
  * @pwrlevel: power level in pwrlevels[] table
  */
-static int kgsl_clk_set_rate(struct kgsl_device *device,
+int kgsl_clk_set_rate(struct kgsl_device *device,
 		unsigned int pwrlevel)
 {
 	struct gmu_device *gmu = &device->gmu;
@@ -263,7 +263,7 @@ static int kgsl_clk_set_rate(struct kgsl_device *device,
 		ret = clk_set_rate(pwr->grp_clks[0], pl->gpu_freq);
 
 	if (ret)
-		KGSL_PWR_ERR(device, "GPU clk freq set failure\n");
+		KGSL_PWR_ERR(device, "GPU clk freq set failure: %d\n", ret);
 
 	return ret;
 }
@@ -344,12 +344,14 @@ static void kgsl_pwrctrl_pwrlevel_change_settings(struct kgsl_device *device,
 
 /**
  * kgsl_pwrctrl_set_thermal_cycle() - set the thermal cycle if required
- * @pwr: Pointer to the kgsl_pwrctrl struct
+ * @device: Pointer to the kgsl_device struct
  * @new_level: the level to transition to
  */
-static void kgsl_pwrctrl_set_thermal_cycle(struct kgsl_pwrctrl *pwr,
+void kgsl_pwrctrl_set_thermal_cycle(struct kgsl_device *device,
 						unsigned int new_level)
 {
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+
 	if ((new_level != pwr->thermal_pwrlevel) || !pwr->sysfs_pwr_limit)
 		return;
 	if (pwr->thermal_pwrlevel == pwr->sysfs_pwr_limit->level) {
@@ -370,21 +372,15 @@ static void kgsl_pwrctrl_set_thermal_cycle(struct kgsl_pwrctrl *pwr,
 }
 
 /**
- * kgsl_pwrctrl_pwrlevel_change() - Validate and change power levels
+ * kgsl_pwrctrl_adjust_pwrlevel() - Adjust the power level if
+ * required by thermal, max/min, constraints, etc
  * @device: Pointer to the kgsl_device struct
  * @new_level: Requested powerlevel, an index into the pwrlevel array
- *
- * Check that any power level constraints are still valid.  Update the
- * requested level according to any thermal, max/min, or power constraints.
- * If a new GPU level is going to be set, update the bus to that level's
- * default value.  Do not change the bus if a constraint keeps the new
- * level at the current level.  Set the new GPU frequency.
  */
-void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
+unsigned int kgsl_pwrctrl_adjust_pwrlevel(struct kgsl_device *device,
 				unsigned int new_level)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	struct kgsl_pwrlevel *pwrlevel;
 	unsigned int old_level = pwr->active_pwrlevel;
 
 	/* If a pwr constraint is expired, remove it */
@@ -402,14 +398,35 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	 * Adjust the power level if required by thermal, max/min,
 	 * constraints, etc
 	 */
-	new_level = _adjust_pwrlevel(pwr, new_level, &pwr->constraint,
+	return _adjust_pwrlevel(pwr, new_level, &pwr->constraint,
 					device->pwrscale.popp_level);
+}
+
+/**
+ * kgsl_pwrctrl_pwrlevel_change() - Validate and change power levels
+ * @device: Pointer to the kgsl_device struct
+ * @new_level: Requested powerlevel, an index into the pwrlevel array
+ *
+ * Check that any power level constraints are still valid.  Update the
+ * requested level according to any thermal, max/min, or power constraints.
+ * If a new GPU level is going to be set, update the bus to that level's
+ * default value.  Do not change the bus if a constraint keeps the new
+ * level at the current level.  Set the new GPU frequency.
+ */
+void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
+				unsigned int new_level)
+{
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	struct kgsl_pwrlevel *pwrlevel;
+	unsigned int old_level = pwr->active_pwrlevel;
+
+	new_level = kgsl_pwrctrl_adjust_pwrlevel(device, new_level);
 
 	/*
 	 * If thermal cycling is required and the new level hits the
 	 * thermal limit, kick off the cycling.
 	 */
-	kgsl_pwrctrl_set_thermal_cycle(pwr, new_level);
+	kgsl_pwrctrl_set_thermal_cycle(device, new_level);
 
 	if (new_level == old_level &&
 		!test_bit(GMU_DCVS_REPLAY, &device->gmu.flags))
@@ -722,7 +739,7 @@ static int _get_nearest_pwrlevel(struct kgsl_pwrctrl *pwr, unsigned int clock)
 {
 	int i;
 
-	for (i = pwr->num_pwrlevels - 1; i >= 0; i--) {
+	for (i = pwr->num_pwrlevels - 2; i >= 0; i--) {
 		if (abs(pwr->pwrlevels[i].gpu_freq - clock) < 5000000)
 			return i;
 	}
@@ -2485,9 +2502,6 @@ static int kgsl_pwrctrl_enable(struct kgsl_device *device)
 static void kgsl_pwrctrl_disable(struct kgsl_device *device)
 {
 	if (kgsl_gmu_isenabled(device)) {
-		struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-
-		pwr->active_pwrlevel = pwr->num_pwrlevels - 1;
 		kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_OFF);
 		return gmu_stop(device);
 	}

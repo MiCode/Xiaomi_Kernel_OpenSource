@@ -208,10 +208,11 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	unsigned int contextidr;
 	unsigned long flags;
 	uint32_t preempt_level, usesgmem, skipsaverestore;
+	struct adreno_preemption *preempt = &adreno_dev->preempt;
 
-	preempt_level = adreno_dev->preempt_level;
-	usesgmem = adreno_dev->usesgmem;
-	skipsaverestore = adreno_dev->skipsaverestore;
+	preempt_level = preempt->preempt_level;
+	usesgmem = preempt->usesgmem;
+	skipsaverestore = preempt->skipsaverestore;
 
 	/* Put ourselves into a possible trigger state */
 	if (!adreno_move_preempt_state(adreno_dev,

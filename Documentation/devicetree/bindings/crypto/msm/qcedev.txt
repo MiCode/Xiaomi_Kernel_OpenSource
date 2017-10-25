@@ -20,7 +20,7 @@ Optional properties:
   - qcom,ce-hw-key : optional, indicates if the hardware supports use of HW KEY.
   - qcom,support-core-clk-only : optional, indicates if the HW supports single crypto core clk.
   - qcom,bsm-ee : optional, indicate the BAM EE value, changes from target to target. Default value is 1 if not specified.
-  - qcom,smmu-s1-bypass : Boolean flag to bypass SMMU stage 1 translation.
+  - qcom,smmu-s1-enable : Boolean flag to enable SMMU stage 1 translation.
   - iommus : A list of phandle and IOMMU specifier pairs that describe the IOMMU master interfaces of the device.
 
 Example:

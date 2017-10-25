@@ -881,9 +881,17 @@ static int geni_i2c_runtime_resume(struct device *dev)
 		return ret;
 
 	if (gi2c->se_mode == UNINITIALIZED) {
-		u32 se_mode = readl_relaxed(gi2c->base +
-					GENI_IF_FIFO_DISABLE_RO);
+		int proto = get_se_proto(gi2c->base);
+		u32 se_mode;
 
+		if (unlikely(proto != I2C)) {
+			dev_err(gi2c->dev, "Invalid proto %d\n", proto);
+			se_geni_resources_off(&gi2c->i2c_rsc);
+			return -ENXIO;
+		}
+
+		se_mode = readl_relaxed(gi2c->base +
+					GENI_IF_FIFO_DISABLE_RO);
 		if (se_mode) {
 			gi2c->se_mode = GSI_ONLY;
 			geni_se_select_mode(gi2c->base, GSI_DMA);
@@ -910,8 +918,23 @@ static int geni_i2c_runtime_resume(struct device *dev)
 
 static int geni_i2c_suspend_noirq(struct device *device)
 {
-	if (!pm_runtime_status_suspended(device))
+	struct geni_i2c_dev *gi2c = dev_get_drvdata(device);
+	int ret;
+
+	/* Make sure no transactions are pending */
+	ret = i2c_trylock_bus(&gi2c->adap, I2C_LOCK_SEGMENT);
+	if (!ret) {
+		GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
+				"late I2C transaction request\n");
 		return -EBUSY;
+	}
+	if (!pm_runtime_status_suspended(device)) {
+		geni_i2c_runtime_suspend(device);
+		pm_runtime_disable(device);
+		pm_runtime_set_suspended(device);
+		pm_runtime_enable(device);
+	}
+	i2c_unlock_bus(&gi2c->adap, I2C_LOCK_SEGMENT);
 	return 0;
 }
 #else

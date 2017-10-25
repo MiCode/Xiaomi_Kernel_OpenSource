@@ -2349,7 +2349,6 @@ struct related_thread_group {
 };
 
 extern struct list_head cluster_head;
-extern int num_clusters;
 extern struct sched_cluster *sched_cluster[NR_CPUS];
 
 #define for_each_sched_cluster(cluster) \
@@ -2841,3 +2840,17 @@ static inline bool energy_aware(void)
 {
 	return sched_feat(ENERGY_AWARE);
 }
+
+#ifdef CONFIG_SCHED_CORE_ROTATE
+struct find_first_cpu_bit_env {
+	unsigned long *avoid_prev_cpu_last;
+	int *rotate_cpu_start;
+	int interval;
+	spinlock_t *rotate_lock;
+};
+
+int
+find_first_cpu_bit(struct task_struct *p, const cpumask_t *search_cpus,
+		   struct sched_group *sg_target, bool *avoid_prev_cpu,
+		   bool *do_rotate, struct find_first_cpu_bit_env *env);
+#endif

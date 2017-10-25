@@ -603,13 +603,47 @@ int ipa3_qmi_filter_request_send(struct ipa_install_fltr_rule_req_msg_v01 *req)
 	struct ipa_install_fltr_rule_resp_msg_v01 resp;
 	struct msg_desc req_desc, resp_desc;
 	int rc;
+	int i;
 
 	/* check if the filter rules from IPACM is valid */
-	if (req->filter_spec_ex_list_len == 0) {
+	if (req->filter_spec_list_len == 0) {
 		IPAWANDBG("IPACM pass zero rules to Q6\n");
 	} else {
 		IPAWANDBG("IPACM pass %u rules to Q6\n",
 		req->filter_spec_ex_list_len);
+	}
+
+	if (req->filter_spec_list_len >= QMI_IPA_MAX_FILTERS_V01) {
+		IPAWANDBG(
+		"IPACM passes the number of filtering rules exceed limit\n");
+		return -EINVAL;
+	} else if (req->source_pipe_index_valid != 0) {
+		IPAWANDBG(
+		"IPACM passes source_pipe_index_valid not zero 0 != %d\n",
+			req->source_pipe_index_valid);
+		return -EINVAL;
+	} else if (req->source_pipe_index >= ipa3_ctx->ipa_num_pipes) {
+		IPAWANDBG(
+		"IPACM passes source pipe index not valid ID = %d\n",
+		req->source_pipe_index);
+		return -EINVAL;
+	}
+	for (i = 0; i < req->filter_spec_list_len; i++) {
+		if ((req->filter_spec_list[i].ip_type !=
+			QMI_IPA_IP_TYPE_V4_V01) &&
+			(req->filter_spec_list[i].ip_type !=
+			QMI_IPA_IP_TYPE_V6_V01))
+			return -EINVAL;
+		if (req->filter_spec_list[i].is_mux_id_valid == false)
+			return -EINVAL;
+		if (req->filter_spec_list[i].is_routing_table_index_valid
+			== false)
+			return -EINVAL;
+		if ((req->filter_spec_list[i].filter_action <=
+			QMI_IPA_FILTER_ACTION_INVALID_V01) &&
+			(req->filter_spec_list[i].filter_action >
+			QMI_IPA_FILTER_ACTION_EXCEPTION_V01))
+			return -EINVAL;
 	}
 
 	mutex_lock(&ipa3_qmi_lock);
@@ -653,6 +687,7 @@ int ipa3_qmi_filter_request_ex_send(
 	struct ipa_install_fltr_rule_resp_ex_msg_v01 resp;
 	struct msg_desc req_desc, resp_desc;
 	int rc;
+	int i;
 
 	/* check if the filter rules from IPACM is valid */
 	if (req->filter_spec_ex_list_len == 0) {
@@ -662,6 +697,34 @@ int ipa3_qmi_filter_request_ex_send(
 		req->filter_spec_ex_list_len);
 	}
 
+	if (req->filter_spec_ex_list_len >= QMI_IPA_MAX_FILTERS_EX_V01) {
+		IPAWANDBG(
+		"IPACM pass the number of filtering rules exceed limit\n");
+		return -EINVAL;
+	} else if (req->source_pipe_index_valid != 0) {
+		IPAWANDBG(
+		"IPACM passes source_pipe_index_valid not zero 0 != %d\n",
+			req->source_pipe_index_valid);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < req->filter_spec_ex_list_len-1; i++) {
+		if ((req->filter_spec_ex_list[i].ip_type !=
+			QMI_IPA_IP_TYPE_V4_V01) &&
+			(req->filter_spec_ex_list[i].ip_type !=
+			QMI_IPA_IP_TYPE_V6_V01))
+			return -EINVAL;
+		if (req->filter_spec_ex_list[i].is_mux_id_valid == false)
+			return -EINVAL;
+		if (req->filter_spec_ex_list[i].is_routing_table_index_valid
+			== false)
+			return -EINVAL;
+		if ((req->filter_spec_ex_list[i].filter_action <=
+			QMI_IPA_FILTER_ACTION_INVALID_V01) &&
+			(req->filter_spec_ex_list[i].filter_action >
+			QMI_IPA_FILTER_ACTION_EXCEPTION_V01))
+			return -EINVAL;
+	}
 	mutex_lock(&ipa3_qmi_lock);
 	if (ipa3_qmi_ctx != NULL) {
 		/* cache the qmi_filter_request */
@@ -798,13 +861,36 @@ int ipa3_qmi_filter_notify_send(
 
 	/* check if the filter rules from IPACM is valid */
 	if (req->rule_id_len == 0) {
-		IPAWANERR(" delete UL filter rule for pipe %d\n",
+		IPAWANDBG(" delete UL filter rule for pipe %d\n",
 		req->source_pipe_index);
-		return -EINVAL;
 	} else if (req->rule_id_len > QMI_IPA_MAX_FILTERS_V01) {
 		IPAWANERR(" UL filter rule for pipe %d exceed max (%u)\n",
 		req->source_pipe_index,
 		req->rule_id_len);
+		return -EINVAL;
+	} else if (req->install_status != IPA_QMI_RESULT_SUCCESS_V01) {
+		IPAWANERR(" UL filter rule for pipe %d install_status = %d\n",
+			req->source_pipe_index, req->install_status);
+		return -EINVAL;
+	} else if (req->rule_id_valid != 1) {
+		IPAWANERR(" UL filter rule for pipe %d rule_id_valid = %d\n",
+			req->source_pipe_index, req->rule_id_valid);
+		return -EINVAL;
+	} else if (req->source_pipe_index >= ipa3_ctx->ipa_num_pipes) {
+		IPAWANDBG(
+		"IPACM passes source pipe index not valid ID = %d\n",
+		req->source_pipe_index);
+		return -EINVAL;
+	} else if (((req->embedded_pipe_index_valid != true) ||
+			(req->embedded_call_mux_id_valid != true)) &&
+			((req->embedded_pipe_index_valid != false) ||
+			(req->embedded_call_mux_id_valid != false))) {
+		IPAWANERR(
+			"IPACM passes embedded pipe and mux valid not valid\n");
+		return -EINVAL;
+	} else if (req->embedded_pipe_index >= ipa3_ctx->ipa_num_pipes) {
+		IPAWANERR("IPACM passes source pipe index not valid ID = %d\n",
+		req->source_pipe_index);
 		return -EINVAL;
 	}
 

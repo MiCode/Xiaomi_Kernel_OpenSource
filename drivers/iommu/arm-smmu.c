@@ -101,6 +101,9 @@
 #define sCR0_VMID16EN			(1 << 31)
 #define sCR0_BSU_SHIFT			14
 #define sCR0_BSU_MASK			0x3
+#define sCR0_SHCFG_SHIFT		22
+#define sCR0_SHCFG_MASK			0x3
+#define sCR0_SHCFG_NSH			3
 
 /* Auxiliary Configuration register */
 #define ARM_SMMU_GR0_sACR		0x10
@@ -177,6 +180,9 @@
 #define S2CR_CBNDX_MASK			0xff
 #define S2CR_TYPE_SHIFT			16
 #define S2CR_TYPE_MASK			0x3
+#define S2CR_SHCFG_SHIFT		8
+#define S2CR_SHCFG_MASK			0x3
+#define S2CR_SHCFG_NSH			0x3
 enum arm_smmu_s2cr_type {
 	S2CR_TYPE_TRANS,
 	S2CR_TYPE_BYPASS,
@@ -251,6 +257,9 @@ enum arm_smmu_s2cr_privcfg {
 #define ARM_SMMU_CB_ATS1PR		0x800
 #define ARM_SMMU_CB_ATSR		0x8f0
 
+#define SCTLR_SHCFG_SHIFT		22
+#define SCTLR_SHCFG_MASK		0x3
+#define SCTLR_SHCFG_NSH			0x3
 #define SCTLR_S1_ASIDPNE		(1 << 12)
 #define SCTLR_CFCFG			(1 << 7)
 #define SCTLR_HUPCF			(1 << 8)
@@ -1181,6 +1190,7 @@ static void arm_smmu_secure_pool_destroy(struct arm_smmu_domain *smmu_domain)
 	list_for_each_entry_safe(it, i, &smmu_domain->secure_pool_list, list) {
 		arm_smmu_unprepare_pgtable(smmu_domain, it->addr, it->size);
 		/* pages will be freed later (after being unassigned) */
+		list_del(&it->list);
 		kfree(it);
 	}
 }
@@ -1525,6 +1535,9 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 
 	/* SCTLR */
 	reg = SCTLR_CFCFG | SCTLR_CFIE | SCTLR_CFRE | SCTLR_AFE | SCTLR_TRE;
+
+	/* Ensure bypass transactions are Non-shareable */
+	reg |= SCTLR_SHCFG_NSH << SCTLR_SHCFG_SHIFT;
 
 	if (smmu_domain->attributes & (1 << DOMAIN_ATTR_CB_STALL_DISABLE)) {
 		reg &= ~SCTLR_CFCFG;
@@ -1929,7 +1942,8 @@ static void arm_smmu_write_s2cr(struct arm_smmu_device *smmu, int idx)
 	struct arm_smmu_s2cr *s2cr = smmu->s2crs + idx;
 	u32 reg = (s2cr->type & S2CR_TYPE_MASK) << S2CR_TYPE_SHIFT |
 		  (s2cr->cbndx & S2CR_CBNDX_MASK) << S2CR_CBNDX_SHIFT |
-		  (s2cr->privcfg & S2CR_PRIVCFG_MASK) << S2CR_PRIVCFG_SHIFT;
+		  (s2cr->privcfg & S2CR_PRIVCFG_MASK) << S2CR_PRIVCFG_SHIFT |
+		  S2CR_SHCFG_NSH << S2CR_SHCFG_SHIFT;
 
 	writel_relaxed(reg, ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_S2CR(idx));
 }
@@ -2392,10 +2406,6 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	if (!ops)
 		return -ENODEV;
 
-	ret = arm_smmu_domain_power_on(domain, smmu_domain->smmu);
-	if (ret)
-		return ret;
-
 	arm_smmu_secure_domain_lock(smmu_domain);
 
 	__saved_iova_start = iova;
@@ -2436,7 +2446,6 @@ out:
 		iova = __saved_iova_start;
 	}
 	arm_smmu_secure_domain_unlock(smmu_domain);
-	arm_smmu_domain_power_off(domain, smmu_domain->smmu);
 	return iova - __saved_iova_start;
 }
 
@@ -2950,11 +2959,22 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 				1 << DOMAIN_ATTR_UPSTREAM_IOVA_ALLOCATOR;
 		ret = 0;
 		break;
+	/*
+	 * fast_smmu_unmap_page() and fast_smmu_alloc_iova() both
+	 * expect that the bus/clock/regulator are already on. Thus also
+	 * force DOMAIN_ATTR_ATOMIC to bet set.
+	 */
 	case DOMAIN_ATTR_FAST:
-		if (*((int *)data))
+	{
+		int fast = *((int *)data);
+
+		if (fast) {
 			smmu_domain->attributes |= 1 << DOMAIN_ATTR_FAST;
+			smmu_domain->attributes |= 1 << DOMAIN_ATTR_ATOMIC;
+		}
 		ret = 0;
 		break;
+	}
 	case DOMAIN_ATTR_USE_UPSTREAM_HINT:
 		/* can't be changed while attached */
 		if (smmu_domain->smmu != NULL) {
@@ -3429,6 +3449,10 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 
 	if (smmu->features & ARM_SMMU_FEAT_VMID16)
 		reg |= sCR0_VMID16EN;
+
+	/* Force bypass transaction to be Non-Shareable & not io-coherent */
+	reg &= ~(sCR0_SHCFG_MASK << sCR0_SHCFG_SHIFT);
+	reg |= sCR0_SHCFG_NSH;
 
 	/* Push the button */
 	__arm_smmu_tlb_sync(smmu);

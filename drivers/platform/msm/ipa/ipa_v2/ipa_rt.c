@@ -863,6 +863,7 @@ int ipa2_query_rt_index(struct ipa_ioc_get_rt_tbl_indx *in)
 
 	mutex_lock(&ipa_ctx->lock);
 	/* check if this table exists */
+	in->name[IPA_RESOURCE_NAME_MAX-1] = '\0';
 	entry = __ipa_find_rt_tbl(in->ip, in->name);
 	if (!entry) {
 		mutex_unlock(&ipa_ctx->lock);
@@ -1099,6 +1100,7 @@ int ipa2_add_rt_rule(struct ipa_ioc_add_rt_rule *rules)
 
 	mutex_lock(&ipa_ctx->lock);
 	for (i = 0; i < rules->num_rules; i++) {
+		rules->rt_tbl_name[IPA_RESOURCE_NAME_MAX-1] = '\0';
 		if (__ipa_add_rt_rule(rules->ip, rules->rt_tbl_name,
 					&rules->rules[i].rule,
 					rules->rules[i].at_rear,
@@ -1368,6 +1370,7 @@ int ipa2_get_rt_tbl(struct ipa_ioc_get_rt_tbl *lookup)
 		return -EINVAL;
 	}
 	mutex_lock(&ipa_ctx->lock);
+	lookup->name[IPA_RESOURCE_NAME_MAX-1] = '\0';
 	entry = __ipa_find_rt_tbl(lookup->ip, lookup->name);
 	if (entry && entry->cookie == IPA_RT_TBL_COOKIE) {
 		if (entry->ref_cnt == U32_MAX) {

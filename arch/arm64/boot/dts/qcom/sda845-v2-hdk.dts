@@ -10,19 +10,14 @@
  * GNU General Public License for more details.
  */
 
-#ifndef CAM_JPEG_ENC_HW_INTF_H
-#define CAM_JPEG_ENC_HW_INTF_H
 
-#include <uapi/media/cam_defs.h>
-#include <media/cam_jpeg.h>
+/dts-v1/;
 
-#include "cam_hw_mgr_intf.h"
-#include "cam_jpeg_hw_intf.h"
+#include "sda845-v2.dtsi"
+#include "sda845-v2-hdk.dtsi"
 
-enum cam_jpeg_enc_cmd_type {
-	CAM_JPEG_ENC_CMD_CDM_CFG,
-	CAM_JPEG_ENC_CMD_SET_IRQ_CB,
-	CAM_JPEG_ENC_CMD_MAX,
+/ {
+	model = "Qualcomm Technologies, Inc. SDA845 HDK";
+	compatible = "qcom,sda845-hdk", "qcom,sda845", "qcom,hdk";
+	qcom,board-id = <0x01001F 0x00>;
 };
-
-#endif /* CAM_JPEG_ENC_HW_INTF_H */

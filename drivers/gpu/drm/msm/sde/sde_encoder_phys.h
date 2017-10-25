@@ -117,6 +117,7 @@ struct sde_encoder_virt_ops {
  * @prepare_for_kickoff:	Do any work necessary prior to a kickoff
  *				For CMD encoder, may wait for previous tx done
  * @handle_post_kickoff:	Do any work necessary post-kickoff work
+ * @trigger_flush:		Process flush event on physical encoder
  * @trigger_start:		Process start event on physical encoder
  * @needs_single_flush:		Whether encoder slaves need to be flushed
  * @setup_misr:		Sets up MISR, enable and disables based on sysfs
@@ -131,6 +132,8 @@ struct sde_encoder_virt_ops {
  * @is_autorefresh_enabled:	provides the autorefresh current
  *                              enable/disable state.
  * @get_line_count:		Obtain current vertical line count
+ * @wait_dma_trigger:		Returns true if lut dma has to trigger and wait
+ *                              unitl transaction is complete.
  */
 
 struct sde_encoder_phys_ops {
@@ -160,6 +163,7 @@ struct sde_encoder_phys_ops {
 	void (*prepare_for_kickoff)(struct sde_encoder_phys *phys_enc,
 			struct sde_encoder_kickoff_params *params);
 	void (*handle_post_kickoff)(struct sde_encoder_phys *phys_enc);
+	void (*trigger_flush)(struct sde_encoder_phys *phys_enc);
 	void (*trigger_start)(struct sde_encoder_phys *phys_enc);
 	bool (*needs_single_flush)(struct sde_encoder_phys *phys_enc);
 
@@ -174,6 +178,7 @@ struct sde_encoder_phys_ops {
 	void (*restore)(struct sde_encoder_phys *phys);
 	bool (*is_autorefresh_enabled)(struct sde_encoder_phys *phys);
 	int (*get_line_count)(struct sde_encoder_phys *phys);
+	bool (*wait_dma_trigger)(struct sde_encoder_phys *phys);
 };
 
 /**
@@ -461,6 +466,14 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 void sde_encoder_phys_setup_cdm(struct sde_encoder_phys *phys_enc,
 		struct drm_framebuffer *fb, const struct sde_format *format,
 		struct sde_rect *wb_roi);
+
+/**
+ * sde_encoder_helper_trigger_flush - control flush helper function
+ *	This helper function may be optionally specified by physical
+ *	encoders if they require ctl_flush triggering.
+ * @phys_enc: Pointer to physical encoder structure
+ */
+void sde_encoder_helper_trigger_flush(struct sde_encoder_phys *phys_enc);
 
 /**
  * sde_encoder_helper_trigger_start - control start helper function

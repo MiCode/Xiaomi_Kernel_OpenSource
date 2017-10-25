@@ -88,6 +88,7 @@ struct dp_display_private {
 	struct workqueue_struct *hdcp_workqueue;
 	struct delayed_work hdcp_cb_work;
 	struct mutex hdcp_mutex;
+	struct mutex session_lock;
 	int hdcp_status;
 };
 
@@ -500,6 +501,8 @@ static int dp_display_send_hpd_notification(struct dp_display_private *dp,
 
 	if (!wait_for_completion_timeout(&dp->notification_comp, HZ * 5)) {
 		pr_warn("%s timeout\n", hpd ? "connect" : "disconnect");
+		/* cancel any pending request */
+		dp->ctrl->abort(dp->ctrl);
 		return -EINVAL;
 	}
 
@@ -634,6 +637,7 @@ static void dp_display_clean(struct dp_display_private *dp)
 
 	dp->ctrl->push_idle(dp->ctrl);
 	dp->ctrl->off(dp->ctrl);
+	dp->power_on = false;
 }
 
 static int dp_display_usbpd_disconnect_cb(struct device *dev)
@@ -662,6 +666,8 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 
 	rc = dp_display_send_hpd_notification(dp, false);
 
+	mutex_lock(&dp->session_lock);
+
 	/* if cable is disconnected, reset psm_enabled flag */
 	if (!dp->usbpd->alt_mode_cfg_done)
 		dp->link->psm_enabled = false;
@@ -670,6 +676,8 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 		dp_display_clean(dp);
 
 	dp_display_host_deinit(dp);
+
+	mutex_unlock(&dp->session_lock);
 end:
 	return rc;
 }
@@ -760,6 +768,7 @@ static void dp_display_deinit_sub_modules(struct dp_display_private *dp)
 	dp_catalog_put(dp->catalog);
 	dp_parser_put(dp->parser);
 	dp_usbpd_put(dp->usbpd);
+	mutex_destroy(&dp->session_lock);
 	dp_debug_put(dp->debug);
 }
 
@@ -786,6 +795,8 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 		dp->usbpd = NULL;
 		goto error;
 	}
+
+	mutex_init(&dp->session_lock);
 
 	dp->parser = dp_parser_get(dp->pdev);
 	if (IS_ERR(dp->parser)) {
@@ -890,6 +901,7 @@ error_catalog:
 	dp_parser_put(dp->parser);
 error_parser:
 	dp_usbpd_put(dp->usbpd);
+	mutex_destroy(&dp->session_lock);
 error:
 	return rc;
 }
@@ -897,20 +909,20 @@ error:
 static int dp_display_set_mode(struct dp_display *dp_display,
 		struct dp_display_mode *mode)
 {
-	int rc = 0;
 	struct dp_display_private *dp;
 
 	if (!dp_display) {
 		pr_err("invalid input\n");
-		rc = -EINVAL;
-		goto error;
+		return -EINVAL;
 	}
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 
+	mutex_lock(&dp->session_lock);
 	dp->panel->pinfo = mode->timing;
 	dp->panel->init_info(dp->panel);
-error:
-	return rc;
+	mutex_unlock(&dp->session_lock);
+
+	return 0;
 }
 
 static int dp_display_prepare(struct dp_display *dp)
@@ -925,36 +937,43 @@ static int dp_display_enable(struct dp_display *dp_display)
 
 	if (!dp_display) {
 		pr_err("invalid input\n");
-		rc = -EINVAL;
-		goto error;
+		return -EINVAL;
 	}
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 
+	mutex_lock(&dp->session_lock);
+
 	if (dp->power_on) {
 		pr_debug("Link already setup, return\n");
-		return 0;
+		goto end;
 	}
 
 	rc = dp->ctrl->on(dp->ctrl);
 	if (!rc)
 		dp->power_on = true;
-error:
+end:
+	mutex_unlock(&dp->session_lock);
 	return rc;
 }
 
 static int dp_display_post_enable(struct dp_display *dp_display)
 {
-	int rc = 0;
 	struct dp_display_private *dp;
 
 	if (!dp_display) {
 		pr_err("invalid input\n");
-		rc = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
+
+	mutex_lock(&dp->session_lock);
+
+	if (!dp->power_on) {
+		pr_debug("Link not setup, return\n");
+		goto end;
+	}
 
 	if (dp->audio_supported) {
 		dp->audio->bw_code = dp->link->link_params.bw_code;
@@ -973,22 +992,29 @@ static int dp_display_post_enable(struct dp_display *dp_display)
 		queue_delayed_work(dp->hdcp_workqueue,
 				&dp->hdcp_cb_work, HZ / 2);
 	}
+
 end:
-	return rc;
+	mutex_unlock(&dp->session_lock);
+	return 0;
 }
 
 static int dp_display_pre_disable(struct dp_display *dp_display)
 {
-	int rc = 0;
 	struct dp_display_private *dp;
 
 	if (!dp_display) {
 		pr_err("invalid input\n");
-		rc = -EINVAL;
-		goto error;
+		return -EINVAL;
 	}
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
+
+	mutex_lock(&dp->session_lock);
+
+	if (!dp->power_on) {
+		pr_debug("Link already powered off, return\n");
+		goto end;
+	}
 
 	if (dp_display_is_hdcp_enabled(dp)) {
 		dp->hdcp_status = HDCP_STATE_INACTIVE;
@@ -1003,33 +1029,38 @@ static int dp_display_pre_disable(struct dp_display *dp_display)
 		dp->link->psm_config(dp->link, &dp->panel->link_info, true);
 
 	dp->ctrl->push_idle(dp->ctrl);
-error:
-	return rc;
+
+end:
+	mutex_unlock(&dp->session_lock);
+	return 0;
 }
 
 static int dp_display_disable(struct dp_display *dp_display)
 {
-	int rc = 0;
 	struct dp_display_private *dp;
 
 	if (!dp_display) {
 		pr_err("invalid input\n");
-		rc = -EINVAL;
-		goto error;
+		return -EINVAL;
 	}
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 
-	if (!dp->power_on || !dp->core_initialized)
-		goto error;
+	mutex_lock(&dp->session_lock);
+
+	if (!dp->power_on || !dp->core_initialized) {
+		pr_debug("Link already powered off, return\n");
+		goto end;
+	}
 
 	dp->ctrl->off(dp->ctrl);
 
 	dp->power_on = false;
 
+end:
 	complete_all(&dp->notification_comp);
-error:
-	return rc;
+	mutex_unlock(&dp->session_lock);
+	return 0;
 }
 
 static int dp_request_irq(struct dp_display *dp_display)

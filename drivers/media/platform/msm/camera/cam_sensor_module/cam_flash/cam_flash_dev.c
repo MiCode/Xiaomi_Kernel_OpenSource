@@ -71,6 +71,7 @@ static int32_t cam_flash_driver_cmd(struct cam_flash_ctrl *fctrl,
 			goto release_mutex;
 		}
 		break;
+		fctrl->flash_state = CAM_FLASH_STATE_ACQUIRE;
 	}
 	case CAM_RELEASE_DEV: {
 		CAM_DBG(CAM_FLASH, "CAM_RELEASE_DEV");
@@ -91,6 +92,7 @@ static int32_t cam_flash_driver_cmd(struct cam_flash_ctrl *fctrl,
 		fctrl->bridge_intf.link_hdl = -1;
 		fctrl->bridge_intf.session_hdl = -1;
 		break;
+		fctrl->flash_state = CAM_FLASH_STATE_RELEASE;
 	}
 	case CAM_QUERY_CAP: {
 		struct cam_flash_query_cap_info flash_cap = {0};
@@ -130,6 +132,7 @@ static int32_t cam_flash_driver_cmd(struct cam_flash_ctrl *fctrl,
 			CAM_ERR(CAM_FLASH, "cannot apply settings rc = %d", rc);
 			goto release_mutex;
 		}
+		fctrl->flash_state = CAM_FLASH_STATE_INIT;
 		break;
 	}
 	case CAM_STOP_DEV: {
@@ -143,8 +146,7 @@ static int32_t cam_flash_driver_cmd(struct cam_flash_ctrl *fctrl,
 				rc);
 			goto release_mutex;
 		}
-		fctrl->flash_state = CAM_FLASH_STATE_RELEASE;
-
+		fctrl->flash_state = CAM_FLASH_STATE_ACQUIRE;
 		break;
 	}
 	case CAM_CONFIG_DEV: {
@@ -256,6 +258,24 @@ static int cam_flash_platform_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int cam_flash_subdev_close(struct v4l2_subdev *sd,
+	struct v4l2_subdev_fh *fh)
+{
+	struct cam_flash_ctrl *flash_ctrl =
+		v4l2_get_subdevdata(sd);
+
+	if (!flash_ctrl) {
+		CAM_ERR(CAM_FLASH, "Flash ctrl ptr is NULL");
+		return -EINVAL;
+	}
+
+	mutex_lock(&flash_ctrl->flash_mutex);
+	cam_flash_shutdown(flash_ctrl);
+	mutex_unlock(&flash_ctrl->flash_mutex);
+
+	return 0;
+}
+
 static struct v4l2_subdev_core_ops cam_flash_subdev_core_ops = {
 	.ioctl = cam_flash_subdev_ioctl,
 #ifdef CONFIG_COMPAT
@@ -267,7 +287,9 @@ static struct v4l2_subdev_ops cam_flash_subdev_ops = {
 	.core = &cam_flash_subdev_core_ops,
 };
 
-static const struct v4l2_subdev_internal_ops cam_flash_internal_ops;
+static const struct v4l2_subdev_internal_ops cam_flash_internal_ops = {
+	.close = cam_flash_subdev_close,
+};
 
 static int32_t cam_flash_platform_probe(struct platform_device *pdev)
 {

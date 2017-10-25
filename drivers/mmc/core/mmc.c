@@ -750,7 +750,6 @@ static int mmc_read_ext_csd(struct mmc_card *card)
 		return err;
 	}
 
-	card->cached_ext_csd = ext_csd;
 	err = mmc_decode_ext_csd(card, ext_csd);
 	kfree(ext_csd);
 	return err;
@@ -1315,6 +1314,8 @@ static int mmc_select_hs400(struct mmc_card *card)
 	if (card->ext_csd.strobe_support && host->ops->enhanced_strobe) {
 		mmc_host_clk_hold(host);
 		err = host->ops->enhanced_strobe(host);
+		if (!err)
+			host->ios.enhanced_strobe = true;
 		mmc_host_clk_release(host);
 	} else if ((host->caps2 & MMC_CAP2_HS400_POST_TUNING) &&
 			host->ops->execute_tuning) {
@@ -1604,12 +1605,19 @@ static int mmc_select_timing(struct mmc_card *card)
 	/* For Enhance Strobe HS400 flow */
 	if (card->ext_csd.strobe_support &&
 	    card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400 &&
-	    card->host->caps & MMC_CAP_8_BIT_DATA)
-		err = mmc_select_hs400es(card);
-	else if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS200)
+	    card->host->caps & MMC_CAP_8_BIT_DATA) {
+		err = mmc_select_hs400(card);
+		if (err) {
+			pr_err("%s: %s: mmc_select_hs400 failed : %d\n",
+					mmc_hostname(card->host), __func__,
+					err);
+			err = mmc_select_hs400es(card);
+		}
+	} else if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS200) {
 		err = mmc_select_hs200(card);
-	else if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS)
+	} else if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS) {
 		err = mmc_select_hs(card);
+	}
 
 	if (err && err != -EBADMSG)
 		return err;
@@ -2863,10 +2871,13 @@ static int mmc_resume(struct mmc_host *host)
 	int err = 0;
 
 	MMC_TRACE(host, "%s: Enter\n", __func__);
+	err = _mmc_resume(host);
+	pm_runtime_set_active(&host->card->dev);
+	pm_runtime_mark_last_busy(&host->card->dev);
 	pm_runtime_enable(&host->card->dev);
-
 	MMC_TRACE(host, "%s: Exit err: %d\n", __func__, err);
-	return 0;
+
+	return err;
 }
 
 #define MAX_DEFER_SUSPEND_COUNTER 20

@@ -134,11 +134,12 @@ struct sde_connector_ops {
 	 * @drm_mode: Display mode set for the display
 	 * @mode_info: Out parameter. information of the display mode
 	 * @max_mixer_width: max width supported by HW layer mixer
+	 * @display: Pointer to private display structure
 	 * Returns: Zero on success
 	 */
 	int (*get_mode_info)(const struct drm_display_mode *drm_mode,
 			struct msm_mode_info *mode_info,
-			u32 max_mixer_width);
+			u32 max_mixer_width, void *display);
 
 	/**
 	 * enable_event - notify display of event registration/unregistration
@@ -319,7 +320,7 @@ struct sde_connector {
  * Returns: Pointer to associated private display structure
  */
 #define sde_connector_get_display(C) \
-	((C) ? to_sde_connector((C))->display : 0)
+	((C) ? to_sde_connector((C))->display : NULL)
 
 /**
  * sde_connector_get_panel - get sde connector's private panel pointer
@@ -335,7 +336,7 @@ struct sde_connector {
  * Returns: Pointer to associated private encoder structure
  */
 #define sde_connector_get_encoder(C) \
-	((C) ? to_sde_connector((C))->encoder : 0)
+	((C) ? to_sde_connector((C))->encoder : NULL)
 
 /**
  * sde_connector_get_propinfo - get sde connector's property info pointer
@@ -343,7 +344,7 @@ struct sde_connector {
  * Returns: Pointer to associated private property info structure
  */
 #define sde_connector_get_propinfo(C) \
-	((C) ? &to_sde_connector((C))->property_info : 0)
+	((C) ? &to_sde_connector((C))->property_info : NULL)
 
 /**
  * struct sde_connector_state - private connector status structure

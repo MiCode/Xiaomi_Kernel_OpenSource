@@ -247,6 +247,7 @@ static inline __be16 udp_flow_src_port(struct net *net, struct sk_buff *skb,
 
 /* net/ipv4/udp.c */
 void udp_v4_early_demux(struct sk_buff *skb);
+bool udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst);
 int udp_get_port(struct sock *sk, unsigned short snum,
 		 int (*saddr_cmp)(const struct sock *,
 				  const struct sock *));

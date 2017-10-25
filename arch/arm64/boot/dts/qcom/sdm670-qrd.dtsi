@@ -1,0 +1,147 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+#include "sdm670-pmic-overlay.dtsi"
+#include "sdm670-audio-overlay.dtsi"
+#include "smb1355.dtsi"
+
+&qupv3_se9_2uart {
+	status = "disabled";
+};
+
+&qupv3_se12_2uart {
+	status = "ok";
+};
+
+&qupv3_se8_spi {
+	status = "disabled";
+};
+
+&qupv3_se3_i2c {
+	status = "disabled";
+};
+
+&qupv3_se10_i2c {
+	status = "ok";
+};
+
+&qupv3_se6_4uart {
+	status = "ok";
+};
+
+&vendor {
+	qrd_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "fg-gen3-batterydata-mlp356477-2800mah.dtsi"
+	};
+};
+
+&pm660_fg {
+	qcom,battery-data = <&qrd_batterydata>;
+	qcom,fg-bmd-en-delay-ms = <300>;
+};
+
+&tlmm {
+	smb_int_default: smb_int_default {
+		mux {
+			pins = "gpio54";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio54";
+			drive-strength = <2>;
+			bias-pull-up;
+			input-enable;
+		};
+	};
+};
+
+&smb1355_0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&smb_int_default
+		     &smb_shutdown_default>;
+	interrupt-parent = <&tlmm>;
+	interrupts = <54 IRQ_TYPE_LEVEL_LOW>;
+	smb1355_charger_0: qcom,smb1355-charger@1000 {
+		io-channels = <&pm660_rradc 2>,
+				<&pm660_rradc 12>;
+		io-channel-names = "charger_temp",
+				   "charger_temp_max";
+		status = "ok";
+	};
+};
+
+&smb1355_1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&smb_int_default
+		     &smb_shutdown_default>;
+	interrupt-parent = <&tlmm>;
+	interrupts = <54 IRQ_TYPE_LEVEL_LOW>;
+	smb1355_charger_1: qcom,smb1355-charger@1000 {
+		io-channels = <&pm660_rradc 2>,
+				<&pm660_rradc 12>;
+		io-channel-names = "charger_temp",
+				   "charger_temp_max";
+		status = "ok";
+	};
+};
+
+&soc {
+	gpio_keys {
+		compatible = "gpio-keys";
+		label = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&key_vol_up_default>;
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&pm660l_gpios 7 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <115>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+			linux,can-disable;
+		};
+	};
+};
+
+&pm660_haptics {
+	qcom,vmax-mv = <1800>;
+	qcom,wave-play-rate-us = <4255>;
+	qcom,lra-auto-mode;
+	status = "okay";
+};
+
+&int_codec {
+	qcom,model = "sdm660-skuw-snd-card";
+	qcom,audio-routing =
+		"RX_BIAS", "INT_MCLK0",
+		"SPK_RX_BIAS", "INT_MCLK0",
+		"INT_LDO_H", "INT_MCLK0",
+		"MIC BIAS External2", "Headset Mic",
+		"AMIC2", "MIC BIAS External2",
+		"MIC BIAS External", "Handset Mic",
+		"AMIC1", "MIC BIAS External",
+		"MIC BIAS External", "Secondary Mic",
+		"AMIC3", "MIC BIAS External",
+		"SpkrLeft IN", "SPK1 OUT",
+		"PDM_IN_RX1", "PDM_OUT_RX1",
+		"PDM_IN_RX2", "PDM_OUT_RX2",
+		"PDM_IN_RX3", "PDM_OUT_RX3",
+		"ADC1_IN", "ADC1_OUT",
+		"ADC2_IN", "ADC2_OUT",
+		"ADC3_IN", "ADC3_OUT";
+	qcom,wsa-max-devs = <1>;
+	qcom,wsa-devs = <&wsa881x_211_en>, <&wsa881x_213_en>;
+	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrLeft";
+};

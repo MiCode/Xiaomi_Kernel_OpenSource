@@ -17,12 +17,6 @@
 #include "cam_node.h"
 #include "cam_trace.h"
 #include "cam_debug_util.h"
-static void  __cam_node_handle_shutdown(struct cam_node *node)
-{
-	if (node->hw_mgr_intf.hw_close)
-		node->hw_mgr_intf.hw_close(node->hw_mgr_intf.hw_mgr_priv,
-			NULL);
-}
 
 static int __cam_node_handle_query_cap(struct cam_node *node,
 	struct cam_query_cap_cmd *query)
@@ -65,7 +59,8 @@ static int __cam_node_handle_acquire_dev(struct cam_node *node,
 
 	rc = cam_context_handle_acquire_dev(ctx, acquire);
 	if (rc) {
-		CAM_ERR(CAM_CORE, "Acquire device failed");
+		CAM_ERR(CAM_CORE, "Acquire device failed for node %s",
+			node->name);
 		goto free_ctx;
 	}
 
@@ -82,6 +77,7 @@ static int __cam_node_handle_start_dev(struct cam_node *node,
 	struct cam_start_stop_dev_cmd *start)
 {
 	struct cam_context *ctx = NULL;
+	int rc;
 
 	if (!start)
 		return -EINVAL;
@@ -103,13 +99,18 @@ static int __cam_node_handle_start_dev(struct cam_node *node,
 		return -EINVAL;
 	}
 
-	return cam_context_handle_start_dev(ctx, start);
+	rc = cam_context_handle_start_dev(ctx, start);
+	if (rc)
+		CAM_ERR(CAM_CORE, "Start failure for node %s", node->name);
+
+	return rc;
 }
 
 static int __cam_node_handle_stop_dev(struct cam_node *node,
 	struct cam_start_stop_dev_cmd *stop)
 {
 	struct cam_context *ctx = NULL;
+	int rc;
 
 	if (!stop)
 		return -EINVAL;
@@ -131,13 +132,18 @@ static int __cam_node_handle_stop_dev(struct cam_node *node,
 		return -EINVAL;
 	}
 
-	return cam_context_handle_stop_dev(ctx, stop);
+	rc = cam_context_handle_stop_dev(ctx, stop);
+	if (rc)
+		CAM_ERR(CAM_CORE, "Stop failure for node %s", node->name);
+
+	return rc;
 }
 
 static int __cam_node_handle_config_dev(struct cam_node *node,
 	struct cam_config_dev_cmd *config)
 {
 	struct cam_context *ctx = NULL;
+	int rc;
 
 	if (!config)
 		return -EINVAL;
@@ -159,7 +165,11 @@ static int __cam_node_handle_config_dev(struct cam_node *node,
 		return -EINVAL;
 	}
 
-	return cam_context_handle_config_dev(ctx, config);
+	rc = cam_context_handle_config_dev(ctx, config);
+	if (rc)
+		CAM_ERR(CAM_CORE, "Config failure for node %s", node->name);
+
+	return rc;
 }
 
 static int __cam_node_handle_release_dev(struct cam_node *node,
@@ -183,18 +193,19 @@ static int __cam_node_handle_release_dev(struct cam_node *node,
 
 	ctx = (struct cam_context *)cam_get_device_priv(release->dev_handle);
 	if (!ctx) {
-		CAM_ERR(CAM_CORE, "Can not get context for handle %d",
-			release->dev_handle);
+		CAM_ERR(CAM_CORE, "Can not get context for handle %d node %s",
+			release->dev_handle, node->name);
 		return -EINVAL;
 	}
 
 	rc = cam_context_handle_release_dev(ctx, release);
 	if (rc)
-		CAM_ERR(CAM_CORE, "context release failed");
+		CAM_ERR(CAM_CORE, "context release failed node %s", node->name);
 
 	rc = cam_destroy_device_hdl(release->dev_handle);
 	if (rc)
-		CAM_ERR(CAM_CORE, "destroy device handle is failed");
+		CAM_ERR(CAM_CORE, "destroy device handle is failed node %s",
+			node->name);
 
 	mutex_lock(&node->list_mutex);
 	list_add_tail(&ctx->list, &node->free_ctx_list);
@@ -286,6 +297,29 @@ int cam_node_deinit(struct cam_node *node)
 		memset(node, 0, sizeof(*node));
 
 	CAM_DBG(CAM_CORE, "deinit complete");
+
+	return 0;
+}
+
+int cam_node_shutdown(struct cam_node *node)
+{
+	int i = 0;
+
+	if (!node)
+		return -EINVAL;
+
+	for (i = 0; i < node->ctx_size; i++) {
+		if (node->ctx_list[i].dev_hdl >= 0) {
+			cam_context_shutdown(&(node->ctx_list[i]));
+			cam_destroy_device_hdl(node->ctx_list[i].dev_hdl);
+			list_add_tail(&(node->ctx_list[i].list),
+				&node->free_ctx_list);
+		}
+	}
+
+	if (node->hw_mgr_intf.hw_close)
+		node->hw_mgr_intf.hw_close(node->hw_mgr_intf.hw_mgr_priv,
+			NULL);
 
 	return 0;
 }
@@ -439,9 +473,6 @@ int cam_node_handle_ioctl(struct cam_node *node, struct cam_control *cmd)
 		}
 		break;
 	}
-	case CAM_SD_SHUTDOWN:
-		__cam_node_handle_shutdown(node);
-		break;
 	default:
 		CAM_ERR(CAM_CORE, "Unknown op code %d", cmd->op_code);
 		rc = -EINVAL;

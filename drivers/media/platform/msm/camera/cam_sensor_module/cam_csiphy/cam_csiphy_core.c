@@ -18,10 +18,11 @@
 #include <soc/qcom/scm.h>
 #include <cam_mem_mgr.h>
 
-static int cam_csiphy_mem_dmp_param;
-module_param(cam_csiphy_mem_dmp_param, int, 0644);
 #define SCM_SVC_CAMERASS 0x18
 #define SECURE_SYSCALL_ID 0x6
+
+static int csiphy_dump;
+module_param(csiphy_dump, int, 0644);
 
 static int cam_csiphy_notify_secure_mode(int phy, bool protect)
 {
@@ -345,6 +346,44 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev)
 	return rc;
 }
 
+void cam_csiphy_shutdown(struct csiphy_device *csiphy_dev)
+{
+	struct cam_hw_soc_info *soc_info;
+
+	if (csiphy_dev->csiphy_state == CAM_CSIPHY_INIT)
+		return;
+
+	if (csiphy_dev->csiphy_state == CAM_CSIPHY_START) {
+		soc_info = &csiphy_dev->soc_info;
+
+		cam_csiphy_reset(csiphy_dev);
+		cam_soc_util_disable_platform_resource(soc_info, true, true);
+
+		cam_cpas_stop(csiphy_dev->cpas_handle);
+		csiphy_dev->csiphy_state = CAM_CSIPHY_ACQUIRE;
+	}
+
+	if (csiphy_dev->csiphy_state == CAM_CSIPHY_ACQUIRE) {
+		if (csiphy_dev->bridge_intf.device_hdl[0] != -1)
+			cam_destroy_device_hdl(
+				csiphy_dev->bridge_intf.device_hdl[0]);
+		if (csiphy_dev->bridge_intf.device_hdl[1] != -1)
+			cam_destroy_device_hdl(
+				csiphy_dev->bridge_intf.device_hdl[1]);
+		csiphy_dev->bridge_intf.device_hdl[0] = -1;
+		csiphy_dev->bridge_intf.device_hdl[1] = -1;
+		csiphy_dev->bridge_intf.link_hdl[0] = -1;
+		csiphy_dev->bridge_intf.link_hdl[1] = -1;
+		csiphy_dev->bridge_intf.session_hdl[0] = -1;
+		csiphy_dev->bridge_intf.session_hdl[1] = -1;
+	}
+
+	csiphy_dev->ref_count = 0;
+	csiphy_dev->is_acquired_dev_combo_mode = 0;
+	csiphy_dev->acquire_count = 0;
+	csiphy_dev->csiphy_state = CAM_CSIPHY_INIT;
+}
+
 int32_t cam_csiphy_core_cfg(void *phy_dev,
 			void *arg)
 {
@@ -479,8 +518,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			CAM_ERR(CAM_CSIPHY, "de-voting CPAS: %d", rc);
 			goto release_mutex;
 		}
-		csiphy_dev->csiphy_info.combo_mode = 0;
-		csiphy_dev->csiphy_state = CAM_CSIPHY_STOP;
+		csiphy_dev->csiphy_state = CAM_CSIPHY_ACQUIRE;
 	}
 		break;
 	case CAM_RELEASE_DEV: {
@@ -516,8 +554,6 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 
 		csiphy_dev->config_count--;
 		csiphy_dev->acquire_count--;
-		if (csiphy_dev->acquire_count == 0)
-			csiphy_dev->csiphy_state = CAM_CSIPHY_RELEASE;
 
 		if (csiphy_dev->csiphy_info.secure_mode &&
 			(!csiphy_dev->config_count)) {
@@ -527,6 +563,9 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 				csiphy_dev->soc_info.index,
 				CAM_SECURE_MODE_NON_SECURE);
 		}
+
+		if (csiphy_dev->acquire_count == 0)
+			csiphy_dev->csiphy_state = CAM_CSIPHY_INIT;
 	}
 		break;
 	case CAM_CONFIG_DEV: {
@@ -572,7 +611,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			goto release_mutex;
 		}
 		rc = cam_csiphy_config_dev(csiphy_dev);
-		if (cam_csiphy_mem_dmp_param == 1)
+		if (csiphy_dump == 1)
 			cam_csiphy_mem_dmp(&csiphy_dev->soc_info);
 
 		if (rc < 0) {
@@ -582,8 +621,6 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		}
 		csiphy_dev->csiphy_state = CAM_CSIPHY_START;
 	}
-		break;
-	case CAM_SD_SHUTDOWN:
 		break;
 	default:
 		CAM_ERR(CAM_CSIPHY, "Invalid Opcode: %d", cmd->op_code);

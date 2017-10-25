@@ -968,7 +968,10 @@ static int sdhci_msm_cm_dll_sdc4_calibration(struct sdhci_host *host)
 	 * Reprogramming the value in case it might have been modified by
 	 * bootloaders.
 	 */
-	if (msm_host->rclk_delay_fix) {
+	if (msm_host->pdata->rclk_wa) {
+		writel_relaxed(msm_host->pdata->ddr_config, host->ioaddr +
+			msm_host_offset->CORE_DDR_CONFIG_2);
+	} else if (msm_host->rclk_delay_fix) {
 		writel_relaxed(DDR_CONFIG_2_POR_VAL, host->ioaddr +
 			msm_host_offset->CORE_DDR_CONFIG_2);
 	} else {
@@ -1281,6 +1284,11 @@ retry:
 			pr_debug("%s: %s: found *** good *** phase = %d\n",
 				mmc_hostname(mmc), __func__, phase);
 		} else {
+			/* Ignore crc errors occurred during tuning */
+			if (cmd.error)
+				mmc->err_stats[MMC_ERR_CMD_CRC]--;
+			else if (data.error)
+				mmc->err_stats[MMC_ERR_DAT_CRC]--;
 			pr_debug("%s: %s: found ## bad ## phase = %d\n",
 				mmc_hostname(mmc), __func__, phase);
 		}
@@ -1985,6 +1993,9 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 	pdata->sdr104_wa = of_property_read_bool(np, "qcom,sdr104-wa");
 	msm_host->regs_restore.is_supported =
 		of_property_read_bool(np, "qcom,restore-after-cx-collapse");
+
+	if (!of_property_read_u32(np, "qcom,ddr-config", &pdata->ddr_config))
+		pdata->rclk_wa = true;
 
 	return pdata;
 out:
@@ -3013,11 +3024,20 @@ static int sdhci_msm_enable_controller_clock(struct sdhci_host *host)
 		}
 	}
 
+	if (!IS_ERR(msm_host->bus_aggr_clk)) {
+		rc = clk_prepare_enable(msm_host->bus_aggr_clk);
+		if (rc) {
+			pr_err("%s: %s: failed to enable the bus aggr clk with error %d\n",
+			       mmc_hostname(host->mmc), __func__, rc);
+			goto disable_pclk;
+		}
+	}
+
 	rc = clk_prepare_enable(msm_host->clk);
 	if (rc) {
 		pr_err("%s: %s: failed to enable the host-clk with error %d\n",
 		       mmc_hostname(host->mmc), __func__, rc);
-		goto disable_pclk;
+		goto disable_bus_aggr_clk;
 	}
 
 	if (!IS_ERR(msm_host->ice_clk)) {
@@ -3037,6 +3057,9 @@ static int sdhci_msm_enable_controller_clock(struct sdhci_host *host)
 disable_host_clk:
 	if (!IS_ERR(msm_host->clk))
 		clk_disable_unprepare(msm_host->clk);
+disable_bus_aggr_clk:
+	if (!IS_ERR(msm_host->bus_aggr_clk))
+		clk_disable_unprepare(msm_host->bus_aggr_clk);
 disable_pclk:
 	if (!IS_ERR(msm_host->pclk))
 		clk_disable_unprepare(msm_host->pclk);
@@ -3058,6 +3081,8 @@ static void sdhci_msm_disable_controller_clock(struct sdhci_host *host)
 			clk_disable_unprepare(msm_host->clk);
 		if (!IS_ERR(msm_host->ice_clk))
 			clk_disable_unprepare(msm_host->ice_clk);
+		if (!IS_ERR(msm_host->bus_aggr_clk))
+			clk_disable_unprepare(msm_host->bus_aggr_clk);
 		if (!IS_ERR(msm_host->pclk))
 			clk_disable_unprepare(msm_host->pclk);
 		sdhci_msm_bus_voting(host, 0);
@@ -3149,6 +3174,8 @@ disable_controller_clk:
 		clk_disable_unprepare(msm_host->clk);
 	if (!IS_ERR(msm_host->ice_clk))
 		clk_disable_unprepare(msm_host->ice_clk);
+	if (!IS_ERR_OR_NULL(msm_host->bus_aggr_clk))
+		clk_disable_unprepare(msm_host->bus_aggr_clk);
 	if (!IS_ERR_OR_NULL(msm_host->pclk))
 		clk_disable_unprepare(msm_host->pclk);
 	atomic_set(&msm_host->controller_clock, 0);
@@ -4468,6 +4495,16 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	}
 	atomic_set(&msm_host->controller_clock, 1);
 
+	/* Setup SDC ufs bus aggr clock */
+	msm_host->bus_aggr_clk = devm_clk_get(&pdev->dev, "bus_aggr_clk");
+	if (!IS_ERR(msm_host->bus_aggr_clk)) {
+		ret = clk_prepare_enable(msm_host->bus_aggr_clk);
+		if (ret) {
+			dev_err(&pdev->dev, "Bus aggregate clk not enabled\n");
+			goto pclk_disable;
+		}
+	}
+
 	if (msm_host->ice.pdev) {
 		/* Setup SDC ICE clock */
 		msm_host->ice_clk = devm_clk_get(&pdev->dev, "ice_core_clk");
@@ -4479,11 +4516,11 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 				dev_err(&pdev->dev, "ICE_CLK rate set failed (%d) for %u\n",
 					ret,
 					msm_host->pdata->ice_clk_max);
-				goto pclk_disable;
+				goto bus_aggr_clk_disable;
 			}
 			ret = clk_prepare_enable(msm_host->ice_clk);
 			if (ret)
-				goto pclk_disable;
+				goto bus_aggr_clk_disable;
 
 			msm_host->ice_clk_rate =
 				msm_host->pdata->ice_clk_max;
@@ -4494,18 +4531,18 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->clk = devm_clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(msm_host->clk)) {
 		ret = PTR_ERR(msm_host->clk);
-		goto pclk_disable;
+		goto bus_aggr_clk_disable;
 	}
 
 	/* Set to the minimum supported clock frequency */
 	ret = clk_set_rate(msm_host->clk, sdhci_msm_get_min_clock(host));
 	if (ret) {
 		dev_err(&pdev->dev, "MClk rate set failed (%d)\n", ret);
-		goto pclk_disable;
+		goto bus_aggr_clk_disable;
 	}
 	ret = clk_prepare_enable(msm_host->clk);
 	if (ret)
-		goto pclk_disable;
+		goto bus_aggr_clk_disable;
 
 	msm_host->clk_rate = sdhci_msm_get_min_clock(host);
 	atomic_set(&msm_host->clks_on, 1);
@@ -4870,6 +4907,9 @@ ff_clk_disable:
 clk_disable:
 	if (!IS_ERR(msm_host->clk))
 		clk_disable_unprepare(msm_host->clk);
+bus_aggr_clk_disable:
+	if (!IS_ERR(msm_host->bus_aggr_clk))
+		clk_disable_unprepare(msm_host->bus_aggr_clk);
 pclk_disable:
 	if (!IS_ERR(msm_host->pclk))
 		clk_disable_unprepare(msm_host->pclk);

@@ -729,6 +729,10 @@ ctnetlink_conntrack_event(unsigned int events, struct nf_ct_event *item)
 		if (events & (1 << IPCT_SEQADJ) &&
 		    ctnetlink_dump_ct_seq_adj(skb, ct) < 0)
 			goto nla_put_failure;
+
+		if (events & (1 << IPCT_COUNTER) &&
+		    ctnetlink_dump_acct(skb, ct, 0) < 0)
+			goto nla_put_failure;
 	}
 
 #ifdef CONFIG_NF_CONNTRACK_MARK

@@ -24,8 +24,7 @@
 		gdscr-supply = <&titan_top_gdsc>;
 		refgen-supply = <&refgen>;
 		csi-vdd-voltage = <1200000>;
-		mipi-csi-vdd-supply = <&pm8998_l26>;
-		mipi-dsi-vdd-supply = <&pm8998_l1>;
+		mipi-csi-vdd-supply = <&pm8998_l1>;
 		clocks = <&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
 			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
@@ -60,8 +59,7 @@
 		gdscr-supply = <&titan_top_gdsc>;
 		refgen-supply = <&refgen>;
 		csi-vdd-voltage = <1200000>;
-		mipi-csi-vdd-supply = <&pm8998_l26>;
-		mipi-dsi-vdd-supply = <&pm8998_l1>;
+		mipi-csi-vdd-supply = <&pm8998_l1>;
 		clocks = <&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
 			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
@@ -97,8 +95,7 @@
 		gdscr-supply = <&titan_top_gdsc>;
 		refgen-supply = <&refgen>;
 		csi-vdd-voltage = <1200000>;
-		mipi-csi-vdd-supply = <&pm8998_l26>;
-		mipi-dsi-vdd-supply = <&pm8998_l1>;
+		mipi-csi-vdd-supply = <&pm8998_l1>;
 		clocks = <&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
 			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
@@ -124,7 +121,7 @@
 	cam_csiphy3: qcom,csiphy@ac68000 {
 		cell-index = <3>;
 		compatible = "qcom,csiphy-v1.0", "qcom,csiphy";
-		reg = <0xac67000 0x1000>;
+		reg = <0xac68000 0x1000>;
 		reg-names = "csiphy";
 		reg-cam-base = <0x68000>;
 		interrupts = <0 448 0>;
@@ -133,8 +130,7 @@
 		gdscr-supply = <&titan_top_gdsc>;
 		refgen-supply = <&refgen>;
 		csi-vdd-voltage = <1200000>;
-		mipi-csi-vdd-supply = <&pm8998_l26>;
-		mipi-dsi-vdd-supply = <&pm8998_l1>;
+		mipi-csi-vdd-supply = <&pm8998_l1>;
 		clocks = <&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
 			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
@@ -260,6 +256,7 @@
 		reg-cam-base = <0x40000 0x42000>;
 		interrupt-names = "cpas_camnoc";
 		interrupts = <0 459 0>;
+		qcom,cpas-hw-ver = <0x170110>; /* Titan v170 v1.1.0 */
 		regulator-names = "camss-vdd";
 		camss-vdd-supply = <&titan_top_gdsc>;
 		clock-names = "gcc_ahb_clk",
@@ -319,14 +316,14 @@
 			"turbo", "turbo";
 		client-id-based;
 		client-names =
-			"csiphy0", "csiphy1", "csiphy2", "cci0",
+			"csiphy0", "csiphy1", "csiphy2", "csiphy3", "cci0",
 			"csid0", "csid1", "csid2",
 			"ife0", "ife1", "ife2", "ipe0",
 			"ipe1", "cam-cdm-intf0", "cpas-cdm0", "bps0",
 			"icp0", "jpeg-dma0", "jpeg-enc0", "fd0";
 		client-axi-port-names =
-			"cam_hf_1", "cam_hf_2", "cam_hf_2", "cam_sf_1",
-			"cam_hf_1", "cam_hf_2", "cam_hf_2",
+			"cam_hf_1", "cam_hf_2", "cam_hf_2", "cam_hf_2",
+			"cam_sf_1", "cam_hf_1", "cam_hf_2", "cam_hf_2",
 			"cam_hf_1", "cam_hf_2", "cam_hf_2", "cam_sf_1",
 			"cam_sf_1", "cam_sf_1", "cam_sf_1", "cam_sf_1",
 			"cam_sf_1", "cam_sf_1", "cam_sf_1", "cam_sf_1";

@@ -70,8 +70,6 @@ const char *const mpeg_video_vidc_extradata[] = {
 	"Extradata UBWC CR stats info",
 };
 
-static void msm_comm_generate_session_error(struct msm_vidc_inst *inst);
-static void msm_comm_generate_sys_error(struct msm_vidc_inst *inst);
 static void handle_session_error(enum hal_command_response cmd, void *data);
 static void msm_vidc_print_running_insts(struct msm_vidc_core *core);
 
@@ -1686,6 +1684,11 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 		event_notify->crop_data.height;
 	inst->prop.crop_info.width =
 		event_notify->crop_data.width;
+	/* HW returns progressive_only flag in pic_struct. */
+	inst->pic_struct =
+		event_notify->pic_struct ?
+		MSM_VIDC_PIC_STRUCT_PROGRESSIVE :
+		MSM_VIDC_PIC_STRUCT_MAYBE_INTERLACED;
 
 	ptr = (u32 *)seq_changed_event.u.data;
 	ptr[0] = event_notify->height;
@@ -3331,20 +3334,11 @@ int msm_comm_suspend(int core_id)
 	}
 
 	mutex_lock(&core->lock);
-	if (core->state != VIDC_CORE_INIT_DONE) {
-		dprintk(VIDC_ERR,
-				"%s - fw is not in proper state, skip suspend\n",
-				__func__);
-		rc = -EINVAL;
-		goto exit;
-	}
-
 	rc = call_hfi_op(hdev, suspend, hdev->hfi_device_data);
 	if (rc)
 		dprintk(VIDC_WARN, "Failed to suspend\n");
-
-exit:
 	mutex_unlock(&core->lock);
+
 	return rc;
 }
 
@@ -3384,7 +3378,7 @@ static int set_output_buffers(struct msm_vidc_inst *inst,
 	enum hal_buffer buffer_type)
 {
 	int rc = 0;
-	struct internal_buf *binfo;
+	struct internal_buf *binfo = NULL;
 	u32 smem_flags = 0, buffer_size;
 	struct hal_buffer_requirements *output_buf, *extradata_buf;
 	int i;
@@ -3493,10 +3487,10 @@ static int set_output_buffers(struct msm_vidc_inst *inst,
 	}
 	return rc;
 fail_set_buffers:
-	kfree(binfo);
-fail_kzalloc:
 	msm_comm_smem_free(inst, &binfo->smem);
 err_no_mem:
+	kfree(binfo);
+fail_kzalloc:
 	return rc;
 }
 
@@ -5297,6 +5291,8 @@ int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 		return -EINVAL;
 	}
 	hdev = core->device;
+
+	mutex_lock(&core->lock);
 	if (core->state == VIDC_CORE_INIT_DONE) {
 		/*
 		 * In current implementation user-initiated SSR triggers
@@ -5312,7 +5308,11 @@ int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 				__func__);
 			core->trigger_ssr = false;
 		}
+	} else {
+		dprintk(VIDC_WARN, "%s: video core %pK not initialized\n",
+			__func__, core);
 	}
+	mutex_unlock(&core->lock);
 
 	return rc;
 }
@@ -5466,15 +5466,15 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	rotation =  msm_comm_g_ctrl_for_id(inst,
 					V4L2_CID_MPEG_VIDC_VIDEO_ROTATION);
 
-	output_height = inst->prop.height[CAPTURE_PORT];
-	output_width = inst->prop.width[CAPTURE_PORT];
+	output_height = ALIGN(inst->prop.height[CAPTURE_PORT], 16);
+	output_width = ALIGN(inst->prop.width[CAPTURE_PORT], 16);
 
 	if ((output_width != output_height) &&
 		(rotation == V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_90 ||
 		rotation == V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_270)) {
 
-		output_width = inst->prop.height[CAPTURE_PORT];
-		output_height = inst->prop.width[CAPTURE_PORT];
+		output_width = ALIGN(inst->prop.height[CAPTURE_PORT], 16);
+		output_height = ALIGN(inst->prop.width[CAPTURE_PORT], 16);
 		dprintk(VIDC_DBG,
 			"Rotation=%u Swapped Output W=%u H=%u to check capability",
 			rotation, output_width, output_height);
@@ -5515,7 +5515,7 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	return rc;
 }
 
-static void msm_comm_generate_session_error(struct msm_vidc_inst *inst)
+void msm_comm_generate_session_error(struct msm_vidc_inst *inst)
 {
 	enum hal_command_response cmd = HAL_SESSION_ERROR;
 	struct msm_vidc_cb_cmd_done response = {0};
@@ -5530,7 +5530,7 @@ static void msm_comm_generate_session_error(struct msm_vidc_inst *inst)
 	handle_session_error(cmd, (void *)&response);
 }
 
-static void msm_comm_generate_sys_error(struct msm_vidc_inst *inst)
+void msm_comm_generate_sys_error(struct msm_vidc_inst *inst)
 {
 	struct msm_vidc_core *core;
 	enum hal_command_response cmd = HAL_SYS_ERROR;
@@ -6329,10 +6329,26 @@ struct msm_vidc_buffer *msm_comm_get_vidc_buffer(struct msm_vidc_inst *inst,
 	}
 
 	mutex_lock(&inst->registeredbufs.lock);
-	list_for_each_entry(mbuf, &inst->registeredbufs.list, list) {
-		if (msm_comm_compare_dma_planes(inst, mbuf, dma_planes)) {
-			found = true;
-			break;
+	if (inst->session_type == MSM_VIDC_DECODER) {
+		list_for_each_entry(mbuf, &inst->registeredbufs.list, list) {
+			if (msm_comm_compare_dma_planes(inst, mbuf,
+					dma_planes)) {
+				found = true;
+				break;
+			}
+		}
+	} else {
+		/*
+		 * for encoder, client may queue the same buffer with different
+		 * fd before driver returned old buffer to the client. This
+		 * buffer should be treated as new buffer. Search the list with
+		 * fd so that it will be treated as new msm_vidc_buffer.
+		 */
+		list_for_each_entry(mbuf, &inst->registeredbufs.list, list) {
+			if (msm_comm_compare_vb2_planes(inst, mbuf, vb2)) {
+				found = true;
+				break;
+			}
 		}
 	}
 

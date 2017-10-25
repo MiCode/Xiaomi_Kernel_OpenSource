@@ -76,10 +76,12 @@ void dsi_connector_put_modes(struct drm_connector *connector,
  * @drm_mode: Display mode set for the display
  * @mode_info: Out parameter. information of the mode.
  * @max_mixer_width: max width supported by HW layer mixer
+ * @display: Pointer to private display structure
  * Returns: Zero on success
  */
 int dsi_conn_get_mode_info(const struct drm_display_mode *drm_mode,
-	struct msm_mode_info *mode_info, u32 max_mixer_width);
+	struct msm_mode_info *mode_info, u32 max_mixer_width,
+	void *display);
 
 /**
  * dsi_conn_mode_valid - callback to determine if specified mode is valid

@@ -28,7 +28,7 @@
 		gdscr-supply = <&titan_top_gdsc>;
 		regulator-names = "gdscr";
 		csi-vdd-voltage = <1200000>;
-		mipi-csi-vdd-supply = <&pm8998_l26>;
+		mipi-csi-vdd-supply = <&pm8998_l1>;
 		clocks = <&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
 			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
@@ -62,7 +62,7 @@
 		gdscr-supply = <&titan_top_gdsc>;
 		regulator-names = "gdscr";
 		csi-vdd-voltage = <1200000>;
-		mipi-csi-vdd-supply = <&pm8998_l26>;
+		mipi-csi-vdd-supply = <&pm8998_l1>;
 		clocks = <&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
 			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
@@ -97,7 +97,7 @@
 		gdscr-supply = <&titan_top_gdsc>;
 		regulator-names = "gdscr";
 		csi-vdd-voltage = <1200000>;
-		mipi-csi-vdd-supply = <&pm8998_l26>;
+		mipi-csi-vdd-supply = <&pm8998_l1>;
 		clocks = <&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
 			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
@@ -358,6 +358,7 @@
 		reg-cam-base = <0x40000 0x42000>;
 		interrupt-names = "cpas_camnoc";
 		interrupts = <0 459 0>;
+		qcom,cpas-hw-ver = <0x170100>; /* Titan v170 v1.0.0 */
 		regulator-names = "camss-vdd";
 		camss-vdd-supply = <&titan_top_gdsc>;
 		clock-names = "gcc_ahb_clk",
@@ -817,7 +818,6 @@
 			"soc_ahb_clk",
 			"cpas_ahb_clk",
 			"camnoc_axi_clk",
-			"icp_apb_clk",
 			"icp_clk",
 			"icp_clk_src";
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>,
@@ -826,11 +826,10 @@
 				<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 				<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
 				<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
-				<&clock_camcc CAM_CC_ICP_APB_CLK>,
 				<&clock_camcc CAM_CC_ICP_CLK>,
 				<&clock_camcc CAM_CC_ICP_CLK_SRC>;
 
-		clock-rates = <0 0 400000000 0 0 0 0 0 600000000>;
+		clock-rates = <0 0 400000000 0 0 0 0 600000000>;
 		clock-cntl-level = "turbo";
 		fw_name = "CAMERA_ICP.elf";
 		status = "ok";

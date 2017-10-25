@@ -222,8 +222,12 @@ static struct cam_vfe_bus_ver2_hw_info vfe170_bus_hw_info = {
 		.comp_error_status            = 0x0000206C,
 		.comp_ovrwr_status            = 0x00002070,
 		.dual_comp_error_status       = 0x00002074,
-		.dual_comp_error_status       = 0x00002078,
+		.dual_comp_ovrwr_status       = 0x00002078,
+		.addr_sync_cfg                = 0x0000207C,
+		.addr_sync_frame_hdr          = 0x00002080,
+		.addr_sync_no_sync            = 0x00002084,
 	},
+	.num_client = 20,
 	.bus_client_reg = {
 		/* BUS Client 0 */
 		{
@@ -674,29 +678,53 @@ static struct cam_vfe_bus_ver2_hw_info vfe170_bus_hw_info = {
 		/* CAM_VFE_BUS_VER2_COMP_GRP_DUAL_0 */
 		{
 			.comp_mask                    = 0x0000202C,
+			.addr_sync_mask               = 0x00002088,
 		},
 		/* CAM_VFE_BUS_VER2_COMP_GRP_DUAL_1 */
 		{
 			.comp_mask                    = 0x00002030,
+			.addr_sync_mask               = 0x0000208C,
+
 		},
 		/* CAM_VFE_BUS_VER2_COMP_GRP_DUAL_2 */
 		{
 			.comp_mask                    = 0x00002034,
+			.addr_sync_mask               = 0x00002090,
+
 		},
 		/* CAM_VFE_BUS_VER2_COMP_GRP_DUAL_3 */
 		{
 			.comp_mask                    = 0x00002038,
+			.addr_sync_mask               = 0x00002094,
 		},
 		/* CAM_VFE_BUS_VER2_COMP_GRP_DUAL_4 */
 		{
 			.comp_mask                    = 0x0000203C,
+			.addr_sync_mask               = 0x00002098,
 		},
 		/* CAM_VFE_BUS_VER2_COMP_GRP_DUAL_5 */
 		{
 			.comp_mask                    = 0x00002040,
+			.addr_sync_mask               = 0x0000209C,
 		},
 	},
+	.num_out = 18,
 	.vfe_out_hw_info = {
+		{
+			.vfe_out_type  = CAM_VFE_BUS_VER2_VFE_OUT_RDI0,
+			.max_width     = -1,
+			.max_height    = -1,
+		},
+		{
+			.vfe_out_type  = CAM_VFE_BUS_VER2_VFE_OUT_RDI1,
+			.max_width     = -1,
+			.max_height    = -1,
+		},
+		{
+			.vfe_out_type  = CAM_VFE_BUS_VER2_VFE_OUT_RDI2,
+			.max_width     = -1,
+			.max_height    = -1,
+		},
 		{
 			.vfe_out_type  = CAM_VFE_BUS_VER2_VFE_OUT_FULL,
 			.max_width     = 4096,
@@ -724,21 +752,6 @@ static struct cam_vfe_bus_ver2_hw_info vfe170_bus_hw_info = {
 		},
 		{
 			.vfe_out_type  = CAM_VFE_BUS_VER2_VFE_OUT_PDAF,
-			.max_width     = -1,
-			.max_height    = -1,
-		},
-		{
-			.vfe_out_type  = CAM_VFE_BUS_VER2_VFE_OUT_RDI0,
-			.max_width     = -1,
-			.max_height    = -1,
-		},
-		{
-			.vfe_out_type  = CAM_VFE_BUS_VER2_VFE_OUT_RDI1,
-			.max_width     = -1,
-			.max_height    = -1,
-		},
-		{
-			.vfe_out_type  = CAM_VFE_BUS_VER2_VFE_OUT_RDI2,
 			.max_width     = -1,
 			.max_height    = -1,
 		},

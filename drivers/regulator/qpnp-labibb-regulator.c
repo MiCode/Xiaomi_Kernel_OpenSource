@@ -1226,6 +1226,7 @@ static int qpnp_ibb_output_voltage_at_one_pulse_v2(struct qpnp_labibb *labibb,
 	return rc;
 }
 
+/* For PMI8998 and earlier PMICs */
 static const struct ibb_ver_ops ibb_ops_v1 = {
 	.set_default_voltage	= qpnp_ibb_set_default_voltage_v1,
 	.set_voltage		= qpnp_ibb_set_voltage_v1,
@@ -1237,6 +1238,7 @@ static const struct ibb_ver_ops ibb_ops_v1 = {
 	.voltage_at_one_pulse	= qpnp_ibb_output_voltage_at_one_pulse_v1,
 };
 
+/* For PM660A and later PMICs */
 static const struct ibb_ver_ops ibb_ops_v2 = {
 	.set_default_voltage	= qpnp_ibb_set_default_voltage_v2,
 	.set_voltage		= qpnp_ibb_set_voltage_v2,
@@ -1346,8 +1348,9 @@ static int qpnp_lab_ps_ctl_v2(struct qpnp_labibb *labibb,
 				u32 thresh, bool enable)
 {
 	int rc = 0;
-	u8 val;
+	u8 val, mask;
 
+	mask = LAB_PS_CTL_EN;
 	if (enable) {
 		for (val = 0; val < ARRAY_SIZE(lab_ps_thresh_table_v2); val++)
 			if (lab_ps_thresh_table_v2[val] == thresh)
@@ -1359,13 +1362,13 @@ static int qpnp_lab_ps_ctl_v2(struct qpnp_labibb *labibb,
 		}
 
 		val |= LAB_PS_CTL_EN;
+		mask |= LAB_PS_THRESH_MASK;
 	} else {
 		val = 0;
 	}
 
-	rc = qpnp_labibb_write(labibb, labibb->lab_base +
-			 REG_LAB_PS_CTL, &val, 1);
-
+	rc = qpnp_labibb_masked_write(labibb, labibb->lab_base +
+			 REG_LAB_PS_CTL, mask, val);
 	if (rc < 0)
 		pr_err("write register %x failed rc = %d\n",
 				REG_LAB_PS_CTL, rc);
@@ -1373,12 +1376,18 @@ static int qpnp_lab_ps_ctl_v2(struct qpnp_labibb *labibb,
 	return rc;
 }
 
+/* For PMI8996 and earlier PMICs */
 static const struct lab_ver_ops lab_ops_v1 = {
 	.set_default_voltage	= qpnp_lab_set_default_voltage_v1,
 	.ps_ctl			= qpnp_lab_ps_ctl_v1,
 };
 
-static const struct lab_ver_ops lab_ops_v2 = {
+static const struct lab_ver_ops pmi8998_lab_ops = {
+	.set_default_voltage	= qpnp_lab_set_default_voltage_v1,
+	.ps_ctl			= qpnp_lab_ps_ctl_v2,
+};
+
+static const struct lab_ver_ops pm660_lab_ops = {
 	.set_default_voltage	= qpnp_lab_set_default_voltage_v2,
 	.ps_ctl			= qpnp_lab_ps_ctl_v2,
 };
@@ -3003,7 +3012,7 @@ static int qpnp_ibb_dt_init(struct qpnp_labibb *labibb,
 				struct device_node *of_node)
 {
 	int rc = 0;
-	u32 i, tmp = 0;
+	u32 i = 0, tmp = 0;
 	u8 val, mask;
 
 	/*
@@ -3037,37 +3046,48 @@ static int qpnp_ibb_dt_init(struct qpnp_labibb *labibb,
 	rc = of_property_read_u32(of_node,
 		"qcom,qpnp-ibb-lab-pwrdn-delay", &tmp);
 	if (!rc) {
-		for (val = 0; val < ARRAY_SIZE(ibb_pwrdn_dly_table); val++)
-			if (ibb_pwrdn_dly_table[val] == tmp)
-				break;
+		if (tmp > 0) {
+			for (i = 0; i < ARRAY_SIZE(ibb_pwrdn_dly_table); i++) {
+				if (ibb_pwrdn_dly_table[i] == tmp)
+					break;
+			}
 
-		if (val == ARRAY_SIZE(ibb_pwrdn_dly_table)) {
-			pr_err("Invalid value in qcom,qpnp-ibb-lab-pwrdn-delay\n");
-			return -EINVAL;
+			if (i == ARRAY_SIZE(ibb_pwrdn_dly_table)) {
+				pr_err("Invalid value in qcom,qpnp-ibb-lab-pwrdn-delay\n");
+				return -EINVAL;
+			}
 		}
 
 		labibb->ibb_vreg.pwrdn_dly = tmp;
-		val |= IBB_PWRUP_PWRDN_CTL_1_EN_DLY2;
+
+		if (tmp > 0)
+			val = i | IBB_PWRUP_PWRDN_CTL_1_EN_DLY2;
+
 		mask |= IBB_PWRUP_PWRDN_CTL_1_EN_DLY2;
 	}
 
 	rc = of_property_read_u32(of_node,
 			"qcom,qpnp-ibb-lab-pwrup-delay", &tmp);
 	if (!rc) {
-		for (i = 0; i < ARRAY_SIZE(ibb_pwrup_dly_table); i++)
-			if (ibb_pwrup_dly_table[i] == tmp)
-				break;
+		if (tmp > 0) {
+			for (i = 0; i < ARRAY_SIZE(ibb_pwrup_dly_table); i++) {
+				if (ibb_pwrup_dly_table[i] == tmp)
+					break;
+			}
 
-		if (i == ARRAY_SIZE(ibb_pwrup_dly_table)) {
-			pr_err("Invalid value in qcom,qpnp-ibb-lab-pwrup-delay\n");
-			return -EINVAL;
+			if (i == ARRAY_SIZE(ibb_pwrup_dly_table)) {
+				pr_err("Invalid value in qcom,qpnp-ibb-lab-pwrup-delay\n");
+				return -EINVAL;
+			}
 		}
 
 		labibb->ibb_vreg.pwrup_dly = tmp;
 
+		if (tmp > 0)
+			val |= IBB_PWRUP_PWRDN_CTL_1_EN_DLY1;
+
 		val |= (i << IBB_PWRUP_PWRDN_CTL_1_DLY1_SHIFT);
-		val |= (IBB_PWRUP_PWRDN_CTL_1_EN_DLY1 |
-			IBB_PWRUP_PWRDN_CTL_1_LAB_VREG_OK);
+		val |= IBB_PWRUP_PWRDN_CTL_1_LAB_VREG_OK;
 		mask |= (IBB_PWRUP_PWRDN_CTL_1_EN_DLY1 |
 			IBB_PWRUP_PWRDN_CTL_1_DLY1_MASK |
 			IBB_PWRUP_PWRDN_CTL_1_LAB_VREG_OK);
@@ -3723,7 +3743,10 @@ static int qpnp_labibb_regulator_probe(struct platform_device *pdev)
 
 	if (labibb->pmic_rev_id->pmic_subtype == PM660L_SUBTYPE) {
 		labibb->ibb_ver_ops = &ibb_ops_v2;
-		labibb->lab_ver_ops = &lab_ops_v2;
+		labibb->lab_ver_ops = &pm660_lab_ops;
+	} else if (labibb->pmic_rev_id->pmic_subtype == PMI8998_SUBTYPE) {
+		labibb->ibb_ver_ops = &ibb_ops_v1;
+		labibb->lab_ver_ops = &pmi8998_lab_ops;
 	} else {
 		labibb->ibb_ver_ops = &ibb_ops_v1;
 		labibb->lab_ver_ops = &lab_ops_v1;

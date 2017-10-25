@@ -591,6 +591,37 @@ end:
 	return ret;
 }
 
+static bool sde_encoder_phys_vid_wait_dma_trigger(
+		struct sde_encoder_phys *phys_enc)
+{
+	struct sde_encoder_phys_vid *vid_enc;
+	struct sde_hw_intf *intf;
+	struct sde_hw_ctl *ctl;
+	struct intf_status status;
+
+	if (!phys_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return false;
+	}
+
+	vid_enc = to_sde_encoder_phys_vid(phys_enc);
+	intf = vid_enc->hw_intf;
+	ctl = phys_enc->hw_ctl;
+	if (!vid_enc->hw_intf || !phys_enc->hw_ctl) {
+		SDE_ERROR("invalid hw_intf %d hw_ctl %d\n",
+			vid_enc->hw_intf != NULL, phys_enc->hw_ctl != NULL);
+		return false;
+	}
+
+	if (!intf->ops.get_status)
+		return false;
+
+	intf->ops.get_status(intf, &status);
+
+	/* if interface is not enabled, return true to wait for dma trigger */
+	return status.is_en ? false : true;
+}
+
 static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 {
 	struct msm_drm_private *priv;
@@ -942,8 +973,10 @@ static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->needs_single_flush = sde_encoder_phys_vid_needs_single_flush;
 	ops->setup_misr = sde_encoder_phys_vid_setup_misr;
 	ops->collect_misr = sde_encoder_phys_vid_collect_misr;
+	ops->trigger_flush = sde_encoder_helper_trigger_flush;
 	ops->hw_reset = sde_encoder_helper_hw_reset;
 	ops->get_line_count = sde_encoder_phys_vid_get_line_count;
+	ops->wait_dma_trigger = sde_encoder_phys_vid_wait_dma_trigger;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_vid_init(

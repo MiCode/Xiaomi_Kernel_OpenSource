@@ -1,5 +1,7 @@
 
-dtb-$(CONFIG_ARCH_SDXPOORWILLS) += sdxpoorwills-rumi.dtb
+dtb-$(CONFIG_ARCH_SDXPOORWILLS) += sdxpoorwills-rumi.dtb \
+	sdxpoorwills-cdp.dtb \
+	sdxpoorwills-mtp.dtb
 
 
 ifeq ($(CONFIG_ARM64),y)

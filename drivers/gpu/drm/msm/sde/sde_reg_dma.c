@@ -64,7 +64,7 @@ static int default_buf_reset_reg_dma(struct sde_reg_dma_buffer *lut_buf)
 }
 
 static int default_last_command(struct sde_hw_ctl *ctl,
-		enum sde_reg_dma_queue q)
+		enum sde_reg_dma_queue q, enum sde_reg_dma_last_cmd_mode mode)
 {
 	return 0;
 }
@@ -99,9 +99,6 @@ int sde_reg_dma_init(void __iomem *addr, struct sde_mdss_cfg *m,
 		rc = init_v1(&reg_dma);
 		if (rc)
 			DRM_DEBUG("init v1 dma ops failed\n");
-		else
-			sde_dbg_reg_register_base("reg_dma", addr,
-					reg_dma.caps->len);
 		break;
 	default:
 		break;

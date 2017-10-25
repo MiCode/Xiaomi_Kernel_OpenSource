@@ -307,7 +307,7 @@ int32_t cam_eeprom_parse_read_memory_map(struct device_node *of_node,
 		CAM_ERR(CAM_EEPROM, "failed: eeprom power down rc %d", rc);
 	return rc;
 power_down:
-	rc = cam_eeprom_power_down(e_ctrl);
+	cam_eeprom_power_down(e_ctrl);
 data_mem_free:
 	kfree(e_ctrl->cal_data.mapdata);
 	kfree(e_ctrl->cal_data.map);
@@ -668,7 +668,7 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 	case CAM_EEPROM_PACKET_OPCODE_INIT:
 		if (e_ctrl->userspace_probe == false) {
 			rc = cam_eeprom_parse_read_memory_map(
-					e_ctrl->pdev->dev.of_node, e_ctrl);
+					e_ctrl->soc_info.dev->of_node, e_ctrl);
 			if (rc < 0) {
 				CAM_ERR(CAM_EEPROM, "Failed: rc : %d", rc);
 				return rc;
@@ -723,7 +723,7 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 	}
 	return rc;
 power_down:
-	rc = cam_eeprom_power_down(e_ctrl);
+	cam_eeprom_power_down(e_ctrl);
 memdata_free:
 	kfree(e_ctrl->cal_data.mapdata);
 error:
@@ -731,6 +731,35 @@ error:
 	e_ctrl->cal_data.num_data = 0;
 	e_ctrl->cal_data.num_map = 0;
 	return rc;
+}
+
+void cam_eeprom_shutdown(struct cam_eeprom_ctrl_t *e_ctrl)
+{
+	int rc;
+
+	if (e_ctrl->cam_eeprom_state == CAM_EEPROM_INIT)
+		return;
+
+	if (e_ctrl->cam_eeprom_state == CAM_EEPROM_START) {
+		rc = camera_io_release(&e_ctrl->io_master_info);
+		if (rc < 0)
+			CAM_ERR(CAM_EEPROM, "Failed in releasing CCI");
+		rc = cam_eeprom_power_down(e_ctrl);
+		if (rc < 0)
+			CAM_ERR(CAM_EEPROM, "EEPROM Power down failed");
+		e_ctrl->cam_eeprom_state = CAM_EEPROM_ACQUIRE;
+	}
+
+	if (e_ctrl->cam_eeprom_state == CAM_EEPROM_ACQUIRE) {
+		rc = cam_destroy_device_hdl(e_ctrl->bridge_intf.device_hdl);
+		if (rc < 0)
+			CAM_ERR(CAM_EEPROM, "destroying the device hdl");
+		e_ctrl->bridge_intf.device_hdl = -1;
+		e_ctrl->bridge_intf.link_hdl = -1;
+		e_ctrl->bridge_intf.session_hdl = -1;
+	}
+
+	e_ctrl->cam_eeprom_state = CAM_EEPROM_INIT;
 }
 
 /**
@@ -754,7 +783,7 @@ int32_t cam_eeprom_driver_cmd(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 	mutex_lock(&(e_ctrl->eeprom_mutex));
 	switch (cmd->op_code) {
 	case CAM_QUERY_CAP:
-		eeprom_cap.slot_info = e_ctrl->subdev_id;
+		eeprom_cap.slot_info = e_ctrl->soc_info.index;
 		if (e_ctrl->userspace_probe == false)
 			eeprom_cap.eeprom_kernel_probe = true;
 		else
@@ -775,6 +804,7 @@ int32_t cam_eeprom_driver_cmd(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 			CAM_ERR(CAM_EEPROM, "Failed to acquire dev");
 			goto release_mutex;
 		}
+		e_ctrl->cam_eeprom_state = CAM_EEPROM_ACQUIRE;
 		break;
 	case CAM_RELEASE_DEV:
 		if (e_ctrl->bridge_intf.device_hdl == -1) {
@@ -792,6 +822,7 @@ int32_t cam_eeprom_driver_cmd(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 		e_ctrl->bridge_intf.device_hdl = -1;
 		e_ctrl->bridge_intf.link_hdl = -1;
 		e_ctrl->bridge_intf.session_hdl = -1;
+		e_ctrl->cam_eeprom_state = CAM_EEPROM_INIT;
 		break;
 	case CAM_CONFIG_DEV:
 		rc = cam_eeprom_pkt_parse(e_ctrl, arg);

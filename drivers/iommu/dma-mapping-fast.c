@@ -434,7 +434,8 @@ static int fast_smmu_map_sg(struct device *dev, struct scatterlist *sg,
 			    int nents, enum dma_data_direction dir,
 			    unsigned long attrs)
 {
-	return -EINVAL;
+	/* 0 indicates error */
+	return 0;
 }
 
 static void fast_smmu_unmap_sg(struct device *dev,
@@ -867,9 +868,8 @@ static void fast_smmu_reserve_pci_windows(struct device *dev,
 int fast_smmu_init_mapping(struct device *dev,
 			    struct dma_iommu_mapping *mapping)
 {
-	int err, atomic_domain = 1;
+	int err;
 	struct iommu_domain *domain = mapping->domain;
-	struct iommu_group *group;
 	struct iommu_pgtbl_info info;
 	u64 size = (u64)mapping->bits << PAGE_SHIFT;
 
@@ -877,10 +877,6 @@ int fast_smmu_init_mapping(struct device *dev,
 		dev_err(dev, "Iova end address too large\n");
 		return -EINVAL;
 	}
-
-	if (iommu_domain_set_attr(domain, DOMAIN_ATTR_ATOMIC,
-				  &atomic_domain))
-		return -EINVAL;
 
 	mapping->fast = __fast_smmu_create_mapping_sized(mapping->base, size);
 	if (IS_ERR(mapping->fast))
@@ -890,51 +886,26 @@ int fast_smmu_init_mapping(struct device *dev,
 
 	fast_smmu_reserve_pci_windows(dev, mapping->fast);
 
-	group = dev->iommu_group;
-	if (!group) {
-		dev_err(dev, "No iommu associated with device\n");
-		err = -ENODEV;
-		goto release_mapping;
-	}
-
-	if (iommu_get_domain_for_dev(dev)) {
-		dev_err(dev, "Device already attached to other iommu_domain\n");
-		err = -EINVAL;
-		goto release_mapping;
-	}
-
-	/*
-	 * Need to attach prior to calling DOMAIN_ATTR_PGTBL_INFO and then
-	 * detach to be in the expected state. Its a bit messy.
-	 */
-	if (iommu_attach_group(mapping->domain, group)) {
-		err = -EINVAL;
-		goto release_mapping;
-	}
-
 	if (iommu_domain_get_attr(domain, DOMAIN_ATTR_PGTBL_INFO,
 				  &info)) {
 		dev_err(dev, "Couldn't get page table info\n");
 		err = -EINVAL;
-		goto detach_group;
+		goto release_mapping;
 	}
 	mapping->fast->pgtbl_pmds = info.pmds;
 
 	if (iommu_domain_get_attr(domain, DOMAIN_ATTR_PAGE_TABLE_IS_COHERENT,
 				  &mapping->fast->is_smmu_pt_coherent)) {
 		err = -EINVAL;
-		goto detach_group;
+		goto release_mapping;
 	}
 
 	mapping->fast->notifier.notifier_call = fast_smmu_notify;
 	av8l_register_notify(&mapping->fast->notifier);
 
-	iommu_detach_group(mapping->domain, group);
 	mapping->ops = &fast_smmu_dma_ops;
 	return 0;
 
-detach_group:
-	iommu_detach_group(mapping->domain, group);
 release_mapping:
 	kfree(mapping->fast->bitmap);
 	kfree(mapping->fast);

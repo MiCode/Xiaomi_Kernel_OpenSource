@@ -297,7 +297,7 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 
 int dsi_conn_get_mode_info(const struct drm_display_mode *drm_mode,
 	struct msm_mode_info *mode_info,
-	u32 max_mixer_width)
+	u32 max_mixer_width, void *display)
 {
 	struct dsi_display_mode dsi_mode;
 	struct dsi_mode_info *timing;
@@ -318,6 +318,7 @@ int dsi_conn_get_mode_info(const struct drm_display_mode *drm_mode,
 	mode_info->prefill_lines = dsi_mode.priv_info->panel_prefill_lines;
 	mode_info->jitter_numer = dsi_mode.priv_info->panel_jitter_numer;
 	mode_info->jitter_denom = dsi_mode.priv_info->panel_jitter_denom;
+	mode_info->clk_rate = dsi_mode.priv_info->clk_rate_hz;
 
 	memcpy(&mode_info->topology, &dsi_mode.priv_info->topology,
 			sizeof(struct msm_display_topology));
@@ -631,10 +632,17 @@ int dsi_conn_post_kickoff(struct drm_connector *connector)
 	struct dsi_display_ctrl *m_ctrl, *ctrl;
 	int i, rc = 0;
 
-	if (!connector || !connector->state->best_encoder)
+	if (!connector || !connector->state) {
+		pr_err("invalid connector or connector state");
 		return -EINVAL;
+	}
 
 	encoder = connector->state->best_encoder;
+	if (!encoder) {
+		pr_debug("best encoder is not available");
+		return 0;
+	}
+
 	c_bridge = to_dsi_bridge(encoder->bridge);
 	adj_mode = c_bridge->dsi_mode;
 	display = c_bridge->display;

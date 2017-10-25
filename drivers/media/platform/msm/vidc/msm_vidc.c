@@ -626,6 +626,17 @@ int msm_vidc_streamoff(void *instance, enum v4l2_buf_type i)
 			"Failed to find buffer queue for type = %d\n", i);
 		return -EINVAL;
 	}
+
+	if (!inst->in_reconfig) {
+		dprintk(VIDC_DBG, "%s: inst %pK release resources\n",
+			__func__, inst);
+		rc = msm_comm_try_state(inst, MSM_VIDC_RELEASE_RESOURCES_DONE);
+		if (rc)
+			dprintk(VIDC_ERR,
+				"%s: inst %pK move to rel res done failed\n",
+				__func__, inst);
+	}
+
 	dprintk(VIDC_DBG, "Calling streamoff\n");
 	mutex_lock(&q->lock);
 	rc = vb2_streamoff(&q->vb2_bufq, i);
@@ -835,7 +846,8 @@ static inline int msm_vidc_verify_buffer_counts(struct msm_vidc_inst *inst)
 
 	/* For decoder No need to sanity till LOAD_RESOURCES */
 	if (inst->session_type == MSM_VIDC_DECODER &&
-			inst->state < MSM_VIDC_LOAD_RESOURCES_DONE) {
+			(inst->state < MSM_VIDC_LOAD_RESOURCES_DONE ||
+			inst->state >= MSM_VIDC_RELEASE_RESOURCES_DONE)) {
 		dprintk(VIDC_DBG,
 			"No need to verify buffer counts : %pK\n", inst);
 		return 0;
@@ -1159,14 +1171,17 @@ static void msm_vidc_buf_queue(struct vb2_buffer *vb2)
 
 	mbuf = msm_comm_get_vidc_buffer(inst, vb2);
 	if (IS_ERR_OR_NULL(mbuf)) {
-		if (PTR_ERR(mbuf) != -EEXIST)
-			print_vb2_buffer(VIDC_ERR, "failed to get vidc-buf",
-				inst, vb2);
-		return;
+		if (PTR_ERR(mbuf) == -EEXIST)
+			return;
+		print_vb2_buffer(VIDC_ERR, "failed to get vidc-buf",
+			inst, vb2);
+		rc = -EINVAL;
+		goto error;
 	}
 	if (!kref_get_mbuf(inst, mbuf)) {
 		dprintk(VIDC_ERR, "%s: mbuf not found\n", __func__);
-		return;
+		rc = -EINVAL;
+		goto error;
 	}
 
 	rc = msm_comm_qbuf(inst, mbuf);
@@ -1174,6 +1189,10 @@ static void msm_vidc_buf_queue(struct vb2_buffer *vb2)
 		print_vidc_buffer(VIDC_ERR, "failed qbuf", inst, mbuf);
 
 	kref_put_mbuf(mbuf);
+
+error:
+	if (rc)
+		msm_comm_generate_session_error(inst);
 }
 
 static const struct vb2_ops msm_vidc_vb2q_ops = {
@@ -1488,6 +1507,16 @@ static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 					HAL_BUFFER_INPUT);
 			return -EINVAL;
 		}
+
+		if (inst->session_type == MSM_VIDC_DECODER &&
+			!(inst->flags & VIDC_THUMBNAIL) &&
+			inst->fmts[OUTPUT_PORT].fourcc ==
+				V4L2_PIX_FMT_VP9 &&
+			bufreq->buffer_count_min_host <
+				MIN_NUM_OUTPUT_BUFFERS_VP9)
+			bufreq->buffer_count_min_host =
+				MIN_NUM_OUTPUT_BUFFERS_VP9;
+
 		ctrl->val = bufreq->buffer_count_min_host;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_TME_PAYLOAD_VERSION:

@@ -23,10 +23,10 @@
 static int ipa_generate_hw_rule_from_eq(
 		const struct ipa_ipfltri_rule_eq *attrib, u8 **buf)
 {
-	int num_offset_meq_32 = attrib->num_offset_meq_32;
-	int num_ihl_offset_range_16 = attrib->num_ihl_offset_range_16;
-	int num_ihl_offset_meq_32 = attrib->num_ihl_offset_meq_32;
-	int num_offset_meq_128 = attrib->num_offset_meq_128;
+	uint8_t num_offset_meq_32 = attrib->num_offset_meq_32;
+	uint8_t num_ihl_offset_range_16 = attrib->num_ihl_offset_range_16;
+	uint8_t num_ihl_offset_meq_32 = attrib->num_ihl_offset_meq_32;
+	uint8_t num_offset_meq_128 = attrib->num_offset_meq_128;
 	int i;
 
 	if (attrib->tos_eq_present) {
@@ -1037,6 +1037,11 @@ static int __ipa_add_flt_rule(struct ipa_flt_tbl *tbl, enum ipa_ip_type ip,
 				goto error;
 			}
 		}
+	} else {
+		if (rule->rt_tbl_idx > 0) {
+			IPAERR_RL("invalid RT tbl\n");
+			goto error;
+		}
 	}
 
 	entry = kmem_cache_zalloc(ipa_ctx->flt_rule_cache, GFP_KERNEL);
@@ -1157,6 +1162,11 @@ static int __ipa_mdfy_flt_rule(struct ipa_flt_rule_mdfy *frule,
 				IPAERR_RL("invalid RT tbl\n");
 				goto error;
 			}
+		}
+	} else {
+		if (frule->rule.rt_tbl_idx > 0) {
+			IPAERR_RL("invalid RT tbl\n");
+			goto error;
 		}
 	}
 

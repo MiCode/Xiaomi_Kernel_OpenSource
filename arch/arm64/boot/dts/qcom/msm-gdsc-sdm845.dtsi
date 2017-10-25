@@ -181,6 +181,8 @@
 		qcom,poll-cfg-gdscr;
 		qcom,support-hw-trigger;
 		status = "disabled";
+		proxy-supply = <&mdss_core_gdsc>;
+		qcom,proxy-consumer-enable;
 	};
 
 	/* GDSCs in Graphics CC */

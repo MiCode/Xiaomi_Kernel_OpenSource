@@ -96,6 +96,23 @@ enum mmc_load {
 	MMC_LOAD_LOW,
 };
 
+enum {
+	MMC_ERR_CMD_TIMEOUT,
+	MMC_ERR_CMD_CRC,
+	MMC_ERR_DAT_TIMEOUT,
+	MMC_ERR_DAT_CRC,
+	MMC_ERR_AUTO_CMD,
+	MMC_ERR_ADMA,
+	MMC_ERR_TUNING,
+	MMC_ERR_CMDQ_RED,
+	MMC_ERR_CMDQ_GCE,
+	MMC_ERR_CMDQ_ICCE,
+	MMC_ERR_REQ_TIMEOUT,
+	MMC_ERR_CMDQ_REQ_TIMEOUT,
+	MMC_ERR_ICE_CFG,
+	MMC_ERR_MAX,
+};
+
 struct mmc_cmdq_host_ops {
 	int (*init)(struct mmc_host *host);
 	int (*enable)(struct mmc_host *host);
@@ -563,6 +580,7 @@ struct mmc_host {
 	struct dentry		*debugfs_root;
 
 	bool			err_occurred;
+	u32			err_stats[MMC_ERR_MAX];
 
 	struct mmc_async_req	*areq;		/* active async req */
 	struct mmc_context_info	context_info;	/* async synchronization info */

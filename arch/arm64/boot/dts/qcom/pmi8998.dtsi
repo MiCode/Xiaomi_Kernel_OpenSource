@@ -71,7 +71,7 @@
 			qcom,gpios-disallowed = <4 7 13>;
 		};
 
-		qcom,qpnp-qnovo@1500 {
+		pmi8998_qnovo: qcom,qpnp-qnovo@1500 {
 			compatible = "qcom,qpnp-qnovo";
 			reg = <0x1500 0x100>;
 			interrupts = <0x2 0x15 0x0 IRQ_TYPE_NONE>;
@@ -328,7 +328,8 @@
 				reg = <0x4400 0x100>;
 				interrupts = <0x2 0x44 0x0 IRQ_TYPE_EDGE_BOTH>,
 					     <0x2 0x44 0x1 IRQ_TYPE_EDGE_BOTH>,
-					     <0x2 0x44 0x2 IRQ_TYPE_EDGE_BOTH>;
+					     <0x2 0x44 0x2
+							IRQ_TYPE_EDGE_RISING>;
 				interrupt-names = "ima-rdy",
 						  "mem-xcp",
 						  "dma-grant";
@@ -529,7 +530,7 @@
 									<1600>;
 				qcom,qpnp-lab-limit-maximum-current = <1600>;
 				qcom,qpnp-lab-limit-max-current-enable;
-				qcom,qpnp-lab-ps-threshold = <20>;
+				qcom,qpnp-lab-ps-threshold = <70>;
 				qcom,qpnp-lab-ps-enable;
 				qcom,qpnp-lab-nfet-size = <100>;
 				qcom,qpnp-lab-pfet-size = <100>;

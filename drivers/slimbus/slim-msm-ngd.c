@@ -422,9 +422,11 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 	u8 txn_mt;
 	u16 txn_mc = txn->mc;
 	u8 wbuf[SLIM_MSGQ_BUF_LEN];
+	const u8 *old_wbuf = NULL;
 	bool report_sat = false;
 	bool sync_wr = true;
 
+	memset(wbuf, 0, sizeof(wbuf));
 	if (txn->mc & SLIM_MSG_CLK_PAUSE_SEQ_FLG)
 		return -EPROTONOSUPPORT;
 
@@ -590,6 +592,7 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 			goto ngd_xfer_err;
 		}
 		txn->len = i;
+		old_wbuf = txn->wbuf;
 		txn->wbuf = wbuf;
 		txn->rl = txn->len + 4;
 	}
@@ -758,13 +761,18 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 			ctrl->txnt[txn->tid] = NULL;
 			spin_unlock_irqrestore(&ctrl->txn_lock, flags);
 		}
-		return ret ? ret : dev->err;
+		goto ngd_xfer_ret;
 	}
 ngd_xfer_err:
 	if (!report_sat) {
 		mutex_unlock(&dev->tx_lock);
 		msm_slim_put_ctrl(dev);
 	}
+ngd_xfer_ret:
+	if (txn->wbuf == wbuf)
+		txn->wbuf = old_wbuf;
+	if (txn->comp == &done)
+		txn->comp = NULL;
 	return ret ? ret : dev->err;
 }
 

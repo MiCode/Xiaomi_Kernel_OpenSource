@@ -426,6 +426,7 @@ struct fg_chip {
 	int			batt_id_ohms;
 	int			ki_coeff_full_soc;
 	int			charge_status;
+	int			prev_charge_status;
 	int			charge_done;
 	int			charge_type;
 	int			online_status;
@@ -507,6 +508,7 @@ extern int fg_direct_mem_write(struct fg_chip *chip, u16 address,
 extern int fg_read(struct fg_chip *chip, int addr, u8 *val, int len);
 extern int fg_write(struct fg_chip *chip, int addr, u8 *val, int len);
 extern int fg_masked_write(struct fg_chip *chip, int addr, u8 mask, u8 val);
+extern int fg_dump_regs(struct fg_chip *chip);
 extern int fg_ima_init(struct fg_chip *chip);
 extern int fg_dma_init(struct fg_chip *chip);
 extern int fg_clear_ima_errors_if_any(struct fg_chip *chip, bool check_hw_sts);

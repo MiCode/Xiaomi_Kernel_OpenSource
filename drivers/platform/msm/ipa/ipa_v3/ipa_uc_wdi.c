@@ -672,19 +672,19 @@ static int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
 		unsigned long *iova)
 {
 	/* support for SMMU on WLAN but no SMMU on IPA */
-	if (wlan_smmu_en && ipa3_ctx->smmu_s1_bypass) {
+	if (wlan_smmu_en && ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC]) {
 		IPAERR("Unsupported SMMU pairing\n");
 		return -EINVAL;
 	}
 
 	/* legacy: no SMMUs on either end */
-	if (!wlan_smmu_en && ipa3_ctx->smmu_s1_bypass) {
+	if (!wlan_smmu_en && ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC]) {
 		*iova = pa;
 		return 0;
 	}
 
 	/* no SMMU on WLAN but SMMU on IPA */
-	if (!wlan_smmu_en && !ipa3_ctx->smmu_s1_bypass) {
+	if (!wlan_smmu_en && !ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC]) {
 		if (ipa_create_uc_smmu_mapping_pa(pa, len,
 			(res_idx == IPA_WDI_CE_DB_RES) ? true : false, iova)) {
 			IPAERR("Fail to create mapping res %d\n", res_idx);
@@ -695,7 +695,7 @@ static int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
 	}
 
 	/* SMMU on WLAN and SMMU on IPA */
-	if (wlan_smmu_en && !ipa3_ctx->smmu_s1_bypass) {
+	if (wlan_smmu_en && !ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC]) {
 		switch (res_idx) {
 		case IPA_WDI_RX_RING_RP_RES:
 		case IPA_WDI_RX_COMP_RING_WP_RES:
@@ -1818,6 +1818,11 @@ int ipa3_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)
 
 	if (!cb->valid) {
 		IPAERR("No SMMU CB setup\n");
+		return -EINVAL;
+	}
+
+	if (ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_WLAN]) {
+		IPAERR("IPA SMMU not enabled\n");
 		return -EINVAL;
 	}
 

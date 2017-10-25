@@ -683,6 +683,21 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 				  struct device_node *of_node)
 {
 	int rc = 0;
+	u64 tmp64;
+	struct dsi_display_mode *display_mode;
+
+	display_mode = container_of(mode, struct dsi_display_mode, timing);
+
+	rc = of_property_read_u64(of_node,
+			"qcom,mdss-dsi-panel-clockrate", &tmp64);
+	if (rc == -EOVERFLOW) {
+		tmp64 = 0;
+		rc = of_property_read_u32(of_node,
+			"qcom,mdss-dsi-panel-clockrate", (u32 *)&tmp64);
+	}
+
+	mode->clk_rate_hz = !rc ? tmp64 : 0;
+	display_mode->priv_info->clk_rate_hz = mode->clk_rate_hz;
 
 	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-framerate",
 				  &mode->refresh_rate);
@@ -2512,8 +2527,10 @@ static int dsi_panel_parse_esd_config(struct dsi_panel *panel,
 	struct property *data;
 	const char *string;
 	struct drm_panel_esd_config *esd_config;
+	u8 *esd_mode = NULL;
 
 	esd_config = &panel->esd_config;
+	esd_config->status_mode = ESD_MODE_MAX;
 	esd_config->esd_enabled = of_property_read_bool(of_node,
 		"qcom,esd-check-enabled");
 
@@ -2635,6 +2652,15 @@ static int dsi_panel_parse_esd_config(struct dsi_panel *panel,
 				esd_config->groups * status_len);
 	}
 
+	if (panel->esd_config.status_mode == ESD_MODE_REG_READ)
+		esd_mode = "register_read";
+	else if (panel->esd_config.status_mode == ESD_MODE_SW_BTA)
+		esd_mode = "bta_trigger";
+	else if (panel->esd_config.status_mode ==  ESD_MODE_PANEL_TE)
+		esd_mode = "te_check";
+
+	pr_info("ESD enabled with mode: %s\n", esd_mode);
+
 	return 0;
 
 error4:
@@ -2725,20 +2751,8 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 		pr_debug("failed to get dms info, rc=%d\n", rc);
 
 	rc = dsi_panel_parse_esd_config(panel, of_node);
-	if (rc) {
+	if (rc)
 		pr_debug("failed to parse esd config, rc=%d\n", rc);
-	} else {
-		u8 *esd_mode = NULL;
-
-		if (panel->esd_config.status_mode == ESD_MODE_REG_READ)
-			esd_mode = "register_read";
-		else if (panel->esd_config.status_mode == ESD_MODE_SW_BTA)
-			esd_mode = "bta_trigger";
-		else if (panel->esd_config.status_mode ==  ESD_MODE_PANEL_TE)
-			esd_mode = "te_check";
-
-		pr_info("ESD enabled with mode: %s\n", esd_mode);
-	}
 
 	panel->panel_of_node = of_node;
 	drm_panel_init(&panel->drm_panel);
@@ -3075,6 +3089,7 @@ int dsi_panel_get_host_cfg_for_mode(struct dsi_panel *panel,
 	config->video_timing.dsc_enabled = mode->priv_info->dsc_enabled;
 	config->video_timing.dsc = &mode->priv_info->dsc;
 
+	config->bit_clk_rate_hz = mode->priv_info->clk_rate_hz;
 	config->esc_clk_rate_hz = 19200000;
 	mutex_unlock(&panel->panel_lock);
 	return rc;

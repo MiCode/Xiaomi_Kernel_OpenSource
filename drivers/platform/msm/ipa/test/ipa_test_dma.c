@@ -364,11 +364,11 @@ static int ipa_test_dma_sync_async_memcpy(int size)
 }
 
 /**
- * TEST: test control API - enable/disable dma
+ * TEST: test enable/disable dma
  *	1. enable dma
  *	2. disable dma
  */
-static int ipa_test_dma_control_api(void *priv)
+static int ipa_test_dma_enable_disable(void *priv)
 {
 	int rc;
 
@@ -378,6 +378,92 @@ static int ipa_test_dma_control_api(void *priv)
 	if (rc) {
 		IPA_UT_LOG("DMA enable failed rc=%d\n", rc);
 		IPA_UT_TEST_FAIL_REPORT("fail enable dma");
+		return rc;
+	}
+
+	rc = ipa_dma_disable();
+	if (rc) {
+		IPA_UT_LOG("DMA disable failed rc=%d\n", rc);
+		IPA_UT_TEST_FAIL_REPORT("fail disable dma");
+		return rc;
+	}
+
+	return 0;
+}
+
+/**
+ * TEST: test init/enable/disable/destroy dma
+ *	1. init dma
+ *	2. enable dma
+ *	3. disable dma
+ *	4. destroy dma
+ */
+static int ipa_test_dma_init_enbl_disable_destroy(void *priv)
+{
+	int rc;
+
+	IPA_UT_LOG("Test Start\n");
+
+	rc = ipa_dma_init();
+	if (rc) {
+		IPA_UT_LOG("DMA Init failed rc=%d\n", rc);
+		IPA_UT_TEST_FAIL_REPORT("fail init dma");
+		return rc;
+	}
+
+	rc = ipa_dma_enable();
+	if (rc) {
+		ipa_dma_destroy();
+		IPA_UT_LOG("DMA enable failed rc=%d\n", rc);
+		IPA_UT_TEST_FAIL_REPORT("fail enable dma");
+		return rc;
+	}
+
+	rc = ipa_dma_disable();
+	if (rc) {
+		IPA_UT_LOG("DMA disable failed rc=%d\n", rc);
+		IPA_UT_TEST_FAIL_REPORT("fail disable dma");
+		return rc;
+	}
+
+	ipa_dma_destroy();
+
+	return 0;
+}
+
+/**
+ * TEST: test enablex2/disablex2 dma
+ *	1. enable dma
+ *	2. enable dma
+ *	3. disable dma
+ *	4. disable dma
+ */
+static int ipa_test_dma_enblx2_disablex2(void *priv)
+{
+	int rc;
+
+	IPA_UT_LOG("Test Start\n");
+
+	rc = ipa_dma_enable();
+	if (rc) {
+		ipa_dma_destroy();
+		IPA_UT_LOG("DMA enable failed rc=%d\n", rc);
+		IPA_UT_TEST_FAIL_REPORT("fail enable dma");
+		return rc;
+	}
+
+	rc = ipa_dma_enable();
+	if (rc) {
+		ipa_dma_destroy();
+		IPA_UT_LOG("DMA enable failed rc=%d\n", rc);
+		IPA_UT_TEST_FAIL_REPORT("fail enable dma");
+		return rc;
+	}
+
+	rc = ipa_dma_disable();
+	if (rc) {
+		IPA_UT_LOG("DMA disable failed rc=%d\n", rc);
+		IPA_UT_TEST_FAIL_REPORT("fail disable dma");
 		return rc;
 	}
 
@@ -999,9 +1085,17 @@ static int ipa_test_dma_sync_memcpy_max_pkt_size(void *priv)
 IPA_UT_DEFINE_SUITE_START(dma, "DMA for GSI",
 	ipa_test_dma_setup, ipa_test_dma_teardown)
 {
-	IPA_UT_ADD_TEST(control_api,
-		"Control API",
-		ipa_test_dma_control_api,
+	IPA_UT_ADD_TEST(init_enable_disable_destroy,
+		"Init->Enable->Disable->Destroy",
+		ipa_test_dma_enable_disable,
+		true, IPA_HW_v3_0, IPA_HW_MAX),
+	IPA_UT_ADD_TEST(initx2_enable_disable_destroyx2,
+		"Initx2->Enable->Disable->Destroyx2",
+		ipa_test_dma_init_enbl_disable_destroy,
+		true, IPA_HW_v3_0, IPA_HW_MAX),
+	IPA_UT_ADD_TEST(init_enablex2_disablex2_destroy,
+		"Init->Enablex2->Disablex2->Destroy",
+		ipa_test_dma_enblx2_disablex2,
 		true, IPA_HW_v3_0, IPA_HW_MAX),
 	IPA_UT_ADD_TEST(memcpy_before_enable,
 		"Call memcpy before dma enable and expect it to fail",

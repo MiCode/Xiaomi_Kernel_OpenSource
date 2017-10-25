@@ -256,6 +256,7 @@ struct sde_crtc {
 	struct list_head user_event_list;
 
 	struct mutex crtc_lock;
+	struct mutex crtc_cp_lock;
 
 	atomic_t frame_pending;
 	struct sde_crtc_frame_event frame_events[SDE_CRTC_FRAME_EVENT_SIZE];
@@ -279,11 +280,15 @@ struct sde_crtc {
 	struct sde_power_event *power_event;
 
 	struct sde_core_perf_params cur_perf;
+	struct sde_core_perf_params new_perf;
 
 	struct mutex rp_lock;
 	struct list_head rp_head;
 
 	struct sde_crtc_smmu_state_data smmu_state;
+
+	/* blob for histogram data */
+	struct drm_property_blob *hist_blob;
 };
 
 #define to_sde_crtc(x) container_of(x, struct sde_crtc, base)
@@ -404,6 +409,29 @@ struct sde_crtc_state {
 	u32 sbuf_prefill_line;
 
 	struct sde_crtc_respool rp;
+};
+
+enum sde_crtc_irq_state {
+	IRQ_NOINIT,
+	IRQ_ENABLED,
+	IRQ_DISABLED,
+};
+
+/**
+ * sde_crtc_irq_info - crtc interrupt info
+ * @irq: interrupt callback
+ * @event: event type of the interrupt
+ * @func: function pointer to enable/disable the interrupt
+ * @list: list of user customized event in crtc
+ * @ref_count: reference count for the interrupt
+ */
+struct sde_crtc_irq_info {
+	struct sde_irq_callback irq;
+	u32 event;
+	int (*func)(struct drm_crtc *crtc, bool en,
+			struct sde_irq_callback *irq);
+	struct list_head list;
+	enum sde_crtc_irq_state state;
 };
 
 #define to_sde_crtc_state(x) \

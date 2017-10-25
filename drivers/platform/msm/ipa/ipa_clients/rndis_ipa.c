@@ -2490,8 +2490,12 @@ static ssize_t rndis_ipa_debugfs_aggr_write
 	(struct file *file,
 	const char __user *buf, size_t count, loff_t *ppos)
 {
-	struct rndis_ipa_dev *rndis_ipa_ctx = file->private_data;
+	struct rndis_ipa_dev *rndis_ipa_ctx = NULL;
 	int result;
+
+	if (file == NULL)
+		return -EFAULT;
+	rndis_ipa_ctx = file->private_data;
 
 	result = ipa_cfg_ep(rndis_ipa_ctx->usb_to_ipa_hdl, &ipa_to_usb_ep_cfg);
 	if (result) {

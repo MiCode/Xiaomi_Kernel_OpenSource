@@ -9,11 +9,13 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#include <linux/iopoll.h>
 #include "sde_hw_mdss.h"
 #include "sde_hw_ctl.h"
 #include "sde_hw_reg_dma_v1.h"
 #include "msm_drv.h"
 #include "msm_mmu.h"
+#include "sde_dbg.h"
 
 #define GUARD_BYTES (BIT(8) - 1)
 #define ALIGNED_OFFSET (U32_MAX & ~(GUARD_BYTES))
@@ -93,6 +95,20 @@ static u32 v1_supported[REG_DMA_FEATURES_MAX]  = {
 	[PCC] = GRP_DSPP_HW_BLK_SELECT,
 };
 
+static u32 ctl_trigger_done_mask[CTL_MAX][DMA_CTL_QUEUE_MAX] = {
+	[CTL_0][0] = BIT(16),
+	[CTL_0][1] = BIT(21),
+	[CTL_1][0] = BIT(17),
+	[CTL_1][1] = BIT(22),
+	[CTL_2][0] = BIT(18),
+	[CTL_2][1] = BIT(23),
+	[CTL_3][0] = BIT(19),
+	[CTL_3][1] = BIT(24),
+};
+
+static int reg_dma_int_status_off;
+static int reg_dma_clear_status_off;
+
 static int validate_dma_cfg(struct sde_reg_dma_setup_ops_cfg *cfg);
 static int validate_write_decode_sel(struct sde_reg_dma_setup_ops_cfg *cfg);
 static int validate_write_reg(struct sde_reg_dma_setup_ops_cfg *cfg);
@@ -110,7 +126,8 @@ static int check_support_v1(enum sde_reg_dma_features feature,
 static int setup_payload_v1(struct sde_reg_dma_setup_ops_cfg *cfg);
 static int kick_off_v1(struct sde_reg_dma_kickoff_cfg *cfg);
 static int reset_v1(struct sde_hw_ctl *ctl);
-static int last_cmd_v1(struct sde_hw_ctl *ctl, enum sde_reg_dma_queue q);
+static int last_cmd_v1(struct sde_hw_ctl *ctl, enum sde_reg_dma_queue q,
+		enum sde_reg_dma_last_cmd_mode mode);
 static struct sde_reg_dma_buffer *alloc_reg_dma_buf_v1(u32 size);
 static int dealloc_reg_dma_v1(struct sde_reg_dma_buffer *lut_buf);
 
@@ -130,7 +147,7 @@ static reg_dma_internal_ops validate_dma_op_params[REG_DMA_SETUP_OPS_MAX] = {
 	[REG_BLK_WRITE_MULTIPLE] = validate_write_multi_lut_reg,
 };
 
-static struct sde_reg_dma_buffer *last_cmd_buf;
+static struct sde_reg_dma_buffer *last_cmd_buf[CTL_MAX];
 
 static void get_decode_sel(unsigned long blk, u32 *decode_sel)
 {
@@ -466,6 +483,8 @@ static int write_kick_off_v1(struct sde_reg_dma_kickoff_cfg *cfg)
 
 	SET_UP_REG_DMA_REG(hw, reg_dma);
 	SDE_REG_WRITE(&hw, REG_DMA_OP_MODE_OFF, BIT(0));
+	SDE_REG_WRITE(&hw, reg_dma_clear_status_off,
+		ctl_trigger_done_mask[cfg->ctl->idx][cfg->queue_select]);
 	SDE_REG_WRITE(&hw, reg_dma_ctl_queue_off[cfg->ctl->idx],
 			cfg->dma_buf->iova);
 	SDE_REG_WRITE(&hw, reg_dma_ctl_queue_off[cfg->ctl->idx] + 0x4,
@@ -479,17 +498,32 @@ static int write_kick_off_v1(struct sde_reg_dma_kickoff_cfg *cfg)
 
 int init_v1(struct sde_hw_reg_dma *cfg)
 {
-	int i = 0;
+	int i = 0, rc = 0;
 
 	if (!cfg)
 		return -EINVAL;
 
 	reg_dma = cfg;
-	if (!last_cmd_buf) {
-		last_cmd_buf = alloc_reg_dma_buf_v1(REG_DMA_HEADERS_BUFFER_SZ);
-		if (IS_ERR_OR_NULL(last_cmd_buf))
-			return -EINVAL;
+	for (i = CTL_0; i < CTL_MAX; i++) {
+		if (!last_cmd_buf[i]) {
+			last_cmd_buf[i] =
+			    alloc_reg_dma_buf_v1(REG_DMA_HEADERS_BUFFER_SZ);
+			if (IS_ERR_OR_NULL(last_cmd_buf[i])) {
+				rc = -EINVAL;
+				break;
+			}
+		}
 	}
+	if (rc) {
+		for (i = 0; i < CTL_MAX; i++) {
+			if (!last_cmd_buf[i])
+				continue;
+			dealloc_reg_dma_v1(last_cmd_buf[i]);
+			last_cmd_buf[i] = NULL;
+		}
+		return rc;
+	}
+
 	reg_dma->ops.check_support = check_support_v1;
 	reg_dma->ops.setup_payload = setup_payload_v1;
 	reg_dma->ops.kick_off = kick_off_v1;
@@ -503,6 +537,8 @@ int init_v1(struct sde_hw_reg_dma *cfg)
 	for (i = CTL_1; i < ARRAY_SIZE(reg_dma_ctl_queue_off); i++)
 		reg_dma_ctl_queue_off[i] = reg_dma_ctl_queue_off[i - 1] +
 			(sizeof(u32) * 4);
+	reg_dma_int_status_off = 0x90;
+	reg_dma_clear_status_off = 0xa0;
 
 	return 0;
 }
@@ -767,24 +803,28 @@ static int write_last_cmd(struct sde_reg_dma_setup_ops_cfg *cfg)
 	return 0;
 }
 
-static int last_cmd_v1(struct sde_hw_ctl *ctl, enum sde_reg_dma_queue q)
+static int last_cmd_v1(struct sde_hw_ctl *ctl, enum sde_reg_dma_queue q,
+		enum sde_reg_dma_last_cmd_mode mode)
 {
 	struct sde_reg_dma_setup_ops_cfg cfg;
 	struct sde_reg_dma_kickoff_cfg kick_off;
+	struct sde_hw_blk_reg_map hw;
+	u32 val;
+	int rc;
 
-	if (!last_cmd_buf || !ctl || q >= DMA_CTL_QUEUE_MAX) {
-		DRM_ERROR("invalid param buf %pK ctl %pK q %d\n", last_cmd_buf,
-				ctl, q);
+	if (!ctl || ctl->idx >= CTL_MAX || q >= DMA_CTL_QUEUE_MAX) {
+		DRM_ERROR("ctl %pK q %d index %d\n", ctl, q,
+				((ctl) ? ctl->idx : -1));
 		return -EINVAL;
 	}
 
-	if (!last_cmd_buf->iova) {
-		DRM_DEBUG("iova not set, possible secure session\n");
+	if (!last_cmd_buf[ctl->idx] || !last_cmd_buf[ctl->idx]->iova) {
+		DRM_DEBUG("invalid last cmd buf for idx %d\n", ctl->idx);
 		return 0;
 	}
 
-	cfg.dma_buf = last_cmd_buf;
-	reset_reg_dma_buffer_v1(last_cmd_buf);
+	cfg.dma_buf = last_cmd_buf[ctl->idx];
+	reset_reg_dma_buffer_v1(last_cmd_buf[ctl->idx]);
 	if (validate_last_cmd(&cfg)) {
 		DRM_ERROR("validate buf failed\n");
 		return -EINVAL;
@@ -800,10 +840,25 @@ static int last_cmd_v1(struct sde_hw_ctl *ctl, enum sde_reg_dma_queue q)
 	kick_off.trigger_mode = WRITE_IMMEDIATE;
 	kick_off.last_command = 1;
 	kick_off.op = REG_DMA_WRITE;
-	kick_off.dma_buf = last_cmd_buf;
+	kick_off.dma_buf = last_cmd_buf[ctl->idx];
 	if (kick_off_v1(&kick_off)) {
 		DRM_ERROR("kick off last cmd failed\n");
 		return -EINVAL;
+	}
+
+	memset(&hw, 0, sizeof(hw));
+	SET_UP_REG_DMA_REG(hw, reg_dma);
+
+	SDE_EVT32(SDE_EVTLOG_FUNC_ENTRY, mode);
+	if (mode == REG_DMA_WAIT4_COMP) {
+		rc = readl_poll_timeout(hw.base_off + hw.blk_off +
+			reg_dma_int_status_off, val,
+			(val & ctl_trigger_done_mask[ctl->idx][q]),
+			10, 20000);
+		if (rc)
+			DRM_ERROR("poll wait failed %d val %x mask %x\n",
+			    rc, val, ctl_trigger_done_mask[ctl->idx][q]);
+		SDE_EVT32(SDE_EVTLOG_FUNC_EXIT, mode);
 	}
 
 	return 0;
@@ -811,7 +866,11 @@ static int last_cmd_v1(struct sde_hw_ctl *ctl, enum sde_reg_dma_queue q)
 
 void deinit_v1(void)
 {
-	if (last_cmd_buf)
-		dealloc_reg_dma_v1(last_cmd_buf);
-	last_cmd_buf = NULL;
+	int i = 0;
+
+	for (i = CTL_0; i < CTL_MAX; i++) {
+		if (last_cmd_buf[i])
+			dealloc_reg_dma_v1(last_cmd_buf[i]);
+		last_cmd_buf[i] = NULL;
+	}
 }

@@ -26,7 +26,27 @@ struct sde_irq_callback;
 enum sde_memcolor_type {
 	MEMCOLOR_SKIN = 0,
 	MEMCOLOR_SKY,
-	MEMCOLOR_FOLIAGE
+	MEMCOLOR_FOLIAGE,
+	MEMCOLOR_MAX
+};
+
+/*
+ * PA HISTOGRAM modes
+ * @HIST_DISABLED          Histogram disabled
+ * @HIST_ENABLED           Histogram enabled
+ */
+enum sde_hist_modes {
+	HIST_DISABLED,
+	HIST_ENABLED
+};
+
+/**
+ * struct drm_prop_enum_list - drm structure for creating enum property and
+ *                             enumerating values
+ */
+static const struct drm_prop_enum_list sde_hist_modes[] = {
+	{HIST_DISABLED, "hist_off"},
+	{HIST_ENABLED, "hist_on"},
 };
 
 /**
@@ -117,4 +137,13 @@ void sde_cp_crtc_pre_ipc(struct drm_crtc *crtc);
  * @crtc: Pointer to crtc.
  */
 void sde_cp_crtc_post_ipc(struct drm_crtc *crtc);
+
+/**
+ * sde_cp_hist_interrupt: Api to enable/disable histogram interrupt
+ * @crtc: Pointer to crtc.
+ * @en: Variable to enable/disable interrupt.
+ * @irq: Pointer to irq callback
+ */
+int sde_cp_hist_interrupt(struct drm_crtc *crtc_drm, bool en,
+	struct sde_irq_callback *hist_irq);
 #endif /*_SDE_COLOR_PROCESSING_H */

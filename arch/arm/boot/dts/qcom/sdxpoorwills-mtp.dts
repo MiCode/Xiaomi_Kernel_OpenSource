@@ -10,19 +10,22 @@
  * GNU General Public License for more details.
  */
 
-#ifndef CAM_JPEG_DMA_HW_INTF_H
-#define CAM_JPEG_DMA_HW_INTF_H
+/dts-v1/;
 
-#include <uapi/media/cam_defs.h>
-#include <media/cam_jpeg.h>
 
-#include "cam_hw_mgr_intf.h"
-#include "cam_jpeg_hw_intf.h"
+#include "sdxpoorwills.dtsi"
+#include "sdxpoorwills-pinctrl.dtsi"
 
-enum cam_jpeg_dma_cmd_type {
-	CAM_JPEG_DMA_CMD_CDM_CFG,
-	CAM_JPEG_DMA_CMD_SET_IRQ_CB,
-	CAM_JPEG_DMA_CMD_MAX,
+/ {
+	model = "Qualcomm Technologies, Inc. SDXPOORWILLS MTP";
+	compatible = "qcom,sdxpoorwills-mtp",
+		"qcom,sdxpoorwills", "qcom,mtp";
+	qcom,board-id = <8 0x0>, <8 0x100>;
 };
 
-#endif /* CAM_JPEG_DMA_HW_INTF_H */
+&blsp1_uart2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_console_active>;
+	status = "ok";
+};
+

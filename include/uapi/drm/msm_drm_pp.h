@@ -69,7 +69,39 @@ struct drm_msm_pa_vlut {
 	__u32 val[PA_VLUT_SIZE];
 };
 
-/* struct drm_msm_memcol - Memory color feature strucuture.
+#define PA_HSIC_HUE_ENABLE (1 << 0)
+#define PA_HSIC_SAT_ENABLE (1 << 1)
+#define PA_HSIC_VAL_ENABLE (1 << 2)
+#define PA_HSIC_CONT_ENABLE (1 << 3)
+/**
+ * struct drm_msm_pa_hsic - pa hsic feature structure
+ * @flags: flags for the feature customization, values can be:
+ *         - PA_HSIC_HUE_ENABLE: Enable hue adjustment
+ *         - PA_HSIC_SAT_ENABLE: Enable saturation adjustment
+ *         - PA_HSIC_VAL_ENABLE: Enable value adjustment
+ *         - PA_HSIC_CONT_ENABLE: Enable contrast adjustment
+ *
+ * @hue: hue setting
+ * @saturation: saturation setting
+ * @value: value setting
+ * @contrast: contrast setting
+ */
+#define DRM_MSM_PA_HSIC
+struct drm_msm_pa_hsic {
+	__u64 flags;
+	__u32 hue;
+	__u32 saturation;
+	__u32 value;
+	__u32 contrast;
+};
+
+#define MEMCOL_PROT_HUE (1 << 0)
+#define MEMCOL_PROT_SAT (1 << 1)
+#define MEMCOL_PROT_VAL (1 << 2)
+#define MEMCOL_PROT_CONT (1 << 3)
+#define MEMCOL_PROT_SIXZONE (1 << 4)
+#define MEMCOL_PROT_BLEND (1 << 5)
+/* struct drm_msm_memcol - Memory color feature structure.
  *                         Skin, sky, foliage features are supported.
  * @prot_flags: Bit mask for enabling protection feature.
  * @color_adjust_p0: Adjustment curve.
@@ -94,6 +126,42 @@ struct drm_msm_memcol {
 	__u32 hue_region;
 	__u32 sat_region;
 	__u32 val_region;
+};
+
+#define DRM_MSM_SIXZONE
+#define SIXZONE_LUT_SIZE 384
+#define SIXZONE_HUE_ENABLE (1 << 0)
+#define SIXZONE_SAT_ENABLE (1 << 1)
+#define SIXZONE_VAL_ENABLE (1 << 2)
+/* struct drm_msm_sixzone_curve - Sixzone HSV adjustment curve structure.
+ * @p0: Hue adjustment.
+ * @p1: Saturation/Value adjustment.
+ */
+struct drm_msm_sixzone_curve {
+	__u32 p1;
+	__u32 p0;
+};
+
+/* struct drm_msm_sixzone - Sixzone feature structure.
+ * @flags: for feature customization, values can be:
+ *         - SIXZONE_HUE_ENABLE: Enable hue adjustment
+ *         - SIXZONE_SAT_ENABLE: Enable saturation adjustment
+ *         - SIXZONE_VAL_ENABLE: Enable value adjustment
+ * @threshold: threshold qualifier.
+ * @adjust_p0: Adjustment curve.
+ * @adjust_p1: Adjustment curve.
+ * @sat_hold: Saturation hold info.
+ * @val_hold: Value hold info.
+ * @curve: HSV adjustment curve lut.
+ */
+struct drm_msm_sixzone {
+	__u64 flags;
+	__u32 threshold;
+	__u32 adjust_p0;
+	__u32 adjust_p1;
+	__u32 sat_hold;
+	__u32 val_hold;
+	struct drm_msm_sixzone_curve curve[SIXZONE_LUT_SIZE];
 };
 
 #define GAMUT_3D_MODE_17 1
@@ -172,6 +240,17 @@ struct drm_msm_igc_lut {
 	__u32 c1[IGC_TBL_LEN];
 	__u32 c2[IGC_TBL_LEN];
 	__u32 strength;
+};
+
+#define HIST_V_SIZE 256
+/**
+ * struct drm_msm_hist - histogram feature structure
+ * @flags: for customizing operations
+ * @data: histogram data
+ */
+struct drm_msm_hist {
+	__u64 flags;
+	__u32 data[HIST_V_SIZE];
 };
 
 #define AD4_LUT_GRP0_SIZE 33

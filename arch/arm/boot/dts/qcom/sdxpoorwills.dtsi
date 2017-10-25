@@ -459,6 +459,8 @@
 };
 
 #include "pmxpoorwills.dtsi"
+#include "sdxpoorwills-blsp.dtsi"
 #include "sdxpoorwills-regulator.dtsi"
 #include "sdxpoorwills-smp2p.dtsi"
 #include "sdxpoorwills-usb.dtsi"
+#include "sdxpoorwills-bus.dtsi"

@@ -2013,8 +2013,9 @@ unknown:
 				if (value < 0) {
 					DBG(cdev, "ep_queue --> %d\n", value);
 					req->status = 0;
-					composite_setup_complete(gadget->ep0,
-								 req);
+					if (value != -ESHUTDOWN)
+						composite_setup_complete(
+							gadget->ep0, req);
 				}
 			}
 			return value;
@@ -2108,7 +2109,8 @@ try_fun_setup:
 		if (value < 0) {
 			DBG(cdev, "ep_queue --> %d\n", value);
 			req->status = 0;
-			composite_setup_complete(gadget->ep0, req);
+			if (value != -ESHUTDOWN)
+				composite_setup_complete(gadget->ep0, req);
 		}
 	} else if (value == USB_GADGET_DELAYED_STATUS && w_length != 0) {
 		WARN(cdev,

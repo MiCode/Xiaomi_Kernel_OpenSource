@@ -236,8 +236,8 @@ static DECLARE_DELAYED_WORK(ipa3_transport_release_resource_work,
 	ipa3_transport_release_resource);
 static void ipa_gsi_notify_cb(struct gsi_per_notify *notify);
 
-static void ipa3_post_init_wq(struct work_struct *work);
-static DECLARE_WORK(ipa3_post_init_work, ipa3_post_init_wq);
+static void ipa3_load_ipa_fw(struct work_struct *work);
+static DECLARE_WORK(ipa3_fw_loading_work, ipa3_load_ipa_fw);
 
 static void ipa_dec_clients_disable_clks_on_wq(struct work_struct *work);
 static DECLARE_WORK(ipa_dec_clients_disable_clks_on_wq_work,
@@ -255,7 +255,7 @@ static struct {
 	bool present;
 	bool arm_smmu;
 	bool fast_map;
-	bool s1_bypass;
+	bool s1_bypass_arr[IPA_SMMU_CB_MAX];
 	bool use_64_bit_dma_mask;
 	u32 ipa_base;
 	u32 ipa_size;
@@ -436,14 +436,6 @@ static void ipa3_active_clients_log_destroy(void)
 		flags);
 }
 
-enum ipa_smmu_cb_type {
-	IPA_SMMU_CB_AP,
-	IPA_SMMU_CB_WLAN,
-	IPA_SMMU_CB_UC,
-	IPA_SMMU_CB_MAX
-
-};
-
 static struct ipa_smmu_cb_ctx smmu_cb[IPA_SMMU_CB_MAX];
 
 struct iommu_domain *ipa3_get_smmu_domain(void)
@@ -545,6 +537,7 @@ static int ipa3_send_wan_msg(unsigned long usr_param, uint8_t msg_type, bool is_
 	int retval;
 	struct ipa_wan_msg *wan_msg;
 	struct ipa_msg_meta msg_meta;
+	struct ipa_wan_msg cache_wan_msg;
 
 	wan_msg = kzalloc(sizeof(struct ipa_wan_msg), GFP_KERNEL);
 	if (!wan_msg) {
@@ -557,6 +550,8 @@ static int ipa3_send_wan_msg(unsigned long usr_param, uint8_t msg_type, bool is_
 		kfree(wan_msg);
 		return -EFAULT;
 	}
+
+	memcpy(&cache_wan_msg, wan_msg, sizeof(cache_wan_msg));
 
 	memset(&msg_meta, 0, sizeof(struct ipa_msg_meta));
 	msg_meta.msg_type = msg_type;
@@ -574,8 +569,8 @@ static int ipa3_send_wan_msg(unsigned long usr_param, uint8_t msg_type, bool is_
 		/* cache the cne event */
 		memcpy(&ipa3_ctx->ipa_cne_evt_req_cache[
 			ipa3_ctx->num_ipa_cne_evt_req].wan_msg,
-			wan_msg,
-			sizeof(struct ipa_wan_msg));
+			&cache_wan_msg,
+			sizeof(cache_wan_msg));
 
 		memcpy(&ipa3_ctx->ipa_cne_evt_req_cache[
 			ipa3_ctx->num_ipa_cne_evt_req].msg_meta,
@@ -4371,11 +4366,6 @@ fail_register_device:
 	return result;
 }
 
-static void ipa3_post_init_wq(struct work_struct *work)
-{
-	ipa3_post_init(&ipa3_res, ipa3_ctx->dev);
-}
-
 static int ipa3_manual_load_ipa_fws(void)
 {
 	int result;
@@ -4427,19 +4417,42 @@ static int ipa3_pil_load_ipa_fws(void)
 	if (IS_ERR_OR_NULL(subsystem_get_retval)) {
 		IPAERR("Unable to trigger PIL process for FW loading\n");
 		return -EINVAL;
-	} else {
-		subsystem_put(subsystem_get_retval);
 	}
 
 	IPADBG("PIL FW loading process is complete\n");
 	return 0;
 }
 
+static void ipa3_load_ipa_fw(struct work_struct *work)
+{
+	int result;
+
+	IPADBG("Entry\n");
+
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
+	if (ipa3_is_msm_device() || (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5))
+		result = ipa3_pil_load_ipa_fws();
+	else
+		result = ipa3_manual_load_ipa_fws();
+
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+
+	if (result) {
+		IPAERR("IPA FW loading process has failed\n");
+		return;
+	}
+	pr_info("IPA FW loaded successfully\n");
+
+	result = ipa3_post_init(&ipa3_res, ipa3_ctx->dev);
+	if (result)
+		IPAERR("IPA post init failed %d\n", result);
+}
+
 static ssize_t ipa3_write(struct file *file, const char __user *buf,
 			  size_t count, loff_t *ppos)
 {
 	unsigned long missing;
-	int result = -EINVAL;
 
 	char dbg_buff[16] = { 0 };
 
@@ -4452,6 +4465,9 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 		IPAERR("Unable to copy data from user\n");
 		return -EFAULT;
 	}
+
+	if (count > 0)
+		dbg_buff[count - 1] = '\0';
 
 	/* Prevent consequent calls from trying to load the FW again. */
 	if (ipa3_is_ready())
@@ -4469,24 +4485,10 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 		}
 	}
 
-	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-
-	if (ipa3_is_msm_device() || (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5))
-		result = ipa3_pil_load_ipa_fws();
-	else
-		result = ipa3_manual_load_ipa_fws();
-
-	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
-
-	if (result) {
-		IPAERR("IPA FW loading process has failed\n");
-		return result;
-	}
-
 	queue_work(ipa3_ctx->transport_power_mgmt_wq,
-		&ipa3_post_init_work);
-	pr_info("IPA FW loaded successfully\n");
+		&ipa3_fw_loading_work);
 
+	IPADBG("Scheduled a work to load IPA FW\n");
 	return count;
 }
 
@@ -4640,10 +4642,14 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->pdev = ipa_dev;
 	ipa3_ctx->uc_pdev = ipa_dev;
 	ipa3_ctx->smmu_present = smmu_info.present;
-	if (!ipa3_ctx->smmu_present)
-		ipa3_ctx->smmu_s1_bypass = true;
-	else
-		ipa3_ctx->smmu_s1_bypass = smmu_info.s1_bypass;
+	if (!ipa3_ctx->smmu_present) {
+		for (i = 0; i < IPA_SMMU_CB_MAX; i++)
+			ipa3_ctx->s1_bypass_arr[i] = true;
+	} else {
+		for (i = 0; i < IPA_SMMU_CB_MAX; i++)
+			ipa3_ctx->s1_bypass_arr[i] = smmu_info.s1_bypass_arr[i];
+	}
+
 	ipa3_ctx->ipa_wrapper_base = resource_p->ipa_mem_base;
 	ipa3_ctx->ipa_wrapper_size = resource_p->ipa_mem_size;
 	ipa3_ctx->ipa_hw_type = resource_p->ipa_hw_type;
@@ -5003,7 +5009,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	if (result) {
 		IPAERR("Failed to alloc pkt_init payload\n");
 		result = -ENODEV;
-		goto fail_create_apps_resource;
+		goto fail_allok_pkt_init;
 	}
 
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5)
@@ -5013,6 +5019,13 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 
 	init_completion(&ipa3_ctx->init_completion_obj);
 	init_completion(&ipa3_ctx->uc_loaded_completion_obj);
+
+	result = ipa3_dma_setup();
+	if (result) {
+		IPAERR("Failed to setup IPA DMA\n");
+		result = -ENODEV;
+		goto fail_ipa_dma_setup;
+	}
 
 	/*
 	 * We can't register the GSI driver yet, as it expects
@@ -5026,7 +5039,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		if (result) {
 			IPAERR("gsi pre FW loading config failed\n");
 			result = -ENODEV;
-			goto fail_ipa_init_interrupts;
+			goto fail_gsi_pre_fw_load_init;
 		}
 	}
 
@@ -5046,8 +5059,13 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	return 0;
 
 fail_cdev_add:
-fail_ipa_init_interrupts:
-	if (!ipa3_ctx->use_ipa_pm)
+fail_gsi_pre_fw_load_init:
+	ipa3_dma_shutdown();
+fail_ipa_dma_setup:
+fail_allok_pkt_init:
+	if (ipa3_ctx->use_ipa_pm)
+		ipa_pm_destroy();
+	else
 		ipa_rm_delete_resource(IPA_RM_RESOURCE_APPS_CONS);
 fail_create_apps_resource:
 	if (!ipa3_ctx->use_ipa_pm)
@@ -5058,6 +5076,7 @@ fail_nat_dev_add:
 fail_device_create:
 	unregister_chrdev_region(ipa3_ctx->dev_num, 1);
 fail_alloc_chrdev_region:
+	idr_destroy(&ipa3_ctx->ipa_idr);
 	rset = &ipa3_ctx->reap_rt_tbl_set[IPA_IP_v6];
 	idr_destroy(&rset->rule_ids);
 	rset = &ipa3_ctx->reap_rt_tbl_set[IPA_IP_v4];
@@ -5066,7 +5085,6 @@ fail_alloc_chrdev_region:
 	idr_destroy(&ipa3_ctx->rt_tbl_set[IPA_IP_v4].rule_ids);
 	ipa3_free_dma_task_for_gsi();
 fail_dma_task:
-	idr_destroy(&ipa3_ctx->ipa_idr);
 	kmem_cache_destroy(ipa3_ctx->rx_pkt_wrapper_cache);
 fail_rx_pkt_wrapper_cache:
 	kmem_cache_destroy(ipa3_ctx->tx_pkt_wrapper_cache);
@@ -5486,7 +5504,8 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 	}
 	cb->valid = true;
 
-	if (smmu_info.s1_bypass) {
+	if (of_property_read_bool(dev->of_node, "qcom,smmu-s1-bypass")) {
+		smmu_info.s1_bypass_arr[IPA_SMMU_CB_WLAN] = true;
 		if (iommu_domain_set_attr(cb->iommu,
 					DOMAIN_ATTR_S1_BYPASS,
 					&bypass)) {
@@ -5494,8 +5513,9 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 			cb->valid = false;
 			return -EIO;
 		}
-		IPADBG("SMMU S1 BYPASS\n");
+		IPADBG("WLAN SMMU S1 BYPASS\n");
 	} else {
+		smmu_info.s1_bypass_arr[IPA_SMMU_CB_WLAN] = false;
 		if (iommu_domain_set_attr(cb->iommu,
 					DOMAIN_ATTR_ATOMIC,
 					&atomic_ctx)) {
@@ -5503,7 +5523,7 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 			cb->valid = false;
 			return -EIO;
 		}
-		IPADBG("SMMU ATTR ATOMIC\n");
+		IPADBG(" WLAN SMMU ATTR ATOMIC\n");
 
 		if (smmu_info.fast_map) {
 			if (iommu_domain_set_attr(cb->iommu,
@@ -5516,6 +5536,9 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 			IPADBG("SMMU fast map set\n");
 		}
 	}
+
+	pr_info("IPA smmu_info.s1_bypass_arr[WLAN]=%d smmu_info.fast_map=%d\n",
+		smmu_info.s1_bypass_arr[IPA_SMMU_CB_WLAN], smmu_info.fast_map);
 
 	ret = iommu_attach_device(cb->iommu, dev);
 	if (ret) {
@@ -5604,20 +5627,23 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 	cb->valid = true;
 
 	IPADBG("UC CB PROBE sub pdev=%p set attribute\n", dev);
-	if (smmu_info.s1_bypass) {
+
+	if (of_property_read_bool(dev->of_node, "qcom,smmu-s1-bypass")) {
+		smmu_info.s1_bypass_arr[IPA_SMMU_CB_UC] = true;
 		if (iommu_domain_set_attr(cb->mapping->domain,
-				DOMAIN_ATTR_S1_BYPASS,
-				&bypass)) {
+			DOMAIN_ATTR_S1_BYPASS,
+			&bypass)) {
 			IPAERR("couldn't set bypass\n");
 			arm_iommu_release_mapping(cb->mapping);
 			cb->valid = false;
 			return -EIO;
 		}
-		IPADBG("SMMU S1 BYPASS\n");
+		IPADBG("UC SMMU S1 BYPASS\n");
 	} else {
+		smmu_info.s1_bypass_arr[IPA_SMMU_CB_UC] = false;
 		if (iommu_domain_set_attr(cb->mapping->domain,
-				DOMAIN_ATTR_ATOMIC,
-				&atomic_ctx)) {
+			DOMAIN_ATTR_ATOMIC,
+			&atomic_ctx)) {
 			IPAERR("couldn't set domain as atomic\n");
 			arm_iommu_release_mapping(cb->mapping);
 			cb->valid = false;
@@ -5627,8 +5653,8 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 
 		if (smmu_info.fast_map) {
 			if (iommu_domain_set_attr(cb->mapping->domain,
-					DOMAIN_ATTR_FAST,
-					&fast)) {
+				DOMAIN_ATTR_FAST,
+				&fast)) {
 				IPAERR("couldn't set fast map\n");
 				arm_iommu_release_mapping(cb->mapping);
 				cb->valid = false;
@@ -5637,6 +5663,9 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 			IPADBG("SMMU fast map set\n");
 		}
 	}
+
+	pr_info("IPA smmu_info.s1_bypass_arr[UC]=%d smmu_info.fast_map=%d\n",
+		smmu_info.s1_bypass_arr[IPA_SMMU_CB_UC], smmu_info.fast_map);
 
 	IPADBG("UC CB PROBE sub pdev=%p attaching IOMMU device\n", dev);
 	ret = arm_iommu_attach_device(cb->dev, cb->mapping);
@@ -5704,7 +5733,9 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	IPADBG("SMMU mapping created\n");
 	cb->valid = true;
 
-	if (smmu_info.s1_bypass) {
+	if (of_property_read_bool(dev->of_node,
+		"qcom,smmu-s1-bypass")) {
+		smmu_info.s1_bypass_arr[IPA_SMMU_CB_AP] = true;
 		if (iommu_domain_set_attr(cb->mapping->domain,
 				DOMAIN_ATTR_S1_BYPASS,
 				&bypass)) {
@@ -5713,8 +5744,9 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 			cb->valid = false;
 			return -EIO;
 		}
-		IPADBG("SMMU S1 BYPASS\n");
+		IPADBG("AP/USB SMMU S1 BYPASS\n");
 	} else {
+		smmu_info.s1_bypass_arr[IPA_SMMU_CB_AP] = false;
 		if (iommu_domain_set_attr(cb->mapping->domain,
 				DOMAIN_ATTR_ATOMIC,
 				&atomic_ctx)) {
@@ -5723,7 +5755,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 			cb->valid = false;
 			return -EIO;
 		}
-		IPADBG("SMMU atomic set\n");
+		IPADBG("AP/USB SMMU atomic set\n");
 
 		if (iommu_domain_set_attr(cb->mapping->domain,
 				DOMAIN_ATTR_FAST,
@@ -5735,6 +5767,9 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		}
 		IPADBG("SMMU fast map set\n");
 	}
+
+	pr_info("IPA smmu_info.s1_bypass_arr[AP]=%d smmu_info.fast_map=%d\n",
+		smmu_info.s1_bypass_arr[IPA_SMMU_CB_AP], smmu_info.fast_map);
 
 	result = arm_iommu_attach_device(cb->dev, cb->mapping);
 	if (result) {
@@ -5919,17 +5954,12 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 
 	if (of_property_read_bool(pdev_p->dev.of_node, "qcom,arm-smmu")) {
 		if (of_property_read_bool(pdev_p->dev.of_node,
-		    "qcom,smmu-s1-bypass"))
-			smmu_info.s1_bypass = true;
-		if (of_property_read_bool(pdev_p->dev.of_node,
 			"qcom,smmu-fast-map"))
 			smmu_info.fast_map = true;
 		if (of_property_read_bool(pdev_p->dev.of_node,
 			"qcom,use-64-bit-dma-mask"))
 			smmu_info.use_64_bit_dma_mask = true;
 		smmu_info.arm_smmu = true;
-		pr_info("IPA smmu_info.s1_bypass=%d smmu_info.fast_map=%d\n",
-			smmu_info.s1_bypass, smmu_info.fast_map);
 	} else if (of_property_read_bool(pdev_p->dev.of_node,
 				"qcom,msm-smmu")) {
 		IPAERR("Legacy IOMMU not supported\n");

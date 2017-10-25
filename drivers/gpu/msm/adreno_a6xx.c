@@ -65,10 +65,10 @@ struct kgsl_hwcg_reg {
 	unsigned int val;
 };
 static const struct kgsl_hwcg_reg a630_hwcg_regs[] = {
-	{A6XX_RBBM_CLOCK_CNTL_SP0, 0x22222222},
-	{A6XX_RBBM_CLOCK_CNTL_SP1, 0x22222222},
-	{A6XX_RBBM_CLOCK_CNTL_SP2, 0x22222222},
-	{A6XX_RBBM_CLOCK_CNTL_SP3, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL_SP0, 0x02222222},
+	{A6XX_RBBM_CLOCK_CNTL_SP1, 0x02222222},
+	{A6XX_RBBM_CLOCK_CNTL_SP2, 0x02222222},
+	{A6XX_RBBM_CLOCK_CNTL_SP3, 0x02222222},
 	{A6XX_RBBM_CLOCK_CNTL2_SP0, 0x02022220},
 	{A6XX_RBBM_CLOCK_CNTL2_SP1, 0x02022220},
 	{A6XX_RBBM_CLOCK_CNTL2_SP2, 0x02022220},
@@ -143,6 +143,72 @@ static const struct kgsl_hwcg_reg a630_hwcg_regs[] = {
 	{A6XX_RBBM_CLOCK_CNTL2_RB1, 0x00002222},
 	{A6XX_RBBM_CLOCK_CNTL2_RB2, 0x00002222},
 	{A6XX_RBBM_CLOCK_CNTL2_RB3, 0x00002222},
+	{A6XX_RBBM_CLOCK_CNTL_CCU0, 0x00000000},
+	{A6XX_RBBM_CLOCK_CNTL_CCU1, 0x00000000},
+	{A6XX_RBBM_CLOCK_CNTL_CCU2, 0x00000000},
+	{A6XX_RBBM_CLOCK_CNTL_CCU3, 0x00000000},
+	{A6XX_RBBM_CLOCK_HYST_RB_CCU0, 0x00040F00},
+	{A6XX_RBBM_CLOCK_HYST_RB_CCU1, 0x00040F00},
+	{A6XX_RBBM_CLOCK_HYST_RB_CCU2, 0x00040F00},
+	{A6XX_RBBM_CLOCK_HYST_RB_CCU3, 0x00040F00},
+	{A6XX_RBBM_CLOCK_CNTL_RAC, 0x00022022},
+	{A6XX_RBBM_CLOCK_CNTL2_RAC, 0x00005550},
+	{A6XX_RBBM_CLOCK_DELAY_RAC, 0x00010011},
+	{A6XX_RBBM_CLOCK_HYST_RAC, 0x00445044},
+	{A6XX_RBBM_CLOCK_CNTL_TSE_RAS_RBBM, 0x04222220},
+	{A6XX_RBBM_CLOCK_MODE_GPC, 0x00202222},
+	{A6XX_RBBM_CLOCK_MODE_VFD, 0x00002222},
+	{A6XX_RBBM_CLOCK_HYST_TSE_RAS_RBBM, 0x00000000},
+	{A6XX_RBBM_CLOCK_HYST_GPC, 0x04104004},
+	{A6XX_RBBM_CLOCK_HYST_VFD, 0x00000000},
+	{A6XX_RBBM_CLOCK_DELAY_HLSQ, 0x00000000},
+	{A6XX_RBBM_CLOCK_DELAY_TSE_RAS_RBBM, 0x00004000},
+	{A6XX_RBBM_CLOCK_DELAY_GPC, 0x00000200},
+	{A6XX_RBBM_CLOCK_DELAY_VFD, 0x00002222},
+	{A6XX_RBBM_CLOCK_DELAY_HLSQ_2, 0x00000002},
+	{A6XX_RBBM_CLOCK_MODE_HLSQ, 0x00002222},
+	{A6XX_RBBM_CLOCK_CNTL_GMU_GX, 0x00000222},
+	{A6XX_RBBM_CLOCK_DELAY_GMU_GX, 0x00000111},
+	{A6XX_RBBM_CLOCK_HYST_GMU_GX, 0x00000555}
+};
+
+static const struct kgsl_hwcg_reg a615_hwcg_regs[] = {
+	{A6XX_RBBM_CLOCK_CNTL_SP0,  0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL2_SP0, 0x02222220},
+	{A6XX_RBBM_CLOCK_DELAY_SP0, 0x00000081},
+	{A6XX_RBBM_CLOCK_HYST_SP0,  0x0000F3CF},
+	{A6XX_RBBM_CLOCK_CNTL_TP0,  0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL_TP1,  0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL2_TP0, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL2_TP1, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL3_TP0, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL3_TP1, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL4_TP0, 0x00022222},
+	{A6XX_RBBM_CLOCK_CNTL4_TP1, 0x00022222},
+	{A6XX_RBBM_CLOCK_HYST_TP0,  0x77777777},
+	{A6XX_RBBM_CLOCK_HYST_TP1,  0x77777777},
+	{A6XX_RBBM_CLOCK_HYST2_TP0, 0x77777777},
+	{A6XX_RBBM_CLOCK_HYST2_TP1, 0x77777777},
+	{A6XX_RBBM_CLOCK_HYST3_TP0, 0x77777777},
+	{A6XX_RBBM_CLOCK_HYST3_TP1, 0x77777777},
+	{A6XX_RBBM_CLOCK_HYST4_TP0, 0x00077777},
+	{A6XX_RBBM_CLOCK_HYST4_TP1, 0x00077777},
+	{A6XX_RBBM_CLOCK_DELAY_TP0, 0x11111111},
+	{A6XX_RBBM_CLOCK_DELAY_TP1, 0x11111111},
+	{A6XX_RBBM_CLOCK_DELAY2_TP0, 0x11111111},
+	{A6XX_RBBM_CLOCK_DELAY2_TP1, 0x11111111},
+	{A6XX_RBBM_CLOCK_DELAY3_TP0, 0x11111111},
+	{A6XX_RBBM_CLOCK_DELAY3_TP1, 0x11111111},
+	{A6XX_RBBM_CLOCK_DELAY4_TP0, 0x00011111},
+	{A6XX_RBBM_CLOCK_DELAY4_TP1, 0x00011111},
+	{A6XX_RBBM_CLOCK_CNTL_UCHE,  0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL2_UCHE, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL3_UCHE, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL4_UCHE, 0x00222222},
+	{A6XX_RBBM_CLOCK_HYST_UCHE,  0x00000004},
+	{A6XX_RBBM_CLOCK_DELAY_UCHE, 0x00000002},
+	{A6XX_RBBM_CLOCK_CNTL_RB0, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL2_RB0, 0x00002222},
 	{A6XX_RBBM_CLOCK_CNTL_CCU0, 0x00002220},
 	{A6XX_RBBM_CLOCK_CNTL_CCU1, 0x00002220},
 	{A6XX_RBBM_CLOCK_CNTL_CCU2, 0x00002220},
@@ -153,7 +219,7 @@ static const struct kgsl_hwcg_reg a630_hwcg_regs[] = {
 	{A6XX_RBBM_CLOCK_HYST_RB_CCU3, 0x00040F00},
 	{A6XX_RBBM_CLOCK_CNTL_RAC, 0x05022022},
 	{A6XX_RBBM_CLOCK_CNTL2_RAC, 0x00005555},
-	{A6XX_RBBM_CLOCK_DELAY_RAC, 0x00010011},
+	{A6XX_RBBM_CLOCK_DELAY_RAC, 0x00000011},
 	{A6XX_RBBM_CLOCK_HYST_RAC, 0x00445044},
 	{A6XX_RBBM_CLOCK_CNTL_TSE_RAS_RBBM, 0x04222222},
 	{A6XX_RBBM_CLOCK_MODE_GPC, 0x02222222},
@@ -178,7 +244,7 @@ static const struct {
 	unsigned int count;
 } a6xx_hwcg_registers[] = {
 	{adreno_is_a630, a630_hwcg_regs, ARRAY_SIZE(a630_hwcg_regs)},
-	{adreno_is_a615, a630_hwcg_regs, ARRAY_SIZE(a630_hwcg_regs)},
+	{adreno_is_a615, a615_hwcg_regs, ARRAY_SIZE(a615_hwcg_regs)},
 };
 
 static struct a6xx_protected_regs {
@@ -265,7 +331,7 @@ static void a6xx_pwrup_reglist_init(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	if (kgsl_allocate_global(device, &adreno_dev->pwrup_reglist,
-		PAGE_SIZE, 0, KGSL_MEMDESC_PRIVILEGED,
+		PAGE_SIZE, KGSL_MEMFLAGS_GPUREADONLY, 0,
 		"powerup_register_list")) {
 		adreno_dev->pwrup_reglist.gpuaddr = 0;
 		return;
@@ -699,7 +765,7 @@ static void _set_ordinals(struct adreno_device *adreno_dev,
 		*cmds++ = lower_32_bits(gpuaddr);
 		*cmds++ = upper_32_bits(gpuaddr);
 		/* Size is in dwords */
-		*cmds++ = sizeof(a6xx_pwrup_reglist) >> 2;
+		*cmds++ = 0;
 	}
 
 	/* Pad rest of the cmds with 0's */
@@ -937,42 +1003,42 @@ static void _load_gmu_rpmh_ucode(struct kgsl_device *device)
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0 + 4, 0x002081FC);
 
 	/* Set TCS commands used by PDC sequence for low power modes */
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS0_CMD_ENABLE_BANK, 7);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS0_CMD_WAIT_FOR_CMPL_BANK, 0);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS0_CONTROL, 0);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS0_CMD0_MSGID, 0x10108);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS0_CMD0_ADDR, 0x30010);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS0_CMD0_DATA, 1);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS0_CMD0_MSGID + PDC_CMD_OFFSET, 0x10108);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS0_CMD0_ADDR + PDC_CMD_OFFSET, 0x30000);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS0_CMD0_DATA + PDC_CMD_OFFSET, 0x0);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS0_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS0_CMD0_ADDR + PDC_CMD_OFFSET * 2, 0x30080);
-	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS0_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x0);
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CMD_ENABLE_BANK, 7);
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CMD_WAIT_FOR_CMPL_BANK, 0);
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CONTROL, 0);
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CMD0_MSGID, 0x10108);
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CMD0_ADDR, 0x30010);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CMD0_DATA, 2);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS1_CMD0_DATA, 1);
 	_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS1_CMD0_MSGID + PDC_CMD_OFFSET, 0x10108);
 	_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS1_CMD0_ADDR + PDC_CMD_OFFSET, 0x30000);
 	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET, 0x3);
+			PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET, 0x0);
 	_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS1_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
 	_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS1_CMD0_ADDR + PDC_CMD_OFFSET * 2, 0x30080);
 	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x3);
+			PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x0);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CMD_ENABLE_BANK, 7);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CMD_WAIT_FOR_CMPL_BANK, 0);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CONTROL, 0);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CMD0_MSGID, 0x10108);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CMD0_ADDR, 0x30010);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS3_CMD0_DATA, 2);
+	_regwrite(gmu->pdc_reg_virt,
+			PDC_GPU_TCS3_CMD0_MSGID + PDC_CMD_OFFSET, 0x10108);
+	_regwrite(gmu->pdc_reg_virt,
+			PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET, 0x30000);
+	_regwrite(gmu->pdc_reg_virt,
+			PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET, 0x3);
+	_regwrite(gmu->pdc_reg_virt,
+			PDC_GPU_TCS3_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
+	_regwrite(gmu->pdc_reg_virt,
+			PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET * 2, 0x30080);
+	_regwrite(gmu->pdc_reg_virt,
+			PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x3);
 
 	/* Setup GPU PDC */
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_START_ADDR, 0);
@@ -1014,7 +1080,6 @@ static int timed_poll_check(struct kgsl_device *device,
 			return 0;
 		/* Wait 100us to reduce unnecessary AHB bus traffic */
 		udelay(100);
-		cond_resched();
 	} while (!time_after(jiffies, t));
 
 	/* Double check one last time */
@@ -1028,11 +1093,11 @@ static int timed_poll_check(struct kgsl_device *device,
 /*
  * The lowest 16 bits of this value are the number of XO clock cycles
  * for main hysteresis. This is the first hysteresis. Here we set it
- * to 0x5DC cycles, or 78.1 us. The highest 16 bits of this value are
+ * to 0x1680 cycles, or 300 us. The highest 16 bits of this value are
  * the number of XO clock cycles for short hysteresis. This happens
  * after main hysteresis. Here we set it to 0xA cycles, or 0.5 us.
  */
-#define GMU_PWR_COL_HYST 0x000A05DC
+#define GMU_PWR_COL_HYST 0x000A1680
 
 /*
  * a6xx_gmu_power_config() - Configure and enable GMU's low power mode
@@ -1411,7 +1476,9 @@ static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 	int val;
 
 	kgsl_gmu_regread(device, A6XX_GPU_CC_GX_DOMAIN_MISC, &val);
-	WARN_ON(!(val & 0x1));
+	if (!(val & 0x1))
+		dev_err_ratelimited(&gmu->pdev->dev,
+			"GMEM CLAMP IO not set while GFX rail off\n");
 
 	/* RSC wake sequence */
 	kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, BIT(1));
@@ -1778,7 +1845,6 @@ static int a6xx_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 
 		/* Wait 100us to reduce unnecessary AHB bus traffic */
 		udelay(100);
-		cond_resched();
 	}
 
 	/* Check one last time */

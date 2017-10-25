@@ -17,6 +17,7 @@
 #include "cam_hw.h"
 #include "cam_soc_util.h"
 #include "cam_irq_controller.h"
+#include <uapi/media/cam_isp.h>
 
 /*
  * struct cam_isp_timestamp:
@@ -175,4 +176,19 @@ struct cam_isp_hw_get_hfr_update {
 	struct cam_isp_port_hfr_config *io_hfr_cfg;
 };
 
+/*
+ * struct cam_isp_hw_dual_isp_update_args:
+ *
+ * @Brief:        update the dual isp striping configuration.
+ *
+ * @ split_id:    spilt id to inform left or rifht
+ * @ res:         resource node
+ * @ dual_cfg:    dual isp configuration
+ *
+ */
+struct cam_isp_hw_dual_isp_update_args {
+	enum cam_isp_hw_split_id         split_id;
+	struct cam_isp_resource_node    *res;
+	struct cam_isp_dual_config      *dual_cfg;
+};
 #endif /* _CAM_ISP_HW_H_ */

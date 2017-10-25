@@ -135,6 +135,18 @@ config IP6_NF_IPTABLES
 
 if IP6_NF_IPTABLES
 
+config IP6_NF_IPTABLES_128
+	tristate "128 bit arithmetic for iptables matching"
+	depends on IP6_NF_IPTABLES
+	help
+	  This enables 128 bit matching in ip6tables to help optimize cases
+          where there is no match required. ip6tables matching for ipv6 always
+	  has a mask if an address is specified for match. Adding a check for
+	  mask prior to that helps to improve performance as it avoids the
+	  masked comparison.
+
+	  Note that this feature depends on the architecture. If unsure, say N.
+
 # The simple matches.
 config IP6_NF_MATCH_AH
 	tristate '"ah" match support'

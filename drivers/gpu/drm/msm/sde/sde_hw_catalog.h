@@ -152,6 +152,7 @@ enum {
  * @SDE_MIXER_SOURCESPLIT     Layer mixer supports source-split configuration
  * @SDE_MIXER_GC              Gamma correction block
  * @SDE_DIM_LAYER             Layer mixer supports dim layer
+ * @SDE_DISP_PRIMARY_PREF     Layer mixer preferred for primary display
  * @SDE_MIXER_MAX             maximum value
  */
 enum {
@@ -159,6 +160,7 @@ enum {
 	SDE_MIXER_SOURCESPLIT,
 	SDE_MIXER_GC,
 	SDE_DIM_LAYER,
+	SDE_DISP_PRIMARY_PREF,
 	SDE_MIXER_MAX
 };
 
@@ -217,12 +219,14 @@ enum {
  * @SDE_CTL_SPLIT_DISPLAY       CTL supports video mode split display
  * @SDE_CTL_PINGPONG_SPLIT      CTL supports pingpong split
  * @SDE_CTL_SBUF                CTL supports inline stream buffer
+ * @SDE_CTL_PRIMARY_PREF        CTL preferred for primary display
  * @SDE_CTL_MAX
  */
 enum {
 	SDE_CTL_SPLIT_DISPLAY = 0x1,
 	SDE_CTL_PINGPONG_SPLIT,
 	SDE_CTL_SBUF,
+	SDE_CTL_PRIMARY_PREF,
 	SDE_CTL_MAX
 };
 
@@ -858,8 +862,8 @@ struct sde_perf_cdp_cfg {
  * @downscaling_prefill_lines  downscaling latency in lines
  * @amortizable_theshold minimum y position for traffic shaping prefill
  * @min_prefill_lines  minimum pipeline latency in lines
- * @safe_lut_tbl: LUT tables for safe signals
  * @danger_lut_tbl: LUT tables for danger signals
+ * @sfe_lut_tbl: LUT tables for safe signals
  * @qos_lut_tbl: LUT tables for QoS signals
  * @cdp_cfg            cdp use case configurations
  */
@@ -882,8 +886,8 @@ struct sde_perf_cfg {
 	u32 downscaling_prefill_lines;
 	u32 amortizable_threshold;
 	u32 min_prefill_lines;
-	u32 safe_lut_tbl[SDE_QOS_LUT_USAGE_MAX];
 	u32 danger_lut_tbl[SDE_QOS_LUT_USAGE_MAX];
+	struct sde_qos_lut_tbl sfe_lut_tbl[SDE_QOS_LUT_USAGE_MAX];
 	struct sde_qos_lut_tbl qos_lut_tbl[SDE_QOS_LUT_USAGE_MAX];
 	struct sde_perf_cdp_cfg cdp_cfg[SDE_PERF_CDP_USAGE_MAX];
 };

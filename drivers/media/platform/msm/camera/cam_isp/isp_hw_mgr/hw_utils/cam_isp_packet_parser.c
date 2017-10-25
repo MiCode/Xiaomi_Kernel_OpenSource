@@ -82,10 +82,66 @@ int cam_isp_add_change_base(
 	return rc;
 }
 
+static int cam_isp_update_dual_config(
+	struct cam_hw_prepare_update_args  *prepare,
+	struct cam_cmd_buf_desc            *cmd_desc,
+	uint32_t                            split_id,
+	uint32_t                            base_idx,
+	struct cam_ife_hw_mgr_res          *res_list_isp_out,
+	uint32_t                            size_isp_out)
+{
+	int rc = -EINVAL;
+	struct cam_isp_dual_config                 *dual_config;
+	struct cam_ife_hw_mgr_res                  *hw_mgr_res;
+	struct cam_isp_resource_node               *res;
+	struct cam_isp_hw_dual_isp_update_args      dual_isp_update_args;
+	size_t                                      len = 0;
+	uint32_t                                   *cpu_addr;
+	uint32_t                                    i, j;
+
+	CAM_DBG(CAM_UTIL, "cmd des size %d, length: %d",
+		cmd_desc->size, cmd_desc->length);
+
+	rc = cam_packet_util_get_cmd_mem_addr(
+		cmd_desc->mem_handle, &cpu_addr, &len);
+	if (rc)
+		return rc;
+
+	cpu_addr += (cmd_desc->offset / 4);
+	dual_config = (struct cam_isp_dual_config *)cpu_addr;
+
+	for (i = 0; i < dual_config->num_ports; i++) {
+		hw_mgr_res = &res_list_isp_out[i];
+		for (j = 0; j < CAM_ISP_HW_SPLIT_MAX; j++) {
+			if (!hw_mgr_res->hw_res[j])
+				continue;
+
+			if (hw_mgr_res->hw_res[j]->hw_intf->hw_idx != base_idx)
+				continue;
+
+			res = hw_mgr_res->hw_res[j];
+			dual_isp_update_args.split_id = j;
+			dual_isp_update_args.res      = res;
+			dual_isp_update_args.dual_cfg = dual_config;
+			rc = res->hw_intf->hw_ops.process_cmd(
+				res->hw_intf->hw_priv,
+				CAM_VFE_HW_CMD_STRIPE_UPDATE,
+				&dual_isp_update_args,
+				sizeof(struct cam_isp_hw_dual_isp_update_args));
+			if (rc)
+				return rc;
+		}
+	}
+
+	return rc;
+}
 
 int cam_isp_add_command_buffers(
 	struct cam_hw_prepare_update_args  *prepare,
-	uint32_t                            split_id)
+	enum cam_isp_hw_split_id            split_id,
+	uint32_t                            base_idx,
+	struct cam_ife_hw_mgr_res          *res_list_isp_out,
+	uint32_t                            size_isp_out)
 {
 	int rc = 0;
 	uint32_t  cmd_meta_data, num_ent, i;
@@ -167,6 +223,14 @@ int cam_isp_add_command_buffers(
 				hw_entry[num_ent].flags = 0x1;
 
 			num_ent++;
+			break;
+		case CAM_ISP_PACKET_META_DUAL_CONFIG:
+			rc = cam_isp_update_dual_config(prepare,
+				&cmd_desc[i], split_id, base_idx,
+				res_list_isp_out, size_isp_out);
+
+			if (rc)
+				return rc;
 			break;
 		case CAM_ISP_PACKET_META_GENERIC_BLOB:
 			break;
@@ -449,8 +513,8 @@ int cam_isp_add_io_buffers(
 
 	for (i = 0; i < prepare->packet->num_io_configs; i++) {
 		CAM_DBG(CAM_ISP, "======= io config idx %d ============", i);
-		CAM_DBG(CAM_ISP, "resource_type:%d fence:%d",
-			io_cfg[i].resource_type, io_cfg[i].fence);
+		CAM_DBG(CAM_ISP, "i %d resource_type:%d fence:%d",
+			i, io_cfg[i].resource_type, io_cfg[i].fence);
 		CAM_DBG(CAM_ISP, "format: %d", io_cfg[i].format);
 		CAM_DBG(CAM_ISP, "direction %d",
 			io_cfg[i].direction);

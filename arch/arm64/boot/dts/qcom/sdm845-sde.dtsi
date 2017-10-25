@@ -55,10 +55,13 @@
 		qcom,sde-ctl-off = <0x2000 0x2200 0x2400
 				     0x2600 0x2800>;
 		qcom,sde-ctl-size = <0xE4>;
+		qcom,sde-ctl-display-pref = "primary", "primary", "none",
+					    "none", "none";
 
-		qcom,sde-mixer-off = <0x45000 0x46000 0x47000
-				      0x48000 0x49000 0x4a000>;
+		qcom,sde-mixer-off = <0x45000 0x46000 0x47000 0 0 0x4a000>;
 		qcom,sde-mixer-size = <0x320>;
+		qcom,sde-mixer-display-pref = "primary", "primary", "none",
+					      "none", "none", "none";
 
 		qcom,sde-dspp-top-off = <0x1300>;
 		qcom,sde-dspp-top-size = <0xc>;
@@ -160,7 +163,18 @@
 
 		qcom,sde-danger-lut = <0x0000000f 0x0000ffff 0x00000000
 			0x00000000>;
-		qcom,sde-safe-lut = <0xfffc 0xff00 0xffff 0xffff>;
+		qcom,sde-safe-lut-linear =
+			<4 0xfff8>,
+			<0 0xfff0>;
+		qcom,sde-safe-lut-macrotile =
+			<10 0xfe00>,
+			<11 0xfc00>,
+			<12 0xf800>,
+			<0 0xf000>;
+		qcom,sde-safe-lut-nrt =
+			<0 0xffff>;
+		qcom,sde-safe-lut-cwb =
+			<0 0xffff>;
 		qcom,sde-qos-lut-linear =
 			<4 0x00000000 0x00000357>,
 			<5 0x00000000 0x00003357>,
@@ -207,10 +221,14 @@
 
 		qcom,sde-dspp-blocks {
 			qcom,sde-dspp-igc = <0x0 0x00030001>;
+			qcom,sde-dspp-hsic = <0x800 0x00010007>;
+			qcom,sde-dspp-memcolor = <0x880 0x00010007>;
+			qcom,sde-dspp-sixzone= <0x900 0x00010007>;
 			qcom,sde-dspp-vlut = <0xa00 0x00010008>;
 			qcom,sde-dspp-gamut = <0x1000 0x00040000>;
 			qcom,sde-dspp-pcc = <0x1700 0x00040000>;
 			qcom,sde-dspp-gc = <0x17c0 0x00010008>;
+			qcom,sde-dspp-hist = <0x800 0x00010007>;
 		};
 
 		qcom,platform-supply-entries {

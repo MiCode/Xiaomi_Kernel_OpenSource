@@ -307,13 +307,13 @@ static int xhci_plat_probe(struct platform_device *pdev)
 
 	hcd_to_bus(xhci->shared_hcd)->skip_resume = true;
 
-	if (device_property_read_bool(sysdev, "usb3-lpm-capable"))
+	if (device_property_read_bool(&pdev->dev, "usb3-lpm-capable"))
 		xhci->quirks |= XHCI_LPM_SUPPORT;
 
 	if (device_property_read_bool(&pdev->dev, "quirk-broken-port-ped"))
 		xhci->quirks |= XHCI_BROKEN_PORT_PED;
 
-	if (device_property_read_u32(sysdev, "snps,xhci-imod-value", &imod))
+	if (device_property_read_u32(&pdev->dev, "xhci-imod-value", &imod))
 		imod = 0;
 
 	if (device_property_read_u32(sysdev, "usb-core-id", &xhci->core_id))

@@ -58,6 +58,7 @@
 		qcom,initial-pwrlevel = <5>;
 
 		qcom,gpu-quirk-hfi-use-reg;
+		qcom,gpu-quirk-secvid-set-once;
 
 		qcom,idle-timeout = <80>; //msecs
 		qcom,no-nap;
@@ -81,11 +82,10 @@
 			<&clock_gpucc GPU_CC_CXO_CLK>,
 			<&clock_gcc GCC_DDRSS_GPU_AXI_CLK>,
 			<&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
-			<&clock_gpucc GPU_CC_CX_GMU_CLK>,
-			<&clock_gpucc GPU_CC_AHB_CLK>;
+			<&clock_gpucc GPU_CC_CX_GMU_CLK>;
 
 		clock-names = "core_clk", "rbbmtimer_clk", "mem_clk",
-				"mem_iface_clk", "gmu_clk", "ahb_clk";
+				"mem_iface_clk", "gmu_clk";
 
 		qcom,isense-clk-on-level = <1>;
 
@@ -267,7 +267,8 @@
 		compatible = "qcom,kgsl-smmu-v2";
 
 		reg = <0x05040000 0x10000>;
-		qcom,protect = <0x40000 0x10000>;
+		/* CB5(ATOS) & CB5/6/7 are protected by HYP */
+		qcom,protect = <0x40000 0xc000>;
 		qcom,micro-mmu-control = <0x6000>;
 
 		clocks =<&clock_gcc GCC_GPU_CFG_AHB_CLK>,
@@ -277,6 +278,7 @@
 		clock-names = "iface_clk", "mem_clk", "mem_iface_clk";
 
 		qcom,secure_align_mask = <0xfff>;
+		qcom,retention;
 		qcom,hyp_secure_alloc;
 
 		gfx3d_user: gfx3d_user {
@@ -288,7 +290,7 @@
 
 		gfx3d_secure: gfx3d_secure {
 			compatible = "qcom,smmu-kgsl-cb";
-			iommus = <&kgsl_smmu 2>;
+			iommus = <&kgsl_smmu 2>, <&kgsl_smmu 1>;
 		};
 	};
 
@@ -317,11 +319,10 @@
 		clocks = <&clock_gpucc GPU_CC_CX_GMU_CLK>,
 				<&clock_gpucc GPU_CC_CXO_CLK>,
 				<&clock_gcc GCC_DDRSS_GPU_AXI_CLK>,
-				<&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
-				<&clock_gpucc GPU_CC_AHB_CLK>;
+				<&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>;
 
 		clock-names = "gmu_clk", "cxo_clk", "axi_clk",
-				"memnoc_clk", "ahb_clk";
+				"memnoc_clk";
 
 		qcom,gmu-pwrlevels {
 			#address-cells = <1>;

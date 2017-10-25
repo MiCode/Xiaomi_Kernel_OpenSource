@@ -190,10 +190,14 @@
 
 		qcom,sde-dspp-blocks {
 			qcom,sde-dspp-igc = <0x0 0x00030001>;
+			qcom,sde-dspp-hsic = <0x800 0x00010007>;
+			qcom,sde-dspp-memcolor = <0x880 0x00010007>;
+			qcom,sde-dspp-sixzone= <0x900 0x00010007>;
 			qcom,sde-dspp-vlut = <0xa00 0x00010008>;
 			qcom,sde-dspp-gamut = <0x1000 0x00040000>;
 			qcom,sde-dspp-pcc = <0x1700 0x00040000>;
 			qcom,sde-dspp-gc = <0x17c0 0x00010008>;
+			qcom,sde-dspp-hist = <0x800 0x00010007>;
 		};
 
 		qcom,platform-supply-entries {

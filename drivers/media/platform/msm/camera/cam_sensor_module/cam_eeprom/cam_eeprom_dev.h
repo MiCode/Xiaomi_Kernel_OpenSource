@@ -37,6 +37,13 @@
 #define MSM_EEPROM_MAX_MEM_MAP_CNT             8
 #define MSM_EEPROM_MEM_MAP_PROPERTIES_CNT      8
 
+enum cam_eeprom_state {
+	CAM_EEPROM_INIT,
+	CAM_EEPROM_ACQUIRE,
+	CAM_EEPROM_START,
+	CAM_EEPROM_RELEASE,
+};
+
 /**
  * struct cam_eeprom_map_t - eeprom map
  * @data_type       :   Data type
@@ -154,7 +161,7 @@ struct cam_eeprom_intf_params {
  * @cci_i2c_master  :   I2C structure
  * @v4l2_dev_str    :   V4L2 device structure
  * @bridge_intf     :   bridge interface params
- * @subdev_id       :   subdev id
+ * @cam_eeprom_state:   eeprom_device_state
  * @userspace_probe :   flag indicates userspace or kernel probe
  * @cal_data        :   Calibration data
  * @device_name     :   Device name
@@ -171,7 +178,7 @@ struct cam_eeprom_ctrl_t {
 	struct cam_subdev v4l2_dev_str;
 	struct cam_eeprom_intf_params bridge_intf;
 	enum msm_camera_device_type_t eeprom_device_type;
-	uint32_t subdev_id;
+	enum cam_eeprom_state cam_eeprom_state;
 	bool userspace_probe;
 	struct cam_eeprom_memory_block_t cal_data;
 	char device_name[20];

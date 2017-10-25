@@ -50,6 +50,33 @@ struct cam_cpas_intf {
 
 static struct cam_cpas_intf *g_cpas_intf;
 
+int cam_cpas_get_cpas_hw_version(uint32_t *hw_version)
+{
+	struct cam_hw_info *cpas_hw = NULL;
+
+	if (!CAM_CPAS_INTF_INITIALIZED()) {
+		CAM_ERR(CAM_CPAS, "cpas intf not initialized");
+		return -ENODEV;
+	}
+
+	if (!hw_version) {
+		CAM_ERR(CAM_CPAS, "invalid input %pK", hw_version);
+		return -EINVAL;
+	}
+
+	cpas_hw = (struct cam_hw_info  *) g_cpas_intf->hw_intf->hw_priv;
+
+	*hw_version = cpas_hw->soc_info.hw_version;
+
+	if (*hw_version == CAM_CPAS_TITAN_NONE) {
+		CAM_DBG(CAM_CPAS, "Didn't find a valid HW Version %d",
+			*hw_version);
+	}
+
+	return 0;
+}
+
+
 int cam_cpas_get_hw_info(uint32_t *camera_family,
 	struct cam_hw_version *camera_version,
 	struct cam_hw_version *cpas_version)

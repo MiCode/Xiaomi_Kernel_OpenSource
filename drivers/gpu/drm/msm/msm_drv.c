@@ -57,8 +57,6 @@
 #define MSM_VERSION_MINOR	2
 #define MSM_VERSION_PATCHLEVEL	0
 
-#define TEARDOWN_DEADLOCK_RETRY_MAX 5
-
 static void msm_fb_output_poll_changed(struct drm_device *dev)
 {
 	struct msm_drm_private *priv = NULL;
@@ -1369,7 +1367,9 @@ void msm_mode_object_event_notify(struct drm_mode_object *obj,
 			continue;
 		len = event->length + sizeof(struct drm_msm_event_resp);
 		if (node->base.file_priv->event_space < len) {
-			DRM_ERROR("Insufficient space to notify\n");
+			DRM_ERROR("Insufficient space %d for event %x len %d\n",
+				node->base.file_priv->event_space, event->type,
+				len);
 			continue;
 		}
 		notify = kzalloc(len, GFP_ATOMIC);
@@ -1928,6 +1928,28 @@ static int msm_pdev_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void msm_pdev_shutdown(struct platform_device *pdev)
+{
+	struct drm_device *ddev = platform_get_drvdata(pdev);
+	struct msm_drm_private *priv = NULL;
+
+	if (!ddev) {
+		DRM_ERROR("invalid drm device node\n");
+		return;
+	}
+
+	priv = ddev->dev_private;
+	if (!priv) {
+		DRM_ERROR("invalid msm drm private node\n");
+		return;
+	}
+
+	msm_lastclose(ddev);
+
+	/* set this after lastclose to allow kickoff from lastclose */
+	priv->shutdown_in_progress = true;
+}
+
 static const struct of_device_id dt_match[] = {
 	{ .compatible = "qcom,mdp4", .data = (void *)4 },	/* MDP4 */
 	{ .compatible = "qcom,mdss", .data = (void *)5 },	/* MDP5 MDSS */
@@ -1939,6 +1961,7 @@ MODULE_DEVICE_TABLE(of, dt_match);
 static struct platform_driver msm_platform_driver = {
 	.probe      = msm_pdev_probe,
 	.remove     = msm_pdev_remove,
+	.shutdown   = msm_pdev_shutdown,
 	.driver     = {
 		.name   = "msm_drm",
 		.of_match_table = dt_match,
