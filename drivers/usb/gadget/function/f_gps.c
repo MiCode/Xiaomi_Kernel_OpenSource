@@ -590,7 +590,8 @@ gps_send_cpkt_response(void *gr, void *buf, size_t len)
 	}
 	cpkt = gps_alloc_ctrl_pkt(len, GFP_ATOMIC);
 	if (IS_ERR(cpkt)) {
-		pr_err("%s: Unable to allocate ctrl pkt\n", __func__);
+		pr_err_ratelimited("%s: Unable to allocate ctrl pkt\n",
+					__func__);
 		return -ENOMEM;
 	}
 	memcpy(cpkt->buf, buf, len);
@@ -598,7 +599,7 @@ gps_send_cpkt_response(void *gr, void *buf, size_t len)
 
 	dev = port_to_gps(gr);
 
-	pr_debug("%s: dev:%pK\n", __func__, dev);
+	pr_debug_ratelimited("%s: dev:%pK\n", __func__, dev);
 
 	if (!atomic_read(&dev->online) || !atomic_read(&dev->ctrl_online)) {
 		gps_free_ctrl_pkt(cpkt);
