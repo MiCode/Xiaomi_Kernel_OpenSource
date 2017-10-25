@@ -35,6 +35,8 @@
  *				   reading data from memory.
  * @DSI_CTRL_CMD_FETCH_MEMORY:     Fetch command from memory through AXI bus
  *				   and transfer it.
+ * @DSI_CTRL_CMD_LAST_COMMAND:     Trigger the DMA cmd transfer if this is last
+ *				   command in the batch.
  */
 #define DSI_CTRL_CMD_READ             0x1
 #define DSI_CTRL_CMD_BROADCAST        0x2
@@ -42,6 +44,7 @@
 #define DSI_CTRL_CMD_DEFER_TRIGGER    0x8
 #define DSI_CTRL_CMD_FIFO_STORE       0x10
 #define DSI_CTRL_CMD_FETCH_MEMORY     0x20
+#define DSI_CTRL_CMD_LAST_COMMAND     0x40
 
 /**
  * enum dsi_power_state - defines power states for dsi controller.
@@ -225,6 +228,7 @@ struct dsi_ctrl {
 	struct drm_gem_object *tx_cmd_buf;
 	u32 cmd_buffer_size;
 	u32 cmd_buffer_iova;
+	u32 cmd_len;
 	void *vaddr;
 
 	/* Debug Information */
