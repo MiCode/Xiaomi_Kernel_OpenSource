@@ -134,6 +134,7 @@ int cnss_suspend_pci_link(struct cnss_pci_data *pci_priv)
 	if (!pci_priv)
 		return -ENODEV;
 
+	cnss_pr_dbg("Suspending PCI link\n");
 	if (!pci_priv->pci_link_state) {
 		cnss_pr_info("PCI link is already suspended!\n");
 		goto out;
@@ -167,6 +168,7 @@ int cnss_resume_pci_link(struct cnss_pci_data *pci_priv)
 	if (!pci_priv)
 		return -ENODEV;
 
+	cnss_pr_dbg("Resuming PCI link\n");
 	if (pci_priv->pci_link_state) {
 		cnss_pr_info("PCI link is already resumed!\n");
 		goto out;
@@ -385,26 +387,36 @@ static int cnss_pci_suspend(struct device *dev)
 	driver_ops = plat_priv->driver_ops;
 	if (driver_ops && driver_ops->suspend) {
 		ret = driver_ops->suspend(pci_dev, state);
-		if (pci_priv->pci_link_state) {
-			if (cnss_pci_set_mhi_state(pci_priv,
-						   CNSS_MHI_SUSPEND)) {
-				driver_ops->resume(pci_dev);
-				ret = -EAGAIN;
-				goto out;
-			}
-
-			cnss_set_pci_config_space(pci_priv,
-						  SAVE_PCI_CONFIG_SPACE);
-			pci_disable_device(pci_dev);
-
-			ret = pci_set_power_state(pci_dev, PCI_D3hot);
-			if (ret)
-				cnss_pr_err("Failed to set D3Hot, err =  %d\n",
-					    ret);
+		if (ret) {
+			cnss_pr_err("Failed to suspend host driver, err = %d\n",
+				    ret);
+			ret = -EAGAIN;
+			goto out;
 		}
 	}
 
+	if (pci_priv->pci_link_state) {
+		ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_SUSPEND);
+		if (ret) {
+			if (driver_ops && driver_ops->resume)
+				driver_ops->resume(pci_dev);
+			ret = -EAGAIN;
+			goto out;
+		}
+
+		cnss_set_pci_config_space(pci_priv,
+					  SAVE_PCI_CONFIG_SPACE);
+		pci_disable_device(pci_dev);
+
+		ret = pci_set_power_state(pci_dev, PCI_D3hot);
+		if (ret)
+			cnss_pr_err("Failed to set D3Hot, err = %d\n",
+				    ret);
+	}
+
 	cnss_pci_set_monitor_wake_intr(pci_priv, false);
+
+	return 0;
 
 out:
 	return ret;
@@ -425,22 +437,29 @@ static int cnss_pci_resume(struct device *dev)
 	if (!plat_priv)
 		goto out;
 
+	if (pci_priv->pci_link_down_ind)
+		goto out;
+
+	ret = pci_enable_device(pci_dev);
+	if (ret)
+		cnss_pr_err("Failed to enable PCI device, err = %d\n", ret);
+
+	if (pci_priv->saved_state)
+		cnss_set_pci_config_space(pci_priv,
+					  RESTORE_PCI_CONFIG_SPACE);
+
+	pci_set_master(pci_dev);
+	cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RESUME);
+
 	driver_ops = plat_priv->driver_ops;
-	if (driver_ops && driver_ops->resume && !pci_priv->pci_link_down_ind) {
-		ret = pci_enable_device(pci_dev);
-		if (ret)
-			cnss_pr_err("Failed to enable PCI device, err = %d\n",
-				    ret);
-
-		if (pci_priv->saved_state)
-			cnss_set_pci_config_space(pci_priv,
-						  RESTORE_PCI_CONFIG_SPACE);
-
-		pci_set_master(pci_dev);
-		cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RESUME);
-
+	if (driver_ops && driver_ops->resume) {
 		ret = driver_ops->resume(pci_dev);
+		if (ret)
+			cnss_pr_err("Failed to resume host driver, err = %d\n",
+				    ret);
 	}
+
+	return 0;
 
 out:
 	return ret;
@@ -617,14 +636,17 @@ int cnss_auto_suspend(void)
 		ret = pci_set_power_state(pci_dev, PCI_D3hot);
 		if (ret)
 			cnss_pr_err("Failed to set D3Hot, err =  %d\n", ret);
+
+		cnss_pr_dbg("Suspending PCI link\n");
 		if (cnss_set_pci_link(pci_priv, PCI_LINK_DOWN)) {
-			cnss_pr_err("Failed to shutdown PCI link!\n");
+			cnss_pr_err("Failed to suspend PCI link!\n");
 			ret = -EAGAIN;
 			goto resume_mhi;
 		}
+
+		pci_priv->pci_link_state = PCI_LINK_DOWN;
 	}
 
-	pci_priv->pci_link_state = PCI_LINK_DOWN;
 	cnss_pci_set_auto_suspended(pci_priv, 1);
 	cnss_pci_set_monitor_wake_intr(pci_priv, true);
 
@@ -660,21 +682,24 @@ int cnss_auto_resume(void)
 
 	pci_dev = pci_priv->pci_dev;
 	if (!pci_priv->pci_link_state) {
+		cnss_pr_dbg("Resuming PCI link\n");
 		if (cnss_set_pci_link(pci_priv, PCI_LINK_UP)) {
 			cnss_pr_err("Failed to resume PCI link!\n");
 			ret = -EAGAIN;
 			goto out;
 		}
 		pci_priv->pci_link_state = PCI_LINK_UP;
+
 		ret = pci_enable_device(pci_dev);
 		if (ret)
 			cnss_pr_err("Failed to enable PCI device, err = %d\n",
 				    ret);
+
+		cnss_set_pci_config_space(pci_priv, RESTORE_PCI_CONFIG_SPACE);
+		pci_set_master(pci_dev);
+		cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RESUME);
 	}
 
-	cnss_set_pci_config_space(pci_priv, RESTORE_PCI_CONFIG_SPACE);
-	pci_set_master(pci_dev);
-	cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RESUME);
 	cnss_pci_set_auto_suspended(pci_priv, 0);
 
 	bus_bw_info = &plat_priv->bus_bw_info;
