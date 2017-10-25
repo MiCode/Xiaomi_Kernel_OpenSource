@@ -1196,6 +1196,7 @@ int gserial_init_port(int port_num, const char *name,
 		no_smd_ports++;
 		break;
 	case USB_GADGET_XPORT_CHAR_BRIDGE:
+		gserial_ports[port_num].client_port_num = no_char_bridge_ports;
 		no_char_bridge_ports++;
 		break;
 	case USB_GADGET_XPORT_HSIC:
