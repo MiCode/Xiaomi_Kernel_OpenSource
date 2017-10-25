@@ -82,30 +82,62 @@
 &blsp1_uart2_hs {
 	status = "disabled";
 };
-&sec_master {
-	compatible = "qcom,wcd-gpio-ctrl";
-	pinctrl-names = "aud_active", "aud_sleep";
-	pinctrl-0 = <&sec_ws_b_active_master
-			&sec_sck_b_active_master
-			&sec_dout_b_active
-			&sec_din_b_active>;
-	pinctrl-1 = <&sec_ws_b_sleep
-			&sec_sck_b_sleep
-			&sec_dout_b_sleep
-			&sec_din_b_sleep>;
-	qcom,mi2s-auxpcm-cdc-gpios;
-};
 
-&sec_slave {
-	compatible = "qcom,wcd-gpio-ctrl";
-	pinctrl-names = "aud_active", "aud_sleep";
-	pinctrl-0 = <&sec_ws_b_active_slave
-			&sec_sck_b_active_slave
-			&sec_dout_b_active
-			&sec_din_b_active>;
-	pinctrl-1 = <&sec_ws_b_sleep
-			&sec_sck_b_sleep
-			&sec_dout_b_sleep
-			&sec_din_b_sleep>;
-	qcom,mi2s-auxpcm-cdc-gpios;
+&snd_tasha {
+	pinctrl-names =
+		"all_off",
+		"pri_mi2s_aux_master_active",
+		"pri_mi2s_aux_slave_active",
+		"invalid_state_1",
+		"sec_mi2s_aux_master_active",
+		"pri_master_active_sec_master_active",
+		"pri_slave_active_sec_master_active",
+		"invalid_state_2",
+		"sec_mi2s_aux_slave_active",
+		"pri_master_active_sec_slave_active",
+		"pri_slave_active_sec_slave_active";
+	pinctrl-0 = <&pri_ws_sleep &pri_sck_sleep
+		&pri_dout_sleep &pri_din_sleep
+		&sec_ws_b_sleep &sec_sck_b_sleep
+		&sec_dout_b_sleep &sec_din_b_sleep>;
+	pinctrl-1 = <&pri_ws_active_master &pri_sck_active_master
+		&pri_dout_active &pri_din_active
+		&sec_ws_b_sleep &sec_sck_b_sleep
+		&sec_dout_b_sleep &sec_din_b_sleep>;
+	pinctrl-2 = <&pri_ws_active_slave &pri_sck_active_slave
+		&pri_dout_active &pri_din_active
+		&sec_ws_b_sleep &sec_sck_b_sleep
+		&sec_dout_b_sleep &sec_din_b_sleep>;
+	pinctrl-3 = <&pri_ws_sleep &pri_sck_sleep
+		&pri_dout_sleep &pri_din_sleep
+		&sec_ws_b_sleep &sec_sck_b_sleep
+		&sec_dout_b_sleep &sec_din_b_sleep>;
+	pinctrl-4 = <&pri_ws_sleep &pri_sck_sleep
+		&pri_dout_sleep &pri_din_sleep
+		&sec_ws_b_active_master &sec_sck_b_active_master
+		&sec_dout_b_active &sec_din_b_active>;
+	pinctrl-5 = <&pri_ws_active_master &pri_sck_active_master
+		&pri_dout_active &pri_din_active
+		&sec_ws_b_active_master &sec_sck_b_active_master
+		&sec_dout_b_active &sec_din_b_active>;
+	pinctrl-6 = <&pri_ws_active_slave &pri_sck_active_slave
+		&pri_dout_active &pri_din_active
+		&sec_ws_b_active_master &sec_sck_b_active_master
+		&sec_dout_b_active &sec_din_b_active>;
+	pinctrl-7 = <&pri_ws_sleep &pri_sck_sleep
+		&pri_dout_sleep &pri_din_sleep
+		&sec_ws_b_sleep &sec_sck_b_sleep
+		&sec_dout_b_sleep &sec_din_b_sleep>;
+	pinctrl-8 = <&pri_ws_sleep &pri_sck_sleep
+		&pri_dout_sleep &pri_din_sleep
+		&sec_ws_b_active_slave &sec_sck_b_active_slave
+		&sec_dout_b_active &sec_din_b_active>;
+	pinctrl-9 = <&pri_ws_active_master &pri_sck_active_master
+		&pri_dout_active &pri_din_active
+		&sec_ws_b_active_slave &sec_sck_b_active_slave
+		&sec_dout_b_active &sec_din_b_active>;
+	pinctrl-10 = <&pri_ws_active_slave &pri_sck_active_slave
+		&pri_dout_active &pri_din_active
+		&sec_ws_b_active_slave &sec_sck_b_active_slave
+		&sec_dout_b_active &sec_din_b_active>;
 };

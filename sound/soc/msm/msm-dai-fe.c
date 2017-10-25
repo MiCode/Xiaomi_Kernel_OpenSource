@@ -630,6 +630,36 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 	},
 	{
 		.playback = {
+			.stream_name = "SEC_AUXPCM_HOSTLESS Playback",
+			.aif_name = "SEC_AUXPCM_DL_HL",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.channels_min = 1,
+			.channels_max = 1,
+			.rate_min =     8000,
+			.rate_max =     16000,
+		},
+		.ops = &msm_fe_dai_ops,
+		.name = "SEC_AUXPCM_RX_HOSTLESS",
+		.probe = fe_dai_probe,
+	},
+	{
+		.capture = {
+			.stream_name = "SEC_AUXPCM_HOSTLESS Capture",
+			.aif_name = "SEC_AUXPCM_UL_HL",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.channels_min = 1,
+			.channels_max = 1,
+			.rate_min =     8000,
+			.rate_max =    16000,
+		},
+		.ops = &msm_fe_dai_ops,
+		.name = "SEC_AUXPCM_TX_HOSTLESS",
+		.probe = fe_dai_probe,
+	},
+	{
+		.playback = {
 			.stream_name = "VOICE_STUB Playback",
 			.aif_name = "VOICE_STUB_DL",
 			.rates = SNDRV_PCM_RATE_8000_48000,

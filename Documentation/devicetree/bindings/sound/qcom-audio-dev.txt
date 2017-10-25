@@ -2135,10 +2135,14 @@ sound-9330 {
 - qcom,model : The user-visible name of this sound card.
 - qcom,tasha-mclk-clk-freq : MCLK frequency value for tasha codec
                              and node is "sound-9335"
-- qcom,prim_mi2s_aux_master : Handle to prim_master pinctrl configurations
-- qcom,prim_mi2s_aux_slave : Handle to prim_slave pinctrl configurations
-- qcom,sec_mi2s_aux_master : Handle to sec_master pinctrl configurations
-- qcom,sec_mi2s_aux_slave : Handle to sec_slave pinctrl configurations
+- qcom,pinctrl-names : Lists all the possible combinations of the gpio sets
+                       mentioned in qcom,msm-gpios. Say we have 2^N combinations
+                       for N GPIOs, this would list all the 2^N combinations.
+- pinctrl-names : The combinations of gpio sets from above that are supported in
+                  the flavor. This can be sometimes same as qcom,pinctrl-names
+                  i.e with 2^N combinations or will have less incase if some
+                  combination is not supported or invalid.
+- pinctrl-# : Pinctrl states as mentioned in pinctrl-names.
 - qcom,audio-routing : A list of the connections between audio components.
 - asoc-platform: This is phandle list containing the references to platform device
                  nodes that are used as part of the sound card dai-links.
@@ -2197,10 +2201,81 @@ Example:
 		"MIC BIAS4 External", "Digital Mic6";
 
 		qcom,tasha-mclk-clk-freq = <12288000>;
-		qcom,prim_mi2s_aux_master = <&prim_master>;
-		qcom,prim_mi2s_aux_slave = <&prim_slave>;
-		qcom,sec_mi2s_aux_master = <&sec_master>;
-		qcom,sec_mi2s_aux_slave = <&sec_slave>;
+
+		qcom,msm-gpios =
+			"pri_mi2s_aux_master",
+			"pri_mi2s_aux_slave",
+			"sec_mi2s_aux_master",
+			"sec_mi2s_aux_slave";
+		qcom,pinctrl-names =
+			"all_off",
+			"pri_mi2s_aux_master_active",
+			"pri_mi2s_aux_slave_active",
+			"invalid_state_1",
+			"sec_mi2s_aux_master_active",
+			"pri_master_active_sec_master_active",
+			"pri_slave_active_sec_master_active",
+			"invalid_state_2",
+			"sec_mi2s_aux_slave_active",
+			"pri_master_active_sec_slave_active",
+			"pri_slave_active_sec_slave_active";
+		pinctrl-names =
+			"all_off",
+			"pri_mi2s_aux_master_active",
+			"pri_mi2s_aux_slave_active",
+			"invalid_state_1",
+			"sec_mi2s_aux_master_active",
+			"pri_master_active_sec_master_active",
+			"pri_slave_active_sec_master_active",
+			"invalid_state_2",
+			"sec_mi2s_aux_slave_active",
+			"pri_master_active_sec_slave_active",
+			"pri_slave_active_sec_slave_active";
+		pinctrl-0 = <&pri_ws_sleep &pri_sck_sleep
+				&pri_dout_sleep &pri_din_sleep
+				&sec_ws_sleep &sec_sck_sleep
+				&sec_dout_sleep &sec_din_sleep>;
+		pinctrl-1 = <&pri_ws_active_master &pri_sck_active_master
+				&pri_dout_active &pri_din_active
+				&sec_ws_sleep &sec_sck_sleep
+				&sec_dout_sleep &sec_din_sleep>;
+		pinctrl-2 = <&pri_ws_active_slave &pri_sck_active_slave
+				&pri_dout_active &pri_din_active
+				&sec_ws_sleep &sec_sck_sleep
+				&sec_dout_sleep &sec_din_sleep>;
+		pinctrl-3 = <&pri_ws_sleep &pri_sck_sleep
+				&pri_dout_sleep &pri_din_sleep
+				&sec_ws_sleep &sec_sck_sleep
+				&sec_dout_sleep &sec_din_sleep>;
+		pinctrl-4 = <&pri_ws_sleep &pri_sck_sleep
+				&pri_dout_sleep &pri_din_sleep
+				&sec_ws_active_master &sec_sck_active_master
+				&sec_dout_active &sec_din_active>;
+		pinctrl-5 = <&pri_ws_active_master &pri_sck_active_master
+				&pri_dout_active &pri_din_active
+				&sec_ws_active_master &sec_sck_active_master
+				&sec_dout_active &sec_din_active>;
+		pinctrl-6 = <&pri_ws_active_slave &pri_sck_active_slave
+				&pri_dout_active &pri_din_active
+				&sec_ws_active_master &sec_sck_active_master
+				&sec_dout_active &sec_din_active>;
+		pinctrl-7 = <&pri_ws_sleep &pri_sck_sleep
+				&pri_dout_sleep &pri_din_sleep
+				&sec_ws_sleep &sec_sck_sleep
+				&sec_dout_sleep &sec_din_sleep>;
+		pinctrl-8 = <&pri_ws_sleep &pri_sck_sleep
+				&pri_dout_sleep &pri_din_sleep
+				&sec_ws_active_slave &sec_sck_active_slave
+				&sec_dout_active &sec_din_active>;
+		pinctrl-9 = <&pri_ws_active_master &pri_sck_active_master
+				&pri_dout_active &pri_din_active
+				&sec_ws_active_slave &sec_sck_active_slave
+				&sec_dout_active &sec_din_active>;
+		pinctrl-10 = <&pri_ws_active_slave &pri_sck_active_slave
+				&pri_dout_active &pri_din_active
+				&sec_ws_active_slave &sec_sck_active_slave
+				&sec_dout_active &sec_din_active>;
+
 		asoc-platform = <&pcm0>, <&pcm1>, <&voip>, <&voice>,
 				<&loopback>, <&hostless>, <&afe>, <&routing>,
 				<&pcm_dtmf>, <&host_pcm>;
