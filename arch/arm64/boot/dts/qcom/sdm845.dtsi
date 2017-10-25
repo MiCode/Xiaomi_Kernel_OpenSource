@@ -1088,6 +1088,13 @@
 			< 1958400 1305600000 >;
 	};
 
+	l3_cdsp: qcom,l3-cdsp {
+		compatible = "devfreq-simple-dev";
+		clock-names = "devfreq_clk";
+		clocks = <&clock_cpucc L3_MISC_VOTE_CLK>;
+		governor = "powersave";
+	};
+
 	cpu_pmu: cpu-pmu {
 		compatible = "arm,armv8-pmuv3";
 		qcom,irq-is-percpu;
@@ -1215,7 +1222,7 @@
 			<0x17d45800 0x1400>;
 		reg-names = "osm_l3_base", "osm_pwrcl_base", "osm_perfcl_base";
 
-		l3-devs = <&l3_cpu0 &l3_cpu4>;
+		l3-devs = <&l3_cpu0 &l3_cpu4 &l3_cdsp>;
 
 		clock-names = "xo_ao";
 		clocks = <&clock_rpmh RPMH_CXO_CLK_A>;
