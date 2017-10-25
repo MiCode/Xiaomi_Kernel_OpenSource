@@ -757,14 +757,14 @@ int32_t qpnp_adc_scale_pmic_therm(struct qpnp_vadc_chip *vadc,
 		return -EINVAL;
 
 	if (adc_properties->adc_hc) {
-		/* (ADC code * vref_vadc (1.875V)) / 0x4000 */
+		/* (ADC code * vref_vadc (1.875V)) / scale_code */
 		if (adc_code > QPNP_VADC_HC_MAX_CODE)
 			adc_code = 0;
 		pmic_voltage = (int64_t) adc_code;
 		pmic_voltage *= (int64_t) (adc_properties->adc_vdd_reference
 							* 1000);
 		pmic_voltage = div64_s64(pmic_voltage,
-					QPNP_VADC_HC_VREF_CODE);
+					adc_properties->full_scale_code);
 	} else {
 		if (!chan_properties->adc_graph[CALIB_ABSOLUTE].dy)
 			return -EINVAL;
@@ -804,9 +804,9 @@ int32_t qpnp_adc_scale_millidegc_pmic_voltage_thr(struct qpnp_vadc_chip *chip,
 	high_output = (param->high_temp + KELVINMIL_DEGMIL) * 2;
 
 	if (param->adc_tm_hc) {
-		low_output *= QPNP_VADC_HC_VREF_CODE;
+		low_output *= param->full_scale_code;
 		do_div(low_output, (QPNP_VADC_HC_VDD_REFERENCE_MV * 1000));
-		high_output *= QPNP_VADC_HC_VREF_CODE;
+		high_output *= param->full_scale_code;
 		do_div(high_output, (QPNP_VADC_HC_VDD_REFERENCE_MV * 1000));
 	} else {
 		rc = qpnp_get_vadc_gain_and_offset(chip, &btm_param,
@@ -869,14 +869,14 @@ int32_t qpnp_adc_tdkntcg_therm(struct qpnp_vadc_chip *chip,
 		return -EINVAL;
 
 	if (adc_properties->adc_hc) {
-		/* (ADC code * vref_vadc (1.875V) * 1000) / (0x4000 * 1000) */
+		/* (code * vref_vadc (1.875V) * 1000) / (scale_code * 1000) */
 		if (adc_code > QPNP_VADC_HC_MAX_CODE)
 			adc_code = 0;
 		xo_thm_voltage = (int64_t) adc_code;
 		xo_thm_voltage *= (int64_t) (adc_properties->adc_vdd_reference
 							* 1000);
 		xo_thm_voltage = div64_s64(xo_thm_voltage,
-					QPNP_VADC_HC_VREF_CODE * 1000);
+				adc_properties->full_scale_code * 1000);
 		qpnp_adc_map_voltage_temp(adcmap_100k_104ef_104fb_1875_vref,
 			ARRAY_SIZE(adcmap_100k_104ef_104fb_1875_vref),
 			xo_thm_voltage, &adc_chan_result->physical);
@@ -1068,14 +1068,14 @@ int32_t qpnp_adc_scale_therm_pu2(struct qpnp_vadc_chip *chip,
 		return -EINVAL;
 
 	if (adc_properties->adc_hc) {
-		/* (ADC code * vref_vadc (1.875V) * 1000) / (0x4000 * 1000) */
+		/* (code * vref_vadc (1.875V) * 1000) / (scale code * 1000) */
 		if (adc_code > QPNP_VADC_HC_MAX_CODE)
 			adc_code = 0;
 		therm_voltage = (int64_t) adc_code;
 		therm_voltage *= (int64_t) (adc_properties->adc_vdd_reference
 							* 1000);
 		therm_voltage = div64_s64(therm_voltage,
-					(QPNP_VADC_HC_VREF_CODE * 1000));
+				(adc_properties->full_scale_code * 1000));
 
 		qpnp_adc_map_voltage_temp(adcmap_100k_104ef_104fb_1875_vref,
 			ARRAY_SIZE(adcmap_100k_104ef_104fb_1875_vref),
@@ -1105,13 +1105,13 @@ int32_t qpnp_adc_tm_scale_voltage_therm_pu2(struct qpnp_vadc_chip *chip,
 	int negative_offset = 0;
 
 	if (adc_properties->adc_hc) {
-		/* (ADC code * vref_vadc (1.875V)) / 0x4000 */
+		/* (ADC code * vref_vadc (1.875V)) / full_scale_code */
 		if (reg > QPNP_VADC_HC_MAX_CODE)
 			reg = 0;
 		adc_voltage = (int64_t) reg;
 		adc_voltage *= QPNP_VADC_HC_VDD_REFERENCE_MV;
 		adc_voltage = div64_s64(adc_voltage,
-					QPNP_VADC_HC_VREF_CODE);
+				adc_properties->full_scale_code);
 		qpnp_adc_map_voltage_temp(adcmap_100k_104ef_104fb_1875_vref,
 			ARRAY_SIZE(adcmap_100k_104ef_104fb_1875_vref),
 			adc_voltage, result);
@@ -1151,7 +1151,7 @@ int32_t qpnp_adc_tm_scale_therm_voltage_pu2(struct qpnp_vadc_chip *chip,
 			param->low_thr_temp, &param->low_thr_voltage);
 		if (rc)
 			return rc;
-		param->low_thr_voltage *= QPNP_VADC_HC_VREF_CODE;
+		param->low_thr_voltage *= adc_properties->full_scale_code;
 		do_div(param->low_thr_voltage, QPNP_VADC_HC_VDD_REFERENCE_MV);
 
 		rc = qpnp_adc_map_temp_voltage(
@@ -1160,7 +1160,7 @@ int32_t qpnp_adc_tm_scale_therm_voltage_pu2(struct qpnp_vadc_chip *chip,
 			param->high_thr_temp, &param->high_thr_voltage);
 		if (rc)
 			return rc;
-		param->high_thr_voltage *= QPNP_VADC_HC_VREF_CODE;
+		param->high_thr_voltage *= adc_properties->full_scale_code;
 		do_div(param->high_thr_voltage, QPNP_VADC_HC_VDD_REFERENCE_MV);
 	} else {
 		qpnp_get_vadc_gain_and_offset(chip, &param1, CALIB_RATIOMETRIC);
@@ -1241,13 +1241,13 @@ int32_t qpnp_adc_scale_default(struct qpnp_vadc_chip *vadc,
 		return -EINVAL;
 
 	if (adc_properties->adc_hc) {
-		/* (ADC code * vref_vadc (1.875V)) / 0x4000 */
+		/* (ADC code * vref_vadc (1.875V)) / full_scale_code */
 		if (adc_code > QPNP_VADC_HC_MAX_CODE)
 			adc_code = 0;
 		scale_voltage = (int64_t) adc_code;
 		scale_voltage *= (adc_properties->adc_vdd_reference * 1000);
 		scale_voltage = div64_s64(scale_voltage,
-						QPNP_VADC_HC_VREF_CODE);
+				adc_properties->full_scale_code);
 	} else {
 		qpnp_adc_scale_with_calib_param(adc_code, adc_properties,
 					chan_properties, &scale_voltage);
@@ -1305,13 +1305,13 @@ int32_t qpnp_adc_absolute_rthr(struct qpnp_vadc_chip *chip,
 	if (param->adc_tm_hc) {
 		low_thr = (param->low_thr/param->gain_den);
 		low_thr *= param->gain_num;
-		low_thr *= QPNP_VADC_HC_VREF_CODE;
+		low_thr *= param->full_scale_code;
 		do_div(low_thr, (QPNP_VADC_HC_VDD_REFERENCE_MV * 1000));
 		*low_threshold = low_thr;
 
 		high_thr = (param->high_thr/param->gain_den);
 		high_thr *= param->gain_num;
-		high_thr *= QPNP_VADC_HC_VREF_CODE;
+		high_thr *= param->full_scale_code;
 		do_div(high_thr, (QPNP_VADC_HC_VDD_REFERENCE_MV * 1000));
 		*high_threshold = high_thr;
 	} else {
@@ -2027,11 +2027,11 @@ int32_t qpnp_adc_get_devicetree_data(struct platform_device *pdev,
 		pr_err("Invalid adc vdd reference property\n");
 		return -EINVAL;
 	}
-	rc = of_property_read_u32(node, "qcom,adc-bit-resolution",
-			&adc_prop->bitresolution);
+	rc = of_property_read_u32(node, "qcom,adc-full-scale-code",
+			&adc_prop->full_scale_code);
 	if (rc) {
-		pr_err("Invalid adc bit resolution property\n");
-		return -EINVAL;
+		pr_debug("Use default value of 0x4000 for full scale\n");
+		adc_prop->full_scale_code = QPNP_VADC_HC_VREF_CODE;
 	}
 	adc_qpnp->adc_prop = adc_prop;
 
