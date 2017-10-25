@@ -724,4 +724,9 @@ int sde_crtc_secure_ctrl(struct drm_crtc *crtc, bool post_commit);
 int sde_crtc_helper_reset_custom_properties(struct drm_crtc *crtc,
 		struct drm_crtc_state *crtc_state);
 
+/**
+ * sde_crtc_timeline_status - current buffer timeline status
+ * @crtc: Pointer to crtc
+ */
+void sde_crtc_timeline_status(struct drm_crtc *crtc);
 #endif /* _SDE_CRTC_H_ */

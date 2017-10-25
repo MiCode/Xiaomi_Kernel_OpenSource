@@ -818,6 +818,7 @@ int sde_plane_wait_input_fence(struct drm_plane *plane, uint32_t wait_ms)
 				SDE_ERROR_PLANE(psde, "%ums timeout on %08X\n",
 						wait_ms, prefix);
 				psde->is_error = true;
+				sde_kms_timeline_status(plane->dev);
 				ret = -ETIMEDOUT;
 				break;
 			case -ERESTARTSYS:

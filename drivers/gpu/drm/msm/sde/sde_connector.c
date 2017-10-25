@@ -992,6 +992,19 @@ static int sde_connector_atomic_get_property(struct drm_connector *connector,
 	return rc;
 }
 
+void sde_conn_timeline_status(struct drm_connector *conn)
+{
+	struct sde_connector *c_conn;
+
+	if (!conn) {
+		SDE_ERROR("invalid connector\n");
+		return;
+	}
+
+	c_conn = to_sde_connector(conn);
+	sde_fence_timeline_status(&c_conn->retire_fence, &conn->base);
+}
+
 void sde_connector_prepare_fence(struct drm_connector *connector)
 {
 	if (!connector) {
