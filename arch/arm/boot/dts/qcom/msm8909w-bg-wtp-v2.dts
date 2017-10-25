@@ -168,6 +168,18 @@
 	};
 };
 
+&audio_codec_mtp {
+	status = "disabled";
+};
+
+&audio_codec_bg {
+	status = "ok";
+};
+
+&bg_cdc {
+	status = "ok";
+};
+
 &i2c_1 {
 	status = "okay";
 	nq@28 {
