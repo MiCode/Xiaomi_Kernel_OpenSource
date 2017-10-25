@@ -632,6 +632,10 @@ config SND_SOC_WCD9330
 config SND_SOC_WCD9335
         tristate
 
+config SND_SOC_BG_CODEC
+	tristate
+	default m if MSM_BG_GLINK=y
+
 config SND_SOC_WSA881X_SENSORS
 	tristate
 

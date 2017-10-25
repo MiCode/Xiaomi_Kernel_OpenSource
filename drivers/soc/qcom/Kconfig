@@ -910,6 +910,16 @@ config QCOM_QDSS_BRIDGE
 	  and USB interface. The amount of buffer memory allocated at runtime
 	  can be modified via module params. If unsure, say N.
 
+config MSM_BG_GLINK
+	tristate "WCD DSP GLINK Driver"
+	depends on MSM_GLINK
+	default y if MSM_BGCOM=y
+	help
+	  This option enables driver which provides communication interface
+	  between MSM and BG over glink transport protocol. This driver
+	  provides read and write interface via char device.This driver is
+	  used by the audio codec driver to interface with BG.
+
 config WCD_DSP_GLINK
 	tristate "WCD DSP GLINK Driver"
 	depends on MSM_GLINK
