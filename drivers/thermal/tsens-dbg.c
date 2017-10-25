@@ -77,11 +77,10 @@ static int tsens_dbg_log_interrupt_timestamp(struct tsens_device *data,
 	pr_debug("%d %d\n", id, dbg_type);
 	tmdev = data;
 	/* debug */
-	idx = tmdev->tsens_dbg.tsens_thread_iq_dbg.idx;
-	tmdev->tsens_dbg.tsens_thread_iq_dbg.dbg_count[idx%10]++;
-	tmdev->tsens_dbg.tsens_thread_iq_dbg.time_stmp[idx%10] =
+	idx = tmdev->tsens_dbg.irq_idx;
+	tmdev->tsens_dbg.irq_time_stmp[idx%10] =
 							sched_clock();
-	tmdev->tsens_dbg.tsens_thread_iq_dbg.idx++;
+	tmdev->tsens_dbg.irq_idx++;
 
 	return 0;
 }
