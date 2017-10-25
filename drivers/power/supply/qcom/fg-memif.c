@@ -847,8 +847,8 @@ static int fg_get_dma_address(struct fg_chip *chip, u16 sram_addr, u8 offset,
 static int fg_get_partition_count(struct fg_chip *chip, u16 sram_addr, int len,
 				int *count)
 {
-	int i, num = 0;
-	u16 end_addr, last_addr = 0;
+	int i, start_partn = 0, end_partn = 0;
+	u16 end_addr = 0;
 
 	end_addr = sram_addr + len / BYTES_PER_SRAM_WORD;
 	if (!(len % BYTES_PER_SRAM_WORD))
@@ -860,24 +860,24 @@ static int fg_get_partition_count(struct fg_chip *chip, u16 sram_addr, int len,
 	}
 
 	for (i = 0; i < NUM_PARTITIONS; i++) {
-		pr_debug("address: %d last_addr: %d\n", sram_addr, last_addr);
 		if (sram_addr >= chip->addr_map[i].partition_start
-			&& sram_addr <= chip->addr_map[i].partition_end
-			&& last_addr < end_addr) {
-			num++;
-			last_addr = chip->addr_map[i].partition_end;
-			sram_addr = chip->addr_map[i+1].partition_start;
-		}
+				&& sram_addr <= chip->addr_map[i].partition_end)
+			start_partn = i + 1;
+
+		if (end_addr >= chip->addr_map[i].partition_start
+				&& end_addr <= chip->addr_map[i].partition_end)
+			end_partn = i + 1;
 	}
 
-	if (num > 0) {
-		*count = num;
-		return 0;
+	if (!start_partn || !end_partn) {
+		pr_err("Couldn't find number of partitions for address %d\n",
+			sram_addr);
+		return -ENXIO;
 	}
 
-	pr_err("Couldn't find number of partitions for address %d\n",
-		sram_addr);
-	return -ENXIO;
+	*count = (end_partn - start_partn) + 1;
+
+	return 0;
 }
 
 static int fg_get_partition_avail_bytes(struct fg_chip *chip, u16 sram_addr,
