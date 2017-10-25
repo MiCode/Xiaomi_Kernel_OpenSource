@@ -517,7 +517,7 @@
 					"qpnp-wled-sink-base",
 					"qpnp-wled-ibb-base",
 					"qpnp-wled-lab-base";
-			interrupts = <0x3 0xd8 0x2 IRQ_TYPE_NONE>;
+			interrupts = <0x3 0xd8 0x2 IRQ_TYPE_EDGE_RISING>;
 			interrupt-names = "sc-irq";
 			status = "okay";
 			linux,name = "wled";
