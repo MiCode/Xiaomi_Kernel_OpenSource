@@ -2577,9 +2577,9 @@ fail:
 	c4iw_put_ep(&child_ep->com);
 reject:
 	reject_cr(dev, hwtid, skb);
+out:
 	if (parent_ep)
 		c4iw_put_ep(&parent_ep->com);
-out:
 	return 0;
 }
 
@@ -3441,7 +3441,7 @@ int c4iw_create_listen(struct iw_cm_id *cm_id, int backlog)
 		cm_id->provider_data = ep;
 		goto out;
 	}
-
+	remove_handle(ep->com.dev, &ep->com.dev->stid_idr, ep->stid);
 	cxgb4_free_stid(ep->com.dev->rdev.lldi.tids, ep->stid,
 			ep->com.local_addr.ss_family);
 fail2:
