@@ -6484,7 +6484,10 @@ void msm_comm_put_vidc_buffer(struct msm_vidc_inst *inst,
 			if (msm_smem_unmap_dma_buf(inst, &mbuf->smem[i]))
 				print_vidc_buffer(VIDC_ERR,
 					"dqbuf: unmap failed..", inst, mbuf);
-		} /* else RBR event expected */
+		} else {
+			/* RBR event expected */
+			mbuf->flags |= MSM_VIDC_FLAG_RBR_PENDING;
+		}
 	}
 	/*
 	 * remove the entry if plane[0].refcount is zero else
