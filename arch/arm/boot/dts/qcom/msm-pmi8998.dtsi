@@ -599,7 +599,7 @@
 									<1600>;
 				qcom,qpnp-lab-limit-maximum-current = <1600>;
 				qcom,qpnp-lab-limit-max-current-enable;
-				qcom,qpnp-lab-ps-threshold = <20>;
+				qcom,qpnp-lab-ps-threshold = <70>;
 				qcom,qpnp-lab-ps-enable;
 				qcom,qpnp-lab-nfet-size = <100>;
 				qcom,qpnp-lab-pfet-size = <100>;

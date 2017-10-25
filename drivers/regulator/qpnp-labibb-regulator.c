@@ -1238,6 +1238,7 @@ static int qpnp_ibb_output_voltage_at_one_pulse_v2(struct qpnp_labibb *labibb,
 	return rc;
 }
 
+/* For PMI8998 and earlier PMICs */
 static const struct ibb_ver_ops ibb_ops_v1 = {
 	.set_default_voltage	= qpnp_ibb_set_default_voltage_v1,
 	.set_voltage		= qpnp_ibb_set_voltage_v1,
@@ -1249,6 +1250,7 @@ static const struct ibb_ver_ops ibb_ops_v1 = {
 	.voltage_at_one_pulse	= qpnp_ibb_output_voltage_at_one_pulse_v1,
 };
 
+/* For PM660A and later PMICs */
 static const struct ibb_ver_ops ibb_ops_v2 = {
 	.set_default_voltage	= qpnp_ibb_set_default_voltage_v2,
 	.set_voltage		= qpnp_ibb_set_voltage_v2,
@@ -1358,8 +1360,9 @@ static int qpnp_lab_ps_ctl_v2(struct qpnp_labibb *labibb,
 				u32 thresh, bool enable)
 {
 	int rc = 0;
-	u8 val;
+	u8 val, mask;
 
+	mask = LAB_PS_CTL_EN;
 	if (enable) {
 		for (val = 0; val < ARRAY_SIZE(lab_ps_thresh_table_v2); val++)
 			if (lab_ps_thresh_table_v2[val] == thresh)
@@ -1371,13 +1374,13 @@ static int qpnp_lab_ps_ctl_v2(struct qpnp_labibb *labibb,
 		}
 
 		val |= LAB_PS_CTL_EN;
+		mask |= LAB_PS_THRESH_MASK;
 	} else {
 		val = 0;
 	}
 
-	rc = qpnp_labibb_write(labibb, labibb->lab_base +
-			 REG_LAB_PS_CTL, &val, 1);
-
+	rc = qpnp_labibb_masked_write(labibb, labibb->lab_base +
+			 REG_LAB_PS_CTL, mask, val);
 	if (rc < 0)
 		pr_err("write register %x failed rc = %d\n",
 				REG_LAB_PS_CTL, rc);
@@ -1385,12 +1388,18 @@ static int qpnp_lab_ps_ctl_v2(struct qpnp_labibb *labibb,
 	return rc;
 }
 
+/* For PMI8996 and earlier PMICs */
 static const struct lab_ver_ops lab_ops_v1 = {
 	.set_default_voltage	= qpnp_lab_set_default_voltage_v1,
 	.ps_ctl			= qpnp_lab_ps_ctl_v1,
 };
 
-static const struct lab_ver_ops lab_ops_v2 = {
+static const struct lab_ver_ops pmi8998_lab_ops = {
+	.set_default_voltage	= qpnp_lab_set_default_voltage_v1,
+	.ps_ctl			= qpnp_lab_ps_ctl_v2,
+};
+
+static const struct lab_ver_ops pm660_lab_ops = {
 	.set_default_voltage	= qpnp_lab_set_default_voltage_v2,
 	.ps_ctl			= qpnp_lab_ps_ctl_v2,
 };
@@ -4000,7 +4009,10 @@ static int qpnp_labibb_regulator_probe(struct platform_device *pdev)
 
 	if (labibb->pmic_rev_id->pmic_subtype == PM660L_SUBTYPE) {
 		labibb->ibb_ver_ops = &ibb_ops_v2;
-		labibb->lab_ver_ops = &lab_ops_v2;
+		labibb->lab_ver_ops = &pm660_lab_ops;
+	} else if (labibb->pmic_rev_id->pmic_subtype == PMI8998_SUBTYPE) {
+		labibb->ibb_ver_ops = &ibb_ops_v1;
+		labibb->lab_ver_ops = &pmi8998_lab_ops;
 	} else {
 		labibb->ibb_ver_ops = &ibb_ops_v1;
 		labibb->lab_ver_ops = &lab_ops_v1;
