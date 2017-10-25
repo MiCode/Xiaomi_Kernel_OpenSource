@@ -1,4 +1,5 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/*
+ * Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,9 +11,6 @@
  * GNU General Public License for more details.
  */
 
-&soc {
-	spmi_bus: qcom,spmi@c440000 {
-	};
-};
-
-#include "sdm855-pmic-overlay.dtsi"
+#include "pm855.dtsi"
+#include "pm855b.dtsi"
+#include "pm855l.dtsi"
