@@ -187,34 +187,34 @@ static int rsc_hw_seq_memory_init(struct sde_rsc_priv *rsc)
 						0x39e038a8, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x10,
 						0x888babec, rsc->debug_mode);
-	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x14,
-						0xa806a020, rsc->debug_mode);
 
 	/* Mode - 2 sequence */
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x14,
+						0xaaa8a020, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x18,
-						0xa138ebaa, rsc->debug_mode);
+						0xe1a138eb, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x1c,
-						0xaca581e1, rsc->debug_mode);
+						0xe0aca581, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x20,
-						0xe2a2ede0, rsc->debug_mode);
+						0x82e2a2ed, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x24,
-						0xea8a3982, rsc->debug_mode);
+						0x8cea8a39, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x28,
-						0xa920888c, rsc->debug_mode);
+						0xe9a92088, rsc->debug_mode);
 
-	/* tcs sleep sequence */
+	/* tcs sleep & wake sequence */
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x2c,
-						0x89e6a6e9, rsc->debug_mode);
+						0x2089e6a6, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x30,
-						0xa7e9a920, rsc->debug_mode);
+						0xe7a7e9a9, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x34,
-						0x002089e7, rsc->debug_mode);
+						0x00002089, rsc->debug_mode);
 
 	/* branch address */
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_CFG_BR_ADDR_0_DRV0,
-						0x2b, rsc->debug_mode);
+						0x2a, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_CFG_BR_ADDR_1_DRV0,
-						0x31, rsc->debug_mode);
+						0x30, rsc->debug_mode);
 
 	return 0;
 }
