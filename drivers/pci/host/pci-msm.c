@@ -121,6 +121,15 @@
 #define PCIE20_PLR_IATU_LTAR	     0x918
 #define PCIE20_PLR_IATU_UTAR	     0x91c
 
+#define PCIE_IATU_BASE(n)	(n * 0x200)
+
+#define PCIE_IATU_CTRL1(n)	(PCIE_IATU_BASE(n) + 0x00)
+#define PCIE_IATU_CTRL2(n)	(PCIE_IATU_BASE(n) + 0x04)
+#define PCIE_IATU_LBAR(n)	(PCIE_IATU_BASE(n) + 0x08)
+#define PCIE_IATU_UBAR(n)	(PCIE_IATU_BASE(n) + 0x0c)
+#define PCIE_IATU_LAR(n)	(PCIE_IATU_BASE(n) + 0x10)
+#define PCIE_IATU_LTAR(n)	(PCIE_IATU_BASE(n) + 0x14)
+#define PCIE_IATU_UTAR(n)	(PCIE_IATU_BASE(n) + 0x18)
 
 #define PCIE20_PORT_LINK_CTRL_REG	0x710
 #define PCIE20_GEN3_RELATED_REG	0x890
@@ -287,6 +296,7 @@ enum msm_pcie_res {
 	MSM_PCIE_RES_PHY,
 	MSM_PCIE_RES_DM_CORE,
 	MSM_PCIE_RES_ELBI,
+	MSM_PCIE_RES_IATU,
 	MSM_PCIE_RES_CONF,
 	MSM_PCIE_RES_IO,
 	MSM_PCIE_RES_BARS,
@@ -452,6 +462,7 @@ struct msm_pcie_dev_t {
 	void __iomem		     *parf;
 	void __iomem		     *phy;
 	void __iomem		     *elbi;
+	void __iomem		     *iatu;
 	void __iomem		     *dm_core;
 	void __iomem		     *conf;
 	void __iomem		     *bars;
@@ -732,6 +743,7 @@ static const struct msm_pcie_res_info_t msm_pcie_res_info[MSM_PCIE_MAX_RES] = {
 	{"phy",     NULL, NULL},
 	{"dm_core",	NULL, NULL},
 	{"elbi",	NULL, NULL},
+	{"iatu",	NULL, NULL},
 	{"conf",	NULL, NULL},
 	{"io",		NULL, NULL},
 	{"bars",	NULL, NULL},
@@ -2162,6 +2174,9 @@ static ssize_t msm_pcie_set_base_sel(struct file *file,
 		base_sel_name = "ELBI";
 		break;
 	case 5:
+		base_sel_name = "IATU";
+		break;
+	case 6:
 		base_sel_name = "EP CONFIG SPACE";
 		break;
 	default:
@@ -2588,9 +2603,38 @@ static void msm_pcie_iatu_config(struct msm_pcie_dev_t *dev, int nr, u8 type,
 				unsigned long host_addr, u32 host_end,
 				unsigned long target_addr)
 {
-	void __iomem *pcie20 = dev->dm_core;
+	void __iomem *iatu_base = dev->iatu ? dev->iatu : dev->dm_core;
 
-	if (dev->shadow_en) {
+	u32 iatu_viewport_offset;
+	u32 iatu_ctrl1_offset;
+	u32 iatu_ctrl2_offset;
+	u32 iatu_lbar_offset;
+	u32 iatu_ubar_offset;
+	u32 iatu_lar_offset;
+	u32 iatu_ltar_offset;
+	u32 iatu_utar_offset;
+
+	if (dev->iatu) {
+		iatu_viewport_offset = 0;
+		iatu_ctrl1_offset = PCIE_IATU_CTRL1(nr);
+		iatu_ctrl2_offset = PCIE_IATU_CTRL2(nr);
+		iatu_lbar_offset = PCIE_IATU_LBAR(nr);
+		iatu_ubar_offset = PCIE_IATU_UBAR(nr);
+		iatu_lar_offset = PCIE_IATU_LAR(nr);
+		iatu_ltar_offset = PCIE_IATU_LTAR(nr);
+		iatu_utar_offset = PCIE_IATU_UTAR(nr);
+	} else {
+		iatu_viewport_offset = PCIE20_PLR_IATU_VIEWPORT;
+		iatu_ctrl1_offset = PCIE20_PLR_IATU_CTRL1;
+		iatu_ctrl2_offset = PCIE20_PLR_IATU_CTRL2;
+		iatu_lbar_offset = PCIE20_PLR_IATU_LBAR;
+		iatu_ubar_offset = PCIE20_PLR_IATU_UBAR;
+		iatu_lar_offset = PCIE20_PLR_IATU_LAR;
+		iatu_ltar_offset = PCIE20_PLR_IATU_LTAR;
+		iatu_utar_offset = PCIE20_PLR_IATU_UTAR;
+	}
+
+	if (dev->shadow_en && iatu_viewport_offset) {
 		dev->rc_shadow[PCIE20_PLR_IATU_VIEWPORT / 4] =
 			nr;
 		dev->rc_shadow[PCIE20_PLR_IATU_CTRL1 / 4] =
@@ -2610,28 +2654,30 @@ static void msm_pcie_iatu_config(struct msm_pcie_dev_t *dev, int nr, u8 type,
 	}
 
 	/* select region */
-	writel_relaxed(nr, pcie20 + PCIE20_PLR_IATU_VIEWPORT);
-	/* ensure that hardware locks it */
-	wmb();
+	if (iatu_viewport_offset) {
+		writel_relaxed(nr, iatu_base + iatu_viewport_offset);
+		/* ensure that hardware locks it */
+		wmb();
+	}
 
 	/* switch off region before changing it */
-	writel_relaxed(0, pcie20 + PCIE20_PLR_IATU_CTRL2);
+	writel_relaxed(0, iatu_base + iatu_ctrl2_offset);
 	/* and wait till it propagates to the hardware */
 	wmb();
 
-	writel_relaxed(type, pcie20 + PCIE20_PLR_IATU_CTRL1);
+	writel_relaxed(type, iatu_base + iatu_ctrl1_offset);
 	writel_relaxed(lower_32_bits(host_addr),
-		       pcie20 + PCIE20_PLR_IATU_LBAR);
+		       iatu_base + iatu_lbar_offset);
 	writel_relaxed(upper_32_bits(host_addr),
-		       pcie20 + PCIE20_PLR_IATU_UBAR);
-	writel_relaxed(host_end, pcie20 + PCIE20_PLR_IATU_LAR);
+		       iatu_base + iatu_ubar_offset);
+	writel_relaxed(host_end, iatu_base + iatu_lar_offset);
 	writel_relaxed(lower_32_bits(target_addr),
-		       pcie20 + PCIE20_PLR_IATU_LTAR);
+		       iatu_base + iatu_ltar_offset);
 	writel_relaxed(upper_32_bits(target_addr),
-		       pcie20 + PCIE20_PLR_IATU_UTAR);
+		       iatu_base + iatu_utar_offset);
 	/* ensure that changes propagated to the hardware */
 	wmb();
-	writel_relaxed(BIT(31), pcie20 + PCIE20_PLR_IATU_CTRL2);
+	writel_relaxed(BIT(31), iatu_base + iatu_ctrl2_offset);
 
 	/* ensure that changes propagated to the hardware */
 	wmb();
@@ -2641,22 +2687,24 @@ static void msm_pcie_iatu_config(struct msm_pcie_dev_t *dev, int nr, u8 type,
 			dev->pcidev_table[nr].bdf >> 24,
 			dev->pcidev_table[nr].bdf >> 19 & 0x1f,
 			dev->pcidev_table[nr].bdf >> 16 & 0x07);
-		PCIE_DBG2(dev, "PCIE20_PLR_IATU_VIEWPORT:0x%x\n",
-			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_VIEWPORT));
-		PCIE_DBG2(dev, "PCIE20_PLR_IATU_CTRL1:0x%x\n",
-			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_CTRL1));
-		PCIE_DBG2(dev, "PCIE20_PLR_IATU_LBAR:0x%x\n",
-			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_LBAR));
-		PCIE_DBG2(dev, "PCIE20_PLR_IATU_UBAR:0x%x\n",
-			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_UBAR));
-		PCIE_DBG2(dev, "PCIE20_PLR_IATU_LAR:0x%x\n",
-			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_LAR));
-		PCIE_DBG2(dev, "PCIE20_PLR_IATU_LTAR:0x%x\n",
-			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_LTAR));
-		PCIE_DBG2(dev, "PCIE20_PLR_IATU_UTAR:0x%x\n",
-			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_UTAR));
-		PCIE_DBG2(dev, "PCIE20_PLR_IATU_CTRL2:0x%x\n\n",
-			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_CTRL2));
+		if (iatu_viewport_offset)
+			PCIE_DBG2(dev, "IATU_VIEWPORT:0x%x\n",
+				readl_relaxed(dev->dm_core +
+					PCIE20_PLR_IATU_VIEWPORT));
+		PCIE_DBG2(dev, "IATU_CTRL1:0x%x\n",
+			readl_relaxed(iatu_base + iatu_ctrl1_offset));
+		PCIE_DBG2(dev, "IATU_LBAR:0x%x\n",
+			readl_relaxed(iatu_base + iatu_lbar_offset));
+		PCIE_DBG2(dev, "IATU_UBAR:0x%x\n",
+			readl_relaxed(iatu_base + iatu_ubar_offset));
+		PCIE_DBG2(dev, "IATU_LAR:0x%x\n",
+			readl_relaxed(iatu_base + iatu_lar_offset));
+		PCIE_DBG2(dev, "IATU_LTAR:0x%x\n",
+			readl_relaxed(iatu_base + iatu_ltar_offset));
+		PCIE_DBG2(dev, "IATU_UTAR:0x%x\n",
+			readl_relaxed(iatu_base + iatu_utar_offset));
+		PCIE_DBG2(dev, "IATU_CTRL2:0x%x\n\n",
+			readl_relaxed(iatu_base + iatu_ctrl2_offset));
 	}
 }
 
@@ -3706,6 +3754,7 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 	dev->parf = dev->res[MSM_PCIE_RES_PARF].base;
 	dev->phy = dev->res[MSM_PCIE_RES_PHY].base;
 	dev->elbi = dev->res[MSM_PCIE_RES_ELBI].base;
+	dev->iatu = dev->res[MSM_PCIE_RES_IATU].base;
 	dev->dm_core = dev->res[MSM_PCIE_RES_DM_CORE].base;
 	dev->conf = dev->res[MSM_PCIE_RES_CONF].base;
 	dev->bars = dev->res[MSM_PCIE_RES_BARS].base;
@@ -3726,6 +3775,7 @@ static void msm_pcie_release_resources(struct msm_pcie_dev_t *dev)
 {
 	dev->parf = NULL;
 	dev->elbi = NULL;
+	dev->iatu = NULL;
 	dev->dm_core = NULL;
 	dev->conf = NULL;
 	dev->bars = NULL;
