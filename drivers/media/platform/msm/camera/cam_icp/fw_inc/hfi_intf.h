@@ -119,4 +119,10 @@ void cam_hfi_deinit(void);
  */
 int hfi_enable_ipe_bps_pc(bool enable);
 
+/**
+ * hfi_cmd_ubwc_config() - UBWC configuration to firmware
+ * @ubwc_cfg: UBWC configuration parameters
+ */
+int hfi_cmd_ubwc_config(uint32_t *ubwc_cfg);
+
 #endif /* _HFI_INTF_H_ */
