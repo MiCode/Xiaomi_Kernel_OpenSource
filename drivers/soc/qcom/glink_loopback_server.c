@@ -195,7 +195,7 @@ int glink_lbsrv_send_response(void *handle, uint32_t req_id, uint32_t req_type,
 	resp_pkt->response = response;
 
 	return glink_tx(handle, (void *)LINEAR, (void *)resp_pkt,
-			sizeof(struct resp), 0);
+			sizeof(struct resp), GLINK_TX_REQ_INTENT);
 }
 
 static uint32_t calc_delay_ms(uint32_t random_delay, uint32_t delay_ms)
@@ -1143,7 +1143,7 @@ static void glink_lbsrv_tx_worker(struct work_struct *work)
 			return;
 		}
 
-		flags = 0;
+		flags = GLINK_TX_REQ_INTENT;
 		if (tmp_work_info->tracer_pkt) {
 			flags |= GLINK_TX_TRACER_PKT;
 			tracer_pkt_log_event(tmp_work_info->data,
