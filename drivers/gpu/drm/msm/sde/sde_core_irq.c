@@ -55,9 +55,22 @@ static void sde_core_irq_callback_handler(void *arg, int irq_idx)
 	spin_unlock_irqrestore(&sde_kms->irq_obj.cb_lock, irq_flags);
 
 	if (cb_tbl_error) {
-		SDE_ERROR("irq has no registered callback, idx %d enables %d\n",
-				irq_idx, enable_counts);
-		SDE_EVT32_IRQ(irq_idx, enable_counts, SDE_EVTLOG_ERROR);
+		/*
+		 * If enable count is zero and callback list is empty, then it's
+		 * not a fatal issue. Log this case as debug. If the enable
+		 * count is nonzero and callback list is empty, then its a real
+		 * issue. Log this case as error to ensure we don't have silent
+		 * IRQs running.
+		 */
+		if (!enable_counts) {
+			SDE_DEBUG("irq has no callback, idx %d enables %d\n",
+					irq_idx, enable_counts);
+			SDE_EVT32_IRQ(irq_idx, enable_counts);
+		} else {
+			SDE_ERROR("irq has no callback, idx %d enables %d\n",
+					irq_idx, enable_counts);
+			SDE_EVT32_IRQ(irq_idx, enable_counts, SDE_EVTLOG_ERROR);
+		}
 	}
 
 	/*
