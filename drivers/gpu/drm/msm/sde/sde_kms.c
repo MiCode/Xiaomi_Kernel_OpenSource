@@ -1089,6 +1089,30 @@ fail_irq:
 }
 
 /**
+ * sde_kms_timeline_status - provides current timeline status
+ *    This API should be called without mode config lock.
+ * @dev: Pointer to drm device
+ */
+void sde_kms_timeline_status(struct drm_device *dev)
+{
+	struct drm_crtc *crtc;
+	struct drm_connector *conn;
+
+	if (!dev) {
+		SDE_ERROR("invalid drm device node\n");
+		return;
+	}
+
+	drm_for_each_crtc(crtc, dev)
+		sde_crtc_timeline_status(crtc);
+
+	mutex_lock(&dev->mode_config.mutex);
+	drm_for_each_connector(conn, dev)
+		sde_conn_timeline_status(conn);
+	mutex_unlock(&dev->mode_config.mutex);
+}
+
+/**
  * struct sde_kms_fbo_fb - framebuffer creation list
  * @list: list of framebuffer attached to framebuffer object
  * @fb: Pointer to framebuffer attached to framebuffer object

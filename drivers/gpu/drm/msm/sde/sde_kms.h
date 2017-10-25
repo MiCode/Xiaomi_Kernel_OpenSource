@@ -563,4 +563,10 @@ void sde_kms_fbo_unreference(struct sde_kms_fbo *fbo);
 int sde_kms_mmu_attach(struct sde_kms *sde_kms, bool secure_only);
 int sde_kms_mmu_detach(struct sde_kms *sde_kms, bool secure_only);
 
+/**
+ * sde_kms_timeline_status - provides current timeline status
+ * @dev: Pointer to drm device
+ */
+void sde_kms_timeline_status(struct drm_device *dev);
+
 #endif /* __sde_kms_H__ */

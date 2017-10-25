@@ -639,4 +639,9 @@ int sde_connector_helper_reset_custom_properties(
 int sde_connector_get_mode_info(struct drm_connector_state *conn_state,
 	struct msm_mode_info *mode_info);
 
+/**
+ * sde_conn_timeline_status - current buffer timeline status
+ * conn: Pointer to drm_connector struct
+ */
+void sde_conn_timeline_status(struct drm_connector *conn);
 #endif /* _SDE_CONNECTOR_H_ */

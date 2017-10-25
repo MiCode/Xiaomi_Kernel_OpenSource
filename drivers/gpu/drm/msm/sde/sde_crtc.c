@@ -1841,6 +1841,19 @@ static int _sde_crtc_set_dest_scaler_lut(struct sde_crtc *sde_crtc,
 	return ret;
 }
 
+void sde_crtc_timeline_status(struct drm_crtc *crtc)
+{
+	struct sde_crtc *sde_crtc;
+
+	if (!crtc) {
+		SDE_ERROR("invalid crtc\n");
+		return;
+	}
+
+	sde_crtc = to_sde_crtc(crtc);
+	sde_fence_timeline_status(&sde_crtc->output_fence, &crtc->base);
+}
+
 /**
  * sde_crtc_secure_ctrl - Initiates the operations to swtich  between secure
  *                       and non-secure mode
