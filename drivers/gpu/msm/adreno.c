@@ -119,6 +119,7 @@ static struct adreno_device device_3d0 = {
 		.skipsaverestore = 1,
 		.usesgmem = 1,
 	},
+	.priv = BIT(ADRENO_DEVICE_PREEMPTION_EXECUTION),
 };
 
 /* Ptr to array for the current set of fault detect registers */
