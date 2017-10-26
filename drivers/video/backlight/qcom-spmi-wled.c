@@ -14,6 +14,9 @@
 
 #define pr_fmt(fmt)	"WLED: %s: " fmt, __func__
 
+#include <linux/delay.h>
+#include <linux/interrupt.h>
+#include <linux/ktime.h>
 #include <linux/kernel.h>
 #include <linux/backlight.h>
 #include <linux/module.h>
@@ -27,9 +30,11 @@
 #define  WLED_MAX_BRIGHTNESS		4095
 
 /* WLED control registers */
+#define WLED_CTRL_FAULT_STATUS		0x08
+
 #define WLED_CTRL_MOD_ENABLE		0x46
 #define  WLED_CTRL_MOD_EN_MASK		BIT(7)
-#define  WLED_CTRL_MODULE_EN_SHIFT		7
+#define  WLED_CTRL_MODULE_EN_SHIFT	7
 
 #define WLED_CTRL_SWITCH_FREQ		0x4c
 #define  WLED_CTRL_SWITCH_FREQ_MASK	GENMASK(3, 0)
@@ -40,10 +45,19 @@
 #define WLED_CTRL_ILIM			0x4e
 #define  WLED_CTRL_ILIM_MASK		GENMASK(2, 0)
 
+#define WLED_CTRL_SHORT_PROTECT		0x5e
+#define  WLED_CTRL_SHORT_EN_MASK	BIT(7)
+
+#define WLED_CTRL_SEC_ACCESS		0xd0
+#define  WLED_CTRL_SEC_UNLOCK		0xa5
+
+#define WLED_CTRL_TEST1			0xe2
+#define  WLED_EXT_FET_DTEST2		0x09
+
 /* WLED sink registers */
 #define WLED_SINK_CURR_SINK_EN		0x46
-#define  WLED_SINK_CURR_SINK_MASK		GENMASK(7, 4)
-#define  WLED_SINK_CURR_SINK_SHFT		0x04
+#define  WLED_SINK_CURR_SINK_MASK	GENMASK(7, 4)
+#define  WLED_SINK_CURR_SINK_SHFT	0x04
 
 #define WLED_SINK_SYNC			0x47
 #define  WLED_SINK_SYNC_MASK		GENMASK(3, 0)
@@ -55,15 +69,15 @@
 
 #define WLED_SINK_MOD_EN_REG(n)		(0x50 + (n * 0x10))
 #define  WLED_SINK_REG_STR_MOD_MASK	BIT(7)
-#define  WLED_SINK_REG_STR_MOD_EN		BIT(7)
+#define  WLED_SINK_REG_STR_MOD_EN	BIT(7)
 
-#define WLED_SINK_SYNC_DLY_REG(n)		(0x51 + (n * 0x10))
-#define WLED_SINK_FS_CURR_REG(n)		(0x52 + (n * 0x10))
-#define  WLED_SINK_FS_MASK			GENMASK(3, 0)
+#define WLED_SINK_SYNC_DLY_REG(n)	(0x51 + (n * 0x10))
+#define WLED_SINK_FS_CURR_REG(n)	(0x52 + (n * 0x10))
+#define  WLED_SINK_FS_MASK		GENMASK(3, 0)
 
 #define WLED_SINK_CABC_REG(n)		(0x56 + (n * 0x10))
 #define  WLED_SINK_CABC_MASK		BIT(7)
-#define  WLED_SINK_CABC_EN			BIT(7)
+#define  WLED_SINK_CABC_EN		BIT(7)
 
 #define WLED_SINK_BRIGHT_LSB_REG(n)	(0x57 + (n * 0x10))
 #define WLED_SINK_BRIGHT_MSB_REG(n)	(0x58 + (n * 0x10))
@@ -74,19 +88,23 @@ struct wled_config {
 	u32 switch_freq;
 	u32 fs_current;
 	u32 string_cfg;
+	int sc_irq;
 	bool en_cabc;
+	bool ext_pfet_sc_pro_en;
 };
 
 struct wled {
 	const char *name;
 	struct platform_device *pdev;
 	struct regmap *regmap;
+	struct mutex lock;
+	struct wled_config cfg;
+	ktime_t last_sc_event_time;
 	u16 sink_addr;
 	u16 ctrl_addr;
 	u32 brightness;
+	u32 sc_count;
 	bool prev_state;
-
-	struct wled_config cfg;
 };
 
 static int wled_module_enable(struct wled *wled, int val)
@@ -160,25 +178,26 @@ static int wled_update_status(struct backlight_device *bl)
 	    bl->props.state & BL_CORE_FBBLANK)
 		brightness = 0;
 
+	mutex_lock(&wled->lock);
 	if (brightness) {
 		rc = wled_set_brightness(wled, brightness);
 		if (rc < 0) {
 			pr_err("wled failed to set brightness rc:%d\n", rc);
-			return rc;
+			goto unlock_mutex;
 		}
 
 		if (!!brightness != wled->prev_state) {
 			rc = wled_module_enable(wled, !!brightness);
 			if (rc < 0) {
 				pr_err("wled enable failed rc:%d\n", rc);
-				return rc;
+				goto unlock_mutex;
 			}
 		}
 	} else {
 		rc = wled_module_enable(wled, brightness);
 		if (rc < 0) {
 			pr_err("wled disable failed rc:%d\n", rc);
-			return rc;
+			goto unlock_mutex;
 		}
 	}
 
@@ -187,12 +206,64 @@ static int wled_update_status(struct backlight_device *bl)
 	rc = wled_sync_toggle(wled);
 	if (rc < 0) {
 		pr_err("wled sync failed rc:%d\n", rc);
-		return rc;
+		goto unlock_mutex;
 	}
 
 	wled->brightness = brightness;
 
+unlock_mutex:
+	mutex_unlock(&wled->lock);
 	return rc;
+}
+
+#define WLED_SC_DLY_MS			20
+#define WLED_SC_CNT_MAX			5
+#define WLED_SC_RESET_CNT_DLY_US	1000000
+static irqreturn_t wled_sc_irq_handler(int irq, void *_wled)
+{
+	struct wled *wled = _wled;
+	int rc;
+	u32 val;
+	s64 elapsed_time;
+
+	rc = regmap_read(wled->regmap,
+		wled->ctrl_addr + WLED_CTRL_FAULT_STATUS, &val);
+	if (rc < 0) {
+		pr_err("Error in reading WLED_FAULT_STATUS rc=%d\n", rc);
+		return IRQ_HANDLED;
+	}
+
+	wled->sc_count++;
+	pr_err("WLED short circuit detected %d times fault_status=%x\n",
+		wled->sc_count, val);
+	mutex_lock(&wled->lock);
+	rc = wled_module_enable(wled, false);
+	if (rc < 0) {
+		pr_err("wled disable failed rc:%d\n", rc);
+		goto unlock_mutex;
+	}
+
+	elapsed_time = ktime_us_delta(ktime_get(),
+				wled->last_sc_event_time);
+	if (elapsed_time > WLED_SC_RESET_CNT_DLY_US) {
+		wled->sc_count = 0;
+	} else if (wled->sc_count > WLED_SC_CNT_MAX) {
+		pr_err("SC trigged %d times, disabling WLED forever!\n",
+			wled->sc_count);
+		goto unlock_mutex;
+	}
+
+	wled->last_sc_event_time = ktime_get();
+
+	msleep(WLED_SC_DLY_MS);
+	rc = wled_module_enable(wled, true);
+	if (rc < 0)
+		pr_err("wled enable failed rc:%d\n", rc);
+
+unlock_mutex:
+	mutex_unlock(&wled->lock);
+
+	return IRQ_HANDLED;
 }
 
 static int wled_setup(struct wled *wled)
@@ -200,6 +271,7 @@ static int wled_setup(struct wled *wled)
 	int rc, temp, i;
 	u8 sink_en = 0;
 	u8 string_cfg = wled->cfg.string_cfg;
+	int sc_irq = wled->cfg.sc_irq;
 
 	rc = regmap_update_bits(wled->regmap,
 			wled->ctrl_addr + WLED_CTRL_OVP,
@@ -264,6 +336,39 @@ static int wled_setup(struct wled *wled)
 		return rc;
 	}
 
+	if (sc_irq >= 0) {
+		rc = devm_request_threaded_irq(&wled->pdev->dev, sc_irq,
+				NULL, wled_sc_irq_handler, IRQF_ONESHOT,
+				"wled_sc_irq", wled);
+		if (rc < 0) {
+			pr_err("Unable to request sc(%d) IRQ(err:%d)\n",
+				sc_irq, rc);
+			return rc;
+		}
+
+		rc = regmap_update_bits(wled->regmap,
+				wled->ctrl_addr + WLED_CTRL_SHORT_PROTECT,
+				WLED_CTRL_SHORT_EN_MASK,
+				WLED_CTRL_SHORT_EN_MASK);
+		if (rc < 0)
+			return rc;
+	}
+
+	if (wled->cfg.ext_pfet_sc_pro_en) {
+		/* unlock the secure access register */
+		rc = regmap_write(wled->regmap, wled->ctrl_addr +
+				WLED_CTRL_SEC_ACCESS,
+				WLED_CTRL_SEC_UNLOCK);
+		if (rc < 0)
+			return rc;
+
+		rc = regmap_write(wled->regmap,
+				wled->ctrl_addr + WLED_CTRL_TEST1,
+				WLED_EXT_FET_DTEST2);
+		if (rc < 0)
+			return rc;
+	}
+
 	return 0;
 }
 
@@ -274,6 +379,7 @@ static const struct wled_config wled_config_defaults = {
 	.switch_freq = 11,
 	.string_cfg = 0xf,
 	.en_cabc = 0,
+	.ext_pfet_sc_pro_en = 1,
 };
 
 struct wled_var_cfg {
@@ -379,6 +485,7 @@ static int wled_configure(struct wled *wled, struct device *dev)
 		bool *val_ptr;
 	} bool_opts[] = {
 		{ "qcom,en-cabc", &cfg->en_cabc, },
+		{ "qcom,ext-pfet-sc-pro", &cfg->ext_pfet_sc_pro_en, },
 	};
 
 	prop_addr = of_get_address(dev->of_node, 0, NULL, NULL);
@@ -430,6 +537,10 @@ static int wled_configure(struct wled *wled, struct device *dev)
 			*bool_opts[i].val_ptr = true;
 	}
 
+	wled->cfg.sc_irq = platform_get_irq_byname(wled->pdev, "sc-irq");
+	if (wled->cfg.sc_irq < 0)
+		dev_dbg(&wled->pdev->dev, "sc irq is not used\n");
+
 	return 0;
 }
 
@@ -472,6 +583,7 @@ static int wled_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	mutex_init(&wled->lock);
 	val = WLED_DEFAULT_BRIGHTNESS;
 	of_property_read_u32(pdev->dev.of_node, "default-brightness", &val);
 	wled->brightness = val;

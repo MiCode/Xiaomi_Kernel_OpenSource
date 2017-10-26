@@ -74,6 +74,26 @@ platforms. The PMIC is connected to the host processor via SPMI bus.
 	Definition: Specify if cabc (content adaptive backlight control) is
 		    needed.
 
+- qcom,ext-pfet-sc-pro-en
+	Usage:      optional
+	Value type: <bool>
+	Definition: Specify if external PFET control for short circuit
+		    protection is needed.
+
+- interrupts
+	Usage:      optional
+	Value type: <prop encoded array>
+	Definition: Interrupts associated with WLED. Interrupts can be
+		    specified as per the encoding listed under
+		    Documentation/devicetree/bindings/spmi/
+		    qcom,spmi-pmic-arb.txt.
+
+- interrupt-names
+	Usage:      optional
+	Value type: <string>
+	Definition: Interrupt names associated with the interrupts.
+		    Must be "sc-irq".
+
 Example:
 
 qcom-wled@d800 {
@@ -82,6 +102,8 @@ qcom-wled@d800 {
 	reg-names = "wled-ctrl-base", "wled-sink-base";
 	label = "backlight";
 
+	interrupts = <0x3 0xd8 0x2 IRQ_TYPE_EDGE_RISING>;
+	interrupt-names = "sc-irq";
 	qcom,fs-current-limit = <25000>;
 	qcom,current-boost-limit = <970>;
 	qcom,switching-freq = <800>;
