@@ -398,6 +398,9 @@ struct ipa_api_controller {
 
 	int (*ipa_disable_wdi3_pipes)(int ipa_ep_idx_tx,
 		int ipa_ep_idx_rx);
+
+	int (*ipa_tz_unlock_reg)(struct ipa_tz_unlock_reg_info *reg_info,
+		u16 num_regs);
 };
 
 #ifdef CONFIG_IPA

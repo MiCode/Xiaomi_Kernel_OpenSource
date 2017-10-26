@@ -3056,6 +3056,18 @@ int ipa_disable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 	return ret;
 }
 
+/**
+ * ipa_tz_unlock_reg() - Allow AP access to memory regions controlled by TZ
+ */
+int ipa_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_tz_unlock_reg, reg_info, num_regs);
+
+	return ret;
+}
+
 static const struct dev_pm_ops ipa_pm_ops = {
 	.suspend_noirq = ipa_ap_suspend,
 	.resume_noirq = ipa_ap_resume,
