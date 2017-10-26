@@ -38,7 +38,18 @@ struct msm_memory_dump {
 	struct msm_dump_table *table;
 };
 
+struct dump_vaddr_entry {
+	uint32_t id;
+	void *dump_vaddr;
+};
+
+struct msm_mem_dump_vaddr_tbl {
+	uint8_t num_node;
+	struct dump_vaddr_entry *entries;
+};
+
 static struct msm_memory_dump memdump;
+static struct msm_mem_dump_vaddr_tbl vaddr_tbl;
 
 uint32_t msm_dump_table_version(void)
 {
@@ -112,6 +123,28 @@ int msm_dump_data_register(enum msm_dump_table_ids id,
 	return 0;
 }
 EXPORT_SYMBOL(msm_dump_data_register);
+
+void *get_msm_dump_ptr(enum msm_dump_data_ids id)
+{
+	int i;
+
+	if (!vaddr_tbl.entries)
+		return NULL;
+
+	if (id > MSM_DUMP_DATA_MAX)
+		return NULL;
+
+	for (i = 0; i < vaddr_tbl.num_node; i++) {
+		if (vaddr_tbl.entries[i].id == id)
+			break;
+	}
+
+	if (i == vaddr_tbl.num_node)
+		return NULL;
+
+	return (void *)vaddr_tbl.entries[i].dump_vaddr;
+}
+EXPORT_SYMBOL(get_msm_dump_ptr);
 
 static int __init init_memory_dump(void)
 {
@@ -209,6 +242,14 @@ static int mem_dump_probe(struct platform_device *pdev)
 	struct msm_dump_entry dump_entry;
 	int ret;
 	u32 size, id;
+	int i = 0;
+
+	vaddr_tbl.num_node = of_get_child_count(node);
+	vaddr_tbl.entries = devm_kcalloc(&pdev->dev, vaddr_tbl.num_node,
+				 sizeof(struct dump_vaddr_entry),
+				 GFP_KERNEL);
+	if (!vaddr_tbl.entries)
+		dev_err(&pdev->dev, "Unable to allocate mem for ptr addr\n");
 
 	for_each_available_child_of_node(node, child_node) {
 		ret = of_property_read_u32(child_node, "qcom,dump-size", &size);
@@ -254,6 +295,10 @@ static int mem_dump_probe(struct platform_device *pdev)
 			dma_free_coherent(&pdev->dev, size, dump_vaddr,
 					dump_addr);
 			devm_kfree(&pdev->dev, dump_data);
+		} else if (vaddr_tbl.entries) {
+			vaddr_tbl.entries[i].id = id;
+			vaddr_tbl.entries[i].dump_vaddr = dump_vaddr;
+			i++;
 		}
 	}
 	return 0;
