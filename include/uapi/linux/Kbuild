@@ -307,6 +307,7 @@ header-y += msm_audio_ape.h
 header-y += msm_audio_g711.h
 header-y += msm_audio_g711_dec.h
 header-y += msm_ion.h
+header-y += msm_ipc.h
 header-y += msm_kgsl.h
 header-y += msm_pft.h
 header-y += msm_mdp.h
