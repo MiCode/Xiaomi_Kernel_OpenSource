@@ -925,8 +925,9 @@ static int sde_encoder_phys_wb_wait_for_commit_done(
  * sde_encoder_phys_wb_prepare_for_kickoff - pre-kickoff processing
  * @phys_enc:	Pointer to physical encoder
  * @params:	kickoff parameters
+ * Returns:	Zero on success
  */
-static void sde_encoder_phys_wb_prepare_for_kickoff(
+static int sde_encoder_phys_wb_prepare_for_kickoff(
 		struct sde_encoder_phys *phys_enc,
 		struct sde_encoder_kickoff_params *params)
 {
@@ -941,7 +942,7 @@ static void sde_encoder_phys_wb_prepare_for_kickoff(
 	ret = sde_encoder_phys_wb_register_irq(phys_enc);
 	if (ret) {
 		SDE_ERROR("failed to register irq %d\n", ret);
-		return;
+		return ret;
 	}
 
 	wb_enc->kickoff_count++;
@@ -955,6 +956,7 @@ static void sde_encoder_phys_wb_prepare_for_kickoff(
 	wb_enc->start_time = ktime_get();
 
 	SDE_EVT32(DRMID(phys_enc->parent), WBID(wb_enc), wb_enc->kickoff_count);
+	return 0;
 }
 
 /**

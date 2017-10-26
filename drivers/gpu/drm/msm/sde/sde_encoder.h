@@ -115,8 +115,9 @@ struct sde_rsc_client *sde_encoder_get_rsc_client(struct drm_encoder *encoder);
  *	Delayed: Block until next trigger can be issued.
  * @encoder:	encoder pointer
  * @params:	kickoff time parameters
+ * @Returns:	Zero on success, last detected error otherwise
  */
-void sde_encoder_prepare_for_kickoff(struct drm_encoder *encoder,
+int sde_encoder_prepare_for_kickoff(struct drm_encoder *encoder,
 		struct sde_encoder_kickoff_params *params);
 
 /**
