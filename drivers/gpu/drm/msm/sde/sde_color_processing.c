@@ -1028,7 +1028,7 @@ int sde_cp_crtc_set_property(struct drm_crtc *crtc,
 	    sde_crtc->num_mixers > ARRAY_SIZE(sde_crtc->mixers)) {
 		DRM_ERROR("Invalid mixer config act cnt %d max cnt %ld\n",
 			sde_crtc->num_mixers, ARRAY_SIZE(sde_crtc->mixers));
-		ret = -EINVAL;
+		ret = -EPERM;
 		goto exit;
 	}
 
@@ -1896,7 +1896,7 @@ int sde_cp_hist_interrupt(struct drm_crtc *crtc_drm, bool en,
 
 	if (!hw_dspp) {
 		DRM_ERROR("invalid dspp\n");
-		ret = -EINVAL;
+		ret = -EPERM;
 		goto exit;
 	}
 
