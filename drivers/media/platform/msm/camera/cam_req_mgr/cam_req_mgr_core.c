@@ -2127,10 +2127,10 @@ int cam_req_mgr_flush_requests(
 	flush->link_hdl = flush_info->link_hdl;
 	flush->flush_type = flush_info->flush_type;
 	task->process_cb = &cam_req_mgr_process_flush_req;
+	init_completion(&link->workq_comp);
 	rc = cam_req_mgr_workq_enqueue_task(task, link, CRM_TASK_PRIORITY_0);
 
 	/* Blocking call */
-	init_completion(&link->workq_comp);
 	rc = wait_for_completion_timeout(
 		&link->workq_comp,
 		msecs_to_jiffies(CAM_REQ_MGR_SCHED_REQ_TIMEOUT));
