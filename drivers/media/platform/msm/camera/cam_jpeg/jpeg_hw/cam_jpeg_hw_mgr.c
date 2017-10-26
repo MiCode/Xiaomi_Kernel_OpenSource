@@ -826,6 +826,11 @@ static int cam_jpeg_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 	ctx_data->jpeg_dev_acquire_info = jpeg_dev_acquire_info;
 	mutex_unlock(&ctx_data->ctx_mutex);
 
+	if (ctx_data->jpeg_dev_acquire_info.dev_type >=
+		CAM_JPEG_RES_TYPE_MAX) {
+		rc = -EINVAL;
+		goto acq_cdm_hdl_failed;
+	}
 	dev_type = ctx_data->jpeg_dev_acquire_info.dev_type;
 	if (!hw_mgr->cdm_info[dev_type][0].ref_cnt) {
 
