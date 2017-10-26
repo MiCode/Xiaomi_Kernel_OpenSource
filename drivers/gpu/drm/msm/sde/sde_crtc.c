@@ -846,6 +846,11 @@ static int _sde_crtc_set_roi_v1(struct drm_crtc_state *state,
 				cstate->user_roi_list.roi[i].y1,
 				cstate->user_roi_list.roi[i].x2,
 				cstate->user_roi_list.roi[i].y2);
+		SDE_EVT32_VERBOSE(DRMID(crtc),
+				cstate->user_roi_list.roi[i].x1,
+				cstate->user_roi_list.roi[i].y1,
+				cstate->user_roi_list.roi[i].x2,
+				cstate->user_roi_list.roi[i].y2);
 	}
 
 	return 0;
@@ -889,6 +894,7 @@ static int _sde_crtc_set_crtc_roi(struct drm_crtc *crtc,
 
 	for_each_connector_in_state(state->state, conn, conn_state, i) {
 		struct sde_connector_state *sde_conn_state;
+		struct sde_rect conn_roi;
 
 		if (!conn_state || conn_state->crtc != crtc)
 			continue;
@@ -915,12 +921,19 @@ static int _sde_crtc_set_crtc_roi(struct drm_crtc *crtc,
 					sde_crtc->name);
 			return -EINVAL;
 		}
+
+		sde_kms_rect_merge_rectangles(&sde_conn_state->rois, &conn_roi);
+		SDE_EVT32_VERBOSE(DRMID(crtc), DRMID(conn),
+				conn_roi.x, conn_roi.y,
+				conn_roi.w, conn_roi.h);
 	}
 
 	sde_kms_rect_merge_rectangles(&crtc_state->user_roi_list, crtc_roi);
 
 	SDE_DEBUG("%s: crtc roi (%d,%d,%d,%d)\n", sde_crtc->name,
 			crtc_roi->x, crtc_roi->y, crtc_roi->w, crtc_roi->h);
+	SDE_EVT32_VERBOSE(DRMID(crtc), crtc_roi->x, crtc_roi->y, crtc_roi->w,
+			crtc_roi->h);
 
 	return 0;
 }
