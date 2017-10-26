@@ -125,6 +125,11 @@ Optional properties:
 				configuration value.
 - qcom,sde-ubwc-swizzle:	Property to specify the default UBWC swizzle
 				configuration value.
+- qcom,sde-smart-panel-align-mode: A u32 property to specify the align mode for
+				split display on smart panel. Possible values:
+				0x0 - no alignment
+				0xc - align at start of frame
+				0xd - align at start of line
 - qcom,sde-panic-per-pipe:	Boolean property to indicate if panic signal
 				control feature is available on each source pipe.
 - qcom,sde-has-src-split:	Boolean property to indicate if source split
@@ -535,6 +540,7 @@ Example:
     qcom,sde-ubwc-version = <0x100>;
     qcom,sde-ubwc-static = <0x100>;
     qcom,sde-ubwc-swizzle = <0>;
+    qcom,sde-smart-panel-align-mode = <0xd>;
     qcom,sde-panic-per-pipe;
     qcom,sde-has-src-split;
     qcom,sde-has-dim-layer;
