@@ -22,11 +22,12 @@
 
 static int cam_a5_get_dt_properties(struct cam_hw_soc_info *soc_info)
 {
-	int rc = 0;
+	int rc = 0, i;
 	const char *fw_name;
 	struct a5_soc_info *camp_a5_soc_info;
 	struct device_node *of_node = NULL;
 	struct platform_device *pdev = NULL;
+	int num_ubwc_cfg;
 
 	pdev = soc_info->pdev;
 	of_node = pdev->dev.of_node;
@@ -41,9 +42,28 @@ static int cam_a5_get_dt_properties(struct cam_hw_soc_info *soc_info)
 	fw_name = camp_a5_soc_info->fw_name;
 
 	rc = of_property_read_string(of_node, "fw_name", &fw_name);
-	if (rc < 0)
+	if (rc < 0) {
 		CAM_ERR(CAM_ICP, "fw_name read failed");
+		goto end;
+	}
 
+	num_ubwc_cfg = of_property_count_u32_elems(of_node, "ubwc-cfg");
+	if ((num_ubwc_cfg < 0) || (num_ubwc_cfg > ICP_UBWC_MAX)) {
+		CAM_ERR(CAM_ICP, "wrong ubwc_cfg: %d", num_ubwc_cfg);
+		rc = num_ubwc_cfg;
+		goto end;
+	}
+
+	for (i = 0; i < num_ubwc_cfg; i++) {
+		rc = of_property_read_u32_index(of_node, "ubwc-cfg",
+			i, &camp_a5_soc_info->ubwc_cfg[i]);
+		if (rc < 0) {
+			CAM_ERR(CAM_ICP, "unable to read ubwc cfg values");
+			break;
+		}
+	}
+
+end:
 	return rc;
 }
 
