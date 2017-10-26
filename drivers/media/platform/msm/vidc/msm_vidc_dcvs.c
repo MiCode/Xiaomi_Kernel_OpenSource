@@ -407,8 +407,10 @@ static int msm_dcvs_enc_scale_clocks(struct msm_vidc_inst *inst)
 
 	if (dcvs->etb_counter < total_input_buf) {
 		dcvs->etb_counter++;
-		if (dcvs->etb_counter != total_input_buf)
-			return rc;
+		if (dcvs->etb_counter != total_input_buf) {
+			return msm_comm_scale_clocks_load(core, dcvs->load,
+					LOAD_CALC_NO_QUIRKS);
+		}
 	}
 
 	dprintk(VIDC_PROF,
@@ -425,7 +427,7 @@ static int msm_dcvs_enc_scale_clocks(struct msm_vidc_inst *inst)
 	}
 
 	if (fw_pending_bufs >= DCVS_ENC_HIGH_THR &&
-		dcvs->load <= dcvs->load_low) {
+		dcvs->load < dcvs->load_high) {
 		dcvs->load = dcvs->load_high;
 		dcvs->prev_freq_increased = true;
 	} else {

@@ -2750,6 +2750,10 @@ static int _kgsl_gpumem_sync_cache(struct kgsl_mem_entry *entry,
 	int cacheop;
 	int mode;
 
+	 /* Cache ops are not allowed on secure memory */
+	if (entry->memdesc.flags & KGSL_MEMFLAGS_SECURE)
+		return 0;
+
 	/*
 	 * Flush is defined as (clean | invalidate).  If both bits are set, then
 	 * do a flush, otherwise check for the individual bits and clean or inv
@@ -3459,6 +3463,7 @@ long kgsl_ioctl_sparse_virt_free(struct kgsl_device_private *dev_priv,
 	return 0;
 }
 
+/* entry->bind_lock must be held by the caller */
 static int _sparse_add_to_bind_tree(struct kgsl_mem_entry *entry,
 		uint64_t v_offset,
 		struct kgsl_memdesc *memdesc,
@@ -3711,8 +3716,11 @@ static int _sparse_bind(struct kgsl_process_private *process,
 		return ret;
 	}
 
+	spin_lock(&virt_entry->bind_lock);
 	ret = _sparse_add_to_bind_tree(virt_entry, v_offset, memdesc,
 			p_offset, size, flags);
+	spin_unlock(&virt_entry->bind_lock);
+
 	if (ret == 0)
 		memdesc->cur_bindings += size / PAGE_SIZE;
 

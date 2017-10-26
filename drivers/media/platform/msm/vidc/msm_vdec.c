@@ -21,6 +21,7 @@
 
 #define MSM_VDEC_DVC_NAME "msm_vdec_8974"
 #define MIN_NUM_OUTPUT_BUFFERS 4
+#define MIN_NUM_OUTPUT_BUFFERS_VP9 6
 #define MIN_NUM_CAPTURE_BUFFERS 6
 #define MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS 1
 #define MAX_NUM_OUTPUT_BUFFERS VB2_MAX_FRAME
@@ -1457,6 +1458,17 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 		if (*num_buffers < MIN_NUM_OUTPUT_BUFFERS ||
 				*num_buffers > MAX_NUM_OUTPUT_BUFFERS)
 			*num_buffers = MIN_NUM_OUTPUT_BUFFERS;
+		/*
+		 * Increase input buffer count to 6 as for some
+		 * vp9 clips which have superframes with more
+		 * than 4 subframes requires more than 4
+		 * reference frames to decode.
+		 */
+		if (inst->fmts[OUTPUT_PORT].fourcc ==
+				V4L2_PIX_FMT_VP9 &&
+				*num_buffers < MIN_NUM_OUTPUT_BUFFERS_VP9)
+			*num_buffers = MIN_NUM_OUTPUT_BUFFERS_VP9;
+
 		for (i = 0; i < *num_planes; i++) {
 			sizes[i] = get_frame_size(inst,
 					&inst->fmts[OUTPUT_PORT], q->type, i);
@@ -1614,6 +1626,8 @@ static int set_max_internal_buffers_size(struct msm_vidc_inst *inst)
 			get_buff_req_buffer(inst, internal_buffers[i].type);
 		internal_buffers[i].size = internal_buffers[i].req ?
 			internal_buffers[i].req->buffer_size : 0;
+		if (internal_buffers[i].req == NULL)
+			continue;
 
 		rc = allocate_and_set_internal_bufs(inst,
 					internal_buffers[i].req,
