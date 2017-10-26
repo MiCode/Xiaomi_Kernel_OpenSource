@@ -2476,10 +2476,10 @@ static void _set_preferred_cluster(struct related_thread_group *grp)
 		return;
 
 	list_for_each_entry(p, &grp->tasks, grp_list) {
-		//if (boost_on_big && task_sched_boost(p)) {
-		//	group_boost = true;
-		//	break;
-		//}
+		if (boost_on_big && task_sched_boost(p)) {
+			group_boost = true;
+			break;
+		}
 
 		if (p->ravg.mark_start < wallclock -
 		    (sched_ravg_window * sched_ravg_hist_size))
@@ -2663,8 +2663,8 @@ void add_new_task_to_grp(struct task_struct *new)
 		return;
 
 	if (leader_grp_id == DEFAULT_CGROUP_COLOC_ID) {
-		//if (!same_schedtune(new, leader))
-		//	return;
+		if (!same_schedtune(new, leader))
+			return;
 	}
 
 	write_lock_irqsave(&related_thread_group_lock, flags);

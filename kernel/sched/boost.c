@@ -119,8 +119,8 @@ static void _sched_set_boost(int old_val, int type)
 	case NO_BOOST:
 		if (old_val == FULL_THROTTLE_BOOST)
 			core_ctl_set_boost(false);
-		//else if (old_val == CONSERVATIVE_BOOST)
-		//	restore_cgroup_boost_settings();
+		else if (old_val == CONSERVATIVE_BOOST)
+			restore_cgroup_boost_settings();
 		else
 			update_freq_aggregate_threshold(
 				freq_aggr_threshold_backup);
@@ -132,7 +132,7 @@ static void _sched_set_boost(int old_val, int type)
 		break;
 
 	case CONSERVATIVE_BOOST:
-		//update_cgroup_boost_settings();
+		update_cgroup_boost_settings();
 		boost_kick_cpus();
 		break;
 
@@ -148,7 +148,7 @@ static void _sched_set_boost(int old_val, int type)
 
 	set_boost_policy(type);
 	sysctl_sched_boost = type;
-	//trace_sched_set_boost(type);
+	trace_sched_set_boost(type);
 }
 
 void sched_boost_parse_dt(void)
