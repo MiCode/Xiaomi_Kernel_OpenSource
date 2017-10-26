@@ -32,6 +32,15 @@
 #define CAM_IFE_CSID_TIMEOUT_SLEEP_US                  1000
 #define CAM_IFE_CSID_TIMEOUT_ALL_US                    1000000
 
+/*
+ * Constant Factors needed to change QTimer ticks to nanoseconds
+ * QTimer Freq = 19.2 MHz
+ * Time(us) = ticks/19.2
+ * Time(ns) = ticks/19.2 * 1000
+ */
+#define CAM_IFE_CSID_QTIMER_MUL_FACTOR                 10000
+#define CAM_IFE_CSID_QTIMER_DIV_FACTOR                 192
+
 static int cam_ife_csid_is_ipp_format_supported(
 	uint32_t in_format)
 {
@@ -1971,6 +1980,11 @@ static int cam_ife_csid_get_time_stamp(
 			csid_rdi_timestamp_curr0_sof_addr);
 		time_stamp->time_stamp_val |= time_32;
 	}
+
+	time_stamp->time_stamp_val = mul_u64_u32_div(
+		time_stamp->time_stamp_val,
+		CAM_IFE_CSID_QTIMER_MUL_FACTOR,
+		CAM_IFE_CSID_QTIMER_DIV_FACTOR);
 
 	return 0;
 }
