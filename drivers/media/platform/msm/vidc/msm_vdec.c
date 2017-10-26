@@ -808,7 +808,7 @@ static struct v4l2_ctrl *get_ctrl_from_cluster(int id,
 
 int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 {
-	int rc = 0;
+	int rc = 0, temp;
 	struct hal_nal_stream_format_supported stream_format;
 	struct hal_enable_picture enable_picture;
 	struct hal_enable hal_property;
@@ -1033,6 +1033,31 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 					rc);
 			break;
 		case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_SECONDARY:
+			temp_ctrl = TRY_GET_CTRL(
+				V4L2_CID_MPEG_VIDC_VIDEO_DPB_COLOR_FORMAT);
+			switch (temp_ctrl->val) {
+			case V4L2_MPEG_VIDC_VIDEO_DPB_COLOR_FMT_UBWC:
+				temp = V4L2_PIX_FMT_NV12_UBWC;
+				break;
+			case V4L2_MPEG_VIDC_VIDEO_DPB_COLOR_FMT_TP10_UBWC:
+				temp = V4L2_PIX_FMT_NV12_TP10_UBWC;
+				break;
+			case V4L2_MPEG_VIDC_VIDEO_DPB_COLOR_FMT_NONE:
+			default:
+				dprintk(VIDC_DBG,
+					"set default dpb color format as NV12_UBWC\n");
+				temp = V4L2_PIX_FMT_NV12_UBWC;
+				break;
+			}
+			rc = msm_comm_set_color_format(inst,
+				HAL_BUFFER_OUTPUT, temp);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"%s Failed setting output color format: %#x\n",
+					__func__, rc);
+				break;
+			}
+
 			multi_stream.buffer_type = HAL_BUFFER_OUTPUT2;
 			multi_stream.enable = true;
 			pdata = &multi_stream;
@@ -1258,6 +1283,14 @@ int msm_vdec_s_ext_ctrl(struct msm_vidc_inst *inst,
 				}
 				rc = msm_vidc_update_host_buff_counts(inst);
 				inst->clk_data.dpb_fourcc = fourcc;
+				control.id =
+				V4L2_CID_MPEG_VIDC_VIDEO_DPB_COLOR_FORMAT;
+				control.value = ext_control[i].value;
+				rc = msm_comm_s_ctrl(inst, &control);
+				if (rc)
+					dprintk(VIDC_ERR,
+						"%s: set control dpb color format %d failed\n",
+						__func__, control.value);
 				break;
 			default:
 				dprintk(VIDC_ERR,
