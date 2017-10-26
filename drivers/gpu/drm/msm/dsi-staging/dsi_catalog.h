@@ -24,6 +24,7 @@
  * @version:     DSI controller version.
  * @index:       DSI controller instance ID.
  * @phy_isolation_enabled:       DSI controller works isolated from phy.
+ * @null_insertion_enabled:      DSI controller inserts null packet.
  *
  * This function setups the catalog information in the dsi_ctrl_hw object.
  *
@@ -31,7 +32,7 @@
  */
 int dsi_catalog_ctrl_setup(struct dsi_ctrl_hw *ctrl,
 		   enum dsi_ctrl_version version, u32 index,
-		   bool phy_isolation_enabled);
+		   bool phy_isolation_enabled, bool null_insertion_enabled);
 
 /**
  * dsi_catalog_phy_setup() - return catalog info for dsi phy hardware
