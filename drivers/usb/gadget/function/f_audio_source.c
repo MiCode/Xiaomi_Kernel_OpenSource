@@ -755,10 +755,10 @@ static int audio_pcm_close(struct snd_pcm_substream *substream)
 	struct audio_dev *audio = substream->private_data;
 	unsigned long flags;
 
-	spin_lock_irqsave(&audio->lock, flags);
-
 	/* Remove the QoS request */
 	pm_qos_remove_request(&audio->pm_qos);
+
+	spin_lock_irqsave(&audio->lock, flags);
 
 	audio->substream = NULL;
 	spin_unlock_irqrestore(&audio->lock, flags);
