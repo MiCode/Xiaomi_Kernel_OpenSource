@@ -105,13 +105,15 @@
 		pinctrl-0 = <&cam_sensor_flash_default>;
 		pinctrl-1 = <&cam_sensor_flash_sleep>;
 		gpios = <&msm_gpio 31 0>,
-			<&msm_gpio 32 0>;
+			<&msm_gpio 32 0>,
+			<&msm_gpio 36 0>;
 		qcom,gpio-flash-en = <0>;
 		qcom,gpio-flash-now = <1>;
-		qcom,gpio-req-tbl-num = <0 1>;
-		qcom,gpio-req-tbl-flags = <0 0>;
+		qcom,gpio-flash-rst = <2>;
+		qcom,gpio-req-tbl-num = <0 1 2>;
+		qcom,gpio-req-tbl-flags = <0 0 0>;
 		qcom,gpio-req-tbl-label = "FLASH_EN",
-			"FLASH_NOW";
+			"FLASH_NOW", "FLASH_RST";
 		qcom,cci-master = <0>;
 	};
 
