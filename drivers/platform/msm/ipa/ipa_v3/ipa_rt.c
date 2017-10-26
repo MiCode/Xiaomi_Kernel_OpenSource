@@ -21,6 +21,8 @@
 #define IPA_RT_STATUS_OF_DEL_FAILED	(-1)
 #define IPA_RT_STATUS_OF_MDFY_FAILED (-1)
 
+#define IPA_RT_MAX_NUM_OF_COMMIT_TABLES_CMD_DESC 5
+
 #define IPA_RT_GET_RULE_TYPE(__entry) \
 	( \
 	((__entry)->rule.hashable) ? \
@@ -432,10 +434,11 @@ static bool ipa_rt_valid_lcl_tbl_size(enum ipa_ip_type ipt,
  */
 int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 {
-	struct ipa3_desc desc[5];
+	struct ipa3_desc desc[IPA_RT_MAX_NUM_OF_COMMIT_TABLES_CMD_DESC];
 	struct ipahal_imm_cmd_register_write reg_write_cmd = {0};
 	struct ipahal_imm_cmd_dma_shared_mem  mem_cmd = {0};
-	struct ipahal_imm_cmd_pyld *cmd_pyld[5];
+	struct ipahal_imm_cmd_pyld
+		*cmd_pyld[IPA_RT_MAX_NUM_OF_COMMIT_TABLES_CMD_DESC];
 	int num_cmd = 0;
 	struct ipahal_fltrt_alloc_imgs_params alloc_params;
 	u32 num_modem_rt_index;
@@ -557,10 +560,7 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 		IPAERR("fail construct register_write imm cmd. IP %d\n", ip);
 		goto fail_size_valid;
 	}
-	desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
-	desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
-	desc[num_cmd].len = cmd_pyld[num_cmd]->len;
-	desc[num_cmd].type = IPA_IMM_CMD_DESC;
+	ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
 	num_cmd++;
 
 	mem_cmd.is_read = false;
@@ -575,10 +575,7 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 		IPAERR("fail construct dma_shared_mem imm cmd. IP %d\n", ip);
 		goto fail_imm_cmd_construct;
 	}
-	desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
-	desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
-	desc[num_cmd].len = cmd_pyld[num_cmd]->len;
-	desc[num_cmd].type = IPA_IMM_CMD_DESC;
+	ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
 	num_cmd++;
 
 	mem_cmd.is_read = false;
@@ -593,13 +590,17 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 		IPAERR("fail construct dma_shared_mem imm cmd. IP %d\n", ip);
 		goto fail_imm_cmd_construct;
 	}
-	desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
-	desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
-	desc[num_cmd].len = cmd_pyld[num_cmd]->len;
-	desc[num_cmd].type = IPA_IMM_CMD_DESC;
+	ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
 	num_cmd++;
 
 	if (lcl_nhash) {
+		if (num_cmd >= IPA_RT_MAX_NUM_OF_COMMIT_TABLES_CMD_DESC) {
+			IPAERR("number of commands is out of range: IP = %d\n",
+				ip);
+			rc = -ENOBUFS;
+			goto fail_imm_cmd_construct;
+		}
+
 		mem_cmd.is_read = false;
 		mem_cmd.skip_pipeline_clear = false;
 		mem_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
@@ -613,13 +614,17 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 				ip);
 			goto fail_imm_cmd_construct;
 		}
-		desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
-		desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
-		desc[num_cmd].len = cmd_pyld[num_cmd]->len;
-		desc[num_cmd].type = IPA_IMM_CMD_DESC;
+		ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
 		num_cmd++;
 	}
 	if (lcl_hash) {
+		if (num_cmd >= IPA_RT_MAX_NUM_OF_COMMIT_TABLES_CMD_DESC) {
+			IPAERR("number of commands is out of range: IP = %d\n",
+				ip);
+			rc = -ENOBUFS;
+			goto fail_imm_cmd_construct;
+		}
+
 		mem_cmd.is_read = false;
 		mem_cmd.skip_pipeline_clear = false;
 		mem_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
@@ -633,10 +638,7 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 				ip);
 			goto fail_imm_cmd_construct;
 		}
-		desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
-		desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
-		desc[num_cmd].len = cmd_pyld[num_cmd]->len;
-		desc[num_cmd].type = IPA_IMM_CMD_DESC;
+		ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
 		num_cmd++;
 	}
 
@@ -1137,8 +1139,8 @@ int ipa3_add_rt_rule_after(struct ipa_ioc_add_rt_rule_after *rules)
 		goto bail;
 	}
 
-	if (tbl->rule_cnt <= 0) {
-		IPAERR_RL("tbl->rule_cnt <= 0");
+	if (!tbl->rule_cnt) {
+		IPAERR_RL("tbl->rule_cnt == 0");
 		ret = -EINVAL;
 		goto bail;
 	}
