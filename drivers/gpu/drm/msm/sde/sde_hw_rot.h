@@ -28,12 +28,14 @@ struct sde_hw_rot;
  * @SDE_HW_ROT_CMD_COMMIT: commit/execute rotator command
  * @SDE_HW_ROT_CMD_START: mdp is ready to start
  * @SDE_HW_ROT_CMD_CLEANUP: cleanup rotator command after it is done
+ * @SDE_HW_ROT_CMD_RESET: request rotator h/w reset
  */
 enum sde_hw_rot_cmd_type {
 	SDE_HW_ROT_CMD_VALIDATE,
 	SDE_HW_ROT_CMD_COMMIT,
 	SDE_HW_ROT_CMD_START,
 	SDE_HW_ROT_CMD_CLEANUP,
+	SDE_HW_ROT_CMD_RESET,
 };
 
 /**

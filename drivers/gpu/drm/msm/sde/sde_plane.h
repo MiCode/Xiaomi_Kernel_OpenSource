@@ -228,6 +228,23 @@ void sde_plane_restore(struct drm_plane *plane);
 void sde_plane_flush(struct drm_plane *plane);
 
 /**
+ * sde_plane_halt_requests - control halting of vbif transactions for this plane
+ *	This function isn't thread safe. Plane halt enable/disable requests
+ *	should always be made from the same commit cycle.
+ * @plane: Pointer to drm plane structure
+ * @enable: Whether to enable/disable halting of vbif transactions
+ */
+void sde_plane_halt_requests(struct drm_plane *plane, bool enable);
+
+/**
+ * sde_plane_reset_rot - reset rotator operations before commit kickoff
+ * @plane: Pointer to drm plane structure
+ * @state: Pointer to plane state associated with reset request
+ * Returns: Zero on success
+ */
+int sde_plane_reset_rot(struct drm_plane *plane, struct drm_plane_state *state);
+
+/**
  * sde_plane_kickoff_rot - final plane rotator operations before commit kickoff
  * @plane: Pointer to drm plane structure
  * Returns: Zero on success
