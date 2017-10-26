@@ -1169,6 +1169,7 @@ static int __set_cpus_allowed_ptr(struct task_struct *p,
 	cpumask_t allowed_mask;
 
 	rq = task_rq_lock(p, &rf);
+	update_rq_clock(rq);
 
 	if (p->flags & PF_KTHREAD) {
 		/*
