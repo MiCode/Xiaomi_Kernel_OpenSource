@@ -130,13 +130,13 @@ static int cnss_wlfw_clnt_svc_event_notifier(struct notifier_block *nb,
 	case QMI_SERVER_ARRIVE:
 		ret = cnss_driver_event_post(plat_priv,
 					     CNSS_DRIVER_EVENT_SERVER_ARRIVE,
-					     false, NULL);
+					     0, NULL);
 		break;
 
 	case QMI_SERVER_EXIT:
 		ret = cnss_driver_event_post(plat_priv,
 					     CNSS_DRIVER_EVENT_SERVER_EXIT,
-					     false, NULL);
+					     0, NULL);
 		break;
 	default:
 		cnss_pr_dbg("Invalid QMI service event: %ld\n", code);
@@ -278,7 +278,7 @@ static int cnss_wlfw_request_mem_ind_hdlr(struct cnss_plat_data *plat_priv,
 	fw_mem->size = ind_msg.size;
 
 	cnss_driver_event_post(plat_priv, CNSS_DRIVER_EVENT_REQUEST_MEM,
-			       false, NULL);
+			       0, NULL);
 
 	return 0;
 }
@@ -906,17 +906,17 @@ static void cnss_wlfw_clnt_ind(struct qmi_handle *handle,
 	case QMI_WLFW_FW_MEM_READY_IND_V01:
 		cnss_driver_event_post(plat_priv,
 				       CNSS_DRIVER_EVENT_FW_MEM_READY,
-				       false, NULL);
+				       0, NULL);
 		break;
 	case QMI_WLFW_COLD_BOOT_CAL_DONE_IND_V01:
 		cnss_driver_event_post(plat_priv,
 				       CNSS_DRIVER_EVENT_COLD_BOOT_CAL_DONE,
-				       false, NULL);
+				       0, NULL);
 		break;
 	case QMI_WLFW_FW_READY_IND_V01:
 		cnss_driver_event_post(plat_priv,
 				       CNSS_DRIVER_EVENT_FW_READY,
-				       false, NULL);
+				       0, NULL);
 		break;
 	case QMI_WLFW_PIN_CONNECT_RESULT_IND_V01:
 		cnss_qmi_pin_result_ind_hdlr(plat_priv, msg, msg_len);
