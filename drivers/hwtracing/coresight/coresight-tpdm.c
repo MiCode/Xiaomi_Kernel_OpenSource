@@ -20,6 +20,7 @@
 #include <linux/bitmap.h>
 #include <linux/of.h>
 #include <linux/coresight.h>
+#include <soc/qcom/memory_dump.h>
 
 #include "coresight-priv.h"
 
@@ -225,6 +226,7 @@ struct dsb_dataset {
 struct mcmb_dataset {
 	uint8_t		mcmb_trig_lane;
 	uint8_t		mcmb_lane_select;
+	uint32_t		*mcmb_msr_dump_ptr;
 };
 
 struct cmb_dataset {
@@ -608,6 +610,11 @@ static void __tpdm_enable_mcmb(struct tpdm_drvdata *drvdata)
 	val = val | (BMVAL(mcmb->mcmb_trig_lane, 0, 2) << 18);
 	val = val & ~BM(10, 17);
 	val = val | (BMVAL(mcmb->mcmb_lane_select, 0, 7) << 10);
+
+	if (mcmb->mcmb_msr_dump_ptr) {
+		for (i = 0; i < TPDM_CMB_MAX_MSR; i++)
+			mcmb->mcmb_msr_dump_ptr[i] = drvdata->cmb->msr[i];
+	}
 
 	tpdm_writel(drvdata, val, TPDM_CMB_CR);
 	/* Set the enable bit */
@@ -3910,6 +3917,12 @@ static int tpdm_datasets_alloc(struct tpdm_drvdata *drvdata)
 						  GFP_KERNEL);
 		if (!drvdata->cmb->mcmb)
 			return -ENOMEM;
+
+		if (of_property_read_bool(drvdata->dev->of_node,
+						    "qcom,dump-enable"))
+			drvdata->cmb->mcmb->mcmb_msr_dump_ptr =
+				(uint32_t *)get_msm_dump_ptr(
+						MSM_DUMP_DATA_TPDM_SWAO_MCMB);
 	}
 	return 0;
 }
