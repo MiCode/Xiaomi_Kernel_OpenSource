@@ -777,7 +777,8 @@ int sde_connector_roi_v1_check_roi(struct drm_connector_state *conn_state)
 		w = roi_conn->x2 - roi_conn->x1;
 		h = roi_conn->y2 - roi_conn->y1;
 
-		SDE_EVT32_VERBOSE(roi_conn->x1, roi_conn->y1,
+		SDE_EVT32_VERBOSE(DRMID(&c_conn->base),
+				roi_conn->x1, roi_conn->y1,
 				roi_conn->x2, roi_conn->y2);
 
 		if (w <= 0 || h <= 0) {
