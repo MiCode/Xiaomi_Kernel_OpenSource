@@ -498,6 +498,9 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 	struct msm_drm_private *priv;
 	struct drm_device *dev;
 	struct drm_encoder *encoder;
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *crtc_state;
+	int i;
 
 	if (!kms)
 		return;
@@ -510,9 +513,15 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
 
-	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head)
-		if (encoder->crtc != NULL)
+	for_each_crtc_in_state(state, crtc, crtc_state, i) {
+		list_for_each_entry(encoder, &dev->mode_config.encoder_list,
+				head) {
+			if (encoder->crtc != crtc)
+				continue;
+
 			sde_encoder_prepare_commit(encoder);
+		}
+	}
 
 	/*
 	 * NOTE: for secure use cases we want to apply the new HW
