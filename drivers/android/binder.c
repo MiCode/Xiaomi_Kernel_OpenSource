@@ -464,12 +464,14 @@ static inline void binder_lock(const char *tag)
 	trace_binder_lock(tag);
 	mutex_lock(&binder_main_lock);
 	preempt_disable();
+	set_long_preempt_disable_hint(true);
 	trace_binder_locked(tag);
 }
 
 static inline void binder_unlock(const char *tag)
 {
 	trace_binder_unlock(tag);
+	set_long_preempt_disable_hint(false);
 	mutex_unlock(&binder_main_lock);
 	preempt_enable();
 }
@@ -3783,6 +3785,7 @@ static void binder_deferred_func(struct work_struct *work)
 
 	int defer;
 
+	set_long_preempt_disable_hint(true);
 	do {
 		trace_binder_lock(__func__);
 		mutex_lock(&binder_main_lock);
@@ -3821,6 +3824,7 @@ static void binder_deferred_func(struct work_struct *work)
 		if (files)
 			put_files_struct(files);
 	} while (proc);
+	set_long_preempt_disable_hint(false);
 }
 static DECLARE_WORK(binder_deferred_work, binder_deferred_func);
 
