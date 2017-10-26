@@ -86,6 +86,9 @@
 #define IPA3_ACTIVE_CLIENT_LOG_TYPE_RESOURCE 2
 #define IPA3_ACTIVE_CLIENT_LOG_TYPE_SPECIAL 3
 
+#define IPA_MHI_GSI_EVENT_RING_ID_START 10
+#define IPA_MHI_GSI_EVENT_RING_ID_END 12
+
 #define IPA_SMEM_SIZE (8 * 1024)
 
 #define IPA_GSI_CHANNEL_HALT_MIN_SLEEP 5000
@@ -4286,6 +4289,12 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	gsi_props.req_clk_cb = NULL;
 	gsi_props.rel_clk_cb = NULL;
 
+	if (ipa3_ctx->ipa_config_is_mhi) {
+		gsi_props.mhi_er_id_limits_valid = true;
+		gsi_props.mhi_er_id_limits[0] = resource_p->mhi_evid_limits[0];
+		gsi_props.mhi_er_id_limits[1] = resource_p->mhi_evid_limits[1];
+	}
+
 	result = gsi_register_device(&gsi_props,
 		&ipa3_ctx->gsi_dev_hdl);
 	if (result != GSI_STATUS_SUCCESS) {
@@ -4687,6 +4696,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->gsi_ch20_wa = resource_p->gsi_ch20_wa;
 	ipa3_ctx->use_ipa_pm = resource_p->use_ipa_pm;
 	ipa3_ctx->ipa3_active_clients_logging.log_rdy = false;
+	ipa3_ctx->mhi_evid_limits[0] = resource_p->mhi_evid_limits[0];
+	ipa3_ctx->mhi_evid_limits[1] = resource_p->mhi_evid_limits[1];
 	if (resource_p->ipa_tz_unlock_reg) {
 		ipa3_ctx->ipa_tz_unlock_reg_num =
 			resource_p->ipa_tz_unlock_reg_num;
@@ -5263,6 +5274,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	struct resource *resource;
 	u32 *ipa_tz_unlock_reg;
 	int elem_num;
+	u32 mhi_evid_limits[2];
 
 	/* initialize ipa3_res */
 	ipa_drv_res->ipa_pipe_mem_start_ofst = IPA_PIPE_MEM_START_OFST;
@@ -5279,6 +5291,8 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->gsi_ch20_wa = false;
 	ipa_drv_res->ipa_tz_unlock_reg_num = 0;
 	ipa_drv_res->ipa_tz_unlock_reg = NULL;
+	ipa_drv_res->mhi_evid_limits[0] = IPA_MHI_GSI_EVENT_RING_ID_START;
+	ipa_drv_res->mhi_evid_limits[1] = IPA_MHI_GSI_EVENT_RING_ID_END;
 
 	/* Get IPA HW Version */
 	result = of_property_read_u32(pdev->dev.of_node, "qcom,ipa-hw-ver",
@@ -5453,6 +5467,34 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	IPADBG(": GSI CH 20 WA is = %s\n",
 		ipa_drv_res->apply_rg10_wa
 		? "Needed" : "Not needed");
+
+	elem_num = of_property_count_elems_of_size(pdev->dev.of_node,
+		"qcom,mhi-event-ring-id-limits", sizeof(u32));
+
+	if (elem_num == 2) {
+		if (of_property_read_u32_array(pdev->dev.of_node,
+			"qcom,mhi-event-ring-id-limits", mhi_evid_limits, 2)) {
+			IPAERR("failed to read mhi event ring id limits\n");
+			return -EFAULT;
+		}
+		if (mhi_evid_limits[0] > mhi_evid_limits[1]) {
+			IPAERR("mhi event ring id low limit > high limit\n");
+			return -EFAULT;
+		}
+		ipa_drv_res->mhi_evid_limits[0] = mhi_evid_limits[0];
+		ipa_drv_res->mhi_evid_limits[1] = mhi_evid_limits[1];
+		IPADBG(": mhi-event-ring-id-limits start=%u end=%u\n",
+			mhi_evid_limits[0], mhi_evid_limits[1]);
+	} else {
+		if (elem_num > 0) {
+			IPAERR("Invalid mhi event ring id limits number %d\n",
+				elem_num);
+			return -EINVAL;
+		}
+		IPADBG("use default mhi evt ring id limits start=%u end=%u\n",
+			ipa_drv_res->mhi_evid_limits[0],
+			ipa_drv_res->mhi_evid_limits[1]);
+	}
 
 	elem_num = of_property_count_elems_of_size(pdev->dev.of_node,
 		"qcom,ipa-tz-unlock-reg", sizeof(u32));

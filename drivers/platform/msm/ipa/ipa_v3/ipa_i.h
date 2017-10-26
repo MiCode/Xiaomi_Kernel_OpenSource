@@ -1186,6 +1186,7 @@ enum ipa_smmu_cb_type {
  * @ipa_ready_cb_list: A list of all the clients who require a CB when IPA
  *  driver is ready/initialized.
  * @init_completion_obj: Completion object to be used in case IPA driver hasn't
+ * @mhi_evid_limits: MHI event rings start and end ids
  *  finished initializing. Example of use - IOCTLs to /dev/ipa
  * IPA context - holds all relevant info about IPA driver and its state
  */
@@ -1313,6 +1314,7 @@ struct ipa3_context {
 	struct completion init_completion_obj;
 	struct completion uc_loaded_completion_obj;
 	struct ipa3_smp2p_info smp2p_info;
+	u32 mhi_evid_limits[2]; /* start and end values */
 	u32 ipa_tz_unlock_reg_num;
 	struct ipa_tz_unlock_reg_info *ipa_tz_unlock_reg;
 	struct ipa_dma_task_info dma_task_info;
@@ -1346,6 +1348,7 @@ struct ipa3_plat_drv_res {
 	bool apply_rg10_wa;
 	bool gsi_ch20_wa;
 	bool tethered_flow_control;
+	u32 mhi_evid_limits[2]; /* start and end values */
 	u32 ipa_tz_unlock_reg_num;
 	struct ipa_tz_unlock_reg_info *ipa_tz_unlock_reg;
 	bool use_ipa_pm;

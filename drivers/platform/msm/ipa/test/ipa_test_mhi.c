@@ -1359,11 +1359,11 @@ static int ipa_mhi_test_q_transfer_re(struct ipa_mem_buffer *mmio,
 	IPA_UT_LOG("DB to event 0x%llx: base %pa ofst 0x%x\n",
 		p_events[event_ring_index].wp,
 		&(gsi_ctx->per.phys_addr), GSI_EE_n_EV_CH_k_DOORBELL_0_OFFS(
-			event_ring_index + IPA_MHI_GSI_ER_START, 0));
+			event_ring_index + ipa3_ctx->mhi_evid_limits[0], 0));
 	iowrite32(p_events[event_ring_index].wp,
 		test_mhi_ctx->gsi_mmio +
 		GSI_EE_n_EV_CH_k_DOORBELL_0_OFFS(
-			event_ring_index + IPA_MHI_GSI_ER_START, 0));
+			event_ring_index + ipa3_ctx->mhi_evid_limits[0], 0));
 
 	for (i = 0; i < buf_array_size; i++) {
 		/* calculate virtual pointer for current WP and RP */
