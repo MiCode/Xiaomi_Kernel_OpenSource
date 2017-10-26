@@ -1268,6 +1268,7 @@ static inline u32 f2fs_crc32(struct f2fs_sb_info *sbi, const void *address,
 {
 	SHASH_DESC_ON_STACK(shash, sbi->s_chksum_driver);
 	u32 *ctx = (u32 *)shash_desc_ctx(shash);
+	u32 retval;
 	int err;
 
 	shash->tfm = sbi->s_chksum_driver;
@@ -1277,7 +1278,9 @@ static inline u32 f2fs_crc32(struct f2fs_sb_info *sbi, const void *address,
 	err = crypto_shash_update(shash, address, length);
 	BUG_ON(err);
 
-	return *ctx;
+	retval = *ctx;
+	barrier_data(ctx);
+	return retval;
 }
 
 static inline bool f2fs_crc_valid(struct f2fs_sb_info *sbi, __u32 blk_crc,
@@ -2606,7 +2609,7 @@ void invalidate_blocks(struct f2fs_sb_info *sbi, block_t addr);
 bool is_checkpointed_data(struct f2fs_sb_info *sbi, block_t blkaddr);
 void refresh_sit_entry(struct f2fs_sb_info *sbi, block_t old, block_t new);
 void stop_discard_thread(struct f2fs_sb_info *sbi);
-void f2fs_wait_discard_bios(struct f2fs_sb_info *sbi);
+void f2fs_wait_discard_bios(struct f2fs_sb_info *sbi, bool umount);
 void clear_prefree_segments(struct f2fs_sb_info *sbi, struct cp_control *cpc);
 void release_discard_addrs(struct f2fs_sb_info *sbi);
 int npages_for_summary_flush(struct f2fs_sb_info *sbi, bool for_ra);
