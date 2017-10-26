@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,7 @@ enum {
 	gamut_mode_5,
 	gamut_mode_13a,
 	gamut_mode_13b,
+	gamut_mode_17b,
 };
 
 #define GC_C0_OFF 0x4
@@ -103,5 +104,8 @@ enum {
 
 #define SIXZONE_ADJ_CURVE_P1_OFF 0x4
 #define SIXZONE_THRESHOLDS_OFF 0x8
+
+#define SSPP 0
+#define DSPP 1
 
 #endif /* _SDE_HW_COLOR_PROC_COMMON_V4_H_ */
