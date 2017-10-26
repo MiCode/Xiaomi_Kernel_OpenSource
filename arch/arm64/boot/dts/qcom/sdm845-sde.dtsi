@@ -134,6 +134,7 @@
 		qcom,sde-mixer-blendstages = <0xb>;
 		qcom,sde-highest-bank-bit = <0x2>;
 		qcom,sde-ubwc-version = <0x200>;
+		qcom,sde-smart-panel-align-mode = <0xc>;
 		qcom,sde-panic-per-pipe;
 		qcom,sde-has-cdp;
 		qcom,sde-has-src-split;
