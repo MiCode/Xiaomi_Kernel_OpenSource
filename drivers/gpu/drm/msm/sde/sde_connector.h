@@ -271,6 +271,7 @@ struct sde_connector_evt {
  * @blob_hdr: Pointer to blob structure for 'hdr_properties' property
  * @blob_ext_hdr: Pointer to blob structure for 'ext_hdr_properties' property
  * @blob_dither: Pointer to blob structure for default dither config
+ * @blob_mode_info: Pointer to blob structure for mode info
  * @fb_kmap: true if kernel mapping of framebuffer is requested
  * @event_table: Array of registered events
  * @event_lock: Lock object for event_table
@@ -304,6 +305,7 @@ struct sde_connector {
 	struct drm_property_blob *blob_hdr;
 	struct drm_property_blob *blob_ext_hdr;
 	struct drm_property_blob *blob_dither;
+	struct drm_property_blob *blob_mode_info;
 
 	bool fb_kmap;
 	struct sde_connector_evt event_table[SDE_CONN_EVENT_COUNT];
@@ -644,13 +646,15 @@ int sde_connector_get_dither_cfg(struct drm_connector *conn,
 		struct drm_connector_state *state, void **cfg, size_t *len);
 
 /**
- * sde_connector_set_info - set connector property value
+ * sde_connector_set_blob_data - set connector blob property data
  * @conn: Pointer to drm_connector struct
  * @state: Pointer to the drm_connector_state struct
+ * @prop_id: property id to be populated
  * Returns: Zero on success
  */
-int sde_connector_set_info(struct drm_connector *conn,
-		struct drm_connector_state *state);
+int sde_connector_set_blob_data(struct drm_connector *conn,
+		struct drm_connector_state *state,
+		enum msm_mdp_conn_property prop_id);
 
 /**
  * sde_connector_roi_v1_check_roi - validate connector ROI
