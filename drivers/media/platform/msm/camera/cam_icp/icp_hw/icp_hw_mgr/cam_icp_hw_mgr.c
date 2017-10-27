@@ -24,6 +24,7 @@
 #include <linux/debugfs.h>
 #include <media/cam_defs.h>
 #include <media/cam_icp.h>
+#include <media/cam_cpas.h>
 
 #include "cam_sync_api.h"
 #include "cam_packet_util.h"
@@ -47,11 +48,32 @@
 #include "cam_debug_util.h"
 #include "cam_soc_util.h"
 #include "cam_trace.h"
+#include "cam_cpas_api.h"
 
 #define ICP_WORKQ_TASK_CMD_TYPE 1
 #define ICP_WORKQ_TASK_MSG_TYPE 2
 
 static struct cam_icp_hw_mgr icp_hw_mgr;
+
+static int cam_icp_send_ubwc_cfg(struct cam_icp_hw_mgr *hw_mgr)
+{
+	struct cam_hw_intf *a5_dev_intf = NULL;
+	int rc;
+
+	a5_dev_intf = hw_mgr->devices[CAM_ICP_DEV_A5][0];
+	if (!a5_dev_intf) {
+		CAM_ERR(CAM_ICP, "a5_dev_intf is NULL");
+		return -EINVAL;
+	}
+
+	rc = a5_dev_intf->hw_ops.process_cmd(
+		a5_dev_intf->hw_priv,
+		CAM_ICP_A5_CMD_UBWC_CFG, NULL, 0);
+	if (rc)
+		CAM_ERR(CAM_ICP, "CAM_ICP_A5_CMD_UBWC_CFG is failed");
+
+	return rc;
+}
 
 static void cam_icp_hw_mgr_clk_info_update(struct cam_icp_hw_mgr *hw_mgr,
 	struct cam_icp_hw_ctx_data *ctx_data)
@@ -2727,6 +2749,10 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 		rc = cam_icp_mgr_ipe_bps_resume(hw_mgr, ctx_data);
 		if (rc)
 			goto ipe_bps_resume_failed;
+
+		rc = cam_icp_send_ubwc_cfg(hw_mgr);
+		if (rc)
+			goto ubwc_cfg_failed;
 		mutex_lock(&hw_mgr->hw_mgr_mutex);
 	}
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
@@ -2784,6 +2810,7 @@ ioconfig_failed:
 	cam_icp_mgr_destroy_handle(ctx_data);
 create_handle_failed:
 send_ping_failed:
+ubwc_cfg_failed:
 	cam_icp_mgr_ipe_bps_power_collapse(hw_mgr, ctx_data, 0);
 ipe_bps_resume_failed:
 	if (!hw_mgr->ctxt_cnt)
@@ -2858,6 +2885,9 @@ static int cam_icp_mgr_alloc_devs(struct device_node *of_node)
 		CAM_ERR(CAM_ICP, "getting number of ipe dev nodes failed");
 		goto num_ipe_failed;
 	}
+
+	if (!icp_hw_mgr.ipe1_enable)
+		num_dev = 1;
 
 	icp_hw_mgr.devices[CAM_ICP_DEV_IPE] = kzalloc(
 		sizeof(struct cam_hw_intf *) * num_dev, GFP_KERNEL);
@@ -2937,9 +2967,10 @@ static int cam_icp_mgr_init_devs(struct device_node *of_node)
 		if (!child_dev_intf) {
 			CAM_ERR(CAM_ICP, "no child device");
 			of_node_put(child_node);
+			if (!icp_hw_mgr.ipe1_enable)
+				continue;
 			goto compat_hw_name_failed;
 		}
-
 		icp_hw_mgr.devices[child_dev_intf->hw_type]
 			[child_dev_intf->hw_idx] = child_dev_intf;
 
@@ -3015,6 +3046,8 @@ int cam_icp_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl)
 {
 	int i, rc = 0;
 	struct cam_hw_mgr_intf *hw_mgr_intf;
+	struct cam_cpas_query_cap query;
+	uint32_t cam_caps;
 
 	hw_mgr_intf = (struct cam_hw_mgr_intf *)hw_mgr_hdl;
 	if (!of_node || !hw_mgr_intf) {
@@ -3038,6 +3071,15 @@ int cam_icp_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl)
 
 	for (i = 0; i < CAM_ICP_CTX_MAX; i++)
 		mutex_init(&icp_hw_mgr.ctx_data[i].ctx_mutex);
+
+	cam_cpas_get_hw_info(&query.camera_family,
+		&query.camera_version, &query.cpas_version, &cam_caps);
+	if (cam_caps & CPAS_IPE0_BIT)
+		icp_hw_mgr.ipe0_enable = true;
+	if (cam_caps & CPAS_IPE1_BIT)
+		icp_hw_mgr.ipe1_enable = true;
+	if (cam_caps & CPAS_BPS_BIT)
+		icp_hw_mgr.bps_enable = true;
 
 	rc = cam_icp_mgr_init_devs(of_node);
 	if (rc)

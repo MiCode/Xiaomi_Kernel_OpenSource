@@ -27,6 +27,7 @@
 #include "hfi_intf.h"
 #include "cam_icp_hw_mgr_intf.h"
 #include "cam_debug_util.h"
+#include "cam_soc_util.h"
 
 #define HFI_VERSION_INFO_MAJOR_VAL  1
 #define HFI_VERSION_INFO_MINOR_VAL  1
@@ -38,9 +39,6 @@
 #define HFI_VERSION_INFO_MINOR_SHFT  8
 #define HFI_VERSION_INFO_STEP_BMSK   0xFF
 #define HFI_VERSION_INFO_STEP_SHFT  0
-
-#define SOC_VERSION_HW1             0x10000
-#define SOC_VERSION_HW2             0x20000
 
 static struct hfi_info *g_hfi;
 unsigned int g_icp_mmu_hdl;
@@ -208,6 +206,33 @@ int64_t hfi_read_message(uint32_t *pmsg, uint8_t q_id)
 err:
 	mutex_unlock(&hfi_msg_q_mutex);
 	return rc;
+}
+
+int hfi_cmd_ubwc_config(uint32_t *ubwc_cfg)
+{
+	uint8_t *prop;
+	struct hfi_cmd_prop *dbg_prop;
+	uint32_t size = 0;
+
+	size = sizeof(struct hfi_cmd_prop) +
+		sizeof(struct hfi_cmd_ubwc_cfg);
+
+	prop = kzalloc(size, GFP_KERNEL);
+	if (!prop)
+		return -ENOMEM;
+
+	dbg_prop = (struct hfi_cmd_prop *)prop;
+	dbg_prop->size = size;
+	dbg_prop->pkt_type = HFI_CMD_SYS_SET_PROPERTY;
+	dbg_prop->num_prop = 1;
+	dbg_prop->prop_data[0] = HFI_PROP_SYS_UBWC_CFG;
+	dbg_prop->prop_data[1] = ubwc_cfg[0];
+	dbg_prop->prop_data[2] = ubwc_cfg[1];
+
+	hfi_write_cmd(prop);
+	kfree(prop);
+
+	return 0;
 }
 
 int hfi_enable_ipe_bps_pc(bool enable)
