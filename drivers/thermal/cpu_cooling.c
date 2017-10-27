@@ -1105,7 +1105,7 @@ __cpufreq_cooling_register(struct device_node *np,
 	mutex_unlock(&cooling_list_lock);
 
 	/* Register the notifier for first cpufreq cooling device */
-	if (!cpufreq_dev_count++)
+	if (!cpufreq_dev_count++ && !cpufreq_dev->plat_ops)
 		cpufreq_register_notifier(&thermal_cpufreq_notifier_block,
 					  CPUFREQ_POLICY_NOTIFIER);
 	if (!cpuhp_registered) {
@@ -1285,7 +1285,7 @@ void cpufreq_cooling_unregister(struct thermal_cooling_device *cdev)
 
 	/* Unregister the notifier for the last cpufreq cooling device */
 	mutex_lock(&cooling_cpufreq_lock);
-	if (!--cpufreq_dev_count)
+	if (!--cpufreq_dev_count && !cpufreq_dev->plat_ops)
 		cpufreq_unregister_notifier(&thermal_cpufreq_notifier_block,
 					    CPUFREQ_POLICY_NOTIFIER);
 
