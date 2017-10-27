@@ -2110,7 +2110,8 @@ static void handle_session_error(enum hal_command_response cmd, void *data)
 	}
 
 	hdev = inst->core->device;
-	dprintk(VIDC_WARN, "Session error received for session %pK\n", inst);
+	dprintk(VIDC_ERR, "Session error received for inst %pK session %x\n",
+		inst, hash32_ptr(inst->session));
 
 	if (response->status == VIDC_ERR_MAX_CLIENTS) {
 		dprintk(VIDC_WARN, "Too many clients, rejecting %pK", inst);
@@ -2133,6 +2134,8 @@ static void handle_session_error(enum hal_command_response cmd, void *data)
 		event = V4L2_EVENT_MSM_VIDC_SYS_ERROR;
 	}
 
+	/* change state before sending error to client */
+	change_inst_state(inst, MSM_VIDC_CORE_INVALID);
 	msm_vidc_queue_v4l2_event(inst, event);
 	put_inst(inst);
 }
@@ -2798,7 +2801,8 @@ static int msm_comm_session_abort(struct msm_vidc_inst *inst)
 	hdev = inst->core->device;
 	abort_completion = SESSION_MSG_INDEX(HAL_SESSION_ABORT_DONE);
 
-	dprintk(VIDC_WARN, "%s: inst %pK\n", __func__, inst);
+	dprintk(VIDC_WARN, "%s: inst %pK session %x\n", __func__,
+		inst, hash32_ptr(inst->session));
 	rc = call_hfi_op(hdev, session_abort, (void *)inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -2810,8 +2814,8 @@ static int msm_comm_session_abort(struct msm_vidc_inst *inst)
 			msecs_to_jiffies(
 				inst->core->resources.msm_vidc_hw_rsp_timeout));
 	if (!rc) {
-		dprintk(VIDC_ERR, "%s: inst %pK abort timed out\n",
-				__func__, inst);
+		dprintk(VIDC_ERR, "%s: inst %pK session %x abort timed out\n",
+				__func__, inst, hash32_ptr(inst->session));
 		msm_comm_generate_sys_error(inst);
 		rc = -EBUSY;
 	} else {
@@ -3712,8 +3716,8 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 	if (inst->state == MSM_VIDC_CORE_INVALID) {
 		dprintk(VIDC_ERR, "%s: inst %pK is in invalid\n",
 			__func__, inst);
-		mutex_unlock(&inst->sync_lock);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto exit;
 	}
 
 	flipped_state = get_flipped_state(inst->state, state);
@@ -3794,6 +3798,8 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 		rc = -EINVAL;
 		break;
 	}
+
+exit:
 	mutex_unlock(&inst->sync_lock);
 
 	if (rc) {
@@ -5565,8 +5571,8 @@ int msm_comm_kill_session(struct msm_vidc_inst *inst)
 		return 0;
 	}
 
-	dprintk(VIDC_WARN, "%s: inst %pK, state %d\n", __func__,
-			inst, inst->state);
+	dprintk(VIDC_WARN, "%s: inst %pK, session %x state %d\n", __func__,
+			inst, inst->state, hash32_ptr(inst->session));
 	/*
 	 * We're internally forcibly killing the session, if fw is aware of
 	 * the session send session_abort to firmware to clean up and release
@@ -5577,8 +5583,9 @@ int msm_comm_kill_session(struct msm_vidc_inst *inst)
 			inst->state == MSM_VIDC_CORE_INVALID) {
 		rc = msm_comm_session_abort(inst);
 		if (rc) {
-			dprintk(VIDC_WARN, "%s: inst %pK abort failed\n",
-				__func__, inst);
+			dprintk(VIDC_ERR,
+				"%s: inst %pK session %x abort failed\n",
+				__func__, inst, hash32_ptr(inst->session));
 			change_inst_state(inst, MSM_VIDC_CORE_INVALID);
 		}
 	}
@@ -5586,7 +5593,8 @@ int msm_comm_kill_session(struct msm_vidc_inst *inst)
 	change_inst_state(inst, MSM_VIDC_CLOSE_DONE);
 	msm_comm_session_clean(inst);
 
-	dprintk(VIDC_WARN, "%s: inst %pK handled\n", __func__, inst);
+	dprintk(VIDC_WARN, "%s: inst %pK session %x handled\n", __func__,
+		inst, hash32_ptr(inst->session));
 	return rc;
 }
 
