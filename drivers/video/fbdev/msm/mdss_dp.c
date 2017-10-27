@@ -1568,6 +1568,19 @@ static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv, bool lt_needed)
 {
 	int ret = 0;
 	char ln_map[4];
+	bool connected;
+
+	mutex_lock(&dp_drv->attention_lock);
+	connected = dp_drv->cable_connected;
+	mutex_unlock(&dp_drv->attention_lock);
+
+	/*
+	 * If DP cable disconnected, Avoid link training or turning on DP Path
+	 */
+	if (!connected) {
+		pr_err("DP sink not connected\n");
+		return -EINVAL;
+	}
 
 	/* wait until link training is completed */
 	pr_debug("enter, lt_needed=%s\n", lt_needed ? "true" : "false");
@@ -1609,6 +1622,13 @@ static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv, bool lt_needed)
 		dp_drv->power_on = true;
 
 		ret = mdss_dp_setup_main_link(dp_drv, lt_needed);
+		if (ret) {
+			if (ret == -ENODEV || ret == -EINVAL) {
+				pr_err("main link setup failed\n");
+				mutex_unlock(&dp_drv->train_mutex);
+				return ret;
+			}
+		}
 
 exit_loop:
 		mutex_unlock(&dp_drv->train_mutex);
@@ -2209,7 +2229,7 @@ static int mdss_dp_process_hpd_high(struct mdss_dp_drv_pdata *dp)
 	ret = mdss_dp_dpcd_cap_read(dp);
 	if (ret || !mdss_dp_aux_is_link_rate_valid(dp->dpcd.max_link_rate) ||
 		!mdss_dp_aux_is_lane_count_valid(dp->dpcd.max_lane_count)) {
-		if (ret == EDP_AUX_ERR_TOUT) {
+		if ((ret == -ENODEV) || (ret == EDP_AUX_ERR_TOUT)) {
 			pr_err("DPCD read timedout, skip connect notification\n");
 			goto end;
 		}
@@ -2241,6 +2261,9 @@ static int mdss_dp_process_hpd_high(struct mdss_dp_drv_pdata *dp)
 read_edid:
 	ret = mdss_dp_edid_read(dp);
 	if (ret) {
+		if (ret == -ENODEV)
+			goto end;
+
 		pr_err("edid read error, setting default resolution\n");
 		goto notify;
 	}
@@ -3559,9 +3582,33 @@ static void mdss_dp_reset_event_list(struct mdss_dp_drv_pdata *dp)
 
 static void mdss_dp_reset_sw_state(struct mdss_dp_drv_pdata *dp)
 {
+	int ret = 0;
+
 	pr_debug("enter\n");
 	mdss_dp_reset_event_list(dp);
+
+	/*
+	 * IRQ_HPD attention event handler first turns on DP path and then
+	 * notifies CONNECT_IRQ_HPD and waits for userspace to trigger UNBLANK.
+	 * In such cases, before UNBLANK call, if cable is disconnected, if
+	 * DISCONNECT is notified immediately, userspace might not sense any
+	 * change in connection status, leaving DP controller ON.
+	 *
+	 * To avoid such cases, wait for the connection event to complete before
+	 * sending disconnection event
+	 */
+	if (atomic_read(&dp->notification_pending)) {
+		pr_debug("waiting for the pending notitfication\n");
+		ret = wait_for_completion_timeout(&dp->notification_comp, HZ);
+		if (ret <= 0) {
+			pr_err("%s timed out\n",
+				mdss_dp_notification_status_to_string(
+					dp->hpd_notification_status));
+		}
+	}
+
 	atomic_set(&dp->notification_pending, 0);
+	/* complete any waiting completions */
 	complete_all(&dp->notification_comp);
 }
 
