@@ -550,8 +550,6 @@ static void dp_catalog_ctrl_config_ctrl(struct dp_catalog_ctrl *ctrl, u32 cfg)
 	pr_debug("DP_CONFIGURATION_CTRL=0x%x\n", cfg);
 
 	dp_write(base + DP_CONFIGURATION_CTRL, cfg);
-	dp_write(base + DP_MAINLINK_LEVELS, 0xa08);
-	dp_write(base + MMSS_DP_ASYNC_FIFO_CONFIG, 0x1);
 }
 
 static void dp_catalog_ctrl_lane_mapping(struct dp_catalog_ctrl *ctrl)
