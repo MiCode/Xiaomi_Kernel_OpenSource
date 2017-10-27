@@ -92,7 +92,7 @@ platforms. The PMIC is connected to the host processor via SPMI bus.
 	Usage:      optional
 	Value type: <string>
 	Definition: Interrupt names associated with the interrupts.
-		    Must be "sc-irq".
+		    Currently supported interrupts are "sc-irq" and "ovp-irq".
 
 Example:
 
@@ -102,8 +102,9 @@ qcom-wled@d800 {
 	reg-names = "wled-ctrl-base", "wled-sink-base";
 	label = "backlight";
 
-	interrupts = <0x3 0xd8 0x2 IRQ_TYPE_EDGE_RISING>;
-	interrupt-names = "sc-irq";
+	interrupts = <0x3 0xd8 0x2 IRQ_TYPE_EDGE_RISING>,
+			<0x3 0xd8 0x1 IRQ_TYPE_EDGE_RISING>;
+	interrupt-names = "sc-irq", "ovp-irq";
 	qcom,fs-current-limit = <25000>;
 	qcom,current-boost-limit = <970>;
 	qcom,switching-freq = <800>;
