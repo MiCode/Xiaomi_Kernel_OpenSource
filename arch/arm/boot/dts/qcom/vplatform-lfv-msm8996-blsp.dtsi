@@ -1,0 +1,116 @@
+/*
+ * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+/ {
+	aliases {
+		spi9 = &spi_9;
+		i2c6 = &i2c_6;
+		i2c8 = &i2c_8;
+	};
+};
+
+&soc {
+	spi_9: spi@75B7000 { /* BLSP2 QUP3 */
+		compatible = "qcom,spi-qup-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "spi_physical";
+		reg = <0x075B7000 0x600>;
+		interrupt-names = "spi_irq";
+		interrupts = <0 103 0>;
+		spi-max-frequency = <19200000>;
+		qcom,infinite-mode = <0>;
+		qcom,ver-reg-exists;
+		qcom,master-id = <84>;
+		qcom,use-pinctrl;
+		pinctrl-names = "spi_default", "spi_sleep";
+		pinctrl-0 = <&spi_9_active>;
+		pinctrl-1 = <&spi_9_sleep>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
+			 <&clock_gcc clk_gcc_blsp2_qup3_spi_apps_clk>;
+		status = "disabled";
+	};
+
+	i2c_6: i2c@757a000 { /* BLSP1 QUP6 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x757a000  0x1000>;
+		reg-names = "qup_phys_addr";
+		interrupt-names = "qup_irq";
+		interrupts = <0 100 0>;
+		qcom,disable-dma;
+		qcom,master-id = <86>;
+		qcom,clk-freq-out = <400000>;
+		qcom,clk-freq-in  = <19200000>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			      <&clock_gcc clk_gcc_blsp1_qup6_i2c_apps_clk>;
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_6_active>;
+		pinctrl-1 = <&i2c_6_sleep>;
+		status = "disabled";
+	};
+
+	i2c_8: i2c@75b6000 { /* BLSP2 QUP2 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		reg = <0x75b6000 0x1000>;
+		interrupt-names = "qup_irq";
+		interrupts = <0 102 0>;
+		qcom,disable-dma;
+		qcom,master-id = <84>;
+		qcom,clk-freq-out = <400000>;
+		qcom,clk-freq-in  = <19200000>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
+			<&clock_gcc clk_gcc_blsp2_qup2_i2c_apps_clk>;
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_8_active>;
+		pinctrl-1 = <&i2c_8_sleep>;
+		status = "disabled";
+	};
+
+	blsp1_uart2: uart@07570000 { /* BLSP1 UART2 */
+		compatible = "qcom,msm-hsuart-v14";
+		reg = <0x07570000 0x1000>,
+		    <0x7544000 0x2b000>;
+		reg-names = "core_mem", "bam_mem";
+		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
+		interrupts = <0 108 0>, <0 238 0>, <0 810 0>;
+		#address-cells = <0>;
+
+		qcom,inject-rx-on-wakeup;
+		qcom,rx-char-to-inject = <0xFD>;
+
+		qcom,bam-tx-ep-pipe-index = <2>;
+		qcom,bam-rx-ep-pipe-index = <3>;
+		qcom,master-id = <86>;
+		clock-names = "core_clk", "iface_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
+		    <&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		pinctrl-names = "sleep", "default";
+		pinctrl-0 = <&blsp1_uart2_sleep>;
+		pinctrl-1 = <&blsp1_uart2_active>;
+
+		qcom,msm-bus,name = "buart2";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			    <86 512 0 0>,
+			    <86 512 500 800>;
+		status = "disabled";
+	};
+};

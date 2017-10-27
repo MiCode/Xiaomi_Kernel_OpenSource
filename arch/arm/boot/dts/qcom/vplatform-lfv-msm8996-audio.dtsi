@@ -1,0 +1,166 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	qcom,msm-dai-mi2s {
+		dai_mi2s_sec: qcom,msm-dai-q6-mi2s-sec {
+			qcom,msm-mi2s-rx-lines = <2>;
+			qcom,msm-mi2s-tx-lines = <1>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&sec_mi2s_active &sec_mi2s_sd0_active
+				&sec_mi2s_sd1_active>;
+			pinctrl-1 = <&sec_mi2s_sleep &sec_mi2s_sd0_sleep
+				&sec_mi2s_sd1_sleep>;
+		};
+
+		dai_mi2s: qcom,msm-dai-q6-mi2s-tert {
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&tert_mi2s_active &tert_mi2s_sd0_active>;
+			pinctrl-1 = <&tert_mi2s_sleep &tert_mi2s_sd0_sleep>;
+		};
+
+		dai_mi2s_quat: qcom,msm-dai-q6-mi2s-quat {
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&quat_mi2s_active &quat_mi2s_sd0_active>;
+			pinctrl-1 = <&quat_mi2s_sleep &quat_mi2s_sd0_sleep>;
+		};
+	};
+
+	qcom,msm-dai-tdm-tert-rx {
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&tert_tdm_dout_active>;
+		pinctrl-1 = <&tert_tdm_dout_sleep>;
+	};
+
+	qcom,msm-dai-tdm-quat-rx {
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&quat_tdm_dout_active>;
+		pinctrl-1 = <&quat_tdm_dout_sleep>;
+	};
+
+	qcom,msm-audio-ion {
+		compatible = "qcom,msm-audio-ion";
+		qcom,smmu-version = <2>;
+		qcom,smmu-enabled;
+		iommus = <&lpass_q6_smmu 1>;
+	};
+
+	qcom,msm-adsp-loader {
+		status = "ok";
+		compatible = "qcom,adsp-loader";
+		qcom,adsp-state = <0>;
+	};
+
+	qcom,msm-adsprpc-mem {
+		compatible = "qcom,msm-adsprpc-mem-region";
+		memory-region = <&adsp_mem>;
+	};
+
+	qcom,msm_fastrpc {
+		compatible = "qcom,msm-fastrpc-adsp";
+
+		qcom,msm_fastrpc_compute_cb1 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 8>;
+		};
+		qcom,msm_fastrpc_compute_cb2 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 9>;
+		};
+		qcom,msm_fastrpc_compute_cb3 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 10>;
+		};
+		qcom,msm_fastrpc_compute_cb4 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 11>;
+		};
+		qcom,msm_fastrpc_compute_cb5 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 12>;
+		};
+		qcom,msm_fastrpc_compute_cb6 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 5>;
+		};
+		qcom,msm_fastrpc_compute_cb7 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 6>;
+		};
+		qcom,msm_fastrpc_compute_cb8 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 7>;
+		};
+	};
+
+	qcom,glink-smem-native-xprt-adsp@86000000 {
+		compatible = "qcom,glink-smem-native-xprt";
+		reg = <0x86000000 0x200000>,
+			<0x9820010 0x4>;
+		reg-names = "smem", "irq-reg-base";
+		qcom,irq-mask = <0x200>;
+		interrupts = <0 157 1>;
+		label = "lpass";
+		qcom,qos-config = <0x1b8>;
+		qcom,ramp-time = <0xaf>;
+	};
+
+	qcom,glink-qos-config-adsp {
+		compatible = "qcom,glink-qos-config";
+		qcom,flow-info = <0x3c 0x0 0x3c 0x0 0x3c 0x0 0x3c 0x0>;
+		qcom,mtu-size = <0x800>;
+		qcom,tput-stats-cycle = <0xa>;
+		linux,phandle = <0x1b8>;
+		phandle = <0x1b8>;
+	};
+
+	qcom,lpass@9300000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x9300000 0x00100>;
+		interrupts = <0 162 1>;
+
+		vdd_cx-supply = <&pm8994_s1_corner>;
+		qcom,proxy-reg-names = "vdd_cx";
+		qcom,vdd_cx-uV-uA = <7 100000>;
+
+		clocks = <&clock_gcc clk_cxo_pil_lpass_clk>;
+		clock-names = "xo";
+		qcom,proxy-clock-names = "xo";
+
+		qcom,pas-id = <1>;
+		qcom,proxy-timeout-ms = <10000>;
+		qcom,smem-id = <423>;
+		qcom,sysmon-id = <1>;
+		qcom,ssctl-instance-id = <0x14>;
+		qcom,firmware-name = "adsp";
+		qcom,edge = "lpass";
+		memory-region = <&peripheral_mem>;
+
+		/* GPIO inputs from lpass */
+		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_2_in 0 0>;
+		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_2_in 2 0>;
+		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_2_in 1 0>;
+		qcom,gpio-stop-ack = <&smp2pgpio_ssr_smp2p_2_in 3 0>;
+
+		/* GPIO output to lpass */
+		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
+	};
+};
+
