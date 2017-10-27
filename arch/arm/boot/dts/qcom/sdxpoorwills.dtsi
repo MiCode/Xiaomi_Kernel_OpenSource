@@ -312,8 +312,8 @@
 		reg = <0x8fe40000 0xc0000>,
 			<0x17811008 0x4>;
 		reg-names = "smem", "irq-reg-base";
-		qcom,irq-mask = <0x1000>;
-		interrupts = <GIC_SPI 111 IRQ_TYPE_EDGE_RISING>;
+		qcom,irq-mask = <0x8000>;
+		interrupts = <GIC_SPI 114 IRQ_TYPE_EDGE_RISING>;
 		label = "mpss";
 	};
 
