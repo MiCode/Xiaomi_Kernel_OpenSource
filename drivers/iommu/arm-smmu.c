@@ -1847,13 +1847,36 @@ static void arm_smmu_write_sme(struct arm_smmu_device *smmu, int idx)
  * The width of SMR's mask field depends on sCR0_EXIDENABLE, so this function
  * should be called after sCR0 is written.
  */
-static void arm_smmu_test_smr_masks(struct arm_smmu_device *smmu, int idx)
+static void arm_smmu_test_smr_masks(struct arm_smmu_device *smmu)
 {
+	unsigned long size;
 	void __iomem *gr0_base = ARM_SMMU_GR0(smmu);
-	u32 smr;
+	u32 smr, id;
+	int idx;
 
+	/* Check if Stream Match Register support is included */
 	if (!smmu->smrs)
 		return;
+
+	/* ID0 */
+	id = readl_relaxed(gr0_base + ARM_SMMU_GR0_ID0);
+	size = (id >> ID0_NUMSMRG_SHIFT) & ID0_NUMSMRG_MASK;
+
+	/*
+	 * Few SMR registers may be inuse before the smmu driver
+	 * probes(say by the bootloader). Find a SMR register
+	 * which is not inuse.
+	 */
+	for (idx = 0; idx < size; idx++) {
+		smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(idx));
+		if (!(smr & SMR_VALID))
+			break;
+	}
+	if (idx == size) {
+		dev_err(smmu->dev,
+				"Unable to compute streamid_masks\n");
+		return;
+	}
 
 	/*
 	 * SMR.ID bits may not be preserved if the corresponding MASK
@@ -3775,24 +3798,6 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 			return -ENODEV;
 		}
 
-		/*
-		 * SMR.ID bits may not be preserved if the corresponding MASK
-		 * bits are set, so check each one separately. We can reject
-		 * masters later if they try to claim IDs outside these masks.
-		 */
-		for (i = 0; i < size; i++) {
-			smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(i));
-			if (!(smr & SMR_VALID))
-				break;
-		}
-		if (i == size) {
-			dev_err(smmu->dev,
-				"Unable to compute streamid_masks\n");
-			return -ENODEV;
-		}
-
-		arm_smmu_test_smr_masks(smmu, i);
-
 		/* Zero-initialised to mark as invalid */
 		smmu->smrs = devm_kcalloc(smmu->dev, size, sizeof(*smmu->smrs),
 					  GFP_KERNEL);
@@ -4202,6 +4207,7 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	}
 	platform_set_drvdata(pdev, smmu);
 	arm_smmu_device_reset(smmu);
+	arm_smmu_test_smr_masks(smmu);
 	arm_smmu_power_off(smmu->pwr);
 
 	/*
