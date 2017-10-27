@@ -1615,23 +1615,31 @@ static int sdhci_msm_parse_pinctrl_info(struct device *dev,
 
 	pctrl_data->pins_drv_type_400KHz = pinctrl_lookup_state(
 			pctrl_data->pctrl, "ds_400KHz");
-	if (IS_ERR(pctrl_data->pins_drv_type_400KHz))
+	if (IS_ERR(pctrl_data->pins_drv_type_400KHz)) {
 		dev_dbg(dev, "Could not get 400K pinstates, err:%d\n", ret);
+		pctrl_data->pins_drv_type_400KHz = NULL;
+	}
 
 	pctrl_data->pins_drv_type_50MHz = pinctrl_lookup_state(
 			pctrl_data->pctrl, "ds_50MHz");
-	if (IS_ERR(pctrl_data->pins_drv_type_50MHz))
+	if (IS_ERR(pctrl_data->pins_drv_type_50MHz)) {
 		dev_dbg(dev, "Could not get 50M pinstates, err:%d\n", ret);
+		pctrl_data->pins_drv_type_50MHz = NULL;
+	}
 
 	pctrl_data->pins_drv_type_100MHz = pinctrl_lookup_state(
 			pctrl_data->pctrl, "ds_100MHz");
-	if (IS_ERR(pctrl_data->pins_drv_type_100MHz))
+	if (IS_ERR(pctrl_data->pins_drv_type_100MHz)) {
 		dev_dbg(dev, "Could not get 100M pinstates, err:%d\n", ret);
+		pctrl_data->pins_drv_type_100MHz = NULL;
+	}
 
 	pctrl_data->pins_drv_type_200MHz = pinctrl_lookup_state(
 			pctrl_data->pctrl, "ds_200MHz");
-	if (IS_ERR(pctrl_data->pins_drv_type_200MHz))
+	if (IS_ERR(pctrl_data->pins_drv_type_200MHz)) {
 		dev_dbg(dev, "Could not get 200M pinstates, err:%d\n", ret);
+		pctrl_data->pins_drv_type_200MHz = NULL;
+	}
 
 	pdata->pctrl_data = pctrl_data;
 out:
