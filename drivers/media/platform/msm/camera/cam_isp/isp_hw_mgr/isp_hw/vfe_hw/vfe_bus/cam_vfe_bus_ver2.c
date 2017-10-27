@@ -1027,8 +1027,6 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 		rsrc_data->common_data;
 	uint32_t                   bus_irq_reg_mask[CAM_VFE_BUS_IRQ_MAX] = {0};
 
-	cam_io_w_mb(0, common_data->mem_base + rsrc_data->hw_regs->header_addr);
-	cam_io_w_mb(0, common_data->mem_base + rsrc_data->hw_regs->header_cfg);
 	cam_io_w(0xf, common_data->mem_base + rsrc_data->hw_regs->burst_limit);
 
 	cam_io_w_mb(rsrc_data->width,
