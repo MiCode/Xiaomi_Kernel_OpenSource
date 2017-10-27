@@ -7386,9 +7386,6 @@ static int start_cpu(bool boosted)
 {
 	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
 
-	RCU_LOCKDEP_WARN(rcu_read_lock_sched_held(),
-			   "sched RCU must be held");
-
 	return boosted ? rd->max_cap_orig_cpu : rd->min_cap_orig_cpu;
 }
 
@@ -10276,6 +10273,7 @@ static int need_active_balance(struct lb_env *env)
 
 	if (energy_aware() &&
 	    (capacity_of(env->src_cpu) < capacity_of(env->dst_cpu)) &&
+	    ((capacity_orig_of(env->src_cpu) < capacity_orig_of(env->dst_cpu))) &&
 				env->src_rq->cfs.h_nr_running == 1 &&
 				cpu_overutilized(env->src_cpu) &&
 				!cpu_overutilized(env->dst_cpu)) {
