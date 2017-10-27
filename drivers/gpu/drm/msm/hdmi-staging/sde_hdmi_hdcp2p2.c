@@ -338,6 +338,41 @@ static void sde_hdmi_hdcp2p2_auth_failed(struct sde_hdmi_hdcp2p2_ctrl *ctrl)
 		HDCP_STATE_AUTH_FAIL);
 }
 
+static void sde_hdmi_hdcp2p2_fail_noreauth(struct sde_hdmi_hdcp2p2_ctrl *ctrl)
+{
+	if (!ctrl) {
+		SDE_ERROR("invalid input\n");
+		return;
+	}
+
+	atomic_set(&ctrl->auth_state, HDCP_STATE_AUTH_FAIL);
+
+	sde_hdmi_hdcp2p2_ddc_disable(ctrl->init_data.cb_data);
+
+	/* notify hdmi tx about HDCP failure */
+	ctrl->init_data.notify_status(ctrl->init_data.cb_data,
+		HDCP_STATE_AUTH_FAIL_NOREAUTH);
+}
+
+static void sde_hdmi_hdcp2p2_srm_cb(void *client_ctx)
+{
+	struct sde_hdmi_hdcp2p2_ctrl *ctrl =
+		(struct sde_hdmi_hdcp2p2_ctrl *)client_ctx;
+	struct hdcp_lib_wakeup_data cdata = {
+		HDCP_LIB_WKUP_CMD_INVALID};
+
+	if (!ctrl) {
+		SDE_ERROR("invalid input\n");
+		return;
+	}
+
+	cdata.context = ctrl->lib_ctx;
+	cdata.cmd = HDCP_LIB_WKUP_CMD_STOP;
+	sde_hdmi_hdcp2p2_wakeup_lib(ctrl, &cdata);
+
+	sde_hdmi_hdcp2p2_fail_noreauth(ctrl);
+}
+
 static int sde_hdmi_hdcp2p2_ddc_rd_message(struct sde_hdmi_hdcp2p2_ctrl *ctrl,
 	u8 *buf, int size, u32 timeout)
 {
@@ -888,6 +923,7 @@ void *sde_hdmi_hdcp2p2_init(struct sde_hdcp_init_data *init_data)
 	static struct hdcp_client_ops client_ops = {
 		.wakeup = sde_hdmi_hdcp2p2_wakeup,
 		.notify_lvl_change = sde_hdmi_hdcp2p2_min_level_change,
+		.srm_cb = sde_hdmi_hdcp2p2_srm_cb,
 	};
 
 	static struct hdcp_txmtr_ops txmtr_ops;
