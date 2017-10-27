@@ -676,7 +676,10 @@
 		qcom,proxy-clock-names = "xo";
 
 		vdd_cx-supply = <&pm855l_s6_level>;
-		qcom,proxy-reg-names = "vdd_cx";
+		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		vdd_mss-supply = <&pm855_s1_level>;
+		qcom,vdd_mss-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		qcom,proxy-reg-names = "vdd_cx", "vdd_mss";
 
 		qcom,firmware-name = "modem";
 		memory-region = <&pil_modem_mem>;
@@ -711,6 +714,7 @@
 		reg = <0x17300000 0x00100>;
 
 		vdd_cx-supply = <&pm855l_s6_level>;
+		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
 		qcom,proxy-reg-names = "vdd_cx";
 
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
@@ -747,8 +751,12 @@
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x5c00000 0x4000>;
 
-		vdd_cx-supply = <&pm855_l4_level>;
-		qcom,proxy-reg-names = "vdd_cx";
+		vdd_cx-supply = <&pm855_l8_level>;
+		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
+		vdd_mx-supply = <&pm855_l4_level>;
+		qcom,vdd_mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
+
+		qcom,proxy-reg-names = "vdd_cx", "vdd_mx";
 		qcom,keep-proxy-regs-on;
 
 		qcom,pas-id = <12>;
