@@ -18,7 +18,8 @@
 
 #define SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA	0
 #define SDE_POWER_HANDLE_DISABLE_BUS_AB_QUOTA	0
-#define SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA	400000000
+#define SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA		400000000
+#define SDE_POWER_HANDLE_ENABLE_NRT_BUS_IB_QUOTA	0
 #define SDE_POWER_HANDLE_DISABLE_BUS_IB_QUOTA	0
 
 #include <linux/sde_io_util.h>
@@ -101,8 +102,8 @@ struct sde_power_client {
  * struct sde_power_data_handle: power handle struct for data bus
  * @data_bus_scale_table: pointer to bus scaling table
  * @data_bus_hdl: current data bus handle
- * @axi_port_cnt: number of rt axi ports
- * @nrt_axi_port_cnt: number of nrt axi ports
+ * @data_paths_cnt: number of rt data path ports
+ * @nrt_data_paths_cnt: number of nrt data path ports
  * @bus_channels: number of memory bus channels
  * @curr_bw_uc_idx: current use case index of data bus
  * @ao_bw_uc_idx: active only use case index of data bus
@@ -115,8 +116,8 @@ struct sde_power_client {
 struct sde_power_data_bus_handle {
 	struct msm_bus_scale_pdata *data_bus_scale_table;
 	u32 data_bus_hdl;
-	u32 axi_port_cnt;
-	u32 nrt_axi_port_cnt;
+	u32 data_paths_cnt;
+	u32 nrt_data_paths_cnt;
 	u32 bus_channels;
 	u32 curr_bw_uc_idx;
 	u32 ao_bw_uc_idx;
