@@ -643,6 +643,31 @@ TRACE_EVENT(sched_load_cfs_rq,
 );
 
 /*
+ * Tracepoint for rt_rq load tracking:
+ */
+struct rt_rq;
+
+TRACE_EVENT(sched_load_rt_rq,
+
+	TP_PROTO(int cpu, struct rt_rq *rt_rq),
+
+	TP_ARGS(cpu, rt_rq),
+
+	TP_STRUCT__entry(
+		__field(	int,		cpu			)
+		__field(	unsigned long,	util			)
+	),
+
+	TP_fast_assign(
+		__entry->cpu	= cpu;
+		__entry->util	= rt_rq->avg.util_avg;
+	),
+
+	TP_printk("cpu=%d util=%lu", __entry->cpu,
+		  __entry->util)
+);
+
+/*
  * Tracepoint for sched_entity load tracking:
  */
 TRACE_EVENT(sched_load_se,
