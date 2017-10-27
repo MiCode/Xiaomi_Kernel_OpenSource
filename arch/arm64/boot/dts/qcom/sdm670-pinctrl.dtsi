@@ -908,7 +908,7 @@
 			qupv3_se12_2uart_active: qupv3_se12_2uart_active {
 				mux {
 					pins = "gpio51", "gpio52";
-					function = "qup9";
+					function = "qup12";
 				};
 
 				config {
