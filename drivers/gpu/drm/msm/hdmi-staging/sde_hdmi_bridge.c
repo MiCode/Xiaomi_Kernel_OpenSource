@@ -110,6 +110,20 @@ void _sde_hdmi_bridge_destroy(struct drm_bridge *bridge)
 {
 }
 
+static void sde_hdmi_clear_hdr_info(struct drm_bridge *bridge)
+{
+	struct sde_hdmi_bridge *sde_hdmi_bridge = to_hdmi_bridge(bridge);
+	struct hdmi *hdmi = sde_hdmi_bridge->hdmi;
+	struct drm_connector *connector = hdmi->connector;
+
+	connector->hdr_eotf = SDE_HDMI_HDR_EOTF_NONE;
+	connector->hdr_metadata_type_one = false;
+	connector->hdr_max_luminance = SDE_HDMI_HDR_LUMINANCE_NONE;
+	connector->hdr_avg_luminance = SDE_HDMI_HDR_LUMINANCE_NONE;
+	connector->hdr_min_luminance = SDE_HDMI_HDR_LUMINANCE_NONE;
+	connector->hdr_supported = false;
+}
+
 static void _sde_hdmi_bridge_power_on(struct drm_bridge *bridge)
 {
 	struct sde_hdmi_bridge *sde_hdmi_bridge = to_hdmi_bridge(bridge);
@@ -563,6 +577,7 @@ static void _sde_hdmi_bridge_disable(struct drm_bridge *bridge)
 	display->pll_update_enable = false;
 	display->sink_hdcp_ver = SDE_HDMI_HDCP_NONE;
 
+	sde_hdmi_clear_hdr_info(bridge);
 	mutex_unlock(&display->display_lock);
 }
 
