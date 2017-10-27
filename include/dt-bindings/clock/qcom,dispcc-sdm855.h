@@ -71,7 +71,7 @@
 #define DISP_CC_MDSS_VSYNC_CLK_SRC				54
 #define DISP_CC_PLL0						55
 #define DISP_CC_PLL1						56
-#define DISP_CC_PLL_TEST_CLK					57
+#define DISP_CC_XO_CLK						57
 
 #define DISP_CC_MDSS_CORE_BCR					0
 #define DISP_CC_MDSS_RSCC_BCR					1

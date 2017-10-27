@@ -252,3 +252,12 @@ config CLOCK_CPU_OSM
 	 frequency and voltage requests for multiple clusters via the
 	 existence of multiple OSM domains.
 	 Say Y if you want to support OSM clocks.
+
+config MSM_DISPCC_SDM855
+	tristate "SDM855 Display Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc
+	  SDM855 devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
