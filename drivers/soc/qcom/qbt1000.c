@@ -318,6 +318,12 @@ static long qbt1000_ioctl(
 
 	drvdata = file->private_data;
 
+	if (IS_ERR(priv_arg)) {
+		dev_err(drvdata->dev, "%s: invalid user space pointer %lu\n",
+			__func__, arg);
+		return -EINVAL;
+	}
+
 	mutex_lock(&drvdata->mutex);
 
 	pr_debug("qbt1000_ioctl %d\n", cmd);
