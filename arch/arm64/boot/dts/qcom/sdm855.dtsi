@@ -631,8 +631,10 @@
 	};
 
 	clock_dispcc: qcom,dispcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "dispcc_clocks";
+		compatible = "qcom,dispcc-sdm855";
+		reg = <0xaf00000 0x20000>;
+		reg-names = "cc_base";
+		vdd_mm-supply = <&pm855l_s5_level>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -646,7 +648,7 @@
 		#reset-cells = <1>;
 	};
 
-	clock_gpucc: qcom,dispcc {
+	clock_gpucc: qcom,gpucc {
 		compatible = "qcom,dummycc";
 		clock-output-names = "gpucc_clocks";
 		#clock-cells = <1>;
