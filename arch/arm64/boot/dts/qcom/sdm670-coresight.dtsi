@@ -625,20 +625,20 @@
 			};
 
 			port@6 {
-				reg = <10>;
-				tpda_in_tpdm_qm: endpoint {
+				reg = <11>;
+					tpda_in_tpdm_north: endpoint {
 					slave-mode;
 					remote-endpoint =
-						<&tpdm_qm_out_tpda>;
+						<&tpdm_north_out_tpda>;
 				};
 			};
 
 			port@7 {
-				reg = <11>;
-				tpda_in_tpdm_north: endpoint {
+				reg = <12>;
+				tpda_in_tpdm_qm: endpoint {
 					slave-mode;
 					remote-endpoint =
-						<&tpdm_north_out_tpda>;
+						<&tpdm_qm_out_tpda>;
 				};
 			};
 
@@ -1995,7 +1995,7 @@
 			};
 
 			port@2 {
-				reg = <1>;
+				reg = <2>;
 				funnel_apss_merg_in_tpda_olc: endpoint {
 					slave-mode;
 					remote-endpoint =
@@ -2004,7 +2004,7 @@
 			};
 
 			port@3 {
-				reg = <3>;
+				reg = <4>;
 				funnel_apss_merg_in_tpda_apss: endpoint {
 					slave-mode;
 					remote-endpoint =
