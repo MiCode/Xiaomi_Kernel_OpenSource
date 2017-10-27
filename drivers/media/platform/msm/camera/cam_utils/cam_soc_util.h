@@ -377,6 +377,35 @@ int cam_soc_util_set_clk_rate(struct clk *clk, const char *clk_name,
 	int32_t clk_rate);
 
 /**
+ * cam_soc_util_get_option_clk_by_name()
+ *
+ * @brief:              Get reference to optional clk using name
+ *
+ * @soc_info:           Device soc information
+ * @clk_name:           Name of clock to find reference for
+ * @clk:                Clock reference pointer to be filled if Success
+ * @clk_index:          Clk index in the option clk array to be returned
+ * @clk_rate:           Clk rate in the option clk array
+ *
+ * @return:             0: Success
+ *                      Negative: Failure
+ */
+int cam_soc_util_get_option_clk_by_name(struct cam_hw_soc_info *soc_info,
+	const char *clk_name, struct clk **clk, int32_t *clk_index,
+	int32_t *clk_rate);
+
+/**
+ * cam_soc_util_clk_put()
+ *
+ * @brief:              Put clock specified in params
+ *
+ * @clk:                Reference to the Clock that needs to be put
+ *
+ * @return:             Success or failure
+ */
+int cam_soc_util_clk_put(struct clk **clk);
+
+/**
  * cam_soc_util_clk_enable()
  *
  * @brief:              Enable clock specified in params

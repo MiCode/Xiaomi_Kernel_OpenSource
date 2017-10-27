@@ -12,6 +12,7 @@ The VFE device is described in one level of the device node.
 ======================================
 First Level Node - CAM VFE device
 ======================================
+Required properties:
 - compatible
   Usage: required
   Value type: <string>
@@ -74,6 +75,22 @@ First Level Node - CAM VFE device
   Value type: <string>
   Definition: Source clock name.
 
+Optional properties:
+- clock-names-option
+  Usage: optional
+  Value type: <string>
+  Definition: Optional clock names.
+
+- clocks-option
+  Usage: required if clock-names-option defined
+  Value type: <phandle>
+  Definition: List of optinal clocks used for VFE HW.
+
+- clock-rates-option
+  Usage: required if clock-names-option defined
+  Value type: <u32>
+  Definition: List of clocks rates for optional clocks.
+
 Example:
 	qcom,vfe0@acaf000 {
 		cell-index = <0>;
@@ -105,5 +122,8 @@ Example:
 			<&clock_camcc CAM_CC_IFE_0_AXI_CLK>,
 		clock-rates = <0 0 80000000 0 320000000 0 384000000 0 0 0>;
 		src-clock-name = "ife_clk_src";
+		clock-names-option = "ife_dsp_clk";
+		clocks-option = <&clock_camcc CAM_CC_IFE_0_DSP_CLK>;
+		clock-rates-option = <600000000>;
 		status = "ok";
 	};
