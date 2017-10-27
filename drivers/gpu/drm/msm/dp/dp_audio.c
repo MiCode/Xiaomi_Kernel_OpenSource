@@ -44,6 +44,8 @@ struct dp_audio_private {
 	u32 channels;
 
 	struct completion hpd_comp;
+	struct workqueue_struct *notify_workqueue;
+	struct delayed_work notify_delayed_work;
 
 	struct dp_audio dp_audio;
 };
@@ -591,6 +593,24 @@ end:
 	return rc;
 }
 
+static int dp_audio_codec_ready(struct platform_device *pdev)
+{
+	int rc = 0;
+	struct dp_audio_private *audio;
+
+	audio = dp_audio_get_data(pdev);
+	if (IS_ERR(audio)) {
+		pr_err("invalid input\n");
+		rc = PTR_ERR(audio);
+		goto end;
+	}
+
+	queue_delayed_work(audio->notify_workqueue,
+			&audio->notify_delayed_work, HZ/4);
+end:
+	return rc;
+}
+
 static int dp_audio_init_ext_disp(struct dp_audio_private *audio)
 {
 	int rc = 0;
@@ -612,6 +632,7 @@ static int dp_audio_init_ext_disp(struct dp_audio_private *audio)
 	ops->get_intf_id        = dp_audio_get_intf_id;
 	ops->teardown_done      = dp_audio_teardown_done;
 	ops->acknowledge        = dp_audio_ack_done;
+	ops->ready              = dp_audio_codec_ready;
 
 	if (!audio->pdev->dev.of_node) {
 		pr_err("cannot find audio dev.of_node\n");
@@ -643,6 +664,31 @@ end:
 	return rc;
 }
 
+static int dp_audio_notify(struct dp_audio_private *audio, u32 state)
+{
+	int rc = 0;
+	struct msm_ext_disp_init_data *ext = &audio->ext_audio_data;
+
+	rc = ext->intf_ops.audio_notify(audio->ext_pdev,
+			EXT_DISPLAY_TYPE_DP, state);
+	if (rc) {
+		pr_err("failed to notify audio. state=%d err=%d\n", state, rc);
+		goto end;
+	}
+
+	reinit_completion(&audio->hpd_comp);
+	rc = wait_for_completion_timeout(&audio->hpd_comp, HZ * 5);
+	if (!rc) {
+		pr_err("timeout. state=%d err=%d\n", state, rc);
+		rc = -ETIMEDOUT;
+		goto end;
+	}
+
+	pr_debug("success\n");
+end:
+	return rc;
+}
+
 static int dp_audio_on(struct dp_audio *dp_audio)
 {
 	int rc = 0;
@@ -651,11 +697,14 @@ static int dp_audio_on(struct dp_audio *dp_audio)
 
 	if (!dp_audio) {
 		pr_err("invalid input\n");
-		rc = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
 	audio = container_of(dp_audio, struct dp_audio_private, dp_audio);
+	if (IS_ERR(audio)) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
 
 	ext = &audio->ext_audio_data;
 
@@ -669,21 +718,9 @@ static int dp_audio_on(struct dp_audio *dp_audio)
 		goto end;
 	}
 
-	rc = ext->intf_ops.audio_notify(audio->ext_pdev,
-			EXT_DISPLAY_TYPE_DP,
-			EXT_DISPLAY_CABLE_CONNECT);
-	if (rc) {
-		pr_err("failed to notify audio, err=%d\n", rc);
+	rc = dp_audio_notify(audio, EXT_DISPLAY_CABLE_CONNECT);
+	if (rc)
 		goto end;
-	}
-
-	reinit_completion(&audio->hpd_comp);
-	rc = wait_for_completion_timeout(&audio->hpd_comp, HZ * 5);
-	if (!rc) {
-		pr_err("timeout\n");
-		rc = -ETIMEDOUT;
-		goto end;
-	}
 
 	pr_debug("success\n");
 end:
@@ -695,6 +732,7 @@ static int dp_audio_off(struct dp_audio *dp_audio)
 	int rc = 0;
 	struct dp_audio_private *audio;
 	struct msm_ext_disp_init_data *ext;
+	bool work_pending = false;
 
 	if (!dp_audio) {
 		pr_err("invalid input\n");
@@ -704,21 +742,13 @@ static int dp_audio_off(struct dp_audio *dp_audio)
 	audio = container_of(dp_audio, struct dp_audio_private, dp_audio);
 	ext = &audio->ext_audio_data;
 
-	rc = ext->intf_ops.audio_notify(audio->ext_pdev,
-			EXT_DISPLAY_TYPE_DP,
-			EXT_DISPLAY_CABLE_DISCONNECT);
-	if (rc) {
-		pr_err("failed to notify audio, err=%d\n", rc);
-		goto end;
-	}
+	work_pending = cancel_delayed_work_sync(&audio->notify_delayed_work);
+	if (work_pending)
+		pr_debug("pending notification work completed\n");
 
-	reinit_completion(&audio->hpd_comp);
-	rc = wait_for_completion_timeout(&audio->hpd_comp, HZ * 5);
-	if (!rc) {
-		pr_err("timeout\n");
-		rc = -ETIMEDOUT;
+	rc = dp_audio_notify(audio, EXT_DISPLAY_CABLE_DISCONNECT);
+	if (rc)
 		goto end;
-	}
 
 	pr_debug("success\n");
 end:
@@ -732,6 +762,35 @@ end:
 	audio->engine_on  = false;
 
 	return rc;
+}
+
+static void dp_audio_notify_work_fn(struct work_struct *work)
+{
+	struct dp_audio_private *audio;
+	struct delayed_work *dw = to_delayed_work(work);
+
+	audio = container_of(dw, struct dp_audio_private, notify_delayed_work);
+
+	dp_audio_notify(audio, EXT_DISPLAY_CABLE_CONNECT);
+}
+
+static int dp_audio_create_notify_workqueue(struct dp_audio_private *audio)
+{
+	audio->notify_workqueue = create_workqueue("sdm_dp_audio_notify");
+	if (IS_ERR_OR_NULL(audio->notify_workqueue)) {
+		pr_err("Error creating notify_workqueue\n");
+		return -EPERM;
+	}
+
+	INIT_DELAYED_WORK(&audio->notify_delayed_work, dp_audio_notify_work_fn);
+
+	return 0;
+}
+
+static void dp_audio_destroy_notify_workqueue(struct dp_audio_private *audio)
+{
+	if (audio->notify_workqueue)
+		destroy_workqueue(audio->notify_workqueue);
 }
 
 struct dp_audio *dp_audio_get(struct platform_device *pdev,
@@ -754,6 +813,10 @@ struct dp_audio *dp_audio_get(struct platform_device *pdev,
 		goto error;
 	}
 
+	rc = dp_audio_create_notify_workqueue(audio);
+	if (rc)
+		goto error_notify_workqueue;
+
 	init_completion(&audio->hpd_comp);
 
 	audio->pdev = pdev;
@@ -769,13 +832,16 @@ struct dp_audio *dp_audio_get(struct platform_device *pdev,
 
 	rc = dp_audio_init_ext_disp(audio);
 	if (rc) {
-		devm_kfree(&pdev->dev, audio);
-		goto error;
+		goto error_ext_disp;
 	}
 
 	catalog->init(catalog);
 
 	return dp_audio;
+error_ext_disp:
+	dp_audio_destroy_notify_workqueue(audio);
+error_notify_workqueue:
+	devm_kfree(&pdev->dev, audio);
 error:
 	return ERR_PTR(rc);
 }
@@ -789,6 +855,8 @@ void dp_audio_put(struct dp_audio *dp_audio)
 
 	audio = container_of(dp_audio, struct dp_audio_private, dp_audio);
 	mutex_destroy(&dp_audio->ops_lock);
+
+	dp_audio_destroy_notify_workqueue(audio);
 
 	devm_kfree(&audio->pdev->dev, audio);
 }
