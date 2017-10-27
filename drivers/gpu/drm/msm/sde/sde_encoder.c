@@ -882,7 +882,9 @@ static int sde_encoder_virt_atomic_check(
 			return ret;
 		}
 
-		ret = sde_connector_set_info(conn_state->connector, conn_state);
+		ret = sde_connector_set_blob_data(conn_state->connector,
+				conn_state,
+				CONNECTOR_PROP_SDE_INFO);
 		if (ret) {
 			SDE_ERROR_ENC(sde_enc,
 				"connector failed to update info, rc: %d\n",
