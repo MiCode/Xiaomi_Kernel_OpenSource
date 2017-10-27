@@ -532,7 +532,7 @@ static void sde_kms_commit(struct msm_kms *kms,
 	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i) {
 		if (crtc->state->active) {
 			SDE_EVT32(DRMID(crtc));
-			sde_crtc_commit_kickoff(crtc);
+			sde_crtc_commit_kickoff(crtc, old_crtc_state);
 		}
 	}
 }
