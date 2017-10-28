@@ -331,10 +331,13 @@ struct ep_pcie_dev_t {
 	bool                         l23_ready;
 	bool                         l1ss_enabled;
 	struct ep_pcie_msi_config    msi_cfg;
+	bool                         no_notify;
+	bool                         client_ready;
 
 	struct ep_pcie_register_event *event_reg;
 	struct work_struct	     handle_perst_work;
 	struct work_struct           handle_bme_work;
+	struct work_struct           handle_d3cold_work;
 };
 
 extern struct ep_pcie_dev_t ep_pcie_dev;
