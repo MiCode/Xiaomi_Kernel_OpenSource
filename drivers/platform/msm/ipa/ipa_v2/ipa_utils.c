@@ -4969,7 +4969,7 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_mdfy_flt_rule = ipa2_mdfy_flt_rule;
 	api_ctrl->ipa_commit_flt = ipa2_commit_flt;
 	api_ctrl->ipa_reset_flt = ipa2_reset_flt;
-	api_ctrl->allocate_nat_device = ipa2_allocate_nat_device;
+	api_ctrl->ipa_allocate_nat_device = ipa2_allocate_nat_device;
 	api_ctrl->ipa_nat_init_cmd = ipa2_nat_init_cmd;
 	api_ctrl->ipa_nat_dma_cmd = ipa2_nat_dma_cmd;
 	api_ctrl->ipa_nat_del_cmd = ipa2_nat_del_cmd;

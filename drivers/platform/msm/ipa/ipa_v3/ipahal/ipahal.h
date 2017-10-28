@@ -37,6 +37,7 @@ enum ipahal_imm_cmd_name {
 	IPA_IMM_CMD_IP_PACKET_TAG_STATUS,
 	IPA_IMM_CMD_DMA_TASK_32B_ADDR,
 	IPA_IMM_CMD_TABLE_DMA,
+	IPA_IMM_CMD_IP_V6_CT_INIT,
 	IPA_IMM_CMD_MAX,
 };
 
@@ -46,19 +47,19 @@ enum ipahal_imm_cmd_name {
  * struct ipahal_imm_cmd_ip_v4_filter_init - IP_V4_FILTER_INIT cmd payload
  * Inits IPv4 filter block.
  * @hash_rules_addr: Addr in sys mem where ipv4 hashable flt tbl starts
+ * @nhash_rules_addr: Addr in sys mem where ipv4 non-hashable flt tbl starts
  * @hash_rules_size: Size in bytes of the hashable tbl to cpy to local mem
  * @hash_local_addr: Addr in shared mem where ipv4 hashable flt tbl should
  *  be copied to
- * @nhash_rules_addr: Addr in sys mem where ipv4 non-hashable flt tbl starts
  * @nhash_rules_size: Size in bytes of the non-hashable tbl to cpy to local mem
  * @nhash_local_addr: Addr in shared mem where ipv4 non-hashable flt tbl should
  *  be copied to
  */
 struct ipahal_imm_cmd_ip_v4_filter_init {
 	u64 hash_rules_addr;
+	u64 nhash_rules_addr;
 	u32 hash_rules_size;
 	u32 hash_local_addr;
-	u64 nhash_rules_addr;
 	u32 nhash_rules_size;
 	u32 nhash_local_addr;
 };
@@ -67,79 +68,98 @@ struct ipahal_imm_cmd_ip_v4_filter_init {
  * struct ipahal_imm_cmd_ip_v6_filter_init - IP_V6_FILTER_INIT cmd payload
  * Inits IPv6 filter block.
  * @hash_rules_addr: Addr in sys mem where ipv6 hashable flt tbl starts
+ * @nhash_rules_addr: Addr in sys mem where ipv6 non-hashable flt tbl starts
  * @hash_rules_size: Size in bytes of the hashable tbl to cpy to local mem
  * @hash_local_addr: Addr in shared mem where ipv6 hashable flt tbl should
  *  be copied to
- * @nhash_rules_addr: Addr in sys mem where ipv6 non-hashable flt tbl starts
  * @nhash_rules_size: Size in bytes of the non-hashable tbl to cpy to local mem
  * @nhash_local_addr: Addr in shared mem where ipv6 non-hashable flt tbl should
  *  be copied to
  */
 struct ipahal_imm_cmd_ip_v6_filter_init {
 	u64 hash_rules_addr;
+	u64 nhash_rules_addr;
 	u32 hash_rules_size;
 	u32 hash_local_addr;
-	u64 nhash_rules_addr;
 	u32 nhash_rules_size;
 	u32 nhash_local_addr;
 };
 
 /*
+ * struct ipahal_imm_cmd_nat_ipv6ct_init_common - NAT/IPv6CT table init command
+ *                                                common part
+ * @base_table_addr: Address in sys/shared mem where base table start
+ * @expansion_table_addr: Address in sys/shared mem where expansion table
+ *  starts. Entries that result in hash collision are located in this table.
+ * @base_table_addr_shared: base_table_addr in shared mem (if not, then sys)
+ * @expansion_table_addr_shared: expansion_rules_addr in
+ *  shared mem (if not, then sys)
+ * @size_base_table: Num of entries in the base table
+ * @size_expansion_table: Num of entries in the expansion table
+ * @table_index: For future support of multiple tables
+ */
+struct ipahal_imm_cmd_nat_ipv6ct_init_common {
+	u64 base_table_addr;
+	u64 expansion_table_addr;
+	bool base_table_addr_shared;
+	bool expansion_table_addr_shared;
+	u16 size_base_table;
+	u16 size_expansion_table;
+	u8 table_index;
+};
+
+/*
  * struct ipahal_imm_cmd_ip_v4_nat_init - IP_V4_NAT_INIT cmd payload
  * Inits IPv4 NAT block. Initiate NAT table with it dimensions, location
- *  cache address abd itger related parameters.
- * @table_index: For future support of multiple NAT tables
- * @ipv4_rules_addr: Addr in sys/shared mem where ipv4 NAT rules start
- * @ipv4_rules_addr_shared: ipv4_rules_addr in shared mem (if not, then sys)
- * @ipv4_expansion_rules_addr: Addr in sys/shared mem where expantion NAT
- *  table starts. IPv4 NAT rules that result in NAT collision are located
- *  in this table.
- * @ipv4_expansion_rules_addr_shared: ipv4_expansion_rules_addr in
- *  shared mem (if not, then sys)
+ *  cache address and other related parameters.
+ * @table_init: table initialization parameters
  * @index_table_addr: Addr in sys/shared mem where index table, which points
  *  to NAT table starts
- * @index_table_addr_shared: index_table_addr in shared mem (if not, then sys)
  * @index_table_expansion_addr: Addr in sys/shared mem where expansion index
  *  table starts
+ * @index_table_addr_shared: index_table_addr in shared mem (if not, then sys)
  * @index_table_expansion_addr_shared: index_table_expansion_addr in
  *  shared mem (if not, then sys)
- * @size_base_tables: Num of entries in NAT tbl and idx tbl (each)
- * @size_expansion_tables: Num of entries in NAT expantion tbl and expantion
- *  idx tbl (each)
- * @public_ip_addr: public IP address
+ * @public_addr_info: Public IP addresses info suitable to the IPA H/W version
+ *                    IPA H/W >= 4.0 - PDN config table offset in SMEM
+ *                    IPA H/W < 4.0  - The public IP address
  */
 struct ipahal_imm_cmd_ip_v4_nat_init {
-	u8 table_index;
-	u64 ipv4_rules_addr;
-	bool ipv4_rules_addr_shared;
-	u64 ipv4_expansion_rules_addr;
-	bool ipv4_expansion_rules_addr_shared;
+	struct ipahal_imm_cmd_nat_ipv6ct_init_common table_init;
 	u64 index_table_addr;
-	bool index_table_addr_shared;
 	u64 index_table_expansion_addr;
+	bool index_table_addr_shared;
 	bool index_table_expansion_addr_shared;
-	u16 size_base_tables;
-	u16 size_expansion_tables;
-	u32 public_ip_addr;
+	u32 public_addr_info;
+};
+
+/*
+ * struct ipahal_imm_cmd_ip_v6_ct_init - IP_V6_CONN_TRACK_INIT cmd payload
+ * Inits IPv6CT block. Initiate IPv6CT table with it dimensions, location
+ *  cache address and other related parameters.
+ * @table_init: table initialization parameters
+ */
+struct ipahal_imm_cmd_ip_v6_ct_init {
+	struct ipahal_imm_cmd_nat_ipv6ct_init_common table_init;
 };
 
 /*
  * struct ipahal_imm_cmd_ip_v4_routing_init - IP_V4_ROUTING_INIT cmd payload
  * Inits IPv4 routing table/structure - with the rules and other related params
  * @hash_rules_addr: Addr in sys mem where ipv4 hashable rt tbl starts
+ * @nhash_rules_addr: Addr in sys mem where ipv4 non-hashable rt tbl starts
  * @hash_rules_size: Size in bytes of the hashable tbl to cpy to local mem
  * @hash_local_addr: Addr in shared mem where ipv4 hashable rt tbl should
  *  be copied to
- * @nhash_rules_addr: Addr in sys mem where ipv4 non-hashable rt tbl starts
  * @nhash_rules_size: Size in bytes of the non-hashable tbl to cpy to local mem
  * @nhash_local_addr: Addr in shared mem where ipv4 non-hashable rt tbl should
  *  be copied to
  */
 struct ipahal_imm_cmd_ip_v4_routing_init {
 	u64 hash_rules_addr;
+	u64 nhash_rules_addr;
 	u32 hash_rules_size;
 	u32 hash_local_addr;
-	u64 nhash_rules_addr;
 	u32 nhash_rules_size;
 	u32 nhash_local_addr;
 };
@@ -148,19 +168,19 @@ struct ipahal_imm_cmd_ip_v4_routing_init {
  * struct ipahal_imm_cmd_ip_v6_routing_init - IP_V6_ROUTING_INIT cmd payload
  * Inits IPv6 routing table/structure - with the rules and other related params
  * @hash_rules_addr: Addr in sys mem where ipv6 hashable rt tbl starts
+ * @nhash_rules_addr: Addr in sys mem where ipv6 non-hashable rt tbl starts
  * @hash_rules_size: Size in bytes of the hashable tbl to cpy to local mem
  * @hash_local_addr: Addr in shared mem where ipv6 hashable rt tbl should
  *  be copied to
- * @nhash_rules_addr: Addr in sys mem where ipv6 non-hashable rt tbl starts
  * @nhash_rules_size: Size in bytes of the non-hashable tbl to cpy to local mem
  * @nhash_local_addr: Addr in shared mem where ipv6 non-hashable rt tbl should
  *  be copied to
  */
 struct ipahal_imm_cmd_ip_v6_routing_init {
 	u64 hash_rules_addr;
+	u64 nhash_rules_addr;
 	u32 hash_rules_size;
 	u32 hash_local_addr;
-	u64 nhash_rules_addr;
 	u32 nhash_rules_size;
 	u32 nhash_local_addr;
 };
@@ -189,36 +209,20 @@ struct ipahal_imm_cmd_hdr_init_system {
 };
 
 /*
- * struct ipahal_imm_cmd_nat_dma - NAT_DMA cmd payload
- * Perform DMA operation on NAT related mem addressess. Copy data into
- *  different locations within NAT associated tbls. (For add/remove NAT rules)
- * @table_index: NAT tbl index. Defines the NAT tbl on which to perform DMA op.
- * @base_addr: Base addr to which the DMA operation should be performed.
- * @offset: offset in bytes from base addr to write 'data' to
- * @data: data to be written
- */
-struct ipahal_imm_cmd_nat_dma {
-	u8 table_index;
-	u8 base_addr;
-	u32 offset;
-	u16 data;
-};
-
-/*
  * struct ipahal_imm_cmd_table_dma - TABLE_DMA cmd payload
  * Perform DMA operation on NAT and IPV6 connection tracking related mem
- * addresses. Copy data into different locations within IPV6CT and NAT
+ * addresses. Copy data into different locations within IPv6CT and NAT
  * associated tbls. (For add/remove NAT rules)
- * @table_index: NAT tbl index. Defines the tbl on which to perform DMA op.
- * @base_addr: Base addr to which the DMA operation should be performed.
  * @offset: offset in bytes from base addr to write 'data' to
  * @data: data to be written
+ * @table_index: NAT tbl index. Defines the tbl on which to perform DMA op.
+ * @base_addr: Base addr to which the DMA operation should be performed.
  */
 struct ipahal_imm_cmd_table_dma {
-	u8 table_index;
-	u8 base_addr;
 	u32 offset;
 	u16 data;
+	u8 table_index;
+	u8 base_addr;
 };
 
 /*
@@ -275,6 +279,7 @@ struct ipahal_imm_cmd_register_write {
 /*
  * struct ipahal_imm_cmd_dma_shared_mem - DMA_SHARED_MEM cmd payload
  * Perform mem copy into or out of the SW area of IPA local mem
+ * @system_addr: Address in system memory
  * @size: Size in bytes of data to copy. Expected size is up to 2K bytes
  * @local_addr: Address in IPA local memory
  * @clear_after_read: Clear local memory at the end of a read operation allows
@@ -282,16 +287,15 @@ struct ipahal_imm_cmd_register_write {
  * @is_read: Read operation from local memory? If not, then write.
  * @skip_pipeline_clear: if to skip pipeline clear waiting (don't wait)
  * @pipeline_clear_option: options for pipeline clear waiting
- * @system_addr: Address in system memory
  */
 struct ipahal_imm_cmd_dma_shared_mem {
+	u64 system_addr;
 	u32 size;
 	u32 local_addr;
 	bool clear_after_read;
 	bool is_read;
 	bool skip_pipeline_clear;
 	enum ipahal_pipeline_clear_option pipeline_clear_options;
-	u64 system_addr;
 };
 
 /*
@@ -515,6 +519,7 @@ enum ipahal_pkt_status_nat_type {
  *   following statuses: IPA_STATUS_PACKET, IPA_STATUS_DROPPED_PACKET,
  *   IPA_STATUS_SUSPENDED_PACKET.
  *  Other statuses types has different status packet structure.
+ * @tag_info: S/W defined value provided via immediate command
  * @status_opcode: The Type of the status (Opcode).
  * @exception: The first exception that took place.
  *  In case of exception, src endp and pkt len are always valid.
@@ -522,9 +527,6 @@ enum ipahal_pkt_status_nat_type {
  *  and processing it may passed at IPA. See enum ipahal_pkt_status_mask
  * @pkt_len: Pkt pyld len including hdr and retained hdr if used. Does
  *  not include padding or checksum trailer len.
- * @endp_src_idx: Source end point index.
- * @endp_dest_idx: Destination end point index.
- *  Not valid in case of exception
  * @metadata: meta data value used by packet
  * @flt_local: Filter table location flag: Does matching flt rule belongs to
  *  flt tbl that resides in lcl memory? (if not, then system mem)
@@ -535,57 +537,59 @@ enum ipahal_pkt_status_nat_type {
  *  specifies to retain header?
  * @flt_miss: Filtering miss flag: Was their a filtering rule miss?
  *   In case of miss, all flt info to be ignored
- * @flt_rule_id: The ID of the matching filter rule (if no miss).
- *  This info can be combined with endp_src_idx to locate the exact rule.
  * @rt_local: Route table location flag: Does matching rt rule belongs to
  *  rt tbl that resides in lcl memory? (if not, then system mem)
  * @rt_hash: Route hash hit flag: Does matching rt rule was in hash tbl?
  * @ucp: UC Processing flag
- * @rt_tbl_idx: Index of rt tbl that contains the rule on which was a match
  * @rt_miss: Routing miss flag: Was their a routing rule miss?
- * @rt_rule_id: The ID of the matching rt rule. (if no miss). This info
- *  can be combined with rt_tbl_idx to locate the exact rule.
  * @nat_hit: NAT hit flag: Was their NAT hit?
- * @nat_entry_idx: Index of the NAT entry used of NAT processing
  * @nat_type: Defines the type of the NAT operation:
- * @tag_info: S/W defined value provided via immediate command
- * @seq_num: Per source endp unique packet sequence number
  * @time_of_day_ctr: running counter from IPA clock
  * @hdr_local: Header table location flag: In header insertion, was the header
  *  taken from the table resides in local memory? (If no, then system mem)
- * @hdr_offset: Offset of used header in the header table
  * @frag_hit: Frag hit flag: Was their frag rule hit in H/W frag table?
+ * @flt_rule_id: The ID of the matching filter rule (if no miss).
+ *  This info can be combined with endp_src_idx to locate the exact rule.
+ * @rt_rule_id: The ID of the matching rt rule. (if no miss). This info
+ *  can be combined with rt_tbl_idx to locate the exact rule.
+ * @nat_entry_idx: Index of the NAT entry used of NAT processing
+ * @hdr_offset: Offset of used header in the header table
+ * @endp_src_idx: Source end point index.
+ * @endp_dest_idx: Destination end point index.
+ *  Not valid in case of exception
+ * @rt_tbl_idx: Index of rt tbl that contains the rule on which was a match
+ * @seq_num: Per source endp unique packet sequence number
  * @frag_rule: Frag rule index in H/W frag table in case of frag hit
  */
 struct ipahal_pkt_status {
+	u64 tag_info;
 	enum ipahal_pkt_status_opcode status_opcode;
 	enum ipahal_pkt_status_exception exception;
 	u32 status_mask;
 	u32 pkt_len;
-	u8 endp_src_idx;
-	u8 endp_dest_idx;
 	u32 metadata;
 	bool flt_local;
 	bool flt_hash;
 	bool flt_global;
 	bool flt_ret_hdr;
 	bool flt_miss;
-	u16 flt_rule_id;
 	bool rt_local;
 	bool rt_hash;
 	bool ucp;
-	u8 rt_tbl_idx;
 	bool rt_miss;
-	u16 rt_rule_id;
 	bool nat_hit;
-	u16 nat_entry_idx;
 	enum ipahal_pkt_status_nat_type nat_type;
-	u64 tag_info;
-	u8 seq_num;
 	u32 time_of_day_ctr;
 	bool hdr_local;
-	u16 hdr_offset;
 	bool frag_hit;
+	u16 flt_rule_id;
+	u16 rt_rule_id;
+	u16 nat_entry_idx;
+	u16 hdr_offset;
+	u8 endp_src_idx;
+	u8 endp_dest_idx;
+	u8 rt_tbl_idx;
+	u8 seq_num;
 	u8 frag_rule;
 };
 

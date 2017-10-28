@@ -38,8 +38,9 @@
 #include "ipa_uc_offload_i.h"
 #include "ipa_pm.h"
 
+#define IPA_DEV_NAME_MAX_LEN 15
 #define DRV_NAME "ipa"
-#define NAT_DEV_NAME "ipaNatTable"
+
 #define IPA_COOKIE 0x57831603
 #define IPA_RT_RULE_COOKIE 0x57831604
 #define IPA_RT_TBL_COOKIE 0x57831605
@@ -125,6 +126,8 @@
 
 #define IPA_RAM_NAT_OFST    0
 #define IPA_RAM_NAT_SIZE    0
+#define IPA_RAM_IPV6CT_OFST 0
+#define IPA_RAM_IPV6CT_SIZE 0
 #define IPA_MEM_CANARY_VAL 0xdeadbeef
 
 #define IPA_STATS
@@ -780,54 +783,98 @@ struct ipa_pdn_entry {
 	u32 dst_metadata;
 	u32 resrvd;
 };
+
 /**
- * struct ipa3_nat_mem - IPA NAT memory description
+ * struct ipa3_nat_ipv6ct_tmp_mem - NAT/IPv6CT temporary memory
+ *
+ * In case NAT/IPv6CT table are destroyed the HW is provided with the
+ * temporary memory
+ *
+ * @vaddr: the address of the temporary memory
+ * @dma_handle: the handle of the temporary memory
+ */
+struct ipa3_nat_ipv6ct_tmp_mem {
+	void *vaddr;
+	dma_addr_t dma_handle;
+};
+
+/**
+ * struct ipa3_nat_ipv6ct_common_mem - IPA NAT/IPv6CT memory device
  * @class: pointer to the struct class
  * @dev: the dev_t of the device
  * @cdev: cdev of the device
  * @dev_num: device number
- * @vaddr: virtual address
- * @dma_handle: DMA handle
- * @size: NAT memory size
- * @is_mapped: flag indicating if NAT memory is mapped
- * @is_sys_mem: flag indicating if NAT memory is sys memory
- * @is_dev_init: flag indicating if NAT device is initialized
- * @lock: NAT memory mutex
- * @nat_base_address: nat table virutal address
- * @ipv4_rules_addr: base nat table address
- * @ipv4_expansion_rules_addr: expansion table address
- * @index_table_addr: index table address
- * @index_table_expansion_addr: index expansion table address
- * @size_base_tables: base table size
- * @size_expansion_tables: expansion table size
- * @public_ip_addr: ip address of nat table
- * @pdn_mem: pdn config table SW cache memory structure
+ * @vaddr: the virtual address in the system memory
+ * @dma_handle: the system memory DMA handle
+ * @phys_mem_size: the physical size in the shared memory
+ * @smem_offset: the offset in the shared memory
+ * @size: memory size
+ * @is_mapped: flag indicating if memory is mapped
+ * @is_sys_mem: flag indicating if memory is sys memory
+ * @is_mem_allocated: flag indicating if the memory is allocated
+ * @is_hw_init: flag indicating if the corresponding HW is initialized
+ * @is_dev_init: flag indicating if device is initialized
+ * @lock: memory mutex
+ * @base_address: table virtual address
+ * @base_table_addr: base table address
+ * @expansion_table_addr: expansion table address
+ * @table_entries: num of entries in the base table
+ * @expn_table_entries: num of entries in the expansion table
+ * @tmp_mem: temporary memory used to always provide HW with a legal memory
+ * @name: the device name
  */
-struct ipa3_nat_mem {
+struct ipa3_nat_ipv6ct_common_mem {
 	struct class *class;
 	struct device *dev;
 	struct cdev cdev;
 	dev_t dev_num;
+
+	/* system memory */
 	void *vaddr;
 	dma_addr_t dma_handle;
+
+	/* shared memory */
+	u32 phys_mem_size;
+	u32 smem_offset;
+
 	size_t size;
 	bool is_mapped;
 	bool is_sys_mem;
+	bool is_mem_allocated;
+	bool is_hw_init;
 	bool is_dev_init;
-	bool is_dev;
 	struct mutex lock;
-	void *nat_base_address;
-	char *ipv4_rules_addr;
-	char *ipv4_expansion_rules_addr;
+	void *base_address;
+	char *base_table_addr;
+	char *expansion_table_addr;
+	u32 table_entries;
+	u32 expn_table_entries;
+	struct ipa3_nat_ipv6ct_tmp_mem *tmp_mem;
+	char name[IPA_DEV_NAME_MAX_LEN];
+};
+
+/**
+ * struct ipa3_nat_mem - IPA NAT memory description
+ * @dev: the memory device structure
+ * @index_table_addr: index table address
+ * @index_table_expansion_addr: index expansion table address
+ * @public_ip_addr: ip address of nat table
+ * @pdn_mem: pdn config table SW cache memory structure
+ */
+struct ipa3_nat_mem {
+	struct ipa3_nat_ipv6ct_common_mem dev;
 	char *index_table_addr;
 	char *index_table_expansion_addr;
-	u32 size_base_tables;
-	u32 size_expansion_tables;
 	u32 public_ip_addr;
-	void *tmp_vaddr;
-	dma_addr_t tmp_dma_handle;
-	bool is_tmp_mem;
 	struct ipa_mem_buffer pdn_mem;
+};
+
+/**
+* struct ipa3_ipv6ct_mem - IPA IPv6 connection tracking memory description
+* @dev: the memory device structure
+*/
+struct ipa3_ipv6ct_mem {
+	struct ipa3_nat_ipv6ct_common_mem dev;
 };
 
 /**
@@ -1137,6 +1184,7 @@ enum ipa_smmu_cb_type {
  *  from non-restricted bytes
  * @smem_restricted_bytes: the bytes that SW should not use in the shared mem
  * @nat_mem: NAT memory
+ * @ipv6ct_mem: IPv6CT memory
  * @excp_hdr_hdl: exception header handle
  * @dflt_v4_rt_rule_hdl: default v4 routing rule handle
  * @dflt_v6_rt_rule_hdl: default v6 routing rule handle
@@ -1224,6 +1272,7 @@ struct ipa3_context {
 	u16 smem_restricted_bytes;
 	u16 smem_reqd_sz;
 	struct ipa3_nat_mem nat_mem;
+	struct ipa3_ipv6ct_mem ipv6ct_mem;
 	u32 excp_hdr_hdl;
 	u32 dflt_v4_rt_rule_hdl;
 	u32 dflt_v6_rt_rule_hdl;
@@ -1746,13 +1795,24 @@ int ipa3_reset_flt(enum ipa_ip_type ip);
 /*
  * NAT
  */
+int ipa3_nat_ipv6ct_init_devices(void);
+void ipa3_nat_ipv6ct_destroy_devices(void);
+
 int ipa3_allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem);
+int ipa3_allocate_nat_table(
+	struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc);
+int ipa3_allocate_ipv6ct_table(
+	struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc);
 
 int ipa3_nat_init_cmd(struct ipa_ioc_v4_nat_init *init);
+int ipa3_ipv6ct_init_cmd(struct ipa_ioc_ipv6ct_init *init);
 
+int ipa3_table_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma);
 int ipa3_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma);
 
 int ipa3_nat_del_cmd(struct ipa_ioc_v4_nat_del *del);
+int ipa3_del_nat_table(struct ipa_ioc_nat_ipv6ct_table_del *del);
+int ipa3_del_ipv6ct_table(struct ipa_ioc_nat_ipv6ct_table_del *del);
 
 int ipa3_nat_mdfy_pdn(struct ipa_ioc_nat_pdn_entry *mdfy_pdn);
 
@@ -2103,7 +2163,6 @@ int ipa3_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
 		    bool polling_mode, unsigned long timeout_jiffies);
 void ipa3_uc_register_handlers(enum ipa3_hw_features feature,
 			      struct ipa3_uc_hdlrs *hdlrs);
-int ipa3_create_nat_device(void);
 int ipa3_uc_notify_clk_state(bool enabled);
 int ipa3_dma_setup(void);
 void ipa3_dma_shutdown(void);
@@ -2248,4 +2307,6 @@ void ipa3_free_dma_task_for_gsi(void);
 int ipa3_set_clock_plan_from_pm(int idx);
 void __ipa_gsi_irq_rx_scedule_poll(struct ipa3_sys_context *sys);
 int ipa3_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs);
+void ipa3_init_imm_cmd_desc(struct ipa3_desc *desc,
+	struct ipahal_imm_cmd_pyld *cmd_pyld);
 #endif /* _IPA3_I_H_ */

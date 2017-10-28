@@ -385,19 +385,15 @@ static bool ipa_flt_valid_lcl_tbl_size(enum ipa_ip_type ipt,
  *  payload pointers buffers for headers and bodies of flt structure
  *  as well as place for flush imm.
  * @ipt: the ip address family type
+ * @entries: the number of entries
  * @desc: [OUT] descriptor buffer
  * @cmd: [OUT] imm commands payload pointers buffer
  *
  * Return: 0 on success, negative on failure
  */
-static int ipa_flt_alloc_cmd_buffers(enum ipa_ip_type ip,
+static int ipa_flt_alloc_cmd_buffers(enum ipa_ip_type ip, u16 entries,
 	struct ipa3_desc **desc, struct ipahal_imm_cmd_pyld ***cmd_pyld)
 {
-	u16 entries;
-
-	/* +3: 2 for bodies (hashable and non-hashable) and 1 for flushing */
-	entries = (ipa3_ctx->ep_flt_num) * 2 + 3;
-
 	*desc = kcalloc(entries, sizeof(**desc), GFP_ATOMIC);
 	if (*desc == NULL) {
 		IPAERR("fail to alloc desc blob ip %d\n", ip);
@@ -473,6 +469,7 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 	struct ipahal_reg_valmask valmask;
 	u32 tbl_hdr_width;
 	struct ipa3_flt_tbl *tbl;
+	u16 entries;
 
 	tbl_hdr_width = ipahal_get_hw_tbl_hdr_width();
 	memset(&alloc_params, 0, sizeof(alloc_params));
@@ -549,7 +546,10 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 		goto fail_size_valid;
 	}
 
-	if (ipa_flt_alloc_cmd_buffers(ip, &desc, &cmd_pyld)) {
+	/* +3: 2 for bodies (hashable and non-hashable) and 1 for flushing */
+	entries = (ipa3_ctx->ep_flt_num) * 2 + 3;
+
+	if (ipa_flt_alloc_cmd_buffers(ip, entries, &desc, &cmd_pyld)) {
 		rc = -ENOMEM;
 		goto fail_size_valid;
 	}
@@ -573,11 +573,8 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 		rc = -EFAULT;
 		goto fail_reg_write_construct;
 	}
-	desc[0].opcode = cmd_pyld[0]->opcode;
-	desc[0].pyld = cmd_pyld[0]->data;
-	desc[0].len = cmd_pyld[0]->len;
-	desc[0].type = IPA_IMM_CMD_DESC;
-	num_cmd++;
+	ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
+	++num_cmd;
 
 	hdr_idx = 0;
 	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
@@ -589,6 +586,13 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 		if (ipa_flt_skip_pipe_config(i)) {
 			hdr_idx++;
 			continue;
+		}
+
+		if (num_cmd + 1 >= entries) {
+			IPAERR("number of commands is out of range: IP = %d\n",
+				ip);
+			rc = -ENOBUFS;
+			goto fail_imm_cmd_construct;
 		}
 
 		IPADBG_LOW("Prepare imm cmd for hdr at index %d for pipe %d\n",
@@ -607,12 +611,11 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 		if (!cmd_pyld[num_cmd]) {
 			IPAERR("fail construct dma_shared_mem cmd: IP = %d\n",
 				ip);
+			rc = -ENOMEM;
 			goto fail_imm_cmd_construct;
 		}
-		desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
-		desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
-		desc[num_cmd].len = cmd_pyld[num_cmd]->len;
-		desc[num_cmd++].type = IPA_IMM_CMD_DESC;
+		ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
+		++num_cmd;
 
 		mem_cmd.is_read = false;
 		mem_cmd.skip_pipeline_clear = false;
@@ -627,17 +630,23 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 		if (!cmd_pyld[num_cmd]) {
 			IPAERR("fail construct dma_shared_mem cmd: IP = %d\n",
 				ip);
+			rc = -ENOMEM;
 			goto fail_imm_cmd_construct;
 		}
-		desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
-		desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
-		desc[num_cmd].len = cmd_pyld[num_cmd]->len;
-		desc[num_cmd++].type = IPA_IMM_CMD_DESC;
+		ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
+		++num_cmd;
 
-		hdr_idx++;
+		++hdr_idx;
 	}
 
 	if (lcl_nhash) {
+		if (num_cmd >= entries) {
+			IPAERR("number of commands is out of range: IP = %d\n",
+				ip);
+			rc = -ENOBUFS;
+			goto fail_imm_cmd_construct;
+		}
+
 		mem_cmd.is_read = false;
 		mem_cmd.skip_pipeline_clear = false;
 		mem_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
@@ -649,14 +658,20 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 		if (!cmd_pyld[num_cmd]) {
 			IPAERR("fail construct dma_shared_mem cmd: IP = %d\n",
 				ip);
+			rc = -ENOMEM;
 			goto fail_imm_cmd_construct;
 		}
-		desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
-		desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
-		desc[num_cmd].len = cmd_pyld[num_cmd]->len;
-		desc[num_cmd++].type = IPA_IMM_CMD_DESC;
+		ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
+		++num_cmd;
 	}
 	if (lcl_hash) {
+		if (num_cmd >= entries) {
+			IPAERR("number of commands is out of range: IP = %d\n",
+				ip);
+			rc = -ENOBUFS;
+			goto fail_imm_cmd_construct;
+		}
+
 		mem_cmd.is_read = false;
 		mem_cmd.skip_pipeline_clear = false;
 		mem_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
@@ -668,12 +683,11 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 		if (!cmd_pyld[num_cmd]) {
 			IPAERR("fail construct dma_shared_mem cmd: IP = %d\n",
 				ip);
+			rc = -ENOMEM;
 			goto fail_imm_cmd_construct;
 		}
-		desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
-		desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
-		desc[num_cmd].len = cmd_pyld[num_cmd]->len;
-		desc[num_cmd++].type = IPA_IMM_CMD_DESC;
+		ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
+		++num_cmd;
 	}
 
 	if (ipa3_send_cmd(num_cmd, desc)) {

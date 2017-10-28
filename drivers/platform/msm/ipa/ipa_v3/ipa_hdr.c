@@ -199,9 +199,6 @@ int __ipa_commit_hdr_v3_0(void)
 				IPAERR("fail construct dma_shared_mem cmd\n");
 				goto end;
 			}
-			desc[0].opcode = hdr_cmd_pyld->opcode;
-			desc[0].pyld = hdr_cmd_pyld->data;
-			desc[0].len = hdr_cmd_pyld->len;
 		}
 	} else {
 		if (hdr_mem.size > IPA_MEM_PART(apps_hdr_size_ddr)) {
@@ -217,12 +214,9 @@ int __ipa_commit_hdr_v3_0(void)
 				IPAERR("fail construct hdr_init_system cmd\n");
 				goto end;
 			}
-			desc[0].opcode = hdr_cmd_pyld->opcode;
-			desc[0].pyld = hdr_cmd_pyld->data;
-			desc[0].len = hdr_cmd_pyld->len;
 		}
 	}
-	desc[0].type = IPA_IMM_CMD_DESC;
+	ipa3_init_imm_cmd_desc(&desc[0], hdr_cmd_pyld);
 	IPA_DUMP_BUFF(hdr_mem.base, hdr_mem.phys_base, hdr_mem.size);
 
 	proc_ctx_size = IPA_MEM_PART(apps_hdr_proc_ctx_size);
@@ -249,9 +243,6 @@ int __ipa_commit_hdr_v3_0(void)
 				IPAERR("fail construct dma_shared_mem cmd\n");
 				goto end;
 			}
-			desc[1].opcode = ctx_cmd_pyld->opcode;
-			desc[1].pyld = ctx_cmd_pyld->data;
-			desc[1].len = ctx_cmd_pyld->len;
 		}
 	} else {
 		proc_ctx_size_ddr = IPA_MEM_PART(apps_hdr_proc_ctx_size_ddr);
@@ -277,12 +268,9 @@ int __ipa_commit_hdr_v3_0(void)
 				IPAERR("fail construct register_write cmd\n");
 				goto end;
 			}
-			desc[1].opcode = ctx_cmd_pyld->opcode;
-			desc[1].pyld = ctx_cmd_pyld->data;
-			desc[1].len = ctx_cmd_pyld->len;
 		}
 	}
-	desc[1].type = IPA_IMM_CMD_DESC;
+	ipa3_init_imm_cmd_desc(&desc[1], ctx_cmd_pyld);
 	IPA_DUMP_BUFF(ctx_mem.base, ctx_mem.phys_base, ctx_mem.size);
 
 	if (ipa3_send_cmd(2, desc))

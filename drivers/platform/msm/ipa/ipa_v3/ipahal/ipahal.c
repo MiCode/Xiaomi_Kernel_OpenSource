@@ -16,7 +16,7 @@
 #include "ipahal_reg_i.h"
 #include "ipahal_fltrt_i.h"
 #include "ipahal_hw_stats_i.h"
-
+#include "ipahal_nat_i.h"
 
 struct ipahal_context *ipahal_ctx;
 
@@ -35,6 +35,7 @@ static const char *ipahal_imm_cmd_name_to_str[IPA_IMM_CMD_MAX] = {
 	__stringify(IPA_IMM_CMD_IP_PACKET_TAG_STATUS),
 	__stringify(IPA_IMM_CMD_DMA_TASK_32B_ADDR),
 	__stringify(IPA_IMM_CMD_TABLE_DMA),
+	__stringify(IPA_IMM_CMD_IP_V6_CT_INIT)
 };
 
 static const char *ipahal_pkt_status_exception_to_str
@@ -352,8 +353,8 @@ static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_nat_dma(
 {
 	struct ipahal_imm_cmd_pyld *pyld;
 	struct ipa_imm_cmd_hw_nat_dma *data;
-	struct ipahal_imm_cmd_nat_dma *nat_params =
-		(struct ipahal_imm_cmd_nat_dma *)params;
+	struct ipahal_imm_cmd_table_dma *nat_params =
+		(struct ipahal_imm_cmd_table_dma *)params;
 
 	pyld = IPAHAL_MEM_ALLOC(sizeof(*pyld) + sizeof(*data), is_atomic_ctx);
 	if (unlikely(!pyld)) {
@@ -519,24 +520,55 @@ static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_ip_v4_nat_init(
 	pyld->len = sizeof(*data);
 	data = (struct ipa_imm_cmd_hw_ip_v4_nat_init *)pyld->data;
 
-	data->ipv4_rules_addr = nat4_params->ipv4_rules_addr;
+	data->ipv4_rules_addr = nat4_params->table_init.base_table_addr;
 	data->ipv4_expansion_rules_addr =
-		nat4_params->ipv4_expansion_rules_addr;
+		nat4_params->table_init.expansion_table_addr;
 	data->index_table_addr = nat4_params->index_table_addr;
 	data->index_table_expansion_addr =
 		nat4_params->index_table_expansion_addr;
-	data->table_index = nat4_params->table_index;
+	data->table_index = nat4_params->table_init.table_index;
 	data->ipv4_rules_addr_type =
-		nat4_params->ipv4_rules_addr_shared ? 1 : 0;
+		nat4_params->table_init.base_table_addr_shared ? 1 : 0;
 	data->ipv4_expansion_rules_addr_type =
-		nat4_params->ipv4_expansion_rules_addr_shared ? 1 : 0;
+		nat4_params->table_init.expansion_table_addr_shared ? 1 : 0;
 	data->index_table_addr_type =
 		nat4_params->index_table_addr_shared ? 1 : 0;
 	data->index_table_expansion_addr_type =
 		nat4_params->index_table_expansion_addr_shared ? 1 : 0;
-	data->size_base_tables = nat4_params->size_base_tables;
-	data->size_expansion_tables = nat4_params->size_expansion_tables;
-	data->public_ip_addr = nat4_params->public_ip_addr;
+	data->size_base_tables = nat4_params->table_init.size_base_table;
+	data->size_expansion_tables =
+		nat4_params->table_init.size_expansion_table;
+	data->public_addr_info = nat4_params->public_addr_info;
+
+	return pyld;
+}
+
+static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_ip_v6_ct_init(
+	enum ipahal_imm_cmd_name cmd, const void *params, bool is_atomic_ctx)
+{
+	struct ipahal_imm_cmd_pyld *pyld;
+	struct ipa_imm_cmd_hw_ip_v6_ct_init *data;
+	struct ipahal_imm_cmd_ip_v6_ct_init *ipv6ct_params =
+		(struct ipahal_imm_cmd_ip_v6_ct_init *)params;
+
+	pyld = IPAHAL_MEM_ALLOC(sizeof(*pyld) + sizeof(*data), is_atomic_ctx);
+	if (unlikely(!pyld))
+		return pyld;
+	pyld->opcode = ipahal_imm_cmd_get_opcode(cmd);
+	pyld->len = sizeof(*data);
+	data = (struct ipa_imm_cmd_hw_ip_v6_ct_init *)pyld->data;
+
+	data->table_addr = ipv6ct_params->table_init.base_table_addr;
+	data->expansion_table_addr =
+		ipv6ct_params->table_init.expansion_table_addr;
+	data->table_index = ipv6ct_params->table_init.table_index;
+	data->table_addr_type =
+		ipv6ct_params->table_init.base_table_addr_shared ? 1 : 0;
+	data->expansion_table_addr_type =
+		ipv6ct_params->table_init.expansion_table_addr_shared ? 1 : 0;
+	data->size_base_table = ipv6ct_params->table_init.size_base_table;
+	data->size_expansion_table =
+		ipv6ct_params->table_init.size_expansion_table;
 
 	return pyld;
 }
@@ -685,6 +717,9 @@ static struct ipahal_imm_cmd_obj
 	[IPA_HW_v4_0][IPA_IMM_CMD_DMA_SHARED_MEM] = {
 		ipa_imm_cmd_construct_dma_shared_mem_v_4_0,
 		19},
+	[IPA_HW_v4_0][IPA_IMM_CMD_IP_V6_CT_INIT] = {
+		ipa_imm_cmd_construct_ip_v6_ct_init,
+		23}
 };
 
 /*
@@ -1526,13 +1561,21 @@ int ipahal_init(enum ipa_hw_type ipa_hw_type, void __iomem *base,
 	if (ipahal_hw_stats_init(ipa_hw_type)) {
 		IPAHAL_ERR("failed to init ipahal hw stats\n");
 		result = -EFAULT;
-		goto bail_free_ctx;
+		goto bail_free_fltrt;
+	}
+
+	if (ipahal_nat_init(ipa_hw_type)) {
+		IPAHAL_ERR("failed to init ipahal NAT\n");
+		result = -EFAULT;
+		goto bail_free_fltrt;
 	}
 
 	ipahal_debugfs_init();
 
 	return 0;
 
+bail_free_fltrt:
+	ipahal_fltrt_destroy();
 bail_free_ctx:
 	kfree(ipahal_ctx);
 	ipahal_ctx = NULL;
