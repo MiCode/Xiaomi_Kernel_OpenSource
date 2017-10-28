@@ -363,12 +363,6 @@ static int dp_display_bind(struct device *dev, struct device *master,
 	dp->dp_display.drm_dev = drm;
 	priv = drm->dev_private;
 
-	rc = dp->parser->parse(dp->parser);
-	if (rc) {
-		pr_err("device tree parsing failed\n");
-		goto end;
-	}
-
 	rc = dp->aux->drm_aux_register(dp->aux);
 	if (rc) {
 		pr_err("DRM DP AUX register failed\n");
@@ -804,6 +798,12 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 		pr_err("failed to initialize parser, rc = %d\n", rc);
 		dp->parser = NULL;
 		goto error_parser;
+	}
+
+	rc = dp->parser->parse(dp->parser);
+	if (rc) {
+		pr_err("device tree parsing failed\n");
+		goto error_catalog;
 	}
 
 	dp->catalog = dp_catalog_get(dev, &dp->parser->io);
