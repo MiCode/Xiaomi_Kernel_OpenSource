@@ -119,13 +119,13 @@ err:
 	return rc;
 }
 
-int hfi_read_message(uint32_t *pmsg, uint8_t q_id)
+int64_t hfi_read_message(uint32_t *pmsg, uint8_t q_id)
 {
 	struct hfi_qtbl *q_tbl_ptr;
 	struct hfi_q_hdr *q;
-	uint32_t new_read_idx, size_in_words, temp;
-	uint32_t *read_q, *read_ptr;
-	int rc = 0;
+	uint32_t new_read_idx, size_in_words, word_diff, temp;
+	uint32_t *read_q, *read_ptr, *write_ptr;
+	int64_t rc = 0;
 
 	if (!pmsg) {
 		CAM_ERR(CAM_HFI, "Invalid msg");
@@ -168,10 +168,23 @@ int hfi_read_message(uint32_t *pmsg, uint8_t q_id)
 		read_q = (uint32_t *)g_hfi->map.dbg_q.kva;
 
 	read_ptr = (uint32_t *)(read_q + q->qhdr_read_idx);
+	write_ptr = (uint32_t *)(read_q + q->qhdr_write_idx);
 	size_in_words = (*read_ptr) >> BYTE_WORD_SHIFT;
 
+	if (write_ptr > read_ptr)
+		size_in_words = write_ptr - read_ptr;
+	else {
+		word_diff = read_ptr - write_ptr;
+		if (q_id == Q_MSG)
+			size_in_words = (ICP_MSG_Q_SIZE_IN_BYTES >>
+			BYTE_WORD_SHIFT) - word_diff;
+		else
+			size_in_words = (ICP_DBG_Q_SIZE_IN_BYTES >>
+			BYTE_WORD_SHIFT) - word_diff;
+	}
+
 	if ((size_in_words == 0) ||
-		(size_in_words > ICP_HFI_MAX_MSG_SIZE_IN_WORDS)) {
+		(size_in_words > ICP_HFI_MAX_PKT_SIZE_IN_WORDS)) {
 		CAM_ERR(CAM_HFI, "invalid HFI message packet size - 0x%08x",
 			size_in_words << BYTE_WORD_SHIFT);
 		q->qhdr_read_idx = q->qhdr_write_idx;
@@ -192,6 +205,7 @@ int hfi_read_message(uint32_t *pmsg, uint8_t q_id)
 	}
 
 	q->qhdr_read_idx = new_read_idx;
+	rc = size_in_words;
 err:
 	mutex_unlock(&hfi_msg_q_mutex);
 	return rc;
@@ -216,6 +230,45 @@ int hfi_enable_ipe_bps_pc(bool enable)
 	dbg_prop->num_prop = 1;
 	dbg_prop->prop_data[0] = HFI_PROP_SYS_IPEBPS_PC;
 	dbg_prop->prop_data[1] = enable;
+
+	hfi_write_cmd(prop);
+	kfree(prop);
+
+	return 0;
+}
+
+int hfi_set_debug_level(uint32_t lvl)
+{
+	uint8_t *prop;
+	struct hfi_cmd_prop *dbg_prop;
+	uint32_t size = 0, val;
+
+	val = HFI_DEBUG_MSG_LOW |
+		HFI_DEBUG_MSG_MEDIUM |
+		HFI_DEBUG_MSG_HIGH |
+		HFI_DEBUG_MSG_ERROR |
+		HFI_DEBUG_MSG_FATAL |
+		HFI_DEBUG_MSG_PERF |
+		HFI_DEBUG_CFG_WFI |
+		HFI_DEBUG_CFG_ARM9WD;
+
+	if (lvl > val)
+		return -EINVAL;
+
+	size = sizeof(struct hfi_cmd_prop) +
+		sizeof(struct hfi_debug);
+
+	prop = kzalloc(size, GFP_KERNEL);
+	if (!prop)
+		return -ENOMEM;
+
+	dbg_prop = (struct hfi_cmd_prop *)prop;
+	dbg_prop->size = size;
+	dbg_prop->pkt_type = HFI_CMD_SYS_SET_PROPERTY;
+	dbg_prop->num_prop = 1;
+	dbg_prop->prop_data[0] = HFI_PROP_SYS_DEBUG_CFG;
+	dbg_prop->prop_data[1] = lvl;
+	dbg_prop->prop_data[2] = HFI_DEBUG_MODE_QUEUE;
 
 	hfi_write_cmd(prop);
 	kfree(prop);
@@ -456,8 +509,8 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 
 		dbg_q_hdr->qhdr_type = Q_DBG;
 		dbg_q_hdr->qhdr_rx_wm = SET;
-		dbg_q_hdr->qhdr_tx_wm = SET;
-		dbg_q_hdr->qhdr_rx_req = SET;
+		dbg_q_hdr->qhdr_tx_wm = SET_WM;
+		dbg_q_hdr->qhdr_rx_req = RESET;
 		dbg_q_hdr->qhdr_tx_req = RESET;
 		dbg_q_hdr->qhdr_rx_irq_status = RESET;
 		dbg_q_hdr->qhdr_tx_irq_status = RESET;
@@ -495,8 +548,8 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 		dbg_q_hdr->qhdr_type = Q_DBG | TX_EVENT_DRIVEN_MODE_2 |
 			RX_EVENT_DRIVEN_MODE_2;
 		dbg_q_hdr->qhdr_rx_wm = SET;
-		dbg_q_hdr->qhdr_tx_wm = SET;
-		dbg_q_hdr->qhdr_rx_req = SET;
+		dbg_q_hdr->qhdr_tx_wm = SET_WM;
+		dbg_q_hdr->qhdr_rx_req = RESET;
 		dbg_q_hdr->qhdr_tx_req = RESET;
 		dbg_q_hdr->qhdr_rx_irq_status = RESET;
 		dbg_q_hdr->qhdr_tx_irq_status = RESET;
@@ -573,18 +626,4 @@ void cam_hfi_deinit(void)
 err:
 	mutex_unlock(&hfi_cmd_q_mutex);
 	mutex_unlock(&hfi_msg_q_mutex);
-}
-
-void icp_enable_fw_debug(void)
-{
-	hfi_send_system_cmd(HFI_CMD_SYS_SET_PROPERTY,
-		(uint64_t)HFI_PROP_SYS_DEBUG_CFG, 0);
-}
-
-int icp_ping_fw(void)
-{
-	hfi_send_system_cmd(HFI_CMD_SYS_PING,
-		(uint64_t)0x12123434, 0);
-
-	return 0;
 }
