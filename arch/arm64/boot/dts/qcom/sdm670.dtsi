@@ -2469,8 +2469,8 @@
 			<  748800 MHZ_TO_MBPS( 300, 4) >,
 			<  998400 MHZ_TO_MBPS( 451, 4) >,
 			< 1209600 MHZ_TO_MBPS( 547, 4) >,
-			< 1497600 MHZ_TO_MBPS( 768, 4) >,
-			< 1728000 MHZ_TO_MBPS(1017, 4) >;
+			< 1516800 MHZ_TO_MBPS( 768, 4) >,
+			< 1708000 MHZ_TO_MBPS(1017, 4) >;
 	};
 
 	devfreq_memlat_6: qcom,cpu6-memlat-mon {
@@ -2479,11 +2479,11 @@
 		qcom,target-dev = <&memlat_cpu6>;
 		qcom,cachemiss-ev = <0x2a>;
 		qcom,core-dev-table =
-			<  787200 MHZ_TO_MBPS( 300, 4) >,
-			< 1113600 MHZ_TO_MBPS( 547, 4) >,
-			< 1344000 MHZ_TO_MBPS(1017, 4) >,
-			< 1900800 MHZ_TO_MBPS(1555, 4) >,
-			< 2438400 MHZ_TO_MBPS(1804, 4) >;
+			<  825600 MHZ_TO_MBPS( 300, 4) >,
+			< 1132800 MHZ_TO_MBPS( 547, 4) >,
+			< 1363200 MHZ_TO_MBPS(1017, 4) >,
+			< 1996800 MHZ_TO_MBPS(1555, 4) >,
+			< 2457600 MHZ_TO_MBPS(1804, 4) >;
 	};
 
 	l3_cpu0: qcom,l3-cpu0 {
@@ -2506,12 +2506,12 @@
 		qcom,target-dev = <&l3_cpu0>;
 		qcom,cachemiss-ev = <0x17>;
 		qcom,core-dev-table =
-			<  748800  566400000 >,
-			<  998400  787200000 >,
+			<  748800  556800000 >,
+			<  998400  806400000 >,
 			< 1209660  940800000 >,
-			< 1497600 1190400000 >,
+			< 1516800 1190400000 >,
 			< 1612800 1382400000 >,
-			< 1728000 1440000000 >;
+			< 1708000 1440000000 >;
 	};
 
 	devfreq_l3lat_6: qcom,cpu6-l3lat-mon {
@@ -2520,11 +2520,11 @@
 		qcom,target-dev = <&l3_cpu6>;
 		qcom,cachemiss-ev = <0x17>;
 		qcom,core-dev-table =
-			< 1113600  566400000 >,
-			< 1344000  787200000 >,
-			< 1728000  940800000 >,
-			< 1900800 1190400000 >,
-			< 2438400 1440000000 >;
+			< 1132800  556800000 >,
+			< 1363200  806400000 >,
+			< 1747200  940800000 >,
+			< 1996800 1190400000 >,
+			< 2457600 1440000000 >;
 	};
 
 	mincpubw: qcom,mincpubw {
@@ -2551,15 +2551,15 @@
 			target-dev = <&mincpubw>;
 			cpu-to-dev-map-0 =
 				<  748800 MHZ_TO_MBPS( 300, 4) >,
-				< 1209600 MHZ_TO_MBPS( 451, 4) >,
-				< 1612000 MHZ_TO_MBPS( 547, 4) >,
-				< 1728000 MHZ_TO_MBPS( 768, 4) >;
+				< 1209660 MHZ_TO_MBPS( 451, 4) >,
+				< 1612800 MHZ_TO_MBPS( 547, 4) >,
+				< 1708000 MHZ_TO_MBPS( 768, 4) >;
 			cpu-to-dev-map-6 =
-				< 1113600 MHZ_TO_MBPS( 300, 4) >,
-				< 1344000 MHZ_TO_MBPS( 547, 4) >,
-				< 1728000 MHZ_TO_MBPS( 768, 4) >,
-				< 1900800 MHZ_TO_MBPS(1017, 4) >,
-				< 2438400 MHZ_TO_MBPS(1804, 4) >;
+				< 1132800 MHZ_TO_MBPS( 300, 4) >,
+				< 1363200 MHZ_TO_MBPS( 547, 4) >,
+				< 1747200 MHZ_TO_MBPS( 768, 4) >,
+				< 1996800 MHZ_TO_MBPS(1017, 4) >,
+				< 2457600 MHZ_TO_MBPS(1804, 4) >;
 		};
 	};
 
