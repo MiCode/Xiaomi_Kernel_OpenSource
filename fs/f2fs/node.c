@@ -1219,12 +1219,10 @@ static void flush_inline_data(struct f2fs_sb_info *sbi, nid_t ino)
 	if (!inode)
 		return;
 
-	page = find_get_page(inode->i_mapping, 0);
+	page = f2fs_pagecache_get_page(inode->i_mapping, 0,
+					FGP_LOCK|FGP_NOWAIT, 0);
 	if (!page)
 		goto iput_out;
-
-	if (!trylock_page(page))
-		goto release_out;
 
 	if (!PageUptodate(page))
 		goto page_out;
@@ -1241,9 +1239,7 @@ static void flush_inline_data(struct f2fs_sb_info *sbi, nid_t ino)
 	if (ret)
 		set_page_dirty(page);
 page_out:
-	unlock_page(page);
-release_out:
-	f2fs_put_page(page, 0);
+	f2fs_put_page(page, 1);
 iput_out:
 	iput(inode);
 }
