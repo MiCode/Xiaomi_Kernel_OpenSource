@@ -27,7 +27,6 @@
 #include <linux/iommu.h>
 #include <linux/platform_device.h>
 #include <linux/firmware.h>
-#include "ipa_hw_defs.h"
 #include "ipa_qmi_service.h"
 #include "../ipa_api.h"
 #include "ipahal/ipahal_reg.h"

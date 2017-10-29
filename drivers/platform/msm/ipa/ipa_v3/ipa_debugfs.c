@@ -39,16 +39,6 @@ struct ipa3_debugfs_file {
 	const struct file_operations fops;
 };
 
-const char *ipa3_excp_name[] = {
-	__stringify_1(IPA_A5_MUX_HDR_EXCP_RSVD0),
-	__stringify_1(IPA_A5_MUX_HDR_EXCP_RSVD1),
-	__stringify_1(IPA_A5_MUX_HDR_EXCP_FLAG_IHL),
-	__stringify_1(IPA_A5_MUX_HDR_EXCP_FLAG_REPLICATED),
-	__stringify_1(IPA_A5_MUX_HDR_EXCP_FLAG_TAG),
-	__stringify_1(IPA_A5_MUX_HDR_EXCP_FLAG_SW_FLT),
-	__stringify_1(IPA_A5_MUX_HDR_EXCP_FLAG_NAT),
-	__stringify_1(IPA_A5_MUX_HDR_EXCP_FLAG_IP),
-};
 
 const char *ipa3_event_name[] = {
 	__stringify(WLAN_CLIENT_CONNECT),
