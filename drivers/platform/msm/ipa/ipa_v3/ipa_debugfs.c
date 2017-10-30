@@ -67,7 +67,9 @@ const char *ipa3_event_name[] = {
 	__stringify(ADD_VLAN_IFACE),
 	__stringify(DEL_VLAN_IFACE),
 	__stringify(ADD_L2TP_VLAN_MAPPING),
-	__stringify(DEL_L2TP_VLAN_MAPPING)
+	__stringify(DEL_L2TP_VLAN_MAPPING),
+	__stringify(IPA_PER_CLIENT_STATS_CONNECT_EVENT),
+	__stringify(IPA_PER_CLIENT_STATS_DISCONNECT_EVENT),
 };
 
 const char *ipa3_hdr_l2_type_name[] = {
