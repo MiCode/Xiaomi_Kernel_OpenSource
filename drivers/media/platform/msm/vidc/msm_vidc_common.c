@@ -2202,6 +2202,8 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 		if (!core->trigger_ssr)
 			msm_comm_print_inst_info(inst);
 	}
+	/* handle the hw error before core released to get full debug info */
+	msm_vidc_handle_hw_error(core);
 	dprintk(VIDC_DBG, "Calling core_release\n");
 	rc = call_hfi_op(hdev, core_release, hdev->hfi_device_data);
 	if (rc) {
@@ -2212,10 +2214,7 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 	core->state = VIDC_CORE_UNINIT;
 	mutex_unlock(&core->lock);
 
-	dprintk(VIDC_ERR,
-		"SYS_ERROR can potentially crash the system\n");
-
-	msm_vidc_handle_hw_error(core);
+	dprintk(VIDC_WARN, "SYS_ERROR handled.\n");
 }
 
 void msm_comm_session_clean(struct msm_vidc_inst *inst)
