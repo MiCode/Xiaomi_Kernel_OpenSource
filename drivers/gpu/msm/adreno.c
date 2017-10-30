@@ -1922,6 +1922,26 @@ static int adreno_getproperty(struct kgsl_device *device,
 		status = 0;
 	}
 	break;
+	case KGSL_PROP_IB_TIMEOUT:
+	{
+		unsigned int ib_timeout = adreno_drawobj_timeout;
+
+		if (ib_timeout == 0)
+			return -EINVAL;
+
+		if (sizebytes != sizeof(unsigned int)) {
+			status = -EINVAL;
+			break;
+		}
+
+		if (copy_to_user(value, &ib_timeout,
+				sizeof(unsigned int))) {
+			status = -EFAULT;
+			break;
+		}
+		status = 0;
+	}
+	break;
 
 	default:
 		status = -EINVAL;
