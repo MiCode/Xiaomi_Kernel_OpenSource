@@ -333,6 +333,20 @@ static void slim_report(struct work_struct *work)
 	}
 }
 
+static void slim_device_reset(struct work_struct *work)
+{
+	struct slim_driver *sbdrv;
+	struct slim_device *sbdev =
+			container_of(work, struct slim_device, device_reset);
+
+	if (!sbdev->dev.driver)
+		return;
+
+	sbdrv = to_slim_driver(sbdev->dev.driver);
+	if (sbdrv && sbdrv->reset_device)
+		sbdrv->reset_device(sbdev);
+}
+
 /*
  * slim_add_device: Add a new device without register board info.
  * @ctrl: Controller to which this device is to be added to.
@@ -353,6 +367,7 @@ int slim_add_device(struct slim_controller *ctrl, struct slim_device *sbdev)
 	INIT_LIST_HEAD(&sbdev->mark_suspend);
 	INIT_LIST_HEAD(&sbdev->mark_removal);
 	INIT_WORK(&sbdev->wd, slim_report);
+	INIT_WORK(&sbdev->device_reset, slim_device_reset);
 	mutex_lock(&ctrl->m_ctrl);
 	list_add_tail(&sbdev->dev_list, &ctrl->devs);
 	mutex_unlock(&ctrl->m_ctrl);
@@ -684,16 +699,9 @@ void slim_framer_booted(struct slim_controller *ctrl)
 	mutex_unlock(&ctrl->sched.m_reconf);
 	mutex_lock(&ctrl->m_ctrl);
 	list_for_each_safe(pos, next, &ctrl->devs) {
-		struct slim_driver *sbdrv;
-
 		sbdev = list_entry(pos, struct slim_device, dev_list);
-		mutex_unlock(&ctrl->m_ctrl);
-		if (sbdev && sbdev->dev.driver) {
-			sbdrv = to_slim_driver(sbdev->dev.driver);
-			if (sbdrv->reset_device)
-				sbdrv->reset_device(sbdev);
-		}
-		mutex_lock(&ctrl->m_ctrl);
+		if (sbdev)
+			queue_work(ctrl->wq, &sbdev->device_reset);
 	}
 	mutex_unlock(&ctrl->m_ctrl);
 }
