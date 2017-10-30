@@ -1383,8 +1383,6 @@ static int scsi_prep_fn(struct request_queue *q, struct request *req)
 
 	ret = scsi_setup_cmnd(sdev, req);
 out:
-	if (ret != BLKPREP_OK)
-		cmd->flags &= ~SCMD_INITIALIZED;
 	return scsi_prep_return(q, req, ret);
 }
 
@@ -1904,7 +1902,6 @@ static int scsi_mq_prep_fn(struct request *req)
 	struct scsi_device *sdev = req->q->queuedata;
 	struct Scsi_Host *shost = sdev->host;
 	struct scatterlist *sg;
-	int ret;
 
 	scsi_init_command(sdev, cmd);
 
@@ -1938,10 +1935,7 @@ static int scsi_mq_prep_fn(struct request *req)
 
 	blk_mq_start_request(req);
 
-	ret = scsi_setup_cmnd(sdev, req);
-	if (ret != BLK_STS_OK)
-		cmd->flags &= ~SCMD_INITIALIZED;
-	return ret;
+	return scsi_setup_cmnd(sdev, req);
 }
 
 static void scsi_mq_done(struct scsi_cmnd *cmd)
