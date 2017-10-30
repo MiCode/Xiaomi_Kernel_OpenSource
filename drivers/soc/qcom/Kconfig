@@ -902,7 +902,7 @@ config QCOM_EARLY_RANDOM
 	  to get some random data to put in the pool. If unsure, say N.
 
 config QCOM_QDSS_BRIDGE
-	bool "Configure bridge driver for Qualcomm MDM"
+	bool "Configure bridge driver for Qualcomm Technologies, Inc. MDM"
 	depends on MSM_MHI
 	help
 	  The driver will help route diag traffic over the QDSS sub-system to
