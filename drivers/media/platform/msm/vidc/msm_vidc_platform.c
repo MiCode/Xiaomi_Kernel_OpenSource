@@ -162,6 +162,10 @@ static struct msm_vidc_common_data sdm670_common_data_v0[] = {
 		.value = 1,
 	},
 	{
+		.key = "qcom,domain-attr-non-fatal-faults",
+		.value = 1,
+	},
+	{
 		.key = "qcom,max-secure-instances",
 		.value = 5,
 	},
@@ -202,6 +206,10 @@ static struct msm_vidc_common_data sdm670_common_data_v1[] = {
 	},
 	{
 		.key = "qcom,sw-power-collapse",
+		.value = 1,
+	},
+	{
+		.key = "qcom,domain-attr-non-fatal-faults",
 		.value = 1,
 	},
 	{
