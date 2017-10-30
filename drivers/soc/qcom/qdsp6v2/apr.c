@@ -1,4 +1,5 @@
-/* Copyright (c) 2010-2014, 2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, 2016, 2018 The Linux Foundation.
+ * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -206,6 +207,16 @@ static struct apr_svc_table svc_tbl_voice[] = {
 		.idx = 7,
 		.id = APR_SVC_TEST_CLIENT,
 		.client_id = APR_CLIENT_VOICE,
+	},
+};
+
+static const struct apr_svc_table svc_tbl_sdsp[] = {
+	{
+		/* Micro Audio Service */
+		.name = "MAS",
+		.idx = 0,
+		.id = APR_SVC_MAS,
+		.client_id = APR_CLIENT_AUDIO,
 	},
 };
 
@@ -444,6 +455,9 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 		 */
 		can_open_channel = false;
 		domain_id = APR_DOMAIN_MODEM;
+	} else if (!strcmp(dest, "SDSP")) {
+		domain_id = APR_DOMAIN_SDSP;
+		pr_debug("APR: SDSP DOMAIN_ID %d\n", domain_id);
 	} else {
 		pr_err("APR: wrong destination\n");
 		goto done;
@@ -472,6 +486,8 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 			}
 		}
 		pr_debug("%s: modem Up\n", __func__);
+	} else if (dest_id == APR_DEST_DSPS) {
+		pr_debug("%s: Sensor DSP Up\n", __func__);
 	}
 
 	if (apr_get_svc(svc_name, domain_id, &client_id, &svc_idx, &svc_id)) {
@@ -624,6 +640,8 @@ void apr_cb_func(void *buf, int len, void *priv)
 			pr_err("APR: Wrong svc :%d\n", svc);
 			return;
 		}
+	} else if (hdr->src_domain == APR_DOMAIN_SDSP) {
+		clnt = APR_CLIENT_AUDIO;
 	} else {
 		pr_err("APR: Pkt from wrong source: %d\n", hdr->src_domain);
 		return;
@@ -700,6 +718,9 @@ int apr_get_svc(const char *svc_name, int domain_id, int *client_id,
 	if ((domain_id == APR_DOMAIN_ADSP)) {
 		tbl = (struct apr_svc_table *)&svc_tbl_qdsp6;
 		size = ARRAY_SIZE(svc_tbl_qdsp6);
+	} else if (domain_id == APR_DOMAIN_SDSP) {
+		tbl = (struct apr_svc_table *)&svc_tbl_sdsp;
+		size = ARRAY_SIZE(svc_tbl_sdsp);
 	} else {
 		tbl = (struct apr_svc_table *)&svc_tbl_voice;
 		size = ARRAY_SIZE(svc_tbl_voice);
