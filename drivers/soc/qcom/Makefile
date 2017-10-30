@@ -39,6 +39,7 @@ obj-$(CONFIG_QCOM_COMMAND_DB) += cmd-db.o
 obj-$(CONFIG_QTI_RPMH_API) += rpmh.o
 obj-$(CONFIG_QTI_SYSTEM_PM) += system_pm.o
 obj-$(MSM_REMOTEQDSS) += remoteqdss.o
+obj-$(CONFIG_MSM_JTAGV8) += jtagv8.o jtagv8-etm.o
 
 ifdef CONFIG_MSM_SUBSYSTEM_RESTART
        obj-y += subsystem_notif.o
