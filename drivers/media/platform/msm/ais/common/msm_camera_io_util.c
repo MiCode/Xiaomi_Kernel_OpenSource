@@ -501,6 +501,7 @@ vreg_get_fail:
 	}
 	return -ENODEV;
 }
+EXPORT_SYMBOL(msm_camera_config_vreg);
 
 int msm_camera_enable_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
 		int num_vreg, enum msm_camera_vreg_name_t *vreg_seq,
@@ -574,6 +575,7 @@ disable_vreg:
 	}
 	return rc;
 }
+EXPORT_SYMBOL(msm_camera_enable_vreg);
 
 void msm_camera_bus_scale_cfg(uint32_t bus_perf_client,
 		enum msm_bus_perf_setting perf_setting)

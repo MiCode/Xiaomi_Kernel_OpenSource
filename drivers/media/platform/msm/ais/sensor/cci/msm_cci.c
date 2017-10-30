@@ -2011,6 +2011,7 @@ struct v4l2_subdev *msm_cci_get_subdev(void)
 {
 	return g_cci_subdev;
 }
+EXPORT_SYMBOL(msm_cci_get_subdev);
 
 static int msm_cci_probe(struct platform_device *pdev)
 {

@@ -1234,6 +1234,7 @@ ERROR1:
 	*num_vreg = 0;
 	return rc;
 }
+EXPORT_SYMBOL(msm_camera_get_dt_vreg_data);
 
 static int msm_camera_enable_i2c_mux(struct msm_camera_i2c_conf *i2c_conf)
 {
