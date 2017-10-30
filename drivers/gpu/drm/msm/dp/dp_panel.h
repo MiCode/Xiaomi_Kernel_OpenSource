@@ -86,6 +86,7 @@ struct dp_panel {
 	int (*get_modes)(struct dp_panel *dp_panel,
 		struct drm_connector *connector, struct dp_display_mode *mode);
 	void (*handle_sink_request)(struct dp_panel *dp_panel);
+	int (*set_edid)(struct dp_panel *dp_panel, u8 *edid);
 };
 
 /**
