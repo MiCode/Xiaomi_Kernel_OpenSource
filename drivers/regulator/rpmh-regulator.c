@@ -36,10 +36,13 @@
  * %RPMH_REGULATOR_TYPE_ARC:	RPMh ARC accelerator which supports voting on
  *				the CPR managed voltage level of LDO and SMPS
  *				type PMIC regulators.
+ * %RPMH_REGULATOR_TYPE_XOB:	RPMh XOB accelerator which supports voting on
+ *				the enable state of PMIC regulators.
  */
 enum rpmh_regulator_type {
 	RPMH_REGULATOR_TYPE_VRM,
 	RPMH_REGULATOR_TYPE_ARC,
+	RPMH_REGULATOR_TYPE_XOB,
 };
 
 /**
@@ -52,6 +55,7 @@ enum rpmh_regulator_type {
  *					for enable voting.  Instead, ARC level
  *					0 corresponds to "disabled" for a given
  *					ARC regulator resource if supported.
+ * %RPMH_REGULATOR_REG_XOB_ENABLE:	XOB enable voting register index
  * %RPMH_REGULATOR_REG_ENABLE:		Common enable index used in callback
  *					functions for both ARC and VRM.
  * %RPMH_REGULATOR_REG_VRM_MODE:	VRM regulator mode voting register index
@@ -60,6 +64,8 @@ enum rpmh_regulator_type {
  * %RPMH_REGULATOR_REG_ARC_REAL_MAX:	Upper limit of real existent ARC
  *					register indices
  * %RPMH_REGULATOR_REG_ARC_MAX:		Exclusive upper limit of ARC register
+ *					indices
+ * %RPMH_REGULATOR_REG_XOB_MAX:		Exclusive upper limit of XOB register
  *					indices
  * %RPMH_REGULATOR_REG_VRM_MAX:		Exclusive upper limit of VRM register
  *					indices
@@ -73,11 +79,13 @@ enum rpmh_regulator_reg_index {
 	RPMH_REGULATOR_REG_ARC_LEVEL		= 0,
 	RPMH_REGULATOR_REG_VRM_ENABLE		= 1,
 	RPMH_REGULATOR_REG_ARC_PSEUDO_ENABLE	= RPMH_REGULATOR_REG_VRM_ENABLE,
+	RPMH_REGULATOR_REG_XOB_ENABLE		= RPMH_REGULATOR_REG_VRM_ENABLE,
 	RPMH_REGULATOR_REG_ENABLE		= RPMH_REGULATOR_REG_VRM_ENABLE,
 	RPMH_REGULATOR_REG_VRM_MODE		= 2,
 	RPMH_REGULATOR_REG_VRM_HEADROOM		= 3,
 	RPMH_REGULATOR_REG_ARC_REAL_MAX		= 1,
 	RPMH_REGULATOR_REG_ARC_MAX		= 2,
+	RPMH_REGULATOR_REG_XOB_MAX		= 2,
 	RPMH_REGULATOR_REG_VRM_MAX		= 4,
 	RPMH_REGULATOR_REG_MAX			= 4,
 };
@@ -103,6 +111,9 @@ enum rpmh_regulator_reg_index {
 
 #define RPMH_VRM_MODE_MIN		0
 #define RPMH_VRM_MODE_MAX		7
+
+/* XOB voting registers are found in the VRM hardware module */
+#define CMD_DB_HW_XOB			CMD_DB_HW_VRM
 
 /*
  * Mapping from RPMh VRM accelerator modes to regulator framework modes
@@ -297,6 +308,10 @@ static const char *const rpmh_regulator_arc_param_names[] = {
 	[RPMH_REGULATOR_REG_ARC_LEVEL]		= "hlvl",
 };
 
+static const char *const rpmh_regulator_xob_param_names[] = {
+	[RPMH_REGULATOR_REG_XOB_ENABLE]		= "en",
+};
+
 /**
  * rpmh_regulator_req() - print the rpmh regulator request to the kernel log
  * @vreg:		Pointer to the RPMh regulator
@@ -323,12 +338,22 @@ static void rpmh_regulator_req(struct rpmh_vreg *vreg,
 	u32 valid;
 	bool first;
 
-	max_reg_index = aggr_vreg->regulator_type == RPMH_REGULATOR_TYPE_VRM
-					? RPMH_REGULATOR_REG_VRM_MAX
-					: RPMH_REGULATOR_REG_ARC_REAL_MAX;
-	param_name = aggr_vreg->regulator_type == RPMH_REGULATOR_TYPE_VRM
-					? rpmh_regulator_vrm_param_names
-					: rpmh_regulator_arc_param_names;
+	switch (aggr_vreg->regulator_type) {
+	case RPMH_REGULATOR_TYPE_VRM:
+		max_reg_index = RPMH_REGULATOR_REG_VRM_MAX;
+		param_name =  rpmh_regulator_vrm_param_names;
+		break;
+	case RPMH_REGULATOR_TYPE_ARC:
+		max_reg_index = RPMH_REGULATOR_REG_ARC_REAL_MAX;
+		param_name =  rpmh_regulator_arc_param_names;
+		break;
+	case RPMH_REGULATOR_TYPE_XOB:
+		max_reg_index = RPMH_REGULATOR_REG_XOB_MAX;
+		param_name =  rpmh_regulator_xob_param_names;
+		break;
+	default:
+		return;
+	}
 
 	pos += scnprintf(buf + pos, buflen - pos,
 			"%s (%s), addr=0x%05X: s=%s; sent: ",
@@ -438,9 +463,20 @@ rpmh_regulator_send_aggregate_requests(struct rpmh_vreg *vreg)
 	enum rpmh_state state;
 	u32 sent_mask;
 
-	max_reg_index = aggr_vreg->regulator_type == RPMH_REGULATOR_TYPE_VRM
-						? RPMH_REGULATOR_REG_VRM_MAX
-						: RPMH_REGULATOR_REG_ARC_MAX;
+	switch (aggr_vreg->regulator_type) {
+	case RPMH_REGULATOR_TYPE_VRM:
+		max_reg_index = RPMH_REGULATOR_REG_VRM_MAX;
+		break;
+	case RPMH_REGULATOR_TYPE_ARC:
+		max_reg_index = RPMH_REGULATOR_REG_ARC_MAX;
+		break;
+	case RPMH_REGULATOR_TYPE_XOB:
+		max_reg_index = RPMH_REGULATOR_REG_XOB_MAX;
+		break;
+	default:
+		return -EINVAL;
+	}
+
 	/*
 	 * Perform max aggregration of each register value across all regulators
 	 * which use this RPMh resource.
@@ -1005,9 +1041,16 @@ static const struct regulator_ops rpmh_regulator_arc_ops = {
 	.list_voltage		= rpmh_regulator_arc_list_voltage,
 };
 
+static const struct regulator_ops rpmh_regulator_xob_ops = {
+	.enable			= rpmh_regulator_enable,
+	.disable		= rpmh_regulator_disable,
+	.is_enabled		= rpmh_regulator_is_enabled,
+};
+
 static const struct regulator_ops *rpmh_regulator_ops[] = {
 	[RPMH_REGULATOR_TYPE_VRM]	= &rpmh_regulator_vrm_ops,
 	[RPMH_REGULATOR_TYPE_ARC]	= &rpmh_regulator_arc_ops,
+	[RPMH_REGULATOR_TYPE_XOB]	= &rpmh_regulator_xob_ops,
 };
 
 /**
@@ -1315,6 +1358,13 @@ static int rpmh_regulator_load_default_parameters(struct rpmh_vreg *vreg)
 		rc = of_property_read_u32(vreg->of_node, prop, &temp);
 		if (!rc)
 			vreg->rdesc.min_dropout_uV = temp;
+	} else if (type == RPMH_REGULATOR_TYPE_XOB) {
+		prop = "qcom,init-enable";
+		rc = of_property_read_u32(vreg->of_node, prop, &temp);
+		if (!rc)
+			rpmh_regulator_set_reg(vreg,
+						RPMH_REGULATOR_REG_XOB_ENABLE,
+						!!temp);
 	}
 
 	return 0;
@@ -1401,6 +1451,10 @@ static int rpmh_regulator_init_vreg(struct rpmh_vreg *vreg)
 		init_data->constraints.valid_ops_mask
 			|= REGULATOR_CHANGE_VOLTAGE;
 
+	if (type == RPMH_REGULATOR_TYPE_XOB
+	    && init_data->constraints.min_uV == init_data->constraints.max_uV)
+		vreg->rdesc.fixed_uV = init_data->constraints.min_uV;
+
 	if (vreg->aggr_vreg->mode_count) {
 		init_data->constraints.valid_ops_mask
 			|= REGULATOR_CHANGE_MODE | REGULATOR_CHANGE_DRMS;
@@ -1427,8 +1481,19 @@ static int rpmh_regulator_init_vreg(struct rpmh_vreg *vreg)
 		init_data->constraints.valid_ops_mask
 			|= REGULATOR_CHANGE_STATUS;
 
-	vreg->rdesc.n_voltages = type == RPMH_REGULATOR_TYPE_ARC ?
-					vreg->aggr_vreg->level_count : 2;
+	switch (type) {
+	case RPMH_REGULATOR_TYPE_VRM:
+		vreg->rdesc.n_voltages = 2;
+		break;
+	case RPMH_REGULATOR_TYPE_ARC:
+		vreg->rdesc.n_voltages = vreg->aggr_vreg->level_count;
+		break;
+	case RPMH_REGULATOR_TYPE_XOB:
+		vreg->rdesc.n_voltages = 1;
+		break;
+	default:
+		return -EINVAL;
+	}
 
 	rc = of_property_read_u32(vreg->of_node, "qcom,set", &set);
 	if (rc) {
@@ -1485,6 +1550,10 @@ static const struct of_device_id rpmh_regulator_match_table[] = {
 	{
 		.compatible = "qcom,rpmh-arc-regulator",
 		.data = (void *)(uintptr_t)RPMH_REGULATOR_TYPE_ARC,
+	},
+	{
+		.compatible = "qcom,rpmh-xob-regulator",
+		.data = (void *)(uintptr_t)RPMH_REGULATOR_TYPE_XOB,
 	},
 	{}
 };
@@ -1563,11 +1632,15 @@ static int rpmh_regulator_probe(struct platform_device *pdev)
 	if ((aggr_vreg->regulator_type == RPMH_REGULATOR_TYPE_ARC
 			&& sid != CMD_DB_HW_ARC)
 	    || (aggr_vreg->regulator_type == RPMH_REGULATOR_TYPE_VRM
-			&& sid != CMD_DB_HW_VRM)) {
+			&& sid != CMD_DB_HW_VRM)
+	    || (aggr_vreg->regulator_type == RPMH_REGULATOR_TYPE_XOB
+			&& sid != CMD_DB_HW_XOB)) {
 		aggr_vreg_err(aggr_vreg, "RPMh slave ID mismatch; config=%d (%s) != cmd-db=%d\n",
 			aggr_vreg->regulator_type,
 			aggr_vreg->regulator_type == RPMH_REGULATOR_TYPE_ARC
-				? "ARC" : "VRM",
+				? "ARC" : (aggr_vreg->regulator_type
+						== RPMH_REGULATOR_TYPE_VRM
+					  ? "VRM" : "XOB"),
 			sid);
 		return -EINVAL;
 	}
@@ -1635,7 +1708,10 @@ static int rpmh_regulator_probe(struct platform_device *pdev)
 	aggr_vreg_debug(aggr_vreg, "successfully probed; addr=0x%05X, type=%s\n",
 			aggr_vreg->addr,
 			aggr_vreg->regulator_type == RPMH_REGULATOR_TYPE_ARC
-				? "ARC" : "VRM");
+				? "ARC"
+				: (aggr_vreg->regulator_type
+						== RPMH_REGULATOR_TYPE_VRM
+					? "VRM" : "XOB"));
 
 	return rc;
 
