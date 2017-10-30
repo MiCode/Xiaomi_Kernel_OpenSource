@@ -68,6 +68,9 @@ static int msm_vi_feed_tx_ch = 2;
 static int mi2s_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int mi2s_rx_bits_per_sample = 16;
 static int mi2s_rx_sample_rate = SAMPLING_RATE_48KHZ;
+static int mi2s_tx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
+static int mi2s_tx_bits_per_sample = 16;
+static int mi2s_tx_sample_rate = SAMPLING_RATE_48KHZ;
 
 static atomic_t quat_mi2s_clk_ref;
 static atomic_t quin_mi2s_clk_ref;
@@ -161,7 +164,8 @@ static struct afe_clk_set wsa_ana_clk = {
 	0,
 };
 
-static char const *rx_bit_format_text[] = {"S16_LE", "S24_LE", "S24_3LE"};
+static char const *bit_format_text[] = {"S16_LE", "S24_LE", "S24_3LE",
+					"S32_LE"};
 static const char *const mi2s_ch_text[] = {"One", "Two"};
 static const char *const loopback_mclk_text[] = {"DISABLE", "ENABLE"};
 static const char *const btsco_rate_text[] = {"BTSCO_RATE_8KHZ",
@@ -389,7 +393,7 @@ static int msm_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 
 	pr_debug("%s(), channel:%d\n", __func__, msm_ter_mi2s_tx_ch);
 	param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
-			SNDRV_PCM_FORMAT_S16_LE);
+			mi2s_tx_bit_format);
 	rate->min = rate->max = 48000;
 	channels->min = channels->max = msm_ter_mi2s_tx_ch;
 
@@ -480,7 +484,7 @@ static int msm_mi2s_snd_hw_params(struct snd_pcm_substream *substream,
 			       mi2s_rx_bit_format);
 	else
 		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
-			       SNDRV_PCM_FORMAT_S16_LE);
+			       mi2s_tx_bit_format);
 	return 0;
 }
 
@@ -549,7 +553,7 @@ static bool is_mi2s_rx_port(int port_id)
 	return ret;
 }
 
-static uint32_t get_mi2s_rx_clk_val(int port_id)
+static uint32_t get_mi2s_clk_val(int port_id)
 {
 	uint32_t clk_val = 0;
 
@@ -559,8 +563,10 @@ static uint32_t get_mi2s_rx_clk_val(int port_id)
 	 */
 	if (is_mi2s_rx_port(port_id))
 		clk_val = (mi2s_rx_sample_rate * mi2s_rx_bits_per_sample * 2);
+	else
+		clk_val = (mi2s_tx_sample_rate * mi2s_tx_bits_per_sample * 2);
 
-	pr_debug("%s: MI2S Rx bit clock value: 0x%0x\n", __func__, clk_val);
+	pr_debug("%s: MI2S bit clock value: 0x%0x\n", __func__, clk_val);
 	return clk_val;
 }
 
@@ -581,7 +587,7 @@ static int msm_mi2s_sclk_ctl(struct snd_pcm_substream *substream, bool enable)
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			if (pdata->afe_clk_ver == AFE_CLK_VERSION_V1) {
 				mi2s_rx_clk_v1.clk_val1 =
-						get_mi2s_rx_clk_val(port_id);
+						get_mi2s_clk_val(port_id);
 				ret = afe_set_lpass_clock(port_id,
 							&mi2s_rx_clk_v1);
 			} else {
@@ -589,14 +595,14 @@ static int msm_mi2s_sclk_ctl(struct snd_pcm_substream *substream, bool enable)
 				mi2s_rx_clk.clk_id =
 						msm8952_get_clk_id(port_id);
 				mi2s_rx_clk.clk_freq_in_hz =
-						get_mi2s_rx_clk_val(port_id);
+						get_mi2s_clk_val(port_id);
 				ret = afe_set_lpass_clock_v2(port_id,
 							&mi2s_rx_clk);
 			}
 		} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 			if (pdata->afe_clk_ver == AFE_CLK_VERSION_V1) {
 				mi2s_tx_clk_v1.clk_val1 =
-						Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
+						get_mi2s_clk_val(port_id);
 				ret = afe_set_lpass_clock(port_id,
 							&mi2s_tx_clk_v1);
 			} else {
@@ -604,7 +610,7 @@ static int msm_mi2s_sclk_ctl(struct snd_pcm_substream *substream, bool enable)
 				mi2s_tx_clk.clk_id =
 						msm8952_get_clk_id(port_id);
 				mi2s_tx_clk.clk_freq_in_hz =
-						Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
+						get_mi2s_clk_val(port_id);
 				ret = afe_set_lpass_clock_v2(port_id,
 							&mi2s_tx_clk);
 			}
@@ -787,6 +793,61 @@ static int mi2s_rx_bit_format_put(struct snd_kcontrol *kcontrol,
 		mi2s_rx_bits_per_sample = 16;
 		break;
 	}
+	return 0;
+}
+
+static int mi2s_tx_bit_format_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 3:
+		mi2s_tx_bit_format = SNDRV_PCM_FORMAT_S32_LE;
+		mi2s_tx_bits_per_sample = 32;
+		break;
+	case 2:
+		mi2s_tx_bit_format = SNDRV_PCM_FORMAT_S24_3LE;
+		mi2s_tx_bits_per_sample = 32;
+		break;
+	case 1:
+		mi2s_tx_bit_format = SNDRV_PCM_FORMAT_S24_LE;
+		mi2s_tx_bits_per_sample = 32;
+		break;
+	case 0:
+	default:
+		mi2s_tx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
+		mi2s_tx_bits_per_sample = 16;
+		break;
+	}
+	return 0;
+}
+
+static int mi2s_tx_bit_format_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+
+	switch (mi2s_tx_bit_format) {
+	case SNDRV_PCM_FORMAT_S32_LE:
+		ucontrol->value.integer.value[0] = 3;
+		break;
+
+	case SNDRV_PCM_FORMAT_S24_3LE:
+		ucontrol->value.integer.value[0] = 2;
+		break;
+
+	case SNDRV_PCM_FORMAT_S24_LE:
+		ucontrol->value.integer.value[0] = 1;
+		break;
+
+	case SNDRV_PCM_FORMAT_S16_LE:
+	default:
+		ucontrol->value.integer.value[0] = 0;
+		break;
+	}
+
+	pr_debug("%s: mi2s_tx_bit_format = %d, ucontrol value = %ld\n",
+			__func__, mi2s_tx_bit_format,
+			ucontrol->value.integer.value[0]);
+
 	return 0;
 }
 
@@ -988,8 +1049,8 @@ static int msm_vi_feed_tx_ch_put(struct snd_kcontrol *kcontrol,
 }
 
 static const struct soc_enum msm_snd_enum[] = {
-	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(rx_bit_format_text),
-				rx_bit_format_text),
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(bit_format_text),
+				bit_format_text),
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(mi2s_ch_text),
 				mi2s_ch_text),
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(loopback_mclk_text),
@@ -1007,6 +1068,8 @@ static const struct soc_enum msm_snd_enum[] = {
 static const struct snd_kcontrol_new msm_snd_controls[] = {
 	SOC_ENUM_EXT("MI2S_RX Format", msm_snd_enum[0],
 			mi2s_rx_bit_format_get, mi2s_rx_bit_format_put),
+	SOC_ENUM_EXT("MI2S_TX Format", msm_snd_enum[0],
+			mi2s_tx_bit_format_get, mi2s_tx_bit_format_put),
 	SOC_ENUM_EXT("MI2S_TX Channels", msm_snd_enum[1],
 			msm_ter_mi2s_tx_ch_get, msm_ter_mi2s_tx_ch_put),
 	SOC_ENUM_EXT("MI2S_RX Channels", msm_snd_enum[1],
