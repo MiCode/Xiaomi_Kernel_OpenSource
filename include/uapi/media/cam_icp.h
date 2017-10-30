@@ -4,11 +4,12 @@
 #include "cam_defs.h"
 
 /* icp, ipe, bps, cdm(ipe/bps) are used in querycap */
-#define CAM_ICP_DEV_TYPE_A5      0
-#define CAM_ICP_DEV_TYPE__CDM    1
+#define CAM_ICP_DEV_TYPE_A5      1
 #define CAM_ICP_DEV_TYPE_IPE     2
 #define CAM_ICP_DEV_TYPE_BPS     3
-#define CAM_ICP_DEV_TYPE_MAX     4
+#define CAM_ICP_DEV_TYPE_IPE_CDM 4
+#define CAM_ICP_DEV_TYPE_BPS_CDM 5
+#define CAM_ICP_DEV_TYPE_MAX     5
 
 /* definitions needed for icp aquire device */
 #define CAM_ICP_RES_TYPE_BPS        1

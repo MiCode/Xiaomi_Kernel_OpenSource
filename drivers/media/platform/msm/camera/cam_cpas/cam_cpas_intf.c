@@ -52,24 +52,22 @@ static struct cam_cpas_intf *g_cpas_intf;
 
 int cam_cpas_get_hw_info(uint32_t *camera_family,
 	struct cam_hw_version *camera_version,
-	struct cam_hw_version *cpas_version,
-	uint32_t *cam_caps)
+	struct cam_hw_version *cpas_version)
 {
 	if (!CAM_CPAS_INTF_INITIALIZED()) {
 		CAM_ERR(CAM_CPAS, "cpas intf not initialized");
 		return -ENODEV;
 	}
 
-	if (!camera_family || !camera_version || !cpas_version || !cam_caps) {
-		CAM_ERR(CAM_CPAS, "invalid input %pK %pK %pK %pK",
-			camera_family, camera_version, cpas_version, cam_caps);
+	if (!camera_family || !camera_version || !cpas_version) {
+		CAM_ERR(CAM_CPAS, "invalid input %pK %pK %pK", camera_family,
+			camera_version, cpas_version);
 		return -EINVAL;
 	}
 
 	*camera_family = g_cpas_intf->hw_caps.camera_family;
 	*camera_version = g_cpas_intf->hw_caps.camera_version;
 	*cpas_version = g_cpas_intf->hw_caps.cpas_version;
-	*cam_caps = g_cpas_intf->hw_caps.camera_capability;
 
 	return 0;
 }
@@ -349,8 +347,7 @@ int cam_cpas_subdev_cmd(struct cam_cpas_intf *cpas_intf,
 		}
 
 		rc = cam_cpas_get_hw_info(&query.camera_family,
-			&query.camera_version, &query.cpas_version,
-			&query.camera_caps);
+			&query.camera_version, &query.cpas_version);
 		if (rc)
 			break;
 
