@@ -605,8 +605,10 @@ int msm_vidc_streamon(void *instance, enum v4l2_buf_type i)
 	mutex_lock(&q->lock);
 	rc = vb2_streamon(&q->vb2_bufq, i);
 	mutex_unlock(&q->lock);
-	if (rc)
+	if (rc) {
 		dprintk(VIDC_ERR, "streamon failed on port: %d\n", i);
+		msm_comm_kill_session(inst);
+	}
 	return rc;
 }
 EXPORT_SYMBOL(msm_vidc_streamon);
@@ -1010,10 +1012,9 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	}
 
 fail_start:
-	if (rc) {
-		dprintk(VIDC_ERR, "%s: kill session %pK\n", __func__, inst);
-		msm_comm_kill_session(inst);
-	}
+	if (rc)
+		dprintk(VIDC_ERR, "%s: inst %pK session %x failed to start\n",
+			__func__, inst, hash32_ptr(inst->session));
 	return rc;
 }
 
