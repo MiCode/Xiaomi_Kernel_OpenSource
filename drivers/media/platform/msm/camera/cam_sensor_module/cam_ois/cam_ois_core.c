@@ -17,6 +17,7 @@
 #include "cam_ois_soc.h"
 #include "cam_sensor_util.h"
 #include "cam_debug_util.h"
+#include "cam_res_mgr_api.h"
 
 /**
  * cam_ois_get_dev_handle - get device handle
@@ -109,7 +110,7 @@ static int cam_ois_power_up(struct cam_ois_ctrl_t *o_ctrl)
 	if (soc_info->gpio_data &&
 		gpio_num_info &&
 		gpio_num_info->valid[SENSOR_VAF] == 1) {
-		gpio_set_value_cansleep(
+		cam_res_mgr_gpio_set_value(
 			gpio_num_info->gpio_num[SENSOR_VAF],
 			1);
 	}
@@ -137,7 +138,7 @@ static int cam_ois_power_down(struct cam_ois_ctrl_t *o_ctrl)
 		gpio_num_info &&
 		gpio_num_info->valid[SENSOR_VAF] == 1) {
 
-		gpio_set_value_cansleep(
+		cam_res_mgr_gpio_set_value(
 			gpio_num_info->gpio_num[SENSOR_VAF],
 			GPIOF_OUT_INIT_LOW);
 	}

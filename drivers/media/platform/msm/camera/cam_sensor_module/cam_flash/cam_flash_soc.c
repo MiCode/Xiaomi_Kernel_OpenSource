@@ -13,6 +13,7 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include "cam_flash_soc.h"
+#include "cam_res_mgr_api.h"
 
 static int32_t cam_get_source_node_info(
 	struct device_node *of_node,
@@ -38,7 +39,7 @@ static int32_t cam_get_source_node_info(
 		} else {
 			CAM_DBG(CAM_FLASH, "switch trigger %s",
 				soc_private->switch_trigger_name);
-			led_trigger_register_simple(
+			cam_res_mgr_led_trigger_register(
 				soc_private->switch_trigger_name,
 				&fctrl->switch_trigger);
 		}
@@ -111,7 +112,7 @@ static int32_t cam_get_source_node_info(
 			CAM_DBG(CAM_FLASH, "max_current[%d]: %d",
 				i, soc_private->flash_max_current[i]);
 
-			led_trigger_register_simple(
+			cam_res_mgr_led_trigger_register(
 				soc_private->flash_trigger_name[i],
 				&fctrl->flash_trigger[i]);
 		}
@@ -172,7 +173,7 @@ static int32_t cam_get_source_node_info(
 			CAM_DBG(CAM_FLASH, "max_current[%d]: %d",
 				i, soc_private->torch_max_current[i]);
 
-			led_trigger_register_simple(
+			cam_res_mgr_led_trigger_register(
 				soc_private->torch_trigger_name[i],
 				&fctrl->torch_trigger[i]);
 		}

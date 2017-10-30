@@ -15,6 +15,7 @@
 #include "cam_actuator_core.h"
 #include "cam_sensor_util.h"
 #include "cam_trace.h"
+#include "cam_res_mgr_api.h"
 
 static int32_t cam_actuator_vreg_control(
 	struct cam_actuator_ctrl_t *a_ctrl,
@@ -66,7 +67,7 @@ static int32_t cam_actuator_power_up(struct cam_actuator_ctrl_t *a_ctrl)
 	if (soc_info->gpio_data &&
 		gpio_num_info &&
 		gpio_num_info->valid[SENSOR_VAF] == 1) {
-		gpio_set_value_cansleep(
+		cam_res_mgr_gpio_set_value(
 			gpio_num_info->gpio_num[SENSOR_VAF],
 			1);
 	}
@@ -94,7 +95,7 @@ static int32_t cam_actuator_power_down(struct cam_actuator_ctrl_t *a_ctrl)
 		gpio_num_info &&
 		gpio_num_info->valid[SENSOR_VAF] == 1) {
 
-		gpio_set_value_cansleep(
+		cam_res_mgr_gpio_set_value(
 			gpio_num_info->gpio_num[SENSOR_VAF],
 			GPIOF_OUT_INIT_LOW);
 	}
