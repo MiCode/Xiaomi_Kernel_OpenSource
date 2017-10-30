@@ -566,45 +566,6 @@ int _sde_edid_update_modes(struct drm_connector *connector,
 	return rc;
 }
 
-u32 sde_get_sink_bpc(void *input)
-{
-	struct sde_edid_ctrl *edid_ctrl = (struct sde_edid_ctrl *)(input);
-	struct edid *edid = edid_ctrl->edid;
-
-	if (!edid) {
-		SDE_ERROR("invalid edid input\n");
-		return 0;
-	}
-
-	if ((edid->revision < 3) || !(edid->input & DRM_EDID_INPUT_DIGITAL))
-		return 0;
-
-	if (edid->revision < 4) {
-		if (edid->input & DRM_EDID_DIGITAL_TYPE_DVI)
-			return 8;
-		else
-			return 0;
-	}
-
-	switch (edid->input & DRM_EDID_DIGITAL_DEPTH_MASK) {
-	case DRM_EDID_DIGITAL_DEPTH_6:
-		return 6;
-	case DRM_EDID_DIGITAL_DEPTH_8:
-		return 8;
-	case DRM_EDID_DIGITAL_DEPTH_10:
-		return 10;
-	case DRM_EDID_DIGITAL_DEPTH_12:
-		return 12;
-	case DRM_EDID_DIGITAL_DEPTH_14:
-		return 14;
-	case DRM_EDID_DIGITAL_DEPTH_16:
-		return 16;
-	case DRM_EDID_DIGITAL_DEPTH_UNDEF:
-	default:
-		return 0;
-	}
-}
-
 u8 sde_get_edid_checksum(void *input)
 {
 	struct sde_edid_ctrl *edid_ctrl = (struct sde_edid_ctrl *)(input);
