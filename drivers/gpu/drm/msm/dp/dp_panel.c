@@ -31,6 +31,7 @@ struct dp_panel_private {
 	struct dp_catalog_panel *catalog;
 	bool aux_cfg_update_done;
 	bool custom_edid;
+	bool custom_dpcd;
 };
 
 static const struct dp_panel_info fail_safe = {
@@ -70,12 +71,17 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 	link_info = &dp_panel->link_info;
 
-	rlen = drm_dp_dpcd_read(panel->aux->drm_aux, DP_DPCD_REV,
-		dpcd, (DP_RECEIVER_CAP_SIZE + 1));
-	if (rlen < (DP_RECEIVER_CAP_SIZE + 1)) {
-		pr_err("dpcd read failed, rlen=%d\n", rlen);
-		rc = -EINVAL;
-		goto end;
+	if (!panel->custom_dpcd) {
+		rlen = drm_dp_dpcd_read(panel->aux->drm_aux, DP_DPCD_REV,
+			dp_panel->dpcd, (DP_RECEIVER_CAP_SIZE + 1));
+		if (rlen < (DP_RECEIVER_CAP_SIZE + 1)) {
+			pr_err("dpcd read failed, rlen=%d\n", rlen);
+			rc = -EINVAL;
+			goto end;
+		}
+
+		print_hex_dump(KERN_DEBUG, "[drm-dp] SINK DPCD: ",
+			DUMP_PREFIX_NONE, 8, 1, dp_panel->dpcd, rlen, false);
 	}
 
 	link_info->revision = dp_panel->dpcd[DP_DPCD_REV];
@@ -154,6 +160,30 @@ static int dp_panel_set_edid(struct dp_panel *dp_panel, u8 *edid)
 		panel->custom_edid = true;
 	} else {
 		panel->custom_edid = false;
+	}
+
+	return 0;
+}
+
+static int dp_panel_set_dpcd(struct dp_panel *dp_panel, u8 *dpcd)
+{
+	struct dp_panel_private *panel;
+	u8 *dp_dpcd;
+
+	if (!dp_panel) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	dp_dpcd = dp_panel->dpcd;
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+
+	if (dpcd) {
+		memcpy(dp_dpcd, dpcd, DP_RECEIVER_CAP_SIZE + 1);
+		panel->custom_dpcd = true;
+	} else {
+		panel->custom_dpcd = false;
 	}
 
 	return 0;
@@ -569,6 +599,7 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	dp_panel->get_modes = dp_panel_get_modes;
 	dp_panel->handle_sink_request = dp_panel_handle_sink_request;
 	dp_panel->set_edid = dp_panel_set_edid;
+	dp_panel->set_dpcd = dp_panel_set_dpcd;
 
 	dp_panel_edid_register(panel);
 

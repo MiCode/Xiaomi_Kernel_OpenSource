@@ -32,6 +32,9 @@ struct dp_debug_private {
 	u8 *edid;
 	u32 edid_size;
 
+	u8 *dpcd;
+	u32 dpcd_size;
+
 	struct dp_usbpd *usbpd;
 	struct dp_link *link;
 	struct dp_panel *panel;
@@ -103,6 +106,73 @@ static ssize_t dp_debug_write_edid(struct file *file,
 bail:
 	kfree(buf);
 	debug->panel->set_edid(debug->panel, edid);
+	return rc;
+}
+
+static ssize_t dp_debug_write_dpcd(struct file *file,
+		const char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	u8 *buf = NULL, *buf_t = NULL, *dpcd = NULL;
+	const int char_to_nib = 2;
+	size_t dpcd_size = 0;
+	size_t size = 0, dpcd_buf_index = 0;
+	ssize_t rc = count;
+
+	pr_debug("count=%zu\n", count);
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		goto bail;
+
+	size = min_t(size_t, count, SZ_32);
+
+	buf = kzalloc(size, GFP_KERNEL);
+	if (!buf) {
+		rc = -ENOMEM;
+		goto bail;
+	}
+
+	if (copy_from_user(buf, user_buff, size))
+		goto bail;
+
+	dpcd_size = size / char_to_nib;
+	buf_t = buf;
+
+	memset(debug->dpcd, 0, debug->dpcd_size);
+
+	if (dpcd_size != debug->dpcd_size) {
+		pr_debug("clearing debug dpcd\n");
+		goto bail;
+	}
+
+	while (dpcd_size--) {
+		char t[3];
+		int d;
+
+		memcpy(t, buf_t, sizeof(char) * char_to_nib);
+		t[char_to_nib] = '\0';
+
+		if (kstrtoint(t, 16, &d)) {
+			pr_err("kstrtoint error\n");
+			goto bail;
+		}
+
+		if (dpcd_buf_index < debug->dpcd_size)
+			debug->dpcd[dpcd_buf_index++] = d;
+
+		buf_t += char_to_nib;
+	}
+
+	print_hex_dump(KERN_DEBUG, "DEBUG DPCD: ", DUMP_PREFIX_NONE,
+		8, 1, debug->dpcd, debug->dpcd_size, false);
+
+	dpcd = debug->dpcd;
+bail:
+	kfree(buf);
+	debug->panel->set_dpcd(debug->panel, dpcd);
 	return rc;
 }
 
@@ -503,6 +573,11 @@ static const struct file_operations edid_fops = {
 	.write = dp_debug_write_edid,
 };
 
+static const struct file_operations dpcd_fops = {
+	.open = simple_open,
+	.write = dp_debug_write_dpcd,
+};
+
 static const struct file_operations connected_fops = {
 	.open = simple_open,
 	.read = dp_debug_read_connected,
@@ -585,6 +660,15 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		goto error_remove_dir;
 	}
 
+	file = debugfs_create_file("dpcd", 0644, dir,
+					debug, &dpcd_fops);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs dpcd failed, rc=%d\n",
+			DEBUG_NAME, rc);
+		goto error_remove_dir;
+	}
+
 	return 0;
 
 error_remove_dir:
@@ -621,6 +705,15 @@ struct dp_debug *dp_debug_get(struct device *dev, struct dp_panel *panel,
 	}
 
 	debug->edid_size = SZ_256;
+
+	debug->dpcd = devm_kzalloc(dev, SZ_16, GFP_KERNEL);
+	if (!debug->dpcd) {
+		rc = -ENOMEM;
+		kfree(debug);
+		goto error;
+	}
+
+	debug->dpcd_size = SZ_16;
 
 	debug->dp_debug.debug_en = false;
 	debug->usbpd = usbpd;
@@ -671,5 +764,6 @@ void dp_debug_put(struct dp_debug *dp_debug)
 	dp_debug_deinit(dp_debug);
 
 	devm_kfree(debug->dev, debug->edid);
+	devm_kfree(debug->dev, debug->dpcd);
 	devm_kfree(debug->dev, debug);
 }
