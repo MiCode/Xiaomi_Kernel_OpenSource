@@ -16,6 +16,7 @@
 
 #include "sde_kms.h"
 #include "sde_connector.h"
+#include "sde_encoder.h"
 #include <linux/backlight.h>
 #include "dsi_drm.h"
 #include "dsi_display.h"
@@ -671,44 +672,84 @@ sde_connector_atomic_duplicate_state(struct drm_connector *connector)
 	return &c_state->base;
 }
 
-static int _sde_connector_roi_v1_check_roi(
-		struct sde_connector *c_conn,
-		struct drm_clip_rect *roi_conn,
-		const struct msm_roi_caps *caps)
+int sde_connector_roi_v1_check_roi(struct drm_connector_state *conn_state)
 {
-	const struct msm_roi_alignment *align = &caps->align;
-	int w = roi_conn->x2 - roi_conn->x1;
-	int h = roi_conn->y2 - roi_conn->y1;
+	const struct msm_roi_alignment *align = NULL;
+	struct sde_connector *c_conn = NULL;
+	struct msm_mode_info mode_info;
+	struct sde_connector_state *c_state;
+	int rc, i, w, h;
 
-	if (w <= 0 || h <= 0) {
-		SDE_ERROR_CONN(c_conn, "invalid conn roi w %d h %d\n", w, h);
+	if (!conn_state)
 		return -EINVAL;
+
+	memset(&mode_info, 0, sizeof(mode_info));
+
+	c_state = to_sde_connector_state(conn_state);
+	c_conn = to_sde_connector(conn_state->connector);
+
+	rc = sde_encoder_get_mode_info(c_conn->encoder, &mode_info);
+	if (rc) {
+		SDE_ERROR_CONN(c_conn, "get mode info error: %d\n", rc);
+		return rc;
 	}
 
-	if (w < align->min_width || w % align->width_pix_align) {
-		SDE_ERROR_CONN(c_conn,
-				"invalid conn roi width %d min %d align %d\n",
-				w, align->min_width, align->width_pix_align);
-		return -EINVAL;
-	}
+	if (!mode_info.roi_caps.enabled)
+		return 0;
 
-	if (h < align->min_height || h % align->height_pix_align) {
-		SDE_ERROR_CONN(c_conn,
-				"invalid conn roi height %d min %d align %d\n",
-				h, align->min_height, align->height_pix_align);
-		return -EINVAL;
-	}
+	if (c_state->rois.num_rects > mode_info.roi_caps.num_roi) {
+		SDE_ERROR_CONN(c_conn, "too many rects specified: %d > %d\n",
+				c_state->rois.num_rects,
+				mode_info.roi_caps.num_roi);
+		return -E2BIG;
+	};
 
-	if (roi_conn->x1 % align->xstart_pix_align) {
-		SDE_ERROR_CONN(c_conn, "invalid conn roi x1 %d align %d\n",
-				roi_conn->x1, align->xstart_pix_align);
-		return -EINVAL;
-	}
+	align = &mode_info.roi_caps.align;
+	for (i = 0; i < c_state->rois.num_rects; ++i) {
+		struct drm_clip_rect *roi_conn;
 
-	if (roi_conn->y1 % align->ystart_pix_align) {
-		SDE_ERROR_CONN(c_conn, "invalid conn roi y1 %d align %d\n",
-				roi_conn->y1, align->ystart_pix_align);
-		return -EINVAL;
+		roi_conn = &c_state->rois.roi[i];
+		w = roi_conn->x2 - roi_conn->x1;
+		h = roi_conn->y2 - roi_conn->y1;
+
+		SDE_EVT32_VERBOSE(roi_conn->x1, roi_conn->y1,
+				roi_conn->x2, roi_conn->y2);
+
+		if (w <= 0 || h <= 0) {
+			SDE_ERROR_CONN(c_conn, "invalid conn roi w %d h %d\n",
+					w, h);
+			return -EINVAL;
+		}
+
+		if (w < align->min_width || w % align->width_pix_align) {
+			SDE_ERROR_CONN(c_conn,
+					"invalid conn roi width %d min %d align %d\n",
+					w, align->min_width,
+					align->width_pix_align);
+			return -EINVAL;
+		}
+
+		if (h < align->min_height || h % align->height_pix_align) {
+			SDE_ERROR_CONN(c_conn,
+					"invalid conn roi height %d min %d align %d\n",
+					h, align->min_height,
+					align->height_pix_align);
+			return -EINVAL;
+		}
+
+		if (roi_conn->x1 % align->xstart_pix_align) {
+			SDE_ERROR_CONN(c_conn,
+					"invalid conn roi x1 %d align %d\n",
+					roi_conn->x1, align->xstart_pix_align);
+			return -EINVAL;
+		}
+
+		if (roi_conn->y1 % align->ystart_pix_align) {
+			SDE_ERROR_CONN(c_conn,
+					"invalid conn roi y1 %d align %d\n",
+					roi_conn->y1, align->ystart_pix_align);
+			return -EINVAL;
+		}
 	}
 
 	return 0;
@@ -720,25 +761,11 @@ static int _sde_connector_set_roi_v1(
 		void *usr_ptr)
 {
 	struct sde_drm_roi_v1 roi_v1;
-	struct msm_display_info display_info;
-	struct msm_roi_caps *caps;
-	int i, rc;
+	int i;
 
 	if (!c_conn || !c_state) {
 		SDE_ERROR("invalid args\n");
 		return -EINVAL;
-	}
-
-	rc = sde_connector_get_info(&c_conn->base, &display_info);
-	if (rc) {
-		SDE_ERROR_CONN(c_conn, "display get info error: %d\n", rc);
-		return rc;
-	}
-
-	caps = &display_info.roi_caps;
-	if (!caps->enabled) {
-		SDE_ERROR_CONN(c_conn, "display roi capability is disabled\n");
-		return -ENOTSUPP;
 	}
 
 	memset(&c_state->rois, 0, sizeof(c_state->rois));
@@ -760,22 +787,14 @@ static int _sde_connector_set_roi_v1(
 		return 0;
 	}
 
-	if (roi_v1.num_rects > SDE_MAX_ROI_V1 ||
-			roi_v1.num_rects > caps->num_roi) {
-		SDE_ERROR_CONN(c_conn, "too many rects specified: %d\n",
+	if (roi_v1.num_rects > SDE_MAX_ROI_V1) {
+		SDE_ERROR_CONN(c_conn, "num roi rects more than supported: %d",
 				roi_v1.num_rects);
 		return -EINVAL;
 	}
 
 	c_state->rois.num_rects = roi_v1.num_rects;
 	for (i = 0; i < roi_v1.num_rects; ++i) {
-		int rc;
-
-		rc = _sde_connector_roi_v1_check_roi(c_conn, &roi_v1.roi[i],
-				caps);
-		if (rc)
-			return rc;
-
 		c_state->rois.roi[i] = roi_v1.roi[i];
 		SDE_DEBUG_CONN(c_conn, "roi%d: roi (%d,%d) (%d,%d)\n", i,
 				c_state->rois.roi[i].x1,
@@ -1316,6 +1335,55 @@ static const struct drm_connector_helper_funcs sde_connector_helper_ops = {
 	.best_encoder = sde_connector_best_encoder,
 };
 
+int sde_connector_set_info(struct drm_connector *conn)
+{
+	struct sde_kms_info *info;
+	struct sde_connector *c_conn = NULL;
+	struct msm_mode_info mode_info;
+	int rc = 0;
+
+	c_conn = to_sde_connector(conn);
+	if (!c_conn || !c_conn->encoder) {
+		SDE_ERROR("invalid connector/encoder object\n");
+		return -EINVAL;
+	}
+
+	if (!c_conn->ops.post_init) {
+		SDE_DEBUG_CONN(c_conn, "post_init not defined\n");
+		return 0;
+	}
+
+	memset(&mode_info, 0, sizeof(mode_info));
+
+	info = kzalloc(sizeof(*info), GFP_KERNEL);
+	if (!info)
+		return -ENOMEM;
+
+	rc = sde_encoder_get_mode_info(c_conn->encoder, &mode_info);
+	if (rc) {
+		SDE_ERROR_CONN(c_conn, "failed to get mode info, rc: %d", rc);
+		goto exit;
+	}
+
+	sde_kms_info_reset(info);
+	rc = c_conn->ops.post_init(&c_conn->base, info,
+			c_conn->display, &mode_info);
+	if (rc) {
+		SDE_ERROR_CONN(c_conn, "post-init failed, %d\n", rc);
+		goto exit;
+	}
+
+	msm_property_set_blob(&c_conn->property_info,
+			&c_conn->blob_caps,
+			SDE_KMS_INFO_DATA(info),
+			SDE_KMS_INFO_DATALEN(info),
+			CONNECTOR_PROP_SDE_INFO);
+exit:
+	kfree(info);
+
+	return rc;
+}
+
 struct drm_connector *sde_connector_init(struct drm_device *dev,
 		struct drm_encoder *encoder,
 		struct drm_panel *panel,
@@ -1326,7 +1394,6 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 {
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
-	struct sde_kms_info *info;
 	struct sde_connector *c_conn = NULL;
 	struct dsi_display *dsi_display;
 	struct msm_display_info display_info;
@@ -1423,33 +1490,16 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 			CONNECTOR_PROP_COUNT, CONNECTOR_PROP_BLOBCOUNT,
 			sizeof(struct sde_connector_state));
 
-	if (c_conn->ops.post_init) {
-		info = kmalloc(sizeof(*info), GFP_KERNEL);
-		if (!info) {
-			SDE_ERROR("failed to allocate info buffer\n");
-			rc = -ENOMEM;
-			goto error_cleanup_fence;
-		}
+	msm_property_install_blob(&c_conn->property_info,
+			"capabilities",
+			DRM_MODE_PROP_IMMUTABLE,
+			CONNECTOR_PROP_SDE_INFO);
 
-		sde_kms_info_reset(info);
-		rc = c_conn->ops.post_init(&c_conn->base, info, display);
-		if (rc) {
-			SDE_ERROR("post-init failed, %d\n", rc);
-			kfree(info);
-			goto error_cleanup_fence;
-		}
-
-		msm_property_install_blob(&c_conn->property_info,
-				"capabilities",
-				DRM_MODE_PROP_IMMUTABLE,
-				CONNECTOR_PROP_SDE_INFO);
-
-		msm_property_set_blob(&c_conn->property_info,
-				&c_conn->blob_caps,
-				SDE_KMS_INFO_DATA(info),
-				SDE_KMS_INFO_DATALEN(info),
-				CONNECTOR_PROP_SDE_INFO);
-		kfree(info);
+	rc = sde_connector_set_info(&c_conn->base);
+	if (rc) {
+		SDE_ERROR_CONN(c_conn,
+			"failed to setup connector info, rc = %d\n", rc);
+		goto error_cleanup_fence;
 	}
 
 	if (connector_type == DRM_MODE_CONNECTOR_DSI) {
@@ -1469,12 +1519,10 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 		}
 	}
 
-	rc = sde_connector_get_info(&c_conn->base, &display_info);
-	if (!rc && display_info.roi_caps.enabled) {
-		msm_property_install_volatile_range(
+	msm_property_install_volatile_range(
 				&c_conn->property_info, "sde_drm_roi_v1", 0x0,
 				0, ~0, 0, CONNECTOR_PROP_ROI_V1);
-	}
+
 	/* install PP_DITHER properties */
 	_sde_connector_install_dither_property(dev, sde_kms, c_conn);
 

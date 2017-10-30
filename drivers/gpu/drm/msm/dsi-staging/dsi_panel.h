@@ -156,8 +156,6 @@ struct dsi_panel {
 	enum dsi_op_mode panel_mode;
 
 	struct dsi_dfps_capabilities dfps_caps;
-	struct msm_roi_caps roi_caps;
-
 	struct dsi_panel_phy_props phy_props;
 
 	struct dsi_display_mode *cur_mode;

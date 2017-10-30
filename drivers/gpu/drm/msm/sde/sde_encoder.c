@@ -787,6 +787,22 @@ static int sde_encoder_virt_atomic_check(
 				"RM failed to update topology, rc: %d\n", ret);
 			return ret;
 		}
+
+		ret = sde_connector_set_info(conn_state->connector);
+		if (ret) {
+			SDE_ERROR_ENC(sde_enc,
+				"connector failed to update info, rc: %d\n",
+				ret);
+			return ret;
+		}
+
+	}
+
+	ret = sde_connector_roi_v1_check_roi(conn_state);
+	if (ret) {
+		SDE_ERROR_ENC(sde_enc, "connector roi check failed, rc: %d",
+				ret);
+		return ret;
 	}
 
 	if (!ret)
@@ -921,6 +937,27 @@ static void _sde_encoder_dsc_pipe_cfg(struct sde_hw_dsc *hw_dsc,
 
 	if (hw_pp->ops.enable_dsc)
 		hw_pp->ops.enable_dsc(hw_pp);
+}
+
+int sde_encoder_get_mode_info(struct drm_encoder *enc,
+	struct msm_mode_info *mode_info)
+{
+	struct sde_encoder_virt *sde_enc = NULL;
+
+	if (!enc || !mode_info) {
+		SDE_ERROR("invalid arg(s)\n");
+		return -EINVAL;
+	}
+
+	sde_enc = to_sde_encoder_virt(enc);
+	if (!sde_enc) {
+		SDE_ERROR("invalid SDE encoder\n");
+		return -EINVAL;
+	}
+
+	memcpy(mode_info, &sde_enc->mode_info, sizeof(sde_enc->mode_info));
+
+	return 0;
 }
 
 static void _sde_encoder_get_connector_roi(
