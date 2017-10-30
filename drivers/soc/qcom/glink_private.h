@@ -692,7 +692,6 @@ enum ssr_command {
  *			received.
  * edge:		The G-Link edge name for the channel associated with
  *			this callback data
- * do_cleanup_data:	Structure containing the G-Link SSR do_cleanup message.
  * cb_kref:		Kref object to maintain cb_data reference.
  */
 struct ssr_notify_data {
@@ -700,7 +699,6 @@ struct ssr_notify_data {
 	unsigned event;
 	bool responded;
 	const char *edge;
-	struct do_cleanup_msg *do_cleanup_data;
 	struct kref cb_kref;
 };
 

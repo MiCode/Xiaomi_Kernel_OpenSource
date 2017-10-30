@@ -253,6 +253,8 @@ static void glink_ssr_link_state_cb(struct glink_link_state_cb_info *cb_info,
 void glink_ssr_notify_rx(void *handle, const void *priv, const void *pkt_priv,
 		const void *ptr, size_t size)
 {
+	struct do_cleanup_msg *do_cleanup_data =
+				(struct do_cleanup_msg *)pkt_priv;
 	struct ssr_notify_data *cb_data = (struct ssr_notify_data *)priv;
 	struct cleanup_done_msg *resp = (struct cleanup_done_msg *)ptr;
 	struct rx_done_ch_work *rx_done_work;
@@ -263,15 +265,15 @@ void glink_ssr_notify_rx(void *handle, const void *priv, const void *pkt_priv,
 				__func__);
 		return;
 	}
+	if (unlikely(!do_cleanup_data))
+		goto missing_do_cleanup_data;
 	if (unlikely(!cb_data))
 		goto missing_cb_data;
-	if (unlikely(!cb_data->do_cleanup_data))
-		goto missing_do_cleanup_data;
 	if (unlikely(!resp))
 		goto missing_response;
-	if (unlikely(resp->version != cb_data->do_cleanup_data->version))
+	if (unlikely(resp->version != do_cleanup_data->version))
 		goto version_mismatch;
-	if (unlikely(resp->seq_num != cb_data->do_cleanup_data->seq_num))
+	if (unlikely(resp->seq_num != do_cleanup_data->seq_num))
 		goto invalid_seq_number;
 	if (unlikely(resp->response != GLINK_SSR_CLEANUP_DONE))
 		goto wrong_response;
@@ -283,10 +285,9 @@ void glink_ssr_notify_rx(void *handle, const void *priv, const void *pkt_priv,
 		"<SSR> %s: Response from %s resp[%d] version[%d] seq_num[%d] restarted[%s]\n",
 			__func__, cb_data->edge, resp->response,
 			resp->version, resp->seq_num,
-			cb_data->do_cleanup_data->name);
+			do_cleanup_data->name);
 
-	kfree(cb_data->do_cleanup_data);
-	cb_data->do_cleanup_data = NULL;
+	kfree(do_cleanup_data);
 	rx_done_work->ptr = ptr;
 	rx_done_work->handle = handle;
 	INIT_WORK(&rx_done_work->work, rx_done_cb_worker);
@@ -305,13 +306,13 @@ missing_response:
 	return;
 version_mismatch:
 	GLINK_SSR_ERR("<SSR> %s: Version mismatch. %s[%d], %s[%d]\n", __func__,
-			"do_cleanup version", cb_data->do_cleanup_data->version,
+			"do_cleanup version", do_cleanup_data->version,
 			"cleanup_done version", resp->version);
 	return;
 invalid_seq_number:
 	GLINK_SSR_ERR("<SSR> %s: Invalid seq. number. %s[%d], %s[%d]\n",
 			__func__, "do_cleanup seq num",
-			cb_data->do_cleanup_data->seq_num,
+			do_cleanup_data->seq_num,
 			"cleanup_done seq_num", resp->seq_num);
 	return;
 wrong_response:
@@ -593,10 +594,8 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 		do_cleanup_data->name_len = strlen(ss_info->edge);
 		strlcpy(do_cleanup_data->name, ss_info->edge,
 				do_cleanup_data->name_len + 1);
-		ss_leaf_entry->cb_data->do_cleanup_data = do_cleanup_data;
 
-		ret = glink_queue_rx_intent(handle,
-				(void *)ss_leaf_entry->cb_data,
+		ret = glink_queue_rx_intent(handle, do_cleanup_data,
 				sizeof(struct cleanup_done_msg));
 		if (ret) {
 			GLINK_SSR_ERR(
@@ -605,7 +604,6 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 				"queue_rx_intent failed", ret,
 				atomic_read(&responses_remaining));
 			kfree(do_cleanup_data);
-			ss_leaf_entry->cb_data->do_cleanup_data = NULL;
 
 			if (!strcmp(ss_leaf_entry->ssr_name, "rpm"))
 				panic("%s: Could not queue intent for RPM!\n",
@@ -617,12 +615,12 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 		}
 
 		if (strcmp(ss_leaf_entry->ssr_name, "rpm"))
-			ret = glink_tx(handle, ss_leaf_entry->cb_data,
+			ret = glink_tx(handle, do_cleanup_data,
 					do_cleanup_data,
 					sizeof(*do_cleanup_data),
 					GLINK_TX_REQ_INTENT);
 		else
-			ret = glink_tx(handle, ss_leaf_entry->cb_data,
+			ret = glink_tx(handle, do_cleanup_data,
 					do_cleanup_data,
 					sizeof(*do_cleanup_data),
 					GLINK_TX_SINGLE_THREADED);
@@ -632,7 +630,6 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 					__func__, ret, "resp. remaining",
 					atomic_read(&responses_remaining));
 			kfree(do_cleanup_data);
-			ss_leaf_entry->cb_data->do_cleanup_data = NULL;
 
 			if (!strcmp(ss_leaf_entry->ssr_name, "rpm"))
 				panic("%s: glink_tx() to RPM failed!\n",
