@@ -762,6 +762,14 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 
 	drm_mode_config_reset(ddev);
 
+	if (kms && kms->funcs && kms->funcs->cont_splash_config) {
+		ret = kms->funcs->cont_splash_config(kms);
+		if (ret) {
+			dev_err(dev, "kms cont_splash config failed.\n");
+			goto fail;
+		}
+	}
+
 #ifdef CONFIG_DRM_FBDEV_EMULATION
 	if (fbdev)
 		priv->fbdev = msm_fbdev_init(ddev);
@@ -1875,6 +1883,14 @@ static int add_display_components(struct device *dev,
 		struct device_node *np = dev->of_node;
 		unsigned int i;
 
+		for (i = 0; ; i++) {
+			node = of_parse_phandle(np, "connectors", i);
+			if (!node)
+				break;
+
+			component_match_add(dev, matchptr, compare_of, node);
+		}
+
 		for (i = 0; i < MAX_DSI_ACTIVE_DISPLAY; i++) {
 			node = dsi_display_get_boot_display(i);
 
@@ -1886,13 +1902,6 @@ static int add_display_components(struct device *dev,
 			}
 		}
 
-		for (i = 0; ; i++) {
-			node = of_parse_phandle(np, "connectors", i);
-			if (!node)
-				break;
-
-			component_match_add(dev, matchptr, compare_of, node);
-		}
 		return 0;
 	}
 
