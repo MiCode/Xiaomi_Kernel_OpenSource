@@ -355,14 +355,14 @@ struct cam_mem_cache_ops_cmd {
  * @error_type: type of error
  * @request_id: request id of frame
  * @device_hdl: device handle
- * @reserved: reserved field
+ * @linke_hdl: link_hdl
  * @resource_size: size of the resource
  */
 struct cam_req_mgr_error_msg {
 	uint32_t error_type;
 	uint32_t request_id;
 	int32_t device_hdl;
-	int32_t reserved;
+	int32_t link_hdl;
 	uint64_t resource_size;
 };
 
