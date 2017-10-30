@@ -1873,8 +1873,10 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		break;
 
 	case SDE_ENC_RC_EVENT_STOP:
-		mutex_lock(&sde_enc->rc_lock);
+		/* cancel vsync event work */
+		kthread_cancel_work_sync(&sde_enc->vsync_event_work);
 
+		mutex_lock(&sde_enc->rc_lock);
 		/* return if the resource control is already in OFF state */
 		if (sde_enc->rc_state == SDE_ENC_RC_STATE_OFF) {
 			SDE_DEBUG_ENC(sde_enc, "sw_event:%d, rc in OFF state\n",
@@ -3123,7 +3125,6 @@ static void sde_encoder_vsync_event_handler(unsigned long data)
 	struct sde_encoder_virt *sde_enc;
 	struct msm_drm_private *priv;
 	struct msm_drm_thread *event_thread;
-	bool autorefresh_enabled = false;
 
 	if (!drm_enc || !drm_enc->dev || !drm_enc->dev->dev_private ||
 			!drm_enc->crtc) {
@@ -3145,34 +3146,40 @@ static void sde_encoder_vsync_event_handler(unsigned long data)
 		return;
 	}
 
-	if (sde_enc->cur_master &&
-		sde_enc->cur_master->ops.is_autorefresh_enabled)
-		autorefresh_enabled =
-			sde_enc->cur_master->ops.is_autorefresh_enabled(
-						sde_enc->cur_master);
-
-	/*
-	 * Queue work to update the vsync event timer
-	 * if autorefresh is enabled.
-	 */
-	SDE_EVT32_VERBOSE(autorefresh_enabled);
-	if (autorefresh_enabled)
-		kthread_queue_work(&event_thread->worker,
+	kthread_queue_work(&event_thread->worker,
 				&sde_enc->vsync_event_work);
-	else
-		del_timer(&sde_enc->vsync_event_timer);
 }
 
 static void sde_encoder_vsync_event_work_handler(struct kthread_work *work)
 {
 	struct sde_encoder_virt *sde_enc = container_of(work,
 			struct sde_encoder_virt, vsync_event_work);
+	bool autorefresh_enabled = false;
+	int rc = 0;
 	ktime_t wakeup_time;
 
 	if (!sde_enc) {
 		SDE_ERROR("invalid sde encoder\n");
 		return;
 	}
+
+	rc = _sde_encoder_power_enable(sde_enc, true);
+	if (rc) {
+		SDE_ERROR_ENC(sde_enc, "sde enc power enabled failed:%d\n", rc);
+		return;
+	}
+
+	if (sde_enc->cur_master &&
+		sde_enc->cur_master->ops.is_autorefresh_enabled)
+		autorefresh_enabled =
+			sde_enc->cur_master->ops.is_autorefresh_enabled(
+						sde_enc->cur_master);
+
+	_sde_encoder_power_enable(sde_enc, false);
+
+	/* Update timer if autorefresh is enabled else return */
+	if (!autorefresh_enabled)
+		return;
 
 	if (_sde_encoder_wakeup_time(&sde_enc->base, &wakeup_time))
 		return;
