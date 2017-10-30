@@ -459,6 +459,54 @@ static int _sde_connector_update_power_locked(struct sde_connector *c_conn)
 	return rc;
 }
 
+static int _sde_connector_update_bl_scale(struct sde_connector *c_conn, int idx)
+{
+	struct drm_connector conn;
+	struct dsi_display *dsi_display;
+	struct dsi_backlight_config *bl_config;
+	uint64_t value;
+	int rc = 0;
+
+	if (!c_conn) {
+		SDE_ERROR("Invalid params sde_connector null\n");
+		return -EINVAL;
+	}
+
+	conn = c_conn->base;
+	dsi_display = c_conn->display;
+	if (!dsi_display || !dsi_display->panel) {
+		SDE_ERROR("Invalid params(s) dsi_display %pK, panel %pK\n",
+			dsi_display,
+			((dsi_display) ? dsi_display->panel : NULL));
+		return -EINVAL;
+	}
+
+	bl_config = &dsi_display->panel->bl_config;
+	value = sde_connector_get_property(conn.state, idx);
+
+	if (idx == CONNECTOR_PROP_BL_SCALE) {
+		if (value > MAX_BL_SCALE_LEVEL)
+			bl_config->bl_scale = MAX_BL_SCALE_LEVEL;
+		else
+			bl_config->bl_scale = (u32)value;
+	} else if (idx == CONNECTOR_PROP_AD_BL_SCALE) {
+		if (value > MAX_AD_BL_SCALE_LEVEL)
+			bl_config->bl_scale_ad = MAX_AD_BL_SCALE_LEVEL;
+		else
+			bl_config->bl_scale_ad = (u32)value;
+	} else {
+		SDE_DEBUG("invalid idx %d\n", idx);
+		return 0;
+	}
+
+	SDE_DEBUG("bl_scale = %u, bl_scale_ad = %u, bl_level = %u\n",
+		bl_config->bl_scale, bl_config->bl_scale_ad,
+		bl_config->bl_level);
+	rc = c_conn->ops.set_backlight(dsi_display, bl_config->bl_level);
+
+	return rc;
+}
+
 int sde_connector_pre_kickoff(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn;
@@ -488,6 +536,10 @@ int sde_connector_pre_kickoff(struct drm_connector *connector)
 					connector->state, CONNECTOR_PROP_LP);
 			_sde_connector_update_power_locked(c_conn);
 			mutex_unlock(&c_conn->lock);
+			break;
+		case CONNECTOR_PROP_BL_SCALE:
+		case CONNECTOR_PROP_AD_BL_SCALE:
+			_sde_connector_update_bl_scale(c_conn, idx);
 			break;
 		default:
 			/* nothing to do for most properties */
@@ -819,42 +871,6 @@ static int _sde_connector_set_roi_v1(
 	return 0;
 }
 
-static int _sde_connector_update_bl_scale(struct sde_connector *c_conn,
-		int idx,
-		uint64_t value)
-{
-	struct dsi_display *dsi_display = c_conn->display;
-	struct dsi_backlight_config *bl_config;
-	int rc = 0;
-
-	if (!dsi_display || !dsi_display->panel) {
-		pr_err("Invalid params(s) dsi_display %pK, panel %pK\n",
-			dsi_display,
-			((dsi_display) ? dsi_display->panel : NULL));
-		return -EINVAL;
-	}
-
-	bl_config = &dsi_display->panel->bl_config;
-	if (idx == CONNECTOR_PROP_BL_SCALE) {
-		bl_config->bl_scale = value;
-		if (value > MAX_BL_SCALE_LEVEL)
-			bl_config->bl_scale = MAX_BL_SCALE_LEVEL;
-		SDE_DEBUG("set to panel: bl_scale = %u, bl_level = %u\n",
-			bl_config->bl_scale, bl_config->bl_level);
-		rc = c_conn->ops.set_backlight(dsi_display,
-					       bl_config->bl_level);
-	} else if (idx == CONNECTOR_PROP_AD_BL_SCALE) {
-		bl_config->bl_scale_ad = value;
-		if (value > MAX_AD_BL_SCALE_LEVEL)
-			bl_config->bl_scale_ad = MAX_AD_BL_SCALE_LEVEL;
-		SDE_DEBUG("set to panel: bl_scale_ad = %u, bl_level = %u\n",
-			bl_config->bl_scale_ad, bl_config->bl_level);
-		rc = c_conn->ops.set_backlight(dsi_display,
-					       bl_config->bl_level);
-	}
-	return rc;
-}
-
 static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		struct drm_connector_state *state,
 		struct drm_property *property,
@@ -900,10 +916,6 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 			msm_framebuffer_set_kmap(c_state->out_fb,
 					c_conn->fb_kmap);
 		}
-		break;
-	case CONNECTOR_PROP_BL_SCALE:
-	case CONNECTOR_PROP_AD_BL_SCALE:
-		rc = _sde_connector_update_bl_scale(c_conn, idx, val);
 		break;
 	default:
 		break;
