@@ -73,6 +73,10 @@
 
 #define IDLE_SHORT_TIMEOUT	1
 
+#define FAULT_TOLERENCE_DELTA_IN_MS 2
+
+#define FAULT_TOLERENCE_WAIT_IN_MS 5
+
 /* Maximum number of VSYNC wait attempts for RSC state transition */
 #define MAX_RSC_WAIT	5
 
@@ -2534,26 +2538,46 @@ void sde_encoder_helper_trigger_start(struct sde_encoder_phys *phys_enc)
 	}
 }
 
-int sde_encoder_helper_wait_event_timeout(
-		int32_t drm_id,
-		int32_t hw_id,
-		struct sde_encoder_wait_info *info)
+static int _sde_encoder_wait_timeout(int32_t drm_id, int32_t hw_id,
+	s64 timeout_ms, struct sde_encoder_wait_info *info)
 {
 	int rc = 0;
-	s64 expected_time = ktime_to_ms(ktime_get()) + info->timeout_ms;
-	s64 jiffies = msecs_to_jiffies(info->timeout_ms);
-	s64 time;
+	s64 wait_time_jiffies = msecs_to_jiffies(timeout_ms);
+	ktime_t cur_ktime;
+	ktime_t exp_ktime = ktime_add_ms(ktime_get(), timeout_ms);
 
 	do {
 		rc = wait_event_timeout(*(info->wq),
-				atomic_read(info->atomic_cnt) == 0, jiffies);
-		time = ktime_to_ms(ktime_get());
+			atomic_read(info->atomic_cnt) == 0, wait_time_jiffies);
+		cur_ktime = ktime_get();
 
-		SDE_EVT32_VERBOSE(drm_id, hw_id, rc, time, expected_time,
-				atomic_read(info->atomic_cnt));
+		SDE_EVT32(drm_id, hw_id, rc, ktime_to_ms(cur_ktime),
+			timeout_ms, atomic_read(info->atomic_cnt));
 	/* If we timed out, counter is valid and time is less, wait again */
 	} while (atomic_read(info->atomic_cnt) && (rc == 0) &&
-			(time < expected_time));
+			(ktime_compare_safe(exp_ktime, cur_ktime) > 0));
+
+	return rc;
+}
+
+int sde_encoder_helper_wait_event_timeout(int32_t drm_id, int32_t hw_id,
+	struct sde_encoder_wait_info *info)
+{
+	int rc;
+	ktime_t exp_ktime = ktime_add_ms(ktime_get(), info->timeout_ms);
+
+	rc = _sde_encoder_wait_timeout(drm_id, hw_id, info->timeout_ms, info);
+
+	/**
+	 * handle disabled irq case where timer irq is also delayed.
+	 * wait for additional timeout of FAULT_TOLERENCE_WAIT_IN_MS
+	 * if it event_timeout expired late detected.
+	 */
+	if (atomic_read(info->atomic_cnt) && (!rc) &&
+	    (ktime_compare_safe(ktime_get(), ktime_add_ms(exp_ktime,
+	     FAULT_TOLERENCE_DELTA_IN_MS)) > 0))
+		rc = _sde_encoder_wait_timeout(drm_id, hw_id,
+			FAULT_TOLERENCE_WAIT_IN_MS, info);
 
 	return rc;
 }
