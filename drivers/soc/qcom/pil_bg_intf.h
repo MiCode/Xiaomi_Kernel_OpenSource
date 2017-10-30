@@ -22,6 +22,7 @@ enum bg_tz_commands {
 	BGPIL_RAMDUMP,
 	BGPIL_IMAGE_LOAD,
 	BGPIL_AUTH_MDT,
+	BGPIL_DLOAD_CONT,
 };
 
 /* tzapp bg request.*/
