@@ -390,6 +390,11 @@ int sde_get_pp_dsc_for_cont_splash(void __iomem *mmio,
 			SDE_DEBUG("Disabling autoreferesh\n");
 			writel_relaxed(0x0, mmio
 				+ MDP_PP_AUTOREFRESH_OFFSET(index));
+			/*
+			 * Wait for one frame update so that auto refresh
+			 * disable is through
+			 */
+			usleep_range(16000, 20000);
 		}
 	}
 	return dsc_cnt;
