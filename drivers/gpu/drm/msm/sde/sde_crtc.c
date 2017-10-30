@@ -4328,13 +4328,14 @@ end:
 }
 
 static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
-		struct drm_crtc_state *state)
+		struct drm_crtc_state *state, struct plane_state pstates[],
+		int cnt)
 {
 	struct drm_encoder *encoder;
 	struct sde_crtc_state *cstate;
 	uint32_t secure;
 	uint32_t fb_ns = 0, fb_sec = 0, fb_sec_dir = 0;
-	int encoder_cnt = 0;
+	int encoder_cnt = 0, i;
 	int rc;
 
 	if (!crtc || !state) {
@@ -4344,31 +4345,40 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 
 	cstate = to_sde_crtc_state(state);
 
-	secure = sde_crtc_get_property(cstate,
-			CRTC_PROP_SECURITY_LEVEL);
+	secure = sde_crtc_get_property(cstate, CRTC_PROP_SECURITY_LEVEL);
 
-	rc = _sde_crtc_find_plane_fb_modes(state,
-			&fb_ns,
-			&fb_sec,
-			&fb_sec_dir);
+	rc = _sde_crtc_find_plane_fb_modes(state, &fb_ns, &fb_sec, &fb_sec_dir);
 	if (rc)
 		return rc;
 
-	/**
-	 * validate planes
-	 * fb_sec_dir is for secure camera preview and secure display  use case,
-	 * fb_sec is for secure video playback,
-	 * fb_ns is for normal non secure use cases.
-	 */
-	if ((secure == SDE_DRM_SEC_ONLY) &&
-			(fb_ns || fb_sec || (fb_sec && fb_sec_dir))) {
-		SDE_ERROR(
-		"crtc%d: invalid planes fb_modes Sec:%d, NS:%d, Sec_Dir:%d\n",
+	if (secure == SDE_DRM_SEC_ONLY) {
+		/*
+		 * validate planes - only fb_sec_dir is allowed during sec_crtc
+		 * - fb_sec_dir is for secure camera preview and
+		 * secure display use case
+		 * - fb_sec is for secure video playback
+		 * - fb_ns is for normal non secure use cases
+		 */
+		if (fb_ns || fb_sec) {
+			SDE_ERROR(
+			 "crtc%d: invalid fb_modes Sec:%d, NS:%d, Sec_Dir:%d\n",
 				crtc->base.id, fb_sec, fb_ns, fb_sec_dir);
-		return -EINVAL;
+			return -EINVAL;
+		}
+
+		/* only one blending stage is allowed in sec_crtc */
+		for (i = 1; i < cnt; i++) {
+			if (pstates[i].stage != pstates[i-1].stage) {
+				SDE_ERROR(
+				  "crtc%d: invalid blend stages %d:%d, %d:%d\n",
+				  crtc->base.id, i, pstates[i].stage,
+				  i-1, pstates[i-1].stage);
+				return -EINVAL;
+			}
+		}
 	}
 
-	/**
+	/*
 	 * secure_crtc is not allowed in a shared toppolgy
 	 * across different encoders.
 	 */
@@ -4377,17 +4387,15 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 			if (encoder->crtc ==  crtc)
 				encoder_cnt++;
 
-		if (encoder_cnt >
-			MAX_ALLOWED_ENCODER_CNT_PER_SECURE_CRTC) {
-			SDE_ERROR(
-				"crtc%d, invalid virtual encoder crtc%d\n",
-				crtc->base.id,
-				encoder_cnt);
+		if (encoder_cnt > MAX_ALLOWED_ENCODER_CNT_PER_SECURE_CRTC) {
+			SDE_ERROR("crtc%d, invalid virtual encoder crtc%d\n",
+				crtc->base.id, encoder_cnt);
 			return -EINVAL;
 
 		}
 	}
 	SDE_DEBUG("crtc:%d Secure validation successful\n", crtc->base.id);
+
 	return 0;
 }
 
@@ -4443,10 +4451,6 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 
 	_sde_crtc_setup_is_ppsplit(state);
 	_sde_crtc_setup_lm_bounds(crtc, state);
-
-	rc = _sde_crtc_check_secure_state(crtc, state);
-	if (rc)
-		return rc;
 
 	 /* get plane state for all drm planes associated with crtc state */
 	drm_atomic_crtc_state_for_each_plane_state(plane, pstate, state) {
@@ -4520,6 +4524,10 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 
 	/* assign mixer stages based on sorted zpos property */
 	sort(pstates, cnt, sizeof(pstates[0]), pstate_cmp, NULL);
+
+	rc = _sde_crtc_check_secure_state(crtc, state, pstates, cnt);
+	if (rc)
+		goto end;
 
 	rc = _sde_crtc_excl_dim_layer_check(state, pstates, cnt);
 	if (rc)
