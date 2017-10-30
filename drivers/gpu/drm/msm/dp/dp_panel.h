@@ -64,7 +64,6 @@ struct dp_panel {
 
 	struct drm_dp_link link_info;
 	struct sde_edid_ctrl *edid_ctrl;
-	struct drm_connector *connector;
 	struct dp_panel_info pinfo;
 	bool video_test;
 
@@ -74,9 +73,8 @@ struct dp_panel {
 	/* debug */
 	u32 max_bw_code;
 
-	int (*sde_edid_register)(struct dp_panel *dp_panel);
-	void (*sde_edid_deregister)(struct dp_panel *dp_panel);
-	int (*init_info)(struct dp_panel *dp_panel);
+	int (*init)(struct dp_panel *dp_panel);
+	int (*deinit)(struct dp_panel *dp_panel);
 	int (*timing_cfg)(struct dp_panel *dp_panel);
 	int (*read_sink_caps)(struct dp_panel *dp_panel,
 		struct drm_connector *connector);

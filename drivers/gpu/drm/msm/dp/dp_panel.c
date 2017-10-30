@@ -187,6 +187,12 @@ static int dp_panel_read_edid(struct dp_panel *dp_panel,
 			panel->aux->reconfig(panel->aux);
 			panel->aux_cfg_update_done = true;
 		} else {
+			u8 *buf = (u8 *)dp_panel->edid_ctrl->edid;
+			u32 size = buf[0x7F] ? 256 : 128;
+
+			print_hex_dump(KERN_DEBUG, "[drm-dp] SINK EDID: ",
+				DUMP_PREFIX_NONE, 16, 1, buf, size, false);
+
 			return 0;
 		}
 	} while (retry_cnt < max_retry);
@@ -427,34 +433,22 @@ end:
 	return rc;
 }
 
-static int dp_panel_edid_register(struct dp_panel *dp_panel)
+static int dp_panel_edid_register(struct dp_panel_private *panel)
 {
 	int rc = 0;
 
-	if (!dp_panel) {
-		pr_err("invalid input\n");
-		rc = -EINVAL;
-		goto end;
-	}
-
-	dp_panel->edid_ctrl = sde_edid_init();
-	if (!dp_panel->edid_ctrl) {
+	panel->dp_panel.edid_ctrl = sde_edid_init();
+	if (!panel->dp_panel.edid_ctrl) {
 		pr_err("sde edid init for DP failed\n");
 		rc = -ENOMEM;
-		goto end;
 	}
-end:
+
 	return rc;
 }
 
-static void dp_panel_edid_deregister(struct dp_panel *dp_panel)
+static void dp_panel_edid_deregister(struct dp_panel_private *panel)
 {
-	if (!dp_panel) {
-		pr_err("invalid input\n");
-		return;
-	}
-
-	sde_edid_deinit((void **)&dp_panel->edid_ctrl);
+	sde_edid_deinit((void **)&panel->dp_panel.edid_ctrl);
 }
 
 static int dp_panel_init_panel_info(struct dp_panel *dp_panel)
@@ -490,6 +484,26 @@ static int dp_panel_init_panel_info(struct dp_panel *dp_panel)
 	pr_info("active low (h|v)=(%d|%d)\n", pinfo->h_active_low,
 		pinfo->v_active_low);
 end:
+	return rc;
+}
+
+static int dp_panel_deinit_panel_info(struct dp_panel *dp_panel)
+{
+	int rc = 0;
+	struct dp_panel_private *panel;
+
+	if (!dp_panel) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+
+	if (!panel->custom_edid)
+		sde_free_edid((void **)&dp_panel->edid_ctrl);
+
+	memset(&dp_panel->pinfo, 0, sizeof(dp_panel->pinfo));
+
 	return rc;
 }
 
@@ -546,9 +560,8 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	panel->aux_cfg_update_done = false;
 	dp_panel->max_bw_code = DP_LINK_BW_8_1;
 
-	dp_panel->sde_edid_register = dp_panel_edid_register;
-	dp_panel->sde_edid_deregister = dp_panel_edid_deregister;
-	dp_panel->init_info = dp_panel_init_panel_info;
+	dp_panel->init = dp_panel_init_panel_info;
+	dp_panel->deinit = dp_panel_deinit_panel_info;
 	dp_panel->timing_cfg = dp_panel_timing_cfg;
 	dp_panel->read_sink_caps = dp_panel_read_sink_caps;
 	dp_panel->get_min_req_link_rate = dp_panel_get_min_req_link_rate;
@@ -556,6 +569,8 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	dp_panel->get_modes = dp_panel_get_modes;
 	dp_panel->handle_sink_request = dp_panel_handle_sink_request;
 	dp_panel->set_edid = dp_panel_set_edid;
+
+	dp_panel_edid_register(panel);
 
 	return dp_panel;
 error:
@@ -571,5 +586,6 @@ void dp_panel_put(struct dp_panel *dp_panel)
 
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 
+	dp_panel_edid_deregister(panel);
 	devm_kfree(panel->dev, panel);
 }

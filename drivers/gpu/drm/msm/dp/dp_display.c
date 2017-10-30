@@ -375,12 +375,6 @@ static int dp_display_bind(struct device *dev, struct device *master,
 		goto end;
 	}
 
-	rc = dp->panel->sde_edid_register(dp->panel);
-	if (rc) {
-		pr_err("DRM DP EDID register failed\n");
-		goto end;
-	}
-
 	rc = dp->power->power_client_init(dp->power, &priv->phandle);
 	if (rc) {
 		pr_err("Power client create failed\n");
@@ -414,7 +408,6 @@ static void dp_display_unbind(struct device *dev, struct device *master,
 	}
 
 	(void)dp->power->power_client_deinit(dp->power);
-	(void)dp->panel->sde_edid_deregister(dp->panel);
 	(void)dp->aux->drm_aux_deregister(dp->aux);
 	dp_display_deinitialize_hdcp(dp);
 }
@@ -923,7 +916,7 @@ static int dp_display_set_mode(struct dp_display *dp_display,
 			mode->timing.bpp, mode->timing.pixel_clk_khz);
 
 	dp->panel->pinfo = mode->timing;
-	dp->panel->init_info(dp->panel);
+	dp->panel->init(dp->panel);
 	mutex_unlock(&dp->session_lock);
 
 	return 0;
@@ -1058,6 +1051,7 @@ static int dp_display_disable(struct dp_display *dp_display)
 	}
 
 	dp->ctrl->off(dp->ctrl);
+	dp->panel->deinit(dp->panel);
 
 	dp->power_on = false;
 

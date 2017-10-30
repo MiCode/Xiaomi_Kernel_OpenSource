@@ -428,7 +428,7 @@ static void dp_audio_enable(struct dp_audio_private *audio, bool enable)
 	audio->engine_on = enable;
 }
 
-static struct dp_audio_private *get_audio_get_data(struct platform_device *pdev)
+static struct dp_audio_private *dp_audio_get_data(struct platform_device *pdev)
 {
 	struct msm_ext_disp_data *ext_data;
 	struct dp_audio *dp_audio;
@@ -459,7 +459,7 @@ static int dp_audio_info_setup(struct platform_device *pdev,
 	int rc = 0;
 	struct dp_audio_private *audio;
 
-	audio = get_audio_get_data(pdev);
+	audio = dp_audio_get_data(pdev);
 	if (IS_ERR(audio)) {
 		rc = PTR_ERR(audio);
 		goto end;
@@ -482,7 +482,7 @@ static int dp_audio_get_edid_blk(struct platform_device *pdev,
 	struct dp_audio_private *audio;
 	struct sde_edid_ctrl *edid;
 
-	audio = get_audio_get_data(pdev);
+	audio = dp_audio_get_data(pdev);
 	if (IS_ERR(audio)) {
 		rc = PTR_ERR(audio);
 		goto end;
@@ -510,15 +510,9 @@ static int dp_audio_get_cable_status(struct platform_device *pdev, u32 vote)
 	int rc = 0;
 	struct dp_audio_private *audio;
 
-	audio = get_audio_get_data(pdev);
+	audio = dp_audio_get_data(pdev);
 	if (IS_ERR(audio)) {
 		rc = PTR_ERR(audio);
-		goto end;
-	}
-
-	if (!audio->panel) {
-		pr_err("invalid panel data\n");
-		rc = -EINVAL;
 		goto end;
 	}
 
@@ -532,7 +526,7 @@ static int dp_audio_get_intf_id(struct platform_device *pdev)
 	int rc = 0;
 	struct dp_audio_private *audio;
 
-	audio = get_audio_get_data(pdev);
+	audio = dp_audio_get_data(pdev);
 	if (IS_ERR(audio)) {
 		rc = PTR_ERR(audio);
 		goto end;
@@ -547,14 +541,9 @@ static void dp_audio_teardown_done(struct platform_device *pdev)
 {
 	struct dp_audio_private *audio;
 
-	audio = get_audio_get_data(pdev);
+	audio = dp_audio_get_data(pdev);
 	if (IS_ERR(audio))
 		return;
-
-	if (!audio->panel) {
-		pr_err("invalid panel data\n");
-		return;
-	}
 
 	dp_audio_enable(audio, false);
 
@@ -568,7 +557,7 @@ static int dp_audio_ack_done(struct platform_device *pdev, u32 ack)
 	int rc = 0, ack_hpd;
 	struct dp_audio_private *audio;
 
-	audio = get_audio_get_data(pdev);
+	audio = dp_audio_get_data(pdev);
 	if (IS_ERR(audio)) {
 		rc = PTR_ERR(audio);
 		goto end;
