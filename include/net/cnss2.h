@@ -151,7 +151,6 @@ extern int cnss_get_fw_files_for_target(struct cnss_fw_files *pfw_files,
 					u32 target_type, u32 target_version);
 extern int cnss_get_platform_cap(struct cnss_platform_cap *cap);
 extern int cnss_get_soc_info(struct device *dev, struct cnss_soc_info *info);
-extern void cnss_set_driver_status(enum cnss_driver_status driver_status);
 extern int cnss_request_bus_bandwidth(int bandwidth);
 extern int cnss_power_up(struct device *dev);
 extern int cnss_power_down(struct device *dev);
