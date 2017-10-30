@@ -2032,6 +2032,8 @@
 		vdd_cx-voltage = <RPMH_REGULATOR_LEVEL_TURBO>;
 		vdd_mx-supply = <&pm660l_s1_level>;
 		vdd_mx-uV = <RPMH_REGULATOR_LEVEL_TURBO>;
+		vdd_mss-supply = <&pm660_s5_level>;
+		vdd_mss-uV = <RPMH_REGULATOR_LEVEL_TURBO>;
 		qcom,firmware-name = "modem";
 		qcom,pil-self-auth;
 		qcom,sysmon-id = <0>;
