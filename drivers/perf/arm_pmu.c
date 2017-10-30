@@ -675,6 +675,9 @@ static void cpu_pm_pmu_setup(struct arm_pmu *armpmu, unsigned long cmd)
 		if (!event)
 			continue;
 
+		if (event->state != PERF_EVENT_STATE_ACTIVE)
+			continue;
+
 		switch (cmd) {
 		case CPU_PM_ENTER:
 			/*
@@ -821,6 +824,7 @@ static struct arm_pmu *__armpmu_alloc(gfp_t flags)
 		 * validation).
 		 */
 		.capabilities	= PERF_PMU_CAP_HETEROGENEOUS_CPUS,
+		.events_across_hotplug	= 1,
 	};
 
 	pmu->attr_groups[ARMPMU_ATTR_GROUP_COMMON] =

@@ -30,6 +30,8 @@
 #include <linux/perf/arm_pmu.h>
 #include <linux/platform_device.h>
 
+static DEFINE_PER_CPU(bool, is_hotplugging);
+
 /*
  * ARMv8 PMUv3 Performance Events handling code.
  * Common event types (some are defined in asm/perf_event.h).
@@ -870,8 +872,8 @@ static irqreturn_t armv8pmu_handle_irq(struct arm_pmu *cpu_pmu)
 		struct perf_event *event = cpuc->events[idx];
 		struct hw_perf_event *hwc;
 
-		/* Ignore if we don't have an event. */
-		if (!event)
+		/* Ignore if we don't have an event */
+		if (!event || event->state != PERF_EVENT_STATE_ACTIVE)
 			continue;
 
 		/*
@@ -1146,6 +1148,9 @@ static void armv8pmu_idle_update(struct arm_pmu *cpu_pmu)
 	if (!cpu_pmu)
 		return;
 
+	if (__this_cpu_read(is_hotplugging))
+		return;
+
 	hw_events = this_cpu_ptr(cpu_pmu->hw_events);
 
 	if (!hw_events)
@@ -1377,6 +1382,37 @@ static const struct of_device_id armv8_pmu_of_device_ids[] = {
 	{},
 };
 
+#ifdef CONFIG_HOTPLUG_CPU
+static int perf_event_hotplug_coming_up(unsigned int cpu)
+{
+	per_cpu(is_hotplugging, cpu) = false;
+	return 0;
+}
+
+static int perf_event_hotplug_going_down(unsigned int cpu)
+{
+	per_cpu(is_hotplugging, cpu) = true;
+	return 0;
+}
+
+static int perf_event_cpu_hp_init(void)
+{
+	int ret;
+
+	ret = cpuhp_setup_state_nocalls(CPUHP_AP_PERF_ONLINE,
+				"PERF_EVENT/CPUHP_AP_PERF_ONLINE",
+				perf_event_hotplug_coming_up,
+				perf_event_hotplug_going_down);
+	if (ret)
+		pr_err("CPU hotplug notifier for perf_event.c could not be registered: %d\n",
+		       ret);
+
+	return ret;
+}
+#else
+static int perf_event_cpu_hp_init(void) { return 0; }
+#endif
+
 /*
  * Non DT systems have their micro/arch events probed at run-time.
  * A fairly complete list of generic events are provided and ones that
@@ -1389,7 +1425,14 @@ static const struct pmu_probe_info armv8_pmu_probe_table[] = {
 
 static int armv8_pmu_device_probe(struct platform_device *pdev)
 {
-	int ret;
+	int ret, cpu;
+
+	for_each_possible_cpu(cpu)
+		per_cpu(is_hotplugging, cpu) = false;
+
+	ret = perf_event_cpu_hp_init();
+	if (ret)
+		return ret;
 
 	/* set to true so armv8pmu_idle_update doesn't try to load
 	 * hw_events before arm_pmu_device_probe has initialized it.
