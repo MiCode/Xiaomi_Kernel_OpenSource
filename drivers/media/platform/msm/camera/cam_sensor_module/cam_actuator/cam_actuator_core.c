@@ -16,6 +16,91 @@
 #include "cam_sensor_util.h"
 #include "cam_trace.h"
 
+static int32_t cam_actuator_vreg_control(
+	struct cam_actuator_ctrl_t *a_ctrl,
+	int config)
+{
+	int rc = 0, cnt;
+	struct cam_hw_soc_info  *soc_info;
+
+	soc_info = &a_ctrl->soc_info;
+	cnt = soc_info->num_rgltr;
+
+	if (!cnt)
+		return 0;
+
+	if (cnt >= CAM_SOC_MAX_REGULATOR) {
+		CAM_ERR(CAM_ACTUATOR, "Regulators more than supported %d", cnt);
+		return -EINVAL;
+	}
+
+	if (config) {
+		rc = cam_soc_util_request_platform_resource(soc_info,
+			NULL, NULL);
+		rc = cam_soc_util_enable_platform_resource(soc_info, false, 0,
+			false);
+	} else {
+		rc = cam_soc_util_disable_platform_resource(soc_info, false,
+			false);
+		rc = cam_soc_util_release_platform_resource(soc_info);
+	}
+
+	return rc;
+}
+
+static int32_t cam_actuator_power_up(struct cam_actuator_ctrl_t *a_ctrl)
+{
+	int rc = 0;
+	struct cam_hw_soc_info  *soc_info =
+		&a_ctrl->soc_info;
+	struct msm_camera_gpio_num_info *gpio_num_info = NULL;
+
+	rc = cam_actuator_vreg_control(a_ctrl, 1);
+	if (rc < 0) {
+		CAM_ERR(CAM_ACTUATOR, "Actuator Reg Failed %d", rc);
+		return rc;
+	}
+
+	gpio_num_info = a_ctrl->gpio_num_info;
+
+	if (soc_info->gpio_data &&
+		gpio_num_info &&
+		gpio_num_info->valid[SENSOR_VAF] == 1) {
+		gpio_set_value_cansleep(
+			gpio_num_info->gpio_num[SENSOR_VAF],
+			1);
+	}
+
+	/* VREG needs some delay to power up */
+	usleep_range(2000, 2050);
+
+	return rc;
+}
+
+static int32_t cam_actuator_power_down(struct cam_actuator_ctrl_t *a_ctrl)
+{
+	int32_t rc = 0;
+	struct cam_hw_soc_info *soc_info =
+		&a_ctrl->soc_info;
+	struct msm_camera_gpio_num_info *gpio_num_info = NULL;
+
+	gpio_num_info = a_ctrl->gpio_num_info;
+
+	if (soc_info->gpio_data &&
+		gpio_num_info &&
+		gpio_num_info->valid[SENSOR_VAF] == 1) {
+
+		gpio_set_value_cansleep(
+			gpio_num_info->gpio_num[SENSOR_VAF],
+			GPIOF_OUT_INIT_LOW);
+	}
+
+	rc = cam_actuator_vreg_control(a_ctrl, 0);
+	if (rc < 0)
+		CAM_ERR(CAM_ACTUATOR, "Disable Regulator Failed: %d", rc);
+
+	return rc;
+}
 static int32_t cam_actuator_i2c_modes_util(
 	struct camera_io_master *io_master_info,
 	struct i2c_settings_list *i2c_list)
@@ -324,6 +409,30 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 				rc);
 			return rc;
 		}
+
+		rc = cam_actuator_power_up(a_ctrl);
+		if (rc < 0) {
+			CAM_ERR(CAM_ACTUATOR, " Actuator Power up failed");
+			return rc;
+		}
+		rc = camera_io_init(&a_ctrl->io_master_info);
+		if (rc < 0) {
+			CAM_ERR(CAM_ACTUATOR, "cci_init failed");
+			cam_actuator_power_down(a_ctrl);
+			return rc;
+		}
+		rc = cam_actuator_apply_settings(a_ctrl,
+			&a_ctrl->i2c_data.init_settings);
+		if (rc < 0)
+			CAM_ERR(CAM_ACTUATOR, "Cannot apply Init settings");
+
+		/* Delete the request even if the apply is failed */
+		rc = delete_request(&a_ctrl->i2c_data.init_settings);
+		if (rc < 0) {
+			CAM_WARN(CAM_ACTUATOR,
+				"Fail in deleting the Init settings");
+			rc = 0;
+		}
 	} else if ((csl_packet->header.op_code & 0xFFFFFF) ==
 		CAM_ACTUATOR_PACKET_AUTO_MOVE_LENS) {
 		a_ctrl->setting_apply_state =
@@ -379,92 +488,6 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 		CAM_DBG(CAM_ACTUATOR, "Req Id: %lld added to Bridge",
 			add_req.req_id);
 	}
-
-	return rc;
-}
-
-static int32_t cam_actuator_vreg_control(
-	struct cam_actuator_ctrl_t *a_ctrl,
-	int config)
-{
-	int rc = 0, cnt;
-	struct cam_hw_soc_info  *soc_info;
-
-	soc_info = &a_ctrl->soc_info;
-	cnt = soc_info->num_rgltr;
-
-	if (!cnt)
-		return 0;
-
-	if (cnt >= CAM_SOC_MAX_REGULATOR) {
-		CAM_ERR(CAM_ACTUATOR, "Regulators more than supported %d", cnt);
-		return -EINVAL;
-	}
-
-	if (config) {
-		rc = cam_soc_util_request_platform_resource(soc_info,
-			NULL, NULL);
-		rc = cam_soc_util_enable_platform_resource(soc_info, false, 0,
-			false);
-	} else {
-		rc = cam_soc_util_disable_platform_resource(soc_info, false,
-			false);
-		rc = cam_soc_util_release_platform_resource(soc_info);
-	}
-
-	return rc;
-}
-
-static int32_t cam_actuator_power_up(struct cam_actuator_ctrl_t *a_ctrl)
-{
-	int rc = 0;
-	struct cam_hw_soc_info  *soc_info =
-		&a_ctrl->soc_info;
-	struct msm_camera_gpio_num_info *gpio_num_info = NULL;
-
-	rc = cam_actuator_vreg_control(a_ctrl, 1);
-	if (rc < 0) {
-		CAM_ERR(CAM_ACTUATOR, "Actuator Reg Failed %d", rc);
-		return rc;
-	}
-
-	gpio_num_info = a_ctrl->gpio_num_info;
-
-	if (soc_info->gpio_data &&
-		gpio_num_info &&
-		gpio_num_info->valid[SENSOR_VAF] == 1) {
-		gpio_set_value_cansleep(
-			gpio_num_info->gpio_num[SENSOR_VAF],
-			1);
-	}
-
-	/* VREG needs some delay to power up */
-	usleep_range(2000, 2050);
-
-	return rc;
-}
-
-static int32_t cam_actuator_power_down(struct cam_actuator_ctrl_t *a_ctrl)
-{
-	int32_t rc = 0;
-	struct cam_hw_soc_info *soc_info =
-		&a_ctrl->soc_info;
-	struct msm_camera_gpio_num_info *gpio_num_info = NULL;
-
-	gpio_num_info = a_ctrl->gpio_num_info;
-
-	if (soc_info->gpio_data &&
-		gpio_num_info &&
-		gpio_num_info->valid[SENSOR_VAF] == 1) {
-
-		gpio_set_value_cansleep(
-			gpio_num_info->gpio_num[SENSOR_VAF],
-			GPIOF_OUT_INIT_LOW);
-	}
-
-	rc = cam_actuator_vreg_control(a_ctrl, 0);
-	if (rc < 0)
-		CAM_ERR(CAM_ACTUATOR, "Disable Regulator Failed: %d", rc);
 
 	return rc;
 }
@@ -595,31 +618,6 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 			CAM_WARN(CAM_ACTUATOR,
 			"Not in right state to start : %d",
 			a_ctrl->cam_act_state);
-			goto release_mutex;
-		}
-
-		rc = cam_actuator_power_up(a_ctrl);
-		if (rc < 0) {
-			CAM_ERR(CAM_ACTUATOR, " Actuator Power up failed");
-			goto release_mutex;
-		}
-		rc = camera_io_init(&a_ctrl->io_master_info);
-		if (rc < 0) {
-			CAM_ERR(CAM_ACTUATOR, "cci_init failed");
-			cam_actuator_power_down(a_ctrl);
-		}
-
-		rc = cam_actuator_apply_settings(a_ctrl,
-			&a_ctrl->i2c_data.init_settings);
-		if (rc < 0)
-			CAM_ERR(CAM_ACTUATOR, "Cannot apply Init settings");
-
-		/* Delete the request even if the apply is failed */
-		rc = delete_request(&a_ctrl->i2c_data.init_settings);
-		if (rc < 0) {
-			CAM_ERR(CAM_ACTUATOR,
-				"Fail in deleting the Init settings");
-			rc = -EINVAL;
 			goto release_mutex;
 		}
 		a_ctrl->cam_act_state = CAM_ACTUATOR_START;

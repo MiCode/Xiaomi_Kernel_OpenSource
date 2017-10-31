@@ -436,6 +436,54 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 				return rc;
 			}
 		}
+
+		rc = cam_ois_power_up(o_ctrl);
+		if (rc) {
+			CAM_ERR(CAM_OIS, " OIS Power up failed");
+			return rc;
+		}
+
+		rc = camera_io_init(&o_ctrl->io_master_info);
+		if (rc) {
+			CAM_ERR(CAM_OIS, "cci_init failed");
+			goto pwr_dwn;
+		}
+
+		if (o_ctrl->ois_fw_flag) {
+			rc = cam_ois_fw_download(o_ctrl);
+			if (rc) {
+				CAM_ERR(CAM_OIS, "Failed OIS FW Download");
+				goto pwr_dwn;
+			}
+		}
+
+		rc = cam_ois_apply_settings(o_ctrl, &o_ctrl->i2c_init_data);
+		if (rc < 0) {
+			CAM_ERR(CAM_OIS, "Cannot apply Init settings");
+			goto pwr_dwn;
+		}
+
+		if (o_ctrl->is_ois_calib) {
+			rc = cam_ois_apply_settings(o_ctrl,
+				&o_ctrl->i2c_calib_data);
+			if (rc) {
+				CAM_ERR(CAM_OIS, "Cannot apply calib data");
+				goto pwr_dwn;
+			}
+		}
+
+		rc = delete_request(&o_ctrl->i2c_init_data);
+		if (rc < 0) {
+			CAM_WARN(CAM_OIS,
+				"Fail deleting Init data: rc: %d", rc);
+			rc = 0;
+		}
+		rc = delete_request(&o_ctrl->i2c_calib_data);
+		if (rc < 0) {
+			CAM_WARN(CAM_OIS,
+				"Fail deleting Calibration data: rc: %d", rc);
+			rc = 0;
+		}
 		break;
 	case CAM_OIS_PACKET_OPCODE_OIS_CONTROL:
 		offset = (uint32_t *)&csl_packet->payload;
@@ -452,12 +500,22 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 		}
 
 		rc = cam_ois_apply_settings(o_ctrl, i2c_reg_settings);
-		if (rc < 0)
+		if (rc < 0) {
 			CAM_ERR(CAM_OIS, "Cannot apply mode settings");
+			return rc;
+		}
+
+		rc = delete_request(i2c_reg_settings);
+		if (rc < 0)
+			CAM_ERR(CAM_OIS,
+				"Fail deleting Mode data: rc: %d", rc);
 		break;
 	default:
 		break;
 	}
+	return rc;
+pwr_dwn:
+	cam_ois_power_down(o_ctrl);
 	return rc;
 }
 
@@ -517,7 +575,7 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 			&ois_cap,
 			sizeof(struct cam_ois_query_cap_t))) {
 			CAM_ERR(CAM_OIS, "Failed Copy to User");
-			return -EFAULT;
+			rc = -EFAULT;
 			goto release_mutex;
 		}
 		CAM_DBG(CAM_OIS, "ois_cap: ID: %d", ois_cap.slot_info);
@@ -536,40 +594,7 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 			CAM_WARN(CAM_OIS,
 			"Not in right state for start : %d",
 			o_ctrl->cam_ois_state);
-		}
-
-		rc = cam_ois_power_up(o_ctrl);
-		if (rc) {
-			CAM_ERR(CAM_OIS, " OIS Power up failed");
 			goto release_mutex;
-		}
-		rc = camera_io_init(&o_ctrl->io_master_info);
-		if (rc) {
-			CAM_ERR(CAM_OIS, "cci_init failed");
-			goto pwr_dwn;
-		}
-
-		if (o_ctrl->ois_fw_flag) {
-			rc = cam_ois_fw_download(o_ctrl);
-			if (rc) {
-				CAM_ERR(CAM_OIS, "Failed OIS FW Download");
-				goto pwr_dwn;
-			}
-		}
-
-		rc = cam_ois_apply_settings(o_ctrl, &o_ctrl->i2c_init_data);
-		if (rc < 0) {
-			CAM_ERR(CAM_OIS, "Cannot apply Init settings");
-			goto pwr_dwn;
-		}
-
-		if (o_ctrl->is_ois_calib) {
-			rc = cam_ois_apply_settings(o_ctrl,
-				&o_ctrl->i2c_calib_data);
-			if (rc) {
-				CAM_ERR(CAM_OIS, "Cannot apply calib data");
-				goto pwr_dwn;
-			}
 		}
 		o_ctrl->cam_ois_state = CAM_OIS_START;
 		break;
@@ -586,6 +611,7 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 			CAM_WARN(CAM_OIS,
 			"Not in right state for release : %d",
 			o_ctrl->cam_ois_state);
+			goto release_mutex;
 		}
 
 		if (o_ctrl->bridge_intf.device_hdl == -1) {
@@ -625,10 +651,7 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 		CAM_ERR(CAM_OIS, "invalid opcode");
 		goto release_mutex;
 	}
-pwr_dwn:
-	cam_ois_power_down(o_ctrl);
 release_mutex:
 	mutex_unlock(&(o_ctrl->ois_mutex));
-
 	return rc;
 }
