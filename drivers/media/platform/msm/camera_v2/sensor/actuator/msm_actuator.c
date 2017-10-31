@@ -573,6 +573,11 @@ static int32_t msm_actuator_move_focus(
 
 	CDBG("called, dir %d, num_steps %d\n", dir, num_steps);
 
+	if (a_ctrl->step_position_table == NULL) {
+		pr_err("Step Position Table is NULL\n");
+		return -EINVAL;
+	}
+
 	if ((dest_step_pos == a_ctrl->curr_step_pos) ||
 		((dest_step_pos <= a_ctrl->total_steps) &&
 		(a_ctrl->step_position_table[dest_step_pos] ==
