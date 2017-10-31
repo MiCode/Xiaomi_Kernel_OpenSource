@@ -49,15 +49,11 @@ module_param(sip_direct_signalling, int, 0600);
 MODULE_PARM_DESC(sip_direct_signalling, "expect incoming calls from registrar "
 					"only (default 1)");
 
-static int sip_direct_media __read_mostly = 1;
-module_param(sip_direct_media, int, 0600);
-MODULE_PARM_DESC(sip_direct_media, "Expect Media streams between signalling "
-				   "endpoints only (default 1)");
-
 const struct nf_nat_sip_hooks *nf_nat_sip_hooks;
 EXPORT_SYMBOL_GPL(nf_nat_sip_hooks);
 static struct ctl_table_header *sip_sysctl_header;
 static unsigned int nf_ct_disable_sip_alg;
+static int sip_direct_media = 1;
 static struct ctl_table sip_sysctl_tbl[] = {
 	{
 		.procname     = "nf_conntrack_disable_sip_alg",
@@ -66,15 +62,12 @@ static struct ctl_table sip_sysctl_tbl[] = {
 		.mode         = 0644,
 		.proc_handler = proc_dointvec,
 	},
-	{}
-};
-
-static struct ctl_path sip_sysctls_path[] = {
 	{
-		.procname  = "net",
-	},
-	{
-		.procname  = "netfilter",
+		.procname     = "nf_conntrack_sip_direct_media",
+		.data         = &sip_direct_media,
+		.maxlen       = sizeof(int),
+		.mode         = 0644,
+		.proc_handler = proc_dointvec,
 	},
 	{}
 };
@@ -1650,8 +1643,8 @@ static int __init nf_conntrack_sip_init(void)
 {
 	int i, ret;
 
-	sip_sysctl_header = register_sysctl_paths(sip_sysctls_path,
-						  sip_sysctl_tbl);
+	sip_sysctl_header = register_net_sysctl(&init_net, "net/netfilter",
+						sip_sysctl_tbl);
 	if (!sip_sysctl_header)
 		pr_debug("nf_ct_sip:Unable to register SIP systbl\n");
 
