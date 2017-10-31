@@ -1584,7 +1584,8 @@
 		interrupts = <GIC_SPI 492 IRQ_TYPE_LEVEL_HIGH>;
 		reg = <0x88e0000 0x2000>;
 		reg-names = "eud_base";
-		status = "disabled";
+		clocks = <&clock_gcc GCC_USB_PHY_CFG_AHB2PHY_CLK>;
+		clock-names = "cfg_ahb_clk";
 	};
 
 	qcom,llcc@1100000 {

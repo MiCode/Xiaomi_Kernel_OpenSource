@@ -376,5 +376,5 @@
 };
 
 &usb0 {
-	extcon = <&pm660_pdphy>, <&pm660_pdphy>, <0> /* <&eud> */;
+	extcon = <&pm660_pdphy>, <&pm660_pdphy>, <&eud>;
 };
