@@ -51,8 +51,6 @@
 		interrupt-names = "kgsl_3d0_irq";
 		qcom,id = <0>;
 
-		qcom,gpu-speed-config = <0>;
-
 		qcom,chipid = <0x03000400>;
 
 		qcom,initial-pwrlevel = <1>;
@@ -124,7 +122,7 @@
 
 			qcom,gpu-pwrlevel@0 {
 				reg = <0>;
-				qcom,gpu-freq = <409600000>;
+				qcom,gpu-freq = <456000000>;
 				qcom,bus-freq = <3>;
 			};
 
@@ -147,41 +145,7 @@
 			};
 		};
 
-		qcom,gpu-speed-config@0 {
-			compatible = "gpu-speed-config@0";
-			/* Power levels */
-			qcom,gpu-pwrlevels {
-				#address-cells = <1>;
-				#size-cells = <0>;
-
-				compatible = "qcom,gpu-pwrlevels";
-
-				qcom,gpu-pwrlevel@0 {
-					reg = <0>;
-					qcom,gpu-freq = <456000000>;
-					qcom,bus-freq = <3>;
-				};
-
-				qcom,gpu-pwrlevel@1 {
-					reg = <1>;
-					qcom,gpu-freq = <307200000>;
-					qcom,bus-freq = <2>;
-				};
-
-				qcom,gpu-pwrlevel@2 {
-					reg = <2>;
-					qcom,gpu-freq = <200000000>;
-					qcom,bus-freq = <1>;
-				};
-
-				qcom,gpu-pwrlevel@3 {
-					reg = <3>;
-					qcom,gpu-freq = <19200000>;
-					qcom,bus-freq = <0>;
-				};
-			};
-		};
-	 };
+	};
 	kgsl_msm_iommu: qcom,kgsl-iommu@1f00000 {
 	compatible = "qcom,kgsl-smmu-v2";
 	reg = <0x1f00000 0x10000>;
