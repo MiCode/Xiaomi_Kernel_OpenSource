@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -90,6 +90,24 @@
 		<  401800000  5 >,
 		<  510000000  5 >,
 		<  560000000  7 >;
+	qcom,gfxfreq-speedbin3 =
+		<          0  0  0 >,
+		<  133000000  2  4 >,
+		<  214000000  3  4 >,
+		<  315000000  4  4 >,
+		<  401800000  5  5 >,
+		<  510000000  6  5 >,
+		<  560000000  7  7 >,
+		<  624000000  8  7 >;
+	qcom,gfxfreq-mx-speedbin3 =
+		<          0  0 >,
+		<  133000000  4 >,
+		<  214000000  4 >,
+		<  315000000  4 >,
+		<  401800000  5 >,
+		<  510000000  5 >,
+		<  560000000  7 >,
+		<  624000000  7 >;
 };
 
 &gdsc_gpu_gx {
@@ -324,6 +342,79 @@
 
 			};
 		};
+
+		qcom,gpu-pwrlevels-3 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,speed-bin = <3>;
+
+			qcom,initial-pwrlevel = <5>;
+
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <624000000>;
+				qcom,bus-freq = <12>;
+				qcom,bus-min = <11>;
+				qcom,bus-max = <12>;
+			};
+
+			qcom,gpu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gpu-freq = <560000000>;
+				qcom,bus-freq = <11>;
+				qcom,bus-min = <9>;
+				qcom,bus-max = <12>;
+			};
+
+			qcom,gpu-pwrlevel@2 {
+				reg = <2>;
+				qcom,gpu-freq = <510000000>;
+				qcom,bus-freq = <9>;
+				qcom,bus-min = <8>;
+				qcom,bus-max = <11>;
+			};
+
+			qcom,gpu-pwrlevel@3 {
+				reg = <3>;
+				qcom,gpu-freq = <401800000>;
+				qcom,bus-freq = <8>;
+				qcom,bus-min = <7>;
+				qcom,bus-max = <9>;
+			};
+
+			qcom,gpu-pwrlevel@4 {
+				reg = <4>;
+				qcom,gpu-freq = <315000000>;
+				qcom,bus-freq = <6>;
+				qcom,bus-min = <5>;
+				qcom,bus-max = <7>;
+			};
+
+			qcom,gpu-pwrlevel@5 {
+				reg = <5>;
+				qcom,gpu-freq = <214000000>;
+				qcom,bus-freq = <4>;
+				qcom,bus-min = <3>;
+				qcom,bus-max = <5>;
+			};
+
+			qcom,gpu-pwrlevel@6 {
+				reg = <6>;
+				qcom,gpu-freq = <133000000>;
+				qcom,bus-freq = <3>;
+				qcom,bus-min = <2>;
+				qcom,bus-max = <4>;
+			};
+
+			qcom,gpu-pwrlevel@7 {
+				reg = <7>;
+				qcom,gpu-freq = <27000000>;
+				qcom,bus-freq = <0>;
+				qcom,bus-min = <0>;
+				qcom,bus-max = <0>;
+			};
+		};
 	};
 };
 
@@ -515,6 +606,24 @@
 			< 1324800000 13 >,
 			< 1401600000 14 >,
 			< 1497600000 15 >;
+		qcom,pwrcl-speedbin3-v0 =
+			<          0  0 >,
+			<  307200000  1 >,
+			<  422400000  2 >,
+			<  480000000  3 >,
+			<  556800000  4 >,
+			<  652800000  5 >,
+			<  729600000  6 >,
+			<  844800000  7 >,
+			<  960000000  8 >,
+			< 1036800000  9 >,
+			< 1113600000 10 >,
+			< 1190400000 11 >,
+			< 1228800000 12 >,
+			< 1324800000 13 >,
+			< 1401600000 14 >,
+			< 1478400000 15 >,
+			< 1593600000 16 >;
 		qcom,perfcl-speedbin0-v0 =
 			<          0  0 >,
 			<  307200000  1 >,
@@ -589,6 +698,29 @@
 			< 1785600000 20 >,
 			< 1804800000 21 >,
 			< 1900800000 22 >;
+		qcom,perfcl-speedbin3-v0 =
+			<          0  0 >,
+			<  307200000  1 >,
+			<  403200000  2 >,
+			<  480000000  3 >,
+			<  556800000  4 >,
+			<  652800000  5 >,
+			<  729600000  6 >,
+			<  806400000  7 >,
+			<  883200000  8 >,
+			<  940800000  9 >,
+			< 1036800000 10 >,
+			< 1113600000 11 >,
+			< 1190400000 12 >,
+			< 1248000000 13 >,
+			< 1324800000 14 >,
+			< 1401600000 15 >,
+			< 1478400000 16 >,
+			< 1555200000 17 >,
+			< 1632000000 18 >,
+			< 1708800000 19 >,
+			< 1785600000 20 >,
+			< 1804800000 21 >;
 		qcom,cbf-speedbin0-v0 =
 			<	   0  0 >,
 			<  307200000  1 >,
@@ -644,6 +776,27 @@
 			< 1190400000 13 >,
 			< 1228800000 14 >,
 			< 1305600000 15 >;
+		qcom,cbf-speedbin3-v0 =
+			<	   0  0 >,
+			<  307200000  1 >,
+			<  384000000  2 >,
+			<  460800000  3 >,
+			<  537600000  4 >,
+			<  595200000  5 >,
+			<  672000000  6 >,
+			<  748800000  7 >,
+			<  825600000  8 >,
+			<  902400000  9 >,
+			<  979200000 10 >,
+			< 1056000000 11 >,
+			< 1132800000 12 >,
+			< 1190400000 13 >,
+			< 1228800000 14 >,
+			< 1305600000 15 >,
+			< 1382400000 16 >,
+			< 1459200000 17 >,
+			< 1536000000 18 >,
+			< 1593600000 19 >;
 };
 
 &msm_cpufreq {
