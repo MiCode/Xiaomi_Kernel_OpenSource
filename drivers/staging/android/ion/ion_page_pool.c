@@ -76,9 +76,7 @@ struct page *ion_page_pool_alloc(struct ion_page_pool *pool, bool *from_pool)
 
 	BUG_ON(!pool);
 
-	*from_pool = true;
-
-	if (mutex_trylock(&pool->mutex)) {
+	if (*from_pool && mutex_trylock(&pool->mutex)) {
 		if (pool->high_count)
 			page = ion_page_pool_remove(pool, true);
 		else if (pool->low_count)
