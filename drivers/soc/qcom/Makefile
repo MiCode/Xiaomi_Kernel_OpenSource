@@ -42,6 +42,10 @@ obj-$(CONFIG_MSM_SPSS_UTILS) += spss_utils.o
 obj-$(CONFIG_TRACER_PKT) += tracer_pkt.o
 obj-$(CONFIG_QCOM_BUS_SCALING) += msm_bus/
 obj-$(CONFIG_QTI_RPMH_API) += rpmh.o
+obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd.o
+ifdef CONFIG_DEBUG_FS
+obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd-debug.o
+endif
 obj-$(CONFIG_QTI_SYSTEM_PM) += system_pm.o
 obj-$(CONFIG_MSM_SERVICE_NOTIFIER) += service-notifier.o
 obj-$(CONFIG_MSM_SERVICE_LOCATOR) += service-locator.o
