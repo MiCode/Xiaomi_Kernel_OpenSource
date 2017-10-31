@@ -631,6 +631,8 @@ ath_regd_init_wiphy(struct ath_regulatory *reg,
 					 struct regulatory_request *request))
 {
 	const struct ieee80211_regdomain *regd;
+	u32 chan_num;
+	struct ieee80211_channel *chan;
 
 	wiphy->reg_notifier = reg_notifier;
 	wiphy->regulatory_flags |= REGULATORY_STRICT_REG |
@@ -653,6 +655,20 @@ ath_regd_init_wiphy(struct ath_regulatory *reg,
 	}
 
 	wiphy_apply_custom_regulatory(wiphy, regd);
+
+	/* For regulatory rules similar to the following:
+	 * REG_RULE(2412-10, 2462+10, 40, 0, 20, 0), channels 12/13 are enabled
+	 * due to support of 5/10 MHz.
+	 * Therefore, disable 2.4 Ghz channels that dont have 20 mhz bw
+	 */
+	for (chan_num = 0;
+	     chan_num < wiphy->bands[IEEE80211_BAND_2GHZ]->n_channels;
+	     chan_num++) {
+		chan = &wiphy->bands[IEEE80211_BAND_2GHZ]->channels[chan_num];
+		if (chan->flags & IEEE80211_CHAN_NO_20MHZ)
+			chan->flags |= IEEE80211_CHAN_DISABLED;
+	}
+
 	ath_reg_apply_radar_flags(wiphy);
 	ath_reg_apply_world_flags(wiphy, NL80211_REGDOM_SET_BY_DRIVER, reg);
 	return 0;
