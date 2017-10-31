@@ -71,6 +71,7 @@ struct msm_pinctrl {
 
 	const struct msm_pinctrl_soc_data *soc;
 	void __iomem *regs;
+	void __iomem *pdc_regs;
 #ifdef CONFIG_FRAGMENTED_GPIO_ADDRESS_SPACE
 	/* For holding per tile virtual address */
 	void __iomem *per_tile_regs[4];
@@ -975,6 +976,102 @@ static const struct irq_domain_ops msm_gpio_domain_ops = {
 	.free		= irq_domain_free_irqs_top,
 };
 
+static struct irq_chip msm_dirconn_irq_chip;
+
+static void msm_gpio_dirconn_handler(struct irq_desc *desc)
+{
+	struct irq_data *irqd = irq_desc_get_handler_data(desc);
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+
+	chained_irq_enter(chip, desc);
+	generic_handle_irq(irqd->irq);
+	chained_irq_exit(chip, desc);
+}
+
+static void setup_pdc_gpio(struct irq_domain *domain,
+			unsigned int parent_irq, unsigned int gpio)
+{
+	int irq;
+
+	if (gpio != 0) {
+		irq = irq_create_mapping(domain, gpio);
+		irq_set_parent(irq, parent_irq);
+		irq_set_chip(irq, &msm_dirconn_irq_chip);
+		irq_set_handler_data(parent_irq, irq_get_irq_data(irq));
+	}
+
+	__irq_set_handler(parent_irq, msm_gpio_dirconn_handler, false, NULL);
+}
+
+static void request_dc_interrupt(struct irq_domain *domain,
+			struct irq_domain *parent, irq_hw_number_t hwirq,
+			unsigned int gpio)
+{
+	struct irq_fwspec fwspec;
+	unsigned int parent_irq;
+
+	fwspec.fwnode = parent->fwnode;
+	fwspec.param[0] = 0; /* SPI */
+	fwspec.param[1] = hwirq;
+	fwspec.param[2] = IRQ_TYPE_NONE;
+	fwspec.param_count = 3;
+
+	parent_irq = irq_create_fwspec_mapping(&fwspec);
+
+	setup_pdc_gpio(domain, parent_irq, gpio);
+}
+
+/**
+ * gpio_muxed_to_pdc: Mux the GPIO to a PDC IRQ
+ *
+ * @pdc_domain: the PDC's domain
+ * @d: the GPIO's IRQ data
+ *
+ * Find a free PDC port for the GPIO and map the GPIO's mux information to the
+ * PDC registers; so the GPIO can be used a wakeup source.
+ */
+static void gpio_muxed_to_pdc(struct irq_domain *pdc_domain, struct irq_data *d)
+{
+	int i, j;
+	unsigned int mux;
+	struct irq_desc *desc = irq_data_to_desc(d);
+	struct irq_data *parent_data = irq_get_irq_data(desc->parent_irq);
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+	unsigned int gpio = d->hwirq;
+	struct msm_pinctrl *pctrl;
+	unsigned int irq;
+
+	if (!gc || !parent_data)
+		return;
+
+	pctrl = gpiochip_get_data(gc);
+
+	for (i = 0; i < pctrl->soc->n_gpio_mux_in; i++) {
+		if (gpio != pctrl->soc->gpio_mux_in[i].gpio)
+			continue;
+		mux = pctrl->soc->gpio_mux_in[i].mux;
+		for (j = 0; j < pctrl->soc->n_pdc_mux_out; j++) {
+			struct msm_pdc_mux_output *pdc_out =
+						&pctrl->soc->pdc_mux_out[j];
+
+			if (pdc_out->mux == mux)
+				break;
+			if (pdc_out->mux)
+				continue;
+			pdc_out->mux = gpio;
+			irq = irq_find_mapping(pdc_domain, pdc_out->hwirq + 32);
+			/* setup the IRQ parent for the GPIO */
+			setup_pdc_gpio(pctrl->chip.irqdomain, irq, gpio);
+			/* program pdc select grp register */
+			writel_relaxed((mux & 0x3F), pctrl->pdc_regs +
+				(0x14 * j));
+			break;
+		}
+		/* We have no more PDC port available */
+		WARN_ON(j == pctrl->soc->n_pdc_mux_out);
+	}
+}
+
 static bool is_gpio_dual_edge(struct irq_data *d, irq_hw_number_t *dir_conn_irq)
 {
 	struct irq_desc *desc = irq_data_to_desc(d);
@@ -990,6 +1087,17 @@ static bool is_gpio_dual_edge(struct irq_data *d, irq_hw_number_t *dir_conn_irq)
 		const struct msm_dir_conn *dir_conn = &pctrl->soc->dir_conn[i];
 
 		if (dir_conn->gpio == d->hwirq && (dir_conn->hwirq + 32)
+				!= parent_data->hwirq) {
+			*dir_conn_irq = dir_conn->hwirq + 32;
+			return true;
+		}
+	}
+
+	for (i = 0; i < pctrl->soc->n_pdc_mux_out; i++) {
+		struct msm_pdc_mux_output *dir_conn =
+					&pctrl->soc->pdc_mux_out[i];
+
+		if (dir_conn->mux == d->hwirq && (dir_conn->hwirq + 32)
 				!= parent_data->hwirq) {
 			*dir_conn_irq = dir_conn->hwirq + 32;
 			return true;
@@ -1012,9 +1120,13 @@ static void msm_dirconn_irq_mask(struct irq_data *d)
 			irq_get_irq_data(irq_find_mapping(parent_data->domain,
 						dir_conn_irq));
 
-		if (dir_conn_data && dir_conn_data->chip->irq_mask)
+		if (!dir_conn_data)
+			return;
+
+		if (dir_conn_data->chip->irq_mask)
 			dir_conn_data->chip->irq_mask(dir_conn_data);
 	}
+
 	if (parent_data->chip->irq_mask)
 		parent_data->chip->irq_mask(parent_data);
 }
@@ -1065,7 +1177,10 @@ static void msm_dirconn_irq_unmask(struct irq_data *d)
 			irq_get_irq_data(irq_find_mapping(parent_data->domain,
 						dir_conn_irq));
 
-		if (dir_conn_data && dir_conn_data->chip->irq_unmask)
+		if (!dir_conn_data)
+			return;
+
+		if (dir_conn_data->chip->irq_unmask)
 			dir_conn_data->chip->irq_unmask(dir_conn_data);
 	}
 	if (parent_data->chip->irq_unmask)
@@ -1333,57 +1448,53 @@ static void msm_gpio_irq_handler(struct irq_desc *desc)
 	chained_irq_exit(chip, desc);
 }
 
-static void msm_gpio_dirconn_handler(struct irq_desc *desc)
-{
-	struct irq_data *irqd = irq_desc_get_handler_data(desc);
-	struct irq_chip *chip = irq_desc_get_chip(desc);
-
-	chained_irq_enter(chip, desc);
-	generic_handle_irq(irqd->irq);
-	chained_irq_exit(chip, desc);
-}
-
 static void msm_gpio_setup_dir_connects(struct msm_pinctrl *pctrl)
 {
 	struct device_node *parent_node;
-	struct irq_domain *parent_domain;
-	struct irq_fwspec fwspec;
+	struct irq_domain *pdc_domain;
 	unsigned int i;
 
 	parent_node = of_irq_find_parent(pctrl->dev->of_node);
-
 	if (!parent_node)
 		return;
 
-	parent_domain = irq_find_host(parent_node);
-	if (!parent_domain)
+	pdc_domain = irq_find_host(parent_node);
+	if (!pdc_domain)
 		return;
 
-	fwspec.fwnode = parent_domain->fwnode;
 	for (i = 0; i < pctrl->soc->n_dir_conns; i++) {
 		const struct msm_dir_conn *dirconn = &pctrl->soc->dir_conn[i];
-		unsigned int parent_irq;
-		int irq;
 
-		fwspec.param[0] = 0; /* SPI */
-		fwspec.param[1] = dirconn->hwirq;
-		fwspec.param[2] = IRQ_TYPE_NONE;
-		fwspec.param_count = 3;
-		parent_irq = irq_create_fwspec_mapping(&fwspec);
+		request_dc_interrupt(pctrl->chip.irqdomain, pdc_domain,
+					dirconn->hwirq, dirconn->gpio);
+	}
 
-		if (dirconn->gpio != 0) {
-			irq = irq_create_mapping(pctrl->chip.irqdomain,
-					dirconn->gpio);
+	for (i = 0; i < pctrl->soc->n_pdc_mux_out; i++) {
+		struct msm_pdc_mux_output *pdc_out =
+					&pctrl->soc->pdc_mux_out[i];
 
-			irq_set_parent(irq, parent_irq);
-			irq_set_chip(irq, &msm_dirconn_irq_chip);
-			__irq_set_handler(parent_irq, msm_gpio_dirconn_handler,
-				false, NULL);
-			irq_set_handler_data(parent_irq, irq_get_irq_data(irq));
-		} else {
-			__irq_set_handler(parent_irq, msm_gpio_dirconn_handler,
-				false, NULL);
-		}
+		request_dc_interrupt(pctrl->chip.irqdomain, pdc_domain,
+					pdc_out->hwirq, 0);
+	}
+
+	/*
+	 * Statically choose the GPIOs for mapping to PDC. Dynamic mux mapping
+	 * is very difficult.
+	 */
+	for (i = 0; i < pctrl->soc->n_gpio_mux_in; i++) {
+		unsigned int irq;
+		struct irq_data *d;
+		struct msm_gpio_mux_input *gpio_in =
+					&pctrl->soc->gpio_mux_in[i];
+		if (!gpio_in->init)
+			continue;
+
+		irq = irq_find_mapping(pctrl->chip.irqdomain, gpio_in->gpio);
+		d = irq_get_irq_data(irq);
+		if (!d)
+			continue;
+
+		gpio_muxed_to_pdc(pdc_domain, d);
 	}
 }
 
@@ -1553,6 +1664,9 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 		}
 	}
 #endif
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	pctrl->pdc_regs = devm_ioremap_resource(&pdev->dev, res);
 
 	msm_pinctrl_setup_pm_reset(pctrl);
 
