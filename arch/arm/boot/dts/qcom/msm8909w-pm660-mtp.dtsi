@@ -76,20 +76,15 @@
 };
 
 &i2c_1 {
-	mpu6050@68 {
-		/delete-property/ vdd-supply;
-		/delete-property/ vlogic-supply;
-	};
+	/delete-node/ mpu6050@68;
+	/delete-node/ avago@39;
+	/delete-node/ akm@c;
+};
 
-	avago@39 {
-		/delete-property/ vdd-supply;
-		/delete-property/ vio-supply;
-	};
-
-	akm@c {
-		/delete-property/ vdd-supply;
-		/delete-property/ vio-supply;
-	};
+&msm_gpio {
+	/delete-node/ mpu6050_int_pin;
+	/delete-node/ apds99xx_int_pin;
+	/delete-node/ ak8963_int_pin;
 };
 
 &i2c_3 {
