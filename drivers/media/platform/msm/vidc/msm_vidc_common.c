@@ -4187,6 +4187,19 @@ int msm_comm_qbuf(struct msm_vidc_inst *inst, struct msm_vidc_buffer *mbuf)
 	output_count = (batch_mode ? &count_single_batch : &count_buffers)
 		(inst, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
 
+	if (!batch_mode && mbuf) {
+		/*
+		 * don't queue output_mplane buffers if buffer queued
+		 * by client is capture_mplane type and vice versa.
+		 */
+		if (mbuf->vvb.vb2_buf.type ==
+				V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+			output_count = 0;
+		else if (mbuf->vvb.vb2_buf.type ==
+				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+			capture_count = 0;
+	}
+
 	/*
 	 * Somewhat complicated logic to prevent queuing the buffer to hardware.
 	 * Don't queue if:
