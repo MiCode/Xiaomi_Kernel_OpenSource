@@ -3004,6 +3004,57 @@ void ipa_ntn_uc_dereg_rdyCB(void)
 }
 EXPORT_SYMBOL(ipa_ntn_uc_dereg_rdyCB);
 
+/**
+ * ipa_conn_wdi3_pipes() - connect wdi3 pipes
+ */
+int ipa_conn_wdi3_pipes(struct ipa_wdi3_conn_in_params *in,
+	struct ipa_wdi3_conn_out_params *out)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_conn_wdi3_pipes, in, out);
+
+	return ret;
+}
+
+/**
+ * ipa_disconn_wdi3_pipes() - disconnect wdi3 pipes
+ */
+int ipa_disconn_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_disconn_wdi3_pipes, ipa_ep_idx_tx,
+		ipa_ep_idx_rx);
+
+	return ret;
+}
+
+/**
+ * ipa_enable_wdi3_pipes() - enable wdi3 pipes
+ */
+int ipa_enable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_enable_wdi3_pipes, ipa_ep_idx_tx,
+		ipa_ep_idx_rx);
+
+	return ret;
+}
+
+/**
+ * ipa_disable_wdi3_pipes() - disable wdi3 pipes
+ */
+int ipa_disable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_disable_wdi3_pipes, ipa_ep_idx_tx,
+		ipa_ep_idx_rx);
+
+	return ret;
+}
 
 static const struct dev_pm_ops ipa_pm_ops = {
 	.suspend_noirq = ipa_ap_suspend,

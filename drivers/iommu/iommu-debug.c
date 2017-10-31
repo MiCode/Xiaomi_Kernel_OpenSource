@@ -102,20 +102,25 @@ void iommu_debug_attach_device(struct iommu_domain *domain,
 	struct iommu_debug_attachment *attach;
 	struct iommu_group *group;
 
-	group = iommu_group_get(dev);
+	group = dev->iommu_group;
 	if (!group)
 		return;
 
+	mutex_lock(&iommu_debug_attachments_lock);
+	list_for_each_entry(attach, &iommu_debug_attachments, list)
+		if ((attach->domain == domain) && (attach->group == group))
+			goto out;
+
 	attach = kzalloc(sizeof(*attach), GFP_KERNEL);
 	if (!attach)
-		return;
+		goto out;
 
 	attach->domain = domain;
 	attach->group = group;
 	INIT_LIST_HEAD(&attach->list);
 
-	mutex_lock(&iommu_debug_attachments_lock);
 	list_add(&attach->list, &iommu_debug_attachments);
+out:
 	mutex_unlock(&iommu_debug_attachments_lock);
 }
 
@@ -128,7 +133,6 @@ void iommu_debug_domain_remove(struct iommu_domain *domain)
 		if (it->domain != domain)
 			continue;
 		list_del(&it->list);
-		iommu_group_put(it->group);
 		kfree(it);
 	}
 

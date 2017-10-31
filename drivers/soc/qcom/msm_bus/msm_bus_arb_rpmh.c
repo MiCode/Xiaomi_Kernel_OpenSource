@@ -1294,7 +1294,7 @@ static uint32_t register_client_adhoc(struct msm_bus_scale_pdata *pdata)
 		src = pdata->usecase->vectors[i].src;
 		dest = pdata->usecase->vectors[i].dst;
 
-		if ((src < 0) || (dest < 0)) {
+		if ((src < 0) || (dest < 0) || (src == dest)) {
 			MSM_BUS_ERR("%s:Invalid src/dst.src %d dest %d",
 				__func__, src, dest);
 			goto exit_invalid_data;

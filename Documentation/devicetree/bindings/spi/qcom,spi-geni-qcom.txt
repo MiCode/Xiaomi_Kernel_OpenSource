@@ -25,6 +25,10 @@ Required properties:
 		     Documentation/devicetree/bindings/spi/spi-bus.txt
 - qcom,wrapper-core: Wrapper QUPv3 core containing this SPI controller.
 
+Optional properties:
+- qcom,rt:	Specifies if the framework worker thread for this
+		controller device should have "real-time" priority.
+
 SPI slave nodes must be children of the SPI master node and can contain
 properties described in Documentation/devicetree/bindings/spi/spi-bus.txt
 

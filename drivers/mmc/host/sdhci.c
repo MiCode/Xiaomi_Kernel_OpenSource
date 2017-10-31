@@ -2491,6 +2491,8 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		 */
 		mmc_retune_disable(mmc);
 		err = host->ops->platform_execute_tuning(host, opcode);
+		if (err)
+			host->mmc->err_stats[MMC_ERR_TUNING]++;
 		mmc_retune_enable(mmc);
 		return err;
 	}
@@ -2701,8 +2703,8 @@ static void sdhci_post_req(struct mmc_host *mmc, struct mmc_request *mrq,
 
 	data->host_cookie = COOKIE_UNMAPPED;
 
-	if (host->ops->pre_req)
-		host->ops->pre_req(host, mrq);
+	if (host->ops->post_req)
+		host->ops->post_req(host, mrq);
 }
 
 static void sdhci_pre_req(struct mmc_host *mmc, struct mmc_request *mrq,
@@ -2714,6 +2716,9 @@ static void sdhci_pre_req(struct mmc_host *mmc, struct mmc_request *mrq,
 
 	if (host->flags & SDHCI_REQ_USE_DMA)
 		sdhci_pre_dma_transfer(host, mrq->data, COOKIE_PRE_MAPPED);
+
+	if (host->ops->pre_req)
+		host->ops->pre_req(host, mrq);
 }
 
 static inline bool sdhci_has_requests(struct sdhci_host *host)
@@ -2916,8 +2921,10 @@ static void sdhci_timeout_timer(unsigned long data)
 	spin_lock_irqsave(&host->lock, flags);
 
 	if (host->cmd && !sdhci_data_line_cmd(host->cmd)) {
+		host->mmc->err_stats[MMC_ERR_REQ_TIMEOUT]++;
 		pr_err("%s: Timeout waiting for hardware cmd interrupt.\n",
 		       mmc_hostname(host->mmc));
+		MMC_TRACE(host->mmc, "Timeout waiting for h/w interrupt\n");
 		sdhci_dumpregs(host);
 
 		host->cmd->error = -ETIMEDOUT;
@@ -2939,6 +2946,7 @@ static void sdhci_timeout_data_timer(unsigned long data)
 
 	if (host->data || host->data_cmd ||
 	    (host->cmd && sdhci_data_line_cmd(host->cmd))) {
+		host->mmc->err_stats[MMC_ERR_REQ_TIMEOUT]++;
 		pr_err("%s: Timeout waiting for hardware interrupt.\n",
 		       mmc_hostname(host->mmc));
 		MMC_TRACE(host->mmc, "Timeout waiting for h/w interrupt\n");
@@ -2997,13 +3005,17 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 	if (intmask & (SDHCI_INT_TIMEOUT | SDHCI_INT_CRC |
 		       SDHCI_INT_END_BIT | SDHCI_INT_INDEX |
 		       SDHCI_INT_AUTO_CMD_ERR)) {
-		if (intmask & SDHCI_INT_TIMEOUT)
+		if (intmask & SDHCI_INT_TIMEOUT) {
 			host->cmd->error = -ETIMEDOUT;
-		else
+			host->mmc->err_stats[MMC_ERR_CMD_TIMEOUT]++;
+		} else {
 			host->cmd->error = -EILSEQ;
+			host->mmc->err_stats[MMC_ERR_CMD_CRC]++;
+		}
 
 		if (intmask & SDHCI_INT_AUTO_CMD_ERR) {
 			auto_cmd_status = host->auto_cmd_err_sts;
+			host->mmc->err_stats[MMC_ERR_AUTO_CMD]++;
 			pr_err_ratelimited("%s: %s: AUTO CMD err sts 0x%08x\n",
 				mmc_hostname(host->mmc), __func__, auto_cmd_status);
 			if (auto_cmd_status & (SDHCI_AUTO_CMD12_NOT_EXEC |
@@ -3131,6 +3143,7 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 			if (intmask & SDHCI_INT_DATA_TIMEOUT) {
 				host->data_cmd = NULL;
 				data_cmd->error = -ETIMEDOUT;
+				host->mmc->err_stats[MMC_ERR_CMD_TIMEOUT]++;
 				sdhci_finish_mrq(host, data_cmd->mrq);
 				return;
 			}
@@ -3154,16 +3167,21 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 		return;
 	}
 
-	if (intmask & SDHCI_INT_DATA_TIMEOUT)
+	if (intmask & SDHCI_INT_DATA_TIMEOUT) {
 		host->data->error = -ETIMEDOUT;
+		host->mmc->err_stats[MMC_ERR_DAT_TIMEOUT]++;
+	}
 	else if (intmask & SDHCI_INT_DATA_END_BIT)
 		host->data->error = -EILSEQ;
 	else if ((intmask & SDHCI_INT_DATA_CRC) &&
-		(command != MMC_BUS_TEST_R))
+		(command != MMC_BUS_TEST_R)) {
 		host->data->error = -EILSEQ;
+		host->mmc->err_stats[MMC_ERR_DAT_CRC]++;
+	}
 	else if (intmask & SDHCI_INT_ADMA_ERROR) {
 		pr_err("%s: ADMA error\n", mmc_hostname(host->mmc));
 		sdhci_adma_show_error(host);
+		host->mmc->err_stats[MMC_ERR_ADMA]++;
 		host->data->error = -EIO;
 		if (host->ops->adma_workaround)
 			host->ops->adma_workaround(host, intmask);
@@ -3242,24 +3260,31 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 }
 
 #ifdef CONFIG_MMC_CQ_HCI
-static int sdhci_get_cmd_err(u32 intmask)
+static int sdhci_get_cmd_err(struct sdhci_host *host, u32 intmask)
 {
-	if (intmask & SDHCI_INT_TIMEOUT)
+	if (intmask & SDHCI_INT_TIMEOUT) {
+		host->mmc->err_stats[MMC_ERR_CMD_TIMEOUT]++;
 		return -ETIMEDOUT;
-	else if (intmask & (SDHCI_INT_CRC | SDHCI_INT_END_BIT |
-			    SDHCI_INT_INDEX))
+	} else if (intmask & (SDHCI_INT_CRC | SDHCI_INT_END_BIT |
+			    SDHCI_INT_INDEX)) {
+		host->mmc->err_stats[MMC_ERR_CMD_CRC]++;
 		return -EILSEQ;
+	}
 	return 0;
 }
 
-static int sdhci_get_data_err(u32 intmask)
+static int sdhci_get_data_err(struct sdhci_host *host, u32 intmask)
 {
-	if (intmask & SDHCI_INT_DATA_TIMEOUT)
+	if (intmask & SDHCI_INT_DATA_TIMEOUT) {
+		host->mmc->err_stats[MMC_ERR_DAT_TIMEOUT]++;
 		return -ETIMEDOUT;
-	else if (intmask & (SDHCI_INT_DATA_END_BIT | SDHCI_INT_DATA_CRC))
+	} else if (intmask & (SDHCI_INT_DATA_END_BIT | SDHCI_INT_DATA_CRC)) {
+		host->mmc->err_stats[MMC_ERR_DAT_CRC]++;
 		return -EILSEQ;
-	else if (intmask & SDHCI_INT_ADMA_ERROR)
+	} else if (intmask & MMC_ERR_ADMA) {
+		host->mmc->err_stats[MMC_ERR_ADMA]++;
 		return -EIO;
+	}
 	return 0;
 }
 
@@ -3270,9 +3295,9 @@ static irqreturn_t sdhci_cmdq_irq(struct sdhci_host *host, u32 intmask)
 	irqreturn_t ret;
 
 	if (intmask & SDHCI_INT_CMD_MASK)
-		err = sdhci_get_cmd_err(intmask);
+		err = sdhci_get_cmd_err(host, intmask);
 	else if (intmask & SDHCI_INT_DATA_MASK)
-		err = sdhci_get_data_err(intmask);
+		err = sdhci_get_data_err(host, intmask);
 
 	ret = cmdq_irq(host->mmc, err);
 	if (err) {

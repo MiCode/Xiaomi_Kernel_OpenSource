@@ -2512,7 +2512,7 @@ static int slim_sched_chans(struct slim_device *sb, u32 clkgear,
 				}
 			}
 			/* schedule 4k family channels */
-			while (coeff1 < ctrl->sched.num_cc1 &&
+			while (coeff1 < ctrl->sched.num_cc1 && slc1 &&
 				curexp == (int)slc1->rootexp + expshft) {
 				/* searchorder effective when opensl valid */
 				static const int srcho[] = { 5, 2, 4, 1, 3, 0 };

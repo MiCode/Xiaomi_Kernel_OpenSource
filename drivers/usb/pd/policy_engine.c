@@ -1038,6 +1038,16 @@ static void phy_msg_received(struct usbpd *pd, enum pd_sop_type sop,
 static void phy_shutdown(struct usbpd *pd)
 {
 	usbpd_dbg(&pd->dev, "shutdown");
+
+	if (pd->vconn_enabled) {
+		regulator_disable(pd->vconn);
+		pd->vconn_enabled = false;
+	}
+
+	if (pd->vbus_enabled) {
+		regulator_disable(pd->vbus);
+		pd->vbus_enabled = false;
+	}
 }
 
 static enum hrtimer_restart pd_timeout(struct hrtimer *timer)
@@ -1211,14 +1221,13 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 	case PE_SRC_READY:
 		pd->in_explicit_contract = true;
-		if (pd->current_dr == DR_DFP) {
-			/* don't start USB host until after SVDM discovery */
-			if (pd->vdm_state == VDM_NONE)
-				usbpd_send_svdm(pd, USBPD_SID,
-						USBPD_SVDM_DISCOVER_IDENTITY,
-						SVDM_CMD_TYPE_INITIATOR, 0,
-						NULL, 0);
-		}
+
+		if (pd->vdm_tx)
+			kick_sm(pd, 0);
+		else if (pd->current_dr == DR_DFP && pd->vdm_state == VDM_NONE)
+			usbpd_send_svdm(pd, USBPD_SID,
+					USBPD_SVDM_DISCOVER_IDENTITY,
+					SVDM_CMD_TYPE_INITIATOR, 0, NULL, 0);
 
 		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 		complete(&pd->is_ready);
@@ -1358,6 +1367,14 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 	case PE_SNK_READY:
 		pd->in_explicit_contract = true;
+
+		if (pd->vdm_tx)
+			kick_sm(pd, 0);
+		else if (pd->current_dr == DR_DFP && pd->vdm_state == VDM_NONE)
+			usbpd_send_svdm(pd, USBPD_SID,
+					USBPD_SVDM_DISCOVER_IDENTITY,
+					SVDM_CMD_TYPE_INITIATOR, 0, NULL, 0);
+
 		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 		complete(&pd->is_ready);
 		dual_role_instance_changed(pd->dual_role);
@@ -2046,6 +2063,10 @@ static void usbpd_sm(struct work_struct *w)
 
 	switch (pd->current_state) {
 	case PE_UNKNOWN:
+		val.intval = 0;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
+
 		if (pd->current_pr == PR_SINK) {
 			usbpd_set_state(pd, PE_SNK_STARTUP);
 		} else if (pd->current_pr == PR_SRC) {
@@ -2208,8 +2229,11 @@ static void usbpd_sm(struct work_struct *w)
 	case PE_SRC_TRANSITION_TO_DEFAULT:
 		if (pd->vconn_enabled)
 			regulator_disable(pd->vconn);
+		pd->vconn_enabled = false;
+
 		if (pd->vbus_enabled)
 			regulator_disable(pd->vbus);
+		pd->vbus_enabled = false;
 
 		if (pd->current_dr != DR_DFP) {
 			extcon_set_state_sync(pd->extcon, EXTCON_USB, 0);
@@ -2217,24 +2241,9 @@ static void usbpd_sm(struct work_struct *w)
 			pd_phy_update_roles(pd->current_dr, pd->current_pr);
 		}
 
-		msleep(SRC_RECOVER_TIME);
-
-		pd->vbus_enabled = false;
-		enable_vbus(pd);
-
-		if (pd->vconn_enabled) {
-			ret = regulator_enable(pd->vconn);
-			if (ret) {
-				usbpd_err(&pd->dev, "Unable to enable vconn\n");
-				pd->vconn_enabled = false;
-			}
-		}
-
-		val.intval = 0;
-		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
-
-		usbpd_set_state(pd, PE_SRC_STARTUP);
+		/* PE_UNKNOWN will turn on VBUS and go back to PE_SRC_STARTUP */
+		pd->current_state = PE_UNKNOWN;
+		kick_sm(pd, SRC_RECOVER_TIME);
 		break;
 
 	case PE_SRC_HARD_RESET:

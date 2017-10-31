@@ -9,6 +9,8 @@ Required properties:
   defined.
 - qcom,reg-adjustment-offset : Specify the base adjustment offset value for the
   version registers
+- qcom,qpic-clk-rpmh: Indicates whether QPIC clock is RPMH controlled clock or
+  not.
 
 MTD flash partition layout for NAND devices -
 
@@ -53,6 +55,7 @@ Examples:
 		qcom,msm-bus,num-cases = <1>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps = <91 512 0 0>,
+		qcom,qpic-clk-rpmh;
 	};
 
        qcom,mtd-partitions {

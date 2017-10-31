@@ -1662,6 +1662,7 @@ int diag_msg_mask_copy(struct diag_mask_info *dest, struct diag_mask_info *src)
 	struct diag_msg_mask_t *src_mask = NULL;
 	struct diag_msg_mask_t *dest_mask = NULL;
 	struct diag_ssid_range_t range;
+	int mask_size = 0;
 
 	if (!src || !dest)
 		return -EINVAL;
@@ -1682,8 +1683,11 @@ int diag_msg_mask_copy(struct diag_mask_info *dest, struct diag_mask_info *src)
 		err = diag_create_msg_mask_table_entry(dest_mask, &range);
 		if (err)
 			break;
-		memcpy(dest_mask->ptr, src_mask->ptr,
-		       dest_mask->range * sizeof(uint32_t));
+		if (src_mask->range_tools < dest_mask->range)
+			mask_size = src_mask->range_tools * sizeof(uint32_t);
+		else
+			mask_size = dest_mask->range * sizeof(uint32_t);
+		memcpy(dest_mask->ptr, src_mask->ptr, mask_size);
 		src_mask++;
 		dest_mask++;
 	}

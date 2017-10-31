@@ -70,8 +70,6 @@ const char *const mpeg_video_vidc_extradata[] = {
 	"Extradata UBWC CR stats info",
 };
 
-static void msm_comm_generate_session_error(struct msm_vidc_inst *inst);
-static void msm_comm_generate_sys_error(struct msm_vidc_inst *inst);
 static void handle_session_error(enum hal_command_response cmd, void *data);
 static void msm_vidc_print_running_insts(struct msm_vidc_core *core);
 
@@ -3336,20 +3334,11 @@ int msm_comm_suspend(int core_id)
 	}
 
 	mutex_lock(&core->lock);
-	if (core->state != VIDC_CORE_INIT_DONE) {
-		dprintk(VIDC_ERR,
-				"%s - fw is not in proper state, skip suspend\n",
-				__func__);
-		rc = -EINVAL;
-		goto exit;
-	}
-
 	rc = call_hfi_op(hdev, suspend, hdev->hfi_device_data);
 	if (rc)
 		dprintk(VIDC_WARN, "Failed to suspend\n");
-
-exit:
 	mutex_unlock(&core->lock);
+
 	return rc;
 }
 
@@ -5302,6 +5291,8 @@ int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 		return -EINVAL;
 	}
 	hdev = core->device;
+
+	mutex_lock(&core->lock);
 	if (core->state == VIDC_CORE_INIT_DONE) {
 		/*
 		 * In current implementation user-initiated SSR triggers
@@ -5317,7 +5308,11 @@ int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 				__func__);
 			core->trigger_ssr = false;
 		}
+	} else {
+		dprintk(VIDC_WARN, "%s: video core %pK not initialized\n",
+			__func__, core);
 	}
+	mutex_unlock(&core->lock);
 
 	return rc;
 }
@@ -5471,15 +5466,15 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	rotation =  msm_comm_g_ctrl_for_id(inst,
 					V4L2_CID_MPEG_VIDC_VIDEO_ROTATION);
 
-	output_height = inst->prop.height[CAPTURE_PORT];
-	output_width = inst->prop.width[CAPTURE_PORT];
+	output_height = ALIGN(inst->prop.height[CAPTURE_PORT], 16);
+	output_width = ALIGN(inst->prop.width[CAPTURE_PORT], 16);
 
 	if ((output_width != output_height) &&
 		(rotation == V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_90 ||
 		rotation == V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_270)) {
 
-		output_width = inst->prop.height[CAPTURE_PORT];
-		output_height = inst->prop.width[CAPTURE_PORT];
+		output_width = ALIGN(inst->prop.height[CAPTURE_PORT], 16);
+		output_height = ALIGN(inst->prop.width[CAPTURE_PORT], 16);
 		dprintk(VIDC_DBG,
 			"Rotation=%u Swapped Output W=%u H=%u to check capability",
 			rotation, output_width, output_height);
@@ -5520,7 +5515,7 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	return rc;
 }
 
-static void msm_comm_generate_session_error(struct msm_vidc_inst *inst)
+void msm_comm_generate_session_error(struct msm_vidc_inst *inst)
 {
 	enum hal_command_response cmd = HAL_SESSION_ERROR;
 	struct msm_vidc_cb_cmd_done response = {0};
@@ -5535,7 +5530,7 @@ static void msm_comm_generate_session_error(struct msm_vidc_inst *inst)
 	handle_session_error(cmd, (void *)&response);
 }
 
-static void msm_comm_generate_sys_error(struct msm_vidc_inst *inst)
+void msm_comm_generate_sys_error(struct msm_vidc_inst *inst)
 {
 	struct msm_vidc_core *core;
 	enum hal_command_response cmd = HAL_SYS_ERROR;

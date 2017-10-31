@@ -5563,6 +5563,13 @@ static unsigned long __cpu_norm_util(int cpu, unsigned long capacity, int delta)
 	return DIV_ROUND_UP(util << SCHED_CAPACITY_SHIFT, capacity);
 }
 
+static inline bool bias_to_waker_cpu_enabled(struct task_struct *wakee,
+		struct task_struct *waker)
+{
+	return task_util(waker) > sched_big_waker_task_load &&
+		task_util(wakee) < sched_small_wakee_task_load;
+}
+
 static inline bool
 bias_to_waker_cpu(struct task_struct *p, int cpu, struct cpumask *rtg_target)
 {
@@ -6917,6 +6924,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	struct related_thread_group *grp;
 	cpumask_t search_cpus;
 	int prev_cpu = task_cpu(p);
+	struct task_struct *curr = cpu_rq(cpu)->curr;
 #ifdef CONFIG_SCHED_CORE_ROTATE
 	bool do_rotate = false;
 	bool avoid_prev_cpu = false;
@@ -6943,7 +6951,8 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	if (grp && grp->preferred_cluster)
 		rtg_target = &grp->preferred_cluster->cpus;
 
-	if (sync && bias_to_waker_cpu(p, cpu, rtg_target)) {
+	if (sync && bias_to_waker_cpu_enabled(p, curr) &&
+		bias_to_waker_cpu(p, cpu, rtg_target)) {
 		trace_sched_task_util_bias_to_waker(p, prev_cpu,
 					task_util(p), cpu, cpu, 0, need_idle);
 		return cpu;

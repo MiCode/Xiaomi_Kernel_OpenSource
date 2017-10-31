@@ -1088,6 +1088,58 @@ int sde_connector_set_property_for_commit(struct drm_connector *connector,
 			connector, state, property, value);
 }
 
+int sde_connector_helper_reset_custom_properties(
+		struct drm_connector *connector,
+		struct drm_connector_state *connector_state)
+{
+	struct sde_connector *c_conn;
+	struct sde_connector_state *c_state;
+	struct drm_property *drm_prop;
+	enum msm_mdp_conn_property prop_idx;
+
+	if (!connector || !connector_state) {
+		SDE_ERROR("invalid params\n");
+		return -EINVAL;
+	}
+
+	c_conn = to_sde_connector(connector);
+	c_state = to_sde_connector_state(connector_state);
+
+	for (prop_idx = 0; prop_idx < CONNECTOR_PROP_COUNT; prop_idx++) {
+		uint64_t val = c_state->property_values[prop_idx].value;
+		uint64_t def;
+		int ret;
+
+		drm_prop = msm_property_index_to_drm_property(
+				&c_conn->property_info, prop_idx);
+		if (!drm_prop) {
+			/* not all props will be installed, based on caps */
+			SDE_DEBUG_CONN(c_conn, "invalid property index %d\n",
+					prop_idx);
+			continue;
+		}
+
+		def = msm_property_get_default(&c_conn->property_info,
+				prop_idx);
+		if (val == def)
+			continue;
+
+		SDE_DEBUG_CONN(c_conn, "set prop %s idx %d from %llu to %llu\n",
+				drm_prop->name, prop_idx, val, def);
+
+		ret = drm_atomic_connector_set_property(connector,
+				connector_state, drm_prop, def);
+		if (ret) {
+			SDE_ERROR_CONN(c_conn,
+					"set property failed, idx %d ret %d\n",
+					prop_idx, ret);
+			continue;
+		}
+	}
+
+	return 0;
+}
+
 #ifdef CONFIG_DEBUG_FS
 /**
  * sde_connector_init_debugfs - initialize connector debugfs

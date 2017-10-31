@@ -507,17 +507,8 @@ static void qusb_phy_shutdown(struct usb_phy *phy)
 
 	dev_dbg(phy->dev, "%s\n", __func__);
 
-	qusb_phy_enable_clocks(qphy, true);
+	qusb_phy_enable_power(qphy, false);
 
-	/* Disable the PHY */
-	writel_relaxed(readl_relaxed(qphy->base + qphy->phy_reg[PWR_CTRL1]) |
-			PWR_CTRL1_POWR_DOWN,
-			qphy->base + qphy->phy_reg[PWR_CTRL1]);
-
-	/* Makes sure that above write goes through */
-	wmb();
-
-	qusb_phy_enable_clocks(qphy, false);
 }
 
 static u32 qusb_phy_get_linestate(struct qusb_phy *qphy)
@@ -1048,6 +1039,21 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	ret = usb_add_phy_dev(&qphy->phy);
 	if (ret)
 		return ret;
+
+	/* ldo24 is turned on and eud is pet irrespective of cable
+	 * cable connection status by boot sw. Assume usb cable is not
+	 * connected and perform detach pet. If usb cable is connected,
+	 * eud hw will be pet in the dpdm callback.
+	 */
+	if (qphy->eud_base) {
+		if (qphy->cfg_ahb_clk)
+			clk_prepare_enable(qphy->cfg_ahb_clk);
+
+		writel_relaxed(0, qphy->eud_base + EUD_SW_ATTACH_DET);
+
+		if (qphy->cfg_ahb_clk)
+			clk_disable_unprepare(qphy->cfg_ahb_clk);
+	}
 
 	ret = qusb_phy_regulator_init(qphy);
 	if (ret)

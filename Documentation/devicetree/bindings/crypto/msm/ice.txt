@@ -5,16 +5,22 @@ Required properties:
   - reg : <register mapping>
 
 Optional properties:
-  - interrupt-names     : name describing the interrupts for ICE IRQ
-  - interrupts          : <interrupt mapping for ICE IRQ>
-  - qcom,enable-ice-clk : should enable clocks for ICE HW
-  - clocks              : List of phandle and clock specifier pairs
-  - clock-names         : List of clock input name strings sorted in the same
-                          order as the clocks property.
-  - qocm,op-freq-hz     : max clock speed sorted in the same order as the clocks
-                          property.
-  - qcom,instance-type  : describe the storage type for which ICE node is defined
-			  currently, only "ufs" and "sdcc" are supported storage type
+  - interrupt-names     	: name describing the interrupts for ICE IRQ
+  - interrupts          	: <interrupt mapping for ICE IRQ>
+  - qcom,enable-ice-clk 	: should enable clocks for ICE HW
+  - clocks              	: List of phandle and clock specifier pairs
+  - clock-names         	: List of clock input name strings sorted in the same
+                          	  order as the clocks property.
+  - qocm,op-freq-hz     	: max clock speed sorted in the same order as the clocks
+                          	  property.
+  - qcom,instance-type  	: describe the storage type for which ICE node is defined
+			 	  currently, only "ufs" and "sdcc" are supported storage type
+  - vdd-hba-supply		: regulated supply to be used by ICE HW
+  - qcom,msm-bus,name		: bus for ICE transactions
+  - qcom,msm-bus,num-cases	: bus case mapping for ICE HW
+  - qcom,msm-bus,num-paths	: bus path mapping for iCE HW
+  - qcom,msm-bus,vectors-KBps	: bus bandwidth to be voted
+  - qcom,bus-vector-names	: bus vectors mapping
 
 Example:
         ufs_ice: ufsice@630000 {
@@ -30,3 +36,26 @@ Example:
 		qcom,instance-type = "ufs";
                 status = "disabled";
         };
+
+	ufs_card_ice: ufscardice@1db0000 {
+		compatible = "qcom,ice_card";
+		reg = <0x1db0000 0x8000>;
+		qcom,enable-ice-clk;
+		clock-names = "ufs_core_clk", "bus_clk",
+			      "iface_clk", "ice_core_clk";
+		clocks = <&clock_gcc GCC_UFS_CARD_AXI_CLK>,
+			 <&clock_gcc GCC_UFS_CARD_CLKREF_CLK>,
+			 <&clock_gcc GCC_UFS_CARD_AHB_CLK>,
+			 <&clock_gcc GCC_UFS_CARD_ICE_CORE_CLK>;
+		qcom,op-freq-hz = <0>, <0>, <0>, <300000000>;
+		vdd-hba-supply = <&ufs_card_gdsc>;
+		qcom,msm-bus,name = "ufs_card_ice_noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<1 650 0 0>,    /* No vote */
+				<1 650 1000 0>; /* Max. bandwidth */
+		qcom,bus-vector-names = "MIN",
+					"MAX";
+		qcom,instance-type = "ufs_card";
+	};

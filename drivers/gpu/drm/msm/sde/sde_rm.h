@@ -197,4 +197,13 @@ bool sde_rm_get_hw(struct sde_rm *rm, struct sde_rm_hw_iter *iter);
  */
 int sde_rm_check_property_topctl(uint64_t val);
 
+/**
+ * sde_rm_update_topology - sets topology property of the connector
+ * @conn_state: drm state of the connector
+ * @topology: topology selected for the display
+ * @return: 0 on success or error
+ */
+int sde_rm_update_topology(struct drm_connector_state *conn_state,
+	struct msm_display_topology *topology);
+
 #endif /* __SDE_RM_H__ */

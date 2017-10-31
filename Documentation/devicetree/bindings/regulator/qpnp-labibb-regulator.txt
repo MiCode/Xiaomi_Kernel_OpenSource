@@ -82,8 +82,10 @@ LAB subnode required properties:
 - qcom,qpnp-lab-init-lcd-voltage: 	The default output voltage when LAB regulator
 					is configured in lcd mode.
 - qcom,qpnp-lab-ps-threshold:		The threshold in mA of Pulse Skip Mode for
-					LAB regulator. Supported values are 20, 30,
-					40 and 50.
+					LAB regulator. Supported values for
+					PMI8994/6 are 20, 30, 40 and 50.
+					Supported values for PMI8998/PM660A are
+					50, 60, 70 and 80.
 - interrupts:				Specify the interrupts as per the interrupt
 					encoding.
 					Currently "lab-vreg-ok" is required for

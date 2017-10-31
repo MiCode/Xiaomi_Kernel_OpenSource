@@ -177,6 +177,13 @@ static void sde_encoder_phys_cmd_pp_tx_done_irq(void *arg, int irq_idx)
 		return;
 
 	SDE_ATRACE_BEGIN("pp_done_irq");
+
+	/* handle rare cases where the ctl_start_irq is not received */
+	if (sde_encoder_phys_cmd_is_master(phys_enc)
+	    && atomic_add_unless(&phys_enc->pending_retire_fence_cnt, -1, 0))
+		phys_enc->parent_ops.handle_frame_done(phys_enc->parent,
+			phys_enc, SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE);
+
 	/* notify all synchronous clients first, then asynchronous clients */
 	if (phys_enc->parent_ops.handle_frame_done)
 		phys_enc->parent_ops.handle_frame_done(phys_enc->parent,
@@ -1254,6 +1261,7 @@ static void sde_encoder_phys_cmd_init_ops(
 	ops->prepare_for_kickoff = sde_encoder_phys_cmd_prepare_for_kickoff;
 	ops->wait_for_tx_complete = sde_encoder_phys_cmd_wait_for_tx_complete;
 	ops->wait_for_vblank = sde_encoder_phys_cmd_wait_for_vblank;
+	ops->trigger_flush = sde_encoder_helper_trigger_flush;
 	ops->trigger_start = sde_encoder_phys_cmd_trigger_start;
 	ops->needs_single_flush = sde_encoder_phys_cmd_needs_single_flush;
 	ops->hw_reset = sde_encoder_helper_hw_reset;

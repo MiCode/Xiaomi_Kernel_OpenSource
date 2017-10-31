@@ -1304,11 +1304,9 @@ int diag_md_session_create(int mode, int peripheral_mask, int proc)
 		mutex_unlock(&driver->md_session_lock);
 		return -ENOMEM;
 	}
-
 	new_session->peripheral_mask = 0;
 	new_session->pid = current->tgid;
 	new_session->task = current;
-
 	new_session->log_mask = kzalloc(sizeof(struct diag_mask_info),
 					GFP_KERNEL);
 	if (!new_session->log_mask) {
@@ -1426,7 +1424,6 @@ static void diag_md_session_close(struct diag_md_session_t *session_info)
 struct diag_md_session_t *diag_md_session_get_pid(int pid)
 {
 	int i;
-
 	for (i = 0; i < NUM_MD_SESSIONS; i++) {
 		if (driver->md_session_map[i] &&
 		    driver->md_session_map[i]->pid == pid)
@@ -1542,7 +1539,10 @@ static int diag_md_session_check(int curr_mode, int req_mode,
 		 * If this session owns all the requested peripherals, then
 		 * call function to switch the modes/masks for the md_session
 		 */
+		mutex_lock(&driver->md_session_lock);
 		session_info = diag_md_session_get_pid(current->tgid);
+		mutex_unlock(&driver->md_session_lock);
+
 		if (!session_info) {
 			*change_mode = 1;
 			return 0;
@@ -1571,7 +1571,9 @@ static int diag_md_session_check(int curr_mode, int req_mode,
 		 * owned by this md session
 		 */
 		change_mask = driver->md_session_mask & param->peripheral_mask;
+		mutex_lock(&driver->md_session_lock);
 		session_info = diag_md_session_get_pid(current->tgid);
+		mutex_unlock(&driver->md_session_lock);
 
 		if (session_info) {
 			if ((session_info->peripheral_mask & change_mask)
@@ -1999,8 +2001,9 @@ static int diag_ioctl_hdlc_toggle(unsigned long ioarg)
 {
 	uint8_t hdlc_support;
 	struct diag_md_session_t *session_info = NULL;
-
+	mutex_lock(&driver->md_session_lock);
 	session_info = diag_md_session_get_pid(current->tgid);
+	mutex_unlock(&driver->md_session_lock);
 	if (copy_from_user(&hdlc_support, (void __user *)ioarg,
 				sizeof(uint8_t)))
 		return -EFAULT;
@@ -2768,10 +2771,13 @@ static int diag_user_process_raw_data(const char __user *buf, int len)
 	} else {
 		wait_event_interruptible(driver->wait_q,
 					 (driver->in_busy_pktdata == 0));
+		mutex_lock(&driver->md_session_lock);
 		info = diag_md_session_get_pid(current->tgid);
+		mutex_unlock(&driver->md_session_lock);
 		ret = diag_process_apps_pkt(user_space_data, len, info);
 		if (ret == 1)
-			diag_send_error_rsp((void *)(user_space_data), len);
+			diag_send_error_rsp((void *)(user_space_data), len,
+						info);
 	}
 fail:
 	diagmem_free(driver, user_space_data, mempool);
@@ -2835,7 +2841,9 @@ static int diag_user_process_userspace_data(const char __user *buf, int len)
 
 	/* send masks to local processor now */
 	if (!remote_proc) {
+		mutex_lock(&driver->md_session_lock);
 		session_info = diag_md_session_get_pid(current->tgid);
+		mutex_unlock(&driver->md_session_lock);
 		if (!session_info) {
 			pr_err("diag:In %s request came from invalid md session pid:%d",
 				__func__, current->tgid);
@@ -3010,7 +3018,9 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 			goto exit;
 		/* place holder for number of data field */
 		ret += sizeof(int);
+		mutex_lock(&driver->md_session_lock);
 		session_info = diag_md_session_get_pid(current->tgid);
+		mutex_unlock(&driver->md_session_lock);
 		exit_stat = diag_md_copy_to_user(buf, &ret, count,
 						 session_info);
 		goto exit;
@@ -3028,7 +3038,9 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		if (ret == -EFAULT)
 			goto exit;
 
+		mutex_lock(&driver->md_session_lock);
 		session_info = diag_md_session_get_pid(current->tgid);
+		mutex_unlock(&driver->md_session_lock);
 		if (session_info) {
 			COPY_USER_SPACE_OR_ERR(buf+4,
 					session_info->hdlc_disabled,

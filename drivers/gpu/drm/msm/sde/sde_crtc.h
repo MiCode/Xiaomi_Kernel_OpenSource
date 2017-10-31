@@ -280,6 +280,7 @@ struct sde_crtc {
 	struct sde_power_event *power_event;
 
 	struct sde_core_perf_params cur_perf;
+	struct sde_core_perf_params new_perf;
 
 	struct mutex rp_lock;
 	struct list_head rp_head;
@@ -710,5 +711,15 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
  * @post_commit: if this operation is triggered after commit
  */
 int sde_crtc_secure_ctrl(struct drm_crtc *crtc, bool post_commit);
+
+/**
+ * sde_crtc_helper_reset_properties - reset properties to default values in the
+ *	given DRM CRTC state object
+ * @crtc: Pointer to DRM crtc object
+ * @crtc_state: Pointer to DRM crtc state object
+ * Returns: 0 on success, negative errno on failure
+ */
+int sde_crtc_helper_reset_custom_properties(struct drm_crtc *crtc,
+		struct drm_crtc_state *crtc_state);
 
 #endif /* _SDE_CRTC_H_ */

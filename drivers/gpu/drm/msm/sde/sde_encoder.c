@@ -194,7 +194,7 @@ enum sde_enc_rc_states {
  *				clks and resources after IDLE_TIMEOUT time.
  * @vsync_event_work:		worker to handle vsync event for autorefresh
  * @topology:                   topology of the display
- * @mode_set_complete:          flag to indicate modeset completion
+ * @vblank_enabled:		boolean to track userspace vblank vote
  * @rsc_config:			rsc configuration for display vtotal, fps, etc.
  * @cur_conn_roi:		current connector roi
  * @prv_conn_roi:		previous connector roi to optimize if unchanged
@@ -241,7 +241,7 @@ struct sde_encoder_virt {
 	struct kthread_delayed_work delayed_off_work;
 	struct kthread_work vsync_event_work;
 	struct msm_display_topology topology;
-	bool mode_set_complete;
+	bool vblank_enabled;
 
 	struct sde_rsc_cmd_config rsc_config;
 	struct sde_rect cur_conn_roi;
@@ -559,6 +559,7 @@ void sde_encoder_get_hw_resources(struct drm_encoder *drm_enc,
 	}
 
 	hw_res->topology = sde_enc->mode_info.topology;
+	hw_res->is_primary = sde_enc->disp_info.is_primary;
 }
 
 void sde_encoder_destroy(struct drm_encoder *drm_enc)
@@ -697,6 +698,7 @@ static int sde_encoder_virt_atomic_check(
 	struct sde_kms *sde_kms;
 	const struct drm_display_mode *mode;
 	struct drm_display_mode *adj_mode;
+	struct sde_connector *sde_conn = NULL;
 	int i = 0;
 	int ret = 0;
 
@@ -713,6 +715,7 @@ static int sde_encoder_virt_atomic_check(
 	sde_kms = to_sde_kms(priv->kms);
 	mode = &crtc_state->mode;
 	adj_mode = &crtc_state->adjusted_mode;
+	sde_conn = to_sde_connector(conn_state->connector);
 	SDE_EVT32(DRMID(drm_enc));
 
 	/*
@@ -742,17 +745,43 @@ static int sde_encoder_virt_atomic_check(
 		}
 	}
 
-	/* Reserve dynamic resources now. Indicating AtomicTest phase */
-	if (!ret) {
-		/*
-		 * Avoid reserving resources when mode set is pending. Topology
-		 * info may not be available to complete reservation.
+
+	if (!ret && sde_conn && drm_atomic_crtc_needs_modeset(crtc_state)) {
+		struct msm_display_topology *topology = NULL;
+
+		ret = sde_conn->ops.get_mode_info(adj_mode,
+				&sde_enc->mode_info,
+				sde_kms->catalog->max_mixer_width,
+				sde_conn->display);
+		if (ret) {
+			SDE_ERROR_ENC(sde_enc,
+				"failed to get mode info, rc = %d\n", ret);
+			return ret;
+		}
+
+		/* Reserve dynamic resources, indicating atomic_check phase */
+		ret = sde_rm_reserve(&sde_kms->rm, drm_enc, crtc_state,
+			conn_state, true);
+		if (ret) {
+			SDE_ERROR_ENC(sde_enc,
+				"RM failed to reserve resources, rc = %d\n",
+				ret);
+			return ret;
+		}
+
+		/**
+		 * Update connector state with the topology selected for the
+		 * resource set validated. Reset the topology if we are
+		 * de-activating crtc.
 		 */
-		if (drm_atomic_crtc_needs_modeset(crtc_state)
-				&& sde_enc->mode_set_complete) {
-			ret = sde_rm_reserve(&sde_kms->rm, drm_enc, crtc_state,
-				conn_state, true);
-			sde_enc->mode_set_complete = false;
+		if (crtc_state->active)
+			topology = &sde_enc->mode_info.topology;
+
+		ret = sde_rm_update_topology(conn_state, topology);
+		if (ret) {
+			SDE_ERROR_ENC(sde_enc,
+				"RM failed to update topology, rc: %d\n", ret);
+			return ret;
 		}
 	}
 
@@ -1243,13 +1272,9 @@ static void _sde_encoder_update_vsync_source(struct sde_encoder_virt *sde_enc,
 
 static int _sde_encoder_dsc_disable(struct sde_encoder_virt *sde_enc)
 {
-	enum sde_rm_topology_name topology;
-	struct drm_connector *drm_conn;
 	int i, ret = 0;
-	struct sde_hw_pingpong *hw_pp[MAX_CHANNELS_PER_ENC];
-	struct sde_hw_dsc *hw_dsc[MAX_CHANNELS_PER_ENC] = {NULL};
-	int pp_count = 0;
-	int dsc_count = 0;
+	struct sde_hw_pingpong *hw_pp = NULL;
+	struct sde_hw_dsc *hw_dsc = NULL;
 
 	if (!sde_enc || !sde_enc->phys_encs[0] ||
 			!sde_enc->phys_encs[0]->connector) {
@@ -1258,80 +1283,16 @@ static int _sde_encoder_dsc_disable(struct sde_encoder_virt *sde_enc)
 		return -EINVAL;
 	}
 
-	drm_conn = sde_enc->phys_encs[0]->connector;
-
-	topology = sde_connector_get_topology_name(drm_conn);
-	if (topology == SDE_RM_TOPOLOGY_NONE) {
-		SDE_ERROR_ENC(sde_enc, "topology not set yet\n");
-		return -EINVAL;
-	}
-
-	switch (topology) {
-	case SDE_RM_TOPOLOGY_SINGLEPIPE:
-	case SDE_RM_TOPOLOGY_SINGLEPIPE_DSC:
-		/* single PP */
-		hw_pp[0] = sde_enc->hw_pp[0];
-		hw_dsc[0] = sde_enc->hw_dsc[0];
-		pp_count = 1;
-		dsc_count = 1;
-		break;
-	case SDE_RM_TOPOLOGY_DUALPIPE_DSC:
-	case SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE_DSC:
-	case SDE_RM_TOPOLOGY_DUALPIPE_DSCMERGE:
-		/* dual dsc */
-		for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
-			hw_dsc[i] = sde_enc->hw_dsc[i];
-			if (hw_dsc[i])
-				dsc_count++;
-		}
-		/* fall through */
-	case SDE_RM_TOPOLOGY_DUALPIPE:
-	case SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE:
-		/* dual pp */
-		for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
-			hw_pp[i] = sde_enc->hw_pp[i];
-			if (hw_pp[i])
-				pp_count++;
-		}
-		break;
-	default:
-		SDE_DEBUG_ENC(sde_enc, "Unexpected topology:%d\n", topology);
-		return -EINVAL;
-	};
-
-	SDE_EVT32(DRMID(&sde_enc->base), topology, pp_count, dsc_count);
-
-	if (pp_count > MAX_CHANNELS_PER_ENC ||
-		dsc_count > MAX_CHANNELS_PER_ENC) {
-		SDE_ERROR_ENC(sde_enc, "Wrong count pp:%d dsc:%d top:%d\n",
-				pp_count, dsc_count, topology);
-		return -EINVAL;
-	}
-
 	/* Disable DSC for all the pp's present in this topology */
-	for (i = 0; i < pp_count; i++) {
+	for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
+		hw_pp = sde_enc->hw_pp[i];
+		hw_dsc = sde_enc->hw_dsc[i];
 
-		if (!hw_pp[i]) {
-			SDE_ERROR_ENC(sde_enc, "null pp:%d top:%d cnt:%d\n",
-					i, topology, pp_count);
-			return -EINVAL;
-		}
+		if (hw_pp && hw_pp->ops.disable_dsc)
+			hw_pp->ops.disable_dsc(hw_pp);
 
-		if (hw_pp[i]->ops.disable_dsc)
-			hw_pp[i]->ops.disable_dsc(hw_pp[i]);
-	}
-
-	/* Disable DSC HW */
-	for (i = 0; i < dsc_count; i++) {
-
-		if (!hw_dsc[i]) {
-			SDE_ERROR_ENC(sde_enc, "null dsc:%d top:%d cnt:%d\n",
-					i, topology, dsc_count);
-			return -EINVAL;
-		}
-
-		if (hw_dsc[i]->ops.dsc_disable)
-			hw_dsc[i]->ops.dsc_disable(hw_dsc[i]);
+		if (hw_dsc && hw_dsc->ops.dsc_disable)
+			hw_dsc->ops.dsc_disable(hw_dsc);
 	}
 
 	return ret;
@@ -1489,6 +1450,44 @@ static void _sde_encoder_irq_control(struct drm_encoder *drm_enc, bool enable)
 			phys->ops.irq_control(phys, enable);
 	}
 
+}
+
+/* keep track of the userspace vblank during modeset */
+static void _sde_encoder_modeset_helper_locked(struct drm_encoder *drm_enc,
+		u32 sw_event)
+{
+	struct sde_encoder_virt *sde_enc;
+	bool enable;
+	int i;
+
+	if (!drm_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	SDE_DEBUG_ENC(sde_enc, "sw_event:%d, vblank_enabled:%d\n",
+			sw_event, sde_enc->vblank_enabled);
+
+	/* nothing to do if vblank not enabled by userspace */
+	if (!sde_enc->vblank_enabled)
+		return;
+
+	/* disable vblank on pre_modeset */
+	if (sw_event == SDE_ENC_RC_EVENT_PRE_MODESET)
+		enable = false;
+	/* enable vblank on post_modeset */
+	else if (sw_event == SDE_ENC_RC_EVENT_POST_MODESET)
+		enable = true;
+	else
+		return;
+
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
+		if (phys && phys->ops.control_vblank_irq)
+			phys->ops.control_vblank_irq(phys, enable);
+	}
 }
 
 struct sde_rsc_client *sde_encoder_get_rsc_client(struct drm_encoder *drm_enc)
@@ -1710,7 +1709,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		else
 			idle_timeout = sde_enc->idle_timeout;
 
-		if (!autorefresh_enabled)
+		if (!autorefresh_enabled && idle_timeout)
 			kthread_queue_delayed_work(
 				&disp_thread->worker,
 				&sde_enc->delayed_off_work,
@@ -1830,6 +1829,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		}
 
 		_sde_encoder_irq_control(drm_enc, false);
+		_sde_encoder_modeset_helper_locked(drm_enc, sw_event);
 
 		SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
 			SDE_ENC_RC_STATE_MODESET, SDE_EVTLOG_FUNC_CASE5);
@@ -1852,6 +1852,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 			return -EINVAL;
 		}
 
+		_sde_encoder_modeset_helper_locked(drm_enc, sw_event);
 		_sde_encoder_irq_control(drm_enc, true);
 
 		_sde_encoder_update_rsc_client(drm_enc, NULL, true);
@@ -1959,7 +1960,8 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	sde_conn = to_sde_connector(conn);
 	if (sde_conn) {
 		ret = sde_conn->ops.get_mode_info(adj_mode, &sde_enc->mode_info,
-				sde_kms->catalog->max_mixer_width);
+				sde_kms->catalog->max_mixer_width,
+				sde_conn->display);
 		if (ret) {
 			SDE_ERROR_ENC(sde_enc,
 				"invalid topology for the mode\n");
@@ -2031,8 +2033,6 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	if (msm_is_mode_seamless_dms(adj_mode))
 		sde_encoder_resource_control(&sde_enc->base,
 						SDE_ENC_RC_EVENT_POST_MODESET);
-
-	sde_enc->mode_set_complete = true;
 }
 
 static void _sde_encoder_virt_enable_helper(struct drm_encoder *drm_enc)
@@ -2327,6 +2327,7 @@ void sde_encoder_register_vblank_callback(struct drm_encoder *drm_enc,
 		if (phys && phys->ops.control_vblank_irq)
 			phys->ops.control_vblank_irq(phys, enable);
 	}
+	sde_enc->vblank_enabled = enable;
 }
 
 void sde_encoder_register_frame_event_callback(struct drm_encoder *drm_enc,
@@ -2441,8 +2442,8 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 	}
 
 	ctl = phys->hw_ctl;
-	if (!ctl || !ctl->ops.trigger_flush) {
-		SDE_ERROR("missing trigger cb\n");
+	if (!ctl || !phys->ops.trigger_flush) {
+		SDE_ERROR("missing ctl/trigger cb\n");
 		return;
 	}
 
@@ -2462,7 +2463,7 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 	if (extra_flush_bits && ctl->ops.update_pending_flush)
 		ctl->ops.update_pending_flush(ctl, extra_flush_bits);
 
-	ctl->ops.trigger_flush(ctl);
+	phys->ops.trigger_flush(phys);
 
 	if (ctl->ops.get_pending_flush)
 		SDE_EVT32(DRMID(drm_enc), phys->intf_idx, pending_kickoff_cnt,
@@ -2500,6 +2501,20 @@ static inline void _sde_encoder_trigger_start(struct sde_encoder_phys *phys)
 	}
 	if (phys->ops.trigger_start && phys->enable_state != SDE_ENC_DISABLED)
 		phys->ops.trigger_start(phys);
+}
+
+void sde_encoder_helper_trigger_flush(struct sde_encoder_phys *phys_enc)
+{
+	struct sde_hw_ctl *ctl;
+
+	if (!phys_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+
+	ctl = phys_enc->hw_ctl;
+	if (ctl && ctl->ops.trigger_flush)
+		ctl->ops.trigger_flush(ctl);
 }
 
 void sde_encoder_helper_trigger_start(struct sde_encoder_phys *phys_enc)
@@ -2610,6 +2625,29 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 
 	pending_flush = 0x0;
 
+	/*
+	 * Trigger LUT DMA flush, this might need a wait, so we need
+	 * to do this outside of the atomic context
+	 */
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+		bool wait_for_dma = false;
+
+		if (!phys || phys->enable_state == SDE_ENC_DISABLED)
+			continue;
+
+		ctl = phys->hw_ctl;
+		if (!ctl)
+			continue;
+
+		if (phys->ops.wait_dma_trigger)
+			wait_for_dma = phys->ops.wait_dma_trigger(phys);
+
+		if (phys->hw_ctl->ops.reg_dma_flush)
+			phys->hw_ctl->ops.reg_dma_flush(phys->hw_ctl,
+					wait_for_dma);
+	}
+
 	/* update pending counts and trigger kickoff ctl flush atomically */
 	spin_lock_irqsave(&sde_enc->enc_spinlock, lock_flags);
 
@@ -2637,8 +2675,7 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 				phys->split_role == ENC_ROLE_SLAVE) &&
 				phys->split_role != ENC_ROLE_SKIP)
 			set_bit(i, sde_enc->frame_busy_mask);
-		if (phys->hw_ctl->ops.reg_dma_flush)
-			phys->hw_ctl->ops.reg_dma_flush(phys->hw_ctl);
+
 		if (!phys->ops.needs_single_flush ||
 				!phys->ops.needs_single_flush(phys))
 			_sde_encoder_trigger_flush(&sde_enc->base, phys, 0x0);
@@ -3787,6 +3824,7 @@ struct drm_encoder *sde_encoder_init(
 	kthread_init_delayed_work(&sde_enc->delayed_off_work,
 			sde_encoder_off_work);
 	sde_enc->idle_timeout = IDLE_TIMEOUT;
+	sde_enc->vblank_enabled = false;
 
 	kthread_init_work(&sde_enc->vsync_event_work,
 			sde_encoder_vsync_event_work_handler);

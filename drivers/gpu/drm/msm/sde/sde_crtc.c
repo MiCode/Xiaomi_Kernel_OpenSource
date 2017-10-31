@@ -1124,7 +1124,7 @@ static int _sde_crtc_check_planes_within_crtc_roi(struct drm_crtc *crtc,
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *crtc_state;
 	const struct sde_rect *crtc_roi;
-	struct drm_plane_state *pstate;
+	const struct drm_plane_state *pstate;
 	struct drm_plane *plane;
 
 	if (!crtc || !state)
@@ -1143,10 +1143,9 @@ static int _sde_crtc_check_planes_within_crtc_roi(struct drm_crtc *crtc,
 	if (sde_kms_rect_is_null(crtc_roi))
 		return 0;
 
-	drm_atomic_crtc_state_for_each_plane(plane, state) {
+	drm_atomic_crtc_state_for_each_plane_state(plane, pstate, state) {
 		struct sde_rect plane_roi, intersection;
 
-		pstate = drm_atomic_get_plane_state(state->state, plane);
 		if (IS_ERR_OR_NULL(pstate)) {
 			int rc = PTR_ERR(pstate);
 
@@ -1600,6 +1599,8 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 	SDE_DEBUG("crtc%d, secure_level%d old_valid_fb%d\n",
 			crtc->base.id, secure_level, old_valid_fb);
 
+	SDE_EVT32_VERBOSE(DRMID(crtc), secure_level, smmu_state->state,
+			old_valid_fb, SDE_EVTLOG_FUNC_ENTRY);
 	/**
 	 * SMMU operations need to be delayed in case of
 	 * video mode panels when switching back to non_secure
@@ -1609,7 +1610,7 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 		if (encoder->crtc != crtc)
 			continue;
 
-		post_commit &= sde_encoder_check_mode(encoder,
+		post_commit |= sde_encoder_check_mode(encoder,
 						MSM_DISPLAY_CAP_VID_MODE);
 	}
 
@@ -1682,6 +1683,11 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 
 	SDE_DEBUG("SMMU State:%d, type:%d ops:%x\n", smmu_state->state,
 			smmu_state->transition_type, ops);
+	/* log only during actual transition times */
+	if (ops)
+		SDE_EVT32(DRMID(crtc), secure_level, translation_mode,
+				smmu_state->state, smmu_state->transition_type,
+				ops, old_valid_fb, SDE_EVTLOG_FUNC_EXIT);
 	return ops;
 }
 
@@ -1725,6 +1731,9 @@ static int _sde_crtc_scm_call(int vmid)
 		SDE_ERROR("Error:scm_call2, vmid (%lld): ret%d\n",
 				desc.args[3], ret);
 	}
+	SDE_EVT32(mem_protect_sd_ctrl_id,
+			desc.args[0], desc.args[3], num_sids,
+			sec_sid[0], sec_sid[1], ret);
 
 	kfree(sec_sid);
 	return ret;
@@ -1750,15 +1759,17 @@ static int _sde_crtc_set_dest_scaler_lut(struct sde_crtc *sde_crtc,
 	}
 
 	if (sde_crtc->scl3_lut_cfg->is_configured) {
-		SDE_DEBUG("lut already configured\n");
+		SDE_DEBUG("%s: lut already configured\n", sde_crtc->name);
 		return 0;
 	}
 
 	lut_data = msm_property_get_blob(&sde_crtc->property_info,
 			&cstate->property_state, &len, lut_idx);
 	if (!lut_data || !len) {
-		SDE_ERROR("lut(%d): no data, len(%zu)\n", lut_idx, len);
-		return -ENODATA;
+		SDE_DEBUG("%s: lut(%d): cleared: %pK, %zu\n", sde_crtc->name,
+				lut_idx, lut_data, len);
+		lut_data = NULL;
+		len = 0;
 	}
 
 	cfg = sde_crtc->scl3_lut_cfg;
@@ -1782,8 +1793,7 @@ static int _sde_crtc_set_dest_scaler_lut(struct sde_crtc *sde_crtc,
 		break;
 	}
 
-	if (cfg->dir_lut && cfg->cir_lut && cfg->sep_lut)
-		cfg->is_configured = true;
+	cfg->is_configured = cfg->dir_lut && cfg->cir_lut && cfg->sep_lut;
 
 	return ret;
 }
@@ -1818,6 +1828,9 @@ int sde_crtc_secure_ctrl(struct drm_crtc *crtc, bool post_commit)
 	cstate = to_sde_crtc_state(crtc->state);
 	smmu_state = &sde_crtc->smmu_state;
 	old_smmu_state = smmu_state->state;
+
+	SDE_EVT32(DRMID(crtc), smmu_state->state, smmu_state->transition_type,
+			post_commit, SDE_EVTLOG_FUNC_ENTRY);
 
 	if ((!smmu_state->transition_type) ||
 	    ((smmu_state->transition_type == POST_COMMIT) && !post_commit))
@@ -1903,6 +1916,9 @@ int sde_crtc_secure_ctrl(struct drm_crtc *crtc, bool post_commit)
 
 error:
 	smmu_state->transition_error = ret ? true : false;
+	SDE_EVT32(DRMID(crtc), smmu_state->state, smmu_state->transition_type,
+			smmu_state->transition_error, ret,
+			SDE_EVTLOG_FUNC_EXIT);
 	return ret;
 }
 
@@ -2530,6 +2546,11 @@ static int _sde_crtc_set_dest_scaler(struct sde_crtc *sde_crtc,
 	}
 
 	count = ds_data.num_dest_scaler;
+	if (!count) {
+		SDE_DEBUG("no ds data available\n");
+		return 0;
+	}
+
 	if (!sde_crtc->num_mixers || count > sde_crtc->num_mixers ||
 		(count && (count != sde_crtc->num_mixers) &&
 		!(ds_data.ds_cfg[0].flags & SDE_DRM_DESTSCALER_PU_ENABLE))) {
@@ -3848,7 +3869,8 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 				atomic_read(&sde_crtc->frame_pending));
 
 	SDE_EVT32(DRMID(crtc), sde_crtc->enabled, sde_crtc->suspend,
-			sde_crtc->vblank_requested);
+			sde_crtc->vblank_requested,
+			crtc->state->active, crtc->state->enable);
 	if (sde_crtc->enabled && !sde_crtc->suspend &&
 			sde_crtc->vblank_requested) {
 		ret = _sde_crtc_vblank_enable_no_lock(sde_crtc, false);
@@ -3893,11 +3915,14 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	/**
 	 * All callbacks are unregistered and frame done waits are complete
 	 * at this point. No buffers are accessed by hardware.
-	 * reset the fence timeline if there is any issue.
+	 * reset the fence timeline if crtc will not be enabled for this commit
 	 */
-	sde_fence_signal(&sde_crtc->output_fence, ktime_get(), true);
-	for (i = 0; i < cstate->num_connectors; ++i)
-		sde_connector_commit_reset(cstate->connectors[i], ktime_get());
+	if (!crtc->state->active || !crtc->state->enable) {
+		sde_fence_signal(&sde_crtc->output_fence, ktime_get(), true);
+		for (i = 0; i < cstate->num_connectors; ++i)
+			sde_connector_commit_reset(cstate->connectors[i],
+					ktime_get());
+	}
 
 	memset(sde_crtc->mixers, 0, sizeof(sde_crtc->mixers));
 	sde_crtc->num_mixers = 0;
@@ -3933,6 +3958,22 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 	SDE_EVT32_VERBOSE(DRMID(crtc));
 	sde_crtc = to_sde_crtc(crtc);
 
+	mutex_lock(&sde_crtc->crtc_lock);
+	SDE_EVT32(DRMID(crtc), sde_crtc->enabled, sde_crtc->suspend,
+			sde_crtc->vblank_requested);
+
+	/* return early if crtc is already enabled */
+	if (sde_crtc->enabled) {
+		if (msm_is_mode_seamless_dms(&crtc->state->adjusted_mode))
+			SDE_DEBUG("%s extra crtc enable expected during DMS\n",
+					sde_crtc->name);
+		else
+			WARN(1, "%s unexpected crtc enable\n", sde_crtc->name);
+
+		mutex_unlock(&sde_crtc->crtc_lock);
+		return;
+	}
+
 	drm_for_each_encoder(encoder, crtc->dev) {
 		if (encoder->crtc != crtc)
 			continue;
@@ -3940,9 +3981,6 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 				sde_crtc_frame_event_cb, (void *)crtc);
 	}
 
-	mutex_lock(&sde_crtc->crtc_lock);
-	SDE_EVT32(DRMID(crtc), sde_crtc->enabled, sde_crtc->suspend,
-			sde_crtc->vblank_requested);
 	if (!sde_crtc->enabled && !sde_crtc->suspend &&
 			sde_crtc->vblank_requested) {
 		ret = _sde_crtc_vblank_enable_no_lock(sde_crtc, true);
@@ -4461,6 +4499,57 @@ void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file)
 	_sde_crtc_complete_flip(crtc, file);
 }
 
+int sde_crtc_helper_reset_custom_properties(struct drm_crtc *crtc,
+		struct drm_crtc_state *crtc_state)
+{
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *cstate;
+	struct drm_property *drm_prop;
+	enum msm_mdp_crtc_property prop_idx;
+
+	if (!crtc || !crtc_state) {
+		SDE_ERROR("invalid params\n");
+		return -EINVAL;
+	}
+
+	sde_crtc = to_sde_crtc(crtc);
+	cstate = to_sde_crtc_state(crtc_state);
+
+	for (prop_idx = 0; prop_idx < CRTC_PROP_COUNT; prop_idx++) {
+		uint64_t val = cstate->property_values[prop_idx].value;
+		uint64_t def;
+		int ret;
+
+		drm_prop = msm_property_index_to_drm_property(
+				&sde_crtc->property_info, prop_idx);
+		if (!drm_prop) {
+			/* not all props will be installed, based on caps */
+			SDE_DEBUG("%s: invalid property index %d\n",
+					sde_crtc->name, prop_idx);
+			continue;
+		}
+
+		def = msm_property_get_default(&sde_crtc->property_info,
+				prop_idx);
+		if (val == def)
+			continue;
+
+		SDE_DEBUG("%s: set prop %s idx %d from %llu to %llu\n",
+				sde_crtc->name, drm_prop->name, prop_idx, val,
+				def);
+
+		ret = drm_atomic_crtc_set_property(crtc, crtc_state, drm_prop,
+				def);
+		if (ret) {
+			SDE_ERROR("%s: set property failed, idx %d ret %d\n",
+					sde_crtc->name, prop_idx, ret);
+			continue;
+		}
+	}
+
+	return 0;
+}
+
 /**
  * sde_crtc_install_properties - install all drm properties for crtc
  * @crtc: Pointer to drm crtc structure
@@ -4505,7 +4594,7 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 		SDE_CRTC_INPUT_FENCE_TIMEOUT, CRTC_PROP_INPUT_FENCE_TIMEOUT);
 
 	msm_property_install_range(&sde_crtc->property_info, "output_fence",
-			0x0, 0, INR_OPEN_MAX, 0x0, CRTC_PROP_OUTPUT_FENCE);
+			0x0, 0, INR_OPEN_MAX, 0, CRTC_PROP_OUTPUT_FENCE);
 
 	msm_property_install_range(&sde_crtc->property_info,
 			"output_fence_offset", 0x0, 0, 1, 0,
@@ -5367,6 +5456,7 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 	INIT_LIST_HEAD(&sde_crtc->rp_head);
 
 	init_completion(&sde_crtc->frame_done_comp);
+	sde_crtc->enabled = false;
 
 	INIT_LIST_HEAD(&sde_crtc->frame_event_list);
 	INIT_LIST_HEAD(&sde_crtc->user_event_list);

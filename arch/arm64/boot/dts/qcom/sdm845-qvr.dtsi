@@ -14,11 +14,19 @@
 #include "sdm845-pinctrl-overlay.dtsi"
 #include "smb1355.dtsi"
 
+&vendor {
+	qvr_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "fg-gen3-batterydata-mlp446579-3800mah.dtsi"
+	};
+};
+
 &pmi8998_pdphy {
 	vbus-supply = <&smb2_vbus>;
 };
 
 &pmi8998_fg {
+	qcom,battery-data = <&qvr_batterydata>;
 	qcom,fg-bmd-en-delay-ms = <300>;
 };
 
@@ -73,6 +81,10 @@
 	qcom,wave-play-rate-us = <4255>;
 	qcom,lra-auto-mode;
 	status = "okay";
+};
+
+&qupv3_se9_2uart {
+	status = "ok";
 };
 
 &ufsphy_mem {
