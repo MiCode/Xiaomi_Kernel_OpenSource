@@ -4991,66 +4991,71 @@ static int sde_crtc_atomic_set_property(struct drm_crtc *crtc,
 {
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *cstate;
-	int idx, ret = -EINVAL;
+	int idx, ret;
 
 	if (!crtc || !state || !property) {
 		SDE_ERROR("invalid argument(s)\n");
-	} else {
-		sde_crtc = to_sde_crtc(crtc);
-		cstate = to_sde_crtc_state(state);
-		ret = msm_property_atomic_set(&sde_crtc->property_info,
-				&cstate->property_state, property, val);
-		if (!ret) {
-			idx = msm_property_index(&sde_crtc->property_info,
-					property);
-			switch (idx) {
-			case CRTC_PROP_INPUT_FENCE_TIMEOUT:
-				_sde_crtc_set_input_fence_timeout(cstate);
-				break;
-			case CRTC_PROP_DIM_LAYER_V1:
-				_sde_crtc_set_dim_layer_v1(cstate,
-							(void __user *)val);
-				break;
-			case CRTC_PROP_ROI_V1:
-				ret = _sde_crtc_set_roi_v1(state,
-							(void __user *)val);
-				break;
-			case CRTC_PROP_DEST_SCALER:
-				ret = _sde_crtc_set_dest_scaler(sde_crtc,
-						cstate, (void __user *)val);
-				break;
-			case CRTC_PROP_DEST_SCALER_LUT_ED:
-			case CRTC_PROP_DEST_SCALER_LUT_CIR:
-			case CRTC_PROP_DEST_SCALER_LUT_SEP:
-				ret = _sde_crtc_set_dest_scaler_lut(sde_crtc,
-								cstate, idx);
-				break;
-			case CRTC_PROP_CORE_CLK:
-			case CRTC_PROP_CORE_AB:
-			case CRTC_PROP_CORE_IB:
-				cstate->bw_control = true;
-				break;
-			case CRTC_PROP_LLCC_AB:
-			case CRTC_PROP_LLCC_IB:
-			case CRTC_PROP_DRAM_AB:
-			case CRTC_PROP_DRAM_IB:
-				cstate->bw_control = true;
-				cstate->bw_split_vote = true;
-				break;
-			default:
-				/* nothing to do */
-				break;
-			}
-		} else {
-			ret = sde_cp_crtc_set_property(crtc,
-					property, val);
-		}
-		if (ret)
-			DRM_ERROR("failed to set the property\n");
-
-		SDE_DEBUG("crtc%d %s[%d] <= 0x%llx ret=%d\n", crtc->base.id,
-				property->name, property->base.id, val, ret);
+		return -EINVAL;
 	}
+
+	sde_crtc = to_sde_crtc(crtc);
+	cstate = to_sde_crtc_state(state);
+
+	/* check with cp property system first */
+	ret = sde_cp_crtc_set_property(crtc, property, val);
+	if (ret != -ENOENT)
+		goto exit;
+
+	/* if not handled by cp, check msm_property system */
+	ret = msm_property_atomic_set(&sde_crtc->property_info,
+			&cstate->property_state, property, val);
+	if (ret)
+		goto exit;
+
+	idx = msm_property_index(&sde_crtc->property_info, property);
+	switch (idx) {
+	case CRTC_PROP_INPUT_FENCE_TIMEOUT:
+		_sde_crtc_set_input_fence_timeout(cstate);
+		break;
+	case CRTC_PROP_DIM_LAYER_V1:
+		_sde_crtc_set_dim_layer_v1(cstate, (void __user *)val);
+		break;
+	case CRTC_PROP_ROI_V1:
+		ret = _sde_crtc_set_roi_v1(state, (void __user *)val);
+		break;
+	case CRTC_PROP_DEST_SCALER:
+		ret = _sde_crtc_set_dest_scaler(sde_crtc, cstate,
+				(void __user *)val);
+		break;
+	case CRTC_PROP_DEST_SCALER_LUT_ED:
+	case CRTC_PROP_DEST_SCALER_LUT_CIR:
+	case CRTC_PROP_DEST_SCALER_LUT_SEP:
+		ret = _sde_crtc_set_dest_scaler_lut(sde_crtc, cstate, idx);
+		break;
+	case CRTC_PROP_CORE_CLK:
+	case CRTC_PROP_CORE_AB:
+	case CRTC_PROP_CORE_IB:
+		cstate->bw_control = true;
+		break;
+	case CRTC_PROP_LLCC_AB:
+	case CRTC_PROP_LLCC_IB:
+	case CRTC_PROP_DRAM_AB:
+	case CRTC_PROP_DRAM_IB:
+		cstate->bw_control = true;
+		cstate->bw_split_vote = true;
+		break;
+	default:
+		/* nothing to do */
+		break;
+	}
+
+exit:
+	if (ret)
+		SDE_ERROR("%s: failed to set property%d %s: %d\n", crtc->name,
+				DRMID(property), property->name, ret);
+	else
+		SDE_DEBUG("%s: %s[%d] <= 0x%llx\n", crtc->name, property->name,
+				property->base.id, val);
 
 	return ret;
 }
