@@ -99,7 +99,6 @@ struct csiphy_reg_3ph_parms_t csiphy_v5_0_1_3ph = {
 	{0x70C, 0xA5},
 	{0x38, 0xFE},
 	{0x81c, 0x2},
-	{0x700, 0x80},
 };
 
 struct csiphy_settings_t csiphy_combo_mode_v5_0_1 = {

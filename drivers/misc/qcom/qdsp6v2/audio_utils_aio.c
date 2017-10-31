@@ -1,6 +1,7 @@
 /* Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
  * Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -792,6 +793,7 @@ static long audio_aio_process_event_req(struct q6audio_aio *audio,
 {
 	long rc;
 	struct msm_audio_event usr_evt;
+	memset(&usr_evt, 0, sizeof(struct msm_audio_event));
 
 	if (copy_from_user(&usr_evt, arg, sizeof(struct msm_audio_event))) {
 		pr_err("%s: copy_from_user failed\n", __func__);

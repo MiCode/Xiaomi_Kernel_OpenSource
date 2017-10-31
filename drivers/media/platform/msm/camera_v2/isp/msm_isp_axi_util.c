@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,13 +40,13 @@ static int msm_isp_axi_create_stream(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd,
 	struct msm_vfe_axi_stream *stream_info)
 {
-	uint32_t i = 0;
+	uint32_t i;
 	int rc = 0;
 
 	if (stream_info->state != AVAILABLE) {
-		pr_err("%s:%d invalid state %d expected %d\n",
+		pr_err("%s:%d invalid state %d expected %d for src %d\n",
 			__func__, __LINE__, stream_info->state,
-			AVAILABLE);
+			AVAILABLE, i);
 		return -EINVAL;
 	}
 
@@ -634,7 +635,7 @@ void msm_isp_process_reg_upd_epoch_irq(struct vfe_device *vfe_dev,
 			spin_unlock_irqrestore(&stream_info->lock, flags);
 			if (ret < 0) {
 				msm_isp_halt_send_error(vfe_dev,
-						ISP_EVENT_PING_PONG_MISMATCH);
+						ISP_EVENT_BUF_FATAL_ERROR);
 				return;
 			}
 			continue;
@@ -773,40 +774,6 @@ void msm_isp_check_for_output_error(struct vfe_device *vfe_dev,
 	}
 }
 
-static int msm_isp_check_sync_time(struct msm_vfe_src_info *src_info,
-			struct msm_isp_timestamp *ts,
-			struct master_slave_resource_info *ms_res)
-{
-	int i;
-	struct msm_vfe_src_info *master_src_info = NULL;
-	uint32_t master_time = 0, current_time;
-
-	if (!ms_res->src_sof_mask)
-		return 0;
-
-	for (i = 0; i < MAX_VFE * VFE_SRC_MAX; i++) {
-		if (ms_res->src_info[i] == NULL)
-			continue;
-		if (src_info == ms_res->src_info[i] ||
-			ms_res->src_info[i]->active == 0)
-			continue;
-		if (ms_res->src_sof_mask &
-			(1 << ms_res->src_info[i]->dual_hw_ms_info.index)) {
-			master_src_info = ms_res->src_info[i];
-			break;
-		}
-	}
-	if (!master_src_info)
-		return 0;
-	master_time = master_src_info->
-		dual_hw_ms_info.sof_info.mono_timestamp_ms;
-	current_time = ts->buf_time.tv_sec * 1000 +
-		ts->buf_time.tv_usec / 1000;
-	if ((current_time - master_time) > ms_res->sof_delta_threshold)
-		return 1;
-	return 0;
-}
-
 static void msm_isp_sync_dual_cam_frame_id(
 		struct vfe_device *vfe_dev,
 		struct master_slave_resource_info *ms_res,
@@ -821,26 +788,14 @@ static void msm_isp_sync_dual_cam_frame_id(
 
 	if (src_info->dual_hw_ms_info.sync_state ==
 		ms_res->dual_sync_mode) {
-		if (msm_isp_check_sync_time(src_info, ts, ms_res) == 0) {
-			(frame_src == VFE_PIX_0) ? src_info->frame_id +=
+		(frame_src == VFE_PIX_0) ? src_info->frame_id +=
 				vfe_dev->axi_data.src_info[frame_src].
 				sof_counter_step :
 			src_info->frame_id++;
-			return;
-		}
-		ms_res->src_sof_mask = 0;
-		ms_res->active_src_mask = 0;
-		for (i = 0; i < MAX_VFE * VFE_SRC_MAX; i++) {
-			if (ms_res->src_info[i] == NULL)
-				continue;
-			if (ms_res->src_info[i]->active == 0)
-				continue;
-			ms_res->src_info[i]->dual_hw_ms_info.
-				sync_state =
-				MSM_ISP_DUAL_CAM_ASYNC;
-		}
+		return;
 	}
 
+	WARN_ON(ms_res->dual_sync_mode == MSM_ISP_DUAL_CAM_ASYNC);
 	/* find highest frame id */
 	for (i = 0; i < MAX_VFE * VFE_SRC_MAX; i++) {
 		if (ms_res->src_info[i] == NULL)
@@ -893,6 +848,7 @@ void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
 	enum msm_vfe_dual_hw_ms_type ms_type;
 	unsigned long flags;
 	int i;
+
 	struct master_slave_resource_info *ms_res =
 				&vfe_dev->common_data->ms_resource;
 
@@ -914,14 +870,8 @@ void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
 			 */
 			if (ms_res->src_sof_mask & (1 <<
 				src_info->dual_hw_ms_info.index)) {
-				pr_err_ratelimited("Frame out of sync on vfe %d\n",
+				pr_err("Frame out of sync on vfe %d\n",
 					vfe_dev->pdev->id);
-				/*
-				 * set this isp as async mode to force
-				 *it sync again at the next sof
-				 */
-				src_info->dual_hw_ms_info.sync_state =
-							MSM_ISP_DUAL_CAM_ASYNC;
 				/*
 				 * set the other isp as async mode to force
 				 * it sync again at the next sof
@@ -937,6 +887,8 @@ void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
 							sync_state =
 							MSM_ISP_DUAL_CAM_ASYNC;
 				}
+				ms_res->src_sof_mask = 0;
+				ms_res->active_src_mask = 1 << src_info->dual_hw_ms_info.index;
 			}
 			ms_res->src_sof_mask |= (1 <<
 					src_info->dual_hw_ms_info.index);
@@ -1220,7 +1172,7 @@ void msm_isp_get_avtimer_ts(
 
 	rc = avcs_core_query_timer(&avtimer_tick);
 	if (rc < 0) {
-		pr_err_ratelimited("%s: Error: Invalid AVTimer Tick, rc=%d\n",
+		pr_err("%s: Error: Invalid AVTimer Tick, rc=%d\n",
 			   __func__, rc);
 		/* In case of error return zero AVTimer Tick Value */
 		time_stamp->vt_time.tv_sec = 0;
@@ -1783,7 +1735,7 @@ int msm_isp_print_ping_pong_address(struct vfe_device *vfe_dev,
 			}
 			temp = buf->mapped_info[0].paddr +
 				buf->mapped_info[0].len;
-			pr_err("%s: stream %x ping bit %d uses buffer %pK-%pK, num_isp %d\n",
+			pr_err("%s: stream %x ping bit %d uses buffer %pa-%pa, num_isp %d\n",
 				__func__, stream_info->stream_src,
 				pingpong_bit,
 				&buf->mapped_info[0].paddr, &temp,
@@ -1792,10 +1744,10 @@ int msm_isp_print_ping_pong_address(struct vfe_device *vfe_dev,
 			for (i = 0; i < stream_info->num_planes; i++) {
 				for (k = 0; k < stream_info->num_isp; k++) {
 					pr_debug(
-					"%s: stream_id %x ping-pong %d	plane %d start_addr %pK	addr_offset %x len %zx stride %d scanline %d\n"
+					"%s: stream_id %x ping-pong %d	plane %d start_addr %lu	addr_offset %x len %zx stride %d scanline %d\n"
 					, __func__, stream_info->stream_id,
-					pingpong_bit, i,
-					(void *)buf->mapped_info[i].paddr,
+					pingpong_bit, i, (unsigned long)
+					buf->mapped_info[i].paddr,
 					stream_info->
 					plane_cfg[k][i].plane_addr_offset,
 					buf->mapped_info[i].len,
@@ -2431,6 +2383,7 @@ static int msm_isp_update_stream_bandwidth(struct vfe_device *vfe_dev)
 	struct msm_vfe_axi_stream *stream_info;
 	uint64_t total_pix_bandwidth = 0, total_rdi_bandwidth = 0;
 	uint32_t num_pix_streams = 0;
+	uint64_t total_bandwidth = 0;
 	int vfe_idx;
 
 	for (i = 0; i < VFE_AXI_SRC_MAX; i++) {
@@ -2449,10 +2402,10 @@ static int msm_isp_update_stream_bandwidth(struct vfe_device *vfe_dev)
 			}
 		}
 	}
-	vfe_dev->total_bandwidth = total_pix_bandwidth + total_rdi_bandwidth;
+	total_bandwidth = total_pix_bandwidth + total_rdi_bandwidth;
 	rc = msm_isp_update_bandwidth(ISP_VFE0 + vfe_dev->pdev->id,
-		(vfe_dev->total_bandwidth + vfe_dev->hw_info->min_ab),
-		(vfe_dev->total_bandwidth + vfe_dev->hw_info->min_ib));
+		(total_bandwidth + vfe_dev->hw_info->min_ab),
+		(total_bandwidth + vfe_dev->hw_info->min_ib));
 
 	if (rc < 0)
 		pr_err("%s: update failed\n", __func__);
@@ -2460,78 +2413,6 @@ static int msm_isp_update_stream_bandwidth(struct vfe_device *vfe_dev)
 	return rc;
 }
 
-int msm_isp_ab_ib_update_lpm_mode(struct vfe_device *vfe_dev, void *arg)
-{
-	int i, rc = 0;
-	uint64_t total_bandwidth = 0;
-	int vfe_idx;
-	uint32_t intf;
-	unsigned long flags;
-	struct msm_vfe_axi_stream *stream_info;
-	struct msm_vfe_dual_lpm_mode *ab_ib_vote = NULL;
-
-	ab_ib_vote = (struct msm_vfe_dual_lpm_mode *)arg;
-	if (!ab_ib_vote) {
-		pr_err("%s: ab_ib_vote is NULL !!!\n", __func__);
-		rc = -1;
-		return rc;
-	}
-	if (ab_ib_vote->lpm_mode) {
-		for (i = 0; i < ab_ib_vote->num_src; i++) {
-			stream_info =
-				msm_isp_get_stream_common_data(vfe_dev,
-					ab_ib_vote->stream_src[i]);
-			if (stream_info == NULL)
-				continue;
-			/* loop all stream on current session */
-			spin_lock_irqsave(&stream_info->lock, flags);
-			intf = SRC_TO_INTF(stream_info->stream_src);
-			vfe_dev->axi_data.src_info[intf].lpm =
-				ab_ib_vote->lpm_mode;
-			if (stream_info->state == ACTIVE) {
-				vfe_idx =
-					msm_isp_get_vfe_idx_for_stream(vfe_dev,
-						stream_info);
-					total_bandwidth +=
-						stream_info->bandwidth[
-							vfe_idx];
-				stream_info->state = PAUSED;
-			}
-			spin_unlock_irqrestore(&stream_info->lock, flags);
-		}
-		vfe_dev->total_bandwidth -= total_bandwidth;
-		rc = msm_isp_update_bandwidth(ISP_VFE0 + vfe_dev->pdev->id,
-		(vfe_dev->total_bandwidth - vfe_dev->hw_info->min_ab),
-		(vfe_dev->total_bandwidth - vfe_dev->hw_info->min_ib));
-	} else {
-		for (i = 0; i < ab_ib_vote->num_src; i++) {
-			stream_info =
-				msm_isp_get_stream_common_data(vfe_dev,
-					ab_ib_vote->stream_src[i]);
-			if (stream_info == NULL)
-				continue;
-			spin_lock_irqsave(&stream_info->lock, flags);
-			intf = SRC_TO_INTF(stream_info->stream_src);
-			vfe_dev->axi_data.src_info[intf].lpm =
-				ab_ib_vote->lpm_mode;
-			if (stream_info->state == PAUSED) {
-				vfe_idx =
-					msm_isp_get_vfe_idx_for_stream(vfe_dev,
-						stream_info);
-					total_bandwidth +=
-						stream_info->bandwidth[
-							vfe_idx];
-				stream_info->state = ACTIVE;
-			}
-			spin_unlock_irqrestore(&stream_info->lock, flags);
-		}
-		vfe_dev->total_bandwidth += total_bandwidth;
-		rc = msm_isp_update_bandwidth(ISP_VFE0 + vfe_dev->pdev->id,
-		(vfe_dev->total_bandwidth + vfe_dev->hw_info->min_ab),
-		(vfe_dev->total_bandwidth + vfe_dev->hw_info->min_ib));
-	}
-	return rc;
-}
 static int msm_isp_init_stream_ping_pong_reg(
 	struct msm_vfe_axi_stream *stream_info)
 {
@@ -2872,7 +2753,6 @@ static int __msm_isp_check_stream_state(struct msm_vfe_axi_stream *stream_info,
 	case RESUMING:
 	case RESUME_PENDING:
 	case ACTIVE:
-	case PAUSED:
 		if (cmd != 0)
 			return -EALREADY;
 		break;
@@ -2939,13 +2819,9 @@ static void __msm_isp_stop_axi_streams(struct vfe_device *vfe_dev,
 		 * those state transitions instead of directly forcing stream to
 		 * be INACTIVE
 		 */
-		intf = SRC_TO_INTF(stream_info->stream_src);
-		if ((!vfe_dev->axi_data.src_info[intf].lpm) ||
-			stream_info->state != PAUSED) {
-			while (stream_info->state != ACTIVE)
-				__msm_isp_axi_stream_update(stream_info,
-					&timestamp);
-		}
+		while (stream_info->state != ACTIVE)
+			__msm_isp_axi_stream_update(stream_info,
+						&timestamp);
 		msm_isp_cfg_stream_scratch(stream_info, VFE_PING_FLAG);
 		msm_isp_cfg_stream_scratch(stream_info, VFE_PONG_FLAG);
 		stream_info->undelivered_request_cnt = 0;
@@ -2958,17 +2834,8 @@ static void __msm_isp_stop_axi_streams(struct vfe_device *vfe_dev,
 				vfe_dev->hw_info->vfe_ops.axi_ops.
 				clear_wm_irq_mask(vfe_dev, stream_info);
 		}
-		if (stream_info->state == ACTIVE &&
-			!vfe_dev->axi_data.src_info[intf].lpm) {
-			init_completion(&stream_info->inactive_comp);
-			stream_info->state = STOP_PENDING;
-		} else if (vfe_dev->axi_data.src_info[intf].lpm ||
-			stream_info->state == PAUSED) {
-			/* don't wait for reg update */
-			stream_info->state = STOP_PENDING;
-			msm_isp_axi_stream_enable_cfg(stream_info);
-			stream_info->state = INACTIVE;
-		}
+		init_completion(&stream_info->inactive_comp);
+		stream_info->state = STOP_PENDING;
 		spin_unlock_irqrestore(&stream_info->lock, flags);
 	}
 
@@ -3078,7 +2945,6 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev_ioctl,
 	int k;
 	struct vfe_device *vfe_dev;
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev_ioctl->axi_data;
-	uint32_t intf;
 
 	if (stream_cfg_cmd->num_streams > MAX_NUM_STREAM)
 		return -EINVAL;
@@ -3142,7 +3008,7 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev_ioctl,
 					cfg_wm_irq_mask(vfe_dev, stream_info);
 			}
 		}
-		 intf = SRC_TO_INTF(stream_info->stream_src);
+
 		init_completion(&stream_info->active_comp);
 		stream_info->state = START_PENDING;
 		msm_isp_update_intf_stream_cnt(stream_info, 1);
@@ -3152,11 +3018,6 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev_ioctl,
 			vfe_dev_ioctl->pdev->id);
 		if (src_state) {
 			src_mask |= (1 << SRC_TO_INTF(stream_info->stream_src));
-			if (vfe_dev_ioctl->axi_data.src_info[intf].lpm) {
-				while (stream_info->state != ACTIVE)
-					__msm_isp_axi_stream_update(
-						stream_info, &timestamp);
-			}
 		} else {
 			for (k = 0; k < stream_info->num_isp; k++) {
 				vfe_dev = stream_info->vfe_dev[k];
@@ -3402,7 +3263,6 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	int k;
 	uint32_t wm_mask = 0;
 	int vfe_idx;
-	uint32_t pingpong_bit = 0;
 
 	if (!vfe_dev || !stream_info) {
 		pr_err("%s %d failed: vfe_dev %pK stream_info %pK\n", __func__,
@@ -3421,39 +3281,27 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	}
 
 	frame_src = SRC_TO_INTF(stream_info->stream_src);
-	pingpong_status = vfe_dev->hw_info->
-		vfe_ops.axi_ops.get_pingpong_status(vfe_dev);
 	/*
 	 * If PIX stream is active then RDI path uses SOF frame ID of PIX
 	 * In case of standalone RDI streaming, SOF are used from
 	 * individual intf.
 	 */
-	/*
-	 * If frame_id = 1 then no eof check is needed
-	 */
-	if (vfe_dev->axi_data.src_info[frame_src].active &&
-		frame_src == VFE_PIX_0 &&
-		vfe_dev->axi_data.src_info[frame_src].accept_frame == false) {
-		pr_debug("%s:%d invalid time to request frame %d\n",
-			__func__, __LINE__, frame_id);
-		goto error;
-	}
-	if ((vfe_dev->axi_data.src_info[frame_src].active && (frame_id !=
-		vfe_dev->axi_data.src_info[frame_src].frame_id + vfe_dev->
-		axi_data.src_info[VFE_PIX_0].sof_counter_step)) ||
-		((!vfe_dev->axi_data.src_info[frame_src].active))) {
-		pr_debug("%s:%d invalid frame id %d cur frame id %d pix %d\n",
+	if (((vfe_dev->axi_data.src_info[VFE_PIX_0].active) && (frame_id <=
+		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id)) ||
+		((!vfe_dev->axi_data.src_info[VFE_PIX_0].active) && (frame_id <=
+		vfe_dev->axi_data.src_info[frame_src].frame_id)) ||
+		stream_info->undelivered_request_cnt >= MAX_BUFFERS_IN_HW) {
+		pr_debug("%s:%d invalid request_frame %d cur frame id %d pix %d\n",
 			__func__, __LINE__, frame_id,
-			vfe_dev->axi_data.src_info[frame_src].frame_id,
-			vfe_dev->axi_data.src_info[frame_src].active);
-		goto error;
-	}
-	if (stream_info->undelivered_request_cnt >= MAX_BUFFERS_IN_HW) {
-		pr_debug("%s:%d invalid undelivered_request_cnt %d frame id %d\n",
-			__func__, __LINE__,
-			stream_info->undelivered_request_cnt,
-			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
-		goto error;
+			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id,
+			vfe_dev->axi_data.src_info[VFE_PIX_0].active);
+
+		rc = msm_isp_return_empty_buffer(vfe_dev, stream_info,
+			user_stream_id, frame_id, buf_index, frame_src);
+		if (rc < 0)
+			pr_err("%s:%d failed: return_empty_buffer src %d\n",
+				__func__, __LINE__, frame_src);
+		return 0;
 	}
 	if ((frame_src == VFE_PIX_0) && !stream_info->undelivered_request_cnt &&
 		MSM_VFE_STREAM_STOP_PERIOD !=
@@ -3475,25 +3323,6 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	}
 
 	spin_lock_irqsave(&stream_info->lock, flags);
-	vfe_idx = msm_isp_get_vfe_idx_for_stream(vfe_dev, stream_info);
-	if (stream_info->undelivered_request_cnt == 1) {
-		pingpong_status =
-			vfe_dev->hw_info->vfe_ops.axi_ops.get_pingpong_status(
-				vfe_dev);
-		pingpong_bit = ((pingpong_status >>
-					stream_info->wm[vfe_idx][0]) & 0x1);
-		if (stream_info->sw_ping_pong_bit == !pingpong_bit) {
-			ISP_DBG("%s:Return Empty Buffer stream id 0x%X\n",
-				__func__, stream_info->stream_id);
-			rc = msm_isp_return_empty_buffer(vfe_dev, stream_info,
-				user_stream_id, frame_id, buf_index,
-				frame_src);
-			spin_unlock_irqrestore(&stream_info->lock,
-					flags);
-			return 0;
-		}
-	}
-
 	queue_req = &stream_info->request_queue_cmd[stream_info->request_q_idx];
 	if (queue_req->cmd_used) {
 		spin_unlock_irqrestore(&stream_info->lock, flags);
@@ -3523,6 +3352,7 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	stream_info->request_q_cnt++;
 
 	stream_info->undelivered_request_cnt++;
+	vfe_idx = msm_isp_get_vfe_idx_for_stream(vfe_dev, stream_info);
 	stream_cfg_cmd.axi_stream_handle = stream_info->stream_handle[vfe_idx];
 	stream_cfg_cmd.frame_skip_pattern = NO_SKIP;
 	stream_cfg_cmd.init_frame_drop = 0;
@@ -3551,6 +3381,9 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 		}
 		stream_info->sw_ping_pong_bit = 0;
 	} else if (stream_info->undelivered_request_cnt == 2) {
+		pingpong_status =
+			vfe_dev->hw_info->vfe_ops.axi_ops.get_pingpong_status(
+				vfe_dev);
 		rc = msm_isp_cfg_ping_pong_address(
 				stream_info, pingpong_status);
 		if (rc) {
@@ -3576,14 +3409,6 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	spin_unlock_irqrestore(&stream_info->lock, flags);
 
 	return rc;
-error:
-	rc = msm_isp_return_empty_buffer(vfe_dev, stream_info,
-		user_stream_id, frame_id, buf_index, frame_src);
-	if (rc < 0)
-		pr_err("%s:%d failed: return_empty_buffer src %d\n",
-		__func__, __LINE__, frame_src);
-	return 0;
-
 }
 
 static int msm_isp_add_buf_queue(struct vfe_device *vfe_dev,
@@ -3952,12 +3777,6 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 			&update_cmd->req_frm_ver2;
 		stream_info = msm_isp_get_stream_common_data(vfe_dev,
 				HANDLE_TO_IDX(req_frm->stream_handle));
-		if (stream_info == NULL) {
-			pr_err_ratelimited("%s: stream_info is NULL\n",
-				__func__);
-			rc = -EINVAL;
-			break;
-		}
 		rc = msm_isp_request_frame(vfe_dev, stream_info,
 			req_frm->user_stream_id,
 			req_frm->frame_id,

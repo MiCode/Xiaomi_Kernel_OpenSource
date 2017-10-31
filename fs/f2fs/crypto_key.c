@@ -18,6 +18,7 @@
 #include <linux/f2fs_fs.h>
 
 #include "f2fs.h"
+#include "f2fs_ice.h"
 #include "xattr.h"
 
 static void derive_crypt_complete(struct crypto_async_request *req, int rc)
@@ -125,8 +126,8 @@ int _f2fs_get_encryption_info(struct inode *inode)
 	const struct user_key_payload *ukp;
 	struct crypto_ablkcipher *ctfm;
 	const char *cipher_str;
-	char raw_key[F2FS_MAX_KEY_SIZE];
-	char mode;
+	int for_fname = 0;
+	int mode;
 	int res;
 
 	res = f2fs_crypto_initialize();
@@ -162,19 +163,21 @@ retry:
 	crypt_info->ci_keyring_key = NULL;
 	memcpy(crypt_info->ci_master_key, ctx.master_key_descriptor,
 				sizeof(crypt_info->ci_master_key));
-	if (S_ISREG(inode->i_mode))
-		mode = crypt_info->ci_data_mode;
-	else if (S_ISDIR(inode->i_mode) || S_ISLNK(inode->i_mode))
-		mode = crypt_info->ci_filename_mode;
-	else
+	if (S_ISDIR(inode->i_mode) || S_ISLNK(inode->i_mode))
+		for_fname = 1;
+	else if (!S_ISREG(inode->i_mode))
 		BUG();
-
+	mode = for_fname ? crypt_info->ci_filename_mode :
+		crypt_info->ci_data_mode;
 	switch (mode) {
 	case F2FS_ENCRYPTION_MODE_AES_256_XTS:
 		cipher_str = "xts(aes)";
 		break;
 	case F2FS_ENCRYPTION_MODE_AES_256_CTS:
 		cipher_str = "cts(cbc(aes))";
+		break;
+	case F2FS_ENCRYPTION_MODE_PRIVATE:
+		cipher_str = "bugon";
 		break;
 	default:
 		printk_once(KERN_WARNING
@@ -209,28 +212,36 @@ retry:
 				F2FS_KEY_DERIVATION_NONCE_SIZE);
 	BUG_ON(master_key->size != F2FS_AES_256_XTS_KEY_SIZE);
 	res = f2fs_derive_key_aes(ctx.nonce, master_key->raw,
-				  raw_key);
+				  crypt_info->ci_raw_key);
 	if (res)
 		goto out;
 
-	ctfm = crypto_alloc_ablkcipher(cipher_str, 0, 0);
-	if (!ctfm || IS_ERR(ctfm)) {
-		res = ctfm ? PTR_ERR(ctfm) : -ENOMEM;
-		printk(KERN_DEBUG
-		       "%s: error %d (inode %u) allocating crypto tfm\n",
-		       __func__, res, (unsigned) inode->i_ino);
+	if (for_fname ||
+	    (crypt_info->ci_data_mode != F2FS_ENCRYPTION_MODE_PRIVATE)) {
+		ctfm = crypto_alloc_ablkcipher(cipher_str, 0, 0);
+		if (!ctfm || IS_ERR(ctfm)) {
+			res = ctfm ? PTR_ERR(ctfm) : -ENOMEM;
+			printk(KERN_DEBUG
+					"%s: error %d (inode %u) allocating crypto tfm\n",
+					__func__, res, (unsigned) inode->i_ino);
+			goto out;
+		}
+		crypt_info->ci_ctfm = ctfm;
+		crypto_ablkcipher_clear_flags(ctfm, ~0);
+		crypto_tfm_set_flags(crypto_ablkcipher_tfm(ctfm),
+				CRYPTO_TFM_REQ_WEAK_KEY);
+		res = crypto_ablkcipher_setkey(ctfm, crypt_info->ci_raw_key,
+				f2fs_encryption_key_size(mode));
+		if (res)
+			goto out;
+
+		memzero_explicit(crypt_info->ci_raw_key,
+				sizeof(crypt_info->ci_raw_key));
+	} else if (!f2fs_is_ice_enabled()) {
+		pr_warn("%s: ICE support not available\n", __func__);
+		res = -EINVAL;
 		goto out;
 	}
-	crypt_info->ci_ctfm = ctfm;
-	crypto_ablkcipher_clear_flags(ctfm, ~0);
-	crypto_tfm_set_flags(crypto_ablkcipher_tfm(ctfm),
-			     CRYPTO_TFM_REQ_WEAK_KEY);
-	res = crypto_ablkcipher_setkey(ctfm, raw_key,
-					f2fs_encryption_key_size(mode));
-	if (res)
-		goto out;
-
-	memzero_explicit(raw_key, sizeof(raw_key));
 	if (cmpxchg(&fi->i_crypt_info, NULL, crypt_info) != NULL) {
 		f2fs_free_crypt_info(crypt_info);
 		goto retry;
@@ -241,8 +252,9 @@ out:
 	if (res == -ENOKEY && !S_ISREG(inode->i_mode))
 		res = 0;
 
+	memzero_explicit(crypt_info->ci_raw_key,
+			 sizeof(crypt_info->ci_raw_key));
 	f2fs_free_crypt_info(crypt_info);
-	memzero_explicit(raw_key, sizeof(raw_key));
 	return res;
 }
 

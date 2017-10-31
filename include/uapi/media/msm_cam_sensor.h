@@ -239,6 +239,12 @@ struct sensorb_cfg_data {
 	} cfg;
 };
 
+struct sensorb_info_fusion_id {
+	char sensor_type;
+	char *data_buffer;
+	char data_nums;
+};
+
 struct csid_cfg_data {
 	enum csid_cfg_type_t cfgtype;
 	union {
@@ -345,6 +351,7 @@ enum msm_sensor_cfg_type_t {
 	CFG_WRITE_I2C_ARRAY_ASYNC,
 	CFG_WRITE_I2C_ARRAY_SYNC,
 	CFG_WRITE_I2C_ARRAY_SYNC_BLOCK,
+	CFG_GET_SENSOR_FUSION_ID,
 };
 
 enum msm_actuator_cfg_type_t {
@@ -616,5 +623,10 @@ struct sensor_init_cfg_data {
 #define VIDIOC_MSM_IR_CUT_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 15, struct msm_ir_cut_cfg_data_t)
 
+#define VIDIOC_MSM_READ_FUSION_ID \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 16, struct sensorb_info_fusion_id)
+
+#define VIDIOC_MSM_READ_FUSION_ID_LEN \
+	_IOR('V', BASE_VIDIOC_PRIVATE + 16, uint8_t)
 #endif
 

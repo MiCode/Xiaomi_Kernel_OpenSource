@@ -2728,7 +2728,7 @@ static int ipa_fltrt_alloc_init_tbl_hdr(
 	params->nhash_hdr.base = dma_alloc_coherent(ipahal_ctx->ipa_pdev,
 		params->nhash_hdr.size,
 		&params->nhash_hdr.phys_base, GFP_KERNEL);
-	if (!params->nhash_hdr.size) {
+	if (!params->nhash_hdr.base) {
 		IPAHAL_ERR("fail to alloc DMA buff of size %d\n",
 			params->nhash_hdr.size);
 		goto nhash_alloc_fail;

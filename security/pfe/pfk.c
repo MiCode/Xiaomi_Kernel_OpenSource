@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -58,6 +59,7 @@
 #include "ecryptfs_kernel.h"
 #include "pfk_ice.h"
 #include "pfk_ext4.h"
+#include "pfk_f2fs.h"
 #include "pfk_ecryptfs.h"
 #include "pfk_internal.h"
 #include "ext4.h"
@@ -70,7 +72,7 @@ static bool pfk_ready;
 #define PFK_SUPPORTED_SALT_SIZE 32
 
 /* Various PFE types and function tables to support each one of them */
-enum pfe_type {ECRYPTFS_PFE, EXT4_CRYPT_PFE, INVALID_PFE};
+enum pfe_type {ECRYPTFS_PFE, EXT4_CRYPT_PFE, F2FS_CRYPT_PFE, INVALID_PFE};
 
 typedef int (*pfk_parse_inode_type)(const struct bio *bio,
 	const struct inode *inode,
@@ -85,17 +87,20 @@ typedef bool (*pfk_allow_merge_bio_type)(const struct bio *bio1,
 static const pfk_parse_inode_type pfk_parse_inode_ftable[] = {
 	/* ECRYPTFS_PFE */   &pfk_ecryptfs_parse_inode,
 	/* EXT4_CRYPT_PFE */ &pfk_ext4_parse_inode,
+	/* F2FS_CRYPT_PFE */ &pfk_f2fs_parse_inode,
 };
 
 static const pfk_allow_merge_bio_type pfk_allow_merge_bio_ftable[] = {
 	/* ECRYPTFS_PFE */   &pfk_ecryptfs_allow_merge_bio,
 	/* EXT4_CRYPT_PFE */ &pfk_ext4_allow_merge_bio,
+	/* F2FS_CRYPT_PFE */ &pfk_f2fs_allow_merge_bio,
 };
 
 static void __exit pfk_exit(void)
 {
 	pfk_ready = false;
 	pfk_ext4_deinit();
+	pfk_f2fs_deinit();
 	pfk_ecryptfs_deinit();
 	pfk_kc_deinit();
 }
@@ -115,9 +120,17 @@ static int __init pfk_init(void)
 		goto fail;
 	}
 
+	ret = pfk_f2fs_init();
+	if (ret != 0) {
+		pfk_ext4_deinit();
+		pfk_ecryptfs_deinit();
+		goto fail;
+	}
+
 	ret = pfk_kc_init();
 	if (ret != 0) {
 		pr_err("could init pfk key cache, error %d\n", ret);
+		pfk_f2fs_deinit();
 		pfk_ext4_deinit();
 		pfk_ecryptfs_deinit();
 		goto fail;
@@ -147,6 +160,9 @@ static enum pfe_type pfk_get_pfe_type(const struct inode *inode)
 
 	if (pfk_is_ext4_type(inode))
 		return EXT4_CRYPT_PFE;
+
+	if (pfk_is_f2fs_type(inode))
+		return F2FS_CRYPT_PFE;
 
 	return INVALID_PFE;
 }

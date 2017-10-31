@@ -7,6 +7,7 @@
  * This interface is influenced by the Android RTC Alarm timer
  * interface.
  *
+ * Copyright (C) 2017 XiaoMi, Inc.
  * Copyright (C) 2010 IBM Corperation
  *
  * Author: John Stultz <john.stultz@linaro.org>
@@ -61,6 +62,7 @@ static struct rtc_device	*rtcdev;
 static DEFINE_SPINLOCK(rtcdev_lock);
 static struct mutex power_on_alarm_lock;
 static struct alarm init_alarm;
+bool alarm_fired;
 
 /**
  * power_on_alarm_init - Init power on alarm value
@@ -340,6 +342,7 @@ static enum hrtimer_restart alarmtimer_fired(struct hrtimer *timer)
 	/* set next power off alarm */
 	if (alarm->type == ALARM_POWEROFF_REALTIME)
 		queue_delayed_work(power_off_alarm_workqueue, &work, 0);
+	alarm_fired = true;
 
 	return ret;
 

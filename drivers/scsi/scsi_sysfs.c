@@ -591,8 +591,17 @@ static int scsi_sdev_check_buf_bit(const char *buf)
 sdev_rd_attr (type, "%d\n");
 sdev_rd_attr (scsi_level, "%d\n");
 sdev_rd_attr (vendor, "%.8s\n");
-sdev_rd_attr (model, "%.16s\n");
 sdev_rd_attr (rev, "%.4s\n");
+
+static ssize_t
+sdev_show_model(struct device *dev, struct device_attribute *attr,
+		   char *buf)
+{
+	struct scsi_device *sdev = to_scsi_device(dev);
+
+	return snprintf(buf, 20, "%.16s\n", scsi_device_name(sdev->model));
+}
+static DEVICE_ATTR(model, S_IRUGO, sdev_show_model, NULL);
 
 static ssize_t
 sdev_show_device_busy(struct device *dev, struct device_attribute *attr,
@@ -774,29 +783,6 @@ static struct bin_attribute dev_attr_vpd_##_page = {		\
 
 sdev_vpd_pg_attr(pg83);
 sdev_vpd_pg_attr(pg80);
-
-static ssize_t show_inquiry(struct file *filep, struct kobject *kobj,
-			    struct bin_attribute *bin_attr,
-			    char *buf, loff_t off, size_t count)
-{
-	struct device *dev = container_of(kobj, struct device, kobj);
-	struct scsi_device *sdev = to_scsi_device(dev);
-
-	if (!sdev->inquiry)
-		return -EINVAL;
-
-	return memory_read_from_buffer(buf, count, &off, sdev->inquiry,
-				       sdev->inquiry_len);
-}
-
-static struct bin_attribute dev_attr_inquiry = {
-	.attr = {
-		.name = "inquiry",
-		.mode = S_IRUGO,
-	},
-	.size = 0,
-	.read = show_inquiry,
-};
 
 static ssize_t
 show_iostat_counterbits(struct device *dev, struct device_attribute *attr,
@@ -982,7 +968,6 @@ static struct attribute *scsi_sdev_attrs[] = {
 static struct bin_attribute *scsi_sdev_bin_attrs[] = {
 	&dev_attr_vpd_pg83,
 	&dev_attr_vpd_pg80,
-	&dev_attr_inquiry,
 	NULL
 };
 static struct attribute_group scsi_sdev_attr_group = {

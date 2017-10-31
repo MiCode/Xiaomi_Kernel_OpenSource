@@ -102,39 +102,16 @@ dtb-$(CONFIG_ARCH_MSM8996) += msm8996-v2-pmi8994-cdp.dtb \
 	apq8096-v3-pmi8996-mdm9x55-slimbus-mtp.dtb \
 	apq8096-v3-pmi8996-dragonboard.dtb
 
-dtb-$(CONFIG_ARCH_MSM8998) += msm8998-sim.dtb \
-	msm8998-rumi.dtb \
-	msm8998-cdp.dtb \
-	msm8998-mtp.dtb \
-	msm8998-qrd.dtb \
-	msm8998-v2-sim.dtb \
-	msm8998-v2-rumi.dtb \
+dtb-$(CONFIG_ARCH_MSM8998) += msm8998-mtp.dtb \
 	msm8998-v2-mtp.dtb \
-	msm8998-v2-cdp.dtb \
-	msm8998-v2-qrd.dtb \
-	msm8998-qrd-skuk.dtb \
-	msm8998-v2-qrd-skuk.dtb \
-	msm8998-qrd-vr1.dtb \
-	msm8998-v2-qrd-vr1.dtb \
-	msm8998-v2-qrd-skuk-evt3.dtb \
-	msm8998-v2-qrd-skuk-hdk.dtb \
-	apq8998-mtp.dtb \
-	apq8998-cdp.dtb \
-	apq8998-v2-mtp.dtb \
-	apq8998-v2-cdp.dtb \
-	apq8998-v2-qrd.dtb \
-	apq8998-v2-qrd-skuk-hdk.dtb \
 	msm8998-v2.1-mtp.dtb \
 	msm8998-v2.1-mtp-4k-display.dtb \
-	msm8998-v2.1-cdp.dtb \
-	msm8998-v2.1-qrd.dtb \
-	apq8998-v2.1-mtp.dtb \
-	apq8998-v2.1-cdp.dtb \
-	apq8998-v2.1-qrd.dtb \
-	apq8998-v2.1-mediabox.dtb \
-	msm8998-v2.1-interposer-sdm660-cdp.dtb \
-	msm8998-v2.1-interposer-sdm660-mtp.dtb \
-	msm8998-v2.1-interposer-sdm660-qrd.dtb
+	sagit-msm8998-mtp.dtb \
+	sagit-msm8998-v2-mtp.dtb \
+	sagit-msm8998-v2.1-mtp.dtb \
+	chiron-msm8998-mtp.dtb \
+	chiron-msm8998-v2-mtp.dtb \
+	chiron-msm8998-v2.1-mtp.dtb
 
 dtb-$(CONFIG_ARCH_MSMHAMSTER) += msmhamster-rumi.dtb
 

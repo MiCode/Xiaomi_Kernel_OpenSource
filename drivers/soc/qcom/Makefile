@@ -43,6 +43,8 @@ obj-$(CONFIG_ARCH_MSM8996) += msm_cpu_voltage.o
 
 obj-$(CONFIG_MSM_PERFORMANCE) += msm_performance.o
 
+obj-$(CONFIG_SERIAL_NUM) += serial_num.o
+
 ifdef CONFIG_MSM_SUBSYSTEM_RESTART
 	obj-y += subsystem_notif.o
 	obj-y += subsystem_restart.o

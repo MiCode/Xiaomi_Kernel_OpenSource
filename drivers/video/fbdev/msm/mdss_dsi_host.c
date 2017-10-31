@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -123,6 +124,7 @@ void mdss_dsi_ctrl_init(struct device *ctrl_dev,
 	mutex_init(&ctrl->cmd_mutex);
 	mutex_init(&ctrl->clk_lane_mutex);
 	mutex_init(&ctrl->cmdlist_mutex);
+	mutex_init(&ctrl->dsi_ctrl_mutex);
 	mdss_dsi_buf_alloc(ctrl_dev, &ctrl->tx_buf, SZ_4K);
 	mdss_dsi_buf_alloc(ctrl_dev, &ctrl->rx_buf, SZ_4K);
 	mdss_dsi_buf_alloc(ctrl_dev, &ctrl->status_buf, SZ_4K);
@@ -1230,6 +1232,100 @@ int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		pr_err("%s: Read status register returned error\n", __func__);
 	}
 
+	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+			  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_OFF);
+	pr_debug("%s: Read register done with ret: %d\n", __func__, ret);
+
+	return ret;
+}
+
+static void mdss_dsi_panel_mcap_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
+							struct dsi_panel_cmds *pcmds, u32 flags)
+{
+	struct dcs_cmd_req cmdreq;
+	struct mdss_panel_info *pinfo;
+
+	pinfo = &(ctrl->panel_data.panel_info);
+	if (pinfo->dcs_cmd_by_left) {
+		if (ctrl->ndx != DSI_CTRL_LEFT)
+			return;
+	}
+
+	memset(&cmdreq, 0, sizeof(cmdreq));
+	cmdreq.cmds = pcmds->cmds;
+	cmdreq.cmds_cnt = pcmds->cmd_cnt;
+	cmdreq.flags = flags;
+
+	if (pcmds->link_state == DSI_LP_MODE)
+		cmdreq.flags  |= CMD_REQ_LP_MODE;
+	else if (pcmds->link_state == DSI_HS_MODE)
+		cmdreq.flags |= CMD_REQ_HS_MODE;
+
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+
+	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+}
+
+/**
+ * Return: positive value if the panel is in good state, negative value or
+ * zero otherwise.
+ */
+#define MAX_RVAL_LEN (20)
+int mdss_dsi_multi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	int ret = 1;
+	int i = 0;
+	int j = 0;
+	int rlen = 0;
+	char addr;
+	char result[MAX_RVAL_LEN];
+
+	if (ctrl_pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return ret;
+	}
+
+	if (!ctrl_pdata->status_cmds.cmd_cnt) {
+		pr_err("%s: Invalid status_cmds input, can not check register status\n",
+			__func__);
+		return ret;
+	}
+
+	pr_debug("%s: Checking Register status\n", __func__);
+
+	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+			  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_ON);
+
+	for (i = 0; i < ctrl_pdata->status_cmds.cmd_cnt; i++) {
+		if (ctrl_pdata->mcap_off_cmds.cmd_cnt)
+			mdss_dsi_panel_mcap_cmds_send(ctrl_pdata, &ctrl_pdata->mcap_off_cmds, CMD_REQ_COMMIT);
+
+		/* note: addr is command address,
+			dlen contains command and its values, so rlen should be dlen-1 */
+		addr = ctrl_pdata->status_cmds.cmds[i].payload[0];
+		rlen = ctrl_pdata->status_cmds.cmds[i].dchdr.dlen-1;
+
+		mdss_dsi_panel_cmd_read(ctrl_pdata, addr, 0x00, NULL, result, rlen);
+
+		if (ctrl_pdata->mcap_on_cmds.cmd_cnt)
+			mdss_dsi_panel_mcap_cmds_send(ctrl_pdata, &ctrl_pdata->mcap_on_cmds, CMD_REQ_COMMIT);
+
+		/* compare */
+		for (j = 0; j < rlen; j++) {
+			if (result[j] == ctrl_pdata->status_cmds.cmds[i].payload[j+1]) {
+				continue;
+			} else {
+				ret = -1;
+				pr_err("%s: ESD_ERR! 0x%x[%d] = 0x%x\n", __func__,
+						ctrl_pdata->status_cmds.cmds[i].payload[0],
+						j, result[j]);
+				goto end;
+			}
+		}
+	}
+
+end:
 	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
 			  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_OFF);
 	pr_debug("%s: Read register done with ret: %d\n", __func__, ret);

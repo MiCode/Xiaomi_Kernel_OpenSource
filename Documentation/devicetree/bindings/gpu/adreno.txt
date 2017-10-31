@@ -83,6 +83,9 @@ DCVS Core info
 Optional Properties:
 - qcom,initial-powerlevel: This value indicates which qcom,gpu-pwrlevel should be used at start time
 			   and when coming back out of resume
+- qcom,restrict-powerlevel: This value to limit max GPU power level jump during the clock switch and
+			   while coming back out of slumber. Max GPU power level jump still allowed
+			   from the restricted-pwerlevel.
 - qcom,bus-control:	   Boolean. Enables an independent bus vote from the gpu frequency
 - qcom,bus-width:	   Bus width in number of bytes. This enables dynamic AB bus voting based on
 			   bus width and actual bus transactions.

@@ -5,6 +5,7 @@
  *
  *  Copyright (C) 2003 BULL SA
  *  Copyright (C) 2004-2006 Silicon Graphics, Inc.
+ *  Copyright (C) 2017 XiaoMi, Inc.
  *
  */
 
@@ -41,6 +42,9 @@ static inline void cpuset_dec(void)
 extern int cpuset_init(void);
 extern void cpuset_init_smp(void);
 extern void cpuset_update_active_cpus(bool cpu_online);
+#ifdef CONFIG_CPUSET_EXCLUSIVE_IND
+extern void cpuset_mask_cpu_exclusive(struct task_struct *tsk);
+#endif
 extern void cpuset_cpus_allowed(struct task_struct *p, struct cpumask *mask);
 extern void cpuset_cpus_allowed_fallback(struct task_struct *p);
 extern nodemask_t cpuset_mems_allowed(struct task_struct *p);

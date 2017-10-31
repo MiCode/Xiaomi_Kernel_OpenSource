@@ -3,6 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufs.h
  * Copyright (C) 2011-2013 Samsung India Software Operations
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -156,6 +157,7 @@ enum ufs_desc_max_size {
 	QUERY_DESC_STRING_MAX_SIZE		= 0xFE,
 	QUERY_DESC_GEOMETRY_MAZ_SIZE		= 0x44,
 	QUERY_DESC_POWER_MAX_SIZE		= 0x62,
+	QUERY_DESC_HEALTH_MAX_SIZE		= 0x25,
 	QUERY_DESC_RFU_MAX_SIZE			= 0x00,
 };
 

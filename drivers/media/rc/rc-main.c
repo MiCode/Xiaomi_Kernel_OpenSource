@@ -1,6 +1,7 @@
 /* rc-main.c - Remote Controller core module
  *
  * Copyright (C) 2009-2010 by Mauro Carvalho Chehab
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -738,8 +739,16 @@ EXPORT_SYMBOL_GPL(rc_open);
 static int ir_open(struct input_dev *idev)
 {
 	struct rc_dev *rdev = input_get_drvdata(idev);
+	int rc = 0;
 
-	return rc_open(rdev);
+	mutex_lock(&rdev->lock);
+	if (!rdev->open_count++)
+		rc = rdev->open(rdev);
+	if (rc < 0)
+		rdev->open_count--;
+	mutex_unlock(&rdev->lock);
+
+	return rc;
 }
 
 void rc_close(struct rc_dev *rdev)
@@ -758,7 +767,13 @@ EXPORT_SYMBOL_GPL(rc_close);
 static void ir_close(struct input_dev *idev)
 {
 	struct rc_dev *rdev = input_get_drvdata(idev);
-	rc_close(rdev);
+
+	if (rdev) {
+		mutex_lock(&rdev->lock);
+		if (!--rdev->open_count)
+			rdev->close(rdev);
+		mutex_unlock(&rdev->lock);
+	}
 }
 
 /* class for /sys/class/rc */
@@ -800,6 +815,7 @@ static struct {
 	{ RC_BIT_SANYO,		"sanyo"		},
 	{ RC_BIT_SHARP,		"sharp"		},
 	{ RC_BIT_MCE_KBD,	"mce_kbd"	},
+	{ RC_BIT_LIRC,		"lirc"		},
 	{ RC_BIT_XMP,		"xmp"		},
 };
 

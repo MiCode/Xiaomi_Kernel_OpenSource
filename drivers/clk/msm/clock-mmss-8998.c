@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -359,6 +360,7 @@ static struct rcg_clk mdp_clk_src = {
 	.set_rate = set_rate_hid,
 	.freq_tbl = ftbl_mdp_clk_src,
 	.current_freq = &rcg_dummy_freq,
+	.non_local_control_timeout = 1000,
 	.non_local_children = true,
 	.base = &virt_base,
 	.c = {

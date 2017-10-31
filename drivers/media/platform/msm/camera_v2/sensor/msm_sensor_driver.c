@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -694,6 +695,11 @@ static int32_t msm_sensor_driver_is_special_support(
 	return rc;
 }
 
+extern int get_back_sensor_module_invalid(void);
+
+extern void get_eeprom_name(uint8_t index, char *name);
+extern uint8_t eeprom_name_count;
+
 /* static function definition */
 int32_t msm_sensor_driver_probe(void *setting,
 	struct msm_sensor_info_t *probed_info, char *entity_name)
@@ -703,9 +709,10 @@ int32_t msm_sensor_driver_probe(void *setting,
 	struct msm_camera_cci_client        *cci_client = NULL;
 	struct msm_camera_sensor_slave_info *slave_info = NULL;
 	struct msm_camera_slave_info        *camera_info = NULL;
-
 	unsigned long                        mount_pos = 0;
 	uint32_t                             is_yuv;
+	uint8_t i = 0;
+	char eeprom_name[64];
 
 	/* Validate input parameters */
 	if (!setting) {
@@ -785,6 +792,21 @@ int32_t msm_sensor_driver_probe(void *setting,
 		}
 	}
 
+	if (strcmp(slave_info->eeprom_name, "") != 0) {
+		for (i = 0; i < eeprom_name_count; i++) {
+			get_eeprom_name(i, eeprom_name);
+			if (strcmp(slave_info->eeprom_name, eeprom_name) != 0) {
+				CDBG("%s: sensor_eeprom_name %d = %s, sensor_name = %s! can't probe!\n", __func__, i, eeprom_name, slave_info->eeprom_name);
+				if ((eeprom_name_count - 1) == i) {
+					goto free_slave_info;
+				}
+			} else {
+				CDBG("%s: sensor_eeprom_name %d = %s\n", __func__, i, eeprom_name);
+				break;
+			}
+		}
+	}
+
 	/* Print slave info */
 	CDBG("camera id %d Slave addr 0x%X addr_type %d\n",
 		slave_info->camera_id, slave_info->slave_addr,
@@ -819,6 +841,15 @@ int32_t msm_sensor_driver_probe(void *setting,
 	}
 
 	CDBG("s_ctrl[%d] %pK", slave_info->camera_id, s_ctrl);
+
+	if (slave_info->camera_id == 1) {
+		rc = get_back_sensor_module_invalid();
+		pr_err("rc = %d invalid back module \n", rc);
+
+		if (rc == 0) {
+			goto  free_camera_info;
+		}
+	}
 
 	if (s_ctrl->sensordata->special_support_size > 0) {
 		if (!msm_sensor_driver_is_special_support(s_ctrl,
@@ -865,7 +896,6 @@ int32_t msm_sensor_driver_probe(void *setting,
 		pr_err("failed");
 		goto free_slave_info;
 	}
-
 
 	camera_info = kzalloc(sizeof(struct msm_camera_slave_info), GFP_KERNEL);
 	if (!camera_info)
@@ -1035,12 +1065,16 @@ free_slave_info:
 	return rc;
 }
 
+bool SENSOR_SUPPORT_OIS_FLAG;
+EXPORT_SYMBOL(SENSOR_SUPPORT_OIS_FLAG);
+
 static int32_t msm_sensor_driver_get_dt_data(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	int32_t                              rc = 0, i = 0;
 	struct msm_camera_sensor_board_info *sensordata = NULL;
 	struct device_node                  *of_node = s_ctrl->of_node;
 	uint32_t	cell_id;
+	struct device_node *ois_src_node = NULL;
 
 	s_ctrl->sensordata = kzalloc(sizeof(*sensordata), GFP_KERNEL);
 	if (!s_ctrl->sensordata) {
@@ -1075,6 +1109,19 @@ static int32_t msm_sensor_driver_get_dt_data(struct msm_sensor_ctrl_t *s_ctrl)
 		goto FREE_SENSOR_DATA;
 	}
 
+	/* check whether support ois*/
+	ois_src_node = of_parse_phandle(of_node, "qcom,ois-src", 0);
+	if (cell_id == 0) {
+	if (!ois_src_node) {
+		pr_err("failes: no ois node, maybe didn't support ois SENSOR_SUPPORT_OIS_FLAG false\n");
+		SENSOR_SUPPORT_OIS_FLAG = false;
+	} else {
+		pr_err("OIS SENSOR_SUPPORT_OIS_FLAG true");
+		SENSOR_SUPPORT_OIS_FLAG = true;
+		of_node_put(ois_src_node);
+		ois_src_node = NULL;
+	}
+	}
 	sensordata->special_support_size =
 		of_property_count_strings(of_node,
 				 "qcom,special-support-sensors");

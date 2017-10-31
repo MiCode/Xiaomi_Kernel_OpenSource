@@ -217,4 +217,10 @@ config USB_BAM
 	  Enabling this option adds USB BAM Driver.
 	  USB BAM driver was added to supports SPS Peripheral-to-Peripheral
 	  transfers between the USB and other peripheral.
+
+config GPIO_RF
+	tristate "setting gpio for RF"
+	default n
+	help
+	 Enable this module if dynamically change RF paramaters by monitor status of GPIO.
 endmenu

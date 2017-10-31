@@ -5,6 +5,7 @@
  * Copyright 2005 Openedhand Ltd.
  * Copyright (C) 2010 Slimlogic Ltd.
  * Copyright (C) 2010 Texas Instruments Inc.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * Author: Liam Girdwood <lrg@slimlogic.co.uk>
  *         with code, comments and ideas from :-
@@ -46,7 +47,7 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/asoc.h>
 
-#define NAME_SIZE	32
+#define NAME_SIZE	128
 
 #ifdef CONFIG_DEBUG_FS
 struct dentry *snd_soc_debugfs_root;
@@ -2431,7 +2432,10 @@ int snd_soc_register_card(struct snd_soc_card *card)
 	if (card->rtd == NULL)
 		return -ENOMEM;
 	card->num_rtd = 0;
-	card->rtd_aux = &card->rtd[card->num_links];
+	if (card->num_aux_devs > 0)
+		card->rtd_aux = &card->rtd[card->num_links];
+	else
+		card->rtd_aux = NULL;
 
 	for (i = 0; i < card->num_links; i++) {
 		card->rtd[i].card = card;

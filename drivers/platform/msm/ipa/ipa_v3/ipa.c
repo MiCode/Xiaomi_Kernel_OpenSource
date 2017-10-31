@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3458,6 +3459,7 @@ void ipa3_dec_release_wakelock(void)
 	unsigned long flags;
 
 	spin_lock_irqsave(&ipa3_ctx->wakelock_ref_cnt.spinlock, flags);
+	WARN_ON(ipa3_ctx->wakelock_ref_cnt.cnt == 0);
 	ipa3_ctx->wakelock_ref_cnt.cnt--;
 	IPADBG_LOW("active wakelock ref cnt = %d\n",
 		ipa3_ctx->wakelock_ref_cnt.cnt);

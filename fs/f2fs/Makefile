@@ -9,3 +9,4 @@ f2fs-$(CONFIG_F2FS_FS_POSIX_ACL) += acl.o
 f2fs-$(CONFIG_F2FS_IO_TRACE) += trace.o
 f2fs-$(CONFIG_F2FS_FS_ENCRYPTION) += crypto_policy.o crypto.o \
 		crypto_key.o crypto_fname.o
+f2fs-$(CONFIG_F2FS_FS_ICE_ENCRYPTION)  += f2fs_ice.o

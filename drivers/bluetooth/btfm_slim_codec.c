@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -133,6 +134,9 @@ int btfm_slim_dai_prepare(struct snd_pcm_substream *substream,
 
 	BTFMSLIM_DBG("dai->name: %s, dai->id: %d, dai->rate: %d", dai->name,
 		dai->id, dai->rate);
+
+	/* save sample rate */
+	btfmslim->sample_rate = dai->rate;
 
 	switch (dai->id) {
 	case BTFM_FM_SLIM_TX:

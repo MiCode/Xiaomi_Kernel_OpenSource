@@ -602,12 +602,16 @@ static int dwc3_ep0_set_config(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
 
 	cfg = le16_to_cpu(ctrl->wValue);
 
+	dev_err(dwc->dev, "%s: usb gadget state %d\n", __func__,
+				state);
 	switch (state) {
 	case USB_STATE_DEFAULT:
 		return -EINVAL;
 
 	case USB_STATE_ADDRESS:
 		ret = dwc3_ep0_delegate_req(dwc, ctrl);
+		dev_err(dwc->dev, "%s: gadget driver setup ret %d\n", __func__,
+				ret);
 		/* if the cfg matches and the cfg is non zero */
 		if (cfg && (!ret || (ret == USB_GADGET_DELAYED_STATUS))) {
 

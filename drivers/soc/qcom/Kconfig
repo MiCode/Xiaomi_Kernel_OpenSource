@@ -891,6 +891,11 @@ config QCOM_EARLY_RANDOM
 	  may not be truly random. Select this option to make an early call
 	  to get some random data to put in the pool. If unsure, say N.
 
+config SERIAL_NUM
+	bool "Enable Serial Number Proc Interface"
+	help
+	  Provide a interface for reading CPU serial number
+
 config QCOM_CX_IPEAK
 	bool "Common driver to handle Cx iPeak limitation"
 	help

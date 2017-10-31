@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -422,13 +423,13 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 		.capture = {
 			.stream_name = "SLIMBUS1_HOSTLESS Capture",
 			.aif_name = "SLIM1_UL_HL",
-			.rates = SNDRV_PCM_RATE_8000_48000,
+			.rates = SNDRV_PCM_RATE_8000_192000,
 			.formats = (SNDRV_PCM_FMTBIT_S16_LE |
 				    SNDRV_PCM_FMTBIT_S24_LE),
 			.channels_min = 1,
 			.channels_max = 2,
 			.rate_min =     8000,
-			.rate_max =     48000,
+			.rate_max =     192000,
 		},
 		.ops = &msm_fe_dai_ops,
 		.name = "SLIMBUS1_HOSTLESS",

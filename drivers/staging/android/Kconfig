@@ -90,6 +90,12 @@ config ONESHOT_SYNC_USER
 	help
 	  Provide a userspace API for creating oneshot sync objects.
 
+config MULTIPLE_LMK
+	bool "Multiple lowmemorykiller"
+	default n
+	---help---
+	  Provide multiple kill in LMK routine
+
 source "drivers/staging/android/ion/Kconfig"
 
 source "drivers/staging/android/fiq_debugger/Kconfig"

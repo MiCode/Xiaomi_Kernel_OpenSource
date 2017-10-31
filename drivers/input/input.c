@@ -2,6 +2,7 @@
  * The input core
  *
  * Copyright (c) 1999-2002 Vojtech Pavlik
+ * Copyright (C) 2017 XiaoMi, Inc.
  */
 
 /*
@@ -27,6 +28,9 @@
 #include <linux/device.h>
 #include <linux/mutex.h>
 #include <linux/rcupdate.h>
+#ifdef CONFIG_LAST_TOUCH_EVENTS
+#include <linux/rtc.h>
+#endif
 #include "input-compat.h"
 
 MODULE_AUTHOR("Vojtech Pavlik <vojtech@suse.cz>");
@@ -49,6 +53,50 @@ static LIST_HEAD(input_handler_list);
 static DEFINE_MUTEX(input_mutex);
 
 static const struct input_value input_value_sync = { EV_SYN, SYN_REPORT, 1 };
+
+#ifdef CONFIG_LAST_TOUCH_EVENTS
+static int input_device_is_touch(struct input_dev *input_dev)
+{
+	unsigned long mask = BIT_MASK(BTN_TOUCH);
+	return ((input_dev->keybit[BIT_WORD(BTN_TOUCH)] & mask) == mask) ? true:false;
+}
+
+static inline void touch_press_release_events_collect(struct input_dev *dev,
+		 unsigned int type, unsigned int code, int value)
+{
+	if (dev->touch_events) {
+		pr_debug("type %d, code %d, value %d\n", type, code, value);
+		if (code == ABS_MT_TRACKING_ID) {
+			if (value != -1 && !dev->touch_is_pressed) { /* Pressed */
+				getnstimeofday(&dev->latest_touch_event.press_time_stamp);
+				dev->touch_is_pressed = true;
+			}
+		} else if (code == BTN_TOUCH) {
+			if (value == 0 && dev->touch_is_pressed) { /* Released */
+				getnstimeofday(&dev->latest_touch_event.release_time_stamp);
+				dev->touch_events->touch_event_buf[dev->touch_events->touch_event_num] =
+					dev->latest_touch_event;
+				dev->touch_events->touch_event_num++;
+				if (dev->touch_events->touch_event_num >= TOUCH_EVENT_MAX)
+					dev->touch_events->touch_event_num = 0;
+				dev->latest_touch_event.press_pos_x = 0;
+				dev->latest_touch_event.press_pos_y = 0;
+				dev->touch_is_pressed = false;
+			}
+		} else if (code == ABS_MT_POSITION_X) {
+			if (!dev->latest_touch_event.press_pos_x && dev->touch_is_pressed) {
+				dev->latest_touch_event.press_pos_x = value;
+			}
+			dev->latest_touch_event.release_pos_x = value;
+		} else if (code == ABS_MT_POSITION_Y) {
+			if (!dev->latest_touch_event.press_pos_y && dev->touch_is_pressed) {
+				dev->latest_touch_event.press_pos_y = value;
+			}
+			dev->latest_touch_event.release_pos_y = value;
+		}
+	}
+}
+#endif
 
 static inline int is_event_supported(unsigned int code,
 				     unsigned long *bm, unsigned int max)
@@ -436,6 +484,9 @@ void input_event(struct input_dev *dev,
 		spin_lock_irqsave(&dev->event_lock, flags);
 		input_handle_event(dev, type, code, value);
 		spin_unlock_irqrestore(&dev->event_lock, flags);
+#ifdef CONFIG_LAST_TOUCH_EVENTS
+		touch_press_release_events_collect(dev, type, code, value);
+#endif
 	}
 }
 EXPORT_SYMBOL(input_event);
@@ -1261,6 +1312,59 @@ static const struct file_operations input_handlers_fileops = {
 	.release	= seq_release,
 };
 
+#ifdef CONFIG_LAST_TOUCH_EVENTS
+static int last_touch_events_show(struct seq_file *seq, void *v)
+{
+	struct input_dev *dev = container_of(v, struct input_dev, node);
+	int i = 0;
+	struct rtc_time tm;
+
+	if (!input_device_is_touch(dev) || !dev->touch_events)
+		return 0;
+
+	seq_printf(seq, "Name=\"%s\"\n", dev->name ? dev->name : "");
+
+	for (i = 0; i < TOUCH_EVENT_MAX; i++) {
+		if (dev->touch_events->touch_event_buf[i].release_pos_x == 0 &&
+			dev->touch_events->touch_event_buf[i].release_pos_y == 0)
+			continue;
+
+		rtc_time_to_tm(dev->touch_events->touch_event_buf[i].press_time_stamp.tv_sec, &tm);
+		seq_printf(seq, "%d-%02d-%02d %02d:%02d:%02d.%09lu UTC Postion (%d, %d) pressed\n",
+			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+			tm.tm_hour, tm.tm_min, tm.tm_sec, dev->touch_events->touch_event_buf[i].press_time_stamp.tv_nsec,
+			dev->touch_events->touch_event_buf[i].press_pos_x, dev->touch_events->touch_event_buf[i].press_pos_y);
+
+		rtc_time_to_tm(dev->touch_events->touch_event_buf[i].release_time_stamp.tv_sec, &tm);
+		seq_printf(seq, "%d-%02d-%02d %02d:%02d:%02d.%09lu UTC Postion (%d, %d) released\n",
+			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+			tm.tm_hour, tm.tm_min, tm.tm_sec, dev->touch_events->touch_event_buf[i].release_time_stamp.tv_nsec,
+			dev->touch_events->touch_event_buf[i].release_pos_x, dev->touch_events->touch_event_buf[i].release_pos_y);
+	}
+	return 0;
+}
+
+static const struct seq_operations input_last_touch_events_seq_ops = {
+	.start	= input_devices_seq_start,
+	.next	= input_devices_seq_next,
+	.stop	= input_seq_stop,
+	.show	= last_touch_events_show,
+};
+
+static int input_last_touch_events_open(struct inode *inode, struct file *file)
+{
+	return seq_open(file, &input_last_touch_events_seq_ops);
+}
+
+
+static const struct file_operations input_last_touch_events_fileops = {
+	.open		= input_last_touch_events_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+#endif
+
 static int __init input_proc_init(void)
 {
 	struct proc_dir_entry *entry;
@@ -1278,8 +1382,17 @@ static int __init input_proc_init(void)
 			    &input_handlers_fileops);
 	if (!entry)
 		goto fail2;
+#ifdef CONFIG_LAST_TOUCH_EVENTS
+	entry = proc_create("last_touch_events", 0, proc_bus_input_dir,
+			    &input_last_touch_events_fileops);
+	if (!entry)
+		goto fail3;
+#endif
 
 	return 0;
+#ifdef CONFIG_LAST_TOUCH_EVENTS
+ fail3:	remove_proc_entry("handlers", proc_bus_input_dir);
+#endif
 
  fail2:	remove_proc_entry("devices", proc_bus_input_dir);
  fail1: remove_proc_entry("bus/input", NULL);
@@ -1288,6 +1401,9 @@ static int __init input_proc_init(void)
 
 static void input_proc_exit(void)
 {
+#ifdef CONFIG_LAST_TOUCH_EVENTS
+	remove_proc_entry("last_touch_events", proc_bus_input_dir);
+#endif
 	remove_proc_entry("devices", proc_bus_input_dir);
 	remove_proc_entry("handlers", proc_bus_input_dir);
 	remove_proc_entry("bus/input", NULL);
@@ -2168,6 +2284,19 @@ int input_register_device(struct input_dev *dev)
 			__func__, dev_name(&dev->dev));
 		devres_add(dev->dev.parent, devres);
 	}
+
+#ifdef CONFIG_LAST_TOUCH_EVENTS
+	if (input_device_is_touch(dev)) {
+		dev->touch_events = kzalloc(sizeof(struct touch_event_info), GFP_KERNEL);
+		if (dev->touch_events == NULL) {
+			pr_err("Touch event: alloc memory failed\n");
+		}
+
+		dev->touch_is_pressed = false;
+		dev->latest_touch_event.press_pos_x = 0;
+		dev->latest_touch_event.press_pos_y = 0;
+	}
+#endif
 	return 0;
 
 err_device_del:
@@ -2190,6 +2319,12 @@ EXPORT_SYMBOL(input_register_device);
  */
 void input_unregister_device(struct input_dev *dev)
 {
+#ifdef CONFIG_LAST_TOUCH_EVENTS
+	if (dev->touch_events) {
+		kfree(dev->touch_events);
+		dev->touch_events = NULL;
+	}
+#endif
 	if (dev->devres_managed) {
 		WARN_ON(devres_destroy(dev->dev.parent,
 					devm_input_device_unregister,

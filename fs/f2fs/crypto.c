@@ -45,6 +45,7 @@
 
 #include "f2fs.h"
 #include "xattr.h"
+#include "f2fs_ice.h"
 
 /* Encryption added and removed here! (L: */
 
@@ -156,13 +157,18 @@ static void completion_pages(struct work_struct *work)
 
 	bio_for_each_segment_all(bv, bio, i) {
 		struct page *page = bv->bv_page;
-		int ret = f2fs_decrypt(ctx, page);
 
-		if (ret) {
-			WARN_ON_ONCE(1);
-			SetPageError(page);
-		} else
+		if (f2fs_is_ice_enabled()) {
 			SetPageUptodate(page);
+		} else {
+			int ret = f2fs_decrypt(ctx, page);
+
+			if (ret) {
+				WARN_ON_ONCE(1);
+				SetPageError(page);
+			} else
+				SetPageUptodate(page);
+		}
 		unlock_page(page);
 	}
 	f2fs_release_crypto_ctx(ctx);
@@ -466,14 +472,17 @@ int f2fs_decrypt_one(struct inode *inode, struct page *page)
 
 	if (IS_ERR(ctx))
 		return PTR_ERR(ctx);
-	ret = f2fs_decrypt(ctx, page);
+	if (!f2fs_is_ice_enabled())
+		ret = f2fs_decrypt(ctx, page);
+
 	f2fs_release_crypto_ctx(ctx);
 	return ret;
 }
 
 bool f2fs_valid_contents_enc_mode(uint32_t mode)
 {
-	return (mode == F2FS_ENCRYPTION_MODE_AES_256_XTS);
+	return (mode == F2FS_ENCRYPTION_MODE_AES_256_XTS ||
+		mode == F2FS_ENCRYPTION_MODE_PRIVATE);
 }
 
 /**

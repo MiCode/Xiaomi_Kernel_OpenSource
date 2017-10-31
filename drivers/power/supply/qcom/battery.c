@@ -1,4 +1,5 @@
 /* Copyright (c) 2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +39,8 @@
 #define PL_VOTER			"PL_VOTER"
 #define RESTRICT_CHG_VOTER		"RESTRICT_CHG_VOTER"
 #define ICL_CHANGE_VOTER		"ICL_CHANGE_VOTER"
+#define PL_INDIRECT_VOTER		"PL_INDIRECT_VOTER"
+#define USBIN_I_VOTER			"USBIN_I_VOTER"
 
 struct pl_data {
 	int			pl_mode;
@@ -52,7 +55,8 @@ struct pl_data {
 	struct votable		*pl_awake_votable;
 	struct votable		*hvdcp_hw_inov_dis_votable;
 	struct votable		*usb_icl_votable;
-	struct work_struct	status_change_work;
+	struct votable		*pl_enable_votable_indirect;
+	struct delayed_work	status_change_work;
 	struct work_struct	pl_disable_forever_work;
 	struct delayed_work	pl_taper_work;
 	struct power_supply	*main_psy;
@@ -71,9 +75,10 @@ struct pl_data *the_chip;
 
 enum print_reason {
 	PR_PARALLEL	= BIT(0),
+	PR_OEM		= BIT(1),
 };
 
-static int debug_mask;
+static int debug_mask = PR_OEM;
 module_param_named(debug_mask, debug_mask, int, S_IRUSR | S_IWUSR);
 
 #define pl_dbg(chip, reason, fmt, ...)				\
@@ -197,7 +202,11 @@ static ssize_t slave_pct_store(struct class *c, struct class_attribute *attr,
 	if (kstrtoul(ubuf, 10, &val))
 		return -EINVAL;
 
-	chip->slave_pct = val;
+	pl_dbg(chip, PR_OEM, "Parallel CT %ld\n", val);
+	if (val >= 50 && val <= 100)
+		chip->slave_pct = 50;
+	else
+		chip->slave_pct = val;
 	rerun_election(chip->fcc_votable);
 	rerun_election(chip->fv_votable);
 	split_settled(chip);
@@ -445,7 +454,7 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 		}
 	}
 
-	pl_dbg(chip, PR_PARALLEL, "master_fcc=%d slave_fcc=%d distribution=(%d/%d)\n",
+	pl_dbg(chip, PR_OEM, "master_fcc=%d slave_fcc=%d distribution=(%d/%d)\n",
 		   master_fcc_ua, slave_fcc_ua,
 		   (master_fcc_ua * 100) / total_fcc_ua,
 		   (slave_fcc_ua * 100) / total_fcc_ua);
@@ -490,6 +499,7 @@ static int pl_fv_vote_callback(struct votable *votable, void *data,
 }
 
 #define ICL_STEP_UA	25000
+#define PL_DELAY_MS     3000
 static int usb_icl_vote_callback(struct votable *votable, void *data,
 			int icl_ua, const char *client)
 {
@@ -504,12 +514,29 @@ static int usb_icl_vote_callback(struct votable *votable, void *data,
 	if (client == NULL)
 		icl_ua = INT_MAX;
 
+	pr_info("%s: set icl %d\n", __func__, icl_ua);
+
 	/*
 	 * Disable parallel for new ICL vote - the call to split_settled will
 	 * ensure that all the input current limit gets assigned to the main
 	 * charger.
 	 */
 	vote(chip->pl_disable_votable, ICL_CHANGE_VOTER, true, 0);
+
+	/*
+	 * if (ICL < 1400)
+	 *	disable parallel charger using USBIN_I_VOTER
+	 * else
+	 *	instead of re-enabling here rely on status_changed_work
+	 *	(triggered via AICL completed or scheduled from here to
+	 *	unvote USBIN_I_VOTER) the status_changed_work enables
+	 *	USBIN_I_VOTER based on settled current.
+	 */
+	if (icl_ua <= 1400000)
+		vote(chip->pl_enable_votable_indirect, USBIN_I_VOTER, false, 0);
+	else
+		schedule_delayed_work(&chip->status_change_work,
+						msecs_to_jiffies(PL_DELAY_MS));
 
 	/* rerun AICL */
 	/* get the settled current */
@@ -532,7 +559,7 @@ static int usb_icl_vote_callback(struct votable *votable, void *data,
 				POWER_SUPPLY_PROP_CURRENT_MAX,
 				&pval);
 		/* wait for ICL change */
-		msleep(100);
+		msleep(20);
 	}
 
 	/* set the effective ICL */
@@ -540,9 +567,6 @@ static int usb_icl_vote_callback(struct votable *votable, void *data,
 	power_supply_set_property(chip->main_psy,
 			POWER_SUPPLY_PROP_CURRENT_MAX,
 			&pval);
-	if (rerun_aicl)
-		/* wait for ICL change */
-		msleep(100);
 
 	vote(chip->pl_disable_votable, ICL_CHANGE_VOTER, false, 0);
 
@@ -638,6 +662,16 @@ static int pl_disable_vote_callback(struct votable *votable,
 
 	pl_dbg(chip, PR_PARALLEL, "parallel charging %s\n",
 		   pl_disable ? "disabled" : "enabled");
+
+	return 0;
+}
+
+static int pl_enable_indirect_vote_callback(struct votable *votable,
+			void *data, int pl_enable, const char *client)
+{
+	struct pl_data *chip = data;
+
+	vote(chip->pl_disable_votable, PL_INDIRECT_VOTER, !pl_enable, 0);
 
 	return 0;
 }
@@ -774,6 +808,42 @@ static void handle_settled_icl_change(struct pl_data *chip)
 	union power_supply_propval pval = {0, };
 	int new_total_settled_ua;
 	int rc;
+	int main_settled_ua;
+	int main_limited;
+	int total_current_ua;
+
+	total_current_ua = get_effective_result_locked(chip->usb_icl_votable);
+
+	/*
+	 * call aicl split only when USBIN_USBIN and enabled
+	 * and if aicl changed
+	 */
+	rc = power_supply_get_property(chip->main_psy,
+			       POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
+			       &pval);
+	if (rc < 0) {
+		pr_err("Couldn't get aicl settled value rc=%d\n", rc);
+		return;
+	}
+	main_settled_ua = pval.intval;
+
+	rc = power_supply_get_property(chip->batt_psy,
+			       POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED,
+			       &pval);
+	if (rc < 0) {
+		pr_err("Couldn't get aicl settled value rc=%d\n", rc);
+		return;
+	}
+	main_limited = pval.intval;
+
+	if ((main_limited && (main_settled_ua + chip->pl_settled_ua) < 1400000)
+			|| (main_settled_ua == 0)
+			|| ((total_current_ua >= 0) &&
+				(total_current_ua <= 1400000)))
+		vote(chip->pl_enable_votable_indirect, USBIN_I_VOTER, false, 0);
+	else
+		vote(chip->pl_enable_votable_indirect, USBIN_I_VOTER, true, 0);
+
 
 	if (get_effective_result(chip->pl_disable_votable))
 		return;
@@ -782,17 +852,10 @@ static void handle_settled_icl_change(struct pl_data *chip)
 			|| chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN_EXT) {
 		/*
 		 * call aicl split only when USBIN_USBIN and enabled
-		 * and if aicl changed
+		 * and if settled current has changed by more than 300mA
 		 */
-		rc = power_supply_get_property(chip->main_psy,
-				       POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
-				       &pval);
-		if (rc < 0) {
-			pr_err("Couldn't get aicl settled value rc=%d\n", rc);
-			return;
-		}
 
-		new_total_settled_ua = pval.intval + chip->pl_settled_ua;
+		new_total_settled_ua = main_settled_ua + chip->pl_settled_ua;
 		pl_dbg(chip, PR_PARALLEL,
 			"total_settled_ua=%d settled_ua=%d new_total_settled_ua=%d\n",
 			chip->total_settled_ua, pval.intval,
@@ -839,7 +902,7 @@ static void handle_parallel_in_taper(struct pl_data *chip)
 static void status_change_work(struct work_struct *work)
 {
 	struct pl_data *chip = container_of(work,
-			struct pl_data, status_change_work);
+			struct pl_data, status_change_work.work);
 
 	if (!chip->main_psy && is_main_available(chip)) {
 		/*
@@ -877,7 +940,7 @@ static int pl_notifier_call(struct notifier_block *nb,
 	if ((strcmp(psy->desc->name, "parallel") == 0)
 	    || (strcmp(psy->desc->name, "battery") == 0)
 	    || (strcmp(psy->desc->name, "main") == 0))
-		schedule_work(&chip->status_change_work);
+		schedule_delayed_work(&chip->status_change_work, 0);
 
 	return NOTIFY_OK;
 }
@@ -898,7 +961,7 @@ static int pl_register_notifier(struct pl_data *chip)
 
 static int pl_determine_initial_status(struct pl_data *chip)
 {
-	status_change_work(&chip->status_change_work);
+	status_change_work(&chip->status_change_work.work);
 	return 0;
 }
 
@@ -967,7 +1030,18 @@ int qcom_batt_init(void)
 		goto destroy_votable;
 	}
 
-	INIT_WORK(&chip->status_change_work, status_change_work);
+	chip->pl_enable_votable_indirect = create_votable("PL_ENABLE_INDIRECT",
+					VOTE_SET_ANY,
+					pl_enable_indirect_vote_callback,
+					chip);
+	if (IS_ERR(chip->pl_enable_votable_indirect)) {
+		rc = PTR_ERR(chip->pl_enable_votable_indirect);
+		return rc;
+	}
+
+	vote(chip->pl_disable_votable, PL_INDIRECT_VOTER, true, 0);
+
+	INIT_DELAYED_WORK(&chip->status_change_work, status_change_work);
 	INIT_DELAYED_WORK(&chip->pl_taper_work, pl_taper_work);
 	INIT_WORK(&chip->pl_disable_forever_work, pl_disable_forever_work);
 
@@ -1000,6 +1074,7 @@ int qcom_batt_init(void)
 unreg_notifier:
 	power_supply_unreg_notifier(&chip->nb);
 destroy_votable:
+	destroy_votable(chip->pl_enable_votable_indirect);
 	destroy_votable(chip->pl_awake_votable);
 	destroy_votable(chip->pl_disable_votable);
 	destroy_votable(chip->fv_votable);
@@ -1019,11 +1094,12 @@ void qcom_batt_deinit(void)
 	if (chip == NULL)
 		return;
 
-	cancel_work_sync(&chip->status_change_work);
+	cancel_delayed_work_sync(&chip->status_change_work);
 	cancel_delayed_work_sync(&chip->pl_taper_work);
 	cancel_work_sync(&chip->pl_disable_forever_work);
 
 	power_supply_unreg_notifier(&chip->nb);
+	destroy_votable(chip->pl_enable_votable_indirect);
 	destroy_votable(chip->pl_awake_votable);
 	destroy_votable(chip->pl_disable_votable);
 	destroy_votable(chip->fv_votable);

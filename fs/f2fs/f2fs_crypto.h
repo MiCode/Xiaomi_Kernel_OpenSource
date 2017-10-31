@@ -14,6 +14,7 @@
 #define _F2FS_CRYPTO_H
 
 #include <linux/fs.h>
+#include <linux/pfk.h>
 
 #define F2FS_KEY_DESCRIPTOR_SIZE	8
 
@@ -63,6 +64,7 @@ struct f2fs_encryption_context {
 #define F2FS_AES_256_CBC_KEY_SIZE 32
 #define F2FS_AES_256_CTS_KEY_SIZE 32
 #define F2FS_AES_256_XTS_KEY_SIZE 64
+#define F2FS_PRIVATE_KEY_SIZE 64
 #define F2FS_MAX_KEY_SIZE 64
 
 #define F2FS_KEY_DESC_PREFIX "f2fs:"
@@ -81,6 +83,7 @@ struct f2fs_crypt_info {
 	struct crypto_ablkcipher *ci_ctfm;
 	struct key	*ci_keyring_key;
 	char		ci_master_key[F2FS_KEY_DESCRIPTOR_SIZE];
+	char	ci_raw_key[F2FS_MAX_KEY_SIZE];
 };
 
 #define F2FS_CTX_REQUIRES_FREE_ENCRYPT_FL             0x00000001
@@ -114,6 +117,7 @@ static inline int f2fs_encryption_key_size(int mode)
 {
 	switch (mode) {
 	case F2FS_ENCRYPTION_MODE_AES_256_XTS:
+	case F2FS_ENCRYPTION_MODE_PRIVATE:
 		return F2FS_AES_256_XTS_KEY_SIZE;
 	case F2FS_ENCRYPTION_MODE_AES_256_GCM:
 		return F2FS_AES_256_GCM_KEY_SIZE;

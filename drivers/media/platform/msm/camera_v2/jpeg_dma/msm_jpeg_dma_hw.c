@@ -1,4 +1,5 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -70,18 +71,6 @@ static const struct msm_jpegdma_block msm_jpegdma_block_sel[] = {
 		.reg_val = 0,
 	},
 };
-
-/*
-* jpegdma_do_div - long division.
-* @num: dividend
-* @den: divisor
-* returns quotient value.
-*/
-static inline long long jpegdma_do_div(long long num, long long den)
-{
-	do_div(num, den);
-	return num;
-}
 
 /*
  * msm_jpegdma_hw_read_reg - dma read from register.
@@ -831,9 +820,9 @@ static int msm_jpegdma_hw_calc_speed(struct msm_jpegdma_device *dma,
 	}
 
 	speed->bus_ab = calc_rate * 2;
-	speed->bus_ib = jpegdma_do_div((real_clock *
-		(MSM_JPEGDMA_BW_NUM + MSM_JPEGDMA_BW_DEN - 1)),
-		MSM_JPEGDMA_BW_DEN);
+	speed->bus_ib = (real_clock *
+		(MSM_JPEGDMA_BW_NUM + MSM_JPEGDMA_BW_DEN - 1)) /
+		MSM_JPEGDMA_BW_DEN;
 	speed->core_clock = real_clock;
 	dev_dbg(dma->dev, "Speed core clk %llu ab %llu ib %llu fps %d\n",
 		speed->core_clock, speed->bus_ab, speed->bus_ib, size->fps);
@@ -935,15 +924,13 @@ static int msm_jpegdma_hw_calc_config(struct msm_jpegdma_size_config *size_cfg,
 
 	in_width = size_cfg->in_size.width;
 	out_width = size_cfg->out_size.width;
-	scale_hor = jpegdma_do_div((in_width * MSM_JPEGDMA_SCALE_UNI),
-		out_width);
+	scale_hor = (in_width * MSM_JPEGDMA_SCALE_UNI) / out_width;
 	if (scale_hor != MSM_JPEGDMA_SCALE_UNI)
 		config->scale_cfg.enable = 1;
 
 	in_height = size_cfg->in_size.height;
 	out_height = size_cfg->out_size.height;
-	scale_ver = jpegdma_do_div((in_height * MSM_JPEGDMA_SCALE_UNI),
-		out_height);
+	scale_ver = (in_height * MSM_JPEGDMA_SCALE_UNI) / out_height;
 	if (scale_ver != MSM_JPEGDMA_SCALE_UNI)
 		config->scale_cfg.enable = 1;
 
@@ -960,23 +947,23 @@ static int msm_jpegdma_hw_calc_config(struct msm_jpegdma_size_config *size_cfg,
 	config->block_cfg.block = msm_jpegdma_block_sel[i];
 
 	if (plane->active_pipes > 1) {
-		phase = jpegdma_do_div((out_height * scale_ver +
-			(plane->active_pipes - 1)), plane->active_pipes);
+		phase = (out_height * scale_ver + (plane->active_pipes - 1)) /
+			plane->active_pipes;
 		phase &= (MSM_JPEGDMA_SCALE_UNI - 1);
-		out_height = jpegdma_do_div((out_height +
-			(plane->active_pipes - 1)), plane->active_pipes);
+		out_height = (out_height + (plane->active_pipes - 1)) /
+			plane->active_pipes;
 		in_height = (out_height * scale_ver) / MSM_JPEGDMA_SCALE_UNI;
 	}
 
-	config->block_cfg.blocks_per_row = (uint32_t) jpegdma_do_div(out_width,
-		config->block_cfg.block.width);
+	config->block_cfg.blocks_per_row = out_width /
+		config->block_cfg.block.width;
 
 	config->block_cfg.blocks_per_col = out_height;
 
 	config->block_cfg.h_step = config->block_cfg.block.width;
-	config->size_cfg.out_size.width = out_width;
-	config->block_cfg.h_step_last = (uint32_t) do_div(out_width,
-		config->block_cfg.block.width);
+
+	config->block_cfg.h_step_last = out_width %
+		config->block_cfg.block.width;
 	if (!config->block_cfg.h_step_last)
 		config->block_cfg.h_step_last = config->block_cfg.h_step;
 	else
@@ -988,6 +975,7 @@ static int msm_jpegdma_hw_calc_config(struct msm_jpegdma_size_config *size_cfg,
 	config->size_cfg = *size_cfg;
 	config->size_cfg.in_size.width = in_width;
 	config->size_cfg.in_size.height = in_height;
+	config->size_cfg.out_size.width = out_width;
 	config->size_cfg.out_size.height = out_height;
 	config->in_offset = 0;
 	config->out_offset = 0;
@@ -1026,16 +1014,14 @@ int msm_jpegdma_hw_check_config(struct msm_jpegdma_device *dma,
 
 	in_width = size_cfg->in_size.width;
 	out_width = size_cfg->out_size.width;
-	scale = jpegdma_do_div(((in_width * MSM_JPEGDMA_SCALE_UNI)),
-		out_width);
+	scale = ((in_width * MSM_JPEGDMA_SCALE_UNI)) / out_width;
 	if (scale < MSM_JPEGDMA_SCALE_UNI)
 		return -EINVAL;
 
 
 	in_height = size_cfg->in_size.height;
 	out_height = size_cfg->out_size.height;
-	scale = jpegdma_do_div((in_height * MSM_JPEGDMA_SCALE_UNI),
-		out_height);
+	scale = (in_height * MSM_JPEGDMA_SCALE_UNI) / out_height;
 	if (scale < MSM_JPEGDMA_SCALE_UNI)
 		return -EINVAL;
 
@@ -1759,7 +1745,7 @@ void msm_jpegdma_hw_put(struct msm_jpegdma_device *dma)
  */
 static int msm_jpegdma_hw_attach_iommu(struct msm_jpegdma_device *dma)
 {
-	int ret = -EINVAL;
+	int ret;
 
 	mutex_lock(&dma->lock);
 
@@ -1842,7 +1828,7 @@ int msm_jpegdma_hw_map_buffer(struct msm_jpegdma_device *dma, int fd,
 	buf->fd = fd;
 
 	ret = cam_smmu_get_phy_addr(dma->iommu_hndl, buf->fd,
-		CAM_SMMU_MAP_RW, &buf->addr, (size_t *)&buf->size);
+		CAM_SMMU_MAP_RW, &buf->addr, &buf->size);
 	if (ret < 0) {
 		dev_err(dma->dev, "Can not get physical address\n");
 		goto error_get_phy;

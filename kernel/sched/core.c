@@ -4,6 +4,7 @@
  *  Kernel scheduler and related syscalls
  *
  *  Copyright (C) 1991-2002  Linus Torvalds
+ *  Copyright (C) 2017 XiaoMi, Inc.
  *
  *  1996-12-23  Modified by Dave Grothe to fix bugs in semaphores and
  *		make semaphores SMP safe
@@ -1701,6 +1702,10 @@ static inline
 int select_task_rq(struct task_struct *p, int cpu, int sd_flags, int wake_flags)
 {
 	bool allow_isolated = (p->flags & PF_KTHREAD);
+
+#ifdef CONFIG_CPUSET_EXCLUSIVE_IND
+	cpuset_mask_cpu_exclusive(p);
+#endif
 
 	lockdep_assert_held(&p->pi_lock);
 

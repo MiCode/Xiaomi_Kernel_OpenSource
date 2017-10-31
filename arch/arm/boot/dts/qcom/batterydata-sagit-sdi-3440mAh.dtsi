@@ -1,0 +1,71 @@
+/*
+ * Copyright (C) 2017 XiaoMi, Inc.
+ */
+qcom,sagit_sdi_3440mah {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <3350>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,batt-id-kohm = <30>;
+	qcom,battery-beta = <3435>;
+	qcom,battery-type = "sagit_sdi";
+	qcom,checksum = <0x623E>;
+	qcom,gui-version = "PMI8998GUI - 2.0.0.54";
+	qcom,fg-profile-data = [
+			A8 1F 68 05
+			B2 0A 09 FC
+			4F 1D 2C E2
+			27 0A 46 0C
+			8A 18 4F 23
+			F7 44 CB 53
+			5B 00 00 00
+			0E 00 00 00
+			00 00 08 B5
+			30 C4 85 AC
+			2E 00 08 00
+			22 00 E1 ED
+			10 06 79 FA
+			37 04 EC 03
+			BE E5 33 22
+			36 06 09 20
+			27 00 14 00
+			EE 1F 48 05
+			C4 0A F9 05
+			70 1D E7 D2
+			4E 0B A9 14
+			EE 19 07 22
+			FC 3C 06 4B
+			52 00 00 00
+			13 00 00 00
+			00 00 C3 CC
+			41 AA 41 C3
+			21 00 00 00
+			66 00 E1 ED
+			F7 06 2A F2
+			F6 F4 FF FA
+			9B F5 1B 1A
+			99 33 CC FF
+			07 10 00 00
+			1A 0D 66 46
+			21 00 40 00
+			6C 01 0A FA
+			FF 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+	];
+};

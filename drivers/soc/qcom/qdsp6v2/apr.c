@@ -1,4 +1,5 @@
 /* Copyright (c) 2010-2014, 2016 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -435,6 +436,7 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 	if (!dest || !svc_name || !svc_fn)
 		return NULL;
 
+	pr_err("%s: enter\n", __func__);
 	if (!strcmp(dest, "ADSP"))
 		domain_id = APR_DOMAIN_ADSP;
 	else if (!strcmp(dest, "MODEM")) {
@@ -480,6 +482,7 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 	}
 
 	clnt = &client[dest_id][client_id];
+	pr_err("%s: apr client handle[%p]\n", __func__, clnt->handle);
 	mutex_lock(&clnt->m_lock);
 	if (!clnt->handle && can_open_channel) {
 		clnt->handle = apr_tal_open(client_id, dest_id,
@@ -490,6 +493,7 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 			mutex_unlock(&clnt->m_lock);
 			goto done;
 		}
+		pr_err("%s: done apr_tal_open. apr client handle[%p]\n", __func__, clnt->handle);
 	}
 	mutex_unlock(&clnt->m_lock);
 	svc = &clnt->svc[svc_idx];
@@ -506,6 +510,9 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 	svc->dest_domain = domain_id;
 	svc->pkt_owner = APR_PKT_OWNER_DRIVER;
 
+	pr_err("%s: svc_name = %s, src_port = 0x%x, clnt->svc_cnt = %d, svc->port_cnt = %d, svc->svc_cnt = %d\n",
+		__func__, svc_name, src_port, clnt->svc_cnt,
+		svc->port_cnt, svc->svc_cnt);
 	if (src_port != 0xFFFFFFFF) {
 		temp_port = ((src_port >> 8) * 8) + (src_port & 0xFF);
 		pr_debug("port = %d t_port = %d\n", src_port, temp_port);
@@ -529,6 +536,8 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 			svc->svc_cnt++;
 		}
 	}
+	pr_err("%s: clnt->svc_cnt = %d, svc->port_cnt = %d, svc->svc_cnt = %d\n",
+		__func__, clnt->svc_cnt, svc->port_cnt, svc->svc_cnt);
 
 	mutex_unlock(&svc->m_lock);
 done:
@@ -730,8 +739,8 @@ static void apr_reset_deregister(struct work_struct *work)
 			container_of(work, struct apr_reset_work, work);
 
 	handle = apr_reset->handle;
-	pr_debug("%s:handle[%pK]\n", __func__, handle);
 	apr_deregister(handle);
+	pr_err("%s: done. handle[%p]\n", __func__, handle);
 	kfree(apr_reset);
 }
 
@@ -741,6 +750,9 @@ int apr_deregister(void *handle)
 	struct apr_client *clnt;
 	uint16_t dest_id;
 	uint16_t client_id;
+	struct apr_svc_table *tbl;
+	int size;
+	int i = 0;
 
 	if (!handle)
 		return -EINVAL;
@@ -755,6 +767,26 @@ int apr_deregister(void *handle)
 	dest_id = svc->dest_id;
 	client_id = svc->client_id;
 	clnt = &client[dest_id][client_id];
+	pr_err("%s: clnt = %p, svc->dest_id = %d, svc->client_id = %d, svc->id = %d\n",
+		__func__, clnt,	svc->dest_id, svc->client_id, svc->id);
+
+	if (dest_id == APR_DEST_QDSP6) {
+		tbl = (struct apr_svc_table *)&svc_tbl_qdsp6;
+		size = ARRAY_SIZE(svc_tbl_qdsp6);
+	} else {
+		tbl = (struct apr_svc_table *)&svc_tbl_voice;
+		size = ARRAY_SIZE(svc_tbl_voice);
+	}
+	for (i = 0; i < size; i++) {
+		if (svc->id == tbl[i].id) {
+			pr_err("%s: svc_name = %s\n", __func__, tbl[i].name);
+			break;
+		}
+	}
+
+	pr_err("%s: client[dest_id][client_id].svc_cnt = %d, svc->port_cnt = %d, svc->svc_cnt = %d\n",
+		__func__, client[dest_id][client_id].svc_cnt,
+		svc->port_cnt, svc->svc_cnt);
 
 	if (svc->svc_cnt > 0) {
 		if (svc->port_cnt)
@@ -762,11 +794,12 @@ int apr_deregister(void *handle)
 		svc->svc_cnt--;
 		if (!svc->svc_cnt) {
 			client[dest_id][client_id].svc_cnt--;
-			pr_debug("%s: service is reset %pK\n", __func__, svc);
+			pr_err("%s: service is reset %p\n", __func__, svc);
 		}
 	}
 
 	if (!svc->svc_cnt) {
+		pr_err("%s: resetting svc parmas %p\n", __func__, svc);
 		svc->priv = NULL;
 		svc->id = 0;
 		svc->fn = NULL;
@@ -774,8 +807,11 @@ int apr_deregister(void *handle)
 		svc->client_id = 0;
 		svc->need_reset = 0x0;
 	}
+	pr_err("%s: client[dest_id][client_id].handle = %p, client[dest_id][client_id].svc_cnt = %d\n",
+		__func__, client[dest_id][client_id].handle, client[dest_id][client_id].svc_cnt);
 	if (client[dest_id][client_id].handle &&
 	    !client[dest_id][client_id].svc_cnt) {
+	    pr_err("%s: calling apr_tal_close. handle[%p]\n", __func__, client[dest_id][client_id].handle);
 		apr_tal_close(client[dest_id][client_id].handle);
 		client[dest_id][client_id].handle = NULL;
 	}
@@ -790,7 +826,7 @@ void apr_reset(void *handle)
 
 	if (!handle)
 		return;
-	pr_debug("%s: handle[%pK]\n", __func__, handle);
+	pr_err("%s: handle[%p]\n", __func__, handle);
 
 	if (apr_reset_workqueue == NULL) {
 		pr_err("%s: apr_reset_workqueue is NULL\n", __func__);

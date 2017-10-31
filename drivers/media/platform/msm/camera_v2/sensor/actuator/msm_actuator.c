@@ -1,4 +1,5 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +31,8 @@ DEFINE_MSM_MUTEX(msm_actuator_mutex);
 #define PARK_LENS_MID_STEP 5
 #define PARK_LENS_SMALL_STEP 3
 #define MAX_QVALUE 4096
+
+#define FL 4
 
 static struct v4l2_file_operations msm_actuator_v4l2_subdev_fops;
 static int32_t msm_actuator_power_up(struct msm_actuator_ctrl_t *a_ctrl);
@@ -379,6 +382,7 @@ static int32_t msm_actuator_init_focus(struct msm_actuator_ctrl_t *a_ctrl,
 
 		switch (settings[i].i2c_operation) {
 		case MSM_ACT_WRITE:
+			usleep_range(1000, 2000);
 			rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(
 				&a_ctrl->i2c_client,
 				settings[i].reg_addr,
@@ -391,6 +395,7 @@ static int32_t msm_actuator_init_focus(struct msm_actuator_ctrl_t *a_ctrl,
 					(settings[i].delay * 1000) + 1000);
 			break;
 		case MSM_ACT_POLL:
+		case MSM_ACT_POLL_RESULT:
 			rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_poll(
 				&a_ctrl->i2c_client,
 				settings[i].reg_addr,
@@ -406,6 +411,14 @@ static int32_t msm_actuator_init_focus(struct msm_actuator_ctrl_t *a_ctrl,
 
 		if (rc < 0) {
 			pr_err("%s:%d fail addr = 0X%X, data = 0X%X, dt = %d",
+				__func__, __LINE__, settings[i].reg_addr,
+				settings[i].reg_data, settings[i].data_type);
+			break;
+		}
+
+		if ((settings[i].i2c_operation == MSM_ACT_POLL_RESULT)
+			&& (rc == 1)) {
+			pr_err("%s:%d poll fail (non-fatal) addr = 0X%X, data = 0X%X, dt = %d",
 				__func__, __LINE__, settings[i].reg_addr,
 				settings[i].reg_data, settings[i].data_type);
 			break;
@@ -528,12 +541,6 @@ static int32_t msm_actuator_piezo_move_focus(
 		return -EFAULT;
 	}
 
-	if (dest_step_position > a_ctrl->total_steps) {
-		pr_err("Step pos greater than total steps = %d\n",
-			dest_step_position);
-		return -EFAULT;
-	}
-
 	a_ctrl->i2c_tbl_index = 0;
 	a_ctrl->func_tbl->actuator_parse_i2c_params(a_ctrl,
 		(num_steps *
@@ -555,6 +562,9 @@ static int32_t msm_actuator_piezo_move_focus(
 	return rc;
 }
 
+extern void msm_ois_shift_gain(int distance);
+extern bool SENSOR_SUPPORT_OIS_FLAG;
+
 static int32_t msm_actuator_move_focus(
 	struct msm_actuator_ctrl_t *a_ctrl,
 	struct msm_actuator_move_params_t *move_params)
@@ -570,7 +580,9 @@ static int32_t msm_actuator_move_focus(
 	int dir = move_params->dir;
 	int32_t num_steps = move_params->num_steps;
 	struct msm_camera_i2c_reg_setting reg_setting;
-
+	int distance = 0;
+	int target_margin = 0;
+	int origin_total = 0;
 	CDBG("called, dir %d, num_steps %d\n", dir, num_steps);
 
 	if (dest_step_pos == a_ctrl->curr_step_pos)
@@ -666,6 +678,34 @@ static int32_t msm_actuator_move_focus(
 		return rc;
 	}
 	a_ctrl->i2c_tbl_index = 0;
+#if defined _CHIRON_OIS
+#define OIS_FACTOR1 160
+#define OIS_FACTOR2 35
+#else
+#define OIS_FACTOR1 140
+#define OIS_FACTOR2 35
+#endif
+	CDBG("OIS SENSOR_SUPPORT_OIS_FLAG %d a_ctrl->pdev->name %s",
+	SENSOR_SUPPORT_OIS_FLAG, a_ctrl->pdev->name);
+	if ((SENSOR_SUPPORT_OIS_FLAG) && (!strcmp(a_ctrl->pdev->name, "ca0c000.qcom,cci:qcom,actuator@0"))) {
+		if (target_step_pos > 0) {
+			origin_total = ((a_ctrl->total_steps * 100) / OIS_FACTOR1);
+			target_margin = ((origin_total * OIS_FACTOR2) / 100);
+			if (target_step_pos > target_margin) {
+				distance = (((FL + (FL * (FL * origin_total))) / (target_step_pos - target_margin)) / 2);
+			} else {
+				distance = ((FL + (FL * (FL * origin_total) / 1)) / 2);
+			}
+			distance = distance < 10 ? 10 : distance;
+			msm_ois_shift_gain(distance);
+			CDBG("[OIS] factor OIS_FACTOR1 %d OIS_FACTOR2 %d FL %d", OIS_FACTOR1, OIS_FACTOR2, FL);
+			CDBG("[OIS] origin_total %d target_margin %d", origin_total, target_margin);
+			CDBG("[OIS] target_step_pos=%d total_steps=%d ois distance=%d \n", target_step_pos, a_ctrl->total_steps, distance);
+		}
+		distance = distance < 10 ? 10 : distance;
+		msm_ois_shift_gain(distance);
+		CDBG("[OIS] target_step_pos=%d total_steps=%d ois distance=%d \n", target_step_pos, a_ctrl->total_steps, distance);
+	}
 	CDBG("Exit\n");
 
 	return rc;
@@ -1082,6 +1122,10 @@ static int32_t msm_actuator_power_down(struct msm_actuator_ctrl_t *a_ctrl)
 {
 	int32_t rc = 0;
 	enum msm_sensor_power_seq_gpio_t gpio;
+	struct device_node *src_node = NULL;
+	int i = 0;
+	const char *af_name;
+	struct device_node *of_node = a_ctrl->pdev->dev.of_node;
 
 	CDBG("Enter\n");
 	if (a_ctrl->actuator_state != ACT_DISABLE_STATE) {
@@ -1140,7 +1184,69 @@ static int32_t msm_actuator_power_down(struct msm_actuator_ctrl_t *a_ctrl)
 		a_ctrl->i2c_reg_tbl = NULL;
 		a_ctrl->i2c_tbl_index = 0;
 		a_ctrl->actuator_state = ACT_OPS_INACTIVE;
+	} else {
+		if (of_gpio_count(of_node)) {
+			for (gpio = SENSOR_GPIO_AF_PWDM;
+				gpio < SENSOR_GPIO_MAX; gpio++) {
+				if (a_ctrl->gconf &&
+					a_ctrl->gconf->gpio_num_info &&
+					a_ctrl->gconf->gpio_num_info->valid[gpio] == 1) {
+					gpio_set_value_cansleep(
+							a_ctrl->gconf->gpio_num_info->
+							gpio_num[gpio],
+							GPIOF_OUT_INIT_LOW);
+
+					if (a_ctrl->cam_pinctrl_status) {
+						rc = pinctrl_select_state(
+							a_ctrl->pinctrl_info.pinctrl,
+							a_ctrl->pinctrl_info.gpio_state_suspend);
+						if (rc < 0)
+							pr_err("ERR:%s:%d cannot set pin to suspend state: %d",
+								__func__, __LINE__, rc);
+
+						devm_pinctrl_put(a_ctrl->pinctrl_info.pinctrl);
+					}
+					a_ctrl->cam_pinctrl_status = 0;
+					rc = msm_camera_request_gpio_table(
+						a_ctrl->gconf->cam_gpio_req_tbl,
+						a_ctrl->gconf->cam_gpio_req_tbl_size,
+						0);
+					if (rc < 0)
+						pr_err("ERR:%s:Failed in selecting state in actuator power down: %d\n", __func__, rc);
+				}
+			}
+		} else {
+			for (i = 0; i < a_ctrl->vreg_cfg.num_vreg; i++) {
+				src_node = of_parse_phandle(of_node, "cam_vaf-supply", 0);
+				if (!src_node) {
+					pr_err("actuator node is NULL\n");
+					continue;
+				}
+				rc = of_property_read_string(src_node, "regulator-name", &af_name);
+				if (rc < 0) {
+					if (strcmp(af_name, "vaf_gpio_supply") == 0) {
+						pr_err("read regulator-name fail\n");
+						of_node_put(src_node);
+						src_node = NULL;
+						break;
+					}
+				} else {
+					pr_err("actuator regulator name = %s", af_name);
+					if (gpio_get_value_cansleep(29)) {
+						pr_err("actuator power down again\n");
+						for (i = 0; i < 3; i++) {
+							rc = msm_actuator_vreg_control(a_ctrl, 0);
+							if (rc < 0)
+								pr_err("%s power down again failed %d\n", __func__, __LINE__);
+						}
+					}
+				}
+				of_node_put(src_node);
+				src_node = NULL;
+			}
+		}
 	}
+
 	CDBG("Exit\n");
 	return rc;
 }
@@ -1360,6 +1466,11 @@ static int32_t msm_actuator_set_param(struct msm_actuator_ctrl_t *a_ctrl,
 				a_ctrl->i2c_reg_tbl = NULL;
 				pr_err("Error actuator_init_focus\n");
 				return -EFAULT;
+			} else if (rc == 1) {
+				kfree(a_ctrl->i2c_reg_tbl);
+				a_ctrl->i2c_reg_tbl = NULL;
+				pr_err("actuator_init_focus return 1\n");
+				return rc;
 			}
 		}
 	}
@@ -1936,8 +2047,10 @@ static int32_t msm_actuator_platform_probe(struct platform_device *pdev)
 	}
 	rc = msm_sensor_driver_get_gpio_data(&(msm_actuator_t->gconf),
 		(&pdev->dev)->of_node);
-	if (rc <= 0) {
+	if (rc < 0) {
 		pr_err("%s: No/Error Actuator GPIOs\n", __func__);
+	} else if (!msm_actuator_t->gconf) {
+		pr_err("%s: %d: Actuator no GPIO control\n", __func__, __LINE__);
 	} else {
 		msm_actuator_t->cam_pinctrl_status = 1;
 		rc = msm_camera_pinctrl_init(

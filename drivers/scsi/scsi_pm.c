@@ -166,9 +166,21 @@ static int scsi_bus_resume_common(struct device *dev,
 		if (strncmp(scsi_scan_type, "async", 5) != 0)
 			async_synchronize_full_domain(&scsi_sd_pm_domain);
 	} else {
+		int ret = 0;
 		pm_runtime_disable(dev);
-		pm_runtime_set_active(dev);
+		ret = pm_runtime_set_active(dev);
 		pm_runtime_enable(dev);
+		if (!ret && scsi_is_sdev_device(dev)) {
+			struct scsi_device *sdev = to_scsi_device(dev);
+
+			/*
+			 * If scsi device runtime PM is managed by block layer
+			 * then we should update request queue's runtime status
+			 * as well.
+			 */
+			if (sdev->request_queue->dev)
+				blk_post_runtime_resume(sdev->request_queue, 0);
+		}
 	}
 	return 0;
 }

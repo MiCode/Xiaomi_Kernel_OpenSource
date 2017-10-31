@@ -1,4 +1,5 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -98,7 +99,6 @@ struct scratch_mapping {
 struct cam_context_bank_info {
 	struct device *dev;
 	struct dma_iommu_mapping *mapping;
-	enum iommu_attr attr;
 	dma_addr_t va_start;
 	size_t va_len;
 	const char *name;
@@ -109,8 +109,9 @@ struct cam_context_bank_info {
 	struct mutex lock;
 	int handle;
 	enum cam_smmu_ops_param state;
-	client_handler handler[CAM_SMMU_CB_MAX];
-	client_reset_handler hw_reset_handler[CAM_SMMU_CB_MAX];
+	void (*handler[CAM_SMMU_CB_MAX])(struct iommu_domain *,
+		struct device *, unsigned long,
+		int, void*);
 	void *token[CAM_SMMU_CB_MAX];
 	int cb_count;
 	int ref_cnt;
@@ -342,21 +343,15 @@ static void cam_smmu_check_vaddr_in_range(int idx, void *vaddr)
 				mapping->ion_fd);
 		}
 	}
-	if (!strcmp(iommu_cb_set.cb_info[idx].name, "vfe"))
-		pr_err_ratelimited("Cannot find vaddr:%pK in SMMU.\n"
-			" %s uses invalid virtual address\n",
-			vaddr, iommu_cb_set.cb_info[idx].name);
-	else
-		pr_err("Cannot find vaddr:%pK in SMMU.\n"
-			" %s uses invalid virtual address\n",
-			vaddr, iommu_cb_set.cb_info[idx].name);
+	pr_err("Cannot find vaddr:%pK in SMMU. %s uses invalid virtual address\n",
+		vaddr, iommu_cb_set.cb_info[idx].name);
 	return;
 }
 
 void cam_smmu_reg_client_page_fault_handler(int handle,
-		client_handler page_fault_handler,
-		client_reset_handler hw_reset_handler,
-		void *token)
+		void (*client_page_fault_handler)(struct iommu_domain *,
+		struct device *, unsigned long,
+		int, void*), void *token)
 {
 	int idx, i = 0;
 
@@ -380,7 +375,7 @@ void cam_smmu_reg_client_page_fault_handler(int handle,
 		return;
 	}
 
-	if (page_fault_handler) {
+	if (client_page_fault_handler) {
 		if (iommu_cb_set.cb_info[idx].cb_count == CAM_SMMU_CB_MAX) {
 			pr_err("%s Should not regiester more handlers\n",
 				iommu_cb_set.cb_info[idx].name);
@@ -392,9 +387,7 @@ void cam_smmu_reg_client_page_fault_handler(int handle,
 			if (iommu_cb_set.cb_info[idx].token[i] == NULL) {
 				iommu_cb_set.cb_info[idx].token[i] = token;
 				iommu_cb_set.cb_info[idx].handler[i] =
-					page_fault_handler;
-				iommu_cb_set.cb_info[idx].hw_reset_handler[i] =
-					hw_reset_handler;
+					client_page_fault_handler;
 				break;
 			}
 		}
@@ -422,7 +415,6 @@ static int cam_smmu_iommu_fault_handler(struct iommu_domain *domain,
 {
 	char *cb_name;
 	int idx;
-	int j;
 	struct cam_smmu_work_payload *payload;
 
 	if (!token) {
@@ -455,18 +447,6 @@ static int cam_smmu_iommu_fault_handler(struct iommu_domain *domain,
 	payload->flags = flags;
 	payload->token = token;
 	payload->idx = idx;
-
-	/* trigger hw reset handler */
-	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
-	for (j = 0; j < CAM_SMMU_CB_MAX; j++) {
-		if ((iommu_cb_set.cb_info[idx].hw_reset_handler[j])) {
-			iommu_cb_set.cb_info[idx].hw_reset_handler[j](
-			payload->domain,
-			payload->dev,
-			iommu_cb_set.cb_info[idx].token[j]);
-		}
-	}
-	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
 
 	mutex_lock(&iommu_cb_set.payload_list_lock);
 	list_add_tail(&payload->list, &iommu_cb_set.payload_list);
@@ -915,13 +895,8 @@ static int cam_smmu_attach_sec_cpp(int idx)
 	rc = msm_camera_tz_set_mode(MSM_CAMERA_TZ_MODE_SECURE,
 		MSM_CAMERA_TZ_HW_BLOCK_CPP);
 	if (rc != 0) {
-		pr_err("secure mode TA notification for cpp unsuccessful, rc %d\n",
-			rc);
-		/*
-		 * Although the TA notification failed, the flow should proceed
-		 * without returning an error as at this point cpp had already
-		 * entered the secure mode.
-		 */
+		pr_err("fail to set secure mode for cpp, rc %d", rc);
+		return rc;
 	}
 
 	iommu_cb_set.cb_info[idx].state = CAM_SMMU_ATTACH;
@@ -936,13 +911,8 @@ static int cam_smmu_detach_sec_cpp(int idx)
 	rc = msm_camera_tz_set_mode(MSM_CAMERA_TZ_MODE_NON_SECURE,
 		MSM_CAMERA_TZ_HW_BLOCK_CPP);
 	if (rc != 0) {
-		pr_err("secure mode TA notification for cpp unsuccessful, rc %d\n",
-			rc);
-		/*
-		 * Although the TA notification failed, the flow should proceed
-		 * without returning an error, as at this point cpp is in secure
-		 * mode and should be switched to non-secure regardless
-		 */
+		pr_err("fail to switch to non secure mode for cpp, rc %d", rc);
+		return rc;
 	}
 
 	iommu_cb_set.cb_info[idx].state = CAM_SMMU_DETACH;
@@ -981,13 +951,8 @@ static int cam_smmu_attach_sec_vfe_ns_stats(int idx)
 	rc = msm_camera_tz_set_mode(MSM_CAMERA_TZ_MODE_SECURE,
 		MSM_CAMERA_TZ_HW_BLOCK_ISP);
 	if (rc != 0) {
-		pr_err("secure mode TA notification for vfe unsuccessful, rc %d\n",
-			rc);
-		/*
-		 * Although the TA notification failed, the flow should proceed
-		 * without returning an error as at this point vfe had already
-		 * entered the secure mode
-		 */
+		pr_err("fail to set secure mode for vfe, rc %d", rc);
+		return rc;
 	}
 
 	return 0;
@@ -1000,13 +965,8 @@ static int cam_smmu_detach_sec_vfe_ns_stats(int idx)
 	rc = msm_camera_tz_set_mode(MSM_CAMERA_TZ_MODE_NON_SECURE,
 		MSM_CAMERA_TZ_HW_BLOCK_ISP);
 	if (rc != 0) {
-		pr_err("secure mode TA notification for vfe unsuccessful, rc %d\n",
-			rc);
-		/*
-		 * Although the TA notification failed, the flow should proceed
-		 * without returning an error, as at this point vfe is in secure
-		 * mode and should be switched to non-secure regardless
-		 */
+		pr_err("fail to switch to non secure mode for vfe, rc %d", rc);
+		return rc;
 	}
 
 	/*
@@ -1046,8 +1006,7 @@ static int cam_smmu_map_buffer_and_add_to_list(int idx, int ion_fd,
 	buf = dma_buf_get(ion_fd);
 	if (IS_ERR_OR_NULL(buf)) {
 		rc = PTR_ERR(buf);
-		pr_err("Error: dma get buf failed. fd = %d rc = %d\n",
-		      ion_fd, rc);
+		pr_err("Error: dma get buf failed. fd = %d\n", ion_fd);
 		goto err_out;
 	}
 
@@ -1112,9 +1071,7 @@ static int cam_smmu_map_buffer_and_add_to_list(int idx, int ion_fd,
 		rc = -ENOSPC;
 		goto err_mapping_info;
 	}
-	CDBG("name %s ion_fd = %d, dev = %pK, paddr= %pK, len = %u\n",
-			iommu_cb_set.cb_info[idx].name,
-			ion_fd,
+	CDBG("ion_fd = %d, dev = %pK, paddr= %pK, len = %u\n", ion_fd,
 			(void *)iommu_cb_set.cb_info[idx].dev,
 			(void *)*paddr_ptr, (unsigned int)*len_ptr);
 
@@ -1280,25 +1237,6 @@ static enum cam_smmu_buf_state cam_smmu_check_fd_in_list(int idx,
 	return CAM_SMMU_BUFF_NOT_EXIST;
 }
 
-static enum cam_smmu_buf_state cam_smmu_check_secure_fd_in_list(int idx,
-					int ion_fd, dma_addr_t *paddr_ptr,
-					size_t *len_ptr)
-{
-	struct cam_sec_buff_info *mapping;
-
-	list_for_each_entry(mapping,
-			&iommu_cb_set.cb_info[idx].smmu_buf_list,
-			list) {
-		if (mapping->ion_fd == ion_fd) {
-			mapping->ref_count++;
-			*paddr_ptr = mapping->paddr;
-			*len_ptr = mapping->len;
-			return CAM_SMMU_BUFF_EXIST;
-		}
-	}
-	return CAM_SMMU_BUFF_NOT_EXIST;
-}
-
 int cam_smmu_get_handle(char *identifier, int *handle_ptr)
 {
 	int ret = 0;
@@ -1322,47 +1260,6 @@ int cam_smmu_get_handle(char *identifier, int *handle_ptr)
 	return ret;
 }
 EXPORT_SYMBOL(cam_smmu_get_handle);
-
-
-int cam_smmu_set_attr(int handle, uint32_t flags, int32_t *data)
-{
-	int ret = 0, idx;
-	struct cam_context_bank_info *cb = NULL;
-	struct iommu_domain *domain = NULL;
-
-	CDBG("E: set_attr\n");
-	idx = GET_SMMU_TABLE_IDX(handle);
-	if (handle == HANDLE_INIT || idx < 0 || idx >= iommu_cb_set.cb_num) {
-		pr_err("Error: handle or index invalid. idx = %d hdl = %x\n",
-			idx, handle);
-		return -EINVAL;
-	}
-	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
-	if (iommu_cb_set.cb_info[idx].handle != handle) {
-		pr_err("Error: hdl is not valid, table_hdl = %x, hdl = %x\n",
-			iommu_cb_set.cb_info[idx].handle, handle);
-		mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
-		return -EINVAL;
-	}
-
-	if (iommu_cb_set.cb_info[idx].state == CAM_SMMU_DETACH) {
-		domain = iommu_cb_set.cb_info[idx].mapping->domain;
-		cb = &iommu_cb_set.cb_info[idx];
-		cb->attr |= flags;
-		/* set attributes */
-		ret = iommu_domain_set_attr(domain, cb->attr, (void *)data);
-		if (ret < 0) {
-			pr_err("Error: set attr\n");
-			return -ENODEV;
-		}
-	} else {
-		return -EINVAL;
-	}
-	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
-	return ret;
-}
-EXPORT_SYMBOL(cam_smmu_set_attr);
-
 
 int cam_smmu_ops(int handle, enum cam_smmu_ops_param ops)
 {
@@ -2063,8 +1960,7 @@ int cam_smmu_get_stage2_phy_addr(int handle,
 		goto get_addr_end;
 	}
 
-	buf_state = cam_smmu_check_secure_fd_in_list(idx, ion_fd, paddr_ptr,
-			len_ptr);
+	buf_state = cam_smmu_check_fd_in_list(idx, ion_fd, paddr_ptr, len_ptr);
 	if (buf_state == CAM_SMMU_BUFF_EXIST) {
 		CDBG("ion_fd:%d already in the list, give same addr back",
 				 ion_fd);

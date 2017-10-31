@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -286,40 +287,40 @@
 			reg = <0 0x85800000 0 0x3700000>;
 		};
 
-		pil_ipa_gpu_mem: pil_ipa_gpu_region@95200000 {
+		pil_ipa_gpu_mem: pil_ipa_gpu_region@95600000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x95200000 0 0x100000>;
+			reg = <0 0x95600000 0 0x100000>;
 		};
 
-		pil_slpi_mem: pil_slpi_region@94300000 {
+		pil_slpi_mem: pil_slpi_region@94700000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x94300000 0 0xf00000>;
+			reg = <0 0x94700000 0 0xf00000>;
 		};
 
-		pil_mba_mem: pil_mba_region@94100000 {
+		pil_mba_mem: pil_mba_region@94500000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x94100000 0 0x200000>;
+			reg = <0 0x94500000 0 0x200000>;
 		};
 
-		pil_video_mem: pil_video_region@93c00000 {
+		pil_video_mem: pil_video_region@94000000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x93c00000 0 0x500000>;
+			reg = <0 0x94000000 0 0x500000>;
 		};
 
-		modem_mem: modem_region@8cc00000 {
+		modem_mem: modem_region@8d000000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x8cc00000 0 0x7000000>;
+			reg = <0 0x8d000000 0 0x7000000>;
 		};
 
 		pil_adsp_mem: pil_adsp_region@0x8b200000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x8b200000 0 0x1a00000>;
+			reg = <0 0x8b200000 0 0x1e00000>;
 		};
 
 		spss_mem: spss_region@8ab00000 { /* for SPSS-PIL */
@@ -1774,6 +1775,7 @@
 			snps,has-lpm-erratum;
 			snps,hird-threshold = /bits/ 8 <0x10>;
 			snps,num-gsi-evt-buffs = <0x3>;
+			maximum-speed = "high-speed";
 		};
 
 		qcom,usbbam@a904000 {
@@ -2292,10 +2294,14 @@
 			qcom,sensor-name = "quiet_therm";
 		};
 		sensor_information28: qcom,sensor-information-28 {
+			qcom,sensor-type =  "adc";
+			qcom,sensor-name = "xo_therm";
+		};
+		sensor_information29: qcom,sensor-information-29 {
 			qcom,sensor-type = "llm";
 			qcom,sensor-name = "limits_sensor-01";
 		};
-		sensor_information29: qcom,sensor-information-29 {
+		sensor_information30: qcom,sensor-information-30 {
 			qcom,sensor-type = "llm";
 			qcom,sensor-name = "limits_sensor-02";
 		};
@@ -2819,8 +2825,8 @@
 		reg = <0x17817000 0x1000>;
 		reg-names = "wdt-base";
 		interrupts = <0 3 0>, <0 4 0>;
-		qcom,bark-time = <11000>;
-		qcom,pet-time = <10000>;
+		qcom,bark-time = <20000>;
+		qcom,pet-time = <15000>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
 		qcom,scandump-size = <0x40000>;
@@ -3252,34 +3258,53 @@
 };
 
 &gdsc_venus {
+	clock-names = "bus_clk", "maxi_clk", "core_clk";
+	clocks = <&clock_mmss clk_mmss_video_axi_clk>,
+		<&clock_mmss clk_mmss_video_maxi_clk>,
+		<&clock_mmss clk_mmss_video_core_clk>;
 	status = "ok";
 };
 
 &gdsc_venus_core0 {
+	clock-names = "core0_clk";
+	clocks = <&clock_mmss clk_mmss_video_subcore0_clk>;
 	status = "ok";
 	qcom,support-hw-trigger;
 };
 
 &gdsc_venus_core1 {
+	clock-names = "core1_clk";
+	clocks = <&clock_mmss clk_mmss_video_subcore1_clk>;
 	status = "ok";
 	qcom,support-hw-trigger;
 };
 
 &gdsc_camss_top {
+	ock-names = "bus_clk", "vfe_axi";
+	clocks = <&clock_mmss clk_mmss_camss_cpp_axi_clk>,
+		<&clock_mmss clk_mmss_camss_vfe_vbif_axi_clk>;
 	status = "ok";
 };
 
 &gdsc_vfe0 {
+	clock-names = "core0_clk" , "core0_stream_clk";
+	clocks = <&clock_mmss clk_mmss_camss_vfe0_clk>,
+		<&clock_mmss clk_mmss_camss_vfe0_stream_clk>;
 	parent-supply = <&gdsc_camss_top>;
 	status = "ok";
 };
 
 &gdsc_vfe1 {
+	clock-names = "core1_clk" , "core1_stream_clk";
+	clocks = <&clock_mmss clk_mmss_camss_vfe1_clk>,
+		<&clock_mmss clk_mmss_camss_vfe1_stream_clk>;
 	parent-supply = <&gdsc_camss_top>;
 	status = "ok";
 };
 
 &gdsc_cpp {
+	clock-names = "core_clk";
+	clocks = <&clock_mmss clk_mmss_camss_cpp_clk>;
 	parent-supply = <&gdsc_camss_top>;
 	qcom,support-hw-trigger;
 	status = "ok";

@@ -1,5 +1,6 @@
 /*
  * Copyright 2005, Red Hat, Inc., Ingo Molnar
+ * Copyright (C) 2017 XiaoMi, Inc.
  * Released under the General Public License (GPL).
  *
  * This file contains the spinlock/rwlock implementations for
@@ -67,6 +68,10 @@ static void spin_dump(raw_spinlock_t *lock, const char *msg)
 		owner ? task_pid_nr(owner) : -1,
 		lock->owner_cpu);
 #ifdef CONFIG_DEBUG_SPINLOCK_BITE_ON_BUG
+#ifdef CONFIG_QCOM_DLOAD_MODE
+	if (!get_dload_mode())
+		BUG();
+#endif
 	msm_trigger_wdog_bite();
 #elif defined(CONFIG_DEBUG_SPINLOCK_PANIC_ON_BUG)
 	BUG();

@@ -35,7 +35,7 @@
 	(speed == USB_SPEED_SUPER ?\
 	SSUSB_GADGET_VBUS_DRAW : CONFIG_USB_GADGET_VBUS_DRAW)
 
-static bool disable_l1_for_hs;
+static bool disable_l1_for_hs = 1;
 module_param(disable_l1_for_hs, bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(disable_l1_for_hs,
 	"Disable support for L1 LPM for HS devices");
@@ -760,12 +760,13 @@ static int set_config(struct usb_composite_dev *cdev,
 	int			result = -EINVAL;
 	int			tmp;
 
+	INFO(cdev, "%s\n", __func__);
 	/*
 	 * ignore 2nd time SET_CONFIGURATION
 	 * only for same config value twice.
 	 */
 	if (cdev->config && (cdev->config->bConfigurationValue == number)) {
-		DBG(cdev, "already in the same config with value %d\n",
+		INFO(cdev, "already in the same config with value %d\n",
 				number);
 		return 0;
 	}
@@ -1949,7 +1950,7 @@ unknown:
 			return value;
 		}
 
-		VDBG(cdev,
+		INFO(cdev,
 			"non-core control req%02x.%02x v%04x i%04x l%d\n",
 			ctrl->bRequestType, ctrl->bRequest,
 			w_value, w_index, w_length);

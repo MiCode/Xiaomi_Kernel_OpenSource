@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -707,6 +708,7 @@ static int diag_cmd_set_msg_mask(unsigned char *src_buf, int src_len,
 				pr_err_ratelimited("diag: In %s, unable to allocate memory for msg mask ptr, mask_size: %d\n",
 						   __func__, mask_size);
 				mutex_unlock(&mask->lock);
+				mutex_unlock(&mask_info->lock);
 				return -ENOMEM;
 			}
 			mask->ptr = temp;

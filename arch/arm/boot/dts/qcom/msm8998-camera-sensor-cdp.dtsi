@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -280,6 +281,7 @@
 		qcom,eeprom-src = <&eeprom1>;
 		qcom,actuator-src = <&actuator1>;
 		cam_vdig-supply = <&pm8998_lvs1>;
+		qcom,led-flash-src = <&led_flash0>;
 		cam_vio-supply = <&pm8998_lvs1>;
 		cam_vana-supply = <&pmi8998_bob>;
 		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";

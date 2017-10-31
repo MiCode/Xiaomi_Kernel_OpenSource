@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,12 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
-&soc {
-	/delete-node/qcom,camera-flash@0;
-	/delete-node/qcom,camera-flash@1;
-	/delete-node/gpio-regulator@0;
-};
 
 &soc {
 	tlmm: pinctrl@03400000 {
@@ -176,17 +171,19 @@
 	};
 };
 
+&soc {
+	/delete-node/gpio-regulator@0;
+};
+
 &cci {
 	/delete-node/qcom,camera@0;
 	/delete-node/qcom,camera@1;
 	/delete-node/qcom,camera@2;
-	/delete-node/qcom,camera@3;
 	/delete-node/qcom,eeprom@0;
 	/delete-node/qcom,eeprom@1;
 	/delete-node/qcom,eeprom@2;
 	/delete-node/qcom,actuator@0;
 	/delete-node/qcom,actuator@1;
-	/delete-node/qcom,tof@0;
 	/delete-node/qcom,ois@0;
 };
 

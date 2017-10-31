@@ -527,6 +527,13 @@ config HAVE_COPY_THREAD_TLS
 	  normal C parameter passing, rather than extracting the syscall
 	  argument from pt_regs.
 
+config ARCH_HAS_ELF_RANDOMIZE
+	bool
+	help
+	  An architecture supports choosing randomized locations for
+	  stack, mmap, brk, and ET_DYN. Defined functions:
+	  - arch_mmap_rnd()
+
 config HAVE_ARCH_MMAP_RND_BITS
 	bool
 	help

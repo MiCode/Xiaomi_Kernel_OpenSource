@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,41 +39,76 @@
 /* Register Offsets from PLL base address */
 #define PLL_ANALOG_CONTROLS_ONE			0x000
 #define PLL_ANALOG_CONTROLS_TWO			0x004
+#define PLL_INT_LOOP_SETTINGS			0x008
+#define PLL_INT_LOOP_SETTINGS_TWO		0x00c
 #define PLL_ANALOG_CONTROLS_THREE		0x010
-#define PLL_DSM_DIVIDER				0x01c
+#define PLL_ANALOG_CONTROLS_FOUR		0x014
+#define PLL_INT_LOOP_CONTROLS			0x018
+#define PLL_DSM_DIVIDER					0x01c
 #define PLL_FEEDBACK_DIVIDER			0x020
 #define PLL_SYSTEM_MUXES			0x024
+#define PLL_FREQ_UPDATE_CONTROL_OVERRIDES			0x028
 #define PLL_CMODE				0x02c
 #define PLL_CALIBRATION_SETTINGS		0x030
+#define PLL_BAND_SEL_CAL_TIMER_LOW		0x034
+#define PLL_BAND_SEL_CAL_TIMER_HIGH		0x038
+#define PLL_BAND_SEL_CAL_SETTINGS		0x03c
+#define PLL_BAND_SEL_MIN		0x040
+#define PLL_BAND_SEL_MAX		0x044
+#define PLL_BAND_SEL_PFILT		0x048
+#define PLL_BAND_SEL_IFILT		0x04c
+#define PLL_BAND_SEL_CAL_SETTINGS_TWO		0x050
 #define PLL_BAND_SEL_CAL_SETTINGS_THREE		0x054
+#define PLL_BAND_SEL_CAL_SETTINGS_FOUR		0x058
+#define PLL_BAND_SEL_ICODE_HIGH				0x05c
+#define PLL_BAND_SEL_ICODE_LOW				0x060
 #define PLL_FREQ_DETECT_SETTINGS_ONE		0x064
 #define PLL_PFILT				0x07c
 #define PLL_IFILT				0x080
+#define PLL_GAIN				0x084
+#define PLL_ICODE_LOW			0x088
+#define PLL_ICODE_HIGH			0x08c
+#define PLL_LOCKDET				0x090
 #define PLL_OUTDIV				0x094
-#define PLL_CORE_OVERRIDE			0x0a4
+#define PLL_FASTLOCK_CONTROL	0x098
+#define PLL_PASS_OUT_OVERRIDE_ONE		0x09c
+#define PLL_PASS_OUT_OVERRIDE_TWO		0x0a0
+#define PLL_CORE_OVERRIDE				0x0a4
 #define PLL_CORE_INPUT_OVERRIDE			0x0a8
+#define PLL_RATE_CHANGE					0x0ac
+#define PLL_PLL_DIGITAL_TIMERS			0x0b0
 #define PLL_PLL_DIGITAL_TIMERS_TWO		0x0b4
+#define PLL_DEC_FRAC_MUXES				0x0c8
 #define PLL_DECIMAL_DIV_START_1			0x0cc
 #define PLL_FRAC_DIV_START_LOW_1		0x0d0
 #define PLL_FRAC_DIV_START_MID_1		0x0d4
 #define PLL_FRAC_DIV_START_HIGH_1		0x0d8
+#define PLL_MASH_CONTROL				0x0ec
+#define PLL_SSC_MUX_CONTROL				0x108
 #define PLL_SSC_STEPSIZE_LOW_1			0x10c
 #define PLL_SSC_STEPSIZE_HIGH_1			0x110
 #define PLL_SSC_DIV_PER_LOW_1			0x114
 #define PLL_SSC_DIV_PER_HIGH_1			0x118
 #define PLL_SSC_DIV_ADJPER_LOW_1		0x11c
 #define PLL_SSC_DIV_ADJPER_HIGH_1		0x120
-#define PLL_SSC_CONTROL				0x13c
-#define PLL_PLL_OUTDIV_RATE			0x140
+#define PLL_SSC_CONTROL					0x13c
+#define PLL_PLL_OUTDIV_RATE				0x140
 #define PLL_PLL_LOCKDET_RATE_1			0x144
 #define PLL_PLL_PROP_GAIN_RATE_1		0x14c
 #define PLL_PLL_BAND_SET_RATE_1			0x154
 #define PLL_PLL_INT_GAIN_IFILT_BAND_1		0x15c
 #define PLL_PLL_FL_INT_GAIN_PFILT_BAND_1	0x164
-#define PLL_PLL_LOCK_OVERRIDE			0x180
-#define PLL_PLL_LOCK_DELAY			0x184
-#define PLL_CLOCK_INVERTERS			0x18c
-#define PLL_COMMON_STATUS_ONE			0x1a0
+#define PLL_FASTLOCK_EN_BAND				0x16c
+#define PLL_FREQ_TUNE_ACCUM_INIT_MUX		0x17c
+#define PLL_PLL_LOCK_OVERRIDE				0x180
+#define PLL_PLL_LOCK_DELAY					0x184
+#define PLL_PLL_LOCK_MIN_DELAY				0x188
+#define PLL_CLOCK_INVERTERS					0x18c
+#define PLL_SPARE_AND_JPC_OVERRIDES			0x190
+#define PLL_BIAS_CONTROL_1					0x194
+#define PLL_BIAS_CONTROL_2					0x198
+#define PLL_ALOG_OBSV_BUS_CTRL_1			0x19c
+#define PLL_COMMON_STATUS_ONE				0x1a0
 
 /* Register Offsets from PHY base address */
 #define PHY_CMN_CLK_CFG0	0x010
@@ -156,7 +192,7 @@ static void dsi_pll_config_slave(struct mdss_pll_resources *rsc)
 	rsc->slave = NULL;
 
 	if (!orsc) {
-		pr_warn("slave PLL unavilable, assuming standalone config\n");
+		pr_debug("slave PLL unavilable, assuming standalone config\n");
 		return;
 	}
 
@@ -339,6 +375,49 @@ static void dsi_pll_config_hzindep_reg(struct dsi_pll_8998 *pll,
 	MDSS_PLL_REG_W(pll_base, PLL_IFILT, 0x3f);
 }
 
+static void dsi_pll_init_val(struct mdss_pll_resources *rsc)
+{
+	void __iomem *pll_base = rsc->pll_base;
+
+	MDSS_PLL_REG_W(pll_base, PLL_CORE_INPUT_OVERRIDE, 0x10);
+	MDSS_PLL_REG_W(pll_base, PLL_INT_LOOP_SETTINGS, 0x3f);
+	MDSS_PLL_REG_W(pll_base, PLL_INT_LOOP_SETTINGS_TWO, 0x0);
+	MDSS_PLL_REG_W(pll_base, PLL_ANALOG_CONTROLS_FOUR, 0x0);
+	MDSS_PLL_REG_W(pll_base, PLL_INT_LOOP_CONTROLS, 0x80);
+	MDSS_PLL_REG_W(pll_base, PLL_FREQ_UPDATE_CONTROL_OVERRIDES, 0x0);
+	MDSS_PLL_REG_W(pll_base, PLL_BAND_SEL_CAL_TIMER_LOW, 0x0);
+	MDSS_PLL_REG_W(pll_base, PLL_BAND_SEL_CAL_TIMER_HIGH, 0x02);
+	MDSS_PLL_REG_W(pll_base, PLL_BAND_SEL_CAL_SETTINGS, 0x82);
+	MDSS_PLL_REG_W(pll_base, PLL_BAND_SEL_MIN, 0x00);
+	MDSS_PLL_REG_W(pll_base, PLL_BAND_SEL_MAX, 0xff);
+	MDSS_PLL_REG_W(pll_base, PLL_BAND_SEL_PFILT, 0x00);
+	MDSS_PLL_REG_W(pll_base, PLL_BAND_SEL_IFILT, 0x00);
+	MDSS_PLL_REG_W(pll_base, PLL_BAND_SEL_CAL_SETTINGS_TWO, 0x25);
+	MDSS_PLL_REG_W(pll_base, PLL_BAND_SEL_CAL_SETTINGS_FOUR, 0x4f);
+	MDSS_PLL_REG_W(pll_base, PLL_BAND_SEL_ICODE_HIGH, 0x0a);
+	MDSS_PLL_REG_W(pll_base, PLL_BAND_SEL_ICODE_LOW, 0x0);
+	MDSS_PLL_REG_W(pll_base, PLL_GAIN, 0x42);
+	MDSS_PLL_REG_W(pll_base, PLL_ICODE_LOW, 0x00);
+	MDSS_PLL_REG_W(pll_base, PLL_ICODE_HIGH, 0x00);
+	MDSS_PLL_REG_W(pll_base, PLL_LOCKDET, 0x30);
+	MDSS_PLL_REG_W(pll_base, PLL_FASTLOCK_CONTROL, 0x04);
+	MDSS_PLL_REG_W(pll_base, PLL_PASS_OUT_OVERRIDE_ONE, 0x00);
+	MDSS_PLL_REG_W(pll_base, PLL_PASS_OUT_OVERRIDE_TWO, 0x00);
+	MDSS_PLL_REG_W(pll_base, PLL_RATE_CHANGE, 0x01);
+	MDSS_PLL_REG_W(pll_base, PLL_PLL_DIGITAL_TIMERS, 0x08);
+	MDSS_PLL_REG_W(pll_base, PLL_DEC_FRAC_MUXES, 0x00);
+	MDSS_PLL_REG_W(pll_base, PLL_MASH_CONTROL, 0x03);
+	MDSS_PLL_REG_W(pll_base, PLL_SSC_MUX_CONTROL, 0x0);
+	MDSS_PLL_REG_W(pll_base, PLL_SSC_CONTROL, 0x0);
+	MDSS_PLL_REG_W(pll_base, PLL_FASTLOCK_EN_BAND, 0x03);
+	MDSS_PLL_REG_W(pll_base, PLL_FREQ_TUNE_ACCUM_INIT_MUX, 0x0);
+	MDSS_PLL_REG_W(pll_base, PLL_PLL_LOCK_MIN_DELAY, 0x19);
+	MDSS_PLL_REG_W(pll_base, PLL_SPARE_AND_JPC_OVERRIDES, 0x0);
+	MDSS_PLL_REG_W(pll_base, PLL_BIAS_CONTROL_1, 0x40);
+	MDSS_PLL_REG_W(pll_base, PLL_BIAS_CONTROL_2, 0x20);
+	MDSS_PLL_REG_W(pll_base, PLL_ALOG_OBSV_BUS_CTRL_1, 0x0);
+}
+
 static void dsi_pll_commit(struct dsi_pll_8998 *pll,
 			   struct mdss_pll_resources *rsc)
 {
@@ -393,6 +472,8 @@ static int vco_8998_set_rate(struct clk *c, unsigned long rate)
 		       rsc->index, rc);
 		return rc;
 	}
+
+	dsi_pll_init_val(rsc);
 
 	dsi_pll_setup_config(pll, rsc);
 
@@ -471,10 +552,22 @@ static int dsi_pll_enable(struct dsi_pll_vco_clk *vco)
 {
 	int rc;
 	struct mdss_pll_resources *rsc = vco->priv;
+	struct dsi_pll_8998 *pll = rsc->priv;
+	struct dsi_pll_regs *regs = &pll->reg_setup;
 
 	dsi_pll_enable_pll_bias(rsc);
 	if (rsc->slave)
 		dsi_pll_enable_pll_bias(rsc->slave);
+
+	/*
+	 * The PLL out dividers are fixed divider clocks and hence the
+	 * set_div is not called during set_rate cycle of the tree.
+	 * The outdiv rate is therefore set in the pll out mux's set_sel
+	 * callback. But that will be called only after vco's set rate.
+	 * Hence PLL out div value is set here before locking the PLL.
+	 */
+	MDSS_PLL_REG_W(rsc->pll_base, PLL_PLL_OUTDIV_RATE,
+		regs->pll_outdiv_rate);
 
 	/* Start PLL */
 	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_PLL_CNTRL, 0x01);
@@ -594,7 +687,9 @@ static int vco_8998_prepare(struct clk *c)
 static unsigned long dsi_pll_get_vco_rate(struct clk *c)
 {
 	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
-	struct mdss_pll_resources *pll = vco->priv;
+	struct mdss_pll_resources *rsc = vco->priv;
+	struct dsi_pll_8998 *pll = rsc->priv;
+	struct dsi_pll_regs *regs = &pll->reg_setup;
 	int rc;
 	u64 ref_clk = vco->ref_clk_rate;
 	u64 vco_rate;
@@ -604,27 +699,30 @@ static unsigned long dsi_pll_get_vco_rate(struct clk *c)
 	u32 outdiv;
 	u64 pll_freq, tmp64;
 
-	rc = mdss_pll_resource_enable(pll, true);
+	rc = mdss_pll_resource_enable(rsc, true);
 	if (rc) {
 		pr_err("failed to enable pll(%d) resource, rc=%d\n",
-		       pll->index, rc);
+		       rsc->index, rc);
 		return 0;
 	}
 
-	dec = MDSS_PLL_REG_R(pll->pll_base, PLL_DECIMAL_DIV_START_1);
+	dec = MDSS_PLL_REG_R(rsc->pll_base, PLL_DECIMAL_DIV_START_1);
 	dec &= 0xFF;
 
-	frac = MDSS_PLL_REG_R(pll->pll_base, PLL_FRAC_DIV_START_LOW_1);
-	frac |= ((MDSS_PLL_REG_R(pll->pll_base, PLL_FRAC_DIV_START_MID_1) &
+	frac = MDSS_PLL_REG_R(rsc->pll_base, PLL_FRAC_DIV_START_LOW_1);
+	frac |= ((MDSS_PLL_REG_R(rsc->pll_base, PLL_FRAC_DIV_START_MID_1) &
 		  0xFF) <<
 		8);
-	frac |= ((MDSS_PLL_REG_R(pll->pll_base, PLL_FRAC_DIV_START_HIGH_1) &
+	frac |= ((MDSS_PLL_REG_R(rsc->pll_base, PLL_FRAC_DIV_START_HIGH_1) &
 		  0x3) <<
 		16);
 
 	/* OUTDIV_1:0 field is (log(outdiv, 2)) */
-	outdiv = MDSS_PLL_REG_R(pll->pll_base, PLL_PLL_OUTDIV_RATE);
+	outdiv = MDSS_PLL_REG_R(rsc->pll_base, PLL_PLL_OUTDIV_RATE);
 	outdiv &= 0x3;
+
+	regs->pll_outdiv_rate = outdiv;
+
 	outdiv = 1 << outdiv;
 
 	/*
@@ -642,7 +740,7 @@ static unsigned long dsi_pll_get_vco_rate(struct clk *c)
 	pr_debug("dec=0x%x, frac=0x%x, outdiv=%d, vco=%llu\n",
 		 dec, frac, outdiv, vco_rate);
 
-	(void)mdss_pll_resource_enable(pll, false);
+	(void)mdss_pll_resource_enable(rsc, false);
 
 	return (unsigned long)vco_rate;
 }
@@ -796,71 +894,25 @@ static int bit_clk_set_div(struct div_clk *clk, int div)
 	return rc;
 }
 
-static int pll_out_clk_set_div(struct div_clk *clk, int div)
+static int dsi_pll_out_set_mux_sel(struct mux_clk *clk, int sel)
 {
-	int rc;
-	u32 reg_val = 0;
-	int i;
-
 	struct mdss_pll_resources *rsc = clk->priv;
 	struct dsi_pll_8998 *pll = rsc->priv;
 	struct dsi_pll_regs *regs = &pll->reg_setup;
 
-	rc = mdss_pll_resource_enable(rsc, true);
-	if (rc) {
-		pr_err("Failed to enable dsi pll resources, rc=%d\n", rc);
-		return rc;
-	}
-
-	/*
-	 * out_div = 2 ^ div_log
-	 * To get div_log from output div just get the index of the
-	 * 1 bit in the value.
-	 * div_log ranges from 0-3. so check the 4 lsbs
-	 */
-
-	for (i = 0; i < 4; i++) {
-		if (div & (1 << i)) {
-			reg_val = i;
-			break;
-		}
-	}
-
-	regs->pll_outdiv_rate = reg_val;
-
-	MDSS_PLL_REG_W(rsc->pll_base, PLL_PLL_OUTDIV_RATE, reg_val);
-
-	pr_debug("Setting PLL outdiv rate on pll(%d) to 0x%x\n",
-		rsc->index, reg_val);
-
-	(void)mdss_pll_resource_enable(rsc, false);
+	regs->pll_outdiv_rate = sel;
 
 	return 0;
 }
 
-
-static int pll_out_clk_get_div(struct div_clk *clk)
+static int dsi_pll_out_get_mux_sel(struct mux_clk *clk)
 {
-	int rc;
-	u32 reg_val;
-	int div;
+	struct mdss_pll_resources *rsc = clk->priv;
+	struct dsi_pll_8998 *pll = rsc->priv;
+	struct dsi_pll_regs *regs = &pll->reg_setup;
 
-	struct mdss_pll_resources *pll = clk->priv;
-
-	rc = mdss_pll_resource_enable(pll, true);
-	if (rc) {
-		pr_err("Failed to enable dsi pll resources, rc=%d\n", rc);
-		return rc;
-	}
-
-	reg_val = MDSS_PLL_REG_R(pll->pll_base, PLL_PLL_OUTDIV_RATE);
-	div = 1 << (reg_val & 3);
-
-	(void)mdss_pll_resource_enable(pll, false);
-
-	return div;
+	return regs->pll_outdiv_rate;
 }
-
 
 static int post_vco_clk_get_div(struct div_clk *clk)
 {
@@ -1023,7 +1075,6 @@ static struct clk_ops clk_ops_bitclk_src_c;
 static struct clk_ops clk_ops_post_vco_div_c;
 static struct clk_ops clk_ops_post_bit_div_c;
 static struct clk_ops clk_ops_pclk_src_c;
-static struct clk_ops clk_ops_pll_out_div_c;
 
 static struct clk_div_ops clk_post_vco_div_ops = {
 	.set_div = post_vco_clk_set_div,
@@ -1045,11 +1096,6 @@ static struct clk_div_ops clk_bitclk_src_ops = {
 	.get_div = bit_clk_get_div,
 };
 
-static struct clk_div_ops clk_pll_out_div_ops = {
-	.set_div = pll_out_clk_set_div,
-	.get_div = pll_out_clk_get_div,
-};
-
 static struct clk_ops clk_ops_vco_8998 = {
 	.set_rate = vco_8998_set_rate,
 	.round_rate = vco_8998_round_rate,
@@ -1061,6 +1107,11 @@ static struct clk_ops clk_ops_vco_8998 = {
 static struct clk_mux_ops mdss_mux_ops = {
 	.set_mux_sel = mdss_set_mux_sel,
 	.get_mux_sel = mdss_get_mux_sel,
+};
+
+static struct clk_mux_ops mdss_pll_out_mux_ops = {
+	.set_mux_sel = dsi_pll_out_set_mux_sel,
+	.get_mux_sel = dsi_pll_out_get_mux_sel,
 };
 
 /*
@@ -1148,11 +1199,10 @@ static struct div_clk dsi0pll_pll_out_div1 = {
 		.min_div = 1,
 		.max_div = 1,
 	},
-	.ops = &clk_pll_out_div_ops,
 	.c = {
 		.parent = &dsi0pll_vco_clk.c,
 		.dbg_name = "dsi0pll_pll_out_div1",
-		.ops = &clk_ops_pll_out_div_c,
+		.ops = &clk_ops_div,
 		.flags = CLKFLAG_NO_RATE_CACHE,
 		CLK_INIT(dsi0pll_pll_out_div1.c),
 	}
@@ -1164,11 +1214,10 @@ static struct div_clk dsi0pll_pll_out_div2 = {
 		.min_div = 2,
 		.max_div = 2,
 	},
-	.ops = &clk_pll_out_div_ops,
 	.c = {
 		.parent = &dsi0pll_vco_clk.c,
 		.dbg_name = "dsi0pll_pll_out_div2",
-		.ops = &clk_ops_pll_out_div_c,
+		.ops = &clk_ops_div,
 		.flags = CLKFLAG_NO_RATE_CACHE,
 		CLK_INIT(dsi0pll_pll_out_div2.c),
 	}
@@ -1180,11 +1229,10 @@ static struct div_clk dsi0pll_pll_out_div4 = {
 		.min_div = 4,
 		.max_div = 4,
 	},
-	.ops = &clk_pll_out_div_ops,
 	.c = {
 		.parent = &dsi0pll_vco_clk.c,
 		.dbg_name = "dsi0pll_pll_out_div4",
-		.ops = &clk_ops_pll_out_div_c,
+		.ops = &clk_ops_div,
 		.flags = CLKFLAG_NO_RATE_CACHE,
 		CLK_INIT(dsi0pll_pll_out_div4.c),
 	}
@@ -1196,11 +1244,10 @@ static struct div_clk dsi0pll_pll_out_div8 = {
 		.min_div = 8,
 		.max_div = 8,
 	},
-	.ops = &clk_pll_out_div_ops,
 	.c = {
 		.parent = &dsi0pll_vco_clk.c,
 		.dbg_name = "dsi0pll_pll_out_div8",
-		.ops = &clk_ops_pll_out_div_c,
+		.ops = &clk_ops_div,
 		.flags = CLKFLAG_NO_RATE_CACHE,
 		CLK_INIT(dsi0pll_pll_out_div8.c),
 	}
@@ -1214,7 +1261,7 @@ static struct mux_clk dsi0pll_pll_out_mux = {
 		{&dsi0pll_pll_out_div4.c, 2},
 		{&dsi0pll_pll_out_div8.c, 3},
 	},
-	.ops = &mdss_mux_ops,
+	.ops = &mdss_pll_out_mux_ops,
 	.c = {
 		.parent = &dsi0pll_pll_out_div1.c,
 		.dbg_name = "dsi0pll_pll_out_mux",
@@ -1398,11 +1445,10 @@ static struct div_clk dsi1pll_pll_out_div1 = {
 		.min_div = 1,
 		.max_div = 1,
 	},
-	.ops = &clk_pll_out_div_ops,
 	.c = {
 		.parent = &dsi1pll_vco_clk.c,
 		.dbg_name = "dsi1pll_pll_out_div1",
-		.ops = &clk_ops_pll_out_div_c,
+		.ops = &clk_ops_div,
 		.flags = CLKFLAG_NO_RATE_CACHE,
 		CLK_INIT(dsi1pll_pll_out_div1.c),
 	}
@@ -1414,11 +1460,10 @@ static struct div_clk dsi1pll_pll_out_div2 = {
 		.min_div = 2,
 		.max_div = 2,
 	},
-	.ops = &clk_pll_out_div_ops,
 	.c = {
 		.parent = &dsi1pll_vco_clk.c,
 		.dbg_name = "dsi1pll_pll_out_div2",
-		.ops = &clk_ops_pll_out_div_c,
+		.ops = &clk_ops_div,
 		.flags = CLKFLAG_NO_RATE_CACHE,
 		CLK_INIT(dsi1pll_pll_out_div2.c),
 	}
@@ -1430,11 +1475,10 @@ static struct div_clk dsi1pll_pll_out_div4 = {
 		.min_div = 4,
 		.max_div = 4,
 	},
-	.ops = &clk_pll_out_div_ops,
 	.c = {
 		.parent = &dsi1pll_vco_clk.c,
 		.dbg_name = "dsi1pll_pll_out_div4",
-		.ops = &clk_ops_pll_out_div_c,
+		.ops = &clk_ops_div,
 		.flags = CLKFLAG_NO_RATE_CACHE,
 		CLK_INIT(dsi1pll_pll_out_div4.c),
 	}
@@ -1446,11 +1490,10 @@ static struct div_clk dsi1pll_pll_out_div8 = {
 		.min_div = 8,
 		.max_div = 8,
 	},
-	.ops = &clk_pll_out_div_ops,
 	.c = {
 		.parent = &dsi1pll_vco_clk.c,
 		.dbg_name = "dsi1pll_pll_out_div8",
-		.ops = &clk_ops_pll_out_div_c,
+		.ops = &clk_ops_div,
 		.flags = CLKFLAG_NO_RATE_CACHE,
 		CLK_INIT(dsi1pll_pll_out_div8.c),
 	}
@@ -1464,7 +1507,7 @@ static struct mux_clk dsi1pll_pll_out_mux = {
 		{&dsi1pll_pll_out_div4.c, 2},
 		{&dsi1pll_pll_out_div8.c, 3},
 	},
-	.ops = &mdss_mux_ops,
+	.ops = &mdss_pll_out_mux_ops,
 	.c = {
 		.parent = &dsi1pll_pll_out_div1.c,
 		.dbg_name = "dsi1pll_pll_out_mux",
@@ -1697,9 +1740,6 @@ int dsi_pll_clock_register_8998(struct platform_device *pdev,
 
 	clk_ops_bitclk_src_c = clk_ops_div;
 	clk_ops_bitclk_src_c.prepare = mdss_pll_div_prepare;
-
-	clk_ops_pll_out_div_c = clk_ops_div;
-	clk_ops_pll_out_div_c.prepare = mdss_pll_div_prepare;
 
 	/*
 	 * Set the ops for the two dividers in the pixel clock tree to the

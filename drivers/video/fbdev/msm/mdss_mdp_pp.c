@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2567,6 +2568,8 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer,
 				ad_hw->base + MDSS_MDP_REG_AD_TFILT_CTRL);
 			writel_relaxed(ad->cfg.mode | MDSS_AD_AUTO_TRIGGER,
 				ad_hw->base + MDSS_MDP_REG_AD_MODE_SEL);
+			ad->last_str = 0xFF & readl_relaxed(ad_hw->base +
+				MDSS_MDP_REG_AD_STR_OUT);
 		}
 
 		pp_ad_bypass_config(ad, ctl, ad_hw->num, &ad_bypass);
@@ -2772,7 +2775,7 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl,
 		(ctl->mfd->panel_info->type != WRITEBACK_PANEL));
 
 	if (valid_mixers && (mixer_cnt <= mdata->nmax_concurrent_ad_hw) &&
-		valid_ad_panel) {
+		valid_ad_panel && (info->pp_program_mask & PP_PROGRAM_AD)) {
 		ret = mdss_mdp_ad_setup(ctl->mfd);
 		if (ret < 0)
 			pr_warn("ad_setup(disp%d) returns %d\n", disp_num, ret);

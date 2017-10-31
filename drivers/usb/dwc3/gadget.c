@@ -218,7 +218,7 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 			mult = 3;
 
 		if (!(dep->flags & DWC3_EP_ENABLED)) {
-			dev_dbg(dwc->dev, "ep%dIn not enabled", num);
+			dev_info(dwc->dev, "ep%dIn not enabled", num);
 			goto resize_fifo;
 		}
 
@@ -536,12 +536,12 @@ static int dwc3_gadget_set_ep_config(struct dwc3 *dwc, struct dwc3_ep *dep,
 	}
 
 	if (!dep->endpoint.endless) {
-		pr_debug("%s(): enable xfer_complete_int for %s\n",
+		pr_err("%s(): enable xfer_complete_int for %s\n",
 				__func__, dep->endpoint.name);
 		params.param1 = DWC3_DEPCFG_XFER_COMPLETE_EN
 				| DWC3_DEPCFG_XFER_NOT_READY_EN;
 	} else {
-		pr_debug("%s(): disable xfer_complete_int for %s\n",
+		pr_err("%s(): disable xfer_complete_int for %s\n",
 				 __func__, dep->endpoint.name);
 	}
 
@@ -1877,7 +1877,7 @@ static int dwc3_gadget_vbus_draw(struct usb_gadget *g, unsigned mA)
 	struct dwc3		*dwc = gadget_to_dwc(g);
 
 	dwc->vbus_draw = mA;
-	dev_dbg(dwc->dev, "Notify controller from %s. mA = %d\n", __func__, mA);
+	dev_info(dwc->dev, "Notify controller from %s. mA = %d\n", __func__, mA);
 	dwc3_notify_event(dwc, DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT, 0);
 	return 0;
 }
@@ -2818,7 +2818,7 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 			dwc3_gadget_disconnect_interrupt(dwc);
 	}
 
-	dev_dbg(dwc->dev, "Notify OTG from %s\n", __func__);
+	dev_err(dwc->dev, "Notify OTG from %s\n", __func__);
 	dwc->b_suspend = false;
 	dwc3_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_OTG_EVENT, 0);
 

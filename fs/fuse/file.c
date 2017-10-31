@@ -1272,6 +1272,15 @@ static ssize_t fuse_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 		goto out;
 
 	if (ff && ff->passthrough_enabled && ff->passthrough_filp) {
+		size_t bytes;
+		bytes = iov_iter_count(from);
+
+		/*
+		 * page fault before fuse_passthrough_write_iter.
+		 * Otherwise there is a deadlock to send a fuse req to fuse deamon.
+		 * as it hold the inode->i_mutex
+		 */
+		iov_iter_fault_in_multipages_readable(from, bytes);
 		written = fuse_passthrough_write_iter(iocb, from);
 		goto out;
 	}

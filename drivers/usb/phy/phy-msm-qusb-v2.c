@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,6 +51,7 @@
 #define DPSE_INTERRUPT			BIT(0)
 
 #define QUSB2PHY_PORT_TUNE1		0x23c
+#define QUSB2PHY_PORT_TUNE2		0x240
 #define QUSB2PHY_TEST1			0x24C
 
 #define QUSB2PHY_1P2_VOL_MIN           1200000 /* uV */
@@ -73,6 +75,11 @@
 unsigned int phy_tune1;
 module_param(phy_tune1, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(phy_tune1, "QUSB PHY v2 TUNE1");
+
+unsigned int phy_tune2;
+module_param(phy_tune2, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(phy_tune2, "QUSB PHY v2 TUNE2");
+
 
 struct qusb_phy {
 	struct usb_phy		phy;
@@ -515,6 +522,15 @@ static int qusb_phy_init(struct usb_phy *phy)
 		writel_relaxed(phy_tune1,
 				qphy->base + QUSB2PHY_PORT_TUNE1);
 	}
+
+	/* If phy_tune2 modparam set, override tune1 value */
+	if (phy_tune2) {
+		pr_debug("%s(): (modparam) TUNE2 val:0x%02x\n",
+						__func__, phy_tune2);
+		writel_relaxed(phy_tune2,
+				qphy->base + QUSB2PHY_PORT_TUNE2);
+	}
+
 
 	/* ensure above writes are completed before re-enabling PHY */
 	wmb();

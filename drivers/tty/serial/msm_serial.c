@@ -4,6 +4,7 @@
  * Copyright (C) 2007 Google, Inc.
  * Author: Robert Love <rlove@google.com>
  * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1161,6 +1162,15 @@ static int msm_set_baud_rate(struct uart_port *port, unsigned int baud,
 	return baud;
 }
 
+static void msm_init_clock(struct uart_port *port)
+{
+	struct msm_port *msm_port = UART_TO_MSM(port);
+
+	clk_prepare_enable(msm_port->clk);
+	clk_prepare_enable(msm_port->pclk);
+	msm_serial_set_mnd_regs(port);
+}
+
 static int msm_startup(struct uart_port *port)
 {
 	struct msm_port *msm_port = UART_TO_MSM(port);
@@ -1170,6 +1180,7 @@ static int msm_startup(struct uart_port *port)
 	snprintf(msm_port->name, sizeof(msm_port->name),
 		 "msm_serial%d", port->line);
 
+	msm_init_clock(port);
 	/*
 	 * UART clk must be kept enabled to
 	 * avoid losing received character
@@ -1404,16 +1415,8 @@ static void msm_power(struct uart_port *port, unsigned int state,
 
 	switch (state) {
 	case 0:
-		/*
-		 * UART clk must be kept enabled to
-		 * avoid losing received character
-		 */
-		if (clk_prepare_enable(msm_port->clk))
-			return;
-		if (clk_prepare_enable(msm_port->pclk)) {
-			clk_disable_unprepare(msm_port->clk);
-			return;
-		}
+		clk_prepare_enable(msm_port->clk);
+		clk_prepare_enable(msm_port->pclk);
 		break;
 	case 3:
 		clk_disable_unprepare(msm_port->clk);
@@ -1678,7 +1681,7 @@ static int __init msm_console_setup(struct console *co, char *options)
 	if (unlikely(!port->membase))
 		return -ENXIO;
 
-	msm_serial_set_mnd_regs(port);
+	msm_init_clock(port);
 
 	if (options)
 		uart_parse_options(options, &baud, &parity, &bits, &flow);
@@ -1839,37 +1842,12 @@ static const struct of_device_id msm_match_table[] = {
 	{}
 };
 
-#ifdef CONFIG_PM_SLEEP
-static int msm_serial_suspend(struct device *dev)
-{
-	struct uart_port *port = dev_get_drvdata(dev);
-
-	uart_suspend_port(&msm_uart_driver, port);
-
-	return 0;
-}
-
-static int msm_serial_resume(struct device *dev)
-{
-	struct uart_port *port = dev_get_drvdata(dev);
-
-	uart_resume_port(&msm_uart_driver, port);
-
-	return 0;
-}
-#endif
-
-static const struct dev_pm_ops msm_serial_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(msm_serial_suspend, msm_serial_resume)
-};
-
 static struct platform_driver msm_platform_driver = {
 	.remove = msm_serial_remove,
 	.probe = msm_serial_probe,
 	.driver = {
 		.name = "msm_serial",
 		.of_match_table = msm_match_table,
-		.pm = &msm_serial_pm_ops,
 	},
 };
 

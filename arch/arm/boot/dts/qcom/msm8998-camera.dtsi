@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -535,9 +536,9 @@
 			"NO_SET_RATE", "NO_SET_RATE",
 			"NO_SET_RATE", "NO_SET_RATE",
 			"INIT_RATE",
-			"NO_SET_RATE", "NO_SET_RATE",
+			"INIT_RATE", "NO_SET_RATE",
 			"INIT_RATE",
-			"NO_SET_RATE", "NO_SET_RATE";
+			"INIT_RATE", "NO_SET_RATE";
 		status = "ok";
 	};
 
@@ -856,7 +857,7 @@
 	qcom,hw-thd-dat = <22>;
 	qcom,hw-thd-sta = <162>;
 	qcom,hw-tbuf = <227>;
-	qcom,hw-scl-stretch-en = <0>;
+	qcom,hw-scl-stretch-en = <1>;
 	qcom,hw-trdhld = <6>;
 	qcom,hw-tsp = <3>;
 	qcom,cci-clk-src = <37500000>;
@@ -871,7 +872,7 @@
 	qcom,hw-thd-dat = <22>;
 	qcom,hw-thd-sta = <35>;
 	qcom,hw-tbuf = <62>;
-	qcom,hw-scl-stretch-en = <0>;
+	qcom,hw-scl-stretch-en = <1>;
 	qcom,hw-trdhld = <6>;
 	qcom,hw-tsp = <3>;
 	qcom,cci-clk-src = <37500000>;

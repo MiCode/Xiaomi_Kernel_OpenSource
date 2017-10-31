@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2013, Sony Mobile Communications AB.
  * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,13 +28,14 @@
 #include <linux/gpio.h>
 #include <linux/interrupt.h>
 #include <linux/spinlock.h>
-#include <linux/syscore_ops.h>
 #include <linux/reboot.h>
 #include <linux/irqchip/msm-mpm-irq.h>
 #include "../core.h"
 #include "../pinconf.h"
 #include "pinctrl-msm.h"
 #include "../pinctrl-utils.h"
+#include <linux/wakeup_reason.h>
+#include <linux/syscore_ops.h>
 
 #define MAX_NR_GPIO 300
 #define PS_HOLD_OFFSET 0x820
@@ -70,8 +72,6 @@ struct msm_pinctrl {
 	const struct msm_pinctrl_soc_data *soc;
 	void __iomem *regs;
 };
-
-static struct msm_pinctrl *msm_pinctrl_data;
 
 static inline struct msm_pinctrl *to_msm_pinctrl(struct gpio_chip *gc)
 {
@@ -504,6 +504,9 @@ static void msm_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 	unsigned i;
 
 	for (i = 0; i < chip->ngpio; i++, gpio++) {
+		/* GPIO 0-3, 81-84 is restricted to only access in TZ */
+		if ((i >= 0 && i <= 3) || (i >= 81 && i <= 84))
+			continue;
 		msm_gpio_dbg_show_one(s, NULL, chip, i, gpio);
 		seq_puts(s, "\n");
 	}
@@ -766,6 +769,64 @@ static struct irq_chip msm_gpio_irq_chip = {
 	.irq_set_wake   = msm_gpio_irq_set_wake,
 };
 
+static struct irq_desc *gpio_irq_desc;
+static unsigned int gpio_irq;
+extern int msm_show_resume_irq_mask;
+#ifdef CONFIG_PM
+static int msm_pinctrl_suspend(void)
+{
+	return 0;
+}
+
+static void show_resume_gpio_irq(unsigned int irq, struct irq_desc *desc)
+{
+	struct gpio_chip *gc = irq_desc_get_handler_data(desc);
+	const struct msm_pingroup *g;
+	struct msm_pinctrl *pctrl = to_msm_pinctrl(gc);
+	struct irq_chip *chip = irq_get_chip(irq);
+	int irq_pin;
+	u32 val;
+	int i;
+
+	if (!msm_show_resume_irq_mask)
+		return;
+
+	chained_irq_enter(chip, desc);
+
+	/*
+	 * Each pin has it's own IRQ status register, so use
+	 * enabled_irq bitmap to limit the number of reads.
+	 */
+	for_each_set_bit(i, pctrl->enabled_irqs, pctrl->chip.ngpio) {
+		g = &pctrl->soc->groups[i];
+		val = readl_relaxed(pctrl->regs + g->intr_status_reg);
+		if (val & BIT(g->intr_status_bit)) {
+			irq_pin = irq_find_mapping(gc->irqdomain, i);
+			log_wakeup_reason(irq_pin);
+		}
+	}
+
+	chained_irq_exit(chip, desc);
+}
+
+static void msm_pinctrl_resume(void)
+{
+	show_resume_gpio_irq(gpio_irq, gpio_irq_desc);
+}
+
+static struct syscore_ops msm_pinctrl_syscore_ops = {
+	.suspend = msm_pinctrl_suspend,
+	.resume = msm_pinctrl_resume,
+};
+
+static int __init msm_pinctrl_init_sys(void)
+{
+	register_syscore_ops(&msm_pinctrl_syscore_ops);
+	return 0;
+}
+arch_initcall(msm_pinctrl_init_sys);
+#endif
+
 static void msm_gpio_irq_handler(struct irq_desc *desc)
 {
 	struct gpio_chip *gc = irq_desc_get_handler_data(desc);
@@ -776,6 +837,11 @@ static void msm_gpio_irq_handler(struct irq_desc *desc)
 	int handled = 0;
 	u32 val;
 	int i;
+
+	if (msm_show_resume_irq_mask) {
+		gpio_irq_desc = desc;
+		gpio_irq = irq_desc_get_irq(desc);;
+	}
 
 	chained_irq_enter(chip, desc);
 
@@ -899,52 +965,6 @@ static void msm_pinctrl_setup_pm_reset(struct msm_pinctrl *pctrl)
 		}
 }
 
-#ifdef CONFIG_PM
-static int msm_pinctrl_suspend(void)
-{
-	return 0;
-}
-
-static void msm_pinctrl_resume(void)
-{
-	int i, irq;
-	u32 val;
-	unsigned long flags;
-	struct irq_desc *desc;
-	const struct msm_pingroup *g;
-	const char *name = "null";
-	struct msm_pinctrl *pctrl = msm_pinctrl_data;
-
-	if (!msm_show_resume_irq_mask)
-		return;
-
-	spin_lock_irqsave(&pctrl->lock, flags);
-	for_each_set_bit(i, pctrl->enabled_irqs, pctrl->chip.ngpio) {
-		g = &pctrl->soc->groups[i];
-		val = readl_relaxed(pctrl->regs + g->intr_status_reg);
-		if (val & BIT(g->intr_status_bit)) {
-			irq = irq_find_mapping(pctrl->chip.irqdomain, i);
-			desc = irq_to_desc(irq);
-			if (desc == NULL)
-				name = "stray irq";
-			else if (desc->action && desc->action->name)
-				name = desc->action->name;
-
-			pr_warn("%s: %d triggered %s\n", __func__, irq, name);
-		}
-	}
-	spin_unlock_irqrestore(&pctrl->lock, flags);
-}
-#else
-#define msm_pinctrl_suspend NULL
-#define msm_pinctrl_resume NULL
-#endif
-
-static struct syscore_ops msm_pinctrl_pm_ops = {
-	.suspend = msm_pinctrl_suspend,
-	.resume = msm_pinctrl_resume,
-};
-
 int msm_pinctrl_probe(struct platform_device *pdev,
 		      const struct msm_pinctrl_soc_data *soc_data)
 {
@@ -952,8 +972,7 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 	struct resource *res;
 	int ret;
 
-	msm_pinctrl_data = pctrl = devm_kzalloc(&pdev->dev,
-				sizeof(*pctrl), GFP_KERNEL);
+	pctrl = devm_kzalloc(&pdev->dev, sizeof(*pctrl), GFP_KERNEL);
 	if (!pctrl) {
 		dev_err(&pdev->dev, "Can't allocate msm_pinctrl\n");
 		return -ENOMEM;
@@ -994,7 +1013,6 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 	pctrl->irq_chip_extn = &mpm_pinctrl_extn;
 	platform_set_drvdata(pdev, pctrl);
 
-	register_syscore_ops(&msm_pinctrl_pm_ops);
 	dev_dbg(&pdev->dev, "Probed Qualcomm pinctrl driver\n");
 
 	return 0;
@@ -1009,7 +1027,6 @@ int msm_pinctrl_remove(struct platform_device *pdev)
 	pinctrl_unregister(pctrl->pctrl);
 
 	unregister_restart_handler(&pctrl->restart_nb);
-	unregister_syscore_ops(&msm_pinctrl_pm_ops);
 
 	return 0;
 }

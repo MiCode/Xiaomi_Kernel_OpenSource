@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1141,6 +1142,9 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 
 	pipe->comp_ratio = layer->buffer.comp_ratio;
 
+	if (mfd->panel_orientation)
+		layer->flags ^= mfd->panel_orientation;
+
 	pipe->mixer_left = mixer;
 	pipe->mfd = mfd;
 	pipe->play_cnt = 0;
@@ -1271,7 +1275,7 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 		if (is_split_lm(mfd) && __layer_needs_src_split(layer)) {
 			pipe->src_split_req = true;
 		} else if ((mixer_mux == MDSS_MDP_MIXER_MUX_LEFT) &&
-		    ((layer->dst_rect.x + layer->dst_rect.w) > mixer->width)) {
+			((layer->dst_rect.x + layer->dst_rect.w) > mixer->width)) {
 			if (layer->dst_rect.x >= mixer->width) {
 				pr_err("%pS: err dst_x can't lie in right half",
 					__builtin_return_address(0));

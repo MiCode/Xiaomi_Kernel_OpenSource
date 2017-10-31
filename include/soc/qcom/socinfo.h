@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -244,5 +245,14 @@ uint32_t socinfo_get_serial_number(void);
 enum pmic_model socinfo_get_pmic_model(void);
 uint32_t socinfo_get_pmic_die_revision(void);
 int __init socinfo_init(void) __must_check;
+
+#define HARDWARE_PLATFORM_UNKNOWN 0
+#define HARDWARE_PLATFORM_SAGIT 1
+#define HARDWARE_PLATFORM_CHIRON 3
+#define HARDWARE_PLATFORM_CHIRON_S 4
+
+uint32_t get_hw_version_platform(void);
+uint32_t get_hw_version_major(void);
+uint32_t get_hw_version_minor(void);
 
 #endif

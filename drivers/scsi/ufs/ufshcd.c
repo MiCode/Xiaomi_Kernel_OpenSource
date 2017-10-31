@@ -4,6 +4,7 @@
  * This code is based on drivers/scsi/ufs/ufshcd.c
  * Copyright (C) 2011-2013 Samsung India Software Operations
  * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -43,6 +44,7 @@
 #include <linux/nls.h>
 #include <linux/of.h>
 #include <linux/blkdev.h>
+#include <asm/hwconf_manager.h>
 
 #include "ufshcd.h"
 #include "ufshci.h"
@@ -246,6 +248,7 @@ static u32 ufs_query_desc_max_size[] = {
 	QUERY_DESC_RFU_MAX_SIZE,
 	QUERY_DESC_GEOMETRY_MAZ_SIZE,
 	QUERY_DESC_POWER_MAX_SIZE,
+	QUERY_DESC_HEALTH_MAX_SIZE,
 	QUERY_DESC_RFU_MAX_SIZE,
 };
 
@@ -747,10 +750,9 @@ static void ufshcd_print_pwr_info(struct ufs_hba *hba)
 	if (!(hba->ufshcd_dbg_print & UFSHCD_DBG_PRINT_PWR_EN))
 		return;
 
-	dev_err(hba->dev, "%s:[RX, TX]: gear=[%d, %d], lane[%d, %d], pwr[%s, %s], rate = %d\n",
+	dev_err(hba->dev, "%s:[RX, TX]: gear=[%d, %d], pwr[%s, %s], rate = %d\n",
 		 __func__,
 		 hba->pwr_info.gear_rx, hba->pwr_info.gear_tx,
-		 hba->pwr_info.lane_rx, hba->pwr_info.lane_tx,
 		 names[hba->pwr_info.pwr_rx],
 		 names[hba->pwr_info.pwr_tx],
 		 hba->pwr_info.hs_rate);
@@ -3609,6 +3611,21 @@ static inline int ufshcd_read_power_desc(struct ufs_hba *hba,
 int ufshcd_read_device_desc(struct ufs_hba *hba, u8 *buf, u32 size)
 {
 	return ufshcd_read_desc(hba, QUERY_DESC_IDN_DEVICE, 0, buf, size);
+}
+
+int ufshcd_read_health_desc(struct ufs_hba *hba, u8 *buf, u32 size)
+{
+	return ufshcd_read_desc(hba, QUERY_DESC_IDN_HEALTH, 0, buf, size);
+}
+
+int ufshcd_read_configration_desc(struct ufs_hba *hba, u8 *buf, u32 size)
+{
+	return ufshcd_read_desc(hba, QUERY_DESC_IDN_CONFIGURAION, 0, buf, size);
+}
+
+int ufshcd_read_geomerty_desc(struct ufs_hba *hba, u8 *buf, u32 size)
+{
+	return ufshcd_read_desc(hba, QUERY_DESC_IDN_GEOMETRY, 0, buf, size);
 }
 
 /**
@@ -7219,6 +7236,110 @@ static void ufshcd_apply_pm_quirks(struct ufs_hba *hba)
 	}
 }
 
+static char serial[QUERY_DESC_STRING_MAX_SIZE] = {0};
+
+char *ufs_get_serial(void)
+{
+	return serial;
+}
+
+static int ufs_export_hwinfo(struct ufs_hba *hba)
+{
+	int err, i;
+	u8 model_index;
+	u8 str_desc_buf[QUERY_DESC_STRING_MAX_SIZE + 1];
+	u8 desc_buf[QUERY_DESC_DEVICE_MAX_SIZE];
+	u8 tmp[QUERY_DESC_STRING_MAX_SIZE] = {0};
+	u16 device_val;
+
+	err = ufshcd_read_device_desc(hba, desc_buf,
+					QUERY_DESC_DEVICE_MAX_SIZE);
+	if (err) {
+		printk("read device_desc failed\n");
+		goto out;
+	}
+	if (register_hw_component_info("UFS")) {
+		printk("register_hw_component_info failed\n");
+		goto out;
+	}
+
+	/*ManufacturerName*/
+	model_index = desc_buf[DEVICE_DESC_PARAM_MANF_NAME];
+	memset(str_desc_buf, 0, QUERY_DESC_STRING_MAX_SIZE);
+	err = ufshcd_read_string_desc(hba, model_index, str_desc_buf,
+					QUERY_DESC_STRING_MAX_SIZE, ASCII_STD);
+	if (err)
+		goto out;
+
+	str_desc_buf[QUERY_DESC_STRING_MAX_SIZE] = '\0';
+	strlcpy(tmp, (str_desc_buf + QUERY_DESC_HDR_SIZE),
+		min_t(u8, str_desc_buf[QUERY_DESC_LENGTH_OFFSET],
+			  8));
+	tmp[8] = '\0';
+	add_hw_component_info("UFS", "ManufacturerName", tmp);
+
+	/*big endian format  wmanufacturerid*/
+	device_val = desc_buf[DEVICE_DESC_PARAM_MANF_ID] << 8 |
+				     desc_buf[DEVICE_DESC_PARAM_MANF_ID + 1];
+	snprintf(tmp, QUERY_DESC_STRING_MAX_SIZE, "0x%x", device_val);
+	add_hw_component_info("UFS", "wmanufacturerid", tmp);
+
+	/*ProductName*/
+	model_index = desc_buf[DEVICE_DESC_PARAM_PRDCT_NAME];
+	memset(str_desc_buf, 0, QUERY_DESC_STRING_MAX_SIZE);
+	err = ufshcd_read_string_desc(hba, model_index, str_desc_buf,
+					QUERY_DESC_STRING_MAX_SIZE, ASCII_STD);
+	if (err)
+		goto out;
+
+	str_desc_buf[QUERY_DESC_STRING_MAX_SIZE] = '\0';
+	strlcpy(tmp, (str_desc_buf + QUERY_DESC_HDR_SIZE),
+		min_t(u8, str_desc_buf[QUERY_DESC_LENGTH_OFFSET],
+		      MAX_MODEL_LEN));
+	tmp[MAX_MODEL_LEN] = '\0';
+	add_hw_component_info("UFS", "ProductName", tmp);
+
+	/*SerialNumber*/
+	model_index = desc_buf[DEVICE_DESC_PARAM_SN];
+	memset(str_desc_buf, 0, QUERY_DESC_STRING_MAX_SIZE);
+	err = ufshcd_read_string_desc(hba, model_index, str_desc_buf,
+					QUERY_DESC_STRING_MAX_SIZE, FALSE);
+	if (err)
+		goto out;
+
+	for (i = 2; i <  str_desc_buf[QUERY_DESC_LENGTH_OFFSET]; i += 2) {
+		snprintf(serial+i*2 - 4, QUERY_DESC_STRING_MAX_SIZE, "%02x%02x", str_desc_buf[i], str_desc_buf[i+1]);
+	}
+	add_hw_component_info("UFS", "SerialNumber", serial);
+	pr_info("SerialNumber:%s\n", serial);
+
+	/*FwVersion*/
+	model_index = desc_buf[0x2A];
+
+	memset(str_desc_buf, 0, QUERY_DESC_STRING_MAX_SIZE);
+	err = ufshcd_read_string_desc(hba, model_index, str_desc_buf,
+					QUERY_DESC_STRING_MAX_SIZE, ASCII_STD);
+	if (err)
+		goto out;
+
+	str_desc_buf[QUERY_DESC_STRING_MAX_SIZE] = '\0';
+	strlcpy(tmp, (str_desc_buf + QUERY_DESC_HDR_SIZE),
+		min_t(u8, str_desc_buf[QUERY_DESC_LENGTH_OFFSET],
+		      4));
+	tmp[4] = '\0';
+	add_hw_component_info("UFS", "FwVersion", tmp);
+
+	/*big endian format  BCD_version*/
+	device_val = desc_buf[DEVICE_DESC_PARAM_MANF_DATE] << 8 |
+				     desc_buf[DEVICE_DESC_PARAM_MANF_DATE + 1];
+	memset(tmp, 0, QUERY_DESC_STRING_MAX_SIZE);
+	snprintf(tmp, QUERY_DESC_STRING_MAX_SIZE, "%d", device_val);
+	add_hw_component_info("UFS", "BCD_version", tmp);
+
+out:
+	return err;
+}
+
 /**
  * ufshcd_probe_hba - probe hba to detect device and initialize
  * @hba: per-adapter instance
@@ -7252,6 +7373,7 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 		goto out;
 
 	ufs_advertise_fixup_device(hba);
+	ufs_export_hwinfo(hba);
 	ufshcd_tune_unipro_params(hba);
 
 	ufshcd_apply_pm_quirks(hba);
@@ -9078,6 +9200,11 @@ ufshcd_exit_latency_hist(struct ufs_hba *hba)
 	device_create_file(hba->dev, &dev_attr_latency_hist);
 }
 
+static int ufs_unexport_hwinfo(struct ufs_hba *hba)
+{
+	return unregister_hw_component_info("UFS");
+}
+
 /**
  * ufshcd_remove - de-allocate SCSI host and host memory space
  *		data structure memory
@@ -9099,6 +9226,7 @@ void ufshcd_remove(struct ufs_hba *hba)
 	}
 	ufshcd_hba_exit(hba);
 	ufsdbg_remove_debugfs(hba);
+	ufs_unexport_hwinfo(hba);
 }
 EXPORT_SYMBOL_GPL(ufshcd_remove);
 

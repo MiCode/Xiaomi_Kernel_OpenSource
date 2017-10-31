@@ -997,6 +997,14 @@ config CPUSETS
 
 	  Say N if unsure.
 
+config CPUSET_EXCLUSIVE_IND
+	bool "Independent cpu_exclusive support"
+	depends on CPUSETS
+	default n
+	help
+	  This option can stop the tasks of a cpuset using the cpus of itself
+	  child cpuset with cpu_exclusive enabled.
+
 config PROC_PID_CPUSET
 	bool "Include legacy /proc/<pid>/cpuset file"
 	depends on CPUSETS

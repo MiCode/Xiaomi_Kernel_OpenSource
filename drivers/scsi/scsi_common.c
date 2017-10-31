@@ -53,6 +53,33 @@ const char *scsi_device_type(unsigned type)
 }
 EXPORT_SYMBOL(scsi_device_type);
 
+static const char *const scsi_device_names[][2] = {
+		{"THGAF4G9N4LBAIR", "TTM6150"},
+		{"THGAF4T0N8LBAIR", "TTM7150"},
+		{"KLUCG4J1ED-B0C1",   "SPM6140"},
+		{"KLUDG8V1EE-B0C1",  "STT7360"},
+		{"KLUDG4U1EA-B0C1", "STT7480"},
+		{"KLUEG8U1EA-B0C1",  "STT8480"},
+		{"KLUCG4J1CB-B0B1",  "SPM6141"},
+		{"H28U74301AMR", "HTM6360"},
+		{"H28U88301AMR", "HTM7360"},
+};
+
+const char *scsi_device_name(const char *model)
+{
+	int i = 0;
+	size_t size = 0;
+	int arry_size =  sizeof(scsi_device_names) / sizeof(scsi_device_names[0]);
+
+	for (i = 0; i < arry_size;  i++) {
+		size = strlen(scsi_device_names[i][0]);
+		if (!strncmp(model, scsi_device_names[i][0], size))
+			return scsi_device_names[i][1];
+	}
+	return model;
+}
+EXPORT_SYMBOL(scsi_device_name);
+
 /**
  * scsilun_to_int - convert a scsi_lun to an int
  * @scsilun:	struct scsi_lun to be converted.

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1012,8 +1013,10 @@ static int msm_open(struct file *filep)
 	BUG_ON(!pvdev);
 
 	/* !!! only ONE open is allowed !!! */
-	if (atomic_cmpxchg(&pvdev->opened, 0, 1))
+	if (atomic_read(&pvdev->opened))
 		return -EBUSY;
+
+	atomic_set(&pvdev->opened, 1);
 
 	spin_lock_irqsave(&msm_pid_lock, flags);
 	msm_pid = get_pid(task_pid(current));
@@ -1117,21 +1120,17 @@ long msm_copy_camera_private_ioctl_args(unsigned long arg,
 	struct msm_camera_private_ioctl_arg *k_ioctl,
 	void __user **tmp_compat_ioctl_ptr)
 {
-	struct msm_camera_private_ioctl_arg up_ioctl;
+	struct msm_camera_private_ioctl_arg *up_ioctl_ptr =
+		(struct msm_camera_private_ioctl_arg *)arg;
 
 	if (WARN_ON(!arg || !k_ioctl || !tmp_compat_ioctl_ptr))
 		return -EIO;
 
-	if (copy_from_user(&up_ioctl,
-		(struct msm_camera_private_ioctl_arg *)arg,
-		sizeof(struct msm_camera_private_ioctl_arg)))
-		return -EFAULT;
-
-	k_ioctl->id = up_ioctl.id;
-	k_ioctl->size = up_ioctl.size;
-	k_ioctl->result = up_ioctl.result;
-	k_ioctl->reserved = up_ioctl.reserved;
-	*tmp_compat_ioctl_ptr = compat_ptr(up_ioctl.ioctl_ptr);
+	k_ioctl->id = up_ioctl_ptr->id;
+	k_ioctl->size = up_ioctl_ptr->size;
+	k_ioctl->result = up_ioctl_ptr->result;
+	k_ioctl->reserved = up_ioctl_ptr->reserved;
+	*tmp_compat_ioctl_ptr = compat_ptr(up_ioctl_ptr->ioctl_ptr);
 
 	return 0;
 }

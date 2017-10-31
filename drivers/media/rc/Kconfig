@@ -4,6 +4,13 @@ config RC_CORE
 	depends on INPUT
 	default y
 
+config SPI_PEELIR
+	tristate "PEELIR"
+	default y
+
+	---help---
+	   Enable this option if you use peelir
+
 source "drivers/media/rc/keymaps/Kconfig"
 
 menuconfig RC_DECODERS
@@ -114,6 +121,15 @@ config IR_MCE_KBD_DECODER
 	   Windows Media Center Edition, which you would like to use with
 	   a raw IR receiver in your system.
 
+config IR_DUMP_DECODER
+	tristate "Enable IR dump decoder for debugging purpose"
+	depends on RC_CORE
+	default n
+
+	---help---
+	   Enable this option if you have an infrared remote control which
+	   you want to dump the IR signal.
+
 config IR_XMP_DECODER
 	tristate "Enable IR raw decoder for the XMP protocol"
 	depends on RC_CORE
@@ -128,6 +144,7 @@ endif #RC_DECODERS
 menuconfig RC_DEVICES
 	bool "Remote Controller devices"
 	depends on RC_CORE
+	default y
 
 if RC_DEVICES
 
@@ -378,6 +395,14 @@ config RC_ST
 
 	   If you're not sure, select N here.
 
+config IR_PWM
+	tristate "PWM IR remote control"
+	depends on RC_CORE
+	---help---
+	   Say Y if you want to use PWM based IR.
+
+	   To compile this driver as a module, choose M here: the module will
+	   be called pwm-ir.
 config IR_SUNXI
 	tristate "SUNXI IR remote control"
 	depends on RC_CORE

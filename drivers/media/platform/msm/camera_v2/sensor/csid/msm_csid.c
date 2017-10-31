@@ -1,4 +1,5 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -58,7 +59,6 @@
 #define TRUE   1
 #define FALSE  0
 
-#define MAX_LANE_COUNT 4
 #define CSID_TIMEOUT msecs_to_jiffies(100)
 
 #undef CDBG
@@ -227,34 +227,16 @@ static void msm_csid_set_sof_freeze_debug_reg(
 static int msm_csid_reset(struct csid_device *csid_dev)
 {
 	int32_t rc = 0;
-	uint32_t irq = 0, irq_bitshift;
-
-	irq_bitshift = csid_dev->ctrl_reg->csid_reg.csid_rst_done_irq_bitshift;
 	msm_camera_io_w(csid_dev->ctrl_reg->csid_reg.csid_rst_stb_all,
 		csid_dev->base +
 		csid_dev->ctrl_reg->csid_reg.csid_rst_cmd_addr);
 	rc = wait_for_completion_timeout(&csid_dev->reset_complete,
 		CSID_TIMEOUT);
-	if (rc < 0) {
+	if (rc <= 0) {
 		pr_err("wait_for_completion in msm_csid_reset fail rc = %d\n",
 			rc);
-	} else if (rc == 0) {
-		irq = msm_camera_io_r(csid_dev->base +
-			csid_dev->ctrl_reg->csid_reg.csid_irq_status_addr);
-		pr_err_ratelimited("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
-			__func__, csid_dev->pdev->id, irq);
-		if (irq & (0x1 << irq_bitshift)) {
-			rc = 1;
-			CDBG("%s succeeded", __func__);
-		} else {
-			rc = 0;
-			pr_err("%s reset csid_irq_status failed = 0x%x\n",
-				__func__, irq);
-		}
 		if (rc == 0)
 			rc = -ETIMEDOUT;
-	} else {
-		CDBG("%s succeeded", __func__);
 	}
 	return rc;
 }
@@ -303,12 +285,6 @@ static int msm_csid_config(struct csid_device *csid_dev,
 		csid_params->lane_assign);
 	CDBG("%s csid_params phy_sel = %d\n", __func__,
 		csid_params->phy_sel);
-	if ((csid_params->lane_cnt == 0) ||
-		(csid_params->lane_cnt > MAX_LANE_COUNT)) {
-		pr_err("%s:%d invalid lane count = %d\n",
-			__func__, __LINE__, csid_params->lane_cnt);
-		return -EINVAL;
-	}
 
 	csid_dev->csid_lane_cnt = csid_params->lane_cnt;
 	rc = msm_csid_reset(csid_dev);

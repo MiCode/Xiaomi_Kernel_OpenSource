@@ -1088,3 +1088,18 @@ source "arch/arm64/crypto/Kconfig"
 endif
 
 source "lib/Kconfig"
+
+config BOOT_INFO
+	bool "Boot information from bootloader"
+	default y
+	help
+	  On embedded linux device, we try to collect more information from
+	  bootloader to kernel. eg. powerup reason.
+
+config HWCONF_MANAGER
+	bool "Hardware configuration and monitor information"
+	default y
+	depends on CJSON
+	help
+	  It provides all kinds of components configuration information and
+	  monitor values.

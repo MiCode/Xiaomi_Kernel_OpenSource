@@ -5,6 +5,7 @@
  * OpenBinder.org binder driver interface, which is:
  *
  * Copyright (c) 2005 Palmsource, Inc.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -20,7 +21,6 @@
 #ifndef _UAPI_LINUX_BINDER_H
 #define _UAPI_LINUX_BINDER_H
 
-#include <linux/types.h>
 #include <linux/ioctl.h>
 
 #define B_PACK_CHARS(c1, c2, c3, c4) \
@@ -191,6 +191,7 @@ struct binder_version {
 #define BINDER_SET_CONTEXT_MGR		_IOW('b', 7, __s32)
 #define BINDER_THREAD_EXIT		_IOW('b', 8, __s32)
 #define BINDER_VERSION			_IOWR('b', 9, struct binder_version)
+#define BINDER_SET_INHERIT_FIFO_PRIO	_IO('b', 10)
 
 /*
  * NOTE: Two special error codes you should check for when calling

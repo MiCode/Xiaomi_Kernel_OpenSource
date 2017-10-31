@@ -105,7 +105,7 @@ static int32_t aprv2_core_fn_q(struct apr_client_data *data, void *priv)
 	}
 
 	case RESET_EVENTS:{
-		pr_debug("%s: Reset event received in AV timer\n", __func__);
+		pr_err("%s: Reset event received in AV timer\n", __func__);
 		apr_reset(avtimer.core_handle_q);
 		avtimer.core_handle_q = NULL;
 		avtimer.avtimer_open_cnt = 0;

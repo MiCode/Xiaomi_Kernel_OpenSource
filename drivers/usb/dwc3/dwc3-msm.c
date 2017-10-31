@@ -1757,12 +1757,12 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event,
 		schedule_work(&mdwc->restart_usb_work);
 		break;
 	case DWC3_CONTROLLER_RESET_EVENT:
-		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_RESET_EVENT received\n");
+		dev_info(mdwc->dev, "DWC3_CONTROLLER_RESET_EVENT received\n");
 		/* HS & SSPHYs get reset as part of core soft reset */
 		dwc3_msm_qscratch_reg_init(mdwc);
 		break;
 	case DWC3_CONTROLLER_POST_RESET_EVENT:
-		dev_dbg(mdwc->dev,
+		dev_info(mdwc->dev,
 				"DWC3_CONTROLLER_POST_RESET_EVENT received\n");
 
 		/*
@@ -1797,7 +1797,7 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event,
 		dwc->tx_fifo_size = mdwc->tx_fifo_size;
 		break;
 	case DWC3_CONTROLLER_CONNDONE_EVENT:
-		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_CONNDONE_EVENT received\n");
+		dev_info(mdwc->dev, "DWC3_CONTROLLER_CONNDONE_EVENT received\n");
 		/*
 		 * Add power event if the dbm indicates coming out of L1 by
 		 * interrupt
@@ -1810,14 +1810,14 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event,
 		atomic_set(&dwc->in_lpm, 0);
 		break;
 	case DWC3_CONTROLLER_NOTIFY_OTG_EVENT:
-		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_NOTIFY_OTG_EVENT received\n");
+		dev_info(mdwc->dev, "DWC3_CONTROLLER_NOTIFY_OTG_EVENT received\n");
 		if (dwc->enable_bus_suspend) {
 			mdwc->suspend = dwc->b_suspend;
 			queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
 		}
 		break;
 	case DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT:
-		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT received\n");
+		dev_info(mdwc->dev, "DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT received\n");
 		schedule_work(&mdwc->vbus_draw_work);
 		break;
 	case DWC3_CONTROLLER_RESTART_USB_SESSION:
@@ -3597,7 +3597,8 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned mA)
 		}
 	}
 
-	power_supply_get_property(mdwc->usb_psy, POWER_SUPPLY_PROP_TYPE, &pval);
+	power_supply_get_property(mdwc->usb_psy,
+			POWER_SUPPLY_PROP_REAL_TYPE, &pval);
 	if (pval.intval != POWER_SUPPLY_TYPE_USB)
 		return 0;
 

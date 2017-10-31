@@ -654,7 +654,7 @@ int scm_call2(u32 fn_id, struct scm_desc *desc)
 	if (unlikely(!is_scm_armv8()))
 		return -ENODEV;
 
-	ret = allocate_extra_arg_buffer(desc, GFP_KERNEL);
+	ret = allocate_extra_arg_buffer(desc, GFP_NOIO);
 	if (ret)
 		return ret;
 

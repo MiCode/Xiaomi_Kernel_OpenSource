@@ -4,6 +4,7 @@
  * Original Copyright (C) 1995  Linus Torvalds
  * Copyright (C) 1996-2000 Russell King - Converted to ARM.
  * Copyright (C) 2012 ARM Ltd.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -260,7 +261,7 @@ void __show_regs(struct pt_regs *regs)
 			printk("\n");
 	}
 	if (!user_mode(regs))
-		show_extra_register_data(regs, 64);
+		show_extra_register_data(regs, 256);
 	printk("\n");
 }
 
