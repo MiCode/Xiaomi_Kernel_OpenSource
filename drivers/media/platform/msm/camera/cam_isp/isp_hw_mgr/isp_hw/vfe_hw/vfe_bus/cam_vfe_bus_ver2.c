@@ -2277,7 +2277,8 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 	struct cam_vfe_bus_ver2_wm_resource_data *wm_data = NULL;
 	uint32_t *reg_val_pair;
 	uint32_t  i, j, size = 0;
-	uint32_t  frame_inc = 0, val;
+	uint32_t  frame_inc = 0, ubwc_bw_limit = 0, camera_hw_version, val;
+	int rc = 0;
 
 	bus_priv = (struct cam_vfe_bus_ver2_priv  *) priv;
 	update_buf =  (struct cam_isp_hw_get_buf_update *) cmd_args;
@@ -2500,6 +2501,31 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 				update_buf->image_buf[i]);
 			CAM_DBG(CAM_ISP, "WM %d ubwc meta addr 0x%llx",
 				wm_data->index, update_buf->image_buf[i]);
+
+			/* Enable UBWC bandwidth limit if required */
+			rc = cam_cpas_get_cpas_hw_version(&camera_hw_version);
+			if (camera_hw_version == CAM_CPAS_TITAN_170_V110
+					&& !rc) {
+				switch (wm_data->format) {
+				case CAM_FORMAT_UBWC_TP10:
+					ubwc_bw_limit = 0x8 | BIT(0);
+					break;
+				case CAM_FORMAT_UBWC_NV12_4R:
+					ubwc_bw_limit = 0xB | BIT(0);
+					break;
+				default:
+					ubwc_bw_limit = 0;
+					break;
+				}
+			}
+
+			if (ubwc_bw_limit) {
+				CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+					wm_data->hw_regs->ubwc_regs->bw_limit,
+					ubwc_bw_limit);
+				CAM_DBG(CAM_ISP, "WM %d ubwc bw limit 0x%x",
+					wm_data->index, ubwc_bw_limit);
+			}
 		}
 
 		/* WM Image address */
