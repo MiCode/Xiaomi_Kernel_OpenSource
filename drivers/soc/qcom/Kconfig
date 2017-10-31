@@ -406,6 +406,14 @@ config MINIDUMP_MAX_ENTRIES
 	help
 	  This defines maximum number of entries to be allocated for application
 	  subsytem in Minidump table.
+config MSM_RPM_SMD
+	bool "RPM driver using SMD protocol"
+	help
+	  RPM is the dedicated hardware engine for managing shared SoC
+	  resources. This config adds driver support for using SMD as a
+	  transport layer communication with RPM hardware. It also selects
+	  the MSM_MPM config that programs the MPM module to monitor interrupts
+	  during sleep modes.
 
 config QCOM_BUS_SCALING
 	bool "Bus scaling driver"
