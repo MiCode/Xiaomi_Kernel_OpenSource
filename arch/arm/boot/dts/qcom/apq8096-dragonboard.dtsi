@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,6 +13,7 @@
 #include "msm8996-pinctrl.dtsi"
 #include "apq8096-camera-sensor-dragonboard.dtsi"
 #include "apq8096-ba.dtsi"
+#include "msm8996-mdss-panels.dtsi"
 
 / {
 	bluetooth: bt_qca6174 {
@@ -325,8 +326,6 @@
 		qcom,fast-avg-setup = <0>;
 	};
 };
-
-#include "msm8996-sde-display.dtsi"
 
 &dsi_hx8379a_fwvga_truly_vid {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";

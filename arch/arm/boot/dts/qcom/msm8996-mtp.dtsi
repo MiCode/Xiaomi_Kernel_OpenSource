@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -336,19 +336,10 @@
 	};
 };
 
-#include "msm8996-sde-display.dtsi"
 #include "msm8996-mdss-panels.dtsi"
 
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
-};
-
-&sde_hdmi {
-	status = "ok";
-};
-
-&mdss_dsi {
-	hw-config = "split_dsi";
 };
 
 &mdss_dsi0 {
@@ -385,7 +376,7 @@
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,cont-splash-enabled;
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_vdd_no_labibb>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
 	qcom,platform-reset-gpio = <&tlmm 8 0>;
 	qcom,platform-bklight-en-gpio = <&pm8994_gpios 14 0>;
 	qcom,5v-boost-gpio = <&pmi8994_gpios 8 0>;
