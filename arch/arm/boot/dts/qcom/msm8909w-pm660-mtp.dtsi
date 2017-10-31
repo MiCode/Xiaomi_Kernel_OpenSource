@@ -226,3 +226,16 @@
 		qcom,out-strength = <2>;
 	};
 };
+
+&pm660_misc {
+	qcom,support-twm-config;
+};
+
+&pm660_pbs {
+	status = "okay";
+};
+
+&pm660_pon {
+	qcom,support-twm-config;
+	qcom,pbs-client = <&pm660_pbs>;
+};

@@ -16,6 +16,13 @@ Optional properties:
 				if a non-zero PWM source is specified under
 				"qcom,pwm-sel" property.
 
+- qcom,support-twm-config	Enable configuration for TWM mode.
+
+- qcom,twm-mode			The TWM mode which PMIC enters post power-off.
+				Valid only if 'qcom,support-twm-config' is
+				defined. If not specified, the default mode
+				is 3.
+
 Example:
 	qcom,spmi@fc4c0000 {
 		#address-cells = <1>;

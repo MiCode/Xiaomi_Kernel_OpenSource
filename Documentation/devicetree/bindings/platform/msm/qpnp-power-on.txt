@@ -77,6 +77,10 @@ Optional properties:
 					but this applies for the system shutdown case.
 - qcom,kpdpwr-sw-debounce	Boolean property to enable the debounce logic
 				on the KPDPWR_N rising edge.
+- qcom,support-twm-config	Boolean property to allow the PON module to be
+				configured to support TWM modes.
+- qcom,pbs-client		Phandle of the PBS client node. Should be
+				defined if 'qcom,support-twm-config' is present.
 
 
 All the below properties are in the sub-node section (properties of the child
