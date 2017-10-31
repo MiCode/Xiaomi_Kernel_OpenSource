@@ -164,9 +164,10 @@
 	};
 
 	clock_rpmh: qcom,rpmhclk {
-		compatible = "qcom,dummycc";
-		clock-output-names = "rpmh_clocks";
+		compatible = "qcom,rpmh-clk-sdxpoorwills";
 		#clock-cells = <1>;
+		mboxes = <&apps_rsc 0>;
+		mbox-names = "apps";
 	};
 
 	blsp1_uart2: serial@831000 {
