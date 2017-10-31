@@ -5597,7 +5597,7 @@ int msm_comm_kill_session(struct msm_vidc_inst *inst)
 	}
 
 	dprintk(VIDC_WARN, "%s: inst %pK, session %x state %d\n", __func__,
-			inst, inst->state, hash32_ptr(inst->session));
+			inst, hash32_ptr(inst->session), inst->state);
 	/*
 	 * We're internally forcibly killing the session, if fw is aware of
 	 * the session send session_abort to firmware to clean up and release
