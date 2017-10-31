@@ -217,6 +217,7 @@ static void req_crypt_dec_pending_encrypt(struct req_dm_crypt_io *io)
 			 * this should never happen
 			 */
 			WARN_ON(1);
+			return;
 		}
 	} else {
 		DMERR("%s io is NULL\n", __func__);
@@ -225,6 +226,7 @@ static void req_crypt_dec_pending_encrypt(struct req_dm_crypt_io *io)
 		 * this should never happen
 		 */
 		WARN_ON(1);
+		return;
 	}
 
 	atomic_dec(&io->pending);
@@ -253,6 +255,7 @@ static void req_crypt_dec_pending_decrypt(struct req_dm_crypt_io *io)
 			 * this should never happen
 			 */
 			WARN_ON(1);
+			return;
 		}
 	} else {
 		DMERR("%s io is NULL\n",
@@ -262,6 +265,7 @@ static void req_crypt_dec_pending_decrypt(struct req_dm_crypt_io *io)
 		 * this should never happen
 		 */
 		WARN_ON(1);
+		return;
 	}
 
 	/* Should never get here if io or Clone is NULL */
@@ -445,6 +449,7 @@ static void req_cryptd_crypt_read_plain(struct req_dm_crypt_io *io)
 	if (!io || !io->cloned_request) {
 		DMERR("%s io is invalid\n", __func__);
 		WARN_ON(1); /* should not happen */
+		return;
 	}
 
 	clone = io->cloned_request;
@@ -696,6 +701,7 @@ static void req_cryptd_crypt_write_plain(struct req_dm_crypt_io *io)
 	if (!io || !io->cloned_request) {
 		DMERR("%s io is invalid\n", __func__);
 		WARN_ON(1); /* should not happen */
+		return;
 	}
 
 	clone = io->cloned_request;
@@ -740,6 +746,7 @@ static void req_cryptd_split_req_queue_cb(struct work_struct *work)
 		err = DM_REQ_CRYPT_ERROR;
 		/* If io is not populated this should not be called */
 		WARN_ON(1);
+		return;
 	}
 	req = skcipher_request_alloc(tfm, GFP_KERNEL);
 	if (!req) {

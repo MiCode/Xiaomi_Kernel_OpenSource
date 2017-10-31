@@ -95,19 +95,26 @@ static struct conntrack_gc_work conntrack_gc_work;
 
 void nf_conntrack_lock(spinlock_t *lock) __acquires(lock)
 {
+	/* 1) Acquire the lock */
 	spin_lock(lock);
-	while (unlikely(nf_conntrack_locks_all)) {
-		spin_unlock(lock);
 
-		/*
-		 * Order the 'nf_conntrack_locks_all' load vs. the
-		 * spin_unlock_wait() loads below, to ensure
-		 * that 'nf_conntrack_locks_all_lock' is indeed held:
-		 */
-		smp_rmb(); /* spin_lock(&nf_conntrack_locks_all_lock) */
-		spin_unlock_wait(&nf_conntrack_locks_all_lock);
-		spin_lock(lock);
-	}
+	/* 2) read nf_conntrack_locks_all, with ACQUIRE semantics
+	 * It pairs with the smp_store_release() in nf_conntrack_all_unlock()
+	 */
+	if (likely(smp_load_acquire(&nf_conntrack_locks_all) == false))
+		return;
+
+	/* fast path failed, unlock */
+	spin_unlock(lock);
+
+	/* Slow path 1) get global lock */
+	spin_lock(&nf_conntrack_locks_all_lock);
+
+	/* Slow path 2) get the lock we want */
+	spin_lock(lock);
+
+	/* Slow path 3) release the global lock */
+	spin_unlock(&nf_conntrack_locks_all_lock);
 }
 EXPORT_SYMBOL_GPL(nf_conntrack_lock);
 
@@ -148,28 +155,27 @@ static void nf_conntrack_all_lock(void)
 	int i;
 
 	spin_lock(&nf_conntrack_locks_all_lock);
+
 	nf_conntrack_locks_all = true;
 
-	/*
-	 * Order the above store of 'nf_conntrack_locks_all' against
-	 * the spin_unlock_wait() loads below, such that if
-	 * nf_conntrack_lock() observes 'nf_conntrack_locks_all'
-	 * we must observe nf_conntrack_locks[] held:
-	 */
-	smp_mb(); /* spin_lock(&nf_conntrack_locks_all_lock) */
-
 	for (i = 0; i < CONNTRACK_LOCKS; i++) {
-		spin_unlock_wait(&nf_conntrack_locks[i]);
+		spin_lock(&nf_conntrack_locks[i]);
+
+		/* This spin_unlock provides the "release" to ensure that
+		 * nf_conntrack_locks_all==true is visible to everyone that
+		 * acquired spin_lock(&nf_conntrack_locks[]).
+		 */
+		spin_unlock(&nf_conntrack_locks[i]);
 	}
 }
 
 static void nf_conntrack_all_unlock(void)
 {
-	/*
-	 * All prior stores must be complete before we clear
+	/* All prior stores must be complete before we clear
 	 * 'nf_conntrack_locks_all'. Otherwise nf_conntrack_lock()
 	 * might observe the false value but not the entire
-	 * critical section:
+	 * critical section.
+	 * It pairs with the smp_load_acquire() in nf_conntrack_lock()
 	 */
 	smp_store_release(&nf_conntrack_locks_all, false);
 	spin_unlock(&nf_conntrack_locks_all_lock);
@@ -180,6 +186,9 @@ EXPORT_SYMBOL_GPL(nf_conntrack_htable_size);
 
 unsigned int nf_conntrack_max __read_mostly;
 seqcount_t nf_conntrack_generation __read_mostly;
+
+unsigned int nf_conntrack_pkt_threshold __read_mostly;
+EXPORT_SYMBOL(nf_conntrack_pkt_threshold);
 
 DEFINE_PER_CPU(struct nf_conn, nf_conntrack_untracked);
 EXPORT_PER_CPU_SYMBOL(nf_conntrack_untracked);
@@ -378,11 +387,15 @@ void nf_ct_tmpl_free(struct nf_conn *tmpl)
 }
 EXPORT_SYMBOL_GPL(nf_ct_tmpl_free);
 
+void (*delete_sfe_entry)(struct nf_conn *ct) __rcu __read_mostly;
+EXPORT_SYMBOL(delete_sfe_entry);
+
 static void
 destroy_conntrack(struct nf_conntrack *nfct)
 {
 	struct nf_conn *ct = (struct nf_conn *)nfct;
 	struct nf_conntrack_l4proto *l4proto;
+	void (*delete_entry)(struct nf_conn *ct);
 
 	pr_debug("destroy_conntrack(%pK)\n", ct);
 	NF_CT_ASSERT(atomic_read(&nfct->use) == 0);
@@ -391,6 +404,17 @@ destroy_conntrack(struct nf_conntrack *nfct)
 		nf_ct_tmpl_free(ct);
 		return;
 	}
+
+	if (ct->sfe_entry) {
+		delete_entry = rcu_dereference(delete_sfe_entry);
+		if (delete_entry)
+			delete_entry(ct);
+	}
+
+	/* To make sure we don't get any weird locking issues here:
+	 * destroy_conntrack() MUST NOT be called with a write lock
+	 * to nf_conntrack_lock!!! -HW
+	 */
 	rcu_read_lock();
 	l4proto = __nf_ct_l4proto_find(nf_ct_l3num(ct), nf_ct_protonum(ct));
 	if (l4proto->destroy)
@@ -1434,6 +1458,9 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
 			  unsigned long extra_jiffies,
 			  int do_acct)
 {
+	struct nf_conn_acct *acct;
+	u64 pkts;
+
 	NF_CT_ASSERT(skb);
 
 	/* Only update if this is not a fixed timeout */
@@ -1446,8 +1473,27 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
 
 	ct->timeout = extra_jiffies;
 acct:
-	if (do_acct)
-		nf_ct_acct_update(ct, ctinfo, skb->len);
+	if (do_acct) {
+		acct = nf_conn_acct_find(ct);
+		if (acct) {
+			struct nf_conn_counter *counter = acct->counter;
+
+			atomic64_inc(&counter[CTINFO2DIR(ctinfo)].packets);
+			atomic64_add(skb->len, &counter
+					[CTINFO2DIR(ctinfo)].bytes);
+
+			pkts =
+			atomic64_read(&counter[CTINFO2DIR(ctinfo)].packets) +
+			atomic64_read(&counter[!CTINFO2DIR(ctinfo)].packets);
+			/* Report if the packet threshold is reached. */
+			if ((nf_conntrack_pkt_threshold > 0) &&
+			    (pkts == nf_conntrack_pkt_threshold)) {
+				nf_conntrack_event_cache(IPCT_COUNTER, ct);
+				nf_conntrack_event_cache(IPCT_PROTOINFO, ct);
+				nf_ct_deliver_cached_events(ct);
+			}
+		}
+	}
 }
 EXPORT_SYMBOL_GPL(__nf_ct_refresh_acct);
 

@@ -162,12 +162,6 @@ void device_pm_move_before(struct device *deva, struct device *devb)
 	pr_debug("PM: Moving %s:%s before %s:%s\n",
 		 deva->bus ? deva->bus->name : "No Bus", dev_name(deva),
 		 devb->bus ? devb->bus->name : "No Bus", dev_name(devb));
-	if (!((devb->pm_domain) || (devb->type && devb->type->pm)
-		|| (devb->class && (devb->class->pm || devb->class->resume))
-		|| (devb->bus && (devb->bus->pm || devb->bus->resume)) ||
-		(devb->driver && devb->driver->pm))) {
-		device_pm_add(devb);
-	}
 	/* Delete deva from dpm_list and reinsert before devb. */
 	list_move_tail(&deva->power.entry, &devb->power.entry);
 }
@@ -182,12 +176,6 @@ void device_pm_move_after(struct device *deva, struct device *devb)
 	pr_debug("PM: Moving %s:%s after %s:%s\n",
 		 deva->bus ? deva->bus->name : "No Bus", dev_name(deva),
 		 devb->bus ? devb->bus->name : "No Bus", dev_name(devb));
-	if (!((devb->pm_domain) || (devb->type && devb->type->pm)
-		|| (devb->class && (devb->class->pm || devb->class->resume))
-		|| (devb->bus && (devb->bus->pm || devb->bus->resume)) ||
-		(devb->driver && devb->driver->pm))) {
-		device_pm_add(devb);
-	}
 	/* Delete deva from dpm_list and reinsert after devb. */
 	list_move(&deva->power.entry, &devb->power.entry);
 }
@@ -1774,10 +1762,13 @@ void device_pm_check_callbacks(struct device *dev)
 {
 	spin_lock_irq(&dev->power.lock);
 	dev->power.no_pm_callbacks =
-		(!dev->bus || pm_ops_is_empty(dev->bus->pm)) &&
-		(!dev->class || pm_ops_is_empty(dev->class->pm)) &&
+		(!dev->bus || (pm_ops_is_empty(dev->bus->pm) &&
+		 !dev->bus->suspend && !dev->bus->resume)) &&
+		(!dev->class || (pm_ops_is_empty(dev->class->pm) &&
+		 !dev->class->suspend && !dev->class->resume)) &&
 		(!dev->type || pm_ops_is_empty(dev->type->pm)) &&
 		(!dev->pm_domain || pm_ops_is_empty(&dev->pm_domain->ops)) &&
-		(!dev->driver || pm_ops_is_empty(dev->driver->pm));
+		(!dev->driver || (pm_ops_is_empty(dev->driver->pm) &&
+		 !dev->driver->suspend && !dev->driver->resume));
 	spin_unlock_irq(&dev->power.lock);
 }

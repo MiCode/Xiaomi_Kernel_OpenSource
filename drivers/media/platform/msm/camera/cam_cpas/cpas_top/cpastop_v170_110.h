@@ -494,8 +494,15 @@ static struct cam_camnoc_specific
 	},
 	{
 		.port_type = CAM_CAMNOC_ICP,
-		.enable = false,
-	}
+		.enable = true,
+		.flag_out_set0_low = {
+			.enable = true,
+			.access_type = CAM_REG_TYPE_WRITE,
+			.masked_value = 0,
+			.offset = 0x2088,
+			.value = 0x100000,
+		},
+	},
 };
 
 static uint32_t cam_cpas110_slave_error_logger[] = {

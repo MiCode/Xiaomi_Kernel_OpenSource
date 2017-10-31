@@ -125,6 +125,27 @@ static inline bool msm_spm_is_mode_avail(unsigned int mode)
 	return false;
 }
 
+static inline int msm_spm_is_avs_enabled(unsigned int cpu)
+{
+	return -ENODEV;
+}
+
+static inline int msm_spm_avs_enable(unsigned int cpu)
+{
+	return -ENODEV;
+}
+
+static inline int msm_spm_avs_disable(unsigned int cpu)
+{
+	return -ENODEV;
+}
+
+static inline int msm_spm_avs_set_limit(unsigned int cpu, uint32_t min_lvl,
+		uint32_t max_lvl)
+{
+	return -ENODEV;
+}
+
 static inline int msm_spm_avs_enable_irq(unsigned int cpu,
 		enum msm_spm_avs_irq irq)
 {

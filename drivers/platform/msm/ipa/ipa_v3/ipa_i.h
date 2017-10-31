@@ -556,6 +556,7 @@ struct ipa3_ep_context {
 	u32 qmi_request_sent;
 	bool napi_enabled;
 	u32 eot_in_poll_err;
+	bool ep_delay_set;
 
 	/* sys MUST be the last element of this struct */
 	struct ipa3_sys_context *sys;
@@ -1033,11 +1034,6 @@ struct ipa3_ready_cb_info {
 	void *user_data;
 };
 
-struct ipa_tz_unlock_reg_info {
-	u64 reg_addr;
-	u32 size;
-};
-
 struct ipa_dma_task_info {
 	struct ipa_mem_buffer mem;
 	struct ipahal_imm_cmd_pyld *cmd_pyld;
@@ -1096,6 +1092,13 @@ struct ipa_hw_stats {
 struct ipa_cne_evt {
 	struct ipa_wan_msg wan_msg;
 	struct ipa_msg_meta msg_meta;
+};
+
+enum ipa_smmu_cb_type {
+	IPA_SMMU_CB_AP,
+	IPA_SMMU_CB_WLAN,
+	IPA_SMMU_CB_UC,
+	IPA_SMMU_CB_MAX
 };
 
 /**
@@ -1183,6 +1186,7 @@ struct ipa_cne_evt {
  * @ipa_ready_cb_list: A list of all the clients who require a CB when IPA
  *  driver is ready/initialized.
  * @init_completion_obj: Completion object to be used in case IPA driver hasn't
+ * @mhi_evid_limits: MHI event rings start and end ids
  *  finished initializing. Example of use - IOCTLs to /dev/ipa
  * IPA context - holds all relevant info about IPA driver and its state
  */
@@ -1296,7 +1300,7 @@ struct ipa3_context {
 	bool apply_rg10_wa;
 	bool gsi_ch20_wa;
 	bool smmu_present;
-	bool smmu_s1_bypass;
+	bool s1_bypass_arr[IPA_SMMU_CB_MAX];
 	u32 wdi_map_cnt;
 	struct wakeup_source w_lock;
 	struct ipa3_wakelock_ref_cnt wakelock_ref_cnt;
@@ -1310,6 +1314,7 @@ struct ipa3_context {
 	struct completion init_completion_obj;
 	struct completion uc_loaded_completion_obj;
 	struct ipa3_smp2p_info smp2p_info;
+	u32 mhi_evid_limits[2]; /* start and end values */
 	u32 ipa_tz_unlock_reg_num;
 	struct ipa_tz_unlock_reg_info *ipa_tz_unlock_reg;
 	struct ipa_dma_task_info dma_task_info;
@@ -1343,6 +1348,7 @@ struct ipa3_plat_drv_res {
 	bool apply_rg10_wa;
 	bool gsi_ch20_wa;
 	bool tethered_flow_control;
+	u32 mhi_evid_limits[2]; /* start and end values */
 	u32 ipa_tz_unlock_reg_num;
 	struct ipa_tz_unlock_reg_info *ipa_tz_unlock_reg;
 	bool use_ipa_pm;
@@ -1825,6 +1831,11 @@ int ipa3_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
 int ipa3_tear_down_uc_offload_pipes(int ipa_ep_idx_ul, int ipa_ep_idx_dl);
 int ipa3_ntn_uc_reg_rdyCB(void (*ipauc_ready_cb)(void *), void *priv);
 void ipa3_ntn_uc_dereg_rdyCB(void);
+int ipa3_conn_wdi3_pipes(struct ipa_wdi3_conn_in_params *in,
+	struct ipa_wdi3_conn_out_params *out);
+int ipa3_disconn_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
+int ipa3_enable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
+int ipa3_disable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
 
 /*
  * To retrieve doorbell physical address of
@@ -2094,6 +2105,8 @@ void ipa3_uc_register_handlers(enum ipa3_hw_features feature,
 			      struct ipa3_uc_hdlrs *hdlrs);
 int ipa3_create_nat_device(void);
 int ipa3_uc_notify_clk_state(bool enabled);
+int ipa3_dma_setup(void);
+void ipa3_dma_shutdown(void);
 void ipa3_dma_async_memcpy_notify_cb(void *priv,
 		enum ipa_dp_evt_type evt, unsigned long data);
 
@@ -2234,4 +2247,5 @@ int ipa3_allocate_dma_task_for_gsi(void);
 void ipa3_free_dma_task_for_gsi(void);
 int ipa3_set_clock_plan_from_pm(int idx);
 void __ipa_gsi_irq_rx_scedule_poll(struct ipa3_sys_context *sys);
+int ipa3_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs);
 #endif /* _IPA3_I_H_ */

@@ -702,9 +702,10 @@ TRACE_EVENT(cache_hwmon_update,
 TRACE_EVENT(memlat_dev_meas,
 
 	TP_PROTO(const char *name, unsigned int dev_id, unsigned long inst,
-		 unsigned long mem, unsigned long freq, unsigned int ratio),
+		 unsigned long mem, unsigned long freq, unsigned int stall,
+		 unsigned int ratio),
 
-	TP_ARGS(name, dev_id, inst, mem, freq, ratio),
+	TP_ARGS(name, dev_id, inst, mem, freq, stall, ratio),
 
 	TP_STRUCT__entry(
 		__string(name, name)
@@ -712,6 +713,7 @@ TRACE_EVENT(memlat_dev_meas,
 		__field(unsigned long, inst)
 		__field(unsigned long, mem)
 		__field(unsigned long, freq)
+		__field(unsigned int, stall)
 		__field(unsigned int, ratio)
 	),
 
@@ -721,15 +723,17 @@ TRACE_EVENT(memlat_dev_meas,
 		__entry->inst = inst;
 		__entry->mem = mem;
 		__entry->freq = freq;
+		__entry->stall = stall;
 		__entry->ratio = ratio;
 	),
 
-	TP_printk("dev: %s, id=%u, inst=%lu, mem=%lu, freq=%lu, ratio=%u",
+	TP_printk("dev: %s, id=%u, inst=%lu, mem=%lu, freq=%lu, stall=%u, ratio=%u",
 		__get_str(name),
 		__entry->dev_id,
 		__entry->inst,
 		__entry->mem,
 		__entry->freq,
+		__entry->stall,
 		__entry->ratio)
 );
 
@@ -795,6 +799,29 @@ TRACE_EVENT(sugov_util_update,
 		      __entry->cpu, __entry->util, __entry->avg_cap,
 		      __entry->max_cap, __entry->nl,
 		      __entry->pl, __entry->flags)
+);
+
+TRACE_EVENT(sugov_next_freq,
+	    TP_PROTO(unsigned int cpu, unsigned long util, unsigned long max,
+		     unsigned int freq),
+	    TP_ARGS(cpu, util, max, freq),
+	    TP_STRUCT__entry(
+		    __field(	unsigned int,	cpu)
+		    __field(	unsigned long,	util)
+		    __field(	unsigned long,	max)
+		    __field(	unsigned int,	freq)
+	    ),
+	    TP_fast_assign(
+		    __entry->cpu = cpu;
+		    __entry->util = util;
+		    __entry->max = max;
+		    __entry->freq = freq;
+	    ),
+	    TP_printk("cpu=%u util=%lu max=%lu freq=%u",
+		      __entry->cpu,
+		      __entry->util,
+		      __entry->max,
+		      __entry->freq)
 );
 
 DECLARE_EVENT_CLASS(kpm_module,

@@ -162,6 +162,13 @@ static const unsigned int top_tasks_bitmap_size =
  */
 __read_mostly unsigned int sysctl_sched_freq_reporting_policy;
 
+
+#define SCHED_BIG_WAKER_TASK_LOAD_PCT 25UL
+#define SCHED_SMALL_WAKEE_TASK_LOAD_PCT 10UL
+
+__read_mostly unsigned int sched_big_waker_task_load;
+__read_mostly unsigned int sched_small_wakee_task_load;
+
 static int __init set_sched_ravg_window(char *str)
 {
 	unsigned int window_size;
@@ -2833,14 +2840,11 @@ unsigned long do_thermal_cap(int cpu, unsigned long thermal_max_freq)
 		rcu_read_unlock();
 	}
 
-	if (cpu_max_table_freq[cpu] &&
-	    unlikely(thermal_max_freq && thermal_max_freq
-		!= cpu_max_table_freq[cpu])) {
+	if (cpu_max_table_freq[cpu])
 		return div64_ul(thermal_max_freq * max_cap[cpu],
 				cpu_max_table_freq[cpu]);
-	} else {
+	else
 		return rq->cpu_capacity_orig;
-	}
 }
 
 static DEFINE_SPINLOCK(cpu_freq_min_max_lock);
@@ -3116,4 +3120,9 @@ void walt_sched_init(struct rq *rq)
 
 	walt_cpu_util_freq_divisor =
 	    (sched_ravg_window >> SCHED_CAPACITY_SHIFT) * 100;
+
+	sched_big_waker_task_load =
+		(SCHED_BIG_WAKER_TASK_LOAD_PCT << SCHED_CAPACITY_SHIFT) / 100;
+	sched_small_wakee_task_load =
+		(SCHED_SMALL_WAKEE_TASK_LOAD_PCT << SCHED_CAPACITY_SHIFT) / 100;
 }

@@ -347,6 +347,9 @@ int dvb_dmx_video_pattern_search(
 						buf_size)
 					break;
 
+				if (current_size >= DVB_DMX_MAX_PATTERN_LEN)
+					break;
+
 				if (dvb_dmx_patterns_match(
 					(patterns[j]->pattern + current_size),
 					buf, (patterns[j]->mask + current_size),

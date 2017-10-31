@@ -50,8 +50,10 @@
 #define CAMX_SENSOR_DEV_NAME "cam-sensor-driver"
 
 enum cam_sensor_state_t {
-	CAM_SENSOR_POWER_DOWN,
-	CAM_SENSOR_POWER_UP,
+	CAM_SENSOR_INIT,
+	CAM_SENSOR_PROBE,
+	CAM_SENSOR_ACQUIRE,
+	CAM_SENSOR_START,
 };
 
 /**

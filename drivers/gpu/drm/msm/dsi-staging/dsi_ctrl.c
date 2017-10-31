@@ -785,10 +785,14 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 	if (host_cfg->data_lanes & DSI_DATA_LANE_3)
 		num_of_lanes++;
 
-	h_period = DSI_H_TOTAL_DSC(timing);
-	v_period = DSI_V_TOTAL(timing);
+	if (config->bit_clk_rate_hz == 0) {
+		h_period = DSI_H_TOTAL_DSC(timing);
+		v_period = DSI_V_TOTAL(timing);
+		bit_rate = h_period * v_period * timing->refresh_rate * bpp * 8;
+	} else {
+		bit_rate = config->bit_clk_rate_hz * num_of_lanes;
+	}
 
-	bit_rate = h_period * v_period * timing->refresh_rate * bpp * 8;
 	bit_rate_per_lane = bit_rate;
 	do_div(bit_rate_per_lane, num_of_lanes);
 	pclk_rate = bit_rate;
@@ -885,7 +889,6 @@ static int dsi_ctrl_copy_and_pad_cmd(struct dsi_ctrl *dsi_ctrl,
 	if (packet->payload_length > 0)
 		buf[3] |= BIT(6);
 
-	buf[3] |= BIT(7);
 
 	/* send embedded BTA for read commands */
 	if ((buf[2] & 0x3f) == MIPI_DSI_DCS_READ)
@@ -949,20 +952,21 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 		goto error;
 	}
 
+	rc = dsi_ctrl_copy_and_pad_cmd(dsi_ctrl,
+			&packet,
+			&buffer,
+			&length);
+	if (rc) {
+		pr_err("[%s] failed to copy message, rc=%d\n",
+				dsi_ctrl->name, rc);
+		goto error;
+	}
+
+	if ((msg->flags & MIPI_DSI_MSG_LASTCOMMAND))
+		buffer[3] |= BIT(7);//set the last cmd bit in header.
+
 	if (flags & DSI_CTRL_CMD_FETCH_MEMORY) {
-		rc = dsi_ctrl_copy_and_pad_cmd(dsi_ctrl,
-				&packet,
-				&buffer,
-				&length);
-
-		if (rc) {
-			pr_err("[%s] failed to copy message, rc=%d\n",
-					dsi_ctrl->name, rc);
-			goto error;
-		}
-
 		cmd_mem.offset = dsi_ctrl->cmd_buffer_iova;
-		cmd_mem.length = length;
 		cmd_mem.en_broadcast = (flags & DSI_CTRL_CMD_BROADCAST) ?
 			true : false;
 		cmd_mem.is_master = (flags & DSI_CTRL_CMD_BROADCAST_MASTER) ?
@@ -971,19 +975,20 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 			true : false;
 
 		cmdbuf = (u8 *)(dsi_ctrl->vaddr);
+
 		for (cnt = 0; cnt < length; cnt++)
-			cmdbuf[cnt] = buffer[cnt];
+			cmdbuf[dsi_ctrl->cmd_len + cnt] = buffer[cnt];
+
+		dsi_ctrl->cmd_len += length;
+
+		if (!(msg->flags & MIPI_DSI_MSG_LASTCOMMAND)) {
+			goto error;
+		} else {
+			cmd_mem.length = dsi_ctrl->cmd_len;
+			dsi_ctrl->cmd_len = 0;
+		}
 
 	} else if (flags & DSI_CTRL_CMD_FIFO_STORE) {
-		rc = dsi_ctrl_copy_and_pad_cmd(dsi_ctrl,
-					       &packet,
-					       &buffer,
-					       &length);
-		if (rc) {
-			pr_err("[%s] failed to copy message, rc=%d\n",
-			       dsi_ctrl->name, rc);
-			goto error;
-		}
 		cmd.command =  (u32 *)buffer;
 		cmd.size = length;
 		cmd.en_broadcast = (flags & DSI_CTRL_CMD_BROADCAST) ?
@@ -996,6 +1001,9 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 
 	hw_flags |= (flags & DSI_CTRL_CMD_DEFER_TRIGGER) ?
 			DSI_CTRL_HW_CMD_WAIT_FOR_TRIGGER : 0;
+
+	if ((msg->flags & MIPI_DSI_MSG_LASTCOMMAND))
+		hw_flags |= DSI_CTRL_CMD_LAST_COMMAND;
 
 	if (flags & DSI_CTRL_CMD_DEFER_TRIGGER) {
 		if (flags & DSI_CTRL_CMD_FETCH_MEMORY) {
@@ -2482,6 +2490,10 @@ int dsi_ctrl_cmd_tx_trigger(struct dsi_ctrl *dsi_ctrl, u32 flags)
 		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
+
+	/* Dont trigger the command if this is not the last ocmmand */
+	if (!(flags & DSI_CTRL_CMD_LAST_COMMAND))
+		return rc;
 
 	mutex_lock(&dsi_ctrl->ctrl_lock);
 

@@ -77,6 +77,8 @@ that share the parameters.It contains the following properties.
 	- qcom,pm-cpu-levels: The different low power modes that a CPU could
 	enter. The following section explains the required properties of this
 	node.
+	-qcom,use-prediction: This optional property is used to indicate the
+	the LPM governor is to apply sleep prediction to this cluster.
 
 [Node bindings for qcom,pm-cpu-levels]
  Required properties:

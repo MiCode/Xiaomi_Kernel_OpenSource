@@ -24,8 +24,6 @@
 #define GSI_CMD_TIMEOUT (5*HZ)
 #define GSI_STOP_CMD_TIMEOUT_MS 20
 #define GSI_MAX_CH_LOW_WEIGHT 15
-#define GSI_MHI_ER_START 10
-#define GSI_MHI_ER_END 16
 
 #define GSI_RESET_WA_MIN_SLEEP 1000
 #define GSI_RESET_WA_MAX_SLEEP 2000
@@ -829,10 +827,23 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 		return -GSI_STATUS_ERROR;
 	}
 
-	/* bitmap is max events excludes reserved events */
+	if (props->mhi_er_id_limits_valid &&
+	    props->mhi_er_id_limits[0] > (gsi_ctx->max_ev - 1)) {
+		devm_iounmap(gsi_ctx->dev, gsi_ctx->base);
+		gsi_ctx->base = NULL;
+		devm_free_irq(gsi_ctx->dev, props->irq, gsi_ctx);
+		GSIERR("MHI event ring start id %u is beyond max %u\n",
+			props->mhi_er_id_limits[0], gsi_ctx->max_ev);
+		return -GSI_STATUS_ERROR;
+	}
+
 	gsi_ctx->evt_bmap = ~((1 << gsi_ctx->max_ev) - 1);
-	gsi_ctx->evt_bmap |= ((1 << (GSI_MHI_ER_END + 1)) - 1) ^
-		((1 << GSI_MHI_ER_START) - 1);
+
+	/* exclude reserved mhi events */
+	if (props->mhi_er_id_limits_valid)
+		gsi_ctx->evt_bmap |=
+			((1 << (props->mhi_er_id_limits[1] + 1)) - 1) ^
+			((1 << (props->mhi_er_id_limits[0])) - 1);
 
 	/*
 	 * enable all interrupts but GSI_BREAK_POINT.
@@ -1084,8 +1095,8 @@ static int gsi_validate_evt_ring_props(struct gsi_evt_ring_props *props)
 
 	if (props->intf == GSI_EVT_CHTYPE_MHI_EV &&
 			(!props->evchid_valid ||
-			props->evchid > GSI_MHI_ER_END ||
-			props->evchid < GSI_MHI_ER_START)) {
+			props->evchid > gsi_ctx->per.mhi_er_id_limits[1] ||
+			props->evchid < gsi_ctx->per.mhi_er_id_limits[0])) {
 		GSIERR("MHI requires evchid valid=%d val=%u\n",
 				props->evchid_valid, props->evchid);
 		return -GSI_STATUS_INVALID_PARAMS;

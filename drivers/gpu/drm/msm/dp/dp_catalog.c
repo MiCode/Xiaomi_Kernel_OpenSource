@@ -604,7 +604,7 @@ static void dp_catalog_ctrl_mainlink_ctrl(struct dp_catalog_ctrl *ctrl,
 static void dp_catalog_ctrl_config_misc(struct dp_catalog_ctrl *ctrl,
 					u32 cc, u32 tb)
 {
-	u32 misc_val;
+	u32 misc_val = cc;
 	struct dp_catalog_private *catalog;
 	void __iomem *base;
 
@@ -616,8 +616,6 @@ static void dp_catalog_ctrl_config_misc(struct dp_catalog_ctrl *ctrl,
 	dp_catalog_get_priv(ctrl);
 	base = catalog->io->ctrl_io.base;
 
-	misc_val = dp_read(base + DP_MISC1_MISC0);
-	misc_val |= cc;
 	misc_val |= (tb << 5);
 	misc_val |= BIT(0); /* Configure clock to synchronous mode */
 

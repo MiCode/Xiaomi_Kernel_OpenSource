@@ -22,6 +22,19 @@
 #define MSM_VIDC_MIN_UBWC_COMPRESSION_RATIO (1 << 16)
 #define MSM_VIDC_MAX_UBWC_COMPRESSION_RATIO (5 << 16)
 
+static inline void msm_dcvs_print_dcvs_stats(struct clock_data *dcvs)
+{
+	dprintk(VIDC_PROF,
+		"DCVS: Load_Low %d, Load Norm %d, Load High %d\n",
+		dcvs->load_low,
+		dcvs->load_norm,
+		dcvs->load_high);
+
+	dprintk(VIDC_PROF,
+		"DCVS: min_threshold %d, max_threshold %d\n",
+		dcvs->min_threshold, dcvs->max_threshold);
+}
+
 static inline unsigned long int get_ubwc_compression_ratio(
 	struct ubwc_cr_stats_info_type ubwc_stats_info)
 {
@@ -133,7 +146,7 @@ static int fill_dynamic_stats(struct msm_vidc_inst *inst,
 	vote_data->use_dpb_read = false;
 
 	/* Check if driver can vote for lower bus BW */
-	if (inst->clk_data.load <= inst->clk_data.load_norm) {
+	if (inst->clk_data.load < inst->clk_data.load_norm) {
 		vote_data->compression_ratio = max_cr;
 		vote_data->complexity_factor = min_cf;
 		vote_data->input_cr = max_input_cr;
@@ -270,9 +283,11 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 	return rc;
 }
 
-static inline int get_pending_bufs_fw(struct msm_vidc_inst *inst)
+static inline int get_bufs_outside_fw(struct msm_vidc_inst *inst)
 {
-	int fw_out_qsize = 0;
+	u32 fw_out_qsize = 0, i = 0;
+	struct vb2_queue *q = NULL;
+	struct vb2_buffer *vb = NULL;
 
 	/*
 	 * DCVS always operates on Uncompressed buffers.
@@ -281,10 +296,29 @@ static inline int get_pending_bufs_fw(struct msm_vidc_inst *inst)
 
 	if (inst->state >= MSM_VIDC_OPEN_DONE &&
 			inst->state < MSM_VIDC_STOP_DONE) {
-		if (inst->session_type == MSM_VIDC_DECODER)
-			fw_out_qsize = inst->count.ftb - inst->count.fbd;
-		else
-			fw_out_qsize = inst->count.etb - inst->count.ebd;
+
+		/*
+		 * For decoder, there will be some frames with client
+		 * but not to be displayed. Ex : VP9 DECODE_ONLY frames.
+		 * Hence don't count them.
+		 */
+
+		if (inst->session_type == MSM_VIDC_DECODER) {
+			q = &inst->bufq[CAPTURE_PORT].vb2_bufq;
+			for (i = 0; i < q->num_buffers; i++) {
+				vb = q->bufs[i];
+				if (vb->state != VB2_BUF_STATE_ACTIVE &&
+						vb->planes[0].bytesused)
+					fw_out_qsize++;
+			}
+		} else {
+			q = &inst->bufq[OUTPUT_PORT].vb2_bufq;
+			for (i = 0; i < q->num_buffers; i++) {
+				vb = q->bufs[i];
+				if (vb->state != VB2_BUF_STATE_ACTIVE)
+					fw_out_qsize++;
+			}
+		}
 	}
 
 	return fw_out_qsize;
@@ -315,7 +349,7 @@ static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst)
 
 	core = inst->core;
 	mutex_lock(&inst->lock);
-	fw_pending_bufs = get_pending_bufs_fw(inst);
+	buffers_outside_fw = get_bufs_outside_fw(inst);
 
 	output_buf_req = get_buff_req_buffer(inst,
 			dcvs->buffer_type);
@@ -332,8 +366,8 @@ static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst)
 
 	min_output_buf = output_buf_req->buffer_count_min;
 
-	/* Buffers outside FW are with display */
-	buffers_outside_fw = total_output_buf - fw_pending_bufs;
+	/* Buffers outside Display are with FW. */
+	fw_pending_bufs = total_output_buf - buffers_outside_fw;
 	dprintk(VIDC_PROF,
 		"Counts : total_output_buf = %d Min buffers = %d fw_pending_bufs = %d buffers_outside_fw = %d\n",
 		total_output_buf, min_output_buf, fw_pending_bufs,
@@ -359,7 +393,7 @@ static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst)
 
 	if (buffers_outside_fw <= dcvs->max_threshold)
 		dcvs->load = dcvs->load_high;
-	else if (fw_pending_bufs <= min_output_buf)
+	else if (fw_pending_bufs < min_output_buf)
 		dcvs->load = dcvs->load_low;
 	else
 		dcvs->load = dcvs->load_norm;
@@ -509,6 +543,14 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 	unsigned long vpp_cycles = 0, vsp_cycles = 0;
 	u32 vpp_cycles_per_mb;
 	u32 mbs_per_second;
+	struct msm_vidc_core *core = NULL;
+	int i = 0;
+	struct allowed_clock_rates_table *allowed_clks_tbl = NULL;
+	u64 rate = 0;
+	struct clock_data *dcvs = NULL;
+
+	core = inst->core;
+	dcvs = &inst->clk_data;
 
 	mbs_per_second = msm_comm_get_inst_load_per_core(inst,
 		LOAD_CALC_NO_QUIRKS);
@@ -543,6 +585,22 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 	}
 
 	freq = max(vpp_cycles, vsp_cycles);
+
+	dprintk(VIDC_DBG, "Update DCVS Load\n");
+	allowed_clks_tbl = core->resources.allowed_clks_tbl;
+	for (i = core->resources.allowed_clks_tbl_size - 1; i >= 0; i--) {
+		rate = allowed_clks_tbl[i].clock_rate;
+		if (rate >= freq)
+			break;
+	}
+
+	dcvs->load_norm = rate;
+	dcvs->load_low = i < (core->resources.allowed_clks_tbl_size - 1) ?
+		allowed_clks_tbl[i+1].clock_rate : dcvs->load_norm;
+	dcvs->load_high = i > 0 ? allowed_clks_tbl[i-1].clock_rate :
+		dcvs->load_norm;
+
+	msm_dcvs_print_dcvs_stats(dcvs);
 
 	dprintk(VIDC_PROF, "%s Inst %pK : Filled Len = %d Freq = %lu\n",
 		__func__, inst, filled_len, freq);
@@ -652,7 +710,9 @@ int msm_vidc_validate_operating_rate(struct msm_vidc_inst *inst,
 
 	operating_rate = operating_rate >> 16;
 
-	if ((curr_operating_rate + ops_left) >= operating_rate) {
+	if ((curr_operating_rate + ops_left) >= operating_rate ||
+			!msm_vidc_clock_scaling ||
+			inst->clk_data.buffer_counter < DCVS_FTB_WINDOW) {
 		dprintk(VIDC_DBG,
 			"Requestd operating rate is valid %u\n",
 			operating_rate);
@@ -796,19 +856,6 @@ int msm_comm_init_clocks_and_bus_data(struct msm_vidc_inst *inst)
 	return rc;
 }
 
-static inline void msm_dcvs_print_dcvs_stats(struct clock_data *dcvs)
-{
-	dprintk(VIDC_PROF,
-		"DCVS: Load_Low %d, Load Norm %d, Load High %d\n",
-		dcvs->load_low,
-		dcvs->load_norm,
-		dcvs->load_high);
-
-	dprintk(VIDC_PROF,
-		"DCVS: min_threshold %d, max_threshold %d\n",
-		dcvs->min_threshold, dcvs->max_threshold);
-}
-
 void msm_clock_data_reset(struct msm_vidc_inst *inst)
 {
 	struct msm_vidc_core *core;
@@ -851,7 +898,8 @@ void msm_clock_data_reset(struct msm_vidc_inst *inst)
 			return;
 		}
 		dcvs->max_threshold = output_buf_req->buffer_count_actual -
-			output_buf_req->buffer_count_min_host + 1;
+			output_buf_req->buffer_count_min_host + 2;
+
 		dcvs->min_threshold =
 			msm_vidc_get_extra_buff_count(inst, dcvs->buffer_type);
 	} else {

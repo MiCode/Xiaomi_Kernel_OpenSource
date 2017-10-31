@@ -101,6 +101,9 @@
 #define sCR0_VMID16EN			(1 << 31)
 #define sCR0_BSU_SHIFT			14
 #define sCR0_BSU_MASK			0x3
+#define sCR0_SHCFG_SHIFT		22
+#define sCR0_SHCFG_MASK			0x3
+#define sCR0_SHCFG_NSH			3
 
 /* Auxiliary Configuration register */
 #define ARM_SMMU_GR0_sACR		0x10
@@ -177,6 +180,9 @@
 #define S2CR_CBNDX_MASK			0xff
 #define S2CR_TYPE_SHIFT			16
 #define S2CR_TYPE_MASK			0x3
+#define S2CR_SHCFG_SHIFT		8
+#define S2CR_SHCFG_MASK			0x3
+#define S2CR_SHCFG_NSH			0x3
 enum arm_smmu_s2cr_type {
 	S2CR_TYPE_TRANS,
 	S2CR_TYPE_BYPASS,
@@ -251,6 +257,9 @@ enum arm_smmu_s2cr_privcfg {
 #define ARM_SMMU_CB_ATS1PR		0x800
 #define ARM_SMMU_CB_ATSR		0x8f0
 
+#define SCTLR_SHCFG_SHIFT		22
+#define SCTLR_SHCFG_MASK		0x3
+#define SCTLR_SHCFG_NSH			0x3
 #define SCTLR_S1_ASIDPNE		(1 << 12)
 #define SCTLR_CFCFG			(1 << 7)
 #define SCTLR_HUPCF			(1 << 8)
@@ -320,14 +329,6 @@ enum arm_smmu_implementation {
 	CAVIUM_SMMUV2,
 	QCOM_SMMUV2,
 	QCOM_SMMUV500,
-};
-
-struct arm_smmu_device;
-struct arm_smmu_arch_ops {
-	int (*init)(struct arm_smmu_device *smmu);
-	void (*device_reset)(struct arm_smmu_device *smmu);
-	phys_addr_t (*iova_to_phys_hard)(struct iommu_domain *domain,
-					 dma_addr_t iova);
 };
 
 struct arm_smmu_impl_def_reg {
@@ -403,6 +404,7 @@ struct arm_smmu_power_resources {
 	int				regulator_defer;
 };
 
+struct arm_smmu_arch_ops;
 struct arm_smmu_device {
 	struct device			*dev;
 
@@ -534,6 +536,7 @@ struct arm_smmu_domain {
 
 	bool				qsmmuv500_errata1_init;
 	bool				qsmmuv500_errata1_client;
+	bool				qsmmuv500_errata2_min_align;
 };
 
 static DEFINE_SPINLOCK(arm_smmu_devices_lock);
@@ -570,9 +573,6 @@ static int arm_smmu_prepare_pgtable(void *addr, void *cookie);
 static void arm_smmu_unprepare_pgtable(void *cookie, void *addr, size_t size);
 static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain);
 static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain);
-
-static int arm_smmu_arch_init(struct arm_smmu_device *smmu);
-static void arm_smmu_arch_device_reset(struct arm_smmu_device *smmu);
 
 static uint64_t arm_smmu_iova_to_pte(struct iommu_domain *domain,
 				    dma_addr_t iova);
@@ -636,6 +636,76 @@ static void arm_smmu_secure_domain_unlock(struct arm_smmu_domain *smmu_domain)
 {
 	if (arm_smmu_is_domain_secure(smmu_domain))
 		mutex_unlock(&smmu_domain->assign_lock);
+}
+
+/*
+ * init()
+ * Hook for additional device tree parsing at probe time.
+ *
+ * device_reset()
+ * Hook for one-time architecture-specific register settings.
+ *
+ * iova_to_phys_hard()
+ * Provides debug information. May be called from the context fault irq handler.
+ *
+ * init_context_bank()
+ * Hook for architecture-specific settings which require knowledge of the
+ * dynamically allocated context bank number.
+ *
+ * device_group()
+ * Hook for checking whether a device is compatible with a said group.
+ */
+struct arm_smmu_arch_ops {
+	int (*init)(struct arm_smmu_device *smmu);
+	void (*device_reset)(struct arm_smmu_device *smmu);
+	phys_addr_t (*iova_to_phys_hard)(struct iommu_domain *domain,
+					 dma_addr_t iova);
+	void (*init_context_bank)(struct arm_smmu_domain *smmu_domain,
+					struct device *dev);
+	int (*device_group)(struct device *dev, struct iommu_group *group);
+};
+
+static int arm_smmu_arch_init(struct arm_smmu_device *smmu)
+{
+	if (!smmu->arch_ops)
+		return 0;
+	if (!smmu->arch_ops->init)
+		return 0;
+	return smmu->arch_ops->init(smmu);
+}
+
+static void arm_smmu_arch_device_reset(struct arm_smmu_device *smmu)
+{
+	if (!smmu->arch_ops)
+		return;
+	if (!smmu->arch_ops->device_reset)
+		return;
+	return smmu->arch_ops->device_reset(smmu);
+}
+
+static void arm_smmu_arch_init_context_bank(
+		struct arm_smmu_domain *smmu_domain, struct device *dev)
+{
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+
+	if (!smmu->arch_ops)
+		return;
+	if (!smmu->arch_ops->init_context_bank)
+		return;
+	return smmu->arch_ops->init_context_bank(smmu_domain, dev);
+}
+
+static int arm_smmu_arch_device_group(struct device *dev,
+					struct iommu_group *group)
+{
+	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+	struct arm_smmu_device *smmu = fwspec_smmu(fwspec);
+
+	if (!smmu->arch_ops)
+		return 0;
+	if (!smmu->arch_ops->device_group)
+		return 0;
+	return smmu->arch_ops->device_group(dev, group);
 }
 
 static struct device_node *dev_get_dev_node(struct device *dev)
@@ -1181,6 +1251,7 @@ static void arm_smmu_secure_pool_destroy(struct arm_smmu_domain *smmu_domain)
 	list_for_each_entry_safe(it, i, &smmu_domain->secure_pool_list, list) {
 		arm_smmu_unprepare_pgtable(smmu_domain, it->addr, it->size);
 		/* pages will be freed later (after being unassigned) */
+		list_del(&it->list);
 		kfree(it);
 	}
 }
@@ -1526,6 +1597,9 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 	/* SCTLR */
 	reg = SCTLR_CFCFG | SCTLR_CFIE | SCTLR_CFRE | SCTLR_AFE | SCTLR_TRE;
 
+	/* Ensure bypass transactions are Non-shareable */
+	reg |= SCTLR_SHCFG_NSH << SCTLR_SHCFG_SHIFT;
+
 	if (smmu_domain->attributes & (1 << DOMAIN_ATTR_CB_STALL_DISABLE)) {
 		reg &= ~SCTLR_CFCFG;
 		reg |= SCTLR_HUPCF;
@@ -1774,6 +1848,8 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		arm_smmu_init_context_bank(smmu_domain,
 						&smmu_domain->pgtbl_cfg);
 
+		arm_smmu_arch_init_context_bank(smmu_domain, dev);
+
 		/*
 		 * Request context fault interrupt. Do this last to avoid the
 		 * handler seeing a half-initialised domain state.
@@ -1929,7 +2005,8 @@ static void arm_smmu_write_s2cr(struct arm_smmu_device *smmu, int idx)
 	struct arm_smmu_s2cr *s2cr = smmu->s2crs + idx;
 	u32 reg = (s2cr->type & S2CR_TYPE_MASK) << S2CR_TYPE_SHIFT |
 		  (s2cr->cbndx & S2CR_CBNDX_MASK) << S2CR_CBNDX_SHIFT |
-		  (s2cr->privcfg & S2CR_PRIVCFG_MASK) << S2CR_PRIVCFG_SHIFT;
+		  (s2cr->privcfg & S2CR_PRIVCFG_MASK) << S2CR_PRIVCFG_SHIFT |
+		  S2CR_SHCFG_NSH << S2CR_SHCFG_SHIFT;
 
 	writel_relaxed(reg, ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_S2CR(idx));
 }
@@ -2392,10 +2469,6 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	if (!ops)
 		return -ENODEV;
 
-	ret = arm_smmu_domain_power_on(domain, smmu_domain->smmu);
-	if (ret)
-		return ret;
-
 	arm_smmu_secure_domain_lock(smmu_domain);
 
 	__saved_iova_start = iova;
@@ -2436,7 +2509,6 @@ out:
 		iova = __saved_iova_start;
 	}
 	arm_smmu_secure_domain_unlock(smmu_domain);
-	arm_smmu_domain_power_off(domain, smmu_domain->smmu);
 	return iova - __saved_iova_start;
 }
 
@@ -2686,13 +2758,20 @@ static struct iommu_group *arm_smmu_device_group(struct device *dev)
 		group = smmu->s2crs[idx].group;
 	}
 
-	if (group)
-		return group;
+	if (!group) {
+		if (dev_is_pci(dev))
+			group = pci_device_group(dev);
+		else
+			group = generic_device_group(dev);
 
-	if (dev_is_pci(dev))
-		group = pci_device_group(dev);
-	else
-		group = generic_device_group(dev);
+		if (IS_ERR(group))
+			return NULL;
+	}
+
+	if (arm_smmu_arch_device_group(dev, group)) {
+		iommu_group_put(group);
+		return ERR_PTR(-EINVAL);
+	}
 
 	return group;
 }
@@ -2818,6 +2897,10 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 	case DOMAIN_ATTR_CB_STALL_DISABLE:
 		*((int *)data) = !!(smmu_domain->attributes
 			& (1 << DOMAIN_ATTR_CB_STALL_DISABLE));
+		ret = 0;
+		break;
+	case DOMAIN_ATTR_QCOM_MMU500_ERRATA_MIN_ALIGN:
+		*((int *)data) = smmu_domain->qsmmuv500_errata2_min_align;
 		ret = 0;
 		break;
 	default:
@@ -2950,11 +3033,22 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 				1 << DOMAIN_ATTR_UPSTREAM_IOVA_ALLOCATOR;
 		ret = 0;
 		break;
+	/*
+	 * fast_smmu_unmap_page() and fast_smmu_alloc_iova() both
+	 * expect that the bus/clock/regulator are already on. Thus also
+	 * force DOMAIN_ATTR_ATOMIC to bet set.
+	 */
 	case DOMAIN_ATTR_FAST:
-		if (*((int *)data))
+	{
+		int fast = *((int *)data);
+
+		if (fast) {
 			smmu_domain->attributes |= 1 << DOMAIN_ATTR_FAST;
+			smmu_domain->attributes |= 1 << DOMAIN_ATTR_ATOMIC;
+		}
 		ret = 0;
 		break;
+	}
 	case DOMAIN_ATTR_USE_UPSTREAM_HINT:
 		/* can't be changed while attached */
 		if (smmu_domain->smmu != NULL) {
@@ -3429,6 +3523,10 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 
 	if (smmu->features & ARM_SMMU_FEAT_VMID16)
 		reg |= sCR0_VMID16EN;
+
+	/* Force bypass transaction to be Non-Shareable & not io-coherent */
+	reg &= ~(sCR0_SHCFG_MASK << sCR0_SHCFG_SHIFT);
+	reg |= sCR0_SHCFG_NSH;
 
 	/* Push the button */
 	__arm_smmu_tlb_sync(smmu);
@@ -3978,24 +4076,6 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 	return 0;
 }
 
-static int arm_smmu_arch_init(struct arm_smmu_device *smmu)
-{
-	if (!smmu->arch_ops)
-		return 0;
-	if (!smmu->arch_ops->init)
-		return 0;
-	return smmu->arch_ops->init(smmu);
-}
-
-static void arm_smmu_arch_device_reset(struct arm_smmu_device *smmu)
-{
-	if (!smmu->arch_ops)
-		return;
-	if (!smmu->arch_ops->device_reset)
-		return;
-	return smmu->arch_ops->device_reset(smmu);
-}
-
 struct arm_smmu_match_data {
 	enum arm_smmu_arch_version version;
 	enum arm_smmu_implementation model;
@@ -4320,6 +4400,15 @@ IOMMU_OF_DECLARE(cavium_smmuv2, "cavium,smmu-v2", arm_smmu_of_init);
 
 #define TBU_DBG_TIMEOUT_US		30000
 
+#define QSMMUV500_ACTLR_DEEP_PREFETCH_MASK	0x3
+#define QSMMUV500_ACTLR_DEEP_PREFETCH_SHIFT	0x8
+
+
+struct actlr_setting {
+	struct arm_smmu_smr smr;
+	u32 actlr;
+};
+
 struct qsmmuv500_archdata {
 	struct list_head		tbus;
 	void __iomem			*tcu_base;
@@ -4352,14 +4441,24 @@ struct qsmmuv500_tbu_device {
 	u32				halt_count;
 };
 
-static bool arm_smmu_domain_match_smr(struct arm_smmu_domain *smmu_domain,
+struct qsmmuv500_group_iommudata {
+	bool has_actlr;
+	u32 actlr;
+};
+#define to_qsmmuv500_group_iommudata(group)				\
+	((struct qsmmuv500_group_iommudata *)				\
+		(iommu_group_get_iommudata(group)))
+
+
+static bool arm_smmu_fwspec_match_smr(struct iommu_fwspec *fwspec,
 				      struct arm_smmu_smr *smr)
 {
 	struct arm_smmu_smr *smr2;
+	struct arm_smmu_device *smmu = fwspec_smmu(fwspec);
 	int i, idx;
 
-	for_each_cfg_sme(smmu_domain->dev->iommu_fwspec, i, idx) {
-		smr2 = &smmu_domain->smmu->smrs[idx];
+	for_each_cfg_sme(fwspec, i, idx) {
+		smr2 = &smmu->smrs[idx];
 		/* Continue if table entry does not match */
 		if ((smr->id ^ smr2->id) & ~(smr->mask | smr2->mask))
 			continue;
@@ -4377,13 +4476,15 @@ qsmmuv500_errata1_required(struct arm_smmu_domain *smmu_domain,
 	bool ret = false;
 	int j;
 	struct arm_smmu_smr *smr;
+	struct iommu_fwspec *fwspec;
 
 	if (smmu_domain->qsmmuv500_errata1_init)
 		return smmu_domain->qsmmuv500_errata1_client;
 
+	fwspec = smmu_domain->dev->iommu_fwspec;
 	for (j = 0; j < data->num_errata1_clients; j++) {
 		smr = &data->errata1_clients[j];
-		if (arm_smmu_domain_match_smr(smmu_domain, smr)) {
+		if (arm_smmu_fwspec_match_smr(fwspec, smr)) {
 			ret = true;
 			break;
 		}
@@ -4717,6 +4818,83 @@ static phys_addr_t qsmmuv500_iova_to_phys_hard(
 	return qsmmuv500_iova_to_phys(domain, iova, sid);
 }
 
+static void qsmmuv500_release_group_iommudata(void *data)
+{
+	kfree(data);
+}
+
+/* If a device has a valid actlr, it must match */
+static int qsmmuv500_device_group(struct device *dev,
+				struct iommu_group *group)
+{
+	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+	struct arm_smmu_device *smmu = fwspec_smmu(fwspec);
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
+	struct qsmmuv500_group_iommudata *iommudata;
+	u32 actlr, i;
+	struct arm_smmu_smr *smr;
+
+	iommudata = to_qsmmuv500_group_iommudata(group);
+	if (!iommudata) {
+		iommudata = kzalloc(sizeof(*iommudata), GFP_KERNEL);
+		if (!iommudata)
+			return -ENOMEM;
+
+		iommu_group_set_iommudata(group, iommudata,
+				qsmmuv500_release_group_iommudata);
+	}
+
+	for (i = 0; i < data->actlr_tbl_size; i++) {
+		smr = &data->actlrs[i].smr;
+		actlr = data->actlrs[i].actlr;
+
+		if (!arm_smmu_fwspec_match_smr(fwspec, smr))
+			continue;
+
+		if (!iommudata->has_actlr) {
+			iommudata->actlr = actlr;
+			iommudata->has_actlr = true;
+		} else if (iommudata->actlr != actlr) {
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
+static void qsmmuv500_init_cb(struct arm_smmu_domain *smmu_domain,
+				struct device *dev)
+{
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	struct qsmmuv500_group_iommudata *iommudata =
+		to_qsmmuv500_group_iommudata(dev->iommu_group);
+	void __iomem *cb_base;
+	const struct iommu_gather_ops *tlb;
+
+	if (!iommudata->has_actlr)
+		return;
+
+	tlb = smmu_domain->pgtbl_cfg.tlb;
+	cb_base = ARM_SMMU_CB_BASE(smmu) +
+			ARM_SMMU_CB(smmu, smmu_domain->cfg.cbndx);
+
+	writel_relaxed(iommudata->actlr, cb_base + ARM_SMMU_CB_ACTLR);
+
+	/*
+	 * Prefetch only works properly if the start and end of all
+	 * buffers in the page table are aligned to 16 Kb.
+	 */
+	if ((iommudata->actlr >> QSMMUV500_ACTLR_DEEP_PREFETCH_SHIFT) &&
+			QSMMUV500_ACTLR_DEEP_PREFETCH_MASK)
+		smmu_domain->qsmmuv500_errata2_min_align = true;
+
+	/*
+	 * Flush the context bank after modifying ACTLR to ensure there
+	 * are no cache entries with stale state
+	 */
+	tlb->tlb_flush_all(smmu_domain);
+}
+
 static int qsmmuv500_tbu_register(struct device *dev, void *cookie)
 {
 	struct arm_smmu_device *smmu = cookie;
@@ -4768,6 +4946,38 @@ static int qsmmuv500_parse_errata1(struct arm_smmu_device *smmu)
 	return 0;
 }
 
+static int qsmmuv500_read_actlr_tbl(struct arm_smmu_device *smmu)
+{
+	int len, i;
+	struct device *dev = smmu->dev;
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
+	struct actlr_setting *actlrs;
+	const __be32 *cell;
+
+	cell = of_get_property(dev->of_node, "qcom,actlr", NULL);
+	if (!cell)
+		return 0;
+
+	len = of_property_count_elems_of_size(dev->of_node, "qcom,actlr",
+						sizeof(u32) * 3);
+	if (len < 0)
+		return 0;
+
+	actlrs = devm_kzalloc(dev, sizeof(*actlrs) * len, GFP_KERNEL);
+	if (!actlrs)
+		return -ENOMEM;
+
+	for (i = 0; i < len; i++) {
+		actlrs[i].smr.id = of_read_number(cell++, 1);
+		actlrs[i].smr.mask = of_read_number(cell++, 1);
+		actlrs[i].actlr = of_read_number(cell++, 1);
+	}
+
+	data->actlrs = actlrs;
+	data->actlr_tbl_size = len;
+	return 0;
+}
+
 static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 {
 	struct resource *res;
@@ -4775,6 +4985,8 @@ static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 	struct qsmmuv500_archdata *data;
 	struct platform_device *pdev;
 	int ret;
+	u32 val;
+	void __iomem *reg;
 
 	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
 	if (!data)
@@ -4795,6 +5007,22 @@ static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 	if (ret)
 		return ret;
 
+	ret = qsmmuv500_read_actlr_tbl(smmu);
+	if (ret)
+		return ret;
+
+	reg = ARM_SMMU_GR0(smmu);
+	val = readl_relaxed(reg + ARM_SMMU_GR0_sACR);
+	val &= ~ARM_MMU500_ACR_CACHE_LOCK;
+	writel_relaxed(val, reg + ARM_SMMU_GR0_sACR);
+	val = readl_relaxed(reg + ARM_SMMU_GR0_sACR);
+	/*
+	 * Modifiying the nonsecure copy of the sACR register is only
+	 * allowed if permission is given in the secure sACR register.
+	 * Attempt to detect if we were able to update the value.
+	 */
+	WARN_ON(val & ARM_MMU500_ACR_CACHE_LOCK);
+
 	ret = of_platform_populate(dev->of_node, NULL, NULL, dev);
 	if (ret)
 		return ret;
@@ -4810,6 +5038,8 @@ static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 struct arm_smmu_arch_ops qsmmuv500_arch_ops = {
 	.init = qsmmuv500_arch_init,
 	.iova_to_phys_hard = qsmmuv500_iova_to_phys_hard,
+	.init_context_bank = qsmmuv500_init_cb,
+	.device_group = qsmmuv500_device_group,
 };
 
 static const struct of_device_id qsmmuv500_tbu_of_match[] = {

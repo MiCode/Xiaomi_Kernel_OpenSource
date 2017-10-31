@@ -1730,6 +1730,7 @@ int32_t qpnp_adc_tm_channel_measure(struct qpnp_adc_tm_chip *chip,
 	param->gain_num = qpnp_vadc_amux_scaling_ratio[amux_prescaling].num;
 	param->gain_den = qpnp_vadc_amux_scaling_ratio[amux_prescaling].den;
 	param->adc_tm_hc = chip->adc_tm_hc;
+	param->full_scale_code = chip->adc->adc_prop->full_scale_code;
 	chip->adc->amux_prop->amux_channel = channel;
 	chip->adc->amux_prop->decimation =
 			chip->adc->adc_channels[dt_index].adc_decimation;

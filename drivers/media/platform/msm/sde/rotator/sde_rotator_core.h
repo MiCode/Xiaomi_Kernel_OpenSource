@@ -385,7 +385,6 @@ struct sde_rot_bus_data_type {
  * @reg_bus: register bus configuration state
  * @module_power: power/clock configuration state
  * @regulator_enable: true if foot switch is enabled; false otherwise
- * @rsc_client: pointer to rsc client handle
  * @res_ref_cnt: reference count of how many times resource is requested
  * @rot_enable_clk_cnt: reference count of how many times clock is requested
  * @rot_clk: array of rotator and periphery clocks
@@ -431,8 +430,6 @@ struct sde_rot_mgr {
 	struct sde_module_power module_power;
 	bool regulator_enable;
 
-	struct sde_rsc_client *rsc_client;
-
 	int res_ref_cnt;
 	int rot_enable_clk_cnt;
 	struct sde_rot_clk *rot_clk;
@@ -451,6 +448,8 @@ struct sde_rot_mgr {
 	int (*ops_config_hw)(struct sde_rot_hw_resource *hw,
 			struct sde_rot_entry *entry);
 	int (*ops_cancel_hw)(struct sde_rot_hw_resource *hw,
+			struct sde_rot_entry *entry);
+	int (*ops_abort_hw)(struct sde_rot_hw_resource *hw,
 			struct sde_rot_entry *entry);
 	int (*ops_kickoff_entry)(struct sde_rot_hw_resource *hw,
 			struct sde_rot_entry *entry);
@@ -673,6 +672,19 @@ void sde_rotator_req_finish(struct sde_rot_mgr *mgr,
 	struct sde_rot_entry_container *req);
 
 /*
+ * sde_rotator_abort_inline_request - abort inline rotation request after start
+ *	This function allows inline rotation requests to be aborted after
+ *	sde_rotator_req_set_start has already been issued.
+ * @mgr: Pointer to rotator manager
+ * @private: Pointer to rotator manager per file context
+ * @req: Pointer to rotation request
+ * return: none
+ */
+void sde_rotator_abort_inline_request(struct sde_rot_mgr *mgr,
+		struct sde_rot_file_private *private,
+		struct sde_rot_entry_container *req);
+
+/*
  * sde_rotator_handle_request_common - add the given request to rotator
  *	manager and clean up completed requests
  * @rot_dev: Pointer to rotator device
@@ -766,6 +778,15 @@ static inline void sde_rot_mgr_lock(struct sde_rot_mgr *mgr)
 static inline void sde_rot_mgr_unlock(struct sde_rot_mgr *mgr)
 {
 	mutex_unlock(&mgr->lock);
+}
+
+/*
+ * sde_rot_mgr_pd_enabled - return true if power domain is enabled
+ * @mgr: Pointer to rotator manager
+ */
+static inline bool sde_rot_mgr_pd_enabled(struct sde_rot_mgr *mgr)
+{
+	return mgr && mgr->device && mgr->device->pm_domain;
 }
 
 #if defined(CONFIG_PM)

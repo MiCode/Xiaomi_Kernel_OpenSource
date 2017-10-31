@@ -34,7 +34,7 @@ static uint32_t irq_reg_offset[CAM_IFE_IRQ_REGISTERS_MAX] = {
 
 static uint32_t camif_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
 	0x0003FD1F,
-	0x0FFF7EB3,
+	0x0FFF7EBC,
 };
 
 static uint32_t rdi_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
@@ -507,8 +507,6 @@ int cam_vfe_stop(void *hw_priv, void *stop_args, uint32_t arg_size)
 			core_info->vfe_top->top_priv, isp_res,
 			sizeof(struct cam_isp_resource_node));
 	} else if (isp_res->res_type == CAM_ISP_RESOURCE_VFE_OUT) {
-		cam_irq_controller_unsubscribe_irq(
-			core_info->vfe_irq_controller, isp_res->irq_handle);
 		rc = core_info->vfe_bus->hw_ops.stop(isp_res, NULL, 0);
 	} else {
 		CAM_ERR(CAM_ISP, "Invalid res type:%d", isp_res->res_type);

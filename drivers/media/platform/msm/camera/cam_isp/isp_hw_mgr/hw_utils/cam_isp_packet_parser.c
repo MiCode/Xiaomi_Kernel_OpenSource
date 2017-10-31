@@ -513,8 +513,8 @@ int cam_isp_add_io_buffers(
 
 	for (i = 0; i < prepare->packet->num_io_configs; i++) {
 		CAM_DBG(CAM_ISP, "======= io config idx %d ============", i);
-		CAM_DBG(CAM_ISP, "resource_type:%d fence:%d",
-			io_cfg[i].resource_type, io_cfg[i].fence);
+		CAM_DBG(CAM_ISP, "i %d resource_type:%d fence:%d",
+			i, io_cfg[i].resource_type, io_cfg[i].fence);
 		CAM_DBG(CAM_ISP, "format: %d", io_cfg[i].format);
 		CAM_DBG(CAM_ISP, "direction %d",
 			io_cfg[i].direction);

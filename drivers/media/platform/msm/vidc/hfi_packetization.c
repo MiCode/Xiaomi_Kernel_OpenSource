@@ -1877,6 +1877,22 @@ int create_pkt_cmd_session_set_property(
 		pkt->size += sizeof(u32) + sizeof(*work_mode);
 		break;
 	}
+	case HAL_PARAM_VENC_HDR10_PQ_SEI:
+	{
+		struct hfi_hdr10_pq_sei *hfi;
+		struct hal_hdr10_pq_sei *prop =
+			(struct hal_hdr10_pq_sei *) pdata;
+
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_VENC_HDR10_PQ_SEI;
+		hfi = (struct hfi_hdr10_pq_sei *)
+			&pkt->rg_property_data[1];
+
+		memcpy(hfi, prop, sizeof(*hfi));
+		pkt->size += sizeof(u32) +
+			sizeof(struct hfi_hdr10_pq_sei);
+		break;
+	}
 	/* FOLLOWING PROPERTIES ARE NOT IMPLEMENTED IN CORE YET */
 	case HAL_CONFIG_BUFFER_REQUIREMENTS:
 	case HAL_CONFIG_PRIORITY:

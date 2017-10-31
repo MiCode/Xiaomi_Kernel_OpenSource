@@ -231,6 +231,7 @@ struct sde_hw_rotator_context {
 	bool   is_secure;
 	bool   is_traffic_shaping;
 	bool   sbuf_mode;
+	bool   abort;
 	u32    start_ctrl;
 	u32    sys_cache_mode;
 	u32    op_mode;

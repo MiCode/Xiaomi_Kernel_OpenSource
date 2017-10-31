@@ -462,7 +462,7 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 	bw_for_1x_8bpc = fp_div(FP_INT(width * height), FP_INT(32 * 8));
 
 	bw_for_1x_8bpc = fp_mult(bw_for_1x_8bpc,
-		fp_div(FP_INT(256 * 30), FP_INT(1000 * 1000)));
+		fp_div(FP_INT(((int)(256 * fps))), FP_INT(1000 * 1000)));
 
 	dpb_bw_for_1x = dpb_bpp == 8 ? bw_for_1x_8bpc :
 		fp_mult(bw_for_1x_8bpc, fp_mult(ten_bpc_packing_factor,
@@ -715,7 +715,7 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	bw_for_1x_8bpc = fp_div(FP_INT(width * height), FP_INT(32 * 8));
 
 	bw_for_1x_8bpc = fp_mult(bw_for_1x_8bpc,
-		fp_div(FP_INT(256 * 30), FP_INT(1000 * 1000)));
+		fp_div(FP_INT(((int)(256 * fps))), FP_INT(1000 * 1000)));
 
 	dpb_bw_for_1x = dpb_bpp == 8 ? bw_for_1x_8bpc :
 		fp_mult(bw_for_1x_8bpc, fp_mult(ten_bpc_packing_factor,

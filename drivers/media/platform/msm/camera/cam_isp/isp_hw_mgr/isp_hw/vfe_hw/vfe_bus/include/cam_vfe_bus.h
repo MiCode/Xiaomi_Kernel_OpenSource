@@ -17,8 +17,8 @@
 #include "cam_hw_intf.h"
 #include "cam_isp_hw.h"
 
-#define CAM_VFE_BUS_VER_1_0 0x1000
-#define CAM_VFE_BUS_VER_2_0 0x2000
+#define CAM_VFE_BUS_VER_1_0             0x1000
+#define CAM_VFE_BUS_VER_2_0             0x2000
 
 enum cam_vfe_bus_plane_type {
 	PLANE_Y,

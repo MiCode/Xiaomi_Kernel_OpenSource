@@ -41,11 +41,6 @@
 #define IPA_MHI_MAX_UL_CHANNELS 1
 #define IPA_MHI_MAX_DL_CHANNELS 1
 
-#if (IPA_MHI_MAX_UL_CHANNELS + IPA_MHI_MAX_DL_CHANNELS) > \
-	(IPA_MHI_GSI_ER_END - IPA_MHI_GSI_ER_START)
-#error not enought event rings for MHI
-#endif
-
 /* bit #40 in address should be asserted for MHI transfers over pcie */
 #define IPA_MHI_CLIENT_HOST_ADDR_COND(addr) \
 	((ipa_mhi_client_ctx->assert_bit40)?(IPA_MHI_HOST_ADDR(addr)):(addr))
@@ -185,6 +180,12 @@ static int ipa_mhi_read_write_host(enum ipa_mhi_dma_dir dir, void *dev_addr,
 			return -ENOMEM;
 		}
 
+		res = ipa_dma_enable();
+		if (res) {
+			IPA_MHI_ERR("failed to enable IPA DMA rc=%d\n", res);
+			goto fail_dma_enable;
+		}
+
 		if (dir == IPA_MHI_DMA_FROM_HOST) {
 			res = ipa_dma_sync_memcpy(mem.phys_base, host_addr,
 				size);
@@ -206,8 +207,7 @@ static int ipa_mhi_read_write_host(enum ipa_mhi_dma_dir dir, void *dev_addr,
 				goto fail_memcopy;
 			}
 		}
-		dma_free_coherent(pdev, mem.size, mem.base,
-			mem.phys_base);
+		goto dma_succeed;
 	} else {
 		void *host_ptr;
 
@@ -230,9 +230,14 @@ static int ipa_mhi_read_write_host(enum ipa_mhi_dma_dir dir, void *dev_addr,
 	IPA_MHI_FUNC_EXIT();
 	return 0;
 
+dma_succeed:
+	IPA_MHI_FUNC_EXIT();
+	res = 0;
 fail_memcopy:
-	dma_free_coherent(ipa_get_dma_dev(), mem.size, mem.base,
-			mem.phys_base);
+	if (ipa_dma_disable())
+		IPA_MHI_ERR("failed to disable IPA DMA\n");
+fail_dma_enable:
+	dma_free_coherent(pdev, mem.size, mem.base, mem.phys_base);
 	return res;
 }
 
@@ -1564,8 +1569,7 @@ int ipa_mhi_connect_pipe(struct ipa_mhi_connect_params *in, u32 *clnt_hdl)
 		internal.start.gsi.mhi = &channel->ch_scratch.mhi;
 		internal.start.gsi.cached_gsi_evt_ring_hdl =
 				&channel->cached_gsi_evt_ring_hdl;
-		internal.start.gsi.evchid =
-				channel->index + IPA_MHI_GSI_ER_START;
+		internal.start.gsi.evchid = channel->index;
 
 		res = ipa_connect_mhi_pipe(&internal, clnt_hdl);
 		if (res) {
@@ -2499,6 +2503,7 @@ void ipa_mhi_destroy(void)
 	else
 		ipa_mhi_delete_rm_resources();
 
+	ipa_dma_destroy();
 	ipa_mhi_debugfs_destroy();
 	destroy_workqueue(ipa_mhi_client_ctx->wq);
 	kfree(ipa_mhi_client_ctx);
@@ -2714,6 +2719,12 @@ int ipa_mhi_init(struct ipa_mhi_init_params *params)
 		goto fail_create_wq;
 	}
 
+	res = ipa_dma_init();
+	if (res) {
+		IPA_MHI_ERR("failed to init ipa dma %d\n", res);
+		goto fail_dma_init;
+	}
+
 	if (ipa_pm_is_used())
 		res = ipa_mhi_register_pm();
 	else
@@ -2737,6 +2748,8 @@ int ipa_mhi_init(struct ipa_mhi_init_params *params)
 	return 0;
 
 fail_rm:
+	ipa_dma_destroy();
+fail_dma_init:
 	destroy_workqueue(ipa_mhi_client_ctx->wq);
 fail_create_wq:
 	kfree(ipa_mhi_client_ctx);

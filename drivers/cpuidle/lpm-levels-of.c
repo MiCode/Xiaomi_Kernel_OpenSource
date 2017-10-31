@@ -410,6 +410,9 @@ bool lpm_cpu_mode_allow(unsigned int cpu,
 {
 	struct lpm_level_avail *avail = cpu_level_available[cpu];
 
+	if (lpm_pdev && !index)
+		return 1;
+
 	if (!lpm_pdev || !avail)
 		return !from_idle;
 
@@ -709,6 +712,9 @@ static int parse_cpu_levels(struct device_node *node, struct lpm_cluster *c)
 	ret = of_property_read_u32(node, key, &cpu->psci_mode_mask);
 	if (ret)
 		goto failed_parse_params;
+
+	key = "qcom,use-prediction";
+	cpu->lpm_prediction = of_property_read_bool(node, key);
 
 	key = "parse_cpu";
 	ret = parse_cpu(node, cpu);

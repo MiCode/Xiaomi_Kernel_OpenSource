@@ -36,9 +36,6 @@
 #include "clk-alpha-pll.h"
 #include "vdd-level-sdm845.h"
 
-#define GCC_APCS_CLOCK_SLEEP_ENA_VOTE_OFFSET	0x52008
-#define CPUSS_AHB_CLK_SLEEP_ENA			BIT(21)
-#define SYS_NOC_CPUSS_AHB_CLK_SLEEP_ENA		BIT(0)
 #define GCC_MMSS_MISC				0x09FFC
 #define GCC_GPU_MISC				0x71028
 
@@ -4071,6 +4068,7 @@ static const struct qcom_cc_desc gcc_sdm845_desc = {
 static const struct of_device_id gcc_sdm845_match_table[] = {
 	{ .compatible = "qcom,gcc-sdm845" },
 	{ .compatible = "qcom,gcc-sdm845-v2" },
+	{ .compatible = "qcom,gcc-sdm845-v2.1" },
 	{ .compatible = "qcom,gcc-sdm670" },
 	{ }
 };
@@ -4270,7 +4268,8 @@ static int gcc_sdm845_fixup(struct platform_device *pdev)
 	if (!compat || (compatlen <= 0))
 		return -EINVAL;
 
-	if (!strcmp(compat, "qcom,gcc-sdm845-v2"))
+	if (!strcmp(compat, "qcom,gcc-sdm845-v2") ||
+			!strcmp(compat, "qcom,gcc-sdm845-v2.1"))
 		gcc_sdm845_fixup_sdm845v2();
 	else if (!strcmp(compat, "qcom,gcc-sdm670"))
 		gcc_sdm845_fixup_sdm670();
@@ -4287,14 +4286,6 @@ static int gcc_sdm845_probe(struct platform_device *pdev)
 	regmap = qcom_cc_map(pdev, &gcc_sdm845_desc);
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
-
-	/*
-	 * Set the *_SLEEP_ENA bits to allow certain cpuss* clocks to be
-	 * turned off by hardware during certain apps low power modes.
-	 */
-	regmap_update_bits(regmap, GCC_APCS_CLOCK_SLEEP_ENA_VOTE_OFFSET,
-		CPUSS_AHB_CLK_SLEEP_ENA | SYS_NOC_CPUSS_AHB_CLK_SLEEP_ENA,
-		CPUSS_AHB_CLK_SLEEP_ENA | SYS_NOC_CPUSS_AHB_CLK_SLEEP_ENA);
 
 	vdd_cx.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_cx");
 	if (IS_ERR(vdd_cx.regulator[0])) {
@@ -4333,8 +4324,8 @@ static int gcc_sdm845_probe(struct platform_device *pdev)
 	regmap_update_bits(regmap, GCC_MMSS_MISC, 0x3, 0x3);
 	regmap_update_bits(regmap, GCC_GPU_MISC, 0x3, 0x3);
 
-	/* Keep this clock on all the time on SDM845 v1 */
-	if (of_device_is_compatible(pdev->dev.of_node, "qcom,gcc-sdm845"))
+	/* Keep this clock on all the times except on SDM845 v2.1 */
+	if (!of_device_is_compatible(pdev->dev.of_node, "qcom,gcc-sdm845-v2.1"))
 		clk_prepare_enable(gcc_aggre_noc_pcie_tbu_clk.clkr.hw.clk);
 
 	/* DFS clock registration */

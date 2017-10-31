@@ -19,14 +19,10 @@
 #include <linux/platform_device.h>
 #include <linux/dma-buf.h>
 
+#include "cam_jpeg_hw_intf.h"
+
 struct cam_jpeg_dma_device_hw_info {
 	uint32_t reserved;
-};
-
-struct cam_jpeg_dma_set_irq_cb {
-	int32_t (*jpeg_hw_mgr_cb)(uint32_t irq_status,
-		int32_t result_size, void *data);
-	void *data;
 };
 
 enum cam_jpeg_dma_core_state {
@@ -40,7 +36,7 @@ struct cam_jpeg_dma_device_core_info {
 	enum cam_jpeg_dma_core_state core_state;
 	struct cam_jpeg_dma_device_hw_info *jpeg_dma_hw_info;
 	uint32_t cpas_handle;
-	struct cam_jpeg_dma_set_irq_cb irq_cb;
+	struct cam_jpeg_set_irq_cb irq_cb;
 	int32_t ref_count;
 	struct mutex core_mutex;
 };

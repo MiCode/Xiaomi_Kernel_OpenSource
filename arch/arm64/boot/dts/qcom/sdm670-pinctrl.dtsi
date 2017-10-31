@@ -1625,6 +1625,20 @@
 };
 
 &pm660l_gpios {
+	camera0_dvdd_en_default: camera0_dvdd_en_default {
+		pins = "gpio3";
+		function = "normal";
+		power-source = <0>;
+		output-low;
+	};
+
+	camera1_dvdd_en_default: camera1_dvdd_en_default {
+		pins = "gpio4";
+		function = "normal";
+		power-source = <0>;
+		output-low;
+	};
+
 	key_vol_up {
 		key_vol_up_default: key_vol_up_default {
 			pins = "gpio7";
@@ -1633,5 +1647,15 @@
 			bias-pull-up;
 			power-source = <0>;
 		};
+	};
+};
+
+&pm660_gpios {
+	smb_shutdown_default: smb_shutdown_default {
+		pins = "gpio11";
+		function = "normal";
+		power-source = <0>;
+		qcom,drive-strength = <3>;
+		output-high;
 	};
 };

@@ -29,6 +29,7 @@ Properties:
 	Definition: Should contain "qcom,pdc-<target>"
 
 	* "qcom,pdc-sdm845": For sdm845 pin data
+	* "qcom,pdc-sdm845-v2": For sdm845 v2 pin data
 	* "qcom,pdc-sdm670": For sdm670 pin data
 
 - reg:

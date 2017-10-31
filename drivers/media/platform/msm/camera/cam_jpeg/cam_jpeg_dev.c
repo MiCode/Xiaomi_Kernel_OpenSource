@@ -34,6 +34,25 @@ static const struct of_device_id cam_jpeg_dt_match[] = {
 	{ }
 };
 
+static int cam_jpeg_subdev_close(struct v4l2_subdev *sd,
+	struct v4l2_subdev_fh *fh)
+{
+	struct cam_node *node = v4l2_get_subdevdata(sd);
+
+	if (!node) {
+		CAM_ERR(CAM_JPEG, "Node ptr is NULL");
+		return -EINVAL;
+	}
+
+	cam_node_shutdown(node);
+
+	return 0;
+}
+
+static const struct v4l2_subdev_internal_ops cam_jpeg_subdev_internal_ops = {
+	.close = cam_jpeg_subdev_close,
+};
+
 static int cam_jpeg_dev_remove(struct platform_device *pdev)
 {
 	int rc;
@@ -60,6 +79,7 @@ static int cam_jpeg_dev_probe(struct platform_device *pdev)
 	struct cam_hw_mgr_intf hw_mgr_intf;
 	struct cam_node *node;
 
+	g_jpeg_dev.sd.internal_ops = &cam_jpeg_subdev_internal_ops;
 	rc = cam_subdev_probe(&g_jpeg_dev.sd, pdev, CAM_JPEG_DEV_NAME,
 		CAM_JPEG_DEVICE_TYPE);
 	if (rc) {

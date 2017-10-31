@@ -49,6 +49,7 @@ struct esoc_eng {
  * @link_info: additional info about the physical link.
  * @parent: parent device.
  * @dev: device for userspace interface.
+ * @pdev: platform device to interface with SSR driver.
  * @id: id of the external device.
  * @owner: owner of the device.
  * @clink_ops: control operations for the control link
@@ -66,6 +67,7 @@ struct esoc_clink {
 	const char *link_info;
 	struct device *parent;
 	struct device dev;
+	struct platform_device *pdev;
 	unsigned int id;
 	struct module *owner;
 	const struct esoc_clink_ops *clink_ops;
@@ -83,11 +85,13 @@ struct esoc_clink {
  * struct esoc_clink_ops: Operations to control external soc
  * @cmd_exe: Execute control command
  * @get_status: Get current status, or response to previous command
+ * @get_err_fatal: Get status of err fatal signal
  * @notify_esoc: notify external soc of events
  */
 struct esoc_clink_ops {
 	int (*cmd_exe)(enum esoc_cmd cmd, struct esoc_clink *dev);
-	int (*get_status)(u32 *status, struct esoc_clink *dev);
+	void (*get_status)(u32 *status, struct esoc_clink *dev);
+	void (*get_err_fatal)(u32 *status, struct esoc_clink *dev);
 	void (*notify)(enum esoc_notify notify, struct esoc_clink *dev);
 };
 

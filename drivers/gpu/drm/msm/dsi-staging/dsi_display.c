@@ -1707,6 +1707,10 @@ static int dsi_display_broadcast_cmd(struct dsi_display *display,
 	flags = (DSI_CTRL_CMD_BROADCAST | DSI_CTRL_CMD_DEFER_TRIGGER |
 		 DSI_CTRL_CMD_FETCH_MEMORY);
 
+	if ((msg->flags & MIPI_DSI_MSG_LASTCOMMAND)) {
+		flags |= DSI_CTRL_CMD_LAST_COMMAND;
+		m_flags |= DSI_CTRL_CMD_LAST_COMMAND;
+	}
 	/*
 	 * 1. Setup commands in FIFO
 	 * 2. Trigger commands
@@ -3307,6 +3311,8 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	display->name = of_get_property(pdev->dev.of_node, "label", NULL);
+	if (!display->name)
+		display->name = "unknown";
 
 	if (!boot_displays_parsed) {
 		boot_displays[DSI_PRIMARY].boot_disp_en = false;

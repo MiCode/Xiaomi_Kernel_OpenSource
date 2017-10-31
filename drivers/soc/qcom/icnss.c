@@ -73,6 +73,8 @@ module_param(qmi_timeout, ulong, 0600);
 #define ICNSS_THRESHOLD_LOW		3450000
 #define ICNSS_THRESHOLD_GUARD		20000
 
+#define ICNSS_MAX_PROBE_CNT		2
+
 #define icnss_ipc_log_string(_x...) do {				\
 	if (icnss_ipc_log_context)					\
 		ipc_log_string(icnss_ipc_log_context, _x);		\
@@ -198,7 +200,6 @@ enum icnss_driver_event_type {
 enum icnss_msa_perm {
 	ICNSS_MSA_PERM_HLOS_ALL = 0,
 	ICNSS_MSA_PERM_WLAN_HW_RW = 1,
-	ICNSS_MSA_PERM_DUMP_COLLECT = 2,
 	ICNSS_MSA_PERM_MAX,
 };
 
@@ -231,13 +232,6 @@ struct icnss_msa_perm_list_t msa_perm_secure_list[ICNSS_MSA_PERM_MAX] = {
 		.nelems = 2,
 	},
 
-	[ICNSS_MSA_PERM_DUMP_COLLECT] = {
-		.vmids = {VMID_MSS_MSA, VMID_WLAN, VMID_HLOS},
-		.perms = {PERM_READ | PERM_WRITE,
-			PERM_READ | PERM_WRITE,
-			PERM_READ},
-		.nelems = 3,
-	},
 };
 
 struct icnss_msa_perm_list_t msa_perm_list[ICNSS_MSA_PERM_MAX] = {
@@ -255,14 +249,6 @@ struct icnss_msa_perm_list_t msa_perm_list[ICNSS_MSA_PERM_MAX] = {
 		.nelems = 3,
 	},
 
-	[ICNSS_MSA_PERM_DUMP_COLLECT] = {
-		.vmids = {VMID_MSS_MSA, VMID_WLAN, VMID_WLAN_CE, VMID_HLOS},
-		.perms = {PERM_READ | PERM_WRITE,
-			PERM_READ | PERM_WRITE,
-			PERM_READ | PERM_WRITE,
-			PERM_READ},
-		.nelems = 4,
-	},
 };
 
 struct icnss_event_pd_service_down_data {
@@ -2103,7 +2089,8 @@ static int icnss_driver_event_server_exit(void *data)
 
 static int icnss_call_driver_probe(struct icnss_priv *priv)
 {
-	int ret;
+	int ret = 0;
+	int probe_cnt = 0;
 
 	if (!priv->ops || !priv->ops->probe)
 		return 0;
@@ -2115,10 +2102,15 @@ static int icnss_call_driver_probe(struct icnss_priv *priv)
 
 	icnss_hw_power_on(priv);
 
-	ret = priv->ops->probe(&priv->pdev->dev);
+	while (probe_cnt < ICNSS_MAX_PROBE_CNT) {
+		ret = priv->ops->probe(&priv->pdev->dev);
+		probe_cnt++;
+		if (ret != -EPROBE_DEFER)
+			break;
+	}
 	if (ret < 0) {
-		icnss_pr_err("Driver probe failed: %d, state: 0x%lx\n",
-			     ret, priv->state);
+		icnss_pr_err("Driver probe failed: %d, state: 0x%lx, probe_cnt: %d\n",
+			     ret, priv->state, probe_cnt);
 		goto out;
 	}
 
@@ -2226,6 +2218,7 @@ out:
 static int icnss_driver_event_register_driver(void *data)
 {
 	int ret = 0;
+	int probe_cnt = 0;
 
 	if (penv->ops)
 		return -EEXIST;
@@ -2245,11 +2238,15 @@ static int icnss_driver_event_register_driver(void *data)
 	if (ret)
 		goto out;
 
-	ret = penv->ops->probe(&penv->pdev->dev);
-
+	while (probe_cnt < ICNSS_MAX_PROBE_CNT) {
+		ret = penv->ops->probe(&penv->pdev->dev);
+		probe_cnt++;
+		if (ret != -EPROBE_DEFER)
+			break;
+	}
 	if (ret) {
-		icnss_pr_err("Driver probe failed: %d, state: 0x%lx\n",
-			     ret, penv->state);
+		icnss_pr_err("Driver probe failed: %d, state: 0x%lx, probe_cnt: %d\n",
+			     ret, penv->state, probe_cnt);
 		goto power_off;
 	}
 
@@ -2478,9 +2475,10 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 
 	icnss_pr_vdbg("Modem-Notify: event %lu\n", code);
 
-	if (code == SUBSYS_AFTER_SHUTDOWN) {
+	if (code == SUBSYS_AFTER_SHUTDOWN &&
+			notif->crashed != CRASH_STATUS_WDOG_BITE) {
 		ret = icnss_assign_msa_perm_all(priv,
-						ICNSS_MSA_PERM_DUMP_COLLECT);
+						ICNSS_MSA_PERM_HLOS_ALL);
 		if (!ret) {
 			icnss_pr_info("Collecting msa0 segment dump\n");
 			icnss_msa0_ramdump(priv);
@@ -2636,8 +2634,7 @@ event_post:
 	clear_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state);
 
 	fw_down_data.crashed = event_data->crashed;
-	if (test_bit(ICNSS_DRIVER_PROBED, &priv->state) &&
-	      !test_bit(ICNSS_PD_RESTART, &priv->state))
+	if (test_bit(ICNSS_FW_READY, &priv->state))
 		icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_DOWN,
 					 &fw_down_data);
 	icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,

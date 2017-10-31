@@ -19,7 +19,9 @@
 #include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
+#include "sdm845-sde-display.dtsi"
 #include "sdm845-qvr.dtsi"
+#include "sdm845-qvr-audio-overlay.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM845 v2 QVR";

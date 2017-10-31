@@ -228,6 +228,23 @@ void sde_plane_restore(struct drm_plane *plane);
 void sde_plane_flush(struct drm_plane *plane);
 
 /**
+ * sde_plane_halt_requests - control halting of vbif transactions for this plane
+ *	This function isn't thread safe. Plane halt enable/disable requests
+ *	should always be made from the same commit cycle.
+ * @plane: Pointer to drm plane structure
+ * @enable: Whether to enable/disable halting of vbif transactions
+ */
+void sde_plane_halt_requests(struct drm_plane *plane, bool enable);
+
+/**
+ * sde_plane_reset_rot - reset rotator operations before commit kickoff
+ * @plane: Pointer to drm plane structure
+ * @state: Pointer to plane state associated with reset request
+ * Returns: Zero on success
+ */
+int sde_plane_reset_rot(struct drm_plane *plane, struct drm_plane_state *state);
+
+/**
  * sde_plane_kickoff_rot - final plane rotator operations before commit kickoff
  * @plane: Pointer to drm plane structure
  * Returns: Zero on success
@@ -293,5 +310,15 @@ int sde_plane_color_fill(struct drm_plane *plane,
  * @enable: Boolean to set/unset the flag
  */
 void sde_plane_set_revalidate(struct drm_plane *plane, bool enable);
+
+/**
+ * sde_plane_helper_reset_properties - reset properties to default values in the
+ *	given DRM plane state object
+ * @plane: Pointer to DRM plane object
+ * @plane_state: Pointer to DRM plane state object
+ * Returns: 0 on success, negative errno on failure
+ */
+int sde_plane_helper_reset_custom_properties(struct drm_plane *plane,
+		struct drm_plane_state *plane_state);
 
 #endif /* _SDE_PLANE_H_ */

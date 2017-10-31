@@ -406,5 +406,11 @@ int cam_req_mgr_core_device_init(void);
  * @brief: cleanp crm core
  */
 int cam_req_mgr_core_device_deinit(void);
+
+/**
+ * cam_req_mgr_handle_core_shutdown()
+ * @brief: Handles camera close
+ */
+void cam_req_mgr_handle_core_shutdown(void);
 #endif
 

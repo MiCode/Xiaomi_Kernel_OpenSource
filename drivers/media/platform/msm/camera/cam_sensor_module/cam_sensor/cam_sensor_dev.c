@@ -34,6 +34,24 @@ static long cam_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 	return rc;
 }
 
+static int cam_sensor_subdev_close(struct v4l2_subdev *sd,
+	struct v4l2_subdev_fh *fh)
+{
+	struct cam_sensor_ctrl_t *s_ctrl =
+		v4l2_get_subdevdata(sd);
+
+	if (!s_ctrl) {
+		CAM_ERR(CAM_SENSOR, "s_ctrl ptr is NULL");
+		return -EINVAL;
+	}
+
+	mutex_lock(&(s_ctrl->cam_sensor_mutex));
+	cam_sensor_shutdown(s_ctrl);
+	mutex_unlock(&(s_ctrl->cam_sensor_mutex));
+
+	return 0;
+}
+
 #ifdef CONFIG_COMPAT
 static long cam_sensor_init_subdev_do_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, unsigned long arg)
@@ -85,7 +103,9 @@ static struct v4l2_subdev_ops cam_sensor_subdev_ops = {
 	.core = &cam_sensor_subdev_core_ops,
 };
 
-static const struct v4l2_subdev_internal_ops cam_sensor_internal_ops;
+static const struct v4l2_subdev_internal_ops cam_sensor_internal_ops = {
+	.close = cam_sensor_subdev_close,
+};
 
 static int cam_sensor_init_subdev_params(struct cam_sensor_ctrl_t *s_ctrl)
 {
@@ -163,6 +183,9 @@ static int32_t cam_sensor_driver_i2c_probe(struct i2c_client *client,
 	}
 
 	INIT_LIST_HEAD(&(s_ctrl->i2c_data.init_settings.list_head));
+	INIT_LIST_HEAD(&(s_ctrl->i2c_data.res_settings.list_head));
+	INIT_LIST_HEAD(&(s_ctrl->i2c_data.streamon_settings.list_head));
+	INIT_LIST_HEAD(&(s_ctrl->i2c_data.streamoff_settings.list_head));
 
 	for (i = 0; i < MAX_PER_FRAME_ARRAY; i++)
 		INIT_LIST_HEAD(&(s_ctrl->i2c_data.per_frame[i].list_head));
@@ -269,6 +292,9 @@ static int32_t cam_sensor_driver_platform_probe(
 	}
 
 	INIT_LIST_HEAD(&(s_ctrl->i2c_data.init_settings.list_head));
+	INIT_LIST_HEAD(&(s_ctrl->i2c_data.res_settings.list_head));
+	INIT_LIST_HEAD(&(s_ctrl->i2c_data.streamon_settings.list_head));
+	INIT_LIST_HEAD(&(s_ctrl->i2c_data.streamoff_settings.list_head));
 
 	for (i = 0; i < MAX_PER_FRAME_ARRAY; i++)
 		INIT_LIST_HEAD(&(s_ctrl->i2c_data.per_frame[i].list_head));
@@ -282,6 +308,8 @@ static int32_t cam_sensor_driver_platform_probe(
 	s_ctrl->sensordata->power_info.dev = &pdev->dev;
 	platform_set_drvdata(pdev, s_ctrl);
 	v4l2_set_subdevdata(&(s_ctrl->v4l2_dev_str.sd), s_ctrl);
+
+	s_ctrl->sensor_state = CAM_SENSOR_INIT;
 
 	return rc;
 unreg_subdev:

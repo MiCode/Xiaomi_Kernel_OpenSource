@@ -73,6 +73,16 @@ int cam_node_handle_ioctl(struct cam_node *node, struct cam_control *cmd);
 int cam_node_deinit(struct cam_node *node);
 
 /**
+ * cam_node_shutdown()
+ *
+ * @brief:       Shutdowns/Closes the cam node.
+ *
+ * @node:                  Cam_node pointer
+ *
+ */
+int cam_node_shutdown(struct cam_node *node);
+
+/**
  * cam_node_init()
  *
  * @brief:       Initialization function for the Node interface.

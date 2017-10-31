@@ -29,5 +29,5 @@ int cam_flash_flush_request(struct cam_req_mgr_flush_request *flush);
 int cam_flash_off(struct cam_flash_ctrl *fctrl);
 int cam_flash_prepare(struct cam_flash_ctrl *flash_ctrl,
 	enum cam_flash_state state);
-
+void cam_flash_shutdown(struct cam_flash_ctrl *flash_ctrl);
 #endif /*_CAM_FLASH_CORE_H_*/

@@ -85,6 +85,55 @@
 				interrupts = <0x0 0x61 0x1 IRQ_TYPE_NONE>;
 			};
 		};
+
+		pmxpoorwills_vadc: vadc@3100 {
+			compatible = "qcom,qpnp-vadc-hc";
+			reg = <0x3100 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <0x0 0x31 0x0 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "eoc-int-en-set";
+			qcom,adc-full-scale-code = <0x70e4>;
+			qcom,adc-vdd-reference = <1875>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&ambient_therm_default>;
+
+			chan@6 {
+				label = "die_temp";
+				reg = <6>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <3>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@0 {
+				label = "ref_gnd";
+				reg = <0>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@1 {
+				label = "ref_1250v";
+				reg = <1>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+		};
 	};
 
 	qcom,pmxpoorwills@1 {

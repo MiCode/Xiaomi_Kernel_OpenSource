@@ -136,8 +136,8 @@ static void ipa3_wq_write_done_common(struct ipa3_sys_context *sys,
 					DMA_TO_DEVICE);
 			} else {
 				dma_unmap_page(ipa3_ctx->pdev,
-					next_pkt->mem.phys_base,
-					next_pkt->mem.size,
+					tx_pkt->mem.phys_base,
+					tx_pkt->mem.size,
 					DMA_TO_DEVICE);
 			}
 		}
@@ -3816,7 +3816,7 @@ int ipa3_rx_poll(u32 clnt_hdl, int weight)
 		cnt += IPA_WAN_AGGR_PKT_CNT;
 		total_cnt++;
 
-		if (ep->sys->len == 0 || total_cnt >= ep->sys->rx_pool_sz) {
+		if (ep->sys->len == 0) {
 			total_cnt = 0;
 			cnt = cnt-1;
 			break;

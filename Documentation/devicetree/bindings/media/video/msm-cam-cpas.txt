@@ -66,6 +66,11 @@ First Level Node - CAM CPAS device
   Value type: <u32>
   Definition: Interrupt associated with CAMNOC HW.
 
+- qcom,cpas-hw-ver
+  Usage: required
+  Value type: <u32>
+  Definition: CAM HW Version information.
+
 - regulator-names
   Usage: required
   Value type: <string>
@@ -181,6 +186,7 @@ Example:
 		reg-cam-base = <0x40000 0x42000>;
 		interrupt-names = "cpas_camnoc";
 		interrupts = <0 459 0>;
+		qcom,cpas-hw-ver = <0x170100>; /* Titan v170 v1.0.0 */
 		regulator-names = "camss-vdd";
 		camss-vdd-supply = <&titan_top_gdsc>;
 		clock-names = "gcc_ahb_clk",

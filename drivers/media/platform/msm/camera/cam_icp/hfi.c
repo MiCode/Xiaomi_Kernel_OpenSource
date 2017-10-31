@@ -385,10 +385,15 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 		ICP_FLAG_CSR_WAKE_UP_EN | ICP_CSR_EN_CLKGATE_WFI),
 		icp_base + HFI_REG_A5_CSR_A5_CONTROL);
 	} else {
+		/* Due to hardware bug in V1 ICP clock gating has to be
+		 * disabled, this is supposed to be fixed in V-2. But enabling
+		 * the clock gating is causing the firmware hang, hence
+		 * disabling the clock gating on both V1 and V2 until the
+		 * hardware team root causes this
+		 */
 		cam_io_w((uint32_t)ICP_FLAG_CSR_A5_EN |
 			ICP_FLAG_CSR_WAKE_UP_EN |
-			((soc_version == SOC_VERSION_HW1) ?
-			(ICP_CSR_EN_CLKGATE_WFI) : (0x0)),
+			ICP_CSR_EN_CLKGATE_WFI,
 			icp_base + HFI_REG_A5_CSR_A5_CONTROL);
 	}
 

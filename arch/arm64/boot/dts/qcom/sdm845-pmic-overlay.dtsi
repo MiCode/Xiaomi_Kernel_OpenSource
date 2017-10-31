@@ -37,6 +37,11 @@
 	};
 };
 
+&pmi8998_qnovo {
+	pinctrl-names = "default";
+	pinctrl-0 = <&qnovo_fet_ctrl_default>;
+};
+
 &usb0 {
 	extcon = <&pmi8998_pdphy>, <&pmi8998_pdphy>, <&eud>;
 };

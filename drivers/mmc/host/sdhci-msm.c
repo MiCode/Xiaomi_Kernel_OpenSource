@@ -968,7 +968,10 @@ static int sdhci_msm_cm_dll_sdc4_calibration(struct sdhci_host *host)
 	 * Reprogramming the value in case it might have been modified by
 	 * bootloaders.
 	 */
-	if (msm_host->rclk_delay_fix) {
+	if (msm_host->pdata->rclk_wa) {
+		writel_relaxed(msm_host->pdata->ddr_config, host->ioaddr +
+			msm_host_offset->CORE_DDR_CONFIG_2);
+	} else if (msm_host->rclk_delay_fix) {
 		writel_relaxed(DDR_CONFIG_2_POR_VAL, host->ioaddr +
 			msm_host_offset->CORE_DDR_CONFIG_2);
 	} else {
@@ -1281,6 +1284,11 @@ retry:
 			pr_debug("%s: %s: found *** good *** phase = %d\n",
 				mmc_hostname(mmc), __func__, phase);
 		} else {
+			/* Ignore crc errors occurred during tuning */
+			if (cmd.error)
+				mmc->err_stats[MMC_ERR_CMD_CRC]--;
+			else if (data.error)
+				mmc->err_stats[MMC_ERR_DAT_CRC]--;
 			pr_debug("%s: %s: found ## bad ## phase = %d\n",
 				mmc_hostname(mmc), __func__, phase);
 		}
@@ -1395,6 +1403,32 @@ free_gpios:
 		gpio_free(curr->gpio[i].no);
 		curr->gpio[i].is_enabled = false;
 	}
+	return ret;
+}
+
+static int sdhci_msm_config_pinctrl_drv_type(struct sdhci_msm_pltfm_data *pdata,
+		unsigned int clock)
+{
+	int ret = 0;
+
+	if (clock > 150000000) {
+		if (pdata->pctrl_data->pins_drv_type_200MHz)
+			ret = pinctrl_select_state(pdata->pctrl_data->pctrl,
+				pdata->pctrl_data->pins_drv_type_200MHz);
+	} else if (clock > 75000000) {
+		if (pdata->pctrl_data->pins_drv_type_100MHz)
+			ret = pinctrl_select_state(pdata->pctrl_data->pctrl,
+				pdata->pctrl_data->pins_drv_type_100MHz);
+	} else if (clock > 400000) {
+		if (pdata->pctrl_data->pins_drv_type_50MHz)
+			ret = pinctrl_select_state(pdata->pctrl_data->pctrl,
+				pdata->pctrl_data->pins_drv_type_50MHz);
+	} else {
+		if (pdata->pctrl_data->pins_drv_type_400KHz)
+			ret = pinctrl_select_state(pdata->pctrl_data->pctrl,
+				pdata->pctrl_data->pins_drv_type_400KHz);
+	}
+
 	return ret;
 }
 
@@ -1578,6 +1612,27 @@ static int sdhci_msm_parse_pinctrl_info(struct device *dev,
 		dev_err(dev, "Could not get sleep pinstates, err:%d\n", ret);
 		goto out;
 	}
+
+	pctrl_data->pins_drv_type_400KHz = pinctrl_lookup_state(
+			pctrl_data->pctrl, "ds_400KHz");
+	if (IS_ERR(pctrl_data->pins_drv_type_400KHz))
+		dev_dbg(dev, "Could not get 400K pinstates, err:%d\n", ret);
+
+	pctrl_data->pins_drv_type_50MHz = pinctrl_lookup_state(
+			pctrl_data->pctrl, "ds_50MHz");
+	if (IS_ERR(pctrl_data->pins_drv_type_50MHz))
+		dev_dbg(dev, "Could not get 50M pinstates, err:%d\n", ret);
+
+	pctrl_data->pins_drv_type_100MHz = pinctrl_lookup_state(
+			pctrl_data->pctrl, "ds_100MHz");
+	if (IS_ERR(pctrl_data->pins_drv_type_100MHz))
+		dev_dbg(dev, "Could not get 100M pinstates, err:%d\n", ret);
+
+	pctrl_data->pins_drv_type_200MHz = pinctrl_lookup_state(
+			pctrl_data->pctrl, "ds_200MHz");
+	if (IS_ERR(pctrl_data->pins_drv_type_200MHz))
+		dev_dbg(dev, "Could not get 200M pinstates, err:%d\n", ret);
+
 	pdata->pctrl_data = pctrl_data;
 out:
 	return ret;
@@ -1985,6 +2040,9 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 	pdata->sdr104_wa = of_property_read_bool(np, "qcom,sdr104-wa");
 	msm_host->regs_restore.is_supported =
 		of_property_read_bool(np, "qcom,restore-after-cx-collapse");
+
+	if (!of_property_read_u32(np, "qcom,ddr-config", &pdata->ddr_config))
+		pdata->rclk_wa = true;
 
 	return pdata;
 out:
@@ -3338,6 +3396,16 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 		}
 		msm_host->clk_rate = sup_clock;
 		host->clock = clock;
+
+		/* Configure pinctrl drive type according to
+		 * current clock rate
+		 */
+		rc = sdhci_msm_config_pinctrl_drv_type(msm_host->pdata, clock);
+		if (rc)
+			pr_err("%s: %s: Failed to set pinctrl drive type for clock rate %u (%d)\n",
+					mmc_hostname(host->mmc), __func__,
+					clock, rc);
+
 		/*
 		 * Update the bus vote in case of frequency change due to
 		 * clock scaling.

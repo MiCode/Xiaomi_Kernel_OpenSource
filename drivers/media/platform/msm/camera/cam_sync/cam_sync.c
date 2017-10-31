@@ -986,7 +986,7 @@ static int cam_sync_probe(struct platform_device *pdev)
 	set_bit(0, sync_dev->bitmap);
 
 	sync_dev->work_queue = alloc_workqueue(CAM_SYNC_WORKQUEUE_NAME,
-		WQ_HIGHPRI | WQ_UNBOUND, 0);
+		WQ_HIGHPRI | WQ_UNBOUND, 1);
 
 	if (!sync_dev->work_queue) {
 		CAM_ERR(CAM_SYNC,

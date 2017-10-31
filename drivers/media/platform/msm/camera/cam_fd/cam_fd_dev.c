@@ -67,6 +67,7 @@ static int cam_fd_dev_close(struct v4l2_subdev *sd,
 	struct v4l2_subdev_fh *fh)
 {
 	struct cam_fd_dev *fd_dev = &g_fd_dev;
+	struct cam_node *node = v4l2_get_subdevdata(sd);
 
 	if (!fd_dev->probe_done) {
 		CAM_ERR(CAM_FD, "FD Dev not initialized, fd_dev=%pK", fd_dev);
@@ -77,6 +78,13 @@ static int cam_fd_dev_close(struct v4l2_subdev *sd,
 	fd_dev->open_cnt--;
 	CAM_DBG(CAM_FD, "FD Subdev open count %d", fd_dev->open_cnt);
 	mutex_unlock(&fd_dev->lock);
+
+	if (!node) {
+		CAM_ERR(CAM_FD, "Node ptr is NULL");
+		return -EINVAL;
+	}
+
+	cam_node_shutdown(node);
 
 	return 0;
 }

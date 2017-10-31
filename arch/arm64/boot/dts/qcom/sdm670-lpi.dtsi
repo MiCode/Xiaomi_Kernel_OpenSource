@@ -26,8 +26,8 @@
 
 			config {
 				pins = "gpio18";
-				drive-strength = <8>;
-				output-high;
+				drive-strength = <2>;
+				output-low;
 			};
 		};
 
@@ -53,8 +53,8 @@
 
 			config {
 				pins = "gpio19";
-				drive-strength = <8>;
-				output-high;
+				drive-strength = <2>;
+				output-low;
 			};
 		};
 
@@ -80,8 +80,8 @@
 
 			config {
 				pins = "gpio21";
-				drive-strength = <8>;
-				output-high;
+				drive-strength = <2>;
+				output-low;
 			};
 		};
 
@@ -107,8 +107,8 @@
 
 			config {
 				pins = "gpio23", "gpio25";
-				drive-strength = <8>;
-				output-high;
+				drive-strength = <2>;
+				output-low;
 			};
 		};
 
@@ -159,7 +159,7 @@
 
 			config {
 				pins = "gpio22";
-				drive-strength = <8>;
+				drive-strength = <2>;
 			};
 		};
 
@@ -184,7 +184,7 @@
 
 			config {
 				pins = "gpio24";
-				drive-strength = <8>;
+				drive-strength = <2>;
 			};
 		};
 

@@ -67,7 +67,6 @@
 
 	mdss_dp_pll: qcom,mdss_dp_pll@88ea000 {
 		compatible = "qcom,mdss_dp_pll_10nm";
-		status = "disabled";
 		label = "MDSS DP PLL";
 		cell-index = <0>;
 		#clock-cells = <1>;
