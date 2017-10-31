@@ -132,7 +132,7 @@ static int iommu_dma_arm_smmu_errata_init(struct iommu_domain *domain)
 	int min_iova_align = 0;
 
 	iommu_domain_get_attr(domain,
-			DOMAIN_ATTR_QCOM_MMU500_ERRATA_MIN_ALIGN,
+			DOMAIN_ATTR_MMU500_ERRATA_MIN_ALIGN,
 			&min_iova_align);
 	iommu_domain_get_attr(domain, DOMAIN_ATTR_SECURE_VMID, &vmid);
 	if (vmid >= VMID_LAST || vmid < 0)
