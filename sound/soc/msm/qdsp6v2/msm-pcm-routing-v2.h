@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,6 +12,7 @@
 #ifndef _MSM_PCM_ROUTING_H
 #define _MSM_PCM_ROUTING_H
 #include <sound/apr_audio-v2.h>
+#include <sound/q6adm-v2.h>
 
 /*
  * These names are used by HAL to specify the BE. If any changes are
@@ -502,4 +503,12 @@ int msm_pcm_routing_get_stream_app_type_cfg(
 	struct msm_pcm_stream_app_type_cfg *cfg_data);
 int msm_routing_set_downmix_control_data(int be_id, int session_id,
 				 struct asm_stream_pan_ctrl_params *pan_param);
+int msm_pcm_routing_set_channel_mixer_runtime(
+	int be_id, int session_id,
+	int session_type,
+	struct msm_pcm_channel_mixer *params);
+
+int msm_pcm_routing_set_channel_mixer_cfg(
+	int fe_id, int session_type,
+	struct msm_pcm_channel_mixer *params);
 #endif /*_MSM_PCM_H*/
