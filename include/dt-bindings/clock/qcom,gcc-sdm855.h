@@ -14,9 +14,6 @@
 #ifndef _DT_BINDINGS_CLK_QCOM_GCC_SDM855_H
 #define _DT_BINDINGS_CLK_QCOM_GCC_SDM855_H
 
-/* Hardware/Dummy/Voter clocks */
-#define GCC_XO							0
-
 /* GCC clocks */
 #define GCC_AGGRE_NOC_PCIE_TBU_CLK				0
 #define GCC_AGGRE_UFS_CARD_AXI_CLK				1
@@ -258,5 +255,14 @@
 #define GCC_USB30_PRIM_BCR					22
 #define GCC_USB30_SEC_BCR					23
 #define GCC_USB_PHY_CFG_AHB2PHY_BCR				24
+
+/* Dummy clocks for rate measurement */
+#define MEASURE_ONLY_SNOC_CLK					0
+#define MEASURE_ONLY_CNOC_CLK					1
+#define MEASURE_ONLY_BIMC_CLK					2
+#define MEASURE_ONLY_IPA_2X_CLK					3
+
+/* Hardware/Dummy/Voter clocks */
+#define GCC_XO							4
 
 #endif
