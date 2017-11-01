@@ -163,6 +163,13 @@ int sde_encoder_wait_for_event(struct drm_encoder *drm_encoder,
 enum sde_intf_mode sde_encoder_get_intf_mode(struct drm_encoder *encoder);
 
 /**
+ * sde_encoder_control_te - control enabling/disabling VSYNC_IN_EN
+ * @encoder:	encoder pointer
+ * @enable:	boolean to indicate enable/disable
+ */
+void sde_encoder_control_te(struct drm_encoder *encoder, bool enable);
+
+/**
  * sde_encoder_virt_restore - restore the encoder configs
  * @encoder:	encoder pointer
  */
