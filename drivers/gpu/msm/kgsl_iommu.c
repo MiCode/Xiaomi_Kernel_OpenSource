@@ -126,9 +126,11 @@ void kgsl_print_global_pt_entries(struct seq_file *s)
 		if (memdesc == NULL)
 			continue;
 
-		seq_printf(s, "0x%16.16llX-0x%16.16llX %16llu %s\n",
-			memdesc->gpuaddr, memdesc->gpuaddr + memdesc->size - 1,
-			memdesc->size, global_pt_entries[i].name);
+		seq_printf(s, "0x%pK-0x%pK %16llu %s\n",
+			(uint64_t *)(uintptr_t) memdesc->gpuaddr,
+			(uint64_t *)(uintptr_t) (memdesc->gpuaddr +
+			memdesc->size - 1), memdesc->size,
+			global_pt_entries[i].name);
 	}
 }
 
