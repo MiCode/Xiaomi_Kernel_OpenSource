@@ -63,7 +63,7 @@ static void msg_submit(struct mbox_chan *chan)
 again:
 	spin_lock_irqsave(&chan->lock, flags);
 
-	if (!chan->msg_count || chan->active_req)
+	if (!chan->msg_count || (chan->active_req && err != -EAGAIN))
 		goto exit;
 
 	count = chan->msg_count;
