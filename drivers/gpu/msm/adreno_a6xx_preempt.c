@@ -275,20 +275,32 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	kgsl_sharedmem_writel(device, &iommu->smmu_info,
 		PREEMPT_SMMU_RECORD(context_idr), contextidr);
 
-	kgsl_regwrite(device,
-		A6XX_CP_CONTEXT_SWITCH_PRIV_NON_SECURE_RESTORE_ADDR_LO,
-		lower_32_bits(next->preemption_desc.gpuaddr));
-	kgsl_regwrite(device,
-		A6XX_CP_CONTEXT_SWITCH_PRIV_NON_SECURE_RESTORE_ADDR_HI,
-		upper_32_bits(next->preemption_desc.gpuaddr));
-
 	kgsl_sharedmem_readq(&device->scratch, &gpuaddr,
 		SCRATCH_PREEMPTION_CTXT_RESTORE_ADDR_OFFSET(next->id));
 
-	kgsl_regwrite(device, A6XX_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_LO,
-		lower_32_bits(gpuaddr));
-	kgsl_regwrite(device, A6XX_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_HI,
-		upper_32_bits(gpuaddr));
+	/*
+	 * Fenced writes on this path will make sure the GPU is woken up
+	 * in case it was power collapsed by the GMU.
+	 */
+	adreno_gmu_fenced_write(adreno_dev,
+		ADRENO_REG_CP_CONTEXT_SWITCH_PRIV_NON_SECURE_RESTORE_ADDR_LO,
+		lower_32_bits(next->preemption_desc.gpuaddr),
+		FENCE_STATUS_WRITEDROPPED1_MASK);
+
+	adreno_gmu_fenced_write(adreno_dev,
+		ADRENO_REG_CP_CONTEXT_SWITCH_PRIV_NON_SECURE_RESTORE_ADDR_HI,
+		upper_32_bits(next->preemption_desc.gpuaddr),
+		FENCE_STATUS_WRITEDROPPED1_MASK);
+
+	adreno_gmu_fenced_write(adreno_dev,
+		ADRENO_REG_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_LO,
+		lower_32_bits(gpuaddr),
+		FENCE_STATUS_WRITEDROPPED1_MASK);
+
+	adreno_gmu_fenced_write(adreno_dev,
+		ADRENO_REG_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_HI,
+		upper_32_bits(gpuaddr),
+		FENCE_STATUS_WRITEDROPPED1_MASK);
 
 	adreno_dev->next_rb = next;
 
@@ -301,10 +313,12 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	adreno_set_preempt_state(adreno_dev, ADRENO_PREEMPT_TRIGGERED);
 
 	/* Trigger the preemption */
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_PREEMPT,
-			((preempt_level << 6) & 0xC0) |
-			((skipsaverestore << 9) & 0x200) |
-			((usesgmem << 8) & 0x100) | 0x1);
+	adreno_gmu_fenced_write(adreno_dev,
+		ADRENO_REG_CP_PREEMPT,
+		(((preempt_level << 6) & 0xC0) |
+		((skipsaverestore << 9) & 0x200) |
+		((usesgmem << 8) & 0x100) | 0x1),
+		FENCE_STATUS_WRITEDROPPED1_MASK);
 }
 
 void a6xx_preemption_callback(struct adreno_device *adreno_dev, int bit)
