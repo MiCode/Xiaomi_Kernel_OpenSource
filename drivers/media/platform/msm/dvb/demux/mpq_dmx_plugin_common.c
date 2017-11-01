@@ -877,6 +877,7 @@ int mpq_dmx_plugin_init(mpq_dmx_init dmx_init_func)
 		mpq_demux->sdmx_eos = 0;
 		mpq_demux->sdmx_log_level = SDMX_LOG_NO_PRINT;
 		mpq_demux->ts_packet_timestamp_source = 0;
+		mpq_demux->disable_cache_ops = 1;
 
 		if (mpq_demux->demux.feednum > MPQ_MAX_DMX_FILES) {
 			MPQ_DVB_ERR_PRINT(
@@ -6349,7 +6350,8 @@ static void mpq_sdmx_process_results(struct mpq_demux *mpq_demux)
 			continue;
 
 		/* Invalidate output buffer before processing the results */
-		mpq_sdmx_invalidate_buffer(mpq_feed);
+		if (!mpq_demux->disable_cache_ops)
+			mpq_sdmx_invalidate_buffer(mpq_feed);
 
 		if (sts->error_indicators & SDMX_FILTER_ERR_MD_BUF_FULL)
 			MPQ_DVB_ERR_PRINT(
@@ -6571,13 +6573,15 @@ static int mpq_sdmx_write(struct mpq_demux *mpq_demux,
 	 * We must flush the buffer before SDMX starts reading from it
 	 * so that it gets a valid data in memory.
 	 */
-	ret = msm_ion_do_cache_op(mpq_demux->ion_client,
-		ion_handle, rbuf->data,
-		rbuf->size, ION_IOC_CLEAN_CACHES);
-	if (ret)
-		MPQ_DVB_ERR_PRINT(
-			"%s: msm_ion_do_cache_op failed, ret = %d\n",
-			__func__, ret);
+	if (!mpq_demux->disable_cache_ops) {
+		ret = msm_ion_do_cache_op(mpq_demux->ion_client,
+					  ion_handle, rbuf->data,
+					  rbuf->size, ION_IOC_CLEAN_CACHES);
+		if (ret)
+			MPQ_DVB_ERR_PRINT(
+				"%s: msm_ion_do_cache_op failed, ret = %d\n",
+				__func__, ret);
+	}
 
 	return mpq_sdmx_process(mpq_demux, &buf_desc, count,
 				read_offset, mpq_demux->demux.ts_packet_size);
