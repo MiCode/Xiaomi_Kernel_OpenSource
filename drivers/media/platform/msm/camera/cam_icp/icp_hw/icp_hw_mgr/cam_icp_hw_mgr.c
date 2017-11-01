@@ -1257,6 +1257,7 @@ static int32_t cam_icp_mgr_process_msg(void *priv, void *data)
 		rc = read_len;
 		CAM_DBG(CAM_ICP, "Unable to read msg q");
 	} else {
+		read_len = read_len << BYTE_WORD_SHIFT;
 		msg_ptr = (uint32_t *)icp_hw_mgr.msg_buf;
 		while (true) {
 			msg_processed_len = cam_icp_process_msg_pkt_type(
@@ -1268,7 +1269,8 @@ static int32_t cam_icp_mgr_process_msg(void *priv, void *data)
 
 			read_len -= msg_processed_len;
 			if (read_len > 0)
-				msg_ptr += msg_processed_len;
+				msg_ptr += (msg_processed_len >>
+				BYTE_WORD_SHIFT);
 			else
 				break;
 		}
