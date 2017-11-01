@@ -1174,31 +1174,6 @@ void tick_irq_enter(void)
  * High resolution timer specific code
  */
 #ifdef CONFIG_HIGH_RES_TIMERS
-static void update_rq_stats(void)
-{
-	unsigned long jiffy_gap = 0;
-	unsigned int rq_avg = 0;
-	unsigned long flags = 0;
-
-	jiffy_gap = jiffies - rq_info.rq_poll_last_jiffy;
-	if (jiffy_gap >= rq_info.rq_poll_jiffies) {
-		spin_lock_irqsave(&rq_lock, flags);
-		if (!rq_info.rq_avg)
-			rq_info.rq_poll_total_jiffies = 0;
-		rq_avg = nr_running() * 10;
-		if (rq_info.rq_poll_total_jiffies) {
-			rq_avg = (rq_avg * jiffy_gap) +
-				(rq_info.rq_avg *
-				 rq_info.rq_poll_total_jiffies);
-			do_div(rq_avg,
-				rq_info.rq_poll_total_jiffies + jiffy_gap);
-		}
-		rq_info.rq_avg = rq_avg;
-		rq_info.rq_poll_total_jiffies += jiffy_gap;
-		rq_info.rq_poll_last_jiffy = jiffies;
-		spin_unlock_irqrestore(&rq_lock, flags);
-	}
-}
 static void wakeup_user(void)
 {
 	unsigned long jiffy_gap;
@@ -1231,10 +1206,6 @@ static enum hrtimer_restart tick_sched_timer(struct hrtimer *timer)
 		tick_sched_handle(ts, regs);
 		if (rq_info.init == 1 &&
 				tick_do_timer_cpu == smp_processor_id()) {
-			/*
-			 * update run queue statistics
-			 */
-			update_rq_stats();
 			/*
 			 * wakeup user if needed
 			 */
