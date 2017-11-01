@@ -379,39 +379,47 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev, u32 mode)
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 	if (!drvdata->vaddr) {
 		spin_unlock_irqrestore(&drvdata->spinlock, flags);
-
-		/*
-		 * Contiguous  memory can't be allocated while a spinlock is
-		 * held.  As such allocate memory here and free it if a buffer
-		 * has already been allocated (from a previous session).
-		 */
 		mutex_lock(&drvdata->mem_lock);
 
-		/*
-		 * ETR DDR memory is not allocated until user enables
-		 * tmc at least once. If user specifies different ETR
-		 * DDR size than the default size or switches between
-		 * contiguous or scatter-gather memory type after
-		 * enabling tmc; the new selection will be honored from
-		 * next tmc enable session.
-		 */
-		if (drvdata->size != drvdata->mem_size)
-			tmc_etr_free_mem(drvdata);
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
+			/*
+			 * ETR DDR memory is not allocated until user enables
+			 * tmc at least once. If user specifies different ETR
+			 * DDR size than the default size or switches between
+			 * contiguous or scatter-gather memory type after
+			 * enabling tmc; the new selection will be honored from
+			 * next tmc enable session.
+			 */
+			if (drvdata->size != drvdata->mem_size ||
+				drvdata->memtype != drvdata->mem_type) {
+				tmc_etr_free_mem(drvdata);
+				drvdata->size = drvdata->mem_size;
+				drvdata->memtype = drvdata->mem_type;
+			}
 
-		ret = tmc_etr_alloc_mem(drvdata);
-		if (ret) {
-			pm_runtime_put(drvdata->dev);
-			mutex_unlock(&drvdata->mem_lock);
-			return ret;
+			ret = tmc_etr_alloc_mem(drvdata);
+			if (ret) {
+				mutex_unlock(&drvdata->mem_lock);
+				return ret;
+			}
+		} else {
+			drvdata->usbch = usb_qdss_open("qdss", drvdata,
+								usb_notifier);
+			if (IS_ERR_OR_NULL(drvdata->usbch)) {
+				dev_err(drvdata->dev, "usb_qdss_open failed\n");
+				ret = PTR_ERR(drvdata->usbch);
+				mutex_unlock(&drvdata->mem_lock);
+				return ret;
+			}
 		}
-		mutex_unlock(&drvdata->mem_lock);
-
-		/* Let's try again */
 		spin_lock_irqsave(&drvdata->spinlock, flags);
 	}
 
 	if (drvdata->reading) {
 		ret = -EBUSY;
+		spin_unlock_irqrestore(&drvdata->spinlock, flags);
+		mutex_unlock(&drvdata->mem_lock);
+		return ret;
 		goto out;
 	}
 
@@ -436,13 +444,19 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev, u32 mode)
 	}
 
 	drvdata->mode = CS_MODE_SYSFS;
-	tmc_etr_enable_hw(drvdata);
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
+		tmc_etr_enable_hw(drvdata);
+
+	drvdata->enable = true;	828
+	drvdata->sticky_enable = true;
 out:
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 	/* Free memory outside the spinlock if need be */
 	if (!used && vaddr)
 		dma_free_coherent(drvdata->dev, drvdata->size, vaddr, paddr);
+
+	mutex_unlock(&drvdata->mem_lock);
 
 	if (!ret)
 		dev_info(drvdata->dev, "TMC-ETR enabled\n");
@@ -505,8 +519,14 @@ static void tmc_disable_etr_sink(struct coresight_device *csdev)
 	}
 
 	/* Disable the TMC only if it needs to */
-	if (drvdata->mode != CS_MODE_DISABLED) {
-		tmc_etr_disable_hw(drvdata);
+	if (val != CS_MODE_DISABLED) {
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
+			__tmc_etr_disable_to_bam(drvdata);
+			tmc_etr_bam_disable(drvdata);
+			usb_qdss_close(drvdata->usbch);
+		} else {
+			tmc_etr_disable_hw(drvdata);
+		}
 		drvdata->mode = CS_MODE_DISABLED;
 	}
 
@@ -540,6 +560,10 @@ int tmc_read_prepare_etr(struct tmc_drvdata *drvdata)
 		goto out;
 	}
 
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
+		ret = -EINVAL;
+		goto out;
+	}
 	/* Don't interfere if operated from Perf */
 	if (drvdata->mode == CS_MODE_PERF) {
 		ret = -EINVAL;
