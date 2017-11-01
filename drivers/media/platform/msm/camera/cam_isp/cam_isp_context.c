@@ -24,6 +24,8 @@
 #include "cam_trace.h"
 #include "cam_debug_util.h"
 
+static const char isp_dev_name[] = "isp";
+
 static int __cam_isp_ctx_enqueue_request_in_order(
 	struct cam_context *ctx, struct cam_ctx_request *req)
 {
@@ -2154,8 +2156,8 @@ int cam_isp_context_init(struct cam_isp_context *ctx,
 	}
 
 	/* camera context setup */
-	rc = cam_context_init(ctx_base, crm_node_intf, hw_intf, ctx->req_base,
-		CAM_CTX_REQ_MAX);
+	rc = cam_context_init(ctx_base, isp_dev_name, crm_node_intf, hw_intf,
+		ctx->req_base, CAM_CTX_REQ_MAX);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Camera Context Base init failed");
 		goto err;
