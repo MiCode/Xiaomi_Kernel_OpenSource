@@ -48,6 +48,9 @@
 #define MEM_PROTECT_SD_CTRL_SWITCH 0x18
 #define MDP_DEVICE_ID            0x1A
 
+#define SDE_PSTATES_MAX (SDE_STAGE_MAX * 4)
+#define SDE_MULTIRECT_PLANE_MAX (SDE_STAGE_MAX * 2)
+
 struct sde_crtc_custom_events {
 	u32 event;
 	int (*func)(struct drm_crtc *crtc, bool en,
@@ -4383,7 +4386,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		struct drm_crtc_state *state)
 {
 	struct sde_crtc *sde_crtc;
-	struct plane_state pstates[SDE_STAGE_MAX * 4];
+	struct plane_state *pstates = NULL;
 	struct sde_crtc_state *cstate;
 
 	const struct drm_plane_state *pstate;
@@ -4392,7 +4395,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 
 	int cnt = 0, rc = 0, mixer_width, i, z_pos;
 
-	struct sde_multirect_plane_states multirect_plane[SDE_STAGE_MAX * 2];
+	struct sde_multirect_plane_states *multirect_plane = NULL;
 	int multirect_count = 0;
 	const struct drm_plane_state *pipe_staged[SSPP_MAX];
 	int left_zpos_cnt = 0, right_zpos_cnt = 0;
@@ -4408,6 +4411,18 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	if (!state->enable || !state->active) {
 		SDE_DEBUG("crtc%d -> enable %d, active %d, skip atomic_check\n",
 				crtc->base.id, state->enable, state->active);
+		goto end;
+	}
+
+	pstates = kcalloc(SDE_PSTATES_MAX,
+			sizeof(struct plane_state), GFP_KERNEL);
+
+	multirect_plane = kcalloc(SDE_MULTIRECT_PLANE_MAX,
+			sizeof(struct sde_multirect_plane_states),
+			GFP_KERNEL);
+
+	if (!pstates || !multirect_plane) {
+		rc = -ENOMEM;
 		goto end;
 	}
 
@@ -4440,7 +4455,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 					sde_crtc->name, plane->base.id, rc);
 			goto end;
 		}
-		if (cnt >= ARRAY_SIZE(pstates))
+		if (cnt >= SDE_PSTATES_MAX)
 			continue;
 
 		pstates[cnt].sde_pstate = to_sde_plane_state(pstate);
@@ -4654,6 +4669,8 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	}
 
 end:
+	kfree(pstates);
+	kfree(multirect_plane);
 	_sde_crtc_rp_free_unused(&cstate->rp);
 	return rc;
 }
