@@ -742,6 +742,10 @@ void rmnet_egress_handler(struct sk_buff *skb,
 
 	rmnet_print_packet(skb, skb->dev->name, 't');
 	trace_rmnet_egress_handler(skb);
+
+	if (config->egress_data_format & RMNET_EGRESS_FORMAT__RESERVED__)
+		skb_push(skb, RMNET_ETHERNET_HEADER_LENGTH);
+
 	rc = dev_queue_xmit(skb);
 	if (rc != 0) {
 		LOGD("Failed to queue packet for transmission on [%s]",
