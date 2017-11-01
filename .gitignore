@@ -33,6 +33,7 @@
 *.lzo
 *.patch
 *.gcno
+*.ll
 modules.builtin
 Module.symvers
 *.dwo
@@ -114,3 +115,6 @@ all.config
 
 # Kdevelop4
 *.kdev4
+
+# fetched Android config fragments
+kernel/configs/android-*.cfg
