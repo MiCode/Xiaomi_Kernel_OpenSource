@@ -204,17 +204,17 @@ static int rsc_hw_seq_memory_init(struct sde_rsc_priv *rsc)
 
 	/* tcs sleep & wake sequence */
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x2c,
-						0x2089e6a6, rsc->debug_mode);
+						0x89e686a6, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x30,
-						0xe7a7e9a9, rsc->debug_mode);
+						0xa7e9a920, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x34,
-						0x00002089, rsc->debug_mode);
+						0x2089e787, rsc->debug_mode);
 
 	/* branch address */
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_CFG_BR_ADDR_0_DRV0,
 						0x2a, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_CFG_BR_ADDR_1_DRV0,
-						0x30, rsc->debug_mode);
+						0x31, rsc->debug_mode);
 
 	return 0;
 }
