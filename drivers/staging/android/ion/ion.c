@@ -3,6 +3,7 @@
  * drivers/staging/android/ion/ion.c
  *
  * Copyright (C) 2011 Google, Inc.
+ * Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -37,11 +38,103 @@
 #include <linux/dma-buf.h>
 #include <linux/idr.h>
 #include <linux/sched/task.h>
+#include <linux/bitops.h>
+#include <soc/qcom/secure_buffer.h>
 
 #include "ion.h"
 
 static struct ion_device *internal_dev;
-static int heap_id;
+
+bool is_secure_vmid_valid(int vmid)
+{
+	return (vmid == VMID_CP_TOUCH ||
+		vmid == VMID_CP_BITSTREAM ||
+		vmid == VMID_CP_PIXEL ||
+		vmid == VMID_CP_NON_PIXEL ||
+		vmid == VMID_CP_CAMERA ||
+		vmid == VMID_CP_SEC_DISPLAY ||
+		vmid == VMID_CP_APP ||
+		vmid == VMID_CP_CAMERA_PREVIEW);
+}
+
+int get_secure_vmid(unsigned long flags)
+{
+	if (flags & ION_FLAG_CP_TOUCH)
+		return VMID_CP_TOUCH;
+	if (flags & ION_FLAG_CP_BITSTREAM)
+		return VMID_CP_BITSTREAM;
+	if (flags & ION_FLAG_CP_PIXEL)
+		return VMID_CP_PIXEL;
+	if (flags & ION_FLAG_CP_NON_PIXEL)
+		return VMID_CP_NON_PIXEL;
+	if (flags & ION_FLAG_CP_CAMERA)
+		return VMID_CP_CAMERA;
+	if (flags & ION_FLAG_CP_SEC_DISPLAY)
+		return VMID_CP_SEC_DISPLAY;
+	if (flags & ION_FLAG_CP_APP)
+		return VMID_CP_APP;
+	if (flags & ION_FLAG_CP_CAMERA_PREVIEW)
+		return VMID_CP_CAMERA_PREVIEW;
+	return -EINVAL;
+}
+
+unsigned int count_set_bits(unsigned long val)
+{
+	return ((unsigned int)bitmap_weight(&val, BITS_PER_LONG));
+}
+
+int populate_vm_list(unsigned long flags, unsigned int *vm_list,
+		     int nelems)
+{
+	unsigned int itr = 0;
+	int vmid;
+
+	flags = flags & ION_FLAGS_CP_MASK;
+	for_each_set_bit(itr, &flags, BITS_PER_LONG) {
+		vmid = get_vmid(0x1UL << itr);
+		if (vmid < 0 || !nelems)
+			return -EINVAL;
+
+		vm_list[nelems - 1] = vmid;
+		nelems--;
+	}
+	return 0;
+}
+
+int get_vmid(unsigned long flags)
+{
+	int vmid;
+
+	vmid = get_secure_vmid(flags);
+	if (vmid < 0) {
+		if (flags & ION_FLAG_CP_HLOS)
+			vmid = VMID_HLOS;
+	}
+	return vmid;
+}
+
+int ion_walk_heaps(int heap_id, enum ion_heap_type type, void *data,
+		   int (*f)(struct ion_heap *heap, void *data))
+{
+	int ret_val = 0;
+	struct ion_heap *heap;
+	struct ion_device *dev = internal_dev;
+	/*
+	 * traverse the list of heaps available in this system
+	 * and find the heap that is specified.
+	 */
+	down_write(&dev->lock);
+	plist_for_each_entry(heap, &dev->heaps, node) {
+		if (ION_HEAP(heap->id) != heap_id ||
+		    type != heap->type)
+			continue;
+		ret_val = f(heap, data);
+		break;
+	}
+	up_write(&dev->lock);
+	return ret_val;
+}
+EXPORT_SYMBOL(ion_walk_heaps);
 
 bool ion_buffer_cached(struct ion_buffer *buffer)
 {
@@ -115,7 +208,6 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 
 	buffer->dev = dev;
 	buffer->size = len;
-	INIT_LIST_HEAD(&buffer->vmas);
 	INIT_LIST_HEAD(&buffer->attachments);
 	mutex_init(&buffer->lock);
 	mutex_lock(&dev->buffer_lock);
@@ -135,7 +227,6 @@ void ion_buffer_destroy(struct ion_buffer *buffer)
 	if (WARN_ON(buffer->kmap_cnt > 0))
 		buffer->heap->ops->unmap_kernel(buffer->heap, buffer);
 	buffer->heap->ops->free(buffer);
-	vfree(buffer->pages);
 	kfree(buffer);
 }
 
@@ -293,6 +384,22 @@ static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 	dma_unmap_sg(attachment->dev, table->sgl, table->nents, direction);
 }
 
+void ion_pages_sync_for_device(struct device *dev, struct page *page,
+			       size_t size, enum dma_data_direction dir)
+{
+	struct scatterlist sg;
+
+	sg_init_table(&sg, 1);
+	sg_set_page(&sg, page, size, 0);
+	/*
+	 * This is not correct - sg_dma_address needs a dma_addr_t that is valid
+	 * for the targeted device, but this works on the currently targeted
+	 * hardware.
+	 */
+	sg_dma_address(&sg) = page_to_phys(page);
+	dma_sync_sg_for_device(dev, &sg, 1, dir);
+}
+
 static int ion_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
@@ -405,6 +512,43 @@ static const struct dma_buf_ops dma_buf_ops = {
 int ion_alloc(size_t len, unsigned int heap_id_mask, unsigned int flags)
 {
 	struct ion_device *dev = internal_dev;
+	struct ion_heap *heap;
+	bool type_valid = false;
+
+	pr_debug("%s: len %zu heap_id_mask %u flags %x\n", __func__,
+		 len, heap_id_mask, flags);
+	/*
+	 * traverse the list of heaps available in this system in priority
+	 * order.  Check the heap type is supported.
+	 */
+
+	down_read(&dev->lock);
+	plist_for_each_entry(heap, &dev->heaps, node) {
+		/* if the caller didn't specify this heap id */
+		if (!((1 << heap->id) & heap_id_mask))
+			continue;
+		if (heap->type == ION_HEAP_TYPE_SYSTEM ||
+		    heap->type ==
+			(enum ion_heap_type)ION_HEAP_TYPE_SYSTEM_SECURE) {
+			type_valid = true;
+		} else {
+			pr_warn("ion_alloc heap type not supported, type:%d\n",
+				heap->type);
+		}
+		break;
+	}
+	up_read(&dev->lock);
+
+	if (!type_valid)
+		return -EINVAL;
+
+	return ion_alloc_priv(len, heap_id_mask, flags);
+}
+EXPORT_SYMBOL(ion_alloc);
+
+int ion_alloc_priv(size_t len, unsigned int heap_id_mask, unsigned int flags)
+{
+	struct ion_device *dev = internal_dev;
 	struct ion_buffer *buffer = NULL;
 	struct ion_heap *heap;
 	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
@@ -482,7 +626,7 @@ int ion_query_heaps(struct ion_heap_query *query)
 	max_cnt = query->cnt;
 
 	plist_for_each_entry(heap, &dev->heaps, node) {
-		strncpy(hdata.name, heap->name, MAX_HEAP_NAME);
+		strlcpy(hdata.name, heap->name, sizeof(hdata.name));
 		hdata.name[sizeof(hdata.name) - 1] = '\0';
 		hdata.type = heap->type;
 		hdata.heap_id = heap->id;
@@ -547,10 +691,9 @@ static int debug_shrink_get(void *data, u64 *val)
 DEFINE_SIMPLE_ATTRIBUTE(debug_shrink_fops, debug_shrink_get,
 			debug_shrink_set, "%llu\n");
 
-void ion_device_add_heap(struct ion_heap *heap)
+void ion_device_add_heap(struct ion_device *dev, struct ion_heap *heap)
 {
 	struct dentry *debug_file;
-	struct ion_device *dev = internal_dev;
 
 	if (!heap->ops->allocate || !heap->ops->free)
 		pr_err("%s: can not add heap with invalid ops struct.\n",
@@ -567,7 +710,6 @@ void ion_device_add_heap(struct ion_heap *heap)
 
 	heap->dev = dev;
 	down_write(&dev->lock);
-	heap->id = heap_id++;
 	/*
 	 * use negative heap->id to reverse the priority -- when traversing
 	 * the list later attempt higher id numbers first
@@ -596,14 +738,14 @@ void ion_device_add_heap(struct ion_heap *heap)
 }
 EXPORT_SYMBOL(ion_device_add_heap);
 
-int ion_device_create(void)
+struct ion_device *ion_device_create(void)
 {
 	struct ion_device *idev;
 	int ret;
 
 	idev = kzalloc(sizeof(*idev), GFP_KERNEL);
 	if (!idev)
-		return -ENOMEM;
+		return ERR_PTR(-ENOMEM);
 
 	idev->dev.minor = MISC_DYNAMIC_MINOR;
 	idev->dev.name = "ion";
@@ -613,7 +755,7 @@ int ion_device_create(void)
 	if (ret) {
 		pr_err("ion: failed to register misc device.\n");
 		kfree(idev);
-		return ret;
+		return ERR_PTR(ret);
 	}
 
 	idev->debug_root = debugfs_create_dir("ion", NULL);
@@ -623,11 +765,21 @@ int ion_device_create(void)
 	}
 
 debugfs_done:
+
 	idev->buffers = RB_ROOT;
 	mutex_init(&idev->buffer_lock);
 	init_rwsem(&idev->lock);
 	plist_head_init(&idev->heaps);
 	internal_dev = idev;
-	return 0;
+	return idev;
 }
-subsys_initcall(ion_device_create);
+EXPORT_SYMBOL(ion_device_create);
+
+void ion_device_destroy(struct ion_device *dev)
+{
+	misc_deregister(&dev->dev);
+	debugfs_remove_recursive(dev->debug_root);
+	/* XXX need to free the heaps and clients ? */
+	kfree(dev);
+}
+EXPORT_SYMBOL(ion_device_destroy);

@@ -95,9 +95,13 @@ static void ion_carveout_heap_free(struct ion_buffer *buffer)
 	struct ion_heap *heap = buffer->heap;
 	struct sg_table *table = buffer->sg_table;
 	struct page *page = sg_page(table->sgl);
-	phys_addr_t paddr = PFN_PHYS(page_to_pfn(page));
+	phys_addr_t paddr = page_to_phys(page);
 
 	ion_heap_buffer_zero(buffer);
+
+	if (ion_buffer_cached(buffer))
+		dma_sync_sg_for_device(NULL, table->sgl, table->nents,
+				       DMA_BIDIRECTIONAL);
 
 	ion_carveout_free(heap, paddr, buffer->size);
 	sg_free_table(table);
@@ -123,6 +127,8 @@ struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)
 	page = pfn_to_page(PFN_DOWN(heap_data->base));
 	size = heap_data->size;
 
+	ion_pages_sync_for_device(NULL, page, size, DMA_BIDIRECTIONAL);
+
 	ret = ion_heap_pages_zero(page, size, pgprot_writecombine(PAGE_KERNEL));
 	if (ret)
 		return ERR_PTR(ret);
@@ -144,4 +150,14 @@ struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)
 	carveout_heap->heap.flags = ION_HEAP_FLAG_DEFER_FREE;
 
 	return &carveout_heap->heap;
+}
+
+void ion_carveout_heap_destroy(struct ion_heap *heap)
+{
+	struct ion_carveout_heap *carveout_heap =
+	     container_of(heap, struct  ion_carveout_heap, heap);
+
+	gen_pool_destroy(carveout_heap->pool);
+	kfree(carveout_heap);
+	carveout_heap = NULL;
 }
