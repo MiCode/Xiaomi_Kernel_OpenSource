@@ -74,6 +74,7 @@ enum qusb_phy_reg {
 	INTR_CTRL,
 	PLL_CORE_INPUT_OVERRIDE,
 	TEST1,
+	BIAS_CTRL_2,
 	USB2_PHY_REG_MAX,
 };
 
@@ -892,7 +893,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		if (qphy->phy_reg) {
 			qphy->qusb_phy_reg_offset_cnt =
 				size / sizeof(*qphy->phy_reg);
-			if (qphy->qusb_phy_reg_offset_cnt > USB2_PHY_REG_MAX) {
+			if (qphy->qusb_phy_reg_offset_cnt != USB2_PHY_REG_MAX) {
 				dev_err(dev, "invalid reg offset count\n");
 				return -EINVAL;
 			}

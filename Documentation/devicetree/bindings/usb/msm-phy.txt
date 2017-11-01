@@ -191,7 +191,8 @@ Example:
 			 0x210 /* QUSB2PHY_PWR_CTRL1 */
 			 0x230 /* QUSB2PHY_INTR_CTRL */
 			 0x0a8 /* QUSB2PHY_PLL_CORE_INPUT_OVERRIDE */
-			 0x254>; /* QUSB2PHY_TEST1 */
+			 0x254 /* QUSB2PHY_TEST1 */
+			 0x198>; /* QUSB2PHY_PLL_BIAS_CONTROL_2 */
 		qcom,efuse-bit-pos = <21>;
 		qcom,efuse-num-bits = <3>;
 
