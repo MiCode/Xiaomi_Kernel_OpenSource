@@ -17,7 +17,7 @@
 #include <linux/poll.h>
 #include <linux/dma-buf.h>
 
-#define VB2_MAX_FRAME	(32)
+#define VB2_MAX_FRAME	(64)
 #define VB2_MAX_PLANES	(8)
 
 /**
