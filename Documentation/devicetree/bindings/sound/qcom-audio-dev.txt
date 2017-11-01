@@ -2106,6 +2106,7 @@ Optional properties:
 - asoc-codec-names: This property contains list of codec dai names. The order of the
 		codec dai names should match to that of the phandle order given
 		in "asoc-codec".
+- vdd-spkr-supply: BG codec supply's speaker regulator device tree node.
 
 Example:
 	sound {
