@@ -1761,8 +1761,19 @@ static int adreno_stop(struct kgsl_device *device)
 	 * because some idle level transitions require VBIF and MMU.
 	 */
 	if (gpudev->wait_for_lowest_idle &&
-			gpudev->wait_for_lowest_idle(adreno_dev))
-		return -EINVAL;
+			gpudev->wait_for_lowest_idle(adreno_dev)) {
+		struct gmu_device *gmu = &device->gmu;
+
+		set_bit(GMU_FAULT, &gmu->flags);
+		gmu_snapshot(device);
+		/*
+		 * Assume GMU hang after 10ms without responding.
+		 * It shall be relative safe to clear vbif and stop
+		 * MMU later. Early return in adreno_stop function
+		 * will result in kernel panic in adreno_start
+		 */
+		error = -EINVAL;
+	}
 
 	adreno_vbif_clear_pending_transactions(device);
 
@@ -1776,7 +1787,7 @@ static int adreno_stop(struct kgsl_device *device)
 
 	clear_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
 
-	return 0;
+	return error;
 }
 
 static inline bool adreno_try_soft_reset(struct kgsl_device *device, int fault)
