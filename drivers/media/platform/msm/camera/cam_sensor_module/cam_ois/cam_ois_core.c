@@ -117,6 +117,10 @@ static int cam_ois_power_up(struct cam_ois_ctrl_t *o_ctrl)
 	/* VREG needs some delay to power up */
 	usleep_range(2000, 2050);
 
+	rc = camera_io_init(&o_ctrl->io_master_info);
+	if (rc)
+		CAM_ERR(CAM_OIS, "cci_init failed: rc: %d", rc);
+
 	return rc;
 }
 
@@ -141,6 +145,8 @@ static int cam_ois_power_down(struct cam_ois_ctrl_t *o_ctrl)
 	rc = cam_ois_vreg_control(o_ctrl, 0);
 	if (rc < 0)
 		CAM_ERR(CAM_OIS, "Disable regualtor Failed %d", rc);
+
+	camera_io_release(&o_ctrl->io_master_info);
 
 	return rc;
 }
@@ -437,18 +443,6 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 			}
 		}
 
-		rc = cam_ois_power_up(o_ctrl);
-		if (rc) {
-			CAM_ERR(CAM_OIS, " OIS Power up failed");
-			return rc;
-		}
-
-		rc = camera_io_init(&o_ctrl->io_master_info);
-		if (rc) {
-			CAM_ERR(CAM_OIS, "cci_init failed");
-			goto pwr_dwn;
-		}
-
 		if (o_ctrl->ois_fw_flag) {
 			rc = cam_ois_fw_download(o_ctrl);
 			if (rc) {
@@ -526,17 +520,12 @@ void cam_ois_shutdown(struct cam_ois_ctrl_t *o_ctrl)
 	if (o_ctrl->cam_ois_state == CAM_OIS_INIT)
 		return;
 
-	if (o_ctrl->cam_ois_state == CAM_OIS_START) {
-		rc = camera_io_release(&o_ctrl->io_master_info);
-		if (rc < 0)
-			CAM_ERR(CAM_OIS, "Failed in releasing CCI");
+	if ((o_ctrl->cam_ois_state == CAM_OIS_START) ||
+		(o_ctrl->cam_ois_state == CAM_OIS_ACQUIRE)) {
 		rc = cam_ois_power_down(o_ctrl);
 		if (rc < 0)
 			CAM_ERR(CAM_OIS, "OIS Power down failed");
-		o_ctrl->cam_ois_state = CAM_OIS_ACQUIRE;
-	}
 
-	if (o_ctrl->cam_ois_state == CAM_OIS_ACQUIRE) {
 		rc = cam_destroy_device_hdl(o_ctrl->bridge_intf.device_hdl);
 		if (rc < 0)
 			CAM_ERR(CAM_OIS, "destroying the device hdl");
@@ -586,6 +575,13 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 			CAM_ERR(CAM_OIS, "Failed to acquire dev");
 			goto release_mutex;
 		}
+
+		rc = cam_ois_power_up(o_ctrl);
+		if (rc) {
+			CAM_ERR(CAM_OIS, " OIS Power up failed");
+			goto release_mutex;
+		}
+
 		o_ctrl->cam_ois_state = CAM_OIS_ACQUIRE;
 		break;
 	case CAM_START_DEV:
@@ -614,6 +610,12 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 			goto release_mutex;
 		}
 
+		rc = cam_ois_power_down(o_ctrl);
+		if (rc < 0) {
+			CAM_ERR(CAM_OIS, "OIS Power down failed");
+			goto release_mutex;
+		}
+
 		if (o_ctrl->bridge_intf.device_hdl == -1) {
 			CAM_ERR(CAM_OIS, "link hdl: %d device hdl: %d",
 				o_ctrl->bridge_intf.device_hdl,
@@ -635,15 +637,6 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 			CAM_WARN(CAM_OIS,
 			"Not in right state for stop : %d",
 			o_ctrl->cam_ois_state);
-		}
-
-		rc = camera_io_release(&o_ctrl->io_master_info);
-		if (rc < 0)
-			CAM_ERR(CAM_OIS, "Failed in releasing CCI");
-		rc = cam_ois_power_down(o_ctrl);
-		if (rc < 0) {
-			CAM_ERR(CAM_OIS, "OIS Power down failed");
-			goto release_mutex;
 		}
 		o_ctrl->cam_ois_state = CAM_OIS_ACQUIRE;
 		break;

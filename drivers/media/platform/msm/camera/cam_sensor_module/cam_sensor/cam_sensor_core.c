@@ -473,12 +473,9 @@ void cam_sensor_shutdown(struct cam_sensor_ctrl_t *s_ctrl)
 
 	cam_sensor_release_resource(s_ctrl);
 
-	if (s_ctrl->sensor_state == CAM_SENSOR_START) {
+	if ((s_ctrl->sensor_state == CAM_SENSOR_START) ||
+		(s_ctrl->sensor_state == CAM_SENSOR_ACQUIRE)) {
 		cam_sensor_power_down(s_ctrl);
-		s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
-	}
-
-	if (s_ctrl->sensor_state == CAM_SENSOR_ACQUIRE) {
 		rc = cam_destroy_device_hdl(s_ctrl->bridge_intf.device_hdl);
 		if (rc < 0)
 			CAM_ERR(CAM_SENSOR, " failed destroying dhdl");
@@ -686,6 +683,13 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			rc = -EFAULT;
 			goto release_mutex;
 		}
+
+		rc = cam_sensor_power_up(s_ctrl);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR, "Sensor Power up failed");
+			goto release_mutex;
+		}
+
 		s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
 	}
 		break;
@@ -695,6 +699,12 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			CAM_WARN(CAM_SENSOR,
 			"Not in right state to release : %d",
 			s_ctrl->sensor_state);
+			goto release_mutex;
+		}
+
+		rc = cam_sensor_power_down(s_ctrl);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR, "Sensor Power Down failed");
 			goto release_mutex;
 		}
 
@@ -770,11 +780,6 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 				"cannot apply streamoff settings");
 			}
 		}
-		rc = cam_sensor_power_down(s_ctrl);
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "Sensor Power Down failed");
-			goto release_mutex;
-		}
 		s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
 	}
 		break;
@@ -786,11 +791,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		}
 		if (s_ctrl->i2c_data.init_settings.is_settings_valid &&
 			(s_ctrl->i2c_data.init_settings.request_id == 0)) {
-			rc = cam_sensor_power_up(s_ctrl);
-			if (rc < 0) {
-				CAM_ERR(CAM_SENSOR, "Sensor Power up failed");
-				goto release_mutex;
-			}
+
 			rc = cam_sensor_apply_settings(s_ctrl, 0,
 				CAM_SENSOR_PACKET_OPCODE_SENSOR_INITIAL_CONFIG);
 			if (rc < 0) {
@@ -917,13 +918,9 @@ int cam_sensor_power_up(struct cam_sensor_ctrl_t *s_ctrl)
 		return rc;
 	}
 
-	if (s_ctrl->io_master_info.master_type == CCI_MASTER) {
-		rc = camera_io_init(&(s_ctrl->io_master_info));
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "cci_init failed");
-			return -EINVAL;
-		}
-	}
+	rc = camera_io_init(&(s_ctrl->io_master_info));
+	if (rc < 0)
+		CAM_ERR(CAM_SENSOR, "cci_init failed: rc: %d", rc);
 
 	return rc;
 }
@@ -952,8 +949,7 @@ int cam_sensor_power_down(struct cam_sensor_ctrl_t *s_ctrl)
 		return rc;
 	}
 
-	if (s_ctrl->io_master_info.master_type == CCI_MASTER)
-		camera_io_release(&(s_ctrl->io_master_info));
+	camera_io_release(&(s_ctrl->io_master_info));
 
 	return rc;
 }
