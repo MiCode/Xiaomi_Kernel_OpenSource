@@ -865,6 +865,9 @@ static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 		sde_encoder_phys_inc_pending(phys_enc);
 	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 
+	if (!sde_encoder_phys_vid_is_master(phys_enc))
+		goto exit;
+
 	/*
 	 * Wait for a vsync so we know the ENABLE=0 latched before
 	 * the (connector) source of the vsync's gets disabled,
@@ -873,7 +876,16 @@ static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 	 * the settings changes for the new modeset (like new
 	 * scanout buffer) don't latch properly..
 	 */
-	if (sde_encoder_phys_vid_is_master(phys_enc)) {
+	ret = sde_encoder_phys_vid_control_vblank_irq(phys_enc, true);
+	if (ret) {
+		SDE_ERROR_VIDENC(vid_enc,
+				"failed to enable vblank irq: %d\n",
+				ret);
+		SDE_EVT32(DRMID(phys_enc->parent),
+				vid_enc->hw_intf->idx - INTF_0, ret,
+				SDE_EVTLOG_FUNC_CASE1,
+				SDE_EVTLOG_ERROR);
+	} else {
 		ret = _sde_encoder_phys_vid_wait_for_vblank(phys_enc, false);
 		if (ret) {
 			atomic_set(&phys_enc->pending_kickoff_cnt, 0);
@@ -881,10 +893,13 @@ static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 					"failure waiting for disable: %d\n",
 					ret);
 			SDE_EVT32(DRMID(phys_enc->parent),
-					vid_enc->hw_intf->idx - INTF_0, ret);
+					vid_enc->hw_intf->idx - INTF_0, ret,
+					SDE_EVTLOG_FUNC_CASE2,
+					SDE_EVTLOG_ERROR);
 		}
+		sde_encoder_phys_vid_control_vblank_irq(phys_enc, false);
 	}
-
+exit:
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 }
 
