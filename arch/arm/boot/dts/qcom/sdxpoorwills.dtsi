@@ -22,7 +22,7 @@
 	model = "Qualcomm Technologies, Inc. SDX POORWILLS";
 	compatible = "qcom,sdxpoorwills";
 	qcom,msm-id = <334 0x0>, <335 0x0>;
-	interrupt-parent = <&intc>;
+	interrupt-parent = <&pdc>;
 
 	reserved-memory {
 		#address-cells = <1>;
@@ -69,6 +69,7 @@
 		CPU0: cpu@0 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a7";
+			enable-method = "psci";
 			reg = <0x0>;
 			#cooling-cells = <2>;
 		};
@@ -78,6 +79,11 @@
 		qpic_nand1 = &qnand_1;
 		pci-domain0 = &pcie0;
 		sdhc1 = &sdhc_1; /* SDC1 eMMC/SD/SDIO slot */
+	};
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
 	};
 
 	soc: soc { };
@@ -95,6 +101,15 @@
 		#interrupt-cells = <3>;
 		reg = <0x17800000 0x1000>,
 		      <0x17802000 0x1000>;
+		interrupt-parent = <&intc>;
+	};
+
+	pdc: interrupt-controller@b210000{
+		compatible = "qcom,pdc-sdxpoorwills";
+		reg = <0xb210000 0x30000>;
+		#interrupt-cells = <3>;
+		interrupt-parent = <&intc>;
+		interrupt-controller;
 	};
 
 	timer {
@@ -801,3 +816,16 @@
 		};
 	};
 };
+
+#include "pmxpoorwills.dtsi"
+#include "sdxpoorwills-blsp.dtsi"
+#include "sdxpoorwills-regulator.dtsi"
+#include "sdxpoorwills-smp2p.dtsi"
+#include "sdxpoorwills-usb.dtsi"
+#include "sdxpoorwills-pcie.dtsi"
+#include "sdxpoorwills-bus.dtsi"
+#include "sdxpoorwills-thermal.dtsi"
+#include "sdxpoorwills-audio.dtsi"
+#include "sdxpoorwills-ion.dtsi"
+#include "msm-arm-smmu-sdxpoorwills.dtsi"
+#include "sdxpoorwills-pm.dtsi"
