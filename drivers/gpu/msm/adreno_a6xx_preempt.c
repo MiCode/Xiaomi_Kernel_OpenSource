@@ -35,6 +35,25 @@ static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer)
 	struct adreno_ringbuffer *rb = adreno_dev->cur_rb;
 	unsigned int wptr;
 	unsigned long flags;
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+
+	/*
+	 * Need to make sure GPU is up before we read the
+	 * WPTR as fence doesn't wake GPU on read operation.
+	 */
+	if (in_interrupt() == 0) {
+		int status;
+
+		if (gpudev->oob_set) {
+			status = gpudev->oob_set(adreno_dev,
+				OOB_PREEMPTION_SET_MASK,
+				OOB_PREEMPTION_CHECK_MASK,
+				OOB_PREEMPTION_CLEAR_MASK);
+			if (status)
+				return;
+		}
+	}
+
 
 	spin_lock_irqsave(&rb->preempt_lock, flags);
 
@@ -55,6 +74,12 @@ static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer)
 			msecs_to_jiffies(adreno_drawobj_timeout);
 
 	spin_unlock_irqrestore(&rb->preempt_lock, flags);
+
+	if (in_interrupt() == 0) {
+		if (gpudev->oob_clear)
+			gpudev->oob_clear(adreno_dev,
+				OOB_PREEMPTION_CLEAR_MASK);
+	}
 }
 
 static inline bool adreno_move_preempt_state(struct adreno_device *adreno_dev,

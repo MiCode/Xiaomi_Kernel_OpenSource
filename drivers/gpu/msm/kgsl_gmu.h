@@ -81,6 +81,9 @@
 #define OOB_PERFCNTR_SET_MASK		BIT(17)
 #define OOB_PERFCNTR_CHECK_MASK		BIT(25)
 #define OOB_PERFCNTR_CLEAR_MASK		BIT(25)
+#define OOB_PREEMPTION_SET_MASK		BIT(18)
+#define OOB_PREEMPTION_CHECK_MASK	BIT(26)
+#define OOB_PREEMPTION_CLEAR_MASK	BIT(26)
 
 /*
  * Wait time before trying to write the register again.
