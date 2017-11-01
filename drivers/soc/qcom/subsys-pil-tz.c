@@ -19,7 +19,6 @@
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
 #include <linux/interrupt.h>
-#include <linux/of_gpio.h>
 #include <linux/delay.h>
 
 #include <linux/msm-bus-board.h>
@@ -31,6 +30,7 @@
 #include <soc/qcom/scm.h>
 
 #include <linux/soc/qcom/smem.h>
+#include <linux/soc/qcom/smem_state.h>
 
 #include "peripheral-loader.h"
 
@@ -101,6 +101,7 @@ struct pil_tz_data {
 	bool enable_bus_scaling;
 	bool keep_proxy_regs_on;
 	struct completion stop_ack;
+	struct completion shutdown_ack;
 	struct pil_desc desc;
 	struct subsys_device *subsys;
 	struct subsys_desc subsys_desc;
@@ -796,8 +797,8 @@ static void log_failure_reason(const struct pil_tz_data *d)
 		return;
 
 	smem_reason = qcom_smem_get(QCOM_SMEM_HOST_ANY, d->smem_id, &size);
-	if (!smem_reason || !size) {
-		pr_err("%s SFR: (unknown, smem_get_entry_no_rlock failed).\n",
+	if (IS_ERR(smem_reason) || !size) {
+		pr_err("%s SFR: (unknown, qcom_smem_get failed).\n",
 									name);
 		return;
 	}
@@ -819,14 +820,16 @@ static int subsys_shutdown(const struct subsys_desc *subsys, bool force_stop)
 	int ret;
 
 	if (!subsys_get_crash_status(d->subsys) && force_stop &&
-						subsys->force_stop_gpio) {
-		gpio_set_value(subsys->force_stop_gpio, 1);
+						subsys->state) {
+		qcom_smem_state_update_bits(subsys->state,
+				subsys->force_stop_bit, 1);
 		ret = wait_for_completion_timeout(&d->stop_ack,
 				msecs_to_jiffies(STOP_ACK_TIMEOUT_MS));
 		if (!ret)
 			pr_warn("Timed out on stop ack from %s.\n",
 							subsys->name);
-		gpio_set_value(subsys->force_stop_gpio, 0);
+		qcom_smem_state_update_bits(subsys->state,
+				subsys->force_stop_bit, 0);
 	}
 
 	pil_shutdown(&d->desc);
@@ -868,9 +871,9 @@ static void subsys_crash_shutdown(const struct subsys_desc *subsys)
 {
 	struct pil_tz_data *d = subsys_to_data(subsys);
 
-	if (subsys->force_stop_gpio > 0 &&
-				!subsys_get_crash_status(d->subsys)) {
-		gpio_set_value(subsys->force_stop_gpio, 1);
+	if (subsys->state && !subsys_get_crash_status(d->subsys)) {
+		qcom_smem_state_update_bits(subsys->state,
+				subsys->force_stop_bit, 1);
 		mdelay(CRASH_STOP_ACK_TO_MS);
 	}
 }
@@ -900,8 +903,7 @@ static irqreturn_t subsys_wdog_bite_irq_handler(int irq, void *dev_id)
 		return IRQ_HANDLED;
 	pr_err("Watchdog bite received from %s!\n", d->subsys_desc.name);
 
-	if (d->subsys_desc.system_debug &&
-			!gpio_get_value(d->subsys_desc.err_fatal_gpio))
+	if (d->subsys_desc.system_debug)
 		panic("%s: System ramdump requested. Triggering device restart!\n",
 							__func__);
 	subsys_set_crash_status(d->subsys, CRASH_STATUS_WDOG_BITE);
@@ -917,6 +919,26 @@ static irqreturn_t subsys_stop_ack_intr_handler(int irq, void *dev_id)
 
 	pr_info("Received stop ack interrupt from %s\n", d->subsys_desc.name);
 	complete(&d->stop_ack);
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t subsys_shutdown_ack_intr_handler(int irq, void *dev_id)
+{
+	struct pil_tz_data *d = subsys_to_data(dev_id);
+
+	pr_info("Received stop shutdown interrupt from %s\n",
+			d->subsys_desc.name);
+	complete_shutdown_ack(d->subsys);
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t subsys_ramdump_disable_intr_handler(int irq, void *dev_id)
+{
+	struct pil_tz_data *d = subsys_to_data(dev_id);
+
+	pr_info("Received ramdump disable interrupt from %s\n",
+			d->subsys_desc.name);
+	d->subsys_desc.ramdump_disable = 1;
 	return IRQ_HANDLED;
 }
 
@@ -1104,6 +1126,10 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 						subsys_err_fatal_intr_handler;
 		d->subsys_desc.wdog_bite_handler = subsys_wdog_bite_irq_handler;
 		d->subsys_desc.stop_ack_handler = subsys_stop_ack_intr_handler;
+		d->subsys_desc.shutdown_ack_handler =
+			subsys_shutdown_ack_intr_handler;
+		d->subsys_desc.ramdump_disable_handler =
+			subsys_ramdump_disable_intr_handler;
 	}
 	d->ramdump_dev = create_ramdump_device(d->subsys_desc.name,
 								&pdev->dev);

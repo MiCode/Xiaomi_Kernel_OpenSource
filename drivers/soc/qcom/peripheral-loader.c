@@ -28,7 +28,7 @@
 #include <linux/list_sort.h>
 #include <linux/idr.h>
 #include <linux/interrupt.h>
-#include <linux/of_gpio.h>
+#include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/io.h>
 #include <linux/dma-mapping.h>
@@ -739,25 +739,18 @@ static int pil_parse_devicetree(struct pil_desc *desc)
 					desc->name);
 
 	if (desc->ops->proxy_unvote && of_find_property(ofnode,
-					"qcom,gpio-proxy-unvote",
+					"qcom,proxy-unvote",
 					NULL)) {
-		clk_ready = of_get_named_gpio(ofnode,
-				"qcom,gpio-proxy-unvote", 0);
+		clk_ready = of_irq_get_byname(ofnode,
+				"qcom,proxy-unvote");
 
 		if (clk_ready < 0) {
 			dev_dbg(desc->dev,
-				"[%s]: Error getting proxy unvoting gpio\n",
+				"[%s]: Error getting proxy unvoting irq\n",
 				desc->name);
 			return clk_ready;
 		}
 
-		clk_ready = gpio_to_irq(clk_ready);
-		if (clk_ready < 0) {
-			dev_err(desc->dev,
-				"[%s]: Error getting proxy unvote IRQ\n",
-				desc->name);
-			return clk_ready;
-		}
 	}
 	desc->proxy_unvote_irq = clk_ready;
 	return 0;
