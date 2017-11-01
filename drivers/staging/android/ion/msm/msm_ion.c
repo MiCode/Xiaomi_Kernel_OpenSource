@@ -404,6 +404,28 @@ static int msm_init_extra_data(struct device_node *node,
 			ret = -ENOMEM;
 		break;
 	}
+	case ION_HEAP_TYPE_SECURE_DMA:
+	{
+		unsigned int val;
+		struct ion_cma_pdata *extra = NULL;
+
+		ret = of_property_read_u32(node,
+					   "qcom,default-prefetch-size", &val);
+		if (!ret) {
+			heap->extra_data = kzalloc(sizeof(*extra),
+						   GFP_KERNEL);
+
+			if (!heap->extra_data) {
+				ret = -ENOMEM;
+			} else {
+				extra = heap->extra_data;
+				extra->default_prefetch_size = val;
+			}
+		} else {
+			ret = 0;
+		}
+		break;
+	}
 	default:
 		heap->extra_data = 0;
 		break;
@@ -423,6 +445,7 @@ static struct heap_types_info {
 	MAKE_HEAP_TYPE_MAPPING(CARVEOUT),
 	MAKE_HEAP_TYPE_MAPPING(CHUNK),
 	MAKE_HEAP_TYPE_MAPPING(DMA),
+	MAKE_HEAP_TYPE_MAPPING(SECURE_DMA),
 	MAKE_HEAP_TYPE_MAPPING(SYSTEM_SECURE),
 	MAKE_HEAP_TYPE_MAPPING(HYP_CMA),
 };
@@ -607,6 +630,16 @@ out:
 int ion_heap_is_system_secure_heap_type(enum ion_heap_type type)
 {
 	return type == ((enum ion_heap_type)ION_HEAP_TYPE_SYSTEM_SECURE);
+}
+
+int ion_heap_allow_secure_allocation(enum ion_heap_type type)
+{
+	return type == ((enum ion_heap_type)ION_HEAP_TYPE_SECURE_DMA);
+}
+
+int ion_heap_allow_handle_secure(enum ion_heap_type type)
+{
+	return type == ((enum ion_heap_type)ION_HEAP_TYPE_SECURE_DMA);
 }
 
 int ion_heap_allow_heap_secure(enum ion_heap_type type)
@@ -796,6 +829,13 @@ long msm_ion_custom_ioctl(struct ion_client *client,
 		int ret;
 
 		ret = ion_walk_heaps(client, data.prefetch_data.heap_id,
+			ION_HEAP_TYPE_SECURE_DMA,
+			(void *)data.prefetch_data.len,
+			ion_secure_cma_prefetch);
+		if (ret)
+			return ret;
+
+		ret = ion_walk_heaps(client, data.prefetch_data.heap_id,
 				     ION_HEAP_TYPE_SYSTEM_SECURE,
 				     (void *)&data.prefetch_data,
 				     ion_system_secure_heap_prefetch);
@@ -806,6 +846,13 @@ long msm_ion_custom_ioctl(struct ion_client *client,
 	case ION_IOC_DRAIN:
 	{
 		int ret;
+		ret = ion_walk_heaps(client, data.prefetch_data.heap_id,
+				     ION_HEAP_TYPE_SECURE_DMA,
+				     (void *)data.prefetch_data.len,
+				     ion_secure_cma_drain_pool);
+
+		if (ret)
+			return ret;
 
 		ret = ion_walk_heaps(client, data.prefetch_data.heap_id,
 				     ION_HEAP_TYPE_SYSTEM_SECURE,
@@ -959,6 +1006,11 @@ static struct ion_heap *msm_ion_heap_create(struct ion_platform_heap *heap_data)
 	struct ion_heap *heap = NULL;
 
 	switch ((int)heap_data->type) {
+#ifdef CONFIG_CMA
+	case ION_HEAP_TYPE_SECURE_DMA:
+		heap = ion_secure_cma_heap_create(heap_data);
+		break;
+#endif
 	case ION_HEAP_TYPE_SYSTEM_SECURE:
 		heap = ion_system_secure_heap_create(heap_data);
 		break;
@@ -988,6 +1040,11 @@ static void msm_ion_heap_destroy(struct ion_heap *heap)
 		return;
 
 	switch ((int)heap->type) {
+#ifdef CONFIG_CMA
+	case ION_HEAP_TYPE_SECURE_DMA:
+		ion_secure_cma_heap_destroy(heap);
+		break;
+#endif
 	case ION_HEAP_TYPE_SYSTEM_SECURE:
 		ion_system_secure_heap_destroy(heap);
 		break;
