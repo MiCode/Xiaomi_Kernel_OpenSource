@@ -598,22 +598,30 @@ static int dwc3_ep0_set_config(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
 		break;
 
 	case USB_STATE_ADDRESS:
-		/* Read ep0IN related TXFIFO size */
-		dwc->last_fifo_depth = (dwc3_readl(dwc->regs,
-					DWC3_GTXFIFOSIZ(0)) & 0xFFFF);
-		/* Clear existing allocated TXFIFO for all IN eps except ep0 */
-		for (num = 0; num < dwc->num_in_eps; num++) {
-			dep = dwc->eps[(num << 1) | 1];
-			if (num) {
-				dwc3_writel(dwc->regs, DWC3_GTXFIFOSIZ(num), 0);
-				dep->fifo_depth = 0;
-			} else {
-				dep->fifo_depth = dwc->last_fifo_depth;
-			}
+		/*
+		 * If tx-fifo-resize flag is not set for the controller, then
+		 * do not clear existing allocated TXFIFO since we do not
+		 * allocate it again in dwc3_gadget_resize_tx_fifos
+		 */
+		if (dwc->needs_fifo_resize) {
+			/* Read ep0IN related TXFIFO size */
+			dwc->last_fifo_depth = (dwc3_readl(dwc->regs,
+						DWC3_GTXFIFOSIZ(0)) & 0xFFFF);
+			/* Clear existing TXFIFO for all IN eps except ep0 */
+			for (num = 0; num < dwc->num_in_eps; num++) {
+				dep = dwc->eps[(num << 1) | 1];
+				if (num) {
+					dwc3_writel(dwc->regs,
+						DWC3_GTXFIFOSIZ(num), 0);
+					dep->fifo_depth = 0;
+				} else {
+					dep->fifo_depth = dwc->last_fifo_depth;
+				}
 
-			dev_dbg(dwc->dev, "%s(): %s dep->fifo_depth:%x\n",
+				dev_dbg(dwc->dev, "%s(): %s fifo_depth:%x\n",
 					__func__, dep->name, dep->fifo_depth);
-			dbg_event(0xFF, "fifo_reset", dep->number);
+				dbg_event(0xFF, "fifo_reset", dep->number);
+			}
 		}
 
 		ret = dwc3_ep0_delegate_req(dwc, ctrl);
