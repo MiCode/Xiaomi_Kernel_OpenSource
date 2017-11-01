@@ -29,12 +29,6 @@
 #define REG_DMA_OPS (DECODE_SEL_OP | REG_WRITE_OP)
 #define IS_OP_ALLOWED(op, buf_op) (BIT(op) & buf_op)
 
-#define REG_DMA_OP_MODE_OFF 0x4
-
-#define REG_DMA_CTL0_QUEUE_0_CMD0_OFF 0x14
-#define REG_DMA_CTL0_RESET_OFF 0xE4
-#define REG_DMA_CTL_TRIGGER_OFF 0xD4
-
 #define SET_UP_REG_DMA_REG(hw, reg_dma) \
 	do { \
 		(hw).base_off = (reg_dma)->addr; \
@@ -51,7 +45,6 @@
 #define BUFFER_SPACE_LEFT(cfg) ((cfg)->dma_buf->buffer_size - \
 			(cfg)->dma_buf->index)
 
-#define REG_DMA_DECODE_SEL 0x180AC060
 #define SINGLE_REG_WRITE_OPCODE (BIT(28))
 #define REL_ADDR_OPCODE (BIT(27))
 #define HW_INDEX_REG_WRITE_OPCODE (BIT(28) | BIT(29))
@@ -64,9 +57,14 @@
 #define REG_DMA_HEADERS_BUFFER_SZ (sizeof(u32) * 128)
 
 static uint32_t reg_dma_register_count;
+static uint32_t reg_dma_decode_sel;
+static uint32_t reg_dma_opmode_offset;
+static uint32_t reg_dma_ctl0_queue0_cmd0_offset;
 static uint32_t reg_dma_intr_status_offset;
 static uint32_t reg_dma_intr_4_status_offset;
 static uint32_t reg_dma_intr_clear_offset;
+static uint32_t reg_dma_ctl_trigger_offset;
+static uint32_t reg_dma_ctl0_reset_offset;
 
 typedef int (*reg_dma_internal_ops) (struct sde_reg_dma_setup_ops_cfg *cfg);
 
@@ -276,7 +274,7 @@ static int write_decode_sel(struct sde_reg_dma_setup_ops_cfg *cfg)
 
 	loc =  (u32 *)((u8 *)cfg->dma_buf->vaddr +
 			cfg->dma_buf->index);
-	loc[0] = REG_DMA_DECODE_SEL;
+	loc[0] = reg_dma_decode_sel;
 	get_decode_sel(cfg->blk, &loc[1]);
 	cfg->dma_buf->index += sizeof(u32) * 2;
 	cfg->dma_buf->ops_completed |= DECODE_SEL_OP;
@@ -485,7 +483,7 @@ static int write_kick_off_v1(struct sde_reg_dma_kickoff_cfg *cfg)
 	cmd1 |= (SIZE_DWORD(cfg->dma_buf->index) & MAX_DWORDS_SZ);
 
 	SET_UP_REG_DMA_REG(hw, reg_dma);
-	SDE_REG_WRITE(&hw, REG_DMA_OP_MODE_OFF, BIT(0));
+	SDE_REG_WRITE(&hw, reg_dma_opmode_offset, BIT(0));
 	val = SDE_REG_READ(&hw, reg_dma_intr_4_status_offset);
 	if (val)
 		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus", "panic");
@@ -497,7 +495,7 @@ static int write_kick_off_v1(struct sde_reg_dma_kickoff_cfg *cfg)
 	if (cfg->last_command) {
 		mask = ctl_trigger_done_mask[cfg->ctl->idx][cfg->queue_select];
 		SDE_REG_WRITE(&hw, reg_dma_intr_clear_offset, mask);
-		SDE_REG_WRITE(&cfg->ctl->hw, REG_DMA_CTL_TRIGGER_OFF,
+		SDE_REG_WRITE(&cfg->ctl->hw, reg_dma_ctl_trigger_offset,
 			queue_sel[cfg->queue_select]);
 	}
 
@@ -547,15 +545,20 @@ int init_v1(struct sde_hw_reg_dma *cfg)
 	reg_dma->ops.last_command = last_cmd_v1;
 	reg_dma->ops.dump_regs = dump_regs_v1;
 
-	reg_dma_ctl_queue_off[CTL_0] = REG_DMA_CTL0_QUEUE_0_CMD0_OFF;
-	for (i = CTL_1; i < ARRAY_SIZE(reg_dma_ctl_queue_off); i++)
-		reg_dma_ctl_queue_off[i] = reg_dma_ctl_queue_off[i - 1] +
-			(sizeof(u32) * 4);
-
 	reg_dma_register_count = 60;
+	reg_dma_decode_sel = 0x180ac060;
+	reg_dma_opmode_offset = 0x4;
+	reg_dma_ctl0_queue0_cmd0_offset = 0x14;
 	reg_dma_intr_status_offset = 0x90;
 	reg_dma_intr_4_status_offset = 0xa0;
 	reg_dma_intr_clear_offset = 0xb0;
+	reg_dma_ctl_trigger_offset = 0xd4;
+	reg_dma_ctl0_reset_offset = 0xe4;
+
+	reg_dma_ctl_queue_off[CTL_0] = reg_dma_ctl0_queue0_cmd0_offset;
+	for (i = CTL_1; i < ARRAY_SIZE(reg_dma_ctl_queue_off); i++)
+		reg_dma_ctl_queue_off[i] = reg_dma_ctl_queue_off[i - 1] +
+			(sizeof(u32) * 4);
 
 	return 0;
 }
@@ -609,7 +612,7 @@ static int kick_off_v1(struct sde_reg_dma_kickoff_cfg *cfg)
 int reset_v1(struct sde_hw_ctl *ctl)
 {
 	struct sde_hw_blk_reg_map hw;
-	u32 index, val;
+	u32 index, val, i = 0;
 
 	if (!ctl || ctl->idx > CTL_MAX) {
 		DRM_ERROR("invalid ctl %pK ctl idx %d\n",
@@ -620,17 +623,17 @@ int reset_v1(struct sde_hw_ctl *ctl)
 	memset(&hw, 0, sizeof(hw));
 	index = ctl->idx - CTL_0;
 	SET_UP_REG_DMA_REG(hw, reg_dma);
-	SDE_REG_WRITE(&hw, REG_DMA_OP_MODE_OFF, BIT(0));
-	SDE_REG_WRITE(&hw, (REG_DMA_CTL0_RESET_OFF + index * sizeof(u32)),
+	SDE_REG_WRITE(&hw, reg_dma_opmode_offset, BIT(0));
+	SDE_REG_WRITE(&hw, (reg_dma_ctl0_reset_offset + index * sizeof(u32)),
 			BIT(0));
 
-	index = 0;
+	i = 0;
 	do {
 		udelay(1000);
-		index++;
+		i++;
 		val = SDE_REG_READ(&hw,
-			(REG_DMA_CTL0_RESET_OFF + index * sizeof(u32)));
-	} while (index < 2 && val);
+			(reg_dma_ctl0_reset_offset + index * sizeof(u32)));
+	} while (i < 2 && val);
 
 	return 0;
 }
@@ -809,7 +812,7 @@ static int write_last_cmd(struct sde_reg_dma_setup_ops_cfg *cfg)
 
 	loc =  (u32 *)((u8 *)cfg->dma_buf->vaddr +
 			cfg->dma_buf->index);
-	loc[0] = REG_DMA_DECODE_SEL;
+	loc[0] = reg_dma_decode_sel;
 	loc[1] = 0;
 	cfg->dma_buf->index = sizeof(u32) * 2;
 	cfg->dma_buf->ops_completed = REG_WRITE_OP | DECODE_SEL_OP;
