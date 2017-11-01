@@ -173,6 +173,7 @@ struct tmc_drvdata {
 	u32			mem_size;
 	u32			trigger_cntr;
 	u32			etr_caps;
+	bool			sticky_enable;
 };
 
 /* Generic functions */
