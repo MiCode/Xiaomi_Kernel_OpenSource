@@ -266,6 +266,7 @@ struct sde_connector_evt {
  * @property_data: Array of private data for generic property handling
  * @blob_caps: Pointer to blob structure for 'capabilities' property
  * @blob_hdr: Pointer to blob structure for 'hdr_properties' property
+ * @blob_ext_hdr: Pointer to blob structure for 'ext_hdr_properties' property
  * @blob_dither: Pointer to blob structure for default dither config
  * @fb_kmap: true if kernel mapping of framebuffer is requested
  * @event_table: Array of registered events
@@ -358,6 +359,7 @@ struct sde_connector {
  * @rois: Regions of interest structure for mapping CRTC to Connector output
  * @property_blobs: blob properties
  * @mode_info: local copy of msm_mode_info struct
+ * @hdr_meta: HDR metadata info passed from userspace
  */
 struct sde_connector_state {
 	struct drm_connector_state base;
@@ -368,6 +370,7 @@ struct sde_connector_state {
 	struct msm_roi_list rois;
 	struct drm_property_blob *property_blobs[CONNECTOR_PROP_BLOBCOUNT];
 	struct msm_mode_info mode_info;
+	struct drm_msm_ext_hdr_metadata hdr_meta;
 };
 
 /**
