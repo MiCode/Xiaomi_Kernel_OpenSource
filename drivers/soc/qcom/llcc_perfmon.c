@@ -282,8 +282,8 @@ static ssize_t perfmon_configure_store(struct device *dev,
 		llcc_priv->configured[j].port_sel = port_sel;
 		llcc_priv->configured[j].event_sel = event_sel;
 		port_ops = llcc_priv->port_ops[port_sel];
-		pr_info("configured event %ld counter %d on port %ld\n",
-				event_sel, j, port_sel);
+		pr_info("counter %d configured for event %ld from port %ld\n",
+				j, event_sel, port_sel);
 		port_ops->event_config(llcc_priv, event_sel, j++, true);
 		if (!(llcc_priv->enables_port & (1 << port_sel)))
 			if (port_ops->event_enable)
@@ -349,8 +349,8 @@ static ssize_t perfmon_remove_store(struct device *dev,
 		llcc_priv->configured[j].port_sel = MAX_NUMBER_OF_PORTS;
 		llcc_priv->configured[j].event_sel = 100;
 		port_ops = llcc_priv->port_ops[port_sel];
-		pr_info("Removed event %ld counter %d from port %ld\n",
-				event_sel, j, port_sel);
+		pr_info("removed counter %d for event %ld from port %ld\n",
+				j, event_sel, port_sel);
 
 		port_ops->event_config(llcc_priv, event_sel, j++, false);
 		if (llcc_priv->enables_port & (1 << port_sel))
@@ -525,13 +525,13 @@ static ssize_t perfmon_start_store(struct device *dev,
 
 		val = MANUAL_MODE | MONITOR_EN;
 		if (llcc_priv->expires.tv64) {
-		if (hrtimer_is_queued(&llcc_priv->hrtimer))
-			hrtimer_forward_now(&llcc_priv->hrtimer,
-					llcc_priv->expires);
-		else
-			hrtimer_start(&llcc_priv->hrtimer,
-					llcc_priv->expires,
-					HRTIMER_MODE_REL_PINNED);
+			if (hrtimer_is_queued(&llcc_priv->hrtimer))
+				hrtimer_forward_now(&llcc_priv->hrtimer,
+						llcc_priv->expires);
+			else
+				hrtimer_start(&llcc_priv->hrtimer,
+						llcc_priv->expires,
+						HRTIMER_MODE_REL_PINNED);
 		}
 
 	} else {
