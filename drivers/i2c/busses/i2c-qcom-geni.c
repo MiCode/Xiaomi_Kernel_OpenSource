@@ -72,7 +72,8 @@
 #define I2C_NACK		GP_IRQ1
 #define I2C_BUS_PROTO		GP_IRQ3
 #define I2C_ARB_LOST		GP_IRQ4
-#define DM_I2C_RX_ERR		((GP_IRQ1 | GP_IRQ3 | GP_IRQ4) >> 4)
+#define DM_I2C_CB_ERR		((BIT(GP_IRQ1) | BIT(GP_IRQ3) | BIT(GP_IRQ4)) \
+									<< 5)
 
 #define I2C_AUTO_SUSPEND_DELAY	250
 
@@ -225,7 +226,7 @@ static irqreturn_t geni_i2c_irq(int irq, void *dev)
 	struct i2c_msg *cur = gi2c->cur;
 
 	if (!cur || (m_stat & M_CMD_FAILURE_EN) ||
-		    (dm_rx_st & (DM_I2C_RX_ERR)) ||
+		    (dm_rx_st & (DM_I2C_CB_ERR)) ||
 		    (m_stat & M_CMD_ABORT_EN)) {
 
 		if (m_stat & M_GP_IRQ_1_EN)
@@ -351,13 +352,33 @@ static void gi2c_ev_cb(struct dma_chan *ch, struct msm_gpi_cb const *cb_str,
 				m_stat, cb_str->cb_event);
 }
 
+static void gi2c_gsi_cb_err(struct msm_gpi_dma_async_tx_cb_param *cb,
+								char *xfer)
+{
+	struct geni_i2c_dev *gi2c = cb->userdata;
+
+	if (cb->status & DM_I2C_CB_ERR) {
+		GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
+			    "%s TCE Unexpected Err, stat:0x%x\n",
+				xfer, cb->status);
+		if (cb->status & (BIT(GP_IRQ1) << 5))
+			geni_i2c_err(gi2c, I2C_NACK);
+		if (cb->status & (BIT(GP_IRQ3) << 5))
+			geni_i2c_err(gi2c, I2C_BUS_PROTO);
+		if (cb->status & (BIT(GP_IRQ4) << 5))
+			geni_i2c_err(gi2c, I2C_ARB_LOST);
+	}
+}
+
 static void gi2c_gsi_tx_cb(void *ptr)
 {
 	struct msm_gpi_dma_async_tx_cb_param *tx_cb = ptr;
 	struct geni_i2c_dev *gi2c = tx_cb->userdata;
 
-	if (!(gi2c->cur->flags & I2C_M_RD))
+	if (!(gi2c->cur->flags & I2C_M_RD)) {
+		gi2c_gsi_cb_err(tx_cb, "TX");
 		complete(&gi2c->xfer);
+	}
 }
 
 static void gi2c_gsi_rx_cb(void *ptr)
@@ -366,17 +387,7 @@ static void gi2c_gsi_rx_cb(void *ptr)
 	struct geni_i2c_dev *gi2c = rx_cb->userdata;
 
 	if (gi2c->cur->flags & I2C_M_RD) {
-		if (rx_cb->status & DM_I2C_RX_ERR) {
-			GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
-				    "RX TCE Unexpected Err, stat:0x%x\n",
-				    rx_cb->status);
-			if (rx_cb->status & GP_IRQ1)
-				geni_i2c_err(gi2c, I2C_NACK);
-			if (rx_cb->status & GP_IRQ3)
-				geni_i2c_err(gi2c, I2C_BUS_PROTO);
-			if (rx_cb->status & GP_IRQ4)
-				geni_i2c_err(gi2c, I2C_ARB_LOST);
-		}
+		gi2c_gsi_cb_err(rx_cb, "RX");
 		complete(&gi2c->xfer);
 	}
 }
