@@ -60,3 +60,5 @@ usb_f_accessory-y               := f_accessory.o
 obj-$(CONFIG_USB_F_ACC)         += usb_f_accessory.o
 usb_f_diag-y			:= f_diag.o
 obj-$(CONFIG_USB_F_DIAG)	+= usb_f_diag.o
+usb_f_qdss-y			:= f_qdss.o u_qdss.o
+obj-$(CONFIG_USB_F_QDSS)	+= usb_f_qdss.o
