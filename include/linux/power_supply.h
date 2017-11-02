@@ -120,6 +120,11 @@ enum {
 	POWER_SUPPLY_CONNECTOR_MICRO_USB,
 };
 
+enum {
+	POWER_SUPPLY_PL_STACKED_BATFET,
+	POWER_SUPPLY_PL_NON_STACKED_BATFET,
+};
+
 enum power_supply_property {
 	/* Properties of type `int' */
 	POWER_SUPPLY_PROP_STATUS = 0,
@@ -266,6 +271,8 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_PD_VOLTAGE_MIN,
 	POWER_SUPPLY_PROP_SDP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CONNECTOR_TYPE,
+	POWER_SUPPLY_PROP_PARALLEL_BATFET_MODE,
+	POWER_SUPPLY_PROP_MIN_ICL,
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT,
 	/* Properties of type `const char *' */
