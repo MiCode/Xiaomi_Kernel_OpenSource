@@ -13,13 +13,6 @@
 #include "coresight-priv.h"
 #include "coresight-tmc.h"
 
-struct etr_flat_buf {
-	struct device	*dev;
-	dma_addr_t	daddr;
-	void		*vaddr;
-	size_t		size;
-};
-
 /*
  * The TMC ETR SG has a page size of 4K. The SG table contains pointers
  * to 4KB buffers. However, the OS may use a PAGE_SIZE different from
@@ -895,7 +888,7 @@ static void tmc_sync_etr_buf(struct tmc_drvdata *drvdata)
 		tmc_etr_buf_insert_barrier_packet(etr_buf, etr_buf->offset);
 }
 
-static void tmc_etr_enable_hw(struct tmc_drvdata *drvdata)
+void tmc_etr_enable_hw(struct tmc_drvdata *drvdata)
 {
 	u32 axictl, sts;
 	struct etr_buf *etr_buf = drvdata->etr_buf;
@@ -1007,7 +1000,7 @@ static void tmc_etr_sync_sysfs_buf(struct tmc_drvdata *drvdata)
 	tmc_sync_etr_buf(drvdata);
 }
 
-static void tmc_etr_disable_hw(struct tmc_drvdata *drvdata)
+void tmc_etr_disable_hw(struct tmc_drvdata *drvdata)
 {
 	CS_UNLOCK(drvdata->base);
 
@@ -1081,7 +1074,10 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 	}
 
 	drvdata->mode = CS_MODE_SYSFS;
-	tmc_etr_enable_hw(drvdata);
+
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
+		tmc_etr_enable_hw(drvdata);
+
 	drvdata->enable = true;
 out:
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
@@ -1132,7 +1128,9 @@ static void tmc_disable_etr_sink(struct coresight_device *csdev)
 
 	/* Disable the TMC only if it needs to */
 	if (drvdata->mode != CS_MODE_DISABLED) {
-		tmc_etr_disable_hw(drvdata);
+		if (drvdata->out_mode != TMC_ETR_OUT_MODE_USB)
+			tmc_etr_disable_hw(drvdata);
+
 		drvdata->mode = CS_MODE_DISABLED;
 	}
 
@@ -1166,6 +1164,10 @@ int tmc_read_prepare_etr(struct tmc_drvdata *drvdata)
 		goto out;
 	}
 
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
+		ret = -EINVAL;
+		goto out;
+	}
 	/* Don't interfere if operated from Perf */
 	if (drvdata->mode == CS_MODE_PERF) {
 		ret = -EINVAL;

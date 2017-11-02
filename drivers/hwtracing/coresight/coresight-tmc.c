@@ -320,14 +320,108 @@ static ssize_t buffer_size_store(struct device *dev,
 
 static DEVICE_ATTR_RW(buffer_size);
 
-static struct attribute *coresight_tmc_attrs[] = {
+static ssize_t out_mode_show(struct device *dev,
+			     struct device_attribute *attr, char *buf)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	return scnprintf(buf, PAGE_SIZE, "%s\n",
+			str_tmc_etr_out_mode[drvdata->out_mode]);
+}
+
+static ssize_t out_mode_store(struct device *dev,
+			      struct device_attribute *attr,
+			      const char *buf, size_t size)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	char str[10] = "";
+	unsigned long flags;
+	int ret;
+
+	if (strlen(buf) >= 10)
+		return -EINVAL;
+	if (sscanf(buf, "%10s", str) != 1)
+		return -EINVAL;
+
+	mutex_lock(&drvdata->mem_lock);
+	if (!strcmp(str, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_MEM])) {
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
+			goto out;
+
+		spin_lock_irqsave(&drvdata->spinlock, flags);
+		if (!drvdata->enable) {
+			drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
+			spin_unlock_irqrestore(&drvdata->spinlock, flags);
+			goto out;
+		}
+
+		tmc_etr_enable_hw(drvdata);
+		drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
+		spin_unlock_irqrestore(&drvdata->spinlock, flags);
+	} else if (!strcmp(str, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_USB])) {
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB)
+			goto out;
+
+		spin_lock_irqsave(&drvdata->spinlock, flags);
+		if (!drvdata->enable) {
+			drvdata->out_mode = TMC_ETR_OUT_MODE_USB;
+			spin_unlock_irqrestore(&drvdata->spinlock, flags);
+			goto out;
+		}
+		if (drvdata->reading) {
+			ret = -EBUSY;
+			goto err1;
+		}
+		tmc_etr_disable_hw(drvdata);
+		drvdata->out_mode = TMC_ETR_OUT_MODE_USB;
+		spin_unlock_irqrestore(&drvdata->spinlock, flags);
+	}
+out:
+	mutex_unlock(&drvdata->mem_lock);
+	return size;
+err1:
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
+	mutex_unlock(&drvdata->mem_lock);
+	return ret;
+}
+static DEVICE_ATTR_RW(out_mode);
+
+static ssize_t available_out_modes_show(struct device *dev,
+				       struct device_attribute *attr,
+				       char *buf)
+{
+	ssize_t len = 0;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(str_tmc_etr_out_mode); i++)
+		len += scnprintf(buf + len, PAGE_SIZE - len, "%s ",
+				str_tmc_etr_out_mode[i]);
+
+	len += scnprintf(buf + len, PAGE_SIZE - len, "\n");
+	return len;
+}
+static DEVICE_ATTR_RO(available_out_modes);
+
+static struct attribute *coresight_tmc_etf_attrs[] = {
 	&dev_attr_trigger_cntr.attr,
 	&dev_attr_buffer_size.attr,
 	NULL,
 };
 
-static const struct attribute_group coresight_tmc_group = {
-	.attrs = coresight_tmc_attrs,
+static struct attribute *coresight_tmc_etr_attrs[] = {
+	&dev_attr_trigger_cntr.attr,
+	&dev_attr_buffer_size.attr,
+	&dev_attr_out_mode.attr,
+	&dev_attr_available_out_modes.attr,
+	NULL,
+};
+
+static const struct attribute_group coresight_tmc_etf_group = {
+	.attrs = coresight_tmc_etf_attrs,
+};
+
+static const struct attribute_group coresight_tmc_etr_group = {
+	.attrs = coresight_tmc_etr_attrs,
 };
 
 static const struct attribute_group coresight_tmc_mgmt_group = {
@@ -335,8 +429,14 @@ static const struct attribute_group coresight_tmc_mgmt_group = {
 	.name = "mgmt",
 };
 
-const struct attribute_group *coresight_tmc_groups[] = {
-	&coresight_tmc_group,
+const struct attribute_group *coresight_tmc_etf_groups[] = {
+	&coresight_tmc_etf_group,
+	&coresight_tmc_mgmt_group,
+	NULL,
+};
+
+const struct attribute_group *coresight_tmc_etr_groups[] = {
+	&coresight_tmc_etr_group,
 	&coresight_tmc_mgmt_group,
 	NULL,
 };
@@ -392,16 +492,19 @@ static int tmc_config_desc(struct tmc_drvdata *drvdata,
 	case TMC_CONFIG_TYPE_ETB:
 		desc->type = CORESIGHT_DEV_TYPE_SINK;
 		desc->subtype.sink_subtype = CORESIGHT_DEV_SUBTYPE_SINK_BUFFER;
+		desc->groups = coresight_tmc_etf_groups;
 		desc->ops = &tmc_etb_cs_ops;
 		break;
 	case TMC_CONFIG_TYPE_ETR:
 		desc->type = CORESIGHT_DEV_TYPE_SINK;
 		desc->subtype.sink_subtype = CORESIGHT_DEV_SUBTYPE_SINK_BUFFER;
+		desc->groups = coresight_tmc_etr_groups;
 		desc->ops = &tmc_etr_cs_ops;
 		break;
 	case TMC_CONFIG_TYPE_ETF:
 		desc->type = CORESIGHT_DEV_TYPE_LINKSINK;
 		desc->subtype.link_subtype = CORESIGHT_DEV_SUBTYPE_LINK_FIFO;
+		desc->groups = coresight_tmc_etf_groups;
 		desc->ops = &tmc_etf_cs_ops;
 		break;
 	default:
@@ -455,6 +558,7 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 	drvdata->memwidth = tmc_get_memwidth(devid);
 
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
+		drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
 		ret = of_property_read_u32(np, "arm,buffer-size",
 					   &drvdata->size);
 		if (ret)
@@ -478,7 +582,6 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 
 	desc.pdata = pdata;
 	desc.dev = dev;
-	desc.groups = coresight_tmc_groups;
 	ret = tmc_config_desc(drvdata, &desc);
 	if (ret)
 		goto out;
