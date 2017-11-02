@@ -57,6 +57,7 @@ static int ion_cma_get_sgtable(struct device *dev, struct sg_table *sgt,
 		return ret;
 
 	sg_set_page(sgt->sgl, page, PAGE_ALIGN(size), 0);
+	sg_dma_address(sgt->sgl) = sg_phys(sgt->sgl);
 	return 0;
 }
 
@@ -97,9 +98,9 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 							&info->handle,
 							GFP_KERNEL);
 	else
-		info->cpu_addr = dma_alloc_nonconsistent(dev, len,
-							 &info->handle,
-							 GFP_KERNEL);
+		info->cpu_addr = dma_alloc_attrs(dev, len, &info->handle,
+						GFP_KERNEL,
+						DMA_ATTR_FORCE_COHERENT);
 
 	if (!info->cpu_addr) {
 		dev_err(dev, "Fail to allocate buffer\n");
@@ -115,6 +116,11 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 	ion_cma_get_sgtable(dev,
 			    info->table, info->cpu_addr, info->handle, len);
 
+	/* Ensure memory is dma-ready - refer to ion_buffer_create() */
+	if (info->is_cached)
+		dma_sync_sg_for_device(dev, info->table->sgl,
+				       info->table->nents, DMA_BIDIRECTIONAL);
+
 	/* keep this for memory release */
 	buffer->priv_virt = info;
 	dev_dbg(dev, "Allocate buffer %pK\n", buffer);
@@ -129,10 +135,13 @@ static void ion_cma_free(struct ion_buffer *buffer)
 {
 	struct device *dev = buffer->heap->priv;
 	struct ion_cma_buffer_info *info = buffer->priv_virt;
+	unsigned long attrs = 0;
 
 	dev_dbg(dev, "Release buffer %pK\n", buffer);
 	/* release memory */
-	dma_free_coherent(dev, buffer->size, info->cpu_addr, info->handle);
+	if (info->is_cached)
+		attrs |= DMA_ATTR_FORCE_COHERENT;
+	dma_free_attrs(dev, buffer->size, info->cpu_addr, info->handle, attrs);
 	sg_free_table(info->table);
 	/* release sg table */
 	kfree(info->table);
@@ -175,8 +184,9 @@ static int ion_cma_mmap(struct ion_heap *mapper, struct ion_buffer *buffer,
 	struct ion_cma_buffer_info *info = buffer->priv_virt;
 
 	if (info->is_cached)
-		return dma_mmap_nonconsistent(dev, vma, info->cpu_addr,
-				info->handle, buffer->size);
+		return dma_mmap_attrs(dev, vma, info->cpu_addr,
+				info->handle, buffer->size,
+				DMA_ATTR_FORCE_COHERENT);
 	else
 		return dma_mmap_writecombine(dev, vma, info->cpu_addr,
 				info->handle, buffer->size);
