@@ -32,6 +32,7 @@ obj-$(CONFIG_QCOM_MINIDUMP) += msm_minidump.o minidump_log.o
 obj-$(CONFIG_QCOM_RUN_QUEUE_STATS) += rq_stats.o
 obj-$(CONFIG_QCOM_SECURE_BUFFER) += secure_buffer.o
 obj-$(CONFIG_MSM_SMEM) += msm_smem.o smem_debug.o
+obj-$(CONFIG_MSM_SMD)	+= msm_smd.o smd_debug.o smd_private.o smd_init_dt.o smsm_debug.o
 obj-$(CONFIG_MSM_GLINK) += glink.o glink_debugfs.o glink_ssr.o
 obj-$(CONFIG_MSM_GLINK_LOOPBACK_SERVER) += glink_loopback_server.o
 obj-$(CONFIG_MSM_GLINK_SMEM_NATIVE_XPRT) += glink_smem_native_xprt.o
