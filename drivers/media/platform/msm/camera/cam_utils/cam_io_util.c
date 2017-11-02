@@ -22,7 +22,7 @@ int cam_io_w(uint32_t data, void __iomem *addr)
 		return -EINVAL;
 
 	CAM_DBG(CAM_UTIL, "0x%pK %08x", addr, data);
-	writel_relaxed(data, addr);
+	writel_relaxed_no_log(data, addr);
 
 	return 0;
 }
@@ -35,7 +35,7 @@ int cam_io_w_mb(uint32_t data, void __iomem *addr)
 	CAM_DBG(CAM_UTIL, "0x%pK %08x", addr, data);
 	/* Ensure previous writes are done */
 	wmb();
-	writel_relaxed(data, addr);
+	writel_relaxed_no_log(data, addr);
 
 	return 0;
 }
