@@ -57,6 +57,8 @@
 /* Battery missing irq votable reasons */
 #define BATT_MISS_IRQ_VOTER	"fg_batt_miss_irq"
 
+#define ESR_FCC_VOTER		"fg_esr_fcc"
+
 #define DEBUG_PRINT_BUFFER_SIZE		64
 /* 3 byte address + 1 space character */
 #define ADDR_LEN			4
@@ -403,6 +405,7 @@ struct fg_chip {
 	struct votable		*awake_votable;
 	struct votable		*delta_bsoc_irq_en_votable;
 	struct votable		*batt_miss_irq_en_votable;
+	struct votable		*pl_disable_votable;
 	struct fg_sram_param	*sp;
 	struct fg_dma_address	*addr_map;
 	struct fg_alg_flag	*alg_flags;
@@ -460,6 +463,7 @@ struct fg_chip {
 	struct work_struct	status_change_work;
 	struct delayed_work	ttf_work;
 	struct delayed_work	sram_dump_work;
+	struct delayed_work	pl_enable_work;
 };
 
 /* Debugfs data structures are below */
