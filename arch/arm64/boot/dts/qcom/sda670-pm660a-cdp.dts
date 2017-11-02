@@ -17,6 +17,7 @@
 #include "sda670.dtsi"
 #include "sdm670-cdp.dtsi"
 #include "pm660a.dtsi"
+#include "sdm670-audio-overlay.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDA670 PM660 + PM660A CDP";
