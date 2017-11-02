@@ -740,6 +740,17 @@ static int dsi_display_debugfs_init(struct dsi_display *display)
 			       display->name, name, rc);
 			goto error_remove_dir;
 		}
+
+		snprintf(name, ARRAY_SIZE(name),
+				"%s_regulator_min_datarate_bps", phy->name);
+		dump_file = debugfs_create_u32(name, 0600, dir,
+				&phy->regulator_min_datarate_bps);
+		if (IS_ERR_OR_NULL(dump_file)) {
+			rc = PTR_ERR(dump_file);
+			pr_err("[%s] debugfs create %s failed, rc=%d\n",
+			       display->name, name, rc);
+			goto error_remove_dir;
+		}
 	}
 
 	display->root = dir;
@@ -3001,6 +3012,20 @@ static int dsi_display_set_mode_sub(struct dsi_display *display,
 				mode->dsi_mode_flags, display->dsi_clk_handle);
 		if (rc) {
 			pr_err("[%s] failed to update ctrl config, rc=%d\n",
+			       display->name, rc);
+			goto error;
+		}
+	}
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+
+		if (!ctrl->phy || !ctrl->ctrl)
+			continue;
+
+		rc = dsi_phy_set_clk_freq(ctrl->phy, &ctrl->ctrl->clk_freq);
+		if (rc) {
+			pr_err("[%s] failed to set phy clk freq, rc=%d\n",
 			       display->name, rc);
 			goto error;
 		}
