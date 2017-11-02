@@ -667,7 +667,7 @@ static int pd_phy_bist_mode(u8 bist_mode)
 			BIST_MODE_MASK | BIST_ENABLE, bist_mode | BIST_ENABLE);
 }
 
-static irqreturn_t pdphy_msg_rx_irq_thread(int irq, void *data)
+static irqreturn_t pdphy_msg_rx_irq(int irq, void *data)
 {
 	u8 size, rx_status, frame_type;
 	u8 buf[32];
@@ -808,8 +808,8 @@ static int pdphy_probe(struct platform_device *pdev)
 		return ret;
 
 	ret = pdphy_request_irq(pdphy, pdev->dev.of_node,
-		&pdphy->msg_rx_irq, "msg-rx", NULL,
-		pdphy_msg_rx_irq_thread, (IRQF_TRIGGER_RISING | IRQF_ONESHOT));
+		&pdphy->msg_rx_irq, "msg-rx", pdphy_msg_rx_irq,
+		NULL, (IRQF_TRIGGER_RISING | IRQF_ONESHOT));
 	if (ret < 0)
 		return ret;
 
