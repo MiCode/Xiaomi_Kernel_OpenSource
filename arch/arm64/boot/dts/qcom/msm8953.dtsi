@@ -124,6 +124,7 @@
 
 #include "msm8953-pinctrl.dtsi"
 #include "msm8953-cpu.dtsi"
+#include "msm8953-pm.dtsi"
 
 
 &soc {
