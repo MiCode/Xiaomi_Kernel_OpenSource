@@ -127,8 +127,11 @@ static void perfmon_counter_dump(struct llcc_perfmon_private *llcc_priv)
 	unsigned int i, j;
 	unsigned long long total;
 
+	if (!llcc_priv->configured_counters)
+		return;
+
 	llcc_bcast_write(llcc_priv, PERFMON_DUMP, MONITOR_DUMP);
-	for (i = 0; i < llcc_priv->configured_counters - 1; i++) {
+	for (i = 0; i < llcc_priv->configured_counters; i++) {
 		total = 0;
 		for (j = 0; j < llcc_priv->num_banks; j++) {
 			regmap_read(llcc_priv->llcc_map, llcc_priv->bank_off[j]
@@ -138,15 +141,6 @@ static void perfmon_counter_dump(struct llcc_perfmon_private *llcc_priv)
 
 		llcc_priv->configured[i].counter_dump += total;
 	}
-
-	total = 0;
-	for (j = 0; j < llcc_priv->num_banks; j++) {
-		regmap_read(llcc_priv->llcc_map, llcc_priv->bank_off[j] +
-				LLCC_COUNTER_n_VALUE(i), &val);
-		total += val;
-	}
-
-	llcc_priv->configured[i].counter_dump += total;
 }
 
 static ssize_t perfmon_counter_dump_show(struct device *dev,
