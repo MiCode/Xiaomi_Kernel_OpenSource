@@ -156,7 +156,7 @@ void sde_rm_init_hw_iter(
 	iter->type = type;
 }
 
-bool sde_rm_get_hw(struct sde_rm *rm, struct sde_rm_hw_iter *i)
+static bool _sde_rm_get_hw_locked(struct sde_rm *rm, struct sde_rm_hw_iter *i)
 {
 	struct list_head *blk_list;
 
@@ -198,7 +198,21 @@ bool sde_rm_get_hw(struct sde_rm *rm, struct sde_rm_hw_iter *i)
 	return false;
 }
 
-void *sde_rm_get_hw_by_id(struct sde_rm *rm, enum sde_hw_blk_type type, int id)
+bool sde_rm_get_hw(struct sde_rm *rm, struct sde_rm_hw_iter *i)
+{
+	bool ret;
+
+	mutex_lock(&rm->rm_lock);
+	ret = _sde_rm_get_hw_locked(rm, i);
+	mutex_unlock(&rm->rm_lock);
+
+	return ret;
+}
+
+static void *_sde_rm_get_hw_by_id_locked(
+		struct sde_rm *rm,
+		enum sde_hw_blk_type type,
+		int id)
 {
 	struct list_head *blk_list;
 	struct sde_rm_hw_blk *blk;
@@ -223,6 +237,17 @@ void *sde_rm_get_hw_by_id(struct sde_rm *rm, enum sde_hw_blk_type type, int id)
 	SDE_DEBUG("no match, type %d id=%d\n", type, id);
 
 	return hw;
+}
+
+void *sde_rm_get_hw_by_id(struct sde_rm *rm, enum sde_hw_blk_type type, int id)
+{
+	void *ret = NULL;
+
+	mutex_lock(&rm->rm_lock);
+	ret = _sde_rm_get_hw_by_id_locked(rm, type, id);
+	mutex_unlock(&rm->rm_lock);
+
+	return ret;
 }
 
 static void _sde_rm_hw_destroy(enum sde_hw_blk_type type, void *hw)
@@ -290,6 +315,8 @@ int sde_rm_destroy(struct sde_rm *rm)
 
 	sde_hw_mdp_destroy(rm->hw_mdp);
 	rm->hw_mdp = NULL;
+
+	mutex_destroy(&rm->rm_lock);
 
 	return 0;
 }
@@ -387,6 +414,9 @@ int sde_rm_init(struct sde_rm *rm,
 
 	/* Clear, setup lists */
 	memset(rm, 0, sizeof(*rm));
+
+	mutex_init(&rm->rm_lock);
+
 	INIT_LIST_HEAD(&rm->rsvps);
 	for (type = 0; type < SDE_HW_BLK_MAX; type++)
 		INIT_LIST_HEAD(&rm->hw_blks[type]);
@@ -568,7 +598,7 @@ static bool _sde_rm_check_lm_and_get_connected_blks(
 
 	if (lm_cfg->dspp != DSPP_MAX) {
 		sde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_DSPP);
-		while (sde_rm_get_hw(rm, &iter)) {
+		while (_sde_rm_get_hw_locked(rm, &iter)) {
 			if (iter.blk->id == lm_cfg->dspp) {
 				*dspp = iter.blk;
 				break;
@@ -589,7 +619,7 @@ static bool _sde_rm_check_lm_and_get_connected_blks(
 	}
 
 	sde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_PINGPONG);
-	while (sde_rm_get_hw(rm, &iter)) {
+	while (_sde_rm_get_hw_locked(rm, &iter)) {
 		if (iter.blk->id == lm_cfg->pingpong) {
 			*pp = iter.blk;
 			break;
@@ -639,7 +669,8 @@ static int _sde_rm_reserve_lms(
 
 	/* Find a primary mixer */
 	sde_rm_init_hw_iter(&iter_i, 0, SDE_HW_BLK_LM);
-	while (lm_count != reqs->num_lm && sde_rm_get_hw(rm, &iter_i)) {
+	while (lm_count != reqs->num_lm &&
+			_sde_rm_get_hw_locked(rm, &iter_i)) {
 		memset(&lm, 0, sizeof(lm));
 		memset(&dspp, 0, sizeof(dspp));
 		memset(&pp, 0, sizeof(pp));
@@ -657,7 +688,8 @@ static int _sde_rm_reserve_lms(
 		/* Valid primary mixer found, find matching peers */
 		sde_rm_init_hw_iter(&iter_j, 0, SDE_HW_BLK_LM);
 
-		while (lm_count != reqs->num_lm && sde_rm_get_hw(rm, &iter_j)) {
+		while (lm_count != reqs->num_lm &&
+				_sde_rm_get_hw_locked(rm, &iter_j)) {
 			if (iter_i.blk == iter_j.blk)
 				continue;
 
@@ -693,7 +725,7 @@ static int _sde_rm_reserve_lms(
 		/* reserve a free PINGPONG_SLAVE block */
 		rc = -ENAVAIL;
 		sde_rm_init_hw_iter(&iter_i, 0, SDE_HW_BLK_PINGPONG);
-		while (sde_rm_get_hw(rm, &iter_i)) {
+		while (_sde_rm_get_hw_locked(rm, &iter_i)) {
 			struct sde_pingpong_cfg *pp_cfg =
 				(struct sde_pingpong_cfg *)
 				(iter_i.blk->catalog);
@@ -724,7 +756,7 @@ static int _sde_rm_reserve_ctls(
 	memset(&ctls, 0, sizeof(ctls));
 
 	sde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_CTL);
-	while (sde_rm_get_hw(rm, &iter)) {
+	while (_sde_rm_get_hw_locked(rm, &iter)) {
 		unsigned long caps;
 		bool has_split_display, has_ppsplit;
 
@@ -771,7 +803,7 @@ static int _sde_rm_reserve_cdm(
 	struct sde_cdm_cfg *cdm;
 
 	sde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_CDM);
-	while (sde_rm_get_hw(rm, &iter)) {
+	while (_sde_rm_get_hw_locked(rm, &iter)) {
 		bool match = false;
 
 		if (RESERVED_BY_OTHER(iter.blk, rsvp))
@@ -816,7 +848,7 @@ static int _sde_rm_reserve_intf_or_wb(
 
 	/* Find the block entry in the rm, and note the reservation */
 	sde_rm_init_hw_iter(&iter, 0, type);
-	while (sde_rm_get_hw(rm, &iter)) {
+	while (_sde_rm_get_hw_locked(rm, &iter)) {
 		if (iter.blk->id != id)
 			continue;
 
@@ -1073,7 +1105,7 @@ static struct drm_connector *_sde_rm_get_connector(
  * @rm:	KMS handle
  * @rsvp:	RSVP pointer to release and release resources for
  */
-void _sde_rm_release_rsvp(
+static void _sde_rm_release_rsvp(
 		struct sde_rm *rm,
 		struct sde_rm_rsvp *rsvp,
 		struct drm_connector *conn)
@@ -1125,16 +1157,18 @@ void sde_rm_release(struct sde_rm *rm, struct drm_encoder *enc)
 		return;
 	}
 
+	mutex_lock(&rm->rm_lock);
+
 	rsvp = _sde_rm_get_rsvp(rm, enc);
 	if (!rsvp) {
 		SDE_ERROR("failed to find rsvp for enc %d\n", enc->base.id);
-		return;
+		goto end;
 	}
 
 	conn = _sde_rm_get_connector(enc);
 	if (!conn) {
 		SDE_ERROR("failed to get connector for enc %d\n", enc->base.id);
-		return;
+		goto end;
 	}
 
 	top_ctrl = sde_connector_get_property(conn->state,
@@ -1154,6 +1188,9 @@ void sde_rm_release(struct sde_rm *rm, struct drm_encoder *enc)
 				CONNECTOR_PROP_TOPOLOGY_NAME,
 				SDE_RM_TOPOLOGY_UNKNOWN);
 	}
+
+end:
+	mutex_unlock(&rm->rm_lock);
 }
 
 static int _sde_rm_commit_rsvp(
@@ -1232,13 +1269,15 @@ int sde_rm_reserve(
 			crtc_state->crtc->base.id, test_only);
 	SDE_EVT32(enc->base.id, conn_state->connector->base.id);
 
+	mutex_lock(&rm->rm_lock);
+
 	_sde_rm_print_rsvps(rm, SDE_RM_STAGE_BEGIN);
 
 	ret = _sde_rm_populate_requirements(rm, enc, crtc_state,
 			conn_state, &reqs);
 	if (ret) {
 		SDE_ERROR("failed to populate hw requirements\n");
-		return ret;
+		goto end;
 	}
 
 	/*
@@ -1253,8 +1292,10 @@ int sde_rm_reserve(
 	 * replace the current with the next.
 	 */
 	rsvp_nxt = kzalloc(sizeof(*rsvp_nxt), GFP_KERNEL);
-	if (!rsvp_nxt)
-		return -ENOMEM;
+	if (!rsvp_nxt) {
+		ret = -ENOMEM;
+		goto end;
+	}
 
 	rsvp_cur = _sde_rm_get_rsvp(rm, enc);
 
@@ -1305,6 +1346,9 @@ int sde_rm_reserve(
 	}
 
 	_sde_rm_print_rsvps(rm, SDE_RM_STAGE_FINAL);
+
+end:
+	mutex_unlock(&rm->rm_lock);
 
 	return ret;
 }
