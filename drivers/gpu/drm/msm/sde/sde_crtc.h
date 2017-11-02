@@ -212,6 +212,7 @@ struct sde_crtc_event {
  * @misr_data     : store misr data before turning off the clocks.
  * @sbuf_flush_mask: flush mask for inline rotator
  * @sbuf_flush_mask_old: inline rotator flush mask for previous commit
+ * @idle_notify_work: delayed worker to notify idle timeout to user space
  * @power_event   : registered power event handle
  * @cur_perf      : current performance committed to clock/bandwidth driver
  * @rp_lock       : serialization lock for resource pool
@@ -276,6 +277,7 @@ struct sde_crtc {
 
 	u32 sbuf_flush_mask;
 	u32 sbuf_flush_mask_old;
+	struct kthread_delayed_work idle_notify_work;
 
 	struct sde_power_event *power_event;
 

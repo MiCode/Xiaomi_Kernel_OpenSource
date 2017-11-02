@@ -58,12 +58,15 @@ static int sde_crtc_power_interrupt_handler(struct drm_crtc *crtc_drm,
 	bool en, struct sde_irq_callback *ad_irq);
 static int sde_crtc_idle_interrupt_handler(struct drm_crtc *crtc_drm,
 	bool en, struct sde_irq_callback *idle_irq);
+static int sde_crtc_pm_event_handler(struct drm_crtc *crtc, bool en,
+		struct sde_irq_callback *noirq);
 
 static struct sde_crtc_custom_events custom_events[] = {
 	{DRM_EVENT_AD_BACKLIGHT, sde_cp_ad_interrupt},
 	{DRM_EVENT_CRTC_POWER, sde_crtc_power_interrupt_handler},
 	{DRM_EVENT_IDLE_NOTIFY, sde_crtc_idle_interrupt_handler},
 	{DRM_EVENT_HISTOGRAM, sde_cp_hist_interrupt},
+	{DRM_EVENT_SDE_POWER, sde_crtc_pm_event_handler},
 };
 
 /* default input fence timeout, in ms */
@@ -2273,47 +2276,6 @@ static void _sde_crtc_retire_event(struct drm_crtc *crtc, ktime_t ts)
 	SDE_ATRACE_END("signal_retire_fence");
 }
 
-/* _sde_crtc_idle_notify - signal idle timeout to client */
-static void _sde_crtc_idle_notify(struct sde_crtc *sde_crtc)
-{
-	struct drm_crtc *crtc;
-	struct drm_event event;
-	int ret = 0;
-
-	if (!sde_crtc) {
-		SDE_ERROR("invalid sde crtc\n");
-		return;
-	}
-
-	crtc = &sde_crtc->base;
-	event.type = DRM_EVENT_IDLE_NOTIFY;
-	event.length = sizeof(u32);
-	msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
-								(u8 *)&ret);
-
-	SDE_DEBUG("crtc:%d idle timeout notified\n", crtc->base.id);
-}
-
-/*
- * sde_crtc_handle_event - crtc frame event handle.
- * This API must manage only non-IRQ context events.
- */
-static bool _sde_crtc_handle_event(struct sde_crtc *sde_crtc, u32 event)
-{
-	bool event_processed = false;
-
-	/**
-	 * idle events are originated from commit thread and can be processed
-	 * in same context
-	 */
-	if (event & SDE_ENCODER_FRAME_EVENT_IDLE) {
-		_sde_crtc_idle_notify(sde_crtc);
-		event_processed = true;
-	}
-
-	return event_processed;
-}
-
 static void sde_crtc_frame_event_work(struct kthread_work *work)
 {
 	struct msm_drm_private *priv;
@@ -2407,15 +2369,6 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 	SDE_ATRACE_END("crtc_frame_event");
 }
 
-/*
- * sde_crtc_frame_event_cb - crtc frame event callback API. CRTC module
- * registers this API to encoder for all frame event callbacks like
- * release_fence, retire_fence, frame_error, frame_done, idle_timeout,
- * etc. Encoder may call different events from different context - IRQ,
- * user thread, commit_thread, etc. Each event should be carefully
- * reviewed and should be processed in proper task context to avoid scheduling
- * delay or properly manage the irq context's bottom half processing.
- */
 static void sde_crtc_frame_event_cb(void *data, u32 event)
 {
 	struct drm_crtc *crtc = (struct drm_crtc *)data;
@@ -2424,7 +2377,6 @@ static void sde_crtc_frame_event_cb(void *data, u32 event)
 	struct sde_crtc_frame_event *fevent;
 	unsigned long flags;
 	u32 crtc_id;
-	bool event_processed = false;
 
 	if (!crtc || !crtc->dev || !crtc->dev->dev_private) {
 		SDE_ERROR("invalid parameters\n");
@@ -2436,11 +2388,6 @@ static void sde_crtc_frame_event_cb(void *data, u32 event)
 
 	SDE_DEBUG("crtc%d\n", crtc->base.id);
 	SDE_EVT32_VERBOSE(DRMID(crtc), event);
-
-	/* try to process the event in caller context */
-	event_processed = _sde_crtc_handle_event(sde_crtc, event);
-	if (event_processed)
-		return;
 
 	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
 	fevent = list_first_entry_or_null(&sde_crtc->frame_event_list,
@@ -2480,24 +2427,6 @@ void sde_crtc_complete_commit(struct drm_crtc *crtc,
 	/* complete secure transitions if any */
 	if (smmu_state->transition_type == POST_COMMIT)
 		sde_crtc_secure_ctrl(crtc, true);
-}
-
-/* _sde_crtc_set_idle_timeout - update idle timeout wait duration */
-static void _sde_crtc_set_idle_timeout(struct drm_crtc *crtc, u64 val)
-{
-	struct drm_encoder *encoder;
-
-	if (!crtc) {
-		SDE_ERROR("invalid crtc\n");
-		return;
-	}
-
-	drm_for_each_encoder(encoder, crtc->dev) {
-		if (encoder->crtc != crtc)
-			continue;
-
-		sde_encoder_set_idle_timeout(encoder, (u32) val);
-	}
 }
 
 /**
@@ -3155,6 +3084,12 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	_sde_crtc_blend_setup(crtc, true);
 	_sde_crtc_dest_scaler_setup(crtc);
 
+	/* cancel the idle notify delayed work */
+	if (sde_encoder_check_mode(sde_crtc->mixers[0].encoder,
+					MSM_DISPLAY_CAP_VID_MODE) &&
+		kthread_cancel_delayed_work_sync(&sde_crtc->idle_notify_work))
+		SDE_DEBUG("idle notify work cancelled\n");
+
 	/*
 	 * Since CP properties use AXI buffer to program the
 	 * HW, check if context bank is in attached
@@ -3186,6 +3121,7 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	struct msm_drm_thread *event_thread;
 	unsigned long flags;
 	struct sde_crtc_state *cstate;
+	int idle_time = 0;
 
 	if (!crtc || !crtc->dev || !crtc->dev->dev_private) {
 		SDE_ERROR("invalid crtc\n");
@@ -3211,6 +3147,7 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	}
 
 	event_thread = &priv->event_thread[crtc->index];
+	idle_time = sde_crtc_get_property(cstate, CRTC_PROP_IDLE_TIMEOUT);
 
 	if (sde_crtc->event) {
 		SDE_DEBUG("already received sde_crtc->event\n");
@@ -3240,6 +3177,15 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 
 	/* wait for acquire fences before anything else is done */
 	_sde_crtc_wait_for_fences(crtc);
+
+	/* schedule the idle notify delayed work */
+	if (idle_time && sde_encoder_check_mode(sde_crtc->mixers[0].encoder,
+						MSM_DISPLAY_CAP_VID_MODE)) {
+		kthread_queue_delayed_work(&event_thread->worker,
+					&sde_crtc->idle_notify_work,
+					msecs_to_jiffies(idle_time));
+		SDE_DEBUG("schedule idle notify work in %dms\n", idle_time);
+	}
 
 	if (!cstate->rsc_update) {
 		drm_for_each_encoder(encoder, dev) {
@@ -3938,10 +3884,11 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 	struct drm_plane *plane;
 	struct drm_encoder *encoder;
 	struct sde_crtc_mixer *m;
-	u32 i, misr_status;
+	u32 i, misr_status, power_on;
 	unsigned long flags;
 	struct sde_crtc_irq_info *node = NULL;
 	int ret = 0;
+	struct drm_event event;
 
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
@@ -3976,6 +3923,12 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 		spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
 
 		sde_cp_crtc_post_ipc(crtc);
+
+		event.type = DRM_EVENT_SDE_POWER;
+		event.length = sizeof(power_on);
+		power_on = 1;
+		msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
+				(u8 *)&power_on);
 
 		for (i = 0; i < sde_crtc->num_mixers; ++i) {
 			m = &sde_crtc->mixers[i];
@@ -4045,6 +3998,11 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 		if (cstate->num_ds_enabled)
 			sde_crtc->ds_reconfig = true;
 
+		event.type = DRM_EVENT_SDE_POWER;
+		event.length = sizeof(power_on);
+		power_on = 0;
+		msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
+				(u8 *)&power_on);
 		break;
 	default:
 		SDE_DEBUG("event:%d not handled\n", event_type);
@@ -4873,7 +4831,7 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 			CRTC_PROP_ROT_CLK);
 
 	msm_property_install_range(&sde_crtc->property_info,
-		"idle_time", IDLE_TIMEOUT, 0, U64_MAX, 0,
+		"idle_time", 0, 0, U64_MAX, 0,
 		CRTC_PROP_IDLE_TIMEOUT);
 
 	msm_property_install_blob(&sde_crtc->property_info, "capabilities",
@@ -5062,8 +5020,6 @@ static int sde_crtc_atomic_set_property(struct drm_crtc *crtc,
 				cstate->bw_control = true;
 				cstate->bw_split_vote = true;
 				break;
-			case CRTC_PROP_IDLE_TIMEOUT:
-				_sde_crtc_set_idle_timeout(crtc, val);
 			default:
 				/* nothing to do */
 				break;
@@ -5665,6 +5621,30 @@ static int _sde_crtc_init_events(struct sde_crtc *sde_crtc)
 	return rc;
 }
 
+/*
+ * __sde_crtc_idle_notify_work - signal idle timeout to user space
+ */
+static void __sde_crtc_idle_notify_work(struct kthread_work *work)
+{
+	struct sde_crtc *sde_crtc = container_of(work, struct sde_crtc,
+				idle_notify_work.work);
+	struct drm_crtc *crtc;
+	struct drm_event event;
+	int ret = 0;
+
+	if (!sde_crtc) {
+		SDE_ERROR("invalid sde crtc\n");
+	} else {
+		crtc = &sde_crtc->base;
+		event.type = DRM_EVENT_IDLE_NOTIFY;
+		event.length = sizeof(u32);
+		msm_mode_object_event_notify(&crtc->base, crtc->dev,
+				&event, (u8 *)&ret);
+
+		SDE_DEBUG("crtc[%d]: idle timeout notified\n", crtc->base.id);
+	}
+}
+
 /* initialize crtc */
 struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 {
@@ -5735,6 +5715,9 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 	/* Install color processing properties */
 	sde_cp_crtc_init(crtc);
 	sde_cp_crtc_install_properties(crtc);
+
+	kthread_init_delayed_work(&sde_crtc->idle_notify_work,
+					__sde_crtc_idle_notify_work);
 
 	SDE_DEBUG("%s: successfully initialized crtc\n", sde_crtc->name);
 	return crtc;
@@ -5874,6 +5857,16 @@ int sde_crtc_register_custom_event(struct sde_kms *kms,
 static int sde_crtc_power_interrupt_handler(struct drm_crtc *crtc_drm,
 	bool en, struct sde_irq_callback *irq)
 {
+	return 0;
+}
+
+static int sde_crtc_pm_event_handler(struct drm_crtc *crtc, bool en,
+		struct sde_irq_callback *noirq)
+{
+	/*
+	 * IRQ object noirq is not being used here since there is
+	 * no crtc irq from pm event.
+	 */
 	return 0;
 }
 

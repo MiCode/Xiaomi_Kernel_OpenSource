@@ -29,9 +29,8 @@
 #define SDE_ENCODER_FRAME_EVENT_PANEL_DEAD		BIT(2)
 #define SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE	BIT(3)
 #define SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE	BIT(4)
-#define SDE_ENCODER_FRAME_EVENT_IDLE			BIT(5)
 
-#define IDLE_TIMEOUT	(66 - 16/2)
+#define IDLE_POWERCOLLAPSE_DURATION	(66 - 16/2)
 
 /**
  * Encoder functions and data types
@@ -212,14 +211,5 @@ void sde_encoder_destroy(struct drm_encoder *drm_enc);
  * @drm_enc:    Pointer to previously created drm encoder structure
  */
 void sde_encoder_prepare_commit(struct drm_encoder *drm_enc);
-
-/**
- * sde_encoder_set_idle_timeout - set the idle timeout for video
- *                    and command mode encoders.
- * @drm_enc:    Pointer to previously created drm encoder structure
- * @idle_timeout:    idle timeout duration in milliseconds
- */
-void sde_encoder_set_idle_timeout(struct drm_encoder *drm_enc,
-							u32 idle_timeout);
 
 #endif /* __SDE_ENCODER_H__ */
