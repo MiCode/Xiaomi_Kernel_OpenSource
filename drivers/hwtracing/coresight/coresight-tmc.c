@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright (c) 2012,2017-2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012,2017-2020 The Linux Foundation. All rights reserved.
  *
  * Description: CoreSight Trace Memory Controller driver
  */
@@ -401,15 +401,109 @@ static ssize_t block_size_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(block_size);
 
-static struct attribute *coresight_tmc_attrs[] = {
+static ssize_t out_mode_show(struct device *dev,
+			     struct device_attribute *attr, char *buf)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	return scnprintf(buf, PAGE_SIZE, "%s\n",
+			str_tmc_etr_out_mode[drvdata->out_mode]);
+}
+
+static ssize_t out_mode_store(struct device *dev,
+			      struct device_attribute *attr,
+			      const char *buf, size_t size)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	char str[10] = "";
+	unsigned long flags;
+	int ret;
+
+	if (strlen(buf) >= 10)
+		return -EINVAL;
+	if (sscanf(buf, "%10s", str) != 1)
+		return -EINVAL;
+
+	mutex_lock(&drvdata->mem_lock);
+	if (!strcmp(str, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_MEM])) {
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
+			goto out;
+
+		spin_lock_irqsave(&drvdata->spinlock, flags);
+		if (!drvdata->enable) {
+			drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
+			spin_unlock_irqrestore(&drvdata->spinlock, flags);
+			goto out;
+		}
+
+		tmc_etr_enable_hw(drvdata, drvdata->sysfs_buf);
+		drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
+		spin_unlock_irqrestore(&drvdata->spinlock, flags);
+	} else if (!strcmp(str, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_USB])) {
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB)
+			goto out;
+
+		spin_lock_irqsave(&drvdata->spinlock, flags);
+		if (!drvdata->enable) {
+			drvdata->out_mode = TMC_ETR_OUT_MODE_USB;
+			spin_unlock_irqrestore(&drvdata->spinlock, flags);
+			goto out;
+		}
+		if (drvdata->reading) {
+			ret = -EBUSY;
+			goto err1;
+		}
+		tmc_etr_disable_hw(drvdata);
+		drvdata->out_mode = TMC_ETR_OUT_MODE_USB;
+		spin_unlock_irqrestore(&drvdata->spinlock, flags);
+	}
+out:
+	mutex_unlock(&drvdata->mem_lock);
+	return size;
+err1:
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
+	mutex_unlock(&drvdata->mem_lock);
+	return ret;
+}
+static DEVICE_ATTR_RW(out_mode);
+
+static ssize_t available_out_modes_show(struct device *dev,
+				       struct device_attribute *attr,
+				       char *buf)
+{
+	ssize_t len = 0;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(str_tmc_etr_out_mode); i++)
+		len += scnprintf(buf + len, PAGE_SIZE - len, "%s ",
+				str_tmc_etr_out_mode[i]);
+
+	len += scnprintf(buf + len, PAGE_SIZE - len, "\n");
+	return len;
+}
+static DEVICE_ATTR_RO(available_out_modes);
+
+static struct attribute *coresight_tmc_etf_attrs[] = {
 	&dev_attr_trigger_cntr.attr,
 	&dev_attr_buffer_size.attr,
-	&dev_attr_block_size.attr,
 	NULL,
 };
 
-static const struct attribute_group coresight_tmc_group = {
-	.attrs = coresight_tmc_attrs,
+static struct attribute *coresight_tmc_etr_attrs[] = {
+	&dev_attr_trigger_cntr.attr,
+	&dev_attr_buffer_size.attr,
+	&dev_attr_block_size.attr,
+	&dev_attr_out_mode.attr,
+	&dev_attr_available_out_modes.attr,
+	NULL,
+};
+
+static const struct attribute_group coresight_tmc_etf_group = {
+	.attrs = coresight_tmc_etf_attrs,
+};
+
+static const struct attribute_group coresight_tmc_etr_group = {
+	.attrs = coresight_tmc_etr_attrs,
 };
 
 static const struct attribute_group coresight_tmc_mgmt_group = {
@@ -417,8 +511,14 @@ static const struct attribute_group coresight_tmc_mgmt_group = {
 	.name = "mgmt",
 };
 
-const struct attribute_group *coresight_tmc_groups[] = {
-	&coresight_tmc_group,
+static const struct attribute_group *coresight_tmc_etf_groups[] = {
+	&coresight_tmc_etf_group,
+	&coresight_tmc_mgmt_group,
+	NULL,
+};
+
+static const struct attribute_group *coresight_tmc_etr_groups[] = {
+	&coresight_tmc_etr_group,
 	&coresight_tmc_mgmt_group,
 	NULL,
 };
@@ -525,10 +625,12 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 	/* This device is not associated with a session */
 	drvdata->pid = -1;
 
-	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR)
+	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
+		drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
 		drvdata->size = tmc_etr_get_default_buffer_size(dev);
-	else
+	} else {
 		drvdata->size = readl_relaxed(drvdata->base + TMC_RSZ) * 4;
+	}
 
 	ret = of_get_coresight_csr_name(adev->dev.of_node, &drvdata->csr_name);
 	if (ret)
@@ -559,18 +661,18 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 	}
 
 	desc.dev = dev;
-	desc.groups = coresight_tmc_groups;
-
 	switch (drvdata->config_type) {
 	case TMC_CONFIG_TYPE_ETB:
 		desc.type = CORESIGHT_DEV_TYPE_SINK;
 		desc.subtype.sink_subtype = CORESIGHT_DEV_SUBTYPE_SINK_BUFFER;
+		desc.groups = coresight_tmc_etf_groups;
 		desc.ops = &tmc_etb_cs_ops;
 		dev_list = &etb_devs;
 		break;
 	case TMC_CONFIG_TYPE_ETR:
 		desc.type = CORESIGHT_DEV_TYPE_SINK;
 		desc.subtype.sink_subtype = CORESIGHT_DEV_SUBTYPE_SINK_BUFFER;
+		desc.groups = coresight_tmc_etr_groups;
 		desc.ops = &tmc_etr_cs_ops;
 		ret = tmc_etr_setup_caps(dev, devid,
 					 coresight_get_uci_data(id));
@@ -584,6 +686,7 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 	case TMC_CONFIG_TYPE_ETF:
 		desc.type = CORESIGHT_DEV_TYPE_LINKSINK;
 		desc.subtype.link_subtype = CORESIGHT_DEV_SUBTYPE_LINK_FIFO;
+		desc.groups = coresight_tmc_etf_groups;
 		desc.ops = &tmc_etf_cs_ops;
 		dev_list = &etf_devs;
 		break;

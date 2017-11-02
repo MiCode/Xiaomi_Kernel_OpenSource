@@ -19,13 +19,6 @@
 #include "coresight-priv.h"
 #include "coresight-tmc.h"
 
-struct etr_flat_buf {
-	struct device	*dev;
-	dma_addr_t	daddr;
-	void		*vaddr;
-	size_t		size;
-};
-
 /*
  * etr_perf_buffer - Perf buffer used for ETR
  * @drvdata		- The ETR drvdaga this buffer has been allocated for.
@@ -998,7 +991,7 @@ static void __tmc_etr_enable_hw(struct tmc_drvdata *drvdata)
 	CS_LOCK(drvdata->base);
 }
 
-static int tmc_etr_enable_hw(struct tmc_drvdata *drvdata,
+int tmc_etr_enable_hw(struct tmc_drvdata *drvdata,
 			     struct etr_buf *etr_buf)
 {
 	int rc;
@@ -1110,7 +1103,7 @@ static void __tmc_etr_disable_hw(struct tmc_drvdata *drvdata)
 
 }
 
-static void tmc_etr_disable_hw(struct tmc_drvdata *drvdata)
+void tmc_etr_disable_hw(struct tmc_drvdata *drvdata)
 {
 	__tmc_etr_disable_hw(drvdata);
 	/* Disable CATU device if this ETR is connected to one */
@@ -1178,8 +1171,9 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 		free_buf = sysfs_buf;
 		drvdata->sysfs_buf = new_buf;
 	}
-
-	ret = tmc_etr_enable_hw(drvdata, drvdata->sysfs_buf);
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
+		ret = tmc_etr_enable_hw(drvdata, drvdata->sysfs_buf);
+	}
 	if (!ret) {
 		drvdata->mode = CS_MODE_SYSFS;
 		atomic_inc(csdev->refcnt);
@@ -1656,7 +1650,10 @@ static int tmc_disable_etr_sink(struct coresight_device *csdev)
 
 	/* Complain if we (somehow) got out of sync */
 	WARN_ON_ONCE(drvdata->mode == CS_MODE_DISABLED);
-	tmc_etr_disable_hw(drvdata);
+	if (drvdata->mode != CS_MODE_DISABLED) {
+		if (drvdata->out_mode != TMC_ETR_OUT_MODE_USB)
+			tmc_etr_disable_hw(drvdata);
+	}
 	/* Dissociate from monitored process. */
 	drvdata->pid = -1;
 	drvdata->mode = CS_MODE_DISABLED;
@@ -1706,6 +1703,10 @@ int tmc_read_prepare_etr(struct tmc_drvdata *drvdata)
 		goto out;
 	}
 
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
+		ret = -EINVAL;
+		goto out;
+	}
 	/*
 	 * We can safely allow reads even if the ETR is operating in PERF mode,
 	 * since the sysfs session is captured in mode specific data.
