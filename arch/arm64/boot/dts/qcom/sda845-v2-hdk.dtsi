@@ -18,3 +18,7 @@
 		#include "fg-gen3-batterydata-mlp356477-2800mah.dtsi"
 	};
 };
+
+&sdhc_2 {
+	cd-gpios = <&tlmm 126 GPIO_ACTIVE_LOW>;
+};
