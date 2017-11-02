@@ -11,6 +11,7 @@
  */
 
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
+#include <dt-bindings/gpio/gpio.h>
 
 &soc {
 	/* RPMh regulators */
@@ -371,5 +372,13 @@
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
 		regulator-always-on;
+	};
+
+	vreg_sd_mmc: vreg_sd_mmc {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_sd_mmc";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&tlmm 92 GPIO_ACTIVE_HIGH>;
 	};
 };

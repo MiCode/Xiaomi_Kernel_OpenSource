@@ -33,6 +33,26 @@
 	status = "ok";
 };
 
+&sdhc_1 {
+	vdd-supply = <&vreg_sd_mmc>;
+
+	vdd-io-supply = <&pmxpoorwills_l7>;
+	qcom,vdd-io-voltage-level = <1800000 2950000>;
+	qcom,vdd-io-current-level = <200 10000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on &sdc1_cd_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off &sdc1_cd_off>;
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
+							200000000>;
+	qcom,devfreq,freq-table = <50000000 200000000>;
+
+	cd-gpios = <&tlmm 93 0x1>;
+
+	status = "ok";
+};
+
 &pmxpoorwills_vadc {
 	chan@83 {
 		label = "vph_pwr";
