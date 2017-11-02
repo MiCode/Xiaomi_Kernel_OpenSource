@@ -307,25 +307,15 @@ int cam_flash_apply_setting(struct cam_flash_ctrl *fctrl,
 			flash_data = &fctrl->nrt_info;
 			if (flash_data->opcode ==
 				CAMERA_SENSOR_FLASH_OP_FIRELOW) {
-				if (!(fctrl->is_regulator_enabled)) {
-					rc = cam_flash_prepare(fctrl,
-						CAM_FLASH_STATE_START);
-					if (rc) {
-						CAM_ERR(CAM_FLASH,
-							"Reg Enable Failed %d",
-							rc);
-						goto nrt_del_req;
-					}
-					rc = cam_flash_low(fctrl, flash_data);
-					if (rc) {
-						CAM_ERR(CAM_FLASH,
-							"Torch ON failed : %d",
-							rc);
-						goto nrt_del_req;
-					}
-					fctrl->flash_state =
-						CAM_FLASH_STATE_LOW;
+				rc = cam_flash_low(fctrl, flash_data);
+				if (rc) {
+					CAM_ERR(CAM_FLASH,
+						"Torch ON failed : %d",
+						rc);
+					goto nrt_del_req;
 				}
+				fctrl->flash_state =
+						CAM_FLASH_STATE_LOW;
 			} else if (flash_data->opcode ==
 				CAMERA_SENSOR_FLASH_OP_OFF) {
 				if (fctrl->flash_state ==
@@ -333,17 +323,9 @@ int cam_flash_apply_setting(struct cam_flash_ctrl *fctrl,
 					rc = cam_flash_off(fctrl);
 					if (rc)
 						CAM_ERR(CAM_FLASH,
-							"LED off failed: %d",
-							rc);
+						"LED off failed: %d",
+						rc);
 				}
-				cam_flash_flush_nrt(fctrl);
-
-				rc = cam_flash_release_dev(fctrl);
-				if (rc)
-					CAM_ERR(CAM_FLASH,
-						"Release dev failed rc %d", rc);
-				fctrl->flash_state =
-					CAM_FLASH_STATE_INIT;
 			}
 		} else if (fctrl->nrt_info.cmn_attr.cmd_type ==
 			CAMERA_SENSOR_FLASH_CMD_TYPE_RER) {
