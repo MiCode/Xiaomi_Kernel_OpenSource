@@ -101,6 +101,11 @@
 };
 
 &cam_cci {
+	qcom,cam-res-mgr {
+		compatible = "qcom,cam-res-mgr";
+		status = "ok";
+	};
+
 	actuator_rear: qcom,actuator@0 {
 		cell-index = <0>;
 		reg = <0x0>;
