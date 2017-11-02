@@ -13,7 +13,6 @@
 #ifndef _USB_BAM_H_
 #define _USB_BAM_H_
 #include <linux/msm-sps.h>
-#include <linux/ipa.h>
 #include <linux/usb/ch9.h>
 
 #define MAX_BAMS	NUM_CTRL	/* Bam per USB controllers */
@@ -33,7 +32,6 @@ enum usb_bam_mode {
 
 enum peer_bam {
 	QDSS_P_BAM = 0,
-	IPA_P_BAM,
 	MAX_PEER_BAMS,
 };
 
@@ -60,61 +58,6 @@ enum usb_bam_pipe_type {
 					 * depending on usb_bam_pipe_dir
 					 */
 	USB_BAM_MAX_PIPE_TYPES,
-};
-
-/*
- * struct usb_bam_connect_ipa_params: Connect Bam pipe to IPA peer information.
- * @ src_idx: Source pipe index in usb bam pipes lists.
- * @ dst_idx: Destination pipe index in usb bam pipes lists.
- * @ src_pipe: The source pipe index in the sps level.
- * @ dst_pipe: The destination pipe index in the sps level.
- * @ keep_ipa_awake: When true, IPA will not be clock gated.
- * @ ipa_cons_ep_idx: The pipe index on the IPA peer bam side, consumer.
- * @ ipa_prod_ep_idx: The pipe index on the IPA peer bam side, producer.
- * @ prod_clnt_hdl: Producer client handle returned by IPA driver
- * @ cons_clnt_hdl: Consumer client handle returned by IPA driver
- * @ src_client: Source IPA client type.
- * @ dst_client: Destination IPA client type.
- * @ ipa_ep_cfg: Configuration of IPA end-point (see struct ipa_ep_cfg)
- * @priv: Callback cookie to the notify event.
- * @notify: Callback on data path event by IPA (see enum ipa_dp_evt_type)
- *	 This call back gets back the priv cookie.
- *	 for Bam2Bam mode, this callback is in the tethering bridge.
- * @ activity_notify: Callback to be notified on and data being pushed into the
- *		 USB consumer pipe.
- * @ inactivity_notify: Callback to be notified on inactivity of all the current
- *		   open pipes between the USB bam and its peer.
- * @ skip_ep_cfg: boolean field that determines if Apps-processor
- *	            should or should not confiugre this end-point.
- *	            (Please see struct teth_bridge_init_params)
- * @ reset_pipe_after_lpm: bool to indicate if IPA should reset pipe after LPM.
- * @ usb_connection_speed: The actual speed the USB core currently works at.
- */
-struct usb_bam_connect_ipa_params {
-	u8 src_idx;
-	u8 dst_idx;
-	u32 *src_pipe;
-	u32 *dst_pipe;
-	bool keep_ipa_awake;
-	enum usb_bam_pipe_dir dir;
-	/* Parameters for Port Mapper */
-	u32 ipa_cons_ep_idx;
-	u32 ipa_prod_ep_idx;
-	/* client handle assigned by IPA to client */
-	u32 prod_clnt_hdl;
-	u32 cons_clnt_hdl;
-	/* params assigned by the CD */
-	enum ipa_client_type src_client;
-	enum ipa_client_type dst_client;
-	struct ipa_ep_cfg ipa_ep_cfg;
-	void *priv;
-	void (*notify)(void *priv, enum ipa_dp_evt_type evt,
-			unsigned long data);
-	int (*activity_notify)(void *priv);
-	int (*inactivity_notify)(void *priv);
-	bool skip_ep_cfg;
-	bool reset_pipe_after_lpm;
-	enum usb_device_speed usb_connection_speed;
 };
 
 /*
@@ -154,7 +97,6 @@ struct usb_bam_event_info {
  * @suspended: true if pipe is suspended.
  * @cons_stopped: true is pipe has consumer requests stopped.
  * @prod_stopped: true if pipe has producer requests stopped.
- * @ipa_clnt_hdl : pipe handle to ipa api.
  * @priv: private data to return upon activity_notify
  *	or inactivity_notify callbacks.
  * @activity_notify: callback to invoke on activity on one of the in pipes.
@@ -187,7 +129,6 @@ struct usb_bam_pipe_connect {
 	bool suspended;
 	bool cons_stopped;
 	bool prod_stopped;
-	int ipa_clnt_hdl;
 	void *priv;
 	int (*activity_notify)(void *priv);
 	int (*inactivity_notify)(void *priv);
@@ -251,35 +192,6 @@ struct msm_usb_bam_data {
 int usb_bam_connect(enum usb_ctrl bam_type, int idx, u32 *bam_pipe_idx);
 
 /**
- * Connect USB-to-IPA SPS connection.
- *
- * This function returns the allocated pipes number and clnt
- * handles. Assumes that the user first connects producer pipes
- * and only after that consumer pipes, since that's the correct
- * sequence for the handshake with the IPA.
- *
- * @bam_type - USB BAM type - dwc3/CI/hsic
- *
- * @ipa_params - in/out parameters
- *
- * @return 0 on success, negative value on error
- */
-int usb_bam_connect_ipa(enum usb_ctrl bam_type,
-			struct usb_bam_connect_ipa_params *ipa_params);
-
-/**
- * Disconnect USB-to-IPA SPS connection.
- *
- * @bam_type - USB BAM type - dwc3/CI/hsic
- *
- * @ipa_params - in/out parameters
- *
- * @return 0 on success, negative value on error
- */
-int usb_bam_disconnect_ipa(enum usb_ctrl bam_type,
-		struct usb_bam_connect_ipa_params *ipa_params);
-
-/**
  * Register a wakeup callback from peer BAM.
  *
  * @bam_type - USB BAM type - dwc3/CI/hsic
@@ -315,25 +227,6 @@ int usb_bam_register_start_stop_cbs(enum usb_ctrl bam_type,
 	void (*stop)(void *, enum usb_bam_pipe_dir),
 	void *param);
 
-/**
- * Start usb suspend sequence
- *
- * @ipa_params -  in/out parameters
- *
- * @bam_type - USB BAM type - dwc3/CI/hsic
- */
-void usb_bam_suspend(enum usb_ctrl bam_type,
-		     struct usb_bam_connect_ipa_params *ipa_params);
-
-/**
- * Start usb resume sequence
- *
- * @bam_type - USB BAM type - dwc3/CI/hsic
- *
- * @ipa_params -  in/out parameters
- */
-void usb_bam_resume(enum usb_ctrl bam_type,
-		     struct usb_bam_connect_ipa_params *ipa_params);
 /**
  * Disconnect USB-to-Periperal SPS connection.
  *
@@ -418,43 +311,18 @@ int usb_bam_get_bam_type(const char *core_name);
 int usb_bam_get_pipe_type(enum usb_ctrl bam_type,
 			  u8 idx, enum usb_bam_pipe_type *type);
 
-/*
- * Indicates whether USB producer is granted to IPA resource manager.
- *
- * @return true when producer granted, false when prodcuer is released.
- */
-bool usb_bam_get_prod_granted(enum usb_ctrl bam_type, u8 idx);
-
 /* Allocates memory for data fifo and descriptor fifos. */
 int usb_bam_alloc_fifos(enum usb_ctrl cur_bam, u8 idx);
 
 /* Frees memory for data fifo and descriptor fifos. */
 int usb_bam_free_fifos(enum usb_ctrl cur_bam, u8 idx);
 
-bool msm_bam_hsic_lpm_ok(void);
-bool msm_bam_hsic_host_pipe_empty(void);
 bool msm_usb_bam_enable(enum usb_ctrl ctrl, bool bam_enable);
 #else
 static inline int usb_bam_connect(enum usb_ctrl bam, u8 idx, u32 *bam_pipe_idx)
 {
 	return -ENODEV;
 }
-
-static inline int usb_bam_connect_ipa(enum usb_ctrl bam_type,
-			struct usb_bam_connect_ipa_params *ipa_params)
-{
-	return -ENODEV;
-}
-
-static inline int usb_bam_disconnect_ipa(enum usb_ctrl bam_type,
-			struct usb_bam_connect_ipa_params *ipa_params)
-{
-	return -ENODEV;
-}
-
-static inline void usb_bam_wait_for_cons_granted(
-			struct usb_bam_connect_ipa_params *ipa_params)
-{ }
 
 static inline int usb_bam_register_wake_cb(enum usb_ctrl bam_type, u8 idx,
 	int (*callback)(void *), void *param)
@@ -469,12 +337,6 @@ static inline int usb_bam_register_start_stop_cbs(enum usb_ctrl bam, u8 idx,
 {
 	return -ENODEV;
 }
-
-static inline void usb_bam_suspend(enum usb_ctrl bam_type,
-	struct usb_bam_connect_ipa_params *ipa_params){}
-
-static inline void usb_bam_resume(enum usb_ctrl bam_type,
-	struct usb_bam_connect_ipa_params *ipa_params) {}
 
 static inline int usb_bam_disconnect_pipe(enum usb_ctrl bam_type, u8 idx)
 {
@@ -514,23 +376,16 @@ static inline int usb_bam_get_pipe_type(enum usb_ctrl bam_type, u8 idx,
 	return -ENODEV;
 }
 
-static inline bool usb_bam_get_prod_granted(enum usb_ctrl bam_type, u8 idx)
+static inline int usb_bam_alloc_fifos(enum usb_ctrl cur_bam, u8 idx)
 {
 	return false;
 }
 
-int usb_bam_alloc_fifos(enum usb_ctrl cur_bam, u8 idx)
+static inline int usb_bam_free_fifos(enum usb_ctrl cur_bam, u8 idx)
 {
 	return false;
 }
 
-int usb_bam_free_fifos(enum usb_ctrl cur_bam, u8 idx)
-{
-	return false;
-}
-
-static inline bool msm_bam_hsic_lpm_ok(void) { return true; }
-static inline bool msm_bam_hsic_host_pipe_empty(void) { return true; }
 static inline bool msm_usb_bam_enable(enum usb_ctrl ctrl, bool bam_enable)
 { return true; }
 
