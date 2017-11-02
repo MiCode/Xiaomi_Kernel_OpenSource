@@ -183,6 +183,12 @@ out:
 	if (!used)
 		kfree(buf);
 
+	if (!ret) {
+		coresight_cti_map_trigin(drvdata->cti_reset, 2, 0);
+		coresight_cti_map_trigout(drvdata->cti_flush, 1, 0);
+		dev_info(drvdata->dev, "TMC-ETB/ETF enabled\n");
+	}
+
 	return ret;
 }
 
@@ -259,6 +265,9 @@ static void tmc_disable_etf_sink(struct coresight_device *csdev)
 	}
 
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
+
+	coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
+	coresight_cti_unmap_trigout(drvdata->cti_flush, 1, 0);
 
 	dev_info(drvdata->dev, "TMC-ETB/ETF disabled\n");
 }
