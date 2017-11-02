@@ -392,6 +392,7 @@
 &mss {
 	/delete-property/qcom,qdsp6v61-1-1;
 	qcom,qdsp6v62-1-4;
+	/delete-property/interrupts;
 };
 
 &mhi_device {
