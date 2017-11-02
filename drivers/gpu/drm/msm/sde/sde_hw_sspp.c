@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -908,6 +908,81 @@ static void sde_hw_sspp_setup_cdp(struct sde_hw_pipe *ctx,
 	SDE_REG_WRITE(&ctx->hw, cdp_cntl_offset, cdp_cntl);
 }
 
+static void _setup_layer_ops_colorproc(struct sde_hw_pipe *c,
+		unsigned long features)
+{
+	int ret = 0;
+
+	if (test_bit(SDE_SSPP_HSIC, &features)) {
+		if (c->cap->sblk->hsic_blk.version ==
+			(SDE_COLOR_PROCESS_VER(0x1, 0x7))) {
+			c->ops.setup_pa_hue = sde_setup_pipe_pa_hue_v1_7;
+			c->ops.setup_pa_sat = sde_setup_pipe_pa_sat_v1_7;
+			c->ops.setup_pa_val = sde_setup_pipe_pa_val_v1_7;
+			c->ops.setup_pa_cont = sde_setup_pipe_pa_cont_v1_7;
+		}
+	}
+
+	if (test_bit(SDE_SSPP_MEMCOLOR, &features)) {
+		if (c->cap->sblk->memcolor_blk.version ==
+			(SDE_COLOR_PROCESS_VER(0x1, 0x7)))
+			c->ops.setup_pa_memcolor =
+				sde_setup_pipe_pa_memcol_v1_7;
+	}
+
+	if (test_bit(SDE_SSPP_VIG_GAMUT, &features)) {
+		if (c->cap->sblk->gamut_blk.version ==
+			(SDE_COLOR_PROCESS_VER(0x5, 0x0))) {
+			ret = reg_dmav1_init_sspp_op_v4(SDE_SSPP_VIG_GAMUT,
+							c->idx);
+			if (!ret)
+				c->ops.setup_vig_gamut =
+					reg_dmav1_setup_vig_gamutv5;
+			else
+				c->ops.setup_vig_gamut = NULL;
+		}
+	}
+
+	if (test_bit(SDE_SSPP_VIG_IGC, &features)) {
+		if (c->cap->sblk->igc_blk[0].version ==
+			(SDE_COLOR_PROCESS_VER(0x5, 0x0))) {
+			ret = reg_dmav1_init_sspp_op_v4(SDE_SSPP_VIG_IGC,
+							c->idx);
+			if (!ret)
+				c->ops.setup_vig_igc =
+					reg_dmav1_setup_vig_igcv5;
+			else
+				c->ops.setup_vig_igc = NULL;
+		}
+	}
+
+	if (test_bit(SDE_SSPP_DMA_IGC, &features)) {
+		if (c->cap->sblk->igc_blk[0].version ==
+			(SDE_COLOR_PROCESS_VER(0x5, 0x0))) {
+			ret = reg_dmav1_init_sspp_op_v4(SDE_SSPP_DMA_IGC,
+							c->idx);
+			if (!ret)
+				c->ops.setup_dma_igc =
+					reg_dmav1_setup_dma_igcv5;
+			else
+				c->ops.setup_dma_igc = NULL;
+		}
+	}
+
+	if (test_bit(SDE_SSPP_DMA_GC, &features)) {
+		if (c->cap->sblk->gc_blk[0].version ==
+			(SDE_COLOR_PROCESS_VER(0x5, 0x0))) {
+			ret = reg_dmav1_init_sspp_op_v4(SDE_SSPP_DMA_GC,
+							c->idx);
+			if (!ret)
+				c->ops.setup_dma_gc =
+					reg_dmav1_setup_dma_gcv5;
+			else
+				c->ops.setup_dma_gc = NULL;
+		}
+	}
+}
+
 static void _setup_layer_ops(struct sde_hw_pipe *c,
 		unsigned long features)
 {
@@ -950,24 +1025,6 @@ static void _setup_layer_ops(struct sde_hw_pipe *c,
 		c->ops.get_scaler_ver = _sde_hw_sspp_get_scaler3_ver;
 	}
 
-	if (test_bit(SDE_SSPP_HSIC, &features)) {
-		/* TODO: add version based assignment here as inline or macro */
-		if (c->cap->sblk->hsic_blk.version ==
-			(SDE_COLOR_PROCESS_VER(0x1, 0x7))) {
-			c->ops.setup_pa_hue = sde_setup_pipe_pa_hue_v1_7;
-			c->ops.setup_pa_sat = sde_setup_pipe_pa_sat_v1_7;
-			c->ops.setup_pa_val = sde_setup_pipe_pa_val_v1_7;
-			c->ops.setup_pa_cont = sde_setup_pipe_pa_cont_v1_7;
-		}
-	}
-
-	if (test_bit(SDE_SSPP_MEMCOLOR, &features)) {
-		if (c->cap->sblk->memcolor_blk.version ==
-			(SDE_COLOR_PROCESS_VER(0x1, 0x7)))
-			c->ops.setup_pa_memcolor =
-				sde_setup_pipe_pa_memcol_v1_7;
-	}
-
 	if (test_bit(SDE_SSPP_SBUF, &features)) {
 		c->ops.setup_sys_cache = sde_hw_sspp_setup_sys_cache;
 		c->ops.get_sbuf_status = sde_hw_sspp_get_sbuf_status;
@@ -975,6 +1032,8 @@ static void _setup_layer_ops(struct sde_hw_pipe *c,
 
 	if (test_bit(SDE_SSPP_CDP, &features))
 		c->ops.setup_cdp = sde_hw_sspp_setup_cdp;
+
+	_setup_layer_ops_colorproc(c, features);
 }
 
 static struct sde_sspp_cfg *_sspp_offset(enum sde_sspp sspp,

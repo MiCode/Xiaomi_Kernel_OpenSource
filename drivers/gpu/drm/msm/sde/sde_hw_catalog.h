@@ -66,6 +66,7 @@
 #define SDE_COLOR_PROCESS_MINOR(version) ((version) & 0xFFFF)
 
 #define MAX_XIN_COUNT 16
+#define SSPP_SUBBLK_COUNT_MAX 2
 
 /**
  * Supported UBWC feature versions
@@ -417,7 +418,12 @@ struct sde_qos_lut_tbl {
  * @hsic:
  * @memcolor:
  * @pcc_blk:
- * @igc_blk:
+ * @gamut_blk: 3D LUT gamut block
+ * @num_igc_blk: number of IGC block
+ * @igc_blk: 1D LUT IGC block
+ * @num_gc_blk: number of GC block
+ * @gc_blk: 1D LUT GC block
+
  * @format_list: Pointer to list of supported formats
  * @virt_format_list: Pointer to list of supported formats for virtual planes
  */
@@ -438,7 +444,11 @@ struct sde_sspp_sub_blks {
 	struct sde_pp_blk hsic_blk;
 	struct sde_pp_blk memcolor_blk;
 	struct sde_pp_blk pcc_blk;
-	struct sde_pp_blk igc_blk;
+	struct sde_pp_blk gamut_blk;
+	u32 num_igc_blk;
+	struct sde_pp_blk igc_blk[SSPP_SUBBLK_COUNT_MAX];
+	u32 num_gc_blk;
+	struct sde_pp_blk gc_blk[SSPP_SUBBLK_COUNT_MAX];
 
 	const struct sde_format_extended *format_list;
 	const struct sde_format_extended *virt_format_list;

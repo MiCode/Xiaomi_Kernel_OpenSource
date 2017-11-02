@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2014-2018 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -159,6 +159,53 @@ static struct sde_kms *_sde_plane_get_kms(struct drm_plane *plane)
 	if (!priv)
 		return NULL;
 	return to_sde_kms(priv->kms);
+}
+
+static struct sde_hw_ctl *_sde_plane_get_hw_ctl(struct drm_plane *plane)
+{
+	struct drm_plane_state *pstate = NULL;
+	struct drm_crtc *drm_crtc = NULL;
+	struct sde_crtc *sde_crtc = NULL;
+	struct sde_crtc_mixer *mixer = NULL;
+	struct sde_hw_ctl *ctl = NULL;
+
+	if (!plane) {
+		DRM_ERROR("Invalid plane %pK\n", plane);
+		return NULL;
+	}
+
+	pstate = plane->state;
+	if (!pstate) {
+		DRM_ERROR("Invalid plane state %pK\n", pstate);
+		return NULL;
+	}
+
+	drm_crtc = pstate->crtc;
+	if (!drm_crtc) {
+		DRM_ERROR("Invalid drm_crtc %pK\n", drm_crtc);
+		return NULL;
+	}
+
+	sde_crtc = to_sde_crtc(drm_crtc);
+	if (!sde_crtc) {
+		DRM_ERROR("invalid sde_crtc %pK\n", sde_crtc);
+		return NULL;
+	}
+
+	/* it will always return the first mixer and single CTL */
+	mixer = sde_crtc->mixers;
+	if (!mixer) {
+		DRM_ERROR("invalid mixer %pK\n", mixer);
+		return NULL;
+	}
+
+	ctl = mixer->hw_ctl;
+	if (!mixer) {
+		DRM_ERROR("invalid ctl %pK\n", ctl);
+		return NULL;
+	}
+
+	return ctl;
 }
 
 /**
@@ -1288,7 +1335,12 @@ static void sde_color_process_plane_setup(struct drm_plane *plane)
 	struct sde_plane_state *pstate;
 	uint32_t hue, saturation, value, contrast;
 	struct drm_msm_memcol *memcol = NULL;
-	size_t memcol_sz = 0;
+	struct drm_msm_3d_gamut *vig_gamut = NULL;
+	struct drm_msm_igc_lut *igc = NULL;
+	struct drm_msm_pgc_lut *gc = NULL;
+	size_t memcol_sz = 0, size = 0;
+	struct sde_hw_cp_cfg hw_cfg = {};
+	struct sde_hw_ctl *ctl = _sde_plane_get_hw_ctl(plane);
 
 	psde = to_sde_plane(plane);
 	pstate = to_sde_plane_state(plane->state);
@@ -1333,6 +1385,60 @@ static void sde_color_process_plane_setup(struct drm_plane *plane)
 					PLANE_PROP_FOLIAGE_COLOR);
 		psde->pipe_hw->ops.setup_pa_memcolor(psde->pipe_hw,
 					MEMCOLOR_FOLIAGE, memcol);
+	}
+
+	if (pstate->dirty & SDE_PLANE_DIRTY_VIG_GAMUT &&
+			psde->pipe_hw->ops.setup_vig_gamut) {
+		vig_gamut = msm_property_get_blob(&psde->property_info,
+				&pstate->property_state,
+				&size,
+				PLANE_PROP_VIG_GAMUT);
+		hw_cfg.last_feature = 0;
+		hw_cfg.ctl = ctl;
+		hw_cfg.len = sizeof(struct drm_msm_3d_gamut);
+		hw_cfg.payload = vig_gamut;
+		psde->pipe_hw->ops.setup_vig_gamut(psde->pipe_hw, &hw_cfg);
+	}
+
+	if (pstate->dirty & SDE_PLANE_DIRTY_VIG_IGC &&
+			psde->pipe_hw->ops.setup_vig_igc) {
+		igc = msm_property_get_blob(&psde->property_info,
+				&pstate->property_state,
+				&size,
+				PLANE_PROP_VIG_IGC);
+		hw_cfg.last_feature = 0;
+		hw_cfg.ctl = ctl;
+		hw_cfg.len = sizeof(struct drm_msm_igc_lut);
+		hw_cfg.payload = igc;
+		psde->pipe_hw->ops.setup_vig_igc(psde->pipe_hw, &hw_cfg);
+	}
+
+	if (pstate->dirty & SDE_PLANE_DIRTY_DMA_IGC &&
+			psde->pipe_hw->ops.setup_dma_igc) {
+		igc = msm_property_get_blob(&psde->property_info,
+				&pstate->property_state,
+				&size,
+				PLANE_PROP_DMA_IGC);
+		hw_cfg.last_feature = 0;
+		hw_cfg.ctl = ctl;
+		hw_cfg.len = sizeof(struct drm_msm_igc_lut);
+		hw_cfg.payload = igc;
+		psde->pipe_hw->ops.setup_dma_igc(psde->pipe_hw, &hw_cfg,
+				pstate->multirect_index);
+	}
+
+	if (pstate->dirty & SDE_PLANE_DIRTY_DMA_GC &&
+			psde->pipe_hw->ops.setup_dma_gc) {
+		gc = msm_property_get_blob(&psde->property_info,
+				&pstate->property_state,
+				&size,
+				PLANE_PROP_DMA_GC);
+		hw_cfg.last_feature = 0;
+		hw_cfg.ctl = ctl;
+		hw_cfg.len = sizeof(struct drm_msm_pgc_lut);
+		hw_cfg.payload = gc;
+		psde->pipe_hw->ops.setup_dma_gc(psde->pipe_hw, &hw_cfg,
+				pstate->multirect_index);
 	}
 }
 
@@ -3576,6 +3682,18 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 		case PLANE_PROP_ROT_OUT_FB:
 			/* handled by rotator atomic update */
 			break;
+		case PLANE_PROP_VIG_GAMUT:
+			pstate->dirty |= SDE_PLANE_DIRTY_VIG_GAMUT;
+			break;
+		case PLANE_PROP_VIG_IGC:
+			pstate->dirty |= SDE_PLANE_DIRTY_VIG_IGC;
+			break;
+		case PLANE_PROP_DMA_IGC:
+			pstate->dirty |= SDE_PLANE_DIRTY_DMA_IGC;
+			break;
+		case PLANE_PROP_DMA_GC:
+			pstate->dirty |= SDE_PLANE_DIRTY_DMA_GC;
+			break;
 		default:
 			/* unknown property, refresh everything */
 			pstate->dirty |= SDE_PLANE_DIRTY_ALL;
@@ -4129,6 +4247,38 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 			psde->pipe_sblk->memcolor_blk.version >> 16);
 		msm_property_install_blob(&psde->property_info, feature_name, 0,
 			PLANE_PROP_FOLIAGE_COLOR);
+	}
+
+	if (psde->features & BIT(SDE_SSPP_VIG_GAMUT)) {
+		snprintf(feature_name, sizeof(feature_name), "%s%d",
+			"SDE_VIG_3D_LUT_GAMUT_V",
+			psde->pipe_sblk->gamut_blk.version >> 16);
+		msm_property_install_blob(&psde->property_info, feature_name, 0,
+			PLANE_PROP_VIG_GAMUT);
+	}
+
+	if (psde->features & BIT(SDE_SSPP_VIG_IGC)) {
+		snprintf(feature_name, sizeof(feature_name), "%s%d",
+			"SDE_VIG_1D_LUT_IGC_V",
+			psde->pipe_sblk->igc_blk[0].version >> 16);
+		msm_property_install_blob(&psde->property_info, feature_name, 0,
+			PLANE_PROP_VIG_IGC);
+	}
+
+	if (psde->features & BIT(SDE_SSPP_DMA_IGC)) {
+		snprintf(feature_name, sizeof(feature_name), "%s%d",
+			"SDE_DGM_1D_LUT_IGC_V",
+			psde->pipe_sblk->igc_blk[0].version >> 16);
+		msm_property_install_blob(&psde->property_info, feature_name, 0,
+			PLANE_PROP_DMA_IGC);
+	}
+
+	if (psde->features & BIT(SDE_SSPP_DMA_GC)) {
+		snprintf(feature_name, sizeof(feature_name), "%s%d",
+			"SDE_DGM_1D_LUT_GC_V",
+			psde->pipe_sblk->gc_blk[0].version >> 16);
+		msm_property_install_blob(&psde->property_info, feature_name, 0,
+			PLANE_PROP_DMA_GC);
 	}
 
 	msm_property_install_enum(&psde->property_info, "fb_translation_mode",

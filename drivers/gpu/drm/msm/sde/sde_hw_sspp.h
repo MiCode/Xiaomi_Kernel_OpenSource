@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -416,10 +416,36 @@ struct sde_hw_sspp_ops {
 			enum sde_memcolor_type type, void *cfg);
 
 	/**
-	 * setup_igc - setup inverse gamma correction
+	 * setup_vig_gamut - setup 3D LUT Gamut in VIG pipes
 	 * @ctx: Pointer to pipe context
+	 * @cfg: Pointer to vig gamut data
 	 */
-	void (*setup_igc)(struct sde_hw_pipe *ctx);
+	void (*setup_vig_gamut)(struct sde_hw_pipe *ctx, void *cfg);
+
+	/**
+	 * setup_vig_igc - setup 1D LUT IGC in VIG pipes
+	 * @ctx: Pointer to pipe context
+	 * @cfg: Pointer to vig igc data
+	 */
+	void (*setup_vig_igc)(struct sde_hw_pipe *ctx, void *cfg);
+
+	/**
+	 * setup_dma_igc - setup 1D LUT IGC in DMA pipes
+	 * @ctx: Pointer to pipe context
+	 * @cfg: Pointer to dma igc data
+	 * @idx: multirect index
+	 */
+	void (*setup_dma_igc)(struct sde_hw_pipe *ctx, void *cfg,
+				enum sde_sspp_multirect_index idx);
+
+	/**
+	 * setup_dma_gc - setup 1D LUT GC in DMA pipes
+	 * @ctx: Pointer to pipe context
+	 * @cfg: Pointer to dma gc data
+	 * @idx: multirect index
+	 */
+	void (*setup_dma_gc)(struct sde_hw_pipe *ctx, void *cfg,
+				enum sde_sspp_multirect_index idx);
 
 	/**
 	 * setup_danger_safe_lut - setup danger safe LUTs

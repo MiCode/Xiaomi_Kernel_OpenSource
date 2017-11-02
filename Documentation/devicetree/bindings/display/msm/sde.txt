@@ -212,11 +212,23 @@ Optional properties:
 				-- qcom,sde-vig-pcc: offset and version of PCC hardware
 				-- qcom,sde-vig-hsic: offset and version of global PA adjustment
 				-- qcom,sde-vig-memcolor: offset and version of PA memcolor hardware
+				-- qcom,sde-vig-gamut: offset and version of 3D LUT Gamut hardware
+				-- qcom,sde-vig-igc: offset and version of 1D LUT IGC hardware
+- qcom,sde-sspp-dma-blocks:	A node that lists the blocks inside the DMA hardware. There
+				can be more than one instance of this binding, in which case the
+				entry would be appended with dgm entry index. Each entry will
+				contain the offset and version (if needed) of each feature block.
+				The presence of a block entry indicates that the SSPP DMA contains
+				that feature hardware.
+				e.g. qcom,sde-sspp-dma-blocks
+				-- dgm@0
+				-- qcom,sde-dma-igc: offset and version of DMA IGC
+				-- qcom,sde-dma-gc: offset and version of DMA GC
 - qcom,sde-sspp-rgb-blocks:	A node that lists the blocks inside the RGB hardware. The
 				block entries will contain the offset and version (if needed)
 				of each feature block. The presence of a block entry
 				indicates that the SSPP RGB contains that feature hardware.
-				e.g. qcom,sde-sspp-vig-blocks
+				e.g. qcom,sde-sspp-rgb-blocks
 				-- qcom,sde-rgb-scaler-off: offset of RGB scaler hardware
 				-- qcom,sde-rgb-scaler-size: A u32 address range for scaler.
 				-- qcom,sde-rgb-pcc: offset and version of PCC hardware
@@ -668,6 +680,17 @@ Example:
         qcom,sde-vig-hsic = <0x200 0x00010000>;
         qcom,sde-vig-memcolor = <0x200 0x00010000>;
         qcom,sde-vig-pcc = <0x1780 0x00010000>;
+    };
+
+    qcom,sde-sspp-dma-blocks {
+	dgm@0 {
+		qcom,sde-dma-igc = <0x400 0x00050000>;
+		qcom,sde-dma-gc = <0x600 0x00050000>;
+	}
+	dgm@1 {
+		qcom,sde-dma-igc = <0x1400 0x00050000>;
+		qcom,sde-dma-gc = <0x600 0x00050000>;
+	}
     };
 
     qcom,sde-sspp-rgb-blocks {
