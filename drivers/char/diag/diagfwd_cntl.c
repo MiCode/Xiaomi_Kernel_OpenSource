@@ -14,6 +14,7 @@
 #include <linux/diagchar.h>
 #include <linux/kmemleak.h>
 #include <linux/delay.h>
+#include <linux/sched/signal.h>
 #include "diagchar.h"
 #include "diagfwd.h"
 #include "diagfwd_cntl.h"
