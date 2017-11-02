@@ -395,24 +395,22 @@ static uint32_t diag_translate_kernel_to_user_mask(uint32_t peripheral_mask)
 		ret |= DIAG_CON_CDSP;
 	if (peripheral_mask & MD_PERIPHERAL_MASK(UPD_WLAN))
 		ret |= DIAG_CON_UPD_WLAN;
+	if (peripheral_mask & MD_PERIPHERAL_MASK(UPD_AUDIO))
+		ret |= DIAG_CON_UPD_AUDIO;
+	if (peripheral_mask & MD_PERIPHERAL_MASK(UPD_SENSORS))
+		ret |= DIAG_CON_UPD_SENSORS;
 	return ret;
 }
 
 uint8_t diag_mask_to_pd_value(uint32_t peripheral_mask)
 {
 	uint8_t upd = 0;
-	uint32_t pd_mask = 0;
 
-	pd_mask = diag_translate_kernel_to_user_mask(peripheral_mask);
-	switch (pd_mask) {
-	case DIAG_CON_UPD_WLAN:
-		upd = UPD_WLAN;
-		break;
-	default:
-		DIAG_LOG(DIAG_DEBUG_MASKS,
-		"asking for mask update with no pd mask set\n");
+	for (upd = UPD_WLAN; upd < NUM_MD_SESSIONS; upd++) {
+		if (peripheral_mask & (1 << upd))
+			return upd;
 	}
-	return upd;
+	return 0;
 }
 
 int diag_mask_param(void)
@@ -1619,18 +1617,19 @@ static uint32_t diag_translate_mask(uint32_t peripheral_mask)
 		ret |= (1 << PERIPHERAL_CDSP);
 	if (peripheral_mask & DIAG_CON_UPD_WLAN)
 		ret |= (1 << UPD_WLAN);
-
+	if (peripheral_mask & DIAG_CON_UPD_AUDIO)
+		ret |= (1 << UPD_AUDIO);
+	if (peripheral_mask & DIAG_CON_UPD_SENSORS)
+		ret |= (1 << UPD_SENSORS);
 	return ret;
 }
 
 static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 {
 	int new_mode, i = 0;
-	int curr_mode;
-	int err = 0;
-	uint8_t do_switch = 1;
-	uint32_t peripheral_mask = 0;
-	uint8_t peripheral, upd;
+	int curr_mode, err = 0;
+	uint8_t do_switch = 1, peripheral = 0;
+	uint32_t peripheral_mask = 0, pd_mask = 0;
 
 	if (!param)
 		return -EINVAL;
@@ -1642,30 +1641,42 @@ static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 	}
 
 	if (param->pd_mask) {
-		switch (param->pd_mask) {
-		case DIAG_CON_UPD_WLAN:
-			peripheral = PERIPHERAL_MODEM;
-			upd = UPD_WLAN;
-			break;
-		default:
+		pd_mask = diag_translate_mask(param->pd_mask);
+		for (i = UPD_WLAN; i < NUM_MD_SESSIONS; i++) {
+			if (pd_mask & (1 << i)) {
+				if (diag_search_diagid_by_pd(i, &param->diag_id,
+					&param->peripheral)) {
+					param->pd_val = i;
+					break;
+				}
+			}
+		}
+		if (!param->diag_id) {
 			DIAG_LOG(DIAG_DEBUG_USERSPACE,
-			"asking for mode switch with no pd mask set\n");
+			"diag_id support is not present for the pd mask = %d\n",
+			param->pd_mask);
 			return -EINVAL;
 		}
 
+		DIAG_LOG(DIAG_DEBUG_USERSPACE,
+			"diag: pd_mask = %d, diag_id = %d, peripheral = %d, pd_val = %d\n",
+			param->pd_mask, param->diag_id,
+			param->peripheral, param->pd_val);
+
+		peripheral = param->peripheral;
 		if (driver->md_session_map[peripheral] &&
 			(MD_PERIPHERAL_MASK(peripheral) &
 			diag_mux->mux_mask)) {
 			DIAG_LOG(DIAG_DEBUG_USERSPACE,
 			"diag_fr: User PD is already logging onto active peripheral logging\n");
-			i = upd - UPD_WLAN;
+			i = param->pd_val - UPD_WLAN;
 			driver->pd_session_clear[i] = 0;
 			return -EINVAL;
 		}
 		peripheral_mask =
 			diag_translate_mask(param->pd_mask);
 		param->peripheral_mask = peripheral_mask;
-		i = upd - UPD_WLAN;
+		i = param->pd_val - UPD_WLAN;
 		if (!driver->pd_session_clear[i]) {
 			driver->pd_logging_mode[i] = 1;
 			driver->num_pd_session += 1;
@@ -2020,11 +2031,126 @@ static int diag_ioctl_hdlc_toggle(unsigned long ioarg)
 	return 0;
 }
 
+/*
+ * diag_search_peripheral_by_pd(uint8_t pd_val)
+ *
+ * Function will return peripheral by searching pd in the
+ * diag_id table.
+ *
+ */
+
+int diag_search_peripheral_by_pd(uint8_t pd_val)
+{
+	struct list_head *start;
+	struct list_head *temp;
+	struct diag_id_tbl_t *item = NULL;
+
+	mutex_lock(&driver->diag_id_mutex);
+	list_for_each_safe(start, temp, &driver->diag_id_list) {
+		item = list_entry(start, struct diag_id_tbl_t, link);
+		if (pd_val == item->pd_val) {
+			mutex_unlock(&driver->diag_id_mutex);
+			return item->peripheral;
+		}
+	}
+	mutex_unlock(&driver->diag_id_mutex);
+	return -EINVAL;
+}
+
+/*
+ * diag_search_diagid_by_pd(uint8_t pd_val,
+ *	uint8_t *diag_id, int *peripheral)
+ *
+ * Function will update the peripheral and diag_id
+ * from the pd passed as an argument.
+ *
+ */
+
+uint8_t diag_search_diagid_by_pd(uint8_t pd_val,
+	uint8_t *diag_id, int *peripheral)
+{
+	struct list_head *start;
+	struct list_head *temp;
+	struct diag_id_tbl_t *item = NULL;
+
+	mutex_lock(&driver->diag_id_mutex);
+	list_for_each_safe(start, temp, &driver->diag_id_list) {
+		item = list_entry(start, struct diag_id_tbl_t, link);
+		if (pd_val == item->pd_val) {
+			*peripheral = item->peripheral;
+			*diag_id = item->diag_id;
+			mutex_unlock(&driver->diag_id_mutex);
+			return 1;
+		}
+	}
+	mutex_unlock(&driver->diag_id_mutex);
+	return 0;
+}
+
+/*
+ * diag_query_pd_name(char *process_name, char *search_str)
+ *
+ * The function searches the pd string in the control packet string
+ * from the peripheral
+ *
+ */
+
+static int diag_query_pd_name(char *process_name, char *search_str)
+{
+	if (!process_name)
+		return -EINVAL;
+
+	if (strnstr(process_name, search_str, strlen(process_name)))
+		return 1;
+
+	return 0;
+}
+
+/*
+ * diag_query_pd_name(char *process_name, char *search_str)
+ *
+ * The function returns the PD information based on the presence of
+ * the pd specific string in the control packet's string from peripheral.
+ *
+ */
+
+int diag_query_pd(char *process_name)
+{
+	if (!process_name)
+		return -EINVAL;
+
+	if (diag_query_pd_name(process_name, "modem/root_pd"))
+		return PERIPHERAL_MODEM;
+	if (diag_query_pd_name(process_name, "adsp/root_pd"))
+		return PERIPHERAL_LPASS;
+	if (diag_query_pd_name(process_name, "slpi/root_pd"))
+		return PERIPHERAL_SENSORS;
+	if (diag_query_pd_name(process_name, "cdsp/root_pd"))
+		return PERIPHERAL_CDSP;
+	if (diag_query_pd_name(process_name, "wlan_pd"))
+		return UPD_WLAN;
+	if (diag_query_pd_name(process_name, "audio_pd"))
+		return UPD_AUDIO;
+	if (diag_query_pd_name(process_name, "sensor_pd"))
+		return UPD_SENSORS;
+
+	return -EINVAL;
+}
+
+/*
+ * diag_ioctl_query_pd_logging(struct diag_logging_mode_param_t *param)
+ *
+ * IOCTL handler based on the parameter received will check on which peripheral
+ * the PD is present and validate if the peripheral supports the diag_id and
+ * tagging feature.
+ *
+ */
+
 static int diag_ioctl_query_pd_logging(struct diag_logging_mode_param_t *param)
 {
-	int ret = -EINVAL;
-	int peripheral;
-	char *p_str = NULL;
+	int ret = -EINVAL, i = 0;
+	int peripheral = -EINVAL;
+	uint32_t pd_mask = 0;
 
 	if (!param)
 		return -EINVAL;
@@ -2035,17 +2161,21 @@ static int diag_ioctl_query_pd_logging(struct diag_logging_mode_param_t *param)
 		return -EINVAL;
 	}
 
-	switch (param->pd_mask) {
-	case DIAG_CON_UPD_WLAN:
-		peripheral = PERIPHERAL_MODEM;
-		p_str = "MODEM";
-		break;
-	default:
-		DIAG_LOG(DIAG_DEBUG_USERSPACE,
-		"Invalid pd mask, returning EINVAL\n");
-		return -EINVAL;
+	if (param->pd_mask) {
+		pd_mask = diag_translate_mask(param->pd_mask);
+		for (i = UPD_WLAN; i < NUM_MD_SESSIONS; i++) {
+			if (pd_mask & (1 << i)) {
+				peripheral = diag_search_peripheral_by_pd(i);
+				break;
+			}
+		}
+		if (peripheral < 0) {
+			DIAG_LOG(DIAG_DEBUG_USERSPACE,
+			"diag_id support is not present for the pd mask = %d\n",
+			param->pd_mask);
+			return -EINVAL;
+		}
 	}
-
 	mutex_lock(&driver->diag_cntl_mutex);
 	DIAG_LOG(DIAG_DEBUG_USERSPACE,
 	"diag: %s: Untagging support on APPS is %s\n", __func__,
@@ -2053,8 +2183,8 @@ static int diag_ioctl_query_pd_logging(struct diag_logging_mode_param_t *param)
 	"present" : "absent"));
 
 	DIAG_LOG(DIAG_DEBUG_USERSPACE,
-	"diag: %s: Tagging support on %s is %s\n",
-	__func__, p_str,
+	"diag: %s: Tagging support on peripheral = %d is %s\n",
+	__func__, peripheral,
 	(driver->feature[peripheral].untag_header ?
 	"present" : "absent"));
 
@@ -3742,7 +3872,7 @@ static int __init diagchar_init(void)
 		goto fail;
 	mutex_init(&driver->diag_id_mutex);
 	INIT_LIST_HEAD(&driver->diag_id_list);
-	diag_add_diag_id_to_list(DIAG_ID_APPS, "APPS");
+	diag_add_diag_id_to_list(DIAG_ID_APPS, "APPS", APPS_DATA, APPS_DATA);
 	pr_debug("diagchar initialized now");
 	ret = diagfwd_bridge_init();
 	if (ret)

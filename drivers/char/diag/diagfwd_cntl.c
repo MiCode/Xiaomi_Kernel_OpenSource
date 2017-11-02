@@ -694,7 +694,8 @@ static void process_build_mask_report(uint8_t *buf, uint32_t len,
 	}
 }
 
-int diag_add_diag_id_to_list(uint8_t diag_id, char *process_name)
+int diag_add_diag_id_to_list(uint8_t diag_id, char *process_name,
+	uint8_t pd_val, uint8_t peripheral)
 {
 	struct diag_id_tbl_t *new_item = NULL;
 
@@ -713,6 +714,8 @@ int diag_add_diag_id_to_list(uint8_t diag_id, char *process_name)
 	}
 	kmemleak_not_leak(new_item->process_name);
 	new_item->diag_id = diag_id;
+	new_item->pd_val = pd_val;
+	new_item->peripheral = peripheral;
 	strlcpy(new_item->process_name, process_name, strlen(process_name) + 1);
 	INIT_LIST_HEAD(&new_item->link);
 	mutex_lock(&driver->diag_id_mutex);
@@ -747,23 +750,15 @@ static void process_diagid(uint8_t *buf, uint32_t len,
 {
 	struct diag_ctrl_diagid *header = NULL;
 	struct diag_ctrl_diagid ctrl_pkt;
-	struct diagfwd_info *fwd_info_data = NULL;
-	struct diagfwd_info *fwd_info_cmd = NULL;
+	struct diagfwd_info *fwd_info = NULL;
 	char *process_name = NULL;
 	int err = 0;
+	int pd_val;
 	char *root_str = NULL;
 	uint8_t local_diag_id = 0;
-	uint8_t new_request = 0, i = 0;
+	uint8_t new_request = 0, i = 0, ch_type = 0;
 
 	if (!buf || len == 0 || peripheral >= NUM_PERIPHERALS)
-		return;
-
-	fwd_info_data = &peripheral_info[TYPE_DATA][peripheral];
-	if (!fwd_info_data)
-		return;
-
-	fwd_info_cmd = &peripheral_info[TYPE_CMD][peripheral];
-	if (!fwd_info_cmd)
 		return;
 
 	header = (struct diag_ctrl_diagid *)buf;
@@ -772,29 +767,41 @@ static void process_diagid(uint8_t *buf, uint32_t len,
 		ctrl_pkt.diag_id = local_diag_id;
 	else {
 		diag_id++;
-		diag_add_diag_id_to_list(diag_id, process_name);
-		ctrl_pkt.diag_id = diag_id;
 		new_request = 1;
+		pd_val = diag_query_pd(process_name);
+		if (pd_val < 0)
+			return;
+		diag_add_diag_id_to_list(diag_id, process_name,
+			pd_val, peripheral);
+		ctrl_pkt.diag_id = diag_id;
 	}
 	root_str = strnstr(process_name, DIAG_ID_ROOT_STRING,
 		strlen(process_name));
 
 	if (new_request) {
-		fwd_info_data->num_pd++;
-		fwd_info_cmd->num_pd++;
-		if (root_str) {
-			fwd_info_cmd->diagid_root = ctrl_pkt.diag_id;
-			fwd_info_data->diagid_root = ctrl_pkt.diag_id;
-		} else {
-			i = fwd_info_cmd->num_pd - 2;
-			if (i >= 0 && i < MAX_PERIPHERAL_UPD)
-				fwd_info_cmd->diagid_user[i] =
-				ctrl_pkt.diag_id;
+		for (ch_type = 0; ch_type < NUM_TYPES; ch_type++) {
+			if (ch_type == TYPE_DCI ||
+				ch_type == TYPE_DCI_CMD)
+				continue;
+			fwd_info = &peripheral_info[ch_type][peripheral];
+			fwd_info->num_pd++;
 
-			i = fwd_info_data->num_pd - 2;
-			if (i >= 0 && i < MAX_PERIPHERAL_UPD)
-				fwd_info_data->diagid_user[i] =
-				ctrl_pkt.diag_id;
+			if (root_str) {
+				fwd_info->root_diag_id.diagid_val =
+					ctrl_pkt.diag_id;
+				fwd_info->root_diag_id.reg_str =
+					process_name;
+				fwd_info->root_diag_id.pd = pd_val;
+			} else {
+				i = fwd_info->num_pd - 2;
+				if (i >= 0 && i < MAX_PERIPHERAL_UPD) {
+					fwd_info->upd_diag_id[i].diagid_val =
+						ctrl_pkt.diag_id;
+					fwd_info->upd_diag_id[i].reg_str =
+						process_name;
+					fwd_info->upd_diag_id[i].pd = pd_val;
+				}
+			}
 		}
 	}
 
@@ -827,7 +834,8 @@ static void process_diagid(uint8_t *buf, uint32_t len,
 			driver->diag_id_sent[peripheral] = 1;
 			diag_send_updates_peripheral(peripheral);
 		}
-		diagfwd_buffers_init(fwd_info_data);
+		fwd_info = &peripheral_info[TYPE_DATA][peripheral];
+		diagfwd_buffers_init(fwd_info);
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 		"diag: diag_id sent = %d to peripheral = %d with diag_id = %d for %s :\n",
 			driver->diag_id_sent[peripheral], peripheral,

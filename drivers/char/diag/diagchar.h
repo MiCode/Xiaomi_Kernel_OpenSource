@@ -69,12 +69,17 @@
 #define DIAG_CON_CDSP		(0x0040)	/* Bit mask for CDSP */
 
 #define DIAG_CON_UPD_WLAN		(0x1000) /*Bit mask for WLAN PD*/
+#define DIAG_CON_UPD_AUDIO		(0x2000) /*Bit mask for AUDIO PD*/
+#define DIAG_CON_UPD_SENSORS	(0x4000) /*Bit mask for SENSORS PD*/
+
 #define DIAG_CON_NONE		(0x0000)	/* Bit mask for No SS*/
 #define DIAG_CON_ALL		(DIAG_CON_APSS | DIAG_CON_MPSS \
 				| DIAG_CON_LPASS | DIAG_CON_WCNSS \
 				| DIAG_CON_SENSORS | DIAG_CON_WDSP \
 				| DIAG_CON_CDSP)
-#define DIAG_CON_UPD_ALL	(DIAG_CON_UPD_WLAN)
+#define DIAG_CON_UPD_ALL	(DIAG_CON_UPD_WLAN \
+				| DIAG_CON_UPD_AUDIO \
+				| DIAG_CON_UPD_SENSORS)
 
 #define DIAG_STM_MODEM	0x01
 #define DIAG_STM_LPASS	0x02
@@ -214,16 +219,23 @@
 #define APPS_DATA		(NUM_PERIPHERALS)
 
 #define UPD_WLAN		7
-#define NUM_UPD			1
-#define MAX_PERIPHERAL_UPD			1
+#define UPD_AUDIO		8
+#define UPD_SENSORS		9
+#define NUM_UPD			3
+
+#define MAX_PERIPHERAL_UPD			2
 /* Number of sessions possible in Memory Device Mode. +1 for Apps data */
 #define NUM_MD_SESSIONS		(NUM_PERIPHERALS \
 					+ NUM_UPD + 1)
 
 #define MD_PERIPHERAL_MASK(x)	(1 << x)
 
-#define MD_PERIPHERAL_PD_MASK(x)					\
-	((x == PERIPHERAL_MODEM) ? (1 << UPD_WLAN) : 0)\
+#define MD_PERIPHERAL_PD_MASK(x, peripheral, pd_mask)	\
+do {						\
+fwd_info = &peripheral_info[x][peripheral];	\
+for (i = 0; i <= fwd_info->num_pd - 2; i++)	\
+	pd_mask |= (1 << fwd_info->upd_diag_id[i].pd);\
+} while (0)
 
 /*
  * Number of stm processors includes all the peripherals and
@@ -306,6 +318,8 @@ struct diag_cmd_diag_id_query_req_t {
 struct diag_id_tbl_t {
 	struct list_head link;
 	uint8_t diag_id;
+	uint8_t pd_val;
+	uint8_t peripheral;
 	char *process_name;
 } __packed;
 struct diag_id_t {
@@ -452,6 +466,10 @@ struct diag_logging_mode_param_t {
 	uint32_t peripheral_mask;
 	uint32_t pd_mask;
 	uint8_t mode_param;
+	uint8_t diag_id;
+	uint8_t pd_val;
+	uint8_t reserved;
+	int peripheral;
 } __packed;
 
 struct diag_md_session_t {
@@ -693,7 +711,10 @@ int diag_cmd_chk_polling(struct diag_cmd_reg_entry_t *entry);
 int diag_mask_param(void);
 void diag_clear_masks(struct diag_md_session_t *info);
 uint8_t diag_mask_to_pd_value(uint32_t peripheral_mask);
-
+int diag_query_pd(char *process_name);
+int diag_search_peripheral_by_pd(uint8_t pd_val);
+uint8_t diag_search_diagid_by_pd(uint8_t pd_val,
+	uint8_t *diag_id, int *peripheral);
 void diag_record_stats(int type, int flag);
 
 struct diag_md_session_t *diag_md_session_get_pid(int pid);
