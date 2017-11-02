@@ -5039,6 +5039,9 @@ static void msm_comm_flush_in_invalid_state(struct msm_vidc_inst *inst)
 	enum vidc_ports ports[] = {OUTPUT_PORT, CAPTURE_PORT};
 	int c = 0;
 
+	/* before flush ensure venus released all buffers */
+	msm_comm_try_state(inst, MSM_VIDC_RELEASE_RESOURCES_DONE);
+
 	for (c = 0; c < ARRAY_SIZE(ports); ++c) {
 		enum vidc_ports port = ports[c];
 
@@ -5101,6 +5104,9 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 		return 0;
 	}
 
+	/* enable in flush */
+	inst->in_flush = true;
+
 	mutex_lock(&inst->registeredbufs.lock);
 	list_for_each_entry_safe(mbuf, next, &inst->registeredbufs.list, list) {
 		/* don't flush input buffers if input flush is not requested */
@@ -5140,9 +5146,6 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 		}
 	}
 	mutex_unlock(&inst->registeredbufs.lock);
-
-	/* enable in flush */
-	inst->in_flush = true;
 
 	hdev = inst->core->device;
 	if (ip_flush) {
