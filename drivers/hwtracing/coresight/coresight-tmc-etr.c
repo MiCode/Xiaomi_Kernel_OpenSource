@@ -1149,6 +1149,9 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 		spin_lock_irqsave(&drvdata->spinlock, flags);
 	}
 
+	coresight_cti_map_trigout(drvdata->cti_flush, 3, 0);
+	coresight_cti_map_trigin(drvdata->cti_reset, 2, 0);
+
 	if (drvdata->reading || drvdata->mode == CS_MODE_PERF) {
 		ret = -EBUSY;
 		goto out;
@@ -1657,6 +1660,8 @@ static int tmc_disable_etr_sink(struct coresight_device *csdev)
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 	tmc_etr_byte_cntr_stop(drvdata->byte_cntr);
+	coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
+	coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
 	/* Free memory outside the spinlock if need be */
 	if (drvdata->etr_buf) {
 		tmc_etr_free_sysfs_buf(drvdata->etr_buf);

@@ -12,6 +12,7 @@
 #include <linux/miscdevice.h>
 #include <linux/mutex.h>
 #include <linux/refcount.h>
+#include <linux/coresight-cti.h>
 
 #include "coresight-byte-cntr.h"
 
@@ -213,6 +214,8 @@ struct tmc_drvdata {
 	const char		*csr_name;
 	bool			enable;
 	struct byte_cntr	*byte_cntr;
+	struct coresight_cti	*cti_flush;
+	struct coresight_cti	*cti_reset;
 };
 
 struct etr_buf_operations {

@@ -493,6 +493,7 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 	struct resource *res = &adev->res;
 	struct coresight_desc desc = { 0 };
 	struct coresight_dev_list *dev_list = NULL;
+	struct coresight_cti_data *ctidata;
 
 	ret = -ENOMEM;
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
@@ -530,6 +531,23 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 		drvdata->csr = coresight_csr_get(drvdata->csr_name);
 		if (IS_ERR(drvdata->csr)) {
 			dev_dbg(dev, "failed to get csr, defer probe\n");
+			return -EPROBE_DEFER;
+		}
+	}
+
+	ctidata = of_get_coresight_cti_data(dev, adev->dev.of_node);
+	if (IS_ERR(ctidata)) {
+		dev_err(dev, "invalid cti data\n");
+	} else if (ctidata && ctidata->nr_ctis == 2) {
+		drvdata->cti_flush = coresight_cti_get(ctidata->names[0]);
+		if (IS_ERR(drvdata->cti_flush)) {
+			dev_err(dev, "failed to get flush cti, defer probe\n");
+			return -EPROBE_DEFER;
+		}
+
+		drvdata->cti_reset = coresight_cti_get(ctidata->names[1]);
+		if (IS_ERR(drvdata->cti_reset)) {
+			dev_err(dev, "failed to get reset cti, defer probe\n");
 			return -EPROBE_DEFER;
 		}
 	}

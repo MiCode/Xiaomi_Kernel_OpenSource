@@ -44,5 +44,11 @@ static inline struct coresight_csr *coresight_csr_get(const char *name)
 static inline int of_get_coresight_csr_name(struct device_node *node,
 		const char **csr_name){ return -EINVAL; }
 #endif
-
+#if IS_ENABLED(CONFIG_CORESIGHT_CTI) && IS_ENABLED(CONFIG_OF)
+extern struct coresight_cti_data *of_get_coresight_cti_data(
+				struct device *dev, struct device_node *node);
+#else
+static inline struct coresight_cti_data *of_get_coresight_cti_data(
+		struct device *dev, struct device_node *node) { return NULL; }
+#endif
 #endif
