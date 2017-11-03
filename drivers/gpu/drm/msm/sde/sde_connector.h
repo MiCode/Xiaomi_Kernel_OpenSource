@@ -363,6 +363,8 @@ struct sde_connector {
  * @property_blobs: blob properties
  * @mode_info: local copy of msm_mode_info struct
  * @hdr_meta: HDR metadata info passed from userspace
+ * @old_topology_name: topology of previous atomic state. remove this in later
+ *	kernel versions which provide drm_atomic_state old_state pointers
  */
 struct sde_connector_state {
 	struct drm_connector_state base;
@@ -374,6 +376,7 @@ struct sde_connector_state {
 	struct drm_property_blob *property_blobs[CONNECTOR_PROP_BLOBCOUNT];
 	struct msm_mode_info mode_info;
 	struct drm_msm_ext_hdr_metadata hdr_meta;
+	enum sde_rm_topology_name old_topology_name;
 };
 
 /**
@@ -423,6 +426,43 @@ static inline uint64_t sde_connector_get_topology_name(
 		return 0;
 	return sde_connector_get_property(connector->state,
 			CONNECTOR_PROP_TOPOLOGY_NAME);
+}
+
+/**
+ * sde_connector_get_old_topology_name - helper accessor to retrieve
+ *	topology_name for the previous mode
+ * @connector: pointer to drm connector state
+ * Returns: cached value of the previous topology, or SDE_RM_TOPOLOGY_NONE
+ */
+static inline enum sde_rm_topology_name sde_connector_get_old_topology_name(
+		struct drm_connector_state *state)
+{
+	struct sde_connector_state *c_state = to_sde_connector_state(state);
+
+	if (!state)
+		return SDE_RM_TOPOLOGY_NONE;
+
+	return c_state->old_topology_name;
+}
+
+/**
+ * sde_connector_set_old_topology_name - helper to cache value of previous
+ *	mode's topology
+ * @connector: pointer to drm connector state
+ * Returns: 0 on success, negative errno on failure
+ */
+static inline int sde_connector_set_old_topology_name(
+		struct drm_connector_state *state,
+		enum sde_rm_topology_name top)
+{
+	struct sde_connector_state *c_state = to_sde_connector_state(state);
+
+	if (!state)
+		return -EINVAL;
+
+	c_state->old_topology_name = top;
+
+	return 0;
 }
 
 /**
