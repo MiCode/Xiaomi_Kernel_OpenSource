@@ -760,6 +760,7 @@ static int sde_encoder_virt_atomic_check(
 	struct drm_display_mode *adj_mode;
 	struct sde_connector *sde_conn = NULL;
 	struct sde_connector_state *sde_conn_state = NULL;
+	struct sde_crtc_state *sde_crtc_state = NULL;
 	int i = 0;
 	int ret = 0;
 
@@ -778,7 +779,9 @@ static int sde_encoder_virt_atomic_check(
 	adj_mode = &crtc_state->adjusted_mode;
 	sde_conn = to_sde_connector(conn_state->connector);
 	sde_conn_state = to_sde_connector_state(conn_state);
-	SDE_EVT32(DRMID(drm_enc));
+	sde_crtc_state = to_sde_crtc_state(crtc_state);
+
+	SDE_EVT32(DRMID(drm_enc), drm_atomic_crtc_needs_modeset(crtc_state));
 
 	/*
 	 * display drivers may populate private fields of the drm display mode
@@ -807,6 +810,39 @@ static int sde_encoder_virt_atomic_check(
 		}
 	}
 
+	if (!ret && drm_atomic_crtc_needs_modeset(crtc_state)) {
+		struct sde_rect mode_roi, roi;
+
+		mode_roi.x = 0;
+		mode_roi.y = 0;
+		mode_roi.w = crtc_state->adjusted_mode.hdisplay;
+		mode_roi.h = crtc_state->adjusted_mode.vdisplay;
+
+		if (sde_conn_state->rois.num_rects) {
+			sde_kms_rect_merge_rectangles(
+					&sde_conn_state->rois, &roi);
+			if (!sde_kms_rect_is_equal(&mode_roi, &roi)) {
+				SDE_ERROR_ENC(sde_enc,
+					"roi (%d,%d,%d,%d) on connector invalid during modeset\n",
+					roi.x, roi.y, roi.w, roi.h);
+				ret = -EINVAL;
+			}
+		}
+
+		if (sde_crtc_state->user_roi_list.num_rects) {
+			sde_kms_rect_merge_rectangles(
+					&sde_crtc_state->user_roi_list, &roi);
+			if (!sde_kms_rect_is_equal(&mode_roi, &roi)) {
+				SDE_ERROR_ENC(sde_enc,
+					"roi (%d,%d,%d,%d) on crtc invalid during modeset\n",
+					roi.x, roi.y, roi.w, roi.h);
+				ret = -EINVAL;
+			}
+		}
+
+		if (ret)
+			return ret;
+	}
 
 	if (!ret && sde_conn && drm_atomic_crtc_needs_modeset(crtc_state)) {
 		struct msm_display_topology *topology = NULL;
@@ -1283,7 +1319,17 @@ static int _sde_encoder_dsc_setup(struct sde_encoder_virt *sde_enc,
 	}
 
 	SDE_DEBUG_ENC(sde_enc, "topology:%d\n", topology);
-	SDE_EVT32(DRMID(&sde_enc->base));
+	SDE_EVT32(DRMID(&sde_enc->base), topology,
+			sde_enc->cur_conn_roi.x,
+			sde_enc->cur_conn_roi.y,
+			sde_enc->cur_conn_roi.w,
+			sde_enc->cur_conn_roi.h,
+			sde_enc->prv_conn_roi.x,
+			sde_enc->prv_conn_roi.y,
+			sde_enc->prv_conn_roi.w,
+			sde_enc->prv_conn_roi.h,
+			sde_enc->base.crtc->state->adjusted_mode.hdisplay,
+			sde_enc->base.crtc->state->adjusted_mode.vdisplay);
 
 	if (sde_kms_rect_is_equal(&sde_enc->cur_conn_roi,
 			&sde_enc->prv_conn_roi))
@@ -2903,6 +2949,8 @@ static void _sde_encoder_update_master(struct drm_encoder *drm_enc,
 
 	SDE_DEBUG_ENC(sde_enc, "affected_displays 0x%lx num_active_phys %d\n",
 			params->affected_displays, num_active_phys);
+	SDE_EVT32_VERBOSE(DRMID(drm_enc), params->affected_displays,
+			num_active_phys);
 
 	/* for left/right only update, ppsplit master switches interface */
 	_sde_encoder_ppsplit_swap_intf_for_right_only_update(drm_enc,
