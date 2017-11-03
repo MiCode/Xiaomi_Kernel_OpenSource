@@ -1225,7 +1225,6 @@ static int a6xx_oob_set(struct adreno_device *adreno_dev,
 		unsigned int clear_mask)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct gmu_device *gmu = &device->gmu;
 	int ret = 0;
 
 	if (!kgsl_gmu_isenabled(device))
@@ -1239,9 +1238,7 @@ static int a6xx_oob_set(struct adreno_device *adreno_dev,
 			GPU_START_TIMEOUT,
 			check_mask)) {
 		ret = -ETIMEDOUT;
-		dev_err(&gmu->pdev->dev,
-			"OOB set timed out, mask %x\n", set_mask);
-		WARN_ON(true);
+		WARN(1, "OOB set timed out, mask %x\n", set_mask);
 	}
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_GMU2HOST_INTR_CLR, clear_mask);
@@ -1858,9 +1855,7 @@ static int a6xx_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 			return 0;
 	}
 
-	dev_err(&gmu->pdev->dev,
-		"Timeout waiting for lowest idle level: %d\n", reg);
-	WARN_ON(1);
+	WARN(1, "Timeout waiting for lowest idle level: %d\n", reg);
 	return -ETIMEDOUT;
 }
 
