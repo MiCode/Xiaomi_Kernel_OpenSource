@@ -74,6 +74,10 @@ static int32_t cam_actuator_power_up(struct cam_actuator_ctrl_t *a_ctrl)
 	/* VREG needs some delay to power up */
 	usleep_range(2000, 2050);
 
+	rc = camera_io_init(&a_ctrl->io_master_info);
+	if (rc < 0)
+		CAM_ERR(CAM_ACTUATOR, "cci_init failed: rc: %d", rc);
+
 	return rc;
 }
 
@@ -99,8 +103,11 @@ static int32_t cam_actuator_power_down(struct cam_actuator_ctrl_t *a_ctrl)
 	if (rc < 0)
 		CAM_ERR(CAM_ACTUATOR, "Disable Regulator Failed: %d", rc);
 
+	camera_io_release(&a_ctrl->io_master_info);
+
 	return rc;
 }
+
 static int32_t cam_actuator_i2c_modes_util(
 	struct camera_io_master *io_master_info,
 	struct i2c_settings_list *i2c_list)
@@ -410,17 +417,6 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 			return rc;
 		}
 
-		rc = cam_actuator_power_up(a_ctrl);
-		if (rc < 0) {
-			CAM_ERR(CAM_ACTUATOR, " Actuator Power up failed");
-			return rc;
-		}
-		rc = camera_io_init(&a_ctrl->io_master_info);
-		if (rc < 0) {
-			CAM_ERR(CAM_ACTUATOR, "cci_init failed");
-			cam_actuator_power_down(a_ctrl);
-			return rc;
-		}
 		rc = cam_actuator_apply_settings(a_ctrl,
 			&a_ctrl->i2c_data.init_settings);
 		if (rc < 0)
@@ -499,17 +495,12 @@ void cam_actuator_shutdown(struct cam_actuator_ctrl_t *a_ctrl)
 	if (a_ctrl->cam_act_state == CAM_ACTUATOR_INIT)
 		return;
 
-	if (a_ctrl->cam_act_state == CAM_ACTUATOR_START) {
-		rc = camera_io_release(&a_ctrl->io_master_info);
-		if (rc < 0)
-			CAM_ERR(CAM_ACTUATOR, "Failed in releasing CCI");
+	if ((a_ctrl->cam_act_state == CAM_ACTUATOR_START) ||
+		(a_ctrl->cam_act_state == CAM_ACTUATOR_ACQUIRE)) {
 		rc = cam_actuator_power_down(a_ctrl);
 		if (rc < 0)
 			CAM_ERR(CAM_ACTUATOR, "Actuator Power down failed");
-		a_ctrl->cam_act_state = CAM_ACTUATOR_ACQUIRE;
-	}
 
-	if (a_ctrl->cam_act_state == CAM_ACTUATOR_ACQUIRE) {
 		rc = cam_destroy_device_hdl(a_ctrl->bridge_intf.device_hdl);
 		if (rc < 0)
 			CAM_ERR(CAM_ACTUATOR, "destroying  dhdl failed");
@@ -531,7 +522,7 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 		return -EINVAL;
 	}
 
-	pr_debug("Opcode to Actuator: %d", cmd->op_code);
+	CAM_DBG(CAM_ACTUATOR, "Opcode to Actuator: %d", cmd->op_code);
 
 	mutex_lock(&(a_ctrl->actuator_mutex));
 	switch (cmd->op_code) {
@@ -572,6 +563,13 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 			rc = -EFAULT;
 			goto release_mutex;
 		}
+
+		rc = cam_actuator_power_up(a_ctrl);
+		if (rc < 0) {
+			CAM_ERR(CAM_ACTUATOR, " Actuator Power up failed");
+			goto release_mutex;
+		}
+
 		a_ctrl->cam_act_state = CAM_ACTUATOR_ACQUIRE;
 	}
 		break;
@@ -581,6 +579,12 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 			CAM_WARN(CAM_ACTUATOR,
 			"Not in right state to release : %d",
 			a_ctrl->cam_act_state);
+			goto release_mutex;
+		}
+
+		rc = cam_actuator_power_down(a_ctrl);
+		if (rc < 0) {
+			CAM_ERR(CAM_ACTUATOR, "Actuator Power down failed");
 			goto release_mutex;
 		}
 
@@ -635,14 +639,6 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 			goto release_mutex;
 		}
 
-		rc = camera_io_release(&a_ctrl->io_master_info);
-		if (rc < 0)
-			CAM_ERR(CAM_ACTUATOR, "Failed in releasing CCI");
-		rc = cam_actuator_power_down(a_ctrl);
-		if (rc < 0) {
-			CAM_ERR(CAM_ACTUATOR, "Actuator Power down failed");
-			goto release_mutex;
-		}
 		for (i = 0; i < MAX_PER_FRAME_ARRAY; i++) {
 			i2c_set = &(a_ctrl->i2c_data.per_frame[i]);
 
