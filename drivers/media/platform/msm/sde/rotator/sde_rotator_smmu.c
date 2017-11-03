@@ -517,6 +517,7 @@ int sde_smmu_probe(struct platform_device *pdev)
 	const struct of_device_id *match;
 	struct sde_module_power *mp;
 	char name[MAX_CLIENT_NAME_LEN];
+	int mdphtw_llc_enable = 1;
 	u32 sid = 0;
 
 	if (!mdata) {
@@ -610,6 +611,13 @@ int sde_smmu_probe(struct platform_device *pdev)
 		rc = PTR_ERR(sde_smmu->mmu_mapping);
 		sde_smmu->mmu_mapping = NULL;
 		goto disable_power;
+	}
+
+	rc = iommu_domain_set_attr(sde_smmu->mmu_mapping->domain,
+			DOMAIN_ATTR_USE_UPSTREAM_HINT, &mdphtw_llc_enable);
+	if (rc) {
+		SDEROT_ERR("couldn't enable rot pagetable walks: %d\n", rc);
+		goto release_mapping;
 	}
 
 	if (smmu_domain.domain == SDE_IOMMU_DOMAIN_ROT_SECURE) {

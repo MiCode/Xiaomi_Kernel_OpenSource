@@ -111,7 +111,7 @@ static dma_addr_t msm_nand_dma_map(struct device *dev, void *addr, size_t size,
 	return dma_map_page(dev, page, offset, size, dir);
 }
 
-#ifdef CONFIG_MSM_BUS_SCALING
+#ifdef CONFIG_QCOM_BUS_SCALING
 static int msm_nand_bus_set_vote(struct msm_nand_info *info,
 			unsigned int vote)
 {
@@ -130,9 +130,11 @@ static int msm_nand_setup_clocks_and_bus_bw(struct msm_nand_info *info,
 {
 	int ret = 0;
 
-	if (IS_ERR_OR_NULL(info->clk_data.qpic_clk)) {
-		ret = -EINVAL;
-		goto out;
+	if (!info->clk_data.rpmh_clk) {
+		if (IS_ERR_OR_NULL(info->clk_data.qpic_clk)) {
+			ret = -EINVAL;
+			goto out;
+		}
 	}
 	if (atomic_read(&info->clk_data.clk_enabled) == vote)
 		goto out;
@@ -142,15 +144,18 @@ static int msm_nand_setup_clocks_and_bus_bw(struct msm_nand_info *info,
 			pr_err("Failed to vote for bus with %d\n", ret);
 			goto out;
 		}
-		ret = clk_prepare_enable(info->clk_data.qpic_clk);
-		if (ret) {
-			pr_err("Failed to enable the bus-clock with error %d\n",
-				ret);
-			msm_nand_bus_set_vote(info, 0);
-			goto out;
+		if (!info->clk_data.rpmh_clk) {
+			ret = clk_prepare_enable(info->clk_data.qpic_clk);
+			if (ret) {
+				pr_err("Failed to enable the bus-clock with error %d\n",
+					ret);
+				msm_nand_bus_set_vote(info, 0);
+				goto out;
+			}
 		}
 	} else if (atomic_read(&info->clk_data.clk_enabled) && !vote) {
-		clk_disable_unprepare(info->clk_data.qpic_clk);
+		if (!info->clk_data.rpmh_clk)
+			clk_disable_unprepare(info->clk_data.qpic_clk);
 		msm_nand_bus_set_vote(info, 0);
 	}
 	atomic_set(&info->clk_data.clk_enabled, vote);
@@ -283,7 +288,7 @@ static int msm_nand_put_device(struct device *dev)
 }
 #endif
 
-#ifdef CONFIG_MSM_BUS_SCALING
+#ifdef CONFIG_QCOM_BUS_SCALING
 static int msm_nand_bus_register(struct platform_device *pdev,
 		struct msm_nand_info *info)
 {
@@ -314,6 +319,7 @@ static void msm_nand_bus_unregister(struct msm_nand_info *info)
 static int msm_nand_bus_register(struct platform_device *pdev,
 		struct msm_nand_info *info)
 {
+	pr_info("couldn't register due to missing config option\n");
 	return 0;
 }
 
@@ -3273,7 +3279,7 @@ static int msm_nand_parse_smem_ptable(int *nr_parts)
 	temp_ptable = smem_get_entry(SMEM_AARM_PARTITION_TABLE, &len, 0,
 					SMEM_ANY_HOST_FLAG);
 
-	if (!temp_ptable) {
+	if (IS_ERR_OR_NULL(temp_ptable)) {
 		pr_err("Error reading partition table header\n");
 		goto out;
 	}
@@ -3313,7 +3319,7 @@ static int msm_nand_parse_smem_ptable(int *nr_parts)
 	 */
 	temp_ptable = smem_get_entry(SMEM_AARM_PARTITION_TABLE, &len, 0,
 					SMEM_ANY_HOST_FLAG);
-	if (!temp_ptable) {
+	if (IS_ERR_OR_NULL(temp_ptable)) {
 		pr_err("Error reading partition table\n");
 		goto out;
 	}
@@ -3327,10 +3333,12 @@ static int msm_nand_parse_smem_ptable(int *nr_parts)
 			continue;
 		/* Convert name to lower case and discard the initial chars */
 		mtd_part[i].name        = pentry->name;
+		strsep(&(mtd_part[i].name), delimiter);
+		if (!mtd_part[i].name)
+			mtd_part[i].name = pentry->name;
 		for (j = 0; j < strlen(mtd_part[i].name); j++)
 			*(mtd_part[i].name + j) =
 				tolower(*(mtd_part[i].name + j));
-		strsep(&(mtd_part[i].name), delimiter);
 		mtd_part[i].offset      = pentry->offset;
 		mtd_part[i].mask_flags  = pentry->attr;
 		mtd_part[i].size        = pentry->length;
@@ -3465,16 +3473,22 @@ static int msm_nand_probe(struct platform_device *pdev)
 	err = msm_nand_bus_register(pdev, info);
 	if (err)
 		goto out;
-	info->clk_data.qpic_clk = devm_clk_get(&pdev->dev, "core_clk");
-	if (!IS_ERR_OR_NULL(info->clk_data.qpic_clk)) {
-		err = clk_set_rate(info->clk_data.qpic_clk,
-			MSM_NAND_BUS_VOTE_MAX_RATE);
-	} else {
-		err = PTR_ERR(info->clk_data.qpic_clk);
-		pr_err("Failed to get clock handle, err=%d\n", err);
+
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,qpic-clk-rpmh"))
+		info->clk_data.rpmh_clk = true;
+
+	if (!info->clk_data.rpmh_clk) {
+		info->clk_data.qpic_clk = devm_clk_get(&pdev->dev, "core_clk");
+		if (!IS_ERR_OR_NULL(info->clk_data.qpic_clk)) {
+			err = clk_set_rate(info->clk_data.qpic_clk,
+				MSM_NAND_BUS_VOTE_MAX_RATE);
+		} else {
+			err = PTR_ERR(info->clk_data.qpic_clk);
+			pr_err("Failed to get clock handle, err=%d\n", err);
+		}
+		if (err)
+			goto bus_unregister;
 	}
-	if (err)
-		goto bus_unregister;
 
 	err = msm_nand_setup_clocks_and_bus_bw(info, true);
 	if (err)

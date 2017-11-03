@@ -17,6 +17,12 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sdm845-v2-4k-panel-mtp-overlay.dtbo \
 		sdm845-v2-4k-panel-cdp-overlay.dtbo \
 		sdm845-v2-4k-panel-qrd-overlay.dtbo \
+		sdm845-v2.1-cdp-overlay.dtbo \
+		sdm845-v2.1-mtp-overlay.dtbo \
+		sdm845-v2.1-qrd-overlay.dtbo \
+		sdm845-v2.1-4k-panel-mtp-overlay.dtbo \
+		sdm845-v2.1-4k-panel-cdp-overlay.dtbo \
+		sdm845-v2.1-4k-panel-qrd-overlay.dtbo \
 		sda845-cdp-overlay.dtbo \
 		sda845-mtp-overlay.dtbo \
 		sda845-qrd-overlay.dtbo \
@@ -26,6 +32,7 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sda845-v2-cdp-overlay.dtbo \
 		sda845-v2-mtp-overlay.dtbo \
 		sda845-v2-qrd-overlay.dtbo \
+		sda845-v2-hdk-overlay.dtbo \
 		sda845-v2-4k-panel-mtp-overlay.dtbo \
 		sda845-v2-4k-panel-cdp-overlay.dtbo \
 		sda845-v2-4k-panel-qrd-overlay.dtbo
@@ -44,6 +51,12 @@ sdm845-v2-qrd-overlay.dtbo-base := sdm845-v2.dtb
 sdm845-v2-4k-panel-mtp-overlay.dtbo-base := sdm845-v2.dtb
 sdm845-v2-4k-panel-cdp-overlay.dtbo-base := sdm845-v2.dtb
 sdm845-v2-4k-panel-qrd-overlay.dtbo-base := sdm845-v2.dtb
+sdm845-v2.1-cdp-overlay.dtbo-base := sdm845-v2.1.dtb
+sdm845-v2.1-mtp-overlay.dtbo-base := sdm845-v2.1.dtb
+sdm845-v2.1-qrd-overlay.dtbo-base := sdm845-v2.1.dtb
+sdm845-v2.1-4k-panel-mtp-overlay.dtbo-base := sdm845-v2.1.dtb
+sdm845-v2.1-4k-panel-cdp-overlay.dtbo-base := sdm845-v2.1.dtb
+sdm845-v2.1-4k-panel-qrd-overlay.dtbo-base := sdm845-v2.1.dtb
 sda845-cdp-overlay.dtbo-base := sda845.dtb
 sda845-mtp-overlay.dtbo-base := sda845.dtb
 sda845-qrd-overlay.dtbo-base := sda845.dtb
@@ -53,6 +66,7 @@ sda845-4k-panel-qrd-overlay.dtbo-base := sda845.dtb
 sda845-v2-cdp-overlay.dtbo-base := sda845-v2.dtb
 sda845-v2-mtp-overlay.dtbo-base := sda845-v2.dtb
 sda845-v2-qrd-overlay.dtbo-base := sda845-v2.dtb
+sda845-v2-hdk-overlay.dtbo-base := sda845-v2.dtb
 sda845-v2-4k-panel-mtp-overlay.dtbo-base := sda845-v2.dtb
 sda845-v2-4k-panel-cdp-overlay.dtbo-base := sda845-v2.dtb
 sda845-v2-4k-panel-qrd-overlay.dtbo-base := sda845-v2.dtb
@@ -79,6 +93,8 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sdm670-cdp-overlay.dtbo \
 		sdm670-mtp-overlay.dtbo \
 		sdm670-rumi-overlay.dtbo \
+		sdm670-qrd-overlay.dtbo \
+		sdm670-qrd-sku2-overlay.dtbo \
 		sdm670-pm660a-cdp-overlay.dtbo \
 		sdm670-pm660a-mtp-overlay.dtbo \
 		sdm670-external-codec-cdp-overlay.dtbo \
@@ -104,6 +120,8 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 sdm670-cdp-overlay.dtbo-base := sdm670.dtb
 sdm670-mtp-overlay.dtbo-base := sdm670.dtb
 sdm670-rumi-overlay.dtbo-base := sdm670.dtb
+sdm670-qrd-overlay.dtbo-base := sdm670.dtb
+sdm670-qrd-sku2-overlay.dtbo-base := sdm670.dtb
 sdm670-pm660a-cdp-overlay.dtbo-base := sdm670.dtb
 sdm670-pm660a-mtp-overlay.dtbo-base := sdm670.dtb
 sdm670-external-codec-cdp-overlay.dtbo-base := sdm670.dtb
@@ -130,6 +148,8 @@ else
 dtb-$(CONFIG_ARCH_SDM670) += sdm670-rumi.dtb \
 	sdm670-mtp.dtb \
 	sdm670-cdp.dtb \
+	sdm670-qrd.dtb \
+	sdm670-qrd-sku2.dtb \
 	sdm670-pm660a-mtp.dtb \
 	sdm670-pm660a-cdp.dtb \
 	sdm670-external-codec-cdp.dtb \

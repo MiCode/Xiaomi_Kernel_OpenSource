@@ -124,13 +124,6 @@ static int pil_mss_power_up(struct q6v5_data *drv)
 	int ret = 0;
 	u32 regval;
 
-	if (drv->vreg) {
-		ret = regulator_enable(drv->vreg);
-		if (ret)
-			dev_err(drv->desc.dev, "Failed to enable modem regulator(rc:%d)\n",
-									ret);
-	}
-
 	if (drv->cxrail_bhs) {
 		regval = readl_relaxed(drv->cxrail_bhs);
 		regval |= EXTERNAL_BHS_ON;
@@ -152,9 +145,6 @@ static int pil_mss_power_down(struct q6v5_data *drv)
 		regval &= ~EXTERNAL_BHS_ON;
 		writel_relaxed(regval, drv->cxrail_bhs);
 	}
-
-	if (drv->vreg)
-		return regulator_disable(drv->vreg);
 
 	return 0;
 }
@@ -456,7 +446,44 @@ int pil_mss_make_proxy_votes(struct pil_desc *pil)
 		return ret;
 	}
 
+	if (drv->vreg) {
+		ret = of_property_read_u32(pil->dev->of_node, "vdd_mss-uV",
+								&uv);
+		if (ret) {
+			dev_err(pil->dev,
+				"missing vdd_mss-uV property(rc:%d)\n", ret);
+			goto out;
+		}
+
+		ret = regulator_set_voltage(drv->vreg, uv,
+						INT_MAX);
+		if (ret) {
+			dev_err(pil->dev, "Failed to set vreg voltage(rc:%d)\n",
+									ret);
+			goto out;
+		}
+
+		ret = regulator_set_load(drv->vreg, 100000);
+		if (ret < 0) {
+			dev_err(pil->dev, "Failed to set vreg mode(rc:%d)\n",
+									ret);
+			goto out;
+		}
+		ret = regulator_enable(drv->vreg);
+		if (ret) {
+			dev_err(pil->dev, "Failed to enable vreg(rc:%d)\n",
+				ret);
+			regulator_set_voltage(drv->vreg, 0, INT_MAX);
+			goto out;
+		}
+	}
+
 	ret = pil_q6v5_make_proxy_votes(pil);
+	if (ret && drv->vreg) {
+		regulator_disable(drv->vreg);
+		regulator_set_voltage(drv->vreg, 0, INT_MAX);
+	}
+out:
 	if (ret) {
 		regulator_disable(drv->vreg_mx);
 		regulator_set_voltage(drv->vreg_mx, 0, INT_MAX);
@@ -472,6 +499,10 @@ void pil_mss_remove_proxy_votes(struct pil_desc *pil)
 	pil_q6v5_remove_proxy_votes(pil);
 	regulator_disable(drv->vreg_mx);
 	regulator_set_voltage(drv->vreg_mx, 0, INT_MAX);
+	if (drv->vreg) {
+		regulator_disable(drv->vreg);
+		regulator_set_voltage(drv->vreg, 0, INT_MAX);
+	}
 }
 
 static int pil_mss_mem_setup(struct pil_desc *pil,

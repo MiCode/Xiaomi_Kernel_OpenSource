@@ -54,6 +54,18 @@
 	ibb-supply = <&lcdb_ncp_vreg>;
 };
 
+&dsi_dual_nt35597_video_display {
+	vddio-supply = <&pm660_l11>;
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
+};
+
+&dsi_dual_nt35597_cmd_display {
+	vddio-supply = <&pm660_l11>;
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
+};
+
 &sde_dp {
 	status = "disabled";
 	/delete-property/ vdda-1p2-supply;
@@ -236,12 +248,17 @@
 &soc {
 	/delete-node/ gpio_keys;
 
+	qcom,mss@4080000 {
+		/delete-property/ vdd_mss-supply;
+	};
+
 	qcom,lpass@17300000 {
 		/delete-property/ vdd_cx-supply;
 	};
 
 	qcom,ssc@5c00000 {
 		/delete-property/ vdd_cx-supply;
+		/delete-property/ vdd_mx-supply;
 	};
 
 	qcom,spss@1880000 {
@@ -331,8 +348,6 @@
 
 &soc {
 	/* Delete all regulators */
-	/delete-node/ cprh-ctrl@17dc0000;
-	/delete-node/ cprh-ctrl@17db0000;
 	/delete-node/ rpmh-regulator-ebilvl;
 	/delete-node/ rpmh-regulator-smpa2;
 	/delete-node/ rpmh-regulator-smpa3;

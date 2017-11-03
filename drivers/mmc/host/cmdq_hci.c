@@ -803,6 +803,7 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	if (cq_host->ops->crypto_cfg) {
 		err = cq_host->ops->crypto_cfg(mmc, mrq, tag, &ice_ctx);
 		if (err) {
+			mmc->err_stats[MMC_ERR_ICE_CFG]++;
 			pr_err("%s: failed to configure crypto: err %d tag %d\n",
 					mmc_hostname(mmc), err, tag);
 			goto out;
@@ -1015,6 +1016,7 @@ skip_cqterri:
 				mmc->card->bkops.needs_check = true;
 
 			mrq->cmdq_req->resp_err = true;
+			mmc->err_stats[MMC_ERR_CMDQ_RED]++;
 			pr_err("%s: Response error (0x%08x) from card !!!",
 				mmc_hostname(mmc), cmdq_readl(cq_host, CQCRA));
 
@@ -1030,6 +1032,7 @@ skip_cqterri:
 		if (stat_err & CQIS_GCE) {
 			if (mrq->data)
 				mrq->data->error = -EIO;
+			mmc->err_stats[MMC_ERR_CMDQ_GCE]++;
 			pr_err("%s: Crypto generic error while processing task %lu!",
 				mmc_hostname(mmc), tag);
 			MMC_TRACE(mmc, "%s: GCE error detected with tag %lu\n",
@@ -1054,6 +1057,7 @@ skip_cqterri:
 			if (dbr_set ^ dev_pend_set)
 				tag = ffs(dbr_set ^ dev_pend_set) - 1;
 			mrq = get_req_by_tag(cq_host, tag);
+			mmc->err_stats[MMC_ERR_CMDQ_ICCE]++;
 			pr_err("%s: Crypto config error while processing task %lu!",
 				mmc_hostname(mmc), tag);
 			MMC_TRACE(mmc, "%s: ICCE error with tag %lu\n",

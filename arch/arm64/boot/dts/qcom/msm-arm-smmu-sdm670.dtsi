@@ -36,11 +36,9 @@
 				<GIC_SPI 371 IRQ_TYPE_EDGE_RISING>;
 		clock-names = "gcc_ddrss_gpu_axi_clk",
 				"gcc_gpu_memnoc_gfx_clk",
-				"gpu_cc_ahb_clk",
 				"gpu_cc_cx_gmu_clk";
 		clocks = <&clock_gcc GCC_DDRSS_GPU_AXI_CLK>,
 			<&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
-			<&clock_gpucc GPU_CC_AHB_CLK>,
 			<&clock_gpucc GPU_CC_CX_GMU_CLK>;
 		attach-impl-defs =
 				<0x6000 0x2378>,

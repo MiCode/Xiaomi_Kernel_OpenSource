@@ -214,8 +214,9 @@ struct sde_hw_ctl_ops {
 	/**
 	 * Flush the reg dma by sending last command.
 	 * @ctx       : ctl path ctx pointer
+	 * @blocking  : if set to true api will block until flush is done
 	 */
-	void (*reg_dma_flush)(struct sde_hw_ctl *ctx);
+	void (*reg_dma_flush)(struct sde_hw_ctl *ctx, bool blocking);
 
 };
 

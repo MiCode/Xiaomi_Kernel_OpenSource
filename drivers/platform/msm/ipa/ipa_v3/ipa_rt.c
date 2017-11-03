@@ -732,6 +732,7 @@ int ipa3_query_rt_index(struct ipa_ioc_get_rt_tbl_indx *in)
 	}
 
 	mutex_lock(&ipa3_ctx->lock);
+	in->name[IPA_RESOURCE_NAME_MAX-1] = '\0';
 	/* check if this table exists */
 	entry = __ipa3_find_rt_tbl(in->ip, in->name);
 	if (!entry) {
@@ -1081,6 +1082,7 @@ int ipa3_add_rt_rule(struct ipa_ioc_add_rt_rule *rules)
 
 	mutex_lock(&ipa3_ctx->lock);
 	for (i = 0; i < rules->num_rules; i++) {
+		rules->rt_tbl_name[IPA_RESOURCE_NAME_MAX-1] = '\0';
 		if (__ipa_add_rt_rule(rules->ip, rules->rt_tbl_name,
 					&rules->rules[i].rule,
 					rules->rules[i].at_rear,
@@ -1126,7 +1128,7 @@ int ipa3_add_rt_rule_after(struct ipa_ioc_add_rt_rule_after *rules)
 	}
 
 	mutex_lock(&ipa3_ctx->lock);
-
+	rules->rt_tbl_name[IPA_RESOURCE_NAME_MAX-1] = '\0';
 	tbl = __ipa3_find_rt_tbl(rules->ip, rules->rt_tbl_name);
 	if (tbl == NULL || (tbl->cookie != IPA_RT_TBL_COOKIE)) {
 		IPAERR_RL("failed finding rt tbl name = %s\n",
@@ -1456,6 +1458,7 @@ int ipa3_get_rt_tbl(struct ipa_ioc_get_rt_tbl *lookup)
 		return -EINVAL;
 	}
 	mutex_lock(&ipa3_ctx->lock);
+	lookup->name[IPA_RESOURCE_NAME_MAX-1] = '\0';
 	entry = __ipa3_find_rt_tbl(lookup->ip, lookup->name);
 	if (entry && entry->cookie == IPA_RT_TBL_COOKIE) {
 		if (entry->ref_cnt == U32_MAX) {

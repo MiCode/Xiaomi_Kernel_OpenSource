@@ -458,10 +458,11 @@ static int sde_encoder_phys_wb_atomic_check(
 	SDE_DEBUG("[roi:%u,%u,%u,%u]\n", wb_roi.x, wb_roi.y,
 			wb_roi.w, wb_roi.h);
 
+	/* bypass check if commit with no framebuffer */
 	fb = sde_wb_connector_state_get_output_fb(conn_state);
 	if (!fb) {
-		SDE_ERROR("no output framebuffer\n");
-		return -EINVAL;
+		SDE_DEBUG("no output framebuffer\n");
+		return 0;
 	}
 
 	SDE_DEBUG("[fb_id:%u][fb:%u,%u]\n", fb->base.id,
@@ -847,7 +848,14 @@ static int sde_encoder_phys_wb_wait_for_commit_done(
 		return -EWOULDBLOCK;
 	}
 
-	SDE_EVT32(DRMID(phys_enc->parent), WBID(wb_enc), wb_enc->frame_count);
+	SDE_EVT32(DRMID(phys_enc->parent), WBID(wb_enc), wb_enc->frame_count,
+			!!wb_enc->wb_fb);
+
+	/* signal completion if commit with no framebuffer */
+	if (!wb_enc->wb_fb) {
+		SDE_DEBUG("no output framebuffer\n");
+		sde_encoder_phys_wb_done_irq(wb_enc, wb_enc->irq_idx);
+	}
 
 	ret = wait_for_completion_timeout(&wb_enc->wbdone_complete,
 			msecs_to_jiffies(timeout));
@@ -947,6 +955,30 @@ static void sde_encoder_phys_wb_prepare_for_kickoff(
 	wb_enc->start_time = ktime_get();
 
 	SDE_EVT32(DRMID(phys_enc->parent), WBID(wb_enc), wb_enc->kickoff_count);
+}
+
+/**
+ * sde_encoder_phys_wb_trigger_flush - trigger flush processing
+ * @phys_enc:	Pointer to physical encoder
+ */
+static void sde_encoder_phys_wb_trigger_flush(struct sde_encoder_phys *phys_enc)
+{
+	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
+
+	if (!phys_enc || !wb_enc->hw_wb) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+
+	SDE_DEBUG("[wb:%d]\n", wb_enc->hw_wb->idx - WB_0);
+
+	/* clear pending flush if commit with no framebuffer */
+	if (!wb_enc->wb_fb) {
+		SDE_DEBUG("no output framebuffer\n");
+		return;
+	}
+
+	sde_encoder_helper_trigger_flush(phys_enc);
 }
 
 /**
@@ -1167,7 +1199,7 @@ static void sde_encoder_phys_wb_get_hw_resources(
 	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
 	struct sde_hw_wb *hw_wb;
 	struct drm_framebuffer *fb;
-	const struct sde_format *fmt;
+	const struct sde_format *fmt = NULL;
 
 	if (!phys_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -1175,22 +1207,19 @@ static void sde_encoder_phys_wb_get_hw_resources(
 	}
 
 	fb = sde_wb_connector_state_get_output_fb(conn_state);
-	if (!fb) {
-		SDE_ERROR("no output framebuffer\n");
-		return;
-	}
-
-	fmt = sde_get_sde_format_ext(fb->pixel_format, fb->modifier,
-			drm_format_num_planes(fb->pixel_format));
-	if (!fmt) {
-		SDE_ERROR("unsupported output pixel format:%d\n",
-				fb->pixel_format);
-		return;
+	if (fb) {
+		fmt = sde_get_sde_format_ext(fb->pixel_format, fb->modifier,
+				drm_format_num_planes(fb->pixel_format));
+		if (!fmt) {
+			SDE_ERROR("unsupported output pixel format:%d\n",
+					fb->pixel_format);
+			return;
+		}
 	}
 
 	hw_wb = wb_enc->hw_wb;
 	hw_res->wbs[hw_wb->idx - WB_0] = phys_enc->intf_mode;
-	hw_res->needs_cdm = SDE_FORMAT_IS_YUV(fmt);
+	hw_res->needs_cdm = fmt ? SDE_FORMAT_IS_YUV(fmt) : false;
 	SDE_DEBUG("[wb:%d] intf_mode=%d needs_cdm=%d\n", hw_wb->idx - WB_0,
 			hw_res->wbs[hw_wb->idx - WB_0],
 			hw_res->needs_cdm);
@@ -1274,6 +1303,7 @@ static void sde_encoder_phys_wb_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->wait_for_commit_done = sde_encoder_phys_wb_wait_for_commit_done;
 	ops->prepare_for_kickoff = sde_encoder_phys_wb_prepare_for_kickoff;
 	ops->handle_post_kickoff = sde_encoder_phys_wb_handle_post_kickoff;
+	ops->trigger_flush = sde_encoder_phys_wb_trigger_flush;
 	ops->trigger_start = sde_encoder_helper_trigger_start;
 	ops->hw_reset = sde_encoder_helper_hw_reset;
 }

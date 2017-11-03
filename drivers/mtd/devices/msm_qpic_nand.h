@@ -295,6 +295,7 @@ struct msm_nand_clk_data {
 	uint32_t client_handle;
 	atomic_t clk_enabled;
 	atomic_t curr_vote;
+	bool rpmh_clk;
 };
 
 /* Structure that defines NANDc private data. */

@@ -178,8 +178,13 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
 
 	if (likely(skb)) {
 		HARD_TX_LOCK(dev, txq, smp_processor_id());
-		if (!netif_xmit_frozen_or_stopped(txq))
-			skb = dev_hard_start_xmit(skb, dev, txq, &ret);
+		if (!netif_xmit_frozen_or_stopped(txq)) {
+			if (unlikely(skb->fast_forwarded))
+				skb = dev_hard_start_xmit_list(skb, dev,
+							       txq, &ret);
+			else
+				skb = dev_hard_start_xmit(skb, dev, txq, &ret);
+		}
 
 		HARD_TX_UNLOCK(dev, txq);
 	} else {

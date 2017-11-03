@@ -1029,8 +1029,10 @@ static int venus_hfi_suspend(void *dev)
 	flush_delayed_work(&venus_hfi_pm_work);
 
 	mutex_lock(&device->lock);
-	if (device->power_enabled)
+	if (device->power_enabled) {
+		dprintk(VIDC_WARN, "%s: Venus is busy\n", __func__);
 		rc = -EBUSY;
+	}
 	mutex_unlock(&device->lock);
 	return rc;
 }

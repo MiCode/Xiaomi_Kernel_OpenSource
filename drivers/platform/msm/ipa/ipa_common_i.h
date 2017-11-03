@@ -18,6 +18,7 @@
 #include <linux/ipc_logging.h>
 #include <linux/ipa.h>
 #include <linux/ipa_uc_offload.h>
+#include <linux/ipa_wdi3.h>
 
 #define __FILENAME__ \
 	(strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
@@ -383,6 +384,16 @@ u8 *ipa_pad_to_32(u8 *dest);
 int ipa_ntn_uc_reg_rdyCB(void (*ipauc_ready_cb)(void *user_data),
 			      void *user_data);
 void ipa_ntn_uc_dereg_rdyCB(void);
+
+int ipa_conn_wdi3_pipes(struct ipa_wdi3_conn_in_params *in,
+	struct ipa_wdi3_conn_out_params *out);
+
+int ipa_disconn_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
+
+int ipa_enable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
+
+int ipa_disable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
+
 const char *ipa_get_version_string(enum ipa_hw_type ver);
 int ipa_start_gsi_channel(u32 clnt_hdl);
 

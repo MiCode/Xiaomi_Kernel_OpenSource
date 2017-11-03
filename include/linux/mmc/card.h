@@ -436,7 +436,6 @@ struct mmc_card {
 	struct mmc_wr_pack_stats wr_pack_stats; /* packed commands stats*/
 	struct notifier_block        reboot_notify;
 	enum mmc_pon_type pon_type;
-	u8 *cached_ext_csd;
 	bool cmdq_init;
 	struct mmc_bkops_info bkops;
 	bool err_in_sdr104;

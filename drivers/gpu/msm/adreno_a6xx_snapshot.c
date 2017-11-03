@@ -1481,6 +1481,7 @@ void a6xx_snapshot_gmu(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	unsigned int val;
 
 	if (!kgsl_gmu_isenabled(device))
 		return;
@@ -1488,10 +1489,16 @@ void a6xx_snapshot_gmu(struct adreno_device *adreno_dev,
 	adreno_snapshot_registers(device, snapshot, a6xx_gmu_registers,
 					ARRAY_SIZE(a6xx_gmu_registers) / 2);
 
-	if (gpudev->gx_is_on(adreno_dev))
+	if (gpudev->gx_is_on(adreno_dev)) {
+		/* Set fence to ALLOW mode so registers can be read */
+		kgsl_regwrite(device, A6XX_GMU_AO_AHB_FENCE_CTRL, 0);
+		kgsl_regread(device, A6XX_GMU_AO_AHB_FENCE_CTRL, &val);
+
+		KGSL_DRV_ERR(device, "set FENCE to ALLOW mode:%x\n", val);
 		adreno_snapshot_registers(device, snapshot,
 				a6xx_gmu_gx_registers,
 				ARRAY_SIZE(a6xx_gmu_gx_registers) / 2);
+	}
 }
 
 /* a6xx_snapshot_sqe() - Dump SQE data in snapshot */
@@ -1578,9 +1585,6 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	struct adreno_snapshot_data *snap_data = gpudev->snapshot_data;
 	bool sptprac_on;
 	unsigned int i;
-
-	/* Make sure the fence is in ALLOW mode so registers can be read */
-	kgsl_regwrite(device, A6XX_GMU_AO_AHB_FENCE_CTRL, 0);
 
 	/* GMU TCM data dumped through AHB */
 	a6xx_snapshot_gmu(adreno_dev, snapshot);

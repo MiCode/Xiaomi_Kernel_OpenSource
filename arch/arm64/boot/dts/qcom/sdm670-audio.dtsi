@@ -12,8 +12,8 @@
  */
 
 #include "msm-audio-lpass.dtsi"
-#include "sdm670-wsa881x.dtsi"
 #include "sdm670-wcd.dtsi"
+#include "sdm670-wsa881x.dtsi"
 #include "sdm670-lpi.dtsi"
 #include <dt-bindings/clock/qcom,audio-ext-clk.h>
 
@@ -100,7 +100,7 @@
 	int_codec: sound {
 		status = "okay";
 		compatible = "qcom,sdm670-asoc-snd";
-		qcom,model = "sdm670-snd-card-mtp";
+		qcom,model = "sdm670-mtp-snd-card";
 		qcom,wcn-btfm;
 		qcom,mi2s-audio-intf;
 		qcom,auxpcm-audio-intf;

@@ -555,6 +555,11 @@ int msm_atomic_commit(struct drm_device *dev,
 	struct drm_plane_state *plane_state;
 	int i, ret;
 
+	if (!priv || priv->shutdown_in_progress) {
+		DRM_ERROR("priv is null or shutdwon is in-progress\n");
+		return -EINVAL;
+	}
+
 	SDE_ATRACE_BEGIN("atomic_commit");
 	ret = drm_atomic_helper_prepare_planes(dev, state);
 	if (ret) {
@@ -610,8 +615,7 @@ int msm_atomic_commit(struct drm_device *dev,
 	 * are dispatched to work queues, so that the fence preparation is
 	 * finished before the .atomic_commit returns.
 	 */
-	if (priv && priv->kms && priv->kms->funcs &&
-			priv->kms->funcs->prepare_fence)
+	if (priv->kms && priv->kms->funcs && priv->kms->funcs->prepare_fence)
 		priv->kms->funcs->prepare_fence(priv->kms, state);
 
 	/*

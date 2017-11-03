@@ -169,6 +169,18 @@ enum sde_reg_dma_blk {
 };
 
 /**
+ * enum sde_reg_dma_last_cmd_mode - defines enums for kick off mode.
+ * @REG_DMA_WAIT4_COMP: last_command api will wait for max of 1 msec allowing
+ *			reg dma trigger to complete.
+ * @REG_DMA_NOWAIT: last_command api will not wait for reg dma trigger
+ *		    completion.
+ */
+enum sde_reg_dma_last_cmd_mode {
+	REG_DMA_WAIT4_COMP,
+	REG_DMA_NOWAIT,
+};
+
+/**
  * struct sde_reg_dma_buffer - defines reg dma buffer structure.
  * @drm_gem_object *buf: drm gem handle for the buffer
  * @asapce : pointer to address space
@@ -265,7 +277,8 @@ struct sde_hw_reg_dma_ops {
 	struct sde_reg_dma_buffer* (*alloc_reg_dma_buf)(u32 size);
 	int (*dealloc_reg_dma)(struct sde_reg_dma_buffer *lut_buf);
 	int (*reset_reg_dma_buf)(struct sde_reg_dma_buffer *buf);
-	int (*last_command)(struct sde_hw_ctl *ctl, enum sde_reg_dma_queue q);
+	int (*last_command)(struct sde_hw_ctl *ctl, enum sde_reg_dma_queue q,
+			enum sde_reg_dma_last_cmd_mode mode);
 };
 
 /**

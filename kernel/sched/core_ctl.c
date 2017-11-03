@@ -22,6 +22,8 @@
 #include <linux/syscore_ops.h>
 
 #include <trace/events/sched.h>
+#include "sched.h"
+#include "walt.h"
 
 #define MAX_CPUS_PER_CLUSTER 6
 #define MAX_CLUSTERS 2
@@ -472,16 +474,19 @@ static void update_running_avg(void)
 	int max_nr, big_max_nr;
 	struct cluster_data *cluster;
 	unsigned int index = 0;
+	unsigned long flags;
 
 	sched_get_nr_running_avg(&avg, &iowait_avg, &big_avg,
 				 &max_nr, &big_max_nr);
 
+	spin_lock_irqsave(&state_lock, flags);
 	for_each_cluster(cluster, index) {
 		if (!cluster->inited)
 			continue;
 		cluster->nrrun = cluster->is_big_cluster ? big_avg : avg;
 		cluster->max_nr = cluster->is_big_cluster ? big_max_nr : max_nr;
 	}
+	spin_unlock_irqrestore(&state_lock, flags);
 }
 
 #define MAX_NR_THRESHOLD	4
@@ -555,10 +560,16 @@ static bool eval_need(struct cluster_data *cluster)
 		cluster->active_cpus = get_active_cpu_count(cluster);
 		thres_idx = cluster->active_cpus ? cluster->active_cpus - 1 : 0;
 		list_for_each_entry(c, &cluster->lru, sib) {
-			if (c->busy >= cluster->busy_up_thres[thres_idx])
+			bool old_is_busy = c->is_busy;
+
+			if (c->busy >= cluster->busy_up_thres[thres_idx] ||
+			    sched_cpu_high_irqload(c->cpu))
 				c->is_busy = true;
 			else if (c->busy < cluster->busy_down_thres[thres_idx])
 				c->is_busy = false;
+
+			trace_core_ctl_set_busy(c->cpu, c->busy, old_is_busy,
+						c->is_busy);
 			need_cpus += c->is_busy;
 		}
 		need_cpus = apply_task_need(cluster, need_cpus);
@@ -599,17 +610,6 @@ static void apply_need(struct cluster_data *cluster)
 		wake_up_core_ctl_thread(cluster);
 }
 
-static void core_ctl_set_busy(struct cpu_data *c, unsigned int busy)
-{
-	unsigned int old_is_busy = c->is_busy;
-
-	if (c->busy == busy)
-		return;
-
-	c->busy = busy;
-	trace_core_ctl_set_busy(c->cpu, busy, old_is_busy, c->is_busy);
-}
-
 /* ========================= core count enforcement ==================== */
 
 static void wake_up_core_ctl_thread(struct cluster_data *cluster)
@@ -637,26 +637,27 @@ int core_ctl_set_boost(bool boost)
 
 	spin_lock_irqsave(&state_lock, flags);
 	for_each_cluster(cluster, index) {
-		if (cluster->is_big_cluster) {
-			if (boost) {
-				boost_state_changed = !cluster->boost;
-				++cluster->boost;
+		if (boost) {
+			boost_state_changed = !cluster->boost;
+			++cluster->boost;
+		} else {
+			if (!cluster->boost) {
+				pr_err("Error turning off boost. Boost already turned off\n");
+				ret = -EINVAL;
+				break;
 			} else {
-				if (!cluster->boost) {
-					pr_err("Error turning off boost. Boost already turned off\n");
-					ret = -EINVAL;
-				} else {
-					--cluster->boost;
-					boost_state_changed = !cluster->boost;
-				}
+				--cluster->boost;
+				boost_state_changed = !cluster->boost;
 			}
-			break;
 		}
 	}
 	spin_unlock_irqrestore(&state_lock, flags);
 
-	if (boost_state_changed)
-		apply_need(cluster);
+	if (boost_state_changed) {
+		index = 0;
+		for_each_cluster(cluster, index)
+			apply_need(cluster);
+	}
 
 	trace_core_ctl_set_boost(cluster->boost, ret);
 
@@ -667,10 +668,10 @@ EXPORT_SYMBOL(core_ctl_set_boost);
 void core_ctl_check(u64 window_start)
 {
 	int cpu;
-	unsigned int busy;
 	struct cpu_data *c;
 	struct cluster_data *cluster;
 	unsigned int index = 0;
+	unsigned long flags;
 
 	if (unlikely(!initialized))
 		return;
@@ -680,6 +681,7 @@ void core_ctl_check(u64 window_start)
 
 	core_ctl_check_timestamp = window_start;
 
+	spin_lock_irqsave(&state_lock, flags);
 	for_each_possible_cpu(cpu) {
 
 		c = &per_cpu(cpu_state, cpu);
@@ -688,9 +690,9 @@ void core_ctl_check(u64 window_start)
 		if (!cluster || !cluster->inited)
 			continue;
 
-		busy = sched_get_cpu_util(cpu);
-		core_ctl_set_busy(c, busy);
+		c->busy = sched_get_cpu_util(cpu);
 	}
+	spin_unlock_irqrestore(&state_lock, flags);
 
 	update_running_avg();
 

@@ -455,6 +455,7 @@ static int _msm_smmu_create_mapping(struct msm_smmu_client *client,
 	const struct msm_smmu_domain *domain)
 {
 	int rc;
+	int mdphtw_llc_enable = 1;
 
 	client->mmu_mapping = arm_iommu_create_mapping(&platform_bus_type,
 			domain->va_start, domain->va_size);
@@ -463,6 +464,14 @@ static int _msm_smmu_create_mapping(struct msm_smmu_client *client,
 			"iommu create mapping failed for domain=%s\n",
 			domain->label);
 		return PTR_ERR(client->mmu_mapping);
+	}
+
+	rc = iommu_domain_set_attr(client->mmu_mapping->domain,
+			DOMAIN_ATTR_USE_UPSTREAM_HINT, &mdphtw_llc_enable);
+	if (rc) {
+		dev_err(client->dev, "couldn't enable mdp pagetable walks: %d\n",
+			rc);
+		goto error;
 	}
 
 	if (domain->secure) {

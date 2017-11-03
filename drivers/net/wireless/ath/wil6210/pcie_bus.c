@@ -23,9 +23,9 @@
 #include <linux/rtnetlink.h>
 #include <linux/pm_runtime.h>
 
-static bool use_msi = true;
+static bool use_msi;
 module_param(use_msi, bool, 0444);
-MODULE_PARM_DESC(use_msi, " Use MSI interrupt, default - true");
+MODULE_PARM_DESC(use_msi, " Use MSI interrupt, default - false");
 
 static bool ftm_mode;
 module_param(ftm_mode, bool, 0444);

@@ -104,6 +104,11 @@ conditions.
 		  An array of <sid mask>.
 		  Indicates the SIDs for which the workaround is required.
 
+- qcom,actlr:
+		  An array of <sid mask actlr-setting>.
+		  Any sid X for which X&~mask==sid will be programmed with the
+		  given actlr-setting.
+
 - qcom,deferred-regulator-disable-delay : The time delay for deferred regulator
                   disable in ms. In case of unmap call, regulator is
                   enabled/disabled. This may introduce additional delay. For
