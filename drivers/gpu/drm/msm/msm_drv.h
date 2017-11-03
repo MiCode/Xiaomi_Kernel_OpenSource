@@ -163,7 +163,9 @@ enum msm_mdp_conn_property {
 	/* blob properties, always put these first */
 	CONNECTOR_PROP_SDE_INFO,
 	CONNECTOR_PROP_HDR_INFO,
+	CONNECTOR_PROP_EXT_HDR_INFO,
 	CONNECTOR_PROP_PP_DITHER,
+	CONNECTOR_PROP_HDR_METADATA,
 
 	/* # of blob properties */
 	CONNECTOR_PROP_BLOBCOUNT,
@@ -482,6 +484,7 @@ struct msm_roi_list {
  */
 struct msm_display_kickoff_params {
 	struct msm_roi_list *rois;
+	struct drm_msm_ext_hdr_metadata *hdr_meta;
 };
 
 /**
