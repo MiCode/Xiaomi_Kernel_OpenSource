@@ -48,3 +48,4 @@ ifdef CONFIG_MSM_SUBSYSTEM_RESTART
 endif
 obj-$(CONFIG_QCOM_EUD) += eud.o
 obj-$(CONFIG_QCOM_GLINK) += glink_probe.o
+obj-$(CONFIG_QCOM_QDSS_BRIDGE) += qdss_bridge.o
