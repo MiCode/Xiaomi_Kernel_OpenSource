@@ -1196,6 +1196,17 @@ static struct msm_pdc_mux_output sdxpoorwills_mux_out[] = {
 	{0, 195},
 };
 
+static struct msm_dir_conn sdxpoorwills_dir_conn[] = {
+	{84, 220, 1},
+	{0, 219},
+	{0, 218},
+	{0, 217},
+	{0, 216},
+	{0, 215},
+	{0, 214},
+	{0, 213},
+};
+
 static const struct msm_pinctrl_soc_data sdxpoorwills_pinctrl = {
 	.pins = sdxpoorwills_pins,
 	.npins = ARRAY_SIZE(sdxpoorwills_pins),
@@ -1209,6 +1220,8 @@ static const struct msm_pinctrl_soc_data sdxpoorwills_pinctrl = {
 	.n_pdc_mux_out = ARRAY_SIZE(sdxpoorwills_mux_out),
 	.n_pdc_mux_offset = 20,
 	.ngpios = 100,
+	.dir_conn_irq_base = 220,
+	.dir_conn = sdxpoorwills_dir_conn,
 };
 
 static int sdxpoorwills_pinctrl_probe(struct platform_device *pdev)
