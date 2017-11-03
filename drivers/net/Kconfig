@@ -263,6 +263,16 @@ config NTB_NETDEV
 	tristate "Virtual Ethernet over NTB Transport"
 	depends on NTB_TRANSPORT
 
+config RMNET_IPLO
+	tristate "RMNET IPLO driver"
+	---help---
+	   This allows the creation of the rmnet ip loopback driver which is
+	   used for testing rmnet_data control and data path.
+
+	   rmnet_iplo supports most of the IOCTL's which will be defined by
+	   a physical device which uses rmnet_data. rmnet_iplo will
+	   loopback any data which is sent to it.
+
 config RIONET
 	tristate "RapidIO Ethernet over messaging driver support"
 	depends on RAPIDIO
