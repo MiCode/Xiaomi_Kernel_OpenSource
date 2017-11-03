@@ -41,9 +41,18 @@ module_param(poll_msec, int, 0444);
 #define ARM64_ERP_PANIC_ON_UE 0
 #endif
 
-#define L1 0x0
-#define L2 0x1
-#define L3 0x2
+#define L1_SILVER_BIT 0x0
+#define L2_SILVER_BIT 0x1
+#define L3_BIT 0x2
+
+#define L1_GOLD_DC_BIT 0x1
+#define L1_GOLD_IC_BIT 0x4
+#define L2_GOLD_BIT 0x8
+#define L2_GOLD_TLB_BIT 0x2
+
+#define L1 0x1
+#define L2 0x2
+#define L3 0x3
 
 #define EDAC_CPU	"kryo_edac"
 
@@ -52,6 +61,7 @@ module_param(poll_msec, int, 0444);
 #define KRYO_ERRXSTATUS_SERR(a)	(a & 0xFF)
 
 #define KRYO_ERRXMISC_LVL(a)		((a >> 1) & 0x7)
+#define KRYO_ERRXMISC_LVL_GOLD(a)	(a & 0xF)
 #define KRYO_ERRXMISC_WAY(a)		((a >> 28) & 0xF)
 
 static inline void set_errxctlr_el1(void)
@@ -101,10 +111,10 @@ struct errors_edac {
 };
 
 static const struct errors_edac errors[] = {
-	{"Kryo3xx L1 Correctable Error", edac_device_handle_ce },
-	{"Kryo3xx L1 Uncorrectable Error", edac_device_handle_ue },
-	{"Kryo3xx L2 Correctable Error", edac_device_handle_ce },
-	{"Kryo3xx L2 Uncorrectable Error", edac_device_handle_ue },
+	{"Kryo L1 Correctable Error", edac_device_handle_ce },
+	{"Kryo L1 Uncorrectable Error", edac_device_handle_ue },
+	{"Kryo L2 Correctable Error", edac_device_handle_ce },
+	{"Kryo L2 Uncorrectable Error", edac_device_handle_ue },
 	{"L3 Correctable Error", edac_device_handle_ce },
 	{"L3 Uncorrectable Error", edac_device_handle_ue },
 };
@@ -204,7 +214,7 @@ static void dump_err_reg(int errorcode, int level, u64 errxstatus, u64 errxmisc,
 {
 	edac_printk(KERN_CRIT, EDAC_CPU, "ERRXSTATUS_EL1: %llx\n", errxstatus);
 	edac_printk(KERN_CRIT, EDAC_CPU, "ERRXMISC_EL1: %llx\n", errxmisc);
-	edac_printk(KERN_CRIT, EDAC_CPU, "Cache level: L%d\n", level + 1);
+	edac_printk(KERN_CRIT, EDAC_CPU, "Cache level: L%d\n", level);
 
 	switch (KRYO_ERRXSTATUS_SERR(errxstatus)) {
 	case DATA_BUF_ERR:
@@ -243,28 +253,51 @@ static void dump_err_reg(int errorcode, int level, u64 errxstatus, u64 errxmisc,
 }
 
 static void kryo_parse_l1_l2_cache_error(u64 errxstatus, u64 errxmisc,
-	struct edac_device_ctl_info *edev_ctl)
+	struct edac_device_ctl_info *edev_ctl, int cpu)
 {
-	switch (KRYO_ERRXMISC_LVL(errxmisc)) {
-	case L1:
-		if (KRYO_ERRXSTATUS_UE(errxstatus))
-			dump_err_reg(KRYO_L1_UE, L1, errxstatus, errxmisc,
-				edev_ctl);
-		else
-			dump_err_reg(KRYO_L1_CE, L1, errxstatus, errxmisc,
-				edev_ctl);
-		break;
+	int level = 0;
 
-	case L2:
-		if (KRYO_ERRXSTATUS_UE(errxstatus))
-			dump_err_reg(KRYO_L2_UE, L2, errxstatus, errxmisc,
-				edev_ctl);
-		else
-			dump_err_reg(KRYO_L2_CE, L2, errxstatus, errxmisc,
-				edev_ctl);
-		break;
+	if (cpu <= 3) {
+		switch (KRYO_ERRXMISC_LVL(errxmisc)) {
+		case L1_SILVER_BIT:
+			level = L1;
+			break;
+		case L2_SILVER_BIT:
+			level = L2;
+			break;
+		}
+	} else {
+		switch (KRYO_ERRXMISC_LVL_GOLD(errxmisc)) {
+		case L1_GOLD_DC_BIT:
+		case L1_GOLD_IC_BIT:
+			level = L1;
+			break;
+		case L2_GOLD_BIT:
+		case L2_GOLD_TLB_BIT:
+			level = L2;
+			break;
+		}
 	}
-
+	switch (level) {
+	case 1:
+		if (KRYO_ERRXSTATUS_UE(errxstatus))
+			dump_err_reg(KRYO_L1_UE, level, errxstatus, errxmisc,
+					edev_ctl);
+		else
+			dump_err_reg(KRYO_L1_CE, level, errxstatus, errxmisc,
+					edev_ctl);
+		break;
+	case 2:
+		if (KRYO_ERRXSTATUS_UE(errxstatus))
+			dump_err_reg(KRYO_L2_UE, level, errxstatus, errxmisc,
+					edev_ctl);
+		else
+			dump_err_reg(KRYO_L2_CE, level, errxstatus, errxmisc,
+					edev_ctl);
+		break;
+	default:
+		edac_printk(KERN_CRIT, EDAC_CPU, "Unknown KRYO_ERRXMISC_LVL value\n");
+	}
 }
 
 static void kryo_check_l1_l2_ecc(void *info)
@@ -272,18 +305,22 @@ static void kryo_check_l1_l2_ecc(void *info)
 	struct edac_device_ctl_info *edev_ctl = info;
 	u64 errxstatus = 0;
 	u64 errxmisc = 0;
+	int cpu = 0;
 	unsigned long flags;
 
 	spin_lock_irqsave(&local_handler_lock, flags);
 	write_errselr_el1(0);
 	errxstatus = read_errxstatus_el1();
+	cpu = smp_processor_id();
+
 	if (KRYO_ERRXSTATUS_VALID(errxstatus)) {
 		errxmisc = read_errxmisc_el1();
 		edac_printk(KERN_CRIT, EDAC_CPU,
-		"Kryo3xx CPU%d detected a L1/L2 cache error\n",
-		smp_processor_id());
+		"Kryo CPU%d detected a L1/L2 cache error, errxstatus = %lx, errxmisc = %lx\n",
+		cpu, errxstatus, errxmisc);
 
-		kryo_parse_l1_l2_cache_error(errxstatus, errxmisc, edev_ctl);
+		kryo_parse_l1_l2_cache_error(errxstatus, errxmisc, edev_ctl,
+				cpu);
 		clear_errxstatus_valid(errxstatus);
 	}
 	spin_unlock_irqrestore(&local_handler_lock, flags);
@@ -311,7 +348,7 @@ static void kryo_check_l3_scu_error(struct edac_device_ctl_info *edev_ctl)
 	errxmisc = read_errxmisc_el1();
 
 	if (KRYO_ERRXSTATUS_VALID(errxstatus) &&
-		KRYO_ERRXMISC_LVL(errxmisc) == L3) {
+		KRYO_ERRXMISC_LVL(errxmisc) == L3_BIT) {
 		if (l3_is_bus_error(errxstatus)) {
 			if (edev_ctl->panic_on_ue)
 				panic("Causing panic due to Bus Error\n");
@@ -480,4 +517,4 @@ static void __exit kryo_cpu_erp_exit(void)
 module_exit(kryo_cpu_erp_exit);
 
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("Kryo3xx EDAC driver");
+MODULE_DESCRIPTION("Kryo EDAC driver");
