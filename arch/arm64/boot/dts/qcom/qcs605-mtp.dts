@@ -16,6 +16,7 @@
 
 #include "qcs605.dtsi"
 #include "sdm670-mtp.dtsi"
+#include "sdm670-audio-overlay.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS605 PM660 + PM660L MTP";
