@@ -132,6 +132,15 @@ int sde_fence_create(struct sde_fence_context *fence, uint64_t *val,
  */
 void sde_fence_signal(struct sde_fence_context *fence, ktime_t ts,
 		bool reset_timeline);
+
+/**
+ * sde_fence_timeline_status - prints fence timeline status
+ * @fence: Pointer fence container
+ * @drm_obj Pointer to drm object associated with fence timeline
+ */
+void sde_fence_timeline_status(struct sde_fence_context *ctx,
+					struct drm_mode_object *drm_obj);
+
 #else
 static inline void *sde_sync_get(uint64_t fd)
 {
@@ -184,6 +193,12 @@ static inline int sde_fence_create(struct sde_fence_context *fence,
 						uint64_t *val, uint32_t offset)
 {
 	return 0;
+}
+
+static inline void sde_fence_timeline_status(struct sde_fence_context *ctx,
+					struct drm_mode_object *drm_obj);
+{
+	/* do nothing */
 }
 #endif /* IS_ENABLED(CONFIG_SW_SYNC) */
 
