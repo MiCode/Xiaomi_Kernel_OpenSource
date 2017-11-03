@@ -298,6 +298,38 @@ extern "C" {
  */
 #define DRM_FORMAT_MOD_SAMSUNG_64_32_TILE	fourcc_mod_code(SAMSUNG, 1)
 
+/*
+ * Qualcomm Compressed Format
+ *
+ * Refers to a compressed variant of the base format that is compressed.
+ * Implementation may be platform and base-format specific.
+ */
+#define DRM_FORMAT_MOD_QCOM_COMPRESSED	fourcc_mod_code(QCOM, 1)
+
+/*
+ * QTI DX Format
+ *
+ * Refers to a DX variant of the base format.
+ * Implementation may be platform and base-format specific.
+ */
+#define DRM_FORMAT_MOD_QCOM_DX	fourcc_mod_code(QCOM, 0x2)
+
+/*
+ * QTI Tight Format
+ *
+ * Refers to a tightly packed variant of the base format.
+ * Implementation may be platform and base-format specific.
+ */
+#define DRM_FORMAT_MOD_QCOM_TIGHT	fourcc_mod_code(QCOM, 0x4)
+
+/*
+ * QTI Tile Format
+ *
+ * Refers to a tile variant of the base format.
+ * Implementation may be platform and base-format specific.
+ */
+#define DRM_FORMAT_MOD_QCOM_TILE	fourcc_mod_code(QCOM, 0x8)
+
 /* Vivante framebuffer modifiers */
 
 /*

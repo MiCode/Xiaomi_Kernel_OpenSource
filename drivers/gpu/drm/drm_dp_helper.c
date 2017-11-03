@@ -144,6 +144,8 @@ u8 drm_dp_link_rate_to_bw_code(int link_rate)
 		return DP_LINK_BW_2_7;
 	case 540000:
 		return DP_LINK_BW_5_4;
+	case 810000:
+		return DP_LINK_BW_8_1;
 	}
 }
 EXPORT_SYMBOL(drm_dp_link_rate_to_bw_code);
@@ -158,6 +160,8 @@ int drm_dp_bw_code_to_link_rate(u8 link_bw)
 		return 270000;
 	case DP_LINK_BW_5_4:
 		return 540000;
+	case DP_LINK_BW_8_1:
+		return 810000;
 	}
 }
 EXPORT_SYMBOL(drm_dp_bw_code_to_link_rate);
@@ -354,19 +358,12 @@ EXPORT_SYMBOL(drm_dp_link_probe);
  */
 int drm_dp_link_power_up(struct drm_dp_aux *aux, struct drm_dp_link *link)
 {
-	u8 value;
+	u8 value = DP_SET_POWER_D0;
 	int err;
 
 	/* DP_SET_POWER register is only available on DPCD v1.1 and later */
 	if (link->revision < 0x11)
 		return 0;
-
-	err = drm_dp_dpcd_readb(aux, DP_SET_POWER, &value);
-	if (err < 0)
-		return err;
-
-	value &= ~DP_SET_POWER_MASK;
-	value |= DP_SET_POWER_D0;
 
 	err = drm_dp_dpcd_writeb(aux, DP_SET_POWER, value);
 	if (err < 0)

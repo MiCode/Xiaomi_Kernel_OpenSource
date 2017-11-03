@@ -84,6 +84,7 @@ extern "C" {
 #define  DRM_MODE_FLAG_3D_L_DEPTH_GFX_GFX_DEPTH	(6<<14)
 #define  DRM_MODE_FLAG_3D_TOP_AND_BOTTOM	(7<<14)
 #define  DRM_MODE_FLAG_3D_SIDE_BY_SIDE_HALF	(8<<14)
+#define  DRM_MODE_FLAG_SEAMLESS			(1<<19)
 
 /* Picture aspect ratio options */
 #define DRM_MODE_PICTURE_ASPECT_NONE		0
@@ -98,6 +99,9 @@ extern "C" {
 			(DRM_MODE_PICTURE_ASPECT_4_3<<19)
 #define  DRM_MODE_FLAG_PIC_AR_16_9 \
 			(DRM_MODE_PICTURE_ASPECT_16_9<<19)
+
+#define  DRM_MODE_FLAG_SUPPORTS_RGB		(1<<23)
+#define  DRM_MODE_FLAG_SUPPORTS_YUV		(1<<24)
 
 /* DPMS flags */
 /* bit compatible with the xorg definitions. */
@@ -439,6 +443,7 @@ struct drm_mode_fb_cmd {
 
 #define DRM_MODE_FB_INTERLACED	(1<<0) /* for interlaced framebuffers */
 #define DRM_MODE_FB_MODIFIERS	(1<<1) /* enables ->modifer[] */
+#define DRM_MODE_FB_SECURE	(1<<2) /* for secure framebuffers */
 
 struct drm_mode_fb_cmd2 {
 	__u32 fb_id;

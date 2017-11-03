@@ -510,6 +510,8 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_ARGB32  v4l2_fourcc('B', 'A', '2', '4') /* 32  ARGB-8-8-8-8  */
 #define V4L2_PIX_FMT_XRGB32  v4l2_fourcc('B', 'X', '2', '4') /* 32  XRGB-8-8-8-8  */
 
+#define V4L2_PIX_FMT_RGBA8888_UBWC   v4l2_fourcc('Q', 'R', 'G', 'B')
+
 /* Grey formats */
 #define V4L2_PIX_FMT_GREY    v4l2_fourcc('G', 'R', 'E', 'Y') /*  8  Greyscale     */
 #define V4L2_PIX_FMT_Y4      v4l2_fourcc('Y', '0', '4', ' ') /*  4  Greyscale     */
@@ -550,6 +552,12 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_NV61    v4l2_fourcc('N', 'V', '6', '1') /* 16  Y/CrCb 4:2:2  */
 #define V4L2_PIX_FMT_NV24    v4l2_fourcc('N', 'V', '2', '4') /* 24  Y/CbCr 4:4:4  */
 #define V4L2_PIX_FMT_NV42    v4l2_fourcc('N', 'V', '4', '2') /* 24  Y/CrCb 4:4:4  */
+
+/* UBWC 8-bit Y/CbCr 4:2:0  */
+#define V4L2_PIX_FMT_NV12_UBWC        v4l2_fourcc('Q', '1', '2', '8')
+/* UBWC 10-bit Y/CbCr 4:2:0 */
+#define V4L2_PIX_FMT_NV12_TP10_UBWC   v4l2_fourcc('Q', '1', '2', 'A')
+#define V4L2_PIX_FMT_NV12_P010_UBWC   v4l2_fourcc('Q', '1', '2', 'B')
 
 /* two non contiguous planes - one Y, one Cr + Cb interleaved  */
 #define V4L2_PIX_FMT_NV12M   v4l2_fourcc('N', 'M', '1', '2') /* 12  Y/CbCr 4:2:0  */
@@ -667,6 +675,79 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_Z16      v4l2_fourcc('Z', '1', '6', ' ') /* Depth data 16-bit */
 #define V4L2_PIX_FMT_MT21C    v4l2_fourcc('M', 'T', '2', '1') /* Mediatek compressed block mode  */
 #define V4L2_PIX_FMT_INZI     v4l2_fourcc('I', 'N', 'Z', 'I') /* Intel Planar Greyscale 10-bit and Depth 16-bit */
+
+#define V4L2_PIX_FMT_SDE_ABGR_8888 \
+	v4l2_fourcc('R', 'A', '2', '4') /* 32-bit ABGR 8:8:8:8 */
+#define V4L2_PIX_FMT_SDE_RGBA_8888 \
+	v4l2_fourcc('A', 'B', '2', '4') /* 32-bit RGBA 8:8:8:8 */
+#define V4L2_PIX_FMT_SDE_RGBX_8888 \
+	v4l2_fourcc('X', 'B', '2', '4') /* 32-bit RGBX 8:8:8:8 */
+#define V4L2_PIX_FMT_SDE_XBGR_8888 \
+	v4l2_fourcc('R', 'X', '2', '4') /* 32-bit XBGR 8:8:8:8 */
+#define V4L2_PIX_FMT_SDE_RGBA_5551 \
+	v4l2_fourcc('R', 'A', '1', '5') /* 16-bit RGBA 5:5:5:1 */
+#define V4L2_PIX_FMT_SDE_ABGR_1555 \
+	v4l2_fourcc('A', 'B', '1', '5') /* 16-bit ABGR 1:5:5:5 */
+#define V4L2_PIX_FMT_SDE_BGRA_5551 \
+	v4l2_fourcc('B', 'A', '1', '5') /* 16-bit BGRA 5:5:5:1 */
+#define V4L2_PIX_FMT_SDE_BGRX_5551 \
+	v4l2_fourcc('B', 'X', '1', '5') /* 16-bit BGRX 5:5:5:1 */
+#define V4L2_PIX_FMT_SDE_RGBX_5551 \
+	v4l2_fourcc('R', 'X', '1', '5') /* 16-bit RGBX 5:5:5:1 */
+#define V4L2_PIX_FMT_SDE_XBGR_1555 \
+	v4l2_fourcc('X', 'B', '1', '5') /* 16-bit XBGR 1:5:5:5 */
+#define V4L2_PIX_FMT_SDE_RGBA_4444 \
+	v4l2_fourcc('R', 'A', '1', '2') /* 16-bit RGBA 4:4:4:4 */
+#define V4L2_PIX_FMT_SDE_BGRA_4444 \
+	v4l2_fourcc('b', 'A', '1', '2') /* 16-bit BGRA 4:4:4:4 */
+#define V4L2_PIX_FMT_SDE_ABGR_4444 \
+	v4l2_fourcc('A', 'B', '1', '2') /* 16-bit ABGR 4:4:4:4 */
+#define V4L2_PIX_FMT_SDE_RGBX_4444 \
+	v4l2_fourcc('R', 'X', '1', '2') /* 16-bit RGBX 4:4:4:4 */
+#define V4L2_PIX_FMT_SDE_BGRX_4444 \
+	v4l2_fourcc('B', 'X', '1', '2') /* 16-bit BGRX 4:4:4:4 */
+#define V4L2_PIX_FMT_SDE_XBGR_4444 \
+	v4l2_fourcc('X', 'B', '1', '2') /* 16-bit XBGR 4:4:4:4 */
+#define V4L2_PIX_FMT_SDE_BGR_565 \
+	v4l2_fourcc('B', 'G', '1', '6') /* 16-bit BGR 5:6:5 */
+#define V4L2_PIX_FMT_SDE_Y_CR_CB_GH2V2 \
+	v4l2_fourcc('Y', 'U', '4', '2') /* Planar YVU 4:2:0 A16 */
+#define V4L2_PIX_FMT_SDE_Y_CBCR_H1V2 \
+	v4l2_fourcc('N', 'H', '1', '6') /* Y/CbCr 4:2:2 */
+#define V4L2_PIX_FMT_SDE_Y_CRCB_H1V2 \
+	v4l2_fourcc('N', 'H', '6', '1') /* Y/CrCb 4:2:2 */
+#define V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_VENUS \
+	v4l2_fourcc('Q', 'N', 'V', '2') /* Y/CbCr 4:2:0 Venus */
+#define V4L2_PIX_FMT_SDE_Y_CRCB_H2V2_VENUS \
+	v4l2_fourcc('Q', 'N', 'V', '1') /* Y/CrCb 4:2:0 Venus */
+#define V4L2_PIX_FMT_SDE_RGBX_8888_UBWC \
+	v4l2_fourcc('Q', 'X', 'B', '4') /* RGBX 8:8:8:8 UBWC */
+#define V4L2_PIX_FMT_SDE_RGB_565_UBWC \
+	v4l2_fourcc('Q', 'R', 'G', '6') /* RGB 5:6:5 UBWC */
+#define V4L2_PIX_FMT_SDE_RGBA_1010102 \
+	v4l2_fourcc('A', 'B', '3', '0') /* RGBA 10:10:10:2 */
+#define V4L2_PIX_FMT_SDE_RGBX_1010102 \
+	v4l2_fourcc('X', 'B', '3', '0') /* RGBX 10:10:10:2 */
+#define V4L2_PIX_FMT_SDE_ARGB_2101010 \
+	v4l2_fourcc('A', 'R', '3', '0') /* ARGB 2:10:10:10 */
+#define V4L2_PIX_FMT_SDE_XRGB_2101010 \
+	v4l2_fourcc('X', 'R', '3', '0') /* XRGB 2:10:10:10 */
+#define V4L2_PIX_FMT_SDE_BGRA_1010102 \
+	v4l2_fourcc('B', 'A', '3', '0') /* BGRA 10:10:10:2 */
+#define V4L2_PIX_FMT_SDE_BGRX_1010102 \
+	v4l2_fourcc('B', 'X', '3', '0') /* BGRX 10:10:10:2 */
+#define V4L2_PIX_FMT_SDE_ABGR_2101010 \
+	v4l2_fourcc('R', 'A', '3', '0') /* ABGR 2:10:10:10 */
+#define V4L2_PIX_FMT_SDE_XBGR_2101010 \
+	v4l2_fourcc('R', 'X', '3', '0') /* XBGR 2:10:10:10 */
+#define V4L2_PIX_FMT_SDE_RGBA_1010102_UBWC \
+	v4l2_fourcc('Q', 'R', 'B', 'A') /* RGBA 10:10:10:2 UBWC */
+#define V4L2_PIX_FMT_SDE_RGBX_1010102_UBWC \
+	v4l2_fourcc('Q', 'X', 'B', 'A') /* RGBX 10:10:10:2 UBWC */
+#define V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_TP10 \
+	v4l2_fourcc('T', 'P', '1', '0') /* Y/CbCr 4:2:0 TP10 */
+#define V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010 \
+	v4l2_fourcc('P', '0', '1', '0') /* Y/CbCr 4:2:0 P10 */
 
 /* SDR formats - used only for Software Defined Radio devices */
 #define V4L2_SDR_FMT_CU8          v4l2_fourcc('C', 'U', '0', '8') /* IQ u8 */

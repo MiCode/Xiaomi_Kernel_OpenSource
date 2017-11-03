@@ -42,3 +42,5 @@ obj-$(CONFIG_MSM_NPUCC_SDM855) += npucc-sdm855.o
 obj-$(CONFIG_MSM_VIDEOCC_SDM855) += videocc-sdm855.o
 obj-$(CONFIG_QCOM_CLK_RPM) += clk-rpm.o
 obj-$(CONFIG_QCOM_CLK_SMD_RPM) += clk-smd-rpm.o
+
+obj-y += mdss/

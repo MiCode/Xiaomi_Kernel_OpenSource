@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -661,7 +661,7 @@ struct msm_kms *mdp5_kms_init(struct drm_device *dev)
 	mdelay(16);
 
 	if (config->platform.iommu) {
-		aspace = msm_gem_address_space_create(&pdev->dev,
+		aspace = msm_gem_address_space_create(dev,
 				config->platform.iommu, "mdp5");
 		if (IS_ERR(aspace)) {
 			ret = PTR_ERR(aspace);
