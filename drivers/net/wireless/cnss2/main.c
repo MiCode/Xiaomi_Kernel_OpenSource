@@ -189,19 +189,20 @@ static void cnss_pm_relax(struct cnss_plat_data *plat_priv)
 	pm_relax(&plat_priv->plat_dev->dev);
 }
 
-void cnss_lock_pm_sem(void)
+void cnss_lock_pm_sem(struct device *dev)
 {
 	down_read(&cnss_pm_sem);
 }
 EXPORT_SYMBOL(cnss_lock_pm_sem);
 
-void cnss_release_pm_sem(void)
+void cnss_release_pm_sem(struct device *dev)
 {
 	up_read(&cnss_pm_sem);
 }
 EXPORT_SYMBOL(cnss_release_pm_sem);
 
-int cnss_get_fw_files_for_target(struct cnss_fw_files *pfw_files,
+int cnss_get_fw_files_for_target(struct device *dev,
+				 struct cnss_fw_files *pfw_files,
 				 u32 target_type, u32 target_version)
 {
 	if (!pfw_files)
@@ -223,10 +224,10 @@ int cnss_get_fw_files_for_target(struct cnss_fw_files *pfw_files,
 }
 EXPORT_SYMBOL(cnss_get_fw_files_for_target);
 
-int cnss_request_bus_bandwidth(int bandwidth)
+int cnss_request_bus_bandwidth(struct device *dev, int bandwidth)
 {
 	int ret = 0;
-	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 	struct cnss_bus_bw_info *bus_bw_info;
 
 	if (!plat_priv)
@@ -258,9 +259,9 @@ int cnss_request_bus_bandwidth(int bandwidth)
 }
 EXPORT_SYMBOL(cnss_request_bus_bandwidth);
 
-int cnss_get_platform_cap(struct cnss_platform_cap *cap)
+int cnss_get_platform_cap(struct device *dev, struct cnss_platform_cap *cap)
 {
-	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 
 	if (!plat_priv)
 		return -ENODEV;
@@ -289,20 +290,9 @@ int cnss_get_soc_info(struct device *dev, struct cnss_soc_info *info)
 }
 EXPORT_SYMBOL(cnss_get_soc_info);
 
-void cnss_set_driver_status(enum cnss_driver_status driver_status)
+void cnss_request_pm_qos(struct device *dev, u32 qos_val)
 {
-	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
-
-	if (!plat_priv)
-		return;
-
-	plat_priv->driver_status = driver_status;
-}
-EXPORT_SYMBOL(cnss_set_driver_status);
-
-void cnss_request_pm_qos(u32 qos_val)
-{
-	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 
 	if (!plat_priv)
 		return;
@@ -312,9 +302,9 @@ void cnss_request_pm_qos(u32 qos_val)
 }
 EXPORT_SYMBOL(cnss_request_pm_qos);
 
-void cnss_remove_pm_qos(void)
+void cnss_remove_pm_qos(struct device *dev)
 {
-	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 
 	if (!plat_priv)
 		return;
@@ -1048,7 +1038,8 @@ static int cnss_qca6174_shutdown(struct cnss_plat_data *plat_priv)
 
 	cnss_driver_call_remove(plat_priv);
 
-	cnss_request_bus_bandwidth(CNSS_BUS_WIDTH_NONE);
+	cnss_request_bus_bandwidth(&plat_priv->plat_dev->dev,
+				   CNSS_BUS_WIDTH_NONE);
 	cnss_pci_set_monitor_wake_intr(pci_priv, false);
 	cnss_pci_set_auto_suspended(pci_priv, 0);
 
@@ -1154,7 +1145,8 @@ static int cnss_qca6290_shutdown(struct cnss_plat_data *plat_priv)
 
 	cnss_driver_call_remove(plat_priv);
 
-	cnss_request_bus_bandwidth(CNSS_BUS_WIDTH_NONE);
+	cnss_request_bus_bandwidth(&plat_priv->plat_dev->dev,
+				   CNSS_BUS_WIDTH_NONE);
 	cnss_pci_set_monitor_wake_intr(pci_priv, false);
 	cnss_pci_set_auto_suspended(pci_priv, 0);
 
@@ -1351,9 +1343,9 @@ static int cnss_ramdump(int enable, const struct subsys_desc *subsys_desc)
 	return ret;
 }
 
-void *cnss_get_virt_ramdump_mem(unsigned long *size)
+void *cnss_get_virt_ramdump_mem(struct device *dev, unsigned long *size)
 {
-	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 	struct cnss_ramdump_info *ramdump_info;
 
 	if (!plat_priv)
@@ -1366,9 +1358,9 @@ void *cnss_get_virt_ramdump_mem(unsigned long *size)
 }
 EXPORT_SYMBOL(cnss_get_virt_ramdump_mem);
 
-void cnss_device_crashed(void)
+void cnss_device_crashed(struct device *dev)
 {
-	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 	struct cnss_subsys_info *subsys_info;
 
 	if (!plat_priv)

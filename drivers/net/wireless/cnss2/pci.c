@@ -585,9 +585,9 @@ static int cnss_pci_runtime_idle(struct device *dev)
 	return -EBUSY;
 }
 
-int cnss_wlan_pm_control(bool vote)
+int cnss_wlan_pm_control(struct device *dev, bool vote)
 {
-	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 	struct cnss_pci_data *pci_priv;
 	struct pci_dev *pci_dev;
 
@@ -607,10 +607,10 @@ int cnss_wlan_pm_control(bool vote)
 }
 EXPORT_SYMBOL(cnss_wlan_pm_control);
 
-int cnss_auto_suspend(void)
+int cnss_auto_suspend(struct device *dev)
 {
 	int ret = 0;
-	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 	struct pci_dev *pci_dev;
 	struct cnss_pci_data *pci_priv;
 	struct cnss_bus_bw_info *bus_bw_info;
@@ -665,10 +665,10 @@ out:
 }
 EXPORT_SYMBOL(cnss_auto_suspend);
 
-int cnss_auto_resume(void)
+int cnss_auto_resume(struct device *dev)
 {
 	int ret = 0;
-	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 	struct pci_dev *pci_dev;
 	struct cnss_pci_data *pci_priv;
 	struct cnss_bus_bw_info *bus_bw_info;
