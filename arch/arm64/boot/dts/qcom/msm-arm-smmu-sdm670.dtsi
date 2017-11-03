@@ -309,4 +309,14 @@
 		 */
 		iommus = <&apps_smmu 0x16 0x0>;
 	};
+
+	apps_iommu_coherent_test_device {
+		compatible = "iommu-debug-test";
+		/*
+		 * This SID belongs to TSIF. We can't use a fake SID for
+		 * the apps_smmu device.
+		 */
+		iommus = <&apps_smmu 0x20 0xf>;
+		dma-coherent;
+	};
 };
