@@ -33,6 +33,8 @@ struct dp_panel_private {
 	bool custom_edid;
 	bool custom_dpcd;
 	bool panel_on;
+	u8 spd_vendor_name[8];
+	u8 spd_product_description[16];
 };
 
 static const struct dp_panel_info fail_safe = {
@@ -51,6 +53,13 @@ static const struct dp_panel_info fail_safe = {
 	.pixel_clk_khz = 25200,
 	.bpp = 24,
 };
+
+/* OEM NAME */
+static const u8 vendor_name[8] = {81, 117, 97, 108, 99, 111, 109, 109};
+
+/* MODEL NAME */
+static const u8 product_desc[16] = {83, 110, 97, 112, 100, 114, 97, 103,
+	111, 110, 0, 0, 0, 0, 0, 0};
 
 static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
 {
@@ -699,6 +708,32 @@ end:
 	return rc;
 }
 
+static int dp_panel_spd_config(struct dp_panel *dp_panel)
+{
+	int rc = 0;
+	struct dp_panel_private *panel;
+
+	if (!dp_panel) {
+		pr_err("invalid input\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	if (!dp_panel->spd_enabled) {
+		pr_debug("SPD Infoframe not enabled\n");
+		goto end;
+	}
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+
+	panel->catalog->spd_vendor_name = panel->spd_vendor_name;
+	panel->catalog->spd_product_description =
+		panel->spd_product_description;
+	panel->catalog->config_spd(panel->catalog);
+end:
+	return rc;
+}
+
 struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 {
 	int rc = 0;
@@ -725,6 +760,9 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	dp_panel = &panel->dp_panel;
 	panel->aux_cfg_update_done = false;
 	dp_panel->max_bw_code = DP_LINK_BW_8_1;
+	dp_panel->spd_enabled = true;
+	memcpy(panel->spd_vendor_name, vendor_name, (sizeof(u8) * 8));
+	memcpy(panel->spd_product_description, product_desc, (sizeof(u8) * 16));
 
 	dp_panel->init = dp_panel_init_panel_info;
 	dp_panel->deinit = dp_panel_deinit_panel_info;
@@ -737,6 +775,7 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	dp_panel->set_edid = dp_panel_set_edid;
 	dp_panel->set_dpcd = dp_panel_set_dpcd;
 	dp_panel->tpg_config = dp_panel_tpg_config;
+	dp_panel->spd_config = dp_panel_spd_config;
 
 	dp_panel_edid_register(panel);
 	dp_panel->setup_hdr = dp_panel_setup_hdr;

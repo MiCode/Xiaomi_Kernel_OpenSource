@@ -983,6 +983,8 @@ static int dp_display_post_enable(struct dp_display *dp_display)
 		goto end;
 	}
 
+	dp->panel->spd_config(dp->panel);
+
 	if (dp->audio_supported) {
 		dp->audio->bw_code = dp->link->link_params.bw_code;
 		dp->audio->lane_count = dp->link->link_params.lane_count;

@@ -1308,6 +1308,131 @@ static void dp_catalog_audio_enable(struct dp_catalog_audio *audio)
 	wmb();
 }
 
+static void dp_catalog_config_spd_header(struct dp_catalog_panel *panel)
+{
+	struct dp_catalog_private *catalog;
+	void __iomem *base;
+	u32 value, new_value;
+	u8 parity_byte;
+
+	if (!panel)
+		return;
+
+	dp_catalog_get_priv(panel);
+	base = catalog->io->dp_link.base;
+
+	/* Config header and parity byte 1 */
+	value = dp_read(base + MMSS_DP_GENERIC1_0);
+
+	new_value = 0x83;
+	parity_byte = dp_header_get_parity(new_value);
+	value |= ((new_value << HEADER_BYTE_1_BIT)
+			| (parity_byte << PARITY_BYTE_1_BIT));
+	pr_debug("Header Byte 1: value = 0x%x, parity_byte = 0x%x\n",
+			value, parity_byte);
+	dp_write(base + MMSS_DP_GENERIC1_0, value);
+
+	/* Config header and parity byte 2 */
+	value = dp_read(base + MMSS_DP_GENERIC1_1);
+
+	new_value = 0x1b;
+	parity_byte = dp_header_get_parity(new_value);
+	value |= ((new_value << HEADER_BYTE_2_BIT)
+			| (parity_byte << PARITY_BYTE_2_BIT));
+	pr_debug("Header Byte 2: value = 0x%x, parity_byte = 0x%x\n",
+			value, parity_byte);
+	dp_write(base + MMSS_DP_GENERIC1_1, value);
+
+	/* Config header and parity byte 3 */
+	value = dp_read(base + MMSS_DP_GENERIC1_1);
+
+	new_value = (0x0 | (0x12 << 2));
+	parity_byte = dp_header_get_parity(new_value);
+	value |= ((new_value << HEADER_BYTE_3_BIT)
+			| (parity_byte << PARITY_BYTE_3_BIT));
+	pr_debug("Header Byte 3: value = 0x%x, parity_byte = 0x%x\n",
+			new_value, parity_byte);
+	dp_write(base + MMSS_DP_GENERIC1_1, value);
+}
+
+static void dp_catalog_panel_config_spd(struct dp_catalog_panel *panel)
+{
+	struct dp_catalog_private *catalog;
+	void __iomem *base;
+	u32 spd_cfg = 0, spd_cfg2 = 0;
+	u8 *vendor = NULL, *product = NULL;
+	/*
+	 * Source Device Information
+	 * 00h unknown
+	 * 01h Digital STB
+	 * 02h DVD
+	 * 03h D-VHS
+	 * 04h HDD Video
+	 * 05h DVC
+	 * 06h DSC
+	 * 07h Video CD
+	 * 08h Game
+	 * 09h PC general
+	 * 0ah Bluray-Disc
+	 * 0bh Super Audio CD
+	 * 0ch HD DVD
+	 * 0dh PMP
+	 * 0eh-ffh reserved
+	 */
+	u32 device_type = 0;
+
+	if (!panel)
+		return;
+
+	dp_catalog_get_priv(panel);
+	base = catalog->io->dp_link.base;
+
+	dp_catalog_config_spd_header(panel);
+
+	vendor = panel->spd_vendor_name;
+	product = panel->spd_product_description;
+
+	dp_write(base + MMSS_DP_GENERIC1_2, ((vendor[0] & 0x7f) |
+				((vendor[1] & 0x7f) << 8) |
+				((vendor[2] & 0x7f) << 16) |
+				((vendor[3] & 0x7f) << 24)));
+	dp_write(base + MMSS_DP_GENERIC1_3, ((vendor[4] & 0x7f) |
+				((vendor[5] & 0x7f) << 8) |
+				((vendor[6] & 0x7f) << 16) |
+				((vendor[7] & 0x7f) << 24)));
+	dp_write(base + MMSS_DP_GENERIC1_4, ((product[0] & 0x7f) |
+			((product[1] & 0x7f) << 8) |
+			((product[2] & 0x7f) << 16) |
+			((product[3] & 0x7f) << 24)));
+	dp_write(base + MMSS_DP_GENERIC1_5, ((product[4] & 0x7f) |
+			((product[5] & 0x7f) << 8) |
+			((product[6] & 0x7f) << 16) |
+			((product[7] & 0x7f) << 24)));
+	dp_write(base + MMSS_DP_GENERIC1_6, ((product[8] & 0x7f) |
+			((product[9] & 0x7f) << 8) |
+			((product[10] & 0x7f) << 16) |
+			((product[11] & 0x7f) << 24)));
+	dp_write(base + MMSS_DP_GENERIC1_7, ((product[12] & 0x7f) |
+			((product[13] & 0x7f) << 8) |
+			((product[14] & 0x7f) << 16) |
+			((product[15] & 0x7f) << 24)));
+	dp_write(base + MMSS_DP_GENERIC1_8, device_type);
+	dp_write(base + MMSS_DP_GENERIC1_9, 0x00);
+
+	spd_cfg = dp_read(base + MMSS_DP_SDP_CFG);
+	/* GENERIC1_SDP for SPD Infoframe */
+	spd_cfg |= BIT(18);
+	dp_write(base + MMSS_DP_SDP_CFG, spd_cfg);
+
+	spd_cfg2 = dp_read(base + MMSS_DP_SDP_CFG2);
+	/* 28 data bytes for SPD Infoframe with GENERIC1 set */
+	spd_cfg2 |= BIT(17);
+	dp_write(base + MMSS_DP_SDP_CFG2, spd_cfg2);
+
+	dp_write(base + MMSS_DP_SDP_CFG3, 0x1);
+	dp_write(base + MMSS_DP_SDP_CFG3, 0x0);
+}
+
 struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io)
 {
 	int rc = 0;
@@ -1360,6 +1485,7 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io)
 		.timing_cfg = dp_catalog_panel_timing_cfg,
 		.config_hdr = dp_catalog_panel_config_hdr,
 		.tpg_config = dp_catalog_panel_tpg_cfg,
+		.config_spd = dp_catalog_panel_config_spd,
 	};
 
 	if (!io) {
