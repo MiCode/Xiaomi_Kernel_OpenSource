@@ -32,6 +32,7 @@
 #include <linux/cpu_cooling.h>
 #include <linux/sched.h>
 #include <linux/of_device.h>
+#include <linux/suspend.h>
 
 #include <trace/events/thermal.h>
 
@@ -117,10 +118,12 @@ struct cpufreq_cooling_device {
 static DEFINE_IDR(cpufreq_idr);
 static DEFINE_MUTEX(cooling_cpufreq_lock);
 
+static atomic_t in_suspend;
 static unsigned int cpufreq_dev_count;
 static int8_t cpuhp_registered;
 static struct work_struct cpuhp_register_work;
 static struct cpumask cpus_pending_online;
+static struct cpumask cpus_isolated_by_thermal;
 static DEFINE_MUTEX(core_isolate_lock);
 
 static DEFINE_MUTEX(cooling_list_lock);
@@ -218,6 +221,51 @@ unsigned long cpufreq_cooling_get_level(unsigned int cpu, unsigned int freq)
 }
 EXPORT_SYMBOL_GPL(cpufreq_cooling_get_level);
 
+static int cpufreq_cooling_pm_notify(struct notifier_block *nb,
+				unsigned long mode, void *_unused)
+{
+	struct cpufreq_cooling_device *cpufreq_dev;
+	unsigned int cpu;
+
+	switch (mode) {
+	case PM_HIBERNATION_PREPARE:
+	case PM_RESTORE_PREPARE:
+	case PM_SUSPEND_PREPARE:
+		atomic_set(&in_suspend, 1);
+		break;
+	case PM_POST_HIBERNATION:
+	case PM_POST_RESTORE:
+	case PM_POST_SUSPEND:
+		mutex_lock(&cooling_list_lock);
+		mutex_lock(&core_isolate_lock);
+		list_for_each_entry(cpufreq_dev, &cpufreq_dev_list, node) {
+			if (cpufreq_dev->cpufreq_state ==
+				cpufreq_dev->max_level) {
+				cpu = cpumask_any(&cpufreq_dev->allowed_cpus);
+				if (cpu_online(cpu) &&
+					!cpumask_test_and_set_cpu(cpu,
+					&cpus_isolated_by_thermal)) {
+					if (sched_isolate_cpu(cpu))
+						cpumask_clear_cpu(cpu,
+						&cpus_isolated_by_thermal);
+				}
+			}
+		}
+		mutex_unlock(&core_isolate_lock);
+		mutex_unlock(&cooling_list_lock);
+
+		atomic_set(&in_suspend, 0);
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
+
+static struct notifier_block cpufreq_cooling_pm_nb = {
+	.notifier_call = cpufreq_cooling_pm_notify,
+};
+
 static int cpufreq_hp_offline(unsigned int offline_cpu)
 {
 	struct cpufreq_cooling_device *cpufreq_dev;
@@ -228,7 +276,9 @@ static int cpufreq_hp_offline(unsigned int offline_cpu)
 			continue;
 
 		mutex_lock(&core_isolate_lock);
-		if (cpufreq_dev->cpufreq_state == cpufreq_dev->max_level)
+		if ((cpufreq_dev->cpufreq_state == cpufreq_dev->max_level) &&
+			(cpumask_test_and_clear_cpu(offline_cpu,
+			&cpus_isolated_by_thermal)))
 			sched_unisolate_cpu_unlocked(offline_cpu);
 		mutex_unlock(&core_isolate_lock);
 		break;
@@ -242,6 +292,9 @@ static int cpufreq_hp_online(unsigned int online_cpu)
 {
 	struct cpufreq_cooling_device *cpufreq_dev;
 	int ret = 0;
+
+	if (atomic_read(&in_suspend))
+		return 0;
 
 	mutex_lock(&cooling_list_lock);
 	list_for_each_entry(cpufreq_dev, &cpufreq_dev_list, node) {
@@ -677,8 +730,13 @@ static int cpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 	cpufreq_device->cpufreq_state = state;
 	/* If state is the last, isolate the CPU */
 	if (state == cpufreq_device->max_level) {
-		if (cpu_online(cpu))
-			sched_isolate_cpu(cpu);
+		if (cpu_online(cpu) &&
+			(!cpumask_test_and_set_cpu(cpu,
+			&cpus_isolated_by_thermal))) {
+			if (sched_isolate_cpu(cpu))
+				cpumask_clear_cpu(cpu,
+					&cpus_isolated_by_thermal);
+		}
 		mutex_unlock(&core_isolate_lock);
 		return ret;
 	} else if ((prev_state == cpufreq_device->max_level)
@@ -695,8 +753,10 @@ static int cpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 			if (ret)
 				pr_err("CPU:%d online error:%d\n", cpu, ret);
 			goto update_frequency;
-		} else
+		} else if (cpumask_test_and_clear_cpu(cpu,
+			&cpus_isolated_by_thermal)) {
 			sched_unisolate_cpu(cpu);
+		}
 	}
 	mutex_unlock(&core_isolate_lock);
 update_frequency:
@@ -1105,12 +1165,14 @@ __cpufreq_cooling_register(struct device_node *np,
 	mutex_unlock(&cooling_list_lock);
 
 	/* Register the notifier for first cpufreq cooling device */
-	if (!cpufreq_dev_count++)
+	if (!cpufreq_dev_count++ && !cpufreq_dev->plat_ops)
 		cpufreq_register_notifier(&thermal_cpufreq_notifier_block,
 					  CPUFREQ_POLICY_NOTIFIER);
 	if (!cpuhp_registered) {
 		cpuhp_registered = 1;
+		register_pm_notifier(&cpufreq_cooling_pm_nb);
 		cpumask_clear(&cpus_pending_online);
+		cpumask_clear(&cpus_isolated_by_thermal);
 		INIT_WORK(&cpuhp_register_work, register_cdev);
 		queue_work(system_wq, &cpuhp_register_work);
 	}
@@ -1285,9 +1347,13 @@ void cpufreq_cooling_unregister(struct thermal_cooling_device *cdev)
 
 	/* Unregister the notifier for the last cpufreq cooling device */
 	mutex_lock(&cooling_cpufreq_lock);
-	if (!--cpufreq_dev_count)
-		cpufreq_unregister_notifier(&thermal_cpufreq_notifier_block,
-					    CPUFREQ_POLICY_NOTIFIER);
+	if (!--cpufreq_dev_count) {
+		unregister_pm_notifier(&cpufreq_cooling_pm_nb);
+		if (!cpufreq_dev->plat_ops)
+			cpufreq_unregister_notifier(
+				&thermal_cpufreq_notifier_block,
+				CPUFREQ_POLICY_NOTIFIER);
+	}
 
 	mutex_lock(&cooling_list_lock);
 	list_del(&cpufreq_dev->node);
