@@ -141,7 +141,7 @@ static int32_t cam_actuator_power_down(struct cam_actuator_ctrl_t *a_ctrl)
 		CAM_ERR(CAM_ACTUATOR, "failed: power_info %pK", power_info);
 		return -EINVAL;
 	}
-	rc = msm_camera_power_down(power_info, soc_info);
+	rc = cam_sensor_util_power_down(power_info, soc_info);
 	if (rc) {
 		CAM_ERR(CAM_ACTUATOR, "power down the core is failed:%d", rc);
 		return rc;
