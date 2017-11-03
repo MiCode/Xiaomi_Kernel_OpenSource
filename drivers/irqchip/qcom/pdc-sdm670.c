@@ -120,13 +120,13 @@ static struct pdc_pin sdm670_data[] = {
 	{106, 653}, /* core_bi_px_gpio_132 */
 	{107, 654}, /* core_bi_px_gpio_133 */
 	{108, 655}, /* core_bi_px_gpio_145 */
+	{115, 662}, /* core_bi_px_gpio_41 */
+	{116, 663}, /* core_bi_px_gpio_89 */
+	{117, 664}, /* core_bi_px_gpio_31 */
+	{118, 665}, /* core_bi_px_gpio_49 */
 	{119, 666}, /* core_bi_px_to_mpm[2] */
 	{120, 667}, /* core_bi_px_to_mpm[3] */
 	{121, 668}, /* core_bi_px_to_mpm[4] */
-	{122, 669}, /* core_bi_px_gpio_41 */
-	{123, 670}, /* core_bi_px_gpio_89 */
-	{124, 671}, /* core_bi_px_gpio_31 */
-	{125, 95}, /* core_bi_px_gpio_49 */
 	{-1}
 };
 
