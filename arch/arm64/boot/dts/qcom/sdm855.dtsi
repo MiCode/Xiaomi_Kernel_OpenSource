@@ -603,7 +603,7 @@
 	};
 
 	clock_gcc: qcom,gcc {
-		compatible = "qcom,gcc-sdm855";
+		compatible = "qcom,gcc-sdm855", "syscon";
 		reg = <0x100000 0x1f0000>;
 		reg-names = "cc_base";
 		vdd_cx-supply = <&pm855l_s6_level>;
@@ -613,7 +613,7 @@
 	};
 
 	clock_videocc: qcom,videocc@ab00000 {
-		compatible = "qcom,videocc-sdm855";
+		compatible = "qcom,videocc-sdm855", "syscon";
 		reg = <0xab00000 0x10000>;
 		reg-names = "cc_base";
 		vdd_mm-supply = <&pm855l_s5_level>;
@@ -622,7 +622,7 @@
 	};
 
 	clock_camcc: qcom,camcc {
-		compatible = "qcom,camcc-sdm855";
+		compatible = "qcom,camcc-sdm855", "syscon";
 		reg = <0xad00000 0x10000>;
 		reg-names = "cc_base";
 		vdd_mx-supply = <&pm855l_s4_level>;
@@ -631,7 +631,7 @@
 	};
 
 	clock_dispcc: qcom,dispcc {
-		compatible = "qcom,dispcc-sdm855";
+		compatible = "qcom,dispcc-sdm855", "syscon";
 		reg = <0xaf00000 0x20000>;
 		reg-names = "cc_base";
 		vdd_mm-supply = <&pm855l_s5_level>;
@@ -640,7 +640,7 @@
 	};
 
 	clock_npucc: qcom,npucc {
-		compatible = "qcom,npucc-sdm855";
+		compatible = "qcom,npucc-sdm855", "syscon";
 		reg = <0x9910000 0x10000>;
 		reg-names = "cc_base";
 		vdd_cx-supply = <&pm855l_s6_level>;
@@ -664,6 +664,18 @@
 		reg-names = "osm_l3_base", "osm_pwrcl_base",
 			"osm_perfcl_base", "osm_perfpcl_base";
 
+		#clock-cells = <1>;
+	};
+
+	clock_debugcc: qcom,cc-debug {
+		compatible = "qcom,debugcc-sdm855";
+		qcom,gcc = <&clock_gcc>;
+		qcom,videocc = <&clock_videocc>;
+		qcom,camcc = <&clock_camcc>;
+		qcom,dispcc = <&clock_dispcc>;
+		qcom,npucc = <&clock_npucc>;
+		clock-names = "xo_clk_src";
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		#clock-cells = <1>;
 	};
 
