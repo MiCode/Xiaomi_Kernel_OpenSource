@@ -1017,13 +1017,17 @@ static void dp_catalog_ctrl_send_phy_pattern(struct dp_catalog_ctrl *ctrl,
 		/* 1111100000111110 */
 		dp_write(base + DP_TEST_80BIT_CUSTOM_PATTERN_REG2, 0x0000F83E);
 		break;
-	case DP_TEST_PHY_PATTERN_HBR2_CTS_EYE_PATTERN:
+	case DP_TEST_PHY_PATTERN_CP2520_PATTERN_1:
 		value = BIT(16);
 		dp_write(base + DP_HBR2_COMPLIANCE_SCRAMBLER_RESET, value);
 		value |= 0xFC;
 		dp_write(base + DP_HBR2_COMPLIANCE_SCRAMBLER_RESET, value);
 		dp_write(base + DP_MAINLINK_LEVELS, 0x2);
 		dp_write(base + DP_STATE_CTRL, 0x10);
+		break;
+	case DP_TEST_PHY_PATTERN_CP2520_PATTERN_3:
+		dp_write(base + DP_MAINLINK_CTRL, 0x11);
+		dp_write(base + DP_STATE_CTRL, 0x8);
 		break;
 	default:
 		pr_debug("No valid test pattern requested: 0x%x\n", pattern);

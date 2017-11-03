@@ -40,6 +40,7 @@
 #define MR_LINK_SYMBOL_ERM 0x80
 #define MR_LINK_PRBS7 0x100
 #define MR_LINK_CUSTOM80 0x200
+#define MR_LINK_TRAINING4  0x40
 
 struct dp_vc_tu_mapping_table {
 	u32 vic;
@@ -1214,9 +1215,6 @@ static void dp_ctrl_send_phy_test_pattern(struct dp_ctrl_private *ctrl)
 	u32 pattern_sent = 0x0;
 	u32 pattern_requested = ctrl->link->phy_params.phy_test_pattern_sel;
 
-	pr_debug("request: %s\n",
-			dp_link_get_phy_test_pattern(pattern_requested));
-
 	ctrl->catalog->update_vx_px(ctrl->catalog,
 			ctrl->link->phy_params.v_level,
 			ctrl->link->phy_params.p_level);
@@ -1224,6 +1222,9 @@ static void dp_ctrl_send_phy_test_pattern(struct dp_ctrl_private *ctrl)
 	ctrl->link->send_test_response(ctrl->link);
 
 	pattern_sent = ctrl->catalog->read_phy_pattern(ctrl->catalog);
+	pr_debug("pattern_request: %s. pattern_sent: 0x%x\n",
+			dp_link_get_phy_test_pattern(pattern_requested),
+			pattern_sent);
 
 	switch (pattern_sent) {
 	case MR_LINK_TRAINING1:
@@ -1235,7 +1236,7 @@ static void dp_ctrl_send_phy_test_pattern(struct dp_ctrl_private *ctrl)
 		if ((pattern_requested ==
 				DP_TEST_PHY_PATTERN_SYMBOL_ERR_MEASUREMENT_CNT)
 			|| (pattern_requested ==
-				DP_TEST_PHY_PATTERN_HBR2_CTS_EYE_PATTERN))
+				DP_TEST_PHY_PATTERN_CP2520_PATTERN_1))
 			success = true;
 		break;
 	case MR_LINK_PRBS7:
@@ -1247,9 +1248,14 @@ static void dp_ctrl_send_phy_test_pattern(struct dp_ctrl_private *ctrl)
 				DP_TEST_PHY_PATTERN_80_BIT_CUSTOM_PATTERN)
 			success = true;
 		break;
+	case MR_LINK_TRAINING4:
+		if (pattern_requested ==
+				DP_TEST_PHY_PATTERN_CP2520_PATTERN_3)
+			success = true;
+		break;
 	default:
 		success = false;
-		return;
+		break;
 	}
 
 	pr_debug("%s: %s\n", success ? "success" : "failed",
