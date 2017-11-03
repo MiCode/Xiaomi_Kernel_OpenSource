@@ -54,7 +54,7 @@
  * When in sbuf mode, select a much longer wait, to allow the other driver
  * to detect timeouts and abort if necessary.
  */
-#define KOFF_TIMEOUT_SBUF	(2000)
+#define KOFF_TIMEOUT_SBUF	(10000)
 
 /* default stream buffer headroom in lines */
 #define DEFAULT_SBUF_HEADROOM	20
