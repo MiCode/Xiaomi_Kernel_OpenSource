@@ -118,8 +118,10 @@
 	qusb_phy0: qusb@88e2000 {
 		compatible = "qcom,qusb2phy-v2";
 		reg = <0x088e2000 0x400>,
-			<0x007801e8 0x4>;
-		reg-names = "qusb_phy_base", "efuse_addr";
+			<0x007801e8 0x4>,
+			<0x088e7014 0x4>;
+		reg-names = "qusb_phy_base", "efuse_addr",
+				"refgen_north_bg_reg_addr";
 
 		qcom,efuse-bit-pos = <25>;
 		qcom,efuse-num-bits = <3>;
@@ -396,8 +398,10 @@
 	/* Secondary USB port related QUSB2 PHY */
 	qusb_phy1: qusb@88e3000 {
 		compatible = "qcom,qusb2phy-v2";
-		reg = <0x088e3000 0x400>;
-		reg-names = "qusb_phy_base";
+		reg = <0x088e3000 0x400>,
+			<0x088e7014 0x4>;
+		reg-names = "qusb_phy_base",
+				"refgen_north_bg_reg_addr";
 
 		vdd-supply = <&pm8998_l1>;
 		vdda18-supply = <&pm8998_l12>;
