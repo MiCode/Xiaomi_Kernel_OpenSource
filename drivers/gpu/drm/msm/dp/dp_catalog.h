@@ -109,6 +109,13 @@ struct dp_catalog_ctrl {
 	u32 (*read_phy_pattern)(struct dp_catalog_ctrl *ctrl);
 };
 
+#define HEADER_BYTE_2_BIT	 0
+#define PARITY_BYTE_2_BIT	 8
+#define HEADER_BYTE_1_BIT	16
+#define PARITY_BYTE_1_BIT	24
+#define HEADER_BYTE_3_BIT	16
+#define PARITY_BYTE_3_BIT	24
+
 enum dp_catalog_audio_sdp_type {
 	DP_AUDIO_SDP_STREAM,
 	DP_AUDIO_SDP_TIMESTAMP,
@@ -144,6 +151,8 @@ struct dp_catalog_panel {
 	u32 sync_start;
 	u32 width_blanking;
 	u32 dp_active;
+	u8 *spd_vendor_name;
+	u8 *spd_product_description;
 
 	struct dp_catalog_hdr_data hdr_data;
 
@@ -159,6 +168,7 @@ struct dp_catalog_panel {
 	int (*timing_cfg)(struct dp_catalog_panel *panel);
 	void (*config_hdr)(struct dp_catalog_panel *panel);
 	void (*tpg_config)(struct dp_catalog_panel *panel, bool enable);
+	void (*config_spd)(struct dp_catalog_panel *panel);
 };
 
 struct dp_catalog {
@@ -167,6 +177,71 @@ struct dp_catalog {
 	struct dp_catalog_audio audio;
 	struct dp_catalog_panel panel;
 };
+
+static inline u8 dp_ecc_get_g0_value(u8 data)
+{
+	u8 c[4];
+	u8 g[4];
+	u8 ret_data = 0;
+	u8 i;
+
+	for (i = 0; i < 4; i++)
+		c[i] = (data >> i) & 0x01;
+
+	g[0] = c[3];
+	g[1] = c[0] ^ c[3];
+	g[2] = c[1];
+	g[3] = c[2];
+
+	for (i = 0; i < 4; i++)
+		ret_data = ((g[i] & 0x01) << i) | ret_data;
+
+	return ret_data;
+}
+
+static inline u8 dp_ecc_get_g1_value(u8 data)
+{
+	u8 c[4];
+	u8 g[4];
+	u8 ret_data = 0;
+	u8 i;
+
+	for (i = 0; i < 4; i++)
+		c[i] = (data >> i) & 0x01;
+
+	g[0] = c[0] ^ c[3];
+	g[1] = c[0] ^ c[1] ^ c[3];
+	g[2] = c[1] ^ c[2];
+	g[3] = c[2] ^ c[3];
+
+	for (i = 0; i < 4; i++)
+		ret_data = ((g[i] & 0x01) << i) | ret_data;
+
+	return ret_data;
+}
+
+static inline u8 dp_header_get_parity(u32 data)
+{
+	u8 x0 = 0;
+	u8 x1 = 0;
+	u8 ci = 0;
+	u8 iData = 0;
+	u8 i = 0;
+	u8 parity_byte;
+	u8 num_byte = (data & 0xFF00) > 0 ? 8 : 2;
+
+	for (i = 0; i < num_byte; i++) {
+		iData = (data >> i*4) & 0xF;
+
+		ci = iData ^ x1;
+		x1 = x0 ^ dp_ecc_get_g1_value(ci);
+		x0 = dp_ecc_get_g0_value(ci);
+	}
+
+	parity_byte = x1 | (x0 << 4);
+
+	return parity_byte;
+}
 
 struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io);
 void dp_catalog_put(struct dp_catalog *catalog);
