@@ -68,6 +68,7 @@
 #define A6XX_CP_MEM_POOL_SIZE            0x8C3
 #define A6XX_CP_CHICKEN_DBG              0x841
 #define A6XX_CP_ADDR_MODE_CNTL           0x842
+#define A6XX_CP_DBG_ECO_CNTL             0x843
 #define A6XX_CP_PROTECT_CNTL             0x84F
 #define A6XX_CP_PROTECT_REG              0x850
 #define A6XX_CP_CONTEXT_SWITCH_CNTL      0x8A0
