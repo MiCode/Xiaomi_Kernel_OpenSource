@@ -680,7 +680,8 @@ static bool dp_link_is_phy_test_pattern_supported(u32 phy_test_pattern_sel)
 	case DP_TEST_PHY_PATTERN_SYMBOL_ERR_MEASUREMENT_CNT:
 	case DP_TEST_PHY_PATTERN_PRBS7:
 	case DP_TEST_PHY_PATTERN_80_BIT_CUSTOM_PATTERN:
-	case DP_TEST_PHY_PATTERN_HBR2_CTS_EYE_PATTERN:
+	case DP_TEST_PHY_PATTERN_CP2520_PATTERN_1:
+	case DP_TEST_PHY_PATTERN_CP2520_PATTERN_3:
 		return true;
 	default:
 		return false;
