@@ -1057,7 +1057,7 @@ void kgsl_get_memory_usage(char *name, size_t name_size, uint64_t memflags)
 	else if (type < ARRAY_SIZE(memtype_str) && memtype_str[type] != NULL)
 		strlcpy(name, memtype_str[type], name_size);
 	else
-		snprintf(name, name_size, "unknown(%3d)", type);
+		snprintf(name, name_size, "VK/others(%3d)", type);
 }
 EXPORT_SYMBOL(kgsl_get_memory_usage);
 
