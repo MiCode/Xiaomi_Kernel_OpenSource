@@ -1373,7 +1373,7 @@ void msm_mode_object_event_notify(struct drm_mode_object *obj,
 		if (node->event.type != event->type ||
 			obj->id != node->info.object_id)
 			continue;
-		len = event->length + sizeof(struct drm_msm_event_resp);
+		len = event->length + sizeof(struct msm_drm_event);
 		if (node->base.file_priv->event_space < len) {
 			DRM_ERROR("Insufficient space %d for event %x len %d\n",
 				node->base.file_priv->event_space, event->type,
@@ -1387,7 +1387,8 @@ void msm_mode_object_event_notify(struct drm_mode_object *obj,
 		notify->base.event = &notify->event;
 		notify->base.pid = node->base.pid;
 		notify->event.type = node->event.type;
-		notify->event.length = len;
+		notify->event.length = event->length +
+					sizeof(struct drm_msm_event_resp);
 		memcpy(&notify->info, &node->info, sizeof(notify->info));
 		memcpy(notify->data, payload, event->length);
 		ret = drm_event_reserve_init_locked(dev, node->base.file_priv,
