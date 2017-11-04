@@ -1224,12 +1224,12 @@ static inline void __free_iova(struct dma_iommu_mapping *mapping,
 
 	addr = addr & PAGE_MASK;
 	size = PAGE_ALIGN(size);
-	if (mapping->min_iova_align)
+	if (mapping->min_iova_align) {
 		guard_len = ALIGN(size, mapping->min_iova_align) - size;
-	else
+		iommu_unmap(mapping->domain, addr + size, guard_len);
+	} else {
 		guard_len = 0;
-
-	iommu_unmap(mapping->domain, addr + size, guard_len);
+	}
 
 	start = (addr - mapping->base) >> PAGE_SHIFT;
 	count = (size + guard_len) >> PAGE_SHIFT;
