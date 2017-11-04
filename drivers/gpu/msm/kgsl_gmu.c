@@ -18,6 +18,7 @@
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
 #include <linux/pm_opp.h>
+#include <linux/io.h>
 #include <soc/qcom/cmd-db.h>
 
 #include "kgsl_device.h"

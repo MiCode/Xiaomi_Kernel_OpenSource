@@ -14,6 +14,7 @@
 #include <linux/types.h>
 #include <linux/mutex.h>
 #include <linux/msm_ion.h>
+#include <linux/slab.h>
 #include <asm/cacheflush.h>
 
 #include "cam_req_mgr_util.h"

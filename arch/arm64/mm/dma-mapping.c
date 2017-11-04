@@ -31,6 +31,7 @@
 #include <linux/vmalloc.h>
 #include <linux/swiotlb.h>
 #include <linux/io.h>
+#include <linux/pci.h>
 
 #include <asm/cacheflush.h>
 #include <asm/tlbflush.h>
