@@ -99,7 +99,7 @@ int cam_cci_init(struct v4l2_subdev *sd,
 
 	/* Enable Regulators and IRQ*/
 	rc = cam_soc_util_enable_platform_resource(soc_info, true,
-		CAM_TURBO_VOTE, true);
+		CAM_LOWSVS_VOTE, true);
 	if (rc < 0) {
 		CAM_DBG(CAM_CCI, "request platform resources failed");
 		goto platform_enable_failed;
