@@ -804,6 +804,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.get_mode_info  = dp_connector_get_mode_info,
 		.send_hpd_event = dp_connector_send_hpd_event,
 		.check_status = NULL,
+		.pre_kickoff  = dp_connector_pre_kickoff,
 	};
 	struct msm_display_info info;
 	struct drm_encoder *encoder;

@@ -273,6 +273,20 @@ static const struct drm_bridge_funcs dp_bridge_ops = {
 	.mode_set     = dp_bridge_mode_set,
 };
 
+int dp_connector_pre_kickoff(struct drm_connector *connector,
+		void *display,
+		struct msm_display_kickoff_params *params)
+{
+	struct dp_display *dp = display;
+
+	if (!connector || !display || !params) {
+		pr_err("invalid params\n");
+		return -EINVAL;
+	}
+
+	return dp->pre_kickoff(dp, params->hdr_meta);
+}
+
 int dp_connector_post_init(struct drm_connector *connector,
 		void *info, void *display, struct msm_mode_info *mode_info)
 {
