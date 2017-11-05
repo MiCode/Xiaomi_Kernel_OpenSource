@@ -274,6 +274,13 @@ struct mhi_config {
 #define MHI_MASK_ROWS_CH_EV_DB		4
 #define TRB_MAX_DATA_SIZE		8192
 #define MHI_CTRL_STATE			25
+#define IPA_DMA_SYNC                    1
+#define IPA_DMA_ASYNC                   0
+
+/*maximum trasnfer completion events buffer*/
+#define MAX_TR_EVENTS			50
+/*maximum event requests */
+#define MHI_MAX_EVT_REQ			50
 
 /* Possible ring element types */
 union mhi_dev_ring_element_type {
@@ -358,6 +365,16 @@ enum mhi_ctrl_info {
 	MHI_STATE_INVAL,
 };
 
+enum mhi_dev_tr_compl_evt_type {
+	SEND_EVENT_BUFFER,
+	SEND_EVENT_RD_OFFSET,
+};
+
+enum mhi_dev_transfer_type {
+	MHI_DEV_DMA_SYNC,
+	MHI_DEV_DMA_ASYNC,
+};
+
 struct mhi_dev_channel;
 
 struct mhi_dev_ring {
@@ -433,14 +450,30 @@ struct mhi_dev_client {
 	uint32_t			nr_iov;
 };
 
+struct ring_cache_req {
+	struct completion	*done;
+	void			*context;
+};
+
+struct event_req {
+	union mhi_dev_ring_element_type *tr_events;
+	u32			num_events;
+	dma_addr_t		dma;
+	u32			dma_len;
+	dma_addr_t		event_rd_dma;
+	void			*context;
+	enum mhi_dev_tr_compl_evt_type event_type;
+	u32			event_ring;
+	void			(*client_cb)(void *req);
+	struct list_head	list;
+};
+
 struct mhi_dev_channel {
 	struct list_head		list;
 	struct list_head		clients;
 	/* synchronization for changing channel state,
 	 * adding/removing clients, mhi_dev callbacks, etc
 	 */
-	spinlock_t			lock;
-
 	struct mhi_dev_ring		*ring;
 
 	enum mhi_dev_channel_state	state;
@@ -449,6 +482,9 @@ struct mhi_dev_channel {
 	struct mutex			ch_lock;
 	/* client which the current inbound/outbound message is for */
 	struct mhi_dev_client		*active_client;
+
+	struct list_head		event_req_buffers;
+	struct event_req		*curr_ereq;
 
 	/* current TRE being processed */
 	uint64_t			tre_loc;
@@ -476,6 +512,7 @@ struct mhi_dev {
 	struct mhi_config		cfg;
 	bool				mmio_initialized;
 
+	spinlock_t			lock;
 	/* Host control base information */
 	struct mhi_host_addr		host_addr;
 	struct mhi_addr			ctrl_base;
@@ -502,6 +539,7 @@ struct mhi_dev {
 
 	/* Scheduler work */
 	struct work_struct		chdb_ctrl_work;
+
 	struct mutex			mhi_lock;
 	struct mutex			mhi_event_lock;
 
@@ -528,6 +566,7 @@ struct mhi_dev {
 	u32                             ifc_id;
 	struct ep_pcie_hw               *phandle;
 	struct work_struct		pcie_event;
+	struct ep_pcie_msi_config	msi_cfg;
 
 	atomic_t			write_active;
 	atomic_t			is_suspended;
@@ -564,6 +603,23 @@ struct mhi_dev {
 
 	/*Register for interrupt*/
 	bool				mhi_int;
+};
+
+struct mhi_req {
+	u32                             chan;
+	u32                             mode;
+	u32				chain;
+	void                            *buf;
+	dma_addr_t                      dma;
+	u32                             snd_cmpl;
+	void                            *context;
+	size_t                          len;
+	size_t                          actual_len;
+	uint32_t                        rd_offset;
+	struct mhi_dev_client           *client;
+	struct list_head                list;
+	union mhi_dev_ring_element_type *el;
+	void (*client_cb)(void *req);
 };
 
 enum mhi_msg_level {
@@ -674,24 +730,21 @@ int mhi_dev_close_channel(struct mhi_dev_client *handle_client);
 
 /**
  * mhi_dev_read_channel() - Channel read for a given client
- * @handle_client:	Client Handle issued during mhi_dev_open_channel
- * @buf: Pointer to the buffer used by the MHI core to copy the data received
- *	 from the Host.
- * @buf_size: Size of the buffer pointer.
- * @chain : Indicate if the recieved data is part of chained packet.
+ * @mreq:       mreq is the client argument which includes meta info
+ *              like write data location, buffer len, read offset, mode,
+ *              chain and client call back function which will be invoked
+ *              when data read is completed.
  */
-int mhi_dev_read_channel(struct mhi_dev_client *handle_client,
-				void *buf, uint32_t buf_size, uint32_t *chain);
+int mhi_dev_read_channel(struct mhi_req *mreq);
 
 /**
  * mhi_dev_write_channel() - Channel write for a given software client.
- * @handle_client:	Client Handle issued during mhi_dev_open_channel
- * @buf: Pointer to the buffer used by the MHI core to copy the data from the
- *	 device to the host.
- * @buf_size: Size of the buffer pointer.
+ * @wreq	wreq is the client argument which includes meta info like
+ *              client handle, read data location, buffer length, mode,
+ *              and client call back function which will free the packet.
+ *              when data write is completed.
  */
-int mhi_dev_write_channel(struct mhi_dev_client *handle_client, void *buf,
-							uint32_t buf_size);
+int mhi_dev_write_channel(struct mhi_req *wreq);
 
 /**
  * mhi_dev_channel_isempty() - Checks if there is any pending TRE's to process.
@@ -764,8 +817,8 @@ int mhi_dev_process_ring_element(struct mhi_dev_ring *ring, uint32_t offset);
  * @element:	Transfer ring element to be copied to the host memory.
  */
 int mhi_dev_add_element(struct mhi_dev_ring *ring,
-				union mhi_dev_ring_element_type *element);
-
+				union mhi_dev_ring_element_type *element,
+				struct event_req *ereq, int evt_offset);
 /**
  * mhi_transfer_device_to_host() - memcpy equivalent API to transfer data
  *		from device to the host.
@@ -773,9 +826,10 @@ int mhi_dev_add_element(struct mhi_dev_ring *ring,
  * @src:	Source virtual address.
  * @len:	Numer of bytes to be transferred.
  * @mhi:	MHI dev structure.
+ * @req:        mhi_req structure
  */
 int mhi_transfer_device_to_host(uint64_t dst_pa, void *src, uint32_t len,
-				struct mhi_dev *mhi);
+				struct mhi_dev *mhi, struct mhi_req *req);
 
 /**
  * mhi_transfer_host_to_dev() - memcpy equivalent API to transfer data
@@ -784,9 +838,10 @@ int mhi_transfer_device_to_host(uint64_t dst_pa, void *src, uint32_t len,
  * @src_pa:	Source physical address.
  * @len:	Numer of bytes to be transferred.
  * @mhi:	MHI dev structure.
+ * @req:        mhi_req structure
  */
 int mhi_transfer_host_to_device(void *device, uint64_t src_pa, uint32_t len,
-				struct mhi_dev *mhi);
+				struct mhi_dev *mhi, struct mhi_req *mreq);
 
 /**
  * mhi_dev_write_to_host() - Transfer data from device to host.
@@ -795,9 +850,8 @@ int mhi_transfer_host_to_device(void *device, uint64_t src_pa, uint32_t len,
  * @buf:	Data buffer that needs to be written to the host.
  * @size:	Data buffer size.
  */
-void mhi_dev_write_to_host(struct mhi_dev *mhi,
-				struct mhi_addr *mhi_transfer);
-
+void mhi_dev_write_to_host(struct mhi_dev *mhi, struct mhi_addr *mhi_transfer,
+		struct event_req *ereq, enum mhi_dev_transfer_type type);
 /**
  * mhi_dev_read_from_host() - memcpy equivalent API to transfer data
  *		from host to device.
@@ -881,6 +935,7 @@ int mhi_dev_mmio_masked_read(struct mhi_dev *dev, uint32_t offset,
  * mhi_dev_mmio_enable_ctrl_interrupt() - Enable Control interrupt.
  * @dev:	MHI device structure.
  */
+
 int mhi_dev_mmio_enable_ctrl_interrupt(struct mhi_dev *dev);
 
 /**
@@ -1119,7 +1174,7 @@ int mhi_dev_send_ee_event(struct mhi_dev *mhi,
 /**
  * mhi_dev_syserr() - System error when unexpected events are received.
  * @dev:	MHI device structure.
- */
+*/
 int mhi_dev_syserr(struct mhi_dev *mhi);
 
 /**
@@ -1157,9 +1212,11 @@ int mhi_pcie_config_db_routing(struct mhi_dev *mhi);
 int mhi_uci_init(void);
 
 /**
- * mhi_dev_net_interface_init() - Enable Network stack interface for MHI device
- *		which exposes the virtual network interface.
- **/
+ * mhi_dev_net_interface_init() - Initializes the mhi device network interface
+ *		which exposes the virtual network interface (mhi_dev_net0).
+ *		data packets will transfer between MHI host interface (mhi_swip)
+ *		and mhi_dev_net interface using software path
+ */
 int mhi_dev_net_interface_init(void);
 
 void mhi_dev_notify_a7_event(struct mhi_dev *mhi);
