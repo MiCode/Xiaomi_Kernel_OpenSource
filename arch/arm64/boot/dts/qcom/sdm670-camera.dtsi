@@ -649,7 +649,7 @@
 		src-clock-name = "ife_clk_src";
 		clock-names-option =  "ife_dsp_clk";
 		clocks-option = <&clock_camcc CAM_CC_IFE_0_DSP_CLK>;
-		clock-rates-option = <404000000>;
+		clock-rates-option = <600000000>;
 		status = "ok";
 	};
 
@@ -735,7 +735,7 @@
 		src-clock-name = "ife_clk_src";
 		clock-names-option =  "ife_dsp_clk";
 		clocks-option = <&clock_camcc CAM_CC_IFE_1_DSP_CLK>;
-		clock-rates-option = <404000000>;
+		clock-rates-option = <600000000>;
 		status = "ok";
 	};
 
