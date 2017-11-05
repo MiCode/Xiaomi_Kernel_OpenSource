@@ -37,6 +37,11 @@
 #define DP_INTR_CRC_UPDATED		BIT(9)
 
 struct dp_catalog_hdr_data {
+	u32 ext_header_byte0;
+	u32 ext_header_byte1;
+	u32 ext_header_byte2;
+	u32 ext_header_byte3;
+
 	u32 vsc_header_byte0;
 	u32 vsc_header_byte1;
 	u32 vsc_header_byte2;

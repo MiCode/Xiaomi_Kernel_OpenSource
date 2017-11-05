@@ -679,6 +679,11 @@ static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 	hdr = &panel->catalog->hdr_data;
 
+	hdr->ext_header_byte0 = 0x00;
+	hdr->ext_header_byte1 = 0x04;
+	hdr->ext_header_byte2 = 0x1F;
+	hdr->ext_header_byte3 = 0x00;
+
 	hdr->vsc_header_byte0 = 0x00;
 	hdr->vsc_header_byte1 = 0x07;
 	hdr->vsc_header_byte2 = 0x05;
@@ -690,10 +695,11 @@ static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
 
 	/* VSC SDP Payload for DB17 */
 	hdr->dynamic_range = CEA;
-	hdr->bpc = 10;
 
 	/* VSC SDP Payload for DB18 */
 	hdr->content_type = GRAPHICS;
+
+	hdr->bpc = dp_panel->pinfo.bpp / 3;
 
 	hdr->vscext_header_byte0 = 0x00;
 	hdr->vscext_header_byte1 = 0x87;
@@ -701,6 +707,7 @@ static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
 	hdr->vscext_header_byte3 = 0x13 << 2;
 
 	hdr->version = 0x01;
+	hdr->length = 0x1A;
 
 	memcpy(&hdr->hdr_meta, hdr_meta, sizeof(hdr->hdr_meta));
 
@@ -777,9 +784,9 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	dp_panel->set_dpcd = dp_panel_set_dpcd;
 	dp_panel->tpg_config = dp_panel_tpg_config;
 	dp_panel->spd_config = dp_panel_spd_config;
+	dp_panel->setup_hdr = dp_panel_setup_hdr;
 
 	dp_panel_edid_register(panel);
-	dp_panel->setup_hdr = dp_panel_setup_hdr;
 
 	return dp_panel;
 error:
