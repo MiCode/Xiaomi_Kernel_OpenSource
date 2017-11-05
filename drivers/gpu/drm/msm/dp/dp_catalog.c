@@ -337,7 +337,7 @@ static void dp_catalog_panel_setup_infoframe_sdp(struct dp_catalog_panel *panel)
 	struct dp_catalog_private *catalog;
 	struct drm_msm_ext_hdr_metadata *hdr;
 	void __iomem *base;
-	u32 header, data;
+	u32 header, parity, data;
 
 	if (!panel) {
 		pr_err("invalid input\n");
@@ -348,67 +348,90 @@ static void dp_catalog_panel_setup_infoframe_sdp(struct dp_catalog_panel *panel)
 	hdr = &panel->hdr_data.hdr_meta;
 	base = catalog->io->dp_link.base;
 
-	header = dp_read(base + MMSS_DP_VSCEXT_0);
-	header |= panel->hdr_data.vscext_header_byte1;
-	dp_write(base + MMSS_DP_VSCEXT_0, header);
+	/* HEADER BYTE 1 */
+	header = panel->hdr_data.vscext_header_byte1;
+	parity = dp_header_get_parity(header);
+	data   = ((header << HEADER_BYTE_1_BIT)
+			| (parity << PARITY_BYTE_1_BIT));
+	dp_write(base + MMSS_DP_VSCEXT_0, data);
+	pr_debug("Header#1: 0x%x, parity = 0x%x\n", header, parity);
+	pr_debug("DP_VSCEXT_0: 0x%x\n", data);
 
-	header = dp_read(base + MMSS_DP_VSCEXT_1);
-	header |= panel->hdr_data.vscext_header_byte2;
-	dp_write(base + MMSS_DP_VSCEXT_1, header);
+	/* HEADER BYTE 2 */
+	header = panel->hdr_data.vscext_header_byte2;
+	parity = dp_header_get_parity(header);
+	data   = ((header << HEADER_BYTE_2_BIT)
+			| (parity << PARITY_BYTE_2_BIT));
+	dp_write(base + MMSS_DP_VSCEXT_1, data);
+	pr_debug("Header#2: 0x%x, parity = 0x%x\n", header, parity);
+	pr_debug("DP_VSCEXT_1: 0x%x\n", data);
 
-	header = dp_read(base + MMSS_DP_VSCEXT_1);
-	header |= panel->hdr_data.vscext_header_byte3;
-	dp_write(base + MMSS_DP_VSCEXT_1, header);
+	/* HEADER BYTE 3 */
+	header = panel->hdr_data.vscext_header_byte3;
+	parity = dp_header_get_parity(header);
+	data   = ((header << HEADER_BYTE_3_BIT)
+			| (parity << PARITY_BYTE_3_BIT));
+	data |= dp_read(base + MMSS_DP_VSCEXT_1);
+	dp_write(base + MMSS_DP_VSCEXT_1, data);
+	pr_debug("Header#3: 0x%x, parity = 0x%x\n", header, parity);
+	pr_debug("DP_VSCEXT_1: 0x%x\n", data);
 
-	header =  panel->hdr_data.version;
-	header |=  panel->hdr_data.length << 8;
-	header |= hdr->eotf << 16;
-	dp_write(base + MMSS_DP_VSCEXT_2, header);
+	data = panel->hdr_data.version;
+	data |= panel->hdr_data.length << 8;
+	data |= hdr->eotf << 16;
+	pr_debug("DP_VSCEXT_2: 0x%x\n", data);
+	dp_write(base + MMSS_DP_VSCEXT_2, data);
 
 	data = (DP_GET_LSB(hdr->display_primaries_x[0]) |
 		(DP_GET_MSB(hdr->display_primaries_x[0]) << 8) |
 		(DP_GET_LSB(hdr->display_primaries_y[0]) << 16) |
 		(DP_GET_MSB(hdr->display_primaries_y[0]) << 24));
+	pr_debug("DP_VSCEXT_3: 0x%x\n", data);
 	dp_write(base + MMSS_DP_VSCEXT_3, data);
 
 	data = (DP_GET_LSB(hdr->display_primaries_x[1]) |
 		(DP_GET_MSB(hdr->display_primaries_x[1]) << 8) |
 		(DP_GET_LSB(hdr->display_primaries_y[1]) << 16) |
 		(DP_GET_MSB(hdr->display_primaries_y[1]) << 24));
+	pr_debug("DP_VSCEXT_4: 0x%x\n", data);
 	dp_write(base + MMSS_DP_VSCEXT_4, data);
 
 	data = (DP_GET_LSB(hdr->display_primaries_x[2]) |
 		(DP_GET_MSB(hdr->display_primaries_x[2]) << 8) |
 		(DP_GET_LSB(hdr->display_primaries_y[2]) << 16) |
 		(DP_GET_MSB(hdr->display_primaries_y[2]) << 24));
+	pr_debug("DP_VSCEXT_5: 0x%x\n", data);
 	dp_write(base + MMSS_DP_VSCEXT_5, data);
 
 	data = (DP_GET_LSB(hdr->white_point_x) |
 		(DP_GET_MSB(hdr->white_point_x) << 8) |
 		(DP_GET_LSB(hdr->white_point_y) << 16) |
 		(DP_GET_MSB(hdr->white_point_y) << 24));
+	pr_debug("DP_VSCEXT_6: 0x%x\n", data);
 	dp_write(base + MMSS_DP_VSCEXT_6, data);
 
 	data = (DP_GET_LSB(hdr->max_luminance) |
 		(DP_GET_MSB(hdr->max_luminance) << 8) |
 		(DP_GET_LSB(hdr->min_luminance) << 16) |
 		(DP_GET_MSB(hdr->min_luminance) << 24));
+	pr_debug("DP_VSCEXT_7: 0x%x\n", data);
 	dp_write(base + MMSS_DP_VSCEXT_7, data);
 
 	data = (DP_GET_LSB(hdr->max_content_light_level) |
 		(DP_GET_MSB(hdr->max_content_light_level) << 8) |
 		(DP_GET_LSB(hdr->max_average_light_level) << 16) |
 		(DP_GET_MSB(hdr->max_average_light_level) << 24));
+	pr_debug("DP_VSCEXT_8: 0x%x\n", data);
 	dp_write(base + MMSS_DP_VSCEXT_8, data);
 
 	dp_write(base + MMSS_DP_VSCEXT_9, 0x00);
 }
 
-static void dp_catalog_panel_setup_vsc_sdp(struct dp_catalog_panel *panel)
+static void dp_catalog_panel_setup_ext_sdp(struct dp_catalog_panel *panel)
 {
 	struct dp_catalog_private *catalog;
 	void __iomem *base;
-	u32 value;
+	u32 header, parity, data;
 
 	if (!panel) {
 		pr_err("invalid input\n");
@@ -418,30 +441,105 @@ static void dp_catalog_panel_setup_vsc_sdp(struct dp_catalog_panel *panel)
 	dp_catalog_get_priv(panel);
 	base = catalog->io->dp_link.base;
 
-	value = dp_read(base + MMSS_DP_GENERIC0_0);
-	value |= panel->hdr_data.vsc_header_byte1;
-	dp_write(base + MMSS_DP_GENERIC0_0, value);
+	/* HEADER BYTE 1 */
+	header = panel->hdr_data.ext_header_byte1;
+	parity = dp_header_get_parity(header);
+	data   = ((header << HEADER_BYTE_1_BIT)
+			| (parity << PARITY_BYTE_1_BIT));
+	dp_write(base + MMSS_DP_EXTENSION_0, data);
+	pr_debug("Header#1: 0x%x, parity = 0x%x\n", header, parity);
+	pr_debug("DP_EXTENSION_0: 0x%x\n", data);
 
-	value = dp_read(base + MMSS_DP_GENERIC0_1);
-	value |= panel->hdr_data.vsc_header_byte2;
-	dp_write(base + MMSS_DP_GENERIC0_1, value);
+	/* HEADER BYTE 2 */
+	header = panel->hdr_data.ext_header_byte2;
+	parity = dp_header_get_parity(header);
+	data   = ((header << HEADER_BYTE_2_BIT)
+			| (parity << PARITY_BYTE_2_BIT));
+	dp_write(base + MMSS_DP_EXTENSION_1, data);
+	pr_debug("Header#2: 0x%x, parity = 0x%x\n", header, parity);
+	pr_debug("DP_EXTENSION_1: 0x%x\n", data);
 
-	value = dp_read(base + MMSS_DP_GENERIC0_1);
-	value |= panel->hdr_data.vsc_header_byte3;
-	dp_write(base + MMSS_DP_GENERIC0_1, value);
+	dp_write(base + MMSS_DP_EXTENSION_1, 0x5AA55AA5);
+	dp_write(base + MMSS_DP_EXTENSION_2, 0x5AA55AA5);
+	dp_write(base + MMSS_DP_EXTENSION_3, 0x5AA55AA5);
+	dp_write(base + MMSS_DP_EXTENSION_4, 0x5AA55AA5);
+	dp_write(base + MMSS_DP_EXTENSION_5, 0x5AA55AA5);
+	dp_write(base + MMSS_DP_EXTENSION_6, 0x5AA55AA5);
+	dp_write(base + MMSS_DP_EXTENSION_7, 0x5AA55AA5);
+	dp_write(base + MMSS_DP_EXTENSION_8, 0x5AA55AA5);
+	dp_write(base + MMSS_DP_EXTENSION_9, 0x5AA55AA5);
+}
+
+static void dp_catalog_panel_setup_vsc_sdp(struct dp_catalog_panel *panel)
+{
+	struct dp_catalog_private *catalog;
+	void __iomem *base;
+	u32 header, parity, data;
+	u8 bpc;
+
+	if (!panel) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	dp_catalog_get_priv(panel);
+	base = catalog->io->ctrl_io.base;
+
+	/* HEADER BYTE 1 */
+	header = panel->hdr_data.vsc_header_byte1;
+	parity = dp_header_get_parity(header);
+	data   = ((header << HEADER_BYTE_1_BIT)
+			| (parity << PARITY_BYTE_1_BIT));
+	dp_write(base + MMSS_DP_GENERIC0_0, data);
+	pr_debug("Header#1: 0x%x, parity = 0x%x\n", header, parity);
+	pr_debug("DP_GENERIC0_0: 0x%x\n", data);
+
+	/* HEADER BYTE 2 */
+	header = panel->hdr_data.vsc_header_byte2;
+	parity = dp_header_get_parity(header);
+	data   = ((header << HEADER_BYTE_2_BIT)
+			| (parity << PARITY_BYTE_2_BIT));
+	dp_write(base + MMSS_DP_GENERIC0_1, data);
+	pr_debug("Header#2: 0x%x, parity = 0x%x\n", header, parity);
+	pr_debug("DP_GENERIC0_1: 0x%x\n", data);
+
+	/* HEADER BYTE 3 */
+	header = panel->hdr_data.vsc_header_byte3;
+	parity = dp_header_get_parity(header);
+	data   = ((header << HEADER_BYTE_3_BIT)
+			| (parity << PARITY_BYTE_3_BIT));
+	data |= dp_read(base + MMSS_DP_GENERIC0_1);
+	dp_write(base + MMSS_DP_GENERIC0_1, data);
+	pr_debug("Header#3: 0x%x, parity = 0x%x\n", header, parity);
+	pr_debug("DP_GENERIC0_1: 0x%x\n", data);
 
 	dp_write(base + MMSS_DP_GENERIC0_2, 0x00);
 	dp_write(base + MMSS_DP_GENERIC0_3, 0x00);
 	dp_write(base + MMSS_DP_GENERIC0_4, 0x00);
 	dp_write(base + MMSS_DP_GENERIC0_5, 0x00);
 
-	value = (panel->hdr_data.colorimetry & 0xF) |
+
+	switch (panel->hdr_data.bpc) {
+	default:
+	case 10:
+		bpc = BIT(1);
+		break;
+	case 8:
+		bpc = BIT(0);
+		break;
+	case 6:
+		bpc = 0;
+		break;
+	}
+
+	data = (panel->hdr_data.colorimetry & 0xF) |
 		((panel->hdr_data.pixel_encoding & 0xF) << 4) |
-		((panel->hdr_data.bpc & 0x7) << 8) |
+		(bpc << 8) |
 		((panel->hdr_data.dynamic_range & 0x1) << 15) |
 		((panel->hdr_data.content_type & 0x7) << 16);
 
-	dp_write(base + MMSS_DP_GENERIC0_6, value);
+	pr_debug("DP_GENERIC0_6: 0x%x\n", data);
+	dp_write(base + MMSS_DP_GENERIC0_6, data);
 	dp_write(base + MMSS_DP_GENERIC0_7, 0x00);
 	dp_write(base + MMSS_DP_GENERIC0_8, 0x00);
 	dp_write(base + MMSS_DP_GENERIC0_9, 0x00);
@@ -462,19 +560,31 @@ static void dp_catalog_panel_config_hdr(struct dp_catalog_panel *panel)
 	base = catalog->io->dp_link.base;
 
 	cfg = dp_read(base + MMSS_DP_SDP_CFG);
+	/* EXTENSION_SDP_EN */
+	cfg |= BIT(4);
+
 	/* VSCEXT_SDP_EN */
 	cfg |= BIT(16);
 
 	/* GEN0_SDP_EN */
 	cfg |= BIT(17);
 
+	/* GEN1_SDP_EN */
+	cfg |= BIT(18);
 	dp_write(base + MMSS_DP_SDP_CFG, cfg);
 
 	cfg2 = dp_read(base + MMSS_DP_SDP_CFG2);
-	/* Generic0 SDP Payload is 19 bytes which is > 16, so Bit16 is 1 */
-	cfg2 |= BIT(16);
+	/* EXTN_SDPSIZE */
+	cfg2 |= BIT(15);
+
+	/* GENERIC0_SDPSIZE */
+	cfg |= BIT(16);
+
+	/* GENERIC1_SDPSIZE */
+	cfg |= BIT(17);
 	dp_write(base + MMSS_DP_SDP_CFG2, cfg2);
 
+	dp_catalog_panel_setup_ext_sdp(panel);
 	dp_catalog_panel_setup_vsc_sdp(panel);
 	dp_catalog_panel_setup_infoframe_sdp(panel);
 
@@ -484,27 +594,8 @@ static void dp_catalog_panel_config_hdr(struct dp_catalog_panel *panel)
 
 	dp_write(base + DP_MISC1_MISC0, cfg);
 
-	cfg = dp_read(base + DP_CONFIGURATION_CTRL);
-	/* Send VSC */
-	cfg |= BIT(7);
-
-	switch (panel->hdr_data.bpc) {
-	default:
-	case 10:
-		cfg |= BIT(9);
-		break;
-	case 8:
-		cfg |= BIT(8);
-		break;
-	}
-
-	dp_write(base + DP_CONFIGURATION_CTRL, cfg);
-
-	cfg = dp_read(base + DP_COMPRESSION_MODE_CTRL);
-
-	/* Trigger SDP values in registers */
-	cfg |= BIT(8);
-	dp_write(base + DP_COMPRESSION_MODE_CTRL, cfg);
+	dp_write(base + MMSS_DP_SDP_CFG3, 0x01);
+	dp_write(base + MMSS_DP_SDP_CFG3, 0x00);
 }
 
 static void dp_catalog_ctrl_update_transfer_unit(struct dp_catalog_ctrl *ctrl)
@@ -1174,6 +1265,8 @@ static void dp_catalog_audio_config_sdp(struct dp_catalog_audio *audio)
 
 	dp_catalog_get_priv(audio);
 	base = catalog->io->dp_link.base;
+
+	sdp_cfg = dp_read(base + MMSS_DP_SDP_CFG);
 
 	/* AUDIO_TIMESTAMP_SDP_EN */
 	sdp_cfg |= BIT(1);
