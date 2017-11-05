@@ -421,43 +421,6 @@ static ssize_t available_out_modes_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(available_out_modes);
 
-static ssize_t mem_type_show(struct device *dev,
-			     struct device_attribute *attr,
-			     char *buf)
-{
-	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
-
-	return scnprintf(buf, PAGE_SIZE, "%s\n",
-			str_tmc_etr_mem_type[drvdata->mem_type]);
-}
-
-static ssize_t mem_type_store(struct device *dev,
-			      struct device_attribute *attr,
-			      const char *buf,
-			      size_t size)
-{
-	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	char str[10] = "";
-
-	if (strlen(buf) >= 10)
-		return -EINVAL;
-	if (sscanf(buf, "%10s", str) != 1)
-		return -EINVAL;
-
-	mutex_lock(&drvdata->mem_lock);
-	if (!strcmp(str, str_tmc_etr_mem_type[TMC_ETR_MEM_TYPE_CONTIG]))
-		drvdata->mem_type = TMC_ETR_MEM_TYPE_CONTIG;
-	else if (!strcmp(str, str_tmc_etr_mem_type[TMC_ETR_MEM_TYPE_SG]))
-		drvdata->mem_type = TMC_ETR_MEM_TYPE_SG;
-	else
-		size = -EINVAL;
-
-	mutex_unlock(&drvdata->mem_lock);
-
-	return size;
-}
-static DEVICE_ATTR_RW(mem_type);
-
 static ssize_t block_size_show(struct device *dev,
 			     struct device_attribute *attr,
 			     char *buf)

@@ -15,6 +15,7 @@
 #include <linux/of_irq.h>
 #include <linux/moduleparam.h>
 #include <linux/delay.h>
+#include <linux/uaccess.h>
 
 #include "coresight-byte-cntr.h"
 #include "coresight-priv.h"

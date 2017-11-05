@@ -362,7 +362,7 @@ int tmc_etr_bam_init(struct amba_device *adev,
 	return sps_register_bam_device(&bamdata->props, &bamdata->handle);
 }
 
-static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev, u32 mode)
+static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 {
 	int ret = 0;
 	bool used = false;
@@ -390,11 +390,9 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev, u32 mode)
 			 * enabling tmc; the new selection will be honored from
 			 * next tmc enable session.
 			 */
-			if (drvdata->size != drvdata->mem_size ||
-				drvdata->memtype != drvdata->mem_type) {
+			if (drvdata->size != drvdata->mem_size) {
 				tmc_etr_free_mem(drvdata);
 				drvdata->size = drvdata->mem_size;
-				drvdata->memtype = drvdata->mem_type;
 			}
 
 			ret = tmc_etr_alloc_mem(drvdata);
@@ -449,7 +447,7 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev, u32 mode)
 	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
 		tmc_etr_enable_hw(drvdata);
 
-	drvdata->enable = true;	828
+	drvdata->enable = true;
 	drvdata->sticky_enable = true;
 out:
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
@@ -524,7 +522,7 @@ static void tmc_disable_etr_sink(struct coresight_device *csdev)
 	}
 
 	/* Disable the TMC only if it needs to */
-	if (val != CS_MODE_DISABLED) {
+	if (drvdata->mode != CS_MODE_DISABLED) {
 		if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
 			__tmc_etr_disable_to_bam(drvdata);
 			spin_unlock_irqrestore(&drvdata->spinlock, flags);
