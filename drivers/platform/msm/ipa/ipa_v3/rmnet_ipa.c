@@ -1946,12 +1946,6 @@ int ipa3_wwan_set_modem_perf_profile(int throughput)
 	struct ipa_rm_perf_profile profile;
 	int ret;
 
-	ret = ipa_pm_set_perf_profile(rmnet_ipa3_ctx->q6_pm_hdl, throughput);
-	if (ret)
-		return ret;
-	return ipa_pm_set_perf_profile(rmnet_ipa3_ctx->q6_teth_pm_hdl,
-		throughput);
-
 	if (ipa3_ctx->use_ipa_pm) {
 		ret = ipa_pm_set_perf_profile(rmnet_ipa3_ctx->q6_pm_hdl,
 			throughput);
