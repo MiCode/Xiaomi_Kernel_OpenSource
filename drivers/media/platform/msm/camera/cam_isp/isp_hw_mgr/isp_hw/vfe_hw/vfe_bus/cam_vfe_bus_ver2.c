@@ -2389,49 +2389,6 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 				wm_data->index, reg_val_pair[j-1]);
 		}
 
-		if (wm_data->framedrop_pattern != io_cfg->framedrop_pattern ||
-			!wm_data->hfr_cfg_done) {
-			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
-				wm_data->hw_regs->framedrop_pattern,
-				io_cfg->framedrop_pattern);
-			wm_data->framedrop_pattern = io_cfg->framedrop_pattern;
-			CAM_DBG(CAM_ISP, "WM %d framedrop pattern 0x%x",
-				wm_data->index, reg_val_pair[j-1]);
-		}
-
-
-		if (wm_data->framedrop_period != io_cfg->framedrop_period ||
-			!wm_data->hfr_cfg_done) {
-			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
-				wm_data->hw_regs->framedrop_period,
-				io_cfg->framedrop_period);
-			wm_data->framedrop_period = io_cfg->framedrop_period;
-			CAM_DBG(CAM_ISP, "WM %d framedrop period 0x%x",
-				wm_data->index, reg_val_pair[j-1]);
-		}
-
-		if (wm_data->irq_subsample_period != io_cfg->subsample_period
-			|| !wm_data->hfr_cfg_done) {
-			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
-				wm_data->hw_regs->irq_subsample_period,
-				io_cfg->subsample_period);
-			wm_data->irq_subsample_period =
-				io_cfg->subsample_period;
-			CAM_DBG(CAM_ISP, "WM %d irq subsample period 0x%x",
-				wm_data->index, reg_val_pair[j-1]);
-		}
-
-		if (wm_data->irq_subsample_pattern != io_cfg->subsample_pattern
-			|| !wm_data->hfr_cfg_done) {
-			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
-				wm_data->hw_regs->irq_subsample_pattern,
-				io_cfg->subsample_pattern);
-			wm_data->irq_subsample_pattern =
-				io_cfg->subsample_pattern;
-			CAM_DBG(CAM_ISP, "WM %d irq subsample pattern 0x%x",
-				wm_data->index, reg_val_pair[j-1]);
-		}
-
 		if (wm_data->en_ubwc) {
 			if (!wm_data->hw_regs->ubwc_regs) {
 				CAM_ERR(CAM_ISP,
