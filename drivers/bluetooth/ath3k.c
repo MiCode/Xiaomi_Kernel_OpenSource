@@ -209,13 +209,27 @@ static int ath3k_load_firmware(struct usb_device *udev,
 {
 	u8 *send_buf;
 	int err, pipe, len, size, sent = 0;
-	int count = firmware->size;
+	int count;
 
 	BT_DBG("udev %p", udev);
 
+	if (!firmware || !firmware->data || firmware->size <= 0) {
+		err = -EINVAL;
+		BT_ERR("Not a valid FW file");
+		return err;
+	}
+
+	count = firmware->size;
+
+	if (count < FW_HDR_SIZE) {
+		err = -EINVAL;
+		BT_ERR("ath3k loading invalid size of file");
+		return err;
+	}
+
 	pipe = usb_sndctrlpipe(udev, 0);
 
-	send_buf = kmalloc(BULK_SIZE, GFP_KERNEL);
+	send_buf = kzalloc(BULK_SIZE, GFP_KERNEL);
 	if (!send_buf) {
 		BT_ERR("Can't allocate memory chunk for firmware");
 		return -ENOMEM;
