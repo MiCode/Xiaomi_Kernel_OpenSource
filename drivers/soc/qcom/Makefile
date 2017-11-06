@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0
 KASAN_SANITIZE_scm.o := n
 obj-$(CONFIG_QCOM_CPUSS_DUMP) += cpuss_dump.o
 obj-$(CONFIG_QCOM_GLINK_SSR) +=	glink_ssr.o

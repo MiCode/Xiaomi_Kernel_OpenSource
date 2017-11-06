@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+/* SPDX-License-Identifier: GPL-2.0 */
 #undef TRACE_SYSTEM
 #define TRACE_SYSTEM kmem
 
