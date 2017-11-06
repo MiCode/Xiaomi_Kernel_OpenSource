@@ -4534,13 +4534,14 @@ static void qsmmuv500_errata1_tlb_inv_context(void *cookie)
 	struct qsmmuv500_archdata *data =
 			get_qsmmuv500_archdata(smmu_domain->smmu);
 	ktime_t cur;
+	unsigned long flags;
 	bool errata;
 
 	cur = ktime_get();
 	trace_errata_tlbi_start(dev, 0);
 
 	errata = qsmmuv500_errata1_required(smmu_domain, data);
-	remote_spin_lock(&data->errata1_lock);
+	remote_spin_lock_irqsave(&data->errata1_lock, flags);
 	if (errata) {
 		s64 delta;
 
@@ -4554,7 +4555,7 @@ static void qsmmuv500_errata1_tlb_inv_context(void *cookie)
 	} else {
 		__qsmmuv500_errata1_tlbiall(smmu_domain);
 	}
-	remote_spin_unlock(&data->errata1_lock);
+	remote_spin_unlock_irqrestore(&data->errata1_lock, flags);
 
 	trace_errata_tlbi_end(dev, ktime_us_delta(ktime_get(), cur));
 }
