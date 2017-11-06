@@ -23,6 +23,7 @@
 #include <linux/err.h>
 #include <linux/dma-mapping.h>
 #include <linux/msm_ion.h>
+#include <linux/of.h>
 
 #include <asm/cacheflush.h>
 #include <soc/qcom/secure_buffer.h>
@@ -59,6 +60,18 @@ static int ion_cma_get_sgtable(struct device *dev, struct sg_table *sgt,
 	return 0;
 }
 
+static bool ion_cma_has_kernel_mapping(struct ion_heap *heap)
+{
+	struct device *dev = heap->priv;
+	struct device_node *mem_region;
+
+	mem_region = of_parse_phandle(dev->of_node, "memory-region", 0);
+	if (IS_ERR(mem_region))
+		return false;
+
+	return !of_property_read_bool(mem_region, "no-map");
+}
+
 /* ION CMA heap operations functions */
 static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 			    unsigned long len, unsigned long align,
@@ -72,6 +85,12 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 	info = kzalloc(sizeof(struct ion_cma_buffer_info), GFP_KERNEL);
 	if (!info)
 		return ION_CMA_ALLOCATE_FAILED;
+
+	/* Override flags if cached-mappings are not supported */
+	if (!ion_cma_has_kernel_mapping(heap)) {
+		flags &= ~((unsigned long)ION_FLAG_CACHED);
+		buffer->flags = flags;
+	}
 
 	if (!ION_IS_CACHED(flags))
 		info->cpu_addr = dma_alloc_writecombine(dev, len,

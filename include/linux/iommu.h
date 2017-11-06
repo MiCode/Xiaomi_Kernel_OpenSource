@@ -88,6 +88,8 @@ struct iommu_pgtbl_info {
 #define IOMMU_DOMAIN_DMA	(__IOMMU_DOMAIN_PAGING |	\
 				 __IOMMU_DOMAIN_DMA_API)
 
+
+#define IOMMU_DOMAIN_NAME_LEN 32
 struct iommu_domain {
 	unsigned type;
 	const struct iommu_ops *ops;
@@ -96,6 +98,7 @@ struct iommu_domain {
 	void *handler_token;
 	struct iommu_domain_geometry geometry;
 	void *iova_cookie;
+	char name[IOMMU_DOMAIN_NAME_LEN];
 };
 
 enum iommu_cap {
@@ -281,6 +284,9 @@ extern int iommu_map(struct iommu_domain *domain, unsigned long iova,
 		     phys_addr_t paddr, size_t size, int prot);
 extern size_t iommu_unmap(struct iommu_domain *domain, unsigned long iova,
 		       size_t size);
+extern size_t iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
+				struct scatterlist *sg, unsigned int nents,
+				int prot);
 extern size_t default_iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
 				struct scatterlist *sg,unsigned int nents,
 				int prot);
@@ -343,13 +349,6 @@ extern uint64_t iommu_iova_to_pte(struct iommu_domain *domain,
 
 extern int report_iommu_fault(struct iommu_domain *domain, struct device *dev,
 			      unsigned long iova, int flags);
-
-static inline size_t iommu_map_sg(struct iommu_domain *domain,
-				  unsigned long iova, struct scatterlist *sg,
-				  unsigned int nents, int prot)
-{
-	return domain->ops->map_sg(domain, iova, sg, nents, prot);
-}
 
 extern void iommu_trigger_fault(struct iommu_domain *domain,
 				unsigned long flags);
