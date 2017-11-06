@@ -76,6 +76,10 @@ struct sdhci_pinctrl_data {
 	struct pinctrl          *pctrl;
 	struct pinctrl_state    *pins_active;
 	struct pinctrl_state    *pins_sleep;
+	struct pinctrl_state    *pins_drv_type_400KHz;
+	struct pinctrl_state    *pins_drv_type_50MHz;
+	struct pinctrl_state    *pins_drv_type_100MHz;
+	struct pinctrl_state    *pins_drv_type_200MHz;
 };
 
 struct sdhci_msm_bus_voting_data {

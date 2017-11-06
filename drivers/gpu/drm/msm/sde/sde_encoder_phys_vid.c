@@ -33,6 +33,9 @@
 #define to_sde_encoder_phys_vid(x) \
 	container_of(x, struct sde_encoder_phys_vid, base)
 
+/* maximum number of consecutive kickoff errors */
+#define KICKOFF_MAX_ERRORS	2
+
 static bool sde_encoder_phys_vid_is_master(
 		struct sde_encoder_phys *phys_enc)
 {
@@ -763,7 +766,7 @@ static int sde_encoder_phys_vid_wait_for_vblank(
 	return _sde_encoder_phys_vid_wait_for_vblank(phys_enc, true);
 }
 
-static void sde_encoder_phys_vid_prepare_for_kickoff(
+static int sde_encoder_phys_vid_prepare_for_kickoff(
 		struct sde_encoder_phys *phys_enc,
 		struct sde_encoder_kickoff_params *params)
 {
@@ -771,15 +774,15 @@ static void sde_encoder_phys_vid_prepare_for_kickoff(
 	struct sde_hw_ctl *ctl;
 	int rc;
 
-	if (!phys_enc || !params) {
+	if (!phys_enc || !params || !phys_enc->hw_ctl) {
 		SDE_ERROR("invalid encoder/parameters\n");
-		return;
+		return -EINVAL;
 	}
 	vid_enc = to_sde_encoder_phys_vid(phys_enc);
 
 	ctl = phys_enc->hw_ctl;
-	if (!ctl || !ctl->ops.wait_reset_status)
-		return;
+	if (!ctl->ops.wait_reset_status)
+		return 0;
 
 	/*
 	 * hw supports hardware initiated ctl reset, so before we kickoff a new
@@ -789,11 +792,35 @@ static void sde_encoder_phys_vid_prepare_for_kickoff(
 	if (rc) {
 		SDE_ERROR_VIDENC(vid_enc, "ctl %d reset failure: %d\n",
 				ctl->idx, rc);
-		sde_encoder_helper_unregister_irq(phys_enc, INTR_IDX_VSYNC);
-		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus", "panic");
+
+		++vid_enc->error_count;
+		if (vid_enc->error_count >= KICKOFF_MAX_ERRORS) {
+			vid_enc->error_count = KICKOFF_MAX_ERRORS;
+
+			sde_encoder_helper_unregister_irq(
+					phys_enc, INTR_IDX_VSYNC);
+			SDE_DBG_DUMP("panic");
+			sde_encoder_helper_register_irq(
+					phys_enc, INTR_IDX_VSYNC);
+		} else if (vid_enc->error_count == 1) {
+			SDE_EVT32(DRMID(phys_enc->parent), SDE_EVTLOG_FATAL);
+
+			sde_encoder_helper_unregister_irq(
+					phys_enc, INTR_IDX_VSYNC);
+			SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus");
+			sde_encoder_helper_register_irq(
+					phys_enc, INTR_IDX_VSYNC);
+		}
+
+		/* request a ctl reset before the next flush */
+		phys_enc->enable_state = SDE_ENC_ERR_NEEDS_HW_RESET;
+	} else {
+		vid_enc->error_count = 0;
 	}
 
 	programmable_rot_fetch_config(phys_enc, params->inline_rotate_prefill);
+
+	return rc;
 }
 
 static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)

@@ -602,8 +602,6 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	if (_IOC_TYPE(cmd) != IPA_IOC_MAGIC)
 		return -ENOTTY;
-	if (_IOC_NR(cmd) >= IPA_IOCTL_MAX)
-		return -ENOTTY;
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
@@ -1465,7 +1463,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 		break;
 
-	default:        /* redundant, as cmd was checked against MAXNR */
+	default:
 		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 		return -ENOTTY;
 	}

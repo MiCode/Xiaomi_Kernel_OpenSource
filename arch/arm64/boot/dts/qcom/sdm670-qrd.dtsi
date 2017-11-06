@@ -28,7 +28,27 @@
 };
 
 &qupv3_se3_i2c {
-	status = "disabled";
+	status = "ok";
+	nq@28 {
+		compatible = "qcom,nq-nci";
+		reg = <0x28>;
+		qcom,nq-irq = <&tlmm 44 0x00>;
+		qcom,nq-ven = <&tlmm 12 0x00>;
+		qcom,nq-firm = <&tlmm 43 0x00>;
+		qcom,nq-clkreq = <&pm660_gpios 4 0x00>;
+		qcom,nq-esepwr = <&tlmm 116 0x00>;
+		interrupt-parent = <&tlmm>;
+		qcom,clk-src = "BBCLK3";
+		interrupts = <44 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active", "nfc_suspend";
+		pinctrl-0 = <&nfc_int_active
+			     &nfc_enable_active
+			     &nfc_clk_default>;
+		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend>;
+		clocks = <&clock_rpmh RPMH_LN_BB_CLK3>;
+		clock-names = "ref_clk";
+	};
 };
 
 &qupv3_se10_i2c {
@@ -123,7 +143,7 @@
 };
 
 &int_codec {
-	qcom,model = "sdm660-skuw-snd-card";
+	qcom,model = "sdm670-skuw-snd-card";
 	qcom,audio-routing =
 		"RX_BIAS", "INT_MCLK0",
 		"SPK_RX_BIAS", "INT_MCLK0",
@@ -144,4 +164,40 @@
 	qcom,wsa-max-devs = <1>;
 	qcom,wsa-devs = <&wsa881x_211_en>, <&wsa881x_213_en>;
 	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrLeft";
+};
+
+&sdhc_1 {
+	vdd-supply = <&pm660l_l4>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <200 570000>;
+
+	vdd-io-supply = <&pm660_l8>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <200 325000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on  &sdc1_cmd_on &sdc1_data_on &sdc1_rclk_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off &sdc1_rclk_off>;
+
+	status = "ok";
+};
+
+&sdhc_2 {
+	vdd-supply = <&pm660l_l5>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <200 800000>;
+
+	vdd-io-supply = <&pm660l_l2>;
+	qcom,vdd-io-voltage-level = <1800000 2960000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
+
+	cd-gpios = <&tlmm 96 0>;
+
+	status = "ok";
 };

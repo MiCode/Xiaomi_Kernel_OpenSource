@@ -226,6 +226,7 @@ enum hal_property {
 	HAL_PARAM_VIDEO_CORES_USAGE,
 	HAL_PARAM_VIDEO_WORK_MODE,
 	HAL_PARAM_SECURE,
+	HAL_PARAM_VENC_HDR10_PQ_SEI,
 };
 
 enum hal_domain {
@@ -1396,6 +1397,11 @@ struct hal_cmd_sys_get_property_packet {
 	u32 packet_type;
 	u32 num_properties;
 	u32 rg_property_data[1];
+};
+
+struct hal_hdr10_pq_sei {
+	struct msm_vidc_mastering_display_colour_sei_payload disp_color_sei;
+	struct msm_vidc_content_light_level_sei_payload cll_sei;
 };
 
 #define call_hfi_op(q, op, args...)			\

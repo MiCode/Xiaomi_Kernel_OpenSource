@@ -2513,6 +2513,45 @@ void sde_rotator_req_finish(struct sde_rot_mgr *mgr,
 	req->finished = true;
 }
 
+void sde_rotator_abort_inline_request(struct sde_rot_mgr *mgr,
+		struct sde_rot_file_private *private,
+		struct sde_rot_entry_container *req)
+{
+	struct kthread_work *commit_work;
+	struct kthread_work *done_work;
+	struct sde_rot_entry *entry;
+	struct sde_rot_hw_resource *hw;
+	int i;
+
+	if (!mgr || !private || !req || !req->entries)
+		return;
+
+	for (i = 0; i < req->count; i++) {
+		entry = &req->entries[i];
+		if (!entry)
+			continue;
+
+		commit_work = &entry->commit_work;
+		done_work = &entry->done_work;
+
+		hw = sde_rotator_get_hw_resource(entry->commitq, entry);
+		if (!hw) {
+			SDEROT_ERR("no hw for the queue\n");
+			SDEROT_EVTLOG(i, req->count, SDE_ROT_EVTLOG_ERROR);
+			continue;
+		}
+
+		SDEROT_EVTLOG(i, req->count);
+
+		mgr->ops_abort_hw(hw, entry);
+
+		sde_rot_mgr_unlock(mgr);
+		kthread_flush_work(commit_work);
+		kthread_flush_work(done_work);
+		sde_rot_mgr_lock(mgr);
+	}
+}
+
 int sde_rotator_handle_request_common(struct sde_rot_mgr *mgr,
 	struct sde_rot_file_private *private,
 	struct sde_rot_entry_container *req)

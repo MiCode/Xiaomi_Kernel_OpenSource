@@ -38,14 +38,6 @@
 #include "sde_color_processing.h"
 #include "sde_hw_rot.h"
 
-static bool suspend_blank = true;
-module_param(suspend_blank, bool, 0400);
-MODULE_PARM_DESC(suspend_blank,
-		"If set, active planes will force their outputs to black,\n"
-		"by temporarily enabling the color fill, when recovering\n"
-		"from a system resume instead of attempting to display the\n"
-		"last provided frame buffer.");
-
 #define SDE_DEBUG_PLANE(pl, fmt, ...) SDE_DEBUG("plane%d " fmt,\
 		(pl) ? (pl)->base.base.id : -1, ##__VA_ARGS__)
 
@@ -103,6 +95,7 @@ enum sde_plane_qos {
  * @sbuf_mode: force stream buffer mode if set
  * @sbuf_writeback: force stream buffer writeback if set
  * @revalidate: force revalidation of all the plane properties
+ * @xin_halt_forced_clk: whether or not clocks were forced on for xin halt
  * @blob_rot_caps: Pointer to rotator capability blob
  */
 struct sde_plane {
@@ -128,6 +121,7 @@ struct sde_plane {
 	u32 sbuf_mode;
 	u32 sbuf_writeback;
 	bool revalidate;
+	bool xin_halt_forced_clk;
 
 	struct sde_csc_cfg csc_cfg;
 	struct sde_csc_cfg *csc_usr_ptr;
@@ -704,7 +698,10 @@ static void _sde_plane_set_input_fence(struct sde_plane *psde,
 		sde_sync_put(pstate->input_fence);
 
 	/* get fence pointer for later */
-	pstate->input_fence = sde_sync_get(fd);
+	if (fd == 0)
+		pstate->input_fence = NULL;
+	else
+		pstate->input_fence = sde_sync_get(fd);
 
 	SDE_DEBUG_PLANE(psde, "0x%llX\n", fd);
 }
@@ -2486,6 +2483,111 @@ error_prepare_output_buffer:
 	msm_framebuffer_cleanup(state->fb, pstate->aspace);
 }
 
+static bool _sde_plane_halt_requests(struct drm_plane *plane,
+		uint32_t xin_id, bool halt_forced_clk, bool enable)
+{
+	struct sde_plane *psde;
+	struct msm_drm_private *priv;
+	struct sde_vbif_set_xin_halt_params halt_params;
+
+	if (!plane || !plane->dev) {
+		SDE_ERROR("invalid arguments\n");
+		return false;
+	}
+
+	psde = to_sde_plane(plane);
+	if (!psde->pipe_hw || !psde->pipe_hw->cap) {
+		SDE_ERROR("invalid pipe reference\n");
+		return false;
+	}
+
+	priv = plane->dev->dev_private;
+	if (!priv || !priv->kms) {
+		SDE_ERROR("invalid KMS reference\n");
+		return false;
+	}
+
+	memset(&halt_params, 0, sizeof(halt_params));
+	halt_params.vbif_idx = VBIF_RT;
+	halt_params.xin_id = xin_id;
+	halt_params.clk_ctrl = psde->pipe_hw->cap->clk_ctrl;
+	halt_params.forced_on = halt_forced_clk;
+	halt_params.enable = enable;
+
+	return sde_vbif_set_xin_halt(to_sde_kms(priv->kms), &halt_params);
+}
+
+void sde_plane_halt_requests(struct drm_plane *plane, bool enable)
+{
+	struct sde_plane *psde;
+
+	if (!plane) {
+		SDE_ERROR("invalid plane\n");
+		return;
+	}
+
+	psde = to_sde_plane(plane);
+	if (!psde->pipe_hw || !psde->pipe_hw->cap) {
+		SDE_ERROR("invalid pipe reference\n");
+		return;
+	}
+
+	SDE_EVT32(DRMID(plane), psde->xin_halt_forced_clk, enable);
+
+	psde->xin_halt_forced_clk =
+		_sde_plane_halt_requests(plane, psde->pipe_hw->cap->xin_id,
+				psde->xin_halt_forced_clk, enable);
+}
+
+int sde_plane_reset_rot(struct drm_plane *plane, struct drm_plane_state *state)
+{
+	struct sde_plane *psde;
+	struct sde_plane_state *pstate;
+	struct sde_plane_rot_state *rstate;
+	bool halt_ret[MAX_BLOCKS] = {false};
+	signed int i, count;
+
+	if (!plane || !state) {
+		SDE_ERROR("invalid plane\n");
+		return -EINVAL;
+	}
+
+	psde = to_sde_plane(plane);
+	pstate = to_sde_plane_state(state);
+	rstate = &pstate->rot;
+
+	/* do nothing if not master rotator plane */
+	if (!rstate->out_sbuf || !rstate->rot_hw ||
+			!rstate->rot_hw->caps || (rstate->out_xpos != 0))
+		return 0;
+
+	count = (signed int)rstate->rot_hw->caps->xin_count;
+	if (count > ARRAY_SIZE(halt_ret))
+		count = ARRAY_SIZE(halt_ret);
+
+	SDE_DEBUG_PLANE(psde, "issuing reset for rotator\n");
+	SDE_EVT32(DRMID(plane), count);
+
+	for (i = 0; i < count; i++) {
+		const struct sde_rot_vbif_cfg *cfg =
+				&rstate->rot_hw->caps->vbif_cfg[i];
+
+		halt_ret[i] = _sde_plane_halt_requests(plane, cfg->xin_id,
+				false, true);
+	}
+
+	sde_plane_rot_submit_command(plane, state, SDE_HW_ROT_CMD_RESET);
+
+	for (i = count - 1; i >= 0; --i) {
+		const struct sde_rot_vbif_cfg *cfg =
+				&rstate->rot_hw->caps->vbif_cfg[i];
+
+		_sde_plane_halt_requests(plane, cfg->xin_id,
+				halt_ret[i], false);
+	}
+	return 0;
+}
+
 int sde_plane_kickoff_rot(struct drm_plane *plane)
 {
 	struct sde_plane_state *pstate;
@@ -3389,10 +3491,6 @@ void sde_plane_flush(struct drm_plane *plane)
 	else if (psde->pipe_hw && psde->csc_ptr && psde->pipe_hw->ops.setup_csc)
 		psde->pipe_hw->ops.setup_csc(psde->pipe_hw, psde->csc_ptr);
 
-	/* force black color fill during suspend */
-	if (sde_kms_is_suspend_state(plane->dev) && suspend_blank)
-		_sde_plane_color_fill(psde, 0x0, 0x0);
-
 	/* flag h/w flush complete */
 	if (plane->state)
 		pstate->pending = false;
@@ -3843,6 +3941,56 @@ void sde_plane_restore(struct drm_plane *plane)
 
 	/* last plane state is same as current state */
 	sde_plane_atomic_update(plane, plane->state);
+}
+
+int sde_plane_helper_reset_custom_properties(struct drm_plane *plane,
+		struct drm_plane_state *plane_state)
+{
+	struct sde_plane *psde;
+	struct sde_plane_state *pstate;
+	struct drm_property *drm_prop;
+	enum msm_mdp_plane_property prop_idx;
+
+	if (!plane || !plane_state) {
+		SDE_ERROR("invalid params\n");
+		return -EINVAL;
+	}
+
+	psde = to_sde_plane(plane);
+	pstate = to_sde_plane_state(plane_state);
+
+	for (prop_idx = 0; prop_idx < PLANE_PROP_COUNT; prop_idx++) {
+		uint64_t val = pstate->property_values[prop_idx].value;
+		uint64_t def;
+		int ret;
+
+		drm_prop = msm_property_index_to_drm_property(
+				&psde->property_info, prop_idx);
+		if (!drm_prop) {
+			/* not all props will be installed, based on caps */
+			SDE_DEBUG_PLANE(psde, "invalid property index %d\n",
+					prop_idx);
+			continue;
+		}
+
+		def = msm_property_get_default(&psde->property_info, prop_idx);
+		if (val == def)
+			continue;
+
+		SDE_DEBUG_PLANE(psde, "set prop %s idx %d from %llu to %llu\n",
+				drm_prop->name, prop_idx, val, def);
+
+		ret = drm_atomic_plane_set_property(plane, plane_state,
+				drm_prop, def);
+		if (ret) {
+			SDE_ERROR_PLANE(psde,
+					"set property failed, idx %d ret %d\n",
+					prop_idx, ret);
+			continue;
+		}
+	}
+
+	return 0;
 }
 
 /* helper to install properties which are common to planes and crtcs */
@@ -4313,15 +4461,6 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 	return ret;
 }
 
-static int sde_plane_set_property(struct drm_plane *plane,
-		struct drm_property *property, uint64_t val)
-{
-	SDE_DEBUG("\n");
-
-	return sde_plane_atomic_set_property(plane,
-			plane->state, property, val);
-}
-
 static int sde_plane_atomic_get_property(struct drm_plane *plane,
 		const struct drm_plane_state *state,
 		struct drm_property *property, uint64_t *val)
@@ -4725,7 +4864,7 @@ static const struct drm_plane_funcs sde_plane_funcs = {
 		.update_plane = drm_atomic_helper_update_plane,
 		.disable_plane = drm_atomic_helper_disable_plane,
 		.destroy = sde_plane_destroy,
-		.set_property = sde_plane_set_property,
+		.set_property = drm_atomic_helper_plane_set_property,
 		.atomic_set_property = sde_plane_atomic_set_property,
 		.atomic_get_property = sde_plane_atomic_get_property,
 		.reset = sde_plane_reset,

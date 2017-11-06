@@ -913,6 +913,7 @@ struct sde_perf_cfg {
  * @has_sbuf           indicate if stream buffer is available
  * @sbuf_headroom      stream buffer headroom in lines
  * @has_idle_pc        indicate if idle power collapse feature is supported
+ * @has_hdr            HDR feature support
  * @dma_formats        Supported formats for dma pipe
  * @cursor_formats     Supported formats for cursor pipe
  * @vig_formats        Supported formats for vig pipe
@@ -941,6 +942,7 @@ struct sde_mdss_cfg {
 	u32 vbif_qos_nlvl;
 	u32 ts_prefill_rev;
 
+	bool has_hdr;
 	u32 mdss_count;
 	struct sde_mdss_base_cfg mdss[MAX_BLOCKS];
 

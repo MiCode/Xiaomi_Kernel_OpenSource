@@ -532,9 +532,8 @@ static int rpmh_arc_cmds(struct gmu_device *gmu,
 	 * them until we get to the end of the buffer or hit the
 	 * zero padding.
 	 */
-	for (arc->num = 1; arc->num <= len; arc->num++) {
-		if (arc->num == len ||
-				arc->val[arc->num - 1] >= arc->val[arc->num])
+	for (arc->num = 1; arc->num < (len >> 1); arc->num++) {
+		if (arc->val[arc->num - 1] >= arc->val[arc->num])
 			break;
 	}
 

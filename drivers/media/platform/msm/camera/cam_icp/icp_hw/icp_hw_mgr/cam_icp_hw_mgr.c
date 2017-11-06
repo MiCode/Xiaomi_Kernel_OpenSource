@@ -46,6 +46,7 @@
 #include "hfi_sys_defs.h"
 #include "cam_debug_util.h"
 #include "cam_soc_util.h"
+#include "cam_trace.h"
 
 #define ICP_WORKQ_TASK_CMD_TYPE 1
 #define ICP_WORKQ_TASK_MSG_TYPE 2
@@ -790,6 +791,21 @@ DEFINE_SIMPLE_ATTRIBUTE(cam_icp_debug_default_clk,
 	cam_icp_get_dbg_default_clk,
 	cam_icp_set_dbg_default_clk, "%16llu");
 
+static int cam_icp_set_a5_dbg_lvl(void *data, u64 val)
+{
+	icp_hw_mgr.a5_dbg_lvl = val;
+	return 0;
+}
+
+static int cam_icp_get_a5_dbg_lvl(void *data, u64 *val)
+{
+	*val = icp_hw_mgr.a5_dbg_lvl;
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(cam_icp_debug_fs, cam_icp_get_a5_dbg_lvl,
+	cam_icp_set_a5_dbg_lvl, "%08llu");
+
 static int cam_icp_hw_mgr_create_debugfs_entry(void)
 {
 	int rc = 0;
@@ -797,15 +813,6 @@ static int cam_icp_hw_mgr_create_debugfs_entry(void)
 	icp_hw_mgr.dentry = debugfs_create_dir("camera_icp", NULL);
 	if (!icp_hw_mgr.dentry)
 		return -ENOMEM;
-
-	if (!debugfs_create_bool("a5_debug",
-		0644,
-		icp_hw_mgr.dentry,
-		&icp_hw_mgr.a5_debug)) {
-		debugfs_remove_recursive(icp_hw_mgr.dentry);
-		rc = -ENOMEM;
-		goto err;
-	}
 
 	if (!debugfs_create_bool("icp_pc",
 		0644,
@@ -821,6 +828,32 @@ static int cam_icp_hw_mgr_create_debugfs_entry(void)
 		icp_hw_mgr.dentry, NULL,
 		&cam_icp_debug_default_clk)) {
 		CAM_ERR(CAM_ICP, "failed to create icp_debug_clk entry");
+		rc = -ENOMEM;
+		goto err;
+	}
+
+	if (!debugfs_create_bool("a5_jtag_debug",
+		0644,
+		icp_hw_mgr.dentry,
+		&icp_hw_mgr.a5_jtag_debug)) {
+		rc = -ENOMEM;
+		goto err;
+	}
+
+	if (!debugfs_create_bool("a5_debug_q",
+		0644,
+		icp_hw_mgr.dentry,
+		&icp_hw_mgr.a5_debug_q)) {
+		CAM_ERR(CAM_ICP, "failed to create a5_debug_q\n");
+		rc = -ENOMEM;
+		goto err;
+	}
+
+	if (!debugfs_create_file("a5_debug_lvl",
+		0644,
+		icp_hw_mgr.dentry,
+		NULL, &cam_icp_debug_fs)) {
+		CAM_ERR(CAM_ICP, "failed to create a5_dbg_lvl\n");
 		rc = -ENOMEM;
 		goto err;
 	}
@@ -1091,13 +1124,103 @@ static int cam_icp_mgr_process_direct_ack_msg(uint32_t *msg_ptr)
 	return rc;
 }
 
+static void cam_icp_mgr_process_dbg_buf(void)
+{
+	uint32_t *msg_ptr = NULL, *pkt_ptr = NULL;
+	struct hfi_msg_debug *dbg_msg;
+	int64_t read_len, size_processed = 0;
+	char *dbg_buf;
+
+	read_len = hfi_read_message(icp_hw_mgr.dbg_buf, Q_DBG);
+	if (read_len < 0)
+		return;
+
+	msg_ptr = (uint32_t *)icp_hw_mgr.dbg_buf;
+	while (true) {
+		pkt_ptr = msg_ptr;
+		if (pkt_ptr[ICP_PACKET_TYPE] == HFI_MSG_SYS_DEBUG) {
+			dbg_msg = (struct hfi_msg_debug *)pkt_ptr;
+			dbg_buf = (char *)&dbg_msg->msg_data;
+			trace_cam_icp_fw_dbg(dbg_buf);
+		}
+		size_processed += (pkt_ptr[ICP_PACKET_SIZE] >>
+			BYTE_WORD_SHIFT);
+		if (size_processed >= read_len)
+			return;
+		msg_ptr += (pkt_ptr[ICP_PACKET_SIZE] >>
+		BYTE_WORD_SHIFT);
+		pkt_ptr = NULL;
+		dbg_msg = NULL;
+		dbg_buf = NULL;
+	}
+}
+
+static int cam_icp_process_msg_pkt_type(
+	struct cam_icp_hw_mgr *hw_mgr,
+	uint32_t *msg_ptr)
+{
+	int rc = 0;
+	int size_processed = 0;
+	struct hfi_msg_ipebps_async_ack *async_ack = NULL;
+
+	switch (msg_ptr[ICP_PACKET_TYPE]) {
+	case HFI_MSG_SYS_INIT_DONE:
+		CAM_DBG(CAM_ICP, "received SYS_INIT_DONE");
+		complete(&hw_mgr->a5_complete);
+		size_processed = sizeof(struct hfi_msg_init_done);
+		break;
+
+	case HFI_MSG_SYS_PING_ACK:
+		CAM_DBG(CAM_ICP, "received SYS_PING_ACK");
+		rc = cam_icp_mgr_process_msg_ping_ack(msg_ptr);
+		size_processed = sizeof(struct hfi_msg_ping_ack);
+		break;
+
+	case HFI_MSG_IPEBPS_CREATE_HANDLE_ACK:
+		CAM_DBG(CAM_ICP, "received IPEBPS_CREATE_HANDLE_ACK");
+		rc = cam_icp_mgr_process_msg_create_handle(msg_ptr);
+		size_processed = sizeof(struct hfi_msg_create_handle_ack);
+		break;
+
+	case HFI_MSG_IPEBPS_ASYNC_COMMAND_INDIRECT_ACK:
+		CAM_DBG(CAM_ICP, "received ASYNC_INDIRECT_ACK");
+		rc = cam_icp_mgr_process_indirect_ack_msg(msg_ptr);
+		async_ack = (struct hfi_msg_ipebps_async_ack *)msg_ptr;
+		size_processed = async_ack->size;
+		async_ack = NULL;
+		break;
+
+	case  HFI_MSG_IPEBPS_ASYNC_COMMAND_DIRECT_ACK:
+		CAM_DBG(CAM_ICP, "received ASYNC_DIRECT_ACK");
+		rc = cam_icp_mgr_process_direct_ack_msg(msg_ptr);
+		size_processed = sizeof(struct hfi_msg_ipebps_async_ack);
+		break;
+
+	case HFI_MSG_EVENT_NOTIFY:
+		CAM_DBG(CAM_ICP, "received EVENT_NOTIFY");
+		size_processed = sizeof(struct hfi_msg_event_notify);
+		break;
+
+	default:
+		CAM_ERR(CAM_ICP, "invalid msg : %u",
+			msg_ptr[ICP_PACKET_TYPE]);
+		rc = -EINVAL;
+		break;
+	}
+
+	if (rc)
+		return rc;
+
+	return size_processed;
+}
+
 static int32_t cam_icp_mgr_process_msg(void *priv, void *data)
 {
+	int64_t read_len, msg_processed_len;
 	int rc = 0;
 	uint32_t *msg_ptr = NULL;
 	struct hfi_msg_work_data *task_data;
 	struct cam_icp_hw_mgr *hw_mgr;
-	int read_len;
 
 	if (!data || !priv) {
 		CAM_ERR(CAM_ICP, "Invalid data");
@@ -1109,46 +1232,28 @@ static int32_t cam_icp_mgr_process_msg(void *priv, void *data)
 
 	read_len = hfi_read_message(icp_hw_mgr.msg_buf, Q_MSG);
 	if (read_len < 0) {
+		rc = read_len;
 		CAM_DBG(CAM_ICP, "Unable to read msg q");
-		return read_len;
+	} else {
+		msg_ptr = (uint32_t *)icp_hw_mgr.msg_buf;
+		while (true) {
+			msg_processed_len = cam_icp_process_msg_pkt_type(
+			hw_mgr, msg_ptr);
+			if (msg_processed_len < 0) {
+				rc = msg_processed_len;
+				return rc;
+			}
+
+			read_len -= msg_processed_len;
+			if (read_len > 0)
+				msg_ptr += msg_processed_len;
+			else
+				break;
+		}
 	}
 
-	msg_ptr = (uint32_t *)icp_hw_mgr.msg_buf;
-
-	switch (msg_ptr[ICP_PACKET_TYPE]) {
-	case HFI_MSG_SYS_INIT_DONE:
-		CAM_DBG(CAM_ICP, "received SYS_INIT_DONE");
-		complete(&hw_mgr->a5_complete);
-		break;
-
-	case HFI_MSG_SYS_PING_ACK:
-		CAM_DBG(CAM_ICP, "received SYS_PING_ACK");
-		rc = cam_icp_mgr_process_msg_ping_ack(msg_ptr);
-		break;
-
-	case HFI_MSG_IPEBPS_CREATE_HANDLE_ACK:
-		CAM_DBG(CAM_ICP, "received IPEBPS_CREATE_HANDLE_ACK");
-		rc = cam_icp_mgr_process_msg_create_handle(msg_ptr);
-		break;
-
-	case HFI_MSG_IPEBPS_ASYNC_COMMAND_INDIRECT_ACK:
-		rc = cam_icp_mgr_process_indirect_ack_msg(msg_ptr);
-		break;
-
-	case  HFI_MSG_IPEBPS_ASYNC_COMMAND_DIRECT_ACK:
-		rc = cam_icp_mgr_process_direct_ack_msg(msg_ptr);
-		break;
-
-	case HFI_MSG_EVENT_NOTIFY:
-		CAM_DBG(CAM_ICP, "received EVENT_NOTIFY");
-		break;
-
-	default:
-		CAM_ERR(CAM_ICP, "invalid msg : %u",
-			msg_ptr[ICP_PACKET_TYPE]);
-		rc = -EINVAL;
-		break;
-	}
+	if (icp_hw_mgr.a5_debug_q)
+		cam_icp_mgr_process_dbg_buf();
 
 	return rc;
 }
@@ -1183,12 +1288,52 @@ int32_t cam_icp_hw_mgr_cb(uint32_t irq_status, void *data)
 
 static void cam_icp_free_hfi_mem(void)
 {
+	int rc;
 	cam_smmu_dealloc_firmware(icp_hw_mgr.iommu_hdl);
 	cam_mem_mgr_release_mem(&icp_hw_mgr.hfi_mem.qtbl);
 	cam_mem_mgr_release_mem(&icp_hw_mgr.hfi_mem.cmd_q);
 	cam_mem_mgr_release_mem(&icp_hw_mgr.hfi_mem.msg_q);
 	cam_mem_mgr_release_mem(&icp_hw_mgr.hfi_mem.dbg_q);
-	cam_mem_mgr_release_mem(&icp_hw_mgr.hfi_mem.sec_heap);
+	rc = cam_mem_mgr_free_memory_region(&icp_hw_mgr.hfi_mem.sec_heap);
+	if (rc)
+		CAM_ERR(CAM_ICP, "failed to unreserve sec heap");
+}
+
+static int cam_icp_alloc_secheap_mem(struct cam_mem_mgr_memory_desc *secheap)
+{
+	int rc;
+	struct cam_mem_mgr_request_desc alloc;
+	struct cam_mem_mgr_memory_desc out;
+	struct cam_smmu_region_info secheap_info;
+
+	memset(&alloc, 0, sizeof(alloc));
+	memset(&out, 0, sizeof(out));
+
+	rc = cam_smmu_get_region_info(icp_hw_mgr.iommu_hdl,
+		CAM_SMMU_REGION_SECHEAP,
+		&secheap_info);
+	if (rc) {
+		CAM_ERR(CAM_ICP, "Unable to get secheap memory info");
+		return rc;
+	}
+
+	alloc.size = secheap_info.iova_len;
+	alloc.align = 0;
+	alloc.flags = 0;
+	alloc.smmu_hdl = icp_hw_mgr.iommu_hdl;
+	rc = cam_mem_mgr_reserve_memory_region(&alloc,
+		CAM_SMMU_REGION_SECHEAP,
+		&out);
+	if (rc) {
+		CAM_ERR(CAM_ICP, "Unable to reserve secheap memory");
+		return rc;
+	}
+
+	*secheap = out;
+	CAM_DBG(CAM_ICP, "kva: %llX, iova: %x, hdl: %x, len: %lld",
+		out.kva, out.iova, out.mem_handle, out.len);
+
+	return rc;
 }
 
 static int cam_icp_alloc_shared_mem(struct cam_mem_mgr_memory_desc *qtbl)
@@ -1280,9 +1425,9 @@ static int cam_icp_allocate_hfi_mem(void)
 		goto dbg_q_alloc_failed;
 	}
 
-	rc = cam_icp_alloc_shared_mem(&icp_hw_mgr.hfi_mem.sec_heap);
+	rc = cam_icp_alloc_secheap_mem(&icp_hw_mgr.hfi_mem.sec_heap);
 	if (rc) {
-		CAM_ERR(CAM_ICP, "Unable to allocate sec heap q memory");
+		CAM_ERR(CAM_ICP, "Unable to allocate sec heap memory");
 		goto sec_heap_alloc_failed;
 	}
 
@@ -1706,7 +1851,7 @@ static int cam_icp_mgr_hfi_init(struct cam_icp_hw_mgr *hw_mgr)
 
 	return cam_hfi_init(0, &hfi_mem,
 		a5_dev->soc_info.reg_map[A5_SIERRA_BASE].mem_base,
-		hw_mgr->a5_debug);
+		hw_mgr->a5_jtag_debug);
 }
 
 static int cam_icp_mgr_send_fw_init(struct cam_icp_hw_mgr *hw_mgr)
@@ -1804,10 +1949,15 @@ static int cam_icp_mgr_download_fw(void *hw_mgr_priv, void *download_fw_args)
 		NULL, 0);
 	hw_mgr->fw_download = true;
 	hw_mgr->ctxt_cnt = 0;
-	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 	CAM_DBG(CAM_ICP, "FW download done successfully");
+
+	if (icp_hw_mgr.a5_debug_q)
+		hfi_set_debug_level(icp_hw_mgr.a5_dbg_lvl);
+
+	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 	if (!download_fw_args)
 		cam_icp_mgr_hw_close(hw_mgr, NULL);
+
 	return rc;
 
 fw_init_failed:

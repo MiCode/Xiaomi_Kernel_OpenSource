@@ -1000,3 +1000,164 @@ int cam_mem_mgr_release_mem(struct cam_mem_mgr_memory_desc *inp)
 	return rc;
 }
 EXPORT_SYMBOL(cam_mem_mgr_release_mem);
+
+int cam_mem_mgr_reserve_memory_region(struct cam_mem_mgr_request_desc *inp,
+	enum cam_smmu_region_id region,
+	struct cam_mem_mgr_memory_desc *out)
+{
+	struct ion_handle *hdl;
+	int ion_fd;
+	int rc = 0;
+	uint32_t heap_id;
+	dma_addr_t iova = 0;
+	size_t request_len = 0;
+	int32_t idx;
+	uint32_t mem_handle;
+	int32_t smmu_hdl = 0;
+	int32_t num_hdl = 0;
+
+	if (!inp || !out) {
+		CAM_ERR(CAM_CRM, "Invalid param(s)");
+		return -EINVAL;
+	}
+
+	if (!inp->smmu_hdl) {
+		CAM_ERR(CAM_CRM, "Invalid SMMU handle");
+		return -EINVAL;
+	}
+
+	if (region != CAM_SMMU_REGION_SECHEAP) {
+		CAM_ERR(CAM_CRM, "Only secondary heap supported");
+		return -EINVAL;
+	}
+
+	heap_id = ION_HEAP(ION_SYSTEM_HEAP_ID);
+	rc = cam_mem_util_get_ion_buffer(inp->size,
+		inp->align,
+		heap_id,
+		0,
+		&hdl,
+		&ion_fd);
+
+	if (rc) {
+		CAM_ERR(CAM_CRM, "ION alloc failed for sec heap buffer");
+		goto ion_fail;
+	} else {
+		CAM_DBG(CAM_CRM, "Got ION fd = %d, hdl = %pK", ion_fd, hdl);
+	}
+
+	rc = cam_smmu_reserve_sec_heap(inp->smmu_hdl,
+		ion_fd,
+		&iova,
+		&request_len);
+	if (rc) {
+		CAM_ERR(CAM_CRM, "Reserving secondary heap failed");
+		goto smmu_fail;
+	}
+
+	smmu_hdl = inp->smmu_hdl;
+	num_hdl = 1;
+
+	idx = cam_mem_get_slot();
+	if (idx < 0) {
+		rc = -ENOMEM;
+		goto slot_fail;
+	}
+
+	mutex_lock(&tbl.bufq[idx].q_lock);
+	mem_handle = GET_MEM_HANDLE(idx, ion_fd);
+	tbl.bufq[idx].fd = ion_fd;
+	tbl.bufq[idx].flags = inp->flags;
+	tbl.bufq[idx].buf_handle = mem_handle;
+	tbl.bufq[idx].kmdvaddr = 0;
+
+	tbl.bufq[idx].vaddr = iova;
+
+	tbl.bufq[idx].i_hdl = hdl;
+	tbl.bufq[idx].len = request_len;
+	tbl.bufq[idx].num_hdl = num_hdl;
+	memcpy(tbl.bufq[idx].hdls, &smmu_hdl,
+		sizeof(int32_t));
+	tbl.bufq[idx].is_imported = false;
+	mutex_unlock(&tbl.bufq[idx].q_lock);
+
+	out->kva = 0;
+	out->iova = (uint32_t)iova;
+	out->smmu_hdl = smmu_hdl;
+	out->mem_handle = mem_handle;
+	out->len = request_len;
+	out->region = region;
+
+	return rc;
+
+slot_fail:
+	cam_smmu_release_sec_heap(smmu_hdl);
+smmu_fail:
+	ion_free(tbl.client, hdl);
+ion_fail:
+	return rc;
+}
+EXPORT_SYMBOL(cam_mem_mgr_reserve_memory_region);
+
+int cam_mem_mgr_free_memory_region(struct cam_mem_mgr_memory_desc *inp)
+{
+	int32_t idx;
+	int rc;
+	int32_t smmu_hdl;
+
+	if (!inp) {
+		CAM_ERR(CAM_CRM, "Invalid argument");
+		return -EINVAL;
+	}
+
+	if (inp->region != CAM_SMMU_REGION_SECHEAP) {
+		CAM_ERR(CAM_CRM, "Only secondary heap supported");
+		return -EINVAL;
+	}
+
+	idx = CAM_MEM_MGR_GET_HDL_IDX(inp->mem_handle);
+	if (idx >= CAM_MEM_BUFQ_MAX || idx <= 0) {
+		CAM_ERR(CAM_CRM, "Incorrect index extracted from mem handle");
+		return -EINVAL;
+	}
+
+	if (!tbl.bufq[idx].active) {
+		CAM_ERR(CAM_CRM, "Released buffer state should be active");
+		return -EINVAL;
+	}
+
+	if (tbl.bufq[idx].buf_handle != inp->mem_handle) {
+		CAM_ERR(CAM_CRM,
+			"Released buf handle not matching within table");
+		return -EINVAL;
+	}
+
+	if (tbl.bufq[idx].num_hdl != 1) {
+		CAM_ERR(CAM_CRM,
+			"Sec heap region should have only one smmu hdl");
+		return -ENODEV;
+	}
+
+	memcpy(&smmu_hdl, tbl.bufq[idx].hdls,
+		sizeof(int32_t));
+	if (inp->smmu_hdl != smmu_hdl) {
+		CAM_ERR(CAM_CRM,
+			"Passed SMMU handle doesn't match with internal hdl");
+		return -ENODEV;
+	}
+
+	rc = cam_smmu_release_sec_heap(inp->smmu_hdl);
+	if (rc) {
+		CAM_ERR(CAM_CRM,
+			"Sec heap region release failed");
+		return -ENODEV;
+	}
+
+	CAM_DBG(CAM_CRM, "Releasing hdl = %X", inp->mem_handle);
+	rc = cam_mem_util_unmap(idx);
+	if (rc)
+		CAM_ERR(CAM_CRM, "unmapping secondary heap failed");
+
+	return rc;
+}
+EXPORT_SYMBOL(cam_mem_mgr_free_memory_region);

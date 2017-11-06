@@ -423,9 +423,9 @@ struct msm_vidc_ctrl {
 	u32 id;
 	char name[MAX_NAME_LENGTH];
 	enum v4l2_ctrl_type type;
-	s32 minimum;
-	s32 maximum;
-	s32 default_value;
+	s64 minimum;
+	s64 maximum;
+	s64 default_value;
 	u32 step;
 	u32 menu_skip_mask;
 	u32 flags;

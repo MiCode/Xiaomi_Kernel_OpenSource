@@ -60,11 +60,11 @@
 
 #define ICP_CMD_Q_SIZE_IN_BYTES                 4096
 #define ICP_MSG_Q_SIZE_IN_BYTES                 4096
-#define ICP_DBG_Q_SIZE_IN_BYTES                 8192
+#define ICP_DBG_Q_SIZE_IN_BYTES                 102400
 
 #define ICP_SHARED_MEM_IN_BYTES                 (1024 * 1024)
 #define ICP_UNCACHED_HEAP_SIZE_IN_BYTES         (2 * 1024 * 1024)
-#define ICP_HFI_MAX_MSG_SIZE_IN_WORDS           128
+#define ICP_HFI_MAX_PKT_SIZE_IN_WORDS           25600
 
 #define ICP_HFI_QTBL_HOSTID1                    0x01000000
 #define ICP_HFI_QTBL_STATUS_ENABLED             0x00000001
@@ -109,7 +109,8 @@ enum hfi_state {
  */
 enum reg_settings {
 	RESET,
-	SET
+	SET,
+	SET_WM = 1024
 };
 
 /**

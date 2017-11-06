@@ -296,11 +296,20 @@
 					status = "ok";
 				};
 
+				iova-mem-region-secondary-heap {
+					/* Secondary heap region is 1MB long */
+					iova-region-name = "secheap";
+					iova-region-start = <0xd800000>;
+					iova-region-len = <0x100000>;
+					iova-region-id = <0x4>;
+					status = "ok";
+				};
+
 				iova-mem-region-io {
 					/* IO region is approximately 3.3 GB */
 					iova-region-name = "io";
-					iova-region-start = <0xd800000>;
-					iova-region-len = <0xd2800000>;
+					iova-region-start = <0xd900000>;
+					iova-region-len = <0xd2700000>;
 					iova-region-id = <0x3>;
 					status = "ok";
 				};

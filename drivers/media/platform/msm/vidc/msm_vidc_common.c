@@ -2202,6 +2202,8 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 		if (!core->trigger_ssr)
 			msm_comm_print_inst_info(inst);
 	}
+	/* handle the hw error before core released to get full debug info */
+	msm_vidc_handle_hw_error(core);
 	dprintk(VIDC_DBG, "Calling core_release\n");
 	rc = call_hfi_op(hdev, core_release, hdev->hfi_device_data);
 	if (rc) {
@@ -2212,10 +2214,7 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 	core->state = VIDC_CORE_UNINIT;
 	mutex_unlock(&core->lock);
 
-	dprintk(VIDC_ERR,
-		"SYS_ERROR can potentially crash the system\n");
-
-	msm_vidc_handle_hw_error(core);
+	dprintk(VIDC_WARN, "SYS_ERROR handled.\n");
 }
 
 void msm_comm_session_clean(struct msm_vidc_inst *inst)
@@ -2328,9 +2327,6 @@ int msm_comm_vb2_buffer_done(struct msm_vidc_inst *inst,
 			__func__, vb->type);
 		return -EINVAL;
 	}
-	msm_vidc_debugfs_update(inst, port == CAPTURE_PORT ?
-			MSM_VIDC_DEBUGFS_EVENT_FBD :
-			MSM_VIDC_DEBUGFS_EVENT_EBD);
 
 	mutex_lock(&inst->bufq[port].lock);
 	vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
@@ -2456,6 +2452,7 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 	 */
 	msm_comm_put_vidc_buffer(inst, mbuf);
 	msm_comm_vb2_buffer_done(inst, vb2);
+	msm_vidc_debugfs_update(inst, MSM_VIDC_DEBUGFS_EVENT_EBD);
 	kref_put_mbuf(mbuf);
 exit:
 	put_inst(inst);
@@ -2657,6 +2654,7 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 	 */
 	msm_comm_put_vidc_buffer(inst, mbuf);
 	msm_comm_vb2_buffer_done(inst, vb2);
+	msm_vidc_debugfs_update(inst, MSM_VIDC_DEBUGFS_EVENT_FBD);
 	kref_put_mbuf(mbuf);
 
 exit:
@@ -5440,7 +5438,7 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct msm_vidc_core *core;
-	u32 output_height, output_width;
+	u32 output_height, output_width, input_height, input_width;
 	u32 rotation;
 
 	if (!inst || !inst->core || !inst->core->device) {
@@ -5461,6 +5459,22 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 		dprintk(VIDC_WARN,
 			"Thermal level critical, stop all active sessions!\n");
 		return -ENOTSUPP;
+	}
+
+	output_height = inst->prop.height[CAPTURE_PORT];
+	output_width = inst->prop.width[CAPTURE_PORT];
+	input_height = inst->prop.height[OUTPUT_PORT];
+	input_width = inst->prop.width[OUTPUT_PORT];
+
+	if (input_width % 2 != 0 || input_height % 2 != 0 ||
+			output_width % 2 != 0 || output_height % 2 != 0) {
+		dprintk(VIDC_ERR,
+			"Height and Width should be even numbers for NV12\n");
+		dprintk(VIDC_ERR,
+			"Input WxH = (%u)x(%u), Output WxH = (%u)x(%u)\n",
+			input_width, input_height,
+			output_width, output_height);
+		rc = -ENOTSUPP;
 	}
 
 	rotation =  msm_comm_g_ctrl_for_id(inst,
@@ -6485,7 +6499,10 @@ void msm_comm_put_vidc_buffer(struct msm_vidc_inst *inst,
 			if (msm_smem_unmap_dma_buf(inst, &mbuf->smem[i]))
 				print_vidc_buffer(VIDC_ERR,
 					"dqbuf: unmap failed..", inst, mbuf);
-		} /* else RBR event expected */
+		} else {
+			/* RBR event expected */
+			mbuf->flags |= MSM_VIDC_FLAG_RBR_PENDING;
+		}
 	}
 	/*
 	 * remove the entry if plane[0].refcount is zero else

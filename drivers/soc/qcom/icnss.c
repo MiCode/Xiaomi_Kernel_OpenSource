@@ -200,7 +200,6 @@ enum icnss_driver_event_type {
 enum icnss_msa_perm {
 	ICNSS_MSA_PERM_HLOS_ALL = 0,
 	ICNSS_MSA_PERM_WLAN_HW_RW = 1,
-	ICNSS_MSA_PERM_DUMP_COLLECT = 2,
 	ICNSS_MSA_PERM_MAX,
 };
 
@@ -233,13 +232,6 @@ struct icnss_msa_perm_list_t msa_perm_secure_list[ICNSS_MSA_PERM_MAX] = {
 		.nelems = 2,
 	},
 
-	[ICNSS_MSA_PERM_DUMP_COLLECT] = {
-		.vmids = {VMID_MSS_MSA, VMID_WLAN, VMID_HLOS},
-		.perms = {PERM_READ | PERM_WRITE,
-			PERM_READ | PERM_WRITE,
-			PERM_READ},
-		.nelems = 3,
-	},
 };
 
 struct icnss_msa_perm_list_t msa_perm_list[ICNSS_MSA_PERM_MAX] = {
@@ -257,14 +249,6 @@ struct icnss_msa_perm_list_t msa_perm_list[ICNSS_MSA_PERM_MAX] = {
 		.nelems = 3,
 	},
 
-	[ICNSS_MSA_PERM_DUMP_COLLECT] = {
-		.vmids = {VMID_MSS_MSA, VMID_WLAN, VMID_WLAN_CE, VMID_HLOS},
-		.perms = {PERM_READ | PERM_WRITE,
-			PERM_READ | PERM_WRITE,
-			PERM_READ | PERM_WRITE,
-			PERM_READ},
-		.nelems = 4,
-	},
 };
 
 struct icnss_event_pd_service_down_data {
@@ -2345,7 +2329,7 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 	if (!test_bit(ICNSS_WLFW_EXISTS, &priv->state))
 		goto out;
 
-	if (test_bit(ICNSS_PD_RESTART, &priv->state)) {
+	if (test_bit(ICNSS_PD_RESTART, &priv->state) && event_data->crashed) {
 		icnss_pr_err("PD Down while recovery inprogress, crashed: %d, state: 0x%lx\n",
 			     event_data->crashed, priv->state);
 		ICNSS_ASSERT(0);
@@ -2491,9 +2475,10 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 
 	icnss_pr_vdbg("Modem-Notify: event %lu\n", code);
 
-	if (code == SUBSYS_AFTER_SHUTDOWN) {
+	if (code == SUBSYS_AFTER_SHUTDOWN &&
+			notif->crashed != CRASH_STATUS_WDOG_BITE) {
 		ret = icnss_assign_msa_perm_all(priv,
-						ICNSS_MSA_PERM_DUMP_COLLECT);
+						ICNSS_MSA_PERM_HLOS_ALL);
 		if (!ret) {
 			icnss_pr_info("Collecting msa0 segment dump\n");
 			icnss_msa0_ramdump(priv);

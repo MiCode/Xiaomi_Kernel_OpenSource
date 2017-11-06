@@ -921,3 +921,12 @@
 		};
 	};
 };
+
+&pmxpoorwills_gpios {
+	ambient_therm {
+		ambient_therm_default: ambient_therm_default {
+			pins = "gpio2";
+			bias-high-impedance;
+		};
+	};
+};

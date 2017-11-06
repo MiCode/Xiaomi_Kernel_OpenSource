@@ -63,6 +63,18 @@ struct sde_mdp_set_ot_params {
 	u32 rotsts_busy_mask;
 };
 
+/*
+ * struct sde_mdp_vbif_halt_params: parameters for issue halt request to vbif
+ * @xin_id: xin port number of vbif
+ * @reg_off_mdp_clk_ctrl: reg offset for vbif clock control
+ * @bit_off_mdp_clk_ctrl: bit offset for vbif clock control
+ */
+struct sde_mdp_vbif_halt_params {
+	u32 xin_id;
+	u32 reg_off_mdp_clk_ctrl;
+	u32 bit_off_mdp_clk_ctrl;
+};
+
 enum sde_bus_vote_type {
 	VOTE_INDEX_DISABLE,
 	VOTE_INDEX_19_MHZ,
@@ -275,6 +287,8 @@ u32 sde_apply_comp_ratio_factor(u32 quota,
 u32 sde_mdp_get_ot_limit(u32 width, u32 height, u32 pixfmt, u32 fps, u32 is_rd);
 
 void sde_mdp_set_ot_limit(struct sde_mdp_set_ot_params *params);
+
+void sde_mdp_halt_vbif_xin(struct sde_mdp_vbif_halt_params *params);
 
 int sde_mdp_init_vbif(void);
 

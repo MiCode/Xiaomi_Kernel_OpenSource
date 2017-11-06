@@ -68,3 +68,7 @@
 &usb3_qmp_phy {
 	status = "disabled";
 };
+
+&qnand_1 {
+	status = "ok";
+};

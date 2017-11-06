@@ -32,7 +32,7 @@
 #define to_sde_encoder_phys_cmd(x) \
 	container_of(x, struct sde_encoder_phys_cmd, base)
 
-#define PP_TIMEOUT_MAX_TRIALS	10
+#define PP_TIMEOUT_MAX_TRIALS	2
 
 /*
  * Tearcheck sync start and continue thresholds are empirically found
@@ -418,26 +418,26 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 			to_sde_encoder_phys_cmd(phys_enc);
 	u32 frame_event = SDE_ENCODER_FRAME_EVENT_ERROR
 				| SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE;
-	bool do_log = false;
 
 	if (!phys_enc || !phys_enc->hw_pp || !phys_enc->hw_ctl)
 		return -EINVAL;
 
 	cmd_enc->pp_timeout_report_cnt++;
-	if (cmd_enc->pp_timeout_report_cnt == PP_TIMEOUT_MAX_TRIALS) {
-		frame_event |= SDE_ENCODER_FRAME_EVENT_PANEL_DEAD;
-		do_log = true;
-	} else if (cmd_enc->pp_timeout_report_cnt == 1) {
-		do_log = true;
-	}
 
 	SDE_EVT32(DRMID(phys_enc->parent), phys_enc->hw_pp->idx - PINGPONG_0,
 			cmd_enc->pp_timeout_report_cnt,
 			atomic_read(&phys_enc->pending_kickoff_cnt),
 			frame_event);
 
-	/* to avoid flooding, only log first time, and "dead" time */
-	if (do_log) {
+	if (cmd_enc->pp_timeout_report_cnt >= PP_TIMEOUT_MAX_TRIALS) {
+		cmd_enc->pp_timeout_report_cnt = PP_TIMEOUT_MAX_TRIALS;
+		frame_event |= SDE_ENCODER_FRAME_EVENT_PANEL_DEAD;
+
+		sde_encoder_helper_unregister_irq(phys_enc, INTR_IDX_RDPTR);
+		SDE_DBG_DUMP("panic");
+		sde_encoder_helper_register_irq(phys_enc, INTR_IDX_RDPTR);
+	} else if (cmd_enc->pp_timeout_report_cnt == 1) {
+		/* to avoid flooding, only log first time, and "dead" time */
 		SDE_ERROR_CMDENC(cmd_enc,
 				"pp:%d kickoff timed out ctl %d cnt %d koff_cnt %d\n",
 				phys_enc->hw_pp->idx - PINGPONG_0,
@@ -448,7 +448,8 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 		SDE_EVT32(DRMID(phys_enc->parent), SDE_EVTLOG_FATAL);
 
 		sde_encoder_helper_unregister_irq(phys_enc, INTR_IDX_RDPTR);
-		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus", "panic");
+		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus");
+		sde_encoder_helper_register_irq(phys_enc, INTR_IDX_RDPTR);
 	}
 
 	atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
@@ -984,7 +985,7 @@ static void sde_encoder_phys_cmd_get_hw_resources(
 	hw_res->intfs[phys_enc->intf_idx - INTF_0] = INTF_MODE_CMD;
 }
 
-static void sde_encoder_phys_cmd_prepare_for_kickoff(
+static int sde_encoder_phys_cmd_prepare_for_kickoff(
 		struct sde_encoder_phys *phys_enc,
 		struct sde_encoder_kickoff_params *params)
 {
@@ -994,7 +995,7 @@ static void sde_encoder_phys_cmd_prepare_for_kickoff(
 
 	if (!phys_enc || !phys_enc->hw_pp) {
 		SDE_ERROR("invalid encoder\n");
-		return;
+		return -EINVAL;
 	}
 	SDE_DEBUG_CMDENC(cmd_enc, "pp %d\n", phys_enc->hw_pp->idx - PINGPONG_0);
 
@@ -1018,6 +1019,7 @@ static void sde_encoder_phys_cmd_prepare_for_kickoff(
 	SDE_DEBUG_CMDENC(cmd_enc, "pp:%d pending_cnt %d\n",
 			phys_enc->hw_pp->idx - PINGPONG_0,
 			atomic_read(&phys_enc->pending_kickoff_cnt));
+	return ret;
 }
 
 static int _sde_encoder_phys_cmd_wait_for_ctl_start(

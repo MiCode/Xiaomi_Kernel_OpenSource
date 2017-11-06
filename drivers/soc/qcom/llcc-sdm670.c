@@ -63,7 +63,7 @@ static struct llcc_slice_config sdm670_data[] =  {
 	SCT_ENTRY("audio", 6, 6, 512, 1, 0, 0xF, 0x0, 0, 0, 1, 1, 0),
 	SCT_ENTRY("modem",  8, 8, 512, 1, 0, 0xF,  0x0, 0, 0, 1, 1, 0),
 	SCT_ENTRY("gpu", 12, 12, 384, 1, 1, 0x0, 0x0, 0, 0, 1, 1, 0),
-	SCT_ENTRY("mmuhwt", 13, 13, 512, 1, 0, 0x0, 0x8, 0, 0, 1, 0, 1),
+	SCT_ENTRY("mmuhwt", 13, 13, 512, 1, 0, 0xF, 0x0, 0, 0, 1, 0, 1),
 	SCT_ENTRY("audiohw", 22, 22, 512, 1, 1, 0xF, 0x0, 0, 0, 1, 1, 0),
 };
 

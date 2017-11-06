@@ -2787,7 +2787,7 @@ int ipa3_cfg_ep_hdr(u32 clnt_hdl, const struct ipa_ep_cfg_hdr *ep_hdr)
 		ep_hdr->hdr_ofst_pkt_size_valid,
 		ep_hdr->hdr_additional_const_len);
 
-	IPADBG("ofst_metadata=0x%x, ofst_metadata_valid=%d, len=0x%x",
+	IPADBG("ofst_metadata=0x%x, ofst_metadata_valid=%d, len=0x%x\n",
 		ep_hdr->hdr_ofst_metadata,
 		ep_hdr->hdr_ofst_metadata_valid,
 		ep_hdr->hdr_len);
@@ -2946,7 +2946,7 @@ int ipa3_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ep_mode)
 	if (!IPA_CLIENT_IS_CONS(ep_mode->dst))
 		ep = ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS);
 
-	IPADBG("pipe=%d mode=%d(%s), dst_client_number=%d",
+	IPADBG("pipe=%d mode=%d(%s), dst_client_number=%d\n",
 			clnt_hdl,
 			ep_mode->mode,
 			ipa3_get_mode_type_str(ep_mode->mode),
@@ -3908,13 +3908,10 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 		res = -ENOMEM;
 		goto fail_free_tag_desc;
 	}
-	tag_desc[desc_idx].opcode = cmd_pyld->opcode;
-	tag_desc[desc_idx].pyld = cmd_pyld->data;
-	tag_desc[desc_idx].len = cmd_pyld->len;
-	tag_desc[desc_idx].type = IPA_IMM_CMD_DESC;
+	ipa3_init_imm_cmd_desc(&tag_desc[desc_idx], cmd_pyld);
 	tag_desc[desc_idx].callback = ipa3_tag_destroy_imm;
 	tag_desc[desc_idx].user1 = cmd_pyld;
-	desc_idx++;
+	++desc_idx;
 
 	/* IP_PACKET_INIT IC for tag status to be sent to apps */
 	pktinit_cmd.destination_pipe_index =
@@ -3926,13 +3923,10 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 		res = -ENOMEM;
 		goto fail_free_desc;
 	}
-	tag_desc[desc_idx].opcode = cmd_pyld->opcode;
-	tag_desc[desc_idx].pyld = cmd_pyld->data;
-	tag_desc[desc_idx].len = cmd_pyld->len;
-	tag_desc[desc_idx].type = IPA_IMM_CMD_DESC;
+	ipa3_init_imm_cmd_desc(&tag_desc[desc_idx], cmd_pyld);
 	tag_desc[desc_idx].callback = ipa3_tag_destroy_imm;
 	tag_desc[desc_idx].user1 = cmd_pyld;
-	desc_idx++;
+	++desc_idx;
 
 	/* status IC */
 	status.tag = IPA_COOKIE;
@@ -3943,13 +3937,10 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 		res = -ENOMEM;
 		goto fail_free_desc;
 	}
-	tag_desc[desc_idx].opcode = cmd_pyld->opcode;
-	tag_desc[desc_idx].pyld = cmd_pyld->data;
-	tag_desc[desc_idx].len = cmd_pyld->len;
-	tag_desc[desc_idx].type = IPA_IMM_CMD_DESC;
+	ipa3_init_imm_cmd_desc(&tag_desc[desc_idx], cmd_pyld);
 	tag_desc[desc_idx].callback = ipa3_tag_destroy_imm;
 	tag_desc[desc_idx].user1 = cmd_pyld;
-	desc_idx++;
+	++desc_idx;
 
 	comp = kzalloc(sizeof(*comp), GFP_KERNEL);
 	if (!comp) {
@@ -3972,6 +3963,12 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 
 	memcpy(skb_put(dummy_skb, sizeof(comp)), &comp, sizeof(comp));
 
+	if (desc_idx >= IPA_TAG_MAX_DESC) {
+		IPAERR("number of commands is out of range\n");
+		res = -ENOBUFS;
+		goto fail_free_skb;
+	}
+
 	tag_desc[desc_idx].pyld = dummy_skb->data;
 	tag_desc[desc_idx].len = dummy_skb->len;
 	tag_desc[desc_idx].type = IPA_DATA_DESC_SKB;
@@ -3984,7 +3981,7 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	if (res) {
 		IPAERR("failed to send TAG packets %d\n", res);
 		res = -ENOMEM;
-		goto fail_free_comp;
+		goto fail_free_skb;
 	}
 	kfree(tag_desc);
 	tag_desc = NULL;
@@ -4012,6 +4009,8 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 
 	return 0;
 
+fail_free_skb:
+	kfree_skb(dummy_skb);
 fail_free_comp:
 	kfree(comp);
 fail_free_desc:
@@ -4082,19 +4081,16 @@ static int ipa3_tag_generate_force_close_desc(struct ipa3_desc desc[],
 			goto fail_alloc_reg_write_agg_close;
 		}
 
-		desc[desc_idx].opcode = cmd_pyld->opcode;
-		desc[desc_idx].pyld = cmd_pyld->data;
-		desc[desc_idx].len = cmd_pyld->len;
-		desc[desc_idx].type = IPA_IMM_CMD_DESC;
+		ipa3_init_imm_cmd_desc(&desc[desc_idx], cmd_pyld);
 		desc[desc_idx].callback = ipa3_tag_destroy_imm;
 		desc[desc_idx].user1 = cmd_pyld;
-		desc_idx++;
+		++desc_idx;
 	}
 
 	return desc_idx;
 
 fail_alloc_reg_write_agg_close:
-	for (i = 0; i < desc_idx; i++)
+	for (i = 0; i < desc_idx; ++i)
 		if (desc[desc_idx].callback)
 			desc[desc_idx].callback(desc[desc_idx].user1,
 				desc[desc_idx].user2);
@@ -4377,10 +4373,17 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_mdfy_flt_rule = ipa3_mdfy_flt_rule;
 	api_ctrl->ipa_commit_flt = ipa3_commit_flt;
 	api_ctrl->ipa_reset_flt = ipa3_reset_flt;
-	api_ctrl->allocate_nat_device = ipa3_allocate_nat_device;
+	api_ctrl->ipa_allocate_nat_device = ipa3_allocate_nat_device;
+	api_ctrl->ipa_allocate_nat_table = ipa3_allocate_nat_table;
+	api_ctrl->ipa_allocate_ipv6ct_table = ipa3_allocate_ipv6ct_table;
 	api_ctrl->ipa_nat_init_cmd = ipa3_nat_init_cmd;
+	api_ctrl->ipa_ipv6ct_init_cmd = ipa3_ipv6ct_init_cmd;
 	api_ctrl->ipa_nat_dma_cmd = ipa3_nat_dma_cmd;
+	api_ctrl->ipa_table_dma_cmd = ipa3_table_dma_cmd;
 	api_ctrl->ipa_nat_del_cmd = ipa3_nat_del_cmd;
+	api_ctrl->ipa_del_nat_table = ipa3_del_nat_table;
+	api_ctrl->ipa_del_ipv6ct_table = ipa3_del_ipv6ct_table;
+	api_ctrl->ipa_nat_mdfy_pdn = ipa3_nat_mdfy_pdn;
 	api_ctrl->ipa_send_msg = ipa3_send_msg;
 	api_ctrl->ipa_register_pull_msg = ipa3_register_pull_msg;
 	api_ctrl->ipa_deregister_pull_msg = ipa3_deregister_pull_msg;
@@ -4501,6 +4504,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_disconn_wdi3_pipes = ipa3_disconn_wdi3_pipes;
 	api_ctrl->ipa_enable_wdi3_pipes = ipa3_enable_wdi3_pipes;
 	api_ctrl->ipa_disable_wdi3_pipes = ipa3_disable_wdi3_pipes;
+	api_ctrl->ipa_tz_unlock_reg = ipa3_tz_unlock_reg;
 
 	return 0;
 }
@@ -4996,12 +5000,9 @@ void ipa3_free_dma_task_for_gsi(void)
  */
 int ipa3_inject_dma_task_for_gsi(void)
 {
-	struct ipa3_desc desc = {0};
+	struct ipa3_desc desc;
 
-	desc.opcode = ipa3_ctx->dma_task_info.cmd_pyld->opcode;
-	desc.pyld = ipa3_ctx->dma_task_info.cmd_pyld->data;
-	desc.len = ipa3_ctx->dma_task_info.cmd_pyld->len;
-	desc.type = IPA_IMM_CMD_DESC;
+	ipa3_init_imm_cmd_desc(&desc, ipa3_ctx->dma_task_info.cmd_pyld);
 
 	IPADBG("sending 1B packet to IPA\n");
 	if (ipa3_send_cmd_timeout(1, &desc,
@@ -5324,3 +5325,14 @@ void ipa3_enable_dcd(void)
 	ipahal_write_reg_fields(IPA_IDLE_INDICATION_CFG,
 			&idle_indication_cfg);
 }
+
+void ipa3_init_imm_cmd_desc(struct ipa3_desc *desc,
+	struct ipahal_imm_cmd_pyld *cmd_pyld)
+{
+	memset(desc, 0, sizeof(*desc));
+	desc->opcode = cmd_pyld->opcode;
+	desc->pyld = cmd_pyld->data;
+	desc->len = cmd_pyld->len;
+	desc->type = IPA_IMM_CMD_DESC;
+}
+

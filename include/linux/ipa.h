@@ -40,8 +40,8 @@ enum ipa_nat_en_type {
 };
 
 /**
-* enum ipa_ipv6ct_en_type - IPv6CT setting type in IPA end-point
-*/
+ * enum ipa_ipv6ct_en_type - IPv6CT setting type in IPA end-point
+ */
 enum ipa_ipv6ct_en_type {
 	IPA_BYPASS_IPV6CT,
 	IPA_ENABLE_IPV6CT,
@@ -130,7 +130,7 @@ struct ipa_ep_cfg_nat {
  * struct ipa_ep_cfg_conn_track - IPv6 Connection tracking configuration in
  *	IPA end-point
  * @conn_track_en: Defines speculative conn_track action, means if specific
- *		   pipe needs to have UL/DL IPv6 Connection Tracking or Bybass
+ *		   pipe needs to have UL/DL IPv6 Connection Tracking or Bypass
  *		   IPv6 Connection Tracking. 0: Bypass IPv6 Connection Tracking
  *					     1: IPv6 UL/DL Connection Tracking.
  *		  Valid for Input Pipes only (IPA consumer)
@@ -407,8 +407,8 @@ struct ipa_ep_cfg_seq {
 
 /**
  * struct ipa_ep_cfg - configuration of IPA end-point
- * @nat:		NAT parmeters
- * @conn_track:		IPv6CT parmeters
+ * @nat:		NAT parameters
+ * @conn_track:		IPv6CT parameters
  * @hdr:		Header parameters
  * @hdr_ext:		Extended header parameters
  * @mode:		Mode parameters
@@ -1165,6 +1165,16 @@ struct ipa_gsi_ep_config {
 	int ee;
 };
 
+/**
+ * struct ipa_tz_unlock_reg_info - Used in order unlock regions of memory by TZ
+ * @reg_addr - Physical address of the start of the region
+ * @size - Size of the region in bytes
+ */
+struct ipa_tz_unlock_reg_info {
+	u64 reg_addr;
+	u64 size;
+};
+
 #if defined CONFIG_IPA || defined CONFIG_IPA3
 
 /*
@@ -1282,15 +1292,24 @@ int ipa_commit_flt(enum ipa_ip_type ip);
 int ipa_reset_flt(enum ipa_ip_type ip);
 
 /*
- * NAT
+ * NAT\IPv6CT
  */
-int allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem);
+int ipa_allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem);
+int ipa_allocate_nat_table(struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc);
+int ipa_allocate_ipv6ct_table(
+	struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc);
 
 int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init);
+int ipa_ipv6ct_init_cmd(struct ipa_ioc_ipv6ct_init *init);
 
 int ipa_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma);
+int ipa_table_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma);
 
 int ipa_nat_del_cmd(struct ipa_ioc_v4_nat_del *del);
+int ipa_del_nat_table(struct ipa_ioc_nat_ipv6ct_table_del *del);
+int ipa_del_ipv6ct_table(struct ipa_ioc_nat_ipv6ct_table_del *del);
+
+int ipa_nat_mdfy_pdn(struct ipa_ioc_nat_pdn_entry *mdfy_pdn);
 
 /*
  * Messaging
@@ -1529,6 +1548,21 @@ typedef void (*ipa_ready_cb)(void *user_data);
 */
 int ipa_register_ipa_ready_cb(void (*ipa_ready_cb)(void *user_data),
 			      void *user_data);
+
+/**
+ * ipa_tz_unlock_reg - Unlocks memory regions so that they become accessible
+ *	from AP.
+ * @reg_info - Pointer to array of memory regions to unlock
+ * @num_regs - Number of elements in the array
+ *
+ * Converts the input array of regions to a struct that TZ understands and
+ * issues an SCM call.
+ * Also flushes the memory cache to DDR in order to make sure that TZ sees the
+ * correct data structure.
+ *
+ * Returns: 0 on success, negative on failure
+ */
+int ipa_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs);
 
 #else /* (CONFIG_IPA || CONFIG_IPA3) */
 
@@ -1776,25 +1810,60 @@ static inline int ipa_reset_flt(enum ipa_ip_type ip)
 /*
  * NAT
  */
-static inline int allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem)
+static inline int ipa_allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem)
 {
 	return -EPERM;
 }
 
+static inline int ipa_allocate_nat_table(
+	struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc)
+{
+	return -EPERM;
+}
+
+static inline int ipa_allocate_ipv6ct_table(
+	struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc)
+{
+	return -EPERM;
+}
 
 static inline int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 {
 	return -EPERM;
 }
 
+static inline int ipa_ipv6ct_init_cmd(struct ipa_ioc_ipv6ct_init *init)
+{
+	return -EPERM;
+}
 
 static inline int ipa_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
 {
 	return -EPERM;
 }
 
+static inline int ipa_table_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
+{
+	return -EPERM;
+}
 
 static inline int ipa_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
+{
+	return -EPERM;
+}
+
+static inline int ipa_del_nat_table(struct ipa_ioc_nat_ipv6ct_table_del *del)
+{
+	return -EPERM;
+}
+
+static inline int ipa_del_ipv6ct_table(
+	struct ipa_ioc_nat_ipv6ct_table_del *del)
+{
+	return -EPERM;
+}
+
+static inline int ipa_nat_mdfy_pdn(struct ipa_ioc_nat_pdn_entry *mdfy_pdn)
 {
 	return -EPERM;
 }
@@ -2272,6 +2341,12 @@ static inline int ipa_stop_gsi_channel(u32 clnt_hdl)
 static inline int ipa_register_ipa_ready_cb(
 	void (*ipa_ready_cb)(void *user_data),
 	void *user_data)
+{
+	return -EPERM;
+}
+
+static inline int ipa_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info,
+	u16 num_regs)
 {
 	return -EPERM;
 }

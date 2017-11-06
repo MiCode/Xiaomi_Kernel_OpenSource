@@ -115,8 +115,9 @@ struct sde_rsc_client *sde_encoder_get_rsc_client(struct drm_encoder *encoder);
  *	Delayed: Block until next trigger can be issued.
  * @encoder:	encoder pointer
  * @params:	kickoff time parameters
+ * @Returns:	Zero on success, last detected error otherwise
  */
-void sde_encoder_prepare_for_kickoff(struct drm_encoder *encoder,
+int sde_encoder_prepare_for_kickoff(struct drm_encoder *encoder,
 		struct sde_encoder_kickoff_params *params);
 
 /**
@@ -166,13 +167,6 @@ enum sde_intf_mode sde_encoder_get_intf_mode(struct drm_encoder *encoder);
  * @encoder:	encoder pointer
  */
 void sde_encoder_virt_restore(struct drm_encoder *encoder);
-
-/**
- * sde_encoder_is_dsc_enabled - check if encoder is in DSC mode
- * @drm_enc: Pointer to drm encoder object
- * @Return: true if encoder is in DSC mode
- */
-bool sde_encoder_is_dsc_enabled(struct drm_encoder *drm_enc);
 
 /**
  * sde_encoder_is_dsc_merge - check if encoder is in DSC merge mode

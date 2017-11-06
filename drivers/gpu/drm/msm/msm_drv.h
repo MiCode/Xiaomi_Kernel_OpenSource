@@ -83,8 +83,6 @@ struct msm_file_private {
 
 enum msm_mdp_plane_property {
 	/* blob properties, always put these first */
-	PLANE_PROP_SCALER_V1,
-	PLANE_PROP_SCALER_V2,
 	PLANE_PROP_CSC_V1,
 	PLANE_PROP_INFO,
 	PLANE_PROP_SCALER_LUT_ED,
@@ -116,6 +114,8 @@ enum msm_mdp_plane_property {
 	PLANE_PROP_ROT_DST_H,
 	PLANE_PROP_PREFILL_SIZE,
 	PLANE_PROP_PREFILL_TIME,
+	PLANE_PROP_SCALER_V1,
+	PLANE_PROP_SCALER_V2,
 
 	/* enum/bitmask properties */
 	PLANE_PROP_ROTATION,
@@ -409,6 +409,7 @@ struct msm_display_topology {
  * @clk_rate:	     DSI bit clock per lane in HZ.
  * @topology:        supported topology for the mode
  * @comp_info:       compression info supported
+ * @roi_caps:        panel roi capabilities
  */
 struct msm_mode_info {
 	uint32_t frame_rate;
@@ -419,6 +420,7 @@ struct msm_mode_info {
 	uint64_t clk_rate;
 	struct msm_display_topology topology;
 	struct msm_compression_info comp_info;
+	struct msm_roi_caps roi_caps;
 };
 
 /**

@@ -29,6 +29,11 @@
 
 struct dp_debug_private {
 	struct dentry *root;
+	u8 *edid;
+	u32 edid_size;
+
+	u8 *dpcd;
+	u32 dpcd_size;
 
 	struct dp_usbpd *usbpd;
 	struct dp_link *link;
@@ -38,6 +43,138 @@ struct dp_debug_private {
 
 	struct dp_debug dp_debug;
 };
+
+static ssize_t dp_debug_write_edid(struct file *file,
+		const char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	u8 *buf = NULL, *buf_t = NULL, *edid = NULL;
+	const int char_to_nib = 2;
+	size_t edid_size = 0;
+	size_t size = 0, edid_buf_index = 0;
+	ssize_t rc = count;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		goto bail;
+
+	size = min_t(size_t, count, SZ_1K);
+
+	buf = kzalloc(size, GFP_KERNEL);
+	if (!buf) {
+		rc = -ENOMEM;
+		goto bail;
+	}
+
+	if (copy_from_user(buf, user_buff, size))
+		goto bail;
+
+	edid_size = size / char_to_nib;
+	buf_t = buf;
+
+	memset(debug->edid, 0, debug->edid_size);
+
+	if (edid_size != debug->edid_size) {
+		pr_debug("clearing debug edid\n");
+		goto bail;
+	}
+
+	while (edid_size--) {
+		char t[3];
+		int d;
+
+		memcpy(t, buf_t, sizeof(char) * char_to_nib);
+		t[char_to_nib] = '\0';
+
+		if (kstrtoint(t, 16, &d)) {
+			pr_err("kstrtoint error\n");
+			goto bail;
+		}
+
+		if (edid_buf_index < debug->edid_size)
+			debug->edid[edid_buf_index++] = d;
+
+		buf_t += char_to_nib;
+	}
+
+	print_hex_dump(KERN_DEBUG, "DEBUG EDID: ", DUMP_PREFIX_NONE,
+		16, 1, debug->edid, debug->edid_size, false);
+
+	edid = debug->edid;
+bail:
+	kfree(buf);
+	debug->panel->set_edid(debug->panel, edid);
+	return rc;
+}
+
+static ssize_t dp_debug_write_dpcd(struct file *file,
+		const char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	u8 *buf = NULL, *buf_t = NULL, *dpcd = NULL;
+	const int char_to_nib = 2;
+	size_t dpcd_size = 0;
+	size_t size = 0, dpcd_buf_index = 0;
+	ssize_t rc = count;
+
+	pr_debug("count=%zu\n", count);
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		goto bail;
+
+	size = min_t(size_t, count, SZ_32);
+
+	buf = kzalloc(size, GFP_KERNEL);
+	if (!buf) {
+		rc = -ENOMEM;
+		goto bail;
+	}
+
+	if (copy_from_user(buf, user_buff, size))
+		goto bail;
+
+	dpcd_size = size / char_to_nib;
+	buf_t = buf;
+
+	memset(debug->dpcd, 0, debug->dpcd_size);
+
+	if (dpcd_size != debug->dpcd_size) {
+		pr_debug("clearing debug dpcd\n");
+		goto bail;
+	}
+
+	while (dpcd_size--) {
+		char t[3];
+		int d;
+
+		memcpy(t, buf_t, sizeof(char) * char_to_nib);
+		t[char_to_nib] = '\0';
+
+		if (kstrtoint(t, 16, &d)) {
+			pr_err("kstrtoint error\n");
+			goto bail;
+		}
+
+		if (dpcd_buf_index < debug->dpcd_size)
+			debug->dpcd[dpcd_buf_index++] = d;
+
+		buf_t += char_to_nib;
+	}
+
+	print_hex_dump(KERN_DEBUG, "DEBUG DPCD: ", DUMP_PREFIX_NONE,
+		8, 1, debug->dpcd, debug->dpcd_size, false);
+
+	dpcd = debug->dpcd;
+bail:
+	kfree(buf);
+	debug->panel->set_dpcd(debug->panel, dpcd);
+	return rc;
+}
 
 static ssize_t dp_debug_write_hpd(struct file *file,
 		const char __user *user_buff, size_t count, loff_t *ppos)
@@ -431,6 +568,16 @@ static const struct file_operations hpd_fops = {
 	.write = dp_debug_write_hpd,
 };
 
+static const struct file_operations edid_fops = {
+	.open = simple_open,
+	.write = dp_debug_write_edid,
+};
+
+static const struct file_operations dpcd_fops = {
+	.open = simple_open,
+	.write = dp_debug_write_dpcd,
+};
+
 static const struct file_operations connected_fops = {
 	.open = simple_open,
 	.read = dp_debug_read_connected,
@@ -447,10 +594,7 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 	int rc = 0;
 	struct dp_debug_private *debug = container_of(dp_debug,
 		struct dp_debug_private, dp_debug);
-	struct dentry *dir, *file, *edid_modes;
-	struct dentry *hpd, *connected;
-	struct dentry *max_bw_code;
-	struct dentry *root = debug->root;
+	struct dentry *dir, *file;
 
 	dir = debugfs_create_dir(DEBUG_NAME, NULL);
 	if (IS_ERR_OR_NULL(dir)) {
@@ -459,6 +603,8 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		       DEBUG_NAME, rc);
 		goto error;
 	}
+
+	debug->root = dir;
 
 	file = debugfs_create_file("dp_debug", 0444, dir,
 				debug, &dp_debug_fops);
@@ -469,46 +615,64 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		goto error_remove_dir;
 	}
 
-	edid_modes = debugfs_create_file("edid_modes", 0644, dir,
+	file = debugfs_create_file("edid_modes", 0644, dir,
 					debug, &edid_modes_fops);
-	if (IS_ERR_OR_NULL(edid_modes)) {
-		rc = PTR_ERR(edid_modes);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
 		pr_err("[%s] debugfs create edid_modes failed, rc=%d\n",
 		       DEBUG_NAME, rc);
 		goto error_remove_dir;
 	}
 
-	hpd = debugfs_create_file("hpd", 0644, dir,
+	file = debugfs_create_file("hpd", 0644, dir,
 					debug, &hpd_fops);
-	if (IS_ERR_OR_NULL(hpd)) {
-		rc = PTR_ERR(hpd);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
 		pr_err("[%s] debugfs hpd failed, rc=%d\n",
 			DEBUG_NAME, rc);
 		goto error_remove_dir;
 	}
 
-	connected = debugfs_create_file("connected", 0444, dir,
+	file = debugfs_create_file("connected", 0444, dir,
 					debug, &connected_fops);
-	if (IS_ERR_OR_NULL(connected)) {
-		rc = PTR_ERR(connected);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
 		pr_err("[%s] debugfs connected failed, rc=%d\n",
 			DEBUG_NAME, rc);
 		goto error_remove_dir;
 	}
 
-	max_bw_code = debugfs_create_file("max_bw_code", 0644, dir,
+	file = debugfs_create_file("max_bw_code", 0644, dir,
 			debug, &bw_code_fops);
-	if (IS_ERR_OR_NULL(max_bw_code)) {
-		rc = PTR_ERR(max_bw_code);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
 		pr_err("[%s] debugfs max_bw_code failed, rc=%d\n",
 		       DEBUG_NAME, rc);
 		goto error_remove_dir;
 	}
 
-	root = dir;
-	return rc;
+	file = debugfs_create_file("edid", 0644, dir,
+					debug, &edid_fops);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs edid failed, rc=%d\n",
+			DEBUG_NAME, rc);
+		goto error_remove_dir;
+	}
+
+	file = debugfs_create_file("dpcd", 0644, dir,
+					debug, &dpcd_fops);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs dpcd failed, rc=%d\n",
+			DEBUG_NAME, rc);
+		goto error_remove_dir;
+	}
+
+	return 0;
+
 error_remove_dir:
-	debugfs_remove(dir);
+	debugfs_remove_recursive(dir);
 error:
 	return rc;
 }
@@ -532,6 +696,24 @@ struct dp_debug *dp_debug_get(struct device *dev, struct dp_panel *panel,
 		rc = -ENOMEM;
 		goto error;
 	}
+
+	debug->edid = devm_kzalloc(dev, SZ_256, GFP_KERNEL);
+	if (!debug->edid) {
+		rc = -ENOMEM;
+		kfree(debug);
+		goto error;
+	}
+
+	debug->edid_size = SZ_256;
+
+	debug->dpcd = devm_kzalloc(dev, SZ_16, GFP_KERNEL);
+	if (!debug->dpcd) {
+		rc = -ENOMEM;
+		kfree(debug);
+		goto error;
+	}
+
+	debug->dpcd_size = SZ_16;
 
 	debug->dp_debug.debug_en = false;
 	debug->usbpd = usbpd;
@@ -565,7 +747,7 @@ static int dp_debug_deinit(struct dp_debug *dp_debug)
 
 	debug = container_of(dp_debug, struct dp_debug_private, dp_debug);
 
-	debugfs_remove(debug->root);
+	debugfs_remove_recursive(debug->root);
 
 	return 0;
 }
@@ -581,5 +763,7 @@ void dp_debug_put(struct dp_debug *dp_debug)
 
 	dp_debug_deinit(dp_debug);
 
+	devm_kfree(debug->dev, debug->edid);
+	devm_kfree(debug->dev, debug->dpcd);
 	devm_kfree(debug->dev, debug);
 }

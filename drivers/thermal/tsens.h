@@ -48,7 +48,6 @@ static inline int tsens2xxx_dbg(struct tsens_device *data, u32 id,
 #endif
 
 struct tsens_dbg {
-	u32				dbg_count[DEBUG_SIZE];
 	u32				idx;
 	unsigned long long		time_stmp[DEBUG_SIZE];
 	unsigned long			temp[DEBUG_SIZE];
@@ -56,9 +55,10 @@ struct tsens_dbg {
 
 struct tsens_dbg_context {
 	struct tsens_device		*tmdev;
-	struct tsens_dbg		tsens_thread_iq_dbg;
 	struct tsens_dbg		sensor_dbg_info[TSENS_MAX_SENSORS];
 	int				tsens_critical_wd_cnt;
+	u32				irq_idx;
+	unsigned long long		irq_time_stmp[DEBUG_SIZE];
 	struct delayed_work		tsens_critical_poll_test;
 };
 
@@ -120,7 +120,6 @@ struct tsens_device {
 	struct device			*dev;
 	struct platform_device		*pdev;
 	struct list_head		list;
-	u32				num_sensors;
 	struct regmap			*map;
 	struct regmap_field		*status_field;
 	void __iomem			*tsens_srot_addr;

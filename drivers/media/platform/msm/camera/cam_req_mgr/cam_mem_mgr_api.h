@@ -100,4 +100,26 @@ static inline bool cam_mem_is_secure_buf(int32_t buf_handle)
 	return CAM_MEM_MGR_IS_SECURE_HDL(buf_handle);
 }
 
+/**
+ * @brief: Reserves a memory region
+ *
+ * @inp:  Information specifying requested region properties
+ * @region : Region which is to be reserved
+ * @out   : Information about reserved region
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_mem_mgr_reserve_memory_region(struct cam_mem_mgr_request_desc *inp,
+		enum cam_smmu_region_id region,
+		struct cam_mem_mgr_memory_desc *out);
+
+/**
+ * @brief: Frees a memory region
+ *
+ * @inp   : Information about region which is to be freed
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_mem_mgr_free_memory_region(struct cam_mem_mgr_memory_desc *inp);
+
 #endif /* _CAM_MEM_MGR_API_H_ */

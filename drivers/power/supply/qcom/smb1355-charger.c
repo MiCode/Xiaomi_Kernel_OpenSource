@@ -69,6 +69,12 @@
 #define MAX_HICCUP_DUETO_BATDIS_MASK		GENMASK(5, 2)
 #define HICCUP_TIMEOUT_CFG_MASK			GENMASK(1, 0)
 
+#define BATIF_CFG_SMISC_BATID_REG		(BATIF_BASE + 0x73)
+#define CFG_SMISC_RBIAS_EXT_CTRL_BIT		BIT(2)
+
+#define BATIF_ENG_SCMISC_SPARE1_REG		(BATIF_BASE + 0xC2)
+#define EXT_BIAS_PIN_BIT			BIT(2)
+
 #define TEMP_COMP_STATUS_REG			(MISC_BASE + 0x07)
 #define SKIN_TEMP_RST_HOT_BIT			BIT(6)
 #define SKIN_TEMP_UB_HOT_BIT			BIT(5)
@@ -94,6 +100,14 @@
 #define SNARL_WDOG_TIMEOUT_MASK			GENMASK(6, 4)
 #define BARK_WDOG_TIMEOUT_MASK			GENMASK(3, 2)
 #define BITE_WDOG_TIMEOUT_MASK			GENMASK(1, 0)
+
+#define MISC_THERMREG_SRC_CFG_REG		(MISC_BASE + 0x70)
+#define BYP_THERM_CHG_CURR_ADJUST_BIT		BIT(2)
+#define THERMREG_SKIN_CMP_SRC_EN_BIT		BIT(1)
+#define THERMREG_DIE_CMP_SRC_EN_BIT		BIT(0)
+
+#define MISC_CHGR_TRIM_OPTIONS_REG		(MISC_BASE + 0x55)
+#define CMD_RBIAS_EN_BIT			BIT(2)
 
 struct smb_chg_param {
 	const char	*name;
@@ -137,11 +151,16 @@ struct smb_iio {
 	struct iio_channel	*temp_max_chan;
 };
 
+struct smb_dt_props {
+	bool	disable_ctm;
+};
+
 struct smb1355 {
 	struct device		*dev;
 	char			*name;
 	struct regmap		*regmap;
 
+	struct smb_dt_props	dt;
 	struct smb_params	param;
 	struct smb_iio		iio;
 
@@ -287,6 +306,22 @@ static int smb1355_determine_initial_status(struct smb1355 *chip)
 {
 	smb1355_handle_temperature_change(0, chip);
 	return 0;
+}
+
+static int smb1355_parse_dt(struct smb1355 *chip)
+{
+	struct device_node *node = chip->dev->of_node;
+	int rc = 0;
+
+	if (!node) {
+		pr_err("device tree node missing\n");
+		return -EINVAL;
+	}
+
+	chip->dt.disable_ctm =
+		of_property_read_bool(node, "qcom,disable-ctm");
+
+	return rc;
 }
 
 /*****************************
@@ -582,6 +617,92 @@ static int smb1355_init_parallel_psy(struct smb1355 *chip)
  * HARDWARE INITIALIZATION *
  ***************************/
 
+static int smb1355_tskin_sensor_config(struct smb1355 *chip)
+{
+	int rc;
+
+	if (chip->dt.disable_ctm) {
+		/*
+		 * the TSKIN sensor with external resistor needs a bias,
+		 * disable it here.
+		 */
+		rc = smb1355_masked_write(chip, BATIF_ENG_SCMISC_SPARE1_REG,
+					 EXT_BIAS_PIN_BIT, 0);
+		if (rc < 0) {
+			pr_err("Couldn't enable ext bias pin path rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		rc = smb1355_masked_write(chip, BATIF_CFG_SMISC_BATID_REG,
+					CFG_SMISC_RBIAS_EXT_CTRL_BIT, 0);
+		if (rc < 0) {
+			pr_err("Couldn't set  BATIF_CFG_SMISC_BATID rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		rc = smb1355_masked_write(chip, MISC_CHGR_TRIM_OPTIONS_REG,
+					CMD_RBIAS_EN_BIT, 0);
+		if (rc < 0) {
+			pr_err("Couldn't set MISC_CHGR_TRIM_OPTIONS rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		/* disable skin temperature comparator source */
+		rc = smb1355_masked_write(chip, MISC_THERMREG_SRC_CFG_REG,
+			THERMREG_SKIN_CMP_SRC_EN_BIT, 0);
+		if (rc < 0) {
+			pr_err("Couldn't set Skin temp comparator src rc=%d\n",
+				rc);
+			return rc;
+		}
+	} else {
+		/*
+		 * the TSKIN sensor with external resistor needs a bias,
+		 * enable it here.
+		 */
+		rc = smb1355_masked_write(chip, BATIF_ENG_SCMISC_SPARE1_REG,
+					 EXT_BIAS_PIN_BIT, EXT_BIAS_PIN_BIT);
+		if (rc < 0) {
+			pr_err("Couldn't enable ext bias pin path rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		rc = smb1355_masked_write(chip, BATIF_CFG_SMISC_BATID_REG,
+					CFG_SMISC_RBIAS_EXT_CTRL_BIT,
+					CFG_SMISC_RBIAS_EXT_CTRL_BIT);
+		if (rc < 0) {
+			pr_err("Couldn't set  BATIF_CFG_SMISC_BATID rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		rc = smb1355_masked_write(chip, MISC_CHGR_TRIM_OPTIONS_REG,
+					CMD_RBIAS_EN_BIT,
+					CMD_RBIAS_EN_BIT);
+		if (rc < 0) {
+			pr_err("Couldn't set MISC_CHGR_TRIM_OPTIONS rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		/* Enable skin temperature comparator source */
+		rc = smb1355_masked_write(chip, MISC_THERMREG_SRC_CFG_REG,
+			THERMREG_SKIN_CMP_SRC_EN_BIT,
+			THERMREG_SKIN_CMP_SRC_EN_BIT);
+		if (rc < 0) {
+			pr_err("Couldn't set Skin temp comparator src rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	return rc;
+}
+
 static int smb1355_init_hw(struct smb1355 *chip)
 {
 	int rc;
@@ -624,7 +745,7 @@ static int smb1355_init_hw(struct smb1355 *chip)
 			HICCUP_TIMEOUT_CFG_MASK | MAX_HICCUP_DUETO_BATDIS_MASK,
 			0);
 	if (rc < 0) {
-		pr_err("Couldn't enable parallel current sensing rc=%d\n",
+		pr_err("Couldn't set HICCUP interval rc=%d\n",
 			rc);
 		return rc;
 	}
@@ -644,6 +765,25 @@ static int smb1355_init_hw(struct smb1355 *chip)
 	if (rc < 0) {
 		pr_err("Couldn't set PRE_TO_FAST_CHARGE_THRESHOLD rc=%d\n",
 			rc);
+		return rc;
+	}
+
+	/*
+	 * Disable thermal Die temperature comparator source and hw mitigation
+	 * for skin/die
+	 */
+	rc = smb1355_masked_write(chip, MISC_THERMREG_SRC_CFG_REG,
+		THERMREG_DIE_CMP_SRC_EN_BIT | BYP_THERM_CHG_CURR_ADJUST_BIT,
+		BYP_THERM_CHG_CURR_ADJUST_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't set Skin temperature comparator src rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = smb1355_tskin_sensor_config(chip);
+	if (rc < 0) {
+		pr_err("Couldn't configure tskin regs rc=%d\n", rc);
 		return rc;
 	}
 
@@ -779,6 +919,12 @@ static int smb1355_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, chip);
+
+	rc = smb1355_parse_dt(chip);
+	if (rc < 0) {
+		pr_err("Couldn't parse device tree rc=%d\n", rc);
+		goto cleanup;
+	}
 
 	rc = smb1355_init_hw(chip);
 	if (rc < 0) {

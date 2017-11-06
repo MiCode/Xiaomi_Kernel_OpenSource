@@ -497,6 +497,9 @@ static int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
 		if (state == DSI_CMD_SET_STATE_LP)
 			cmds->msg.flags |= MIPI_DSI_MSG_USE_LPM;
 
+		if (cmds->last_command)
+			cmds->msg.flags |= MIPI_DSI_MSG_LASTCOMMAND;
+
 		len = ops->transfer(panel->host, &cmds->msg);
 		if (len < 0) {
 			rc = len;
@@ -743,6 +746,10 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 	if (rc)
 		pr_err("qcom,mdss-dsi-h-sync-skew is not defined, rc=%d\n", rc);
 
+	pr_debug("panel horz active:%d front_portch:%d back_porch:%d sync_skew:%d\n",
+		mode->h_active, mode->h_front_porch, mode->h_back_porch,
+		mode->h_sync_width);
+
 	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-height",
 				  &mode->v_active);
 	if (rc) {
@@ -774,6 +781,9 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 		       rc);
 		goto error;
 	}
+	pr_debug("panel vert active:%d front_portch:%d back_porch:%d pulse_width:%d\n",
+		mode->v_active, mode->v_front_porch, mode->v_back_porch,
+		mode->v_sync_width);
 
 error:
 	return rc;
@@ -2173,7 +2183,9 @@ static int dsi_panel_parse_dsc_params(struct dsi_display_mode *mode,
 
 	intf_width = mode->timing.h_active;
 	if (intf_width % priv_info->dsc.slice_width) {
-		pr_err("invalid slice width for the panel\n");
+		pr_err("invalid slice width for the intf width:%d slice width:%d\n",
+			intf_width, priv_info->dsc.slice_width);
+		rc = -EINVAL;
 		goto error;
 	}
 
@@ -2392,12 +2404,19 @@ static int dsi_panel_parse_roi_alignment(struct device_node *of_node,
 	return rc;
 }
 
-static int dsi_panel_parse_partial_update_caps(struct dsi_panel *panel,
-					       struct device_node *of_node)
+static int dsi_panel_parse_partial_update_caps(struct dsi_display_mode *mode,
+				struct device_node *of_node)
 {
-	struct msm_roi_caps *roi_caps = &panel->roi_caps;
+	struct msm_roi_caps *roi_caps = NULL;
 	const char *data;
 	int rc = 0;
+
+	if (!mode || !mode->priv_info) {
+		pr_err("invalid arguments\n");
+		return -EINVAL;
+	}
+
+	roi_caps = &mode->priv_info->roi_caps;
 
 	memset(roi_caps, 0, sizeof(*roi_caps));
 
@@ -2405,8 +2424,17 @@ static int dsi_panel_parse_partial_update_caps(struct dsi_panel *panel,
 	if (data) {
 		if (!strcmp(data, "dual_roi"))
 			roi_caps->num_roi = 2;
-		else
+		else if (!strcmp(data, "single_roi"))
 			roi_caps->num_roi = 1;
+		else {
+			pr_info(
+			"invalid value for qcom,partial-update-enabled: %s\n",
+			data);
+			return 0;
+		}
+	} else {
+		pr_info("partial update disabled as the property is not set\n");
+		return 0;
 	}
 
 	roi_caps->merge_rois = of_property_read_bool(of_node,
@@ -2419,7 +2447,7 @@ static int dsi_panel_parse_partial_update_caps(struct dsi_panel *panel,
 
 	if (roi_caps->enabled)
 		rc = dsi_panel_parse_roi_alignment(of_node,
-				&panel->roi_caps.align);
+				&roi_caps->align);
 
 	if (rc)
 		memset(roi_caps, 0, sizeof(*roi_caps));
@@ -2736,10 +2764,6 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	if (rc)
 		pr_err("failed to parse hdr config, rc=%d\n", rc);
 
-	rc = dsi_panel_parse_partial_update_caps(panel, of_node);
-	if (rc)
-		pr_debug("failed to partial update caps, rc=%d\n", rc);
-
 	rc = dsi_panel_get_mode_count(panel, of_node);
 	if (rc) {
 		pr_err("failed to get mode count, rc=%d\n", rc);
@@ -3048,6 +3072,10 @@ int dsi_panel_get_mode(struct dsi_panel *panel,
 			"failed to parse panel phy timings, rc=%d\n", rc);
 			goto parse_fail;
 		}
+
+		rc = dsi_panel_parse_partial_update_caps(mode, child_np);
+		if (rc)
+			pr_err("failed to partial update caps, rc=%d\n", rc);
 	}
 	goto done;
 
