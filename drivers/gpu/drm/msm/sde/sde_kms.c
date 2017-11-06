@@ -526,6 +526,56 @@ static int _sde_kms_release_splash_buffer(unsigned int mem_addr,
 
 }
 
+static int _sde_kms_splash_smmu_map(struct drm_device *dev, struct msm_mmu *mmu,
+		struct sde_splash_data *data)
+{
+	int ret = 0;
+
+	if (!mmu || !data)
+		return -EINVAL;
+
+	ret = mmu->funcs->one_to_one_map(mmu, data->splash_base,
+				data->splash_base, data->splash_size,
+				IOMMU_READ | IOMMU_NOEXEC);
+	if (ret)
+		SDE_ERROR("Splash smmu map failed: %d\n", ret);
+
+	return ret;
+}
+
+static int _sde_kms_splash_smmu_unmap(struct sde_kms *sde_kms)
+{
+	struct sde_splash_data *data;
+	struct msm_mmu *mmu;
+	int rc = 0;
+
+	if (!sde_kms)
+		return -EINVAL;
+
+	data = &sde_kms->splash_data;
+	if (!data) {
+		SDE_ERROR("Invalid splash data\n");
+		return -EINVAL;
+	}
+
+	if (!sde_kms->aspace[0]) {
+		SDE_ERROR("aspace not found for sde kms node\n");
+		return -EINVAL;
+	}
+
+	mmu = sde_kms->aspace[0]->mmu;
+	if (!mmu) {
+		SDE_ERROR("mmu not found for aspace\n");
+		return -EINVAL;
+	}
+
+	if (mmu->funcs && mmu->funcs->one_to_one_unmap)
+		mmu->funcs->one_to_one_unmap(mmu, data->splash_base,
+				data->splash_size);
+
+	return rc;
+}
+
 static void sde_kms_prepare_commit(struct msm_kms *kms,
 		struct drm_atomic_state *state)
 {
@@ -536,8 +586,6 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *crtc_state;
 	int i, rc = 0;
-	struct drm_plane *plane;
-	bool commit_no_planes = true;
 
 	if (!kms)
 		return;
@@ -566,28 +614,8 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 		}
 	}
 
-	if (sde_kms->splash_data.smmu_handoff_pending) {
-		list_for_each_entry(plane, &dev->mode_config.plane_list, head)
-			if (plane->state != NULL &&
-					plane->state->crtc != NULL)
-				commit_no_planes = false;
-	}
-
-	if (sde_kms->splash_data.smmu_handoff_pending && commit_no_planes) {
-
-		rc = sde_unstage_pipe_for_cont_splash(&sde_kms->splash_data,
-						sde_kms->mmio);
-		if (rc)
-			SDE_ERROR("pipe staging failed: %d\n", rc);
-
-		rc = _sde_kms_release_splash_buffer(
-				sde_kms->splash_data.splash_base,
-				sde_kms->splash_data.splash_size);
-		if (rc)
-			SDE_ERROR("release of splash memory failed %d\n", rc);
-
+	if (sde_kms->splash_data.smmu_handoff_pending)
 		sde_kms->splash_data.smmu_handoff_pending = false;
-	}
 
 	/*
 	 * NOTE: for secure use cases we want to apply the new HW
@@ -667,11 +695,27 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 	SDE_EVT32_VERBOSE(SDE_EVTLOG_FUNC_EXIT);
 
 	if (sde_kms->splash_data.cont_splash_en) {
+		/* Releasing splash resources as we have first frame update */
+		rc = _sde_kms_splash_smmu_unmap(sde_kms);
 		SDE_DEBUG("Disabling cont_splash feature\n");
 		sde_kms->splash_data.cont_splash_en = false;
 		sde_power_resource_enable(&priv->phandle,
 				sde_kms->core_client, false);
 		SDE_DEBUG("removing Vote for MDP Resources\n");
+	}
+
+	/*
+	 * Even for continuous splash disabled cases we have to release
+	 * splash memory reservation back to system after first frame update.
+	 */
+	if (sde_kms->splash_data.splash_base) {
+		rc = _sde_kms_release_splash_buffer(
+				sde_kms->splash_data.splash_base,
+				sde_kms->splash_data.splash_size);
+		if (rc)
+			pr_err("Failed to release splash memory\n");
+		sde_kms->splash_data.splash_base = 0;
+		sde_kms->splash_data.splash_size = 0;
 	}
 }
 
@@ -1562,6 +1606,9 @@ static void _sde_kms_hw_destroy(struct sde_kms *sde_kms,
 				&priv->phandle, sde_kms->power_event);
 
 	_sde_kms_release_displays(sde_kms);
+	(void)_sde_kms_release_splash_buffer(
+				sde_kms->splash_data.splash_base,
+				sde_kms->splash_data.splash_size);
 
 	/* safe to call these more than once during shutdown */
 	_sde_debugfs_destroy(sde_kms);
@@ -2450,6 +2497,7 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 {
 	struct msm_mmu *mmu;
 	int i, ret;
+	int early_map = 1;
 
 	for (i = 0; i < MSM_SMMU_DOMAIN_MAX; i++) {
 		struct msm_gem_address_space *aspace;
@@ -2460,6 +2508,23 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 			SDE_DEBUG("failed to init iommu id %d: rc:%d\n",
 								i, ret);
 			continue;
+		}
+
+		/*
+		 * Before attaching SMMU, we need to honor continuous splash
+		 * use case where hardware tries to fetch buffer from physical
+		 * address. To facilitate this requirement we need to have a
+		 * one to one mapping on SMMU until we have our first frame.
+		 */
+		if ((i == MSM_SMMU_DOMAIN_UNSECURE) &&
+			sde_kms->splash_data.smmu_handoff_pending) {
+			ret = mmu->funcs->set_attribute(mmu,
+				DOMAIN_ATTR_EARLY_MAP,
+				&early_map);
+			if (ret) {
+				SDE_ERROR("failed to set map att: %d\n", ret);
+				goto fail;
+			}
 		}
 
 		aspace = msm_gem_smmu_address_space_create(sde_kms->dev,
@@ -2480,10 +2545,37 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 			goto fail;
 		}
 		aspace->domain_attached = true;
+		early_map = 0;
+		/* Mapping splash memory block */
+		if ((i == MSM_SMMU_DOMAIN_UNSECURE) &&
+			sde_kms->splash_data.smmu_handoff_pending) {
+			ret = _sde_kms_splash_smmu_map(sde_kms->dev, mmu,
+					&sde_kms->splash_data);
+			if (ret) {
+				SDE_ERROR("failed to map ret:%d\n", ret);
+				goto fail;
+			}
+			/*
+			 * Turning off early map after generating one to one
+			 * mapping for splash address space.
+			 */
+			ret = mmu->funcs->set_attribute(mmu,
+				DOMAIN_ATTR_EARLY_MAP,
+				&early_map);
+			if (ret) {
+				SDE_ERROR("failed to set map att ret:%d\n",
+									ret);
+				goto early_map_fail;
+			}
+		}
 	}
 
 	return 0;
+early_map_fail:
+	mmu->funcs->one_to_one_unmap(mmu, sde_kms->splash_data.splash_base,
+					sde_kms->splash_data.splash_size);
 fail:
+	mmu->funcs->destroy(mmu);
 	_sde_kms_mmu_destroy(sde_kms);
 
 	return ret;
@@ -2591,8 +2683,6 @@ static int _sde_kms_get_splash_data(struct sde_splash_data *data)
 	pr_info("found continuous splash base address:%lx size:%x\n",
 						data->splash_base,
 						data->splash_size);
-	data->smmu_handoff_pending = true;
-
 	return ret;
 }
 
@@ -2602,7 +2692,6 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	struct drm_device *dev;
 	struct msm_drm_private *priv;
 	struct sde_rm *rm = NULL;
-	bool splash_mem_found = false;
 	int i, rc = -EINVAL;
 
 	if (!kms) {
@@ -2696,12 +2785,8 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	}
 
 	rc = _sde_kms_get_splash_data(&sde_kms->splash_data);
-	if (rc) {
+	if (rc)
 		SDE_DEBUG("sde splash data fetch failed: %d\n", rc);
-		splash_mem_found = false;
-	} else {
-		splash_mem_found = true;
-	}
 
 	rc = sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
 		true);
@@ -2740,10 +2825,17 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	 * Attempt continuous splash handoff only if reserved
 	 * splash memory is found.
 	 */
-	if (splash_mem_found)
+	if (sde_kms->splash_data.splash_base)
 		sde_rm_cont_splash_res_init(&sde_kms->rm,
 					&sde_kms->splash_data,
 					sde_kms->catalog);
+
+	/*
+	 * SMMU handoff is necessary for continuous splash enabled
+	 * scenario.
+	 */
+	if (sde_kms->splash_data.cont_splash_en)
+		sde_kms->splash_data.smmu_handoff_pending = true;
 
 	/* Initialize reg dma block which is a singleton */
 	rc = sde_reg_dma_init(sde_kms->reg_dma, sde_kms->catalog,
