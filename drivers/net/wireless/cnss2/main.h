@@ -25,6 +25,11 @@
 
 #define MAX_NO_OF_MAC_ADDR		4
 
+#define CNSS_EVENT_SYNC   BIT(0)
+#define CNSS_EVENT_UNINTERRUPTIBLE BIT(1)
+#define CNSS_EVENT_SYNC_UNINTERRUPTIBLE (CNSS_EVENT_SYNC | \
+				CNSS_EVENT_UNINTERRUPTIBLE)
+
 enum cnss_dev_bus_type {
 	CNSS_BUS_NONE = -1,
 	CNSS_BUS_PCI,
@@ -205,7 +210,7 @@ void *cnss_bus_dev_to_bus_priv(struct device *dev);
 struct cnss_plat_data *cnss_bus_dev_to_plat_priv(struct device *dev);
 int cnss_driver_event_post(struct cnss_plat_data *plat_priv,
 			   enum cnss_driver_event_type type,
-			   bool sync, void *data);
+			   u32 flags, void *data);
 int cnss_get_vreg(struct cnss_plat_data *plat_priv);
 int cnss_get_pinctrl(struct cnss_plat_data *plat_priv);
 int cnss_power_on_device(struct cnss_plat_data *plat_priv);

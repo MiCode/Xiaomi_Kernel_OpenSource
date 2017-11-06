@@ -702,19 +702,19 @@ static char *cnss_driver_event_to_str(enum cnss_driver_event_type type)
 
 int cnss_driver_event_post(struct cnss_plat_data *plat_priv,
 			   enum cnss_driver_event_type type,
-			   bool sync, void *data)
+			   u32 flags, void *data)
 {
 	struct cnss_driver_event *event;
-	unsigned long flags;
+	unsigned long irq_flags;
 	int gfp = GFP_KERNEL;
 	int ret = 0;
 
 	if (!plat_priv)
 		return -ENODEV;
 
-	cnss_pr_dbg("Posting event: %s(%d)%s, state: 0x%lx\n",
+	cnss_pr_dbg("Posting event: %s(%d)%s, state: 0x%lx flags: 0x%0x\n",
 		    cnss_driver_event_to_str(type), type,
-		    sync ? "-sync" : "", plat_priv->driver_state);
+		    flags ? "-sync" : "", plat_priv->driver_state, flags);
 
 	if (type >= CNSS_DRIVER_EVENT_MAX) {
 		cnss_pr_err("Invalid Event type: %d, can't post", type);
@@ -734,31 +734,33 @@ int cnss_driver_event_post(struct cnss_plat_data *plat_priv,
 	event->data = data;
 	init_completion(&event->complete);
 	event->ret = CNSS_EVENT_PENDING;
-	event->sync = sync;
+	event->sync = !!(flags & CNSS_EVENT_SYNC);
 
-	spin_lock_irqsave(&plat_priv->event_lock, flags);
+	spin_lock_irqsave(&plat_priv->event_lock, irq_flags);
 	list_add_tail(&event->list, &plat_priv->event_list);
-	spin_unlock_irqrestore(&plat_priv->event_lock, flags);
+	spin_unlock_irqrestore(&plat_priv->event_lock, irq_flags);
 
 	queue_work(plat_priv->event_wq, &plat_priv->event_work);
 
-	if (!sync)
+	if (!(flags & CNSS_EVENT_SYNC))
 		goto out;
 
-	ret = wait_for_completion_interruptible(&event->complete);
+	if (flags & CNSS_EVENT_UNINTERRUPTIBLE)
+		wait_for_completion(&event->complete);
+	else
+		ret = wait_for_completion_interruptible(&event->complete);
 
 	cnss_pr_dbg("Completed event: %s(%d), state: 0x%lx, ret: %d/%d\n",
 		    cnss_driver_event_to_str(type), type,
 		    plat_priv->driver_state, ret, event->ret);
-
-	spin_lock_irqsave(&plat_priv->event_lock, flags);
+	spin_lock_irqsave(&plat_priv->event_lock, irq_flags);
 	if (ret == -ERESTARTSYS && event->ret == CNSS_EVENT_PENDING) {
 		event->sync = false;
-		spin_unlock_irqrestore(&plat_priv->event_lock, flags);
+		spin_unlock_irqrestore(&plat_priv->event_lock, irq_flags);
 		ret = -EINTR;
 		goto out;
 	}
-	spin_unlock_irqrestore(&plat_priv->event_lock, flags);
+	spin_unlock_irqrestore(&plat_priv->event_lock, irq_flags);
 
 	ret = event->ret;
 	kfree(event);
@@ -783,7 +785,7 @@ int cnss_power_up(struct device *dev)
 
 	ret = cnss_driver_event_post(plat_priv,
 				     CNSS_DRIVER_EVENT_POWER_UP,
-				     true, NULL);
+				     CNSS_EVENT_SYNC, NULL);
 	if (ret)
 		goto out;
 
@@ -821,7 +823,7 @@ int cnss_power_down(struct device *dev)
 
 	return cnss_driver_event_post(plat_priv,
 				      CNSS_DRIVER_EVENT_POWER_DOWN,
-				      true, NULL);
+				      CNSS_EVENT_SYNC, NULL);
 }
 EXPORT_SYMBOL(cnss_power_down);
 
@@ -842,7 +844,8 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 
 	ret = cnss_driver_event_post(plat_priv,
 				     CNSS_DRIVER_EVENT_REGISTER_DRIVER,
-				     true, driver_ops);
+				     CNSS_EVENT_SYNC_UNINTERRUPTIBLE,
+				     driver_ops);
 	return ret;
 }
 EXPORT_SYMBOL(cnss_wlan_register_driver);
@@ -858,7 +861,7 @@ void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver_ops)
 
 	cnss_driver_event_post(plat_priv,
 			       CNSS_DRIVER_EVENT_UNREGISTER_DRIVER,
-			       true, NULL);
+			       CNSS_EVENT_SYNC, NULL);
 }
 EXPORT_SYMBOL(cnss_wlan_unregister_driver);
 
@@ -1546,7 +1549,7 @@ void cnss_schedule_recovery(struct device *dev,
 	data->reason = reason;
 	cnss_driver_event_post(plat_priv,
 			       CNSS_DRIVER_EVENT_RECOVERY,
-			       false, data);
+			       0, data);
 }
 EXPORT_SYMBOL(cnss_schedule_recovery);
 
@@ -1593,7 +1596,7 @@ int cnss_force_fw_assert(struct device *dev)
 
 	cnss_driver_event_post(plat_priv,
 			       CNSS_DRIVER_EVENT_FORCE_FW_ASSERT,
-			       false, NULL);
+			       0, NULL);
 
 	return 0;
 }
@@ -2105,7 +2108,7 @@ static ssize_t cnss_fs_ready_store(struct device *dev,
 	if (fs_ready == FILE_SYSTEM_READY) {
 		cnss_driver_event_post(plat_priv,
 				       CNSS_DRIVER_EVENT_COLD_BOOT_CAL_START,
-				       true, NULL);
+				       CNSS_EVENT_SYNC, NULL);
 	}
 
 	return count;

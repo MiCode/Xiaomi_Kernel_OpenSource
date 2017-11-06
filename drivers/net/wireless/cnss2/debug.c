@@ -168,11 +168,11 @@ static ssize_t cnss_dev_boot_debug_write(struct file *fp,
 		set_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state);
 		ret = cnss_driver_event_post(plat_priv,
 					     CNSS_DRIVER_EVENT_POWER_UP,
-					     true, NULL);
+					     CNSS_EVENT_SYNC, NULL);
 	} else if (sysfs_streq(cmd, "shutdown")) {
 		ret = cnss_driver_event_post(plat_priv,
 					     CNSS_DRIVER_EVENT_POWER_DOWN,
-					     true, NULL);
+					     CNSS_EVENT_SYNC, NULL);
 		clear_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state);
 	} else {
 		cnss_pr_err("Device boot debugfs command is invalid\n");
