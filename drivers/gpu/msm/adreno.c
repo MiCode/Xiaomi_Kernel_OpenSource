@@ -1600,6 +1600,21 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 			}
 		}
 
+		if (adreno_has_gbif(adreno_dev)) {
+			if (adreno_dev->starved_ram_lo_ch1 == 0) {
+				ret = adreno_perfcounter_get(adreno_dev,
+					KGSL_PERFCOUNTER_GROUP_VBIF_PWR, 1,
+					&adreno_dev->starved_ram_lo_ch1, NULL,
+					PERFCOUNTER_FLAG_KERNEL);
+
+				if (ret) {
+					KGSL_DRV_ERR(device,
+						"Unable to get perf counters for bus DCVS\n");
+					adreno_dev->starved_ram_lo_ch1 = 0;
+				}
+			}
+		}
+
 		/* VBIF DDR cycles */
 		if (adreno_dev->ram_cycles_lo == 0) {
 			ret = adreno_perfcounter_get(adreno_dev,
@@ -1620,6 +1635,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	adreno_dev->busy_data.gpu_busy = 0;
 	adreno_dev->busy_data.vbif_ram_cycles = 0;
 	adreno_dev->busy_data.vbif_starved_ram = 0;
+	adreno_dev->busy_data.vbif_starved_ram_ch1 = 0;
 
 	/* Restore performance counter registers with saved values */
 	adreno_perfcounter_restore(adreno_dev);
@@ -2455,6 +2471,7 @@ int adreno_soft_reset(struct kgsl_device *device)
 	adreno_dev->busy_data.gpu_busy = 0;
 	adreno_dev->busy_data.vbif_ram_cycles = 0;
 	adreno_dev->busy_data.vbif_starved_ram = 0;
+	adreno_dev->busy_data.vbif_starved_ram_ch1 = 0;
 
 	/* Set the page table back to the default page table */
 	adreno_ringbuffer_set_global(adreno_dev, 0);
@@ -2990,6 +3007,13 @@ static void adreno_power_stats(struct kgsl_device *device,
 			starved_ram = counter_delta(device,
 				adreno_dev->starved_ram_lo,
 				&busy->vbif_starved_ram);
+
+		if (adreno_has_gbif(adreno_dev)) {
+			if (adreno_dev->starved_ram_lo_ch1 != 0)
+				starved_ram += counter_delta(device,
+					adreno_dev->starved_ram_lo_ch1,
+					&busy->vbif_starved_ram_ch1);
+		}
 
 		stats->ram_time = ram_cycles;
 		stats->ram_wait = starved_ram;
