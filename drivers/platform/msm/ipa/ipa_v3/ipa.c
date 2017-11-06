@@ -4646,8 +4646,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		for (i = 0; i < IPA_SMMU_CB_MAX; i++)
 			ipa3_ctx->s1_bypass_arr[i] = true;
 	} else {
-		ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP] =
-			smmu_info.s1_bypass_arr[IPA_SMMU_CB_AP];
+		for (i = 0; i < IPA_SMMU_CB_MAX; i++)
+			ipa3_ctx->s1_bypass_arr[i] = smmu_info.s1_bypass_arr[i];
 	}
 
 	ipa3_ctx->ipa_wrapper_base = resource_p->ipa_mem_base;
@@ -5506,8 +5506,6 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 
 	if (of_property_read_bool(dev->of_node, "qcom,smmu-s1-bypass")) {
 		smmu_info.s1_bypass_arr[IPA_SMMU_CB_WLAN] = true;
-		ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_WLAN] = true;
-
 		if (iommu_domain_set_attr(cb->iommu,
 					DOMAIN_ATTR_S1_BYPASS,
 					&bypass)) {
@@ -5518,8 +5516,6 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 		IPADBG("WLAN SMMU S1 BYPASS\n");
 	} else {
 		smmu_info.s1_bypass_arr[IPA_SMMU_CB_WLAN] = false;
-		ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_WLAN] = false;
-
 		if (iommu_domain_set_attr(cb->iommu,
 					DOMAIN_ATTR_ATOMIC,
 					&atomic_ctx)) {
@@ -5634,8 +5630,6 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 
 	if (of_property_read_bool(dev->of_node, "qcom,smmu-s1-bypass")) {
 		smmu_info.s1_bypass_arr[IPA_SMMU_CB_UC] = true;
-		ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC] = true;
-
 		if (iommu_domain_set_attr(cb->mapping->domain,
 			DOMAIN_ATTR_S1_BYPASS,
 			&bypass)) {
@@ -5647,8 +5641,6 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 		IPADBG("UC SMMU S1 BYPASS\n");
 	} else {
 		smmu_info.s1_bypass_arr[IPA_SMMU_CB_UC] = false;
-		ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC] = false;
-
 		if (iommu_domain_set_attr(cb->mapping->domain,
 			DOMAIN_ATTR_ATOMIC,
 			&atomic_ctx)) {
