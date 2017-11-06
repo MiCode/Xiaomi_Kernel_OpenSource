@@ -335,6 +335,7 @@ static ssize_t dp_debug_read_edid_modes(struct file *file,
 		goto error;
 	}
 
+	mutex_lock(&connector->dev->mode_config.mutex);
 	list_for_each_entry(mode, &connector->modes, head) {
 		len += snprintf(buf + len, SZ_4K - len,
 		"%s %d %d %d %d %d %d %d %d %d %d 0x%x\n",
@@ -343,6 +344,7 @@ static ssize_t dp_debug_read_edid_modes(struct file *file,
 		mode->htotal, mode->vdisplay, mode->vsync_start,
 		mode->vsync_end, mode->vtotal, mode->flags);
 	}
+	mutex_unlock(&connector->dev->mode_config.mutex);
 
 	if (copy_to_user(user_buff, buf, len)) {
 		kfree(buf);
