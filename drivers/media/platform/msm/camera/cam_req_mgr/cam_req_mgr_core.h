@@ -124,11 +124,12 @@ enum cam_req_mgr_link_state {
 
 /**
  * struct cam_req_mgr_traverse
- * @idx        : slot index
- * @result     : contains which all tables were able to apply successfully
- * @tbl        : pointer of pipeline delay based request table
- * @apply_data : pointer which various tables will update during traverse
- * @in_q       : input request queue pointer
+ * @idx           : slot index
+ * @result        : contains which all tables were able to apply successfully
+ * @tbl           : pointer of pipeline delay based request table
+ * @apply_data    : pointer which various tables will update during traverse
+ * @in_q          : input request queue pointer
+ * @validate_only : Whether to validate only and/or update settings
  */
 struct cam_req_mgr_traverse {
 	int32_t                       idx;
@@ -136,6 +137,7 @@ struct cam_req_mgr_traverse {
 	struct cam_req_mgr_req_tbl   *tbl;
 	struct cam_req_mgr_apply     *apply_data;
 	struct cam_req_mgr_req_queue *in_q;
+	bool                          validate_only;
 };
 
 /**
