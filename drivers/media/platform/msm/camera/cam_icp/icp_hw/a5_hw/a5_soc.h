@@ -15,8 +15,11 @@
 
 #include "cam_soc_util.h"
 
+#define ICP_UBWC_MAX 2
+
 struct a5_soc_info {
 	char *fw_name;
+	uint32_t ubwc_cfg[ICP_UBWC_MAX];
 };
 
 int cam_a5_init_soc_resources(struct cam_hw_soc_info *soc_info,

@@ -441,7 +441,7 @@ static int32_t cam_cci_calc_cmd_len(struct cci_device *cci_dev,
 			if (cmd->reg_addr + 1 ==
 				(cmd+1)->reg_addr) {
 				len += data_len;
-				*pack += data_len;
+				(*pack)++;
 			} else {
 				break;
 			}
@@ -730,10 +730,17 @@ static int32_t cam_cci_data_queue(struct cci_device *cci_dev,
 					reg_addr++;
 			} else {
 				if ((i + 1) <= cci_dev->payload_size) {
+					if (i2c_msg->data_type ==
+						CAMERA_SENSOR_I2C_TYPE_DWORD) {
+						data[i++] = (i2c_cmd->reg_data &
+							0xFF000000) >> 24;
+						data[i++] = (i2c_cmd->reg_data &
+							0x00FF0000) >> 16;
+					}
 					data[i++] = (i2c_cmd->reg_data &
-						0xFF00) >> 8; /* MSB */
+						0x0000FF00) >> 8; /* MSB */
 					data[i++] = i2c_cmd->reg_data &
-						0x00FF; /* LSB */
+						0x000000FF; /* LSB */
 					if (c_ctrl->cmd ==
 						MSM_CCI_I2C_WRITE_SEQ)
 						reg_addr++;

@@ -17,13 +17,14 @@
 #include "cam_cpas_hw_intf.h"
 #include "cam_common_util.h"
 
-#define CPAS_MAX_CLIENTS 20
+#define CAM_CPAS_MAX_CLIENTS 30
 #define CAM_CPAS_INFLIGHT_WORKS 5
 
 #define CAM_CPAS_GET_CLIENT_IDX(handle) (handle)
 #define CAM_CPAS_GET_CLIENT_HANDLE(indx) (indx)
 
-#define CAM_CPAS_CLIENT_VALID(indx) ((indx >= 0) && (indx < CPAS_MAX_CLIENTS))
+#define CAM_CPAS_CLIENT_VALID(indx) \
+	((indx >= 0) && (indx < CAM_CPAS_MAX_CLIENTS))
 #define CAM_CPAS_CLIENT_REGISTERED(cpas_core, indx)        \
 	((CAM_CPAS_CLIENT_VALID(indx)) && \
 	(cpas_core->cpas_client[indx]))
@@ -176,8 +177,8 @@ struct cam_cpas_axi_port {
  */
 struct cam_cpas {
 	struct cam_cpas_hw_caps hw_caps;
-	struct cam_cpas_client *cpas_client[CPAS_MAX_CLIENTS];
-	struct mutex client_mutex[CPAS_MAX_CLIENTS];
+	struct cam_cpas_client *cpas_client[CAM_CPAS_MAX_CLIENTS];
+	struct mutex client_mutex[CAM_CPAS_MAX_CLIENTS];
 	uint32_t num_clients;
 	uint32_t registered_clients;
 	uint32_t streamon_clients;

@@ -1250,7 +1250,7 @@ static int cam_cpas_util_client_setup(struct cam_hw_info *cpas_hw)
 	struct cam_cpas *cpas_core = (struct cam_cpas *) cpas_hw->core_info;
 	int i;
 
-	for (i = 0; i < CPAS_MAX_CLIENTS; i++) {
+	for (i = 0; i < CAM_CPAS_MAX_CLIENTS; i++) {
 		mutex_init(&cpas_core->client_mutex[i]);
 		cpas_core->cpas_client[i] = NULL;
 	}
@@ -1263,7 +1263,7 @@ static int cam_cpas_util_client_cleanup(struct cam_hw_info *cpas_hw)
 	struct cam_cpas *cpas_core = (struct cam_cpas *) cpas_hw->core_info;
 	int i;
 
-	for (i = 0; i < CPAS_MAX_CLIENTS; i++) {
+	for (i = 0; i < CAM_CPAS_MAX_CLIENTS; i++) {
 		if (cpas_core->cpas_client[i]) {
 			cam_cpas_hw_unregister_client(cpas_hw, i);
 			cpas_core->cpas_client[i] = NULL;
