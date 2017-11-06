@@ -63,7 +63,6 @@
 
 #define QPNP_WLED_VLOOP_COMP_RES_MASK			0xF0
 #define QPNP_WLED_VLOOP_COMP_RES_OVERWRITE		0x80
-#define QPNP_WLED_LOOP_COMP_RES_DFLT_AMOLED_KOHM	320
 #define QPNP_WLED_LOOP_COMP_RES_STEP_KOHM		20
 #define QPNP_WLED_LOOP_COMP_RES_MIN_KOHM		20
 #define QPNP_WLED_LOOP_COMP_RES_MAX_KOHM		320
@@ -122,6 +121,10 @@
 #define QPNP_WLED_OVP_FAULT_BIT		BIT(1)
 #define QPNP_WLED_SC_FAULT_BIT		BIT(2)
 #define QPNP_WLED_OVP_FLT_RT_STS_BIT	BIT(1)
+
+/* QPNP_WLED_SOFTSTART_RAMP_DLY */
+#define SOFTSTART_OVERWRITE_BIT		BIT(7)
+#define SOFTSTART_RAMP_DELAY_MASK	GENMASK(2, 0)
 
 /* sink registers */
 #define QPNP_WLED_CURR_SINK_REG(b)	(b + 0x46)
@@ -1474,20 +1477,26 @@ static int qpnp_wled_gm_config(struct qpnp_wled *wled)
 	u8 mask = 0, reg = 0;
 
 	/* Configure the LOOP COMP GM register */
-	if (wled->pmic_rev_id->pmic_subtype == PMI8998_SUBTYPE ||
-			wled->pmic_rev_id->pmic_subtype == PM660L_SUBTYPE) {
-		if (wled->loop_auto_gm_en)
-			reg |= QPNP_WLED_VLOOP_COMP_AUTO_GM_EN;
+	if ((wled->pmic_rev_id->pmic_subtype == PMI8998_SUBTYPE ||
+			wled->pmic_rev_id->pmic_subtype == PM660L_SUBTYPE)) {
+		if (wled->disp_type_amoled) {
+			reg = 0;
+			mask |= QPNP_WLED_VLOOP_COMP_AUTO_GM_EN |
+				QPNP_WLED_VLOOP_COMP_AUTO_GM_THRESH_MASK;
+		} else {
+			if (wled->loop_auto_gm_en)
+				reg |= QPNP_WLED_VLOOP_COMP_AUTO_GM_EN;
 
-		if (wled->loop_auto_gm_thresh >
-				QPNP_WLED_LOOP_AUTO_GM_THRESH_MAX)
-			wled->loop_auto_gm_thresh =
-				QPNP_WLED_LOOP_AUTO_GM_THRESH_MAX;
+			if (wled->loop_auto_gm_thresh >
+					QPNP_WLED_LOOP_AUTO_GM_THRESH_MAX)
+				wled->loop_auto_gm_thresh =
+					QPNP_WLED_LOOP_AUTO_GM_THRESH_MAX;
 
-		reg |= wled->loop_auto_gm_thresh <<
-			QPNP_WLED_VLOOP_COMP_AUTO_GM_THRESH_SHIFT;
-		mask |= QPNP_WLED_VLOOP_COMP_AUTO_GM_EN |
-			QPNP_WLED_VLOOP_COMP_AUTO_GM_THRESH_MASK;
+			reg |= wled->loop_auto_gm_thresh <<
+				QPNP_WLED_VLOOP_COMP_AUTO_GM_THRESH_SHIFT;
+			mask |= QPNP_WLED_VLOOP_COMP_AUTO_GM_EN |
+				QPNP_WLED_VLOOP_COMP_AUTO_GM_THRESH_MASK;
+		}
 	}
 
 	if (wled->loop_ea_gm < QPNP_WLED_LOOP_EA_GM_MIN)
@@ -1780,8 +1789,17 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 
 	/* Configure the Soft start Ramp delay: for AMOLED - 0,for LCD - 2 */
 	reg = (wled->disp_type_amoled) ? 0 : 2;
-	rc = qpnp_wled_write_reg(wled,
-			QPNP_WLED_SOFTSTART_RAMP_DLY(wled->ctrl_base), reg);
+	mask = SOFTSTART_RAMP_DELAY_MASK;
+	if ((wled->pmic_rev_id->pmic_subtype == PMI8998_SUBTYPE ||
+		wled->pmic_rev_id->pmic_subtype == PM660L_SUBTYPE)
+		&& wled->disp_type_amoled) {
+		reg |= SOFTSTART_OVERWRITE_BIT;
+		mask |= SOFTSTART_OVERWRITE_BIT;
+	}
+
+	rc = qpnp_wled_masked_write_reg(wled,
+			QPNP_WLED_SOFTSTART_RAMP_DLY(wled->ctrl_base),
+			mask, reg);
 	if (rc)
 		return rc;
 
@@ -2129,8 +2147,11 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 			return rc;
 		}
 
-		wled->loop_comp_res_kohm =
-			QPNP_WLED_LOOP_COMP_RES_DFLT_AMOLED_KOHM;
+		wled->loop_comp_res_kohm = 320;
+		if (wled->pmic_rev_id->pmic_subtype == PMI8998_SUBTYPE ||
+			wled->pmic_rev_id->pmic_subtype == PM660L_SUBTYPE)
+			wled->loop_comp_res_kohm = 300;
+
 		rc = of_property_read_u32(pdev->dev.of_node,
 				"qcom,loop-comp-res-kohm", &temp_val);
 		if (!rc) {
