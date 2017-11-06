@@ -280,6 +280,44 @@ static ssize_t dp_debug_bw_code_write(struct file *file,
 	return len;
 }
 
+static ssize_t dp_debug_tpg_write(struct file *file,
+		const char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char buf[SZ_8];
+	size_t len = 0;
+	u32 tpg_state = 0;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	/* Leave room for termination char */
+	len = min_t(size_t, count, SZ_8 - 1);
+	if (copy_from_user(buf, user_buff, len))
+		goto bail;
+
+	buf[len] = '\0';
+
+	if (kstrtoint(buf, 10, &tpg_state) != 0)
+		goto bail;
+
+	tpg_state &= 0x1;
+	pr_debug("tpg_state: %d\n", tpg_state);
+
+	if (tpg_state == debug->dp_debug.tpg_state)
+		goto bail;
+
+	if (debug->panel)
+		debug->panel->tpg_config(debug->panel, tpg_state);
+
+	debug->dp_debug.tpg_state = tpg_state;
+bail:
+	return len;
+}
+
 static ssize_t dp_debug_read_connected(struct file *file,
 		char __user *user_buff, size_t count, loff_t *ppos)
 {
@@ -552,6 +590,28 @@ static ssize_t dp_debug_bw_code_read(struct file *file,
 	return len;
 }
 
+static ssize_t dp_debug_tpg_read(struct file *file,
+	char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char buf[SZ_8];
+	u32 len = 0;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	len += snprintf(buf, SZ_8, "%d\n", debug->dp_debug.tpg_state);
+
+	if (copy_to_user(user_buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;
+	return len;
+}
+
 static const struct file_operations dp_debug_fops = {
 	.open = simple_open,
 	.read = dp_debug_read_info,
@@ -587,6 +647,12 @@ static const struct file_operations bw_code_fops = {
 	.open = simple_open,
 	.read = dp_debug_bw_code_read,
 	.write = dp_debug_bw_code_write,
+};
+
+static const struct file_operations tpg_fops = {
+	.open = simple_open,
+	.read = dp_debug_tpg_read,
+	.write = dp_debug_tpg_write,
 };
 
 static int dp_debug_init(struct dp_debug *dp_debug)
@@ -666,6 +732,15 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		rc = PTR_ERR(file);
 		pr_err("[%s] debugfs dpcd failed, rc=%d\n",
 			DEBUG_NAME, rc);
+		goto error_remove_dir;
+	}
+
+	file = debugfs_create_file("tpg_ctrl", 0644, dir,
+			debug, &tpg_fops);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs tpg failed, rc=%d\n",
+		       DEBUG_NAME, rc);
 		goto error_remove_dir;
 	}
 

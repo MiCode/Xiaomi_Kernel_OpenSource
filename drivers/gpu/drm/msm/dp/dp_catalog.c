@@ -759,7 +759,57 @@ static void dp_catalog_ctrl_usb_reset(struct dp_catalog_ctrl *ctrl, bool flip)
 	dp_write(base + USB3_DP_COM_RESET_OVRD_CTRL, 0x00);
 	/* make sure phy is brought out of reset */
 	wmb();
+}
 
+static void dp_catalog_panel_tpg_cfg(struct dp_catalog_panel *panel,
+	bool enable)
+{
+	struct dp_catalog_private *catalog;
+	void __iomem *base;
+
+	if (!panel) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	dp_catalog_get_priv(panel);
+	base = catalog->io->dp_p0.base;
+
+	if (!enable) {
+		dp_write(base + MMSS_DP_TPG_MAIN_CONTROL, 0x0);
+		dp_write(base + MMSS_DP_BIST_ENABLE, 0x0);
+		dp_write(base + MMSS_DP_TIMING_ENGINE_EN, 0x0);
+		wmb(); /* ensure Timing generator is turned off */
+		return;
+	}
+
+	dp_write(base + MMSS_DP_INTF_CONFIG, 0x0);
+	dp_write(base + MMSS_DP_INTF_HSYNC_CTL, panel->hsync_ctl);
+	dp_write(base + MMSS_DP_INTF_VSYNC_PERIOD_F0, panel->vsync_period *
+			panel->hsync_period);
+	dp_write(base + MMSS_DP_INTF_VSYNC_PULSE_WIDTH_F0, panel->v_sync_width *
+			panel->hsync_period);
+	dp_write(base + MMSS_DP_INTF_VSYNC_PERIOD_F1, 0);
+	dp_write(base + MMSS_DP_INTF_VSYNC_PULSE_WIDTH_F1, 0);
+	dp_write(base + MMSS_DP_INTF_DISPLAY_HCTL, panel->display_hctl);
+	dp_write(base + MMSS_DP_INTF_ACTIVE_HCTL, 0);
+	dp_write(base + MMSS_INTF_DISPLAY_V_START_F0, panel->display_v_start);
+	dp_write(base + MMSS_DP_INTF_DISPLAY_V_END_F0, panel->display_v_end);
+	dp_write(base + MMSS_INTF_DISPLAY_V_START_F1, 0);
+	dp_write(base + MMSS_DP_INTF_DISPLAY_V_END_F1, 0);
+	dp_write(base + MMSS_DP_INTF_ACTIVE_V_START_F0, 0);
+	dp_write(base + MMSS_DP_INTF_ACTIVE_V_END_F0, 0);
+	dp_write(base + MMSS_DP_INTF_ACTIVE_V_START_F1, 0);
+	dp_write(base + MMSS_DP_INTF_ACTIVE_V_END_F1, 0);
+	dp_write(base + MMSS_DP_INTF_POLARITY_CTL, 0);
+	wmb(); /* ensure TPG registers are programmed */
+
+	dp_write(base + MMSS_DP_TPG_MAIN_CONTROL, 0x100);
+	dp_write(base + MMSS_DP_TPG_VIDEO_CONFIG, 0x5);
+	wmb(); /* ensure TPG config is programmed */
+	dp_write(base + MMSS_DP_BIST_ENABLE, 0x1);
+	dp_write(base + MMSS_DP_TIMING_ENGINE_EN, 0x1);
+	wmb(); /* ensure Timing generator is turned on */
 }
 
 static void dp_catalog_ctrl_reset(struct dp_catalog_ctrl *ctrl)
@@ -1309,6 +1359,7 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io)
 	struct dp_catalog_panel panel = {
 		.timing_cfg = dp_catalog_panel_timing_cfg,
 		.config_hdr = dp_catalog_panel_config_hdr,
+		.tpg_config = dp_catalog_panel_tpg_cfg,
 	};
 
 	if (!io) {
