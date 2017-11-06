@@ -207,6 +207,7 @@ int cam_vfe_deinit_hw(void *hw_priv, void *deinit_hw_args, uint32_t arg_size)
 {
 	struct cam_hw_info                *vfe_hw = hw_priv;
 	struct cam_hw_soc_info            *soc_info = NULL;
+	struct cam_vfe_hw_core_info       *core_info = NULL;
 	int rc = 0;
 
 	CAM_DBG(CAM_ISP, "Enter");
@@ -230,6 +231,12 @@ int cam_vfe_deinit_hw(void *hw_priv, void *deinit_hw_args, uint32_t arg_size)
 	mutex_unlock(&vfe_hw->hw_mutex);
 
 	soc_info = &vfe_hw->soc_info;
+	core_info = (struct cam_vfe_hw_core_info *)vfe_hw->core_info;
+
+	rc = core_info->vfe_bus->hw_ops.deinit(core_info->vfe_bus->bus_priv,
+		NULL, 0);
+	if (rc)
+		CAM_ERR(CAM_ISP, "Bus HW deinit Failed rc=%d", rc);
 
 	/* Turn OFF Regulators, Clocks and other SOC resources */
 	CAM_DBG(CAM_ISP, "Disable SOC resource");
