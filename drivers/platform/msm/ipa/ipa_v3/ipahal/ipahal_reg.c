@@ -1566,6 +1566,8 @@ void ipahal_get_aggr_force_close_valmask(int ep_idx,
 		return;
 	}
 
+	memset(valmask, 0, sizeof(struct ipahal_reg_valmask));
+
 	if (ipahal_ctx->hw_type <= IPA_HW_v3_1) {
 		shft = IPA_AGGR_FORCE_CLOSE_AGGR_FORCE_CLOSE_PIPE_BITMAP_SHFT;
 		bmsk = IPA_AGGR_FORCE_CLOSE_AGGR_FORCE_CLOSE_PIPE_BITMAP_BMSK;
