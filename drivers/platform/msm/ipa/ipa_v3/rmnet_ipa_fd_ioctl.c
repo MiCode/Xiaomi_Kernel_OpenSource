@@ -56,6 +56,9 @@
 #define WAN_IOCTL_SET_LAN_CLIENT_INFO32 _IOWR(WAN_IOC_MAGIC, \
 			WAN_IOCTL_SET_LAN_CLIENT_INFO, \
 			compat_uptr_t)
+#define WAN_IOC_QUERY_TETHER_STATS_ALL32 _IOWR(WAN_IOC_MAGIC, \
+		WAN_IOCTL_QUERY_TETHER_STATS_ALL, \
+		compat_uptr_t)
 #endif
 
 static unsigned int dev_num = 1;
@@ -296,6 +299,31 @@ static long ipa3_wan_ioctl(struct file *filp,
 		}
 
 		if (copy_to_user((u8 *)arg, param, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
+
+	case WAN_IOC_QUERY_TETHER_STATS_ALL:
+		IPAWANDBG_LOW("got WAN_IOC_QUERY_TETHER_STATS_ALL :>>>\n");
+		pyld_sz = sizeof(struct wan_ioctl_query_tether_stats_all);
+		param = kzalloc(pyld_sz, GFP_KERNEL);
+		if (!param) {
+			retval = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(param, (const void __user *)arg, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		if (rmnet_ipa3_query_tethering_stats_all(
+			(struct wan_ioctl_query_tether_stats_all *)param)) {
+			IPAWANERR("WAN_IOC_QUERY_TETHER_STATS failed\n");
+			retval = -EFAULT;
+			break;
+		}
+
+		if (copy_to_user((void __user *)arg, param, pyld_sz)) {
 			retval = -EFAULT;
 			break;
 		}

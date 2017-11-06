@@ -176,6 +176,9 @@ int rmnet_ipa_set_tether_client_pipe(struct wan_ioctl_set_tether_client_pipe
 int rmnet_ipa_query_tethering_stats(struct wan_ioctl_query_tether_stats *data,
 	bool reset);
 
+int rmnet_ipa_query_tethering_stats_all(
+	struct wan_ioctl_query_tether_stats_all *data);
+
 int ipa_qmi_get_data_stats(struct ipa_get_data_stats_req_msg_v01 *req,
 	struct ipa_get_data_stats_resp_msg_v01 *resp);
 
