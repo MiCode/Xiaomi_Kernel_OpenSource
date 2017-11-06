@@ -27,6 +27,9 @@
 
 #define VERSION "0.1"
 
+#define MAX_PATCH_FILE_SIZE (100*1024)
+#define MAX_NVM_FILE_SIZE   (10*1024)
+
 static int rome_patch_ver_req(struct hci_dev *hdev, u32 *rome_version)
 {
 	struct sk_buff *skb;
@@ -285,27 +288,59 @@ static int rome_download_firmware(struct hci_dev *hdev,
 				  struct rome_config *config)
 {
 	const struct firmware *fw;
+	u32 type_len, length;
+	struct tlv_type_hdr *tlv;
 	int ret;
 
-	BT_INFO("%s: ROME Downloading %s", hdev->name, config->fwname);
-
+	BT_INFO("%s: ROME Downloading file: %s", hdev->name, config->fwname);
 	ret = request_firmware(&fw, config->fwname, &hdev->dev);
-	if (ret) {
-		BT_ERR("%s: Failed to request file: %s (%d)", hdev->name,
-		       config->fwname, ret);
+
+	if (ret || !fw || !fw->data || fw->size <= 0) {
+		BT_ERR("Failed to request file: err = (%d)", ret);
+		ret = ret ? ret : -EINVAL;
 		return ret;
+	}
+	if (config->type == TLV_TYPE_PATCH &&
+		(fw->size > MAX_PATCH_FILE_SIZE)) {
+		ret = -EINVAL;
+		BT_ERR("TLV_PATCH dload: wrong patch file sizes");
+		goto exit;
+	} else if (config->type == TLV_TYPE_NVM &&
+		(fw->size > MAX_NVM_FILE_SIZE)) {
+		ret = -EINVAL;
+		BT_ERR("TLV_NVM dload: wrong NVM file sizes");
+		goto exit;
+	} else {
+		ret = -EINVAL;
+		BT_ERR("TLV_NVM dload: wrong config type selected");
+		goto exit;
+	}
+
+	if (fw->size < sizeof(struct tlv_type_hdr)) {
+		ret = -EINVAL;
+		BT_ERR("Firware size smaller to fit minimum value");
+		goto exit;
+	}
+
+	tlv = (struct tlv_type_hdr *)fw->data;
+	type_len = le32_to_cpu(tlv->type_len);
+	length = (type_len >> 8) & 0x00ffffff;
+
+	if (fw->size - 4 != length) {
+		ret = -EINVAL;
+		BT_ERR("Requested size not matching size in header");
+		goto exit;
 	}
 
 	rome_tlv_check_data(config, fw);
-
 	ret = rome_tlv_download_request(hdev, fw);
+
 	if (ret) {
-		BT_ERR("%s: Failed to download file: %s (%d)", hdev->name,
-		       config->fwname, ret);
+		BT_ERR("Failed to download FW: error = (%d)", ret);
 	}
 
+exit:
 	release_firmware(fw);
-
 	return ret;
 }
 
@@ -316,8 +351,9 @@ int qca_set_bdaddr_rome(struct hci_dev *hdev, const bdaddr_t *bdaddr)
 	int err;
 
 	cmd[0] = EDL_NVM_ACCESS_SET_REQ_CMD;
-	cmd[1] = 0x02; 			/* TAG ID */
-	cmd[2] = sizeof(bdaddr_t);	/* size */
+	/* Set the TAG ID of 0x02 for NVM set and size of tag */
+	cmd[1] = 0x02;
+	cmd[2] = sizeof(bdaddr_t);
 	memcpy(cmd + 3, bdaddr, sizeof(bdaddr_t));
 	skb = __hci_cmd_sync_ev(hdev, EDL_NVM_ACCESS_OPCODE, sizeof(cmd), cmd,
 				HCI_VENDOR_PKT, HCI_INIT_TIMEOUT);
