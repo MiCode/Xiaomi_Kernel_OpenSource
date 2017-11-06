@@ -36,6 +36,13 @@ static int32_t cam_flash_driver_cmd(struct cam_flash_ctrl *fctrl,
 		struct cam_create_dev_hdl bridge_params;
 
 		CAM_DBG(CAM_FLASH, "CAM_ACQUIRE_DEV");
+
+		if (fctrl->flash_state != CAM_FLASH_STATE_INIT) {
+			CAM_ERR(CAM_FLASH,
+				"Cannot apply Acquire dev: Prev state: %d",
+				fctrl->flash_state);
+		}
+
 		if (fctrl->bridge_intf.device_hdl != -1) {
 			CAM_ERR(CAM_FLASH, "Device is already acquired");
 			rc = -EINVAL;
@@ -70,12 +77,19 @@ static int32_t cam_flash_driver_cmd(struct cam_flash_ctrl *fctrl,
 			rc = -EFAULT;
 			goto release_mutex;
 		}
-		break;
 		fctrl->flash_state = CAM_FLASH_STATE_ACQUIRE;
+		break;
 	}
 	case CAM_RELEASE_DEV: {
 		CAM_DBG(CAM_FLASH, "CAM_RELEASE_DEV");
-		if (fctrl->bridge_intf.device_hdl == -1) {
+		if (fctrl->flash_state != CAM_FLASH_STATE_ACQUIRE) {
+			CAM_WARN(CAM_FLASH,
+				"Cannot apply Release dev: Prev state:%d",
+				fctrl->flash_state);
+		}
+
+		if (fctrl->bridge_intf.device_hdl == -1 &&
+			fctrl->flash_state == CAM_FLASH_STATE_ACQUIRE) {
 			CAM_ERR(CAM_FLASH,
 				"Invalid Handle: Link Hdl: %d device hdl: %d",
 				fctrl->bridge_intf.device_hdl,
@@ -83,16 +97,13 @@ static int32_t cam_flash_driver_cmd(struct cam_flash_ctrl *fctrl,
 			rc = -EINVAL;
 			goto release_mutex;
 		}
-		rc = cam_destroy_device_hdl(fctrl->bridge_intf.device_hdl);
+		rc = cam_flash_release_dev(fctrl);
 		if (rc)
 			CAM_ERR(CAM_FLASH,
 				"Failed in destroying the device Handle rc= %d",
 				rc);
-		fctrl->bridge_intf.device_hdl = -1;
-		fctrl->bridge_intf.link_hdl = -1;
-		fctrl->bridge_intf.session_hdl = -1;
+		fctrl->flash_state = CAM_FLASH_STATE_INIT;
 		break;
-		fctrl->flash_state = CAM_FLASH_STATE_RELEASE;
 	}
 	case CAM_QUERY_CAP: {
 		struct cam_flash_query_cap_info flash_cap = {0};
@@ -120,29 +131,38 @@ static int32_t cam_flash_driver_cmd(struct cam_flash_ctrl *fctrl,
 	}
 	case CAM_START_DEV: {
 		CAM_DBG(CAM_FLASH, "CAM_START_DEV");
-		rc = cam_flash_prepare(fctrl, CAM_FLASH_STATE_INIT);
+		if (fctrl->flash_state != CAM_FLASH_STATE_ACQUIRE) {
+			CAM_WARN(CAM_FLASH,
+				"Cannot apply Start Dev: Prev state: %d",
+				fctrl->flash_state);
+			rc = -EINVAL;
+			goto release_mutex;
+		}
+
+		rc = cam_flash_prepare(fctrl, CAM_FLASH_STATE_START);
 		if (rc) {
 			CAM_ERR(CAM_FLASH,
 				"Enable Regulator Failed rc = %d", rc);
 			goto release_mutex;
 		}
-		fctrl->flash_state = CAM_FLASH_STATE_INIT;
 		rc = cam_flash_apply_setting(fctrl, 0);
 		if (rc) {
 			CAM_ERR(CAM_FLASH, "cannot apply settings rc = %d", rc);
 			goto release_mutex;
 		}
-		fctrl->flash_state = CAM_FLASH_STATE_INIT;
+		fctrl->flash_state = CAM_FLASH_STATE_START;
 		break;
 	}
 	case CAM_STOP_DEV: {
-		CAM_DBG(CAM_FLASH, "CAM_STOP_DEV");
-		if (fctrl->flash_state != CAM_FLASH_STATE_INIT)
-			cam_flash_off(fctrl);
+		if (fctrl->flash_state != CAM_FLASH_STATE_START) {
+			CAM_WARN(CAM_FLASH,
+				"Cannot apply Stop dev: Prev state is: %d",
+				fctrl->flash_state);
+		}
 
-		rc = cam_flash_prepare(fctrl, CAM_FLASH_STATE_RELEASE);
+		rc = cam_flash_stop_dev(fctrl);
 		if (rc) {
-			CAM_ERR(CAM_FLASH, "Disable Regulator Failed ret = %d",
+			CAM_ERR(CAM_FLASH, "Stop Dev Failed rc = %d",
 				rc);
 			goto release_mutex;
 		}
@@ -344,6 +364,7 @@ static int32_t cam_flash_platform_probe(struct platform_device *pdev)
 	mutex_init(&(flash_ctrl->flash_mutex));
 	mutex_init(&(flash_ctrl->flash_wq_mutex));
 
+	flash_ctrl->flash_state = CAM_FLASH_STATE_INIT;
 	CAM_DBG(CAM_FLASH, "Probe success");
 	return rc;
 free_resource:

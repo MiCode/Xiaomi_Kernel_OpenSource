@@ -25,10 +25,11 @@
 		reg-cam-base = <0x65000>;
 		interrupts = <0 477 0>;
 		interrupt-names = "csiphy";
+		regulator-names = "gdscr", "refgen";
 		gdscr-supply = <&titan_top_gdsc>;
-		regulator-names = "gdscr";
+		refgen-supply = <&refgen>;
 		csi-vdd-voltage = <1200000>;
-		mipi-csi-vdd-supply = <&pm8998_l1>;
+		mipi-csi-vdd-supply = <&pm660_l1>;
 		clocks = <&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
 			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
@@ -47,7 +48,7 @@
 			"csi0phytimer_clk";
 		clock-cntl-level = "turbo";
 		clock-rates =
-			<0 0 0 0 320000000 0 269333333 0>;
+			<0 0 0 0 384000000 0 269333333 0>;
 		status = "ok";
 	};
 
@@ -59,10 +60,11 @@
 		reg-cam-base = <0x66000>;
 		interrupts = <0 478 0>;
 		interrupt-names = "csiphy";
+		regulator-names = "gdscr", "refgen";
 		gdscr-supply = <&titan_top_gdsc>;
-		regulator-names = "gdscr";
+		refgen-supply = <&refgen>;
 		csi-vdd-voltage = <1200000>;
-		mipi-csi-vdd-supply = <&pm8998_l1>;
+		mipi-csi-vdd-supply = <&pm660_l1>;
 		clocks = <&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
 			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
@@ -81,7 +83,7 @@
 			"csi1phytimer_clk";
 		clock-cntl-level = "turbo";
 		clock-rates =
-			<0 0 0 0 320000000 0 269333333 0>;
+			<0 0 0 0 384000000 0 269333333 0>;
 
 		status = "ok";
 	};
@@ -94,10 +96,11 @@
 		reg-cam-base = <0x67000>;
 		interrupts = <0 479 0>;
 		interrupt-names = "csiphy";
+		regulator-names = "gdscr", "refgen";
 		gdscr-supply = <&titan_top_gdsc>;
-		regulator-names = "gdscr";
+		refgen-supply = <&refgen>;
 		csi-vdd-voltage = <1200000>;
-		mipi-csi-vdd-supply = <&pm8998_l1>;
+		mipi-csi-vdd-supply = <&pm660_l1>;
 		clocks = <&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
 			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
@@ -116,7 +119,7 @@
 			"csi2phytimer_clk";
 		clock-cntl-level = "turbo";
 		clock-rates =
-			<0 0 0 0 320000000 0 269333333 0>;
+			<0 0 0 0 384000000 0 269333333 0>;
 		status = "ok";
 	};
 
@@ -271,7 +274,7 @@
 
 		msm_cam_smmu_icp {
 			compatible = "qcom,msm-cam-smmu-cb";
-			iommus = <&apps_smmu 0x1078 0x2>,
+			iommus = <&apps_smmu 0x107A 0x0>,
 				<&apps_smmu 0x1020 0x8>,
 				<&apps_smmu 0x1040 0x8>,
 				<&apps_smmu 0x1030 0x0>,
@@ -293,6 +296,7 @@
 					iova-region-start = <0x7400000>;
 					iova-region-len = <0x6400000>;
 					iova-region-id = <0x1>;
+					iova-granularity = <0x15>;
 					status = "ok";
 				};
 
@@ -367,7 +371,7 @@
 		reg-cam-base = <0x40000 0x42000>;
 		interrupt-names = "cpas_camnoc";
 		interrupts = <0 459 0>;
-		qcom,cpas-hw-ver = <0x170100>; /* Titan v170 v1.0.0 */
+		qcom,cpas-hw-ver = <0x170110>; /* Titan v170 v1.1.0 */
 		regulator-names = "camss-vdd";
 		camss-vdd-supply = <&titan_top_gdsc>;
 		clock-names = "gcc_ahb_clk",
@@ -385,9 +389,9 @@
 		src-clock-name = "slow_ahb_clk_src";
 		clock-rates = <0 0 0 0 0 0>,
 			<0 0 0 19200000 0 0>,
-			<0 0 0 60000000 0 0>,
-			<0 0 0 66660000 0 0>,
-			<0 0 0 73840000 0 0>,
+			<0 0 0 80000000 0 0>,
+			<0 0 0 80000000 0 0>,
+			<0 0 0 80000000 0 0>,
 			<0 0 0 80000000 0 0>,
 			<0 0 0 80000000 0 0>;
 		clock-cntl-level = "suspend", "minsvs", "lowsvs", "svs",
@@ -399,17 +403,17 @@
 			<MSM_BUS_MASTER_AMPSS_M0
 			MSM_BUS_SLAVE_CAMERA_CFG 0 0>,
 			<MSM_BUS_MASTER_AMPSS_M0
-			MSM_BUS_SLAVE_CAMERA_CFG 0 180000>,
+			MSM_BUS_SLAVE_CAMERA_CFG 0 153000>,
 			<MSM_BUS_MASTER_AMPSS_M0
-			MSM_BUS_SLAVE_CAMERA_CFG 0 180000>,
-			<MSM_BUS_MASTER_AMPSS_M0
-			MSM_BUS_SLAVE_CAMERA_CFG 0 300000>,
+			MSM_BUS_SLAVE_CAMERA_CFG 0 153000>,
 			<MSM_BUS_MASTER_AMPSS_M0
 			MSM_BUS_SLAVE_CAMERA_CFG 0 300000>,
 			<MSM_BUS_MASTER_AMPSS_M0
-			MSM_BUS_SLAVE_CAMERA_CFG 0 640000>,
+			MSM_BUS_SLAVE_CAMERA_CFG 0 300000>,
 			<MSM_BUS_MASTER_AMPSS_M0
-			MSM_BUS_SLAVE_CAMERA_CFG 0 640000>;
+			MSM_BUS_SLAVE_CAMERA_CFG 0 600000>,
+			<MSM_BUS_MASTER_AMPSS_M0
+			MSM_BUS_SLAVE_CAMERA_CFG 0 600000>;
 		vdd-corners = <RPMH_REGULATOR_LEVEL_OFF
 			RPMH_REGULATOR_LEVEL_RETENTION
 			RPMH_REGULATOR_LEVEL_MIN_SVS
@@ -827,6 +831,7 @@
 			"soc_ahb_clk",
 			"cpas_ahb_clk",
 			"camnoc_axi_clk",
+			"icp_apb_clk",
 			"icp_clk",
 			"icp_clk_src";
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>,
@@ -835,13 +840,14 @@
 				<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 				<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
 				<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
+				<&clock_camcc CAM_CC_ICP_APB_CLK>,
 				<&clock_camcc CAM_CC_ICP_CLK>,
 				<&clock_camcc CAM_CC_ICP_CLK_SRC>;
 
-		clock-rates = <0 0 400000000 0 0 0 0 600000000>;
+		clock-rates = <0 0 400000000 0 0 0 0 0 600000000>;
 		clock-cntl-level = "turbo";
 		fw_name = "CAMERA_ICP.elf";
-		ubwc-cfg = <0x7F 0x1FF>;
+		ubwc-cfg = <0x77 0x1DF>;
 		status = "ok";
 	};
 

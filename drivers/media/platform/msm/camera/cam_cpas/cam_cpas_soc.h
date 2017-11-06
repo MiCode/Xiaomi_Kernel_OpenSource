@@ -14,8 +14,8 @@
 #define _CAM_CPAS_SOC_H_
 
 #include "cam_soc_util.h"
+#include "cam_cpas_hw.h"
 
-#define CAM_CPAS_MAX_CLIENTS 20
 #define CAM_REGULATOR_LEVEL_MAX 16
 
 /**

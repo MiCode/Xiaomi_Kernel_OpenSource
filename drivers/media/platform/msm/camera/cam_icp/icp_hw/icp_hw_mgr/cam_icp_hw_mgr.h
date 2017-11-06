@@ -53,6 +53,10 @@
 
 #define ICP_OVER_CLK_THRESHOLD  15
 
+#define CPAS_IPE0_BIT           0x1000
+#define CPAS_IPE1_BIT           0x2000
+#define CPAS_BPS_BIT            0x400
+
 /**
  * struct icp_hfi_mem_info
  * @qtbl: Memory info of queue table
@@ -235,6 +239,9 @@ struct cam_icp_clk_info {
  * @a5_jtag_debug: entry to enable A5 JTAG debugging
  * @a5_debug_q : entry to enable FW debug message
  * @a5_dbg_lvl : debug level set to FW.
+ * @ipe0_enable: Flag for IPE0
+ * @ipe1_enable: Flag for IPE1
+ * @bps_enable: Flag for BPS
  */
 struct cam_icp_hw_mgr {
 	struct mutex hw_mgr_mutex;
@@ -268,6 +275,9 @@ struct cam_icp_hw_mgr {
 	bool a5_jtag_debug;
 	bool a5_debug_q;
 	u64 a5_dbg_lvl;
+	bool ipe0_enable;
+	bool ipe1_enable;
+	bool bps_enable;
 };
 
 static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args);

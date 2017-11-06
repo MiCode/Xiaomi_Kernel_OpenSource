@@ -30,4 +30,6 @@ int cam_flash_off(struct cam_flash_ctrl *fctrl);
 int cam_flash_prepare(struct cam_flash_ctrl *flash_ctrl,
 	enum cam_flash_state state);
 void cam_flash_shutdown(struct cam_flash_ctrl *flash_ctrl);
+int cam_flash_stop_dev(struct cam_flash_ctrl *flash_ctrl);
+int cam_flash_release_dev(struct cam_flash_ctrl *fctrl);
 #endif /*_CAM_FLASH_CORE_H_*/
