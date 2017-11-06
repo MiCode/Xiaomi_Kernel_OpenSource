@@ -1644,6 +1644,10 @@
 			qcom,dump-size = <0x80000>;
 		};
 
+		qcom,llcc-perfmon {
+			compatible = "qcom,llcc-perfmon";
+		};
+
 		qcom,llcc-erp {
 			compatible = "qcom,llcc-erp";
 			interrupt-names = "ecc_irq";
