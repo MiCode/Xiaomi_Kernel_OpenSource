@@ -209,7 +209,7 @@ static int cam_vfe_bus_get_evt_payload(
 {
 	if (list_empty(&common_data->free_payload_list)) {
 		*evt_payload = NULL;
-		CAM_ERR(CAM_ISP, "No free payload");
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "No free payload");
 		return -ENODEV;
 	}
 
