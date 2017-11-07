@@ -148,6 +148,7 @@ int cam_vfe_init_hw(void *hw_priv, void *init_hw_args, uint32_t arg_size)
 	struct cam_hw_info                *vfe_hw = hw_priv;
 	struct cam_hw_soc_info            *soc_info = NULL;
 	struct cam_vfe_hw_core_info       *core_info = NULL;
+	struct cam_isp_resource_node      *isp_res = NULL;
 	int rc = 0;
 
 	CAM_DBG(CAM_ISP, "Enter");
@@ -177,23 +178,35 @@ int cam_vfe_init_hw(void *hw_priv, void *init_hw_args, uint32_t arg_size)
 		goto decrement_open_cnt;
 	}
 
+	isp_res   = (struct cam_isp_resource_node *)init_hw_args;
+	if (isp_res && isp_res->init) {
+		rc = isp_res->init(isp_res, NULL, 0);
+		if (rc) {
+			CAM_ERR(CAM_ISP, "init Failed rc=%d", rc);
+			goto disable_soc;
+		}
+	}
+
 	CAM_DBG(CAM_ISP, "Enable soc done");
 
 	/* Do HW Reset */
 	rc = cam_vfe_reset(hw_priv, NULL, 0);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Reset Failed rc=%d", rc);
-		goto disable_soc;
+		goto deinint_vfe_res;
 	}
 
 	rc = core_info->vfe_bus->hw_ops.init(core_info->vfe_bus->bus_priv,
 		NULL, 0);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Bus HW init Failed rc=%d", rc);
-		goto disable_soc;
+		goto deinint_vfe_res;
 	}
 
 	return 0;
+deinint_vfe_res:
+	if (isp_res && isp_res->deinit)
+		isp_res->deinit(isp_res, NULL, 0);
 disable_soc:
 	cam_vfe_disable_soc_resources(soc_info);
 decrement_open_cnt:
@@ -208,6 +221,7 @@ int cam_vfe_deinit_hw(void *hw_priv, void *deinit_hw_args, uint32_t arg_size)
 	struct cam_hw_info                *vfe_hw = hw_priv;
 	struct cam_hw_soc_info            *soc_info = NULL;
 	struct cam_vfe_hw_core_info       *core_info = NULL;
+	struct cam_isp_resource_node      *isp_res = NULL;
 	int rc = 0;
 
 	CAM_DBG(CAM_ISP, "Enter");
@@ -237,6 +251,13 @@ int cam_vfe_deinit_hw(void *hw_priv, void *deinit_hw_args, uint32_t arg_size)
 		NULL, 0);
 	if (rc)
 		CAM_ERR(CAM_ISP, "Bus HW deinit Failed rc=%d", rc);
+
+	isp_res   = (struct cam_isp_resource_node *)deinit_hw_args;
+	if (isp_res && isp_res->deinit) {
+		rc = isp_res->deinit(isp_res, NULL, 0);
+		if (rc)
+			CAM_ERR(CAM_ISP, "deinit failed");
+	}
 
 	/* Turn OFF Regulators, Clocks and other SOC resources */
 	CAM_DBG(CAM_ISP, "Disable SOC resource");
