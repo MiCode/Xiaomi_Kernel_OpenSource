@@ -799,6 +799,8 @@ void mdss_dp_sw_config_msa(struct dss_io_data *ctrl_io,
 
 	mvid = (pixel_m & 0xFFFF) * 5;
 	nvid = (0xFFFF & (~pixel_n)) + (pixel_m & 0xFFFF);
+	if (lrate == DP_LINK_RATE_540)
+		nvid *= 2;
 
 	pr_debug("mvid=0x%x, nvid=0x%x\n", mvid, nvid);
 	writel_relaxed(mvid, ctrl_io->base + DP_SOFTWARE_MVID);

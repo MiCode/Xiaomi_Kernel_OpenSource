@@ -256,12 +256,9 @@ static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 	} else {
 		gain_list[0] = volume_l;
 		gain_list[1] = volume_r;
-		/* force sending FR/FL/FC volume for mono */
-		if (prtd->num_channels == 1) {
-			gain_list[2] = volume_l;
-			num_channels = 3;
-			use_default = true;
-		}
+		gain_list[2] = volume_l;
+		num_channels = 3;
+		use_default = true;
 		rc = q6asm_set_multich_gain(prtd->audio_client, num_channels,
 					gain_list, chmap, use_default);
 	}
