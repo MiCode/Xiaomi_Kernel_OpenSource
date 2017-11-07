@@ -159,6 +159,21 @@ Optional properties:
 				not specified, then "qcom,override-cornerX-reg-config" must contain a single
 				register configuration sequence list which is then applied unconditionally.
 				This property can only be specified if qcom,cornerX-reg-config property is already defined.
+- qcom,override-acc-range-fuse-list:	Array of tuples define the selection parameters used for selecting the override
+				mem-acc configuration. The fused values for these selection parameters are used by the
+				qcom,override-fuse-range-map to identify the correct set of override properties.
+				Each tuple contains 4 elements as defined below:
+				  [0] => the fuse row number of the selector
+				  [1] => LSB bit position of the bits
+				  [2] => number of bits
+				  [3] => fuse reading method, 0 for direct reading or 1 for SCM reading
+- qcom,override-fuse-range-map:	Array of tuples where each tuple specifies the allowed range for all the selection parameters
+				defined in qcom,override-acc-range-fuse-list. The fused values of these selection parameters
+				are compared against their allowed range in each tuple starting from 0th tuple and use the
+				first matched tuple index to select the right tuples from the other override properties.
+				Either qcom,override-fuse-range-map or qcom,override-fuse-version-map is used to select
+				the override configuration. The qcom,override-fuse-range-map is used if both the
+				properties are specified.
 
 mem_acc_vreg_corner: regulator@fd4aa044 {
 	compatible = "qcom,mem-acc-regulator";
@@ -184,6 +199,13 @@ mem_acc_vreg_corner: regulator@fd4aa044 {
 	qcom,override-fuse-version-map = <0>,
 					 <2>,
 					 <(-1)>;
+	qcom,override-acc-range-fuse-list =
+					<37 40 3 0>,
+					<36 30 8 0>;
+	qcom,override-fuse-range-map =
+				<0 0>, <  0   0>, <49 63>,
+				<1 1>, <  0   0>, <50 63>,
+				<0 1>, < 95 255>, < 0 63>;
 	qcom,override-corner-acc-map =	<0 0 1>,
 					<0 1 2>,
 					<0 1 1>;
