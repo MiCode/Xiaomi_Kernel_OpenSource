@@ -15,6 +15,7 @@
 
 #include "sdm845-v2.dtsi"
 #include "sdm845-qvr.dtsi"
+#include "sdm845-camera-sensor-qvr.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM845 QVR";
