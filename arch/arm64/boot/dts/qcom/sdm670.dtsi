@@ -715,7 +715,7 @@
 				 <&clock_gcc GCC_CE1_AXI_CLK>;
 		qcom,ce-opp-freq = <171430000>;
 		qcom,request-bw-before-clk;
-		qcom,smmu-s1-bypass;
+		qcom,smmu-s1-enable;
 		iommus = <&apps_smmu 0x706 0x3>,
 			 <&apps_smmu 0x716 0x3>;
 	};
@@ -752,7 +752,7 @@
 		qcom,use-sw-aead-algo;
 		qcom,use-sw-ahash-algo;
 		qcom,use-sw-hmac-algo;
-		qcom,smmu-s1-bypass;
+		qcom,smmu-s1-enable;
 		iommus = <&apps_smmu 0x704 0x3>,
 			 <&apps_smmu 0x714 0x3>;
 	};
