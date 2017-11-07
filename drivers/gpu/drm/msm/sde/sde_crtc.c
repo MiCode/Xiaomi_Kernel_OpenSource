@@ -5160,7 +5160,8 @@ static int sde_crtc_atomic_get_property(struct drm_crtc *crtc,
 
 	i = msm_property_index(&sde_crtc->property_info, property);
 	if (i == CRTC_PROP_OUTPUT_FENCE) {
-		ret = _sde_crtc_get_output_fence(crtc, state, val);
+		*val = ~0;
+		ret = 0;
 	} else {
 		ret = msm_property_atomic_get(&sde_crtc->property_info,
 			&cstate->property_state, property, val);

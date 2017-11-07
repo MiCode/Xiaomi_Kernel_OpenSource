@@ -1059,12 +1059,14 @@ static int sde_connector_atomic_get_property(struct drm_connector *connector,
 	c_state = to_sde_connector_state(state);
 
 	idx = msm_property_index(&c_conn->property_info, property);
-	if (idx == CONNECTOR_PROP_RETIRE_FENCE)
-		rc = sde_fence_create(&c_conn->retire_fence, val, 0);
-	else
+	if (idx == CONNECTOR_PROP_RETIRE_FENCE) {
+		*val = ~0;
+		rc = 0;
+	} else {
 		/* get cached property value */
 		rc = msm_property_atomic_get(&c_conn->property_info,
 				&c_state->property_state, property, val);
+	}
 
 	/* allow for custom override */
 	if (c_conn->ops.get_property)
