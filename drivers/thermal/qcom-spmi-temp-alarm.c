@@ -64,6 +64,7 @@ static const long temp_map_gen2_v1[THRESH_COUNT][STAGE_COUNT] = {
 #define TEMP_STAGE_HYSTERESIS		2000
 
 #define THRESH_MIN			0
+#define THRESH_MAX			3
 
 /* Temperature in Milli Celsius reported during stage 0 if no ADC is present */
 #define DEFAULT_TEMP			37000
@@ -77,6 +78,7 @@ struct qpnp_tm_chip {
 	unsigned int			stage;
 	unsigned int			prev_stage;
 	unsigned int			base;
+	u32				init_thresh;
 	struct iio_channel		*adc;
 	const long			(*temp_map)[THRESH_COUNT][STAGE_COUNT];
 };
@@ -250,7 +252,7 @@ static int qpnp_tm_init(struct qpnp_tm_chip *chip)
 	 * Set threshold and disable software override of stage 2 and 3
 	 * shutdowns.
 	 */
-	chip->thresh = THRESH_MIN;
+	chip->thresh = chip->init_thresh;
 	reg &= ~(SHUTDOWN_CTRL1_OVERRIDE_MASK | SHUTDOWN_CTRL1_THRESHOLD_MASK);
 	reg |= chip->thresh & SHUTDOWN_CTRL1_THRESHOLD_MASK;
 	ret = qpnp_tm_write(chip, QPNP_TM_REG_SHUTDOWN_CTRL1, reg);
@@ -287,6 +289,16 @@ static int qpnp_tm_probe(struct platform_device *pdev)
 	ret = of_property_read_u32(node, "reg", &res);
 	if (ret < 0)
 		return ret;
+
+	chip->init_thresh = THRESH_MIN;
+	if (of_property_read_u32(node, "qcom,temperature-threshold-set",
+				 &chip->init_thresh) == 0) {
+		if (chip->init_thresh > THRESH_MAX) {
+			dev_err(&pdev->dev, "Invalid qcom,temperature-threshold-set=%u\n",
+				chip->init_thresh);
+			return -EINVAL;
+		}
+	}
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
