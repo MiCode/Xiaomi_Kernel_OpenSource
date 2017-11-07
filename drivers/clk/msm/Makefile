@@ -29,3 +29,6 @@ endif
 
 obj-$(CONFIG_COMMON_CLK_MSM)	+= gdsc.o
 obj-$(CONFIG_COMMON_CLK_MSM)	+= mdss/
+
+obj-$(CONFIG_MSM_VIRTCLK_FRONTEND)	+= virtclk-front.o
+obj-$(CONFIG_MSM_VIRTCLK_FRONTEND_8996)	+= virtclk-front-8996.o
