@@ -158,6 +158,7 @@
 					"gpll0_mss_clk";
 
 		vdd_cx-supply = <&pmd9650_s5_level>;
+		interrupts = <0 24 1>;
 		vdd_cx-voltage = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 		vdd_mx-supply = <&pmd9650_l9_level>;
 		vdd_mx-uV = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
