@@ -494,8 +494,8 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 	}
 		break;
 	case CAM_STOP_DEV: {
-		if (csiphy_dev->csiphy_state !=
-			CAM_CSIPHY_START) {
+		if ((csiphy_dev->csiphy_state != CAM_CSIPHY_START) ||
+			!csiphy_dev->start_dev_count) {
 			CAM_ERR(CAM_CSIPHY, "Not in right state to stop : %d",
 				csiphy_dev->csiphy_state);
 			goto release_mutex;
@@ -508,16 +508,13 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		}
 
 		rc = cam_csiphy_disable_hw(csiphy_dev);
-		if (rc < 0) {
+		if (rc < 0)
 			CAM_ERR(CAM_CSIPHY, "Failed in csiphy release");
-			cam_cpas_stop(csiphy_dev->cpas_handle);
-			goto release_mutex;
-		}
+
 		rc = cam_cpas_stop(csiphy_dev->cpas_handle);
-		if (rc < 0) {
+		if (rc < 0)
 			CAM_ERR(CAM_CSIPHY, "de-voting CPAS: %d", rc);
-			goto release_mutex;
-		}
+
 		csiphy_dev->csiphy_state = CAM_CSIPHY_ACQUIRE;
 	}
 		break;
@@ -547,8 +544,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		} else {
 			csiphy_dev->bridge_intf.device_hdl[1] = -1;
 			csiphy_dev->bridge_intf.link_hdl[1] = -1;
-			csiphy_dev->bridge_intf.
-				session_hdl[1] = -1;
+			csiphy_dev->bridge_intf.session_hdl[1] = -1;
 			csiphy_dev->is_acquired_dev_combo_mode = 0;
 		}
 
@@ -587,10 +583,10 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		struct cam_ahb_vote ahb_vote;
 		struct cam_axi_vote axi_vote;
 
-		csiphy_dev->start_dev_count++;
-
-		if (csiphy_dev->csiphy_state == CAM_CSIPHY_START)
+		if (csiphy_dev->csiphy_state == CAM_CSIPHY_START) {
+			csiphy_dev->start_dev_count++;
 			goto release_mutex;
+		}
 
 		ahb_vote.type = CAM_VOTE_ABSOLUTE;
 		ahb_vote.vote.level = CAM_SVS_VOTE;
@@ -616,9 +612,11 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 
 		if (rc < 0) {
 			CAM_ERR(CAM_CSIPHY, "cam_csiphy_config_dev failed");
+			cam_csiphy_disable_hw(csiphy_dev);
 			cam_cpas_stop(csiphy_dev->cpas_handle);
 			goto release_mutex;
 		}
+		csiphy_dev->start_dev_count++;
 		csiphy_dev->csiphy_state = CAM_CSIPHY_START;
 	}
 		break;
