@@ -738,10 +738,12 @@ static int cam_vfe_bus_get_wm_idx(
 }
 
 static enum cam_vfe_bus_packer_format
-	cam_vfe_bus_get_packer_fmt(uint32_t out_fmt)
+	cam_vfe_bus_get_packer_fmt(uint32_t out_fmt, int wm_index)
 {
 	switch (out_fmt) {
 	case CAM_FORMAT_NV21:
+		if (wm_index == 4 || wm_index == 6)
+			return PACKER_FMT_PLAIN_8_LSB_MSB_10_ODD_EVEN;
 	case CAM_FORMAT_NV12:
 	case CAM_FORMAT_UBWC_NV12:
 	case CAM_FORMAT_UBWC_NV12_4R:
@@ -817,7 +819,8 @@ static int cam_vfe_bus_acquire_wm(
 	rsrc_data->irq_enabled = subscribe_irq;
 	rsrc_data->ctx = ctx;
 	rsrc_data->format = out_port_info->format;
-	rsrc_data->pack_fmt = cam_vfe_bus_get_packer_fmt(rsrc_data->format);
+	rsrc_data->pack_fmt = cam_vfe_bus_get_packer_fmt(rsrc_data->format,
+		wm_idx);
 
 	rsrc_data->width = out_port_info->width;
 	rsrc_data->height = out_port_info->height;
