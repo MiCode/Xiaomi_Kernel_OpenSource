@@ -245,10 +245,13 @@ struct msm_usb_bam_data {
  *
  * @bam_pipe_idx - allocated pipe index.
  *
+ * @iova - IPA address of USB peer BAM (i.e. QDSS BAM)
+ *
  * @return 0 on success, negative value on error
  *
  */
-int usb_bam_connect(enum usb_ctrl bam_type, int idx, u32 *bam_pipe_idx);
+int usb_bam_connect(enum usb_ctrl bam_type, int idx, u32 *bam_pipe_idx,
+						unsigned long iova);
 
 /**
  * Connect USB-to-IPA SPS connection.
@@ -430,12 +433,14 @@ int usb_bam_alloc_fifos(enum usb_ctrl cur_bam, u8 idx);
 
 /* Frees memory for data fifo and descriptor fifos. */
 int usb_bam_free_fifos(enum usb_ctrl cur_bam, u8 idx);
-
+int get_qdss_bam_info(enum usb_ctrl cur_bam, u8 idx,
+			phys_addr_t *p_addr, u32 *bam_size);
 bool msm_bam_hsic_lpm_ok(void);
 bool msm_bam_hsic_host_pipe_empty(void);
 bool msm_usb_bam_enable(enum usb_ctrl ctrl, bool bam_enable);
 #else
-static inline int usb_bam_connect(enum usb_ctrl bam, u8 idx, u32 *bam_pipe_idx)
+static inline int usb_bam_connect(enum usb_ctrl bam, u8 idx, u32 *bam_pipe_idx,
+							unsigned long iova)
 {
 	return -ENODEV;
 }
@@ -529,6 +534,11 @@ int usb_bam_free_fifos(enum usb_ctrl cur_bam, u8 idx)
 	return false;
 }
 
+static int get_qdss_bam_info(enum usb_ctrl cur_bam, u8 idx,
+				phys_addr_t *p_addr, u32 *bam_size)
+{
+	return false;
+}
 static inline bool msm_bam_hsic_lpm_ok(void) { return true; }
 static inline bool msm_bam_hsic_host_pipe_empty(void) { return true; }
 static inline bool msm_usb_bam_enable(enum usb_ctrl ctrl, bool bam_enable)

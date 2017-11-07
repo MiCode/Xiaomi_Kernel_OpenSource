@@ -31,6 +31,9 @@ struct usb_qdss_bam_connect_info {
 	u32 peer_pipe_idx;
 	unsigned long usb_bam_handle;
 	struct sps_mem_buffer *data_fifo;
+	unsigned long qdss_bam_iova;
+	phys_addr_t qdss_bam_phys;
+	u32 qdss_bam_size;
 };
 
 struct gqdss {
