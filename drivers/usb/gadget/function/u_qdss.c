@@ -81,9 +81,9 @@ int set_qdss_data_connection(struct f_qdss *qdss, int enable)
 
 		alloc_sps_req(qdss->port.data);
 		msm_data_fifo_config(qdss->port.data,
-					bam_info.data_fifo->phys_base,
-					bam_info.data_fifo->size,
-					bam_info.usb_bam_pipe_idx);
+			bam_info.data_fifo->iova,
+			bam_info.data_fifo->size,
+			bam_info.usb_bam_pipe_idx);
 		init_data(qdss->port.data);
 
 		res = usb_bam_connect(usb_bam_type, idx,
