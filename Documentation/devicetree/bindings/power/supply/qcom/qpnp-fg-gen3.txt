@@ -271,6 +271,14 @@ First Level Node - FG Gen3 device
 	Definition: A boolean property that when defined holds SOC at 100% when
 		    the battery is full.
 
+- qcom,linearize-soc
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property that when defined linearizes SOC when
+		    the SOC drops after charge termination monotonically to
+		    improve the user experience. This is applicable only if
+		    "qcom,hold-soc-while-full" is specified.
+
 - qcom,ki-coeff-soc-dischg
 	Usage:      optional
 	Value type: <prop-encoded-array>
