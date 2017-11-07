@@ -34,6 +34,12 @@
 #define WAN_IOCTL_ADD_FLT_RULE_EX        9
 #define WAN_IOCTL_QUERY_TETHER_STATS_ALL  10
 #define WAN_IOCTL_NOTIFY_WAN_STATE  11
+#define WAN_IOCTL_ADD_UL_FLT_RULE          12
+#define WAN_IOCTL_ENABLE_PER_CLIENT_STATS    13
+#define WAN_IOCTL_QUERY_PER_CLIENT_STATS     14
+#define WAN_IOCTL_SET_LAN_CLIENT_INFO        15
+#define WAN_IOCTL_CLEAR_LAN_CLIENT_INFO      16
+#define WAN_IOCTL_SEND_LAN_CLIENT_MSG        17
 
 /* User space may not have this defined. */
 #ifndef IFNAMSIZ
@@ -130,6 +136,56 @@ struct wan_ioctl_query_dl_filter_stats {
 struct wan_ioctl_notify_wan_state {
 	uint8_t up;
 };
+struct wan_ioctl_send_lan_client_msg {
+	/* Lan client info. */
+	struct ipa_lan_client_msg lan_client;
+	/* Event to indicate whether client is
+	 * connected or disconnected.
+	 */
+	enum ipa_per_client_stats_event client_event;
+};
+
+struct wan_ioctl_lan_client_info {
+	/* Device type of the client. */
+	enum ipacm_per_client_device_type device_type;
+	/* MAC Address of the client. */
+	uint8_t mac[IPA_MAC_ADDR_SIZE];
+	/* Init client. */
+	uint8_t client_init;
+	/* Client Index */
+	int8_t client_idx;
+	/* Header length of the client. */
+	uint8_t hdr_len;
+	/* Source pipe of the lan client. */
+	enum ipa_client_type ul_src_pipe;
+};
+
+struct wan_ioctl_per_client_info {
+	/* MAC Address of the client. */
+	uint8_t mac[IPA_MAC_ADDR_SIZE];
+	/* Ipv4 UL traffic bytes. */
+	uint64_t ipv4_tx_bytes;
+	/* Ipv4 DL traffic bytes. */
+	uint64_t ipv4_rx_bytes;
+	/* Ipv6 UL traffic bytes. */
+	uint64_t ipv6_tx_bytes;
+	/* Ipv6 DL traffic bytes. */
+	uint64_t ipv6_rx_bytes;
+};
+
+struct wan_ioctl_query_per_client_stats {
+	/* Device type of the client. */
+	enum ipacm_per_client_device_type device_type;
+	/* Indicate whether to reset the stats (use 1) or not */
+	uint8_t reset_stats;
+	/* Indicates whether client is disconnected. */
+	uint8_t disconnect_clnt;
+	/* Number of clients. */
+	uint8_t num_clients;
+	/* Client information. */
+	struct wan_ioctl_per_client_info
+		client_info[IPA_MAX_NUM_HW_PATH_CLIENTS];
+};
 
 #define WAN_IOC_ADD_FLT_RULE _IOWR(WAN_IOC_MAGIC, \
 		WAN_IOCTL_ADD_FLT_RULE, \
@@ -179,4 +235,27 @@ struct wan_ioctl_notify_wan_state {
 		WAN_IOCTL_NOTIFY_WAN_STATE, \
 		struct wan_ioctl_notify_wan_state *)
 
+#define WAN_IOC_ADD_UL_FLT_RULE _IOWR(WAN_IOC_MAGIC, \
+		WAN_IOCTL_ADD_UL_FLT_RULE, \
+		struct ipa_configure_ul_firewall_rules_req_msg_v01 *)
+
+#define WAN_IOC_ENABLE_PER_CLIENT_STATS _IOWR(WAN_IOC_MAGIC, \
+		WAN_IOCTL_ENABLE_PER_CLIENT_STATS, \
+		bool *)
+
+#define WAN_IOC_QUERY_PER_CLIENT_STATS _IOWR(WAN_IOC_MAGIC, \
+		WAN_IOCTL_QUERY_PER_CLIENT_STATS, \
+		struct wan_ioctl_query_per_client_stats *)
+
+#define WAN_IOC_SET_LAN_CLIENT_INFO _IOWR(WAN_IOC_MAGIC, \
+			WAN_IOCTL_SET_LAN_CLIENT_INFO, \
+			struct wan_ioctl_lan_client_info *)
+
+#define WAN_IOC_SEND_LAN_CLIENT_MSG _IOWR(WAN_IOC_MAGIC, \
+				WAN_IOCTL_SEND_LAN_CLIENT_MSG, \
+				struct wan_ioctl_send_lan_client_msg *)
+
+#define WAN_IOC_CLEAR_LAN_CLIENT_INFO _IOWR(WAN_IOC_MAGIC, \
+			WAN_IOCTL_CLEAR_LAN_CLIENT_INFO, \
+			struct wan_ioctl_lan_client_info *)
 #endif /* _RMNET_IPA_FD_IOCTL_H */
