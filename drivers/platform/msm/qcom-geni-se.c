@@ -402,7 +402,7 @@ EXPORT_SYMBOL(geni_setup_s_cmd);
  */
 void geni_cancel_m_cmd(void __iomem *base)
 {
-	geni_write_reg(M_GENI_CMD_CANCEL, base, SE_GENI_S_CMD_CTRL_REG);
+	geni_write_reg(M_GENI_CMD_CANCEL, base, SE_GENI_M_CMD_CTRL_REG);
 }
 EXPORT_SYMBOL(geni_cancel_m_cmd);
 
@@ -684,16 +684,14 @@ int se_geni_resources_off(struct se_geni_rsc *rsc)
 	if (unlikely(!geni_se_dev || !geni_se_dev->bus_bw))
 		return -ENODEV;
 
-	ret = pinctrl_select_state(rsc->geni_pinctrl, rsc->geni_gpio_sleep);
-	if (ret) {
-		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
-			"%s: Error %d pinctrl_select_state\n", __func__, ret);
-		return ret;
-	}
 	ret = se_geni_clks_off(rsc);
 	if (ret)
 		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
 			"%s: Error %d turning off clocks\n", __func__, ret);
+	ret = pinctrl_select_state(rsc->geni_pinctrl, rsc->geni_gpio_sleep);
+	if (ret)
+		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
+			"%s: Error %d pinctrl_select_state\n", __func__, ret);
 	return ret;
 }
 EXPORT_SYMBOL(se_geni_resources_off);
@@ -802,19 +800,20 @@ int se_geni_resources_on(struct se_geni_rsc *rsc)
 	if (unlikely(!geni_se_dev))
 		return -EPROBE_DEFER;
 
-	ret = se_geni_clks_on(rsc);
-	if (ret) {
-		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
-			"%s: Error %d during clks_on\n", __func__, ret);
-		return ret;
-	}
-
 	ret = pinctrl_select_state(rsc->geni_pinctrl, rsc->geni_gpio_active);
 	if (ret) {
 		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
 			"%s: Error %d pinctrl_select_state\n", __func__, ret);
-		se_geni_clks_off(rsc);
+		return ret;
 	}
+
+	ret = se_geni_clks_on(rsc);
+	if (ret) {
+		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
+			"%s: Error %d during clks_on\n", __func__, ret);
+		pinctrl_select_state(rsc->geni_pinctrl, rsc->geni_gpio_sleep);
+	}
+
 	return ret;
 }
 EXPORT_SYMBOL(se_geni_resources_on);
