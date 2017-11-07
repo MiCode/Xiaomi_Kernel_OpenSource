@@ -11,6 +11,7 @@
  */
 
 #include <dt-bindings/gpio/gpio.h>
+#include "sdm670-camera-sensor-qrd.dtsi"
 #include "sdm670-pmic-overlay.dtsi"
 #include "sdm670-audio-overlay.dtsi"
 #include "smb1355.dtsi"
