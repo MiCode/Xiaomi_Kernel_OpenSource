@@ -864,7 +864,7 @@ static int crypt_convert_block(struct crypt_config *cc,
 	int r;
 
 	/* Reject unexpected unaligned bio. */
-	if (unlikely(bv_in.bv_offset & (cc->sector_size - 1)))
+	if (unlikely(bv_in.bv_len & (cc->sector_size - 1)))
 		return -EIO;
 
 	dmreq = dmreq_of_req(cc, req);
