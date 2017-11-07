@@ -1269,13 +1269,13 @@ int cam_soc_util_disable_platform_resource(struct cam_hw_soc_info *soc_info,
 	if (!soc_info)
 		return -EINVAL;
 
+	if (disble_irq)
+		rc |= cam_soc_util_irq_disable(soc_info);
+
 	if (disable_clocks)
 		cam_soc_util_clk_disable_default(soc_info);
 
 	cam_soc_util_regulator_disable_default(soc_info);
-
-	if (disble_irq)
-		rc |= cam_soc_util_irq_disable(soc_info);
 
 	if (soc_info->pinctrl_info.pinctrl &&
 		soc_info->pinctrl_info.gpio_state_suspend)
