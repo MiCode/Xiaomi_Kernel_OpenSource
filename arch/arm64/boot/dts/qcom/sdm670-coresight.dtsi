@@ -562,6 +562,7 @@
 				     <13 32>;
 		qcom,cmb-elem-size = <3 64>,
 				     <7 64>,
+				     <9 64>,
 				     <13 64>;
 
 		clocks = <&clock_aop QDSS_CLK>;
@@ -625,6 +626,15 @@
 			};
 
 			port@6 {
+				reg = <9>;
+				tpda_in_tpdm_prng: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&tpdm_prng_out_tpda>;
+				};
+			};
+
+			port@7 {
 				reg = <11>;
 					tpda_in_tpdm_north: endpoint {
 					slave-mode;
@@ -633,7 +643,7 @@
 				};
 			};
 
-			port@7 {
+			port@8 {
 				reg = <12>;
 				tpda_in_tpdm_qm: endpoint {
 					slave-mode;
@@ -642,7 +652,7 @@
 				};
 			};
 
-			port@8 {
+			port@9 {
 				reg = <13>;
 				tpda_in_tpdm_pimem: endpoint {
 					slave-mode;
@@ -739,6 +749,24 @@
 		port {
 			tpdm_modem_out_tpda_modem: endpoint {
 				remote-endpoint = <&tpda_modem_in_tpdm_modem>;
+			};
+		};
+	};
+
+	tpdm_prng: tpdm@684c000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b968>;
+		reg = <0x684c000 0x1000>;
+		reg-names = "tpdm-base";
+
+		coresight-name = "coresight-tpdm-prng";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		port {
+			tpdm_prng_out_tpda: endpoint {
+				remote-endpoint = <&tpda_in_tpdm_prng>;
 			};
 		};
 	};
