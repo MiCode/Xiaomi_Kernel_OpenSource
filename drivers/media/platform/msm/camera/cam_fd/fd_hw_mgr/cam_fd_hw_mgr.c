@@ -1210,6 +1210,7 @@ static int cam_fd_mgr_hw_release(void *hw_mgr_priv, void *hw_release_args)
 	if (rc)
 		CAM_ERR(CAM_FD, "Failed in release device, rc=%d", rc);
 
+	hw_ctx->ctx_in_use = false;
 	list_del_init(&hw_ctx->list);
 	cam_fd_mgr_util_put_ctx(&hw_mgr->free_ctx_list, &hw_ctx);
 
