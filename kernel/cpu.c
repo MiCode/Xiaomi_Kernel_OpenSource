@@ -25,6 +25,7 @@
 #include <linux/smpboot.h>
 #include <linux/relay.h>
 #include <linux/slab.h>
+#include <linux/highmem.h>
 
 #include <trace/events/power.h>
 #define CREATE_TRACE_POINTS
@@ -1432,6 +1433,11 @@ static struct cpuhp_step cpuhp_ap_states[] = {
 		.name			= "RCU/tree:dying",
 		.startup.single		= NULL,
 		.teardown.single	= rcutree_dying_cpu,
+	},
+	[CPUHP_AP_KMAP_DYING] = {
+		.name			= "KMAP:dying",
+		.startup.single		= NULL,
+		.teardown.single	= kmap_remove_unused_cpu,
 	},
 	/* Entry state on starting. Interrupts enabled from here on. Transient
 	 * state for synchronsization */
