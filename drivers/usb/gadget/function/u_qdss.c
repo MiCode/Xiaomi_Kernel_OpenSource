@@ -14,6 +14,7 @@
 #include <linux/kernel.h>
 #include <linux/device.h>
 #include <linux/usb_bam.h>
+#include <linux/dma-mapping.h>
 
 #include "f_qdss.h"
 static int alloc_sps_req(struct usb_ep *data_ep)
@@ -47,6 +48,8 @@ int set_qdss_data_connection(struct f_qdss *qdss, int enable)
 	int			idx;
 	struct usb_qdss_bam_connect_info bam_info;
 	struct usb_gadget *gadget;
+	struct device *dev;
+	int ret;
 
 	pr_debug("%s\n", __func__);
 
@@ -57,6 +60,7 @@ int set_qdss_data_connection(struct f_qdss *qdss, int enable)
 
 	gadget = qdss->gadget;
 	usb_bam_type = usb_bam_get_bam_type(gadget->name);
+	dev = gadget->dev.parent;
 
 	bam_info = qdss->bam_info;
 	/* There is only one qdss pipe, so the pipe number can be set to 0 */
@@ -68,6 +72,23 @@ int set_qdss_data_connection(struct f_qdss *qdss, int enable)
 	}
 
 	if (enable) {
+		ret = get_qdss_bam_info(usb_bam_type, idx,
+				&bam_info.qdss_bam_phys,
+				&bam_info.qdss_bam_size);
+		if (ret) {
+			pr_err("%s(): failed to get qdss bam info err(%d)\n",
+								__func__, ret);
+			return ret;
+		}
+
+		bam_info.qdss_bam_iova = dma_map_resource(dev->parent,
+				bam_info.qdss_bam_phys, bam_info.qdss_bam_size,
+				DMA_BIDIRECTIONAL, 0);
+		if (!bam_info.qdss_bam_iova) {
+			pr_err("dma_map_resource failed\n");
+			return -ENOMEM;
+		}
+
 		usb_bam_alloc_fifos(usb_bam_type, idx);
 		bam_info.data_fifo =
 			kzalloc(sizeof(struct sps_mem_buffer), GFP_KERNEL);
@@ -75,6 +96,12 @@ int set_qdss_data_connection(struct f_qdss *qdss, int enable)
 			usb_bam_free_fifos(usb_bam_type, idx);
 			return -ENOMEM;
 		}
+
+		pr_debug("%s(): qdss_bam: iova:%lx p_addr:%lx size:%x\n",
+				__func__, bam_info.qdss_bam_iova,
+				(unsigned long)bam_info.qdss_bam_phys,
+				bam_info.qdss_bam_size);
+
 		get_bam2bam_connection_info(usb_bam_type, idx,
 				&bam_info.usb_bam_pipe_idx,
 				NULL, bam_info.data_fifo, NULL);
@@ -87,13 +114,16 @@ int set_qdss_data_connection(struct f_qdss *qdss, int enable)
 		init_data(qdss->port.data);
 
 		res = usb_bam_connect(usb_bam_type, idx,
-					&(bam_info.usb_bam_pipe_idx));
+					&(bam_info.usb_bam_pipe_idx),
+					bam_info.qdss_bam_iova);
 	} else {
-		kfree(bam_info.data_fifo);
 		res = usb_bam_disconnect_pipe(usb_bam_type, idx);
 		if (res)
 			pr_err("usb_bam_disconnection error\n");
+		dma_unmap_resource(dev->parent, bam_info.qdss_bam_iova,
+				bam_info.qdss_bam_size, DMA_BIDIRECTIONAL, 0);
 		usb_bam_free_fifos(usb_bam_type, idx);
+		kfree(bam_info.data_fifo);
 	}
 
 	return res;
