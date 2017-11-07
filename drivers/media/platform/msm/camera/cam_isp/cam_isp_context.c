@@ -2005,6 +2005,24 @@ static int __cam_isp_ctx_release_dev_in_activated(struct cam_context *ctx,
 	return rc;
 }
 
+static int __cam_isp_ctx_unlink_in_activated(struct cam_context *ctx,
+	struct cam_req_mgr_core_dev_link_setup *unlink)
+{
+	int rc = 0;
+
+	CAM_WARN(CAM_ISP,
+		"Received unlink in activated state. It's unexpected");
+	rc = __cam_isp_ctx_stop_dev_in_activated_unlock(ctx);
+	if (rc)
+		CAM_WARN(CAM_ISP, "Stop device failed rc=%d", rc);
+
+	rc = __cam_isp_ctx_unlink_in_ready(ctx, unlink);
+	if (rc)
+		CAM_ERR(CAM_ISP, "Unlink failed rc=%d", rc);
+
+	return rc;
+}
+
 static int __cam_isp_ctx_apply_req(struct cam_context *ctx,
 	struct cam_req_mgr_apply_request *apply)
 {
@@ -2116,6 +2134,7 @@ static struct cam_ctx_ops
 			.config_dev = __cam_isp_ctx_config_dev_in_top_state,
 		},
 		.crm_ops = {
+			.unlink = __cam_isp_ctx_unlink_in_activated,
 			.apply_req = __cam_isp_ctx_apply_req,
 			.flush_req = __cam_isp_ctx_flush_req_in_top_state,
 		},
