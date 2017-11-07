@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,6 +47,7 @@ static struct sde_pingpong_cfg *_pingpong_offset(enum sde_pingpong pp,
 		if (pp == m->pingpong[i].id) {
 			b->base_off = addr;
 			b->blk_off = m->pingpong[i].base;
+			b->length = m->pingpong[i].len;
 			b->hwversion = m->hwversion;
 			b->log_mask = SDE_DBG_MASK_PINGPONG;
 			return &m->pingpong[i];

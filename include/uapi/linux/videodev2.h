@@ -2,7 +2,7 @@
  *  Video for Linux Two header file
  *
  *  Copyright (C) 1999-2012 the contributors
- *  Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *  Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -590,6 +590,11 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_SGBRG10DPCM6 v4l2_fourcc('b', 'G', 'A', '6')
 #define V4L2_PIX_FMT_SGRBG10DPCM6 v4l2_fourcc('B', 'D', '1', '6')
 #define V4L2_PIX_FMT_SRGGB10DPCM6 v4l2_fourcc('b', 'R', 'A', '6')
+	/* 10bit raw bayer, plain16 packed */
+#define V4L2_PIX_FMT_SBGGRPLAIN16 v4l2_fourcc('B', 'G', '1', '6')
+#define V4L2_PIX_FMT_SGBRGPLAIN16 v4l2_fourcc('G', 'B', '1', '6')
+#define V4L2_PIX_FMT_SGRBGPLAIN16 v4l2_fourcc('G', 'R', '1', '6')
+#define V4L2_PIX_FMT_SRGGBPLAIN16 v4l2_fourcc('R', 'G', '1', '6')
 
 /* compressed formats */
 #define V4L2_PIX_FMT_MJPEG    v4l2_fourcc('M', 'J', 'P', 'G') /* Motion-JPEG   */

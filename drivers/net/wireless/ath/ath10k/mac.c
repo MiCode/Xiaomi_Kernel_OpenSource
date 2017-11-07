@@ -7887,6 +7887,12 @@ static struct ieee80211_iface_combination ath10k_wcn3990_qcs_if_comb[] = {
 		.num_different_channels = 1,
 		.max_interfaces = 4,
 		.n_limits = ARRAY_SIZE(ath10k_wcn3990_if_limit),
+#ifdef CONFIG_ATH10K_DFS_CERTIFIED
+		.radar_detect_widths =  BIT(NL80211_CHAN_WIDTH_20_NOHT) |
+				       BIT(NL80211_CHAN_WIDTH_20) |
+				       BIT(NL80211_CHAN_WIDTH_40) |
+				       BIT(NL80211_CHAN_WIDTH_80),
+#endif
 	},
 	{
 		.limits = ath10k_wcn3990_qcs_if_limit,
@@ -7899,6 +7905,12 @@ static struct ieee80211_iface_combination ath10k_wcn3990_qcs_if_comb[] = {
 		.num_different_channels = 1,
 		.max_interfaces = 2,
 		.n_limits = ARRAY_SIZE(ath10k_wcn3990_if_limit_ibss),
+#ifdef CONFIG_ATH10K_DFS_CERTIFIED
+		.radar_detect_widths =  BIT(NL80211_CHAN_WIDTH_20_NOHT) |
+				       BIT(NL80211_CHAN_WIDTH_20) |
+				       BIT(NL80211_CHAN_WIDTH_40) |
+				       BIT(NL80211_CHAN_WIDTH_80),
+#endif
 	},
 };
 

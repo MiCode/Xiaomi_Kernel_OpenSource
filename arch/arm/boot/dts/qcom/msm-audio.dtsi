@@ -383,6 +383,7 @@
 		qcom,msm-cpudai-auxpcm-data = <0>, <0>;
 		qcom,msm-cpudai-auxpcm-pcm-clk-rate = <2048000>, <2048000>;
 		qcom,msm-auxpcm-interface = "primary";
+		qcom,msm-cpudai-afe-clk-ver = <2>;
 	};
 
 	dai_sec_auxpcm: qcom,msm-sec-auxpcm {
