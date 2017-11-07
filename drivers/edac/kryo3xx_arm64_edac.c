@@ -360,11 +360,34 @@ static irqreturn_t kryo3xx_l3_scu_handler(int irq, void *drvdata)
 	return IRQ_HANDLED;
 }
 
+static void initialize_registers(void *info)
+{
+	set_errxctlr_el1();
+	set_errxmisc_overflow();
+}
+
+static void init_regs_on_cpu(bool all_cpus)
+{
+	int cpu;
+
+	write_errselr_el1(0);
+	if (all_cpus) {
+		for_each_possible_cpu(cpu)
+			smp_call_function_single(cpu, initialize_registers,
+						NULL, 1);
+	} else
+		initialize_registers(NULL);
+
+	write_errselr_el1(1);
+	initialize_registers(NULL);
+}
+
 static int kryo3xx_pmu_cpu_pm_notify(struct notifier_block *self,
 				unsigned long action, void *v)
 {
 	switch (action) {
 	case CPU_PM_EXIT:
+		init_regs_on_cpu(false);
 		kryo3xx_check_l3_scu_error(panic_handler_drvdata->edev_ctl);
 		kryo3xx_check_l1_l2_ecc(panic_handler_drvdata->edev_ctl);
 		break;
@@ -373,23 +396,14 @@ static int kryo3xx_pmu_cpu_pm_notify(struct notifier_block *self,
 	return NOTIFY_OK;
 }
 
-static void initialize_registers(void *info)
-{
-	set_errxctlr_el1();
-	set_errxmisc_overflow();
-}
-
 static int kryo3xx_cpu_erp_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct erp_drvdata *drv;
 	int rc = 0;
 	int fail = 0;
-	int cpu;
 
-	for_each_possible_cpu(cpu)
-		smp_call_function_single(cpu, initialize_registers, NULL, 1);
-
+	init_regs_on_cpu(true);
 
 	drv = devm_kzalloc(dev, sizeof(*drv), GFP_KERNEL);
 
