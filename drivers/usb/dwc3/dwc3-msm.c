@@ -3805,8 +3805,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		dwc3_usb3_phy_suspend(dwc, false);
 		mdwc->in_host_mode = false;
 
-		pm_runtime_mark_last_busy(mdwc->dev);
-		pm_runtime_put_sync_autosuspend(mdwc->dev);
+		pm_runtime_put_sync_suspend(mdwc->dev);
 		dbg_event(0xFF, "StopHost psync",
 			atomic_read(&mdwc->dev->power.usage_count));
 	}
