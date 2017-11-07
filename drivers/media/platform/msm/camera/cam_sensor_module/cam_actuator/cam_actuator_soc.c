@@ -22,9 +22,12 @@
 int32_t cam_actuator_parse_dt(struct cam_actuator_ctrl_t *a_ctrl,
 	struct device *dev)
 {
-	int32_t                   rc = 0;
-	struct cam_hw_soc_info *soc_info = &a_ctrl->soc_info;
-	struct device_node *of_node = NULL;
+	int32_t                         rc = 0;
+	struct cam_hw_soc_info          *soc_info = &a_ctrl->soc_info;
+	struct cam_actuator_soc_private *soc_private =
+		(struct cam_actuator_soc_private *)a_ctrl->soc_info.soc_private;
+	struct cam_sensor_power_ctrl_t  *power_info = &soc_private->power_info;
+	struct device_node              *of_node = NULL;
 
 	/* Initialize mutex */
 	mutex_init(&(a_ctrl->actuator_mutex));
@@ -61,9 +64,8 @@ int32_t cam_actuator_parse_dt(struct cam_actuator_ctrl_t *a_ctrl,
 	}
 
 	rc = cam_sensor_util_init_gpio_pin_tbl(soc_info,
-		&a_ctrl->gpio_num_info);
-
-	if ((rc < 0) || (!a_ctrl->gpio_num_info)) {
+		&power_info->gpio_num_info);
+	if ((rc < 0) || (!power_info->gpio_num_info)) {
 		CAM_ERR(CAM_ACTUATOR, "No/Error Actuator GPIOs");
 		return -EINVAL;
 	}

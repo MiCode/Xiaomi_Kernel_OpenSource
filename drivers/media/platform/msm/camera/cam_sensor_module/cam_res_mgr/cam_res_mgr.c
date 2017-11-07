@@ -58,8 +58,14 @@ void cam_res_mgr_led_trigger_register(const char *name, struct led_trigger **tp)
 	bool found = false;
 	struct cam_flash_res *flash_res;
 
-	if (!cam_res)
+	if (!cam_res) {
+		/*
+		 * If this driver not probed, then just register the
+		 * led trigger.
+		 */
+		led_trigger_register_simple(name, tp);
 		return;
+	}
 
 	mutex_lock(&cam_res->flash_res_lock);
 	list_for_each_entry(flash_res, &cam_res->flash_res_list, list) {
@@ -75,7 +81,7 @@ void cam_res_mgr_led_trigger_register(const char *name, struct led_trigger **tp)
 	} else {
 		flash_res = kzalloc(sizeof(struct cam_flash_res), GFP_KERNEL);
 		if (!flash_res) {
-			CAM_ERR(CAM_SENSOR,
+			CAM_ERR(CAM_RES,
 				"Failed to malloc memory for flash_res:%s",
 				name);
 			*tp = NULL;
@@ -99,8 +105,14 @@ void cam_res_mgr_led_trigger_unregister(struct led_trigger *tp)
 	bool found = false;
 	struct cam_flash_res *flash_res;
 
-	if (!cam_res)
+	if (!cam_res) {
+		/*
+		 * If this driver not probed, then just unregister the
+		 * led trigger.
+		 */
+		led_trigger_unregister_simple(tp);
 		return;
+	}
 
 	mutex_lock(&cam_res->flash_res_lock);
 	list_for_each_entry(flash_res, &cam_res->flash_res_list, list) {
@@ -109,26 +121,30 @@ void cam_res_mgr_led_trigger_unregister(struct led_trigger *tp)
 			break;
 		}
 	}
-	mutex_unlock(&cam_res->flash_res_lock);
 
 	if (found) {
 		led_trigger_unregister_simple(tp);
-		mutex_lock(&cam_res->flash_res_lock);
 		list_del_init(&flash_res->list);
-		mutex_unlock(&cam_res->flash_res_lock);
 		kfree(flash_res);
 	}
+	mutex_unlock(&cam_res->flash_res_lock);
 }
 EXPORT_SYMBOL(cam_res_mgr_led_trigger_unregister);
 
 void cam_res_mgr_led_trigger_event(struct led_trigger *trig,
-			enum led_brightness brightness)
+	enum led_brightness brightness)
 {
 	bool found = false;
 	struct cam_flash_res *flash_res;
 
-	if (!cam_res)
+	if (!cam_res) {
+		/*
+		 * If this driver not probed, then just trigger
+		 * the led event.
+		 */
+		led_trigger_event(trig, brightness);
 		return;
+	}
 
 	mutex_lock(&cam_res->flash_res_lock);
 	list_for_each_entry(flash_res, &cam_res->flash_res_list, list) {
@@ -144,50 +160,60 @@ void cam_res_mgr_led_trigger_event(struct led_trigger *trig,
 }
 EXPORT_SYMBOL(cam_res_mgr_led_trigger_event);
 
-void cam_res_mgr_shared_pinctrl_init(void)
+int cam_res_mgr_shared_pinctrl_init(void)
 {
 	struct cam_soc_pinctrl_info *pinctrl_info;
 
-	if (!cam_res || !cam_res->shared_gpio_enabled)
-		return;
+	/*
+	 * We allow the cam_res is NULL or shared_gpio_enabled
+	 * is false, it means this driver no probed or doesn't
+	 * have shared gpio in this device.
+	 */
+	if (!cam_res || !cam_res->shared_gpio_enabled) {
+		CAM_DBG(CAM_RES, "Not support shared gpio.");
+		return 0;
+	}
 
-	if (cam_res->pstatus != PINCTRL_STATUS_PUT)
-		return;
+	if (cam_res->pstatus != PINCTRL_STATUS_PUT) {
+		CAM_DBG(CAM_RES, "The shared pinctrl already been got.");
+		return 0;
+	}
 
 	pinctrl_info = &cam_res->dt.pinctrl_info;
 
 	pinctrl_info->pinctrl =
 		devm_pinctrl_get(cam_res->dev);
 	if (IS_ERR_OR_NULL(pinctrl_info->pinctrl)) {
-		CAM_ERR(CAM_SENSOR, "Pinctrl not available");
+		CAM_ERR(CAM_RES, "Pinctrl not available");
 		cam_res->shared_gpio_enabled = false;
-		return;
+		return -EINVAL;
 	}
 
 	pinctrl_info->gpio_state_active =
 		pinctrl_lookup_state(pinctrl_info->pinctrl,
 			CAM_RES_MGR_DEFAULT);
 	if (IS_ERR_OR_NULL(pinctrl_info->gpio_state_active)) {
-		CAM_ERR(CAM_SENSOR,
+		CAM_ERR(CAM_RES,
 			"Failed to get the active state pinctrl handle");
 		cam_res->shared_gpio_enabled = false;
-		return;
-
+		return -EINVAL;
 	}
 
 	pinctrl_info->gpio_state_suspend =
 		pinctrl_lookup_state(pinctrl_info->pinctrl,
 			CAM_RES_MGR_SLEEP);
 	if (IS_ERR_OR_NULL(pinctrl_info->gpio_state_suspend)) {
-		CAM_ERR(CAM_SENSOR,
+		CAM_ERR(CAM_RES,
 			"Failed to get the active state pinctrl handle");
 		cam_res->shared_gpio_enabled = false;
-		return;
+		return -EINVAL;
 	}
 
 	mutex_lock(&cam_res->gpio_res_lock);
 	cam_res->pstatus = PINCTRL_STATUS_GOT;
 	mutex_unlock(&cam_res->gpio_res_lock);
+
+	return 0;
 }
 EXPORT_SYMBOL(cam_res_mgr_shared_pinctrl_init);
 
@@ -224,13 +250,19 @@ void cam_res_mgr_shared_pinctrl_put(void)
 {
 	struct cam_soc_pinctrl_info *pinctrl_info;
 
-	if (!cam_res || !cam_res->shared_gpio_enabled)
+	if (!cam_res || !cam_res->shared_gpio_enabled) {
+		CAM_DBG(CAM_RES, "Not support shared gpio.");
 		return;
+	}
 
 	mutex_lock(&cam_res->gpio_res_lock);
-	if (cam_res->pstatus == PINCTRL_STATUS_PUT ||
-		cam_res_mgr_shared_pinctrl_check_hold()) {
-		mutex_unlock(&cam_res->gpio_res_lock);
+	if (cam_res->pstatus == PINCTRL_STATUS_PUT) {
+		CAM_DBG(CAM_RES, "The shared pinctrl already been put");
+		return;
+	}
+
+	if (cam_res_mgr_shared_pinctrl_check_hold()) {
+		CAM_INFO(CAM_RES, "Need hold put this pinctrl");
 		return;
 	}
 
@@ -243,37 +275,78 @@ void cam_res_mgr_shared_pinctrl_put(void)
 }
 EXPORT_SYMBOL(cam_res_mgr_shared_pinctrl_put);
 
-void cam_res_mgr_shared_pinctrl_select_state(bool active)
+int cam_res_mgr_shared_pinctrl_select_state(bool active)
 {
+	int rc = 0;
 	struct cam_soc_pinctrl_info *pinctrl_info;
 
-	if (!cam_res || !cam_res->shared_gpio_enabled)
-		return;
+	if (!cam_res || !cam_res->shared_gpio_enabled) {
+		CAM_DBG(CAM_RES, "Not support shared gpio.");
+		return 0;
+	}
 
 	mutex_lock(&cam_res->gpio_res_lock);
 	if (cam_res->pstatus == PINCTRL_STATUS_PUT) {
+		CAM_DBG(CAM_RES, "The shared pinctrl alerady been put.!");
 		mutex_unlock(&cam_res->gpio_res_lock);
-		return;
+		return 0;
 	}
 
 	pinctrl_info = &cam_res->dt.pinctrl_info;
 
 	if (active && (cam_res->pstatus != PINCTRL_STATUS_ACTIVE)) {
-		pinctrl_select_state(pinctrl_info->pinctrl,
+		rc = pinctrl_select_state(pinctrl_info->pinctrl,
 			pinctrl_info->gpio_state_active);
 		cam_res->pstatus = PINCTRL_STATUS_ACTIVE;
 	} else if (!active &&
 		!cam_res_mgr_shared_pinctrl_check_hold()) {
-		pinctrl_select_state(pinctrl_info->pinctrl,
+		rc = pinctrl_select_state(pinctrl_info->pinctrl,
 			pinctrl_info->gpio_state_suspend);
 		cam_res->pstatus = PINCTRL_STATUS_SUSPEND;
 	}
 	mutex_unlock(&cam_res->gpio_res_lock);
+
+	return rc;
 }
 EXPORT_SYMBOL(cam_res_mgr_shared_pinctrl_select_state);
 
+int cam_res_mgr_shared_pinctrl_post_init(void)
+{
+	int ret = 0;
+	struct cam_soc_pinctrl_info *pinctrl_info;
+
+	if (!cam_res || !cam_res->shared_gpio_enabled) {
+		CAM_DBG(CAM_RES, "Not support shared gpio.");
+		return ret;
+	}
+
+	mutex_lock(&cam_res->gpio_res_lock);
+	if (cam_res->pstatus == PINCTRL_STATUS_PUT) {
+		CAM_DBG(CAM_RES, "The shared pinctrl alerady been put.!");
+		mutex_unlock(&cam_res->gpio_res_lock);
+		return ret;
+	}
+
+	pinctrl_info = &cam_res->dt.pinctrl_info;
+
+	/*
+	 * If no gpio resource in gpio_res_list, it means
+	 * this device don't have shared gpio
+	 */
+	if (list_empty(&cam_res->gpio_res_list)) {
+		ret = pinctrl_select_state(pinctrl_info->pinctrl,
+			pinctrl_info->gpio_state_suspend);
+		devm_pinctrl_put(pinctrl_info->pinctrl);
+		cam_res->pstatus = PINCTRL_STATUS_PUT;
+	}
+	mutex_unlock(&cam_res->gpio_res_lock);
+
+	return ret;
+}
+EXPORT_SYMBOL(cam_res_mgr_shared_pinctrl_post_init);
+
 static int cam_res_mgr_add_device(struct device *dev,
-			struct cam_gpio_res *gpio_res)
+	struct cam_gpio_res *gpio_res)
 {
 	struct cam_dev_res *dev_res = NULL;
 
@@ -333,7 +406,7 @@ int cam_res_mgr_gpio_request(struct device *dev, uint gpio,
 	if (!found) {
 		rc = gpio_request_one(gpio, flags, label);
 		if (rc) {
-			CAM_ERR(CAM_SENSOR, "gpio %d:%s request fails",
+			CAM_ERR(CAM_RES, "gpio %d:%s request fails",
 				gpio, label);
 			return rc;
 		}
@@ -349,12 +422,8 @@ int cam_res_mgr_gpio_request(struct device *dev, uint gpio,
 		cam_res_mgr_gpio_is_shared(gpio)) {
 
 		gpio_res = kzalloc(sizeof(struct cam_gpio_res), GFP_KERNEL);
-		if (!gpio_res) {
-			CAM_ERR(CAM_SENSOR,
-				"Failed to alloc gpio resource for gpio %d",
-				gpio);
+		if (!gpio_res)
 			return -ENOMEM;
-		}
 
 		gpio_res->gpio = gpio;
 		gpio_res->power_on_count = 0;
@@ -516,7 +585,11 @@ static int cam_res_mgr_parse_dt(struct device *dev)
 
 	if (dt->num_shared_gpio > MAX_SHARED_GPIO_SIZE ||
 		dt->num_shared_gpio <= 0) {
-		CAM_ERR(CAM_SENSOR, "Invalid GPIO number %d. No shared gpio.",
+		/*
+		 * Not really an error, it means dtsi not configure
+		 * the shared gpio.
+		 */
+		CAM_DBG(CAM_RES, "Invalid GPIO number %d. No shared gpio.",
 			dt->num_shared_gpio);
 		return -EINVAL;
 	}
@@ -524,13 +597,13 @@ static int cam_res_mgr_parse_dt(struct device *dev)
 	rc = of_property_read_u32_array(of_node, "shared-gpios",
 		dt->shared_gpio, dt->num_shared_gpio);
 	if (rc) {
-		CAM_ERR(CAM_SENSOR, "Get shared gpio array failed.");
+		CAM_ERR(CAM_RES, "Get shared gpio array failed.");
 		return -EINVAL;
 	}
 
 	dt->pinctrl_info.pinctrl = devm_pinctrl_get(dev);
 	if (IS_ERR_OR_NULL(dt->pinctrl_info.pinctrl)) {
-		CAM_ERR(CAM_SENSOR, "Pinctrl not available");
+		CAM_ERR(CAM_RES, "Pinctrl not available");
 		return -EINVAL;
 	}
 
@@ -542,7 +615,7 @@ static int cam_res_mgr_parse_dt(struct device *dev)
 		pinctrl_lookup_state(dt->pinctrl_info.pinctrl,
 			CAM_RES_MGR_DEFAULT);
 	if (IS_ERR_OR_NULL(dt->pinctrl_info.gpio_state_active)) {
-		CAM_ERR(CAM_SENSOR,
+		CAM_ERR(CAM_RES,
 			"Failed to get the active state pinctrl handle");
 		return -EINVAL;
 	}
@@ -551,7 +624,7 @@ static int cam_res_mgr_parse_dt(struct device *dev)
 		pinctrl_lookup_state(dt->pinctrl_info.pinctrl,
 			CAM_RES_MGR_SLEEP);
 	if (IS_ERR_OR_NULL(dt->pinctrl_info.gpio_state_suspend)) {
-		CAM_ERR(CAM_SENSOR,
+		CAM_ERR(CAM_RES,
 			"Failed to get the active state pinctrl handle");
 		return -EINVAL;
 	}
@@ -575,10 +648,10 @@ static int cam_res_mgr_probe(struct platform_device *pdev)
 
 	rc = cam_res_mgr_parse_dt(&pdev->dev);
 	if (rc) {
-		CAM_INFO(CAM_SENSOR, "Disable shared gpio support.");
+		CAM_INFO(CAM_RES, "Disable shared gpio support.");
 		cam_res->shared_gpio_enabled = false;
 	} else {
-		CAM_INFO(CAM_SENSOR, "Enable shared gpio support.");
+		CAM_INFO(CAM_RES, "Enable shared gpio support.");
 		cam_res->shared_gpio_enabled = true;
 	}
 

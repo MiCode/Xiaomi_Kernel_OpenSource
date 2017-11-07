@@ -17,35 +17,41 @@
 #include "cam_trace.h"
 #include "cam_res_mgr_api.h"
 
-static int32_t cam_actuator_vreg_control(
-	struct cam_actuator_ctrl_t *a_ctrl,
-	int config)
+int32_t cam_actuator_construct_default_power_setting(
+	struct cam_sensor_power_ctrl_t *power_info)
 {
-	int rc = 0, cnt;
-	struct cam_hw_soc_info  *soc_info;
+	int rc = 0;
 
-	soc_info = &a_ctrl->soc_info;
-	cnt = soc_info->num_rgltr;
+	power_info->power_setting_size = 1;
+	power_info->power_setting =
+		(struct cam_sensor_power_setting *)
+		kzalloc(sizeof(struct cam_sensor_power_setting),
+			GFP_KERNEL);
+	if (!power_info->power_setting)
+		return -ENOMEM;
 
-	if (!cnt)
-		return 0;
+	power_info->power_setting[0].seq_type = SENSOR_VAF;
+	power_info->power_setting[0].seq_val = CAM_VAF;
+	power_info->power_setting[0].config_val = 1;
 
-	if (cnt >= CAM_SOC_MAX_REGULATOR) {
-		CAM_ERR(CAM_ACTUATOR, "Regulators more than supported %d", cnt);
-		return -EINVAL;
+	power_info->power_down_setting_size = 1;
+	power_info->power_down_setting =
+		(struct cam_sensor_power_setting *)
+		kzalloc(sizeof(struct cam_sensor_power_setting),
+			GFP_KERNEL);
+	if (!power_info->power_down_setting) {
+		rc = -ENOMEM;
+		goto free_power_settings;
 	}
 
-	if (config) {
-		rc = cam_soc_util_request_platform_resource(soc_info,
-			NULL, NULL);
-		rc = cam_soc_util_enable_platform_resource(soc_info, false, 0,
-			false);
-	} else {
-		rc = cam_soc_util_disable_platform_resource(soc_info, false,
-			false);
-		rc = cam_soc_util_release_platform_resource(soc_info);
-	}
+	power_info->power_setting[0].seq_type = SENSOR_VAF;
+	power_info->power_setting[0].seq_val = CAM_VAF;
+	power_info->power_setting[0].config_val = 0;
 
+	return rc;
+
+free_power_settings:
+	kfree(power_info->power_setting);
 	return rc;
 }
 
@@ -54,22 +60,41 @@ static int32_t cam_actuator_power_up(struct cam_actuator_ctrl_t *a_ctrl)
 	int rc = 0;
 	struct cam_hw_soc_info  *soc_info =
 		&a_ctrl->soc_info;
-	struct msm_camera_gpio_num_info *gpio_num_info = NULL;
+	struct cam_actuator_soc_private  *soc_private;
+	struct cam_sensor_power_ctrl_t *power_info;
 
-	rc = cam_actuator_vreg_control(a_ctrl, 1);
-	if (rc < 0) {
-		CAM_ERR(CAM_ACTUATOR, "Actuator Reg Failed %d", rc);
+	soc_private =
+		(struct cam_actuator_soc_private *)a_ctrl->soc_info.soc_private;
+	power_info = &soc_private->power_info;
+
+	/* Parse and fill vreg params for power up settings */
+	rc = msm_camera_fill_vreg_params(
+		&a_ctrl->soc_info,
+		power_info->power_setting,
+		power_info->power_setting_size);
+	if (rc) {
+		CAM_ERR(CAM_ACTUATOR,
+			"failed to fill vreg params for power up rc:%d", rc);
 		return rc;
 	}
 
-	gpio_num_info = a_ctrl->gpio_num_info;
+	/* Parse and fill vreg params for power down settings*/
+	rc = msm_camera_fill_vreg_params(
+		&a_ctrl->soc_info,
+		power_info->power_down_setting,
+		power_info->power_down_setting_size);
+	if (rc) {
+		CAM_ERR(CAM_ACTUATOR,
+			"failed to fill vreg params power down rc:%d", rc);
+		return rc;
+	}
 
-	if (soc_info->gpio_data &&
-		gpio_num_info &&
-		gpio_num_info->valid[SENSOR_VAF] == 1) {
-		cam_res_mgr_gpio_set_value(
-			gpio_num_info->gpio_num[SENSOR_VAF],
-			1);
+	power_info->dev = soc_info->dev;
+
+	rc = cam_sensor_core_power_up(power_info, soc_info);
+	if (rc) {
+		CAM_ERR(CAM_ACTUATOR, "failed in ois power up rc %d", rc);
+		return rc;
 	}
 
 	/* VREG needs some delay to power up */
@@ -85,24 +110,29 @@ static int32_t cam_actuator_power_up(struct cam_actuator_ctrl_t *a_ctrl)
 static int32_t cam_actuator_power_down(struct cam_actuator_ctrl_t *a_ctrl)
 {
 	int32_t rc = 0;
-	struct cam_hw_soc_info *soc_info =
-		&a_ctrl->soc_info;
-	struct msm_camera_gpio_num_info *gpio_num_info = NULL;
+	struct cam_sensor_power_ctrl_t *power_info;
+	struct cam_hw_soc_info *soc_info = &a_ctrl->soc_info;
+	struct cam_actuator_soc_private  *soc_private;
 
-	gpio_num_info = a_ctrl->gpio_num_info;
-
-	if (soc_info->gpio_data &&
-		gpio_num_info &&
-		gpio_num_info->valid[SENSOR_VAF] == 1) {
-
-		cam_res_mgr_gpio_set_value(
-			gpio_num_info->gpio_num[SENSOR_VAF],
-			GPIOF_OUT_INIT_LOW);
+	if (!a_ctrl) {
+		CAM_ERR(CAM_ACTUATOR, "failed: e_ctrl %pK", a_ctrl);
+		return -EINVAL;
 	}
 
-	rc = cam_actuator_vreg_control(a_ctrl, 0);
-	if (rc < 0)
-		CAM_ERR(CAM_ACTUATOR, "Disable Regulator Failed: %d", rc);
+	soc_private =
+		(struct cam_actuator_soc_private *)a_ctrl->soc_info.soc_private;
+	power_info = &soc_private->power_info;
+	soc_info = &a_ctrl->soc_info;
+
+	if (!power_info) {
+		CAM_ERR(CAM_ACTUATOR, "failed: power_info %pK", power_info);
+		return -EINVAL;
+	}
+	rc = msm_camera_power_down(power_info, soc_info);
+	if (rc) {
+		CAM_ERR(CAM_ACTUATOR, "power down the core is failed:%d", rc);
+		return rc;
+	}
 
 	camera_io_release(&a_ctrl->io_master_info);
 

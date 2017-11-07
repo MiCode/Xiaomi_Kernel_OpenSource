@@ -67,8 +67,8 @@ struct cam_gpio_res {
  * @trigger        : Pointer to the flash trigger
  */
 struct cam_flash_res {
-	struct list_head list;
-	const char *name;
+	struct list_head   list;
+	const char         *name;
 	struct led_trigger *trigger;
 };
 

@@ -140,9 +140,11 @@ static int cam_actuator_init_subdev(struct cam_actuator_ctrl_t *a_ctrl)
 static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
 {
-	int32_t rc = 0, i = 0;
-	struct cam_actuator_ctrl_t *a_ctrl;
-	struct cam_hw_soc_info *soc_info = NULL;
+	int32_t                         rc = 0;
+	int32_t                         i = 0;
+	struct cam_actuator_ctrl_t      *a_ctrl;
+	struct cam_hw_soc_info          *soc_info = NULL;
+	struct cam_actuator_soc_private *soc_private = NULL;
 
 	if (client == NULL || id == NULL) {
 		CAM_ERR(CAM_ACTUATOR, "Invalid Args client: %pK id: %pK",
@@ -164,6 +166,14 @@ static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, a_ctrl);
 
+	soc_private = kzalloc(sizeof(struct cam_actuator_soc_private),
+		GFP_KERNEL);
+	if (!soc_private) {
+		rc = -ENOMEM;
+		goto free_ctrl;
+	}
+	a_ctrl->soc_info.soc_private = soc_private;
+
 	a_ctrl->io_master_info.client = client;
 	soc_info = &a_ctrl->soc_info;
 	soc_info->dev = &client->dev;
@@ -176,9 +186,20 @@ static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client,
 		goto free_ctrl;
 	}
 
+	soc_private = (struct cam_actuator_soc_private *)(id->driver_data);
+	if (!soc_private) {
+		CAM_ERR(CAM_EEPROM, "board info NULL");
+		rc = -EINVAL;
+		goto free_ctrl;
+	}
+
 	rc = cam_actuator_init_subdev(a_ctrl);
 	if (rc)
-		goto free_ctrl;
+		goto free_soc;
+
+	if (soc_private->i2c_info.slave_addr != 0)
+		a_ctrl->io_master_info.client->addr =
+			soc_private->i2c_info.slave_addr;
 
 	a_ctrl->i2c_data.per_frame =
 		(struct i2c_settings_array *)
@@ -194,14 +215,6 @@ static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client,
 	for (i = 0; i < MAX_PER_FRAME_ARRAY; i++)
 		INIT_LIST_HEAD(&(a_ctrl->i2c_data.per_frame[i].list_head));
 
-	rc = cam_soc_util_request_platform_resource(&a_ctrl->soc_info,
-		NULL, NULL);
-	if (rc < 0) {
-		CAM_ERR(CAM_ACTUATOR,
-			"Requesting Platform Resources failed rc %d", rc);
-		goto free_mem;
-	}
-
 	a_ctrl->bridge_intf.device_hdl = -1;
 	a_ctrl->bridge_intf.ops.get_dev_info =
 		cam_actuator_publish_dev_info;
@@ -212,6 +225,14 @@ static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client,
 
 	v4l2_set_subdevdata(&(a_ctrl->v4l2_dev_str.sd), a_ctrl);
 
+	rc = cam_actuator_construct_default_power_setting(
+		&soc_private->power_info);
+	if (rc < 0) {
+		CAM_ERR(CAM_ACTUATOR,
+			"Construct default actuator power setting failed.");
+		goto free_mem;
+	}
+
 	a_ctrl->cam_act_state = CAM_ACTUATOR_INIT;
 
 	return rc;
@@ -219,6 +240,8 @@ free_mem:
 	kfree(a_ctrl->i2c_data.per_frame);
 unreg_subdev:
 	cam_unregister_subdev(&(a_ctrl->v4l2_dev_str));
+free_soc:
+	kfree(soc_private);
 free_ctrl:
 	kfree(a_ctrl);
 	return rc;
@@ -269,8 +292,10 @@ static const struct of_device_id cam_actuator_driver_dt_match[] = {
 static int32_t cam_actuator_driver_platform_probe(
 	struct platform_device *pdev)
 {
-	int32_t rc = 0, i = 0;
-	struct cam_actuator_ctrl_t *a_ctrl = NULL;
+	int32_t                         rc = 0;
+	int32_t                         i = 0;
+	struct cam_actuator_ctrl_t      *a_ctrl = NULL;
+	struct cam_actuator_soc_private *soc_private = NULL;
 
 	/* Create sensor control structure */
 	a_ctrl = devm_kzalloc(&pdev->dev,
@@ -287,15 +312,28 @@ static int32_t cam_actuator_driver_platform_probe(
 
 	a_ctrl->io_master_info.cci_client = kzalloc(sizeof(
 		struct cam_sensor_cci_client), GFP_KERNEL);
-	if (!(a_ctrl->io_master_info.cci_client))
-		return -ENOMEM;
+	if (!(a_ctrl->io_master_info.cci_client)) {
+		rc = -ENOMEM;
+		goto free_ctrl;
+	}
+
+	soc_private = kzalloc(sizeof(struct cam_actuator_soc_private),
+		GFP_KERNEL);
+	if (!soc_private) {
+		rc = -ENOMEM;
+		goto free_cci_client;
+	}
+	a_ctrl->soc_info.soc_private = soc_private;
+	soc_private->power_info.dev = &pdev->dev;
 
 	a_ctrl->i2c_data.per_frame =
 		(struct i2c_settings_array *)
 		kzalloc(sizeof(struct i2c_settings_array) *
 		MAX_PER_FRAME_ARRAY, GFP_KERNEL);
-	if (a_ctrl->i2c_data.per_frame == NULL)
-		return -ENOMEM;
+	if (a_ctrl->i2c_data.per_frame == NULL) {
+		rc = -ENOMEM;
+		goto free_soc;
+	}
 
 	INIT_LIST_HEAD(&(a_ctrl->i2c_data.init_settings.list_head));
 
@@ -305,7 +343,7 @@ static int32_t cam_actuator_driver_platform_probe(
 	rc = cam_actuator_parse_dt(a_ctrl, &(pdev->dev));
 	if (rc < 0) {
 		CAM_ERR(CAM_ACTUATOR, "Paring actuator dt failed rc %d", rc);
-		goto free_ctrl;
+		goto free_mem;
 	}
 
 	/* Fill platform device id*/
@@ -314,14 +352,6 @@ static int32_t cam_actuator_driver_platform_probe(
 	rc = cam_actuator_init_subdev(a_ctrl);
 	if (rc)
 		goto free_mem;
-
-	rc = cam_soc_util_request_platform_resource(&a_ctrl->soc_info,
-			NULL, NULL);
-	if (rc < 0) {
-		CAM_ERR(CAM_ACTUATOR,
-			"Requesting Platform Resources failed rc %d", rc);
-		goto unreg_subdev;
-	}
 
 	a_ctrl->bridge_intf.device_hdl = -1;
 	a_ctrl->bridge_intf.ops.get_dev_info =
@@ -336,11 +366,23 @@ static int32_t cam_actuator_driver_platform_probe(
 	platform_set_drvdata(pdev, a_ctrl);
 	v4l2_set_subdevdata(&a_ctrl->v4l2_dev_str.sd, a_ctrl);
 
+	rc = cam_actuator_construct_default_power_setting(
+		&soc_private->power_info);
+	if (rc < 0) {
+		CAM_ERR(CAM_ACTUATOR,
+			"Construct default actuator power setting failed.");
+		goto unreg_subdev;
+	}
+
 	return rc;
 unreg_subdev:
 	cam_unregister_subdev(&(a_ctrl->v4l2_dev_str));
 free_mem:
 	kfree(a_ctrl->i2c_data.per_frame);
+free_soc:
+	kfree(soc_private);
+free_cci_client:
+	kfree(a_ctrl->io_master_info.cci_client);
 free_ctrl:
 	devm_kfree(&pdev->dev, a_ctrl);
 	return rc;

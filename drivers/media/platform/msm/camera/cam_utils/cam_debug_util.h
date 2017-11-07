@@ -34,6 +34,7 @@
 #define CAM_HFI        (1 << 18)
 #define CAM_CTXT       (1 << 19)
 #define CAM_OIS        (1 << 20)
+#define CAM_RES        (1 << 21)
 
 #define STR_BUFFER_MAX_LENGTH  1024
 
