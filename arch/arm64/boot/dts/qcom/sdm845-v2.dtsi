@@ -304,6 +304,13 @@
 	};
 };
 
+&devfreq_compute {
+	qcom,core-dev-table =
+		< 1881600 MHZ_TO_MBPS( 200, 4) >,
+		< 2649600 MHZ_TO_MBPS(1017, 4) >,
+		< 2745600 MHZ_TO_MBPS(1804, 4) >;
+};
+
 &clock_gcc {
 	compatible = "qcom,gcc-sdm845-v2", "syscon";
 };
