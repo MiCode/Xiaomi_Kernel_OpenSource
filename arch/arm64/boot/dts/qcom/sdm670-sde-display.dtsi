@@ -108,9 +108,9 @@
 
 		qcom,panel-supply-entry@0 {
 			reg = <0>;
-			qcom,supply-name = "wqhd-vddio";
+			qcom,supply-name = "vddio";
 			qcom,supply-min-voltage = <1800000>;
-			qcom,supply-max-voltage = <1950000>;
+			qcom,supply-max-voltage = <1800000>;
 			qcom,supply-enable-load = <32000>;
 			qcom,supply-disable-load = <80>;
 		};
@@ -420,8 +420,10 @@
 
 		qcom,dsi-panel = <&dsi_rm67195_amoled_fhd_cmd>;
 		vddio-supply = <&pm660_l11>;
-		lab-supply = <&lcdb_ldo_vreg>;
-		ibb-supply = <&lcdb_ncp_vreg>;
+		vdda-3p3-supply = <&pm660l_l6>;
+		lab-supply = <&lab_regulator>;
+		ibb-supply = <&ibb_regulator>;
+		oledb-supply = <&pm660a_oledb>;
 	};
 
 	dsi_nt35695b_truly_fhd_video_display: qcom,dsi-display@13 {

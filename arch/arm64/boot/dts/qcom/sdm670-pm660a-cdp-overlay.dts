@@ -33,3 +33,10 @@
 		       <0x0001001b 0x0202001a 0x0 0x0>;
 };
 
+&dsi_dual_nt35597_truly_video_display {
+	/delete-property/ qcom,dsi-display-active;
+};
+
+&dsi_rm67195_amoled_fhd_cmd_display {
+	qcom,dsi-display-active;
+};
