@@ -262,7 +262,4 @@
 #define MEASURE_ONLY_BIMC_CLK					2
 #define MEASURE_ONLY_IPA_2X_CLK					3
 
-/* Hardware/Dummy/Voter clocks */
-#define GCC_XO							4
-
 #endif
