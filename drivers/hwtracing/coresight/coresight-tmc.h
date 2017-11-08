@@ -24,6 +24,7 @@
 #include <linux/of_address.h>
 #include <linux/amba/bus.h>
 #include <linux/usb_bam.h>
+#include <linux/msm-sps.h>
 #include <linux/usb/usb_qdss.h>
 #include <linux/coresight-cti.h>
 
@@ -210,14 +211,12 @@ struct tmc_drvdata {
 	u32			mem_size;
 	u32			trigger_cntr;
 	u32			etr_caps;
-	enum tmc_etr_mem_type	mem_type;
-	enum tmc_etr_mem_type	memtype;
 	u32			delta_bottom;
-	int			sg_blk_num;
 	enum tmc_etr_out_mode	out_mode;
 	struct usb_qdss_ch	*usbch;
 	struct tmc_etr_bam_data	*bamdata;
 	bool			sticky_enable;
+	bool			enable_to_bam;
 	struct coresight_cti	*cti_flush;
 	struct coresight_cti	*cti_reset;
 	struct byte_cntr	*byte_cntr;
