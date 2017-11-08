@@ -597,6 +597,9 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 
 	if ((config->egress_data_format & RMNET_EGRESS_FORMAT_AGGREGATION) &&
 	    !non_linear_skb) {
+		if (rmnet_ul_aggregation_skip(skb, required_headroom))
+			return RMNET_MAP_SUCCESS;
+
 		rmnet_map_aggregate(skb, config);
 		return RMNET_MAP_CONSUMED;
 	}
