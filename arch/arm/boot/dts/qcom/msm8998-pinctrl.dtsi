@@ -3359,5 +3359,17 @@
 				drive-strength = <2>;   /* 2 MA */
 			};
 		};
+
+		ir_int: ir_int {
+			mux {
+				pins = "gpio120";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio120";
+				drive-strength = <6>;   /* 5 mA */
+				bias-pull-up;           /* NO PULL */
+			};
+		};
 	};
 };
