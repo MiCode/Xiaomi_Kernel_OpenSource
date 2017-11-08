@@ -105,27 +105,32 @@ exit:
 }
 
 /* always dump the last entries which are not dumped yet */
-static bool _sde_evtlog_dump_calc_range(struct sde_dbg_evtlog *evtlog)
+static bool _sde_evtlog_dump_calc_range(struct sde_dbg_evtlog *evtlog,
+		bool update_last_entry)
 {
 	if (!evtlog)
 		return false;
 
 	evtlog->first = evtlog->next;
 
-	if (evtlog->last == evtlog->first)
+	if (update_last_entry)
+		evtlog->last_dump = evtlog->last;
+
+	if (evtlog->last_dump == evtlog->first)
 		return false;
 
-	if (evtlog->last < evtlog->first) {
+	if (evtlog->last_dump < evtlog->first) {
 		evtlog->first %= SDE_EVTLOG_ENTRY;
-		if (evtlog->last < evtlog->first)
-			evtlog->last += SDE_EVTLOG_ENTRY;
+		if (evtlog->last_dump < evtlog->first)
+			evtlog->last_dump += SDE_EVTLOG_ENTRY;
 	}
 
-	if ((evtlog->last - evtlog->first) > SDE_EVTLOG_PRINT_ENTRY) {
+	if ((evtlog->last_dump - evtlog->first) > SDE_EVTLOG_PRINT_ENTRY) {
 		pr_info("evtlog skipping %d entries, last=%d\n",
-			evtlog->last - evtlog->first - SDE_EVTLOG_PRINT_ENTRY,
-			evtlog->last - 1);
-		evtlog->first = evtlog->last - SDE_EVTLOG_PRINT_ENTRY;
+			evtlog->last_dump - evtlog->first -
+			SDE_EVTLOG_PRINT_ENTRY,
+			evtlog->last_dump - 1);
+		evtlog->first = evtlog->last_dump - SDE_EVTLOG_PRINT_ENTRY;
 	}
 	evtlog->next = evtlog->first + 1;
 
@@ -133,7 +138,8 @@ static bool _sde_evtlog_dump_calc_range(struct sde_dbg_evtlog *evtlog)
 }
 
 ssize_t sde_evtlog_dump_to_buffer(struct sde_dbg_evtlog *evtlog,
-		char *evtlog_buf, ssize_t evtlog_buf_size)
+		char *evtlog_buf, ssize_t evtlog_buf_size,
+		bool update_last_entry)
 {
 	int i;
 	ssize_t off = 0;
@@ -146,7 +152,7 @@ ssize_t sde_evtlog_dump_to_buffer(struct sde_dbg_evtlog *evtlog,
 	spin_lock_irqsave(&evtlog->spin_lock, flags);
 
 	/* update markers, exit if nothing to print */
-	if (!_sde_evtlog_dump_calc_range(evtlog))
+	if (!_sde_evtlog_dump_calc_range(evtlog, update_last_entry))
 		goto exit;
 
 	log = &evtlog->logs[evtlog->first % SDE_EVTLOG_ENTRY];
@@ -179,12 +185,16 @@ exit:
 void sde_evtlog_dump_all(struct sde_dbg_evtlog *evtlog)
 {
 	char buf[SDE_EVTLOG_BUF_MAX];
+	bool update_last_entry = true;
 
 	if (!evtlog)
 		return;
 
-	while (sde_evtlog_dump_to_buffer(evtlog, buf, sizeof(buf)))
+	while (sde_evtlog_dump_to_buffer(
+				evtlog, buf, sizeof(buf), update_last_entry)) {
 		pr_info("%s", buf);
+		update_last_entry = false;
+	}
 }
 
 struct sde_dbg_evtlog *sde_evtlog_init(void)
