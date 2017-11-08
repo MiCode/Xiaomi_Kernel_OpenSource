@@ -14,6 +14,7 @@
 #include <linux/string.h>
 #include <linux/uaccess.h>
 #include <linux/debugfs.h>
+#include <soc/qcom/scm.h>
 #include <uapi/media/cam_isp.h>
 #include "cam_smmu_api.h"
 #include "cam_req_mgr_workq.h"
@@ -26,10 +27,49 @@
 #include "cam_cdm_intf_api.h"
 #include "cam_packet_util.h"
 #include "cam_debug_util.h"
+#include "cam_cpas_api.h"
 
 #define CAM_IFE_HW_ENTRIES_MAX  20
 
+#define TZ_SVC_SMMU_PROGRAM 0x15
+#define TZ_SAFE_SYSCALL_ID  0x3
+#define CAM_IFE_SAFE_DISABLE 0
+#define CAM_IFE_SAFE_ENABLE 1
+#define SMMU_SE_IFE 0
+
 static struct cam_ife_hw_mgr g_ife_hw_mgr;
+
+static int cam_ife_notify_safe_lut_scm(bool safe_trigger)
+{
+	uint32_t camera_hw_version, rc = 0;
+	struct scm_desc desc = {0};
+
+	rc = cam_cpas_get_cpas_hw_version(&camera_hw_version);
+	if (!rc) {
+		switch (camera_hw_version) {
+		case CAM_CPAS_TITAN_170_V100:
+		case CAM_CPAS_TITAN_170_V110:
+		case CAM_CPAS_TITAN_175_V100:
+
+			desc.arginfo = SCM_ARGS(2, SCM_VAL, SCM_VAL);
+			desc.args[0] = SMMU_SE_IFE;
+			desc.args[1] = safe_trigger;
+
+			CAM_DBG(CAM_ISP, "Safe scm call %d", safe_trigger);
+			if (scm_call2(SCM_SIP_FNID(TZ_SVC_SMMU_PROGRAM,
+					TZ_SAFE_SYSCALL_ID), &desc)) {
+				CAM_ERR(CAM_ISP,
+					"scm call to Enable Safe failed");
+				rc = -EINVAL;
+			}
+			break;
+		default:
+			break;
+		}
+	}
+
+	return rc;
+}
 
 static int cam_ife_mgr_get_hw_caps(void *hw_mgr_priv,
 	void *hw_caps_args)
@@ -1600,6 +1640,17 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 
 	CAM_DBG(CAM_ISP, "Exit...ctx id:%d rc :%d", ctx->ctx_index, rc);
 
+	mutex_lock(&g_ife_hw_mgr.ctx_mutex);
+	if (!atomic_dec_return(&g_ife_hw_mgr.active_ctx_cnt)) {
+		rc = cam_ife_notify_safe_lut_scm(CAM_IFE_SAFE_DISABLE);
+		if (rc) {
+			CAM_ERR(CAM_ISP,
+				"SAFE SCM call failed:Check TZ/HYP dependency");
+			rc = 0;
+		}
+	}
+	mutex_unlock(&g_ife_hw_mgr.ctx_mutex);
+
 	return rc;
 }
 
@@ -1807,6 +1858,17 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 			goto err;
 		}
 	}
+
+	mutex_lock(&g_ife_hw_mgr.ctx_mutex);
+	if (!atomic_fetch_inc(&g_ife_hw_mgr.active_ctx_cnt)) {
+		rc = cam_ife_notify_safe_lut_scm(CAM_IFE_SAFE_ENABLE);
+		if (rc) {
+			CAM_ERR(CAM_ISP,
+				"SAFE SCM call failed:Check TZ/HYP dependency");
+			rc = -1;
+		}
+	}
+	mutex_unlock(&g_ife_hw_mgr.ctx_mutex);
 
 	CAM_DBG(CAM_ISP, "start cdm interface");
 	rc = cam_cdm_stream_on(ctx->cdm_handle);
@@ -3414,6 +3476,7 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf)
 		g_ife_hw_mgr.mgr_common.cmd_iommu_hdl_secure = -1;
 	}
 
+	atomic_set(&g_ife_hw_mgr.active_ctx_cnt, 0);
 	for (i = 0; i < CAM_CTX_MAX; i++) {
 		memset(&g_ife_hw_mgr.ctx_pool[i], 0,
 			sizeof(g_ife_hw_mgr.ctx_pool[i]));
