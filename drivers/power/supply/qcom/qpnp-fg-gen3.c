@@ -845,7 +845,7 @@ static bool is_debug_batt_id(struct fg_chip *chip)
 {
 	int debug_batt_id[2], rc;
 
-	if (!chip->batt_id_ohms)
+	if (chip->batt_id_ohms < 0)
 		return false;
 
 	rc = fg_get_debug_batt_id(chip, debug_batt_id);
@@ -4249,6 +4249,7 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 		chip->profile_available = false;
 		chip->profile_loaded = false;
 		chip->soc_reporting_ready = false;
+		chip->batt_id_ohms = -EINVAL;
 		return IRQ_HANDLED;
 	}
 
@@ -5072,6 +5073,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	chip->prev_charge_status = -EINVAL;
 	chip->ki_coeff_full_soc = -EINVAL;
 	chip->online_status = -EINVAL;
+	chip->batt_id_ohms = -EINVAL;
 	chip->regmap = dev_get_regmap(chip->dev->parent, NULL);
 	if (!chip->regmap) {
 		dev_err(chip->dev, "Parent regmap is unavailable\n");
@@ -5219,8 +5221,8 @@ static int fg_gen3_probe(struct platform_device *pdev)
 		rc = fg_get_battery_temp(chip, &batt_temp);
 
 	if (!rc) {
-		pr_info("battery SOC:%d voltage: %duV temp: %d id: %dKOhms\n",
-			msoc, volt_uv, batt_temp, chip->batt_id_ohms / 1000);
+		pr_info("battery SOC:%d voltage: %duV temp: %d\n",
+				msoc, volt_uv, batt_temp);
 		rc = fg_esr_filter_config(chip, batt_temp);
 		if (rc < 0)
 			pr_err("Error in configuring ESR filter rc:%d\n", rc);
