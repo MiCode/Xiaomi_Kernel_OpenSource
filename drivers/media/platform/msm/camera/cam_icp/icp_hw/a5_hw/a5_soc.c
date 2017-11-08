@@ -101,7 +101,7 @@ int cam_a5_enable_soc_resources(struct cam_hw_soc_info *soc_info)
 	int rc = 0;
 
 	rc = cam_soc_util_enable_platform_resource(soc_info, true,
-		CAM_TURBO_VOTE, true);
+		CAM_SVS_VOTE, true);
 	if (rc)
 		CAM_ERR(CAM_ICP, "enable platform failed");
 

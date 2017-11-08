@@ -95,13 +95,13 @@ static void cam_icp_hw_mgr_reset_clk_info(struct cam_icp_hw_mgr *hw_mgr)
 
 	for (i = 0; i < ICP_CLK_HW_MAX; i++) {
 		hw_mgr->clk_info[i].base_clk = 0;
-		hw_mgr->clk_info[i].curr_clk = ICP_TURBO_VOTE;
+		hw_mgr->clk_info[i].curr_clk = ICP_CLK_SVS_HZ;
 		hw_mgr->clk_info[i].threshold = ICP_OVER_CLK_THRESHOLD;
 		hw_mgr->clk_info[i].over_clked = 0;
 		hw_mgr->clk_info[i].uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
 		hw_mgr->clk_info[i].compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
 	}
-	hw_mgr->icp_default_clk = ICP_SVS_VOTE;
+	hw_mgr->icp_default_clk = ICP_CLK_SVS_HZ;
 }
 
 static int cam_icp_get_actual_clk_rate_idx(
@@ -231,14 +231,14 @@ static int cam_icp_clk_info_init(struct cam_icp_hw_mgr *hw_mgr,
 	int i;
 
 	for (i = 0; i < ICP_CLK_HW_MAX; i++) {
-		hw_mgr->clk_info[i].base_clk = ICP_TURBO_VOTE;
-		hw_mgr->clk_info[i].curr_clk = ICP_TURBO_VOTE;
+		hw_mgr->clk_info[i].base_clk = ICP_CLK_SVS_HZ;
+		hw_mgr->clk_info[i].curr_clk = ICP_CLK_SVS_HZ;
 		hw_mgr->clk_info[i].threshold = ICP_OVER_CLK_THRESHOLD;
 		hw_mgr->clk_info[i].over_clked = 0;
 		hw_mgr->clk_info[i].uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
 		hw_mgr->clk_info[i].compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
 	}
-	hw_mgr->icp_default_clk = ICP_SVS_VOTE;
+	hw_mgr->icp_default_clk = ICP_CLK_SVS_HZ;
 
 	return 0;
 }
@@ -466,7 +466,7 @@ static bool cam_icp_update_clk_free(struct cam_icp_hw_mgr *hw_mgr,
 
 static bool cam_icp_debug_clk_update(struct cam_icp_clk_info *hw_mgr_clk_info)
 {
-	if (icp_hw_mgr.icp_debug_clk < ICP_TURBO_VOTE &&
+	if (icp_hw_mgr.icp_debug_clk < ICP_CLK_TURBO_HZ &&
 		icp_hw_mgr.icp_debug_clk &&
 		icp_hw_mgr.icp_debug_clk != hw_mgr_clk_info->curr_clk) {
 		mutex_lock(&icp_hw_mgr.hw_mgr_mutex);

@@ -18,8 +18,11 @@
 #include <linux/of.h>
 #include "cam_cpas_api.h"
 
-#define ICP_TURBO_VOTE           600000000
-#define ICP_SVS_VOTE             400000000
+#define ICP_CLK_TURBO_HZ         600000000
+#define ICP_CLK_SVS_HZ           400000000
+
+#define CAM_ICP_A5_BW_BYTES_VOTE 100000000
+
 #define CAM_ICP_CTX_MAX          36
 
 #define CPAS_IPE1_BIT            0x2000

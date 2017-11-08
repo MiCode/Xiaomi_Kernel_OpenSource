@@ -2801,9 +2801,14 @@ static int cam_ife_hw_mgr_process_camif_sof(
 		rc = cam_ife_hw_mgr_check_irq_for_dual_vfe(ife_hwr_mgr_ctx,
 			core_index0, core_index1, evt_payload->evt_id);
 
-		if (!rc)
+		if (!rc) {
+			cam_ife_mgr_cmd_get_sof_timestamp(
+					ife_hwr_mgr_ctx,
+					&sof_done_event_data.timestamp);
+
 			ife_hwr_irq_sof_cb(ife_hwr_mgr_ctx->common.cb_priv,
 				CAM_ISP_HW_EVENT_SOF, &sof_done_event_data);
+		}
 
 		break;
 
@@ -3211,6 +3216,10 @@ int cam_ife_mgr_do_tasklet(void *handler_priv, void *evt_payload_priv)
 		return IRQ_HANDLED;
 	}
 
+	CAM_DBG(CAM_ISP, "Calling EOF");
+	cam_ife_hw_mgr_handle_eof_for_camif_hw_res(ife_hwr_mgr_ctx,
+		evt_payload_priv);
+
 	CAM_DBG(CAM_ISP, "Calling SOF");
 	/* SOF IRQ */
 	cam_ife_hw_mgr_handle_sof(ife_hwr_mgr_ctx,
@@ -3224,8 +3233,6 @@ int cam_ife_mgr_do_tasklet(void *handler_priv, void *evt_payload_priv)
 	CAM_DBG(CAM_ISP, "Calling EPOCH");
 	/* EPOCH IRQ */
 	cam_ife_hw_mgr_handle_epoch_for_camif_hw_res(ife_hwr_mgr_ctx,
-		evt_payload_priv);
-	cam_ife_hw_mgr_handle_eof_for_camif_hw_res(ife_hwr_mgr_ctx,
 		evt_payload_priv);
 
 	return IRQ_HANDLED;
