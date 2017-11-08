@@ -3252,6 +3252,7 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 	struct sde_encoder_virt *sde_enc;
 	struct sde_encoder_phys *phys;
 	bool needs_hw_reset = false;
+	uint32_t ln_cnt1, ln_cnt2;
 	unsigned int i;
 	int rc, ret = 0;
 
@@ -3263,6 +3264,13 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 
 	SDE_DEBUG_ENC(sde_enc, "\n");
 	SDE_EVT32(DRMID(drm_enc));
+
+	/* save this for later, in case of errors */
+	if (sde_enc->cur_master && sde_enc->cur_master->ops.get_wr_line_count)
+		ln_cnt1 = sde_enc->cur_master->ops.get_wr_line_count(
+				sde_enc->cur_master);
+	else
+		ln_cnt1 = -EINVAL;
 
 	/* prepare for next kickoff, may include waiting on previous kickoff */
 	SDE_ATRACE_BEGIN("enc_prepare_for_kickoff");
@@ -3286,7 +3294,16 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 
 	/* if any phys needs reset, reset all phys, in-order */
 	if (needs_hw_reset) {
-		SDE_EVT32(DRMID(drm_enc), SDE_EVTLOG_FUNC_CASE1);
+		/* query line count before cur_master is updated */
+		if (sde_enc->cur_master &&
+				sde_enc->cur_master->ops.get_wr_line_count)
+			ln_cnt2 = sde_enc->cur_master->ops.get_wr_line_count(
+					sde_enc->cur_master);
+		else
+			ln_cnt2 = -EINVAL;
+
+		SDE_EVT32(DRMID(drm_enc), ln_cnt1, ln_cnt2,
+				SDE_EVTLOG_FUNC_CASE1);
 		for (i = 0; i < sde_enc->num_phys_encs; i++) {
 			phys = sde_enc->phys_encs[i];
 			if (phys && phys->ops.hw_reset)

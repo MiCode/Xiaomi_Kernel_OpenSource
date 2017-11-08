@@ -448,9 +448,7 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 		cmd_enc->pp_timeout_report_cnt = PP_TIMEOUT_MAX_TRIALS;
 		frame_event |= SDE_ENCODER_FRAME_EVENT_PANEL_DEAD;
 
-		sde_encoder_helper_unregister_irq(phys_enc, INTR_IDX_RDPTR);
 		SDE_DBG_DUMP("panic");
-		sde_encoder_helper_register_irq(phys_enc, INTR_IDX_RDPTR);
 	} else if (cmd_enc->pp_timeout_report_cnt == 1) {
 		/* to avoid flooding, only log first time, and "dead" time */
 		SDE_ERROR_CMDENC(cmd_enc,
@@ -461,10 +459,6 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 				atomic_read(&phys_enc->pending_kickoff_cnt));
 
 		SDE_EVT32(DRMID(phys_enc->parent), SDE_EVTLOG_FATAL);
-
-		sde_encoder_helper_unregister_irq(phys_enc, INTR_IDX_RDPTR);
-		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus");
-		sde_encoder_helper_register_irq(phys_enc, INTR_IDX_RDPTR);
 	}
 
 	atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
@@ -935,6 +929,28 @@ static int sde_encoder_phys_cmd_get_line_count(
 	return hw_pp->ops.get_line_count(hw_pp);
 }
 
+static int sde_encoder_phys_cmd_get_write_line_count(
+		struct sde_encoder_phys *phys_enc)
+{
+	struct sde_hw_pingpong *hw_pp;
+	struct sde_hw_pp_vsync_info info;
+
+	if (!phys_enc || !phys_enc->hw_pp)
+		return -EINVAL;
+
+	if (!sde_encoder_phys_cmd_is_master(phys_enc))
+		return -EINVAL;
+
+	hw_pp = phys_enc->hw_pp;
+	if (!hw_pp->ops.get_vsync_info)
+		return -EINVAL;
+
+	if (hw_pp->ops.get_vsync_info(hw_pp, &info))
+		return -EINVAL;
+
+	return (int)info.wr_ptr_line_count;
+}
+
 static void sde_encoder_phys_cmd_disable(struct sde_encoder_phys *phys_enc)
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
@@ -1271,6 +1287,7 @@ static void sde_encoder_phys_cmd_init_ops(
 	ops->is_autorefresh_enabled =
 			sde_encoder_phys_cmd_is_autorefresh_enabled;
 	ops->get_line_count = sde_encoder_phys_cmd_get_line_count;
+	ops->get_wr_line_count = sde_encoder_phys_cmd_get_write_line_count;
 	ops->wait_for_active = NULL;
 }
 
