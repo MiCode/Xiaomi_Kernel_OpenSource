@@ -575,7 +575,7 @@
 		status = "disabled";
 	};
 
-	qcom,cnss-sdio {
+	cnss_sdio: qcom,cnss-sdio {
 		compatible = "qcom,cnss_sdio";
 		reg = <0x87a00000 0x200000>;
 		reg-names = "ramdump";

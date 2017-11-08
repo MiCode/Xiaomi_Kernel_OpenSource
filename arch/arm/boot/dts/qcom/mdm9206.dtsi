@@ -29,6 +29,12 @@
 
 &cnss_debug_mem {
 	status = "disabled";
+	reg = <0x82800000 0x200000>;
+};
+
+&cnss_sdio {
+	status = "disabled";
+	reg = <0x82800000 0x200000>;
 };
 
 &qcom_seecom {
