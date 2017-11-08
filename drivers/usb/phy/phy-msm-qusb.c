@@ -103,6 +103,7 @@ struct qusb_phy {
 	void __iomem		*base;
 	void __iomem		*tune2_efuse_reg;
 	void __iomem		*ref_clk_base;
+	void __iomem		*tcsr_clamp_dig_n;
 
 	struct clk		*ref_clk_src;
 	struct clk		*ref_clk;
@@ -652,6 +653,9 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			wmb();
 
 			qusb_phy_enable_clocks(qphy, false);
+			if (qphy->tcsr_clamp_dig_n)
+				writel_relaxed(0x0,
+					qphy->tcsr_clamp_dig_n);
 			qusb_phy_enable_power(qphy, false);
 
 			/*
@@ -674,6 +678,9 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 				qphy->base + QUSB2PHY_PORT_INTR_CTRL);
 		} else {
 			qusb_phy_enable_power(qphy, true);
+			if (qphy->tcsr_clamp_dig_n)
+				writel_relaxed(0x1,
+					qphy->tcsr_clamp_dig_n);
 			qusb_phy_enable_clocks(qphy, true);
 		}
 		qphy->suspended = false;
@@ -723,6 +730,10 @@ static int qusb_phy_dpdm_regulator_enable(struct regulator_dev *rdev)
 		}
 		qphy->dpdm_enable = true;
 		if (qphy->put_into_high_z_state) {
+			if (qphy->tcsr_clamp_dig_n)
+				writel_relaxed(0x1,
+				qphy->tcsr_clamp_dig_n);
+
 			qusb_phy_gdsc(qphy, true);
 			qusb_phy_enable_clocks(qphy, true);
 
@@ -776,6 +787,9 @@ static int qusb_phy_dpdm_regulator_disable(struct regulator_dev *rdev)
 
 	if (qphy->dpdm_enable) {
 		if (!qphy->cable_connected) {
+			if (qphy->tcsr_clamp_dig_n)
+				writel_relaxed(0x0,
+					qphy->tcsr_clamp_dig_n);
 			dev_dbg(qphy->phy.dev, "turn off for HVDCP case\n");
 			ret = qusb_phy_enable_power(qphy, false);
 			if (ret < 0) {
@@ -913,6 +927,17 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		} else {
 			dev_err(dev, "erro invalid qusb_phy_clk_scheme\n");
 			return -EINVAL;
+		}
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						"tcsr_clamp_dig_n_1p8");
+	if (res) {
+		qphy->tcsr_clamp_dig_n = devm_ioremap_nocache(dev,
+				res->start, resource_size(res));
+		if (IS_ERR(qphy->tcsr_clamp_dig_n)) {
+			dev_err(dev, "err reading tcsr_clamp_dig_n\n");
+			qphy->tcsr_clamp_dig_n = NULL;
 		}
 	}
 
