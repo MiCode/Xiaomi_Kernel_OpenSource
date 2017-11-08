@@ -38,6 +38,7 @@
 #define HBTP_PINCTRL_VALID_STATE_CNT		(2)
 #define HBTP_HOLD_DURATION_US			(10)
 #define HBTP_PINCTRL_DDIC_SEQ_NUM		(4)
+#define HBTP_WAIT_TIMEOUT_MS			2000
 
 struct hbtp_data {
 	struct platform_device *pdev;
@@ -1179,9 +1180,10 @@ static int hbtp_dsi_panel_suspend(struct hbtp_data *ts)
 				pr_debug("%s: power_sig is enabled, wait for signal\n",
 					__func__);
 				mutex_unlock(&hbtp->mutex);
-				rc = wait_for_completion_interruptible(
-					&hbtp->power_suspend_sig);
-				if (rc != 0) {
+				rc = wait_for_completion_interruptible_timeout(
+					&hbtp->power_suspend_sig,
+					msecs_to_jiffies(HBTP_WAIT_TIMEOUT_MS));
+				if (rc <= 0) {
 					pr_err("%s: wait for suspend is interrupted\n",
 						__func__);
 				}
@@ -1240,9 +1242,10 @@ static int hbtp_dsi_panel_early_resume(struct hbtp_data *ts)
 				pr_err("%s: power_sig is enabled, wait for signal\n",
 					__func__);
 				mutex_unlock(&hbtp->mutex);
-				rc = wait_for_completion_interruptible(
-					&hbtp->power_resume_sig);
-				if (rc != 0) {
+				rc = wait_for_completion_interruptible_timeout(
+					&hbtp->power_resume_sig,
+					msecs_to_jiffies(HBTP_WAIT_TIMEOUT_MS));
+				if (rc <= 0) {
 					pr_err("%s: wait for resume is interrupted\n",
 						__func__);
 				}
