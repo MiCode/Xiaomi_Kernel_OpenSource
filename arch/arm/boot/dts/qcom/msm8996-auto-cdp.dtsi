@@ -718,6 +718,14 @@
 				&adv7533_0_switch_suspend>;
 			adi,irq-gpio = <&tlmm 71 0x2002>;
 			adi,switch-gpio = <&tlmm 72 0x1>;
+			vddio-supply = <&pm8994_l17>;
+			qcom,supply-names = "vddio";
+			qcom,min-voltage-level = <1800000>;
+			qcom,max-voltage-level = <1800000>;
+			qcom,enable-load = <100000>;
+			qcom,disable-load = <100>;
+			qcom,post-on-sleep = <60>;
+
 		};
 
 		adv7533@39 {
@@ -738,6 +746,13 @@
 				&adv7533_1_switch_suspend>;
 			adi,irq-gpio = <&tlmm 73 0x2002>;
 			adi,switch-gpio = <&tlmm 74 0x0>;
+			vddio-supply = <&pm8994_l17>;
+			qcom,supply-names = "vddio";
+			qcom,min-voltage-level = <1800000>;
+			qcom,max-voltage-level = <1800000>;
+			qcom,enable-load = <100000>;
+			qcom,disable-load = <100>;
+
 		};
 	};
 
