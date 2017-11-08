@@ -519,6 +519,9 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 	/* Set AUX power to be on */
 	ep_pcie_write_mask(dev->parf + PCIE20_PARF_SYS_CTRL, 0, BIT(4));
 
+	/* Request to exit from L1SS for MSI and LTR MSG */
+	ep_pcie_write_mask(dev->parf + PCIE20_PARF_CFG_BITS, 0, BIT(1));
+
 	EP_PCIE_DBG(dev,
 		"Initial: CLASS_CODE_REVISION_ID:0x%x; HDR_TYPE:0x%x\n",
 		readl_relaxed(dev->dm_core + PCIE20_CLASS_CODE_REVISION_ID),
