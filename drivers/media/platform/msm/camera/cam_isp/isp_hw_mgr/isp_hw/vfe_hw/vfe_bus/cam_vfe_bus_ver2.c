@@ -463,6 +463,7 @@ static int cam_vfe_bus_get_num_wm(
 		case CAM_FORMAT_UBWC_NV12_4R:
 		case CAM_FORMAT_UBWC_TP10:
 		case CAM_FORMAT_UBWC_P010:
+		case CAM_FORMAT_PLAIN16_10:
 			return 2;
 		default:
 			break;
@@ -954,6 +955,19 @@ static int cam_vfe_bus_acquire_wm(
 				return -EINVAL;
 			}
 			break;
+		case CAM_FORMAT_PLAIN16_10:
+			switch (plane) {
+			case PLANE_C:
+				rsrc_data->height /= 2;
+				break;
+			case PLANE_Y:
+				break;
+			default:
+				CAM_ERR(CAM_ISP, "Invalid plane %d", plane);
+				return -EINVAL;
+			}
+			rsrc_data->width *= 2;
+			break;
 		default:
 			CAM_ERR(CAM_ISP, "Invalid format %d",
 				rsrc_data->format);
@@ -990,6 +1004,8 @@ static int cam_vfe_bus_acquire_wm(
 	*client_done_mask = (1 << wm_idx);
 	*wm_res = wm_res_local;
 
+	CAM_DBG(CAM_ISP, "WM %d: processed width %d, processed  height %d",
+		rsrc_data->index, rsrc_data->width, rsrc_data->height);
 	return 0;
 }
 
