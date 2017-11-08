@@ -1719,6 +1719,7 @@ int diagfwd_init(void)
 	driver->supports_separate_cmdrsp = 1;
 	driver->supports_apps_hdlc_encoding = 1;
 	driver->supports_apps_header_untagging = 1;
+	driver->supports_pd_buffering = 1;
 	for (i = 0; i < NUM_PERIPHERALS; i++)
 		driver->peripheral_untag[i] = 0;
 	mutex_init(&driver->diag_hdlc_mutex);
@@ -1749,6 +1750,7 @@ int diagfwd_init(void)
 		driver->feature[i].stm_support = DISABLE_STM;
 		driver->feature[i].rcvd_feature_mask = 0;
 		driver->feature[i].peripheral_buffering = 0;
+		driver->feature[i].pd_buffering = 0;
 		driver->feature[i].encode_hdlc = 0;
 		driver->feature[i].untag_header =
 			DISABLE_PKT_HEADER_UNTAGGING;
@@ -1756,6 +1758,9 @@ int diagfwd_init(void)
 		driver->feature[i].log_on_demand = 0;
 		driver->feature[i].sent_feature_mask = 0;
 		driver->feature[i].diag_id_support = 0;
+	}
+
+	for (i = 0; i < NUM_MD_SESSIONS; i++) {
 		driver->buffering_mode[i].peripheral = i;
 		driver->buffering_mode[i].mode = DIAG_BUFFERING_MODE_STREAMING;
 		driver->buffering_mode[i].high_wm_val = DEFAULT_HIGH_WM_VAL;
