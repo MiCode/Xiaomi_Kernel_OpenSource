@@ -946,6 +946,17 @@
 		qcom,spss-scsr-bits = <24 25>;
 	};
 
+	wdog: qcom,wdt@17c10000{
+		compatible = "qcom,msm-watchdog";
+		reg = <0x17c10000 0x1000>;
+		reg-names = "wdt-base";
+		interrupts = <0 0 0>, <0 1 0>;
+		qcom,bark-time = <11000>;
+		qcom,pet-time = <9360>;
+		qcom,ipi-ping;
+		qcom,wakeup-enable;
+	};
+
 	qcom,turing@8300000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x8300000 0x100000>;
