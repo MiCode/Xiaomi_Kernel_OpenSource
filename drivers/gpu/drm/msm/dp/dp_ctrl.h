@@ -23,7 +23,7 @@
 #include "dp_catalog.h"
 
 struct dp_ctrl {
-	int (*init)(struct dp_ctrl *dp_ctrl, bool flip);
+	int (*init)(struct dp_ctrl *dp_ctrl, bool flip, bool multi_func);
 	void (*deinit)(struct dp_ctrl *dp_ctrl);
 	int (*on)(struct dp_ctrl *dp_ctrl);
 	void (*off)(struct dp_ctrl *dp_ctrl);

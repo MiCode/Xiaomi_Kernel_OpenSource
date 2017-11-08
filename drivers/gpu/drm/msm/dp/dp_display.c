@@ -539,7 +539,7 @@ static void dp_display_host_init(struct dp_display_private *dp)
 		flip = true;
 
 	dp->power->init(dp->power, flip);
-	dp->ctrl->init(dp->ctrl, flip);
+	dp->ctrl->init(dp->ctrl, flip, dp->usbpd->multi_func);
 	enable_irq(dp->irq);
 	dp->core_initialized = true;
 }
