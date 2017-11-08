@@ -316,18 +316,18 @@ static long cam_private_ioctl(struct file *file, void *fh,
 		break;
 
 	case CAM_REQ_MGR_SYNC_MODE: {
-		struct cam_req_mgr_sync_mode sync_mode;
+		struct cam_req_mgr_sync_mode sync_info;
 
-		if (k_ioctl->size != sizeof(sync_mode))
+		if (k_ioctl->size != sizeof(sync_info))
 			return -EINVAL;
 
-		if (copy_from_user(&sync_mode,
+		if (copy_from_user(&sync_info,
 			(void *)k_ioctl->handle,
 			k_ioctl->size)) {
 			return -EFAULT;
 		}
 
-		rc = cam_req_mgr_sync_link(&sync_mode);
+		rc = cam_req_mgr_sync_config(&sync_info);
 		}
 		break;
 	case CAM_REQ_MGR_ALLOC_BUF: {
