@@ -1072,7 +1072,8 @@ static int dp_ctrl_disable_mainlink_clocks(struct dp_ctrl_private *ctrl)
 	return ctrl->power->clk_enable(ctrl->power, DP_CTRL_PM, false);
 }
 
-static int dp_ctrl_host_init(struct dp_ctrl *dp_ctrl, bool flip)
+static int dp_ctrl_host_init(struct dp_ctrl *dp_ctrl,
+	bool flip, bool multi_func)
 {
 	struct dp_ctrl_private *ctrl;
 	struct dp_catalog_ctrl *catalog;
@@ -1087,8 +1088,10 @@ static int dp_ctrl_host_init(struct dp_ctrl *dp_ctrl, bool flip)
 	ctrl->orientation = flip;
 	catalog = ctrl->catalog;
 
-	catalog->usb_reset(ctrl->catalog, flip);
-	catalog->phy_reset(ctrl->catalog);
+	if (!multi_func) {
+		catalog->usb_reset(ctrl->catalog, flip);
+		catalog->phy_reset(ctrl->catalog);
+	}
 	catalog->enable_irq(ctrl->catalog, true);
 
 	return 0;
