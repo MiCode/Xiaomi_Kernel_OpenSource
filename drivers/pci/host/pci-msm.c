@@ -226,6 +226,9 @@
 #endif
 #define PCIE_LOWER_ADDR(addr) ((u32)((addr) & 0xffffffff))
 
+#define PCIE_BUS_PRIV_DATA(bus) \
+	(struct msm_pcie_dev_t *)(bus->sysdata)
+
 /* Config Space Offsets */
 #define BDF_OFFSET(bus, devfn) \
 	((bus << 24) | (devfn << 16))
@@ -784,32 +787,11 @@ static void msm_pcie_config_link_pm_rc(struct msm_pcie_dev_t *dev,
 				struct pci_dev *pdev, bool enable);
 
 #ifdef CONFIG_ARM
-#define PCIE_BUS_PRIV_DATA(bus) \
-	(((struct pci_sys_data *)bus->sysdata)->private_data)
-
-static struct pci_sys_data msm_pcie_sys_data[MAX_RC_NUM];
-
-static inline void *msm_pcie_setup_sys_data(struct msm_pcie_dev_t *dev)
-{
-	msm_pcie_sys_data[dev->rc_idx].domain = dev->rc_idx;
-	msm_pcie_sys_data[dev->rc_idx].private_data = dev;
-
-	return &msm_pcie_sys_data[dev->rc_idx];
-}
-
 static inline void msm_pcie_fixup_irqs(struct msm_pcie_dev_t *dev)
 {
 	pci_fixup_irqs(pci_common_swizzle, of_irq_parse_and_map_pci);
 }
 #else
-#define PCIE_BUS_PRIV_DATA(bus) \
-	(struct msm_pcie_dev_t *)(bus->sysdata)
-
-static inline void *msm_pcie_setup_sys_data(struct msm_pcie_dev_t *dev)
-{
-	return dev;
-}
-
 static inline void msm_pcie_fixup_irqs(struct msm_pcie_dev_t *dev)
 {
 }
@@ -1248,12 +1230,12 @@ static void msm_pcie_shadow_dump(struct msm_pcie_dev_t *dev, bool rc)
 static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 					u32 testcase)
 {
-	phys_addr_t dbi_base_addr =
-		dev->res[MSM_PCIE_RES_DM_CORE].resource->start;
+	u32 dbi_base_addr = dev->res[MSM_PCIE_RES_DM_CORE].resource->start;
 	phys_addr_t loopback_lbar_phy =
-		dbi_base_addr + LOOPBACK_BASE_ADDR_OFFSET;
+		dev->res[MSM_PCIE_RES_DM_CORE].resource->start +
+		LOOPBACK_BASE_ADDR_OFFSET;
 	static uint32_t loopback_val = 0x1;
-	static u64 loopback_ddr_phy;
+	static dma_addr_t loopback_ddr_phy;
 	static uint32_t *loopback_ddr_vir;
 	static void __iomem *loopback_lbar_vir;
 	int ret, i;
@@ -1685,21 +1667,21 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 				"PCIe: RC%d: VIR DDR memory address: 0x%pK\n",
 				dev->rc_idx, loopback_ddr_vir);
 			PCIE_DBG_FS(dev,
-				"PCIe: RC%d: PHY DDR memory address: 0x%llx\n",
-				dev->rc_idx, loopback_ddr_phy);
+				"PCIe: RC%d: PHY DDR memory address: %pad\n",
+				dev->rc_idx, &loopback_ddr_phy);
 		}
 
-		PCIE_DBG_FS(dev, "PCIe: RC%d: map LBAR: 0x%llx\n",
-			dev->rc_idx, loopback_lbar_phy);
+		PCIE_DBG_FS(dev, "PCIe: RC%d: map LBAR: %pa\n",
+			dev->rc_idx, &loopback_lbar_phy);
 		loopback_lbar_vir = devm_ioremap(&dev->pdev->dev,
 			loopback_lbar_phy, SZ_4K);
 		if (!loopback_lbar_vir) {
-			PCIE_DBG_FS(dev, "PCIe: RC%d: failed to map 0x%llx\n",
-				dev->rc_idx, loopback_lbar_phy);
+			PCIE_DBG_FS(dev, "PCIe: RC%d: failed to map %pa\n",
+				dev->rc_idx, &loopback_lbar_phy);
 		} else {
 			PCIE_DBG_FS(dev,
-				"PCIe: RC%d: successfully mapped 0x%llx to 0x%pK\n",
-				dev->rc_idx, loopback_lbar_phy,
+				"PCIe: RC%d: successfully mapped %pa to 0x%pK\n",
+				dev->rc_idx, &loopback_lbar_phy,
 				loopback_lbar_vir);
 		}
 		break;
@@ -1733,14 +1715,14 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 		}
 
 		PCIE_DBG_FS(dev,
-			"PCIe: RC%d: PHY DDR address: 0x%llx\n",
-			dev->rc_idx, loopback_ddr_phy);
+			"PCIe: RC%d: PHY DDR address: %pad\n",
+			dev->rc_idx, &loopback_ddr_phy);
 		PCIE_DBG_FS(dev,
 			"PCIe: RC%d: VIR DDR address: 0x%pK\n",
 			dev->rc_idx, loopback_ddr_vir);
 		PCIE_DBG_FS(dev,
-			"PCIe: RC%d: PHY LBAR address: 0x%llx\n",
-			dev->rc_idx, loopback_lbar_phy);
+			"PCIe: RC%d: PHY LBAR address: %pa\n",
+			dev->rc_idx, &loopback_lbar_phy);
 		PCIE_DBG_FS(dev,
 			"PCIe: RC%d: VIR LBAR address: 0x%pK\n",
 			dev->rc_idx, loopback_lbar_vir);
@@ -1753,7 +1735,7 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 		writel_relaxed(0x10000,
 			dev->dm_core + PCIE20_GEN3_RELATED_REG);
 		PCIE_DBG_FS(dev,
-			"PCIe: RC%d: 0x%llx: 0x%x\n",
+			"PCIe: RC%d: 0x%x: 0x%x\n",
 			dev->rc_idx,
 			dbi_base_addr + PCIE20_GEN3_RELATED_REG,
 			readl_relaxed(dev->dm_core +
@@ -1762,7 +1744,7 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 		writel_relaxed(0x80000001,
 			dev->dm_core + PCIE20_PIPE_LOOPBACK_CONTROL);
 		PCIE_DBG_FS(dev,
-			"PCIe: RC%d: 0x%llx: 0x%x\n",
+			"PCIe: RC%d: 0x%x: 0x%x\n",
 			dev->rc_idx,
 			dbi_base_addr + PCIE20_PIPE_LOOPBACK_CONTROL,
 			readl_relaxed(dev->dm_core +
@@ -1771,7 +1753,7 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 		writel_relaxed(0x00010124,
 			dev->dm_core + PCIE20_PORT_LINK_CTRL_REG);
 		PCIE_DBG_FS(dev,
-			"PCIe: RC%d: 0x%llx: 0x%x\n",
+			"PCIe: RC%d: 0x%x: 0x%x\n",
 			dev->rc_idx,
 			dbi_base_addr + PCIE20_PORT_LINK_CTRL_REG,
 			readl_relaxed(dev->dm_core +
@@ -1789,53 +1771,53 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 
 		writel_relaxed(0x0, dev->dm_core + PCIE20_PLR_IATU_VIEWPORT);
 		PCIE_DBG_FS(dev,
-			"PCIe: RC%d: PCIE20_PLR_IATU_VIEWPORT:\t0x%llx: 0x%x\n",
+			"PCIe: RC%d: PCIE20_PLR_IATU_VIEWPORT:\t0x%x: 0x%x\n",
 			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_VIEWPORT,
 			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_VIEWPORT));
 
 		writel_relaxed(0x0, dev->dm_core + PCIE20_PLR_IATU_CTRL1);
 		PCIE_DBG_FS(dev,
-			"PCIe: RC%d: PCIE20_PLR_IATU_CTRL1:\t0x%llx: 0x%x\n",
+			"PCIe: RC%d: PCIE20_PLR_IATU_CTRL1:\t0x%x: 0x%x\n",
 			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_CTRL1,
 			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_CTRL1));
 
 		writel_relaxed(loopback_lbar_phy,
 			dev->dm_core + PCIE20_PLR_IATU_LBAR);
 		PCIE_DBG_FS(dev,
-			"PCIe: RC%d: PCIE20_PLR_IATU_LBAR:\t0x%llx: 0x%x\n",
+			"PCIe: RC%d: PCIE20_PLR_IATU_LBAR:\t0x%x: 0x%x\n",
 			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_LBAR,
 			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_LBAR));
 
 		writel_relaxed(0x0, dev->dm_core + PCIE20_PLR_IATU_UBAR);
 		PCIE_DBG_FS(dev,
-			"PCIe: RC%d: PCIE20_PLR_IATU_UBAR:\t0x%llx: 0x%x\n",
+			"PCIe: RC%d: PCIE20_PLR_IATU_UBAR:\t0x%x: 0x%x\n",
 			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_UBAR,
 			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_UBAR));
 
 		writel_relaxed(loopback_lbar_phy + 0xfff,
 			dev->dm_core + PCIE20_PLR_IATU_LAR);
 		PCIE_DBG_FS(dev,
-			"PCIe: RC%d: PCIE20_PLR_IATU_LAR:\t0x%llx: 0x%x\n",
+			"PCIe: RC%d: PCIE20_PLR_IATU_LAR:\t0x%x: 0x%x\n",
 			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_LAR,
 			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_LAR));
 
 		writel_relaxed(loopback_ddr_phy,
 			dev->dm_core + PCIE20_PLR_IATU_LTAR);
 		PCIE_DBG_FS(dev,
-			"PCIe: RC%d: PCIE20_PLR_IATU_LTAR:\t0x%llx: 0x%x\n",
+			"PCIe: RC%d: PCIE20_PLR_IATU_LTAR:\t0x%x: 0x%x\n",
 			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_LTAR,
 			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_LTAR));
 
 		writel_relaxed(0, dev->dm_core + PCIE20_PLR_IATU_UTAR);
 		PCIE_DBG_FS(dev,
-			"PCIe: RC%d: PCIE20_PLR_IATU_UTAR:\t0x%llx: 0x%x\n",
+			"PCIe: RC%d: PCIE20_PLR_IATU_UTAR:\t0x%x: 0x%x\n",
 			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_UTAR,
 			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_UTAR));
 
 		writel_relaxed(0x80000000,
 			dev->dm_core + PCIE20_PLR_IATU_CTRL2);
 		PCIE_DBG_FS(dev,
-			"PCIe: RC%d: PCIE20_PLR_IATU_CTRL2:\t0x%llx: 0x%x\n",
+			"PCIe: RC%d: PCIE20_PLR_IATU_CTRL2:\t0x%x: 0x%x\n",
 			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_CTRL2,
 			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_CTRL2));
 		break;
@@ -4380,9 +4362,7 @@ int msm_pcie_enumerate(u32 rc_idx)
 			}
 
 			bus = pci_create_root_bus(&dev->pdev->dev, 0,
-						&msm_pcie_ops,
-						msm_pcie_setup_sys_data(dev),
-						&res);
+						&msm_pcie_ops, dev, &res);
 			if (!bus) {
 				PCIE_ERR(dev,
 					"PCIe: failed to create root bus for RC%d\n",
@@ -4394,7 +4374,7 @@ int msm_pcie_enumerate(u32 rc_idx)
 			scan_ret = pci_scan_child_bus(bus);
 			PCIE_DBG(dev,
 				"PCIe: RC%d: The max subordinate bus number discovered is %d\n",
-				dev->rc_idx, ret);
+				dev->rc_idx, scan_ret);
 
 			msm_pcie_fixup_irqs(dev);
 			pci_assign_unassigned_bus_resources(bus);
