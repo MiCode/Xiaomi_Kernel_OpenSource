@@ -1149,19 +1149,38 @@ static struct rpmsg_endpoint *qcom_glink_create_ept(struct rpmsg_device *rpdev,
 static int qcom_glink_announce_create(struct rpmsg_device *rpdev)
 {
 	struct glink_channel *channel = to_glink_channel(rpdev->ept);
-	struct glink_core_rx_intent *intent;
+	struct device_node *np = rpdev->dev.of_node;
 	struct qcom_glink *glink = channel->glink;
-	int num_intents = glink->intentless ? 0 : 5;
+	struct glink_core_rx_intent *intent;
+	const struct property *prop = NULL;
+	__be32 defaults[] = { cpu_to_be32(SZ_1K), cpu_to_be32(5) };
+	int num_intents;
+	int num_groups = 1;
+	__be32 *val = defaults;
+	int size;
 
-	/* Channel is now open, advertise base set of intents */
-	while (num_intents--) {
-		intent = qcom_glink_alloc_intent(glink, channel, SZ_1K, true);
-		if (!intent)
-			break;
+	if (glink->intentless)
+		return 0;
 
-		qcom_glink_advertise_intent(glink, channel, intent);
+	prop = of_find_property(np, "qcom,intents", NULL);
+	if (prop) {
+		val = prop->value;
+		num_groups = prop->length / sizeof(u32) / 2;
 	}
 
+	/* Channel is now open, advertise base set of intents */
+	while (num_groups--) {
+		size = be32_to_cpup(val++);
+		num_intents = be32_to_cpup(val++);
+		while (num_intents--) {
+			intent = qcom_glink_alloc_intent(glink, channel, size,
+							 true);
+			if (!intent)
+				break;
+
+			qcom_glink_advertise_intent(glink, channel, intent);
+		}
+	}
 	return 0;
 }
 
@@ -1238,11 +1257,16 @@ static int __qcom_glink_send(struct glink_channel *channel,
 			spin_lock_irqsave(&channel->intent_lock, flags);
 			idr_for_each_entry(&channel->riids, tmp, iid) {
 				if (tmp->size >= len && !tmp->in_use) {
-					tmp->in_use = true;
-					intent = tmp;
-					break;
+					if (!intent)
+						intent = tmp;
+					else if (intent->size > tmp->size)
+						intent = tmp;
+					if (intent->size == len)
+						break;
 				}
 			}
+			if (intent)
+				intent->in_use = true;
 			spin_unlock_irqrestore(&channel->intent_lock, flags);
 
 			/* We found an available intent */
