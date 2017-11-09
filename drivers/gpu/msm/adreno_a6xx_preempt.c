@@ -304,6 +304,21 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 		SCRATCH_PREEMPTION_CTXT_RESTORE_ADDR_OFFSET(next->id));
 
 	/*
+	 * Set a keepalive bit before the first preemption register write.
+	 * This is required since while each individual write to the context
+	 * switch registers will wake the GPU from collapse, it will not in
+	 * itself cause GPU activity. Thus, the GPU could technically be
+	 * re-collapsed between subsequent register writes leading to a
+	 * prolonged preemption sequence. The keepalive bit prevents any
+	 * further power collapse while it is set.
+	 * It is more efficient to use a keepalive+wake-on-fence approach here
+	 * rather than an OOB. Both keepalive and the fence are effectively
+	 * free when the GPU is already powered on, whereas an OOB requires an
+	 * unconditional handshake with the GMU.
+	 */
+	kgsl_gmu_regrmw(device, A6XX_GMU_AO_SPARE_CNTL, 0x0, 0x2);
+
+	/*
 	 * Fenced writes on this path will make sure the GPU is woken up
 	 * in case it was power collapsed by the GMU.
 	 */
@@ -344,6 +359,14 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 		((skipsaverestore << 9) & 0x200) |
 		((usesgmem << 8) & 0x100) | 0x1),
 		FENCE_STATUS_WRITEDROPPED1_MASK);
+
+	/*
+	 * Once preemption has been requested with the final register write,
+	 * the preemption process starts and the GPU is considered busy.
+	 * We can now safely clear the preemption keepalive bit, allowing
+	 * power collapse to resume its regular activity.
+	 */
+	kgsl_gmu_regrmw(device, A6XX_GMU_AO_SPARE_CNTL, 0x2, 0x0);
 }
 
 void a6xx_preemption_callback(struct adreno_device *adreno_dev, int bit)
