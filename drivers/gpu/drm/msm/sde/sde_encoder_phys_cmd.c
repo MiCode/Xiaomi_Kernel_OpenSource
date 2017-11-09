@@ -1038,6 +1038,7 @@ static int _sde_encoder_phys_cmd_wait_for_ctl_start(
 			to_sde_encoder_phys_cmd(phys_enc);
 	struct sde_encoder_wait_info wait_info;
 	int ret;
+	bool frame_pending = true;
 
 	if (!phys_enc || !phys_enc->hw_ctl) {
 		SDE_ERROR("invalid argument(s)\n");
@@ -1055,10 +1056,17 @@ static int _sde_encoder_phys_cmd_wait_for_ctl_start(
 	ret = sde_encoder_helper_wait_for_irq(phys_enc, INTR_IDX_CTL_START,
 			&wait_info);
 	if (ret == -ETIMEDOUT) {
-		SDE_ERROR_CMDENC(cmd_enc, "ctl start interrupt wait failed\n");
-		ret = -EINVAL;
-	} else if (!ret)
-		ret = 0;
+		struct sde_hw_ctl *ctl = phys_enc->hw_ctl;
+
+		if (ctl && ctl->ops.get_start_state)
+			frame_pending = ctl->ops.get_start_state(ctl);
+
+		if (frame_pending)
+			SDE_ERROR_CMDENC(cmd_enc,
+					"ctl start interrupt wait failed\n");
+		else
+			ret = 0;
+	}
 
 	return ret;
 }
