@@ -1041,7 +1041,7 @@ static void __iommu_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 	return;
 
 out_err:
-	 pr_warn("Failed to set up IOMMU for device %s; retaining platform DMA ops\n",
+	 pr_debug("Failed to set up IOMMU for device %s; retaining platform DMA ops\n",
 		 dev_name(dev));
 }
 
