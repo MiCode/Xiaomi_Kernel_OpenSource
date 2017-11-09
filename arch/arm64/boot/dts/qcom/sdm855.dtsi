@@ -1566,6 +1566,7 @@
 #include "sdm855-pinctrl.dtsi"
 #include "sdm855-regulator.dtsi"
 #include "sdm855-ion.dtsi"
+#include "sdm855-bus.dtsi"
 #include "sdm855-smp2p.dtsi"
 #include "sdm855-coresight.dtsi"
 #include "msm-arm-smmu-sdm855.dtsi"
