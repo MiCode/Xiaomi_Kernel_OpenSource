@@ -138,6 +138,7 @@ static int sde_hdmi_cec_adap_transmit(struct cec_adapter *adap, u8 attempts,
 	struct sde_hdmi_cec *cec = adap->priv;
 	struct cec_hw_resource *hw = &cec->hw_res;
 	u32 frame_type;
+	u8 retransmits;
 	int i;
 	u32 line_check_retry = 10;
 
@@ -152,22 +153,13 @@ static int sde_hdmi_cec_adap_transmit(struct cec_adapter *adap, u8 attempts,
 	/* make sure state is cleared */
 	wmb();
 
-	CEC_REG_WRITE(hw, HDMI_CEC_RETRANSMIT,
-		((attempts & 0xF) << 4) | BIT(0));
+	retransmits = attempts ? (attempts - 1) : 0;
+
+	CEC_REG_WRITE(hw, HDMI_CEC_RETRANSMIT, (retransmits << 4) | BIT(0));
 
 	frame_type = cec_msg_is_broadcast(msg) ? BIT(0) : 0;
 
-	/* header block */
-	CEC_REG_WRITE(hw, HDMI_CEC_WR_DATA,
-		(((cec_msg_initiator(msg) << 4) |
-			cec_msg_destination(msg)) << 8) | frame_type);
-
-	/* data block 0 : opcode */
-	CEC_REG_WRITE(hw, HDMI_CEC_WR_DATA,
-		((msg->len < 2 ? 0 : cec_msg_opcode(msg)) << 8) | frame_type);
-
-	/* data block 1-14 : operand 0-13 */
-	for (i = 2; i < msg->len; i++)
+	for (i = 0; i < msg->len; i++)
 		CEC_REG_WRITE(hw, HDMI_CEC_WR_DATA,
 			(msg->msg[i] << 8) | frame_type);
 
