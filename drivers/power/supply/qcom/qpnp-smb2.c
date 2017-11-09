@@ -1052,14 +1052,8 @@ static int smb2_batt_set_prop(struct power_supply *psy,
 		rc = smblib_set_prop_charge_qnovo_enable(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_QNOVO:
-		if (val->intval == -EINVAL) {
-			vote(chg->fv_votable, BATT_PROFILE_VOTER,
-					true, chg->batt_profile_fv_uv);
-			vote(chg->fv_votable, QNOVO_VOTER, false, 0);
-		} else {
-			vote(chg->fv_votable, QNOVO_VOTER, true, val->intval);
-			vote(chg->fv_votable, BATT_PROFILE_VOTER, false, 0);
-		}
+		vote(chg->fv_votable, QNOVO_VOTER,
+			(val->intval >= 0), val->intval);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_QNOVO:
 		vote(chg->pl_disable_votable, PL_QNOVO_VOTER,

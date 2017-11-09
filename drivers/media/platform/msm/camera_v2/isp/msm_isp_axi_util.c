@@ -2971,6 +2971,8 @@ static void __msm_isp_stop_axi_streams(struct vfe_device *vfe_dev,
 		 * those state transitions instead of directly forcing stream to
 		 * be INACTIVE
 		 */
+		memset(&stream_info->sw_skip, 0,
+			sizeof(struct msm_isp_sw_framskip));
 		intf = SRC_TO_INTF(stream_info->stream_src);
 		if ((!vfe_dev->axi_data.src_info[intf].lpm) ||
 			stream_info->state != PAUSED) {

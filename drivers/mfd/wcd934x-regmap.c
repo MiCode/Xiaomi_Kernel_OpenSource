@@ -1932,12 +1932,10 @@ static bool wcd934x_is_volatile_register(struct device *dev, unsigned int reg)
 	case WCD934X_ANA_BIAS:
 	case WCD934X_ANA_BUCK_CTL:
 	case WCD934X_ANA_RCO:
-	case WCD934X_CDC_CLK_RST_CTRL_MCLK_CONTROL:
 	case WCD934X_CODEC_RPM_CLK_GATE:
 	case WCD934X_BIAS_VBG_FINE_ADJ:
 	case WCD934X_CODEC_CPR_SVS_CX_VDD:
 	case WCD934X_CODEC_CPR_SVS2_CX_VDD:
-	case WCD934X_CDC_CLK_RST_CTRL_FS_CNT_CONTROL:
 		return true;
 	}
 

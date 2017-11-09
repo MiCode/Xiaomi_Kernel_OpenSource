@@ -1470,9 +1470,10 @@ task_may_not_preempt(struct task_struct *task, int cpu)
 			 __IRQ_STAT(cpu, __softirq_pending);
 	struct task_struct *cpu_ksoftirqd = per_cpu(ksoftirqd, cpu);
 
-	return ((softirqs & LONG_SOFTIRQ_MASK) &&
+	return (((softirqs & LONG_SOFTIRQ_MASK) &&
 		(task == cpu_ksoftirqd ||
-		 task_thread_info(task)->preempt_count & SOFTIRQ_MASK));
+		 task_thread_info(task)->preempt_count & SOFTIRQ_MASK)) ||
+		task->flags & PF_LONG_PREEMPT_DISABLE_HINT);
 }
 
 static int
