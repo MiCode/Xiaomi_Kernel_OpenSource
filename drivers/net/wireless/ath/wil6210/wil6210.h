@@ -740,6 +740,11 @@ struct wil6210_priv {
 	struct wil_ftm_priv ftm;
 	bool tt_data_set;
 	struct wmi_tt_data tt_data;
+	struct {
+		bool enabled;
+		short omni;
+		short direct;
+	} snr_thresh;
 
 	int fw_calib_result;
 
@@ -1054,4 +1059,5 @@ int wmi_link_maintain_cfg_write(struct wil6210_priv *wil,
 				const u8 *addr,
 				bool fst_link_loss);
 
+int wmi_set_snr_thresh(struct wil6210_priv *wil, short omni, short direct);
 #endif /* __WIL6210_H__ */
