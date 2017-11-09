@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1882,6 +1882,60 @@
 
 				config {
 					pins = "gpio4";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
+		cdc-dmic-lines {
+			cdc_dmic0_clk_act: dmic0_clk_on {
+				mux {
+					pins = "gpio4";
+					function = "dmic0_clk";
+				};
+
+				config {
+					pins = "gpio4";
+					drive-strength = <8>;
+					bias-pull-none;
+				};
+			};
+
+			cdc_dmic0_clk_sus: dmic0_clk_off {
+				mux {
+					pins = "gpio4";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio4";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			cdc_dmic0_data_act: dmic0_data_on {
+				mux {
+					pins = "gpio5";
+					function = "dmic0_data";
+				};
+
+				config {
+					pins = "gpio5";
+					drive-strength = <8>;
+					bias-pull-none;
+				};
+			};
+
+			cdc_dmic0_data_sus: dmic0_data_off {
+				mux {
+					pins = "gpio5";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio5";
 					drive-strength = <2>;
 					bias-disable;
 				};
