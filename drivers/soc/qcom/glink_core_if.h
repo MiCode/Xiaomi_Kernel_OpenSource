@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
 
 #include <linux/of.h>
 #include <linux/types.h>
+#include <linux/sched.h>
 #include "glink_private.h"
 
 /* Local Channel state */
@@ -105,6 +106,7 @@ struct glink_core_flow_info {
  * @versions_entries:	Number of entries in @versions.
  * @max_cid:		Maximum number of channel identifiers supported.
  * @max_iid:		Maximum number of intent identifiers supported.
+ * @tx_task:		Task structure for tx thread.
  * @mtu:		MTU supported by this transport.
  * @num_flows:		Number of traffic flows/priority buckets.
  * @flow_info:		Information about each flow/priority.
@@ -117,6 +119,7 @@ struct glink_core_transport_cfg {
 	size_t versions_entries;
 	uint32_t max_cid;
 	uint32_t max_iid;
+	struct task_struct *tx_task;
 
 	size_t mtu;
 	uint32_t num_flows;

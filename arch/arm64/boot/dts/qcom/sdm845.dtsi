@@ -2187,6 +2187,7 @@
 		qcom,irq-mask = <0x100>;
 		interrupts = <GIC_SPI 156 IRQ_TYPE_EDGE_RISING>;
 		label = "lpass";
+		cpu-affinity = <1 2>;
 		qcom,qos-config = <&glink_qos_adsp>;
 		qcom,ramp-time = <0xaf>;
 	};
