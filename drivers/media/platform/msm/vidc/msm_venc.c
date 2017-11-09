@@ -2759,6 +2759,19 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			inst->bufq[fmt->type].plane_sizes[i] =
 				f->fmt.pix_mp.plane_fmt[i].sizeimage;
 		}
+		/*
+		 * Input extradata buffer size may change upon updating
+		 * CAPTURE plane buffer size.
+		 */
+
+		extra_idx = EXTRADATA_IDX(inst->bufq[OUTPUT_PORT].num_planes);
+		if (extra_idx && extra_idx < VIDEO_MAX_PLANES) {
+			buff_req_buffer = get_buff_req_buffer(inst,
+					HAL_BUFFER_EXTRADATA_INPUT);
+			inst->bufq[OUTPUT_PORT].plane_sizes[extra_idx] =
+				buff_req_buffer ?
+				buff_req_buffer->buffer_size : 0;
+		}
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		struct hal_frame_size frame_sz;
 
