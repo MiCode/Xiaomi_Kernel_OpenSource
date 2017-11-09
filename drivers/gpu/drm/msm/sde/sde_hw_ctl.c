@@ -42,6 +42,47 @@
 
 #define SDE_REG_RESET_TIMEOUT_US        2000
 
+#define MDP_CTL_FLUSH(n) ((0x2000) + (0x200*n) + CTL_FLUSH)
+#define CTL_FLUSH_LM_BIT(n) (6 + n)
+#define CTL_TOP_LM_OFFSET(index, lm) (0x2000 + (0x200 * index) + (lm * 0x4))
+
+int sde_unstage_pipe_for_cont_splash(struct sde_splash_data *data,
+		void __iomem *mmio)
+{
+	int i, j;
+	u32 op_mode;
+
+	if (!data) {
+		pr_err("invalid splash data\n");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < data->ctl_top_cnt; i++) {
+		struct ctl_top *top = &data->top[i];
+		u8 ctl_id = data->ctl_ids[i] - CTL_0;
+		u32 regval = 0;
+
+		op_mode = readl_relaxed(mmio + MDP_CTL_FLUSH(ctl_id));
+
+		/* Set border fill*/
+		regval |= CTL_MIXER_BORDER_OUT;
+
+		for (j = 0; j < top->ctl_lm_cnt; j++) {
+			u8 lm_id = top->lm[j].lm_id - LM_0;
+
+			writel_relaxed(regval,
+			mmio + CTL_TOP_LM_OFFSET(ctl_id, lm_id));
+
+			op_mode |= BIT(CTL_FLUSH_LM_BIT(lm_id));
+		}
+		op_mode |= CTL_FLUSH_MASK_CTL;
+
+		writel_relaxed(op_mode, mmio + MDP_CTL_FLUSH(ctl_id));
+	}
+	return 0;
+
+}
+
 static struct sde_ctl_cfg *_ctl_offset(enum sde_ctl ctl,
 		struct sde_mdss_cfg *m,
 		void __iomem *addr,
@@ -615,6 +656,27 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 		ops->trigger_rot_start = sde_hw_ctl_trigger_rot_start;
 	}
 };
+
+#define CTL_BASE_OFFSET	0x2000
+#define CTL_TOP_OFFSET(index) (CTL_BASE_OFFSET + (0x200 * (index)) + CTL_TOP)
+
+void sde_get_ctl_top_for_cont_splash(void __iomem *mmio,
+		struct ctl_top *top, int index)
+{
+	if (!mmio || !top) {
+		SDE_ERROR("invalid input parameters\n");
+		return;
+	}
+
+	top->value = readl_relaxed(mmio + CTL_TOP_OFFSET(index));
+	top->intf_sel = (top->value >> 4) & 0xf;
+	top->pp_sel = (top->value >> 8) & 0x7;
+	top->dspp_sel = (top->value >> 11) & 0x3;
+	top->mode_sel = (top->value >> 17) & 0x1;
+
+	SDE_DEBUG("ctl[%d]_top->0x%x,pp_sel=0x%x,dspp_sel=0x%x,intf_sel=0x%x\n",
+	       index, top->value, top->pp_sel, top->dspp_sel, top->intf_sel);
+}
 
 static struct sde_hw_blk_ops sde_hw_ops = {
 	.start = NULL,

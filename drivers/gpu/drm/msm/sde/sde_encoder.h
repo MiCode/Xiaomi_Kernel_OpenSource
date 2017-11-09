@@ -215,4 +215,12 @@ void sde_encoder_prepare_commit(struct drm_encoder *drm_enc);
 void sde_encoder_set_idle_timeout(struct drm_encoder *drm_enc,
 							u32 idle_timeout);
 
+/**
+ * sde_encoder_update_caps_for_cont_splash - update encoder settings during
+ *	device bootup when cont_splash is enabled
+ * @drm_enc:    Pointer to drm encoder structure
+ * @Return:     true if successful in updating the encoder structure
+ */
+int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder);
+
 #endif /* __SDE_ENCODER_H__ */

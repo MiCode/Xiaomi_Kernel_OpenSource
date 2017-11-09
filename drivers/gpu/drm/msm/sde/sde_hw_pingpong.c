@@ -357,6 +357,49 @@ static void _setup_pingpong_ops(struct sde_hw_pingpong_ops *ops,
 	}
 };
 
+#define MDP_PP_DSC_OFFSET(index) (0x71000 + (0x800 * index) + 0x0a0)
+#define MDP_PP_AUTOREFRESH_OFFSET(index) (0x71000 + (0x800 * index) + 0x030)
+
+int sde_get_pp_dsc_for_cont_splash(void __iomem *mmio,
+			int max_dsc_cnt, u8 *dsc_ids)
+{
+	int index;
+	int value, dsc_cnt = 0;
+
+	if (!mmio || !dsc_ids) {
+		SDE_ERROR("invalid input parameters\n");
+		return 0;
+	}
+
+	SDE_DEBUG("max_dsc_cnt = %d\n", max_dsc_cnt);
+	for (index = 0; index < max_dsc_cnt; index++) {
+		value = readl_relaxed(mmio
+			      + MDP_PP_DSC_OFFSET(index));
+		SDE_DEBUG("DSC[%d]=0x%x\n",
+					index, value);
+		SDE_DEBUG("dsc_cnt = %d\n", dsc_cnt);
+		if (value) {
+			dsc_ids[dsc_cnt] = index + DSC_0;
+			dsc_cnt++;
+		}
+		value = readl_relaxed(mmio
+			      + MDP_PP_AUTOREFRESH_OFFSET(index));
+		SDE_DEBUG("AUTOREFRESH[%d]=0x%x\n",
+					index, value);
+		if (value) {
+			SDE_DEBUG("Disabling autoreferesh\n");
+			writel_relaxed(0x0, mmio
+				+ MDP_PP_AUTOREFRESH_OFFSET(index));
+			/*
+			 * Wait for one frame update so that auto refresh
+			 * disable is through
+			 */
+			usleep_range(16000, 20000);
+		}
+	}
+	return dsc_cnt;
+}
+
 static struct sde_hw_blk_ops sde_hw_ops = {
 	.start = NULL,
 	.stop = NULL,
