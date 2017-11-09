@@ -878,6 +878,10 @@
 		qcom,proxy-reg-names = "vdd_cx", "vdd_mx";
 		qcom,keep-proxy-regs-on;
 
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "xo";
+		qcom,proxy-clock-names = "xo";
+
 		qcom,pas-id = <12>;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,smem-id = <424>;
