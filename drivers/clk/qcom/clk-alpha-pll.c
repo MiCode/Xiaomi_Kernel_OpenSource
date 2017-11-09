@@ -72,6 +72,9 @@
 #define TRION_PLL_CONFIG_CTL	0x18
 #define TRION_PLL_CONFIG_CTL_U	0x1c
 #define TRION_PLL_CONFIG_CTL_U1	0x20
+#define TRION_PLL_TEST_CTL	0x24
+#define TRION_PLL_TEST_CTL_U	0x28
+#define TRION_PLL_TEST_CTL_U1	0x2c
 #define TRION_PLL_OPMODE	0x38
 #define TRION_PLL_ALPHA_VAL	0x40
 #define TRION_PLL_STATUS	0x30
@@ -93,6 +96,9 @@
 #define REGERA_PLL_CONFIG_CTL	0x10
 #define REGERA_PLL_CONFIG_CTL_U	0x14
 #define REGERA_PLL_CONFIG_CTL_U1	0x18
+#define REGERA_PLL_TEST_CTL	0x1c
+#define REGERA_PLL_TEST_CTL_U	0x20
+#define REGERA_PLL_TEST_CTL_U1	0x24
 #define REGERA_PLL_OPMODE	0x28
 
 #define REGERA_PLL_OFF		0x0
@@ -600,9 +606,29 @@ int clk_trion_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 		regmap_write(regmap, pll->offset + TRION_PLL_CONFIG_CTL_U1,
 				config->config_ctl_hi1_val);
 
-	if (config->post_div_mask)
-		regmap_update_bits(regmap, pll->offset + TRION_PLL_USER_CTL,
-			config->post_div_mask, config->post_div_val);
+	if (config->user_ctl_val)
+		regmap_write(regmap, pll->offset + TRION_PLL_USER_CTL,
+				config->user_ctl_val);
+
+	if (config->user_ctl_hi_val)
+		regmap_write(regmap, pll->offset + TRION_PLL_USER_CTL_U,
+				config->user_ctl_hi_val);
+
+	if (config->user_ctl_hi1_val)
+		regmap_write(regmap, pll->offset + TRION_PLL_USER_CTL_U1,
+				config->user_ctl_hi1_val);
+
+	if (config->test_ctl_val)
+		regmap_write(regmap, pll->offset + TRION_PLL_TEST_CTL,
+				config->test_ctl_val);
+
+	if (config->test_ctl_hi_val)
+		regmap_write(regmap, pll->offset + TRION_PLL_TEST_CTL_U,
+				config->test_ctl_hi_val);
+
+	if (config->test_ctl_hi1_val)
+		regmap_write(regmap, pll->offset + TRION_PLL_TEST_CTL_U1,
+				config->test_ctl_hi1_val);
 
 	regmap_update_bits(regmap, pll->offset + PLL_MODE,
 				 TRION_PLL_HW_UPDATE_LOGIC_BYPASS,
@@ -848,6 +874,18 @@ static void clk_trion_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 int clk_regera_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 				const struct alpha_pll_config *config)
 {
+	u32 mode_regval;
+	int ret;
+
+	ret = regmap_read(regmap, pll->offset + PLL_MODE, &mode_regval);
+	if (ret)
+		return ret;
+
+	if (mode_regval & PLL_LOCK_DET) {
+		pr_warn("PLL is already enabled. Skipping configuration.\n");
+		return 0;
+	}
+
 	if (config->alpha)
 		regmap_write(regmap, pll->offset + PLL_ALPHA_VAL,
 						config->alpha);
@@ -867,9 +905,21 @@ int clk_regera_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 		regmap_write(regmap, pll->offset + REGERA_PLL_CONFIG_CTL_U1,
 				config->config_ctl_hi1_val);
 
-	if (config->post_div_mask)
-		regmap_update_bits(regmap, pll->offset + REGERA_PLL_USER_CTL,
-			config->post_div_mask, config->post_div_val);
+	if (config->user_ctl_val)
+		regmap_write(regmap, pll->offset + REGERA_PLL_USER_CTL,
+				config->user_ctl_val);
+
+	if (config->test_ctl_val)
+		regmap_write(regmap, pll->offset + REGERA_PLL_TEST_CTL,
+				config->test_ctl_val);
+
+	if (config->test_ctl_hi_val)
+		regmap_write(regmap, pll->offset + REGERA_PLL_TEST_CTL_U,
+				config->test_ctl_hi_val);
+
+	if (config->test_ctl_hi1_val)
+		regmap_write(regmap, pll->offset + REGERA_PLL_TEST_CTL_U1,
+				config->test_ctl_hi1_val);
 
 	/* Set operation mode to OFF */
 	regmap_write(regmap, pll->offset + REGERA_PLL_OPMODE, REGERA_PLL_OFF);
