@@ -135,6 +135,7 @@ struct cam_ctx_ops {
 /**
  * struct cam_context - camera context object for the subdevice node
  *
+ * @dev_name:              String giving name of device associated
  * @list:                  Link list entry
  * @sessoin_hdl:           Session handle
  * @dev_hdl:               Device handle
@@ -158,6 +159,7 @@ struct cam_ctx_ops {
  *
  */
 struct cam_context {
+	const char                  *dev_name;
 	struct list_head             list;
 	int32_t                      session_hdl;
 	int32_t                      dev_hdl;
@@ -331,6 +333,7 @@ int cam_context_deinit(struct cam_context *ctx);
  * @brief:        Camera context initialize function
  *
  * @ctx:                   Object pointer for cam_context
+ * @dev_name:              String giving name of device associated
  * @crm_node_intf:         Function table for crm to context interface
  * @hw_mgr_intf:           Function table for context to hw interface
  * @req_list:              Requests storage
@@ -338,6 +341,7 @@ int cam_context_deinit(struct cam_context *ctx);
  *
  */
 int cam_context_init(struct cam_context *ctx,
+		const char *dev_name,
 		struct cam_req_mgr_kmd_ops *crm_node_intf,
 		struct cam_hw_mgr_intf *hw_mgr_intf,
 		struct cam_ctx_request *req_list,

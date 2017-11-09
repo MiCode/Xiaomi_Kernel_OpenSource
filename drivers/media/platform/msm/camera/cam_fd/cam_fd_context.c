@@ -17,6 +17,8 @@
 #include "cam_fd_context.h"
 #include "cam_trace.h"
 
+static const char fd_dev_name[] = "fd";
+
 /* Functions in Available state */
 static int __cam_fd_ctx_acquire_dev_in_available(struct cam_context *ctx,
 	struct cam_acquire_dev_cmd *cmd)
@@ -208,8 +210,8 @@ int cam_fd_context_init(struct cam_fd_context *fd_ctx,
 
 	memset(fd_ctx, 0, sizeof(*fd_ctx));
 
-	rc = cam_context_init(base_ctx, NULL, hw_intf, fd_ctx->req_base,
-		CAM_CTX_REQ_MAX);
+	rc = cam_context_init(base_ctx, fd_dev_name, NULL, hw_intf,
+		fd_ctx->req_base, CAM_CTX_REQ_MAX);
 	if (rc) {
 		CAM_ERR(CAM_FD, "Camera Context Base init failed, rc=%d", rc);
 		return rc;

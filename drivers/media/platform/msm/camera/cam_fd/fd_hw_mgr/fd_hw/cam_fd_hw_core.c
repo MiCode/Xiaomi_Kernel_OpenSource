@@ -686,8 +686,6 @@ cdm_streamon:
 	fd_hw->open_count++;
 	CAM_DBG(CAM_FD, "FD HW Init ref count after %d", fd_hw->open_count);
 
-	mutex_unlock(&fd_hw->hw_mutex);
-
 	if (init_args->ctx_hw_private) {
 		struct cam_fd_ctx_hw_private *ctx_hw_private =
 			init_args->ctx_hw_private;
@@ -696,9 +694,13 @@ cdm_streamon:
 		if (rc) {
 			CAM_ERR(CAM_FD, "CDM StreamOn fail :handle=0x%x, rc=%d",
 				ctx_hw_private->cdm_handle, rc);
-			return rc;
+			fd_hw->open_count--;
+			if (!fd_hw->open_count)
+				goto disable_soc;
 		}
 	}
+
+	mutex_unlock(&fd_hw->hw_mutex);
 
 	return rc;
 

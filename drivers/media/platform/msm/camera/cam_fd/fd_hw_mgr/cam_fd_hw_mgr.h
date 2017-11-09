@@ -80,14 +80,18 @@ struct cam_fd_hw_mgr_ctx {
  * @num_ctxts        : Number of context currently running on this device
  * @valid            : Whether this device is valid
  * @lock             : Lock used for protectin
+ * @cur_hw_ctx       : current hw context running in the device
+ * @req_id           : current processing req id
  */
 struct cam_fd_device {
-	struct cam_fd_hw_caps    hw_caps;
-	struct cam_hw_intf      *hw_intf;
-	bool                     ready_to_process;
-	uint32_t                 num_ctxts;
-	bool                     valid;
-	struct mutex             lock;
+	struct cam_fd_hw_caps     hw_caps;
+	struct cam_hw_intf       *hw_intf;
+	bool                      ready_to_process;
+	uint32_t                  num_ctxts;
+	bool                      valid;
+	struct mutex              lock;
+	struct cam_fd_hw_mgr_ctx *cur_hw_ctx;
+	int64_t                   req_id;
 };
 
 /**

@@ -343,15 +343,19 @@ int cam_sync_destroy(int32_t sync_obj)
 	if (sync_obj >= CAM_SYNC_MAX_OBJS || sync_obj <= 0)
 		return -EINVAL;
 
+	spin_lock_bh(&sync_dev->row_spinlocks[sync_obj]);
 	row = sync_dev->sync_table + sync_obj;
 	if (row->state == CAM_SYNC_STATE_INVALID) {
 		CAM_ERR(CAM_SYNC,
 			"Error: accessing an uninitialized sync obj: idx = %d",
 			sync_obj);
+		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
 		return -EINVAL;
 	}
 
 	cam_sync_deinit_object(sync_dev->sync_table, sync_obj);
+	spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
+
 	return 0;
 }
 

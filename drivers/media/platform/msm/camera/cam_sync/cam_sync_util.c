@@ -205,7 +205,6 @@ int cam_sync_deinit_object(struct sync_table_row *table, uint32_t idx)
 	if (!table || idx <= 0 || idx >= CAM_SYNC_MAX_OBJS)
 		return -EINVAL;
 
-	spin_lock_bh(&sync_dev->row_spinlocks[idx]);
 	clear_bit(idx, sync_dev->bitmap);
 	list_for_each_entry_safe(child_info, temp_child,
 				&row->children_list, list) {
@@ -233,7 +232,6 @@ int cam_sync_deinit_object(struct sync_table_row *table, uint32_t idx)
 
 	row->state = CAM_SYNC_STATE_INVALID;
 	memset(row, 0, sizeof(*row));
-	spin_unlock_bh(&sync_dev->row_spinlocks[idx]);
 
 	return 0;
 }
@@ -244,11 +242,14 @@ void cam_sync_util_cb_dispatch(struct work_struct *cb_dispatch_work)
 		struct sync_callback_info,
 		cb_dispatch_work);
 
+	spin_lock_bh(&sync_dev->row_spinlocks[cb_info->sync_obj]);
+	list_del_init(&cb_info->list);
+	spin_unlock_bh(&sync_dev->row_spinlocks[cb_info->sync_obj]);
+
 	cb_info->callback_func(cb_info->sync_obj,
 		cb_info->status,
 		cb_info->cb_data);
 
-	list_del_init(&cb_info->list);
 	kfree(cb_info);
 }
 

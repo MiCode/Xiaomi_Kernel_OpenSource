@@ -196,6 +196,92 @@ int cam_soc_util_set_clk_rate(struct clk *clk, const char *clk_name,
 	return rc;
 }
 
+int cam_soc_util_clk_put(struct clk **clk)
+{
+	if (!(*clk)) {
+		CAM_ERR(CAM_UTIL, "Invalid params clk");
+		return -EINVAL;
+	}
+
+	clk_put(*clk);
+	*clk = NULL;
+
+	return 0;
+}
+
+static struct clk *cam_soc_util_option_clk_get(struct device_node *np,
+	int index)
+{
+	struct of_phandle_args clkspec;
+	struct clk *clk;
+	int rc;
+
+	if (index < 0)
+		return ERR_PTR(-EINVAL);
+
+	rc = of_parse_phandle_with_args(np, "clocks-option", "#clock-cells",
+		index, &clkspec);
+	if (rc)
+		return ERR_PTR(rc);
+
+	clk = of_clk_get_from_provider(&clkspec);
+	of_node_put(clkspec.np);
+
+	return clk;
+}
+
+int cam_soc_util_get_option_clk_by_name(struct cam_hw_soc_info *soc_info,
+	const char *clk_name, struct clk **clk, int32_t *clk_index,
+	int32_t *clk_rate)
+{
+	int index = 0;
+	int rc = 0;
+	struct device_node *of_node = NULL;
+
+	if (!soc_info || !clk_name || !clk) {
+		CAM_ERR(CAM_UTIL,
+			"Invalid params soc_info %pK clk_name %s clk %pK",
+			soc_info, clk_name, clk);
+		return -EINVAL;
+	}
+
+	of_node = soc_info->dev->of_node;
+
+	index = of_property_match_string(of_node, "clock-names-option",
+		clk_name);
+
+	*clk = cam_soc_util_option_clk_get(of_node, index);
+	if (IS_ERR(*clk)) {
+		CAM_ERR(CAM_UTIL, "No clk named %s found. Dev %s", clk_name,
+			soc_info->dev_name);
+		*clk_index = -1;
+		return -EFAULT;
+	}
+	*clk_index = index;
+
+	rc = of_property_read_u32_index(of_node, "clock-rates-option",
+		index, clk_rate);
+	if (rc) {
+		CAM_ERR(CAM_UTIL,
+			"Error reading clock-rates clk_name %s index %d",
+			clk_name, index);
+		cam_soc_util_clk_put(clk);
+		*clk_rate = 0;
+		return rc;
+	}
+
+	/*
+	 * Option clocks are assumed to be available to single Device here.
+	 * Hence use INIT_RATE instead of NO_SET_RATE.
+	 */
+	*clk_rate = (*clk_rate == 0) ? (int32_t)INIT_RATE : *clk_rate;
+
+	CAM_DBG(CAM_UTIL, "clk_name %s index %d clk_rate %d",
+		clk_name, *clk_index, *clk_rate);
+
+	return 0;
+}
+
 int cam_soc_util_clk_enable(struct clk *clk, const char *clk_name,
 	int32_t clk_rate)
 {
@@ -407,7 +493,7 @@ static int cam_soc_util_get_dt_clk_info(struct cam_hw_soc_info *soc_info)
 
 			soc_info->clk_rate[level][j] =
 				(soc_info->clk_rate[level][j] == 0) ?
-				(long)NO_SET_RATE :
+				(int32_t)NO_SET_RATE :
 				soc_info->clk_rate[level][j];
 
 			CAM_DBG(CAM_UTIL, "soc_info->clk_rate[%d][%d] = %d",
