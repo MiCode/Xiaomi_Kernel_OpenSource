@@ -34,6 +34,11 @@
 	qcom,fg-bmd-en-delay-ms = <300>;
 };
 
+&pmi8998_charger {
+	qcom,battery-data = <&qvr_batterydata>;
+	qcom,sw-jeita-enable;
+};
+
 &qupv3_se10_i2c {
 	status = "ok";
 };
