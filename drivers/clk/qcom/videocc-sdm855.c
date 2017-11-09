@@ -248,6 +248,7 @@ MODULE_DEVICE_TABLE(of, video_cc_sdm855_match_table);
 static int video_cc_sdm855_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
+	struct clk *clk;
 	int ret;
 
 	regmap = qcom_cc_map(pdev, &video_cc_sdm855_desc);
@@ -255,6 +256,14 @@ static int video_cc_sdm855_probe(struct platform_device *pdev)
 		pr_err("Failed to map the Video CC registers\n");
 		return PTR_ERR(regmap);
 	}
+
+	clk = devm_clk_get(&pdev->dev, "cfg_ahb_clk");
+	if (IS_ERR(clk)) {
+		if (PTR_ERR(clk) != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "Unable to get ahb clock handle\n");
+		return PTR_ERR(clk);
+	}
+	devm_clk_put(&pdev->dev, clk);
 
 	vdd_mm.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_mm");
 	if (IS_ERR(vdd_mm.regulator[0])) {

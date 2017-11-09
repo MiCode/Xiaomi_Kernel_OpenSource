@@ -2265,6 +2265,7 @@ MODULE_DEVICE_TABLE(of, cam_cc_sdm855_match_table);
 static int cam_cc_sdm855_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
+	struct clk *clk;
 	int ret = 0;
 
 	regmap = qcom_cc_map(pdev, &cam_cc_sdm855_desc);
@@ -2272,6 +2273,14 @@ static int cam_cc_sdm855_probe(struct platform_device *pdev)
 		pr_err("Failed to map the cam CC registers\n");
 		return PTR_ERR(regmap);
 	}
+
+	clk = devm_clk_get(&pdev->dev, "cfg_ahb_clk");
+	if (IS_ERR(clk)) {
+		if (PTR_ERR(clk) != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "Unable to get ahb clock handle\n");
+		return PTR_ERR(clk);
+	}
+	devm_clk_put(&pdev->dev, clk);
 
 	vdd_mx.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_mx");
 	if (IS_ERR(vdd_mx.regulator[0])) {
