@@ -999,6 +999,8 @@ int diag_process_apps_pkt(unsigned char *buf, int len,
 	struct diag_cmd_reg_entry_t entry;
 	struct diag_cmd_reg_entry_t *temp_entry = NULL;
 	struct diag_cmd_reg_t *reg_item = NULL;
+	struct diagfwd_info *fwd_info = NULL;
+	uint32_t pd_mask = 0;
 
 	if (!buf)
 		return -EIO;
@@ -1036,12 +1038,13 @@ int diag_process_apps_pkt(unsigned char *buf, int len,
 	temp_entry = diag_cmd_search(&entry, ALL_PROC);
 	if (temp_entry) {
 		reg_item = container_of(temp_entry, struct diag_cmd_reg_t,
-								entry);
+					entry);
 		if (info) {
+			MD_PERIPHERAL_PD_MASK(TYPE_CMD, reg_item->proc,
+				pd_mask);
 			if ((MD_PERIPHERAL_MASK(reg_item->proc) &
 				info->peripheral_mask) ||
-				(MD_PERIPHERAL_PD_MASK(reg_item->proc) &
-				info->peripheral_mask))
+				(pd_mask & info->peripheral_mask))
 				write_len = diag_send_data(reg_item, buf, len);
 		} else {
 			if (MD_PERIPHERAL_MASK(reg_item->proc) &
