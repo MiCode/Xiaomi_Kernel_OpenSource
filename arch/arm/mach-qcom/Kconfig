@@ -163,5 +163,17 @@ config ARCH_MSM8953
 	select COMMON_CLK
 	select COMMON_CLK_QCOM
 	select QCOM_GDSC
+
+config ARCH_SDM450
+	bool "Enable support for SDM450"
+	select CPU_V7
+	select HAVE_ARM_ARCH_TIMER
+	select PINCTRL
+	select QCOM_SCM if SMP
+	select PM_DEVFREQ
+	select COMMON_CLK
+	select COMMON_CLK_QCOM
+	select QCOM_GDSC
+
 endmenu
 endif
