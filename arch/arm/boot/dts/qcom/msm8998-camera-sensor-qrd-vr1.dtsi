@@ -216,6 +216,55 @@
 		qcom,clock-rates = <24000000 0>;
 	};
 
+	eeprom3: qcom,eeprom@3 {
+		cell-index = <3>;
+		reg = <0x3>;
+		compatible = "qcom,eeprom";
+		cam_vio-supply = <&pm8998_lvs1>;
+		qcom,cam-vreg-name = "cam_vio";
+		qcom,cam-vreg-min-voltage = <1800000>;
+		qcom,cam-vreg-max-voltage = <1800000>;
+		qcom,cam-vreg-op-mode = <80000>;
+		qcom,gpio-no-mux = <0>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_sensor_mclk3_active
+			&cam_sensor_depth_v1_active
+			&cam_sensor_depth_v2_active
+			&cam_sensor_depth_default>;
+		pinctrl-1 = <&cam_sensor_mclk3_suspend
+			&cam_sensor_depth_v1_sleep
+			&cam_sensor_depth_v2_sleep
+			&cam_sensor_depth_sleep>;
+		gpios = <&tlmm 16 0>,
+			<&tlmm 24 0>,
+			<&tlmm 21 0>,
+			<&tlmm 28 0>,
+			<&tlmm 23 0>,
+			<&tlmm 7 0>;
+		qcom,gpio-vana = <1>;
+		qcom,gpio-custom2 = <2>;
+		qcom,gpio-reset = <3>;
+		qcom,gpio-custom3 = <4>;
+		qcom,gpio-custom1 = <5>;
+		qcom,gpio-req-tbl-num = <0 1 2 3 4 5>;
+		qcom,gpio-req-tbl-flags = <1 0 0 0 1 1>;
+		qcom,gpio-req-tbl-label =
+			"CAMIF_MCLK3",
+			"CAM_VANA",
+			"CAM_CUSTOM2",
+			"CAM_RESET1",
+			"CAM_CUSTOM3",
+			"CAM_CUSTOM1";
+		qcom,sensor-position = <1>; /* 0 rear */
+		qcom,sensor-mode = <0>;
+		qcom,cci-master = <1>; /* I2C 1 */
+		status = "ok";
+		clocks = <&clock_mmss clk_mclk3_clk_src>,
+			<&clock_mmss clk_mmss_camss_mclk3_clk>;
+		clock-names = "cam_src_clk", "cam_clk";
+		qcom,clock-rates = <24000000 0>;
+	};
+
 	qcom,camera@0 {
 		cell-index = <0>;
 		compatible = "qcom,camera";
@@ -354,6 +403,7 @@
 		qcom,csiphy-sd-index = <1>;
 		qcom,csid-sd-index = <3>;
 		qcom,mount-angle = <90>;
+		qcom,eeprom-src = <&eeprom3>;
 		cam_vio-supply = <&pm8998_lvs1>;
 		qcom,cam-vreg-name = "cam_vio";
 		qcom,cam-vreg-min-voltage = <1800000>;
