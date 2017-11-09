@@ -1190,26 +1190,9 @@ static void cnss_qca6290_crash_shutdown(struct cnss_plat_data *plat_priv)
 	cnss_pci_collect_dump_info(pci_priv);
 }
 
-static int cnss_powerup(const struct subsys_desc *subsys_desc)
+static int cnss_powerup(struct cnss_plat_data *plat_priv)
 {
-	int ret = 0;
-	struct cnss_plat_data *plat_priv;
-
-	if (!subsys_desc->dev) {
-		cnss_pr_err("dev from subsys_desc is NULL\n");
-		return -ENODEV;
-	}
-
-	plat_priv = dev_get_drvdata(subsys_desc->dev);
-	if (!plat_priv) {
-		cnss_pr_err("plat_priv is NULL!\n");
-		return -ENODEV;
-	}
-
-	if (!plat_priv->driver_state) {
-		cnss_pr_dbg("Powerup is ignored.\n");
-		return 0;
-	}
+	int ret;
 
 	switch (plat_priv->device_id) {
 	case QCA6174_DEVICE_ID:
@@ -1228,21 +1211,9 @@ static int cnss_powerup(const struct subsys_desc *subsys_desc)
 	return ret;
 }
 
-static int cnss_shutdown(const struct subsys_desc *subsys_desc, bool force_stop)
+static int cnss_shutdown(struct cnss_plat_data *plat_priv)
 {
-	int ret = 0;
-	struct cnss_plat_data *plat_priv;
-
-	if (!subsys_desc->dev) {
-		cnss_pr_err("dev from subsys_desc is NULL\n");
-		return -ENODEV;
-	}
-
-	plat_priv = dev_get_drvdata(subsys_desc->dev);
-	if (!plat_priv) {
-		cnss_pr_err("plat_priv is NULL!\n");
-		return -ENODEV;
-	}
+	int ret;
 
 	switch (plat_priv->device_id) {
 	case QCA6174_DEVICE_ID:
@@ -1259,6 +1230,53 @@ static int cnss_shutdown(const struct subsys_desc *subsys_desc, bool force_stop)
 	}
 
 	return ret;
+}
+
+static int cnss_subsys_powerup(const struct subsys_desc *subsys_desc)
+{
+	struct cnss_plat_data *plat_priv;
+
+	if (!subsys_desc->dev) {
+		cnss_pr_err("dev from subsys_desc is NULL\n");
+		return -ENODEV;
+	}
+
+	plat_priv = dev_get_drvdata(subsys_desc->dev);
+	if (!plat_priv) {
+		cnss_pr_err("plat_priv is NULL\n");
+		return -ENODEV;
+	}
+
+	if (!plat_priv->driver_state) {
+		cnss_pr_dbg("Powerup is ignored\n");
+		return 0;
+	}
+
+	return cnss_powerup(plat_priv);
+}
+
+static int cnss_subsys_shutdown(const struct subsys_desc *subsys_desc,
+				bool force_stop)
+{
+	struct cnss_plat_data *plat_priv;
+
+	if (!subsys_desc->dev) {
+		cnss_pr_err("dev from subsys_desc is NULL\n");
+		return -ENODEV;
+	}
+
+	plat_priv = dev_get_drvdata(subsys_desc->dev);
+	if (!plat_priv) {
+		cnss_pr_err("plat_priv is NULL\n");
+		return -ENODEV;
+	}
+
+	if (!plat_priv->driver_state) {
+		cnss_pr_dbg("shutdown is ignored\n");
+		return 0;
+	}
+
+	return cnss_shutdown(plat_priv);
 }
 
 static int cnss_qca6290_ramdump(struct cnss_plat_data *plat_priv)
@@ -1316,7 +1334,8 @@ static int cnss_qca6174_ramdump(struct cnss_plat_data *plat_priv)
 	return ret;
 }
 
-static int cnss_ramdump(int enable, const struct subsys_desc *subsys_desc)
+static int cnss_subsys_ramdump(int enable,
+			       const struct subsys_desc *subsys_desc)
 {
 	int ret = 0;
 	struct cnss_plat_data *plat_priv = dev_get_drvdata(subsys_desc->dev);
@@ -1378,7 +1397,7 @@ void cnss_device_crashed(struct device *dev)
 }
 EXPORT_SYMBOL(cnss_device_crashed);
 
-static void cnss_crash_shutdown(const struct subsys_desc *subsys_desc)
+static void cnss_subsys_crash_shutdown(const struct subsys_desc *subsys_desc)
 {
 	struct cnss_plat_data *plat_priv = dev_get_drvdata(subsys_desc->dev);
 
@@ -1467,8 +1486,8 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 	return 0;
 
 self_recovery:
-	cnss_shutdown(&subsys_info->subsys_desc, false);
-	cnss_powerup(&subsys_info->subsys_desc);
+	cnss_shutdown(plat_priv);
+	cnss_powerup(plat_priv);
 
 	return 0;
 }
@@ -1617,12 +1636,11 @@ static int cnss_register_driver_hdlr(struct cnss_plat_data *plat_priv,
 				     void *data)
 {
 	int ret = 0;
-	struct cnss_subsys_info *subsys_info = &plat_priv->subsys_info;
 
 	set_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state);
 	plat_priv->driver_ops = data;
 
-	ret = cnss_powerup(&subsys_info->subsys_desc);
+	ret = cnss_powerup(plat_priv);
 	if (ret) {
 		clear_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state);
 		plat_priv->driver_ops = NULL;
@@ -1633,10 +1651,8 @@ static int cnss_register_driver_hdlr(struct cnss_plat_data *plat_priv,
 
 static int cnss_unregister_driver_hdlr(struct cnss_plat_data *plat_priv)
 {
-	struct cnss_subsys_info *subsys_info = &plat_priv->subsys_info;
-
 	set_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state);
-	cnss_shutdown(&subsys_info->subsys_desc, false);
+	cnss_shutdown(plat_priv);
 	plat_priv->driver_ops = NULL;
 
 	return 0;
@@ -1645,10 +1661,9 @@ static int cnss_unregister_driver_hdlr(struct cnss_plat_data *plat_priv)
 static int cnss_cold_boot_cal_start_hdlr(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
-	struct cnss_subsys_info *subsys_info = &plat_priv->subsys_info;
 
 	set_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state);
-	ret = cnss_powerup(&subsys_info->subsys_desc);
+	ret = cnss_powerup(plat_priv);
 	if (ret)
 		clear_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state);
 
@@ -1657,10 +1672,8 @@ static int cnss_cold_boot_cal_start_hdlr(struct cnss_plat_data *plat_priv)
 
 static int cnss_cold_boot_cal_done_hdlr(struct cnss_plat_data *plat_priv)
 {
-	struct cnss_subsys_info *subsys_info = &plat_priv->subsys_info;
-
 	cnss_wlfw_wlan_mode_send_sync(plat_priv, QMI_WLFW_OFF_V01);
-	cnss_shutdown(&subsys_info->subsys_desc, false);
+	cnss_shutdown(plat_priv);
 	clear_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state);
 
 	return 0;
@@ -1668,16 +1681,12 @@ static int cnss_cold_boot_cal_done_hdlr(struct cnss_plat_data *plat_priv)
 
 static int cnss_power_up_hdlr(struct cnss_plat_data *plat_priv)
 {
-	struct cnss_subsys_info *subsys_info = &plat_priv->subsys_info;
-
-	return cnss_powerup(&subsys_info->subsys_desc);
+	return cnss_powerup(plat_priv);
 }
 
 static int cnss_power_down_hdlr(struct cnss_plat_data *plat_priv)
 {
-	struct cnss_subsys_info *subsys_info = &plat_priv->subsys_info;
-
-	cnss_shutdown(&subsys_info->subsys_desc, false);
+	cnss_shutdown(plat_priv);
 
 	return 0;
 }
@@ -1802,10 +1811,10 @@ int cnss_register_subsys(struct cnss_plat_data *plat_priv)
 	}
 
 	subsys_info->subsys_desc.owner = THIS_MODULE;
-	subsys_info->subsys_desc.powerup = cnss_powerup;
-	subsys_info->subsys_desc.shutdown = cnss_shutdown;
-	subsys_info->subsys_desc.ramdump = cnss_ramdump;
-	subsys_info->subsys_desc.crash_shutdown = cnss_crash_shutdown;
+	subsys_info->subsys_desc.powerup = cnss_subsys_powerup;
+	subsys_info->subsys_desc.shutdown = cnss_subsys_shutdown;
+	subsys_info->subsys_desc.ramdump = cnss_subsys_ramdump;
+	subsys_info->subsys_desc.crash_shutdown = cnss_subsys_crash_shutdown;
 	subsys_info->subsys_desc.dev = &plat_priv->plat_dev->dev;
 
 	subsys_info->subsys_device = subsys_register(&subsys_info->subsys_desc);
