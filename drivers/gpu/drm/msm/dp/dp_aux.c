@@ -345,17 +345,19 @@ static void dp_aux_transfer_helper(struct dp_aux_private *aux,
 	aux->no_send_stop = true;
 
 	/*
-	 * Send the segment address for every i2c read in which the
-	 * middle-of-tranaction flag is set. This is required to support EDID
-	 * reads of more than 2 blocks as the segment address is reset to 0
+	 * Send the segment address for i2c reads for segment > 0 and for which
+	 * the middle-of-transaction flag is set. This is required to support
+	 * EDID reads of more than 2 blocks as the segment address is reset to 0
 	 * since we are overriding the middle-of-transaction flag for read
 	 * transactions.
 	 */
-	memset(&helper_msg, 0, sizeof(helper_msg));
-	helper_msg.address = segment_address;
-	helper_msg.buffer = &aux->segment;
-	helper_msg.size = 1;
-	dp_aux_cmd_fifo_tx(aux, &helper_msg);
+	if (aux->segment) {
+		memset(&helper_msg, 0, sizeof(helper_msg));
+		helper_msg.address = segment_address;
+		helper_msg.buffer = &aux->segment;
+		helper_msg.size = 1;
+		dp_aux_cmd_fifo_tx(aux, &helper_msg);
+	}
 
 	/*
 	 * Send the offset address for every i2c read in which the
