@@ -1134,6 +1134,8 @@
 		qcom,gpii-mask = <0xfa>;
 		qcom,ev-factor = <2>;
 		iommus = <&apps_smmu 0x0016 0x0>;
+		qcom,smmu-cfg = <0x1>;
+		qcom,iova-range = <0x0 0x100000 0x0 0x100000>;
 		status = "ok";
 	};
 
@@ -1149,6 +1151,8 @@
 		qcom,max-num-gpii = <13>;
 		qcom,gpii-mask = <0xfa>;
 		qcom,ev-factor = <2>;
+		qcom,smmu-cfg = <0x1>;
+		qcom,iova-range = <0x0 0x100000 0x0 0x100000>;
 		iommus = <&apps_smmu 0x06d6 0x0>;
 		status = "ok";
 	};
