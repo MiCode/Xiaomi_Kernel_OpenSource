@@ -12,6 +12,20 @@
 
 #include "msm8996v3-auto.dtsi"
 
+/ {
+	firmware: firmware {
+		android {
+			fstab {
+				/delete-node/ system;
+				vendor {
+					fsmgr_flags = "wait,slotselect,verify";
+					status = "ok";
+				};
+			};
+		};
+	};
+};
+
 &gfx_vreg {
 	qcom,cpr-fuse-combos = <24>;
 	qcom,cpr-speed-bins = <3>;
