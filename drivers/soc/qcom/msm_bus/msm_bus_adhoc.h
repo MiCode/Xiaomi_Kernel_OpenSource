@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,9 +50,12 @@ struct nodebw {
 	uint64_t sum_ab;
 	uint64_t last_sum_ab;
 	uint64_t max_ib;
+	uint64_t max_ab;
 	uint64_t cur_clk_hz;
 	uint32_t util_used;
 	uint32_t vrail_used;
+	const char *max_ab_cl_name;
+	const char *max_ib_cl_name;
 };
 
 struct msm_bus_fab_device_type {
