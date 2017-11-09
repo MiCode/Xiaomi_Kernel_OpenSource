@@ -1971,7 +1971,7 @@
 		compatible = "qcom,coresight-remote-etm";
 
 		coresight-name = "coresight-audio-etm0";
-		qcom,inst-id = <2>;
+		qcom,inst-id = <5>;
 
 		port {
 			audio_etm0_out_funnel_in1: endpoint {
