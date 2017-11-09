@@ -2135,6 +2135,7 @@
 		qcom,firmware-name = "modem";
 		qcom,pil-self-auth;
 		qcom,sysmon-id = <0>;
+		qcom,minidump-id = <3>;
 		qcom,ssctl-instance-id = <0x12>;
 		qcom,override-acc;
 		qcom,signal-aop;
