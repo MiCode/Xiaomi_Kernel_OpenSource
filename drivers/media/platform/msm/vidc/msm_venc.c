@@ -675,7 +675,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "Extradata Type",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDC_EXTRADATA_NONE,
-		.maximum = V4L2_MPEG_VIDC_EXTRADATA_PQ_INFO,
+		.maximum = V4L2_MPEG_VIDC_EXTRADATA_ROI_QP,
 		.default_value = V4L2_MPEG_VIDC_EXTRADATA_NONE,
 		.menu_skip_mask = ~(
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_NONE) |
@@ -695,8 +695,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_LTR) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_METADATA_MBI) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_YUV_STATS)|
-			(1 << V4L2_MPEG_VIDC_EXTRADATA_ROI_QP) |
-			(1 << V4L2_MPEG_VIDC_EXTRADATA_PQ_INFO)
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_ROI_QP)
 			),
 		.qmenu = mpeg_video_vidc_extradata,
 	},
