@@ -159,6 +159,8 @@ struct sdhci_msm_pltfm_data {
 	u32 ice_clk_min;
 	u32 ddr_config;
 	bool rclk_wa;
+	u32 *bus_clk_table;
+	unsigned char bus_clk_cnt;
 };
 
 struct sdhci_msm_bus_vote {
