@@ -153,12 +153,16 @@ static struct usb_descriptor_header *qdss_ss_data_only_desc[] = {
 };
 
 /* string descriptors: */
-#define QDSS_DATA_IDX	0
-#define QDSS_CTRL_IDX	1
+#define MSM_QDSS_DATA_IDX	0
+#define MSM_QDSS_CTRL_IDX	1
+#define MDM_QDSS_DATA_IDX	2
+#define MDM_QDSS_CTRL_IDX	3
 
 static struct usb_string qdss_string_defs[] = {
-	[QDSS_DATA_IDX].s = "QDSS DATA",
-	[QDSS_CTRL_IDX].s = "QDSS CTRL",
+	[MSM_QDSS_DATA_IDX].s = "MSM QDSS Data",
+	[MSM_QDSS_CTRL_IDX].s = "MSM QDSS Control",
+	[MDM_QDSS_DATA_IDX].s = "MDM QDSS Data",
+	[MDM_QDSS_CTRL_IDX].s = "MDM QDSS Control",
 	{}, /* end of list */
 };
 
@@ -374,7 +378,7 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 	struct usb_gadget *gadget = c->cdev->gadget;
 	struct f_qdss *qdss = func_to_qdss(f);
 	struct usb_ep *ep;
-	int iface, id;
+	int iface, id, str_data_id, str_ctrl_id;
 
 	pr_debug("qdss_bind\n");
 
@@ -395,7 +399,15 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 	id = usb_string_id(c->cdev);
 	if (id < 0)
 		return id;
-	qdss_string_defs[QDSS_DATA_IDX].id = id;
+
+	str_data_id = MSM_QDSS_DATA_IDX;
+	str_ctrl_id = MSM_QDSS_CTRL_IDX;
+	if (!strcmp(qdss->ch.name, USB_QDSS_CH_MDM)) {
+		str_data_id = MDM_QDSS_DATA_IDX;
+		str_ctrl_id = MDM_QDSS_CTRL_IDX;
+	}
+
+	qdss_string_defs[str_data_id].id = id;
 	qdss_data_intf_desc.iInterface = id;
 
 	if (qdss->debug_inface_enabled) {
@@ -410,7 +422,7 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 		id = usb_string_id(c->cdev);
 		if (id < 0)
 			return id;
-		qdss_string_defs[QDSS_CTRL_IDX].id = id;
+		qdss_string_defs[str_ctrl_id].id = id;
 		qdss_ctrl_intf_desc.iInterface = id;
 	}
 
