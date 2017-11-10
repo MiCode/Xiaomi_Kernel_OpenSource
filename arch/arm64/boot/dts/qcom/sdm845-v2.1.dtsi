@@ -25,3 +25,7 @@
 &clock_gcc {
 	compatible = "qcom,gcc-sdm845-v2.1", "syscon";
 };
+
+&apps_smmu {
+	/delete-property/ qcom,no-asid-retention;
+};

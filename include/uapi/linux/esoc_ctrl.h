@@ -9,6 +9,7 @@
 #define ESOC_WAIT_FOR_REQ	_IOR(ESOC_CODE, 2, unsigned int)
 #define ESOC_NOTIFY		_IOW(ESOC_CODE, 3, unsigned int)
 #define ESOC_GET_STATUS		_IOR(ESOC_CODE, 4, unsigned int)
+#define ESOC_GET_ERR_FATAL	_IOR(ESOC_CODE, 5, unsigned int)
 #define ESOC_WAIT_FOR_CRASH	_IOR(ESOC_CODE, 6, unsigned int)
 #define ESOC_REG_REQ_ENG	_IO(ESOC_CODE, 7)
 #define ESOC_REG_CMD_ENG	_IO(ESOC_CODE, 8)
@@ -17,6 +18,7 @@
 #define HSIC		"HSIC"
 #define HSICPCIe	"HSIC+PCIe"
 #define PCIe		"PCIe"
+#define ESOC_REQ_SEND_SHUTDOWN	ESOC_REQ_SEND_SHUTDOWN
 
 enum esoc_evt {
 	ESOC_RUN_STATE = 0x1,
@@ -57,6 +59,7 @@ enum esoc_req {
 	ESOC_REQ_IMG = 1,
 	ESOC_REQ_DEBUG,
 	ESOC_REQ_SHUTDOWN,
+	ESOC_REQ_SEND_SHUTDOWN,
 };
 
 #ifdef __KERNEL__

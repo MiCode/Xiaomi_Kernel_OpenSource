@@ -27,12 +27,14 @@
  * @SDE_ROTATOR_INLINE_CMD_COMMIT: commit command to hardware
  * @SDE_ROTATOR_INLINE_CMD_START: ready to start inline rotation
  * @SDE_ROTATOR_INLINE_CMD_CLEANUP: cleanup after commit is done
+ * @SDE_ROTATOR_INLINE_CMD_ABORT: abort current commit and reset
  */
 enum sde_rotator_inline_cmd_type {
 	SDE_ROTATOR_INLINE_CMD_VALIDATE,
 	SDE_ROTATOR_INLINE_CMD_COMMIT,
 	SDE_ROTATOR_INLINE_CMD_START,
 	SDE_ROTATOR_INLINE_CMD_CLEANUP,
+	SDE_ROTATOR_INLINE_CMD_ABORT,
 };
 
 /**

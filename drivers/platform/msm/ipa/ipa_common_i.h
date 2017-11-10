@@ -145,9 +145,6 @@ struct ipa_mem_buffer {
 	u32 size;
 };
 
-#define IPA_MHI_GSI_ER_START 10
-#define IPA_MHI_GSI_ER_END 16
-
 /**
  * enum ipa3_mhi_burst_mode - MHI channel burst mode state
  *

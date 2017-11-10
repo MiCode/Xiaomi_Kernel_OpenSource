@@ -347,23 +347,14 @@
 		CPU_COST_0: core-cost0 {
 			busy-cost-data = <
 				 300000    14
-				 403200    18
-				 480000    21
 				 576000    25
-				 652800    27
 				 748800    31
-				 825600    40
-				 902400    43
-				 979200    46
-				1056000    50
-				1132800    53
-				1228800    57
+				 998400    46
+				1209600    57
 				1324800    84
-				1420800    90
 				1516800    96
 				1612800   114
-				1689600   135
-				1766400   141
+				1708000   139
 			>;
 			idle-cost-data = <
 				12 10 8 6
@@ -372,32 +363,23 @@
 		CPU_COST_1: core-cost1 {
 			busy-cost-data = <
 				 300000    256
-				 403200    271
-				 480000    282
-				 576000    296
 				 652800    307
-				 748800    321
 				 825600    332
-				 902400    369
 				 979200    382
-				1056000    395
 				1132800    408
-				1209600    421
-				1286400    434
 				1363200    448
-				1459200    567
-				1536000    586
-				1612800    604
-				1689600    622
-				1766400    641
+				1563000    586
+				1747200    641
 				1843200    659
-				1920000    678
 				1996800    696
-				2092800    876
+				2054400    876
 				2169600    900
-				2246400    924
-				2323200    948
+				2208000    924
+				2361600    948
 				2400000   1170
+				2457600   1200
+				2515200   1300
+				2611200   1400
 			>;
 			idle-cost-data = <
 				100 80 60 40
@@ -406,23 +388,14 @@
 		CLUSTER_COST_0: cluster-cost0 {
 			busy-cost-data = <
 				 300000    5
-				 403200    7
-				 480000    7
 				 576000    7
-				 652800    8
 				 748800    8
-				 825600    9
-				 902400    9
-				 979200    9
-				1056000   10
-				1132800   10
-				1228800   10
+				 998400    9
+				1209600   10
 				1324800   13
-				1420800   14
 				1516800   15
 				1612800   16
-				1689600   19
-				1766400   19
+				1708000   19
 			>;
 			idle-cost-data = <
 				4 3 2 1
@@ -431,32 +404,23 @@
 		CLUSTER_COST_1: cluster-cost1 {
 			busy-cost-data = <
 				 300000    25
-				 403200    27
-				 480000    28
-				 576000    29
 				 652800    30
-				 748800    32
 				 825600    33
-				 902400    36
 				 979200    38
-				1056000    39
 				1132800    40
-				1209600    42
-				1286400    43
 				1363200    44
-				1459200    56
-				1536000    58
-				1612800    60
-				1689600    62
-				1766400    64
+				1563000    58
+				1747200    64
 				1843200    65
-				1920000    67
 				1996800    69
-				2092800    87
+				2054400    87
 				2169600    90
-				2246400    92
-				2323200    94
+				2208000    92
+				2361600    94
 				2400000   117
+				2457600   120
+				2515200   130
+				2611200   140
 			>;
 			idle-cost-data = <
 				4 3 2 1
@@ -489,7 +453,7 @@
 					dev = "/dev/block/platform/soc/1d84000.ufshc/by-name/vendor";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait,slotselect";
+					fsmgr_flags = "wait,slotselect,avb";
 				};
 			};
 		};
@@ -1620,7 +1584,8 @@
 		interrupts = <GIC_SPI 492 IRQ_TYPE_LEVEL_HIGH>;
 		reg = <0x88e0000 0x2000>;
 		reg-names = "eud_base";
-		status = "disabled";
+		clocks = <&clock_gcc GCC_USB_PHY_CFG_AHB2PHY_CLK>;
+		clock-names = "cfg_ahb_clk";
 	};
 
 	qcom,llcc@1100000 {
@@ -1892,7 +1857,6 @@
 		qcom,ipa-wdi2;
 		qcom,use-64-bit-dma-mask;
 		qcom,arm-smmu;
-		qcom,smmu-s1-bypass;
 		qcom,bandwidth-vote-for-ipa;
 		qcom,msm-bus,name = "ipa";
 		qcom,msm-bus,num-cases = <4>;
@@ -2009,17 +1973,20 @@
 
 		ipa_smmu_ap: ipa_smmu_ap {
 			compatible = "qcom,ipa-smmu-ap-cb";
+			qcom,smmu-s1-bypass;
 			iommus = <&apps_smmu 0x720 0x0>;
 			qcom,iova-mapping = <0x20000000 0x40000000>;
 		};
 
 		ipa_smmu_wlan: ipa_smmu_wlan {
 			compatible = "qcom,ipa-smmu-wlan-cb";
+			qcom,smmu-s1-bypass;
 			iommus = <&apps_smmu 0x721 0x0>;
 		};
 
 		ipa_smmu_uc: ipa_smmu_uc {
 			compatible = "qcom,ipa-smmu-uc-cb";
+			qcom,smmu-s1-bypass;
 			iommus = <&apps_smmu 0x722 0x0>;
 			qcom,iova-mapping = <0x40000000 0x20000000>;
 		};
@@ -2180,31 +2147,31 @@
 		qcom,msm-bus,num-paths = <2>;
 		qcom,msm-bus,vectors-KBps =
 			/* No vote */
-			<150 512 0 0>, <1 606 0 0>,
+			<150 512 0 0>, <1 782 0 0>,
 			/* 400 KB/s*/
 			<150 512 1046 1600>,
-			<1 606 1600 1600>,
+			<1 782 1600 1600>,
 			/* 20 MB/s */
 			<150 512 52286 80000>,
-			<1 606 80000 80000>,
+			<1 782 80000 80000>,
 			/* 25 MB/s */
 			<150 512 65360 100000>,
-			<1 606 100000 100000>,
+			<1 782 100000 100000>,
 			/* 50 MB/s */
 			<150 512 130718 200000>,
-			<1 606 133320 133320>,
+			<1 782 133320 133320>,
 			/* 100 MB/s */
 			<150 512 130718 200000>,
-			<1 606 150000 150000>,
+			<1 782 150000 150000>,
 			/* 200 MB/s */
 			<150 512 261438 400000>,
-			<1 606 300000 300000>,
+			<1 782 300000 300000>,
 			/* 400 MB/s */
 			<150 512 261438 400000>,
-			<1 606 300000 300000>,
+			<1 782 300000 300000>,
 			/* Max. bandwidth */
 			<150 512 1338562 4096000>,
-			<1 606 1338562 4096000>;
+			<1 782 1338562 4096000>;
 		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
 			100000000 200000000 400000000 4294967295>;
 
@@ -2503,8 +2470,8 @@
 			<  748800 MHZ_TO_MBPS( 300, 4) >,
 			<  998400 MHZ_TO_MBPS( 451, 4) >,
 			< 1209600 MHZ_TO_MBPS( 547, 4) >,
-			< 1497600 MHZ_TO_MBPS( 768, 4) >,
-			< 1728000 MHZ_TO_MBPS(1017, 4) >;
+			< 1516800 MHZ_TO_MBPS( 768, 4) >,
+			< 1708000 MHZ_TO_MBPS(1017, 4) >;
 	};
 
 	devfreq_memlat_6: qcom,cpu6-memlat-mon {
@@ -2513,11 +2480,11 @@
 		qcom,target-dev = <&memlat_cpu6>;
 		qcom,cachemiss-ev = <0x2a>;
 		qcom,core-dev-table =
-			<  787200 MHZ_TO_MBPS( 300, 4) >,
-			< 1113600 MHZ_TO_MBPS( 547, 4) >,
-			< 1344000 MHZ_TO_MBPS(1017, 4) >,
-			< 1900800 MHZ_TO_MBPS(1555, 4) >,
-			< 2438400 MHZ_TO_MBPS(1804, 4) >;
+			<  825600 MHZ_TO_MBPS( 300, 4) >,
+			< 1132800 MHZ_TO_MBPS( 547, 4) >,
+			< 1363200 MHZ_TO_MBPS(1017, 4) >,
+			< 1996800 MHZ_TO_MBPS(1555, 4) >,
+			< 2457600 MHZ_TO_MBPS(1804, 4) >;
 	};
 
 	l3_cpu0: qcom,l3-cpu0 {
@@ -2540,12 +2507,12 @@
 		qcom,target-dev = <&l3_cpu0>;
 		qcom,cachemiss-ev = <0x17>;
 		qcom,core-dev-table =
-			<  748800  566400000 >,
-			<  998400  787200000 >,
+			<  748800  556800000 >,
+			<  998400  806400000 >,
 			< 1209660  940800000 >,
-			< 1497600 1190400000 >,
+			< 1516800 1190400000 >,
 			< 1612800 1382400000 >,
-			< 1728000 1440000000 >;
+			< 1708000 1440000000 >;
 	};
 
 	devfreq_l3lat_6: qcom,cpu6-l3lat-mon {
@@ -2554,11 +2521,11 @@
 		qcom,target-dev = <&l3_cpu6>;
 		qcom,cachemiss-ev = <0x17>;
 		qcom,core-dev-table =
-			< 1113600  566400000 >,
-			< 1344000  787200000 >,
-			< 1728000  940800000 >,
-			< 1900800 1190400000 >,
-			< 2438400 1440000000 >;
+			< 1132800  556800000 >,
+			< 1363200  806400000 >,
+			< 1747200  940800000 >,
+			< 1996800 1190400000 >,
+			< 2457600 1440000000 >;
 	};
 
 	mincpubw: qcom,mincpubw {
@@ -2585,15 +2552,15 @@
 			target-dev = <&mincpubw>;
 			cpu-to-dev-map-0 =
 				<  748800 MHZ_TO_MBPS( 300, 4) >,
-				< 1209600 MHZ_TO_MBPS( 451, 4) >,
-				< 1612000 MHZ_TO_MBPS( 547, 4) >,
-				< 1728000 MHZ_TO_MBPS( 768, 4) >;
+				< 1209660 MHZ_TO_MBPS( 451, 4) >,
+				< 1612800 MHZ_TO_MBPS( 547, 4) >,
+				< 1708000 MHZ_TO_MBPS( 768, 4) >;
 			cpu-to-dev-map-6 =
-				< 1113600 MHZ_TO_MBPS( 300, 4) >,
-				< 1344000 MHZ_TO_MBPS( 547, 4) >,
-				< 1728000 MHZ_TO_MBPS( 768, 4) >,
-				< 1900800 MHZ_TO_MBPS(1017, 4) >,
-				< 2438400 MHZ_TO_MBPS(1804, 4) >;
+				< 1132800 MHZ_TO_MBPS( 300, 4) >,
+				< 1363200 MHZ_TO_MBPS( 547, 4) >,
+				< 1747200 MHZ_TO_MBPS( 768, 4) >,
+				< 1996800 MHZ_TO_MBPS(1017, 4) >,
+				< 2457600 MHZ_TO_MBPS(1804, 4) >;
 		};
 	};
 
@@ -2728,6 +2695,22 @@
 };
 
 &mdss_dsi1 {
+	qcom,core-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,core-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "refgen";
+			qcom,supply-min-voltage = <0>;
+			qcom,supply-max-voltage = <0>;
+			qcom,supply-enable-load = <0>;
+			qcom,supply-disable-load = <0>;
+		};
+	};
+};
+
+&sde_dp {
 	qcom,core-supply-entries {
 		#address-cells = <1>;
 		#size-cells = <0>;

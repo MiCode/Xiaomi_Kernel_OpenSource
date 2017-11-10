@@ -49,13 +49,28 @@ module_param(sip_direct_signalling, int, 0600);
 MODULE_PARM_DESC(sip_direct_signalling, "expect incoming calls from registrar "
 					"only (default 1)");
 
-static int sip_direct_media __read_mostly = 1;
-module_param(sip_direct_media, int, 0600);
-MODULE_PARM_DESC(sip_direct_media, "Expect Media streams between signalling "
-				   "endpoints only (default 1)");
-
 const struct nf_nat_sip_hooks *nf_nat_sip_hooks;
 EXPORT_SYMBOL_GPL(nf_nat_sip_hooks);
+static struct ctl_table_header *sip_sysctl_header;
+static unsigned int nf_ct_disable_sip_alg;
+static int sip_direct_media = 1;
+static struct ctl_table sip_sysctl_tbl[] = {
+	{
+		.procname     = "nf_conntrack_disable_sip_alg",
+		.data         = &nf_ct_disable_sip_alg,
+		.maxlen       = sizeof(unsigned int),
+		.mode         = 0644,
+		.proc_handler = proc_dointvec,
+	},
+	{
+		.procname     = "nf_conntrack_sip_direct_media",
+		.data         = &sip_direct_media,
+		.maxlen       = sizeof(int),
+		.mode         = 0644,
+		.proc_handler = proc_dointvec,
+	},
+	{}
+};
 
 static int string_len(const struct nf_conn *ct, const char *dptr,
 		      const char *limit, int *shift)
@@ -1467,6 +1482,8 @@ static int process_sip_msg(struct sk_buff *skb, struct nf_conn *ct,
 	const struct nf_nat_sip_hooks *hooks;
 	int ret;
 
+	if (nf_ct_disable_sip_alg)
+		return NF_ACCEPT;
 	if (strncasecmp(*dptr, "SIP/2.0 ", strlen("SIP/2.0 ")) != 0)
 		ret = process_sip_request(skb, protoff, dataoff, dptr, datalen);
 	else
@@ -1625,6 +1642,16 @@ static void nf_conntrack_sip_fini(void)
 static int __init nf_conntrack_sip_init(void)
 {
 	int i, ret;
+
+	sip_sysctl_header = register_net_sysctl(&init_net, "net/netfilter",
+						sip_sysctl_tbl);
+	if (!sip_sysctl_header)
+		pr_debug("nf_ct_sip:Unable to register SIP systbl\n");
+
+	if (nf_ct_disable_sip_alg)
+		pr_debug("nf_ct_sip: SIP ALG disabled\n");
+	else
+		pr_debug("nf_ct_sip: SIP ALG enabled\n");
 
 	if (ports_c == 0)
 		ports[ports_c++] = SIP_PORT;

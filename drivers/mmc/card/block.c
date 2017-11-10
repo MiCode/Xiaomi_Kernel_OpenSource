@@ -1221,15 +1221,15 @@ static int mmc_blk_ioctl_cmd(struct block_device *bdev,
 	if (md->area_type & MMC_BLK_DATA_AREA_RPMB)
 		mmc_blk_part_switch(card, dev_get_drvdata(&card->dev));
 
-	mmc_put_card(card);
-
-	err = mmc_blk_ioctl_copy_to_user(ic_ptr, idata);
-
 	if (mmc_card_cmdq(card)) {
 		if (mmc_cmdq_halt(card->host, false))
 			pr_err("%s: %s: cmdq unhalt failed\n",
 			       mmc_hostname(card->host), __func__);
 	}
+
+	mmc_put_card(card);
+
+	err = mmc_blk_ioctl_copy_to_user(ic_ptr, idata);
 
 cmd_done:
 	mmc_blk_put(md);

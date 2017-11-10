@@ -433,7 +433,7 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_3LVL_TABLES	(1 << 4)
 #define ARM_SMMU_OPT_NO_ASID_RETENTION	(1 << 5)
 #define ARM_SMMU_OPT_DISABLE_ATOS	(1 << 6)
-#define ARM_SMMU_OPT_QCOM_MMU500_ERRATA1	(1 << 7)
+#define ARM_SMMU_OPT_MMU500_ERRATA1	(1 << 7)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 	enum arm_smmu_implementation	model;
@@ -559,7 +559,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_3LVL_TABLES, "qcom,use-3-lvl-tables" },
 	{ ARM_SMMU_OPT_NO_ASID_RETENTION, "qcom,no-asid-retention" },
 	{ ARM_SMMU_OPT_DISABLE_ATOS, "qcom,disable-atos" },
-	{ ARM_SMMU_OPT_QCOM_MMU500_ERRATA1, "qcom,mmu500-errata-1" },
+	{ ARM_SMMU_OPT_MMU500_ERRATA1, "qcom,mmu500-errata-1" },
 	{ 0, NULL},
 };
 
@@ -1792,7 +1792,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		quirks |= IO_PGTABLE_QUIRK_QSMMUV500_NON_SHAREABLE;
 
 	tlb = &arm_smmu_gather_ops;
-	if (smmu->options & ARM_SMMU_OPT_QCOM_MMU500_ERRATA1)
+	if (smmu->options & ARM_SMMU_OPT_MMU500_ERRATA1)
 		tlb = &qsmmuv500_errata1_smmu_gather_ops;
 
 	ret = arm_smmu_alloc_cb(domain, smmu, dev);
@@ -2899,7 +2899,7 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 			& (1 << DOMAIN_ATTR_CB_STALL_DISABLE));
 		ret = 0;
 		break;
-	case DOMAIN_ATTR_QCOM_MMU500_ERRATA_MIN_ALIGN:
+	case DOMAIN_ATTR_MMU500_ERRATA_MIN_ALIGN:
 		*((int *)data) = smmu_domain->qsmmuv500_errata2_min_align;
 		ret = 0;
 		break;

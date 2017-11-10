@@ -37,3 +37,7 @@
 &pcie0 {
 	status = "disabled";
 };
+
+&eud {
+	vdda33-supply = <&pm660l_l7>;
+};

@@ -94,7 +94,7 @@ static int tsens2xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 
 	if (code & TSENS_TM_SN_STATUS_VALID_BIT) {
 		msm_tsens_convert_temp(last_temp, temp);
-		return 0;
+		goto dbg;
 	}
 
 	code = readl_relaxed_no_log(sensor_addr +
@@ -103,7 +103,7 @@ static int tsens2xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 	if (code & TSENS_TM_SN_STATUS_VALID_BIT) {
 		last_temp = last_temp2;
 		msm_tsens_convert_temp(last_temp, temp);
-		return 0;
+		goto dbg;
 	}
 
 	code = readl_relaxed_no_log(sensor_addr +
@@ -113,7 +113,7 @@ static int tsens2xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 	if (code & TSENS_TM_SN_STATUS_VALID_BIT) {
 		last_temp = last_temp3;
 		msm_tsens_convert_temp(last_temp, temp);
-		return 0;
+		goto dbg;
 	}
 
 	if (last_temp == last_temp2)
@@ -123,6 +123,7 @@ static int tsens2xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 
 	msm_tsens_convert_temp(last_temp, temp);
 
+dbg:
 	if (tmdev->ops->dbg)
 		tmdev->ops->dbg(tmdev, (u32) sensor->hw_id,
 					TSENS_DBG_LOG_TEMP_READS, temp);

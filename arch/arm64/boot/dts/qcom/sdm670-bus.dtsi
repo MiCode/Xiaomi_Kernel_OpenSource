@@ -12,6 +12,7 @@
 
 #include <dt-bindings/msm/msm-bus-ids.h>
 #include <dt-bindings/soc/qcom,tcs-mbox.h>
+#include <dt-bindings/clock/qcom,gcc-sdm845.h>
 
 &soc {
 	ad_hoc_bus: ad-hoc-bus {
@@ -309,7 +310,6 @@
 			qcom,bcm-dev;
 		};
 
-
 		/*Buses*/
 		fab_aggre1_noc: fab-aggre1_noc {
 			cell-id = <MSM_BUS_FAB_A1_NOC>;
@@ -318,7 +318,6 @@
 			qcom,base-name = "aggre1_noc-base";
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <16384>;
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			clocks = <>;
 		};
@@ -330,7 +329,6 @@
 			qcom,base-name = "aggre2_noc-base";
 			qcom,qos-off = <2048>;
 			qcom,base-offset = <12288>;
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			clocks = <>;
 		};
@@ -340,8 +338,6 @@
 			label = "fab-camnoc_virt";
 			qcom,fab-dev;
 			qcom,base-name = "camnoc_virt-base";
-			qcom,qos-off = <0>;
-			qcom,base-offset = <0>;
 			qcom,bypass-qos-prg;
 			clocks = <>;
 		};
@@ -351,8 +347,6 @@
 			label = "fab-config_noc";
 			qcom,fab-dev;
 			qcom,base-name = "config_noc-base";
-			qcom,qos-off = <0>;
-			qcom,base-offset = <0>;
 			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			clocks = <>;
@@ -363,8 +357,6 @@
 			label = "fab-dc_noc";
 			qcom,fab-dev;
 			qcom,base-name = "dc_noc-base";
-			qcom,qos-off = <0>;
-			qcom,base-offset = <0>;
 			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			clocks = <>;
@@ -375,8 +367,6 @@
 			label = "fab-gladiator_noc";
 			qcom,fab-dev;
 			qcom,base-name = "gladiator_noc-base";
-			qcom,qos-off = <0>;
-			qcom,base-offset = <0>;
 			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			clocks = <>;
@@ -387,8 +377,6 @@
 			label = "fab-ipa_virt";
 			qcom,fab-dev;
 			qcom,base-name = "ipa_virt-base";
-			qcom,qos-off = <0>;
-			qcom,base-offset = <0>;
 			qcom,bypass-qos-prg;
 			clocks = <>;
 		};
@@ -398,8 +386,6 @@
 			label = "fab-mc_virt";
 			qcom,fab-dev;
 			qcom,base-name = "mc_virt-base";
-			qcom,qos-off = <0>;
-			qcom,base-offset = <0>;
 			qcom,bypass-qos-prg;
 			clocks = <>;
 		};
@@ -411,7 +397,6 @@
 			qcom,base-name = "mem_noc-base";
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <65536>;
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			clocks = <>;
 		};
@@ -423,7 +408,6 @@
 			qcom,base-name = "mmss_noc-base";
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <36864>;
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			clocks = <>;
 		};
@@ -435,7 +419,6 @@
 			qcom,base-name = "system_noc-base";
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <36864>;
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			clocks = <>;
 		};
@@ -445,8 +428,6 @@
 			label = "fab-mc_virt_display";
 			qcom,fab-dev;
 			qcom,base-name = "mc_virt-base";
-			qcom,qos-off = <0>;
-			qcom,base-offset = <0>;
 			qcom,bypass-qos-prg;
 			clocks = <>;
 		};
@@ -468,13 +449,10 @@
 			label = "fab-mmss_noc_display";
 			qcom,fab-dev;
 			qcom,base-name = "mmss_noc-base";
-			qcom,qos-off = <4096>;
-			qcom,base-offset = <36864>;
 			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			clocks = <>;
 		};
-
 
 		/*Masters*/
 
@@ -492,12 +470,9 @@
 			label = "mas-qhm-qup1";
 			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
-			qcom,qport = <16>;
 			qcom,connections = <&slv_qns_a1noc_snoc>;
 			qcom,bus-dev = <&fab_aggre1_noc>;
 			qcom,bcms = <&bcm_qup0>;
-			qcom,ap-owned;
-			qcom,prio = <0>;
 		};
 
 		mas_qhm_tsif: mas-qhm-tsif {
@@ -571,11 +546,8 @@
 			label = "mas-qhm-qdss-bam";
 			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
-			qcom,qport = <17>;
 			qcom,connections = <&slv_qns_a2noc_snoc>;
 			qcom,bus-dev = <&fab_aggre2_noc>;
-			qcom,ap-owned;
-			qcom,prio = <0>;
 		};
 
 		mas_qhm_qup2: mas-qhm-qup2 {
@@ -583,12 +555,9 @@
 			label = "mas-qhm-qup2";
 			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
-			qcom,qport = <0>;
 			qcom,connections = <&slv_qns_a2noc_snoc>;
 			qcom,bus-dev = <&fab_aggre2_noc>;
 			qcom,bcms = <&bcm_qup0>;
-			qcom,ap-owned;
-			qcom,prio = <0>;
 		};
 
 		mas_qnm_cnoc: mas-qnm-cnoc {
@@ -626,6 +595,8 @@
 			qcom,bus-dev = <&fab_aggre2_noc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
+			qcom,defer-init-qos;
+			qcom,node-qos-bcms = <7035 0 1>;
 		};
 
 		mas_xm_qdss_etr: mas-xm-qdss-etr {
@@ -650,6 +621,12 @@
 			qcom,bus-dev = <&fab_aggre2_noc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
+			qcom,node-qos-clks {
+				clocks =
+				<&clock_gcc GCC_AGGRE_USB3_PRIM_AXI_CLK>;
+				clock-names =
+				"clk-usb3-prim-axi-no-rate";
+			};
 		};
 
 		mas_qxm_camnoc_hf0_uncomp: mas-qxm-camnoc-hf0-uncomp {
@@ -837,7 +814,7 @@
 			qcom,bus-dev = <&fab_mem_noc>;
 			qcom,bcms = <&bcm_sh3>;
 			qcom,ap-owned;
-			qcom,prio = <6>;
+			qcom,prio = <7>;
 		};
 
 		mas_qhm_memnoc_cfg: mas-qhm-memnoc-cfg {
@@ -874,6 +851,7 @@
 			qcom,ap-owned;
 			qcom,prio = <0>;
 			qcom,forwarding;
+			qcom,node-qos-bcms = <7012 0 1>;
 		};
 
 		mas_qnm_mnoc_sf: mas-qnm-mnoc-sf {
@@ -888,6 +866,7 @@
 			qcom,ap-owned;
 			qcom,prio = <0>;
 			qcom,forwarding;
+			qcom,node-qos-bcms = <7012 0 1>;
 		};
 
 		mas_qnm_snoc_gc: mas-qnm-snoc-gc {
@@ -950,6 +929,7 @@
 			qcom,ap-owned;
 			qcom,prio = <0>;
 			qcom,forwarding;
+			qcom,node-qos-bcms = <7012 0 1>;
 		};
 
 		mas_qxm_camnoc_hf1: mas-qxm-camnoc-hf1 {
@@ -964,6 +944,7 @@
 			qcom,ap-owned;
 			qcom,prio = <0>;
 			qcom,forwarding;
+			qcom,node-qos-bcms = <7012 0 1>;
 		};
 
 		mas_qxm_camnoc_sf: mas-qxm-camnoc-sf {
@@ -978,6 +959,7 @@
 			qcom,ap-owned;
 			qcom,prio = <0>;
 			qcom,forwarding;
+			qcom,node-qos-bcms = <7012 0 1>;
 		};
 
 		mas_qxm_mdp0: mas-qxm-mdp0 {
@@ -992,6 +974,7 @@
 			qcom,ap-owned;
 			qcom,prio = <0>;
 			qcom,forwarding;
+			qcom,node-qos-bcms = <7012 0 1>;
 		};
 
 		mas_qxm_mdp1: mas-qxm-mdp1 {
@@ -1006,6 +989,7 @@
 			qcom,ap-owned;
 			qcom,prio = <0>;
 			qcom,forwarding;
+			qcom,node-qos-bcms = <7012 0 1>;
 		};
 
 		mas_qxm_rot: mas-qxm-rot {
@@ -1020,6 +1004,7 @@
 			qcom,ap-owned;
 			qcom,prio = <0>;
 			qcom,forwarding;
+			qcom,node-qos-bcms = <7012 0 1>;
 		};
 
 		mas_qxm_venus0: mas-qxm-venus0 {
@@ -1034,6 +1019,7 @@
 			qcom,ap-owned;
 			qcom,prio = <0>;
 			qcom,forwarding;
+			qcom,node-qos-bcms = <7012 0 1>;
 		};
 
 		mas_qxm_venus1: mas-qxm-venus1 {
@@ -1048,6 +1034,7 @@
 			qcom,ap-owned;
 			qcom,prio = <0>;
 			qcom,forwarding;
+			qcom,node-qos-bcms = <7012 0 1>;
 		};
 
 		mas_qxm_venus_arm9: mas-qxm-venus-arm9 {
@@ -1062,6 +1049,7 @@
 			qcom,ap-owned;
 			qcom,prio = <0>;
 			qcom,forwarding;
+			qcom,node-qos-bcms = <7012 0 1>;
 		};
 
 		mas_qhm_snoc_cfg: mas-qhm-snoc-cfg {

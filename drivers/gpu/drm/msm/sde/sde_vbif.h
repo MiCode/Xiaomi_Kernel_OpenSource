@@ -35,6 +35,23 @@ struct sde_vbif_set_memtype_params {
 };
 
 /**
+ * struct sde_vbif_set_xin_halt_params - xin halt parameters
+ * @vbif_idx: vbif identifier
+ * @xin_id: client interface identifier
+ * @clk_ctrl: clock control identifier of the xin
+ * @forced_on: whether or not previous call to xin halt forced the clocks on,
+ *	only applicable to xin halt disable calls
+ * @enable: whether to enable/disable xin halts
+ */
+struct sde_vbif_set_xin_halt_params {
+	u32 vbif_idx;
+	u32 xin_id;
+	u32 clk_ctrl;
+	bool forced_on;
+	bool enable;
+};
+
+/**
  * struct sde_vbif_set_qos_params - QoS remapper parameter
  * @vbif_idx: vbif identifier
  * @xin_id: client interface identifier
@@ -57,6 +74,16 @@ struct sde_vbif_set_qos_params {
  */
 void sde_vbif_set_ot_limit(struct sde_kms *sde_kms,
 		struct sde_vbif_set_ot_params *params);
+
+/**
+ * sde_vbif_set_xin_halt - halt one of the xin ports
+ *	This function isn't thread safe.
+ * @sde_kms:	SDE handler
+ * @params:	Pointer to halt configuration parameters
+ * Returns:	Whether or not VBIF clocks were forced on
+ */
+bool sde_vbif_set_xin_halt(struct sde_kms *sde_kms,
+		struct sde_vbif_set_xin_halt_params *params);
 
 /**
  * sde_vbif_set_qos_remap - set QoS priority level remap

@@ -115,13 +115,29 @@ struct ipa_api_controller {
 
 	int (*ipa_reset_flt)(enum ipa_ip_type ip);
 
-	int (*allocate_nat_device)(struct ipa_ioc_nat_alloc_mem *mem);
+	int (*ipa_allocate_nat_device)(struct ipa_ioc_nat_alloc_mem *mem);
+
+	int (*ipa_allocate_nat_table)(
+		struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc);
+
+	int (*ipa_allocate_ipv6ct_table)(
+		struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc);
 
 	int (*ipa_nat_init_cmd)(struct ipa_ioc_v4_nat_init *init);
 
+	int (*ipa_ipv6ct_init_cmd)(struct ipa_ioc_ipv6ct_init *init);
+
 	int (*ipa_nat_dma_cmd)(struct ipa_ioc_nat_dma_cmd *dma);
 
+	int (*ipa_table_dma_cmd)(struct ipa_ioc_nat_dma_cmd *dma);
+
 	int (*ipa_nat_del_cmd)(struct ipa_ioc_v4_nat_del *del);
+
+	int (*ipa_del_nat_table)(struct ipa_ioc_nat_ipv6ct_table_del *del);
+
+	int (*ipa_del_ipv6ct_table)(struct ipa_ioc_nat_ipv6ct_table_del *del);
+
+	int (*ipa_nat_mdfy_pdn)(struct ipa_ioc_nat_pdn_entry *mdfy_pdn);
 
 	int (*ipa_send_msg)(struct ipa_msg_meta *meta, void *buff,
 		ipa_msg_free_fn callback);
@@ -398,6 +414,9 @@ struct ipa_api_controller {
 
 	int (*ipa_disable_wdi3_pipes)(int ipa_ep_idx_tx,
 		int ipa_ep_idx_rx);
+
+	int (*ipa_tz_unlock_reg)(struct ipa_tz_unlock_reg_info *reg_info,
+		u16 num_regs);
 };
 
 #ifdef CONFIG_IPA

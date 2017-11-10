@@ -973,7 +973,7 @@ static int dp_ctrl_link_train(struct dp_ctrl_private *ctrl)
 	}
 
 	/* print success info as this is a result of user initiated action */
-	pr_debug("link training #2 successful\n");
+	pr_info("link training #2 successful\n");
 
 end:
 	dp_ctrl_state_ctrl(ctrl, 0);
@@ -1442,6 +1442,7 @@ struct dp_ctrl *dp_ctrl_get(struct dp_ctrl_in *in)
 	ctrl->aux      = in->aux;
 	ctrl->link     = in->link;
 	ctrl->catalog  = in->catalog;
+	ctrl->dev  = in->dev;
 
 	dp_ctrl = &ctrl->dp_ctrl;
 

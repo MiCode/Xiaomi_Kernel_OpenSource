@@ -27,8 +27,6 @@ int rmnet_vnd_get_name(int id, char *name, int name_len);
 int rmnet_vnd_create_dev(int id, struct net_device **new_device,
 			 const char *prefix, int use_name);
 int rmnet_vnd_free_dev(int id);
-int rmnet_vnd_rx_fixup(struct sk_buff *skb, struct net_device *dev);
-int rmnet_vnd_tx_fixup(struct sk_buff *skb, struct net_device *dev);
 int rmnet_vnd_is_vnd(struct net_device *dev);
 int rmnet_vnd_add_tc_flow(u32 id, u32 map_flow, u32 tc_flow);
 int rmnet_vnd_del_tc_flow(u32 id, u32 map_flow, u32 tc_flow);

@@ -138,14 +138,6 @@ void sde_free_edid(void **edid_ctrl);
 bool sde_detect_hdmi_monitor(void *edid_ctrl);
 
 /**
- * sde_get_sink_bpc() - return the bpc of sink device.
- * @edid_ctrl:     Handle to the edid_ctrl structure.
- *
- * Return: bpc supported by the sink.
- */
-u32 sde_get_sink_bpc(void *edid_ctrl);
-
-/**
  * sde_get_edid_checksum() - return the checksum of last block of EDID.
  * @input:     Handle to the edid_ctrl structure.
  *

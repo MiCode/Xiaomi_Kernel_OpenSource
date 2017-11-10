@@ -356,6 +356,14 @@ int ipa3_mhi_init_engine(struct ipa_mhi_init_engine *params)
 		return -EINVAL;
 	}
 
+	if ((IPA_MHI_MAX_UL_CHANNELS + IPA_MHI_MAX_DL_CHANNELS) >
+		((ipa3_ctx->mhi_evid_limits[1] -
+		ipa3_ctx->mhi_evid_limits[0]) + 1)) {
+		IPAERR("Not enough event rings for MHI\n");
+		ipa_assert();
+		return -EINVAL;
+	}
+
 	/* Initialize IPA MHI engine */
 	gsi_ep_info = ipa3_get_gsi_ep_info(IPA_CLIENT_MHI_PROD);
 	if (!gsi_ep_info) {
@@ -406,6 +414,8 @@ int ipa3_connect_mhi_pipe(struct ipa_mhi_connect_params_internal *in,
 		IPA_MHI_ERR("NULL args\n");
 		return -EINVAL;
 	}
+
+	in->start.gsi.evchid += ipa3_ctx->mhi_evid_limits[0];
 
 	client = in->sys->client;
 	ipa_ep_idx = ipa3_get_ep_mapping(client);
