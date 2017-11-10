@@ -556,46 +556,21 @@ error:
 	return rc;
 }
 
-#ifdef CONFIG_LEDS_TRIGGERS
-static int dsi_panel_led_bl_register(struct dsi_panel *panel,
-				struct dsi_backlight_config *bl)
+static int dsi_panel_wled_register(struct dsi_panel *panel,
+		struct dsi_backlight_config *bl)
 {
 	int rc = 0;
+	struct backlight_device *bd;
 
-	led_trigger_register_simple("bkl-trigger", &bl->wled);
-
-	/* LED APIs don't tell us directly whether a classdev has yet
-	 * been registered to service this trigger. Until classdev is
-	 * registered, calling led_trigger has no effect, and doesn't
-	 * fail. Classdevs are associated with any registered triggers
-	 * when they do register, but that is too late for FBCon.
-	 * Check the cdev list directly and defer if appropriate.
-	 */
-	if (!bl->wled) {
-		pr_err("[%s] backlight registration failed\n", panel->name);
+	bd = backlight_device_get_by_type(BACKLIGHT_RAW);
+	if (!bd) {
+		pr_err("[%s] fail raw backlight register\n", panel->name);
 		rc = -EINVAL;
-	} else {
-		read_lock(&bl->wled->leddev_list_lock);
-		if (list_empty(&bl->wled->led_cdevs))
-			rc = -EPROBE_DEFER;
-		read_unlock(&bl->wled->leddev_list_lock);
-
-		if (rc) {
-			pr_info("[%s] backlight %s not ready, defer probe\n",
-				panel->name, bl->wled->name);
-			led_trigger_unregister_simple(bl->wled);
-		}
 	}
 
+	bl->raw_bd = bd;
 	return rc;
 }
-#else
-static int dsi_panel_led_bl_register(struct dsi_panel *panel,
-				struct dsi_backlight_config *bl)
-{
-	return 0;
-}
-#endif
 
 static int dsi_panel_update_backlight(struct dsi_panel *panel,
 	u32 bl_lvl)
@@ -628,7 +603,7 @@ int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 	pr_debug("backlight type:%d lvl:%d\n", bl->type, bl_lvl);
 	switch (bl->type) {
 	case DSI_BACKLIGHT_WLED:
-		led_trigger_event(bl->wled, bl_lvl);
+		rc = backlight_device_set_brightness(bl->raw_bd, bl_lvl);
 		break;
 	case DSI_BACKLIGHT_DCS:
 		dsi_panel_update_backlight(panel, bl_lvl);
@@ -648,7 +623,7 @@ static int dsi_panel_bl_register(struct dsi_panel *panel)
 
 	switch (bl->type) {
 	case DSI_BACKLIGHT_WLED:
-		rc = dsi_panel_led_bl_register(panel, bl);
+		rc = dsi_panel_wled_register(panel, bl);
 		break;
 	case DSI_BACKLIGHT_DCS:
 		break;
@@ -669,7 +644,6 @@ static int dsi_panel_bl_unregister(struct dsi_panel *panel)
 
 	switch (bl->type) {
 	case DSI_BACKLIGHT_WLED:
-		led_trigger_unregister_simple(bl->wled);
 		break;
 	case DSI_BACKLIGHT_DCS:
 		break;
