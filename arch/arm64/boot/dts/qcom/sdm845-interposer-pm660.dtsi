@@ -166,6 +166,12 @@
 	/delete-property/ switch-source;
 };
 
+&led_flash_iris {
+	/delete-property/ flash-source;
+	/delete-property/ torch-source;
+	/delete-property/ switch-source;
+};
+
 &actuator_regulator {
 	/delete-property/ vin-supply;
 };

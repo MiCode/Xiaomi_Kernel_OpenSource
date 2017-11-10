@@ -97,6 +97,37 @@
 			};
 		};
 
+		flash_led3_iris {
+			flash_led3_iris_en: flash_led3_iris_en {
+				mux {
+					pins = "gpio23";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio23";
+					drive_strength = <2>;
+					output-high;
+					bias-disable;
+				};
+			};
+
+			flash_led3_iris_dis: flash_led3_iris_dis {
+				mux {
+					pins = "gpio23";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio23";
+					drive_strength = <2>;
+					output-low;
+					bias-disable;
+				};
+			};
+		};
+
+
 		wcd9xxx_intr {
 			wcd_intr_default: wcd_intr_default{
 				mux {
