@@ -594,12 +594,12 @@ int hfi_start(struct gmu_device *gmu, uint32_t boot_state)
 
 	gmu->ver = ver;
 	if (major != FW_VER_MAJOR(ver))
-		WARN_ONCE(1, "FW version major %d error (expect %d)\n",
+		dev_err(dev, "FW version major %d error (expect %d)\n",
 				FW_VER_MAJOR(ver),
 				adreno_dev->gpucore->gpmu_major);
 
 	if (minor > FW_VER_MINOR(ver))
-		WARN_ONCE(1, "FW version minor %d error (expect %d)\n",
+		dev_err(dev, "FW version minor %d error (expect %d)\n",
 				FW_VER_MINOR(ver),
 				adreno_dev->gpucore->gpmu_minor);
 
