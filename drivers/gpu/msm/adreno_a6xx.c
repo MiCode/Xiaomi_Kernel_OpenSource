@@ -1079,7 +1079,7 @@ static int timed_poll_check(struct kgsl_device *device,
 		if ((value & mask) == expected_ret)
 			return 0;
 		/* Wait 100us to reduce unnecessary AHB bus traffic */
-		udelay(100);
+		usleep_range(10, 100);
 	} while (!time_after(jiffies, t));
 
 	/* Double check one last time */
@@ -1841,7 +1841,7 @@ static int a6xx_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 		}
 
 		/* Wait 100us to reduce unnecessary AHB bus traffic */
-		udelay(100);
+		usleep_range(10, 100);
 	}
 
 	/* Check one last time */
