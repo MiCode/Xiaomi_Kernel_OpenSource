@@ -524,6 +524,7 @@ struct sde_clk_ctrl_reg {
  * @ubwc_static:       ubwc static configuration
  * @ubwc_swizzle:      ubwc default swizzle setting
  * @has_dest_scaler:   indicates support of destination scaler
+ * @smart_panel_align_mode: split display smart panel align modes
  * @clk_ctrls          clock control register definition
  */
 struct sde_mdp_cfg {
@@ -532,6 +533,7 @@ struct sde_mdp_cfg {
 	u32 ubwc_static;
 	u32 ubwc_swizzle;
 	bool has_dest_scaler;
+	u32 smart_panel_align_mode;
 	struct sde_clk_ctrl_reg clk_ctrls[SDE_CLK_CTRL_MAX];
 };
 
