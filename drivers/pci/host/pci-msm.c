@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -5560,7 +5560,7 @@ static void msm_pcie_config_link_pm_rc(struct msm_pcie_dev_t *dev,
 			u32 val;
 
 			pci_read_config_dword(child_pdev,
-				pdev->pcie_cap + PCI_EXP_LNKCTL, &val);
+				child_pdev->pcie_cap + PCI_EXP_LNKCTL, &val);
 			child_l0s_enable = !!(val & PCI_EXP_LNKCTL_ASPM_L0S);
 			if (child_l0s_enable)
 				break;
@@ -5608,7 +5608,7 @@ static void msm_pcie_config_link_pm_rc(struct msm_pcie_dev_t *dev,
 			u32 val;
 
 			pci_read_config_dword(child_pdev,
-				pdev->pcie_cap + PCI_EXP_LNKCTL, &val);
+				child_pdev->pcie_cap + PCI_EXP_LNKCTL, &val);
 			child_l1_enable = !!(val & PCI_EXP_LNKCTL_ASPM_L1);
 			if (child_l1_enable)
 				break;
