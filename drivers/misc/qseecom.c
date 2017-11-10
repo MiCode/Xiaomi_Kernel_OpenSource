@@ -47,6 +47,7 @@
 #include "qseecom_kernel.h"
 #include <crypto/ice.h>
 #include <linux/delay.h>
+#include <linux/signal.h>
 
 #include <linux/compat.h>
 #include "compat_qseecom.h"
@@ -1055,11 +1056,7 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 static int qseecom_scm_call(u32 svc_id, u32 tz_cmd_id, const void *cmd_buf,
 		size_t cmd_len, void *resp_buf, size_t resp_len)
 {
-	if (!is_scm_armv8())
-		return scm_call(svc_id, tz_cmd_id, cmd_buf, cmd_len,
-				resp_buf, resp_len);
-	else
-		return qseecom_scm_call2(svc_id, tz_cmd_id, cmd_buf, resp_buf);
+	return qseecom_scm_call2(svc_id, tz_cmd_id, cmd_buf, resp_buf);
 }
 
 static int __qseecom_is_svc_unique(struct qseecom_dev_handle *data,
@@ -8507,9 +8504,19 @@ out:
  * Check whitelist feature, and if TZ feature version is < 1.0.0,
  * then whitelist feature is not supported.
  */
+#define GET_FEAT_VERSION_CMD	3
 static int qseecom_check_whitelist_feature(void)
 {
-	int version = scm_get_feat_version(FEATURE_ID_WHITELIST);
+	struct scm_desc desc = {0};
+	int version = 0;
+	int ret = 0;
+
+	desc.args[0] = FEATURE_ID_WHITELIST;
+	desc.arginfo = SCM_ARGS(1);
+	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_INFO,
+		GET_FEAT_VERSION_CMD), &desc);
+	if (!ret)
+		version = desc.ret[0];
 
 	return version >= MAKE_WHITELIST_VERSION(1, 0, 0);
 }
@@ -8520,7 +8527,6 @@ static int qseecom_probe(struct platform_device *pdev)
 	int i;
 	uint32_t feature = 10;
 	struct device *class_dev;
-	struct msm_bus_scale_pdata *qseecom_platform_support = NULL;
 	struct qseecom_command_scm_resp resp;
 	struct qseecom_ce_info_use *pce_info_use = NULL;
 
@@ -8689,8 +8695,6 @@ static int qseecom_probe(struct platform_device *pdev)
 			qseecom.ce_drv.ce_bus_clk = qclk->ce_bus_clk;
 		}
 
-		qseecom_platform_support = (struct msm_bus_scale_pdata *)
-						msm_bus_cl_get_pdata(pdev);
 		if (qseecom.qsee_version >= (QSEE_VERSION_02) &&
 			(!qseecom.is_apps_region_protected &&
 			!qseecom.appsbl_qseecom_support)) {
@@ -8756,10 +8760,8 @@ static int qseecom_probe(struct platform_device *pdev)
 		if (qseecom.is_apps_region_protected ||
 					qseecom.appsbl_qseecom_support)
 			qseecom.commonlib_loaded = true;
-	} else {
-		qseecom_platform_support = (struct msm_bus_scale_pdata *)
-						pdev->dev.platform_data;
 	}
+
 	if (qseecom.support_bus_scaling) {
 		init_timer(&(qseecom.bw_scale_down_timer));
 		INIT_WORK(&qseecom.bw_inactive_req_ws,
@@ -8768,15 +8770,10 @@ static int qseecom_probe(struct platform_device *pdev)
 				qseecom_scale_bus_bandwidth_timer_callback;
 	}
 	qseecom.timer_running = false;
-	qseecom.qsee_perf_client = msm_bus_scale_register_client(
-					qseecom_platform_support);
 
 	qseecom.whitelist_support = qseecom_check_whitelist_feature();
 	pr_warn("qseecom.whitelist_support = %d\n",
 				qseecom.whitelist_support);
-
-	if (!qseecom.qsee_perf_client)
-		pr_err("Unable to register bus client\n");
 
 	atomic_set(&qseecom.qseecom_state, QSEECOM_STATE_READY);
 	return 0;
