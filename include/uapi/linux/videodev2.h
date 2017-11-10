@@ -772,6 +772,7 @@ struct v4l2_buffer {
 #define V4L2_MSM_BUF_FLAG_YUV_601_709_CLAMP	0x10000000
 #define V4L2_MSM_BUF_FLAG_MBAFF			0x20000000
 #define V4L2_MSM_BUF_FLAG_DEFER			0x40000000
+#define V4L2_QCOM_BUF_FLAG_ENDOFFRAME		0x80000000
 
 /**
  * struct v4l2_exportbuffer - export of video buffer as DMABUF file descriptor
