@@ -18,12 +18,22 @@
 #include <media/cam_defs.h>
 
 #include "cam_context.h"
+#include "cam_context_utils.h"
 #include "cam_mem_mgr.h"
 #include "cam_node.h"
 #include "cam_req_mgr_util.h"
 #include "cam_sync_api.h"
 #include "cam_trace.h"
 #include "cam_debug_util.h"
+
+static inline int cam_context_validate_thread(void)
+{
+	if (in_interrupt()) {
+		WARN(1, "Invalid execution context\n");
+		return -EINVAL;
+	}
+	return 0;
+}
 
 int cam_context_buf_done_from_hw(struct cam_context *ctx,
 	void *done_event_data, uint32_t bubble_state)
@@ -33,17 +43,23 @@ int cam_context_buf_done_from_hw(struct cam_context *ctx,
 	struct cam_ctx_request *req;
 	struct cam_hw_done_event_data *done =
 		(struct cam_hw_done_event_data *)done_event_data;
+	int rc;
 
 	if (!ctx || !done) {
 		CAM_ERR(CAM_CTXT, "Invalid input params %pK %pK", ctx, done);
 		return -EINVAL;
 	}
 
+	rc = cam_context_validate_thread();
+	if (rc)
+		return rc;
+
+	spin_lock(&ctx->lock);
 	if (list_empty(&ctx->active_req_list)) {
 		CAM_ERR(CAM_CTXT, "no active request");
+		spin_unlock(&ctx->lock);
 		return -EIO;
 	}
-
 	req = list_first_entry(&ctx->active_req_list,
 		struct cam_ctx_request, list);
 
@@ -52,15 +68,22 @@ int cam_context_buf_done_from_hw(struct cam_context *ctx,
 	if (done->request_id != req->request_id) {
 		CAM_ERR(CAM_CTXT, "mismatch: done req[%lld], active req[%lld]",
 			done->request_id, req->request_id);
+		spin_unlock(&ctx->lock);
 		return -EIO;
 	}
 
 	if (!req->num_out_map_entries) {
 		CAM_ERR(CAM_CTXT, "no output fence to signal");
+		spin_unlock(&ctx->lock);
 		return -EIO;
 	}
 
+	/*
+	 * since another thread may be adding/removing from active
+	 * list, so hold the lock
+	 */
 	list_del_init(&req->list);
+	spin_unlock(&ctx->lock);
 	if (!bubble_state)
 		result = CAM_SYNC_STATE_SIGNALED_SUCCESS;
 	else
@@ -71,23 +94,24 @@ int cam_context_buf_done_from_hw(struct cam_context *ctx,
 		req->out_map_entries[j].sync_id = -1;
 	}
 
+	/*
+	 * another thread may be adding/removing from free list,
+	 * so hold the lock
+	 */
+	spin_lock(&ctx->lock);
 	list_add_tail(&req->list, &ctx->free_req_list);
+	req->ctx = NULL;
+	spin_unlock(&ctx->lock);
 
 	return 0;
 }
 
-int cam_context_apply_req_to_hw(struct cam_context *ctx,
+static int cam_context_apply_req_to_hw(struct cam_ctx_request *req,
 	struct cam_req_mgr_apply_request *apply)
 {
 	int rc = 0;
-	struct cam_ctx_request *req;
+	struct cam_context *ctx = req->ctx;
 	struct cam_hw_config_args cfg;
-
-	if (!ctx || !apply) {
-		CAM_ERR(CAM_CTXT, "Invalid input params %pK %pK", ctx, apply);
-		rc = -EINVAL;
-		goto end;
-	}
 
 	if (!ctx->hw_mgr_intf) {
 		CAM_ERR(CAM_CTXT, "HW interface is not ready");
@@ -95,17 +119,9 @@ int cam_context_apply_req_to_hw(struct cam_context *ctx,
 		goto end;
 	}
 
-	if (list_empty(&ctx->pending_req_list)) {
-		CAM_ERR(CAM_CTXT, "No available request for Apply id %lld",
-			apply->request_id);
-		rc = -EFAULT;
-		goto end;
-	}
-
 	spin_lock(&ctx->lock);
-	req = list_first_entry(&ctx->pending_req_list,
-		struct cam_ctx_request, list);
 	list_del_init(&req->list);
+	list_add_tail(&req->list, &ctx->active_req_list);
 	spin_unlock(&ctx->lock);
 
 	cfg.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
@@ -114,11 +130,13 @@ int cam_context_apply_req_to_hw(struct cam_context *ctx,
 	cfg.out_map_entries = req->out_map_entries;
 	cfg.num_out_map_entries = req->num_out_map_entries;
 	cfg.priv = req->req_priv;
-	list_add_tail(&req->list, &ctx->active_req_list);
 
 	rc = ctx->hw_mgr_intf->hw_config(ctx->hw_mgr_intf->hw_mgr_priv, &cfg);
-	if (rc)
+	if (rc) {
+		spin_lock(&ctx->lock);
 		list_del_init(&req->list);
+		spin_unlock(&ctx->lock);
+	}
 
 end:
 	return rc;
@@ -126,39 +144,51 @@ end:
 
 static void cam_context_sync_callback(int32_t sync_obj, int status, void *data)
 {
-	struct cam_context *ctx = data;
-	struct cam_ctx_request *req = NULL;
+	struct cam_ctx_request *req = data;
+	struct cam_context *ctx = NULL;
 	struct cam_req_mgr_apply_request apply;
+	int rc;
 
-	if (!ctx) {
+	if (!req) {
 		CAM_ERR(CAM_CTXT, "Invalid input param");
 		return;
 	}
-
-	spin_lock(&ctx->lock);
-	if (!list_empty(&ctx->pending_req_list))
-		req = list_first_entry(&ctx->pending_req_list,
-			struct cam_ctx_request, list);
-	spin_unlock(&ctx->lock);
-
-	if (!req) {
-		CAM_ERR(CAM_CTXT, "No more request obj free");
+	rc = cam_context_validate_thread();
+	if (rc)
 		return;
-	}
 
+	ctx = req->ctx;
 	req->num_in_acked++;
 	if (req->num_in_acked == req->num_in_map_entries) {
 		apply.request_id = req->request_id;
-		cam_context_apply_req_to_hw(ctx, &apply);
+		/*
+		 * take mutex to ensure that another thread does
+		 * not flush the request while this
+		 * thread is submitting it to h/w. The submit to
+		 * h/w and adding to the active list should happen
+		 * in a critical section which is provided by this
+		 * mutex.
+		 */
+		mutex_lock(&ctx->sync_mutex);
+		if (!req->flushed) {
+			cam_context_apply_req_to_hw(req, &apply);
+			mutex_unlock(&ctx->sync_mutex);
+		} else {
+			mutex_unlock(&ctx->sync_mutex);
+			req->ctx = NULL;
+			req->flushed = 0;
+			spin_lock(&ctx->lock);
+			list_add_tail(&req->list, &ctx->free_req_list);
+			spin_unlock(&ctx->lock);
+		}
 	}
+	cam_context_putref(ctx);
 }
 
 int32_t cam_context_release_dev_to_hw(struct cam_context *ctx,
 	struct cam_release_dev_cmd *cmd)
 {
-	int i;
 	struct cam_hw_release_args arg;
-	struct cam_ctx_request *req;
 
 	if (!ctx) {
 		CAM_ERR(CAM_CTXT, "Invalid input param");
@@ -170,12 +200,9 @@ int32_t cam_context_release_dev_to_hw(struct cam_context *ctx,
 		return -EINVAL;
 	}
 
+	cam_context_stop_dev_to_hw(ctx);
 	arg.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
-	if ((list_empty(&ctx->active_req_list)) &&
-		(list_empty(&ctx->pending_req_list)))
-		arg.active_req = false;
-	else
-		arg.active_req = true;
+	arg.active_req = false;
 
 	ctx->hw_mgr_intf->hw_release(ctx->hw_mgr_intf->hw_mgr_priv, &arg);
 	ctx->ctxt_to_hw_map = NULL;
@@ -183,38 +210,6 @@ int32_t cam_context_release_dev_to_hw(struct cam_context *ctx,
 	ctx->session_hdl = -1;
 	ctx->dev_hdl = -1;
 	ctx->link_hdl = -1;
-
-	while (!list_empty(&ctx->active_req_list)) {
-		req = list_first_entry(&ctx->active_req_list,
-			struct cam_ctx_request, list);
-		list_del_init(&req->list);
-		CAM_DBG(CAM_CTXT, "signal fence in active list, num %d",
-			req->num_out_map_entries);
-		for (i = 0; i < req->num_out_map_entries; i++) {
-			if (req->out_map_entries[i].sync_id > 0)
-				cam_sync_signal(req->out_map_entries[i].sync_id,
-					CAM_SYNC_STATE_SIGNALED_ERROR);
-		}
-		list_add_tail(&req->list, &ctx->free_req_list);
-	}
-
-	while (!list_empty(&ctx->pending_req_list)) {
-		req = list_first_entry(&ctx->pending_req_list,
-			struct cam_ctx_request, list);
-		list_del_init(&req->list);
-		for (i = 0; i < req->num_in_map_entries; i++)
-			if (req->in_map_entries[i].sync_id > 0)
-				cam_sync_deregister_callback(
-					cam_context_sync_callback, ctx,
-					req->in_map_entries[i].sync_id);
-		CAM_DBG(CAM_CTXT, "signal fence in pending list, num %d",
-			req->num_out_map_entries);
-		for (i = 0; i < req->num_out_map_entries; i++)
-			if (req->out_map_entries[i].sync_id > 0)
-				cam_sync_signal(req->out_map_entries[i].sync_id,
-					CAM_SYNC_STATE_SIGNALED_ERROR);
-		list_add_tail(&req->list, &ctx->free_req_list);
-	}
 
 	return 0;
 }
@@ -241,6 +236,9 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 		rc = -EFAULT;
 		goto end;
 	}
+	rc = cam_context_validate_thread();
+	if (rc)
+		return rc;
 
 	spin_lock(&ctx->lock);
 	if (!list_empty(&ctx->free_req_list)) {
@@ -258,6 +256,7 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 
 	memset(req, 0, sizeof(*req));
 	INIT_LIST_HEAD(&req->list);
+	req->ctx = ctx;
 
 	/* for config dev, only memory handle is supported */
 	/* map packet from the memhandle */
@@ -303,10 +302,18 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 		list_add_tail(&req->list, &ctx->pending_req_list);
 		spin_unlock(&ctx->lock);
 		for (i = 0; i < req->num_in_map_entries; i++) {
+			cam_context_getref(ctx);
 			rc = cam_sync_register_callback(
 					cam_context_sync_callback,
-					(void *)ctx,
+					(void *)req,
 					req->in_map_entries[i].sync_id);
+			if (rc) {
+				CAM_ERR(CAM_CTXT,
+					"Failed register fence cb: %d ret = %d",
+					req->in_map_entries[i].sync_id, rc);
+				cam_context_putref(ctx);
+				goto free_req;
+			}
 			CAM_DBG(CAM_CTXT, "register in fence cb: %d ret = %d",
 				req->in_map_entries[i].sync_id, rc);
 		}
@@ -318,6 +325,7 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 free_req:
 	spin_lock(&ctx->lock);
 	list_add_tail(&req->list, &ctx->free_req_list);
+	req->ctx = NULL;
 	spin_unlock(&ctx->lock);
 end:
 	return rc;
@@ -452,6 +460,7 @@ int32_t cam_context_stop_dev_to_hw(struct cam_context *ctx)
 	uint32_t i;
 	struct cam_hw_stop_args stop;
 	struct cam_ctx_request *req;
+	struct list_head temp_list;
 
 	if (!ctx) {
 		CAM_ERR(CAM_CTXT, "Invalid input param");
@@ -465,6 +474,32 @@ int32_t cam_context_stop_dev_to_hw(struct cam_context *ctx)
 		goto end;
 	}
 
+	rc = cam_context_validate_thread();
+	if (rc)
+		goto end;
+
+	/*
+	 * flush pending requests, take the sync lock to synchronize with the
+	 * sync callback thread so that the sync cb thread does not try to
+	 * submit request to h/w while the request is being flushed
+	 */
+	mutex_lock(&ctx->sync_mutex);
+	INIT_LIST_HEAD(&temp_list);
+	spin_lock(&ctx->lock);
+	list_splice_init(&ctx->pending_req_list, &temp_list);
+	spin_unlock(&ctx->lock);
+	while (!list_empty(&temp_list)) {
+		req = list_first_entry(&temp_list,
+				struct cam_ctx_request, list);
+		list_del_init(&req->list);
+		req->flushed = 1;
+		for (i = 0; i < req->num_out_map_entries; i++)
+			if (req->out_map_entries[i].sync_id != -1)
+				cam_sync_signal(req->out_map_entries[i].sync_id,
+					CAM_SYNC_STATE_SIGNALED_ERROR);
+	}
+	mutex_unlock(&ctx->sync_mutex);
+
 	/* stop hw first */
 	if (ctx->ctxt_to_hw_map) {
 		stop.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
@@ -473,22 +508,17 @@ int32_t cam_context_stop_dev_to_hw(struct cam_context *ctx)
 				&stop);
 	}
 
-	/* flush pending and active queue */
-	while (!list_empty(&ctx->pending_req_list)) {
-		req = list_first_entry(&ctx->pending_req_list,
-				struct cam_ctx_request, list);
-		list_del_init(&req->list);
-		CAM_DBG(CAM_CTXT, "signal fence in pending list. fence num %d",
-			req->num_out_map_entries);
-		for (i = 0; i < req->num_out_map_entries; i++)
-			if (req->out_map_entries[i].sync_id != -1)
-				cam_sync_signal(req->out_map_entries[i].sync_id,
-					CAM_SYNC_STATE_SIGNALED_ERROR);
-		list_add_tail(&req->list, &ctx->free_req_list);
-	}
+	/*
+	 * flush active queue, at this point h/w layer below does not have any
+	 * reference to requests in active queue.
+	 */
+	INIT_LIST_HEAD(&temp_list);
+	spin_lock(&ctx->lock);
+	list_splice_init(&ctx->active_req_list, &temp_list);
+	spin_unlock(&ctx->lock);
 
-	while (!list_empty(&ctx->active_req_list)) {
-		req = list_first_entry(&ctx->active_req_list,
+	while (!list_empty(&temp_list)) {
+		req = list_first_entry(&temp_list,
 				struct cam_ctx_request, list);
 		list_del_init(&req->list);
 		CAM_DBG(CAM_CTXT, "signal fence in active list. fence num %d",
@@ -497,7 +527,14 @@ int32_t cam_context_stop_dev_to_hw(struct cam_context *ctx)
 			if (req->out_map_entries[i].sync_id != -1)
 				cam_sync_signal(req->out_map_entries[i].sync_id,
 					CAM_SYNC_STATE_SIGNALED_ERROR);
+		/*
+		 * The spin lock should be taken here to guard the free list,
+		 * as sync cb thread could be adding a pending req to free list
+		 */
+		spin_lock(&ctx->lock);
 		list_add_tail(&req->list, &ctx->free_req_list);
+		req->ctx = NULL;
+		spin_unlock(&ctx->lock);
 	}
 
 end:
