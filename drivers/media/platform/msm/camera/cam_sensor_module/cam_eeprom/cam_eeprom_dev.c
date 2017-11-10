@@ -201,13 +201,6 @@ static int cam_eeprom_i2c_driver_probe(struct i2c_client *client,
 		goto free_soc;
 	}
 
-	soc_private = (struct cam_eeprom_soc_private *)(id->driver_data);
-	if (!soc_private) {
-		CAM_ERR(CAM_EEPROM, "board info NULL");
-		rc = -EINVAL;
-		goto ectrl_free;
-	}
-
 	rc = cam_eeprom_init_subdev(e_ctrl);
 	if (rc)
 		goto free_soc;
@@ -260,10 +253,9 @@ static int cam_eeprom_i2c_driver_remove(struct i2c_client *client)
 		return -EINVAL;
 	}
 
-	if (soc_private) {
-		kfree(soc_private->power_info.gpio_num_info);
+	if (soc_private)
 		kfree(soc_private);
-	}
+
 	kfree(e_ctrl);
 
 	return 0;
@@ -451,6 +443,9 @@ static int32_t cam_eeprom_platform_driver_probe(
 
 	platform_set_drvdata(pdev, e_ctrl);
 	v4l2_set_subdevdata(&e_ctrl->v4l2_dev_str.sd, e_ctrl);
+
+	e_ctrl->cam_eeprom_state = CAM_EEPROM_INIT;
+
 	return rc;
 free_soc:
 	kfree(soc_private);
