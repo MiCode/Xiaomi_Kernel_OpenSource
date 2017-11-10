@@ -13,6 +13,7 @@
 #include <linux/kernel.h>
 #include "cam_sensor_util.h"
 #include <cam_mem_mgr.h>
+#include "cam_res_mgr_api.h"
 
 #define CAM_SENSOR_PINCTRL_STATE_SLEEP "cam_suspend"
 #define CAM_SENSOR_PINCTRL_STATE_DEFAULT "cam_default"
@@ -614,7 +615,8 @@ int cam_sensor_util_request_gpio_table(
 
 	if (gpio_en) {
 		for (i = 0; i < size; i++) {
-			rc = gpio_request_one(gpio_tbl[i].gpio,
+			rc = cam_res_mgr_gpio_request(soc_info->dev,
+					gpio_tbl[i].gpio,
 					gpio_tbl[i].flags, gpio_tbl[i].label);
 			if (rc) {
 				/*
@@ -627,7 +629,7 @@ int cam_sensor_util_request_gpio_table(
 			}
 		}
 	} else {
-		gpio_free_array(gpio_tbl, size);
+		cam_res_mgr_gpio_free_arry(soc_info->dev, gpio_tbl, size);
 	}
 
 	return rc;
@@ -1176,6 +1178,9 @@ int msm_camera_pinctrl_init(
 			"Failed to get the suspend state pinctrl handle");
 		return -EINVAL;
 	}
+
+	cam_res_mgr_shared_pinctrl_init();
+
 	return 0;
 }
 int msm_cam_sensor_handle_reg_gpio(int seq_type,
@@ -1195,7 +1200,7 @@ int msm_cam_sensor_handle_reg_gpio(int seq_type,
 	if (gpio_num_info->valid[gpio_offset] == 1) {
 		CAM_DBG(CAM_SENSOR, "VALID GPIO offset: %d, seqtype: %d",
 			 gpio_offset, seq_type);
-		gpio_set_value_cansleep(
+		cam_res_mgr_gpio_set_value(
 			gpio_num_info->gpio_num
 			[gpio_offset], val);
 	}
@@ -1238,10 +1243,13 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 		no_gpio = rc;
 
 	if (ctrl->cam_pinctrl_status) {
-		ret = pinctrl_select_state(ctrl->pinctrl_info.pinctrl,
+		ret = pinctrl_select_state(
+			ctrl->pinctrl_info.pinctrl,
 			ctrl->pinctrl_info.gpio_state_active);
 		if (ret)
 			CAM_ERR(CAM_SENSOR, "cannot set pin to active state");
+
+		cam_res_mgr_shared_pinctrl_select_state(true);
 	}
 
 	for (index = 0; index < ctrl->power_setting_size; index++) {
@@ -1423,7 +1431,7 @@ power_up_failed:
 			if (!gpio_num_info->valid
 				[power_setting->seq_type])
 				continue;
-			gpio_set_value_cansleep(
+			cam_res_mgr_gpio_set_value(
 				gpio_num_info->gpio_num
 				[power_setting->seq_type], GPIOF_OUT_INIT_LOW);
 			break;
@@ -1471,11 +1479,14 @@ power_up_failed:
 		}
 	}
 	if (ctrl->cam_pinctrl_status) {
-		ret = pinctrl_select_state(ctrl->pinctrl_info.pinctrl,
+		ret = pinctrl_select_state(
+				ctrl->pinctrl_info.pinctrl,
 				ctrl->pinctrl_info.gpio_state_suspend);
 		if (ret)
 			CAM_ERR(CAM_SENSOR, "cannot set pin to suspend state");
-		devm_pinctrl_put(ctrl->pinctrl_info.pinctrl);
+		cam_res_mgr_shared_pinctrl_select_state(false);
+		pinctrl_put(ctrl->pinctrl_info.pinctrl);
+		cam_res_mgr_shared_pinctrl_put();
 	}
 	ctrl->cam_pinctrl_status = 0;
 
@@ -1599,7 +1610,7 @@ int msm_camera_power_down(struct cam_sensor_power_ctrl_t *ctrl,
 			if (!gpio_num_info->valid[pd->seq_type])
 				continue;
 
-			gpio_set_value_cansleep(
+			cam_res_mgr_gpio_set_value(
 				gpio_num_info->gpio_num
 				[pd->seq_type],
 				(int) pd->config_val);
@@ -1662,11 +1673,15 @@ int msm_camera_power_down(struct cam_sensor_power_ctrl_t *ctrl,
 	}
 
 	if (ctrl->cam_pinctrl_status) {
-		ret = pinctrl_select_state(ctrl->pinctrl_info.pinctrl,
+		ret = pinctrl_select_state(
+				ctrl->pinctrl_info.pinctrl,
 				ctrl->pinctrl_info.gpio_state_suspend);
 		if (ret)
 			CAM_ERR(CAM_SENSOR, "cannot set pin to suspend state");
-		devm_pinctrl_put(ctrl->pinctrl_info.pinctrl);
+
+		cam_res_mgr_shared_pinctrl_select_state(false);
+		pinctrl_put(ctrl->pinctrl_info.pinctrl);
+		cam_res_mgr_shared_pinctrl_put();
 	}
 
 	ctrl->cam_pinctrl_status = 0;

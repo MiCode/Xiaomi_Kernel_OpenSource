@@ -54,6 +54,21 @@ Optional properties:
 - hw-trdhld : should contain internal hold time for SDA
 - hw-tsp : should contain filtering of glitches
 
+* Qualcomm Technologies, Inc. MSM Camera Sensor Resource Manager
+
+MSM camera sensor resource manager node contains properties of shared camera
+sensor resource.
+
+Required properties:
+- compatible : should be manufacturer name followed by sensor name
+  - "qcom,cam-res-mgr"
+Optional properties:
+- shared-gpios : should contain the gpios which are used by two or more
+  cameras, and these cameras may be opened together.
+- pinctrl-names: List of names to assign the shared pin state defined in pinctrl device node
+- pinctrl-<0..n>: Lists phandles each pointing to the pin configuration node within a pin
+  controller. These pin configurations are installed in the pinctrl device node.
+
 * Qualcomm Technologies, Inc. MSM Sensor
 
 MSM sensor node contains properties of camera sensor
@@ -332,6 +347,15 @@ qcom,cci@0xfda0c000 {
          rgltr-min-voltage = <2800000>;
          rgltr-max-voltage = <2800000>;
          rgltr-load-current = <100000>;
+    };
+
+    qcom,cam-res-mgr {
+         compatible = "qcom,cam-res-mgr";
+         status = "ok";
+         shared-gpios = <18 19>;
+         pinctrl-names = "cam_res_mgr_default", "cam_res_mgr_suspend";
+         pinctrl-0 = <&cam_res_mgr_active>;
+         pinctrl-1 = <&cam_res_mgr_suspend>;
     };
 
     qcom,cam-sensor@0 {
