@@ -201,6 +201,23 @@ struct sde_hw_ctl_ops {
 		enum sde_rot blk);
 
 	/**
+	 * read CTL_TOP register value and return
+	 * the data.
+	 * @ctx		: ctl path ctx pointer
+	 * @return	: CTL top register value
+	 */
+	u32 (*read_ctl_top)(struct sde_hw_ctl *ctx);
+
+	/**
+	 * read CTL layers register value and return
+	 * the data.
+	 * @ctx       : ctl path ctx pointer
+	 * @index       : layer index for this ctl path
+	 * @return	: CTL layers register value
+	 */
+	u32 (*read_ctl_layers)(struct sde_hw_ctl *ctx, int index);
+
+	/**
 	 * Set all blend stages to disabled
 	 * @ctx       : ctl path ctx pointer
 	 */
@@ -267,15 +284,6 @@ struct sde_hw_ctl {
  */
 int sde_unstage_pipe_for_cont_splash(struct sde_splash_data *data,
 		void __iomem *mmio);
-
-/**
- * sde_get_ctl_top_for_cont_splash - retrieve the current LM blocks
- * @mmio: mapped register io address of MDP
- * @top: pointer to the current "ctl_top" structure thats needs update
- * @index: ctl_top index
- */
-void sde_get_ctl_top_for_cont_splash(void __iomem *mmio,
-		struct ctl_top *top, int index);
 
 /**
  * sde_hw_ctl - convert base object sde_hw_base to container
