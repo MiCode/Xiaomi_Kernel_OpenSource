@@ -7,6 +7,8 @@ Required properties :
 - reg-names: Address name. Must be "cc_base".
 - vdd_mm-supply: phandle to the MM_CX rail that needs to be voted on behalf
 		 of the clocks.
+- clock-names: Shall contain "cfg_ahb_clk"
+- clocks: phandle + clock reference to the GCC AHB clock.
 - #clock-cells : Shall contain 1.
 - #reset-cells : Shall contain 1.
 
@@ -16,6 +18,8 @@ Example:
 		reg = <0xaf00000 0x20000>;
 		reg-names = "cc_base";
 		vdd_mm-supply = <&pm855l_s5_level>;
+		clock-names = "cfg_ahb_clk";
+		clocks = <&clock_gcc GCC_DISP_AHB_CLK>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};

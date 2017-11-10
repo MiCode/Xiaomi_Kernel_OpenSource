@@ -6,10 +6,10 @@ Required properties :
 - reg : shall contain base register location and length.
 - reg-names: names of registers listed in the same order as in
 	     the reg property.
-- #clock-cells : shall contain 1.
-
-Optional properties :
+- clock-names: Shall contain "cfg_ahb_clk"
+- clocks: phandle + clock reference to the GCC AHB clock.
 - vdd_<rail>-supply: The logic rail supply.
+- #clock-cells : shall contain 1.
 
 Example:
 	clock_camcc: qcom,camcc {
@@ -18,5 +18,7 @@ Example:
 		reg-names = "cc_base";
 		vdd_mx-supply = <&pm855l_s4_level>;
 		vdd_mm-supply = <&pm855l_s5_level>;
+		clock-names = "cfg_ahb_clk";
+		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 		#clock-cells = <1>;
 	};

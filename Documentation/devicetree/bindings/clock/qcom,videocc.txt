@@ -4,11 +4,11 @@ Required properties:
 - compatible: shall contain "qcom,videocc-sdm855".
 - reg: shall contain base register location and length.
 - reg-names: names of registers listed in the same order as in the reg property.
+- vdd_mm-supply: the logic rail supply.
+- clock-names: Shall contain "cfg_ahb_clk"
+- clocks: phandle + clock reference to the GCC AHB clock.
 - #clock-cells: shall contain 1.
 - #reset-cells: shall contain 1.
-
-Optional properties:
-- vdd_<rail>-supply: the logic rail supply.
 
 Example:
 	qcom,videocc@ab00000 {
@@ -16,6 +16,8 @@ Example:
 		reg = <0xab00000 0x10000>;
 		reg-names = "cc_base";
 		vdd_mm-supply = <&pm855l_s5_level>;
+		clock-names = "cfg_ahb_clk";
+		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
