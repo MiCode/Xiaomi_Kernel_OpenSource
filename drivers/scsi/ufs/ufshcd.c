@@ -549,19 +549,19 @@ static inline void ufshcd_remove_non_printable(char *val)
 
 #ifdef CONFIG_TRACEPOINTS
 static inline void ufshcd_add_command_trace(struct ufs_hba *hba,
-			struct ufshcd_cmd_log_entry *entry, u8 opcode)
+			struct ufshcd_cmd_log_entry *entry)
 {
 	if (trace_ufshcd_command_enabled()) {
 		u32 intr = ufshcd_readl(hba, REG_INTERRUPT_STATUS);
 
 		trace_ufshcd_command(dev_name(hba->dev), entry->str, entry->tag,
 				     entry->doorbell, entry->transfer_len, intr,
-				     entry->lba, opcode);
+				     entry->lba, entry->cmd_id);
 	}
 }
 #else
 static inline void ufshcd_add_command_trace(struct ufs_hba *hba,
-			struct ufshcd_cmd_log_entry *entry, u8 opcode)
+			struct ufshcd_cmd_log_entry *entry)
 {
 }
 #endif
@@ -582,7 +582,7 @@ static void ufshcd_cmd_log_init(struct ufs_hba *hba)
 
 static void __ufshcd_cmd_log(struct ufs_hba *hba, char *str, char *cmd_type,
 			     unsigned int tag, u8 cmd_id, u8 idn, u8 lun,
-			     sector_t lba, int transfer_len, u8 opcode)
+			     sector_t lba, int transfer_len)
 {
 	struct ufshcd_cmd_log_entry *entry;
 
@@ -606,19 +606,18 @@ static void __ufshcd_cmd_log(struct ufs_hba *hba, char *str, char *cmd_type,
 	hba->cmd_log.pos =
 			(hba->cmd_log.pos + 1) % UFSHCD_MAX_CMD_LOGGING;
 
-	ufshcd_add_command_trace(hba, entry, opcode);
+	ufshcd_add_command_trace(hba, entry);
 }
 
 static void ufshcd_cmd_log(struct ufs_hba *hba, char *str, char *cmd_type,
 	unsigned int tag, u8 cmd_id, u8 idn)
 {
-	__ufshcd_cmd_log(hba, str, cmd_type, tag, cmd_id, idn,
-			 0xff, (sector_t)-1, -1, -1);
+	__ufshcd_cmd_log(hba, str, cmd_type, tag, cmd_id, idn, 0, 0, 0);
 }
 
 static void ufshcd_dme_cmd_log(struct ufs_hba *hba, char *str, u8 cmd_id)
 {
-	ufshcd_cmd_log(hba, str, "dme", 0xff, cmd_id, 0xff);
+	ufshcd_cmd_log(hba, str, "dme", 0, cmd_id, 0);
 }
 
 static void ufshcd_print_cmd_log(struct ufs_hba *hba)
@@ -653,7 +652,7 @@ static void ufshcd_cmd_log_init(struct ufs_hba *hba)
 
 static void __ufshcd_cmd_log(struct ufs_hba *hba, char *str, char *cmd_type,
 			     unsigned int tag, u8 cmd_id, u8 idn, u8 lun,
-			     sector_t lba, int transfer_len, u8 opcode)
+			     sector_t lba, int transfer_len)
 {
 	struct ufshcd_cmd_log_entry entry;
 
@@ -663,7 +662,7 @@ static void __ufshcd_cmd_log(struct ufs_hba *hba, char *str, char *cmd_type,
 	entry.doorbell = ufshcd_readl(hba, REG_UTP_TRANSFER_REQ_DOOR_BELL);
 	entry.tag = tag;
 
-	ufshcd_add_command_trace(hba, &entry, opcode);
+	ufshcd_add_command_trace(hba, &entry);
 }
 
 static void ufshcd_dme_cmd_log(struct ufs_hba *hba, char *str, u8 cmd_id)
@@ -683,8 +682,8 @@ static inline void ufshcd_cond_add_cmd_trace(struct ufs_hba *hba,
 	char *cmd_type = NULL;
 	u8 opcode = 0;
 	u8 cmd_id = 0, idn = 0;
-	sector_t lba = -1;
-	int transfer_len = -1;
+	sector_t lba = 0;
+	int transfer_len = 0;
 
 	lrbp = &hba->lrb[tag];
 
@@ -718,7 +717,7 @@ static inline void ufshcd_cond_add_cmd_trace(struct ufs_hba *hba,
 	}
 
 	__ufshcd_cmd_log(hba, (char *) str, cmd_type, tag, cmd_id, idn,
-			 lrbp->lun, lba, transfer_len, opcode);
+			 lrbp->lun, lba, transfer_len);
 }
 #else
 static inline void ufshcd_cond_add_cmd_trace(struct ufs_hba *hba,
@@ -2366,7 +2365,8 @@ int ufshcd_send_command(struct ufs_hba *hba, unsigned int task_tag)
 	ufshcd_writel(hba, 1 << task_tag, REG_UTP_TRANSFER_REQ_DOOR_BELL);
 	/* Make sure that doorbell is committed immediately */
 	wmb();
-	ufshcd_cond_add_cmd_trace(hba, task_tag, "send");
+	ufshcd_cond_add_cmd_trace(hba, task_tag,
+			hba->lrb[task_tag].cmd ? "scsi_send" : "dev_cmd_send");
 	ufshcd_update_tag_stats(hba, task_tag);
 	return ret;
 }
@@ -2483,7 +2483,7 @@ ufshcd_dispatch_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
 
 	hba->active_uic_cmd = uic_cmd;
 
-	ufshcd_dme_cmd_log(hba, "send", hba->active_uic_cmd->command);
+	ufshcd_dme_cmd_log(hba, "dme_send", hba->active_uic_cmd->command);
 	/* Write Args */
 	ufshcd_writel(hba, uic_cmd->argument1, REG_UIC_COMMAND_ARG_1);
 	ufshcd_writel(hba, uic_cmd->argument2, REG_UIC_COMMAND_ARG_2);
@@ -2517,7 +2517,7 @@ ufshcd_wait_for_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
 	if (ret)
 		ufsdbg_set_err_state(hba);
 
-	ufshcd_dme_cmd_log(hba, "cmp1", hba->active_uic_cmd->command);
+	ufshcd_dme_cmd_log(hba, "dme_cmpl_1", hba->active_uic_cmd->command);
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	hba->active_uic_cmd = NULL;
@@ -4450,7 +4450,7 @@ static int ufshcd_uic_pwr_ctrl(struct ufs_hba *hba, struct uic_command *cmd)
 			cmd->command, status);
 		ret = (status != PWR_OK) ? status : -1;
 	}
-	ufshcd_dme_cmd_log(hba, "cmp2", hba->active_uic_cmd->command);
+	ufshcd_dme_cmd_log(hba, "dme_cmpl_2", hba->active_uic_cmd->command);
 
 out:
 	if (ret) {
@@ -5695,7 +5695,7 @@ void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba, int result)
 		lrbp = &hba->lrb[index];
 		cmd = lrbp->cmd;
 		if (cmd) {
-			ufshcd_cond_add_cmd_trace(hba, index, "failed");
+			ufshcd_cond_add_cmd_trace(hba, index, "scsi_failed");
 			ufshcd_update_error_stats(hba,
 					UFS_ERR_INT_FATAL_ERRORS);
 			scsi_dma_unmap(cmd);
@@ -5725,7 +5725,7 @@ void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba, int result)
 		} else if (lrbp->command_type == UTP_CMD_TYPE_DEV_MANAGE) {
 			if (hba->dev_cmd.complete) {
 				ufshcd_cond_add_cmd_trace(hba, index,
-							"dev_failed");
+							"dev_cmd_failed");
 				ufshcd_outstanding_req_clear(hba, index);
 				complete(hba->dev_cmd.complete);
 			}
@@ -5753,7 +5753,7 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 		lrbp = &hba->lrb[index];
 		cmd = lrbp->cmd;
 		if (cmd) {
-			ufshcd_cond_add_cmd_trace(hba, index, "complete");
+			ufshcd_cond_add_cmd_trace(hba, index, "scsi_cmpl");
 			ufshcd_update_tag_stats_completion(hba, cmd);
 			result = ufshcd_transfer_rsp_status(hba, lrbp);
 			scsi_dma_unmap(cmd);
@@ -5799,7 +5799,7 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 		} else if (lrbp->command_type == UTP_CMD_TYPE_DEV_MANAGE) {
 			if (hba->dev_cmd.complete) {
 				ufshcd_cond_add_cmd_trace(hba, index,
-						"dcmp");
+						"dev_cmd_cmpl");
 				complete(hba->dev_cmd.complete);
 			}
 		}
