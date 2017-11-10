@@ -513,6 +513,7 @@ int sde_plane_danger_signal_ctrl(struct drm_plane *plane, bool enable)
 	struct sde_plane *psde;
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
+	int rc;
 
 	if (!plane || !plane->dev) {
 		SDE_ERROR("invalid arguments\n");
@@ -531,7 +532,13 @@ int sde_plane_danger_signal_ctrl(struct drm_plane *plane, bool enable)
 	if (!psde->is_rt_pipe)
 		goto end;
 
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
+	rc = sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
+			true);
+	if (rc) {
+		SDE_ERROR("failed to enable power resource %d\n", rc);
+		SDE_EVT32(rc, SDE_EVTLOG_ERROR);
+		return rc;
+	}
 
 	_sde_plane_set_qos_ctrl(plane, enable, SDE_PLANE_QOS_PANIC_CTRL);
 

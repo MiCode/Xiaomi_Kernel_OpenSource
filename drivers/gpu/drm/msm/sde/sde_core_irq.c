@@ -460,6 +460,7 @@ void sde_core_irq_preinstall(struct sde_kms *sde_kms)
 {
 	struct msm_drm_private *priv;
 	int i;
+	int rc;
 
 	if (!sde_kms) {
 		SDE_ERROR("invalid sde_kms\n");
@@ -473,7 +474,14 @@ void sde_core_irq_preinstall(struct sde_kms *sde_kms)
 	}
 	priv = sde_kms->dev->dev_private;
 
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
+	rc = sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
+			true);
+	if (rc) {
+		SDE_ERROR("failed to enable power resource %d\n", rc);
+		SDE_EVT32(rc, SDE_EVTLOG_ERROR);
+		return;
+	}
+
 	sde_clear_all_irqs(sde_kms);
 	sde_disable_all_irqs(sde_kms);
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
@@ -504,6 +512,7 @@ void sde_core_irq_uninstall(struct sde_kms *sde_kms)
 {
 	struct msm_drm_private *priv;
 	int i;
+	int rc;
 
 	if (!sde_kms) {
 		SDE_ERROR("invalid sde_kms\n");
@@ -517,7 +526,14 @@ void sde_core_irq_uninstall(struct sde_kms *sde_kms)
 	}
 	priv = sde_kms->dev->dev_private;
 
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
+	rc = sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
+			true);
+	if (rc) {
+		SDE_ERROR("failed to enable power resource %d\n", rc);
+		SDE_EVT32(rc, SDE_EVTLOG_ERROR);
+		return;
+	}
+
 	for (i = 0; i < sde_kms->irq_obj.total_irqs; i++)
 		if (atomic_read(&sde_kms->irq_obj.enable_counts[i]) ||
 				!list_empty(&sde_kms->irq_obj.irq_cb_tbl[i]))

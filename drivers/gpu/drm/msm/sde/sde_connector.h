@@ -547,8 +547,9 @@ int sde_connector_get_info(struct drm_connector *connector,
  * sde_connector_clk_ctrl - enables/disables the connector clks
  * @connector: Pointer to drm connector object
  * @enable: true/false to enable/disable
+ * Returns: Zero on success
  */
-void sde_connector_clk_ctrl(struct drm_connector *connector, bool enable);
+int sde_connector_clk_ctrl(struct drm_connector *connector, bool enable);
 
 /**
  * sde_connector_get_dpms - query dpms setting

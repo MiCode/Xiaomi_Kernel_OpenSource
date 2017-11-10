@@ -3053,6 +3053,11 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 		return;
 	}
 
+	if (!sde_kms_power_resource_is_enabled(crtc->dev)) {
+		SDE_ERROR("power resource is not enabled\n");
+		return;
+	}
+
 	SDE_DEBUG("crtc%d\n", crtc->base.id);
 
 	sde_crtc = to_sde_crtc(crtc);
@@ -3139,6 +3144,11 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	if (!crtc->state->enable) {
 		SDE_DEBUG("crtc%d -> enable %d, skip atomic_flush\n",
 				crtc->base.id, crtc->state->enable);
+		return;
+	}
+
+	if (!sde_kms_power_resource_is_enabled(crtc->dev)) {
+		SDE_ERROR("power resource is not enabled\n");
 		return;
 	}
 
@@ -4055,6 +4065,12 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 		SDE_ERROR("invalid crtc\n");
 		return;
 	}
+
+	if (!sde_kms_power_resource_is_enabled(crtc->dev)) {
+		SDE_ERROR("power resource is not enabled\n");
+		return;
+	}
+
 	sde_crtc = to_sde_crtc(crtc);
 	cstate = to_sde_crtc_state(crtc->state);
 	priv = crtc->dev->dev_private;
@@ -4169,6 +4185,11 @@ static void sde_crtc_enable(struct drm_crtc *crtc,
 		return;
 	}
 	priv = crtc->dev->dev_private;
+
+	if (!sde_kms_power_resource_is_enabled(crtc->dev)) {
+		SDE_ERROR("power resource is not enabled\n");
+		return;
+	}
 
 	SDE_DEBUG("crtc%d\n", crtc->base.id);
 	SDE_EVT32_VERBOSE(DRMID(crtc));
@@ -5830,8 +5851,15 @@ static int _sde_crtc_event_enable(struct sde_kms *kms,
 	priv = kms->dev->dev_private;
 	ret = 0;
 	if (crtc_drm->enabled) {
-		sde_power_resource_enable(&priv->phandle, kms->core_client,
-				true);
+		ret = sde_power_resource_enable(&priv->phandle,
+				kms->core_client, true);
+		if (ret) {
+			SDE_ERROR("failed to enable power resource %d\n", ret);
+			SDE_EVT32(ret, SDE_EVTLOG_ERROR);
+			kfree(node);
+			return ret;
+		}
+
 		INIT_LIST_HEAD(&node->irq.list);
 		ret = node->func(crtc_drm, true, &node->irq);
 		sde_power_resource_enable(&priv->phandle, kms->core_client,
@@ -5885,7 +5913,15 @@ static int _sde_crtc_event_disable(struct sde_kms *kms,
 		return 0;
 	}
 	priv = kms->dev->dev_private;
-	sde_power_resource_enable(&priv->phandle, kms->core_client, true);
+	ret = sde_power_resource_enable(&priv->phandle, kms->core_client, true);
+	if (ret) {
+		SDE_ERROR("failed to enable power resource %d\n", ret);
+		SDE_EVT32(ret, SDE_EVTLOG_ERROR);
+		list_del(&node->list);
+		kfree(node);
+		return ret;
+	}
+
 	ret = node->func(crtc_drm, false, &node->irq);
 	list_del(&node->list);
 	kfree(node);
