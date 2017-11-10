@@ -3455,6 +3455,20 @@ int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 			pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream->private_data = rtd;
 		if (capture)
 			pcm->streams[SNDRV_PCM_STREAM_CAPTURE].substream->private_data = rtd;
+		for_each_rtdcom(rtd, rtdcom) {
+			component = rtdcom->component;
+
+			if (!component->driver->pcm_new)
+				continue;
+
+			ret = component->driver->pcm_new(rtd);
+			if (ret < 0) {
+				dev_err(component->dev,
+					"ASoC: pcm constructor failed: %d\n",
+					ret);
+				return ret;
+			}
+		}
 		goto out;
 	}
 
