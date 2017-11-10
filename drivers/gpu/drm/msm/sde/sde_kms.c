@@ -103,6 +103,7 @@ static int _sde_danger_signal_status(struct seq_file *s,
 	struct msm_drm_private *priv;
 	struct sde_danger_safe_status status;
 	int i;
+	int rc;
 
 	if (!kms || !kms->dev || !kms->dev->dev_private || !kms->hw_mdp) {
 		SDE_ERROR("invalid arg(s)\n");
@@ -112,7 +113,13 @@ static int _sde_danger_signal_status(struct seq_file *s,
 	priv = kms->dev->dev_private;
 	memset(&status, 0, sizeof(struct sde_danger_safe_status));
 
-	sde_power_resource_enable(&priv->phandle, kms->core_client, true);
+	rc = sde_power_resource_enable(&priv->phandle, kms->core_client, true);
+	if (rc) {
+		SDE_ERROR("failed to enable power resource %d\n", rc);
+		SDE_EVT32(rc, SDE_EVTLOG_ERROR);
+		return rc;
+	}
+
 	if (danger_status) {
 		seq_puts(s, "\nDanger signal status:\n");
 		if (kms->hw_mdp->ops.get_danger_status)
@@ -541,7 +548,13 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 		return;
 	priv = dev->dev_private;
 
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
+	rc = sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
+			true);
+	if (rc) {
+		SDE_ERROR("failed to enable power resource %d\n", rc);
+		SDE_EVT32(rc, SDE_EVTLOG_ERROR);
+		return;
+	}
 
 	for_each_crtc_in_state(state, crtc, crtc_state, i) {
 		list_for_each_entry(encoder, &dev->mode_config.encoder_list,
@@ -587,9 +600,19 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 static void sde_kms_commit(struct msm_kms *kms,
 		struct drm_atomic_state *old_state)
 {
+	struct sde_kms *sde_kms;
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *old_crtc_state;
 	int i;
+
+	if (!kms || !old_state)
+		return;
+	sde_kms = to_sde_kms(kms);
+
+	if (!sde_kms_power_resource_is_enabled(sde_kms->dev)) {
+		SDE_ERROR("power resource is not enabled\n");
+		return;
+	}
 
 	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i) {
 		if (crtc->state->active) {
@@ -617,6 +640,11 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 	if (!sde_kms->dev || !sde_kms->dev->dev_private)
 		return;
 	priv = sde_kms->dev->dev_private;
+
+	if (!sde_kms_power_resource_is_enabled(sde_kms->dev)) {
+		SDE_ERROR("power resource is not enabled\n");
+		return;
+	}
 
 	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i)
 		sde_crtc_complete_commit(crtc, old_crtc_state);
