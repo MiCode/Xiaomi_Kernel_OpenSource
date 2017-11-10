@@ -101,6 +101,10 @@
 	};
 };
 
+&audio_codec_mtp {
+	 /delete-property/ asoc-codec;
+};
+
 &i2c_1 {
 	status = "disabled";
 };
