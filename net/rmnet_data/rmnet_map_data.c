@@ -753,18 +753,18 @@ int rmnet_ul_aggregation_skip(struct sk_buff *skb, int offset)
 
 		if (ip4h->protocol == IPPROTO_ICMP)
 			is_icmp = 1;
-	} else {
+	} else if ((skb->data[offset]) >> 4 == 0x06) {
 		struct ipv6hdr *ip6h = (struct ipv6hdr *)(packet_start);
 
-		if (ip6h->nexthdr == NEXTHDR_FRAGMENT) {
+		if (ip6h->nexthdr == IPPROTO_ICMPV6) {
+			is_icmp = 1;
+		} else if (ip6h->nexthdr == NEXTHDR_FRAGMENT) {
 			struct frag_hdr *frag;
 
 			frag = (struct frag_hdr *)(packet_start
 						   + sizeof(struct ipv6hdr));
 			if (frag->nexthdr == IPPROTO_ICMPV6)
 				is_icmp = 1;
-		} else if (ip6h->nexthdr == IPPROTO_ICMPV6) {
-			is_icmp = 1;
 		}
 	}
 
