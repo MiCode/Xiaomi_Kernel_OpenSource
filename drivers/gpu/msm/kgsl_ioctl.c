@@ -145,7 +145,7 @@ long kgsl_ioctl_helper(struct file *filep, unsigned int cmd, unsigned long arg,
 
 	if (_IOC_SIZE(cmds[nr].cmd) > sizeof(data)) {
 		if (__ratelimit(&_rs))
-			WARN(1, "data too big for ioctl 0x%08X: %d/%ld\n",
+			WARN(1, "data too big for ioctl 0x%08X: %d/%zu\n",
 				cmd, _IOC_SIZE(cmds[nr].cmd), sizeof(data));
 		return -EINVAL;
 	}
