@@ -26,6 +26,7 @@ Required properties :
 
 Optional properties :
 - #power-domain-cells : shall contain 1
+- vdd_<rail>-supply: The logic rail supply.
 - Qualcomm TSENS (thermal sensor device) on some devices can
 be part of GCC and hence the TSENS properties can also be
 part of the GCC/clock-controller node.
