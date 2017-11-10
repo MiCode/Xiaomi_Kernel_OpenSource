@@ -128,8 +128,7 @@ struct sde_encoder_virt_ops {
  *				SDE_ENC_ERR_NEEDS_HW_RESET state
  * @irq_control:		Handler to enable/disable all the encoder IRQs
  * @update_split_role:		Update the split role of the phys enc
- * @prepare_idle_pc:		phys encoder can update the vsync_enable status
- *                              on idle power collapse prepare
+ * @control_te:			Interface to control the vsync_enable status
  * @restore:			Restore all the encoder configs.
  * @is_autorefresh_enabled:	provides the autorefresh current
  *                              enable/disable state.
@@ -178,7 +177,7 @@ struct sde_encoder_phys_ops {
 	void (*irq_control)(struct sde_encoder_phys *phys, bool enable);
 	void (*update_split_role)(struct sde_encoder_phys *phys_enc,
 			enum sde_enc_split_role role);
-	void (*prepare_idle_pc)(struct sde_encoder_phys *phys_enc);
+	void (*control_te)(struct sde_encoder_phys *phys_enc, bool enable);
 	void (*restore)(struct sde_encoder_phys *phys);
 	bool (*is_autorefresh_enabled)(struct sde_encoder_phys *phys);
 	int (*get_line_count)(struct sde_encoder_phys *phys);
