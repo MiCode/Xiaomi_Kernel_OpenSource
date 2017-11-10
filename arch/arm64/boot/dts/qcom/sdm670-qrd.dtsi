@@ -73,6 +73,11 @@
 	qcom,fg-bmd-en-delay-ms = <300>;
 };
 
+&pm660_charger {
+	qcom,battery-data = <&qrd_batterydata>;
+	qcom,sw-jeita-enable;
+};
+
 &tlmm {
 	smb_int_default: smb_int_default {
 		mux {
