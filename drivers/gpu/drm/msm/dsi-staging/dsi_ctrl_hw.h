@@ -753,6 +753,8 @@ struct dsi_ctrl_hw_ops {
  * @supported_errors:       Number of supported errors.
  * @phy_isolation_enabled:    A boolean property allows to isolate the phy from
  *                          dsi controller and run only dsi controller.
+ * @null_insertion_enabled:  A boolean property to allow dsi controller to
+ *                           insert null packet.
  */
 struct dsi_ctrl_hw {
 	void __iomem *base;
@@ -772,6 +774,7 @@ struct dsi_ctrl_hw {
 	u64 supported_errors;
 
 	bool phy_isolation_enabled;
+	bool null_insertion_enabled;
 };
 
 #endif /* _DSI_CTRL_HW_H_ */

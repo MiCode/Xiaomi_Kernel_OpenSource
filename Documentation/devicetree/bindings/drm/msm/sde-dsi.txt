@@ -100,3 +100,4 @@ Optional properties:
 					controller. This must be enabled for debugging purpose
 					only with simulator panel. It should not be enabled for
 					normal DSI panels.
+- - qcom,null-insertion-enabled:	A boolean to enable NULL packet insertion feature for DSI controller.

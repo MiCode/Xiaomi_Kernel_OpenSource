@@ -1469,6 +1469,9 @@ static int dsi_ctrl_dts_parse(struct dsi_ctrl *dsi_ctrl,
 	dsi_ctrl->phy_isolation_enabled = of_property_read_bool(of_node,
 				    "qcom,dsi-phy-isolation-enabled");
 
+	dsi_ctrl->null_insertion_enabled = of_property_read_bool(of_node,
+					"qcom,null-insertion-enabled");
+
 	return 0;
 }
 
@@ -1526,7 +1529,8 @@ static int dsi_ctrl_dev_probe(struct platform_device *pdev)
 	}
 
 	rc = dsi_catalog_ctrl_setup(&dsi_ctrl->hw, dsi_ctrl->version,
-		    dsi_ctrl->cell_index, dsi_ctrl->phy_isolation_enabled);
+		dsi_ctrl->cell_index, dsi_ctrl->phy_isolation_enabled,
+		dsi_ctrl->null_insertion_enabled);
 	if (rc) {
 		pr_err("Catalog does not support version (%d)\n",
 		       dsi_ctrl->version);
