@@ -1859,8 +1859,7 @@ static int a6xx_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 	}
 
 	dev_err(&gmu->pdev->dev,
-		"Timeout waiting for lowest idle level: %d\n", reg);
-	WARN_ON(1);
+			"Timeout waiting for lowest idle level: %d\n", reg);
 	return -ETIMEDOUT;
 }
 

@@ -233,7 +233,6 @@ struct gmu_device {
 	unsigned int fault_count;
 };
 
-void gmu_snapshot(struct kgsl_device *device);
 bool kgsl_gmu_isenabled(struct kgsl_device *device);
 int gmu_probe(struct kgsl_device *device);
 void gmu_remove(struct kgsl_device *device);
