@@ -178,6 +178,7 @@ static void cam_context_sync_callback(int32_t sync_obj, int status, void *data)
 			req->ctx = NULL;
 			req->flushed = 0;
 			spin_lock(&ctx->lock);
+			list_del_init(&req->list);
 			list_add_tail(&req->list, &ctx->free_req_list);
 			spin_unlock(&ctx->lock);
 		}
