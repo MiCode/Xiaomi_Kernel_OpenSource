@@ -992,6 +992,9 @@ static int cam_vfe_bus_acquire_wm(
 		rsrc_data->width = rsrc_data->width * 2;
 		rsrc_data->stride = rsrc_data->width;
 		rsrc_data->en_cfg = 0x1;
+
+		/* LSB aligned */
+		rsrc_data->pack_fmt |= 0x10;
 	}  else {
 		/* Write master 5-6 DS ports, 10 PDAF */
 		uint32_t align_width;
