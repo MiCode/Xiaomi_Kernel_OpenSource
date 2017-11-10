@@ -282,7 +282,7 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 
 	if (bridge->encoder && bridge->encoder->crtc) {
 
-		convert_to_dsi_mode(&bridge->encoder->crtc->mode,
+		convert_to_dsi_mode(&bridge->encoder->crtc->state->mode,
 							&cur_dsi_mode);
 		rc = dsi_display_validate_mode_vrr(c_bridge->display,
 					&cur_dsi_mode, &dsi_mode);
