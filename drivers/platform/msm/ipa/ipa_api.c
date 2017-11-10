@@ -3135,6 +3135,17 @@ void ipa_ntn_uc_dereg_rdyCB(void)
 }
 EXPORT_SYMBOL(ipa_ntn_uc_dereg_rdyCB);
 
+int ipa_get_smmu_params(struct ipa_smmu_in_params *in,
+	struct ipa_smmu_out_params *out)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_get_smmu_params, in, out);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_get_smmu_params);
+
 /**
  * ipa_conn_wdi3_pipes() - connect wdi3 pipes
  */
