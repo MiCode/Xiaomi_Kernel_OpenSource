@@ -781,7 +781,7 @@ static int snd_compr_drain(struct snd_compr_stream *stream)
 	if (!retval) {
 		stream->runtime->state = SNDRV_PCM_STATE_DRAINING;
 		wake_up(&stream->runtime->sleep);
-		return retval;
+		goto ret;
 	}
 
 ret:
