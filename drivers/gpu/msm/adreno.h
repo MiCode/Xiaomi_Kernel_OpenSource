@@ -831,6 +831,13 @@ struct adreno_snapshot_data {
 	struct adreno_snapshot_sizes *sect_sizes;
 };
 
+enum adreno_cp_marker_type {
+	IFPC_DISABLE,
+	IFPC_ENABLE,
+	IB1LIST_START,
+	IB1LIST_END,
+};
+
 struct adreno_gpudev {
 	/*
 	 * These registers are in a different location on different devices,
@@ -878,7 +885,8 @@ struct adreno_gpudev {
 				unsigned int *cmds,
 				struct kgsl_context *context);
 	int (*preemption_yield_enable)(unsigned int *);
-	unsigned int (*set_marker)(unsigned int *cmds, int start);
+	unsigned int (*set_marker)(unsigned int *cmds,
+				enum adreno_cp_marker_type type);
 	unsigned int (*preemption_post_ibsubmit)(
 				struct adreno_device *adreno_dev,
 				unsigned int *cmds);

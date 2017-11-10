@@ -374,23 +374,6 @@ void a6xx_preemption_schedule(struct adreno_device *adreno_dev)
 	mutex_unlock(&device->mutex);
 }
 
-unsigned int a6xx_set_marker(unsigned int *cmds, int start)
-{
-	*cmds++ = cp_type7_packet(CP_SET_MARKER, 1);
-
-	/*
-	 * Indicate the beginning  and end of the IB1 list with a SET_MARKER.
-	 * Among other things, this will implicitly enable and disable
-	 * preemption respectively.
-	 */
-	if (start)
-		*cmds++ = 0xD;
-	else
-		*cmds++ = 0xE;
-
-	return 2;
-}
-
 unsigned int a6xx_preemption_pre_ibsubmit(
 		struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb,

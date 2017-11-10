@@ -913,6 +913,38 @@ static int a6xx_rb_start(struct adreno_device *adreno_dev,
 	return a6xx_post_start(adreno_dev);
 }
 
+unsigned int a6xx_set_marker(
+		unsigned int *cmds, enum adreno_cp_marker_type type)
+{
+	unsigned int cmd = 0;
+
+	*cmds++ = cp_type7_packet(CP_SET_MARKER, 1);
+
+	/*
+	 * Indicate the beginning and end of the IB1 list with a SET_MARKER.
+	 * Among other things, this will implicitly enable and disable
+	 * preemption respectively. IFPC can also be disabled and enabled
+	 * with a SET_MARKER. Bit 8 tells the CP the marker is for IFPC.
+	 */
+	switch (type) {
+	case IFPC_DISABLE:
+		cmd = 0x101;
+		break;
+	case IFPC_ENABLE:
+		cmd = 0x100;
+		break;
+	case IB1LIST_START:
+		cmd = 0xD;
+		break;
+	case IB1LIST_END:
+		cmd = 0xE;
+		break;
+	}
+
+	*cmds++ = cmd;
+	return 2;
+}
+
 static int _load_firmware(struct kgsl_device *device, const char *fwfile,
 			  struct adreno_firmware *firmware)
 {
