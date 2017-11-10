@@ -373,12 +373,17 @@ int cam_vfe_irq_top_half(uint32_t    evt_id,
 	 *  need to handle overflow condition here, otherwise irq storm
 	 *  will block everything.
 	 */
-	if (evt_payload->irq_reg_val[1]) {
+	if ((evt_payload->irq_reg_val[0] & 0x3FC00) ||
+		(evt_payload->irq_reg_val[1])) {
 		CAM_ERR(CAM_ISP,
-			"Encountered Error Irq_status1=0x%x. Stopping further IRQ processing from this HW",
+			"Encountered Error Irq_status0=0x%x Status1=0x%x",
+			evt_payload->irq_reg_val[0],
 			evt_payload->irq_reg_val[1]);
-		CAM_ERR(CAM_ISP, "Violation status = %x",
+		CAM_ERR(CAM_ISP, "Violation status = 0x%x",
 			evt_payload->irq_reg_val[2]);
+		CAM_ERR(CAM_ISP,
+			"Stopping further IRQ processing from this HW index=%d",
+			handler_priv->core_index);
 		cam_io_w(0, handler_priv->mem_base + 0x60);
 		cam_io_w(0, handler_priv->mem_base + 0x5C);
 

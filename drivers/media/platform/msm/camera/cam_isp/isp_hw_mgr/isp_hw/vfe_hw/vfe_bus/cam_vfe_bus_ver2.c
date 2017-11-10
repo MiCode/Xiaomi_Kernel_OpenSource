@@ -2300,12 +2300,15 @@ static int cam_vfe_bus_error_irq_top_half(uint32_t evt_id,
 	struct cam_irq_th_payload *th_payload)
 {
 	int i = 0;
+	struct cam_vfe_bus_ver2_priv  *bus_priv = th_payload->handler_priv;
 
 	CAM_ERR_RATE_LIMIT(CAM_ISP, "Bus Err IRQ");
 	for (i = 0; i < th_payload->num_registers; i++) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "IRQ_Status%d: 0x%x", i,
 			th_payload->evt_status_arr[i]);
 	}
+	cam_irq_controller_disable_irq(bus_priv->common_data.bus_irq_controller,
+		bus_priv->error_irq_handle);
 
 	/* Returning error stops from enqueuing bottom half */
 	return -EFAULT;
