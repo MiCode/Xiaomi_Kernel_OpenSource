@@ -523,9 +523,11 @@ struct mhi_dev {
 	struct work_struct		re_init;
 
 	/* EP PCIe registration */
+	struct workqueue_struct		*pcie_event_wq;
 	struct ep_pcie_register_event	event_reg;
 	u32                             ifc_id;
 	struct ep_pcie_hw               *phandle;
+	struct work_struct		pcie_event;
 
 	atomic_t			write_active;
 	atomic_t			is_suspended;
