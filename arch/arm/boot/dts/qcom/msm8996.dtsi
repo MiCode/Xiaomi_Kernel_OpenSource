@@ -3683,9 +3683,10 @@
 		compatible = "qcom,msm-pcm-hostless";
 	};
 
-	qcom,msm-ssc-sensors {
+	ssc_sensors: qcom,msm-ssc-sensors {
 		compatible = "qcom,msm-ssc-sensors";
 		status = "ok";
+		qcom,firmware-name = "slpi";
 	};
 
 	qcom,msm-pacman {
