@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -131,7 +131,7 @@ void diag_md_close_all()
 
 int diag_md_write(int id, unsigned char *buf, int len, int ctx)
 {
-	int i;
+	int i, pid = 0;
 	uint8_t found = 0;
 	unsigned long flags;
 	struct diag_md_info *ch = NULL;
@@ -149,10 +149,14 @@ int diag_md_write(int id, unsigned char *buf, int len, int ctx)
 	if (peripheral < 0)
 		return -EINVAL;
 
-	session_info =
-		diag_md_session_get_peripheral(peripheral);
-	if (!session_info)
+	mutex_lock(&driver->md_session_lock);
+	session_info = diag_md_session_get_peripheral(peripheral);
+	if (!session_info) {
+		mutex_unlock(&driver->md_session_lock);
 		return -EIO;
+	}
+	pid = session_info->pid;
+	mutex_unlock(&driver->md_session_lock);
 
 	ch = &diag_md[id];
 	if (!ch)
@@ -195,8 +199,7 @@ int diag_md_write(int id, unsigned char *buf, int len, int ctx)
 
 	found = 0;
 	for (i = 0; i < driver->num_clients && !found; i++) {
-		if ((driver->client_map[i].pid !=
-		     session_info->pid) ||
+		if ((driver->client_map[i].pid != pid) ||
 		    (driver->client_map[i].pid == 0))
 			continue;
 
