@@ -134,8 +134,8 @@ int cam_context_handle_crm_unlink(struct cam_context *ctx,
 		rc = ctx->state_machine[ctx->state].crm_ops.unlink(
 			ctx, unlink);
 	} else {
-		CAM_ERR(CAM_CORE, "No crm unlink in dev %d, state %d",
-			ctx->dev_hdl, ctx->state);
+		CAM_ERR(CAM_CORE, "No crm unlink in dev %d, name %s, state %d",
+			ctx->dev_hdl, ctx->dev_name, ctx->state);
 		rc = -EPROTO;
 	}
 	mutex_unlock(&ctx->ctx_mutex);

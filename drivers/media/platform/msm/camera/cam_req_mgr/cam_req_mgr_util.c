@@ -317,6 +317,8 @@ static int cam_destroy_hdl(int32_t dev_hdl, int dev_hdl_type)
 	}
 
 	hdl_tbl->hdl[idx].state = HDL_FREE;
+	hdl_tbl->hdl[idx].ops   = NULL;
+	hdl_tbl->hdl[idx].priv  = NULL;
 	clear_bit(idx, hdl_tbl->bitmap);
 	spin_unlock_bh(&hdl_tbl_lock);
 
