@@ -1129,6 +1129,204 @@ static int _sde_rm_make_next_rsvp(
 	return ret;
 }
 
+/**
+ * sde_rm_get_pp_dsc_for_cont_splash - retrieve the current dsc enabled blocks
+ *	and disable autorefresh if enabled.
+ * @mmio: mapped register io address of MDP
+ * @max_dsc_cnt: number of DSC blocks supported in the hw
+ * @dsc_ids: pointer to store the active DSC block IDs
+ * return: number of active DSC blocks
+ */
+static int _sde_rm_get_pp_dsc_for_cont_splash(struct sde_rm *rm,
+			int max_dsc_cnt, u8 *dsc_ids)
+{
+	int index = 0;
+	int value, dsc_cnt = 0;
+	struct sde_hw_autorefresh cfg;
+	struct sde_rm_hw_iter iter_pp;
+
+	if (!rm || !dsc_ids) {
+		SDE_ERROR("invalid input parameters\n");
+		return 0;
+	}
+
+	SDE_DEBUG("max_dsc_cnt = %d\n", max_dsc_cnt);
+	sde_rm_init_hw_iter(&iter_pp, 0, SDE_HW_BLK_PINGPONG);
+	while (_sde_rm_get_hw_locked(rm, &iter_pp)) {
+		struct sde_hw_pingpong *pp =
+				to_sde_hw_pingpong(iter_pp.blk->hw);
+
+		if (!pp->ops.get_dsc_status) {
+			SDE_ERROR("get_dsc_status ops not initialized\n");
+			return 0;
+		}
+		value = pp->ops.get_dsc_status(pp);
+		SDE_DEBUG("DSC[%d]=0x%x, dsc_cnt = %d\n",
+				index, value, dsc_cnt);
+		if (value) {
+			dsc_ids[dsc_cnt] = index + DSC_0;
+			dsc_cnt++;
+		}
+		index++;
+
+		if (!pp->ops.get_autorefresh) {
+			SDE_ERROR("get_autorefresh api not supported\n");
+			return 0;
+		}
+		memset(&cfg, 0, sizeof(cfg));
+		if (!pp->ops.get_autorefresh(pp, &cfg)
+				&& (cfg.enable)
+				&& (pp->ops.setup_autorefresh)) {
+			cfg.enable = false;
+			SDE_DEBUG("Disabling autoreferesh\n");
+			pp->ops.setup_autorefresh(pp, &cfg);
+			/*
+			 * Wait for one frame update so that
+			 * auto refresh disable is through
+			 */
+			usleep_range(16000, 20000);
+		}
+	}
+
+	return dsc_cnt;
+}
+
+/**
+ * _sde_rm_get_ctl_lm_for_cont_splash - retrieve the current LM blocks
+ * @ctl: Pointer to CTL hardware block
+ * @max_lm_cnt: number of LM blocks supported in the hw
+ * @lm_cnt: number of LM blocks already active
+ * @lm_ids: pointer to store the active LM block IDs
+ * @top: pointer to the current "ctl_top" structure
+ * @index: ctl_top index
+ * return: number of active LM blocks for this CTL block
+ */
+static int _sde_rm_get_ctl_lm_for_cont_splash(struct sde_hw_ctl *ctl,
+				int max_lm_cnt, u8 lm_cnt,
+				u8 *lm_ids, struct ctl_top *top,
+				int index)
+{
+	int j;
+	struct sde_splash_lm_hw *lm;
+
+	if (!ctl || !top || !lm_ids) {
+		SDE_ERROR("invalid input parameters\n");
+		return 0;
+	}
+
+	lm = top->lm;
+	for (j = 0; j < max_lm_cnt; j++) {
+		lm[top->ctl_lm_cnt].lm_reg_value =
+			ctl->ops.read_ctl_layers(ctl, j + LM_0);
+		SDE_DEBUG("ctl[%d]_top --> lm[%d]=0x%x, j=%d\n",
+			index, top->ctl_lm_cnt,
+			lm[top->ctl_lm_cnt].lm_reg_value, j);
+		SDE_DEBUG("lm_cnt = %d\n", lm_cnt);
+		if (lm[top->ctl_lm_cnt].lm_reg_value) {
+			lm[top->ctl_lm_cnt].ctl_id = index;
+			lm_ids[lm_cnt++] = j + LM_0;
+			lm[top->ctl_lm_cnt].lm_id = j + LM_0;
+			SDE_DEBUG("ctl_id=%d, lm[%d].lm_id = %d\n",
+				lm[top->ctl_lm_cnt].ctl_id,
+				top->ctl_lm_cnt,
+				lm[top->ctl_lm_cnt].lm_id);
+			top->ctl_lm_cnt++;
+		}
+	}
+	return top->ctl_lm_cnt;
+}
+
+/**
+ * _sde_rm_get_ctl_top_for_cont_splash - retrieve the current LM blocks
+ * @ctl: Pointer to CTL hardware block
+ * @top: pointer to the current "ctl_top" structure thats needs update
+ * @index: ctl_top index
+ */
+static void _sde_rm_get_ctl_top_for_cont_splash(struct sde_hw_ctl *ctl,
+		struct ctl_top *top)
+{
+	if (!ctl || !top) {
+		SDE_ERROR("invalid input parameters\n");
+		return;
+	}
+
+	if (!ctl->ops.read_ctl_top) {
+		SDE_ERROR("read_ctl_top not initialized\n");
+		return;
+	}
+
+	top->value = ctl->ops.read_ctl_top(ctl);
+	top->intf_sel = (top->value >> 4) & 0xf;
+	top->pp_sel = (top->value >> 8) & 0x7;
+	top->dspp_sel = (top->value >> 11) & 0x3;
+	top->mode_sel = (top->value >> 17) & 0x1;
+
+	SDE_DEBUG("id=%d,top->0x%x,pp_sel=0x%x,dspp_sel=0x%x,intf_sel=%d\n",
+				ctl->idx, top->value, top->pp_sel,
+				top->dspp_sel, top->intf_sel);
+}
+
+int sde_rm_cont_splash_res_init(struct sde_rm *rm,
+				struct sde_splash_data *splash_data,
+				struct sde_mdss_cfg *cat)
+{
+	struct sde_rm_hw_iter iter_c;
+	int index = 0, ctl_top_cnt;
+
+	if (!rm || !cat || !splash_data) {
+		SDE_ERROR("invalid input parameters\n");
+		return -EINVAL;
+	}
+
+	SDE_DEBUG("mixer_count=%d, ctl_count=%d, dsc_count=%d\n",
+			cat->mixer_count,
+			cat->ctl_count,
+			cat->dsc_count);
+
+	ctl_top_cnt = cat->ctl_count;
+
+	if (ctl_top_cnt > ARRAY_SIZE(splash_data->top)) {
+		SDE_ERROR("Mismatch in ctl_top array size\n");
+		return -EINVAL;
+	}
+
+	sde_rm_init_hw_iter(&iter_c, 0, SDE_HW_BLK_CTL);
+	while (_sde_rm_get_hw_locked(rm, &iter_c)) {
+		struct sde_hw_ctl *ctl = to_sde_hw_ctl(iter_c.blk->hw);
+
+		_sde_rm_get_ctl_top_for_cont_splash(ctl,
+					&splash_data->top[index]);
+		if (splash_data->top[index].intf_sel) {
+			splash_data->lm_cnt +=
+				_sde_rm_get_ctl_lm_for_cont_splash
+					(ctl,
+					cat->mixer_count,
+					splash_data->lm_cnt,
+					splash_data->lm_ids,
+					&splash_data->top[index], index);
+			splash_data->ctl_ids[splash_data->ctl_top_cnt]
+							= index + CTL_0;
+			splash_data->ctl_top_cnt++;
+			splash_data->cont_splash_en = true;
+		}
+		index++;
+	}
+
+	/* Skip DSC blk reads if cont_splash is disabled */
+	if (!splash_data->cont_splash_en)
+		return 0;
+
+	splash_data->dsc_cnt =
+		_sde_rm_get_pp_dsc_for_cont_splash(rm,
+				cat->dsc_count,
+				splash_data->dsc_ids);
+	SDE_DEBUG("splash_data: ctl_top_cnt=%d, lm_cnt=%d, dsc_cnt=%d\n",
+		splash_data->ctl_top_cnt, splash_data->lm_cnt,
+		splash_data->dsc_cnt);
+
+	return 0;
+}
+
 static int _sde_rm_make_next_rsvp_for_cont_splash(
 		struct sde_rm *rm,
 		struct drm_encoder *enc,
@@ -1484,7 +1682,7 @@ int sde_rm_reserve(
 	sde_kms = to_sde_kms(priv->kms);
 
 	/* Check if this is just a page-flip */
-	if (!sde_kms->cont_splash_en &&
+	if (!sde_kms->splash_data.cont_splash_en &&
 			!drm_atomic_crtc_needs_modeset(crtc_state))
 		return 0;
 
@@ -1536,7 +1734,7 @@ int sde_rm_reserve(
 	}
 
 	/* Check the proposed reservation, store it in hw's "next" field */
-	if (sde_kms->cont_splash_en) {
+	if (sde_kms->splash_data.cont_splash_en) {
 		SDE_DEBUG("cont_splash feature enabled\n");
 		ret = _sde_rm_make_next_rsvp_for_cont_splash
 			(rm, enc, crtc_state, conn_state, rsvp_nxt, &reqs);
