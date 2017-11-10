@@ -20,20 +20,20 @@
  *
  *  The newly registered led trigger is assigned to flash_res_list.
  *
- * @param name  : Pointer to int led trigger name
- * @param tp    : Save the returned led trigger
+ * @name  : Pointer to int led trigger name
+ * @tp    : Save the returned led trigger
  *
  * @return None
  */
 void cam_res_mgr_led_trigger_register(const char *name,
-		struct led_trigger **tp);
+	struct led_trigger **tp);
 
 /**
  * @brief: Unregister the led trigger
  *
  *  Free the flash_res if this led trigger isn't used by other device .
  *
- * @param tp : Pointer to the led trigger
+ * @tp : Pointer to the led trigger
  *
  * @return None
  */
@@ -42,13 +42,13 @@ void cam_res_mgr_led_trigger_unregister(struct led_trigger *tp);
 /**
  * @brief: Trigger the event to led core
  *
- * @param trig       : Pointer to the led trigger
- * @param brightness : The brightness need to fire
+ * @trig       : Pointer to the led trigger
+ * @brightness : The brightness need to fire
  *
  * @return None
  */
 void cam_res_mgr_led_trigger_event(struct led_trigger *trig,
-		enum led_brightness brightness);
+	enum led_brightness brightness);
 
 /**
  * @brief: Get the corresponding pinctrl of dev
@@ -57,15 +57,14 @@ void cam_res_mgr_led_trigger_event(struct led_trigger *trig,
  *
  * @return None
  */
-void cam_res_mgr_shared_pinctrl_init(void);
-
+int cam_res_mgr_shared_pinctrl_init(void);
 
 /**
  * @brief: Put the pinctrl
  *
  *  Put the shared pinctrl.
  *
- * @return None
+ * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 void cam_res_mgr_shared_pinctrl_put(void);
 
@@ -75,12 +74,22 @@ void cam_res_mgr_shared_pinctrl_put(void);
  *  Active state can be selected directly, but need hold to suspend the
  *  pinctrl if the gpios in this pinctrl also held by other pinctrl.
  *
- * @param active   : The flag to indicate whether active or suspend
+ * @active   : The flag to indicate whether active or suspend
  * the shared pinctrl.
  *
- * @return None
+ * @return Status of operation. Negative in case of error. Zero otherwise.
  */
-void cam_res_mgr_shared_pinctrl_select_state(bool active);
+int cam_res_mgr_shared_pinctrl_select_state(bool active);
+
+/**
+ * @brief: Post init shared pinctrl
+ *
+ *  Post init to check if the device really has shared gpio,
+ *  suspend and put the pinctrl if not use shared gpio.
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_res_mgr_shared_pinctrl_post_init(void);
 
 /**
  * @brief: Request a gpio
@@ -88,10 +97,10 @@ void cam_res_mgr_shared_pinctrl_select_state(bool active);
  *  Will alloc a gpio_res for the new gpio, other find the corresponding
  *  gpio_res.
  *
- * @param dev   : Pointer to the device
- * @param gpio  : The GPIO number
- * @param flags : GPIO configuration as specified by GPIOF_*
- * @param label : A literal description string of this GPIO
+ * @dev   : Pointer to the device
+ * @gpio  : The GPIO number
+ * @flags : GPIO configuration as specified by GPIOF_*
+ * @label : A literal description string of this GPIO
  *
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
@@ -103,22 +112,22 @@ int cam_res_mgr_gpio_request(struct device *dev, unsigned int gpio,
  *
  *  Free the GPIOs and release corresponding gpio_res.
  *
- * @param dev   : Pointer to the device
- * @param gpio  : Array of the GPIO number
- * @param num   : The number of gpio
+ * @dev   : Pointer to the device
+ * @gpio  : Array of the GPIO number
+ * @num   : The number of gpio
  *
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 void cam_res_mgr_gpio_free_arry(struct device *dev,
-		const struct gpio *array, size_t num);
+	const struct gpio *array, size_t num);
 
 /**
  * @brief: Set GPIO power level
  *
  *  Add ref count support for shared GPIOs.
  *
- * @param gpio   : The GPIO number
- * @param value  : The power level need to setup
+ * @gpio   : The GPIO number
+ * @value  : The power level need to setup
  *
  * @return Status of operation. Negative in case of error. Zero otherwise.
  * -EINVAL will be returned if the gpio can't be found in gpio_res_list.

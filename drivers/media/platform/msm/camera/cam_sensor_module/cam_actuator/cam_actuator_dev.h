@@ -53,10 +53,25 @@ enum cam_actuator_apply_state_t {
 	ACT_APPLY_SETTINGS_LATER,
 };
 
-enum cam_actator_state {
+enum cam_actuator_state {
 	CAM_ACTUATOR_INIT,
 	CAM_ACTUATOR_ACQUIRE,
 	CAM_ACTUATOR_START,
+};
+
+/**
+ * struct cam_actuator_i2c_info_t - I2C info
+ * @slave_addr      :   slave address
+ * @i2c_freq_mode   :   i2c frequency mode
+ */
+struct cam_actuator_i2c_info_t {
+	uint16_t slave_addr;
+	uint8_t i2c_freq_mode;
+};
+
+struct cam_actuator_soc_private {
+	struct cam_actuator_i2c_info_t i2c_info;
+	struct cam_sensor_power_ctrl_t power_info;
 };
 
 /**
@@ -101,8 +116,7 @@ struct cam_actuator_ctrl_t {
 	struct mutex actuator_mutex;
 	uint32_t id;
 	enum cam_actuator_apply_state_t setting_apply_state;
-	enum cam_actator_state cam_act_state;
-	struct msm_camera_gpio_num_info *gpio_num_info;
+	enum cam_actuator_state cam_act_state;
 	uint8_t cam_pinctrl_status;
 	struct cam_subdev v4l2_dev_str;
 	struct i2c_data_settings i2c_data;
