@@ -3046,7 +3046,8 @@ static void adreno_power_stats(struct kgsl_device *device,
 
 		if (adreno_is_a6xx(adreno_dev)) {
 			/* clock sourced from XO */
-			stats->busy_time = gpu_busy * 10 / 192;
+			stats->busy_time = gpu_busy * 10;
+			do_div(stats->busy_time, 192);
 		} else {
 			/* clock sourced from GFX3D */
 			stats->busy_time = adreno_ticks_to_us(gpu_busy,
