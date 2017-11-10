@@ -25,6 +25,7 @@
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/ramdump.h>
 #include <soc/qcom/subsystem_notif.h>
+#include <linux/highmem.h>
 
 #include "peripheral-loader.h"
 #include "../../misc/qseecom_kernel.h"
@@ -312,14 +313,23 @@ static int bg_auth_metadata(struct pil_desc *pil,
 	struct tzapp_bg_req bg_tz_req;
 	void *mdata_buf;
 	dma_addr_t mdata_phys;
+	DEFINE_DMA_ATTRS(attrs);
+	struct device dev = {NULL};
 	int ret;
 
-	mdata_buf = dma_alloc_coherent(pil->dev, size,
-			&mdata_phys, GFP_KERNEL);
+	dev.coherent_dma_mask = DMA_BIT_MASK(sizeof(dma_addr_t) * 8);
+	dma_set_attr(DMA_ATTR_STRONGLY_ORDERED, &attrs);
+	mdata_buf = dma_alloc_attrs(&dev, size,
+			&mdata_phys, GFP_KERNEL, &attrs);
+
 	if (!mdata_buf) {
 		pr_err("BG_PIL: Allocation for metadata failed.\n");
 		return -ENOMEM;
 	}
+
+	/* Make sure there are no mappings in PKMAP and fixmap */
+	kmap_flush_unused();
+	kmap_atomic_flush_unused();
 
 	memcpy(mdata_buf, metadata, size);
 
@@ -334,7 +344,7 @@ static int bg_auth_metadata(struct pil_desc *pil,
 				__func__);
 		return bg_data->cmd_status;
 	}
-	dma_free_coherent(pil->dev, size, mdata_buf, mdata_phys);
+	dma_free_attrs(&dev, size, mdata_buf, mdata_phys, &attrs);
 	pr_debug("BG MDT Authenticated\n");
 	return 0;
 }
@@ -359,6 +369,7 @@ static int bg_get_firmware_addr(struct pil_desc *pil,
 		addr, size);
 	return 0;
 }
+
 
 /**
  * bg_auth_and_xfer() - Called by Peripheral loader framework
@@ -412,7 +423,6 @@ static int bg_ramdump(int enable, const struct subsys_desc *subsys)
 	struct ramdump_segment *ramdump_segments;
 	struct tzapp_bg_req bg_tz_req;
 	phys_addr_t start_addr;
-	size_t size = SZ_1M;
 	void *region;
 	int ret;
 
@@ -426,7 +436,7 @@ static int bg_ramdump(int enable, const struct subsys_desc *subsys)
 	if (region == NULL) {
 		dev_dbg(desc.dev,
 			"BG PIL failure to allocate ramdump region of size %zx\n",
-			size);
+			BG_RAMDUMP_SZ);
 		return -ENOMEM;
 	}
 
@@ -450,6 +460,8 @@ static int bg_ramdump(int enable, const struct subsys_desc *subsys)
 
 	do_ramdump(bg_data->ramdump_dev, ramdump_segments, 1);
 	kfree(ramdump_segments);
+	dma_free_attrs(desc.dev, BG_RAMDUMP_SZ, region,
+		       start_addr, &desc.attrs);
 	return 0;
 }
 
