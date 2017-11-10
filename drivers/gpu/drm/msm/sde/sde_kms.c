@@ -1910,10 +1910,10 @@ static int sde_kms_check_secure_transition(struct msm_kms *kms,
 	struct sde_kms *sde_kms;
 	struct drm_device *dev;
 	struct drm_crtc *crtc;
-	struct drm_crtc *sec_crtc = NULL, *temp_crtc = NULL;
+	struct drm_crtc *cur_crtc = NULL, *global_crtc = NULL;
 	struct drm_crtc_state *crtc_state;
-	int secure_crtc_cnt = 0, active_crtc_cnt = 0;
-	int secure_global_crtc_cnt = 0, active_mode_crtc_cnt = 0;
+	int active_crtc_cnt = 0, global_active_crtc_cnt = 0;
+	bool sec_session = false, global_sec_session = false;
 	int i;
 
 	if (!kms || !state) {
@@ -1921,56 +1921,64 @@ static int sde_kms_check_secure_transition(struct msm_kms *kms,
 		SDE_ERROR("invalid arguments\n");
 	}
 
-	/* iterate state object for active and secure crtc */
+	sde_kms = to_sde_kms(kms);
+	dev = sde_kms->dev;
+
+	/* iterate state object for active secure/non-secure crtc */
 	for_each_crtc_in_state(state, crtc, crtc_state, i) {
 		if (!crtc_state->active)
 			continue;
+
 		active_crtc_cnt++;
 		if (sde_crtc_get_secure_level(crtc, crtc_state) ==
-				SDE_DRM_SEC_ONLY) {
-			sec_crtc = crtc;
-			secure_crtc_cnt++;
-		}
+				SDE_DRM_SEC_ONLY)
+			sec_session = true;
+
+		cur_crtc = crtc;
 	}
 
-	/* bail out from further validation if no secure ctrc */
-	if (!secure_crtc_cnt)
-		return 0;
-
-	if ((secure_crtc_cnt > MAX_ALLOWED_SECURE_CLIENT_CNT) ||
-		(secure_crtc_cnt &&
-		 (active_crtc_cnt > MAX_ALLOWED_CRTC_CNT_DURING_SECURE))) {
-		SDE_ERROR("Secure check failed active:%d, secure:%d\n",
-				active_crtc_cnt, secure_crtc_cnt);
-		return -EPERM;
-	}
-
-	sde_kms = to_sde_kms(kms);
-	dev = sde_kms->dev;
 	/* iterate global list for active and secure crtc */
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
-
 		if (!crtc->state->active)
 			continue;
 
-		active_mode_crtc_cnt++;
-
+		global_active_crtc_cnt++;
 		if (sde_crtc_get_secure_level(crtc, crtc->state) ==
-				SDE_DRM_SEC_ONLY) {
-			secure_global_crtc_cnt++;
-			temp_crtc = crtc;
-		}
+				SDE_DRM_SEC_ONLY)
+			global_sec_session = true;
+
+		global_crtc = crtc;
 	}
 
-	/**
-	 * if more than one crtc is active fail
-	 * check if the previous and current commit secure
-	 * are same
+	/*
+	 * - fail secure crtc commit, if any other crtc session is already
+	 *   in progress
+	 * - fail non-secure crtc commit, if any secure crtc session is already
+	 *   in progress
 	 */
-	if (secure_crtc_cnt && ((active_mode_crtc_cnt > 1) ||
-			(secure_global_crtc_cnt && (temp_crtc != sec_crtc))))
-		SDE_ERROR("Secure check failed active:%d crtc_id:%d\n",
-				active_mode_crtc_cnt, temp_crtc->base.id);
+	if (global_sec_session || sec_session) {
+		if ((global_active_crtc_cnt >
+					MAX_ALLOWED_CRTC_CNT_DURING_SECURE) ||
+		    (active_crtc_cnt > MAX_ALLOWED_CRTC_CNT_DURING_SECURE)) {
+			SDE_ERROR(
+			"Secure check failed global_active:%d active:%d\n",
+				global_active_crtc_cnt, active_crtc_cnt);
+			return -EPERM;
+
+		/*
+		 * As only one crtc is allowed during secure session, the crtc
+		 * in this commit should match with the global crtc, if it
+		 * exists
+		 */
+		} else if (global_crtc && (global_crtc != cur_crtc)) {
+			SDE_ERROR(
+			    "crtc%d-sec%d not allowed during crtc%d-sec%d\n",
+				cur_crtc->base.id, sec_session,
+				global_crtc->base.id, global_sec_session);
+			return -EPERM;
+		}
+
+	}
 
 	return 0;
 }
