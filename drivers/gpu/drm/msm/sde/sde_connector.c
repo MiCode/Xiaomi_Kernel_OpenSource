@@ -624,6 +624,8 @@ static void sde_connector_destroy(struct drm_connector *connector)
 		drm_property_blob_put(c_conn->blob_dither);
 	if (c_conn->blob_mode_info)
 		drm_property_blob_put(c_conn->blob_mode_info);
+	if (c_conn->blob_ext_hdr)
+		drm_property_blob_put(c_conn->blob_ext_hdr);
 	msm_property_destroy(&c_conn->property_info);
 
 	if (c_conn->bl_device)
@@ -1815,10 +1817,19 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 	_sde_connector_install_dither_property(dev, sde_kms, c_conn);
 
 	if (connector_type == DRM_MODE_CONNECTOR_DisplayPort) {
+		struct drm_msm_ext_hdr_properties hdr = {0};
+
 		msm_property_install_blob(&c_conn->property_info,
 				"ext_hdr_properties",
 				DRM_MODE_PROP_IMMUTABLE,
 				CONNECTOR_PROP_EXT_HDR_INFO);
+
+		/* set default values to avoid reading uninitialized data */
+		msm_property_set_blob(&c_conn->property_info,
+			      &c_conn->blob_ext_hdr,
+			      &hdr,
+			      sizeof(hdr),
+			      CONNECTOR_PROP_EXT_HDR_INFO);
 	}
 
 	msm_property_install_volatile_range(&c_conn->property_info,
@@ -1878,6 +1889,8 @@ error_destroy_property:
 		drm_property_blob_put(c_conn->blob_dither);
 	if (c_conn->blob_mode_info)
 		drm_property_blob_put(c_conn->blob_mode_info);
+	if (c_conn->blob_ext_hdr)
+		drm_property_blob_put(c_conn->blob_ext_hdr);
 
 	msm_property_destroy(&c_conn->property_info);
 error_cleanup_fence:
