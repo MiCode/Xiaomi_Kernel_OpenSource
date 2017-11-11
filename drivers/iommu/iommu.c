@@ -1677,30 +1677,6 @@ void iommu_trigger_fault(struct iommu_domain *domain, unsigned long flags)
 		domain->ops->trigger_fault(domain, flags);
 }
 
-/**
- * iommu_reg_read() - read an IOMMU register
- *
- * Reads the IOMMU register at the given offset.
- */
-unsigned long iommu_reg_read(struct iommu_domain *domain, unsigned long offset)
-{
-	if (domain->ops->reg_read)
-		return domain->ops->reg_read(domain, offset);
-	return 0;
-}
-
-/**
- * iommu_reg_write() - write an IOMMU register
- *
- * Writes the given value to the IOMMU register at the given offset.
- */
-void iommu_reg_write(struct iommu_domain *domain, unsigned long offset,
-		     unsigned long val)
-{
-	if (domain->ops->reg_write)
-		domain->ops->reg_write(domain, offset, val);
-}
-
 void iommu_get_dm_regions(struct device *dev, struct list_head *list)
 {
 	const struct iommu_ops *ops = dev->bus->iommu_ops;
