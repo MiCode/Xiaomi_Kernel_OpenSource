@@ -81,6 +81,12 @@
 
 &clock_cpucc {
 	compatible = "qcom,clk-cpu-osm-v2";
+	reg = <0x17d41000 0x1400>,
+		<0x17d43000 0x1400>,
+		<0x17d45800 0x1400>,
+		<0x78425c 0x4>;
+	reg-names = "osm_l3_base", "osm_pwrcl_base", "osm_perfcl_base",
+							"cpr_rc";
 };
 
 &pcie1 {
