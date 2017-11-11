@@ -716,8 +716,8 @@
 		qcom,ce-opp-freq = <171430000>;
 		qcom,request-bw-before-clk;
 		qcom,smmu-s1-enable;
-		iommus = <&apps_smmu 0x706 0x3>,
-			 <&apps_smmu 0x716 0x3>;
+		iommus = <&apps_smmu 0x706 0x1>,
+			 <&apps_smmu 0x716 0x1>;
 	};
 
 	qcom_crypto: qcrypto@1de0000 {
@@ -753,8 +753,8 @@
 		qcom,use-sw-ahash-algo;
 		qcom,use-sw-hmac-algo;
 		qcom,smmu-s1-enable;
-		iommus = <&apps_smmu 0x704 0x3>,
-			 <&apps_smmu 0x714 0x3>;
+		iommus = <&apps_smmu 0x704 0x1>,
+			 <&apps_smmu 0x714 0x1>;
 	};
 
 	qcom,qbt1000 {
