@@ -509,6 +509,7 @@ const struct ath10k_hw_values wcn3990_values = {
 	.num_target_ce_config_wlan	= 12,
 	.ce_desc_meta_data_mask		= 0xFFF0,
 	.ce_desc_meta_data_lsb		= 4,
+	.default_listen_interval	= 1,
 };
 
 struct fw_flag wcn3990_fw_flags = {
