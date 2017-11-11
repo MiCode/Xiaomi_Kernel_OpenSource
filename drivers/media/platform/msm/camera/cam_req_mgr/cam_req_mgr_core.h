@@ -12,6 +12,7 @@
 #ifndef _CAM_REQ_MGR_CORE_H_
 #define _CAM_REQ_MGR_CORE_H_
 
+#include <linux/spinlock.h>
 #include "cam_req_mgr_interface.h"
 #include "cam_req_mgr_core_defs.h"
 #include "cam_req_mgr_timer.h"
@@ -259,27 +260,28 @@ struct cam_req_mgr_connected_device {
 /**
  * struct cam_req_mgr_core_link
  * -  Link Properties
- * @link_hdl       : Link identifier
- * @num_devs       : num of connected devices to this link
- * @max_delay      : Max of pipeline delay of all connected devs
- * @workq          : Pointer to handle workq related jobs
- * @pd_mask        : each set bit indicates the device with pd equal to bit
- *                   position is available.
+ * @link_hdl             : Link identifier
+ * @num_devs             : num of connected devices to this link
+ * @max_delay            : Max of pipeline delay of all connected devs
+ * @workq                : Pointer to handle workq related jobs
+ * @pd_mask              : each set bit indicates the device with pd equal to
+ *                          bit position is available.
  * - List of connected devices
- * @l_dev          : List of connected devices to this link
+ * @l_dev                : List of connected devices to this link
  * - Request handling data struct
- * @req            : req data holder.
+ * @req                  : req data holder.
  * - Timer
- * @watchdog       : watchdog timer to recover from sof freeze
+ * @watchdog             : watchdog timer to recover from sof freeze
  * - Link private data
- * @workq_comp     : conditional variable to block user thread for workq to
- *                   finish schedule request processing
- * @state          : link state machine
- * @parent         : pvt data - link's parent is session
- * @lock           : mutex lock to guard link data operations
- * @subscribe_event: irqs that link subscribes, IFE should send notification
- * to CRM at those hw events.
- * @trigger_mask   : mask on which irq the req is already applied
+ * @workq_comp           : conditional variable to block user thread for workq
+ *                          to finish schedule request processing
+ * @state                : link state machine
+ * @parent               : pvt data - link's parent is session
+ * @lock                 : mutex lock to guard link data operations
+ * @link_state_spin_lock : spin lock to protect link state variable
+ * @subscribe_event      : irqs that link subscribes, IFE should send
+ *                         notification to CRM at those hw events.
+ * @trigger_mask         : mask on which irq the req is already applied
  */
 struct cam_req_mgr_core_link {
 	int32_t                              link_hdl;
@@ -294,6 +296,7 @@ struct cam_req_mgr_core_link {
 	enum cam_req_mgr_link_state          state;
 	void                                *parent;
 	struct mutex                         lock;
+	spinlock_t                           link_state_spin_lock;
 	uint32_t                             subscribe_event;
 	uint32_t                             trigger_mask;
 };

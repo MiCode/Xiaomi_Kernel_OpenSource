@@ -29,6 +29,32 @@
 };
 
 &soc {
+	qcom,memshare {
+		compatible = "qcom,memshare";
+
+		qcom,client_1 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x0>;
+			qcom,client-id = <0>;
+			qcom,allocate-boot-time;
+			label = "modem";
+		};
+
+		qcom,client_2 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x0>;
+			qcom,client-id = <2>;
+			label = "modem";
+		};
+
+		mem_client_3_size: qcom,client_3 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x500000>;
+			qcom,client-id = <1>;
+			label = "modem";
+		};
+	};
+
 	gpu_gx_domain_addr: syscon@0x5091508 {
 		compatible = "syscon";
 		reg = <0x5091508 0x4>;
@@ -432,6 +458,9 @@
 			2553600 12045
 			2649600 15686
 			2745600 25586
+			2764800 30000
+			2784000 35000
+			2803200 40000
 		>;
 		idle-cost-data = <
 			100 80 60 40
@@ -495,6 +524,9 @@
 			2553600 145
 			2649600 150
 			2745600 155
+			2764800 160
+			2784000 165
+			2803200 170
 		>;
 		idle-cost-data = <
 			4 3 2 1

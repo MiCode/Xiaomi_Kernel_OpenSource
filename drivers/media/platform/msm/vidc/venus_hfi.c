@@ -503,6 +503,11 @@ static int __read_queue(struct vidc_iface_q_info *qinfo, u8 *packet,
 
 	if (queue->qhdr_read_idx == queue->qhdr_write_idx) {
 		queue->qhdr_rx_req = receive_request;
+		/*
+		 * mb() to ensure qhdr is updated in main memory
+		 * so that venus reads the updated header values
+		 */
+		mb();
 		*pb_tx_req_is_set = 0;
 		dprintk(VIDC_DBG,
 			"%s queue is empty, rx_req = %u, tx_req = %u, read_idx = %u\n",
@@ -550,6 +555,11 @@ static int __read_queue(struct vidc_iface_q_info *qinfo, u8 *packet,
 		queue->qhdr_rx_req = 0;
 	else
 		queue->qhdr_rx_req = receive_request;
+	/*
+	 * mb() to ensure qhdr is updated in main memory
+	 * so that venus reads the updated header values
+	 */
+	mb();
 
 	*pb_tx_req_is_set = (queue->qhdr_tx_req == 1) ? 1 : 0;
 

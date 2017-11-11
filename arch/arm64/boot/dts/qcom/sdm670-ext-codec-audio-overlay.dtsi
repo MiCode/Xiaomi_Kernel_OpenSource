@@ -47,16 +47,6 @@
 	status = "okay";
 };
 
-&soc {
-	wcd_buck_vreg_gpio: msm_cdc_pinctrl@94 {
-		status = "okay";
-		compatible = "qcom,msm-cdc-pinctrl";
-		pinctrl-names = "aud_active", "aud_sleep";
-		pinctrl-0 = <&wcd_buck_vsel_default>;
-		pinctrl-1 = <&wcd_buck_vsel_default>;
-	};
-};
-
 &wcd9xxx_intc {
 	status = "okay";
 };
@@ -79,8 +69,6 @@
 
 &wcd934x_cdc {
 	status = "okay";
-	qcom,has-buck-vsel-gpio;
-	qcom,buck-vsel-gpio-node = <&wcd_buck_vreg_gpio>;
 };
 
 &clock_audio_lnbb {

@@ -1387,7 +1387,8 @@
 	};
 
 	cti0_wcss: cti@69a4000 {
-		compatible = "arm,coresight-cti";
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
 		reg = <0x69a4000 0x1000>;
 		reg-names = "cti-base";
 
@@ -1398,7 +1399,8 @@
 	};
 
 	cti1_wcss: cti@69a5000 {
-		compatible = "arm,coresight-cti";
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
 		reg = <0x69a5000 0x1000>;
 		reg-names = "cti-base";
 
@@ -1409,7 +1411,8 @@
 	};
 
 	cti2_wcss: cti@69a6000 {
-		compatible = "arm,coresight-cti";
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
 		reg = <0x69a6000 0x1000>;
 		reg-names = "cti-base";
 
@@ -1420,7 +1423,8 @@
 	};
 
 	cti_mss_q6: cti@683b000 {
-		compatible = "arm,coresight-cti";
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
 		reg = <0x683b000 0x1000>;
 		reg-names = "cti-base";
 
@@ -1431,7 +1435,8 @@
 	};
 
 	cti_turing: cti@6867000 {
-		compatible = "arm,coresight-cti";
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
 		reg = <0x6867000 0x1000>;
 		reg-names = "cti-base";
 
@@ -1442,7 +1447,8 @@
 	};
 
 	cti2_ssc_sdc: cti@6b10000 {
-		compatible = "arm,coresight-cti";
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
 		reg = <0x6b10000 0x1000>;
 		reg-names = "cti-base";
 
@@ -1453,7 +1459,8 @@
 	};
 
 	cti1_ssc: cti@6b11000 {
-		compatible = "arm,coresight-cti";
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
 		reg = <0x6b11000 0x1000>;
 		reg-names = "cti-base";
 
@@ -1464,7 +1471,8 @@
 	};
 
 	cti0_ssc_q6: cti@6b1b000 {
-		compatible = "arm,coresight-cti";
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
 		reg = <0x6b1b000 0x1000>;
 		reg-names = "cti-base";
 
@@ -1475,7 +1483,8 @@
 	};
 
 	cti_ssc_noc: cti@6b1e000 {
-		compatible = "arm,coresight-cti";
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
 		reg = <0x6b1e000 0x1000>;
 		reg-names = "cti-base";
 
@@ -1486,7 +1495,8 @@
 	};
 
 	cti6_ssc_noc: cti@6b1f000 {
-		compatible = "arm,coresight-cti";
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
 		reg = <0x6b1f000 0x1000>;
 		reg-names = "cti-base";
 
@@ -1497,7 +1507,8 @@
 	};
 
 	cti0_swao: cti@6b04000 {
-		compatible = "arm,coresight-cti";
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
 		reg = <0x6b04000 0x1000>;
 		reg-names = "cti-base";
 
@@ -1508,7 +1519,8 @@
 	};
 
 	cti1_swao: cti@6b05000 {
-		compatible = "arm,coresight-cti";
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
 		reg = <0x6b05000 0x1000>;
 		reg-names = "cti-base";
 
@@ -1519,7 +1531,8 @@
 	};
 
 	cti2_swao: cti@6b06000 {
-		compatible = "arm,coresight-cti";
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
 		reg = <0x6b06000 0x1000>;
 		reg-names = "cti-base";
 
@@ -1530,7 +1543,8 @@
 	};
 
 	cti3_swao: cti@6b07000 {
-		compatible = "arm,coresight-cti";
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
 		reg = <0x6b07000 0x1000>;
 		reg-names = "cti-base";
 
@@ -1541,7 +1555,8 @@
 	};
 
 	cti_aop_m3: cti@6b21000 {
-		compatible = "arm,coresight-cti";
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
 		reg = <0x6b21000 0x1000>;
 		reg-names = "cti-base";
 
@@ -1552,7 +1567,8 @@
 	};
 
 	cti_titan: cti@6c13000 {
-		compatible = "arm,coresight-cti";
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
 		reg = <0x6c13000 0x1000>;
 		reg-names = "cti-base";
 
@@ -1563,7 +1579,8 @@
 	};
 
 	cti_venus_arm9: cti@6c20000 {
-		compatible = "arm,coresight-cti";
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
 		reg = <0x6c20000 0x1000>;
 		reg-names = "cti-base";
 
@@ -1574,7 +1591,8 @@
 	};
 
 	cti0_apss: cti@78e0000 {
-		compatible = "arm,coresight-cti";
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
 		reg = <0x78e0000 0x1000>;
 		reg-names = "cti-base";
 
@@ -1585,7 +1603,8 @@
 	};
 
 	cti1_apss: cti@78f0000 {
-		compatible = "arm,coresight-cti";
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
 		reg = <0x78f0000 0x1000>;
 		reg-names = "cti-base";
 
@@ -1596,7 +1615,8 @@
 	};
 
 	cti2_apss: cti@7900000 {
-		compatible = "arm,coresight-cti";
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
 		reg = <0x7900000 0x1000>;
 		reg-names = "cti-base";
 

@@ -368,7 +368,7 @@
 				 979200    382
 				1132800    408
 				1363200    448
-				1563000    586
+				1536000    586
 				1747200    641
 				1843200    659
 				1996800    696
@@ -409,7 +409,7 @@
 				 979200    38
 				1132800    40
 				1363200    44
-				1563000    58
+				1536000    58
 				1747200    64
 				1843200    65
 				1996800    69
@@ -715,7 +715,7 @@
 				 <&clock_gcc GCC_CE1_AXI_CLK>;
 		qcom,ce-opp-freq = <171430000>;
 		qcom,request-bw-before-clk;
-		qcom,smmu-s1-bypass;
+		qcom,smmu-s1-enable;
 		iommus = <&apps_smmu 0x706 0x3>,
 			 <&apps_smmu 0x716 0x3>;
 	};
@@ -752,7 +752,7 @@
 		qcom,use-sw-aead-algo;
 		qcom,use-sw-ahash-algo;
 		qcom,use-sw-hmac-algo;
-		qcom,smmu-s1-bypass;
+		qcom,smmu-s1-enable;
 		iommus = <&apps_smmu 0x704 0x3>,
 			 <&apps_smmu 0x714 0x3>;
 	};
@@ -1826,6 +1826,7 @@
 		reg = <0x0 0x200000>;
 		reg-names = "rmtfs";
 		qcom,client-id = <0x00000001>;
+		qcom,guard-memory;
 	};
 
 	qcom,msm_gsi {
@@ -2125,6 +2126,28 @@
 		status = "ok";
 	};
 
+	sdcc1_ice: sdcc1ice@7c8000 {
+		compatible = "qcom,ice";
+		reg = <0x7c8000 0x8000>;
+		qcom,enable-ice-clk;
+		clock-names = "ice_core_clk_src", "ice_core_clk",
+				"bus_clk", "iface_clk";
+		clocks = <&clock_gcc GCC_SDCC1_ICE_CORE_CLK_SRC>,
+			<&clock_gcc GCC_SDCC1_ICE_CORE_CLK>,
+			<&clock_gcc GCC_SDCC1_APPS_CLK>,
+			<&clock_gcc GCC_SDCC1_AHB_CLK>;
+		qcom,op-freq-hz = <300000000>, <0>, <0>, <0>;
+		qcom,msm-bus,name = "sdcc_ice_noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<150 512 0 0>,    /* No vote */
+			<150 512 1000 0>; /* Max. bandwidth */
+		qcom,bus-vector-names = "MIN",
+					"MAX";
+		qcom,instance-type = "sdcc";
+	};
+
 	sdhc_1: sdhci@7c4000 {
 		compatible = "qcom,sdhci-msm-v5";
 		reg = <0x7C4000 0x1000>, <0x7C5000 0x1000>;
@@ -2135,6 +2158,7 @@
 
 		qcom,bus-width = <8>;
 		qcom,large-address-bus;
+		sdhc-msm-crypto = <&sdcc1_ice>;
 
 		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
 						192000000 384000000>;
@@ -2729,6 +2753,7 @@
 #include "sdm670-audio.dtsi"
 #include "sdm670-usb.dtsi"
 #include "sdm670-gpu.dtsi"
+#include "sdm670-camera.dtsi"
 #include "sdm670-thermal.dtsi"
 #include "sdm670-bus.dtsi"
 

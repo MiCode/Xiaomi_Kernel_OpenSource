@@ -46,6 +46,8 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
+		#power-domain-cells = <0>;
+
 		/* hw blocks */
 		qcom,sde-off = <0x1000>;
 		qcom,sde-len = <0x45C>;
@@ -147,7 +149,18 @@
 
 		qcom,sde-danger-lut = <0x0000000f 0x0000ffff 0x00000000
 			0x00000000>;
-		qcom,sde-safe-lut = <0xfffc 0xff00 0xffff 0xffff>;
+		qcom,sde-safe-lut-linear =
+			<4 0xfff8>,
+			<0 0xfff0>;
+		qcom,sde-safe-lut-macrotile =
+			<10 0xfe00>,
+			<11 0xfc00>,
+			<12 0xf800>,
+			<0 0xf000>;
+		qcom,sde-safe-lut-nrt =
+			<0 0xffff>;
+		qcom,sde-safe-lut-cwb =
+			<0 0xffff>;
 		qcom,sde-qos-lut-linear =
 			<4 0x00000000 0x00000357>,
 			<5 0x00000000 0x00003357>,
@@ -357,6 +370,8 @@
 
 		interrupt-parent = <&mdss_mdp>;
 		interrupts = <2 0>;
+
+		 power-domains = <&mdss_mdp>;
 
 		/* Offline rotator QoS setting */
 		qcom,mdss-rot-vbif-qos-setting = <3 3 3 3 3 3 3 3>;

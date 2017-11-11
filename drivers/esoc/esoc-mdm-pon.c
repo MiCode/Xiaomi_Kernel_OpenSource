@@ -207,15 +207,6 @@ struct mdm_pon_ops mdm9x35_pon_ops = {
 	.setup = mdm4x_pon_setup,
 };
 
-struct mdm_pon_ops mdm9x45_pon_ops = {
-	.pon = mdm4x_do_first_power_on,
-	.soft_reset = mdm4x_toggle_soft_reset,
-	.poff_force = mdm4x_power_down,
-	.cold_reset = mdm4x_cold_reset,
-	.dt_init = mdm4x_pon_dt_init,
-	.setup = mdm4x_pon_setup,
-};
-
 struct mdm_pon_ops mdm9x55_pon_ops = {
 	.pon = mdm4x_do_first_power_on,
 	.soft_reset = mdm9x55_toggle_soft_reset,

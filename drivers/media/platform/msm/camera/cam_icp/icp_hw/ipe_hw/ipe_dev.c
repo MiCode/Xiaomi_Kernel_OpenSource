@@ -72,14 +72,25 @@ int cam_ipe_probe(struct platform_device *pdev)
 	struct cam_ipe_device_core_info   *core_info = NULL;
 	struct cam_ipe_device_hw_info     *hw_info = NULL;
 	int                                rc = 0;
+	struct cam_cpas_query_cap query;
+	uint32_t cam_caps;
+	uint32_t hw_idx;
+
+	of_property_read_u32(pdev->dev.of_node,
+		"cell-index", &hw_idx);
+
+	cam_cpas_get_hw_info(&query.camera_family,
+		&query.camera_version, &query.cpas_version, &cam_caps);
+	if ((!(cam_caps & CPAS_IPE1_BIT)) && (hw_idx)) {
+		CAM_ERR(CAM_ICP, "IPE1 hw idx = %d\n", hw_idx);
+		return -EINVAL;
+	}
 
 	ipe_dev_intf = kzalloc(sizeof(struct cam_hw_intf), GFP_KERNEL);
 	if (!ipe_dev_intf)
 		return -ENOMEM;
 
-	of_property_read_u32(pdev->dev.of_node,
-		"cell-index", &ipe_dev_intf->hw_idx);
-
+	ipe_dev_intf->hw_idx = hw_idx;
 	ipe_dev = kzalloc(sizeof(struct cam_hw_info), GFP_KERNEL);
 	if (!ipe_dev) {
 		kfree(ipe_dev_intf);

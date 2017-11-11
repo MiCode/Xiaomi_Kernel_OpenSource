@@ -846,6 +846,11 @@ static int _sde_crtc_set_roi_v1(struct drm_crtc_state *state,
 				cstate->user_roi_list.roi[i].y1,
 				cstate->user_roi_list.roi[i].x2,
 				cstate->user_roi_list.roi[i].y2);
+		SDE_EVT32_VERBOSE(DRMID(crtc),
+				cstate->user_roi_list.roi[i].x1,
+				cstate->user_roi_list.roi[i].y1,
+				cstate->user_roi_list.roi[i].x2,
+				cstate->user_roi_list.roi[i].y2);
 	}
 
 	return 0;
@@ -889,6 +894,7 @@ static int _sde_crtc_set_crtc_roi(struct drm_crtc *crtc,
 
 	for_each_connector_in_state(state->state, conn, conn_state, i) {
 		struct sde_connector_state *sde_conn_state;
+		struct sde_rect conn_roi;
 
 		if (!conn_state || conn_state->crtc != crtc)
 			continue;
@@ -915,12 +921,19 @@ static int _sde_crtc_set_crtc_roi(struct drm_crtc *crtc,
 					sde_crtc->name);
 			return -EINVAL;
 		}
+
+		sde_kms_rect_merge_rectangles(&sde_conn_state->rois, &conn_roi);
+		SDE_EVT32_VERBOSE(DRMID(crtc), DRMID(conn),
+				conn_roi.x, conn_roi.y,
+				conn_roi.w, conn_roi.h);
 	}
 
 	sde_kms_rect_merge_rectangles(&crtc_state->user_roi_list, crtc_roi);
 
 	SDE_DEBUG("%s: crtc roi (%d,%d,%d,%d)\n", sde_crtc->name,
 			crtc_roi->x, crtc_roi->y, crtc_roi->w, crtc_roi->h);
+	SDE_EVT32_VERBOSE(DRMID(crtc), crtc_roi->x, crtc_roi->y, crtc_roi->w,
+			crtc_roi->h);
 
 	return 0;
 }
@@ -1839,6 +1852,19 @@ static int _sde_crtc_set_dest_scaler_lut(struct sde_crtc *sde_crtc,
 	cfg->is_configured = cfg->dir_lut && cfg->cir_lut && cfg->sep_lut;
 
 	return ret;
+}
+
+void sde_crtc_timeline_status(struct drm_crtc *crtc)
+{
+	struct sde_crtc *sde_crtc;
+
+	if (!crtc) {
+		SDE_ERROR("invalid crtc\n");
+		return;
+	}
+
+	sde_crtc = to_sde_crtc(crtc);
+	sde_fence_timeline_status(&sde_crtc->output_fence, &crtc->base);
 }
 
 /**
@@ -4033,10 +4059,6 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 
 	SDE_DEBUG("crtc%d\n", crtc->base.id);
 
-	for (i = 0; i < cstate->num_connectors; i++)
-		sde_connector_schedule_status_work(cstate->connectors[i],
-							false);
-
 	if (sde_kms_is_suspend_state(crtc->dev))
 		_sde_crtc_set_suspend(crtc, true);
 
@@ -4133,15 +4155,13 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 	struct sde_crtc_irq_info *node = NULL;
 	struct drm_event event;
 	u32 power_on;
-	int ret, i;
-	struct sde_crtc_state *cstate;
+	int ret;
 
 	if (!crtc || !crtc->dev || !crtc->dev->dev_private) {
 		SDE_ERROR("invalid crtc\n");
 		return;
 	}
 	priv = crtc->dev->dev_private;
-	cstate = to_sde_crtc_state(crtc->state);
 
 	SDE_DEBUG("crtc%d\n", crtc->base.id);
 	SDE_EVT32_VERBOSE(DRMID(crtc));
@@ -4205,9 +4225,6 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 		SDE_POWER_EVENT_POST_ENABLE | SDE_POWER_EVENT_POST_DISABLE |
 		SDE_POWER_EVENT_PRE_DISABLE,
 		sde_crtc_handle_power_event, crtc, sde_crtc->name);
-
-	for (i = 0; i < cstate->num_connectors; i++)
-		sde_connector_schedule_status_work(cstate->connectors[i], true);
 }
 
 struct plane_state {

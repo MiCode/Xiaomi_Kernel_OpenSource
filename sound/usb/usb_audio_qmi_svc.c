@@ -26,6 +26,7 @@
 #include <linux/qmi_encdec.h>
 #include <soc/qcom/msm_qmi_interface.h>
 #include <linux/iommu.h>
+#include <linux/dma-mapping.h>
 #include <linux/platform_device.h>
 #include <linux/usb/audio-v3.h>
 

@@ -62,3 +62,7 @@
 &dsi_sharp_4k_dsc_video_display {
 	qcom,dsi-display-active;
 };
+
+&mdss_mdp {
+	connectors = <&sde_rscc &sde_wb &sde_dp>;
+};

@@ -766,7 +766,8 @@ int cam_soc_util_get_dt_properties(struct cam_hw_soc_info *soc_info)
 
 	count = of_property_count_strings(of_node, "reg-names");
 	if (count <= 0) {
-		CAM_ERR(CAM_UTIL, "no reg-names found");
+		CAM_WARN(CAM_UTIL, "no reg-names found for: %s",
+			soc_info->dev_name);
 		count = 0;
 	}
 	soc_info->num_mem_block = count;
@@ -802,7 +803,8 @@ int cam_soc_util_get_dt_properties(struct cam_hw_soc_info *soc_info)
 	rc = of_property_read_string_index(of_node, "interrupt-names", 0,
 		&soc_info->irq_name);
 	if (rc) {
-		CAM_WARN(CAM_UTIL, "No interrupt line present");
+		CAM_WARN(CAM_UTIL, "No interrupt line preset for: %s",
+			soc_info->dev_name);
 		rc = 0;
 	} else {
 		soc_info->irq_line =
@@ -1267,13 +1269,13 @@ int cam_soc_util_disable_platform_resource(struct cam_hw_soc_info *soc_info,
 	if (!soc_info)
 		return -EINVAL;
 
+	if (disble_irq)
+		rc |= cam_soc_util_irq_disable(soc_info);
+
 	if (disable_clocks)
 		cam_soc_util_clk_disable_default(soc_info);
 
 	cam_soc_util_regulator_disable_default(soc_info);
-
-	if (disble_irq)
-		rc |= cam_soc_util_irq_disable(soc_info);
 
 	if (soc_info->pinctrl_info.pinctrl &&
 		soc_info->pinctrl_info.gpio_state_suspend)

@@ -1442,6 +1442,7 @@ struct dp_ctrl *dp_ctrl_get(struct dp_ctrl_in *in)
 	ctrl->aux      = in->aux;
 	ctrl->link     = in->link;
 	ctrl->catalog  = in->catalog;
+	ctrl->dev  = in->dev;
 
 	dp_ctrl = &ctrl->dp_ctrl;
 

@@ -366,6 +366,8 @@ Optional properties:
 - qcom,sde-cdp-setting:		Array of 2 cell property, with a format of
 				<read enable, write enable> for cdp use cases in
 				order of <real_time>, and <non_real_time>.
+- qcom,sde-qos-cpu-mask:	A u32 value indicating desired PM QoS CPU affine mask.
+- qcom,sde-qos-cpu-dma-latency:	A u32 value indicating desired PM QoS CPU DMA latency in usec.
 - qcom,sde-inline-rot-xin:	An integer array of xin-ids related to inline
 				rotation.
 - qcom,sde-inline-rot-xin-type:	A string array indicating the type of xin,
@@ -610,6 +612,9 @@ Example:
             <0 0x75300000 0x00000000>;
 
     qcom,sde-cdp-setting = <1 1>, <1 0>;
+
+    qcom,sde-qos-cpu-mask = <0x3>;
+    qcom,sde-qos-cpu-dma-latency = <300>;
 
     qcom,sde-vbif-off = <0 0>;
     qcom,sde-vbif-id = <0 1>;

@@ -35,6 +35,7 @@
 		qcom,thermal-mitigation
 				= <3000000 2500000 2000000 1500000
 					1000000 500000>;
+		qcom,auto-recharge-soc;
 
 		qcom,chgr@1000 {
 			reg = <0x1000 0x100>;
@@ -178,6 +179,9 @@
 		qcom,fg-esr-timer-asleep = <256 256>;
 		qcom,fg-esr-timer-charging = <0 96>;
 		qcom,cycle-counter-en;
+		qcom,hold-soc-while-full;
+		qcom,fg-auto-recharge-soc;
+		qcom,fg-recharge-soc-thr = <98>;
 		status = "okay";
 
 		qcom,fg-batt-soc@4000 {

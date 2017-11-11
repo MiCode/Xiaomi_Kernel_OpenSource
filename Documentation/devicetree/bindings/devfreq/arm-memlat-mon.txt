@@ -4,7 +4,7 @@ arm-memlat-mon is a device that represents the use of the PMU in ARM cores
 to measure the parameters for latency driven memory access patterns.
 
 Required properties:
-- compatible:			Must be "qcom,arm-memlat-mon"
+- compatible:			Must be "qcom,arm-memlat-mon" or "qcom,arm-cpu-mon"
 - qcom,cpulist:			List of CPU phandles to be monitored in a cluster
 - qcom,target-dev:		The DT device that corresponds to this master port
 - qcom,core-dev-table:		A mapping table of core frequency to a required bandwidth vote at the

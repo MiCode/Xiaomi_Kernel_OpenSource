@@ -547,6 +547,24 @@ void se_config_packing(void __iomem *base, int bpw, int pack_words,
 		       bool msb_to_lsb);
 
 /**
+ * se_geni_clks_off() - Turn off clocks associated with the serial
+ *                      engine
+ * @rsc:	Handle to resources associated with the serial engine.
+ *
+ * Return:	0 on success, standard Linux error codes on failure/error.
+ */
+int se_geni_clks_off(struct se_geni_rsc *rsc);
+
+/**
+ * se_geni_clks_on() - Turn on clocks associated with the serial
+ *                     engine
+ * @rsc:	Handle to resources associated with the serial engine.
+ *
+ * Return:	0 on success, standard Linux error codes on failure/error.
+ */
+int se_geni_clks_on(struct se_geni_rsc *rsc);
+
+/**
  * se_geni_resources_off() - Turn off resources associated with the serial
  *                           engine
  * @rsc:	Handle to resources associated with the serial engine.
@@ -840,6 +858,16 @@ static inline void se_get_packing_config(int bpw, int pack_words,
 static inline void se_config_packing(void __iomem *base, int bpw,
 				int pack_words, bool msb_to_lsb)
 {
+}
+
+static inline int se_geni_clks_on(struct se_geni_rsc *rsc)
+{
+	return -ENXIO;
+}
+
+static inline int se_geni_clks_off(struct se_geni_rsc *rsc)
+{
+	return -ENXIO;
 }
 
 static inline int se_geni_resources_on(struct se_geni_rsc *rsc)

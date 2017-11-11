@@ -13,6 +13,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include "sdm670-pmic-overlay.dtsi"
 #include "sdm670-sde-display.dtsi"
+#include "sdm670-camera-sensor-mtp.dtsi"
 #include "smb1355.dtsi"
 
 &ufsphy_mem {

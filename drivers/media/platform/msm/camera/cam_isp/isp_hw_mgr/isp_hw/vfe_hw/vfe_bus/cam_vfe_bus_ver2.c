@@ -970,9 +970,18 @@ static int cam_vfe_bus_acquire_wm(
 		rsrc_data->en_cfg = 0x1;
 	}  else {
 		/* Write master 5-6 DS ports, 10 PDAF */
+		uint32_t align_width;
 		rsrc_data->width = rsrc_data->width * 4;
 		rsrc_data->height = rsrc_data->height / 2;
 		rsrc_data->en_cfg = 0x1;
+		CAM_DBG(CAM_ISP, "before width %d", rsrc_data->width);
+		align_width = ALIGNUP(rsrc_data->width, 16);
+		if (align_width != rsrc_data->width) {
+			CAM_WARN(CAM_ISP,
+				"Override width %u with expected %u",
+				rsrc_data->width, align_width);
+			rsrc_data->width = align_width;
+		}
 	}
 
 	*client_done_mask = (1 << wm_idx);
@@ -2268,7 +2277,8 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 	struct cam_vfe_bus_ver2_wm_resource_data *wm_data = NULL;
 	uint32_t *reg_val_pair;
 	uint32_t  i, j, size = 0;
-	uint32_t  frame_inc = 0;
+	uint32_t  frame_inc = 0, ubwc_bw_limit = 0, camera_hw_version, val;
+	int rc = 0;
 
 	bus_priv = (struct cam_vfe_bus_ver2_priv  *) priv;
 	update_buf =  (struct cam_isp_hw_get_buf_update *) cmd_args;
@@ -2309,12 +2319,22 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 			wm_data->index, wm_data->width);
 
 		/* For initial configuration program all bus registers */
-		if ((wm_data->stride != io_cfg->planes[i].plane_stride ||
+		val = io_cfg->planes[i].plane_stride;
+		CAM_DBG(CAM_ISP, "before stride %d", val);
+		val = ALIGNUP(val, 16);
+		if (val != io_cfg->planes[i].plane_stride &&
+			val != wm_data->stride)
+			CAM_WARN(CAM_ISP,
+				"Warning stride %u expected %u",
+				io_cfg->planes[i].plane_stride,
+				val);
+
+		if ((wm_data->stride != val ||
 			!wm_data->init_cfg_done) && (wm_data->index >= 3)) {
 			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
 				wm_data->hw_regs->stride,
 				io_cfg->planes[i].plane_stride);
-			wm_data->stride = io_cfg->planes[i].plane_stride;
+			wm_data->stride = val;
 			CAM_DBG(CAM_ISP, "WM %d image stride 0x%x",
 				wm_data->index, wm_data->stride);
 		}
@@ -2481,6 +2501,31 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 				update_buf->image_buf[i]);
 			CAM_DBG(CAM_ISP, "WM %d ubwc meta addr 0x%llx",
 				wm_data->index, update_buf->image_buf[i]);
+
+			/* Enable UBWC bandwidth limit if required */
+			rc = cam_cpas_get_cpas_hw_version(&camera_hw_version);
+			if (camera_hw_version == CAM_CPAS_TITAN_170_V110
+					&& !rc) {
+				switch (wm_data->format) {
+				case CAM_FORMAT_UBWC_TP10:
+					ubwc_bw_limit = 0x8 | BIT(0);
+					break;
+				case CAM_FORMAT_UBWC_NV12_4R:
+					ubwc_bw_limit = 0xB | BIT(0);
+					break;
+				default:
+					ubwc_bw_limit = 0;
+					break;
+				}
+			}
+
+			if (ubwc_bw_limit) {
+				CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+					wm_data->hw_regs->ubwc_regs->bw_limit,
+					ubwc_bw_limit);
+				CAM_DBG(CAM_ISP, "WM %d ubwc bw limit 0x%x",
+					wm_data->index, ubwc_bw_limit);
+			}
 		}
 
 		/* WM Image address */

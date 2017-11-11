@@ -18,6 +18,7 @@
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
 #include <linux/pm_opp.h>
+#include <linux/io.h>
 #include <soc/qcom/cmd-db.h>
 
 #include "kgsl_device.h"
@@ -58,8 +59,6 @@ struct gmu_vma {
 	unsigned int cached_csize;
 	unsigned int image_start;
 };
-
-static void gmu_snapshot(struct kgsl_device *device);
 
 struct gmu_iommu_context {
 	const char *name;
@@ -1339,7 +1338,7 @@ static int gmu_suspend(struct kgsl_device *device)
 	return 0;
 }
 
-static void gmu_snapshot(struct kgsl_device *device)
+void gmu_snapshot(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_device *gmu = &device->gmu;
