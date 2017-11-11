@@ -56,6 +56,7 @@ enum cam_context_state {
  * @num_in_acked:          Number of in fence acked
  * @num_out_acked:         Number of out fence acked
  * @flushed:               Request is flushed
+ * @error_flag:            Flag an error
  * @ctx:                   The context to which this request belongs
  *
  */
@@ -73,6 +74,7 @@ struct cam_ctx_request {
 	uint32_t                      num_in_acked;
 	uint32_t                      num_out_acked;
 	int                           flushed;
+	bool                          error_flag;
 	struct cam_context           *ctx;
 };
 
@@ -120,6 +122,8 @@ struct cam_ctx_crm_ops {
 			struct cam_req_mgr_apply_request *apply);
 	int (*flush_req)(struct cam_context *ctx,
 			struct cam_req_mgr_flush_request *flush);
+	int (*process_evt)(struct cam_context *ctx,
+			struct cam_req_mgr_link_evt_data *evt_data);
 };
 
 
@@ -268,6 +272,18 @@ int cam_context_handle_crm_apply_req(struct cam_context *ctx,
  */
 int cam_context_handle_crm_flush_req(struct cam_context *ctx,
 		struct cam_req_mgr_flush_request *apply);
+
+/**
+ * cam_context_handle_crm_process_evt()
+ *
+ * @brief:        Handle process event command
+ *
+ * @ctx:          Object pointer for cam_context
+ * @process_evt:  process event command payload
+ *
+ */
+int cam_context_handle_crm_process_evt(struct cam_context *ctx,
+		struct cam_req_mgr_link_evt_data *process_evt);
 
 /**
  * cam_context_handle_acquire_dev()
