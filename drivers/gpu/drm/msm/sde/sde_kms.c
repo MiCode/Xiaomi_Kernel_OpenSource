@@ -2154,39 +2154,6 @@ static void _sde_kms_post_open(struct msm_kms *kms, struct drm_file *file)
 
 }
 
-static int _sde_kms_gen_drm_mode(struct sde_kms *sde_kms,
-				void *display,
-				struct drm_display_mode *drm_mode)
-{
-	struct dsi_display_mode *modes = NULL;
-	u32 count = 0;
-	int rc = 0;
-
-	rc = dsi_display_get_mode_count(display, &count);
-	if (rc) {
-		SDE_ERROR("failed to get num of modes, rc=%d\n", rc);
-		return rc;
-	}
-
-	SDE_DEBUG("num of modes = %d\n", count);
-
-	rc = dsi_display_get_modes(display, &modes);
-	if (rc) {
-		SDE_ERROR("failed to get modes, rc=%d\n", rc);
-		count = 0;
-		return rc;
-	}
-
-	/* TODO; currently consider modes[0] as the preferred mode */
-	dsi_convert_to_drm_mode(&modes[0], drm_mode);
-
-	SDE_DEBUG("hdisplay = %d, vdisplay = %d\n",
-		drm_mode->hdisplay, drm_mode->vdisplay);
-	drm_mode_set_name(drm_mode);
-	drm_mode_set_crtcinfo(drm_mode, 0);
-	return rc;
-}
-
 static int sde_kms_cont_splash_config(struct msm_kms *kms)
 {
 	void *display;
@@ -2199,6 +2166,9 @@ static int sde_kms_cont_splash_config(struct msm_kms *kms)
 	struct drm_device *dev;
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
+	struct list_head *connector_list = NULL;
+	struct drm_connector *conn_iter = NULL;
+	struct drm_connector *connector = NULL;
 
 	if (!kms) {
 		SDE_ERROR("invalid kms\n");
@@ -2251,13 +2221,46 @@ static int sde_kms_cont_splash_config(struct msm_kms *kms)
 	crtc = encoder->crtc;
 	SDE_DEBUG("crtc id = %d\n", crtc->base.id);
 
-	crtc->state->encoder_mask = (1 << drm_encoder_index(encoder));
-	drm_mode = drm_mode_create(encoder->dev);
-	if (!drm_mode) {
-		SDE_ERROR("drm_mode create failed\n");
+
+	mutex_lock(&dev->mode_config.mutex);
+	connector_list = &dev->mode_config.connector_list;
+	list_for_each_entry(conn_iter, connector_list, head) {
+		/**
+		 * SDE_KMS doesn't attach more than one encoder to
+		 * a DSI connector. So it is safe to check only with the
+		 * first encoder entry. Revisit this logic if we ever have
+		 * to support continuous splash for external displays in MST
+		 * configuration.
+		 */
+		if (conn_iter &&
+			conn_iter->encoder_ids[0] == encoder->base.id) {
+			connector = conn_iter;
+			break;
+		}
+	}
+
+	if (!connector) {
+		SDE_ERROR("connector not initialized\n");
+		mutex_unlock(&dev->mode_config.mutex);
 		return -EINVAL;
 	}
-	_sde_kms_gen_drm_mode(sde_kms, display, drm_mode);
+
+	if (connector->funcs->fill_modes) {
+		connector->funcs->fill_modes(connector,
+			dev->mode_config.max_width,
+			dev->mode_config.max_height);
+	} else {
+		SDE_ERROR("fill_modes api not defined\n");
+		mutex_unlock(&dev->mode_config.mutex);
+		return -EINVAL;
+	}
+	mutex_unlock(&dev->mode_config.mutex);
+
+	crtc->state->encoder_mask = (1 << drm_encoder_index(encoder));
+
+	/* currently consider modes[0] as the preferred mode */
+	drm_mode = list_first_entry(&connector->modes,
+					struct drm_display_mode, head);
 	SDE_DEBUG("drm_mode->name = %s, id=%d, type=0x%x, flags=0x%x\n",
 			drm_mode->name, drm_mode->base.id,
 			drm_mode->type, drm_mode->flags);
