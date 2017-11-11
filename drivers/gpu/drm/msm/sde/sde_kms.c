@@ -2680,6 +2680,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	struct sde_kms *sde_kms;
 	struct drm_device *dev;
 	struct msm_drm_private *priv;
+	bool splash_mem_found = false;
 	int i, rc = -EINVAL;
 
 	if (!kms) {
@@ -2774,8 +2775,10 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 
 	rc = _sde_kms_get_splash_data(&sde_kms->splash_data);
 	if (rc) {
-		SDE_ERROR("sde splash data fetch failed: %d\n", rc);
-		goto error;
+		SDE_DEBUG("sde splash data fetch failed: %d\n", rc);
+		splash_mem_found = false;
+	} else {
+		splash_mem_found = true;
 	}
 
 	rc = sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
@@ -2801,7 +2804,12 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 
 	sde_dbg_init_dbg_buses(sde_kms->core_rev);
 
-	_sde_kms_cont_splash_res_init(sde_kms);
+	/*
+	 * Attempt continuous splash handoff only if reserved
+	 * splash memory is found.
+	 */
+	if (splash_mem_found)
+		_sde_kms_cont_splash_res_init(sde_kms);
 
 	/* Initialize reg dma block which is a singleton */
 	rc = sde_reg_dma_init(sde_kms->reg_dma, sde_kms->catalog,
