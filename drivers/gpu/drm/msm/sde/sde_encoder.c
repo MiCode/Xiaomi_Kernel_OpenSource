@@ -92,7 +92,7 @@
  *	This event happens at INTERRUPT level.
  *	Event signals the end of the data transfer after the PP FRAME_DONE
  *	event. At the end of this event, a delayed work is scheduled to go to
- *	IDLE_PC state after IDLE_TIMEOUT time.
+ *	IDLE_PC state after IDLE_POWERCOLLAPSE_DURATION time.
  * @SDE_ENC_RC_EVENT_PRE_STOP:
  *	This event happens at NORMAL priority.
  *	This event, when received during the ON state, set RSC to IDLE, and
@@ -118,9 +118,9 @@
  *	with new vtotal.
  * @SDE_ENC_RC_EVENT_ENTER_IDLE:
  *	This event happens at NORMAL priority from a work item.
- *	Event signals that there were no frame updates for IDLE_TIMEOUT time.
- *	This would disable MDP/DSI core clocks and request RSC with IDLE state
- *	and change the resource state to IDLE.
+ *	Event signals that there were no frame updates for
+ *	IDLE_POWERCOLLAPSE_DURATION time. This would disable MDP/DSI core clocks
+ *      and request RSC with IDLE state and change the resource state to IDLE.
  */
 enum sde_enc_rc_events {
 	SDE_ENC_RC_EVENT_KICKOFF = 1,
@@ -199,7 +199,6 @@ enum sde_enc_rc_states {
  * @rsc_config:			rsc configuration for display vtotal, fps, etc.
  * @cur_conn_roi:		current connector roi
  * @prv_conn_roi:		previous connector roi to optimize if unchanged
- * @idle_timeout:		idle timeout duration in milliseconds
  */
 struct sde_encoder_virt {
 	struct drm_encoder base;
@@ -244,8 +243,6 @@ struct sde_encoder_virt {
 	struct sde_rsc_cmd_config rsc_config;
 	struct sde_rect cur_conn_roi;
 	struct sde_rect prv_conn_roi;
-
-	u32 idle_timeout;
 };
 
 #define to_sde_encoder_virt(x) container_of(x, struct sde_encoder_virt, base)
@@ -313,17 +310,6 @@ static bool _sde_encoder_is_dsc_enabled(struct drm_encoder *drm_enc)
 	comp_info = &mode_info.comp_info;
 
 	return (comp_info->comp_type == MSM_DISPLAY_COMPRESSION_DSC);
-}
-
-void sde_encoder_set_idle_timeout(struct drm_encoder *drm_enc, u32 idle_timeout)
-{
-	struct sde_encoder_virt *sde_enc;
-
-	if (!drm_enc)
-		return;
-
-	sde_enc = to_sde_encoder_virt(drm_enc);
-	sde_enc->idle_timeout = idle_timeout;
 }
 
 bool sde_encoder_is_dsc_merge(struct drm_encoder *drm_enc)
@@ -1717,7 +1703,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		u32 sw_event)
 {
 	bool autorefresh_enabled = false;
-	unsigned int lp, idle_timeout;
+	unsigned int lp, idle_pc_duration;
 	struct sde_encoder_virt *sde_enc;
 	struct msm_drm_private *priv;
 	struct msm_drm_thread *disp_thread;
@@ -1841,18 +1827,18 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 			lp = SDE_MODE_DPMS_ON;
 
 		if (lp == SDE_MODE_DPMS_LP2)
-			idle_timeout = IDLE_SHORT_TIMEOUT;
+			idle_pc_duration = IDLE_SHORT_TIMEOUT;
 		else
-			idle_timeout = sde_enc->idle_timeout;
+			idle_pc_duration = IDLE_POWERCOLLAPSE_DURATION;
 
-		if (!autorefresh_enabled && idle_timeout)
+		if (!autorefresh_enabled)
 			kthread_queue_delayed_work(
 				&disp_thread->worker,
 				&sde_enc->delayed_off_work,
-				msecs_to_jiffies(idle_timeout));
+				msecs_to_jiffies(idle_pc_duration));
 		SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
 				autorefresh_enabled,
-				idle_timeout, SDE_EVTLOG_FUNC_CASE2);
+				idle_pc_duration, SDE_EVTLOG_FUNC_CASE2);
 		SDE_DEBUG_ENC(sde_enc, "sw_event:%d, work scheduled\n",
 				sw_event);
 		break;
@@ -2588,9 +2574,6 @@ static void sde_encoder_off_work(struct kthread_work *work)
 
 	sde_encoder_resource_control(&sde_enc->base,
 						SDE_ENC_RC_EVENT_ENTER_IDLE);
-
-	sde_encoder_frame_done_callback(&sde_enc->base, NULL,
-				SDE_ENCODER_FRAME_EVENT_IDLE);
 }
 
 /**
@@ -3990,7 +3973,6 @@ struct drm_encoder *sde_encoder_init(
 	mutex_init(&sde_enc->rc_lock);
 	kthread_init_delayed_work(&sde_enc->delayed_off_work,
 			sde_encoder_off_work);
-	sde_enc->idle_timeout = IDLE_TIMEOUT;
 	sde_enc->vblank_enabled = false;
 
 	kthread_init_work(&sde_enc->vsync_event_work,
