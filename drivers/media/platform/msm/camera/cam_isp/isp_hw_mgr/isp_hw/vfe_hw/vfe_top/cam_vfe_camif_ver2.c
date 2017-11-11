@@ -16,6 +16,7 @@
 #include "cam_isp_hw_mgr_intf.h"
 #include "cam_isp_hw.h"
 #include "cam_vfe_hw_intf.h"
+#include "cam_vfe_soc.h"
 #include "cam_vfe_top.h"
 #include "cam_vfe_top_ver2.h"
 #include "cam_vfe_camif_ver2.h"
@@ -28,8 +29,10 @@ struct cam_vfe_mux_camif_data {
 	struct cam_vfe_camif_ver2_reg               *camif_reg;
 	struct cam_vfe_top_ver2_reg_offset_common   *common_reg;
 	struct cam_vfe_camif_reg_data               *reg_data;
+	struct cam_hw_soc_info                      *soc_info;
 
 	enum cam_isp_hw_sync_mode          sync_mode;
+	uint32_t                           dsp_mode;
 	uint32_t                           pix_pattern;
 	uint32_t                           first_pixel;
 	uint32_t                           first_line;
@@ -113,8 +116,8 @@ int cam_vfe_camif_ver2_acquire_resource(
 	struct cam_isp_resource_node  *camif_res,
 	void                          *acquire_param)
 {
-	struct cam_vfe_mux_camif_data      *camif_data;
-	struct cam_vfe_acquire_args        *acquire_data;
+	struct cam_vfe_mux_camif_data    *camif_data;
+	struct cam_vfe_acquire_args      *acquire_data;
 
 	int rc = 0;
 
@@ -128,12 +131,68 @@ int cam_vfe_camif_ver2_acquire_resource(
 
 	camif_data->sync_mode   = acquire_data->vfe_in.sync_mode;
 	camif_data->pix_pattern = acquire_data->vfe_in.in_port->test_pattern;
+	camif_data->dsp_mode    = acquire_data->vfe_in.in_port->dsp_mode;
 	camif_data->first_pixel = acquire_data->vfe_in.in_port->left_start;
 	camif_data->last_pixel  = acquire_data->vfe_in.in_port->left_stop;
 	camif_data->first_line  = acquire_data->vfe_in.in_port->line_start;
 	camif_data->last_line   = acquire_data->vfe_in.in_port->line_stop;
 
 	return rc;
+}
+
+static int cam_vfe_camif_resource_init(
+	struct cam_isp_resource_node        *camif_res,
+	void *init_args, uint32_t arg_size)
+{
+	struct cam_vfe_mux_camif_data    *camif_data;
+	struct cam_hw_soc_info           *soc_info;
+	int rc = 0;
+
+	if (!camif_res) {
+		CAM_ERR(CAM_ISP, "Error Invalid input arguments");
+		return -EINVAL;
+	}
+
+	camif_data   = (struct cam_vfe_mux_camif_data *)camif_res->res_priv;
+
+	soc_info = camif_data->soc_info;
+
+	if ((camif_data->dsp_mode >= CAM_ISP_DSP_MODE_ONE_WAY) &&
+		(camif_data->dsp_mode <= CAM_ISP_DSP_MODE_ROUND)) {
+		rc = cam_vfe_soc_enable_clk(soc_info, CAM_VFE_DSP_CLK_NAME);
+		if (rc)
+			CAM_ERR(CAM_ISP, "failed to enable dsp clk");
+	}
+
+	return rc;
+}
+
+static int cam_vfe_camif_resource_deinit(
+	struct cam_isp_resource_node        *camif_res,
+	void *init_args, uint32_t arg_size)
+{
+	struct cam_vfe_mux_camif_data    *camif_data;
+	struct cam_hw_soc_info           *soc_info;
+	int rc = 0;
+
+	if (!camif_res) {
+		CAM_ERR(CAM_ISP, "Error Invalid input arguments");
+		return -EINVAL;
+	}
+
+	camif_data   = (struct cam_vfe_mux_camif_data *)camif_res->res_priv;
+
+	soc_info = camif_data->soc_info;
+
+	if ((camif_data->dsp_mode >= CAM_ISP_DSP_MODE_ONE_WAY) &&
+		(camif_data->dsp_mode <= CAM_ISP_DSP_MODE_ROUND)) {
+		rc = cam_vfe_soc_disable_clk(soc_info, CAM_VFE_DSP_CLK_NAME);
+		if (rc)
+			CAM_ERR(CAM_ISP, "failed to disable dsp clk");
+	}
+
+	return rc;
+
 }
 
 static int cam_vfe_camif_resource_start(
@@ -160,6 +219,15 @@ static int cam_vfe_camif_resource_start(
 			rsrc_data->reg_data->pixel_pattern_shift);
 	if (rsrc_data->sync_mode == CAM_ISP_HW_SYNC_SLAVE)
 		val |= (1 << rsrc_data->reg_data->extern_reg_update_shift);
+
+	if ((rsrc_data->dsp_mode >= CAM_ISP_DSP_MODE_ONE_WAY) &&
+		(rsrc_data->dsp_mode <= CAM_ISP_DSP_MODE_ROUND)) {
+		/* DSP mode reg val is CAM_ISP_DSP_MODE - 1 */
+		val |= (((rsrc_data->dsp_mode - 1) &
+			rsrc_data->reg_data->dsp_mode_mask) <<
+			rsrc_data->reg_data->dsp_mode_shift);
+		val |= (0x1 << rsrc_data->reg_data->dsp_en_shift);
+	}
 
 	cam_io_w_mb(val, rsrc_data->mem_base + rsrc_data->common_reg->core_cfg);
 
@@ -194,6 +262,7 @@ static int cam_vfe_camif_resource_stop(
 	struct cam_vfe_mux_camif_data       *camif_priv;
 	struct cam_vfe_camif_ver2_reg       *camif_reg;
 	int rc = 0;
+	uint32_t val = 0;
 
 	if (!camif_res) {
 		CAM_ERR(CAM_ISP, "Error! Invalid input arguments");
@@ -206,6 +275,15 @@ static int cam_vfe_camif_resource_stop(
 
 	camif_priv = (struct cam_vfe_mux_camif_data *)camif_res->res_priv;
 	camif_reg = camif_priv->camif_reg;
+
+	if ((camif_priv->dsp_mode >= CAM_ISP_DSP_MODE_ONE_WAY) &&
+		(camif_priv->dsp_mode <= CAM_ISP_DSP_MODE_ROUND)) {
+		val = cam_io_r_mb(camif_priv->mem_base +
+				camif_priv->common_reg->core_cfg);
+		val &= (~(1 << camif_priv->reg_data->dsp_en_shift));
+		cam_io_w_mb(val, camif_priv->mem_base +
+			camif_priv->common_reg->core_cfg);
+	}
 
 	if (camif_res->res_state == CAM_ISP_RESOURCE_STATE_STREAMING)
 		camif_res->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
@@ -315,14 +393,17 @@ int cam_vfe_camif_ver2_init(
 
 	camif_node->res_priv = camif_priv;
 
-	camif_priv->mem_base   = soc_info->reg_map[VFE_CORE_BASE_IDX].mem_base;
-	camif_priv->camif_reg  = camif_info->camif_reg;
-	camif_priv->common_reg = camif_info->common_reg;
-	camif_priv->reg_data   = camif_info->reg_data;
-	camif_priv->hw_intf    = hw_intf;
+	camif_priv->mem_base    = soc_info->reg_map[VFE_CORE_BASE_IDX].mem_base;
+	camif_priv->camif_reg   = camif_info->camif_reg;
+	camif_priv->common_reg  = camif_info->common_reg;
+	camif_priv->reg_data    = camif_info->reg_data;
+	camif_priv->hw_intf     = hw_intf;
+	camif_priv->soc_info    = soc_info;
 
-	camif_node->start = cam_vfe_camif_resource_start;
-	camif_node->stop  = cam_vfe_camif_resource_stop;
+	camif_node->init    = cam_vfe_camif_resource_init;
+	camif_node->deinit  = cam_vfe_camif_resource_deinit;
+	camif_node->start   = cam_vfe_camif_resource_start;
+	camif_node->stop    = cam_vfe_camif_resource_stop;
 	camif_node->process_cmd = cam_vfe_camif_process_cmd;
 	camif_node->top_half_handler = cam_vfe_camif_handle_irq_top_half;
 	camif_node->bottom_half_handler = cam_vfe_camif_handle_irq_bottom_half;

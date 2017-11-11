@@ -76,6 +76,12 @@ int cam_vfe_init_soc_resources(struct cam_hw_soc_info *soc_info,
 		goto free_soc_private;
 	}
 
+	rc = cam_soc_util_get_option_clk_by_name(soc_info,
+		CAM_VFE_DSP_CLK_NAME, &soc_private->dsp_clk,
+		&soc_private->dsp_clk_index, &soc_private->dsp_clk_rate);
+	if (rc)
+		CAM_WARN(CAM_ISP, "option clk get failed");
+
 	rc = cam_vfe_request_platform_resource(soc_info, vfe_irq_handler,
 		irq_data);
 	if (rc < 0) {
@@ -132,6 +138,11 @@ int cam_vfe_deinit_soc_resources(struct cam_hw_soc_info *soc_info)
 		CAM_ERR(CAM_ISP,
 			"Error! Release platform resources failed rc=%d", rc);
 
+	rc = cam_soc_util_clk_put(&soc_private->dsp_clk);
+	if (rc < 0)
+		CAM_ERR(CAM_ISP,
+			"Error Put dsp clk failed rc=%d", rc);
+
 	kfree(soc_private);
 
 	return rc;
@@ -176,6 +187,54 @@ int cam_vfe_enable_soc_resources(struct cam_hw_soc_info *soc_info)
 stop_cpas:
 	cam_cpas_stop(soc_private->cpas_handle);
 end:
+	return rc;
+}
+
+int cam_vfe_soc_enable_clk(struct cam_hw_soc_info *soc_info,
+	const char *clk_name)
+{
+	int  rc = 0;
+	struct cam_vfe_soc_private       *soc_private;
+
+	if (!soc_info) {
+		CAM_ERR(CAM_ISP, "Error Invalid params");
+		rc = -EINVAL;
+		return rc;
+	}
+	soc_private = soc_info->soc_private;
+
+	if (strcmp(clk_name, CAM_VFE_DSP_CLK_NAME) == 0) {
+		rc = cam_soc_util_clk_enable(soc_private->dsp_clk,
+			CAM_VFE_DSP_CLK_NAME, soc_private->dsp_clk_rate);
+		if (rc)
+			CAM_ERR(CAM_ISP,
+			"Error enable dsp clk failed rc=%d", rc);
+	}
+
+	return rc;
+}
+
+int cam_vfe_soc_disable_clk(struct cam_hw_soc_info *soc_info,
+	const char *clk_name)
+{
+	int  rc = 0;
+	struct cam_vfe_soc_private       *soc_private;
+
+	if (!soc_info) {
+		CAM_ERR(CAM_ISP, "Error Invalid params");
+		rc = -EINVAL;
+		return rc;
+	}
+	soc_private = soc_info->soc_private;
+
+	if (strcmp(clk_name, CAM_VFE_DSP_CLK_NAME) == 0) {
+		rc = cam_soc_util_clk_disable(soc_private->dsp_clk,
+			CAM_VFE_DSP_CLK_NAME);
+		if (rc)
+			CAM_ERR(CAM_ISP,
+			"Error enable dsp clk failed rc=%d", rc);
+	}
+
 	return rc;
 }
 

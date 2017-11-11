@@ -2169,7 +2169,7 @@ static int cam_icp_mgr_process_io_cfg(struct cam_icp_hw_mgr *hw_mgr,
 {
 	int i, j, k, rc = 0;
 	struct cam_buf_io_cfg *io_cfg_ptr = NULL;
-	int32_t sync_in_obj[CAM_MAX_OUT_RES];
+	int32_t sync_in_obj[CAM_MAX_IN_RES];
 	int32_t merged_sync_in_obj;
 
 	io_cfg_ptr = (struct cam_buf_io_cfg *) ((uint32_t *) &packet->payload +
@@ -2447,9 +2447,16 @@ static int cam_icp_mgr_release_hw(void *hw_mgr_priv, void *release_hw_args)
 	}
 
 	ctx_data = release_hw->ctxt_to_hw_map;
+	if (!ctx_data) {
+		CAM_ERR(CAM_ICP, "NULL ctx");
+		return -EINVAL;
+	}
+
 	ctx_id = ctx_data->ctx_id;
-	if (ctx_id < 0 || ctx_id >= CAM_ICP_CTX_MAX)
+	if (ctx_id < 0 || ctx_id >= CAM_ICP_CTX_MAX) {
 		CAM_ERR(CAM_ICP, "Invalid ctx id: %d", ctx_id);
+		return -EINVAL;
+	}
 
 	mutex_lock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
 	if (!hw_mgr->ctx_data[ctx_id].in_use) {

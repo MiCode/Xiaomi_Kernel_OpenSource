@@ -14,6 +14,7 @@
 #include <linux/uaccess.h>
 #include "cam_context.h"
 #include "cam_debug_util.h"
+#include "cam_node.h"
 
 static int cam_context_handle_hw_event(void *context, uint32_t evt_id,
 	void *evt_data)
@@ -360,6 +361,7 @@ int cam_context_init(struct cam_context *ctx,
 	ctx->session_hdl = -1;
 	INIT_LIST_HEAD(&ctx->list);
 	mutex_init(&ctx->ctx_mutex);
+	mutex_init(&ctx->sync_mutex);
 	spin_lock_init(&ctx->lock);
 
 	ctx->dev_name = dev_name;
@@ -377,6 +379,7 @@ int cam_context_init(struct cam_context *ctx,
 	for (i = 0; i < req_size; i++) {
 		INIT_LIST_HEAD(&ctx->req_list[i].list);
 		list_add_tail(&ctx->req_list[i].list, &ctx->free_req_list);
+		ctx->req_list[i].ctx = ctx;
 	}
 	ctx->state = CAM_CTX_AVAILABLE;
 	ctx->state_machine = NULL;
@@ -401,4 +404,21 @@ int cam_context_deinit(struct cam_context *ctx)
 	memset(ctx, 0, sizeof(*ctx));
 
 	return 0;
+}
+
+void cam_context_putref(struct cam_context *ctx)
+{
+	kref_put(&ctx->refcount, cam_node_put_ctxt_to_free_list);
+	CAM_DBG(CAM_CORE, "ctx device hdl %ld, ref count %d",
+		ctx->dev_hdl, atomic_read(&(ctx->refcount.refcount)));
+}
+
+void cam_context_getref(struct cam_context *ctx)
+{
+	if (kref_get_unless_zero(&ctx->refcount) == 0) {
+		/* should never happen */
+		WARN(1, "cam_context_getref fail\n");
+	}
+	CAM_DBG(CAM_CORE, "ctx device hdl %ld, ref count %d",
+		ctx->dev_hdl, atomic_read(&(ctx->refcount.refcount)));
 }

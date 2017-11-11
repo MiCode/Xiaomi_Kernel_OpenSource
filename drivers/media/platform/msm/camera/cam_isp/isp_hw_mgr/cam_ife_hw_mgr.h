@@ -179,6 +179,7 @@ struct cam_ife_hw_mgr {
 	struct cam_soc_reg_map        *cdm_reg_map[CAM_IFE_HW_NUM_MAX];
 
 	struct mutex                   ctx_mutex;
+	atomic_t                       active_ctx_cnt;
 	struct list_head               free_ctx_list;
 	struct list_head               used_ctx_list;
 	struct cam_ife_hw_mgr_ctx      ctx_pool[CAM_CTX_MAX];
@@ -186,8 +187,8 @@ struct cam_ife_hw_mgr {
 	struct cam_ife_csid_hw_caps    ife_csid_dev_caps[
 						CAM_IFE_CSID_HW_NUM_MAX];
 	struct cam_vfe_hw_get_hw_cap   ife_dev_caps[CAM_IFE_HW_NUM_MAX];
-	struct cam_req_mgr_core_workq  *workq;
-	struct cam_ife_hw_mgr_debug     debug_cfg;
+	struct cam_req_mgr_core_workq *workq;
+	struct cam_ife_hw_mgr_debug    debug_cfg;
 };
 
 /**

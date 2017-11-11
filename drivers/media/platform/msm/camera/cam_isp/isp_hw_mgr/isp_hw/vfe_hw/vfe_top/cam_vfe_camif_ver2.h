@@ -50,6 +50,11 @@ struct cam_vfe_camif_reg_data {
 	uint32_t     pixel_pattern_shift;
 	uint32_t     pixel_pattern_mask;
 
+	uint32_t     dsp_mode_shift;
+	uint32_t     dsp_mode_mask;
+	uint32_t     dsp_en_shift;
+	uint32_t     dsp_en_mask;
+
 	uint32_t     reg_update_cmd_data;
 	uint32_t     epoch_line_cfg;
 	uint32_t     sof_irq_mask;
