@@ -290,6 +290,11 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
 							     inet->inet_sport,
 							     inet->inet_dport);
 
+	if (tcp_fastopen_defer_connect(sk, &err))
+		return err;
+	if (err)
+		goto late_failure;
+
 	err = tcp_connect(sk);
 	if (err)
 		goto late_failure;
