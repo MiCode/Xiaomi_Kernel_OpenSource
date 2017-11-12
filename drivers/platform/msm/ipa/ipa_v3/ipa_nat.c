@@ -30,7 +30,6 @@
 #define IPA_NAT_MAX_NUM_OF_INIT_CMD_DESC 3
 #define IPA_IPV6CT_MAX_NUM_OF_INIT_CMD_DESC 2
 #define IPA_MAX_NUM_OF_TABLE_DMA_CMD_DESC 4
-#define IPA_MAX_NUM_OF_DEL_TABLE_CMD_DESC 2
 
 enum ipa_nat_ipv6ct_table_type {
 	IPA_NAT_BASE_TBL = 0,
@@ -657,6 +656,153 @@ static void ipa3_nat_create_init_cmd(
 	IPADBG("return\n");
 }
 
+static void ipa3_nat_create_modify_pdn_cmd(
+	struct ipahal_imm_cmd_dma_shared_mem *mem_cmd, bool zero_mem)
+{
+	size_t pdn_entry_size, mem_size;
+
+	IPADBG("\n");
+
+	ipahal_nat_entry_size(IPAHAL_NAT_IPV4_PDN, &pdn_entry_size);
+	mem_size = pdn_entry_size * IPA_MAX_PDN_NUM;
+
+	if (zero_mem)
+		memset(ipa3_ctx->nat_mem.pdn_mem.base, 0, mem_size);
+
+	/* Copy the PDN config table to SRAM */
+	mem_cmd->is_read = false;
+	mem_cmd->skip_pipeline_clear = false;
+	mem_cmd->pipeline_clear_options = IPAHAL_HPS_CLEAR;
+	mem_cmd->size = mem_size;
+	mem_cmd->system_addr = ipa3_ctx->nat_mem.pdn_mem.phys_base;
+	mem_cmd->local_addr = ipa3_ctx->smem_restricted_bytes +
+		IPA_MEM_PART(pdn_config_ofst);
+
+	IPADBG("return\n");
+}
+
+static int ipa3_nat_send_init_cmd(struct ipahal_imm_cmd_ip_v4_nat_init *cmd,
+	bool zero_pdn_table)
+{
+	struct ipa3_desc desc[IPA_NAT_MAX_NUM_OF_INIT_CMD_DESC];
+	struct ipahal_imm_cmd_pyld *cmd_pyld[IPA_NAT_MAX_NUM_OF_INIT_CMD_DESC];
+	int i, num_cmd = 0, result;
+
+	IPADBG("\n");
+
+	/* NO-OP IC for ensuring that IPA pipeline is empty */
+	cmd_pyld[num_cmd] =
+		ipahal_construct_nop_imm_cmd(false, IPAHAL_HPS_CLEAR, false);
+	if (!cmd_pyld[num_cmd]) {
+		IPAERR("failed to construct NOP imm cmd\n");
+		return -ENOMEM;
+	}
+
+	ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
+	++num_cmd;
+
+	cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
+		IPA_IMM_CMD_IP_V4_NAT_INIT, cmd, false);
+	if (!cmd_pyld[num_cmd]) {
+		IPAERR_RL("fail to construct NAT init imm cmd\n");
+		result = -EPERM;
+		goto destroy_imm_cmd;
+	}
+
+	ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
+	++num_cmd;
+
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+		struct ipahal_imm_cmd_dma_shared_mem mem_cmd = { 0 };
+
+		if (num_cmd >= IPA_NAT_MAX_NUM_OF_INIT_CMD_DESC) {
+			IPAERR("number of commands is out of range\n");
+			result = -ENOBUFS;
+			goto destroy_imm_cmd;
+		}
+
+		/* Copy the PDN config table to SRAM */
+		ipa3_nat_create_modify_pdn_cmd(&mem_cmd, zero_pdn_table);
+		cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
+			IPA_IMM_CMD_DMA_SHARED_MEM, &mem_cmd, false);
+		if (!cmd_pyld[num_cmd]) {
+			IPAERR(
+				"fail construct dma_shared_mem cmd: for pdn table");
+			result = -ENOMEM;
+			goto destroy_imm_cmd;
+		}
+		ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
+		++num_cmd;
+		IPADBG("added PDN table copy cmd\n");
+	}
+
+	result = ipa3_send_cmd(num_cmd, desc);
+	if (result) {
+		IPAERR("fail to send NAT init immediate command\n");
+		goto destroy_imm_cmd;
+	}
+
+	IPADBG("return\n");
+
+destroy_imm_cmd:
+	for (i = 0; i < num_cmd; ++i)
+		ipahal_destroy_imm_cmd(cmd_pyld[i]);
+
+	return result;
+}
+
+static int ipa3_ipv6ct_send_init_cmd(struct ipahal_imm_cmd_ip_v6_ct_init *cmd)
+{
+	struct ipa3_desc desc[IPA_IPV6CT_MAX_NUM_OF_INIT_CMD_DESC];
+	struct ipahal_imm_cmd_pyld
+		*cmd_pyld[IPA_IPV6CT_MAX_NUM_OF_INIT_CMD_DESC];
+	int i, num_cmd = 0, result;
+
+	IPADBG("\n");
+
+	/* NO-OP IC for ensuring that IPA pipeline is empty */
+	cmd_pyld[num_cmd] =
+		ipahal_construct_nop_imm_cmd(false, IPAHAL_HPS_CLEAR, false);
+	if (!cmd_pyld[num_cmd]) {
+		IPAERR("failed to construct NOP imm cmd\n");
+		return -ENOMEM;
+	}
+
+	ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
+	++num_cmd;
+
+	if (num_cmd >= IPA_IPV6CT_MAX_NUM_OF_INIT_CMD_DESC) {
+		IPAERR("number of commands is out of range\n");
+		result = -ENOBUFS;
+		goto destroy_imm_cmd;
+	}
+
+	cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
+		IPA_IMM_CMD_IP_V6_CT_INIT, cmd, false);
+	if (!cmd_pyld[num_cmd]) {
+		IPAERR_RL("fail to construct IPv6CT init imm cmd\n");
+		result = -EPERM;
+		goto destroy_imm_cmd;
+	}
+
+	ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
+	++num_cmd;
+
+	result = ipa3_send_cmd(num_cmd, desc);
+	if (result) {
+		IPAERR("Fail to send IPv6CT init immediate command\n");
+		goto destroy_imm_cmd;
+	}
+
+	IPADBG("return\n");
+
+destroy_imm_cmd:
+	for (i = 0; i < num_cmd; ++i)
+		ipahal_destroy_imm_cmd(cmd_pyld[i]);
+
+	return result;
+}
+
 /* IOCTL function handlers */
 /**
  * ipa3_nat_init_cmd() - Post IP_V4_NAT_INIT command to IPA HW
@@ -668,11 +814,7 @@ static void ipa3_nat_create_init_cmd(
  */
 int ipa3_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 {
-	struct ipa3_desc desc[IPA_NAT_MAX_NUM_OF_INIT_CMD_DESC];
 	struct ipahal_imm_cmd_ip_v4_nat_init cmd;
-	int i, num_cmd = 0;
-	struct ipahal_imm_cmd_pyld *cmd_pyld[IPA_NAT_MAX_NUM_OF_INIT_CMD_DESC];
-	struct ipahal_imm_cmd_dma_shared_mem mem_cmd = { 0 };
 	int result;
 
 	IPADBG("\n");
@@ -733,18 +875,6 @@ int ipa3_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 		return result;
 	}
 
-	/* NO-OP IC for ensuring that IPA pipeline is empty */
-	cmd_pyld[num_cmd] =
-		ipahal_construct_nop_imm_cmd(false, IPAHAL_HPS_CLEAR, false);
-	if (!cmd_pyld[num_cmd]) {
-		IPAERR("failed to construct NOP imm cmd\n");
-		result = -ENOMEM;
-		goto bail;
-	}
-
-	ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
-	++num_cmd;
-
 	if (ipa3_ctx->nat_mem.dev.is_sys_mem) {
 		IPADBG("using system memory for nat table\n");
 		/*
@@ -757,25 +887,9 @@ int ipa3_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 		IPADBG("using shared(local) memory for nat table\n");
 		ipa3_nat_create_init_cmd(init, true, IPA_RAM_NAT_OFST, &cmd);
 	}
-	cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
-		IPA_IMM_CMD_IP_V4_NAT_INIT, &cmd, false);
-	if (!cmd_pyld[num_cmd]) {
-		IPAERR_RL("Fail to construct ip_v4_nat_init imm cmd\n");
-		result = -EPERM;
-		goto destroy_imm_cmd;
-	}
-
-	ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
-	++num_cmd;
 
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
 		struct ipa_pdn_entry *pdn_entries;
-
-		if (num_cmd >= IPA_NAT_MAX_NUM_OF_INIT_CMD_DESC) {
-			IPAERR("number of commands is out of range\n");
-			result = -ENOBUFS;
-			goto destroy_imm_cmd;
-		}
 
 		/* store ip in pdn entries cache array */
 		pdn_entries = ipa3_ctx->nat_mem.pdn_mem.base;
@@ -785,33 +899,13 @@ int ipa3_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 		pdn_entries[0].resrvd = 0;
 
 		IPADBG("Public ip address:0x%x\n", init->ip_addr);
-
-		/* Copy the PDN config table to SRAM */
-		mem_cmd.is_read = false;
-		mem_cmd.skip_pipeline_clear = false;
-		mem_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
-		mem_cmd.size = sizeof(struct ipa_pdn_entry) * IPA_MAX_PDN_NUM;
-		mem_cmd.system_addr = ipa3_ctx->nat_mem.pdn_mem.phys_base;
-		mem_cmd.local_addr = ipa3_ctx->smem_restricted_bytes +
-			IPA_MEM_PART(pdn_config_ofst);
-		cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
-			IPA_IMM_CMD_DMA_SHARED_MEM, &mem_cmd, false);
-		if (!cmd_pyld[num_cmd]) {
-			IPAERR(
-			"fail construct dma_shared_mem cmd: for pdn table");
-			result = -ENOMEM;
-			goto destroy_imm_cmd;
-		}
-		ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
-		++num_cmd;
-		IPADBG("added PDN table copy cmd\n");
 	}
 
-	IPADBG("posting v4 init command\n");
-	if (ipa3_send_cmd(num_cmd, desc)) {
-		IPAERR("Fail to send immediate command\n");
-		result = -EPERM;
-		goto destroy_imm_cmd;
+	IPADBG("posting NAT init command\n");
+	result = ipa3_nat_send_init_cmd(&cmd, false);
+	if (result) {
+		IPAERR("Fail to send NAT init immediate command\n");
+		return result;
 	}
 
 	ipa3_nat_ipv6ct_init_device_structure(
@@ -837,11 +931,7 @@ int ipa3_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 
 	ipa3_ctx->nat_mem.dev.is_hw_init = true;
 	IPADBG("return\n");
-destroy_imm_cmd:
-	for (i = 0; i < num_cmd; ++i)
-		ipahal_destroy_imm_cmd(cmd_pyld[i]);
-bail:
-	return result;
+	return 0;
 }
 
 /**
@@ -854,11 +944,7 @@ bail:
  */
 int ipa3_ipv6ct_init_cmd(struct ipa_ioc_ipv6ct_init *init)
 {
-	struct ipa3_desc desc[IPA_IPV6CT_MAX_NUM_OF_INIT_CMD_DESC];
 	struct ipahal_imm_cmd_ip_v6_ct_init cmd;
-	int i, num_cmd = 0;
-	struct ipahal_imm_cmd_pyld
-		*cmd_pyld[IPA_IPV6CT_MAX_NUM_OF_INIT_CMD_DESC];
 	int result;
 
 	IPADBG("\n");
@@ -904,18 +990,6 @@ int ipa3_ipv6ct_init_cmd(struct ipa_ioc_ipv6ct_init *init)
 		return result;
 	}
 
-	/* NO-OP IC for ensuring that IPA pipeline is empty */
-	cmd_pyld[num_cmd] =
-		ipahal_construct_nop_imm_cmd(false, IPAHAL_HPS_CLEAR, false);
-	if (!cmd_pyld[num_cmd]) {
-		IPAERR("failed to construct NOP imm cmd\n");
-		result = -ENOMEM;
-		goto bail;
-	}
-
-	ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
-	++num_cmd;
-
 	if (ipa3_ctx->ipv6ct_mem.dev.is_sys_mem) {
 		IPADBG("using system memory for nat table\n");
 		/*
@@ -946,28 +1020,11 @@ int ipa3_ipv6ct_init_cmd(struct ipa_ioc_ipv6ct_init *init)
 			ipa3_ctx->ipv6ct_mem.dev.name);
 	}
 
-	if (num_cmd >= IPA_IPV6CT_MAX_NUM_OF_INIT_CMD_DESC) {
-		IPAERR("number of commands is out of range\n");
-		result = -ENOBUFS;
-		goto destroy_imm_cmd;
-	}
-
-	cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
-		IPA_IMM_CMD_IP_V6_CT_INIT, &cmd, false);
-	if (!cmd_pyld[num_cmd]) {
-		IPAERR_RL("Fail to construct ip_v6_ct_init imm cmd\n");
-		result = -EPERM;
-		goto destroy_imm_cmd;
-	}
-
-	ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
-	++num_cmd;
-
 	IPADBG("posting ip_v6_ct_init imm command\n");
-	if (ipa3_send_cmd(num_cmd, desc)) {
-		IPAERR("Fail to send immediate command\n");
-		result = -EPERM;
-		goto destroy_imm_cmd;
+	result = ipa3_ipv6ct_send_init_cmd(&cmd);
+	if (result) {
+		IPAERR("fail to send IPv6CT init immediate command\n");
+		return result;
 	}
 
 	ipa3_nat_ipv6ct_init_device_structure(
@@ -979,11 +1036,7 @@ int ipa3_ipv6ct_init_cmd(struct ipa_ioc_ipv6ct_init *init)
 
 	ipa3_ctx->ipv6ct_mem.dev.is_hw_init = true;
 	IPADBG("return\n");
-destroy_imm_cmd:
-	for (i = 0; i < num_cmd; ++i)
-		ipahal_destroy_imm_cmd(cmd_pyld[i]);
-bail:
-	return result;
+	return 0;
 }
 
 /**
@@ -1036,13 +1089,7 @@ int ipa3_nat_mdfy_pdn(struct ipa_ioc_nat_pdn_entry *mdfy_pdn)
 		mdfy_pdn->dst_metadata, mdfy_pdn->src_metadata);
 
 	/* Copy the PDN config table to SRAM */
-	mem_cmd.is_read = false;
-	mem_cmd.skip_pipeline_clear = false;
-	mem_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
-	mem_cmd.size = sizeof(struct ipa_pdn_entry) * IPA_MAX_PDN_NUM;
-	mem_cmd.system_addr = nat_ctx->pdn_mem.phys_base;
-	mem_cmd.local_addr = ipa3_ctx->smem_restricted_bytes +
-		IPA_MEM_PART(pdn_config_ofst);
+	ipa3_nat_create_modify_pdn_cmd(&mem_cmd, false);
 	cmd_pyld = ipahal_construct_imm_cmd(
 		IPA_IMM_CMD_DMA_SHARED_MEM, &mem_cmd, false);
 	if (!cmd_pyld) {
@@ -1054,10 +1101,9 @@ int ipa3_nat_mdfy_pdn(struct ipa_ioc_nat_pdn_entry *mdfy_pdn)
 	ipa3_init_imm_cmd_desc(&desc, cmd_pyld);
 
 	IPADBG("sending PDN table copy cmd\n");
-	if (ipa3_send_cmd(1, &desc)) {
-		IPAERR("Fail to send immediate command\n");
-		result = -EPERM;
-	}
+	result = ipa3_send_cmd(1, &desc);
+	if (result)
+		IPAERR("Fail to send PDN table copy immediate command\n");
 
 	ipahal_destroy_imm_cmd(cmd_pyld);
 
@@ -1233,7 +1279,7 @@ int ipa3_table_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
 		++num_cmd;
 	}
 	result = ipa3_send_cmd(num_cmd, desc);
-	if (result == -EPERM)
+	if (result)
 		IPAERR("Fail to send table_dma immediate command\n");
 
 	IPADBG("return\n");
@@ -1292,104 +1338,26 @@ clear:
 	IPADBG("return\n");
 }
 
-/**
- * ipa3_nat_free_mem() - free the NAT memory
- *
- * Called by NAT client driver to free the NAT memory
- */
-static int ipa3_nat_free_mem(void)
-{
-	struct ipahal_imm_cmd_dma_shared_mem mem_cmd = { 0 };
-	struct ipa3_desc desc;
-	struct ipahal_imm_cmd_pyld *cmd_pyld;
-	int result = 0;
-
-	IPADBG("\n");
-	mutex_lock(&ipa3_ctx->nat_mem.dev.lock);
-
-	ipa3_nat_ipv6ct_free_mem(&ipa3_ctx->nat_mem.dev);
-
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
-		size_t pdn_entry_size;
-
-		ipahal_nat_entry_size(IPAHAL_NAT_IPV4_PDN, &pdn_entry_size);
-
-		/* zero the PDN table and copy the PDN config table to SRAM */
-		IPADBG("zeroing the PDN config table\n");
-		memset(ipa3_ctx->nat_mem.pdn_mem.base, 0,
-			pdn_entry_size * IPA_MAX_PDN_NUM);
-		mem_cmd.is_read = false;
-		mem_cmd.skip_pipeline_clear = false;
-		mem_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
-		mem_cmd.size = pdn_entry_size * IPA_MAX_PDN_NUM;
-		mem_cmd.system_addr = ipa3_ctx->nat_mem.pdn_mem.phys_base;
-		mem_cmd.local_addr = ipa3_ctx->smem_restricted_bytes +
-			IPA_MEM_PART(pdn_config_ofst);
-		cmd_pyld = ipahal_construct_imm_cmd(
-			IPA_IMM_CMD_DMA_SHARED_MEM, &mem_cmd, false);
-		if (!cmd_pyld) {
-			IPAERR(
-				"fail construct dma_shared_mem cmd: for pdn table");
-			result = -ENOMEM;
-			goto lbl_free_pdn;
-		}
-		ipa3_init_imm_cmd_desc(&desc, cmd_pyld);
-
-		IPADBG("sending PDN table copy cmd\n");
-		if (ipa3_send_cmd(1, &desc)) {
-			IPAERR("Fail to send immediate command\n");
-			result = -ENOMEM;
-		}
-
-		ipahal_destroy_imm_cmd(cmd_pyld);
-lbl_free_pdn:
-		IPADBG("freeing the PDN memory\n");
-		dma_free_coherent(ipa3_ctx->pdev,
-			ipa3_ctx->nat_mem.pdn_mem.size,
-			ipa3_ctx->nat_mem.pdn_mem.base,
-			ipa3_ctx->nat_mem.pdn_mem.phys_base);
-	}
-
-	mutex_unlock(&ipa3_ctx->nat_mem.dev.lock);
-	IPADBG("return\n");
-	return result;
-}
-
-static int ipa3_nat_ipv6ct_send_del_table_cmd(
+static int ipa3_nat_ipv6ct_create_del_table_cmd(
 	uint8_t tbl_index,
 	u32 base_addr,
-	bool mem_type_shared,
 	struct ipa3_nat_ipv6ct_common_mem *dev,
-	enum ipahal_imm_cmd_name cmd_name,
-	struct ipahal_imm_cmd_nat_ipv6ct_init_common *table_init_cmd,
-	const void *cmd)
+	struct ipahal_imm_cmd_nat_ipv6ct_init_common *table_init_cmd)
 {
-	struct ipahal_imm_cmd_pyld *nop_cmd_pyld = NULL, *cmd_pyld = NULL;
-	struct ipa3_desc desc[IPA_MAX_NUM_OF_DEL_TABLE_CMD_DESC];
-	int result = 0;
+	bool mem_type_shared = true;
 
 	IPADBG("\n");
-
-	if (!dev->is_hw_init) {
-		IPADBG("attempt to delete %s before HW int\n", dev->name);
-		/* Deletion of partly initialized table is not an error */
-		return 0;
-	}
 
 	if (tbl_index >= 1) {
 		IPAERR_RL("Unsupported table index %d\n", tbl_index);
 		return -EPERM;
 	}
 
-	/* NO-OP IC for ensuring that IPA pipeline is empty */
-	nop_cmd_pyld =
-		ipahal_construct_nop_imm_cmd(false, IPAHAL_HPS_CLEAR, false);
-	if (!nop_cmd_pyld) {
-		IPAERR("Failed to construct NOP imm cmd\n");
-		result = -ENOMEM;
-		goto bail;
+	if (dev->tmp_mem != NULL) {
+		IPADBG("using temp memory during %s del\n", dev->name);
+		mem_type_shared = false;
+		base_addr = dev->tmp_mem->dma_handle;
 	}
-	ipa3_init_imm_cmd_desc(&desc[0], nop_cmd_pyld);
 
 	table_init_cmd->table_index = tbl_index;
 	table_init_cmd->base_table_addr = base_addr;
@@ -1398,29 +1366,73 @@ static int ipa3_nat_ipv6ct_send_del_table_cmd(
 	table_init_cmd->expansion_table_addr_shared = mem_type_shared;
 	table_init_cmd->size_base_table = 0;
 	table_init_cmd->size_expansion_table = 0;
-	cmd_pyld = ipahal_construct_imm_cmd(cmd_name, &cmd, false);
-	if (!cmd_pyld) {
-		IPAERR_RL("Fail to construct table init imm cmd for %s\n",
-			dev->name);
-		result = -EPERM;
-		goto destroy_nop_imm_cmd;
-	}
-	ipa3_init_imm_cmd_desc(&desc[1], cmd_pyld);
+	IPADBG("return\n");
 
-	if (ipa3_send_cmd(IPA_MAX_NUM_OF_DEL_TABLE_CMD_DESC, desc)) {
-		IPAERR("Fail to send immediate command\n");
-		result = -EPERM;
-		goto destroy_imm_cmd;
+	return 0;
+}
+
+static int ipa3_nat_send_del_table_cmd(uint8_t tbl_index)
+{
+	struct ipahal_imm_cmd_ip_v4_nat_init cmd;
+	int result;
+
+	IPADBG("\n");
+
+	result = ipa3_nat_ipv6ct_create_del_table_cmd(
+		tbl_index,
+		IPA_NAT_PHYS_MEM_OFFSET,
+		&ipa3_ctx->nat_mem.dev,
+		&cmd.table_init);
+	if (result) {
+		IPAERR(
+			"Fail to create immediate command to delete NAT table\n");
+		return result;
+	}
+
+	cmd.index_table_addr = cmd.table_init.base_table_addr;
+	cmd.index_table_addr_shared = cmd.table_init.base_table_addr_shared;
+	cmd.index_table_expansion_addr = cmd.index_table_addr;
+	cmd.index_table_expansion_addr_shared = cmd.index_table_addr_shared;
+	cmd.public_addr_info = 0;
+
+	IPADBG("posting NAT delete command\n");
+	result = ipa3_nat_send_init_cmd(&cmd, true);
+	if (result) {
+		IPAERR("Fail to send NAT delete immediate command\n");
+		return result;
 	}
 
 	IPADBG("return\n");
+	return 0;
+}
 
-destroy_imm_cmd:
-	ipahal_destroy_imm_cmd(cmd_pyld);
-destroy_nop_imm_cmd:
-	ipahal_destroy_imm_cmd(nop_cmd_pyld);
-bail:
-	return result;
+static int ipa3_ipv6ct_send_del_table_cmd(uint8_t tbl_index)
+{
+	struct ipahal_imm_cmd_ip_v6_ct_init cmd;
+	int result;
+
+	IPADBG("\n");
+
+	result = ipa3_nat_ipv6ct_create_del_table_cmd(
+		tbl_index,
+		IPA_IPV6CT_PHYS_MEM_OFFSET,
+		&ipa3_ctx->ipv6ct_mem.dev,
+		&cmd.table_init);
+	if (result) {
+		IPAERR(
+			"Fail to create immediate command to delete IPv6CT table\n");
+		return result;
+	}
+
+	IPADBG("posting IPv6CT delete command\n");
+	result = ipa3_ipv6ct_send_init_cmd(&cmd);
+	if (result) {
+		IPAERR("Fail to send IPv6CT delete immediate command\n");
+		return result;
+	}
+
+	IPADBG("return\n");
+	return 0;
 }
 
 /**
@@ -1456,10 +1468,7 @@ int ipa3_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
  */
 int ipa3_del_nat_table(struct ipa_ioc_nat_ipv6ct_table_del *del)
 {
-	struct ipahal_imm_cmd_ip_v4_nat_init cmd;
-	bool mem_type_shared = true;
-	u32 base_addr = IPA_NAT_PHYS_MEM_OFFSET;
-	int result;
+	int result = 0;
 
 	IPADBG("\n");
 	if (!ipa3_ctx->nat_mem.dev.is_dev_init) {
@@ -1467,36 +1476,35 @@ int ipa3_del_nat_table(struct ipa_ioc_nat_ipv6ct_table_del *del)
 		return -EPERM;
 	}
 
-	if (ipa3_ctx->nat_mem.dev.tmp_mem != NULL) {
-		IPADBG("using temp memory during nat del\n");
-		mem_type_shared = false;
-		base_addr = ipa3_ctx->nat_mem.dev.tmp_mem->dma_handle;
+	mutex_lock(&ipa3_ctx->nat_mem.dev.lock);
+
+	if (ipa3_ctx->nat_mem.dev.is_hw_init) {
+		result = ipa3_nat_send_del_table_cmd(del->table_index);
+		if (result) {
+			IPAERR(
+				"Fail to send immediate command to delete NAT table\n");
+			goto bail;
+		}
 	}
-
-	cmd.index_table_addr = base_addr;
-	cmd.index_table_addr_shared = mem_type_shared;
-	cmd.index_table_expansion_addr = base_addr;
-	cmd.index_table_expansion_addr_shared = mem_type_shared;
-	cmd.public_addr_info = 0;
-
-	result = ipa3_nat_ipv6ct_send_del_table_cmd(
-		del->table_index,
-		base_addr,
-		mem_type_shared,
-		&ipa3_ctx->nat_mem.dev,
-		IPA_IMM_CMD_IP_V4_NAT_INIT,
-		&cmd.table_init,
-		&cmd);
-	if (result)
-		goto bail;
 
 	ipa3_ctx->nat_mem.public_ip_addr = 0;
 	ipa3_ctx->nat_mem.index_table_addr = 0;
 	ipa3_ctx->nat_mem.index_table_expansion_addr = 0;
 
-	result = ipa3_nat_free_mem();
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0 &&
+		ipa3_ctx->nat_mem.dev.is_mem_allocated) {
+		IPADBG("freeing the PDN memory\n");
+		dma_free_coherent(ipa3_ctx->pdev,
+			ipa3_ctx->nat_mem.pdn_mem.size,
+			ipa3_ctx->nat_mem.pdn_mem.base,
+			ipa3_ctx->nat_mem.pdn_mem.phys_base);
+	}
+
+	ipa3_nat_ipv6ct_free_mem(&ipa3_ctx->nat_mem.dev);
 	IPADBG("return\n");
+
 bail:
+	mutex_unlock(&ipa3_ctx->nat_mem.dev.lock);
 	return result;
 }
 
@@ -1510,10 +1518,7 @@ bail:
  */
 int ipa3_del_ipv6ct_table(struct ipa_ioc_nat_ipv6ct_table_del *del)
 {
-	struct ipahal_imm_cmd_ip_v6_ct_init cmd;
-	bool mem_type_shared = true;
-	u32 base_addr = IPA_IPV6CT_PHYS_MEM_OFFSET;
-	int result;
+	int result = 0;
 
 	IPADBG("\n");
 
@@ -1527,28 +1532,22 @@ int ipa3_del_ipv6ct_table(struct ipa_ioc_nat_ipv6ct_table_del *del)
 		return -EPERM;
 	}
 
-	if (ipa3_ctx->ipv6ct_mem.dev.tmp_mem != NULL) {
-		IPADBG("using temp memory during IPv6CT del\n");
-		mem_type_shared = false;
-		base_addr = ipa3_ctx->ipv6ct_mem.dev.tmp_mem->dma_handle;
+	mutex_lock(&ipa3_ctx->ipv6ct_mem.dev.lock);
+
+	if (ipa3_ctx->ipv6ct_mem.dev.is_hw_init) {
+		result = ipa3_ipv6ct_send_del_table_cmd(del->table_index);
+		if (result) {
+			IPAERR(
+				"Fail to send immediate command to delete IPv6CT table\n");
+			goto bail;
+		}
 	}
 
-	result = ipa3_nat_ipv6ct_send_del_table_cmd(
-		del->table_index,
-		base_addr,
-		mem_type_shared,
-		&ipa3_ctx->ipv6ct_mem.dev,
-		IPA_IMM_CMD_IP_V6_CT_INIT,
-		&cmd.table_init,
-		&cmd);
-	if (result)
-		goto bail;
-
-	mutex_lock(&ipa3_ctx->ipv6ct_mem.dev.lock);
 	ipa3_nat_ipv6ct_free_mem(&ipa3_ctx->ipv6ct_mem.dev);
-	mutex_unlock(&ipa3_ctx->ipv6ct_mem.dev.lock);
 	IPADBG("return\n");
+
 bail:
+	mutex_unlock(&ipa3_ctx->ipv6ct_mem.dev.lock);
 	return result;
 }
 
