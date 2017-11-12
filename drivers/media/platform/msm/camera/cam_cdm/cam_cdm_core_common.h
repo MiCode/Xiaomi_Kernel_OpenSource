@@ -32,8 +32,8 @@ int cam_cdm_process_cmd(void *hw_priv, uint32_t cmd, void *cmd_args,
 	uint32_t arg_size);
 bool cam_cdm_set_cam_hw_version(
 	uint32_t ver, struct cam_hw_version *cam_version);
-void cam_cdm_cpas_cb(uint32_t client_handle, void *userdata,
-	enum cam_camnoc_irq_type evt_type, uint32_t evt_data);
+bool cam_cdm_cpas_cb(uint32_t client_handle, void *userdata,
+	struct cam_cpas_irq_data *irq_data);
 struct cam_cdm_utils_ops *cam_cdm_get_ops(
 	uint32_t ver, struct cam_hw_version *cam_version, bool by_cam_version);
 int cam_virtual_cdm_submit_bl(struct cam_hw_info *cdm_hw,

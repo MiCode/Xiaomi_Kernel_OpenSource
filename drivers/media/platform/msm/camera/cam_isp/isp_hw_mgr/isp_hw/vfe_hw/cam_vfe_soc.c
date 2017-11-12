@@ -15,6 +15,30 @@
 #include "cam_vfe_soc.h"
 #include "cam_debug_util.h"
 
+static bool cam_vfe_cpas_cb(uint32_t client_handle, void *userdata,
+	struct cam_cpas_irq_data *irq_data)
+{
+	bool error_handled = false;
+
+	if (!irq_data)
+		return error_handled;
+
+	switch (irq_data->irq_type) {
+	case CAM_CAMNOC_IRQ_IFE02_UBWC_ENCODE_ERROR:
+	case CAM_CAMNOC_IRQ_IFE13_UBWC_ENCODE_ERROR:
+		CAM_ERR_RATE_LIMIT(CAM_ISP,
+			"IFE UBWC Encode error type=%d status=%x",
+			irq_data->irq_type,
+			irq_data->u.enc_err.encerr_status.value);
+		error_handled = true;
+		break;
+	default:
+		break;
+	}
+
+	return error_handled;
+}
+
 static int cam_vfe_get_dt_properties(struct cam_hw_soc_info *soc_info)
 {
 	int rc = 0;
@@ -95,6 +119,8 @@ int cam_vfe_init_soc_resources(struct cam_hw_soc_info *soc_info,
 		CAM_HW_IDENTIFIER_LENGTH);
 	cpas_register_param.cell_index = soc_info->index;
 	cpas_register_param.dev = soc_info->dev;
+	cpas_register_param.cam_cpas_client_cb = cam_vfe_cpas_cb;
+	cpas_register_param.userdata = soc_info;
 	rc = cam_cpas_register_client(&cpas_register_param);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "CPAS registration failed rc=%d", rc);

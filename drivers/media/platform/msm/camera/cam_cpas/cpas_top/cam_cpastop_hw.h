@@ -173,6 +173,34 @@ struct cam_cpas_hw_errata_wa_list {
 };
 
 /**
+ * struct cam_camnoc_err_logger_info : CAMNOC error logger register offsets
+ *
+ * @mainctrl: Register offset for mainctrl
+ * @errvld: Register offset for errvld
+ * @errlog0_low: Register offset for errlog0_low
+ * @errlog0_high: Register offset for errlog0_high
+ * @errlog1_low: Register offset for errlog1_low
+ * @errlog1_high: Register offset for errlog1_high
+ * @errlog2_low: Register offset for errlog2_low
+ * @errlog2_high: Register offset for errlog2_high
+ * @errlog3_low: Register offset for errlog3_low
+ * @errlog3_high: Register offset for errlog3_high
+ *
+ */
+struct cam_camnoc_err_logger_info {
+	uint32_t mainctrl;
+	uint32_t errvld;
+	uint32_t errlog0_low;
+	uint32_t errlog0_high;
+	uint32_t errlog1_low;
+	uint32_t errlog1_high;
+	uint32_t errlog2_low;
+	uint32_t errlog2_high;
+	uint32_t errlog3_low;
+	uint32_t errlog3_high;
+};
+
+/**
  * struct cam_camnoc_info : Overall CAMNOC settings info
  *
  * @specific: Pointer to CAMNOC SPECIFICTONTTPTR settings
@@ -180,8 +208,7 @@ struct cam_cpas_hw_errata_wa_list {
  * @irq_sbm: Pointer to CAMNOC IRQ SBM settings
  * @irq_err: Pointer to CAMNOC IRQ Error settings
  * @irq_err_size: Array size of IRQ Error settings
- * @error_logger: Pointer to CAMNOC IRQ Error logger read registers
- * @error_logger_size: Array size of IRQ Error logger
+ * @err_logger: Pointer to CAMNOC IRQ Error logger read registers
  * @errata_wa_list: HW Errata workaround info
  *
  */
@@ -191,8 +218,7 @@ struct cam_camnoc_info {
 	struct cam_camnoc_irq_sbm *irq_sbm;
 	struct cam_camnoc_irq_err *irq_err;
 	int irq_err_size;
-	uint32_t *error_logger;
-	int error_logger_size;
+	struct cam_camnoc_err_logger_info *err_logger;
 	struct cam_cpas_hw_errata_wa_list *errata_wa_list;
 };
 
