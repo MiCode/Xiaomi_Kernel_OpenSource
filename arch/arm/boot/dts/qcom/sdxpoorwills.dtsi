@@ -437,6 +437,29 @@
 		compatible = "qcom,system-pm";
 		mboxes = <&apps_rsc 0>;
 	};
+
+	emac_hw: qcom,emac@00020000 {
+		compatible = "qcom,emac-dwc-eqos";
+		reg = <0x20000 0x10000>,
+		      <0x36000 0x100>;
+		reg-names = "emac-base", "rgmii-base";
+		interrupts = <0 62 4>, <0 60 4>,
+			<0 45 4>, <0 49 4>,
+			<0 50 4>, <0 51 4>,
+			<0 52 4>, <0 53 4>,
+			<0 54 4>, <0 55 4>,
+			<0 56 4>, <0 57 4>;
+		interrupt-names = "sbd-intr", "lpi-intr",
+			"wol-intr", "tx-ch0-intr",
+			"tx-ch1-intr", "tx-ch2-intr",
+			"tx-ch3-intr", "tx-ch4-intr",
+			"rx-ch0-intr", "rx-ch1-intr",
+			"rx-ch2-intr", "rx-ch3-intr";
+		io-macro-info {
+			io-macro-bypass-mode = <0>;
+			io-interface = "rgmii";
+		};
+	};
 };
 
 #include "pmxpoorwills.dtsi"
