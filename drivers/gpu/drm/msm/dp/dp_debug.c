@@ -670,7 +670,10 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 
 	dir = debugfs_create_dir(DEBUG_NAME, NULL);
 	if (IS_ERR_OR_NULL(dir)) {
-		rc = PTR_ERR(dir);
+		if (!dir)
+			rc = -EINVAL;
+		else
+			rc = PTR_ERR(dir);
 		pr_err("[%s] debugfs create dir failed, rc = %d\n",
 		       DEBUG_NAME, rc);
 		goto error;
@@ -753,6 +756,8 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 	return 0;
 
 error_remove_dir:
+	if (!file)
+		rc = -EINVAL;
 	debugfs_remove_recursive(dir);
 error:
 	return rc;
