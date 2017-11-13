@@ -44,10 +44,12 @@
 #define PL_INDIRECT_VOTER		"PL_INDIRECT_VOTER"
 #define USBIN_I_VOTER			"USBIN_I_VOTER"
 #define PL_FCC_LOW_VOTER		"PL_FCC_LOW_VOTER"
+#define ICL_LIMIT_VOTER			"ICL_LIMIT_VOTER"
 
 struct pl_data {
 	int			pl_mode;
 	int			pl_batfet_mode;
+	int			pl_min_icl_ua;
 	int			slave_pct;
 	int			slave_fcc_ua;
 	int			restricted_current;
@@ -93,6 +95,8 @@ module_param_named(debug_mask, debug_mask, int, 0600);
 			pr_debug(fmt, ##__VA_ARGS__);		\
 	} while (0)
 
+#define IS_USBIN(mode)	((mode == POWER_SUPPLY_PL_USBIN_USBIN) \
+			|| (mode == POWER_SUPPLY_PL_USBIN_USBIN_EXT))
 enum {
 	VER = 0,
 	SLAVE_PCT,
@@ -103,19 +107,19 @@ enum {
 /*******
  * ICL *
  ********/
-static void split_settled(struct pl_data *chip)
+static int get_settled_split(struct pl_data *chip, int *main_icl_ua,
+				int *slave_icl_ua, int *total_settled_icl_ua)
 {
 	int slave_icl_pct, total_current_ua;
 	int slave_ua = 0, main_settled_ua = 0;
 	union power_supply_propval pval = {0, };
 	int rc, total_settled_ua = 0;
 
-	if ((chip->pl_mode != POWER_SUPPLY_PL_USBIN_USBIN)
-		&& (chip->pl_mode != POWER_SUPPLY_PL_USBIN_USBIN_EXT))
-		return;
+	if (!IS_USBIN(chip->pl_mode))
+		return -EINVAL;
 
 	if (!chip->main_psy)
-		return;
+		return -EINVAL;
 
 	if (!get_effective_result_locked(chip->pl_disable_votable)) {
 		/* read the aicl settled value */
@@ -123,11 +127,10 @@ static void split_settled(struct pl_data *chip)
 			       POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED, &pval);
 		if (rc < 0) {
 			pr_err("Couldn't get aicl settled value rc=%d\n", rc);
-			return;
+			return rc;
 		}
 		main_settled_ua = pval.intval;
-		/* slave gets 10 percent points less for ICL */
-		slave_icl_pct = max(0, chip->slave_pct - 10);
+		slave_icl_pct = max(0, chip->slave_pct);
 		slave_ua = ((main_settled_ua + chip->pl_settled_ua)
 						* slave_icl_pct) / 100;
 		total_settled_ua = main_settled_ua + chip->pl_settled_ua;
@@ -139,16 +142,61 @@ static void split_settled(struct pl_data *chip)
 			chip->usb_psy = power_supply_get_by_name("usb");
 		if (!chip->usb_psy) {
 			pr_err("Couldn't get usbpsy while splitting settled\n");
-			return;
+			return -ENOENT;
 		}
 		/* no client is voting, so get the total current from charger */
 		rc = power_supply_get_property(chip->usb_psy,
 			POWER_SUPPLY_PROP_HW_CURRENT_MAX, &pval);
 		if (rc < 0) {
 			pr_err("Couldn't get max current rc=%d\n", rc);
-			return;
+			return rc;
 		}
 		total_current_ua = pval.intval;
+	}
+
+	*main_icl_ua = total_current_ua - slave_ua;
+	*slave_icl_ua = slave_ua;
+	*total_settled_icl_ua = total_settled_ua;
+
+	pl_dbg(chip, PR_PARALLEL,
+		"Split total_current_ua=%d total_settled_ua=%d main_settled_ua=%d slave_ua=%d\n",
+		total_current_ua, total_settled_ua, main_settled_ua, slave_ua);
+
+	return 0;
+}
+
+static int validate_parallel_icl(struct pl_data *chip, bool *disable)
+{
+	int rc = 0;
+	int main_ua = 0, slave_ua = 0, total_settled_ua = 0;
+
+	if (!IS_USBIN(chip->pl_mode)
+		|| get_effective_result_locked(chip->pl_disable_votable))
+		return 0;
+
+	rc = get_settled_split(chip, &main_ua, &slave_ua, &total_settled_ua);
+	if (rc < 0) {
+		pr_err("Couldn't  get split current rc=%d\n", rc);
+		return rc;
+	}
+
+	if (slave_ua < chip->pl_min_icl_ua)
+		*disable = true;
+	else
+		*disable = false;
+
+	return 0;
+}
+
+static void split_settled(struct pl_data *chip)
+{
+	union power_supply_propval pval = {0, };
+	int rc, main_ua, slave_ua, total_settled_ua;
+
+	rc = get_settled_split(chip, &main_ua, &slave_ua, &total_settled_ua);
+	if (rc < 0) {
+		pr_err("Couldn't  get split current rc=%d\n", rc);
+		return;
 	}
 
 	/*
@@ -160,7 +208,7 @@ static void split_settled(struct pl_data *chip)
 	 *	Set slave ICL then main ICL.
 	 */
 	if (slave_ua > chip->pl_settled_ua) {
-		pval.intval = total_current_ua - slave_ua;
+		pval.intval = main_ua;
 		/* Set ICL on main charger */
 		rc = power_supply_set_property(chip->main_psy,
 				POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
@@ -188,7 +236,7 @@ static void split_settled(struct pl_data *chip)
 			return;
 		}
 
-		pval.intval = total_current_ua - slave_ua;
+		pval.intval = main_ua;
 		/* Set ICL on main charger */
 		rc = power_supply_set_property(chip->main_psy,
 				POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
@@ -202,9 +250,6 @@ static void split_settled(struct pl_data *chip)
 	chip->total_settled_ua = total_settled_ua;
 	chip->pl_settled_ua = slave_ua;
 
-	pl_dbg(chip, PR_PARALLEL,
-		"Split total_current_ua=%d main_settled_ua=%d slave_ua=%d\n",
-		total_current_ua, main_settled_ua, slave_ua);
 }
 
 static ssize_t version_show(struct class *c, struct class_attribute *attr,
@@ -229,14 +274,21 @@ static ssize_t slave_pct_show(struct class *c, struct class_attribute *attr,
 static ssize_t slave_pct_store(struct class *c, struct class_attribute *attr,
 			const char *ubuf, size_t count)
 {
-	struct pl_data *chip = container_of(c, struct pl_data,
-			qcom_batt_class);
+	struct pl_data *chip = container_of(c, struct pl_data, qcom_batt_class);
+	int rc;
 	unsigned long val;
+	bool disable = false;
 
 	if (kstrtoul(ubuf, 10, &val))
 		return -EINVAL;
 
 	chip->slave_pct = val;
+
+	rc = validate_parallel_icl(chip, &disable);
+	if (rc < 0)
+		return rc;
+
+	vote(chip->pl_disable_votable, ICL_LIMIT_VOTER, disable, 0);
 	rerun_election(chip->fcc_votable);
 	rerun_election(chip->fv_votable);
 	split_settled(chip);
@@ -248,7 +300,7 @@ static ssize_t slave_pct_store(struct class *c, struct class_attribute *attr,
  * RESTRICTED CHARGIGNG *
  ************************/
 static ssize_t restrict_chg_show(struct class *c, struct class_attribute *attr,
-			char *ubuf)
+		char *ubuf)
 {
 	struct pl_data *chip = container_of(c, struct pl_data,
 			qcom_batt_class);
@@ -465,11 +517,9 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 				&slave_fcc_ua);
 
 		if (slave_fcc_ua > MINIMUM_PARALLEL_FCC_UA) {
-			chip->slave_fcc_ua = slave_fcc_ua;
 			vote(chip->pl_disable_votable, PL_FCC_LOW_VOTER,
 							false, 0);
 		} else {
-			chip->slave_fcc_ua = 0;
 			vote(chip->pl_disable_votable, PL_FCC_LOW_VOTER,
 							true, 0);
 		}
@@ -623,11 +673,9 @@ static int pl_disable_vote_callback(struct votable *votable,
 {
 	struct pl_data *chip = data;
 	union power_supply_propval pval = {0, };
-	int master_fcc_ua, total_fcc_ua, slave_fcc_ua;
-	int rc;
-
-	chip->total_settled_ua = 0;
-	chip->pl_settled_ua = 0;
+	int master_fcc_ua = 0, total_fcc_ua = 0, slave_fcc_ua = 0;
+	int rc = 0;
+	bool disable = false;
 
 	if (!is_main_available(chip))
 		return -ENODEV;
@@ -638,6 +686,16 @@ static int pl_disable_vote_callback(struct votable *votable,
 		/* keep system awake to talk to slave charger through i2c */
 		cancel_delayed_work_sync(&chip->pl_awake_work);
 		vote(chip->pl_awake_votable, PL_VOTER, true, 0);
+
+		rc = validate_parallel_icl(chip, &disable);
+		if (rc < 0)
+			return rc;
+
+		if (disable) {
+			pr_info("Parallel ICL is less than min ICL(%d), skipping parallel enable\n",
+					chip->pl_min_icl_ua);
+			return 0;
+		}
 
 		 /* enable parallel charging */
 		rc = power_supply_get_property(chip->pl_psy,
@@ -721,8 +779,7 @@ static int pl_disable_vote_callback(struct votable *votable,
 			pr_err("Couldn't change slave suspend state rc=%d\n",
 				rc);
 
-		if ((chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN)
-			|| (chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN_EXT))
+		if (IS_USBIN(chip->pl_mode))
 			split_settled(chip);
 		/*
 		 * we could have been enabled while in taper mode,
@@ -749,8 +806,7 @@ static int pl_disable_vote_callback(struct votable *votable,
 			(master_fcc_ua * 100) / total_fcc_ua,
 			(slave_fcc_ua * 100) / total_fcc_ua);
 	} else {
-		if ((chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN)
-			|| (chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN_EXT))
+		if (IS_USBIN(chip->pl_mode))
 			split_settled(chip);
 
 		/* pl_psy may be NULL while in the disable branch */
@@ -773,11 +829,16 @@ static int pl_disable_vote_callback(struct votable *votable,
 			return rc;
 		}
 
+		/* reset parallel FCC */
+		chip->slave_fcc_ua = 0;
 		rerun_election(chip->fv_votable);
 
 		cancel_delayed_work_sync(&chip->pl_awake_work);
 		schedule_delayed_work(&chip->pl_awake_work,
 						msecs_to_jiffies(5000));
+
+		chip->total_settled_ua = 0;
+		chip->pl_settled_ua = 0;
 	}
 
 	pl_dbg(chip, PR_PARALLEL, "parallel charging %s\n",
@@ -848,8 +909,7 @@ static bool is_parallel_available(struct pl_data *chip)
 	chip->pl_mode = pval.intval;
 
 	/* Disable autonomous votage increments for USBIN-USBIN */
-	if ((chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN)
-		|| (chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN_EXT)) {
+	if (IS_USBIN(chip->pl_mode)) {
 		if (!chip->hvdcp_hw_inov_dis_votable)
 			chip->hvdcp_hw_inov_dis_votable =
 					find_votable("HVDCP_HW_INOV_DIS");
@@ -869,6 +929,11 @@ static bool is_parallel_available(struct pl_data *chip)
 		return false;
 	}
 	chip->pl_batfet_mode = pval.intval;
+
+	pval.intval = 0;
+	power_supply_get_property(chip->pl_psy, POWER_SUPPLY_PROP_MIN_ICL,
+					&pval);
+	chip->pl_min_icl_ua = pval.intval;
 
 	vote(chip->pl_disable_votable, PARALLEL_PSY_VOTER, false, 0);
 
@@ -894,6 +959,7 @@ static void handle_main_charge_type(struct pl_data *chip)
 		vote(chip->pl_disable_votable, TAPER_END_VOTER, false, 0);
 		vote(chip->pl_disable_votable, PL_TAPER_EARLY_BAD_VOTER,
 				false, 0);
+		vote(chip->pl_disable_votable, ICL_LIMIT_VOTER, false, 0);
 		chip->charge_type = pval.intval;
 		return;
 	}
@@ -932,6 +998,7 @@ static void handle_settled_icl_change(struct pl_data *chip)
 	int main_settled_ua;
 	int main_limited;
 	int total_current_ua;
+	bool disable = false;
 
 	total_current_ua = get_effective_result_locked(chip->usb_icl_votable);
 
@@ -967,11 +1034,7 @@ static void handle_settled_icl_change(struct pl_data *chip)
 
 	rerun_election(chip->fcc_votable);
 
-	if (get_effective_result(chip->pl_disable_votable))
-		return;
-
-	if (chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN
-			|| chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN_EXT) {
+	if (IS_USBIN(chip->pl_mode)) {
 		/*
 		 * call aicl split only when USBIN_USBIN and enabled
 		 * and if settled current has changed by more than 300mA
@@ -985,8 +1048,17 @@ static void handle_settled_icl_change(struct pl_data *chip)
 
 		/* If ICL change is small skip splitting */
 		if (abs(new_total_settled_ua - chip->total_settled_ua)
-						> MIN_ICL_CHANGE_DELTA_UA)
-			split_settled(chip);
+						> MIN_ICL_CHANGE_DELTA_UA) {
+			rc = validate_parallel_icl(chip, &disable);
+			if (rc < 0)
+				return;
+
+			vote(chip->pl_disable_votable, ICL_LIMIT_VOTER,
+						disable, 0);
+			if (!get_effective_result_locked(
+						chip->pl_disable_votable))
+				split_settled(chip);
+		}
 	}
 }
 
