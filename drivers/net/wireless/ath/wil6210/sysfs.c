@@ -191,9 +191,72 @@ out:
 
 static DEVICE_ATTR_RW(thermal_throttling);
 
+static ssize_t
+fst_link_loss_show(struct device *dev, struct device_attribute *attr,
+		   char *buf)
+{
+	struct wil6210_priv *wil = dev_get_drvdata(dev);
+	ssize_t len = 0;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(wil->sta); i++)
+		if (wil->sta[i].status == wil_sta_connected)
+			len += snprintf(buf + len, PAGE_SIZE - len,
+					"[%d] %pM %s\n", i, wil->sta[i].addr,
+					wil->sta[i].fst_link_loss ?
+					"On" : "Off");
+
+	return len;
+}
+
+static ssize_t
+fst_link_loss_store(struct device *dev, struct device_attribute *attr,
+		    const char *buf, size_t count)
+{
+	struct wil6210_priv *wil = dev_get_drvdata(dev);
+	u8 addr[ETH_ALEN];
+	char *token, *dupbuf, *tmp;
+	int rc = -EINVAL;
+	bool fst_link_loss;
+
+	tmp = kmemdup(buf, count + 1, GFP_KERNEL);
+	if (!tmp)
+		return -ENOMEM;
+
+	tmp[count] = '\0';
+	dupbuf = tmp;
+
+	token = strsep(&dupbuf, " ");
+	if (!token)
+		goto out;
+
+	/* mac address */
+	if (sscanf(token, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+		   &addr[0], &addr[1], &addr[2],
+		   &addr[3], &addr[4], &addr[5]) != 6)
+		goto out;
+
+	/* On/Off */
+	if (strtobool(dupbuf, &fst_link_loss))
+		goto out;
+
+	wil_dbg_misc(wil, "set [%pM] with %d\n", addr, fst_link_loss);
+
+	rc = wmi_link_maintain_cfg_write(wil, addr, fst_link_loss);
+	if (!rc)
+		rc = count;
+
+out:
+	kfree(tmp);
+	return rc;
+}
+
+static DEVICE_ATTR_RW(fst_link_loss);
+
 static struct attribute *wil6210_sysfs_entries[] = {
 	&dev_attr_ftm_txrx_offset.attr,
 	&dev_attr_thermal_throttling.attr,
+	&dev_attr_fst_link_loss.attr,
 	NULL
 };
 
