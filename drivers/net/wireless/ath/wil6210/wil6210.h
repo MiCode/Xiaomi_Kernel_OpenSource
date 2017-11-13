@@ -988,6 +988,8 @@ struct wil6210_priv {
 	enum wmi_ps_profile_type ps_profile;
 
 	int fw_calib_result;
+	u8 tt_data_set;
+	struct wmi_tt_data tt_data;
 
 	struct notifier_block pm_notify;
 
@@ -1212,6 +1214,8 @@ int wmi_ps_dev_profile_cfg(struct wil6210_priv *wil,
 int wmi_set_mgmt_retry(struct wil6210_priv *wil, u8 retry_short);
 int wmi_get_mgmt_retry(struct wil6210_priv *wil, u8 *retry_short);
 int wmi_new_sta(struct wil6210_vif *vif, const u8 *mac, u8 aid);
+int wmi_set_tt_cfg(struct wil6210_priv *wil, struct wmi_tt_data *tt_data);
+int wmi_get_tt_cfg(struct wil6210_priv *wil, struct wmi_tt_data *tt_data);
 int wmi_port_allocate(struct wil6210_priv *wil, u8 mid,
 		      const u8 *mac, enum nl80211_iftype iftype);
 int wmi_port_delete(struct wil6210_priv *wil, u8 mid);
