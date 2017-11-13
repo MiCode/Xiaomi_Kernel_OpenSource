@@ -2506,3 +2506,4 @@ module_driver(adv7481_driver, platform_driver_register,
 		platform_driver_unregister);
 
 MODULE_DESCRIPTION("ADI ADV7481 HDMI/MHL/SD video receiver");
+MODULE_LICENSE("GPL v2");
