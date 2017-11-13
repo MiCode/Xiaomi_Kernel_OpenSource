@@ -1703,15 +1703,6 @@ static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args)
 		return -EINVAL;
 	}
 
-	irq_cb.icp_hw_mgr_cb = NULL;
-	irq_cb.data = NULL;
-	rc = a5_dev_intf->hw_ops.process_cmd(
-		a5_dev_intf->hw_priv,
-		CAM_ICP_A5_SET_IRQ_CB,
-		&irq_cb, sizeof(irq_cb));
-	if (rc)
-		CAM_ERR(CAM_ICP, "deregister irq call back failed");
-
 	fw_buf_info.kva = 0;
 	fw_buf_info.iova = 0;
 	fw_buf_info.len = 0;
@@ -1730,6 +1721,16 @@ static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args)
 	mutex_lock(&hw_mgr->hw_mgr_mutex);
 	cam_hfi_deinit();
 	cam_icp_mgr_device_deinit(hw_mgr);
+
+	irq_cb.icp_hw_mgr_cb = NULL;
+	irq_cb.data = NULL;
+	rc = a5_dev_intf->hw_ops.process_cmd(
+		a5_dev_intf->hw_priv,
+		CAM_ICP_A5_SET_IRQ_CB,
+		&irq_cb, sizeof(irq_cb));
+	if (rc)
+		CAM_ERR(CAM_ICP, "deregister irq call back failed");
+
 	cam_icp_free_hfi_mem();
 	hw_mgr->fw_download = false;
 	hw_mgr->secure_mode = CAM_SECURE_MODE_NON_SECURE;
@@ -1911,7 +1912,7 @@ static int cam_icp_mgr_send_fw_init(struct cam_icp_hw_mgr *hw_mgr)
 	return rc;
 }
 
-static int cam_icp_mgr_download_fw(void *hw_mgr_priv, void *download_fw_args)
+static int cam_icp_mgr_hw_open(void *hw_mgr_priv, void *download_fw_args)
 {
 	struct cam_hw_intf *a5_dev_intf = NULL;
 	struct cam_hw_info *a5_dev = NULL;
@@ -2752,7 +2753,7 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 		rc = cam_icp_clk_info_init(hw_mgr, ctx_data);
 		if (rc)
 			goto get_io_buf_failed;
-		rc = cam_icp_mgr_download_fw(hw_mgr, ctx_data);
+		rc = cam_icp_mgr_hw_open(hw_mgr, ctx_data);
 		if (rc)
 			goto get_io_buf_failed;
 		rc = cam_icp_mgr_ipe_bps_resume(hw_mgr, ctx_data);
@@ -3071,7 +3072,7 @@ int cam_icp_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl)
 	hw_mgr_intf->hw_release = cam_icp_mgr_release_hw;
 	hw_mgr_intf->hw_prepare_update = cam_icp_mgr_prepare_hw_update;
 	hw_mgr_intf->hw_config = cam_icp_mgr_config_hw;
-	hw_mgr_intf->download_fw = cam_icp_mgr_download_fw;
+	hw_mgr_intf->hw_open = cam_icp_mgr_hw_open;
 	hw_mgr_intf->hw_close = cam_icp_mgr_hw_close;
 
 	icp_hw_mgr.secure_mode = CAM_SECURE_MODE_NON_SECURE;

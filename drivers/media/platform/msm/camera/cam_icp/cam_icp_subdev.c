@@ -76,7 +76,7 @@ static int cam_icp_subdev_open(struct v4l2_subdev *sd,
 	}
 
 	hw_mgr_intf = &node->hw_mgr_intf;
-	rc = hw_mgr_intf->download_fw(hw_mgr_intf->hw_mgr_priv, NULL);
+	rc = hw_mgr_intf->hw_open(hw_mgr_intf->hw_mgr_priv, NULL);
 	if (rc < 0) {
 		CAM_ERR(CAM_ICP, "FW download failed");
 		goto end;

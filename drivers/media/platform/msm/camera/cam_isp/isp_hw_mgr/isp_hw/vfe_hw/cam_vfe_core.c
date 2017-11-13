@@ -574,16 +574,16 @@ int cam_vfe_process_cmd(void *hw_priv, uint32_t cmd_type,
 	hw_info = core_info->vfe_hw_info;
 
 	switch (cmd_type) {
-	case CAM_VFE_HW_CMD_GET_CHANGE_BASE:
-	case CAM_VFE_HW_CMD_GET_REG_UPDATE:
+	case CAM_ISP_HW_CMD_GET_CHANGE_BASE:
+	case CAM_ISP_HW_CMD_GET_REG_UPDATE:
 		rc = core_info->vfe_top->hw_ops.process_cmd(
 			core_info->vfe_top->top_priv, cmd_type, cmd_args,
 			arg_size);
 
 		break;
-	case CAM_VFE_HW_CMD_GET_BUF_UPDATE:
-	case CAM_VFE_HW_CMD_GET_HFR_UPDATE:
-	case CAM_VFE_HW_CMD_STRIPE_UPDATE:
+	case CAM_ISP_HW_CMD_GET_BUF_UPDATE:
+	case CAM_ISP_HW_CMD_GET_HFR_UPDATE:
+	case CAM_ISP_HW_CMD_STRIPE_UPDATE:
 		rc = core_info->vfe_bus->hw_ops.process_cmd(
 			core_info->vfe_bus->bus_priv, cmd_type, cmd_args,
 			arg_size);

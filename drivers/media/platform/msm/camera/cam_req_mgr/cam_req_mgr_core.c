@@ -1450,8 +1450,7 @@ static int cam_req_mgr_cb_add_req(struct cam_req_mgr_add_request *add_req)
 
 	if (!add_req) {
 		CAM_ERR(CAM_CRM, "sof_data is NULL");
-		rc = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
 	CAM_DBG(CAM_CRM, "E: dev %x dev req %lld",
@@ -1461,8 +1460,7 @@ static int cam_req_mgr_cb_add_req(struct cam_req_mgr_add_request *add_req)
 
 	if (!link) {
 		CAM_DBG(CAM_CRM, "link ptr NULL %x", add_req->link_hdl);
-		rc = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
 	mutex_lock(&link->lock);

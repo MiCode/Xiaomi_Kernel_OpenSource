@@ -203,10 +203,21 @@ static int cam_ois_i2c_driver_probe(struct i2c_client *client,
 	rc = cam_ois_init_subdev_param(o_ctrl);
 	if (rc)
 		goto octrl_free;
+
+	rc = cam_ois_construct_default_power_setting(
+		&soc_private->power_info);
+	if (rc < 0) {
+		CAM_ERR(CAM_OIS,
+			"Construct default ois power setting failed.");
+		goto unreg_subdev;
+	}
+
 	o_ctrl->cam_ois_state = CAM_OIS_INIT;
 
 	return rc;
 
+unreg_subdev:
+	cam_unregister_subdev(&(o_ctrl->v4l2_dev_str));
 octrl_free:
 	kfree(o_ctrl);
 probe_failure:
@@ -279,6 +290,14 @@ static int32_t cam_ois_platform_driver_probe(
 		goto unreg_subdev;
 	}
 	o_ctrl->bridge_intf.device_hdl = -1;
+
+	rc = cam_ois_construct_default_power_setting(
+		&soc_private->power_info);
+	if (rc < 0) {
+		CAM_ERR(CAM_OIS,
+			"Construct default ois power setting failed.");
+		goto unreg_subdev;
+	}
 
 	platform_set_drvdata(pdev, o_ctrl);
 	v4l2_set_subdevdata(&o_ctrl->v4l2_dev_str.sd, o_ctrl);
