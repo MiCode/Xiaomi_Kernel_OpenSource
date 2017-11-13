@@ -44,6 +44,7 @@ nla_policy wil_nl80211_loc_policy[QCA_ATTR_LOC_MAX + 1] = {
 	[QCA_ATTR_FTM_INITIAL_TOKEN] = { .type = NLA_U8 },
 	[QCA_ATTR_AOA_TYPE] = { .type = NLA_U32 },
 	[QCA_ATTR_LOC_ANTENNA_ARRAY_MASK] = { .type = NLA_U32 },
+	[QCA_ATTR_FREQ] = { .type = NLA_U32 },
 };
 
 static const struct
@@ -52,6 +53,7 @@ nla_policy wil_nl80211_ftm_peer_policy[QCA_ATTR_FTM_PEER_MAX + 1] = {
 	[QCA_ATTR_FTM_PEER_MEAS_FLAGS] = { .type = NLA_U32 },
 	[QCA_ATTR_FTM_PEER_MEAS_PARAMS] = { .type = NLA_NESTED },
 	[QCA_ATTR_FTM_PEER_SEC_TOK_ID] = { .type = NLA_U8 },
+	[QCA_ATTR_FTM_PEER_FREQ] = { .type = NLA_U32 },
 };
 
 static const struct
@@ -61,6 +63,37 @@ nla_policy wil_nl80211_ftm_meas_param_policy[QCA_ATTR_FTM_PARAM_MAX + 1] = {
 	[QCA_ATTR_FTM_PARAM_BURST_DURATION] = { .type = NLA_U8 },
 	[QCA_ATTR_FTM_PARAM_BURST_PERIOD] = { .type = NLA_U16 },
 };
+
+static u8 wil_ftm_get_channel(struct wil6210_priv *wil,
+			      const u8 *mac_addr, u32 freq)
+{
+	struct wiphy *wiphy = wil_to_wiphy(wil);
+	struct cfg80211_bss *bss;
+	struct ieee80211_channel *chan;
+	u8 channel;
+
+	if (freq) {
+		chan = ieee80211_get_channel(wiphy, freq);
+		if (!chan) {
+			wil_err(wil, "invalid freq: %d\n", freq);
+			return 0;
+		}
+		channel = chan->hw_value;
+	} else {
+		bss = cfg80211_get_bss(wiphy, NULL, mac_addr,
+				       NULL, 0, IEEE80211_BSS_TYPE_ANY,
+				       IEEE80211_PRIVACY_ANY);
+		if (!bss) {
+			wil_err(wil, "Unable to find BSS\n");
+			return 0;
+		}
+		channel = bss->channel->hw_value;
+		cfg80211_put_bss(wiphy, bss);
+	}
+
+	wil_dbg_misc(wil, "target %pM at channel %d\n", mac_addr, channel);
+	return channel;
+}
 
 static int wil_ftm_parse_meas_params(struct wil6210_priv *wil,
 				     struct nlattr *attr,
@@ -268,7 +301,7 @@ wil_ftm_cfg80211_start_session(struct wil6210_vif *vif,
 	struct wil6210_priv *wil = vif_to_wil(vif);
 	int rc = 0;
 	bool has_lci = false, has_lcr = false;
-	u8 max_meas = 0, *ptr;
+	u8 max_meas = 0, channel, *ptr;
 	u32 i, cmd_len;
 	struct wmi_tof_session_start_cmd *cmd;
 
@@ -276,12 +309,6 @@ wil_ftm_cfg80211_start_session(struct wil6210_vif *vif,
 	if (vif->ftm.session_started || vif->ftm.aoa_started) {
 		wil_err(wil, "FTM or AOA session already running\n");
 		rc = -EAGAIN;
-		goto out;
-	}
-	/* for now allow measurement to associated AP only */
-	if (!test_bit(wil_vif_fwconnected, vif->status)) {
-		wil_err(wil, "must be associated\n");
-		rc = -ENOTSUPP;
 		goto out;
 	}
 
@@ -328,7 +355,14 @@ wil_ftm_cfg80211_start_session(struct wil6210_vif *vif,
 	for (i = 0; i < request->n_peers; i++) {
 		ether_addr_copy(cmd->ftm_dest_info[i].dst_mac,
 				request->peers[i].mac_addr);
-		cmd->ftm_dest_info[i].channel = request->peers[i].channel;
+		channel = wil_ftm_get_channel(wil, request->peers[i].mac_addr,
+					      request->peers[i].freq);
+		if (!channel) {
+			wil_err(wil, "can't find FTM target at index %d\n", i);
+			rc = -EINVAL;
+			goto out_cmd;
+		}
+		cmd->ftm_dest_info[i].channel = channel - 1;
 		if (request->peers[i].flags &
 		    QCA_ATTR_FTM_PEER_MEAS_FLAG_SECURE) {
 			cmd->ftm_dest_info[i].flags |=
@@ -363,14 +397,13 @@ wil_ftm_cfg80211_start_session(struct wil6210_vif *vif,
 
 	rc = wmi_send(wil, WMI_TOF_SESSION_START_CMDID, vif->mid,
 		      cmd, cmd_len);
+
+	if (!rc) {
+		vif->ftm.session_cookie = request->session_cookie;
+		vif->ftm.session_started = 1;
+	}
+out_cmd:
 	kfree(cmd);
-
-	if (rc)
-		goto out_ftm_res;
-
-	vif->ftm.session_cookie = request->session_cookie;
-	vif->ftm.session_started = 1;
-
 out_ftm_res:
 	if (rc) {
 		kfree(vif->ftm.ftm_res);
@@ -444,8 +477,8 @@ wil_aoa_cfg80211_start_measurement(struct wil6210_vif *vif,
 {
 	struct wil6210_priv *wil = vif_to_wil(vif);
 	int rc = 0;
-	struct cfg80211_bss *bss;
 	struct wmi_aoa_meas_cmd cmd;
+	u8 channel;
 
 	mutex_lock(&vif->ftm.lock);
 
@@ -460,30 +493,25 @@ wil_aoa_cfg80211_start_measurement(struct wil6210_vif *vif,
 		goto out;
 	}
 
-	bss = cfg80211_get_bss(wil_to_wiphy(wil), NULL, request->mac_addr,
-			       NULL, 0,
-			       IEEE80211_BSS_TYPE_ANY, IEEE80211_PRIVACY_ANY);
-	if (!bss) {
-		wil_err(wil, "Unable to find BSS\n");
-		rc = -ENOENT;
+	channel = wil_ftm_get_channel(wil, request->mac_addr, request->freq);
+	if (!channel) {
+		rc = -EINVAL;
 		goto out;
 	}
 
 	memset(&cmd, 0, sizeof(cmd));
 	ether_addr_copy(cmd.mac_addr, request->mac_addr);
-	cmd.channel = bss->channel->hw_value - 1;
+	cmd.channel = channel - 1;
 	cmd.aoa_meas_type = request->type;
 
 	rc = wmi_send(wil, WMI_AOA_MEAS_CMDID, vif->mid, &cmd, sizeof(cmd));
 	if (rc)
-		goto out_bss;
+		goto out;
 
 	ether_addr_copy(vif->ftm.aoa_peer_mac_addr, request->mac_addr);
 	mod_timer(&vif->ftm.aoa_timer,
 		  jiffies + msecs_to_jiffies(WIL_AOA_MEASUREMENT_TIMEOUT));
 	vif->ftm.aoa_started = 1;
-out_bss:
-	cfg80211_put_bss(wil_to_wiphy(wil), bss);
 out:
 	mutex_unlock(&vif->ftm.lock);
 	return rc;
@@ -725,7 +753,6 @@ int wil_ftm_start_session(struct wiphy *wiphy, struct wireless_dev *wdev,
 	struct nlattr *tb2[QCA_ATTR_FTM_PEER_MAX + 1];
 	struct nlattr *peer;
 	int rc, n_peers = 0, index = 0, tmp;
-	struct cfg80211_bss *bss;
 
 	if (!test_bit(WMI_FW_CAPABILITY_FTM, wil->fw_capabilities))
 		return -ENOTSUPP;
@@ -789,17 +816,9 @@ int wil_ftm_start_session(struct wiphy *wiphy, struct wireless_dev *wdev,
 		memcpy(request->peers[index].mac_addr,
 		       nla_data(tb2[QCA_ATTR_FTM_PEER_MAC_ADDR]),
 		       ETH_ALEN);
-		bss = cfg80211_get_bss(wiphy, NULL,
-				       request->peers[index].mac_addr, NULL, 0,
-				       IEEE80211_BSS_TYPE_ANY,
-				       IEEE80211_PRIVACY_ANY);
-		if (!bss) {
-			wil_err(wil, "invalid bss at index %d\n", index);
-			rc = -ENOENT;
-			goto out;
-		}
-		request->peers[index].channel = bss->channel->hw_value - 1;
-		cfg80211_put_bss(wiphy, bss);
+		if (tb2[QCA_ATTR_FTM_PEER_FREQ])
+			request->peers[index].freq =
+				nla_get_u32(tb2[QCA_ATTR_FTM_PEER_FREQ]);
 		if (tb2[QCA_ATTR_FTM_PEER_MEAS_FLAGS])
 			request->peers[index].flags =
 				nla_get_u32(tb2[QCA_ATTR_FTM_PEER_MEAS_FLAGS]);
@@ -872,6 +891,8 @@ int wil_aoa_start_measurement(struct wiphy *wiphy, struct wireless_dev *wdev,
 	ether_addr_copy(request.mac_addr,
 			nla_data(tb[QCA_ATTR_MAC_ADDR]));
 	request.type = nla_get_u32(tb[QCA_ATTR_AOA_TYPE]);
+	if (tb[QCA_ATTR_FREQ])
+		request.freq = nla_get_u32(tb[QCA_ATTR_FREQ]);
 
 	rc = wil_aoa_cfg80211_start_measurement(vif, &request);
 	return rc;

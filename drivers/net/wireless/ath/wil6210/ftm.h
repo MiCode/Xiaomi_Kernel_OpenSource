@@ -64,6 +64,8 @@
  *  %QCA_ATTR_AOA_TYPE_TOP_CIR_PHASE_AMP: array of 2 U16
  *  values, phase and amplitude of the strongest CIR path for each
  *  antenna in the measured array(s)
+ * @QCA_WLAN_VENDOR_ATTR_FREQ: Frequency where peer is listening, in MHz.
+ *  Unsigned 32 bit value.
  */
 enum qca_attr_loc {
 	QCA_ATTR_FTM_SESSION_COOKIE = 14,
@@ -78,6 +80,7 @@ enum qca_attr_loc {
 	QCA_ATTR_AOA_TYPE = 23,
 	QCA_ATTR_LOC_ANTENNA_ARRAY_MASK = 24,
 	QCA_ATTR_AOA_MEAS_RESULT = 25,
+	QCA_ATTR_FREQ = 26,
 	/* keep last */
 	QCA_ATTR_LOC_AFTER_LAST,
 	QCA_ATTR_LOC_MAX = QCA_ATTR_LOC_AFTER_LAST - 1,
@@ -160,6 +163,9 @@ enum qca_attr_loc_capa_flags {
  * @QCA_ATTR_FTM_PEER_AOA_BURST_PERIOD: Request AOA
  *  measurement every _value_ bursts. If 0 or not specified,
  *  AOA measurements will be disabled for this peer.
+ * @QCA_WLAN_VENDOR_ATTR_FTM_PEER_FREQ: Frequency in MHz where
+ *  peer is listening. Optional; if not specified, use the
+ *  entry from the kernel scan results cache.
  */
 enum qca_attr_ftm_peer_info {
 	QCA_ATTR_FTM_PEER_INVALID,
@@ -168,6 +174,7 @@ enum qca_attr_ftm_peer_info {
 	QCA_ATTR_FTM_PEER_MEAS_PARAMS,
 	QCA_ATTR_FTM_PEER_SEC_TOK_ID,
 	QCA_ATTR_FTM_PEER_AOA_BURST_PERIOD,
+	QCA_ATTR_FTM_PEER_FREQ,
 	/* keep last */
 	QCA_ATTR_FTM_PEER_AFTER_LAST,
 	QCA_ATTR_FTM_PEER_MAX =
@@ -410,7 +417,7 @@ struct wil_ftm_meas_params {
 /* measurement request for a single peer */
 struct wil_ftm_meas_peer_info {
 	u8 mac_addr[ETH_ALEN];
-	u8 channel;
+	u32 freq;
 	u32 flags; /* enum qca_attr_ftm_peer_meas_flags */
 	struct wil_ftm_meas_params params;
 	u8 secure_token_id;
@@ -449,6 +456,7 @@ struct wil_ftm_peer_meas_res {
 /* standalone AOA measurement request */
 struct wil_aoa_meas_request {
 	u8 mac_addr[ETH_ALEN];
+	u32 freq;
 	u32 type;
 };
 
