@@ -1004,8 +1004,10 @@ static int dp_display_post_enable(struct dp_display *dp_display)
 		dp->hdcp_status = HDCP_STATE_AUTHENTICATING;
 		queue_delayed_work(dp->wq, &dp->hdcp_cb_work, HZ / 2);
 	}
-
 end:
+	/* clear framework event notifier */
+	dp_display->send_hpd_event = NULL;
+
 	complete_all(&dp->notification_comp);
 	mutex_unlock(&dp->session_lock);
 	return 0;
