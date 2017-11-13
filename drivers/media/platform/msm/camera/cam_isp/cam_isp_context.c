@@ -1699,7 +1699,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	req->request_id = packet->header.request_id;
 	req->status = 1;
 
-	if (ctx->state == CAM_CTX_ACTIVATED && ctx->ctx_crm_intf->add_req) {
+	if (ctx->state >= CAM_CTX_READY && ctx->ctx_crm_intf->add_req) {
 		add_req.link_hdl = ctx->link_hdl;
 		add_req.dev_hdl  = ctx->dev_hdl;
 		add_req.req_id   = req->request_id;
