@@ -875,7 +875,6 @@
 			"soc_ahb_clk",
 			"cpas_ahb_clk",
 			"camnoc_axi_clk",
-			"icp_apb_clk",
 			"icp_clk",
 			"icp_clk_src";
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>,
@@ -884,7 +883,6 @@
 				<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 				<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
 				<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
-				<&clock_camcc CAM_CC_ICP_APB_CLK>,
 				<&clock_camcc CAM_CC_ICP_CLK>,
 				<&clock_camcc CAM_CC_ICP_CLK_SRC>;
 
