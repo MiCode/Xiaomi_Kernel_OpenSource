@@ -180,6 +180,7 @@ dtb-$(CONFIG_ARCH_SDM670) += sdm670-rumi.dtb \
 	sda670-cdp.dtb \
 	sda670-pm660a-mtp.dtb \
 	sda670-pm660a-cdp.dtb \
+	qcs605-360camera.dtb \
 	qcs605-mtp.dtb \
 	qcs605-cdp.dtb \
 	qcs605-external-codec-mtp.dtb
