@@ -683,6 +683,10 @@ void wil_aoa_evt_meas(struct wil6210_priv *wil,
 	int data_len = len - offsetof(struct wmi_aoa_meas_event, meas_data);
 	struct wil_aoa_meas_result *res;
 
+	if (data_len < 0) {
+		wil_err(wil, "AOA event too short (%d)\n", len);
+		return;
+	}
 	data_len = min_t(int, le16_to_cpu(evt->length), data_len);
 
 	res = kmalloc(sizeof(*res) + data_len, GFP_KERNEL);
