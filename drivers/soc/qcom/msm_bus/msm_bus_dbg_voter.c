@@ -201,6 +201,7 @@ static struct msm_bus_node_device_type *msm_bus_floor_init_dev(
 		sizeof(struct msm_bus_node_info_type), GFP_KERNEL);
 
 	if (!node_info) {
+		pr_err("%s:Bus node info alloc failed\n", __func__);
 		devm_kfree(dev, bus_node);
 		bus_node = ERR_PTR(-ENOMEM);
 		goto exit_init_bus_dev;
@@ -462,6 +463,8 @@ static int msm_bus_floor_setup_floor_dev(
 	cl_ptr->dev = kzalloc(sizeof(struct device), GFP_KERNEL);
 	if (!cl_ptr->dev) {
 		ret = -ENOMEM;
+		pr_err("%s: Failed to create device bus %d", __func__,
+			bus_node->node_info->id);
 		goto err_setup_floor_dev;
 	}
 

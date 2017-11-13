@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -72,8 +72,11 @@ static int *get_arr(struct platform_device *pdev,
 	}
 
 	arr = devm_kzalloc(&pdev->dev, size, GFP_KERNEL);
-	if ((size > 0) && ZERO_OR_NULL_PTR(arr))
+	if ((size > 0) && ZERO_OR_NULL_PTR(arr)) {
+		dev_err(&pdev->dev, "Error: Failed to alloc mem for %s\n",
+				prop);
 		return NULL;
+	}
 
 	ret = of_property_read_u32_array(node, prop, (u32 *)arr, *nports);
 	if (ret) {
@@ -99,8 +102,11 @@ static struct msm_bus_fab_device_type *get_fab_device_info(
 	fab_dev = devm_kzalloc(&pdev->dev,
 			sizeof(struct msm_bus_fab_device_type),
 			GFP_KERNEL);
-	if (!fab_dev)
+	if (!fab_dev) {
+		dev_err(&pdev->dev,
+			"Error: Unable to allocate memory for fab_dev\n");
 		return NULL;
+	}
 
 	ret = of_property_read_string(dev_node, "qcom,base-name", &base_name);
 	if (ret) {
@@ -231,6 +237,7 @@ static int msm_bus_of_parse_clk_array(struct device_node *dev_node,
 			(clks * sizeof(struct nodeclk)), GFP_KERNEL);
 
 	if (!(*clk_arr)) {
+		dev_err(&pdev->dev, "Error allocating clk nodes for %d\n", id);
 		ret = -ENOMEM;
 		*num_clks = 0;
 		goto exit_of_parse_clk_array;
@@ -606,11 +613,6 @@ static int get_bus_node_device_data(
 			}
 			of_node_put(qos_clk_node);
 		}
-
-		if (msmbus_coresight_init_adhoc(pdev, dev_node))
-			dev_warn(&pdev->dev,
-				 "Coresight support absent for bus: %d\n",
-				  node_device->node_info->id);
 	} else {
 		node_device->bus_qos_clk.clk = of_clk_get_by_name(dev_node,
 							"bus_qos_clk");
@@ -699,8 +701,11 @@ struct msm_bus_device_node_registration
 	pdata = devm_kzalloc(&pdev->dev,
 			sizeof(struct msm_bus_device_node_registration),
 			GFP_KERNEL);
-	if (!pdata)
+	if (!pdata) {
+		dev_err(&pdev->dev,
+				"Error: Memory allocation for pdata failed\n");
 		return NULL;
+	}
 
 	pdata->num_devices = of_get_child_count(of_node);
 
@@ -708,8 +713,11 @@ struct msm_bus_device_node_registration
 			sizeof(struct msm_bus_node_device_type) *
 			pdata->num_devices, GFP_KERNEL);
 
-	if (!pdata->info)
+	if (!pdata->info) {
+		dev_err(&pdev->dev,
+			"Error: Memory allocation for pdata->info failed\n");
 		goto node_reg_err;
+	}
 
 	ret = 0;
 	for_each_child_of_node(of_node, child_node) {
