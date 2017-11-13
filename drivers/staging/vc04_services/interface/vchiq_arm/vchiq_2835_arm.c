@@ -106,8 +106,14 @@ int vchiq_platform_init(struct platform_device *pdev, VCHIQ_STATE_T *state)
 
 	g_virt_to_bus_offset = virt_to_dma(dev, (void *)0);
 
-	(void)of_property_read_u32(dev->of_node, "cache-line-size",
+	err = of_property_read_u32(dev->of_node, "cache-line-size",
 				   &g_cache_line_size);
+
+	if (err) {
+		dev_err(dev, "Missing cache-line-size property\n");
+		return -ENODEV;
+	}
+
 	g_fragments_size = 2 * g_cache_line_size;
 
 	/* Allocate space for the channels in coherent memory */
@@ -538,18 +544,20 @@ free_pagelist(PAGELIST_T *pagelist, int actual)
 			if (head_bytes > actual)
 				head_bytes = actual;
 
-			memcpy((char *)page_address(pages[0]) +
+			memcpy((char *)kmap(pages[0]) +
 				pagelist->offset,
 				fragments,
 				head_bytes);
+			kunmap(pages[0]);
 		}
 		if ((actual >= 0) && (head_bytes < actual) &&
 			(tail_bytes != 0)) {
-			memcpy((char *)page_address(pages[num_pages - 1]) +
+			memcpy((char *)kmap(pages[num_pages - 1]) +
 				((pagelist->offset + actual) &
 				(PAGE_SIZE - 1) & ~(g_cache_line_size - 1)),
 				fragments + g_cache_line_size,
 				tail_bytes);
+			kunmap(pages[num_pages - 1]);
 		}
 
 		down(&g_free_fragments_mutex);

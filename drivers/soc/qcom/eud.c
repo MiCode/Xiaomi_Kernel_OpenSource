@@ -29,6 +29,9 @@
 #include <linux/power_supply.h>
 #include <linux/clk.h>
 #include <linux/of.h>
+#include <linux/regulator/consumer.h>
+#include <linux/regulator/driver.h>
+#include <linux/regulator/machine.h>
 
 #define EUD_ENABLE_CMD 1
 #define EUD_DISABLE_CMD 0
@@ -74,6 +77,10 @@ struct eud_chip {
 	struct work_struct		eud_work;
 	struct power_supply		*batt_psy;
 	struct clk			*cfg_ahb_clk;
+
+	/* regulator and notifier chain for it */
+	struct regulator		*vdda33;
+	struct notifier_block		vdda33_nb;
 };
 
 static const unsigned int eud_extcon_cable[] = {
@@ -487,12 +494,47 @@ static irqreturn_t handle_eud_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static int vdda33_notifier_block_cb(struct notifier_block *nb,
+	unsigned long event, void *ptr)
+{
+	struct eud_chip *chip = container_of(nb, struct eud_chip, vdda33_nb);
+	int attach_det  = 0;
+
+	switch (event) {
+	case REGULATOR_EVENT_ENABLE:
+		attach_det = 1;
+		/* fall throuhg */
+	case REGULATOR_EVENT_DISABLE:
+		clk_prepare_enable(chip->cfg_ahb_clk);
+
+		/* eud does not retain interrupt mask when ldo24
+		 * is turned off. Set the interrupt mask when
+		 * ldo24 is turned on
+		 */
+		if (attach_det)
+			writel_relaxed(EUD_INT_VBUS | EUD_INT_CHGR,
+				chip->eud_reg_base + EUD_REG_INT1_EN_MASK);
+		writel_relaxed(attach_det,
+			chip->eud_reg_base + EUD_REG_SW_ATTACH_DET);
+		clk_disable_unprepare(chip->cfg_ahb_clk);
+
+		dev_dbg(chip->dev, "%s(): %s\n", __func__,
+			attach_det ? "enable" : "disable");
+		break;
+	default:
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
 static int msm_eud_probe(struct platform_device *pdev)
 {
 	struct eud_chip *chip;
 	struct uart_port *port;
 	struct resource *res;
 	int ret;
+	int pet;
 
 	chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
 	if (!chip) {
@@ -575,6 +617,24 @@ static int msm_eud_probe(struct platform_device *pdev)
 
 	eud_private = pdev;
 
+	chip->vdda33 = devm_regulator_get(&pdev->dev, "vdda33");
+	if (IS_ERR(chip->vdda33)) {
+		dev_err(chip->dev, "%s: failed to get eud 3p1 regulator\n",
+					__func__);
+		return PTR_ERR(chip->vdda33);
+	}
+	chip->vdda33_nb.notifier_call = vdda33_notifier_block_cb;
+	regulator_register_notifier(chip->vdda33, &chip->vdda33_nb);
+
+	clk_prepare_enable(chip->cfg_ahb_clk);
+
+	pet = regulator_is_enabled(chip->vdda33) ? 1 : 0;
+	writel_relaxed(pet, chip->eud_reg_base + EUD_REG_SW_ATTACH_DET);
+
+	dev_dbg(chip->dev, "%s:%s pet\n", __func__, pet ? "Attach" : "Detach");
+
+	clk_disable_unprepare(chip->cfg_ahb_clk);
+
 	/* Enable EUD */
 	if (enable)
 		enable_eud(pdev);
@@ -586,6 +646,8 @@ static int msm_eud_remove(struct platform_device *pdev)
 {
 	struct eud_chip *chip = platform_get_drvdata(pdev);
 	struct uart_port *port = &chip->port;
+
+	regulator_unregister_notifier(chip->vdda33, &chip->vdda33_nb);
 
 	uart_remove_one_port(&eud_uart_driver, port);
 	device_init_wakeup(chip->dev, false);

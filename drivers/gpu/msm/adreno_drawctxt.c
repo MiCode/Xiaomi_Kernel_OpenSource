@@ -505,6 +505,8 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 		kgsl_drawobj_destroy(list[i]);
 	}
 
+	debugfs_remove_recursive(drawctxt->debug_root);
+
 	/*
 	 * internal_timestamp is set in adreno_ringbuffer_addcmds,
 	 * which holds the device mutex.
@@ -561,8 +563,6 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 	adreno_profile_process_results(adreno_dev);
 
 	mutex_unlock(&device->mutex);
-
-	debugfs_remove_recursive(drawctxt->debug_root);
 
 	/* wake threads waiting to submit commands from this context */
 	wake_up_all(&drawctxt->waiting);

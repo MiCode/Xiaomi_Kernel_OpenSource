@@ -41,11 +41,6 @@
 #define IPA_MHI_MAX_UL_CHANNELS 1
 #define IPA_MHI_MAX_DL_CHANNELS 1
 
-#if (IPA_MHI_MAX_UL_CHANNELS + IPA_MHI_MAX_DL_CHANNELS) > \
-	(IPA_MHI_GSI_ER_END - IPA_MHI_GSI_ER_START)
-#error not enought event rings for MHI
-#endif
-
 /* bit #40 in address should be asserted for MHI transfers over pcie */
 #define IPA_MHI_CLIENT_HOST_ADDR_COND(addr) \
 	((ipa_mhi_client_ctx->assert_bit40)?(IPA_MHI_HOST_ADDR(addr)):(addr))
@@ -1574,8 +1569,7 @@ int ipa_mhi_connect_pipe(struct ipa_mhi_connect_params *in, u32 *clnt_hdl)
 		internal.start.gsi.mhi = &channel->ch_scratch.mhi;
 		internal.start.gsi.cached_gsi_evt_ring_hdl =
 				&channel->cached_gsi_evt_ring_hdl;
-		internal.start.gsi.evchid =
-				channel->index + IPA_MHI_GSI_ER_START;
+		internal.start.gsi.evchid = channel->index;
 
 		res = ipa_connect_mhi_pipe(&internal, clnt_hdl);
 		if (res) {

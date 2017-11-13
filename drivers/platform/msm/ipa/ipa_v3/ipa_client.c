@@ -995,6 +995,7 @@ static int ipa3_xdci_stop_gsi_ch_brute_force(u32 clnt_hdl,
 		msecs_to_jiffies(IPA_CHANNEL_STOP_IN_PROC_TO_MSEC);
 	int res;
 
+	IPADBG("entry\n");
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 		ipa3_ctx->ep[clnt_hdl].valid == 0 ||
 		!stop_in_proc) {
@@ -1041,6 +1042,7 @@ static int ipa3_stop_ul_chan_with_data_drain(u32 qmi_req_id,
 	bool stop_in_proc;
 	struct ipa3_ep_context *ep;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
+	IPADBG("entry\n");
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 		ipa3_ctx->ep[clnt_hdl].valid == 0) {
@@ -1157,6 +1159,7 @@ exit:
 			ep->ep_delay_set = false;
 		}
 	}
+	IPADBG("exit\n");
 	return result;
 }
 

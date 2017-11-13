@@ -38,11 +38,13 @@ struct sde_connector_ops {
 	 * @connector: Pointer to drm connector structure
 	 * @info: Pointer to sde connector info structure
 	 * @display: Pointer to private display handle
+	 * @mode_info: Pointer to mode info structure
 	 * Returns: Zero on success
 	 */
 	int (*post_init)(struct drm_connector *connector,
 			void *info,
-			void *display);
+			void *display,
+			struct msm_mode_info *mode_info);
 
 	/**
 	 * detect - determine if connector is connected
@@ -354,6 +356,7 @@ struct sde_connector {
  * @property_values: Local cache of current connector property values
  * @rois: Regions of interest structure for mapping CRTC to Connector output
  * @property_blobs: blob properties
+ * @mode_info: local copy of msm_mode_info struct
  */
 struct sde_connector_state {
 	struct drm_connector_state base;
@@ -363,6 +366,7 @@ struct sde_connector_state {
 
 	struct msm_roi_list rois;
 	struct drm_property_blob *property_blobs[CONNECTOR_PROP_BLOBCOUNT];
+	struct msm_mode_info mode_info;
 };
 
 /**
@@ -593,6 +597,22 @@ int sde_connector_get_dither_cfg(struct drm_connector *conn,
 		struct drm_connector_state *state, void **cfg, size_t *len);
 
 /**
+ * sde_connector_set_info - set connector property value
+ * @conn: Pointer to drm_connector struct
+ * @state: Pointer to the drm_connector_state struct
+ * Returns: Zero on success
+ */
+int sde_connector_set_info(struct drm_connector *conn,
+		struct drm_connector_state *state);
+
+/**
+ * sde_connector_roi_v1_check_roi - validate connector ROI
+ * @conn_state: Pointer to drm_connector_state struct
+ * Returns: Zero on success
+ */
+int sde_connector_roi_v1_check_roi(struct drm_connector_state *conn_state);
+
+/**
  * sde_connector_schedule_status_work - manage ESD thread
  * conn: Pointer to drm_connector struct
  * @en: flag to start/stop ESD thread
@@ -609,5 +629,14 @@ void sde_connector_schedule_status_work(struct drm_connector *conn, bool en);
 int sde_connector_helper_reset_custom_properties(
 		struct drm_connector *connector,
 		struct drm_connector_state *connector_state);
+
+/**
+ * sde_connector_get_mode_info - get information of the current mode in the
+ *                               given connector state.
+ * conn_state: Pointer to the DRM connector state object
+ * mode_info: Pointer to the mode info structure
+ */
+int sde_connector_get_mode_info(struct drm_connector_state *conn_state,
+	struct msm_mode_info *mode_info);
 
 #endif /* _SDE_CONNECTOR_H_ */

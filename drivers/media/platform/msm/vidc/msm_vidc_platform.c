@@ -140,11 +140,11 @@ static struct msm_vidc_common_data sdm845_common_data[] = {
 	},
 	{
 		.key = "qcom,power-collapse-delay",
-		.value = 500,
+		.value = 1500,
 	},
 	{
 		.key = "qcom,hw-resp-timeout",
-		.value = 250,
+		.value = 1000,
 	},
 	{
 		.key = "qcom,debug-timeout",
@@ -159,6 +159,10 @@ static struct msm_vidc_common_data sdm670_common_data_v0[] = {
 	},
 	{
 		.key = "qcom,sw-power-collapse",
+		.value = 1,
+	},
+	{
+		.key = "qcom,domain-attr-non-fatal-faults",
 		.value = 1,
 	},
 	{
@@ -202,6 +206,10 @@ static struct msm_vidc_common_data sdm670_common_data_v1[] = {
 	},
 	{
 		.key = "qcom,sw-power-collapse",
+		.value = 1,
+	},
+	{
+		.key = "qcom,domain-attr-non-fatal-faults",
 		.value = 1,
 	},
 	{

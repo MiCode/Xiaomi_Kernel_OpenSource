@@ -215,12 +215,16 @@ static void vblank_ctrl_worker(struct kthread_work *work)
 	struct msm_kms *kms = priv->kms;
 	struct vblank_event *vbl_ev, *tmp;
 	unsigned long flags;
+	LIST_HEAD(tmp_head);
 
 	spin_lock_irqsave(&vbl_ctrl->lock, flags);
 	list_for_each_entry_safe(vbl_ev, tmp, &vbl_ctrl->event_list, node) {
 		list_del(&vbl_ev->node);
-		spin_unlock_irqrestore(&vbl_ctrl->lock, flags);
+		list_add_tail(&vbl_ev->node, &tmp_head);
+	}
+	spin_unlock_irqrestore(&vbl_ctrl->lock, flags);
 
+	list_for_each_entry_safe(vbl_ev, tmp, &tmp_head, node) {
 		if (vbl_ev->enable)
 			kms->funcs->enable_vblank(kms,
 						priv->crtcs[vbl_ev->crtc_id]);
@@ -229,11 +233,7 @@ static void vblank_ctrl_worker(struct kthread_work *work)
 						priv->crtcs[vbl_ev->crtc_id]);
 
 		kfree(vbl_ev);
-
-		spin_lock_irqsave(&vbl_ctrl->lock, flags);
 	}
-
-	spin_unlock_irqrestore(&vbl_ctrl->lock, flags);
 }
 
 static int vblank_ctrl_queue_work(struct msm_drm_private *priv,

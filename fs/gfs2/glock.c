@@ -1820,29 +1820,27 @@ void gfs2_glock_exit(void)
 
 static void gfs2_glock_iter_next(struct gfs2_glock_iter *gi)
 {
-	do {
-		gi->gl = rhashtable_walk_next(&gi->hti);
+	while ((gi->gl = rhashtable_walk_next(&gi->hti))) {
 		if (IS_ERR(gi->gl)) {
 			if (PTR_ERR(gi->gl) == -EAGAIN)
 				continue;
 			gi->gl = NULL;
+			return;
 		}
-	/* Skip entries for other sb and dead entries */
-	} while ((gi->gl) && ((gi->sdp != gi->gl->gl_name.ln_sbd) ||
-			      __lockref_is_dead(&gi->gl->gl_lockref)));
+		/* Skip entries for other sb and dead entries */
+		if (gi->sdp == gi->gl->gl_name.ln_sbd &&
+		    !__lockref_is_dead(&gi->gl->gl_lockref))
+			return;
+	}
 }
 
 static void *gfs2_glock_seq_start(struct seq_file *seq, loff_t *pos)
 {
 	struct gfs2_glock_iter *gi = seq->private;
 	loff_t n = *pos;
-	int ret;
 
-	if (gi->last_pos <= *pos)
-		n = (*pos - gi->last_pos);
-
-	ret = rhashtable_walk_start(&gi->hti);
-	if (ret)
+	rhashtable_walk_enter(&gl_hash_table, &gi->hti);
+	if (rhashtable_walk_start(&gi->hti) != 0)
 		return NULL;
 
 	do {
@@ -1850,6 +1848,7 @@ static void *gfs2_glock_seq_start(struct seq_file *seq, loff_t *pos)
 	} while (gi->gl && n--);
 
 	gi->last_pos = *pos;
+
 	return gi->gl;
 }
 
@@ -1861,6 +1860,7 @@ static void *gfs2_glock_seq_next(struct seq_file *seq, void *iter_ptr,
 	(*pos)++;
 	gi->last_pos = *pos;
 	gfs2_glock_iter_next(gi);
+
 	return gi->gl;
 }
 
@@ -1870,6 +1870,7 @@ static void gfs2_glock_seq_stop(struct seq_file *seq, void *iter_ptr)
 
 	gi->gl = NULL;
 	rhashtable_walk_stop(&gi->hti);
+	rhashtable_walk_exit(&gi->hti);
 }
 
 static int gfs2_glock_seq_show(struct seq_file *seq, void *iter_ptr)
@@ -1932,12 +1933,10 @@ static int gfs2_glocks_open(struct inode *inode, struct file *file)
 		struct gfs2_glock_iter *gi = seq->private;
 
 		gi->sdp = inode->i_private;
-		gi->last_pos = 0;
 		seq->buf = kmalloc(GFS2_SEQ_GOODSIZE, GFP_KERNEL | __GFP_NOWARN);
 		if (seq->buf)
 			seq->size = GFS2_SEQ_GOODSIZE;
 		gi->gl = NULL;
-		ret = rhashtable_walk_init(&gl_hash_table, &gi->hti, GFP_KERNEL);
 	}
 	return ret;
 }
@@ -1948,7 +1947,6 @@ static int gfs2_glocks_release(struct inode *inode, struct file *file)
 	struct gfs2_glock_iter *gi = seq->private;
 
 	gi->gl = NULL;
-	rhashtable_walk_exit(&gi->hti);
 	return seq_release_private(inode, file);
 }
 
@@ -1960,12 +1958,10 @@ static int gfs2_glstats_open(struct inode *inode, struct file *file)
 		struct seq_file *seq = file->private_data;
 		struct gfs2_glock_iter *gi = seq->private;
 		gi->sdp = inode->i_private;
-		gi->last_pos = 0;
 		seq->buf = kmalloc(GFS2_SEQ_GOODSIZE, GFP_KERNEL | __GFP_NOWARN);
 		if (seq->buf)
 			seq->size = GFS2_SEQ_GOODSIZE;
 		gi->gl = NULL;
-		ret = rhashtable_walk_init(&gl_hash_table, &gi->hti, GFP_KERNEL);
 	}
 	return ret;
 }

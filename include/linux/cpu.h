@@ -28,21 +28,6 @@ struct cpu {
 	struct device dev;
 };
 
-struct cpu_pstate_pwr {
-	unsigned int freq;
-	uint32_t power;
-};
-
-struct cpu_pwr_stats {
-	int cpu;
-	long temp;
-	struct cpu_pstate_pwr *ptable;
-	bool throttling;
-	int len;
-};
-
-extern struct cpu_pwr_stats *get_cpu_pwr_stats(void);
-
 extern void boot_cpu_init(void);
 extern void boot_cpu_state_init(void);
 

@@ -1781,12 +1781,6 @@ static void msm_vidc_cleanup_instance(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR,
 			"Failed to release mark_data buffers\n");
 
-	/*
-	 * At this point all buffes should be with driver
-	 * irrespective of scenario
-	 */
-	msm_comm_validate_output_buffers(inst);
-
 	msm_comm_release_eos_buffers(inst);
 
 	if (msm_comm_release_output_buffers(inst, true))

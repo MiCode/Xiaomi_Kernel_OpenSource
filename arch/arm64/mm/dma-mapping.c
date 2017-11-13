@@ -1981,7 +1981,7 @@ bitmap_iommu_init_mapping(struct device *dev, struct dma_iommu_mapping *mapping)
 	bool min_iova_align = 0;
 
 	iommu_domain_get_attr(mapping->domain,
-			DOMAIN_ATTR_QCOM_MMU500_ERRATA_MIN_ALIGN,
+			DOMAIN_ATTR_MMU500_ERRATA_MIN_ALIGN,
 			&min_iova_align);
 	iommu_domain_get_attr(mapping->domain,
 			DOMAIN_ATTR_SECURE_VMID, &vmid);

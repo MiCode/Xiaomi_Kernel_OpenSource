@@ -1946,6 +1946,7 @@ struct task_struct {
 #ifdef CONFIG_DETECT_HUNG_TASK
 /* hung task detection */
 	unsigned long last_switch_count;
+	bool hang_detection_enabled;
 #endif
 /* filesystem information */
 	struct fs_struct *fs;

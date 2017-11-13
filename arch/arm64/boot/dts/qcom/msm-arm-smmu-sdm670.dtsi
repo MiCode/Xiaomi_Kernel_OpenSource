@@ -63,6 +63,7 @@
 		#iommu-cells = <2>;
 		qcom,skip-init;
 		qcom,use-3-lvl-tables;
+		qcom,no-asid-retention;
 		#global-interrupts = <1>;
 		#size-cells = <1>;
 		#address-cells = <1>;
@@ -293,6 +294,7 @@
 	};
 
 	kgsl_iommu_test_device {
+		status = "disabled";
 		compatible = "iommu-debug-test";
 		/*
 		 * 0x7 isn't a valid sid, but should pass the sid sanity check.

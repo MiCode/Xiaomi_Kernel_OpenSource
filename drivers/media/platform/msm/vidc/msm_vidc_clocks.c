@@ -146,7 +146,7 @@ static int fill_dynamic_stats(struct msm_vidc_inst *inst,
 	vote_data->use_dpb_read = false;
 
 	/* Check if driver can vote for lower bus BW */
-	if (inst->clk_data.load <= inst->clk_data.load_norm) {
+	if (inst->clk_data.load < inst->clk_data.load_norm) {
 		vote_data->compression_ratio = max_cr;
 		vote_data->complexity_factor = min_cf;
 		vote_data->input_cr = max_input_cr;
@@ -283,9 +283,11 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 	return rc;
 }
 
-static inline int get_pending_bufs_fw(struct msm_vidc_inst *inst)
+static inline int get_bufs_outside_fw(struct msm_vidc_inst *inst)
 {
-	int fw_out_qsize = 0;
+	u32 fw_out_qsize = 0, i = 0;
+	struct vb2_queue *q = NULL;
+	struct vb2_buffer *vb = NULL;
 
 	/*
 	 * DCVS always operates on Uncompressed buffers.
@@ -294,10 +296,29 @@ static inline int get_pending_bufs_fw(struct msm_vidc_inst *inst)
 
 	if (inst->state >= MSM_VIDC_OPEN_DONE &&
 			inst->state < MSM_VIDC_STOP_DONE) {
-		if (inst->session_type == MSM_VIDC_DECODER)
-			fw_out_qsize = inst->count.ftb - inst->count.fbd;
-		else
-			fw_out_qsize = inst->count.etb - inst->count.ebd;
+
+		/*
+		 * For decoder, there will be some frames with client
+		 * but not to be displayed. Ex : VP9 DECODE_ONLY frames.
+		 * Hence don't count them.
+		 */
+
+		if (inst->session_type == MSM_VIDC_DECODER) {
+			q = &inst->bufq[CAPTURE_PORT].vb2_bufq;
+			for (i = 0; i < q->num_buffers; i++) {
+				vb = q->bufs[i];
+				if (vb->state != VB2_BUF_STATE_ACTIVE &&
+						vb->planes[0].bytesused)
+					fw_out_qsize++;
+			}
+		} else {
+			q = &inst->bufq[OUTPUT_PORT].vb2_bufq;
+			for (i = 0; i < q->num_buffers; i++) {
+				vb = q->bufs[i];
+				if (vb->state != VB2_BUF_STATE_ACTIVE)
+					fw_out_qsize++;
+			}
+		}
 	}
 
 	return fw_out_qsize;
@@ -328,7 +349,7 @@ static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst)
 
 	core = inst->core;
 	mutex_lock(&inst->lock);
-	fw_pending_bufs = get_pending_bufs_fw(inst);
+	buffers_outside_fw = get_bufs_outside_fw(inst);
 
 	output_buf_req = get_buff_req_buffer(inst,
 			dcvs->buffer_type);
@@ -345,8 +366,8 @@ static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst)
 
 	min_output_buf = output_buf_req->buffer_count_min;
 
-	/* Buffers outside FW are with display */
-	buffers_outside_fw = total_output_buf - fw_pending_bufs;
+	/* Buffers outside Display are with FW. */
+	fw_pending_bufs = total_output_buf - buffers_outside_fw;
 	dprintk(VIDC_PROF,
 		"Counts : total_output_buf = %d Min buffers = %d fw_pending_bufs = %d buffers_outside_fw = %d\n",
 		total_output_buf, min_output_buf, fw_pending_bufs,
@@ -372,7 +393,7 @@ static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst)
 
 	if (buffers_outside_fw <= dcvs->max_threshold)
 		dcvs->load = dcvs->load_high;
-	else if (fw_pending_bufs <= min_output_buf)
+	else if (fw_pending_bufs < min_output_buf)
 		dcvs->load = dcvs->load_low;
 	else
 		dcvs->load = dcvs->load_norm;
@@ -877,10 +898,7 @@ void msm_clock_data_reset(struct msm_vidc_inst *inst)
 			return;
 		}
 		dcvs->max_threshold = output_buf_req->buffer_count_actual -
-			output_buf_req->buffer_count_min_host + 1;
-		/* Compensate for decode only frames */
-		if (inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_VP9)
-			dcvs->max_threshold += 2;
+			output_buf_req->buffer_count_min_host + 2;
 
 		dcvs->min_threshold =
 			msm_vidc_get_extra_buff_count(inst, dcvs->buffer_type);

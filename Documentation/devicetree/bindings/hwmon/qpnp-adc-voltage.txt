@@ -18,7 +18,6 @@ Required properties:
 		"high-thr-en-set" for high threshold interrupts and
 		"low-thr-en-set" for low threshold interrupts. High and low threshold
 		interrupts are to be enabled if VADC_USR needs to support recurring measurement.
-- qcom,adc-bit-resolution : Bit resolution of the ADC.
 - qcom,adc-vdd-reference : Voltage reference used by the ADC.
 
 Channel nodes
@@ -46,6 +45,12 @@ Optional properties:
 		    0 : The calibration values used for measurement are from a timer.
 		    1 : Forces a fresh measurement for calibration values at the same time
 			measurement is taken.
+- qcom,adc-full-scale-code: Full scale code with offset removed.
+- pinctrl-names: should be "default" (see pinctrl binding [0]).
+- pinctrl-0: a phandle pointing to the pin settings for the
+  device (see pinctrl binding [0]).
+
+[0]: Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt
 
 Client required property:
 - qcom,<consumer name>-vadc : The phandle to the corresponding vadc device.

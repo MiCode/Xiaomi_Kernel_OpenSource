@@ -1189,7 +1189,11 @@ out:
 
 static void ipa3_wwan_tx_timeout(struct net_device *dev)
 {
-	IPAWANERR("[%s] ipa3_wwan_tx_timeout(), data stall in UL\n", dev->name);
+	struct ipa3_wwan_private *wwan_ptr = netdev_priv(dev);
+
+	if (atomic_read(&wwan_ptr->outstanding_pkts) != 0)
+		IPAWANERR("[%s] data stall in UL, %d outstanding\n",
+			dev->name, atomic_read(&wwan_ptr->outstanding_pkts));
 }
 
 /**

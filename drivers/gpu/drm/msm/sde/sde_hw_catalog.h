@@ -866,6 +866,8 @@ struct sde_perf_cdp_cfg {
  * @sfe_lut_tbl: LUT tables for safe signals
  * @qos_lut_tbl: LUT tables for QoS signals
  * @cdp_cfg            cdp use case configurations
+ * @cpu_mask:          pm_qos cpu mask value
+ * @cpu_dma_latency:   pm_qos cpu dma latency value
  */
 struct sde_perf_cfg {
 	u32 max_bw_low;
@@ -890,6 +892,8 @@ struct sde_perf_cfg {
 	struct sde_qos_lut_tbl sfe_lut_tbl[SDE_QOS_LUT_USAGE_MAX];
 	struct sde_qos_lut_tbl qos_lut_tbl[SDE_QOS_LUT_USAGE_MAX];
 	struct sde_perf_cdp_cfg cdp_cfg[SDE_PERF_CDP_USAGE_MAX];
+	u32 cpu_mask;
+	u32 cpu_dma_latency;
 };
 
 /**
@@ -913,6 +917,7 @@ struct sde_perf_cfg {
  * @has_sbuf           indicate if stream buffer is available
  * @sbuf_headroom      stream buffer headroom in lines
  * @has_idle_pc        indicate if idle power collapse feature is supported
+ * @has_hdr            HDR feature support
  * @dma_formats        Supported formats for dma pipe
  * @cursor_formats     Supported formats for cursor pipe
  * @vig_formats        Supported formats for vig pipe
@@ -941,6 +946,7 @@ struct sde_mdss_cfg {
 	u32 vbif_qos_nlvl;
 	u32 ts_prefill_rev;
 
+	bool has_hdr;
 	u32 mdss_count;
 	struct sde_mdss_base_cfg mdss[MAX_BLOCKS];
 

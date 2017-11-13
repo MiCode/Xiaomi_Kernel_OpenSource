@@ -160,7 +160,7 @@ struct sde_encoder_phys_ops {
 	int (*wait_for_commit_done)(struct sde_encoder_phys *phys_enc);
 	int (*wait_for_tx_complete)(struct sde_encoder_phys *phys_enc);
 	int (*wait_for_vblank)(struct sde_encoder_phys *phys_enc);
-	void (*prepare_for_kickoff)(struct sde_encoder_phys *phys_enc,
+	int (*prepare_for_kickoff)(struct sde_encoder_phys *phys_enc,
 			struct sde_encoder_kickoff_params *params);
 	void (*handle_post_kickoff)(struct sde_encoder_phys *phys_enc);
 	void (*trigger_flush)(struct sde_encoder_phys *phys_enc);
@@ -296,6 +296,7 @@ static inline int sde_encoder_phys_inc_pending(struct sde_encoder_phys *phys)
  * @hw_intf:	Hardware interface to the intf registers
  * @timing_params: Current timing parameter
  * @rot_fetch:	Prefill for inline rotation
+ * @error_count: Number of consecutive kickoffs that experienced an error
  * @rot_fetch_valid: true if rot_fetch is updated (reset in enc enable)
  */
 struct sde_encoder_phys_vid {
@@ -303,6 +304,7 @@ struct sde_encoder_phys_vid {
 	struct sde_hw_intf *hw_intf;
 	struct intf_timing_params timing_params;
 	struct intf_prog_fetch rot_fetch;
+	int error_count;
 	bool rot_fetch_valid;
 };
 
