@@ -2348,6 +2348,7 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
 	struct drm_connector *drm_conn = NULL;
+	enum sde_intf_mode intf_mode;
 	int i = 0;
 
 	if (!drm_enc) {
@@ -2366,6 +2367,7 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 
 	priv = drm_enc->dev->dev_private;
 	sde_kms = to_sde_kms(priv->kms);
+	intf_mode = sde_encoder_get_intf_mode(drm_enc);
 
 	SDE_EVT32(DRMID(drm_enc));
 
@@ -2376,13 +2378,33 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	/* wait for idle */
 	sde_encoder_wait_for_event(drm_enc, MSM_ENC_TX_COMPLETE);
 
-	sde_encoder_resource_control(drm_enc, SDE_ENC_RC_EVENT_PRE_STOP);
+	/*
+	 * For primary command mode encoders, execute the resource control
+	 * pre-stop operations before the physical encoders are disabled, to
+	 * allow the rsc to transition its states properly.
+	 *
+	 * For other encoder types, rsc should not be enabled until after
+	 * they have been fully disabled, so delay the pre-stop operations
+	 * until after the physical disable calls have returned.
+	 */
+	if (sde_enc->disp_info.is_primary && intf_mode == INTF_MODE_CMD) {
+		sde_encoder_resource_control(drm_enc,
+				SDE_ENC_RC_EVENT_PRE_STOP);
+		for (i = 0; i < sde_enc->num_phys_encs; i++) {
+			struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-	for (i = 0; i < sde_enc->num_phys_encs; i++) {
-		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+			if (phys && phys->ops.disable)
+				phys->ops.disable(phys);
+		}
+	} else {
+		for (i = 0; i < sde_enc->num_phys_encs; i++) {
+			struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-		if (phys && phys->ops.disable)
-			phys->ops.disable(phys);
+			if (phys && phys->ops.disable)
+				phys->ops.disable(phys);
+		}
+		sde_encoder_resource_control(drm_enc,
+				SDE_ENC_RC_EVENT_PRE_STOP);
 	}
 
 	/*
