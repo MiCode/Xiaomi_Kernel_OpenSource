@@ -360,7 +360,7 @@ static const struct drm_bridge_funcs dsi_bridge_ops = {
 	.mode_set     = dsi_bridge_mode_set,
 };
 
-int dsi_conn_post_init(struct drm_connector *connector,
+int dsi_conn_set_info_blob(struct drm_connector *connector,
 		void *info, void *display, struct msm_mode_info *mode_info)
 {
 	struct dsi_display *dsi_display = display;

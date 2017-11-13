@@ -1610,16 +1610,15 @@ int sde_connector_set_blob_data(struct drm_connector *conn,
 			SDE_DEBUG_CONN(c_conn, "invalid connector state\n");
 		}
 
-		if (!c_conn->ops.post_init) {
-			SDE_ERROR_CONN(c_conn, "post_init not defined\n");
-			goto exit;
-		}
-
-		rc = c_conn->ops.post_init(conn, info, c_conn->display,
-				&mode_info);
-		if (rc) {
-			SDE_ERROR_CONN(c_conn, "post-init failed, %d\n", rc);
-			goto exit;
+		if (c_conn->ops.set_info_blob) {
+			rc = c_conn->ops.set_info_blob(conn, info,
+					c_conn->display, &mode_info);
+			if (rc) {
+				SDE_ERROR_CONN(c_conn,
+						"set_info_blob failed, %d\n",
+						rc);
+				goto exit;
+			}
 		}
 
 		blob = c_conn->blob_caps;
@@ -1755,6 +1754,14 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 			priv->conn_property, c_conn->property_data,
 			CONNECTOR_PROP_COUNT, CONNECTOR_PROP_BLOBCOUNT,
 			sizeof(struct sde_connector_state));
+
+	if (c_conn->ops.post_init) {
+		rc = c_conn->ops.post_init(&c_conn->base, display);
+		if (rc) {
+			SDE_ERROR("post-init failed, %d\n", rc);
+			goto error_cleanup_fence;
+		}
+	}
 
 	msm_property_install_blob(&c_conn->property_info,
 			"capabilities",
