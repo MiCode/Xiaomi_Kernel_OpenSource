@@ -1150,11 +1150,12 @@ static void cam_icp_mgr_process_dbg_buf(void)
 {
 	uint32_t *msg_ptr = NULL, *pkt_ptr = NULL;
 	struct hfi_msg_debug *dbg_msg;
-	int64_t read_len, size_processed = 0;
+	uint32_t read_len, size_processed = 0;
 	char *dbg_buf;
+	int rc = 0;
 
-	read_len = hfi_read_message(icp_hw_mgr.dbg_buf, Q_DBG);
-	if (read_len < 0)
+	rc = hfi_read_message(icp_hw_mgr.dbg_buf, Q_DBG, &read_len);
+	if (rc)
 		return;
 
 	msg_ptr = (uint32_t *)icp_hw_mgr.dbg_buf;
@@ -1179,7 +1180,8 @@ static void cam_icp_mgr_process_dbg_buf(void)
 
 static int cam_icp_process_msg_pkt_type(
 	struct cam_icp_hw_mgr *hw_mgr,
-	uint32_t *msg_ptr)
+	uint32_t *msg_ptr,
+	uint32_t *msg_processed_len)
 {
 	int rc = 0;
 	int size_processed = 0;
@@ -1230,19 +1232,17 @@ static int cam_icp_process_msg_pkt_type(
 		break;
 	}
 
-	if (rc)
-		return rc;
-
-	return size_processed;
+	*msg_processed_len = size_processed;
+	return rc;
 }
 
 static int32_t cam_icp_mgr_process_msg(void *priv, void *data)
 {
-	int64_t read_len, msg_processed_len;
-	int rc = 0;
+	uint32_t read_len, msg_processed_len;
 	uint32_t *msg_ptr = NULL;
 	struct hfi_msg_work_data *task_data;
 	struct cam_icp_hw_mgr *hw_mgr;
+	int rc = 0;
 
 	if (!data || !priv) {
 		CAM_ERR(CAM_ICP, "Invalid data");
@@ -1252,25 +1252,24 @@ static int32_t cam_icp_mgr_process_msg(void *priv, void *data)
 	task_data = data;
 	hw_mgr = priv;
 
-	read_len = hfi_read_message(icp_hw_mgr.msg_buf, Q_MSG);
-	if (read_len < 0) {
-		rc = read_len;
+	rc = hfi_read_message(icp_hw_mgr.msg_buf, Q_MSG, &read_len);
+	if (rc) {
 		CAM_DBG(CAM_ICP, "Unable to read msg q");
 	} else {
 		read_len = read_len << BYTE_WORD_SHIFT;
 		msg_ptr = (uint32_t *)icp_hw_mgr.msg_buf;
 		while (true) {
-			msg_processed_len = cam_icp_process_msg_pkt_type(
-			hw_mgr, msg_ptr);
-			if (msg_processed_len < 0) {
-				rc = msg_processed_len;
+			rc = cam_icp_process_msg_pkt_type(hw_mgr, msg_ptr,
+				&msg_processed_len);
+			if (rc)
 				return rc;
-			}
 
 			read_len -= msg_processed_len;
-			if (read_len > 0)
+			if (read_len > 0) {
 				msg_ptr += (msg_processed_len >>
 				BYTE_WORD_SHIFT);
+				msg_processed_len = 0;
+			}
 			else
 				break;
 		}
