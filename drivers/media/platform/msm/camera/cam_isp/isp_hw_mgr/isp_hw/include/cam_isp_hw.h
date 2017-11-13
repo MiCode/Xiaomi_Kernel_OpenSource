@@ -110,6 +110,7 @@ enum cam_isp_hw_cmd_type {
  * @tasklet_info:                 Tasklet structure that will be used to
  *                                schedule IRQ events related to this resource
  * @irq_handle:                   handle returned on subscribing for IRQ event
+ * @rdi_only_ctx:                 resouce belong to rdi only context or not
  * @init:                         function pointer to init the HW resource
  * @deinit:                       function pointer to deinit the HW resource
  * @start:                        function pointer to start the HW resource
@@ -129,6 +130,7 @@ struct cam_isp_resource_node {
 	void                          *cdm_ops;
 	void                          *tasklet_info;
 	int                            irq_handle;
+	int                            rdi_only_ctx;
 
 	int (*init)(struct cam_isp_resource_node *rsrc_node,
 		void *init_args, uint32_t arg_size);

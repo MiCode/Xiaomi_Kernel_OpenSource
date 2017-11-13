@@ -38,7 +38,7 @@ static uint32_t camif_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
 
 static uint32_t camif_irq_err_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
 	0x00000000,
-	0x0FFF7E80,
+	0x0FFF7EBC,
 };
 
 static uint32_t rdi_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
@@ -529,7 +529,7 @@ int cam_vfe_start(void *hw_priv, void *start_args, uint32_t arg_size)
 	struct cam_vfe_hw_core_info       *core_info = NULL;
 	struct cam_hw_info                *vfe_hw  = hw_priv;
 	struct cam_isp_resource_node      *isp_res;
-	int rc = -ENODEV;
+	int rc = 0;
 
 	if (!hw_priv || !start_args ||
 		(arg_size != sizeof(struct cam_isp_resource_node))) {
@@ -543,39 +543,70 @@ int cam_vfe_start(void *hw_priv, void *start_args, uint32_t arg_size)
 
 	mutex_lock(&vfe_hw->hw_mutex);
 	if (isp_res->res_type == CAM_ISP_RESOURCE_VFE_IN) {
-		if (isp_res->res_id == CAM_ISP_HW_VFE_IN_CAMIF)
-			isp_res->irq_handle = cam_irq_controller_subscribe_irq(
-				core_info->vfe_irq_controller,
-				CAM_IRQ_PRIORITY_1,
-				camif_irq_reg_mask, &core_info->irq_payload,
-				cam_vfe_irq_top_half, cam_ife_mgr_do_tasklet,
-				isp_res->tasklet_info, cam_tasklet_enqueue_cmd);
-		else
-			isp_res->irq_handle = cam_irq_controller_subscribe_irq(
-				core_info->vfe_irq_controller,
-				CAM_IRQ_PRIORITY_1,
-				rdi_irq_reg_mask, &core_info->irq_payload,
-				cam_vfe_irq_top_half, cam_ife_mgr_do_tasklet,
-				isp_res->tasklet_info, cam_tasklet_enqueue_cmd);
+		if (isp_res->res_id == CAM_ISP_HW_VFE_IN_CAMIF) {
+			isp_res->irq_handle =
+				cam_irq_controller_subscribe_irq(
+					core_info->vfe_irq_controller,
+					CAM_IRQ_PRIORITY_1,
+					camif_irq_reg_mask,
+					&core_info->irq_payload,
+					cam_vfe_irq_top_half,
+					cam_ife_mgr_do_tasklet,
+					isp_res->tasklet_info,
+					cam_tasklet_enqueue_cmd);
+			if (isp_res->irq_handle < 1)
+				rc = -ENOMEM;
+		} else if (isp_res->rdi_only_ctx) {
+			isp_res->irq_handle =
+				cam_irq_controller_subscribe_irq(
+					core_info->vfe_irq_controller,
+					CAM_IRQ_PRIORITY_1,
+					rdi_irq_reg_mask,
+					&core_info->irq_payload,
+					cam_vfe_irq_top_half,
+					cam_ife_mgr_do_tasklet,
+					isp_res->tasklet_info,
+					cam_tasklet_enqueue_cmd);
+			if (isp_res->irq_handle < 1)
+				rc = -ENOMEM;
+		}
 
-		core_info->irq_err_handle = cam_irq_controller_subscribe_irq(
-			core_info->vfe_irq_controller, CAM_IRQ_PRIORITY_0,
-			camif_irq_err_reg_mask, &core_info->irq_payload,
-			cam_vfe_irq_err_top_half, cam_ife_mgr_do_tasklet,
-			core_info->tasklet_info, cam_tasklet_enqueue_cmd);
-
-		if (isp_res->irq_handle > 0)
+		if (rc == 0) {
 			rc = core_info->vfe_top->hw_ops.start(
 				core_info->vfe_top->top_priv, isp_res,
 				sizeof(struct cam_isp_resource_node));
-		else
+			if (rc)
+				CAM_ERR(CAM_ISP, "Start failed. type:%d",
+					isp_res->res_type);
+		} else {
 			CAM_ERR(CAM_ISP,
 				"Error! subscribe irq controller failed");
+		}
 	} else if (isp_res->res_type == CAM_ISP_RESOURCE_VFE_OUT) {
 		rc = core_info->vfe_bus->hw_ops.start(isp_res, NULL, 0);
 	} else {
 		CAM_ERR(CAM_ISP, "Invalid res type:%d", isp_res->res_type);
+		rc = -EFAULT;
 	}
+
+	if (!core_info->irq_err_handle) {
+		core_info->irq_err_handle =
+			cam_irq_controller_subscribe_irq(
+				core_info->vfe_irq_controller,
+				CAM_IRQ_PRIORITY_0,
+				camif_irq_err_reg_mask,
+				&core_info->irq_payload,
+				cam_vfe_irq_err_top_half,
+				cam_ife_mgr_do_tasklet,
+				core_info->tasklet_info,
+				cam_tasklet_enqueue_cmd);
+		if (core_info->irq_err_handle < 1) {
+			CAM_ERR(CAM_ISP, "Error handle subscribe failure");
+			rc = -ENOMEM;
+			core_info->irq_err_handle = 0;
+		}
+	}
+
 	mutex_unlock(&vfe_hw->hw_mutex);
 
 	return rc;
@@ -605,13 +636,17 @@ int cam_vfe_stop(void *hw_priv, void *stop_args, uint32_t arg_size)
 			core_info->vfe_top->top_priv, isp_res,
 			sizeof(struct cam_isp_resource_node));
 
-	cam_irq_controller_unsubscribe_irq(
-		core_info->vfe_irq_controller, core_info->irq_err_handle);
-
 	} else if (isp_res->res_type == CAM_ISP_RESOURCE_VFE_OUT) {
 		rc = core_info->vfe_bus->hw_ops.stop(isp_res, NULL, 0);
 	} else {
 		CAM_ERR(CAM_ISP, "Invalid res type:%d", isp_res->res_type);
+	}
+
+	if (core_info->irq_err_handle) {
+		cam_irq_controller_unsubscribe_irq(
+			core_info->vfe_irq_controller,
+			core_info->irq_err_handle);
+		core_info->irq_err_handle = 0;
 	}
 
 	mutex_unlock(&vfe_hw->hw_mutex);
