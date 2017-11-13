@@ -208,11 +208,11 @@ static void show_data(unsigned long addr, int nbytes, const char *name)
 			if (probe_kernel_address(p, data)) {
 				printk(" ********");
 			} else {
-				printk(" %08x", data);
+				pr_cont(" %08x", data);
 			}
 			++p;
 		}
-		printk("\n");
+		pr_cont("\n");
 	}
 }
 
