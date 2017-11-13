@@ -46,6 +46,18 @@ enum cam_isp_hw_err_type {
 	CAM_ISP_HW_ERROR_MAX,
 };
 
+/**
+ * struct cam_isp_prepare_hw_update_data - hw prepare data
+ *
+ * @packet_opcode_type:     Packet header opcode in the packet header
+ *                   this opcode defines, packet is init packet or
+ *                   update packet
+ *
+ */
+struct cam_isp_prepare_hw_update_data {
+	uint32_t      packet_opcode_type;
+};
+
 
 /**
  * struct cam_isp_hw_sof_event_data - Event payload for CAM_HW_EVENT_SOF

@@ -81,6 +81,8 @@ struct cam_isp_ctx_irq_ops {
  *                         the request has been completed.
  * @bubble_report:         Flag to track if bubble report is active on
  *                         current request
+ * @packet_opcode_type:    Request packet opcode type,
+ *                         ie INIT packet or update packet
  *
  */
 struct cam_isp_ctx_req {
@@ -94,6 +96,7 @@ struct cam_isp_ctx_req {
 	uint32_t                         num_fence_map_in;
 	uint32_t                         num_acked;
 	int32_t                          bubble_report;
+	uint32_t                         packet_opcode_type;
 };
 
 /**

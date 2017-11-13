@@ -2349,11 +2349,12 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 	int rc = 0;
 	struct cam_hw_prepare_update_args *prepare =
 		(struct cam_hw_prepare_update_args *) prepare_hw_update_args;
-	struct cam_ife_hw_mgr_ctx        *ctx;
-	struct cam_ife_hw_mgr            *hw_mgr;
-	struct cam_kmd_buf_info           kmd_buf;
-	uint32_t                          i;
-	bool                              fill_fence = true;
+	struct cam_ife_hw_mgr_ctx               *ctx;
+	struct cam_ife_hw_mgr                   *hw_mgr;
+	struct cam_kmd_buf_info                  kmd_buf;
+	uint32_t                                 i;
+	bool                                     fill_fence = true;
+	struct cam_isp_prepare_hw_update_data   *prepare_hw_data;
 
 	if (!hw_mgr_priv || !prepare_hw_update_args) {
 		CAM_ERR(CAM_ISP, "Invalid args");
@@ -2439,9 +2440,14 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 	 * bits to get the type of operation since UMD definition
 	 * of op_code has some difference from KMD.
 	 */
+	prepare_hw_data = (struct cam_isp_prepare_hw_update_data  *)
+		prepare->priv;
 	if (((prepare->packet->header.op_code + 1) & 0xF) ==
-		CAM_ISP_PACKET_INIT_DEV)
+		CAM_ISP_PACKET_INIT_DEV) {
+		prepare_hw_data->packet_opcode_type = CAM_ISP_PACKET_INIT_DEV;
 		goto end;
+	} else
+		prepare_hw_data->packet_opcode_type = CAM_ISP_PACKET_UPDATE_DEV;
 
 	/* add reg update commands */
 	for (i = 0; i < ctx->num_base; i++) {
