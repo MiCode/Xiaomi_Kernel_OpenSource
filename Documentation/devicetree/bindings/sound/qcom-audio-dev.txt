@@ -1376,6 +1376,9 @@ Required properties:
 					  clock rate as zero then afe
 					  is not configured for clock.
 
+ - qcom,msm-cpudai-tdm-sec-port-start: For chipsets with the limitation where we need
+				       to start both RX and TX AFE ports, this flag is
+				       used to start TX/RX port for RX/TX streams.
 
 
  [Second Level Nodes]
