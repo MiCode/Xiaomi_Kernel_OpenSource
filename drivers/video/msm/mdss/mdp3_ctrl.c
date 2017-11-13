@@ -1808,12 +1808,15 @@ static int mdp3_histogram_start(struct mdp3_session_data *session,
 	pr_debug("mdp3_histogram_start\n");
 
 	ret = mdp3_validate_start_req(req);
-	if (ret)
+	if (ret) {
+		mutex_unlock(&session->lock);
 		return ret;
+	}
 
 	if (!session->dma->histo_op ||
 		!session->dma->config_histo) {
 		pr_err("mdp3_histogram_start not supported\n");
+		mutex_unlock(&session->lock);
 		return -EINVAL;
 	}
 
@@ -1822,6 +1825,7 @@ static int mdp3_histogram_start(struct mdp3_session_data *session,
 	if (session->histo_status) {
 		pr_info("mdp3_histogram_start already started\n");
 		mutex_unlock(&session->histo_lock);
+		mutex_unlock(&session->lock);
 		return 0;
 	}
 
