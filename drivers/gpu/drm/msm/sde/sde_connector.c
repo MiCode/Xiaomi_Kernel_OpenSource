@@ -153,7 +153,7 @@ int sde_connector_trigger_event(void *drm_connector,
 {
 	struct sde_connector *c_conn;
 	unsigned long irq_flags;
-	void (*cb_func)(uint32_t event_idx,
+	int (*cb_func)(uint32_t event_idx,
 			uint32_t instance_idx, void *usr,
 			uint32_t data0, uint32_t data1,
 			uint32_t data2, uint32_t data3);
@@ -176,7 +176,7 @@ int sde_connector_trigger_event(void *drm_connector,
 	spin_unlock_irqrestore(&c_conn->event_lock, irq_flags);
 
 	if (cb_func)
-		cb_func(event_idx, instance_idx, usr,
+		rc = cb_func(event_idx, instance_idx, usr,
 			data0, data1, data2, data3);
 	else
 		rc = -EAGAIN;
@@ -186,7 +186,7 @@ int sde_connector_trigger_event(void *drm_connector,
 
 int sde_connector_register_event(struct drm_connector *connector,
 		uint32_t event_idx,
-		void (*cb_func)(uint32_t event_idx,
+		int (*cb_func)(uint32_t event_idx,
 			uint32_t instance_idx, void *usr,
 			uint32_t data0, uint32_t data1,
 			uint32_t data2, uint32_t data3),
@@ -361,6 +361,22 @@ int sde_connector_get_mode_info(struct drm_connector_state *conn_state,
 		sizeof(sde_conn_state->mode_info));
 
 	return 0;
+}
+
+static int sde_connector_handle_disp_recovery(uint32_t event_idx,
+			uint32_t instance_idx, void *usr,
+			uint32_t data0, uint32_t data1,
+			uint32_t data2, uint32_t data3)
+{
+	struct sde_connector *c_conn = usr;
+	int rc = 0;
+
+	if (!c_conn)
+		return -EINVAL;
+
+	rc = sde_kms_handle_recovery(c_conn->encoder);
+
+	return rc;
 }
 
 int sde_connector_get_info(struct drm_connector *connector,
@@ -1660,9 +1676,17 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 		}
 	}
 
+	rc = sde_connector_get_info(&c_conn->base, &display_info);
+	if (!rc && (connector_type == DRM_MODE_CONNECTOR_DSI) &&
+			(display_info.capabilities & MSM_DISPLAY_CAP_VID_MODE))
+		sde_connector_register_event(&c_conn->base,
+			SDE_CONN_EVENT_VID_FIFO_OVERFLOW,
+			sde_connector_handle_disp_recovery,
+			c_conn);
+
 	msm_property_install_volatile_range(
-				&c_conn->property_info, "sde_drm_roi_v1", 0x0,
-				0, ~0, 0, CONNECTOR_PROP_ROI_V1);
+			&c_conn->property_info, "sde_drm_roi_v1", 0x0,
+			0, ~0, 0, CONNECTOR_PROP_ROI_V1);
 
 	/* install PP_DITHER properties */
 	_sde_connector_install_dither_property(dev, sde_kms, c_conn);

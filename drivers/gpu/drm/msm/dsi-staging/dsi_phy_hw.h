@@ -233,6 +233,13 @@ struct dsi_phy_hw_ops {
 	int (*phy_timing_val)(struct dsi_phy_per_lane_cfgs *timing_val,
 				u32 *timing, u32 size);
 
+	/**
+	 * phy_lane_reset() - Reset dsi phy lanes in case of error.
+	 * @phy:      Pointer to DSI PHY hardware object.
+	 * Return:    error code.
+	 */
+	int (*phy_lane_reset)(struct dsi_phy_hw *phy);
+
 	void *timing_ops;
 	struct phy_ulps_config_ops ulps_ops;
 };

@@ -4041,6 +4041,9 @@ int sde_encoder_wait_for_event(struct drm_encoder *drm_enc,
 		case MSM_ENC_VBLANK:
 			fn_wait = phys->ops.wait_for_vblank;
 			break;
+		case MSM_ENC_ACTIVE_REGION:
+			fn_wait = phys->ops.wait_for_active;
+			break;
 		default:
 			SDE_ERROR_ENC(sde_enc, "unknown wait event %d\n",
 					event);

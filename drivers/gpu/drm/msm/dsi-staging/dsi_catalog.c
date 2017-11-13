@@ -62,6 +62,11 @@ static void dsi_catalog_cmn_init(struct dsi_ctrl_hw *ctrl,
 	ctrl->ops.debug_bus = dsi_ctrl_hw_cmn_debug_bus;
 	ctrl->ops.get_cmd_read_data = dsi_ctrl_hw_cmn_get_cmd_read_data;
 	ctrl->ops.clear_rdbk_register = dsi_ctrl_hw_cmn_clear_rdbk_reg;
+	ctrl->ops.ctrl_reset = dsi_ctrl_hw_cmn_ctrl_reset;
+	ctrl->ops.mask_error_intr = dsi_ctrl_hw_cmn_mask_error_intr;
+	ctrl->ops.error_intr_ctrl = dsi_ctrl_hw_cmn_error_intr_ctrl;
+	ctrl->ops.get_error_mask = dsi_ctrl_hw_cmn_get_error_mask;
+	ctrl->ops.get_hw_version = dsi_ctrl_hw_cmn_get_hw_version;
 
 	switch (version) {
 	case DSI_CTRL_VERSION_1_4:
@@ -203,6 +208,7 @@ static void dsi_catalog_phy_3_0_init(struct dsi_phy_hw *phy)
 	phy->ops.ulps_ops.is_lanes_in_ulps =
 		dsi_phy_hw_v3_0_is_lanes_in_ulps;
 	phy->ops.phy_timing_val = dsi_phy_hw_timing_val_v3_0;
+	phy->ops.phy_lane_reset = dsi_phy_hw_v3_0_lane_reset;
 }
 
 /**

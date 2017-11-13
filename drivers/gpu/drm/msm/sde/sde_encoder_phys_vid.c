@@ -36,6 +36,10 @@
 /* maximum number of consecutive kickoff errors */
 #define KICKOFF_MAX_ERRORS	2
 
+/* Poll time to do recovery during active region */
+#define POLL_TIME_USEC_FOR_LN_CNT 500
+#define MAX_POLL_CNT 10
+
 static bool sde_encoder_phys_vid_is_master(
 		struct sde_encoder_phys *phys_enc)
 {
@@ -1018,6 +1022,72 @@ static int sde_encoder_phys_vid_get_line_count(
 	return vid_enc->hw_intf->ops.get_line_count(vid_enc->hw_intf);
 }
 
+static int sde_encoder_phys_vid_wait_for_active(
+			struct sde_encoder_phys *phys_enc)
+{
+	struct drm_display_mode mode;
+	struct sde_encoder_phys_vid *vid_enc;
+	u32 ln_cnt, min_ln_cnt, active_lns_cnt;
+	u32 clk_period, time_of_line;
+	u32 delay, retry = MAX_POLL_CNT;
+
+	vid_enc =  to_sde_encoder_phys_vid(phys_enc);
+
+	if (!vid_enc->hw_intf || !vid_enc->hw_intf->ops.get_line_count) {
+		SDE_ERROR_VIDENC(vid_enc, "invalid vid_enc params\n");
+		return -EINVAL;
+	}
+
+	mode = phys_enc->cached_mode;
+
+	/*
+	 * calculate clk_period as pico second to maintain good
+	 * accuracy with high pclk rate and this number is in 17 bit
+	 * range.
+	 */
+	clk_period = DIV_ROUND_UP_ULL(1000000000, mode.clock);
+	if (!clk_period) {
+		SDE_ERROR_VIDENC(vid_enc, "Unable to calculate clock period\n");
+		return -EINVAL;
+	}
+
+	min_ln_cnt = (mode.vtotal - mode.vsync_start) +
+		(mode.vsync_end - mode.vsync_start);
+	active_lns_cnt = mode.vdisplay;
+	time_of_line = mode.htotal * clk_period;
+
+	/* delay in micro seconds */
+	delay = (time_of_line * (min_ln_cnt +
+		(mode.vsync_start - mode.vdisplay))) / 1000000;
+
+	/*
+	 * Wait for max delay before
+	 * polling to check active region
+	 */
+	if (delay > POLL_TIME_USEC_FOR_LN_CNT)
+		delay = POLL_TIME_USEC_FOR_LN_CNT;
+
+	while (retry) {
+		ln_cnt = vid_enc->hw_intf->ops.get_line_count(vid_enc->hw_intf);
+
+		if ((ln_cnt >= min_ln_cnt) &&
+			(ln_cnt < (active_lns_cnt + min_ln_cnt))) {
+			SDE_DEBUG_VIDENC(vid_enc,
+					"Needed lines left line_cnt=%d\n",
+					ln_cnt);
+			return 0;
+		}
+
+		SDE_ERROR_VIDENC(vid_enc, "line count is less. line_cnt = %d\n",
+				ln_cnt);
+		/* Add delay so that line count is in active region */
+		udelay(delay);
+		retry--;
+	}
+
+	return -EINVAL;
+}
+
 static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 {
 	ops->is_master = sde_encoder_phys_vid_is_master;
@@ -1042,6 +1112,7 @@ static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->hw_reset = sde_encoder_helper_hw_reset;
 	ops->get_line_count = sde_encoder_phys_vid_get_line_count;
 	ops->wait_dma_trigger = sde_encoder_phys_vid_wait_dma_trigger;
+	ops->wait_for_active = sde_encoder_phys_vid_wait_for_active;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_vid_init(
