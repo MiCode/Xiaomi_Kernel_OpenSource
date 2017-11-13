@@ -2799,7 +2799,6 @@ static int _sde_hdmi_parse_dt_modes(struct device_node *np,
 	u32 v_front_porch, v_pulse_width, v_back_porch;
 	bool h_active_high, v_active_high;
 	u32 flags = 0;
-
 	root_node = of_get_child_by_name(np, "qcom,customize-modes");
 	if (!root_node) {
 		root_node = of_parse_phandle(np, "qcom,customize-modes", 0);
@@ -2887,10 +2886,10 @@ static int _sde_hdmi_parse_dt_modes(struct device_node *np,
 		v_active_high = of_property_read_bool(node,
 						"qcom,mode-v-active-high");
 
-		rc = of_property_read_u32(node, "qcom,mode-refersh-rate",
+		rc = of_property_read_u32(node, "qcom,mode-refresh-rate",
 						&mode->vrefresh);
 		if (rc) {
-			SDE_ERROR("failed to read refersh-rate, rc=%d\n", rc);
+			SDE_ERROR("failed to read refresh-rate, rc=%d\n", rc);
 			goto fail;
 		}
 
