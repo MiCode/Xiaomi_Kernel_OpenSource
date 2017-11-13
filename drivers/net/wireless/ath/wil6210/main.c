@@ -244,6 +244,7 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 			break;
 		}
 		sta->status = wil_sta_unused;
+		sta->fst_link_loss = false;
 		sta->mid = U8_MAX;
 	}
 	/* reorder buffers */
