@@ -263,7 +263,7 @@ static int cam_vfe_bus_put_evt_payload(void     *core_info,
 		CAM_ERR(CAM_ISP, "No payload to put");
 		return -EINVAL;
 	}
-
+	(*evt_payload)->error_type = 0;
 	ife_irq_regs = (*evt_payload)->irq_reg_val;
 	status_reg0 = ife_irq_regs[CAM_IFE_IRQ_BUS_REG_STATUS0];
 	status_reg1 = ife_irq_regs[CAM_IFE_IRQ_BUS_REG_STATUS1];
@@ -1146,6 +1146,8 @@ static int cam_vfe_bus_stop_wm(struct cam_isp_resource_node *wm_res)
 		common_data->mem_base + common_data->common_reg->sw_reset);
 
 	wm_res->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
+	rsrc_data->init_cfg_done = false;
+	rsrc_data->hfr_cfg_done = false;
 
 	return rc;
 }
@@ -2153,6 +2155,7 @@ static int cam_vfe_bus_stop_vfe_out(
 
 	if (vfe_out->res_state == CAM_ISP_RESOURCE_STATE_AVAILABLE ||
 		vfe_out->res_state == CAM_ISP_RESOURCE_STATE_RESERVED) {
+		CAM_DBG(CAM_ISP, "vfe_out res_state is %d", vfe_out->res_state);
 		return rc;
 	}
 
@@ -3118,4 +3121,3 @@ free_bus_local:
 
 	return rc;
 }
-

@@ -70,6 +70,12 @@ enum cam_vfe_bus_irq_regs {
 	CAM_IFE_BUS_IRQ_REGISTERS_MAX,
 };
 
+enum cam_vfe_reset_type {
+	CAM_VFE_HW_RESET_HW_AND_REG,
+	CAM_VFE_HW_RESET_HW,
+	CAM_VFE_HW_RESET_MAX,
+};
+
 /*
  * struct cam_vfe_hw_get_hw_cap:
  *
