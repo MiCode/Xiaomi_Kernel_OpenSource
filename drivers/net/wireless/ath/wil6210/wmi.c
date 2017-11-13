@@ -1973,6 +1973,61 @@ int wmi_resume(struct wil6210_priv *wil)
 	return reply.evt.status;
 }
 
+int wmi_link_maintain_cfg_write(struct wil6210_priv *wil,
+				const u8 *addr,
+				bool fst_link_loss)
+{
+	int rc;
+	int cid = wil_find_cid(wil, addr);
+	u32 cfg_type;
+	struct wmi_link_maintain_cfg_write_cmd cmd;
+	struct {
+		struct wmi_cmd_hdr wmi;
+		struct wmi_link_maintain_cfg_write_done_event evt;
+	} __packed reply;
+
+	if (cid < 0)
+		return cid;
+
+	switch (wil->wdev->iftype) {
+	case NL80211_IFTYPE_STATION:
+		cfg_type = fst_link_loss ?
+			   WMI_LINK_MAINTAIN_CFG_TYPE_DEFAULT_FST_STA :
+			   WMI_LINK_MAINTAIN_CFG_TYPE_DEFAULT_NORMAL_STA;
+		break;
+	case NL80211_IFTYPE_AP:
+		cfg_type = fst_link_loss ?
+			   WMI_LINK_MAINTAIN_CFG_TYPE_DEFAULT_FST_AP :
+			   WMI_LINK_MAINTAIN_CFG_TYPE_DEFAULT_NORMAL_AP;
+		break;
+	default:
+		wil_err(wil, "Unsupported for iftype %d", wil->wdev->iftype);
+		return -EINVAL;
+	}
+
+	wil_dbg_misc(wil, "Setting cid:%d with cfg_type:%d\n", cid, cfg_type);
+
+	cmd.cfg_type = cpu_to_le32(cfg_type);
+	cmd.cid = cpu_to_le32(cid);
+
+	reply.evt.status = cpu_to_le32(WMI_FW_STATUS_FAILURE);
+
+	rc = wmi_call(wil, WMI_LINK_MAINTAIN_CFG_WRITE_CMDID, &cmd, sizeof(cmd),
+		      WMI_LINK_MAINTAIN_CFG_WRITE_DONE_EVENTID, &reply,
+		      sizeof(reply), 250);
+	if (rc) {
+		wil_err(wil, "Failed to %s FST link loss",
+			fst_link_loss ? "enable" : "disable");
+	} else if (reply.evt.status == WMI_FW_STATUS_SUCCESS) {
+		wil->sta[cid].fst_link_loss = fst_link_loss;
+	} else {
+		wil_err(wil, "WMI_LINK_MAINTAIN_CFG_WRITE_CMDID returned status %d",
+			reply.evt.status);
+		rc = -EINVAL;
+	}
+	return rc;
+}
+
 static bool wmi_evt_call_handler(struct wil6210_priv *wil, int id,
 				 void *d, int len)
 {
