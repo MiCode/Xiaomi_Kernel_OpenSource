@@ -284,6 +284,7 @@ struct adreno_busy_data {
 	unsigned int gpu_busy;
 	unsigned int vbif_ram_cycles;
 	unsigned int vbif_starved_ram;
+	unsigned int vbif_starved_ram_ch1;
 	unsigned int throttle_cycles[ADRENO_GPMU_THROTTLE_COUNTERS];
 };
 
@@ -401,7 +402,10 @@ struct adreno_gpu_core {
  * @input_work: Work struct for turning on the GPU after a touch event
  * @busy_data: Struct holding GPU VBIF busy stats
  * @ram_cycles_lo: Number of DDR clock cycles for the monitor session
- * @perfctr_pwr_lo: Number of cycles VBIF is stalled by DDR
+ * @starved_ram_lo: Number of cycles VBIF/GBIF is stalled by DDR (Only channel 0
+ * stall cycles in case of GBIF)
+ * @starved_ram_lo_ch1: Number of cycles GBIF is stalled by DDR channel 1
+ * @perfctr_pwr_lo: GPU busy cycles
  * @halt: Atomic variable to check whether the GPU is currently halted
  * @pending_irq_refcnt: Atomic variable to keep track of running IRQ handlers
  * @ctx_d_debugfs: Context debugfs node
@@ -462,6 +466,7 @@ struct adreno_device {
 	struct adreno_busy_data busy_data;
 	unsigned int ram_cycles_lo;
 	unsigned int starved_ram_lo;
+	unsigned int starved_ram_lo_ch1;
 	unsigned int perfctr_pwr_lo;
 	atomic_t halt;
 	atomic_t pending_irq_refcnt;
