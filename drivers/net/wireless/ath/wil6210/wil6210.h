@@ -952,6 +952,9 @@ static inline int wil6210_debugfs_init(struct wil6210_priv *wil) { return 0; }
 static inline void wil6210_debugfs_remove(struct wil6210_priv *wil) {}
 #endif
 
+int wil6210_sysfs_init(struct wil6210_priv *wil);
+void wil6210_sysfs_remove(struct wil6210_priv *wil);
+
 int wil_cid_fill_sinfo(struct wil6210_priv *wil, int cid,
 		       struct station_info *sinfo);
 
