@@ -252,14 +252,6 @@ static struct clk_dummy measure_only_ipa_2x_clk = {
 	},
 };
 
-static struct clk_dummy bi_tcxo = {
-	.rrate = 19200000,
-	.hw.init = &(struct clk_init_data){
-		.name = "bi_tcxo",
-		.ops = &clk_dummy_ops,
-	},
-};
-
 static struct pll_vco trion_vco[] = {
 	{ 249600000, 2000000000, 0 },
 };
@@ -4151,7 +4143,6 @@ static struct clk_branch gcc_video_xo_clk = {
 };
 
 struct clk_hw *gcc_sdm855_hws[] = {
-	[GCC_XO] = &bi_tcxo.hw,
 	[MEASURE_ONLY_SNOC_CLK] = &measure_only_snoc_clk.hw,
 	[MEASURE_ONLY_CNOC_CLK] = &measure_only_cnoc_clk.hw,
 	[MEASURE_ONLY_BIMC_CLK] = &measure_only_bimc_clk.hw,
