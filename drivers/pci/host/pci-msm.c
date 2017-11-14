@@ -4844,7 +4844,8 @@ static irqreturn_t handle_global_irq(int irq, void *data)
 }
 
 static void msm_pcie_unmap_qgic_addr(struct msm_pcie_dev_t *dev,
-					struct pci_dev *pdev)
+					struct pci_dev *pdev,
+					struct msi_desc *entry)
 {
 	struct iommu_domain *domain = iommu_get_domain_for_dev(&pdev->dev);
 	int bypass_en = 0;
@@ -4858,16 +4859,12 @@ static void msm_pcie_unmap_qgic_addr(struct msm_pcie_dev_t *dev,
 
 	iommu_domain_get_attr(domain, DOMAIN_ATTR_S1_BYPASS, &bypass_en);
 	if (!bypass_en) {
-		int ret;
-		phys_addr_t pcie_base_addr =
-			dev->res[MSM_PCIE_RES_DM_CORE].resource->start;
-		dma_addr_t iova = rounddown(pcie_base_addr, PAGE_SIZE);
+		dma_addr_t iova = entry->msg.address_lo;
 
-		ret = iommu_unmap(domain, iova, PAGE_SIZE);
-		if (ret != PAGE_SIZE)
-			PCIE_ERR(dev,
-				"PCIe: RC%d: failed to unmap QGIC address. ret = %d\n",
-				dev->rc_idx, ret);
+		PCIE_DBG(dev, "PCIe: RC%d: unmap QGIC MSI IOVA\n", dev->rc_idx);
+
+		dma_unmap_resource(&pdev->dev, iova, PAGE_SIZE,
+				DMA_BIDIRECTIONAL, 0);
 	}
 }
 
@@ -4901,7 +4898,7 @@ static void msm_pcie_destroy_irq(struct msi_desc *entry, unsigned int irq)
 			return;
 		}
 		if (irq == firstirq + nvec - 1)
-			msm_pcie_unmap_qgic_addr(dev, pdev);
+			msm_pcie_unmap_qgic_addr(dev, pdev, entry);
 		pos = irq - firstirq;
 	} else {
 		PCIE_DBG(dev, "destroy default MSI irq %d\n", irq);
@@ -5059,9 +5056,8 @@ static int msm_pcie_map_qgic_addr(struct msm_pcie_dev_t *dev,
 					struct msi_msg *msg)
 {
 	struct iommu_domain *domain = iommu_get_domain_for_dev(&pdev->dev);
-	struct iommu_domain_geometry geometry;
-	int fastmap_en = 0, bypass_en = 0;
-	dma_addr_t iova, addr;
+	int bypass_en = 0;
+	dma_addr_t iova;
 
 	msg->address_hi = 0;
 	msg->address_lo = dev->msi_gicm_addr;
@@ -5083,35 +5079,15 @@ static int msm_pcie_map_qgic_addr(struct msm_pcie_dev_t *dev,
 	if (bypass_en)
 		return 0;
 
-	iommu_domain_get_attr(domain, DOMAIN_ATTR_FAST, &fastmap_en);
-	if (fastmap_en) {
-		iommu_domain_get_attr(domain, DOMAIN_ATTR_GEOMETRY, &geometry);
-		iova = geometry.aperture_start;
-		PCIE_DBG(dev,
-			"PCIe: RC%d: Use client's IOVA 0x%llx to map QGIC MSI address\n",
-			dev->rc_idx, iova);
-	} else {
-		phys_addr_t pcie_base_addr;
-
-		/*
-		 * Use PCIe DBI address as the IOVA since client cannot
-		 * use this address for their IOMMU mapping. This will
-		 * prevent any conflicts between PCIe host and
-		 * client's mapping.
-		 */
-		pcie_base_addr = dev->res[MSM_PCIE_RES_DM_CORE].resource->start;
-		iova = rounddown(pcie_base_addr, PAGE_SIZE);
-	}
-
-	addr = dma_map_resource(&pdev->dev, dev->msi_gicm_addr, PAGE_SIZE,
+	iova = dma_map_resource(&pdev->dev, dev->msi_gicm_addr, PAGE_SIZE,
 				DMA_BIDIRECTIONAL, 0);
-	if (dma_mapping_error(&pdev->dev, addr)) {
+	if (dma_mapping_error(&pdev->dev, iova)) {
 		PCIE_ERR(dev, "PCIe: RC%d: failed to map QGIC address",
 			dev->rc_idx);
 		return -EIO;
 	}
 
-	msg->address_lo = iova + addr;
+	msg->address_lo = iova;
 
 	return 0;
 }
