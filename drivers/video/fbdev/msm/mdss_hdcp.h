@@ -18,6 +18,8 @@
 #include <video/msm_hdmi_modes.h>
 #include <soc/qcom/scm.h>
 
+#define HDCP_SRM_CHECK_FAIL 29
+
 enum hdcp_client_id {
 	HDCP_CLIENT_HDMI,
 	HDCP_CLIENT_DP,
