@@ -19,6 +19,7 @@
 #include <net/netlink.h>
 #include "wil6210.h"
 #include "wmi.h"
+#include "ftm.h"
 
 #define WIL_MAX_ROC_DURATION_MS 5000
 
@@ -115,6 +116,15 @@ nla_policy wil_rf_sector_cfg_policy[QCA_ATTR_DMG_RF_SECTOR_CFG_MAX + 1] = {
 };
 
 enum qca_nl80211_vendor_subcmds {
+	QCA_NL80211_VENDOR_SUBCMD_LOC_GET_CAPA = 128,
+	QCA_NL80211_VENDOR_SUBCMD_FTM_START_SESSION = 129,
+	QCA_NL80211_VENDOR_SUBCMD_FTM_ABORT_SESSION = 130,
+	QCA_NL80211_VENDOR_SUBCMD_FTM_MEAS_RESULT = 131,
+	QCA_NL80211_VENDOR_SUBCMD_FTM_SESSION_DONE = 132,
+	QCA_NL80211_VENDOR_SUBCMD_FTM_CFG_RESPONDER = 133,
+	QCA_NL80211_VENDOR_SUBCMD_AOA_MEAS = 134,
+	QCA_NL80211_VENDOR_SUBCMD_AOA_ABORT_MEAS = 135,
+	QCA_NL80211_VENDOR_SUBCMD_AOA_MEAS_RESULT = 136,
 	QCA_NL80211_VENDOR_SUBCMD_DMG_RF_GET_SECTOR_CFG = 139,
 	QCA_NL80211_VENDOR_SUBCMD_DMG_RF_SET_SECTOR_CFG = 140,
 	QCA_NL80211_VENDOR_SUBCMD_DMG_RF_GET_SELECTED_SECTOR = 141,
@@ -136,6 +146,48 @@ static int wil_rf_sector_set_selected(struct wiphy *wiphy,
 
 /* vendor specific commands */
 static const struct wiphy_vendor_command wil_nl80211_vendor_commands[] = {
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_LOC_GET_CAPA,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.doit = wil_ftm_get_capabilities
+	},
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_FTM_START_SESSION,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.doit = wil_ftm_start_session
+	},
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_FTM_ABORT_SESSION,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.doit = wil_ftm_abort_session
+	},
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_FTM_CFG_RESPONDER,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.doit = wil_ftm_configure_responder
+	},
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_AOA_MEAS,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.doit = wil_aoa_start_measurement
+	},
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_AOA_ABORT_MEAS,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.doit = wil_aoa_abort_measurement
+	},
 	{
 		.info.vendor_id = QCA_NL80211_VENDOR_ID,
 		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_DMG_RF_GET_SECTOR_CFG,
@@ -165,6 +217,22 @@ static const struct wiphy_vendor_command wil_nl80211_vendor_commands[] = {
 		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
 			 WIPHY_VENDOR_CMD_NEED_RUNNING,
 		.doit = wil_rf_sector_set_selected
+	},
+};
+
+/* vendor specific events */
+static const struct nl80211_vendor_cmd_info wil_nl80211_vendor_events[] = {
+	[QCA_NL80211_VENDOR_EVENT_FTM_MEAS_RESULT_INDEX] = {
+			.vendor_id = QCA_NL80211_VENDOR_ID,
+			.subcmd = QCA_NL80211_VENDOR_SUBCMD_FTM_MEAS_RESULT
+	},
+	[QCA_NL80211_VENDOR_EVENT_FTM_SESSION_DONE_INDEX] = {
+			.vendor_id = QCA_NL80211_VENDOR_ID,
+			.subcmd = QCA_NL80211_VENDOR_SUBCMD_FTM_SESSION_DONE
+	},
+	[QCA_NL80211_VENDOR_EVENT_AOA_MEAS_RESULT_INDEX] = {
+			.vendor_id = QCA_NL80211_VENDOR_ID,
+			.subcmd = QCA_NL80211_VENDOR_SUBCMD_AOA_MEAS_RESULT
 	},
 };
 
@@ -1815,6 +1883,8 @@ static void wil_wiphy_init(struct wiphy *wiphy)
 
 	wiphy->n_vendor_commands = ARRAY_SIZE(wil_nl80211_vendor_commands);
 	wiphy->vendor_commands = wil_nl80211_vendor_commands;
+	wiphy->vendor_events = wil_nl80211_vendor_events;
+	wiphy->n_vendor_events = ARRAY_SIZE(wil_nl80211_vendor_events);
 
 #ifdef CONFIG_PM
 	wiphy->wowlan = &wil_wowlan_support;
