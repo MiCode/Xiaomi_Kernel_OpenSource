@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -324,7 +324,7 @@ struct smb_charger {
 	bool			sw_jeita_enabled;
 	bool			is_hdc;
 	bool			chg_done;
-	bool			micro_usb_mode;
+	bool			connector_type;
 	bool			otg_en;
 	bool			vconn_en;
 	bool			suspend_input_on_debug_batt;
