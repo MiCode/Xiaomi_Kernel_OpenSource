@@ -1236,8 +1236,10 @@ static int hdcp_1x_authentication_part2(struct hdcp_1x *hdcp)
 			goto error;
 
 		/* do not proceed further if no device connected */
-		if (!hdcp->current_tp.dev_count)
+		if (!hdcp->current_tp.dev_count) {
+			rc = -EINVAL;
 			goto error;
+		}
 
 		rc = hdcp_1x_write_ksv_fifo(hdcp);
 	} while (--v_retry && rc);
@@ -1344,7 +1346,7 @@ static void hdcp_1x_auth_work(struct work_struct *work)
 			goto end;
 	} else {
 		hdcp->hdcp_state = HDCP_STATE_AUTHENTICATED;
-		goto end;
+		goto disable_sw_ddc;
 	}
 
 	hdcp->ksv_ready = false;
@@ -1353,6 +1355,7 @@ static void hdcp_1x_auth_work(struct work_struct *work)
 	if (rc)
 		goto end;
 
+disable_sw_ddc:
 	/*
 	 * Disabling software DDC before going into part3 to make sure
 	 * there is no Arbitration between software and hardware for DDC
