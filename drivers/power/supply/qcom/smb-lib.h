@@ -247,6 +247,7 @@ struct smb_charger {
 	struct smb_iio		iio;
 	int			*debug_mask;
 	int			*try_sink_enabled;
+	int			*audio_headset_drp_wait_ms;
 	enum smb_mode		mode;
 	struct smb_chg_freq	chg_freq;
 	struct charger_param    chg_param;
@@ -357,6 +358,7 @@ struct smb_charger {
 	bool			disable_stat_sw_override;
 	bool			fcc_stepper_enable;
 	bool			ufp_only_mode;
+	bool			is_audio_adapter;
 
 	/* workaround flag */
 	u32			wa_flags;
