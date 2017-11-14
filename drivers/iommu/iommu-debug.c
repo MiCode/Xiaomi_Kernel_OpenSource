@@ -161,6 +161,7 @@ static void *test_virt_addr;
 struct iommu_debug_device {
 	struct device *dev;
 	struct iommu_domain *domain;
+	struct dma_iommu_mapping *mapping;
 	u64 iova;
 	u64 phys;
 	size_t len;
@@ -1329,6 +1330,8 @@ static ssize_t __iommu_debug_dma_attach_write(struct file *file,
 
 		if (arm_iommu_attach_device(dev, dma_mapping))
 			goto out_release_mapping;
+
+		ddev->mapping = dma_mapping;
 		pr_err("Attached\n");
 	} else {
 		if (!dev->archdata.mapping) {
@@ -1342,7 +1345,7 @@ static ssize_t __iommu_debug_dma_attach_write(struct file *file,
 			goto out;
 		}
 		arm_iommu_detach_device(dev);
-		arm_iommu_release_mapping(dev->archdata.mapping);
+		arm_iommu_release_mapping(ddev->mapping);
 		pr_err("Detached\n");
 	}
 	retval = count;
