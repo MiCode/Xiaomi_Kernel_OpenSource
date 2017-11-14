@@ -35,6 +35,8 @@
 #define ARM64_HYP_OFFSET_LOW			14
 #define ARM64_MISMATCHED_CACHE_LINE_SIZE	15
 
-#define ARM64_NCAPS				16
+#define ARM64_UNMAP_KERNEL_AT_EL0		23
+
+#define ARM64_NCAPS				24
 
 #endif /* __ASM_CPUCAPS_H */
