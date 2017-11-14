@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -723,8 +723,7 @@ int sps_rm_state_change(struct sps_pipe *pipe, u32 state)
 	    state == SPS_STATE_ALLOCATE) {
 		if (sps_rm_alloc(pipe)) {
 			SPS_ERR(pipe->bam,
-				"sps:Fail to allocate resource for"
-					" BAM 0x%p pipe %d.\n",
+				"sps:Fail to allocate resource for BAM 0x%pK pipe %d.\n",
 					pipe->bam, pipe->pipe_index);
 			return SPS_ERROR;
 		}
@@ -745,7 +744,7 @@ int sps_rm_state_change(struct sps_pipe *pipe, u32 state)
 		result = sps_bam_pipe_connect(pipe, &params);
 		if (result) {
 			SPS_ERR(pipe->bam,
-				"sps:Failed to connect BAM 0x%p pipe %d",
+				"sps:Failed to connect BAM 0x%pK pipe %d",
 					pipe->bam, pipe->pipe_index);
 			return SPS_ERROR;
 		}
