@@ -3054,6 +3054,37 @@ out:
 	return rc;
 }
 
+int wmi_set_snr_thresh(struct wil6210_priv *wil, short omni, short direct)
+{
+	struct wil6210_vif *vif = ndev_to_vif(wil->main_ndev);
+	int rc;
+	struct wmi_set_connect_snr_thr_cmd cmd = {
+		.enable = true,
+		.omni_snr_thr = cpu_to_le16(omni),
+		.direct_snr_thr = cpu_to_le16(direct),
+	};
+
+	if (!test_bit(WMI_FW_CAPABILITY_CONNECT_SNR_THR, wil->fw_capabilities))
+		return -ENOTSUPP;
+
+	if (omni == 0 && direct == 0)
+		cmd.enable = false;
+
+	wil_dbg_wmi(wil, "%s snr thresh omni=%d, direct=%d (1/4 dB units)\n",
+		    cmd.enable ? "enable" : "disable", omni, direct);
+
+	rc = wmi_send(wil, WMI_SET_CONNECT_SNR_THR_CMDID, vif->mid,
+		      &cmd, sizeof(cmd));
+	if (rc)
+		return rc;
+
+	wil->snr_thresh.enabled = cmd.enable;
+	wil->snr_thresh.omni = omni;
+	wil->snr_thresh.direct = direct;
+
+	return 0;
+}
+
 static void
 wmi_sched_scan_set_ssids(struct wil6210_priv *wil,
 			 struct wmi_start_sched_scan_cmd *cmd,
