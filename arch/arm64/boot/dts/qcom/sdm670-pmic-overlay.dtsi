@@ -380,5 +380,8 @@
 };
 
 &usb0 {
-	extcon = <&pm660_pdphy>, <&pm660_pdphy>, <&eud>;
+	extcon = <&pm660_pdphy>, <&pm660_pdphy>, <&eud>,
+					<&pm660_charger>, <&pm660_charger>;
+	vbus_dwc3-supply = <&smb2_vbus>;
+	qcom,no-vbus-vote-with-type-C;
 };
