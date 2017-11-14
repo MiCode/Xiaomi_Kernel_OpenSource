@@ -3815,6 +3815,20 @@ static int typec_try_sink(struct smb_charger *chg)
 	bool debounce_done, vbus_detected, sink;
 	u8 stat;
 	int exit_mode = ATTACHED_SRC, rc;
+	int typec_mode;
+
+	if (!(*chg->try_sink_enabled))
+		return ATTACHED_SRC;
+
+	typec_mode = smblib_get_prop_typec_mode(chg);
+	if (typec_mode == POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER
+		|| typec_mode == POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY)
+		return ATTACHED_SRC;
+
+	/*
+	 * Try.SNK entry status - ATTACHWAIT.SRC state and detected Rd-open
+	 * or RD-Ra for TccDebounce time.
+	 */
 
 	/* ignore typec interrupt while try.snk WIP */
 	chg->try_sink_active = true;
@@ -3953,20 +3967,18 @@ try_sink_exit:
 static void typec_sink_insertion(struct smb_charger *chg)
 {
 	int exit_mode;
+	int typec_mode;
 
-	/*
-	 * Try.SNK entry status - ATTACHWAIT.SRC state and detected Rd-open
-	 * or RD-Ra for TccDebounce time.
-	 */
+	exit_mode = typec_try_sink(chg);
 
-	if (*chg->try_sink_enabled) {
-		exit_mode = typec_try_sink(chg);
-
-		if (exit_mode != ATTACHED_SRC) {
-			smblib_usb_typec_change(chg);
-			return;
-		}
+	if (exit_mode != ATTACHED_SRC) {
+		smblib_usb_typec_change(chg);
+		return;
 	}
+
+	typec_mode = smblib_get_prop_typec_mode(chg);
+	if (typec_mode == POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER)
+		chg->is_audio_adapter = true;
 
 	/* when a sink is inserted we should not wait on hvdcp timeout to
 	 * enable pd
@@ -4090,6 +4102,12 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	if (rc < 0)
 		smblib_err(chg, "Couldn't set USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V rc=%d\n",
 			rc);
+
+	if (chg->is_audio_adapter == true)
+		/* wait for the audio driver to lower its en gpio */
+		msleep(*chg->audio_headset_drp_wait_ms);
+
+	chg->is_audio_adapter = false;
 
 	/* enable DRP */
 	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,

@@ -193,6 +193,11 @@ module_param_named(
 	try_sink_enabled, __try_sink_enabled, int, 0600
 );
 
+static int __audio_headset_drp_wait_ms = 100;
+module_param_named(
+	audio_headset_drp_wait_ms, __audio_headset_drp_wait_ms, int, 0600
+);
+
 #define MICRO_1P5A		1500000
 #define MICRO_P1A		100000
 #define OTG_DEFAULT_DEGLITCH_TIME_MS	50
@@ -2260,6 +2265,7 @@ static int smb2_probe(struct platform_device *pdev)
 	chg->irq_info = smb2_irqs;
 	chg->die_health = -EINVAL;
 	chg->name = "PMI";
+	chg->audio_headset_drp_wait_ms = &__audio_headset_drp_wait_ms;
 
 	chg->regmap = dev_get_regmap(chg->dev->parent, NULL);
 	if (!chg->regmap) {
