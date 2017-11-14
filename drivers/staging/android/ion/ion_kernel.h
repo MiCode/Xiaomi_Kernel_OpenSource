@@ -13,16 +13,22 @@
 #ifndef _ION_KERNEL_H
 #define _ION_KERNEL_H
 
+#include <linux/dma-buf.h>
 #include "../uapi/ion.h"
 
 #ifdef CONFIG_ION
 
-int ion_alloc(size_t len, unsigned int heap_id_mask, unsigned int flags);
+/*
+ * Allocates an ion buffer.
+ * Use IS_ERR on returned pointer to check for success.
+ */
+struct dma_buf *ion_alloc(size_t len, unsigned int heap_id_mask,
+			  unsigned int flags);
 
 #else
 
-static inline int ion_alloc(size_t len, unsigned int heap_id_mask,
-			    unsigned int flags)
+static inline struct dma_buf *ion_alloc(size_t len, unsigned int heap_id_mask,
+					unsigned int flags)
 {
 	return -ENOMEM;
 }
