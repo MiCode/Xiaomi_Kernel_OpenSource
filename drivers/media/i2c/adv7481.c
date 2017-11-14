@@ -75,6 +75,19 @@ enum adv7481_gpio_t {
 	ADV7481_GPIO_MAX,
 };
 
+enum adv7481_resolution {
+	RES_1080P = 0,
+	RES_720P,
+	RES_576P_480P,
+	RES_MAX,
+};
+
+struct resolution_config {
+	uint32_t lane_cnt;
+	uint32_t settle_cnt;
+	char resolution[20];
+};
+
 struct adv7481_state {
 	struct device *dev;
 
@@ -124,6 +137,9 @@ struct adv7481_state {
 	int csia_src;
 	int csib_src;
 	int mode;
+
+	/* resolution configuration */
+	struct resolution_config res_configs[RES_MAX];
 
 	/* CSI configuration data */
 	int tx_auto_params;
@@ -241,6 +257,13 @@ const uint8_t adv7481_default_edid_data[] = {
 
 static u32 adv7481_inp_to_ba(u32 adv_input);
 static bool adv7481_is_timing_locked(struct adv7481_state *state);
+static int adv7481_get_hdmi_timings(struct adv7481_state *state,
+				struct adv7481_vid_params *vid_params,
+				struct adv7481_hdmi_params *hdmi_params);
+static int get_lane_cnt(struct resolution_config *configs,
+			enum adv7481_resolution size, int w, int h);
+static int get_settle_cnt(struct resolution_config *configs,
+			enum adv7481_resolution size, int w, int h);
 
 static inline struct v4l2_subdev *to_sd(struct v4l2_ctrl *ctrl)
 {
@@ -1005,10 +1028,17 @@ static long adv7481_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
 	struct adv7481_state *state = to_state(sd);
 	int *ret_val = arg;
+	struct msm_ba_v4l2_ioctl_t adv_arg = *(struct msm_ba_v4l2_ioctl_t *)arg;
 	long ret = 0;
 	int param = 0;
+	struct csi_ctrl_params user_csi;
+	struct adv7481_vid_params vid_params;
+	struct adv7481_hdmi_params hdmi_params;
 
 	pr_debug("Enter %s with command: 0x%x", __func__, cmd);
+
+	memset(&vid_params, 0, sizeof(struct adv7481_vid_params));
+	memset(&hdmi_params, 0, sizeof(struct adv7481_hdmi_params));
 
 	if (!sd)
 		return -EINVAL;
@@ -1039,6 +1069,28 @@ static long adv7481_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 	case VIDIOC_HDMI_RX_CEC_S_ENABLE:
 		ret = adv7481_cec_powerup(state, arg);
 		break;
+	case VIDIOC_G_CSI_PARAMS: {
+		if (state->csia_src == ADV7481_IP_HDMI) {
+			ret = adv7481_get_hdmi_timings(state,
+					&vid_params, &hdmi_params);
+			if (ret) {
+				pr_err("%s:Error in adv7481_get_hdmi_timings\n",
+						__func__);
+				return -EINVAL;
+			}
+		}
+		user_csi.settle_count = get_settle_cnt(state->res_configs,
+			RES_MAX, vid_params.act_pix, vid_params.act_lines);
+		user_csi.lane_count = get_lane_cnt(state->res_configs,
+			RES_MAX, vid_params.act_pix, vid_params.act_lines);
+
+		if (copy_to_user((void __user *)adv_arg.ptr,
+			(void *)&user_csi, sizeof(struct csi_ctrl_params))) {
+			pr_err("%s: Failed to copy CSI params\n", __func__);
+			return -EINVAL;
+		}
+		break;
+	}
 	default:
 		pr_err("Not a typewriter! Command: 0x%x", cmd);
 		ret = -ENOTTY;
@@ -1541,6 +1593,65 @@ static bool adv7481_is_timing_locked(struct adv7481_state *state)
 	return ret;
 }
 
+static int get_settle_cnt(struct resolution_config *configs,
+			enum adv7481_resolution size, int w, int h)
+{
+	int i;
+	int ret = -EINVAL;
+	char res_type[20] = "RES_MAX";
+
+	if (w == 1920 && h == 1080) {
+		strlcpy(res_type, "RES_1080P", sizeof(res_type));
+	} else if (w == 1280 && h == 720) {
+		strlcpy(res_type, "RES_720P", sizeof(res_type));
+	} else if ((w == 720 && h == 576) || (w == 720 && h == 480)) {
+		strlcpy(res_type, "RES_576P_480P", sizeof(res_type));
+	} else {
+		pr_err("%s: Resolution not supported\n", __func__);
+		return ret;
+	}
+
+	for (i = 0; i < size; i++) {
+		if (strcmp(configs[i].resolution, res_type) == 0) {
+			pr_debug("%s: settle count is set to %d\n",
+				__func__, configs[i].settle_cnt);
+			ret = configs[i].settle_cnt;
+			break;
+		}
+	}
+	return ret;
+}
+
+
+static int get_lane_cnt(struct resolution_config *configs,
+			enum adv7481_resolution size, int w, int h)
+{
+	int i;
+	int ret = -EINVAL;
+	char res_type[20] = "RES_MAX";
+
+	if (w == 1920 && h == 1080) {
+		strlcpy(res_type, "RES_1080P", sizeof(res_type));
+	} else if (w == 1280 && h == 720) {
+		strlcpy(res_type, "RES_720P", sizeof(res_type));
+	} else if ((w == 720 && h == 576) || (w == 720 && h == 480)) {
+		strlcpy(res_type, "RES_576P_480P", sizeof(res_type));
+	} else {
+		pr_err("%s: Resolution not supported\n", __func__);
+		return ret;
+	}
+
+	for (i = 0; i < size; i++) {
+		if (strcmp(configs[i].resolution, res_type) == 0) {
+			pr_debug("%s: lane count is set to %d\n",
+				__func__, configs[i].lane_cnt);
+			ret = configs[i].lane_cnt;
+			break;
+		}
+	}
+	return ret;
+}
+
 static int adv7481_get_hdmi_timings(struct adv7481_state *state,
 				struct adv7481_vid_params *vid_params,
 				struct adv7481_hdmi_params *hdmi_params)
@@ -2032,12 +2143,30 @@ static int adv7481_csi_powerup(struct adv7481_state *state,
 static int adv7481_set_op_stream(struct adv7481_state *state, bool on)
 {
 	int ret = 0;
+	struct adv7481_vid_params vid_params;
+	struct adv7481_hdmi_params hdmi_params;
 
 	pr_debug("Enter %s: on: %d, a src: %d, b src: %d\n",
 			__func__, on, state->csia_src, state->csib_src);
+	memset(&vid_params, 0, sizeof(struct adv7481_vid_params));
+	memset(&hdmi_params, 0, sizeof(struct adv7481_hdmi_params));
+
 	if (on && state->csia_src != ADV7481_IP_NONE)
-		if (ADV7481_IP_HDMI == state->csia_src) {
-			state->tx_lanes = ADV7481_MIPI_4LANE;
+		if (state->csia_src == ADV7481_IP_HDMI) {
+			ret = adv7481_get_hdmi_timings(state, &vid_params,
+				&hdmi_params);
+			if (ret) {
+				pr_err("%s: Error %d in adv7481_get_hdmi_timings\n",
+					__func__, ret);
+				return -EINVAL;
+			}
+			state->tx_lanes = get_lane_cnt(state->res_configs,
+			RES_MAX, vid_params.act_pix, vid_params.act_lines);
+
+			if (state->tx_lanes < 0) {
+				pr_err("%s: Invalid lane count\n", __func__);
+				return -EINVAL;
+			}
 			ret = adv7481_set_audio_spdif(state, on);
 			ret |= adv7481_csi_powerup(state, ADV7481_OP_CSIA);
 		} else {
@@ -2245,6 +2374,9 @@ static int adv7481_parse_dt(struct platform_device *pdev,
 {
 	struct device_node *np = state->dev->of_node;
 	uint32_t i = 0;
+	uint32_t lane_count[RES_MAX];
+	uint32_t settle_count[RES_MAX];
+	static const char *resolution_array[RES_MAX];
 	int gpio_count = 0;
 	struct resource *adv_addr_res = NULL;
 	int ret = 0;
@@ -2258,6 +2390,36 @@ static int adv7481_parse_dt(struct platform_device *pdev,
 		goto exit;
 	}
 	pr_debug("%s: cci_master: 0x%x\n", __func__, state->cci_master);
+	/* read CSI data line */
+	ret = of_property_read_u32_array(np, "tx-lanes",
+				lane_count, RES_MAX);
+	if (ret < 0) {
+		pr_err("%s: failed to read data lane array . ret %d\n",
+			__func__, ret);
+		goto exit;
+	}
+	/* read settle count */
+	ret = of_property_read_u32_array(np, "settle-count",
+				settle_count, RES_MAX);
+	if (ret < 0) {
+		pr_err("%s: failed to read settle count . ret %d\n",
+			__func__, ret);
+		goto exit;
+	}
+	/* read resolution array */
+	ret = of_property_read_string_array(np, "res-array",
+				resolution_array, RES_MAX);
+	if (ret < 0) {
+		pr_err("%s: failed to read resolution array . ret %d\n",
+			__func__, ret);
+		goto exit;
+	}
+	for (i = 0; i < RES_MAX; i++) {
+		state->res_configs[i].lane_cnt = (uint32_t)lane_count[i];
+		state->res_configs[i].settle_cnt = (uint32_t)settle_count[i];
+		strlcpy(state->res_configs[i].resolution, resolution_array[i],
+			sizeof(state->res_configs[i].resolution));
+	}
 	adv_addr_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!adv_addr_res) {
 		pr_err("%s: failed to read adv7481 resource.\n", __func__);

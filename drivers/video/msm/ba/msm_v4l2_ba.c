@@ -227,6 +227,14 @@ static int msm_ba_v4l2_g_parm(struct file *file, void *fh,
 	return 0;
 }
 
+static long msm_ba_v4l2_private_ioctl(struct file *file, void *fh,
+			bool valid_prio, unsigned int cmd, void *arg)
+{
+	struct msm_ba_inst *ba_inst = get_ba_inst(file, fh);
+
+	return msm_ba_private_ioctl((void *)ba_inst, cmd, (void *)arg);
+}
+
 static const struct v4l2_ioctl_ops msm_ba_v4l2_ioctl_ops = {
 	.vidioc_querycap = msm_ba_v4l2_querycap,
 	.vidioc_enum_fmt_vid_cap = msm_ba_v4l2_enum_fmt,
@@ -250,6 +258,7 @@ static const struct v4l2_ioctl_ops msm_ba_v4l2_ioctl_ops = {
 	.vidioc_enum_output = msm_ba_v4l2_enum_output,
 	.vidioc_g_output = msm_ba_v4l2_g_output,
 	.vidioc_s_output = msm_ba_v4l2_s_output,
+	.vidioc_default = msm_ba_v4l2_private_ioctl,
 };
 
 static unsigned int msm_ba_v4l2_poll(struct file *filp,

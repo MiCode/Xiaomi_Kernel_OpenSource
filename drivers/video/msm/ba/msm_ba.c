@@ -21,6 +21,7 @@
 #include <linux/videodev2.h>
 #include <media/v4l2-device.h>
 #include <media/msm_ba.h>
+#include <media/adv7481.h>
 
 #include "msm_ba_internal.h"
 #include "msm_ba_debug.h"
@@ -546,6 +547,24 @@ long msm_ba_private_ioctl(void *instance, int cmd, void *arg)
 		}
 		if (s_ioctl) {
 			rc = v4l2_subdev_call(sd, core, ioctl, cmd, s_ioctl);
+			if (rc)
+				dprintk(BA_ERR, "%s failed: %ld on cmd: 0x%x",
+					__func__, rc, cmd);
+		} else {
+			dprintk(BA_ERR, "%s: NULL argument provided", __func__);
+			rc = -EINVAL;
+		}
+	}
+		break;
+	case VIDIOC_G_CSI_PARAMS: {
+		dprintk(BA_DBG, "VIDIOC_G_CSI_PARAMS");
+		sd = inst->sd;
+		if (!sd) {
+			dprintk(BA_ERR, "No sd registered");
+			return -EINVAL;
+		}
+		if (arg) {
+			rc = v4l2_subdev_call(sd, core, ioctl, cmd, arg);
 			if (rc)
 				dprintk(BA_ERR, "%s failed: %ld on cmd: 0x%x",
 					__func__, rc, cmd);
