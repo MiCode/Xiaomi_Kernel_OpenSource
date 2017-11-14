@@ -6926,7 +6926,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	int target_cpu, targeted_cpus = 0;
 	unsigned long task_util_boosted = 0, curr_util = 0;
 	long new_util, new_util_cum;
-	int i = -1;
+	int i;
 	int ediff = -1;
 	int cpu = smp_processor_id();
 	int min_util_cpu = -1;
@@ -6947,13 +6947,8 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	struct related_thread_group *grp;
 	cpumask_t search_cpus;
 	int prev_cpu = task_cpu(p);
-#ifdef CONFIG_SCHED_CORE_ROTATE
 	bool do_rotate = false;
 	bool avoid_prev_cpu = false;
-#else
-#define do_rotate false
-#define avoid_prev_cpu false
-#endif
 
 	sd = rcu_dereference(per_cpu(sd_ea, prev_cpu));
 
@@ -7042,13 +7037,11 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 		cpumask_and(&search_cpus, &search_cpus,
 			    sched_group_cpus(sg_target));
 
-#ifdef CONFIG_SCHED_CORE_ROTATE
 		i = find_first_cpu_bit(p, &search_cpus, sg_target,
 				       &avoid_prev_cpu, &do_rotate,
 				       &first_cpu_bit_env);
 
 retry:
-#endif
 		/* Find cpu with sufficient capacity */
 		while ((i = cpumask_next(i, &search_cpus)) < nr_cpu_ids) {
 			cpumask_clear_cpu(i, &search_cpus);
@@ -7144,9 +7137,7 @@ retry:
 					}
 				} else if (cpu_rq(i)->nr_running) {
 					target_cpu = i;
-#ifdef CONFIG_SCHED_CORE_ROTATE
 					do_rotate = false;
-#endif
 					break;
 				}
 			} else if (!need_idle) {
@@ -7186,7 +7177,6 @@ retry:
 			}
 		}
 
-#ifdef CONFIG_SCHED_CORE_ROTATE
 		if (do_rotate) {
 			/*
 			 * We started iteration somewhere in the middle of
@@ -7197,7 +7187,6 @@ retry:
 			i = -1;
 			goto retry;
 		}
-#endif
 
 		if (target_cpu == -1 ||
 		    (target_cpu != min_util_cpu && !safe_to_pack &&
