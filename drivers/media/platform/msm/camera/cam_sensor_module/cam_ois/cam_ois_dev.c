@@ -259,6 +259,7 @@ static int32_t cam_ois_platform_driver_probe(
 		return -ENOMEM;
 
 	o_ctrl->soc_info.pdev = pdev;
+	o_ctrl->pdev = pdev;
 	o_ctrl->soc_info.dev = &pdev->dev;
 	o_ctrl->soc_info.dev_name = pdev->name;
 
