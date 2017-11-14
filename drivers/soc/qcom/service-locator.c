@@ -189,7 +189,7 @@ static int servreg_loc_send_msg(struct msg_desc *req_desc,
 	 */
 	rc = qmi_send_req_wait(service_locator.clnt_handle, req_desc, req,
 		sizeof(*req), resp_desc, resp, sizeof(*resp),
-		msecs_to_jiffies(QMI_SERVREG_LOC_SERVER_TIMEOUT));
+		QMI_SERVREG_LOC_SERVER_TIMEOUT);
 	if (rc < 0) {
 		pr_err("QMI send req failed for client %s, ret - %d\n",
 			pd->client_name, rc);
