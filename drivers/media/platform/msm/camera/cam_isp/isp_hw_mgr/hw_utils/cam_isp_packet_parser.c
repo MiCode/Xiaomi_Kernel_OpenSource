@@ -97,6 +97,8 @@ static int cam_isp_update_dual_config(
 	struct cam_ife_hw_mgr_res                  *hw_mgr_res;
 	struct cam_isp_resource_node               *res;
 	struct cam_isp_hw_dual_isp_update_args      dual_isp_update_args;
+	uint32_t                                    outport_id;
+	uint32_t                                    ports_plane_idx;
 	size_t                                      len = 0;
 	uint32_t                                   *cpu_addr;
 	uint32_t                                    i, j;
@@ -113,6 +115,14 @@ static int cam_isp_update_dual_config(
 	dual_config = (struct cam_isp_dual_config *)cpu_addr;
 
 	for (i = 0; i < dual_config->num_ports; i++) {
+
+		if (i >= CAM_ISP_IFE_OUT_RES_MAX) {
+			CAM_ERR(CAM_UTIL,
+				"failed update for i:%d > size_isp_out:%d",
+				i, size_isp_out);
+			return -EINVAL;
+		}
+
 		hw_mgr_res = &res_list_isp_out[i];
 		for (j = 0; j < CAM_ISP_HW_SPLIT_MAX; j++) {
 			if (!hw_mgr_res->hw_res[j])
@@ -122,6 +132,20 @@ static int cam_isp_update_dual_config(
 				continue;
 
 			res = hw_mgr_res->hw_res[j];
+
+			if (res->res_id < CAM_ISP_IFE_OUT_RES_BASE ||
+				res->res_id >= CAM_ISP_IFE_OUT_RES_MAX)
+				continue;
+
+			outport_id = res->res_id & 0xFF;
+
+			ports_plane_idx = (j * (dual_config->num_ports *
+				CAM_PACKET_MAX_PLANES)) +
+				(outport_id * CAM_PACKET_MAX_PLANES);
+
+			if (dual_config->stripes[ports_plane_idx].port_id == 0)
+				continue;
+
 			dual_isp_update_args.split_id = j;
 			dual_isp_update_args.res      = res;
 			dual_isp_update_args.dual_cfg = dual_config;
