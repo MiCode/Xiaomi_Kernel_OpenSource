@@ -127,6 +127,7 @@
 } while (0)
 
 #define DMA_RX_BUF_SIZE		(2048)
+#define UART_CONSOLE_RX_WM	(2)
 struct msm_geni_serial_port {
 	struct uart_port uport;
 	char name[20];
@@ -1358,6 +1359,7 @@ static irqreturn_t msm_geni_serial_isr(int isr, void *dev)
 	unsigned long flags;
 	unsigned int m_irq_en;
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
+	struct tty_port *tport = &uport->state->port;
 	bool drop_rx = false;
 
 	spin_lock_irqsave(&uport->lock, flags);
@@ -1387,7 +1389,8 @@ static irqreturn_t msm_geni_serial_isr(int isr, void *dev)
 	}
 
 	if (s_irq_status & S_RX_FIFO_WR_ERR_EN) {
-		uport->icount.buf_overrun++;
+		uport->icount.overrun++;
+		tty_insert_flip_char(tport, 0, TTY_OVERRUN);
 		IPC_LOG_MSG(msm_port->ipc_log_misc,
 			"%s.sirq 0x%x buf_overrun:%d\n",
 			__func__, s_irq_status, uport->icount.buf_overrun);
@@ -1526,7 +1529,10 @@ static void set_rfr_wm(struct msm_geni_serial_port *port)
 	 * TX WM level at 10% TX_FIFO_DEPTH.
 	 */
 	port->rx_rfr = port->rx_fifo_depth - 2;
-	port->rx_wm = port->rx_fifo_depth >>  1;
+	if (!uart_console(&port->uport))
+		port->rx_wm = port->rx_fifo_depth >>  1;
+	else
+		port->rx_wm = UART_CONSOLE_RX_WM;
 	port->tx_wm = 2;
 }
 
