@@ -138,6 +138,7 @@ static const struct snd_kcontrol_new name##_mux = \
 #define  CF_MIN_3DB_75HZ		0x1
 #define  CF_MIN_3DB_150HZ		0x2
 
+#define  SB_OF_UF_MAX_RETRY_CNT		5
 #define CPE_ERR_WDOG_BITE BIT(0)
 #define CPE_FATAL_IRQS CPE_ERR_WDOG_BITE
 
@@ -657,6 +658,8 @@ struct tavil_priv {
 	int power_active_ref;
 	int sidetone_coeff_array[IIR_MAX][BAND_MAX]
 		[WCD934X_CDC_SIDETONE_IIR_COEFF_MAX];
+
+	unsigned short slim_tx_of_uf_cnt[WCD934X_TX_MAX][SB_PORT_ERR_MAX];
 };
 
 static const struct tavil_reg_mask_val tavil_spkr_default[] = {
@@ -1666,6 +1669,7 @@ static int tavil_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 	struct tavil_priv *tavil_p = snd_soc_codec_get_drvdata(codec);
 	struct wcd9xxx_codec_dai_data *dai;
 	struct wcd9xxx *core;
+	struct wcd9xxx_ch *ch;
 	int ret = 0;
 
 	dev_dbg(codec->dev,
@@ -1697,6 +1701,13 @@ static int tavil_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 			dev_dbg(codec->dev, "%s: Disconnect RX port, ret = %d\n",
 				 __func__, ret);
 		}
+		/* reset overflow and underflow counts */
+		list_for_each_entry(ch, &dai->wcd9xxx_ch_list, list) {
+			tavil_p->slim_tx_of_uf_cnt[ch->port][SB_PORT_ERR_OF]
+									= 0;
+			tavil_p->slim_tx_of_uf_cnt[ch->port][SB_PORT_ERR_UF]
+									= 0;
+		}
 		break;
 	}
 	return ret;
@@ -1711,6 +1722,7 @@ static int tavil_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 	struct tavil_priv *tavil_p = NULL;
 	int ret = 0;
 	struct wcd9xxx_codec_dai_data *dai = NULL;
+	struct wcd9xxx_ch *ch;
 
 	codec = snd_soc_dapm_to_codec(w->dapm);
 	tavil_p = snd_soc_codec_get_drvdata(codec);
@@ -1802,6 +1814,13 @@ static int tavil_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 				dai->grph);
 			dev_dbg(codec->dev, "%s: Disconnect TX port, ret = %d\n",
 				__func__, ret);
+		}
+		/* reset over.f and under.f counts */
+		list_for_each_entry(ch, &dai->wcd9xxx_ch_list, list) {
+			tavil_p->slim_tx_of_uf_cnt[ch->port][SB_PORT_ERR_OF]
+									= 0;
+			tavil_p->slim_tx_of_uf_cnt[ch->port][SB_PORT_ERR_UF]
+									= 0;
 		}
 		if (test_bit(VI_SENSE_1, &tavil_p->status_mask)) {
 			/* Disable V&I sensing */
@@ -8753,14 +8772,42 @@ static irqreturn_t tavil_slimbus_irq(int irq, void *data)
 		if (val & WCD934X_SLIM_IRQ_UNDERFLOW)
 			dev_err_ratelimited(tavil->dev, "%s: underflow error on %s port %d, value %x\n",
 			   __func__, (tx ? "TX" : "RX"), port_id, val);
+
+		if (tx) {
+			/* inc count */
+			if (val & WCD934X_SLIM_IRQ_OVERFLOW) {
+				tavil->slim_tx_of_uf_cnt[port_id]
+							[SB_PORT_ERR_OF]++;
+				dev_err_ratelimited(tavil->dev, "%s: tx port(%d) overflow cnt: %d\n",
+					__func__, port_id,
+					tavil->slim_tx_of_uf_cnt[port_id]
+							[SB_PORT_ERR_OF]);
+			}
+			if (val & WCD934X_SLIM_IRQ_UNDERFLOW) {
+				tavil->slim_tx_of_uf_cnt[port_id]
+							[SB_PORT_ERR_UF]++;
+				dev_err_ratelimited(tavil->dev, "%s: tx port(%d) underflow cnt: %d\n",
+						__func__, port_id,
+					tavil->slim_tx_of_uf_cnt[port_id]
+							[SB_PORT_ERR_UF]);
+			}
+
+		}
+
 		if ((val & WCD934X_SLIM_IRQ_OVERFLOW) ||
 			(val & WCD934X_SLIM_IRQ_UNDERFLOW)) {
 			if (!tx)
 				reg = WCD934X_SLIM_PGD_PORT_INT_RX_EN0 +
 					(port_id / 8);
-			else
+			else if ((tavil->slim_tx_of_uf_cnt[port_id]
+				[SB_PORT_ERR_OF] > SB_OF_UF_MAX_RETRY_CNT) ||
+				(tavil->slim_tx_of_uf_cnt[port_id]
+				[SB_PORT_ERR_UF] > SB_OF_UF_MAX_RETRY_CNT))
 				reg = WCD934X_SLIM_PGD_PORT_INT_TX_EN0 +
 					(port_id / 8);
+			else
+				goto skip_port_disable;
+
 			int_val = wcd9xxx_interface_reg_read(
 				tavil->wcd9xxx, reg);
 			if (int_val & (1 << (port_id % 8))) {
@@ -8769,6 +8816,7 @@ static irqreturn_t tavil_slimbus_irq(int irq, void *data)
 					reg, int_val);
 			}
 		}
+skip_port_disable:
 		if (val & WCD934X_SLIM_IRQ_PORT_CLOSED) {
 			/*
 			 * INT SOURCE register starts from RX to TX
