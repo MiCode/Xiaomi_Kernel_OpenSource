@@ -124,6 +124,17 @@ static int __cam_fd_ctx_release_dev_in_activated(struct cam_context *ctx,
 	return rc;
 }
 
+static int __cam_fd_ctx_flush_dev_in_activated(struct cam_context *ctx,
+	struct cam_flush_dev_cmd *cmd)
+{
+	int rc;
+
+	rc = cam_context_flush_dev_to_hw(ctx, cmd);
+	if (rc)
+		CAM_ERR(CAM_ICP, "Failed to flush device, rc=%d", rc);
+
+	return rc;
+}
 static int __cam_fd_ctx_config_dev_in_activated(
 	struct cam_context *ctx, struct cam_config_dev_cmd *cmd)
 {
@@ -191,6 +202,7 @@ static struct cam_ctx_ops
 			.stop_dev = __cam_fd_ctx_stop_dev_in_activated,
 			.release_dev = __cam_fd_ctx_release_dev_in_activated,
 			.config_dev = __cam_fd_ctx_config_dev_in_activated,
+			.flush_dev = __cam_fd_ctx_flush_dev_in_activated,
 		},
 		.crm_ops = {},
 		.irq_ops = __cam_fd_ctx_handle_irq_in_activated,

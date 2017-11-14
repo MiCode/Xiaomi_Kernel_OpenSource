@@ -207,7 +207,7 @@ static int cam_fd_mgr_util_get_device(struct cam_fd_hw_mgr *hw_mgr,
 		return -EINVAL;
 	}
 
-	CAM_DBG(CAM_FD, "ctx index=%d, hw_ctx=%d", hw_ctx->ctx_index,
+	CAM_DBG(CAM_FD, "ctx_index=%u, hw_ctx=%d", hw_ctx->ctx_index,
 		hw_ctx->device_index);
 
 	*hw_device = &hw_mgr->hw_device[hw_ctx->device_index];
@@ -335,7 +335,7 @@ static int cam_fd_mgr_util_select_device(struct cam_fd_hw_mgr *hw_mgr,
 	/* Update required info in hw context */
 	hw_ctx->device_index = i;
 
-	CAM_DBG(CAM_FD, "ctx index=%d, device_index=%d", hw_ctx->ctx_index,
+	CAM_DBG(CAM_FD, "ctx index=%u, device_index=%d", hw_ctx->ctx_index,
 		hw_ctx->device_index);
 
 	return 0;
@@ -1239,7 +1239,7 @@ static int cam_fd_mgr_hw_start(void *hw_mgr_priv, void *mgr_start_args)
 		return -EPERM;
 	}
 
-	CAM_DBG(CAM_FD, "ctx index=%d, device_index=%d", hw_ctx->ctx_index,
+	CAM_DBG(CAM_FD, "ctx index=%u, device_index=%d", hw_ctx->ctx_index,
 		hw_ctx->device_index);
 
 	rc = cam_fd_mgr_util_get_device(hw_mgr, hw_ctx, &hw_device);
@@ -1266,26 +1266,125 @@ static int cam_fd_mgr_hw_start(void *hw_mgr_priv, void *mgr_start_args)
 	return rc;
 }
 
-static int cam_fd_mgr_hw_flush(void *hw_mgr_priv,
-	struct cam_fd_hw_mgr_ctx *hw_ctx)
+static int cam_fd_mgr_hw_flush_req(void *hw_mgr_priv,
+	struct cam_hw_flush_args *flush_args)
 {
 	int rc = 0;
-	struct cam_fd_mgr_frame_request *frame_req, *req_temp;
-	struct cam_fd_hw_stop_args hw_stop_args;
+	struct cam_fd_mgr_frame_request *frame_req, *req_temp, *flush_req;
 	struct cam_fd_hw_mgr *hw_mgr = (struct cam_fd_hw_mgr *)hw_mgr_priv;
 	struct cam_fd_device *hw_device;
+	struct cam_fd_hw_stop_args hw_stop_args;
+	struct cam_fd_hw_mgr_ctx *hw_ctx;
+	uint32_t i = 0;
 
-	if (!hw_mgr_priv || !hw_ctx) {
-		CAM_ERR(CAM_FD, "Invalid arguments %pK %pK",
-			hw_mgr_priv, hw_ctx);
-		return -EINVAL;
-	}
+	hw_ctx = (struct cam_fd_hw_mgr_ctx *)flush_args->ctxt_to_hw_map;
 
-	if (!hw_ctx->ctx_in_use) {
+	if (!hw_ctx || !hw_ctx->ctx_in_use) {
 		CAM_ERR(CAM_FD, "Invalid context is used, hw_ctx=%pK", hw_ctx);
 		return -EPERM;
 	}
-	CAM_DBG(CAM_FD, "ctx index=%d, hw_ctx=%d", hw_ctx->ctx_index,
+	CAM_DBG(CAM_FD, "ctx index=%u, hw_ctx=%d", hw_ctx->ctx_index,
+		hw_ctx->device_index);
+
+	rc = cam_fd_mgr_util_get_device(hw_mgr, hw_ctx, &hw_device);
+	if (rc) {
+		CAM_ERR(CAM_FD, "Error in getting device %d", rc);
+		return rc;
+	}
+
+	mutex_lock(&hw_mgr->frame_req_mutex);
+	for (i = 0; i < flush_args->num_req_active; i++) {
+		flush_req = (struct cam_fd_mgr_frame_request *)
+			flush_args->flush_req_active[i];
+
+		list_for_each_entry_safe(frame_req, req_temp,
+			&hw_mgr->frame_pending_list_high, list) {
+			if (frame_req->hw_ctx != hw_ctx)
+				continue;
+
+			if (frame_req->request_id != flush_req->request_id)
+				continue;
+
+			list_del_init(&frame_req->list);
+			break;
+		}
+
+		list_for_each_entry_safe(frame_req, req_temp,
+			&hw_mgr->frame_pending_list_normal, list) {
+			if (frame_req->hw_ctx != hw_ctx)
+				continue;
+
+			if (frame_req->request_id != flush_req->request_id)
+				continue;
+
+			list_del_init(&frame_req->list);
+			break;
+		}
+
+		list_for_each_entry_safe(frame_req, req_temp,
+			&hw_mgr->frame_processing_list, list) {
+			if (frame_req->hw_ctx != hw_ctx)
+				continue;
+
+			if (frame_req->request_id != flush_req->request_id)
+				continue;
+
+			list_del_init(&frame_req->list);
+
+			mutex_lock(&hw_device->lock);
+			if ((hw_device->ready_to_process == true) ||
+				(hw_device->cur_hw_ctx != hw_ctx))
+				goto unlock_dev_flush_req;
+
+			if (hw_device->hw_intf->hw_ops.stop) {
+				hw_stop_args.hw_ctx = hw_ctx;
+				rc = hw_device->hw_intf->hw_ops.stop(
+					hw_device->hw_intf->hw_priv,
+					&hw_stop_args,
+					sizeof(hw_stop_args));
+				if (rc) {
+					CAM_ERR(CAM_FD,
+						"Failed in HW Stop %d", rc);
+					goto unlock_dev_flush_req;
+				}
+				hw_device->ready_to_process = true;
+			}
+
+unlock_dev_flush_req:
+			mutex_unlock(&hw_device->lock);
+			break;
+		}
+	}
+	mutex_unlock(&hw_mgr->frame_req_mutex);
+
+	for (i = 0; i < flush_args->num_req_pending; i++) {
+		flush_req = (struct cam_fd_mgr_frame_request *)
+			flush_args->flush_req_pending[i];
+		cam_fd_mgr_util_put_frame_req(&hw_mgr->frame_free_list,
+			&flush_req);
+	}
+
+	return rc;
+}
+
+static int cam_fd_mgr_hw_flush_ctx(void *hw_mgr_priv,
+	struct cam_hw_flush_args *flush_args)
+{
+	int rc = 0;
+	struct cam_fd_mgr_frame_request *frame_req, *req_temp, *flush_req;
+	struct cam_fd_hw_mgr *hw_mgr = (struct cam_fd_hw_mgr *)hw_mgr_priv;
+	struct cam_fd_device *hw_device;
+	struct cam_fd_hw_stop_args hw_stop_args;
+	struct cam_fd_hw_mgr_ctx *hw_ctx;
+	uint32_t i = 0;
+
+	hw_ctx = (struct cam_fd_hw_mgr_ctx *)flush_args->ctxt_to_hw_map;
+
+	if (!hw_ctx || !hw_ctx->ctx_in_use) {
+		CAM_ERR(CAM_FD, "Invalid context is used, hw_ctx=%pK", hw_ctx);
+		return -EPERM;
+	}
+	CAM_DBG(CAM_FD, "ctx index=%u, hw_ctx=%d", hw_ctx->ctx_index,
 		hw_ctx->device_index);
 
 	rc = cam_fd_mgr_util_get_device(hw_mgr, hw_ctx, &hw_device);
@@ -1317,28 +1416,64 @@ static int cam_fd_mgr_hw_flush(void *hw_mgr_priv,
 			continue;
 
 		list_del_init(&frame_req->list);
+		mutex_lock(&hw_device->lock);
+		if ((hw_device->ready_to_process == true) ||
+			(hw_device->cur_hw_ctx != hw_ctx))
+			goto unlock_dev_flush_ctx;
+
+		if (hw_device->hw_intf->hw_ops.stop) {
+			hw_stop_args.hw_ctx = hw_ctx;
+			rc = hw_device->hw_intf->hw_ops.stop(
+				hw_device->hw_intf->hw_priv, &hw_stop_args,
+				sizeof(hw_stop_args));
+			if (rc) {
+				CAM_ERR(CAM_FD, "Failed in HW Stop %d", rc);
+				goto unlock_dev_flush_ctx;
+			}
+			hw_device->ready_to_process = true;
+		}
+
+unlock_dev_flush_ctx:
+	mutex_unlock(&hw_device->lock);
 	}
 	mutex_unlock(&hw_mgr->frame_req_mutex);
 
-	mutex_lock(&hw_device->lock);
-	if ((hw_device->ready_to_process == true) ||
-		(hw_device->cur_hw_ctx != hw_ctx))
-		goto end;
-
-	if (hw_device->hw_intf->hw_ops.stop) {
-		hw_stop_args.hw_ctx = hw_ctx;
-		rc = hw_device->hw_intf->hw_ops.stop(
-			hw_device->hw_intf->hw_priv, &hw_stop_args,
-			sizeof(hw_stop_args));
-		if (rc) {
-			CAM_ERR(CAM_FD, "Failed in HW Stop %d", rc);
-			goto end;
-		}
-		hw_device->ready_to_process = true;
+	for (i = 0; i < flush_args->num_req_pending; i++) {
+		flush_req = (struct cam_fd_mgr_frame_request *)
+			flush_args->flush_req_pending[i];
+		cam_fd_mgr_util_put_frame_req(&hw_mgr->frame_free_list,
+			&flush_req);
 	}
 
-end:
-	mutex_unlock(&hw_device->lock);
+	return rc;
+}
+
+static int cam_fd_mgr_hw_flush(void *hw_mgr_priv,
+	void *hw_flush_args)
+{
+	int rc = 0;
+	struct cam_hw_flush_args *flush_args =
+		(struct cam_hw_flush_args *)hw_flush_args;
+
+	if (!hw_mgr_priv || !hw_flush_args) {
+		CAM_ERR(CAM_FD, "Invalid arguments %pK %pK",
+			hw_mgr_priv, hw_flush_args);
+		return -EINVAL;
+	}
+
+	switch (flush_args->flush_type) {
+	case CAM_FLUSH_TYPE_REQ:
+		rc = cam_fd_mgr_hw_flush_req(hw_mgr_priv, flush_args);
+		break;
+	case CAM_FLUSH_TYPE_ALL:
+		rc = cam_fd_mgr_hw_flush_ctx(hw_mgr_priv, flush_args);
+		break;
+	default:
+		rc = -EINVAL;
+		CAM_ERR(CAM_FD, "Invalid flush type %d",
+			flush_args->flush_type);
+		break;
+	}
 	return rc;
 }
 
@@ -1363,7 +1498,7 @@ static int cam_fd_mgr_hw_stop(void *hw_mgr_priv, void *mgr_stop_args)
 		CAM_ERR(CAM_FD, "Invalid context is used, hw_ctx=%pK", hw_ctx);
 		return -EPERM;
 	}
-	CAM_DBG(CAM_FD, "ctx index=%d, hw_ctx=%d", hw_ctx->ctx_index,
+	CAM_DBG(CAM_FD, "ctx index=%u, hw_ctx=%d", hw_ctx->ctx_index,
 		hw_ctx->device_index);
 
 	rc = cam_fd_mgr_util_get_device(hw_mgr, hw_ctx, &hw_device);
@@ -1374,10 +1509,6 @@ static int cam_fd_mgr_hw_stop(void *hw_mgr_priv, void *mgr_stop_args)
 
 	CAM_DBG(CAM_FD, "FD Device ready_to_process = %d",
 		hw_device->ready_to_process);
-
-	rc = cam_fd_mgr_hw_flush(hw_mgr, hw_ctx);
-	if (rc)
-		CAM_ERR(CAM_FD, "FD failed to flush");
 
 	if (hw_device->hw_intf->hw_ops.deinit) {
 		hw_deinit_args.hw_ctx = hw_ctx;
@@ -1791,6 +1922,7 @@ int cam_fd_hw_mgr_init(struct device_node *of_node,
 	hw_mgr_intf->hw_read = NULL;
 	hw_mgr_intf->hw_write = NULL;
 	hw_mgr_intf->hw_close = NULL;
+	hw_mgr_intf->hw_flush = cam_fd_mgr_hw_flush;
 
 	return rc;
 

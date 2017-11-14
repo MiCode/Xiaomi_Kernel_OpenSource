@@ -254,6 +254,35 @@ int cam_context_handle_release_dev(struct cam_context *ctx,
 	return rc;
 }
 
+int cam_context_handle_flush_dev(struct cam_context *ctx,
+	struct cam_flush_dev_cmd *cmd)
+{
+	int rc;
+
+	if (!ctx->state_machine) {
+		CAM_ERR(CAM_CORE, "context is not ready");
+		return -EINVAL;
+	}
+
+	if (!cmd) {
+		CAM_ERR(CAM_CORE, "Invalid flush device command payload");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ctx->ctx_mutex);
+	if (ctx->state_machine[ctx->state].ioctl_ops.flush_dev) {
+		rc = ctx->state_machine[ctx->state].ioctl_ops.flush_dev(
+			ctx, cmd);
+	} else {
+		CAM_ERR(CAM_CORE, "No flush device in dev %d, state %d",
+			ctx->dev_hdl, ctx->state);
+		rc = -EPROTO;
+	}
+	mutex_unlock(&ctx->ctx_mutex);
+
+	return rc;
+}
+
 int cam_context_handle_config_dev(struct cam_context *ctx,
 	struct cam_config_dev_cmd *cmd)
 {
@@ -409,8 +438,10 @@ int cam_context_deinit(struct cam_context *ctx)
 void cam_context_putref(struct cam_context *ctx)
 {
 	kref_put(&ctx->refcount, cam_node_put_ctxt_to_free_list);
-	CAM_DBG(CAM_CORE, "ctx device hdl %ld, ref count %d",
-		ctx->dev_hdl, atomic_read(&(ctx->refcount.refcount)));
+	CAM_DBG(CAM_CORE,
+		"ctx device hdl %ld, ref count %d, dev_name %s",
+		ctx->dev_hdl, atomic_read(&(ctx->refcount.refcount)),
+		ctx->dev_name);
 }
 
 void cam_context_getref(struct cam_context *ctx)
@@ -419,6 +450,8 @@ void cam_context_getref(struct cam_context *ctx)
 		/* should never happen */
 		WARN(1, "cam_context_getref fail\n");
 	}
-	CAM_DBG(CAM_CORE, "ctx device hdl %ld, ref count %d",
-		ctx->dev_hdl, atomic_read(&(ctx->refcount.refcount)));
+	CAM_DBG(CAM_CORE,
+		"ctx device hdl %ld, ref count %d, dev_name %s",
+		ctx->dev_hdl, atomic_read(&(ctx->refcount.refcount)),
+		ctx->dev_name);
 }

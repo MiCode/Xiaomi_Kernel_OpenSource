@@ -75,11 +75,13 @@ struct cam_jpeg_hw_cdm_info_t {
  * @list_head: List head
  * @hw_cfg_args: Hw config args
  * @dev_type: Dev type for cfg request
+ * @req_id: Request Id
  */
 struct cam_jpeg_hw_cfg_req {
 	struct list_head list;
 	struct cam_hw_config_args hw_cfg_args;
 	uint32_t dev_type;
+	int64_t req_id;
 };
 
 /**
