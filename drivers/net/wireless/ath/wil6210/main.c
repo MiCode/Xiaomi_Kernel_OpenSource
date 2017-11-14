@@ -1088,6 +1088,10 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 
 		wil_collect_fw_info(wil);
 
+		if (wil->snr_thresh.enabled)
+			wmi_set_snr_thresh(wil, wil->snr_thresh.omni,
+					   wil->snr_thresh.direct);
+
 		if (wil->platform_ops.notify) {
 			rc = wil->platform_ops.notify(wil->platform_handle,
 						      WIL_PLATFORM_EVT_FW_RDY);
