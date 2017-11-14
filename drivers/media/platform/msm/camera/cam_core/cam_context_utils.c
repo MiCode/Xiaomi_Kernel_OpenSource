@@ -200,7 +200,6 @@ int32_t cam_context_release_dev_to_hw(struct cam_context *ctx,
 		return -EINVAL;
 	}
 
-	cam_context_stop_dev_to_hw(ctx);
 	arg.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
 	arg.active_req = false;
 
