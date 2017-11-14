@@ -365,8 +365,8 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 
 	table = a->table;
 
-	if (!dma_map_sg(attachment->dev, table->sgl, table->nents,
-			direction)){
+	if (!dma_map_sg_attrs(attachment->dev, table->sgl, table->nents,
+			      direction, attachment->dma_map_attrs)){
 		ret = -ENOMEM;
 		goto err;
 	}
