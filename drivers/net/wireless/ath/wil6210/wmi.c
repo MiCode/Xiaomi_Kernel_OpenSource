@@ -1,18 +1,7 @@
+// SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/moduleparam.h>
@@ -23,6 +12,7 @@
 #include "txrx.h"
 #include "wmi.h"
 #include "trace.h"
+#include "ftm.h"
 
 static uint max_assoc_sta = WIL6210_MAX_CID;
 module_param(max_assoc_sta, uint, 0644);
@@ -1267,6 +1257,29 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 	spin_unlock_bh(&sta->tid_rx_lock);
 }
 
+static void wmi_evt_aoa_meas(struct wil6210_vif *vif, int id, void *d, int len)
+{
+	struct wmi_aoa_meas_event *evt = d;
+
+	wil_aoa_evt_meas(vif, evt, len);
+}
+
+static void wmi_evt_ftm_session_ended(struct wil6210_vif *vif, int id,
+				      void *d, int len)
+{
+	struct wmi_tof_session_end_event *evt = d;
+
+	wil_ftm_evt_session_ended(vif, evt);
+}
+
+static void wmi_evt_per_dest_res(struct wil6210_vif *vif, int id,
+				 void *d, int len)
+{
+	struct wmi_tof_ftm_per_dest_res_event *evt = d;
+
+	wil_ftm_evt_per_dest_res(vif, evt);
+}
+
 static void
 wmi_evt_sched_scan_result(struct wil6210_vif *vif, int id, void *d, int len)
 {
@@ -1490,6 +1503,13 @@ static const struct {
 	{WMI_DELBA_EVENTID,		wmi_evt_delba},
 	{WMI_RING_EN_EVENTID,		wmi_evt_ring_en},
 	{WMI_DATA_PORT_OPEN_EVENTID,		wmi_evt_ignore},
+	{WMI_AOA_MEAS_EVENTID,			wmi_evt_aoa_meas},
+	{WMI_TOF_SESSION_END_EVENTID,		wmi_evt_ftm_session_ended},
+	{WMI_TOF_GET_CAPABILITIES_EVENTID,	wmi_evt_ignore},
+	{WMI_TOF_SET_LCR_EVENTID,		wmi_evt_ignore},
+	{WMI_TOF_SET_LCI_EVENTID,		wmi_evt_ignore},
+	{WMI_TOF_FTM_PER_DEST_RES_EVENTID,	wmi_evt_per_dest_res},
+	{WMI_TOF_CHANNEL_INFO_EVENTID,		wmi_evt_ignore},
 	{WMI_SCHED_SCAN_RESULT_EVENTID,		wmi_evt_sched_scan_result},
 	{WMI_LINK_STATS_EVENTID,		wmi_evt_link_stats},
 };
