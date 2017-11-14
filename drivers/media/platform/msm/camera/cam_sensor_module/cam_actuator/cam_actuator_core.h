@@ -16,6 +16,16 @@
 #include "cam_actuator_dev.h"
 
 /**
+ * @power_info: power setting info to control the power
+ *
+ * This API construct the default actuator power setting.
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int32_t cam_actuator_construct_default_power_setting(
+	struct cam_sensor_power_ctrl_t *power_info);
+
+/**
  * @apply: Req mgr structure for applying request
  *
  * This API applies the request that is mentioned

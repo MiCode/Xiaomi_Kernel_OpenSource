@@ -31,7 +31,7 @@
  * Maxiimum configuration entry size  - This is based on the
  * worst case DUAL IFE use case plus some margin.
  */
-#define CAM_ISP_CTX_CFG_MAX                     20
+#define CAM_ISP_CTX_CFG_MAX                     22
 
 /* forward declaration */
 struct cam_isp_context;

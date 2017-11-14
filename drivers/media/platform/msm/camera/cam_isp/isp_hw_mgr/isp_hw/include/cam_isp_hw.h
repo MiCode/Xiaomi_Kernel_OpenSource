@@ -15,6 +15,7 @@
 
 #include <linux/completion.h>
 #include "cam_hw.h"
+#include <uapi/media/cam_isp.h>
 #include "cam_soc_util.h"
 #include "cam_irq_controller.h"
 #include <uapi/media/cam_isp.h>
@@ -82,6 +83,16 @@ enum cam_isp_resource_type {
 	CAM_ISP_RESOURCE_MAX,
 };
 
+enum cam_isp_hw_cmd_type {
+	CAM_ISP_HW_CMD_GET_CHANGE_BASE,
+	CAM_ISP_HW_CMD_GET_BUF_UPDATE,
+	CAM_ISP_HW_CMD_GET_REG_UPDATE,
+	CAM_ISP_HW_CMD_GET_HFR_UPDATE,
+	CAM_ISP_HW_CMD_GET_SECURE_MODE,
+	CAM_ISP_HW_CMD_STRIPE_UPDATE,
+	CAM_ISP_HW_CMD_MAX,
+};
+
 /*
  * struct cam_isp_resource_node:
  *
@@ -132,54 +143,56 @@ struct cam_isp_resource_node {
 };
 
 /*
- * struct cam_isp_hw_get_cdm_args:
+ * struct cam_isp_hw_cmd_buf_update:
  *
- * @Brief:           Contain the command buffer information
- *                   to store the CDM commands.
+ * @Brief:           Contain the new created command buffer information
  *
- * @res:             Resource node
  * @cmd_buf_addr:    Command buffer to store the change base command
  * @size:            Size of the buffer in bytes
  * @used_bytes:      Consumed bytes in the command buffer
  *
  */
-struct cam_isp_hw_get_cdm_args {
-	struct cam_isp_resource_node   *res;
+struct cam_isp_hw_cmd_buf_update {
 	uint32_t                       *cmd_buf_addr;
 	uint32_t                        size;
 	uint32_t                        used_bytes;
 };
 
 /*
- * struct cam_isp_hw_get_buf_update:
+ * struct cam_isp_hw_get_wm_update:
  *
- * @Brief:         Get cdm commands for buffer updates.
+ * @Brief:         Get cmd buffer for WM updates.
  *
- * @ cdm:          Command buffer information
  * @ image_buf:    image buffer address array
  * @ num_buf:      Number of buffers in the image_buf array
  * @ io_cfg:       IO buffer config information sent from UMD
  *
  */
-struct cam_isp_hw_get_buf_update {
-	struct cam_isp_hw_get_cdm_args  cdm;
+struct cam_isp_hw_get_wm_update {
 	uint64_t                       *image_buf;
 	uint32_t                        num_buf;
 	struct cam_buf_io_cfg          *io_cfg;
 };
 
 /*
- * struct cam_isp_hw_get_hfr_update:
+ * struct cam_isp_hw_get_cmd_update:
  *
- * @Brief:         Get cdm commands for HFR updates.
+ * @Brief:         Get cmd buffer update for different CMD types
  *
- * @ cdm:          Command buffer information
- * @ io_hfr_cfg:   IO buffer config information sent from UMD
+ * @res:           Resource node
+ * @cmd_type:      Command type for which to get update
+ * @cmd:           Command buffer information
  *
  */
-struct cam_isp_hw_get_hfr_update {
-	struct cam_isp_hw_get_cdm_args  cdm;
-	struct cam_isp_port_hfr_config *io_hfr_cfg;
+struct cam_isp_hw_get_cmd_update {
+	struct cam_isp_resource_node     *res;
+	enum cam_isp_hw_cmd_type          cmd_type;
+	struct cam_isp_hw_cmd_buf_update  cmd;
+	union {
+		void                                 *data;
+		struct cam_isp_hw_get_wm_update      *wm_update;
+		struct cam_isp_port_hfr_config       *hfr_update;
+	};
 };
 
 /*

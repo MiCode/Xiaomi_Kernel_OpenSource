@@ -35,11 +35,11 @@ static int cam_vfe_rdi_get_reg_update(
 {
 	uint32_t                          size = 0;
 	uint32_t                          reg_val_pair[2];
-	struct cam_isp_hw_get_cdm_args   *cdm_args = cmd_args;
+	struct cam_isp_hw_get_cmd_update *cdm_args = cmd_args;
 	struct cam_cdm_utils_ops         *cdm_util_ops = NULL;
 	struct cam_vfe_mux_rdi_data      *rsrc_data = NULL;
 
-	if (arg_size != sizeof(struct cam_isp_hw_get_cdm_args)) {
+	if (arg_size != sizeof(struct cam_isp_hw_get_cmd_update)) {
 		CAM_ERR(CAM_ISP, "Error - Invalid cmd size");
 		return -EINVAL;
 	}
@@ -57,10 +57,10 @@ static int cam_vfe_rdi_get_reg_update(
 
 	size = cdm_util_ops->cdm_required_size_reg_random(1);
 	/* since cdm returns dwords, we need to convert it into bytes */
-	if ((size * 4) > cdm_args->size) {
+	if ((size * 4) > cdm_args->cmd.size) {
 		CAM_ERR(CAM_ISP,
 			"Error - buf size:%d is not sufficient, expected: %d",
-			cdm_args->size, size * 4);
+			cdm_args->cmd.size, size * 4);
 		return -EINVAL;
 	}
 
@@ -70,9 +70,9 @@ static int cam_vfe_rdi_get_reg_update(
 	CAM_DBG(CAM_ISP, "RDI%d reg_update_cmd %x",
 		rdi_res->res_id - CAM_ISP_HW_VFE_IN_RDI0, reg_val_pair[1]);
 
-	cdm_util_ops->cdm_write_regrandom(cdm_args->cmd_buf_addr,
+	cdm_util_ops->cdm_write_regrandom(cdm_args->cmd.cmd_buf_addr,
 		1, reg_val_pair);
-	cdm_args->used_bytes = size * 4;
+	cdm_args->cmd.used_bytes = size * 4;
 
 	return 0;
 }
@@ -158,7 +158,7 @@ static int cam_vfe_rdi_process_cmd(struct cam_isp_resource_node *rsrc_node,
 	}
 
 	switch (cmd_type) {
-	case CAM_VFE_HW_CMD_GET_REG_UPDATE:
+	case CAM_ISP_HW_CMD_GET_REG_UPDATE:
 		rc = cam_vfe_rdi_get_reg_update(rsrc_node, cmd_args,
 			arg_size);
 		break;

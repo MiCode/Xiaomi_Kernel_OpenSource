@@ -14,6 +14,17 @@
 
 #include "cam_ois_dev.h"
 
+/**
+ * @power_info: power setting info to control the power
+ *
+ * This API construct the default ois power setting.
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int32_t cam_ois_construct_default_power_setting(
+	struct cam_sensor_power_ctrl_t *power_info);
+
+
 int cam_ois_driver_cmd(struct cam_ois_ctrl_t *e_ctrl, void *arg);
 
 /**

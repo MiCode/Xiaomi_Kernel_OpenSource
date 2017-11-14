@@ -44,16 +44,6 @@ enum cam_isp_hw_vfe_core {
 	CAM_ISP_HW_VFE_CORE_MAX,
 };
 
-enum cam_vfe_hw_cmd_type {
-	CAM_VFE_HW_CMD_GET_CHANGE_BASE,
-	CAM_VFE_HW_CMD_GET_BUF_UPDATE,
-	CAM_VFE_HW_CMD_GET_REG_UPDATE,
-	CAM_VFE_HW_CMD_GET_HFR_UPDATE,
-	CAM_VFE_HW_CMD_GET_SECURE_MODE,
-	CAM_VFE_HW_CMD_STRIPE_UPDATE,
-	CAM_VFE_HW_CMD_MAX,
-};
-
 enum cam_vfe_hw_irq_status {
 	CAM_VFE_IRQ_STATUS_ERR_COMP             = -3,
 	CAM_VFE_IRQ_STATUS_COMP_OWRT            = -2,

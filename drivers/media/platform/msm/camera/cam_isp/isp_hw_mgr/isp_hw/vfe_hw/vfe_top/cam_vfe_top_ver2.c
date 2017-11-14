@@ -35,10 +35,10 @@ static int cam_vfe_top_mux_get_base(struct cam_vfe_top_ver2_priv *top_priv,
 {
 	uint32_t                          size = 0;
 	uint32_t                          mem_base = 0;
-	struct cam_isp_hw_get_cdm_args   *cdm_args  = cmd_args;
+	struct cam_isp_hw_get_cmd_update *cdm_args  = cmd_args;
 	struct cam_cdm_utils_ops         *cdm_util_ops = NULL;
 
-	if (arg_size != sizeof(struct cam_isp_hw_get_cdm_args)) {
+	if (arg_size != sizeof(struct cam_isp_hw_get_cmd_update)) {
 		CAM_ERR(CAM_ISP, "Error! Invalid cmd size");
 		return -EINVAL;
 	}
@@ -59,9 +59,9 @@ static int cam_vfe_top_mux_get_base(struct cam_vfe_top_ver2_priv *top_priv,
 
 	size = cdm_util_ops->cdm_required_size_changebase();
 	/* since cdm returns dwords, we need to convert it into bytes */
-	if ((size * 4) > cdm_args->size) {
+	if ((size * 4) > cdm_args->cmd.size) {
 		CAM_ERR(CAM_ISP, "buf size:%d is not sufficient, expected: %d",
-			cdm_args->size, size);
+			cdm_args->cmd.size, size);
 		return -EINVAL;
 	}
 
@@ -70,8 +70,9 @@ static int cam_vfe_top_mux_get_base(struct cam_vfe_top_ver2_priv *top_priv,
 	CAM_DBG(CAM_ISP, "core %d mem_base 0x%x",
 		top_priv->common_data.soc_info->index, mem_base);
 
-	cdm_util_ops->cdm_write_changebase(cdm_args->cmd_buf_addr, mem_base);
-	cdm_args->used_bytes = (size * 4);
+	cdm_util_ops->cdm_write_changebase(
+	cdm_args->cmd.cmd_buf_addr, mem_base);
+	cdm_args->cmd.used_bytes = (size * 4);
 
 	return 0;
 }
@@ -80,11 +81,11 @@ static int cam_vfe_top_mux_get_reg_update(
 	struct cam_vfe_top_ver2_priv *top_priv,
 	void *cmd_args, uint32_t arg_size)
 {
-	struct cam_isp_hw_get_cdm_args   *cdm_args = cmd_args;
+	struct cam_isp_hw_get_cmd_update  *cmd_update = cmd_args;
 
-	if (cdm_args->res->process_cmd)
-		return cdm_args->res->process_cmd(cdm_args->res,
-			CAM_VFE_HW_CMD_GET_REG_UPDATE, cmd_args, arg_size);
+	if (cmd_update->res->process_cmd)
+		return cmd_update->res->process_cmd(cmd_update->res,
+			CAM_ISP_HW_CMD_GET_REG_UPDATE, cmd_args, arg_size);
 
 	return -EINVAL;
 }
@@ -280,10 +281,10 @@ int cam_vfe_top_process_cmd(void *device_priv, uint32_t cmd_type,
 	top_priv = (struct cam_vfe_top_ver2_priv *)device_priv;
 
 	switch (cmd_type) {
-	case CAM_VFE_HW_CMD_GET_CHANGE_BASE:
+	case CAM_ISP_HW_CMD_GET_CHANGE_BASE:
 		rc = cam_vfe_top_mux_get_base(top_priv, cmd_args, arg_size);
 		break;
-	case CAM_VFE_HW_CMD_GET_REG_UPDATE:
+	case CAM_ISP_HW_CMD_GET_REG_UPDATE:
 		rc = cam_vfe_top_mux_get_reg_update(top_priv, cmd_args,
 			arg_size);
 		break;
