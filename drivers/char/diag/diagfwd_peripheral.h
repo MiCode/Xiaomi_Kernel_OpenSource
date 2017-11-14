@@ -19,7 +19,7 @@
 
 #define TRANSPORT_UNKNOWN		-1
 #define TRANSPORT_SOCKET		0
-#define TRANSPORT_GLINK			1
+#define TRANSPORT_RPMSG			1
 #define NUM_TRANSPORT			2
 #define NUM_WRITE_BUFFERS		2
 #define PERIPHERAL_MASK(x)					\
@@ -77,7 +77,6 @@ struct diagfwd_info {
 	atomic_t opened;
 	unsigned long read_bytes;
 	unsigned long write_bytes;
-	spinlock_t write_buf_lock;
 	struct mutex buf_mutex;
 	struct mutex data_mutex;
 	void *ctxt;
