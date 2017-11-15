@@ -287,7 +287,7 @@ static int cam_ife_csid_get_format_ipp(
 
 static int cam_ife_csid_cid_get(struct cam_ife_csid_hw *csid_hw,
 	struct cam_isp_resource_node **res, int32_t vc, uint32_t dt,
-	uint32_t res_type)
+	uint32_t res_type, int pixel_count)
 {
 	int  rc = 0;
 	struct cam_ife_csid_cid_data    *cid_data;
@@ -305,7 +305,8 @@ static int cam_ife_csid_cid_get(struct cam_ife_csid_hw *csid_hw,
 					break;
 				}
 			} else {
-				if (cid_data->vc == vc && cid_data->dt == dt) {
+				if (cid_data->vc == vc && cid_data->dt == dt &&
+					cid_data->pixel_count == pixel_count) {
 					cid_data->cnt++;
 					*res = &csid_hw->cid_res[i];
 					break;
@@ -329,6 +330,7 @@ static int cam_ife_csid_cid_get(struct cam_ife_csid_hw *csid_hw,
 				cid_data->vc  = vc;
 				cid_data->dt  = dt;
 				cid_data->cnt = 1;
+				cid_data->pixel_count = pixel_count;
 				csid_hw->cid_res[j].res_state =
 					CAM_ISP_RESOURCE_STATE_RESERVED;
 				*res = &csid_hw->cid_res[j];
@@ -568,6 +570,7 @@ static int cam_ife_csid_cid_reserve(struct cam_ife_csid_hw *csid_hw,
 	struct cam_csid_hw_reserve_resource_args  *cid_reserv)
 {
 	int rc = 0;
+	uint32_t i;
 	struct cam_ife_csid_cid_data       *cid_data;
 
 	CAM_DBG(CAM_ISP,
@@ -725,6 +728,7 @@ static int cam_ife_csid_cid_reserve(struct cam_ife_csid_hw *csid_hw,
 		cid_data->vc = cid_reserv->in_port->vc;
 		cid_data->dt = cid_reserv->in_port->dt;
 		cid_data->cnt = 1;
+		cid_data->pixel_count = cid_reserv->pixel_count;
 		cid_reserv->node_res = &csid_hw->cid_res[0];
 		csid_hw->csi2_reserve_cnt++;
 
@@ -733,9 +737,27 @@ static int cam_ife_csid_cid_reserve(struct cam_ife_csid_hw *csid_hw,
 			csid_hw->hw_intf->hw_idx,
 			cid_reserv->node_res->res_id);
 	} else {
-		rc = cam_ife_csid_cid_get(csid_hw, &cid_reserv->node_res,
-			cid_reserv->in_port->vc, cid_reserv->in_port->dt,
-			cid_reserv->in_port->res_type);
+		if (cid_reserv->pixel_count > 0) {
+			for (i = 0; i < CAM_IFE_CSID_CID_RES_MAX; i++) {
+				cid_data = (struct cam_ife_csid_cid_data *)
+					csid_hw->cid_res[i].res_priv;
+				if ((csid_hw->cid_res[i].res_state >=
+					CAM_ISP_RESOURCE_STATE_RESERVED) &&
+					cid_data->pixel_count > 0) {
+					CAM_DBG(CAM_ISP,
+						"CSID:%d IPP resource is full");
+					rc = -EINVAL;
+					goto end;
+				}
+			}
+		}
+
+		rc = cam_ife_csid_cid_get(csid_hw,
+			&cid_reserv->node_res,
+			cid_reserv->in_port->vc,
+			cid_reserv->in_port->dt,
+			cid_reserv->in_port->res_type,
+			cid_reserv->pixel_count);
 		/* if success then increment the reserve count */
 		if (!rc) {
 			if (csid_hw->csi2_reserve_cnt == UINT_MAX) {

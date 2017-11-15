@@ -1137,7 +1137,8 @@ static int cam_ife_hw_mgr_preprocess_out_port(
 static int cam_ife_mgr_acquire_cid_res(
 	struct cam_ife_hw_mgr_ctx          *ife_ctx,
 	struct cam_isp_in_port_info        *in_port,
-	uint32_t                           *cid_res_id)
+	uint32_t                           *cid_res_id,
+	int                                 pixel_count)
 {
 	int rc = -1;
 	int i, j;
@@ -1157,6 +1158,7 @@ static int cam_ife_mgr_acquire_cid_res(
 
 	csid_acquire.res_type = CAM_ISP_RESOURCE_CID;
 	csid_acquire.in_port = in_port;
+	csid_acquire.pixel_count = pixel_count;
 
 	for (i = 0; i < CAM_IFE_CSID_HW_NUM_MAX; i++) {
 		if (!ife_hw_mgr->csid_devices[i])
@@ -1237,19 +1239,20 @@ static int cam_ife_mgr_acquire_hw_for_ctx(
 		goto err;
 	}
 
-	/* get cid resource */
-	rc = cam_ife_mgr_acquire_cid_res(ife_ctx, in_port, &cid_res_id);
-	if (rc) {
-		CAM_ERR(CAM_ISP, "Acquire IFE CID resource Failed");
-		goto err;
-	}
-
 	cam_ife_hw_mgr_preprocess_out_port(ife_ctx, in_port,
 		&pixel_count, &rdi_count);
 
 	if (!pixel_count && !rdi_count) {
 		CAM_ERR(CAM_ISP, "No PIX or RDI resource");
 		return -EINVAL;
+	}
+
+	/* get cid resource */
+	rc = cam_ife_mgr_acquire_cid_res(ife_ctx, in_port, &cid_res_id,
+		pixel_count);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Acquire IFE CID resource Failed");
+		goto err;
 	}
 
 	if (pixel_count) {
