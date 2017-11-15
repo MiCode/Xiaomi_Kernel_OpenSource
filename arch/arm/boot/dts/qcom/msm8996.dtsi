@@ -2289,6 +2289,13 @@
 		qcom,reset-ep-after-lpm-resume;
 	};
 
+	usb_audio_qmi_dev {
+		compatible = "qcom,usb-audio-qmi-dev";
+		iommus = <&lpass_q6_smmu 12>;
+		qcom,usb-audio-stream-id = <12>;
+		qcom,usb-audio-intr-num = <1>;
+	};
+
 	qcom,lpass@9300000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x9300000 0x00100>;
