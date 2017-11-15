@@ -1423,6 +1423,7 @@ static int msm_11ad_notify_crash(struct msm11ad_ctx *ctx)
 		dev_info(ctx->dev, "SSR requested\n");
 		(void)msm_11ad_ssr_copy_ramdump(ctx);
 		ctx->recovery_in_progress = true;
+		subsys_set_crash_status(ctx->subsys, CRASH_STATUS_ERR_FATAL);
 		rc = subsystem_restart_dev(ctx->subsys);
 		if (rc) {
 			dev_err(ctx->dev,
