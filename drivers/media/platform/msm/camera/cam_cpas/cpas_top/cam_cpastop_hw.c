@@ -24,6 +24,18 @@
 
 struct cam_camnoc_info *camnoc_info;
 
+#define CAMNOC_SLAVE_MAX_ERR_CODE 7
+static const char * const camnoc_salve_err_code[] = {
+	"Target Error",              /* err code 0 */
+	"Address decode error",      /* err code 1 */
+	"Unsupported request",       /* err code 2 */
+	"Disconnected target",       /* err code 3 */
+	"Security violation",        /* err code 4 */
+	"Hidden security violation", /* err code 5 */
+	"Timeout Error",             /* err code 6 */
+	"Unknown Error",             /* unknown err code */
+};
+
 static int cam_cpastop_get_hw_info(struct cam_hw_info *cpas_hw,
 	struct cam_cpas_hw_caps *hw_caps)
 {
@@ -106,91 +118,155 @@ static int cam_cpastop_setup_regbase_indices(struct cam_hw_soc_info *soc_info,
 }
 
 static int cam_cpastop_handle_errlogger(struct cam_cpas *cpas_core,
-	struct cam_hw_soc_info *soc_info)
+	struct cam_hw_soc_info *soc_info,
+	struct cam_camnoc_irq_slave_err_data *slave_err)
 {
-	uint32_t reg_value[4];
-	int i;
-	int size = camnoc_info->error_logger_size;
 	int camnoc_index = cpas_core->regbase_index[CAM_CPAS_REG_CAMNOC];
+	int err_code_index = 0;
 
-	for (i = 0; (i + 3) < size; i = i + 4) {
-		reg_value[0] = cam_io_r_mb(
-			soc_info->reg_map[camnoc_index].mem_base +
-			camnoc_info->error_logger[i]);
-		reg_value[1] = cam_io_r_mb(
-			soc_info->reg_map[camnoc_index].mem_base +
-			camnoc_info->error_logger[i + 1]);
-		reg_value[2] = cam_io_r_mb(
-			soc_info->reg_map[camnoc_index].mem_base +
-			camnoc_info->error_logger[i + 2]);
-		reg_value[3] = cam_io_r_mb(
-			soc_info->reg_map[camnoc_index].mem_base +
-			camnoc_info->error_logger[i + 3]);
-		CAM_ERR(CAM_CPAS,
-			"offset[0x%x] values [0x%x] [0x%x] [0x%x] [0x%x]",
-			camnoc_info->error_logger[i], reg_value[0],
-			reg_value[1], reg_value[2], reg_value[3]);
+	if (!camnoc_info->err_logger) {
+		CAM_ERR_RATE_LIMIT(CAM_CPAS, "Invalid err logger info");
+		return -EINVAL;
 	}
 
-	if ((i + 2) < size) {
-		reg_value[0] = cam_io_r_mb(
-			soc_info->reg_map[camnoc_index].mem_base +
-			camnoc_info->error_logger[i]);
-		reg_value[1] = cam_io_r_mb(
-			soc_info->reg_map[camnoc_index].mem_base +
-			camnoc_info->error_logger[i + 1]);
-		reg_value[2] = cam_io_r_mb(
-			soc_info->reg_map[camnoc_index].mem_base +
-			camnoc_info->error_logger[i + 2]);
-		CAM_ERR(CAM_CPAS, "offset[0x%x] values [0x%x] [0x%x] [0x%x]",
-			camnoc_info->error_logger[i], reg_value[0],
-			reg_value[1], reg_value[2]);
-		i = i + 3;
-	}
+	slave_err->mainctrl.value = cam_io_r_mb(
+		soc_info->reg_map[camnoc_index].mem_base +
+		camnoc_info->err_logger->mainctrl);
 
-	if ((i + 1) < size) {
-		reg_value[0] = cam_io_r_mb(
-			soc_info->reg_map[camnoc_index].mem_base +
-			camnoc_info->error_logger[i]);
-		reg_value[1] = cam_io_r_mb(
-			soc_info->reg_map[camnoc_index].mem_base +
-			camnoc_info->error_logger[i + 1]);
-		CAM_ERR(CAM_CPAS, "offset[0x%x] values [0x%x] [0x%x]",
-			camnoc_info->error_logger[i], reg_value[0],
-			reg_value[1]);
-		i = i + 2;
-	}
+	slave_err->errvld.value = cam_io_r_mb(
+		soc_info->reg_map[camnoc_index].mem_base +
+		camnoc_info->err_logger->errvld);
 
-	if (i < size) {
-		reg_value[0] = cam_io_r_mb(
-			soc_info->reg_map[camnoc_index].mem_base +
-			camnoc_info->error_logger[i]);
-		CAM_ERR(CAM_CPAS, "offset[0x%x] values [0x%x]",
-			camnoc_info->error_logger[i], reg_value[0]);
-	}
+	slave_err->errlog0_low.value = cam_io_r_mb(
+		soc_info->reg_map[camnoc_index].mem_base +
+		camnoc_info->err_logger->errlog0_low);
+
+	slave_err->errlog0_high.value = cam_io_r_mb(
+		soc_info->reg_map[camnoc_index].mem_base +
+		camnoc_info->err_logger->errlog0_high);
+
+	slave_err->errlog1_low.value = cam_io_r_mb(
+		soc_info->reg_map[camnoc_index].mem_base +
+		camnoc_info->err_logger->errlog1_low);
+
+	slave_err->errlog1_high.value = cam_io_r_mb(
+		soc_info->reg_map[camnoc_index].mem_base +
+		camnoc_info->err_logger->errlog1_high);
+
+	slave_err->errlog2_low.value = cam_io_r_mb(
+		soc_info->reg_map[camnoc_index].mem_base +
+		camnoc_info->err_logger->errlog2_low);
+
+	slave_err->errlog2_high.value = cam_io_r_mb(
+		soc_info->reg_map[camnoc_index].mem_base +
+		camnoc_info->err_logger->errlog2_high);
+
+	slave_err->errlog3_low.value = cam_io_r_mb(
+		soc_info->reg_map[camnoc_index].mem_base +
+		camnoc_info->err_logger->errlog3_low);
+
+	slave_err->errlog3_high.value = cam_io_r_mb(
+		soc_info->reg_map[camnoc_index].mem_base +
+		camnoc_info->err_logger->errlog3_high);
+
+	CAM_ERR_RATE_LIMIT(CAM_CPAS,
+		"Possible memory configuration issue, fault at SMMU raised as CAMNOC SLAVE_IRQ");
+
+	CAM_ERR_RATE_LIMIT(CAM_CPAS,
+		"mainctrl[0x%x 0x%x] errvld[0x%x 0x%x] stall_en=%d, fault_en=%d, err_vld=%d",
+		camnoc_info->err_logger->mainctrl,
+		slave_err->mainctrl.value,
+		camnoc_info->err_logger->errvld,
+		slave_err->errvld.value,
+		slave_err->mainctrl.stall_en,
+		slave_err->mainctrl.fault_en,
+		slave_err->errvld.err_vld);
+
+	err_code_index = slave_err->errlog0_low.err_code;
+	if (err_code_index > CAMNOC_SLAVE_MAX_ERR_CODE)
+		err_code_index = CAMNOC_SLAVE_MAX_ERR_CODE;
+
+	CAM_ERR_RATE_LIMIT(CAM_CPAS,
+		"errlog0 low[0x%x 0x%x] high[0x%x 0x%x] loginfo_vld=%d, word_error=%d, non_secure=%d, device=%d, opc=%d, err_code=%d(%s) sizef=%d, addr_space=%d, len1=%d",
+		camnoc_info->err_logger->errlog0_low,
+		slave_err->errlog0_low.value,
+		camnoc_info->err_logger->errlog0_high,
+		slave_err->errlog0_high.value,
+		slave_err->errlog0_low.loginfo_vld,
+		slave_err->errlog0_low.word_error,
+		slave_err->errlog0_low.non_secure,
+		slave_err->errlog0_low.device,
+		slave_err->errlog0_low.opc,
+		slave_err->errlog0_low.err_code,
+		camnoc_salve_err_code[err_code_index],
+		slave_err->errlog0_low.sizef,
+		slave_err->errlog0_low.addr_space,
+		slave_err->errlog0_high.len1);
+
+	CAM_ERR_RATE_LIMIT(CAM_CPAS,
+		"errlog1_low[0x%x 0x%x]  errlog1_high[0x%x 0x%x] errlog2_low[0x%x 0x%x]  errlog2_high[0x%x 0x%x] errlog3_low[0x%x 0x%x]  errlog3_high[0x%x 0x%x]",
+		camnoc_info->err_logger->errlog1_low,
+		slave_err->errlog1_low.value,
+		camnoc_info->err_logger->errlog1_high,
+		slave_err->errlog1_high.value,
+		camnoc_info->err_logger->errlog2_low,
+		slave_err->errlog2_low.value,
+		camnoc_info->err_logger->errlog2_high,
+		slave_err->errlog2_high.value,
+		camnoc_info->err_logger->errlog3_low,
+		slave_err->errlog3_low.value,
+		camnoc_info->err_logger->errlog3_high,
+		slave_err->errlog3_high.value);
 
 	return 0;
 }
 
-static int cam_cpastop_handle_ubwc_err(struct cam_cpas *cpas_core,
-	struct cam_hw_soc_info *soc_info, int i)
+static int cam_cpastop_handle_ubwc_enc_err(struct cam_cpas *cpas_core,
+	struct cam_hw_soc_info *soc_info, int i,
+	struct cam_camnoc_irq_ubwc_enc_data *enc_err)
 {
-	uint32_t reg_value;
 	int camnoc_index = cpas_core->regbase_index[CAM_CPAS_REG_CAMNOC];
 
-	reg_value = cam_io_r_mb(soc_info->reg_map[camnoc_index].mem_base +
+	enc_err->encerr_status.value =
+		cam_io_r_mb(soc_info->reg_map[camnoc_index].mem_base +
 		camnoc_info->irq_err[i].err_status.offset);
 
-	CAM_ERR(CAM_CPAS,
-		"Dumping ubwc error status [%d]: offset[0x%x] value[0x%x]",
-		i, camnoc_info->irq_err[i].err_status.offset, reg_value);
+	/* Let clients handle the UBWC errors */
+	CAM_DBG(CAM_CPAS,
+		"ubwc enc err [%d]: offset[0x%x] value[0x%x]",
+		i, camnoc_info->irq_err[i].err_status.offset,
+		enc_err->encerr_status.value);
 
-	return reg_value;
+	return 0;
 }
 
-static int cam_cpastop_handle_ahb_timeout_err(struct cam_hw_info *cpas_hw)
+static int cam_cpastop_handle_ubwc_dec_err(struct cam_cpas *cpas_core,
+	struct cam_hw_soc_info *soc_info, int i,
+	struct cam_camnoc_irq_ubwc_dec_data *dec_err)
 {
-	CAM_ERR(CAM_CPAS, "ahb timout error");
+	int camnoc_index = cpas_core->regbase_index[CAM_CPAS_REG_CAMNOC];
+
+	dec_err->decerr_status.value =
+		cam_io_r_mb(soc_info->reg_map[camnoc_index].mem_base +
+		camnoc_info->irq_err[i].err_status.offset);
+
+	/* Let clients handle the UBWC errors */
+	CAM_DBG(CAM_CPAS,
+		"ubwc dec err status [%d]: offset[0x%x] value[0x%x] thr_err=%d, fcl_err=%d, len_md_err=%d, format_err=%d",
+		i, camnoc_info->irq_err[i].err_status.offset,
+		dec_err->decerr_status.value,
+		dec_err->decerr_status.thr_err,
+		dec_err->decerr_status.fcl_err,
+		dec_err->decerr_status.len_md_err,
+		dec_err->decerr_status.format_err);
+
+	return 0;
+}
+
+static int cam_cpastop_handle_ahb_timeout_err(struct cam_hw_info *cpas_hw,
+	struct cam_camnoc_irq_ahb_timeout_data *ahb_err)
+{
+	CAM_ERR_RATE_LIMIT(CAM_CPAS, "ahb timout error");
 
 	return 0;
 }
@@ -228,10 +304,11 @@ static int cam_cpastop_reset_irq(struct cam_hw_info *cpas_hw)
 }
 
 static void cam_cpastop_notify_clients(struct cam_cpas *cpas_core,
-	enum cam_camnoc_hw_irq_type irq_type, uint32_t irq_data)
+	struct cam_cpas_irq_data *irq_data)
 {
 	int i;
 	struct cam_cpas_client *cpas_client;
+	bool error_handled = false;
 
 	CAM_DBG(CAM_CPAS,
 		"Notify CB : num_clients=%d, registered=%d, started=%d",
@@ -243,13 +320,15 @@ static void cam_cpastop_notify_clients(struct cam_cpas *cpas_core,
 			cpas_client = cpas_core->cpas_client[i];
 			if (cpas_client->data.cam_cpas_client_cb) {
 				CAM_DBG(CAM_CPAS,
-					"Calling client CB %d : %d 0x%x",
-					i, irq_type, irq_data);
-				cpas_client->data.cam_cpas_client_cb(
+					"Calling client CB %d : %d",
+					i, irq_data->irq_type);
+				error_handled =
+					cpas_client->data.cam_cpas_client_cb(
 					cpas_client->data.client_handle,
 					cpas_client->data.userdata,
-					(enum cam_camnoc_irq_type)irq_type,
 					irq_data);
+				if (error_handled)
+					break;
 			}
 		}
 	}
@@ -263,7 +342,7 @@ static void cam_cpastop_work(struct work_struct *work)
 	struct cam_hw_soc_info *soc_info;
 	int i;
 	enum cam_camnoc_hw_irq_type irq_type;
-	uint32_t irq_data;
+	struct cam_cpas_irq_data irq_data;
 
 	payload = container_of(work, struct cam_cpas_work_payload, work);
 	if (!payload) {
@@ -280,23 +359,30 @@ static void cam_cpastop_work(struct work_struct *work)
 			(camnoc_info->irq_err[i].enable)) {
 			irq_type = camnoc_info->irq_err[i].irq_type;
 			CAM_ERR(CAM_CPAS, "Error occurred, type=%d", irq_type);
-			irq_data = 0;
+			memset(&irq_data, 0x0, sizeof(irq_data));
+			irq_data.irq_type = (enum cam_camnoc_irq_type)irq_type;
 
 			switch (irq_type) {
 			case CAM_CAMNOC_HW_IRQ_SLAVE_ERROR:
-				irq_data = cam_cpastop_handle_errlogger(
-					cpas_core, soc_info);
+				cam_cpastop_handle_errlogger(
+					cpas_core, soc_info,
+					&irq_data.u.slave_err);
 				break;
 			case CAM_CAMNOC_HW_IRQ_IFE02_UBWC_ENCODE_ERROR:
 			case CAM_CAMNOC_HW_IRQ_IFE13_UBWC_ENCODE_ERROR:
-			case CAM_CAMNOC_HW_IRQ_IPE_BPS_UBWC_DECODE_ERROR:
 			case CAM_CAMNOC_HW_IRQ_IPE_BPS_UBWC_ENCODE_ERROR:
-				irq_data = cam_cpastop_handle_ubwc_err(
-					cpas_core, soc_info, i);
+				cam_cpastop_handle_ubwc_enc_err(
+					cpas_core, soc_info, i,
+					&irq_data.u.enc_err);
+				break;
+			case CAM_CAMNOC_HW_IRQ_IPE_BPS_UBWC_DECODE_ERROR:
+				cam_cpastop_handle_ubwc_dec_err(
+					cpas_core, soc_info, i,
+					&irq_data.u.dec_err);
 				break;
 			case CAM_CAMNOC_HW_IRQ_AHB_TIMEOUT:
-				irq_data = cam_cpastop_handle_ahb_timeout_err(
-					cpas_hw);
+				cam_cpastop_handle_ahb_timeout_err(
+					cpas_hw, &irq_data.u.ahb_err);
 				break;
 			case CAM_CAMNOC_HW_IRQ_CAMNOC_TEST:
 				CAM_DBG(CAM_CPAS, "TEST IRQ");
@@ -306,8 +392,7 @@ static void cam_cpastop_work(struct work_struct *work)
 				break;
 			}
 
-			cam_cpastop_notify_clients(cpas_core, irq_type,
-				irq_data);
+			cam_cpastop_notify_clients(cpas_core, &irq_data);
 
 			payload->irq_status &=
 				~camnoc_info->irq_err[i].sbm_port;

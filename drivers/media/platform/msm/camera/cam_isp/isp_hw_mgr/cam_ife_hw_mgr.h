@@ -85,11 +85,13 @@ struct ctx_base_info {
  *
  * @dentry:              Debugfs entry
  * @csid_debug:          csid debug information
+ * @enable_recovery      enable recovery
  *
  */
 struct cam_ife_hw_mgr_debug {
-	struct dentry                  *dentry;
-	uint64_t                        csid_debug;
+	struct dentry  *dentry;
+	uint64_t       csid_debug;
+	uint32_t       enable_recovery;
 };
 
 /**
@@ -171,6 +173,7 @@ struct cam_ife_hw_mgr_ctx {
  * @ife_csid_dev_caps      csid device capability stored per core
  * @ife_dev_caps           ife device capability per core
  * @work q                 work queue for IFE hw manager
+ * @debug_cfg              debug configuration
  */
 struct cam_ife_hw_mgr {
 	struct cam_isp_hw_mgr          mgr_common;

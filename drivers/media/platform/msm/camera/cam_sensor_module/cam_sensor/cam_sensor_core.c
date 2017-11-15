@@ -182,12 +182,7 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 				return rc;
 			}
 		}
-
-		i2c_reg_settings->request_id =
-			csl_packet->header.request_id;
-		i2c_reg_settings->is_settings_valid = 1;
-		cam_sensor_update_req_mgr(s_ctrl, csl_packet);
-		break;
+	break;
 	}
 	case CAM_SENSOR_PACKET_OPCODE_SENSOR_NOP: {
 		cam_sensor_update_req_mgr(s_ctrl, csl_packet);
@@ -207,6 +202,14 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 		CAM_ERR(CAM_SENSOR, "Fail parsing I2C Pkt: %d", rc);
 		return rc;
 	}
+
+	if ((csl_packet->header.op_code & 0xFFFFFF) ==
+		CAM_SENSOR_PACKET_OPCODE_SENSOR_UPDATE) {
+		i2c_reg_settings->request_id =
+			csl_packet->header.request_id;
+		cam_sensor_update_req_mgr(s_ctrl, csl_packet);
+	}
+
 	return rc;
 }
 

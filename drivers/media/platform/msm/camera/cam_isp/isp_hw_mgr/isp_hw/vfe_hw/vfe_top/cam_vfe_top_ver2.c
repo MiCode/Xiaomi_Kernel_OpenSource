@@ -18,6 +18,9 @@
 #include "cam_vfe_top_ver2.h"
 #include "cam_debug_util.h"
 
+#define CAM_VFE_HW_RESET_HW_AND_REG_VAL   0x00003F9F
+#define CAM_VFE_HW_RESET_HW_VAL           0x00003F87
+
 struct cam_vfe_top_ver2_common_data {
 	struct cam_hw_soc_info                     *soc_info;
 	struct cam_hw_intf                         *hw_intf;
@@ -108,12 +111,24 @@ int cam_vfe_top_reset(void *device_priv,
 	struct cam_vfe_top_ver2_priv   *top_priv = device_priv;
 	struct cam_hw_soc_info         *soc_info = NULL;
 	struct cam_vfe_top_ver2_reg_offset_common *reg_common = NULL;
+	uint32_t *reset_reg_args = reset_core_args;
+	uint32_t reset_reg_val;
 
-	if (!top_priv) {
+	if (!top_priv || !reset_reg_args) {
 		CAM_ERR(CAM_ISP, "Invalid arguments");
 		return -EINVAL;
 	}
 
+	switch (*reset_reg_args) {
+	case CAM_VFE_HW_RESET_HW_AND_REG:
+		reset_reg_val = CAM_VFE_HW_RESET_HW_AND_REG_VAL;
+		break;
+	default:
+		reset_reg_val = CAM_VFE_HW_RESET_HW_VAL;
+		break;
+	}
+
+	CAM_DBG(CAM_ISP, "reset reg value: %x", reset_reg_val);
 	soc_info = top_priv->common_data.soc_info;
 	reg_common = top_priv->common_data.common_reg;
 
@@ -122,7 +137,7 @@ int cam_vfe_top_reset(void *device_priv,
 		CAM_SOC_GET_REG_MAP_START(soc_info, VFE_CORE_BASE_IDX) + 0x5C);
 
 	/* Reset HW */
-	cam_io_w_mb(0x00003F9F,
+	cam_io_w_mb(reset_reg_val,
 		CAM_SOC_GET_REG_MAP_START(soc_info, VFE_CORE_BASE_IDX) +
 		reg_common->global_reset_cmd);
 

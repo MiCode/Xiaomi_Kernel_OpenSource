@@ -498,19 +498,17 @@ static struct cam_camnoc_specific
 	}
 };
 
-uint32_t slave_error_logger[] = {
-	0x2700, /* ERRLOGGER_SWID_LOW */
-	0x2704, /* ERRLOGGER_SWID_HIGH */
-	0x2708, /* ERRLOGGER_MAINCTL_LOW */
-	0x2710, /* ERRLOGGER_ERRVLD_LOW */
-	0x2720, /* ERRLOGGER_ERRLOG0_LOW */
-	0x2724, /* ERRLOGGER_ERRLOG0_HIGH */
-	0x2728, /* ERRLOGGER_ERRLOG1_LOW */
-	0x272c, /* ERRLOGGER_ERRLOG1_HIGH */
-	0x2730, /* ERRLOGGER_ERRLOG2_LOW */
-	0x2734, /* ERRLOGGER_ERRLOG2_HIGH */
-	0x2738, /* ERRLOGGER_ERRLOG3_LOW */
-	0x273c, /* ERRLOGGER_ERRLOG3_HIGH */
+static struct cam_camnoc_err_logger_info cam170_cpas100_err_logger_offsets = {
+	.mainctrl     =  0x2708, /* ERRLOGGER_MAINCTL_LOW */
+	.errvld       =  0x2710, /* ERRLOGGER_ERRVLD_LOW */
+	.errlog0_low  =  0x2720, /* ERRLOGGER_ERRLOG0_LOW */
+	.errlog0_high =  0x2724, /* ERRLOGGER_ERRLOG0_HIGH */
+	.errlog1_low  =  0x2728, /* ERRLOGGER_ERRLOG1_LOW */
+	.errlog1_high =  0x272c, /* ERRLOGGER_ERRLOG1_HIGH */
+	.errlog2_low  =  0x2730, /* ERRLOGGER_ERRLOG2_LOW */
+	.errlog2_high =  0x2734, /* ERRLOGGER_ERRLOG2_HIGH */
+	.errlog3_low  =  0x2738, /* ERRLOGGER_ERRLOG3_LOW */
+	.errlog3_high =  0x273c, /* ERRLOGGER_ERRLOG3_HIGH */
 };
 
 static struct cam_cpas_hw_errata_wa_list cam170_cpas100_errata_wa_list = {
@@ -533,9 +531,7 @@ struct cam_camnoc_info cam170_cpas100_camnoc_info = {
 	.irq_err = &cam_cpas100_irq_err[0],
 	.irq_err_size = sizeof(cam_cpas100_irq_err) /
 		sizeof(cam_cpas100_irq_err[0]),
-	.error_logger = &slave_error_logger[0],
-	.error_logger_size = sizeof(slave_error_logger) /
-		sizeof(slave_error_logger[0]),
+	.err_logger = &cam170_cpas100_err_logger_offsets,
 	.errata_wa_list = &cam170_cpas100_errata_wa_list,
 };
 

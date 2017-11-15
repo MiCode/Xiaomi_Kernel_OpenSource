@@ -20,11 +20,16 @@
 #include "cam_fd_hw_core.h"
 #include "cam_fd_hw_soc.h"
 
-static void cam_fd_hw_util_cpas_callback(uint32_t handle, void *userdata,
-	enum cam_camnoc_irq_type event_type, uint32_t event_data)
+static bool cam_fd_hw_util_cpas_callback(uint32_t handle, void *userdata,
+	struct cam_cpas_irq_data *irq_data)
 {
-	CAM_DBG(CAM_FD, "CPAS hdl=%d, udata=%pK, event=%d, event_data=%d",
-		handle, userdata, event_type, event_data);
+	if (!irq_data)
+		return false;
+
+	CAM_DBG(CAM_FD, "CPAS hdl=%d, udata=%pK, irq_type=%d",
+		handle, userdata, irq_data->irq_type);
+
+	return false;
 }
 
 static int cam_fd_hw_soc_util_setup_regbase_indices(

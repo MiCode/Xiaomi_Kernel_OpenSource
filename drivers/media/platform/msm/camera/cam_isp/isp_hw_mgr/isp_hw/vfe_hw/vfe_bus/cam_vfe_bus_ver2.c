@@ -263,7 +263,7 @@ static int cam_vfe_bus_put_evt_payload(void     *core_info,
 		CAM_ERR(CAM_ISP, "No payload to put");
 		return -EINVAL;
 	}
-
+	(*evt_payload)->error_type = 0;
 	ife_irq_regs = (*evt_payload)->irq_reg_val;
 	status_reg0 = ife_irq_regs[CAM_IFE_IRQ_BUS_REG_STATUS0];
 	status_reg1 = ife_irq_regs[CAM_IFE_IRQ_BUS_REG_STATUS1];
@@ -992,6 +992,9 @@ static int cam_vfe_bus_acquire_wm(
 		rsrc_data->width = rsrc_data->width * 2;
 		rsrc_data->stride = rsrc_data->width;
 		rsrc_data->en_cfg = 0x1;
+
+		/* LSB aligned */
+		rsrc_data->pack_fmt |= 0x10;
 	}  else {
 		/* Write master 5-6 DS ports, 10 PDAF */
 		uint32_t align_width;
@@ -1143,6 +1146,8 @@ static int cam_vfe_bus_stop_wm(struct cam_isp_resource_node *wm_res)
 		common_data->mem_base + common_data->common_reg->sw_reset);
 
 	wm_res->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
+	rsrc_data->init_cfg_done = false;
+	rsrc_data->hfr_cfg_done = false;
 
 	return rc;
 }
@@ -2150,6 +2155,7 @@ static int cam_vfe_bus_stop_vfe_out(
 
 	if (vfe_out->res_state == CAM_ISP_RESOURCE_STATE_AVAILABLE ||
 		vfe_out->res_state == CAM_ISP_RESOURCE_STATE_RESERVED) {
+		CAM_DBG(CAM_ISP, "vfe_out res_state is %d", vfe_out->res_state);
 		return rc;
 	}
 
@@ -2297,12 +2303,15 @@ static int cam_vfe_bus_error_irq_top_half(uint32_t evt_id,
 	struct cam_irq_th_payload *th_payload)
 {
 	int i = 0;
+	struct cam_vfe_bus_ver2_priv  *bus_priv = th_payload->handler_priv;
 
 	CAM_ERR_RATE_LIMIT(CAM_ISP, "Bus Err IRQ");
 	for (i = 0; i < th_payload->num_registers; i++) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "IRQ_Status%d: 0x%x", i,
 			th_payload->evt_status_arr[i]);
 	}
+	cam_irq_controller_disable_irq(bus_priv->common_data.bus_irq_controller,
+		bus_priv->error_irq_handle);
 
 	/* Returning error stops from enqueuing bottom half */
 	return -EFAULT;
@@ -3112,4 +3121,3 @@ free_bus_local:
 
 	return rc;
 }
-

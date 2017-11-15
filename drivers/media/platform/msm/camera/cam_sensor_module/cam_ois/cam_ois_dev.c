@@ -226,13 +226,21 @@ probe_failure:
 
 static int cam_ois_i2c_driver_remove(struct i2c_client *client)
 {
-	struct cam_ois_ctrl_t       *o_ctrl = i2c_get_clientdata(client);
+	struct cam_ois_ctrl_t          *o_ctrl = i2c_get_clientdata(client);
+	struct cam_ois_soc_private     *soc_private;
+	struct cam_sensor_power_ctrl_t *power_info;
 
 	if (!o_ctrl) {
 		CAM_ERR(CAM_OIS, "ois device is NULL");
 		return -EINVAL;
 	}
 
+	soc_private =
+		(struct cam_ois_soc_private *)o_ctrl->soc_info.soc_private;
+	power_info = &soc_private->power_info;
+
+	kfree(power_info->power_setting);
+	kfree(power_info->power_down_setting);
 	kfree(o_ctrl->soc_info.soc_private);
 	kfree(o_ctrl);
 
@@ -302,6 +310,8 @@ static int32_t cam_ois_platform_driver_probe(
 	platform_set_drvdata(pdev, o_ctrl);
 	v4l2_set_subdevdata(&o_ctrl->v4l2_dev_str.sd, o_ctrl);
 
+	o_ctrl->cam_ois_state = CAM_OIS_INIT;
+
 	return rc;
 unreg_subdev:
 	cam_unregister_subdev(&(o_ctrl->v4l2_dev_str));
@@ -316,7 +326,9 @@ free_o_ctrl:
 
 static int cam_ois_platform_driver_remove(struct platform_device *pdev)
 {
-	struct cam_ois_ctrl_t  *o_ctrl;
+	struct cam_ois_ctrl_t          *o_ctrl;
+	struct cam_ois_soc_private     *soc_private;
+	struct cam_sensor_power_ctrl_t *power_info;
 
 	o_ctrl = platform_get_drvdata(pdev);
 	if (!o_ctrl) {
@@ -324,6 +336,12 @@ static int cam_ois_platform_driver_remove(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	soc_private =
+		(struct cam_ois_soc_private *)o_ctrl->soc_info.soc_private;
+	power_info = &soc_private->power_info;
+
+	kfree(power_info->power_setting);
+	kfree(power_info->power_down_setting);
 	kfree(o_ctrl->soc_info.soc_private);
 	kfree(o_ctrl->io_master_info.cci_client);
 	kfree(o_ctrl);

@@ -555,16 +555,20 @@ int cam_res_mgr_gpio_set_value(unsigned int gpio, int value)
 	if (!found) {
 		gpio_set_value_cansleep(gpio, value);
 	} else {
-		if (value)
+		if (value) {
 			gpio_res->power_on_count++;
-		else
-			gpio_res->power_on_count--;
-
-		if (gpio_res->power_on_count > 0) {
-			gpio_set_value_cansleep(gpio, value);
+			if (gpio_res->power_on_count < 2) {
+				gpio_set_value_cansleep(gpio, value);
+				CAM_DBG(CAM_RES,
+					"Shared GPIO(%d) : HIGH", gpio);
+			}
 		} else {
-			gpio_res->power_on_count = 0;
-			gpio_set_value_cansleep(gpio, 0);
+			gpio_res->power_on_count--;
+			if (gpio_res->power_on_count < 1) {
+				gpio_set_value_cansleep(gpio, value);
+				CAM_DBG(CAM_RES,
+					"Shared GPIO(%d) : LOW", gpio);
+			}
 		}
 	}
 
