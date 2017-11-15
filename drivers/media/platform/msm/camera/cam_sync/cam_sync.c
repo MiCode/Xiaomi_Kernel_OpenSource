@@ -230,6 +230,8 @@ int cam_sync_signal(int32_t sync_obj, uint32_t status)
 				spin_unlock_bh(
 					&sync_dev->row_spinlocks[
 						parent_info->sync_id]);
+				spin_unlock_bh(
+					&sync_dev->row_spinlocks[sync_obj]);
 				return rc;
 			}
 		}
@@ -344,24 +346,8 @@ int cam_sync_merge(int32_t *sync_obj, uint32_t num_objs, int32_t *merged_obj)
 
 int cam_sync_destroy(int32_t sync_obj)
 {
-	struct sync_table_row *row = NULL;
-
-	if (sync_obj >= CAM_SYNC_MAX_OBJS || sync_obj <= 0)
-		return -EINVAL;
-
-	spin_lock_bh(&sync_dev->row_spinlocks[sync_obj]);
-	row = sync_dev->sync_table + sync_obj;
-	if (row->state == CAM_SYNC_STATE_INVALID) {
-		CAM_ERR(CAM_SYNC,
-			"Error: accessing an uninitialized sync obj: idx = %d",
-			sync_obj);
-		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
-		return -EINVAL;
-	}
 
 	cam_sync_deinit_object(sync_dev->sync_table, sync_obj);
-	spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
-
 	return 0;
 }
 

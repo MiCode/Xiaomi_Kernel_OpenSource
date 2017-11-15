@@ -141,17 +141,25 @@ int cam_sync_util_get_state(int current_state,
 /**
  * @brief: Function to clean up the children of a sync object
  * @param list_to_clean : List to clean up
+ * @list_clean_type     : Clean specific object or clean all objects
+ * @sync_obj            : Sync object to be clean if list clean type is
+ *                         SYNC_LIST_CLEAN_ID
  *
  * @return None
  */
-void cam_sync_util_cleanup_children_list(struct list_head *list_to_clean);
+void cam_sync_util_cleanup_children_list(struct list_head *list_to_clean,
+	uint32_t list_clean_type, uint32_t sync_obj);
 
 /**
  * @brief: Function to clean up the parents of a sync object
  * @param list_to_clean : List to clean up
+ * @list_clean_type     : Clean specific object or clean all objects
+ * @sync_obj            : Sync object to be clean if list clean type is
+ *                         SYNC_LIST_CLEAN_ID
  *
  * @return None
  */
-void cam_sync_util_cleanup_parents_list(struct list_head *list_to_clean);
+void cam_sync_util_cleanup_parents_list(struct list_head *list_to_clean,
+	uint32_t list_clean_type, uint32_t sync_obj);
 
 #endif /* __CAM_SYNC_UTIL_H__ */
