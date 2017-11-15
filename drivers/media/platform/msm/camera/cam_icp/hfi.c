@@ -109,7 +109,19 @@ int hfi_write_cmd(void *cmd_ptr)
 			new_write_idx << BYTE_WORD_SHIFT);
 	}
 
+	/*
+	 * To make sure command data in a command queue before
+	 * updating write index
+	 */
+	wmb();
+
 	q->qhdr_write_idx = new_write_idx;
+
+	/*
+	 * Before raising interrupt make sure command data is ready for
+	 * firmware to process
+	 */
+	wmb();
 	cam_io_w((uint32_t)INTR_ENABLE,
 		g_hfi->csr_base + HFI_REG_A5_CSR_HOST2ICPINT);
 err:
