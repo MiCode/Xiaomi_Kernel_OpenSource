@@ -2748,6 +2748,8 @@
 
 &mdss_core_gdsc {
 	status = "ok";
+	proxy-supply = <&mdss_core_gdsc>;
+	qcom,proxy-consumer-enable;
 };
 
 &gpu_cx_gdsc {
