@@ -261,5 +261,6 @@
 #define MEASURE_ONLY_CNOC_CLK					1
 #define MEASURE_ONLY_BIMC_CLK					2
 #define MEASURE_ONLY_IPA_2X_CLK					3
+#define MMCX_CLK						4
 
 #endif

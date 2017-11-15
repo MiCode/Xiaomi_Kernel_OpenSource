@@ -708,6 +708,7 @@
 		reg-names = "cc_base";
 		vdd_cx-supply = <&pm855l_s6_level>;
 		vdd_cx_ao-supply = <&pm855l_s6_level_ao>;
+		vdd_mm-supply = <&pm855l_s5_level>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};

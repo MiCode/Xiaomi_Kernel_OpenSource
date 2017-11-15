@@ -46,6 +46,7 @@
 
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NUM, 1, vdd_corner);
 static DEFINE_VDD_REGULATORS(vdd_cx_ao, VDD_NUM, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_mm, VDD_NUM, 1, vdd_corner);
 
 enum {
 	P_AUD_REF_CLK,
@@ -249,6 +250,16 @@ static struct clk_dummy measure_only_ipa_2x_clk = {
 	.hw.init = &(struct clk_init_data){
 		.name = "measure_only_ipa_2x_clk",
 		.ops = &clk_dummy_ops,
+	},
+};
+
+/* Only used to cast a vote on the MMCX rail until late_initcall_sync */
+static struct clk_dummy mmcx_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "mmcx_clk",
+		.ops = &clk_dummy_ops,
+		.vdd_class = &vdd_mm,
 	},
 };
 
@@ -4147,6 +4158,7 @@ struct clk_hw *gcc_sdm855_hws[] = {
 	[MEASURE_ONLY_CNOC_CLK] = &measure_only_cnoc_clk.hw,
 	[MEASURE_ONLY_BIMC_CLK] = &measure_only_bimc_clk.hw,
 	[MEASURE_ONLY_IPA_2X_CLK] = &measure_only_ipa_2x_clk.hw,
+	[MMCX_CLK] = &mmcx_clk.hw,
 };
 
 static struct clk_regmap *gcc_sdm855_clocks[] = {
@@ -4478,6 +4490,13 @@ static int gcc_sdm855_probe(struct platform_device *pdev)
 	/* Disable the GPLL0 active input to MMSS and GPU via MISC registers */
 	regmap_update_bits(regmap, GCC_NPU_MISC, 0x3, 0x3);
 	regmap_update_bits(regmap, GCC_GPU_MISC, 0x3, 0x3);
+
+	vdd_mm.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_mm");
+	if (IS_ERR(vdd_mm.regulator[0])) {
+		if (!(PTR_ERR(vdd_mm.regulator[0]) == -EPROBE_DEFER))
+			dev_err(&pdev->dev, "Unable to get vdd_mm regulator\n");
+		return PTR_ERR(vdd_mm.regulator[0]);
+	}
 
 	/* register hardware clocks */
 	for (i = 0; i < ARRAY_SIZE(gcc_sdm855_hws); i++) {

@@ -1376,7 +1376,7 @@ static struct clk_branch disp_cc_xo_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "disp_cc_xo_clk",
-			.flags = CLK_SET_RATE_PARENT,
+			.flags = CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},
