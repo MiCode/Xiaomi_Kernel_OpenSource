@@ -90,6 +90,8 @@ enum cam_isp_hw_cmd_type {
 	CAM_ISP_HW_CMD_GET_HFR_UPDATE,
 	CAM_ISP_HW_CMD_GET_SECURE_MODE,
 	CAM_ISP_HW_CMD_STRIPE_UPDATE,
+	CAM_ISP_HW_CMD_CLOCK_UPDATE,
+	CAM_ISP_HW_CMD_BW_UPDATE,
 	CAM_ISP_HW_CMD_MAX,
 };
 
@@ -192,6 +194,8 @@ struct cam_isp_hw_get_cmd_update {
 		void                                 *data;
 		struct cam_isp_hw_get_wm_update      *wm_update;
 		struct cam_isp_port_hfr_config       *hfr_update;
+		struct cam_isp_clock_config          *clock_update;
+		struct cam_isp_bw_config             *bw_update;
 	};
 };
 
