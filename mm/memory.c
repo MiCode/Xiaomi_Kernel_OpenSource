@@ -3654,7 +3654,7 @@ int finish_fault(struct vm_fault *vmf)
 }
 
 static unsigned long fault_around_bytes __read_mostly =
-	rounddown_pow_of_two(4096);
+	rounddown_pow_of_two(65536);
 
 #ifdef CONFIG_DEBUG_FS
 static int fault_around_bytes_get(void *data, u64 *val)
