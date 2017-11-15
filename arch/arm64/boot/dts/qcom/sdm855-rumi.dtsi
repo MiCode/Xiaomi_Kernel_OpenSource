@@ -57,6 +57,10 @@
 	};
 };
 
+&qupv3_se12_2uart {
+	status = "ok";
+};
+
 &usb0 {
 	dwc3@a600000 {
 		usb-phy = <&usb_emu_phy>;
