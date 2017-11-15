@@ -127,12 +127,10 @@ static ssize_t mem_entry_sysfs_show(struct kobject *kobj,
 	ssize_t ret;
 
 	/*
-	 * 1. sysfs_remove_file waits for reads to complete before the node
-	 *    is deleted.
-	 * 2. kgsl_process_init_sysfs takes a refcount to the process_private,
-	 *    which is put at the end of kgsl_process_uninit_sysfs.
-	 * These two conditions imply that priv will not be freed until this
-	 * function completes, and no further locking is needed.
+	 * kgsl_process_init_sysfs takes a refcount to the process_private,
+	 * which is put when the kobj is released. This implies that priv will
+	 * not be freed until this function completes, and no further locking
+	 * is needed.
 	 */
 	priv = kobj ? container_of(kobj, struct kgsl_process_private, kobj) :
 			NULL;
@@ -145,12 +143,22 @@ static ssize_t mem_entry_sysfs_show(struct kobject *kobj,
 	return ret;
 }
 
+static void mem_entry_release(struct kobject *kobj)
+{
+	struct kgsl_process_private *priv;
+
+	priv = container_of(kobj, struct kgsl_process_private, kobj);
+	/* Put the refcount we got in kgsl_process_init_sysfs */
+	kgsl_process_private_put(priv);
+}
+
 static const struct sysfs_ops mem_entry_sysfs_ops = {
 	.show = mem_entry_sysfs_show,
 };
 
 static struct kobj_type ktype_mem_entry = {
 	.sysfs_ops = &mem_entry_sysfs_ops,
+	.release = &mem_entry_release,
 };
 
 static struct mem_entry_stats mem_stats[] = {
@@ -173,8 +181,6 @@ kgsl_process_uninit_sysfs(struct kgsl_process_private *private)
 	}
 
 	kobject_put(&private->kobj);
-	/* Put the refcount we got in kgsl_process_init_sysfs */
-	kgsl_process_private_put(private);
 }
 
 /**
