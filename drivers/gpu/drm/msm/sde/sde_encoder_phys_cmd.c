@@ -489,6 +489,21 @@ static bool _sde_encoder_phys_is_ppsplit_slave(
 			phys_enc->split_role == ENC_ROLE_SLAVE;
 }
 
+static bool _sde_encoder_phys_is_disabling_ppsplit_slave(
+		struct sde_encoder_phys *phys_enc)
+{
+	enum sde_rm_topology_name old_top;
+
+	if (!phys_enc || !phys_enc->connector ||
+			phys_enc->split_role != ENC_ROLE_SLAVE)
+		return false;
+
+	old_top = sde_connector_get_old_topology_name(
+			phys_enc->connector->state);
+
+	return old_top == SDE_RM_TOPOLOGY_PPSPLIT;
+}
+
 static int _sde_encoder_phys_cmd_poll_write_pointer_started(
 		struct sde_encoder_phys *phys_enc)
 {
@@ -678,7 +693,15 @@ void sde_encoder_phys_cmd_irq_control(struct sde_encoder_phys *phys_enc,
 {
 	struct sde_encoder_phys_cmd *cmd_enc;
 
-	if (!phys_enc || _sde_encoder_phys_is_ppsplit_slave(phys_enc))
+	if (!phys_enc)
+		return;
+
+	/**
+	 * pingpong split slaves do not register for IRQs
+	 * check old and new topologies
+	 */
+	if (_sde_encoder_phys_is_ppsplit_slave(phys_enc) ||
+			_sde_encoder_phys_is_disabling_ppsplit_slave(phys_enc))
 		return;
 
 	cmd_enc = to_sde_encoder_phys_cmd(phys_enc);
