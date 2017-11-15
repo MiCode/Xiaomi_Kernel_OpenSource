@@ -216,19 +216,7 @@ static int __cam_isp_ctx_handle_buf_done_in_activated_state(
 			continue;
 		}
 
-		if (!bubble_state) {
-			CAM_DBG(CAM_ISP,
-				"Sync with success: req %lld res 0x%x fd 0x%x",
-				req->request_id,
-				req_isp->fence_map_out[j].resource_handle,
-				req_isp->fence_map_out[j].sync_id);
-
-			rc = cam_sync_signal(req_isp->fence_map_out[j].sync_id,
-				CAM_SYNC_STATE_SIGNALED_SUCCESS);
-			if (rc)
-				CAM_DBG(CAM_ISP, "Sync failed with rc = %d",
-					 rc);
-		} else if (!req_isp->bubble_report) {
+		if (req->error_flag || !req_isp->bubble_report) {
 			CAM_DBG(CAM_ISP,
 				"Sync with failure: req %lld res 0x%x fd 0x%x",
 				req->request_id,
@@ -239,6 +227,18 @@ static int __cam_isp_ctx_handle_buf_done_in_activated_state(
 				CAM_SYNC_STATE_SIGNALED_ERROR);
 			if (rc)
 				CAM_ERR(CAM_ISP, "Sync failed with rc = %d",
+					rc);
+		} else if (!bubble_state) {
+			CAM_DBG(CAM_ISP,
+				"Sync with success: req %lld res 0x%x fd 0x%x",
+				req->request_id,
+				req_isp->fence_map_out[j].resource_handle,
+				req_isp->fence_map_out[j].sync_id);
+
+			rc = cam_sync_signal(req_isp->fence_map_out[j].sync_id,
+				CAM_SYNC_STATE_SIGNALED_SUCCESS);
+			if (rc)
+				CAM_DBG(CAM_ISP, "Sync failed with rc = %d",
 					rc);
 		} else {
 			/*
@@ -2091,6 +2091,34 @@ static int __cam_isp_ctx_release_dev_in_activated(struct cam_context *ctx,
 	return rc;
 }
 
+static int __cam_isp_ctx_process_evt(struct cam_context *ctx,
+	struct cam_req_mgr_link_evt_data *link_evt_data)
+{
+	int rc = 0;
+	struct cam_ctx_request *req_current;
+	struct cam_ctx_request *req_prev;
+	bool req_id_found = false;
+
+	list_for_each_entry_safe(req_current, req_prev,
+		&ctx->pending_req_list, list) {
+		if (link_evt_data->req_id == req_current->request_id) {
+			req_current->error_flag = true;
+			req_id_found = true;
+			CAM_DBG(CAM_ISP,
+				"flagging req_id=%lld as error on link_hdl: %d for dev_hdl: %d",
+				link_evt_data->req_id, link_evt_data->link_hdl,
+				link_evt_data->dev_hdl);
+		}
+	}
+
+	if (!req_id_found) {
+		CAM_ERR(CAM_ISP,
+			"req_id=%lld not found in the pending list ",
+			link_evt_data->req_id);
+		rc = -EINVAL;
+	}
+	return rc;
+}
 static int __cam_isp_ctx_unlink_in_activated(struct cam_context *ctx,
 	struct cam_req_mgr_core_dev_link_setup *unlink)
 {
@@ -2223,6 +2251,7 @@ static struct cam_ctx_ops
 			.unlink = __cam_isp_ctx_unlink_in_activated,
 			.apply_req = __cam_isp_ctx_apply_req,
 			.flush_req = __cam_isp_ctx_flush_req_in_top_state,
+			.process_evt = __cam_isp_ctx_process_evt,
 		},
 		.irq_ops = __cam_isp_ctx_handle_irq_in_activated,
 	},

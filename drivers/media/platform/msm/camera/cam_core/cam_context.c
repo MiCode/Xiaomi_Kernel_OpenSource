@@ -196,6 +196,30 @@ int cam_context_handle_crm_flush_req(struct cam_context *ctx,
 	return rc;
 }
 
+int cam_context_handle_crm_process_evt(struct cam_context *ctx,
+	struct cam_req_mgr_link_evt_data *process_evt)
+{
+	int rc;
+
+	if (!ctx->state_machine) {
+		CAM_ERR(CAM_CORE, "Context is not ready");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ctx->ctx_mutex);
+	if (ctx->state_machine[ctx->state].crm_ops.process_evt) {
+		rc = ctx->state_machine[ctx->state].crm_ops.process_evt(ctx,
+			process_evt);
+	} else {
+		CAM_ERR(CAM_CORE, "No crm process evt in dev %d, state %d",
+			ctx->dev_hdl, ctx->state);
+		rc = -EPROTO;
+	}
+	mutex_unlock(&ctx->ctx_mutex);
+
+	return rc;
+}
+
 int cam_context_handle_acquire_dev(struct cam_context *ctx,
 	struct cam_acquire_dev_cmd *cmd)
 {
