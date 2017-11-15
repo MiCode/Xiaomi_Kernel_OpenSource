@@ -29,10 +29,10 @@
  * @msg_len:	length of message payload following header
  */
 struct qmi_header {
-	uint8_t type;
-	uint16_t txn_id;
-	uint16_t msg_id;
-	uint16_t msg_len;
+	u8 type;
+	u16 txn_id;
+	u16 msg_id;
+	u16 msg_len;
 } __packed;
 
 #define QMI_REQUEST	0
@@ -76,11 +76,11 @@ enum qmi_array_type {
  */
 struct qmi_elem_info {
 	enum qmi_elem_type data_type;
-	uint32_t elem_len;
-	uint32_t elem_size;
+	u32 elem_len;
+	u32 elem_size;
 	enum qmi_array_type is_array;
-	uint8_t tlv_type;
-	uint32_t offset;
+	u8 tlv_type;
+	u32 offset;
 	struct qmi_elem_info *ei_array;
 };
 
