@@ -1644,6 +1644,7 @@ static int cam_icp_mgr_release_ctx(struct cam_icp_hw_mgr *hw_mgr, int ctx_id)
 	for (i = 0; i < CAM_FRAME_CMD_MAX; i++)
 		clear_bit(i, hw_mgr->ctx_data[ctx_id].hfi_frame_process.bitmap);
 	kfree(hw_mgr->ctx_data[ctx_id].hfi_frame_process.bitmap);
+	hw_mgr->ctx_data[ctx_id].hfi_frame_process.bitmap = NULL;
 	cam_icp_hw_mgr_clk_info_update(hw_mgr, &hw_mgr->ctx_data[ctx_id]);
 	hw_mgr->ctx_data[ctx_id].clk_info.curr_fc = 0;
 	hw_mgr->ctx_data[ctx_id].clk_info.base_clk = 0;
@@ -2068,6 +2069,7 @@ static int cam_icp_mgr_config_hw(void *hw_mgr_priv, void *config_hw_args)
 	ctx_data = config_args->ctxt_to_hw_map;
 	mutex_lock(&ctx_data->ctx_mutex);
 	if (!ctx_data->in_use) {
+		mutex_unlock(&ctx_data->ctx_mutex);
 		CAM_ERR(CAM_ICP, "ctx is not in use");
 		return -EINVAL;
 	}
