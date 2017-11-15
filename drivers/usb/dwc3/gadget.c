@@ -2674,41 +2674,55 @@ static void dwc3_endpoint_interrupt(struct dwc3 *dwc,
 
 static void dwc3_disconnect_gadget(struct dwc3 *dwc)
 {
+	struct usb_gadget_driver *gadget_driver;
+
 	if (dwc->gadget_driver && dwc->gadget_driver->disconnect) {
+		gadget_driver = dwc->gadget_driver;
 		spin_unlock(&dwc->lock);
-		dwc->gadget_driver->disconnect(&dwc->gadget);
+		dbg_event(0xFF, "DISCONNECT", 0);
+		gadget_driver->disconnect(&dwc->gadget);
 		spin_lock(&dwc->lock);
 	}
 }
 
 static void dwc3_suspend_gadget(struct dwc3 *dwc)
 {
+	struct usb_gadget_driver *gadget_driver;
+
 	if (dwc->gadget_driver && dwc->gadget_driver->suspend) {
+		gadget_driver = dwc->gadget_driver;
 		spin_unlock(&dwc->lock);
 		dbg_event(0xFF, "SUSPEND", 0);
-		dwc->gadget_driver->suspend(&dwc->gadget);
+		gadget_driver->suspend(&dwc->gadget);
 		spin_lock(&dwc->lock);
 	}
 }
 
 static void dwc3_resume_gadget(struct dwc3 *dwc)
 {
+	struct usb_gadget_driver *gadget_driver;
+
 	if (dwc->gadget_driver && dwc->gadget_driver->resume) {
+		gadget_driver = dwc->gadget_driver;
 		spin_unlock(&dwc->lock);
 		dbg_event(0xFF, "RESUME", 0);
-		dwc->gadget_driver->resume(&dwc->gadget);
+		gadget_driver->resume(&dwc->gadget);
 		spin_lock(&dwc->lock);
 	}
 }
 
 static void dwc3_reset_gadget(struct dwc3 *dwc)
 {
+	struct usb_gadget_driver *gadget_driver;
+
 	if (!dwc->gadget_driver)
 		return;
 
 	if (dwc->gadget.speed != USB_SPEED_UNKNOWN) {
+		gadget_driver = dwc->gadget_driver;
 		spin_unlock(&dwc->lock);
-		usb_gadget_udc_reset(&dwc->gadget, dwc->gadget_driver);
+		dbg_event(0xFF, "UDC RESET", 0);
+		usb_gadget_udc_reset(&dwc->gadget, gadget_driver);
 		spin_lock(&dwc->lock);
 	}
 }
