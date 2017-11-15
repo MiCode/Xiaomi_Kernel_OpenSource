@@ -462,7 +462,7 @@ video_fail:
 	return rc;
 }
 
-int cam_req_mgr_notify_frame_message(struct cam_req_mgr_message *msg,
+int cam_req_mgr_notify_message(struct cam_req_mgr_message *msg,
 	uint32_t id,
 	uint32_t type)
 {
@@ -481,7 +481,7 @@ int cam_req_mgr_notify_frame_message(struct cam_req_mgr_message *msg,
 
 	return 0;
 }
-EXPORT_SYMBOL(cam_req_mgr_notify_frame_message);
+EXPORT_SYMBOL(cam_req_mgr_notify_message);
 
 void cam_video_device_cleanup(void)
 {

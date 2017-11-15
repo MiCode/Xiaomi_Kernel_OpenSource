@@ -810,15 +810,34 @@ static int __cam_req_mgr_reset_in_q(struct cam_req_mgr_req_data *req)
  */
 static void __cam_req_mgr_sof_freeze(unsigned long data)
 {
-	struct cam_req_mgr_timer *timer = (struct cam_req_mgr_timer *)data;
-	struct cam_req_mgr_core_link *link = NULL;
+	struct cam_req_mgr_timer     *timer = (struct cam_req_mgr_timer *)data;
+	struct cam_req_mgr_core_link    *link = NULL;
+	struct cam_req_mgr_core_session *session = NULL;
+	struct cam_req_mgr_message       msg;
 
 	if (!timer) {
 		CAM_ERR(CAM_CRM, "NULL timer");
 		return;
 	}
 	link = (struct cam_req_mgr_core_link *)timer->parent;
-	CAM_ERR(CAM_CRM, "SOF freeze for link %x", link->link_hdl);
+	session = (struct cam_req_mgr_core_session *)link->parent;
+
+	CAM_ERR(CAM_CRM, "SOF freeze for session %d link 0x%x",
+		session->session_hdl, link->link_hdl);
+
+	memset(&msg, 0, sizeof(msg));
+
+	msg.session_hdl = session->session_hdl;
+	msg.u.err_msg.error_type = CAM_REQ_MGR_ERROR_TYPE_DEVICE;
+	msg.u.err_msg.request_id = 0;
+	msg.u.err_msg.link_hdl   = link->link_hdl;
+
+
+	if (cam_req_mgr_notify_message(&msg,
+		V4L_EVENT_CAM_REQ_MGR_ERROR, V4L_EVENT_CAM_REQ_MGR_EVENT))
+		CAM_ERR(CAM_CRM,
+			"Error notifying SOF freeze for session %d link 0x%x",
+			session->session_hdl, link->link_hdl);
 }
 
 /**
