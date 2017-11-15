@@ -51,6 +51,10 @@ static void cam_res_mgr_free_res(void)
 		kfree(flash_res);
 	}
 	mutex_unlock(&cam_res->flash_res_lock);
+
+	mutex_lock(&cam_res->clk_res_lock);
+	cam_res->shared_clk_ref_count = 0;
+	mutex_unlock(&cam_res->clk_res_lock);
 }
 
 void cam_res_mgr_led_trigger_register(const char *name, struct led_trigger **tp)
@@ -243,6 +247,9 @@ static bool cam_res_mgr_shared_pinctrl_check_hold(void)
 		}
 	}
 
+	if (cam_res->shared_clk_ref_count > 1)
+		hold = true;
+
 	return hold;
 }
 
@@ -258,11 +265,13 @@ void cam_res_mgr_shared_pinctrl_put(void)
 	mutex_lock(&cam_res->gpio_res_lock);
 	if (cam_res->pstatus == PINCTRL_STATUS_PUT) {
 		CAM_DBG(CAM_RES, "The shared pinctrl already been put");
+		mutex_unlock(&cam_res->gpio_res_lock);
 		return;
 	}
 
 	if (cam_res_mgr_shared_pinctrl_check_hold()) {
 		CAM_INFO(CAM_RES, "Need hold put this pinctrl");
+		mutex_unlock(&cam_res->gpio_res_lock);
 		return;
 	}
 
@@ -330,10 +339,12 @@ int cam_res_mgr_shared_pinctrl_post_init(void)
 	pinctrl_info = &cam_res->dt.pinctrl_info;
 
 	/*
-	 * If no gpio resource in gpio_res_list, it means
-	 * this device don't have shared gpio
+	 * If no gpio resource in gpio_res_list, and
+	 * no shared clk now, it means this device
+	 * don't have shared gpio.
 	 */
-	if (list_empty(&cam_res->gpio_res_list)) {
+	if (list_empty(&cam_res->gpio_res_list) &&
+		cam_res->shared_clk_ref_count < 1) {
 		ret = pinctrl_select_state(pinctrl_info->pinctrl,
 			pinctrl_info->gpio_state_suspend);
 		devm_pinctrl_put(pinctrl_info->pinctrl);
@@ -576,6 +587,20 @@ int cam_res_mgr_gpio_set_value(unsigned int gpio, int value)
 }
 EXPORT_SYMBOL(cam_res_mgr_gpio_set_value);
 
+void cam_res_mgr_shared_clk_config(bool value)
+{
+	if (!cam_res)
+		return;
+
+	mutex_lock(&cam_res->clk_res_lock);
+	if (value)
+		cam_res->shared_clk_ref_count++;
+	else
+		cam_res->shared_clk_ref_count--;
+	mutex_unlock(&cam_res->clk_res_lock);
+}
+EXPORT_SYMBOL(cam_res_mgr_shared_clk_config);
+
 static int cam_res_mgr_parse_dt(struct device *dev)
 {
 	int rc = 0;
@@ -649,6 +674,7 @@ static int cam_res_mgr_probe(struct platform_device *pdev)
 	cam_res->dev = &pdev->dev;
 	mutex_init(&cam_res->flash_res_lock);
 	mutex_init(&cam_res->gpio_res_lock);
+	mutex_init(&cam_res->clk_res_lock);
 
 	rc = cam_res_mgr_parse_dt(&pdev->dev);
 	if (rc) {
@@ -659,6 +685,7 @@ static int cam_res_mgr_probe(struct platform_device *pdev)
 		cam_res->shared_gpio_enabled = true;
 	}
 
+	cam_res->shared_clk_ref_count = 0;
 	cam_res->pstatus = PINCTRL_STATUS_PUT;
 
 	INIT_LIST_HEAD(&cam_res->gpio_res_list);

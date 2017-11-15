@@ -1235,6 +1235,9 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 		return -EINVAL;
 	}
 
+	if (soc_info->use_shared_clk)
+		cam_res_mgr_shared_clk_config(true);
+
 	ret = msm_camera_pinctrl_init(&(ctrl->pinctrl_info), ctrl->dev);
 	if (ret < 0) {
 		/* Some sensor subdev no pinctrl. */
@@ -1492,6 +1495,7 @@ power_up_failed:
 				(power_setting->delay * 1000) + 1000);
 		}
 	}
+
 	if (ctrl->cam_pinctrl_status) {
 		ret = pinctrl_select_state(
 				ctrl->pinctrl_info.pinctrl,
@@ -1502,6 +1506,10 @@ power_up_failed:
 		pinctrl_put(ctrl->pinctrl_info.pinctrl);
 		cam_res_mgr_shared_pinctrl_put();
 	}
+
+	if (soc_info->use_shared_clk)
+		cam_res_mgr_shared_clk_config(false);
+
 	ctrl->cam_pinctrl_status = 0;
 
 	cam_sensor_util_request_gpio_table(soc_info, 0);
@@ -1697,6 +1705,9 @@ int msm_camera_power_down(struct cam_sensor_power_ctrl_t *ctrl,
 		pinctrl_put(ctrl->pinctrl_info.pinctrl);
 		cam_res_mgr_shared_pinctrl_put();
 	}
+
+	if (soc_info->use_shared_clk)
+		cam_res_mgr_shared_clk_config(false);
 
 	ctrl->cam_pinctrl_status = 0;
 

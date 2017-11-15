@@ -410,6 +410,13 @@ static int cam_soc_util_get_dt_clk_info(struct cam_hw_soc_info *soc_info)
 
 	of_node = soc_info->dev->of_node;
 
+	if (!of_property_read_bool(of_node, "use-shared-clk")) {
+		CAM_DBG(CAM_UTIL, "No shared clk parameter defined");
+		soc_info->use_shared_clk = false;
+	} else {
+		soc_info->use_shared_clk = true;
+	}
+
 	count = of_property_count_strings(of_node, "clock-names");
 
 	CAM_DBG(CAM_UTIL, "count = %d", count);
