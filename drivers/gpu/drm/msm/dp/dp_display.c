@@ -1196,6 +1196,7 @@ static int dp_display_get_modes(struct dp_display *dp,
 static int dp_display_pre_kickoff(struct dp_display *dp_display,
 			struct drm_msm_ext_hdr_metadata *hdr)
 {
+	int rc = 0;
 	struct dp_display_private *dp;
 
 	if (!dp_display) {
@@ -1205,7 +1206,10 @@ static int dp_display_pre_kickoff(struct dp_display *dp_display,
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 
-	return dp->panel->setup_hdr(dp->panel, hdr);
+	if (hdr->hdr_supported)
+		rc = dp->panel->setup_hdr(dp->panel, hdr);
+
+	return rc;
 }
 
 static int dp_display_create_workqueue(struct dp_display_private *dp)

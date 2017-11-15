@@ -19,8 +19,41 @@
 #define DP_PANEL_DEFAULT_BPP 24
 #define DP_MAX_DS_PORT_COUNT 1
 
-enum {
-	DP_LINK_RATE_MULTIPLIER = 27000000,
+enum dp_panel_hdr_pixel_encoding {
+	RGB,
+	YCbCr444,
+	YCbCr422,
+	YCbCr420,
+	YONLY,
+	RAW,
+};
+
+enum dp_panel_hdr_rgb_colorimetry {
+	sRGB,
+	RGB_WIDE_GAMUT_FIXED_POINT,
+	RGB_WIDE_GAMUT_FLOATING_POINT,
+	ADOBERGB,
+	DCI_P3,
+	CUSTOM_COLOR_PROFILE,
+	ITU_R_BT_2020_RGB,
+};
+
+enum dp_panel_hdr_dynamic_range {
+	VESA,
+	CEA,
+};
+
+enum dp_panel_hdr_content_type {
+	NOT_DEFINED,
+	GRAPHICS,
+	PHOTO,
+	VIDEO,
+	GAME,
+};
+
+enum dp_panel_hdr_state {
+	HDR_DISABLED,
+	HDR_ENABLED,
 };
 
 struct dp_panel_private {
@@ -32,6 +65,7 @@ struct dp_panel_private {
 	bool custom_edid;
 	bool custom_dpcd;
 	bool panel_on;
+	enum dp_panel_hdr_state hdr_state;
 	u8 spd_vendor_name[8];
 	u8 spd_product_description[16];
 };
@@ -621,37 +655,29 @@ end:
 	return min_link_rate_khz;
 }
 
-enum dp_panel_hdr_pixel_encoding {
-	RGB,
-	YCbCr444,
-	YCbCr422,
-	YCbCr420,
-	YONLY,
-	RAW,
-};
+static bool dp_panel_is_validate_hdr_state(struct dp_panel_private *panel,
+		struct drm_msm_ext_hdr_metadata *hdr_meta)
+{
+	struct drm_msm_ext_hdr_metadata *panel_hdr_meta =
+			&panel->catalog->hdr_data.hdr_meta;
 
-enum dp_panel_hdr_rgb_colorimetry {
-	sRGB,
-	RGB_WIDE_GAMUT_FIXED_POINT,
-	RGB_WIDE_GAMUT_FLOATING_POINT,
-	ADOBERGB,
-	DCI_P3,
-	CUSTOM_COLOR_PROFILE,
-	ITU_R_BT_2020_RGB,
-};
+	if (!hdr_meta)
+		goto end;
 
-enum dp_panel_hdr_dynamic_range {
-	VESA,
-	CEA,
-};
+	/* bail out if HDR not active */
+	if (hdr_meta->hdr_state == HDR_DISABLED &&
+	    panel->hdr_state == HDR_DISABLED)
+		goto end;
 
-enum dp_panel_hdr_content_type {
-	NOT_DEFINED,
-	GRAPHICS,
-	PHOTO,
-	VIDEO,
-	GAME,
-};
+	/* bail out if same meta data is received */
+	if (hdr_meta->hdr_state == HDR_ENABLED &&
+		panel_hdr_meta->eotf == hdr_meta->eotf)
+		goto end;
+
+	return true;
+end:
+	return false;
+}
 
 static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
 		struct drm_msm_ext_hdr_metadata *hdr_meta)
@@ -660,9 +686,6 @@ static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
 	struct dp_panel_private *panel;
 	struct dp_catalog_hdr_data *hdr;
 
-	if (!hdr_meta || !hdr_meta->hdr_state)
-		goto end;
-
 	if (!dp_panel) {
 		pr_err("invalid input\n");
 		rc = -EINVAL;
@@ -670,6 +693,12 @@ static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
 	}
 
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+
+	if (!dp_panel_is_validate_hdr_state(panel, hdr_meta))
+		goto end;
+
+	panel->hdr_state = hdr_meta->hdr_state;
+
 	hdr = &panel->catalog->hdr_data;
 
 	hdr->ext_header_byte0 = 0x00;
@@ -681,6 +710,11 @@ static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
 	hdr->vsc_header_byte1 = 0x07;
 	hdr->vsc_header_byte2 = 0x05;
 	hdr->vsc_header_byte3 = 0x13;
+
+	hdr->vscext_header_byte0 = 0x00;
+	hdr->vscext_header_byte1 = 0x87;
+	hdr->vscext_header_byte2 = 0x1D;
+	hdr->vscext_header_byte3 = 0x13 << 2;
 
 	/* VSC SDP Payload for DB16 */
 	hdr->pixel_encoding = RGB;
@@ -694,17 +728,12 @@ static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
 
 	hdr->bpc = dp_panel->pinfo.bpp / 3;
 
-	hdr->vscext_header_byte0 = 0x00;
-	hdr->vscext_header_byte1 = 0x87;
-	hdr->vscext_header_byte2 = 0x1D;
-	hdr->vscext_header_byte3 = 0x13 << 2;
-
 	hdr->version = 0x01;
 	hdr->length = 0x1A;
 
 	memcpy(&hdr->hdr_meta, hdr_meta, sizeof(hdr->hdr_meta));
 
-	panel->catalog->config_hdr(panel->catalog);
+	panel->catalog->config_hdr(panel->catalog, panel->hdr_state);
 end:
 	return rc;
 }
