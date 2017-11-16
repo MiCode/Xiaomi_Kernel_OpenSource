@@ -123,11 +123,18 @@ struct msm_dump_entry {
 #ifdef CONFIG_QCOM_MEMORY_DUMP_V2
 extern int msm_dump_data_register(enum msm_dump_table_ids id,
 				  struct msm_dump_entry *entry);
+
+extern void *get_msm_dump_ptr(enum msm_dump_data_ids id);
 #else
 static inline int msm_dump_data_register(enum msm_dump_table_ids id,
 					 struct msm_dump_entry *entry)
 {
 	return -EINVAL;
+}
+
+static inline void *get_msm_dump_ptr(enum msm_dump_data_ids id)
+{
+	return NULL;
 }
 #endif
 
