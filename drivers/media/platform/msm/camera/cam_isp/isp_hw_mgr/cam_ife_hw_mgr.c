@@ -203,7 +203,8 @@ err:
 }
 
 static int cam_ife_hw_mgr_start_hw_res(
-	struct cam_ife_hw_mgr_res   *isp_hw_res)
+	struct cam_ife_hw_mgr_res   *isp_hw_res,
+	struct cam_ife_hw_mgr_ctx   *ctx)
 {
 	int i;
 	int rc = -1;
@@ -214,6 +215,8 @@ static int cam_ife_hw_mgr_start_hw_res(
 			continue;
 		hw_intf = isp_hw_res->hw_res[i]->hw_intf;
 		if (hw_intf->hw_ops.start) {
+			isp_hw_res->hw_res[i]->rdi_only_ctx =
+				ctx->is_rdi_only_context;
 			rc = hw_intf->hw_ops.start(hw_intf->hw_priv,
 				isp_hw_res->hw_res[i],
 				sizeof(struct cam_isp_resource_node));
@@ -1749,7 +1752,8 @@ static int cam_ife_mgr_restart_hw(void *start_hw_args)
 
 	/* start the IFE out devices */
 	for (i = 0; i < CAM_IFE_HW_OUT_RES_MAX; i++) {
-		rc = cam_ife_hw_mgr_start_hw_res(&ctx->res_list_ife_out[i]);
+		rc = cam_ife_hw_mgr_start_hw_res(
+			&ctx->res_list_ife_out[i], ctx);
 		if (rc) {
 			CAM_ERR(CAM_ISP, "Can not start IFE OUT (%d)", i);
 			goto err;
@@ -1759,7 +1763,7 @@ static int cam_ife_mgr_restart_hw(void *start_hw_args)
 	CAM_DBG(CAM_ISP, "START IFE SRC ... in ctx id:%d", ctx->ctx_index);
 	/* Start the IFE mux in devices */
 	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_src, list) {
-		rc = cam_ife_hw_mgr_start_hw_res(hw_mgr_res);
+		rc = cam_ife_hw_mgr_start_hw_res(hw_mgr_res, ctx);
 		if (rc) {
 			CAM_ERR(CAM_ISP, "Can not start IFE MUX (%d)",
 				 hw_mgr_res->res_id);
@@ -1770,7 +1774,7 @@ static int cam_ife_mgr_restart_hw(void *start_hw_args)
 	CAM_DBG(CAM_ISP, "START CSID HW ... in ctx id:%d", ctx->ctx_index);
 	/* Start the IFE CSID HW devices */
 	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_csid, list) {
-		rc = cam_ife_hw_mgr_start_hw_res(hw_mgr_res);
+		rc = cam_ife_hw_mgr_start_hw_res(hw_mgr_res, ctx);
 		if (rc) {
 			CAM_ERR(CAM_ISP, "Can not start IFE CSID (%d)",
 				 hw_mgr_res->res_id);
@@ -1909,7 +1913,8 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 		ctx->ctx_index);
 	/* start the IFE out devices */
 	for (i = 0; i < CAM_IFE_HW_OUT_RES_MAX; i++) {
-		rc = cam_ife_hw_mgr_start_hw_res(&ctx->res_list_ife_out[i]);
+		rc = cam_ife_hw_mgr_start_hw_res(
+			&ctx->res_list_ife_out[i], ctx);
 		if (rc) {
 			CAM_ERR(CAM_ISP, "Can not start IFE OUT (%d)",
 				 i);
@@ -1921,7 +1926,7 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 		ctx->ctx_index);
 	/* Start the IFE mux in devices */
 	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_src, list) {
-		rc = cam_ife_hw_mgr_start_hw_res(hw_mgr_res);
+		rc = cam_ife_hw_mgr_start_hw_res(hw_mgr_res, ctx);
 		if (rc) {
 			CAM_ERR(CAM_ISP, "Can not start IFE MUX (%d)",
 				 hw_mgr_res->res_id);
@@ -1933,7 +1938,7 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 		ctx->ctx_index);
 	/* Start the IFE CSID HW devices */
 	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_csid, list) {
-		rc = cam_ife_hw_mgr_start_hw_res(hw_mgr_res);
+		rc = cam_ife_hw_mgr_start_hw_res(hw_mgr_res, ctx);
 		if (rc) {
 			CAM_ERR(CAM_ISP, "Can not start IFE CSID (%d)",
 				 hw_mgr_res->res_id);
@@ -1945,7 +1950,7 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 		ctx->ctx_index);
 	/* Start the IFE CID HW devices */
 	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_cid, list) {
-		rc = cam_ife_hw_mgr_start_hw_res(hw_mgr_res);
+		rc = cam_ife_hw_mgr_start_hw_res(hw_mgr_res, ctx);
 		if (rc) {
 			CAM_ERR(CAM_ISP, "Can not start IFE CSID (%d)",
 				hw_mgr_res->res_id);
