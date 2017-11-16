@@ -1725,7 +1725,7 @@ static int sde_kms_check_secure_transition(struct msm_kms *kms,
 		} else if (global_crtc && (global_crtc != cur_crtc)) {
 			SDE_ERROR(
 			    "crtc%d-sec%d not allowed during crtc%d-sec%d\n",
-				cur_crtc->base.id, sec_session,
+				cur_crtc ? cur_crtc->base.id : -1, sec_session,
 				global_crtc->base.id, global_sec_session);
 			return -EPERM;
 		}
