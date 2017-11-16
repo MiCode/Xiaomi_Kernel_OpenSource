@@ -846,10 +846,10 @@ get_more_pages:
 			   min((pgoff_t)PAGEVEC_SIZE,
 			       max_pages - (pgoff_t)locked_pages) - 1)
 			+ 1;
-		pvec_pages = pagevec_lookup_tag(&pvec, mapping, &index,
-						PAGECACHE_TAG_DIRTY,
+		pvec_pages = pagevec_lookup_range_tag(&pvec, mapping, &index,
+						end, PAGECACHE_TAG_DIRTY,
 						want);
-		dout("pagevec_lookup_tag got %d\n", pvec_pages);
+		dout("pagevec_lookup_range_tag got %d\n", pvec_pages);
 		if (!pvec_pages && !locked_pages)
 			break;
 		for (i = 0; i < pvec_pages && locked_pages < max_pages; i++) {
@@ -864,12 +864,6 @@ get_more_pages:
 			if (unlikely(!PageDirty(page)) ||
 			    unlikely(page->mapping != mapping)) {
 				dout("!dirty or !mapping %p\n", page);
-				unlock_page(page);
-				break;
-			}
-			if (!wbc->range_cyclic && page->index > end) {
-				dout("end of range %p\n", page);
-				done = 1;
 				unlock_page(page);
 				break;
 			}
