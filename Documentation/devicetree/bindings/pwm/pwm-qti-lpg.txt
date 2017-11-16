@@ -1,0 +1,36 @@
+Qualcomm Technologies, Inc. LPG driver specific bindings
+
+This binding document describes the properties of LPG (Light Pulse Generator)
+device module in Qualcomm Technologies, Inc. PMIC chips.
+
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: Must be "qcom,pwm-lpg".
+
+- reg:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: Register base and length for LPG modules. The length
+		      varies based on the number of channels available in
+		      the PMIC chips.
+
+- reg-names:
+	Usage: required
+	Value type: <string>
+	Definition: The name of the register defined in the reg property.
+		      It must be "lpg-base".
+
+- #pwm-cells:
+	Usage: required
+	Value type: <u32>
+	Definition: See Documentation/devicetree/bindings/pwm/pwm.txt;
+
+Example:
+
+	pmi8998_lpg: lpg@b100 {
+		compatible = "qcom,pwm-lpg";
+		reg = <0xb100 0x600>;
+		reg-names = "lpg-base";
+		#pwm-cells = <2>;
+	};
