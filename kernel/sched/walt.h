@@ -219,7 +219,7 @@ static inline unsigned int max_task_load(void)
 	return sched_ravg_window;
 }
 
-static inline u32 cpu_cycles_to_freq(u64 cycles, u32 period)
+static inline u32 cpu_cycles_to_freq(u64 cycles, u64 period)
 {
 	return div64_u64(cycles, period);
 }
