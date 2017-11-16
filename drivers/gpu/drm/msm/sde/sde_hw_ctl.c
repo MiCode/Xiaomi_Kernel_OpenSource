@@ -124,6 +124,11 @@ static inline void sde_hw_ctl_trigger_start(struct sde_hw_ctl *ctx)
 	SDE_REG_WRITE(&ctx->hw, CTL_START, 0x1);
 }
 
+static inline int sde_hw_ctl_get_start_state(struct sde_hw_ctl *ctx)
+{
+	return SDE_REG_READ(&ctx->hw, CTL_START);
+}
+
 static inline void sde_hw_ctl_trigger_pending(struct sde_hw_ctl *ctx)
 {
 	SDE_REG_WRITE(&ctx->hw, CTL_PREPARE, 0x1);
@@ -649,6 +654,7 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 	ops->get_bitmask_cdm = sde_hw_ctl_get_bitmask_cdm;
 	ops->get_bitmask_wb = sde_hw_ctl_get_bitmask_wb;
 	ops->reg_dma_flush = sde_hw_reg_dma_flush;
+	ops->get_start_state = sde_hw_ctl_get_start_state;
 
 	if (cap & BIT(SDE_CTL_SBUF)) {
 		ops->get_bitmask_rot = sde_hw_ctl_get_bitmask_rot;
