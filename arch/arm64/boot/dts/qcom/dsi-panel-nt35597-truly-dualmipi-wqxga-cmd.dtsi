@@ -210,6 +210,11 @@
 					15 01 00 00 00 00 02 E5 01
 					/* CMD mode(10) VDO mode(03) */
 					15 01 00 00 00 00 02 BB 10
+					/* NVT SDC */
+					15 01 00 00 00 00 02 C0 00
+					/* GRAM Slide Parameter */
+					29 01 00 00 00 00 0C C9 01 01 70
+					00 0A 06 67 04 C5 12 18
 					/* Non Reload MTP */
 					15 01 00 00 00 00 02 FB 01
 					/* SlpOut + DispOn */
