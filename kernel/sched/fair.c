@@ -2769,6 +2769,7 @@ u32 sched_get_wake_up_idle(struct task_struct *p)
 
 	return !!enabled;
 }
+EXPORT_SYMBOL(sched_get_wake_up_idle);
 
 int sched_set_wake_up_idle(struct task_struct *p, int wake_up_idle)
 {
@@ -2781,6 +2782,7 @@ int sched_set_wake_up_idle(struct task_struct *p, int wake_up_idle)
 
 	return 0;
 }
+EXPORT_SYMBOL(sched_set_wake_up_idle);
 
 /* Precomputed fixed inverse multiplies for multiplication by y^n */
 static const u32 runnable_avg_yN_inv[] = {
