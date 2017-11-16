@@ -29,6 +29,8 @@ struct dp_audio {
 	u32 lane_count;
 	u32 bw_code;
 
+	struct mutex ops_lock;
+
 	/**
 	 * on()
 	 *

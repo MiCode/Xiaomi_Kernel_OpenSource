@@ -234,7 +234,7 @@ static void dp_hdcp2p2_reset(struct dp_hdcp2p2_ctrl *ctrl)
 
 static void dp_hdcp2p2_set_interrupts(struct dp_hdcp2p2_ctrl *ctrl, bool enable)
 {
-	void __iomem *base = ctrl->init_data.core_io->base;
+	void __iomem *base = ctrl->init_data.dp_ahb->base;
 	struct dp_hdcp2p2_interrupts *intr = ctrl->intr;
 
 	while (intr && intr->reg) {
@@ -740,13 +740,13 @@ static int dp_hdcp2p2_isr(void *input)
 	struct dp_hdcp2p2_interrupts *intr;
 	u32 hdcp_int_val = 0;
 
-	if (!ctrl || !ctrl->init_data.core_io) {
+	if (!ctrl || !ctrl->init_data.dp_ahb) {
 		pr_err("invalid input\n");
 		rc = -EINVAL;
 		goto end;
 	}
 
-	io = ctrl->init_data.core_io;
+	io = ctrl->init_data.dp_ahb;
 	intr = ctrl->intr;
 
 	while (intr && intr->reg) {

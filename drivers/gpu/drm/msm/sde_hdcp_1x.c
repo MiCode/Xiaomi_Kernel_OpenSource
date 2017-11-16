@@ -256,12 +256,15 @@ static int sde_hdcp_1x_load_keys(void *input)
 	u32 ksv_lsb_addr, ksv_msb_addr;
 	u32 aksv_lsb, aksv_msb;
 	u8 aksv[5];
-	struct dss_io_data *io;
+	struct dss_io_data *dp_ahb;
+	struct dss_io_data *dp_aux;
+	struct dss_io_data *dp_link;
 	struct dss_io_data *qfprom_io;
 	struct sde_hdcp_1x *hdcp = input;
 	struct sde_hdcp_reg_set *reg_set;
 
-	if (!hdcp || !hdcp->init_data.core_io ||
+	if (!hdcp || !hdcp->init_data.dp_ahb ||
+		!hdcp->init_data.dp_aux ||
 		!hdcp->init_data.qfprom_io) {
 		pr_err("invalid input\n");
 		rc = -EINVAL;
@@ -276,7 +279,9 @@ static int sde_hdcp_1x_load_keys(void *input)
 		goto end;
 	}
 
-	io = hdcp->init_data.core_io;
+	dp_ahb = hdcp->init_data.dp_ahb;
+	dp_aux = hdcp->init_data.dp_aux;
+	dp_link = hdcp->init_data.dp_link;
 	qfprom_io = hdcp->init_data.qfprom_io;
 	reg_set = &hdcp->reg_set;
 
@@ -327,18 +332,18 @@ static int sde_hdcp_1x_load_keys(void *input)
 		goto end;
 	}
 
-	DSS_REG_W(io, reg_set->aksv_lsb, aksv_lsb);
-	DSS_REG_W(io, reg_set->aksv_msb, aksv_msb);
+	DSS_REG_W(dp_aux, reg_set->aksv_lsb, aksv_lsb);
+	DSS_REG_W(dp_aux, reg_set->aksv_msb, aksv_msb);
 
 	/* Setup seed values for random number An */
-	DSS_REG_W(io, reg_set->entropy_ctrl0, 0xB1FFB0FF);
-	DSS_REG_W(io, reg_set->entropy_ctrl1, 0xF00DFACE);
+	DSS_REG_W(dp_link, reg_set->entropy_ctrl0, 0xB1FFB0FF);
+	DSS_REG_W(dp_link, reg_set->entropy_ctrl1, 0xF00DFACE);
 
 	/* make sure hw is programmed */
 	wmb();
 
 	/* enable hdcp engine */
-	DSS_REG_W(io, reg_set->ctrl, 0x1);
+	DSS_REG_W(dp_ahb, reg_set->ctrl, 0x1);
 
 	hdcp->hdcp_state = HDCP_STATE_AUTHENTICATING;
 end:
@@ -415,7 +420,7 @@ static void sde_hdcp_1x_enable_interrupts(struct sde_hdcp_1x *hdcp)
 	struct dss_io_data *io;
 	struct sde_hdcp_int_set *isr;
 
-	io = hdcp->init_data.core_io;
+	io = hdcp->init_data.dp_ahb;
 	isr = &hdcp->int_set;
 
 	intr_reg = DSS_REG_R(io, isr->int_reg);
@@ -462,7 +467,8 @@ static int sde_hdcp_1x_wait_for_hw_ready(struct sde_hdcp_1x *hdcp)
 	int rc;
 	u32 link0_status;
 	struct sde_hdcp_reg_set *reg_set = &hdcp->reg_set;
-	struct dss_io_data *io = hdcp->init_data.core_io;
+	struct dss_io_data *dp_ahb = hdcp->init_data.dp_ahb;
+	struct dss_io_data *dp_aux = hdcp->init_data.dp_aux;
 
 	if (!sde_hdcp_1x_state(HDCP_STATE_AUTHENTICATING)) {
 		pr_err("invalid state\n");
@@ -470,7 +476,7 @@ static int sde_hdcp_1x_wait_for_hw_ready(struct sde_hdcp_1x *hdcp)
 	}
 
 	/* Wait for HDCP keys to be checked and validated */
-	rc = readl_poll_timeout(io->base + reg_set->status, link0_status,
+	rc = readl_poll_timeout(dp_ahb->base + reg_set->status, link0_status,
 				((link0_status >> reg_set->keys_offset) & 0x7)
 					== HDCP_KEYS_STATE_VALID ||
 				!sde_hdcp_1x_state(HDCP_STATE_AUTHENTICATING),
@@ -484,10 +490,10 @@ static int sde_hdcp_1x_wait_for_hw_ready(struct sde_hdcp_1x *hdcp)
 	 * 1.1_Features turned off by default.
 	 * No need to write AInfo since 1.1_Features is disabled.
 	 */
-	DSS_REG_W(io, reg_set->data4, 0);
+	DSS_REG_W(dp_aux, reg_set->data4, 0);
 
 	/* Wait for An0 and An1 bit to be ready */
-	rc = readl_poll_timeout(io->base + reg_set->status, link0_status,
+	rc = readl_poll_timeout(dp_ahb->base + reg_set->status, link0_status,
 				(link0_status & (BIT(8) | BIT(9))) ||
 				!sde_hdcp_1x_state(HDCP_STATE_AUTHENTICATING),
 				HDCP_POLL_SLEEP_US, HDCP_POLL_TIMEOUT_US);
@@ -554,7 +560,8 @@ error:
 
 static int sde_hdcp_1x_read_an_aksv_from_hw(struct sde_hdcp_1x *hdcp)
 {
-	struct dss_io_data *io = hdcp->init_data.core_io;
+	struct dss_io_data *dp_ahb = hdcp->init_data.dp_ahb;
+	struct dss_io_data *dp_aux = hdcp->init_data.dp_aux;
 	struct sde_hdcp_reg_set *reg_set = &hdcp->reg_set;
 
 	if (!sde_hdcp_1x_state(HDCP_STATE_AUTHENTICATING)) {
@@ -562,21 +569,21 @@ static int sde_hdcp_1x_read_an_aksv_from_hw(struct sde_hdcp_1x *hdcp)
 		return -EINVAL;
 	}
 
-	hdcp->an_0 = DSS_REG_R(io, reg_set->data5);
+	hdcp->an_0 = DSS_REG_R(dp_ahb, reg_set->data5);
 	if (hdcp->init_data.client_id == HDCP_CLIENT_DP) {
 		udelay(1);
-		hdcp->an_0 = DSS_REG_R(io, reg_set->data5);
+		hdcp->an_0 = DSS_REG_R(dp_ahb, reg_set->data5);
 	}
 
-	hdcp->an_1 = DSS_REG_R(io, reg_set->data6);
+	hdcp->an_1 = DSS_REG_R(dp_ahb, reg_set->data6);
 	if (hdcp->init_data.client_id == HDCP_CLIENT_DP) {
 		udelay(1);
-		hdcp->an_1 = DSS_REG_R(io, reg_set->data6);
+		hdcp->an_1 = DSS_REG_R(dp_ahb, reg_set->data6);
 	}
 
 	/* Read AKSV */
-	hdcp->aksv_0 = DSS_REG_R(io, reg_set->data3);
-	hdcp->aksv_1 = DSS_REG_R(io, reg_set->data4);
+	hdcp->aksv_0 = DSS_REG_R(dp_aux, reg_set->data3);
+	hdcp->aksv_1 = DSS_REG_R(dp_aux, reg_set->data4);
 
 	return 0;
 }
@@ -649,7 +656,7 @@ static int sde_hdcp_1x_verify_r0(struct sde_hdcp_1x *hdcp)
 	u32 const r0_read_delay_us = 1;
 	u32 const r0_read_timeout_us = r0_read_delay_us * 10;
 	struct sde_hdcp_reg_set *reg_set = &hdcp->reg_set;
-	struct dss_io_data *io = hdcp->init_data.core_io;
+	struct dss_io_data *io = hdcp->init_data.dp_ahb;
 
 	if (!sde_hdcp_1x_state(HDCP_STATE_AUTHENTICATING)) {
 		pr_err("invalid state\n");
@@ -910,7 +917,7 @@ static int sde_hdcp_1x_write_ksv_fifo(struct sde_hdcp_1x *hdcp)
 	int i, rc = 0;
 	u8 *ksv_fifo = hdcp->current_tp.ksv_list;
 	u32 ksv_bytes = hdcp->sink_addr.ksv_fifo.len;
-	struct dss_io_data *io = hdcp->init_data.core_io;
+	struct dss_io_data *io = hdcp->init_data.dp_ahb;
 	struct dss_io_data *sec_io = hdcp->init_data.hdcp_io;
 	struct sde_hdcp_reg_set *reg_set = &hdcp->reg_set;
 	u32 sha_status = 0, status;
@@ -1087,7 +1094,8 @@ error:
 
 static void sde_hdcp_1x_cache_topology(struct sde_hdcp_1x *hdcp)
 {
-	if (!hdcp || !hdcp->init_data.core_io) {
+	if (!hdcp || !hdcp->init_data.dp_ahb || !hdcp->init_data.dp_aux ||
+		!hdcp->init_data.dp_link || !hdcp->init_data.dp_p0) {
 		pr_err("invalid input\n");
 		return;
 	}
@@ -1146,6 +1154,7 @@ static void sde_hdcp_1x_auth_work(struct work_struct *work)
 		DSS_REG_W_ND(io, REG_HDMI_DDC_ARBITRATION, DSS_REG_R(io,
 				REG_HDMI_DDC_ARBITRATION) & ~(BIT(4)));
 	else if (hdcp->init_data.client_id == HDCP_CLIENT_DP) {
+		io = hdcp->init_data.dp_aux;
 		DSS_REG_W(io, DP_DP_HPD_REFTIMER, 0x10013);
 	}
 
@@ -1224,12 +1233,12 @@ static int sde_hdcp_1x_reauthenticate(void *input)
 	struct sde_hdcp_int_set *isr;
 	u32 ret = 0, reg;
 
-	if (!hdcp || !hdcp->init_data.core_io) {
+	if (!hdcp || !hdcp->init_data.dp_ahb) {
 		pr_err("invalid input\n");
 		return -EINVAL;
 	}
 
-	io = hdcp->init_data.core_io;
+	io = hdcp->init_data.dp_ahb;
 	reg_set = &hdcp->reg_set;
 	isr = &hdcp->int_set;
 
@@ -1264,12 +1273,12 @@ static void sde_hdcp_1x_off(void *input)
 	int rc = 0;
 	u32 reg;
 
-	if (!hdcp || !hdcp->init_data.core_io) {
+	if (!hdcp || !hdcp->init_data.dp_ahb) {
 		pr_err("invalid input\n");
 		return;
 	}
 
-	io = hdcp->init_data.core_io;
+	io = hdcp->init_data.dp_ahb;
 	reg_set = &hdcp->reg_set;
 	isr = &hdcp->int_set;
 
@@ -1327,13 +1336,13 @@ static int sde_hdcp_1x_isr(void *input)
 	struct sde_hdcp_reg_set *reg_set;
 	struct sde_hdcp_int_set *isr;
 
-	if (!hdcp || !hdcp->init_data.core_io) {
+	if (!hdcp || !hdcp->init_data.dp_ahb) {
 		pr_err("invalid input\n");
 		rc = -EINVAL;
 		goto error;
 	}
 
-	io = hdcp->init_data.core_io;
+	io = hdcp->init_data.dp_ahb;
 	reg_set = &hdcp->reg_set;
 	isr = &hdcp->int_set;
 
@@ -1531,8 +1540,7 @@ void *sde_hdcp_1x_init(struct sde_hdcp_init_data *init_data)
 		.off = sde_hdcp_1x_off
 	};
 
-	if (!init_data || !init_data->core_io || !init_data->qfprom_io ||
-		!init_data->mutex || !init_data->notify_status ||
+	if (!init_data || !init_data->mutex || !init_data->notify_status ||
 		!init_data->workq || !init_data->cb_data) {
 		pr_err("invalid input\n");
 		goto error;

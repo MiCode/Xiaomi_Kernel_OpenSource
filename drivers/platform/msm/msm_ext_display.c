@@ -147,6 +147,12 @@ static int msm_ext_disp_process_audio(struct msm_ext_disp *ext_disp,
 	int ret = 0;
 	int state;
 
+	if (!ext_disp->ops) {
+		pr_err("codec not registered, skip notification\n");
+		ret = -EPERM;
+		goto end;
+	}
+
 	state = ext_disp->audio_sdev.state;
 	ret = extcon_set_state_sync(&ext_disp->audio_sdev,
 			ext_disp->current_disp, !!new_state);
@@ -155,7 +161,7 @@ static int msm_ext_disp_process_audio(struct msm_ext_disp *ext_disp,
 			ext_disp->audio_sdev.state == state ?
 			"is same" : "switched to",
 			ext_disp->audio_sdev.state);
-
+end:
 	return ret;
 }
 
@@ -218,15 +224,10 @@ static int msm_ext_disp_update_audio_ops(struct msm_ext_disp *ext_disp,
 		goto end;
 	}
 
-	if (!ext_disp->ops) {
-		pr_err("codec ops not registered\n");
-		ret = -EINVAL;
-		goto end;
-	}
-
 	if (state == EXT_DISPLAY_CABLE_CONNECT) {
 		/* connect codec with interface */
-		*ext_disp->ops = data->codec_ops;
+		if (ext_disp->ops)
+			*ext_disp->ops = data->codec_ops;
 
 		/* update pdev for interface to use */
 		ext_disp->ext_disp_data.intf_pdev = data->pdev;
@@ -285,6 +286,28 @@ end:
 	return ret;
 }
 
+static void msm_ext_disp_ready_for_display(struct msm_ext_disp *ext_disp)
+{
+	int ret;
+	struct msm_ext_disp_init_data *data = NULL;
+
+	if (!ext_disp) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	ret = msm_ext_disp_get_intf_data(ext_disp,
+		ext_disp->current_disp, &data);
+	if (ret) {
+		pr_err("%s not found\n",
+			msm_ext_disp_name(ext_disp->current_disp));
+		return;
+	}
+
+	*ext_disp->ops = data->codec_ops;
+	data->codec_ops.ready(ext_disp->pdev);
+}
+
 int msm_hdmi_register_audio_codec(struct platform_device *pdev,
 		struct msm_ext_disp_audio_codec_ops *ops)
 {
@@ -334,6 +357,8 @@ int msm_ext_disp_register_audio_codec(struct platform_device *pdev,
 
 end:
 	mutex_unlock(&ext_disp->lock);
+	if (ext_disp->current_disp != EXT_DISPLAY_TYPE_MAX)
+		msm_ext_disp_ready_for_display(ext_disp);
 
 	return ret;
 }
@@ -341,6 +366,8 @@ EXPORT_SYMBOL(msm_ext_disp_register_audio_codec);
 
 static int msm_ext_disp_validate_intf(struct msm_ext_disp_init_data *init_data)
 {
+	struct msm_ext_disp_audio_codec_ops *ops;
+
 	if (!init_data) {
 		pr_err("Invalid init_data\n");
 		return -EINVAL;
@@ -351,9 +378,15 @@ static int msm_ext_disp_validate_intf(struct msm_ext_disp_init_data *init_data)
 		return -EINVAL;
 	}
 
-	if (!init_data->codec_ops.get_audio_edid_blk ||
-			!init_data->codec_ops.cable_status ||
-			!init_data->codec_ops.audio_info_setup) {
+	ops = &init_data->codec_ops;
+
+	if (!ops->audio_info_setup   ||
+	    !ops->get_audio_edid_blk ||
+	    !ops->cable_status       ||
+	    !ops->get_intf_id        ||
+	    !ops->teardown_done      ||
+	    !ops->acknowledge        ||
+	    !ops->ready) {
 		pr_err("Invalid codec operation pointers\n");
 		return -EINVAL;
 	}
