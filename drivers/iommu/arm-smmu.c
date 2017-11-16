@@ -3526,7 +3526,7 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 
 	/* Force bypass transaction to be Non-Shareable & not io-coherent */
 	reg &= ~(sCR0_SHCFG_MASK << sCR0_SHCFG_SHIFT);
-	reg |= sCR0_SHCFG_NSH;
+	reg |= sCR0_SHCFG_NSH << sCR0_SHCFG_SHIFT;
 
 	/* Push the button */
 	__arm_smmu_tlb_sync(smmu);
