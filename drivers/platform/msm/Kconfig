@@ -18,6 +18,15 @@ config QCOM_GENI_SE
 	  module is used to configure and read the configuration from the
 	  Serial Engines.
 
+config QPNP_REVID
+	tristate "QPNP Revision ID Peripheral"
+	depends on SPMI
+	help
+	  Say 'y' here to include support for the Qualcomm Technologies, Inc.
+	  QPNP REVID peripheral. REVID prints out the PMIC type and revision
+	  numbers in the kernel log along with the PMIC option status. The PMIC
+	  type is mapped to a QTI chip part number and logged as well.
+
 config SPS
 	bool "SPS support"
 	select GENERIC_ALLOCATOR
