@@ -29,6 +29,13 @@ struct adreno_sysfs_attribute adreno_attr_##_name = { \
 	.store = _ ## _name ## _store, \
 }
 
+#define _ADRENO_SYSFS_ATTR_RO(_name, __show) \
+struct adreno_sysfs_attribute adreno_attr_##_name = { \
+	.attr = __ATTR(_name, 0644, __show, NULL), \
+	.show = _ ## _name ## _show, \
+	.store = NULL, \
+}
+
 #define ADRENO_SYSFS_ATTR(_a) \
 	container_of((_a), struct adreno_sysfs_attribute, attr)
 
@@ -331,6 +338,13 @@ static unsigned int _ifpc_show(struct adreno_device *adreno_dev)
 	return kgsl_gmu_isenabled(device) && gmu->idle_level >= GPU_HW_IFPC;
 }
 
+static unsigned int _preempt_count_show(struct adreno_device *adreno_dev)
+{
+	struct adreno_preemption *preempt = &adreno_dev->preempt;
+
+	return preempt->count;
+}
+
 static ssize_t _sysfs_store_u32(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t count)
@@ -411,9 +425,13 @@ static ssize_t _sysfs_show_bool(struct device *dev,
 #define ADRENO_SYSFS_U32(_name) \
 	_ADRENO_SYSFS_ATTR(_name, _sysfs_show_u32, _sysfs_store_u32)
 
+#define ADRENO_SYSFS_RO_U32(_name) \
+	_ADRENO_SYSFS_ATTR_RO(_name, _sysfs_show_u32)
+
 static ADRENO_SYSFS_U32(ft_policy);
 static ADRENO_SYSFS_U32(ft_pagefault_policy);
 static ADRENO_SYSFS_U32(preempt_level);
+static ADRENO_SYSFS_RO_U32(preempt_count);
 static ADRENO_SYSFS_BOOL(usesgmem);
 static ADRENO_SYSFS_BOOL(skipsaverestore);
 static ADRENO_SYSFS_BOOL(ft_long_ib_detect);
@@ -451,6 +469,7 @@ static const struct device_attribute *_attr_list[] = {
 	&adreno_attr_usesgmem.attr,
 	&adreno_attr_skipsaverestore.attr,
 	&adreno_attr_ifpc.attr,
+	&adreno_attr_preempt_count.attr,
 	NULL,
 };
 
