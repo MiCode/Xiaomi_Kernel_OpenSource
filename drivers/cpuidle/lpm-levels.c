@@ -1356,7 +1356,8 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	struct lpm_cpu *cpu = per_cpu(cpu_lpm, dev->cpu);
 	bool success = false;
 	const struct cpumask *cpumask = get_cpu_mask(dev->cpu);
-	int64_t start_time = ktime_to_ns(ktime_get()), end_time;
+	ktime_t start = ktime_get();
+	uint64_t start_time = ktime_to_ns(start), end_time;
 	struct power_params *pwr_params;
 
 	pwr_params = &cpu->levels[idx].pwr;
@@ -1381,9 +1382,7 @@ exit:
 	cluster_unprepare(cpu->parent, cpumask, idx, true, end_time);
 	cpu_unprepare(cpu, idx, true);
 	sched_set_cpu_cstate(smp_processor_id(), 0, 0, 0);
-	end_time = ktime_to_ns(ktime_get()) - start_time;
-	do_div(end_time, 1000);
-	dev->last_residency = end_time;
+	dev->last_residency = ktime_us_delta(ktime_get(), start);
 	update_history(dev, idx);
 	trace_cpu_idle_exit(idx, success);
 	local_irq_enable();
