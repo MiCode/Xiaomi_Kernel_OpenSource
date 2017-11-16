@@ -322,7 +322,7 @@ static void wcd9xxx_slim_tx_auto_recovery_cfg(struct wcd9xxx *wcd9xxx,
 
 	ret = wcd9xxx_interface_reg_write(wcd9xxx,
 			SB_PGD_PORT_TX_OR_UR_CFG(codec_port),
-			0x03);
+			0x02);
 	if (ret < 0)
 		pr_err("%s:auto_recovery set failure for port[%d] ret[%d]",
 			__func__, codec_port, ret);
