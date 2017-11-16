@@ -546,6 +546,7 @@
 &dsi_dual_nt35597_truly_cmd {
 	qcom,mdss-dsi-t-clk-post = <0x0D>;
 	qcom,mdss-dsi-t-clk-pre = <0x2D>;
+	qcom,ulps-enabled;
 	qcom,partial-update-enabled = "single_roi";
 	qcom,panel-roi-alignment = <720 128 720 128 1440 128>;
 	qcom,mdss-dsi-display-timings {
@@ -562,6 +563,7 @@
 &dsi_nt35597_truly_dsc_cmd {
 	qcom,mdss-dsi-t-clk-post = <0x0b>;
 	qcom,mdss-dsi-t-clk-pre = <0x23>;
+	qcom,ulps-enabled;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
 			qcom,mdss-dsi-panel-phy-timings = [00 15 05 05 20 1f 05
@@ -719,6 +721,7 @@
 &dsi_dual_nt35597_cmd {
 	qcom,mdss-dsi-t-clk-post = <0x0d>;
 	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+	qcom,ulps-enabled;
 	qcom,mdss-dsi-display-timings {
 		 timing@0 {
 			qcom,mdss-dsi-panel-timings = [00 1c 08 07 23 22 07 07
@@ -759,6 +762,7 @@
 &dsi_nt35695b_truly_fhd_cmd {
 	qcom,mdss-dsi-t-clk-post = <0x07>;
 	qcom,mdss-dsi-t-clk-pre = <0x1c>;
+	qcom,ulps-enabled;
 	qcom,mdss-dsi-display-timings {
 		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings = [00 1c 05 06 0b 0c
