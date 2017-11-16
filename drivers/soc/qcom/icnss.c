@@ -2494,8 +2494,17 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 	if (code != SUBSYS_BEFORE_SHUTDOWN)
 		return NOTIFY_OK;
 
-	if (test_bit(ICNSS_PDR_REGISTERED, &priv->state))
+	if (test_bit(ICNSS_PDR_REGISTERED, &priv->state)) {
+		set_bit(ICNSS_FW_DOWN, &priv->state);
+		icnss_ignore_qmi_timeout(true);
+
+		fw_down_data.crashed = !!notif->crashed;
+		if (test_bit(ICNSS_FW_READY, &priv->state))
+			icnss_call_driver_uevent(priv,
+						 ICNSS_UEVENT_FW_DOWN,
+						 &fw_down_data);
 		return NOTIFY_OK;
+	}
 
 	icnss_pr_info("Modem went down, state: 0x%lx, crashed: %d\n",
 		      priv->state, notif->crashed);
@@ -2629,14 +2638,18 @@ static int icnss_service_notifier_notify(struct notifier_block *nb,
 	icnss_pr_info("PD service down, pd_state: %d, state: 0x%lx: cause: %s\n",
 		      *state, priv->state, icnss_pdr_cause[cause]);
 event_post:
-	set_bit(ICNSS_FW_DOWN, &priv->state);
-	icnss_ignore_qmi_timeout(true);
-	clear_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state);
+	if (!test_bit(ICNSS_FW_DOWN, &priv->state)) {
+		set_bit(ICNSS_FW_DOWN, &priv->state);
+		icnss_ignore_qmi_timeout(true);
 
-	fw_down_data.crashed = event_data->crashed;
-	if (test_bit(ICNSS_FW_READY, &priv->state))
-		icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_DOWN,
-					 &fw_down_data);
+		fw_down_data.crashed = event_data->crashed;
+		if (test_bit(ICNSS_FW_READY, &priv->state))
+			icnss_call_driver_uevent(priv,
+						 ICNSS_UEVENT_FW_DOWN,
+						 &fw_down_data);
+	}
+
+	clear_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state);
 	icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
 				ICNSS_EVENT_SYNC, event_data);
 done:
