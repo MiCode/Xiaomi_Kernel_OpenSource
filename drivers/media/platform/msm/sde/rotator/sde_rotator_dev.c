@@ -1731,6 +1731,7 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 
 		sde_rotator_req_finish(rot_dev->mgr, ctx->private, req);
 		sde_rotator_retire_request(request);
+		cmd->priv_handle = NULL;
 	} else if (cmd_type == SDE_ROTATOR_INLINE_CMD_ABORT) {
 		if (!cmd->priv_handle) {
 			ret = -EINVAL;
@@ -1739,8 +1740,9 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 		}
 
 		request = cmd->priv_handle;
-		sde_rotator_abort_inline_request(rot_dev->mgr,
-				ctx->private, request->req);
+		if (!sde_rotator_is_request_retired(request))
+			sde_rotator_abort_inline_request(rot_dev->mgr,
+					ctx->private, request->req);
 	}
 
 	sde_rot_mgr_unlock(rot_dev->mgr);
