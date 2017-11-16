@@ -2333,6 +2333,10 @@ static int dwc3_gadget_stop(struct usb_gadget *g)
 	dwc->gadget_driver = NULL;
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
+	dbg_event(0xFF, "fwq_started", 0);
+	flush_workqueue(dwc->dwc_wq);
+	dbg_event(0xFF, "fwq_completed", 0);
+
 	return 0;
 }
 
