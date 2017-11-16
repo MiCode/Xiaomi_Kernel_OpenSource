@@ -244,10 +244,6 @@ struct iommu_ops {
 	/* Get the number of windows per domain */
 	u32 (*domain_get_windows)(struct iommu_domain *domain);
 	void (*trigger_fault)(struct iommu_domain *domain, unsigned long flags);
-	unsigned long (*reg_read)(struct iommu_domain *domain,
-				  unsigned long offset);
-	void (*reg_write)(struct iommu_domain *domain, unsigned long val,
-			  unsigned long offset);
 	void (*tlbi_domain)(struct iommu_domain *domain);
 	int (*enable_config_clocks)(struct iommu_domain *domain);
 	void (*disable_config_clocks)(struct iommu_domain *domain);
