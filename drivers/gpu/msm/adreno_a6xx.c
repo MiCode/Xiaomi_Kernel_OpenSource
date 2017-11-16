@@ -173,12 +173,12 @@ static const struct kgsl_hwcg_reg a630_hwcg_regs[] = {
 };
 
 static const struct kgsl_hwcg_reg a615_hwcg_regs[] = {
-	{A6XX_RBBM_CLOCK_CNTL_SP0,  0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL_SP0,  0x02222222},
 	{A6XX_RBBM_CLOCK_CNTL2_SP0, 0x02222220},
-	{A6XX_RBBM_CLOCK_DELAY_SP0, 0x00000081},
+	{A6XX_RBBM_CLOCK_DELAY_SP0, 0x00000080},
 	{A6XX_RBBM_CLOCK_HYST_SP0,  0x0000F3CF},
-	{A6XX_RBBM_CLOCK_CNTL_TP0,  0x22222222},
-	{A6XX_RBBM_CLOCK_CNTL_TP1,  0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL_TP0,  0x02222222},
+	{A6XX_RBBM_CLOCK_CNTL_TP1,  0x02222222},
 	{A6XX_RBBM_CLOCK_CNTL2_TP0, 0x22222222},
 	{A6XX_RBBM_CLOCK_CNTL2_TP1, 0x22222222},
 	{A6XX_RBBM_CLOCK_CNTL3_TP0, 0x22222222},
@@ -222,7 +222,7 @@ static const struct kgsl_hwcg_reg a615_hwcg_regs[] = {
 	{A6XX_RBBM_CLOCK_DELAY_RAC, 0x00000011},
 	{A6XX_RBBM_CLOCK_HYST_RAC, 0x00445044},
 	{A6XX_RBBM_CLOCK_CNTL_TSE_RAS_RBBM, 0x04222222},
-	{A6XX_RBBM_CLOCK_MODE_GPC, 0x02222222},
+	{A6XX_RBBM_CLOCK_MODE_GPC, 0x00222222},
 	{A6XX_RBBM_CLOCK_MODE_VFD, 0x00002222},
 	{A6XX_RBBM_CLOCK_HYST_TSE_RAS_RBBM, 0x00000000},
 	{A6XX_RBBM_CLOCK_HYST_GPC, 0x04104004},
@@ -428,7 +428,41 @@ static void a6xx_enable_64bit(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_RBBM_SECVID_TSB_ADDR_MODE_CNTL, 0x1);
 }
 
-#define RBBM_CLOCK_CNTL_ON 0x8AA8AA02
+static inline unsigned int
+__get_rbbm_clock_cntl_on(struct adreno_device *adreno_dev)
+{
+	if (adreno_is_a615(adreno_dev))
+		return 0x8AA8AA82;
+	else
+		return 0x8AA8AA02;
+}
+
+static inline unsigned int
+__get_gmu_ao_cgc_mode_cntl(struct adreno_device *adreno_dev)
+{
+	if (adreno_is_a615(adreno_dev))
+		return 0x00000222;
+	else
+		return 0x00020222;
+}
+
+static inline unsigned int
+__get_gmu_ao_cgc_delay_cntl(struct adreno_device *adreno_dev)
+{
+	if (adreno_is_a615(adreno_dev))
+		return 0x00000111;
+	else
+		return 0x00010111;
+}
+
+static inline unsigned int
+__get_gmu_ao_cgc_hyst_cntl(struct adreno_device *adreno_dev)
+{
+	if (adreno_is_a615(adreno_dev))
+		return 0x00000555;
+	else
+		return 0x00005555;
+}
 
 static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 {
@@ -442,16 +476,16 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 
 	if (kgsl_gmu_isenabled(device)) {
 		kgsl_gmu_regwrite(device, A6XX_GPU_GMU_AO_GMU_CGC_MODE_CNTL,
-			on ? 0x00020222 : 0);
+			on ? __get_gmu_ao_cgc_mode_cntl(adreno_dev) : 0);
 		kgsl_gmu_regwrite(device, A6XX_GPU_GMU_AO_GMU_CGC_DELAY_CNTL,
-			on ? 0x00010111 : 0);
+			on ? __get_gmu_ao_cgc_delay_cntl(adreno_dev) : 0);
 		kgsl_gmu_regwrite(device, A6XX_GPU_GMU_AO_GMU_CGC_HYST_CNTL,
-			on ? 0x00050555 : 0);
+			on ? __get_gmu_ao_cgc_hyst_cntl(adreno_dev) : 0);
 	}
 
 	kgsl_regread(device, A6XX_RBBM_CLOCK_CNTL, &value);
 
-	if (value == RBBM_CLOCK_CNTL_ON && on)
+	if (value == __get_rbbm_clock_cntl_on(adreno_dev) && on)
 		return;
 
 	if (value == 0 && !on)
@@ -478,7 +512,7 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 
 	/* enable top level HWCG */
 	kgsl_regwrite(device, A6XX_RBBM_CLOCK_CNTL,
-		on ? RBBM_CLOCK_CNTL_ON : 0);
+		on ? __get_rbbm_clock_cntl_on(adreno_dev) : 0);
 }
 
 #define LM_DEFAULT_LIMIT	6000
