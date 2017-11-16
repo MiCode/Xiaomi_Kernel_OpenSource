@@ -818,6 +818,9 @@ static void msm_dirconn_irq_ack(struct irq_data *d)
 	struct irq_desc *desc = irq_data_to_desc(d);
 	struct irq_data *parent_data = irq_get_irq_data(desc->parent_irq);
 
+	if (!parent_data)
+		return;
+
 	if (parent_data->chip->irq_ack)
 		parent_data->chip->irq_ack(parent_data);
 }
@@ -826,6 +829,9 @@ static void msm_dirconn_irq_eoi(struct irq_data *d)
 {
 	struct irq_desc *desc = irq_data_to_desc(d);
 	struct irq_data *parent_data = irq_get_irq_data(desc->parent_irq);
+
+	if (!parent_data)
+		return;
 
 	if (parent_data->chip->irq_eoi)
 		parent_data->chip->irq_eoi(parent_data);
@@ -851,6 +857,9 @@ static int msm_dirconn_irq_set_vcpu_affinity(struct irq_data *d,
 {
 	struct irq_desc *desc = irq_data_to_desc(d);
 	struct irq_data *parent_data = irq_get_irq_data(desc->parent_irq);
+
+	if (!parent_data)
+		return 0;
 
 	if (parent_data->chip->irq_set_vcpu_affinity)
 		return parent_data->chip->irq_set_vcpu_affinity(parent_data,
