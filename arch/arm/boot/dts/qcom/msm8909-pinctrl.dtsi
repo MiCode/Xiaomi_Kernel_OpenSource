@@ -185,10 +185,33 @@
 			};
 		};
 
+		uart_console2_active: uart_console2_active {
+			mux {
+				pins = "gpio20", "gpio21";
+				function = "blsp_uart2";
+			};
+			config {
+				pins = "gpio20", "gpio21";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+		uart_console2_sleep: uart_console2_sleep {
+			mux {
+				pins = "gpio20", "gpio21";
+				function = "blsp_uart2";
+			};
+			config {
+				pins = "gpio20", "gpio21";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
 		blsp1_uart2_tx_active: blsp1_uart2_tx_active {
 			mux {
 				pins = "gpio20";
-				function = "blsp_uart2_a";
+				function = "blsp_uart2";
 			};
 
 			config {
@@ -214,7 +237,7 @@
 		blsp1_uart2_rxcts_active: blsp1_uart2_rxcts_active {
 			mux {
 				pins = "gpio21", "gpio111";
-				function = "blsp_uart2_a";
+				function = "blsp_uart2";
 			};
 
 			config {
@@ -240,7 +263,7 @@
 		blsp1_uart2_rfr_active: blsp1_uart2_rfr_active {
 			mux {
 				pins = "gpio112";
-				function = "blsp_uart2_a";
+				function = "blsp_uart2";
 			};
 
 			config {
