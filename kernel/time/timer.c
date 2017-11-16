@@ -474,8 +474,17 @@ static inline void timer_set_idx(struct timer_list *timer, unsigned int idx)
  */
 static inline unsigned calc_index(unsigned expires, unsigned lvl)
 {
-	expires = (expires + LVL_GRAN(lvl)) >> LVL_SHIFT(lvl);
+	if (expires & ~(UINT_MAX << LVL_SHIFT(lvl)))
+		expires = (expires + LVL_GRAN(lvl)) >> LVL_SHIFT(lvl);
+	else
+		expires = expires >> LVL_SHIFT(lvl);
+
 	return LVL_OFFS(lvl) + (expires & LVL_MASK);
+}
+
+static inline unsigned int calc_index_min_granularity(unsigned int  expires)
+{
+	return LVL_OFFS(0) + ((expires >> LVL_SHIFT(0)) & LVL_MASK);
 }
 
 static int calc_wheel_index(unsigned long expires, unsigned long clk)
@@ -484,7 +493,7 @@ static int calc_wheel_index(unsigned long expires, unsigned long clk)
 	unsigned int idx;
 
 	if (delta < LVL_START(1)) {
-		idx = calc_index(expires, 0);
+		idx = calc_index_min_granularity(expires);
 	} else if (delta < LVL_START(2)) {
 		idx = calc_index(expires, 1);
 	} else if (delta < LVL_START(3)) {
@@ -1365,17 +1374,22 @@ static int __collect_expired_timers(struct timer_base *base,
  * (@offset) up to @offset + clk.
  */
 static int next_pending_bucket(struct timer_base *base, unsigned offset,
-			       unsigned clk)
+			       unsigned int clk, int lvl)
 {
-	unsigned pos, start = offset + clk;
+	unsigned int pos_up = -1, pos_down, start = offset + clk;
 	unsigned end = offset + LVL_SIZE;
+	unsigned int pos;
 
 	pos = find_next_bit(base->pending_map, end, start);
 	if (pos < end)
-		return pos - start;
+		pos_up = pos - start;
 
 	pos = find_next_bit(base->pending_map, start, offset);
-	return pos < start ? pos + LVL_SIZE - start : -1;
+	pos_down = pos < start ? pos + LVL_SIZE - start : -1;
+	if (((pos_up + base->clk) << LVL_SHIFT(lvl)) >
+		((pos_down + base->clk) << LVL_SHIFT(lvl)))
+		return pos_down;
+	return pos_up;
 }
 
 /*
@@ -1390,7 +1404,8 @@ static unsigned long __next_timer_interrupt(struct timer_base *base)
 	next = base->clk + NEXT_TIMER_MAX_DELTA;
 	clk = base->clk;
 	for (lvl = 0; lvl < LVL_DEPTH; lvl++, offset += LVL_SIZE) {
-		int pos = next_pending_bucket(base, offset, clk & LVL_MASK);
+		int pos = next_pending_bucket(base, offset, clk & LVL_MASK,
+			  lvl);
 
 		if (pos >= 0) {
 			unsigned long tmp = clk + (unsigned long) pos;
