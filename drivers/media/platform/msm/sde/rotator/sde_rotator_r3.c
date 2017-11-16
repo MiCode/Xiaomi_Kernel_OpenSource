@@ -133,6 +133,9 @@
 #define SDE_ROTREG_READ(base, off) \
 	readl_relaxed(base + (off))
 
+#define SDE_ROTTOP_IN_OFFLINE_MODE(_rottop_op_mode_) \
+	(((_rottop_op_mode_) & ROTTOP_OP_MODE_ROT_OUT_MASK) == 0)
+
 static const u32 sde_hw_rotator_v3_inpixfmts[] = {
 	SDE_PIX_FMT_XRGB_8888,
 	SDE_PIX_FMT_ARGB_8888,
@@ -696,7 +699,7 @@ static void sde_hw_rotator_halt_vbif_xin_client(void)
 /**
  * sde_hw_rotator_reset - Reset rotator hardware
  * @rot: pointer to hw rotator
- * @ctx: pointer to current rotator context during the hw hang
+ * @ctx: pointer to current rotator context during the hw hang (optional)
  */
 static int sde_hw_rotator_reset(struct sde_hw_rotator *rot,
 		struct sde_hw_rotator_context *ctx)
@@ -710,13 +713,8 @@ static int sde_hw_rotator_reset(struct sde_hw_rotator *rot,
 	int i, j;
 	unsigned long flags;
 
-	if (!rot || !ctx) {
-		SDEROT_ERR("NULL rotator context\n");
-		return -EINVAL;
-	}
-
-	if (ctx->q_id >= ROT_QUEUE_MAX) {
-		SDEROT_ERR("context q_id out of range: %d\n", ctx->q_id);
+	if (!rot) {
+		SDEROT_ERR("NULL rotator\n");
 		return -EINVAL;
 	}
 
@@ -727,6 +725,15 @@ static int sde_hw_rotator_reset(struct sde_hw_rotator *rot,
 
 	/* halt vbif xin client to ensure no pending transaction */
 	sde_hw_rotator_halt_vbif_xin_client();
+
+	/* if no ctx is specified, skip ctx wake up */
+	if (!ctx)
+		return 0;
+
+	if (ctx->q_id >= ROT_QUEUE_MAX) {
+		SDEROT_ERR("context q_id out of range: %d\n", ctx->q_id);
+		return -EINVAL;
+	}
 
 	spin_lock_irqsave(&rot->rotisr_lock, flags);
 
@@ -818,6 +825,11 @@ static void _sde_hw_rotator_dump_status(struct sde_hw_rotator *rot,
 			REGDMA_CSR_REGDMA_INVALID_CMD_RAM_OFFSET),
 		SDE_ROTREG_READ(rot->mdss_base,
 			REGDMA_CSR_REGDMA_FSM_STATE));
+
+	SDEROT_ERR("rottop: op_mode = %x, status = %x, clk_status = %x\n",
+		SDE_ROTREG_READ(rot->mdss_base, ROTTOP_OP_MODE),
+		SDE_ROTREG_READ(rot->mdss_base, ROTTOP_STATUS),
+		SDE_ROTREG_READ(rot->mdss_base, ROTTOP_CLK_STATUS));
 
 	reg = SDE_ROTREG_READ(rot->mdss_base, ROT_SSPP_UBWC_ERROR_STATUS);
 	if (ubwcerr)
@@ -2191,7 +2203,7 @@ void sde_hw_rotator_pre_pmevent(struct sde_rot_mgr *mgr, bool pmon)
 {
 	struct sde_hw_rotator *rot;
 	u32 l_ts, h_ts, swts, hwts;
-	u32 rotsts, regdmasts;
+	u32 rotsts, regdmasts, rotopmode;
 
 	/*
 	 * Check last HW timestamp with SW timestamp before power off event.
@@ -2216,19 +2228,37 @@ void sde_hw_rotator_pre_pmevent(struct sde_rot_mgr *mgr, bool pmon)
 		regdmasts = SDE_ROTREG_READ(rot->mdss_base,
 				REGDMA_CSR_REGDMA_BLOCK_STATUS);
 		rotsts = SDE_ROTREG_READ(rot->mdss_base, ROTTOP_STATUS);
+		rotopmode = SDE_ROTREG_READ(rot->mdss_base, ROTTOP_OP_MODE);
 
 		SDEROT_DBG(
-			"swts:0x%x, hwts:0x%x, regdma-sts:0x%x, rottop-sts:0x%x\n",
-				swts, hwts, regdmasts, rotsts);
-		SDEROT_EVTLOG(swts, hwts, regdmasts, rotsts);
+			"swts:0x%x, hwts:0x%x, regdma-sts:0x%x, rottop-sts:0x%x, rottop-opmode:0x%x\n",
+				swts, hwts, regdmasts, rotsts, rotopmode);
+		SDEROT_EVTLOG(swts, hwts, regdmasts, rotsts, rotopmode);
 
 		if ((swts != hwts) && ((regdmasts & REGDMA_BUSY) ||
 					(rotsts & ROT_STATUS_MASK))) {
 			SDEROT_ERR(
 				"Mismatch SWTS with HWTS: swts:0x%x, hwts:0x%x, regdma-sts:0x%x, rottop-sts:0x%x\n",
 				swts, hwts, regdmasts, rotsts);
+			_sde_hw_rotator_dump_status(rot, NULL);
 			SDEROT_EVTLOG_TOUT_HANDLER("rot", "rot_dbg_bus",
 					"vbif_dbg_bus", "panic");
+		} else if (!SDE_ROTTOP_IN_OFFLINE_MODE(rotopmode) &&
+				((regdmasts & REGDMA_BUSY) ||
+						(rotsts & ROT_BUSY_BIT))) {
+			/*
+			 * rotator can stuck in inline while mdp is detached
+			 */
+			SDEROT_WARN(
+				"Inline Rot busy: regdma-sts:0x%x, rottop-sts:0x%x, rottop-opmode:0x%x\n",
+				regdmasts, rotsts, rotopmode);
+			sde_hw_rotator_reset(rot, NULL);
+		} else if ((regdmasts & REGDMA_BUSY) ||
+				(rotsts & ROT_BUSY_BIT)) {
+			_sde_hw_rotator_dump_status(rot, NULL);
+			SDEROT_EVTLOG_TOUT_HANDLER("rot", "rot_dbg_bus",
+					"vbif_dbg_bus", "panic");
+			sde_hw_rotator_reset(rot, NULL);
 		}
 
 		/* Turn off rotator clock after checking rotator registers */
