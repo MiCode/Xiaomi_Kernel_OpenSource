@@ -1473,6 +1473,7 @@
 		reg-names = "cti-base";
 
 		coresight-name = "coresight-cti-wcss_cti0";
+		status = "disabled";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -1485,6 +1486,7 @@
 		reg-names = "cti-base";
 
 		coresight-name = "coresight-cti-wcss_cti1";
+		status = "disabled";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -1497,6 +1499,7 @@
 		reg-names = "cti-base";
 
 		coresight-name = "coresight-cti-wcss_cti2";
+		status = "disabled";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -1533,6 +1536,7 @@
 		reg-names = "cti-base";
 
 		coresight-name = "coresight-cti-ssc_sdc_cti2";
+		status = "disabled";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -1545,6 +1549,7 @@
 		reg-names = "cti-base";
 
 		coresight-name = "coresight-cti-ssc_cti1";
+		status = "disabled";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -1557,6 +1562,7 @@
 		reg-names = "cti-base";
 
 		coresight-name = "coresight-cti-ssc_q6_cti0";
+		status = "disabled";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -1569,6 +1575,7 @@
 		reg-names = "cti-base";
 
 		coresight-name = "coresight-cti-ssc_noc";
+		status = "disabled";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -1581,6 +1588,7 @@
 		reg-names = "cti-base";
 
 		coresight-name = "coresight-cti-ssc_noc_cti6";
+		status = "disabled";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
