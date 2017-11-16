@@ -1433,8 +1433,8 @@
 		#mbox-cells = <1>;
 		qcom,drv-id = <0>;
 		qcom,tcs-config = <ACTIVE_TCS  2>,
-				  <SLEEP_TCS   0>,
-				  <WAKE_TCS    0>,
+				  <SLEEP_TCS   1>,
+				  <WAKE_TCS    1>,
 				  <CONTROL_TCS 0>;
 	};
 
