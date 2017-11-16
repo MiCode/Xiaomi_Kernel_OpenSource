@@ -175,6 +175,18 @@ void sde_rm_init_hw_iter(
 	iter->type = type;
 }
 
+enum sde_rm_topology_name sde_rm_get_topology_name(
+	struct msm_display_topology topology)
+{
+	int i;
+
+	for (i = 0; i < SDE_RM_TOPOLOGY_MAX; i++)
+		if (RM_IS_TOPOLOGY_MATCH(g_top_table[i], topology))
+			return g_top_table[i].top_name;
+
+	return SDE_RM_TOPOLOGY_NONE;
+}
+
 static bool _sde_rm_get_hw_locked(struct sde_rm *rm, struct sde_rm_hw_iter *i)
 {
 	struct list_head *blk_list;

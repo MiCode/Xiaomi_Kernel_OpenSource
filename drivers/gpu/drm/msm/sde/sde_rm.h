@@ -107,6 +107,15 @@ struct sde_rm_hw_iter {
 };
 
 /**
+ * sde_rm_get_topology_name - get the name of the given topology config
+ * @topology: msm_display_topology topology config
+ * @Return: name of the given topology
+ */
+enum sde_rm_topology_name sde_rm_get_topology_name(
+	struct msm_display_topology topology);
+
+
+/**
  * sde_rm_init - Read hardware catalog and create reservation tracking objects
  *	for all HW blocks.
  * @rm: SDE Resource Manager handle
