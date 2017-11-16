@@ -3013,7 +3013,8 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 
 		a6xx_perfcounter_groups[KGSL_PERFCOUNTER_GROUP_VBIF_PWR].regs =
 				a6xx_perfcounters_gbif_pwr;
-		a6xx_perfcounter_groups[KGSL_PERFCOUNTER_GROUP_VBIF].reg_count
+		a6xx_perfcounter_groups[
+			KGSL_PERFCOUNTER_GROUP_VBIF_PWR].reg_count
 				= ARRAY_SIZE(a6xx_perfcounters_gbif_pwr);
 
 		gpudev->vbif_xin_halt_ctrl0_mask =

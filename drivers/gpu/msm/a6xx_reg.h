@@ -764,6 +764,12 @@
 #define A6XX_VBIF_PERF_PWR_CNT_HIGH1            0x3119
 #define A6XX_VBIF_PERF_PWR_CNT_HIGH2            0x311a
 
+/* GBIF countables */
+#define GBIF_AXI0_READ_DATA_TOTAL_BEATS    34
+#define GBIF_AXI1_READ_DATA_TOTAL_BEATS    35
+#define GBIF_AXI0_WRITE_DATA_TOTAL_BEATS   46
+#define GBIF_AXI1_WRITE_DATA_TOTAL_BEATS   47
+
 /* GBIF registers */
 #define A6XX_GBIF_HALT                    0x3c45
 #define A6XX_GBIF_HALT_ACK                0x3c46
