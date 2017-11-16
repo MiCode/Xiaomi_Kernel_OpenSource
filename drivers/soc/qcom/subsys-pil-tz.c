@@ -822,14 +822,15 @@ static int subsys_shutdown(const struct subsys_desc *subsys, bool force_stop)
 	if (!subsys_get_crash_status(d->subsys) && force_stop &&
 						subsys->state) {
 		qcom_smem_state_update_bits(subsys->state,
-				subsys->force_stop_bit, 1);
+				BIT(subsys->force_stop_bit),
+				BIT(subsys->force_stop_bit));
 		ret = wait_for_completion_timeout(&d->stop_ack,
 				msecs_to_jiffies(STOP_ACK_TIMEOUT_MS));
 		if (!ret)
 			pr_warn("Timed out on stop ack from %s.\n",
 							subsys->name);
 		qcom_smem_state_update_bits(subsys->state,
-				subsys->force_stop_bit, 0);
+				BIT(subsys->force_stop_bit), 0);
 	}
 
 	pil_shutdown(&d->desc);
@@ -873,7 +874,8 @@ static void subsys_crash_shutdown(const struct subsys_desc *subsys)
 
 	if (subsys->state && !subsys_get_crash_status(d->subsys)) {
 		qcom_smem_state_update_bits(subsys->state,
-				subsys->force_stop_bit, 1);
+			BIT(subsys->force_stop_bit),
+			BIT(subsys->force_stop_bit));
 		mdelay(CRASH_STOP_ACK_TO_MS);
 	}
 }
