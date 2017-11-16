@@ -2346,13 +2346,13 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain,
 		return;
 	}
 
-	arm_smmu_domain_remove_master(smmu_domain, fwspec);
+	if (atomic_domain)
+		arm_smmu_power_on_atomic(smmu->pwr);
+	else
+		arm_smmu_power_on(smmu->pwr);
 
-	/* Remove additional vote for atomic power */
-	if (atomic_domain) {
-		WARN_ON(arm_smmu_power_on_atomic(smmu->pwr));
-		arm_smmu_power_off(smmu->pwr);
-	}
+	arm_smmu_domain_remove_master(smmu_domain, fwspec);
+	arm_smmu_power_off(smmu->pwr);
 }
 
 static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain)
