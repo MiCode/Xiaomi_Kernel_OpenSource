@@ -52,6 +52,7 @@ static const struct adreno_vbif_data a630_vbif[] = {
 
 static const struct adreno_vbif_data a615_gbif[] = {
 	{A6XX_RBBM_VBIF_CLIENT_QOS_CNTL, 0x3},
+	{A6XX_UCHE_GBIF_GX_CONFIG, 0x10200F9},
 	{0, 0},
 };
 
