@@ -67,6 +67,7 @@ enum phy_engine_state {
  * @mode:              Current mode.
  * @data_lanes:        Number of data lanes used.
  * @dst_format:        Destination format.
+ * @allow_phy_power_off: True if PHY is allowed to power off when idle
  */
 struct msm_dsi_phy {
 	struct platform_device *pdev;
@@ -88,6 +89,8 @@ struct msm_dsi_phy {
 	struct dsi_mode_info mode;
 	enum dsi_data_lanes data_lanes;
 	enum dsi_pixel_format dst_format;
+
+	bool allow_phy_power_off;
 };
 
 /**

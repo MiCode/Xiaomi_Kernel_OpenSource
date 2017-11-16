@@ -121,6 +121,11 @@ Optional properties:
 					If ping pong split is enabled, this time should not be higher
 					than two times the dsi link rate time.
 					If the property is not specified, then the default value is 14000 us.
+- qcom,panel-allow-phy-poweroff:	A boolean property indicates that panel allows to turn off the phy power
+					supply during idle screen. A panel should be able to handle the dsi lanes
+					in floating state(not LP00 or LP11) to turn on this property. Software
+					turns off PHY pmic power supply, phy ldo and DSI Lane ldo during
+					idle screen (footswitch control off) when this property is enabled.
 
 [1] Documentation/devicetree/bindings/clocks/clock-bindings.txt
 [2] Documentation/devicetree/bindings/graph.txt
@@ -229,4 +234,5 @@ Example:
 		vddio-supply = <&pma8084_l12>;
 
 		qcom,dsi-phy-regulator-ldo-mode;
+		qcom,panel-allow-phy-poweroff;
 	};
