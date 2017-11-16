@@ -3958,7 +3958,7 @@ error:
 	return rc;
 }
 
-int dsi_display_get_mode_count(struct dsi_display *display,
+static int dsi_display_get_mode_count_no_lock(struct dsi_display *display,
 			u32 *count)
 {
 	struct dsi_dfps_capabilities dfps_caps;
@@ -3970,15 +3970,13 @@ int dsi_display_get_mode_count(struct dsi_display *display,
 		return -EINVAL;
 	}
 
-	mutex_lock(&display->display_lock);
-
 	*count = display->panel->num_timing_nodes;
 
 	rc = dsi_panel_get_dfps_caps(display->panel, &dfps_caps);
 	if (rc) {
 		pr_err("[%s] failed to get dfps caps from panel\n",
 				display->name);
-		goto done;
+		return rc;
 	}
 
 	num_dfps_rates = !dfps_caps.dfps_support ? 1 :
@@ -3988,7 +3986,22 @@ int dsi_display_get_mode_count(struct dsi_display *display,
 	/* Inflate num_of_modes by fps in dfps */
 	*count = display->panel->num_timing_nodes * num_dfps_rates;
 
-done:
+	return 0;
+}
+
+int dsi_display_get_mode_count(struct dsi_display *display,
+			u32 *count)
+{
+	int rc;
+
+	if (!display || !display->panel) {
+		pr_err("invalid display:%d panel:%d\n", display != NULL,
+				display ? display->panel != NULL : 0);
+		return -EINVAL;
+	}
+
+	mutex_lock(&display->display_lock);
+	rc = dsi_display_get_mode_count_no_lock(display, count);
 	mutex_unlock(&display->display_lock);
 
 	return 0;
@@ -4001,19 +4014,35 @@ void dsi_display_put_mode(struct dsi_display *display,
 }
 
 int dsi_display_get_modes(struct dsi_display *display,
-			  struct dsi_display_mode *modes)
+			  struct dsi_display_mode **out_modes)
 {
 	struct dsi_dfps_capabilities dfps_caps;
-	u32 num_dfps_rates, panel_mode_count;
+	u32 num_dfps_rates, panel_mode_count, total_mode_count;
 	u32 mode_idx, array_idx = 0;
-	int i, rc = 0;
+	int i, rc = -EINVAL;
 
-	if (!display || !modes) {
+	if (!display || !out_modes) {
 		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
 
+	*out_modes = NULL;
+
 	mutex_lock(&display->display_lock);
+
+	rc = dsi_display_get_mode_count_no_lock(display, &total_mode_count);
+	if (rc)
+		goto error;
+
+	/* free any previously probed modes */
+	kfree(display->modes);
+
+	display->modes = kcalloc(total_mode_count, sizeof(*display->modes),
+			GFP_KERNEL);
+	if (!display->modes) {
+		rc = -ENOMEM;
+		goto error;
+	}
 
 	rc = dsi_panel_get_dfps_caps(display->panel, &dfps_caps);
 	if (rc) {
@@ -4055,12 +4084,14 @@ int dsi_display_get_modes(struct dsi_display *display,
 		}
 
 		for (i = 0; i < num_dfps_rates; i++) {
-			struct dsi_display_mode *sub_mode = &modes[array_idx];
+			struct dsi_display_mode *sub_mode =
+					&display->modes[array_idx];
 			u32 curr_refresh_rate;
 
 			if (!sub_mode) {
 				pr_err("invalid mode data\n");
-				return -EFAULT;
+				rc = -EFAULT;
+				goto error;
 			}
 
 			memcpy(sub_mode, &panel_mode, sizeof(panel_mode));
@@ -4084,8 +4115,54 @@ int dsi_display_get_modes(struct dsi_display *display,
 		}
 	}
 
+	*out_modes = display->modes;
+	rc = 0;
+
 error:
+	if (rc)
+		kfree(display->modes);
+
 	mutex_unlock(&display->display_lock);
+	return rc;
+}
+
+int dsi_display_find_mode(struct dsi_display *display,
+		const struct dsi_display_mode *cmp,
+		struct dsi_display_mode **out_mode)
+{
+	u32 count, i;
+	int rc;
+
+	if (!display || !out_mode)
+		return -EINVAL;
+
+	*out_mode = NULL;
+
+	rc = dsi_display_get_mode_count(display, &count);
+	if (rc)
+		return rc;
+
+	mutex_lock(&display->display_lock);
+	for (i = 0; i < count; i++) {
+		struct dsi_display_mode *m = &display->modes[i];
+
+		if (cmp->timing.v_active == m->timing.v_active &&
+			cmp->timing.h_active == m->timing.h_active &&
+			cmp->timing.refresh_rate == m->timing.refresh_rate) {
+			*out_mode = m;
+			rc = 0;
+			break;
+		}
+	}
+	mutex_unlock(&display->display_lock);
+
+	if (!*out_mode) {
+		pr_err("[%s] failed to find mode for v_active %u h_active %u rate %u\n",
+				display->name, cmp->timing.v_active,
+				cmp->timing.h_active, cmp->timing.refresh_rate);
+		rc = -ENOENT;
+	}
+
 	return rc;
 }
 

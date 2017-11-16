@@ -28,7 +28,6 @@ static void dsi_display_test_work(struct work_struct *work)
 	struct dsi_display *display;
 	struct dsi_display_mode *modes;
 	u32 count = 0;
-	u32 size = 0;
 	int rc = 0;
 
 	test = container_of(work, struct dsi_display_test, test_work);
@@ -40,14 +39,7 @@ static void dsi_display_test_work(struct work_struct *work)
 		goto test_fail;
 	}
 
-	size = count * sizeof(*modes);
-	modes = kzalloc(size, GFP_KERNEL);
-	if (!modes) {
-		rc = -ENOMEM;
-		goto test_fail;
-	}
-
-	rc = dsi_display_get_modes(display, modes);
+	rc = dsi_display_get_modes(display, &modes);
 	if (rc) {
 		pr_err("failed to get modes, rc=%d\n", rc);
 		goto test_fail_free_modes;
