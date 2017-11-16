@@ -357,9 +357,6 @@ static struct msm_gpi_tre *setup_config0_tre(struct spi_transfer *xfer,
 	if (mode & SPI_CPHA)
 		flags |= GSI_CPHA;
 
-	if (xfer->cs_change)
-		flags |= GSI_CS_TOGGLE;
-
 	word_len = xfer->bits_per_word - MIN_WORD_LEN;
 	pack |= (GSI_TX_PACK_EN | GSI_RX_PACK_EN);
 	ret = get_spi_clk_cfg(mas->cur_speed_hz, mas, &idx, &div);
@@ -591,8 +588,11 @@ static int setup_gsi_xfer(struct spi_transfer *xfer,
 	}
 
 	cs |= spi_slv->chip_select;
-	if (!list_is_last(&xfer->transfer_list, &spi->cur_msg->transfers))
-		go_flags |= FRAGMENTATION;
+	if (!xfer->cs_change) {
+		if (!list_is_last(&xfer->transfer_list,
+					&spi->cur_msg->transfers))
+			go_flags |= FRAGMENTATION;
+	}
 	go_tre = setup_go_tre(cmd, cs, rx_len, go_flags, mas);
 
 	sg_init_table(xfer_tx_sg, tx_nent);
@@ -955,8 +955,6 @@ static void setup_fifo_xfer(struct spi_transfer *xfer,
 		m_cmd = SPI_RX_ONLY;
 
 	spi_tx_cfg &= ~CS_TOGGLE;
-	if (xfer->cs_change)
-		spi_tx_cfg |= CS_TOGGLE;
 	if (!(mas->cur_word_len % MIN_WORD_LEN)) {
 		trans_len =
 			((xfer->len << 3) / mas->cur_word_len) & TRANS_LEN_MSK;
@@ -965,8 +963,12 @@ static void setup_fifo_xfer(struct spi_transfer *xfer,
 
 		trans_len = (xfer->len / bytes_per_word) & TRANS_LEN_MSK;
 	}
-	if (!list_is_last(&xfer->transfer_list, &spi->cur_msg->transfers))
-		m_param |= FRAGMENTATION;
+
+	if (!xfer->cs_change) {
+		if (!list_is_last(&xfer->transfer_list,
+					&spi->cur_msg->transfers))
+			m_param |= FRAGMENTATION;
+	}
 
 	mas->cur_xfer = xfer;
 	if (m_cmd & SPI_TX_ONLY) {
@@ -1021,7 +1023,6 @@ static void setup_fifo_xfer(struct spi_transfer *xfer,
 					"Failed to setup tx dma %d\n", ret);
 		}
 	}
-
 
 	/* Ensure all writes are done before the WM interrupt */
 	mb();
