@@ -1249,7 +1249,7 @@ static inline int cpu_min_power_cost(int cpu)
 	return cpu_rq(cpu)->cluster->min_power_cost;
 }
 
-static inline u32 cpu_cycles_to_freq(u64 cycles, u32 period)
+static inline u32 cpu_cycles_to_freq(u64 cycles, u64 period)
 {
 	return div64_u64(cycles, period);
 }
