@@ -1824,11 +1824,9 @@ static int find_lowest_rq(struct task_struct *task)
 			cpumask_andnot(&backup_search_cpu, &backup_search_cpu,
 				       &search_cpu);
 
-#ifdef CONFIG_SCHED_CORE_ROTATE
 			cpu = find_first_cpu_bit(task, &search_cpu, sg_target,
 						 &avoid_prev_cpu, &do_rotate,
 						 &first_cpu_bit_env);
-#endif
 		} else {
 			cpumask_copy(&search_cpu, lowest_mask);
 			cpumask_clear(&backup_search_cpu);
@@ -1912,6 +1910,7 @@ retry:
 		} else if (!cpumask_empty(&backup_search_cpu)) {
 			cpumask_copy(&search_cpu, &backup_search_cpu);
 			cpumask_clear(&backup_search_cpu);
+			cpu = -1;
 			goto retry;
 		}
 	}
