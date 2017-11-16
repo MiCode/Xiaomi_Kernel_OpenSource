@@ -972,6 +972,34 @@ static int cam_icp_mgr_process_cmd(void *priv, void *data)
 	return rc;
 }
 
+static int cam_icp_mgr_cleanup_ctx(struct cam_icp_hw_ctx_data *ctx_data)
+{
+	int i;
+	struct hfi_frame_process_info *hfi_frame_process;
+	struct cam_hw_done_event_data buf_data;
+
+	hfi_frame_process = &ctx_data->hfi_frame_process;
+	for (i = 0; i < CAM_FRAME_CMD_MAX; i++) {
+		if (!hfi_frame_process->request_id[i])
+			continue;
+		buf_data.request_id = hfi_frame_process->request_id[i];
+		ctx_data->ctxt_event_cb(ctx_data->context_priv,
+			false, &buf_data);
+		hfi_frame_process->request_id[i] = 0;
+		if (ctx_data->hfi_frame_process.in_resource[i] > 0) {
+			CAM_DBG(CAM_ICP, "Delete merged sync in object: %d",
+				ctx_data->hfi_frame_process.in_resource[i]);
+			cam_sync_destroy(
+				ctx_data->hfi_frame_process.in_resource[i]);
+			ctx_data->hfi_frame_process.in_resource[i] = 0;
+		}
+		hfi_frame_process->fw_process_flag[i] = false;
+		clear_bit(i, ctx_data->hfi_frame_process.bitmap);
+	}
+
+	return 0;
+}
+
 static int cam_icp_mgr_handle_frame_process(uint32_t *msg_ptr, int flag)
 {
 	int i;
@@ -993,6 +1021,11 @@ static int cam_icp_mgr_handle_frame_process(uint32_t *msg_ptr, int flag)
 		(void *)ctx_data->context_priv, request_id);
 
 	mutex_lock(&ctx_data->ctx_mutex);
+	if (!ctx_data->in_use) {
+		mutex_unlock(&ctx_data->ctx_mutex);
+		return 0;
+	}
+
 	hfi_frame_process = &ctx_data->hfi_frame_process;
 	for (i = 0; i < CAM_FRAME_CMD_MAX; i++)
 		if (hfi_frame_process->request_id[i] == request_id)
@@ -1123,9 +1156,11 @@ static int cam_icp_mgr_process_msg_create_handle(uint32_t *msg_ptr)
 		return -EINVAL;
 	}
 
-	ctx_data->fw_handle = create_handle_ack->fw_handle;
-	CAM_DBG(CAM_ICP, "fw_handle = %x", ctx_data->fw_handle);
-	complete(&ctx_data->wait_complete);
+	if (ctx_data->in_use) {
+		ctx_data->fw_handle = create_handle_ack->fw_handle;
+		CAM_DBG(CAM_ICP, "fw_handle = %x", ctx_data->fw_handle);
+		complete(&ctx_data->wait_complete);
+	}
 
 	return 0;
 }
@@ -1147,7 +1182,8 @@ static int cam_icp_mgr_process_msg_ping_ack(uint32_t *msg_ptr)
 		return -EINVAL;
 	}
 
-	complete(&ctx_data->wait_complete);
+	if (ctx_data->in_use)
+		complete(&ctx_data->wait_complete);
 
 	return 0;
 }
@@ -1201,7 +1237,9 @@ static int cam_icp_mgr_process_direct_ack_msg(uint32_t *msg_ptr)
 		ioconfig_ack = (struct hfi_msg_ipebps_async_ack *)msg_ptr;
 		ctx_data =
 			(struct cam_icp_hw_ctx_data *)ioconfig_ack->user_data1;
-		complete(&ctx_data->wait_complete);
+		if (ctx_data->in_use)
+			complete(&ctx_data->wait_complete);
+
 		break;
 	default:
 		CAM_ERR(CAM_ICP, "Invalid opcode : %u",
@@ -1865,6 +1903,7 @@ static int cam_icp_mgr_release_ctx(struct cam_icp_hw_mgr *hw_mgr, int ctx_id)
 	cam_icp_mgr_ipe_bps_power_collapse(hw_mgr,
 		&hw_mgr->ctx_data[ctx_id], 0);
 	cam_icp_mgr_destroy_handle(&hw_mgr->ctx_data[ctx_id]);
+	cam_icp_mgr_cleanup_ctx(&hw_mgr->ctx_data[ctx_id]);
 
 	hw_mgr->ctx_data[ctx_id].in_use = false;
 	hw_mgr->ctx_data[ctx_id].fw_handle = 0;
@@ -2229,7 +2268,7 @@ static int cam_icp_mgr_handle_config_err(
 	struct cam_hw_done_event_data buf_data;
 
 	buf_data.request_id = *(uint64_t *)config_args->priv;
-	ctx_data->ctxt_event_cb(ctx_data->context_priv, true, &buf_data);
+	ctx_data->ctxt_event_cb(ctx_data->context_priv, false, &buf_data);
 
 	ctx_data->hfi_frame_process.request_id[idx] = 0;
 	ctx_data->hfi_frame_process.fw_process_flag[idx] = false;
