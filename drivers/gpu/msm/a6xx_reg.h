@@ -676,6 +676,7 @@
 #define A6XX_UCHE_PERFCTR_UCHE_SEL_9        0xE25
 #define A6XX_UCHE_PERFCTR_UCHE_SEL_10       0xE26
 #define A6XX_UCHE_PERFCTR_UCHE_SEL_11       0xE27
+#define A6XX_UCHE_GBIF_GX_CONFIG            0xE3A
 
 /* SP registers */
 #define A6XX_SP_ADDR_MODE_CNTL              0xAE01
