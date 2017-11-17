@@ -509,7 +509,59 @@ static const struct dma_buf_ops dma_buf_ops = {
 	.unmap = ion_dma_buf_kunmap,
 };
 
-int ion_alloc(size_t len, unsigned int heap_id_mask, unsigned int flags)
+struct dma_buf *ion_alloc_dmabuf(size_t len, unsigned int heap_id_mask,
+				 unsigned int flags)
+{
+	struct ion_device *dev = internal_dev;
+	struct ion_buffer *buffer = NULL;
+	struct ion_heap *heap;
+	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
+	struct dma_buf *dmabuf;
+
+	pr_debug("%s: len %zu heap_id_mask %u flags %x\n", __func__,
+		 len, heap_id_mask, flags);
+	/*
+	 * traverse the list of heaps available in this system in priority
+	 * order.  If the heap type is supported by the client, and matches the
+	 * request of the caller allocate from it.  Repeat until allocate has
+	 * succeeded or all heaps have been tried
+	 */
+	len = PAGE_ALIGN(len);
+
+	if (!len)
+		return ERR_PTR(-EINVAL);
+
+	down_read(&dev->lock);
+	plist_for_each_entry(heap, &dev->heaps, node) {
+		/* if the caller didn't specify this heap id */
+		if (!((1 << heap->id) & heap_id_mask))
+			continue;
+		buffer = ion_buffer_create(heap, dev, len, flags);
+		if (!IS_ERR(buffer))
+			break;
+	}
+	up_read(&dev->lock);
+
+	if (!buffer)
+		return ERR_PTR(-ENODEV);
+
+	if (IS_ERR(buffer))
+		return ERR_CAST(buffer);
+
+	exp_info.ops = &dma_buf_ops;
+	exp_info.size = buffer->size;
+	exp_info.flags = O_RDWR;
+	exp_info.priv = buffer;
+
+	dmabuf = dma_buf_export(&exp_info);
+	if (IS_ERR(dmabuf))
+		_ion_buffer_destroy(buffer);
+
+	return dmabuf;
+}
+
+struct dma_buf *ion_alloc(size_t len, unsigned int heap_id_mask,
+			  unsigned int flags)
 {
 	struct ion_device *dev = internal_dev;
 	struct ion_heap *heap;
@@ -532,67 +584,27 @@ int ion_alloc(size_t len, unsigned int heap_id_mask, unsigned int flags)
 			(enum ion_heap_type)ION_HEAP_TYPE_SYSTEM_SECURE) {
 			type_valid = true;
 		} else {
-			pr_warn("ion_alloc heap type not supported, type:%d\n",
-				heap->type);
+			pr_warn("%s: heap type not supported, type:%d\n",
+				__func__, heap->type);
 		}
 		break;
 	}
 	up_read(&dev->lock);
 
 	if (!type_valid)
-		return -EINVAL;
+		return ERR_PTR(-EINVAL);
 
-	return ion_alloc_priv(len, heap_id_mask, flags);
+	return ion_alloc_dmabuf(len, heap_id_mask, flags);
 }
 EXPORT_SYMBOL(ion_alloc);
 
-int ion_alloc_priv(size_t len, unsigned int heap_id_mask, unsigned int flags)
+int ion_alloc_fd(size_t len, unsigned int heap_id_mask, unsigned int flags)
 {
-	struct ion_device *dev = internal_dev;
-	struct ion_buffer *buffer = NULL;
-	struct ion_heap *heap;
-	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
 	int fd;
 	struct dma_buf *dmabuf;
 
-	pr_debug("%s: len %zu heap_id_mask %u flags %x\n", __func__,
-		 len, heap_id_mask, flags);
-	/*
-	 * traverse the list of heaps available in this system in priority
-	 * order.  If the heap type is supported by the client, and matches the
-	 * request of the caller allocate from it.  Repeat until allocate has
-	 * succeeded or all heaps have been tried
-	 */
-	len = PAGE_ALIGN(len);
-
-	if (!len)
-		return -EINVAL;
-
-	down_read(&dev->lock);
-	plist_for_each_entry(heap, &dev->heaps, node) {
-		/* if the caller didn't specify this heap id */
-		if (!((1 << heap->id) & heap_id_mask))
-			continue;
-		buffer = ion_buffer_create(heap, dev, len, flags);
-		if (!IS_ERR(buffer))
-			break;
-	}
-	up_read(&dev->lock);
-
-	if (buffer == NULL)
-		return -ENODEV;
-
-	if (IS_ERR(buffer))
-		return PTR_ERR(buffer);
-
-	exp_info.ops = &dma_buf_ops;
-	exp_info.size = buffer->size;
-	exp_info.flags = O_RDWR;
-	exp_info.priv = buffer;
-
-	dmabuf = dma_buf_export(&exp_info);
+	dmabuf = ion_alloc_dmabuf(len, heap_id_mask, flags);
 	if (IS_ERR(dmabuf)) {
-		_ion_buffer_destroy(buffer);
 		return PTR_ERR(dmabuf);
 	}
 
