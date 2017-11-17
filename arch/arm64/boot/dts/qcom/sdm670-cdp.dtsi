@@ -41,6 +41,12 @@
 	status = "ok";
 };
 
+&pm660l_switch1 {
+	pinctrl-names = "led_enable", "led_disable";
+	pinctrl-0 = <&flash_led3_front_en>;
+	pinctrl-1 = <&flash_led3_front_dis>;
+};
+
 &qupv3_se9_2uart {
 	status = "disabled";
 };
