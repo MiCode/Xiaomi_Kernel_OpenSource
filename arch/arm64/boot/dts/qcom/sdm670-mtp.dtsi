@@ -14,7 +14,6 @@
 #include "sdm670-pmic-overlay.dtsi"
 #include "sdm670-sde-display.dtsi"
 #include "smb1355.dtsi"
-#include "sdm670-camera-sensor-mtp.dtsi"
 
 &ufsphy_mem {
 	compatible = "qcom,ufs-phy-qmp-v3";
