@@ -2492,7 +2492,7 @@
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 			<1 618 0 0>,    /* No vote */
-			<1 618 0 800>;  /* 100 KHz */
+			<1 618 0 300000>;  /* 75 MHz */
 		clocks = <&clock_gcc GCC_PRNG_AHB_CLK>;
 		clock-names = "iface_clk";
 	};
