@@ -1174,6 +1174,7 @@ void subsys_set_crash_status(struct subsys_device *dev,
 {
 	dev->crashed = crashed;
 }
+EXPORT_SYMBOL(subsys_set_crash_status);
 
 enum crash_status subsys_get_crash_status(struct subsys_device *dev)
 {
