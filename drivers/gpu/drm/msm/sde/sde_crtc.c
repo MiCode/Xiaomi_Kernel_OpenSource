@@ -5084,6 +5084,9 @@ static int sde_crtc_atomic_set_property(struct drm_crtc *crtc,
 		cstate->bw_split_vote = true;
 		break;
 	case CRTC_PROP_OUTPUT_FENCE:
+		if (!val)
+			goto exit;
+
 		ret = _sde_crtc_get_output_fence(crtc, state, &fence_fd);
 		if (ret) {
 			SDE_ERROR("fence create failed rc:%d\n", ret);
