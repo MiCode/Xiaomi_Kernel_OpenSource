@@ -506,7 +506,8 @@ static int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
 			goto error;
 		}
 		if (cmds->post_wait_ms)
-			msleep(cmds->post_wait_ms);
+			usleep_range(cmds->post_wait_ms*1000,
+					((cmds->post_wait_ms*1000)+10));
 		cmds++;
 	}
 error:
