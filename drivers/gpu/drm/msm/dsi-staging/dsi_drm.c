@@ -265,6 +265,9 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 	struct dsi_bridge *c_bridge = to_dsi_bridge(bridge);
 	struct dsi_display_mode dsi_mode, cur_dsi_mode;
 	struct drm_display_mode cur_mode;
+	struct drm_crtc_state *crtc_state;
+
+	crtc_state = container_of(mode, struct drm_crtc_state, mode);
 
 	if (!bridge || !mode || !adjusted_mode) {
 		pr_err("Invalid params\n");
@@ -280,9 +283,10 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 		return false;
 	}
 
-	if (bridge->encoder && bridge->encoder->crtc) {
+	if (bridge->encoder && bridge->encoder->crtc &&
+			crtc_state->crtc) {
 
-		convert_to_dsi_mode(&bridge->encoder->crtc->state->mode,
+		convert_to_dsi_mode(&crtc_state->crtc->state->mode,
 							&cur_dsi_mode);
 		rc = dsi_display_validate_mode_vrr(c_bridge->display,
 					&cur_dsi_mode, &dsi_mode);
@@ -290,7 +294,7 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 			pr_debug("[%s] vrr mode mismatch failure rc=%d\n",
 				c_bridge->display->name, rc);
 
-		cur_mode = bridge->encoder->crtc->mode;
+		cur_mode = crtc_state->crtc->mode;
 
 		if (!drm_mode_equal(&cur_mode, adjusted_mode) &&
 			(!(dsi_mode.dsi_mode_flags &
