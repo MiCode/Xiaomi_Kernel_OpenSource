@@ -437,6 +437,11 @@ static int msm_csiphy_2phase_lane_config(
 
 	csiphybase = csiphy_dev->base;
 	lane_mask = csiphy_params->lane_mask & 0x1f;
+
+	lane_enable = msm_camera_io_r(csiphybase +
+		csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+		mipi_csiphy_3ph_cmn_ctrl5.addr);
+
 	for (i = 0; i < MAX_DPHY_DATA_LN; i++) {
 		if (mask == 0x2) {
 			if (lane_mask & mask)
@@ -474,7 +479,11 @@ static int msm_csiphy_2phase_lane_config(
 			clk_lane = 0;
 		}
 
-		if (csiphy_params->combo_mode == 1) {
+		/* In combo mode setting the 4th lane
+		 * as clk_lane for 1 lane sensor, checking
+		 * the lane_mask == 0x18 for one lane sensor
+		 */
+		if ((csiphy_params->combo_mode == 1) && (lane_mask == 0x18)) {
 			val |= 0xA;
 			if (mask == csiphy_dev->ctrl_reg->
 				csiphy_reg.combo_clk_mask) {
@@ -520,6 +529,12 @@ static int msm_csiphy_2phase_lane_config(
 				mipi_csiphy_2ph_lnn_cfg4.data, csiphybase +
 				csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 				mipi_csiphy_2ph_lnn_cfg4.addr + offset);
+			if (lane_mask == 0x18)
+				msm_camera_io_w(0x80,
+					csiphybase +
+					csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+					mipi_csiphy_2ph_lnn_cfg1.addr + offset);
+
 		} else {
 			msm_camera_io_w(csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 				mipi_csiphy_2ph_lnn_cfg1.data,
@@ -540,8 +555,8 @@ static int msm_csiphy_2phase_lane_config(
 				csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 				mipi_csiphy_2ph_lnn_cfg5.addr + offset);
 		}
-		if (clk_lane == 1 &&
-			csiphy_dev->hw_version == CSIPHY_VERSION_V342) {
+		if (clk_lane == 1 && lane_mask != 0x18 &&
+			(csiphy_dev->hw_version == CSIPHY_VERSION_V342)) {
 			msm_camera_io_w(0x1f,
 				csiphybase +
 				csiphy_dev->ctrl_reg->csiphy_3ph_reg.
