@@ -41,6 +41,9 @@
 #define BG_SPI_MAX_WORDS (0x3FFFFFFD)
 #define BG_SPI_MAX_REGS (0x0A)
 #define SLEEP_IN_STATE_CHNG 2000
+#define HED_EVENT_ID_LEN (0x02)
+#define HED_EVENT_SIZE_LEN (0x02)
+#define HED_EVENT_DATA_STRT_LEN (0x05)
 
 enum bgcom_state {
 	/*BGCOM Staus ready*/
@@ -86,8 +89,12 @@ static uint32_t g_slav_status_reg;
 
 /* BGCOM client callbacks set-up */
 static struct list_head cb_head = LIST_HEAD_INIT(cb_head);
-
 static enum bgcom_spi_state spi_state;
+
+static void augmnt_fifo(uint8_t *data, int pos)
+{
+	data[pos] = '\0';
+}
 
 int bgcom_set_spi_state(enum bgcom_spi_state state)
 {
@@ -214,6 +221,34 @@ void send_event(enum bgcom_event_type event,
 	}
 }
 
+static void parse_fifo(uint8_t *data, union bgcom_event_data_type *event_data)
+{
+	uint16_t p_len;
+	uint16_t event_id;
+	void *evnt_data;
+
+	while (*data != '\0') {
+
+		event_id = *((uint16_t *) data);
+		data = data + HED_EVENT_ID_LEN;
+		p_len = *((uint16_t *) data);
+		data = data + HED_EVENT_SIZE_LEN;
+
+		if (event_id == 0x0001) {
+			evnt_data = kmalloc(p_len, GFP_KERNEL);
+			if (evnt_data != NULL) {
+				memcpy(evnt_data, data, p_len);
+				event_data->fifo_data.to_master_fifo_used =
+						p_len/BG_SPI_WORD_SIZE;
+				event_data->fifo_data.data = evnt_data;
+				send_event(BGCOM_EVENT_TO_MASTER_FIFO_USED,
+						event_data);
+			}
+		}
+		data = data + p_len;
+	}
+}
+
 static void send_back_notification(uint32_t slav_status_reg,
 	uint32_t slav_status_auto_clear_reg,
 	uint32_t fifo_fill_reg, uint32_t fifo_size_reg)
@@ -288,18 +323,17 @@ static void send_back_notification(uint32_t slav_status_reg,
 	}
 
 	if (master_fifo_used > 0) {
-		ptr = kzalloc(master_fifo_used*BG_SPI_WORD_SIZE,
+		ptr = kzalloc(master_fifo_used*BG_SPI_WORD_SIZE + 1,
 			GFP_KERNEL | GFP_ATOMIC);
 		if (ptr != NULL) {
 			ret = read_bg_locl(BGCOM_READ_FIFO,
 				master_fifo_used,  ptr);
 			if (!ret) {
-				event_data.fifo_data.to_master_fifo_used =
-					master_fifo_used;
-				event_data.fifo_data.data = ptr;
-				send_event(BGCOM_EVENT_TO_MASTER_FIFO_USED,
-					&event_data);
+				augmnt_fifo((uint8_t *)ptr,
+					master_fifo_used*BG_SPI_WORD_SIZE);
+				parse_fifo((uint8_t *)ptr, &event_data);
 			}
+			kfree(ptr);
 		}
 	}
 
