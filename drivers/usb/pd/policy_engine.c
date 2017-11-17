@@ -368,6 +368,7 @@ struct usbpd {
 
 	enum usbpd_state	current_state;
 	bool			hard_reset_recvd;
+	ktime_t			hard_reset_recvd_time;
 	struct list_head	rx_q;
 	spinlock_t		rx_lock;
 	struct rx_msg		*rx_ext_msg;
@@ -614,6 +615,9 @@ static int pd_send_msg(struct usbpd *pd, u8 msg_type, const u32 *data,
 	int ret;
 	u16 hdr;
 
+	if (pd->hard_reset_recvd)
+		return -EBUSY;
+
 	hdr = PD_MSG_HDR(msg_type, pd->current_dr, pd->current_pr,
 			pd->tx_msgid, num_data, pd->spec_rev);
 
@@ -805,11 +809,13 @@ static void phy_sig_received(struct usbpd *pd, enum pd_sig_type sig)
 		return;
 	}
 
-	usbpd_dbg(&pd->dev, "hard reset received\n");
+	pd->hard_reset_recvd = true;
+	pd->hard_reset_recvd_time = ktime_get();
+
+	usbpd_err(&pd->dev, "hard reset received\n");
 
 	/* Force CC logic to source/sink to keep Rp/Rd unchanged */
 	set_power_role(pd, pd->current_pr);
-	pd->hard_reset_recvd = true;
 	power_supply_set_property(pd->usb_psy,
 			POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
 
@@ -1073,6 +1079,9 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 	union power_supply_propval val = {0};
 	unsigned long flags;
 	int ret;
+
+	if (pd->hard_reset_recvd) /* let usbpd_sm handle it */
+		return;
 
 	usbpd_dbg(&pd->dev, "%s -> %s\n",
 			usbpd_state_strings[pd->current_state],
@@ -2044,8 +2053,13 @@ static void usbpd_sm(struct work_struct *w)
 		if (pd->current_pr == PR_SINK) {
 			usbpd_set_state(pd, PE_SNK_TRANSITION_TO_DEFAULT);
 		} else {
+			s64 delta = ktime_ms_delta(ktime_get(),
+					pd->hard_reset_recvd_time);
 			pd->current_state = PE_SRC_TRANSITION_TO_DEFAULT;
-			kick_sm(pd, PS_HARD_RESET_TIME);
+			if (delta >= PS_HARD_RESET_TIME)
+				kick_sm(pd, 0);
+			else
+				kick_sm(pd, PS_HARD_RESET_TIME - (int)delta);
 		}
 
 		goto sm_done;
