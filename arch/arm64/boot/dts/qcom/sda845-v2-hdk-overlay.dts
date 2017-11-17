@@ -29,3 +29,28 @@
 	qcom,msm-id = <341 0x20000>;
 	qcom,board-id = <0x01001F 0x00>;
 };
+
+&dsi_dual_nt36850_truly_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-mode-sel-gpio-state = "dual_port";
+	qcom,panel-mode-gpio = <&tlmm 52 0>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,platform-reset-gpio = <&tlmm 6 0>;
+};
+
+&dsi_dual_nt36850_truly_cmd_display {
+	qcom,dsi-display-active;
+};
+
+&labibb {
+	status = "ok";
+	qcom,qpnp-labibb-mode = "lcd";
+};
+
+&pmi8998_wled {
+	status = "okay";
+	qcom,led-strings-list = [01 02];
+};
