@@ -830,6 +830,11 @@ void *msm_ba_open(const struct msm_ba_ext_ops *ext_ops)
 
 	dev_ctxt = get_ba_dev();
 
+	if (!dev_ctxt) {
+		dprintk(BA_ERR, "Failed to get ba dev");
+		return NULL;
+	}
+
 	inst = kzalloc(sizeof(*inst), GFP_KERNEL);
 
 	if (!inst) {
