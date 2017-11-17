@@ -46,9 +46,9 @@
 		pm660_s4: regulator-pm660-s4 {
 			regulator-name = "pm660_s4";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <2040000>;
+			regulator-min-microvolt = <1808000>;
 			regulator-max-microvolt = <2040000>;
-			qcom,init-voltage = <2040000>;
+			qcom,init-voltage = <1808000>;
 		};
 	};
 
@@ -72,9 +72,9 @@
 		pm660_s6: regulator-pm660-s6 {
 			regulator-name = "pm660_s6";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <1352000>;
+			regulator-min-microvolt = <1224000>;
 			regulator-max-microvolt = <1352000>;
-			qcom,init-voltage = <1352000>;
+			qcom,init-voltage = <1224000>;
 		};
 	};
 
@@ -237,9 +237,9 @@
 		pm660_l6: regulator-pm660-l6 {
 			regulator-name = "pm660_l6";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <1304000>;
+			regulator-min-microvolt = <1248000>;
 			regulator-max-microvolt = <1304000>;
-			qcom,init-voltage = <1304000>;
+			qcom,init-voltage = <1248000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LDO_LPM>;
 		};
 	};
