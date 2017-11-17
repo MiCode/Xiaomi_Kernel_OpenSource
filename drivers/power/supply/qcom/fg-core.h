@@ -458,7 +458,6 @@ struct fg_chip {
 	bool			qnovo_enable;
 	struct completion	soc_update;
 	struct completion	soc_ready;
-	struct completion	mem_grant;
 	struct delayed_work	profile_load_work;
 	struct work_struct	status_change_work;
 	struct delayed_work	ttf_work;
