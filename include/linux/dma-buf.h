@@ -326,6 +326,7 @@ struct dma_buf_attachment {
 	struct device *dev;
 	struct list_head node;
 	void *priv;
+	unsigned long dma_map_attrs;
 };
 
 /**
