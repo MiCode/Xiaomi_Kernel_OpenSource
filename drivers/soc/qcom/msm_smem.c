@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +26,7 @@
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/ramdump.h>
+#include <soc/qcom/scm.h>
 
 #include <soc/qcom/smem.h>
 
@@ -1085,12 +1086,15 @@ static __init int modem_restart_late_init(void)
 	void *handle;
 	struct restart_notifier_block *nb;
 
-	if (smem_dev)
-		smem_ramdump_dev = create_ramdump_device("smem", smem_dev);
-	if (IS_ERR_OR_NULL(smem_ramdump_dev)) {
-		LOG_ERR("%s: Unable to create smem ramdump device.\n",
-			__func__);
-		smem_ramdump_dev = NULL;
+	if (scm_is_secure_device()) {
+		if (smem_dev)
+			smem_ramdump_dev = create_ramdump_device("smem",
+								 smem_dev);
+		if (IS_ERR_OR_NULL(smem_ramdump_dev)) {
+			LOG_ERR("%s: Unable to create smem ramdump device.\n",
+				__func__);
+			smem_ramdump_dev = NULL;
+		}
 	}
 
 	for (i = 0; i < ARRAY_SIZE(restart_notifiers); i++) {
