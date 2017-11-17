@@ -37,6 +37,8 @@
 	((jpeg_irq_status) & (hi)->int_status.resetdone)
 #define CAM_JPEG_HW_IRQ_IS_ERR(jpeg_irq_status, hi) \
 	((jpeg_irq_status) & (hi)->int_status.iserror)
+#define CAM_JPEG_HW_IRQ_IS_STOP_DONE(jpeg_irq_status, hi) \
+	((jpeg_irq_status) & (hi)->int_status.stopdone)
 
 #define CAM_JPEG_ENC_RESET_TIMEOUT msecs_to_jiffies(500)
 
@@ -181,7 +183,9 @@ irqreturn_t cam_jpeg_enc_irq(int irq_num, void *data)
 
 	CAM_DBG(CAM_JPEG, "irq_num %d  irq_status = %x , core_state %d",
 		irq_num, irq_status, core_info->core_state);
+
 	if (CAM_JPEG_HW_IRQ_IS_FRAME_DONE(irq_status, hw_info)) {
+		spin_lock(&jpeg_enc_dev->hw_lock);
 		if (core_info->core_state == CAM_JPEG_ENC_CORE_READY) {
 			encoded_size = cam_io_r_mb(mem_base +
 				core_info->jpeg_enc_hw_info->reg_offset.
@@ -191,22 +195,42 @@ irqreturn_t cam_jpeg_enc_irq(int irq_num, void *data)
 					encoded_size,
 					core_info->irq_cb.data);
 			} else {
-				CAM_ERR(CAM_JPEG, "unexpected done");
+				CAM_ERR(CAM_JPEG, "unexpected done, no cb");
 			}
+		} else {
+			CAM_ERR(CAM_JPEG, "unexpected done irq");
 		}
-
 		core_info->core_state = CAM_JPEG_ENC_CORE_NOT_READY;
+		spin_unlock(&jpeg_enc_dev->hw_lock);
 	}
 	if (CAM_JPEG_HW_IRQ_IS_RESET_ACK(irq_status, hw_info)) {
+		spin_lock(&jpeg_enc_dev->hw_lock);
 		if (core_info->core_state == CAM_JPEG_ENC_CORE_RESETTING) {
 			core_info->core_state = CAM_JPEG_ENC_CORE_READY;
 			complete(&jpeg_enc_dev->hw_complete);
 		} else {
 			CAM_ERR(CAM_JPEG, "unexpected reset irq");
 		}
+		spin_unlock(&jpeg_enc_dev->hw_lock);
+	}
+	if (CAM_JPEG_HW_IRQ_IS_STOP_DONE(irq_status, hw_info)) {
+		spin_lock(&jpeg_enc_dev->hw_lock);
+		if (core_info->core_state == CAM_JPEG_ENC_CORE_ABORTING) {
+			core_info->core_state = CAM_JPEG_ENC_CORE_NOT_READY;
+			complete(&jpeg_enc_dev->hw_complete);
+			if (core_info->irq_cb.jpeg_hw_mgr_cb) {
+				core_info->irq_cb.jpeg_hw_mgr_cb(irq_status,
+					-1,
+					core_info->irq_cb.data);
+			}
+		} else {
+			CAM_ERR(CAM_JPEG, "unexpected abort irq");
+		}
+		spin_unlock(&jpeg_enc_dev->hw_lock);
 	}
 	/* Unexpected/unintended HW interrupt */
 	if (CAM_JPEG_HW_IRQ_IS_ERR(irq_status, hw_info)) {
+		spin_lock(&jpeg_enc_dev->hw_lock);
 		core_info->core_state = CAM_JPEG_ENC_CORE_NOT_READY;
 		CAM_ERR_RATE_LIMIT(CAM_JPEG,
 			"error irq_num %d  irq_status = %x , core_state %d",
@@ -217,6 +241,7 @@ irqreturn_t cam_jpeg_enc_irq(int irq_num, void *data)
 				-1,
 				core_info->irq_cb.data);
 		}
+		spin_unlock(&jpeg_enc_dev->hw_lock);
 	}
 
 	return IRQ_HANDLED;
@@ -244,14 +269,18 @@ int cam_jpeg_enc_reset_hw(void *data,
 	hw_info = core_info->jpeg_enc_hw_info;
 	mem_base = soc_info->reg_map[0].mem_base;
 
+	mutex_lock(&core_info->core_mutex);
+	spin_lock(&jpeg_enc_dev->hw_lock);
 	if (core_info->core_state == CAM_JPEG_ENC_CORE_RESETTING) {
 		CAM_ERR(CAM_JPEG, "alrady resetting");
+		spin_unlock(&jpeg_enc_dev->hw_lock);
+		mutex_unlock(&core_info->core_mutex);
 		return 0;
 	}
 
 	reinit_completion(&jpeg_enc_dev->hw_complete);
-
 	core_info->core_state = CAM_JPEG_ENC_CORE_RESETTING;
+	spin_unlock(&jpeg_enc_dev->hw_lock);
 
 	cam_io_w_mb(hw_info->reg_val.int_mask_disable_all,
 		mem_base + hw_info->reg_offset.int_mask);
@@ -269,6 +298,7 @@ int cam_jpeg_enc_reset_hw(void *data,
 		core_info->core_state = CAM_JPEG_ENC_CORE_NOT_READY;
 	}
 
+	mutex_unlock(&core_info->core_mutex);
 	return 0;
 }
 
@@ -300,6 +330,54 @@ int cam_jpeg_enc_start_hw(void *data,
 	cam_io_w_mb(hw_info->reg_val.hw_cmd_start,
 		mem_base + hw_info->reg_offset.hw_cmd);
 
+	return 0;
+}
+
+int cam_jpeg_enc_stop_hw(void *data,
+	void *stop_args, uint32_t arg_size)
+{
+	struct cam_hw_info *jpeg_enc_dev = data;
+	struct cam_jpeg_enc_device_core_info *core_info = NULL;
+	struct cam_hw_soc_info *soc_info = NULL;
+	struct cam_jpeg_enc_device_hw_info *hw_info = NULL;
+	void __iomem *mem_base;
+	unsigned long rem_jiffies;
+
+	if (!jpeg_enc_dev) {
+		CAM_ERR(CAM_JPEG, "Invalid args");
+		return -EINVAL;
+	}
+	soc_info = &jpeg_enc_dev->soc_info;
+	core_info =
+		(struct cam_jpeg_enc_device_core_info *)jpeg_enc_dev->
+		core_info;
+	hw_info = core_info->jpeg_enc_hw_info;
+	mem_base = soc_info->reg_map[0].mem_base;
+
+	mutex_unlock(&core_info->core_mutex);
+	spin_lock(&jpeg_enc_dev->hw_lock);
+	if (core_info->core_state == CAM_JPEG_ENC_CORE_ABORTING) {
+		CAM_ERR(CAM_JPEG, "alrady stopping");
+		spin_unlock(&jpeg_enc_dev->hw_lock);
+		mutex_unlock(&core_info->core_mutex);
+		return 0;
+	}
+
+	reinit_completion(&jpeg_enc_dev->hw_complete);
+	core_info->core_state = CAM_JPEG_ENC_CORE_ABORTING;
+	spin_unlock(&jpeg_enc_dev->hw_lock);
+
+	cam_io_w_mb(hw_info->reg_val.hw_cmd_stop,
+		mem_base + hw_info->reg_offset.hw_cmd);
+
+	rem_jiffies = wait_for_completion_timeout(&jpeg_enc_dev->hw_complete,
+		CAM_JPEG_ENC_RESET_TIMEOUT);
+	if (!rem_jiffies) {
+		CAM_ERR(CAM_JPEG, "error Reset Timeout");
+		core_info->core_state = CAM_JPEG_ENC_CORE_NOT_READY;
+	}
+
+	mutex_unlock(&core_info->core_mutex);
 	return 0;
 }
 
