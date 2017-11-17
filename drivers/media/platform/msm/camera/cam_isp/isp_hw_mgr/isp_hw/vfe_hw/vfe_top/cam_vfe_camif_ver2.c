@@ -329,6 +329,7 @@ static int cam_vfe_camif_handle_irq_bottom_half(void *handler_priv,
 	struct cam_vfe_mux_camif_data        *camif_priv;
 	struct cam_vfe_top_irq_evt_payload   *payload;
 	uint32_t                              irq_status0;
+	uint32_t                              irq_status1;
 
 	if (!handler_priv || !evt_payload_priv)
 		return ret;
@@ -337,6 +338,7 @@ static int cam_vfe_camif_handle_irq_bottom_half(void *handler_priv,
 	camif_priv = camif_node->res_priv;
 	payload = evt_payload_priv;
 	irq_status0 = payload->irq_reg_val[CAM_IFE_IRQ_CAMIF_REG_STATUS0];
+	irq_status1 = payload->irq_reg_val[CAM_IFE_IRQ_CAMIF_REG_STATUS1];
 
 	CAM_DBG(CAM_ISP, "event ID:%d", payload->evt_id);
 	CAM_DBG(CAM_ISP, "irq_status_0 = %x", irq_status0);
@@ -365,6 +367,15 @@ static int cam_vfe_camif_handle_irq_bottom_half(void *handler_priv,
 		if (irq_status0 & camif_priv->reg_data->eof_irq_mask) {
 			CAM_DBG(CAM_ISP, "Received EOF\n");
 			ret = CAM_VFE_IRQ_STATUS_SUCCESS;
+		}
+		break;
+	case CAM_ISP_HW_EVENT_ERROR:
+		if (irq_status1 & camif_priv->reg_data->error_irq_mask1) {
+			CAM_DBG(CAM_ISP, "Received ERROR\n");
+			ret = CAM_ISP_HW_ERROR_OVERFLOW;
+			cam_vfe_put_evt_payload(payload->core_info, &payload);
+		} else {
+			ret = CAM_ISP_HW_ERROR_NONE;
 		}
 		break;
 	default:

@@ -61,6 +61,8 @@ struct cam_vfe_camif_reg_data {
 	uint32_t     epoch0_irq_mask;
 	uint32_t     reg_update_irq_mask;
 	uint32_t     eof_irq_mask;
+	uint32_t     error_irq_mask0;
+	uint32_t     error_irq_mask1;
 };
 
 struct cam_vfe_camif_ver2_hw_info {

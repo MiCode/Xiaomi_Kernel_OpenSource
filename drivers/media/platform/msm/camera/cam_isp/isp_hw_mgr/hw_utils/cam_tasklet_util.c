@@ -261,6 +261,15 @@ void cam_tasklet_deinit(void    **tasklet_info)
 	*tasklet_info = NULL;
 }
 
+static void cam_tasklet_flush(void  *tasklet_info)
+{
+	unsigned long data;
+	struct cam_tasklet_info *tasklet = tasklet_info;
+
+	data = (unsigned long)tasklet;
+	cam_tasklet_action(data);
+}
+
 int cam_tasklet_start(void  *tasklet_info)
 {
 	struct cam_tasklet_info       *tasklet = tasklet_info;
@@ -290,6 +299,7 @@ void cam_tasklet_stop(void  *tasklet_info)
 {
 	struct cam_tasklet_info  *tasklet = tasklet_info;
 
+	cam_tasklet_flush(tasklet);
 	atomic_set(&tasklet->tasklet_active, 0);
 	tasklet_disable(&tasklet->tasklet);
 }

@@ -186,13 +186,6 @@ static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client,
 		goto free_ctrl;
 	}
 
-	soc_private = (struct cam_actuator_soc_private *)(id->driver_data);
-	if (!soc_private) {
-		CAM_ERR(CAM_EEPROM, "board info NULL");
-		rc = -EINVAL;
-		goto free_ctrl;
-	}
-
 	rc = cam_actuator_init_subdev(a_ctrl);
 	if (rc)
 		goto free_soc;
@@ -249,8 +242,10 @@ free_ctrl:
 
 static int32_t cam_actuator_platform_remove(struct platform_device *pdev)
 {
-	struct cam_actuator_ctrl_t  *a_ctrl;
 	int32_t rc = 0;
+	struct cam_actuator_ctrl_t      *a_ctrl;
+	struct cam_actuator_soc_private *soc_private;
+	struct cam_sensor_power_ctrl_t  *power_info;
 
 	a_ctrl = platform_get_drvdata(pdev);
 	if (!a_ctrl) {
@@ -258,8 +253,15 @@ static int32_t cam_actuator_platform_remove(struct platform_device *pdev)
 		return 0;
 	}
 
+	soc_private =
+		(struct cam_actuator_soc_private *)a_ctrl->soc_info.soc_private;
+	power_info = &soc_private->power_info;
+
 	kfree(a_ctrl->io_master_info.cci_client);
 	a_ctrl->io_master_info.cci_client = NULL;
+	kfree(power_info->power_setting);
+	kfree(power_info->power_down_setting);
+	kfree(a_ctrl->soc_info.soc_private);
 	kfree(a_ctrl->i2c_data.per_frame);
 	a_ctrl->i2c_data.per_frame = NULL;
 	devm_kfree(&pdev->dev, a_ctrl);
@@ -269,17 +271,29 @@ static int32_t cam_actuator_platform_remove(struct platform_device *pdev)
 
 static int32_t cam_actuator_driver_i2c_remove(struct i2c_client *client)
 {
-	struct cam_actuator_ctrl_t  *a_ctrl = i2c_get_clientdata(client);
 	int32_t rc = 0;
+	struct cam_actuator_ctrl_t      *a_ctrl =
+		i2c_get_clientdata(client);
+	struct cam_actuator_soc_private *soc_private;
+	struct cam_sensor_power_ctrl_t  *power_info;
 
 	/* Handle I2C Devices */
 	if (!a_ctrl) {
 		CAM_ERR(CAM_ACTUATOR, "Actuator device is NULL");
 		return -EINVAL;
 	}
+
+	soc_private =
+		(struct cam_actuator_soc_private *)a_ctrl->soc_info.soc_private;
+	power_info = &soc_private->power_info;
+
 	/*Free Allocated Mem */
 	kfree(a_ctrl->i2c_data.per_frame);
 	a_ctrl->i2c_data.per_frame = NULL;
+	kfree(power_info->power_setting);
+	kfree(power_info->power_down_setting);
+	kfree(a_ctrl->soc_info.soc_private);
+	a_ctrl->soc_info.soc_private = NULL;
 	kfree(a_ctrl);
 	return rc;
 }

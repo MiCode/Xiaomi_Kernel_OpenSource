@@ -117,13 +117,14 @@ err:
 	return rc;
 }
 
-int64_t hfi_read_message(uint32_t *pmsg, uint8_t q_id)
+int hfi_read_message(uint32_t *pmsg, uint8_t q_id,
+	uint32_t *words_read)
 {
 	struct hfi_qtbl *q_tbl_ptr;
 	struct hfi_q_hdr *q;
 	uint32_t new_read_idx, size_in_words, word_diff, temp;
 	uint32_t *read_q, *read_ptr, *write_ptr;
-	int64_t rc = 0;
+	int rc = 0;
 
 	if (!pmsg) {
 		CAM_ERR(CAM_HFI, "Invalid msg");
@@ -202,7 +203,7 @@ int64_t hfi_read_message(uint32_t *pmsg, uint8_t q_id)
 	}
 
 	q->qhdr_read_idx = new_read_idx;
-	rc = size_in_words;
+	*words_read = size_in_words;
 err:
 	mutex_unlock(&hfi_msg_q_mutex);
 	return rc;
