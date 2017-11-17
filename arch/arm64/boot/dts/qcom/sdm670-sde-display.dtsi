@@ -124,33 +124,6 @@
 			qcom,supply-enable-load = <13200>;
 			qcom,supply-disable-load = <80>;
 		};
-
-		qcom,panel-supply-entry@2 {
-			reg = <2>;
-			qcom,supply-name = "lab";
-			qcom,supply-min-voltage = <4600000>;
-			qcom,supply-max-voltage = <6100000>;
-			qcom,supply-enable-load = <100000>;
-			qcom,supply-disable-load = <100>;
-		};
-
-		qcom,panel-supply-entry@3 {
-			reg = <3>;
-			qcom,supply-name = "ibb";
-			qcom,supply-min-voltage = <4000000>;
-			qcom,supply-max-voltage = <6300000>;
-			qcom,supply-enable-load = <100000>;
-			qcom,supply-disable-load = <100>;
-		};
-
-		qcom,panel-supply-entry@4 {
-			reg = <4>;
-			qcom,supply-name = "oledb";
-			qcom,supply-min-voltage = <5000000>;
-			qcom,supply-max-voltage = <8100000>;
-			qcom,supply-enable-load = <100000>;
-			qcom,supply-disable-load = <100>;
-		};
 	};
 
 	dsi_dual_nt35597_truly_video_display: qcom,dsi-display@0 {
@@ -422,9 +395,6 @@
 		qcom,dsi-panel = <&dsi_rm67195_amoled_fhd_cmd>;
 		vddio-supply = <&pm660_l11>;
 		vdda-3p3-supply = <&pm660l_l6>;
-		lab-supply = <&lab_regulator>;
-		ibb-supply = <&ibb_regulator>;
-		oledb-supply = <&pm660a_oledb>;
 	};
 
 	dsi_nt35695b_truly_fhd_video_display: qcom,dsi-display@13 {
