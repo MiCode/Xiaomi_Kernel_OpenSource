@@ -1,0 +1,38 @@
+#
+# SPMI Simulator driver configuration
+#
+menuconfig SPMI_SIMULATOR
+	tristate "SPMI Controller Simulator"
+	help
+	  The SPMI Controller Simulator provides a means to simulate registers
+	  within the SPMI address space.  Each register can be read and written.
+	  Additionally, callback functions can be defined per register by
+	  other drivers which simulate the behavior of PMIC peripherals.
+
+if SPMI_SIMULATOR
+
+config PM855_PMIC_SIMULATOR
+	tristate "Qualcomm Technologies, Inc. PM855 PMIC Simulator"
+	help
+	  The PM855 PMIC Simulator configures the read/write permissions of all
+	  PM855 SPMI registers and loads default register values.  It is used
+	  in conjunction with the SPMI Controller Simulator to help test PMIC
+	  peripheral drivers before physical PMIC chips are available.
+
+config PM855B_PMIC_SIMULATOR
+	tristate "Qualcomm Technologies, Inc. PM855B PMIC Simulator"
+	help
+	  The PM855B PMIC Simulator configures the read/write permissions of all
+	  PM855B SPMI registers and loads default register values.  It is used
+	  in conjunction with the SPMI Controller Simulator to help test PMIC
+	  peripheral drivers before physical PMIC chips are available.
+
+config PM855L_PMIC_SIMULATOR
+	tristate "Qualcomm Technologies, Inc. PM855L PMIC Simulator"
+	help
+	  The PM855L PMIC Simulator configures the read/write permissions of all
+	  PM855L SPMI registers and loads default register values.  It is used
+	  in conjunction with the SPMI Controller Simulator to help test PMIC
+	  peripheral drivers before physical PMIC chips are available.
+
+endif

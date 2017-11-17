@@ -34,4 +34,6 @@ config SPMI_MSM_PMIC_ARB_DEBUG
 	  Inc. (QTI) MSM family processors.  This feature is available on chips
 	  with PMIC arbiter version 5 and above.
 
+source "drivers/spmi/simulator/Kconfig"
+
 endif
