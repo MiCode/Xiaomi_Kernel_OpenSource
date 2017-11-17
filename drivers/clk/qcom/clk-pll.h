@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -83,6 +83,8 @@ struct pll_config {
 	u32 aux2_output_mask;
 	u32 early_output_mask;
 	u32 config_ctl_val;
+	u32 config_ctl_hi_val;
+	u32 config_ctl_hi1_val;
 };
 
 void clk_pll_configure_sr(struct clk_pll *pll, struct regmap *regmap,
