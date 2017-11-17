@@ -2468,6 +2468,49 @@ static bool is_profile_load_required(struct fg_chip *chip)
 	return true;
 }
 
+static void fg_update_batt_profile(struct fg_chip *chip)
+{
+	int rc, offset;
+	u8 val;
+
+	rc = fg_sram_read(chip, PROFILE_INTEGRITY_WORD,
+			SW_CONFIG_OFFSET, &val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in reading SW_CONFIG_OFFSET, rc=%d\n", rc);
+		return;
+	}
+
+	/*
+	 * If the RCONN had not been updated, no need to update battery
+	 * profile. Else, update the battery profile so that the profile
+	 * modified by bootloader or HLOS matches with the profile read
+	 * from device tree.
+	 */
+
+	if (!(val & RCONN_CONFIG_BIT))
+		return;
+
+	rc = fg_sram_read(chip, ESR_RSLOW_CHG_WORD,
+			ESR_RSLOW_CHG_OFFSET, &val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in reading ESR_RSLOW_CHG_OFFSET, rc=%d\n", rc);
+		return;
+	}
+	offset = (ESR_RSLOW_CHG_WORD - PROFILE_LOAD_WORD) * 4
+			+ ESR_RSLOW_CHG_OFFSET;
+	chip->batt_profile[offset] = val;
+
+	rc = fg_sram_read(chip, ESR_RSLOW_DISCHG_WORD,
+			ESR_RSLOW_DISCHG_OFFSET, &val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in reading ESR_RSLOW_DISCHG_OFFSET, rc=%d\n", rc);
+		return;
+	}
+	offset = (ESR_RSLOW_DISCHG_WORD - PROFILE_LOAD_WORD) * 4
+			+ ESR_RSLOW_DISCHG_OFFSET;
+	chip->batt_profile[offset] = val;
+}
+
 static void clear_battery_profile(struct fg_chip *chip)
 {
 	u8 val = 0;
@@ -2551,6 +2594,8 @@ static void profile_load_work(struct work_struct *work)
 	if (!chip->profile_available)
 		goto out;
 
+	fg_update_batt_profile(chip);
+
 	if (!is_profile_load_required(chip))
 		goto done;
 
@@ -2611,6 +2656,10 @@ done:
 			pr_err("Error in loading capacity learning data, rc:%d\n",
 				rc);
 	}
+
+	rc = fg_rconn_config(chip);
+	if (rc < 0)
+		pr_err("Error in configuring Rconn, rc=%d\n", rc);
 
 	batt_psy_initialized(chip);
 	fg_notify_charger(chip);
@@ -3441,12 +3490,6 @@ static int fg_hw_init(struct fg_chip *chip)
 			CHANGE_THOLD_MASK, val);
 	if (rc < 0) {
 		pr_err("Error in writing batt_temp_delta, rc=%d\n", rc);
-		return rc;
-	}
-
-	rc = fg_rconn_config(chip);
-	if (rc < 0) {
-		pr_err("Error in configuring Rconn, rc=%d\n", rc);
 		return rc;
 	}
 
