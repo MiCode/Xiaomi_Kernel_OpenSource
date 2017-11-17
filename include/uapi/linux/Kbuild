@@ -199,6 +199,7 @@ header-y += in_route.h
 header-y += inet_diag.h
 header-y += inotify.h
 header-y += input.h
+header-y += input-event-codes.h
 header-y += ioctl.h
 header-y += ion.h
 header-y += ip.h
