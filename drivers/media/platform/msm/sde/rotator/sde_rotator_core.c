@@ -54,7 +54,7 @@
 #define ROT_HW_ACQUIRE_TIMEOUT_IN_MS 100
 
 /* waiting for inline hw start */
-#define ROT_INLINE_START_TIMEOUT_IN_MS 2000
+#define ROT_INLINE_START_TIMEOUT_IN_MS	(10000 + 500)
 
 /* default pixel per clock ratio */
 #define ROT_PIXEL_PER_CLK_NUMERATOR	36
