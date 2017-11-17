@@ -49,6 +49,10 @@
 #define CAM_REQ_MGR_SOF_EVENT_SUCCESS           0
 #define CAM_REQ_MGR_SOF_EVENT_ERROR             1
 
+/* Link control operations */
+#define CAM_REQ_MGR_LINK_ACTIVATE               0
+#define CAM_REQ_MGR_LINK_DEACTIVATE             1
+
 /**
  * Request Manager : flush_type
  * @CAM_REQ_MGR_FLUSH_TYPE_ALL: Req mgr will remove all the pending
@@ -182,6 +186,24 @@ struct cam_req_mgr_sync_mode {
 };
 
 /**
+ * struct cam_req_mgr_link_control
+ * @ops:                 Link operations: activate/deactive
+ * @session_hdl:         Input param - Identifier for CSL session
+ * @num_links:           Input Param - Num of links
+ * @reserved:            reserved field
+ * @link_hdls:           Input Param - Links to be activated/deactivated
+ *
+ * @opcode: CAM_REQ_MGR_LINK_CONTROL
+ */
+struct cam_req_mgr_link_control {
+	int32_t ops;
+	int32_t session_hdl;
+	int32_t num_links;
+	int32_t reserved;
+	int32_t link_hdls[MAX_LINKS_PER_SESSION];
+};
+
+/**
  * cam_req_mgr specific opcode ids
  */
 #define CAM_REQ_MGR_CREATE_DEV_NODES            (CAM_COMMON_OPCODE_MAX + 1)
@@ -196,6 +218,7 @@ struct cam_req_mgr_sync_mode {
 #define CAM_REQ_MGR_MAP_BUF                     (CAM_COMMON_OPCODE_MAX + 10)
 #define CAM_REQ_MGR_RELEASE_BUF                 (CAM_COMMON_OPCODE_MAX + 11)
 #define CAM_REQ_MGR_CACHE_OPS                   (CAM_COMMON_OPCODE_MAX + 12)
+#define CAM_REQ_MGR_LINK_CONTROL                (CAM_COMMON_OPCODE_MAX + 13)
 /* end of cam_req_mgr opcodes */
 
 #define CAM_MEM_FLAG_HW_READ_WRITE              (1<<0)
