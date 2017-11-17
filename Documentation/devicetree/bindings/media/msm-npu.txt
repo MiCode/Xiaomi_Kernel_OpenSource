@@ -1,0 +1,43 @@
+* Qualcomm Technologies, Inc. MSM NPU
+
+NPU (Neural Network Processing Unit) applies neural network processing
+
+Required properties:
+- compatible:
+    - "qcom,msm-npu"
+- reg: Specify offset and length of the device register sets.
+- reg-names: Names corresponding to the defined register sets.
+    - "npu_base": npu base registers
+- interrupts: Specify the npu interrupts.
+- interrupt-names : should specify relevant names to each interrupts
+  property defined.
+- clocks : clocks required for the device.
+- clock-names : names of clocks required for the device.
+- vdd-supply : Phandle for vdd regulator device node
+- vdd_'reg'-supply: Reference to the regulator that supplies the corresponding
+		    'reg' domain, e.g. vdd_cx-supply.
+- qcom,proxy-reg-names: Names of the regulators that need to be turned on/off
+			during proxy voting/unvoting.
+- qcom,vdd_'reg'-uV-uA: Voltage and current values for the 'reg' regulator,
+			e.g. qcom,vdd_cx-uV-uA.
+
+Example:
+	msm_npu: qcom,msm_npu {
+		compatible = "qcom,msm-npu";
+		reg = <0x9800000 0x800000>;
+		reg-names = "npu_base";
+		interrupts = <0 346 0>;
+		interrupt-names = "single";
+		clocks = <&clock_npucc NPU_CC_XO_CLK>,
+					<&clock_npucc NPU_CC_NPU_CORE_CLK>,
+					<&clock_npucc NPU_CC_CAL_DP_CLK>,
+					<&clock_npucc NPU_CC_ARMWIC_CORE_CLK>,
+					<&clock_npucc NPU_CC_COMP_NOC_AXI_CLK>,
+					<&clock_npucc NPU_CC_CONF_NOC_AHB_CLK>;
+		clock-names = "xo", "core", "cal_dp", "armwic",
+						"axi", "ahb";
+		vdd-supply = <&npu_core_gdsc>;
+		vdd_cx-supply = <&pm855l_s6_level>;
+		qcom,proxy-reg-names ="vdd", "vdd_cx";
+		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+	};
