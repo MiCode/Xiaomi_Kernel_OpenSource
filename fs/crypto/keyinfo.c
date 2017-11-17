@@ -11,6 +11,7 @@
 #include <keys/user-type.h>
 #include <linux/scatterlist.h>
 #include <linux/fscrypto.h>
+#include "ext4_ice.h"
 
 static void derive_crypt_complete(struct crypto_async_request *req, int rc)
 {
@@ -135,11 +136,15 @@ out:
 }
 
 static int determine_cipher_type(struct fscrypt_info *ci, struct inode *inode,
-				 const char **cipher_str_ret, int *keysize_ret)
+		const char **cipher_str_ret, int *keysize_ret, int *fname)
 {
 	if (S_ISREG(inode->i_mode)) {
 		if (ci->ci_data_mode == FS_ENCRYPTION_MODE_AES_256_XTS) {
 			*cipher_str_ret = "xts(aes)";
+			*keysize_ret = FS_AES_256_XTS_KEY_SIZE;
+			return 0;
+		} else if (ci->ci_data_mode == FS_ENCRYPTION_MODE_PRIVATE) {
+			*cipher_str_ret = "bugon";
 			*keysize_ret = FS_AES_256_XTS_KEY_SIZE;
 			return 0;
 		}
@@ -153,6 +158,7 @@ static int determine_cipher_type(struct fscrypt_info *ci, struct inode *inode,
 		if (ci->ci_filename_mode == FS_ENCRYPTION_MODE_AES_256_CTS) {
 			*cipher_str_ret = "cts(cbc(aes))";
 			*keysize_ret = FS_AES_256_CTS_KEY_SIZE;
+			*fname = 1;
 			return 0;
 		}
 		pr_warn_once("fscrypto: unsupported filenames encryption mode "
@@ -172,8 +178,25 @@ static void put_crypt_info(struct fscrypt_info *ci)
 		return;
 
 	crypto_free_skcipher(ci->ci_ctfm);
+	memzero_explicit(ci->ci_raw_key,
+		sizeof(ci->ci_raw_key));
 	kmem_cache_free(fscrypt_info_cachep, ci);
 }
+
+static int fs_data_encryption_mode(void)
+{
+	return ext4_is_ice_enabled() ? FS_ENCRYPTION_MODE_PRIVATE :
+		FS_ENCRYPTION_MODE_AES_256_XTS;
+}
+
+int fs_using_hardware_encryption(struct inode *inode)
+{
+	struct fscrypt_info *ci = inode->i_crypt_info;
+
+	return S_ISREG(inode->i_mode) && ci &&
+		ci->ci_data_mode == FS_ENCRYPTION_MODE_PRIVATE;
+}
+EXPORT_SYMBOL(fs_using_hardware_encryption);
 
 int fscrypt_get_encryption_info(struct inode *inode)
 {
@@ -182,8 +205,8 @@ int fscrypt_get_encryption_info(struct inode *inode)
 	struct crypto_skcipher *ctfm;
 	const char *cipher_str;
 	int keysize;
-	u8 *raw_key = NULL;
 	int res;
+	int fname = 0;
 
 	if (inode->i_crypt_info)
 		return 0;
@@ -200,7 +223,7 @@ int fscrypt_get_encryption_info(struct inode *inode)
 		if (!fscrypt_dummy_context_enabled(inode))
 			return res;
 		ctx.format = FS_ENCRYPTION_CONTEXT_FORMAT_V1;
-		ctx.contents_encryption_mode = FS_ENCRYPTION_MODE_AES_256_XTS;
+		ctx.contents_encryption_mode = fs_data_encryption_mode();
 		ctx.filenames_encryption_mode = FS_ENCRYPTION_MODE_AES_256_CTS;
 		ctx.flags = 0;
 	} else if (res != sizeof(ctx)) {
@@ -224,7 +247,8 @@ int fscrypt_get_encryption_info(struct inode *inode)
 	memcpy(crypt_info->ci_master_key, ctx.master_key_descriptor,
 				sizeof(crypt_info->ci_master_key));
 
-	res = determine_cipher_type(crypt_info, inode, &cipher_str, &keysize);
+	res = determine_cipher_type(crypt_info, inode, &cipher_str, &keysize,
+				&fname);
 	if (res)
 		goto out;
 
@@ -233,24 +257,21 @@ int fscrypt_get_encryption_info(struct inode *inode)
 	 * crypto API as part of key derivation.
 	 */
 	res = -ENOMEM;
-	raw_key = kmalloc(FS_MAX_KEY_SIZE, GFP_NOFS);
-	if (!raw_key)
-		goto out;
 
 	if (fscrypt_dummy_context_enabled(inode)) {
-		memset(raw_key, 0x42, FS_AES_256_XTS_KEY_SIZE);
+		memset(crypt_info->ci_raw_key, 0x42, FS_AES_256_XTS_KEY_SIZE);
 		goto got_key;
 	}
 
-	res = validate_user_key(crypt_info, &ctx, raw_key,
+	res = validate_user_key(crypt_info, &ctx, crypt_info->ci_raw_key,
 			FS_KEY_DESC_PREFIX, FS_KEY_DESC_PREFIX_SIZE);
 	if (res && inode->i_sb->s_cop->key_prefix) {
 		u8 *prefix = NULL;
 		int prefix_size, res2;
 
 		prefix_size = inode->i_sb->s_cop->key_prefix(inode, &prefix);
-		res2 = validate_user_key(crypt_info, &ctx, raw_key,
-							prefix, prefix_size);
+		res2 = validate_user_key(crypt_info, &ctx,
+				crypt_info->ci_raw_key,	prefix, prefix_size);
 		if (res2) {
 			if (res2 == -ENOKEY)
 				res = -ENOKEY;
@@ -260,28 +281,33 @@ int fscrypt_get_encryption_info(struct inode *inode)
 		goto out;
 	}
 got_key:
-	ctfm = crypto_alloc_skcipher(cipher_str, 0, 0);
-	if (!ctfm || IS_ERR(ctfm)) {
-		res = ctfm ? PTR_ERR(ctfm) : -ENOMEM;
-		printk(KERN_DEBUG
-		       "%s: error %d (inode %u) allocating crypto tfm\n",
-		       __func__, res, (unsigned) inode->i_ino);
+	if (crypt_info->ci_data_mode != FS_ENCRYPTION_MODE_PRIVATE || fname) {
+		ctfm = crypto_alloc_skcipher(cipher_str, 0, 0);
+		if (!ctfm || IS_ERR(ctfm)) {
+			res = ctfm ? PTR_ERR(ctfm) : -ENOMEM;
+			pr_err("%s: error %d inode %u allocating crypto tfm\n",
+				__func__, res, (unsigned int) inode->i_ino);
+			goto out;
+		}
+		crypt_info->ci_ctfm = ctfm;
+		crypto_skcipher_clear_flags(ctfm, ~0);
+		crypto_skcipher_set_flags(ctfm, CRYPTO_TFM_REQ_WEAK_KEY);
+		res = crypto_skcipher_setkey(ctfm, crypt_info->ci_raw_key,
+						keysize);
+		if (res)
+			goto out;
+	} else if (!ext4_is_ice_enabled()) {
+		pr_warn("%s: ICE support not available\n",
+			__func__);
+		res = -EINVAL;
 		goto out;
 	}
-	crypt_info->ci_ctfm = ctfm;
-	crypto_skcipher_clear_flags(ctfm, ~0);
-	crypto_skcipher_set_flags(ctfm, CRYPTO_TFM_REQ_WEAK_KEY);
-	res = crypto_skcipher_setkey(ctfm, raw_key, keysize);
-	if (res)
-		goto out;
-
 	if (cmpxchg(&inode->i_crypt_info, NULL, crypt_info) == NULL)
 		crypt_info = NULL;
 out:
 	if (res == -ENOKEY)
 		res = 0;
 	put_crypt_info(crypt_info);
-	kzfree(raw_key);
 	return res;
 }
 EXPORT_SYMBOL(fscrypt_get_encryption_info);
