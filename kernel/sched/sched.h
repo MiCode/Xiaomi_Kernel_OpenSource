@@ -1810,7 +1810,7 @@ static inline unsigned long
 cpu_util_freq_pelt(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
-	unsigned long util = rq->cfs.avg.util_avg;
+	u64 util = rq->cfs.avg.util_avg;
 	unsigned long capacity = capacity_orig_of(cpu);
 
 	util *= (100 + per_cpu(sched_load_boost, cpu));

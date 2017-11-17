@@ -266,6 +266,7 @@ struct dwc3_msm {
 	struct pm_qos_request pm_qos_req_dma;
 	struct delayed_work perf_vote_work;
 	struct delayed_work sdp_check;
+	struct mutex suspend_resume_mutex;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -1051,25 +1052,17 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 	int num_trbs = (dep->direction) ? (2 * (req->num_bufs) + 2)
 					: (req->num_bufs + 2);
 
-	dep->trb_dma_pool = dma_pool_create(ep->name, dwc->sysdev,
-					num_trbs * sizeof(struct dwc3_trb),
-					num_trbs * sizeof(struct dwc3_trb), 0);
-	if (!dep->trb_dma_pool) {
+	dep->trb_pool = dma_zalloc_coherent(dwc->sysdev,
+				num_trbs * sizeof(struct dwc3_trb),
+				&dep->trb_pool_dma, GFP_KERNEL);
+
+	if (!dep->trb_pool) {
 		dev_err(dep->dwc->dev, "failed to alloc trb dma pool for %s\n",
 				dep->name);
 		return -ENOMEM;
 	}
 
 	dep->num_trbs = num_trbs;
-
-	dep->trb_pool = dma_pool_alloc(dep->trb_dma_pool,
-					   GFP_KERNEL, &dep->trb_pool_dma);
-	if (!dep->trb_pool) {
-		dev_err(dep->dwc->dev, "failed to allocate trb pool for %s\n",
-				dep->name);
-		return -ENOMEM;
-	}
-
 	/* IN direction */
 	if (dep->direction) {
 		for (i = 0; i < num_trbs ; i++) {
@@ -1159,18 +1152,19 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 static void gsi_free_trbs(struct usb_ep *ep)
 {
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	struct dwc3 *dwc = dep->dwc;
 
 	if (dep->endpoint.ep_type == EP_TYPE_NORMAL)
 		return;
 
 	/*  Free TRBs and TRB pool for EP */
-	if (dep->trb_dma_pool) {
-		dma_pool_free(dep->trb_dma_pool, dep->trb_pool,
-						dep->trb_pool_dma);
-		dma_pool_destroy(dep->trb_dma_pool);
+	if (dep->trb_pool_dma) {
+		dma_free_coherent(dwc->sysdev,
+			dep->num_trbs * sizeof(struct dwc3_trb),
+			dep->trb_pool,
+			dep->trb_pool_dma);
 		dep->trb_pool = NULL;
 		dep->trb_pool_dma = 0;
-		dep->trb_dma_pool = NULL;
 	}
 }
 /*
@@ -1852,7 +1846,7 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event)
 				break;
 			evt->dwc	= dwc;
 			evt->length	= DWC3_EVENT_BUFFERS_SIZE;
-			evt->buf	= dma_alloc_coherent(dwc->dev,
+			evt->buf	= dma_alloc_coherent(dwc->sysdev,
 						DWC3_EVENT_BUFFERS_SIZE,
 						&evt->dma, GFP_KERNEL);
 			if (!evt->buf) {
@@ -1923,7 +1917,7 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event)
 		for (i = 0; i < mdwc->num_gsi_event_buffers; i++) {
 			evt = mdwc->gsi_ev_buff[i];
 			if (evt)
-				dma_free_coherent(dwc->dev, evt->length,
+				dma_free_coherent(dwc->sysdev, evt->length,
 							evt->buf, evt->dma);
 		}
 		break;
@@ -2157,8 +2151,10 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	struct dwc3_event_buffer *evt;
 	struct usb_irq *uirq;
 
+	mutex_lock(&mdwc->suspend_resume_mutex);
 	if (atomic_read(&dwc->in_lpm)) {
 		dev_dbg(mdwc->dev, "%s: Already suspended\n", __func__);
+		mutex_unlock(&mdwc->suspend_resume_mutex);
 		return 0;
 	}
 
@@ -2171,6 +2167,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 			dev_dbg(mdwc->dev,
 				"%s: %d device events pending, abort suspend\n",
 				__func__, evt->count / 4);
+			mutex_unlock(&mdwc->suspend_resume_mutex);
 			return -EBUSY;
 		}
 	}
@@ -2189,6 +2186,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		dev_dbg(mdwc->dev,
 			"%s: cable disconnected while not in idle otg state\n",
 			__func__);
+		mutex_unlock(&mdwc->suspend_resume_mutex);
 		return -EBUSY;
 	}
 
@@ -2202,12 +2200,15 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		pr_err("%s(): Trying to go in LPM with state:%d\n",
 					__func__, dwc->gadget.state);
 		pr_err("%s(): LPM is not performed.\n", __func__);
+		mutex_unlock(&mdwc->suspend_resume_mutex);
 		return -EBUSY;
 	}
 
 	ret = dwc3_msm_prepare_suspend(mdwc);
-	if (ret)
+	if (ret) {
+		mutex_unlock(&mdwc->suspend_resume_mutex);
 		return ret;
+	}
 
 	/* Disable core irq */
 	if (dwc->irq)
@@ -2315,6 +2316,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	}
 
 	dev_info(mdwc->dev, "DWC3 in low power mode\n");
+	mutex_unlock(&mdwc->suspend_resume_mutex);
 	return 0;
 }
 
@@ -2327,8 +2329,10 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	dev_dbg(mdwc->dev, "%s: exiting lpm\n", __func__);
 
+	mutex_lock(&mdwc->suspend_resume_mutex);
 	if (!atomic_read(&dwc->in_lpm)) {
 		dev_dbg(mdwc->dev, "%s: Already resumed\n", __func__);
+		mutex_unlock(&mdwc->suspend_resume_mutex);
 		return 0;
 	}
 
@@ -2479,6 +2483,8 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 			msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
 
 	dbg_event(0xFF, "Ctl Res", atomic_read(&dwc->in_lpm));
+	mutex_unlock(&mdwc->suspend_resume_mutex);
+
 	return 0;
 }
 
@@ -2983,8 +2989,8 @@ err:
 	return ret;
 }
 
-#define SMMU_BASE	0x10000000 /* Device address range base */
-#define SMMU_SIZE	0x40000000 /* Device address range size */
+#define SMMU_BASE	0x60000000 /* Device address range base */
+#define SMMU_SIZE	0x90000000 /* Device address range size */
 
 static int dwc3_msm_init_iommu(struct dwc3_msm *mdwc)
 {
@@ -3422,6 +3428,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			POWER_SUPPLY_PROP_PRESENT, &pval);
 	}
 
+	mutex_init(&mdwc->suspend_resume_mutex);
 	/* Update initial VBUS/ID state from extcon */
 	if (mdwc->extcon_vbus && extcon_get_state(mdwc->extcon_vbus,
 							EXTCON_USB))
@@ -3791,8 +3798,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		dwc3_usb3_phy_suspend(dwc, false);
 		mdwc->in_host_mode = false;
 
-		pm_runtime_mark_last_busy(mdwc->dev);
-		pm_runtime_put_sync_autosuspend(mdwc->dev);
+		pm_runtime_put_sync_suspend(mdwc->dev);
 		dbg_event(0xFF, "StopHost psync",
 			atomic_read(&mdwc->dev->power.usage_count));
 	}
@@ -3897,6 +3903,8 @@ static int dwc3_restart_usb_host_mode(struct notifier_block *nb,
 	if (dwc->maximum_speed == usb_speed)
 		goto err;
 
+	dbg_event(0xFF, "fw_restarthost", 0);
+	flush_delayed_work(&mdwc->sm_work);
 	dbg_event(0xFF, "stop_host_mode", dwc->maximum_speed);
 	ret = dwc3_otg_start_host(mdwc, 0);
 	if (ret)
@@ -4062,7 +4070,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			 * which was incremented upon cable connect in
 			 * OTG_STATE_B_IDLE state
 			 */
-			pm_runtime_put_sync(mdwc->dev);
+			pm_runtime_put_sync_suspend(mdwc->dev);
 			dbg_event(0xFF, "!BSV psync",
 				atomic_read(&mdwc->dev->power.usage_count));
 			work = 1;

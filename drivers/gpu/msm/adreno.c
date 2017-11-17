@@ -17,6 +17,7 @@
 #include <linux/of_device.h>
 #include <linux/delay.h>
 #include <linux/input.h>
+#include <linux/io.h>
 #include <soc/qcom/scm.h>
 
 #include <linux/msm-bus-board.h>
@@ -610,7 +611,7 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_irq *irq_params = gpudev->irq;
 	irqreturn_t ret = IRQ_NONE;
-	unsigned int status = 0, fence = 0, tmp, int_bit;
+	unsigned int status = 0, fence = 0, fence_retries = 0, tmp, int_bit;
 	int i;
 
 	atomic_inc(&adreno_dev->pending_irq_refcnt);
@@ -627,13 +628,24 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 
 	/*
 	 * If the AHB fence is not in ALLOW mode when we receive an RBBM
-	 * interrupt, something went wrong. Set a fault and change the
-	 * fence to ALLOW so we can clear the interrupt.
+	 * interrupt, something went wrong. This means that we cannot proceed
+	 * since the IRQ status and clear registers are not accessible.
+	 * This is usually harmless because the GMU will abort power collapse
+	 * and change the fence back to ALLOW. Poll so that this can happen.
 	 */
-	adreno_readreg(adreno_dev, ADRENO_REG_GMU_AO_AHB_FENCE_CTRL, &fence);
-	if (fence != 0) {
-		KGSL_DRV_CRIT_RATELIMIT(device, "AHB fence is stuck in ISR\n");
-		return ret;
+	if (kgsl_gmu_isenabled(device)) {
+		do {
+			adreno_readreg(adreno_dev,
+					ADRENO_REG_GMU_AO_AHB_FENCE_CTRL,
+					&fence);
+
+			if (fence_retries == FENCE_RETRY_MAX) {
+				KGSL_DRV_CRIT_RATELIMIT(device,
+						"AHB fence stuck in ISR\n");
+				return ret;
+			}
+			fence_retries++;
+		} while (fence != 0);
 	}
 
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS, &status);
@@ -1022,6 +1034,28 @@ adreno_ocmem_free(struct adreno_device *adreno_dev)
 }
 #endif
 
+static void adreno_cx_dbgc_probe(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct resource *res;
+
+	res = platform_get_resource_byname(device->pdev, IORESOURCE_MEM,
+					   "kgsl_3d0_cx_dbgc_memory");
+
+	if (res == NULL)
+		return;
+
+	adreno_dev->cx_dbgc_base = res->start - device->reg_phys;
+	adreno_dev->cx_dbgc_len = resource_size(res);
+	adreno_dev->cx_dbgc_virt = devm_ioremap(device->dev,
+					device->reg_phys +
+						adreno_dev->cx_dbgc_base,
+					adreno_dev->cx_dbgc_len);
+
+	if (adreno_dev->cx_dbgc_virt == NULL)
+		KGSL_DRV_WARN(device, "cx_dbgc ioremap failed\n");
+}
+
 static int adreno_probe(struct platform_device *pdev)
 {
 	struct kgsl_device *device;
@@ -1071,6 +1105,9 @@ static int adreno_probe(struct platform_device *pdev)
 		device->pdev = NULL;
 		return status;
 	}
+
+	/* Probe for the optional CX_DBGC block */
+	adreno_cx_dbgc_probe(device);
 
 	/*
 	 * qcom,iommu-secure-id is used to identify MMUs that can handle secure
@@ -1589,6 +1626,21 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 			}
 		}
 
+		if (adreno_has_gbif(adreno_dev)) {
+			if (adreno_dev->starved_ram_lo_ch1 == 0) {
+				ret = adreno_perfcounter_get(adreno_dev,
+					KGSL_PERFCOUNTER_GROUP_VBIF_PWR, 1,
+					&adreno_dev->starved_ram_lo_ch1, NULL,
+					PERFCOUNTER_FLAG_KERNEL);
+
+				if (ret) {
+					KGSL_DRV_ERR(device,
+						"Unable to get perf counters for bus DCVS\n");
+					adreno_dev->starved_ram_lo_ch1 = 0;
+				}
+			}
+		}
+
 		/* VBIF DDR cycles */
 		if (adreno_dev->ram_cycles_lo == 0) {
 			ret = adreno_perfcounter_get(adreno_dev,
@@ -1609,6 +1661,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	adreno_dev->busy_data.gpu_busy = 0;
 	adreno_dev->busy_data.vbif_ram_cycles = 0;
 	adreno_dev->busy_data.vbif_starved_ram = 0;
+	adreno_dev->busy_data.vbif_starved_ram_ch1 = 0;
 
 	/* Restore performance counter registers with saved values */
 	adreno_perfcounter_restore(adreno_dev);
@@ -1761,8 +1814,19 @@ static int adreno_stop(struct kgsl_device *device)
 	 * because some idle level transitions require VBIF and MMU.
 	 */
 	if (gpudev->wait_for_lowest_idle &&
-			gpudev->wait_for_lowest_idle(adreno_dev))
-		return -EINVAL;
+			gpudev->wait_for_lowest_idle(adreno_dev)) {
+		struct gmu_device *gmu = &device->gmu;
+
+		set_bit(GMU_FAULT, &gmu->flags);
+		gmu_snapshot(device);
+		/*
+		 * Assume GMU hang after 10ms without responding.
+		 * It shall be relative safe to clear vbif and stop
+		 * MMU later. Early return in adreno_stop function
+		 * will result in kernel panic in adreno_start
+		 */
+		error = -EINVAL;
+	}
 
 	adreno_vbif_clear_pending_transactions(device);
 
@@ -1776,7 +1840,7 @@ static int adreno_stop(struct kgsl_device *device)
 
 	clear_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
 
-	return 0;
+	return error;
 }
 
 static inline bool adreno_try_soft_reset(struct kgsl_device *device, int fault)
@@ -2433,6 +2497,7 @@ int adreno_soft_reset(struct kgsl_device *device)
 	adreno_dev->busy_data.gpu_busy = 0;
 	adreno_dev->busy_data.vbif_ram_cycles = 0;
 	adreno_dev->busy_data.vbif_starved_ram = 0;
+	adreno_dev->busy_data.vbif_starved_ram_ch1 = 0;
 
 	/* Set the page table back to the default page table */
 	adreno_ringbuffer_set_global(adreno_dev, 0);
@@ -2770,6 +2835,56 @@ static void adreno_gmu_regread(struct kgsl_device *device,
 	rmb();
 }
 
+bool adreno_is_cx_dbgc_register(struct kgsl_device *device,
+		unsigned int offsetwords)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	return adreno_dev->cx_dbgc_virt &&
+		(offsetwords >= (adreno_dev->cx_dbgc_base >> 2)) &&
+		(offsetwords < (adreno_dev->cx_dbgc_base +
+				adreno_dev->cx_dbgc_len) >> 2);
+}
+
+void adreno_cx_dbgc_regread(struct kgsl_device *device,
+	unsigned int offsetwords, unsigned int *value)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	unsigned int cx_dbgc_offset;
+
+	if (!adreno_is_cx_dbgc_register(device, offsetwords))
+		return;
+
+	cx_dbgc_offset = (offsetwords << 2) - adreno_dev->cx_dbgc_base;
+	*value = __raw_readl(adreno_dev->cx_dbgc_virt + cx_dbgc_offset);
+
+	/*
+	 * ensure this read finishes before the next one.
+	 * i.e. act like normal readl()
+	 */
+	rmb();
+}
+
+void adreno_cx_dbgc_regwrite(struct kgsl_device *device,
+	unsigned int offsetwords, unsigned int value)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	unsigned int cx_dbgc_offset;
+
+	if (!adreno_is_cx_dbgc_register(device, offsetwords))
+		return;
+
+	cx_dbgc_offset = (offsetwords << 2) - adreno_dev->cx_dbgc_base;
+	trace_kgsl_regwrite(device, offsetwords, value);
+
+	/*
+	 * ensure previous writes post before this one,
+	 * i.e. act like normal writel()
+	 */
+	wmb();
+	__raw_writel(value, adreno_dev->cx_dbgc_virt + cx_dbgc_offset);
+}
+
 /**
  * adreno_waittimestamp - sleep while waiting for the specified timestamp
  * @device - pointer to a KGSL device structure
@@ -2948,7 +3063,8 @@ static void adreno_power_stats(struct kgsl_device *device,
 
 		if (adreno_is_a6xx(adreno_dev)) {
 			/* clock sourced from XO */
-			stats->busy_time = gpu_busy * 10 / 192;
+			stats->busy_time = gpu_busy * 10;
+			do_div(stats->busy_time, 192);
 		} else {
 			/* clock sourced from GFX3D */
 			stats->busy_time = adreno_ticks_to_us(gpu_busy,
@@ -2968,6 +3084,13 @@ static void adreno_power_stats(struct kgsl_device *device,
 			starved_ram = counter_delta(device,
 				adreno_dev->starved_ram_lo,
 				&busy->vbif_starved_ram);
+
+		if (adreno_has_gbif(adreno_dev)) {
+			if (adreno_dev->starved_ram_lo_ch1 != 0)
+				starved_ram += counter_delta(device,
+					adreno_dev->starved_ram_lo_ch1,
+					&busy->vbif_starved_ram_ch1);
+		}
 
 		stats->ram_time = ram_cycles;
 		stats->ram_wait = starved_ram;

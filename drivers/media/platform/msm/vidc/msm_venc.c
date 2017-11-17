@@ -675,7 +675,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "Extradata Type",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDC_EXTRADATA_NONE,
-		.maximum = V4L2_MPEG_VIDC_EXTRADATA_PQ_INFO,
+		.maximum = V4L2_MPEG_VIDC_EXTRADATA_ROI_QP,
 		.default_value = V4L2_MPEG_VIDC_EXTRADATA_NONE,
 		.menu_skip_mask = ~(
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_NONE) |
@@ -695,8 +695,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_LTR) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_METADATA_MBI) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_YUV_STATS)|
-			(1 << V4L2_MPEG_VIDC_EXTRADATA_ROI_QP) |
-			(1 << V4L2_MPEG_VIDC_EXTRADATA_PQ_INFO)
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_ROI_QP)
 			),
 		.qmenu = mpeg_video_vidc_extradata,
 	},
@@ -2758,6 +2757,19 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		for (i = 0; i < inst->bufq[fmt->type].num_planes; i++) {
 			inst->bufq[fmt->type].plane_sizes[i] =
 				f->fmt.pix_mp.plane_fmt[i].sizeimage;
+		}
+		/*
+		 * Input extradata buffer size may change upon updating
+		 * CAPTURE plane buffer size.
+		 */
+
+		extra_idx = EXTRADATA_IDX(inst->bufq[OUTPUT_PORT].num_planes);
+		if (extra_idx && extra_idx < VIDEO_MAX_PLANES) {
+			buff_req_buffer = get_buff_req_buffer(inst,
+					HAL_BUFFER_EXTRADATA_INPUT);
+			inst->bufq[OUTPUT_PORT].plane_sizes[extra_idx] =
+				buff_req_buffer ?
+				buff_req_buffer->buffer_size : 0;
 		}
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		struct hal_frame_size frame_sz;

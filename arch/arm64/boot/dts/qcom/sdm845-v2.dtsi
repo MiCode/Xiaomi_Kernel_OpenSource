@@ -29,6 +29,32 @@
 };
 
 &soc {
+	qcom,memshare {
+		compatible = "qcom,memshare";
+
+		qcom,client_1 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x0>;
+			qcom,client-id = <0>;
+			qcom,allocate-boot-time;
+			label = "modem";
+		};
+
+		qcom,client_2 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x0>;
+			qcom,client-id = <2>;
+			label = "modem";
+		};
+
+		mem_client_3_size: qcom,client_3 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x500000>;
+			qcom,client-id = <1>;
+			label = "modem";
+		};
+	};
+
 	gpu_gx_domain_addr: syscon@0x5091508 {
 		compatible = "syscon";
 		reg = <0x5091508 0x4>;
@@ -239,9 +265,8 @@
 		< 1324800 1036800000 >,
 		< 1420800 1132800000 >,
 		< 1516800 1209600000 >,
-		< 1612800 1401600000 >,
-		< 1689600 1497600000 >,
-		< 1766400 1593600000 >;
+		< 1689600 1305600000 >,
+		< 1766400 1401600000 >;
 };
 
 &devfreq_l3lat_4 {
@@ -251,8 +276,9 @@
 		< 1132800  748800000 >,
 		< 1363200  940800000 >,
 		< 1689600 1209600000 >,
-		< 1996800 1401600000 >,
-		< 2400000 1593600000 >;
+		< 1996800 1305600000 >,
+		< 2400000 1401600000 >,
+		< 2745600 1593600000 >;
 };
 
 &bwmon {
@@ -276,6 +302,13 @@
 			< 1881600 MHZ_TO_MBPS(200, 4) >,
 			< 2400000 MHZ_TO_MBPS(1017, 4) >;
 	};
+};
+
+&devfreq_compute {
+	qcom,core-dev-table =
+		< 1881600 MHZ_TO_MBPS( 200, 4) >,
+		< 2649600 MHZ_TO_MBPS(1017, 4) >,
+		< 2745600 MHZ_TO_MBPS(1804, 4) >;
 };
 
 &clock_gcc {

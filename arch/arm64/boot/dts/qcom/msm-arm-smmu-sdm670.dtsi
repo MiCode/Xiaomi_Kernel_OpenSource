@@ -21,6 +21,7 @@
 		#iommu-cells = <1>;
 		qcom,dynamic;
 		qcom,use-3-lvl-tables;
+		qcom,disable-atos;
 		#global-interrupts = <2>;
 		qcom,regulator-names = "vdd";
 		vdd-supply = <&gpu_cx_gdsc>;
@@ -34,12 +35,8 @@
 				<GIC_SPI 369 IRQ_TYPE_EDGE_RISING>,
 				<GIC_SPI 370 IRQ_TYPE_EDGE_RISING>,
 				<GIC_SPI 371 IRQ_TYPE_EDGE_RISING>;
-		clock-names = "gcc_ddrss_gpu_axi_clk",
-				"gcc_gpu_memnoc_gfx_clk",
-				"gpu_cc_cx_gmu_clk";
-		clocks = <&clock_gcc GCC_DDRSS_GPU_AXI_CLK>,
-			<&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
-			<&clock_gpucc GPU_CC_CX_GMU_CLK>;
+		clock-names = "gcc_gpu_memnoc_gfx_clk";
+		clocks = <&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>;
 		attach-impl-defs =
 				<0x6000 0x2378>,
 				<0x6060 0x1055>,
@@ -308,9 +305,19 @@
 	apps_iommu_test_device {
 		compatible = "iommu-debug-test";
 		/*
-		 * This SID belongs to QUP1-GSI. We can't use a fake SID for
+		 * This SID belongs to TSIF. We can't use a fake SID for
 		 * the apps_smmu device.
 		 */
-		iommus = <&apps_smmu 0x16 0x0>;
+		iommus = <&apps_smmu 0x20 0xf>;
+	};
+
+	apps_iommu_coherent_test_device {
+		compatible = "iommu-debug-test";
+		/*
+		 * This SID belongs to TSIF. We can't use a fake SID for
+		 * the apps_smmu device.
+		 */
+		iommus = <&apps_smmu 0x20 0xf>;
+		dma-coherent;
 	};
 };

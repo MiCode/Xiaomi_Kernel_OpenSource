@@ -290,11 +290,12 @@ static void iommu_dma_free_iova(struct iommu_domain *domain,
 	unsigned long shift = iova_shift(iovad);
 	unsigned long guard_len;
 
-	if (cookie->min_iova_align)
+	if (cookie->min_iova_align) {
 		guard_len = ALIGN(size, cookie->min_iova_align) - size;
-	else
+		iommu_unmap(domain, iova + size, guard_len);
+	} else {
 		guard_len = 0;
-	iommu_unmap(domain, iova + size, guard_len);
+	}
 
 	free_iova_fast(iovad, iova >> shift, (size + guard_len) >> shift);
 }

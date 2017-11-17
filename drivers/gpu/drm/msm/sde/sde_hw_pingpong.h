@@ -161,6 +161,16 @@ static inline struct sde_hw_pingpong *to_sde_hw_pingpong(struct sde_hw_blk *hw)
 }
 
 /**
+ * sde_get_pp_dsc_for_cont_splash - retrieve the current dsc enabled blocks
+ * @mmio: mapped register io address of MDP
+ * @max_dsc_cnt: number of DSC blocks supported in the hw
+ * @dsc_ids: pointer to store the active DSC block IDs
+ * return: number of active DSC blocks
+ */
+int sde_get_pp_dsc_for_cont_splash(void __iomem *mmio,
+		int max_dsc_cnt, u8 *dsc_ids);
+
+/**
  * sde_hw_pingpong_init - initializes the pingpong driver for the passed
  *	pingpong idx.
  * @idx:  Pingpong index for which driver object is required

@@ -32,6 +32,17 @@ struct dp_bridge {
 };
 
 /**
+ * dp_connector_pre_kickoff - callback to perform pre kickoff initialization
+ * @connector: Pointer to drm connector structure
+ * @display: Pointer to private display handle
+ * @params: Pointer to kickoff parameters
+ * Returns: Zero on success
+ */
+int dp_connector_pre_kickoff(struct drm_connector *connector,
+		void *display,
+		struct msm_display_kickoff_params *params);
+
+/**
  * dp_connector_post_init - callback to perform additional initialization steps
  * @connector: Pointer to drm connector structure
  * @info: Pointer to sde connector info structure

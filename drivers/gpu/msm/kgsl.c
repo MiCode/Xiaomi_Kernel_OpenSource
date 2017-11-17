@@ -2846,10 +2846,8 @@ static inline bool check_full_flush(size_t size, int op)
 	bool ret = (kgsl_driver.full_cache_threshold != 0) &&
 		(size >= kgsl_driver.full_cache_threshold) &&
 		(op == KGSL_GPUMEM_CACHE_FLUSH);
-	if (ret) {
-		trace_kgsl_mem_sync_full_cache(actual_count, op_size);
+	if (ret)
 		flush_cache_all();
-	}
 	return ret;
 }
 #endif
@@ -2913,8 +2911,10 @@ long kgsl_ioctl_gpumem_sync_cache_bulk(struct kgsl_device_private *dev_priv,
 		entries[actual_count++] = entry;
 
 		full_flush  = check_full_flush(op_size, param->op);
-		if (full_flush)
+		if (full_flush) {
+			trace_kgsl_mem_sync_full_cache(actual_count, op_size);
 			break;
+		}
 
 		last_id = id;
 	}
@@ -3002,8 +3002,10 @@ long kgsl_ioctl_gpuobj_sync(struct kgsl_device_private *dev_priv,
 			size += (entries[i]->memdesc.size - objs[i].offset);
 
 		full_flush = check_full_flush(size, objs[i].op);
-		if (full_flush)
+		if (full_flush) {
+			trace_kgsl_mem_sync_full_cache(i, size);
 			break;
+		}
 
 		ptr += sizeof(*objs);
 	}
