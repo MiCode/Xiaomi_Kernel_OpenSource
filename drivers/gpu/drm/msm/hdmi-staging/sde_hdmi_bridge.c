@@ -602,10 +602,16 @@ static void _sde_hdmi_bridge_post_disable(struct drm_bridge *bridge)
 	if (phy)
 		phy->funcs->powerdown(phy);
 
+	/* HDMI teardown sequence */
+	sde_hdmi_ctrl_reset(hdmi);
+
 	if (hdmi->power_on) {
 		_sde_hdmi_bridge_power_off(bridge);
 		hdmi->power_on = false;
 	}
+
+	/* Powering-on the controller for HPD */
+	sde_hdmi_ctrl_cfg(hdmi, 1);
 }
 
 static void _sde_hdmi_bridge_set_avi_infoframe(struct hdmi *hdmi,

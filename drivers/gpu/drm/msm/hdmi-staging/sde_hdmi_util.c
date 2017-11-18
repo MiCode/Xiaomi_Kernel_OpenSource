@@ -681,6 +681,78 @@ static void _sde_hdmi_scrambler_ddc_reset(struct hdmi *hdmi)
 	hdmi_write(hdmi, REG_HDMI_SCRAMBLER_STATUS_DDC_CTRL, reg_val);
 }
 
+void sde_hdmi_ctrl_cfg(struct hdmi *hdmi, bool power_on)
+{
+	uint32_t ctrl = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&hdmi->reg_lock, flags);
+	ctrl = hdmi_read(hdmi, REG_HDMI_CTRL);
+
+	if (power_on)
+		ctrl |= HDMI_CTRL_ENABLE;
+	else
+		ctrl &= ~HDMI_CTRL_ENABLE;
+
+	hdmi_write(hdmi, REG_HDMI_CTRL, ctrl);
+	spin_unlock_irqrestore(&hdmi->reg_lock, flags);
+
+	HDMI_UTIL_DEBUG("HDMI Core: %s, HDMI_CTRL=0x%08x\n",
+			power_on ? "Enable" : "Disable", ctrl);
+}
+
+static void sde_hdmi_clear_pkt_send(struct hdmi *hdmi)
+{
+	uint32_t reg_val;
+
+	/* Clear audio sample send */
+	reg_val = hdmi_read(hdmi, HDMI_AUDIO_PKT_CTRL);
+	reg_val &= ~BIT(0);
+	hdmi_write(hdmi, HDMI_AUDIO_PKT_CTRL, reg_val);
+
+	/* Clear sending VBI ctrl packets */
+	reg_val = hdmi_read(hdmi, HDMI_VBI_PKT_CTRL);
+	reg_val &= ~(BIT(4) | BIT(8) | BIT(12));
+	hdmi_write(hdmi, HDMI_VBI_PKT_CTRL, reg_val);
+
+	/* Clear sending infoframe packets */
+	reg_val = hdmi_read(hdmi, HDMI_INFOFRAME_CTRL0);
+	reg_val &= ~(BIT(0) | BIT(4) | BIT(8) | BIT(12)
+				 | BIT(15) | BIT(19));
+	hdmi_write(hdmi, HDMI_INFOFRAME_CTRL0, reg_val);
+
+	/* Clear sending general ctrl packets */
+	reg_val = hdmi_read(hdmi, HDMI_GEN_PKT_CTRL);
+	reg_val &= ~(BIT(0) | BIT(4));
+	hdmi_write(hdmi, HDMI_GEN_PKT_CTRL, reg_val);
+}
+
+void sde_hdmi_ctrl_reset(struct hdmi *hdmi)
+{
+	uint32_t reg_val;
+
+	/* Assert HDMI CTRL SW reset */
+	reg_val = hdmi_read(hdmi, HDMI_CTRL_SW_RESET);
+	reg_val |= BIT(0);
+	hdmi_write(hdmi, HDMI_CTRL_SW_RESET, reg_val);
+
+	/* disable the controller and put to known state */
+	sde_hdmi_ctrl_cfg(hdmi, 0);
+
+	/* disable the audio engine */
+	reg_val = hdmi_read(hdmi, HDMI_AUDIO_CFG);
+	reg_val &= ~BIT(0);
+	hdmi_write(hdmi, HDMI_AUDIO_CFG, reg_val);
+
+	/* clear sending packets to sink */
+	sde_hdmi_clear_pkt_send(hdmi);
+
+	/* De-assert HDMI CTRL SW reset */
+	reg_val = hdmi_read(hdmi, HDMI_CTRL_SW_RESET);
+	reg_val &= ~BIT(0);
+	hdmi_write(hdmi, HDMI_CTRL_SW_RESET, reg_val);
+}
+
 void _sde_hdmi_scrambler_ddc_disable(void *hdmi_display)
 {
 	struct sde_hdmi *display = (struct sde_hdmi *)hdmi_display;
