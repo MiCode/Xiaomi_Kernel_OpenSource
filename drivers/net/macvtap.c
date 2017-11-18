@@ -1047,6 +1047,8 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
 	case TUNSETSNDBUF:
 		if (get_user(u, up))
 			return -EFAULT;
+		if (u <= 0)
+			return -EINVAL;
 
 		q->sk.sk_sndbuf = u;
 		return 0;
