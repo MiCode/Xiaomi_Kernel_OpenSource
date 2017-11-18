@@ -741,7 +741,7 @@ static void _sde_crtc_setup_dim_layer_cfg(struct drm_crtc *crtc,
 	for (i = 0; i < sde_crtc->num_mixers; i++) {
 		split_dim_layer.flags = dim_layer->flags;
 
-		sde_kms_rect_intersect(&cstate->lm_bounds[i], &dim_layer->rect,
+		sde_kms_rect_intersect(&cstate->lm_roi[i], &dim_layer->rect,
 					&split_dim_layer.rect);
 		if (sde_kms_rect_is_null(&split_dim_layer.rect)) {
 			/*
@@ -764,8 +764,25 @@ static void _sde_crtc_setup_dim_layer_cfg(struct drm_crtc *crtc,
 		} else {
 			split_dim_layer.rect.x =
 					split_dim_layer.rect.x -
-						cstate->lm_bounds[i].x;
+						cstate->lm_roi[i].x;
+			split_dim_layer.rect.y =
+					split_dim_layer.rect.y -
+						cstate->lm_roi[i].y;
 		}
+
+		SDE_EVT32_VERBOSE(DRMID(crtc),
+				cstate->lm_roi[i].x,
+				cstate->lm_roi[i].y,
+				cstate->lm_roi[i].w,
+				cstate->lm_roi[i].h,
+				dim_layer->rect.x,
+				dim_layer->rect.y,
+				dim_layer->rect.w,
+				dim_layer->rect.h,
+				split_dim_layer.rect.x,
+				split_dim_layer.rect.y,
+				split_dim_layer.rect.w,
+				split_dim_layer.rect.h);
 
 		SDE_DEBUG("split_dim_layer - LM:%d, rect:{%d,%d,%d,%d}}\n",
 			i, split_dim_layer.rect.x, split_dim_layer.rect.y,
