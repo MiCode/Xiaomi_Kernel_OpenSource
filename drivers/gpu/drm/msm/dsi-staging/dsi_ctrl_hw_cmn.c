@@ -612,9 +612,17 @@ void dsi_ctrl_hw_cmn_kickoff_command(struct dsi_ctrl_hw *ctrl,
 	else
 		reg &= ~BIT(26);
 
-	reg |= BIT(28);
+	reg |= BIT(28);/* Select embedded mode */
+	reg &= ~BIT(24);/* packet type */
+	reg &= ~BIT(29);/* WC_SEL to 0 */
 	DSI_W32(ctrl, DSI_COMMAND_MODE_DMA_CTRL, reg);
 
+	reg = DSI_R32(ctrl, DSI_DMA_FIFO_CTRL);
+	reg &= ~BIT(20);/* Enable write watermark*/
+	reg &= ~BIT(16);/* Enable read watermark */
+
+
+	DSI_W32(ctrl, DSI_DMA_FIFO_CTRL, reg);
 	DSI_W32(ctrl, DSI_DMA_CMD_OFFSET, cmd->offset);
 	DSI_W32(ctrl, DSI_DMA_CMD_LENGTH, (cmd->length & 0xFFFFFF));
 
