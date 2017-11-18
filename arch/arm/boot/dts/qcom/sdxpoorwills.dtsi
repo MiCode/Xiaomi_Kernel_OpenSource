@@ -151,8 +151,11 @@
 	};
 
 	clock_gcc: qcom,gcc@100000 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gcc_clocks";
+		compatible = "qcom,gcc-sdxpoorwills";
+		reg = <0x100000 0x1f0000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&pmxpoorwills_s5_level>;
+		vdd_cx_ao-supply = <&pmxpoorwills_s5_level_ao>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -184,7 +187,6 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_usb30";
 		reg = <0x0010b004 0x4>;
-		status = "ok";
 	};
 
 	qcom,sps {
@@ -196,7 +198,12 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_pcie";
 		reg = <0x00137004 0x4>;
-		status = "ok";
+	};
+
+	gdsc_emac: qcom,gdsc@147004 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_emac";
+		reg = <0x00147004 0x4>;
 	};
 
 	qnand_1: nand@1b00000 {
