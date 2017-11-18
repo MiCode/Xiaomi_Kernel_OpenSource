@@ -707,7 +707,7 @@ static int mdss_dsi_panel_apply_display_setting(struct mdss_panel_data *pdata,
 				(lp_on_cmds->cmd_cnt))
 			mdss_dsi_panel_apply_settings(ctrl, lp_on_cmds);
 	else if ((mode == MDSS_PANEL_LOW_PERSIST_MODE_OFF) &&
-			(lp_on_cmds->cmd_cnt))
+			(lp_off_cmds->cmd_cnt))
 		mdss_dsi_panel_apply_settings(ctrl, lp_off_cmds);
 	else
 		return -EINVAL;

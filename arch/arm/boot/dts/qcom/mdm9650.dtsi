@@ -158,6 +158,7 @@
 					"gpll0_mss_clk";
 
 		vdd_cx-supply = <&pmd9650_s5_level>;
+		interrupts = <0 24 1>;
 		vdd_cx-voltage = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 		vdd_mx-supply = <&pmd9650_l9_level>;
 		vdd_mx-uV = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
@@ -1145,7 +1146,7 @@
 		#clock-cells = <1>;
 	};
 
-	sound {
+	snd_tasha: sound {
 		compatible = "qcom,mdm-audio-tasha";
 		qcom,model = "mdm-tasha-i2s-snd-card";
 
@@ -1179,10 +1180,81 @@
 			"SpkrRight IN", "SPK2 OUT";
 
 		qcom,tasha-mclk-clk-freq = <12288000>;
-		qcom,prim_mi2s_aux_master = <&prim_master>;
-		qcom,prim_mi2s_aux_slave = <&prim_slave>;
-		qcom,sec_mi2s_aux_master = <&sec_master>;
-		qcom,sec_mi2s_aux_slave = <&sec_slave>;
+
+		qcom,msm-gpios =
+			"pri_mi2s_aux_master",
+			"pri_mi2s_aux_slave",
+			"sec_mi2s_aux_master",
+			"sec_mi2s_aux_slave";
+		qcom,pinctrl-names =
+			"all_off",
+			"pri_mi2s_aux_master_active",
+			"pri_mi2s_aux_slave_active",
+			"invalid_state_1",
+			"sec_mi2s_aux_master_active",
+			"pri_master_active_sec_master_active",
+			"pri_slave_active_sec_master_active",
+			"invalid_state_2",
+			"sec_mi2s_aux_slave_active",
+			"pri_master_active_sec_slave_active",
+			"pri_slave_active_sec_slave_active";
+		pinctrl-names =
+			"all_off",
+			"pri_mi2s_aux_master_active",
+			"pri_mi2s_aux_slave_active",
+			"invalid_state_1",
+			"sec_mi2s_aux_master_active",
+			"pri_master_active_sec_master_active",
+			"pri_slave_active_sec_master_active",
+			"invalid_state_2",
+			"sec_mi2s_aux_slave_active",
+			"pri_master_active_sec_slave_active",
+			"pri_slave_active_sec_slave_active";
+		pinctrl-0 = <&pri_ws_sleep &pri_sck_sleep
+				&pri_dout_sleep &pri_din_sleep
+				&sec_ws_sleep &sec_sck_sleep
+				&sec_dout_sleep &sec_din_sleep>;
+		pinctrl-1 = <&pri_ws_active_master &pri_sck_active_master
+				&pri_dout_active &pri_din_active
+				&sec_ws_sleep &sec_sck_sleep
+				&sec_dout_sleep &sec_din_sleep>;
+		pinctrl-2 = <&pri_ws_active_slave &pri_sck_active_slave
+				&pri_dout_active &pri_din_active
+				&sec_ws_sleep &sec_sck_sleep
+				&sec_dout_sleep &sec_din_sleep>;
+		pinctrl-3 = <&pri_ws_sleep &pri_sck_sleep
+				&pri_dout_sleep &pri_din_sleep
+				&sec_ws_sleep &sec_sck_sleep
+				&sec_dout_sleep &sec_din_sleep>;
+		pinctrl-4 = <&pri_ws_sleep &pri_sck_sleep
+				&pri_dout_sleep &pri_din_sleep
+				&sec_ws_active_master &sec_sck_active_master
+				&sec_dout_active &sec_din_active>;
+		pinctrl-5 = <&pri_ws_active_master &pri_sck_active_master
+				&pri_dout_active &pri_din_active
+				&sec_ws_active_master &sec_sck_active_master
+				&sec_dout_active &sec_din_active>;
+		pinctrl-6 = <&pri_ws_active_slave &pri_sck_active_slave
+				&pri_dout_active &pri_din_active
+				&sec_ws_active_master &sec_sck_active_master
+				&sec_dout_active &sec_din_active>;
+		pinctrl-7 = <&pri_ws_sleep &pri_sck_sleep
+				&pri_dout_sleep &pri_din_sleep
+				&sec_ws_sleep &sec_sck_sleep
+				&sec_dout_sleep &sec_din_sleep>;
+		pinctrl-8 = <&pri_ws_sleep &pri_sck_sleep
+				&pri_dout_sleep &pri_din_sleep
+				&sec_ws_active_slave &sec_sck_active_slave
+				&sec_dout_active &sec_din_active>;
+		pinctrl-9 = <&pri_ws_active_master &pri_sck_active_master
+				&pri_dout_active &pri_din_active
+				&sec_ws_active_slave &sec_sck_active_slave
+				&sec_dout_active &sec_din_active>;
+		pinctrl-10 = <&pri_ws_active_slave &pri_sck_active_slave
+				&pri_dout_active &pri_din_active
+				&sec_ws_active_slave &sec_sck_active_slave
+				&sec_dout_active &sec_din_active>;
+
 		asoc-platform = <&pcm0>, <&pcm1>, <&voip>, <&voice>,
 				<&loopback>, <&hostless>, <&afe>, <&routing>,
 				<&pcm_dtmf>, <&host_pcm>, <&compress>;
@@ -1407,62 +1479,6 @@
 			qcom,msm-mi2s-tx-lines = <1>;
 		};
 
-	};
-
-	prim_master: prim_master_pinctrl {
-		compatible = "qcom,wcd-gpio-ctrl";
-		pinctrl-names = "aud_active", "aud_sleep";
-		pinctrl-0 = <&pri_ws_active_master
-				&pri_sck_active_master
-				&pri_dout_active
-				&pri_din_active>;
-		pinctrl-1 = <&pri_ws_sleep
-				&pri_sck_sleep
-				&pri_dout_sleep
-				&pri_din_sleep>;
-		qcom,mi2s-auxpcm-cdc-gpios;
-	};
-
-	prim_slave: prim_slave_pinctrl {
-		compatible = "qcom,wcd-gpio-ctrl";
-		pinctrl-names = "aud_active", "aud_sleep";
-		pinctrl-0 = <&pri_ws_active_slave
-				&pri_sck_active_slave
-				&pri_dout_active
-				&pri_din_active>;
-		pinctrl-1 = <&pri_ws_sleep
-				&pri_sck_sleep
-				&pri_dout_sleep
-				&pri_din_sleep>;
-		qcom,mi2s-auxpcm-cdc-gpios;
-	};
-
-	sec_master: sec_master_pinctrl {
-		compatible = "qcom,wcd-gpio-ctrl";
-		pinctrl-names = "aud_active", "aud_sleep";
-		pinctrl-0 = <&sec_ws_active_master
-				&sec_sck_active_master
-				&sec_dout_active
-				&sec_din_active>;
-		pinctrl-1 = <&sec_ws_sleep
-				&sec_sck_sleep
-				&sec_dout_sleep
-				&sec_din_sleep>;
-		qcom,mi2s-auxpcm-cdc-gpios;
-	};
-
-	sec_slave: sec_slave_pinctrl {
-		compatible = "qcom,wcd-gpio-ctrl";
-		pinctrl-names = "aud_active", "aud_sleep";
-		pinctrl-0 = <&sec_ws_active_slave
-				&sec_sck_active_slave
-				&sec_dout_active
-				&sec_din_active>;
-		pinctrl-1 = <&sec_ws_sleep
-				&sec_sck_sleep
-				&sec_dout_sleep
-				&sec_din_sleep>;
-		qcom,mi2s-auxpcm-cdc-gpios;
 	};
 
 	sdhc_1: sdhci@7824000 {

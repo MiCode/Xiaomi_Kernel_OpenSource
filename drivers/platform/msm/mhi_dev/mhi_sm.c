@@ -1173,6 +1173,7 @@ void mhi_dev_sm_pcie_handler(struct ep_pcie_notify *notify)
 		ep_pcie_mask_irq_event(mhi_sm_ctx->mhi_dev->phandle,
 				EP_PCIE_INT_EVT_MHI_A7, false);
 		mhi_dev_notify_a7_event(mhi_sm_ctx->mhi_dev);
+		kfree(dstate_change_evt);
 		goto exit;
 	default:
 		MHI_SM_ERR("Invalid ep_pcie event, received 0x%x event\n",

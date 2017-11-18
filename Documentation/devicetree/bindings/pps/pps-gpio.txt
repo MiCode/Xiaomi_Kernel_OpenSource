@@ -10,6 +10,9 @@ Required properties:
 Optional properties:
 - assert-falling-edge: when present, assert is indicated by a falling edge
                        (instead of by a rising edge)
+- use-system-time-ts: use the system time via pps_get_ts as the timestamp
+                      if this is not defined then the timestamp will come
+                      from the monotonic boot time
 
 Example:
 	pps {

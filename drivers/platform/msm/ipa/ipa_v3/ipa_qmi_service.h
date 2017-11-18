@@ -216,6 +216,9 @@ int rmnet_ipa3_enable_per_client_stats(bool *data);
 int rmnet_ipa3_query_per_client_stats(
 	struct wan_ioctl_query_per_client_stats *data);
 
+int rmnet_ipa3_query_tethering_stats_all(
+	struct wan_ioctl_query_tether_stats_all *data);
+
 int ipa3_qmi_get_data_stats(struct ipa_get_data_stats_req_msg_v01 *req,
 	struct ipa_get_data_stats_resp_msg_v01 *resp);
 

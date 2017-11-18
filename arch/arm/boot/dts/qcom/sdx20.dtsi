@@ -92,6 +92,7 @@
 	ipa_hw: qcom,ipa@07B00000 {
 		qcom,ipa-hw-ver = <12>; /* IPA core version = IPAv3.5 */
 		/delete-property/qcom,use-rg10-limitation-mitigation;
+		qcom,throughput-threshold = <600 1200>; /* NOM TURBO */
 	};
 
 	qcom,ipa_fws {
@@ -391,6 +392,7 @@
 &mss {
 	/delete-property/qcom,qdsp6v61-1-1;
 	qcom,qdsp6v62-1-4;
+	/delete-property/interrupts;
 };
 
 &mhi_device {

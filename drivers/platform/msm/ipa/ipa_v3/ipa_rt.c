@@ -83,13 +83,21 @@ int __ipa_generate_rt_hw_rule_v3_0(enum ipa_ip_type ip,
 	if (entry->proc_ctx || (entry->hdr && entry->hdr->is_hdr_proc_ctx)) {
 		struct ipa3_hdr_proc_ctx_entry *proc_ctx;
 		proc_ctx = (entry->proc_ctx) ? : entry->hdr->proc_ctx;
-		rule_hdr->u.hdr.system = !ipa3_ctx->hdr_proc_ctx_tbl_lcl;
-		BUG_ON(proc_ctx->offset_entry->offset & 31);
-		rule_hdr->u.hdr.proc_ctx = 1;
-		rule_hdr->u.hdr.hdr_offset =
-			(proc_ctx->offset_entry->offset +
-			ipa3_ctx->hdr_proc_ctx_tbl.start_offset) >> 5;
-	} else if (entry->hdr) {
+		if ((proc_ctx == NULL) ||
+			(proc_ctx->cookie != IPA_PROC_HDR_COOKIE)) {
+			rule_hdr->u.hdr.proc_ctx = 0;
+			rule_hdr->u.hdr.hdr_offset = 0;
+		} else {
+			rule_hdr->u.hdr.system =
+				!ipa3_ctx->hdr_proc_ctx_tbl_lcl;
+			BUG_ON(proc_ctx->offset_entry->offset & 31);
+			rule_hdr->u.hdr.proc_ctx = 1;
+			rule_hdr->u.hdr.hdr_offset =
+				(proc_ctx->offset_entry->offset +
+				ipa3_ctx->hdr_proc_ctx_tbl.start_offset) >> 5;
+		}
+	} else if ((entry->hdr != NULL) &&
+		(entry->hdr->cookie == IPA_HDR_COOKIE)) {
 		rule_hdr->u.hdr.system = !ipa3_ctx->hdr_tbl_lcl;
 		BUG_ON(entry->hdr->offset_entry->offset & 3);
 		rule_hdr->u.hdr.proc_ctx = 0;
@@ -1369,6 +1377,13 @@ int ipa3_add_rt_rule_after(struct ipa_ioc_add_rt_rule_after *rules)
 	if (!entry) {
 		IPAERR_RL("failed finding rule %d in rt tbls\n",
 			rules->add_after_hdl);
+		ret = -EINVAL;
+		goto bail;
+	}
+
+	if (entry->cookie != IPA_RT_RULE_COOKIE) {
+		IPAERR_RL("Invalid cookie value =  %u rule %d in rt tbls\n",
+			entry->cookie, rules->add_after_hdl);
 		ret = -EINVAL;
 		goto bail;
 	}

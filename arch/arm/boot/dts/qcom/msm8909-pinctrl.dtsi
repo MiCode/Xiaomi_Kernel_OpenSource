@@ -137,21 +137,28 @@
 			};
 		};
 
-		cam_sensor_flash {
-			/* FLASH_RESET,FLASH_EN,FLASH_NOW */
-			qcom,pins = "gpio 36", "gpio 31", "gpio 32";
-			qcom,num-grp-pins = <3>;
-			qcom,pin-func = <0>;
-			label = "cam_sensor_flash";
-			/* active state */
-			cam_sensor_flash_default: default {
-				drive-strength = <2>; /* 2 MA */
-				bias-disable = <0>; /* No PULL */
+		cam_sensor_flash_default: cam_sensor_flash_default {
+		/* FLASH_RESET,FLASH_EN,FLASH_NOW */
+			mux {
+				pins = "gpio36", "gpio31", "gpio32";
+				function = "gpio";
 			};
-			/* suspended state */
-			cam_sensor_flash_sleep: sleep {
+			config {
+				pins = "gpio36", "gpio31", "gpio32";
+				bias-disable; /* No PULL */
 				drive-strength = <2>; /* 2 MA */
-				bias-pull-down = <0>; /* PULL DOWN */
+			};
+		};
+
+		cam_sensor_flash_sleep: cam_sensor_flash_sleep {
+			 mux {
+				pins = "gpio36", "gpio31", "gpio32";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio36", "gpio31", "gpio32";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
 			};
 		};
 
