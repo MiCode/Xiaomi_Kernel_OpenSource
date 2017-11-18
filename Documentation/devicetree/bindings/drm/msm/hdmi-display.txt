@@ -50,7 +50,7 @@ Example:
 				qcom,mode-v-pulse-width = <10>;
 				qcom,mode-v-back-porch = <72>;
 				qcom,mode-v-active-high;
-				qcom,mode-refersh-rate = <30>;
+				qcom,mode-refresh-rate = <30>;
 				qcom,mode-clock-in-khz = <297000>;
 			};
 		};
