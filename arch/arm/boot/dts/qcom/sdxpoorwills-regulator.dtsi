@@ -111,4 +111,10 @@
 		regulator-min-microvolt = <3088000>;
 		regulator-max-microvolt = <3088000>;
 	};
+
+	/* VREF_RGMII */
+	vreg_rgmii: rgmii-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_rgmii";
+	};
 };
