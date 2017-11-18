@@ -29,7 +29,7 @@
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
-
+#include <asm/arch_timer.h>
 #include <asm-generic/io.h>
 
 #include <soc/qcom/tcs.h>

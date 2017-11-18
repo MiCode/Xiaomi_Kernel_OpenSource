@@ -332,101 +332,102 @@ static u32 dp_catalog_ctrl_read_hdcp_status(struct dp_catalog_ctrl *ctrl)
 	return dp_read(base + DP_HDCP_STATUS);
 }
 
-static void dp_catalog_ctrl_setup_infoframe_sdp(struct dp_catalog_ctrl *ctrl)
+static void dp_catalog_panel_setup_infoframe_sdp(struct dp_catalog_panel *panel)
 {
 	struct dp_catalog_private *catalog;
+	struct drm_msm_ext_hdr_metadata *hdr;
 	void __iomem *base;
 	u32 header, data;
 
-	if (!ctrl) {
+	if (!panel) {
 		pr_err("invalid input\n");
 		return;
 	}
 
-	dp_catalog_get_priv(ctrl);
+	dp_catalog_get_priv(panel);
 	base = catalog->io->ctrl_io.base;
+	hdr = &panel->hdr_data.hdr_meta;
 
 	header = dp_read(base + MMSS_DP_VSCEXT_0);
-	header |= ctrl->hdr_data.vsc_hdr_byte1;
+	header |= panel->hdr_data.vscext_header_byte1;
 	dp_write(base + MMSS_DP_VSCEXT_0, header);
 
 	header = dp_read(base + MMSS_DP_VSCEXT_1);
-	header |= ctrl->hdr_data.vsc_hdr_byte1;
+	header |= panel->hdr_data.vscext_header_byte2;
 	dp_write(base + MMSS_DP_VSCEXT_1, header);
 
 	header = dp_read(base + MMSS_DP_VSCEXT_1);
-	header |= ctrl->hdr_data.vsc_hdr_byte1;
+	header |= panel->hdr_data.vscext_header_byte3;
 	dp_write(base + MMSS_DP_VSCEXT_1, header);
 
-	header =  ctrl->hdr_data.version;
-	header |=  ctrl->hdr_data.length << 8;
-	header |= ctrl->hdr_data.eotf << 16;
-	header |= (ctrl->hdr_data.descriptor_id << 24);
+	header =  panel->hdr_data.version;
+	header |=  panel->hdr_data.length << 8;
+	header |= hdr->eotf << 16;
 	dp_write(base + MMSS_DP_VSCEXT_2, header);
 
-	data = (DP_GET_LSB(ctrl->hdr_data.display_primaries_x[0]) |
-		(DP_GET_MSB(ctrl->hdr_data.display_primaries_x[0]) << 8) |
-		(DP_GET_LSB(ctrl->hdr_data.display_primaries_y[0]) << 16) |
-		(DP_GET_MSB(ctrl->hdr_data.display_primaries_y[0]) << 24));
+	data = (DP_GET_LSB(hdr->display_primaries_x[0]) |
+		(DP_GET_MSB(hdr->display_primaries_x[0]) << 8) |
+		(DP_GET_LSB(hdr->display_primaries_y[0]) << 16) |
+		(DP_GET_MSB(hdr->display_primaries_y[0]) << 24));
 	dp_write(base + MMSS_DP_VSCEXT_3, data);
 
-	data = (DP_GET_LSB(ctrl->hdr_data.display_primaries_x[1]) |
-		(DP_GET_MSB(ctrl->hdr_data.display_primaries_x[1]) << 8) |
-		(DP_GET_LSB(ctrl->hdr_data.display_primaries_y[1]) << 16) |
-		(DP_GET_MSB(ctrl->hdr_data.display_primaries_y[1]) << 24));
+	data = (DP_GET_LSB(hdr->display_primaries_x[1]) |
+		(DP_GET_MSB(hdr->display_primaries_x[1]) << 8) |
+		(DP_GET_LSB(hdr->display_primaries_y[1]) << 16) |
+		(DP_GET_MSB(hdr->display_primaries_y[1]) << 24));
 	dp_write(base + MMSS_DP_VSCEXT_4, data);
 
-	data = (DP_GET_LSB(ctrl->hdr_data.display_primaries_x[2]) |
-		(DP_GET_MSB(ctrl->hdr_data.display_primaries_x[2]) << 8) |
-		(DP_GET_LSB(ctrl->hdr_data.display_primaries_y[2]) << 16) |
-		(DP_GET_MSB(ctrl->hdr_data.display_primaries_y[2]) << 24));
+	data = (DP_GET_LSB(hdr->display_primaries_x[2]) |
+		(DP_GET_MSB(hdr->display_primaries_x[2]) << 8) |
+		(DP_GET_LSB(hdr->display_primaries_y[2]) << 16) |
+		(DP_GET_MSB(hdr->display_primaries_y[2]) << 24));
 	dp_write(base + MMSS_DP_VSCEXT_5, data);
 
-	data = (DP_GET_LSB(ctrl->hdr_data.white_point_x) |
-		(DP_GET_MSB(ctrl->hdr_data.white_point_x) << 8) |
-		(DP_GET_LSB(ctrl->hdr_data.white_point_y) << 16) |
-		(DP_GET_MSB(ctrl->hdr_data.white_point_y) << 24));
+	data = (DP_GET_LSB(hdr->white_point_x) |
+		(DP_GET_MSB(hdr->white_point_x) << 8) |
+		(DP_GET_LSB(hdr->white_point_y) << 16) |
+		(DP_GET_MSB(hdr->white_point_y) << 24));
 	dp_write(base + MMSS_DP_VSCEXT_6, data);
 
-	data = (DP_GET_LSB(ctrl->hdr_data.max_luminance) |
-		(DP_GET_MSB(ctrl->hdr_data.max_luminance) << 8) |
-		(DP_GET_LSB(ctrl->hdr_data.min_luminance) << 16) |
-		(DP_GET_MSB(ctrl->hdr_data.min_luminance) << 24));
+	data = (DP_GET_LSB(hdr->max_luminance) |
+		(DP_GET_MSB(hdr->max_luminance) << 8) |
+		(DP_GET_LSB(hdr->min_luminance) << 16) |
+		(DP_GET_MSB(hdr->min_luminance) << 24));
 	dp_write(base + MMSS_DP_VSCEXT_7, data);
 
-	data = (DP_GET_LSB(ctrl->hdr_data.max_content_light_level) |
-		(DP_GET_MSB(ctrl->hdr_data.max_content_light_level) << 8) |
-		(DP_GET_LSB(ctrl->hdr_data.max_average_light_level) << 16) |
-		(DP_GET_MSB(ctrl->hdr_data.max_average_light_level) << 24));
+	data = (DP_GET_LSB(hdr->max_content_light_level) |
+		(DP_GET_MSB(hdr->max_content_light_level) << 8) |
+		(DP_GET_LSB(hdr->max_average_light_level) << 16) |
+		(DP_GET_MSB(hdr->max_average_light_level) << 24));
 	dp_write(base + MMSS_DP_VSCEXT_8, data);
 
 	dp_write(base + MMSS_DP_VSCEXT_9, 0x00);
 }
 
-static void dp_catalog_ctrl_setup_vsc_sdp(struct dp_catalog_ctrl *ctrl)
+static void dp_catalog_panel_setup_vsc_sdp(struct dp_catalog_panel *panel)
 {
 	struct dp_catalog_private *catalog;
 	void __iomem *base;
 	u32 value;
 
-	if (!ctrl) {
+	if (!panel) {
 		pr_err("invalid input\n");
 		return;
 	}
 
-	dp_catalog_get_priv(ctrl);
+	dp_catalog_get_priv(panel);
 	base = catalog->io->ctrl_io.base;
 
 	value = dp_read(base + MMSS_DP_GENERIC0_0);
-	value |= ctrl->hdr_data.vsc_hdr_byte1;
+	value |= panel->hdr_data.vsc_header_byte1;
 	dp_write(base + MMSS_DP_GENERIC0_0, value);
 
 	value = dp_read(base + MMSS_DP_GENERIC0_1);
-	value |= ctrl->hdr_data.vsc_hdr_byte2;
+	value |= panel->hdr_data.vsc_header_byte2;
 	dp_write(base + MMSS_DP_GENERIC0_1, value);
 
 	value = dp_read(base + MMSS_DP_GENERIC0_1);
-	value |= ctrl->hdr_data.vsc_hdr_byte3;
+	value |= panel->hdr_data.vsc_header_byte3;
 	dp_write(base + MMSS_DP_GENERIC0_1, value);
 
 	dp_write(base + MMSS_DP_GENERIC0_2, 0x00);
@@ -434,24 +435,30 @@ static void dp_catalog_ctrl_setup_vsc_sdp(struct dp_catalog_ctrl *ctrl)
 	dp_write(base + MMSS_DP_GENERIC0_4, 0x00);
 	dp_write(base + MMSS_DP_GENERIC0_5, 0x00);
 
-	dp_write(base + MMSS_DP_GENERIC0_6, ctrl->hdr_data.pkt_payload);
+	value = (panel->hdr_data.colorimetry & 0xF) |
+		((panel->hdr_data.pixel_encoding & 0xF) << 4) |
+		((panel->hdr_data.bpc & 0x7) << 8) |
+		((panel->hdr_data.dynamic_range & 0x1) << 15) |
+		((panel->hdr_data.content_type & 0x7) << 16);
+
+	dp_write(base + MMSS_DP_GENERIC0_6, value);
 	dp_write(base + MMSS_DP_GENERIC0_7, 0x00);
 	dp_write(base + MMSS_DP_GENERIC0_8, 0x00);
 	dp_write(base + MMSS_DP_GENERIC0_9, 0x00);
 }
 
-static void dp_catalog_ctrl_config_hdr(struct dp_catalog_ctrl *ctrl)
+static void dp_catalog_panel_config_hdr(struct dp_catalog_panel *panel)
 {
 	struct dp_catalog_private *catalog;
 	void __iomem *base;
 	u32 cfg, cfg2;
 
-	if (!ctrl) {
+	if (!panel) {
 		pr_err("invalid input\n");
 		return;
 	}
 
-	dp_catalog_get_priv(ctrl);
+	dp_catalog_get_priv(panel);
 	base = catalog->io->ctrl_io.base;
 
 	cfg = dp_read(base + MMSS_DP_SDP_CFG);
@@ -468,8 +475,8 @@ static void dp_catalog_ctrl_config_hdr(struct dp_catalog_ctrl *ctrl)
 	cfg2 |= BIT(16);
 	dp_write(base + MMSS_DP_SDP_CFG2, cfg2);
 
-	dp_catalog_ctrl_setup_vsc_sdp(ctrl);
-	dp_catalog_ctrl_setup_infoframe_sdp(ctrl);
+	dp_catalog_panel_setup_vsc_sdp(panel);
+	dp_catalog_panel_setup_infoframe_sdp(panel);
 
 	cfg = dp_read(base + DP_MISC1_MISC0);
 	/* Indicates presence of VSC */
@@ -481,7 +488,7 @@ static void dp_catalog_ctrl_config_hdr(struct dp_catalog_ctrl *ctrl)
 	/* Send VSC */
 	cfg |= BIT(7);
 
-	switch (ctrl->hdr_data.bpc) {
+	switch (panel->hdr_data.bpc) {
 	default:
 	case 10:
 		cfg |= BIT(9);
@@ -550,8 +557,6 @@ static void dp_catalog_ctrl_config_ctrl(struct dp_catalog_ctrl *ctrl, u32 cfg)
 	pr_debug("DP_CONFIGURATION_CTRL=0x%x\n", cfg);
 
 	dp_write(base + DP_CONFIGURATION_CTRL, cfg);
-	dp_write(base + DP_MAINLINK_LEVELS, 0xa08);
-	dp_write(base + MMSS_DP_ASYNC_FIFO_CONFIG, 0x1);
 }
 
 static void dp_catalog_ctrl_lane_mapping(struct dp_catalog_ctrl *ctrl)
@@ -1287,7 +1292,6 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io)
 		.phy_lane_cfg   = dp_catalog_ctrl_phy_lane_cfg,
 		.update_vx_px   = dp_catalog_ctrl_update_vx_px,
 		.get_interrupt  = dp_catalog_ctrl_get_interrupt,
-		.config_hdr     = dp_catalog_ctrl_config_hdr,
 		.update_transfer_unit = dp_catalog_ctrl_update_transfer_unit,
 		.read_hdcp_status     = dp_catalog_ctrl_read_hdcp_status,
 		.send_phy_pattern    = dp_catalog_ctrl_send_phy_pattern,
@@ -1304,6 +1308,7 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io)
 	};
 	struct dp_catalog_panel panel = {
 		.timing_cfg = dp_catalog_panel_timing_cfg,
+		.config_hdr = dp_catalog_panel_config_hdr,
 	};
 
 	if (!io) {

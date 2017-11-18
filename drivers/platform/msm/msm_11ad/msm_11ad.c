@@ -1469,14 +1469,20 @@ static int ops_notify(void *handle, enum wil_platform_event evt)
 	return rc;
 }
 
-static bool ops_keep_radio_on_during_sleep(void *handle)
+static int ops_get_capa(void *handle)
 {
 	struct msm11ad_ctx *ctx = (struct msm11ad_ctx *)handle;
+	int capa;
 
 	pr_debug("%s: keep radio on during sleep is %s\n", __func__,
 		 ctx->keep_radio_on_during_sleep ? "allowed" : "not allowed");
 
-	return ctx->keep_radio_on_during_sleep;
+	capa = (ctx->keep_radio_on_during_sleep ?
+			BIT(WIL_PLATFORM_CAPA_RADIO_ON_IN_SUSPEND) : 0) |
+		BIT(WIL_PLATFORM_CAPA_T_PWR_ON_0) |
+		BIT(WIL_PLATFORM_CAPA_EXT_CLK);
+
+	return capa;
 }
 
 void *msm_11ad_dev_init(struct device *dev, struct wil_platform_ops *ops,
@@ -1518,7 +1524,7 @@ void *msm_11ad_dev_init(struct device *dev, struct wil_platform_ops *ops,
 	ops->resume = ops_resume;
 	ops->uninit = ops_uninit;
 	ops->notify = ops_notify;
-	ops->keep_radio_on_during_sleep = ops_keep_radio_on_during_sleep;
+	ops->get_capa = ops_get_capa;
 
 	return ctx;
 }

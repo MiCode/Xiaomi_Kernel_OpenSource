@@ -30,6 +30,8 @@ struct dp_panel_private {
 	struct dp_link *link;
 	struct dp_catalog_panel *catalog;
 	bool aux_cfg_update_done;
+	bool custom_edid;
+	bool custom_dpcd;
 };
 
 static const struct dp_panel_info fail_safe = {
@@ -69,12 +71,17 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 	link_info = &dp_panel->link_info;
 
-	rlen = drm_dp_dpcd_read(panel->aux->drm_aux, DP_DPCD_REV,
-		dpcd, (DP_RECEIVER_CAP_SIZE + 1));
-	if (rlen < (DP_RECEIVER_CAP_SIZE + 1)) {
-		pr_err("dpcd read failed, rlen=%d\n", rlen);
-		rc = -EINVAL;
-		goto end;
+	if (!panel->custom_dpcd) {
+		rlen = drm_dp_dpcd_read(panel->aux->drm_aux, DP_DPCD_REV,
+			dp_panel->dpcd, (DP_RECEIVER_CAP_SIZE + 1));
+		if (rlen < (DP_RECEIVER_CAP_SIZE + 1)) {
+			pr_err("dpcd read failed, rlen=%d\n", rlen);
+			rc = -EINVAL;
+			goto end;
+		}
+
+		print_hex_dump(KERN_DEBUG, "[drm-dp] SINK DPCD: ",
+			DUMP_PREFIX_NONE, 8, 1, dp_panel->dpcd, rlen, false);
 	}
 
 	link_info->revision = dp_panel->dpcd[DP_DPCD_REV];
@@ -133,6 +140,52 @@ static int dp_panel_set_default_link_params(struct dp_panel *dp_panel)
 	link_info->num_lanes = default_num_lanes;
 	pr_debug("link_rate=%d num_lanes=%d\n",
 		link_info->rate, link_info->num_lanes);
+
+	return 0;
+}
+
+static int dp_panel_set_edid(struct dp_panel *dp_panel, u8 *edid)
+{
+	struct dp_panel_private *panel;
+
+	if (!dp_panel) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+
+	if (edid) {
+		dp_panel->edid_ctrl->edid = (struct edid *)edid;
+		panel->custom_edid = true;
+	} else {
+		panel->custom_edid = false;
+	}
+
+	return 0;
+}
+
+static int dp_panel_set_dpcd(struct dp_panel *dp_panel, u8 *dpcd)
+{
+	struct dp_panel_private *panel;
+	u8 *dp_dpcd;
+
+	if (!dp_panel) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	dp_dpcd = dp_panel->dpcd;
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+
+	if (dpcd) {
+		memcpy(dp_dpcd, dpcd, DP_RECEIVER_CAP_SIZE + 1);
+		panel->custom_dpcd = true;
+	} else {
+		panel->custom_dpcd = false;
+	}
+
 	return 0;
 }
 
@@ -150,6 +203,11 @@ static int dp_panel_read_edid(struct dp_panel *dp_panel,
 
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 
+	if (panel->custom_edid) {
+		pr_debug("skip edid read in debug mode\n");
+		return 0;
+	}
+
 	do {
 		sde_get_edid(connector, &panel->aux->drm_aux->ddc,
 			(void **)&dp_panel->edid_ctrl);
@@ -159,6 +217,12 @@ static int dp_panel_read_edid(struct dp_panel *dp_panel,
 			panel->aux->reconfig(panel->aux);
 			panel->aux_cfg_update_done = true;
 		} else {
+			u8 *buf = (u8 *)dp_panel->edid_ctrl->edid;
+			u32 size = buf[0x7F] ? 256 : 128;
+
+			print_hex_dump(KERN_DEBUG, "[drm-dp] SINK EDID: ",
+				DUMP_PREFIX_NONE, 16, 1, buf, size, false);
+
 			return 0;
 		}
 	} while (retry_cnt < max_retry);
@@ -204,32 +268,48 @@ static int dp_panel_read_sink_caps(struct dp_panel *dp_panel,
 	return 0;
 }
 
-static u32 dp_panel_get_max_pclk(struct dp_panel *dp_panel)
+static u32 dp_panel_get_supported_bpp(struct dp_panel *dp_panel,
+		u32 mode_edid_bpp, u32 mode_pclk_khz)
 {
 	struct drm_dp_link *link_info;
-	const u8 num_components = 3;
-	u32 bpc = 0, bpp = 0, max_data_rate_khz = 0, max_pclk_rate_khz = 0;
+	const u32 max_supported_bpp = 30, min_supported_bpp = 18;
+	u32 bpp = 0, data_rate_khz = 0;
 
-	if (!dp_panel) {
+	bpp = min_t(u32, mode_edid_bpp, max_supported_bpp);
+
+	link_info = &dp_panel->link_info;
+	data_rate_khz = link_info->num_lanes * link_info->rate * 8;
+
+	while (bpp > min_supported_bpp) {
+		if (mode_pclk_khz * bpp <= data_rate_khz)
+			break;
+		bpp -= 6;
+	}
+
+	return bpp;
+}
+
+static u32 dp_panel_get_mode_bpp(struct dp_panel *dp_panel,
+		u32 mode_edid_bpp, u32 mode_pclk_khz)
+{
+	struct dp_panel_private *panel;
+	u32 bpp = mode_edid_bpp;
+
+	if (!dp_panel || !mode_edid_bpp || !mode_pclk_khz) {
 		pr_err("invalid input\n");
 		return 0;
 	}
 
-	link_info = &dp_panel->link_info;
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 
-	bpc = sde_get_sink_bpc(dp_panel->edid_ctrl);
-	bpp = bpc * num_components;
-	if (!bpp)
-		bpp = DP_PANEL_DEFAULT_BPP;
+	if (dp_panel->video_test)
+		bpp = dp_link_bit_depth_to_bpp(
+				panel->link->test_video.test_bit_depth);
+	else
+		bpp = dp_panel_get_supported_bpp(dp_panel, mode_edid_bpp,
+				mode_pclk_khz);
 
-	max_data_rate_khz = (link_info->num_lanes * link_info->rate * 8);
-	max_pclk_rate_khz = max_data_rate_khz / bpp;
-
-	pr_debug("bpp=%d, max_lane_cnt=%d\n", bpp, link_info->num_lanes);
-	pr_debug("max_data_rate=%dKHz, max_pclk_rate=%dKHz\n",
-		max_data_rate_khz, max_pclk_rate_khz);
-
-	return max_pclk_rate_khz;
+	return bpp;
 }
 
 static void dp_panel_set_test_mode(struct dp_panel_private *panel,
@@ -383,34 +463,22 @@ end:
 	return rc;
 }
 
-static int dp_panel_edid_register(struct dp_panel *dp_panel)
+static int dp_panel_edid_register(struct dp_panel_private *panel)
 {
 	int rc = 0;
 
-	if (!dp_panel) {
-		pr_err("invalid input\n");
-		rc = -EINVAL;
-		goto end;
-	}
-
-	dp_panel->edid_ctrl = sde_edid_init();
-	if (!dp_panel->edid_ctrl) {
+	panel->dp_panel.edid_ctrl = sde_edid_init();
+	if (!panel->dp_panel.edid_ctrl) {
 		pr_err("sde edid init for DP failed\n");
 		rc = -ENOMEM;
-		goto end;
 	}
-end:
+
 	return rc;
 }
 
-static void dp_panel_edid_deregister(struct dp_panel *dp_panel)
+static void dp_panel_edid_deregister(struct dp_panel_private *panel)
 {
-	if (!dp_panel) {
-		pr_err("invalid input\n");
-		return;
-	}
-
-	sde_edid_deinit((void **)&dp_panel->edid_ctrl);
+	sde_edid_deinit((void **)&panel->dp_panel.edid_ctrl);
 }
 
 static int dp_panel_init_panel_info(struct dp_panel *dp_panel)
@@ -445,10 +513,27 @@ static int dp_panel_init_panel_info(struct dp_panel *dp_panel)
 	pr_info("bpp = %d\n", pinfo->bpp);
 	pr_info("active low (h|v)=(%d|%d)\n", pinfo->h_active_low,
 		pinfo->v_active_low);
-
-	pinfo->bpp = max_t(u32, 18, min_t(u32, pinfo->bpp, 30));
-	pr_info("updated bpp = %d\n", pinfo->bpp);
 end:
+	return rc;
+}
+
+static int dp_panel_deinit_panel_info(struct dp_panel *dp_panel)
+{
+	int rc = 0;
+	struct dp_panel_private *panel;
+
+	if (!dp_panel) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+
+	if (!panel->custom_edid)
+		sde_free_edid((void **)&dp_panel->edid_ctrl);
+
+	memset(&dp_panel->pinfo, 0, sizeof(dp_panel->pinfo));
+
 	return rc;
 }
 
@@ -478,6 +563,87 @@ end:
 	return min_link_rate_khz;
 }
 
+enum dp_panel_hdr_pixel_encoding {
+	RGB,
+	YCbCr444,
+	YCbCr422,
+	YCbCr420,
+	YONLY,
+	RAW,
+};
+
+enum dp_panel_hdr_rgb_colorimetry {
+	sRGB,
+	RGB_WIDE_GAMUT_FIXED_POINT,
+	RGB_WIDE_GAMUT_FLOATING_POINT,
+	ADOBERGB,
+	DCI_P3,
+	CUSTOM_COLOR_PROFILE,
+	ITU_R_BT_2020_RGB,
+};
+
+enum dp_panel_hdr_dynamic_range {
+	VESA,
+	CEA,
+};
+
+enum dp_panel_hdr_content_type {
+	NOT_DEFINED,
+	GRAPHICS,
+	PHOTO,
+	VIDEO,
+	GAME,
+};
+
+static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
+		struct drm_msm_ext_hdr_metadata *hdr_meta)
+{
+	int rc = 0;
+	struct dp_panel_private *panel;
+	struct dp_catalog_hdr_data *hdr;
+
+	if (!hdr_meta || !hdr_meta->hdr_state)
+		goto end;
+
+	if (!dp_panel) {
+		pr_err("invalid input\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+	hdr = &panel->catalog->hdr_data;
+
+	hdr->vsc_header_byte0 = 0x00;
+	hdr->vsc_header_byte1 = 0x07;
+	hdr->vsc_header_byte2 = 0x05;
+	hdr->vsc_header_byte3 = 0x13;
+
+	/* VSC SDP Payload for DB16 */
+	hdr->pixel_encoding = RGB;
+	hdr->colorimetry = ITU_R_BT_2020_RGB;
+
+	/* VSC SDP Payload for DB17 */
+	hdr->dynamic_range = CEA;
+	hdr->bpc = 10;
+
+	/* VSC SDP Payload for DB18 */
+	hdr->content_type = GRAPHICS;
+
+	hdr->vscext_header_byte0 = 0x00;
+	hdr->vscext_header_byte1 = 0x87;
+	hdr->vscext_header_byte2 = 0x1D;
+	hdr->vscext_header_byte3 = 0x13 << 2;
+
+	hdr->version = 0x01;
+
+	memcpy(&hdr->hdr_meta, hdr_meta, sizeof(hdr->hdr_meta));
+
+	panel->catalog->config_hdr(panel->catalog);
+end:
+	return rc;
+}
+
 struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 {
 	int rc = 0;
@@ -505,15 +671,19 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	panel->aux_cfg_update_done = false;
 	dp_panel->max_bw_code = DP_LINK_BW_8_1;
 
-	dp_panel->sde_edid_register = dp_panel_edid_register;
-	dp_panel->sde_edid_deregister = dp_panel_edid_deregister;
-	dp_panel->init_info = dp_panel_init_panel_info;
+	dp_panel->init = dp_panel_init_panel_info;
+	dp_panel->deinit = dp_panel_deinit_panel_info;
 	dp_panel->timing_cfg = dp_panel_timing_cfg;
 	dp_panel->read_sink_caps = dp_panel_read_sink_caps;
 	dp_panel->get_min_req_link_rate = dp_panel_get_min_req_link_rate;
-	dp_panel->get_max_pclk = dp_panel_get_max_pclk;
+	dp_panel->get_mode_bpp = dp_panel_get_mode_bpp;
 	dp_panel->get_modes = dp_panel_get_modes;
 	dp_panel->handle_sink_request = dp_panel_handle_sink_request;
+	dp_panel->set_edid = dp_panel_set_edid;
+	dp_panel->set_dpcd = dp_panel_set_dpcd;
+
+	dp_panel_edid_register(panel);
+	dp_panel->setup_hdr = dp_panel_setup_hdr;
 
 	return dp_panel;
 error:
@@ -529,5 +699,6 @@ void dp_panel_put(struct dp_panel *dp_panel)
 
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 
+	dp_panel_edid_deregister(panel);
 	devm_kfree(panel->dev, panel);
 }

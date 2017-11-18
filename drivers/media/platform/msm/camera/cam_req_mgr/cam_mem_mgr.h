@@ -14,15 +14,23 @@
 #define _CAM_MEM_MGR_H_
 
 #include <linux/mutex.h>
+#include <linux/dma-buf.h>
 #include <media/cam_req_mgr.h>
 #include "cam_mem_mgr_api.h"
 
 #define CAM_MEM_BUFQ_MAX 1024
 
+/*Enum for possible SMMU operations */
+enum cam_smmu_mapping_client {
+	CAM_SMMU_MAPPING_USER,
+	CAM_SMMU_MAPPING_KERNEL,
+};
+
 /**
  * struct cam_mem_buf_queue
  *
  * @i_hdl:       ion handle for the buffer
+ * @dma_buf:     pointer to the allocated dma_buf in the table
  * @q_lock:      mutex lock for buffer
  * @hdls:        list of mapped handles
  * @num_hdl:     number of handles
@@ -38,6 +46,7 @@
  */
 struct cam_mem_buf_queue {
 	struct ion_handle *i_hdl;
+	struct dma_buf *dma_buf;
 	struct mutex q_lock;
 	int32_t hdls[CAM_MEM_MMU_MAX_HANDLE];
 	int32_t num_hdl;

@@ -777,11 +777,11 @@ static void wil_collect_fw_info(struct wil6210_priv *wil)
 void wil_refresh_fw_capabilities(struct wil6210_priv *wil)
 {
 	struct wiphy *wiphy = wil_to_wiphy(wil);
+	int features;
 
 	wil->keep_radio_on_during_sleep =
-		wil->platform_ops.keep_radio_on_during_sleep &&
-		wil->platform_ops.keep_radio_on_during_sleep(
-			wil->platform_handle) &&
+		test_bit(WIL_PLATFORM_CAPA_RADIO_ON_IN_SUSPEND,
+			 wil->platform_capa) &&
 		test_bit(WMI_FW_CAPABILITY_D3_SUSPEND, wil->fw_capabilities);
 
 	wil_info(wil, "keep_radio_on_during_sleep (%d)\n",
@@ -791,6 +791,16 @@ void wil_refresh_fw_capabilities(struct wil6210_priv *wil)
 		wiphy->signal_type = CFG80211_SIGNAL_TYPE_MBM;
 	else
 		wiphy->signal_type = CFG80211_SIGNAL_TYPE_UNSPEC;
+
+	if (wil->platform_ops.set_features) {
+		features = (test_bit(WMI_FW_CAPABILITY_REF_CLOCK_CONTROL,
+				     wil->fw_capabilities) &&
+			    test_bit(WIL_PLATFORM_CAPA_EXT_CLK,
+				     wil->platform_capa)) ?
+			BIT(WIL_PLATFORM_FEATURE_FW_EXT_CLK_CONTROL) : 0;
+
+		wil->platform_ops.set_features(wil->platform_handle, features);
+	}
 }
 
 void wil_mbox_ring_le2cpus(struct wil6210_mbox_ring *r)
@@ -1006,9 +1016,18 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 	if (wil->hw_version == HW_VER_UNKNOWN)
 		return -ENODEV;
 
-	wil_dbg_misc(wil, "Prevent DS in BL & mark FW to set T_POWER_ON=0\n");
-	wil_s(wil, RGF_USER_USAGE_8, BIT_USER_PREVENT_DEEP_SLEEP |
-	      BIT_USER_SUPPORT_T_POWER_ON_0);
+	wil_dbg_misc(wil, "Prevent DS in BL\n");
+	wil_s(wil, RGF_USER_USAGE_8, BIT_USER_PREVENT_DEEP_SLEEP);
+
+	if (test_bit(WIL_PLATFORM_CAPA_T_PWR_ON_0, wil->platform_capa)) {
+		wil_dbg_misc(wil, "Notify FW to set T_POWER_ON=0\n");
+		wil_s(wil, RGF_USER_USAGE_8, BIT_USER_SUPPORT_T_POWER_ON_0);
+	}
+
+	if (test_bit(WIL_PLATFORM_CAPA_EXT_CLK, wil->platform_capa)) {
+		wil_dbg_misc(wil, "Notify FW on ext clock configuration\n");
+		wil_s(wil, RGF_USER_USAGE_8, BIT_USER_EXT_CLK);
+	}
 
 	if (wil->platform_ops.notify) {
 		rc = wil->platform_ops.notify(wil->platform_handle,

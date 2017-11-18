@@ -15,6 +15,8 @@
 #ifndef _DP_PANEL_H_
 #define _DP_PANEL_H_
 
+#include <drm/msm_drm.h>
+
 #include "dp_aux.h"
 #include "dp_link.h"
 #include "dp_usbpd.h"
@@ -59,12 +61,11 @@ struct dp_panel_in {
 
 struct dp_panel {
 	/* dpcd raw data */
-	u8 dpcd[DP_RECEIVER_CAP_SIZE];
+	u8 dpcd[DP_RECEIVER_CAP_SIZE + 1];
 	u8 ds_ports[DP_MAX_DOWNSTREAM_PORTS];
 
 	struct drm_dp_link link_info;
 	struct sde_edid_ctrl *edid_ctrl;
-	struct drm_connector *connector;
 	struct dp_panel_info pinfo;
 	bool video_test;
 
@@ -74,17 +75,21 @@ struct dp_panel {
 	/* debug */
 	u32 max_bw_code;
 
-	int (*sde_edid_register)(struct dp_panel *dp_panel);
-	void (*sde_edid_deregister)(struct dp_panel *dp_panel);
-	int (*init_info)(struct dp_panel *dp_panel);
+	int (*init)(struct dp_panel *dp_panel);
+	int (*deinit)(struct dp_panel *dp_panel);
 	int (*timing_cfg)(struct dp_panel *dp_panel);
 	int (*read_sink_caps)(struct dp_panel *dp_panel,
 		struct drm_connector *connector);
 	u32 (*get_min_req_link_rate)(struct dp_panel *dp_panel);
-	u32 (*get_max_pclk)(struct dp_panel *dp_panel);
+	u32 (*get_mode_bpp)(struct dp_panel *dp_panel, u32 mode_max_bpp,
+			u32 mode_pclk_khz);
 	int (*get_modes)(struct dp_panel *dp_panel,
 		struct drm_connector *connector, struct dp_display_mode *mode);
 	void (*handle_sink_request)(struct dp_panel *dp_panel);
+	int (*set_edid)(struct dp_panel *dp_panel, u8 *edid);
+	int (*set_dpcd)(struct dp_panel *dp_panel, u8 *dpcd);
+	int (*setup_hdr)(struct dp_panel *dp_panel,
+		struct drm_msm_ext_hdr_metadata *hdr_meta);
 };
 
 /**

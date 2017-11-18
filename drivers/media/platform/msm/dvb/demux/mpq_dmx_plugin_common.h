@@ -543,6 +543,8 @@ struct mpq_demux {
 
 	ktime_t last_notification_time;
 	int ts_packet_timestamp_source;
+	/* Disable cache operations on qseecom heap since not supported */
+	int disable_cache_ops;
 };
 
 /**

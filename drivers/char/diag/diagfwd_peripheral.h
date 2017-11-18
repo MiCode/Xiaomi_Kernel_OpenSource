@@ -62,6 +62,12 @@ struct diag_peripheral_ops {
 	void (*queue_read)(void *ctxt);
 };
 
+struct diag_id_info {
+	uint8_t diagid_val;
+	uint8_t pd;
+	char *reg_str;
+};
+
 struct diagfwd_info {
 	uint8_t peripheral;
 	uint8_t type;
@@ -69,8 +75,6 @@ struct diagfwd_info {
 	uint8_t inited;
 	uint8_t ch_open;
 	uint8_t num_pd;
-	uint8_t diagid_root;
-	uint8_t diagid_user[MAX_PERIPHERAL_UPD];
 	int cpd_len_1;
 	int cpd_len_2;
 	int upd_len[MAX_PERIPHERAL_UPD][2];
@@ -81,6 +85,8 @@ struct diagfwd_info {
 	struct mutex buf_mutex;
 	struct mutex data_mutex;
 	void *ctxt;
+	struct diag_id_info root_diag_id;
+	struct diag_id_info upd_diag_id[MAX_PERIPHERAL_UPD];
 	struct diagfwd_buf_t *buf_1;
 	struct diagfwd_buf_t *buf_2;
 	struct diagfwd_buf_t *buf_upd[MAX_PERIPHERAL_UPD][2];
@@ -113,7 +119,7 @@ int diagfwd_cntl_register(uint8_t transport, uint8_t peripheral, void *ctxt,
 void diagfwd_deregister(uint8_t peripheral, uint8_t type, void *ctxt);
 
 int diagfwd_write(uint8_t peripheral, uint8_t type, void *buf, int len);
-void diagfwd_write_done(uint8_t peripheral, uint8_t type, int ctxt);
+void diagfwd_write_done(uint8_t peripheral, uint8_t type, int buf_num);
 void diagfwd_buffers_init(struct diagfwd_info *fwd_info);
 
 /*

@@ -45,7 +45,8 @@ enum cam_smmu_region_id {
 	CAM_SMMU_REGION_FIRMWARE,
 	CAM_SMMU_REGION_SHARED,
 	CAM_SMMU_REGION_SCRATCH,
-	CAM_SMMU_REGION_IO
+	CAM_SMMU_REGION_IO,
+	CAM_SMMU_REGION_SECHEAP
 };
 
 /**
@@ -85,7 +86,7 @@ int cam_smmu_get_handle(char *identifier, int *handle_ptr);
 int cam_smmu_ops(int handle, enum cam_smmu_ops_param op);
 
 /**
- * @brief       : Maps IOVA for calling driver
+ * @brief       : Maps user space IOVA for calling driver
  *
  * @param handle: Handle to identify the CAM SMMU client (VFE, CPP, FD etc.)
  * @param ion_fd: ION handle identifying the memory buffer.
@@ -95,25 +96,54 @@ int cam_smmu_ops(int handle, enum cam_smmu_ops_param op);
  *                returned if region_id is CAM_SMMU_REGION_IO. If region_id is
  *                CAM_SMMU_REGION_SHARED, dma_addr is used as an input parameter
  *                which specifies the cpu virtual address to map.
- * @len         : Length of buffer mapped returned by CAM SMMU driver.
+ * @len_ptr     : Length of buffer mapped returned by CAM SMMU driver.
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
-int cam_smmu_map_iova(int handle,
+int cam_smmu_map_user_iova(int handle,
 	int ion_fd, enum cam_smmu_map_dir dir,
 	dma_addr_t *dma_addr, size_t *len_ptr,
 	enum cam_smmu_region_id region_id);
 
 /**
- * @brief       : Unmaps IOVA for calling driver
+ * @brief        : Maps kernel space IOVA for calling driver
+ *
+ * @param handle : Handle to identify the CAM SMMU client (VFE, CPP, FD etc.)
+ * @param buf    : dma_buf allocated for kernel usage in mem_mgr
+ * @dir          : Mapping direction: which will traslate toDMA_BIDIRECTIONAL,
+ *                 DMA_TO_DEVICE or DMA_FROM_DEVICE
+ * @dma_addr     : Pointer to physical address where mapped address will be
+ *                 returned if region_id is CAM_SMMU_REGION_IO. If region_id is
+ *                 CAM_SMMU_REGION_SHARED, dma_addr is used as an input
+ *                 parameter which specifies the cpu virtual address to map.
+ * @len_ptr      : Length of buffer mapped returned by CAM SMMU driver.
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_smmu_map_kernel_iova(int handle,
+	struct dma_buf *buf, enum cam_smmu_map_dir dir,
+	dma_addr_t *dma_addr, size_t *len_ptr,
+	enum cam_smmu_region_id region_id);
+
+/**
+ * @brief       : Unmaps user space IOVA for calling driver
  *
  * @param handle: Handle to identify the CAMSMMU client (VFE, CPP, FD etc.)
  * @param ion_fd: ION handle identifying the memory buffer.
  *
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
-int cam_smmu_unmap_iova(int handle,
-	int ion_fd,
-	enum cam_smmu_region_id region_id);
+int cam_smmu_unmap_user_iova(int handle,
+	int ion_fd, enum cam_smmu_region_id region_id);
+
+/**
+ * @brief       : Unmaps kernel IOVA for calling driver
+ *
+ * @param handle: Handle to identify the CAMSMMU client (VFE, CPP, FD etc.)
+ * @param buf   : dma_buf allocated for the kernel
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_smmu_unmap_kernel_iova(int handle,
+	struct dma_buf *buf, enum cam_smmu_region_id region_id);
 
 /**
  * @brief          : Allocates a scratch buffer
@@ -290,4 +320,29 @@ int cam_smmu_dealloc_firmware(int32_t smmu_hdl);
 int cam_smmu_get_region_info(int32_t smmu_hdl,
 	enum cam_smmu_region_id region_id,
 	struct cam_smmu_region_info *region_info);
+
+/**
+ * @brief Reserves secondary heap
+ *
+ * @param smmu_hdl: SMMU handle identifying the context bank
+ * @param iova: IOVA of secondary heap after reservation has completed
+ * @param buf: Allocated dma_buf for secondary heap
+ * @param request_len: Length of secondary heap after reservation has completed
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_smmu_reserve_sec_heap(int32_t smmu_hdl,
+	struct dma_buf *buf,
+	dma_addr_t *iova,
+	size_t *request_len);
+
+/**
+ * @brief Releases secondary heap
+ *
+ * @param smmu_hdl: SMMU handle identifying the context bank
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_smmu_release_sec_heap(int32_t smmu_hdl);
+
 #endif /* _CAM_SMMU_API_H_ */

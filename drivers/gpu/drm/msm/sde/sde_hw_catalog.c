@@ -15,6 +15,7 @@
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/soc/qcom/llcc-qcom.h>
+#include <linux/pm_qos.h>
 
 #include "sde_hw_mdss.h"
 #include "sde_hw_catalog.h"
@@ -115,6 +116,8 @@
 		"NV12/5/1/1.25 AB24/5/1/1.25 XB24/5/1/1.25"
 #define DEFAULT_MAX_PER_PIPE_BW			2400000
 #define DEFAULT_AMORTIZABLE_THRESHOLD		25
+#define DEFAULT_CPU_MASK			0
+#define DEFAULT_CPU_DMA_LATENCY			PM_QOS_DEFAULT_VALUE
 
 /*************************************************************
  *  DTSI PROPERTY INDEX
@@ -176,6 +179,8 @@ enum {
 	PERF_QOS_LUT_NRT,
 	PERF_QOS_LUT_CWB,
 	PERF_CDP_SETTING,
+	PERF_CPU_MASK,
+	PERF_CPU_DMA_LATENCY,
 	PERF_PROP_MAX,
 };
 
@@ -448,6 +453,9 @@ static struct sde_prop_type sde_perf_prop[] = {
 
 	{PERF_CDP_SETTING, "qcom,sde-cdp-setting", false,
 			PROP_TYPE_U32_ARRAY},
+	{PERF_CPU_MASK, "qcom,sde-qos-cpu-mask", false, PROP_TYPE_U32},
+	{PERF_CPU_DMA_LATENCY, "qcom,sde-qos-cpu-dma-latency", false,
+			PROP_TYPE_U32},
 };
 
 static struct sde_prop_type sspp_prop[] = {
@@ -3083,6 +3091,15 @@ static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 		cfg->has_cdp = true;
 	}
 
+	cfg->perf.cpu_mask =
+			prop_exists[PERF_CPU_MASK] ?
+			PROP_VALUE_ACCESS(prop_value, PERF_CPU_MASK, 0) :
+			DEFAULT_CPU_MASK;
+	cfg->perf.cpu_dma_latency =
+			prop_exists[PERF_CPU_DMA_LATENCY] ?
+			PROP_VALUE_ACCESS(prop_value, PERF_CPU_DMA_LATENCY, 0) :
+			DEFAULT_CPU_DMA_LATENCY;
+
 freeprop:
 	kfree(prop_value);
 end:
@@ -3146,6 +3163,12 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 		rc = -ENOMEM;
 		goto end;
 	}
+
+	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_300) ||
+	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_301) ||
+	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400) ||
+	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_401))
+		sde_cfg->has_hdr = true;
 
 	index = sde_copy_formats(sde_cfg->dma_formats, dma_list_size,
 		0, plane_formats, ARRAY_SIZE(plane_formats));

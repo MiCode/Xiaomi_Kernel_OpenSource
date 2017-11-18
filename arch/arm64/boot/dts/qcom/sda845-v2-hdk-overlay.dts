@@ -19,7 +19,9 @@
 #include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
+#include "sdm845-sde-display.dtsi"
 #include "sda845-v2-hdk.dtsi"
+#include "sdm845-hdk-audio-overlay.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDA845 v2 HDK";

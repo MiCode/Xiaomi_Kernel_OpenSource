@@ -150,7 +150,7 @@ void *kmap_atomic_pfn(unsigned long pfn)
 }
 
 #ifdef CONFIG_ARCH_WANT_KMAP_ATOMIC_FLUSH
-static void kmap_remove_unused_cpu(int cpu)
+int kmap_remove_unused_cpu(unsigned int cpu)
 {
 	int start_idx, idx, type;
 
@@ -167,6 +167,7 @@ static void kmap_remove_unused_cpu(int cpu)
 			set_top_pte(vaddr, __pte(0));
 	}
 	pagefault_enable();
+	return 0;
 }
 
 static void kmap_remove_unused(void *unused)
@@ -179,27 +180,4 @@ void kmap_atomic_flush_unused(void)
 	on_each_cpu(kmap_remove_unused, NULL, 1);
 }
 
-static int hotplug_kmap_atomic_callback(struct notifier_block *nfb,
-					unsigned long action, void *hcpu)
-{
-	switch (action & (~CPU_TASKS_FROZEN)) {
-	case CPU_DYING:
-		kmap_remove_unused_cpu((int)hcpu);
-		break;
-	default:
-		break;
-	}
-
-	return NOTIFY_OK;
-}
-
-static struct notifier_block hotplug_kmap_atomic_notifier = {
-	.notifier_call = hotplug_kmap_atomic_callback,
-};
-
-static int __init init_kmap_atomic(void)
-{
-	return register_hotcpu_notifier(&hotplug_kmap_atomic_notifier);
-}
-early_initcall(init_kmap_atomic);
 #endif

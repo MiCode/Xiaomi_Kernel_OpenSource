@@ -21,6 +21,8 @@
 #include "cam_cpas_hw_intf.h"
 #include "cam_cpas_soc.h"
 
+#define CAM_CPAS_AXI_MIN_BW (2048 * 1024)
+
 int cam_cpas_util_reg_update(struct cam_hw_info *cpas_hw,
 	enum cam_cpas_reg_base reg_base, struct cam_cpas_reg *reg_info)
 {
@@ -115,6 +117,12 @@ static int cam_cpas_util_vote_bus_client_bw(
 	idx = 1 - idx;
 	bus_client->curr_vote_level = idx;
 	mutex_unlock(&bus_client->lock);
+
+	if ((ab > 0) && (ab < CAM_CPAS_AXI_MIN_BW))
+		ab = CAM_CPAS_AXI_MIN_BW;
+
+	if ((ib > 0) && (ib < CAM_CPAS_AXI_MIN_BW))
+		ib = CAM_CPAS_AXI_MIN_BW;
 
 	pdata = bus_client->pdata;
 	path = &(pdata->usecase[idx]);
@@ -362,7 +370,7 @@ static int cam_cpas_util_vote_default_ahb_axi(struct cam_hw_info *cpas_hw,
 	list_for_each_entry_safe(curr_port, temp_port,
 		&cpas_core->axi_ports_list_head, sibling_port) {
 		rc = cam_cpas_util_vote_bus_client_bw(&curr_port->mnoc_bus,
-			mnoc_bw, 0);
+			mnoc_bw, mnoc_bw);
 		if (rc) {
 			CAM_ERR(CAM_CPAS,
 				"Failed in mnoc vote, enable=%d, rc=%d",
@@ -372,7 +380,7 @@ static int cam_cpas_util_vote_default_ahb_axi(struct cam_hw_info *cpas_hw,
 
 		if (soc_private->axi_camnoc_based) {
 			cam_cpas_util_vote_bus_client_bw(
-				&curr_port->camnoc_bus, camnoc_bw, 0);
+				&curr_port->camnoc_bus, 0, camnoc_bw);
 			if (rc) {
 				CAM_ERR(CAM_CPAS,
 					"Failed in mnoc vote, enable=%d, %d",
@@ -563,7 +571,7 @@ static int cam_cpas_util_apply_client_axi_vote(
 		camnoc_bw, mnoc_bw);
 
 	rc = cam_cpas_util_vote_bus_client_bw(&axi_port->mnoc_bus,
-		mnoc_bw, 0);
+		mnoc_bw, mnoc_bw);
 	if (rc) {
 		CAM_ERR(CAM_CPAS,
 			"Failed in mnoc vote ab[%llu] ib[%llu] rc=%d",
@@ -573,11 +581,11 @@ static int cam_cpas_util_apply_client_axi_vote(
 
 	if (soc_private->axi_camnoc_based) {
 		rc = cam_cpas_util_vote_bus_client_bw(&axi_port->camnoc_bus,
-			camnoc_bw, 0);
+			0, camnoc_bw);
 		if (rc) {
 			CAM_ERR(CAM_CPAS,
 				"Failed camnoc vote ab[%llu] ib[%llu] rc=%d",
-				camnoc_bw, camnoc_bw, rc);
+				0, camnoc_bw, rc);
 			goto unlock_axi_port;
 		}
 	}
@@ -1250,7 +1258,7 @@ static int cam_cpas_util_client_setup(struct cam_hw_info *cpas_hw)
 	struct cam_cpas *cpas_core = (struct cam_cpas *) cpas_hw->core_info;
 	int i;
 
-	for (i = 0; i < CPAS_MAX_CLIENTS; i++) {
+	for (i = 0; i < CAM_CPAS_MAX_CLIENTS; i++) {
 		mutex_init(&cpas_core->client_mutex[i]);
 		cpas_core->cpas_client[i] = NULL;
 	}
@@ -1263,7 +1271,7 @@ static int cam_cpas_util_client_cleanup(struct cam_hw_info *cpas_hw)
 	struct cam_cpas *cpas_core = (struct cam_cpas *) cpas_hw->core_info;
 	int i;
 
-	for (i = 0; i < CPAS_MAX_CLIENTS; i++) {
+	for (i = 0; i < CAM_CPAS_MAX_CLIENTS; i++) {
 		if (cpas_core->cpas_client[i]) {
 			cam_cpas_hw_unregister_client(cpas_hw, i);
 			cpas_core->cpas_client[i] = NULL;

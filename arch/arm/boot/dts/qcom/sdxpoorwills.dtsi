@@ -10,9 +10,8 @@
  * GNU General Public License for more details.
  */
 
-
+#include <dt-bindings/soc/qcom,tcs-mbox.h>
 #include "skeleton.dtsi"
-
 #include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/clock/qcom,gcc-sdxpoorwills.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
@@ -175,7 +174,7 @@
 		reg = <0x831000 0x200>;
 		interrupts = <0 26 0>;
 		status = "disabled";
-		clocks = <&clock_gcc GCC_BLSP1_UART2_APPS_CLK>,
+		clocks = <&clock_gcc GCC_BLSP1_UART3_APPS_CLK>,
 			<&clock_gcc GCC_BLSP1_AHB_CLK>;
 		clock-names = "core", "iface";
 	};
@@ -312,8 +311,8 @@
 		reg = <0x8fe40000 0xc0000>,
 			<0x17811008 0x4>;
 		reg-names = "smem", "irq-reg-base";
-		qcom,irq-mask = <0x1000>;
-		interrupts = <GIC_SPI 111 IRQ_TYPE_EDGE_RISING>;
+		qcom,irq-mask = <0x8000>;
+		interrupts = <GIC_SPI 114 IRQ_TYPE_EDGE_RISING>;
 		label = "mpss";
 	};
 
@@ -414,6 +413,29 @@
 
 		/* GPIO output to mss */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
+	};
+
+	apps_rsc: mailbox@17840000 {
+		compatible = "qcom,tcs-drv";
+		label = "apps_rsc";
+		reg = <0x17840000 0x100>, <0x17840d00 0x3000>;
+		interrupts = <0 17 0>;
+		#mbox-cells = <1>;
+		qcom,drv-id = <1>;
+		qcom,tcs-config = <ACTIVE_TCS  2>,
+				<SLEEP_TCS     2>,
+				<WAKE_TCS      2>,
+				<CONTROL_TCS   1>;
+	};
+
+	cmd_db: qcom,cmd-db@ca0000c {
+		compatible = "qcom,cmd-db";
+		reg = <0xca0000c 8>;
+	};
+
+	system_pm {
+		compatible = "qcom,system-pm";
+		mboxes = <&apps_rsc 0>;
 	};
 };
 

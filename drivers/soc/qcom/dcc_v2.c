@@ -555,14 +555,12 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 			goto err;
 		}
 
-		/* 3. If in capture mode program DCC_RAM_CFG reg */
-		if (drvdata->func_type[list] == DCC_FUNC_TYPE_CAPTURE) {
-			dcc_writel(drvdata, ram_cfg_base +
-				   drvdata->ram_offset/4, DCC_LL_BASE(list));
-			dcc_writel(drvdata, drvdata->ram_start +
-				   drvdata->ram_offset/4, DCC_FD_BASE(list));
-			dcc_writel(drvdata, 0xFFF, DCC_LL_TIMEOUT(list));
-		}
+		/* 3. program DCC_RAM_CFG reg */
+		dcc_writel(drvdata, ram_cfg_base +
+			   drvdata->ram_offset/4, DCC_LL_BASE(list));
+		dcc_writel(drvdata, drvdata->ram_start +
+			   drvdata->ram_offset/4, DCC_FD_BASE(list));
+		dcc_writel(drvdata, 0xFFF, DCC_LL_TIMEOUT(list));
 
 		/* 4. Configure trigger, data sink and function type */
 		dcc_writel(drvdata, BIT(9) | ((drvdata->cti_trig << 8) |
@@ -813,6 +811,9 @@ static ssize_t dcc_show_config(struct device *dev,
 	int len = 0, count = 0;
 
 	buf[0] = '\0';
+
+	if (drvdata->curr_list >= DCC_MAX_LINK_LIST)
+		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
 	list_for_each_entry(entry,

@@ -38,14 +38,6 @@
 #include "sde_color_processing.h"
 #include "sde_hw_rot.h"
 
-static bool suspend_blank = true;
-module_param(suspend_blank, bool, 0400);
-MODULE_PARM_DESC(suspend_blank,
-		"If set, active planes will force their outputs to black,\n"
-		"by temporarily enabling the color fill, when recovering\n"
-		"from a system resume instead of attempting to display the\n"
-		"last provided frame buffer.");
-
 #define SDE_DEBUG_PLANE(pl, fmt, ...) SDE_DEBUG("plane%d " fmt,\
 		(pl) ? (pl)->base.base.id : -1, ##__VA_ARGS__)
 
@@ -826,6 +818,7 @@ int sde_plane_wait_input_fence(struct drm_plane *plane, uint32_t wait_ms)
 				SDE_ERROR_PLANE(psde, "%ums timeout on %08X\n",
 						wait_ms, prefix);
 				psde->is_error = true;
+				sde_kms_timeline_status(plane->dev);
 				ret = -ETIMEDOUT;
 				break;
 			case -ERESTARTSYS:
@@ -3499,10 +3492,6 @@ void sde_plane_flush(struct drm_plane *plane)
 	else if (psde->pipe_hw && psde->csc_ptr && psde->pipe_hw->ops.setup_csc)
 		psde->pipe_hw->ops.setup_csc(psde->pipe_hw, psde->csc_ptr);
 
-	/* force black color fill during suspend */
-	if (sde_kms_is_suspend_state(plane->dev) && suspend_blank)
-		_sde_plane_color_fill(psde, 0x0, 0x0);
-
 	/* flag h/w flush complete */
 	if (plane->state)
 		pstate->pending = false;
@@ -4473,15 +4462,6 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 	return ret;
 }
 
-static int sde_plane_set_property(struct drm_plane *plane,
-		struct drm_property *property, uint64_t val)
-{
-	SDE_DEBUG("\n");
-
-	return sde_plane_atomic_set_property(plane,
-			plane->state, property, val);
-}
-
 static int sde_plane_atomic_get_property(struct drm_plane *plane,
 		const struct drm_plane_state *state,
 		struct drm_property *property, uint64_t *val)
@@ -4885,7 +4865,7 @@ static const struct drm_plane_funcs sde_plane_funcs = {
 		.update_plane = drm_atomic_helper_update_plane,
 		.disable_plane = drm_atomic_helper_disable_plane,
 		.destroy = sde_plane_destroy,
-		.set_property = sde_plane_set_property,
+		.set_property = drm_atomic_helper_plane_set_property,
 		.atomic_set_property = sde_plane_atomic_set_property,
 		.atomic_get_property = sde_plane_atomic_get_property,
 		.reset = sde_plane_reset,

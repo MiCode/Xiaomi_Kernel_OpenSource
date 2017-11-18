@@ -156,6 +156,7 @@
 #define HFI_PROPERTY_ICP_COMMON_START  (HFI_DOMAIN_BASE_ICP + 0x0)
 
 #define HFI_PROP_SYS_DEBUG_CFG         (HFI_PROPERTY_ICP_COMMON_START + 0x1)
+#define HFI_PROP_SYS_UBWC_CFG          (HFI_PROPERTY_ICP_COMMON_START + 0x2)
 #define HFI_PROP_SYS_IMAGE_VER         (HFI_PROPERTY_ICP_COMMON_START + 0x3)
 #define HFI_PROP_SYS_SUPPORTED         (HFI_PROPERTY_ICP_COMMON_START + 0x4)
 #define HFI_PROP_SYS_IPEBPS_PC         (HFI_PROPERTY_ICP_COMMON_START + 0x5)
@@ -200,6 +201,8 @@
 
 #define HFI_DEBUG_MODE_QUEUE     0x00000001
 #define HFI_DEBUG_MODE_QDSS      0x00000002
+
+#define HFI_DEV_VERSION_MAX      0x5
 
 /**
  * start of sys command packet types
@@ -255,6 +258,17 @@ struct hfi_debug {
 struct hfi_ipe_bps_pc {
 	uint32_t enable;
 } __packed;
+
+/**
+ * struct hfi_cmd_ubwc_cfg
+ * Payload structure to configure HFI_PROP_SYS_UBWC_CFG
+ * @ubwc_fetch_cfg: UBWC configuration for fecth
+ * @ubwc_write_cfg: UBWC configuration for write
+ */
+struct hfi_cmd_ubwc_cfg {
+	uint32_t ubwc_fetch_cfg;
+	uint32_t ubwc_write_cfg;
+};
 
 /**
  * struct hfi_cmd_sys_init
@@ -371,14 +385,30 @@ struct hfi_image_version {
 } __packed;
 
 /**
+ * struct hfi_msg_init_done_data
+ * @api_ver:    Firmware API version
+ * @dev_ver:    Device version
+ * @num_icp_hw: Number of ICP hardware information
+ * @dev_hw_ver: Supported hardware version information
+ * @reserved:   Reserved field
+ */
+struct hfi_msg_init_done_data {
+	uint32_t api_ver;
+	uint32_t dev_ver;
+	uint32_t num_icp_hw;
+	uint32_t dev_hw_ver[HFI_DEV_VERSION_MAX];
+	uint32_t reserved;
+};
+
+/**
  * struct hfi_msg_init_done
  * system init done message from firmware. Many system level properties
  * are returned with the packet
- * @size: packet size in bytes
- * @pkt_type: opcode of a packet
- * @err_type: error code associated with response
- * @num_prop: number of default capability info
- * @prop_data: array of property ids and corresponding structure pairs
+ * @size:      Packet size in bytes
+ * @pkt_type:  Opcode of a packet
+ * @err_type:  Error code associated with response
+ * @num_prop:  Number of default capability info
+ * @prop_data: Array of property ids and corresponding structure pairs
  */
 struct hfi_msg_init_done {
 	uint32_t size;

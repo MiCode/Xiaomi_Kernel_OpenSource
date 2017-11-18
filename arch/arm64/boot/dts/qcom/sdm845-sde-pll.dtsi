@@ -23,6 +23,8 @@
 		clocks = <&clock_dispcc DISP_CC_MDSS_AHB_CLK>;
 		clock-names = "iface_clk";
 		clock-rate = <0>;
+		qcom,dsi-pll-ssc-en;
+		qcom,dsi-pll-ssc-mode = "down-spread";
 		gdsc-supply = <&mdss_core_gdsc>;
 		qcom,platform-supply-entries {
 			#address-cells = <1>;
@@ -50,6 +52,8 @@
 		clocks = <&clock_dispcc DISP_CC_MDSS_AHB_CLK>;
 		clock-names = "iface_clk";
 		clock-rate = <0>;
+		qcom,dsi-pll-ssc-en;
+		qcom,dsi-pll-ssc-mode = "down-spread";
 		gdsc-supply = <&mdss_core_gdsc>;
 		qcom,platform-supply-entries {
 			#address-cells = <1>;

@@ -332,14 +332,15 @@ int cam_context_handle_stop_dev(struct cam_context *ctx,
 			ctx, cmd);
 	else
 		/* stop device can be optional for some driver */
-		CAM_WARN(CAM_CORE, "No stop device in dev %d, state %d",
-			ctx->dev_hdl, ctx->state);
+		CAM_WARN(CAM_CORE, "No stop device in dev %d, name %s state %d",
+			ctx->dev_hdl, ctx->dev_name, ctx->state);
 	mutex_unlock(&ctx->ctx_mutex);
 
 	return rc;
 }
 
 int cam_context_init(struct cam_context *ctx,
+	const char *dev_name,
 	struct cam_req_mgr_kmd_ops *crm_node_intf,
 	struct cam_hw_mgr_intf *hw_mgr_intf,
 	struct cam_ctx_request *req_list,
@@ -355,10 +356,13 @@ int cam_context_init(struct cam_context *ctx,
 
 	memset(ctx, 0, sizeof(*ctx));
 	ctx->dev_hdl = -1;
+	ctx->link_hdl = -1;
+	ctx->session_hdl = -1;
 	INIT_LIST_HEAD(&ctx->list);
 	mutex_init(&ctx->ctx_mutex);
 	spin_lock_init(&ctx->lock);
 
+	ctx->dev_name = dev_name;
 	ctx->ctx_crm_intf = NULL;
 	ctx->crm_ctx_intf = crm_node_intf;
 	ctx->hw_mgr_intf = hw_mgr_intf;

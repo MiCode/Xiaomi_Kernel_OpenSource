@@ -1051,23 +1051,6 @@ config CGROUP_SCHEDTUNE
 config PAGE_COUNTER
        bool
 
-config CGROUP_SCHEDTUNE
-	bool "CFS tasks boosting cgroup subsystem (EXPERIMENTAL)"
-	depends on SCHED_TUNE
-	help
-	  This option provides the "schedtune" controller which improves the
-	  flexibility of the task boosting mechanism by introducing the support
-	  to define "per task" boost values.
-
-	  This new controller:
-	  1. allows only a two layers hierarchy, where the root defines the
-	     system-wide boost value and its direct childrens define each one a
-	     different "class of tasks" to be boosted with a different value
-	  2. supports up to 16 different task classes, each one which could be
-	     configured with a different boost value
-
-	  Say N if unsure.
-
 config MEMCG
 	bool "Memory controller"
 	select PAGE_COUNTER
@@ -1275,13 +1258,6 @@ config SOCK_CGROUP_DATA
 	default n
 
 endif # CGROUPS
-
-config SCHED_WALT
-	bool "WALT"
-	depends on SMP && FAIR_GROUP_SCHED
-	help
-	  Use Window-Assisted Load Tracking (WALT) as an alternative or
-	  additional load tracking scheme in lieu of or along with PELT.
 
 config SCHED_CORE_CTL
 	bool "QTI Core Control"

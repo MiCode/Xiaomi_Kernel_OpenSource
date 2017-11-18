@@ -19,6 +19,7 @@
 #include <linux/io.h>
 #include <linux/list.h>
 #include <linux/module.h>
+#include <linux/slab.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
 #include <linux/of.h>
@@ -575,13 +576,6 @@ void se_config_packing(void __iomem *base, int bpw,
 }
 EXPORT_SYMBOL(se_config_packing);
 
-static void se_geni_clks_off(struct se_geni_rsc *rsc)
-{
-	clk_disable_unprepare(rsc->se_clk);
-	clk_disable_unprepare(rsc->s_ahb_clk);
-	clk_disable_unprepare(rsc->m_ahb_clk);
-}
-
 static bool geni_se_check_bus_bw(struct geni_se_device *geni_se_dev)
 {
 	int i;
@@ -641,6 +635,37 @@ static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 }
 
 /**
+ * se_geni_clks_off() - Turn off clocks associated with the serial
+ *                      engine
+ * @rsc:	Handle to resources associated with the serial engine.
+ *
+ * Return:	0 on success, standard Linux error codes on failure/error.
+ */
+int se_geni_clks_off(struct se_geni_rsc *rsc)
+{
+	int ret = 0;
+	struct geni_se_device *geni_se_dev;
+
+	if (unlikely(!rsc || !rsc->wrapper_dev))
+		return -EINVAL;
+
+	geni_se_dev = dev_get_drvdata(rsc->wrapper_dev);
+	if (unlikely(!geni_se_dev || !geni_se_dev->bus_bw))
+		return -ENODEV;
+
+	clk_disable_unprepare(rsc->se_clk);
+	clk_disable_unprepare(rsc->s_ahb_clk);
+	clk_disable_unprepare(rsc->m_ahb_clk);
+
+	ret = geni_se_rmv_ab_ib(geni_se_dev, rsc);
+	if (ret)
+		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
+			"%s: Error %d during bus_bw_update\n", __func__, ret);
+	return ret;
+}
+EXPORT_SYMBOL(se_geni_clks_off);
+
+/**
  * se_geni_resources_off() - Turn off resources associated with the serial
  *                           engine
  * @rsc:	Handle to resources associated with the serial engine.
@@ -665,36 +690,13 @@ int se_geni_resources_off(struct se_geni_rsc *rsc)
 			"%s: Error %d pinctrl_select_state\n", __func__, ret);
 		return ret;
 	}
-	se_geni_clks_off(rsc);
-	ret = geni_se_rmv_ab_ib(geni_se_dev, rsc);
+	ret = se_geni_clks_off(rsc);
 	if (ret)
 		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
-			"%s: Error %d during bus_bw_update\n", __func__, ret);
+			"%s: Error %d turning off clocks\n", __func__, ret);
 	return ret;
 }
 EXPORT_SYMBOL(se_geni_resources_off);
-
-static int se_geni_clks_on(struct se_geni_rsc *rsc)
-{
-	int ret;
-
-	ret = clk_prepare_enable(rsc->m_ahb_clk);
-	if (ret)
-		return ret;
-
-	ret = clk_prepare_enable(rsc->s_ahb_clk);
-	if (ret) {
-		clk_disable_unprepare(rsc->m_ahb_clk);
-		return ret;
-	}
-
-	ret = clk_prepare_enable(rsc->se_clk);
-	if (ret) {
-		clk_disable_unprepare(rsc->s_ahb_clk);
-		clk_disable_unprepare(rsc->m_ahb_clk);
-	}
-	return ret;
-}
 
 static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 			     struct se_geni_rsc *rsc)
@@ -733,13 +735,13 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 }
 
 /**
- * se_geni_resources_on() - Turn on resources associated with the serial
- *                          engine
+ * se_geni_clks_on() - Turn on clocks associated with the serial
+ *                     engine
  * @rsc:	Handle to resources associated with the serial engine.
  *
  * Return:	0 on success, standard Linux error codes on failure/error.
  */
-int se_geni_resources_on(struct se_geni_rsc *rsc)
+int se_geni_clks_on(struct se_geni_rsc *rsc)
 {
 	int ret = 0;
 	struct geni_se_device *geni_se_dev;
@@ -758,11 +760,52 @@ int se_geni_resources_on(struct se_geni_rsc *rsc)
 		return ret;
 	}
 
+	ret = clk_prepare_enable(rsc->m_ahb_clk);
+	if (ret)
+		goto clks_on_err1;
+
+	ret = clk_prepare_enable(rsc->s_ahb_clk);
+	if (ret)
+		goto clks_on_err2;
+
+	ret = clk_prepare_enable(rsc->se_clk);
+	if (ret)
+		goto clks_on_err3;
+	return 0;
+
+clks_on_err3:
+	clk_disable_unprepare(rsc->s_ahb_clk);
+clks_on_err2:
+	clk_disable_unprepare(rsc->m_ahb_clk);
+clks_on_err1:
+	geni_se_rmv_ab_ib(geni_se_dev, rsc);
+	return ret;
+}
+EXPORT_SYMBOL(se_geni_clks_on);
+
+/**
+ * se_geni_resources_on() - Turn on resources associated with the serial
+ *                          engine
+ * @rsc:	Handle to resources associated with the serial engine.
+ *
+ * Return:	0 on success, standard Linux error codes on failure/error.
+ */
+int se_geni_resources_on(struct se_geni_rsc *rsc)
+{
+	int ret = 0;
+	struct geni_se_device *geni_se_dev;
+
+	if (unlikely(!rsc || !rsc->wrapper_dev))
+		return -EINVAL;
+
+	geni_se_dev = dev_get_drvdata(rsc->wrapper_dev);
+	if (unlikely(!geni_se_dev))
+		return -EPROBE_DEFER;
+
 	ret = se_geni_clks_on(rsc);
 	if (ret) {
 		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
 			"%s: Error %d during clks_on\n", __func__, ret);
-		geni_se_rmv_ab_ib(geni_se_dev, rsc);
 		return ret;
 	}
 
@@ -771,7 +814,6 @@ int se_geni_resources_on(struct se_geni_rsc *rsc)
 		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
 			"%s: Error %d pinctrl_select_state\n", __func__, ret);
 		se_geni_clks_off(rsc);
-		geni_se_rmv_ab_ib(geni_se_dev, rsc);
 	}
 	return ret;
 }

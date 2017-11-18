@@ -125,9 +125,6 @@ int cam_vfe_reset_irq_top_half(uint32_t    evt_id,
 	CAM_DBG(CAM_ISP, "IRQ status_0 = 0x%x", th_payload->evt_status_arr[0]);
 
 	if (th_payload->evt_status_arr[0] & (1<<31)) {
-		CAM_DBG(CAM_ISP, "Calling Complete for RESET CMD");
-		complete(handler_priv->reset_complete);
-
 		/*
 		 * Clear All IRQs to avoid spurious IRQs immediately
 		 * after Reset Done.
@@ -135,6 +132,9 @@ int cam_vfe_reset_irq_top_half(uint32_t    evt_id,
 		cam_io_w(0xFFFFFFFF, handler_priv->mem_base + 0x64);
 		cam_io_w(0xFFFFFFFF, handler_priv->mem_base + 0x68);
 		cam_io_w(0x1, handler_priv->mem_base + 0x58);
+		CAM_DBG(CAM_ISP, "Calling Complete for RESET CMD");
+		complete(handler_priv->reset_complete);
+
 
 		rc = 0;
 	}
@@ -207,6 +207,7 @@ int cam_vfe_deinit_hw(void *hw_priv, void *deinit_hw_args, uint32_t arg_size)
 {
 	struct cam_hw_info                *vfe_hw = hw_priv;
 	struct cam_hw_soc_info            *soc_info = NULL;
+	struct cam_vfe_hw_core_info       *core_info = NULL;
 	int rc = 0;
 
 	CAM_DBG(CAM_ISP, "Enter");
@@ -230,6 +231,12 @@ int cam_vfe_deinit_hw(void *hw_priv, void *deinit_hw_args, uint32_t arg_size)
 	mutex_unlock(&vfe_hw->hw_mutex);
 
 	soc_info = &vfe_hw->soc_info;
+	core_info = (struct cam_vfe_hw_core_info *)vfe_hw->core_info;
+
+	rc = core_info->vfe_bus->hw_ops.deinit(core_info->vfe_bus->bus_priv,
+		NULL, 0);
+	if (rc)
+		CAM_ERR(CAM_ISP, "Bus HW deinit Failed rc=%d", rc);
 
 	/* Turn OFF Regulators, Clocks and other SOC resources */
 	CAM_DBG(CAM_ISP, "Disable SOC resource");

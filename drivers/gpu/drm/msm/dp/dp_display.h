@@ -16,6 +16,7 @@
 #define _DP_DISPLAY_H_
 
 #include <drm/drmP.h>
+#include <drm/msm_drm.h>
 
 #include "dp_panel.h"
 
@@ -34,8 +35,7 @@ struct dp_display {
 
 	int (*set_mode)(struct dp_display *dp_display,
 			struct dp_display_mode *mode);
-	int (*validate_mode)(struct dp_display *dp_display,
-			struct dp_display_mode *mode);
+	int (*validate_mode)(struct dp_display *dp_display, u32 mode_pclk_khz);
 	int (*get_modes)(struct dp_display *dp_display,
 		struct dp_display_mode *dp_mode);
 	int (*prepare)(struct dp_display *dp_display);
@@ -43,8 +43,8 @@ struct dp_display {
 	int (*request_irq)(struct dp_display *dp_display);
 	struct dp_debug *(*get_debug)(struct dp_display *dp_display);
 	void (*send_hpd_event)(struct dp_display *dp_display);
-	bool (*is_video_test)(struct dp_display *dp_display);
-	int (*get_test_bpp)(struct dp_display *dp_display);
+	int (*pre_kickoff)(struct dp_display *dp_display,
+				struct drm_msm_ext_hdr_metadata *hdr_meta);
 };
 
 int dp_display_get_num_of_displays(void);

@@ -131,6 +131,11 @@ and name of firmware image.
   Value type: <string>
   Definition: Name of firmware image.
 
+- ubwc-cfg
+  Usage: required
+  Value type: <u32>
+  Definition: UBWC configuration.
+
 Examples:
 a5: qcom,a5@ac00000 {
 	cell-index = <0>;
@@ -169,6 +174,7 @@ a5: qcom,a5@ac00000 {
 	clock-rates = <0 0 0 80000000 0 0 0 0 600000000 0 0>;
 	clock-cntl-level = "turbo";
 	fw_name = "CAMERA_ICP.elf";
+	ubwc-cfg = <0x7F 0x1FF>;
 };
 
 qcom,ipe0 {

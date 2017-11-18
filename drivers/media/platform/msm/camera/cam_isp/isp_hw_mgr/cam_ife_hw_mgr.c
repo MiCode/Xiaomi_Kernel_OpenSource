@@ -1271,15 +1271,16 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv,
 
 	cdm_acquire.id = CAM_CDM_VIRTUAL;
 	cdm_acquire.cam_cdm_callback = cam_ife_cam_cdm_callback;
-	if (!cam_cdm_acquire(&cdm_acquire)) {
-		CAM_DBG(CAM_ISP, "Successfully acquired the CDM HW hdl=%x",
-			cdm_acquire.handle);
-		ife_ctx->cdm_handle = cdm_acquire.handle;
-		ife_ctx->cdm_ops = cdm_acquire.ops;
-	} else {
+	rc = cam_cdm_acquire(&cdm_acquire);
+	if (rc) {
 		CAM_ERR(CAM_ISP, "Failed to acquire the CDM HW");
-		goto err;
+		goto free_ctx;
 	}
+
+	CAM_DBG(CAM_ISP, "Successfully acquired the CDM HW hdl=%x",
+		cdm_acquire.handle);
+	ife_ctx->cdm_handle = cdm_acquire.handle;
+	ife_ctx->cdm_ops = cdm_acquire.ops;
 
 	isp_resource = (struct cam_isp_resource *)acquire_args->acquire_info;
 
@@ -1325,7 +1326,7 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv,
 	rc = cam_ife_mgr_process_base_info(ife_ctx);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Process base info failed");
-		return -EINVAL;
+		goto free_res;
 	}
 
 	acquire_args->ctxt_to_hw_map = ife_ctx;
@@ -1338,6 +1339,8 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv,
 	return 0;
 free_res:
 	cam_ife_hw_mgr_release_hw_for_ctx(ife_ctx);
+	cam_cdm_release(ife_ctx->cdm_handle);
+free_ctx:
 	cam_ife_hw_mgr_put_ctx(&ife_hw_mgr->free_ctx_list, &ife_ctx);
 err:
 	CAM_DBG(CAM_ISP, "Exit...(rc=%d)", rc);
@@ -2798,9 +2801,14 @@ static int cam_ife_hw_mgr_process_camif_sof(
 		rc = cam_ife_hw_mgr_check_irq_for_dual_vfe(ife_hwr_mgr_ctx,
 			core_index0, core_index1, evt_payload->evt_id);
 
-		if (!rc)
+		if (!rc) {
+			cam_ife_mgr_cmd_get_sof_timestamp(
+					ife_hwr_mgr_ctx,
+					&sof_done_event_data.timestamp);
+
 			ife_hwr_irq_sof_cb(ife_hwr_mgr_ctx->common.cb_priv,
 				CAM_ISP_HW_EVENT_SOF, &sof_done_event_data);
+		}
 
 		break;
 
@@ -3208,6 +3216,10 @@ int cam_ife_mgr_do_tasklet(void *handler_priv, void *evt_payload_priv)
 		return IRQ_HANDLED;
 	}
 
+	CAM_DBG(CAM_ISP, "Calling EOF");
+	cam_ife_hw_mgr_handle_eof_for_camif_hw_res(ife_hwr_mgr_ctx,
+		evt_payload_priv);
+
 	CAM_DBG(CAM_ISP, "Calling SOF");
 	/* SOF IRQ */
 	cam_ife_hw_mgr_handle_sof(ife_hwr_mgr_ctx,
@@ -3221,8 +3233,6 @@ int cam_ife_mgr_do_tasklet(void *handler_priv, void *evt_payload_priv)
 	CAM_DBG(CAM_ISP, "Calling EPOCH");
 	/* EPOCH IRQ */
 	cam_ife_hw_mgr_handle_epoch_for_camif_hw_res(ife_hwr_mgr_ctx,
-		evt_payload_priv);
-	cam_ife_hw_mgr_handle_eof_for_camif_hw_res(ife_hwr_mgr_ctx,
 		evt_payload_priv);
 
 	return IRQ_HANDLED;

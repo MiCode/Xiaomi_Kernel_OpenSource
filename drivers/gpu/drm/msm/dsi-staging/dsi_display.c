@@ -259,7 +259,11 @@ static int dsi_display_read_status(struct dsi_display_ctrl *ctrl,
 	lenp = config->status_valid_params ?: config->status_cmds_rlen;
 	count = config->status_cmd.count;
 	cmds = config->status_cmd.cmds;
-	flags = (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ);
+	if (cmds->last_command) {
+		cmds->msg.flags |= MIPI_DSI_MSG_LASTCOMMAND;
+		flags |= DSI_CTRL_CMD_LAST_COMMAND;
+	}
+	flags |= (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ);
 
 	for (i = 0; i < count; ++i) {
 		memset(config->status_buf, 0x0, SZ_4K);
@@ -372,7 +376,7 @@ int dsi_display_check_status(void *display)
 	struct dsi_display *dsi_display = display;
 	struct dsi_panel *panel;
 	u32 status_mode;
-	int rc = 0;
+	int rc = 0x1;
 
 	if (dsi_display == NULL)
 		return -EINVAL;
@@ -380,6 +384,14 @@ int dsi_display_check_status(void *display)
 	panel = dsi_display->panel;
 
 	status_mode = panel->esd_config.status_mode;
+
+	mutex_lock(&dsi_display->display_lock);
+
+	if (!panel->panel_initialized) {
+		pr_debug("Panel not initialized\n");
+		mutex_unlock(&dsi_display->display_lock);
+		return rc;
+	}
 
 	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
 		DSI_ALL_CLKS, DSI_CLK_ON);
@@ -397,6 +409,7 @@ int dsi_display_check_status(void *display)
 
 	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
 		DSI_ALL_CLKS, DSI_CLK_OFF);
+	mutex_unlock(&dsi_display->display_lock);
 
 	return rc;
 }
@@ -3622,9 +3635,6 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 	if (display->panel->esd_config.esd_enabled)
 		info->capabilities |= MSM_DISPLAY_ESD_ENABLED;
 
-	memcpy(&info->roi_caps, &display->panel->roi_caps,
-			sizeof(info->roi_caps));
-
 error:
 	mutex_unlock(&display->display_lock);
 	return rc;
@@ -4155,13 +4165,20 @@ static int dsi_display_calc_ctrl_roi(const struct dsi_display *display,
 		struct dsi_rect *out_roi)
 {
 	const struct dsi_rect *bounds = &ctrl->ctrl->mode_bounds;
+	struct dsi_display_mode *cur_mode;
+	struct msm_roi_caps *roi_caps;
 	struct dsi_rect req_roi = { 0 };
 	int rc = 0;
 
-	if (req_rois->num_rects > display->panel->roi_caps.num_roi) {
+	cur_mode = display->panel->cur_mode;
+	if (!cur_mode)
+		return 0;
+
+	roi_caps = &cur_mode->priv_info->roi_caps;
+	if (req_rois->num_rects > roi_caps->num_roi) {
 		pr_err("request for %d rois greater than max %d\n",
 				req_rois->num_rects,
-				display->panel->roi_caps.num_roi);
+				roi_caps->num_roi);
 		rc = -EINVAL;
 		goto exit;
 	}
@@ -4198,13 +4215,20 @@ exit:
 static int dsi_display_set_roi(struct dsi_display *display,
 		struct msm_roi_list *rois)
 {
+	struct dsi_display_mode *cur_mode;
+	struct msm_roi_caps *roi_caps;
 	int rc = 0;
 	int i;
 
 	if (!display || !rois || !display->panel)
 		return -EINVAL;
 
-	if (!display->panel->roi_caps.enabled)
+	cur_mode = display->panel->cur_mode;
+	if (!cur_mode)
+		return 0;
+
+	roi_caps = &cur_mode->priv_info->roi_caps;
+	if (!roi_caps->enabled)
 		return 0;
 
 	for (i = 0; i < display->ctrl_count; i++) {

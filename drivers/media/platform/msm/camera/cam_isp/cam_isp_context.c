@@ -24,6 +24,8 @@
 #include "cam_trace.h"
 #include "cam_debug_util.h"
 
+static const char isp_dev_name[] = "isp";
+
 static int __cam_isp_ctx_enqueue_request_in_order(
 	struct cam_context *ctx, struct cam_ctx_request *req)
 {
@@ -1781,7 +1783,7 @@ static int __cam_isp_ctx_config_dev_in_acquired(struct cam_context *ctx,
 
 	rc = __cam_isp_ctx_config_dev_in_top_state(ctx, cmd);
 
-	if (!rc && ctx->link_hdl) {
+	if (!rc && (ctx->link_hdl >= 0)) {
 		ctx->state = CAM_CTX_READY;
 		trace_cam_context_state("ISP", ctx);
 	}
@@ -1819,7 +1821,7 @@ static int __cam_isp_ctx_unlink_in_acquired(struct cam_context *ctx,
 {
 	int rc = 0;
 
-	ctx->link_hdl = 0;
+	ctx->link_hdl = -1;
 	ctx->ctx_crm_intf = NULL;
 
 	return rc;
@@ -1905,7 +1907,7 @@ static int __cam_isp_ctx_unlink_in_ready(struct cam_context *ctx,
 {
 	int rc = 0;
 
-	ctx->link_hdl = 0;
+	ctx->link_hdl = -1;
 	ctx->ctx_crm_intf = NULL;
 	ctx->state = CAM_CTX_ACQUIRED;
 	trace_cam_context_state("ISP", ctx);
@@ -2154,8 +2156,8 @@ int cam_isp_context_init(struct cam_isp_context *ctx,
 	}
 
 	/* camera context setup */
-	rc = cam_context_init(ctx_base, crm_node_intf, hw_intf, ctx->req_base,
-		CAM_CTX_REQ_MAX);
+	rc = cam_context_init(ctx_base, isp_dev_name, crm_node_intf, hw_intf,
+		ctx->req_base, CAM_CTX_REQ_MAX);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Camera Context Base init failed");
 		goto err;

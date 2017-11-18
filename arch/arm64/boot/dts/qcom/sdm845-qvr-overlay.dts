@@ -22,6 +22,7 @@
 #include "sdm845-sde-display.dtsi"
 #include "sdm845-qvr.dtsi"
 #include "sdm845-qvr-audio-overlay.dtsi"
+#include "sdm845-camera-sensor-qvr.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM845 v2 QVR";

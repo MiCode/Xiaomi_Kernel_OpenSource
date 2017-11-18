@@ -672,6 +672,25 @@ static void sde_hw_rotator_disable_irq(struct sde_hw_rotator *rot)
 	}
 }
 
+static void sde_hw_rotator_halt_vbif_xin_client(void)
+{
+	struct sde_mdp_vbif_halt_params halt_params;
+
+	memset(&halt_params, 0, sizeof(struct sde_mdp_vbif_halt_params));
+	halt_params.xin_id = XIN_SSPP;
+	halt_params.reg_off_mdp_clk_ctrl = MMSS_VBIF_NRT_VBIF_CLK_FORCE_CTRL0;
+	halt_params.bit_off_mdp_clk_ctrl =
+		MMSS_VBIF_NRT_VBIF_CLK_FORCE_CTRL0_XIN0;
+	sde_mdp_halt_vbif_xin(&halt_params);
+
+	memset(&halt_params, 0, sizeof(struct sde_mdp_vbif_halt_params));
+	halt_params.xin_id = XIN_WRITEBACK;
+	halt_params.reg_off_mdp_clk_ctrl = MMSS_VBIF_NRT_VBIF_CLK_FORCE_CTRL0;
+	halt_params.bit_off_mdp_clk_ctrl =
+		MMSS_VBIF_NRT_VBIF_CLK_FORCE_CTRL0_XIN1;
+	sde_mdp_halt_vbif_xin(&halt_params);
+}
+
 /**
  * sde_hw_rotator_reset - Reset rotator hardware
  * @rot: pointer to hw rotator
@@ -703,6 +722,9 @@ static int sde_hw_rotator_reset(struct sde_hw_rotator *rot,
 	SDE_ROTREG_WRITE(rot->mdss_base, ROTTOP_SW_RESET_OVERRIDE, 1);
 	usleep_range(MS_TO_US(10), MS_TO_US(20));
 	SDE_ROTREG_WRITE(rot->mdss_base, ROTTOP_SW_RESET_OVERRIDE, 0);
+
+	/* halt vbif xin client to ensure no pending transaction */
+	sde_hw_rotator_halt_vbif_xin_client();
 
 	spin_lock_irqsave(&rot->rotisr_lock, flags);
 

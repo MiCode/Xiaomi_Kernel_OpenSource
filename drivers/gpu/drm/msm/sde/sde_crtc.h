@@ -508,8 +508,10 @@ int sde_crtc_vblank(struct drm_crtc *crtc, bool en);
 /**
  * sde_crtc_commit_kickoff - trigger kickoff of the commit for this crtc
  * @crtc: Pointer to drm crtc object
+ * @old_state: Pointer to drm crtc old state object
  */
-void sde_crtc_commit_kickoff(struct drm_crtc *crtc);
+void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
+		struct drm_crtc_state *old_state);
 
 /**
  * sde_crtc_prepare_commit - callback to prepare for output fences
@@ -722,4 +724,9 @@ int sde_crtc_secure_ctrl(struct drm_crtc *crtc, bool post_commit);
 int sde_crtc_helper_reset_custom_properties(struct drm_crtc *crtc,
 		struct drm_crtc_state *crtc_state);
 
+/**
+ * sde_crtc_timeline_status - current buffer timeline status
+ * @crtc: Pointer to crtc
+ */
+void sde_crtc_timeline_status(struct drm_crtc *crtc);
 #endif /* _SDE_CRTC_H_ */

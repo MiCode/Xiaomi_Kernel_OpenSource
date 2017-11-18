@@ -98,6 +98,7 @@ struct cam_vfe_bus_ver2_reg_offset_ubwc_client {
 	uint32_t meta_offset;
 	uint32_t meta_stride;
 	uint32_t mode_cfg;
+	uint32_t bw_limit;
 };
 
 /*

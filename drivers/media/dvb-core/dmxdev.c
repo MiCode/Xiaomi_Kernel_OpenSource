@@ -4028,6 +4028,9 @@ static ssize_t dvb_dmxdev_read_sec(struct dmxdev_filter *dfil,
 		hcount = 3 + dfil->todo;
 		if (hcount > count)
 			hcount = count;
+		if (hcount == 0)
+			return done;
+
 		result = dvb_dmxdev_buffer_read(dfil, &dfil->buffer,
 						file->f_flags & O_NONBLOCK,
 						buf, hcount, ppos);

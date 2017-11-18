@@ -61,9 +61,9 @@ int hfi_write_cmd(void *cmd_ptr);
  * @pmsg: buffer to place read message for hfi queue
  * @q_id: queue id
  *
- * Returns success(zero)/failure(non zero)
+ * Returns size read in words/failure(negative value)
  */
-int hfi_read_message(uint32_t *pmsg, uint8_t q_id);
+int64_t hfi_read_message(uint32_t *pmsg, uint8_t q_id);
 
 /**
  * hfi_init() - function initialize hfi after firmware download
@@ -109,6 +109,11 @@ void cam_hfi_disable_cpu(void __iomem *icp_base);
  * cam_hfi_deinit() - cleanup HFI
  */
 void cam_hfi_deinit(void);
+/**
+ * hfi_set_debug_level() - set debug level
+ * @lvl: FW debug message level
+ */
+int hfi_set_debug_level(uint32_t lvl);
 
 /**
  * hfi_enable_ipe_bps_pc() - Enable interframe pc
@@ -118,5 +123,11 @@ void cam_hfi_deinit(void);
  * @enable: flag to enable/disable
  */
 int hfi_enable_ipe_bps_pc(bool enable);
+
+/**
+ * hfi_cmd_ubwc_config() - UBWC configuration to firmware
+ * @ubwc_cfg: UBWC configuration parameters
+ */
+int hfi_cmd_ubwc_config(uint32_t *ubwc_cfg);
 
 #endif /* _HFI_INTF_H_ */

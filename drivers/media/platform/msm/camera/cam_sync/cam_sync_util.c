@@ -98,18 +98,39 @@ uint32_t cam_sync_util_get_group_object_state(struct sync_table_row *table,
 	return CAM_SYNC_STATE_SIGNALED_ERROR;
 }
 
+static int cam_sync_util_get_group_object_remaining_count(
+	struct sync_table_row *table,
+	uint32_t *sync_objs,
+	uint32_t num_objs)
+{
+	int i;
+	struct sync_table_row *child_row = NULL;
+	int remaining_count = 0;
+
+	if (!table || !sync_objs)
+		return -EINVAL;
+
+	for (i = 0; i < num_objs; i++) {
+		child_row = table + sync_objs[i];
+		if (child_row->state == CAM_SYNC_STATE_ACTIVE)
+			remaining_count++;
+	}
+
+	return remaining_count;
+}
+
 int cam_sync_init_group_object(struct sync_table_row *table,
 	uint32_t idx,
 	uint32_t *sync_objs,
 	uint32_t num_objs)
 {
 	int i;
+	int remaining;
 	struct sync_child_info *child_info;
 	struct sync_parent_info *parent_info;
 	struct sync_table_row *row = table + idx;
 	struct sync_table_row *child_row = NULL;
 
-	spin_lock_bh(&sync_dev->row_spinlocks[idx]);
 	INIT_LIST_HEAD(&row->parents_list);
 
 	INIT_LIST_HEAD(&row->children_list);
@@ -125,7 +146,6 @@ int cam_sync_init_group_object(struct sync_table_row *table,
 		if (!child_info) {
 			cam_sync_util_cleanup_children_list(
 				&row->children_list);
-			spin_unlock_bh(&sync_dev->row_spinlocks[idx]);
 			return -ENOMEM;
 		}
 
@@ -144,7 +164,6 @@ int cam_sync_init_group_object(struct sync_table_row *table,
 			cam_sync_util_cleanup_children_list(
 				&row->children_list);
 			spin_unlock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
-			spin_unlock_bh(&sync_dev->row_spinlocks[idx]);
 			return -ENOMEM;
 		}
 		parent_info->sync_id = idx;
@@ -156,7 +175,15 @@ int cam_sync_init_group_object(struct sync_table_row *table,
 	row->sync_id = idx;
 	row->state = cam_sync_util_get_group_object_state(table,
 		sync_objs, num_objs);
-	row->remaining = num_objs;
+	remaining = cam_sync_util_get_group_object_remaining_count(table,
+		sync_objs, num_objs);
+	if (remaining < 0) {
+		CAM_ERR(CAM_SYNC, "Failed getting remaining count");
+		return -ENODEV;
+	}
+
+	row->remaining = remaining;
+
 	init_completion(&row->signaled);
 	INIT_LIST_HEAD(&row->callback_list);
 	INIT_LIST_HEAD(&row->user_payload_list);
@@ -164,7 +191,6 @@ int cam_sync_init_group_object(struct sync_table_row *table,
 	if (row->state != CAM_SYNC_STATE_ACTIVE)
 		complete_all(&row->signaled);
 
-	spin_unlock_bh(&sync_dev->row_spinlocks[idx]);
 	return 0;
 }
 
@@ -179,7 +205,6 @@ int cam_sync_deinit_object(struct sync_table_row *table, uint32_t idx)
 	if (!table || idx <= 0 || idx >= CAM_SYNC_MAX_OBJS)
 		return -EINVAL;
 
-	spin_lock_bh(&sync_dev->row_spinlocks[idx]);
 	clear_bit(idx, sync_dev->bitmap);
 	list_for_each_entry_safe(child_info, temp_child,
 				&row->children_list, list) {
@@ -207,7 +232,6 @@ int cam_sync_deinit_object(struct sync_table_row *table, uint32_t idx)
 
 	row->state = CAM_SYNC_STATE_INVALID;
 	memset(row, 0, sizeof(*row));
-	spin_unlock_bh(&sync_dev->row_spinlocks[idx]);
 
 	return 0;
 }
@@ -218,11 +242,14 @@ void cam_sync_util_cb_dispatch(struct work_struct *cb_dispatch_work)
 		struct sync_callback_info,
 		cb_dispatch_work);
 
+	spin_lock_bh(&sync_dev->row_spinlocks[cb_info->sync_obj]);
+	list_del_init(&cb_info->list);
+	spin_unlock_bh(&sync_dev->row_spinlocks[cb_info->sync_obj]);
+
 	cb_info->callback_func(cb_info->sync_obj,
 		cb_info->status,
 		cb_info->cb_data);
 
-	list_del_init(&cb_info->list);
 	kfree(cb_info);
 }
 

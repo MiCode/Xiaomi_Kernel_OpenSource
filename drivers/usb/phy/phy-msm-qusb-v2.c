@@ -63,6 +63,11 @@
 #define LINESTATE_DP			BIT(0)
 #define LINESTATE_DM			BIT(1)
 
+#define BIAS_CTRL_2_OVERRIDE_VAL	0x28
+
+/* PERIPH_SS_PHY_REFGEN_NORTH_BG_CTRL register bits */
+#define BANDGAP_BYPASS			BIT(0)
+
 unsigned int phy_tune1;
 module_param(phy_tune1, uint, 0644);
 MODULE_PARM_DESC(phy_tune1, "QUSB PHY v2 TUNE1");
@@ -74,6 +79,7 @@ enum qusb_phy_reg {
 	INTR_CTRL,
 	PLL_CORE_INPUT_OVERRIDE,
 	TEST1,
+	BIAS_CTRL_2,
 	USB2_PHY_REG_MAX,
 };
 
@@ -82,6 +88,7 @@ struct qusb_phy {
 	struct mutex		lock;
 	void __iomem		*base;
 	void __iomem		*efuse_reg;
+	void __iomem		*refgen_north_bg_reg;
 
 	struct clk		*ref_clk_src;
 	struct clk		*ref_clk;
@@ -466,6 +473,11 @@ static int qusb_phy_init(struct usb_phy *phy)
 				qphy->base + qphy->phy_reg[PORT_TUNE1]);
 	}
 
+	if (qphy->refgen_north_bg_reg)
+		if (readl_relaxed(qphy->refgen_north_bg_reg) & BANDGAP_BYPASS)
+			writel_relaxed(BIAS_CTRL_2_OVERRIDE_VAL,
+				qphy->base + qphy->phy_reg[BIAS_CTRL_2]);
+
 	/* ensure above writes are completed before re-enabling PHY */
 	wmb();
 
@@ -775,6 +787,12 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		}
 	}
 
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					"refgen_north_bg_reg_addr");
+	if (res)
+		qphy->refgen_north_bg_reg = devm_ioremap(dev, res->start,
+						resource_size(res));
+
 	/* ref_clk_src is needed irrespective of SE_CLK or DIFF_CLK usage */
 	qphy->ref_clk_src = devm_clk_get(dev, "ref_clk_src");
 	if (IS_ERR(qphy->ref_clk_src)) {
@@ -892,7 +910,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		if (qphy->phy_reg) {
 			qphy->qusb_phy_reg_offset_cnt =
 				size / sizeof(*qphy->phy_reg);
-			if (qphy->qusb_phy_reg_offset_cnt > USB2_PHY_REG_MAX) {
+			if (qphy->qusb_phy_reg_offset_cnt != USB2_PHY_REG_MAX) {
 				dev_err(dev, "invalid reg offset count\n");
 				return -EINVAL;
 			}

@@ -29,8 +29,6 @@
 static void convert_to_dp_mode(const struct drm_display_mode *drm_mode,
 			struct dp_display_mode *dp_mode, struct dp_display *dp)
 {
-	const u32 num_components = 3;
-
 	memset(dp_mode, 0, sizeof(*dp_mode));
 
 	dp_mode->timing.h_active = drm_mode->hdisplay;
@@ -48,15 +46,6 @@ static void convert_to_dp_mode(const struct drm_display_mode *drm_mode,
 
 	dp_mode->timing.v_front_porch = drm_mode->vsync_start -
 					 drm_mode->vdisplay;
-
-	if (dp->is_video_test(dp))
-		dp_mode->timing.bpp = dp->get_test_bpp(dp);
-	else
-		dp_mode->timing.bpp = dp->connector->display_info.bpc *
-		num_components;
-
-	if (!dp_mode->timing.bpp)
-		dp_mode->timing.bpp = 24;
 
 	dp_mode->timing.refresh_rate = drm_mode->vrefresh;
 
@@ -254,7 +243,6 @@ static bool dp_bridge_mode_fixup(struct drm_bridge *drm_bridge,
 				  const struct drm_display_mode *mode,
 				  struct drm_display_mode *adjusted_mode)
 {
-	int rc = 0;
 	bool ret = true;
 	struct dp_display_mode dp_mode;
 	struct dp_bridge *bridge;
@@ -270,14 +258,7 @@ static bool dp_bridge_mode_fixup(struct drm_bridge *drm_bridge,
 	dp = bridge->display;
 
 	convert_to_dp_mode(mode, &dp_mode, dp);
-
-	rc = dp->validate_mode(dp, &dp_mode);
-	if (rc) {
-		pr_err("[%d] mode is not valid, rc=%d\n", bridge->id, rc);
-		ret = false;
-	} else {
-		convert_to_drm_mode(&dp_mode, adjusted_mode);
-	}
+	convert_to_drm_mode(&dp_mode, adjusted_mode);
 end:
 	return ret;
 }
@@ -292,9 +273,22 @@ static const struct drm_bridge_funcs dp_bridge_ops = {
 	.mode_set     = dp_bridge_mode_set,
 };
 
+int dp_connector_pre_kickoff(struct drm_connector *connector,
+		void *display,
+		struct msm_display_kickoff_params *params)
+{
+	struct dp_display *dp = display;
+
+	if (!connector || !display || !params) {
+		pr_err("invalid params\n");
+		return -EINVAL;
+	}
+
+	return dp->pre_kickoff(dp, params->hdr_meta);
+}
+
 int dp_connector_post_init(struct drm_connector *connector,
-		void *info,
-		void *display)
+		void *info, void *display, struct msm_mode_info *mode_info)
 {
 	struct dp_display *dp_display = display;
 
@@ -528,5 +522,5 @@ enum drm_mode_status dp_connector_mode_valid(struct drm_connector *connector,
 			mode->picture_aspect_ratio != debug->aspect_ratio))
 		return MODE_BAD;
 
-	return MODE_OK;
+	return dp_disp->validate_mode(dp_disp, mode->clock);
 }

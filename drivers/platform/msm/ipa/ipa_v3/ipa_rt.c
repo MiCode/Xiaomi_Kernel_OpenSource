@@ -21,6 +21,8 @@
 #define IPA_RT_STATUS_OF_DEL_FAILED	(-1)
 #define IPA_RT_STATUS_OF_MDFY_FAILED (-1)
 
+#define IPA_RT_MAX_NUM_OF_COMMIT_TABLES_CMD_DESC 5
+
 #define IPA_RT_GET_RULE_TYPE(__entry) \
 	( \
 	((__entry)->rule.hashable) ? \
@@ -432,10 +434,11 @@ static bool ipa_rt_valid_lcl_tbl_size(enum ipa_ip_type ipt,
  */
 int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 {
-	struct ipa3_desc desc[5];
+	struct ipa3_desc desc[IPA_RT_MAX_NUM_OF_COMMIT_TABLES_CMD_DESC];
 	struct ipahal_imm_cmd_register_write reg_write_cmd = {0};
 	struct ipahal_imm_cmd_dma_shared_mem  mem_cmd = {0};
-	struct ipahal_imm_cmd_pyld *cmd_pyld[5];
+	struct ipahal_imm_cmd_pyld
+		*cmd_pyld[IPA_RT_MAX_NUM_OF_COMMIT_TABLES_CMD_DESC];
 	int num_cmd = 0;
 	struct ipahal_fltrt_alloc_imgs_params alloc_params;
 	u32 num_modem_rt_index;
@@ -557,10 +560,7 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 		IPAERR("fail construct register_write imm cmd. IP %d\n", ip);
 		goto fail_size_valid;
 	}
-	desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
-	desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
-	desc[num_cmd].len = cmd_pyld[num_cmd]->len;
-	desc[num_cmd].type = IPA_IMM_CMD_DESC;
+	ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
 	num_cmd++;
 
 	mem_cmd.is_read = false;
@@ -575,10 +575,7 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 		IPAERR("fail construct dma_shared_mem imm cmd. IP %d\n", ip);
 		goto fail_imm_cmd_construct;
 	}
-	desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
-	desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
-	desc[num_cmd].len = cmd_pyld[num_cmd]->len;
-	desc[num_cmd].type = IPA_IMM_CMD_DESC;
+	ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
 	num_cmd++;
 
 	mem_cmd.is_read = false;
@@ -593,13 +590,17 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 		IPAERR("fail construct dma_shared_mem imm cmd. IP %d\n", ip);
 		goto fail_imm_cmd_construct;
 	}
-	desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
-	desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
-	desc[num_cmd].len = cmd_pyld[num_cmd]->len;
-	desc[num_cmd].type = IPA_IMM_CMD_DESC;
+	ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
 	num_cmd++;
 
 	if (lcl_nhash) {
+		if (num_cmd >= IPA_RT_MAX_NUM_OF_COMMIT_TABLES_CMD_DESC) {
+			IPAERR("number of commands is out of range: IP = %d\n",
+				ip);
+			rc = -ENOBUFS;
+			goto fail_imm_cmd_construct;
+		}
+
 		mem_cmd.is_read = false;
 		mem_cmd.skip_pipeline_clear = false;
 		mem_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
@@ -613,13 +614,17 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 				ip);
 			goto fail_imm_cmd_construct;
 		}
-		desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
-		desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
-		desc[num_cmd].len = cmd_pyld[num_cmd]->len;
-		desc[num_cmd].type = IPA_IMM_CMD_DESC;
+		ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
 		num_cmd++;
 	}
 	if (lcl_hash) {
+		if (num_cmd >= IPA_RT_MAX_NUM_OF_COMMIT_TABLES_CMD_DESC) {
+			IPAERR("number of commands is out of range: IP = %d\n",
+				ip);
+			rc = -ENOBUFS;
+			goto fail_imm_cmd_construct;
+		}
+
 		mem_cmd.is_read = false;
 		mem_cmd.skip_pipeline_clear = false;
 		mem_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
@@ -633,10 +638,7 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 				ip);
 			goto fail_imm_cmd_construct;
 		}
-		desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
-		desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
-		desc[num_cmd].len = cmd_pyld[num_cmd]->len;
-		desc[num_cmd].type = IPA_IMM_CMD_DESC;
+		ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
 		num_cmd++;
 	}
 
@@ -916,7 +918,8 @@ static int __ipa_rt_validate_hndls(const struct ipa_rt_rule *rule,
 static int __ipa_create_rt_entry(struct ipa3_rt_entry **entry,
 		const struct ipa_rt_rule *rule,
 		struct ipa3_rt_tbl *tbl, struct ipa3_hdr_entry *hdr,
-		struct ipa3_hdr_proc_ctx_entry *proc_ctx)
+		struct ipa3_hdr_proc_ctx_entry *proc_ctx,
+		u16 rule_id)
 {
 	int id;
 
@@ -931,11 +934,16 @@ static int __ipa_create_rt_entry(struct ipa3_rt_entry **entry,
 	(*(entry))->tbl = tbl;
 	(*(entry))->hdr = hdr;
 	(*(entry))->proc_ctx = proc_ctx;
-	id = ipa3_alloc_rule_id(tbl->rule_ids);
-	if (id < 0) {
-		IPAERR("failed to allocate rule id\n");
-		WARN_ON(1);
-		goto alloc_rule_id_fail;
+	if (rule_id) {
+		id = rule_id;
+		(*(entry))->rule_id_valid = 1;
+	} else {
+		id = ipa3_alloc_rule_id(tbl->rule_ids);
+		if (id < 0) {
+			IPAERR("failed to allocate rule id\n");
+			WARN_ON(1);
+			goto alloc_rule_id_fail;
+		}
 	}
 	(*(entry))->rule_id = id;
 
@@ -982,7 +990,8 @@ ipa_insert_failed:
 }
 
 static int __ipa_add_rt_rule(enum ipa_ip_type ip, const char *name,
-		const struct ipa_rt_rule *rule, u8 at_rear, u32 *rule_hdl)
+		const struct ipa_rt_rule *rule, u8 at_rear, u32 *rule_hdl,
+		u16 rule_id)
 {
 	struct ipa3_rt_tbl *tbl;
 	struct ipa3_rt_entry *entry;
@@ -1010,7 +1019,8 @@ static int __ipa_add_rt_rule(enum ipa_ip_type ip, const char *name,
 		goto error;
 	}
 
-	if (__ipa_create_rt_entry(&entry, rule, tbl, hdr, proc_ctx))
+	if (__ipa_create_rt_entry(&entry, rule, tbl, hdr, proc_ctx,
+		rule_id))
 		goto error;
 
 	if (at_rear)
@@ -1041,7 +1051,7 @@ static int __ipa_add_rt_rule_after(struct ipa3_rt_tbl *tbl,
 	if (__ipa_rt_validate_hndls(rule, &hdr, &proc_ctx))
 		goto error;
 
-	if (__ipa_create_rt_entry(&entry, rule, tbl, hdr, proc_ctx))
+	if (__ipa_create_rt_entry(&entry, rule, tbl, hdr, proc_ctx, 0))
 		goto error;
 
 	list_add(&entry->link, &((*add_after_entry)->link));
@@ -1086,8 +1096,54 @@ int ipa3_add_rt_rule(struct ipa_ioc_add_rt_rule *rules)
 		if (__ipa_add_rt_rule(rules->ip, rules->rt_tbl_name,
 					&rules->rules[i].rule,
 					rules->rules[i].at_rear,
-					&rules->rules[i].rt_rule_hdl)) {
-			IPAERR_RL("failed to add rt rule %d\n", i);
+					&rules->rules[i].rt_rule_hdl,
+					0)) {
+			IPAERR("failed to add rt rule %d\n", i);
+			rules->rules[i].status = IPA_RT_STATUS_OF_ADD_FAILED;
+		} else {
+			rules->rules[i].status = 0;
+		}
+	}
+
+	if (rules->commit)
+		if (ipa3_ctx->ctrl->ipa3_commit_rt(rules->ip)) {
+			ret = -EPERM;
+			goto bail;
+		}
+
+	ret = 0;
+bail:
+	mutex_unlock(&ipa3_ctx->lock);
+	return ret;
+}
+
+/**
+ * ipa3_add_rt_rule_ext() - Add the specified routing rules to SW with rule id
+ * and optionally commit to IPA HW
+ * @rules:	[inout] set of routing rules to add
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa3_add_rt_rule_ext(struct ipa_ioc_add_rt_rule_ext *rules)
+{
+	int i;
+	int ret;
+
+	if (rules == NULL || rules->num_rules == 0 || rules->ip >= IPA_IP_MAX) {
+		IPAERR("bad parm\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ipa3_ctx->lock);
+	for (i = 0; i < rules->num_rules; i++) {
+		if (__ipa_add_rt_rule(rules->ip, rules->rt_tbl_name,
+					&rules->rules[i].rule,
+					rules->rules[i].at_rear,
+					&rules->rules[i].rt_rule_hdl,
+					rules->rules[i].rule_id)) {
+			IPAERR("failed to add rt rule %d\n", i);
 			rules->rules[i].status = IPA_RT_STATUS_OF_ADD_FAILED;
 		} else {
 			rules->rules[i].status = 0;
@@ -1137,8 +1193,8 @@ int ipa3_add_rt_rule_after(struct ipa_ioc_add_rt_rule_after *rules)
 		goto bail;
 	}
 
-	if (tbl->rule_cnt <= 0) {
-		IPAERR_RL("tbl->rule_cnt <= 0");
+	if (!tbl->rule_cnt) {
+		IPAERR_RL("tbl->rule_cnt == 0");
 		ret = -EINVAL;
 		goto bail;
 	}
@@ -1235,7 +1291,9 @@ int __ipa3_del_rt_rule(u32 rule_hdl)
 	IPADBG("del rt rule tbl_idx=%d rule_cnt=%d rule_id=%d\n ref_cnt=%u",
 		entry->tbl->idx, entry->tbl->rule_cnt,
 		entry->rule_id, entry->tbl->ref_cnt);
-	idr_remove(entry->tbl->rule_ids, entry->rule_id);
+		/* if rule id was allocated from idr, remove it */
+	if (!entry->rule_id_valid)
+		idr_remove(entry->tbl->rule_ids, entry->rule_id);
 	if (entry->tbl->rule_cnt == 0 && entry->tbl->ref_cnt == 0) {
 		if (__ipa_del_rt_tbl(entry->tbl))
 			IPAERR_RL("fail to del RT tbl\n");

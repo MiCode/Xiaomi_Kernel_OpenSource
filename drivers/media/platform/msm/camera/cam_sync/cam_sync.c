@@ -28,8 +28,8 @@ int cam_sync_create(int32_t *sync_obj, const char *name)
 
 	do {
 		idx = find_first_zero_bit(sync_dev->bitmap, CAM_SYNC_MAX_OBJS);
-			if (idx >= CAM_SYNC_MAX_OBJS)
-				return -ENOMEM;
+		if (idx >= CAM_SYNC_MAX_OBJS)
+			return -ENOMEM;
 	} while (!spin_trylock_bh(&sync_dev->row_spinlocks[idx]));
 
 	rc = cam_sync_init_object(sync_dev->sync_table, idx, name);
@@ -300,6 +300,11 @@ int cam_sync_merge(int32_t *sync_obj, uint32_t num_objs, int32_t *merged_obj)
 	int rc;
 	long idx = 0;
 
+	if (!sync_obj || !merged_obj) {
+		CAM_ERR(CAM_SYNC, "Invalid pointer(s)");
+		return -EINVAL;
+	}
+
 	rc = cam_sync_util_validate_merge(sync_obj,
 		num_objs);
 	if (rc < 0) {
@@ -307,30 +312,26 @@ int cam_sync_merge(int32_t *sync_obj, uint32_t num_objs, int32_t *merged_obj)
 		return -EINVAL;
 	}
 
-	rc = cam_sync_util_find_and_set_empty_row(sync_dev, &idx);
-	if (rc < 0) {
-		CAM_ERR(CAM_SYNC,
-			"Error: Unable to find empty row, table full");
-		return -EINVAL;
-	}
+	do {
+		idx = find_first_zero_bit(sync_dev->bitmap, CAM_SYNC_MAX_OBJS);
+		if (idx >= CAM_SYNC_MAX_OBJS)
+			return -ENOMEM;
+	} while (!spin_trylock_bh(&sync_dev->row_spinlocks[idx]));
 
-	if (idx <= 0 || idx >= CAM_SYNC_MAX_OBJS) {
-		CAM_ERR(CAM_SYNC,
-			"Error: Invalid empty row index returned = %ld", idx);
-		return -EINVAL;
-	}
+	set_bit(idx, sync_dev->bitmap);
 
 	rc = cam_sync_init_group_object(sync_dev->sync_table,
 		idx, sync_obj,
 		num_objs);
-
 	if (rc < 0) {
 		CAM_ERR(CAM_SYNC, "Error: Unable to init row at idx = %ld",
 			idx);
+		spin_unlock_bh(&sync_dev->row_spinlocks[idx]);
 		return -EINVAL;
 	}
 
 	*merged_obj = idx;
+	spin_unlock_bh(&sync_dev->row_spinlocks[idx]);
 
 	return 0;
 }
@@ -342,15 +343,19 @@ int cam_sync_destroy(int32_t sync_obj)
 	if (sync_obj >= CAM_SYNC_MAX_OBJS || sync_obj <= 0)
 		return -EINVAL;
 
+	spin_lock_bh(&sync_dev->row_spinlocks[sync_obj]);
 	row = sync_dev->sync_table + sync_obj;
 	if (row->state == CAM_SYNC_STATE_INVALID) {
 		CAM_ERR(CAM_SYNC,
 			"Error: accessing an uninitialized sync obj: idx = %d",
 			sync_obj);
+		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
 		return -EINVAL;
 	}
 
 	cam_sync_deinit_object(sync_dev->sync_table, sync_obj);
+	spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
+
 	return 0;
 }
 
