@@ -940,6 +940,62 @@ static void dsi_ctrl_wait_for_video_done(struct dsi_ctrl *dsi_ctrl)
 	udelay(sleep_ms * 1000);
 }
 
+void dsi_message_setup_tx_mode(struct dsi_ctrl *dsi_ctrl,
+		u32 cmd_len,
+		u32 *flags)
+{
+	/**
+	 * Setup the mode of transmission
+	 * override cmd fetch mode during secure session
+	 */
+	if (dsi_ctrl->secure_mode) {
+		*flags &= ~DSI_CTRL_CMD_FETCH_MEMORY;
+		*flags |= DSI_CTRL_CMD_FIFO_STORE;
+		pr_debug("[%s] override to TPG during secure session\n",
+				dsi_ctrl->name);
+		return;
+	}
+
+	/* Check to see if cmd len plus header is greater than fifo size */
+	if ((cmd_len + 4) > DSI_EMBEDDED_MODE_DMA_MAX_SIZE_BYTES) {
+		*flags |= DSI_CTRL_CMD_NON_EMBEDDED_MODE;
+		pr_debug("[%s] override to non-embedded mode,cmd len =%d\n",
+				dsi_ctrl->name, cmd_len);
+		return;
+	}
+}
+
+int dsi_message_validate_tx_mode(struct dsi_ctrl *dsi_ctrl,
+		u32 cmd_len,
+		u32 *flags)
+{
+	int rc = 0;
+
+	if (*flags & DSI_CTRL_CMD_FIFO_STORE) {
+		/* if command size plus header is greater than fifo size */
+		if ((cmd_len + 4) > DSI_CTRL_MAX_CMD_FIFO_STORE_SIZE) {
+			pr_err("Cannot transfer Cmd in FIFO config\n");
+			return -ENOTSUPP;
+		}
+		if (!dsi_ctrl->hw.ops.kickoff_fifo_command) {
+			pr_err("Cannot transfer command,ops not defined\n");
+			return -ENOTSUPP;
+		}
+	}
+
+	if (*flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
+		if (*flags & DSI_CTRL_CMD_BROADCAST) {
+			pr_err("Non embedded not supported with broadcast\n");
+			return -ENOTSUPP;
+		}
+		if (!dsi_ctrl->hw.ops.kickoff_command_non_embedded_mode) {
+			pr_err(" Cannot transfer command,ops not defined\n");
+			return -ENOTSUPP;
+		}
+	}
+	return rc;
+}
+
 static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 			  const struct mipi_dsi_msg *msg,
 			  u32 flags)
@@ -954,28 +1010,41 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 	u32 cnt = 0, line_no = 0x1;
 	u8 *cmdbuf;
 	struct dsi_mode_info *timing;
+	struct dsi_ctrl_hw_ops dsi_hw_ops = dsi_ctrl->hw.ops;
 
-	/* override cmd fetch mode during secure session */
-	if (dsi_ctrl->secure_mode) {
-		flags &= ~DSI_CTRL_CMD_FETCH_MEMORY;
-		flags |= DSI_CTRL_CMD_FIFO_STORE;
-		pr_debug("[%s] override to TPG during secure session\n",
-				dsi_ctrl->name);
+	/* Select the tx mode to transfer the command */
+	dsi_message_setup_tx_mode(dsi_ctrl, msg->tx_len, &flags);
+
+	/* Validate the mode before sending the command */
+	rc = dsi_message_validate_tx_mode(dsi_ctrl, msg->tx_len, &flags);
+	if (rc) {
+		pr_err(" Cmd tx validation failed, cannot transfer cmd\n");
+		rc = -ENOTSUPP;
+		goto error;
+	}
+
+	if (flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
+		cmd_mem.offset = dsi_ctrl->cmd_buffer_iova;
+		cmd_mem.en_broadcast = (flags & DSI_CTRL_CMD_BROADCAST) ?
+			true : false;
+		cmd_mem.is_master = (flags & DSI_CTRL_CMD_BROADCAST_MASTER) ?
+			true : false;
+		cmd_mem.use_lpm = (msg->flags & MIPI_DSI_MSG_USE_LPM) ?
+			true : false;
+		cmd_mem.datatype = msg->type;
+		cmd_mem.length = msg->tx_len;
+
+		dsi_ctrl->cmd_len = msg->tx_len;
+		memcpy(dsi_ctrl->vaddr, msg->tx_buf, msg->tx_len);
+		pr_debug(" non-embedded mode , size of command =%zd\n",
+					msg->tx_len);
+
+		goto kickoff;
 	}
 
 	rc = mipi_dsi_create_packet(&packet, msg);
 	if (rc) {
 		pr_err("Failed to create message packet, rc=%d\n", rc);
-		goto error;
-	}
-
-	/* fail cmds more than the supported size in TPG mode */
-	if ((flags & DSI_CTRL_CMD_FIFO_STORE) &&
-			(msg->tx_len > DSI_CTRL_MAX_CMD_FIFO_STORE_SIZE)) {
-		pr_err("[%s] TPG cmd size:%zd not supported, secure:%d\n",
-				dsi_ctrl->name, msg->tx_len,
-				dsi_ctrl->secure_mode);
-		rc = -ENOTSUPP;
 		goto error;
 	}
 
@@ -993,6 +1062,7 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 		buffer[3] |= BIT(7);//set the last cmd bit in header.
 
 	if (flags & DSI_CTRL_CMD_FETCH_MEMORY) {
+		/* Embedded mode config is selected */
 		cmd_mem.offset = dsi_ctrl->cmd_buffer_iova;
 		cmd_mem.en_broadcast = (flags & DSI_CTRL_CMD_BROADCAST) ?
 			true : false;
@@ -1026,15 +1096,16 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 				  true : false;
 	}
 
+kickoff:
 	timing = &(dsi_ctrl->host_config.video_timing);
 	if (timing)
 		line_no += timing->v_back_porch + timing->v_sync_width +
 				timing->v_active;
 	if ((dsi_ctrl->host_config.panel_mode == DSI_OP_VIDEO_MODE) &&
-		dsi_ctrl->hw.ops.schedule_dma_cmd &&
+		dsi_hw_ops.schedule_dma_cmd &&
 		(dsi_ctrl->current_state.vid_engine_state ==
 					DSI_CTRL_ENGINE_ON))
-		dsi_ctrl->hw.ops.schedule_dma_cmd(&dsi_ctrl->hw,
+		dsi_hw_ops.schedule_dma_cmd(&dsi_ctrl->hw,
 				line_no);
 
 	hw_flags |= (flags & DSI_CTRL_CMD_DEFER_TRIGGER) ?
@@ -1045,11 +1116,19 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 
 	if (flags & DSI_CTRL_CMD_DEFER_TRIGGER) {
 		if (flags & DSI_CTRL_CMD_FETCH_MEMORY) {
-			dsi_ctrl->hw.ops.kickoff_command(&dsi_ctrl->hw,
+			if (flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
+				dsi_hw_ops.kickoff_command_non_embedded_mode(
+							&dsi_ctrl->hw,
 							&cmd_mem,
 							hw_flags);
+			} else {
+				dsi_hw_ops.kickoff_command(
+						&dsi_ctrl->hw,
+						&cmd_mem,
+						hw_flags);
+			}
 		} else if (flags & DSI_CTRL_CMD_FIFO_STORE) {
-			dsi_ctrl->hw.ops.kickoff_fifo_command(&dsi_ctrl->hw,
+			dsi_hw_ops.kickoff_fifo_command(&dsi_ctrl->hw,
 							      &cmd,
 							      hw_flags);
 		}
@@ -1059,17 +1138,25 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 		dsi_ctrl_wait_for_video_done(dsi_ctrl);
 		dsi_ctrl_enable_status_interrupt(dsi_ctrl,
 					DSI_SINT_CMD_MODE_DMA_DONE, NULL);
-		if (dsi_ctrl->hw.ops.mask_error_intr)
-			dsi_ctrl->hw.ops.mask_error_intr(&dsi_ctrl->hw,
+		if (dsi_hw_ops.mask_error_intr)
+			dsi_hw_ops.mask_error_intr(&dsi_ctrl->hw,
 					BIT(DSI_FIFO_OVERFLOW), true);
 		reinit_completion(&dsi_ctrl->irq_info.cmd_dma_done);
 
 		if (flags & DSI_CTRL_CMD_FETCH_MEMORY) {
-			dsi_ctrl->hw.ops.kickoff_command(&dsi_ctrl->hw,
-						      &cmd_mem,
-						      hw_flags);
+			if (flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
+				dsi_hw_ops.kickoff_command_non_embedded_mode(
+							&dsi_ctrl->hw,
+							&cmd_mem,
+							hw_flags);
+			} else {
+				dsi_hw_ops.kickoff_command(
+						&dsi_ctrl->hw,
+						&cmd_mem,
+						hw_flags);
+			}
 		} else if (flags & DSI_CTRL_CMD_FIFO_STORE) {
-			dsi_ctrl->hw.ops.kickoff_fifo_command(&dsi_ctrl->hw,
+			dsi_hw_ops.kickoff_fifo_command(&dsi_ctrl->hw,
 							      &cmd,
 							      hw_flags);
 		}
@@ -1079,14 +1166,14 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 				msecs_to_jiffies(DSI_CTRL_TX_TO_MS));
 
 		if (ret == 0) {
-			u32 status = dsi_ctrl->hw.ops.get_interrupt_status(
+			u32 status = dsi_hw_ops.get_interrupt_status(
 								&dsi_ctrl->hw);
 			u32 mask = DSI_CMD_MODE_DMA_DONE;
 
 			if (status & mask) {
 				status |= (DSI_CMD_MODE_DMA_DONE |
 						DSI_BTA_DONE);
-				dsi_ctrl->hw.ops.clear_interrupt_status(
+				dsi_hw_ops.clear_interrupt_status(
 								&dsi_ctrl->hw,
 								status);
 				dsi_ctrl_disable_status_interrupt(dsi_ctrl,
@@ -1102,10 +1189,20 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 			}
 		}
 
-		if (dsi_ctrl->hw.ops.mask_error_intr)
-			dsi_ctrl->hw.ops.mask_error_intr(&dsi_ctrl->hw,
+		if (dsi_hw_ops.mask_error_intr)
+			dsi_hw_ops.mask_error_intr(&dsi_ctrl->hw,
 					BIT(DSI_FIFO_OVERFLOW), false);
-		dsi_ctrl->hw.ops.reset_cmd_fifo(&dsi_ctrl->hw);
+		dsi_hw_ops.reset_cmd_fifo(&dsi_ctrl->hw);
+
+		/*
+		 * DSI 2.2 needs a soft reset whenever we send non-embedded
+		 * mode command followed by embedded mode. Otherwise it will
+		 * result in smmu write faults with DSI as client.
+		 */
+		if (flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
+			dsi_hw_ops.soft_reset(&dsi_ctrl->hw);
+			dsi_ctrl->cmd_len = 0;
+		}
 	}
 error:
 	if (buffer)
@@ -2682,6 +2779,11 @@ int dsi_ctrl_cmd_tx_trigger(struct dsi_ctrl *dsi_ctrl, u32 flags)
 		if (dsi_ctrl->hw.ops.mask_error_intr)
 			dsi_ctrl->hw.ops.mask_error_intr(&dsi_ctrl->hw,
 					BIT(DSI_FIFO_OVERFLOW), false);
+
+		if (flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
+			dsi_ctrl->hw.ops.soft_reset(&dsi_ctrl->hw);
+			dsi_ctrl->cmd_len = 0;
+		}
 	}
 
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
