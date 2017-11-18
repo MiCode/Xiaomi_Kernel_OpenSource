@@ -30,8 +30,11 @@
 		GMU_INT_HOST_AHB_BUS_ERR |	\
 		GMU_INT_FENCE_ERR)
 
-#define MAX_GMUFW_SIZE	0x2000	/* in dwords */
-#define FENCE_RANGE_MASK	((0x1 << 31) | (0x0A << 18) | (0x8A0))
+#define MAX_GMUFW_SIZE	0x2000	/* in bytes */
+#define FENCE_RANGE_MASK	((0x1 << 31) | ((0xA << 2) << 18) | (0x8A0))
+
+#define FENCE_STATUS_WRITEDROPPED0_MASK 0x1
+#define FENCE_STATUS_WRITEDROPPED1_MASK 0x2
 
 /* Bitmask for GPU low power mode enabling and hysterisis*/
 #define SPTP_ENABLE_MASK (BIT(2) | BIT(0))
@@ -78,6 +81,19 @@
 #define OOB_PERFCNTR_SET_MASK		BIT(17)
 #define OOB_PERFCNTR_CHECK_MASK		BIT(25)
 #define OOB_PERFCNTR_CLEAR_MASK		BIT(25)
+#define OOB_PREEMPTION_SET_MASK		BIT(18)
+#define OOB_PREEMPTION_CHECK_MASK	BIT(26)
+#define OOB_PREEMPTION_CLEAR_MASK	BIT(26)
+
+/*
+ * Wait time before trying to write the register again.
+ * Hopefully the GMU has finished waking up during this delay.
+ * This delay must be less than the IFPC main hysteresis or
+ * the GMU will start shutting down before we try again.
+ */
+#define GMU_WAKEUP_DELAY_US 10
+/* Max amount of tries to wake up the GMU. */
+#define GMU_WAKEUP_RETRY_MAX 60
 
 /* Bits for the flags field in the gmu structure */
 enum gmu_flags {
