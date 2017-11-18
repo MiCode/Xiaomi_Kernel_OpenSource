@@ -386,6 +386,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	struct kgsl_context *context = NULL;
 	bool secured_ctxt = false;
 	static unsigned int _seq_cnt;
+	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 
 	if (drawctxt != NULL && kgsl_context_detached(&drawctxt->base) &&
 		!(flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE))
@@ -520,8 +521,13 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 		*ringcmds++ = KGSL_CMD_INTERNAL_IDENTIFIER;
 	}
 
-	if (gpudev->set_marker)
-		ringcmds += gpudev->set_marker(ringcmds, 1);
+	if (gpudev->set_marker) {
+		/* Firmware versions before 1.49 do not support IFPC markers */
+		if (adreno_is_a6xx(adreno_dev) && (fw->version & 0xFFF) < 0x149)
+			ringcmds += gpudev->set_marker(ringcmds, IB1LIST_START);
+		else
+			ringcmds += gpudev->set_marker(ringcmds, IFPC_DISABLE);
+	}
 
 	if (flags & KGSL_CMD_FLAGS_PWRON_FIXUP) {
 		/* Disable protected mode for the fixup */
@@ -641,8 +647,12 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 		*ringcmds++ = timestamp;
 	}
 
-	if (gpudev->set_marker)
-		ringcmds += gpudev->set_marker(ringcmds, 0);
+	if (gpudev->set_marker) {
+		if (adreno_is_a6xx(adreno_dev) && (fw->version & 0xFFF) < 0x149)
+			ringcmds += gpudev->set_marker(ringcmds, IB1LIST_END);
+		else
+			ringcmds += gpudev->set_marker(ringcmds, IFPC_ENABLE);
+	}
 
 	if (adreno_is_a3xx(adreno_dev)) {
 		/* Dummy set-constant to trigger context rollover */
@@ -757,8 +767,9 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	struct kgsl_drawobj_profiling_buffer *profile_buffer = NULL;
 	unsigned int dwords = 0;
 	struct adreno_submit_time local;
-
 	struct kgsl_mem_entry *entry = cmdobj->profiling_buf_entry;
+	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
+	bool set_ib1list_marker = false;
 
 	if (entry)
 		profile_buffer = kgsl_gpuaddr_to_vaddr(&entry->memdesc,
@@ -868,6 +879,17 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 			dwords += 8;
 	}
 
+	/*
+	 * Prior to SQE FW version 1.49, there was only one marker for
+	 * both preemption and IFPC. Only include the IB1LIST markers if
+	 * we are using a firmware that supports them.
+	 */
+	if (gpudev->set_marker && numibs && adreno_is_a6xx(adreno_dev) &&
+			((fw->version & 0xFFF) >= 0x149)) {
+		set_ib1list_marker = true;
+		dwords += 4;
+	}
+
 	if (gpudev->ccu_invalidate)
 		dwords += 4;
 
@@ -901,6 +923,9 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	}
 
 	if (numibs) {
+		if (set_ib1list_marker)
+			cmds += gpudev->set_marker(cmds, IB1LIST_START);
+
 		list_for_each_entry(ib, &cmdobj->cmdlist, node) {
 			/*
 			 * Skip 0 sized IBs - these are presumed to have been
@@ -919,6 +944,9 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 			/* preamble is required on only for first command */
 			use_preamble = false;
 		}
+
+		if (set_ib1list_marker)
+			cmds += gpudev->set_marker(cmds, IB1LIST_END);
 	}
 
 	if (gpudev->ccu_invalidate)
