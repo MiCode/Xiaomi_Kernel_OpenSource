@@ -68,25 +68,34 @@ int qti_pfk_ice_set_key(uint32_t index, uint8_t *key, uint8_t *salt,
 			char *storage_type)
 {
 	struct scm_desc desc = {0};
-	int ret;
+	int ret, ret1;
 	char *tzbuf_key = (char *)ice_key;
 	char *tzbuf_salt = (char *)ice_salt;
+	char *s_type = storage_type;
 
 	uint32_t smc_id = 0;
 	u32 tzbuflen_key = sizeof(ice_key);
 	u32 tzbuflen_salt = sizeof(ice_salt);
 
-	if (index < MIN_ICE_KEY_INDEX || index > MAX_ICE_KEY_INDEX)
+	if (index < MIN_ICE_KEY_INDEX || index > MAX_ICE_KEY_INDEX) {
+		pr_err("%s Invalid index %d\n", __func__, index);
 		return -EINVAL;
+	}
 
-	if (!key || !salt)
+	if (!key || !salt) {
+		pr_err("%s Invalid key/salt\n", __func__);
 		return -EINVAL;
+	}
 
-	if (!tzbuf_key || !tzbuf_salt)
+	if (!tzbuf_key || !tzbuf_salt) {
+		pr_err("%s No Memory\n", __func__);
 		return -ENOMEM;
+	}
 
-	if (storage_type == NULL)
+	if (s_type == NULL) {
+		pr_err("%s Invalid storage\n", __func__);
 		return -EINVAL;
+	}
 
 	memset(tzbuf_key, 0, tzbuflen_key);
 	memset(tzbuf_salt, 0, tzbuflen_salt);
@@ -98,7 +107,6 @@ int qti_pfk_ice_set_key(uint32_t index, uint8_t *key, uint8_t *salt,
 	dmac_flush_range(tzbuf_salt, tzbuf_salt + tzbuflen_salt);
 
 	smc_id = TZ_ES_SET_ICE_KEY_ID;
-	pr_debug(" %s , smc_id = 0x%x\n", __func__, smc_id);
 
 	desc.arginfo = TZ_ES_SET_ICE_KEY_PARAM_ID;
 	desc.args[0] = index;
@@ -107,27 +115,36 @@ int qti_pfk_ice_set_key(uint32_t index, uint8_t *key, uint8_t *salt,
 	desc.args[3] = virt_to_phys(tzbuf_salt);
 	desc.args[4] = tzbuflen_salt;
 
-	ret = qcom_ice_setup_ice_hw((const char *)storage_type, true);
+	ret = qcom_ice_setup_ice_hw((const char *)s_type, true);
 
 	if (ret) {
-		pr_err("%s: could not enable clocks: 0x%x\n", __func__, ret);
-		return ret;
+		pr_err("%s: could not enable clocks: %d\n", __func__, ret);
+		goto out;
 	}
 
 	ret = scm_call2(smc_id, &desc);
 
-	ret = qcom_ice_setup_ice_hw((const char *)storage_type, false);
-
 	pr_debug(" %s , ret = %d\n", __func__, ret);
-	if (ret) {
-		pr_err("%s: Error: 0x%x\n", __func__, ret);
 
+	if (ret) {
+		pr_err("%s: Set key Error: %d\n", __func__, ret);
+		if (ret == -EBUSY) {
+			if (qcom_ice_setup_ice_hw((const char *)s_type, false))
+				pr_err("%s: disable clock failed\n", __func__);
+			goto out;
+		}
+		/*Try to invalidate the key to keep ICE in proper state*/
 		smc_id = TZ_ES_INVALIDATE_ICE_KEY_ID;
 		desc.arginfo = TZ_ES_INVALIDATE_ICE_KEY_PARAM_ID;
 		desc.args[0] = index;
-		scm_call2(smc_id, &desc);
+		ret1 = scm_call2(smc_id, &desc);
+		if (ret1)
+			pr_err("%s:Invalidate key Error: %d\n", __func__,
+						ret1);
 	}
 
+	ret = qcom_ice_setup_ice_hw((const char *)s_type, false);
+out:
 	return ret;
 }
 
@@ -139,14 +156,17 @@ int qti_pfk_ice_invalidate_key(uint32_t index, char *storage_type)
 
 	uint32_t smc_id = 0;
 
-	if (index < MIN_ICE_KEY_INDEX || index > MAX_ICE_KEY_INDEX)
+	if (index < MIN_ICE_KEY_INDEX || index > MAX_ICE_KEY_INDEX) {
+		pr_err("%s Invalid index %d\n", __func__, index);
 		return -EINVAL;
+	}
 
-	if (storage_type == NULL)
+	if (storage_type == NULL) {
+		pr_err("%s Invalid storage\n", __func__);
 		return -EINVAL;
+	}
 
 	smc_id = TZ_ES_INVALIDATE_ICE_KEY_ID;
-	pr_debug(" %s , smc_id = 0x%x\n", __func__, smc_id);
 
 	desc.arginfo = TZ_ES_INVALIDATE_ICE_KEY_PARAM_ID;
 	desc.args[0] = index;
@@ -160,12 +180,13 @@ int qti_pfk_ice_invalidate_key(uint32_t index, char *storage_type)
 
 	ret = scm_call2(smc_id, &desc);
 
-	ret = qcom_ice_setup_ice_hw((const char *)storage_type, false);
-
-	pr_debug(" %s , ret = %d\n", __func__, ret);
-	if (ret)
+	if (ret) {
 		pr_err("%s: Error: 0x%x\n", __func__, ret);
+		if (qcom_ice_setup_ice_hw((const char *)storage_type, false))
+			pr_err("%s: could not disable clocks\n", __func__);
+	} else {
+		ret = qcom_ice_setup_ice_hw((const char *)storage_type, false);
+	}
 
 	return ret;
-
 }
