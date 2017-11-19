@@ -891,7 +891,8 @@ static void sde_encoder_phys_cmd_enable(struct sde_encoder_phys *phys_enc)
 	SDE_DEBUG_CMDENC(cmd_enc, "pp %d\n", phys_enc->hw_pp->idx - PINGPONG_0);
 
 	if (phys_enc->enable_state == SDE_ENC_ENABLED) {
-		SDE_ERROR("already enabled\n");
+		if (!phys_enc->sde_kms->splash_data.cont_splash_en)
+			SDE_ERROR("already enabled\n");
 		return;
 	}
 
