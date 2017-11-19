@@ -680,6 +680,15 @@ config MSM_GLINK_PKT
 	  This enable the usersapce clients to read and write to
 	  some glink packets channel.
 
+config MSM_BGRSB
+	bool "Provide support for rsb events on Blackghost chipset"
+	depends on MSM_GLINK
+	help
+		BGRSB communicates to BG over Glink for RSB configuration and
+		enable/disable on device power state change. It enables/disables
+		the regulator specific to RSB. Sends the side band events generated
+		by BG to input framework.
+
 config MSM_TZ_SMMU
 	bool "Helper functions for SMMU configuration through TZ"
 	depends on ARCH_MSMTHULIUM || ARCH_MSM8953

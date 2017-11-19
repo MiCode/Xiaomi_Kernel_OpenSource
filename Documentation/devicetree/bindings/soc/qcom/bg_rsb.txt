@@ -1,0 +1,19 @@
+Qualcomm technologies Inc bg-rsb
+
+BG-RSB : bg-rsb is used to communicate with BG over Glink to
+configure the RSB events. bg-rsb enable/disable LDO11 and LDO15
+before making any communication to BG regarding RSB.
+It also provides an input device, which is used to send the RSB/Button
+events to input framework.
+
+Required properties:
+- compatible : should be "qcom,bg-rsb"
+- vdd-ldo1-supply : pm660_l11 regulator
+- vdd-ldo2-supply : for pm660_l15 regulator
+
+Example:
+	qcom,bg-rsb {
+		compatible = "qcom,bg-rsb";
+		vdd-ldo1-supply = <&pm660_l11>;
+		vdd-ldo2-supply = <&pm660_l15>;
+	};
