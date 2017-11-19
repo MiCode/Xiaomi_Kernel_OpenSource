@@ -12,8 +12,8 @@ Required properties:
     - "qcom,csid-v3.5"
     - "qcom,csid-v4.0"
     - "qcom,csid-v3.4.2"
-    - "qcom,csid-v3.5.1"
     - "qcom,csid-v3.4.3"
+    - "qcom,csid-v3.5.1"
     - "qcom,csid-v5.0"
 - reg : offset and length of the register set for the device
     for the csid operating in compatible mode.
