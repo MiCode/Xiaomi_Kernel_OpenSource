@@ -14,6 +14,8 @@
 #include <linux/io.h>
 #include <media/v4l2-subdev.h>
 #include <linux/ratelimit.h>
+#include <linux/kthread.h>
+#include <linux/sched.h>
 
 #include "msm.h"
 #include "msm_isp_util.h"
@@ -23,6 +25,7 @@
 #include "cam_smmu_api.h"
 #define CREATE_TRACE_POINTS
 #include "trace/events/msm_cam.h"
+#include "media/msm_ba.h"
 
 #define MAX_ISP_V4l2_EVENTS 100
 #define MAX_ISP_REG_LIST 100
@@ -1974,6 +1977,166 @@ void msm_isp_reset_burst_count_and_frame_drop(
 		msm_isp_reset_framedrop(vfe_dev, stream_info);
 }
 
+static void msm_isp_field_type_read_thread(void *data)
+{
+	int ret = 0;
+	uint8_t i, j = 0;
+	bool even_field = 0;
+	uint64_t timestamp_us[4];
+	struct msm_isp_timestamp ts;
+	struct msm_vfe_axi_stream *stream_info = NULL;
+	struct vfe_device *vfe_dev = (struct vfe_device *)data;
+
+	pr_debug("Enter field_type_read_thread\n");
+
+	vfe_dev->ba_inst_hdl = msm_ba_open(NULL);
+	if (vfe_dev->ba_inst_hdl == NULL) {
+		pr_err("%s: ba open failed\n", __func__);
+		return;
+	}
+
+	while (!kthread_should_stop()) {
+		ret = 0;
+		wait_event_interruptible(vfe_dev->field_waitqueue,
+			vfe_dev->wakeupflag == true);
+		if (kthread_should_stop()) {
+			pr_debug("%s: field thread has stopped\n", __func__);
+			goto bs_close;
+		}
+
+		for (i = 0; i < VFE_AXI_SRC_MAX; i++) {
+			if (vfe_dev->axi_data.stream_info[i].interlaced)
+				break;
+		}
+		if (i == VFE_AXI_SRC_MAX) {
+			vfe_dev->wakeupflag = false;
+			continue;
+		}
+
+		stream_info = &vfe_dev->axi_data.stream_info[i];
+		j = stream_info->field_index;
+
+		/* Detect field status from bridge chip */
+		ret = msm_ba_private_ioctl(vfe_dev->ba_inst_hdl,
+				VIDIOC_CVBS_G_FIELD_STATUS, &even_field);
+		if (ret) {
+			pr_err("%s: get field status failed: %d\n",
+				__func__, ret);
+		} else {
+			msm_isp_get_timestamp(&ts, vfe_dev);
+			stream_info->field_info[j%2].even_field = even_field;
+			stream_info->field_info[j%2].field_ts.tv_sec =
+				ts.buf_time.tv_sec;
+			stream_info->field_info[j%2].field_ts.tv_usec =
+				ts.buf_time.tv_usec;
+		}
+
+		stream_info->field_index++;
+
+		/* once 2 fields info getting done, do the verification */
+		if (stream_info->field_index%2 == 0) {
+			timestamp_us[0] =
+				stream_info->field_info[0].sof_ts.tv_sec
+				* 1000 * 1000
+				+ stream_info->field_info[0].sof_ts.tv_usec;
+			timestamp_us[1] =
+				stream_info->field_info[0].field_ts.tv_sec
+				* 1000 * 1000
+				+ stream_info->field_info[0].field_ts.tv_usec;
+			timestamp_us[2] =
+				stream_info->field_info[1].sof_ts.tv_sec
+				* 1000 * 1000
+				+ stream_info->field_info[1].sof_ts.tv_usec;
+			timestamp_us[3] =
+				stream_info->field_info[1].field_ts.tv_sec
+				* 1000 * 1000
+				+ stream_info->field_info[1].field_ts.tv_usec;
+
+			/*
+			* Expected timing:
+			* field 0 SOF -> field 0 type read ->
+			* field 1 SOF -> field 1 type read
+			*/
+			if ((timestamp_us[0] < timestamp_us[1]) &&
+				(timestamp_us[2] < timestamp_us[3]) &&
+				(timestamp_us[1] < timestamp_us[2]) &&
+				(stream_info->field_info[0].even_field !=
+				stream_info->field_info[1].even_field)) {
+				/*
+				* Field type:
+				* 0 - unknown
+				* 1 - odd first
+				* 2 - even first
+				*/
+				stream_info->field_type =
+					stream_info->field_info[0].even_field ?
+					2 : 1;
+			} else {
+				stream_info->field_type = 0;
+				pr_err("Field: %llu %llu %llu %llu %d %d\n",
+					timestamp_us[0], timestamp_us[1],
+					timestamp_us[2], timestamp_us[3],
+					stream_info->field_info[0].even_field,
+					stream_info->field_info[1].even_field);
+			}
+		}
+
+		vfe_dev->wakeupflag = false;
+	}
+
+bs_close:
+	ret = msm_ba_close(vfe_dev->ba_inst_hdl);
+	if (ret)
+		pr_err("%s: msm ba close failed\n", __func__);
+	vfe_dev->ba_inst_hdl = NULL;
+}
+
+static int msm_isp_init_field_type_kthread(struct vfe_device *vfe_dev)
+{
+	init_waitqueue_head(&vfe_dev->field_waitqueue);
+
+	ISP_DBG("%s: Queue initialized\n", __func__);
+	vfe_dev->field_thread_id = kthread_run(
+		(void *)msm_isp_field_type_read_thread,
+		(void *)vfe_dev, "field_type_kthread");
+	if (IS_ERR(vfe_dev->field_thread_id)) {
+		pr_err("%s: Unable to run the thread\n", __func__);
+		return -ENOMEM;
+	}
+
+	return 0;
+}
+
+static void msm_isp_field_timestamp(struct vfe_device *vfe_dev,
+				uint32_t irq_status0, uint32_t irq_status1,
+				struct timeval *timestamp)
+{
+	uint8_t i, j = 0;
+	struct msm_vfe_axi_stream *stream_info = NULL;
+
+	for (i = 0; i < VFE_AXI_SRC_MAX; i++) {
+		if (vfe_dev->axi_data.stream_info[i].interlaced)
+			break;
+	}
+
+	if (i == VFE_AXI_SRC_MAX)
+		return;
+
+	stream_info = &vfe_dev->axi_data.stream_info[i];
+
+	/* SOF timestamp */
+	if (((i == CAMIF_RAW) && (irq_status0 & BIT(0)))
+		|| ((i == RDI_INTF_0) && (irq_status1 & BIT(29)))
+		|| ((i == RDI_INTF_1) && (irq_status1 & BIT(30)))
+		|| ((i == RDI_INTF_2) && (irq_status1 & BIT(31)))) {
+		j = stream_info->field_index;
+		stream_info->field_info[j%2].sof_ts.tv_sec =
+			timestamp->tv_sec;
+		stream_info->field_info[j%2].sof_ts.tv_usec =
+			timestamp->tv_usec;
+	}
+}
+
 static void msm_isp_enqueue_tasklet_cmd(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1,
 	uint32_t ping_pong_status)
@@ -1999,6 +2162,10 @@ static void msm_isp_enqueue_tasklet_cmd(struct vfe_device *vfe_dev,
 		MSM_VFE_TASKLETQ_SIZE;
 	list_add_tail(&queue_cmd->list, &vfe_dev->tasklet_q);
 	spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
+
+	msm_isp_field_timestamp(vfe_dev, irq_status0, irq_status1,
+						&queue_cmd->ts.buf_time);
+
 	tasklet_schedule(&vfe_dev->vfe_tasklet);
 }
 
@@ -2121,6 +2288,7 @@ void msm_isp_do_tasklet(unsigned long data)
 		spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
 		ISP_DBG("%s: vfe_id %d status0: 0x%x status1: 0x%x\n",
 			__func__, vfe_dev->pdev->id, irq_status0, irq_status1);
+
 		if (vfe_dev->is_split) {
 			spin_lock(&dump_tasklet_lock);
 			tasklet_data.arr[tasklet_data.first].
@@ -2139,6 +2307,8 @@ void msm_isp_do_tasklet(unsigned long data)
 			(tasklet_data.first + 1) % MAX_ISP_PING_PONG_DUMP_SIZE;
 			spin_unlock(&dump_tasklet_lock);
 		}
+		irq_ops->process_sof_irq(vfe_dev,
+			irq_status0, irq_status1);
 		irq_ops->process_reset_irq(vfe_dev,
 			irq_status0, irq_status1);
 		irq_ops->process_halt_irq(vfe_dev,
@@ -2291,8 +2461,17 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	cam_smmu_reg_client_page_fault_handler(
 			vfe_dev->buf_mgr->iommu_hdl,
 			msm_vfe_iommu_fault_handler, vfe_dev);
+
+	/* to detect interlaced frame type through ba driver */
+	rc = msm_isp_init_field_type_kthread(vfe_dev);
+	if (rc) {
+		pr_err("%s: init field thread failed\n", __func__);
+		return rc;
+	}
+
 	mutex_unlock(&vfe_dev->core_mutex);
 	mutex_unlock(&vfe_dev->realtime_mutex);
+
 	return 0;
 }
 
@@ -2360,6 +2539,9 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		vfe_dev->vt_enable = 0;
 	}
 	vfe_dev->is_split = 0;
+
+	vfe_dev->wakeupflag = true;
+	kthread_stop(vfe_dev->field_thread_id);
 
 	mutex_unlock(&vfe_dev->core_mutex);
 	mutex_unlock(&vfe_dev->realtime_mutex);

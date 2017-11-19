@@ -2042,6 +2042,12 @@ static int msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 	buf_event.u.buf_done.buf_idx = buf->buf_idx;
 	buf_event.u.buf_done.output_format =
 		stream_info->runtime_output_format;
+
+	if (stream_info->interlaced)
+		buf_event.u.buf_done.field_type = stream_info->field_type;
+	else
+		buf_event.u.buf_done.field_type = 0;
+
 	if (vfe_dev->fetch_engine_info.is_busy &&
 		SRC_TO_INTF(stream_info->stream_src) == VFE_PIX_0) {
 		vfe_dev->fetch_engine_info.is_busy = 0;
@@ -3132,6 +3138,7 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 			}
 
 		}
+		stream_info->interlaced = false;
 		vfe_dev->reg_update_requested &=
 			~(BIT(SRC_TO_INTF(stream_info->stream_src)));
 	}
@@ -3544,12 +3551,17 @@ int msm_isp_axi_output_cfg(struct vfe_device *vfe_dev, void *arg)
 		INIT_LIST_HEAD(&pstream_info->request_q);
 
 		pstream_info->frame_based =
-			pCmd->output_path_cfg[axi_src_idx].frame_based;
+			pCmd->output_path_cfg[axi_src_idx].frame_based & BIT(0);
+		pstream_info->interlaced =
+			(pCmd->output_path_cfg[axi_src_idx].frame_based
+				& BIT(INTERLACE_OFFSET)) ? true : false;
 
 		 /* send buffers to user through vfe dev node */
 		pstream_info->buf_divert = 1;
 		pstream_info->output_format =
 			pCmd->output_path_cfg[axi_src_idx].format;
+
+		pstream_info->field_index = 0;
 
 		msm_isp_axi_get_num_planes(
 			pCmd->output_path_cfg[axi_src_idx].format,
