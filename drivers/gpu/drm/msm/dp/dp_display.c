@@ -1206,7 +1206,7 @@ static int dp_display_pre_kickoff(struct dp_display *dp_display,
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 
-	if (hdr->hdr_supported)
+	if (hdr->hdr_supported && dp->panel->hdr_supported(dp->panel))
 		rc = dp->panel->setup_hdr(dp->panel, hdr);
 
 	return rc;

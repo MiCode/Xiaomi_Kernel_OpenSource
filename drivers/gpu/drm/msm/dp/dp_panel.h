@@ -93,6 +93,7 @@ struct dp_panel {
 		struct drm_msm_ext_hdr_metadata *hdr_meta);
 	void (*tpg_config)(struct dp_panel *dp_panel, bool enable);
 	int (*spd_config)(struct dp_panel *dp_panel);
+	bool (*hdr_supported)(struct dp_panel *dp_panel);
 };
 
 /**
