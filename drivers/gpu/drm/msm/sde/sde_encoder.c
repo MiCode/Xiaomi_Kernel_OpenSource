@@ -3436,16 +3436,21 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 {
 	struct sde_encoder_virt *sde_enc;
 	struct sde_encoder_phys *phys;
+	struct sde_kms *sde_kms = NULL;
+	struct msm_drm_private *priv = NULL;
 	bool needs_hw_reset = false;
 	uint32_t ln_cnt1, ln_cnt2;
 	unsigned int i;
 	int rc, ret = 0;
 
-	if (!drm_enc || !params) {
+	if (!drm_enc || !params || !drm_enc->dev ||
+		!drm_enc->dev->dev_private) {
 		SDE_ERROR("invalid args\n");
 		return -EINVAL;
 	}
 	sde_enc = to_sde_encoder_virt(drm_enc);
+	priv = drm_enc->dev->dev_private;
+	sde_kms = to_sde_kms(priv->kms);
 
 	SDE_DEBUG_ENC(sde_enc, "\n");
 	SDE_EVT32(DRMID(drm_enc));
@@ -3514,7 +3519,8 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 		}
 	}
 
-	if (_sde_encoder_is_dsc_enabled(drm_enc)) {
+	if (_sde_encoder_is_dsc_enabled(drm_enc) &&
+		!sde_kms->splash_data.cont_splash_en) {
 		rc = _sde_encoder_dsc_setup(sde_enc, params);
 		if (rc) {
 			SDE_ERROR_ENC(sde_enc, "failed to setup DSC: %d\n", rc);
@@ -4381,8 +4387,8 @@ int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder)
 		return ret;
 	}
 
-	if (conn->encoder) {
-		conn->state->best_encoder = conn->encoder;
+	if (sde_conn->encoder) {
+		conn->state->best_encoder = sde_conn->encoder;
 		SDE_DEBUG_ENC(sde_enc,
 			"configured cstate->best_encoder to ID = %d\n",
 			conn->state->best_encoder->base.id);

@@ -263,7 +263,8 @@ static void programmable_rot_fetch_config(struct sde_encoder_phys *phys_enc,
 	if (!phys_enc || !vid_enc->hw_intf || !phys_enc->hw_ctl ||
 			!phys_enc->hw_ctl->ops.get_bitmask_intf ||
 			!phys_enc->hw_ctl->ops.update_pending_flush ||
-			!vid_enc->hw_intf->ops.setup_rot_start)
+			!vid_enc->hw_intf->ops.setup_rot_start ||
+			!phys_enc->sde_kms)
 		return;
 
 	timing = &vid_enc->timing_params;
@@ -290,14 +291,17 @@ static void programmable_rot_fetch_config(struct sde_encoder_phys *phys_enc,
 		rot_fetch_lines, vfp_fetch_lines,
 		rot_fetch_start_vsync_counter);
 
-	phys_enc->hw_ctl->ops.get_bitmask_intf(
-			phys_enc->hw_ctl, &flush_mask, vid_enc->hw_intf->idx);
-	phys_enc->hw_ctl->ops.update_pending_flush(
-			phys_enc->hw_ctl, flush_mask);
+	if (!phys_enc->sde_kms->splash_data.cont_splash_en) {
+		phys_enc->hw_ctl->ops.get_bitmask_intf(
+				phys_enc->hw_ctl, &flush_mask,
+				vid_enc->hw_intf->idx);
+		phys_enc->hw_ctl->ops.update_pending_flush(
+				phys_enc->hw_ctl, flush_mask);
 
-	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
-	vid_enc->hw_intf->ops.setup_rot_start(vid_enc->hw_intf, &f);
-	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
+		spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
+		vid_enc->hw_intf->ops.setup_rot_start(vid_enc->hw_intf, &f);
+		spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
+	}
 
 	vid_enc->rot_fetch = f;
 	vid_enc->rot_fetch_valid = true;
@@ -328,7 +332,8 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 	unsigned long lock_flags;
 	struct sde_hw_intf_cfg intf_cfg = { 0 };
 
-	if (!phys_enc || !phys_enc->hw_ctl->ops.setup_intf_cfg) {
+	if (!phys_enc || !phys_enc->sde_kms || !phys_enc->hw_ctl ||
+			!phys_enc->hw_ctl->ops.setup_intf_cfg) {
 		SDE_ERROR("invalid encoder %d\n", phys_enc != 0);
 		return;
 	}
@@ -358,6 +363,14 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 
 	drm_mode_to_intf_timing_params(vid_enc, &mode, &timing_params);
 
+	vid_enc->timing_params = timing_params;
+
+	if (phys_enc->sde_kms->splash_data.cont_splash_en) {
+		SDE_DEBUG_VIDENC(vid_enc,
+			"skipping intf programming since cont splash is enabled\n");
+		return;
+	}
+
 	fmt = sde_get_sde_format(fmt_fourcc);
 	SDE_DEBUG_VIDENC(vid_enc, "fmt_fourcc 0x%X\n", fmt_fourcc);
 
@@ -371,10 +384,7 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 			&timing_params, fmt);
 	phys_enc->hw_ctl->ops.setup_intf_cfg(phys_enc->hw_ctl, &intf_cfg);
 	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
-
 	programmable_fetch_config(phys_enc, &timing_params);
-
-	vid_enc->timing_params = timing_params;
 }
 
 static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
@@ -653,7 +663,8 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	u32 flush_mask = 0;
 
 	if (!phys_enc || !phys_enc->parent || !phys_enc->parent->dev ||
-			!phys_enc->parent->dev->dev_private) {
+			!phys_enc->parent->dev->dev_private ||
+			!phys_enc->sde_kms) {
 		SDE_ERROR("invalid encoder/device\n");
 		return;
 	}
@@ -676,7 +687,9 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	/* reset state variables until after first update */
 	vid_enc->rot_fetch_valid = false;
 
-	sde_encoder_helper_split_config(phys_enc, vid_enc->hw_intf->idx);
+	if (!phys_enc->sde_kms->splash_data.cont_splash_en)
+		sde_encoder_helper_split_config(phys_enc,
+						vid_enc->hw_intf->idx);
 
 	sde_encoder_phys_vid_setup_timing_engine(phys_enc);
 
@@ -688,6 +701,17 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	if (sde_encoder_phys_vid_needs_single_flush(phys_enc) &&
 		!sde_encoder_phys_vid_is_master(phys_enc))
 		goto skip_flush;
+
+	/**
+	 * skip flushing intf during cont. splash handoff since bootloader
+	 * has already enabled the hardware and is single buffered.
+	 */
+
+	if (phys_enc->sde_kms->splash_data.cont_splash_en) {
+		SDE_DEBUG_VIDENC(vid_enc,
+		"skipping intf flush bit set as cont. splash is enabled\n");
+		goto skip_flush;
+	}
 
 	ctl->ops.get_bitmask_intf(ctl, &flush_mask, intf->idx);
 	ctl->ops.update_pending_flush(ctl, flush_mask);
