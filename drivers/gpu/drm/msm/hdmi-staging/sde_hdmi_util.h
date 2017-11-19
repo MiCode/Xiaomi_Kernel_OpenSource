@@ -109,6 +109,9 @@
 #define SDE_HDMI_HDCP_14 0x14
 #define SDE_HDMI_HDCP_NONE 0x0
 
+#define SDE_HDMI_HDR_LUMINANCE_NONE 0x0
+#define SDE_HDMI_HDR_EOTF_NONE 0x0
+
 /*
  * Bits 1:0 in HDMI_HW_DDC_CTRL that dictate how the HDCP 2.2 RxStatus will be
  * read by the hardware

@@ -18,7 +18,7 @@
 		compatible = "qcom,i2c-pmic";
 		reg = <0x8>;
 		#address-cells = <1>;
-		#size-cells = <1>;
+		#size-cells = <0>;
 		interrupt-parent = <&spmi_bus>;
 		interrupts = <0x0 0xd1 0x0 IRQ_TYPE_LEVEL_LOW>;
 		interrupt_names = "smb138x";

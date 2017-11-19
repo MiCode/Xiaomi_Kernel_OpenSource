@@ -24,9 +24,6 @@
 #define __CHIPSET__ "SDM660 "
 #define MSM_DAILINK_NAME(name) (__CHIPSET__#name)
 
-#define DEFAULT_MCLK_RATE 9600000
-#define NATIVE_MCLK_RATE 11289600
-
 #define WCD_MBHC_DEF_RLOADS 5
 
 #define WCN_CDC_SLIM_RX_CH_MAX 2
@@ -439,7 +436,7 @@ static int int_mi2s_ch_put(struct snd_kcontrol *kcontrol,
 
 static const struct snd_soc_dapm_widget msm_int_dapm_widgets[] = {
 	SND_SOC_DAPM_SUPPLY_S("INT_MCLK0", -1, SND_SOC_NOPM, 0, 0,
-	msm_int_mclk0_event, SND_SOC_DAPM_POST_PMD),
+	msm_int_mclk0_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MIC("Handset Mic", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("Secondary Mic", NULL),
@@ -730,6 +727,8 @@ static int msm_int_enable_dig_cdc_clk(struct snd_soc_codec *codec,
 		cancel_delayed_work_sync(&pdata->disable_int_mclk0_work);
 		mutex_lock(&pdata->cdc_int_mclk0_mutex);
 		if (atomic_read(&pdata->int_mclk0_enabled) == true) {
+			pdata->digital_cdc_core_clk.clk_freq_in_hz =
+						DEFAULT_MCLK_RATE;
 			pdata->digital_cdc_core_clk.enable = 0;
 			ret = afe_set_lpass_clock_v2(
 				AFE_PORT_ID_INT0_MI2S_RX,
@@ -738,6 +737,7 @@ static int msm_int_enable_dig_cdc_clk(struct snd_soc_codec *codec,
 				pr_err("%s: failed to disable CCLK\n",
 						__func__);
 			atomic_set(&pdata->int_mclk0_enabled, false);
+			atomic_set(&pdata->int_mclk0_rsc_ref, 0);
 		}
 		mutex_unlock(&pdata->cdc_int_mclk0_mutex);
 	}
@@ -959,6 +959,16 @@ static int msm_int_mclk0_event(struct snd_soc_dapm_widget *w,
 	pdata = snd_soc_card_get_drvdata(codec->component.card);
 	pr_debug("%s: event = %d\n", __func__, event);
 	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		ret = msm_cdc_pinctrl_select_active_state(pdata->pdm_gpio_p);
+		if (ret < 0) {
+			pr_err("%s: gpio set cannot be activated %s\n",
+			       __func__, "int_pdm");
+			return ret;
+		}
+		msm_int_enable_dig_cdc_clk(codec, 1, true);
+		msm_anlg_cdc_mclk_enable(codec, 1, true);
+		break;
 	case SND_SOC_DAPM_POST_PMD:
 		pr_debug("%s: mclk_res_ref = %d\n",
 			__func__, atomic_read(&pdata->int_mclk0_rsc_ref));
@@ -968,12 +978,10 @@ static int msm_int_mclk0_event(struct snd_soc_dapm_widget *w,
 					__func__, "int_pdm");
 			return ret;
 		}
-		if (atomic_read(&pdata->int_mclk0_rsc_ref) == 0) {
-			pr_debug("%s: disabling MCLK\n", __func__);
-			/* disable the codec mclk config*/
-			msm_anlg_cdc_mclk_enable(codec, 0, true);
-			msm_int_enable_dig_cdc_clk(codec, 0, true);
-		}
+		pr_debug("%s: disabling MCLK\n", __func__);
+		/* disable the codec mclk config*/
+		msm_anlg_cdc_mclk_enable(codec, 0, true);
+		msm_int_enable_dig_cdc_clk(codec, 0, true);
 		break;
 	default:
 		pr_err("%s: invalid DAPM event %d\n", __func__, event);
@@ -1158,19 +1166,6 @@ static int msm_int_mi2s_snd_startup(struct snd_pcm_substream *substream)
 				__func__, ret);
 		return ret;
 	}
-	ret =  msm_int_enable_dig_cdc_clk(codec, 1, true);
-	if (ret < 0) {
-		pr_err("failed to enable mclk\n");
-		return ret;
-	}
-	/* Enable the codec mclk config */
-	ret = msm_cdc_pinctrl_select_active_state(pdata->pdm_gpio_p);
-	if (ret < 0) {
-		pr_err("%s: gpio set cannot be activated %s\n",
-				__func__, "int_pdm");
-		return ret;
-	}
-	msm_anlg_cdc_mclk_enable(codec, 1, true);
 	ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBS_CFS);
 	if (ret < 0)
 		pr_err("%s: set fmt cpu dai failed; ret=%d\n", __func__, ret);
@@ -1181,9 +1176,6 @@ static int msm_int_mi2s_snd_startup(struct snd_pcm_substream *substream)
 static void msm_int_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 {
 	int ret;
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_card *card = rtd->card;
-	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 			substream->name, substream->stream);
@@ -1192,12 +1184,6 @@ static void msm_int_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 	if (ret < 0)
 		pr_err("%s:clock disable failed; ret=%d\n", __func__,
 				ret);
-	if (atomic_read(&pdata->int_mclk0_rsc_ref) > 0) {
-		atomic_dec(&pdata->int_mclk0_rsc_ref);
-		pr_debug("%s: decrementing mclk_res_ref %d\n",
-			 __func__,
-			 atomic_read(&pdata->int_mclk0_rsc_ref));
-	}
 }
 
 static void *def_msm_int_wcd_mbhc_cal(void)
@@ -2972,6 +2958,8 @@ static void msm_disable_int_mclk0(struct work_struct *work)
 			&& atomic_read(&pdata->int_mclk0_rsc_ref) == 0) {
 		pr_debug("Disable the mclk\n");
 		pdata->digital_cdc_core_clk.enable = 0;
+		pdata->digital_cdc_core_clk.clk_freq_in_hz =
+					DEFAULT_MCLK_RATE;
 		ret = afe_set_lpass_clock_v2(
 			AFE_PORT_ID_INT0_MI2S_RX,
 			&pdata->digital_cdc_core_clk);

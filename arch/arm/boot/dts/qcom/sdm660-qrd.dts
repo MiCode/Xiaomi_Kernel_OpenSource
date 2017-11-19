@@ -94,3 +94,12 @@
 		qcom,afe-power-off-delay-us = <6>;
 	};
 };
+
+&slim_aud {
+	/delete-node/wcd934x_cdc;
+};
+
+&soc {
+	/delete-node/sound-tavil;
+};
+

@@ -169,6 +169,7 @@ Optional properties:
 				e.g. qcom,sde-sspp-vig-blocks
 				-- qcom,sde-vig-csc-off: offset of CSC hardware
 				-- qcom,sde-vig-qseed-off: offset of QSEED hardware
+				-- qcom,sde-vig-qseed-size: A u32 address range for qseed scaler.
 				-- qcom,sde-vig-pcc: offset and version of PCC hardware
 				-- qcom,sde-vig-hsic: offset and version of global PA adjustment
 				-- qcom,sde-vig-memcolor: offset and version of PA memcolor hardware
@@ -178,6 +179,7 @@ Optional properties:
 				indicates that the SSPP RGB contains that feature hardware.
 				e.g. qcom,sde-sspp-vig-blocks
 				-- qcom,sde-rgb-scaler-off: offset of RGB scaler hardware
+				-- qcom,sde-rgb-scaler-size: A u32 address range for scaler.
 				-- qcom,sde-rgb-pcc: offset and version of PCC hardware
 - qcom,sde-dspp-blocks:		A node that lists the blocks inside the DSPP hardware. The
 				block entries will contain the offset and version of each
@@ -417,6 +419,7 @@ Example:
     qcom,sde-sspp-vig-blocks {
         qcom,sde-vig-csc-off = <0x320>;
         qcom,sde-vig-qseed-off = <0x200>;
+        qcom,sde-vig-qseed-size = <0x74>;
         /* Offset from vig top, version of HSIC */
         qcom,sde-vig-hsic = <0x200 0x00010000>;
         qcom,sde-vig-memcolor = <0x200 0x00010000>;
@@ -425,6 +428,7 @@ Example:
 
     qcom,sde-sspp-rgb-blocks {
         qcom,sde-rgb-scaler-off = <0x200>;
+        qcom,sde-rgb-scaler-size = <0x74>;
         qcom,sde-rgb-pcc = <0x380 0x00010000>;
     };
 

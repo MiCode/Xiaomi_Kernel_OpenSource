@@ -122,4 +122,12 @@
 					&quat_mi2s_sd3_sleep>;
 		};
 	};
+
+	ir: ir-receiver {
+		compatible = "gpio-ir-receiver";
+		gpios = <&tlmm 120 1>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&ir_int>;
+		linux,rc-map-name = "rc-rc6-p2fp";
+	};
 };

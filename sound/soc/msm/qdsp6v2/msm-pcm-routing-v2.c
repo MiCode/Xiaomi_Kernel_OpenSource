@@ -16200,7 +16200,8 @@ int msm_routing_set_downmix_control_data(int be_id, int session_id,
 	uint16_t ii;
 	uint16_t *dst_gain_ptr = NULL;
 
-	if (be_id >= MSM_BACKEND_DAI_MAX) {
+	if (be_id < MSM_BACKEND_DAI_PRI_I2S_RX ||
+	    be_id >= MSM_BACKEND_DAI_MAX) {
 		rc = -EINVAL;
 		return rc;
 	}

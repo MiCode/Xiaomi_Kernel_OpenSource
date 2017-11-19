@@ -415,13 +415,13 @@ static inline void hdmi_tx_send_audio_notification(
 		struct hdmi_tx_ctrl *hdmi_ctrl, int val)
 {
 	if (hdmi_ctrl && hdmi_ctrl->ext_audio_data.intf_ops.hpd) {
-	u32 flags = 0;
+		u32 flags = 0;
 
-	if (!hdmi_tx_is_dvi_mode(hdmi_ctrl))
-		flags |= MSM_EXT_DISP_HPD_AUDIO;
+		if (!hdmi_tx_is_dvi_mode(hdmi_ctrl))
+			flags |= MSM_EXT_DISP_HPD_AUDIO;
 
-	if (flags)
-		hdmi_ctrl->ext_audio_data.intf_ops.hpd(
+		if (flags)
+			hdmi_ctrl->ext_audio_data.intf_ops.hpd(
 				hdmi_ctrl->ext_pdev,
 				hdmi_ctrl->ext_audio_data.type, val, flags);
 	}
@@ -450,8 +450,6 @@ static inline void hdmi_tx_ack_state(
 			!hdmi_tx_is_dvi_mode(hdmi_ctrl))
 		hdmi_ctrl->ext_audio_data.intf_ops.notify(hdmi_ctrl->ext_pdev,
 				val);
-
-	hdmi_tx_send_audio_notification(hdmi_ctrl, val);
 }
 
 static struct hdmi_tx_ctrl *hdmi_tx_get_drvdata_from_panel_data(
@@ -2224,6 +2222,9 @@ static int hdmi_tx_read_sink_info(struct hdmi_tx_ctrl *hdmi_ctrl)
 	/* Enable SW DDC before EDID read */
 	DSS_REG_W_ND(io, HDMI_DDC_ARBITRATION,
 		DSS_REG_R(io, HDMI_DDC_ARBITRATION) & ~(BIT(4)));
+
+	/* Set/Reset HDMI max TMDS clock supported by source */
+	hdmi_edid_set_max_pclk_rate(data, hdmi_ctrl->max_pclk_khz);
 
 	if (!hdmi_ctrl->custom_edid && !hdmi_ctrl->sim_mode) {
 		hdmi_ddc_config(&hdmi_ctrl->ddc_ctrl);
@@ -4044,6 +4045,7 @@ static int hdmi_tx_pre_evt_handle_update_fps(struct hdmi_tx_ctrl *hdmi_ctrl)
 static int hdmi_tx_post_evt_handle_unblank(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	hdmi_tx_ack_state(hdmi_ctrl, true);
+	hdmi_tx_send_audio_notification(hdmi_ctrl, true);
 	return 0;
 }
 

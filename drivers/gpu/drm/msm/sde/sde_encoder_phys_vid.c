@@ -700,6 +700,35 @@ static int sde_encoder_phys_vid_wait_for_commit_done(
 	return ret;
 }
 
+static void sde_encoder_phys_vid_prepare_for_kickoff(
+		struct sde_encoder_phys *phys_enc)
+{
+	struct sde_encoder_phys_vid *vid_enc;
+	struct sde_hw_ctl *ctl;
+	int rc;
+
+	if (!phys_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+	vid_enc = to_sde_encoder_phys_vid(phys_enc);
+
+	ctl = phys_enc->hw_ctl;
+	if (!ctl || !ctl->ops.wait_reset_status)
+		return;
+
+	/*
+	 * hw supports hardware initiated ctl reset, so before we kickoff a new
+	 * frame, need to check and wait for hw initiated ctl reset completion
+	 */
+	rc = ctl->ops.wait_reset_status(ctl);
+	if (rc) {
+		SDE_ERROR_VIDENC(vid_enc, "ctl %d reset failure: %d\n",
+				ctl->idx, rc);
+		SDE_DBG_DUMP("panic");
+	}
+}
+
 static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 {
 	struct msm_drm_private *priv;
@@ -832,6 +861,7 @@ static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->get_hw_resources = sde_encoder_phys_vid_get_hw_resources;
 	ops->control_vblank_irq = sde_encoder_phys_vid_control_vblank_irq;
 	ops->wait_for_commit_done = sde_encoder_phys_vid_wait_for_commit_done;
+	ops->prepare_for_kickoff = sde_encoder_phys_vid_prepare_for_kickoff;
 	ops->handle_post_kickoff = sde_encoder_phys_vid_handle_post_kickoff;
 	ops->needs_single_flush = sde_encoder_phys_vid_needs_single_flush;
 	ops->setup_misr = sde_encoder_phys_vid_setup_misr;

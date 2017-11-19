@@ -271,6 +271,14 @@ First Level Node - FG Gen3 device
 	Definition: A boolean property that when defined holds SOC at 100% when
 		    the battery is full.
 
+- qcom,linearize-soc
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property that when defined linearizes SOC when
+		    the SOC drops after charge termination monotonically to
+		    improve the user experience. This is applicable only if
+		    "qcom,hold-soc-while-full" is specified.
+
 - qcom,ki-coeff-soc-dischg
 	Usage:      optional
 	Value type: <prop-encoded-array>
@@ -300,6 +308,13 @@ First Level Node - FG Gen3 device
 		    property should be specified if qcom,ki-coeff-soc-dischg
 		    is specified to make it fully functional. Value has no
 		    unit. Allowed range is 0 to 62200 in micro units.
+
+- qcom,ki-coeff-full-dischg
+	Usage:	    optional
+	Value type: <u32>
+	Definition: Ki coefficient full SOC value that will be applied during
+		    discharging. If not specified, a value of 0 will be set.
+		    Allowed range is from 245 to 62256.
 
 - qcom,fg-rconn-mohms
 	Usage:      optional

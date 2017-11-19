@@ -237,7 +237,7 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
 			transparent = xt_socket_sk_is_transparent(sk);
 
 		if (info->flags & XT_SOCKET_RESTORESKMARK && !wildcard &&
-		    transparent)
+		    transparent && sk_fullsock(sk))
 			pskb->mark = sk->sk_mark;
 
 		sock_gen_put(sk);
@@ -419,7 +419,7 @@ socket_mt6_v1_v2_v3(const struct sk_buff *skb, struct xt_action_param *par)
 			transparent = xt_socket_sk_is_transparent(sk);
 
 		if (info->flags & XT_SOCKET_RESTORESKMARK && !wildcard &&
-		    transparent)
+		    transparent && sk_fullsock(sk))
 			pskb->mark = sk->sk_mark;
 
 		if (sk != skb->sk)

@@ -28,3 +28,12 @@
 &tavil_snd {
 	qcom,msm-mbhc-moist-cfg = <0>, <0>, <3>;
 };
+
+&slim_aud {
+	/delete-node/tasha_codec;
+};
+
+&soc {
+	/delete-node/sound-9335;
+};
+
