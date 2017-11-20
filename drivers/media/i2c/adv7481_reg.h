@@ -411,11 +411,6 @@
 #define SDP_RO_MAIN_IN_LOCK_BMSK                0x0001
 #define SDP_RO_MAIN_IN_LOCK_SHFT                0
 
-/* SDP R/O Map 1 Registers */
-#define SDP_RO_MAP_1_FIELD_ADDR                 0x45
-#define SDP_RO_MAP_1_EVEN_FIELD_BMSK            0x10
-#define SDP_RO_MAP_1_EVEN_FIELD_SHFT            4
-
 
 /*
  * CSI Map Registers
