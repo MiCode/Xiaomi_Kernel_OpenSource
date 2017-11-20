@@ -155,6 +155,7 @@ enum sde_prop {
 	SMART_PANEL_ALIGN_MODE,
 	MACROTILE_MODE,
 	UBWC_BW_CALC_VERSION,
+	PIPE_ORDER_VERSION,
 	SDE_PROP_MAX,
 };
 
@@ -424,6 +425,8 @@ static struct sde_prop_type sde_prop[] = {
 			false, PROP_TYPE_U32},
 	{MACROTILE_MODE, "qcom,sde-macrotile-mode", false, PROP_TYPE_U32},
 	{UBWC_BW_CALC_VERSION, "qcom,sde-ubwc-bw-calc-version", false,
+			PROP_TYPE_U32},
+	{PIPE_ORDER_VERSION, "qcom,sde-pipe-order-version", false,
 			PROP_TYPE_U32},
 };
 
@@ -2951,6 +2954,8 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 	cfg->has_src_split = PROP_VALUE_ACCESS(prop_value, SRC_SPLIT, 0);
 	cfg->has_dim_layer = PROP_VALUE_ACCESS(prop_value, DIM_LAYER, 0);
 	cfg->has_idle_pc = PROP_VALUE_ACCESS(prop_value, IDLE_PC, 0);
+	cfg->pipe_order_type = PROP_VALUE_ACCESS(prop_value,
+		PIPE_ORDER_VERSION, 0);
 end:
 	kfree(prop_value);
 	return rc;

@@ -55,6 +55,7 @@
 #define MDSS_MDP_OP_IGC_EN                 BIT(16)
 #define MDSS_MDP_OP_FLIP_UD                BIT(14)
 #define MDSS_MDP_OP_FLIP_LR                BIT(13)
+#define MDSS_MDP_OP_SPLIT_ORDER            BIT(4)
 #define MDSS_MDP_OP_BWC_EN                 BIT(0)
 #define MDSS_MDP_OP_PE_OVERRIDE            BIT(31)
 #define MDSS_MDP_OP_BWC_LOSSLESS           (0 << 1)
@@ -286,12 +287,15 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 	c = &ctx->hw;
 	opmode = SDE_REG_READ(c, op_mode_off + idx);
 	opmode &= ~(MDSS_MDP_OP_FLIP_LR | MDSS_MDP_OP_FLIP_UD |
-			MDSS_MDP_OP_BWC_EN | MDSS_MDP_OP_PE_OVERRIDE);
+			MDSS_MDP_OP_BWC_EN | MDSS_MDP_OP_PE_OVERRIDE |
+			MDSS_MDP_OP_SPLIT_ORDER);
 
 	if (flags & SDE_SSPP_FLIP_LR)
 		opmode |= MDSS_MDP_OP_FLIP_LR;
 	if (flags & SDE_SSPP_FLIP_UD)
 		opmode |= MDSS_MDP_OP_FLIP_UD;
+	if ((flags & SDE_SSPP_RIGHT) && ctx->catalog->pipe_order_type)
+		opmode |= MDSS_MDP_OP_SPLIT_ORDER;
 
 	chroma_samp = fmt->chroma_sample;
 	if (flags & SDE_SSPP_SOURCE_ROTATED_90) {

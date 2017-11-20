@@ -1606,7 +1606,9 @@ static int _sde_plane_color_fill(struct sde_plane *psde,
 
 		if (psde->pipe_hw->ops.setup_format)
 			psde->pipe_hw->ops.setup_format(psde->pipe_hw,
-					fmt, blend_enable, SDE_SSPP_SOLID_FILL,
+					fmt, blend_enable,
+					SDE_SSPP_SOLID_FILL |
+					pstate->pipe_order_flags,
 					pstate->multirect_index);
 
 		if (psde->pipe_hw->ops.setup_rects)
@@ -3908,7 +3910,7 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 
 	if ((pstate->dirty & SDE_PLANE_DIRTY_FORMAT) &&
 			psde->pipe_hw->ops.setup_format) {
-		src_flags = 0x0;
+		src_flags = pstate->pipe_order_flags;
 		SDE_DEBUG_PLANE(psde, "rotation 0x%X\n", rstate->out_rotation);
 		if (rstate->out_rotation & DRM_MODE_REFLECT_X)
 			src_flags |= SDE_SSPP_FLIP_LR;

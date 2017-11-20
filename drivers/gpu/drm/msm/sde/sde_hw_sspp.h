@@ -31,6 +31,7 @@ struct sde_hw_pipe;
 #define SDE_SSPP_SOURCE_ROTATED_90 0x8
 #define SDE_SSPP_ROT_90  0x10
 #define SDE_SSPP_SOLID_FILL 0x20
+#define SDE_SSPP_RIGHT	 0x40
 
 /**
  * Define all scaler feature bits in catalog

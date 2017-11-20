@@ -1003,6 +1003,7 @@ struct sde_perf_cfg {
  * @vbif_qos_nlvl      number of vbif QoS priority level
  * @ts_prefill_rev     prefill traffic shaper feature revision
  * @macrotile_mode     UBWC parameter for macro tile channel distribution
+ * @pipe_order_type    indicate if it is required to specify pipe order
  */
 struct sde_mdss_cfg {
 	u32 hwversion;
@@ -1028,6 +1029,7 @@ struct sde_mdss_cfg {
 	u32 vbif_qos_nlvl;
 	u32 ts_prefill_rev;
 	u32 macrotile_mode;
+	u32 pipe_order_type;
 
 	bool has_hdr;
 	u32 mdss_count;
