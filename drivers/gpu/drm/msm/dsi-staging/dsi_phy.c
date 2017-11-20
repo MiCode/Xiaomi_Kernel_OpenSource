@@ -787,7 +787,6 @@ error:
  * @config:             DSI host configuration.
  * @pll_source:         Source PLL for PHY clock.
  * @skip_validation:    Validation will not be performed on parameters.
- * @is_cont_splash_enabled:    check whether continuous splash enabled.
  *
  * Validates and enables DSI PHY.
  *
@@ -796,8 +795,7 @@ error:
 int dsi_phy_enable(struct msm_dsi_phy *phy,
 		   struct dsi_host_config *config,
 		   enum dsi_phy_pll_source pll_source,
-		   bool skip_validation,
-		   bool is_cont_splash_enabled)
+		   bool skip_validation)
 {
 	int rc = 0;
 
@@ -831,10 +829,7 @@ int dsi_phy_enable(struct msm_dsi_phy *phy,
 		goto error;
 	}
 
-	if (!is_cont_splash_enabled) {
-		dsi_phy_enable_hw(phy);
-		pr_debug("cont splash not enabled, phy enable required\n");
-	}
+	dsi_phy_enable_hw(phy);
 	phy->dsi_phy_state = DSI_PHY_ENGINE_ON;
 
 error:

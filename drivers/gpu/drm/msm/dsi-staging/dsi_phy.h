@@ -159,7 +159,6 @@ int dsi_phy_set_power_state(struct msm_dsi_phy *dsi_phy, bool enable);
  * @config:             DSI host configuration.
  * @pll_source:         Source PLL for PHY clock.
  * @skip_validation:    Validation will not be performed on parameters.
- * @is_cont_splash_enabled:    check whether continuous splash enabled.
  *
  * Validates and enables DSI PHY.
  *
@@ -168,8 +167,7 @@ int dsi_phy_set_power_state(struct msm_dsi_phy *dsi_phy, bool enable);
 int dsi_phy_enable(struct msm_dsi_phy *dsi_phy,
 		   struct dsi_host_config *config,
 		   enum dsi_phy_pll_source pll_source,
-		   bool skip_validation,
-		   bool is_cont_splash_enabled);
+		   bool skip_validation);
 
 /**
  * dsi_phy_disable() - disable DSI PHY hardware.
