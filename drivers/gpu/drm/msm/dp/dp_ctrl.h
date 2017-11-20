@@ -32,6 +32,8 @@ struct dp_ctrl {
 	void (*abort)(struct dp_ctrl *dp_ctrl);
 	void (*isr)(struct dp_ctrl *dp_ctrl);
 	bool (*handle_sink_request)(struct dp_ctrl *dp_ctrl);
+	void (*process_phy_test_request)(struct dp_ctrl *dp_ctrl);
+	int (*link_maintenance)(struct dp_ctrl *dp_ctrl);
 };
 
 struct dp_ctrl_in {
