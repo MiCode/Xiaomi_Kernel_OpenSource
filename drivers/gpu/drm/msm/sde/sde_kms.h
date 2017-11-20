@@ -31,7 +31,6 @@
 #include "sde_hw_catalog.h"
 #include "sde_hw_ctl.h"
 #include "sde_hw_lm.h"
-#include "sde_hw_pingpong.h"
 #include "sde_hw_interrupts.h"
 #include "sde_hw_wb.h"
 #include "sde_hw_top.h"
@@ -215,8 +214,7 @@ struct sde_kms {
 
 	struct sde_rm rm;
 	bool rm_init;
-	struct sde_splash_data splash_data;
-	bool cont_splash_en;
+
 	struct sde_hw_vbif *hw_vbif[VBIF_MAX];
 	struct sde_hw_mdp *hw_mdp;
 	int dsi_display_count;
