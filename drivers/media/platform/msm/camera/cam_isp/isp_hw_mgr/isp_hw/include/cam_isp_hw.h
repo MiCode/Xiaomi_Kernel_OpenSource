@@ -90,6 +90,8 @@ enum cam_isp_hw_cmd_type {
 	CAM_ISP_HW_CMD_GET_HFR_UPDATE,
 	CAM_ISP_HW_CMD_GET_SECURE_MODE,
 	CAM_ISP_HW_CMD_STRIPE_UPDATE,
+	CAM_ISP_HW_CMD_CLOCK_UPDATE,
+	CAM_ISP_HW_CMD_BW_UPDATE,
 	CAM_ISP_HW_CMD_MAX,
 };
 
@@ -110,6 +112,7 @@ enum cam_isp_hw_cmd_type {
  * @tasklet_info:                 Tasklet structure that will be used to
  *                                schedule IRQ events related to this resource
  * @irq_handle:                   handle returned on subscribing for IRQ event
+ * @rdi_only_ctx:                 resouce belong to rdi only context or not
  * @init:                         function pointer to init the HW resource
  * @deinit:                       function pointer to deinit the HW resource
  * @start:                        function pointer to start the HW resource
@@ -129,6 +132,7 @@ struct cam_isp_resource_node {
 	void                          *cdm_ops;
 	void                          *tasklet_info;
 	int                            irq_handle;
+	int                            rdi_only_ctx;
 
 	int (*init)(struct cam_isp_resource_node *rsrc_node,
 		void *init_args, uint32_t arg_size);
@@ -192,6 +196,8 @@ struct cam_isp_hw_get_cmd_update {
 		void                                 *data;
 		struct cam_isp_hw_get_wm_update      *wm_update;
 		struct cam_isp_port_hfr_config       *hfr_update;
+		struct cam_isp_clock_config          *clock_update;
+		struct cam_isp_bw_config             *bw_update;
 	};
 };
 

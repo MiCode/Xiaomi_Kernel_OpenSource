@@ -777,7 +777,7 @@
 		clock-rates =
 			<0 0 0 0 0 0 384000000 0 0 0 404000000 0>,
 			<0 0 0 0 0 0 538000000 0 0 0 600000000 0>;
-		clock-cntl-level = "svs";
+		clock-cntl-level = "svs", "turbo";
 		src-clock-name = "ife_csid_clk_src";
 		status = "ok";
 	};

@@ -810,15 +810,34 @@ static int __cam_req_mgr_reset_in_q(struct cam_req_mgr_req_data *req)
  */
 static void __cam_req_mgr_sof_freeze(unsigned long data)
 {
-	struct cam_req_mgr_timer *timer = (struct cam_req_mgr_timer *)data;
-	struct cam_req_mgr_core_link *link = NULL;
+	struct cam_req_mgr_timer     *timer = (struct cam_req_mgr_timer *)data;
+	struct cam_req_mgr_core_link    *link = NULL;
+	struct cam_req_mgr_core_session *session = NULL;
+	struct cam_req_mgr_message       msg;
 
 	if (!timer) {
 		CAM_ERR(CAM_CRM, "NULL timer");
 		return;
 	}
 	link = (struct cam_req_mgr_core_link *)timer->parent;
-	CAM_ERR(CAM_CRM, "SOF freeze for link %x", link->link_hdl);
+	session = (struct cam_req_mgr_core_session *)link->parent;
+
+	CAM_ERR(CAM_CRM, "SOF freeze for session %d link 0x%x",
+		session->session_hdl, link->link_hdl);
+
+	memset(&msg, 0, sizeof(msg));
+
+	msg.session_hdl = session->session_hdl;
+	msg.u.err_msg.error_type = CAM_REQ_MGR_ERROR_TYPE_DEVICE;
+	msg.u.err_msg.request_id = 0;
+	msg.u.err_msg.link_hdl   = link->link_hdl;
+
+
+	if (cam_req_mgr_notify_message(&msg,
+		V4L_EVENT_CAM_REQ_MGR_ERROR, V4L_EVENT_CAM_REQ_MGR_EVENT))
+		CAM_ERR(CAM_CRM,
+			"Error notifying SOF freeze for session %d link 0x%x",
+			session->session_hdl, link->link_hdl);
 }
 
 /**
@@ -863,12 +882,14 @@ static void __cam_req_mgr_destroy_subdev(
  * @brief    : Cleans up the mem allocated while linking
  * @link     : pointer to link, mem associated with this link is freed
  *
+ * @return   : returns if unlink for any device was success or failure
  */
-static void __cam_req_mgr_destroy_link_info(struct cam_req_mgr_core_link *link)
+static int __cam_req_mgr_destroy_link_info(struct cam_req_mgr_core_link *link)
 {
 	int32_t                                 i = 0;
 	struct cam_req_mgr_connected_device    *dev;
 	struct cam_req_mgr_core_dev_link_setup  link_data;
+	int                                     rc = 0;
 
 	link_data.link_enable = 0;
 	link_data.link_hdl = link->link_hdl;
@@ -881,7 +902,11 @@ static void __cam_req_mgr_destroy_link_info(struct cam_req_mgr_core_link *link)
 		if (dev != NULL) {
 			link_data.dev_hdl = dev->dev_hdl;
 			if (dev->ops && dev->ops->link_setup)
-				dev->ops->link_setup(&link_data);
+				rc = dev->ops->link_setup(&link_data);
+				if (rc)
+					CAM_ERR(CAM_CRM,
+						"Unlink failed dev_hdl %d",
+						dev->dev_hdl);
 			dev->dev_hdl = 0;
 			dev->parent = NULL;
 			dev->ops = NULL;
@@ -896,6 +921,7 @@ static void __cam_req_mgr_destroy_link_info(struct cam_req_mgr_core_link *link)
 	link->num_devs = 0;
 	link->max_delay = 0;
 
+	return rc;
 }
 
 /**
@@ -2024,8 +2050,12 @@ int cam_req_mgr_unlink(struct cam_req_mgr_unlink_info *unlink_info)
 
 	cam_req_mgr_workq_destroy(&link->workq);
 
-	/* Cleanuprequest tables */
-	__cam_req_mgr_destroy_link_info(link);
+	/* Cleanup request tables and unlink devices */
+	rc = __cam_req_mgr_destroy_link_info(link);
+	if (rc) {
+		CAM_ERR(CAM_CORE, "Unlink failed. Cannot proceed");
+		return rc;
+	}
 
 	/* Free memory holding data of linked devs */
 	__cam_req_mgr_destroy_subdev(link->l_dev);

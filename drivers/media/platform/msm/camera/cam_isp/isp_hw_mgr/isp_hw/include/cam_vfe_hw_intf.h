@@ -161,6 +161,31 @@ struct cam_vfe_acquire_args {
 };
 
 /*
+ * struct cam_vfe_clock_update_args:
+ *
+ * @node_res:                Resource to get the time stamp
+ * @clk_rate:                Clock rate requested
+ */
+struct cam_vfe_clock_update_args {
+	struct cam_isp_resource_node      *node_res;
+	uint64_t                           clk_rate;
+};
+
+/*
+ * struct cam_vfe_bw_update_args:
+ *
+ * @node_res:             Resource to get the time stamp
+ * @camnoc_bw_bytes:      Bandwidth vote request for CAMNOC
+ * @external_bw_bytes:    Bandwidth vote request from CAMNOC
+ *                        out to the rest of the path-to-DDR
+ */
+struct cam_vfe_bw_update_args {
+	struct cam_isp_resource_node      *node_res;
+	uint64_t                           camnoc_bw_bytes;
+	uint64_t                           external_bw_bytes;
+};
+
+/*
  * struct cam_vfe_top_irq_evt_payload:
  *
  * @Brief:                   This structure is used to save payload for IRQ
