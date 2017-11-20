@@ -1758,13 +1758,8 @@ static int find_lowest_rq(struct task_struct *task)
 	int best_cpu_idle_idx = INT_MAX;
 	int cpu_idle_idx = -1;
 	bool placement_boost;
-#ifdef CONFIG_SCHED_CORE_ROTATE
 	bool do_rotate = false;
 	bool avoid_prev_cpu = false;
-#else
-#define do_rotate false
-#define avoid_prev_cpu false
-#endif
 
 	/* Make sure the mask is initialized first */
 	if (unlikely(!lowest_mask))
@@ -1892,7 +1887,6 @@ retry:
 			best_cpu = cpu;
 		}
 
-#ifdef CONFIG_SCHED_CORE_ROTATE
 		if (do_rotate) {
 			/*
 			 * We started iteration somewhere in the middle of
@@ -1903,7 +1897,6 @@ retry:
 			cpu = -1;
 			goto retry;
 		}
-#endif
 
 		if (best_cpu != -1) {
 			return best_cpu;
