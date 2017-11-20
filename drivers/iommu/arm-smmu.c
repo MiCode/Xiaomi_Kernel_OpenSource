@@ -4453,18 +4453,18 @@ static void __qsmmuv500_errata1_tlbiall(struct arm_smmu_domain *smmu_domain)
 	if (readl_poll_timeout_atomic(base + ARM_SMMU_CB_TLBSTATUS, val,
 				      !(val & TLBSTATUS_SACTIVE), 0, 100)) {
 		cur = ktime_get();
-		trace_errata_throttle_start(dev, 0);
+		trace_tlbi_throttle_start(dev, 0);
 
 		msm_bus_noc_throttle_wa(true);
 		if (readl_poll_timeout_atomic(base + ARM_SMMU_CB_TLBSTATUS, val,
 				      !(val & TLBSTATUS_SACTIVE), 0, 10000)) {
 			dev_err(smmu->dev, "ERRATA1 TLBSYNC timeout");
-			trace_errata_failed(dev, 0);
+			trace_tlbsync_timeout(dev, 0);
 		}
 
 		msm_bus_noc_throttle_wa(false);
 
-		trace_errata_throttle_end(
+		trace_tlbi_throttle_end(
 				dev, ktime_us_delta(ktime_get(), cur));
 	}
 }
@@ -4481,7 +4481,7 @@ static void qsmmuv500_errata1_tlb_inv_context(void *cookie)
 	bool errata;
 
 	cur = ktime_get();
-	trace_errata_tlbi_start(dev, 0);
+	trace_tlbi_start(dev, 0);
 
 	errata = qsmmuv500_errata1_required(smmu_domain, data);
 	remote_spin_lock_irqsave(&data->errata1_lock, flags);
@@ -4500,7 +4500,7 @@ static void qsmmuv500_errata1_tlb_inv_context(void *cookie)
 	}
 	remote_spin_unlock_irqrestore(&data->errata1_lock, flags);
 
-	trace_errata_tlbi_end(dev, ktime_us_delta(ktime_get(), cur));
+	trace_tlbi_end(dev, ktime_us_delta(ktime_get(), cur));
 }
 
 static struct iommu_gather_ops qsmmuv500_errata1_smmu_gather_ops = {
