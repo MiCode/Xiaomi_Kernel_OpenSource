@@ -1201,6 +1201,8 @@ static void sde_rotator_retire_request(struct sde_rotator_request *request)
 	list_add_tail(&request->list, &ctx->retired_list);
 	spin_unlock(&ctx->list_lock);
 
+	wake_up(&ctx->wait_queue);
+
 	SDEROT_DBG("retire request s:%d.%d\n",
 				ctx->session_id, ctx->retired_sequence_id);
 }
