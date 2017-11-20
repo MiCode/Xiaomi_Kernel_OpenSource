@@ -569,11 +569,7 @@ struct ctl_top {
 
 /**
  * struct sde_splash_data - Struct contains details of continuous splash
- *	memory region and initial pipeline configuration.
- * @smmu_handoff_pending:boolean to notify handoff from splash memory to smmu
- * @splash_base:	Base address of continuous splash region reserved
- *                      by bootloader
- * @splash_size:	Size of continuous splash region
+ *	initial pipeline configuration.
  * @top:	struct ctl_top objects
  * @ctl_ids:	stores the valid MDSS ctl block ids for the current mode
  * @lm_ids:	stores the valid MDSS layer mixer block ids for the current mode
@@ -583,9 +579,6 @@ struct ctl_top {
  * @dsc_cnt:	stores the active number of MDSS "dsc" blks for the current mode
  */
 struct sde_splash_data {
-	bool smmu_handoff_pending;
-	unsigned long splash_base;
-	u32 splash_size;
 	struct ctl_top top[CTL_MAX - CTL_0];
 	u8 ctl_ids[CTL_MAX - CTL_0];
 	u8 lm_ids[LM_MAX - LM_0];

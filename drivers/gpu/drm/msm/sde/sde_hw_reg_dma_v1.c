@@ -509,13 +509,8 @@ int init_v1(struct sde_hw_reg_dma *cfg)
 			last_cmd_buf[i] =
 			    alloc_reg_dma_buf_v1(REG_DMA_HEADERS_BUFFER_SZ);
 			if (IS_ERR_OR_NULL(last_cmd_buf[i])) {
-				/*
-				 * This will allow reg dma to fall back to
-				 * AHB domain
-				 */
-				pr_info("Failed to allocate reg dma, ret:%lu\n",
-						PTR_ERR(last_cmd_buf[i]));
-				return 0;
+				rc = -EINVAL;
+				break;
 			}
 		}
 	}
