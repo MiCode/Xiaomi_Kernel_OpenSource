@@ -714,8 +714,7 @@ static bool _sde_rm_check_lm_and_get_connected_blks(
 static int _sde_rm_reserve_lms(
 		struct sde_rm *rm,
 		struct sde_rm_rsvp *rsvp,
-		struct sde_rm_requirements *reqs,
-		u8 *_lm_ids)
+		struct sde_rm_requirements *reqs)
 
 {
 	struct sde_rm_hw_blk *lm[MAX_BLOCKS];
@@ -743,14 +742,6 @@ static int _sde_rm_reserve_lms(
 		lm_count = 0;
 		lm[lm_count] = iter_i.blk;
 
-		SDE_DEBUG("blk id = %d, _lm_ids[%d] = %d\n",
-			iter_i.blk->id,
-			lm_count,
-			_lm_ids ? _lm_ids[lm_count] : -1);
-
-		if (_lm_ids && (lm[lm_count])->id != _lm_ids[lm_count])
-			continue;
-
 		if (!_sde_rm_check_lm_and_get_connected_blks(
 				rm, rsvp, reqs, lm[lm_count],
 				&dspp[lm_count], &ds[lm_count],
@@ -774,14 +765,6 @@ static int _sde_rm_reserve_lms(
 				continue;
 
 			lm[lm_count] = iter_j.blk;
-			SDE_DEBUG("blk id = %d, _lm_ids[%d] = %d\n",
-				iter_i.blk->id,
-				lm_count,
-				_lm_ids ? _lm_ids[lm_count] : -1);
-
-			if (_lm_ids && (lm[lm_count])->id != _lm_ids[lm_count])
-				continue;
-
 			++lm_count;
 		}
 	}
@@ -835,8 +818,7 @@ static int _sde_rm_reserve_ctls(
 		struct sde_rm *rm,
 		struct sde_rm_rsvp *rsvp,
 		struct sde_rm_requirements *reqs,
-		const struct sde_rm_topology_def *top,
-		u8 *_ctl_ids)
+		const struct sde_rm_topology_def *top)
 {
 	struct sde_rm_hw_blk *ctls[MAX_BLOCKS];
 	struct sde_rm_hw_iter iter;
@@ -878,14 +860,6 @@ static int _sde_rm_reserve_ctls(
 		}
 
 		ctls[i] = iter.blk;
-
-		SDE_DEBUG("blk id = %d, _ctl_ids[%d] = %d\n",
-			iter.blk->id, i,
-			_ctl_ids ? _ctl_ids[i] : -1);
-
-		if (_ctl_ids && (ctls[i]->id != _ctl_ids[i]))
-			continue;
-
 		SDE_DEBUG("ctl %d match\n", iter.blk->id);
 
 		if (++i == top->num_ctl)
@@ -906,8 +880,7 @@ static int _sde_rm_reserve_ctls(
 static int _sde_rm_reserve_dsc(
 		struct sde_rm *rm,
 		struct sde_rm_rsvp *rsvp,
-		const struct sde_rm_topology_def *top,
-		u8 *_dsc_ids)
+		const struct sde_rm_topology_def *top)
 {
 	struct sde_rm_hw_iter iter;
 	int alloc_count = 0;
@@ -920,14 +893,6 @@ static int _sde_rm_reserve_dsc(
 
 	while (_sde_rm_get_hw_locked(rm, &iter)) {
 		if (RESERVED_BY_OTHER(iter.blk, rsvp))
-			continue;
-
-		SDE_DEBUG("blk id = %d, _dsc_ids[%d] = %d\n",
-			iter.blk->id,
-			alloc_count,
-			_dsc_ids ? _dsc_ids[alloc_count] : -1);
-
-		if (_dsc_ids && (iter.blk->id != _dsc_ids[alloc_count]))
 			continue;
 
 		iter.blk->rsvp_nxt = rsvp;
@@ -1078,10 +1043,10 @@ static int _sde_rm_make_next_rsvp(
 	 * - Check mixers without DSPPs
 	 * - Only then allow to grab from mixers with DSPP capability
 	 */
-	ret = _sde_rm_reserve_lms(rm, rsvp, reqs, NULL);
+	ret = _sde_rm_reserve_lms(rm, rsvp, reqs);
 	if (ret && !RM_RQ_DSPP(reqs)) {
 		reqs->top_ctrl |= BIT(SDE_RM_TOPCTL_DSPP);
-		ret = _sde_rm_reserve_lms(rm, rsvp, reqs, NULL);
+		ret = _sde_rm_reserve_lms(rm, rsvp, reqs);
 	}
 
 	if (ret) {
@@ -1094,11 +1059,11 @@ static int _sde_rm_make_next_rsvp(
 	 * - Check mixers without Split Display
 	 * - Only then allow to grab from CTLs with split display capability
 	 */
-	_sde_rm_reserve_ctls(rm, rsvp, reqs, reqs->topology, NULL);
+	_sde_rm_reserve_ctls(rm, rsvp, reqs, reqs->topology);
 	if (ret && !reqs->topology->needs_split_display) {
 		memcpy(&topology, reqs->topology, sizeof(topology));
 		topology.needs_split_display = true;
-		_sde_rm_reserve_ctls(rm, rsvp, reqs, &topology, NULL);
+		_sde_rm_reserve_ctls(rm, rsvp, reqs, &topology);
 	}
 	if (ret) {
 		SDE_ERROR("unable to find appropriate CTL\n");
@@ -1110,7 +1075,7 @@ static int _sde_rm_make_next_rsvp(
 	if (ret)
 		return ret;
 
-	ret = _sde_rm_reserve_dsc(rm, rsvp, reqs->topology, NULL);
+	ret = _sde_rm_reserve_dsc(rm, rsvp, reqs->topology);
 	if (ret)
 		return ret;
 
