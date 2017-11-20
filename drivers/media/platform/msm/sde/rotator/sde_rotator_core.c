@@ -2921,10 +2921,12 @@ static int sde_rotator_parse_dt_clk(struct platform_device *pdev,
 			sde_rotator_search_dt_clk(pdev, mgr, "iface_clk",
 				SDE_ROTATOR_CLK_MDSS_AHB, true) ||
 			sde_rotator_search_dt_clk(pdev, mgr, "axi_clk",
-				SDE_ROTATOR_CLK_MDSS_AXI, true) ||
+				SDE_ROTATOR_CLK_MDSS_AXI, false) ||
 			sde_rotator_search_dt_clk(pdev, mgr, "rot_core_clk",
-				SDE_ROTATOR_CLK_MDSS_ROT, false))
+				SDE_ROTATOR_CLK_MDSS_ROT, false)) {
 		rc = -EINVAL;
+		goto clk_err;
+	}
 
 	/*
 	 * If 'MDSS_ROT' is already present, place 'rot_clk' under
@@ -3080,6 +3082,15 @@ int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
 			SDE_MDP_HW_REV_500)) {
 		mgr->ops_hw_init = sde_rotator_r3_init;
 		mgr->min_rot_clk = ROT_MIN_ROT_CLK;
+
+		if (!IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
+					SDE_MDP_HW_REV_500) &&
+				!sde_rotator_get_clk(mgr,
+					SDE_ROTATOR_CLK_MDSS_AXI)) {
+			SDEROT_ERR("unable to get mdss_axi_clk\n");
+			ret = -EINVAL;
+			goto error_map_hw_ops;
+		}
 	} else {
 		ret = -ENODEV;
 		SDEROT_ERR("unsupported sde version %x\n",
