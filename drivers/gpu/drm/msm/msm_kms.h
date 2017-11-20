@@ -104,8 +104,6 @@ struct msm_kms_funcs {
 	struct msm_gem_address_space *(*get_address_space)(
 			struct msm_kms *kms,
 			unsigned int domain);
-	/* handle continuous splash  */
-	int (*cont_splash_config)(struct msm_kms *kms);
 };
 
 struct msm_kms {
