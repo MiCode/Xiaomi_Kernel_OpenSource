@@ -970,7 +970,7 @@
 
 			gpio_key_suspend: gpio_key_suspend {
 				mux {
-					pins = "gpio91", "gpio91", "gpio92";
+					pins = "gpio90", "gpio91", "gpio92";
 					function = "gpio";
 				};
 
