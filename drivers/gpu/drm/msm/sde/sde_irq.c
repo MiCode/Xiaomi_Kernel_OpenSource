@@ -104,8 +104,7 @@ void sde_irq_preinstall(struct msm_kms *kms)
 	}
 
 	/* disable irq until power event enables it */
-	if (!sde_kms->cont_splash_en)
-		irq_set_status_flags(sde_kms->irq_num, IRQ_NOAUTOEN);
+	irq_set_status_flags(sde_kms->irq_num, IRQ_NOAUTOEN);
 }
 
 int sde_irq_postinstall(struct msm_kms *kms)
