@@ -317,6 +317,7 @@ struct smb_charger {
 	int			typec_mode;
 	int			usb_icl_change_irq_enabled;
 	bool			skip_usb_notification;
+	u32			jeita_status;
 
 	/* workaround flag */
 	u32			wa_flags;
