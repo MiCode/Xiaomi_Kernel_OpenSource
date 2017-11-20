@@ -3841,10 +3841,14 @@ static void smblib_handle_typec_insertion(struct smb_charger *chg)
 		smblib_err(chg, "Couldn't disable APSD_START_ON_CC rc=%d\n",
 									rc);
 
-	if (chg->typec_status[3] & UFP_DFP_MODE_STATUS_BIT)
+	if (chg->typec_status[3] & UFP_DFP_MODE_STATUS_BIT) {
 		typec_sink_insertion(chg);
-	else
+	} else {
+		/* vote to the USB stack to float DP_DM before APSD */
+		power_supply_set_dp_dm(chg->usb_psy,
+					POWER_SUPPLY_DP_DM_DPF_DMF);
 		typec_sink_removal(chg);
+	}
 }
 
 static void smblib_handle_rp_change(struct smb_charger *chg, int typec_mode)
