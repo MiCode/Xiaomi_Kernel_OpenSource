@@ -453,19 +453,18 @@ static int getpath(struct device *src_dev, int dest, const char *cl_name)
 									true;
 				}
 			}
-
-			/* Keep tabs of the previous search list */
-			search_node = kzalloc(sizeof(struct bus_search_type),
-					 GFP_KERNEL);
-			INIT_LIST_HEAD(&search_node->node_list);
-			list_splice_init(&traverse_list,
-					 &search_node->node_list);
-			/* Add the previous search list to a route list */
-			list_add_tail(&search_node->link, &route_list);
-			/* Advancing the list depth */
-			depth_index++;
-			list_splice_init(&edge_list, &traverse_list);
 		}
+		/* Keep tabs of the previous search list */
+		search_node = kzalloc(sizeof(struct bus_search_type),
+				 GFP_KERNEL);
+		INIT_LIST_HEAD(&search_node->node_list);
+		list_splice_init(&traverse_list,
+				 &search_node->node_list);
+		/* Add the previous search list to a route list */
+		list_add_tail(&search_node->link, &route_list);
+		/* Advancing the list depth */
+		depth_index++;
+		list_splice_init(&edge_list, &traverse_list);
 	}
 reset_traversed:
 	copy_remaining_nodes(&edge_list, &traverse_list, &route_list);
