@@ -1,4 +1,5 @@
 #include <linux/ftrace.h>
+#include <linux/mm.h>
 #include <linux/percpu.h>
 #include <linux/slab.h>
 #include <asm/cacheflush.h>
@@ -163,7 +164,7 @@ static int __init cpu_suspend_init(void)
 
 	sleep_save_sp.save_ptr_stash = ctx_ptr;
 	sleep_save_sp.save_ptr_stash_phys = virt_to_phys(ctx_ptr);
-	sleep_idmap_phys = virt_to_phys(idmap_pg_dir);
+	sleep_idmap_phys = __pa_symbol(idmap_pg_dir);
 	__flush_dcache_area(&sleep_save_sp, sizeof(struct sleep_save_sp));
 	__flush_dcache_area(&sleep_idmap_phys, sizeof(sleep_idmap_phys));
 
