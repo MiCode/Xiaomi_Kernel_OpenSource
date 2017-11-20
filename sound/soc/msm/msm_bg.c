@@ -140,6 +140,7 @@ static const char *const vi_feed_ch_text[] = {"One", "Two"};
 struct msm8916_asoc_mach_data {
 	int ext_pa;
 	int afe_clk_ver;
+	atomic_t primary_tdm_ref_count;
 	void __iomem *vaddr_gpio_mux_spkr_ctl;
 	void __iomem *vaddr_gpio_mux_mic_ctl;
 	void __iomem *vaddr_gpio_mux_quin_ctl;
@@ -963,29 +964,41 @@ static int msm_tdm_startup(struct snd_pcm_substream *substream)
 	case AFE_PORT_ID_PRIMARY_TDM_TX_5:
 	case AFE_PORT_ID_PRIMARY_TDM_TX_6:
 	case AFE_PORT_ID_PRIMARY_TDM_TX_7:
-		/* Configure mux for Primary TDM */
-		if (pdata->vaddr_gpio_mux_pcm_ctl) {
-			val = ioread32(pdata->vaddr_gpio_mux_pcm_ctl);
-			val = val | 0x00000001;
-			iowrite32(val, pdata->vaddr_gpio_mux_pcm_ctl);
-		} else {
-			return -EINVAL;
-		}
-		if (pdata->vaddr_gpio_mux_mic_ctl) {
-			val = ioread32(pdata->vaddr_gpio_mux_mic_ctl);
-			/*0x02020002 Use this value for master mode*/
-			val = val | 0x1808000; /*this is for slave mode*/
-			iowrite32(val, pdata->vaddr_gpio_mux_mic_ctl);
-		} else {
-			return -EINVAL;
+		atomic_inc(&pdata->primary_tdm_ref_count);
+		if (atomic_read(&pdata->primary_tdm_ref_count) == 1) {
+			/* Set regulator to normal mode */
+			ret = regulator_set_optimum_mode(pdata->spkr_vreg,
+							100000);
+			if (ret < 0) {
+				pr_err("Failed to set spkr_vreg mode.\n");
+				goto err;
+			}
+			/* Configure mux for Primary TDM */
+			if (pdata->vaddr_gpio_mux_pcm_ctl) {
+				val = ioread32(pdata->vaddr_gpio_mux_pcm_ctl);
+				val = val | 0x00000001;
+				iowrite32(val, pdata->vaddr_gpio_mux_pcm_ctl);
+			} else {
+				goto err;
+			}
+			if (pdata->vaddr_gpio_mux_mic_ctl) {
+				val = ioread32(pdata->vaddr_gpio_mux_mic_ctl);
+				/*0x02020002 Use this value for master mode*/
+				val = val | 0x1808000; /*for slave mode*/
+				iowrite32(val, pdata->vaddr_gpio_mux_mic_ctl);
+			} else {
+				goto err;
+			}
 		}
 		break;
 	default:
 		pr_err("dai id 0x%x not supported", cpu_dai->id);
 		break;
-		return -EINVAL;
+		goto err;
 	}
 	return ret;
+err:
+	return -EINVAL;
 }
 
 static void msm_tdm_shutdown(struct snd_pcm_substream *substream)
@@ -994,7 +1007,7 @@ static void msm_tdm_shutdown(struct snd_pcm_substream *substream)
 	struct snd_soc_card *card = rtd->card;
 	struct msm8916_asoc_mach_data *pdata =
 		snd_soc_card_get_drvdata(card);
-	int val = 0;
+	int ret = 0, val = 0;
 
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 
@@ -1014,26 +1027,38 @@ static void msm_tdm_shutdown(struct snd_pcm_substream *substream)
 	case AFE_PORT_ID_PRIMARY_TDM_TX_4:
 	case AFE_PORT_ID_PRIMARY_TDM_TX_5:
 	case AFE_PORT_ID_PRIMARY_TDM_TX_6:
-		/* Reset Configuration of mux for Primary TDM */
-		if (pdata->vaddr_gpio_mux_pcm_ctl) {
-			val = ioread32(pdata->vaddr_gpio_mux_pcm_ctl);
-			val = val & (~0x00000001);
-			iowrite32(val, pdata->vaddr_gpio_mux_pcm_ctl);
-		} else {
-			return;
-		}
-		if (pdata->vaddr_gpio_mux_mic_ctl) {
-			val = ioread32(pdata->vaddr_gpio_mux_mic_ctl);
-			/*0x02020002 Use this value for master mode*/
-			val = val & (~0x1808000); /*this is for slave mode*/
-			iowrite32(val, pdata->vaddr_gpio_mux_mic_ctl);
-		} else {
-			return;
+		if (atomic_read(&pdata->primary_tdm_ref_count) > 0)
+			atomic_dec(&pdata->primary_tdm_ref_count);
+		if (atomic_read(&pdata->primary_tdm_ref_count) == 0) {
+			/* Set regulator to standby mode */
+			ret = regulator_set_optimum_mode(pdata->spkr_vreg, 0);
+			if (ret < 0) {
+				pr_err("Failed to set spkr_vreg mode.\n");
+				goto err;
+			}
+			/* Reset Configuration of mux for Primary TDM */
+			if (pdata->vaddr_gpio_mux_pcm_ctl) {
+				val = ioread32(pdata->vaddr_gpio_mux_pcm_ctl);
+				val = val & (~0x00000001);
+				iowrite32(val, pdata->vaddr_gpio_mux_pcm_ctl);
+			} else {
+				goto err;
+			}
+			if (pdata->vaddr_gpio_mux_mic_ctl) {
+				val = ioread32(pdata->vaddr_gpio_mux_mic_ctl);
+				/*0x02020002 Use this value for master mode*/
+				val = val & (~0x1808000); /*for slave mode*/
+				iowrite32(val, pdata->vaddr_gpio_mux_mic_ctl);
+			} else {
+				goto err;
+			}
 		}
 		break;
 	default:
 		break;
 	}
+err:
+	return;
 }
 
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
@@ -2186,6 +2211,7 @@ static int msm_bg_asoc_machine_probe(struct platform_device *pdev)
 			}
 		}
 	}
+	atomic_set(&pdata->primary_tdm_ref_count, 0);
 	return 0;
 
 err_vreg_regulator:
