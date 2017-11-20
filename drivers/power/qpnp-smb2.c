@@ -1262,6 +1262,13 @@ static int smb2_init_hw(struct smb2 *chip)
 		return rc;
 	}
 
+	rc = smblib_read(chg, USBIN_OPTIONS_2_CFG_REG, &chg->float_cfg);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't read float charger options rc=%d\n",
+			rc);
+		return rc;
+	}
+
 	switch (chip->dt.chg_inhibit_thr_mv) {
 	case 50:
 		rc = smblib_masked_write(chg, CHARGE_INHIBIT_THRESHOLD_CFG_REG,
