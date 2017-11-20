@@ -4128,6 +4128,7 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_register_panic_hdlr();
 
 	ipa3_ctx->q6_proxy_clk_vote_valid = true;
+	ipa3_ctx->q6_proxy_clk_vote_cnt++;
 
 	mutex_lock(&ipa3_ctx->lock);
 	ipa3_ctx->ipa_initialization_complete = true;
@@ -4706,6 +4707,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	mutex_init(&ipa3_ctx->lock);
 	mutex_init(&ipa3_ctx->nat_mem.lock);
 	mutex_init(&ipa3_ctx->q6_proxy_clk_vote_mutex);
+	ipa3_ctx->q6_proxy_clk_vote_cnt = 0;
 
 	idr_init(&ipa3_ctx->ipa_idr);
 	spin_lock_init(&ipa3_ctx->idr_lock);
