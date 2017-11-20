@@ -414,7 +414,7 @@ int cam_vfe_top_start(void *device_priv,
 
 	rc = cam_vfe_top_set_axi_bw_vote(top_priv);
 	if (rc) {
-		CAM_ERR(CAM_ISP, "set_hw_clk_rate failed, rc=%d", rc);
+		CAM_ERR(CAM_ISP, "set_axi_bw_vote failed, rc=%d", rc);
 		return rc;
 	}
 
@@ -449,15 +449,29 @@ int cam_vfe_top_stop(void *device_priv,
 		rc = mux_res->stop(mux_res);
 	} else {
 		CAM_ERR(CAM_ISP, "Invalid res id:%d", mux_res->res_id);
-		rc = -EINVAL;
+		return -EINVAL;
 	}
 
 	if (!rc) {
 		for (i = 0; i < CAM_VFE_TOP_VER2_MUX_MAX; i++) {
-			if (top_priv->mux_rsrc[i].res_id == mux_res->res_id)
+			if (top_priv->mux_rsrc[i].res_id == mux_res->res_id) {
 				top_priv->req_clk_rate[i] = 0;
-			top_priv->req_axi_vote[i].compressed_bw = 0;
-			top_priv->req_axi_vote[i].uncompressed_bw = 0;
+				top_priv->req_axi_vote[i].compressed_bw = 0;
+				top_priv->req_axi_vote[i].uncompressed_bw = 0;
+				break;
+			}
+		}
+
+		rc = cam_vfe_top_set_hw_clk_rate(top_priv);
+		if (rc) {
+			CAM_ERR(CAM_ISP, "set_hw_clk_rate failed, rc=%d", rc);
+			return rc;
+		}
+
+		rc = cam_vfe_top_set_axi_bw_vote(top_priv);
+		if (rc) {
+			CAM_ERR(CAM_ISP, "set_axi_bw_vote failed, rc=%d", rc);
+			return rc;
 		}
 	}
 
