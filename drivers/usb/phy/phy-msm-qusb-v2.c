@@ -26,6 +26,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/usb/phy.h>
 #include <linux/reset.h>
+#include <linux/debugfs.h>
 
 /* QUSB2PHY_PWR_CTRL1 register related bits */
 #define PWR_CTRL1_POWR_DOWN		BIT(0)
@@ -67,10 +68,6 @@
 
 /* PERIPH_SS_PHY_REFGEN_NORTH_BG_CTRL register bits */
 #define BANDGAP_BYPASS			BIT(0)
-
-unsigned int phy_tune1;
-module_param(phy_tune1, uint, 0644);
-MODULE_PARM_DESC(phy_tune1, "QUSB PHY v2 TUNE1");
 
 enum qusb_phy_reg {
 	PORT_TUNE1,
@@ -129,6 +126,10 @@ struct qusb_phy {
 	int			phy_pll_reset_seq_len;
 	int			*emu_dcm_reset_seq;
 	int			emu_dcm_reset_seq_len;
+
+	/* override TUNEX registers value */
+	struct dentry		*root;
+	u8			tune[5];
 };
 
 static void qusb_phy_enable_clocks(struct qusb_phy *qphy, bool on)
@@ -410,7 +411,7 @@ static void qusb_phy_host_init(struct usb_phy *phy)
 static int qusb_phy_init(struct usb_phy *phy)
 {
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
-	int ret;
+	int ret, p_index;
 	u8 reg;
 
 	dev_dbg(phy->dev, "%s\n", __func__);
@@ -465,12 +466,12 @@ static int qusb_phy_init(struct usb_phy *phy)
 				qphy->base + qphy->phy_reg[PORT_TUNE1]);
 	}
 
-	/* If phy_tune1 modparam set, override tune1 value */
-	if (phy_tune1) {
-		pr_debug("%s(): (modparam) TUNE1 val:0x%02x\n",
-						__func__, phy_tune1);
-		writel_relaxed(phy_tune1,
-				qphy->base + qphy->phy_reg[PORT_TUNE1]);
+	/* if debugfs based tunex params are set, use that value. */
+	for (p_index = 0; p_index < 5; p_index++) {
+		if (qphy->tune[p_index])
+			writel_relaxed(qphy->tune[p_index],
+				qphy->base + qphy->phy_reg[PORT_TUNE1] +
+							(4 * p_index));
 	}
 
 	if (qphy->refgen_north_bg_reg)
@@ -734,6 +735,38 @@ static int qusb_phy_regulator_init(struct qusb_phy *qphy)
 		return PTR_ERR(qphy->dpdm_rdev);
 
 	return 0;
+}
+
+static int qusb_phy_create_debugfs(struct qusb_phy *qphy)
+{
+	struct dentry *file;
+	int ret = 0, i;
+	char name[6];
+
+	qphy->root = debugfs_create_dir(dev_name(qphy->phy.dev), NULL);
+	if (IS_ERR_OR_NULL(qphy->root)) {
+		dev_err(qphy->phy.dev,
+			"can't create debugfs root for %s\n",
+					dev_name(qphy->phy.dev));
+		ret = -ENOMEM;
+		goto create_err;
+	}
+
+	for (i = 0; i < 5; i++) {
+		snprintf(name, sizeof(name), "tune%d", (i + 1));
+		file = debugfs_create_x8(name, 0644, qphy->root,
+						&qphy->tune[i]);
+		if (IS_ERR_OR_NULL(file)) {
+			dev_err(qphy->phy.dev,
+				"can't create debugfs entry for %s\n", name);
+			debugfs_remove_recursive(qphy->root);
+			ret = ENOMEM;
+			goto create_err;
+		}
+	}
+
+create_err:
+	return ret;
 }
 
 static int qusb_phy_probe(struct platform_device *pdev)
@@ -1013,6 +1046,8 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	if (ret)
 		usb_remove_phy(&qphy->phy);
 
+	qusb_phy_create_debugfs(qphy);
+
 	return ret;
 }
 
@@ -1023,6 +1058,7 @@ static int qusb_phy_remove(struct platform_device *pdev)
 	usb_remove_phy(&qphy->phy);
 	qusb_phy_enable_clocks(qphy, false);
 	qusb_phy_enable_power(qphy, false);
+	debugfs_remove_recursive(qphy->root);
 
 	return 0;
 }
