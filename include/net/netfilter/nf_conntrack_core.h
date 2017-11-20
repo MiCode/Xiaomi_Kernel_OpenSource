@@ -21,6 +21,9 @@
 /* This header is used to share core functionality between the
    standalone connection tracking module, and the compatibility layer's use
    of connection tracking. */
+
+extern unsigned int nf_conntrack_hash_rnd;
+
 unsigned int nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
 			     struct sk_buff *skb);
 
@@ -87,5 +90,10 @@ extern spinlock_t nf_conntrack_locks[CONNTRACK_LOCKS];
 void nf_conntrack_lock(spinlock_t *lock);
 
 extern spinlock_t nf_conntrack_expect_lock;
+
+struct sip_list {
+	struct nf_queue_entry *entry;
+	struct list_head list;
+};
 
 #endif /* _NF_CONNTRACK_CORE_H */

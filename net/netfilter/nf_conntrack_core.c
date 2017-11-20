@@ -188,12 +188,14 @@ unsigned int nf_conntrack_htable_size __read_mostly;
 EXPORT_SYMBOL_GPL(nf_conntrack_htable_size);
 
 unsigned int nf_conntrack_max __read_mostly;
+
 seqcount_t nf_conntrack_generation __read_mostly;
 
 unsigned int nf_conntrack_pkt_threshold __read_mostly;
 EXPORT_SYMBOL(nf_conntrack_pkt_threshold);
 
-static unsigned int nf_conntrack_hash_rnd __read_mostly;
+unsigned int nf_conntrack_hash_rnd __read_mostly;
+EXPORT_SYMBOL(nf_conntrack_hash_rnd);
 
 static u32 hash_conntrack_raw(const struct nf_conntrack_tuple *tuple,
 			      const struct net *net)
@@ -415,6 +417,9 @@ destroy_conntrack(struct nf_conntrack *nfct)
 	struct nf_conn *ct = (struct nf_conn *)nfct;
 	const struct nf_conntrack_l4proto *l4proto;
 	void (*delete_entry)(struct nf_conn *ct);
+	struct sip_list *sip_node = NULL;
+	struct list_head *sip_node_list;
+	struct list_head *sip_node_save_list;
 
 	pr_debug("destroy_conntrack(%pK)\n", ct);
 	WARN_ON(atomic_read(&nfct->use) != 0);
@@ -435,6 +440,14 @@ destroy_conntrack(struct nf_conntrack *nfct)
 		l4proto->destroy(ct);
 
 	local_bh_disable();
+
+	pr_debug("freeing item in the SIP list\n");
+	list_for_each_safe(sip_node_list, sip_node_save_list,
+			   &ct->sip_segment_list) {
+		sip_node = list_entry(sip_node_list, struct sip_list, list);
+		list_del(&sip_node->list);
+		kfree(sip_node);
+	}
 	/* Expectations will have been removed in clean_from_lists,
 	 * except TFTP can create an expectation on the first packet,
 	 * before connection is in the list, so we need to clean here,
@@ -1256,6 +1269,7 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
 			     GFP_ATOMIC);
 
 	local_bh_disable();
+	INIT_LIST_HEAD(&ct->sip_segment_list);
 	if (net->ct.expect_count) {
 		spin_lock(&nf_conntrack_expect_lock);
 		exp = nf_ct_find_expectation(net, zone, tuple);
