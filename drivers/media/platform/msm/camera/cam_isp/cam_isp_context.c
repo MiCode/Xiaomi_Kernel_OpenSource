@@ -304,7 +304,7 @@ static void __cam_isp_ctx_send_sof_timestamp(
 		ctx_isp->sof_timestamp_val);
 	CAM_DBG(CAM_ISP, " sof status:%d", sof_event_status);
 
-	if (cam_req_mgr_notify_frame_message(&req_msg,
+	if (cam_req_mgr_notify_message(&req_msg,
 		V4L_EVENT_CAM_REQ_MGR_SOF, V4L_EVENT_CAM_REQ_MGR_EVENT))
 		CAM_ERR(CAM_ISP,
 			"Error in notifying the sof time for req id:%lld",

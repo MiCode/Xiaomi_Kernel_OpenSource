@@ -43,7 +43,7 @@ struct cam_req_mgr_device {
 #define CAM_REQ_MGR_GET_PAYLOAD_PTR(ev, type)        \
 	(type *)((char *)ev.u.data)
 
-int cam_req_mgr_notify_frame_message(struct cam_req_mgr_message *msg,
+int cam_req_mgr_notify_message(struct cam_req_mgr_message *msg,
 	uint32_t id,
 	uint32_t type);
 

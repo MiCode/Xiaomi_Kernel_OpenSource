@@ -180,6 +180,9 @@ Optional properties:
   should contain phandle of respective ir-cut node
 - qcom,special-support-sensors: if only some special sensors are supported
   on this board, add sensor name in this property.
+- use-shared-clk : It is booloean property. This property is required
+  if the clk is shared clk between different sensor and ois, if this
+  device need to be opened together.
 - clock-rates: clock rate in Hz.
 - clock-cntl-level: says what all different cloc level node has.
 - clock-cntl-support: Says whether clock control support is present or not
@@ -248,6 +251,9 @@ Optional properties:
   required from the regulators mentioned in the regulator-names property
   (in the same order).
 - cam_vaf-supply : should contain regulator from which ois voltage is supplied
+- use-shared-clk : It is booloean property. This property is required
+  if the clk is shared clk between different sensor and ois, if this
+  device need to be opened together.
 
 Example:
 
@@ -354,8 +360,8 @@ qcom,cci@0xfda0c000 {
          status = "ok";
          shared-gpios = <18 19>;
          pinctrl-names = "cam_res_mgr_default", "cam_res_mgr_suspend";
-         pinctrl-0 = <&cam_res_mgr_active>;
-         pinctrl-1 = <&cam_res_mgr_suspend>;
+         pinctrl-0 = <&cam_shared_clk_active &cam_res_mgr_active>;
+         pinctrl-1 = <&cam_shared_clk_suspend &cam_res_mgr_suspend>;
     };
 
     qcom,cam-sensor@0 {
@@ -374,7 +380,7 @@ qcom,cci@0xfda0c000 {
          cam_vio-supply = <&pm845_lvs1>;
          cam_vana-supply = <&pmi8998_bob>;
          regulator-names = "cam_vdig", "cam_vio", "cam_vana";
-	 rgltr-cntrl-support;
+         rgltr-cntrl-support;
          rgltr-min-voltage = <0 3312000 1352000>;
          rgltr-max-voltage = <0 3312000 1352000>;
          rgltr-load-current = <0 80000 105000>;
@@ -398,6 +404,7 @@ qcom,cci@0xfda0c000 {
          sensor-mode = <0>;
          cci-master = <0>;
          status = "ok";
+         use-shared-clk;
          clocks = <&clock_mmss clk_mclk0_clk_src>,
                <&clock_mmss clk_camss_mclk0_clk>;
          clock-names = "cam_src_clk", "cam_clk";
