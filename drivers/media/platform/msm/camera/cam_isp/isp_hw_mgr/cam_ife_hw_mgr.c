@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2488,6 +2488,53 @@ end:
 	return rc;
 }
 
+static int cam_ife_mgr_bw_control(struct cam_ife_hw_mgr_ctx *ctx,
+	enum cam_vfe_bw_control_action action)
+{
+	struct cam_ife_hw_mgr_res             *hw_mgr_res;
+	struct cam_hw_intf                    *hw_intf;
+	struct cam_vfe_bw_control_args         bw_ctrl_args;
+	int                                    rc = -EINVAL;
+	uint32_t                               i;
+
+	CAM_DBG(CAM_ISP, "Enter...ctx id:%d", ctx->ctx_index);
+
+	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_src, list) {
+		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+			if (!hw_mgr_res->hw_res[i])
+				continue;
+
+			hw_intf = hw_mgr_res->hw_res[i]->hw_intf;
+			if (hw_intf && hw_intf->hw_ops.process_cmd) {
+				bw_ctrl_args.node_res =
+					hw_mgr_res->hw_res[i];
+				bw_ctrl_args.action = action;
+
+				rc = hw_intf->hw_ops.process_cmd(
+					hw_intf->hw_priv,
+					CAM_ISP_HW_CMD_BW_CONTROL,
+					&bw_ctrl_args,
+					sizeof(struct cam_vfe_bw_control_args));
+				if (rc)
+					CAM_ERR(CAM_ISP, "BW Update failed");
+			} else
+				CAM_WARN(CAM_ISP, "NULL hw_intf!");
+		}
+	}
+
+	return rc;
+}
+
+static int cam_ife_mgr_pause_hw(struct cam_ife_hw_mgr_ctx *ctx)
+{
+	return cam_ife_mgr_bw_control(ctx, CAM_VFE_BW_CONTROL_EXCLUDE);
+}
+
+static int cam_ife_mgr_resume_hw(struct cam_ife_hw_mgr_ctx *ctx)
+{
+	return cam_ife_mgr_bw_control(ctx, CAM_VFE_BW_CONTROL_INCLUDE);
+}
+
 static int cam_ife_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 {
 	int rc = 0;
@@ -2512,6 +2559,12 @@ static int cam_ife_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 		else
 			hw_cmd_args->u.is_rdi_only_context = 0;
 
+		break;
+	case CAM_ISP_HW_MGR_CMD_PAUSE_HW:
+		cam_ife_mgr_pause_hw(ctx);
+		break;
+	case CAM_ISP_HW_MGR_CMD_RESUME_HW:
+		cam_ife_mgr_resume_hw(ctx);
 		break;
 	default:
 		CAM_ERR(CAM_ISP, "Invalid HW mgr command:0x%x",

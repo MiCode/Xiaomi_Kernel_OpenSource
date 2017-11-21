@@ -2300,6 +2300,58 @@ static int __cam_isp_ctx_release_dev_in_activated(struct cam_context *ctx,
 	return rc;
 }
 
+static int __cam_isp_ctx_link_pause(struct cam_context *ctx)
+{
+	int rc = 0;
+	struct cam_isp_hw_cmd_args   hw_cmd_args;
+	struct cam_isp_context      *ctx_isp =
+		(struct cam_isp_context *) ctx->ctx_priv;
+
+	hw_cmd_args.ctxt_to_hw_map = ctx_isp->hw_ctx;
+	hw_cmd_args.cmd_type = CAM_ISP_HW_MGR_CMD_PAUSE_HW;
+	rc = ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
+		&hw_cmd_args);
+
+	return rc;
+}
+
+static int __cam_isp_ctx_link_resume(struct cam_context *ctx)
+{
+	int rc = 0;
+	struct cam_isp_hw_cmd_args   hw_cmd_args;
+	struct cam_isp_context      *ctx_isp =
+		(struct cam_isp_context *) ctx->ctx_priv;
+
+	hw_cmd_args.ctxt_to_hw_map = ctx_isp->hw_ctx;
+	hw_cmd_args.cmd_type = CAM_ISP_HW_MGR_CMD_RESUME_HW;
+	rc = ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
+		&hw_cmd_args);
+
+	return rc;
+}
+
+static int __cam_isp_ctx_process_evt(struct cam_context *ctx,
+	struct cam_req_mgr_link_evt_data *link_evt_data)
+{
+	int rc = 0;
+
+	switch (link_evt_data->evt_type) {
+	case CAM_REQ_MGR_LINK_EVT_ERR:
+		/* No need to handle this message now */
+		break;
+	case CAM_REQ_MGR_LINK_EVT_PAUSE:
+		__cam_isp_ctx_link_pause(ctx);
+		break;
+	case CAM_REQ_MGR_LINK_EVT_RESUME:
+		__cam_isp_ctx_link_resume(ctx);
+		break;
+	default:
+		CAM_WARN(CAM_ISP, "Unknown event from CRM");
+		break;
+	}
+	return rc;
+}
+
 static int __cam_isp_ctx_unlink_in_activated(struct cam_context *ctx,
 	struct cam_req_mgr_core_dev_link_setup *unlink)
 {
@@ -2432,6 +2484,7 @@ static struct cam_ctx_ops
 			.unlink = __cam_isp_ctx_unlink_in_activated,
 			.apply_req = __cam_isp_ctx_apply_req,
 			.flush_req = __cam_isp_ctx_flush_req_in_activated,
+			.process_evt = __cam_isp_ctx_process_evt,
 		},
 		.irq_ops = __cam_isp_ctx_handle_irq_in_activated,
 	},

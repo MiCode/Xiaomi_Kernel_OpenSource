@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -183,6 +183,22 @@ struct cam_vfe_bw_update_args {
 	struct cam_isp_resource_node      *node_res;
 	uint64_t                           camnoc_bw_bytes;
 	uint64_t                           external_bw_bytes;
+};
+
+enum cam_vfe_bw_control_action {
+	CAM_VFE_BW_CONTROL_EXCLUDE       = 0,
+	CAM_VFE_BW_CONTROL_INCLUDE       = 1
+};
+
+/*
+ * struct cam_vfe_bw_control_args:
+ *
+ * @node_res:             Resource to get the time stamp
+ * @action:               Bandwidth control action
+ */
+struct cam_vfe_bw_control_args {
+	struct cam_isp_resource_node      *node_res;
+	enum cam_vfe_bw_control_action     action;
 };
 
 /*
