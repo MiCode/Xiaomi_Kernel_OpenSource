@@ -13,6 +13,7 @@
 #include <linux/firmware.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <linux/pm_opp.h>
+#include <linux/jiffies.h>
 
 #include "adreno.h"
 #include "a6xx_reg.h"
@@ -3010,8 +3011,16 @@ static struct adreno_perfcount_register a6xx_pwrcounters_gpmu[] = {
 		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_1, },
 };
 
+/*
+ * ADRENO_PERFCOUNTER_GROUP_RESTORE flag is enabled by default
+ * because most of the perfcounter groups need to be restored
+ * as part of preemption and IFPC. Perfcounter groups that are
+ * not restored as part of preemption and IFPC should be defined
+ * using A6XX_PERFCOUNTER_GROUP_FLAGS macro
+ */
 #define A6XX_PERFCOUNTER_GROUP(offset, name) \
-	ADRENO_PERFCOUNTER_GROUP(a6xx, offset, name)
+	ADRENO_PERFCOUNTER_GROUP_FLAGS(a6xx, offset, name, \
+	ADRENO_PERFCOUNTER_GROUP_RESTORE)
 
 #define A6XX_PERFCOUNTER_GROUP_FLAGS(offset, name, flags) \
 	ADRENO_PERFCOUNTER_GROUP_FLAGS(a6xx, offset, name, flags)
@@ -3022,7 +3031,7 @@ static struct adreno_perfcount_register a6xx_pwrcounters_gpmu[] = {
 static struct adreno_perfcount_group a6xx_perfcounter_groups
 				[KGSL_PERFCOUNTER_GROUP_MAX] = {
 	A6XX_PERFCOUNTER_GROUP(CP, cp),
-	A6XX_PERFCOUNTER_GROUP(RBBM, rbbm),
+	A6XX_PERFCOUNTER_GROUP_FLAGS(RBBM, rbbm, 0),
 	A6XX_PERFCOUNTER_GROUP(PC, pc),
 	A6XX_PERFCOUNTER_GROUP(VFD, vfd),
 	A6XX_PERFCOUNTER_GROUP(HLSQ, hlsq),
@@ -3037,7 +3046,7 @@ static struct adreno_perfcount_group a6xx_perfcounter_groups
 	A6XX_PERFCOUNTER_GROUP(SP, sp),
 	A6XX_PERFCOUNTER_GROUP(RB, rb),
 	A6XX_PERFCOUNTER_GROUP(VSC, vsc),
-	A6XX_PERFCOUNTER_GROUP(VBIF, vbif),
+	A6XX_PERFCOUNTER_GROUP_FLAGS(VBIF, vbif, 0),
 	A6XX_PERFCOUNTER_GROUP_FLAGS(VBIF_PWR, vbif_pwr,
 		ADRENO_PERFCOUNTER_GROUP_FIXED),
 	A6XX_PERFCOUNTER_GROUP_FLAGS(PWR, pwr,
@@ -3294,6 +3303,69 @@ static const struct adreno_reg_offsets a6xx_reg_offsets = {
 	.offset_0 = ADRENO_REG_REGISTER_MAX,
 };
 
+static int a6xx_perfcounter_update(struct adreno_device *adreno_dev,
+	struct adreno_perfcount_register *reg, bool update_reg)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct cpu_gpu_lock *lock = adreno_dev->pwrup_reglist.hostptr;
+	struct reg_list_pair *reg_pair = (struct reg_list_pair *)(lock + 1);
+	unsigned int i;
+	unsigned long timeout = jiffies + msecs_to_jiffies(1000);
+	int ret = 0;
+
+	lock->flag_kmd = 1;
+	/* Write flag_kmd before turn */
+	wmb();
+	lock->turn = 0;
+	/* Write these fields before looping */
+	mb();
+
+	/*
+	 * Spin here while GPU ucode holds the lock, lock->flag_ucode will
+	 * be set to 0 after GPU ucode releases the lock. Minimum wait time
+	 * is 1 second and this should be enough for GPU to release the lock
+	 */
+	while (lock->flag_ucode == 1 && lock->turn == 0) {
+		cpu_relax();
+		/* Get the latest updates from GPU */
+		rmb();
+		/*
+		 * Make sure we wait at least 1sec for the lock,
+		 * if we did not get it after 1sec return an error.
+		 */
+		if (time_after(jiffies, timeout) &&
+			(lock->flag_ucode == 1 && lock->turn == 0)) {
+			ret = -EBUSY;
+			goto unlock;
+		}
+	}
+
+	/* Read flag_ucode and turn before list_length */
+	rmb();
+	/*
+	 * If the perfcounter select register is already present in reglist
+	 * update it, otherwise append the <select register, value> pair to
+	 * the end of the list.
+	 */
+	for (i = 0; i < lock->list_length >> 1; i++)
+		if (reg_pair[i].offset == reg->select)
+			break;
+
+	reg_pair[i].offset = reg->select;
+	reg_pair[i].val = reg->countable;
+	if (i == lock->list_length >> 1)
+		lock->list_length += 2;
+
+	if (update_reg)
+		kgsl_regwrite(device, reg->select, reg->countable);
+
+unlock:
+	/* All writes done before releasing the lock */
+	wmb();
+	lock->flag_kmd = 0;
+	return ret;
+}
+
 struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = &a6xx_reg_offsets,
 	.start = a6xx_start,
@@ -3336,4 +3408,5 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.gx_is_on = a6xx_gx_is_on,
 	.sptprac_is_on = a6xx_sptprac_is_on,
 	.ccu_invalidate = a6xx_ccu_invalidate,
+	.perfcounter_update = a6xx_perfcounter_update,
 };
