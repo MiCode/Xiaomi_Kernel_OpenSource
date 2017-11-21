@@ -761,6 +761,15 @@ int sde_rotator_validate_request(struct sde_rot_mgr *rot_dev,
  */
 int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable);
 
+/* sde_rotator_resource_ctrl_enabled - check if resource control is enabled
+ * @mgr: Pointer to rotator manager
+ * Return: true if enabled; false otherwise
+ */
+static inline int sde_rotator_resource_ctrl_enabled(struct sde_rot_mgr *mgr)
+{
+	return mgr->regulator_enable;
+}
+
 /*
  * sde_rotator_cancel_all_requests - cancel all outstanding requests
  * @mgr: Pointer to rotator manager
