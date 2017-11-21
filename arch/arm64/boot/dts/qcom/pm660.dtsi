@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -376,7 +376,7 @@
 			#clock-cells = <1>;
 			qcom,cxo-freq = <19200000>;
 			qcom,clkdiv-id = <1>;
-			qcom,clkdiv-init-freq = <19200000>;
+			qcom,clkdiv-init-freq = <9600000>;
 			status = "disabled";
 		};
 	};
