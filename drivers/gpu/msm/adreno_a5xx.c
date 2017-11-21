@@ -193,6 +193,8 @@ static void a5xx_critical_packet_destroy(struct adreno_device *adreno_dev)
 	kgsl_free_global(&adreno_dev->dev, &crit_pkts_refbuf2);
 	kgsl_free_global(&adreno_dev->dev, &crit_pkts_refbuf3);
 
+	kgsl_iommu_unmap_global_secure_pt_entry(KGSL_DEVICE(adreno_dev),
+			&crit_pkts_refbuf0);
 	kgsl_sharedmem_free(&crit_pkts_refbuf0);
 
 }
@@ -231,8 +233,10 @@ static int a5xx_critical_packet_construct(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
-	kgsl_add_global_secure_entry(&adreno_dev->dev,
+	ret = kgsl_iommu_map_global_secure_pt_entry(&adreno_dev->dev,
 					&crit_pkts_refbuf0);
+	if (ret)
+		return ret;
 
 	ret = kgsl_allocate_global(&adreno_dev->dev,
 					&crit_pkts_refbuf1,
@@ -293,8 +297,13 @@ static void a5xx_init(struct adreno_device *adreno_dev)
 
 	INIT_WORK(&adreno_dev->irq_storm_work, a5xx_irq_storm_worker);
 
-	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CRITICAL_PACKETS))
-		a5xx_critical_packet_construct(adreno_dev);
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CRITICAL_PACKETS)) {
+		int ret;
+
+		ret = a5xx_critical_packet_construct(adreno_dev);
+		if (ret)
+			a5xx_critical_packet_destroy(adreno_dev);
+	}
 
 	a5xx_crashdump_init(adreno_dev);
 }
