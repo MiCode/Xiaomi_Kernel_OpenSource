@@ -674,7 +674,7 @@ static irqreturn_t gsi_isr(int irq, void *ctxt)
 
 static uint32_t gsi_get_max_channels(enum gsi_ver ver)
 {
-	uint32_t reg;
+	uint32_t reg = 0;
 
 	switch (ver) {
 	case GSI_VER_ERR:
@@ -717,7 +717,7 @@ static uint32_t gsi_get_max_channels(enum gsi_ver ver)
 
 static uint32_t gsi_get_max_event_rings(enum gsi_ver ver)
 {
-	uint32_t reg;
+	uint32_t reg = 0;
 
 	switch (ver) {
 	case GSI_VER_ERR:
