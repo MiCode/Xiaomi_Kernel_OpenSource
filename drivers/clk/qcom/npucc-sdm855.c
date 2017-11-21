@@ -164,7 +164,7 @@ static struct clk_alpha_pll_postdiv npu_cc_pll1_out_even = {
 };
 
 static const struct freq_tbl ftbl_npu_cc_cal_dp_clk_src[] = {
-	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
+	F(200000000, P_GPLL0_OUT_MAIN_DIV, 1.5, 0, 0),
 	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
 	F(350000000, P_NPU_CC_PLL1_OUT_EVEN, 2, 0, 0),
 	F(400000000, P_NPU_CC_PLL0_OUT_EVEN, 3, 0, 0),
