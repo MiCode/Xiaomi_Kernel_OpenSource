@@ -738,9 +738,9 @@ static int pil_parse_devicetree(struct pil_desc *desc)
 		pr_debug("Unable to read the addr-protect-id for %s\n",
 					desc->name);
 
-	if (desc->ops->proxy_unvote && of_find_property(ofnode,
-					"qcom,proxy-unvote",
-					NULL)) {
+	if (desc->ops->proxy_unvote &&
+			of_property_match_string(ofnode, "interrupt-names",
+				"qcom,proxy-unvote") >= 0) {
 		clk_ready = of_irq_get_byname(ofnode,
 				"qcom,proxy-unvote");
 
