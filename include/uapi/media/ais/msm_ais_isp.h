@@ -23,8 +23,7 @@
 
 #define ISP_STATS_STREAM_BIT  0x80000000
 
-#define INTERLACE_SUPPORT
-#define INTERLACE_OFFSET (1)
+#define INTERLACE_SUPPORT_OLD_REMOVED
 
 struct msm_vfe_cfg_cmd_list;
 
