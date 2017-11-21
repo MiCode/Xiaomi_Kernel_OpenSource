@@ -114,7 +114,6 @@ static struct vm_special_mapping vdso_spec[2];
 static int __init vdso_init(void)
 {
 	int i;
-	unsigned long pfn;
 
 	if (memcmp(&vdso_start, "\177ELF", 4)) {
 		pr_err("vDSO is not a valid ELF object!\n");
@@ -132,13 +131,11 @@ static int __init vdso_init(void)
 		return -ENOMEM;
 
 	/* Grab the vDSO data page. */
-	vdso_pagelist[0] = phys_to_page(__pa_symbol(vdso_data));
+	vdso_pagelist[0] = virt_to_page(vdso_data);
 
 	/* Grab the vDSO code pages. */
-	pfn = sym_to_pfn(&vdso_start);
-
 	for (i = 0; i < vdso_pages; i++)
-		vdso_pagelist[i + 1] = pfn_to_page(pfn + i);
+		vdso_pagelist[i + 1] = virt_to_page(&vdso_start + i * PAGE_SIZE);
 
 	/* Populate the special mapping structures */
 	vdso_spec[0] = (struct vm_special_mapping) {

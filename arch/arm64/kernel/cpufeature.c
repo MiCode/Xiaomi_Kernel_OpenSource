@@ -21,7 +21,6 @@
 #include <linux/bsearch.h>
 #include <linux/sort.h>
 #include <linux/types.h>
-#include <linux/mm.h>
 #include <asm/cpu.h>
 #include <asm/cpufeature.h>
 #include <asm/cpu_ops.h>
