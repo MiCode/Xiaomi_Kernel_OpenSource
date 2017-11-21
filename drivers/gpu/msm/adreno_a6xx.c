@@ -747,7 +747,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		kgsl_regrmw(device, A6XX_PC_DBG_ECO_CNTL, 0, (1 << 8));
 
 	/* Enable the GMEM save/restore feature for preemption */
-	if (adreno_is_preemption_setup_enabled(adreno_dev))
+	if (adreno_is_preemption_enabled(adreno_dev))
 		kgsl_regwrite(device, A6XX_RB_CONTEXT_SWITCH_GMEM_SAVE_RESTORE,
 			0x1);
 
@@ -965,7 +965,7 @@ static int a6xx_post_start(struct adreno_device *adreno_dev)
 	struct adreno_ringbuffer *rb = adreno_dev->cur_rb;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	if (!adreno_is_preemption_execution_enabled(adreno_dev))
+	if (!adreno_is_preemption_enabled(adreno_dev))
 		return 0;
 
 	cmds = adreno_ringbuffer_allocspace(rb, 42);
@@ -2590,7 +2590,7 @@ static void a6xx_cp_callback(struct adreno_device *adreno_dev, int bit)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	if (adreno_is_preemption_execution_enabled(adreno_dev))
+	if (adreno_is_preemption_enabled(adreno_dev))
 		a6xx_preemption_trigger(adreno_dev);
 
 	adreno_dispatcher_schedule(device);

@@ -571,7 +571,6 @@ enum adreno_device_flags {
 	ADRENO_DEVICE_ISDB_ENABLED = 12,
 	ADRENO_DEVICE_CACHE_FLUSH_TS_SUSPENDED = 13,
 	ADRENO_DEVICE_HARD_RESET = 14,
-	ADRENO_DEVICE_PREEMPTION_EXECUTION = 15,
 	ADRENO_DEVICE_CORESIGHT_CX = 16,
 };
 
@@ -1641,22 +1640,10 @@ static inline void adreno_set_preempt_state(struct adreno_device *adreno_dev,
 	smp_wmb();
 }
 
-static inline bool adreno_is_preemption_execution_enabled(
-				struct adreno_device *adreno_dev)
-{
-	return test_bit(ADRENO_DEVICE_PREEMPTION_EXECUTION, &adreno_dev->priv);
-}
-
-static inline bool adreno_is_preemption_setup_enabled(
-				struct adreno_device *adreno_dev)
-{
-	return test_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
-}
-
 static inline bool adreno_is_preemption_enabled(
 				struct adreno_device *adreno_dev)
 {
-	return 0;
+	return test_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
 }
 /**
  * adreno_ctx_get_rb() - Return the ringbuffer that a context should
@@ -1681,7 +1668,7 @@ static inline struct adreno_ringbuffer *adreno_ctx_get_rb(
 	 * ringbuffer
 	 */
 
-	if (!adreno_is_preemption_execution_enabled(adreno_dev))
+	if (!adreno_is_preemption_enabled(adreno_dev))
 		return &(adreno_dev->ringbuffers[0]);
 
 	/*
