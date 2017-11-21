@@ -10,6 +10,13 @@
  * GNU General Public License for more details.
  */
 
+&soc {
+	spmi_bus: qcom,spmi@c440000 {
+	};
+};
+
+#include "sdm855-pmic-overlay.dtsi"
+
 &qupv3_se12_2uart {
 	status = "ok";
 };
