@@ -39,9 +39,6 @@ static void diag_mask_update_work_fn(struct work_struct *work)
 	for (peripheral = 0; peripheral <= NUM_PERIPHERALS; peripheral++) {
 		if (!(driver->mask_update & PERIPHERAL_MASK(peripheral)))
 			continue;
-		mutex_lock(&driver->cntl_lock);
-		driver->mask_update ^= PERIPHERAL_MASK(peripheral);
-		mutex_unlock(&driver->cntl_lock);
 		diag_send_updates_peripheral(peripheral);
 	}
 }
@@ -834,7 +831,7 @@ static void process_diagid(uint8_t *buf, uint32_t len,
 		 */
 		if (root_str) {
 			driver->diag_id_sent[peripheral] = 1;
-			diag_send_updates_peripheral(peripheral);
+			queue_work(driver->cntl_wq, &driver->mask_update_work);
 		}
 		fwd_info = &peripheral_info[TYPE_DATA][peripheral];
 		diagfwd_buffers_init(fwd_info);
