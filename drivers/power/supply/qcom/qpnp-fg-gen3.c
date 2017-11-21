@@ -881,7 +881,7 @@ static int fg_get_prop_capacity(struct fg_chip *chip, int *val)
 		return 0;
 	}
 
-	if (chip->battery_missing) {
+	if (chip->battery_missing || !chip->soc_reporting_ready) {
 		*val = BATT_MISS_SOC;
 		return 0;
 	}
@@ -2567,6 +2567,11 @@ static void status_change_work(struct work_struct *work)
 		goto out;
 	}
 
+	if (!chip->soc_reporting_ready) {
+		fg_dbg(chip, FG_STATUS, "Profile load is not complete yet\n");
+		goto out;
+	}
+
 	rc = power_supply_get_property(chip->batt_psy, POWER_SUPPLY_PROP_STATUS,
 			&prop);
 	if (rc < 0) {
@@ -2630,7 +2635,7 @@ static void status_change_work(struct work_struct *work)
 	fg_ttf_update(chip);
 	chip->prev_charge_status = chip->charge_status;
 out:
-	fg_dbg(chip, FG_POWER_SUPPLY, "charge_status:%d charge_type:%d charge_done:%d\n",
+	fg_dbg(chip, FG_STATUS, "charge_status:%d charge_type:%d charge_done:%d\n",
 		chip->charge_status, chip->charge_type, chip->charge_done);
 	pm_relax(chip->dev);
 }
@@ -2945,6 +2950,10 @@ out:
 	vote(chip->awake_votable, ESR_FCC_VOTER, true, 0);
 	schedule_delayed_work(&chip->pl_enable_work, msecs_to_jiffies(5000));
 	vote(chip->awake_votable, PROFILE_LOAD, false, 0);
+	if (!work_pending(&chip->status_change_work)) {
+		pm_stay_awake(chip->dev);
+		schedule_work(&chip->status_change_work);
+	}
 }
 
 static void sram_dump_work(struct work_struct *work)
