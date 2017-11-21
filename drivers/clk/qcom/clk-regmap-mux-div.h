@@ -42,6 +42,7 @@
  *		on and runs at only one rate.
  * @parent_map:	pointer to parent_map struct
  * @clkr:	handle between common and hardware-specific interfaces
+ * @clk_nb:	clock notifier registered for clock rate change
  */
 
 struct clk_regmap_mux_div {
@@ -57,6 +58,7 @@ struct clk_regmap_mux_div {
 	unsigned long			safe_freq;
 	const struct parent_map		*parent_map;
 	struct clk_regmap		clkr;
+	struct notifier_block		clk_nb;
 };
 
 extern const struct clk_ops clk_regmap_mux_div_ops;
