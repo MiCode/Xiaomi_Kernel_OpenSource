@@ -1028,9 +1028,9 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 	struct cam_ctx_request           *req_temp;
 	struct cam_isp_ctx_req           *req_isp;
 
-	spin_lock(&ctx->lock);
+	spin_lock_bh(&ctx->lock);
 	if (list_empty(req_list)) {
-		spin_unlock(&ctx->lock);
+		spin_unlock_bh(&ctx->lock);
 		CAM_DBG(CAM_ISP, "request list is empty");
 		return 0;
 	}
@@ -1064,7 +1064,7 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 			break;
 		}
 	}
-	spin_unlock(&ctx->lock);
+	spin_unlock_bh(&ctx->lock);
 
 	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ &&
 		!cancel_req_id_found)
@@ -1098,10 +1098,10 @@ static int __cam_isp_ctx_flush_req_in_ready(
 	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, flush_req);
 
 	/* if nothing is in pending req list, change state to acquire*/
-	spin_lock(&ctx->lock);
+	spin_lock_bh(&ctx->lock);
 	if (list_empty(&ctx->pending_req_list))
 		ctx->state = CAM_CTX_ACQUIRED;
-	spin_unlock(&ctx->lock);
+	spin_unlock_bh(&ctx->lock);
 
 	trace_cam_context_state("ISP", ctx);
 
