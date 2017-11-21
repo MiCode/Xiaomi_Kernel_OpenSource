@@ -961,6 +961,12 @@ static int _sde_crtc_set_crtc_roi(struct drm_crtc *crtc,
 
 	sde_kms_rect_merge_rectangles(&crtc_state->user_roi_list, crtc_roi);
 
+	/* clear the ROI to null if it matches full screen anyways */
+	if (crtc_roi->x == 0 && crtc_roi->y == 0 &&
+			crtc_roi->w == state->adjusted_mode.hdisplay &&
+			crtc_roi->h == state->adjusted_mode.vdisplay)
+		memset(crtc_roi, 0, sizeof(*crtc_roi));
+
 	SDE_DEBUG("%s: crtc roi (%d,%d,%d,%d)\n", sde_crtc->name,
 			crtc_roi->x, crtc_roi->y, crtc_roi->w, crtc_roi->h);
 	SDE_EVT32_VERBOSE(DRMID(crtc), crtc_roi->x, crtc_roi->y, crtc_roi->w,
