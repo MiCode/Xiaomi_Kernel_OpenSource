@@ -22,7 +22,6 @@
 #include <linux/msm_audio_ion.h>
 #include <linux/habmm.h>
 #include "../../../staging/android/ion/ion_priv.h"
-#include "../../../staging/android/ion/ion_hvenv_driver.h"
 
 #define MSM_AUDIO_ION_PROBED (1 << 0)
 
@@ -628,7 +627,7 @@ struct ion_client *msm_audio_ion_client_create(const char *name)
 {
 	struct ion_client *pclient = NULL;
 
-	pclient = hvenv_ion_client_create(name);
+	pclient = msm_ion_client_create(name);
 	return pclient;
 }
 
