@@ -100,6 +100,11 @@
  * coherent.
  */
 #define DMA_ATTR_FORCE_NON_COHERENT		(1UL << 15)
+/*
+ * DMA_ATTR_DELAYED_UNMAP: Used by ION, it will ensure that mappings are not
+ * removed on unmap but instead are removed when the ion_buffer is freed.
+ */
+#define DMA_ATTR_DELAYED_UNMAP		(1UL << 16)
 
 /*
  * DMA_ATTR_PRIVILEGED: used to indicate that the buffer is fully
