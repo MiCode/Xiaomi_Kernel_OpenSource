@@ -460,7 +460,7 @@ int msm_vidc_release_buffer(void *instance, int type, unsigned int index)
 		rc = msm_comm_try_state(inst, MSM_VIDC_RELEASE_RESOURCES_DONE);
 		if (rc) {
 			dprintk(VIDC_ERR,
-				"%s: Failed to move inst: %pK to rel res done",
+				"%s: Failed to move inst: %pK to rel res done\n",
 					__func__, inst);
 		}
 	}
@@ -1645,12 +1645,6 @@ void *msm_vidc_open(int core_id, int session_type)
 		i <= SESSION_MSG_INDEX(SESSION_MSG_END); i++) {
 		init_completion(&inst->completions[i]);
 	}
-	inst->mem_client = msm_smem_new_client(SMEM_DMA,
-					&inst->core->resources, session_type);
-	if (!inst->mem_client) {
-		dprintk(VIDC_ERR, "Failed to create memory client\n");
-		goto fail_mem_client;
-	}
 
 	if (session_type == MSM_VIDC_DECODER) {
 		msm_vdec_inst_init(inst);
@@ -1716,8 +1710,6 @@ fail_bufq_output:
 	vb2_queue_release(&inst->bufq[CAPTURE_PORT].vb2_bufq);
 fail_bufq_capture:
 	msm_comm_ctrl_deinit(inst);
-	msm_smem_delete_client(inst->mem_client);
-fail_mem_client:
 	mutex_destroy(&inst->sync_lock);
 	mutex_destroy(&inst->bufq[CAPTURE_PORT].lock);
 	mutex_destroy(&inst->bufq[OUTPUT_PORT].lock);
@@ -1898,7 +1890,6 @@ int msm_vidc_close(void *instance)
 	}
 
 	msm_comm_session_clean(inst);
-	msm_smem_delete_client(inst->mem_client);
 
 	kref_put(&inst->kref, close_helper);
 	return 0;

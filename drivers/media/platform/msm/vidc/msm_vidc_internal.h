@@ -382,7 +382,6 @@ struct msm_vidc_inst {
 	struct msm_vidc_list etb_data;
 	struct msm_vidc_list fbd_data;
 	struct buffer_requirements buff_req;
-	struct smem_client *mem_client;
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct completion completions[SESSION_MSG_END - SESSION_MSG_START + 1];
 	struct v4l2_ctrl **cluster;
@@ -454,24 +453,21 @@ struct msm_vidc_buffer {
 };
 
 void msm_comm_handle_thermal_event(void);
-void *msm_smem_new_client(enum smem_type mtype,
-		void *platform_resources, enum session_type stype);
-int msm_smem_alloc(struct smem_client *client,
-		size_t size, u32 align, u32 flags, enum hal_buffer buffer_type,
-		int map_kernel, struct msm_smem *smem);
-int msm_smem_free(void *clt, struct msm_smem *mem);
-void msm_smem_delete_client(void *clt);
-struct context_bank_info *msm_smem_get_context_bank(void *clt,
-		bool is_secure, enum hal_buffer buffer_type);
+int msm_smem_alloc(size_t size, u32 align, u32 flags,
+	enum hal_buffer buffer_type, int map_kernel,
+	void  *res, u32 session_type, struct msm_smem *smem);
+int msm_smem_free(struct msm_smem *smem);
+int msm_smem_cache_operations(struct dma_buf *dbuf,
+		unsigned long offset, unsigned long size,
+		enum smem_cache_ops cache_op);
+
+struct context_bank_info *msm_smem_get_context_bank(u32 session_type,
+	bool is_secure, struct msm_vidc_platform_resources *res,
+	enum hal_buffer buffer_type);
 int msm_smem_map_dma_buf(struct msm_vidc_inst *inst, struct msm_smem *smem);
 int msm_smem_unmap_dma_buf(struct msm_vidc_inst *inst, struct msm_smem *smem);
-void *msm_smem_get_dma_buf(int fd);
+struct dma_buf *msm_smem_get_dma_buf(int fd);
 void msm_smem_put_dma_buf(void *dma_buf);
-void *msm_smem_get_handle(struct smem_client *client, void *dma_buf);
-void msm_smem_put_handle(struct smem_client *client, void *handle);
-int msm_smem_cache_operations(struct smem_client *client,
-		void *handle, unsigned long offset, unsigned long size,
-		enum smem_cache_ops cache_op);
 void msm_vidc_fw_unload_handler(struct work_struct *work);
 /*
  * XXX: normally should be in msm_vidc.h, but that's meant for public APIs,

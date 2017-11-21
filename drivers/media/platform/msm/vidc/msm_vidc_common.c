@@ -1539,13 +1539,13 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 	print_cap("max_work_modes", &inst->capability.max_work_modes);
 	print_cap("ubwc_cr_stats", &inst->capability.ubwc_cr_stats);
 
-	dprintk(VIDC_DBG, "profile count : %u",
+	dprintk(VIDC_DBG, "profile count : %u\n",
 		inst->capability.profile_level.profile_count);
 	for (i = 0; i < inst->capability.profile_level.profile_count; i++) {
 		profile_level =
 			&inst->capability.profile_level.profile_level[i];
-		dprintk(VIDC_DBG, "profile : %u ", profile_level->profile);
-		dprintk(VIDC_DBG, "level   : %u ", profile_level->level);
+		dprintk(VIDC_DBG, "profile : %u\n", profile_level->profile);
+		dprintk(VIDC_DBG, "level   : %u\n", profile_level->level);
 	}
 
 	signal_session_msg_receipt(cmd, inst);
@@ -3342,7 +3342,7 @@ static int set_output_buffers(struct msm_vidc_inst *inst,
 {
 	int rc = 0;
 	struct internal_buf *binfo = NULL;
-	u32 smem_flags = 0, buffer_size;
+	u32 smem_flags = SMEM_UNCACHED, buffer_size;
 	struct hal_buffer_requirements *output_buf, *extradata_buf;
 	int i;
 	struct hfi_device *hdev;
@@ -3568,7 +3568,7 @@ static int allocate_and_set_internal_bufs(struct msm_vidc_inst *inst,
 			struct msm_vidc_list *buf_list)
 {
 	struct internal_buf *binfo;
-	u32 smem_flags = 0;
+	u32 smem_flags = SMEM_UNCACHED;
 	int rc = 0;
 	int i = 0;
 
@@ -3837,7 +3837,7 @@ int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 	case V4L2_DEC_CMD_STOP:
 	{
 		struct eos_buf *binfo = NULL;
-		u32 smem_flags = 0;
+		u32 smem_flags = SMEM_UNCACHED;
 
 		get_inst(inst->core, inst);
 
@@ -5318,8 +5318,9 @@ int msm_comm_smem_alloc(struct msm_vidc_inst *inst,
 		dprintk(VIDC_ERR, "%s: invalid inst: %pK\n", __func__, inst);
 		return -EINVAL;
 	}
-	rc = msm_smem_alloc(inst->mem_client, size, align,
-			flags, buffer_type, map_kernel, smem);
+	rc = msm_smem_alloc(size, align, flags, buffer_type, map_kernel,
+				&(inst->core->resources), inst->session_type,
+				smem);
 	return rc;
 }
 
@@ -5330,7 +5331,7 @@ void msm_comm_smem_free(struct msm_vidc_inst *inst, struct msm_smem *mem)
 			"%s: invalid params: %pK %pK\n", __func__, inst, mem);
 		return;
 	}
-	msm_smem_free(inst->mem_client, mem);
+	msm_smem_free(mem);
 }
 
 int msm_comm_smem_cache_operations(struct msm_vidc_inst *inst,
@@ -5341,7 +5342,7 @@ int msm_comm_smem_cache_operations(struct msm_vidc_inst *inst,
 			"%s: invalid params: %pK %pK\n", __func__, inst, mem);
 		return -EINVAL;
 	}
-	return msm_smem_cache_operations(inst->mem_client, NULL,
+	return msm_smem_cache_operations(mem->dma_buf,
 			mem->offset, mem->size, cache_ops);
 }
 
@@ -5349,8 +5350,6 @@ int msm_comm_qbuf_cache_operations(struct msm_vidc_inst *inst,
 		struct v4l2_buffer *b)
 {
 	int rc = 0, i;
-	void *dma_buf;
-	void *handle;
 	bool skip;
 
 	if (!inst || !b) {
@@ -5362,10 +5361,9 @@ int msm_comm_qbuf_cache_operations(struct msm_vidc_inst *inst,
 	for (i = 0; i < b->length; i++) {
 		unsigned long offset, size;
 		enum smem_cache_ops cache_ops;
+		struct dma_buf *dbuf;
 
-		dma_buf = msm_smem_get_dma_buf(b->m.planes[i].m.fd);
-		handle = msm_smem_get_handle(inst->mem_client, dma_buf);
-
+		dbuf = msm_smem_get_dma_buf(b->m.planes[i].m.fd);
 		offset = b->m.planes[i].data_offset;
 		size = b->m.planes[i].length;
 		cache_ops = SMEM_CACHE_INVALIDATE;
@@ -5400,15 +5398,14 @@ int msm_comm_qbuf_cache_operations(struct msm_vidc_inst *inst,
 		}
 
 		if (!skip) {
-			rc = msm_smem_cache_operations(inst->mem_client, handle,
+			rc = msm_smem_cache_operations(dbuf,
 					offset, size, cache_ops);
 			if (rc)
 				print_v4l2_buffer(VIDC_ERR,
 					"qbuf cache ops failed", inst, b);
 		}
 
-		msm_smem_put_handle(inst->mem_client, handle);
-		msm_smem_put_dma_buf(dma_buf);
+		msm_smem_put_dma_buf(dbuf);
 	}
 
 	return rc;
@@ -5418,8 +5415,7 @@ int msm_comm_dqbuf_cache_operations(struct msm_vidc_inst *inst,
 		struct v4l2_buffer *b)
 {
 	int rc = 0, i;
-	void *dma_buf;
-	void *handle;
+	struct dma_buf *dma_buf;
 	bool skip;
 
 	if (!inst || !b) {
@@ -5433,8 +5429,6 @@ int msm_comm_dqbuf_cache_operations(struct msm_vidc_inst *inst,
 		enum smem_cache_ops cache_ops;
 
 		dma_buf = msm_smem_get_dma_buf(b->m.planes[i].m.fd);
-		handle = msm_smem_get_handle(inst->mem_client, dma_buf);
-
 		offset = b->m.planes[i].data_offset;
 		size = b->m.planes[i].length;
 		cache_ops = SMEM_CACHE_INVALIDATE;
@@ -5461,14 +5455,13 @@ int msm_comm_dqbuf_cache_operations(struct msm_vidc_inst *inst,
 		}
 
 		if (!skip) {
-			rc = msm_smem_cache_operations(inst->mem_client, handle,
+			rc = msm_smem_cache_operations(dma_buf,
 					offset, size, cache_ops);
 			if (rc)
 				print_v4l2_buffer(VIDC_ERR,
 					"dqbuf cache ops failed", inst, b);
 		}
 
-		msm_smem_put_handle(inst->mem_client, handle);
 		msm_smem_put_dma_buf(dma_buf);
 	}
 
