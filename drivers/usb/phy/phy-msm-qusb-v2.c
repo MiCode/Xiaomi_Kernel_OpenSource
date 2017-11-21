@@ -65,6 +65,9 @@
 
 #define BIAS_CTRL_2_OVERRIDE_VAL	0x28
 
+#define SQ_CTRL1_CHIRP_DISABLE		0x20
+#define SQ_CTRL2_CHIRP_DISABLE		0x80
+
 /* PERIPH_SS_PHY_REFGEN_NORTH_BG_CTRL register bits */
 #define BANDGAP_BYPASS			BIT(0)
 
@@ -80,6 +83,8 @@ enum qusb_phy_reg {
 	PLL_CORE_INPUT_OVERRIDE,
 	TEST1,
 	BIAS_CTRL_2,
+	SQ_CTRL1,
+	SQ_CTRL2,
 	USB2_PHY_REG_MAX,
 };
 
@@ -119,6 +124,10 @@ struct qusb_phy {
 
 	struct regulator_desc	dpdm_rdesc;
 	struct regulator_dev	*dpdm_rdev;
+
+	u32			sq_ctrl1_default;
+	u32			sq_ctrl2_default;
+	bool			chirp_disable;
 
 	/* emulation targets specific */
 	void __iomem		*emu_phy_base;
@@ -651,6 +660,52 @@ static int qusb_phy_notify_disconnect(struct usb_phy *phy,
 	return 0;
 }
 
+static int qusb_phy_disable_chirp(struct usb_phy *phy, bool disable)
+{
+	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
+	int ret = 0;
+
+	dev_dbg(phy->dev, "%s qphy chirp disable %d disable %d\n", __func__,
+			qphy->chirp_disable, disable);
+
+	mutex_lock(&qphy->lock);
+
+	if (qphy->chirp_disable == disable) {
+		ret = -EALREADY;
+		goto done;
+	}
+
+	qphy->chirp_disable = disable;
+
+	if (disable) {
+		qphy->sq_ctrl1_default =
+			readl_relaxed(qphy->base + qphy->phy_reg[SQ_CTRL1]);
+		qphy->sq_ctrl2_default =
+			readl_relaxed(qphy->base + qphy->phy_reg[SQ_CTRL2]);
+
+		writel_relaxed(SQ_CTRL1_CHIRP_DISABLE,
+				qphy->base + qphy->phy_reg[SQ_CTRL1]);
+		readl_relaxed(qphy->base + qphy->phy_reg[SQ_CTRL1]);
+
+		writel_relaxed(SQ_CTRL1_CHIRP_DISABLE,
+				qphy->base + qphy->phy_reg[SQ_CTRL2]);
+		readl_relaxed(qphy->base + qphy->phy_reg[SQ_CTRL2]);
+
+		goto done;
+	}
+
+	writel_relaxed(qphy->sq_ctrl1_default,
+			qphy->base + qphy->phy_reg[SQ_CTRL1]);
+	readl_relaxed(qphy->base + qphy->phy_reg[SQ_CTRL1]);
+
+	writel_relaxed(qphy->sq_ctrl2_default,
+			qphy->base + qphy->phy_reg[SQ_CTRL2]);
+	readl_relaxed(qphy->base + qphy->phy_reg[SQ_CTRL2]);
+done:
+	mutex_unlock(&qphy->lock);
+	return ret;
+}
+
 static int qusb_phy_dpdm_regulator_enable(struct regulator_dev *rdev)
 {
 	int ret = 0;
@@ -1004,6 +1059,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	qphy->phy.type			= USB_PHY_TYPE_USB2;
 	qphy->phy.notify_connect        = qusb_phy_notify_connect;
 	qphy->phy.notify_disconnect     = qusb_phy_notify_disconnect;
+	qphy->phy.disable_chirp		= qusb_phy_disable_chirp;
 
 	ret = usb_add_phy_dev(&qphy->phy);
 	if (ret)
