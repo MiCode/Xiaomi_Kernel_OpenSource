@@ -254,9 +254,11 @@ struct hfi_debug {
  * struct hfi_ipe_bps_pc
  * payload structure to configure HFI_PROPERTY_SYS_IPEBPS_PC
  * @enable: Flag to enable IPE, BPS interfrane power collapse
+ * @core_info: Core information to firmware
  */
 struct hfi_ipe_bps_pc {
 	uint32_t enable;
+	uint32_t core_info;
 } __packed;
 
 /**
