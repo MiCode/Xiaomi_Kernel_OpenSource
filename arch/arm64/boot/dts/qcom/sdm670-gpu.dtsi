@@ -63,6 +63,7 @@
 
 		qcom,gpu-quirk-hfi-use-reg;
 		qcom,gpu-quirk-limit-uche-gbif-rw;
+		qcom,gpu-quirk-secvid-set-once;
 
 		/* <HZ/12> */
 		qcom,idle-timeout = <80>;
@@ -147,12 +148,14 @@
 				qcom,gpu-quirk-hfi-use-reg;
 				qcom,gpu-quirk-limit-uche-gbif-rw;
 				qcom,gpu-quirk-mmu-secure-cb-alt;
+				qcom,gpu-quirk-secvid-set-once;
 			};
 
 			qcom,soc-hw-revision-1 {
 				qcom,soc-hw-revision = <1>;
 				qcom,chipid = <0x06010501>;
 				qcom,gpu-quirk-hfi-use-reg;
+				qcom,gpu-quirk-secvid-set-once;
 			};
 		};
 
