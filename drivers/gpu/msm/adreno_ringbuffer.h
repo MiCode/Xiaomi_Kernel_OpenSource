@@ -92,6 +92,8 @@ struct adreno_ringbuffer_pagetable_info {
  * @drawctxt_active: The last pagetable that this ringbuffer is set to
  * @preemption_desc: The memory descriptor containing
  * preemption info written/read by CP
+ * @secure_preemption_desc: The memory descriptor containing
+ * preemption info written/read by CP for secure contexts
  * @perfcounter_save_restore_desc: Used by CP to save/restore the perfcounter
  * values across preemption
  * @pagetable_desc: Memory to hold information about the pagetables being used
@@ -120,6 +122,7 @@ struct adreno_ringbuffer {
 	struct kgsl_event_group events;
 	struct adreno_context *drawctxt_active;
 	struct kgsl_memdesc preemption_desc;
+	struct kgsl_memdesc secure_preemption_desc;
 	struct kgsl_memdesc perfcounter_save_restore_desc;
 	struct kgsl_memdesc pagetable_desc;
 	struct adreno_dispatcher_drawqueue dispatch_q;
