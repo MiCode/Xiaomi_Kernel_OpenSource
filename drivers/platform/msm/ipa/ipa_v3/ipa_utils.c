@@ -4519,10 +4519,10 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_get_pdev = ipa3_get_pdev;
 	api_ctrl->ipa_ntn_uc_reg_rdyCB = ipa3_ntn_uc_reg_rdyCB;
 	api_ctrl->ipa_ntn_uc_dereg_rdyCB = ipa3_ntn_uc_dereg_rdyCB;
-	api_ctrl->ipa_conn_wdi3_pipes = ipa3_conn_wdi3_pipes;
-	api_ctrl->ipa_disconn_wdi3_pipes = ipa3_disconn_wdi3_pipes;
-	api_ctrl->ipa_enable_wdi3_pipes = ipa3_enable_wdi3_pipes;
-	api_ctrl->ipa_disable_wdi3_pipes = ipa3_disable_wdi3_pipes;
+	api_ctrl->ipa_conn_wdi_pipes = ipa3_conn_wdi3_pipes;
+	api_ctrl->ipa_disconn_wdi_pipes = ipa3_disconn_wdi3_pipes;
+	api_ctrl->ipa_enable_wdi_pipes = ipa3_enable_wdi3_pipes;
+	api_ctrl->ipa_disable_wdi_pipes = ipa3_disable_wdi3_pipes;
 	api_ctrl->ipa_tz_unlock_reg = ipa3_tz_unlock_reg;
 	api_ctrl->ipa_get_smmu_params = ipa3_get_smmu_params;
 	api_ctrl->ipa_is_vlan_mode = ipa3_is_vlan_mode;
