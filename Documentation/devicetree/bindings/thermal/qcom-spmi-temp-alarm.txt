@@ -15,6 +15,21 @@ Optional properties:
 - io-channels:     Should contain IIO channel specifier for the ADC channel,
                    which report chip die temperature.
 - io-channel-names: Should contain "thermal".
+- qcom,temperature-threshold-set: Defines the temperature threshold set to
+		   configure.  Supported values are 0 to 3.  Each set defines
+		   the over-temperature stage 1, 2, and 3 temperature
+		   thresholds. If this property is not specified, then set 0
+		   will be used by default.
+		   Threshold set mapping (TEMP_GEN1, TEMP_GEN2 rev 0):
+			0 = {105 C, 125 C, 145 C}
+			1 = {110 C, 130 C, 150 C}
+			2 = {115 C, 135 C, 155 C}
+			3 = {120 C, 140 C, 160 C}
+		   Threshold set mapping (TEMP_GEN2 rev 1 and above):
+			0 = { 90 C, 110 C, 140 C}
+			1 = { 95 C, 115 C, 145 C}
+			2 = {100 C, 120 C, 150 C}
+			3 = {105 C, 125 C, 155 C}
 
 Example:
 
