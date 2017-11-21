@@ -641,7 +641,6 @@ int bhi_probe(struct mhi_device_ctxt *mhi_dev_ctxt)
 		image += to_copy;
 	}
 
-	fw_table->sequence++;
 	release_firmware(firmware);
 
 	/* allocate memory and setup rddm table */
@@ -662,7 +661,6 @@ int bhi_probe(struct mhi_device_ctxt *mhi_dev_ctxt)
 					rddm_table->bhie_mem_info[i].phys_addr;
 				sg_dma_len(itr) = size;
 			}
-			rddm_table->sequence++;
 		} else {
 			/* out of memory for rddm, not fatal error */
 			mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
