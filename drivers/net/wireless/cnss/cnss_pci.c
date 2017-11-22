@@ -3840,7 +3840,7 @@ int cnss_pcie_power_down(struct device *dev)
 	return ret;
 }
 
-module_init(cnss_initialize);
+fs_initcall(cnss_initialize);
 module_exit(cnss_exit);
 
 MODULE_LICENSE("GPL v2");
