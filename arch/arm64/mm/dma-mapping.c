@@ -1909,34 +1909,28 @@ err_domain_alloc:
 EXPORT_SYMBOL(arm_iommu_create_mapping);
 
 static int
-bitmap_iommu_init_mapping(struct device *dev, struct dma_iommu_mapping *mapping)
+iommu_init_mapping(struct device *dev, struct dma_iommu_mapping *mapping)
 {
-	unsigned int bitmap_size = BITS_TO_LONGS(mapping->bits) * sizeof(long);
+	struct iommu_domain *domain = mapping->domain;
+	dma_addr_t dma_base = mapping->base;
+	u64 size = mapping->bits << PAGE_SHIFT;
 
-	mapping->bitmap = kzalloc(bitmap_size, GFP_KERNEL | __GFP_NOWARN |
-							__GFP_NORETRY);
-	if (!mapping->bitmap)
-		mapping->bitmap = vzalloc(bitmap_size);
+	/* Prepare the domain */
+	if (iommu_get_dma_cookie(domain))
+		return -EINVAL;
 
-	if (!mapping->bitmap)
-		return -ENOMEM;
+	if (iommu_dma_init_domain(domain, dma_base, size, dev))
+		goto out_put_cookie;
 
-	spin_lock_init(&mapping->lock);
-	mapping->ops = &iommu_ops;
+	mapping->ops = &iommu_dma_ops;
 	return 0;
+
+out_put_cookie:
+	iommu_put_dma_cookie(domain);
+	return -EINVAL;
 }
 
-static void bitmap_iommu_release_mapping(struct kref *kref)
-{
-	struct dma_iommu_mapping *mapping =
-		container_of(kref, struct dma_iommu_mapping, kref);
-
-	kfree(mapping->bitmap);
-	iommu_domain_free(mapping->domain);
-	kfree(mapping);
-}
-
-static void bypass_iommu_release_mapping(struct kref *kref)
+static void release_iommu_mapping(struct kref *kref)
 {
 	struct dma_iommu_mapping *mapping =
 		container_of(kref, struct dma_iommu_mapping, kref);
@@ -1970,12 +1964,10 @@ void arm_iommu_release_mapping(struct dma_iommu_mapping *mapping)
 					&s1_bypass);
 	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_FAST, &is_fast);
 
-	if (s1_bypass)
-		release = bypass_iommu_release_mapping;
-	else if (is_fast)
+	if (is_fast)
 		release = fast_smmu_release_mapping;
 	else
-		release = bitmap_iommu_release_mapping;
+		release = release_iommu_mapping;
 
 	kref_put(&mapping->kref, release);
 }
@@ -1986,19 +1978,7 @@ static int arm_iommu_init_mapping(struct device *dev,
 {
 	int err = -EINVAL;
 	int s1_bypass = 0, is_fast = 0;
-	struct iommu_group *group;
 	dma_addr_t iova_end;
-
-	group = dev->iommu_group;
-	if (!group) {
-		dev_err(dev, "No iommu associated with device\n");
-		return -EINVAL;
-	}
-
-	if (iommu_get_domain_for_dev(dev)) {
-		dev_err(dev, "Device already attached to other iommu_domain\n");
-		return -EINVAL;
-	}
 
 	if (mapping->init) {
 		kref_get(&mapping->kref);
@@ -2022,7 +2002,7 @@ static int arm_iommu_init_mapping(struct device *dev,
 	} else if (is_fast) {
 		err = fast_smmu_init_mapping(dev, mapping);
 	} else {
-		err = bitmap_iommu_init_mapping(dev, mapping);
+		err = iommu_init_mapping(dev, mapping);
 	}
 	if (!err) {
 		kref_init(&mapping->kref);
@@ -2049,14 +2029,28 @@ int arm_iommu_attach_device(struct device *dev,
 			    struct dma_iommu_mapping *mapping)
 {
 	int err;
+	struct iommu_domain *domain = mapping->domain;
+	struct iommu_group *group = dev->iommu_group;
+
+	if (!group) {
+		dev_err(dev, "No iommu associated with device\n");
+		return -EINVAL;
+	}
+
+	if (iommu_get_domain_for_dev(dev)) {
+		dev_err(dev, "Device already attached to other iommu_domain\n");
+		return -EINVAL;
+	}
+
+	err = iommu_attach_group(mapping->domain, group);
+	if (err)
+		return err;
 
 	err = arm_iommu_init_mapping(dev, mapping);
-	if (err)
+	if (err) {
+		iommu_detach_group(domain, group);
 		return err;
-
-	err = iommu_attach_group(mapping->domain, dev->iommu_group);
-	if (err)
-		return err;
+	}
 
 	dev->archdata.mapping = mapping;
 	set_dma_ops(dev, mapping->ops);
