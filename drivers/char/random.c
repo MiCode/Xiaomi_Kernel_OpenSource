@@ -440,9 +440,9 @@ static int crng_init_cnt = 0;
 static unsigned long crng_global_init_time = 0;
 #define CRNG_INIT_CNT_THRESH (2*CHACHA20_KEY_SIZE)
 static void _extract_crng(struct crng_state *crng,
-			  __u8 out[CHACHA20_BLOCK_SIZE]);
+			  __u32 out[CHACHA20_BLOCK_WORDS]);
 static void _crng_backtrack_protect(struct crng_state *crng,
-				    __u8 tmp[CHACHA20_BLOCK_SIZE], int used);
+				    __u32 tmp[CHACHA20_BLOCK_WORDS], int used);
 static void process_random_ready_list(void);
 
 static struct ratelimit_state unseeded_warning =
@@ -868,7 +868,7 @@ static void crng_reseed(struct crng_state *crng, struct entropy_store *r)
 	unsigned long	flags;
 	int		i, num;
 	union {
-		__u8	block[CHACHA20_BLOCK_SIZE];
+		__u32	block[CHACHA20_BLOCK_WORDS];
 		__u32	key[8];
 	} buf;
 
@@ -926,7 +926,7 @@ static inline void crng_wait_ready(void)
 }
 
 static void _extract_crng(struct crng_state *crng,
-			  __u8 out[CHACHA20_BLOCK_SIZE])
+			  __u32 out[CHACHA20_BLOCK_WORDS])
 {
 	unsigned long v, flags;
 
@@ -943,7 +943,7 @@ static void _extract_crng(struct crng_state *crng,
 	spin_unlock_irqrestore(&crng->lock, flags);
 }
 
-static void extract_crng(__u8 out[CHACHA20_BLOCK_SIZE])
+static void extract_crng(__u32 out[CHACHA20_BLOCK_WORDS])
 {
 	struct crng_state *crng = NULL;
 
@@ -961,7 +961,7 @@ static void extract_crng(__u8 out[CHACHA20_BLOCK_SIZE])
  * enough) to mutate the CRNG key to provide backtracking protection.
  */
 static void _crng_backtrack_protect(struct crng_state *crng,
-				    __u8 tmp[CHACHA20_BLOCK_SIZE], int used)
+				    __u32 tmp[CHACHA20_BLOCK_WORDS], int used)
 {
 	unsigned long	flags;
 	__u32		*s, *d;
@@ -973,14 +973,14 @@ static void _crng_backtrack_protect(struct crng_state *crng,
 		used = 0;
 	}
 	spin_lock_irqsave(&crng->lock, flags);
-	s = (__u32 *) &tmp[used];
+	s = &tmp[used / sizeof(__u32)];
 	d = &crng->state[4];
 	for (i=0; i < 8; i++)
 		*d++ ^= *s++;
 	spin_unlock_irqrestore(&crng->lock, flags);
 }
 
-static void crng_backtrack_protect(__u8 tmp[CHACHA20_BLOCK_SIZE], int used)
+static void crng_backtrack_protect(__u32 tmp[CHACHA20_BLOCK_WORDS], int used)
 {
 	struct crng_state *crng = NULL;
 
@@ -996,7 +996,7 @@ static void crng_backtrack_protect(__u8 tmp[CHACHA20_BLOCK_SIZE], int used)
 static ssize_t extract_crng_user(void __user *buf, size_t nbytes)
 {
 	ssize_t ret = 0, i = CHACHA20_BLOCK_SIZE;
-	__u8 tmp[CHACHA20_BLOCK_SIZE];
+	__u32 tmp[CHACHA20_BLOCK_WORDS];
 	int large_request = (nbytes > 256);
 
 	while (nbytes) {
@@ -1564,7 +1564,7 @@ static ssize_t extract_entropy_user(struct entropy_store *r, void __user *buf,
  */
 void get_random_bytes(void *buf, int nbytes)
 {
-	__u8 tmp[CHACHA20_BLOCK_SIZE];
+	__u32 tmp[CHACHA20_BLOCK_WORDS];
 
 #if DEBUG_RANDOM_BOOT > 0
 	if (!crng_ready())
@@ -2132,7 +2132,7 @@ unsigned long get_random_long(void)
 
 	batch = &get_cpu_var(batched_entropy_long);
 	if (batch->position % ARRAY_SIZE(batch->entropy_long) == 0) {
-		extract_crng((u8 *)batch->entropy_long);
+		extract_crng((__u32 *)batch->entropy_long);
 		batch->position = 0;
 	}
 	ret = batch->entropy_long[batch->position++];
@@ -2158,7 +2158,7 @@ unsigned int get_random_int(void)
 
 	batch = &get_cpu_var(batched_entropy_int);
 	if (batch->position % ARRAY_SIZE(batch->entropy_int) == 0) {
-		extract_crng((u8 *)batch->entropy_int);
+		extract_crng((__u32 *)batch->entropy_int);
 		batch->position = 0;
 	}
 	ret = batch->entropy_int[batch->position++];
