@@ -44,6 +44,13 @@
 #define ROTTOP_DEBUGBUS_STATUS                  (SDE_ROT_ROTTOP_OFFSET+0x54)
 #define ROTTOP_ROT_UBWC_DEC_VERSION             (SDE_ROT_ROTTOP_OFFSET+0x58)
 #define ROTTOP_ROT_UBWC_ENC_VERSION             (SDE_ROT_ROTTOP_OFFSET+0x5C)
+#define ROTTOP_ROT_CNTR_CTRL                    (SDE_ROT_ROTTOP_OFFSET+0x60)
+#define ROTTOP_ROT_CNTR_0                       (SDE_ROT_ROTTOP_OFFSET+0x64)
+#define ROTTOP_ROT_CNTR_1                       (SDE_ROT_ROTTOP_OFFSET+0x68)
+#define ROTTOP_ROT_SCRATCH_0                    (SDE_ROT_ROTTOP_OFFSET+0x70)
+#define ROTTOP_ROT_SCRATCH_1                    (SDE_ROT_ROTTOP_OFFSET+0x74)
+#define ROTTOP_ROT_SCRATCH_2                    (SDE_ROT_ROTTOP_OFFSET+0x78)
+#define ROTTOP_ROT_SCRATCH_3                    (SDE_ROT_ROTTOP_OFFSET+0x7C)
 
 #define ROTTOP_START_CTRL_TRIG_SEL_SW           0
 #define ROTTOP_START_CTRL_TRIG_SEL_DONE         1

@@ -553,6 +553,31 @@ struct sde_rot_cdp_params {
 #define SDE_REGDMA_SWTS_INVALID	(~0)
 
 /**
+ * __sde_hw_rotator_get_timestamp - obtain rotator current timestamp
+ * @rot: rotator context
+ * @q_id: regdma queue id (low/high)
+ * @return: current timestmap
+ */
+static u32 __sde_hw_rotator_get_timestamp(struct sde_hw_rotator *rot, u32 q_id)
+{
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+	u32 ts;
+
+	if (test_bit(SDE_CAPS_HW_TIMESTAMP, mdata->sde_caps_map)) {
+		if (q_id == ROT_QUEUE_HIGH_PRIORITY)
+			ts = SDE_ROTREG_READ(rot->mdss_base, ROTTOP_ROT_CNTR_0);
+		else
+			ts = SDE_ROTREG_READ(rot->mdss_base, ROTTOP_ROT_CNTR_1);
+	} else {
+		ts = SDE_ROTREG_READ(rot->mdss_base, REGDMA_TIMESTAMP_REG);
+		if (q_id == ROT_QUEUE_LOW_PRIORITY)
+			ts >>= SDE_REGDMA_SWTS_SHIFT;
+	}
+
+	return ts & SDE_REGDMA_SWTS_MASK;
+}
+
+/**
  * sde_hw_rotator_elapsed_swts - Find difference of 2 software timestamps
  * @ts_curr: current software timestamp
  * @ts_prev: previous software timestamp
@@ -563,6 +588,61 @@ static int sde_hw_rotator_elapsed_swts(u32 ts_curr, u32 ts_prev)
 	u32 diff = (ts_curr - ts_prev) & SDE_REGDMA_SWTS_MASK;
 
 	return sign_extend32(diff, (SDE_REGDMA_SWTS_SHIFT - 1));
+}
+
+/**
+ * sde_hw_rotator_pending_hwts - Check if the given context is still pending
+ * @rot: Pointer to hw rotator
+ * @ctx: Pointer to rotator context
+ * @phwts: Pointer to returned reference hw timestamp, optional
+ * @return: true if context has pending requests
+ */
+static int sde_hw_rotator_pending_hwts(struct sde_hw_rotator *rot,
+		struct sde_hw_rotator_context *ctx, u32 *phwts)
+{
+	u32 hwts;
+	int ts_diff;
+	bool pending;
+
+	if (ctx->last_regdma_timestamp == SDE_REGDMA_SWTS_INVALID) {
+		if (ctx->q_id == ROT_QUEUE_LOW_PRIORITY)
+			hwts = SDE_ROTREG_READ(rot->mdss_base,
+					ROTTOP_ROT_CNTR_1);
+		else
+			hwts = SDE_ROTREG_READ(rot->mdss_base,
+					ROTTOP_ROT_CNTR_0);
+	} else {
+		hwts = ctx->last_regdma_timestamp;
+	}
+
+	hwts &= SDE_REGDMA_SWTS_MASK;
+
+	ts_diff = sde_hw_rotator_elapsed_swts(ctx->timestamp, hwts);
+
+	if (phwts)
+		*phwts = hwts;
+
+	pending = (ts_diff > 0) ? true : false;
+
+	SDEROT_DBG("ts:0x%x, queue_id:%d, hwts:0x%x, pending:%d\n",
+		ctx->timestamp, ctx->q_id, hwts, pending);
+	SDEROT_EVTLOG(ctx->timestamp, hwts, ctx->q_id, ts_diff);
+	return pending;
+}
+
+/**
+ * sde_hw_rotator_update_hwts - update hw timestamp with given value
+ * @rot: Pointer to hw rotator
+ * @q_id: rotator queue id
+ * @hwts: new hw timestamp
+ */
+static void sde_hw_rotator_update_hwts(struct sde_hw_rotator *rot,
+		u32 q_id, u32 hwts)
+{
+	if (q_id == ROT_QUEUE_LOW_PRIORITY)
+		SDE_ROTREG_WRITE(rot->mdss_base, ROTTOP_ROT_CNTR_1, hwts);
+	else
+		SDE_ROTREG_WRITE(rot->mdss_base, ROTTOP_ROT_CNTR_0, hwts);
 }
 
 /**
@@ -605,25 +685,22 @@ static int sde_hw_rotator_pending_swts(struct sde_hw_rotator *rot,
 /**
  * sde_hw_rotator_update_swts - update software timestamp with given value
  * @rot: Pointer to hw rotator
- * @ctx: Pointer to rotator contxt
+ * @q_id: rotator queue id
  * @swts: new software timestamp
- * @return: new combined swts
  */
-static u32 sde_hw_rotator_update_swts(struct sde_hw_rotator *rot,
-		struct sde_hw_rotator_context *ctx, u32 swts)
+static void sde_hw_rotator_update_swts(struct sde_hw_rotator *rot,
+		u32 q_id, u32 swts)
 {
 	u32 mask = SDE_REGDMA_SWTS_MASK;
 
 	swts &= SDE_REGDMA_SWTS_MASK;
-	if (ctx->q_id == ROT_QUEUE_LOW_PRIORITY) {
+	if (q_id == ROT_QUEUE_LOW_PRIORITY) {
 		swts <<= SDE_REGDMA_SWTS_SHIFT;
 		mask <<= SDE_REGDMA_SWTS_SHIFT;
 	}
 
 	swts |= (SDE_ROTREG_READ(rot->mdss_base, REGDMA_TIMESTAMP_REG) & ~mask);
 	SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_TIMESTAMP_REG, swts);
-
-	return swts;
 }
 
 /**
@@ -738,7 +815,7 @@ static int sde_hw_rotator_reset(struct sde_hw_rotator *rot,
 
 	/* update timestamp register with current context */
 	last_ts[ctx->q_id] = ctx->timestamp;
-	sde_hw_rotator_update_swts(rot, ctx, ctx->timestamp);
+	rot->ops.update_ts(rot, ctx->q_id, ctx->timestamp);
 	SDEROT_EVTLOG(ctx->timestamp);
 
 	/*
@@ -762,8 +839,7 @@ static int sde_hw_rotator_reset(struct sde_hw_rotator *rot,
 				if (t < elapsed_time) {
 					elapsed_time = t;
 					last_ts[i] = rctx->timestamp;
-					sde_hw_rotator_update_swts(rot, rctx,
-							last_ts[i]);
+					rot->ops.update_ts(rot, i, last_ts[i]);
 				}
 
 				SDEROT_DBG("rotctx[%d][%d], ts:%d\n",
@@ -808,9 +884,9 @@ static void _sde_hw_rotator_dump_status(struct sde_hw_rotator *rot,
 			REGDMA_CSR_REGDMA_INT_STATUS));
 
 	SDEROT_ERR(
-		"ts = %x, q0_status = %x, q1_status = %x, block_status = %x\n",
-		SDE_ROTREG_READ(rot->mdss_base,
-			REGDMA_TIMESTAMP_REG),
+		"ts0/ts1 = %x/%x, q0_status = %x, q1_status = %x, block_status = %x\n",
+		__sde_hw_rotator_get_timestamp(rot, ROT_QUEUE_HIGH_PRIORITY),
+		__sde_hw_rotator_get_timestamp(rot, ROT_QUEUE_LOW_PRIORITY),
 		SDE_ROTREG_READ(rot->mdss_base,
 			REGDMA_CSR_REGDMA_QUEUE_0_STATUS),
 		SDE_ROTREG_READ(rot->mdss_base,
@@ -1775,6 +1851,7 @@ static u32 sde_hw_rotator_start_no_regdma(struct sde_hw_rotator_context *ctx,
 static u32 sde_hw_rotator_start_regdma(struct sde_hw_rotator_context *ctx,
 		enum sde_rot_queue_prio queue_id)
 {
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	struct sde_hw_rotator *rot = ctx->rot;
 	char __iomem *wrptr;
 	u32  regdmaSlot;
@@ -1785,8 +1862,18 @@ static u32 sde_hw_rotator_start_regdma(struct sde_hw_rotator_context *ctx,
 	u32  swts = 0;
 	u32  mask = 0;
 	u32  trig_sel;
+	bool int_trigger = false;
 
 	wrptr = sde_hw_rotator_get_regdma_segment(ctx);
+
+	/* Enable HW timestamp if supported in rotator */
+	if (test_bit(SDE_CAPS_HW_TIMESTAMP, mdata->sde_caps_map)) {
+		SDE_REGDMA_MODIFY(wrptr, ROTTOP_ROT_CNTR_CTRL,
+				~BIT(queue_id), BIT(queue_id));
+		int_trigger = true;
+	} else if (ctx->sbuf_mode) {
+		int_trigger = true;
+	}
 
 	/*
 	 * Last ROT command must be ROT_START before REGDMA start
@@ -1818,14 +1905,14 @@ static u32 sde_hw_rotator_start_regdma(struct sde_hw_rotator_context *ctx,
 	if (queue_id == ROT_QUEUE_HIGH_PRIORITY) {
 		SDE_ROTREG_WRITE(rot->mdss_base,
 				REGDMA_CSR_REGDMA_QUEUE_0_SUBMIT,
-				(ctx->sbuf_mode ? enableInt : 0) | trig_sel |
+				(int_trigger ? enableInt : 0) | trig_sel |
 				((length & 0x3ff) << 14) | offset);
 		swts = ctx->timestamp;
 		mask = ~SDE_REGDMA_SWTS_MASK;
 	} else {
 		SDE_ROTREG_WRITE(rot->mdss_base,
 				REGDMA_CSR_REGDMA_QUEUE_1_SUBMIT,
-				(ctx->sbuf_mode ? enableInt : 0) | trig_sel |
+				(int_trigger ? enableInt : 0) | trig_sel |
 				((length & 0x3ff) << 14) | offset);
 		swts = ctx->timestamp << SDE_REGDMA_SWTS_SHIFT;
 		mask = ~(SDE_REGDMA_SWTS_MASK << SDE_REGDMA_SWTS_SHIFT);
@@ -1833,8 +1920,8 @@ static u32 sde_hw_rotator_start_regdma(struct sde_hw_rotator_context *ctx,
 
 	SDEROT_EVTLOG(ctx->timestamp, queue_id, length, offset, ctx->sbuf_mode);
 
-	/* timestamp update can only be used in offline multi-context mode */
-	if (!ctx->sbuf_mode) {
+	/* sw timestamp update can only be used in offline multi-context mode */
+	if (!int_trigger) {
 		/* Write timestamp after previous rotator job finished */
 		sde_hw_rotator_setup_timestamp_packet(ctx, mask, swts);
 		offset += length;
@@ -1957,7 +2044,7 @@ static u32 sde_hw_rotator_wait_done_regdma(
 		SDEROT_DBG("Wait for REGDMA completion, ctx:%p, ts:%X\n",
 				ctx, ctx->timestamp);
 		rc = wait_event_timeout(ctx->regdma_waitq,
-				!sde_hw_rotator_pending_swts(rot, ctx, &swts),
+				!rot->ops.get_pending_ts(rot, ctx, &swts),
 				ctx->sbuf_mode ?
 				msecs_to_jiffies(KOFF_TIMEOUT_SBUF) :
 				msecs_to_jiffies(rot->koff_timeout));
@@ -1976,7 +2063,7 @@ static u32 sde_hw_rotator_wait_done_regdma(
 		if (rc == 0 || (status & REGDMA_INT_ERR_MASK) || abort) {
 			bool pending;
 
-			pending = sde_hw_rotator_pending_swts(rot, ctx, &swts);
+			pending = rot->ops.get_pending_ts(rot, ctx, &swts);
 			SDEROT_ERR(
 				"Timeout wait for regdma interrupt status, ts:0x%X/0x%X, pending:%d, abort:%d\n",
 				ctx->timestamp, swts, pending, abort);
@@ -2027,7 +2114,7 @@ static u32 sde_hw_rotator_wait_done_regdma(
 			udelay(500);
 			last_isr = SDE_ROTREG_READ(rot->mdss_base,
 					REGDMA_CSR_REGDMA_INT_STATUS);
-			pending = sde_hw_rotator_pending_swts(rot, ctx, &swts);
+			pending = rot->ops.get_pending_ts(rot, ctx, &swts);
 			cnt--;
 		} while ((cnt > 0) && pending &&
 				((last_isr & REGDMA_INT_ERR_MASK) == 0));
@@ -2063,9 +2150,11 @@ static u32 sde_hw_rotator_wait_done_regdma(
  * setup_rotator_ops - setup callback functions for the low-level HAL
  * @ops: Pointer to low-level ops callback
  * @mode: Operation mode (non-regdma or regdma)
+ * @use_hwts: HW timestamp support mode
  */
 static void setup_rotator_ops(struct sde_hw_rotator_ops *ops,
-		enum sde_rotator_regdma_mode mode)
+		enum sde_rotator_regdma_mode mode,
+		bool use_hwts)
 {
 	ops->setup_rotator_fetchengine = sde_hw_rotator_setup_fetchengine;
 	ops->setup_rotator_wbengine = sde_hw_rotator_setup_wbengine;
@@ -2075,6 +2164,14 @@ static void setup_rotator_ops(struct sde_hw_rotator_ops *ops,
 	} else {
 		ops->start_rotator = sde_hw_rotator_start_no_regdma;
 		ops->wait_rotator_done = sde_hw_rotator_wait_done_no_regdma;
+	}
+
+	if (use_hwts) {
+		ops->get_pending_ts = sde_hw_rotator_pending_hwts;
+		ops->update_ts = sde_hw_rotator_update_hwts;
+	} else {
+		ops->get_pending_ts = sde_hw_rotator_pending_swts;
+		ops->update_ts = sde_hw_rotator_update_swts;
 	}
 }
 
@@ -2177,7 +2274,7 @@ static void sde_hw_rotator_swts_destroy(struct sde_hw_rotator *rot)
 void sde_hw_rotator_pre_pmevent(struct sde_rot_mgr *mgr, bool pmon)
 {
 	struct sde_hw_rotator *rot;
-	u32 l_ts, h_ts, swts, hwts;
+	u32 l_ts, h_ts, l_hwts, h_hwts;
 	u32 rotsts, regdmasts, rotopmode;
 
 	/*
@@ -2192,29 +2289,30 @@ void sde_hw_rotator_pre_pmevent(struct sde_rot_mgr *mgr, bool pmon)
 		h_ts = atomic_read(&rot->timestamp[ROT_QUEUE_HIGH_PRIORITY]);
 		l_ts = atomic_read(&rot->timestamp[ROT_QUEUE_LOW_PRIORITY]);
 
-		/* contruct the combined timstamp */
-		swts = (h_ts & SDE_REGDMA_SWTS_MASK) |
-			((l_ts & SDE_REGDMA_SWTS_MASK) <<
-			 SDE_REGDMA_SWTS_SHIFT);
-
 		/* Need to turn on clock to access rotator register */
 		sde_rotator_clk_ctrl(mgr, true);
-		hwts = SDE_ROTREG_READ(rot->mdss_base, REGDMA_TIMESTAMP_REG);
+		l_hwts = __sde_hw_rotator_get_timestamp(rot,
+				ROT_QUEUE_LOW_PRIORITY);
+		h_hwts = __sde_hw_rotator_get_timestamp(rot,
+				ROT_QUEUE_HIGH_PRIORITY);
 		regdmasts = SDE_ROTREG_READ(rot->mdss_base,
 				REGDMA_CSR_REGDMA_BLOCK_STATUS);
 		rotsts = SDE_ROTREG_READ(rot->mdss_base, ROTTOP_STATUS);
 		rotopmode = SDE_ROTREG_READ(rot->mdss_base, ROTTOP_OP_MODE);
 
 		SDEROT_DBG(
-			"swts:0x%x, hwts:0x%x, regdma-sts:0x%x, rottop-sts:0x%x, rottop-opmode:0x%x\n",
-				swts, hwts, regdmasts, rotsts, rotopmode);
-		SDEROT_EVTLOG(swts, hwts, regdmasts, rotsts, rotopmode);
+			"swts(l/h):0x%x/0x%x, hwts(l/h):0x%x/0x%x, regdma-sts:0x%x, rottop-sts:0x%x\n",
+				l_ts, h_ts, l_hwts, h_hwts,
+				regdmasts, rotsts);
+		SDEROT_EVTLOG(l_ts, h_ts, l_hwts, h_hwts, regdmasts, rotsts);
 
-		if ((swts != hwts) && ((regdmasts & REGDMA_BUSY) ||
-					(rotsts & ROT_STATUS_MASK))) {
+		if (((l_ts != l_hwts) || (h_ts != h_hwts)) &&
+				((regdmasts & REGDMA_BUSY) ||
+				 (rotsts & ROT_STATUS_MASK))) {
 			SDEROT_ERR(
-				"Mismatch SWTS with HWTS: swts:0x%x, hwts:0x%x, regdma-sts:0x%x, rottop-sts:0x%x\n",
-				swts, hwts, regdmasts, rotsts);
+				"Mismatch SWTS with HWTS: swts(l/h):0x%x/0x%x, hwts(l/h):0x%x/0x%x, regdma-sts:0x%x, rottop-sts:0x%x\n",
+				l_ts, h_ts, l_hwts, h_hwts,
+				regdmasts, rotsts);
 			_sde_hw_rotator_dump_status(rot, NULL);
 			SDEROT_EVTLOG_TOUT_HANDLER("rot", "rot_dbg_bus",
 					"vbif_dbg_bus", "panic");
@@ -2250,7 +2348,7 @@ void sde_hw_rotator_pre_pmevent(struct sde_rot_mgr *mgr, bool pmon)
 void sde_hw_rotator_post_pmevent(struct sde_rot_mgr *mgr, bool pmon)
 {
 	struct sde_hw_rotator *rot;
-	u32 l_ts, h_ts, swts;
+	u32 l_ts, h_ts;
 
 	/*
 	 * After a power on event, the rotator HW is reset to default setting.
@@ -2261,16 +2359,11 @@ void sde_hw_rotator_post_pmevent(struct sde_rot_mgr *mgr, bool pmon)
 		h_ts = atomic_read(&rot->timestamp[ROT_QUEUE_HIGH_PRIORITY]);
 		l_ts = atomic_read(&rot->timestamp[ROT_QUEUE_LOW_PRIORITY]);
 
-		/* contruct the combined timstamp */
-		swts = (h_ts & SDE_REGDMA_SWTS_MASK) |
-			((l_ts & SDE_REGDMA_SWTS_MASK) <<
-			 SDE_REGDMA_SWTS_SHIFT);
-
-		SDEROT_DBG("swts:0x%x, h_ts:0x%x, l_ts;0x%x\n",
-				swts, h_ts, l_ts);
-		SDEROT_EVTLOG(swts, h_ts, l_ts);
+		SDEROT_DBG("h_ts:0x%x, l_ts;0x%x\n", h_ts, l_ts);
+		SDEROT_EVTLOG(h_ts, l_ts);
 		rot->reset_hw_ts = true;
-		rot->last_hw_ts = swts;
+		rot->last_hwts[ROT_QUEUE_LOW_PRIORITY] = l_ts;
+		rot->last_hwts[ROT_QUEUE_HIGH_PRIORITY] = h_ts;
 	}
 }
 
@@ -2292,7 +2385,8 @@ static void sde_hw_rotator_destroy(struct sde_rot_mgr *mgr)
 	if (rot->irq_num >= 0)
 		devm_free_irq(&mgr->pdev->dev, rot->irq_num, mdata);
 
-	if (rot->mode == ROT_REGDMA_ON)
+	if (!test_bit(SDE_CAPS_HW_TIMESTAMP, mdata->sde_caps_map) &&
+			rot->mode == ROT_REGDMA_ON)
 		sde_hw_rotator_swts_destroy(rot);
 
 	devm_kfree(&mgr->pdev->dev, mgr->hw_data);
@@ -2310,6 +2404,7 @@ static void sde_hw_rotator_destroy(struct sde_rot_mgr *mgr)
 static struct sde_rot_hw_resource *sde_hw_rotator_alloc_ext(
 		struct sde_rot_mgr *mgr, u32 pipe_id, u32 wb_id)
 {
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	struct sde_hw_rotator_resource_info *resinfo;
 
 	if (!mgr || !mgr->hw_data) {
@@ -2338,7 +2433,8 @@ static struct sde_rot_hw_resource *sde_hw_rotator_alloc_ext(
 	else {
 		resinfo->hw.max_active = SDE_HW_ROT_REGDMA_TOTAL_CTX - 1;
 
-		if (resinfo->rot->swts_buf.mapped == false)
+		if (!test_bit(SDE_CAPS_HW_TIMESTAMP, mdata->sde_caps_map) &&
+				resinfo->rot->swts_buf.mapped == false)
 			sde_hw_rotator_swts_create(resinfo->rot);
 	}
 
@@ -2561,40 +2657,43 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 	 */
 	rststs = SDE_ROTREG_READ(rot->mdss_base, REGDMA_RESET_STATUS_REG);
 	if (!rot->reset_hw_ts && rststs) {
-		u32 l_ts, h_ts, swts;
+		u32 l_ts, h_ts, l_hwts, h_hwts;
 
-		swts = SDE_ROTREG_READ(rot->mdss_base, REGDMA_TIMESTAMP_REG);
+		h_hwts = __sde_hw_rotator_get_timestamp(rot,
+				ROT_QUEUE_HIGH_PRIORITY);
+		l_hwts = __sde_hw_rotator_get_timestamp(rot,
+				ROT_QUEUE_LOW_PRIORITY);
 		h_ts = atomic_read(&rot->timestamp[ROT_QUEUE_HIGH_PRIORITY]);
 		l_ts = atomic_read(&rot->timestamp[ROT_QUEUE_LOW_PRIORITY]);
-		SDEROT_EVTLOG(0xbad0, rststs, swts, h_ts, l_ts);
+		SDEROT_EVTLOG(0xbad0, rststs, l_hwts, h_hwts, l_ts, h_ts);
 
 		if (ctx->q_id == ROT_QUEUE_HIGH_PRIORITY)
 			h_ts = (h_ts - 1) & SDE_REGDMA_SWTS_MASK;
 		else
 			l_ts = (l_ts - 1) & SDE_REGDMA_SWTS_MASK;
 
-		/* construct the combined timstamp */
-		swts = (h_ts & SDE_REGDMA_SWTS_MASK) |
-			((l_ts & SDE_REGDMA_SWTS_MASK) <<
-			 SDE_REGDMA_SWTS_SHIFT);
+		SDEROT_DBG("h_ts:0x%x, l_ts;0x%x\n", h_ts, l_ts);
+		SDEROT_EVTLOG(0x900d, h_ts, l_ts);
+		rot->last_hwts[ROT_QUEUE_LOW_PRIORITY] = l_ts;
+		rot->last_hwts[ROT_QUEUE_HIGH_PRIORITY] = h_ts;
 
-		SDEROT_DBG("swts:0x%x, h_ts:0x%x, l_ts;0x%x\n",
-				swts, h_ts, l_ts);
-		SDEROT_EVTLOG(0x900d, swts, h_ts, l_ts);
-		rot->last_hw_ts = swts;
-
-		SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_TIMESTAMP_REG,
-				rot->last_hw_ts);
+		rot->ops.update_ts(rot, ROT_QUEUE_HIGH_PRIORITY, h_ts);
+		rot->ops.update_ts(rot, ROT_QUEUE_LOW_PRIORITY, l_ts);
 		SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_RESET_STATUS_REG, 0);
+
 		/* ensure write is issued to the rotator HW */
 		wmb();
 	}
 
 	if (rot->reset_hw_ts) {
-		SDEROT_EVTLOG(rot->last_hw_ts);
-		SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_TIMESTAMP_REG,
-				rot->last_hw_ts);
+		SDEROT_EVTLOG(rot->last_hwts[ROT_QUEUE_LOW_PRIORITY],
+				rot->last_hwts[ROT_QUEUE_HIGH_PRIORITY]);
+		rot->ops.update_ts(rot, ROT_QUEUE_HIGH_PRIORITY,
+				rot->last_hwts[ROT_QUEUE_HIGH_PRIORITY]);
+		rot->ops.update_ts(rot, ROT_QUEUE_LOW_PRIORITY,
+				rot->last_hwts[ROT_QUEUE_LOW_PRIORITY]);
 		SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_RESET_STATUS_REG, 0);
+
 		/* ensure write is issued to the rotator HW */
 		wmb();
 		rot->reset_hw_ts = false;
@@ -2775,7 +2874,7 @@ static int sde_hw_rotator_cancel(struct sde_rot_hw_resource *hw,
 	}
 
 	spin_lock_irqsave(&rot->rotisr_lock, flags);
-	sde_hw_rotator_update_swts(rot, ctx, ctx->timestamp);
+	rot->ops.update_ts(rot, ctx->q_id, ctx->timestamp);
 	spin_unlock_irqrestore(&rot->rotisr_lock, flags);
 
 	SDEROT_EVTLOG(entry->item.session_id, ctx->timestamp);
@@ -3072,6 +3171,7 @@ static irqreturn_t sde_hw_rotator_rotirq_handler(int irq, void *ptr)
  */
 static irqreturn_t sde_hw_rotator_regdmairq_handler(int irq, void *ptr)
 {
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	struct sde_hw_rotator *rot = ptr;
 	struct sde_hw_rotator_context *ctx, *tmp;
 	irqreturn_t ret = IRQ_NONE;
@@ -3082,9 +3182,8 @@ static irqreturn_t sde_hw_rotator_regdmairq_handler(int irq, void *ptr)
 	isr = SDE_ROTREG_READ(rot->mdss_base, REGDMA_CSR_REGDMA_INT_STATUS);
 	/* acknowledge interrupt before reading latest timestamp */
 	SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_CSR_REGDMA_INT_CLEAR, isr);
-	ts  = SDE_ROTREG_READ(rot->mdss_base, REGDMA_TIMESTAMP_REG);
 
-	SDEROT_DBG("intr_status = %8.8x, sw_TS:%X\n", isr, ts);
+	SDEROT_DBG("intr_status = %8.8x\n", isr);
 
 	/* Any REGDMA status, including error and watchdog timer, should
 	 * trigger and wake up waiting thread
@@ -3098,21 +3197,21 @@ static irqreturn_t sde_hw_rotator_regdmairq_handler(int irq, void *ptr)
 		 */
 		if (isr & REGDMA_INT_HIGH_MASK) {
 			q_id = ROT_QUEUE_HIGH_PRIORITY;
-			ts   = ts & SDE_REGDMA_SWTS_MASK;
 		} else if (isr & REGDMA_INT_LOW_MASK) {
 			q_id = ROT_QUEUE_LOW_PRIORITY;
-			ts   = (ts >> SDE_REGDMA_SWTS_SHIFT) &
-				SDE_REGDMA_SWTS_MASK;
 		} else {
 			SDEROT_ERR("unknown ISR status: isr=0x%X\n", isr);
 			goto done_isr_handle;
 		}
 
+		ts = __sde_hw_rotator_get_timestamp(rot, q_id);
+
 		/*
 		 * Timestamp packet is not available in sbuf mode.
 		 * Simulate timestamp update in the handler instead.
 		 */
-		if (list_empty(&rot->sbuf_ctx[q_id]))
+		if (test_bit(SDE_CAPS_HW_TIMESTAMP, mdata->sde_caps_map) ||
+				list_empty(&rot->sbuf_ctx[q_id]))
 			goto skip_sbuf;
 
 		ctx = NULL;
@@ -3126,7 +3225,7 @@ static irqreturn_t sde_hw_rotator_regdmairq_handler(int irq, void *ptr)
 				isr_tmp &= ~mask;
 				ctx = tmp;
 				ts = ctx->timestamp;
-				sde_hw_rotator_update_swts(rot, ctx, ts);
+				rot->ops.update_ts(rot, ctx->q_id, ts);
 				SDEROT_DBG("update swts:0x%X\n", ts);
 			}
 			SDEROT_EVTLOG(isr, tmp->timestamp);
@@ -3173,6 +3272,8 @@ done_isr_handle:
 			for (j = 0; j < SDE_HW_ROT_REGDMA_TOTAL_CTX; j++) {
 				ctx = rot->rotCtx[i][j];
 				if (ctx && ctx->last_regdma_isr_status == 0) {
+					ts = __sde_hw_rotator_get_timestamp(
+							rot, i);
 					ctx->last_regdma_isr_status = isr;
 					ctx->last_regdma_timestamp  = ts;
 					wake_up_all(&ctx->regdma_waitq);
@@ -3725,7 +3826,12 @@ int sde_rotator_r3_init(struct sde_rot_mgr *mgr)
 	}
 	atomic_set(&rot->irq_enabled, 0);
 
-	setup_rotator_ops(&rot->ops, rot->mode);
+	ret = sde_rotator_hw_rev_init(rot);
+	if (ret)
+		goto error_hw_rev_init;
+
+	setup_rotator_ops(&rot->ops, rot->mode,
+			test_bit(SDE_CAPS_HW_TIMESTAMP, mdata->sde_caps_map));
 
 	spin_lock_init(&rot->rotctx_lock);
 	spin_lock_init(&rot->rotisr_lock);
@@ -3755,10 +3861,6 @@ int sde_rotator_r3_init(struct sde_rot_mgr *mgr)
 		atomic_set(&rot->timestamp[i], 0);
 		INIT_LIST_HEAD(&rot->sbuf_ctx[i]);
 	}
-
-	ret = sde_rotator_hw_rev_init(rot);
-	if (ret)
-		goto error_hw_rev_init;
 
 	/* set rotator CBCR to shutoff memory/periphery on clock off.*/
 	clk_set_flags(mgr->rot_clk[SDE_ROTATOR_CLK_MDSS_ROT].clk,
