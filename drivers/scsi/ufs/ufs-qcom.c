@@ -19,6 +19,10 @@
 #include <linux/phy/phy-qcom-ufs.h>
 #include <linux/clk/qcom.h>
 
+#ifdef CONFIG_QCOM_BUS_SCALING
+#include <linux/msm-bus.h>
+#endif
+
 #include "ufshcd.h"
 #include "ufshcd-pltfrm.h"
 #include "unipro.h"
