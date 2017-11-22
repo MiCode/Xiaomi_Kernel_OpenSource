@@ -1,0 +1,63 @@
+Qualcomm Technologies Inc., PMIC Round Robin ADC (RRADC)
+
+PMIC RRADC provides an interface to the clients to read
+the voltage, current and temperature for supported channels
+such as battery ID, battery thermistor, die temperature,
+charger temperature, USB_IN and DC_IN voltage and current.
+
+Main node properties:
+
+- compatible:
+    Usage: required
+    Value type: <string>
+    Definition: Should contain "qcom,rradc".
+
+- reg:
+    Usage: required
+    Value type: <prop-encoded-array>
+    Definition: RRADC base address and length in the PMIC register map.
+
+- #address-cells:
+    Usage: required
+    Value type: <u32>
+    Definition: Must be one. Child node 'channel' property should define ADC
+            channel number. For details about IIO bindings see:
+            Documentation/devicetree/bindings/iio/iio-bindings.txt
+
+- #size-cells:
+    Usage: required
+    Value type: <u32>
+    Definition: Must be zero. For details about IIO bindings see:
+            Documentation/devicetree/bindings/iio/iio-bindings.txt
+
+- #io-channel-cells:
+    Usage: required
+    Value type: <u32>
+    Definition: Must be one. For details about IIO bindings see:
+            Documentation/devicetree/bindings/iio/iio-bindings.txt
+
+IIO client nodes need to specify the RRADC channel number while requesting ADC reads.
+The channel list supported by the RRADC driver is available in the enum rradc_channel_id
+located at at drivers/iio/adc/qcom-rradc.c. Clients can use this index from the enum
+as the channel number while requesting ADC reads.
+
+Optional property:
+- qcom,pmic-revid : Phandle pointing to the revision peripheral node. Use it to query the
+		    PMIC fabrication ID for applying the appropriate temperature
+		    compensation parameters.
+Example:
+
+	/* RRADC node */
+	pmic_rradc: rradc@4500 {
+		compatible = "qcom,rradc";
+		reg = <0x4500 0x100>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#io-channel-cells = <1>;
+	};
+
+	/* IIO client node */
+	charger {
+		io-channels = <&pmic_rradc 0>;
+		io-channel-names = "rradc_batt_id";
+	};
