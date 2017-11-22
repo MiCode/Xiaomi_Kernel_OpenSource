@@ -40,6 +40,12 @@
 			reg = <0x87800000 0x8000000>;
 			label = "mss_mem";
 		};
+
+		audio_mem: audio_region@0 {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0x400000>;
+		 };
 	};
 
 	cpus {
@@ -490,3 +496,4 @@
 #include "sdxpoorwills-usb.dtsi"
 #include "sdxpoorwills-bus.dtsi"
 #include "sdxpoorwills-thermal.dtsi"
+#include "sdxpoorwills-audio.dtsi"
