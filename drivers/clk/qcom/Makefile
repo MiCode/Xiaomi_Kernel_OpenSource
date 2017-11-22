@@ -23,6 +23,7 @@ obj-$(CONFIG_IPQ_GCC_4019) += gcc-ipq4019.o
 obj-$(CONFIG_IPQ_GCC_806X) += gcc-ipq806x.o
 obj-$(CONFIG_IPQ_LCC_806X) += lcc-ipq806x.o
 obj-$(CONFIG_MDM_CLOCK_CPU_SDXPOORWILLS) += clk-cpu-a7.o
+obj-$(CONFIG_MDM_DEBUGCC_SDXPOORWILLS) += debugcc-sdxpoorwills.o
 obj-$(CONFIG_MDM_GCC_9615) += gcc-mdm9615.o
 obj-$(CONFIG_MDM_GCC_SDXPOORWILLS) += gcc-sdxpoorwills.o
 obj-$(CONFIG_MDM_LCC_9615) += lcc-mdm9615.o
