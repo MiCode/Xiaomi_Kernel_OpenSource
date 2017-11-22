@@ -1768,6 +1768,48 @@ exit:
 	return result;
 }
 
+void ipa3_xdci_ep_delay_rm(u32 clnt_hdl)
+{
+	struct ipa3_ep_context *ep;
+	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
+	int result;
+
+	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
+		ipa3_ctx->ep[clnt_hdl].valid == 0) {
+		IPAERR("bad parm.\n");
+		return;
+	}
+
+	ep = &ipa3_ctx->ep[clnt_hdl];
+
+	if (ep->ep_delay_set == true) {
+
+		memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
+		ep_cfg_ctrl.ipa_ep_delay = false;
+
+		if (!ep->keep_ipa_awake)
+			IPA_ACTIVE_CLIENTS_INC_EP
+				(ipa3_get_client_mapping(clnt_hdl));
+
+		result = ipa3_cfg_ep_ctrl(clnt_hdl,
+			&ep_cfg_ctrl);
+
+		if (!ep->keep_ipa_awake)
+			IPA_ACTIVE_CLIENTS_DEC_EP
+				(ipa3_get_client_mapping(clnt_hdl));
+
+		if (result) {
+			IPAERR
+			("client (ep: %d) failed to remove delay result=%d\n",
+				clnt_hdl, result);
+		} else {
+			IPADBG("client (ep: %d) delay removed\n",
+				clnt_hdl);
+			ep->ep_delay_set = false;
+		}
+	}
+}
+
 int ipa3_xdci_disconnect(u32 clnt_hdl, bool should_force_clear, u32 qmi_req_id)
 {
 	struct ipa3_ep_context *ep;
