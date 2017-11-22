@@ -349,10 +349,6 @@ void cam_sync_util_cb_dispatch(struct work_struct *cb_dispatch_work)
 		struct sync_callback_info,
 		cb_dispatch_work);
 
-	spin_lock_bh(&sync_dev->row_spinlocks[cb_info->sync_obj]);
-	list_del_init(&cb_info->list);
-	spin_unlock_bh(&sync_dev->row_spinlocks[cb_info->sync_obj]);
-
 	cb_info->callback_func(cb_info->sync_obj,
 		cb_info->status,
 		cb_info->cb_data);
