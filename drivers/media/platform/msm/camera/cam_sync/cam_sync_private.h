@@ -58,11 +58,11 @@ enum sync_type {
  * enum sync_list_clean_type - Enum to indicate the type of list clean action
  * to be peformed, i.e. specific sync ID or all list sync ids.
  *
- * @SYNC_CLEAN_ID  : Specific object to be cleaned in the list
+ * @SYNC_CLEAN_ONE : Specific object to be cleaned in the list
  * @SYNC_CLEAN_ALL : Clean all objects in the list
  */
 enum sync_list_clean_type {
-	SYNC_LIST_CLEAN_ID,
+	SYNC_LIST_CLEAN_ONE,
 	SYNC_LIST_CLEAN_ALL
 };
 
