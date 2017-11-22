@@ -1070,6 +1070,22 @@ static struct snd_soc_ops msm_pri_auxpcm_be_ops = {
 	.startup = msm_prim_auxpcm_startup,
 };
 
+static struct snd_soc_dai_link msm_afe_rxtx_lb_be_dai_link[] = {
+	{
+		.name = LPASS_BE_AFE_LOOPBACK_TX,
+		.stream_name = "AFE Loopback Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.24577",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_AFE_LOOPBACK_TX,
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
+};
+
 static struct snd_soc_dai_link apq8009_9326_dai[] = {
 	/* Backend DAI Links */
 	{
@@ -1740,7 +1756,8 @@ static struct snd_soc_dai_link apq8009_dai[] = {
 
 static struct snd_soc_dai_link apq8009_9326_dai_links[
 				ARRAY_SIZE(apq8009_dai) +
-				ARRAY_SIZE(apq8009_9326_dai)];
+				ARRAY_SIZE(apq8009_9326_dai) +
+				ARRAY_SIZE(msm_afe_rxtx_lb_be_dai_link)];
 
 static struct snd_soc_card snd_soc_card_9326_apq8009;
 
@@ -1760,7 +1777,7 @@ static int populate_ext_snd_card_dt_data(struct platform_device *pdev)
 struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 {
 	struct snd_soc_card *card = &snd_soc_card_9326_apq8009;
-	int num_links, ret;
+	int ret, len1, len2;
 
 	card->dev = dev;
 	ret = snd_soc_of_parse_card_name(card, "qcom,model");
@@ -1771,16 +1788,25 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 	}
 	pr_debug("%s: CARD is %s\n", __func__, card->name);
 
-	num_links = ARRAY_SIZE(apq8009_9326_dai_links);
+	len1 = ARRAY_SIZE(apq8009_dai);
+	len2 = len1 + ARRAY_SIZE(apq8009_9326_dai);
 
 	memcpy(apq8009_9326_dai_links, apq8009_dai,
 			sizeof(apq8009_dai));
-	memcpy(apq8009_9326_dai_links + ARRAY_SIZE(apq8009_dai),
+	memcpy(apq8009_9326_dai_links + len1,
 			apq8009_9326_dai, sizeof(apq8009_9326_dai));
 
+	if (of_property_read_bool(dev->of_node, "qcom,afe-rxtx-lb")) {
+		dev_dbg(dev, "%s(): AFE RX to TX loopback supported\n",
+				__func__);
+		memcpy(apq8009_9326_dai_links + len2,
+		       msm_afe_rxtx_lb_be_dai_link,
+		       sizeof(msm_afe_rxtx_lb_be_dai_link));
+		len2 += ARRAY_SIZE(msm_afe_rxtx_lb_be_dai_link);
+	}
 
 	card->dai_link = apq8009_9326_dai_links;
-	card->num_links = num_links;
+	card->num_links = len2;
 	card->dev = dev;
 
 	return card;
