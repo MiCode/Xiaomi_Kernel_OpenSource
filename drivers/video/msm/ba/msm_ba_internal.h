@@ -106,6 +106,7 @@ enum msm_ba_ip_type {
 	BA_INPUT_MHL,
 	BA_INPUT_DVI,
 	BA_INPUT_TTL,
+	BA_INPUT_TV_TUNER,
 	BA_INPUT_MAX = 0xffffffff
 };
 
