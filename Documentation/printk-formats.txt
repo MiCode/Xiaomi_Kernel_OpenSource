@@ -58,7 +58,7 @@ Symbols/Function Pointers:
 
 Kernel Pointers:
 
-	%pK	0x01234567 or 0x0123456789abcdef
+	%pK	01234567 or 0123456789abcdef
 
 	For printing kernel pointers which should be hidden from unprivileged
 	users. The behaviour of %pK depends on the kptr_restrict sysctl - see
