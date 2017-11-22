@@ -61,7 +61,8 @@ enum hab_payload_type {
 #define DEVICE_AUD2_NAME "hab_aud2"
 #define DEVICE_AUD3_NAME "hab_aud3"
 #define DEVICE_AUD4_NAME "hab_aud4"
-#define DEVICE_CAM_NAME "hab_cam"
+#define DEVICE_CAM1_NAME "hab_cam1"
+#define DEVICE_CAM2_NAME "hab_cam2"
 #define DEVICE_DISP1_NAME "hab_disp1"
 #define DEVICE_DISP2_NAME "hab_disp2"
 #define DEVICE_DISP3_NAME "hab_disp3"
@@ -74,6 +75,8 @@ enum hab_payload_type {
 #define DEVICE_QCPE2_NAME "hab_qcpe_vm2"
 #define DEVICE_QCPE3_NAME "hab_qcpe_vm3"
 #define DEVICE_QCPE4_NAME "hab_qcpe_vm4"
+#define DEVICE_CLK1_NAME "hab_clock_vm1"
+#define DEVICE_CLK2_NAME "hab_clock_vm2"
 
 /* "Size" of the HAB_HEADER_ID and HAB_VCID_ID must match */
 #define HAB_HEADER_SIZE_SHIFT 0
