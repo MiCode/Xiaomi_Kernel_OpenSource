@@ -36,6 +36,7 @@
 #include <linux/reset.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
+#include <linux/seq_file.h>
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
 #include <linux/io.h>
@@ -194,7 +195,6 @@
 #define PCIE_TLP_RD_SIZE 0x5
 #define PCIE_MSI_NR_IRQS 256
 #define MSM_PCIE_MAX_MSI 32
-#define MAX_MSG_LEN 80
 #define PCIE_LOG_PAGES (50)
 #define PCIE_CONF_SPACE_DW			1024
 #define PCIE_CLEAR				0xDEADBEEF
@@ -374,6 +374,76 @@ enum msm_pcie_link_status {
 enum msm_pcie_boot_option {
 	MSM_PCIE_NO_PROBE_ENUMERATION = BIT(0),
 	MSM_PCIE_NO_WAKE_ENUMERATION = BIT(1)
+};
+
+enum msm_pcie_debugfs_option {
+	MSM_PCIE_OUTPUT_PCIE_INFO,
+	MSM_PCIE_DISABLE_LINK,
+	MSM_PCIE_ENABLE_LINK,
+	MSM_PCIE_DISABLE_ENABLE_LINK,
+	MSM_PCIE_DUMP_SHADOW_REGISTER,
+	MSM_PCIE_DISABLE_L0S,
+	MSM_PCIE_ENABLE_L0S,
+	MSM_PCIE_DISABLE_L1,
+	MSM_PCIE_ENABLE_L1,
+	MSM_PCIE_DISABLE_L1SS,
+	MSM_PCIE_ENABLE_L1SS,
+	MSM_PCIE_ENUMERATION,
+	MSM_PCIE_READ_PCIE_REGISTER,
+	MSM_PCIE_WRITE_PCIE_REGISTER,
+	MSM_PCIE_DUMP_PCIE_REGISTER_SPACE,
+	MSM_PCIE_ALLOCATE_DDR_MAP_LBAR,
+	MSM_PCIE_FREE_DDR_UNMAP_LBAR,
+	MSM_PCIE_OUTPUT_DDR_LBAR_ADDRESS,
+	MSM_PCIE_CONFIGURE_LOOPBACK,
+	MSM_PCIE_SETUP_LOOPBACK_IATU,
+	MSM_PCIE_READ_DDR,
+	MSM_PCIE_READ_LBAR,
+	MSM_PCIE_WRITE_DDR,
+	MSM_PCIE_WRITE_LBAR,
+	MSM_PCIE_DISABLE_AER,
+	MSM_PCIE_ENABLE_AER,
+	MSM_PCIE_GPIO_STATUS,
+	MSM_PCIE_ASSERT_PERST,
+	MSM_PCIE_DEASSERT_PERST,
+	MSM_PCIE_KEEP_RESOURCES_ON,
+	MSM_PCIE_FORCE_GEN1,
+	MSM_PCIE_MAX_DEBUGFS_OPTION
+};
+
+static const char * const
+	msm_pcie_debugfs_option_desc[MSM_PCIE_MAX_DEBUGFS_OPTION] = {
+	"OUTPUT PCIE INFO",
+	"DISABLE LINK",
+	"ENABLE LINK",
+	"DISABLE AND ENABLE LINK",
+	"DUMP PCIE SHADOW REGISTER",
+	"DISABLE L0S",
+	"ENABLE L0S",
+	"DISABLE L1",
+	"ENABLE L1",
+	"DISABLE L1SS",
+	"ENABLE L1SS",
+	"ENUMERATE",
+	"READ A PCIE REGISTER",
+	"WRITE TO PCIE REGISTER",
+	"DUMP PCIE REGISTER SPACE",
+	"ALLOCATE DDR AND MAP LBAR",
+	"FREE DDR AND UNMAP LBAR",
+	"OUTPUT DDR AND LBAR VIR ADDRESS",
+	"CONFIGURE PCIE LOOPBACK",
+	"SETUP LOOPBACK IATU",
+	"READ DDR",
+	"READ LBAR",
+	"WRITE DDR",
+	"WRITE LBAR",
+	"SET AER ENABLE FLAG",
+	"CLEAR AER ENABLE FLAG",
+	"OUTPUT PERST AND WAKE GPIO STATUS",
+	"ASSERT PERST",
+	"DE-ASSERT PERST",
+	"SET KEEP_RESOURCES_ON FLAG",
+	"FORCE GEN 1 SPEED FOR LINK TRAINING"
 };
 
 /* gpio info structure */
@@ -603,13 +673,32 @@ static int msm_pcie_keep_resources_on;
 module_param_named(keep_resources_on, msm_pcie_keep_resources_on,
 			    int, 0644);
 
+/*
+ * For each bit set, force the corresponding root complex
+ * to do link training at gen1 speed.
+ */
+static int msm_pcie_force_gen1;
+module_param_named(force_gen1, msm_pcie_force_gen1,
+			    int, 0644);
+
+
+/*
+ * For each bit set in BIT[3:0] determines which corresponding
+ * root complex will use the value in BIT[31:4] to override the
+ * default (LINK_UP_CHECK_MAX_COUNT) max check count for link training.
+ * Each iteration is LINK_UP_TIMEOUT_US_MIN long.
+ */
+static int msm_pcie_link_check_max_count;
+module_param_named(link_check_max_count, msm_pcie_link_check_max_count,
+			    int, 0644);
+
 /* debugfs values */
-static u32 rc_sel;
+static u32 rc_sel = BIT(0);
 static u32 base_sel;
 static u32 wr_offset;
 static u32 wr_mask;
 static u32 wr_value;
-static ulong corr_counter_limit = 5;
+static u32 corr_counter_limit = 5;
 
 /* Table to track info of PCIe devices */
 static struct msm_pcie_device_info
@@ -783,6 +872,12 @@ static const struct msm_pcie_irq_info_t msm_pcie_msi_info[MSM_PCIE_MAX_MSI] = {
 };
 
 static int msm_pcie_config_device(struct pci_dev *dev, void *pdev);
+static int msm_pcie_config_l0s_disable(struct pci_dev *dev, void *pdev);
+static int msm_pcie_config_l0s_enable(struct pci_dev *dev, void *pdev);
+static int msm_pcie_config_l1_disable(struct pci_dev *dev, void *pdev);
+static int msm_pcie_config_l1_enable(struct pci_dev *dev, void *pdev);
+static int msm_pcie_config_l1ss_disable(struct pci_dev *dev, void *pdev);
+static int msm_pcie_config_l1ss_enable(struct pci_dev *dev, void *pdev);
 static void msm_pcie_config_link_pm_rc(struct msm_pcie_dev_t *dev,
 				struct pci_dev *pdev, bool enable);
 
@@ -1240,46 +1335,14 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 	static void __iomem *loopback_lbar_vir;
 	int ret, i;
 	u32 base_sel_size = 0;
-	u32 val = 0;
-	u32 current_offset = 0;
-	u32 ep_l1sub_ctrl1_offset = 0;
-	u32 ep_l1sub_cap_reg1_offset = 0;
-	u32 ep_link_ctrlstts_offset = 0;
-	u32 ep_dev_ctrl2stts2_offset = 0;
-
-	if (testcase >= 5 && testcase <= 10) {
-		current_offset =
-			readl_relaxed(dev->conf + PCIE_CAP_PTR_OFFSET) & 0xff;
-
-		while (current_offset) {
-			val = readl_relaxed(dev->conf + current_offset);
-			if ((val & 0xff) == PCIE20_CAP_ID) {
-				ep_link_ctrlstts_offset = current_offset +
-								0x10;
-				ep_dev_ctrl2stts2_offset = current_offset +
-								0x28;
-				break;
-			}
-			current_offset = (val >> 8) & 0xff;
-		}
-
-		if (!ep_link_ctrlstts_offset)
-			PCIE_DBG(dev,
-				"RC%d endpoint does not support PCIe capability registers\n",
-				dev->rc_idx);
-		else
-			PCIE_DBG(dev,
-				"RC%d: ep_link_ctrlstts_offset: 0x%x\n",
-				dev->rc_idx, ep_link_ctrlstts_offset);
-	}
 
 	switch (testcase) {
-	case 0: /* output status */
+	case MSM_PCIE_OUTPUT_PCIE_INFO:
 		PCIE_DBG_FS(dev, "\n\nPCIe: Status for RC%d:\n",
 			dev->rc_idx);
 		msm_pcie_show_status(dev);
 		break;
-	case 1: /* disable link */
+	case MSM_PCIE_DISABLE_LINK:
 		PCIE_DBG_FS(dev,
 			"\n\nPCIe: RC%d: disable link\n\n", dev->rc_idx);
 		ret = msm_pcie_pm_control(MSM_PCIE_SUSPEND, 0,
@@ -1292,7 +1355,7 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 			PCIE_DBG_FS(dev, "PCIe:%s:disabled link\n",
 				__func__);
 		break;
-	case 2: /* enable link and recover config space for RC and EP */
+	case MSM_PCIE_ENABLE_LINK:
 		PCIE_DBG_FS(dev,
 			"\n\nPCIe: RC%d: enable link and recover config space\n\n",
 			dev->rc_idx);
@@ -1307,10 +1370,7 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 			msm_pcie_recover_config(dev->dev);
 		}
 		break;
-	case 3: /*
-		 * disable and enable link, recover config space for
-		 * RC and EP
-		 */
+	case MSM_PCIE_DISABLE_ENABLE_LINK:
 		PCIE_DBG_FS(dev,
 			"\n\nPCIe: RC%d: disable and enable link then recover config space\n\n",
 			dev->rc_idx);
@@ -1333,7 +1393,7 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 			msm_pcie_recover_config(dev->dev);
 		}
 		break;
-	case 4: /* dump shadow registers for RC and EP */
+	case MSM_PCIE_DUMP_SHADOW_REGISTER:
 		PCIE_DBG_FS(dev,
 			"\n\nPCIe: RC%d: dumping RC shadow registers\n",
 			dev->rc_idx);
@@ -1344,236 +1404,97 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 			dev->rc_idx);
 		msm_pcie_shadow_dump(dev, false);
 		break;
-	case 5: /* disable L0s */
+	case MSM_PCIE_DISABLE_L0S:
 		PCIE_DBG_FS(dev, "\n\nPCIe: RC%d: disable L0s\n\n",
 			dev->rc_idx);
-		msm_pcie_write_mask(dev->dm_core +
-				PCIE20_CAP_LINKCTRLSTATUS,
-				BIT(0), 0);
-		msm_pcie_write_mask(dev->conf +
-				ep_link_ctrlstts_offset,
-				BIT(0), 0);
-		if (dev->shadow_en) {
-			dev->rc_shadow[PCIE20_CAP_LINKCTRLSTATUS / 4] =
-					readl_relaxed(dev->dm_core +
-					PCIE20_CAP_LINKCTRLSTATUS);
-			dev->ep_shadow[0][ep_link_ctrlstts_offset / 4] =
-					readl_relaxed(dev->conf +
-					ep_link_ctrlstts_offset);
+		if (dev->link_status == MSM_PCIE_LINK_ENABLED) {
+			struct pci_bus *bus, *c_bus;
+			struct list_head *children = &dev->dev->bus->children;
+
+			msm_pcie_config_l0s_disable(dev->dev, dev);
+
+			list_for_each_entry_safe(bus, c_bus, children, node)
+				pci_walk_bus(bus,
+					&msm_pcie_config_l0s_disable, dev);
 		}
-		PCIE_DBG_FS(dev, "PCIe: RC's CAP_LINKCTRLSTATUS:0x%x\n",
-			readl_relaxed(dev->dm_core +
-			PCIE20_CAP_LINKCTRLSTATUS));
-		PCIE_DBG_FS(dev, "PCIe: EP's CAP_LINKCTRLSTATUS:0x%x\n",
-			readl_relaxed(dev->conf +
-			ep_link_ctrlstts_offset));
+		dev->l0s_supported = false;
 		break;
-	case 6: /* enable L0s */
+	case MSM_PCIE_ENABLE_L0S:
 		PCIE_DBG_FS(dev, "\n\nPCIe: RC%d: enable L0s\n\n",
 			dev->rc_idx);
-		msm_pcie_write_mask(dev->dm_core +
-				PCIE20_CAP_LINKCTRLSTATUS,
-				0, BIT(0));
-		msm_pcie_write_mask(dev->conf +
-				ep_link_ctrlstts_offset,
-				0, BIT(0));
-		if (dev->shadow_en) {
-			dev->rc_shadow[PCIE20_CAP_LINKCTRLSTATUS / 4] =
-					readl_relaxed(dev->dm_core +
-					PCIE20_CAP_LINKCTRLSTATUS);
-			dev->ep_shadow[0][ep_link_ctrlstts_offset / 4] =
-					readl_relaxed(dev->conf +
-					ep_link_ctrlstts_offset);
+		dev->l0s_supported = true;
+		if (dev->link_status == MSM_PCIE_LINK_ENABLED) {
+			struct pci_bus *bus, *c_bus;
+			struct list_head *children = &dev->dev->bus->children;
+
+			list_for_each_entry_safe(bus, c_bus, children, node)
+				pci_walk_bus(bus,
+					&msm_pcie_config_l0s_enable, dev);
+
+			msm_pcie_config_l0s_enable(dev->dev, dev);
 		}
-		PCIE_DBG_FS(dev, "PCIe: RC's CAP_LINKCTRLSTATUS:0x%x\n",
-			readl_relaxed(dev->dm_core +
-			PCIE20_CAP_LINKCTRLSTATUS));
-		PCIE_DBG_FS(dev, "PCIe: EP's CAP_LINKCTRLSTATUS:0x%x\n",
-			readl_relaxed(dev->conf +
-			ep_link_ctrlstts_offset));
 		break;
-	case 7: /* disable L1 */
+	case MSM_PCIE_DISABLE_L1:
 		PCIE_DBG_FS(dev, "\n\nPCIe: RC%d: disable L1\n\n",
 			dev->rc_idx);
-		msm_pcie_write_mask(dev->dm_core +
-				PCIE20_CAP_LINKCTRLSTATUS,
-				BIT(1), 0);
-		msm_pcie_write_mask(dev->conf +
-				ep_link_ctrlstts_offset,
-				BIT(1), 0);
-		if (dev->shadow_en) {
-			dev->rc_shadow[PCIE20_CAP_LINKCTRLSTATUS / 4] =
-					readl_relaxed(dev->dm_core +
-					PCIE20_CAP_LINKCTRLSTATUS);
-			dev->ep_shadow[0][ep_link_ctrlstts_offset / 4] =
-					readl_relaxed(dev->conf +
-					ep_link_ctrlstts_offset);
+		if (dev->link_status == MSM_PCIE_LINK_ENABLED) {
+			struct pci_bus *bus, *c_bus;
+			struct list_head *children = &dev->dev->bus->children;
+
+			msm_pcie_config_l1_disable(dev->dev, dev);
+
+			list_for_each_entry_safe(bus, c_bus, children, node)
+				pci_walk_bus(bus,
+					&msm_pcie_config_l1_disable, dev);
 		}
-		PCIE_DBG_FS(dev, "PCIe: RC's CAP_LINKCTRLSTATUS:0x%x\n",
-			readl_relaxed(dev->dm_core +
-			PCIE20_CAP_LINKCTRLSTATUS));
-		PCIE_DBG_FS(dev, "PCIe: EP's CAP_LINKCTRLSTATUS:0x%x\n",
-			readl_relaxed(dev->conf +
-			ep_link_ctrlstts_offset));
+		dev->l1_supported = false;
 		break;
-	case 8: /* enable L1 */
+	case MSM_PCIE_ENABLE_L1:
 		PCIE_DBG_FS(dev, "\n\nPCIe: RC%d: enable L1\n\n",
 			dev->rc_idx);
-		msm_pcie_write_mask(dev->dm_core +
-				PCIE20_CAP_LINKCTRLSTATUS,
-				0, BIT(1));
-		msm_pcie_write_mask(dev->conf +
-				ep_link_ctrlstts_offset,
-				0, BIT(1));
-		if (dev->shadow_en) {
-			dev->rc_shadow[PCIE20_CAP_LINKCTRLSTATUS / 4] =
-					readl_relaxed(dev->dm_core +
-					PCIE20_CAP_LINKCTRLSTATUS);
-			dev->ep_shadow[0][ep_link_ctrlstts_offset / 4] =
-					readl_relaxed(dev->conf +
-					ep_link_ctrlstts_offset);
+		dev->l1_supported = true;
+		if (dev->link_status == MSM_PCIE_LINK_ENABLED) {
+			struct pci_bus *bus, *c_bus;
+			struct list_head *children = &dev->dev->bus->children;
+
+			list_for_each_entry_safe(bus, c_bus, children, node)
+				pci_walk_bus(bus,
+					&msm_pcie_config_l1_enable, dev);
+
+			msm_pcie_config_l1_enable(dev->dev, dev);
 		}
-		PCIE_DBG_FS(dev, "PCIe: RC's CAP_LINKCTRLSTATUS:0x%x\n",
-			readl_relaxed(dev->dm_core +
-			PCIE20_CAP_LINKCTRLSTATUS));
-		PCIE_DBG_FS(dev, "PCIe: EP's CAP_LINKCTRLSTATUS:0x%x\n",
-			readl_relaxed(dev->conf +
-			ep_link_ctrlstts_offset));
 		break;
-	case 9: /* disable L1ss */
+	case MSM_PCIE_DISABLE_L1SS:
 		PCIE_DBG_FS(dev, "\n\nPCIe: RC%d: disable L1ss\n\n",
 			dev->rc_idx);
-		current_offset = PCIE_EXT_CAP_OFFSET;
-		while (current_offset) {
-			val = readl_relaxed(dev->conf + current_offset);
-			if ((val & 0xffff) == L1SUB_CAP_ID) {
-				ep_l1sub_ctrl1_offset =
-						current_offset + 0x8;
-				break;
-			}
-			current_offset = val >> 20;
-		}
-		if (!ep_l1sub_ctrl1_offset) {
-			PCIE_DBG_FS(dev,
-				"PCIe: RC%d endpoint does not support l1ss registers\n",
-				dev->rc_idx);
-			break;
-		}
+		if (dev->link_status == MSM_PCIE_LINK_ENABLED) {
+			struct pci_bus *bus, *c_bus;
+			struct list_head *children = &dev->dev->bus->children;
 
-		PCIE_DBG_FS(dev, "PCIe: RC%d: ep_l1sub_ctrl1_offset: 0x%x\n",
-				dev->rc_idx, ep_l1sub_ctrl1_offset);
+			msm_pcie_config_l1ss_disable(dev->dev, dev);
 
-		msm_pcie_write_reg_field(dev->dm_core,
-					PCIE20_L1SUB_CONTROL1,
-					0xf, 0);
-		msm_pcie_write_mask(dev->dm_core +
-					PCIE20_DEVICE_CONTROL2_STATUS2,
-					BIT(10), 0);
-		msm_pcie_write_reg_field(dev->conf,
-					ep_l1sub_ctrl1_offset,
-					0xf, 0);
-		msm_pcie_write_mask(dev->conf +
-					ep_dev_ctrl2stts2_offset,
-					BIT(10), 0);
-		if (dev->shadow_en) {
-			dev->rc_shadow[PCIE20_L1SUB_CONTROL1 / 4] =
-				readl_relaxed(dev->dm_core +
-				PCIE20_L1SUB_CONTROL1);
-			dev->rc_shadow[PCIE20_DEVICE_CONTROL2_STATUS2 / 4] =
-				readl_relaxed(dev->dm_core +
-				PCIE20_DEVICE_CONTROL2_STATUS2);
-			dev->ep_shadow[0][ep_l1sub_ctrl1_offset / 4] =
-				readl_relaxed(dev->conf +
-				ep_l1sub_ctrl1_offset);
-			dev->ep_shadow[0][ep_dev_ctrl2stts2_offset / 4] =
-				readl_relaxed(dev->conf +
-				ep_dev_ctrl2stts2_offset);
+			list_for_each_entry_safe(bus, c_bus, children, node)
+				pci_walk_bus(bus,
+					&msm_pcie_config_l1ss_disable, dev);
 		}
-		PCIE_DBG_FS(dev, "PCIe: RC's L1SUB_CONTROL1:0x%x\n",
-			readl_relaxed(dev->dm_core +
-			PCIE20_L1SUB_CONTROL1));
-		PCIE_DBG_FS(dev, "PCIe: RC's DEVICE_CONTROL2_STATUS2:0x%x\n",
-			readl_relaxed(dev->dm_core +
-			PCIE20_DEVICE_CONTROL2_STATUS2));
-		PCIE_DBG_FS(dev, "PCIe: EP's L1SUB_CONTROL1:0x%x\n",
-			readl_relaxed(dev->conf +
-			ep_l1sub_ctrl1_offset));
-		PCIE_DBG_FS(dev, "PCIe: EP's DEVICE_CONTROL2_STATUS2:0x%x\n",
-			readl_relaxed(dev->conf +
-			ep_dev_ctrl2stts2_offset));
+		dev->l1ss_supported = false;
 		break;
-	case 10: /* enable L1ss */
+	case MSM_PCIE_ENABLE_L1SS:
 		PCIE_DBG_FS(dev, "\n\nPCIe: RC%d: enable L1ss\n\n",
 			dev->rc_idx);
-		current_offset = PCIE_EXT_CAP_OFFSET;
-		while (current_offset) {
-			val = readl_relaxed(dev->conf + current_offset);
-			if ((val & 0xffff) == L1SUB_CAP_ID) {
-				ep_l1sub_cap_reg1_offset =
-						current_offset + 0x4;
-				ep_l1sub_ctrl1_offset =
-						current_offset + 0x8;
-				break;
-			}
-			current_offset = val >> 20;
+		dev->l1ss_supported = true;
+		if (dev->link_status == MSM_PCIE_LINK_ENABLED) {
+			struct pci_bus *bus, *c_bus;
+			struct list_head *children = &dev->dev->bus->children;
+
+			list_for_each_entry_safe(bus, c_bus, children, node)
+				pci_walk_bus(bus,
+					&msm_pcie_config_l1ss_enable, dev);
+
+			msm_pcie_config_l1ss_enable(dev->dev, dev);
 		}
-		if (!ep_l1sub_ctrl1_offset) {
-			PCIE_DBG_FS(dev,
-				"PCIe: RC%d endpoint does not support l1ss registers\n",
-				dev->rc_idx);
-			break;
-		}
-
-		val = readl_relaxed(dev->conf +
-				ep_l1sub_cap_reg1_offset);
-
-		PCIE_DBG_FS(dev, "PCIe: EP's L1SUB_CAPABILITY_REG_1: 0x%x\n",
-			val);
-		PCIE_DBG_FS(dev, "PCIe: RC%d: ep_l1sub_ctrl1_offset: 0x%x\n",
-			dev->rc_idx, ep_l1sub_ctrl1_offset);
-
-		val &= 0xf;
-
-		msm_pcie_write_reg_field(dev->dm_core,
-					PCIE20_L1SUB_CONTROL1,
-					0xf, val);
-		msm_pcie_write_mask(dev->dm_core +
-					PCIE20_DEVICE_CONTROL2_STATUS2,
-					0, BIT(10));
-		msm_pcie_write_reg_field(dev->conf,
-					ep_l1sub_ctrl1_offset,
-					0xf, val);
-		msm_pcie_write_mask(dev->conf +
-					ep_dev_ctrl2stts2_offset,
-					0, BIT(10));
-		if (dev->shadow_en) {
-			dev->rc_shadow[PCIE20_L1SUB_CONTROL1 / 4] =
-				readl_relaxed(dev->dm_core +
-					PCIE20_L1SUB_CONTROL1);
-			dev->rc_shadow[PCIE20_DEVICE_CONTROL2_STATUS2 / 4] =
-				readl_relaxed(dev->dm_core +
-				PCIE20_DEVICE_CONTROL2_STATUS2);
-			dev->ep_shadow[0][ep_l1sub_ctrl1_offset / 4] =
-				readl_relaxed(dev->conf +
-				ep_l1sub_ctrl1_offset);
-			dev->ep_shadow[0][ep_dev_ctrl2stts2_offset / 4] =
-				readl_relaxed(dev->conf +
-				ep_dev_ctrl2stts2_offset);
-		}
-		PCIE_DBG_FS(dev, "PCIe: RC's L1SUB_CONTROL1:0x%x\n",
-			readl_relaxed(dev->dm_core +
-			PCIE20_L1SUB_CONTROL1));
-		PCIE_DBG_FS(dev, "PCIe: RC's DEVICE_CONTROL2_STATUS2:0x%x\n",
-			readl_relaxed(dev->dm_core +
-			PCIE20_DEVICE_CONTROL2_STATUS2));
-		PCIE_DBG_FS(dev, "PCIe: EP's L1SUB_CONTROL1:0x%x\n",
-			readl_relaxed(dev->conf +
-			ep_l1sub_ctrl1_offset));
-		PCIE_DBG_FS(dev, "PCIe: EP's DEVICE_CONTROL2_STATUS2:0x%x\n",
-			readl_relaxed(dev->conf +
-			ep_dev_ctrl2stts2_offset));
 		break;
-	case 11: /* enumerate PCIe  */
+	case MSM_PCIE_ENUMERATION:
 		PCIE_DBG_FS(dev, "\n\nPCIe: attempting to enumerate RC%d\n\n",
 			dev->rc_idx);
 		if (dev->enumerated)
@@ -1590,7 +1511,41 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 					dev->rc_idx);
 		}
 		break;
-	case 12: /* write a value to a register */
+	case MSM_PCIE_READ_PCIE_REGISTER:
+		PCIE_DBG_FS(dev,
+			"\n\nPCIe: RC%d: read a PCIe register\n\n",
+			dev->rc_idx);
+		if (!base_sel) {
+			PCIE_DBG_FS(dev, "Invalid base_sel: 0x%x\n", base_sel);
+			break;
+		}
+
+		PCIE_DBG_FS(dev, "base: %s: 0x%pK\nwr_offset: 0x%x\n",
+			dev->res[base_sel - 1].name,
+			dev->res[base_sel - 1].base,
+			wr_offset);
+
+		base_sel_size = resource_size(dev->res[base_sel - 1].resource);
+
+		if (wr_offset >  base_sel_size - 4 ||
+			msm_pcie_check_align(dev, wr_offset)) {
+			PCIE_DBG_FS(dev,
+				"PCIe: RC%d: Invalid wr_offset: 0x%x. wr_offset should be no more than 0x%x\n",
+				dev->rc_idx, wr_offset, base_sel_size - 4);
+		} else {
+			phys_addr_t wr_register =
+				dev->res[MSM_PCIE_RES_DM_CORE].resource->start;
+
+			wr_register += wr_offset;
+			PCIE_DBG_FS(dev,
+				"PCIe: RC%d: register: 0x%pa value: 0x%x\n",
+				dev->rc_idx, &wr_register,
+				readl_relaxed(dev->res[base_sel - 1].base +
+					wr_offset));
+		}
+
+		break;
+	case MSM_PCIE_WRITE_PCIE_REGISTER:
 		PCIE_DBG_FS(dev,
 			"\n\nPCIe: RC%d: writing a value to a register\n\n",
 			dev->rc_idx);
@@ -1601,7 +1556,7 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 		}
 
 		PCIE_DBG_FS(dev,
-			"base: %s: 0x%p\nwr_offset: 0x%x\nwr_mask: 0x%x\nwr_value: 0x%x\n",
+			"base: %s: 0x%pK\nwr_offset: 0x%x\nwr_mask: 0x%x\nwr_value: 0x%x\n",
 			dev->res[base_sel - 1].name,
 			dev->res[base_sel - 1].base,
 			wr_offset, wr_mask, wr_value);
@@ -1618,7 +1573,7 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 				wr_offset, wr_mask, wr_value);
 
 		break;
-	case 13: /* dump all registers of base_sel */
+	case MSM_PCIE_DUMP_PCIE_REGISTER_SPACE:
 		if (!base_sel) {
 			PCIE_DBG_FS(dev, "Invalid base_sel: 0x%x\n", base_sel);
 			break;
@@ -1651,7 +1606,7 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 			readl_relaxed(dev->res[base_sel - 1].base + (i + 28)));
 		}
 		break;
-	case 14:
+	case MSM_PCIE_ALLOCATE_DDR_MAP_LBAR:
 		PCIE_DBG_FS(dev,
 			"PCIe: RC%d: Allocate 4K DDR memory and map LBAR.\n",
 			dev->rc_idx);
@@ -1685,7 +1640,7 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 				loopback_lbar_vir);
 		}
 		break;
-	case 15:
+	case MSM_PCIE_FREE_DDR_UNMAP_LBAR:
 		PCIE_DBG_FS(dev,
 			"PCIe: RC%d: Release 4K DDR memory and unmap LBAR.\n",
 			dev->rc_idx);
@@ -1702,7 +1657,7 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 			loopback_lbar_vir = NULL;
 		}
 		break;
-	case 16:
+	case MSM_PCIE_OUTPUT_DDR_LBAR_ADDRESS:
 		PCIE_DBG_FS(dev,
 			"PCIe: RC%d: Print DDR and LBAR addresses.\n",
 			dev->rc_idx);
@@ -1727,7 +1682,7 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 			"PCIe: RC%d: VIR LBAR address: 0x%pK\n",
 			dev->rc_idx, loopback_lbar_vir);
 		break;
-	case 17:
+	case MSM_PCIE_CONFIGURE_LOOPBACK:
 		PCIE_DBG_FS(dev,
 			"PCIe: RC%d: Configure Loopback.\n",
 			dev->rc_idx);
@@ -1759,7 +1714,7 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 			readl_relaxed(dev->dm_core +
 				PCIE20_PORT_LINK_CTRL_REG));
 		break;
-	case 18:
+	case MSM_PCIE_SETUP_LOOPBACK_IATU:
 		PCIE_DBG_FS(dev, "PCIe: RC%d: Setup iATU.\n", dev->rc_idx);
 
 		if (!loopback_ddr_vir) {
@@ -1821,7 +1776,7 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 			dev->rc_idx, dbi_base_addr + PCIE20_PLR_IATU_CTRL2,
 			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_CTRL2));
 		break;
-	case 19:
+	case MSM_PCIE_READ_DDR:
 		PCIE_DBG_FS(dev,
 			"PCIe: RC%d: Read DDR values.\n",
 			dev->rc_idx);
@@ -1847,7 +1802,7 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 				loopback_ddr_vir[i + 7]);
 		}
 		break;
-	case 20:
+	case MSM_PCIE_READ_LBAR:
 		PCIE_DBG_FS(dev,
 			"PCIe: RC%d: Read LBAR values.\n",
 			dev->rc_idx);
@@ -1873,7 +1828,7 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 				readl_relaxed(loopback_lbar_vir + (i + 28)));
 		}
 		break;
-	case 21:
+	case MSM_PCIE_WRITE_DDR:
 		PCIE_DBG_FS(dev, "PCIe: RC%d: Write 0x%x to DDR.\n",
 			dev->rc_idx, loopback_val);
 
@@ -1892,7 +1847,7 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 		else
 			loopback_val++;
 		break;
-	case 22:
+	case MSM_PCIE_WRITE_LBAR:
 		PCIE_DBG_FS(dev, "PCIe: RC%d: Write 0x%x to LBAR.\n",
 			dev->rc_idx, loopback_val);
 
@@ -1927,6 +1882,53 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 		else
 			loopback_val++;
 		break;
+	case MSM_PCIE_DISABLE_AER:
+		PCIE_DBG_FS(dev, "\n\nPCIe: RC%d: clear AER enable flag\n\n",
+			dev->rc_idx);
+		dev->aer_enable = false;
+		break;
+	case MSM_PCIE_ENABLE_AER:
+		PCIE_DBG_FS(dev, "\n\nPCIe: RC%d: set AER enable flag\n\n",
+			dev->rc_idx);
+		dev->aer_enable = true;
+		break;
+	case MSM_PCIE_GPIO_STATUS:
+		PCIE_DBG_FS(dev, "\n\nPCIe: RC%d: PERST and WAKE status\n\n",
+			dev->rc_idx);
+		PCIE_DBG_FS(dev,
+			"PCIe: RC%d: PERST: gpio%u value: %d\n",
+			dev->rc_idx, dev->gpio[MSM_PCIE_GPIO_PERST].num,
+			gpio_get_value(dev->gpio[MSM_PCIE_GPIO_PERST].num));
+		PCIE_DBG_FS(dev,
+			"PCIe: RC%d: WAKE: gpio%u value: %d\n",
+			dev->rc_idx, dev->gpio[MSM_PCIE_GPIO_WAKE].num,
+			gpio_get_value(dev->gpio[MSM_PCIE_GPIO_WAKE].num));
+		break;
+	case MSM_PCIE_ASSERT_PERST:
+		PCIE_DBG_FS(dev, "\n\nPCIe: RC%d: assert PERST\n\n",
+			dev->rc_idx);
+		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
+					dev->gpio[MSM_PCIE_GPIO_PERST].on);
+		usleep_range(dev->perst_delay_us_min, dev->perst_delay_us_max);
+		break;
+	case MSM_PCIE_DEASSERT_PERST:
+		PCIE_DBG_FS(dev, "\n\nPCIe: RC%d: de-assert PERST\n\n",
+			dev->rc_idx);
+		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
+					1 - dev->gpio[MSM_PCIE_GPIO_PERST].on);
+		usleep_range(dev->perst_delay_us_min, dev->perst_delay_us_max);
+		break;
+	case MSM_PCIE_KEEP_RESOURCES_ON:
+		PCIE_DBG_FS(dev,
+			"\n\nPCIe: RC%d: set keep resources on flag\n\n",
+			dev->rc_idx);
+		msm_pcie_keep_resources_on |= BIT(dev->rc_idx);
+		break;
+	case MSM_PCIE_FORCE_GEN1:
+		PCIE_DBG_FS(dev, "\n\nPCIe: RC%d: set force gen1 flag\n\n",
+			dev->rc_idx);
+		msm_pcie_force_gen1 |= BIT(dev->rc_idx);
+		break;
 	default:
 		PCIE_DBG_FS(dev, "Invalid testcase: %d.\n", testcase);
 		break;
@@ -1944,8 +1946,10 @@ int msm_pcie_debug_info(struct pci_dev *dev, u32 option, u32 base,
 		return -ENODEV;
 	}
 
-	if (option == 12 || option == 13) {
-		if (!base || base > 5) {
+	if (option == MSM_PCIE_READ_PCIE_REGISTER ||
+		option == MSM_PCIE_WRITE_PCIE_REGISTER ||
+		option == MSM_PCIE_DUMP_PCIE_REGISTER_SPACE) {
+		if (!base || base >= MSM_PCIE_MAX_RES) {
 			PCIE_DBG_FS(pdev, "Invalid base_sel: 0x%x\n", base);
 			PCIE_DBG_FS(pdev,
 				"PCIe: base_sel is still 0x%x\n", base_sel);
@@ -1955,7 +1959,8 @@ int msm_pcie_debug_info(struct pci_dev *dev, u32 option, u32 base,
 		base_sel = base;
 		PCIE_DBG_FS(pdev, "PCIe: base_sel is now 0x%x\n", base_sel);
 
-		if (option == 12) {
+		if (option == MSM_PCIE_READ_PCIE_REGISTER ||
+			option == MSM_PCIE_WRITE_PCIE_REGISTER) {
 			wr_offset = offset;
 			wr_mask = mask;
 			wr_value = value;
@@ -1970,7 +1975,7 @@ int msm_pcie_debug_info(struct pci_dev *dev, u32 option, u32 base,
 	}
 
 	pdev = PCIE_BUS_PRIV_DATA(dev->bus);
-	rc_sel = 1 << pdev->rc_idx;
+	rc_sel = BIT(pdev->rc_idx);
 
 	msm_pcie_sel_debug_testcase(pdev, option);
 
@@ -2035,59 +2040,87 @@ static struct dentry *dfile_corr_counter_limit;
 
 static u32 rc_sel_max;
 
-static ssize_t msm_pcie_cmd_debug(struct file *file,
+static int msm_pcie_debugfs_parse_input(const char __user *buf,
+					size_t count, unsigned int *data)
+{
+	unsigned long ret;
+	char *str, *str_temp;
+
+	str = kmalloc(count + 1, GFP_KERNEL);
+	if (!str)
+		return -ENOMEM;
+
+	ret = copy_from_user(str, buf, count);
+	if (ret) {
+		kfree(str);
+		return -EFAULT;
+	}
+
+	str[count] = 0;
+	str_temp = str;
+
+	ret = get_option(&str_temp, data);
+	kfree(str);
+	if (ret != 1)
+		return -EINVAL;
+
+	return 0;
+}
+
+static int msm_pcie_debugfs_case_show(struct seq_file *m, void *v)
+{
+	int i;
+
+	for (i = 0; i < MSM_PCIE_MAX_DEBUGFS_OPTION; i++)
+		seq_printf(m, "\t%d:\t %s\n", i,
+			msm_pcie_debugfs_option_desc[i]);
+
+	return 0;
+}
+
+static int msm_pcie_debugfs_case_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, msm_pcie_debugfs_case_show, NULL);
+}
+
+static ssize_t msm_pcie_debugfs_case_select(struct file *file,
 				const char __user *buf,
 				size_t count, loff_t *ppos)
 {
-	unsigned long ret;
-	char str[MAX_MSG_LEN];
+	int i, ret;
 	unsigned int testcase = 0;
-	int i;
-	u32 size = sizeof(str) < count ? sizeof(str) : count;
 
-	memset(str, 0, size);
-	ret = copy_from_user(str, buf, size);
+	ret = msm_pcie_debugfs_parse_input(buf, count, &testcase);
 	if (ret)
-		return -EFAULT;
-
-	for (i = 0; i < size && (str[i] >= '0') && (str[i] <= '9'); ++i)
-		testcase = (testcase * 10) + (str[i] - '0');
-
-	if (!rc_sel)
-		rc_sel = 1;
+		return ret;
 
 	pr_alert("PCIe: TEST: %d\n", testcase);
 
 	for (i = 0; i < MAX_RC_NUM; i++) {
-		if (!((rc_sel >> i) & 0x1))
-			continue;
-		msm_pcie_sel_debug_testcase(&msm_pcie_dev[i], testcase);
+		if (rc_sel & BIT(i))
+			msm_pcie_sel_debug_testcase(&msm_pcie_dev[i], testcase);
 	}
 
 	return count;
 }
 
-static const struct file_operations msm_pcie_cmd_debug_ops = {
-	.write = msm_pcie_cmd_debug,
+static const struct file_operations msm_pcie_debugfs_case_ops = {
+	.open = msm_pcie_debugfs_case_open,
+	.release = single_release,
+	.read = seq_read,
+	.write = msm_pcie_debugfs_case_select,
 };
 
-static ssize_t msm_pcie_set_rc_sel(struct file *file,
+static ssize_t msm_pcie_debugfs_rc_select(struct file *file,
 				const char __user *buf,
 				size_t count, loff_t *ppos)
 {
-	unsigned long ret;
-	char str[MAX_MSG_LEN];
-	int i;
+	int i, ret;
 	u32 new_rc_sel = 0;
-	u32 size = sizeof(str) < count ? sizeof(str) : count;
 
-	memset(str, 0, size);
-	ret = copy_from_user(str, buf, size);
+	ret = msm_pcie_debugfs_parse_input(buf, count, &new_rc_sel);
 	if (ret)
-		return -EFAULT;
-
-	for (i = 0; i < size && (str[i] >= '0') && (str[i] <= '9'); ++i)
-		new_rc_sel = (new_rc_sel * 10) + (str[i] - '0');
+		return ret;
 
 	if ((!new_rc_sel) || (new_rc_sel > rc_sel_max)) {
 		pr_alert("PCIe: invalid value for rc_sel: 0x%x\n", new_rc_sel);
@@ -2098,235 +2131,151 @@ static ssize_t msm_pcie_set_rc_sel(struct file *file,
 	}
 
 	pr_alert("PCIe: the following RC(s) will be tested:\n");
-	for (i = 0; i < MAX_RC_NUM; i++) {
-		if (!rc_sel) {
+	for (i = 0; i < MAX_RC_NUM; i++)
+		if (rc_sel & BIT(i))
 			pr_alert("RC %d\n", i);
-			break;
-		} else if (rc_sel & (1 << i)) {
-			pr_alert("RC %d\n", i);
-		}
-	}
 
 	return count;
 }
 
-static const struct file_operations msm_pcie_rc_sel_ops = {
-	.write = msm_pcie_set_rc_sel,
+static const struct file_operations msm_pcie_debugfs_rc_select_ops = {
+	.write = msm_pcie_debugfs_rc_select,
 };
 
-static ssize_t msm_pcie_set_base_sel(struct file *file,
+static ssize_t msm_pcie_debugfs_base_select(struct file *file,
 				const char __user *buf,
 				size_t count, loff_t *ppos)
 {
-	unsigned long ret;
-	char str[MAX_MSG_LEN];
-	int i;
+	int ret;
 	u32 new_base_sel = 0;
-	char *base_sel_name;
-	u32 size = sizeof(str) < count ? sizeof(str) : count;
 
-	memset(str, 0, size);
-	ret = copy_from_user(str, buf, size);
+	ret = msm_pcie_debugfs_parse_input(buf, count, &new_base_sel);
 	if (ret)
-		return -EFAULT;
+		return ret;
 
-	for (i = 0; i < size && (str[i] >= '0') && (str[i] <= '9'); ++i)
-		new_base_sel = (new_base_sel * 10) + (str[i] - '0');
-
-	if (!new_base_sel || new_base_sel > 5) {
+	if (!new_base_sel || new_base_sel > MSM_PCIE_MAX_RES) {
 		pr_alert("PCIe: invalid value for base_sel: 0x%x\n",
 			new_base_sel);
 		pr_alert("PCIe: base_sel is still 0x%x\n", base_sel);
 	} else {
 		base_sel = new_base_sel;
 		pr_alert("PCIe: base_sel is now 0x%x\n", base_sel);
+		pr_alert("%s\n", msm_pcie_res_info[base_sel - 1].name);
 	}
-
-	switch (base_sel) {
-	case 1:
-		base_sel_name = "PARF";
-		break;
-	case 2:
-		base_sel_name = "PHY";
-		break;
-	case 3:
-		base_sel_name = "RC CONFIG SPACE";
-		break;
-	case 4:
-		base_sel_name = "ELBI";
-		break;
-	case 5:
-		base_sel_name = "IATU";
-		break;
-	case 6:
-		base_sel_name = "EP CONFIG SPACE";
-		break;
-	default:
-		base_sel_name = "INVALID";
-		break;
-	}
-
-	pr_alert("%s\n", base_sel_name);
 
 	return count;
 }
 
-static const struct file_operations msm_pcie_base_sel_ops = {
-	.write = msm_pcie_set_base_sel,
+static const struct file_operations msm_pcie_debugfs_base_select_ops = {
+	.write = msm_pcie_debugfs_base_select,
 };
 
-static ssize_t msm_pcie_set_linkdown_panic(struct file *file,
+static ssize_t msm_pcie_debugfs_linkdown_panic(struct file *file,
 				const char __user *buf,
 				size_t count, loff_t *ppos)
 {
-	unsigned long ret;
-	char str[MAX_MSG_LEN];
+	int i, ret;
 	u32 new_linkdown_panic = 0;
-	int i;
 
-	memset(str, 0, sizeof(str));
-	ret = copy_from_user(str, buf, sizeof(str));
+	ret = msm_pcie_debugfs_parse_input(buf, count, &new_linkdown_panic);
 	if (ret)
-		return -EFAULT;
+		return ret;
 
-	for (i = 0; i < sizeof(str) && (str[i] >= '0') && (str[i] <= '9'); ++i)
-		new_linkdown_panic = (new_linkdown_panic * 10) + (str[i] - '0');
+	new_linkdown_panic = !!new_linkdown_panic;
 
-	if (new_linkdown_panic <= 1) {
-		for (i = 0; i < MAX_RC_NUM; i++) {
-			if (!rc_sel) {
-				msm_pcie_dev[0].linkdown_panic =
-					new_linkdown_panic;
-				PCIE_DBG_FS(&msm_pcie_dev[0],
-					"PCIe: RC0: linkdown_panic is now %d\n",
-					msm_pcie_dev[0].linkdown_panic);
-				break;
-			} else if (rc_sel & (1 << i)) {
-				msm_pcie_dev[i].linkdown_panic =
-					new_linkdown_panic;
-				PCIE_DBG_FS(&msm_pcie_dev[i],
-					"PCIe: RC%d: linkdown_panic is now %d\n",
-					i, msm_pcie_dev[i].linkdown_panic);
-			}
+	for (i = 0; i < MAX_RC_NUM; i++) {
+		if (rc_sel & BIT(i)) {
+			msm_pcie_dev[i].linkdown_panic =
+				new_linkdown_panic;
+			PCIE_DBG_FS(&msm_pcie_dev[i],
+				"PCIe: RC%d: linkdown_panic is now %d\n",
+				i, msm_pcie_dev[i].linkdown_panic);
 		}
-	} else {
-		pr_err("PCIe: Invalid input for linkdown_panic: %d. Please enter 0 or 1.\n",
-			new_linkdown_panic);
 	}
 
 	return count;
 }
 
-static const struct file_operations msm_pcie_linkdown_panic_ops = {
-	.write = msm_pcie_set_linkdown_panic,
+static const struct file_operations msm_pcie_debugfs_linkdown_panic_ops = {
+	.write = msm_pcie_debugfs_linkdown_panic,
 };
 
-static ssize_t msm_pcie_set_wr_offset(struct file *file,
+static ssize_t msm_pcie_debugfs_wr_offset(struct file *file,
 				const char __user *buf,
 				size_t count, loff_t *ppos)
 {
-	unsigned long ret;
-	char str[MAX_MSG_LEN];
-	int i;
-	u32 size = sizeof(str) < count ? sizeof(str) : count;
-
-	memset(str, 0, size);
-	ret = copy_from_user(str, buf, size);
-	if (ret)
-		return -EFAULT;
+	int ret;
 
 	wr_offset = 0;
-	for (i = 0; i < size && (str[i] >= '0') && (str[i] <= '9'); ++i)
-		wr_offset = (wr_offset * 10) + (str[i] - '0');
+
+	ret = msm_pcie_debugfs_parse_input(buf, count, &wr_offset);
+	if (ret)
+		return ret;
 
 	pr_alert("PCIe: wr_offset is now 0x%x\n", wr_offset);
 
 	return count;
 }
 
-static const struct file_operations msm_pcie_wr_offset_ops = {
-	.write = msm_pcie_set_wr_offset,
+static const struct file_operations msm_pcie_debugfs_wr_offset_ops = {
+	.write = msm_pcie_debugfs_wr_offset,
 };
 
-static ssize_t msm_pcie_set_wr_mask(struct file *file,
+static ssize_t msm_pcie_debugfs_wr_mask(struct file *file,
 				const char __user *buf,
 				size_t count, loff_t *ppos)
 {
-	unsigned long ret;
-	char str[MAX_MSG_LEN];
-	int i;
-	u32 size = sizeof(str) < count ? sizeof(str) : count;
-
-	memset(str, 0, size);
-	ret = copy_from_user(str, buf, size);
-	if (ret)
-		return -EFAULT;
+	int ret;
 
 	wr_mask = 0;
-	for (i = 0; i < size && (str[i] >= '0') && (str[i] <= '9'); ++i)
-		wr_mask = (wr_mask * 10) + (str[i] - '0');
+
+	ret = msm_pcie_debugfs_parse_input(buf, count, &wr_mask);
+	if (ret)
+		return ret;
 
 	pr_alert("PCIe: wr_mask is now 0x%x\n", wr_mask);
 
 	return count;
 }
 
-static const struct file_operations msm_pcie_wr_mask_ops = {
-	.write = msm_pcie_set_wr_mask,
+static const struct file_operations msm_pcie_debugfs_wr_mask_ops = {
+	.write = msm_pcie_debugfs_wr_mask,
 };
-static ssize_t msm_pcie_set_wr_value(struct file *file,
+static ssize_t msm_pcie_debugfs_wr_value(struct file *file,
 				const char __user *buf,
 				size_t count, loff_t *ppos)
 {
-	unsigned long ret;
-	char str[MAX_MSG_LEN];
-	int i;
-	u32 size = sizeof(str) < count ? sizeof(str) : count;
-
-	memset(str, 0, size);
-	ret = copy_from_user(str, buf, size);
-	if (ret)
-		return -EFAULT;
+	int ret;
 
 	wr_value = 0;
-	for (i = 0; i < size && (str[i] >= '0') && (str[i] <= '9'); ++i)
-		wr_value = (wr_value * 10) + (str[i] - '0');
+
+	ret = msm_pcie_debugfs_parse_input(buf, count, &wr_value);
+	if (ret)
+		return ret;
 
 	pr_alert("PCIe: wr_value is now 0x%x\n", wr_value);
 
 	return count;
 }
 
-static const struct file_operations msm_pcie_wr_value_ops = {
-	.write = msm_pcie_set_wr_value,
+static const struct file_operations msm_pcie_debugfs_wr_value_ops = {
+	.write = msm_pcie_debugfs_wr_value,
 };
 
-static ssize_t msm_pcie_set_boot_option(struct file *file,
+static ssize_t msm_pcie_debugfs_boot_option(struct file *file,
 				const char __user *buf,
 				size_t count, loff_t *ppos)
 {
-	unsigned long ret;
-	char str[MAX_MSG_LEN];
+	int i, ret;
 	u32 new_boot_option = 0;
-	int i;
 
-	memset(str, 0, sizeof(str));
-	ret = copy_from_user(str, buf, sizeof(str));
+	ret = msm_pcie_debugfs_parse_input(buf, count, &new_boot_option);
 	if (ret)
-		return -EFAULT;
+		return ret;
 
-	for (i = 0; i < sizeof(str) && (str[i] >= '0') && (str[i] <= '9'); ++i)
-		new_boot_option = (new_boot_option * 10) + (str[i] - '0');
-
-	if (new_boot_option <= 1) {
+	if (new_boot_option <= (BIT(0) | BIT(1))) {
 		for (i = 0; i < MAX_RC_NUM; i++) {
-			if (!rc_sel) {
-				msm_pcie_dev[0].boot_option = new_boot_option;
-				PCIE_DBG_FS(&msm_pcie_dev[0],
-					"PCIe: RC0: boot_option is now 0x%x\n",
-					msm_pcie_dev[0].boot_option);
-				break;
-			} else if (rc_sel & (1 << i)) {
+			if (rc_sel & BIT(i)) {
 				msm_pcie_dev[i].boot_option = new_boot_option;
 				PCIE_DBG_FS(&msm_pcie_dev[i],
 					"PCIe: RC%d: boot_option is now 0x%x\n",
@@ -2341,42 +2290,25 @@ static ssize_t msm_pcie_set_boot_option(struct file *file,
 	return count;
 }
 
-static const struct file_operations msm_pcie_boot_option_ops = {
-	.write = msm_pcie_set_boot_option,
+static const struct file_operations msm_pcie_debugfs_boot_option_ops = {
+	.write = msm_pcie_debugfs_boot_option,
 };
 
-static ssize_t msm_pcie_set_aer_enable(struct file *file,
+static ssize_t msm_pcie_debugfs_aer_enable(struct file *file,
 				const char __user *buf,
 				size_t count, loff_t *ppos)
 {
-	unsigned long ret;
-	char str[MAX_MSG_LEN];
+	int i, ret;
 	u32 new_aer_enable = 0;
-	u32 temp_rc_sel;
-	int i;
 
-	memset(str, 0, sizeof(str));
-	ret = copy_from_user(str, buf, sizeof(str));
+	ret = msm_pcie_debugfs_parse_input(buf, count, &new_aer_enable);
 	if (ret)
-		return -EFAULT;
+		return ret;
 
-	for (i = 0; i < sizeof(str) && (str[i] >= '0') && (str[i] <= '9'); ++i)
-		new_aer_enable = (new_aer_enable * 10) + (str[i] - '0');
-
-	if (new_aer_enable > 1) {
-		pr_err(
-			"PCIe: Invalid input for aer_enable: %d. Please enter 0 or 1.\n",
-			new_aer_enable);
-		return count;
-	}
-
-	if (rc_sel)
-		temp_rc_sel = rc_sel;
-	else
-		temp_rc_sel = 0x1;
+	new_aer_enable = !!new_aer_enable;
 
 	for (i = 0; i < MAX_RC_NUM; i++) {
-		if (temp_rc_sel & (1 << i)) {
+		if (rc_sel & BIT(i)) {
 			msm_pcie_dev[i].aer_enable = new_aer_enable;
 			PCIE_DBG_FS(&msm_pcie_dev[i],
 				"PCIe: RC%d: aer_enable is now %d\n",
@@ -2397,35 +2329,29 @@ static ssize_t msm_pcie_set_aer_enable(struct file *file,
 	return count;
 }
 
-static const struct file_operations msm_pcie_aer_enable_ops = {
-	.write = msm_pcie_set_aer_enable,
+static const struct file_operations msm_pcie_debugfs_aer_enable_ops = {
+	.write = msm_pcie_debugfs_aer_enable,
 };
 
-static ssize_t msm_pcie_set_corr_counter_limit(struct file *file,
+static ssize_t msm_pcie_debugfs_corr_counter_limit(struct file *file,
 				const char __user *buf,
 				size_t count, loff_t *ppos)
 {
-	unsigned long ret;
-	char str[MAX_MSG_LEN];
-	int i;
-	u32 size = sizeof(str) < count ? sizeof(str) : count;
-
-	memset(str, 0, size);
-	ret = copy_from_user(str, buf, size);
-	if (ret)
-		return -EFAULT;
+	int ret;
 
 	corr_counter_limit = 0;
-	for (i = 0; i < size && (str[i] >= '0') && (str[i] <= '9'); ++i)
-		corr_counter_limit = (corr_counter_limit * 10) + (str[i] - '0');
 
-	pr_info("PCIe: corr_counter_limit is now %lu\n", corr_counter_limit);
+	ret = msm_pcie_debugfs_parse_input(buf, count, &corr_counter_limit);
+	if (ret)
+		return ret;
+
+	pr_info("PCIe: corr_counter_limit is now %u\n", corr_counter_limit);
 
 	return count;
 }
 
-static const struct file_operations msm_pcie_corr_counter_limit_ops = {
-	.write = msm_pcie_set_corr_counter_limit,
+static const struct file_operations msm_pcie_debugfs_corr_counter_limit_ops = {
+	.write = msm_pcie_debugfs_corr_counter_limit,
 };
 
 static void msm_pcie_debugfs_init(void)
@@ -2441,7 +2367,7 @@ static void msm_pcie_debugfs_init(void)
 
 	dfile_rc_sel = debugfs_create_file("rc_sel", 0664,
 					dent_msm_pcie, NULL,
-					&msm_pcie_rc_sel_ops);
+					&msm_pcie_debugfs_rc_select_ops);
 	if (!dfile_rc_sel || IS_ERR(dfile_rc_sel)) {
 		pr_err("PCIe: fail to create the file for debug_fs rc_sel.\n");
 		goto rc_sel_error;
@@ -2449,7 +2375,7 @@ static void msm_pcie_debugfs_init(void)
 
 	dfile_case = debugfs_create_file("case", 0664,
 					dent_msm_pcie, NULL,
-					&msm_pcie_cmd_debug_ops);
+					&msm_pcie_debugfs_case_ops);
 	if (!dfile_case || IS_ERR(dfile_case)) {
 		pr_err("PCIe: fail to create the file for debug_fs case.\n");
 		goto case_error;
@@ -2457,7 +2383,7 @@ static void msm_pcie_debugfs_init(void)
 
 	dfile_base_sel = debugfs_create_file("base_sel", 0664,
 					dent_msm_pcie, NULL,
-					&msm_pcie_base_sel_ops);
+					&msm_pcie_debugfs_base_select_ops);
 	if (!dfile_base_sel || IS_ERR(dfile_base_sel)) {
 		pr_err("PCIe: fail to create the file for debug_fs base_sel.\n");
 		goto base_sel_error;
@@ -2465,7 +2391,7 @@ static void msm_pcie_debugfs_init(void)
 
 	dfile_linkdown_panic = debugfs_create_file("linkdown_panic", 0644,
 					dent_msm_pcie, NULL,
-					&msm_pcie_linkdown_panic_ops);
+					&msm_pcie_debugfs_linkdown_panic_ops);
 	if (!dfile_linkdown_panic || IS_ERR(dfile_linkdown_panic)) {
 		pr_err("PCIe: fail to create the file for debug_fs linkdown_panic.\n");
 		goto linkdown_panic_error;
@@ -2473,7 +2399,7 @@ static void msm_pcie_debugfs_init(void)
 
 	dfile_wr_offset = debugfs_create_file("wr_offset", 0664,
 					dent_msm_pcie, NULL,
-					&msm_pcie_wr_offset_ops);
+					&msm_pcie_debugfs_wr_offset_ops);
 	if (!dfile_wr_offset || IS_ERR(dfile_wr_offset)) {
 		pr_err("PCIe: fail to create the file for debug_fs wr_offset.\n");
 		goto wr_offset_error;
@@ -2481,7 +2407,7 @@ static void msm_pcie_debugfs_init(void)
 
 	dfile_wr_mask = debugfs_create_file("wr_mask", 0664,
 					dent_msm_pcie, NULL,
-					&msm_pcie_wr_mask_ops);
+					&msm_pcie_debugfs_wr_mask_ops);
 	if (!dfile_wr_mask || IS_ERR(dfile_wr_mask)) {
 		pr_err("PCIe: fail to create the file for debug_fs wr_mask.\n");
 		goto wr_mask_error;
@@ -2489,7 +2415,7 @@ static void msm_pcie_debugfs_init(void)
 
 	dfile_wr_value = debugfs_create_file("wr_value", 0664,
 					dent_msm_pcie, NULL,
-					&msm_pcie_wr_value_ops);
+					&msm_pcie_debugfs_wr_value_ops);
 	if (!dfile_wr_value || IS_ERR(dfile_wr_value)) {
 		pr_err("PCIe: fail to create the file for debug_fs wr_value.\n");
 		goto wr_value_error;
@@ -2497,7 +2423,7 @@ static void msm_pcie_debugfs_init(void)
 
 	dfile_boot_option = debugfs_create_file("boot_option", 0664,
 					dent_msm_pcie, NULL,
-					&msm_pcie_boot_option_ops);
+					&msm_pcie_debugfs_boot_option_ops);
 	if (!dfile_boot_option || IS_ERR(dfile_boot_option)) {
 		pr_err("PCIe: fail to create the file for debug_fs boot_option.\n");
 		goto boot_option_error;
@@ -2505,15 +2431,15 @@ static void msm_pcie_debugfs_init(void)
 
 	dfile_aer_enable = debugfs_create_file("aer_enable", 0664,
 					dent_msm_pcie, NULL,
-					&msm_pcie_aer_enable_ops);
+					&msm_pcie_debugfs_aer_enable_ops);
 	if (!dfile_aer_enable || IS_ERR(dfile_aer_enable)) {
 		pr_err("PCIe: fail to create the file for debug_fs aer_enable.\n");
 		goto aer_enable_error;
 	}
 
 	dfile_corr_counter_limit = debugfs_create_file("corr_counter_limit",
-					0664, dent_msm_pcie, NULL,
-					&msm_pcie_corr_counter_limit_ops);
+				0664, dent_msm_pcie, NULL,
+				&msm_pcie_debugfs_corr_counter_limit_ops);
 	if (!dfile_corr_counter_limit || IS_ERR(dfile_corr_counter_limit)) {
 		pr_err("PCIe: fail to create the file for debug_fs corr_counter_limit.\n");
 		goto corr_counter_limit_error;
@@ -3803,6 +3729,7 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	long int retries = 0;
 	int link_check_count = 0;
 	unsigned long ep_up_timeout = 0;
+	u32 link_check_max_count;
 
 	PCIE_DBG(dev, "RC%d: entry\n", dev->rc_idx);
 
@@ -3969,6 +3896,11 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	if (dev->max_link_speed == GEN3_SPEED)
 		msm_pcie_setup_gen3(dev);
 
+	if (msm_pcie_force_gen1 & BIT(dev->rc_idx))
+		msm_pcie_write_reg_field(dev->dm_core,
+			PCIE20_CAP + PCI_EXP_LNKCTL2,
+			PCI_EXP_LNKCAP_SLS, GEN1_SPEED);
+
 	/* set max tlp read size */
 	msm_pcie_write_reg_field(dev->dm_core, PCIE20_DEVICE_CONTROL_STATUS,
 				0x7000, dev->tlp_rd_size);
@@ -3978,6 +3910,11 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 
 	PCIE_DBG(dev, "%s", "check if link is up\n");
 
+	if (msm_pcie_link_check_max_count & BIT(dev->rc_idx))
+		link_check_max_count = msm_pcie_link_check_max_count >> 4;
+	else
+		link_check_max_count = LINK_UP_CHECK_MAX_COUNT;
+
 	/* Wait for up to 100ms for the link to come up */
 	do {
 		usleep_range(LINK_UP_TIMEOUT_US_MIN, LINK_UP_TIMEOUT_US_MAX);
@@ -3986,7 +3923,7 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 			dev->rc_idx, (val >> 12) & 0x3f);
 	} while ((!(val & XMLH_LINK_UP) ||
 		!msm_pcie_confirm_linkup(dev, false, false, NULL))
-		&& (link_check_count++ < LINK_UP_CHECK_MAX_COUNT));
+		&& (link_check_count++ < link_check_max_count));
 
 	if ((val & XMLH_LINK_UP) &&
 		msm_pcie_confirm_linkup(dev, false, false, NULL)) {
@@ -5445,6 +5382,22 @@ static void msm_pcie_config_l0s(struct msm_pcie_dev_t *dev,
 	PCIE_DBG2(dev, "PCIe: RC%d: LINKCTRLSTATUS:0x%x\n", dev->rc_idx, val);
 }
 
+static int msm_pcie_config_l0s_disable(struct pci_dev *pdev, void *dev)
+{
+	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *)dev;
+
+	msm_pcie_config_l0s(pcie_dev, pdev, false);
+	return 0;
+}
+
+static int msm_pcie_config_l0s_enable(struct pci_dev *pdev, void *dev)
+{
+	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *)dev;
+
+	msm_pcie_config_l0s(pcie_dev, pdev, true);
+	return 0;
+}
+
 static void msm_pcie_config_l1(struct msm_pcie_dev_t *dev,
 				struct pci_dev *pdev, bool enable)
 {
@@ -5469,6 +5422,22 @@ static void msm_pcie_config_l1(struct msm_pcie_dev_t *dev,
 
 	pci_read_config_dword(pdev, lnkctl_offset, &val);
 	PCIE_DBG2(dev, "PCIe: RC%d: LINKCTRLSTATUS:0x%x\n", dev->rc_idx, val);
+}
+
+static int msm_pcie_config_l1_disable(struct pci_dev *pdev, void *dev)
+{
+	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *)dev;
+
+	msm_pcie_config_l1(pcie_dev, pdev, false);
+	return 0;
+}
+
+static int msm_pcie_config_l1_enable(struct pci_dev *pdev, void *dev)
+{
+	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *)dev;
+
+	msm_pcie_config_l1(pcie_dev, pdev, true);
+	return 0;
 }
 
 static void msm_pcie_config_l1ss(struct msm_pcie_dev_t *dev,
@@ -5538,6 +5507,22 @@ static void msm_pcie_config_l1ss(struct msm_pcie_dev_t *dev,
 	pci_read_config_dword(pdev, devctl2_offset, &val2);
 	PCIE_DBG2(dev, "PCIe: RC%d: DEVICE_CONTROL2_STATUS2::0x%x\n",
 		dev->rc_idx, val2);
+}
+
+static int msm_pcie_config_l1ss_disable(struct pci_dev *pdev, void *dev)
+{
+	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *)dev;
+
+	msm_pcie_config_l1ss(pcie_dev, pdev, false);
+	return 0;
+}
+
+static int msm_pcie_config_l1ss_enable(struct pci_dev *pdev, void *dev)
+{
+	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *)dev;
+
+	msm_pcie_config_l1ss(pcie_dev, pdev, true);
+	return 0;
 }
 
 static void msm_pcie_config_clock_power_management(struct msm_pcie_dev_t *dev,
