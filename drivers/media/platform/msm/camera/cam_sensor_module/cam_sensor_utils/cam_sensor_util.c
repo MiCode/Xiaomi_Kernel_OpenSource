@@ -1179,12 +1179,6 @@ int msm_camera_pinctrl_init(
 		return -EINVAL;
 	}
 
-	if (cam_res_mgr_shared_pinctrl_init()) {
-		CAM_ERR(CAM_SENSOR,
-			"Failed to init shared pinctrl");
-		return -EINVAL;
-	}
-
 	return 0;
 }
 
@@ -1247,6 +1241,12 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 		ctrl->cam_pinctrl_status = 1;
 	}
 
+	if (cam_res_mgr_shared_pinctrl_init()) {
+		CAM_ERR(CAM_SENSOR,
+			"Failed to init shared pinctrl");
+		return -EINVAL;
+	}
+
 	rc = cam_sensor_util_request_gpio_table(soc_info, 1);
 	if (rc < 0)
 		no_gpio = rc;
@@ -1257,17 +1257,12 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 			ctrl->pinctrl_info.gpio_state_active);
 		if (ret)
 			CAM_ERR(CAM_SENSOR, "cannot set pin to active state");
-
-		ret = cam_res_mgr_shared_pinctrl_select_state(true);
-		if (ret)
-			CAM_ERR(CAM_SENSOR,
-				"Cannot set shared pin to active state");
-
-		ret = cam_res_mgr_shared_pinctrl_post_init();
-		if (ret)
-			CAM_ERR(CAM_SENSOR,
-				"Failed to post init shared pinctrl");
 	}
+
+	ret = cam_res_mgr_shared_pinctrl_select_state(true);
+	if (ret)
+		CAM_ERR(CAM_SENSOR,
+			"Cannot set shared pin to active state");
 
 	for (index = 0; index < ctrl->power_setting_size; index++) {
 		CAM_DBG(CAM_SENSOR, "index: %d", index);
@@ -1429,6 +1424,11 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 			usleep_range(power_setting->delay * 1000,
 				(power_setting->delay * 1000) + 1000);
 	}
+
+	ret = cam_res_mgr_shared_pinctrl_post_init();
+	if (ret)
+		CAM_ERR(CAM_SENSOR,
+			"Failed to post init shared pinctrl");
 
 	return 0;
 power_up_failed:
