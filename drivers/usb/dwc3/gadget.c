@@ -1264,7 +1264,7 @@ static void __dwc3_gadget_start_isoc(struct dwc3 *dwc,
 	 * Schedule the first trb for one interval in the future or at
 	 * least 4 microframes.
 	 */
-	uf = cur_uf + max_t(u32, 4, dep->interval);
+	uf = cur_uf + max_t(u32, 16, dep->interval);
 
 	ret = __dwc3_gadget_kick_transfer(dep, uf);
 	if (ret < 0)
