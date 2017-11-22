@@ -43,5 +43,6 @@ struct qvm_channel {
 #define PIPE_SHMEM_SIZE (128 * 1024)
 
 void *qnx_hyp_rx_dispatch(void *data);
+void hab_pipe_reset(struct physical_channel *pchan);
 
 #endif /* __HAB_QNX_H */

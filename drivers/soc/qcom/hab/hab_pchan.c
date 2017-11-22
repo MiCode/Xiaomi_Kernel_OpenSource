@@ -31,6 +31,8 @@ hab_pchan_alloc(struct hab_device *habdev, int otherend_id)
 	pchan->closed = 1;
 	pchan->hyp_data = NULL;
 
+	INIT_LIST_HEAD(&pchan->vchannels);
+	rwlock_init(&pchan->vchans_lock);
 	spin_lock_init(&pchan->rxbuf_lock);
 
 	mutex_lock(&habdev->pchan_lock);

@@ -141,6 +141,10 @@ struct physical_channel {
 	int closed;
 
 	spinlock_t rxbuf_lock;
+
+	/* vchans over this pchan */
+	struct list_head vchannels;
+	rwlock_t vchans_lock;
 };
 
 struct hab_open_send_data {
@@ -246,6 +250,7 @@ struct virtual_channel {
 	struct physical_channel *pchan;
 	struct uhab_context *ctx;
 	struct list_head node;
+	struct list_head pnode;
 	struct list_head rx_list;
 	wait_queue_head_t rx_queue;
 	spinlock_t rx_lock;
@@ -289,6 +294,7 @@ struct hab_message *hab_vchan_recv(struct uhab_context *ctx,
 				int vcid,
 				unsigned int flags);
 void hab_vchan_stop(struct virtual_channel *vchan);
+void hab_vchans_stop(struct physical_channel *pchan);
 void hab_vchan_stop_notify(struct virtual_channel *vchan);
 
 int hab_mem_export(struct uhab_context *ctx,

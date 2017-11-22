@@ -104,6 +104,15 @@ static int create_dispatcher(struct physical_channel *pchan, int id)
 	return ret;
 }
 
+void hab_pipe_reset(struct physical_channel *pchan)
+{
+	struct hab_pipe_endpoint *pipe_ep;
+	struct qvm_channel *dev  = (struct qvm_channel *)pchan->hyp_data;
+
+	pipe_ep = hab_pipe_init(dev->pipe, PIPE_SHMEM_SIZE,
+				pchan->is_be ? 0 : 1);
+}
+
 static struct physical_channel *habhyp_commdev_alloc(int id)
 {
 	struct qvm_channel *dev;
@@ -220,6 +229,23 @@ static int hab_shmem_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void hab_shmem_shutdown(struct platform_device *pdev)
+{
+	int i;
+	struct qvm_channel *dev;
+	struct physical_channel *pchan;
+	struct hab_device hab_dev;
+
+	for (i = 0; i < hab_driver.ndevices; i++) {
+		hab_dev = hab_driver.devp[i];
+		pr_debug("detaching %s\n", hab_dev.name);
+		list_for_each_entry(pchan, &hab_dev.pchannels, node) {
+			dev = (struct qvm_channel *)pchan->hyp_data;
+			dev->guest_ctrl->detach = 0;
+		}
+	}
+}
+
 static const struct of_device_id hab_shmem_match_table[] = {
 	{.compatible = "qvm,guest_shm"},
 	{},
@@ -228,6 +254,7 @@ static const struct of_device_id hab_shmem_match_table[] = {
 static struct platform_driver hab_shmem_driver = {
 	.probe = hab_shmem_probe,
 	.remove = hab_shmem_remove,
+	.shutdown = hab_shmem_shutdown,
 	.driver = {
 		.name = "hab_shmem",
 		.of_match_table = of_match_ptr(hab_shmem_match_table),

@@ -40,6 +40,9 @@ hab_vchan_alloc(struct uhab_context *ctx, struct physical_channel *pchan)
 
 	hab_pchan_get(pchan);
 	vchan->pchan = pchan;
+	write_lock(&pchan->vchans_lock);
+	list_add_tail(&vchan->pnode, &pchan->vchannels);
+	write_unlock(&pchan->vchans_lock);
 	vchan->id = ((id << HAB_VCID_ID_SHIFT) & HAB_VCID_ID_MASK) |
 		((pchan->habdev->id << HAB_VCID_MMID_SHIFT) &
 			HAB_VCID_MMID_MASK) |
@@ -69,6 +72,7 @@ hab_vchan_free(struct kref *ref)
 	struct export_desc *exp;
 	struct physical_channel *pchan = vchan->pchan;
 	struct uhab_context *ctx = vchan->ctx;
+	struct virtual_channel *vc, *vc_tmp;
 
 	list_for_each_entry_safe(message, msg_tmp, &vchan->rx_list, node) {
 		list_del(&message->node);
@@ -117,6 +121,15 @@ hab_vchan_free(struct kref *ref)
 	idr_remove(&pchan->vchan_idr, HAB_VCID_GET_ID(vchan->id));
 	spin_unlock_bh(&pchan->vid_lock);
 
+	write_lock(&pchan->vchans_lock);
+	list_for_each_entry_safe(vc, vc_tmp, &pchan->vchannels, pnode) {
+		if (vchan == vc) {
+			list_del(&vc->pnode);
+			break;
+		}
+	}
+	write_unlock(&pchan->vchans_lock);
+
 	hab_pchan_put(pchan);
 	hab_ctx_put(ctx);
 
@@ -144,6 +157,17 @@ void hab_vchan_stop(struct virtual_channel *vchan)
 		vchan->otherend_closed = 1;
 		wake_up_interruptible(&vchan->rx_queue);
 	}
+}
+
+void hab_vchans_stop(struct physical_channel *pchan)
+{
+	struct virtual_channel *vchan, *tmp;
+
+	read_lock(&pchan->vchans_lock);
+	list_for_each_entry_safe(vchan, tmp, &pchan->vchannels, pnode) {
+		hab_vchan_stop(vchan);
+	}
+	read_unlock(&pchan->vchans_lock);
 }
 
 void hab_vchan_stop_notify(struct virtual_channel *vchan)
