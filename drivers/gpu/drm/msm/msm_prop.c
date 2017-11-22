@@ -128,6 +128,20 @@ static void _msm_property_set_dirty_no_lock(
 			&property_state->dirty_list);
 }
 
+bool msm_property_is_dirty(
+		struct msm_property_info *info,
+		struct msm_property_state *property_state,
+		uint32_t property_idx)
+{
+	if (!info || !property_state || !property_state->values ||
+			property_idx >= info->property_count) {
+		DRM_ERROR("invalid argument(s), idx %u\n", property_idx);
+		return false;
+	}
+
+	return !list_empty(&property_state->values[property_idx].dirty_node);
+}
+
 /**
  * _msm_property_install_integer - install standard drm range property
  * @info: Pointer to property info container struct
