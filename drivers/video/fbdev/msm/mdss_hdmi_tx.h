@@ -143,6 +143,9 @@ struct hdmi_tx_ctrl {
 
 	char disp_switch_name[MAX_SWITCH_NAME_SIZE];
 
+	u64 actual_clk_rate;
+	bool pll_update_enable;
+
 	/* pre/post is done in the context without tx_lock */
 	hdmi_tx_evt_handler pre_evt_handler[MDSS_EVENT_MAX - 1];
 	hdmi_tx_evt_handler evt_handler[MDSS_EVENT_MAX - 1];
