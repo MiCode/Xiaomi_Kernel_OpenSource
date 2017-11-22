@@ -2220,6 +2220,7 @@ static int ipa_usb_xdci_dismiss_channels(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	}
 
 	if (!IPA3_USB_IS_TTYPE_DPL(ttype)) {
+		ipa3_xdci_ep_delay_rm(ul_clnt_hdl); /* Remove ep_delay if set */
 		/* Reset UL channel */
 		result = ipa3_reset_gsi_channel(ul_clnt_hdl);
 		if (result) {
