@@ -764,7 +764,7 @@ int scm_call2_atomic(u32 fn_id, struct scm_desc *desc)
 		return scm_remap_error(ret);
 	return ret;
 }
-
+EXPORT_SYMBOL(scm_call2_atomic);
 /**
  * scm_call() - Send an SCM command
  * @svc_id: service identifier
