@@ -43,6 +43,8 @@
 /* timeout in frames waiting for frame done */
 #define SDE_ENCODER_FRAME_DONE_TIMEOUT	60
 
+#define MISR_BUFF_SIZE	256
+
 /*
  * Two to anticipate panels that can do cmd/vid dynamic switching
  * plan is to create all possible physical encoder types, and switch between
@@ -1046,16 +1048,18 @@ static ssize_t _sde_encoder_misr_set(struct file *file,
 	struct sde_encoder_virt *sde_enc;
 	struct drm_encoder *drm_enc;
 	int i = 0;
-	char buf[10];
+	char buf[MISR_BUFF_SIZE + 1];
+	size_t buff_copy;
 	u32 enable, frame_count;
 
 	drm_enc = file->private_data;
 	sde_enc = to_sde_encoder_virt(drm_enc);
 
-	if (copy_from_user(buf, user_buf, count))
-		return -EFAULT;
+	buff_copy = min_t(size_t, MISR_BUFF_SIZE, count);
+	if (copy_from_user(buf, user_buf, buff_copy))
+		return -EINVAL;
 
-	buf[count] = 0; /* end of string */
+	buf[buff_copy] = 0; /* end of string */
 
 	if (sscanf(buf, "%u %u", &enable, &frame_count) != 2)
 		return -EFAULT;
