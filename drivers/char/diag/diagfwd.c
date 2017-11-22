@@ -226,6 +226,7 @@ void chk_logging_wakeup(void)
 			 * situation.
 			 */
 			driver->data_ready[i] |= USER_SPACE_DATA_TYPE;
+			atomic_inc(&driver->data_ready_notif[i]);
 			pr_debug("diag: Force wakeup of logging process\n");
 			wake_up_interruptible(&driver->wait_q);
 			break;
@@ -491,8 +492,10 @@ void diag_update_userspace_clients(unsigned int type)
 
 	mutex_lock(&driver->diagchar_mutex);
 	for (i = 0; i < driver->num_clients; i++)
-		if (driver->client_map[i].pid != 0)
+		if (driver->client_map[i].pid != 0) {
 			driver->data_ready[i] |= type;
+			atomic_inc(&driver->data_ready_notif[i]);
+		}
 	wake_up_interruptible(&driver->wait_q);
 	mutex_unlock(&driver->diagchar_mutex);
 }
@@ -509,6 +512,8 @@ void diag_update_md_clients(unsigned int type)
 					driver->client_map[j].pid ==
 					driver->md_session_map[i]->pid) {
 					driver->data_ready[j] |= type;
+					atomic_inc(
+						&driver->data_ready_notif[j]);
 					break;
 				}
 			}
@@ -524,6 +529,7 @@ void diag_update_sleeping_process(int process_id, int data_type)
 	for (i = 0; i < driver->num_clients; i++)
 		if (driver->client_map[i].pid == process_id) {
 			driver->data_ready[i] |= data_type;
+			atomic_inc(&driver->data_ready_notif[i]);
 			break;
 		}
 	wake_up_interruptible(&driver->wait_q);
@@ -993,6 +999,8 @@ int diag_process_apps_pkt(unsigned char *buf, int len,
 	struct diag_cmd_reg_entry_t entry;
 	struct diag_cmd_reg_entry_t *temp_entry = NULL;
 	struct diag_cmd_reg_t *reg_item = NULL;
+	struct diagfwd_info *fwd_info = NULL;
+	uint32_t pd_mask = 0;
 
 	if (!buf)
 		return -EIO;
@@ -1030,12 +1038,13 @@ int diag_process_apps_pkt(unsigned char *buf, int len,
 	temp_entry = diag_cmd_search(&entry, ALL_PROC);
 	if (temp_entry) {
 		reg_item = container_of(temp_entry, struct diag_cmd_reg_t,
-								entry);
+					entry);
 		if (info) {
+			MD_PERIPHERAL_PD_MASK(TYPE_CMD, reg_item->proc,
+				pd_mask);
 			if ((MD_PERIPHERAL_MASK(reg_item->proc) &
 				info->peripheral_mask) ||
-				(MD_PERIPHERAL_PD_MASK(reg_item->proc) &
-				info->peripheral_mask))
+				(pd_mask & info->peripheral_mask))
 				write_len = diag_send_data(reg_item, buf, len);
 		} else {
 			if (MD_PERIPHERAL_MASK(reg_item->proc) &
@@ -1657,6 +1666,9 @@ static int diagfwd_mux_write_done(unsigned char *buf, int len, int buf_ctxt,
 	switch (type) {
 	case TYPE_DATA:
 		if (peripheral >= 0 && peripheral < NUM_PERIPHERALS) {
+			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			"Marking buffer as free after write done p: %d, t: %d, buf_num: %d\n",
+				peripheral, type, num);
 			diagfwd_write_done(peripheral, type, num);
 			diag_ws_on_copy(DIAG_WS_MUX);
 		} else if (peripheral == APPS_DATA) {
@@ -1671,6 +1683,9 @@ static int diagfwd_mux_write_done(unsigned char *buf, int len, int buf_ctxt,
 	case TYPE_CMD:
 		if (peripheral >= 0 && peripheral < NUM_PERIPHERALS) {
 			diagfwd_write_done(peripheral, type, num);
+			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			"Marking buffer as free after write done p: %d, t: %d, buf_num: %d\n",
+				peripheral, type, num);
 		}
 		if (peripheral == APPS_DATA ||
 				ctxt == DIAG_MEMORY_DEVICE_MODE) {
@@ -1786,6 +1801,9 @@ int diagfwd_init(void)
 			goto err;
 	}
 	kmemleak_not_leak(driver->data_ready);
+
+	for (i = 0; i < THRESHOLD_CLIENT_LIMIT; i++)
+		atomic_set(&driver->data_ready_notif[i], 0);
 
 	if (driver->apps_req_buf == NULL) {
 		driver->apps_req_buf = kzalloc(DIAG_MAX_REQ_SIZE, GFP_KERNEL);

@@ -74,10 +74,16 @@ struct memlat_hwmon {
 
 #ifdef CONFIG_DEVFREQ_GOV_MEMLAT
 int register_memlat(struct device *dev, struct memlat_hwmon *hw);
+int register_compute(struct device *dev, struct memlat_hwmon *hw);
 int update_memlat(struct memlat_hwmon *hw);
 #else
 static inline int register_memlat(struct device *dev,
-					struct memlat_hwmon *hw)
+				  struct memlat_hwmon *hw)
+{
+	return 0;
+}
+static inline int register_compute(struct device *dev,
+				   struct memlat_hwmon *hw)
 {
 	return 0;
 }

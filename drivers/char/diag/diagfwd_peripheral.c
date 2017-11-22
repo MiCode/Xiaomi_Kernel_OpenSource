@@ -30,6 +30,7 @@
 #include "diag_mux.h"
 #include "diag_ipc_logging.h"
 #include "diagfwd_glink.h"
+#include "diag_memorydevice.h"
 
 struct data_header {
 	uint8_t control_char;
@@ -187,8 +188,10 @@ static int diag_add_hdlc_encoding(unsigned char *dest_buf, int *dest_len,
 
 static int check_bufsize_for_encoding(struct diagfwd_buf_t *buf, uint32_t len)
 {
+	int i, ctx = 0;
 	uint32_t max_size = 0;
 	unsigned char *temp_buf = NULL;
+	struct diag_md_info *ch = NULL;
 
 	if (!buf || len == 0)
 		return -EINVAL;
@@ -202,11 +205,31 @@ static int check_bufsize_for_encoding(struct diagfwd_buf_t *buf, uint32_t len)
 		}
 
 		if (buf->len < max_size) {
+			if (driver->logging_mode == DIAG_MEMORY_DEVICE_MODE) {
+				ch = &diag_md[DIAG_LOCAL_PROC];
+				for (i = 0; ch != NULL &&
+						i < ch->num_tbl_entries; i++) {
+					if (ch->tbl[i].buf == buf->data) {
+						ctx = ch->tbl[i].ctx;
+						ch->tbl[i].buf = NULL;
+						ch->tbl[i].len = 0;
+						ch->tbl[i].ctx = 0;
+						DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+						"Flushed mdlog table entries before reallocating data buffer, p:%d, t:%d\n",
+						GET_BUF_PERIPHERAL(ctx),
+						GET_BUF_TYPE(ctx));
+						break;
+					}
+				}
+			}
 			temp_buf = krealloc(buf->data, max_size +
 						APF_DIAG_PADDING,
 					    GFP_KERNEL);
 			if (!temp_buf)
 				return -ENOMEM;
+			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			"Reallocated data buffer: %pK with size: %d\n",
+			temp_buf, max_size);
 			buf->data = temp_buf;
 			buf->len = max_size;
 		}
@@ -215,10 +238,19 @@ static int check_bufsize_for_encoding(struct diagfwd_buf_t *buf, uint32_t len)
 	return buf->len;
 }
 
+/*
+ * diag_md_get_peripheral(int ctxt)
+ *
+ * Context(ctxt) contains peripheral, channel type, buffer num and diag_id
+ * The function decodes the ctxt, checks for the active user pd session
+ * using diag_id and returns peripheral if not active or the PD if active.
+ *
+ */
 int diag_md_get_peripheral(int ctxt)
 {
-	int pd = 0, i = 0;
+	uint8_t diag_id = 0, i = 0, pd = 0;
 	int type = 0, peripheral = -EINVAL;
+	int index = 0;
 	struct diagfwd_info *fwd_info = NULL;
 
 	peripheral = GET_BUF_PERIPHERAL(ctxt);
@@ -246,22 +278,22 @@ int diag_md_get_peripheral(int ctxt)
 	if (!fwd_info)
 		return -EINVAL;
 
-	pd = GET_PD_CTXT(ctxt);
+	diag_id = GET_PD_CTXT(ctxt);
 
-	if (driver->num_pd_session) {
-		if (pd == fwd_info->diagid_root) {
-			if (peripheral > NUM_PERIPHERALS)
+	if (driver->num_pd_session &&
+		driver->feature[peripheral].untag_header) {
+		if (diag_id == fwd_info->root_diag_id.diagid_val) {
+			if (peripheral != fwd_info->root_diag_id.pd)
 				peripheral = -EINVAL;
 		} else {
 			for (i = 0; i <= (fwd_info->num_pd - 2); i++) {
-				if (pd == fwd_info->diagid_user[i]) {
-					switch (peripheral) {
-					case PERIPHERAL_MODEM:
-					if (driver->pd_logging_mode[0])
-						peripheral = UPD_WLAN;
-					break;
-					default:
-						peripheral = -EINVAL;
+				if (diag_id ==
+					fwd_info->upd_diag_id[i].diagid_val) {
+					pd = fwd_info->upd_diag_id[i].pd;
+					index = pd - UPD_WLAN;
+					if ((index >= 0 && index < NUM_UPD) &&
+					driver->pd_logging_mode[index]) {
+						peripheral = pd;
 						break;
 					}
 				}
@@ -377,11 +409,27 @@ end:
 	mutex_unlock(&fwd_info->data_mutex);
 	mutex_unlock(&driver->hdlc_disable_mutex);
 	if (buf) {
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"Marking buffer as free p: %d, t: %d, buf_num: %d\n",
+			fwd_info->peripheral, fwd_info->type,
+			GET_BUF_NUM(buf->ctxt));
 		diagfwd_write_done(fwd_info->peripheral, fwd_info->type,
 				   GET_BUF_NUM(buf->ctxt));
 	}
 	diagfwd_queue_read(fwd_info);
 }
+
+/*
+ * diagfwd_data_read_untag_done(struct diagfwd_info *fwd_info,
+ *			   unsigned char *buf, int len)
+ *
+ * Data received from the peripheral can contain data from core and user PD
+ * The function segregates the data depending on the diag_id in the header
+ * of the packet chunk and copies to PD specific buffers.
+ * Sets the context for the buffers using diag_id and process it later for
+ * splitting the stream based on active PD logging.
+ *
+ */
 
 static void diagfwd_data_read_untag_done(struct diagfwd_info *fwd_info,
 				   unsigned char *buf, int len)
@@ -458,8 +506,10 @@ static void diagfwd_data_read_untag_done(struct diagfwd_info *fwd_info,
 				*(uint16_t *) (temp_buf_main + 2);
 			if (packet_len > PERIPHERAL_BUF_SZ)
 				goto end;
-			if ((*temp_buf_main) == fwd_info->diagid_root) {
-				ctxt_cpd = fwd_info->diagid_root;
+			if ((*temp_buf_main) ==
+				fwd_info->root_diag_id.diagid_val) {
+				ctxt_cpd =
+					fwd_info->root_diag_id.diagid_val;
 				len_cpd += packet_len;
 				if (temp_buf_cpd) {
 					memcpy(temp_buf_cpd,
@@ -467,45 +517,24 @@ static void diagfwd_data_read_untag_done(struct diagfwd_info *fwd_info,
 					temp_buf_cpd += packet_len;
 				}
 			} else {
-				for (i = 0; i <= (fwd_info->num_pd - 2); i++)
-					if ((*temp_buf_main) ==
-						fwd_info->diagid_user[i])
-						break;
-				ctxt_upd[i] = fwd_info->diagid_user[i];
-				if (temp_buf_upd[i]) {
-					memcpy(temp_buf_upd[i],
-					(temp_buf_main + 4), packet_len);
-					temp_buf_upd[i] += packet_len;
+				for (i = 0; i <= (fwd_info->num_pd - 2); i++) {
+				if ((*temp_buf_main) ==
+					fwd_info->upd_diag_id[i].diagid_val) {
+					ctxt_upd[i] =
+					fwd_info->upd_diag_id[i].diagid_val;
+					if (temp_buf_upd[i]) {
+						memcpy(temp_buf_upd[i],
+							(temp_buf_main + 4),
+							packet_len);
+						temp_buf_upd[i] += packet_len;
+					}
+					len_upd[i] += packet_len;
+					}
 				}
-				len_upd[i] += packet_len;
 			}
 			len = len - 4;
 			temp_buf_main += (packet_len + 4);
 			processed += packet_len;
-		}
-		for (i = 0; i <= (fwd_info->num_pd - 2); i++) {
-			if (fwd_info->type == TYPE_DATA && len_upd[i]) {
-				if (flag_buf_1) {
-					fwd_info->upd_len[i][0] = len_upd[i];
-					temp_fwdinfo_upd =
-						fwd_info->buf_upd[i][0];
-				} else {
-					fwd_info->upd_len[i][1] = len_upd[i];
-					temp_fwdinfo_upd =
-						fwd_info->buf_upd[i][1];
-				}
-				temp_fwdinfo_upd->ctxt &= 0x00FFFFFF;
-				temp_fwdinfo_upd->ctxt |=
-					(SET_PD_CTXT(ctxt_upd[i]));
-				atomic_set(&temp_fwdinfo_upd->in_busy, 1);
-				diagfwd_data_process_done(fwd_info,
-					temp_fwdinfo_upd, len_upd[i]);
-			} else {
-				if (flag_buf_1)
-					fwd_info->upd_len[i][0] = 0;
-				if (flag_buf_2)
-					fwd_info->upd_len[i][1] = 0;
-			}
 		}
 
 		if (flag_buf_1) {
@@ -520,14 +549,31 @@ static void diagfwd_data_read_untag_done(struct diagfwd_info *fwd_info,
 					fwd_info->upd_len[i][1] = len_upd[i];
 		}
 
+		for (i = 0; i <= (fwd_info->num_pd - 2); i++) {
+			if (fwd_info->type == TYPE_DATA && len_upd[i]) {
+				if (flag_buf_1)
+					temp_fwdinfo_upd =
+						fwd_info->buf_upd[i][0];
+				else
+					temp_fwdinfo_upd =
+						fwd_info->buf_upd[i][1];
+				temp_fwdinfo_upd->ctxt &= 0x00FFFFFF;
+				temp_fwdinfo_upd->ctxt |=
+					(SET_PD_CTXT(ctxt_upd[i]));
+				atomic_set(&temp_fwdinfo_upd->in_busy, 1);
+				diagfwd_data_process_done(fwd_info,
+					temp_fwdinfo_upd, len_upd[i]);
+			} else {
+				if (flag_buf_1)
+					fwd_info->upd_len[i][0] = 0;
+				if (flag_buf_2)
+					fwd_info->upd_len[i][1] = 0;
+			}
+		}
+
 		if (len_cpd) {
-			if (flag_buf_1)
-				fwd_info->cpd_len_1 = len_cpd;
-			else
-				fwd_info->cpd_len_2 = len_cpd;
 			temp_fwdinfo_cpd->ctxt &= 0x00FFFFFF;
-			temp_fwdinfo_cpd->ctxt |=
-				(SET_PD_CTXT(ctxt_cpd));
+			temp_fwdinfo_cpd->ctxt |= (SET_PD_CTXT(ctxt_cpd));
 			diagfwd_data_process_done(fwd_info,
 				temp_fwdinfo_cpd, len_cpd);
 		} else {
@@ -543,6 +589,10 @@ static void diagfwd_data_read_untag_done(struct diagfwd_info *fwd_info,
 end:
 	diag_ws_release();
 	if (temp_fwdinfo_cpd) {
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"Marking buffer as free p: %d, t: %d, buf_num: %d\n",
+			fwd_info->peripheral, fwd_info->type,
+			GET_BUF_NUM(temp_fwdinfo_cpd->ctxt));
 		diagfwd_write_done(fwd_info->peripheral, fwd_info->type,
 				   GET_BUF_NUM(temp_fwdinfo_cpd->ctxt));
 	}
@@ -663,6 +713,10 @@ end:
 	mutex_unlock(&fwd_info->data_mutex);
 	mutex_unlock(&driver->hdlc_disable_mutex);
 	if (temp_buf) {
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"Marking buffer as free p: %d, t: %d, buf_num: %d\n",
+			fwd_info->peripheral, fwd_info->type,
+			GET_BUF_NUM(temp_buf->ctxt));
 		diagfwd_write_done(fwd_info->peripheral, fwd_info->type,
 				   GET_BUF_NUM(temp_buf->ctxt));
 	}
@@ -742,6 +796,16 @@ static void diagfwd_reset_buffers(struct diagfwd_info *fwd_info,
 		else if (fwd_info->buf_2 && fwd_info->buf_2->data_raw == buf)
 			atomic_set(&fwd_info->buf_2->in_busy, 0);
 	}
+	if (fwd_info->buf_1 && !atomic_read(&(fwd_info->buf_1->in_busy))) {
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"Buffer 1 for core PD is marked free, p: %d, t: %d\n",
+			fwd_info->peripheral, fwd_info->type);
+	}
+	if (fwd_info->buf_2 && !atomic_read(&(fwd_info->buf_2->in_busy))) {
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"Buffer 2 for core PD is marked free, p: %d, t: %d\n",
+			fwd_info->peripheral, fwd_info->type);
+	}
 }
 
 int diagfwd_peripheral_init(void)
@@ -776,12 +840,13 @@ int diagfwd_peripheral_init(void)
 			fwd_info->cpd_len_1 = 0;
 			fwd_info->cpd_len_2 = 0;
 			fwd_info->num_pd = 0;
+			fwd_info->root_diag_id.diagid_val = 0;
 			mutex_init(&fwd_info->buf_mutex);
 			mutex_init(&fwd_info->data_mutex);
 			spin_lock_init(&fwd_info->write_buf_lock);
 
 			for (i = 0; i < MAX_PERIPHERAL_UPD; i++) {
-				fwd_info->diagid_user[i] = 0;
+				fwd_info->upd_diag_id[i].diagid_val = 0;
 				fwd_info->upd_len[i][0] = 0;
 				fwd_info->upd_len[i][1] = 0;
 				fwd_info->buf_upd[i][0] = NULL;
@@ -803,12 +868,13 @@ int diagfwd_peripheral_init(void)
 			fwd_info->num_pd = 0;
 			fwd_info->cpd_len_1 = 0;
 			fwd_info->cpd_len_2 = 0;
+			fwd_info->root_diag_id.diagid_val = 0;
 			spin_lock_init(&fwd_info->write_buf_lock);
 			mutex_init(&fwd_info->buf_mutex);
 			mutex_init(&fwd_info->data_mutex);
 
 			for (i = 0; i < MAX_PERIPHERAL_UPD; i++) {
-				fwd_info->diagid_user[i] = 0;
+				fwd_info->upd_diag_id[i].diagid_val = 0;
 				fwd_info->upd_len[i][0] = 0;
 				fwd_info->upd_len[i][1] = 0;
 				fwd_info->buf_upd[i][0] = NULL;
@@ -1086,7 +1152,7 @@ int diagfwd_write(uint8_t peripheral, uint8_t type, void *buf, int len)
 
 	if (type == TYPE_CMD) {
 		if (driver->feature[peripheral].diag_id_support)
-			if (!fwd_info->diagid_root ||
+			if (!fwd_info->root_diag_id.diagid_val ||
 				(!driver->diag_id_sent[peripheral])) {
 			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 				 "diag: diag_id is not assigned yet\n");
@@ -1137,10 +1203,28 @@ static void __diag_fwd_open(struct diagfwd_info *fwd_info)
 	if (!fwd_info->inited)
 		return;
 
-	if (fwd_info->buf_1)
-		atomic_set(&fwd_info->buf_1->in_busy, 0);
-	if (fwd_info->buf_2)
-		atomic_set(&fwd_info->buf_2->in_busy, 0);
+	/*
+	 * Logging mode here is reflecting previous mode
+	 * status and will be updated to new mode later.
+	 *
+	 * Keeping the buffers busy for Memory Device Mode.
+	 */
+
+	if ((driver->logging_mode != DIAG_USB_MODE) ||
+		driver->usb_connected) {
+		if (fwd_info->buf_1) {
+			atomic_set(&fwd_info->buf_1->in_busy, 0);
+			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			"Buffer 1 for core PD is marked free, p: %d, t: %d\n",
+			fwd_info->peripheral, fwd_info->type);
+		}
+		if (fwd_info->buf_2) {
+			atomic_set(&fwd_info->buf_2->in_busy, 0);
+			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			"Buffer 2 for core PD is marked free, p: %d, t: %d\n",
+			fwd_info->peripheral, fwd_info->type);
+		}
+	}
 
 	if (fwd_info->p_ops && fwd_info->p_ops->open)
 		fwd_info->p_ops->open(fwd_info->ctxt);
@@ -1265,10 +1349,18 @@ int diagfwd_channel_close(struct diagfwd_info *fwd_info)
 	if (fwd_info && fwd_info->c_ops && fwd_info->c_ops->close)
 		fwd_info->c_ops->close(fwd_info);
 
-	if (fwd_info->buf_1 && fwd_info->buf_1->data)
+	if (fwd_info->buf_1 && fwd_info->buf_1->data) {
 		atomic_set(&fwd_info->buf_1->in_busy, 0);
-	if (fwd_info->buf_2 && fwd_info->buf_2->data)
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"Buffer 1 for core PD is marked free, p: %d, t: %d\n",
+			fwd_info->peripheral, fwd_info->type);
+	}
+	if (fwd_info->buf_2 && fwd_info->buf_2->data) {
 		atomic_set(&fwd_info->buf_2->in_busy, 0);
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"Buffer 2 for core PD is marked free, p: %d, t: %d\n",
+				fwd_info->peripheral, fwd_info->type);
+	}
 
 	for (i = 0; i < NUM_WRITE_BUFFERS; i++) {
 		if (fwd_info->buf_ptr[i])
@@ -1294,6 +1386,9 @@ int diagfwd_channel_read_done(struct diagfwd_info *fwd_info,
 	 * in_busy flags. No need to queue read in this case.
 	 */
 	if (len == 0) {
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"Read Length is 0, resetting the diag buffers p: %d, t: %d\n",
+			fwd_info->peripheral, fwd_info->type);
 		diagfwd_reset_buffers(fwd_info, buf);
 		diag_ws_release();
 		return 0;
@@ -1306,7 +1401,7 @@ int diagfwd_channel_read_done(struct diagfwd_info *fwd_info,
 	return 0;
 }
 
-void diagfwd_write_done(uint8_t peripheral, uint8_t type, int ctxt)
+void diagfwd_write_done(uint8_t peripheral, uint8_t type, int buf_num)
 {
 	int i = 0, upd_valid_len = 0;
 	struct diagfwd_info *fwd_info = NULL;
@@ -1318,8 +1413,14 @@ void diagfwd_write_done(uint8_t peripheral, uint8_t type, int ctxt)
 	if (!fwd_info)
 		return;
 
-	if (ctxt == 1 && fwd_info->buf_1) {
-		/* Buffer 1 for core PD is freed */
+	if (buf_num == 1 && fwd_info->buf_1) {
+		/*
+		 * Core PD buffer data is processed and
+		 * length in the buffer is marked zero.
+		 *
+		 * Check if the user PD buffer contains any
+		 * data before freeing core PD buffer.
+		 */
 		fwd_info->cpd_len_1 = 0;
 		for (i = 0; i <= (fwd_info->num_pd - 2); i++) {
 			if (fwd_info->upd_len[i][0]) {
@@ -1327,10 +1428,24 @@ void diagfwd_write_done(uint8_t peripheral, uint8_t type, int ctxt)
 				break;
 			}
 		}
-		if (!upd_valid_len)
+		/*
+		 * Do not free the core pd buffer if valid data
+		 * is present in any user PD buffer.
+		 */
+		if (!upd_valid_len) {
 			atomic_set(&fwd_info->buf_1->in_busy, 0);
-	} else if (ctxt == 2 && fwd_info->buf_2) {
-		/* Buffer 2 for core PD is freed */
+			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			"Buffer 1 for core PD is marked free, p: %d, t: %d, buf_num: %d\n",
+				fwd_info->peripheral, fwd_info->type, buf_num);
+		}
+	} else if (buf_num == 2 && fwd_info->buf_2) {
+		/*
+		 * Core PD buffer data is processed and
+		 * length in the buffer is marked zero.
+		 *
+		 * Check if the user PD buffer contains any
+		 * data before freeing core PD buffer.
+		 */
 		fwd_info->cpd_len_2 = 0;
 		for (i = 0; i <= (fwd_info->num_pd - 2); i++) {
 			if (fwd_info->upd_len[i][1]) {
@@ -1338,30 +1453,86 @@ void diagfwd_write_done(uint8_t peripheral, uint8_t type, int ctxt)
 				break;
 			}
 		}
-		if (!upd_valid_len)
+		/*
+		 * Do not free the core pd buffer if valid data
+		 * is present in any user PD buffer
+		 */
+		if (!upd_valid_len) {
 			atomic_set(&fwd_info->buf_2->in_busy, 0);
-	} else if (ctxt >= 3 && (ctxt % 2)) {
+			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			"Buffer 2 for core PD is marked free, p: %d, t: %d, buf_num: %d\n",
+				fwd_info->peripheral, fwd_info->type, buf_num);
+		}
+	} else if (buf_num >= 3 && (buf_num % 2)) {
+		/*
+		 * Go through each User PD buffer, validate the
+		 * request for freeing the buffer by validating
+		 * the buffer number.
+		 *
+		 */
 		for (i = 0; i <= (fwd_info->num_pd - 2); i++) {
-			if (fwd_info->buf_upd[i][0]) {
+			if (fwd_info->buf_upd[i][0] &&
+				(buf_num == ((2 * i) + 3))) {
 				/* Buffer 1 for ith user PD is freed */
-			atomic_set(&fwd_info->buf_upd[i][0]->in_busy, 0);
-			fwd_info->upd_len[i][0] = 0;
+				atomic_set(&fwd_info->buf_upd[i][0]->in_busy,
+					0);
+				fwd_info->upd_len[i][0] = 0;
 			}
-		if (!fwd_info->cpd_len_1)
+			/*
+			 * Check if there is any data in user PD buffer other
+			 * than buffer requested for freeing.
+			 *
+			 */
+			if (fwd_info->upd_len[i][0])
+				upd_valid_len = 1;
+		}
+		/*
+		 * Mark the core pd buffer free if there is no
+		 * data present in core PD buffer and other User PD buffer.
+		 *
+		 */
+		if (!upd_valid_len && !fwd_info->cpd_len_1) {
 			atomic_set(&fwd_info->buf_1->in_busy, 0);
+			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+				"Buffer 1 for core PD is marked free, p: %d, t: %d, buf_num: %d\n",
+				fwd_info->peripheral, fwd_info->type, buf_num);
 		}
-	} else if (ctxt >= 4 && !(ctxt % 2)) {
+	} else if (buf_num >= 4 && !(buf_num % 2)) {
+		/*
+		 * Go through each User PD buffer, validate the
+		 * request for freeing the buffer by validating
+		 * the buffer number.
+		 *
+		 */
 		for (i = 0; i <= (fwd_info->num_pd - 2); i++) {
-			if (fwd_info->buf_upd[i][1]) {
+			if (fwd_info->buf_upd[i][1] &&
+				(buf_num == ((2 * i) + 4))) {
 				/* Buffer 2 for ith user PD is freed */
-			atomic_set(&fwd_info->buf_upd[i][0]->in_busy, 0);
-			fwd_info->upd_len[i][1] = 0;
+				atomic_set(&fwd_info->buf_upd[i][1]->in_busy,
+					0);
+				fwd_info->upd_len[i][1] = 0;
 			}
-		if (!fwd_info->cpd_len_2)
-			atomic_set(&fwd_info->buf_2->in_busy, 0);
+			/*
+			 * Check if there is any data in user PD buffer other
+			 * than buffer requested for freeing.
+			 *
+			 */
+			if (fwd_info->upd_len[i][1])
+				upd_valid_len = 1;
 		}
+		/*
+		 * Mark the core pd buffer free if there is no
+		 * data present in core PD buffer and other User PD buffer.
+		 *
+		 */
+		if (!upd_valid_len && !fwd_info->cpd_len_2) {
+			atomic_set(&fwd_info->buf_2->in_busy, 0);
+			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			"Buffer 2 for core PD is marked free, p: %d, t: %d, buf_num: %d\n",
+			fwd_info->peripheral, fwd_info->type, buf_num);
+			}
 	} else
-		pr_err("diag: In %s, invalid ctxt %d\n", __func__, ctxt);
+		pr_err("diag: In %s, invalid buf_num %d\n", __func__, buf_num);
 
 	diagfwd_queue_read(fwd_info);
 }

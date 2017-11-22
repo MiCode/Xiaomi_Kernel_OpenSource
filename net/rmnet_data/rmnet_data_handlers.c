@@ -41,26 +41,30 @@ module_param(dump_pkt_tx, uint, 0644);
 MODULE_PARM_DESC(dump_pkt_tx, "Dump packets exiting egress handler");
 #endif /* CONFIG_RMNET_DATA_DEBUG_PKT */
 
-/* Time in nano seconds. This number must be less that a second. */
-long gro_flush_time __read_mostly = 10000L;
-module_param(gro_flush_time, long, 0644);
-MODULE_PARM_DESC(gro_flush_time, "Flush GRO when spaced more than this");
+static bool gro_flush_logic_on __read_mostly = 1;
+module_param(gro_flush_logic_on, bool, 0644);
+MODULE_PARM_DESC(gro_flush_logic_on, "If off let GRO determine flushing");
 
-unsigned int gro_min_byte_thresh __read_mostly = 7500;
-module_param(gro_min_byte_thresh, uint, 0644);
-MODULE_PARM_DESC(gro_min_byte_thresh, "Min byte thresh to change flush time");
-
-unsigned int dynamic_gro_on __read_mostly = 1;
-module_param(dynamic_gro_on, uint, 0644);
+static bool dynamic_gro_on __read_mostly = 1;
+module_param(dynamic_gro_on, bool, 0644);
 MODULE_PARM_DESC(dynamic_gro_on, "Toggle to turn on dynamic gro logic");
+
+/* Time in nano seconds. This number must be less that a second. */
+static long lower_flush_time __read_mostly = 10000L;
+module_param(lower_flush_time, long, 0644);
+MODULE_PARM_DESC(lower_flush_time, "Min time value for flushing GRO");
+
+static unsigned int lower_byte_limit __read_mostly = 7500;
+module_param(lower_byte_limit, uint, 0644);
+MODULE_PARM_DESC(lower_byte_limit, "Min byte count for flushing GRO");
 
 unsigned int upper_flush_time __read_mostly = 15000;
 module_param(upper_flush_time, uint, 0644);
-MODULE_PARM_DESC(upper_flush_time, "Upper limit on flush time");
+MODULE_PARM_DESC(upper_flush_time, "Max time value for flushing GRO");
 
 unsigned int upper_byte_limit __read_mostly = 10500;
 module_param(upper_byte_limit, uint, 0644);
-MODULE_PARM_DESC(upper_byte_limit, "Upper byte limit");
+MODULE_PARM_DESC(upper_byte_limit, "Max byte count for flushing GRO");
 
 #define RMNET_DATA_IP_VERSION_4 0x40
 #define RMNET_DATA_IP_VERSION_6 0x60
@@ -258,62 +262,64 @@ static void rmnet_optional_gro_flush(struct napi_struct *napi,
 {
 	struct timespec curr_time, diff;
 
-	if (!gro_flush_time)
+	if (!gro_flush_logic_on)
 		return;
 
-	if (unlikely(ep->flush_time.tv_sec == 0)) {
-		getnstimeofday(&ep->flush_time);
+	if (unlikely(ep->last_flush_time.tv_sec == 0)) {
+		getnstimeofday(&ep->last_flush_time);
 		ep->flush_byte_count = 0;
+		ep->curr_time_limit = lower_flush_time;
+		ep->curr_byte_threshold = lower_byte_limit;
 	} else {
 		getnstimeofday(&(curr_time));
-		diff = timespec_sub(curr_time, ep->flush_time);
+		diff = timespec_sub(curr_time, ep->last_flush_time);
 		ep->flush_byte_count += skb_size;
 
 		if (dynamic_gro_on) {
 			if ((!(diff.tv_sec > 0) || diff.tv_nsec <=
-					gro_flush_time) &&
+					ep->curr_time_limit) &&
 					ep->flush_byte_count >=
-					gro_min_byte_thresh) {
+					ep->curr_byte_threshold) {
 				/* Processed many bytes in a small time window.
 				 * No longer need to flush so often and we can
 				 * increase our byte limit
 				 */
-				gro_flush_time = upper_flush_time;
-				gro_min_byte_thresh = upper_byte_limit;
+				ep->curr_time_limit = upper_flush_time;
+				ep->curr_byte_threshold = upper_byte_limit;
 			} else if ((diff.tv_sec > 0 ||
-					diff.tv_nsec > gro_flush_time) &&
+					diff.tv_nsec > ep->curr_time_limit) &&
 					ep->flush_byte_count <
-					gro_min_byte_thresh) {
+					ep->curr_byte_threshold) {
 				/* We have not hit our time limit and we are not
 				 * receive many bytes. Demote ourselves to the
 				 * lowest limits and flush
 				 */
 				napi_gro_flush(napi, false);
-				getnstimeofday(&ep->flush_time);
+				ep->last_flush_time = curr_time;
 				ep->flush_byte_count = 0;
-				gro_flush_time = 10000L;
-				gro_min_byte_thresh = 7500L;
+				ep->curr_time_limit = lower_flush_time;
+				ep->curr_byte_threshold = lower_byte_limit;
 			} else if ((diff.tv_sec > 0 ||
-					diff.tv_nsec > gro_flush_time) &&
+					diff.tv_nsec > ep->curr_time_limit) &&
 					ep->flush_byte_count >=
-					gro_min_byte_thresh) {
+					ep->curr_byte_threshold) {
 				/* Above byte and time limt, therefore we can
 				 * move/maintain our limits to be the max
 				 * and flush
 				 */
 				napi_gro_flush(napi, false);
-				getnstimeofday(&ep->flush_time);
+				ep->last_flush_time = curr_time;
 				ep->flush_byte_count = 0;
-				gro_flush_time = upper_flush_time;
-				gro_min_byte_thresh = upper_byte_limit;
+				ep->curr_time_limit = upper_flush_time;
+				ep->curr_byte_threshold = upper_byte_limit;
 			}
 			/* else, below time limit and below
 			 * byte thresh, so change nothing
 			 */
 		} else if (diff.tv_sec > 0 ||
-				diff.tv_nsec >= gro_flush_time) {
+				diff.tv_nsec >= lower_flush_time) {
 			napi_gro_flush(napi, false);
-			getnstimeofday(&ep->flush_time);
+			ep->last_flush_time = curr_time;
 			ep->flush_byte_count = 0;
 		}
 	}
@@ -591,6 +597,9 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 
 	if ((config->egress_data_format & RMNET_EGRESS_FORMAT_AGGREGATION) &&
 	    !non_linear_skb) {
+		if (rmnet_ul_aggregation_skip(skb, required_headroom))
+			return RMNET_MAP_SUCCESS;
+
 		rmnet_map_aggregate(skb, config);
 		return RMNET_MAP_CONSUMED;
 	}

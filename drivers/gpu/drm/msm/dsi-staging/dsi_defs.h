@@ -585,4 +585,16 @@ struct dsi_event_cb_info {
 		uint32_t data2, uint32_t data3);
 };
 
+/**
+ * enum dsi_error_status - various dsi errors
+ * @DSI_FIFO_OVERFLOW:     DSI FIFO Overflow error
+ * @DSI_FIFO_UNDERFLOW:    DSI FIFO Underflow error
+ * @DSI_LP_Rx_TIMEOUT:     DSI LP/RX Timeout error
+ */
+enum dsi_error_status {
+	DSI_FIFO_OVERFLOW = 1,
+	DSI_FIFO_UNDERFLOW,
+	DSI_LP_Rx_TIMEOUT,
+};
+
 #endif /* _DSI_DEFS_H_ */

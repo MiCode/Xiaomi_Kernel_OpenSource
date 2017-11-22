@@ -131,18 +131,19 @@ static int dsi_display_cmd_engine_enable(struct dsi_display *display)
 	int i;
 	struct dsi_display_ctrl *m_ctrl, *ctrl;
 
+	m_ctrl = &display->ctrl[display->cmd_master_idx];
+	mutex_lock(&m_ctrl->ctrl->ctrl_lock);
+
 	if (display->cmd_engine_refcount > 0) {
 		display->cmd_engine_refcount++;
-		return 0;
+		goto done;
 	}
-
-	m_ctrl = &display->ctrl[display->cmd_master_idx];
 
 	rc = dsi_ctrl_set_cmd_engine_state(m_ctrl->ctrl, DSI_CTRL_ENGINE_ON);
 	if (rc) {
 		pr_err("[%s] failed to enable cmd engine, rc=%d\n",
 		       display->name, rc);
-		goto error;
+		goto done;
 	}
 
 	for (i = 0; i < display->ctrl_count; i++) {
@@ -160,10 +161,11 @@ static int dsi_display_cmd_engine_enable(struct dsi_display *display)
 	}
 
 	display->cmd_engine_refcount++;
-	return rc;
+	goto done;
 error_disable_master:
 	(void)dsi_ctrl_set_cmd_engine_state(m_ctrl->ctrl, DSI_CTRL_ENGINE_OFF);
-error:
+done:
+	mutex_unlock(&m_ctrl->ctrl->ctrl_lock);
 	return rc;
 }
 
@@ -173,15 +175,17 @@ static int dsi_display_cmd_engine_disable(struct dsi_display *display)
 	int i;
 	struct dsi_display_ctrl *m_ctrl, *ctrl;
 
+	m_ctrl = &display->ctrl[display->cmd_master_idx];
+	mutex_lock(&m_ctrl->ctrl->ctrl_lock);
+
 	if (display->cmd_engine_refcount == 0) {
 		pr_err("[%s] Invalid refcount\n", display->name);
-		return 0;
+		goto done;
 	} else if (display->cmd_engine_refcount > 1) {
 		display->cmd_engine_refcount--;
-		return 0;
+		goto done;
 	}
 
-	m_ctrl = &display->ctrl[display->cmd_master_idx];
 	for (i = 0; i < display->ctrl_count; i++) {
 		ctrl = &display->ctrl[i];
 		if (!ctrl->ctrl || (ctrl == m_ctrl))
@@ -203,6 +207,8 @@ static int dsi_display_cmd_engine_disable(struct dsi_display *display)
 
 error:
 	display->cmd_engine_refcount = 0;
+done:
+	mutex_unlock(&m_ctrl->ctrl->ctrl_lock);
 	return rc;
 }
 
@@ -259,7 +265,11 @@ static int dsi_display_read_status(struct dsi_display_ctrl *ctrl,
 	lenp = config->status_valid_params ?: config->status_cmds_rlen;
 	count = config->status_cmd.count;
 	cmds = config->status_cmd.cmds;
-	flags = (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ);
+	if (cmds->last_command) {
+		cmds->msg.flags |= MIPI_DSI_MSG_LASTCOMMAND;
+		flags |= DSI_CTRL_CMD_LAST_COMMAND;
+	}
+	flags |= (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ);
 
 	for (i = 0; i < count; ++i) {
 		memset(config->status_buf, 0x0, SZ_4K);
@@ -372,7 +382,7 @@ int dsi_display_check_status(void *display)
 	struct dsi_display *dsi_display = display;
 	struct dsi_panel *panel;
 	u32 status_mode;
-	int rc = 0;
+	int rc = 0x1;
 
 	if (dsi_display == NULL)
 		return -EINVAL;
@@ -380,6 +390,14 @@ int dsi_display_check_status(void *display)
 	panel = dsi_display->panel;
 
 	status_mode = panel->esd_config.status_mode;
+
+	mutex_lock(&dsi_display->display_lock);
+
+	if (!panel->panel_initialized) {
+		pr_debug("Panel not initialized\n");
+		mutex_unlock(&dsi_display->display_lock);
+		return rc;
+	}
 
 	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
 		DSI_ALL_CLKS, DSI_CLK_ON);
@@ -397,6 +415,7 @@ int dsi_display_check_status(void *display)
 
 	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
 		DSI_ALL_CLKS, DSI_CLK_OFF);
+	mutex_unlock(&dsi_display->display_lock);
 
 	return rc;
 }
@@ -451,6 +470,32 @@ static void _dsi_display_setup_misr(struct dsi_display *display)
 				display->misr_enable,
 				display->misr_frame_count);
 	}
+}
+
+/**
+ * dsi_display_get_cont_splash_status - Get continuous splash status.
+ * @dsi_display:         DSI display handle.
+ *
+ * Return: boolean to signify whether continuous splash is enabled.
+ */
+static bool dsi_display_get_cont_splash_status(struct dsi_display *display)
+{
+	u32 val = 0;
+	int i;
+	struct dsi_display_ctrl *ctrl;
+	struct dsi_ctrl_hw *hw;
+
+	for (i = 0; i < display->ctrl_count ; i++) {
+		ctrl = &(display->ctrl[i]);
+		if (!ctrl || !ctrl->ctrl)
+			continue;
+
+		hw = &(ctrl->ctrl->hw);
+		val = hw->ops.get_cont_splash_status(hw);
+		if (!val)
+			return false;
+	}
+	return true;
 }
 
 int dsi_display_set_power(struct drm_connector *connector,
@@ -1037,6 +1082,13 @@ void dsi_display_enable_event(struct dsi_display *display,
 	case SDE_CONN_EVENT_CMD_DONE:
 		irq_status_idx = DSI_SINT_CMD_FRAME_DONE;
 		break;
+	case SDE_CONN_EVENT_VID_FIFO_OVERFLOW:
+	case SDE_CONN_EVENT_CMD_FIFO_UNDERFLOW:
+		if (event_info) {
+			for (i = 0; i < display->ctrl_count; i++)
+				display->ctrl[i].ctrl->recovery_cb =
+							*event_info;
+		}
 	default:
 		/* nothing to do */
 		pr_debug("[%s] unhandled event %d\n", display->name, event_idx);
@@ -1052,6 +1104,30 @@ void dsi_display_enable_event(struct dsi_display *display,
 		for (i = 0; i < display->ctrl_count; i++)
 			dsi_ctrl_disable_status_interrupt(
 					display->ctrl[i].ctrl, irq_status_idx);
+	}
+}
+
+/**
+ * dsi_config_host_engine_state_for_cont_splash()- update host engine state
+ *                                                 during continuous splash.
+ * @display: Handle to dsi display
+ *
+ */
+static void dsi_config_host_engine_state_for_cont_splash
+					(struct dsi_display *display)
+{
+	int i;
+	struct dsi_display_ctrl *ctrl;
+	enum dsi_engine_state host_state = DSI_CTRL_ENGINE_ON;
+
+	/* Sequence does not matter for split dsi usecases */
+	for (i = 0; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		if (!ctrl->ctrl)
+			continue;
+
+		dsi_ctrl_update_host_engine_state_for_cont_splash(ctrl->ctrl,
+							host_state);
 	}
 }
 
@@ -1452,7 +1528,8 @@ static int dsi_display_ctrl_init(struct dsi_display *display)
 
 	for (i = 0 ; i < display->ctrl_count; i++) {
 		ctrl = &display->ctrl[i];
-		rc = dsi_ctrl_host_init(ctrl->ctrl);
+		rc = dsi_ctrl_host_init(ctrl->ctrl,
+				display->is_cont_splash_enabled);
 		if (rc) {
 			pr_err("[%s] failed to init host_%d, rc=%d\n",
 			       display->name, i, rc);
@@ -1492,6 +1569,14 @@ static int dsi_display_ctrl_host_enable(struct dsi_display *display)
 	int rc = 0;
 	int i;
 	struct dsi_display_ctrl *m_ctrl, *ctrl;
+
+	/* Host engine states are already taken care for
+	 * continuous splash case
+	 */
+	if (display->is_cont_splash_enabled) {
+		pr_debug("cont splash enabled, host enable not required\n");
+		return 0;
+	}
 
 	m_ctrl = &display->ctrl[display->cmd_master_idx];
 
@@ -1631,7 +1716,8 @@ static int dsi_display_phy_enable(struct dsi_display *display)
 	rc = dsi_phy_enable(m_ctrl->phy,
 			    &display->config,
 			    m_src,
-			    true);
+			    true,
+			    display->is_cont_splash_enabled);
 	if (rc) {
 		pr_err("[%s] failed to enable DSI PHY, rc=%d\n",
 		       display->name, rc);
@@ -1646,7 +1732,8 @@ static int dsi_display_phy_enable(struct dsi_display *display)
 		rc = dsi_phy_enable(ctrl->phy,
 				    &display->config,
 				    DSI_PLL_SOURCE_NON_NATIVE,
-				    true);
+				    true,
+				    display->is_cont_splash_enabled);
 		if (rc) {
 			pr_err("[%s] failed to enable DSI PHY, rc=%d\n",
 			       display->name, rc);
@@ -1759,6 +1846,14 @@ static int dsi_display_phy_sw_reset(struct dsi_display *display)
 	int rc = 0;
 	int i;
 	struct dsi_display_ctrl *m_ctrl, *ctrl;
+
+	/* For continuous splash use case ctrl states are updated
+	 * separately and hence we do an early return
+	 */
+	if (display->is_cont_splash_enabled) {
+		pr_debug("cont splash enabled, phy sw reset not required\n");
+		return 0;
+	}
 
 	m_ctrl = &display->ctrl[display->cmd_master_idx];
 
@@ -2299,6 +2394,7 @@ int dsi_pre_clkon_cb(void *priv,
 		 *     not be changed during static screen.
 		 */
 
+	  pr_debug("updating power states for ctrl and phy\n");
 		rc = dsi_display_ctrl_power_on(display);
 		if (rc) {
 			pr_err("[%s] failed to power on dsi controllers, rc=%d\n",
@@ -3042,6 +3138,110 @@ static int _dsi_display_dev_deinit(struct dsi_display *display)
 }
 
 /**
+ * dsi_display_splash_res_init() - Initialize resources for continuous splash
+ * @display:    Pointer to dsi display
+ * Returns:     Zero on success
+ */
+static int dsi_display_splash_res_init(struct  dsi_display *display)
+{
+	int rc = 0;
+
+	/* Vote for gdsc required to read register address space */
+
+	display->cont_splash_client = sde_power_client_create(display->phandle,
+						"cont_splash_client");
+	rc = sde_power_resource_enable(display->phandle,
+			display->cont_splash_client, true);
+	if (rc) {
+		pr_err("failed to vote gdsc for continuous splash, rc=%d\n",
+							rc);
+		return -EINVAL;
+	}
+
+	/* Verify whether continuous splash is enabled or not */
+	display->is_cont_splash_enabled =
+		dsi_display_get_cont_splash_status(display);
+	if (!display->is_cont_splash_enabled) {
+		pr_err("Continuous splash is not enabled\n");
+		goto splash_disabled;
+	}
+
+	/* Update splash status for clock manager */
+	dsi_display_clk_mngr_update_splash_status(display->clk_mngr,
+				display->is_cont_splash_enabled);
+
+	/* Vote for Core clk and link clk. Votes on ctrl and phy
+	 * regulator are inplicit from  pre clk on callback
+	 */
+	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_ALL_CLKS, DSI_CLK_ON);
+	if (rc) {
+		pr_err("[%s] failed to enable DSI link clocks, rc=%d\n",
+		       display->name, rc);
+		goto clk_manager_update;
+	}
+
+	/* Vote on panel regulator will be removed during suspend path */
+	rc = dsi_pwr_enable_regulator(&display->panel->power_info, true);
+	if (rc) {
+		pr_err("[%s] failed to enable vregs, rc=%d\n",
+				display->panel->name, rc);
+		goto clks_disabled;
+	}
+
+	dsi_config_host_engine_state_for_cont_splash(display);
+
+	return rc;
+
+clks_disabled:
+	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_ALL_CLKS, DSI_CLK_OFF);
+
+clk_manager_update:
+	/* Update splash status for clock manager */
+	dsi_display_clk_mngr_update_splash_status(display->clk_mngr,
+				false);
+
+splash_disabled:
+	(void)sde_power_resource_enable(display->phandle,
+			display->cont_splash_client, false);
+	display->is_cont_splash_enabled = false;
+	return rc;
+}
+
+/**
+ * dsi_display_splash_res_cleanup() - cleanup for continuous splash
+ * @display:    Pointer to dsi display
+ * Returns:     Zero on success
+ */
+int dsi_display_splash_res_cleanup(struct  dsi_display *display)
+{
+	int rc = 0;
+
+	if (!display->is_cont_splash_enabled)
+		return 0;
+
+	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_ALL_CLKS, DSI_CLK_OFF);
+	if (rc)
+		pr_err("[%s] failed to disable DSI link clocks, rc=%d\n",
+		       display->name, rc);
+
+	rc = sde_power_resource_enable(display->phandle,
+			display->cont_splash_client, false);
+	if (rc)
+		pr_err("failed to remove vote on gdsc for continuous splash, rc=%d\n",
+				rc);
+
+	display->is_cont_splash_enabled = false;
+	/* Update splash status for clock manager */
+	dsi_display_clk_mngr_update_splash_status(display->clk_mngr,
+				display->is_cont_splash_enabled);
+
+	return rc;
+}
+
+/**
  * dsi_display_bind - bind dsi device with controlling device
  * @dev:        Pointer to base of platform device
  * @master:     Pointer to container of drm device
@@ -3127,6 +3327,7 @@ static int dsi_display_bind(struct device *dev,
 		}
 	}
 
+	display->phandle = &priv->phandle;
 	info.pre_clkoff_cb = dsi_pre_clkoff_cb;
 	info.pre_clkon_cb = dsi_pre_clkon_cb;
 	info.post_clkoff_cb = dsi_post_clkoff_cb;
@@ -3203,6 +3404,12 @@ static int dsi_display_bind(struct device *dev,
 
 	pr_info("Successfully bind display panel '%s'\n", display->name);
 	display->drm_dev = drm;
+
+	/* Initialize resources for continuous splash */
+	rc = dsi_display_splash_res_init(display);
+	if (rc)
+		pr_err("Continuous splash resource init failed, rc=%d\n", rc);
+
 	goto error;
 
 error_host_deinit:
@@ -4027,6 +4234,232 @@ error:
 	return rc;
 }
 
+static void dsi_display_handle_fifo_underflow(struct work_struct *work)
+{
+	struct dsi_display *display = NULL;
+
+	display =  container_of(work, struct dsi_display, fifo_underflow_work);
+	if (!display)
+		return;
+	pr_debug("handle DSI FIFO underflow error\n");
+
+	dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_ALL_CLKS, DSI_CLK_ON);
+	dsi_display_soft_reset(display);
+	dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_ALL_CLKS, DSI_CLK_OFF);
+}
+
+static void dsi_display_handle_fifo_overflow(struct work_struct *work)
+{
+	struct dsi_display *display = NULL;
+	struct dsi_display_ctrl *ctrl;
+	int i, rc;
+	int mask = BIT(20); /* clock lane */
+	int (*cb_func)(void *event_usr_ptr,
+		uint32_t event_idx, uint32_t instance_idx,
+		uint32_t data0, uint32_t data1,
+		uint32_t data2, uint32_t data3);
+	void *data;
+	u32 version = 0;
+
+	display =  container_of(work, struct dsi_display, fifo_overflow_work);
+	if (!display || !display->panel ||
+			(display->panel->panel_mode != DSI_OP_VIDEO_MODE))
+		return;
+
+	pr_debug("handle DSI FIFO overflow error\n");
+	dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_ALL_CLKS, DSI_CLK_ON);
+
+	/*
+	 * below recovery sequence is not applicable to
+	 * hw version 2.0.0, 2.1.0 and 2.2.0, so return early.
+	 */
+	ctrl = &display->ctrl[display->clk_master_idx];
+	version = dsi_ctrl_get_hw_version(ctrl->ctrl);
+	if (!version || (version < 0x20020001))
+		goto end;
+
+	/* reset ctrl and lanes */
+	for (i = 0 ; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		rc = dsi_ctrl_reset(ctrl->ctrl, mask);
+		rc = dsi_phy_lane_reset(ctrl->phy);
+	}
+
+	/* wait for display line count to be in active area */
+	ctrl = &display->ctrl[display->clk_master_idx];
+	if (ctrl->ctrl->recovery_cb.event_cb) {
+		cb_func = ctrl->ctrl->recovery_cb.event_cb;
+		data = ctrl->ctrl->recovery_cb.event_usr_ptr;
+		rc = cb_func(data, SDE_CONN_EVENT_VID_FIFO_OVERFLOW,
+				display->clk_master_idx, 0, 0, 0, 0);
+		if (rc < 0) {
+			pr_debug("sde callback failed\n");
+			goto end;
+		}
+	}
+
+	/* Enable Video mode for DSI controller */
+	for (i = 0 ; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		dsi_ctrl_vid_engine_en(ctrl->ctrl, true);
+	}
+	/*
+	 * Add sufficient delay to make sure
+	 * pixel transmission has started
+	 */
+	udelay(200);
+end:
+	dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_ALL_CLKS, DSI_CLK_OFF);
+}
+
+static void dsi_display_handle_lp_rx_timeout(struct work_struct *work)
+{
+	struct dsi_display *display = NULL;
+	struct dsi_display_ctrl *ctrl;
+	int i, rc;
+	int mask = (BIT(20) | (0xF << 16)); /* clock lane and 4 data lane */
+	int (*cb_func)(void *event_usr_ptr,
+		uint32_t event_idx, uint32_t instance_idx,
+		uint32_t data0, uint32_t data1,
+		uint32_t data2, uint32_t data3);
+	void *data;
+	u32 version = 0;
+
+	display =  container_of(work, struct dsi_display, fifo_overflow_work);
+	if (!display || (display->panel->panel_mode != DSI_OP_VIDEO_MODE))
+		return;
+	pr_debug("handle DSI LP RX Timeout error\n");
+
+	dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_ALL_CLKS, DSI_CLK_ON);
+
+	/*
+	 * below recovery sequence is not applicable to
+	 * hw version 2.0.0, 2.1.0 and 2.2.0, so return early.
+	 */
+	ctrl = &display->ctrl[display->clk_master_idx];
+	version = dsi_ctrl_get_hw_version(ctrl->ctrl);
+	if (!version || (version < 0x20020001))
+		goto end;
+
+	/* reset ctrl and lanes */
+	for (i = 0 ; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		rc = dsi_ctrl_reset(ctrl->ctrl, mask);
+		rc = dsi_phy_lane_reset(ctrl->phy);
+	}
+
+	ctrl = &display->ctrl[display->clk_master_idx];
+	if (ctrl->ctrl->recovery_cb.event_cb) {
+		cb_func = ctrl->ctrl->recovery_cb.event_cb;
+		data = ctrl->ctrl->recovery_cb.event_usr_ptr;
+		rc = cb_func(data, SDE_CONN_EVENT_VID_FIFO_OVERFLOW,
+				display->clk_master_idx, 0, 0, 0, 0);
+		if (rc < 0) {
+			pr_debug("Target is in suspend/shutdown\n");
+			goto end;
+		}
+	}
+
+	/* Enable Video mode for DSI controller */
+	for (i = 0 ; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		dsi_ctrl_vid_engine_en(ctrl->ctrl, true);
+	}
+
+	/*
+	 * Add sufficient delay to make sure
+	 * pixel transmission as started
+	 */
+	udelay(200);
+end:
+	dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_ALL_CLKS, DSI_CLK_OFF);
+}
+
+static int dsi_display_cb_error_handler(void *data,
+		uint32_t event_idx, uint32_t instance_idx,
+		uint32_t data0, uint32_t data1,
+		uint32_t data2, uint32_t data3)
+{
+	struct dsi_display *display =  data;
+
+	if (!display)
+		return -EINVAL;
+
+	switch (event_idx) {
+	case DSI_FIFO_UNDERFLOW:
+		queue_work(display->err_workq, &display->fifo_underflow_work);
+		break;
+	case DSI_FIFO_OVERFLOW:
+		queue_work(display->err_workq, &display->fifo_overflow_work);
+		break;
+	case DSI_LP_Rx_TIMEOUT:
+		queue_work(display->err_workq, &display->lp_rx_timeout_work);
+		break;
+	default:
+		pr_warn("unhandled error interrupt: %d\n", event_idx);
+		break;
+	}
+
+	return 0;
+}
+
+static void dsi_display_register_error_handler(struct dsi_display *display)
+{
+	int i = 0;
+	struct dsi_display_ctrl *ctrl;
+	struct dsi_event_cb_info event_info;
+
+	if (!display)
+		return;
+
+	display->err_workq = create_singlethread_workqueue("dsi_err_workq");
+	if (!display->err_workq) {
+		pr_err("failed to create dsi workq!\n");
+		return;
+	}
+
+	INIT_WORK(&display->fifo_underflow_work,
+				dsi_display_handle_fifo_underflow);
+	INIT_WORK(&display->fifo_overflow_work,
+				dsi_display_handle_fifo_overflow);
+	INIT_WORK(&display->lp_rx_timeout_work,
+				dsi_display_handle_lp_rx_timeout);
+
+	memset(&event_info, 0, sizeof(event_info));
+
+	event_info.event_cb = dsi_display_cb_error_handler;
+	event_info.event_usr_ptr = display;
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		ctrl->ctrl->irq_info.irq_err_cb = event_info;
+	}
+}
+
+static void dsi_display_unregister_error_handler(struct dsi_display *display)
+{
+	int i = 0;
+	struct dsi_display_ctrl *ctrl;
+
+	if (!display)
+		return;
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		memset(&ctrl->ctrl->irq_info.irq_err_cb,
+				0, sizeof(struct dsi_event_cb_info));
+	}
+
+	if (display->err_workq)
+		destroy_workqueue(display->err_workq);
+}
+
 int dsi_display_prepare(struct dsi_display *display)
 {
 	int rc = 0;
@@ -4056,11 +4489,18 @@ int dsi_display_prepare(struct dsi_display *display)
 		goto error;
 	}
 
-	rc = dsi_panel_pre_prepare(display->panel);
-	if (rc) {
-		pr_err("[%s] panel pre-prepare failed, rc=%d\n",
-		       display->name, rc);
-		goto error;
+	if (!display->is_cont_splash_enabled) {
+		/*
+		 * For continuous splash usecase we skip panel
+		 * pre prepare since the regulator vote is already
+		 * taken care in splash resource init
+		 */
+		rc = dsi_panel_pre_prepare(display->panel);
+		if (rc) {
+			pr_err("[%s] panel pre-prepare failed, rc=%d\n",
+					display->name, rc);
+			goto error;
+		}
 	}
 
 	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
@@ -4097,6 +4537,8 @@ int dsi_display_prepare(struct dsi_display *display)
 		       display->name, rc);
 		goto error_phy_disable;
 	}
+	/* Set up DSI ERROR event callback */
+	dsi_display_register_error_handler(display);
 
 	rc = dsi_display_ctrl_host_enable(display);
 	if (rc) {
@@ -4119,12 +4561,19 @@ int dsi_display_prepare(struct dsi_display *display)
 		goto error_ctrl_link_off;
 	}
 
-	rc = dsi_panel_prepare(display->panel);
-	if (rc) {
-		pr_err("[%s] panel prepare failed, rc=%d\n", display->name, rc);
-		goto error_ctrl_link_off;
+	if (!display->is_cont_splash_enabled) {
+		/*
+		 * For continuous splash usecase we skip panel
+		 * prepare since the pnael is already in
+		 * active state and panel on commands are not needed
+		 */
+		rc = dsi_panel_prepare(display->panel);
+		if (rc) {
+			pr_err("[%s] panel prepare failed, rc=%d\n",
+					display->name, rc);
+			goto error_ctrl_link_off;
+		}
 	}
-
 	goto error;
 
 error_ctrl_link_off:
@@ -4270,6 +4719,46 @@ int dsi_display_pre_kickoff(struct dsi_display *display,
 	return rc;
 }
 
+int dsi_display_config_ctrl_for_cont_splash(struct dsi_display *display)
+{
+	int rc = 0;
+
+	if (!display || !display->panel) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	if (!display->panel->cur_mode) {
+		pr_err("no valid mode set for the display");
+		return -EINVAL;
+	}
+
+	if (!display->is_cont_splash_enabled)
+		return 0;
+
+	if (display->config.panel_mode == DSI_OP_VIDEO_MODE) {
+		rc = dsi_display_vid_engine_enable(display);
+		if (rc) {
+			pr_err("[%s]failed to enable DSI video engine, rc=%d\n",
+			       display->name, rc);
+			goto error_out;
+		}
+	} else if (display->config.panel_mode == DSI_OP_CMD_MODE) {
+		rc = dsi_display_cmd_engine_enable(display);
+		if (rc) {
+			pr_err("[%s]failed to enable DSI cmd engine, rc=%d\n",
+			       display->name, rc);
+			goto error_out;
+		}
+	} else {
+		pr_err("[%s] Invalid configuration\n", display->name);
+		rc = -EINVAL;
+	}
+
+error_out:
+	return rc;
+}
+
 int dsi_display_enable(struct dsi_display *display)
 {
 	int rc = 0;
@@ -4283,6 +4772,25 @@ int dsi_display_enable(struct dsi_display *display)
 	if (!display->panel->cur_mode) {
 		pr_err("no valid mode set for the display");
 		return -EINVAL;
+	}
+
+	/* Engine states and panel states are populated during splash
+	 * resource init and hence we return early
+	 */
+	if (display->is_cont_splash_enabled) {
+
+		dsi_display_config_ctrl_for_cont_splash(display);
+
+		rc = dsi_display_splash_res_cleanup(display);
+		if (rc) {
+			pr_err("Continuous splash res cleanup failed, rc=%d\n",
+				rc);
+			return -EINVAL;
+		}
+
+		display->panel->panel_initialized = true;
+		pr_debug("cont splash enabled, display enable not required\n");
+		return 0;
 	}
 
 	mutex_lock(&display->display_lock);
@@ -4491,6 +4999,9 @@ int dsi_display_unprepare(struct dsi_display *display)
 	if (rc)
 		pr_err("[%s] failed to disable Link clocks, rc=%d\n",
 		       display->name, rc);
+
+	/* Free up DSI ERROR event callback */
+	dsi_display_unregister_error_handler(display);
 
 	rc = dsi_display_ctrl_deinit(display);
 	if (rc)

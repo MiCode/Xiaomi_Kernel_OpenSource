@@ -13,6 +13,7 @@
 
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
+#include <asm/arch_timer.h>
 
 #include <soc/qcom/rpmh.h>
 #include <soc/qcom/system_pm.h>

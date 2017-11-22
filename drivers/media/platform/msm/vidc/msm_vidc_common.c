@@ -2108,7 +2108,8 @@ static void handle_session_error(enum hal_command_response cmd, void *data)
 	}
 
 	hdev = inst->core->device;
-	dprintk(VIDC_WARN, "Session error received for session %pK\n", inst);
+	dprintk(VIDC_ERR, "Session error received for inst %pK session %x\n",
+		inst, hash32_ptr(inst->session));
 
 	if (response->status == VIDC_ERR_MAX_CLIENTS) {
 		dprintk(VIDC_WARN, "Too many clients, rejecting %pK", inst);
@@ -2131,6 +2132,8 @@ static void handle_session_error(enum hal_command_response cmd, void *data)
 		event = V4L2_EVENT_MSM_VIDC_SYS_ERROR;
 	}
 
+	/* change state before sending error to client */
+	change_inst_state(inst, MSM_VIDC_CORE_INVALID);
 	msm_vidc_queue_v4l2_event(inst, event);
 	put_inst(inst);
 }
@@ -2381,8 +2384,8 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 	empty_buf_done = (struct vidc_hal_ebd *)&response->input_done;
 	/* If this is internal EOS buffer, handle it in driver */
 	if (is_eos_buffer(inst, empty_buf_done->packet_buffer)) {
-		dprintk(VIDC_DBG, "Received EOS buffer %pK\n",
-			(void *)(u64)empty_buf_done->packet_buffer);
+		dprintk(VIDC_DBG, "Received EOS buffer 0x%x\n",
+			empty_buf_done->packet_buffer);
 		goto exit;
 	}
 
@@ -2794,7 +2797,8 @@ static int msm_comm_session_abort(struct msm_vidc_inst *inst)
 	hdev = inst->core->device;
 	abort_completion = SESSION_MSG_INDEX(HAL_SESSION_ABORT_DONE);
 
-	dprintk(VIDC_WARN, "%s: inst %pK\n", __func__, inst);
+	dprintk(VIDC_WARN, "%s: inst %pK session %x\n", __func__,
+		inst, hash32_ptr(inst->session));
 	rc = call_hfi_op(hdev, session_abort, (void *)inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -2806,8 +2810,8 @@ static int msm_comm_session_abort(struct msm_vidc_inst *inst)
 			msecs_to_jiffies(
 				inst->core->resources.msm_vidc_hw_rsp_timeout));
 	if (!rc) {
-		dprintk(VIDC_ERR, "%s: inst %pK abort timed out\n",
-				__func__, inst);
+		dprintk(VIDC_ERR, "%s: inst %pK session %x abort timed out\n",
+				__func__, inst, hash32_ptr(inst->session));
 		msm_comm_generate_sys_error(inst);
 		rc = -EBUSY;
 	} else {
@@ -3699,8 +3703,8 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 	if (inst->state == MSM_VIDC_CORE_INVALID) {
 		dprintk(VIDC_ERR, "%s: inst %pK is in invalid\n",
 			__func__, inst);
-		mutex_unlock(&inst->sync_lock);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto exit;
 	}
 
 	flipped_state = get_flipped_state(inst->state, state);
@@ -3781,6 +3785,8 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 		rc = -EINVAL;
 		break;
 	}
+
+exit:
 	mutex_unlock(&inst->sync_lock);
 
 	if (rc) {
@@ -3819,8 +3825,8 @@ int msm_vidc_send_pending_eos_buffers(struct msm_vidc_inst *inst)
 		data.timestamp = LLONG_MAX;
 		data.extradata_addr = data.device_addr;
 		data.extradata_size = 0;
-		dprintk(VIDC_DBG, "Queueing EOS buffer %pK\n",
-				(void *)(u64)data.device_addr);
+		dprintk(VIDC_DBG, "Queueing EOS buffer 0x%x\n",
+				data.device_addr);
 		hdev = inst->core->device;
 
 		rc = call_hfi_op(hdev, session_etb, inst->session,
@@ -4173,6 +4179,19 @@ int msm_comm_qbuf(struct msm_vidc_inst *inst, struct msm_vidc_buffer *mbuf)
 		(inst, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
 	output_count = (batch_mode ? &count_single_batch : &count_buffers)
 		(inst, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
+
+	if (!batch_mode && mbuf) {
+		/*
+		 * don't queue output_mplane buffers if buffer queued
+		 * by client is capture_mplane type and vice versa.
+		 */
+		if (mbuf->vvb.vb2_buf.type ==
+				V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+			output_count = 0;
+		else if (mbuf->vvb.vb2_buf.type ==
+				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+			capture_count = 0;
+	}
 
 	/*
 	 * Somewhat complicated logic to prevent queuing the buffer to hardware.
@@ -5026,6 +5045,9 @@ static void msm_comm_flush_in_invalid_state(struct msm_vidc_inst *inst)
 	enum vidc_ports ports[] = {OUTPUT_PORT, CAPTURE_PORT};
 	int c = 0;
 
+	/* before flush ensure venus released all buffers */
+	msm_comm_try_state(inst, MSM_VIDC_RELEASE_RESOURCES_DONE);
+
 	for (c = 0; c < ARRAY_SIZE(ports); ++c) {
 		enum vidc_ports port = ports[c];
 
@@ -5088,6 +5110,9 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 		return 0;
 	}
 
+	/* enable in flush */
+	inst->in_flush = true;
+
 	mutex_lock(&inst->registeredbufs.lock);
 	list_for_each_entry_safe(mbuf, next, &inst->registeredbufs.list, list) {
 		/* don't flush input buffers if input flush is not requested */
@@ -5127,9 +5152,6 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 		}
 	}
 	mutex_unlock(&inst->registeredbufs.lock);
-
-	/* enable in flush */
-	inst->in_flush = true;
 
 	hdev = inst->core->device;
 	if (ip_flush) {
@@ -5574,8 +5596,8 @@ int msm_comm_kill_session(struct msm_vidc_inst *inst)
 		return 0;
 	}
 
-	dprintk(VIDC_WARN, "%s: inst %pK, state %d\n", __func__,
-			inst, inst->state);
+	dprintk(VIDC_WARN, "%s: inst %pK, session %x state %d\n", __func__,
+			inst, hash32_ptr(inst->session), inst->state);
 	/*
 	 * We're internally forcibly killing the session, if fw is aware of
 	 * the session send session_abort to firmware to clean up and release
@@ -5586,8 +5608,9 @@ int msm_comm_kill_session(struct msm_vidc_inst *inst)
 			inst->state == MSM_VIDC_CORE_INVALID) {
 		rc = msm_comm_session_abort(inst);
 		if (rc) {
-			dprintk(VIDC_WARN, "%s: inst %pK abort failed\n",
-				__func__, inst);
+			dprintk(VIDC_ERR,
+				"%s: inst %pK session %x abort failed\n",
+				__func__, inst, hash32_ptr(inst->session));
 			change_inst_state(inst, MSM_VIDC_CORE_INVALID);
 		}
 	}
@@ -5595,7 +5618,8 @@ int msm_comm_kill_session(struct msm_vidc_inst *inst)
 	change_inst_state(inst, MSM_VIDC_CLOSE_DONE);
 	msm_comm_session_clean(inst);
 
-	dprintk(VIDC_WARN, "%s: inst %pK handled\n", __func__, inst);
+	dprintk(VIDC_WARN, "%s: inst %pK session %x handled\n", __func__,
+		inst, hash32_ptr(inst->session));
 	return rc;
 }
 
@@ -5883,8 +5907,8 @@ int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 		goto exit;
 	}
 
-	fps = USEC_PER_SEC;
-	do_div(fps, us_per_frame);
+	fps = us_per_frame > USEC_PER_SEC ?
+		0 : USEC_PER_SEC / (u32)us_per_frame;
 
 	if (fps % 15 == 14 || fps % 24 == 23)
 		fps = fps + 1;

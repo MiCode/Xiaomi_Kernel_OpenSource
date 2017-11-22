@@ -307,7 +307,7 @@ static inline int get_bufs_outside_fw(struct msm_vidc_inst *inst)
 			q = &inst->bufq[CAPTURE_PORT].vb2_bufq;
 			for (i = 0; i < q->num_buffers; i++) {
 				vb = q->bufs[i];
-				if (vb->state != VB2_BUF_STATE_ACTIVE &&
+				if (vb && vb->state != VB2_BUF_STATE_ACTIVE &&
 						vb->planes[0].bytesused)
 					fw_out_qsize++;
 			}
@@ -315,7 +315,7 @@ static inline int get_bufs_outside_fw(struct msm_vidc_inst *inst)
 			q = &inst->bufq[OUTPUT_PORT].vb2_bufq;
 			for (i = 0; i < q->num_buffers; i++) {
 				vb = q->bufs[i];
-				if (vb->state != VB2_BUF_STATE_ACTIVE)
+				if (vb && vb->state != VB2_BUF_STATE_ACTIVE)
 					fw_out_qsize++;
 			}
 		}

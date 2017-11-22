@@ -14,11 +14,13 @@
 #include <linux/dma-mapping.h>
 #include <linux/dma-mapping-fast.h>
 #include <linux/io-pgtable-fast.h>
+#include <linux/pci.h>
 #include <linux/vmalloc.h>
 #include <asm/cacheflush.h>
 #include <asm/dma-iommu.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
+#include <trace/events/iommu.h>
 
 #include <soc/qcom/secure_buffer.h>
 #include <linux/arm-smmu-errata.h>
@@ -309,13 +311,14 @@ static void __fast_smmu_free_iova(struct dma_fast_smmu_mapping *mapping,
 	unsigned long nbits;
 	unsigned long guard_len;
 
-	if (mapping->min_iova_align)
+	if (mapping->min_iova_align) {
 		guard_len = ALIGN(size, mapping->min_iova_align) - size;
-	else
+		iommu_unmap(mapping->domain, iova + size, guard_len);
+	} else {
 		guard_len = 0;
+	}
 	nbits = (size + guard_len) >> FAST_PAGE_SHIFT;
 
-	iommu_unmap(mapping->domain, iova + size, guard_len);
 
 	/*
 	 * We don't invalidate TLBs on unmap.  We invalidate TLBs on map
@@ -403,6 +406,8 @@ static dma_addr_t fast_smmu_map_page(struct device *dev, struct page *page,
 	fast_dmac_clean_range(mapping, pmd, pmd + nptes);
 
 	spin_unlock_irqrestore(&mapping->lock, flags);
+
+	trace_map(mapping->domain, iova, phys_to_map, len, prot);
 	return iova + offset_from_phys_to_map;
 
 fail_free_iova:
@@ -432,8 +437,10 @@ static void fast_smmu_unmap_page(struct device *dev, dma_addr_t iova,
 	spin_lock_irqsave(&mapping->lock, flags);
 	av8l_fast_unmap_public(pmd, len);
 	fast_dmac_clean_range(mapping, pmd, pmd + nptes);
-	__fast_smmu_free_iova(mapping, iova, len);
+	__fast_smmu_free_iova(mapping, iova - offset, len);
 	spin_unlock_irqrestore(&mapping->lock, flags);
+
+	trace_unmap(mapping->domain, iova - offset, len, len);
 }
 
 static void fast_smmu_sync_single_for_cpu(struct device *dev,
@@ -738,7 +745,7 @@ static void fast_smmu_dma_unmap_resource(
 
 	iommu_unmap(mapping->domain, addr - offset, len);
 	spin_lock_irqsave(&mapping->lock, flags);
-	__fast_smmu_free_iova(mapping, addr, len);
+	__fast_smmu_free_iova(mapping, addr - offset, len);
 	spin_unlock_irqrestore(&mapping->lock, flags);
 }
 

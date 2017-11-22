@@ -230,6 +230,8 @@ struct sde_connector_ops {
 enum sde_connector_events {
 	SDE_CONN_EVENT_VID_DONE, /* video mode frame done */
 	SDE_CONN_EVENT_CMD_DONE, /* command mode frame done */
+	SDE_CONN_EVENT_VID_FIFO_OVERFLOW, /* dsi fifo overflow error */
+	SDE_CONN_EVENT_CMD_FIFO_UNDERFLOW, /* dsi fifo underflow error */
 	SDE_CONN_EVENT_COUNT,
 };
 
@@ -237,9 +239,10 @@ enum sde_connector_events {
  * struct sde_connector_evt - local event registration entry structure
  * @cb_func: Pointer to desired callback function
  * @usr: User pointer to pass to callback on event trigger
+ * Returns: Zero success, negetive for failure
  */
 struct sde_connector_evt {
-	void (*cb_func)(uint32_t event_idx,
+	int (*cb_func)(uint32_t event_idx,
 			uint32_t instance_idx, void *usr,
 			uint32_t data0, uint32_t data1,
 			uint32_t data2, uint32_t data3);
@@ -266,6 +269,7 @@ struct sde_connector_evt {
  * @property_data: Array of private data for generic property handling
  * @blob_caps: Pointer to blob structure for 'capabilities' property
  * @blob_hdr: Pointer to blob structure for 'hdr_properties' property
+ * @blob_ext_hdr: Pointer to blob structure for 'ext_hdr_properties' property
  * @blob_dither: Pointer to blob structure for default dither config
  * @fb_kmap: true if kernel mapping of framebuffer is requested
  * @event_table: Array of registered events
@@ -298,6 +302,7 @@ struct sde_connector {
 	struct msm_property_data property_data[CONNECTOR_PROP_COUNT];
 	struct drm_property_blob *blob_caps;
 	struct drm_property_blob *blob_hdr;
+	struct drm_property_blob *blob_ext_hdr;
 	struct drm_property_blob *blob_dither;
 
 	bool fb_kmap;
@@ -357,6 +362,7 @@ struct sde_connector {
  * @rois: Regions of interest structure for mapping CRTC to Connector output
  * @property_blobs: blob properties
  * @mode_info: local copy of msm_mode_info struct
+ * @hdr_meta: HDR metadata info passed from userspace
  */
 struct sde_connector_state {
 	struct drm_connector_state base;
@@ -367,6 +373,7 @@ struct sde_connector_state {
 	struct msm_roi_list rois;
 	struct drm_property_blob *property_blobs[CONNECTOR_PROP_BLOBCOUNT];
 	struct msm_mode_info mode_info;
+	struct drm_msm_ext_hdr_metadata hdr_meta;
 };
 
 /**
@@ -536,7 +543,7 @@ int sde_connector_trigger_event(void *drm_connector,
  */
 int sde_connector_register_event(struct drm_connector *connector,
 		uint32_t event_idx,
-		void (*cb_func)(uint32_t event_idx,
+		int (*cb_func)(uint32_t event_idx,
 			uint32_t instance_idx, void *usr,
 			uint32_t data0, uint32_t data1,
 			uint32_t data2, uint32_t data3),
@@ -639,4 +646,9 @@ int sde_connector_helper_reset_custom_properties(
 int sde_connector_get_mode_info(struct drm_connector_state *conn_state,
 	struct msm_mode_info *mode_info);
 
+/**
+ * sde_conn_timeline_status - current buffer timeline status
+ * conn: Pointer to drm_connector struct
+ */
+void sde_conn_timeline_status(struct drm_connector *conn);
 #endif /* _SDE_CONNECTOR_H_ */

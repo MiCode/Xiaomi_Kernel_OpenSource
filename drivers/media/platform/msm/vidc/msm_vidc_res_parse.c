@@ -776,6 +776,8 @@ int read_platform_resources_from_drv_data(
 			"qcom,hw-resp-timeout");
 	res->non_fatal_pagefaults = find_key_value(platform_data,
 			"qcom,domain-attr-non-fatal-faults");
+	res->cache_pagetables = find_key_value(platform_data,
+			"qcom,domain-attr-cache-pagetables");
 
 	res->csc_coeff_data = &platform_data->csc_data;
 
@@ -901,14 +903,14 @@ static int get_secure_vmid(struct context_bank_info *cb)
 	return VMID_INVAL;
 }
 
-static int msm_vidc_setup_context_bank(struct context_bank_info *cb,
-		struct device *dev)
+static int msm_vidc_setup_context_bank(struct msm_vidc_platform_resources *res,
+		struct context_bank_info *cb, struct device *dev)
 {
 	int rc = 0;
 	int secure_vmid = VMID_INVAL;
 	struct bus_type *bus;
 
-	if (!dev || !cb) {
+	if (!dev || !cb || !res) {
 		dprintk(VIDC_ERR,
 			"%s: Invalid Input params\n", __func__);
 		return -EINVAL;
@@ -939,6 +941,19 @@ static int msm_vidc_setup_context_bank(struct context_bank_info *cb,
 					"%s - programming secure vmid failed: %s %d\n",
 					__func__, dev_name(dev), rc);
 			goto release_mapping;
+		}
+	}
+
+	if (res->cache_pagetables) {
+		int cache_pagetables = 1;
+
+		rc = iommu_domain_set_attr(cb->mapping->domain,
+			DOMAIN_ATTR_USE_UPSTREAM_HINT, &cache_pagetables);
+		if (rc) {
+			WARN_ONCE(rc,
+				"%s: failed to set cache pagetables attribute, %d\n",
+				__func__, rc);
+			rc = 0;
 		}
 	}
 
@@ -1055,7 +1070,7 @@ static int msm_vidc_populate_context_bank(struct device *dev,
 		cb->name, cb->addr_range.start,
 		cb->addr_range.size, cb->buffer_type);
 
-	rc = msm_vidc_setup_context_bank(cb, dev);
+	rc = msm_vidc_setup_context_bank(&core->resources, cb, dev);
 	if (rc) {
 		dprintk(VIDC_ERR, "Cannot setup context bank %d\n", rc);
 		goto err_setup_cb;
@@ -1167,7 +1182,7 @@ static int msm_vidc_populate_legacy_context_bank(
 			goto err_setup_cb;
 		}
 
-		rc = msm_vidc_setup_context_bank(cb, cb->dev);
+		rc = msm_vidc_setup_context_bank(res, cb, cb->dev);
 		if (rc) {
 			dprintk(VIDC_ERR, "Cannot setup context bank %d\n", rc);
 			goto err_setup_cb;

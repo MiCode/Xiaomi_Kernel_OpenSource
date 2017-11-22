@@ -568,7 +568,6 @@ struct dwc3_ep_events {
  * @started_list: list of started requests on this endpoint
  * @lock: spinlock for endpoint request queue traversal
  * @regs: pointer to first endpoint register
- * @trb_dma_pool: dma pool used to get aligned trb memory pool
  * @trb_pool: array of transaction buffers
  * @trb_pool_dma: dma address of @trb_pool
  * @num_trbs: num of trbs in the trb dma pool
@@ -600,7 +599,6 @@ struct dwc3_ep {
 	spinlock_t		lock;
 	void __iomem		*regs;
 
-	struct dma_pool		*trb_dma_pool;
 	struct dwc3_trb		*trb_pool;
 	dma_addr_t		trb_pool_dma;
 	u32			num_trbs;

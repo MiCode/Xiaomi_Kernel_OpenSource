@@ -149,11 +149,10 @@ static void service_locator_recv_msg(struct work_struct *work)
 
 	do {
 		pr_debug("Notified about a Receive event\n");
-		ret = qmi_recv_msg(service_locator.clnt_handle);
-		if (ret < 0)
-			pr_err("Error receiving message rc:%d. Retrying...\n",
-								ret);
-	} while (ret == 0);
+	} while ((ret = qmi_recv_msg(service_locator.clnt_handle)) == 0);
+
+	if (ret != -ENOMSG)
+		pr_err("Error receiving message rc:%d\n", ret);
 
 }
 
@@ -190,7 +189,7 @@ static int servreg_loc_send_msg(struct msg_desc *req_desc,
 	 */
 	rc = qmi_send_req_wait(service_locator.clnt_handle, req_desc, req,
 		sizeof(*req), resp_desc, resp, sizeof(*resp),
-		msecs_to_jiffies(QMI_SERVREG_LOC_SERVER_TIMEOUT));
+		QMI_SERVREG_LOC_SERVER_TIMEOUT);
 	if (rc < 0) {
 		pr_err("QMI send req failed for client %s, ret - %d\n",
 			pd->client_name, rc);

@@ -762,6 +762,10 @@ static int vco_10nm_prepare(struct clk_hw *hw)
 		return -EINVAL;
 	}
 
+	/* Skip vco recalculation for continuous splash use case */
+	if (pll->handoff_resources == true)
+		return 0;
+
 	rc = mdss_pll_resource_enable(pll, true);
 	if (rc) {
 		pr_err("failed to enable pll (%d) resource, rc=%d\n",
@@ -814,12 +818,28 @@ static unsigned long vco_10nm_recalc_rate(struct clk_hw *hw,
 	if (!vco->priv)
 		pr_err("vco priv is null\n");
 
+	/*
+	 * Calculate the vco rate from HW registers only for handoff cases.
+	 * For other cases where a vco_10nm_set_rate() has already been
+	 * called, just return the rate that was set earlier. This is due
+	 * to the fact that recalculating VCO rate requires us to read the
+	 * correct value of the pll_out_div divider clock, which is only set
+	 * afterwards.
+	 */
+	if (pll->vco_current_rate != 0) {
+		pr_debug("returning vco rate = %lld\n", pll->vco_current_rate);
+		return pll->vco_current_rate;
+	}
+
 	rc = mdss_pll_resource_enable(pll, true);
 	if (rc) {
 		pr_err("failed to enable pll(%d) resource, rc=%d\n",
 		       pll->index, rc);
 		return 0;
 	}
+
+	if (!dsi_pll_10nm_lock_status(pll))
+		pll->handoff_resources = true;
 
 	dec = MDSS_PLL_REG_R(pll->pll_base, PLL_DECIMAL_DIV_START_1);
 	dec &= 0xFF;

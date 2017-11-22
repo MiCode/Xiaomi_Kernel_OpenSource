@@ -363,12 +363,6 @@ static int dp_display_bind(struct device *dev, struct device *master,
 	dp->dp_display.drm_dev = drm;
 	priv = drm->dev_private;
 
-	rc = dp->parser->parse(dp->parser);
-	if (rc) {
-		pr_err("device tree parsing failed\n");
-		goto end;
-	}
-
 	rc = dp->aux->drm_aux_register(dp->aux);
 	if (rc) {
 		pr_err("DRM DP AUX register failed\n");
@@ -794,6 +788,12 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 		goto error_parser;
 	}
 
+	rc = dp->parser->parse(dp->parser);
+	if (rc) {
+		pr_err("device tree parsing failed\n");
+		goto error_catalog;
+	}
+
 	dp->catalog = dp_catalog_get(dev, &dp->parser->io);
 	if (IS_ERR(dp->catalog)) {
 		rc = PTR_ERR(dp->catalog);
@@ -1162,6 +1162,22 @@ static int dp_display_get_modes(struct dp_display *dp,
 	return ret;
 }
 
+
+static int dp_display_pre_kickoff(struct dp_display *dp_display,
+			struct drm_msm_ext_hdr_metadata *hdr)
+{
+	struct dp_display_private *dp;
+
+	if (!dp_display) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	dp = container_of(dp_display, struct dp_display_private, dp_display);
+
+	return dp->panel->setup_hdr(dp->panel, hdr);
+}
+
 static int dp_display_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -1203,6 +1219,7 @@ static int dp_display_probe(struct platform_device *pdev)
 	g_dp_display->request_irq   = dp_request_irq;
 	g_dp_display->get_debug     = dp_get_debug;
 	g_dp_display->send_hpd_event    = dp_display_send_hpd_event;
+	g_dp_display->pre_kickoff   = dp_display_pre_kickoff;
 
 	rc = component_add(&pdev->dev, &dp_display_comp_ops);
 	if (rc) {

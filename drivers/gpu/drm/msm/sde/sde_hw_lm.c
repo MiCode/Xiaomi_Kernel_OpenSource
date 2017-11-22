@@ -278,6 +278,43 @@ static void _setup_mixer_ops(struct sde_mdss_cfg *m,
 	}
 };
 
+#define CTL_BASE_OFFSET	0x2000
+#define CTL_TOP_LM_OFFSET(index, lm)	\
+	(CTL_BASE_OFFSET + (0x200 * index) + (lm * 0x4))
+
+int sde_get_ctl_lm_for_cont_splash(void __iomem *mmio, int max_lm_cnt,
+		u8 lm_cnt, u8 *lm_ids, struct ctl_top *top, int index)
+{
+	int j;
+	struct sde_splash_lm_hw *lm;
+
+	if (!mmio || !top || !lm_ids) {
+		SDE_ERROR("invalid input parameters\n");
+		return 0;
+	}
+
+	lm = top->lm;
+	for (j = 0; j < max_lm_cnt; j++) {
+		lm[top->ctl_lm_cnt].lm_reg_value = readl_relaxed(mmio
+			      + CTL_TOP_LM_OFFSET(index, j));
+		SDE_DEBUG("ctl[%d]_top --> lm[%d]=0x%x, j=%d\n",
+			index, top->ctl_lm_cnt,
+			lm[top->ctl_lm_cnt].lm_reg_value, j);
+		SDE_DEBUG("lm_cnt = %d\n", lm_cnt);
+		if (lm[top->ctl_lm_cnt].lm_reg_value) {
+			lm[top->ctl_lm_cnt].ctl_id = index;
+			lm_ids[lm_cnt++] = j + LM_0;
+			lm[top->ctl_lm_cnt].lm_id = j + LM_0;
+			SDE_DEBUG("ctl_id=%d, lm[%d].lm_id = %d\n",
+				lm[top->ctl_lm_cnt].ctl_id,
+				top->ctl_lm_cnt,
+				lm[top->ctl_lm_cnt].lm_id);
+			top->ctl_lm_cnt++;
+		}
+	}
+	return top->ctl_lm_cnt;
+}
+
 static struct sde_hw_blk_ops sde_hw_ops = {
 	.start = NULL,
 	.stop = NULL,

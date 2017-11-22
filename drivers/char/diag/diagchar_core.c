@@ -136,7 +136,6 @@ module_param(poolsize_qsc_usb, uint, 0000);
 
 /* This is the max number of user-space clients supported at initialization*/
 static unsigned int max_clients = 15;
-static unsigned int threshold_client_limit = 50;
 module_param(max_clients, uint, 0000);
 
 /* Timer variables */
@@ -324,7 +323,7 @@ static int diagchar_open(struct inode *inode, struct file *file)
 		if (i < driver->num_clients) {
 			diag_add_client(i, file);
 		} else {
-			if (i < threshold_client_limit) {
+			if (i < THRESHOLD_CLIENT_LIMIT) {
 				driver->num_clients++;
 				temp = krealloc(driver->client_map
 					, (driver->num_clients) * sizeof(struct
@@ -354,11 +353,17 @@ static int diagchar_open(struct inode *inode, struct file *file)
 			}
 		}
 		driver->data_ready[i] = 0x0;
+		atomic_set(&driver->data_ready_notif[i], 0);
 		driver->data_ready[i] |= MSG_MASKS_TYPE;
+		atomic_inc(&driver->data_ready_notif[i]);
 		driver->data_ready[i] |= EVENT_MASKS_TYPE;
+		atomic_inc(&driver->data_ready_notif[i]);
 		driver->data_ready[i] |= LOG_MASKS_TYPE;
+		atomic_inc(&driver->data_ready_notif[i]);
 		driver->data_ready[i] |= DCI_LOG_MASKS_TYPE;
+		atomic_inc(&driver->data_ready_notif[i]);
 		driver->data_ready[i] |= DCI_EVENT_MASKS_TYPE;
+		atomic_inc(&driver->data_ready_notif[i]);
 
 		if (driver->ref_count == 0)
 			diag_mempool_init();
@@ -395,24 +400,22 @@ static uint32_t diag_translate_kernel_to_user_mask(uint32_t peripheral_mask)
 		ret |= DIAG_CON_CDSP;
 	if (peripheral_mask & MD_PERIPHERAL_MASK(UPD_WLAN))
 		ret |= DIAG_CON_UPD_WLAN;
+	if (peripheral_mask & MD_PERIPHERAL_MASK(UPD_AUDIO))
+		ret |= DIAG_CON_UPD_AUDIO;
+	if (peripheral_mask & MD_PERIPHERAL_MASK(UPD_SENSORS))
+		ret |= DIAG_CON_UPD_SENSORS;
 	return ret;
 }
 
 uint8_t diag_mask_to_pd_value(uint32_t peripheral_mask)
 {
 	uint8_t upd = 0;
-	uint32_t pd_mask = 0;
 
-	pd_mask = diag_translate_kernel_to_user_mask(peripheral_mask);
-	switch (pd_mask) {
-	case DIAG_CON_UPD_WLAN:
-		upd = UPD_WLAN;
-		break;
-	default:
-		DIAG_LOG(DIAG_DEBUG_MASKS,
-		"asking for mask update with no pd mask set\n");
+	for (upd = UPD_WLAN; upd < NUM_MD_SESSIONS; upd++) {
+		if (peripheral_mask & (1 << upd))
+			return upd;
 	}
-	return upd;
+	return 0;
 }
 
 int diag_mask_param(void)
@@ -1619,18 +1622,19 @@ static uint32_t diag_translate_mask(uint32_t peripheral_mask)
 		ret |= (1 << PERIPHERAL_CDSP);
 	if (peripheral_mask & DIAG_CON_UPD_WLAN)
 		ret |= (1 << UPD_WLAN);
-
+	if (peripheral_mask & DIAG_CON_UPD_AUDIO)
+		ret |= (1 << UPD_AUDIO);
+	if (peripheral_mask & DIAG_CON_UPD_SENSORS)
+		ret |= (1 << UPD_SENSORS);
 	return ret;
 }
 
 static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 {
 	int new_mode, i = 0;
-	int curr_mode;
-	int err = 0;
-	uint8_t do_switch = 1;
-	uint32_t peripheral_mask = 0;
-	uint8_t peripheral, upd;
+	int curr_mode, err = 0;
+	uint8_t do_switch = 1, peripheral = 0;
+	uint32_t peripheral_mask = 0, pd_mask = 0;
 
 	if (!param)
 		return -EINVAL;
@@ -1642,30 +1646,42 @@ static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 	}
 
 	if (param->pd_mask) {
-		switch (param->pd_mask) {
-		case DIAG_CON_UPD_WLAN:
-			peripheral = PERIPHERAL_MODEM;
-			upd = UPD_WLAN;
-			break;
-		default:
+		pd_mask = diag_translate_mask(param->pd_mask);
+		for (i = UPD_WLAN; i < NUM_MD_SESSIONS; i++) {
+			if (pd_mask & (1 << i)) {
+				if (diag_search_diagid_by_pd(i, &param->diag_id,
+					&param->peripheral)) {
+					param->pd_val = i;
+					break;
+				}
+			}
+		}
+		if (!param->diag_id) {
 			DIAG_LOG(DIAG_DEBUG_USERSPACE,
-			"asking for mode switch with no pd mask set\n");
+			"diag_id support is not present for the pd mask = %d\n",
+			param->pd_mask);
 			return -EINVAL;
 		}
 
+		DIAG_LOG(DIAG_DEBUG_USERSPACE,
+			"diag: pd_mask = %d, diag_id = %d, peripheral = %d, pd_val = %d\n",
+			param->pd_mask, param->diag_id,
+			param->peripheral, param->pd_val);
+
+		peripheral = param->peripheral;
 		if (driver->md_session_map[peripheral] &&
 			(MD_PERIPHERAL_MASK(peripheral) &
 			diag_mux->mux_mask)) {
 			DIAG_LOG(DIAG_DEBUG_USERSPACE,
 			"diag_fr: User PD is already logging onto active peripheral logging\n");
-			i = upd - UPD_WLAN;
+			i = param->pd_val - UPD_WLAN;
 			driver->pd_session_clear[i] = 0;
 			return -EINVAL;
 		}
 		peripheral_mask =
 			diag_translate_mask(param->pd_mask);
 		param->peripheral_mask = peripheral_mask;
-		i = upd - UPD_WLAN;
+		i = param->pd_val - UPD_WLAN;
 		if (!driver->pd_session_clear[i]) {
 			driver->pd_logging_mode[i] = 1;
 			driver->num_pd_session += 1;
@@ -1834,6 +1850,7 @@ static int diag_ioctl_lsm_deinit(void)
 	}
 
 	driver->data_ready[i] |= DEINIT_TYPE;
+	atomic_inc(&driver->data_ready_notif[i]);
 	mutex_unlock(&driver->diagchar_mutex);
 	wake_up_interruptible(&driver->wait_q);
 
@@ -2020,11 +2037,126 @@ static int diag_ioctl_hdlc_toggle(unsigned long ioarg)
 	return 0;
 }
 
+/*
+ * diag_search_peripheral_by_pd(uint8_t pd_val)
+ *
+ * Function will return peripheral by searching pd in the
+ * diag_id table.
+ *
+ */
+
+int diag_search_peripheral_by_pd(uint8_t pd_val)
+{
+	struct list_head *start;
+	struct list_head *temp;
+	struct diag_id_tbl_t *item = NULL;
+
+	mutex_lock(&driver->diag_id_mutex);
+	list_for_each_safe(start, temp, &driver->diag_id_list) {
+		item = list_entry(start, struct diag_id_tbl_t, link);
+		if (pd_val == item->pd_val) {
+			mutex_unlock(&driver->diag_id_mutex);
+			return item->peripheral;
+		}
+	}
+	mutex_unlock(&driver->diag_id_mutex);
+	return -EINVAL;
+}
+
+/*
+ * diag_search_diagid_by_pd(uint8_t pd_val,
+ *	uint8_t *diag_id, int *peripheral)
+ *
+ * Function will update the peripheral and diag_id
+ * from the pd passed as an argument.
+ *
+ */
+
+uint8_t diag_search_diagid_by_pd(uint8_t pd_val,
+	uint8_t *diag_id, int *peripheral)
+{
+	struct list_head *start;
+	struct list_head *temp;
+	struct diag_id_tbl_t *item = NULL;
+
+	mutex_lock(&driver->diag_id_mutex);
+	list_for_each_safe(start, temp, &driver->diag_id_list) {
+		item = list_entry(start, struct diag_id_tbl_t, link);
+		if (pd_val == item->pd_val) {
+			*peripheral = item->peripheral;
+			*diag_id = item->diag_id;
+			mutex_unlock(&driver->diag_id_mutex);
+			return 1;
+		}
+	}
+	mutex_unlock(&driver->diag_id_mutex);
+	return 0;
+}
+
+/*
+ * diag_query_pd_name(char *process_name, char *search_str)
+ *
+ * The function searches the pd string in the control packet string
+ * from the peripheral
+ *
+ */
+
+static int diag_query_pd_name(char *process_name, char *search_str)
+{
+	if (!process_name)
+		return -EINVAL;
+
+	if (strnstr(process_name, search_str, strlen(process_name)))
+		return 1;
+
+	return 0;
+}
+
+/*
+ * diag_query_pd_name(char *process_name, char *search_str)
+ *
+ * The function returns the PD information based on the presence of
+ * the pd specific string in the control packet's string from peripheral.
+ *
+ */
+
+int diag_query_pd(char *process_name)
+{
+	if (!process_name)
+		return -EINVAL;
+
+	if (diag_query_pd_name(process_name, "modem/root_pd"))
+		return PERIPHERAL_MODEM;
+	if (diag_query_pd_name(process_name, "adsp/root_pd"))
+		return PERIPHERAL_LPASS;
+	if (diag_query_pd_name(process_name, "slpi/root_pd"))
+		return PERIPHERAL_SENSORS;
+	if (diag_query_pd_name(process_name, "cdsp/root_pd"))
+		return PERIPHERAL_CDSP;
+	if (diag_query_pd_name(process_name, "wlan_pd"))
+		return UPD_WLAN;
+	if (diag_query_pd_name(process_name, "audio_pd"))
+		return UPD_AUDIO;
+	if (diag_query_pd_name(process_name, "sensor_pd"))
+		return UPD_SENSORS;
+
+	return -EINVAL;
+}
+
+/*
+ * diag_ioctl_query_pd_logging(struct diag_logging_mode_param_t *param)
+ *
+ * IOCTL handler based on the parameter received will check on which peripheral
+ * the PD is present and validate if the peripheral supports the diag_id and
+ * tagging feature.
+ *
+ */
+
 static int diag_ioctl_query_pd_logging(struct diag_logging_mode_param_t *param)
 {
-	int ret = -EINVAL;
-	int peripheral;
-	char *p_str = NULL;
+	int ret = -EINVAL, i = 0;
+	int peripheral = -EINVAL;
+	uint32_t pd_mask = 0;
 
 	if (!param)
 		return -EINVAL;
@@ -2035,17 +2167,21 @@ static int diag_ioctl_query_pd_logging(struct diag_logging_mode_param_t *param)
 		return -EINVAL;
 	}
 
-	switch (param->pd_mask) {
-	case DIAG_CON_UPD_WLAN:
-		peripheral = PERIPHERAL_MODEM;
-		p_str = "MODEM";
-		break;
-	default:
-		DIAG_LOG(DIAG_DEBUG_USERSPACE,
-		"Invalid pd mask, returning EINVAL\n");
-		return -EINVAL;
+	if (param->pd_mask) {
+		pd_mask = diag_translate_mask(param->pd_mask);
+		for (i = UPD_WLAN; i < NUM_MD_SESSIONS; i++) {
+			if (pd_mask & (1 << i)) {
+				peripheral = diag_search_peripheral_by_pd(i);
+				break;
+			}
+		}
+		if (peripheral < 0) {
+			DIAG_LOG(DIAG_DEBUG_USERSPACE,
+			"diag_id support is not present for the pd mask = %d\n",
+			param->pd_mask);
+			return -EINVAL;
+		}
 	}
-
 	mutex_lock(&driver->diag_cntl_mutex);
 	DIAG_LOG(DIAG_DEBUG_USERSPACE,
 	"diag: %s: Untagging support on APPS is %s\n", __func__,
@@ -2053,8 +2189,8 @@ static int diag_ioctl_query_pd_logging(struct diag_logging_mode_param_t *param)
 	"present" : "absent"));
 
 	DIAG_LOG(DIAG_DEBUG_USERSPACE,
-	"diag: %s: Tagging support on %s is %s\n",
-	__func__, p_str,
+	"diag: %s: Tagging support on peripheral = %d is %s\n",
+	__func__, peripheral,
 	(driver->feature[peripheral].untag_header ?
 	"present" : "absent"));
 
@@ -2966,16 +3102,6 @@ static int diag_user_process_apps_data(const char __user *buf, int len,
 	return 0;
 }
 
-static int check_data_ready(int index)
-{
-	int data_type = 0;
-
-	mutex_lock(&driver->diagchar_mutex);
-	data_type = driver->data_ready[index];
-	mutex_unlock(&driver->diagchar_mutex);
-	return data_type;
-}
-
 static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 			  loff_t *ppos)
 {
@@ -3002,7 +3128,8 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		pr_err("diag: bad address from user side\n");
 		return -EFAULT;
 	}
-	wait_event_interruptible(driver->wait_q, (check_data_ready(index)) > 0);
+	wait_event_interruptible(driver->wait_q,
+			atomic_read(&driver->data_ready_notif[index]) > 0);
 
 	mutex_lock(&driver->diagchar_mutex);
 
@@ -3013,6 +3140,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		/*Copy the type of data being passed*/
 		data_type = driver->data_ready[index] & USER_SPACE_DATA_TYPE;
 		driver->data_ready[index] ^= USER_SPACE_DATA_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
 		COPY_USER_SPACE_OR_ERR(buf, data_type, sizeof(int));
 		if (ret == -EFAULT)
 			goto exit;
@@ -3029,11 +3157,13 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		 * memory device any more, the condition needs to be cleared.
 		 */
 		driver->data_ready[index] ^= USER_SPACE_DATA_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
 	}
 
 	if (driver->data_ready[index] & HDLC_SUPPORT_TYPE) {
 		data_type = driver->data_ready[index] & HDLC_SUPPORT_TYPE;
 		driver->data_ready[index] ^= HDLC_SUPPORT_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
 		COPY_USER_SPACE_OR_ERR(buf, data_type, sizeof(int));
 		if (ret == -EFAULT)
 			goto exit;
@@ -3058,6 +3188,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		if (ret == -EFAULT)
 			goto exit;
 		driver->data_ready[index] ^= DEINIT_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
 		mutex_unlock(&driver->diagchar_mutex);
 		diag_remove_client_entry(file);
 		return ret;
@@ -3075,6 +3206,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		if (write_len > 0)
 			ret += write_len;
 		driver->data_ready[index] ^= MSG_MASKS_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
 		goto exit;
 	}
 
@@ -3101,6 +3233,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 				goto exit;
 		}
 		driver->data_ready[index] ^= EVENT_MASKS_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
 		goto exit;
 	}
 
@@ -3117,6 +3250,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		if (write_len > 0)
 			ret += write_len;
 		driver->data_ready[index] ^= LOG_MASKS_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
 		goto exit;
 	}
 
@@ -3133,6 +3267,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		if (ret == -EFAULT)
 			goto exit;
 		driver->data_ready[index] ^= PKT_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
 		driver->in_busy_pktdata = 0;
 		goto exit;
 	}
@@ -3150,6 +3285,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 			goto exit;
 
 		driver->data_ready[index] ^= DCI_PKT_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
 		driver->in_busy_dcipktdata = 0;
 		goto exit;
 	}
@@ -3171,6 +3307,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 			goto exit;
 
 		driver->data_ready[index] ^= DCI_EVENT_MASKS_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
 		goto exit;
 	}
 
@@ -3190,6 +3327,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		if (ret == -EFAULT)
 			goto exit;
 		driver->data_ready[index] ^= DCI_LOG_MASKS_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
 		goto exit;
 	}
 
@@ -3221,6 +3359,7 @@ exit:
 			exit_stat = diag_copy_dci(buf, count, entry, &ret);
 			mutex_lock(&driver->diagchar_mutex);
 			driver->data_ready[index] ^= DCI_DATA_TYPE;
+			atomic_dec(&driver->data_ready_notif[index]);
 			mutex_unlock(&driver->diagchar_mutex);
 			if (exit_stat == 1) {
 				mutex_unlock(&driver->dci_mutex);
@@ -3742,7 +3881,7 @@ static int __init diagchar_init(void)
 		goto fail;
 	mutex_init(&driver->diag_id_mutex);
 	INIT_LIST_HEAD(&driver->diag_id_list);
-	diag_add_diag_id_to_list(DIAG_ID_APPS, "APPS");
+	diag_add_diag_id_to_list(DIAG_ID_APPS, "APPS", APPS_DATA, APPS_DATA);
 	pr_debug("diagchar initialized now");
 	ret = diagfwd_bridge_init();
 	if (ret)

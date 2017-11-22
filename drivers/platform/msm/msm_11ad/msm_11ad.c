@@ -126,6 +126,7 @@ struct msm11ad_ctx {
 	struct cpumask boost_cpu;
 
 	bool keep_radio_on_during_sleep;
+	int features;
 };
 
 static LIST_HEAD(dev_list);
@@ -1444,9 +1445,19 @@ static int ops_notify(void *handle, enum wil_platform_event evt)
 		break;
 	case WIL_PLATFORM_EVT_PRE_RESET:
 		/*
-		 * TODO: Enable rf_clk3 clock before resetting the device to
-		 * ensure stable ref clock during the device reset
+		 * Enable rf_clk3 clock before resetting the device to ensure
+		 * stable ref clock during the device reset
 		 */
+		if (ctx->features &
+		    BIT(WIL_PLATFORM_FEATURE_FW_EXT_CLK_CONTROL)) {
+			rc = msm_11ad_enable_clk(ctx, &ctx->rf_clk3);
+			if (rc) {
+				dev_err(ctx->dev,
+					"failed to enable clk, rc %d\n", rc);
+				break;
+			}
+		}
+
 		/* Re-enable L1 in case it was enabled in enumeration */
 		if (ctx->l1_enabled_in_enum) {
 			rc = msm_11ad_ctrl_aspm_l1(ctx, true);
@@ -1457,9 +1468,12 @@ static int ops_notify(void *handle, enum wil_platform_event evt)
 		break;
 	case WIL_PLATFORM_EVT_FW_RDY:
 		/*
-		 * TODO: Disable rf_clk3 clock after the device is up to allow
+		 * Disable rf_clk3 clock after the device is up to allow
 		 * the device to control it via its GPIO for power saving
 		 */
+		if (ctx->features &
+		    BIT(WIL_PLATFORM_FEATURE_FW_EXT_CLK_CONTROL))
+			msm_11ad_disable_clk(ctx, &ctx->rf_clk3);
 		break;
 	default:
 		pr_debug("%s: Unhandled event %d\n", __func__, evt);
@@ -1469,14 +1483,28 @@ static int ops_notify(void *handle, enum wil_platform_event evt)
 	return rc;
 }
 
-static bool ops_keep_radio_on_during_sleep(void *handle)
+static int ops_get_capa(void *handle)
 {
 	struct msm11ad_ctx *ctx = (struct msm11ad_ctx *)handle;
+	int capa;
 
 	pr_debug("%s: keep radio on during sleep is %s\n", __func__,
 		 ctx->keep_radio_on_during_sleep ? "allowed" : "not allowed");
 
-	return ctx->keep_radio_on_during_sleep;
+	capa = (ctx->keep_radio_on_during_sleep ?
+			BIT(WIL_PLATFORM_CAPA_RADIO_ON_IN_SUSPEND) : 0) |
+		BIT(WIL_PLATFORM_CAPA_T_PWR_ON_0) |
+		BIT(WIL_PLATFORM_CAPA_EXT_CLK);
+
+	return capa;
+}
+
+static void ops_set_features(void *handle, int features)
+{
+	struct msm11ad_ctx *ctx = (struct msm11ad_ctx *)handle;
+
+	pr_debug("%s: features 0x%x\n", __func__, features);
+	ctx->features = features;
 }
 
 void *msm_11ad_dev_init(struct device *dev, struct wil_platform_ops *ops,
@@ -1518,7 +1546,8 @@ void *msm_11ad_dev_init(struct device *dev, struct wil_platform_ops *ops,
 	ops->resume = ops_resume;
 	ops->uninit = ops_uninit;
 	ops->notify = ops_notify;
-	ops->keep_radio_on_during_sleep = ops_keep_radio_on_during_sleep;
+	ops->get_capa = ops_get_capa;
+	ops->set_features = ops_set_features;
 
 	return ctx;
 }
