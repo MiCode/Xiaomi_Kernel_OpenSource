@@ -1,0 +1,176 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
+
+/* Stub regulators */
+/ {
+	pmxpoorwills_s1: regualtor-pmxpoorwills-s1 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxpoorwills_s1";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <752000>;
+		regulator-max-microvolt = <752000>;
+	};
+
+	pmxpoorwills_s4: regualtor-pmxpoorwills-s4 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxpoorwills_s4";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	/* VDD CX supply */
+	pmxpoorwills_s5_level: regualtor-pmxpoorwills-s5-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxpoorwills_s5_level";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_OFF>;
+		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+	};
+
+	pmxpoorwills_s5_level_ao: regualtor-pmxpoorwills-s5-level-ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxpoorwills_s5_level_ao";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_OFF>;
+		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+	};
+
+	pmxpoorwills_l1: regualtor-pmxpoorwills-11 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxpoorwills_l1";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+	};
+
+	pmxpoorwills_l2: regualtor-pmxpoorwills-12 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxpoorwills_l2";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1128000>;
+		regulator-max-microvolt = <1128000>;
+	};
+
+	pmxpoorwills_l3: regualtor-pmxpoorwills-l3 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxpoorwills_l3";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <800000>;
+	};
+
+	pmxpoorwills_l4: regualtor-pmxpoorwills-l4 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxpoorwills_l4";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <872000>;
+		regulator-max-microvolt = <872000>;
+	};
+
+	pmxpoorwills_l5: regualtor-pmxpoorwills-l5 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxpoorwills_l5";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	pmxpoorwills_l7: regualtor-pmxpoorwills-l7 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxpoorwills_l7";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <2950000>;
+	};
+
+	pmxpoorwills_l8: regualtor-pmxpoorwills-l8 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxpoorwills_l8";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <800000>;
+	};
+
+	/* VDD MX supply */
+	pmxpoorwills_l9_level: regualtor-pmxpoorwills-l9-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxpoorwills_l9_level";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_OFF>;
+		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+	};
+
+	pmxpoorwills_l9_level_ao: regualtor-pmxpoorwills-l9-level_ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxpoorwills_l9_level_ao";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_OFF>;
+		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+	};
+
+	pmxpoorwills_l10: regualtor-pmxpoorwills-l10 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxpoorwills_l10";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <3088000>;
+		regulator-max-microvolt = <3088000>;
+	};
+
+	pmxpoorwills_l11: regualtor-pmxpoorwills-l11 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxpoorwills_l11";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1808000>;
+		regulator-max-microvolt = <2848000>;
+	};
+
+	pmxpoorwills_l12: regualtor-pmxpoorwills-l12 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxpoorwills_l12";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <2704000>;
+		regulator-max-microvolt = <2704000>;
+	};
+
+	pmxpoorwills_l13: regualtor-pmxpoorwills-l13 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxpoorwills_l13";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1808000>;
+		regulator-max-microvolt = <2848000>;
+	};
+
+	pmxpoorwills_l14: regualtor-pmxpoorwills-l14 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxpoorwills_l14";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <620000>;
+		regulator-max-microvolt = <752000>;
+	};
+
+	pmxpoorwills_l16: regualtor-pmxpoorwills-l16 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmxpoorwills_l16";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <752000>;
+		regulator-max-microvolt = <752000>;
+	};
+
+	 /* VREF_RGMII */
+	vreg_rgmii: rgmii-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_rgmii";
+	};
+};

@@ -23,6 +23,30 @@
 	qcom,board-id = <15 0>;
 };
 
+&soc {
+	/* Delete rpmh regulators */
+	/delete-node/ rpmh-regulator-modemlvl;
+	/delete-node/ rpmh-regulator-smpa4;
+	/delete-node/ rpmh-regulator-cxlvl;
+	/delete-node/ rpmh-regulator-ldoa1;
+	/delete-node/ rpmh-regulator-ldoa2;
+	/delete-node/ rpmh-regulator-ldoa3;
+	/delete-node/ rpmh-regulator-ldoa4;
+	/delete-node/ rpmh-regulator-ldoa5;
+	/delete-node/ rpmh-regulator-ldoa7;
+	/delete-node/ rpmh-regulator-ldoa8;
+	/delete-node/ rpmh-regulator-mxlvl;
+	/delete-node/ rpmh-regulator-ldoa10;
+	/delete-node/ rpmh-regulator-ldoa11;
+	/delete-node/ rpmh-regulator-ldoa12;
+	/delete-node/ rpmh-regulator-ldoa13;
+	/delete-node/ rpmh-regulator-ldoa14;
+	/delete-node/ rpmh-regulator-ldoa16;
+	/delete-node/ rpmh-regulator-rgmii;
+};
+
+#include "sdxpoorwills-stub-regulator.dtsi"
+
 &blsp1_uart2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart2_console_active>;
