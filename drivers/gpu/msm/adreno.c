@@ -17,6 +17,7 @@
 #include <linux/of_device.h>
 #include <linux/delay.h>
 #include <linux/input.h>
+#include <linux/io.h>
 #include <soc/qcom/scm.h>
 
 #include <linux/msm-bus-board.h>
@@ -36,6 +37,7 @@
 #include "adreno_trace.h"
 
 #include "a3xx_reg.h"
+#include "a6xx_reg.h"
 #include "adreno_snapshot.h"
 
 /* Include the master list of GPU cores that are supported */
@@ -611,6 +613,7 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 	struct adreno_irq *irq_params = gpudev->irq;
 	irqreturn_t ret = IRQ_NONE;
 	unsigned int status = 0, fence = 0, fence_retries = 0, tmp, int_bit;
+	unsigned int status_retries = 0;
 	int i;
 
 	atomic_inc(&adreno_dev->pending_irq_refcnt);
@@ -648,6 +651,32 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 	}
 
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS, &status);
+
+	/*
+	 * Read status again to make sure the bits aren't transitory.
+	 * Transitory bits mean that they are spurious interrupts and are
+	 * seen while preemption is on going. Empirical experiments have
+	 * shown that the transitory bits are a timing thing and they
+	 * go away in the small time window between two or three consecutive
+	 * reads. If they don't go away, log the message and return.
+	 */
+	while (status_retries < STATUS_RETRY_MAX) {
+		unsigned int new_status;
+
+		adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS,
+			&new_status);
+
+		if (status == new_status)
+			break;
+
+		status = new_status;
+		status_retries++;
+	}
+
+	if (status_retries == STATUS_RETRY_MAX) {
+		KGSL_DRV_CRIT_RATELIMIT(device, "STATUS bits are not stable\n");
+			return ret;
+	}
 
 	/*
 	 * Clear all the interrupt bits but ADRENO_INT_RBBM_AHB_ERROR. Because
@@ -1033,6 +1062,28 @@ adreno_ocmem_free(struct adreno_device *adreno_dev)
 }
 #endif
 
+static void adreno_cx_dbgc_probe(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct resource *res;
+
+	res = platform_get_resource_byname(device->pdev, IORESOURCE_MEM,
+					   "kgsl_3d0_cx_dbgc_memory");
+
+	if (res == NULL)
+		return;
+
+	adreno_dev->cx_dbgc_base = res->start - device->reg_phys;
+	adreno_dev->cx_dbgc_len = resource_size(res);
+	adreno_dev->cx_dbgc_virt = devm_ioremap(device->dev,
+					device->reg_phys +
+						adreno_dev->cx_dbgc_base,
+					adreno_dev->cx_dbgc_len);
+
+	if (adreno_dev->cx_dbgc_virt == NULL)
+		KGSL_DRV_WARN(device, "cx_dbgc ioremap failed\n");
+}
+
 static int adreno_probe(struct platform_device *pdev)
 {
 	struct kgsl_device *device;
@@ -1082,6 +1133,9 @@ static int adreno_probe(struct platform_device *pdev)
 		device->pdev = NULL;
 		return status;
 	}
+
+	/* Probe for the optional CX_DBGC block */
+	adreno_cx_dbgc_probe(device);
 
 	/*
 	 * qcom,iommu-secure-id is used to identify MMUs that can handle secure
@@ -1600,26 +1654,104 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 			}
 		}
 
-		/* VBIF DDR cycles */
-		if (adreno_dev->ram_cycles_lo == 0) {
-			ret = adreno_perfcounter_get(adreno_dev,
-				KGSL_PERFCOUNTER_GROUP_VBIF,
-				VBIF_AXI_TOTAL_BEATS,
-				&adreno_dev->ram_cycles_lo, NULL,
-				PERFCOUNTER_FLAG_KERNEL);
+		if (adreno_has_gbif(adreno_dev)) {
+			if (adreno_dev->starved_ram_lo_ch1 == 0) {
+				ret = adreno_perfcounter_get(adreno_dev,
+					KGSL_PERFCOUNTER_GROUP_VBIF_PWR, 1,
+					&adreno_dev->starved_ram_lo_ch1, NULL,
+					PERFCOUNTER_FLAG_KERNEL);
 
-			if (ret) {
-				KGSL_DRV_ERR(device,
-					"Unable to get perf counters for bus DCVS\n");
-				adreno_dev->ram_cycles_lo = 0;
+				if (ret) {
+					KGSL_DRV_ERR(device,
+						"Unable to get perf counters for bus DCVS\n");
+					adreno_dev->starved_ram_lo_ch1 = 0;
+				}
+			}
+
+			if (adreno_dev->ram_cycles_lo == 0) {
+				ret = adreno_perfcounter_get(adreno_dev,
+					KGSL_PERFCOUNTER_GROUP_VBIF,
+					GBIF_AXI0_READ_DATA_TOTAL_BEATS,
+					&adreno_dev->ram_cycles_lo, NULL,
+					PERFCOUNTER_FLAG_KERNEL);
+
+				if (ret) {
+					KGSL_DRV_ERR(device,
+						"Unable to get perf counters for bus DCVS\n");
+					adreno_dev->ram_cycles_lo = 0;
+				}
+			}
+
+			if (adreno_dev->ram_cycles_lo_ch1_read == 0) {
+				ret = adreno_perfcounter_get(adreno_dev,
+					KGSL_PERFCOUNTER_GROUP_VBIF,
+					GBIF_AXI1_READ_DATA_TOTAL_BEATS,
+					&adreno_dev->ram_cycles_lo_ch1_read,
+					NULL,
+					PERFCOUNTER_FLAG_KERNEL);
+
+				if (ret) {
+					KGSL_DRV_ERR(device,
+						"Unable to get perf counters for bus DCVS\n");
+					adreno_dev->ram_cycles_lo_ch1_read = 0;
+				}
+			}
+
+			if (adreno_dev->ram_cycles_lo_ch0_write == 0) {
+				ret = adreno_perfcounter_get(adreno_dev,
+					KGSL_PERFCOUNTER_GROUP_VBIF,
+					GBIF_AXI0_WRITE_DATA_TOTAL_BEATS,
+					&adreno_dev->ram_cycles_lo_ch0_write,
+					NULL,
+					PERFCOUNTER_FLAG_KERNEL);
+
+				if (ret) {
+					KGSL_DRV_ERR(device,
+						"Unable to get perf counters for bus DCVS\n");
+					adreno_dev->ram_cycles_lo_ch0_write = 0;
+				}
+			}
+
+			if (adreno_dev->ram_cycles_lo_ch1_write == 0) {
+				ret = adreno_perfcounter_get(adreno_dev,
+					KGSL_PERFCOUNTER_GROUP_VBIF,
+					GBIF_AXI1_WRITE_DATA_TOTAL_BEATS,
+					&adreno_dev->ram_cycles_lo_ch1_write,
+					NULL,
+					PERFCOUNTER_FLAG_KERNEL);
+
+				if (ret) {
+					KGSL_DRV_ERR(device,
+						"Unable to get perf counters for bus DCVS\n");
+					adreno_dev->ram_cycles_lo_ch1_write = 0;
+				}
+			}
+		} else {
+			/* VBIF DDR cycles */
+			if (adreno_dev->ram_cycles_lo == 0) {
+				ret = adreno_perfcounter_get(adreno_dev,
+					KGSL_PERFCOUNTER_GROUP_VBIF,
+					VBIF_AXI_TOTAL_BEATS,
+					&adreno_dev->ram_cycles_lo, NULL,
+					PERFCOUNTER_FLAG_KERNEL);
+
+				if (ret) {
+					KGSL_DRV_ERR(device,
+						"Unable to get perf counters for bus DCVS\n");
+					adreno_dev->ram_cycles_lo = 0;
+				}
 			}
 		}
 	}
 
 	/* Clear the busy_data stats - we're starting over from scratch */
 	adreno_dev->busy_data.gpu_busy = 0;
-	adreno_dev->busy_data.vbif_ram_cycles = 0;
-	adreno_dev->busy_data.vbif_starved_ram = 0;
+	adreno_dev->busy_data.bif_ram_cycles = 0;
+	adreno_dev->busy_data.bif_ram_cycles_read_ch1 = 0;
+	adreno_dev->busy_data.bif_ram_cycles_write_ch0 = 0;
+	adreno_dev->busy_data.bif_ram_cycles_write_ch1 = 0;
+	adreno_dev->busy_data.bif_starved_ram = 0;
+	adreno_dev->busy_data.bif_starved_ram_ch1 = 0;
 
 	/* Restore performance counter registers with saved values */
 	adreno_perfcounter_restore(adreno_dev);
@@ -2453,8 +2585,12 @@ int adreno_soft_reset(struct kgsl_device *device)
 
 	/* Clear the busy_data stats - we're starting over from scratch */
 	adreno_dev->busy_data.gpu_busy = 0;
-	adreno_dev->busy_data.vbif_ram_cycles = 0;
-	adreno_dev->busy_data.vbif_starved_ram = 0;
+	adreno_dev->busy_data.bif_ram_cycles = 0;
+	adreno_dev->busy_data.bif_ram_cycles_read_ch1 = 0;
+	adreno_dev->busy_data.bif_ram_cycles_write_ch0 = 0;
+	adreno_dev->busy_data.bif_ram_cycles_write_ch1 = 0;
+	adreno_dev->busy_data.bif_starved_ram = 0;
+	adreno_dev->busy_data.bif_starved_ram_ch1 = 0;
 
 	/* Set the page table back to the default page table */
 	adreno_ringbuffer_set_global(adreno_dev, 0);
@@ -2792,6 +2928,56 @@ static void adreno_gmu_regread(struct kgsl_device *device,
 	rmb();
 }
 
+bool adreno_is_cx_dbgc_register(struct kgsl_device *device,
+		unsigned int offsetwords)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	return adreno_dev->cx_dbgc_virt &&
+		(offsetwords >= (adreno_dev->cx_dbgc_base >> 2)) &&
+		(offsetwords < (adreno_dev->cx_dbgc_base +
+				adreno_dev->cx_dbgc_len) >> 2);
+}
+
+void adreno_cx_dbgc_regread(struct kgsl_device *device,
+	unsigned int offsetwords, unsigned int *value)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	unsigned int cx_dbgc_offset;
+
+	if (!adreno_is_cx_dbgc_register(device, offsetwords))
+		return;
+
+	cx_dbgc_offset = (offsetwords << 2) - adreno_dev->cx_dbgc_base;
+	*value = __raw_readl(adreno_dev->cx_dbgc_virt + cx_dbgc_offset);
+
+	/*
+	 * ensure this read finishes before the next one.
+	 * i.e. act like normal readl()
+	 */
+	rmb();
+}
+
+void adreno_cx_dbgc_regwrite(struct kgsl_device *device,
+	unsigned int offsetwords, unsigned int value)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	unsigned int cx_dbgc_offset;
+
+	if (!adreno_is_cx_dbgc_register(device, offsetwords))
+		return;
+
+	cx_dbgc_offset = (offsetwords << 2) - adreno_dev->cx_dbgc_base;
+	trace_kgsl_regwrite(device, offsetwords, value);
+
+	/*
+	 * ensure previous writes post before this one,
+	 * i.e. act like normal writel()
+	 */
+	wmb();
+	__raw_writel(value, adreno_dev->cx_dbgc_virt + cx_dbgc_offset);
+}
+
 /**
  * adreno_waittimestamp - sleep while waiting for the specified timestamp
  * @device - pointer to a KGSL device structure
@@ -2970,7 +3156,8 @@ static void adreno_power_stats(struct kgsl_device *device,
 
 		if (adreno_is_a6xx(adreno_dev)) {
 			/* clock sourced from XO */
-			stats->busy_time = gpu_busy * 10 / 192;
+			stats->busy_time = gpu_busy * 10;
+			do_div(stats->busy_time, 192);
 		} else {
 			/* clock sourced from GFX3D */
 			stats->busy_time = adreno_ticks_to_us(gpu_busy,
@@ -2984,12 +3171,36 @@ static void adreno_power_stats(struct kgsl_device *device,
 		if (adreno_dev->ram_cycles_lo != 0)
 			ram_cycles = counter_delta(device,
 				adreno_dev->ram_cycles_lo,
-				&busy->vbif_ram_cycles);
+				&busy->bif_ram_cycles);
+
+		if (adreno_has_gbif(adreno_dev)) {
+			if (adreno_dev->ram_cycles_lo_ch1_read != 0)
+				ram_cycles += counter_delta(device,
+					adreno_dev->ram_cycles_lo_ch1_read,
+					&busy->bif_ram_cycles_read_ch1);
+
+			if (adreno_dev->ram_cycles_lo_ch0_write != 0)
+				ram_cycles += counter_delta(device,
+					adreno_dev->ram_cycles_lo_ch0_write,
+					&busy->bif_ram_cycles_write_ch0);
+
+			if (adreno_dev->ram_cycles_lo_ch1_write != 0)
+				ram_cycles += counter_delta(device,
+					adreno_dev->ram_cycles_lo_ch1_write,
+					&busy->bif_ram_cycles_write_ch1);
+		}
 
 		if (adreno_dev->starved_ram_lo != 0)
 			starved_ram = counter_delta(device,
 				adreno_dev->starved_ram_lo,
-				&busy->vbif_starved_ram);
+				&busy->bif_starved_ram);
+
+		if (adreno_has_gbif(adreno_dev)) {
+			if (adreno_dev->starved_ram_lo_ch1 != 0)
+				starved_ram += counter_delta(device,
+					adreno_dev->starved_ram_lo_ch1,
+					&busy->bif_starved_ram_ch1);
+		}
 
 		stats->ram_time = ram_cycles;
 		stats->ram_wait = starved_ram;

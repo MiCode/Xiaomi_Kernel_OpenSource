@@ -845,7 +845,7 @@ static bool is_debug_batt_id(struct fg_chip *chip)
 {
 	int debug_batt_id[2], rc;
 
-	if (!chip->batt_id_ohms)
+	if (chip->batt_id_ohms < 0)
 		return false;
 
 	rc = fg_get_debug_batt_id(chip, debug_batt_id);
@@ -2733,6 +2733,49 @@ static bool is_profile_load_required(struct fg_chip *chip)
 	return true;
 }
 
+static void fg_update_batt_profile(struct fg_chip *chip)
+{
+	int rc, offset;
+	u8 val;
+
+	rc = fg_sram_read(chip, PROFILE_INTEGRITY_WORD,
+			SW_CONFIG_OFFSET, &val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in reading SW_CONFIG_OFFSET, rc=%d\n", rc);
+		return;
+	}
+
+	/*
+	 * If the RCONN had not been updated, no need to update battery
+	 * profile. Else, update the battery profile so that the profile
+	 * modified by bootloader or HLOS matches with the profile read
+	 * from device tree.
+	 */
+
+	if (!(val & RCONN_CONFIG_BIT))
+		return;
+
+	rc = fg_sram_read(chip, ESR_RSLOW_CHG_WORD,
+			ESR_RSLOW_CHG_OFFSET, &val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in reading ESR_RSLOW_CHG_OFFSET, rc=%d\n", rc);
+		return;
+	}
+	offset = (ESR_RSLOW_CHG_WORD - PROFILE_LOAD_WORD) * 4
+			+ ESR_RSLOW_CHG_OFFSET;
+	chip->batt_profile[offset] = val;
+
+	rc = fg_sram_read(chip, ESR_RSLOW_DISCHG_WORD,
+			ESR_RSLOW_DISCHG_OFFSET, &val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in reading ESR_RSLOW_DISCHG_OFFSET, rc=%d\n", rc);
+		return;
+	}
+	offset = (ESR_RSLOW_DISCHG_WORD - PROFILE_LOAD_WORD) * 4
+			+ ESR_RSLOW_DISCHG_OFFSET;
+	chip->batt_profile[offset] = val;
+}
+
 static void clear_battery_profile(struct fg_chip *chip)
 {
 	u8 val = 0;
@@ -2790,6 +2833,16 @@ out:
 	return rc;
 }
 
+static void pl_enable_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work,
+				struct fg_chip,
+				pl_enable_work.work);
+
+	vote(chip->pl_disable_votable, ESR_FCC_VOTER, false, 0);
+	vote(chip->awake_votable, ESR_FCC_VOTER, false, 0);
+}
+
 static void profile_load_work(struct work_struct *work)
 {
 	struct fg_chip *chip = container_of(work,
@@ -2815,6 +2868,8 @@ static void profile_load_work(struct work_struct *work)
 
 	if (!chip->profile_available)
 		goto out;
+
+	fg_update_batt_profile(chip);
 
 	if (!is_profile_load_required(chip))
 		goto done;
@@ -2877,12 +2932,18 @@ done:
 				rc);
 	}
 
+	rc = fg_rconn_config(chip);
+	if (rc < 0)
+		pr_err("Error in configuring Rconn, rc=%d\n", rc);
+
 	batt_psy_initialized(chip);
 	fg_notify_charger(chip);
 	chip->profile_loaded = true;
 	fg_dbg(chip, FG_STATUS, "profile loaded successfully");
 out:
 	chip->soc_reporting_ready = true;
+	vote(chip->awake_votable, ESR_FCC_VOTER, true, 0);
+	schedule_delayed_work(&chip->pl_enable_work, msecs_to_jiffies(5000));
 	vote(chip->awake_votable, PROFILE_LOAD, false, 0);
 }
 
@@ -4071,12 +4132,6 @@ static int fg_hw_init(struct fg_chip *chip)
 		return rc;
 	}
 
-	rc = fg_rconn_config(chip);
-	if (rc < 0) {
-		pr_err("Error in configuring Rconn, rc=%d\n", rc);
-		return rc;
-	}
-
 	fg_encode(chip->sp, FG_SRAM_ESR_TIGHT_FILTER,
 		chip->dt.esr_tight_flt_upct, buf);
 	rc = fg_sram_write(chip, chip->sp[FG_SRAM_ESR_TIGHT_FILTER].addr_word,
@@ -4249,6 +4304,9 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 		chip->profile_available = false;
 		chip->profile_loaded = false;
 		chip->soc_reporting_ready = false;
+		chip->batt_id_ohms = -EINVAL;
+		cancel_delayed_work_sync(&chip->pl_enable_work);
+		vote(chip->pl_disable_votable, ESR_FCC_VOTER, true, 0);
 		return IRQ_HANDLED;
 	}
 
@@ -5072,6 +5130,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	chip->prev_charge_status = -EINVAL;
 	chip->ki_coeff_full_soc = -EINVAL;
 	chip->online_status = -EINVAL;
+	chip->batt_id_ohms = -EINVAL;
 	chip->regmap = dev_get_regmap(chip->dev->parent, NULL);
 	if (!chip->regmap) {
 		dev_err(chip->dev, "Parent regmap is unavailable\n");
@@ -5101,6 +5160,12 @@ static int fg_gen3_probe(struct platform_device *pdev)
 			chip->die_temp_chan = NULL;
 			return rc;
 		}
+	}
+
+	chip->pl_disable_votable = find_votable("PL_DISABLE");
+	if (chip->pl_disable_votable == NULL) {
+		rc = -EPROBE_DEFER;
+		goto exit;
 	}
 
 	chip->awake_votable = create_votable("FG_WS", VOTE_SET_ANY, fg_awake_cb,
@@ -5147,6 +5212,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	init_completion(&chip->soc_ready);
 	init_completion(&chip->mem_grant);
 	INIT_DELAYED_WORK(&chip->profile_load_work, profile_load_work);
+	INIT_DELAYED_WORK(&chip->pl_enable_work, pl_enable_work);
 	INIT_WORK(&chip->status_change_work, status_change_work);
 	INIT_DELAYED_WORK(&chip->ttf_work, ttf_work);
 	INIT_DELAYED_WORK(&chip->sram_dump_work, sram_dump_work);
@@ -5219,8 +5285,8 @@ static int fg_gen3_probe(struct platform_device *pdev)
 		rc = fg_get_battery_temp(chip, &batt_temp);
 
 	if (!rc) {
-		pr_info("battery SOC:%d voltage: %duV temp: %d id: %dKOhms\n",
-			msoc, volt_uv, batt_temp, chip->batt_id_ohms / 1000);
+		pr_info("battery SOC:%d voltage: %duV temp: %d\n",
+				msoc, volt_uv, batt_temp);
 		rc = fg_esr_filter_config(chip, batt_temp);
 		if (rc < 0)
 			pr_err("Error in configuring ESR filter rc:%d\n", rc);

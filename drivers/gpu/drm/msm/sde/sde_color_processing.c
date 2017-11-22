@@ -1016,8 +1016,10 @@ int sde_cp_crtc_set_property(struct drm_crtc *crtc,
 		}
 	}
 
-	if (!found)
+	if (!found) {
+		ret = -ENOENT;
 		goto exit;
+	}
 
 	/**
 	 * sde_crtc is virtual ensure that hardware has been attached to the

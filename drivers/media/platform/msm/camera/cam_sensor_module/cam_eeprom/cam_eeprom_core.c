@@ -657,6 +657,7 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 	struct cam_packet              *csl_packet = NULL;
 	struct cam_eeprom_soc_private  *soc_private =
 		(struct cam_eeprom_soc_private *)e_ctrl->soc_info.soc_private;
+	struct cam_sensor_power_ctrl_t *power_info = &soc_private->power_info;
 
 	ioctl_ctrl = (struct cam_control *)arg;
 
@@ -701,7 +702,7 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 			e_ctrl->cal_data.num_map = 0;
 			CAM_DBG(CAM_EEPROM,
 				"Returning the data using kernel probe");
-		break;
+			break;
 		}
 		rc = cam_eeprom_init_pkt_parser(e_ctrl, csl_packet);
 		if (rc) {
@@ -750,16 +751,21 @@ power_down:
 memdata_free:
 	kfree(e_ctrl->cal_data.mapdata);
 error:
+	kfree(power_info->power_setting);
+	kfree(power_info->power_down_setting);
 	kfree(e_ctrl->cal_data.map);
 	e_ctrl->cal_data.num_data = 0;
 	e_ctrl->cal_data.num_map = 0;
-	e_ctrl->cam_eeprom_state = CAM_EEPROM_ACQUIRE;
+	e_ctrl->cam_eeprom_state = CAM_EEPROM_INIT;
 	return rc;
 }
 
 void cam_eeprom_shutdown(struct cam_eeprom_ctrl_t *e_ctrl)
 {
 	int rc;
+	struct cam_eeprom_soc_private  *soc_private =
+		(struct cam_eeprom_soc_private *)e_ctrl->soc_info.soc_private;
+	struct cam_sensor_power_ctrl_t *power_info = &soc_private->power_info;
 
 	if (e_ctrl->cam_eeprom_state == CAM_EEPROM_INIT)
 		return;
@@ -779,6 +785,9 @@ void cam_eeprom_shutdown(struct cam_eeprom_ctrl_t *e_ctrl)
 		e_ctrl->bridge_intf.device_hdl = -1;
 		e_ctrl->bridge_intf.link_hdl = -1;
 		e_ctrl->bridge_intf.session_hdl = -1;
+
+		kfree(power_info->power_setting);
+		kfree(power_info->power_down_setting);
 	}
 
 	e_ctrl->cam_eeprom_state = CAM_EEPROM_INIT;

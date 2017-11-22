@@ -69,10 +69,10 @@ struct cam_ife_hw_mgr_res {
 
 
 /**
- * struct ctx_base_info - base hardware information for the context
+ * struct ctx_base_info - Base hardware information for the context
  *
  * @idx:                 Base resource index
- * @split_id:            split info for the base resource
+ * @split_id:            Split info for the base resource
  *
  */
 struct ctx_base_info {
@@ -85,11 +85,13 @@ struct ctx_base_info {
  *
  * @dentry:              Debugfs entry
  * @csid_debug:          csid debug information
+ * @enable_recovery      enable recovery
  *
  */
 struct cam_ife_hw_mgr_debug {
-	struct dentry                  *dentry;
-	uint64_t                        csid_debug;
+	struct dentry  *dentry;
+	uint64_t       csid_debug;
+	uint32_t       enable_recovery;
 };
 
 /**
@@ -171,6 +173,7 @@ struct cam_ife_hw_mgr_ctx {
  * @ife_csid_dev_caps      csid device capability stored per core
  * @ife_dev_caps           ife device capability per core
  * @work q                 work queue for IFE hw manager
+ * @debug_cfg              debug configuration
  */
 struct cam_ife_hw_mgr {
 	struct cam_isp_hw_mgr          mgr_common;
@@ -179,6 +182,7 @@ struct cam_ife_hw_mgr {
 	struct cam_soc_reg_map        *cdm_reg_map[CAM_IFE_HW_NUM_MAX];
 
 	struct mutex                   ctx_mutex;
+	atomic_t                       active_ctx_cnt;
 	struct list_head               free_ctx_list;
 	struct list_head               used_ctx_list;
 	struct cam_ife_hw_mgr_ctx      ctx_pool[CAM_CTX_MAX];
@@ -186,8 +190,8 @@ struct cam_ife_hw_mgr {
 	struct cam_ife_csid_hw_caps    ife_csid_dev_caps[
 						CAM_IFE_CSID_HW_NUM_MAX];
 	struct cam_vfe_hw_get_hw_cap   ife_dev_caps[CAM_IFE_HW_NUM_MAX];
-	struct cam_req_mgr_core_workq  *workq;
-	struct cam_ife_hw_mgr_debug     debug_cfg;
+	struct cam_req_mgr_core_workq *workq;
+	struct cam_ife_hw_mgr_debug    debug_cfg;
 };
 
 /**

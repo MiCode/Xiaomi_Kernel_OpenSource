@@ -14,6 +14,7 @@
 
 #include "cam_sensor_cmn_header.h"
 #include "cam_flash_core.h"
+#include "cam_res_mgr_api.h"
 
 int cam_flash_prepare(struct cam_flash_ctrl *flash_ctrl,
 	enum cam_flash_state state)
@@ -152,7 +153,8 @@ static int cam_flash_ops(struct cam_flash_ctrl *flash_ctrl,
 
 				CAM_DBG(CAM_FLASH,
 					"Led_Current[%d] = %d", i, curr);
-				led_trigger_event(flash_ctrl->torch_trigger[i],
+				cam_res_mgr_led_trigger_event(
+					flash_ctrl->torch_trigger[i],
 					curr);
 			}
 		}
@@ -169,7 +171,8 @@ static int cam_flash_ops(struct cam_flash_ctrl *flash_ctrl,
 
 				CAM_DBG(CAM_FLASH, "LED flash_current[%d]: %d",
 					i, curr);
-				led_trigger_event(flash_ctrl->flash_trigger[i],
+				cam_res_mgr_led_trigger_event(
+					flash_ctrl->flash_trigger[i],
 					curr);
 			}
 		}
@@ -179,7 +182,9 @@ static int cam_flash_ops(struct cam_flash_ctrl *flash_ctrl,
 	}
 
 	if (flash_ctrl->switch_trigger)
-		led_trigger_event(flash_ctrl->switch_trigger, LED_SWITCH_ON);
+		cam_res_mgr_led_trigger_event(
+			flash_ctrl->switch_trigger,
+			LED_SWITCH_ON);
 
 	return 0;
 }
@@ -195,16 +200,18 @@ int cam_flash_off(struct cam_flash_ctrl *flash_ctrl)
 
 	for (i = 0; i < flash_ctrl->flash_num_sources; i++)
 		if (flash_ctrl->flash_trigger[i])
-			led_trigger_event(flash_ctrl->flash_trigger[i],
+			cam_res_mgr_led_trigger_event(
+				flash_ctrl->flash_trigger[i],
 				LED_OFF);
 
 	for (i = 0; i < flash_ctrl->torch_num_sources; i++)
 		if (flash_ctrl->torch_trigger[i])
-			led_trigger_event(flash_ctrl->torch_trigger[i],
+			cam_res_mgr_led_trigger_event(
+				flash_ctrl->torch_trigger[i],
 				LED_OFF);
 
 	if (flash_ctrl->switch_trigger)
-		led_trigger_event(flash_ctrl->switch_trigger,
+		cam_res_mgr_led_trigger_event(flash_ctrl->switch_trigger,
 			LED_SWITCH_OFF);
 
 	flash_ctrl->flash_state = CAM_FLASH_STATE_START;
@@ -224,7 +231,8 @@ static int cam_flash_low(
 
 	for (i = 0; i < flash_ctrl->flash_num_sources; i++)
 		if (flash_ctrl->flash_trigger[i])
-			led_trigger_event(flash_ctrl->flash_trigger[i],
+			cam_res_mgr_led_trigger_event(
+				flash_ctrl->flash_trigger[i],
 				LED_OFF);
 
 	rc = cam_flash_ops(flash_ctrl, flash_data,
@@ -248,7 +256,8 @@ static int cam_flash_high(
 
 	for (i = 0; i < flash_ctrl->torch_num_sources; i++)
 		if (flash_ctrl->torch_trigger[i])
-			led_trigger_event(flash_ctrl->torch_trigger[i],
+			cam_res_mgr_led_trigger_event(
+				flash_ctrl->torch_trigger[i],
 				LED_OFF);
 
 	rc = cam_flash_ops(flash_ctrl, flash_data,

@@ -289,7 +289,7 @@ struct cci_write_async {
 irqreturn_t cam_cci_irq(int irq_num, void *data);
 
 #ifdef CONFIG_SPECTRA_CAMERA
-struct v4l2_subdev *cam_cci_get_subdev(void);
+extern struct v4l2_subdev *cam_cci_get_subdev(void);
 #else
 static inline struct v4l2_subdev *cam_cci_get_subdev(void)
 {

@@ -602,6 +602,7 @@
 				     <13 32>;
 		qcom,cmb-elem-size = <3 64>,
 				     <7 64>,
+				     <9 64>,
 				     <13 64>;
 
 		clocks = <&clock_aop QDSS_CLK>;
@@ -674,6 +675,15 @@
 			};
 
 			port@7 {
+				reg = <9>;
+				tpda_in_tpdm_prng: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&tpdm_prng_out_tpda>;
+				};
+			};
+
+			port@8 {
 				reg = <10>;
 				tpda_in_tpdm_qm: endpoint {
 					slave-mode;
@@ -682,7 +692,7 @@
 				};
 			};
 
-			port@8 {
+			port@9 {
 				reg = <11>;
 				tpda_in_tpdm_north: endpoint {
 					slave-mode;
@@ -691,7 +701,7 @@
 				};
 			};
 
-			port@9 {
+			port@10 {
 				reg = <13>;
 				tpda_in_tpdm_pimem: endpoint {
 					slave-mode;
@@ -1329,6 +1339,24 @@
 		};
 	};
 
+	tpdm_prng: tpdm@684c000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b968>;
+		reg = <0x684c000 0x1000>;
+		reg-names = "tpdm-base";
+
+		coresight-name = "coresight-tpdm-prng";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		port{
+			tpdm_prng_out_tpda: endpoint {
+				remote-endpoint = <&tpda_in_tpdm_prng>;
+			};
+		};
+	};
+
 	tpdm_vsense: tpdm@6840000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b968>;
@@ -1556,7 +1584,7 @@
 		reg = <0x69e1000 0x1000>;
 		reg-names = "cti-base";
 
-		coresight-name = "coresight-cti-DDR_DL_0_CTI";
+		coresight-name = "coresight-cti-ddr_dl_0_cti";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -1568,7 +1596,7 @@
 		reg = <0x69e4000 0x1000>;
 		reg-names = "cti-base";
 
-		coresight-name = "coresight-cti-DDR_DL_1_CTI0";
+		coresight-name = "coresight-cti-ddr_dl_1_cti0";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -1580,7 +1608,7 @@
 		reg = <0x69e5000 0x1000>;
 		reg-names = "cti-base";
 
-		coresight-name = "coresight-cti-DDR_DL_1_CTI1";
+		coresight-name = "coresight-cti-ddr_dl_1_cti1";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -1592,7 +1620,7 @@
 		reg = <0x6c09000 0x1000>;
 		reg-names = "cti-base";
 
-		coresight-name = "coresight-cti-DLMM_CTI0";
+		coresight-name = "coresight-cti-dlmm_cti0";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -1604,7 +1632,7 @@
 		reg = <0x6c0a000 0x1000>;
 		reg-names = "cti-base";
 
-		coresight-name = "coresight-cti-DLMM_CTI1";
+		coresight-name = "coresight-cti-dlmm_cti1";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -1616,7 +1644,7 @@
 		reg = <0x78e0000 0x1000>;
 		reg-names = "cti-base";
 
-		coresight-name = "coresight-cti-APSS_CTI0";
+		coresight-name = "coresight-cti-apss_cti0";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -1628,7 +1656,7 @@
 		reg = <0x78f0000 0x1000>;
 		reg-names = "cti-base";
 
-		coresight-name = "coresight-cti-APSS_CTI1";
+		coresight-name = "coresight-cti-apss_cti1";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -1640,7 +1668,7 @@
 		reg = <0x7900000 0x1000>;
 		reg-names = "cti-base";
 
-		coresight-name = "coresight-cti-APSS_CTI2";
+		coresight-name = "coresight-cti-apss_cti2";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -1968,7 +1996,7 @@
 		reg = <0x6b04000 0x1000>;
 		reg-names = "cti-base";
 
-		coresight-name = "coresight-cti-SWAO_CTI0";
+		coresight-name = "coresight-cti-swao_cti0";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";

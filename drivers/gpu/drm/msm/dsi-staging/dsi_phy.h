@@ -67,6 +67,9 @@ enum phy_engine_state {
  * @mode:              Current mode.
  * @data_lanes:        Number of data lanes used.
  * @dst_format:        Destination format.
+ * @allow_phy_power_off: True if PHY is allowed to power off when idle
+ * @regulator_min_datarate_bps: Minimum per lane data rate to turn on regulator
+ * @regulator_required: True if phy regulator is required
  */
 struct msm_dsi_phy {
 	struct platform_device *pdev;
@@ -88,6 +91,10 @@ struct msm_dsi_phy {
 	struct dsi_mode_info mode;
 	enum dsi_data_lanes data_lanes;
 	enum dsi_pixel_format dst_format;
+
+	bool allow_phy_power_off;
+	u32 regulator_min_datarate_bps;
+	bool regulator_required;
 };
 
 /**
@@ -159,6 +166,7 @@ int dsi_phy_set_power_state(struct msm_dsi_phy *dsi_phy, bool enable);
  * @config:             DSI host configuration.
  * @pll_source:         Source PLL for PHY clock.
  * @skip_validation:    Validation will not be performed on parameters.
+ * @is_cont_splash_enabled:    check whether continuous splash enabled.
  *
  * Validates and enables DSI PHY.
  *
@@ -167,7 +175,8 @@ int dsi_phy_set_power_state(struct msm_dsi_phy *dsi_phy, bool enable);
 int dsi_phy_enable(struct msm_dsi_phy *dsi_phy,
 		   struct dsi_host_config *config,
 		   enum dsi_phy_pll_source pll_source,
-		   bool skip_validation);
+		   bool skip_validation,
+		   bool is_cont_splash_enabled);
 
 /**
  * dsi_phy_disable() - disable DSI PHY hardware.
@@ -209,6 +218,16 @@ int dsi_phy_clk_cb_register(struct msm_dsi_phy *phy,
 int dsi_phy_idle_ctrl(struct msm_dsi_phy *phy, bool enable);
 
 /**
+ * dsi_phy_set_clk_freq() - set DSI PHY clock frequency setting
+ * @phy:          DSI PHY handle
+ * @clk_freq:     link clock frequency
+ *
+ * Return: error code.
+ */
+int dsi_phy_set_clk_freq(struct msm_dsi_phy *phy,
+		struct link_clk_freq *clk_freq);
+
+/**
  * dsi_phy_set_timing_params() - timing parameters for the panel
  * @phy:          DSI PHY handle
  * @timing:       array holding timing params.
@@ -221,6 +240,14 @@ int dsi_phy_idle_ctrl(struct msm_dsi_phy *phy, bool enable);
  */
 int dsi_phy_set_timing_params(struct msm_dsi_phy *phy,
 			      u32 *timing, u32 size);
+
+/**
+ * dsi_phy_lane_reset() - Reset DSI PHY lanes in case of error
+ * @phy:	DSI PHY handle
+ *
+ * Return: error code.
+ */
+int dsi_phy_lane_reset(struct msm_dsi_phy *phy);
 
 /**
  * dsi_phy_drv_register() - register platform driver for dsi phy

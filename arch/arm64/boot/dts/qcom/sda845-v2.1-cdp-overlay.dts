@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+
 /dts-v1/;
 /plugin/;
 
@@ -20,13 +21,12 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #include "sdm845-sde-display.dtsi"
-#include "sdm845-qvr.dtsi"
-#include "sdm845-qvr-audio-overlay.dtsi"
-#include "sdm845-camera-sensor-qvr.dtsi"
+#include "sdm845-cdp.dtsi"
+#include "sdm845-cdp-audio-overlay.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDM845 v2 QVR";
-	compatible = "qcom,sdm845-qvr", "qcom,sdm845", "qcom,qvr";
-	qcom,msm-id = <321 0x20000>;
-	qcom,board-id = <0x01000B 0x20>;
+	model = "Qualcomm Technologies, Inc. sda845 v2.1 CDP";
+	compatible = "qcom,sda845-cdp", "qcom,sda845", "qcom,cdp";
+	qcom,msm-id = <341 0x20001>;
+	qcom,board-id = <1 0>;
 };

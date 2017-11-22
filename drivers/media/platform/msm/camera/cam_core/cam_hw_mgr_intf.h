@@ -203,8 +203,8 @@ struct cam_hw_config_args {
  * @hw_write:              Function pointer for Write hardware registers
  * @hw_cmd:                Function pointer for any customized commands for the
  *                         hardware manager
- * @download_fw:           Function pointer for firmware downloading
- * @hw_close:              Function pointer for subdev close
+ * @hw_open:               Function pointer for HW init
+ * @hw_close:              Function pointer for HW deinit
  *
  */
 struct cam_hw_mgr_intf {
@@ -220,7 +220,7 @@ struct cam_hw_mgr_intf {
 	int (*hw_read)(void *hw_priv, void *read_args);
 	int (*hw_write)(void *hw_priv, void *write_args);
 	int (*hw_cmd)(void *hw_priv, void *write_args);
-	int (*download_fw)(void *hw_priv, void *fw_download_args);
+	int (*hw_open)(void *hw_priv, void *fw_download_args);
 	int (*hw_close)(void *hw_priv, void *hw_close_args);
 };
 

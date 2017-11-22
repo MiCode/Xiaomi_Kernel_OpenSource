@@ -64,6 +64,8 @@ static const struct nla_policy cld80211_policy[CLD80211_ATTR_MAX + 1] = {
 	[CLD80211_ATTR_VENDOR_DATA] = { .type = NLA_NESTED },
 	[CLD80211_ATTR_DATA] = { .type = NLA_BINARY,
 				 .len = CLD80211_MAX_NL_DATA },
+	[CLD80211_ATTR_META_DATA] = { .type = NLA_BINARY,
+				 .len = CLD80211_MAX_NL_DATA },
 };
 
 static int cld80211_pre_doit(const struct genl_ops *ops, struct sk_buff *skb,

@@ -60,10 +60,12 @@ int hfi_write_cmd(void *cmd_ptr);
  * hfi_read_message() - function for hfi read
  * @pmsg: buffer to place read message for hfi queue
  * @q_id: queue id
+ * @words_read: total number of words read from the queue
+ *              returned as output to the caller
  *
- * Returns size read in words/failure(negative value)
+ * Returns success(zero)/failure(non zero)
  */
-int64_t hfi_read_message(uint32_t *pmsg, uint8_t q_id);
+int hfi_read_message(uint32_t *pmsg, uint8_t q_id, uint32_t *words_read);
 
 /**
  * hfi_init() - function initialize hfi after firmware download

@@ -1731,6 +1731,7 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 
 		sde_rotator_req_finish(rot_dev->mgr, ctx->private, req);
 		sde_rotator_retire_request(request);
+		cmd->priv_handle = NULL;
 	} else if (cmd_type == SDE_ROTATOR_INLINE_CMD_ABORT) {
 		if (!cmd->priv_handle) {
 			ret = -EINVAL;
@@ -1739,8 +1740,9 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 		}
 
 		request = cmd->priv_handle;
-		sde_rotator_abort_inline_request(rot_dev->mgr,
-				ctx->private, request->req);
+		if (!sde_rotator_is_request_retired(request))
+			sde_rotator_abort_inline_request(rot_dev->mgr,
+					ctx->private, request->req);
 	}
 
 	sde_rot_mgr_unlock(rot_dev->mgr);
@@ -1762,7 +1764,22 @@ EXPORT_SYMBOL(sde_rotator_inline_commit);
 
 void sde_rotator_inline_reg_dump(struct platform_device *pdev)
 {
-	sde_rot_dump_panic(false);
+	struct sde_rotator_device *rot_dev;
+
+	if (!pdev) {
+		SDEROT_ERR("invalid platform device\n");
+		return;
+	}
+
+	rot_dev = (struct sde_rotator_device *) platform_get_drvdata(pdev);
+	if (!rot_dev || !rot_dev->mgr) {
+		SDEROT_ERR("invalid rotator device\n");
+		return;
+	}
+
+	sde_rot_mgr_lock(rot_dev->mgr);
+	sde_rotator_core_dump(rot_dev->mgr);
+	sde_rot_mgr_unlock(rot_dev->mgr);
 }
 EXPORT_SYMBOL(sde_rotator_inline_reg_dump);
 

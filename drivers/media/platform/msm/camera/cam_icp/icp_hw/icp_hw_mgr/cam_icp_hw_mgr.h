@@ -32,6 +32,7 @@
 #define CAM_FRAME_CMD_MAX       20
 
 #define CAM_MAX_OUT_RES         6
+#define CAM_MAX_IN_RES          8
 
 #define ICP_WORKQ_NUM_TASK      100
 #define ICP_WORKQ_TASK_CMD_TYPE 1
@@ -281,5 +282,6 @@ struct cam_icp_hw_mgr {
 };
 
 static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args);
-static int cam_icp_mgr_download_fw(void *hw_mgr_priv, void *download_fw_args);
+static int cam_icp_mgr_hw_open(void *hw_mgr_priv, void *download_fw_args);
+
 #endif /* CAM_ICP_HW_MGR_H */

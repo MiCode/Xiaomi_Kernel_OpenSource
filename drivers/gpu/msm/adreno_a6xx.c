@@ -52,6 +52,7 @@ static const struct adreno_vbif_data a630_vbif[] = {
 
 static const struct adreno_vbif_data a615_gbif[] = {
 	{A6XX_RBBM_VBIF_CLIENT_QOS_CNTL, 0x3},
+	{A6XX_UCHE_GBIF_GX_CONFIG, 0x10200F9},
 	{0, 0},
 };
 
@@ -281,6 +282,7 @@ static struct a6xx_protected_regs {
 	{ 0xA630, 0x0, 1 },
 };
 
+/* IFPC & Preemption static powerup restore list */
 static struct reg_list_pair {
 	uint32_t offset;
 	uint32_t val;
@@ -315,6 +317,48 @@ static struct reg_list_pair {
 	{ A6XX_RB_CONTEXT_SWITCH_GMEM_SAVE_RESTORE, 0x0 },
 };
 
+/* IFPC only static powerup restore list */
+static struct reg_list_pair a6xx_ifpc_pwrup_reglist[] = {
+	{ A6XX_RBBM_VBIF_CLIENT_QOS_CNTL, 0x0 },
+	{ A6XX_CP_CHICKEN_DBG, 0x0 },
+	{ A6XX_CP_ADDR_MODE_CNTL, 0x0 },
+	{ A6XX_CP_DBG_ECO_CNTL, 0x0 },
+	{ A6XX_CP_PROTECT_CNTL, 0x0 },
+	{ A6XX_CP_PROTECT_REG, 0x0 },
+	{ A6XX_CP_PROTECT_REG+1, 0x0 },
+	{ A6XX_CP_PROTECT_REG+2, 0x0 },
+	{ A6XX_CP_PROTECT_REG+3, 0x0 },
+	{ A6XX_CP_PROTECT_REG+4, 0x0 },
+	{ A6XX_CP_PROTECT_REG+5, 0x0 },
+	{ A6XX_CP_PROTECT_REG+6, 0x0 },
+	{ A6XX_CP_PROTECT_REG+7, 0x0 },
+	{ A6XX_CP_PROTECT_REG+8, 0x0 },
+	{ A6XX_CP_PROTECT_REG+9, 0x0 },
+	{ A6XX_CP_PROTECT_REG+10, 0x0 },
+	{ A6XX_CP_PROTECT_REG+11, 0x0 },
+	{ A6XX_CP_PROTECT_REG+12, 0x0 },
+	{ A6XX_CP_PROTECT_REG+13, 0x0 },
+	{ A6XX_CP_PROTECT_REG+14, 0x0 },
+	{ A6XX_CP_PROTECT_REG+15, 0x0 },
+	{ A6XX_CP_PROTECT_REG+16, 0x0 },
+	{ A6XX_CP_PROTECT_REG+17, 0x0 },
+	{ A6XX_CP_PROTECT_REG+18, 0x0 },
+	{ A6XX_CP_PROTECT_REG+19, 0x0 },
+	{ A6XX_CP_PROTECT_REG+20, 0x0 },
+	{ A6XX_CP_PROTECT_REG+21, 0x0 },
+	{ A6XX_CP_PROTECT_REG+22, 0x0 },
+	{ A6XX_CP_PROTECT_REG+23, 0x0 },
+	{ A6XX_CP_PROTECT_REG+24, 0x0 },
+	{ A6XX_CP_PROTECT_REG+25, 0x0 },
+	{ A6XX_CP_PROTECT_REG+26, 0x0 },
+	{ A6XX_CP_PROTECT_REG+27, 0x0 },
+	{ A6XX_CP_PROTECT_REG+28, 0x0 },
+	{ A6XX_CP_PROTECT_REG+29, 0x0 },
+	{ A6XX_CP_PROTECT_REG+30, 0x0 },
+	{ A6XX_CP_PROTECT_REG+31, 0x0 },
+	{ A6XX_CP_AHB_CNTL, 0x0 },
+};
+
 static void _update_always_on_regs(struct adreno_device *adreno_dev)
 {
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
@@ -331,7 +375,7 @@ static void a6xx_pwrup_reglist_init(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	if (kgsl_allocate_global(device, &adreno_dev->pwrup_reglist,
-		PAGE_SIZE, KGSL_MEMFLAGS_GPUREADONLY, 0,
+		PAGE_SIZE, 0, KGSL_MEMDESC_CONTIG | KGSL_MEMDESC_PRIVILEGED,
 		"powerup_register_list")) {
 		adreno_dev->pwrup_reglist.gpuaddr = 0;
 		return;
@@ -500,17 +544,46 @@ static uint32_t lm_limit(struct adreno_device *adreno_dev)
 static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 {
 	uint32_t i;
+	struct cpu_gpu_lock *lock;
+	struct reg_list_pair *r;
 
 	/* Set up the register values */
-	for (i = 0; i < ARRAY_SIZE(a6xx_pwrup_reglist); i++) {
-		struct reg_list_pair *r = &a6xx_pwrup_reglist[i];
-
+	for (i = 0; i < ARRAY_SIZE(a6xx_ifpc_pwrup_reglist); i++) {
+		r = &a6xx_ifpc_pwrup_reglist[i];
 		kgsl_regread(KGSL_DEVICE(adreno_dev), r->offset, &r->val);
 	}
 
-	/* Copy Preemption register/data pairs */
-	memcpy(adreno_dev->pwrup_reglist.hostptr, &a6xx_pwrup_reglist,
-		sizeof(a6xx_pwrup_reglist));
+	for (i = 0; i < ARRAY_SIZE(a6xx_pwrup_reglist); i++) {
+		r = &a6xx_pwrup_reglist[i];
+		kgsl_regread(KGSL_DEVICE(adreno_dev), r->offset, &r->val);
+	}
+
+	lock = (struct cpu_gpu_lock *) adreno_dev->pwrup_reglist.hostptr;
+	lock->flag_ucode = 0;
+	lock->flag_kmd = 0;
+	lock->turn = 0;
+
+	/*
+	 * The overall register list is composed of
+	 * 1. Static IFPC-only registers
+	 * 2. Static IFPC + preemption registers
+	 * 2. Dynamic IFPC + preemption registers (ex: perfcounter selects)
+	 *
+	 * The CP views the second and third entries as one dynamic list
+	 * starting from list_offset. Thus, list_length should be the sum
+	 * of all three lists above (of which the third list will start off
+	 * empty). And list_offset should be specified as the size in dwords
+	 * of the static IFPC-only register list.
+	 */
+	lock->list_length = (sizeof(a6xx_ifpc_pwrup_reglist) +
+			sizeof(a6xx_pwrup_reglist)) >> 2;
+	lock->list_offset = sizeof(a6xx_ifpc_pwrup_reglist) >> 2;
+
+	memcpy(adreno_dev->pwrup_reglist.hostptr + sizeof(*lock),
+		a6xx_ifpc_pwrup_reglist, sizeof(a6xx_ifpc_pwrup_reglist));
+	memcpy(adreno_dev->pwrup_reglist.hostptr + sizeof(*lock)
+		+ sizeof(a6xx_ifpc_pwrup_reglist),
+		a6xx_pwrup_reglist, sizeof(a6xx_pwrup_reglist));
 }
 
 /*
@@ -717,13 +790,16 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 /* Register initialization list */
 #define CP_INIT_REGISTER_INIT_LIST BIT(7)
 
+/* Register initialization list with spinlock */
+#define CP_INIT_REGISTER_INIT_LIST_WITH_SPINLOCK BIT(8)
+
 #define CP_INIT_MASK (CP_INIT_MAX_CONTEXT | \
 		CP_INIT_ERROR_DETECTION_CONTROL | \
 		CP_INIT_HEADER_DUMP | \
 		CP_INIT_DEFAULT_RESET_STATE | \
 		CP_INIT_UCODE_WORKAROUND_MASK | \
 		CP_INIT_OPERATION_MODE_MASK | \
-		CP_INIT_REGISTER_INIT_LIST)
+		CP_INIT_REGISTER_INIT_LIST_WITH_SPINLOCK)
 
 static void _set_ordinals(struct adreno_device *adreno_dev,
 		unsigned int *cmds, unsigned int count)
@@ -759,13 +835,21 @@ static void _set_ordinals(struct adreno_device *adreno_dev,
 	if (CP_INIT_MASK & CP_INIT_OPERATION_MODE_MASK)
 		*cmds++ = 0x00000002;
 
-	if (CP_INIT_MASK & CP_INIT_REGISTER_INIT_LIST) {
+	if (CP_INIT_MASK & CP_INIT_REGISTER_INIT_LIST_WITH_SPINLOCK) {
+		uint64_t gpuaddr = adreno_dev->pwrup_reglist.gpuaddr;
+
+		*cmds++ = lower_32_bits(gpuaddr);
+		*cmds++ = upper_32_bits(gpuaddr);
+		*cmds++ =  0;
+
+	} else if (CP_INIT_MASK & CP_INIT_REGISTER_INIT_LIST) {
 		uint64_t gpuaddr = adreno_dev->pwrup_reglist.gpuaddr;
 
 		*cmds++ = lower_32_bits(gpuaddr);
 		*cmds++ = upper_32_bits(gpuaddr);
 		/* Size is in dwords */
-		*cmds++ = sizeof(a6xx_pwrup_reglist) >> 2;
+		*cmds++ = (sizeof(a6xx_ifpc_pwrup_reglist) +
+			sizeof(a6xx_pwrup_reglist)) >> 2;
 	}
 
 	/* Pad rest of the cmds with 0's */
@@ -911,6 +995,38 @@ static int a6xx_rb_start(struct adreno_device *adreno_dev,
 		return ret;
 
 	return a6xx_post_start(adreno_dev);
+}
+
+unsigned int a6xx_set_marker(
+		unsigned int *cmds, enum adreno_cp_marker_type type)
+{
+	unsigned int cmd = 0;
+
+	*cmds++ = cp_type7_packet(CP_SET_MARKER, 1);
+
+	/*
+	 * Indicate the beginning and end of the IB1 list with a SET_MARKER.
+	 * Among other things, this will implicitly enable and disable
+	 * preemption respectively. IFPC can also be disabled and enabled
+	 * with a SET_MARKER. Bit 8 tells the CP the marker is for IFPC.
+	 */
+	switch (type) {
+	case IFPC_DISABLE:
+		cmd = 0x101;
+		break;
+	case IFPC_ENABLE:
+		cmd = 0x100;
+		break;
+	case IB1LIST_START:
+		cmd = 0xD;
+		break;
+	case IB1LIST_END:
+		cmd = 0xE;
+		break;
+	}
+
+	*cmds++ = cmd;
+	return 2;
 }
 
 static int _load_firmware(struct kgsl_device *device, const char *fwfile,
@@ -1079,7 +1195,7 @@ static int timed_poll_check(struct kgsl_device *device,
 		if ((value & mask) == expected_ret)
 			return 0;
 		/* Wait 100us to reduce unnecessary AHB bus traffic */
-		udelay(100);
+		usleep_range(10, 100);
 	} while (!time_after(jiffies, t));
 
 	/* Double check one last time */
@@ -1841,7 +1957,7 @@ static int a6xx_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 		}
 
 		/* Wait 100us to reduce unnecessary AHB bus traffic */
-		udelay(100);
+		usleep_range(10, 100);
 	}
 
 	/* Check one last time */
@@ -3013,7 +3129,8 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 
 		a6xx_perfcounter_groups[KGSL_PERFCOUNTER_GROUP_VBIF_PWR].regs =
 				a6xx_perfcounters_gbif_pwr;
-		a6xx_perfcounter_groups[KGSL_PERFCOUNTER_GROUP_VBIF].reg_count
+		a6xx_perfcounter_groups[
+			KGSL_PERFCOUNTER_GROUP_VBIF_PWR].reg_count
 				= ARRAY_SIZE(a6xx_perfcounters_gbif_pwr);
 
 		gpudev->vbif_xin_halt_ctrl0_mask =
@@ -3069,6 +3186,22 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 			A6XX_CP_CONTEXT_SWITCH_SMMU_INFO_LO),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_CONTEXT_SWITCH_SMMU_INFO_HI,
 			A6XX_CP_CONTEXT_SWITCH_SMMU_INFO_HI),
+	ADRENO_REG_DEFINE(
+		ADRENO_REG_CP_CONTEXT_SWITCH_PRIV_NON_SECURE_RESTORE_ADDR_LO,
+			A6XX_CP_CONTEXT_SWITCH_PRIV_NON_SECURE_RESTORE_ADDR_LO),
+	ADRENO_REG_DEFINE(
+		ADRENO_REG_CP_CONTEXT_SWITCH_PRIV_NON_SECURE_RESTORE_ADDR_HI,
+			A6XX_CP_CONTEXT_SWITCH_PRIV_NON_SECURE_RESTORE_ADDR_HI),
+	ADRENO_REG_DEFINE(
+		ADRENO_REG_CP_CONTEXT_SWITCH_PRIV_SECURE_RESTORE_ADDR_LO,
+			A6XX_CP_CONTEXT_SWITCH_PRIV_SECURE_RESTORE_ADDR_LO),
+	ADRENO_REG_DEFINE(
+		ADRENO_REG_CP_CONTEXT_SWITCH_PRIV_SECURE_RESTORE_ADDR_HI,
+			A6XX_CP_CONTEXT_SWITCH_PRIV_SECURE_RESTORE_ADDR_HI),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_LO,
+			A6XX_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_LO),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_HI,
+			A6XX_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_HI),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_STATUS, A6XX_RBBM_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_STATUS3, A6XX_RBBM_STATUS3),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_CTL, A6XX_RBBM_PERFCTR_CNTL),

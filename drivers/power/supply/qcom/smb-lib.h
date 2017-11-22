@@ -324,7 +324,7 @@ struct smb_charger {
 	bool			sw_jeita_enabled;
 	bool			is_hdc;
 	bool			chg_done;
-	bool			micro_usb_mode;
+	bool			connector_type;
 	bool			otg_en;
 	bool			vconn_en;
 	bool			suspend_input_on_debug_batt;

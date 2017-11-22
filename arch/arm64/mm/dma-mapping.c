@@ -1224,12 +1224,12 @@ static inline void __free_iova(struct dma_iommu_mapping *mapping,
 
 	addr = addr & PAGE_MASK;
 	size = PAGE_ALIGN(size);
-	if (mapping->min_iova_align)
+	if (mapping->min_iova_align) {
 		guard_len = ALIGN(size, mapping->min_iova_align) - size;
-	else
+		iommu_unmap(mapping->domain, addr + size, guard_len);
+	} else {
 		guard_len = 0;
-
-	iommu_unmap(mapping->domain, addr + size, guard_len);
+	}
 
 	start = (addr - mapping->base) >> PAGE_SHIFT;
 	count = (size + guard_len) >> PAGE_SHIFT;
@@ -1979,7 +1979,7 @@ bitmap_iommu_init_mapping(struct device *dev, struct dma_iommu_mapping *mapping)
 {
 	unsigned int bitmap_size = BITS_TO_LONGS(mapping->bits) * sizeof(long);
 	int vmid = VMID_HLOS;
-	bool min_iova_align = 0;
+	int min_iova_align = 0;
 
 	iommu_domain_get_attr(mapping->domain,
 			DOMAIN_ATTR_MMU500_ERRATA_MIN_ALIGN,

@@ -21,6 +21,8 @@
 #include "cam_context_utils.h"
 #include "cam_debug_util.h"
 
+static const char jpeg_dev_name[] = "jpeg";
+
 static int __cam_jpeg_ctx_acquire_dev_in_available(struct cam_context *ctx,
 	struct cam_acquire_dev_cmd *cmd)
 {
@@ -109,8 +111,8 @@ int cam_jpeg_context_init(struct cam_jpeg_context *ctx,
 	for (i = 0; i < CAM_CTX_REQ_MAX; i++)
 		ctx->req_base[i].req_priv = ctx;
 
-	rc = cam_context_init(ctx_base, NULL, hw_intf, ctx->req_base,
-		CAM_CTX_REQ_MAX);
+	rc = cam_context_init(ctx_base, jpeg_dev_name, NULL, hw_intf,
+		ctx->req_base, CAM_CTX_REQ_MAX);
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "Camera Context Base init failed");
 		goto err;

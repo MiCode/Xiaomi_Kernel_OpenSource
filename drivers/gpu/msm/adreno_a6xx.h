@@ -75,6 +75,24 @@ struct a6xx_cp_smmu_info {
 
 #define A6XX_CP_SMMU_INFO_MAGIC_REF     0x241350D5UL
 
+/**
+ * struct cpu_gpu_spinlock - CP spinlock structure for power up list
+ * @flag_ucode: flag value set by CP
+ * @flag_kmd: flag value set by KMD
+ * @turn: turn variable set by both CP and KMD
+ * @list_length: this tells CP the last dword in the list:
+ * 16 + (4 * (List_Length - 1))
+ * @list_offset: this tells CP the start of preemption only list:
+ * 16 + (4 * List_Offset)
+ */
+struct cpu_gpu_lock {
+	uint32_t flag_ucode;
+	uint32_t flag_kmd;
+	uint32_t turn;
+	uint16_t list_length;
+	uint16_t list_offset;
+};
+
 #define A6XX_CP_CTXRECORD_MAGIC_REF     0xAE399D6EUL
 /* Size of each CP preemption record */
 #define A6XX_CP_CTXRECORD_SIZE_IN_BYTES     (2112 * 1024)
@@ -100,7 +118,8 @@ unsigned int a6xx_preemption_pre_ibsubmit(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb,
 		unsigned int *cmds, struct kgsl_context *context);
 
-unsigned int a6xx_set_marker(unsigned int *cmds, int start);
+unsigned int a6xx_set_marker(unsigned int *cmds,
+		enum adreno_cp_marker_type type);
 
 void a6xx_preemption_callback(struct adreno_device *adreno_dev, int bit);
 

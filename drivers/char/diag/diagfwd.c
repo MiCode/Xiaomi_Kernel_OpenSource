@@ -999,6 +999,8 @@ int diag_process_apps_pkt(unsigned char *buf, int len,
 	struct diag_cmd_reg_entry_t entry;
 	struct diag_cmd_reg_entry_t *temp_entry = NULL;
 	struct diag_cmd_reg_t *reg_item = NULL;
+	struct diagfwd_info *fwd_info = NULL;
+	uint32_t pd_mask = 0;
 
 	if (!buf)
 		return -EIO;
@@ -1036,12 +1038,13 @@ int diag_process_apps_pkt(unsigned char *buf, int len,
 	temp_entry = diag_cmd_search(&entry, ALL_PROC);
 	if (temp_entry) {
 		reg_item = container_of(temp_entry, struct diag_cmd_reg_t,
-								entry);
+					entry);
 		if (info) {
+			MD_PERIPHERAL_PD_MASK(TYPE_CMD, reg_item->proc,
+				pd_mask);
 			if ((MD_PERIPHERAL_MASK(reg_item->proc) &
 				info->peripheral_mask) ||
-				(MD_PERIPHERAL_PD_MASK(reg_item->proc) &
-				info->peripheral_mask))
+				(pd_mask & info->peripheral_mask))
 				write_len = diag_send_data(reg_item, buf, len);
 		} else {
 			if (MD_PERIPHERAL_MASK(reg_item->proc) &
@@ -1722,6 +1725,7 @@ int diagfwd_init(void)
 	driver->supports_separate_cmdrsp = 1;
 	driver->supports_apps_hdlc_encoding = 1;
 	driver->supports_apps_header_untagging = 1;
+	driver->supports_pd_buffering = 1;
 	for (i = 0; i < NUM_PERIPHERALS; i++)
 		driver->peripheral_untag[i] = 0;
 	mutex_init(&driver->diag_hdlc_mutex);
@@ -1752,6 +1756,7 @@ int diagfwd_init(void)
 		driver->feature[i].stm_support = DISABLE_STM;
 		driver->feature[i].rcvd_feature_mask = 0;
 		driver->feature[i].peripheral_buffering = 0;
+		driver->feature[i].pd_buffering = 0;
 		driver->feature[i].encode_hdlc = 0;
 		driver->feature[i].untag_header =
 			DISABLE_PKT_HEADER_UNTAGGING;
@@ -1759,6 +1764,9 @@ int diagfwd_init(void)
 		driver->feature[i].log_on_demand = 0;
 		driver->feature[i].sent_feature_mask = 0;
 		driver->feature[i].diag_id_support = 0;
+	}
+
+	for (i = 0; i < NUM_MD_SESSIONS; i++) {
 		driver->buffering_mode[i].peripheral = i;
 		driver->buffering_mode[i].mode = DIAG_BUFFERING_MODE_STREAMING;
 		driver->buffering_mode[i].high_wm_val = DEFAULT_HIGH_WM_VAL;

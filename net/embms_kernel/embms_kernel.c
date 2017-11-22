@@ -62,7 +62,6 @@ static int handle_multicast_stream(struct sk_buff *skb)
 {
 	struct iphdr *iph;
 	struct udphdr *udph;
-	struct in_device *in_dev;
 	unsigned char *tmp_ptr = NULL;
 	struct sk_buff *skb_new = NULL;
 	struct sk_buff *skb_cpy = NULL;
@@ -396,12 +395,9 @@ static void print_tmgi_to_client_table(void)
 
 int delete_tmgi_entry_from_table(char *buffer)
 {
-	int i;
 	struct tmgi_to_clnt_info_update *info_update;
-	char message_buffer[sizeof(struct tmgi_to_clnt_info_update)];
 	struct clnt_info *temp_client = NULL;
 	struct tmgi_to_clnt_info *temp_tmgi = NULL;
-	struct list_head *tmgi_entry_ptr, *prev_tmgi_entry_ptr;
 	struct list_head *clnt_ptr, *prev_clnt_ptr;
 
 	embms_debug("delete_tmgi_entry_from_table: Enter\n");
@@ -477,13 +473,10 @@ int delete_tmgi_entry_from_table(char *buffer)
  */
 int delete_client_entry_from_all_tmgi(char *buffer)
 {
-	int i;
 	struct tmgi_to_clnt_info_update *info_update;
-	char message_buffer[sizeof(struct tmgi_to_clnt_info_update)];
 	struct clnt_info *temp_client = NULL;
 	struct tmgi_to_clnt_info *tmgi = NULL;
 	struct list_head *tmgi_entry_ptr, *prev_tmgi_entry_ptr;
-	struct list_head *clnt_ptr, *prev_clnt_ptr;
 
 	/* We use this function when we want to delete any
 	 * client entry from all TMGI entries. This scenario
@@ -574,18 +567,11 @@ int delete_client_entry_from_all_tmgi(char *buffer)
  */
 int add_client_entry_to_table(char *buffer)
 {
-	int i, ret;
+	int ret;
 	struct tmgi_to_clnt_info_update *info_update;
-	char message_buffer[sizeof(struct tmgi_to_clnt_info_update)];
 	struct clnt_info *new_client = NULL;
-	struct clnt_info *temp_client = NULL;
-	struct tmgi_to_clnt_info *new_tmgi = NULL;
 	struct tmgi_to_clnt_info *tmgi = NULL;
-	struct list_head *tmgi_entry_ptr, *prev_tmgi_entry_ptr;
-	struct list_head *clnt_ptr, *prev_clnt_ptr;
 	struct neighbour *neigh_entry;
-	struct in_device *iface_dev;
-	struct in_ifaddr *iface_info;
 
 	embms_debug("add_client_entry_to_table: Enter\n");
 
@@ -699,13 +685,9 @@ exit_add:
  */
 int delete_client_entry_from_table(char *buffer)
 {
-	int i;
 	struct tmgi_to_clnt_info_update *info_update;
-	char message_buffer[sizeof(struct tmgi_to_clnt_info_update)];
 	struct clnt_info *temp_client = NULL;
 	struct tmgi_to_clnt_info *temp_tmgi = NULL;
-	struct list_head *tmgi_entry_ptr, *prev_tmgi_entry_ptr;
-	struct list_head *clnt_ptr, *prev_clnt_ptr;
 
 	embms_debug("delete_client_entry_from_table: Enter\n");
 
@@ -796,11 +778,10 @@ int delete_client_entry_from_table(char *buffer)
  * Return: Success if functoin call returns SUCCESS, error otherwise.
  */
 
-int embms_device_ioctl(struct file *file, unsigned int ioctl_num,
-		       unsigned long ioctl_param)
+long embms_device_ioctl(struct file *file, unsigned int ioctl_num,
+			unsigned long ioctl_param)
 {
-	int i, ret, error;
-	char *temp;
+	int ret;
 	char buffer[BUF_LEN];
 	struct in_device *iface_dev;
 	struct in_ifaddr *iface_info;

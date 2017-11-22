@@ -944,8 +944,8 @@ static int pmic_arb_read_apid_map_v5(struct spmi_pmic_arb *pa)
 	 * multiple EE's to write to a single PPID in arbiter version 5, there
 	 * is more than one APID mapped to each PPID.  The owner field for each
 	 * of these mappings specifies the EE which is allowed to write to the
-	 * APID.  The owner of the last (highest) APID for a given PPID will
-	 * receive interrupts from the PPID.
+	 * APID.  The owner of the last (highest) APID which has the IRQ owner
+	 * bit set for a given PPID will receive interrupts from the PPID.
 	 */
 	for (apid = 0; apid < pa->max_periph; apid++) {
 		offset = pa->ver_ops->channel_map_offset(apid);
@@ -969,7 +969,10 @@ static int pmic_arb_read_apid_map_v5(struct spmi_pmic_arb *pa)
 		valid = pa->ppid_to_apid[ppid] & PMIC_ARB_CHAN_VALID;
 		prev_apid = pa->ppid_to_apid[ppid] & ~PMIC_ARB_CHAN_VALID;
 
-		if (valid && is_irq_owner &&
+		if (!valid || pa->apid_data[apid].write_owner == pa->ee) {
+			/* First PPID mapping or one for this EE */
+			pa->ppid_to_apid[ppid] = apid | PMIC_ARB_CHAN_VALID;
+		} else if (valid && is_irq_owner &&
 		    pa->apid_data[prev_apid].write_owner == pa->ee) {
 			/*
 			 * Duplicate PPID mapping after the one for this EE;
@@ -977,9 +980,6 @@ static int pmic_arb_read_apid_map_v5(struct spmi_pmic_arb *pa)
 			 */
 			pa->apid_data[prev_apid].irq_owner
 				= pa->apid_data[apid].irq_owner;
-		} else if (!valid || is_irq_owner) {
-			/* First PPID mapping or duplicate for another EE */
-			pa->ppid_to_apid[ppid] = apid | PMIC_ARB_CHAN_VALID;
 		}
 
 		pa->apid_data[apid].ppid = ppid;

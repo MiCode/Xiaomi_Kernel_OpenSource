@@ -151,8 +151,11 @@
 	};
 
 	clock_gcc: qcom,gcc@100000 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gcc_clocks";
+		compatible = "qcom,gcc-sdxpoorwills";
+		reg = <0x100000 0x1f0000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&pmxpoorwills_s5_level>;
+		vdd_cx_ao-supply = <&pmxpoorwills_s5_level_ao>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -164,9 +167,10 @@
 	};
 
 	clock_rpmh: qcom,rpmhclk {
-		compatible = "qcom,dummycc";
-		clock-output-names = "rpmh_clocks";
+		compatible = "qcom,rpmh-clk-sdxpoorwills";
 		#clock-cells = <1>;
+		mboxes = <&apps_rsc 0>;
+		mbox-names = "apps";
 	};
 
 	blsp1_uart2: serial@831000 {
@@ -183,7 +187,6 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_usb30";
 		reg = <0x0010b004 0x4>;
-		status = "ok";
 	};
 
 	qcom,sps {
@@ -195,7 +198,12 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_pcie";
 		reg = <0x00137004 0x4>;
-		status = "ok";
+	};
+
+	gdsc_emac: qcom,gdsc@147004 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_emac";
+		reg = <0x00147004 0x4>;
 	};
 
 	qnand_1: nand@1b00000 {
@@ -436,6 +444,42 @@
 	system_pm {
 		compatible = "qcom,system-pm";
 		mboxes = <&apps_rsc 0>;
+	};
+
+	emac_hw: qcom,emac@00020000 {
+		compatible = "qcom,emac-dwc-eqos";
+		reg = <0x20000 0x10000>,
+		      <0x36000 0x100>;
+		reg-names = "emac-base", "rgmii-base";
+		interrupts = <0 62 4>, <0 60 4>,
+			<0 45 4>, <0 49 4>,
+			<0 50 4>, <0 51 4>,
+			<0 52 4>, <0 53 4>,
+			<0 54 4>, <0 55 4>,
+			<0 56 4>, <0 57 4>;
+		interrupt-names = "sbd-intr", "lpi-intr",
+			"wol-intr", "tx-ch0-intr",
+			"tx-ch1-intr", "tx-ch2-intr",
+			"tx-ch3-intr", "tx-ch4-intr",
+			"rx-ch0-intr", "rx-ch1-intr",
+			"rx-ch2-intr", "rx-ch3-intr";
+		io-macro-info {
+			io-macro-bypass-mode = <0>;
+			io-interface = "rgmii";
+		};
+	};
+
+	qmp_aop: qcom,qmp-aop@c300000 {
+		compatible = "qcom,qmp-mbox";
+		label = "aop";
+		reg = <0xc300000 0x400>,
+			<0x17811008 0x4>;
+		reg-names = "msgram", "irq-reg-base";
+		qcom,irq-mask = <0x1>;
+		interrupts = <GIC_SPI 221 IRQ_TYPE_EDGE_RISING>;
+		priority = <0>;
+		mbox-desc-offset = <0x0>;
+		#mbox-cells = <1>;
 	};
 };
 

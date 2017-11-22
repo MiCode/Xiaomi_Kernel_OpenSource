@@ -68,6 +68,7 @@
 #define A6XX_CP_MEM_POOL_SIZE            0x8C3
 #define A6XX_CP_CHICKEN_DBG              0x841
 #define A6XX_CP_ADDR_MODE_CNTL           0x842
+#define A6XX_CP_DBG_ECO_CNTL             0x843
 #define A6XX_CP_PROTECT_CNTL             0x84F
 #define A6XX_CP_PROTECT_REG              0x850
 #define A6XX_CP_CONTEXT_SWITCH_CNTL      0x8A0
@@ -676,6 +677,7 @@
 #define A6XX_UCHE_PERFCTR_UCHE_SEL_9        0xE25
 #define A6XX_UCHE_PERFCTR_UCHE_SEL_10       0xE26
 #define A6XX_UCHE_PERFCTR_UCHE_SEL_11       0xE27
+#define A6XX_UCHE_GBIF_GX_CONFIG            0xE3A
 
 /* SP registers */
 #define A6XX_SP_ADDR_MODE_CNTL              0xAE01
@@ -763,6 +765,12 @@
 #define A6XX_VBIF_PERF_PWR_CNT_HIGH0            0x3118
 #define A6XX_VBIF_PERF_PWR_CNT_HIGH1            0x3119
 #define A6XX_VBIF_PERF_PWR_CNT_HIGH2            0x311a
+
+/* GBIF countables */
+#define GBIF_AXI0_READ_DATA_TOTAL_BEATS    34
+#define GBIF_AXI1_READ_DATA_TOTAL_BEATS    35
+#define GBIF_AXI0_WRITE_DATA_TOTAL_BEATS   46
+#define GBIF_AXI1_WRITE_DATA_TOTAL_BEATS   47
 
 /* GBIF registers */
 #define A6XX_GBIF_HALT                    0x3c45

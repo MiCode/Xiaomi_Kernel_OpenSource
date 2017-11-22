@@ -2853,4 +2853,6 @@ int
 find_first_cpu_bit(struct task_struct *p, const cpumask_t *search_cpus,
 		   struct sched_group *sg_target, bool *avoid_prev_cpu,
 		   bool *do_rotate, struct find_first_cpu_bit_env *env);
+#else
+#define find_first_cpu_bit(...) -1
 #endif

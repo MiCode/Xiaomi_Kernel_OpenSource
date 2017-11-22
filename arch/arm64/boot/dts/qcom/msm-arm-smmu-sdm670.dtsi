@@ -21,6 +21,7 @@
 		#iommu-cells = <1>;
 		qcom,dynamic;
 		qcom,use-3-lvl-tables;
+		qcom,disable-atos;
 		#global-interrupts = <2>;
 		qcom,regulator-names = "vdd";
 		vdd-supply = <&gpu_cx_gdsc>;
@@ -60,6 +61,7 @@
 		qcom,skip-init;
 		qcom,use-3-lvl-tables;
 		qcom,no-asid-retention;
+		qcom,disable-atos;
 		#global-interrupts = <1>;
 		#size-cells = <1>;
 		#address-cells = <1>;
@@ -304,9 +306,19 @@
 	apps_iommu_test_device {
 		compatible = "iommu-debug-test";
 		/*
-		 * This SID belongs to QUP1-GSI. We can't use a fake SID for
+		 * This SID belongs to TSIF. We can't use a fake SID for
 		 * the apps_smmu device.
 		 */
-		iommus = <&apps_smmu 0x16 0x0>;
+		iommus = <&apps_smmu 0x20 0xf>;
+	};
+
+	apps_iommu_coherent_test_device {
+		compatible = "iommu-debug-test";
+		/*
+		 * This SID belongs to TSIF. We can't use a fake SID for
+		 * the apps_smmu device.
+		 */
+		iommus = <&apps_smmu 0x20 0xf>;
+		dma-coherent;
 	};
 };

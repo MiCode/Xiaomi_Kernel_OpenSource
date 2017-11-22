@@ -318,17 +318,30 @@ static const struct clk_rpmh_desc clk_rpmh_sdm845 = {
 static const struct of_device_id clk_rpmh_match_table[] = {
 	{ .compatible = "qcom,rpmh-clk-sdm845", .data = &clk_rpmh_sdm845},
 	{ .compatible = "qcom,rpmh-clk-sdm670", .data = &clk_rpmh_sdm845},
+	{ .compatible = "qcom,rpmh-clk-sdxpoorwills", .data = &clk_rpmh_sdm845},
 	{ }
 };
 MODULE_DEVICE_TABLE(of, clk_rpmh_match_table);
 
-static void clk_rpmh_sdm670_fixup_sdm670(void)
+static void clk_rpmh_sdm670_fixup(void)
 {
 	sdm845_rpmh_clocks[RPMH_RF_CLK3] = NULL;
 	sdm845_rpmh_clocks[RPMH_RF_CLK3_A] = NULL;
 }
 
-static int clk_rpmh_sdm670_fixup(struct platform_device *pdev)
+static void clk_rpmh_sdxpoorwills_fixup(void)
+{
+	sdm845_rpmh_clocks[RPMH_LN_BB_CLK2] = NULL;
+	sdm845_rpmh_clocks[RPMH_LN_BB_CLK2_A] = NULL;
+	sdm845_rpmh_clocks[RPMH_LN_BB_CLK3] = NULL;
+	sdm845_rpmh_clocks[RPMH_LN_BB_CLK3_A] = NULL;
+	sdm845_rpmh_clocks[RPMH_RF_CLK2] = NULL;
+	sdm845_rpmh_clocks[RPMH_RF_CLK2_A] = NULL;
+	sdm845_rpmh_clocks[RPMH_RF_CLK3] = NULL;
+	sdm845_rpmh_clocks[RPMH_RF_CLK3_A] = NULL;
+}
+
+static int clk_rpmh_fixup(struct platform_device *pdev)
 {
 	const char *compat = NULL;
 	int compatlen = 0;
@@ -338,7 +351,9 @@ static int clk_rpmh_sdm670_fixup(struct platform_device *pdev)
 		return -EINVAL;
 
 	if (!strcmp(compat, "qcom,rpmh-clk-sdm670"))
-		clk_rpmh_sdm670_fixup_sdm670();
+		clk_rpmh_sdm670_fixup();
+	else if (!strcmp(compat, "qcom,rpmh-clk-sdxpoorwills"))
+		clk_rpmh_sdxpoorwills_fixup();
 
 	return 0;
 }
@@ -410,7 +425,7 @@ static int clk_rpmh_probe(struct platform_device *pdev)
 		goto err2;
 	}
 
-	ret = clk_rpmh_sdm670_fixup(pdev);
+	ret = clk_rpmh_fixup(pdev);
 	if (ret)
 		return ret;
 

@@ -167,6 +167,9 @@
 /* Number of times to poll the AHB fence in ISR */
 #define FENCE_RETRY_MAX 100
 
+/* Number of times to see if INT_0_STATUS changed or not */
+#define STATUS_RETRY_MAX 3
+
 /* One cannot wait forever for the core to idle, so set an upper limit to the
  * amount of time to wait for the core to go idle
  */
@@ -282,8 +285,12 @@ struct adreno_preemption {
 
 struct adreno_busy_data {
 	unsigned int gpu_busy;
-	unsigned int vbif_ram_cycles;
-	unsigned int vbif_starved_ram;
+	unsigned int bif_ram_cycles;
+	unsigned int bif_ram_cycles_read_ch1;
+	unsigned int bif_ram_cycles_write_ch0;
+	unsigned int bif_ram_cycles_write_ch1;
+	unsigned int bif_starved_ram;
+	unsigned int bif_starved_ram_ch1;
 	unsigned int throttle_cycles[ADRENO_GPMU_THROTTLE_COUNTERS];
 };
 
@@ -400,8 +407,18 @@ struct adreno_gpu_core {
  * @pwron_fixup_dwords: Number of dwords in the command buffer
  * @input_work: Work struct for turning on the GPU after a touch event
  * @busy_data: Struct holding GPU VBIF busy stats
- * @ram_cycles_lo: Number of DDR clock cycles for the monitor session
- * @perfctr_pwr_lo: Number of cycles VBIF is stalled by DDR
+ * @ram_cycles_lo: Number of DDR clock cycles for the monitor session (Only
+ * DDR channel 0 read cycles in case of GBIF)
+ * @ram_cycles_lo_ch1_read: Number of DDR channel 1 Read clock cycles for
+ * the monitor session
+ * @ram_cycles_lo_ch0_write: Number of DDR channel 0 Write clock cycles for
+ * the monitor session
+ * @ram_cycles_lo_ch1_write: Number of DDR channel 0 Write clock cycles for
+ * the monitor session
+ * @starved_ram_lo: Number of cycles VBIF/GBIF is stalled by DDR (Only channel 0
+ * stall cycles in case of GBIF)
+ * @starved_ram_lo_ch1: Number of cycles GBIF is stalled by DDR channel 1
+ * @perfctr_pwr_lo: GPU busy cycles
  * @halt: Atomic variable to check whether the GPU is currently halted
  * @pending_irq_refcnt: Atomic variable to keep track of running IRQ handlers
  * @ctx_d_debugfs: Context debugfs node
@@ -437,6 +454,9 @@ struct adreno_device {
 	unsigned int chipid;
 	unsigned long gmem_base;
 	unsigned long gmem_size;
+	unsigned long cx_dbgc_base;
+	unsigned int cx_dbgc_len;
+	void __iomem *cx_dbgc_virt;
 	const struct adreno_gpu_core *gpucore;
 	struct adreno_firmware fw[2];
 	size_t gpmu_cmds_size;
@@ -458,7 +478,11 @@ struct adreno_device {
 	struct work_struct input_work;
 	struct adreno_busy_data busy_data;
 	unsigned int ram_cycles_lo;
+	unsigned int ram_cycles_lo_ch1_read;
+	unsigned int ram_cycles_lo_ch0_write;
+	unsigned int ram_cycles_lo_ch1_write;
 	unsigned int starved_ram_lo;
+	unsigned int starved_ram_lo_ch1;
 	unsigned int perfctr_pwr_lo;
 	atomic_t halt;
 	atomic_t pending_irq_refcnt;
@@ -604,6 +628,12 @@ enum adreno_regs {
 	ADRENO_REG_CP_PROTECT_REG_0,
 	ADRENO_REG_CP_CONTEXT_SWITCH_SMMU_INFO_LO,
 	ADRENO_REG_CP_CONTEXT_SWITCH_SMMU_INFO_HI,
+	ADRENO_REG_CP_CONTEXT_SWITCH_PRIV_NON_SECURE_RESTORE_ADDR_LO,
+	ADRENO_REG_CP_CONTEXT_SWITCH_PRIV_NON_SECURE_RESTORE_ADDR_HI,
+	ADRENO_REG_CP_CONTEXT_SWITCH_PRIV_SECURE_RESTORE_ADDR_LO,
+	ADRENO_REG_CP_CONTEXT_SWITCH_PRIV_SECURE_RESTORE_ADDR_HI,
+	ADRENO_REG_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_LO,
+	ADRENO_REG_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_HI,
 	ADRENO_REG_RBBM_STATUS,
 	ADRENO_REG_RBBM_STATUS3,
 	ADRENO_REG_RBBM_PERFCTR_CTL,
@@ -823,6 +853,13 @@ struct adreno_snapshot_data {
 	struct adreno_snapshot_sizes *sect_sizes;
 };
 
+enum adreno_cp_marker_type {
+	IFPC_DISABLE,
+	IFPC_ENABLE,
+	IB1LIST_START,
+	IB1LIST_END,
+};
+
 struct adreno_gpudev {
 	/*
 	 * These registers are in a different location on different devices,
@@ -870,7 +907,8 @@ struct adreno_gpudev {
 				unsigned int *cmds,
 				struct kgsl_context *context);
 	int (*preemption_yield_enable)(unsigned int *);
-	unsigned int (*set_marker)(unsigned int *cmds, int start);
+	unsigned int (*set_marker)(unsigned int *cmds,
+				enum adreno_cp_marker_type type);
 	unsigned int (*preemption_post_ibsubmit)(
 				struct adreno_device *adreno_dev,
 				unsigned int *cmds);
@@ -1062,6 +1100,13 @@ int adreno_efuse_map(struct adreno_device *adreno_dev);
 int adreno_efuse_read_u32(struct adreno_device *adreno_dev, unsigned int offset,
 		unsigned int *val);
 void adreno_efuse_unmap(struct adreno_device *adreno_dev);
+
+bool adreno_is_cx_dbgc_register(struct kgsl_device *device,
+		unsigned int offset);
+void adreno_cx_dbgc_regread(struct kgsl_device *adreno_device,
+		unsigned int offsetwords, unsigned int *value);
+void adreno_cx_dbgc_regwrite(struct kgsl_device *device,
+		unsigned int offsetwords, unsigned int value);
 
 #define ADRENO_TARGET(_name, _id) \
 static inline int adreno_is_##_name(struct adreno_device *adreno_dev) \
@@ -1883,4 +1928,7 @@ static inline int adreno_vbif_clear_pending_transactions(
 	return ret;
 }
 
+void adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
+	enum adreno_regs offset, unsigned int val,
+	unsigned int fence_mask);
 #endif /*__ADRENO_H */

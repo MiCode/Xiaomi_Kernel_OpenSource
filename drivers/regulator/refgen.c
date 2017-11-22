@@ -31,7 +31,7 @@
 #define REFGEN_BIAS_EN_DISABLE			0x6
 
 #define REFGEN_REG_BG_CTRL			0x14
-#define REFGEN_BG_CTRL_MASK			GENMASK(2, 0)
+#define REFGEN_BG_CTRL_MASK			GENMASK(2, 1)
 #define REFGEN_BG_CTRL_ENABLE			0x6
 #define REFGEN_BG_CTRL_DISABLE			0x4
 
@@ -41,11 +41,21 @@ struct refgen {
 	void __iomem		*addr;
 };
 
+static void masked_writel(u32 val, u32 mask, void __iomem *addr)
+{
+	u32 reg;
+
+	reg = readl_relaxed(addr);
+	reg = (reg & ~mask) | (val & mask);
+	writel_relaxed(reg, addr);
+}
+
 static int refgen_enable(struct regulator_dev *rdev)
 {
 	struct refgen *vreg = rdev_get_drvdata(rdev);
 
-	writel_relaxed(REFGEN_BG_CTRL_ENABLE, vreg->addr + REFGEN_REG_BG_CTRL);
+	masked_writel(REFGEN_BG_CTRL_ENABLE, REFGEN_BG_CTRL_MASK,
+			vreg->addr + REFGEN_REG_BG_CTRL);
 	writel_relaxed(REFGEN_BIAS_EN_ENABLE, vreg->addr + REFGEN_REG_BIAS_EN);
 
 	return 0;
@@ -56,7 +66,8 @@ static int refgen_disable(struct regulator_dev *rdev)
 	struct refgen *vreg = rdev_get_drvdata(rdev);
 
 	writel_relaxed(REFGEN_BIAS_EN_DISABLE, vreg->addr + REFGEN_REG_BIAS_EN);
-	writel_relaxed(REFGEN_BG_CTRL_DISABLE, vreg->addr + REFGEN_REG_BG_CTRL);
+	masked_writel(REFGEN_BG_CTRL_DISABLE, REFGEN_BG_CTRL_MASK,
+			vreg->addr + REFGEN_REG_BG_CTRL);
 
 	return 0;
 }

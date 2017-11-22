@@ -137,12 +137,6 @@ Charger specific properties:
 		be based off battery voltage. For both SOC and battery voltage,
 		charger receives the signal from FG to resume charging.
 
-- qcom,micro-usb
-  Usage:      optional
-  Value type: <empty>
-  Definition: Boolean flag which indicates that the platform only support
-		micro usb port.
-
 - qcom,suspend-input-on-debug-batt
   Usage:      optional
   Value type: <empty>
@@ -182,6 +176,15 @@ Charger specific properties:
   Usage:      optional
   Value type: bool
   Definition: Boolean flag which when present enables sw compensation for jeita
+
+- qcom,battery-data
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the phandle of the node which contains the battery
+		profiles supported on the device. This is only specified
+		when step charging and sw-jeita configurations are desired
+		to be get from these properties defined in battery profile:
+		qcom,step-chg-ranges, qcom,jeita-fcc-ranges, qcom,jeita-fv-ranges.
 
 =============================================
 Second Level Nodes - SMB2 Charger Peripherals

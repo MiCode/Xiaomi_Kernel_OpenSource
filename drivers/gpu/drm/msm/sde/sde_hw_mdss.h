@@ -535,4 +535,64 @@ struct sde_hw_dim_layer {
 	struct sde_rect rect;
 };
 
+/**
+ * struct sde_splash_lm_hw - Struct contains LM block properties
+ * @lm_id:	stores the current LM ID
+ * @ctl_id:	stores the current CTL ID associated with the LM.
+ * @lm_reg_value:Store the LM block register value
+ */
+struct sde_splash_lm_hw {
+	u8 lm_id;
+	u8 ctl_id;
+	u32 lm_reg_value;
+};
+
+/**
+ * struct ctl_top - Struct contains CTL block properties
+ * @value:	Store the CTL block register value
+ * @mode_sel:	stores the mode selected in the CTL block
+ * @dspp_sel:	stores the dspp selected in the CTL block
+ * @pp_sel:	stores the pp selected in the CTL block
+ * @intf_sel:	stores the intf selected in the CTL block
+ * @lm:		Pointer to store the list of LMs in the CTL block
+ * @ctl_lm_cnt:	stores the active number of MDSS "LM" blocks in the CTL block
+ */
+struct ctl_top {
+	u32 value;
+	u8 mode_sel;
+	u8 dspp_sel;
+	u8 pp_sel;
+	u8 intf_sel;
+	struct sde_splash_lm_hw lm[LM_MAX - LM_0];
+	u8 ctl_lm_cnt;
+};
+
+/**
+ * struct sde_splash_data - Struct contains details of continuous splash
+ *	memory region and initial pipeline configuration.
+ * @smmu_handoff_pending:boolean to notify handoff from splash memory to smmu
+ * @splash_base:	Base address of continuous splash region reserved
+ *                      by bootloader
+ * @splash_size:	Size of continuous splash region
+ * @top:	struct ctl_top objects
+ * @ctl_ids:	stores the valid MDSS ctl block ids for the current mode
+ * @lm_ids:	stores the valid MDSS layer mixer block ids for the current mode
+ * @dsc_ids:	stores the valid MDSS DSC block ids for the current mode
+ * @ctl_top_cnt:stores the active number of MDSS "top" blks of the current mode
+ * @lm_cnt:	stores the active number of MDSS "LM" blks for the current mode
+ * @dsc_cnt:	stores the active number of MDSS "dsc" blks for the current mode
+ */
+struct sde_splash_data {
+	bool smmu_handoff_pending;
+	unsigned long splash_base;
+	u32 splash_size;
+	struct ctl_top top[CTL_MAX - CTL_0];
+	u8 ctl_ids[CTL_MAX - CTL_0];
+	u8 lm_ids[LM_MAX - LM_0];
+	u8 dsc_ids[DSC_MAX - DSC_0];
+	u8 ctl_top_cnt;
+	u8 lm_cnt;
+	u8 dsc_cnt;
+};
+
 #endif  /* _SDE_HW_MDSS_H */

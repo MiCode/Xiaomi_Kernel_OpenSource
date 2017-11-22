@@ -1052,25 +1052,17 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 	int num_trbs = (dep->direction) ? (2 * (req->num_bufs) + 2)
 					: (req->num_bufs + 2);
 
-	dep->trb_dma_pool = dma_pool_create(ep->name, dwc->sysdev,
-					num_trbs * sizeof(struct dwc3_trb),
-					num_trbs * sizeof(struct dwc3_trb), 0);
-	if (!dep->trb_dma_pool) {
+	dep->trb_pool = dma_zalloc_coherent(dwc->sysdev,
+				num_trbs * sizeof(struct dwc3_trb),
+				&dep->trb_pool_dma, GFP_KERNEL);
+
+	if (!dep->trb_pool) {
 		dev_err(dep->dwc->dev, "failed to alloc trb dma pool for %s\n",
 				dep->name);
 		return -ENOMEM;
 	}
 
 	dep->num_trbs = num_trbs;
-
-	dep->trb_pool = dma_pool_alloc(dep->trb_dma_pool,
-					   GFP_KERNEL, &dep->trb_pool_dma);
-	if (!dep->trb_pool) {
-		dev_err(dep->dwc->dev, "failed to allocate trb pool for %s\n",
-				dep->name);
-		return -ENOMEM;
-	}
-
 	/* IN direction */
 	if (dep->direction) {
 		for (i = 0; i < num_trbs ; i++) {
@@ -1160,18 +1152,19 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 static void gsi_free_trbs(struct usb_ep *ep)
 {
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	struct dwc3 *dwc = dep->dwc;
 
 	if (dep->endpoint.ep_type == EP_TYPE_NORMAL)
 		return;
 
 	/*  Free TRBs and TRB pool for EP */
-	if (dep->trb_dma_pool) {
-		dma_pool_free(dep->trb_dma_pool, dep->trb_pool,
-						dep->trb_pool_dma);
-		dma_pool_destroy(dep->trb_dma_pool);
+	if (dep->trb_pool_dma) {
+		dma_free_coherent(dwc->sysdev,
+			dep->num_trbs * sizeof(struct dwc3_trb),
+			dep->trb_pool,
+			dep->trb_pool_dma);
 		dep->trb_pool = NULL;
 		dep->trb_pool_dma = 0;
-		dep->trb_dma_pool = NULL;
 	}
 }
 /*
@@ -1853,7 +1846,7 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event)
 				break;
 			evt->dwc	= dwc;
 			evt->length	= DWC3_EVENT_BUFFERS_SIZE;
-			evt->buf	= dma_alloc_coherent(dwc->dev,
+			evt->buf	= dma_alloc_coherent(dwc->sysdev,
 						DWC3_EVENT_BUFFERS_SIZE,
 						&evt->dma, GFP_KERNEL);
 			if (!evt->buf) {
@@ -1924,7 +1917,7 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event)
 		for (i = 0; i < mdwc->num_gsi_event_buffers; i++) {
 			evt = mdwc->gsi_ev_buff[i];
 			if (evt)
-				dma_free_coherent(dwc->dev, evt->length,
+				dma_free_coherent(dwc->sysdev, evt->length,
 							evt->buf, evt->dma);
 		}
 		break;
@@ -2996,8 +2989,8 @@ err:
 	return ret;
 }
 
-#define SMMU_BASE	0x10000000 /* Device address range base */
-#define SMMU_SIZE	0x40000000 /* Device address range size */
+#define SMMU_BASE	0x60000000 /* Device address range base */
+#define SMMU_SIZE	0x90000000 /* Device address range size */
 
 static int dwc3_msm_init_iommu(struct dwc3_msm *mdwc)
 {
@@ -4077,7 +4070,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			 * which was incremented upon cable connect in
 			 * OTG_STATE_B_IDLE state
 			 */
-			pm_runtime_put_sync(mdwc->dev);
+			pm_runtime_put_sync_suspend(mdwc->dev);
 			dbg_event(0xFF, "!BSV psync",
 				atomic_read(&mdwc->dev->power.usage_count));
 			work = 1;

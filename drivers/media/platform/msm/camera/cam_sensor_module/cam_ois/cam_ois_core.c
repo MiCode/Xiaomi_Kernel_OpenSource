@@ -17,6 +17,46 @@
 #include "cam_ois_soc.h"
 #include "cam_sensor_util.h"
 #include "cam_debug_util.h"
+#include "cam_res_mgr_api.h"
+
+int32_t cam_ois_construct_default_power_setting(
+	struct cam_sensor_power_ctrl_t *power_info)
+{
+	int rc = 0;
+
+	power_info->power_setting_size = 1;
+	power_info->power_setting =
+		(struct cam_sensor_power_setting *)
+		kzalloc(sizeof(struct cam_sensor_power_setting),
+			GFP_KERNEL);
+	if (!power_info->power_setting)
+		return -ENOMEM;
+
+	power_info->power_setting[0].seq_type = SENSOR_VAF;
+	power_info->power_setting[0].seq_val = CAM_VAF;
+	power_info->power_setting[0].config_val = 1;
+
+	power_info->power_down_setting_size = 1;
+	power_info->power_down_setting =
+		(struct cam_sensor_power_setting *)
+		kzalloc(sizeof(struct cam_sensor_power_setting),
+			GFP_KERNEL);
+	if (!power_info->power_down_setting) {
+		rc = -ENOMEM;
+		goto free_power_settings;
+	}
+
+	power_info->power_setting[0].seq_type = SENSOR_VAF;
+	power_info->power_setting[0].seq_val = CAM_VAF;
+	power_info->power_setting[0].config_val = 0;
+
+	return rc;
+
+free_power_settings:
+	kfree(power_info->power_setting);
+	return rc;
+}
+
 
 /**
  * cam_ois_get_dev_handle - get device handle
@@ -60,58 +100,46 @@ static int cam_ois_get_dev_handle(struct cam_ois_ctrl_t *o_ctrl,
 	return 0;
 }
 
-static int cam_ois_vreg_control(struct cam_ois_ctrl_t *o_ctrl,
-	int config)
-{
-	int rc = 0, cnt;
-	struct cam_hw_soc_info  *soc_info;
-
-	soc_info = &o_ctrl->soc_info;
-	cnt = soc_info->num_rgltr;
-
-	if (!cnt)
-		return 0;
-
-	if (cnt >= CAM_SOC_MAX_REGULATOR) {
-		CAM_ERR(CAM_OIS, "Regulators more than supported %d", cnt);
-		return -EINVAL;
-	}
-
-	if (config) {
-		rc = cam_soc_util_request_platform_resource(soc_info,
-			NULL, NULL);
-		rc = cam_soc_util_enable_platform_resource(soc_info, false, 0,
-			false);
-	} else {
-		rc = cam_soc_util_disable_platform_resource(soc_info, false,
-			false);
-		rc = cam_soc_util_release_platform_resource(soc_info);
-	}
-
-	return rc;
-}
-
 static int cam_ois_power_up(struct cam_ois_ctrl_t *o_ctrl)
 {
-	int rc = 0;
-	struct cam_hw_soc_info  *soc_info =
+	int                             rc = 0;
+	struct cam_hw_soc_info          *soc_info =
 		&o_ctrl->soc_info;
-	struct msm_camera_gpio_num_info *gpio_num_info = NULL;
+	struct cam_ois_soc_private *soc_private;
+	struct cam_sensor_power_ctrl_t  *power_info;
 
-	rc = cam_ois_vreg_control(o_ctrl, 1);
-	if (rc < 0) {
-		CAM_ERR(CAM_OIS, "OIS Reg Failed %d", rc);
+	soc_private =
+		(struct cam_ois_soc_private *)o_ctrl->soc_info.soc_private;
+	power_info = &soc_private->power_info;
+
+	/* Parse and fill vreg params for power up settings */
+	rc = msm_camera_fill_vreg_params(
+		&o_ctrl->soc_info,
+		power_info->power_setting,
+		power_info->power_setting_size);
+	if (rc) {
+		CAM_ERR(CAM_OIS,
+			"failed to fill vreg params for power up rc:%d", rc);
 		return rc;
 	}
 
-	gpio_num_info = o_ctrl->gpio_num_info;
+	/* Parse and fill vreg params for power down settings*/
+	rc = msm_camera_fill_vreg_params(
+		&o_ctrl->soc_info,
+		power_info->power_down_setting,
+		power_info->power_down_setting_size);
+	if (rc) {
+		CAM_ERR(CAM_OIS,
+			"failed to fill vreg params power down rc:%d", rc);
+		return rc;
+	}
 
-	if (soc_info->gpio_data &&
-		gpio_num_info &&
-		gpio_num_info->valid[SENSOR_VAF] == 1) {
-		gpio_set_value_cansleep(
-			gpio_num_info->gpio_num[SENSOR_VAF],
-			1);
+	power_info->dev = soc_info->dev;
+
+	rc = cam_sensor_core_power_up(power_info, soc_info);
+	if (rc) {
+		CAM_ERR(CAM_OIS, "failed in ois power up rc %d", rc);
+		return rc;
 	}
 
 	/* VREG needs some delay to power up */
@@ -126,25 +154,32 @@ static int cam_ois_power_up(struct cam_ois_ctrl_t *o_ctrl)
 
 static int cam_ois_power_down(struct cam_ois_ctrl_t *o_ctrl)
 {
-	int32_t rc = 0;
-	struct cam_hw_soc_info *soc_info =
+	int32_t                         rc = 0;
+	struct cam_sensor_power_ctrl_t  *power_info;
+	struct cam_hw_soc_info          *soc_info =
 		&o_ctrl->soc_info;
-	struct msm_camera_gpio_num_info *gpio_num_info = NULL;
+	struct cam_ois_soc_private *soc_private;
 
-	gpio_num_info = o_ctrl->gpio_num_info;
-
-	if (soc_info->gpio_data &&
-		gpio_num_info &&
-		gpio_num_info->valid[SENSOR_VAF] == 1) {
-
-		gpio_set_value_cansleep(
-			gpio_num_info->gpio_num[SENSOR_VAF],
-			GPIOF_OUT_INIT_LOW);
+	if (!o_ctrl) {
+		CAM_ERR(CAM_OIS, "failed: o_ctrl %pK", o_ctrl);
+		return -EINVAL;
 	}
 
-	rc = cam_ois_vreg_control(o_ctrl, 0);
-	if (rc < 0)
-		CAM_ERR(CAM_OIS, "Disable regualtor Failed %d", rc);
+	soc_private =
+		(struct cam_ois_soc_private *)o_ctrl->soc_info.soc_private;
+	power_info = &soc_private->power_info;
+	soc_info = &o_ctrl->soc_info;
+
+	if (!power_info) {
+		CAM_ERR(CAM_OIS, "failed: power_info %pK", power_info);
+		return -EINVAL;
+	}
+
+	rc = msm_camera_power_down(power_info, soc_info);
+	if (rc) {
+		CAM_ERR(CAM_OIS, "power down the core is failed:%d", rc);
+		return rc;
+	}
 
 	camera_io_release(&o_ctrl->io_master_info);
 

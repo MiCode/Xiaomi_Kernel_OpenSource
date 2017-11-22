@@ -32,6 +32,7 @@ struct dp_panel_private {
 	bool aux_cfg_update_done;
 	bool custom_edid;
 	bool custom_dpcd;
+	bool panel_on;
 };
 
 static const struct dp_panel_info fail_safe = {
@@ -400,6 +401,58 @@ static void dp_panel_handle_sink_request(struct dp_panel *dp_panel)
 	}
 }
 
+static void dp_panel_tpg_config(struct dp_panel *dp_panel, bool enable)
+{
+	u32 hsync_start_x, hsync_end_x;
+	struct dp_catalog_panel *catalog;
+	struct dp_panel_private *panel;
+	struct dp_panel_info *pinfo;
+
+	if (!dp_panel) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+	catalog = panel->catalog;
+	pinfo = &panel->dp_panel.pinfo;
+
+	if (!panel->panel_on) {
+		pr_debug("DP panel not enabled, handle TPG on next panel on\n");
+		return;
+	}
+
+	if (!enable) {
+		panel->catalog->tpg_config(catalog, false);
+		return;
+	}
+
+	/* TPG config */
+	catalog->hsync_period = pinfo->h_sync_width + pinfo->h_back_porch +
+			pinfo->h_active + pinfo->h_front_porch;
+	catalog->vsync_period = pinfo->v_sync_width + pinfo->v_back_porch +
+			pinfo->v_active + pinfo->v_front_porch;
+
+	catalog->display_v_start = ((pinfo->v_sync_width +
+			pinfo->v_back_porch) * catalog->hsync_period);
+	catalog->display_v_end = ((catalog->vsync_period -
+			pinfo->v_front_porch) * catalog->hsync_period) - 1;
+
+	catalog->display_v_start += pinfo->h_sync_width + pinfo->h_back_porch;
+	catalog->display_v_end -= pinfo->h_front_porch;
+
+	hsync_start_x = pinfo->h_back_porch + pinfo->h_sync_width;
+	hsync_end_x = catalog->hsync_period - pinfo->h_front_porch - 1;
+
+	catalog->v_sync_width = pinfo->v_sync_width;
+
+	catalog->hsync_ctl = (catalog->hsync_period << 16) |
+			pinfo->h_sync_width;
+	catalog->display_hctl = (hsync_end_x << 16) | hsync_start_x;
+
+	panel->catalog->tpg_config(catalog, true);
+}
+
 static int dp_panel_timing_cfg(struct dp_panel *dp_panel)
 {
 	int rc = 0;
@@ -459,6 +512,7 @@ static int dp_panel_timing_cfg(struct dp_panel *dp_panel)
 	catalog->dp_active = data;
 
 	panel->catalog->timing_cfg(catalog);
+	panel->panel_on = true;
 end:
 	return rc;
 }
@@ -533,6 +587,7 @@ static int dp_panel_deinit_panel_info(struct dp_panel *dp_panel)
 		sde_free_edid((void **)&dp_panel->edid_ctrl);
 
 	memset(&dp_panel->pinfo, 0, sizeof(dp_panel->pinfo));
+	panel->panel_on = false;
 
 	return rc;
 }
@@ -681,6 +736,7 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	dp_panel->handle_sink_request = dp_panel_handle_sink_request;
 	dp_panel->set_edid = dp_panel_set_edid;
 	dp_panel->set_dpcd = dp_panel_set_dpcd;
+	dp_panel->tpg_config = dp_panel_tpg_config;
 
 	dp_panel_edid_register(panel);
 	dp_panel->setup_hdr = dp_panel_setup_hdr;

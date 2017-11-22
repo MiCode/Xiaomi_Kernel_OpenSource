@@ -26,6 +26,8 @@
 #include "cam_trace.h"
 #include "cam_debug_util.h"
 
+static const char icp_dev_name[] = "icp";
+
 static int __cam_icp_acquire_dev_in_available(struct cam_context *ctx,
 	struct cam_acquire_dev_cmd *cmd)
 {
@@ -171,8 +173,8 @@ int cam_icp_context_init(struct cam_icp_context *ctx,
 		goto err;
 	}
 
-	rc = cam_context_init(ctx->base, NULL, hw_intf, ctx->req_base,
-		CAM_CTX_REQ_MAX);
+	rc = cam_context_init(ctx->base, icp_dev_name, NULL, hw_intf,
+		ctx->req_base, CAM_CTX_REQ_MAX);
 	if (rc) {
 		CAM_ERR(CAM_ICP, "Camera Context Base init failed");
 		goto err;

@@ -1451,6 +1451,7 @@ static int _sde_plane_color_fill(struct sde_plane *psde,
 	const struct sde_format *fmt;
 	const struct drm_plane *plane;
 	struct sde_plane_state *pstate;
+	bool blend_enable = true;
 
 	if (!psde || !psde->base.state) {
 		SDE_ERROR("invalid plane\n");
@@ -1473,6 +1474,9 @@ static int _sde_plane_color_fill(struct sde_plane *psde,
 	 */
 	fmt = sde_get_sde_format(DRM_FORMAT_ABGR8888);
 
+	blend_enable = (SDE_DRM_BLEND_OP_OPAQUE !=
+			sde_plane_get_property(pstate, PLANE_PROP_BLEND_OP));
+
 	/* update sspp */
 	if (fmt && psde->pipe_hw->ops.setup_solidfill) {
 		psde->pipe_hw->ops.setup_solidfill(psde->pipe_hw,
@@ -1488,7 +1492,7 @@ static int _sde_plane_color_fill(struct sde_plane *psde,
 
 		if (psde->pipe_hw->ops.setup_format)
 			psde->pipe_hw->ops.setup_format(psde->pipe_hw,
-					fmt, SDE_SSPP_SOLID_FILL,
+					fmt, blend_enable, SDE_SSPP_SOLID_FILL,
 					pstate->multirect_index);
 
 		if (psde->pipe_hw->ops.setup_rects)
@@ -3527,6 +3531,7 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 	struct sde_rect src, dst;
 	const struct sde_rect *crtc_roi;
 	bool q16_data = true;
+	bool blend_enabled = true;
 	int idx;
 
 	if (!plane) {
@@ -3761,8 +3766,12 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 		if (rstate->out_rotation & DRM_REFLECT_Y)
 			src_flags |= SDE_SSPP_FLIP_UD;
 
+		blend_enabled = (SDE_DRM_BLEND_OP_OPAQUE !=
+			sde_plane_get_property(pstate, PLANE_PROP_BLEND_OP));
+
 		/* update format */
-		psde->pipe_hw->ops.setup_format(psde->pipe_hw, fmt, src_flags,
+		psde->pipe_hw->ops.setup_format(psde->pipe_hw, fmt,
+				blend_enabled, src_flags,
 				pstate->multirect_index);
 
 		if (psde->pipe_hw->ops.setup_cdp) {
