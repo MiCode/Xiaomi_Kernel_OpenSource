@@ -457,7 +457,8 @@ void diag_update_userspace_clients(unsigned int type)
 
 	mutex_lock(&driver->diagchar_mutex);
 	for (i = 0; i < driver->num_clients; i++)
-		if (driver->client_map[i].pid != 0) {
+		if (driver->client_map[i].pid != 0 &&
+			!(driver->data_ready[i] & type)) {
 			driver->data_ready[i] |= type;
 			atomic_inc(&driver->data_ready_notif[i]);
 		}
@@ -477,9 +478,11 @@ void diag_update_md_clients(unsigned int type)
 				if (driver->client_map[j].pid != 0 &&
 					driver->client_map[j].pid ==
 					driver->md_session_map[i]->pid) {
-					driver->data_ready[j] |= type;
-					atomic_inc(
+					if (!(driver->data_ready[i] & type)) {
+						driver->data_ready[j] |= type;
+						atomic_inc(
 						&driver->data_ready_notif[j]);
+					}
 					break;
 				}
 			}
@@ -495,8 +498,10 @@ void diag_update_sleeping_process(int process_id, int data_type)
 	mutex_lock(&driver->diagchar_mutex);
 	for (i = 0; i < driver->num_clients; i++)
 		if (driver->client_map[i].pid == process_id) {
-			driver->data_ready[i] |= data_type;
-			atomic_inc(&driver->data_ready_notif[i]);
+			if (!(driver->data_ready[i] & data_type)) {
+				driver->data_ready[i] |= data_type;
+				atomic_inc(&driver->data_ready_notif[i]);
+			}
 			break;
 		}
 	wake_up_interruptible(&driver->wait_q);
