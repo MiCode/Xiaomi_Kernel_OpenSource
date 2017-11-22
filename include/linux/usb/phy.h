@@ -114,6 +114,8 @@ struct usb_phy {
 
 	/* enable/disable VBUS */
 	int	(*set_vbus)(struct usb_phy *x, int on);
+	/* callback to indicate port is being reset or reset the port */
+	void	(*start_port_reset)(struct usb_phy *x);
 
 	/* effective for B devices, ignored for A-peripheral */
 	int	(*set_power)(struct usb_phy *x,
@@ -211,6 +213,15 @@ usb_phy_vbus_off(struct usb_phy *x)
 		return 0;
 
 	return x->set_vbus(x, false);
+}
+
+static inline void
+usb_phy_start_port_reset(struct usb_phy *x)
+{
+	if (!x || !x->start_port_reset)
+		return;
+
+	x->start_port_reset(x);
 }
 
 static inline int
