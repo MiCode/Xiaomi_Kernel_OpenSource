@@ -5761,8 +5761,9 @@ int msm_comm_dqbuf_cache_operations(struct msm_vidc_inst *inst,
 					skip = true;
 			} else if (b->type ==
 					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-				if (!i) /* yuv */
-					skip = true;
+				if (!i) { /* yuv */
+					/* all values are correct */
+				}
 			}
 		} else if (inst->session_type == MSM_VIDC_ENCODER) {
 			if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
