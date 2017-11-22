@@ -110,17 +110,18 @@ static inline u32 cmd_db_get_addr(const char *resource_id)
 	return 0;
 }
 
-bool cmd_db_get_priority(u32 addr, u8 drv_id)
+static inline bool cmd_db_get_priority(u32 addr, u8 drv_id)
 {
 	return false;
 }
 
-int cmd_db_get_aux_data(const char *resource_id, u8 *data, int len)
+static inline int cmd_db_get_aux_data(const char *resource_id,
+		u8 *data, int len)
 {
 	return -ENODEV;
 }
 
-int cmd_db_get_aux_data_len(const char *resource_id)
+static inline int cmd_db_get_aux_data_len(const char *resource_id)
 {
 	return -ENODEV;
 }

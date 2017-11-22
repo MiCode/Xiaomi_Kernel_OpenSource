@@ -197,6 +197,7 @@ int cmd_db_get_aux_data(const char *resource_id, u8 *data, int len)
 			len);
 	return len;
 }
+EXPORT_SYMBOL(cmd_db_get_aux_data);
 
 int cmd_db_get_aux_data_len(const char *resource_id)
 {
@@ -208,6 +209,7 @@ int cmd_db_get_aux_data_len(const char *resource_id)
 
 	return ret < 0 ? 0 : ent.len;
 }
+EXPORT_SYMBOL(cmd_db_get_aux_data_len);
 
 u16 cmd_db_get_version(const char *resource_id)
 {
