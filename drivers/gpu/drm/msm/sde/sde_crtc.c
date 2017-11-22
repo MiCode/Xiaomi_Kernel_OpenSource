@@ -1203,8 +1203,6 @@ static int _sde_crtc_check_rois(struct drm_crtc *crtc,
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *sde_crtc_state;
 	struct msm_mode_info mode_info;
-	struct drm_connector *conn;
-	struct drm_connector_state *conn_state;
 	int rc, lm_idx, i;
 
 	if (!crtc || !state)
@@ -1213,6 +1211,7 @@ static int _sde_crtc_check_rois(struct drm_crtc *crtc,
 	memset(&mode_info, 0, sizeof(mode_info));
 
 	sde_crtc = to_sde_crtc(crtc);
+	sde_crtc_state = to_sde_crtc_state(state);
 
 	if (hweight_long(state->connector_mask) != 1) {
 		SDE_ERROR("invalid connector count(%d) for crtc: %d\n",
@@ -1221,8 +1220,17 @@ static int _sde_crtc_check_rois(struct drm_crtc *crtc,
 		return -EINVAL;
 	}
 
-	for_each_connector_in_state(state->state, conn, conn_state, i) {
-		rc = sde_connector_get_mode_info(conn_state, &mode_info);
+	/*
+	 * check connector array cached at modeset time since incoming atomic
+	 * state may not include any connectors if they aren't modified
+	 */
+	for (i = 0; i < ARRAY_SIZE(sde_crtc_state->connectors); i++) {
+		struct drm_connector *conn = sde_crtc_state->connectors[i];
+
+		if (!conn || !conn->state)
+			continue;
+
+		rc = sde_connector_get_mode_info(conn->state, &mode_info);
 		if (rc) {
 			SDE_ERROR("failed to get mode info\n");
 			return -EINVAL;
@@ -1233,7 +1241,6 @@ static int _sde_crtc_check_rois(struct drm_crtc *crtc,
 	if (!mode_info.roi_caps.enabled)
 		return 0;
 
-	sde_crtc_state = to_sde_crtc_state(state);
 	if (sde_crtc_state->user_roi_list.num_rects >
 					mode_info.roi_caps.num_roi) {
 		SDE_ERROR("roi count is more than supported limit, %d > %d\n",
