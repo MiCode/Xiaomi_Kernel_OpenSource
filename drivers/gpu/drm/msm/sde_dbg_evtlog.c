@@ -34,10 +34,13 @@ static bool _sde_evtlog_is_filtered_no_lock(
 		struct sde_dbg_evtlog *evtlog, const char *str)
 {
 	struct sde_evtlog_filter *filter_node;
+	size_t len;
 	bool rc;
 
 	if (!str)
 		return true;
+
+	len = strlen(str);
 
 	/*
 	 * Filter the incoming string IFF the list is not empty AND
@@ -45,8 +48,7 @@ static bool _sde_evtlog_is_filtered_no_lock(
 	 */
 	rc = !list_empty(&evtlog->filter_list);
 	list_for_each_entry(filter_node, &evtlog->filter_list, list)
-		if (strnstr(str, filter_node->filter,
-					SDE_EVTLOG_FILTER_STRSIZE - 1)) {
+		if (strnstr(str, filter_node->filter, len)) {
 			rc = false;
 			break;
 		}
