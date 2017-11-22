@@ -92,8 +92,10 @@ static int skcipher_alloc_sgl(struct sock *sk)
 		sg_init_table(sgl->sg, MAX_SGL_ENTS + 1);
 		sgl->cur = 0;
 
-		if (sg)
+		if (sg) {
 			scatterwalk_sg_chain(sg, MAX_SGL_ENTS + 1, sgl->sg);
+			sg_unmark_end(sg + (MAX_SGL_ENTS - 1));
+		}
 
 		list_add_tail(&sgl->list, &ctx->tsgl);
 	}
@@ -446,13 +448,6 @@ static int skcipher_recvmsg(struct kiocb *unused, struct socket *sock,
 		char __user *from = iov->iov_base;
 
 		while (seglen) {
-			sgl = list_first_entry(&ctx->tsgl,
-					       struct skcipher_sg_list, list);
-			sg = sgl->sg;
-
-			while (!sg->length)
-				sg++;
-
 			used = ctx->used;
 			if (!used) {
 				err = skcipher_wait_for_data(sk, flags);
@@ -473,6 +468,13 @@ static int skcipher_recvmsg(struct kiocb *unused, struct socket *sock,
 			err = -EINVAL;
 			if (!used)
 				goto free;
+
+			sgl = list_first_entry(&ctx->tsgl,
+					       struct skcipher_sg_list, list);
+			sg = sgl->sg;
+
+			while (!sg->length)
+				sg++;
 
 			ablkcipher_request_set_crypt(&ctx->req, sg,
 						     ctx->rsgl.sg, used,

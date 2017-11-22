@@ -27,6 +27,7 @@
 #include <linux/delay.h>
 #include <linux/sysfs.h>
 #include <linux/workqueue.h>
+#include <linux/io.h>
 
 #include <soc/qcom/subsystem_restart.h>
 

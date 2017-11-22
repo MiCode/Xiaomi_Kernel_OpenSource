@@ -298,6 +298,8 @@ struct key *key_alloc(struct key_type *type, const char *desc,
 		key->flags |= 1 << KEY_FLAG_IN_QUOTA;
 	if (flags & KEY_ALLOC_TRUSTED)
 		key->flags |= 1 << KEY_FLAG_TRUSTED;
+	if (flags & KEY_ALLOC_UID_KEYRING)
+		key->flags |= 1 << KEY_FLAG_UID_KEYRING;
 
 #ifdef KEY_DEBUGGING
 	key->magic = KEY_DEBUG_MAGIC;
@@ -906,6 +908,16 @@ error:
 	 * - we can drop the locks first as we have the key pinned
 	 */
 	__key_link_end(keyring, &index_key, edit);
+
+	key = key_ref_to_ptr(key_ref);
+	if (test_bit(KEY_FLAG_USER_CONSTRUCT, &key->flags)) {
+		ret = wait_for_key_construction(key, true);
+		if (ret < 0) {
+			key_ref_put(key_ref);
+			key_ref = ERR_PTR(ret);
+			goto error_free_prep;
+		}
+	}
 
 	key_ref = __key_update(key_ref, &prep);
 	goto error_free_prep;
