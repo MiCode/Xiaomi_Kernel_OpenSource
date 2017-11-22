@@ -27,7 +27,7 @@
  */
 static int cam_ois_get_dt_data(struct cam_ois_ctrl_t *o_ctrl)
 {
-	int                             rc = 0;
+	int                             i, rc = 0;
 	struct cam_hw_soc_info         *soc_info = &o_ctrl->soc_info;
 	struct cam_ois_soc_private     *soc_private =
 		(struct cam_ois_soc_private *)o_ctrl->soc_info.soc_private;
@@ -63,6 +63,17 @@ static int cam_ois_get_dt_data(struct cam_ois_ctrl_t *o_ctrl)
 	if ((rc < 0) || (!power_info->gpio_num_info)) {
 		CAM_ERR(CAM_OIS, "No/Error OIS GPIOs");
 		return -EINVAL;
+	}
+
+	for (i = 0; i < soc_info->num_clk; i++) {
+		soc_info->clk[i] = devm_clk_get(soc_info->dev,
+			soc_info->clk_name[i]);
+		if (!soc_info->clk[i]) {
+			CAM_ERR(CAM_SENSOR, "get failed for %s",
+				soc_info->clk_name[i]);
+			rc = -ENOENT;
+			return rc;
+		}
 	}
 
 	return rc;

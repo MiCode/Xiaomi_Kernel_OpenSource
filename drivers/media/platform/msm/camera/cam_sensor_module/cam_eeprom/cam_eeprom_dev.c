@@ -231,9 +231,11 @@ probe_failure:
 
 static int cam_eeprom_i2c_driver_remove(struct i2c_client *client)
 {
+	int                             i;
 	struct v4l2_subdev             *sd = i2c_get_clientdata(client);
 	struct cam_eeprom_ctrl_t       *e_ctrl;
 	struct cam_eeprom_soc_private  *soc_private;
+	struct cam_hw_soc_info         *soc_info;
 
 	if (!sd) {
 		CAM_ERR(CAM_EEPROM, "Subdevice is NULL");
@@ -252,6 +254,10 @@ static int cam_eeprom_i2c_driver_remove(struct i2c_client *client)
 		CAM_ERR(CAM_EEPROM, "soc_info.soc_private is NULL");
 		return -EINVAL;
 	}
+
+	soc_info = &e_ctrl->soc_info;
+	for (i = 0; i < soc_info->num_clk; i++)
+		devm_clk_put(soc_info->dev, soc_info->clk[i]);
 
 	if (soc_private)
 		kfree(soc_private);
@@ -358,9 +364,11 @@ static int cam_eeprom_spi_driver_probe(struct spi_device *spi)
 
 static int cam_eeprom_spi_driver_remove(struct spi_device *sdev)
 {
+	int                             i;
 	struct v4l2_subdev             *sd = spi_get_drvdata(sdev);
 	struct cam_eeprom_ctrl_t       *e_ctrl;
 	struct cam_eeprom_soc_private  *soc_private;
+	struct cam_hw_soc_info         *soc_info;
 
 	if (!sd) {
 		CAM_ERR(CAM_EEPROM, "Subdevice is NULL");
@@ -372,6 +380,10 @@ static int cam_eeprom_spi_driver_remove(struct spi_device *sdev)
 		CAM_ERR(CAM_EEPROM, "eeprom device is NULL");
 		return -EINVAL;
 	}
+
+	soc_info = &e_ctrl->soc_info;
+	for (i = 0; i < soc_info->num_clk; i++)
+		devm_clk_put(soc_info->dev, soc_info->clk[i]);
 
 	kfree(e_ctrl->io_master_info.spi_client);
 	soc_private =
@@ -458,7 +470,9 @@ free_e_ctrl:
 
 static int cam_eeprom_platform_driver_remove(struct platform_device *pdev)
 {
+	int                        i;
 	struct cam_eeprom_ctrl_t  *e_ctrl;
+	struct cam_hw_soc_info    *soc_info;
 
 	e_ctrl = platform_get_drvdata(pdev);
 	if (!e_ctrl) {
@@ -466,7 +480,12 @@ static int cam_eeprom_platform_driver_remove(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	kfree(e_ctrl->soc_info.soc_private);
+	soc_info = &e_ctrl->soc_info;
+
+	for (i = 0; i < soc_info->num_clk; i++)
+		devm_clk_put(soc_info->dev, soc_info->clk[i]);
+
+	kfree(soc_info->soc_private);
 	kfree(e_ctrl->io_master_info.cci_client);
 	kfree(e_ctrl);
 	return 0;

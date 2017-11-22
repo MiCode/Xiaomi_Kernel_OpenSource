@@ -288,7 +288,7 @@ static int cam_eeprom_cmm_dts(struct cam_eeprom_soc_private *eb_info,
  */
 int cam_eeprom_parse_dt(struct cam_eeprom_ctrl_t *e_ctrl)
 {
-	int                             rc = 0;
+	int                             i, rc = 0;
 	struct cam_hw_soc_info         *soc_info = &e_ctrl->soc_info;
 	struct device_node             *of_node = NULL;
 	struct cam_eeprom_soc_private  *soc_private =
@@ -356,6 +356,17 @@ int cam_eeprom_parse_dt(struct cam_eeprom_ctrl_t *e_ctrl)
 		}
 		CAM_DBG(CAM_EEPROM, "slave-addr = 0x%X",
 			soc_private->i2c_info.slave_addr);
+	}
+
+	for (i = 0; i < soc_info->num_clk; i++) {
+		soc_info->clk[i] = devm_clk_get(soc_info->dev,
+			soc_info->clk_name[i]);
+		if (!soc_info->clk[i]) {
+			CAM_ERR(CAM_SENSOR, "get failed for %s",
+				soc_info->clk_name[i]);
+			rc = -ENOENT;
+			return rc;
+		}
 	}
 
 	return rc;
