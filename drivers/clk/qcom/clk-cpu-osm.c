@@ -74,6 +74,7 @@ struct osm_entry {
 	u16 virtual_corner;
 	u16 open_loop_volt;
 	long frequency;
+	u16 ccount;
 };
 
 struct clk_osm {
@@ -635,7 +636,7 @@ static int osm_cpufreq_cpu_init(struct cpufreq_policy *policy)
 	struct clk_osm *c, *parent;
 	struct clk_hw *p_hw;
 	int ret;
-	unsigned int i;
+	unsigned int i, prev_cc = 0;
 	unsigned int xo_kHz;
 
 	c = osm_configure_policy(policy);
@@ -682,8 +683,12 @@ static int osm_cpufreq_cpu_init(struct cpufreq_policy *policy)
 		if (core_count != parent->max_core_count)
 			table[i].frequency = CPUFREQ_ENTRY_INVALID;
 
-		/* Two of the same frequencies means end of table */
-		if (i > 0 && table[i - 1].driver_data == table[i].driver_data) {
+		/*
+		 * Two of the same frequencies with the same core counts means
+		 * end of table.
+		 */
+		if (i > 0 && table[i - 1].driver_data == table[i].driver_data
+					&& prev_cc == core_count) {
 			struct cpufreq_frequency_table *prev = &table[i - 1];
 
 			if (prev->frequency == CPUFREQ_ENTRY_INVALID) {
@@ -693,6 +698,7 @@ static int osm_cpufreq_cpu_init(struct cpufreq_policy *policy)
 
 			break;
 		}
+		prev_cc = core_count;
 	}
 	table[i].frequency = CPUFREQ_TABLE_END;
 
@@ -936,6 +942,7 @@ static int clk_osm_read_lut(struct platform_device *pdev, struct clk_osm *c)
 		data = clk_osm_read_reg(c, FREQ_REG + i * OSM_REG_SIZE);
 		src = ((data & GENMASK(31, 30)) >> 30);
 		lval = (data & GENMASK(7, 0));
+		c->osm_table[i].ccount = CORE_COUNT_VAL(data);
 
 		if (!src)
 			c->osm_table[i].frequency = OSM_INIT_RATE;
@@ -952,8 +959,10 @@ static int clk_osm_read_lut(struct platform_device *pdev, struct clk_osm *c)
 			 c->osm_table[i].virtual_corner,
 			 c->osm_table[i].open_loop_volt);
 
-		if (i > 0 && j == OSM_TABLE_SIZE && c->osm_table[i].frequency ==
-					c->osm_table[i - 1].frequency)
+		if (i > 0 && j == OSM_TABLE_SIZE &&
+				c->osm_table[i].frequency ==
+					c->osm_table[i - 1].frequency &&
+			c->osm_table[i].ccount == c->osm_table[i - 1].ccount)
 			j = i;
 	}
 
