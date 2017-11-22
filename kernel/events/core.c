@@ -11307,7 +11307,7 @@ check_hotplug_start_event(struct perf_event *event)
 		event->pmu->start(event, 0);
 }
 
-static int perf_event_start_swevents(unsigned int cpu)
+int perf_event_start_swevents(unsigned int cpu)
 {
 	struct perf_event_context *ctx;
 	struct pmu *pmu;
@@ -11457,25 +11457,6 @@ static struct notifier_block perf_event_idle_nb = {
 	.notifier_call = event_idle_notif,
 };
 
-#ifdef CONFIG_HOTPLUG_CPU
-static int perf_cpu_hp_init(void)
-{
-	int ret;
-
-	ret = cpuhp_setup_state_nocalls(CPUHP_AP_PERF_ONLINE,
-				"PERF/CORE/CPUHP_AP_PERF_ONLINE",
-				perf_event_start_swevents,
-				perf_event_exit_cpu);
-	if (ret)
-		pr_err("CPU hotplug notifier for perf core could not be registered: %d\n",
-		       ret);
-
-	return ret;
-}
-#else
-static int perf_cpu_hp_init(void) { return 0; }
-#endif
-
 void __init perf_event_init(void)
 {
 	int ret, cpu;
@@ -11502,8 +11483,6 @@ void __init perf_event_init(void)
 	perf_event_init_cpu(smp_processor_id());
 	idle_notifier_register(&perf_event_idle_nb);
 	register_reboot_notifier(&perf_reboot_notifier);
-	ret = perf_cpu_hp_init();
-	WARN(ret, "core perf_cpu_hp_init() failed with: %d", ret);
 
 	ret = init_hw_breakpoint();
 	WARN(ret, "hw_breakpoint initialization failed with: %d", ret);
