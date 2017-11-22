@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -461,6 +461,41 @@ static void hdmi_hdcp2p2_auth_failed(struct hdmi_hdcp2p2_ctrl *ctrl)
 	/* notify hdmi tx about HDCP failure */
 	ctrl->init_data.notify_status(ctrl->init_data.cb_data,
 		HDCP_STATE_AUTH_FAIL);
+}
+
+static void hdmi_hdcp2p2_fail_noreauth(struct hdmi_hdcp2p2_ctrl *ctrl)
+{
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	atomic_set(&ctrl->auth_state, HDCP_STATE_AUTH_FAIL);
+
+	hdmi_hdcp2p2_ddc_disable(ctrl->init_data.cb_data);
+
+	/* notify hdmi tx about HDCP failure */
+	ctrl->init_data.notify_status(ctrl->init_data.cb_data,
+		HDCP_STATE_AUTH_FAIL_NOREAUTH);
+}
+
+static void hdmi_hdcp2p2_srm_cb(void *client_ctx)
+{
+	struct hdmi_hdcp2p2_ctrl *ctrl =
+		(struct hdmi_hdcp2p2_ctrl *)client_ctx;
+	struct hdcp_lib_wakeup_data cdata = {
+		HDCP_LIB_WKUP_CMD_INVALID};
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	cdata.context = ctrl->lib_ctx;
+	cdata.cmd = HDCP_LIB_WKUP_CMD_STOP;
+	hdmi_hdcp2p2_wakeup_lib(ctrl, &cdata);
+
+	hdmi_hdcp2p2_fail_noreauth(ctrl);
 }
 
 static int hdmi_hdcp2p2_ddc_read_message(struct hdmi_hdcp2p2_ctrl *ctrl,
@@ -995,6 +1030,7 @@ void *hdmi_hdcp2p2_init(struct hdcp_init_data *init_data)
 
 	static struct hdcp_client_ops client_ops = {
 		.wakeup = hdmi_hdcp2p2_wakeup,
+		.srm_cb = hdmi_hdcp2p2_srm_cb,
 	};
 
 	static struct hdcp_txmtr_ops txmtr_ops;

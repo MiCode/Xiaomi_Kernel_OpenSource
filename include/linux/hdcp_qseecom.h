@@ -15,6 +15,8 @@
 #include <linux/types.h>
 
 #define HDCP_MAX_MESSAGE_PARTS 4
+#define RECV_ID_SIZE 5
+#define MAX_DEVICES_SUPPORTED 127
 
 enum hdcp_lib_wakeup_cmd {
 	HDCP_LIB_WKUP_CMD_INVALID,
@@ -115,6 +117,10 @@ static inline char *hdcp_lib_cmd_to_str(uint32_t cmd)
 	}
 }
 
+struct hdcp_srm_device_id_t {
+	uint8_t data[RECV_ID_SIZE];
+};
+
 struct hdcp_txmtr_ops {
 	int (*wakeup)(struct hdcp_lib_wakeup_data *data);
 	bool (*feature_supported)(void *phdcpcontext);
@@ -148,6 +154,12 @@ void hdcp_library_deregister(void *phdcpcontext);
 bool hdcp1_check_if_supported_load_app(void);
 int hdcp1_set_keys(uint32_t *aksv_msb, uint32_t *aksv_lsb);
 int hdcp1_set_enc(bool enable);
+int hdcp1_validate_receiver_ids(struct hdcp_srm_device_id_t *device_ids,
+uint32_t device_id_cnt);
 void hdcp1_cache_repeater_topology(void *hdcp1_cached_tp);
 void hdcp1_notify_topology(void);
+void hdcp1_client_register(void *client_ctx,
+struct hdcp_client_ops *ops);
+void hdcp1_client_unregister(void);
+
 #endif /* __HDCP_QSEECOM_H */
