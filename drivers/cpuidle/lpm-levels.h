@@ -33,7 +33,6 @@ struct lpm_cpu_level {
 	struct power_params pwr;
 	unsigned int psci_id;
 	bool is_reset;
-	bool hyp_psci;
 	int reset_level;
 };
 
