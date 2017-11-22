@@ -2054,6 +2054,18 @@ static int smblib_dm_pulse(struct smb_charger *chg)
 	return rc;
 }
 
+static int smblib_force_vbus_voltage(struct smb_charger *chg, u8 val)
+{
+	int rc;
+
+	rc = smblib_masked_write(chg, CMD_HVDCP_2_REG, val, val);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't write to CMD_HVDCP_2_REG rc=%d\n",
+				rc);
+
+	return rc;
+}
+
 int smblib_dp_dm(struct smb_charger *chg, int val)
 {
 	int target_icl_ua, rc = 0;
@@ -2104,6 +2116,21 @@ int smblib_dp_dm(struct smb_charger *chg, int val)
 						target_icl_ua - 100000);
 		smblib_dbg(chg, PR_PARALLEL, "ICL DOWN ICL=%d reduction=%d\n",
 				target_icl_ua, chg->usb_icl_delta_ua);
+		break;
+	case POWER_SUPPLY_DP_DM_FORCE_5V:
+		rc = smblib_force_vbus_voltage(chg, FORCE_5V_BIT);
+		if (rc < 0)
+			pr_err("Failed to force 5V\n");
+		break;
+	case POWER_SUPPLY_DP_DM_FORCE_9V:
+		rc = smblib_force_vbus_voltage(chg, FORCE_9V_BIT);
+		if (rc < 0)
+			pr_err("Failed to force 9V\n");
+		break;
+	case POWER_SUPPLY_DP_DM_FORCE_12V:
+		rc = smblib_force_vbus_voltage(chg, FORCE_12V_BIT);
+		if (rc < 0)
+			pr_err("Failed to force 12V\n");
 		break;
 	case POWER_SUPPLY_DP_DM_ICL_UP:
 	default:
@@ -3566,16 +3593,6 @@ static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
 
 	/* the APSD done handler will set the USB supply type */
 	apsd_result = smblib_get_apsd_result(chg);
-	if (get_effective_result(chg->hvdcp_hw_inov_dis_votable)) {
-		if (apsd_result->pst == POWER_SUPPLY_TYPE_USB_HVDCP) {
-			/* force HVDCP2 to 9V if INOV is disabled */
-			rc = smblib_masked_write(chg, CMD_HVDCP_2_REG,
-					FORCE_9V_BIT, FORCE_9V_BIT);
-			if (rc < 0)
-				smblib_err(chg,
-					"Couldn't force 9V HVDCP rc=%d\n", rc);
-		}
-	}
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: hvdcp-3p0-auth-done rising; %s detected\n",
 		   apsd_result->name);
