@@ -1930,11 +1930,34 @@ out_put_cookie:
 	return -EINVAL;
 }
 
+static int
+bitmap_iommu_init_mapping(struct device *dev, struct dma_iommu_mapping *mapping)
+{
+	unsigned int bitmap_size = BITS_TO_LONGS(mapping->bits) * sizeof(long);
+
+	mapping->bitmap = kzalloc(bitmap_size, GFP_KERNEL | __GFP_NOWARN |
+				__GFP_NORETRY);
+	if (!mapping->bitmap)
+		mapping->bitmap = vzalloc(bitmap_size);
+
+	if (!mapping->bitmap)
+		return -ENOMEM;
+
+	spin_lock_init(&mapping->lock);
+	mapping->ops = &iommu_ops;
+	return 0;
+}
+
 static void release_iommu_mapping(struct kref *kref)
 {
+	int is_bitmap = 0;
 	struct dma_iommu_mapping *mapping =
 		container_of(kref, struct dma_iommu_mapping, kref);
 
+	iommu_domain_get_attr(mapping->domain,
+				DOMAIN_ATTR_BITMAP_IOVA_ALLOCATOR, &is_bitmap);
+	if (is_bitmap)
+		kfree(mapping->bitmap);
 	iommu_domain_free(mapping->domain);
 	kfree(mapping);
 }
@@ -1948,7 +1971,7 @@ static void release_iommu_mapping(struct kref *kref)
  */
 void arm_iommu_release_mapping(struct dma_iommu_mapping *mapping)
 {
-	int s1_bypass = 0, is_fast = 0;
+	int is_fast = 0;
 	void (*release)(struct kref *kref);
 
 	if (!mapping)
@@ -1960,8 +1983,6 @@ void arm_iommu_release_mapping(struct dma_iommu_mapping *mapping)
 		return;
 	}
 
-	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_S1_BYPASS,
-					&s1_bypass);
 	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_FAST, &is_fast);
 
 	if (is_fast)
@@ -1977,7 +1998,7 @@ static int arm_iommu_init_mapping(struct device *dev,
 			    struct dma_iommu_mapping *mapping)
 {
 	int err = -EINVAL;
-	int s1_bypass = 0, is_fast = 0;
+	int s1_bypass = 0, is_fast = 0, is_bitmap = 0;
 	dma_addr_t iova_end;
 
 	if (mapping->init) {
@@ -1995,15 +2016,18 @@ static int arm_iommu_init_mapping(struct device *dev,
 	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_S1_BYPASS,
 					&s1_bypass);
 	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_FAST, &is_fast);
+	iommu_domain_get_attr(mapping->domain,
+			DOMAIN_ATTR_BITMAP_IOVA_ALLOCATOR, &is_bitmap);
 
 	if (s1_bypass) {
 		mapping->ops = &swiotlb_dma_ops;
 		err = 0;
-	} else if (is_fast) {
+	} else if (is_fast)
 		err = fast_smmu_init_mapping(dev, mapping);
-	} else {
+	else if (is_bitmap)
+		err = bitmap_iommu_init_mapping(dev, mapping);
+	else
 		err = iommu_init_mapping(dev, mapping);
-	}
 	if (!err) {
 		kref_init(&mapping->kref);
 		mapping->init = true;
