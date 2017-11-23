@@ -234,10 +234,16 @@ static void sde_hdmi_hdcp2p2_off(void *input)
 
 	flush_kthread_worker(&ctrl->worker);
 
-	sde_hdmi_hdcp2p2_ddc_disable((void *)ctrl->init_data.cb_data);
-
 	cdata.context = input;
 	sde_hdmi_hdcp2p2_wakeup(&cdata);
+
+	/* There could be upto one frame delay
+	 * between the time encryption disable is
+	 * requested till the time we get encryption
+	 * disabled interrupt
+	 */
+	msleep(20);
+	sde_hdmi_hdcp2p2_ddc_disable((void *)ctrl->init_data.cb_data);
 }
 
 static int sde_hdmi_hdcp2p2_authenticate(void *input)

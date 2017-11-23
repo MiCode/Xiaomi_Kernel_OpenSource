@@ -198,4 +198,7 @@ int sde_hdmi_sink_dc_support(struct drm_connector *connector,
 	struct drm_display_mode *mode);
 u8 sde_hdmi_hdr_get_ops(u8 curr_state,
 	u8 new_state);
+void sde_hdmi_ctrl_reset(struct hdmi *hdmi);
+void sde_hdmi_ctrl_cfg(struct hdmi *hdmi, bool power_on);
+
 #endif /* _SDE_HDMI_UTIL_H_ */

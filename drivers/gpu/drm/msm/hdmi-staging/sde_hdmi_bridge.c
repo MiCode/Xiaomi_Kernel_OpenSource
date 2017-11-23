@@ -577,6 +577,9 @@ static void _sde_hdmi_bridge_disable(struct drm_bridge *bridge)
 	display->pll_update_enable = false;
 	display->sink_hdcp_ver = SDE_HDMI_HDCP_NONE;
 
+	if (sde_hdmi_tx_is_hdcp_enabled(display))
+		sde_hdmi_hdcp_off(display);
+
 	sde_hdmi_clear_hdr_info(bridge);
 	mutex_unlock(&display->display_lock);
 }
@@ -591,9 +594,6 @@ static void _sde_hdmi_bridge_post_disable(struct drm_bridge *bridge)
 
 	sde_hdmi_notify_clients(display, display->connected);
 
-	if (sde_hdmi_tx_is_hdcp_enabled(display))
-		sde_hdmi_hdcp_off(display);
-
 	sde_hdmi_audio_off(hdmi);
 
 	DRM_DEBUG("power down");
@@ -602,10 +602,16 @@ static void _sde_hdmi_bridge_post_disable(struct drm_bridge *bridge)
 	if (phy)
 		phy->funcs->powerdown(phy);
 
+	/* HDMI teardown sequence */
+	sde_hdmi_ctrl_reset(hdmi);
+
 	if (hdmi->power_on) {
 		_sde_hdmi_bridge_power_off(bridge);
 		hdmi->power_on = false;
 	}
+
+	/* Powering-on the controller for HPD */
+	sde_hdmi_ctrl_cfg(hdmi, 1);
 }
 
 static void _sde_hdmi_bridge_set_avi_infoframe(struct hdmi *hdmi,
