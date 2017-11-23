@@ -1972,6 +1972,7 @@ static void dsi_display_aspace_cb_locked(void *cb_data, bool is_detach)
 		display_ctrl->ctrl->cmd_buffer_size = display->cmd_buffer_size;
 		display_ctrl->ctrl->cmd_buffer_iova = display->cmd_buffer_iova;
 		display_ctrl->ctrl->vaddr = display->vaddr;
+		display_ctrl->ctrl->secure_mode = is_detach ? true : false;
 	}
 
 end:
