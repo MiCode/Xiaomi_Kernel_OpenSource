@@ -574,6 +574,11 @@ static int tsens2xxx_hw_init(struct tsens_device *tmdev)
 	spin_lock_init(&tmdev->tsens_crit_lock);
 	spin_lock_init(&tmdev->tsens_upp_low_lock);
 
+	if (tmdev->ctrl_data->mtc) {
+		if (tmdev->ops->dbg)
+			tmdev->ops->dbg(tmdev, 0, TSENS_DBG_MTC_DATA, NULL);
+	}
+
 	return 0;
 }
 
@@ -632,6 +637,7 @@ const struct tsens_data data_tsens2xxx = {
 	.wd_bark			= false,
 	.wd_bark_mask			= 1,
 	.ops				= &ops_tsens2xxx,
+	.mtc				= true,
 };
 
 const struct tsens_data data_tsens23xx = {
@@ -640,6 +646,7 @@ const struct tsens_data data_tsens23xx = {
 	.wd_bark			= true,
 	.wd_bark_mask			= 1,
 	.ops				= &ops_tsens2xxx,
+	.mtc				= false,
 };
 
 const struct tsens_data data_tsens24xx = {
@@ -649,4 +656,5 @@ const struct tsens_data data_tsens24xx = {
 	/* Enable Watchdog monitoring by unmasking */
 	.wd_bark_mask			= 0,
 	.ops				= &ops_tsens2xxx,
+	.mtc				= false,
 };
