@@ -1387,6 +1387,10 @@ static int ath10k_vdev_start_restart(struct ath10k_vif *arvif,
 
 	lockdep_assert_held(&ar->conf_mutex);
 
+	/* Clear arp and ns offload cache */
+	memset(&arvif->arp_offload, 0, sizeof(arvif->arp_offload));
+	memset(&arvif->ns_offload, 0, sizeof(arvif->ns_offload));
+
 	reinit_completion(&ar->vdev_setup_done);
 	reinit_completion(&ar->vdev_delete_done);
 

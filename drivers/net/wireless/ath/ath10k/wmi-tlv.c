@@ -3010,6 +3010,82 @@ ath10k_wmi_tlv_op_gen_tdls_peer_update(struct ath10k *ar,
 }
 
 static struct sk_buff *
+ath10k_wmi_tlv_op_gen_set_arp_ns_offload(struct ath10k *ar,
+					 struct ath10k_vif *arvif)
+{
+	struct wmi_tlv_arp_ns_offload_cmd *cmd;
+	struct wmi_tlv *tlv;
+	struct sk_buff *skb;
+	size_t len;
+	void *ptr;
+	int i;
+	struct wmi_ns_arp_offload_req *arp = &arvif->arp_offload;
+	struct wmi_ns_offload *ns_tuple[WMI_MAX_NS_OFFLOADS];
+	struct wmi_arp_offload *arp_tuple[WMI_MAX_ARP_OFFLOADS];
+
+	len = sizeof(*cmd) + sizeof(*tlv) +
+		sizeof(*tlv) + WMI_MAX_NS_OFFLOADS *
+		(sizeof(struct wmi_ns_offload) + sizeof(*tlv)) +
+		sizeof(*tlv) + WMI_MAX_ARP_OFFLOADS *
+		(sizeof(struct wmi_arp_offload) + sizeof(*tlv));
+
+	skb = ath10k_wmi_alloc_skb(ar, len);
+	if (!skb)
+		return ERR_PTR(-ENOMEM);
+
+	ptr = (void *)skb->data;
+	tlv = ptr;
+	tlv->tag = __cpu_to_le16(WMI_TLV_TAG_STRUCT_SET_ARP_NS_OFFLOAD_CMD);
+	tlv->len = __cpu_to_le16(sizeof(*cmd));
+	cmd = (struct wmi_tlv_arp_ns_offload_cmd *)tlv->value;
+	cmd->flags = __cpu_to_le32(0);
+	cmd->vdev_id = __cpu_to_le32(arvif->vdev_id);
+
+	ptr += (sizeof(*tlv) + sizeof(*cmd));
+	tlv = ptr;
+	tlv->tag = __cpu_to_le16(WMI_TLV_TAG_ARRAY_STRUCT);
+	tlv->len = __cpu_to_le16(WMI_MAX_NS_OFFLOADS *
+		(sizeof(struct wmi_ns_offload) + sizeof(*tlv)));
+	ptr += sizeof(*tlv);
+	tlv = ptr;
+
+	for (i = 0; i < WMI_MAX_NS_OFFLOADS; i++) {
+		tlv->tag = __cpu_to_le16(WMI_TLV_TAG_STRUCT_NS_OFFLOAD_TUPLE);
+		tlv->len = __cpu_to_le16(sizeof(struct wmi_ns_offload));
+		ns_tuple[i] = (struct wmi_ns_offload *)tlv->value;
+		ns_tuple[i]->flags |= __cpu_to_le32(WMI_ARP_NS_OFFLOAD_DISABLE);
+		ptr += (sizeof(*tlv) + sizeof(struct wmi_ns_offload));
+		tlv = ptr;
+	}
+
+	tlv->tag = __cpu_to_le16(WMI_TLV_TAG_ARRAY_STRUCT);
+	tlv->len = __cpu_to_le16(WMI_MAX_ARP_OFFLOADS *
+		(sizeof(struct wmi_arp_offload) + sizeof(*tlv)));
+	ptr += sizeof(*tlv);
+	tlv = ptr;
+
+	for (i = 0; i < WMI_MAX_ARP_OFFLOADS; i++) {
+		tlv->tag = __cpu_to_le16(WMI_TLV_TAG_STRUCT_ARP_OFFLOAD_TUPLE);
+		tlv->len = __cpu_to_le16(sizeof(struct wmi_arp_offload));
+		arp_tuple[i] = (struct wmi_arp_offload *)tlv->value;
+		if (arp->enable_offload && (i == 0)) {
+			arp_tuple[i]->flags |=
+				__cpu_to_le32(WMI_ARPOFF_FLAGS_VALID);
+			memcpy(&arp_tuple[i]->target_ipaddr,
+			       &arp->params.ipv4_addr, 4);
+		} else {
+			arp_tuple[i]->flags |=
+				__cpu_to_le32(WMI_ARP_NS_OFFLOAD_DISABLE);
+		}
+		ptr += (sizeof(*tlv) + sizeof(struct wmi_arp_offload));
+		tlv = ptr;
+	}
+
+	ath10k_dbg(ar, ATH10K_DBG_WMI, "wmi tlv set arp ns offload\n");
+	return skb;
+}
+
+static struct sk_buff *
 ath10k_wmi_tlv_op_gen_wow_enable(struct ath10k *ar)
 {
 	struct wmi_tlv_wow_enable_cmd *cmd;
@@ -3695,6 +3771,7 @@ static const struct wmi_ops wmi_tlv_ops = {
 	.gen_p2p_go_bcn_ie = ath10k_wmi_tlv_op_gen_p2p_go_bcn_ie,
 	.gen_vdev_sta_uapsd = ath10k_wmi_tlv_op_gen_vdev_sta_uapsd,
 	.gen_sta_keepalive = ath10k_wmi_tlv_op_gen_sta_keepalive,
+	.gen_set_arp_ns_offload = ath10k_wmi_tlv_op_gen_set_arp_ns_offload,
 	.gen_wow_enable = ath10k_wmi_tlv_op_gen_wow_enable,
 	.gen_wow_add_wakeup_event = ath10k_wmi_tlv_op_gen_wow_add_wakeup_event,
 	.gen_wow_host_wakeup_ind = ath10k_wmi_tlv_gen_wow_host_wakeup_ind,
