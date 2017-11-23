@@ -54,3 +54,7 @@
 	status = "okay";
 	qcom,led-strings-list = [01 02];
 };
+
+&mdss_mdp {
+	connectors = <&sde_rscc &sde_wb &sde_dp>;
+};
