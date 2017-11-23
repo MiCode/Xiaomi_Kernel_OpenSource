@@ -1690,7 +1690,7 @@ static int glink_bgcom_suspend(struct platform_device *pdev,
 	int rc = -EBUSY;
 
 	einfo = (struct edge_info *)dev_get_drvdata(&pdev->dev);
-	if (strcmp(einfo->xprt_cfg.edge, "bgcom"))
+	if (strcmp(einfo->xprt_cfg.edge, "bg"))
 		return 0;
 
 	spin_lock_irqsave(&einfo->activity_lock, flags);
