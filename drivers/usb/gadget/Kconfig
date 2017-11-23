@@ -236,6 +236,9 @@ config USB_F_CDEV
 config USB_F_CCID
 	tristate
 
+config USB_F_GSI
+	tristate
+
 config USB_F_QDSS
 	tristate
 
@@ -575,6 +578,18 @@ config USB_CONFIGFS_F_CCID
 	  endpoint. This driver provides a character device interface
 	  allowing a userspace component to be able to provide the
 	  implementation necessary to interface with the smartcard.
+
+config USB_CONFIGFS_F_GSI
+	bool "USB GSI function"
+	select USB_F_GSI
+	depends on USB_CONFIGFS
+	help
+	  The GSI function supports the IPA Generic Software Interface found
+	  on various Qualcomm SoCs. This provides a hardware accelerated
+	  datapath for various tethered data functions, such as RmNet, RNDIS,
+	  MBIM, and CDC ECM. The function is configurable when instantiating
+	  through ConfigFS. This driver can be used instead of the standard
+	  implementations in case your hardware supports this.
 
 config USB_CONFIGFS_F_QDSS
 	bool "USB QDSS function"
