@@ -28,6 +28,7 @@
 #include <sound/audio_cal_utils.h>
 #include <sound/adsp_err.h>
 #include <linux/qdsp6v2/apr_tal.h>
+#include <sound/q6core.h>
 
 #define WAKELOCK_TIMEOUT	5000
 enum {
@@ -143,6 +144,39 @@ bool afe_close_done[2] = {true, true};
 static int afe_get_cal_hw_delay(int32_t path,
 				struct audio_cal_hw_delay_entry *entry);
 static int remap_cal_data(struct cal_block_data *cal_block, int cal_index);
+
+int afe_get_svc_version(uint32_t service_id)
+{
+	int ret = 0;
+	static int afe_cached_version;
+	size_t ver_size;
+	struct avcs_fwk_ver_info *ver_info = NULL;
+
+	if (service_id == AVCS_SERVICE_ID_ALL) {
+		pr_err("%s: Invalid service id: %d", __func__,
+					AVCS_SERVICE_ID_ALL);
+		return -EINVAL;
+	}
+
+	if (afe_cached_version != 0)
+		return afe_cached_version;
+
+	ver_size = sizeof(struct avcs_get_fwk_version) +
+			sizeof(struct avs_svc_api_info);
+	ver_info = kzalloc(ver_size, GFP_KERNEL);
+	if (ver_info == NULL)
+		return -ENOMEM;
+
+	ret = q6core_get_service_version(service_id, ver_info, ver_size);
+	if (ret < 0)
+		goto done;
+
+	ret = ver_info->services[0].api_version;
+	afe_cached_version = ret;
+done:
+	kfree(ver_info);
+	return ret;
+}
 
 int afe_get_topology(int port_id)
 {
@@ -2447,6 +2481,36 @@ fail_cmd:
 	return ret;
 }
 
+static int afe_send_slot_mapping_cfg_v2(
+	struct afe_param_id_slot_mapping_cfg_v2 *slot_mapping_cfg,
+	u16 port_id)
+{
+	struct param_hdr_v3 param_hdr = {0};
+	int ret = 0;
+
+	if (!slot_mapping_cfg) {
+		pr_err("%s: Error, no configuration data\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: port id: 0x%x\n", __func__, port_id);
+
+	param_hdr.module_id = AFE_MODULE_TDM;
+	param_hdr.instance_id = INSTANCE_ID_0;
+	param_hdr.param_id = AFE_PARAM_ID_PORT_SLOT_MAPPING_CONFIG;
+	param_hdr.param_size = sizeof(struct afe_param_id_slot_mapping_cfg_v2);
+
+	ret = q6afe_pack_and_set_param_in_band(port_id,
+					       q6audio_get_port_index(port_id),
+					       param_hdr,
+					       (u8 *) slot_mapping_cfg);
+	if (ret < 0)
+		pr_err("%s: AFE send slot mapping for port 0x%x failed ret = %d\n",
+				__func__, port_id, ret);
+	return ret;
+}
+
+
 int afe_send_slot_mapping_cfg(
 	struct afe_param_id_slot_mapping_cfg *slot_mapping_cfg,
 	u16 port_id)
@@ -2603,8 +2667,15 @@ int afe_tdm_port_start(u16 port_id, struct afe_tdm_port_config *tdm_port,
 	}
 	/* slot mapping is not need if there is only one group */
 	if (num_groups > 1) {
-		ret = afe_send_slot_mapping_cfg(&tdm_port->slot_mapping,
-						port_id);
+		if (afe_get_svc_version(APR_SVC_AFE) >=
+				ADSP_AFE_API_VERSION_V3)
+			ret = afe_send_slot_mapping_cfg_v2(
+					&tdm_port->slot_mapping_v2,
+					port_id);
+		else
+			ret = afe_send_slot_mapping_cfg(
+					&tdm_port->slot_mapping,
+					port_id);
 		if (ret < 0) {
 			pr_err("%s: afe send failed %d\n", __func__, ret);
 			goto fail_cmd;

@@ -132,6 +132,9 @@ struct module_instance_info {
 /* Begin service specific definitions and structures */
 
 #define ADSP_ADM_VERSION    0x00070000
+#define ADSP_ASM_API_VERSION_V2   2
+#define ADSP_ADM_API_VERSION_V3  3
+#define ADSP_AFE_API_VERSION_V3  3
 
 #define ADM_CMD_SHARED_MEM_MAP_REGIONS    0x00010322
 #define ADM_CMDRSP_SHARED_MEM_MAP_REGIONS 0x00010323
