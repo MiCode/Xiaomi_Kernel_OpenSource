@@ -1139,7 +1139,7 @@ static int acm_probe(struct usb_interface *intf,
 		}
 	}
 
-	while (buflen > 0) {
+	while (buflen >= 3) { /* minimum length making sense */
 		elength = buffer[0];
 		if (!elength) {
 			dev_err(&intf->dev, "skipping garbage byte\n");
