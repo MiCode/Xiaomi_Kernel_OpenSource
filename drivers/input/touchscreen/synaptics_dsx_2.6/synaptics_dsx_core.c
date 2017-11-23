@@ -1089,7 +1089,6 @@ static int synaptics_rmi4_f11_abs_report(struct synaptics_rmi4_data *rmi4_data,
 			input_sync(rmi4_data->input_dev);
 			input_report_key(rmi4_data->input_dev, KEY_WAKEUP, 0);
 			input_sync(rmi4_data->input_dev);
-			rmi4_data->suspend = false;
 		}
 
 		return 0;
@@ -1250,7 +1249,6 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 			input_sync(rmi4_data->input_dev);
 			input_report_key(rmi4_data->input_dev, KEY_WAKEUP, 0);
 			input_sync(rmi4_data->input_dev);
-			rmi4_data->suspend = false;
 		}
 
 		return 0;
@@ -4594,10 +4592,9 @@ exit:
 	}
 	mutex_unlock(&exp_data.mutex);
 
-	if (!rmi4_data->suspend && !rmi4_data->enable_wakeup_gesture) {
+	if (!rmi4_data->suspend && !rmi4_data->enable_wakeup_gesture)
 		synaptics_rmi4_enable_reg(rmi4_data, false);
-		synaptics_rmi4_get_reg(rmi4_data, false);
-	}
+
 	rmi4_data->suspend = true;
 
 	return 0;
@@ -4632,10 +4629,8 @@ static int synaptics_rmi4_resume(struct device *dev)
 
 	rmi4_data->current_page = MASK_8BIT;
 
-	if (rmi4_data->suspend) {
-		synaptics_rmi4_get_reg(rmi4_data, true);
+	if (rmi4_data->suspend)
 		synaptics_rmi4_enable_reg(rmi4_data, true);
-	}
 
 	synaptics_rmi4_sleep_enable(rmi4_data, false);
 	synaptics_rmi4_irq_enable(rmi4_data, true, false);
