@@ -224,6 +224,31 @@ static int ath10k_wow_wakeup(struct ath10k *ar)
 	return 0;
 }
 
+static int ath10k_config_wow_listen_interval(struct ath10k *ar)
+{
+	int ret;
+	u32 param = ar->wmi.vdev_param->listen_interval;
+	u8 listen_interval = ar->hw_values->default_listen_interval;
+	struct ath10k_vif *arvif;
+
+	if (!listen_interval)
+		return 0;
+
+	list_for_each_entry(arvif, &ar->arvifs, list) {
+		if (arvif->vdev_type != WMI_VDEV_TYPE_STA)
+			continue;
+		ret = ath10k_wmi_vdev_set_param(ar, arvif->vdev_id,
+						param, listen_interval);
+		if (ret) {
+			ath10k_err(ar, "failed to config LI for vdev_id: %d\n",
+				   arvif->vdev_id);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
 int ath10k_wow_op_suspend(struct ieee80211_hw *hw,
 			  struct cfg80211_wowlan *wowlan)
 {
@@ -248,6 +273,13 @@ int ath10k_wow_op_suspend(struct ieee80211_hw *hw,
 	ret = ath10k_wow_set_wakeups(ar, wowlan);
 	if (ret) {
 		ath10k_warn(ar, "failed to set wow wakeup events: %d\n",
+			    ret);
+		goto cleanup;
+	}
+
+	ret = ath10k_config_wow_listen_interval(ar);
+	if (ret) {
+		ath10k_warn(ar, "failed to config wow listen interval: %d\n",
 			    ret);
 		goto cleanup;
 	}
