@@ -36,12 +36,21 @@ struct sde_connector_ops {
 	/**
 	 * post_init - perform additional initialization steps
 	 * @connector: Pointer to drm connector structure
+	 * @display: Pointer to private display handle
+	 * Returns: Zero on success
+	 */
+	int (*post_init)(struct drm_connector *connector,
+			void *display);
+
+	/**
+	 * set_info_blob - initialize given info blob
+	 * @connector: Pointer to drm connector structure
 	 * @info: Pointer to sde connector info structure
 	 * @display: Pointer to private display handle
 	 * @mode_info: Pointer to mode info structure
 	 * Returns: Zero on success
 	 */
-	int (*post_init)(struct drm_connector *connector,
+	int (*set_info_blob)(struct drm_connector *connector,
 			void *info,
 			void *display,
 			struct msm_mode_info *mode_info);

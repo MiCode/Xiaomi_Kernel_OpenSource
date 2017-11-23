@@ -131,12 +131,20 @@ int sde_wb_config(struct drm_device *drm_dev, void *data,
 /**
  * sde_wb_connector_post_init - perform writeback specific initialization
  * @connector: Pointer to drm connector structure
+ * @display: Pointer to private display structure
+ * Returns: Zero on success
+ */
+int sde_wb_connector_post_init(struct drm_connector *connector, void *display);
+
+/**
+ * sde_wb_connector_set_info_blob - perform writeback info blob initialization
+ * @connector: Pointer to drm connector structure
  * @info: Pointer to connector info
  * @display: Pointer to private display structure
  * @mode_info: Pointer to the mode info structure
  * Returns: Zero on success
  */
-int sde_wb_connector_post_init(struct drm_connector *connector,
+int sde_wb_connector_set_info_blob(struct drm_connector *connector,
 		void *info,
 		void *display,
 		struct msm_mode_info *mode_info);

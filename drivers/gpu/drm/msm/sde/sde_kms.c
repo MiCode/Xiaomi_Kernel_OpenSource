@@ -857,7 +857,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		struct sde_kms *sde_kms)
 {
 	static const struct sde_connector_ops dsi_ops = {
-		.post_init =  dsi_conn_post_init,
+		.set_info_blob = dsi_conn_set_info_blob,
 		.detect =     dsi_conn_detect,
 		.get_modes =  dsi_connector_get_modes,
 		.put_modes =  dsi_connector_put_modes,
@@ -876,6 +876,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 	};
 	static const struct sde_connector_ops wb_ops = {
 		.post_init =    sde_wb_connector_post_init,
+		.set_info_blob = sde_wb_connector_set_info_blob,
 		.detect =       sde_wb_connector_detect,
 		.get_modes =    sde_wb_connector_get_modes,
 		.set_property = sde_wb_connector_set_property,
