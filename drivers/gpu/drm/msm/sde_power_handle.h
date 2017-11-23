@@ -225,6 +225,14 @@ int sde_power_resource_enable(struct sde_power_handle *pdata,
 	struct sde_power_client *pclient, bool enable);
 
 /**
+ * sde_power_resource_is_enabled() - return true if power resource is enabled
+ * @pdata:  power handle containing the resources
+ *
+ * Return: true if enabled; false otherwise
+ */
+int sde_power_resource_is_enabled(struct sde_power_handle *pdata);
+
+/**
  * sde_power_data_bus_state_update() - update data bus state
  * @pdata:  power handle containing the resources
  * @enable: take enable vs disable path
