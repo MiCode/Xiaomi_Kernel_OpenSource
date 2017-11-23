@@ -29,10 +29,11 @@ struct dp_panel_private {
 	struct dp_aux *aux;
 	struct dp_link *link;
 	struct dp_catalog_panel *catalog;
-	bool aux_cfg_update_done;
 	bool custom_edid;
 	bool custom_dpcd;
 	bool panel_on;
+	u8 spd_vendor_name[8];
+	u8 spd_product_description[16];
 };
 
 static const struct dp_panel_info fail_safe = {
@@ -51,6 +52,13 @@ static const struct dp_panel_info fail_safe = {
 	.pixel_clk_khz = 25200,
 	.bpp = 24,
 };
+
+/* OEM NAME */
+static const u8 vendor_name[8] = {81, 117, 97, 108, 99, 111, 109, 109};
+
+/* MODEL NAME */
+static const u8 product_desc[16] = {83, 110, 97, 112, 100, 114, 97, 103,
+	111, 110, 0, 0, 0, 0, 0, 0};
 
 static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
 {
@@ -77,7 +85,11 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
 			dp_panel->dpcd, (DP_RECEIVER_CAP_SIZE + 1));
 		if (rlen < (DP_RECEIVER_CAP_SIZE + 1)) {
 			pr_err("dpcd read failed, rlen=%d\n", rlen);
-			rc = -EINVAL;
+			if (rlen == -ETIMEDOUT)
+				rc = rlen;
+			else
+				rc = -EINVAL;
+
 			goto end;
 		}
 
@@ -193,8 +205,6 @@ static int dp_panel_set_dpcd(struct dp_panel *dp_panel, u8 *dpcd)
 static int dp_panel_read_edid(struct dp_panel *dp_panel,
 	struct drm_connector *connector)
 {
-	int retry_cnt = 0;
-	const int max_retry = 10;
 	struct dp_panel_private *panel;
 
 	if (!dp_panel) {
@@ -209,24 +219,19 @@ static int dp_panel_read_edid(struct dp_panel *dp_panel,
 		return 0;
 	}
 
-	do {
-		sde_get_edid(connector, &panel->aux->drm_aux->ddc,
-			(void **)&dp_panel->edid_ctrl);
-		if (!dp_panel->edid_ctrl->edid) {
-			pr_err("EDID read failed\n");
-			retry_cnt++;
-			panel->aux->reconfig(panel->aux);
-			panel->aux_cfg_update_done = true;
-		} else {
-			u8 *buf = (u8 *)dp_panel->edid_ctrl->edid;
-			u32 size = buf[0x7F] ? 256 : 128;
+	sde_get_edid(connector, &panel->aux->drm_aux->ddc,
+		(void **)&dp_panel->edid_ctrl);
+	if (!dp_panel->edid_ctrl->edid) {
+		pr_err("EDID read failed\n");
+	} else {
+		u8 *buf = (u8 *)dp_panel->edid_ctrl->edid;
+		u32 size = buf[0x7E] ? 256 : 128;
 
-			print_hex_dump(KERN_DEBUG, "[drm-dp] SINK EDID: ",
-				DUMP_PREFIX_NONE, 16, 1, buf, size, false);
+		print_hex_dump(KERN_DEBUG, "[drm-dp] SINK EDID: ",
+			DUMP_PREFIX_NONE, 16, 1, buf, size, false);
 
-			return 0;
-		}
-	} while (retry_cnt < max_retry);
+		return 0;
+	}
 
 	return -EINVAL;
 }
@@ -250,6 +255,10 @@ static int dp_panel_read_sink_caps(struct dp_panel *dp_panel,
 		dp_panel->link_info.num_lanes) ||
 		((drm_dp_link_rate_to_bw_code(dp_panel->link_info.rate)) >
 		dp_panel->max_bw_code)) {
+		if ((rc == -ETIMEDOUT) || (rc == -ENODEV)) {
+			pr_err("DPCD read failed, return early\n");
+			return rc;
+		}
 		pr_err("panel dpcd read failed/incorrect, set default params\n");
 		dp_panel_set_default_link_params(dp_panel);
 	}
@@ -258,12 +267,6 @@ static int dp_panel_read_sink_caps(struct dp_panel *dp_panel,
 	if (rc) {
 		pr_err("panel edid read failed, set failsafe mode\n");
 		return rc;
-	}
-
-	if (panel->aux_cfg_update_done) {
-		pr_debug("read DPCD with updated AUX config\n");
-		dp_panel_read_dpcd(dp_panel);
-		panel->aux_cfg_update_done = false;
 	}
 
 	return 0;
@@ -669,6 +672,11 @@ static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 	hdr = &panel->catalog->hdr_data;
 
+	hdr->ext_header_byte0 = 0x00;
+	hdr->ext_header_byte1 = 0x04;
+	hdr->ext_header_byte2 = 0x1F;
+	hdr->ext_header_byte3 = 0x00;
+
 	hdr->vsc_header_byte0 = 0x00;
 	hdr->vsc_header_byte1 = 0x07;
 	hdr->vsc_header_byte2 = 0x05;
@@ -680,10 +688,11 @@ static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
 
 	/* VSC SDP Payload for DB17 */
 	hdr->dynamic_range = CEA;
-	hdr->bpc = 10;
 
 	/* VSC SDP Payload for DB18 */
 	hdr->content_type = GRAPHICS;
+
+	hdr->bpc = dp_panel->pinfo.bpp / 3;
 
 	hdr->vscext_header_byte0 = 0x00;
 	hdr->vscext_header_byte1 = 0x87;
@@ -691,10 +700,37 @@ static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
 	hdr->vscext_header_byte3 = 0x13 << 2;
 
 	hdr->version = 0x01;
+	hdr->length = 0x1A;
 
 	memcpy(&hdr->hdr_meta, hdr_meta, sizeof(hdr->hdr_meta));
 
 	panel->catalog->config_hdr(panel->catalog);
+end:
+	return rc;
+}
+
+static int dp_panel_spd_config(struct dp_panel *dp_panel)
+{
+	int rc = 0;
+	struct dp_panel_private *panel;
+
+	if (!dp_panel) {
+		pr_err("invalid input\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	if (!dp_panel->spd_enabled) {
+		pr_debug("SPD Infoframe not enabled\n");
+		goto end;
+	}
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+
+	panel->catalog->spd_vendor_name = panel->spd_vendor_name;
+	panel->catalog->spd_product_description =
+		panel->spd_product_description;
+	panel->catalog->config_spd(panel->catalog);
 end:
 	return rc;
 }
@@ -723,8 +759,10 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	panel->link = in->link;
 
 	dp_panel = &panel->dp_panel;
-	panel->aux_cfg_update_done = false;
 	dp_panel->max_bw_code = DP_LINK_BW_8_1;
+	dp_panel->spd_enabled = true;
+	memcpy(panel->spd_vendor_name, vendor_name, (sizeof(u8) * 8));
+	memcpy(panel->spd_product_description, product_desc, (sizeof(u8) * 16));
 
 	dp_panel->init = dp_panel_init_panel_info;
 	dp_panel->deinit = dp_panel_deinit_panel_info;
@@ -737,9 +775,10 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	dp_panel->set_edid = dp_panel_set_edid;
 	dp_panel->set_dpcd = dp_panel_set_dpcd;
 	dp_panel->tpg_config = dp_panel_tpg_config;
+	dp_panel->spd_config = dp_panel_spd_config;
+	dp_panel->setup_hdr = dp_panel_setup_hdr;
 
 	dp_panel_edid_register(panel);
-	dp_panel->setup_hdr = dp_panel_setup_hdr;
 
 	return dp_panel;
 error:

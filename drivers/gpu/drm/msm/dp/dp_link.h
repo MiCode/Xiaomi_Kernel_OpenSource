@@ -86,7 +86,6 @@ struct dp_link_params {
 struct dp_link {
 	u32 sink_request;
 	u32 test_response;
-	bool psm_enabled;
 
 	struct dp_link_sink_count sink_count;
 	struct dp_link_test_video test_video;
