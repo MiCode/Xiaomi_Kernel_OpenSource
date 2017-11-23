@@ -72,6 +72,7 @@ static void mhi_ring_init_cb(void *user_data);
 static void mhi_update_state_info(uint32_t info);
 static int mhi_deinit(struct mhi_dev *mhi);
 static void mhi_dev_resume_init_with_link_up(struct ep_pcie_notify *notify);
+static int mhi_dev_pcie_notify_event;
 
 void mhi_dev_read_from_host(struct mhi_dev *mhi, struct mhi_addr *transfer)
 {
@@ -2492,26 +2493,31 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 
 void mhi_dev_resume_init_with_link_up(struct ep_pcie_notify *notify)
 {
-	int rc = 0;
-
-	if (!notify) {
+	if (!notify || !notify->user) {
 		pr_err("Null argument for notify\n");
 		return;
 	}
 
 	mhi_ctx = notify->user;
-	if (!mhi_ctx) {
-		pr_err("Invalid mhi_ctx\n");
-		return;
-	}
+	mhi_dev_pcie_notify_event = notify->options;
+	mhi_log(MHI_MSG_INFO,
+			"PCIe event=0x%x\n", notify->options);
+	queue_work(mhi_ctx->pcie_event_wq, &mhi_ctx->pcie_event);
+}
 
-	if (notify->options == MHI_INIT) {
+static void mhi_dev_pcie_handle_event(struct work_struct *work)
+{
+	struct mhi_dev *mhi_ctx = container_of(work, struct mhi_dev,
+								pcie_event);
+	int rc = 0;
+
+	if (mhi_dev_pcie_notify_event == MHI_INIT) {
 		rc = mhi_dev_resume_mmio_mhi_init(mhi_ctx);
 		if (rc) {
 			pr_err("Error during MHI device initialization\n");
 			return;
 		}
-	} else if (notify->options == MHI_REINIT) {
+	} else if (mhi_dev_pcie_notify_event == MHI_REINIT) {
 		rc = mhi_dev_resume_mmio_mhi_reinit(mhi_ctx);
 		if (rc) {
 			pr_err("Error during MHI device re-initialization\n");
@@ -2538,6 +2544,14 @@ static int mhi_dev_probe(struct platform_device *pdev)
 		}
 		mhi_uci_init();
 		mhi_update_state_info(MHI_STATE_CONFIGURED);
+	}
+
+	INIT_WORK(&mhi_ctx->pcie_event, mhi_dev_pcie_handle_event);
+	mhi_ctx->pcie_event_wq = alloc_workqueue("mhi_dev_pcie_event_wq",
+							WQ_HIGHPRI, 0);
+	if (!mhi_ctx->pcie_event_wq) {
+		rc = -ENOMEM;
+		return rc;
 	}
 
 	mhi_ctx->phandle = ep_pcie_get_phandle(mhi_ctx->ifc_id);
