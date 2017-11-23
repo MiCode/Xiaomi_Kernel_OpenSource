@@ -649,6 +649,8 @@ static int wwan_add_ul_flt_rule_to_ipa(void)
 		return -ENOMEM;
 	}
 
+	memset(req, 0, sizeof(struct ipa_fltr_installed_notif_req_msg_v01));
+
 	param->commit = 1;
 	param->ep = IPA_CLIENT_APPS_LAN_WAN_PROD;
 	param->global = false;
@@ -1517,8 +1519,8 @@ static int ipa_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		/*  Get driver name  */
 		case RMNET_IOCTL_GET_DRIVER_NAME:
 			memcpy(&extend_ioctl_data.u.if_name,
-						ipa_netdevs[0]->name,
-							sizeof(IFNAMSIZ));
+						ipa_netdevs[0]->name, IFNAMSIZ);
+			extend_ioctl_data.u.if_name[IFNAMSIZ - 1] = '\0';
 			if (copy_to_user((u8 *)ifr->ifr_ifru.ifru_data,
 					&extend_ioctl_data,
 					sizeof(struct rmnet_ioctl_extended_s)))
@@ -1664,6 +1666,7 @@ static int ipa_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 				sizeof(wan_msg->upstream_ifname);
 			strlcpy(wan_msg->upstream_ifname,
 				extend_ioctl_data.u.if_name, len);
+			wan_msg->upstream_ifname[len - 1] = '\0';
 			memset(&msg_meta, 0, sizeof(struct ipa_msg_meta));
 			msg_meta.msg_type = WAN_XLAT_CONNECT;
 			msg_meta.msg_len = sizeof(struct ipa_wan_msg);
