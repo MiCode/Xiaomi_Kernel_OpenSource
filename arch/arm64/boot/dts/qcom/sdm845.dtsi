@@ -3610,6 +3610,11 @@
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0xe8>;
 		};
+
+		tpdm_swao_dump {
+			qcom,dump-size = <0x512>;
+			qcom,dump-id = <0xf2>;
+		};
 	};
 
 	gpi_dma0: qcom,gpi-dma@0x800000 {
