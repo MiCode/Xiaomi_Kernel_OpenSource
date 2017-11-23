@@ -224,6 +224,76 @@ static int ath10k_wow_wakeup(struct ath10k *ar)
 	return 0;
 }
 
+static int
+ath10k_wow_fill_vdev_arp_offload_struct(struct ath10k_vif *arvif,
+					bool enable_offload)
+{
+	struct in_device *in_dev;
+	struct in_ifaddr *ifa;
+	bool offload_params_found = false;
+	struct wireless_dev *wdev = ieee80211_vif_to_wdev(arvif->vif);
+	struct wmi_ns_arp_offload_req *arp = &arvif->arp_offload;
+
+	if (!enable_offload) {
+		arp->offload_type = __cpu_to_le16(WMI_IPV4_ARP_REPLY_OFFLOAD);
+		arp->enable_offload = __cpu_to_le16(WMI_ARP_NS_OFFLOAD_DISABLE);
+		return 0;
+	}
+
+	if (!wdev)
+		return -ENODEV;
+	if (!wdev->netdev)
+		return -ENODEV;
+	in_dev = __in_dev_get_rtnl(wdev->netdev);
+	if (!in_dev)
+		return -ENODEV;
+
+	arp->offload_type = __cpu_to_le16(WMI_IPV4_ARP_REPLY_OFFLOAD);
+	arp->enable_offload = __cpu_to_le16(WMI_ARP_NS_OFFLOAD_ENABLE);
+	for (ifa = in_dev->ifa_list; ifa; ifa = ifa->ifa_next) {
+		if (!strcmp(ifa->ifa_label, wdev->netdev->name)) {
+			offload_params_found = true;
+			break;
+		}
+	}
+
+	if (!offload_params_found)
+		return -ENODEV;
+
+	memcpy(&arp->params.ipv4_addr, &ifa->ifa_local, 4);
+	return 0;
+}
+
+static int ath10k_wow_enable_ns_arp_offload(struct ath10k *ar, bool offload)
+{
+	struct ath10k_vif *arvif;
+	int ret;
+
+	list_for_each_entry(arvif, &ar->arvifs, list) {
+		if (arvif->vdev_type != WMI_VDEV_TYPE_STA)
+			continue;
+
+		if (!arvif->is_up)
+			continue;
+
+		ret = ath10k_wow_fill_vdev_arp_offload_struct(arvif, offload);
+		if (ret) {
+			ath10k_err(ar, "ARP-offload config failed, vdev: %d\n",
+				   arvif->vdev_id);
+			return ret;
+		}
+
+		ret = ath10k_wmi_set_arp_ns_offload(ar, arvif);
+		if (ret) {
+			ath10k_err(ar, "failed to send offload cmd, vdev: %d\n",
+				   arvif->vdev_id);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
 static int ath10k_config_wow_listen_interval(struct ath10k *ar)
 {
 	int ret;
@@ -263,11 +333,17 @@ int ath10k_wow_op_suspend(struct ieee80211_hw *hw,
 		goto exit;
 	}
 
+	ret = ath10k_wow_enable_ns_arp_offload(ar, true);
+	if (ret) {
+		ath10k_warn(ar, "failed to enable ARP-NS offload: %d\n", ret);
+		goto exit;
+	}
+
 	ret =  ath10k_wow_cleanup(ar);
 	if (ret) {
 		ath10k_warn(ar, "failed to clear wow wakeup events: %d\n",
 			    ret);
-		goto exit;
+		goto disable_ns_arp_offload;
 	}
 
 	ret = ath10k_wow_set_wakeups(ar, wowlan);
@@ -303,6 +379,9 @@ wakeup:
 
 cleanup:
 	ath10k_wow_cleanup(ar);
+
+disable_ns_arp_offload:
+	ath10k_wow_enable_ns_arp_offload(ar, false);
 
 exit:
 	mutex_unlock(&ar->conf_mutex);
@@ -341,8 +420,14 @@ int ath10k_wow_op_resume(struct ieee80211_hw *hw)
 	}
 
 	ret = ath10k_wow_wakeup(ar);
-	if (ret)
+	if (ret) {
 		ath10k_warn(ar, "failed to wakeup from wow: %d\n", ret);
+		goto exit;
+	}
+
+	ret = ath10k_wow_enable_ns_arp_offload(ar, false);
+	if (ret)
+		ath10k_warn(ar, "failed to disable ARP-NS offload: %d\n", ret);
 
 exit:
 	if (ret) {
