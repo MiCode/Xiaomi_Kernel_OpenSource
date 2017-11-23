@@ -333,8 +333,13 @@ static void diag_close_transport_work_fn(struct work_struct *work)
 		if (!(driver->close_transport & PERIPHERAL_MASK(peripheral)))
 			continue;
 		driver->close_transport ^= PERIPHERAL_MASK(peripheral);
+#ifdef CONFIG_DIAG_USES_SMD
+		transport = driver->feature[peripheral].sockets_enabled ?
+					TRANSPORT_SMD : TRANSPORT_SOCKET;
+#else
 		transport = driver->feature[peripheral].sockets_enabled ?
 					TRANSPORT_GLINK : TRANSPORT_SOCKET;
+#endif
 		diagfwd_close_transport(transport, peripheral);
 	}
 	mutex_unlock(&driver->cntl_lock);
