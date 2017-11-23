@@ -30,7 +30,8 @@
 #include <linux/regulator/consumer.h>
 #include <linux/clk.h>
 
-#define WCN3990_MAX_IRQ 12
+#define WCN3990_MAX_IRQ	12
+#define WCN3990_WAKE_IRQ_CE	2
 
 const char *ce_name[WCN3990_MAX_IRQ] = {
 	"WLAN_CE_0",
@@ -1161,7 +1162,8 @@ static int ath10k_snoc_hif_power_up(struct ath10k *ar)
 		atomic_set(&ar_snoc->pm_ops_inprogress, 0);
 	}
 
-	if (ar->state == ATH10K_STATE_ON ||
+	if ((ar->state == ATH10K_STATE_ON) ||
+	    (ar->state == ATH10K_STATE_RESTARTING) ||
 	    test_bit(ATH10K_FLAG_CRASH_FLUSH, &ar->dev_flags)) {
 		ret = ath10k_snoc_bus_configure(ar);
 		if (ret) {
@@ -1571,6 +1573,50 @@ static int ath10k_hw_power_off(struct ath10k *ar)
 	return ret;
 }
 
+static int ath10k_snoc_hif_suspend(struct ath10k *ar)
+{
+	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
+	int ret = 0;
+
+	if (!ar_snoc)
+		return -EINVAL;
+
+	if (!device_may_wakeup(ar->dev))
+		return -EINVAL;
+
+	ret = enable_irq_wake(ar_snoc->ce_irqs[WCN3990_WAKE_IRQ_CE].irq_line);
+	if (ret) {
+		ath10k_dbg(ar, ATH10K_DBG_SNOC,
+			   "HIF Suspend: Failed to enable wakeup IRQ\n");
+		return ret;
+	}
+
+	ath10k_dbg(ar, ATH10K_DBG_SNOC, "HIF Suspended\n");
+	return ret;
+}
+
+static int ath10k_snoc_hif_resume(struct ath10k *ar)
+{
+	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
+	int ret = 0;
+
+	if (!ar_snoc)
+		return -EINVAL;
+
+	if (!device_may_wakeup(ar->dev))
+		return -EINVAL;
+
+	ret = disable_irq_wake(ar_snoc->ce_irqs[WCN3990_WAKE_IRQ_CE].irq_line);
+	if (ret) {
+		ath10k_dbg(ar, ATH10K_DBG_SNOC,
+			   "HIF Resume: Failed to disable wakeup IRQ\n");
+		return ret;
+	}
+
+	ath10k_dbg(ar, ATH10K_DBG_SNOC, "HIF Resumed\n");
+	return ret;
+}
+
 static const struct ath10k_hif_ops ath10k_snoc_hif_ops = {
 	.tx_sg			= ath10k_snoc_hif_tx_sg,
 	.start			= ath10k_snoc_hif_start,
@@ -1583,6 +1629,8 @@ static const struct ath10k_hif_ops ath10k_snoc_hif_ops = {
 	.power_down		= ath10k_snoc_hif_power_down,
 	.read32			= ath10k_snoc_read32,
 	.write32		= ath10k_snoc_write32,
+	.suspend		= ath10k_snoc_hif_suspend,
+	.resume			= ath10k_snoc_hif_resume,
 };
 
 static const struct ath10k_bus_ops ath10k_snoc_bus_ops = {
