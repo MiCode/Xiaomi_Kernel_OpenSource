@@ -214,6 +214,135 @@ done:
 	return rc;
 }
 
+static void dsi_display_aspace_cb_locked(void *cb_data, bool is_detach)
+{
+	struct dsi_display *display;
+	struct dsi_display_ctrl *display_ctrl;
+	int rc, cnt;
+
+	if (!cb_data) {
+		pr_err("aspace cb called with invalid cb_data\n");
+		return;
+	}
+	display = (struct dsi_display *)cb_data;
+
+	/*
+	 * acquire panel_lock to make sure no commands are in-progress
+	 * while detaching the non-secure context banks
+	 */
+	dsi_panel_acquire_panel_lock(display->panel);
+
+	if (is_detach) {
+		/* invalidate the stored iova */
+		display->cmd_buffer_iova = 0;
+
+		/* return the virtual address mapping */
+		msm_gem_put_vaddr_locked(display->tx_cmd_buf);
+		msm_gem_vunmap(display->tx_cmd_buf);
+
+	} else {
+		rc = msm_gem_get_iova_locked(display->tx_cmd_buf,
+				display->aspace, &(display->cmd_buffer_iova));
+		if (rc) {
+			pr_err("failed to get the iova rc %d\n", rc);
+			goto end;
+		}
+
+		display->vaddr =
+			(void *) msm_gem_get_vaddr_locked(display->tx_cmd_buf);
+
+		if (IS_ERR_OR_NULL(display->vaddr)) {
+			pr_err("failed to get va rc %d\n", rc);
+			goto end;
+		}
+	}
+
+	for (cnt = 0; cnt < display->ctrl_count; cnt++) {
+		display_ctrl = &display->ctrl[cnt];
+		display_ctrl->ctrl->cmd_buffer_size = display->cmd_buffer_size;
+		display_ctrl->ctrl->cmd_buffer_iova = display->cmd_buffer_iova;
+		display_ctrl->ctrl->vaddr = display->vaddr;
+	}
+
+end:
+	/* release panel_lock */
+	dsi_panel_release_panel_lock(display->panel);
+}
+
+/* Allocate memory for cmd dma tx buffer */
+static int dsi_host_alloc_cmd_tx_buffer(struct dsi_display *display)
+{
+	int rc = 0, cnt = 0;
+	struct dsi_display_ctrl *display_ctrl;
+
+	mutex_lock(&display->drm_dev->struct_mutex);
+	display->tx_cmd_buf = msm_gem_new(display->drm_dev,
+			SZ_4K,
+			MSM_BO_UNCACHED);
+	mutex_unlock(&display->drm_dev->struct_mutex);
+
+	if ((display->tx_cmd_buf) == NULL) {
+		pr_err("Failed to allocate cmd tx buf memory\n");
+		rc = -ENOMEM;
+		goto error;
+	}
+
+	display->cmd_buffer_size = SZ_4K;
+
+	display->aspace = msm_gem_smmu_address_space_get(
+			display->drm_dev, MSM_SMMU_DOMAIN_UNSECURE);
+	if (!display->aspace) {
+		pr_err("failed to get aspace\n");
+		rc = -EINVAL;
+		goto free_gem;
+	}
+	/* register to aspace */
+	rc = msm_gem_address_space_register_cb(display->aspace,
+			dsi_display_aspace_cb_locked, (void *)display);
+	if (rc) {
+		pr_err("failed to register callback %d", rc);
+		goto free_gem;
+	}
+
+	rc = msm_gem_get_iova(display->tx_cmd_buf, display->aspace,
+				&(display->cmd_buffer_iova));
+	if (rc) {
+		pr_err("failed to get the iova rc %d\n", rc);
+		goto free_aspace_cb;
+	}
+
+	display->vaddr =
+		(void *) msm_gem_get_vaddr(display->tx_cmd_buf);
+	if (IS_ERR_OR_NULL(display->vaddr)) {
+		pr_err("failed to get va rc %d\n", rc);
+		rc = -EINVAL;
+		goto put_iova;
+	}
+
+	for (cnt = 0; cnt < display->ctrl_count; cnt++) {
+		display_ctrl = &display->ctrl[cnt];
+		display_ctrl->ctrl->cmd_buffer_size = SZ_4K;
+		display_ctrl->ctrl->cmd_buffer_iova =
+					display->cmd_buffer_iova;
+		display_ctrl->ctrl->vaddr = display->vaddr;
+		display_ctrl->ctrl->tx_cmd_buf = display->tx_cmd_buf;
+	}
+
+	return rc;
+
+put_iova:
+	msm_gem_put_iova(display->tx_cmd_buf, display->aspace);
+free_aspace_cb:
+	msm_gem_address_space_unregister_cb(display->aspace,
+			dsi_display_aspace_cb_locked, display);
+free_gem:
+	mutex_lock(&display->drm_dev->struct_mutex);
+	msm_gem_free_object(display->tx_cmd_buf);
+	mutex_unlock(&display->drm_dev->struct_mutex);
+error:
+	return rc;
+}
+
 static bool dsi_display_validate_reg_read(struct dsi_panel *panel)
 {
 	int i, j = 0;
@@ -330,6 +459,14 @@ static int dsi_display_status_reg_read(struct dsi_display *display)
 
 	m_ctrl = &display->ctrl[display->cmd_master_idx];
 
+	if (display->tx_cmd_buf == NULL) {
+		rc = dsi_host_alloc_cmd_tx_buffer(display);
+		if (rc) {
+			pr_err("failed to allocate cmd tx buffer memory\n");
+			goto done;
+		}
+	}
+
 	rc = dsi_display_cmd_engine_enable(display);
 	if (rc) {
 		pr_err("cmd engine enable failed\n");
@@ -358,9 +495,9 @@ static int dsi_display_status_reg_read(struct dsi_display *display)
 			goto exit;
 		}
 	}
-
 exit:
 	dsi_display_cmd_engine_disable(display);
+done:
 	return rc;
 }
 
@@ -1924,62 +2061,6 @@ error:
 	return rc;
 }
 
-static void dsi_display_aspace_cb_locked(void *cb_data, bool is_detach)
-{
-	struct dsi_display *display;
-	struct dsi_display_ctrl *display_ctrl;
-	int rc, cnt;
-
-	if (!cb_data) {
-		pr_err("aspace cb called with invalid cb_data\n");
-		return;
-	}
-	display = (struct dsi_display *)cb_data;
-
-	/*
-	 * acquire panel_lock to make sure no commands are in-progress
-	 * while detaching the non-secure context banks
-	 */
-	dsi_panel_acquire_panel_lock(display->panel);
-
-	if (is_detach) {
-		/* invalidate the stored iova */
-		display->cmd_buffer_iova = 0;
-
-		/* return the virtual address mapping */
-		msm_gem_put_vaddr_locked(display->tx_cmd_buf);
-		msm_gem_vunmap(display->tx_cmd_buf);
-
-	} else {
-		rc = msm_gem_get_iova_locked(display->tx_cmd_buf,
-				display->aspace, &(display->cmd_buffer_iova));
-		if (rc) {
-			pr_err("failed to get the iova rc %d\n", rc);
-			goto end;
-		}
-
-		display->vaddr =
-			(void *) msm_gem_get_vaddr_locked(display->tx_cmd_buf);
-
-		if (IS_ERR_OR_NULL(display->vaddr)) {
-			pr_err("failed to get va rc %d\n", rc);
-			goto end;
-		}
-	}
-
-	for (cnt = 0; cnt < display->ctrl_count; cnt++) {
-		display_ctrl = &display->ctrl[cnt];
-		display_ctrl->ctrl->cmd_buffer_size = display->cmd_buffer_size;
-		display_ctrl->ctrl->cmd_buffer_iova = display->cmd_buffer_iova;
-		display_ctrl->ctrl->vaddr = display->vaddr;
-		display_ctrl->ctrl->secure_mode = is_detach ? true : false;
-	}
-
-end:
-	/* release panel_lock */
-	dsi_panel_release_panel_lock(display->panel);
-}
-
 static int dsi_host_attach(struct mipi_dsi_host *host,
 			   struct mipi_dsi_device *dsi)
 {
@@ -1996,8 +2077,7 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 				 const struct mipi_dsi_msg *msg)
 {
 	struct dsi_display *display = to_dsi_display(host);
-	struct dsi_display_ctrl *display_ctrl;
-	int rc = 0, cnt = 0;
+	int rc = 0;
 
 	if (!host || !msg) {
 		pr_err("Invalid params\n");
@@ -2027,57 +2107,10 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 	}
 
 	if (display->tx_cmd_buf == NULL) {
-		mutex_lock(&display->drm_dev->struct_mutex);
-		display->tx_cmd_buf = msm_gem_new(display->drm_dev,
-				SZ_4K,
-				MSM_BO_UNCACHED);
-		mutex_unlock(&display->drm_dev->struct_mutex);
-
-		display->cmd_buffer_size = SZ_4K;
-
-		if ((display->tx_cmd_buf) == NULL) {
-			pr_err("value of display->tx_cmd_buf is NULL");
+		rc = dsi_host_alloc_cmd_tx_buffer(display);
+		if (rc) {
+			pr_err("failed to allocate cmd tx buffer memory\n");
 			goto error_disable_cmd_engine;
-		}
-
-		display->aspace = msm_gem_smmu_address_space_get(
-				display->drm_dev, MSM_SMMU_DOMAIN_UNSECURE);
-		if (!display->aspace) {
-			pr_err("failed to get aspace\n");
-			rc = -EINVAL;
-			goto free_gem;
-		}
-
-		/* register to aspace */
-		rc = msm_gem_address_space_register_cb(display->aspace,
-				dsi_display_aspace_cb_locked, (void *)display);
-		if (rc) {
-			pr_err("failed to register callback %d", rc);
-			goto free_gem;
-		}
-
-		rc = msm_gem_get_iova(display->tx_cmd_buf, display->aspace,
-					&(display->cmd_buffer_iova));
-		if (rc) {
-			pr_err("failed to get the iova rc %d\n", rc);
-			goto free_aspace_cb;
-		}
-
-		display->vaddr =
-			(void *) msm_gem_get_vaddr(display->tx_cmd_buf);
-
-		if (IS_ERR_OR_NULL(display->vaddr)) {
-			pr_err("failed to get va rc %d\n", rc);
-			rc = -EINVAL;
-			goto put_iova;
-		}
-
-		for (cnt = 0; cnt < display->ctrl_count; cnt++) {
-			display_ctrl = &display->ctrl[cnt];
-			display_ctrl->ctrl->cmd_buffer_size = SZ_4K;
-			display_ctrl->ctrl->cmd_buffer_iova =
-						display->cmd_buffer_iova;
-			display_ctrl->ctrl->vaddr = display->vaddr;
 		}
 	}
 
@@ -2110,16 +2143,6 @@ error_disable_clks:
 		pr_err("[%s] failed to disable all DSI clocks, rc=%d\n",
 		       display->name, rc);
 	}
-	return rc;
-put_iova:
-	msm_gem_put_iova(display->tx_cmd_buf, display->aspace);
-free_aspace_cb:
-	msm_gem_address_space_unregister_cb(display->aspace,
-			dsi_display_aspace_cb_locked, display);
-free_gem:
-	mutex_lock(&display->drm_dev->struct_mutex);
-	msm_gem_free_object(display->tx_cmd_buf);
-	mutex_unlock(&display->drm_dev->struct_mutex);
 error:
 	return rc;
 }
