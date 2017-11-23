@@ -32,6 +32,7 @@ enum tsens_dbg_type {
 	TSENS_DBG_LOG_TEMP_READS,
 	TSENS_DBG_LOG_INTERRUPT_TIMESTAMP,
 	TSENS_DBG_LOG_BUS_ID_DATA,
+	TSENS_DBG_MTC_DATA,
 	TSENS_DBG_LOG_MAX
 };
 
@@ -114,6 +115,15 @@ struct tsens_data {
 	u32				cycle_compltn_monitor_mask;
 	bool				wd_bark;
 	u32				wd_bark_mask;
+	bool				mtc;
+};
+
+struct tsens_mtc_sysfs {
+	uint32_t	zone_log;
+	int			zone_mtc;
+	int			th1;
+	int			th2;
+	uint32_t	zone_hist;
 };
 
 struct tsens_device {
@@ -130,8 +140,10 @@ struct tsens_device {
 	spinlock_t			tsens_upp_low_lock;
 	const struct tsens_data		*ctrl_data;
 	struct tsens_sensor		sensor[0];
+	struct tsens_mtc_sysfs	mtcsys;
 };
 
 extern const struct tsens_data data_tsens2xxx, data_tsens23xx, data_tsens24xx;
+extern struct list_head tsens_device_list;
 
 #endif /* __QCOM_TSENS_H__ */
