@@ -459,6 +459,7 @@ static int mhi_plat_probe(struct platform_device *pdev)
 			return r;
 		}
 		INIT_WORK(&bhi_ctxt->fw_load_work, bhi_firmware_download);
+		bhi_ctxt->fw_table.sequence = 1;
 	}
 
 	mhi_dev_ctxt->flags.bb_required =
