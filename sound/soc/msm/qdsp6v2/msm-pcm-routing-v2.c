@@ -83,6 +83,7 @@ static int msm_route_ext_ec_ref;
 static bool is_custom_stereo_on;
 static bool is_ds2_on;
 static bool swap_ch;
+static int msm_native_mode;
 
 #define WEIGHT_0_DB 0x4000
 /* all the FEs which can support channel mixer */
@@ -3475,6 +3476,65 @@ static const struct snd_kcontrol_new channel_mixer_controls[] = {
 	.private_value = (unsigned long)&(mm1_ch8_enum)
 	},
 };
+
+static int msm_native_mode_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	switch (msm_native_mode) {
+	case 3:
+	case 2:
+	case 1:
+		ucontrol->value.integer.value[0] = msm_native_mode;
+		break;
+	default:
+		ucontrol->value.integer.value[0] = 0;
+		break;
+	}
+
+	pr_debug("%s: msm_native_mode = %d ucontrol value %ld\n",
+		__func__, msm_native_mode,
+		ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int msm_native_mode_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	/* native flag shift from bit 11 in flags when open adm
+	 * 1 << 11: use bit width native mode
+	 * 2 << 11: use channel native mode
+	 * 3 << 11: use bit width and channel native mode
+	*/
+	switch (ucontrol->value.integer.value[0]) {
+	case 3:
+	case 2:
+	case 1:
+		msm_native_mode = ucontrol->value.integer.value[0];
+		break;
+	default:
+		msm_native_mode = 0;
+		break;
+	}
+
+	pr_debug("%s: msm_native_mode = %d ucontrol value %ld\n",
+		__func__, msm_native_mode,
+		ucontrol->value.integer.value[0]);
+	adm_set_native_mode(msm_native_mode);
+	return 0;
+}
+
+static const char *const native_mode_text[] = {"NonNative", "NativeBit",
+		"NativeCh", "NativeChBit"};
+
+static const struct soc_enum native_mode_enum[] = {
+	SOC_ENUM_SINGLE_EXT(4, native_mode_text),
+};
+
+static const struct snd_kcontrol_new native_mode_controls[] = {
+	SOC_ENUM_EXT("Native Mode Config", native_mode_enum[0],
+		msm_native_mode_get, msm_native_mode_put),
+};
+
 static int msm_ec_ref_ch_get(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
@@ -16834,6 +16894,9 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 
 	snd_soc_add_platform_controls(platform, channel_mixer_controls,
 				ARRAY_SIZE(channel_mixer_controls));
+
+	snd_soc_add_platform_controls(platform, native_mode_controls,
+				ARRAY_SIZE(native_mode_controls));
 
 	msm_qti_pp_add_controls(platform);
 
