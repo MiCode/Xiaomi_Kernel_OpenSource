@@ -49,8 +49,8 @@ static irqreturn_t gpio_usbdetect_vbus_irq(int irq, void *data)
 	usb->vbus_state = gpio_get_value(usb->gpio);
 	if (usb->vbus_state) {
 		dev_dbg(&usb->pdev->dev, "setting vbus notification\n");
-		extcon_set_cable_state_(usb->extcon_dev, EXTCON_USB, 1);
 		extcon_set_cable_state_(usb->extcon_dev, EXTCON_USB_SPEED, 1);
+		extcon_set_cable_state_(usb->extcon_dev, EXTCON_USB, 1);
 	} else {
 		dev_dbg(&usb->pdev->dev, "setting vbus removed notification\n");
 		extcon_set_cable_state_(usb->extcon_dev, EXTCON_USB, 0);
@@ -85,8 +85,8 @@ static irqreturn_t gpio_usbdetect_id_irq_thread(int irq, void *data)
 	} else {
 		dev_dbg(&usb->pdev->dev, "starting usb HOST\n");
 		disable_irq(usb->vbus_det_irq);
-		extcon_set_cable_state_(usb->extcon_dev, EXTCON_USB_HOST, 1);
 		extcon_set_cable_state_(usb->extcon_dev, EXTCON_USB_SPEED, 1);
+		extcon_set_cable_state_(usb->extcon_dev, EXTCON_USB_HOST, 1);
 	}
 	return IRQ_HANDLED;
 }
