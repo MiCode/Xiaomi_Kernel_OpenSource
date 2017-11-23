@@ -21,9 +21,51 @@
 #include <linux/of.h>
 #include <linux/of_platform.h>
 
-#define DEFAULT_HAB_SHMEM_IRQ 7
 
-#define SHMEM_PHYSICAL_ADDR 0x1c050000
+struct shmem_irq_config {
+	unsigned long factory_addr; /* from gvm settings when provided */
+	int irq; /* from gvm settings when provided */
+};
+
+/*
+ * this is for platform does not provide probe features. the size should match
+ * hab device side (all mmids)
+ */
+static struct shmem_irq_config pchan_factory_settings[] = {
+	{0x1b000000, 7},
+	{0x1b001000, 8},
+	{0x1b002000, 9},
+	{0x1b003000, 10},
+	{0x1b004000, 11},
+	{0x1b005000, 12},
+	{0x1b006000, 13},
+	{0x1b007000, 14},
+	{0x1b008000, 15},
+	{0x1b009000, 16},
+	{0x1b00a000, 17},
+	{0x1b00b000, 18},
+	{0x1b00c000, 19},
+	{0x1b00d000, 20},
+	{0x1b00e000, 21},
+	{0x1b00f000, 22},
+	{0x1b010000, 23},
+	{0x1b011000, 24},
+	{0x1b012000, 25},
+	{0x1b013000, 26},
+
+};
+
+static struct qvm_plugin_info {
+	struct shmem_irq_config *pchan_settings;
+	int setting_size;
+	int curr;
+	int probe_cnt;
+} qvm_priv_info = {
+	pchan_factory_settings,
+	ARRAY_SIZE(pchan_factory_settings),
+	0,
+	ARRAY_SIZE(pchan_factory_settings)
+};
 
 static irqreturn_t shm_irq_handler(int irq, void *_pchan)
 {
@@ -47,21 +89,15 @@ static irqreturn_t shm_irq_handler(int irq, void *_pchan)
  * this is only for guest
  */
 static uint64_t get_guest_factory_paddr(struct qvm_channel *dev,
-		const char *name, uint32_t pages)
+	unsigned long factory_addr, int irq, const char *name, uint32_t pages)
 {
 	int i;
 
-	dev->guest_factory = ioremap(SHMEM_PHYSICAL_ADDR, PAGE_SIZE);
-
-	if (!dev->guest_factory) {
-		pr_err("Couldn't map guest_factory\n");
-		return 0;
-	}
+	dev->guest_factory = (struct guest_shm_factory *)factory_addr;
 
 	if (dev->guest_factory->signature != GUEST_SHM_SIGNATURE) {
 		pr_err("shmem factory signature incorrect: %ld != %llu\n",
 			GUEST_SHM_SIGNATURE, dev->guest_factory->signature);
-		iounmap(dev->guest_factory);
 		return 0;
 	}
 
@@ -80,11 +116,13 @@ static uint64_t get_guest_factory_paddr(struct qvm_channel *dev,
 	/* See if we successfully created/attached to the region. */
 	if (dev->guest_factory->status != GSS_OK) {
 		pr_err("create failed: %d\n", dev->guest_factory->status);
-		iounmap(dev->guest_factory);
 		return 0;
 	}
 
 	pr_debug("shm creation size %x\n", dev->guest_factory->size);
+
+	dev->factory_addr = factory_addr;
+	dev->irq = irq;
 
 	return dev->guest_factory->shmem;
 }
@@ -97,7 +135,7 @@ static int create_dispatcher(struct physical_channel *pchan)
 	tasklet_init(&dev->task, physical_channel_rx_dispatch,
 		(unsigned long) pchan);
 
-	ret = request_irq(hab_driver.irq, shm_irq_handler, IRQF_SHARED,
+	ret = request_irq(dev->irq, shm_irq_handler, IRQF_SHARED,
 		pchan->name, pchan);
 
 	if (ret)
@@ -129,6 +167,7 @@ int habhyp_commdev_alloc(void **commdev, int is_be, char *name,
 		int vmid_remote, struct hab_device *mmid_device)
 {
 	struct qvm_channel *dev = NULL;
+	struct qvm_plugin_info *qvm_priv = hab_driver.hyp_priv;
 	struct physical_channel **pchan = (struct physical_channel **)commdev;
 	int ret = 0, coid = 0, channel = 0;
 	char *shmdata;
@@ -143,13 +182,20 @@ int habhyp_commdev_alloc(void **commdev, int is_be, char *name,
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev)
-		return ERR_PTR(-ENOMEM);
+		return -ENOMEM;
 
 	spin_lock_init(&dev->io_lock);
 
 	paddr = get_guest_factory_paddr(dev,
+			qvm_priv->pchan_settings[qvm_priv->curr].factory_addr,
+			qvm_priv->pchan_settings[qvm_priv->curr].irq,
 			name,
 			pipe_alloc_pages);
+	qvm_priv->curr++;
+	if (qvm_priv->curr > qvm_priv->probe_cnt) {
+		ret = -1;
+		goto err;
+	}
 
 	total_pages = dev->guest_factory->size + 1;
 	pages = kmalloc_array(total_pages, sizeof(struct page *), GFP_KERNEL);
@@ -226,6 +272,8 @@ int hab_hypervisor_register(void)
 	pr_info("initializing for %s VM\n", hab_driver.b_server_dom ?
 		"host" : "guest");
 
+	hab_driver.hyp_priv = &qvm_priv_info;
+
 	return ret;
 }
 
@@ -245,18 +293,54 @@ void hab_hypervisor_unregister(void)
 			}
 		}
 	}
+
+	qvm_priv_info.probe_cnt = 0;
+	qvm_priv_info.curr = 0;
 }
 
 static int hab_shmem_probe(struct platform_device *pdev)
 {
-	int irq = platform_get_irq(pdev, 0);
+	int irq = 0;
+	struct resource *mem;
+	void *shmem_base = NULL;
+	int ret = 0;
 
-	if (irq > 0)
-		hab_driver.irq = irq;
-	else
-		hab_driver.irq = DEFAULT_HAB_SHMEM_IRQ;
+	/* hab in one GVM will not have pchans more than one VM could allowed */
+	if (qvm_priv_info.probe_cnt >= hab_driver.ndevices) {
+		pr_err("no more channel, current %d, maximum %d\n",
+			qvm_priv_info.probe_cnt, hab_driver.ndevices);
+		return -ENODEV;
+	}
 
-	return 0;
+	irq = platform_get_irq(pdev, 0);
+	if (irq < 0) {
+		pr_err("no interrupt for the channel %d, error %d\n",
+			qvm_priv_info.probe_cnt, irq);
+		return irq;
+	}
+	qvm_priv_info.pchan_settings[qvm_priv_info.probe_cnt].irq = irq;
+
+	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!mem) {
+		pr_err("can not get io mem resource for channel %d\n",
+					qvm_priv_info.probe_cnt);
+		return -EINVAL;
+	}
+	shmem_base = devm_ioremap_resource(&pdev->dev, mem);
+	if (IS_ERR(shmem_base)) {
+		pr_err("ioremap failed for channel %d, mem %pK\n",
+					qvm_priv_info.probe_cnt, mem);
+		return -EINVAL;
+	}
+	qvm_priv_info.pchan_settings[qvm_priv_info.probe_cnt].factory_addr
+			= (unsigned long)((uintptr_t)shmem_base);
+
+	pr_debug("pchan idx %d, hab irq=%d shmem_base=%pK, mem %pK\n",
+			 qvm_priv_info.probe_cnt, irq, shmem_base, mem);
+
+	qvm_priv_info.probe_cnt++;
+
+	return ret;
 }
 
 static int hab_shmem_remove(struct platform_device *pdev)
@@ -298,12 +382,14 @@ static struct platform_driver hab_shmem_driver = {
 
 static int __init hab_shmem_init(void)
 {
+	qvm_priv_info.probe_cnt = 0;
 	return platform_driver_register(&hab_shmem_driver);
 }
 
 static void __exit hab_shmem_exit(void)
 {
 	platform_driver_unregister(&hab_shmem_driver);
+	qvm_priv_info.probe_cnt = 0;
 }
 
 core_initcall(hab_shmem_init);

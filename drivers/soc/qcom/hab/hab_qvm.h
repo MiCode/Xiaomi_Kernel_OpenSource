@@ -37,6 +37,9 @@ struct qvm_channel {
 
 	unsigned int guest_intr;
 	unsigned int guest_iid;
+	unsigned int factory_addr;
+	unsigned int irq;
+
 };
 
 /* Shared mem size in each direction for communication pipe */

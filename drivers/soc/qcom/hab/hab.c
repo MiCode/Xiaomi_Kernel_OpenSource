@@ -871,9 +871,7 @@ static const struct dma_map_ops hab_dma_ops = {
 static int __init hab_init(void)
 {
 	int result;
-	int i;
 	dev_t dev;
-	struct hab_device *device;
 
 	result = alloc_chrdev_region(&hab_driver.major, 0, 1, "hab");
 

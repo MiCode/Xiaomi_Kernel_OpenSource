@@ -274,8 +274,6 @@ struct hab_driver {
 	struct cdev cdev;
 	dev_t major;
 	struct class *class;
-	int irq;
-
 	int ndevices;
 	struct hab_device *devp;
 	struct uhab_context *kctx;
@@ -285,6 +283,8 @@ struct hab_driver {
 	int b_server_dom;
 	int loopback_num;
 	int b_loopback;
+
+	void *hyp_priv; /* hypervisor plug-in storage */
 };
 
 struct virtual_channel {
