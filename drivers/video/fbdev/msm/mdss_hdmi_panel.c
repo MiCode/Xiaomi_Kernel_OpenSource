@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -631,6 +631,19 @@ static int hdmi_panel_setup_dc(struct hdmi_panel *panel)
 		 */
 		vbi_pkt_reg = DSS_REG_R(panel->io, HDMI_VBI_PKT_CTRL);
 		vbi_pkt_reg |= BIT(5) | BIT(4);
+		DSS_REG_W(panel->io, HDMI_VBI_PKT_CTRL, vbi_pkt_reg);
+	} else {
+		hdmi_ctrl_reg = DSS_REG_R(panel->io, HDMI_CTRL);
+
+		/* disable GC CD override */
+		hdmi_ctrl_reg &= ~BIT(27);
+		/* disable deep color for RGB888/YUV444/YUV420 30 bits */
+		hdmi_ctrl_reg &= ~BIT(24);
+		DSS_REG_W(panel->io, HDMI_CTRL, hdmi_ctrl_reg);
+
+		/* disable the GC packet sending */
+		vbi_pkt_reg = DSS_REG_R(panel->io, HDMI_VBI_PKT_CTRL);
+		vbi_pkt_reg &= ~(BIT(5) | BIT(4));
 		DSS_REG_W(panel->io, HDMI_VBI_PKT_CTRL, vbi_pkt_reg);
 	}
 
