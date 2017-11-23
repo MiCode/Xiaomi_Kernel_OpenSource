@@ -302,6 +302,22 @@ sde_hdmi_connector_detect(struct drm_connector *connector,
 		void *display);
 
 /**
+ * sde_hdmi_core_enable()- turn on clk and pwr for hdmi core
+ * @sde_hdmi: Pointer to sde_hdmi structure
+ *
+ * Return: error code
+ */
+int sde_hdmi_core_enable(struct sde_hdmi *sde_hdmi);
+
+/**
+ * sde_hdmi_core_disable()- turn off clk and pwr for hdmi core
+ * @sde_hdmi: Pointer to sde_hdmi structure
+ *
+ * Return: none
+ */
+void sde_hdmi_core_disable(struct sde_hdmi *sde_hdmi);
+
+/**
  * sde_hdmi_connector_get_modes - add drm modes via drm_mode_probed_add()
  * @connector: Pointer to drm connector structure
  * @display: Pointer to private display handle

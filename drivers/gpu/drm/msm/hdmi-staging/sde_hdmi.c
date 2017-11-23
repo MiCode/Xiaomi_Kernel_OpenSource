@@ -1342,7 +1342,56 @@ fail:
 	return ret;
 }
 
-static void _sde_hdmi_hdp_disable(struct sde_hdmi *sde_hdmi)
+int sde_hdmi_core_enable(struct sde_hdmi *sde_hdmi)
+{
+	struct hdmi *hdmi = sde_hdmi->ctrl.ctrl;
+	const struct hdmi_platform_config *config = hdmi->config;
+	struct device *dev = &hdmi->pdev->dev;
+	int i, ret;
+	struct drm_connector *connector;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+
+	connector = hdmi->connector;
+	priv = connector->dev->dev_private;
+	sde_kms = to_sde_kms(priv->kms);
+
+	for (i = 0; i < config->hpd_reg_cnt; i++) {
+		ret = regulator_enable(hdmi->hpd_regs[i]);
+		if (ret) {
+			SDE_ERROR("failed to enable hpd regulator: %s (%d)\n",
+					config->hpd_reg_names[i], ret);
+		}
+	}
+
+	ret = pinctrl_pm_select_default_state(dev);
+	if (ret)
+		SDE_ERROR("pinctrl state chg failed: %d\n", ret);
+
+	ret = _sde_hdmi_gpio_config(hdmi, true);
+	if (ret)
+		SDE_ERROR("failed to configure GPIOs: %d\n", ret);
+
+	for (i = 0; i < config->hpd_clk_cnt; i++) {
+		if (config->hpd_freq && config->hpd_freq[i]) {
+			ret = clk_set_rate(hdmi->hpd_clks[i],
+					config->hpd_freq[i]);
+			if (ret)
+				pr_warn("failed to set clk %s (%d)\n",
+						config->hpd_clk_names[i], ret);
+		}
+
+		ret = clk_prepare_enable(hdmi->hpd_clks[i]);
+		if (ret) {
+			SDE_ERROR("failed to enable hpd clk: %s (%d)\n",
+					config->hpd_clk_names[i], ret);
+		}
+	}
+
+	return ret;
+}
+
+static void _sde_hdmi_hpd_disable(struct sde_hdmi *sde_hdmi)
 {
 	struct hdmi *hdmi = sde_hdmi->ctrl.ctrl;
 	const struct hdmi_platform_config *config = hdmi->config;
@@ -1371,6 +1420,12 @@ static void _sde_hdmi_hdp_disable(struct sde_hdmi *sde_hdmi)
 			pr_warn("failed to disable hpd regulator: %s (%d)\n",
 					config->hpd_reg_names[i], ret);
 	}
+}
+
+void sde_hdmi_core_disable(struct sde_hdmi *sde_hdmi)
+{
+	/* HPD contains all the core clock and pwr */
+	_sde_hdmi_hpd_disable(sde_hdmi);
 }
 
 static void _sde_hdmi_cec_update_phys_addr(struct sde_hdmi *display)
@@ -2217,7 +2272,8 @@ int sde_hdmi_connector_pre_deinit(struct drm_connector *connector,
 		return -EINVAL;
 	}
 
-	_sde_hdmi_hdp_disable(sde_hdmi);
+	if (!sde_hdmi->non_pluggable)
+		_sde_hdmi_hpd_disable(sde_hdmi);
 
 	return 0;
 }
@@ -2389,9 +2445,14 @@ int sde_hdmi_connector_post_init(struct drm_connector *connector,
 	INIT_WORK(&sde_hdmi->hpd_work, _sde_hdmi_hotplug_work);
 
 	/* Enable HPD detection */
-	rc = _sde_hdmi_hpd_enable(sde_hdmi);
-	if (rc)
-		SDE_ERROR("failed to enable HPD: %d\n", rc);
+	if (!sde_hdmi->non_pluggable) {
+		rc = _sde_hdmi_hpd_enable(sde_hdmi);
+		if (rc)
+			SDE_ERROR("failed to enable HPD: %d\n", rc);
+		} else {
+		/* Disable HPD interrupt */
+		hdmi_write(hdmi, REG_HDMI_HPD_INT_CTRL, 0);
+	}
 
 	_sde_hdmi_get_tx_version(sde_hdmi);
 
