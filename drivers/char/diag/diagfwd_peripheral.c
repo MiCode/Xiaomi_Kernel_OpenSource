@@ -478,7 +478,8 @@ static void diagfwd_data_read_untag_done(struct diagfwd_info *fwd_info,
 			flag_buf_1 = 1;
 			temp_fwdinfo_cpd = fwd_info->buf_1;
 			if (fwd_info->type == TYPE_DATA) {
-				for (i = 0; i <= (fwd_info->num_pd - 2); i++)
+				for (i = 0; (i <= (fwd_info->num_pd - 2)) &&
+					fwd_info->buf_upd[i][0]; i++)
 					temp_buf_upd[i] =
 					fwd_info->buf_upd[i][0]->data_raw;
 			}
@@ -487,7 +488,8 @@ static void diagfwd_data_read_untag_done(struct diagfwd_info *fwd_info,
 			flag_buf_2 = 1;
 			temp_fwdinfo_cpd = fwd_info->buf_2;
 			if (fwd_info->type == TYPE_DATA) {
-				for (i = 0; i <= (fwd_info->num_pd - 2); i++)
+				for (i = 0; (i <= (fwd_info->num_pd - 2)) &&
+					fwd_info->buf_upd[i][1]; i++)
 					temp_buf_upd[i] =
 					fwd_info->buf_upd[i][1]->data_raw;
 			}
@@ -557,6 +559,8 @@ static void diagfwd_data_read_untag_done(struct diagfwd_info *fwd_info,
 				else
 					temp_fwdinfo_upd =
 						fwd_info->buf_upd[i][1];
+				if (!temp_fwdinfo_upd)
+					break;
 				temp_fwdinfo_upd->ctxt &= 0x00FFFFFF;
 				temp_fwdinfo_upd->ctxt |=
 					(SET_PD_CTXT(ctxt_upd[i]));
