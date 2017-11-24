@@ -89,7 +89,7 @@
 			qcom,msm-cpudai-tdm-sync-src = <0>;
 			qcom,msm-cpudai-tdm-data-out = <0>;
 			qcom,msm-cpudai-tdm-invert-sync = <0>;
-			qcom,msm-cpudai-tdm-data-delay = <1>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
 			qcom,msm-cpudai-tdm-data-align = <0>;
 		};
 		dai_pri_tdm_rx_1: qcom,msm-dai-q6-tdm-pri-rx-1 {
@@ -99,7 +99,7 @@
 			qcom,msm-cpudai-tdm-sync-src = <0>;
 			qcom,msm-cpudai-tdm-data-out = <0>;
 			qcom,msm-cpudai-tdm-invert-sync = <0>;
-			qcom,msm-cpudai-tdm-data-delay = <1>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
 			qcom,msm-cpudai-tdm-data-align = <0>;
 		};
 		dai_pri_tdm_rx_2: qcom,msm-dai-q6-tdm-pri-rx-2 {
@@ -109,7 +109,7 @@
 			qcom,msm-cpudai-tdm-sync-src = <0>;
 			qcom,msm-cpudai-tdm-data-out = <0>;
 			qcom,msm-cpudai-tdm-invert-sync = <0>;
-			qcom,msm-cpudai-tdm-data-delay = <1>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
 			qcom,msm-cpudai-tdm-data-align = <0>;
 		};
 		dai_pri_tdm_rx_3: qcom,msm-dai-q6-tdm-pri-rx-3 {
@@ -119,7 +119,7 @@
 			qcom,msm-cpudai-tdm-sync-src = <0>;
 			qcom,msm-cpudai-tdm-data-out = <0>;
 			qcom,msm-cpudai-tdm-invert-sync = <0>;
-			qcom,msm-cpudai-tdm-data-delay = <1>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
 			qcom,msm-cpudai-tdm-data-align = <0>;
 		};
 	};
@@ -143,7 +143,7 @@
 			qcom,msm-cpudai-tdm-sync-src = <0>;
 			qcom,msm-cpudai-tdm-data-out = <0>;
 			qcom,msm-cpudai-tdm-invert-sync = <0>;
-			qcom,msm-cpudai-tdm-data-delay = <1>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
 			qcom,msm-cpudai-tdm-data-align = <0>;
 		};
 		dai_pri_tdm_tx_1: qcom,msm-dai-q6-tdm-pri-tx-1 {
@@ -153,7 +153,7 @@
 			qcom,msm-cpudai-tdm-sync-src = <0>;
 			qcom,msm-cpudai-tdm-data-out = <0>;
 			qcom,msm-cpudai-tdm-invert-sync = <0>;
-			qcom,msm-cpudai-tdm-data-delay = <1>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
 			qcom,msm-cpudai-tdm-data-align = <0>;
 		};
 		dai_pri_tdm_tx_2: qcom,msm-dai-q6-tdm-pri-tx-2 {
@@ -163,7 +163,7 @@
 			qcom,msm-cpudai-tdm-sync-src = <0>;
 			qcom,msm-cpudai-tdm-data-out = <0>;
 			qcom,msm-cpudai-tdm-invert-sync = <0>;
-			qcom,msm-cpudai-tdm-data-delay = <1>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
 			qcom,msm-cpudai-tdm-data-align = <0>;
 		};
 		dai_pri_tdm_tx_3: qcom,msm-dai-q6-tdm-pri-tx-3 {
@@ -173,7 +173,7 @@
 			qcom,msm-cpudai-tdm-sync-src = <0>;
 			qcom,msm-cpudai-tdm-data-out = <0>;
 			qcom,msm-cpudai-tdm-invert-sync = <0>;
-			qcom,msm-cpudai-tdm-data-delay = <1>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
 			qcom,msm-cpudai-tdm-data-align = <0>;
 		};
 	};
