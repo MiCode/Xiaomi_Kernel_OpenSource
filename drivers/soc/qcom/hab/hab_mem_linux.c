@@ -269,7 +269,7 @@ long habmem_imp_hyp_map(void *imp_ctx,
 		uint32_t userflags)
 {
 	struct page **pages;
-	struct compressed_pfns *pfn_table = impdata;
+	struct compressed_pfns *pfn_table = (struct compressed_pfns *)impdata;
 	struct pages_list *pglist;
 	struct importer_context *priv = imp_ctx;
 	unsigned long pfn;
