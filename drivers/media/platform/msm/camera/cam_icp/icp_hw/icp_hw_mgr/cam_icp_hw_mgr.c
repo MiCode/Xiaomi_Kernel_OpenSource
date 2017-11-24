@@ -300,7 +300,7 @@ static int cam_icp_calc_total_clk(struct cam_icp_hw_mgr *hw_mgr,
 	hw_mgr_clk_info->base_clk = 0;
 	for (i = 0; i < CAM_ICP_CTX_MAX; i++) {
 		ctx_data = &hw_mgr->ctx_data[i];
-		if (ctx_data->in_use &&
+		if (ctx_data->state == CAM_ICP_CTX_STATE_ACQUIRED &&
 			ctx_data->icp_dev_acquire_info->dev_type == dev_type)
 			hw_mgr_clk_info->base_clk +=
 				ctx_data->clk_info.base_clk;
@@ -527,7 +527,7 @@ static bool cam_icp_update_bw(struct cam_icp_hw_mgr *hw_mgr,
 	hw_mgr_clk_info->compressed_bw = 0;
 	for (i = 0; i < CAM_ICP_CTX_MAX; i++) {
 		ctx = &hw_mgr->ctx_data[i];
-		if (ctx->in_use &&
+		if (ctx->state == CAM_ICP_CTX_STATE_ACQUIRED &&
 			ctx->icp_dev_acquire_info->dev_type ==
 			ctx_data->icp_dev_acquire_info->dev_type) {
 			mutex_lock(&hw_mgr->hw_mgr_mutex);
@@ -1021,8 +1021,12 @@ static int cam_icp_mgr_handle_frame_process(uint32_t *msg_ptr, int flag)
 		(void *)ctx_data->context_priv, request_id);
 
 	mutex_lock(&ctx_data->ctx_mutex);
-	if (!ctx_data->in_use) {
+	if (ctx_data->state != CAM_ICP_CTX_STATE_ACQUIRED) {
 		mutex_unlock(&ctx_data->ctx_mutex);
+		CAM_WARN(CAM_ICP,
+			"ctx with id: %u not in the right state : %x",
+			ctx_data->ctx_id,
+			ctx_data->state);
 		return 0;
 	}
 
@@ -1156,11 +1160,12 @@ static int cam_icp_mgr_process_msg_create_handle(uint32_t *msg_ptr)
 		return -EINVAL;
 	}
 
-	if (ctx_data->in_use) {
+	if (ctx_data->state == CAM_ICP_CTX_STATE_IN_USE) {
 		ctx_data->fw_handle = create_handle_ack->fw_handle;
 		CAM_DBG(CAM_ICP, "fw_handle = %x", ctx_data->fw_handle);
 		complete(&ctx_data->wait_complete);
-	}
+	} else
+		CAM_WARN(CAM_ICP, "Timeout failed to create fw handle");
 
 	return 0;
 }
@@ -1182,7 +1187,7 @@ static int cam_icp_mgr_process_msg_ping_ack(uint32_t *msg_ptr)
 		return -EINVAL;
 	}
 
-	if (ctx_data->in_use)
+	if (ctx_data->state == CAM_ICP_CTX_STATE_IN_USE)
 		complete(&ctx_data->wait_complete);
 
 	return 0;
@@ -1237,7 +1242,8 @@ static int cam_icp_mgr_process_direct_ack_msg(uint32_t *msg_ptr)
 		ioconfig_ack = (struct hfi_msg_ipebps_async_ack *)msg_ptr;
 		ctx_data =
 			(struct cam_icp_hw_ctx_data *)ioconfig_ack->user_data1;
-		if (ctx_data->in_use)
+		if ((ctx_data->state == CAM_ICP_CTX_STATE_RELEASE) ||
+			(ctx_data->state == CAM_ICP_CTX_STATE_IN_USE))
 			complete(&ctx_data->wait_complete);
 
 		break;
@@ -1585,8 +1591,8 @@ static int cam_icp_mgr_get_free_ctx(struct cam_icp_hw_mgr *hw_mgr)
 
 	for (i = 0; i < CAM_ICP_CTX_MAX; i++) {
 		mutex_lock(&hw_mgr->ctx_data[i].ctx_mutex);
-		if (hw_mgr->ctx_data[i].in_use == false) {
-			hw_mgr->ctx_data[i].in_use = true;
+		if (hw_mgr->ctx_data[i].state == CAM_ICP_CTX_STATE_FREE) {
+			hw_mgr->ctx_data[i].state = CAM_ICP_CTX_STATE_IN_USE;
 			mutex_unlock(&hw_mgr->ctx_data[i].ctx_mutex);
 			break;
 		}
@@ -1598,7 +1604,7 @@ static int cam_icp_mgr_get_free_ctx(struct cam_icp_hw_mgr *hw_mgr)
 
 static void cam_icp_mgr_put_ctx(struct cam_icp_hw_ctx_data *ctx_data)
 {
-	ctx_data->in_use = false;
+	ctx_data->state = CAM_ICP_CTX_STATE_FREE;
 }
 
 static int cam_icp_mgr_send_pc_prep(struct cam_icp_hw_mgr *hw_mgr)
@@ -1895,17 +1901,21 @@ static int cam_icp_mgr_release_ctx(struct cam_icp_hw_mgr *hw_mgr, int ctx_id)
 
 	mutex_lock(&hw_mgr->hw_mgr_mutex);
 	mutex_lock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
-	if (!hw_mgr->ctx_data[ctx_id].in_use) {
+	if (hw_mgr->ctx_data[ctx_id].state !=
+		CAM_ICP_CTX_STATE_ACQUIRED) {
 		mutex_unlock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
 		mutex_unlock(&hw_mgr->hw_mgr_mutex);
+		CAM_WARN(CAM_ICP,
+			"ctx with id: %d not in right state to release: %d",
+			ctx_id, hw_mgr->ctx_data[ctx_id].state);
 		return 0;
 	}
 	cam_icp_mgr_ipe_bps_power_collapse(hw_mgr,
 		&hw_mgr->ctx_data[ctx_id], 0);
+	hw_mgr->ctx_data[ctx_id].state = CAM_ICP_CTX_STATE_RELEASE;
 	cam_icp_mgr_destroy_handle(&hw_mgr->ctx_data[ctx_id]);
 	cam_icp_mgr_cleanup_ctx(&hw_mgr->ctx_data[ctx_id]);
 
-	hw_mgr->ctx_data[ctx_id].in_use = false;
 	hw_mgr->ctx_data[ctx_id].fw_handle = 0;
 	hw_mgr->ctx_data[ctx_id].scratch_mem_size = 0;
 	for (i = 0; i < CAM_FRAME_CMD_MAX; i++)
@@ -1918,6 +1928,7 @@ static int cam_icp_mgr_release_ctx(struct cam_icp_hw_mgr *hw_mgr, int ctx_id)
 	hw_mgr->ctxt_cnt--;
 	kfree(hw_mgr->ctx_data[ctx_id].icp_dev_acquire_info);
 	hw_mgr->ctx_data[ctx_id].icp_dev_acquire_info = NULL;
+	hw_mgr->ctx_data[ctx_id].state = CAM_ICP_CTX_STATE_FREE;
 	mutex_unlock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
@@ -2331,9 +2342,10 @@ static int cam_icp_mgr_config_hw(void *hw_mgr_priv, void *config_hw_args)
 
 	ctx_data = config_args->ctxt_to_hw_map;
 	mutex_lock(&ctx_data->ctx_mutex);
-	if (!ctx_data->in_use) {
+	if (ctx_data->state != CAM_ICP_CTX_STATE_ACQUIRED) {
 		mutex_unlock(&ctx_data->ctx_mutex);
-		CAM_ERR(CAM_ICP, "ctx is not in use");
+		CAM_ERR(CAM_ICP, "ctx id :%u is not in use",
+			ctx_data->ctx_id);
 		return -EINVAL;
 	}
 
@@ -2606,9 +2618,10 @@ static int cam_icp_mgr_prepare_hw_update(void *hw_mgr_priv,
 
 	ctx_data = prepare_args->ctxt_to_hw_map;
 	mutex_lock(&ctx_data->ctx_mutex);
-	if (!ctx_data->in_use) {
+	if (ctx_data->state != CAM_ICP_CTX_STATE_ACQUIRED) {
 		mutex_unlock(&ctx_data->ctx_mutex);
-		CAM_ERR(CAM_ICP, "ctx is not in use");
+		CAM_ERR(CAM_ICP, "ctx id: %u is not in use",
+			ctx_data->ctx_id);
 		return -EINVAL;
 	}
 
@@ -2725,7 +2738,7 @@ static int cam_icp_mgr_release_hw(void *hw_mgr_priv, void *release_hw_args)
 	}
 
 	mutex_lock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
-	if (!hw_mgr->ctx_data[ctx_id].in_use) {
+	if (hw_mgr->ctx_data[ctx_id].state != CAM_ICP_CTX_STATE_ACQUIRED) {
 		CAM_DBG(CAM_ICP, "ctx is not in use: %d", ctx_id);
 		mutex_unlock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
 		return -EINVAL;
@@ -3075,6 +3088,7 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 		goto copy_to_user_failed;
 
 	cam_icp_ctx_clk_info_init(ctx_data);
+	ctx_data->state = CAM_ICP_CTX_STATE_ACQUIRED;
 	mutex_unlock(&ctx_data->ctx_mutex);
 	CAM_DBG(CAM_ICP, "scratch size = %x fw_handle = %x",
 			(unsigned int)icp_dev_acquire_info->scratch_mem_size,
