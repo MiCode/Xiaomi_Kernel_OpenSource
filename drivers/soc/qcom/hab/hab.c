@@ -262,7 +262,7 @@ struct virtual_channel *backend_listen(struct uhab_context *ctx,
 		/* Wait for Ack sequence */
 		hab_open_request_init(&request, HAB_PAYLOAD_TYPE_ACK,
 				pchan, 0, sub_id, open_id);
-		ret = hab_open_listen(ctx, dev, &request, &recv_request, HZ);
+		ret = hab_open_listen(ctx, dev, &request, &recv_request, 0);
 
 		if (ret != -EAGAIN)
 			break;
