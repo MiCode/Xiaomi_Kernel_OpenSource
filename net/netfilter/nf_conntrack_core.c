@@ -74,7 +74,10 @@ EXPORT_SYMBOL_GPL(nf_conntrack_expect_lock);
 struct hlist_nulls_head *nf_conntrack_hash __read_mostly;
 EXPORT_SYMBOL_GPL(nf_conntrack_hash);
 
-bool (*nattype_refresh_timer)(unsigned long nattype) __rcu __read_mostly;
+bool (*nattype_refresh_timer)
+	(unsigned long nattype,
+	unsigned long timeout_value)
+	__rcu __read_mostly;
 EXPORT_SYMBOL(nattype_refresh_timer);
 
 struct conntrack_gc_work {
@@ -1156,6 +1159,9 @@ __nf_conntrack_alloc(struct net *net,
 
 	nf_ct_zone_add(ct, zone);
 
+#if defined(CONFIG_IP_NF_TARGET_NATTYPE_MODULE)
+	ct->nattype_entry = 0;
+#endif
 	/* Because we use RCU lookups, we set ct_general.use to zero before
 	 * this is inserted in any list.
 	 */
@@ -1520,7 +1526,9 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
 	struct nf_conn_acct *acct;
 	u64 pkts;
 #if defined(CONFIG_IP_NF_TARGET_NATTYPE_MODULE)
-	bool (*nattype_ref_timer)(unsigned long nattype);
+	bool (*nattype_ref_timer)
+		(unsigned long nattype,
+		unsigned long timeout_value);
 #endif
 
 	WARN_ON(!skb);
@@ -1537,7 +1545,7 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
 #if defined(CONFIG_IP_NF_TARGET_NATTYPE_MODULE)
 	nattype_ref_timer = rcu_dereference(nattype_refresh_timer);
 	if (nattype_ref_timer)
-		nattype_ref_timer(ct->nattype_entry);
+		nattype_ref_timer(ct->nattype_entry, ct->timeout.expires);
 #endif
 
 acct:
