@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,6 +65,7 @@ struct diag_socket_info {
 	struct work_struct read_work;
 	struct diagfwd_info *fwd_ctxt;
 	wait_queue_head_t read_wait_q;
+	struct mutex socket_info_mutex;
 };
 
 union cntl_port_msg {
