@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef DIAGFWD_SOCKET_H
@@ -49,6 +49,7 @@ struct diag_socket_info {
 	struct work_struct read_work;
 	struct diagfwd_info *fwd_ctxt;
 	wait_queue_head_t read_wait_q;
+	struct mutex socket_info_mutex;
 };
 
 
