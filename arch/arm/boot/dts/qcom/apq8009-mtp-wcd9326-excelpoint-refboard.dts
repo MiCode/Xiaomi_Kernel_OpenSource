@@ -1,0 +1,120 @@
+/*
+ * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8909-mtp.dtsi"
+#include "msm8909-pm8916.dtsi"
+#include "msm8909-pm8916-mtp.dtsi"
+#include "apq8009-audio-external_codec.dtsi"
+#include "apq8009-memory.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. APQ8009 Excelpoint RefBoard";
+	compatible = "qcom,apq8009-mtp", "qcom,apq8009", "qcom,mtp";
+	qcom,msm-id = <265 2>;
+	qcom,board-id= <8 0x14>;
+};
+
+&audio_codec_mtp {
+	status = "disabled";
+};
+
+&soc {
+	sound-9335 {
+		qcom,audio-routing =
+			"AIF4 VI", "MCLK",
+			"RX_BIAS", "MCLK",
+			"MADINPUT", "MCLK",
+			"AMIC2", "MIC BIAS2",
+			"MIC BIAS2", "Headset Mic",
+			"DMIC0", "MIC BIAS1",
+			"MIC BIAS1", "Digital Mic0",
+			"DMIC1", "MIC BIAS1",
+			"MIC BIAS1", "Digital Mic1",
+			"DMIC2", "MIC BIAS3",
+			"MIC BIAS3", "Digital Mic2",
+			"DMIC3", "MIC BIAS3",
+			"MIC BIAS3", "Digital Mic3",
+			"SpkrLeft IN", "SPK1 OUT",
+			"SpkrRight IN", "SPK2 OUT";
+	};
+
+	i2c@78b8000 {
+		wcd9xxx_codec@d {
+			qcom,cdc-reset-gpio = <&msm_gpio 27 0>;
+		};
+	};
+
+	i2c@78b9000 {
+		synaptics@20 {
+			status = "disabled";
+		};
+	};
+};
+
+&i2c_4 {
+	smb1360_otg_supply: smb1360-chg-fg@14 {
+		compatible = "qcom,smb1360-chg-fg";
+		reg = <0x14>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <58 8>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&smb_int_default>;
+		qcom,charging-disabled;
+		qcom,empty-soc-disabled;
+		qcom,chg-inhibit-disabled;
+		qcom,float-voltage-mv = <4200>;
+		qcom,iterm-ma = <200>;
+		qcom,recharge-thresh-mv = <100>;
+		qcom,thermal-mitigation = <1500 700 600 0>;
+		regulator-name = "smb1360_otg_vreg";
+	};
+};
+
+&pm8916_chg {
+	status = "ok";
+	qcom,use-external-charger;
+};
+
+&pm8916_bms {
+	status = "ok";
+	qcom,disable-bms;
+};
+
+&usb_otg {
+	interrupts = <0 134 0>,<0 140 0>,<0 136 0>;
+	interrupt-names = "core_irq", "async_irq", "phy_irq";
+
+	qcom,hsusb-otg-mode = <3>;
+	vbus_otg-supply = <&smb1360_otg_supply>;
+};
+
+&mdss_fb0 {
+	status = "disabled";
+	/delete-node/ qcom,cont-splash-memory;
+};
+
+&mdss_mdp {
+	status = "disabled";
+};
+
+&mdss_dsi0_pll {
+	status = "disabled";
+};
+
+&mdss_dsi0 {
+	status = "disabled";
+};
+
+/delete-node/ &cont_splash_mem;
