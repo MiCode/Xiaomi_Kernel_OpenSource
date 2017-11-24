@@ -279,7 +279,7 @@
 
 &pm660l_wled {
 	status = "okay";
-	qcom,led-strings-list = [01 02];
+	qcom,led-strings-list = [00 01];
 };
 
 &mdss_mdp {
