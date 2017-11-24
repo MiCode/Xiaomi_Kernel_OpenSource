@@ -893,7 +893,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.mode_valid = dp_connector_mode_valid,
 		.get_info   = dp_connector_get_info,
 		.get_mode_info  = dp_connector_get_mode_info,
-		.send_hpd_event = dp_connector_send_hpd_event,
+		.post_open  = dp_connector_post_open,
 		.check_status = NULL,
 		.pre_kickoff  = dp_connector_pre_kickoff,
 	};
@@ -1825,8 +1825,8 @@ static void _sde_kms_post_open(struct msm_kms *kms, struct drm_file *file)
 
 		sde_conn = to_sde_connector(connector);
 
-		if (sde_conn->ops.send_hpd_event)
-			sde_conn->ops.send_hpd_event(sde_conn->display);
+		if (sde_conn->ops.post_open)
+			sde_conn->ops.post_open(sde_conn->display);
 	}
 	drm_connector_list_iter_end(&conn_iter);
 	mutex_unlock(&dev->mode_config.mutex);
