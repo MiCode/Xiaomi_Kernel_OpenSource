@@ -17,3 +17,13 @@
 	model = "Qualcomm Technologies, Inc. QCS605";
 	qcom,msm-id = <347 0x0>;
 };
+
+&soc {
+	qcom,rmnet-ipa {
+		status = "disabled";
+	};
+};
+
+&ipa_hw {
+	status = "disabled";
+};
