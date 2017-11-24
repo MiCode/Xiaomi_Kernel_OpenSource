@@ -167,6 +167,7 @@ struct smb_dt_props {
 	bool	no_battery;
 	bool	hvdcp_disable;
 	bool	auto_recharge_soc;
+	bool	no_pd;
 };
 
 struct smb2 {
@@ -201,6 +202,9 @@ static int smb2_parse_dt(struct smb2 *chip)
 
 	chip->dt.no_battery = of_property_read_bool(node,
 						"qcom,batteryless-platform");
+
+	chip->dt.no_pd = of_property_read_bool(node,
+						"qcom,pd-not-supported");
 
 	chg->skip_usb_notification = of_property_read_bool(node,
 					"qcom,skip-usb-notification");
@@ -1154,6 +1158,8 @@ static int smb2_init_hw(struct smb2 *chip)
 			chg->micro_usb_mode, 0);
 	vote(chg->hvdcp_enable_votable, MICRO_USB_VOTER,
 			chg->micro_usb_mode, 0);
+	vote(chg->pd_disallowed_votable_indirect, PD_NOT_SUPPORTED_VOTER,
+			chip->dt.no_pd, 0);
 
 	/*
 	 * AICL configuration:
