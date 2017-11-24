@@ -2958,6 +2958,50 @@ int sde_plane_validate_multirect_v2(struct sde_multirect_plane_states *plane)
 	return 0;
 }
 
+int sde_plane_confirm_hw_rsvps(struct drm_plane *plane,
+		const struct drm_plane_state *state)
+{
+	struct drm_crtc_state *cstate;
+	struct sde_plane_state *pstate;
+	struct sde_plane_rot_state *rstate;
+	struct sde_hw_blk *hw_blk;
+
+	if (!plane || !state) {
+		SDE_ERROR("invalid plane/state\n");
+		return -EINVAL;
+	}
+
+	pstate = to_sde_plane_state(state);
+	rstate = &pstate->rot;
+
+	/* cstate will be null if crtc is disconnected from plane */
+	cstate = _sde_plane_get_crtc_state((struct drm_plane_state *)state);
+	if (IS_ERR_OR_NULL(cstate)) {
+		SDE_ERROR("invalid crtc state\n");
+		return -EINVAL;
+	}
+
+	if (sde_plane_enabled((struct drm_plane_state *)state) &&
+			rstate->out_sbuf) {
+		SDE_DEBUG("plane%d.%d acquire rotator, fb %d\n",
+				plane->base.id, rstate->sequence_id,
+				state->fb ? state->fb->base.id : -1);
+
+		hw_blk = sde_crtc_res_get(cstate, SDE_HW_BLK_ROT,
+				(u64) state->fb);
+		if (!hw_blk) {
+			SDE_ERROR("plane%d.%d no available rotator, fb %d\n",
+					plane->base.id, rstate->sequence_id,
+					state->fb ? state->fb->base.id : -1);
+			SDE_EVT32(DRMID(plane), rstate->sequence_id,
+					state->fb ? state->fb->base.id : -1,
+					SDE_EVTLOG_ERROR);
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
 /**
  * sde_plane_get_ctl_flush - get control flush for the given plane
  * @plane: Pointer to drm plane structure

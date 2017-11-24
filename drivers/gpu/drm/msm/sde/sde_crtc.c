@@ -3353,12 +3353,13 @@ static int _sde_crtc_commit_kickoff_rot(struct drm_crtc *crtc,
 
 		if (!master_ctl || master_ctl->idx > ctl->idx)
 			master_ctl = ctl;
+
+		if (ctl->ops.setup_sbuf_cfg)
+			ctl->ops.setup_sbuf_cfg(ctl, &cstate->sbuf_cfg);
 	}
 
 	/* only update sbuf_cfg and flush for master ctl */
-	if (master_ctl && master_ctl->ops.setup_sbuf_cfg &&
-			master_ctl->ops.update_pending_flush) {
-		master_ctl->ops.setup_sbuf_cfg(master_ctl, &cstate->sbuf_cfg);
+	if (master_ctl && master_ctl->ops.update_pending_flush) {
 		master_ctl->ops.update_pending_flush(master_ctl, flush_mask);
 
 		/* explicitly trigger rotator for async modes */
@@ -3484,7 +3485,7 @@ static int _sde_crtc_reset_hw(struct drm_crtc *crtc,
 	}
 
 	/* reset both previous... */
-	for_each_plane_in_state(old_state->state, plane, pstate, i) {
+	drm_atomic_crtc_state_for_each_plane_state(plane, pstate, old_state) {
 		if (pstate->crtc != crtc)
 			continue;
 
@@ -4495,6 +4496,17 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 					sde_crtc->name, plane->base.id, rc);
 			goto end;
 		}
+
+		/* identify attached planes that are not in the delta state */
+		if (!drm_atomic_get_existing_plane_state(state->state, plane)) {
+			rc = sde_plane_confirm_hw_rsvps(plane, pstate);
+			if (rc) {
+				SDE_ERROR("crtc%d confirmation hw failed %d\n",
+						crtc->base.id, rc);
+				goto end;
+			}
+		}
+
 		if (cnt >= SDE_PSTATES_MAX)
 			continue;
 
