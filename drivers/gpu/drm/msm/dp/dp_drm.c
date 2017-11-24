@@ -296,6 +296,10 @@ int dp_connector_post_init(struct drm_connector *connector,
 		return -EINVAL;
 
 	dp_display->connector = connector;
+
+	if (dp_display->post_init)
+		dp_display->post_init(dp_display);
+
 	return 0;
 }
 
@@ -377,7 +381,7 @@ enum drm_connector_status dp_connector_detect(struct drm_connector *conn,
 	return status;
 }
 
-void dp_connector_send_hpd_event(void *display)
+void dp_connector_post_open(void *display)
 {
 	struct dp_display *dp;
 
@@ -388,8 +392,8 @@ void dp_connector_send_hpd_event(void *display)
 
 	dp = display;
 
-	if (dp->send_hpd_event)
-		dp->send_hpd_event(dp);
+	if (dp->post_open)
+		dp->post_open(dp);
 }
 
 int dp_connector_get_modes(struct drm_connector *connector,

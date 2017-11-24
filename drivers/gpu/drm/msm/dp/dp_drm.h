@@ -100,7 +100,11 @@ int dp_connector_get_mode_info(const struct drm_display_mode *drm_mode,
 
 int dp_connector_get_info(struct msm_display_info *info, void *display);
 
-void dp_connector_send_hpd_event(void *display);
+/**
+ * dp_connector_post_open - handle the post open functionalites
+ * @display: Pointer to private display structure
+ */
+void dp_connector_post_open(void *display);
 
 int dp_drm_bridge_init(void *display,
 	struct drm_encoder *encoder);

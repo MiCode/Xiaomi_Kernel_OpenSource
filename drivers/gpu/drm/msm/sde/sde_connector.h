@@ -211,10 +211,10 @@ struct sde_connector_ops {
 	int (*post_kickoff)(struct drm_connector *connector);
 
 	/**
-	 * send_hpd_event - send HPD uevent notification to userspace
+	 * post_open - calls connector to process post open functionalities
 	 * @display: Pointer to private display structure
 	 */
-	void (*send_hpd_event)(void *display);
+	void (*post_open)(void *display);
 
 	/**
 	 * check_status - check status of connected display panel
