@@ -12,6 +12,7 @@
 
 #ifndef _USB_BAM_H_
 #define _USB_BAM_H_
+
 #include <linux/msm-sps.h>
 #include <linux/usb/ch9.h>
 
@@ -19,15 +20,8 @@
 
 /* Supported USB controllers*/
 enum usb_ctrl {
-	DWC3_CTRL = 0,  /* DWC3 controller */
-	CI_CTRL,        /* ChipIdea controller */
-	HSIC_CTRL,      /* HSIC controller */
+	USB_CTRL_UNUSED = 0,
 	NUM_CTRL,
-};
-
-enum usb_bam_mode {
-	USB_BAM_DEVICE = 0,
-	USB_BAM_HOST,
 };
 
 enum peer_bam {
@@ -111,7 +105,6 @@ struct usb_bam_pipe_connect {
 	enum usb_pipe_mem_type mem_type;
 	enum usb_bam_pipe_dir dir;
 	enum usb_ctrl bam_type;
-	enum usb_bam_mode bam_mode;
 	enum peer_bam peer_bam;
 	enum usb_bam_pipe_type pipe_type;
 	u32 src_phy_addr;
@@ -147,7 +140,6 @@ struct usb_bam_pipe_connect {
  * @usb_bam_fifo_baseaddr: base address for bam pipe's data and descriptor
  *                         fifos. This can be on chip memory (ocimem) or usb
  *                         private memory.
- * @ignore_core_reset_ack: BAM can ignore ACK from USB core during PIPE RESET
  * @reset_on_connect: BAM must be reset before its first pipe connect
  * @reset_on_disconnect: BAM must be reset after its last pipe disconnect
  * @disable_clk_gating: Disable clock gating
@@ -157,20 +149,17 @@ struct usb_bam_pipe_connect {
  *		can work at in bam2bam mode when connected to HS host.
  * @max_mbps_superspeed: Maximum Mbits per seconds that the USB core
  *		can work at in bam2bam mode when connected to SS host.
- * @enable_hsusb_bam_on_boot: Enable HSUSB BAM (non-NDP) on bootup itself
  */
 struct msm_usb_bam_data {
 	u8 max_connections;
 	int usb_bam_num_pipes;
 	phys_addr_t usb_bam_fifo_baseaddr;
-	bool ignore_core_reset_ack;
 	bool reset_on_connect;
 	bool reset_on_disconnect;
 	bool disable_clk_gating;
 	u32 override_threshold;
 	u32 max_mbps_highspeed;
 	u32 max_mbps_superspeed;
-	bool enable_hsusb_bam_on_boot;
 	enum usb_ctrl bam_type;
 };
 
@@ -286,7 +275,7 @@ int get_qdss_bam_connection_info(
  * @return 0 on success, negative value on error
  */
 int usb_bam_get_connection_idx(enum usb_ctrl bam_type, enum peer_bam client,
-	enum usb_bam_pipe_dir dir, enum usb_bam_mode bam_mode, u32 num);
+	enum usb_bam_pipe_dir dir, u32 num);
 
 /*
  * return the usb controller bam type used for the supplied connection index
@@ -295,7 +284,7 @@ int usb_bam_get_connection_idx(enum usb_ctrl bam_type, enum peer_bam client,
  *
  * @return usb control bam type
  */
-int usb_bam_get_bam_type(const char *core_name);
+enum usb_ctrl usb_bam_get_bam_type(const char *core_name);
 
 /*
  * Indicates the type of connection the USB side of the connection is.
@@ -317,7 +306,6 @@ int usb_bam_alloc_fifos(enum usb_ctrl cur_bam, u8 idx);
 /* Frees memory for data fifo and descriptor fifos. */
 int usb_bam_free_fifos(enum usb_ctrl cur_bam, u8 idx);
 
-bool msm_usb_bam_enable(enum usb_ctrl ctrl, bool bam_enable);
 #else
 static inline int usb_bam_connect(enum usb_ctrl bam, u8 idx, u32 *bam_pipe_idx)
 {
@@ -359,13 +347,12 @@ static inline int get_qdss_bam_connection_info(
 }
 
 static inline int usb_bam_get_connection_idx(enum usb_ctrl bam_type,
-		enum peer_bam client, enum usb_bam_pipe_dir dir,
-		enum usb_bam_mode bam_mode, u32 num)
+		enum peer_bam client, enum usb_bam_pipe_dir dir, u32 num)
 {
 	return -ENODEV;
 }
 
-static inline int usb_bam_get_bam_type(const char *core_nam)
+static inline enum usb_ctrl usb_bam_get_bam_type(const char *core_nam)
 {
 	return -ENODEV;
 }
@@ -385,21 +372,6 @@ static inline int usb_bam_free_fifos(enum usb_ctrl cur_bam, u8 idx)
 {
 	return false;
 }
-
-static inline bool msm_usb_bam_enable(enum usb_ctrl ctrl, bool bam_enable)
-{ return true; }
-
-#endif
-
-#ifdef CONFIG_USB_CI13XXX_MSM
-void msm_hw_bam_disable(bool bam_disable);
-void msm_usb_irq_disable(bool disable);
-#else
-static inline void msm_hw_bam_disable(bool bam_disable)
-{ }
-
-static inline void msm_usb_irq_disable(bool disable)
-{ }
 #endif
 
 /* CONFIG_PM */

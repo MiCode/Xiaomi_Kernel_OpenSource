@@ -10,17 +10,11 @@ Required properties:
 - reg  : pair of physical base addresses and region size of BAM device
 - interrupts: IRQ line for BAM device
 - qcom,usb-bam-num-pipes: max number of pipes that can be used
-- qcom,bam-type: BAM type can be one of
-	0 - SSUSB_BAM
-	1 - HSUSB_BAM
-	2 - HSIC_BAM
 
 Optional properties:
 - qcom,usb-bam-fifo-baseaddr: base address for bam pipe's data and descriptor
   fifos. This can be on chip memory (ocimem). This
   property is required if sub-node's mem-type is ocimem or usb private mem.
-- qcom,ignore-core-reset-ack: If present then BAM ignores ACK from USB core
-	    while performing PIPE RESET
 - qcom,disable-clk-gating: If present then disable BAM clock gating.
 - qcom,usb-bam-override-threshold: If present then the default 512 byte threshold
 		is overridden. This threshold configures the threshold value for Read/Write
@@ -29,14 +23,9 @@ Optional properties:
             for either rx or tx direction.
 - qcom,usb-bam-max-mbps-superspeed: max mbps in super speed connection
             for either rx or tx direction.
-- qcom,bam-mode: BAM mode can be one of.
-	0 - BAM_MODE_DEVICE
-	1 - BAM_MODE_HOST
-	(If not set will be set by default to BAM_MODE_DEVICE)
 - qcom,reset-bam-on-connect: If present then BAM is RESET before connecting
   pipe. This may be required if BAM peripheral is also reset before connect.
 - qcom,reset-bam-on-disconnect: If present then BAM is RESET after disconnecting pipes.
-- qcom,enable-hsusb-bam-on-boot: If present then BAM is enabled at bootup itself.
 
 A number of USB BAM pipe parameters are represented as sub-nodes:
 
