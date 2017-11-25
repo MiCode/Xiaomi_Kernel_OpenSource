@@ -14,7 +14,9 @@
 #define _USB_BAM_H_
 
 #include <linux/msm-sps.h>
-#include <linux/usb/ch9.h>
+#include <linux/device.h>
+#include <linux/errno.h>
+#include <linux/types.h>
 
 #define MAX_BAMS	NUM_CTRL	/* Bam per USB controllers */
 
@@ -40,127 +42,12 @@ enum usb_pipe_mem_type {
 	OCI_MEM,		/* Shared memory among peripherals */
 };
 
-enum usb_bam_event_type {
-	USB_BAM_EVENT_WAKEUP_PIPE = 0,	/* Wake a pipe */
-	USB_BAM_EVENT_WAKEUP,		/* Wake a bam (first pipe waked) */
-	USB_BAM_EVENT_INACTIVITY,	/* Inactivity on all pipes */
-};
-
 enum usb_bam_pipe_type {
 	USB_BAM_PIPE_BAM2BAM = 0,	/* Connection is BAM2BAM (default) */
 	USB_BAM_PIPE_SYS2BAM,		/* Connection is SYS2BAM or BAM2SYS
 					 * depending on usb_bam_pipe_dir
 					 */
 	USB_BAM_MAX_PIPE_TYPES,
-};
-
-/*
- * struct usb_bam_event_info: suspend/resume event information.
- * @type: usb bam event type.
- * @event: holds event data.
- * @callback: suspend/resume callback.
- * @param: port num (for suspend) or NULL (for resume).
- * @event_w: holds work queue parameters.
- */
-struct usb_bam_event_info {
-	enum usb_bam_event_type type;
-	struct sps_register_event event;
-	int (*callback)(void *);
-	void *param;
-	struct work_struct event_w;
-};
-
-/*
- * struct usb_bam_pipe_connect: pipe connection information
- * between USB/HSIC BAM and another BAM. USB/HSIC BAM can be
- * either src BAM or dst BAM
- * @name: pipe description.
- * @mem_type: type of memory used for BAM FIFOs
- * @src_phy_addr: src bam physical address.
- * @src_pipe_index: src bam pipe index.
- * @dst_phy_addr: dst bam physical address.
- * @dst_pipe_index: dst bam pipe index.
- * @data_fifo_base_offset: data fifo offset.
- * @data_fifo_size: data fifo size.
- * @desc_fifo_base_offset: descriptor fifo offset.
- * @desc_fifo_size: descriptor fifo size.
- * @data_mem_buf: data fifo buffer.
- * @desc_mem_buf: descriptor fifo buffer.
- * @event: event for wakeup.
- * @enabled: true if pipe is enabled.
- * @suspended: true if pipe is suspended.
- * @cons_stopped: true is pipe has consumer requests stopped.
- * @prod_stopped: true if pipe has producer requests stopped.
- * @priv: private data to return upon activity_notify
- *	or inactivity_notify callbacks.
- * @activity_notify: callback to invoke on activity on one of the in pipes.
- * @inactivity_notify: callback to invoke on inactivity on all pipes.
- * @start: callback to invoke to enqueue transfers on a pipe.
- * @stop: callback to invoke on dequeue transfers on a pipe.
- * @start_stop_param: param for the start/stop callbacks.
- */
-struct usb_bam_pipe_connect {
-	const char *name;
-	u32 pipe_num;
-	enum usb_pipe_mem_type mem_type;
-	enum usb_bam_pipe_dir dir;
-	enum usb_ctrl bam_type;
-	enum peer_bam peer_bam;
-	enum usb_bam_pipe_type pipe_type;
-	u32 src_phy_addr;
-	u32 src_pipe_index;
-	u32 dst_phy_addr;
-	u32 dst_pipe_index;
-	u32 data_fifo_base_offset;
-	u32 data_fifo_size;
-	u32 desc_fifo_base_offset;
-	u32 desc_fifo_size;
-	struct sps_mem_buffer data_mem_buf;
-	struct sps_mem_buffer desc_mem_buf;
-	struct usb_bam_event_info event;
-	bool enabled;
-	bool suspended;
-	bool cons_stopped;
-	bool prod_stopped;
-	void *priv;
-	int (*activity_notify)(void *priv);
-	int (*inactivity_notify)(void *priv);
-	void (*start)(void *, enum usb_bam_pipe_dir);
-	void (*stop)(void *, enum usb_bam_pipe_dir);
-	void *start_stop_param;
-	bool reset_pipe_after_lpm;
-};
-
-/**
- * struct msm_usb_bam_data: pipe connection information
- * between USB/HSIC BAM and another BAM. USB/HSIC BAM can be
- * either src BAM or dst BAM
- * @usb_bam_num_pipes: max number of pipes to use.
- * @active_conn_num: number of active pipe connections.
- * @usb_bam_fifo_baseaddr: base address for bam pipe's data and descriptor
- *                         fifos. This can be on chip memory (ocimem) or usb
- *                         private memory.
- * @reset_on_connect: BAM must be reset before its first pipe connect
- * @reset_on_disconnect: BAM must be reset after its last pipe disconnect
- * @disable_clk_gating: Disable clock gating
- * @override_threshold: Override the default threshold value for Read/Write
- *                         event generation by the BAM towards another BAM.
- * @max_mbps_highspeed: Maximum Mbits per seconds that the USB core
- *		can work at in bam2bam mode when connected to HS host.
- * @max_mbps_superspeed: Maximum Mbits per seconds that the USB core
- *		can work at in bam2bam mode when connected to SS host.
- */
-struct msm_usb_bam_data {
-	u8 max_connections;
-	int usb_bam_num_pipes;
-	phys_addr_t usb_bam_fifo_baseaddr;
-	bool reset_on_connect;
-	bool reset_on_disconnect;
-	bool disable_clk_gating;
-	u32 override_threshold;
-	u32 max_mbps_highspeed;
-	u32 max_mbps_superspeed;
-	enum usb_ctrl bam_type;
 };
 
 #if  IS_ENABLED(CONFIG_USB_BAM)
