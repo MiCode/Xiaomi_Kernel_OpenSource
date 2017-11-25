@@ -1,0 +1,33 @@
+QPNP Qnovo pulse engine
+
+QPNP Qnovo is a pulse charging engine which works in tandem with the QPNP SMB2
+Charger device. It configures the QPNP SMB2 charger to charge/discharge as per
+pulse characteristics.
+
+The QPNP Qnovo pulse engine has a single peripheral assigned to it.
+
+Required properties:
+- compatible:		Must be "qcom,qpnp-qnovo"
+- qcom,pmic-revid:	Should specify the phandle of PMIC
+			revid module. This is used to identify
+			the PMIC subtype.
+
+- reg:			The address for this peripheral
+- interrupts:		Specifies the interrupt associated with the peripheral.
+- interrupt-names:	Specifies the interrupt name for the peripheral. Qnovo
+			peripheral has only one interrupt "ptrain-done".
+
+Optional Properties:
+- qcom,external-rsense:		To indicate whether the platform uses external or
+				internal rsense for measuring battery current.
+- qcom,enable-for-dc:		To enable qnovo for dc charging path.
+
+Example:
+
+	qcom,qpnp-qnovo@1500 {
+		compatible = "qcom,qpnp-qnovo";
+		reg = <0x1500 0x100>;
+		interrupts = <0x2 0x15 0x0 IRQ_TYPE_NONE>;
+		interrupt-names = "ptrain-done";
+		qcom,pmic-revid = <&pmi8998_revid>;
+	};
