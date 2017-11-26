@@ -1557,6 +1557,12 @@ struct wmi_tlv_wow_enable_cmd {
 	__le32 pause_iface_config;
 } __packed;
 
+struct wmi_tlv_arp_ns_offload_cmd {
+	__le32 flags;
+	__le32 vdev_id;
+	__le32 num_ns_ext_tuples;
+} __packed;
+
 struct wmi_tlv_wow_host_wakeup_ind {
 	__le32 reserved;
 } __packed;
