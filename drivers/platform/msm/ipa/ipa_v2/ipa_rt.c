@@ -103,7 +103,7 @@ int __ipa_generate_rt_hw_rule_v2(enum ipa_ip_type ip,
 		entry->hw_len = buf - start;
 	} else if (entry->hw_len != (buf - start)) {
 		IPAERR(
-		"hw_len differs b/w passes passed=0x%x calc=0x%xtd\n",
+		"hw_len differs b/w passes passed=0x%x calc=0x%lxtd\n",
 		entry->hw_len,
 		(buf - start));
 		return -EPERM;
@@ -197,7 +197,7 @@ int __ipa_generate_rt_hw_rule_v2_5(enum ipa_ip_type ip,
 	if (entry->hw_len == 0) {
 		entry->hw_len = buf - start;
 	} else if (entry->hw_len != (buf - start)) {
-		IPAERR("hw_len differs b/w passes passed=0x%x calc=0x%xtd\n",
+		IPAERR("hw_len differs b/w passes passed=0x%x calc=0x%lxtd\n",
 			entry->hw_len, (buf - start));
 		return -EPERM;
 	}
