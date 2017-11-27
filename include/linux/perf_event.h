@@ -490,6 +490,7 @@ struct perf_addr_filters_head {
  * enum perf_event_active_state - the states of a event
  */
 enum perf_event_active_state {
+	PERF_EVENT_STATE_DORMANT	= -6,
 	PERF_EVENT_STATE_DEAD		= -5,
 	PERF_EVENT_STATE_ZOMBIE		= -4,
 	PERF_EVENT_STATE_EXIT		= -3,
@@ -708,6 +709,13 @@ struct perf_event {
 	struct list_head		sb_list;
 
 	struct list_head		zombie_entry;
+
+	/*
+	 * Entry into the list that holds the events whose CPUs
+	 * are offline. These events will be installed once the
+	 * CPU wakes up and will be removed from the list after that
+	 */
+	struct list_head		dormant_event_entry;
 #endif /* CONFIG_PERF_EVENTS */
 };
 
