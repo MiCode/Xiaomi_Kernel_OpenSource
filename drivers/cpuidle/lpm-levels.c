@@ -974,6 +974,9 @@ static int cluster_select(struct lpm_cluster *cluster, bool from_idle,
 		if (suspend_in_progress && from_idle && level->notify_rpm)
 			continue;
 
+		if (level->notify_rpm && !system_sleep_allowed())
+			continue;
+
 		best_level = i;
 
 		if (from_idle &&
