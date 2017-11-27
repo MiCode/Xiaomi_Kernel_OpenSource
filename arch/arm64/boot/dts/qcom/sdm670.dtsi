@@ -2272,7 +2272,6 @@
 
 		qcom,nonremovable;
 
-		qcom,scaling-lower-bus-speed-mode = "DDR52";
 		status = "disabled";
 	};
 
