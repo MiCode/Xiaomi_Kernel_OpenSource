@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,7 @@
 #ifndef __LINUX_CLK_QCOM_H_
 #define __LINUX_CLK_QCOM_H_
 
+#if defined(CONFIG_COMMON_CLK_QCOM)
 enum branch_mem_flags {
 	CLKFLAG_RETAIN_PERIPH,
 	CLKFLAG_NORETAIN_PERIPH,
@@ -23,5 +24,8 @@ enum branch_mem_flags {
 	CLKFLAG_PERIPH_OFF_SET,
 	CLKFLAG_PERIPH_OFF_CLEAR,
 };
+#elif defined(CONFIG_COMMON_CLK_MSM)
+#include <linux/clk/msm-clk.h>
+#endif /* CONFIG_COMMON_CLK_QCOM */
 
 #endif  /* __LINUX_CLK_QCOM_H_ */
