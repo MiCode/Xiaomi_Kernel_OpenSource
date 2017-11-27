@@ -1,7 +1,8 @@
 Qualcomm Serial Peripheral Interface (SPI)
 
 Required properties:
-- compatible : Should be "qcom,spi-qup-v2".
+- compatible : Should be "qcom,spi-qup-v2". Should "qcom,qup-v26" for
+		controllers that support spi slave mode.
 - reg : Offset and length of the register regions for the device
 - reg-names : Register region names referenced in reg above.
 	Required register resource entries are:
@@ -72,6 +73,7 @@ the following properties.
   clock phase (CPHA) mode
 - spi-cs-high : (optional) Empty property indicating device requires
   chip select active high
+- qcom,slv-ctrl : Set this flag to configure QUP as SPI slave controller.
 
 Example:
 	aliases {

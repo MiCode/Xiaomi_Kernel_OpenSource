@@ -38,6 +38,7 @@
 #define QUP_MX_WRITE_CNT_CURRENT      0x0154
 
 #define QUP_CONFIG_SPI_MODE           0x0100
+#define QUP_CONFIG_SPI_SLAVE          0x0400
 #endif
 
 #define GSBI_CTRL_REG                 0x0
@@ -72,17 +73,26 @@
 #define SPI_OUTPUT_FIFO               QSD_REG(0x0100) QUP_REG(0x0110)
 #define SPI_INPUT_FIFO                QSD_REG(0x0200) QUP_REG(0x0218)
 #define SPI_STATE                     QSD_REG(SPI_OPERATIONAL) QUP_REG(0x0004)
+#define SPI_SLAVE_IRQ_STATUS		(0x0330)
+#define SPI_SLAVE_IRQ_EN		(0x0334)
+#define SPI_SLAVE_CONFIG		(0x0338)
 
 /* QUP_CONFIG fields */
 #define SPI_CFG_N                     0x0000001F
 #define SPI_NO_INPUT                  0x00000080
 #define SPI_NO_OUTPUT                 0x00000040
 #define SPI_EN_EXT_OUT_FLAG           0x00010000
+#define QUP_CFG_MODE                  0x00000F00
+#define APP_CLK_ON_EN			BIT(12)
+#define CORE_CLK_ON_EN			BIT(13)
+#define FIFO_CLK_ON_EN			BIT(14)
+#define CORE_EX_CLK_ON_EN		BIT(15)
 
 /* SPI_CONFIG fields */
 #define SPI_CFG_LOOPBACK              0x00000100
 #define SPI_CFG_INPUT_FIRST           0x00000200
 #define SPI_CFG_HS_MODE               0x00000400
+#define SPI_CFG_SLAVE_OP              0x00000020
 
 /* SPI_IO_CONTROL fields */
 #define SPI_IO_C_FORCE_CS             0x00000800
@@ -127,6 +137,23 @@
 #define SPI_OP_STATE                  0x00000003
 
 #define SPI_OP_STATE_CLEAR_BITS       0x2
+
+/* SPI SLAVE IRQ_STATUS/EN fields */
+#define CS_N_ASSERT			BIT(0)
+#define CS_N_DEASSERT			BIT(1)
+#define CS_N_ETXT			BIT(2)
+#define TX_UNDERFLOW			BIT(3)
+#define RX_OVERFLOW_WAIT_EOT		BIT(4)
+#define RX_OVERFLOW_NO_EOT		BIT(5)
+#define CS_N_ERXT			BIT(6)
+
+/* SPI_SLAVE_CONFIG Fields */
+#define RX_N_SHIFT			BIT(0)
+#define PAUSE_ON_ERR_DIS		BIT(1)
+#define SPI_S_CGC_EN			BIT(2)
+#define RX_UNBALANCED_MASK		BIT(3)
+#define SLAVE_DIS_RESET_ST		BIT(4)
+#define SLAVE_AUTO_PAUSE_EOT		BIT(7)
 
 #define SPI_PINCTRL_STATE_DEFAULT "spi_default"
 #define SPI_PINCTRL_STATE_SLEEP "spi_sleep"
@@ -177,6 +204,7 @@ enum msm_spi_state {
 enum msm_spi_qup_version {
 	SPI_QUP_VERSION_NONE    = 0x0,
 	SPI_QUP_VERSION_BFAM    = 0x2,
+	SPI_QUP_VERSION_SPI_SLV = 0x26,
 };
 
 enum msm_spi_pipe_direction {
@@ -376,6 +404,7 @@ struct msm_spi {
 	struct pinctrl_state	*pins_sleep;
 	bool			is_init_complete;
 	bool			pack_words;
+	bool			slv_support;
 };
 
 /* Forward declaration */

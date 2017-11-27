@@ -48,9 +48,11 @@ struct msm_spi_platform_data {
 	u32  infinite_mode;
 	bool ver_reg_exists;
 	bool use_bam;
+	bool slv_test;
 	u32  bam_consumer_pipe_index;
 	u32  bam_producer_pipe_index;
 	bool rt_priority;
 	bool use_pinctrl;
 	bool is_shared;
+	bool is_slv_ctrl;
 };
