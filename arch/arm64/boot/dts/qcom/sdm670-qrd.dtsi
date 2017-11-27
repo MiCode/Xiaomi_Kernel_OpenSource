@@ -68,6 +68,10 @@
 	};
 };
 
+&eud {
+	vdda33-supply = <&pm660l_l7>;
+};
+
 &pm660_fg {
 	qcom,battery-data = <&qrd_batterydata>;
 	qcom,fg-bmd-en-delay-ms = <300>;
