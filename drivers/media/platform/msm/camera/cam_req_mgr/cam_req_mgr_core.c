@@ -1979,16 +1979,6 @@ int cam_req_mgr_link(struct cam_req_mgr_link_info *link_info)
 		goto setup_failed;
 	}
 
-	/* Start watchdong timer to detect if camera hw goes into bad state */
-	rc = crm_timer_init(&link->watchdog, CAM_REQ_MGR_WATCHDOG_TIMEOUT,
-		link, &__cam_req_mgr_sof_freeze);
-	if (rc < 0) {
-		kfree(link->workq->task.pool[0].payload);
-		__cam_req_mgr_destroy_link_info(link);
-		cam_req_mgr_workq_destroy(&link->workq);
-		goto setup_failed;
-	}
-
 	mutex_unlock(&link->lock);
 	mutex_unlock(&g_crm_core_dev->crm_lock);
 	return rc;
@@ -2199,6 +2189,55 @@ int cam_req_mgr_flush_requests(
 	rc = wait_for_completion_timeout(
 		&link->workq_comp,
 		msecs_to_jiffies(CAM_REQ_MGR_SCHED_REQ_TIMEOUT));
+end:
+	return rc;
+}
+
+int cam_req_mgr_link_control(struct cam_req_mgr_link_control *control)
+{
+	int                               rc = 0;
+	int                               i;
+	struct cam_req_mgr_core_link     *link = NULL;
+
+	if (!control) {
+		CAM_ERR(CAM_CRM, "Control command is NULL");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	mutex_lock(&g_crm_core_dev->crm_lock);
+	for (i = 0; i < control->num_links; i++) {
+		link = (struct cam_req_mgr_core_link *)
+			cam_get_device_priv(control->link_hdls[i]);
+		if (!link) {
+			CAM_ERR(CAM_CRM, "Link(%d) is NULL on session 0x%x",
+				i, control->session_hdl);
+			rc = -EINVAL;
+			break;
+		}
+
+		mutex_lock(&link->lock);
+		if (control->ops == CAM_REQ_MGR_LINK_ACTIVATE) {
+			/* Start SOF watchdog timer */
+			rc = crm_timer_init(&link->watchdog,
+				CAM_REQ_MGR_WATCHDOG_TIMEOUT, link,
+				&__cam_req_mgr_sof_freeze);
+			if (rc < 0) {
+				CAM_ERR(CAM_CRM,
+					"SOF timer start fails: link=0x%x",
+					link->link_hdl);
+				rc = -EFAULT;
+			}
+		} else if (control->ops == CAM_REQ_MGR_LINK_DEACTIVATE) {
+			/* Destroy SOF watchdog timer */
+			crm_timer_exit(&link->watchdog);
+		} else {
+			CAM_ERR(CAM_CRM, "Invalid link control command");
+			rc = -EINVAL;
+		}
+		mutex_unlock(&link->lock);
+	}
+	mutex_unlock(&g_crm_core_dev->crm_lock);
 end:
 	return rc;
 }

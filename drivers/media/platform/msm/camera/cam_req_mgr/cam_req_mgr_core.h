@@ -415,5 +415,13 @@ int cam_req_mgr_core_device_deinit(void);
  * @brief: Handles camera close
  */
 void cam_req_mgr_handle_core_shutdown(void);
+
+/**
+ * cam_req_mgr_link_control()
+ * @brief:   Handles link control operations
+ * @control: Link control command
+ */
+int cam_req_mgr_link_control(struct cam_req_mgr_link_control *control);
+
 #endif
 
