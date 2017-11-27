@@ -124,6 +124,7 @@ struct dsi_display_clk_info {
  * struct dsi_display - dsi display information
  * @pdev:             Pointer to platform device.
  * @drm_dev:          DRM device associated with the display.
+ * @drm_conn:         Pointer to DRM connector associated with the display
  * @name:             Name of the display.
  * @display_type:     Display type as defined in device tree.
  * @list:             List pointer.
@@ -161,6 +162,7 @@ struct dsi_display_clk_info {
 struct dsi_display {
 	struct platform_device *pdev;
 	struct drm_device *drm_dev;
+	struct drm_connector *drm_conn;
 
 	const char *name;
 	const char *display_type;

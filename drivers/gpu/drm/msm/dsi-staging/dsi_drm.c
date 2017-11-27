@@ -197,12 +197,17 @@ static void dsi_bridge_enable(struct drm_bridge *bridge)
 static void dsi_bridge_disable(struct drm_bridge *bridge)
 {
 	int rc = 0;
+	struct dsi_display *display;
 	struct dsi_bridge *c_bridge = to_dsi_bridge(bridge);
 
 	if (!bridge) {
 		pr_err("Invalid params\n");
 		return;
 	}
+	display = c_bridge->display;
+
+	if (display && display->drm_conn)
+		sde_connector_helper_bridge_disable(display->drm_conn);
 
 	rc = dsi_display_pre_disable(c_bridge->display);
 	if (rc) {
@@ -368,6 +373,8 @@ int dsi_conn_set_info_blob(struct drm_connector *connector,
 
 	if (!info || !dsi_display)
 		return -EINVAL;
+
+	dsi_display->drm_conn = connector;
 
 	sde_kms_info_add_keystr(info,
 		"display type", dsi_display->display_type);

@@ -184,6 +184,9 @@ static void dp_bridge_disable(struct drm_bridge *drm_bridge)
 	bridge = to_dp_bridge(drm_bridge);
 	dp = bridge->display;
 
+	if (dp && dp->connector)
+		sde_connector_helper_bridge_disable(dp->connector);
+
 	rc = dp->pre_disable(dp);
 	if (rc) {
 		pr_err("[%d] DP display pre disable failed, rc=%d\n",

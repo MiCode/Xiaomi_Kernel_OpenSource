@@ -705,4 +705,11 @@ int sde_connector_get_mode_info(struct drm_connector_state *conn_state,
  * conn: Pointer to drm_connector struct
  */
 void sde_conn_timeline_status(struct drm_connector *conn);
+
+/**
+ * sde_connector_helper_bridge_disable - helper function for drm bridge disable
+ * @connector: Pointer to DRM connector object
+ */
+void sde_connector_helper_bridge_disable(struct drm_connector *connector);
+
 #endif /* _SDE_CONNECTOR_H_ */
