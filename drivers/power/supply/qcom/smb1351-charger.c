@@ -1597,7 +1597,7 @@ static int smb1351_parallel_set_property(struct power_supply *psy,
 				       enum power_supply_property prop,
 				       const union power_supply_propval *val)
 {
-	int rc = 0, index;
+	int rc = 0, index, current_ma;
 	struct smb1351_charger *chip = power_supply_get_drvdata(psy);
 
 	switch (prop) {
@@ -1620,8 +1620,13 @@ static int smb1351_parallel_set_property(struct power_supply *psy,
 					chip->target_fastchg_current_max_ma);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		index = smb1351_get_closest_usb_setpoint(val->intval / 1000);
-		chip->usb_psy_ma = usb_chg_current[index];
+		current_ma = val->intval / 1000;
+		if (current_ma > SUSPEND_CURRENT_MA) {
+			index = smb1351_get_closest_usb_setpoint(current_ma);
+			chip->usb_psy_ma = usb_chg_current[index];
+		} else {
+			chip->usb_psy_ma = current_ma;
+		}
 		if (!chip->parallel_charger_suspended)
 			rc = smb1351_set_usb_chg_current(chip,
 						chip->usb_psy_ma);
