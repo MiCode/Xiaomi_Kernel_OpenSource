@@ -5379,7 +5379,7 @@ int msm_comm_qbuf_cache_operations(struct msm_vidc_inst *inst,
 
 		dbuf = msm_smem_get_dma_buf(b->m.planes[i].m.fd);
 		offset = b->m.planes[i].data_offset;
-		size = b->m.planes[i].length;
+		size = b->m.planes[i].length - offset;
 		cache_ops = SMEM_CACHE_INVALIDATE;
 		skip = false;
 
@@ -5444,7 +5444,7 @@ int msm_comm_dqbuf_cache_operations(struct msm_vidc_inst *inst,
 
 		dma_buf = msm_smem_get_dma_buf(b->m.planes[i].m.fd);
 		offset = b->m.planes[i].data_offset;
-		size = b->m.planes[i].length;
+		size = b->m.planes[i].length - offset;
 		cache_ops = SMEM_CACHE_INVALIDATE;
 		skip = false;
 
@@ -5463,8 +5463,15 @@ int msm_comm_dqbuf_cache_operations(struct msm_vidc_inst *inst,
 				skip = true;
 			} else if (b->type ==
 					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-				if (!i) /* bitstream */
-					skip = true;
+				if (!i) { /* bitstream */
+					/*
+					 * Include vp8e header bytes as well
+					 * by making offset equal to zero
+					 */
+					offset = 0;
+					size = b->m.planes[i].bytesused +
+						b->m.planes[i].data_offset;
+				}
 			}
 		}
 
