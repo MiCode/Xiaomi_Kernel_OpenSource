@@ -182,6 +182,11 @@ Charger specific properties:
   Definition: Specifies the deglitch interval for OTG detection.
 		If the value is not present, 50 msec is used as default.
 
+- qcom,pd-not-supported
+  Usage:      optional
+  Value type: bool
+  Definition: Option to indicate if the platform supports USB PD (power delivery).
+
 =============================================
 Second Level Nodes - SMB2 Charger Peripherals
 =============================================
