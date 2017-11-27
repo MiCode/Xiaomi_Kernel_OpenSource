@@ -318,6 +318,7 @@ struct smb_charger {
 	int			usb_icl_change_irq_enabled;
 	bool			skip_usb_notification;
 	u32			jeita_status;
+	u8			float_cfg;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -406,6 +407,8 @@ int smblib_get_prop_batt_voltage_now(struct smb_charger *chg,
 int smblib_get_prop_batt_current_now(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_batt_temp(struct smb_charger *chg,
+				union power_supply_propval *val);
+int smblib_get_prop_batt_charge_counter(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_set_prop_input_suspend(struct smb_charger *chg,
 				const union power_supply_propval *val);
