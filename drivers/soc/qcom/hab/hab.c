@@ -21,7 +21,11 @@
 	.openlock = __SPIN_LOCK_UNLOCKED(&hab_devices[__num__].openlock)\
 	}
 
-/* the following has to match habmm definitions, order does not matter */
+/*
+ * The following has to match habmm definitions, order does not matter if
+ * hab config does not care either. When hab config is not present, the default
+ * is as guest VM all pchans are pchan opener (FE)
+ */
 static struct hab_device hab_devices[] = {
 	HAB_DEVICE_CNSTR(DEVICE_AUD1_NAME, MM_AUD_1, 0),
 	HAB_DEVICE_CNSTR(DEVICE_AUD2_NAME, MM_AUD_2, 1),
@@ -376,7 +380,8 @@ int hab_vchan_open(struct uhab_context *ctx,
 		int32_t *vcid,
 		uint32_t flags)
 {
-	struct virtual_channel *vchan;
+	struct virtual_channel *vchan = NULL;
+	struct hab_device *dev;
 
 	if (!vcid)
 		return -EINVAL;
@@ -390,10 +395,20 @@ int hab_vchan_open(struct uhab_context *ctx,
 			vchan = frontend_open(ctx, mmid, LOOPBACK_DOM);
 		}
 	} else {
-		if (hab_driver.b_server_dom)
-			vchan = backend_listen(ctx, mmid);
-		else
-			vchan = frontend_open(ctx, mmid, 0);
+		dev = find_hab_device(mmid);
+
+		if (dev) {
+			struct physical_channel *pchan =
+			hab_pchan_find_domid(dev, HABCFG_VMID_DONT_CARE);
+
+			if (pchan->is_be)
+				vchan = backend_listen(ctx, mmid);
+			else
+				vchan = frontend_open(ctx, mmid,
+						HABCFG_VMID_DONT_CARE);
+		} else {
+			pr_err("failed to find device, mmid %d\n", mmid);
+		}
 	}
 
 	if (IS_ERR(vchan))
@@ -447,6 +462,220 @@ void hab_vchan_close(struct uhab_context *ctx, int32_t vcid)
 	}
 
 	write_unlock(&ctx->ctx_lock);
+}
+
+/*
+ * To name the pchan - the pchan has two ends, either FE or BE locally.
+ * if is_be is true, then this is listener for BE. pchane name use remote
+ * FF's vmid from the table.
+ * if is_be is false, then local is FE as opener. pchan name use local FE's
+ * vmid (self)
+ */
+static int hab_initialize_pchan_entry(struct hab_device *mmid_device,
+				int vmid_local, int vmid_remote, int is_be)
+{
+	char pchan_name[MAX_VMID_NAME_SIZE];
+	struct physical_channel *pchan = NULL;
+	int ret;
+	int vmid = is_be ? vmid_remote : vmid_local;
+
+	if (!mmid_device) {
+		pr_err("habdev %pK, vmid local %d, remote %d, is be %d\n",
+				mmid_device, vmid_local, vmid_remote, is_be);
+		return -EINVAL;
+	}
+
+	snprintf(pchan_name, MAX_VMID_NAME_SIZE, "vm%d-", vmid);
+	strlcat(pchan_name, mmid_device->name, MAX_VMID_NAME_SIZE);
+
+	ret = habhyp_commdev_alloc((void **)&pchan, is_be, pchan_name,
+					vmid_remote, mmid_device);
+	if (ret == 0) {
+		pr_debug("pchan %s added, vmid local %d, remote %d, is_be %d, total %d\n",
+				pchan_name, vmid_local, vmid_remote, is_be,
+				mmid_device->pchan_cnt);
+	} else {
+		pr_err("failed %d to allocate pchan %s, vmid local %d, remote %d, is_be %d, total %d\n",
+				ret, pchan_name, vmid_local, vmid_remote,
+				is_be, mmid_device->pchan_cnt);
+	}
+
+	return ret;
+}
+
+static void hab_generate_pchan(struct local_vmid *settings, int i, int j)
+{
+	int k, ret = 0;
+
+	pr_debug("%d as mmid %d in vmid %d\n",
+			HABCFG_GET_MMID(settings, i, j), j, i);
+
+	switch (HABCFG_GET_MMID(settings, i, j)) {
+	case MM_AUD_START/100:
+		for (k = MM_AUD_START + 1; k < MM_AUD_END; k++) {
+			/*
+			 * if this local pchan end is BE, then use
+			 * remote FE's vmid. If local end is FE, then
+			 * use self vmid
+			 */
+			ret += hab_initialize_pchan_entry(
+					find_hab_device(k),
+					settings->self,
+					HABCFG_GET_VMID(settings, i),
+					HABCFG_GET_BE(settings, i, j));
+		}
+		break;
+
+	case MM_CAM_START/100:
+		for (k = MM_CAM_START + 1; k < MM_CAM_END; k++) {
+			ret += hab_initialize_pchan_entry(
+					find_hab_device(k),
+					settings->self,
+					HABCFG_GET_VMID(settings, i),
+					HABCFG_GET_BE(settings, i, j));
+		}
+		break;
+
+	case MM_DISP_START/100:
+		for (k = MM_DISP_START + 1; k < MM_DISP_END; k++) {
+			ret += hab_initialize_pchan_entry(
+					find_hab_device(k),
+					settings->self,
+					HABCFG_GET_VMID(settings, i),
+					HABCFG_GET_BE(settings, i, j));
+		}
+		break;
+
+	case MM_GFX_START/100:
+		for (k = MM_GFX_START + 1; k < MM_GFX_END; k++) {
+			ret += hab_initialize_pchan_entry(
+					find_hab_device(k),
+					settings->self,
+					HABCFG_GET_VMID(settings, i),
+					HABCFG_GET_BE(settings, i, j));
+		}
+		break;
+
+	case MM_VID_START/100:
+		for (k = MM_VID_START + 1; k < MM_VID_END; k++) {
+			ret += hab_initialize_pchan_entry(
+					find_hab_device(k),
+					settings->self,
+					HABCFG_GET_VMID(settings, i),
+					HABCFG_GET_BE(settings, i, j));
+		}
+		break;
+
+	case MM_MISC_START/100:
+		for (k = MM_MISC_START + 1; k < MM_MISC_END; k++) {
+			ret += hab_initialize_pchan_entry(
+					find_hab_device(k),
+					settings->self,
+					HABCFG_GET_VMID(settings, i),
+					HABCFG_GET_BE(settings, i, j));
+		}
+		break;
+
+	case MM_QCPE_START/100:
+		for (k = MM_QCPE_START + 1; k < MM_QCPE_END; k++) {
+			ret += hab_initialize_pchan_entry(
+					find_hab_device(k),
+					settings->self,
+					HABCFG_GET_VMID(settings, i),
+					HABCFG_GET_BE(settings, i, j));
+		}
+		break;
+
+	case MM_CLK_START/100:
+		for (k = MM_CLK_START + 1; k < MM_CLK_END; k++) {
+			ret += hab_initialize_pchan_entry(
+					find_hab_device(k),
+					settings->self,
+					HABCFG_GET_VMID(settings, i),
+					HABCFG_GET_BE(settings, i, j));
+		}
+		break;
+
+	default:
+		pr_err("failed to find mmid %d, i %d, j %d\n",
+			HABCFG_GET_MMID(settings, i, j), i, j);
+
+		break;
+	}
+}
+
+/*
+ * generate pchan list based on hab settings table.
+ * return status 0: success, otherwise failure
+ */
+static int hab_generate_pchan_list(struct local_vmid *settings)
+{
+	int i, j;
+
+	/* scan by valid VMs, then mmid */
+	pr_debug("self vmid is %d\n", settings->self);
+	for (i = 0; i < HABCFG_VMID_MAX; i++) {
+		if (HABCFG_GET_VMID(settings, i) != HABCFG_VMID_INVALID &&
+			HABCFG_GET_VMID(settings, i) != settings->self) {
+			pr_debug("create pchans for vm %d\n", i);
+
+			for (j = 1; j <= HABCFG_MMID_AREA_MAX; j++) {
+				if (HABCFG_GET_MMID(settings, i, j)
+						!= HABCFG_VMID_INVALID)
+					hab_generate_pchan(settings, i, j);
+			}
+		}
+	}
+
+	return 0;
+}
+
+/*
+ * This function checks hypervisor plug-in readiness, read in hab configs,
+ * and configure pchans
+ */
+int do_hab_parse(void)
+{
+	int result;
+	int i;
+	struct hab_device *device;
+	int pchan_total = 0;
+
+	/* first check if hypervisor plug-in is ready */
+	result = hab_hypervisor_register();
+	if (result) {
+		pr_err("register HYP plug-in failed, ret %d\n", result);
+		return result;
+	}
+
+	/* Initialize open Q before first pchan starts */
+	for (i = 0; i < hab_driver.ndevices; i++) {
+		device = &hab_driver.devp[i];
+		init_waitqueue_head(&device->openq);
+	}
+
+	/* read in hab config and create pchans*/
+	memset(&hab_driver.settings, HABCFG_VMID_INVALID,
+				sizeof(hab_driver.settings));
+
+	pr_debug("prepare default gvm 2 settings...\n");
+	fill_default_gvm_settings(&hab_driver.settings, 2,
+					MM_AUD_START, MM_ID_MAX);
+
+	/* now generate hab pchan list */
+	result  = hab_generate_pchan_list(&hab_driver.settings);
+	if (result) {
+		pr_err("generate pchan list failed, ret %d\n", result);
+	} else {
+		for (i = 0; i < hab_driver.ndevices; i++) {
+			device = &hab_driver.devp[i];
+			pchan_total += device->pchan_cnt;
+		}
+		pr_debug("ret %d, total %d pchans added, ndevices %d\n",
+				 result, pchan_total, hab_driver.ndevices);
+	}
+
+	return result;
 }
 
 static int hab_open(struct inode *inodep, struct file *filep)
@@ -683,24 +912,22 @@ static int __init hab_init(void)
 		goto err;
 	}
 
-	for (i = 0; i < hab_driver.ndevices; i++) {
-		device = &hab_driver.devp[i];
-		init_waitqueue_head(&device->openq);
+	/* read in hab config, then configure pchans */
+	result = do_hab_parse();
+
+	if (!result) {
+		hab_driver.kctx = hab_ctx_alloc(1);
+		if (!hab_driver.kctx) {
+			pr_err("hab_ctx_alloc failed");
+			result = -ENOMEM;
+			hab_hypervisor_unregister();
+			goto err;
+		}
+
+		set_dma_ops(hab_driver.dev, &hab_dma_ops);
+
+		return result;
 	}
-
-	hab_hypervisor_register();
-
-	hab_driver.kctx = hab_ctx_alloc(1);
-	if (!hab_driver.kctx) {
-		pr_err("hab_ctx_alloc failed");
-		result = -ENOMEM;
-		hab_hypervisor_unregister();
-		goto err;
-	}
-
-	set_dma_ops(hab_driver.dev, &hab_dma_ops);
-
-	return result;
 
 err:
 	if (!IS_ERR_OR_NULL(hab_driver.dev))
@@ -710,6 +937,7 @@ err:
 	cdev_del(&hab_driver.cdev);
 	unregister_chrdev_region(dev, 1);
 
+	pr_err("Error in hab init, result %d\n", result);
 	return result;
 }
 

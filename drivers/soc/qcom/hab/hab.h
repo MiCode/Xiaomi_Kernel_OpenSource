@@ -78,6 +78,39 @@ enum hab_payload_type {
 #define DEVICE_CLK1_NAME "hab_clock_vm1"
 #define DEVICE_CLK2_NAME "hab_clock_vm2"
 
+/* make sure concascaded name is less than this value */
+#define MAX_VMID_NAME_SIZE 30
+
+#define HABCFG_FILE_SIZE_MAX   256
+#define HABCFG_MMID_AREA_MAX   (MM_ID_MAX/100)
+
+#define HABCFG_VMID_MAX        16
+#define HABCFG_VMID_INVALID    (-1)
+#define HABCFG_VMID_DONT_CARE  (-2)
+
+#define HABCFG_ID_LINE_LIMIT   ","
+#define HABCFG_ID_VMID         "VMID="
+#define HABCFG_ID_BE           "BE="
+#define HABCFG_ID_FE           "FE="
+#define HABCFG_ID_MMID         "MMID="
+#define HABCFG_ID_RANGE        "-"
+#define HABCFG_ID_DONTCARE     "X"
+
+#define HABCFG_FOUND_VMID      1
+#define HABCFG_FOUND_FE_MMIDS  2
+#define HABCFG_FOUND_BE_MMIDS  3
+#define HABCFG_FOUND_NOTHING   (-1)
+
+#define HABCFG_BE_FALSE        0
+#define HABCFG_BE_TRUE         1
+
+#define HABCFG_GET_VMID(_local_cfg_, _vmid_) \
+	((settings)->vmid_mmid_list[_vmid_].vmid)
+#define HABCFG_GET_MMID(_local_cfg_, _vmid_, _mmid_) \
+	((settings)->vmid_mmid_list[_vmid_].mmid[_mmid_])
+#define HABCFG_GET_BE(_local_cfg_, _vmid_, _mmid_) \
+	((settings)->vmid_mmid_list[_vmid_].is_listener[_mmid_])
+
 /* "Size" of the HAB_HEADER_ID and HAB_VCID_ID must match */
 #define HAB_HEADER_SIZE_SHIFT 0
 #define HAB_HEADER_TYPE_SHIFT 16
@@ -127,6 +160,8 @@ struct hab_header {
 };
 
 struct physical_channel {
+	char name[MAX_VMID_NAME_SIZE];
+	int is_be;
 	struct kref refcount;
 	struct hab_device *habdev;
 	struct list_head node;
@@ -186,9 +221,10 @@ struct hab_message {
 };
 
 struct hab_device {
-	const char *name;
+	char name[MAX_VMID_NAME_SIZE];
 	unsigned int id;
 	struct list_head pchannels;
+	int pchan_cnt;
 	struct mutex pchan_lock;
 	struct list_head openq_list;
 	spinlock_t openlock;
@@ -218,6 +254,21 @@ struct uhab_context {
 	int kernel;
 };
 
+/*
+ * array to describe the VM and its MMID configuration as what is connected to
+ * so this is describing a pchan's remote side
+ */
+struct vmid_mmid_desc {
+	int vmid; /* remote vmid  */
+	int mmid[HABCFG_MMID_AREA_MAX+1]; /* selected or not */
+	int is_listener[HABCFG_MMID_AREA_MAX+1]; /* yes or no */
+};
+
+struct local_vmid {
+	int32_t self; /* only this field is for local */
+	struct vmid_mmid_desc vmid_mmid_list[HABCFG_VMID_MAX];
+};
+
 struct hab_driver {
 	struct device *dev;
 	struct cdev cdev;
@@ -228,6 +279,9 @@ struct hab_driver {
 	int ndevices;
 	struct hab_device *devp;
 	struct uhab_context *kctx;
+
+	struct local_vmid settings; /* parser results */
+
 	int b_server_dom;
 	int loopback_num;
 	int b_loopback;
@@ -403,6 +457,9 @@ static inline void hab_ctx_put(struct uhab_context *ctx)
 void hab_send_close_msg(struct virtual_channel *vchan);
 int hab_hypervisor_register(void);
 void hab_hypervisor_unregister(void);
+int habhyp_commdev_alloc(void **commdev, int is_be, char *name,
+		int vmid_remote, struct hab_device *mmid_device);
+int habhyp_commdev_dealloc(void *commdev);
 
 int physical_channel_read(struct physical_channel *pchan,
 		void *payload,
@@ -415,6 +472,13 @@ int physical_channel_send(struct physical_channel *pchan,
 void physical_channel_rx_dispatch(unsigned long physical_channel);
 
 int loopback_pchan_create(char *dev_name);
+
+int hab_parse(struct local_vmid *settings);
+
+int do_hab_parse(void);
+
+int fill_default_gvm_settings(struct local_vmid *settings,
+		int vmid_local, int mmid_start, int mmid_end);
 
 bool hab_is_loopback(void);
 

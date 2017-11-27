@@ -43,6 +43,9 @@ static irqreturn_t shm_irq_handler(int irq, void *_pchan)
 	return rc;
 }
 
+/*
+ * this is only for guest
+ */
 static uint64_t get_guest_factory_paddr(struct qvm_channel *dev,
 		const char *name, uint32_t pages)
 {
@@ -56,7 +59,7 @@ static uint64_t get_guest_factory_paddr(struct qvm_channel *dev,
 	}
 
 	if (dev->guest_factory->signature != GUEST_SHM_SIGNATURE) {
-		pr_err("shmem factory signature incorrect: %ld != %lu\n",
+		pr_err("shmem factory signature incorrect: %ld != %llu\n",
 			GUEST_SHM_SIGNATURE, dev->guest_factory->signature);
 		iounmap(dev->guest_factory);
 		return 0;
@@ -86,7 +89,7 @@ static uint64_t get_guest_factory_paddr(struct qvm_channel *dev,
 	return dev->guest_factory->shmem;
 }
 
-static int create_dispatcher(struct physical_channel *pchan, int id)
+static int create_dispatcher(struct physical_channel *pchan)
 {
 	struct qvm_channel *dev = (struct qvm_channel *)pchan->hyp_data;
 	int ret;
@@ -95,11 +98,11 @@ static int create_dispatcher(struct physical_channel *pchan, int id)
 		(unsigned long) pchan);
 
 	ret = request_irq(hab_driver.irq, shm_irq_handler, IRQF_SHARED,
-		hab_driver.devp[id].name, pchan);
+		pchan->name, pchan);
 
 	if (ret)
 		pr_err("request_irq for %s failed: %d\n",
-			hab_driver.devp[id].name, ret);
+			pchan->name, ret);
 
 	return ret;
 }
@@ -113,11 +116,21 @@ void hab_pipe_reset(struct physical_channel *pchan)
 				pchan->is_be ? 0 : 1);
 }
 
-static struct physical_channel *habhyp_commdev_alloc(int id)
+/*
+ * allocate hypervisor plug-in specific resource for pchan, and call hab pchan
+ * alloc common function. hab driver struct is directly accessed.
+ * commdev: pointer to store the pchan address
+ * id: index to hab_device (mmids)
+ * is_be: pchan local endpoint role
+ * name: pchan name
+ * return: status 0: success, otherwise: failures
+ */
+int habhyp_commdev_alloc(void **commdev, int is_be, char *name,
+		int vmid_remote, struct hab_device *mmid_device)
 {
-	struct qvm_channel *dev;
-	struct physical_channel *pchan = NULL;
-	int ret = 0, channel = 0;
+	struct qvm_channel *dev = NULL;
+	struct physical_channel **pchan = (struct physical_channel **)commdev;
+	int ret = 0, coid = 0, channel = 0;
 	char *shmdata;
 	uint32_t pipe_alloc_size =
 		hab_pipe_calc_required_bytes(PIPE_SHMEM_SIZE);
@@ -135,7 +148,7 @@ static struct physical_channel *habhyp_commdev_alloc(int id)
 	spin_lock_init(&dev->io_lock);
 
 	paddr = get_guest_factory_paddr(dev,
-			hab_driver.devp[id].name,
+			name,
 			pipe_alloc_pages);
 
 	total_pages = dev->guest_factory->size + 1;
@@ -162,54 +175,76 @@ static struct physical_channel *habhyp_commdev_alloc(int id)
 
 	dev->pipe = (struct hab_pipe *) shmdata;
 	dev->pipe_ep = hab_pipe_init(dev->pipe, PIPE_SHMEM_SIZE,
-		dev->be ? 0 : 1);
-
-	pchan = hab_pchan_alloc(&hab_driver.devp[id], dev->be);
-	if (!pchan) {
+		is_be ? 0 : 1);
+	/* newly created pchan is added to mmid device list */
+	*pchan = hab_pchan_alloc(mmid_device, vmid_remote);
+	if (!(*pchan)) {
 		ret = -ENOMEM;
 		goto err;
 	}
 
-	pchan->closed = 0;
-	pchan->hyp_data = (void *)dev;
+	(*pchan)->closed = 0;
+	(*pchan)->hyp_data = (void *)dev;
+	strlcpy((*pchan)->name, name, MAX_VMID_NAME_SIZE);
+	(*pchan)->is_be = is_be;
 
 	dev->channel = channel;
+	dev->coid = coid;
 
-	ret = create_dispatcher(pchan, id);
-	if (ret < 0)
+	ret = create_dispatcher(*pchan);
+	if (ret)
 		goto err;
 
-	return pchan;
+	return ret;
 
 err:
 	kfree(dev);
 
-	if (pchan)
-		hab_pchan_put(pchan);
+	if (*pchan)
+		hab_pchan_put(*pchan);
 	pr_err("habhyp_commdev_alloc failed: %d\n", ret);
-	return ERR_PTR(ret);
+	return ret;
+}
+
+int habhyp_commdev_dealloc(void *commdev)
+{
+	struct physical_channel *pchan = (struct physical_channel *)commdev;
+	struct qvm_channel *dev = pchan->hyp_data;
+
+
+	kfree(dev);
+	hab_pchan_put(pchan);
+	return 0;
 }
 
 int hab_hypervisor_register(void)
 {
-	int ret = 0, i;
+	int ret = 0;
 
 	hab_driver.b_server_dom = 0;
 
-	/*
-	 * Can still attempt to instantiate more channels if one fails.
-	 * Others can be retried later.
-	 */
-	for (i = 0; i < hab_driver.ndevices; i++) {
-		if (IS_ERR(habhyp_commdev_alloc(i)))
-			ret = -EAGAIN;
-	}
+	pr_info("initializing for %s VM\n", hab_driver.b_server_dom ?
+		"host" : "guest");
 
 	return ret;
 }
 
 void hab_hypervisor_unregister(void)
 {
+	int status, i;
+
+	for (i = 0; i < hab_driver.ndevices; i++) {
+		struct hab_device *dev = &hab_driver.devp[i];
+		struct physical_channel *pchan;
+
+		list_for_each_entry(pchan, &dev->pchannels, node) {
+			status = habhyp_commdev_dealloc(pchan);
+			if (status) {
+				pr_err("failed to free pchan %pK, i %d, ret %d\n",
+					pchan, i, status);
+			}
+		}
+	}
 }
 
 static int hab_shmem_probe(struct platform_device *pdev)
