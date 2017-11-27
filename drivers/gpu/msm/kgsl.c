@@ -2294,7 +2294,8 @@ static long _gpuobj_map_useraddr(struct kgsl_device *device,
 	param->flags &= KGSL_MEMFLAGS_GPUREADONLY
 		| KGSL_CACHEMODE_MASK
 		| KGSL_MEMTYPE_MASK
-		| KGSL_MEMFLAGS_FORCE_32BIT;
+		| KGSL_MEMFLAGS_FORCE_32BIT
+		| KGSL_MEMFLAGS_IOCOHERENT;
 
 	/* Specifying SECURE is an explicit error */
 	if (param->flags & KGSL_MEMFLAGS_SECURE)
@@ -2388,7 +2389,12 @@ long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 			| KGSL_MEMALIGN_MASK
 			| KGSL_MEMFLAGS_USE_CPU_MAP
 			| KGSL_MEMFLAGS_SECURE
-			| KGSL_MEMFLAGS_FORCE_32BIT;
+			| KGSL_MEMFLAGS_FORCE_32BIT
+			| KGSL_MEMFLAGS_IOCOHERENT;
+
+	/* Disable IO coherence if it is not supported on the chip */
+	if (!MMU_FEATURE(mmu, KGSL_MMU_IO_COHERENT))
+		param->flags &= ~((uint64_t)KGSL_MEMFLAGS_IOCOHERENT);
 
 	entry->memdesc.flags = param->flags;
 
@@ -2673,7 +2679,13 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 			| KGSL_MEMTYPE_MASK
 			| KGSL_MEMALIGN_MASK
 			| KGSL_MEMFLAGS_USE_CPU_MAP
-			| KGSL_MEMFLAGS_SECURE;
+			| KGSL_MEMFLAGS_SECURE
+			| KGSL_MEMFLAGS_IOCOHERENT;
+
+	/* Disable IO coherence if it is not supported on the chip */
+	if (!MMU_FEATURE(mmu, KGSL_MMU_IO_COHERENT))
+		param->flags &= ~((uint64_t)KGSL_MEMFLAGS_IOCOHERENT);
+
 	entry->memdesc.flags = ((uint64_t) param->flags)
 		| KGSL_MEMFLAGS_FORCE_32BIT;
 
@@ -3072,6 +3084,7 @@ struct kgsl_mem_entry *gpumem_alloc_entry(
 	int ret;
 	struct kgsl_process_private *private = dev_priv->process_priv;
 	struct kgsl_mem_entry *entry;
+	struct kgsl_mmu *mmu = &dev_priv->device->mmu;
 	unsigned int align;
 
 	flags &= KGSL_MEMFLAGS_GPUREADONLY
@@ -3080,14 +3093,15 @@ struct kgsl_mem_entry *gpumem_alloc_entry(
 		| KGSL_MEMALIGN_MASK
 		| KGSL_MEMFLAGS_USE_CPU_MAP
 		| KGSL_MEMFLAGS_SECURE
-		| KGSL_MEMFLAGS_FORCE_32BIT;
+		| KGSL_MEMFLAGS_FORCE_32BIT
+		| KGSL_MEMFLAGS_IOCOHERENT;
 
 	/* Turn off SVM if the system doesn't support it */
-	if (!kgsl_mmu_use_cpu_map(&dev_priv->device->mmu))
+	if (!kgsl_mmu_use_cpu_map(mmu))
 		flags &= ~((uint64_t) KGSL_MEMFLAGS_USE_CPU_MAP);
 
 	/* Return not supported error if secure memory isn't enabled */
-	if (!kgsl_mmu_is_secured(&dev_priv->device->mmu) &&
+	if (!kgsl_mmu_is_secured(mmu) &&
 			(flags & KGSL_MEMFLAGS_SECURE)) {
 		dev_WARN_ONCE(dev_priv->device->dev, 1,
 				"Secure memory not supported");
@@ -3116,11 +3130,15 @@ struct kgsl_mem_entry *gpumem_alloc_entry(
 
 	flags = kgsl_filter_cachemode(flags);
 
+	/* Disable IO coherence if it is not supported on the chip */
+	if (!MMU_FEATURE(mmu, KGSL_MMU_IO_COHERENT))
+		flags &= ~((uint64_t)KGSL_MEMFLAGS_IOCOHERENT);
+
 	entry = kgsl_mem_entry_create();
 	if (entry == NULL)
 		return ERR_PTR(-ENOMEM);
 
-	if (MMU_FEATURE(&dev_priv->device->mmu, KGSL_MMU_NEED_GUARD_PAGE))
+	if (MMU_FEATURE(mmu, KGSL_MMU_NEED_GUARD_PAGE))
 		entry->memdesc.priv |= KGSL_MEMDESC_GUARD_PAGE;
 
 	if (flags & KGSL_MEMFLAGS_SECURE)

@@ -121,6 +121,8 @@
 #define ADRENO_HW_NAP BIT(14)
 /* The GMU supports min voltage*/
 #define ADRENO_MIN_VOLT BIT(15)
+/* The core supports IO-coherent memory */
+#define ADRENO_IOCOHERENT BIT(16)
 
 /*
  * Adreno GPU quirks - control bits for various workarounds
