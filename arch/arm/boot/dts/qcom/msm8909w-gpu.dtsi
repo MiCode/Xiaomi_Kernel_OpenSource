@@ -22,6 +22,9 @@
 
 &msm_gpu {
 
+	/* To disable GPU wake up on touch event */
+	qcom,disable-wake-on-touch;
+
 	/* Bus Scale Settings */
 	qcom,msm-bus,num-cases = <3>;
 	qcom,msm-bus,vectors-KBps =
