@@ -2845,7 +2845,9 @@ static int __smblib_set_prop_pd_active(struct smb_charger *chg, bool pd_active)
 		 * more, but it may impact compliance.
 		 */
 		sink_attached = chg->typec_status[3] & UFP_DFP_MODE_STATUS_BIT;
-		if (!chg->typec_legacy_valid && !sink_attached && hvdcp)
+		if ((chg->connector_type != POWER_SUPPLY_CONNECTOR_MICRO_USB)
+				&& !chg->typec_legacy_valid
+				&& !sink_attached && hvdcp)
 			schedule_work(&chg->legacy_detection_work);
 	}
 
