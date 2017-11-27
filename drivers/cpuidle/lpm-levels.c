@@ -121,9 +121,6 @@ static void cluster_prepare(struct lpm_cluster *cluster,
 		const struct cpumask *cpu, int child_idx, bool from_idle,
 		int64_t time);
 
-static bool menu_select;
-module_param_named(menu_select, menu_select, bool, 0664);
-
 static int msm_pm_sleep_time_override;
 module_param_named(sleep_time_override,
 	msm_pm_sleep_time_override, int, 0664);
