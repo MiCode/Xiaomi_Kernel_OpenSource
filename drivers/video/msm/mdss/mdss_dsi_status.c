@@ -104,6 +104,16 @@ irqreturn_t hw_vsync_handler(int irq, void *data)
 }
 
 /*
+ * disable_esd_thread() - Cancels work item for the esd check.
+ */
+void disable_esd_thread(void)
+{
+	if (pstatus_data &&
+		cancel_delayed_work_sync(&pstatus_data->check_status))
+			pr_debug("esd thread killed\n");
+}
+
+/*
  * fb_event_callback() - Call back function for the fb_register_client()
  *			 notifying events
  * @self  : notifier block
