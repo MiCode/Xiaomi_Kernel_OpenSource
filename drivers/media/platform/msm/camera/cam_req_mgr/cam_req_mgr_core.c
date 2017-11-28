@@ -1206,45 +1206,68 @@ error:
 	return NULL;
 }
 
+/*
+ * Remove the link pointer from the session.
+ * Call this with the session->lock held
+ */
+static void __cam_req_mgr_unreserve_link_locked(
+	struct cam_req_mgr_core_session *session,
+	struct cam_req_mgr_core_link *link)
+{
+	int32_t i = 0;
+	bool sync = (session->sync_mode != CAM_REQ_MGR_SYNC_MODE_NO_SYNC) &&
+			(link->sync_link);
+
+	for (i = 0; i < MAX_LINKS_PER_SESSION; i++) {
+		if (!session->links[i])
+			continue;
+
+		if (sync)
+			session->links[i]->sync_link = NULL;
+
+		if (session->links[i] == link)
+			session->links[i] = NULL;
+	}
+
+	if (sync)
+		session->sync_mode = CAM_REQ_MGR_SYNC_MODE_NO_SYNC;
+
+	session->num_links--;
+	CAM_DBG(CAM_CRM, "Active session links (%d)",
+		session->num_links);
+
+	kfree(link->req.in_q);
+	link->req.in_q = NULL;
+	kfree(link);
+}
+
 /**
  * __cam_req_mgr_unreserve_link()
  *
- * @brief  : Reserves one link data struct within session
+ * @brief  : Removes the link data struct from the session and frees it
  * @session: session identifier
  * @link   : link identifier
  *
  */
 static void __cam_req_mgr_unreserve_link(
 	struct cam_req_mgr_core_session *session,
-	struct cam_req_mgr_core_link **link)
+	struct cam_req_mgr_core_link *link)
 {
-	int32_t   i = 0;
-
-	if (!session || !*link) {
+	if (!session || !link) {
 		CAM_ERR(CAM_CRM, "NULL session/link ptr %pK %pK",
-			session, *link);
+			session, link);
 		return;
 	}
 
 	mutex_lock(&session->lock);
-	if (!session->num_links)
+	if (!session->num_links) {
 		CAM_WARN(CAM_CRM, "No active link or invalid state %d",
 			session->num_links);
-	else {
-		for (i = 0; i < MAX_LINKS_PER_SESSION; i++) {
-			if (session->links[i] == *link)
-				session->links[i] = NULL;
-		}
-		session->num_links--;
-		CAM_DBG(CAM_CRM, "Active session links (%d)",
-			session->num_links);
+		goto done;
 	}
-	kfree((*link)->req.in_q);
-	(*link)->req.in_q = NULL;
-	kfree(*link);
-	*link = NULL;
+	__cam_req_mgr_unreserve_link_locked(session, link);
+done:
 	mutex_unlock(&session->lock);
-
 }
 
 /* Workqueue context processing section */
@@ -2072,11 +2095,54 @@ end:
 	return rc;
 }
 
+static int _cam_req_mgr_unlink(struct cam_req_mgr_core_link *link)
+{
+	int rc;
+
+	mutex_lock(&link->lock);
+	spin_lock_bh(&link->link_state_spin_lock);
+	link->state = CAM_CRM_LINK_STATE_IDLE;
+	spin_unlock_bh(&link->link_state_spin_lock);
+	__cam_req_mgr_print_req_tbl(&link->req);
+
+	/* Destroy workq payload data */
+	kfree(link->workq->task.pool[0].payload);
+	link->workq->task.pool[0].payload = NULL;
+
+	/* Destroy workq and timer of link */
+	crm_timer_exit(&link->watchdog);
+
+	cam_req_mgr_workq_destroy(&link->workq);
+
+	/* Cleanup request tables and unlink devices */
+	rc = __cam_req_mgr_destroy_link_info(link);
+	if (rc) {
+		CAM_ERR(CAM_CORE, "Unlink failed. Cannot proceed");
+		goto done;
+	}
+
+	/* Free memory holding data of linked devs */
+	__cam_req_mgr_destroy_subdev(link->l_dev);
+
+	/* Destroy the link handle */
+	rc = cam_destroy_device_hdl(link->link_hdl);
+	if (rc < 0) {
+		CAM_ERR(CAM_CRM, "error while destroying dev handle %d %x",
+			rc, link->link_hdl);
+	}
+
+done:
+	mutex_unlock(&link->lock);
+	return rc;
+}
+
 int cam_req_mgr_destroy_session(
 		struct cam_req_mgr_session_info *ses_info)
 {
 	int rc;
+	int i;
 	struct cam_req_mgr_core_session *cam_session = NULL;
+	struct cam_req_mgr_core_link *link;
 
 	if (!ses_info) {
 		CAM_DBG(CAM_CRM, "NULL session info pointer");
@@ -2097,7 +2163,16 @@ int cam_req_mgr_destroy_session(
 		CAM_ERR(CAM_CRM, "destroy session %x num_active_links %d",
 			ses_info->session_hdl,
 			cam_session->num_links);
-		/* @TODO : Go through active links and destroy ? */
+
+		for (i = 0; i < MAX_LINKS_PER_SESSION; i++) {
+			link = cam_session->links[i];
+
+			if (!link)
+				continue;
+
+			rc = _cam_req_mgr_unlink(link);
+			__cam_req_mgr_unreserve_link_locked(cam_session, link);
+		}
 	}
 	list_del(&cam_session->entry);
 	mutex_unlock(&cam_session->lock);
@@ -2213,17 +2288,18 @@ create_subdev_failed:
 	link_info->link_hdl = 0;
 link_hdl_fail:
 	mutex_unlock(&link->lock);
-	__cam_req_mgr_unreserve_link(cam_session, &link);
+	__cam_req_mgr_unreserve_link(cam_session, link);
 	mutex_unlock(&g_crm_core_dev->crm_lock);
 	return rc;
 }
+
+
 
 int cam_req_mgr_unlink(struct cam_req_mgr_unlink_info *unlink_info)
 {
 	int                              rc = 0;
 	struct cam_req_mgr_core_session *cam_session;
 	struct cam_req_mgr_core_link    *link;
-	int                              i;
 
 	if (!unlink_info) {
 		CAM_ERR(CAM_CRM, "NULL pointer");
@@ -2246,60 +2322,18 @@ int cam_req_mgr_unlink(struct cam_req_mgr_unlink_info *unlink_info)
 	link = cam_get_device_priv(unlink_info->link_hdl);
 	if (!link) {
 		CAM_ERR(CAM_CRM, "NULL pointer");
-		mutex_unlock(&g_crm_core_dev->crm_lock);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto done;
 	}
 
-	mutex_lock(&link->lock);
-	spin_lock_bh(&link->link_state_spin_lock);
-	link->state = CAM_CRM_LINK_STATE_IDLE;
-	spin_unlock_bh(&link->link_state_spin_lock);
-	__cam_req_mgr_print_req_tbl(&link->req);
-
-	if ((cam_session->sync_mode != CAM_REQ_MGR_SYNC_MODE_NO_SYNC) &&
-		(link->sync_link)) {
-		/*
-		 * make sure to unlink sync setup under the assumption
-		 * of only having 2 links in a given session
-		 */
-		cam_session->sync_mode = CAM_REQ_MGR_SYNC_MODE_NO_SYNC;
-		for (i = 0; i < MAX_LINKS_PER_SESSION; i++) {
-			if (cam_session->links[i])
-				cam_session->links[i]->sync_link = NULL;
-		}
-	}
-
-	/* Destroy workq payload data */
-	kfree(link->workq->task.pool[0].payload);
-	link->workq->task.pool[0].payload = NULL;
-
-	/* Destroy workq and timer of link */
-	crm_timer_exit(&link->watchdog);
-
-	cam_req_mgr_workq_destroy(&link->workq);
-
-	/* Cleanup request tables and unlink devices */
-	rc = __cam_req_mgr_destroy_link_info(link);
-	if (rc) {
-		CAM_ERR(CAM_CORE, "Unlink failed. Cannot proceed");
-		return rc;
-	}
-
-	/* Free memory holding data of linked devs */
-	__cam_req_mgr_destroy_subdev(link->l_dev);
-
-	/* Destroy the link handle */
-	rc = cam_destroy_device_hdl(unlink_info->link_hdl);
-	if (rc < 0) {
-		CAM_ERR(CAM_CRM, "error while destroying dev handle %d %x",
-			rc, link->link_hdl);
-	}
+	rc = _cam_req_mgr_unlink(link);
 
 	/* Free curent link and put back into session's free pool of links */
 	mutex_unlock(&link->lock);
-	__cam_req_mgr_unreserve_link(cam_session, &link);
-	mutex_unlock(&g_crm_core_dev->crm_lock);
+	__cam_req_mgr_unreserve_link(cam_session, link);
 
+done:
+	mutex_unlock(&g_crm_core_dev->crm_lock);
 	return rc;
 }
 
