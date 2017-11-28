@@ -2035,6 +2035,7 @@ static void handle_session_flush(enum hal_command_response cmd, void *data)
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
 	struct v4l2_event flush_event = {0};
+	struct recon_buf *binfo;
 	u32 *ptr = NULL;
 	enum hal_flush flush_type;
 	int rc;
@@ -2088,6 +2089,13 @@ static void handle_session_flush(enum hal_command_response cmd, void *data)
 		dprintk(VIDC_ERR, "Invalid flush type received!");
 		goto exit;
 	}
+
+	mutex_lock(&inst->reconbufs.lock);
+	list_for_each_entry(binfo, &inst->reconbufs.list, list) {
+		binfo->CR = 0;
+		binfo->CF = 0;
+	}
+	mutex_unlock(&inst->reconbufs.lock);
 
 	dprintk(VIDC_DBG,
 		"Notify flush complete, flush_type: %x\n", flush_type);
