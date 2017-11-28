@@ -843,12 +843,16 @@ int kgsl_busmon_target(struct device *dev, unsigned long *freq, u32 flags)
 	}
 
 	b = pwr->bus_mod;
-	if (_check_fast_hint(bus_flag) &&
-		((pwr_level->bus_freq + pwr->bus_mod) < pwr_level->bus_max))
+	if (_check_fast_hint(bus_flag))
 		pwr->bus_mod++;
-	else if (_check_slow_hint(bus_flag) &&
-		((pwr_level->bus_freq + pwr->bus_mod) > pwr_level->bus_min))
+	else if (_check_slow_hint(bus_flag))
 		pwr->bus_mod--;
+
+	/* trim calculated change to fit range */
+	if (pwr_level->bus_freq + pwr->bus_mod < pwr_level->bus_min)
+		pwr->bus_mod = -(pwr_level->bus_freq - pwr_level->bus_min);
+	else if (pwr_level->bus_freq + pwr->bus_mod > pwr_level->bus_max)
+		pwr->bus_mod = pwr_level->bus_max - pwr_level->bus_freq;
 
 	/* Update bus vote if AB or IB is modified */
 	if ((pwr->bus_mod != b) || (pwr->bus_ab_mbytes != ab_mbytes)) {
