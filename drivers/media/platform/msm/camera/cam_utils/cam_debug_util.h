@@ -38,13 +38,6 @@
 
 #define STR_BUFFER_MAX_LENGTH  1024
 
-enum cam_debug_level {
-	CAM_LEVEL_INFO,
-	CAM_LEVEL_WARN,
-	CAM_LEVEL_ERR,
-	CAM_LEVEL_DBG,
-};
-
 /*
  *  cam_debug_log()
  *
@@ -52,15 +45,14 @@ enum cam_debug_level {
  *               respective debug logs
  *
  * @module_id :  Respective Module ID which is calling this function
- * @dbg_level :  Debug level from cam_module_debug_level enum entries
  * @func      :  Function which is calling to print logs
  * @line      :  Line number associated with the function which is calling
  *               to print log
  * @fmt       :  Formatted string which needs to be print in the log
  *
  */
-void cam_debug_log(unsigned int module_id, enum cam_debug_level dbg_level,
-	const char *func, const int line, const char *fmt, ...);
+void cam_debug_log(unsigned int module_id, const char *func, const int line,
+	const char *fmt, ...);
 
 /*
  * cam_get_module_name()
@@ -80,8 +72,8 @@ const char *cam_get_module_name(unsigned int module_id);
  * @args     :  Arguments which needs to be print in log
  */
 #define CAM_ERR(__module, fmt, args...)                            \
-	cam_debug_log(__module, CAM_LEVEL_ERR, __func__, __LINE__, fmt, ##args)
-
+	pr_err("CAM_ERR: %s: %s: %d " fmt "\n",                     \
+		cam_get_module_name(__module), __func__,  __LINE__, ##args)
 /*
  * CAM_WARN
  * @brief    :  This Macro will print warning logs
@@ -91,8 +83,8 @@ const char *cam_get_module_name(unsigned int module_id);
  * @args     :  Arguments which needs to be print in log
  */
 #define CAM_WARN(__module, fmt, args...)                           \
-	cam_debug_log(__module, CAM_LEVEL_WARN, __func__, __LINE__, fmt, ##args)
-
+	pr_warn("CAM_WARN: %s: %s: %d " fmt "\n",                     \
+		cam_get_module_name(__module), __func__,  __LINE__, ##args)
 /*
  * CAM_INFO
  * @brief    :  This Macro will print Information logs
@@ -102,8 +94,8 @@ const char *cam_get_module_name(unsigned int module_id);
  * @args     :  Arguments which needs to be print in log
  */
 #define CAM_INFO(__module, fmt, args...)                           \
-	cam_debug_log(__module, CAM_LEVEL_INFO, __func__, __LINE__, fmt, ##args)
-
+	pr_info("CAM_INFO: %s: %s: %d " fmt "\n",                     \
+		cam_get_module_name(__module), __func__,  __LINE__, ##args)
 /*
  * CAM_DBG
  * @brief :     This Macro will print debug logs when enabled using GROUP
@@ -113,14 +105,14 @@ const char *cam_get_module_name(unsigned int module_id);
  * @args     :  Arguments which needs to be print in log
  */
 #define CAM_DBG(__module, fmt, args...)                            \
-	cam_debug_log(__module, CAM_LEVEL_DBG, __func__, __LINE__, fmt, ##args)
+	cam_debug_log(__module, __func__, __LINE__, fmt, ##args)
 
 /*
  * CAM_ERR_RATE_LIMIT
  * @brief :     This Macro will prevent error print logs with ratelimit
  */
 #define CAM_ERR_RATE_LIMIT(__module, fmt, args...)                 \
-	pr_err_ratelimited("CAM_ERR: %s: %s: %d" fmt "\n",            \
+	pr_err_ratelimited("CAM_ERR: %s: %s: %d " fmt "\n",            \
 		cam_get_module_name(__module), __func__,  __LINE__, ##args)
 
 #endif /* _CAM_DEBUG_UTIL_H_ */
