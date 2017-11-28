@@ -4503,6 +4503,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_enable_wdi3_pipes = ipa3_enable_wdi3_pipes;
 	api_ctrl->ipa_disable_wdi3_pipes = ipa3_disable_wdi3_pipes;
 	api_ctrl->ipa_tz_unlock_reg = ipa3_tz_unlock_reg;
+	api_ctrl->ipa_get_smmu_params = ipa3_get_smmu_params;
 
 	return 0;
 }

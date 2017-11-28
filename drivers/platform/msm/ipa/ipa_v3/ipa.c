@@ -6405,5 +6405,39 @@ int ipa3_iommu_map(struct iommu_domain *domain,
 	return iommu_map(domain, iova, paddr, size, prot);
 }
 
+/**
+ * ipa3_get_smmu_params()- Return the ipa3 smmu related params.
+ */
+int ipa3_get_smmu_params(struct ipa_smmu_in_params *in,
+	struct ipa_smmu_out_params *out)
+{
+	bool is_smmu_enable = 0;
+
+	if (out == NULL || in == NULL) {
+		IPAERR("bad parms for Client SMMU out params\n");
+		return -EINVAL;
+	}
+
+	if (!ipa3_ctx) {
+		IPAERR("IPA not yet initialized\n");
+		return -EINVAL;
+	}
+
+	switch (in->smmu_client) {
+	case IPA_SMMU_WLAN_CLIENT:
+		is_smmu_enable = !(ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC] |
+			ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_WLAN]);
+		break;
+	default:
+		is_smmu_enable = 0;
+		IPAERR("Trying to get illegal clients SMMU status");
+		return -EINVAL;
+	}
+
+	out->smmu_enable = is_smmu_enable;
+
+	return 0;
+}
+
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("IPA HW device driver");
