@@ -25,6 +25,7 @@
 #include <asm/cp15.h>
 
 #define ICC_EOIR1			__ACCESS_CP15(c12, 0, c12, 1)
+#define ICC_HPPIR1			__ACCESS_CP15(c12, 0, c12, 2)
 #define ICC_DIR				__ACCESS_CP15(c12, 0, c11, 1)
 #define ICC_IAR1			__ACCESS_CP15(c12, 0, c12, 0)
 #define ICC_SGI1R			__ACCESS_CP15_64(0, c12)
@@ -140,6 +141,7 @@ CPUIF_MAP(ICH_AP1R1, ICH_AP1R1_EL2)
 CPUIF_MAP(ICH_AP1R0, ICH_AP1R0_EL2)
 CPUIF_MAP(ICC_HSRE, ICC_SRE_EL2)
 CPUIF_MAP(ICC_SRE, ICC_SRE_EL1)
+CPUIF_MAP(ICC_HPPIR1, ICC_HPPIR1_EL1)
 
 CPUIF_MAP_LO_HI(ICH_LR15, ICH_LRC15, ICH_LR15_EL2)
 CPUIF_MAP_LO_HI(ICH_LR14, ICH_LRC14, ICH_LR14_EL2)
@@ -178,6 +180,15 @@ static inline void gic_write_dir(u32 val)
 static inline u32 gic_read_iar(void)
 {
 	u32 irqstat = read_sysreg(ICC_IAR1);
+
+	dsb(sy);
+
+	return irqstat;
+}
+
+static inline u32 gic_read_hppir(void)
+{
+	u32 irqstat = read_sysreg(ICC_HPPIR1);
 
 	dsb(sy);
 
