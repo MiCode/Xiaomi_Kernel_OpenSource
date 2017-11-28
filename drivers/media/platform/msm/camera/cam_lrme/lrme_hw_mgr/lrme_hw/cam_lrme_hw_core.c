@@ -634,6 +634,7 @@ int cam_lrme_hw_start(void *hw_priv, void *hw_start_args, uint32_t arg_size)
 	mutex_lock(&lrme_hw->hw_mutex);
 
 	if (lrme_hw->open_count > 0) {
+		lrme_hw->open_count++;
 		CAM_DBG(CAM_LRME, "This device is activated before");
 		goto unlock;
 	}
@@ -665,6 +666,7 @@ int cam_lrme_hw_start(void *hw_priv, void *hw_start_args, uint32_t arg_size)
 	lrme_hw->open_count++;
 	lrme_core->state = CAM_LRME_CORE_STATE_IDLE;
 
+	CAM_DBG(CAM_LRME, "open count %d", lrme_hw->open_count);
 	mutex_unlock(&lrme_hw->hw_mutex);
 	return rc;
 
@@ -672,6 +674,7 @@ disable_soc:
 	if (cam_lrme_soc_disable_resources(lrme_hw))
 		CAM_ERR(CAM_LRME, "Error in disable soc resources");
 unlock:
+	CAM_DBG(CAM_LRME, "open count %d", lrme_hw->open_count);
 	mutex_unlock(&lrme_hw->hw_mutex);
 	return rc;
 }
@@ -697,6 +700,8 @@ int cam_lrme_hw_stop(void *hw_priv, void *hw_stop_args, uint32_t arg_size)
 		return -EINVAL;
 	}
 	lrme_hw->open_count--;
+
+	CAM_DBG(CAM_LRME, "open count %d", lrme_hw->open_count);
 
 	if (lrme_hw->open_count)
 		goto unlock;
