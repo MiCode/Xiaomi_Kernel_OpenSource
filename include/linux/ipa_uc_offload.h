@@ -286,7 +286,7 @@ static inline int ipa_uc_offload_reg_rdyCB(struct ipa_uc_ready_params *param)
 	return -EPERM;
 }
 
-static void ipa_uc_offload_dereg_rdyCB(enum ipa_uc_offload_proto proto)
+static inline void ipa_uc_offload_dereg_rdyCB(enum ipa_uc_offload_proto proto)
 {
 }
 

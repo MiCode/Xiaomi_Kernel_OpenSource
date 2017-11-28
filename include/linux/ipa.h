@@ -1511,7 +1511,7 @@ static inline int ipa_cfg_ep_nat(u32 clnt_hdl,
 static inline int ipa_cfg_ep_conn_track(u32 clnt_hdl,
 	const struct ipa_ep_cfg_conn_track *ep_conn_track)
 {
-	return -EPERM
+	return -EPERM;
 }
 
 static inline int ipa_cfg_ep_hdr(u32 clnt_hdl,
