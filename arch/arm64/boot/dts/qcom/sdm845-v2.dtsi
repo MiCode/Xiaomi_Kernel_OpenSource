@@ -594,7 +594,7 @@
 			qcom,gpu-freq = <520000000>;
 			qcom,bus-freq = <9>;
 			qcom,bus-min = <8>;
-			qcom,bus-max = <10>;
+			qcom,bus-max = <11>;
 		};
 
 		qcom,gpu-pwrlevel@4 {
