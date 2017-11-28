@@ -346,9 +346,7 @@ int cam_sync_merge(int32_t *sync_obj, uint32_t num_objs, int32_t *merged_obj)
 
 int cam_sync_destroy(int32_t sync_obj)
 {
-
-	cam_sync_deinit_object(sync_dev->sync_table, sync_obj);
-	return 0;
+	return cam_sync_deinit_object(sync_dev->sync_table, sync_obj);
 }
 
 int cam_sync_wait(int32_t sync_obj, uint64_t timeout_ms)
