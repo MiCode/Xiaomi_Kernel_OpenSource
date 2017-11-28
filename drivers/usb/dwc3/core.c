@@ -1243,7 +1243,7 @@ static int dwc3_probe(struct platform_device *pdev)
 	dwc->dwc_wq = alloc_ordered_workqueue("dwc_wq", WQ_HIGHPRI);
 	if (!dwc->dwc_wq) {
 		pr_err("%s: Unable to create workqueue dwc_wq\n", __func__);
-		return -ENOMEM;
+		goto err0;
 	}
 
 	INIT_WORK(&dwc->bh_work, dwc3_bh_work);
@@ -1290,7 +1290,7 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	ret = dwc3_core_init_mode(dwc);
 	if (ret)
-		goto err0;
+		goto err1;
 
 	ret = dwc3_debugfs_init(dwc);
 	if (ret) {
@@ -1312,6 +1312,8 @@ static int dwc3_probe(struct platform_device *pdev)
 
 err_core_init:
 	dwc3_core_exit_mode(dwc);
+err1:
+	destroy_workqueue(dwc->dwc_wq);
 err0:
 	/*
 	 * restore res->start back to its original value so that, in case the
@@ -1319,7 +1321,6 @@ err0:
 	 * memory region the next time probe is called.
 	 */
 	res->start -= DWC3_GLOBALS_REGS_START;
-	destroy_workqueue(dwc->dwc_wq);
 
 	return ret;
 }
