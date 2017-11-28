@@ -47,7 +47,7 @@
 
 #include "sdxpoorwills-stub-regulator.dtsi"
 
-&blsp1_uart2 {
+&serial_uart {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart2_console_active>;
 	status = "ok";
