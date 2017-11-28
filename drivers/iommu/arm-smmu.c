@@ -4865,7 +4865,7 @@ static void qsmmuv500_init_cb(struct arm_smmu_domain *smmu_domain,
 	 * Prefetch only works properly if the start and end of all
 	 * buffers in the page table are aligned to 16 Kb.
 	 */
-	if ((iommudata->actlr >> QSMMUV500_ACTLR_DEEP_PREFETCH_SHIFT) &&
+	if ((iommudata->actlr >> QSMMUV500_ACTLR_DEEP_PREFETCH_SHIFT) &
 			QSMMUV500_ACTLR_DEEP_PREFETCH_MASK)
 		smmu_domain->qsmmuv500_errata2_min_align = true;
 
