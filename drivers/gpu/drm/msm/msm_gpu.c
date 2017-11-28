@@ -526,8 +526,6 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 
 	list_add_tail(&submit->node, &ring->submits);
 
-	msm_rd_dump_submit(submit);
-
 	ring->submitted_fence = submit->fence;
 
 	submit->tick_index = ring->tick_index;
@@ -556,6 +554,8 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 			/* ring takes a reference to the bo and iova: */
 			drm_gem_object_reference(&msm_obj->base);
 			msm_gem_get_iova(&msm_obj->base, aspace, &iova);
+
+			submit->bos[i].iova = iova;
 		}
 
 		if (submit->bos[i].flags & MSM_SUBMIT_BO_READ)
@@ -563,6 +563,8 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 		else if (submit->bos[i].flags & MSM_SUBMIT_BO_WRITE)
 			msm_gem_move_to_active(&msm_obj->base, gpu, true, submit->fence);
 	}
+
+	msm_rd_dump_submit(submit);
 
 	gpu->funcs->submit(gpu, submit);
 
