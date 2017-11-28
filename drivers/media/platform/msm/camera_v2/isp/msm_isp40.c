@@ -1332,6 +1332,7 @@ static void msm_vfe40_cfg_camif(struct vfe_device *vfe_dev,
 	struct msm_vfe_pix_cfg *pix_cfg)
 {
 	uint16_t first_pixel, last_pixel, first_line, last_line;
+	uint16_t epoch_line1;
 	struct msm_vfe_camif_cfg *camif_cfg = &pix_cfg->camif_cfg;
 	uint32_t val, subsample_period, subsample_pattern;
 	struct msm_vfe_camif_subsample_cfg *subsample_cfg =
@@ -1347,6 +1348,14 @@ static void msm_vfe40_cfg_camif(struct vfe_device *vfe_dev,
 	last_pixel = camif_cfg->last_pixel;
 	first_line = camif_cfg->first_line;
 	last_line = camif_cfg->last_line;
+	epoch_line1 = camif_cfg->epoch_line1;
+
+	if ((epoch_line1 <= 0) || (epoch_line1 > last_line))
+		epoch_line1 = last_line - 50;
+
+	if ((last_line - epoch_line1) > 100)
+		epoch_line1 = last_line - 100;
+
 	subsample_period = camif_cfg->subsample_cfg.irq_subsample_period;
 	subsample_pattern = camif_cfg->subsample_cfg.irq_subsample_pattern;
 
@@ -1358,6 +1367,14 @@ static void msm_vfe40_cfg_camif(struct vfe_device *vfe_dev,
 
 	msm_camera_io_w(first_line << 16 | last_line,
 	vfe_dev->vfe_base + 0x308);
+
+	/*configure EPOCH0: 20 lines, and
+	* configure EPOCH1: epoch_line1 before EOF
+	*/
+	msm_camera_io_w_mb(0x140000 | epoch_line1,
+		vfe_dev->vfe_base + 0x318);
+	pr_debug("%s:%d: epoch_line1: %d\n",
+		__func__, __LINE__, epoch_line1);
 	if (subsample_period && subsample_pattern) {
 		val = msm_camera_io_r(vfe_dev->vfe_base + 0x2F8);
 		val &= 0xFFE0FFFF;
@@ -1479,9 +1496,8 @@ static void msm_vfe40_update_camif_state(struct vfe_device *vfe_dev,
 		msm_camera_io_w(0x0, vfe_dev->vfe_base + 0x30);
 		msm_camera_io_w_mb(0x81, vfe_dev->vfe_base + 0x34);
 		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x24);
-		msm_vfe40_config_irq(vfe_dev, 0xF7, 0x81,
+		msm_vfe40_config_irq(vfe_dev, 0xFF, 0x81,
 				MSM_ISP_IRQ_ENABLE);
-		msm_camera_io_w_mb(0x140000, vfe_dev->vfe_base + 0x318);
 
 		bus_en =
 			((vfe_dev->axi_data.
