@@ -249,7 +249,7 @@ static inline int pclk_mux_read_sel(void *context, unsigned int reg,
 	if (rc)
 		pr_err("Failed to enable dsi pll resources, rc=%d\n", rc);
 	else
-		*val = (MDSS_PLL_REG_R(rsc->pll_base, reg) & 0x3);
+		*val = (MDSS_PLL_REG_R(rsc->phy_base, reg) & 0x3);
 
 	(void)mdss_pll_resource_enable(rsc, false);
 	return rc;
@@ -741,12 +741,32 @@ static void vco_10nm_unprepare(struct clk_hw *hw)
 		pr_err("dsi pll resources not available\n");
 		return;
 	}
-	pll->cached_cfg0 = MDSS_PLL_REG_R(pll->phy_base, PHY_CMN_CLK_CFG0);
-	pll->cached_outdiv = MDSS_PLL_REG_R(pll->pll_base, PLL_PLL_OUTDIV_RATE);
-	pr_debug("cfg0=%d,cfg1=%d, outdiv=%d\n", pll->cached_cfg0,
-			pll->cached_cfg1, pll->cached_outdiv);
 
-	pll->vco_cached_rate = clk_hw_get_rate(hw);
+	/*
+	 * During unprepare in continuous splash use case we want driver
+	 * to pick all dividers instead of retaining bootloader configurations.
+	 */
+	if (!pll->handoff_resources) {
+		pll->cached_cfg0 = MDSS_PLL_REG_R(pll->phy_base,
+							PHY_CMN_CLK_CFG0);
+		pll->cached_outdiv = MDSS_PLL_REG_R(pll->pll_base,
+							PLL_PLL_OUTDIV_RATE);
+		pr_debug("cfg0=%d,cfg1=%d, outdiv=%d\n", pll->cached_cfg0,
+					pll->cached_cfg1, pll->cached_outdiv);
+
+		pll->vco_cached_rate = clk_hw_get_rate(hw);
+	}
+
+	/*
+	 * When continuous splash screen feature is enabled, we need to cache
+	 * the mux configuration for the pixel_clk_src mux clock. The clock
+	 * framework does not call back to re-configure the mux value if it is
+	 * does not change.For such usecases, we need to ensure that the cached
+	 * value is programmed prior to PLL being locked
+	 */
+	if (pll->handoff_resources)
+		pll->cached_cfg1 = MDSS_PLL_REG_R(pll->phy_base,
+							PHY_CMN_CLK_CFG1);
 	dsi_pll_disable(vco);
 	mdss_pll_resource_enable(pll, false);
 }
@@ -1026,8 +1046,8 @@ static struct regmap_bus pll_regmap_bus = {
 	.reg_read = pll_reg_read,
 };
 
-static struct regmap_bus pclk_mux_regmap_bus = {
-	.reg_read = phy_reg_read,
+static struct regmap_bus pclk_src_mux_regmap_bus = {
+	.reg_read = pclk_mux_read_sel,
 	.reg_write = pclk_mux_write_sel,
 };
 
@@ -1472,7 +1492,7 @@ int dsi_pll_clock_register_10nm(struct platform_device *pdev,
 				pll_res, &dsi_pll_10nm_config);
 		dsi0pll_pclk_mux.clkr.regmap = rmap;
 
-		rmap = devm_regmap_init(&pdev->dev, &pclk_mux_regmap_bus,
+		rmap = devm_regmap_init(&pdev->dev, &pclk_src_mux_regmap_bus,
 				pll_res, &dsi_pll_10nm_config);
 		dsi0pll_pclk_src_mux.clkr.regmap = rmap;
 		rmap = devm_regmap_init(&pdev->dev, &mdss_mux_regmap_bus,
@@ -1510,11 +1530,11 @@ int dsi_pll_clock_register_10nm(struct platform_device *pdev,
 				pll_res, &dsi_pll_10nm_config);
 		dsi1pll_pclk_src.clkr.regmap = rmap;
 
-		rmap = devm_regmap_init(&pdev->dev, &pclk_mux_regmap_bus,
+		rmap = devm_regmap_init(&pdev->dev, &mdss_mux_regmap_bus,
 				pll_res, &dsi_pll_10nm_config);
 		dsi1pll_pclk_mux.clkr.regmap = rmap;
 
-		rmap = devm_regmap_init(&pdev->dev, &mdss_mux_regmap_bus,
+		rmap = devm_regmap_init(&pdev->dev, &pclk_src_mux_regmap_bus,
 				pll_res, &dsi_pll_10nm_config);
 		dsi1pll_pclk_src_mux.clkr.regmap = rmap;
 		rmap = devm_regmap_init(&pdev->dev, &mdss_mux_regmap_bus,
