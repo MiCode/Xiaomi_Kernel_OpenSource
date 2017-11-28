@@ -33,3 +33,6 @@
 		       <0x0001001b 0x0202001a 0x0 0x0>;
 };
 
+&tavil_snd {
+	qcom,us-euro-gpios = <&tavil_us_euro_sw>;
+};
