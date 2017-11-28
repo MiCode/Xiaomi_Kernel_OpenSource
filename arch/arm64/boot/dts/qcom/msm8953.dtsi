@@ -640,10 +640,10 @@
 		interrupts = <GIC_SPI 190 IRQ_TYPE_NONE>;
 		qcom,ee = <0>;
 		qcom,channel = <0>;
-		#address-cells = <1>;
+		#address-cells = <2>;
 		#size-cells = <0>;
 		interrupt-controller;
-		#interrupt-cells = <3>;
+		#interrupt-cells = <4>;
 		cell-index = <0>;
 	};
 };
