@@ -203,6 +203,7 @@ static void send_irq(struct qmp_device *mdev)
 	 */
 	wmb();
 	writel_relaxed(mdev->irq_mask, mdev->tx_irq_reg);
+	writel_relaxed(0x0, mdev->tx_irq_reg);
 	mdev->tx_irq_count++;
 }
 
