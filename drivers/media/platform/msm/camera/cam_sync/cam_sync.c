@@ -86,7 +86,6 @@ int cam_sync_register_callback(sync_callback cb_func,
 		sync_cb->sync_obj = sync_obj;
 		INIT_WORK(&sync_cb->cb_dispatch_work,
 			cam_sync_util_cb_dispatch);
-		list_add_tail(&sync_cb->list, &row->callback_list);
 		sync_cb->status = row->state;
 		queue_work(sync_dev->work_queue,
 			&sync_cb->cb_dispatch_work);
@@ -238,6 +237,8 @@ int cam_sync_signal(int32_t sync_obj, uint32_t status)
 		spin_unlock_bh(&sync_dev->row_spinlocks[parent_info->sync_id]);
 	}
 
+	spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
+
 	/*
 	 * Now dispatch the various sync objects collected so far, in our
 	 * list
@@ -251,17 +252,20 @@ int cam_sync_signal(int32_t sync_obj, uint32_t status)
 		struct sync_user_payload *temp_payload_info;
 
 		signalable_row = sync_dev->sync_table + list_info->sync_obj;
+
+		spin_lock_bh(&sync_dev->row_spinlocks[list_info->sync_obj]);
 		/* Dispatch kernel callbacks if any were registered earlier */
 		list_for_each_entry_safe(sync_cb,
-		temp_sync_cb, &signalable_row->callback_list, list) {
+			temp_sync_cb, &signalable_row->callback_list, list) {
 			sync_cb->status = list_info->status;
+			list_del_init(&sync_cb->list);
 			queue_work(sync_dev->work_queue,
 				&sync_cb->cb_dispatch_work);
 		}
 
 		/* Dispatch user payloads if any were registered earlier */
 		list_for_each_entry_safe(payload_info, temp_payload_info,
-		&signalable_row->user_payload_list, list) {
+			&signalable_row->user_payload_list, list) {
 			spin_lock_bh(&sync_dev->cam_sync_eventq_lock);
 			if (!sync_dev->cam_sync_eventq) {
 				spin_unlock_bh(
@@ -291,11 +295,11 @@ int cam_sync_signal(int32_t sync_obj, uint32_t status)
 		 */
 		complete_all(&signalable_row->signaled);
 
+		spin_unlock_bh(&sync_dev->row_spinlocks[list_info->sync_obj]);
+
 		list_del_init(&list_info->list);
 		kfree(list_info);
 	}
-
-	spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
 
 	return rc;
 }
