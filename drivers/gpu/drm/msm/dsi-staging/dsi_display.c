@@ -125,6 +125,282 @@ error:
 	return rc;
 }
 
+static int dsi_display_cmd_engine_enable(struct dsi_display *display)
+{
+	int rc = 0;
+	int i;
+	struct dsi_display_ctrl *m_ctrl, *ctrl;
+
+	if (display->cmd_engine_refcount > 0) {
+		display->cmd_engine_refcount++;
+		return 0;
+	}
+
+	m_ctrl = &display->ctrl[display->cmd_master_idx];
+
+	rc = dsi_ctrl_set_cmd_engine_state(m_ctrl->ctrl, DSI_CTRL_ENGINE_ON);
+	if (rc) {
+		pr_err("[%s] failed to enable cmd engine, rc=%d\n",
+		       display->name, rc);
+		goto error;
+	}
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		if (!ctrl->ctrl || (ctrl == m_ctrl))
+			continue;
+
+		rc = dsi_ctrl_set_cmd_engine_state(ctrl->ctrl,
+						   DSI_CTRL_ENGINE_ON);
+		if (rc) {
+			pr_err("[%s] failed to enable cmd engine, rc=%d\n",
+			       display->name, rc);
+			goto error_disable_master;
+		}
+	}
+
+	display->cmd_engine_refcount++;
+	return rc;
+error_disable_master:
+	(void)dsi_ctrl_set_cmd_engine_state(m_ctrl->ctrl, DSI_CTRL_ENGINE_OFF);
+error:
+	return rc;
+}
+
+static int dsi_display_cmd_engine_disable(struct dsi_display *display)
+{
+	int rc = 0;
+	int i;
+	struct dsi_display_ctrl *m_ctrl, *ctrl;
+
+	if (display->cmd_engine_refcount == 0) {
+		pr_err("[%s] Invalid refcount\n", display->name);
+		return 0;
+	} else if (display->cmd_engine_refcount > 1) {
+		display->cmd_engine_refcount--;
+		return 0;
+	}
+
+	m_ctrl = &display->ctrl[display->cmd_master_idx];
+	for (i = 0; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		if (!ctrl->ctrl || (ctrl == m_ctrl))
+			continue;
+
+		rc = dsi_ctrl_set_cmd_engine_state(ctrl->ctrl,
+						   DSI_CTRL_ENGINE_OFF);
+		if (rc)
+			pr_err("[%s] failed to enable cmd engine, rc=%d\n",
+			       display->name, rc);
+	}
+
+	rc = dsi_ctrl_set_cmd_engine_state(m_ctrl->ctrl, DSI_CTRL_ENGINE_OFF);
+	if (rc) {
+		pr_err("[%s] failed to enable cmd engine, rc=%d\n",
+		       display->name, rc);
+		goto error;
+	}
+
+error:
+	display->cmd_engine_refcount = 0;
+	return rc;
+}
+
+static bool dsi_display_validate_reg_read(struct dsi_panel *panel)
+{
+	int i, j = 0;
+	int len = 0, *lenp;
+	int group = 0, count = 0;
+	struct dsi_display_mode *mode;
+	struct drm_panel_esd_config *config;
+
+	if (!panel)
+		return false;
+
+	config = &(panel->esd_config);
+
+	lenp = config->status_valid_params ?: config->status_cmds_rlen;
+	mode = panel->cur_mode;
+	count = mode->priv_info->cmd_sets[DSI_CMD_SET_PANEL_STATUS].count;
+
+	for (i = 0; i < count; i++)
+		len += lenp[i];
+
+	for (i = 0; i < len; i++)
+		j += len;
+
+	for (j = 0; j < config->groups; ++j) {
+		for (i = 0; i < len; ++i) {
+			if (config->return_buf[i] !=
+				config->status_value[group + i])
+				break;
+		}
+
+		if (i == len)
+			return true;
+		group += len;
+	}
+
+	return false;
+}
+
+static int dsi_display_read_status(struct dsi_display_ctrl *ctrl,
+		struct dsi_panel *panel)
+{
+	int i, rc = 0, count = 0, start = 0, *lenp;
+	struct drm_panel_esd_config *config;
+	struct dsi_cmd_desc *cmds;
+	u32 flags = 0;
+
+	if (!panel)
+		return -EINVAL;
+
+	config = &(panel->esd_config);
+	lenp = config->status_valid_params ?: config->status_cmds_rlen;
+	count = config->status_cmd.count;
+	cmds = config->status_cmd.cmds;
+	flags = (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ);
+
+	for (i = 0; i < count; ++i) {
+		memset(config->status_buf, 0x0, SZ_4K);
+		cmds[i].msg.rx_buf = config->status_buf;
+		cmds[i].msg.rx_len = config->status_cmds_rlen[i];
+		rc = dsi_ctrl_cmd_transfer(ctrl->ctrl, &cmds[i].msg, flags);
+		if (rc <= 0) {
+			pr_err("rx cmd transfer failed rc=%d\n", rc);
+			goto error;
+		}
+
+		memcpy(config->return_buf + start,
+			config->status_buf, lenp[i]);
+		start += lenp[i];
+	}
+
+error:
+	return rc;
+}
+
+static int dsi_display_validate_status(struct dsi_display_ctrl *ctrl,
+		struct dsi_panel *panel)
+{
+	int rc = 0;
+
+	rc = dsi_display_read_status(ctrl, panel);
+	if (rc <= 0) {
+		goto exit;
+	} else {
+		/*
+		 * panel status read successfully.
+		 * check for validity of the data read back.
+		 */
+		rc = dsi_display_validate_reg_read(panel);
+		if (!rc) {
+			rc = -EINVAL;
+			goto exit;
+		}
+	}
+
+exit:
+	return rc;
+}
+
+static int dsi_display_status_reg_read(struct dsi_display *display)
+{
+	int rc = 0, i;
+	struct dsi_display_ctrl *m_ctrl, *ctrl;
+
+	pr_debug(" ++\n");
+
+	m_ctrl = &display->ctrl[display->cmd_master_idx];
+
+	rc = dsi_display_cmd_engine_enable(display);
+	if (rc) {
+		pr_err("cmd engine enable failed\n");
+		return -EPERM;
+	}
+
+	rc = dsi_display_validate_status(m_ctrl, display->panel);
+	if (rc <= 0) {
+		pr_err("[%s] read status failed on master,rc=%d\n",
+		       display->name, rc);
+		goto exit;
+	}
+
+	if (!display->panel->sync_broadcast_en)
+		goto exit;
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		if (ctrl == m_ctrl)
+			continue;
+
+		rc = dsi_display_validate_status(ctrl, display->panel);
+		if (rc <= 0) {
+			pr_err("[%s] read status failed on master,rc=%d\n",
+			       display->name, rc);
+			goto exit;
+		}
+	}
+
+exit:
+	dsi_display_cmd_engine_disable(display);
+	return rc;
+}
+
+static int dsi_display_status_bta_request(struct dsi_display *display)
+{
+	int rc = 0;
+
+	pr_debug(" ++\n");
+	/* TODO: trigger SW BTA and wait for acknowledgment */
+
+	return rc;
+}
+
+static int dsi_display_status_check_te(struct dsi_display *display)
+{
+	int rc = 0;
+
+	pr_debug(" ++\n");
+	/* TODO: wait for TE interrupt from panel */
+
+	return rc;
+}
+
+int dsi_display_check_status(void *display)
+{
+	struct dsi_display *dsi_display = display;
+	struct dsi_panel *panel;
+	u32 status_mode;
+	int rc = 0;
+
+	if (dsi_display == NULL)
+		return -EINVAL;
+
+	panel = dsi_display->panel;
+
+	status_mode = panel->esd_config.status_mode;
+
+	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
+		DSI_ALL_CLKS, DSI_CLK_ON);
+
+	if (status_mode == ESD_MODE_REG_READ) {
+		rc = dsi_display_status_reg_read(dsi_display);
+	} else if (status_mode == ESD_MODE_SW_BTA) {
+		rc = dsi_display_status_bta_request(dsi_display);
+	} else if (status_mode == ESD_MODE_PANEL_TE) {
+		rc = dsi_display_status_check_te(dsi_display);
+	} else {
+		pr_warn("unsupported check status mode\n");
+		panel->esd_config.esd_enabled = false;
+	}
+
+	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
+		DSI_ALL_CLKS, DSI_CLK_OFF);
+
+	return rc;
+}
+
 int dsi_display_soft_reset(void *display)
 {
 	struct dsi_display *dsi_display;
@@ -1208,87 +1484,6 @@ static int dsi_display_ctrl_deinit(struct dsi_display *display)
 		}
 	}
 
-	return rc;
-}
-
-static int dsi_display_cmd_engine_enable(struct dsi_display *display)
-{
-	int rc = 0;
-	int i;
-	struct dsi_display_ctrl *m_ctrl, *ctrl;
-
-	if (display->cmd_engine_refcount > 0) {
-		display->cmd_engine_refcount++;
-		return 0;
-	}
-
-	m_ctrl = &display->ctrl[display->cmd_master_idx];
-
-	rc = dsi_ctrl_set_cmd_engine_state(m_ctrl->ctrl, DSI_CTRL_ENGINE_ON);
-	if (rc) {
-		pr_err("[%s] failed to enable cmd engine, rc=%d\n",
-		       display->name, rc);
-		goto error;
-	}
-
-	for (i = 0; i < display->ctrl_count; i++) {
-		ctrl = &display->ctrl[i];
-		if (!ctrl->ctrl || (ctrl == m_ctrl))
-			continue;
-
-		rc = dsi_ctrl_set_cmd_engine_state(ctrl->ctrl,
-						   DSI_CTRL_ENGINE_ON);
-		if (rc) {
-			pr_err("[%s] failed to enable cmd engine, rc=%d\n",
-			       display->name, rc);
-			goto error_disable_master;
-		}
-	}
-
-	display->cmd_engine_refcount++;
-	return rc;
-error_disable_master:
-	(void)dsi_ctrl_set_cmd_engine_state(m_ctrl->ctrl, DSI_CTRL_ENGINE_OFF);
-error:
-	return rc;
-}
-
-static int dsi_display_cmd_engine_disable(struct dsi_display *display)
-{
-	int rc = 0;
-	int i;
-	struct dsi_display_ctrl *m_ctrl, *ctrl;
-
-	if (display->cmd_engine_refcount == 0) {
-		pr_err("[%s] Invalid refcount\n", display->name);
-		return 0;
-	} else if (display->cmd_engine_refcount > 1) {
-		display->cmd_engine_refcount--;
-		return 0;
-	}
-
-	m_ctrl = &display->ctrl[display->cmd_master_idx];
-	for (i = 0; i < display->ctrl_count; i++) {
-		ctrl = &display->ctrl[i];
-		if (!ctrl->ctrl || (ctrl == m_ctrl))
-			continue;
-
-		rc = dsi_ctrl_set_cmd_engine_state(ctrl->ctrl,
-						   DSI_CTRL_ENGINE_OFF);
-		if (rc)
-			pr_err("[%s] failed to enable cmd engine, rc=%d\n",
-			       display->name, rc);
-	}
-
-	rc = dsi_ctrl_set_cmd_engine_state(m_ctrl->ctrl, DSI_CTRL_ENGINE_OFF);
-	if (rc) {
-		pr_err("[%s] failed to enable cmd engine, rc=%d\n",
-		       display->name, rc);
-		goto error;
-	}
-
-error:
-	display->cmd_engine_refcount = 0;
 	return rc;
 }
 
@@ -3415,6 +3610,9 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 				display->panel->panel_mode);
 		break;
 	}
+
+	if (display->panel->esd_config.esd_enabled)
+		info->capabilities |= MSM_DISPLAY_ESD_ENABLED;
 
 	memcpy(&info->roi_caps, &display->panel->roi_caps,
 			sizeof(info->roi_caps));

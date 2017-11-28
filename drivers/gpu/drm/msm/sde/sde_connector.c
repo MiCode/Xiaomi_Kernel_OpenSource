@@ -366,6 +366,29 @@ int sde_connector_get_info(struct drm_connector *connector,
 	return c_conn->ops.get_info(info, c_conn->display);
 }
 
+void sde_connector_schedule_status_work(struct drm_connector *connector,
+		bool en)
+{
+	struct sde_connector *c_conn;
+	struct msm_display_info info;
+
+	c_conn = to_sde_connector(connector);
+	if (!c_conn)
+		return;
+
+	sde_connector_get_info(connector, &info);
+	if (c_conn->ops.check_status &&
+		(info.capabilities & MSM_DISPLAY_ESD_ENABLED)) {
+		if (en)
+			/* Schedule ESD status check */
+			schedule_delayed_work(&c_conn->status_work,
+				msecs_to_jiffies(STATUS_CHECK_INTERVAL_MS));
+		else
+			/* Cancel any pending ESD status check */
+			cancel_delayed_work_sync(&c_conn->status_work);
+	}
+}
+
 static int _sde_connector_update_power_locked(struct sde_connector *c_conn)
 {
 	struct drm_connector *connector;
@@ -410,6 +433,9 @@ static int _sde_connector_update_power_locked(struct sde_connector *c_conn)
 		mutex_lock(&c_conn->lock);
 	}
 	c_conn->last_panel_power_mode = mode;
+
+	if (mode != SDE_MODE_DPMS_ON)
+		sde_connector_schedule_status_work(connector, false);
 
 	return rc;
 }
@@ -491,6 +517,9 @@ static void sde_connector_destroy(struct drm_connector *connector)
 	}
 
 	c_conn = to_sde_connector(connector);
+
+	/* cancel if any pending esd work */
+	sde_connector_schedule_status_work(connector, false);
 
 	if (c_conn->ops.put_modes)
 		c_conn->ops.put_modes(connector, c_conn->display);
@@ -1160,6 +1189,48 @@ sde_connector_best_encoder(struct drm_connector *connector)
 	return c_conn->encoder;
 }
 
+static void sde_connector_check_status_work(struct work_struct *work)
+{
+	struct sde_connector *conn;
+	struct drm_event event;
+	int rc = 0;
+	bool panel_dead = false;
+
+	conn = container_of(to_delayed_work(work),
+			struct sde_connector, status_work);
+	if (!conn) {
+		SDE_ERROR("not able to get connector object\n");
+		return;
+	}
+
+	mutex_lock(&conn->lock);
+	if (!conn->ops.check_status ||
+			(conn->dpms_mode != DRM_MODE_DPMS_ON)) {
+		SDE_DEBUG("dpms mode: %d\n", conn->dpms_mode);
+		mutex_unlock(&conn->lock);
+		return;
+	}
+
+	rc = conn->ops.check_status(conn->display);
+	mutex_unlock(&conn->lock);
+	if (rc > 0) {
+		SDE_DEBUG("esd check status success conn_id: %d enc_id: %d\n",
+				conn->base.base.id, conn->encoder->base.id);
+		schedule_delayed_work(&conn->status_work,
+			msecs_to_jiffies(STATUS_CHECK_INTERVAL_MS));
+	} else {
+		SDE_EVT32(rc, SDE_EVTLOG_ERROR);
+		SDE_ERROR("failed report PANEL_DEAD conn_id: %d enc_id: %d\n",
+				conn->base.base.id, conn->encoder->base.id);
+		/* report panel dead event */
+		panel_dead = true;
+		event.type = DRM_EVENT_PANEL_DEAD;
+		event.length = sizeof(u32);
+		msm_mode_object_event_notify(&conn->base.base,
+			conn->base.dev, &event, (u8 *)&panel_dead);
+	}
+}
+
 static const struct drm_connector_helper_funcs sde_connector_helper_ops = {
 	.get_modes =    sde_connector_get_modes,
 	.mode_valid =   sde_connector_mode_valid,
@@ -1368,6 +1439,9 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 
 	priv->connectors[priv->num_connectors++] = &c_conn->base;
 
+	INIT_DELAYED_WORK(&c_conn->status_work,
+			sde_connector_check_status_work);
+
 	return &c_conn->base;
 
 error_destroy_property:
@@ -1397,6 +1471,9 @@ int sde_connector_register_custom_event(struct sde_kms *kms,
 
 	switch (event) {
 	case DRM_EVENT_SYS_BACKLIGHT:
+		ret = 0;
+		break;
+	case DRM_EVENT_PANEL_DEAD:
 		ret = 0;
 		break;
 	default:
