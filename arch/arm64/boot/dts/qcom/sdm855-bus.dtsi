@@ -1242,9 +1242,9 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,connections = <&slv_qxs_pimem
-				&slv_qns_gemnoc_gc &slv_qxs_imem
-				 &slv_qhs_apss &slv_qns_cnoc
-				 &slv_xs_sys_tcu_cfg &slv_xs_qdss_stm>;
+				&slv_qxs_imem &slv_qhs_apss
+				 &slv_qns_cnoc &slv_xs_sys_tcu_cfg
+				 &slv_xs_qdss_stm>;
 			qcom,bus-dev = <&fab_system_noc>;
 			qcom,bcms = <&bcm_sn15>;
 		};
