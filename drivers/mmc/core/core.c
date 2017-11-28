@@ -3472,6 +3472,9 @@ static void _mmc_detect_change(struct mmc_host *host, unsigned long delay,
 	if (cd_irq && mmc_bus_manual_resume(host))
 		host->ignore_bus_resume_flags = true;
 
+	if (delayed_work_pending(&host->detect))
+		cancel_delayed_work(&host->detect);
+
 	mmc_schedule_delayed_work(&host->detect, delay);
 }
 
