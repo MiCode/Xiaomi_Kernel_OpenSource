@@ -1209,6 +1209,22 @@ int ipa3_request_gsi_channel(struct ipa_request_gsi_channel_params *params,
 	ep->priv = params->priv;
 	ep->keep_ipa_awake = params->keep_ipa_awake;
 
+
+	/* Config QMB for USB_CONS ep */
+	if (!IPA_CLIENT_IS_PROD(ep->client)) {
+		IPADBG("Configuring QMB on USB CONS pipe\n");
+		if (ipa_ep_idx >= ipa3_ctx->ipa_num_pipes ||
+			ipa3_ctx->ep[ipa_ep_idx].valid == 0) {
+			IPAERR("bad parm.\n");
+			return -EINVAL;
+		}
+		result = ipa3_cfg_ep_cfg(ipa_ep_idx, &params->ipa_ep_cfg.cfg);
+		if (result) {
+			IPAERR("fail to configure QMB.\n");
+			return result;
+		}
+	}
+
 	if (!ep->skip_ep_cfg) {
 		if (ipa3_cfg_ep(ipa_ep_idx, &params->ipa_ep_cfg)) {
 			IPAERR("fail to configure EP.\n");
