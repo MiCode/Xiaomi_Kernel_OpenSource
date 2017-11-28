@@ -231,24 +231,6 @@ struct ion_heap {
 	int (*debug_show)(struct ion_heap *heap, struct seq_file *, void *);
 };
 
-struct pages_mem {
-	struct page **pages;
-	u32 size;
-};
-
-struct ion_prefetch_regions {
-	unsigned int vmid;
-	size_t __user *sizes;
-	unsigned int nr_sizes;
-};
-
-struct ion_prefetch_data {
-	int heap_id;
-	unsigned long len;
-	struct ion_prefetch_regions __user *regions;
-	unsigned int nr_regions;
-};
-
 /**
  * ion_buffer_cached - this ion buffer is cached
  * @buffer:		buffer
@@ -256,21 +238,6 @@ struct ion_prefetch_data {
  * indicates whether this ion buffer is cached
  */
 bool ion_buffer_cached(struct ion_buffer *buffer);
-
-int get_secure_vmid(unsigned long flags);
-int get_vmid(unsigned long flags);
-bool is_secure_vmid_valid(int vmid);
-unsigned int count_set_bits(unsigned long val);
-int populate_vm_list(unsigned long flags, unsigned int *vm_list, int nelems);
-
-/**
- * Functions to help assign/unassign sg_table for System Secure Heap
- */
-
-int ion_system_secure_heap_unassign_sg(struct sg_table *sgt, int source_vmid);
-int ion_system_secure_heap_assign_sg(struct sg_table *sgt, int dest_vmid);
-int ion_system_secure_heap_prefetch(struct ion_heap *heap, void *data);
-int ion_system_secure_heap_drain(struct ion_heap *heap, void *data);
 
 /**
  * ion_buffer_fault_user_mappings - fault in user mappings of this buffer

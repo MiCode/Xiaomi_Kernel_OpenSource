@@ -26,6 +26,7 @@
 #include <soc/qcom/secure_buffer.h>
 
 #include "ion.h"
+#include "ion_secure_util.h"
 
 struct ion_cma_heap {
 	struct ion_heap heap;
@@ -134,102 +135,13 @@ void ion_cma_heap_destroy(struct ion_heap *heap)
 	kfree(cma_heap);
 }
 
-static int ion_secure_cma_unassign_buffer(struct ion_buffer *buffer)
-{
-	int ret = 0;
-	int *source_vm_list;
-	int source_nelems;
-	int dest_vmid;
-	int dest_perms;
-
-	source_nelems = count_set_bits(buffer->flags & ION_FLAGS_CP_MASK);
-	source_vm_list = kcalloc(source_nelems, sizeof(*source_vm_list),
-				 GFP_KERNEL);
-	if (!source_vm_list)
-		return -ENOMEM;
-	ret = populate_vm_list(buffer->flags, source_vm_list, source_nelems);
-	if (ret) {
-		pr_err("%s: Failed to get secure vmids\n", __func__);
-		goto out_free_source;
-	}
-
-	dest_vmid = VMID_HLOS;
-	dest_perms = PERM_READ | PERM_WRITE | PERM_EXEC;
-
-	ret = hyp_assign_table(buffer->sg_table, source_vm_list, source_nelems,
-			       &dest_vmid, &dest_perms, 1);
-	if (ret) {
-		pr_err("%s: Not freeing memory since assign failed\n",
-		       __func__);
-	}
-
-out_free_source:
-	kfree(source_vm_list);
-	return ret;
-}
-
 static void ion_secure_cma_free(struct ion_buffer *buffer)
 {
-	if (ion_secure_cma_unassign_buffer(buffer))
+	if (ion_hyp_unassign_sg_from_flags(buffer->sg_table, buffer->flags,
+					   false))
 		return;
 
 	ion_cma_free(buffer);
-}
-
-static int ion_secure_cma_assign_buffer(
-			struct ion_buffer *buffer,
-			unsigned long flags)
-{
-	int ret = 0;
-	int count;
-	int source_vm;
-	int *dest_vm_list = NULL;
-	int *dest_perms = NULL;
-	int dest_nelems;
-
-	source_vm = VMID_HLOS;
-
-	dest_nelems = count_set_bits(flags & ION_FLAGS_CP_MASK);
-	dest_vm_list = kcalloc(dest_nelems, sizeof(*dest_vm_list), GFP_KERNEL);
-	if (!dest_vm_list) {
-		ret = -ENOMEM;
-		goto out;
-	}
-	dest_perms = kcalloc(dest_nelems, sizeof(*dest_perms), GFP_KERNEL);
-	if (!dest_perms) {
-		ret = -ENOMEM;
-		goto out_free_dest_vm;
-	}
-	ret = populate_vm_list(flags, dest_vm_list, dest_nelems);
-	if (ret) {
-		pr_err("%s: Failed to get secure vmid(s)\n", __func__);
-		goto out_free_dest;
-	}
-
-	for (count = 0; count < dest_nelems; count++) {
-		if (dest_vm_list[count] == VMID_CP_SEC_DISPLAY)
-			dest_perms[count] = PERM_READ;
-		else
-			dest_perms[count] = PERM_READ | PERM_WRITE;
-	}
-
-	ret = hyp_assign_table(buffer->sg_table, &source_vm, 1,
-			       dest_vm_list, dest_perms, dest_nelems);
-	if (ret) {
-		pr_err("%s: Assign call failed\n", __func__);
-		goto out_free_dest;
-	}
-
-	kfree(dest_vm_list);
-	kfree(dest_perms);
-	return ret;
-
-out_free_dest:
-	kfree(dest_perms);
-out_free_dest_vm:
-	kfree(dest_vm_list);
-out:
-	return ret;
 }
 
 static int ion_secure_cma_allocate(
@@ -245,7 +157,7 @@ static int ion_secure_cma_allocate(
 		goto out;
 	}
 
-	ret = ion_secure_cma_assign_buffer(buffer, flags);
+	ret = ion_hyp_assign_sg_from_flags(buffer->sg_table, flags, false);
 	if (ret)
 		goto out_free_buf;
 
