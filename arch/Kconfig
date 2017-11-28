@@ -605,6 +605,46 @@ config LD_DEAD_CODE_DATA_ELIMINATION
 	  sections (e.g., '.text.init'). Typically '.' in section names
 	  is used to distinguish them from label names / C identifiers.
 
+config LTO
+	def_bool n
+
+config ARCH_SUPPORTS_LTO_CLANG
+	bool
+	help
+	  An architecture should select this option it supports:
+	  - compiling with clang,
+	  - compiling inline assembly with clang's integrated assembler,
+	  - and linking with either lld or GNU gold w/ LLVMgold.
+
+choice
+	prompt "Link-Time Optimization (LTO) (EXPERIMENTAL)"
+	default LTO_NONE
+	help
+	  This option turns on Link-Time Optimization (LTO).
+
+config LTO_NONE
+	bool "None"
+
+config LTO_CLANG
+	bool "Use clang Link Time Optimization (LTO) (EXPERIMENTAL)"
+	depends on ARCH_SUPPORTS_LTO_CLANG
+	depends on !FTRACE_MCOUNT_RECORD
+	select LTO
+	select THIN_ARCHIVES
+	select LD_DEAD_CODE_DATA_ELIMINATION
+	help
+          This option enables clang's Link Time Optimization (LTO), which allows
+          the compiler to optimize the kernel globally at link time. If you
+          enable this option, the compiler generates LLVM IR instead of object
+          files, and the actual compilation from IR occurs at the LTO link step,
+          which may take several minutes.
+
+          If you select this option, you must compile the kernel with clang >=
+          5.0 (make CC=clang) and GNU gold from binutils >= 2.27, and have the
+          LLVMgold plug-in in LD_LIBRARY_PATH.
+
+endchoice
+
 config HAVE_ARCH_WITHIN_STACK_FRAMES
 	bool
 	help
