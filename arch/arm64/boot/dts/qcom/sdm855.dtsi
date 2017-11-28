@@ -779,10 +779,10 @@
 	};
 
 	clock_aop: qcom,aopclk {
-		compatible = "qcom,dummycc";
-		clock-output-names = "aop_clocks";
+		compatible = "qcom,aop-qmp-clk";
 		#clock-cells = <1>;
-		#reset-cells = <1>;
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "qdss_clk";
 	};
 
 	clock_gcc: qcom,gcc {
