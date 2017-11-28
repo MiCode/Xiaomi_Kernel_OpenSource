@@ -147,4 +147,16 @@ config IPA_UT
 	  The user interface to run and control the tests is debugfs file
 	  system.
 
+config MSM_11AD
+	tristate "Platform driver for 11ad chip"
+	depends on PCI
+	depends on PCI_MSM
+	default n
+	---help---
+	  This module adds required platform support for wireless adapter based on
+	  Qualcomm Technologies, Inc. 11ad chip, integrated into MSM platform
+
+	  If you choose to build it as a module, it will be called
+	  msm_11ad_proxy.
+
 endmenu
