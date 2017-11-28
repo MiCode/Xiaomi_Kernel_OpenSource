@@ -1,0 +1,50 @@
+Qualcomm Technologies, Inc. Vibrator-LDO
+
+QPNP (Qualcomm Technologies, Inc. Plug N Play) Vibrator-LDO is a peripheral
+on some QTI PMICs. It can be interfaced with the host processor via SPMI.
+
+Vibrator-LDO peripheral supports Eccentric Rotation Mass (ERM) vibrator.
+
+Properties:
+
+- compatible
+	Usage:      required
+	Value type: <string>
+	Definition: "qcom,qpnp-vibrator-ldo".
+
+- reg
+	Usage:      required
+	Value type: <u32>
+	Definition: Base address of vibrator-ldo peripheral.
+
+- qcom,vib-ldo-volt-uv
+	Usage:      required
+	Value type: <u32>
+	Definition: The optimal voltage requirement of the vibrator motor for
+		    a normal vibration. Value is specified in microvolts.
+
+- qcom,disable-overdrive
+	Usage:      optional
+	Value type: <empty>
+	Definition: Do not apply overdrive voltage.
+
+- qcom,vib-overdrive-volt-uv
+	Usage:      optional and not required if qcom,disable-overdrive present
+	Value type: <u32>
+	Definition: The voltage in microvolts used as overdrive factor for
+		    improving motor reactivity at the start of vibration.
+		    If this property not specified, a default value of
+		    2 times the value specified in qcom,vib-ldo-volt-uv
+		    property is used.
+
+=======
+Example
+=======
+
+pmi632_vib: qcom,vibrator@5700 {
+	compatible = "qcom,qpnp-vibrator-ldo";
+	reg = <0x5700 0x100>;
+	qcom,vib-ldo-volt-uv = <1504000>;
+	qcom,disable-overdrive;
+	qcom,vib-overdrive-volt-uv = <3544000>;
+};
