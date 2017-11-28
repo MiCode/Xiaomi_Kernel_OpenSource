@@ -67,6 +67,15 @@
 #define CAM_REQ_MGR_FLUSH_TYPE_MAX          2
 
 /**
+ * Request Manager : Sync Mode type
+ * @CAM_REQ_MGR_SYNC_MODE_NO_SYNC: Req mgr will apply non-sync mode for this
+ * request.
+ * @CAM_REQ_MGR_SYNC_MODE_SYNC: Req mgr will apply sync mode for this request.
+ */
+#define CAM_REQ_MGR_SYNC_MODE_NO_SYNC   0
+#define CAM_REQ_MGR_SYNC_MODE_SYNC      1
+
+/**
  * struct cam_req_mgr_event_data
  * @session_hdl: session handle
  * @link_hdl: link handle
@@ -152,33 +161,35 @@ struct cam_req_mgr_flush_info {
  * inluding itself.
  * @bubble_enable: Input Param - Cam req mgr will do bubble recovery if this
  * flag is set.
- * @reserved: reserved field for alignment
+ * @sync_mode: Type of Sync mode for this request
  * @req_id: Input Param - Request Id from which all requests will be flushed
  */
 struct cam_req_mgr_sched_request {
 	int32_t session_hdl;
 	int32_t link_hdl;
 	int32_t bubble_enable;
-	int32_t reserved;
+	int32_t sync_mode;
 	int64_t req_id;
 };
 
 /**
  * struct cam_req_mgr_sync_mode
  * @session_hdl:         Input param - Identifier for CSL session
- * @sync_enable:         Input Param -Enable sync mode or disable
+ * @sync_mode:           Input Param - Type of sync mode
  * @num_links:           Input Param - Num of links in sync mode (Valid only
- *                             when sync_enable is TRUE)
+ *                             when sync_mode is one of SYNC enabled modes)
  * @link_hdls:           Input Param - Array of link handles to be in sync mode
- *                             (Valid only when sync_enable is TRUE)
+ *                             (Valid only when sync_mode is one of SYNC
+ *                             enabled modes)
  * @master_link_hdl:     Input Param - To dictate which link's SOF drives system
- *                             (Valid only when sync_enable is TRUE)
+ *                             (Valid only when sync_mode is one of SYNC
+ *                             enabled modes)
  *
  * @opcode: CAM_REQ_MGR_SYNC_MODE
  */
 struct cam_req_mgr_sync_mode {
 	int32_t session_hdl;
-	int32_t sync_enable;
+	int32_t sync_mode;
 	int32_t num_links;
 	int32_t link_hdls[MAX_LINKS_PER_SESSION];
 	int32_t master_link_hdl;
