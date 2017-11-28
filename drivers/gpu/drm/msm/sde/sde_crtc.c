@@ -610,6 +610,38 @@ static void _sde_crtc_deinit_events(struct sde_crtc *sde_crtc)
 		return;
 }
 
+static ssize_t vsync_event_show(struct device *device,
+	struct device_attribute *attr, char *buf)
+{
+	struct drm_crtc *crtc;
+	struct sde_crtc *sde_crtc;
+
+	if (!device || !buf) {
+		SDE_ERROR("invalid input param(s)\n");
+		return -EAGAIN;
+	}
+
+	crtc = dev_get_drvdata(device);
+	sde_crtc = to_sde_crtc(crtc);
+	return scnprintf(buf, PAGE_SIZE, "VSYNC=%llu\n",
+			ktime_to_ns(sde_crtc->vblank_last_cb_time));
+}
+
+static DEVICE_ATTR_RO(vsync_event);
+static struct attribute *sde_crtc_dev_attrs[] = {
+	&dev_attr_vsync_event.attr,
+	NULL
+};
+
+static const struct attribute_group sde_crtc_attr_group = {
+	.attrs = sde_crtc_dev_attrs,
+};
+
+static const struct attribute_group *sde_crtc_attr_groups[] = {
+	&sde_crtc_attr_group,
+	NULL,
+};
+
 static void sde_crtc_destroy(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
@@ -618,6 +650,11 @@ static void sde_crtc_destroy(struct drm_crtc *crtc)
 
 	if (!crtc)
 		return;
+
+	if (sde_crtc->vsync_event_sf)
+		sysfs_put(sde_crtc->vsync_event_sf);
+	if (sde_crtc->sysfs_dev)
+		device_unregister(sde_crtc->sysfs_dev);
 
 	if (sde_crtc->blob_info)
 		drm_property_unreference_blob(sde_crtc->blob_info);
@@ -2306,6 +2343,10 @@ static void sde_crtc_vblank_cb(void *data)
 		sde_crtc->vblank_cb_time = ktime_get();
 	else
 		sde_crtc->vblank_cb_count++;
+
+	sde_crtc->vblank_last_cb_time = ktime_get();
+	sysfs_notify_dirent(sde_crtc->vsync_event_sf);
+
 	_sde_crtc_complete_flip(crtc, NULL);
 	drm_crtc_handle_vblank(crtc);
 	DRM_DEBUG_VBL("crtc%d\n", crtc->base.id);
@@ -5886,6 +5927,41 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 
 	SDE_DEBUG("%s: successfully initialized crtc\n", sde_crtc->name);
 	return crtc;
+}
+
+int sde_crtc_post_init(struct drm_device *dev, struct drm_crtc *crtc)
+{
+	struct sde_crtc *sde_crtc;
+	int rc = 0;
+
+	if (!dev || !dev->primary || !dev->primary->kdev || !crtc) {
+		SDE_ERROR("invalid input param(s)\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	sde_crtc = to_sde_crtc(crtc);
+	sde_crtc->sysfs_dev = device_create_with_groups(
+		dev->primary->kdev->class, dev->primary->kdev, 0, crtc,
+		sde_crtc_attr_groups, "sde-crtc-%d", crtc->index);
+	if (IS_ERR_OR_NULL(sde_crtc->sysfs_dev)) {
+		SDE_ERROR("crtc:%d sysfs create failed rc:%ld\n", crtc->index,
+			PTR_ERR(sde_crtc->sysfs_dev));
+		if (!sde_crtc->sysfs_dev)
+			rc = -EINVAL;
+		else
+			rc = PTR_ERR(sde_crtc->sysfs_dev);
+		goto end;
+	}
+
+	sde_crtc->vsync_event_sf = sysfs_get_dirent(
+		sde_crtc->sysfs_dev->kobj.sd, "vsync_event");
+	if (!sde_crtc->vsync_event_sf)
+		SDE_ERROR("crtc:%d vsync_event sysfs create failed\n",
+						crtc->base.id);
+
+end:
+	return rc;
 }
 
 static int _sde_crtc_event_enable(struct sde_kms *kms,

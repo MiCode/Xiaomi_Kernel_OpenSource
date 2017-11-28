@@ -1507,6 +1507,7 @@ static int sde_kms_postinit(struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
 	struct drm_device *dev;
+	struct drm_crtc *crtc;
 	int rc;
 
 	if (!sde_kms || !sde_kms->dev || !sde_kms->dev->dev) {
@@ -1519,6 +1520,9 @@ static int sde_kms_postinit(struct msm_kms *kms)
 	rc = _sde_debugfs_init(sde_kms);
 	if (rc)
 		SDE_ERROR("sde_debugfs init failed: %d\n", rc);
+
+	drm_for_each_crtc(crtc, dev)
+		sde_crtc_post_init(dev, crtc);
 
 	return rc;
 }

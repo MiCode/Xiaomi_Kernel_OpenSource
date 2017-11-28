@@ -183,6 +183,9 @@ struct sde_crtc_event {
  * @vblank_cb_count : count of vblank callback since last reset
  * @play_count    : frame count between crtc enable and disable
  * @vblank_cb_time  : ktime at vblank count reset
+ * @vblank_last_cb_time  : ktime at last vblank notification
+ * @sysfs_dev  : sysfs device node for crtc
+ * @vsync_event_sf : vsync event notifier sysfs device
  * @vblank_requested : whether the user has requested vblank events
  * @suspend         : whether or not a suspend operation is in progress
  * @enabled       : whether the SDE CRTC is currently enabled. updated in the
@@ -246,6 +249,9 @@ struct sde_crtc {
 	u32 vblank_cb_count;
 	u64 play_count;
 	ktime_t vblank_cb_time;
+	ktime_t vblank_last_cb_time;
+	struct device *sysfs_dev;
+	struct kernfs_node *vsync_event_sf;
 	bool vblank_requested;
 	bool suspend;
 	bool enabled;
@@ -543,6 +549,14 @@ void sde_crtc_complete_commit(struct drm_crtc *crtc,
  * @Return: new crtc object or error
  */
 struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane);
+
+/**
+ * sde_crtc_post_init - update crtc object with post initialization. It
+ *      can update the debugfs, sysfs, entires.
+ * @dev: sde device
+ * @crtc: Pointer to drm crtc structure
+ */
+int sde_crtc_post_init(struct drm_device *dev, struct drm_crtc *crtc);
 
 /**
  * sde_crtc_cancel_pending_flip - complete flip for clients on lastclose
