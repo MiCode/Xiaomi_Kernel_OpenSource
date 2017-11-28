@@ -1244,6 +1244,23 @@ static int cam_icp_get_a5_dbg_lvl(void *data, u64 *val)
 DEFINE_SIMPLE_ATTRIBUTE(cam_icp_debug_fs, cam_icp_get_a5_dbg_lvl,
 	cam_icp_set_a5_dbg_lvl, "%08llu");
 
+static int cam_icp_set_a5_dbg_type(void *data, u64 val)
+{
+	if (val <= NUM_HFI_DEBUG_MODE)
+		icp_hw_mgr.a5_debug_type = val;
+	return 0;
+}
+
+static int cam_icp_get_a5_dbg_type(void *data, u64 *val)
+{
+	*val = icp_hw_mgr.a5_debug_type;
+	return 0;
+}
+
+
+DEFINE_SIMPLE_ATTRIBUTE(cam_icp_debug_type_fs, cam_icp_get_a5_dbg_type,
+	cam_icp_set_a5_dbg_type, "%08llu");
+
 static int cam_icp_hw_mgr_create_debugfs_entry(void)
 {
 	int rc = 0;
@@ -1290,11 +1307,11 @@ static int cam_icp_hw_mgr_create_debugfs_entry(void)
 		goto err;
 	}
 
-	if (!debugfs_create_bool("a5_debug_q",
+	if (!debugfs_create_file("a5_debug_type",
 		0644,
 		icp_hw_mgr.dentry,
-		&icp_hw_mgr.a5_debug_q)) {
-		CAM_ERR(CAM_ICP, "failed to create a5_debug_q\n");
+		NULL, &cam_icp_debug_type_fs)) {
+		CAM_ERR(CAM_ICP, "failed to create a5_debug_type\n");
 		rc = -ENOMEM;
 		goto err;
 	}
@@ -1792,7 +1809,8 @@ static int32_t cam_icp_mgr_process_msg(void *priv, void *data)
 		}
 	}
 
-	if (icp_hw_mgr.a5_debug_q)
+	if (icp_hw_mgr.a5_debug_type ==
+		HFI_DEBUG_MODE_QUEUE)
 		cam_icp_mgr_process_dbg_buf();
 
 	return rc;
@@ -1833,6 +1851,8 @@ static void cam_icp_free_hfi_mem(void)
 	rc = cam_mem_mgr_free_memory_region(&icp_hw_mgr.hfi_mem.sec_heap);
 	if (rc)
 		CAM_ERR(CAM_ICP, "failed to unreserve sec heap");
+
+	cam_smmu_dealloc_qdss(icp_hw_mgr.iommu_hdl);
 	cam_mem_mgr_release_mem(&icp_hw_mgr.hfi_mem.qtbl);
 	cam_mem_mgr_release_mem(&icp_hw_mgr.hfi_mem.cmd_q);
 	cam_mem_mgr_release_mem(&icp_hw_mgr.hfi_mem.msg_q);
@@ -1923,6 +1943,26 @@ static int cam_icp_allocate_fw_mem(void)
 	return rc;
 }
 
+static int cam_icp_allocate_qdss_mem(void)
+{
+	int rc;
+	size_t len;
+	dma_addr_t iova;
+
+	rc = cam_smmu_alloc_qdss(icp_hw_mgr.iommu_hdl,
+		&iova, &len);
+	if (rc)
+		return rc;
+
+	icp_hw_mgr.hfi_mem.qdss_buf.len = len;
+	icp_hw_mgr.hfi_mem.qdss_buf.iova = iova;
+	icp_hw_mgr.hfi_mem.qdss_buf.smmu_hdl = icp_hw_mgr.iommu_hdl;
+
+	CAM_DBG(CAM_ICP, "iova: %llx, len: %zu", iova, len);
+
+	return rc;
+}
+
 static int cam_icp_allocate_hfi_mem(void)
 {
 	int rc;
@@ -1939,6 +1979,12 @@ static int cam_icp_allocate_hfi_mem(void)
 	if (rc) {
 		CAM_ERR(CAM_ICP, "Unable to allocate FW memory");
 		return rc;
+	}
+
+	rc = cam_icp_allocate_qdss_mem();
+	if (rc) {
+		CAM_ERR(CAM_ICP, "Unable to allocate qdss memory");
+		goto fw_alloc_failed;
 	}
 
 	rc = cam_icp_alloc_shared_mem(&icp_hw_mgr.hfi_mem.qtbl);
@@ -1981,6 +2027,8 @@ msg_q_alloc_failed:
 cmd_q_alloc_failed:
 	cam_mem_mgr_release_mem(&icp_hw_mgr.hfi_mem.qtbl);
 qtbl_alloc_failed:
+	cam_smmu_dealloc_qdss(icp_hw_mgr.iommu_hdl);
+fw_alloc_failed:
 	cam_smmu_dealloc_firmware(icp_hw_mgr.iommu_hdl);
 	return rc;
 }
@@ -2142,6 +2190,9 @@ static int cam_icp_mgr_hfi_resume(struct cam_icp_hw_mgr *hw_mgr)
 
 	hfi_mem.shmem.iova = icp_hw_mgr.hfi_mem.shmem.iova_start;
 	hfi_mem.shmem.len = icp_hw_mgr.hfi_mem.shmem.iova_len;
+
+	hfi_mem.qdss.iova = icp_hw_mgr.hfi_mem.qdss_buf.iova;
+	hfi_mem.qdss.len = icp_hw_mgr.hfi_mem.qdss_buf.len;
 	return cam_hfi_resume(&hfi_mem,
 		a5_dev->soc_info.reg_map[A5_SIERRA_BASE].mem_base,
 		hw_mgr->a5_jtag_debug);
@@ -2268,7 +2319,8 @@ static int cam_icp_mgr_destroy_handle(
 		rc = -ETIMEDOUT;
 		CAM_ERR(CAM_ICP, "FW response timeout: %d for %u",
 			rc, ctx_data->ctx_id);
-		if (icp_hw_mgr.a5_debug_q)
+		if (icp_hw_mgr.a5_debug_type ==
+			HFI_DEBUG_MODE_QUEUE)
 			cam_icp_mgr_process_dbg_buf();
 	}
 	return rc;
@@ -2539,6 +2591,9 @@ static int cam_icp_mgr_hfi_init(struct cam_icp_hw_mgr *hw_mgr)
 	hfi_mem.shmem.iova = icp_hw_mgr.hfi_mem.shmem.iova_start;
 	hfi_mem.shmem.len = icp_hw_mgr.hfi_mem.shmem.iova_len;
 
+	hfi_mem.qdss.iova = icp_hw_mgr.hfi_mem.qdss_buf.iova;
+	hfi_mem.qdss.len = icp_hw_mgr.hfi_mem.qdss_buf.len;
+
 	return cam_hfi_init(0, &hfi_mem,
 		a5_dev->soc_info.reg_map[A5_SIERRA_BASE].mem_base,
 		hw_mgr->a5_jtag_debug);
@@ -2664,9 +2719,6 @@ static int cam_icp_mgr_hw_open(void *hw_mgr_priv, void *download_fw_args)
 
 	hw_mgr->ctxt_cnt = 0;
 	hw_mgr->fw_download = true;
-
-	if (icp_hw_mgr.a5_debug_q)
-		hfi_set_debug_level(icp_hw_mgr.a5_dbg_lvl);
 
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 	CAM_INFO(CAM_ICP, "FW download done successfully");
@@ -3743,8 +3795,9 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 			goto get_io_buf_failed;
 		}
 
-		if (icp_hw_mgr.a5_debug_q)
-			hfi_set_debug_level(icp_hw_mgr.a5_dbg_lvl);
+		if (icp_hw_mgr.a5_debug_type)
+			hfi_set_debug_level(icp_hw_mgr.a5_debug_type,
+				icp_hw_mgr.a5_dbg_lvl);
 
 		rc = cam_icp_send_ubwc_cfg(hw_mgr);
 		if (rc) {
