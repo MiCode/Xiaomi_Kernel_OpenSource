@@ -391,11 +391,20 @@ static void qmp_shutdown(struct mbox_chan *chan)
 	struct qmp_mbox *mbox = chan->con_priv;
 
 	mutex_lock(&mbox->state_lock);
-	mbox->num_shutdown++;
-	if (mbox->num_shutdown < mbox->num_assigned) {
-		mutex_unlock(&mbox->state_lock);
-		return;
+	if (mbox->local_state <= LINK_CONNECTED) {
+		mbox->num_assigned--;
+		goto out;
 	}
+
+	if (mbox->local_state == LOCAL_CONNECTING) {
+		mbox->num_assigned--;
+		mbox->local_state = LINK_CONNECTED;
+		goto out;
+	}
+
+	mbox->num_shutdown++;
+	if (mbox->num_shutdown < mbox->num_assigned)
+		goto out;
 
 	if (mbox->local_state != LINK_DISCONNECTED) {
 		mbox->local_state = LOCAL_DISCONNECTING;
@@ -404,6 +413,7 @@ static void qmp_shutdown(struct mbox_chan *chan)
 	}
 	mbox->num_shutdown = 0;
 	mbox->num_assigned = 0;
+out:
 	mutex_unlock(&mbox->state_lock);
 }
 
