@@ -55,7 +55,6 @@ int cam_sync_register_callback(sync_callback cb_func,
 {
 	struct sync_callback_info *sync_cb;
 	struct sync_callback_info *cb_info;
-	struct sync_callback_info *temp_cb;
 	struct sync_table_row *row = NULL;
 
 	if (sync_obj >= CAM_SYNC_MAX_OBJS || sync_obj <= 0 || !cb_func)
@@ -70,6 +69,17 @@ int cam_sync_register_callback(sync_callback cb_func,
 			sync_obj);
 		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
 		return -EINVAL;
+	}
+
+	/* Don't register if callback was registered earlier */
+	list_for_each_entry(cb_info, &row->callback_list, list) {
+		if (cb_info->callback_func == cb_func &&
+			cb_info->cb_data == userdata) {
+			CAM_ERR(CAM_SYNC, "Duplicate register for sync_obj %d",
+				sync_obj);
+			spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
+			return -EALREADY;
+		}
 	}
 
 	sync_cb = kzalloc(sizeof(*sync_cb), GFP_ATOMIC);
@@ -92,16 +102,6 @@ int cam_sync_register_callback(sync_callback cb_func,
 
 		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
 		return 0;
-	}
-
-	/* Don't register if callback was registered earlier */
-	list_for_each_entry_safe(cb_info, temp_cb, &row->callback_list, list) {
-		if (cb_info->callback_func == cb_func &&
-			cb_info->cb_data == userdata) {
-			kfree(sync_cb);
-			spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
-			return -EALREADY;
-		}
 	}
 
 	sync_cb->callback_func = cb_func;
