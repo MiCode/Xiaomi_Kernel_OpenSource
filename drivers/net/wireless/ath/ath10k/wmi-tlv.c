@@ -3020,8 +3020,8 @@ ath10k_wmi_tlv_op_gen_set_arp_ns_offload(struct ath10k *ar,
 	void *ptr;
 	int i;
 	struct wmi_ns_arp_offload_req *arp = &arvif->arp_offload;
-	struct wmi_ns_offload *ns_tuple[WMI_MAX_NS_OFFLOADS];
-	struct wmi_arp_offload *arp_tuple[WMI_MAX_ARP_OFFLOADS];
+	struct wmi_ns_offload *ns_tuple;
+	struct wmi_arp_offload *arp_tuple;
 
 	len = sizeof(*cmd) + sizeof(*tlv) +
 		sizeof(*tlv) + WMI_MAX_NS_OFFLOADS *
@@ -3052,8 +3052,8 @@ ath10k_wmi_tlv_op_gen_set_arp_ns_offload(struct ath10k *ar,
 	for (i = 0; i < WMI_MAX_NS_OFFLOADS; i++) {
 		tlv->tag = __cpu_to_le16(WMI_TLV_TAG_STRUCT_NS_OFFLOAD_TUPLE);
 		tlv->len = __cpu_to_le16(sizeof(struct wmi_ns_offload));
-		ns_tuple[i] = (struct wmi_ns_offload *)tlv->value;
-		ns_tuple[i]->flags |= __cpu_to_le32(WMI_ARP_NS_OFFLOAD_DISABLE);
+		ns_tuple = (struct wmi_ns_offload *)tlv->value;
+		ns_tuple->flags |= __cpu_to_le32(WMI_ARP_NS_OFFLOAD_DISABLE);
 		ptr += (sizeof(*tlv) + sizeof(struct wmi_ns_offload));
 		tlv = ptr;
 	}
@@ -3067,14 +3067,15 @@ ath10k_wmi_tlv_op_gen_set_arp_ns_offload(struct ath10k *ar,
 	for (i = 0; i < WMI_MAX_ARP_OFFLOADS; i++) {
 		tlv->tag = __cpu_to_le16(WMI_TLV_TAG_STRUCT_ARP_OFFLOAD_TUPLE);
 		tlv->len = __cpu_to_le16(sizeof(struct wmi_arp_offload));
-		arp_tuple[i] = (struct wmi_arp_offload *)tlv->value;
+		arp_tuple = (struct wmi_arp_offload *)tlv->value;
 		if (arp->enable_offload && (i == 0)) {
-			arp_tuple[i]->flags |=
+			arp_tuple->flags |=
 				__cpu_to_le32(WMI_ARPOFF_FLAGS_VALID);
-			memcpy(&arp_tuple[i]->target_ipaddr,
-			       &arp->params.ipv4_addr, 4);
+			memcpy(&arp_tuple->target_ipaddr,
+			       &arp->params.ipv4_addr,
+			       sizeof(arp_tuple->target_ipaddr));
 		} else {
-			arp_tuple[i]->flags |=
+			arp_tuple->flags |=
 				__cpu_to_le32(WMI_ARP_NS_OFFLOAD_DISABLE);
 		}
 		ptr += (sizeof(*tlv) + sizeof(struct wmi_arp_offload));

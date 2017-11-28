@@ -251,7 +251,7 @@ ath10k_wow_fill_vdev_arp_offload_struct(struct ath10k_vif *arvif,
 	arp->offload_type = __cpu_to_le16(WMI_IPV4_ARP_REPLY_OFFLOAD);
 	arp->enable_offload = __cpu_to_le16(WMI_ARP_NS_OFFLOAD_ENABLE);
 	for (ifa = in_dev->ifa_list; ifa; ifa = ifa->ifa_next) {
-		if (!strcmp(ifa->ifa_label, wdev->netdev->name)) {
+		if (!memcmp(ifa->ifa_label, wdev->netdev->name, IFNAMSIZ)) {
 			offload_params_found = true;
 			break;
 		}
@@ -259,8 +259,9 @@ ath10k_wow_fill_vdev_arp_offload_struct(struct ath10k_vif *arvif,
 
 	if (!offload_params_found)
 		return -ENODEV;
+	memcpy(&arp->params.ipv4_addr, &ifa->ifa_local,
+	       sizeof(arp->params.ipv4_addr));
 
-	memcpy(&arp->params.ipv4_addr, &ifa->ifa_local, 4);
 	return 0;
 }
 
