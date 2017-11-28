@@ -310,6 +310,7 @@ static void set_mcore_ch(struct qmp_mbox *mbox, u32 state)
 static int qmp_startup(struct mbox_chan *chan)
 {
 	struct qmp_mbox *mbox = chan->con_priv;
+	unsigned long ret;
 
 	if (!mbox)
 		return -EINVAL;
@@ -325,8 +326,11 @@ static int qmp_startup(struct mbox_chan *chan)
 	mutex_unlock(&mbox->state_lock);
 
 	send_irq(mbox->mdev);
-	wait_for_completion_interruptible_timeout(&mbox->ch_complete,
+	ret = wait_for_completion_timeout(&mbox->ch_complete,
 					msecs_to_jiffies(QMP_TOUT_MS));
+	if (!ret)
+		return -ETIME;
+
 	return 0;
 }
 
