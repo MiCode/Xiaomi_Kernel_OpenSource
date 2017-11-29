@@ -33,6 +33,10 @@ static struct wiphy_wowlan_support wil_wowlan_support = {
 };
 #endif
 
+static bool ignore_reg_hints = true;
+module_param(ignore_reg_hints, bool, 0444);
+MODULE_PARM_DESC(ignore_reg_hints, " Ignore OTA regulatory hints (Default: true)");
+
 #define CHAN60G(_channel, _flags) {				\
 	.band			= NL80211_BAND_60GHZ,		\
 	.center_freq		= 56160 + (2160 * (_channel)),	\
@@ -1885,6 +1889,11 @@ static void wil_wiphy_init(struct wiphy *wiphy)
 	wiphy->vendor_commands = wil_nl80211_vendor_commands;
 	wiphy->vendor_events = wil_nl80211_vendor_events;
 	wiphy->n_vendor_events = ARRAY_SIZE(wil_nl80211_vendor_events);
+
+	if (ignore_reg_hints) {
+		wiphy->regulatory_flags |= REGULATORY_DISABLE_BEACON_HINTS;
+		wiphy->regulatory_flags |= REGULATORY_COUNTRY_IE_IGNORE;
+	}
 
 #ifdef CONFIG_PM
 	wiphy->wowlan = &wil_wowlan_support;

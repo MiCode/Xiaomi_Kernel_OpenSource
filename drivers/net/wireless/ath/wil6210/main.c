@@ -190,6 +190,7 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 			break;
 		}
 		sta->status = wil_sta_unused;
+		sta->fst_link_loss = false;
 	}
 	/* reorder buffers */
 	for (i = 0; i < WIL_STA_TID_NUM; i++) {
@@ -984,6 +985,10 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 	if (wil->hw_version == HW_VER_UNKNOWN)
 		return -ENODEV;
 
+	wil_dbg_misc(wil, "Prevent DS in BL & mark FW to set T_POWER_ON=0\n");
+	wil_s(wil, RGF_USER_USAGE_8, BIT_USER_PREVENT_DEEP_SLEEP |
+	      BIT_USER_SUPPORT_T_POWER_ON_0);
+
 	if (wil->platform_ops.notify) {
 		rc = wil->platform_ops.notify(wil->platform_handle,
 					      WIL_PLATFORM_EVT_PRE_RESET);
@@ -1078,7 +1083,14 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 		if (wil->ps_profile != WMI_PS_PROFILE_TYPE_DEFAULT)
 			wil_ps_update(wil, wil->ps_profile);
 
+		if (wil->tt_data_set)
+			wmi_set_tt_cfg(wil, &wil->tt_data);
+
 		wil_collect_fw_info(wil);
+
+		if (wil->snr_thresh.enabled)
+			wmi_set_snr_thresh(wil, wil->snr_thresh.omni,
+					   wil->snr_thresh.direct);
 
 		if (wil->platform_ops.notify) {
 			rc = wil->platform_ops.notify(wil->platform_handle,

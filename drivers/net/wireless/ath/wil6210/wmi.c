@@ -369,7 +369,7 @@ static void wmi_evt_rx_mgmt(struct wil6210_priv *wil, int id, void *d, int len)
 	s32 signal;
 	__le16 fc;
 	u32 d_len;
-	u16 d_status;
+	s16 snr;
 
 	if (flen < 0) {
 		wil_err(wil, "MGMT Rx: short event, len %d\n", len);
@@ -391,13 +391,13 @@ static void wmi_evt_rx_mgmt(struct wil6210_priv *wil, int id, void *d, int len)
 		signal = 100 * data->info.rssi;
 	else
 		signal = data->info.sqi;
-	d_status = le16_to_cpu(data->info.status);
+	snr = le16_to_cpu(data->info.snr); /* 1/4 dB units */
 	fc = rx_mgmt_frame->frame_control;
 
 	wil_dbg_wmi(wil, "MGMT Rx: channel %d MCS %d RSSI %d SQI %d%%\n",
 		    data->info.channel, data->info.mcs, data->info.rssi,
 		    data->info.sqi);
-	wil_dbg_wmi(wil, "status 0x%04x len %d fc 0x%04x\n", d_status, d_len,
+	wil_dbg_wmi(wil, "snr %ddB len %d fc 0x%04x\n", snr / 4, d_len,
 		    le16_to_cpu(fc));
 	wil_dbg_wmi(wil, "qid %d mid %d cid %d\n",
 		    data->info.qid, data->info.mid, data->info.cid);
@@ -424,6 +424,11 @@ static void wmi_evt_rx_mgmt(struct wil6210_priv *wil, int id, void *d, int len)
 				 ie_len, true);
 
 		wil_dbg_wmi(wil, "Capability info : 0x%04x\n", cap);
+
+		if (wil->snr_thresh.enabled && snr < wil->snr_thresh.omni) {
+			wil_dbg_wmi(wil, "snr below threshold. dropping\n");
+			return;
+		}
 
 		bss = cfg80211_inform_bss_frame(wiphy, channel, rx_mgmt_frame,
 						d_len, signal, GFP_KERNEL);
@@ -1816,6 +1821,67 @@ int wmi_new_sta(struct wil6210_priv *wil, const u8 *mac, u8 aid)
 	return rc;
 }
 
+int wmi_set_tt_cfg(struct wil6210_priv *wil, struct wmi_tt_data *tt_data)
+{
+	int rc;
+	struct wmi_set_thermal_throttling_cfg_cmd cmd = {
+		.tt_data = *tt_data,
+	};
+	struct {
+		struct wmi_cmd_hdr wmi;
+		struct wmi_set_thermal_throttling_cfg_event evt;
+	} __packed reply;
+
+	if (!test_bit(WMI_FW_CAPABILITY_THERMAL_THROTTLING,
+		      wil->fw_capabilities))
+		return -EOPNOTSUPP;
+
+	memset(&reply, 0, sizeof(reply));
+	rc = wmi_call(wil, WMI_SET_THERMAL_THROTTLING_CFG_CMDID, &cmd,
+		      sizeof(cmd), WMI_SET_THERMAL_THROTTLING_CFG_EVENTID,
+		      &reply, sizeof(reply), 100);
+	if (rc) {
+		wil_err(wil, "failed to set thermal throttling\n");
+		return rc;
+	}
+	if (reply.evt.status) {
+		wil_err(wil, "set thermal throttling failed, error %d\n",
+			reply.evt.status);
+		return -EIO;
+	}
+
+	wil->tt_data = *tt_data;
+	wil->tt_data_set = true;
+
+	return 0;
+}
+
+int wmi_get_tt_cfg(struct wil6210_priv *wil, struct wmi_tt_data *tt_data)
+{
+	int rc;
+	struct {
+		struct wmi_cmd_hdr wmi;
+		struct wmi_get_thermal_throttling_cfg_event evt;
+	} __packed reply;
+
+	if (!test_bit(WMI_FW_CAPABILITY_THERMAL_THROTTLING,
+		      wil->fw_capabilities))
+		return -EOPNOTSUPP;
+
+	rc = wmi_call(wil, WMI_GET_THERMAL_THROTTLING_CFG_CMDID, NULL, 0,
+		      WMI_GET_THERMAL_THROTTLING_CFG_EVENTID, &reply,
+		      sizeof(reply), 100);
+	if (rc) {
+		wil_err(wil, "failed to get thermal throttling\n");
+		return rc;
+	}
+
+	if (tt_data)
+		*tt_data = reply.evt.tt_data;
+
+	return 0;
+}
+
 void wmi_event_flush(struct wil6210_priv *wil)
 {
 	ulong flags;
@@ -1910,6 +1976,61 @@ int wmi_resume(struct wil6210_priv *wil)
 		return rc;
 
 	return reply.evt.status;
+}
+
+int wmi_link_maintain_cfg_write(struct wil6210_priv *wil,
+				const u8 *addr,
+				bool fst_link_loss)
+{
+	int rc;
+	int cid = wil_find_cid(wil, addr);
+	u32 cfg_type;
+	struct wmi_link_maintain_cfg_write_cmd cmd;
+	struct {
+		struct wmi_cmd_hdr wmi;
+		struct wmi_link_maintain_cfg_write_done_event evt;
+	} __packed reply;
+
+	if (cid < 0)
+		return cid;
+
+	switch (wil->wdev->iftype) {
+	case NL80211_IFTYPE_STATION:
+		cfg_type = fst_link_loss ?
+			   WMI_LINK_MAINTAIN_CFG_TYPE_DEFAULT_FST_STA :
+			   WMI_LINK_MAINTAIN_CFG_TYPE_DEFAULT_NORMAL_STA;
+		break;
+	case NL80211_IFTYPE_AP:
+		cfg_type = fst_link_loss ?
+			   WMI_LINK_MAINTAIN_CFG_TYPE_DEFAULT_FST_AP :
+			   WMI_LINK_MAINTAIN_CFG_TYPE_DEFAULT_NORMAL_AP;
+		break;
+	default:
+		wil_err(wil, "Unsupported for iftype %d", wil->wdev->iftype);
+		return -EINVAL;
+	}
+
+	wil_dbg_misc(wil, "Setting cid:%d with cfg_type:%d\n", cid, cfg_type);
+
+	cmd.cfg_type = cpu_to_le32(cfg_type);
+	cmd.cid = cpu_to_le32(cid);
+
+	reply.evt.status = cpu_to_le32(WMI_FW_STATUS_FAILURE);
+
+	rc = wmi_call(wil, WMI_LINK_MAINTAIN_CFG_WRITE_CMDID, &cmd, sizeof(cmd),
+		      WMI_LINK_MAINTAIN_CFG_WRITE_DONE_EVENTID, &reply,
+		      sizeof(reply), 250);
+	if (rc) {
+		wil_err(wil, "Failed to %s FST link loss",
+			fst_link_loss ? "enable" : "disable");
+	} else if (reply.evt.status == WMI_FW_STATUS_SUCCESS) {
+		wil->sta[cid].fst_link_loss = fst_link_loss;
+	} else {
+		wil_err(wil, "WMI_LINK_MAINTAIN_CFG_WRITE_CMDID returned status %d",
+			reply.evt.status);
+		rc = -EINVAL;
+	}
+	return rc;
 }
 
 static bool wmi_evt_call_handler(struct wil6210_priv *wil, int id,
@@ -2033,4 +2154,33 @@ bool wil_is_wmi_idle(struct wil6210_priv *wil)
 out:
 	spin_unlock_irqrestore(&wil->wmi_ev_lock, flags);
 	return rc;
+}
+
+int wmi_set_snr_thresh(struct wil6210_priv *wil, short omni, short direct)
+{
+	int rc;
+	struct wmi_set_connect_snr_thr_cmd cmd = {
+		.enable = true,
+		.omni_snr_thr = cpu_to_le16(omni),
+		.direct_snr_thr = cpu_to_le16(direct),
+	};
+
+	if (!test_bit(WMI_FW_CAPABILITY_CONNECT_SNR_THR, wil->fw_capabilities))
+		return -ENOTSUPP;
+
+	if (omni == 0 && direct == 0)
+		cmd.enable = false;
+
+	wil_dbg_wmi(wil, "%s snr thresh omni=%d, direct=%d (1/4 dB units)\n",
+		    cmd.enable ? "enable" : "disable", omni, direct);
+
+	rc = wmi_send(wil, WMI_SET_CONNECT_SNR_THR_CMDID, &cmd, sizeof(cmd));
+	if (rc)
+		return rc;
+
+	wil->snr_thresh.enabled = cmd.enable;
+	wil->snr_thresh.omni = omni;
+	wil->snr_thresh.direct = direct;
+
+	return 0;
 }
