@@ -558,6 +558,8 @@ int wil_priv_init(struct wil6210_priv *wil)
 	wil->net_queue_stopped = 1;
 	init_waitqueue_head(&wil->wq);
 
+	wil_ftm_init(wil);
+
 	wil->wmi_wq = create_singlethread_workqueue(WIL_NAME "_wmi");
 	if (!wil->wmi_wq)
 		return -EAGAIN;
@@ -622,6 +624,7 @@ void wil_priv_deinit(struct wil6210_priv *wil)
 {
 	wil_dbg_misc(wil, "priv_deinit\n");
 
+	wil_ftm_deinit(wil);
 	wil_set_recovery_state(wil, fw_recovery_idle);
 	del_timer_sync(&wil->scan_timer);
 	del_timer_sync(&wil->p2p.discovery_timer);
@@ -1188,6 +1191,8 @@ int __wil_down(struct wil6210_priv *wil)
 		wil_dbg_misc(wil, "NAPI disable\n");
 	}
 	wil_enable_irq(wil);
+
+	wil_ftm_stop_operations(wil);
 
 	mutex_lock(&wil->p2p_wdev_mutex);
 	wil_p2p_stop_radio_operations(wil);
