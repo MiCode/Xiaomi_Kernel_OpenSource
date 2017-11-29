@@ -352,15 +352,21 @@
 	pinctrl-0 = <&ap2mdm_active &mdm2ap_active>;
 	pinctrl-1 = <&ap2mdm_sleep &mdm2ap_sleep>;
 	interrupt-map = <0 &tlmm 108 0x3
-			1 &tlmm 107 0x3
+			1 &tlmm 106 0x3
 			2 &tlmm 112 0x3>;
 	qcom,mdm2ap-errfatal-gpio = <&tlmm 108 0x00>;
 	qcom,ap2mdm-errfatal-gpio = <&tlmm 109 0x00>;
 	qcom,mdm2ap-status-gpio   = <&tlmm 106 0x00>;
 	qcom,ap2mdm-status-gpio   = <&tlmm 107 0x00>;
-	qcom,ap2mdm-soft-reset-gpio = <&pm8994_mpps 2 GPIO_ACTIVE_LOW>;
+	qcom,ap2mdm-soft-reset-gpio = <&pm8994_mpps 2 0x00>;
 	qcom,ap2mdm-vddmin-gpio = <&tlmm 111 0x00>;
 	qcom,mdm2ap-vddmin-gpio = <&tlmm 112 0x00>;
+	qcom,mdm-auto-boot;
+	qcom,ignore-ssr-failure;
+	qcom,mdm-link-info = "0302_02.01.00";
+	qcom,mdm-statusline-not-a-powersource;
+	qcom,mdm-userspace-handle-shutdown;
+	qcom,pil-force-shutdown;
 	status = "okay";
 };
 

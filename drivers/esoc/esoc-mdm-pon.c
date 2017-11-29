@@ -141,13 +141,17 @@ static int mdm4x_power_down(struct mdm_ctrl *mdm)
 static int mdm9x55_power_down(struct mdm_ctrl *mdm)
 {
 	struct device *dev = mdm->dev;
-	int soft_reset_direction = mdm->soft_reset_inverted ? 1 : 0;
+	int soft_reset_direction_assert = 0,
+	    soft_reset_direction_de_assert = 1;
+
+	if (mdm->soft_reset_inverted) {
+		soft_reset_direction_assert = 1;
+		soft_reset_direction_de_assert = 0;
+	}
 	/* Assert the soft reset line whether mdm2ap_status went low or not */
 	gpio_direction_output(MDM_GPIO(mdm, AP2MDM_SOFT_RESET),
-					soft_reset_direction);
+			soft_reset_direction_assert);
 	dev_dbg(dev, "Doing a hard reset\n");
-	gpio_direction_output(MDM_GPIO(mdm, AP2MDM_SOFT_RESET),
-						soft_reset_direction);
 	/*
 	* Currently, there is a debounce timer on the charm PMIC. It is
 	* necessary to hold the PMIC RESET low for 406ms
@@ -155,6 +159,8 @@ static int mdm9x55_power_down(struct mdm_ctrl *mdm)
 	* reset has occurred before the function exits.
 	*/
 	msleep(406);
+	gpio_direction_output(MDM_GPIO(mdm, AP2MDM_SOFT_RESET),
+			soft_reset_direction_de_assert);
 	return 0;
 }
 

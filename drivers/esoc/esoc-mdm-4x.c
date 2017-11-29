@@ -1088,6 +1088,13 @@ static int mdm9x55_setup_hw(struct mdm_ctrl *mdm,
 	esoc->parent = mdm->dev;
 	esoc->owner = THIS_MODULE;
 	esoc->np = pdev->dev.of_node;
+
+	esoc->auto_boot = of_property_read_bool(esoc->np,
+						"qcom,mdm-auto-boot");
+	esoc->statusline_not_a_powersource = of_property_read_bool(esoc->np,
+				"qcom,mdm-statusline-not-a-powersource");
+	esoc->userspace_handle_shutdown = of_property_read_bool(esoc->np,
+				"qcom,mdm-userspace-handle-shutdown");
 	set_esoc_clink_data(esoc, mdm);
 	ret = esoc_clink_register(esoc);
 	if (ret) {
@@ -1103,6 +1110,8 @@ static int mdm9x55_setup_hw(struct mdm_ctrl *mdm,
 	mdm->debug_fail = false;
 	mdm->esoc = esoc;
 	mdm->init = 0;
+	if (esoc->auto_boot)
+		gpio_direction_output(MDM_GPIO(mdm, AP2MDM_STATUS), 1);
 	return 0;
 }
 
