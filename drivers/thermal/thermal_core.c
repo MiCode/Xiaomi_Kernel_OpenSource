@@ -1325,9 +1325,11 @@ thermal_cooling_device_cur_state_store(struct device *dev,
 	if ((long)state < 0)
 		return -EINVAL;
 
+	mutex_lock(&cdev->lock);
 	cdev->sysfs_cur_state_req = state;
 
 	cdev->updated = false;
+	mutex_unlock(&cdev->lock);
 	thermal_cdev_update(cdev);
 
 	return count;
@@ -1349,9 +1351,11 @@ thermal_cooling_device_min_state_store(struct device *dev,
 	if ((long)state < 0)
 		return -EINVAL;
 
+	mutex_lock(&cdev->lock);
 	cdev->sysfs_min_state_req = state;
 
 	cdev->updated = false;
+	mutex_unlock(&cdev->lock);
 	thermal_cdev_update(cdev);
 
 	return count;
