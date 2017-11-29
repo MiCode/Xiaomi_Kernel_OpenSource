@@ -31,11 +31,11 @@ static int hab_export_ack_find(struct uhab_context *ctx,
 	struct hab_export_ack *expect_ack)
 {
 	int ret = 0;
-	struct hab_export_ack_recvd *ack_recvd;
+	struct hab_export_ack_recvd *ack_recvd, *tmp;
 
 	spin_lock_bh(&ctx->expq_lock);
 
-	list_for_each_entry(ack_recvd, &ctx->exp_rxq, node) {
+	list_for_each_entry_safe(ack_recvd, tmp, &ctx->exp_rxq, node) {
 		if (ack_recvd->ack.export_id == expect_ack->export_id &&
 			ack_recvd->ack.vcid_local == expect_ack->vcid_local &&
 			ack_recvd->ack.vcid_remote == expect_ack->vcid_remote) {
@@ -197,6 +197,7 @@ static int habmem_export_vchan(struct uhab_context *ctx,
 	HAB_HEADER_SET_SIZE(header, sizebytes);
 	HAB_HEADER_SET_TYPE(header, HAB_PAYLOAD_TYPE_EXPORT);
 	HAB_HEADER_SET_ID(header, vchan->otherend_id);
+	HAB_HEADER_SET_SESSION_ID(header, vchan->session_id);
 	ret = physical_channel_send(vchan->pchan, &header, exp);
 
 	if (ret != 0) {

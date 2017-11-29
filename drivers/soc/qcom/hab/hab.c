@@ -194,6 +194,8 @@ struct virtual_channel *frontend_open(struct uhab_context *ctx,
 	vchan->otherend_id = recv_request->vchan_id;
 	hab_open_request_free(recv_request);
 
+	vchan->session_id = open_id;
+
 	/* Send Ack sequence */
 	hab_open_request_init(&request, HAB_PAYLOAD_TYPE_ACK, pchan,
 		0, sub_id, open_id);
@@ -256,6 +258,8 @@ struct virtual_channel *backend_listen(struct uhab_context *ctx,
 
 		vchan->otherend_id = otherend_vchan_id;
 
+		vchan->session_id = open_id;
+
 		/* Send Init-Ack sequence */
 		hab_open_request_init(&request, HAB_PAYLOAD_TYPE_INIT_ACK,
 				pchan, vchan->id, sub_id, open_id);
@@ -311,8 +315,10 @@ long hab_vchan_send(struct uhab_context *ctx,
 	}
 
 	vchan = hab_get_vchan_fromvcid(vcid, ctx);
-	if (!vchan || vchan->otherend_closed)
-		return -ENODEV;
+	if (!vchan || vchan->otherend_closed) {
+		ret = -ENODEV;
+		goto err;
+	}
 
 	HAB_HEADER_SET_SIZE(header, sizebytes);
 	if (flags & HABMM_SOCKET_SEND_FLAGS_XING_VM_STAT)
@@ -321,6 +327,7 @@ long hab_vchan_send(struct uhab_context *ctx,
 		HAB_HEADER_SET_TYPE(header, HAB_PAYLOAD_TYPE_MSG);
 
 	HAB_HEADER_SET_ID(header, vchan->otherend_id);
+	HAB_HEADER_SET_SESSION_ID(header, vchan->session_id);
 
 	while (1) {
 		ret = physical_channel_send(vchan->pchan, &header, data);
@@ -332,7 +339,11 @@ long hab_vchan_send(struct uhab_context *ctx,
 		schedule();
 	}
 
-	hab_vchan_put(vchan);
+
+err:
+	if (vchan)
+		hab_vchan_put(vchan);
+
 	return ret;
 }
 
@@ -346,7 +357,7 @@ struct hab_message *hab_vchan_recv(struct uhab_context *ctx,
 	int nonblocking_flag = flags & HABMM_SOCKET_RECV_FLAGS_NON_BLOCKING;
 
 	vchan = hab_get_vchan_fromvcid(vcid, ctx);
-	if (!vchan || vchan->otherend_closed)
+	if (!vchan)
 		return ERR_PTR(-ENODEV);
 
 	if (nonblocking_flag) {
@@ -362,6 +373,8 @@ struct hab_message *hab_vchan_recv(struct uhab_context *ctx,
 	if (!message) {
 		if (nonblocking_flag)
 			ret = -EAGAIN;
+		else if (vchan->otherend_closed)
+			ret = -ENODEV;
 		else
 			ret = -EPIPE;
 	}
@@ -425,12 +438,13 @@ int hab_vchan_open(struct uhab_context *ctx,
 
 void hab_send_close_msg(struct virtual_channel *vchan)
 {
-	struct hab_header header;
+	struct hab_header header = {0};
 
 	if (vchan && !vchan->otherend_closed) {
 		HAB_HEADER_SET_SIZE(header, 0);
 		HAB_HEADER_SET_TYPE(header, HAB_PAYLOAD_TYPE_CLOSE);
 		HAB_HEADER_SET_ID(header, vchan->otherend_id);
+		HAB_HEADER_SET_SESSION_ID(header, vchan->session_id);
 		physical_channel_send(vchan->pchan, &header, NULL);
 	}
 }

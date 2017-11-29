@@ -35,6 +35,7 @@ struct importer_context {
 	int cnt; /* pages allocated for local file */
 	struct list_head imp_list;
 	struct file *filp;
+	rwlock_t implist_lock;
 };
 
 void *habmm_hyp_allocate_grantable(int page_count,
@@ -136,6 +137,12 @@ err:
 	return rc;
 }
 
+/*
+ * exporter - grant & revoke
+ * degenerate sharabled page list based on CPU friendly virtual "address".
+ * The result as an array is stored in ppdata to return to caller
+ * page size 4KB is assumed
+ */
 int habmem_hyp_grant_user(unsigned long address,
 		int page_count,
 		int flags,
@@ -220,6 +227,7 @@ void *habmem_imp_hyp_open(void)
 	if (!priv)
 		return NULL;
 
+	rwlock_init(&priv->implist_lock);
 	INIT_LIST_HEAD(&priv->imp_list);
 
 	return priv;
@@ -320,8 +328,10 @@ long habmem_imp_hyp_map(void *imp_ctx,
 		pglist->kva = NULL;
 	}
 
+	write_lock(&priv->implist_lock);
 	list_add_tail(&pglist->list,  &priv->imp_list);
 	priv->cnt++;
+	write_unlock(&priv->implist_lock);
 
 	return 0;
 }
@@ -333,11 +343,12 @@ long habmm_imp_hyp_unmap(void *imp_ctx,
 		int kernel)
 {
 	struct importer_context *priv = imp_ctx;
-	struct pages_list *pglist;
+	struct pages_list *pglist, *tmp;
 	int found = 0;
 	uint64_t pg_index = index >> PAGE_SHIFT;
 
-	list_for_each_entry(pglist, &priv->imp_list, list) {
+	write_lock(&priv->implist_lock);
+	list_for_each_entry_safe(pglist, tmp, &priv->imp_list, list) {
 		if (kernel) {
 			if (pglist->kva == (void *)((uintptr_t)index))
 				found  = 1;
@@ -353,6 +364,7 @@ long habmm_imp_hyp_unmap(void *imp_ctx,
 		}
 	}
 
+	write_unlock(&priv->implist_lock);
 	if (!found) {
 		pr_err("failed to find export id on index %llx\n", index);
 		return -EINVAL;
@@ -422,12 +434,14 @@ int habmem_imp_hyp_mmap(struct file *filp, struct vm_area_struct *vma)
 	struct pages_list *pglist;
 	int bfound = 0;
 
+	read_lock(&imp_ctx->implist_lock);
 	list_for_each_entry(pglist, &imp_ctx->imp_list, list) {
 		if (pglist->index == vma->vm_pgoff) {
 			bfound = 1;
 			break;
 		}
 	}
+	read_unlock(&imp_ctx->implist_lock);
 
 	if (!bfound) {
 		pr_err("Failed to find pglist vm_pgoff: %d\n", vma->vm_pgoff);

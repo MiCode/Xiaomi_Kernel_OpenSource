@@ -47,6 +47,7 @@ enum hab_payload_type {
 	HAB_PAYLOAD_TYPE_EXPORT_ACK,
 	HAB_PAYLOAD_TYPE_PROFILE,
 	HAB_PAYLOAD_TYPE_CLOSE,
+	HAB_PAYLOAD_TYPE_MAX,
 };
 #define LOOPBACK_DOM 0xFF
 
@@ -111,6 +112,13 @@ enum hab_payload_type {
 #define HABCFG_GET_BE(_local_cfg_, _vmid_, _mmid_) \
 	((settings)->vmid_mmid_list[_vmid_].is_listener[_mmid_])
 
+struct hab_header {
+	uint32_t id_type_size;
+	uint32_t session_id;
+	uint32_t signature;
+	uint32_t sequence;
+} __packed;
+
 /* "Size" of the HAB_HEADER_ID and HAB_VCID_ID must match */
 #define HAB_HEADER_SIZE_SHIFT 0
 #define HAB_HEADER_TYPE_SHIFT 16
@@ -132,32 +140,40 @@ enum hab_payload_type {
 #define HAB_VCID_GET_ID(vcid) \
 	(((vcid) & HAB_VCID_ID_MASK) >> HAB_VCID_ID_SHIFT)
 
+
+#define HAB_HEADER_SET_SESSION_ID(header, sid) ((header).session_id = (sid))
+
 #define HAB_HEADER_SET_SIZE(header, size) \
-	((header).info = (((header).info) & (~HAB_HEADER_SIZE_MASK)) | \
-		(((size) << HAB_HEADER_SIZE_SHIFT) & HAB_HEADER_SIZE_MASK))
+	((header).id_type_size = ((header).id_type_size & \
+			(~HAB_HEADER_SIZE_MASK)) | \
+			(((size) << HAB_HEADER_SIZE_SHIFT) & \
+			HAB_HEADER_SIZE_MASK))
 
 #define HAB_HEADER_SET_TYPE(header, type) \
-	((header).info = (((header).info) & (~HAB_HEADER_TYPE_MASK)) | \
-		(((type) << HAB_HEADER_TYPE_SHIFT) & HAB_HEADER_TYPE_MASK))
+	((header).id_type_size = ((header).id_type_size & \
+			(~HAB_HEADER_TYPE_MASK)) | \
+			(((type) << HAB_HEADER_TYPE_SHIFT) & \
+			HAB_HEADER_TYPE_MASK))
 
 #define HAB_HEADER_SET_ID(header, id) \
-	((header).info = (((header).info) & (~HAB_HEADER_ID_MASK)) | \
-		((HAB_VCID_GET_ID(id) << HAB_HEADER_ID_SHIFT) \
-		& HAB_HEADER_ID_MASK))
+	((header).id_type_size = ((header).id_type_size & \
+			(~HAB_HEADER_ID_MASK)) | \
+			((HAB_VCID_GET_ID(id) << HAB_HEADER_ID_SHIFT) & \
+			HAB_HEADER_ID_MASK))
 
 #define HAB_HEADER_GET_SIZE(header) \
-	((((header).info) & HAB_HEADER_SIZE_MASK) >> HAB_HEADER_SIZE_SHIFT)
+	(((header).id_type_size & \
+		HAB_HEADER_SIZE_MASK) >> HAB_HEADER_SIZE_SHIFT)
 
 #define HAB_HEADER_GET_TYPE(header) \
-	((((header).info) & HAB_HEADER_TYPE_MASK) >> HAB_HEADER_TYPE_SHIFT)
+	(((header).id_type_size & \
+		HAB_HEADER_TYPE_MASK) >> HAB_HEADER_TYPE_SHIFT)
 
 #define HAB_HEADER_GET_ID(header) \
-	(((((header).info) & HAB_HEADER_ID_MASK) >> \
+	((((header).id_type_size & HAB_HEADER_ID_MASK) >> \
 	(HAB_HEADER_ID_SHIFT - HAB_VCID_ID_SHIFT)) & HAB_VCID_ID_MASK)
 
-struct hab_header {
-	uint32_t info;
-};
+#define HAB_HEADER_GET_SESSION_ID(header) ((header).session_id)
 
 struct physical_channel {
 	char name[MAX_VMID_NAME_SIZE];
@@ -311,6 +327,7 @@ struct virtual_channel {
 	int id;
 	int otherend_id;
 	int otherend_closed;
+	uint32_t session_id;
 };
 
 /*
@@ -413,7 +430,7 @@ void hab_open_request_init(struct hab_open_request *request,
 		int open_id);
 int hab_open_request_send(struct hab_open_request *request);
 int hab_open_request_add(struct physical_channel *pchan,
-		struct hab_header *header);
+		size_t sizebytes, int request_type);
 void hab_open_request_free(struct hab_open_request *request);
 int hab_open_listen(struct uhab_context *ctx,
 		struct hab_device *dev,
@@ -424,7 +441,7 @@ int hab_open_listen(struct uhab_context *ctx,
 struct virtual_channel *hab_vchan_alloc(struct uhab_context *ctx,
 		struct physical_channel *pchan);
 struct virtual_channel *hab_vchan_get(struct physical_channel *pchan,
-		uint32_t vchan_id);
+						  struct hab_header *header);
 void hab_vchan_put(struct virtual_channel *vchan);
 
 struct virtual_channel *hab_get_vchan_fromvcid(int32_t vcid,

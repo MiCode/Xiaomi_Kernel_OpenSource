@@ -69,20 +69,22 @@ hab_vchan_free(struct kref *ref)
 	struct virtual_channel *vchan =
 		container_of(ref, struct virtual_channel, refcount);
 	struct hab_message *message, *msg_tmp;
-	struct export_desc *exp;
+	struct export_desc *exp, *exp_tmp;
 	struct physical_channel *pchan = vchan->pchan;
 	struct uhab_context *ctx = vchan->ctx;
 	struct virtual_channel *vc, *vc_tmp;
 
+	spin_lock_bh(&vchan->rx_lock);
 	list_for_each_entry_safe(message, msg_tmp, &vchan->rx_list, node) {
 		list_del(&message->node);
 		hab_msg_free(message);
 	}
+	spin_unlock_bh(&vchan->rx_lock);
 
 	do {
 		found = 0;
 		write_lock(&ctx->exp_lock);
-		list_for_each_entry(exp, &ctx->exp_whse, node) {
+		list_for_each_entry_safe(exp, exp_tmp, &ctx->exp_whse, node) {
 			if (exp->vcid_local == vchan->id) {
 				list_del(&exp->node);
 				found = 1;
@@ -99,7 +101,7 @@ hab_vchan_free(struct kref *ref)
 	do {
 		found = 0;
 		spin_lock_bh(&ctx->imp_lock);
-		list_for_each_entry(exp, &ctx->imp_whse, node) {
+		list_for_each_entry_safe(exp, exp_tmp, &ctx->imp_whse, node) {
 			if (exp->vcid_remote == vchan->id) {
 				list_del(&exp->node);
 				found = 1;
@@ -137,14 +139,17 @@ hab_vchan_free(struct kref *ref)
 }
 
 struct virtual_channel*
-hab_vchan_get(struct physical_channel *pchan, uint32_t vchan_id)
+hab_vchan_get(struct physical_channel *pchan, struct hab_header *header)
 {
 	struct virtual_channel *vchan;
+	uint32_t vchan_id = HAB_HEADER_GET_ID(*header);
+	uint32_t session_id = HAB_HEADER_GET_SESSION_ID(*header);
 
 	spin_lock_bh(&pchan->vid_lock);
 	vchan = idr_find(&pchan->vchan_idr, HAB_VCID_GET_ID(vchan_id));
 	if (vchan)
-		if (!kref_get_unless_zero(&vchan->refcount))
+		if ((vchan->session_id != session_id) ||
+			 (!kref_get_unless_zero(&vchan->refcount)))
 			vchan = NULL;
 	spin_unlock_bh(&pchan->vid_lock);
 
