@@ -381,28 +381,29 @@ static int piltz_resc_init(struct platform_device *pdev, struct pil_tz_data *d)
 
 	count = of_read_clocks(dev, &d->clks, "qcom,active-clock-names");
 	if (count < 0) {
-		dev_err(dev, "Failed to setup clocks.\n");
+		dev_err(dev, "Failed to setup clocks(rc:%d).\n", count);
 		return count;
 	}
 	d->clk_count = count;
 
 	count = of_read_clocks(dev, &d->proxy_clks, "qcom,proxy-clock-names");
 	if (count < 0) {
-		dev_err(dev, "Failed to setup proxy clocks.\n");
+		dev_err(dev, "Failed to setup proxy clocks(rc:%d).\n", count);
 		return count;
 	}
 	d->proxy_clk_count = count;
 
 	count = of_read_regs(dev, &d->regs, "qcom,active-reg-names");
 	if (count < 0) {
-		dev_err(dev, "Failed to setup regulators.\n");
+		dev_err(dev, "Failed to setup regulators(rc:%d).\n", count);
 		return count;
 	}
 	d->reg_count = count;
 
 	count = of_read_regs(dev, &d->proxy_regs, "qcom,proxy-reg-names");
 	if (count < 0) {
-		dev_err(dev, "Failed to setup proxy regulators.\n");
+		dev_err(dev, "Failed to setup proxy regulators(rc:%d).\n",
+				count);
 		return count;
 	}
 	d->proxy_reg_count = count;
@@ -411,7 +412,8 @@ static int piltz_resc_init(struct platform_device *pdev, struct pil_tz_data *d)
 		d->enable_bus_scaling = true;
 		rc = of_read_bus_pdata(pdev, d);
 		if (rc) {
-			dev_err(dev, "Failed to setup bus scaling client.\n");
+			dev_err(dev, "Failed to setup bus scaling client(rc:%d).\n",
+				rc);
 			return rc;
 		}
 	}
@@ -1120,7 +1122,9 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 		       "qcom,spss-scsr-bits", d->bits_arr, sizeof(d->bits_arr)/
 							sizeof(d->bits_arr[0]));
 		if (rc)
-			dev_err(&pdev->dev, "Failed to read qcom,spss-scsr-bits");
+			dev_err(&pdev->dev,
+				"Failed to read qcom,spss-scsr-bits(rc:%d)",
+				rc);
 		mask_scsr_irqs(d);
 
 	} else {
