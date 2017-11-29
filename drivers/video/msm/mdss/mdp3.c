@@ -2184,6 +2184,12 @@ void mdp3_release_splash_memory(struct msm_fb_data_type *mfd)
 {
 	/* Give back the reserved memory to the system */
 	if (mdp3_res->splash_mem_addr) {
+		if ((mfd->panel.type == MIPI_VIDEO_PANEL) &&
+				(mdp3_res->cont_splash_en)) {
+			mdss_smmu_unmap(MDSS_IOMMU_DOMAIN_UNSECURE,
+				mdp3_res->splash_mem_addr,
+				mdp3_res->splash_mem_size);
+		}
 		mdp3_free(mfd);
 		pr_debug("mdp3_release_splash_memory\n");
 		memblock_free(mdp3_res->splash_mem_addr,
