@@ -618,9 +618,8 @@ void dsi_ctrl_hw_cmn_kickoff_command(struct dsi_ctrl_hw *ctrl,
 	DSI_W32(ctrl, DSI_COMMAND_MODE_DMA_CTRL, reg);
 
 	reg = DSI_R32(ctrl, DSI_DMA_FIFO_CTRL);
-	reg &= ~BIT(20);/* Enable write watermark*/
-	reg &= ~BIT(16);/* Enable read watermark */
-
+	reg |= BIT(20);/* Disable write watermark*/
+	reg |= BIT(16);/* Disable read watermark */
 
 	DSI_W32(ctrl, DSI_DMA_FIFO_CTRL, reg);
 	DSI_W32(ctrl, DSI_DMA_CMD_OFFSET, cmd->offset);
