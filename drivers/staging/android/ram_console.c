@@ -1,6 +1,7 @@
 /* drivers/android/ram_console.c
  *
  * Copyright (C) 2007-2008 Google, Inc.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -55,7 +56,7 @@ static int __devinit ram_console_probe(struct platform_device *pdev)
 	struct ram_console_platform_data *pdata = pdev->dev.platform_data;
 	struct persistent_ram_zone *prz;
 
-	prz = persistent_ram_init_ringbuffer(&pdev->dev, true);
+	prz = persistent_ram_init_ringbuffer(&pdev->dev, false);
 	if (IS_ERR(prz))
 		return PTR_ERR(prz);
 

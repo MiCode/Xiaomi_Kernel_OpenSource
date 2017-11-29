@@ -1,4 +1,5 @@
 /* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -74,9 +75,35 @@ static void *emergency_dload_mode_addr;
 
 /* Download mode master kill-switch */
 static int dload_set(const char *val, struct kernel_param *kp);
-static int download_mode = 1;
+static int download_mode;
 module_param_call(download_mode, dload_set, param_get_int,
-			&download_mode, 0644);
+		&download_mode, 0644);
+
+/* Enable/Disable fastboot mode interface */
+static int fb_enable(const char *val, struct kernel_param *kp);
+static int fastboot_enable;
+module_param_call(fastboot_enable, fb_enable, param_get_int,
+		&fastboot_enable, 0644);
+
+static int fb_enable(const char *val, struct kernel_param *kp)
+{
+	int ret;
+	int old_val = fastboot_enable;
+
+	ret = param_set_int(val, kp);
+
+	if (ret)
+		return ret;
+
+	/* If fastboot_enable is not zero or one, ignore. */
+	if (fastboot_enable >> 1) {
+		fastboot_enable = old_val;
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int panic_prep_restart(struct notifier_block *this,
 			      unsigned long event, void *ptr)
 {
@@ -97,11 +124,6 @@ static void set_dload_mode(int on)
 		mb();
 		dload_mode_enabled = on;
 	}
-}
-
-static bool get_dload_mode(void)
-{
-	return dload_mode_enabled;
 }
 
 static void enable_emergency_dload_mode(void)
@@ -150,11 +172,6 @@ static void enable_emergency_dload_mode(void)
 {
 	printk(KERN_ERR "dload mode is not enabled on target\n");
 }
-
-static bool get_dload_mode(void)
-{
-	return false;
-}
 #endif
 
 void msm_set_restart_mode(int mode)
@@ -184,6 +201,7 @@ static void __msm_power_off(int lower_pshold)
 #ifdef CONFIG_MSM_DLOAD_MODE
 	set_dload_mode(0);
 #endif
+	__raw_writel(0x0, restart_reason);
 	pm8xxx_reset_pwr_off(0);
 	qpnp_pon_system_pwr_off(PON_POWER_OFF_SHUTDOWN);
 
@@ -269,15 +287,16 @@ static void msm_restart_prepare(const char *cmd)
 
 	pm8xxx_reset_pwr_off(1);
 
-	/* Hard reset the PMIC unless memory contents must be maintained. */
-	if (get_dload_mode() || (cmd != NULL && cmd[0] != '\0'))
-		qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
-	else
-		qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
+	qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
 
-	if (cmd != NULL) {
+	if (in_panic) {
+		__raw_writel(0x77665508, restart_reason);
+	} else if (cmd != NULL) {
 		if (!strncmp(cmd, "bootloader", 10)) {
-			__raw_writel(0x77665500, restart_reason);
+			if (fastboot_enable)
+				__raw_writel(0x77665500, restart_reason);
+			else
+				pr_info("Don't support to enter fastboot mode");
 		} else if (!strncmp(cmd, "recovery", 8)) {
 			__raw_writel(0x77665502, restart_reason);
 		} else if (!strcmp(cmd, "rtc")) {
@@ -291,6 +310,8 @@ static void msm_restart_prepare(const char *cmd)
 		} else {
 			__raw_writel(0x77665501, restart_reason);
 		}
+	} else {
+		__raw_writel(0x77665501, restart_reason);
 	}
 
 	flush_cache_all();
@@ -353,15 +374,19 @@ late_initcall(msm_pmic_restart_init);
 
 static int __init msm_restart_init(void)
 {
-#ifdef CONFIG_MSM_DLOAD_MODE
 	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
+#ifdef CONFIG_MSM_DLOAD_MODE
 	dload_mode_addr = MSM_IMEM_BASE + DLOAD_MODE_ADDR;
 	emergency_dload_mode_addr = MSM_IMEM_BASE +
 		EMERGENCY_DLOAD_MODE_ADDR;
 	set_dload_mode(download_mode);
 #endif
+#ifdef CONFIG_FASTBOOT_ENABLE
+	fastboot_enable = 1;
+#endif
 	msm_tmr0_base = msm_timer_get_timer0_base();
 	restart_reason = MSM_IMEM_BASE + RESTART_REASON_ADDR;
+	__raw_writel(0x77665510, restart_reason);
 	pm_power_off = msm_power_off;
 
 	if (scm_is_call_available(SCM_SVC_PWR, SCM_IO_DISABLE_PMIC_ARBITER) > 0)

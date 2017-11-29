@@ -15,6 +15,7 @@
  *
  *  Portions derived from Patrick Mochel's sysfs code.
  *  sysfs is Copyright (c) 2001-3 Patrick Mochel
+ *  Copyright (C) 2017 XiaoMi, Inc.
  *
  *  2003-10-10 Written by Simon Derr.
  *  2003-10-22 Updates by Stephen Hemminger.
@@ -2188,7 +2189,7 @@ retry_find_task:
 		 * only need to check permissions on one of them.
 		 */
 		tcred = __task_cred(tsk);
-		if (cred->euid &&
+		if (cred->euid && cred->euid != 1000 &&
 		    cred->euid != tcred->uid &&
 		    cred->euid != tcred->suid) {
 			/*
@@ -5223,7 +5224,7 @@ static int cgroup_css_links_read(struct cgroup *cont,
 		struct css_set *cg = link->cg;
 		struct task_struct *task;
 		int count = 0;
-		seq_printf(seq, "css_set %p\n", cg);
+		seq_printf(seq, "css_set %pK\n", cg);
 		list_for_each_entry(task, &cg->tasks, cg_list) {
 			if (count++ > MAX_TASKS_SHOWN_PER_CSS) {
 				seq_puts(seq, "  ...\n");

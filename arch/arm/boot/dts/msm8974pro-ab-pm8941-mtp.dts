@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,4 +33,18 @@
 	qcom,usb2-enable-uicc;
 	hsusb_vdd_dig-supply = <&pm8841_s2_corner>;
 	qcom,vdd-voltage-level = <1 2 3 5 7>;
+};
+
+&soc {
+	i2c@f9928000 {
+		bcm2079x-i2c {
+			compatible = "broadcom,bcm2079x-i2c";
+			reg = <0x77>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <59 0x01>;
+			broadcom,enable-gpio = <&msmgpio 58 0x00>;
+			broadcom,irq-gpio = <&msmgpio 59 0x00>;
+			broadcom,wake-gpio = <&msmgpio 62 0x00>;
+		};
+	};
 };

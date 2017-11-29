@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,7 +31,7 @@
 #define BYTE_BIT_MASK(nr)		(1UL << ((nr) % BITS_PER_BYTE))
 #define BIT_BYTE(nr)			((nr) / BITS_PER_BYTE)
 
-#define WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS 100
+#define WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS 500
 
 #ifdef CONFIG_OF
 struct wcd9xxx_irq_drv_data {

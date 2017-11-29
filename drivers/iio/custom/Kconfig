@@ -1,0 +1,17 @@
+#
+# Custom drivers
+#
+menu "Custom"
+
+config HID_SENSOR_CUSTOM
+	depends on HID_SENSOR_HUB
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
+	select HID_SENSOR_IIO_COMMON
+	select HID_SENSOR_IIO_TRIGGER
+	tristate "HID Custom Sensor"
+	help
+	  Say yes here to build support for HID
+	  Custom sensor.
+
+endmenu

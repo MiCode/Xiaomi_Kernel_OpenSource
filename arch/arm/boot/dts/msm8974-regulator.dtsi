@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -202,16 +203,18 @@
 			regulator-max-microvolt = <1200000>;
 			qcom,init-voltage = <1200000>;
 			status = "okay";
+			regulator-boot-on;
 		};
 	};
 
 	rpm-regulator-ldoa3 {
 		status = "okay";
 		pm8941_l3: regulator-l3 {
-			regulator-min-microvolt = <1225000>;
+			regulator-min-microvolt = <1050000>;
 			regulator-max-microvolt = <1225000>;
 			qcom,init-voltage = <1225000>;
 			status = "okay";
+			regulator-boot-on;
 		};
 	};
 
@@ -301,6 +304,7 @@
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			status = "okay";
+			regulator-boot-on;
 		};
 		pm8941_l12_ao: regulator-l12-ao {
 			regulator-name = "8941_l12_ao";
@@ -355,8 +359,8 @@
 	rpm-regulator-ldoa17 {
 		status = "okay";
 		pm8941_l17: regulator-l17 {
-			regulator-min-microvolt = <2850000>;
-			regulator-max-microvolt = <2850000>;
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2950000>;
 			qcom,init-voltage = <2850000>;
 			status = "okay";
 		};
@@ -536,7 +540,6 @@
 	spi_eth_vreg: spi_eth_phy_vreg {
 		compatible = "regulator-fixed";
 		regulator-name = "ethernet_phy";
-		gpio = <&pm8941_mpps 5 0>;
 		enable-active-high;
 	};
 
@@ -549,6 +552,22 @@
 		status = "disabled";
 		regulator-name = "vph_pwr";
 		regulator-always-on;
+	};
+
+	vsp_vreg: disp_vsp_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "vsp";
+		gpio = <&msmgpio 55 0>;
+		enable-active-high;
+		regulator-boot-on;
+	};
+
+	vsn_vreg: disp_vsn_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "vsn";
+		gpio = <&msmgpio 56 0>;
+		enable-active-high;
+		regulator-boot-on;
 	};
 };
 

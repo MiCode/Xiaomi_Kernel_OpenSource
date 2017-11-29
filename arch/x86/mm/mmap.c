@@ -8,6 +8,7 @@
  * All Rights Reserved.
  * Copyright 2005 Andi Kleen, SUSE Labs.
  * Copyright 2007 Jiri Kosina, SUSE Labs.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -35,12 +36,12 @@ struct __read_mostly va_alignment va_align = {
 	.flags = -1,
 };
 
-static unsigned int stack_maxrandom_size(void)
+static unsigned long stack_maxrandom_size(void)
 {
-	unsigned int max = 0;
+	unsigned long max = 0;
 	if ((current->flags & PF_RANDOMIZE) &&
 		!(current->personality & ADDR_NO_RANDOMIZE)) {
-		max = ((-1U) & STACK_RND_MASK) << PAGE_SHIFT;
+		max = ((-1UL) & STACK_RND_MASK) << PAGE_SHIFT;
 	}
 
 	return max;

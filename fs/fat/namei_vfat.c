@@ -5,7 +5,7 @@
  *
  *  Windows95/Windows NT compatible extended MSDOS filesystem
  *    by Gordon Chaffee Copyright (C) 1995.  Send bug reports for the
- *    VFAT filesystem to <chaffee@cs.berkeley.edu>.  Specify
+ *  VFAT filesystem to <chaffee@cs.berkeley.edu>.  Specify
  *    what file operation caused you trouble and if you can duplicate
  *    the problem, send a script that demonstrates it.
  *
@@ -13,6 +13,7 @@
  *
  *  Support Multibyte characters and cleanup by
  *				OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
+ *  Copyright (C) 2017 XiaoMi, In
  */
 
 #include <linux/module.h>
@@ -21,6 +22,7 @@
 #include <linux/slab.h>
 #include <linux/buffer_head.h>
 #include <linux/namei.h>
+#include <linux/random.h>
 #include "fat.h"
 
 /*
@@ -581,6 +583,58 @@ xlate_to_uni(const unsigned char *name, int len, unsigned char *outname,
 	return 0;
 }
 
+#ifndef FEATURE_VFAT_FS_DUALNAMES
+/*
+ * build a 11 byte 8.3 buffer which is not a short filename. We want 11
+ * bytes which:
+ *    - will be seen as a constant string to all APIs on Linux and Windows
+ *    - cannot be matched with wildcard patterns
+ *    - cannot be used to access the file
+ *    - has a low probability of collision within a directory
+ *    - has an invalid 3 byte extension
+ *    - contains at least one non-space and non-nul byte
+ */
+static void vfat_build_dummy_83_buffer(struct inode *dir, char *msdos_name)
+{
+	u32 rand_num = random32() & 0x3FFFFFFF;
+	int i;
+
+	/* a value of zero would leave us with only nul and spaces,
+	 * which would not work with older linux systems
+	 */
+	if (rand_num == 0)
+		rand_num = 1;
+
+	/* we start with a space followed by nul as spaces at the
+	 * start of an entry are trimmed in FAT, which means that
+	 * starting the 11 bytes with 0x20 0x00 gives us a value which
+	 * cannot be used to access the file. It also means that the
+	 * value as seen from all Windows and Linux APIs is a constant
+	 */
+	msdos_name[0]  = ' ';
+	msdos_name[1]  = 0;
+
+	/* we use / and 2 nul bytes for the extension. These are
+	 * invalid in FAT and mean that utilities that show the
+	 * directory show no extension, but still work via the long
+	 * name for old Linux kernels
+	 */
+	msdos_name[8]  = '/';
+	msdos_name[9]  = 0;
+	msdos_name[10] = 0;
+
+	/*
+	 * fill the remaining 6 bytes with random invalid values
+	 * This gives us a low collision rate, which means a low
+	 * chance of problems with chkdsk.exe and WindowsXP
+	 */
+	for (i = 2; i < 8; i++) {
+		msdos_name[i] = rand_num & 0x1F;
+		rand_num >>= 5;
+	}
+}
+#endif
+
 static int vfat_build_slots(struct inode *dir, const unsigned char *name,
 			    int len, int is_dir, int cluster,
 			    struct timespec *ts,
@@ -622,6 +676,11 @@ static int vfat_build_slots(struct inode *dir, const unsigned char *name,
 		err = 0;
 		goto shortname;
 	}
+
+#ifndef FEATURE_VFAT_FS_DUALNAMES
+	vfat_build_dummy_83_buffer(dir, msdos_name);
+	lcase = 0;
+#endif
 
 	/* build the entry of long file name */
 	cksum = fat_checksum(msdos_name);

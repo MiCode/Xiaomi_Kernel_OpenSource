@@ -2,6 +2,7 @@
  * dwc3_otg.c - DesignWare USB3 DRD Controller OTG
  *
  * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -552,7 +553,7 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 			dotg->charger->chg_type == DWC3_PROPRIETARY_CHARGER)
 		power_supply_type = POWER_SUPPLY_TYPE_USB_DCP;
 	else
-		power_supply_type = POWER_SUPPLY_TYPE_UNKNOWN;
+		power_supply_type = POWER_SUPPLY_TYPE_USB;
 
 	power_supply_set_supply_type(dotg->psy, power_supply_type);
 
@@ -562,7 +563,8 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 	if (dotg->charger->max_power == mA)
 		return 0;
 
-	dev_info(phy->dev, "Avail curr from USB = %u\n", mA);
+	dev_info(phy->dev, "Avail curr from USB = %u type %d\n",
+			mA, power_supply_type);
 
 	if (dotg->charger->max_power <= 2 && mA > 2) {
 		/* Enable charging */
@@ -575,7 +577,7 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 		if (power_supply_set_online(dotg->psy, false))
 			goto psy_error;
 		/* Set max current limit */
-		if (power_supply_set_current_limit(dotg->psy, 0))
+		if (power_supply_set_current_limit(dotg->psy, 1000*mA))
 			goto psy_error;
 	}
 

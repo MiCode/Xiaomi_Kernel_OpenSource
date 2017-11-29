@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1126,8 +1127,8 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 	int index;
 	int tmp_port = q6audio_get_port_id(port_id);
 
-	pr_debug("%s: port %#x path:%d rate:%d mode:%d perf_mode:%d\n",
-		 __func__, port_id, path, rate, channel_mode, perf_mode);
+	pr_debug("%s: port %#x path:%d rate:%d mode:%d perf_mode:%d bit_per_sample:%d\n",
+		 __func__, port_id, path, rate, channel_mode, perf_mode, bits_per_sample);
 
 	port_id = q6audio_convert_virtual_to_portid(port_id);
 
@@ -1256,8 +1257,8 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 					channel_mode);
 			return -EINVAL;
 		}
-		if ((open.dev_num_channel > 2) &&
-			multi_ch_map.set_channel_map)
+		if (((open.dev_num_channel > 2) &&
+			multi_ch_map.set_channel_map) && !(open.topology_id == 0x14F96 || open.topology_id == 0x14F94))
 			memcpy(open.dev_channel_mapping,
 				multi_ch_map.channel_mapping,
 				PCM_FORMAT_MAX_NUM_CHANNEL);

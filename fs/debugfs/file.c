@@ -3,10 +3,11 @@
  *
  *  Copyright (C) 2004 Greg Kroah-Hartman <greg@kroah.com>
  *  Copyright (C) 2004 IBM Inc.
+ *  Copyright (C) 2017 XiaoMi, Inc.
  *
- *	This program is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU General Public License version
- *	2 as published by the Free Software Foundation.
+ *  This program is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU General Public License version
+ *  2 as published by the Free Software Foundation.
  *
  *  debugfs is for people to use instead of /proc or /sys.
  *  See Documentation/DocBook/filesystems for more details.
@@ -21,23 +22,153 @@
 #include <linux/debugfs.h>
 #include <linux/io.h>
 
-static ssize_t default_read_file(struct file *file, char __user *buf,
-				 size_t count, loff_t *ppos)
+static bool debugfs_can_access(struct super_block *sb, char *path)
 {
-	return 0;
+	struct debugfs_fs_info *fsi = sb->s_fs_info;
+	struct debugfs_mount_opts *opts = &fsi->mount_opts;
+
+	if (!opts->privilege) {
+#ifdef CONFIG_DEBUG_FS_WHITE_LIST
+		int len = strlen(path);
+		while (len != 0) {
+			char *match = strnstr(CONFIG_DEBUG_FS_WHITE_LIST, path, strlen(CONFIG_DEBUG_FS_WHITE_LIST));
+			if (match && match[len] == ':' && *--match == ':')
+				return true; /* always pass white list */
+
+			while (--len != 0) { /* move to parent */
+				if (path[len] == '/') {
+					path[len] = '\0';
+					break;
+				}
+			}
+		}
+#endif
+		return false;
+	}
+
+	return true;
 }
 
-static ssize_t default_write_file(struct file *file, const char __user *buf,
+struct debugfs_filter {
+	struct super_block *sb;
+	const char *path;
+
+	filldir_t filldir;
+	void *dirent;
+};
+
+static int debugfs_dir_filldir(void *arg, const char *name,
+		int namelen, loff_t offset, u64 ino, unsigned int d_type)
+{
+	struct debugfs_filter *filter = arg;
+	char buf[256];
+
+	strlcpy(buf, filter->path, sizeof(buf));
+	if (strlen(filter->path) != 1) /* not root */
+		strlcat(buf, "/", sizeof(buf));
+	strlcat(buf, name, sizeof(buf));
+
+	if (debugfs_can_access(filter->sb, buf)) {
+		return filter->filldir(filter->dirent,
+				name, namelen, offset, ino, d_type);
+	} else
+		return 0;
+}
+
+static int debugfs_dir_readdir(struct file *file, void *dirent, filldir_t filldir)
+{
+	struct debugfs_filter filter;
+	char buf[256];
+
+	filter.sb   = file->f_dentry->d_sb;
+	filter.path = dentry_path(file->f_dentry, buf, sizeof(buf));
+
+	filter.filldir = filldir;
+	filter.dirent  = dirent;
+
+	return dcache_readdir(file, &filter, debugfs_dir_filldir);
+}
+
+const struct file_operations debugfs_dir_operations = {
+	.open		= dcache_dir_open,
+	.release	= dcache_dir_close,
+	.readdir	= debugfs_dir_readdir,
+};
+
+static int debugfs_open_file(struct inode *inode, struct file *file)
+{
+	struct debugfs_inode *dinode = (struct debugfs_inode *)inode;
+	const struct file_operations *fop = (struct file_operations *)dinode->pfops;
+
+	char *path, buf[256];
+	int rc = -EPERM;
+
+	path = dentry_path(file->f_dentry, buf, sizeof(buf));
+	if (debugfs_can_access(file->f_dentry->d_sb, path)) {
+		if (fop && fop->open)
+			rc = fop->open(inode, file);
+		else
+			rc = simple_open(inode, file);
+	}
+
+	return rc;
+}
+
+static int debugfs_release_file(struct inode *inode, struct file *file)
+{
+	struct debugfs_inode *dinode = (struct debugfs_inode *)inode;
+	const struct file_operations *fop = (struct file_operations *)dinode->pfops;
+
+	if (fop && fop->release)
+		return fop->release(inode, file);
+	else
+		return 0;
+}
+
+static loff_t debugfs_llseek_file(struct file *file, loff_t offset, int origin)
+{
+	struct inode *inode = file->f_dentry->d_inode;
+	struct debugfs_inode *dinode = (struct debugfs_inode *)inode;
+	const struct file_operations *fop = (struct file_operations *)dinode->pfops;
+
+	if (fop && fop->llseek)
+		return fop->llseek(file, offset, origin);
+	else
+		return noop_llseek(file, offset, origin);
+}
+
+static ssize_t debugfs_read_file(struct file *file, char __user *buf,
+				 size_t count, loff_t *ppos)
+{
+	struct inode *inode = file->f_dentry->d_inode;
+	struct debugfs_inode *dinode = (struct debugfs_inode *)inode;
+	const struct file_operations *fop = (struct file_operations *)dinode->pfops;
+
+	if (fop && fop->read)
+		return fop->read(file, buf, count, ppos);
+	else
+		return 0;
+}
+
+static ssize_t debugfs_write_file(struct file *file, const char __user *buf,
 				   size_t count, loff_t *ppos)
 {
-	return count;
+	struct inode *inode = file->f_dentry->d_inode;
+	struct debugfs_inode *dinode = (struct debugfs_inode *)inode;
+	const struct file_operations *fop = (struct file_operations *)dinode->pfops;
+
+	if (fop && fop->write)
+		return fop->write(file, buf, count, ppos);
+	else
+		return count;
 }
 
 const struct file_operations debugfs_file_operations = {
-	.read =		default_read_file,
-	.write =	default_write_file,
-	.open =		simple_open,
-	.llseek =	noop_llseek,
+	.read =		debugfs_read_file,
+	.write =	debugfs_write_file,
+	.open =		debugfs_open_file,
+	.release =	debugfs_release_file,
+	.llseek =	debugfs_llseek_file,
 };
 
 static void *debugfs_follow_link(struct dentry *dentry, struct nameidata *nd)

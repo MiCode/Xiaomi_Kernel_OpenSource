@@ -1,6 +1,7 @@
 /*
  *  Routines for driver control interface
  *  Copyright (c) by Jaroslav Kysela <perex@perex.cz>
+ *  Copyright (C) 2017 XiaoMi, Inc.
  *
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -333,6 +334,9 @@ int snd_ctl_add(struct snd_card *card, struct snd_kcontrol *kcontrol)
 	if (snd_BUG_ON(!card || !kcontrol->info))
 		goto error;
 	id = kcontrol->id;
+	if (id.index > UINT_MAX - kcontrol->count)
+		goto error;
+
 	down_write(&card->controls_rwsem);
 	if (snd_ctl_find_id(card, &id)) {
 		up_write(&card->controls_rwsem);
@@ -684,6 +688,7 @@ static int snd_ctl_card_info(struct snd_card *card, struct snd_ctl_file * ctl,
 	down_read(&snd_ioctl_rwsem);
 	info->card = card->number;
 	strlcpy(info->id, card->id, sizeof(info->id));
+	info->pad = card->version;
 	strlcpy(info->driver, card->driver, sizeof(info->driver));
 	strlcpy(info->name, card->shortname, sizeof(info->name));
 	strlcpy(info->longname, card->longname, sizeof(info->longname));
@@ -1130,8 +1135,6 @@ static int snd_ctl_elem_add(struct snd_ctl_file *file,
 	struct user_element *ue;
 	int idx, err;
 
-	if (!replace && card->user_ctl_count >= MAX_USER_CONTROLS)
-		return -ENOMEM;
 	if (info->count < 1)
 		return -EINVAL;
 	access = info->access == 0 ? SNDRV_CTL_ELEM_ACCESS_READWRITE :
@@ -1140,21 +1143,16 @@ static int snd_ctl_elem_add(struct snd_ctl_file *file,
 				 SNDRV_CTL_ELEM_ACCESS_TLV_READWRITE));
 	info->id.numid = 0;
 	memset(&kctl, 0, sizeof(kctl));
-	down_write(&card->controls_rwsem);
-	_kctl = snd_ctl_find_id(card, &info->id);
-	err = 0;
-	if (_kctl) {
-		if (replace)
-			err = snd_ctl_remove(card, _kctl);
-		else
-			err = -EBUSY;
-	} else {
-		if (replace)
-			err = -ENOENT;
+
+	if (replace) {
+		err = snd_ctl_remove_user_ctl(file, &info->id);
+		if (err)
+			return err;
 	}
-	up_write(&card->controls_rwsem);
-	if (err < 0)
-		return err;
+
+	if (card->user_ctl_count >= MAX_USER_CONTROLS)
+		return -ENOMEM;
+
 	memcpy(&kctl.id, &info->id, sizeof(info->id));
 	kctl.count = info->owner ? info->owner : 1;
 	access |= SNDRV_CTL_ELEM_ACCESS_USER;

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +21,7 @@
 #include <linux/slab.h>
 #include <linux/iopoll.h>
 #include <linux/kthread.h>
+#include <linux/ratelimit.h>
 
 #include <mach/iommu_domains.h>
 
@@ -28,6 +30,7 @@
 #include "mdss_panel.h"
 #include "mdss_debug.h"
 
+#undef DSI_HOST_DEBUG
 #define VSYNC_PERIOD 17
 
 struct mdss_dsi_ctrl_pdata *ctrl_list[DSI_CTRL_MAX];
@@ -974,7 +977,6 @@ int mdss_dsi_cmds_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 		rx_byte = data_byte + 8; /* 4 header + 2 crc  + 2 padding*/
 	}
 
-
 	tp = &ctrl->tx_buf;
 	rp = &ctrl->rx_buf;
 
@@ -1100,8 +1102,18 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 	char *bp;
 	unsigned long size, addr;
 	struct mdss_dsi_ctrl_pdata *mctrl = NULL;
+#ifdef DSI_HOST_DEBUG
+	int i;
+#endif
 
 	bp = tp->data;
+#ifdef DSI_HOST_DEBUG
+	pr_info("%s: ", __func__);
+	for (i = 0; i < tp->len; i++)
+		pr_info("%x ", *bp++);
+
+	pr_info("\n");
+#endif
 
 	len = ALIGN(tp->len, 4);
 	size = ALIGN(tp->len, SZ_4K);
@@ -1145,12 +1157,18 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 	MIPI_OUTP((ctrl->ctrl_base) + 0x090, 0x01);
 	wmb();
 
+#ifdef DSI_HOST_DEBUG
+	printk("w");
+#endif
 	ret = wait_for_completion_timeout(&ctrl->dma_comp,
 				msecs_to_jiffies(DMA_TX_TIMEOUT));
 	if (ret == 0)
 		ret = -ETIMEDOUT;
 	else
 		ret = tp->len;
+#ifdef DSI_HOST_DEBUG
+	printk("c\n");
+#endif
 
 	if (ctrl->dmap_iommu_map) {
 		msm_iommu_unmap_contig_buffer(addr,
@@ -1562,7 +1580,7 @@ void mdss_dsi_fifo_status(struct mdss_dsi_ctrl_pdata *ctrl)
 	/* fifo underflow, overflow and empty*/
 	if (status & 0xcccc4489) {
 		MIPI_OUTP(base + 0x000c, status);
-		pr_err("%s: status=%x\n", __func__, status);
+		pr_err_ratelimited("%s: status=%x\n", __func__, status);
 		if (status & 0x0080)  /* CMD_DMA_FIFO_UNDERFLOW */
 			dsi_send_events(ctrl, DSI_EV_MDP_FIFO_UNDERFLOW);
 			MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0", "dsi1",
@@ -1653,7 +1671,7 @@ irqreturn_t mdss_dsi_isr(int irq, void *ptr)
 
 	if (isr & DSI_INTR_ERROR) {
 		MDSS_XLOG(ctrl->ndx, ctrl->mdp_busy, isr, 0x97);
-		pr_err("%s: ndx=%d isr=%x\n", __func__, ctrl->ndx, isr);
+		pr_err_ratelimited("%s: ndx=%d isr=%x\n", __func__, ctrl->ndx, isr);
 		mdss_dsi_error(ctrl);
 	}
 

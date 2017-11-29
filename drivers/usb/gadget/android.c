@@ -2,6 +2,7 @@
  * Gadget Driver for Android
  *
  * Copyright (C) 2008 Google, Inc.
+ * Copyright (C) 2017 XiaoMi, Inc.
  * Author: Mike Lockwood <lockwood@android.com>
  *         Benoit Goby <benoit@android.com>
  *
@@ -32,9 +33,12 @@
 #include <linux/usb/android.h>
 
 #include <mach/diag_dload.h>
+#include <linux/string.h>
 
 #include "gadget_chips.h"
 
+
+static int android_is_set_cdrom(void);
 /*
  * Kbuild is not very cooperative with respect to linking separately
  * compiled library objects into one module.  So for now we won't use
@@ -74,6 +78,7 @@
 #include "f_serial.c"
 #include "f_acm.c"
 #include "f_adb.c"
+#include "f_mdb.c"
 #include "f_ccid.c"
 #include "f_mtp.c"
 #include "f_accessory.c"
@@ -201,6 +206,7 @@ struct android_dev {
 	struct device *dev;
 
 	bool enabled;
+	bool mdb_enabled;
 	int disable_depth;
 	struct mutex mutex;
 	struct android_usb_platform_data *pdata;
@@ -550,6 +556,104 @@ static void adb_closed_callback(void)
 		mutex_unlock(&dev->mutex);
 }
 
+/*-------------------------------------------------------------------------*/
+/* Support for mdb*/
+struct mdb_data {
+	bool opened;
+	bool enabled;
+	struct android_dev *dev;
+};
+
+static int
+mdb_function_init(struct android_usb_function *f,
+		struct usb_composite_dev *cdev)
+{
+	f->config = kzalloc(sizeof(struct mdb_data), GFP_KERNEL);
+	if (!f->config)
+		return -ENOMEM;
+
+	return mdb_setup();
+}
+
+static void mdb_function_cleanup(struct android_usb_function *f)
+{
+	mdb_cleanup();
+	kfree(f->config);
+}
+
+static int
+mdb_function_bind_config(struct android_usb_function *f,
+		struct usb_configuration *c)
+{
+	return mdb_bind_config(c);
+}
+
+static void mdb_android_function_enable(struct android_usb_function *f)
+{
+	struct android_dev *dev = f->android_dev;
+	struct mdb_data *data = f->config;
+
+	data->enabled = true;
+
+	/* Disable the gadget until mdbd is ready */
+	if (!data->opened)
+		android_disable(dev);
+}
+
+static void mdb_android_function_disable(struct android_usb_function *f)
+{
+	struct android_dev *dev = f->android_dev;
+	struct mdb_data *data = f->config;
+
+	data->enabled = false;
+
+	/* Balance the disable that was called in closed_callback */
+	if (!data->opened)
+		android_enable(dev);
+}
+
+static struct android_usb_function mdb_function = {
+	.name		= "mdb",
+	.enable		= mdb_android_function_enable,
+	.disable	= mdb_android_function_disable,
+	.init		= mdb_function_init,
+	.cleanup	= mdb_function_cleanup,
+	.bind_config	= mdb_function_bind_config,
+};
+
+static void mdb_ready_callback(void)
+{
+	struct android_dev *dev = mdb_function.android_dev;
+	struct mdb_data *data = mdb_function.config;
+	/* dev is null in case MDB is not in the composition */
+	if (dev)
+		mutex_lock(&dev->mutex);
+
+	/* Save dev in case the mdb function will get disabled */
+	data->dev = dev;
+	data->opened = true;
+
+	if (data->enabled && dev)
+		android_enable(dev);
+	if (dev)
+		mutex_unlock(&dev->mutex);
+}
+
+static void mdb_closed_callback(void)
+{
+	struct android_dev *dev = mdb_function.android_dev;
+	struct mdb_data *data = mdb_function.config;
+	if (dev)
+		mutex_lock(&dev->mutex);
+
+	data->opened = false;
+
+	if (data->enabled && dev)
+		android_disable(dev);
+	data->dev = NULL;
+	if (dev)
+		mutex_unlock(&dev->mutex);
+}
 
 /*-------------------------------------------------------------------------*/
 /* Supported functions initialization */
@@ -1814,7 +1918,12 @@ static int mass_storage_function_init(struct android_usb_function *f,
 	for (i = 0; i < uicc_nluns; i++) {
 		n = config->fsg.nluns;
 		snprintf(name[n], MAX_LUN_NAME, "uicc%d", i);
+
+
+		config->fsg.luns[n].cdrom = 1;
+		config->fsg.luns[n].ro = 1;
 		config->fsg.luns[n].removable = 1;
+		config->fsg.luns[n].nofua = 1;
 		config->fsg.nluns++;
 	}
 
@@ -2108,6 +2217,7 @@ static struct android_usb_function *supported_functions[] = {
 	&qdss_function,
 	&serial_function,
 	&adb_function,
+	&mdb_function,
 	&ccid_function,
 	&acm_function,
 	&mtp_function,
@@ -2381,8 +2491,9 @@ functions_show(struct device *pdev, struct device_attribute *attr, char *buf)
 			*(buff-1) = ':';
 		list_for_each_entry(f_holder, &conf->enabled_functions,
 					enabled_list)
-			buff += snprintf(buff, PAGE_SIZE, "%s,",
-					f_holder->f->name);
+		    if (strcmp(f_holder->f->name, "mdb"))
+			    buff += snprintf(buff, PAGE_SIZE, "%s,",
+					    f_holder->f->name);
 	}
 
 	mutex_unlock(&dev->mutex);
@@ -2451,6 +2562,13 @@ functions_store(struct device *pdev, struct device_attribute *attr,
 					pr_err("android_usb: Cannot enable %s",
 						name);
 			}
+		}
+		if (dev->mdb_enabled) {
+			name = kstrdup("mdb", GFP_KERNEL);
+			err = android_enable_function(dev, conf, name);
+			if (err)
+				pr_err("android_usb: Cannot enable '%s'", name);
+			kfree(name);
 		}
 	}
 
@@ -2541,6 +2659,39 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 		pr_err("android_usb: already %s\n",
 				dev->enabled ? "enabled" : "disabled");
 	}
+
+	mutex_unlock(&dev->mutex);
+
+	return size;
+}
+
+static ssize_t mdb_enable_show(struct device *pdev, struct device_attribute *attr,
+			   char *buf)
+{
+	struct android_dev *dev = dev_get_drvdata(pdev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", dev->mdb_enabled);
+}
+
+static ssize_t mdb_enable_store(struct device *pdev, struct device_attribute *attr,
+			    const char *buff, size_t size)
+{
+	struct android_dev *dev = dev_get_drvdata(pdev);
+	struct usb_composite_dev *cdev = dev->cdev;
+	int enabled = 0;
+
+	if (!cdev)
+		return -ENODEV;
+
+	mutex_lock(&dev->mutex);
+
+	sscanf(buff, "%d", &enabled);
+
+	if (dev->enabled) {
+		mutex_unlock(&dev->mutex);
+		return -EBUSY;
+	}
+	dev->mdb_enabled = enabled;
 
 	mutex_unlock(&dev->mutex);
 
@@ -2641,6 +2792,7 @@ DESCRIPTOR_STRING_ATTR(iSerial, serial_string)
 static DEVICE_ATTR(functions, S_IRUGO | S_IWUSR, functions_show,
 						 functions_store);
 static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR, enable_show, enable_store);
+static DEVICE_ATTR(mdb_enable, S_IRUGO | S_IWUSR, mdb_enable_show, mdb_enable_store);
 static DEVICE_ATTR(pm_qos, S_IRUGO | S_IWUSR,
 		pm_qos_show, pm_qos_store);
 static DEVICE_ATTR(state, S_IRUGO, state_show, NULL);
@@ -2659,6 +2811,7 @@ static struct device_attribute *android_usb_attributes[] = {
 	&dev_attr_iSerial,
 	&dev_attr_functions,
 	&dev_attr_enable,
+	&dev_attr_mdb_enable,
 	&dev_attr_pm_qos,
 	&dev_attr_state,
 	&dev_attr_remote_wakeup,
@@ -2778,6 +2931,18 @@ static struct usb_composite_driver android_usb_driver = {
 	.unbind		= android_usb_unbind,
 	.max_speed	= USB_SPEED_SUPER
 };
+
+static int android_is_set_cdrom(void)
+{
+	struct android_dev *dev = NULL;
+	/* Find the android dev from the list */
+	list_for_each_entry(dev, &android_dev_list, list_item) {
+		if (dev && dev->cdev && dev->cdev->gadget &&  dev->cdev->gadget->usb_sys_state == GADGET_STATE_DONE_SET)
+			return 0;
+	}
+
+	return 1;
+}
 
 static int
 android_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *c)

@@ -1703,8 +1703,7 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 		uint32_t identity;
 		struct msm_cpp_buff_queue_info_t *buff_queue_info;
 
-		if ((ioctl_ptr->len == 0) ||
-			(ioctl_ptr->len > sizeof(uint32_t)))
+		if (ioctl_ptr->len != sizeof(uint32_t))
 			return -EINVAL;
 
 		rc = (copy_from_user(&identity,

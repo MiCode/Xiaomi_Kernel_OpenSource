@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -175,6 +176,15 @@ static ssize_t lpm_levels_attr_store(struct kobject *kobj,
 
 	return count;
 }
+
+/*
+ *  Set the sleep time for suspend.  0 means infinite sleep time.
+ */
+void msm_pm_set_max_sleep_time(int max_sleep_time)
+{
+	msm_pm_sleep_time_override = max_sleep_time;
+}
+EXPORT_SYMBOL(msm_pm_set_max_sleep_time);
 
 static int msm_pm_get_sleep_mode_value(const char *mode_name)
 {
@@ -376,7 +386,7 @@ static void lpm_system_prepare(struct lpm_system_state *system_state,
 
 
 		if (!from_idle)
-			us = USEC_PER_SEC * msm_pm_sleep_time_override;
+			us = (int64_t)USEC_PER_SEC * msm_pm_sleep_time_override;
 
 		do_div(us, USEC_PER_SEC/SCLK_HZ);
 		sclk = (uint32_t)us;

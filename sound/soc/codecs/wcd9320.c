@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -9,6 +10,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/firmware.h>
@@ -42,6 +44,10 @@
 #include "wcd9xxx-common.h"
 #include "wcdcal-hwdep.h"
 
+
+#ifdef CONFIG_SND_SOC_TPA6130A2
+#include "tpa6130a2.h"
+#endif
 
 #define TAIKO_MAD_SLIMBUS_TX_PORT 12
 #define TAIKO_MAD_AUDIO_FIRMWARE_PATH "wcd9320/wcd9320_mad_audio.bin"
@@ -2800,8 +2806,40 @@ static int taiko_codec_enable_mad(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	int ret = 0;
+	u8 mad_con;
+	u16 txfe_reg;
+	u8 txfe_shift;
 
 	pr_debug("%s %d\n", __func__, event);
+
+	mad_con = snd_soc_read(codec, TAIKO_A_CDC_CONN_MAD) & 0x0F;
+
+	switch (mad_con) {
+	case 1:
+		txfe_reg = TAIKO_A_TX_1_2_TXFE_CLKDIV;
+		txfe_shift = 0;
+		break;
+	case 2:
+		txfe_reg = TAIKO_A_TX_1_2_TXFE_CLKDIV;
+		txfe_shift = 4;
+		break;
+	case 3:
+		txfe_reg = TAIKO_A_TX_3_4_TXFE_CKDIV;
+		txfe_shift = 0;
+		break;
+	case 4:
+		txfe_reg = TAIKO_A_TX_3_4_TXFE_CKDIV;
+		txfe_shift = 4;
+		break;
+	case 5:
+		txfe_reg = TAIKO_A_TX_5_6_TXFE_CKDIV;
+		txfe_shift = 0;
+		break;
+	case 6:
+		txfe_reg = TAIKO_A_TX_5_6_TXFE_CKDIV;
+		txfe_shift = 4;
+		break;
+	}
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		ret = taiko_codec_config_mad(codec);
@@ -2809,8 +2847,19 @@ static int taiko_codec_enable_mad(struct snd_soc_dapm_widget *w,
 			pr_err("%s: Failed to config MAD\n", __func__);
 			break;
 		}
+		if (mad_con >= 1 && mad_con <= 6)
+			snd_soc_update_bits(codec, txfe_reg,
+					(0x0F << txfe_shift),
+					(0x08 << txfe_shift));
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		if (mad_con >= 1 && mad_con <= 6)
+			snd_soc_update_bits(codec, txfe_reg,
+					(0x0F << txfe_shift),
+					(0x05 << txfe_shift));
 		break;
 	}
+
 	return ret;
 }
 
@@ -3503,26 +3552,32 @@ static int taiko_hph_pa_event(struct snd_soc_dapm_widget *w,
 		usleep_range(pa_settle_time, pa_settle_time + 1000);
 		pr_debug("%s: sleep %d us after %s PA enable\n", __func__,
 				pa_settle_time, w->name);
+#ifdef CONFIG_SND_SOC_TPA6130A2
+		tpa6130a2_stereo_enable(codec, 1);
+#else
 		wcd9xxx_clsh_fsm(codec, &taiko->clsh_d,
 						 req_clsh_state,
 						 WCD9XXX_CLSH_REQ_ENABLE,
 						 WCD9XXX_CLSH_EVENT_POST_PA);
-
+#endif
 		break;
 
 	case SND_SOC_DAPM_POST_PMD:
+#ifdef CONFIG_SND_SOC_TPA6130A2
+		tpa6130a2_stereo_enable(codec, 0);
+#endif
 		usleep_range(pa_settle_time, pa_settle_time + 1000);
 		pr_debug("%s: sleep %d us after %s PA disable\n", __func__,
 				pa_settle_time, w->name);
 
 		/* Let MBHC module know PA turned off */
 		wcd9xxx_resmgr_notifier_call(&taiko->resmgr, e_post_off);
-
+#ifndef CONFIG_SND_SOC_TPA6130A2
 		wcd9xxx_clsh_fsm(codec, &taiko->clsh_d,
 						 req_clsh_state,
 						 WCD9XXX_CLSH_REQ_DISABLE,
 						 WCD9XXX_CLSH_EVENT_POST_PA);
-
+#endif
 		break;
 	}
 	return 0;
@@ -5901,7 +5956,8 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_AIF_OUT_E("AIF4 MAD", "AIF4 MAD TX", 0,
 			       SND_SOC_NOPM, 0, 0,
-			       taiko_codec_enable_mad, SND_SOC_DAPM_PRE_PMU),
+			       taiko_codec_enable_mad,
+				SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_SWITCH("MADONOFF", SND_SOC_NOPM, 0, 0,
 			    &aif4_mad_switch),
 	SND_SOC_DAPM_INPUT("MADINPUT"),
@@ -6702,6 +6758,14 @@ void taiko_hs_detect_exit(struct snd_soc_codec *codec)
 }
 EXPORT_SYMBOL(taiko_hs_detect_exit);
 
+void taiko_hs_enable_vddio(struct snd_soc_codec *codec, bool on)
+{
+	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(codec);
+
+	wcd9xxx_mbhc_enable_vddio(&taiko->mbhc, on);
+}
+EXPORT_SYMBOL(taiko_hs_enable_vddio);
+
 void taiko_event_register(
 	int (*machine_event_cb)(struct snd_soc_codec *codec,
 				enum wcd9xxx_codec_event),
@@ -7311,6 +7375,9 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 
 	snd_soc_add_codec_controls(codec, impedance_detect_controls,
 				   ARRAY_SIZE(impedance_detect_controls));
+#ifdef CONFIG_SND_SOC_TPA6130A2
+	tpa6130a2_add_controls(codec);
+#endif
 
 	control->num_rx_port = TAIKO_RX_MAX;
 	control->rx_chs = ptr;

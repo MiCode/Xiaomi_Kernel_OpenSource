@@ -1,7 +1,8 @@
 /*
- *  linux/kernel/printk.c
+ * linux/kernel/printk.c
  *
- *  Copyright (C) 1991, 1992  Linus Torvalds
+ * Copyright (C) 1991, 1992  Linus Torvalds
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * Modified to make sys_syslog() more flexible: added commands to
  * return the last 4k of kernel messages, regardless of whether
@@ -48,7 +49,20 @@
 #include <mach/msm_rtb.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/printk.h>
-
+#if defined(CONFIG_PRINTK_CPU_ID)
+static bool printk_cpu_id = 1;
+#else
+static bool printk_cpu_id;
+#endif
+module_param_named(cpu, printk_cpu_id, bool, S_IRUGO | S_IWUSR);
+#if defined(CONFIG_PRINTK_PID)
+static bool printk_pid = 1;
+#else
+static bool printk_pid;
+#endif
+module_param_named(pid, printk_pid, bool, S_IRUGO | S_IWUSR);
+void (*BrcmLogString) (const char *inLogString,
+		       unsigned short inSender) = 0;
 /*
  * Architectures can override it:
  */
@@ -416,7 +430,9 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
 	if (!user)
 		return -EBADF;
 
-	mutex_lock(&user->lock);
+	ret = mutex_lock_interruptible(&user->lock);
+	if (ret)
+		return ret;
 	raw_spin_lock(&logbuf_lock);
 	while (user->seq == log_next_seq) {
 		if (file->f_flags & O_NONBLOCK) {
@@ -848,7 +864,9 @@ static int syslog_print(char __user *buf, int size)
 	syslog_seq++;
 	raw_spin_unlock_irq(&logbuf_lock);
 
-	if (len > 0 && copy_to_user(buf, text, len))
+	if (len > size)
+		len = -EINVAL;
+	else if (len > 0 && copy_to_user(buf, text, len))
 		len = -EFAULT;
 
 	kfree(text);
@@ -939,6 +957,7 @@ int do_syslog(int type, char __user *buf, int len, bool from_file)
 {
 	bool clear = false;
 	static int saved_console_loglevel = -1;
+	static DEFINE_MUTEX(syslog_mutex);
 	int error;
 
 	error = check_syslog_permissions(type, from_file);
@@ -965,11 +984,17 @@ int do_syslog(int type, char __user *buf, int len, bool from_file)
 			error = -EFAULT;
 			goto out;
 		}
-		error = wait_event_interruptible(log_wait,
-						syslog_seq != log_next_seq);
+		error = mutex_lock_interruptible(&syslog_mutex);
 		if (error)
 			goto out;
+		error = wait_event_interruptible(log_wait,
+						 syslog_seq != log_next_seq);
+		if (error) {
+			mutex_unlock(&syslog_mutex);
+			goto out;
+		}
 		error = syslog_print(buf, len);
+		mutex_unlock(&syslog_mutex);
 		break;
 	/* Read/clear last kernel messages */
 	case SYSLOG_ACTION_READ_CLEAR:
@@ -1344,7 +1369,6 @@ asmlinkage int vprintk_emit(int facility, int level,
 				dict, dictlen, text, textlen);
 			printed_len += textlen;
 		}
-
 	}
 
 	/*
@@ -1405,7 +1429,7 @@ EXPORT_SYMBOL(printk_emit);
  * See also:
  * printf(3)
  *
- * See the vsnprintf() documentation for format string extensions over C99.
+ * See the vsprintf() documentation for format string extensions over C99.
  */
 asmlinkage int printk(const char *fmt, ...)
 {
@@ -1594,6 +1618,12 @@ void resume_console(void)
 	console_unlock();
 }
 
+void emergency_unlock_console(void)
+{
+	resume_console();
+}
+EXPORT_SYMBOL(emergency_unlock_console);
+
 static void __cpuinit console_flush(struct work_struct *work)
 {
 	console_lock();
@@ -1755,7 +1785,7 @@ again:
 	for (;;) {
 		struct log *msg;
 		static char text[LOG_LINE_MAX];
-		size_t len;
+		size_t len, text_len;
 		int level;
 		raw_spin_lock_irqsave(&logbuf_lock, flags);
 		if (seen_seq != log_next_seq) {
@@ -1774,18 +1804,28 @@ again:
 
 		msg = log_from_idx(console_idx);
 		level = msg->level & 7;
-		len = msg->text_len;
-		if (len+1 >= sizeof(text))
-			len = sizeof(text)-1;
-		memcpy(text, log_text(msg), len);
-		text[len++] = '\n';
+		len = sprintf(text, "<%u>", level);
+
+		if (printk_time) {
+			unsigned long long t = msg->ts_nsec;
+			unsigned long rem_ns = do_div(t, 1000000000);
+
+			len += sprintf(text + len, "[%5lu.%06lu] ",
+				(unsigned long) t, rem_ns / 1000);
+		}
+
+		text_len = msg->text_len;
+		if (len+text_len+1 >= sizeof(text))
+			text_len = sizeof(text)-1-len;
+		memcpy(text+len, log_text(msg), text_len);
+		text[len+text_len] = '\n';
 
 		console_idx = log_next(console_idx);
 		console_seq++;
 
 		raw_spin_unlock(&logbuf_lock);
 		stop_critical_timings();	/* don't trace print latency */
-		call_console_drivers(level, text, len);
+		call_console_drivers(level, text, len + text_len+1);
 		start_critical_timings();
 		local_irq_restore(flags);
 	}
@@ -2148,7 +2188,7 @@ int printk_sched(const char *fmt, ...)
 	buf = __get_cpu_var(printk_sched_buf);
 
 	va_start(args, fmt);
-	r = vsnprintf(buf, PRINTK_BUF_SIZE, fmt, args);
+	r = snprintf(buf, PRINTK_BUF_SIZE, fmt, args);
 	va_end(args);
 
 	__this_cpu_or(printk_pending, PRINTK_PENDING_SCHED);

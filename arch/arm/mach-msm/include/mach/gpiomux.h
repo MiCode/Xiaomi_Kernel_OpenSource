@@ -1,4 +1,5 @@
 /* Copyright (c) 2010-2011,2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -168,6 +169,7 @@ int msm_gpiomux_write(unsigned gpio, enum msm_gpiomux_setting which,
  * should use msm_gpiomux_write.
  */
 void __msm_gpiomux_write(unsigned gpio, struct gpiomux_setting val);
+void __msm_gpiomux_read(unsigned gpio, struct gpiomux_setting *val);
 
 /* Functions that provide an API for drivers to read from and write to
  * miscellaneous TLMM registers.
@@ -176,6 +178,7 @@ int msm_tlmm_misc_reg_read(enum msm_tlmm_misc_reg misc_reg);
 
 void msm_tlmm_misc_reg_write(enum msm_tlmm_misc_reg misc_reg, int val);
 
+void msm_gpiomux_debug_init(void);
 #else
 static inline int msm_gpiomux_init(size_t ngpio)
 {
@@ -212,5 +215,9 @@ static inline void msm_tlmm_misc_reg_write(enum msm_tlmm_misc_reg misc_reg,
 {
 }
 
+static inline void msm_gpiomux_debug_init()
+{
+	return;
+}
 #endif
 #endif

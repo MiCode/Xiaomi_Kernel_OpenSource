@@ -1,0 +1,17 @@
+#
+# Humidity sensor drivers
+#
+menu "Humidity sensors"
+
+config HID_SENSOR_HUMIDITY
+	depends on HID_SENSOR_HUB
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
+	select HID_SENSOR_IIO_COMMON
+	select HID_SENSOR_IIO_TRIGGER
+	tristate "HID Humidity"
+	help
+	  Say yes here to build support for the HID Sensor
+	  Humidity.
+
+endmenu

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,11 +37,14 @@
 #include <linux/gpio.h>
 #include <linux/input.h>
 #include "wcdcal-hwdep.h"
+#include <asm/bootinfo.h>
 #include "wcd9320.h"
 #include "wcd9306.h"
 #include "wcd9xxx-mbhc.h"
 #include "wcd9xxx-resmgr.h"
 #include "wcd9xxx-common.h"
+#include "../msm/msm8974.h"
+#include "es9018.h"
 
 #define WCD9XXX_JACK_MASK (SND_JACK_HEADSET | SND_JACK_OC_HPHL | \
 			   SND_JACK_OC_HPHR | SND_JACK_LINEOUT | \
@@ -100,8 +104,8 @@
  * Invalid voltage range for the detection
  * of plug type with current source
  */
-#define WCD9XXX_CS_MEAS_INVALD_RANGE_LOW_MV 160
-#define WCD9XXX_CS_MEAS_INVALD_RANGE_HIGH_MV 265
+#define WCD9XXX_CS_MEAS_INVALD_RANGE_LOW_MV 110
+#define WCD9XXX_CS_MEAS_INVALD_RANGE_HIGH_MV 150
 
 /*
  * Threshold used to detect euro headset
@@ -826,6 +830,9 @@ static void wcd9xxx_insert_detect_setup(struct wcd9xxx_mbhc *mbhc, bool ins)
 static void wcd9xxx_report_plug(struct wcd9xxx_mbhc *mbhc, int insertion,
 				enum snd_jack_types jack_type)
 {
+	struct snd_soc_codec *codec = mbhc->codec;
+	struct msm8974_asoc_mach_data *mach_data = snd_soc_card_get_drvdata(codec->card);
+
 	WCD9XXX_BCL_ASSERT_LOCKED(mbhc->resmgr);
 
 	pr_debug("%s: enter insertion %d hph_status %x\n",
@@ -855,6 +862,8 @@ static void wcd9xxx_report_plug(struct wcd9xxx_mbhc *mbhc, int insertion,
 						mbhc->mbhc_cfg->micbias);
 		}
 		mbhc->zl = mbhc->zr = 0;
+		if (mach_data)
+			mach_data->curr_hs_impedance = 0;
 		pr_debug("%s: Reporting removal %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
 		wcd9xxx_jack_report(mbhc, &mbhc->headset_jack, mbhc->hph_status,
@@ -864,6 +873,8 @@ static void wcd9xxx_report_plug(struct wcd9xxx_mbhc *mbhc, int insertion,
 		hphlocp_off_report(mbhc, SND_JACK_OC_HPHL);
 		mbhc->current_plug = PLUG_TYPE_NONE;
 		mbhc->polling_active = false;
+
+		es9018_set_headphone(false);
 	} else {
 		/*
 		 * Report removal of current jack type.
@@ -925,6 +936,10 @@ static void wcd9xxx_report_plug(struct wcd9xxx_mbhc *mbhc, int insertion,
 		wcd9xxx_jack_report(mbhc, &mbhc->headset_jack,
 				    mbhc->hph_status, WCD9XXX_JACK_MASK);
 		wcd9xxx_clr_and_turnon_hph_padac(mbhc);
+
+		if (mbhc->vddio_on && mbhc->polling_active)
+			__wcd9xxx_switch_micbias(mbhc, 1, false, false);
+		es9018_set_headphone(true);
 	}
 	/* Setup insert detect */
 	wcd9xxx_insert_detect_setup(mbhc, !insertion);
@@ -3152,6 +3167,9 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 			pr_debug("Attempt %d found correct plug %d\n", retry,
 				 plug_type);
 			correction = true;
+
+			if (mbhc->vddio_on)
+				__wcd9xxx_switch_micbias(mbhc, 1, false, false);
 			break;
 		}
 	}
@@ -4490,6 +4508,13 @@ void wcd9xxx_mbhc_stop(struct wcd9xxx_mbhc *mbhc)
 }
 EXPORT_SYMBOL(wcd9xxx_mbhc_stop);
 
+void wcd9xxx_mbhc_enable_vddio(struct wcd9xxx_mbhc *mbhc, bool on)
+{
+	__wcd9xxx_switch_micbias(mbhc, on, false, false);
+	mbhc->vddio_on = on;
+}
+EXPORT_SYMBOL(wcd9xxx_mbhc_enable_vddio);
+
 static enum wcd9xxx_micbias_num
 wcd9xxx_event_to_micbias(const enum wcd9xxx_notify_event event)
 {
@@ -4807,12 +4832,14 @@ static int wcd9xxx_detect_impedance(struct wcd9xxx_mbhc *mbhc, uint32_t *zl,
 {
 	int i;
 	int ret = 0;
+	u8 micb_mbhc_val;
 	s16 l[3], r[3];
 	s16 *z[] = {
 		&l[0], &r[0], &r[1], &l[1], &l[2], &r[2],
 	};
 	bool override_en;
 	struct snd_soc_codec *codec = mbhc->codec;
+	struct msm8974_asoc_mach_data *mach_data = snd_soc_card_get_drvdata(codec->card);
 	const int mux_wait_us = 25;
 	const struct wcd9xxx_reg_mask_val reg_set_mux[] = {
 		/* Phase 1 */
@@ -4847,6 +4874,15 @@ static int wcd9xxx_detect_impedance(struct wcd9xxx_mbhc *mbhc, uint32_t *zl,
 	mutex_lock(&codec->mutex);
 
 	wcd9xxx_onoff_ext_mclk(mbhc, true);
+
+	/*
+	 * For impedance detection, make sure to disable micbias from
+	 * override signal so that override does not cause micbias
+	 * to be enabled. This setting will be undone after completing
+	 * impedance measurement.
+	 */
+	micb_mbhc_val = snd_soc_read(codec, WCD9XXX_A_MAD_ANA_CTRL);
+	snd_soc_update_bits(codec, WCD9XXX_A_MAD_ANA_CTRL, 0x10, 0x00);
 
 	override_en = (snd_soc_read(codec, WCD9XXX_A_CDC_MBHC_B1_CTL) & 0x04) ?
 					true : false;
@@ -4901,7 +4937,23 @@ static int wcd9xxx_detect_impedance(struct wcd9xxx_mbhc *mbhc, uint32_t *zl,
 
 	if (!override_en)
 		wcd9xxx_turn_onoff_override(mbhc, false);
+
+	/* undo the micbias disable for override */
+	snd_soc_write(codec, WCD9XXX_A_MAD_ANA_CTRL, micb_mbhc_val);
+
 	mbhc->mbhc_cb->compute_impedance(l, r, zl, zr);
+	if (mbhc->impedance_offset) {
+		if (*zl < mbhc->impedance_offset)
+			*zl = 0;
+		else
+			*zl -= mbhc->impedance_offset;
+		if (*zr < mbhc->impedance_offset)
+			*zr = 0;
+		else
+			*zr -= mbhc->impedance_offset;
+	}
+	if (mach_data)
+		mach_data->curr_hs_impedance = (*zl < *zr) ? *zl : *zr;
 
 	pr_debug("%s: L0: 0x%x(%d), L1: 0x%x(%d), L2: 0x%x(%d)\n",
 		 __func__,
@@ -4967,6 +5019,8 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 	mbhc->mbhc_cb = mbhc_cb;
 	mbhc->intr_ids = mbhc_cdc_intr_ids;
 	mbhc->impedance_detect = impedance_det_en;
+	mbhc->impedance_offset = 22000;	/* should come from dev tree, mOhm */
+	mbhc->vddio_on = false;
 
 	if (mbhc->intr_ids == NULL) {
 		pr_err("%s: Interrupt mapping not provided\n", __func__);
@@ -5024,6 +5078,10 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 		impedance_detect_en = 0;
 	else
 		impedance_detect_en = impedance_det_en ? 1 : 0;
+
+	/* For those h/w which doesn't support, force disable the feature */
+	if ((get_hw_version_major() == 3) || (get_hw_version_major() == 4))
+		impedance_detect_en = 0;
 
 	core_res = mbhc->resmgr->core_res;
 	ret = wcd9xxx_request_irq(core_res, mbhc->intr_ids->insertion,

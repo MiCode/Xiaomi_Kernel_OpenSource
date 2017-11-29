@@ -2,6 +2,7 @@
  * trace_output.c
  *
  * Copyright (C) 2008 Red Hat Inc, Steven Rostedt <srostedt@redhat.com>
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  */
 
@@ -630,11 +631,25 @@ int trace_print_context(struct trace_iterator *iter)
 	unsigned long secs = (unsigned long)t;
 	char comm[TASK_COMM_LEN];
 	int ret;
+	int tgid;
 
 	trace_find_cmdline(entry->pid, comm);
 
-	ret = trace_seq_printf(s, "%16s-%-5d [%03d] ",
-			       comm, entry->pid, iter->cpu);
+	ret = trace_seq_printf(s, "%16s-%-5d ", comm, entry->pid);
+	if (!ret)
+		return 0;
+
+	if (trace_flags & TRACE_ITER_TGID) {
+		tgid = trace_find_tgid(entry->pid);
+		if (tgid < 0)
+			ret = trace_seq_puts(s, "(-----) ");
+		else
+			ret = trace_seq_printf(s, "(%5d) ", tgid);
+		if (!ret)
+			return 0;
+	}
+
+	ret = trace_seq_printf(s, "[%03d] ", iter->cpu);
 	if (!ret)
 		return 0;
 

@@ -7,6 +7,7 @@
 */
 
 #include "fuse_i.h"
+#include "fuse_shortcircuit.h"
 
 #include <linux/init.h>
 #include <linux/module.h>
@@ -66,19 +67,6 @@ void fuse_request_free(struct fuse_req *req)
 	kmem_cache_free(fuse_req_cachep, req);
 }
 
-static void block_sigs(sigset_t *oldset)
-{
-	sigset_t mask;
-
-	siginitsetinv(&mask, sigmask(SIGKILL));
-	sigprocmask(SIG_BLOCK, &mask, oldset);
-}
-
-static void restore_sigs(sigset_t *oldset)
-{
-	sigprocmask(SIG_SETMASK, oldset, NULL);
-}
-
 static void __fuse_get_request(struct fuse_req *req)
 {
 	atomic_inc(&req->count);
@@ -101,14 +89,11 @@ static void fuse_req_init_context(struct fuse_req *req)
 struct fuse_req *fuse_get_req(struct fuse_conn *fc)
 {
 	struct fuse_req *req;
-	sigset_t oldset;
 	int intr;
 	int err;
 
 	atomic_inc(&fc->num_waiting);
-	block_sigs(&oldset);
-	intr = wait_event_interruptible(fc->blocked_waitq, !fc->blocked);
-	restore_sigs(&oldset);
+	intr = wait_event_killable_exclusive(fc->blocked_waitq, !fc->blocked);
 	err = -EINTR;
 	if (intr)
 		goto out;
@@ -336,6 +321,18 @@ __acquires(fc->lock)
 	spin_lock(&fc->lock);
 }
 
+static void wait_answer_killable(struct fuse_conn *fc, struct fuse_req *req)
+__releases(fc->lock)
+__acquires(fc->lock)
+{
+	if (fatal_signal_pending(current))
+		return;
+
+	spin_unlock(&fc->lock);
+	wait_event_killable(req->waitq, req->state == FUSE_REQ_FINISHED);
+	spin_lock(&fc->lock);
+}
+
 static void queue_interrupt(struct fuse_conn *fc, struct fuse_req *req)
 {
 	list_add_tail(&req->intr_entry, &fc->interrupts);
@@ -362,12 +359,8 @@ __acquires(fc->lock)
 	}
 
 	if (!req->force) {
-		sigset_t oldset;
-
 		/* Only fatal signals may interrupt this */
-		block_sigs(&oldset);
-		wait_answer_interruptible(fc, req);
-		restore_sigs(&oldset);
+		wait_answer_killable(fc, req);
 
 		if (req->aborted)
 			goto aborted;
@@ -1780,6 +1773,8 @@ static ssize_t fuse_dev_do_write(struct fuse_conn *fc,
 
 	err = copy_out_args(cs, &req->out, nbytes);
 	fuse_copy_finish(cs);
+
+	fuse_setup_shortcircuit(fc, req);
 
 	spin_lock(&fc->lock);
 	req->locked = 0;

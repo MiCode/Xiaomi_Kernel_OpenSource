@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -528,8 +529,10 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 	switch (prtd->codec) {
 	case FORMAT_LINEAR_PCM:
 		pr_debug("SND_AUDIOCODEC_PCM\n");
-		if (prtd->codec_param.codec.format == SNDRV_PCM_FORMAT_S24_LE)
+		if (prtd->codec_param.codec.format == SNDRV_PCM_FORMAT_S24_LE) {
 			bit_width = 24;
+			pr_debug("%s, 24 bits bitwidth", __func__);
+		}
 		ret = q6asm_media_format_block_pcm_format_support(
 							prtd->audio_client,
 							prtd->sample_rate,
@@ -590,6 +593,12 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 	};
 
 	pr_debug("%s: stream_id %d\n", __func__, ac->stream_id);
+
+	if (prtd->codec_param.codec.format == SNDRV_PCM_FORMAT_S24_LE) {
+		bits_per_sample = 24;
+		pr_debug("%s, 24 bits bitwidth", __func__);
+	}
+
 	ret = q6asm_stream_open_write_v2(ac,
 				prtd->codec, bits_per_sample,
 				ac->stream_id,
@@ -883,6 +892,21 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 		break;
 	case SNDRV_PCM_RATE_48000:
 		prtd->sample_rate = 48000;
+		break;
+	case SNDRV_PCM_RATE_64000:
+		prtd->sample_rate = 64000;
+		break;
+	case SNDRV_PCM_RATE_88200:
+		prtd->sample_rate = 88200;
+		break;
+	case SNDRV_PCM_RATE_96000:
+		prtd->sample_rate = 96000;
+		break;
+	case SNDRV_PCM_RATE_176400:
+		prtd->sample_rate = 176400;
+		break;
+	case SNDRV_PCM_RATE_192000:
+		prtd->sample_rate = 192000;
 		break;
 	}
 

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -7185,5 +7186,81 @@ struct afe_svc_cmd_set_clip_bank_selection {
 #define US_PROX_FORMAT_V4       0x0001273B
 #define US_RAW_SYNC_FORMAT      0x0001272F
 #define US_GES_SYNC_FORMAT      0x00012730
+
+#define AFE_MODULE_GROUP_DEVICE	0x00010254
+#define AFE_PARAM_ID_GROUP_DEVICE_CFG	0x00010255
+#define AFE_PARAM_ID_GROUP_DEVICE_ENABLE 0x00010256
+#define AFE_GROUP_DEVICE_ID_SECONDARY_MI2S_RX	0x1102
+
+/*  Payload of the #AFE_PARAM_ID_GROUP_DEVICE_CFG
+ * parameter, which configures max of 8 AFE ports
+ * into a group.
+ * The fixed size of this structure is sixteen bytes.
+ */
+struct afe_group_device_group_cfg {
+	u32 minor_version;
+	u16 group_id;
+	u16 num_channels;
+	u16 port_id[8];
+} __packed;
+
+
+/*  Payload of the #AFE_PARAM_ID_GROUP_DEVICE_ENABLE
+ * parameter, which enables or
+ * disables any module.
+ * The fixed size of this structure is four bytes.
+ */
+
+struct afe_group_device_enable {
+	u16 group_id;
+	/* valid value is AFE_GROUP_DEVICE_ID_SECONDARY_MI2S_RX */
+	u16 enable;
+/* Enables (1) or disables (0) the module. */
+} __packed;
+
+struct afe_port_group_create {
+	struct apr_hdr hdr;
+	struct afe_svc_cmd_set_param param;
+	struct afe_port_param_data_v2 pdata;
+	union {
+		struct afe_group_device_group_cfg group_cfg;
+		struct afe_group_device_enable group_enable;
+	} __packed data;
+} __packed;
+
+/* Structures for AFE communication */
+struct afe_custom_opalum_set_config_t {
+	struct apr_hdr					 hdr;
+	struct afe_port_cmd_set_param_v2 param;
+	struct afe_port_param_data_v2    data;
+} __packed;
+
+struct afe_custom_opalum_get_config_t {
+	struct afe_port_cmd_get_param_v2 param;
+	struct afe_port_param_data_v2	 data;
+} __packed;
+
+struct opalum_dual_data_ctrl_t {
+	uint32_t		data1;		/* Low Temp threshold */
+	uint32_t		data2;		/* High Temp threshold */
+};
+
+struct opalum_process_enable_ctrl_t {
+	uint32_t	enable_flag; /**< Enable flag: 0 = disabled; nonzero = enabled. */
+};
+
+struct opalum_set_preset_ctrl_t {
+	uint32_t	preset; /**< Enable flag: 0 = disabled; nonzero = enabled. */
+};
+
+struct opalum_f0_calib_data_t {
+	int			f0;
+	int			ref_diff;
+};
+
+struct opalum_temp_calib_data_t {
+	int			acc;
+	int			count;
+};
 
 #endif /*_APR_AUDIO_V2_H_ */

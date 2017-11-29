@@ -138,6 +138,9 @@ struct fuse_file {
 
 	/** Has flock been performed on this file? */
 	bool flock:1;
+
+	/* the read write file */
+	struct file *rw_lower_file;
 };
 
 /** One input argument of a request */
@@ -310,6 +313,9 @@ struct fuse_req {
 
 	/** Request is stolen from fuse_file->reserved_req */
 	struct file *stolen_file;
+
+	/** fuse shortcircuit file  */
+	struct file *private_lower_rw_file;
 };
 
 /**
@@ -424,6 +430,9 @@ struct fuse_conn {
 
 	/** Set if bdi is valid */
 	unsigned bdi_initialized:1;
+
+	/** Shortcircuited IO. */
+	unsigned shortcircuit_io:1;
 
 	/*
 	 * The following bitfields are only for optimization purposes

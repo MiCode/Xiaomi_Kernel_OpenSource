@@ -24,6 +24,7 @@ EXPORT_SYMBOL_GPL(cpu_subsys);
 
 static DEFINE_PER_CPU(struct device *, cpu_sys_devices);
 
+unsigned long nrcpus;
 #ifdef CONFIG_HOTPLUG_CPU
 static ssize_t show_online(struct device *dev,
 			   struct device_attribute *attr,
@@ -166,10 +167,33 @@ static struct cpu_attr cpu_attrs[] = {
 };
 
 /*
+ * Print values for number of avaliable cpus
+ */
+static ssize_t print_cpus_nrcpus(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int n;
+	nrcpus = nrcpus ? : num_possible_cpus();
+	n = snprintf(buf, PAGE_SIZE-2, "%lu\n", nrcpus);
+	return n;
+}
+
+static ssize_t store_cpus_nrcpus(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int ret = kstrtoul(buf, 10, &nrcpus);
+	if (ret < 0)
+		printk(KERN_ERR "store_cpus_nrcpus failed: %d\n", ret);
+	return count;
+}
+static DEVICE_ATTR(nrcpus, 0644, print_cpus_nrcpus, store_cpus_nrcpus);
+
+/*
  * Print values for NR_CPUS and offlined cpus
  */
 static ssize_t print_cpus_kernel_max(struct device *dev,
-				     struct device_attribute *attr, char *buf)
+		struct device_attribute *attr, char *buf)
 {
 	int n = snprintf(buf, PAGE_SIZE-2, "%d\n", NR_CPUS - 1);
 	return n;
@@ -289,6 +313,7 @@ static struct attribute *cpu_root_attrs[] = {
 #ifdef CONFIG_ARCH_HAS_CPU_AUTOPROBE
 	&dev_attr_modalias.attr,
 #endif
+	&dev_attr_nrcpus.attr,
 	NULL
 };
 

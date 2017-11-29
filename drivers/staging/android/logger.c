@@ -4,6 +4,7 @@
  * A Logging Subsystem
  *
  * Copyright (C) 2007-2008 Google, Inc.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * Robert Love <rlove@google.com>
  *
@@ -31,6 +32,10 @@
 
 #ifndef CONFIG_LOGCAT_SIZE
 #define CONFIG_LOGCAT_SIZE 256
+#endif
+
+#ifndef CONFIG_LARGE_LOGCAT_SIZE
+#define CONFIG_LARGE_LOGCAT_SIZE CONFIG_LOGCAT_SIZE
 #endif
 
 /*
@@ -732,10 +737,11 @@ static struct logger_log VAR = { \
 	.size = SIZE, \
 };
 
-DEFINE_LOGGER_DEVICE(log_main, LOGGER_LOG_MAIN, CONFIG_LOGCAT_SIZE*1024)
+DEFINE_LOGGER_DEVICE(log_main, LOGGER_LOG_MAIN, CONFIG_LARGE_LOGCAT_SIZE*1024)
 DEFINE_LOGGER_DEVICE(log_events, LOGGER_LOG_EVENTS, CONFIG_LOGCAT_SIZE*1024)
-DEFINE_LOGGER_DEVICE(log_radio, LOGGER_LOG_RADIO, CONFIG_LOGCAT_SIZE*1024)
+DEFINE_LOGGER_DEVICE(log_radio, LOGGER_LOG_RADIO, CONFIG_LARGE_LOGCAT_SIZE*1024)
 DEFINE_LOGGER_DEVICE(log_system, LOGGER_LOG_SYSTEM, CONFIG_LOGCAT_SIZE*1024)
+DEFINE_LOGGER_DEVICE(xiaomi_wsevents, LOGGER_WS_EVENTS, 256*1024)
 
 static struct logger_log *get_log_from_minor(int minor)
 {
@@ -747,6 +753,8 @@ static struct logger_log *get_log_from_minor(int minor)
 		return &log_radio;
 	if (log_system.misc.minor == minor)
 		return &log_system;
+	if (xiaomi_wsevents.misc.minor == minor)
+		return &xiaomi_wsevents;
 	return NULL;
 }
 
@@ -784,6 +792,10 @@ static int __init logger_init(void)
 		goto out;
 
 	ret = init_log(&log_system);
+	if (unlikely(ret))
+		goto out;
+
+	ret = init_log(&xiaomi_wsevents);
 	if (unlikely(ret))
 		goto out;
 

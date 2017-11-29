@@ -12,7 +12,7 @@
 #define I2C_SEQ_REG_DATA_MAX      20
 #define MAX_CID                   16
 
-#define I2C_USER_REG_DATA_MAX 1024
+#define I2C_USER_REG_DATA_MAX 1160
 
 #define MSM_SENSOR_MCLK_8HZ   8000000
 #define MSM_SENSOR_MCLK_16HZ  16000000
@@ -108,6 +108,7 @@ enum msm_sensor_power_seq_gpio_t {
 	SENSOR_GPIO_VAF,
 	SENSOR_GPIO_FL_EN,
 	SENSOR_GPIO_FL_NOW,
+	SENSOR_GPIO_IMG_EN,
 	SENSOR_GPIO_MAX,
 };
 
@@ -356,6 +357,7 @@ struct msm_sensor_info_t {
 	uint32_t sensor_mount_angle;
 	int modes_supported;
 	enum camb_position_t position;
+	uint32_t mclk;
 };
 
 struct camera_vreg_t {
@@ -380,6 +382,8 @@ struct msm_sensor_init_params {
 	enum camb_position_t position;
 	/* sensor mount angle */
 	uint32_t            sensor_mount_angle;
+	/* sensor mclk source */
+	uint32_t            mclk;
 };
 
 struct msm_camera_sensor_slave_info {
@@ -452,7 +456,7 @@ struct msm_eeprom_cfg_data {
 	enum eeprom_cfg_type_t cfgtype;
 	uint8_t is_supported;
 	union {
-		char eeprom_name[MAX_SENSOR_NAME];
+		char eeprom_name[MAX_EEPROM_NAME];
 		struct eeprom_get_t get_data;
 		struct eeprom_read_t read_data;
 		struct eeprom_write_t write_data;
@@ -496,6 +500,7 @@ enum msm_actuator_cfg_type_t {
 	CFG_SET_POSITION,
 	CFG_ACTUATOR_POWERDOWN,
 	CFG_ACTUATOR_POWERUP,
+	CFG_SET_CAM_MODE,
 };
 
 enum actuator_type {
@@ -609,6 +614,12 @@ struct msm_actuator_set_position_t {
 	uint16_t delay[MAX_NUMBER_OF_STEPS];
 };
 
+typedef enum{
+    ACTUATOR_CAM_MODE_CAMERA,
+    ACTUATOR_CAM_MODE_CAMCORDER,
+    ACTUATOR_CAM_MODE_MAX,
+} actuator_cam_mode_t;
+
 struct msm_actuator_cfg_data {
 	int cfgtype;
 	uint8_t is_af_supported;
@@ -618,6 +629,7 @@ struct msm_actuator_cfg_data {
 		struct msm_actuator_get_info_t get_info;
 		struct msm_actuator_set_position_t setpos;
 		enum af_camera_name cam_name;
+		actuator_cam_mode_t cam_mode;
 	} cfg;
 };
 

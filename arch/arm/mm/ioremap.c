@@ -4,6 +4,7 @@
  * Re-map IO memory to kernel address space so that we can access it.
  *
  * (C) Copyright 1995 1996 Linus Torvalds
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * Hacked for ARM by Phil Blundell <philb@gnu.org>
  * Hacked to allow all architectures to build, and various cleanups
@@ -248,8 +249,8 @@ void __iomem * __arm_ioremap_pfn_caller(unsigned long pfn,
 	/*
 	 * Don't allow RAM to be mapped - this causes problems with ARMv6+
 	 */
-	if (WARN_ON(pfn_valid(pfn)))
-		return NULL;
+
+
 
 	area = get_vm_area_caller(size, VM_IOREMAP, caller);
  	if (!area)

@@ -101,6 +101,47 @@ config MSM_ISPIF_V1
           of any CID of MSM_CSI22_HEADER can be routed to of pixel
           or raw data interface in VFE.
 
+config S5K3M2
+	bool "Sensor S5K3M2 (BAYER 13M)"
+	depends on MSMB_CAMERA
+	---help---
+		Sony 13 MP Bayer Sensor with auto focus, uses
+		4 mipi lanes, preview config = 4208 x 3120 at 30 fps,
+		snapshot config = 4208 x 3120 at 30 fps,
+		Video HDR support.
+
+config IMX214
+	bool "Sensor IMX214 (BAYER 13M)"
+	depends on MSMB_CAMERA
+	---help---
+		Sony 13 MP Bayer Sensor with auto focus, uses
+		4 mipi lanes, preview config = 4208 x 3120 at 30 fps,
+		snapshot config = 4208 x 3120 at 30 fps,
+		Video HDR support.
+
+config IMX135
+	bool "Sensor IMX135 (BAYER 12M)"
+	depends on MSMB_CAMERA
+	---help---
+		Sony 12 MP Bayer Sensor with auto focus, uses
+		4 mipi lanes, preview config = 2104 x 1560 at 49 fps,
+		snapshot config = 4208 x 3120 at 24 fps,
+		Video HDR support.
+
+config IMX219
+	bool "Sensor IMX219 (BAYER 8M)"
+	depends on MSMB_CAMERA
+	---help---
+		Sony 8 MP Bayer Sensor, uses 4 mipi lanes,
+		Support 3280x2464 at 30 fps
+
+config IMX132
+	bool "Sensor IMX132 (BAYER 2M)"
+	depends on MSMB_CAMERA
+	---help---
+		SONY 2 MP Bayer Sensor, supports 2 mipi lanes.
+		This sensor driver does not support auto focus.
+
 config IMX134
 	bool "Sensor IMX134 (BAYER 8M)"
 	depends on MSMB_CAMERA
@@ -109,6 +150,15 @@ config IMX134
 		4 mipi lanes full resolution @30fps and
 		HFR @60fps and @120fps
 		Video HDR support.
+
+config OV4688
+	bool "Sensor OV4688 (BAYER 4M)"
+	depends on MSMB_CAMERA
+	---help---
+		OmniVision 4 MP Bayer Sensor, supports 2 mipi lanes,
+		preview and snapshot config at 1932 * 1092 at 30 fps,
+		hfr video at 60, 90 and 120 fps. This sensor driver does
+		not support auto focus.
 
 config OV9724
 	bool "Sensor OV9724 (BAYER 2M)"

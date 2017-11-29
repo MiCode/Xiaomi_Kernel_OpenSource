@@ -1,4 +1,5 @@
 /* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -586,6 +587,21 @@ static int kgsl_pwrctrl_gpubusy_show(struct device *dev,
 	return ret;
 }
 
+static int kgsl_pwrctrl_gpuload_show(struct device *dev,
+struct device_attribute *attr,
+char *buf)
+{
+	int ret;
+	struct kgsl_device *device = kgsl_device_from_dev(dev);
+	struct kgsl_clk_stats *clkstats = &device->pwrctrl.clk_stats;
+	unsigned int gpuload = 0;
+
+	gpuload = clkstats->on_time_old*100/clkstats->elapsed_old;
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", gpuload);
+
+	return ret;
+}
+
 static int kgsl_pwrctrl_gputop_show(struct device *dev,
 					struct device_attribute *attr,
 					char *buf)
@@ -781,6 +797,8 @@ DEVICE_ATTR(idle_timer, 0644, kgsl_pwrctrl_idle_timer_show,
 	kgsl_pwrctrl_idle_timer_store);
 DEVICE_ATTR(gpubusy, 0444, kgsl_pwrctrl_gpubusy_show,
 	NULL);
+DEVICE_ATTR(gpuload, 0444, kgsl_pwrctrl_gpuload_show,
+	NULL);
 DEVICE_ATTR(gputop, 0444, kgsl_pwrctrl_gputop_show,
 	NULL);
 DEVICE_ATTR(gpu_available_frequencies, 0444,
@@ -822,6 +840,7 @@ static const struct device_attribute *pwrctrl_attr_list[] = {
 	&dev_attr_max_gpuclk,
 	&dev_attr_idle_timer,
 	&dev_attr_gpubusy,
+	&dev_attr_gpuload,
 	&dev_attr_gputop,
 	&dev_attr_gpu_available_frequencies,
 	&dev_attr_max_pwrlevel,

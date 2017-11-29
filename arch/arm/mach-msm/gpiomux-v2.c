@@ -1,4 +1,5 @@
 /* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,4 +30,21 @@ void __msm_gpiomux_write(unsigned gpio, struct gpiomux_setting val)
 	}
 	__raw_writel(bits, GPIO_CFG(gpio));
 	mb();
+}
+
+void __msm_gpiomux_read(unsigned gpio, struct gpiomux_setting *val)
+{
+	uint32_t bits, dir;
+
+	bits = readl_relaxed(GPIO_CFG(gpio));
+	val->pull = bits & 0x03;
+	val->func = (bits >> 2) & 0x0F;
+	val->drv = (bits >> 6) & 0x07;
+	dir = (bits >> 9) & 0x1;
+	if (dir == 0)
+		val->dir = GPIOMUX_IN;
+	else {
+		val->dir = (readl_relaxed(GPIO_IN_OUT(gpio)) & BIT(1)) ?
+			GPIOMUX_OUT_HIGH : GPIOMUX_OUT_LOW;
+	}
 }

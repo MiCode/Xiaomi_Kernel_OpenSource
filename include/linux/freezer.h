@@ -57,6 +57,14 @@ extern bool set_freezable(void);
 
 #ifdef CONFIG_CGROUP_FREEZER
 extern bool cgroup_freezing(struct task_struct *task);
+#ifdef CONFIG_FROZEN_APP
+extern void cgroup_thawed_by_pid(int pid_nr);
+#else
+static inline void cgroup_thawed_by_pid(int pid_nr)
+{
+	return;
+}
+#endif
 #else /* !CONFIG_CGROUP_FREEZER */
 static inline bool cgroup_freezing(struct task_struct *task)
 {

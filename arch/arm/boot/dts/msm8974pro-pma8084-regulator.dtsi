@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -566,5 +567,21 @@
 		status = "disabled";
 		regulator-name = "vph_pwr";
 		regulator-always-on;
+	};
+
+	vsp_vreg: disp_vsp_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "vsp";
+		gpio = <&msmgpio 55 0>;
+		enable-active-high;
+		regulator-boot-on;
+	};
+
+	vsn_vreg: disp_vsn_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "vsn";
+		gpio = <&msmgpio 56 0>;
+		enable-active-high;
+		regulator-boot-on;
 	};
 };

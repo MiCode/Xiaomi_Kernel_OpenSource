@@ -245,6 +245,13 @@ config REGULATOR_LP3972
 	 Say Y here to support the voltage regulators and convertors
 	 on National Semiconductors LP3972 PMIC
 
+config REGULATOR_LV52130
+	tristate "ON Semiconductors LV52130 regulator driver"
+	depends on I2C
+	help
+	 Say Y here to support the boost dcdc converter and
+	 inverter charge pump for ON Semiconductors LV52130
+
 config REGULATOR_PCF50633
 	tristate "NXP PCF50633 regulator driver"
         depends on MFD_PCF50633
@@ -322,6 +329,13 @@ config REGULATOR_TPS6507X
 	  This driver supports TPS6507X voltage regulator chips. TPS6507X provides
 	  three step-down converters and two general-purpose LDO voltage regulators.
 	  It supports TI's software based Class-2 SmartReflex implementation.
+
+config REGULATOR_TPS65132S
+	tristate "TI TPS65132S Power regulators"
+	depends on I2C
+	help
+	  This driver supports TPS65132S voltage regulator chips. TPS65132S provides
+	  two programmable output voltage converters.
 
 config REGULATOR_TPS65217
 	tristate "TI TPS65217 Power regulators"

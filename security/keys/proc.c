@@ -1,6 +1,7 @@
 /* procfs files for key database enumeration
  *
  * Copyright (C) 2004 Red Hat, Inc. All Rights Reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  * Written by David Howells (dhowells@redhat.com)
  *
  * This program is free software; you can redistribute it and/or
@@ -188,7 +189,7 @@ static int proc_keys_show(struct seq_file *m, void *v)
 	struct timespec now;
 	unsigned long timo;
 	key_ref_t key_ref, skey_ref;
-	char xbuf[12];
+	char xbuf[16];
 	int rc;
 
 	key_ref = make_key_ref(key, 0);

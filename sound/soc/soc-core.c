@@ -5,6 +5,7 @@
  * Copyright 2005 Openedhand Ltd.
  * Copyright (C) 2010 Slimlogic Ltd.
  * Copyright (C) 2010 Texas Instruments Inc.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * Author: Liam Girdwood <lrg@slimlogic.co.uk>
  *         with code, comments and ideas from :-
@@ -46,6 +47,8 @@
 #include <trace/events/asoc.h>
 
 #define NAME_SIZE	32
+
+static void *rtd;
 
 static DECLARE_WAIT_QUEUE_HEAD(soc_pm_waitq);
 
@@ -1710,6 +1713,7 @@ static int snd_soc_instantiate_card(struct snd_soc_card *card)
 		 "%s", card->long_name ? card->long_name : card->name);
 	snprintf(card->snd_card->driver, sizeof(card->snd_card->driver),
 		 "%s", card->driver_name ? card->driver_name : card->name);
+	card->snd_card->version = card->version;
 	for (i = 0; i < ARRAY_SIZE(card->snd_card->driver); i++) {
 		switch (card->snd_card->driver[i]) {
 		case '_':
@@ -1830,7 +1834,7 @@ static int soc_cleanup_card_resources(struct snd_soc_card *card)
 
 	snd_soc_dapm_free(&card->dapm);
 
-	kfree(card->rtd);
+	/*kfree(card->rtd);*/
 	snd_card_free(card->snd_card);
 	return 0;
 
@@ -3223,11 +3227,13 @@ int snd_soc_register_card(struct snd_soc_card *card)
 
 	soc_init_card_debugfs(card);
 
-	card->rtd = kzalloc(sizeof(struct snd_soc_pcm_runtime) *
+	/*card->rtd = kzalloc(sizeof(struct snd_soc_pcm_runtime) *
 			    (card->num_links + card->num_aux_devs),
-			    GFP_KERNEL);
+			    GFP_KERNEL);*/
+	card->rtd = rtd;
 	if (card->rtd == NULL)
 		return -ENOMEM;
+	memset(rtd, 0 , (128 * 1024));
 	card->num_rtd = 0;
 	card->rtd_aux = &card->rtd[card->num_links];
 
@@ -3244,8 +3250,8 @@ int snd_soc_register_card(struct snd_soc_card *card)
 	ret = snd_soc_instantiate_card(card);
 	if (ret != 0) {
 		soc_cleanup_card_debugfs(card);
-		if (card->rtd)
-			kfree(card->rtd);
+		/*if (card->rtd)
+			kfree(card->rtd);*/
 	}
 
 
@@ -3831,6 +3837,14 @@ static void __exit snd_soc_exit(void)
 	platform_driver_unregister(&soc_driver);
 }
 module_exit(snd_soc_exit);
+
+static int __init snd_soc_core_init(void)
+{
+	pr_warn("reserve 128k bytes continuous physical memory for sound card!\n");
+	rtd = kzalloc((128 * 1024), GFP_KERNEL);
+	return 0;
+}
+core_initcall(snd_soc_core_init);
 
 /* Module information */
 MODULE_AUTHOR("Liam Girdwood, lrg@slimlogic.co.uk");

@@ -13,5 +13,5 @@ struct ramoops_platform_data {
 	unsigned long	record_size;
 	int		dump_oops;
 };
-
+extern void emergency_unlock_console(void);
 #endif

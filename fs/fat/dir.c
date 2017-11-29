@@ -415,6 +415,15 @@ parse_record:
 			}
 			i += chl;
 		}
+#ifndef FEATURE_VFAT_FS_DUALNAMES
+		if (last_u) {
+			/* Compare shortname */
+			bufuname[last_u] = 0x0000;
+			len = fat_uni_to_x8(sb, bufuname, bufname, sizeof(bufname));
+			if (fat_name_match(sbi, name, name_len, bufname, len))
+				goto found;
+		}
+#else
 		if (!last_u)
 			continue;
 
@@ -423,7 +432,7 @@ parse_record:
 		len = fat_uni_to_x8(sb, bufuname, bufname, sizeof(bufname));
 		if (fat_name_match(sbi, name, name_len, bufname, len))
 			goto found;
-
+#endif
 		if (nr_slots) {
 			void *longname = unicode + FAT_MAX_UNI_CHARS;
 			int size = PATH_MAX - FAT_MAX_UNI_SIZE;

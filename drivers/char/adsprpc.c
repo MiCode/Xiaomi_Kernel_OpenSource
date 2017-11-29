@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -499,7 +500,8 @@ static int get_page_list(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	pgstart->size = obuf->size;
 	for (i = 0; i < inbufs + outbufs; ++i) {
 		void *buf;
-		int len, num;
+		int num;
+		ssize_t len;
 
 		list[i].num = 0;
 		list[i].pgidx = 0;

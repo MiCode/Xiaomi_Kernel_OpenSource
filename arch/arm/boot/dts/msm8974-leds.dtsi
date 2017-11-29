@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,38 +17,59 @@
 		status = "okay";
 		qcom,rgb_0 {
 			label = "rgb";
-			linux,name = "led:rgb_red";
+			linux,name = "red";
 			qcom,mode = "pwm";
 			qcom,pwm-channel = <6>;
 			qcom,pwm-us = <1000>;
-			qcom,max-current = <12>;
+			qcom,max-current = <48>;
 			qcom,default-state = "off";
 			qcom,id = <3>;
-			linux,default-trigger =
-				"battery-charging";
+			qcom,use-blink;
+			qcom,duty-pcts = [00 00 00 01 01 02 03 04 05 06 07 09 10
+					12 13 15 16 18 19 21 22 24 25 26 27
+					28 28 29 29 30 30 30 29 29 28 28 27
+					26 25 24 22 21 19 18 16 15 13 12 10
+					09 07 06 05 04 03 02 01 01 00 00];
+			qcom,start-idx = <1>;
+			qcom,ramp-step-ms = <48>;
 		};
 
 		qcom,rgb_1 {
 			label = "rgb";
-			linux,name = "led:rgb_green";
+			linux,name = "green";
 			qcom,mode = "pwm";
 			qcom,pwm-channel = <5>;
 			qcom,pwm-us = <1000>;
-			qcom,max-current = <12>;
+			qcom,max-current = <48>;
 			qcom,default-state = "off";
 			qcom,id = <4>;
-			linux,default-trigger = "battery-full";
+			qcom,use-blink;
+			qcom,duty-pcts = [00 00 00 01 01 02 03 04 05 06 07 09 10
+					12 13 15 16 18 19 21 22 24 25 26 27
+					28 28 29 29 30 30 30 29 29 28 28 27
+					26 25 24 22 21 19 18 16 15 13 12 10
+					09 07 06 05 04 03 02 01 01 00 00];
+			qcom,start-idx = <1>;
+			qcom,ramp-step-ms = <48>;
 		};
 
 		qcom,rgb_2 {
 			label = "rgb";
-			linux,name = "led:rgb_blue";
+			linux,name = "blue";
 			qcom,mode = "pwm";
 			qcom,pwm-channel = <4>;
 			qcom,pwm-us = <1000>;
-			qcom,max-current = <12>;
+			qcom,max-current = <48>;
+			qcom,default-state = "off";
 			qcom,id = <5>;
-			status = "disabled";
+			qcom,use-blink;
+				qcom,duty-pcts = [00 00 00 01 01 02 03 04 05 06 07 09 10
+					12 13 15 16 18 19 21 22 24 25 26 27
+					28 28 29 29 30 30 30 29 29 28 28 27
+					26 25 24 22 21 19 18 16 15 13 12 10
+					09 07 06 05 04 03 02 01 01 00 00];
+			qcom,start-idx = <1>;
+			qcom,ramp-step-ms = <48>;
 		};
 	};
 
@@ -66,7 +88,7 @@
 			qcom,default-state = "off";
 			qcom,headroom = <3>;
 			qcom,duration = <1280>;
-			qcom,clamp-curr = <200>;
+			qcom,clamp-curr = <400>;
 			qcom,startup-dly = <3>;
 			qcom,safety-timer;
 			label = "flash";
@@ -82,7 +104,7 @@
 			qcom,default-state = "off";
 			qcom,headroom = <3>;
 			qcom,duration = <1280>;
-			qcom,clamp-curr = <200>;
+			qcom,clamp-curr = <400>;
 			qcom,startup-dly = <3>;
 			qcom,safety-timer;
 			linux,default-trigger =
@@ -103,7 +125,7 @@
 			label = "flash";
 			qcom,id = <2>;
 			linux,name = "led:flash_torch";
-			qcom,current = <200>;
+			qcom,current = <80>;
 			qcom,torch-enable;
 		};
 	};
@@ -129,78 +151,26 @@
 
 		qcom,kpdbl1 {
 			label = "kpdbl";
-			linux,name = "kpdbl-pwm-1";
+			linux,name = "button-backlight";
 			qcom,mode = "pwm";
 			qcom,pwm-channel = <8>;
 			qcom,pwm-us = <1000>;
 			qcom,id = <7>;
-			qcom,max-current = <20>;
+			qcom,max-current = <5>;
 			qcom,row-id = <0>;
 			qcom,row-src-en;
-			qcom,always-on;
-			qcom,start-idx = <1>;
-			qcom,ramp-step-ms = <120>;
-			qcom,duty-pcts = [00 00 00 00 64
-					64 00 00 00 00];
-			qcom,use-blink;
-			qcom,in-order-command-processing;
 		};
 
 		qcom,kpdbl2 {
 			label = "kpdbl";
-			linux,name = "kpdbl-pwm-2";
+			linux,name = "button-backlight1";
 			qcom,mode = "pwm";
 			qcom,pwm-channel = <9>;
 			qcom,pwm-us = <1000>;
 			qcom,id = <7>;
-			qcom,max-current = <20>;
+			qcom,max-current = <5>;
 			qcom,row-id = <1>;
 			qcom,row-src-en;
-                        qcom,start-idx = <1>;
-                        qcom,ramp-step-ms = <120>;
-                        qcom,duty-pcts = [00 00 00 00 64
-                                        64 00 00 00 00];
-                        qcom,use-blink;
-                        qcom,in-order-command-processing;
-
-		};
-
-		qcom,kpdbl3 {
-			label = "kpdbl";
-			linux,name = "kpdbl-pwm-3";
-			qcom,mode = "pwm";
-			qcom,pwm-channel = <10>;
-			qcom,pwm-us = <1000>;
-			qcom,id = <7>;
-			qcom,max-current = <20>;
-			qcom,row-id = <2>;
-			qcom,row-src-en;
-                        qcom,start-idx = <1>;
-                        qcom,ramp-step-ms = <120>;
-                        qcom,duty-pcts = [00 00 00 00 64
-                                        64 00 00 00 00];
-                        qcom,use-blink;
-                        qcom,in-order-command-processing;
-
-		};
-
-		qcom,kpdbl4 {
-			label = "kpdbl";
-			linux,name = "kpdbl-pwm-4";
-			qcom,mode = "pwm";
-			qcom,pwm-channel = <11>;
-			qcom,pwm-us = <1000>;
-			qcom,id = <7>;
-			qcom,max-current = <20>;
-			qcom,row-id = <3>;
-			qcom,row-src-en;
-                        qcom,start-idx = <1>;
-                        qcom,ramp-step-ms = <120>;
-                        qcom,duty-pcts = [00 00 00 00 64
-                                        64 00 00 00 00];
-                        qcom,use-blink;
-                        qcom,in-order-command-processing;
-
 		};
 	};
 };

@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -140,15 +141,22 @@ static int msm_eeprom_config(struct msm_eeprom_ctrl_t *e_ctrl,
 	struct msm_eeprom_cfg_data *cdata =
 		(struct msm_eeprom_cfg_data *)argp;
 	int rc = 0;
+	size_t length = 0;
 
 	CDBG("%s E\n", __func__);
 	switch (cdata->cfgtype) {
 	case CFG_EEPROM_GET_INFO:
 		CDBG("%s E CFG_EEPROM_GET_INFO\n", __func__);
 		cdata->is_supported = e_ctrl->is_supported;
+		length = strlen(e_ctrl->eboard_info->eeprom_name) + 1;
+		if (length > MAX_EEPROM_NAME) {
+			pr_err("%s:%d invalid eeprom_name length %d\n",
+					__func__, __LINE__, (int)length);
+			rc = -EINVAL;
+			break;
+		}
 		memcpy(cdata->cfg.eeprom_name,
-			e_ctrl->eboard_info->eeprom_name,
-			sizeof(cdata->cfg.eeprom_name));
+			e_ctrl->eboard_info->eeprom_name, length);
 		break;
 	case CFG_EEPROM_GET_CAL_DATA:
 		CDBG("%s E CFG_EEPROM_GET_CAL_DATA\n", __func__);
@@ -275,7 +283,7 @@ static int read_eeprom_memory(struct msm_eeprom_ctrl_t *e_ctrl,
 			      struct msm_eeprom_memory_block_t *block)
 {
 	int rc = 0;
-	int j;
+	int j, delay;
 	struct msm_eeprom_memory_map_t *emap = block->map;
 	uint8_t *memptr = block->mapdata;
 	struct msm_eeprom_board_info *eb_info = NULL;
@@ -300,7 +308,8 @@ static int read_eeprom_memory(struct msm_eeprom_ctrl_t *e_ctrl,
 			rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
 				&(e_ctrl->i2c_client), emap[j].page.addr,
 				emap[j].page.data, emap[j].page.data_t);
-				msleep(emap[j].page.delay);
+				delay = emap[j].page.delay * 1000;
+				usleep_range(delay, delay + 1000);
 			if (rc < 0) {
 				pr_err("%s: page write failed\n", __func__);
 				return rc;
@@ -311,7 +320,8 @@ static int read_eeprom_memory(struct msm_eeprom_ctrl_t *e_ctrl,
 			rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
 				&(e_ctrl->i2c_client), emap[j].pageen.addr,
 				emap[j].pageen.data, emap[j].pageen.data_t);
-				msleep(emap[j].pageen.delay);
+				delay = emap[j].pageen.delay * 1000;
+				usleep_range(delay, delay + 1000);
 			if (rc < 0) {
 				pr_err("%s: page enable failed\n", __func__);
 				return rc;
@@ -322,7 +332,8 @@ static int read_eeprom_memory(struct msm_eeprom_ctrl_t *e_ctrl,
 			rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_poll(
 				&(e_ctrl->i2c_client), emap[j].poll.addr,
 				emap[j].poll.data, emap[j].poll.data_t);
-				msleep(emap[j].poll.delay);
+				delay = emap[j].poll.delay * 1000;
+				usleep_range(delay, delay + 1000);
 			if (rc < 0) {
 				pr_err("%s: poll failed\n", __func__);
 				return rc;

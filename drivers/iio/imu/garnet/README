@@ -1,0 +1,11 @@
+put this driver into kernel/drivers/staging/iio/imu/garnet/
+
+modify the Makefile of staging/iio/imu/Makefile by adding
+obj-y += garnet/
+
+modify the Kconfig of staging/iio/imu/Kconfig by adding
+source "drivers/staging/iio/imu/garnet/Kconfig"
+
+remember select Garnet in the Kernel Make Menuconfig file to make sure it is
+built.
+

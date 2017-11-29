@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +26,10 @@
 #include <linux/of.h>
 #include <linux/cpu.h>
 #include <linux/platform_device.h>
+#ifdef CONFIG_MSM_CPU_REGSAVE
+#include <linux/memblock.h>
+#include <linux/kallsyms.h>
+#endif
 #include <mach/scm.h>
 #include <mach/msm_memory_dump.h>
 
@@ -66,6 +71,50 @@ struct msm_watchdog_data {
 	struct notifier_block panic_blk;
 };
 
+#ifdef CONFIG_MSM_CPU_REGSAVE
+unsigned int *scm_regsave;
+static void print_regdump_head(unsigned int *addr)
+{
+	pr_info("watchdog: ##########################WATCHDOG INFO#########################\n");
+	pr_info("watchdog: magic: %x  version: %x   nCores: %x\n", addr[0], addr[1], addr[2]);
+	pr_info("watchdog: cpu status:\nwatchdog: cpu0: %x  cpu1: %x  cpu2: %x  cpu3: %x\n",
+			addr[3], addr[4], addr[5], addr[6]);
+}
+
+static void print_cpu_regs(int cpu_id, unsigned int *addr)
+{
+	int i = 0;
+
+	if (cpu_id == 4)
+		pr_info("watchdog: secure world  pc: %8x ", addr[0]);
+	else
+		pr_info("watchdog: cpu%d  pc: %8x ", cpu_id, addr[0]);
+	__print_symbol("%s\n", addr[0]);
+
+	if (addr[0]) {
+		pr_info("watchdog: dump registers for cpu%d:\n", cpu_id);
+		for (i = 1; i < 33; i += 4) {
+			pr_info("watchdog: %8x %8x %8x %8x\n", addr[i], addr[i+1], addr[i+2], addr[i+3]);
+		}
+		pr_info("watchdog: %8x %8x\n", addr[i+4], addr[i+5]);
+	}
+}
+
+static void print_wdog_status(unsigned int *addr)
+{
+	int i = 0;
+	print_regdump_head(addr);
+	addr += 7;
+	for (i = 0; i < 5; i++) {
+		print_cpu_regs(i, addr);
+		addr += 39;
+	}
+	addr = addr - 2;
+	pr_info("watchdog: wdog status: cpu0: %x  cpu1: %x  cpu2: %x  cpu3: %x\n",
+			addr[0], addr[1], addr[2], addr[3]);
+}
+#endif
+
 /*
  * On the kernel command line specify
  * msm_watchdog_v2.enable=1 to enable the watchdog
@@ -81,6 +130,34 @@ module_param(enable, int, 0);
  */
 static long WDT_HZ = 32765;
 module_param(WDT_HZ, long, 0);
+
+static int wdog_fire;
+static int wdog_fire_set(const char *val, struct kernel_param *kp);
+module_param_call(wdog_fire, wdog_fire_set, param_get_int,
+		&wdog_fire, 0644);
+
+static int wdog_fire_set(const char *val, struct kernel_param *kp)
+{
+	int ret;
+	ret = param_set_int(val, kp);
+	if (ret)
+		return ret;
+	if (wdog_fire) {
+		if (smp_processor_id() != 0) {
+			printk("disable all other cpus first\n");
+			return 0;
+		}
+		local_irq_disable();
+		while (1);
+	}
+#ifdef CONFIG_MSM_CPU_REGSAVE
+	else if (scm_regsave && scm_regsave[0] == 0x44434151) {
+		print_wdog_status(scm_regsave);
+	}
+
+	return 0;
+#endif
+}
 
 static void pet_watchdog_work(struct work_struct *work);
 static void init_watchdog_work(struct work_struct *work);
@@ -132,6 +209,21 @@ static int panic_wdog_handler(struct notifier_block *this,
 				wdog_dd->base + WDT0_BITE_TIME);
 		__raw_writel(1, wdog_dd->base + WDT0_RST);
 	}
+
+	/* Suspend wdog until all stacks are printed */
+	if (enable) {
+		__raw_writel(1, wdog_dd->base + WDT0_RST);
+		__raw_writel(0, wdog_dd->base + WDT0_EN);
+		mb();
+	}
+	printk(KERN_INFO "Stack trace dump:\n");
+	show_state_filter(0);
+	if (enable) {
+		__raw_writel(1, wdog_dd->base + WDT0_EN);
+		__raw_writel(1, wdog_dd->base + WDT0_RST);
+		mb();
+	}
+
 	return NOTIFY_DONE;
 }
 
@@ -359,6 +451,9 @@ static irqreturn_t wdog_ppi_bark(int irq, void *dev_id)
 static void configure_bark_dump(struct msm_watchdog_data *wdog_dd)
 {
 	int ret;
+#ifdef CONFIG_MSM_CPU_REGSAVE
+	void *vaddr = NULL;
+#endif
 	struct msm_client_dump dump_entry;
 	struct {
 		unsigned addr;
@@ -367,7 +462,20 @@ static void configure_bark_dump(struct msm_watchdog_data *wdog_dd)
 
 	wdog_dd->scm_regsave = (void *)__get_free_page(GFP_KERNEL);
 	if (wdog_dd->scm_regsave) {
+#ifndef CONFIG_MSM_CPU_REGSAVE
 		cmd_buf.addr = virt_to_phys(wdog_dd->scm_regsave);
+#else
+		cmd_buf.addr = memblock_end_of_DRAM() - SZ_1M*2 - PAGE_SIZE;
+
+		vaddr = ioremap(cmd_buf.addr, PAGE_SIZE);
+		memcpy(wdog_dd->scm_regsave, vaddr, PAGE_SIZE);
+		scm_regsave = (unsigned int *)wdog_dd->scm_regsave;
+		memset(vaddr, 0, PAGE_SIZE);
+
+		if (scm_regsave && scm_regsave[0] == 0x44434151)
+			print_wdog_status(scm_regsave);
+
+#endif
 		cmd_buf.len  = PAGE_SIZE;
 		ret = scm_call(SCM_SVC_UTIL, SCM_SET_REGSAVE_CMD,
 					&cmd_buf, sizeof(cmd_buf), NULL, 0);
@@ -376,7 +484,11 @@ static void configure_bark_dump(struct msm_watchdog_data *wdog_dd)
 				       "Registers won't be dumped on a dog "
 				       "bite\n");
 		dump_entry.id = MSM_CPU_CTXT;
+#ifdef CONFIG_MSM_CPU_REGSAVE
+		dump_entry.start_addr = memblock_end_of_DRAM() - SZ_1M*2 - PAGE_SIZE;
+#else
 		dump_entry.start_addr = virt_to_phys(wdog_dd->scm_regsave);
+#endif
 		dump_entry.end_addr = dump_entry.start_addr + PAGE_SIZE;
 		ret = msm_dump_table_register(&dump_entry);
 		if (ret)
@@ -434,7 +546,7 @@ static void init_watchdog_work(struct work_struct *work)
 	configure_bark_dump(wdog_dd);
 	timeout = (wdog_dd->bark_time * WDT_HZ)/1000;
 	__raw_writel(timeout, wdog_dd->base + WDT0_BARK_TIME);
-	__raw_writel(timeout + 3*WDT_HZ, wdog_dd->base + WDT0_BITE_TIME);
+	__raw_writel(timeout + 10*WDT_HZ, wdog_dd->base + WDT0_BITE_TIME);
 
 	wdog_dd->panic_blk.notifier_call = panic_wdog_handler;
 	atomic_notifier_chain_register(&panic_notifier_list,

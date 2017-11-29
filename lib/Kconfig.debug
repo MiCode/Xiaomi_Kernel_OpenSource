@@ -10,6 +10,40 @@ config PRINTK_TIME
 	  in kernel startup.  Or add printk.time=1 at boot-time.
 	  See Documentation/kernel-parameters.txt
 
+config PRINTK_CPU_ID
+	bool "Show cpu id on printks"
+	depends on PRINTK
+	default n
+	help
+	  Selecting this option causes current printk cpu id to be
+	  included in printk output. Or add printk.cpu=1 at boot-time.
+	  See Documentation/kernel-parameters.txt
+
+config PRINTK_PID
+	bool "Show pid on printks"
+	depends on PRINTK
+	default n
+	help
+	  Selecting this option causes current task's pid to be
+	  included in printk output. Or add printk.pid=1 at boot-time.
+	  This allows you to see the running process with kernel log.
+	  See Documentation/kernel-parameters.txt
+
+config WATCHPOINT_TRACE
+	bool "HW WATCHPOINT TRACE"
+	depends on HAVE_HW_BREAKPOINT
+	help
+	  Enable this option to be able to watch kernel data address,
+	  which be set by debugfs watchpoint item. Or set by
+	  watchpoint_trace.addr at boot-time. Only for debug purpose.
+	  See Documentation/kernel-parameters.txt for more details.
+
+	  It is useful to monitor a suspicious kernel address value change.
+	  Once the watchpoint event occur, the backstrace and
+	  around memory would be dumped into the printk buffer.
+
+	  If unsure, say N.
+
 config DEFAULT_MESSAGE_LOGLEVEL
 	int "Default message log level (1-7)"
 	range 1 7
@@ -95,6 +129,64 @@ config DEBUG_FS
 
 	  For detailed documentation on the debugfs API, see
 	  Documentation/DocBook/filesystems.
+
+	  If unsure, say N.
+
+config DEBUG_FS_DIGEST0
+	hex "First digest value for debugfs protection"
+	depends on DEBUG_FS
+	help
+	  Enable this option to be able to require password during mount debugfs.
+
+	  If unsure, say N.
+
+config DEBUG_FS_DIGEST1
+	hex "Second digest value for debugfs protection"
+	depends on DEBUG_FS
+	help
+	  Enable this option to be able to require password during mount debugfs.
+
+	  If unsure, say N.
+
+config DEBUG_FS_DIGEST2
+	hex "Third digest value for debugfs protection"
+	depends on DEBUG_FS
+	help
+	  Enable this option to be able to require password during mount debugfs.
+
+	  If unsure, say N.
+
+config DEBUG_FS_DIGEST3
+	hex "Fourth digest value for debugfs protection"
+	depends on DEBUG_FS
+	help
+	  Enable this option to be able to require password during mount debugfs.
+
+	  If unsure, say N.
+
+config DEBUG_FS_DIGEST4
+	hex "Fifth digest value for debugfs protection"
+	depends on DEBUG_FS
+	help
+	  Enable this option to be able to require password during mount debugfs.
+
+	  If unsure, say N.
+
+config DEBUG_FS_WHITE_LIST
+	string "The debugfs protection white list"
+	depends on DEBUG_FS
+	help
+	  Enable this option to set the directory path list separated by colon
+	  which don't need to protect by password.
+
+	  If unsure, say N.
+
+config DEBUG_FS_PRINT_DIGEST
+	bool "Print debugfs digest value for debug purpose"
+	depends on DEBUG_FS
+	default n
+	help
+	  Enable this option to print the calculated digest value.
 
 	  If unsure, say N.
 

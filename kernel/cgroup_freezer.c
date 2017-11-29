@@ -2,6 +2,7 @@
  * cgroup_freezer.c -  control group freezer subsystem
  *
  * Copyright IBM Corporation, 2007
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * Author : Cedric Le Goater <clg@fr.ibm.com>
  *
@@ -369,6 +370,41 @@ static int freezer_populate(struct cgroup_subsys *ss, struct cgroup *cgroup)
 		return 0;
 	return cgroup_add_files(cgroup, ss, files, ARRAY_SIZE(files));
 }
+
+#ifdef CONFIG_FROZEN_APP
+void cgroup_thawed_by_pid(int pid_nr)
+{
+	struct task_struct *ptask;
+	struct cgroup *pcgroup;
+	struct freezer *freezer;
+
+	rcu_read_lock();
+	ptask = find_task_by_vpid(pid_nr);
+	if (ptask) {
+		get_task_struct(ptask);
+		rcu_read_unlock();
+		if (frozen(ptask)) {
+			task_lock(ptask);
+			pcgroup = task_cgroup(ptask, freezer_subsys_id);
+			task_unlock(ptask);
+			if (pcgroup && cgroup_lock_live_group(pcgroup)) {
+				freezer = cgroup_freezer(pcgroup);
+				if (freezer->state != CGROUP_THAWED)
+					atomic_dec(&system_freezing_cnt);
+				freezer->state = CGROUP_THAWED;
+				unfreeze_cgroup(pcgroup, freezer);
+				cgroup_unlock();
+				printk(KERN_INFO "Change comm=%s CGROUP_THAWED\n",
+					ptask->comm);
+			}
+		}
+		put_task_struct(ptask);
+		return;
+	 }
+	rcu_read_unlock();
+	return;
+}
+#endif
 
 struct cgroup_subsys freezer_subsys = {
 	.name		= "freezer",

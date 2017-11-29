@@ -2,8 +2,8 @@
  *      uvc_ctrl.c  --  USB Video Class driver - Controls
  *
  *      Copyright (C) 2005-2010
- *          Laurent Pinchart (laurent.pinchart@ideasonboard.com)
- *
+ *      Laurent Pinchart (laurent.pinchart@ideasonboard.com)
+ *      Copyright (C) 2017 XiaoMi, Inc.
  *      This program is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published by
  *      the Free Software Foundation; either version 2 of the License, or
@@ -1700,6 +1700,9 @@ int uvc_ctrl_add_mapping(struct uvc_video_chain *chain,
 	}
 	if (!found)
 		return -ENOENT;
+
+	if (ctrl->info.size < mapping->size)
+		return -EINVAL;
 
 	if (mutex_lock_interruptible(&chain->ctrl_mutex))
 		return -ERESTARTSYS;

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1422,6 +1423,12 @@ static long vid_enc_ioctl(struct file *file,
 			return -EFAULT;
 
 		DBG("VEN_IOCTL_GET_SEQUENCE_HDR\n");
+		if (!access_ok(VERIFY_WRITE, seq_header.hdrbufptr,
+			seq_header.bufsize)) {
+			ERR("VEN_IOCTL_GET_SEQUENCE_HDR:"\
+				" Userspace address verification failed.\n");
+			return -EFAULT;
+		}
 		result = vid_enc_get_sequence_header(client_ctx,
 				&seq_header);
 		if (!result) {

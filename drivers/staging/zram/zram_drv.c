@@ -2,6 +2,7 @@
  * Compressed RAM block device
  *
  * Copyright (C) 2008, 2009, 2010  Nitin Gupta
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This code is released using a dual license strategy: BSD/GPL
  * You can choose the licence that better fits your requirements.
@@ -47,7 +48,7 @@ static struct zram *zram_devices;
 #define ALLOC_ERROR_LOG_RATE_MS 1000
 
 /* Module params (documentation at end) */
-static unsigned int num_devices = 1;
+static unsigned int num_devices = 4;
 
 static inline struct zram *dev_to_zram(struct device *dev)
 {
@@ -147,6 +148,29 @@ static ssize_t mem_used_total_show(struct device *dev,
 	return sprintf(buf, "%llu\n", val);
 }
 
+int zs_get_page_usage(unsigned long *total_pool_pages,
+			unsigned long *total_ori_pages)
+{
+	int i;
+	*total_pool_pages = *total_ori_pages = 0;
+	if (!zram_devices)
+		return 0;
+	for (i = 0; i < num_devices; i++) {
+		struct zram *zram = &zram_devices[i];
+		struct zram_meta *meta = zram->meta;
+		if (!down_read_trylock(&zram->init_lock))
+			continue;
+		if (zram->init_done) {
+			*total_pool_pages += zs_get_total_size_bytes(meta->mem_pool)
+							>> PAGE_SHIFT;
+			*total_ori_pages += zram->stats.pages_stored;
+		}
+		up_read(&zram->init_lock);
+	}
+	return 0;
+}
+
+/* flag operations needs meta->tb_lock */
 static int zram_test_flag(struct zram_meta *meta, u32 index,
 			enum zram_pageflags flag)
 {

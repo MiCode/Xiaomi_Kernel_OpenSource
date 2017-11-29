@@ -18,6 +18,7 @@
  * and processes may not get killed until the normal oom killer is triggered.
  *
  * Copyright (C) 2007-2008 Google, Inc.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -41,11 +42,18 @@
 #include <linux/delay.h>
 #include <linux/swap.h>
 #include <linux/fs.h>
+#if defined(CONFIG_ZRAM)
+#include "../zsmalloc/zsmalloc.h"
+#endif
 
 #ifdef CONFIG_HIGHMEM
 #define _ZONE ZONE_HIGHMEM
 #else
 #define _ZONE ZONE_NORMAL
+#endif
+
+#ifdef CONFIG_MULTIPLE_LMK
+#define LMK_DEPTH 4
 #endif
 
 static uint32_t lowmem_debug_level = 1;
@@ -162,6 +170,35 @@ void tune_lmk_zone_param(struct zonelist *zonelist, int classzone_idx,
 	}
 }
 
+#ifdef CONFIG_HIGHMEM
+void adjust_gfp_mask(gfp_t *gfp_mask)
+{
+	struct zone *preferred_zone;
+	struct zonelist *zonelist;
+	enum zone_type high_zoneidx;
+
+	if (current_is_kswapd()) {
+		zonelist = node_zonelist(0, *gfp_mask);
+		high_zoneidx = gfp_zone(*gfp_mask);
+		first_zones_zonelist(zonelist, high_zoneidx, NULL,
+				&preferred_zone);
+
+		if (high_zoneidx == ZONE_NORMAL) {
+			if (zone_watermark_ok_safe(preferred_zone, 0,
+					high_wmark_pages(preferred_zone), 0,
+					0))
+				*gfp_mask |= __GFP_HIGHMEM;
+		} else if (high_zoneidx == ZONE_HIGHMEM) {
+			*gfp_mask |= __GFP_HIGHMEM;
+		}
+	}
+}
+#else
+void adjust_gfp_mask(gfp_t *unused)
+{
+}
+#endif
+
 void tune_lmk_param(int *other_free, int *other_file, struct shrink_control *sc)
 {
 	gfp_t gfp_mask;
@@ -172,6 +209,8 @@ void tune_lmk_param(int *other_free, int *other_file, struct shrink_control *sc)
 	int use_cma_pages;
 
 	gfp_mask = sc->gfp_mask;
+	adjust_gfp_mask(&gfp_mask);
+
 	zonelist = node_zonelist(0, gfp_mask);
 	high_zoneidx = gfp_zone(gfp_mask);
 	first_zones_zonelist(zonelist, high_zoneidx, NULL, &preferred_zone);
@@ -229,17 +268,33 @@ void tune_lmk_param(int *other_free, int *other_file, struct shrink_control *sc)
 static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
 	struct task_struct *tsk;
+#ifdef CONFIG_MULTIPLE_LMK
+	struct task_struct *selected[LMK_DEPTH] = {NULL,};
+#else
 	struct task_struct *selected = NULL;
+#endif
 	int rem = 0;
 	int tasksize;
 	int i;
 	int min_score_adj = OOM_SCORE_ADJ_MAX + 1;
+	int minfree = 0;
+#ifdef CONFIG_MULTIPLE_LMK
+	int selected_tasksize[LMK_DEPTH] = {0,};
+	int selected_oom_score_adj[LMK_DEPTH] = {OOM_SCORE_ADJ_MAX,};
+	int all_selected = 0;
+	int max_selected = 0;
+	int selected_once = 0;
+#else
 	int selected_tasksize = 0;
 	int selected_oom_score_adj;
+#endif
 	int array_size = ARRAY_SIZE(lowmem_adj);
 	int other_free;
 	int other_file;
 	unsigned long nr_to_scan = sc->nr_to_scan;
+#if defined(CONFIG_ZRAM)
+	unsigned long total_pool_pages, total_ori_pages;
+#endif
 
 	if (nr_to_scan > 0) {
 		if (mutex_lock_interruptible(&scan_mutex) < 0)
@@ -248,10 +303,11 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 
 	other_free = global_page_state(NR_FREE_PAGES);
 
-	if (global_page_state(NR_SHMEM) + total_swapcache_pages <
+	if (global_page_state(NR_SHMEM) + global_page_state(NR_UNEVICTABLE) + total_swapcache_pages <
 		global_page_state(NR_FILE_PAGES))
 		other_file = global_page_state(NR_FILE_PAGES) -
 						global_page_state(NR_SHMEM) -
+						global_page_state(NR_UNEVICTABLE) -
 						total_swapcache_pages;
 	else
 		other_file = 0;
@@ -263,6 +319,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	if (lowmem_minfree_size < array_size)
 		array_size = lowmem_minfree_size;
 	for (i = 0; i < array_size; i++) {
+		minfree = lowmem_minfree[i];
 		if (other_free < lowmem_minfree[i] &&
 		    other_file < lowmem_minfree[i]) {
 			min_score_adj = lowmem_adj[i];
@@ -286,12 +343,21 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 
 		return rem;
 	}
+
+#ifdef CONFIG_MULTIPLE_LMK
+	for (i = 0; i < LMK_DEPTH; i++)
+		selected_oom_score_adj[i] = min_score_adj;
+#else
 	selected_oom_score_adj = min_score_adj;
+#endif
 
 	rcu_read_lock();
 	for_each_process(tsk) {
 		struct task_struct *p;
 		int oom_score_adj;
+#ifdef CONFIG_MULTIPLE_LMK
+		int is_task_exist = 0;
+#endif
 
 		if (tsk->flags & PF_KTHREAD)
 			continue;
@@ -320,9 +386,62 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			continue;
 		}
 		tasksize = get_mm_rss(p->mm);
+#if defined(CONFIG_ZRAM)
+		zs_get_page_usage(&total_pool_pages, &total_ori_pages);
+		if (total_pool_pages && total_ori_pages) {
+			lowmem_print(3, "tasksize : %d\n", tasksize);
+			tasksize += (int)total_pool_pages *
+				get_mm_counter(p->mm, MM_SWAPENTS)
+				/ total_ori_pages;
+			lowmem_print(3, "task real size : %d\n", tasksize);
+		}
+#endif
 		task_unlock(p);
 		if (tasksize <= 0)
 			continue;
+#ifdef CONFIG_MULTIPLE_LMK
+		if (all_selected < LMK_DEPTH) {
+			for (i = 0; i < LMK_DEPTH; i++) {
+				if (!selected[i]) {
+					is_task_exist = 1;
+					max_selected = i;
+					break;
+				}
+			}
+		} else if (selected_oom_score_adj[max_selected]
+			< oom_score_adj ||
+			(selected_oom_score_adj[max_selected]
+			== oom_score_adj &&
+			selected_tasksize[max_selected] < tasksize)) {
+			is_task_exist = 1;
+		}
+
+		if (is_task_exist) {
+			selected[max_selected] = p;
+			selected_tasksize[max_selected] = tasksize;
+			selected_oom_score_adj[max_selected] = oom_score_adj;
+
+			if (all_selected < LMK_DEPTH)
+				all_selected++;
+
+			if (all_selected == LMK_DEPTH) {
+				for (i = 0; i < LMK_DEPTH; i++) {
+					if (selected_oom_score_adj[i] <
+					selected_oom_score_adj[max_selected])
+						max_selected = i;
+					else if (selected_oom_score_adj[i] ==
+					selected_oom_score_adj[max_selected] &&
+					selected_tasksize[i] <
+					selected_tasksize[max_selected])
+						max_selected = i;
+				}
+			}
+			lowmem_print(3, "Multiple LMK: max_selected(%d)\n"
+				"select '%s' (%d), adj %d, size %d, to kill\n",
+				max_selected, p->comm, p->pid,
+				oom_score_adj, tasksize);
+		}
+#else
 		if (selected) {
 			if (oom_score_adj < selected_oom_score_adj)
 				continue;
@@ -335,7 +454,51 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		selected_oom_score_adj = oom_score_adj;
 		lowmem_print(2, "select %d (%s), adj %d, size %d, to kill\n",
 			     p->pid, p->comm, oom_score_adj, tasksize);
+#endif
 	}
+
+#ifdef CONFIG_MULTIPLE_LMK
+	for (i = 0; i < LMK_DEPTH; i++) {
+		if (selected[i]) {
+			selected_once = 1;
+			lowmem_print(1, "Multiple LMK: #%d\n"
+			"Killing %s (%d), adj %d,\n"
+			"to free %ldkB on behalf of '%s' (%d) because\n"
+			"cache %ldkB is below limit %ldkB\n"
+			"for oom_score_adj %hd.\n"
+			"Free memory is %ldkB above reserved.\n"
+			"Free CMA is %ldkB\n"
+			"Total reserve is %ldkB\n"
+			"Total free pages is %ldkB\n"
+			"Total file cache is %ldkB\n"
+			"GFP mask is 0x%x\n", i,
+			selected[i]->comm, selected[i]->pid,
+			selected_oom_score_adj[i],
+			selected_tasksize[i] * (long)(PAGE_SIZE / 1024),
+			current->comm, current->pid,
+			other_file * (long)(PAGE_SIZE / 1024),
+			minfree * (long)(PAGE_SIZE / 1024),
+			min_score_adj,
+			other_free * (long)(PAGE_SIZE / 1024),
+			global_page_state(NR_FREE_CMA_PAGES) *
+			   (long)(PAGE_SIZE / 1024),
+			totalreserve_pages * (long)(PAGE_SIZE / 1024),
+			global_page_state(NR_FREE_PAGES) *
+			   (long)(PAGE_SIZE / 1024),
+			global_page_state(NR_FILE_PAGES) *
+			   (long)(PAGE_SIZE / 1024),
+			sc->gfp_mask);
+
+			lowmem_deathpending_timeout = jiffies + HZ;
+			set_tsk_thread_flag(selected[i], TIF_MEMDIE);
+			send_sig(SIGKILL, selected[i], 0);
+			rem -= selected_tasksize[i];
+		}
+	}
+	rcu_read_unlock();
+	if (selected_once)
+		msleep_interruptible(20);
+#else
 	if (selected) {
 		lowmem_print(1, "send sigkill to %d (%s), adj %d, size %d\n",
 			     selected->pid, selected->comm,
@@ -349,6 +512,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		msleep_interruptible(20);
 	} else
 		rcu_read_unlock();
+#endif
 
 	lowmem_print(4, "lowmem_shrink %lu, %x, return %d\n",
 		     nr_to_scan, sc->gfp_mask, rem);

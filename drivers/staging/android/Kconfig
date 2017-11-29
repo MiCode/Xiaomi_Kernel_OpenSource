@@ -33,6 +33,13 @@ config LOGCAT_SIZE
 	  Set logger buffer size. Enter a number greater than zero.
 	  Any value less than 256 is recommended. Reduce value to save kernel static memory size.
 
+config LARGE_LOGCAT_SIZE
+	int "Adjust android log buffer sizes"
+	default 2048
+	depends on ANDROID_LOGGER
+	help
+	  Some buffer size might be larger than others for saving more log.
+
 config ANDROID_PERSISTENT_RAM
 	bool
 	depends on HAVE_MEMBLOCK
@@ -75,6 +82,12 @@ config ANDROID_LOW_MEMORY_KILLER
 	---help---
 	  Register processes to be killed when memory is low
 
+config ANDROID_WHETSTONE
+	bool "Android Whetstone"
+	default N
+	---help---
+	  report to whetstone the memory state when reach target limit value.
+
 config ANDROID_LOW_MEMORY_KILLER_AUTODETECT_OOM_ADJ_VALUES
 	bool "Android Low Memory Killer: detect oom_adj values"
 	depends on ANDROID_LOW_MEMORY_KILLER
@@ -94,6 +107,12 @@ config ANDROID_INTF_ALARM_DEV
 	  Provides non-wakeup and rtc backed wakeup alarms based on rtc or
 	  elapsed realtime, and a non-wakeup alarm on the monotonic clock.
 	  Also exports the alarm interface to user-space.
+
+config MULTIPLE_LMK
+	bool "Multiple lowmemorykiller"
+	default N
+	---help---
+	  Provide multiple kill in LMK routine
 
 endif # if ANDROID
 

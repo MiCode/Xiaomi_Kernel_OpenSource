@@ -1,4 +1,5 @@
 /* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +34,7 @@ struct msm_flash_fn_t {
 	int32_t (*flash_led_release)(struct msm_led_flash_ctrl_t *);
 	int32_t (*flash_led_off)(struct msm_led_flash_ctrl_t *);
 	int32_t (*flash_led_low)(struct msm_led_flash_ctrl_t *);
+	int32_t (*flash_led_torch)(struct msm_led_flash_ctrl_t *, uint16_t value);
 	int32_t (*flash_led_high)(struct msm_led_flash_ctrl_t *);
 };
 
@@ -41,6 +43,7 @@ struct msm_led_flash_reg_t {
 	struct msm_camera_i2c_reg_setting *off_setting;
 	struct msm_camera_i2c_reg_setting *release_setting;
 	struct msm_camera_i2c_reg_setting *low_setting;
+	struct msm_camera_i2c_reg_setting *torch_setting;
 	struct msm_camera_i2c_reg_setting *high_setting;
 };
 
@@ -63,6 +66,7 @@ struct msm_led_flash_ctrl_t {
 	uint32_t num_sources;
 	enum msm_camera_device_type_t flash_device_type;
 	uint32_t subdev_id;
+	int torch_brightness;
 };
 
 int msm_flash_i2c_probe(struct i2c_client *client,
@@ -82,5 +86,6 @@ int msm_flash_led_init(struct msm_led_flash_ctrl_t *fctrl);
 int msm_flash_led_release(struct msm_led_flash_ctrl_t *fctrl);
 int msm_flash_led_off(struct msm_led_flash_ctrl_t *fctrl);
 int msm_flash_led_low(struct msm_led_flash_ctrl_t *fctrl);
+int msm_flash_led_torch(struct msm_led_flash_ctrl_t *fctrl, uint16_t value);
 int msm_flash_led_high(struct msm_led_flash_ctrl_t *fctrl);
 #endif

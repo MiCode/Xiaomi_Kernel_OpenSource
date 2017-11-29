@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -157,6 +158,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_DSI_ULPS_CTRL,
 	MDSS_EVENT_REGISTER_RECOVERY_HANDLER,
 	MDSS_EVENT_DSI_DYNAMIC_SWITCH,
+	MDSS_EVENT_DISPPARAM,
 };
 
 struct lcd_panel_info {
@@ -344,6 +346,7 @@ struct mdss_panel_info {
 
 	u32 cont_splash_enabled;
 	u32 partial_update_enabled;
+	u32 dispparam_enabled;
 	struct ion_handle *splash_ihdl;
 	u32 panel_power_on;
 
@@ -352,6 +355,9 @@ struct mdss_panel_info {
 	bool is_lpm_mode;
 
 	struct mdss_mdp_pp_tear_check te;
+	uint32_t panel_paramstatus;
+	uint32_t panel_on_param;
+	uint32_t panel_on_param_delay;
 
 	struct lcd_panel_info lcdc;
 	struct fbc_panel_info fbc;

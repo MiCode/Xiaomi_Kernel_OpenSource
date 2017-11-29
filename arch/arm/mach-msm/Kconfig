@@ -2456,6 +2456,10 @@ config MSM_JTAG
 	  If unsure, say 'N' here to avoid potential power, performance and
 	  memory penalty.
 
+config MSM_CPU_REGSAVE
+	bool "Enable msm cpu regs dump on watchdog reset"
+	default n
+
 config MSM_JTAG_MM
 	bool "Debug and ETM trace support across power collapse using memory mapped access"
 	help
@@ -3009,6 +3013,12 @@ config MSM_XPU_ERR_FATAL
 	help
 	 Select if XPU violations have to be configured as fatal errors.
 
+config MSM_UART_HS_USE_HS
+	bool "Use HS while not UART"
+	default y
+	help
+	  Say Y here if HeadSet used in user build.
+
 config MSM_CPR_REGULATOR
 	bool "RBCPR regulator driver for APC"
 	depends on REGULATOR
@@ -3043,6 +3053,13 @@ config KRAIT_REGULATOR
 	 line from the PMIC. This supply line is powered by multiple
 	 regulators running in ganged mode inside the PMIC. Enable
 	 this option to support such configurations.
+
+config FASTBOOT_ENABLE
+	bool "Enable fastboot"
+	default n
+	help
+	  just enable fastboot mode in eng build
+
 endif
 
 config KERNEL_TEXT_MPU_PROT

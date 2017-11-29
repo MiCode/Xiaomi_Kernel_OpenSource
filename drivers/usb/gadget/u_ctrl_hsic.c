@@ -563,7 +563,7 @@ static ssize_t gctrl_read_stats(struct file *file, char __user *ubuf,
 
 		temp += scnprintf(buf + temp, DEBUG_BUF_SIZE - temp,
 				"\nName:        %s\n"
-				"#PORT:%d port: %p\n"
+				"#PORT:%d port: %pK\n"
 				"to_usbhost:    %lu\n"
 				"to_modem:      %lu\n"
 				"cpkt_drp_cnt:  %lu\n"

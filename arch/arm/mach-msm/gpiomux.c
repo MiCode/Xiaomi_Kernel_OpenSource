@@ -1,4 +1,5 @@
 /* Copyright (c) 2010,2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +15,8 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/io.h>
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
 #include <mach/gpiomux.h>
 #include <mach/msm_iomap.h>
 
@@ -219,3 +222,68 @@ int msm_gpiomux_init_dt(void)
 	return msm_gpiomux_init(ngpio);
 }
 EXPORT_SYMBOL(msm_gpiomux_init_dt);
+
+static int msm_gpiomux_print(struct seq_file *sf, void *private)
+{
+	static const char *cfunc[] = { "gpio", "fn1", "fn2", "fn3",
+			"fn4",  "fn5", "fn6", "fn7",
+			"fn8",  "fn9", "fnA", "fnB",
+			"fnC",  "fnD", "fnE", "fnF" };
+	static const char *cdrv[] = { "2MA", "4MA", "6MA", "8MA",
+			"10MA", "12MA", "14MA", "16MA" };
+	static const char *cpull[] = { "none", "down", "keep", "up" };
+	static const char *cdir[] = { "IN", "OH", "OL" };
+
+	int i, j;
+	struct msm_gpiomux_rec *rec;
+	unsigned long irq_flags;
+	struct gpiomux_setting actual;
+
+	spin_lock_irqsave(&gpiomux_lock, irq_flags);
+	seq_printf(sf, "\t\t\tACTIVE\t\t\t\t\tSUSPEND\t\t\t\t\tCURRENT\n");
+	for (i = 0; i < msm_gpiomux_ngpio; i++) {
+		rec = msm_gpiomux_recs + i;
+		seq_printf(sf, "gpio-%-3d ", i);
+		for (j = 0; j < GPIOMUX_NSETTINGS; j++) {
+			seq_printf(sf, " %s", (rec->ref ^ j) ? "*":" ");
+			if (!rec->sets[j]) {
+				seq_printf(sf, "\t\t\t\t\t");
+				continue;
+			}
+			seq_printf(sf, " ( %4s\t%4s\t%4s\t%2s )\t",
+					cfunc[rec->sets[j]->func],
+					cdrv[rec->sets[j]->drv],
+					cpull[rec->sets[j]->pull],
+					(rec->sets[j]->func == 0) ? cdir[rec->sets[j]->dir]:"");
+		}
+
+		__msm_gpiomux_read(i, &actual);
+		seq_printf(sf, " ( %4s \t%4s \t%4s \t%2s )",
+				cfunc[actual.func],
+				cdrv[actual.drv],
+				cpull[actual.pull],
+				(actual.func == 0) ? cdir[actual.dir] : "");
+		seq_printf(sf, "\n");
+	}
+	spin_unlock_irqrestore(&gpiomux_lock, irq_flags);
+	return 0;
+}
+
+static int msm_gpiomux_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, msm_gpiomux_print, NULL);
+}
+
+static struct file_operations msm_gpiomux_fops = {
+	.open = msm_gpiomux_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+
+void msm_gpiomux_debug_init(void)
+{
+	debugfs_create_file("msm_gpiomux", S_IRUGO, NULL, NULL, &msm_gpiomux_fops);
+}
+EXPORT_SYMBOL(msm_gpiomux_debug_init);

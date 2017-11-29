@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,6 +46,8 @@
 #define QPNP_PON_WARM_RESET_REASON1(base)	(base + 0xA)
 #define QPNP_PON_WARM_RESET_REASON2(base)	(base + 0xB)
 #define QPNP_POFF_REASON1(base)			(base + 0xC)
+#define QPNP_PON_POFF_REASON1(base)		(base + 0xC)
+#define QPNP_PON_POFF_REASON2(base)		(base + 0xD)
 #define QPNP_PON_KPDPWR_S1_TIMER(base)		(base + 0x40)
 #define QPNP_PON_KPDPWR_S2_TIMER(base)		(base + 0x41)
 #define QPNP_PON_KPDPWR_S2_CNTL(base)		(base + 0x42)
@@ -234,6 +237,16 @@ int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
 		return rc;
 	}
 
+	/*
+	 * Set PON_DEBOUNCE_TIMER to 500ms before power off
+	 */
+	rc = qpnp_pon_masked_write(pon, QPNP_PON_DBC_CTL(pon->base),
+			QPNP_PON_DBC_DELAY_MASK, 0x5);
+	if (rc) {
+		dev_err(&pon->spmi->dev, "Unable to set PON debounce\n");
+		return rc;
+	}
+
 	if (reg == PON_REV2_VALUE)
 		rst_en_reg = QPNP_PON_PS_HOLD_RST_CTL(pon->base);
 	else
@@ -313,6 +326,42 @@ int qpnp_pon_is_warm_reset(void)
 	return 0;
 }
 EXPORT_SYMBOL(qpnp_pon_is_warm_reset);
+
+int qpnp_pon_is_lpk(void)
+{
+	struct qpnp_pon *pon = sys_reset_dev;
+	int rc;
+	u8 reg = 0;
+
+	if (!pon)
+		return 0;
+
+	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+			QPNP_PON_POFF_REASON1(pon->base), &reg, 1);
+	if (rc) {
+		dev_err(&pon->spmi->dev,
+			"Unable to read addr=%x, rc(%d)\n",
+			QPNP_PON_POFF_REASON1(pon->base), rc);
+		return 0;
+	}
+
+
+	if (reg & 0x80)
+		return 1;
+
+	dev_info(&pon->spmi->dev,
+			"hw_reset reason1 is 0x%x\n",
+			reg);
+
+	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+			QPNP_PON_POFF_REASON2(pon->base), &reg, 1);
+
+	dev_info(&pon->spmi->dev,
+			"hw_reset reason2 is 0x%x\n",
+			reg);
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_pon_is_lpk);
 
 /**
  * qpnp_pon_wd_config - Disable the wd in a warm reset.
@@ -1109,7 +1158,8 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 	struct device_node *itr = NULL;
 	u32 delay = 0, s3_debounce = 0;
 	int rc, sys_reset, index;
-	u8 pon_sts = 0, buf[2];
+	u8 buf[2];
+
 	const char *s3_src;
 	u8 s3_src_reg;
 	u16 poff_sts = 0;
@@ -1153,26 +1203,6 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 	}
 	pon->base = pon_resource->start;
 
-	/* PON reason */
-	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
-				QPNP_PON_REASON1(pon->base), &pon_sts, 1);
-	if (rc) {
-		dev_err(&pon->spmi->dev, "Unable to read PON_RESASON1 reg\n");
-		return rc;
-	}
-
-	boot_reason = ffs(pon_sts);
-	index = ffs(pon_sts) - 1;
-	cold_boot = !qpnp_pon_is_warm_reset();
-	if (index >= ARRAY_SIZE(qpnp_pon_reason) || index < 0)
-		dev_info(&pon->spmi->dev,
-			"PMIC@SID%d Power-on reason: Unknown and '%s' boot\n",
-			pon->spmi->sid, cold_boot ? "cold" : "warm");
-	else
-		dev_info(&pon->spmi->dev,
-			"PMIC@SID%d Power-on reason: %s and '%s' boot\n",
-			pon->spmi->sid, qpnp_pon_reason[index],
-			cold_boot ? "cold" : "warm");
 
 	/* POFF reason */
 	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,

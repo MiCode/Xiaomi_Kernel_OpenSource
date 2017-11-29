@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +21,7 @@
 #include <linux/spmi.h>
 #include <linux/spinlock.h>
 #include <linux/spmi.h>
+#include <linux/wakelock.h>
 
 /* RTC/ALARM Register offsets */
 #define REG_OFFSET_ALARM_RW	0x40
@@ -62,8 +64,12 @@ struct qpnp_rtc {
 	struct device *rtc_dev;
 	struct rtc_device *rtc;
 	struct spmi_device *spmi;
+	struct wake_lock wl;
 	spinlock_t alarm_ctrl_lock;
+	unsigned long rtcalarm_time;;
 };
+
+extern void msm_pm_set_max_sleep_time(int max_sleep_time);
 
 static int qpnp_read_wrapper(struct qpnp_rtc *rtc_dd, u8 *rtc_val,
 			u16 base, int count)
@@ -141,16 +147,14 @@ qpnp_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	 *             WDATA[3], WDATA[2], WDATA[1], WDATA[0]
 	 *
 	 * Write to the RTC registers should be done in following order
-	 * Clear WDATA[0] register
+	 * Disable RTC in RTC_CTRL
 	 *
-	 * Write BYTE[1], BYTE[2] and BYTE[3] of time to
-	 * RTC WDATA[3], WDATA[2], WDATA[1] registers
+	 * Write BYTE[0], BYTE[1], BYTE[2] and BYTE[3] of time to
+	 * RTC WDATA[3], WDATA[2], WDATA[1], WDATA[0] registers
 	 *
-	 * Write BYTE[0] of time to RTC WDATA[0] register
+	 * Enable RTC in RTC_CTRL
 	 *
-	 * Clearing BYTE[0] and writting in the end will prevent any
-	 * unintentional overflow from WDATA[0] to higher bytes during the
-	 * write operation
+	 * RTC WDATA can't be changed if RTC is not disabled
 	 */
 
 	/* Disable RTC H/w before writing on RTC register*/
@@ -169,26 +173,27 @@ qpnp_rtc_set_time(struct device *dev, struct rtc_time *tm)
 		rtc_dd->rtc_ctrl_reg = rtc_ctrl_reg;
 	}
 
-	/* Clear WDATA[0] */
+	/* disable RTC_CTRL */
 	reg = 0x0;
 	rc = qpnp_write_wrapper(rtc_dd, &reg,
-				rtc_dd->rtc_base + REG_OFFSET_RTC_WRITE, 1);
+				rtc_dd->rtc_base + REG_OFFSET_RTC_CTRL, 1);
 	if (rc) {
 		dev_err(dev, "Write to RTC reg failed\n");
 		goto rtc_rw_fail;
 	}
 
-	/* Write to WDATA[3], WDATA[2] and WDATA[1] */
-	rc = qpnp_write_wrapper(rtc_dd, &value[1],
-			rtc_dd->rtc_base + REG_OFFSET_RTC_WRITE + 1, 3);
-	if (rc) {
-		dev_err(dev, "Write to RTC reg failed\n");
-		goto rtc_rw_fail;
-	}
-
-	/* Write to WDATA[0] */
+	/* Write to WDATA */
 	rc = qpnp_write_wrapper(rtc_dd, value,
-				rtc_dd->rtc_base + REG_OFFSET_RTC_WRITE, 1);
+			rtc_dd->rtc_base + REG_OFFSET_RTC_WRITE, 4);
+	if (rc) {
+		dev_err(dev, "Write to RTC reg failed\n");
+		goto rtc_rw_fail;
+	}
+
+	/* enable RTC_CTRL */
+	reg = BIT_RTC_ENABLE;
+	rc = qpnp_write_wrapper(rtc_dd, &reg,
+			rtc_dd->rtc_base + REG_OFFSET_RTC_CTRL, 1);
 	if (rc) {
 		dev_err(dev, "Write to RTC reg failed\n");
 		goto rtc_rw_fail;
@@ -282,6 +287,33 @@ qpnp_rtc_read_time(struct device *dev, struct rtc_time *tm)
 }
 
 static int
+msmrtc_virtual_alarm_set(struct device *dev, struct rtc_wkalrm *a)
+{
+	int rc;
+	struct qpnp_rtc *rtc_dd = dev_get_drvdata(dev);
+	unsigned long now;
+	struct rtc_time rtc_tm;
+
+	rtc_tm_to_time(&a->time, &(rtc_dd->rtcalarm_time));
+
+	rc = qpnp_rtc_read_time(dev, &rtc_tm);
+	if (rc < 0) {
+		dev_err(dev, "Unamble to read RTC time\n");
+		return -EINVAL;
+	}
+	rtc_tm_to_time(&rtc_tm, &now);
+
+	if (now > rtc_dd->rtcalarm_time) {
+		dev_err(dev, "%s: Attempt to set alarm in the past\n",
+			__func__);
+		rtc_dd->rtcalarm_time = 0;
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int
 qpnp_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 {
 	int rc;
@@ -370,6 +402,7 @@ qpnp_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 		return rc;
 	}
 
+	alarm->enabled = !!(rtc_dd->alarm_ctrl_reg1 & BIT_RTC_ALARM_ENABLE);
 	dev_dbg(dev, "Alarm set for - h:r:s=%d:%d:%d, d/m/y=%d/%d/%d\n",
 		alarm->time.tm_hour, alarm->time.tm_min,
 				alarm->time.tm_sec, alarm->time.tm_mday,
@@ -418,7 +451,8 @@ rtc_rw_fail:
 
 static struct rtc_class_ops qpnp_rtc_ops = {
 	.read_time = qpnp_rtc_read_time,
-	.set_alarm = qpnp_rtc_set_alarm,
+	.set_alarm = msmrtc_virtual_alarm_set,
+	.set_alarm_foo = qpnp_rtc_set_alarm,
 	.read_alarm = qpnp_rtc_read_alarm,
 	.alarm_irq_enable = qpnp_rtc_alarm_irq_enable,
 };
@@ -499,6 +533,7 @@ static int __devinit qpnp_rtc_probe(struct spmi_device *spmi)
 
 	rtc_dd->rtc_dev = &(spmi->dev);
 	rtc_dd->spmi = spmi;
+	wake_lock_init(&rtc_dd->wl, WAKE_LOCK_SUSPEND, "qpnp-rtc");
 
 	/* Get RTC/ALARM resources */
 	spmi_for_each_container_dev(spmi_resource, spmi) {
@@ -584,6 +619,8 @@ static int __devinit qpnp_rtc_probe(struct spmi_device *spmi)
 
 	dev_set_drvdata(&spmi->dev, rtc_dd);
 
+	device_init_wakeup(&spmi->dev, 1);
+
 	/* Register the RTC device */
 	rtc_dd->rtc = rtc_device_register("qpnp_rtc", &spmi->dev,
 						&qpnp_rtc_ops, THIS_MODULE);
@@ -603,7 +640,6 @@ static int __devinit qpnp_rtc_probe(struct spmi_device *spmi)
 		goto fail_req_irq;
 	}
 
-	device_init_wakeup(&spmi->dev, 1);
 	enable_irq_wake(rtc_dd->rtc_alarm_irq);
 
 	dev_dbg(&spmi->dev, "Probe success !!\n");
@@ -665,6 +701,77 @@ fail_alarm_disable:
 	}
 }
 
+#ifdef CONFIG_PM
+static void
+msmrtc_alarmtimer_expired(unsigned long _data,
+	struct qpnp_rtc *rtc_pdata)
+{
+		pr_info("%s: Generating alarm event (src %lu)\n",
+				rtc_pdata->rtc->name, _data);
+
+		rtc_update_irq(rtc_pdata->rtc, 1, RTC_IRQF | RTC_AF);
+		rtc_pdata->rtcalarm_time = 0;
+}
+
+static int qpnp_rtc_resume(struct device *dev)
+{
+		struct qpnp_rtc *rtc_dd = dev_get_drvdata(dev);
+		struct rtc_time rtc_tm;
+		unsigned long now;
+		int rc, diff;
+
+		if (rtc_dd->rtcalarm_time) {
+				rc = qpnp_rtc_read_time(dev, &rtc_tm);
+				if (rc < 0) {
+						dev_err(dev, "Unamble to read RTC time\n");
+						return -EINVAL;
+				}
+				rtc_tm_to_time(&rtc_tm, &now);
+
+				diff = rtc_dd->rtcalarm_time - now;
+		if (diff <= 0) {
+			wake_lock_timeout(&rtc_dd->wl, HZ / 5);
+			msmrtc_alarmtimer_expired(2 , rtc_dd);
+		}
+		}
+
+		return 0;
+}
+
+static int qpnp_rtc_suspend(struct device *dev)
+{
+		struct qpnp_rtc *rtc_dd = dev_get_drvdata(dev);
+		struct rtc_time rtc_tm;
+		unsigned long now;
+		int rc, diff;
+
+		if (rtc_dd->rtcalarm_time) {
+				rc = qpnp_rtc_read_time(dev, &rtc_tm);
+				if (rc < 0) {
+						dev_err(dev, "Unable to read RTC time\n");
+						return -EINVAL;
+				}
+				rtc_tm_to_time(&rtc_tm, &now);
+
+				diff = rtc_dd->rtcalarm_time - now;
+				if (diff <= 0) {
+						msmrtc_alarmtimer_expired(1 , rtc_dd);
+						msm_pm_set_max_sleep_time(0);
+						return 0;
+				}
+				msm_pm_set_max_sleep_time(diff);
+		} else
+				msm_pm_set_max_sleep_time(0);
+
+		return 0;
+}
+
+static const struct dev_pm_ops qpnp_rtc_pm_ops = {
+		.suspend = qpnp_rtc_suspend,
+		.resume = qpnp_rtc_resume,
+};
+#endif
+
 static struct of_device_id spmi_match_table[] = {
 	{
 		.compatible = "qcom,qpnp-rtc",
@@ -680,6 +787,9 @@ static struct spmi_driver qpnp_rtc_driver = {
 		.name   = "qcom,qpnp-rtc",
 		.owner  = THIS_MODULE,
 		.of_match_table = spmi_match_table,
+#ifdef CONFIG_PM
+				.pm     = &qpnp_rtc_pm_ops,
+#endif
 	},
 };
 

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -91,7 +92,7 @@ static int boost_adjust_notify(struct notifier_block *nb, unsigned long val, voi
 			 cpu, policy->min);
 		pr_debug("CPU%u boost min: %u kHz\n", cpu, min);
 
-		cpufreq_verify_within_limits(policy, min, UINT_MAX);
+		cpufreq_verify_within_limits(policy, min, policy->max);
 
 		pr_debug("CPU%u policy min after boost: %u kHz\n",
 			 cpu, policy->min);

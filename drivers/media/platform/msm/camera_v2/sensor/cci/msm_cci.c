@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +19,7 @@
 #include <linux/of_gpio.h>
 #include <linux/of_platform.h>
 #include <media/msm_isp.h>
+#include <asm/bootinfo.h>
 #include "msm_sd.h"
 #include "msm_cci.h"
 #include "msm_cam_cci_hwreg.h"
@@ -1111,10 +1113,50 @@ struct v4l2_subdev *msm_cci_get_subdev(void)
 	return g_cci_subdev;
 }
 
+static struct of_device_id msm_sensor_dt_match_x3[] = {
+	{.compatible = "qcom,actuator"},
+	{.compatible = "qcom,imx132"},
+	{.compatible = "qcom,imx135"},
+	{}
+};
+
+static struct of_device_id msm_sensor_dt_match_x4[] = {
+	{.compatible = "qcom,eeprom"},
+	{.compatible = "qcom,actuator"},
+	{.compatible = "qcom,imx214"},
+	{.compatible = "qcom,s5k3m2"},
+	{.compatible = "qcom,imx219"},
+	{}
+};
+
+static struct of_device_id msm_sensor_dt_match_x5[] = {
+	{.compatible = "qcom,eeprom"},
+	{.compatible = "qcom,actuator"},
+	{.compatible = "qcom,imx214"},
+	{.compatible = "qcom,ov4688"},
+	{}
+};
+
+
 static int __devinit msm_cci_probe(struct platform_device *pdev)
 {
 	struct cci_device *new_cci_dev;
+	struct of_device_id *msm_sensor_dt_match;
 	int rc = 0;
+	unsigned int hw = get_hw_version_major();
+
+	switch (hw) {
+	case 5:
+		msm_sensor_dt_match = msm_sensor_dt_match_x5;
+		break;
+	case 4:
+		msm_sensor_dt_match = msm_sensor_dt_match_x4;
+		break;
+	case 3:
+		msm_sensor_dt_match = msm_sensor_dt_match_x3;
+		break;
+	}
+
 	CDBG("%s: pdev %p device id = %d\n", __func__, pdev, pdev->id);
 	new_cci_dev = kzalloc(sizeof(struct cci_device), GFP_KERNEL);
 	if (!new_cci_dev) {
@@ -1178,7 +1220,7 @@ static int __devinit msm_cci_probe(struct platform_device *pdev)
 	msm_cci_init_cci_params(new_cci_dev);
 	msm_cci_init_clk_params(new_cci_dev);
 	msm_cci_init_gpio_params(new_cci_dev);
-	rc = of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
+	rc = of_platform_bus_probe(pdev->dev.of_node, msm_sensor_dt_match, &pdev->dev);
 	if (rc)
 		pr_err("%s: failed to add child nodes, rc=%d\n", __func__, rc);
 	new_cci_dev->cci_state = CCI_STATE_DISABLED;

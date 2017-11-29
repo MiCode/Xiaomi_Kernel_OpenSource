@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2011-2013,2016 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -466,6 +467,7 @@ static int msm_l2_test_set_ev_constraint(struct perf_event *event)
 			if (!(event->cpu < 0)) {
 				event->state = PERF_EVENT_STATE_OFF;
 				event->attr.constraint_duplicate = 1;
+				err = -EPERM;
 			}
 	}
 out:

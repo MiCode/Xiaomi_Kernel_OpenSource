@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 1996 Russell King.
  *  Copyright (C) 2002 Deep Blue Solutions Ltd.
+ *  Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -243,7 +244,7 @@ typedef struct {
 
 #define ATOMIC64_INIT(i) { (i) }
 
-static inline u64 atomic64_read(atomic64_t *v)
+static inline u64 atomic64_read(const atomic64_t *v)
 {
 	u64 result;
 

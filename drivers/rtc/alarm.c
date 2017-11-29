@@ -1,6 +1,7 @@
 /* drivers/rtc/alarm.c
  *
  * Copyright (C) 2007-2009 Google, Inc.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -534,6 +535,8 @@ static int set_alarm_time_to_rtc(const long power_on_time)
 	struct rtc_wkalrm alarm;
 	long rtc_secs, alarm_delta, alarm_time;
 	int rc = -EINVAL;
+
+goto disable_alarm;
 
 	if (power_on_time <= 0) {
 		goto disable_alarm;

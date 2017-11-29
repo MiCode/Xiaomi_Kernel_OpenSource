@@ -13,6 +13,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
  * Copyright (C) 2009, 2010 ARM Limited
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * Author: Will Deacon <will.deacon@arm.com>
  */
@@ -52,14 +53,14 @@ static u8 debug_arch;
 /* Maximum supported watchpoint length. */
 static u8 max_watchpoint_len;
 
-#define READ_WB_REG_CASE(OP2, M, VAL)		\
-	case ((OP2 << 4) + M):			\
-		ARM_DBG_READ(c ## M, OP2, VAL); \
+#define READ_WB_REG_CASE(OP2, M, VAL)			\
+	case ((OP2 << 4) + M):				\
+		ARM_DBG_READ(c0, c ## M, OP2, VAL);	\
 		break
 
-#define WRITE_WB_REG_CASE(OP2, M, VAL)		\
-	case ((OP2 << 4) + M):			\
-		ARM_DBG_WRITE(c ## M, OP2, VAL);\
+#define WRITE_WB_REG_CASE(OP2, M, VAL)			\
+	case ((OP2 << 4) + M):				\
+		ARM_DBG_WRITE(c0, c ## M, OP2, VAL);	\
 		break
 
 #define GEN_READ_WB_REG_CASES(OP2, VAL)		\
@@ -141,7 +142,7 @@ static u8 get_debug_arch(void)
 		return ARM_DEBUG_ARCH_V6;
 	}
 
-	ARM_DBG_READ(c0, 0, didr);
+	ARM_DBG_READ(c0, c0, 0, didr);
 	return (didr >> 16) & 0xf;
 }
 
@@ -163,7 +164,7 @@ static int debug_arch_supported(void)
 static int get_num_wrp_resources(void)
 {
 	u32 didr;
-	ARM_DBG_READ(c0, 0, didr);
+	ARM_DBG_READ(c0, c0, 0, didr);
 	return ((didr >> 28) & 0xf) + 1;
 }
 
@@ -171,7 +172,7 @@ static int get_num_wrp_resources(void)
 static int get_num_brp_resources(void)
 {
 	u32 didr;
-	ARM_DBG_READ(c0, 0, didr);
+	ARM_DBG_READ(c0, c0, 0, didr);
 	return ((didr >> 24) & 0xf) + 1;
 }
 
@@ -221,7 +222,7 @@ static int halting_mode_enabled(void)
 {
 	u32 dscr;
 
-	ARM_DBG_READ(c1, 0, dscr);
+	ARM_DBG_READ(c0, c1, 0, dscr);
 
 	if (WARN_ONCE(dscr & ARM_DSCR_HDBGEN,
 		      "halting debug mode enabled. "
@@ -241,7 +242,7 @@ static int enable_monitor_mode(void)
 	u32 dscr;
 	int ret;
 
-	ARM_DBG_READ(c1, 0, dscr);
+	ARM_DBG_READ(c0, c1, 0, dscr);
 
 	/* Ensure that halting mode is disabled. */
 	ret = halting_mode_enabled();
@@ -256,11 +257,11 @@ static int enable_monitor_mode(void)
 	switch (get_debug_arch()) {
 	case ARM_DEBUG_ARCH_V6:
 	case ARM_DEBUG_ARCH_V6_1:
-		ARM_DBG_WRITE(c1, 0, (dscr | ARM_DSCR_MDBGEN));
+		ARM_DBG_WRITE(c0, c1, 0, (dscr | ARM_DSCR_MDBGEN));
 		break;
 	case ARM_DEBUG_ARCH_V7_ECP14:
 	case ARM_DEBUG_ARCH_V7_1:
-		ARM_DBG_WRITE(c2, 2, (dscr | ARM_DSCR_MDBGEN));
+		ARM_DBG_WRITE(c0, c2, 2, (dscr | ARM_DSCR_MDBGEN));
 		break;
 	default:
 		ret = -ENODEV;
@@ -268,7 +269,7 @@ static int enable_monitor_mode(void)
 	}
 
 	/* Check that the write made it through. */
-	ARM_DBG_READ(c1, 0, dscr);
+	ARM_DBG_READ(c0, c1, 0, dscr);
 	if (!(dscr & ARM_DSCR_MDBGEN))
 		ret = -EPERM;
 
@@ -844,7 +845,7 @@ static int hw_breakpoint_pending(unsigned long addr, unsigned int fsr,
 		local_irq_enable();
 
 	/* We only handle watchpoints and hardware breakpoints. */
-	ARM_DBG_READ(c1, 0, dscr);
+	ARM_DBG_READ(c0, c1, 0, dscr);
 
 	/* Perform perf callbacks. */
 	switch (ARM_DSCR_MOE(dscr)) {
@@ -936,14 +937,14 @@ static void reset_ctrl_regs(void *unused)
 	 * Unconditionally clear the lock by writing a value
 	 * other than 0xC5ACCE55 to the access register.
 	 */
-	asm volatile("mcr p14, 0, %0, c1, c0, 4" : : "r" (0));
+	ARM_DBG_WRITE(c1, c0, 4, 0);
 	isb();
 
 	/*
 	 * Clear any configured vector-catch events before
 	 * enabling monitor mode.
 	 */
-	asm volatile("mcr p14, 0, %0, c0, c7, 0" : : "r" (0));
+	ARM_DBG_WRITE(c0, c7, 0, 0);
 	isb();
 
 reset_regs:
@@ -963,6 +964,13 @@ reset_regs:
 	}
 	enable_monitor_mode();
 }
+
+#ifdef CONFIG_WATCHPOINT_TRACE
+void reset_bp_ctrl_regs(void *unused)
+{
+	reset_ctrl_regs(unused);
+}
+#endif
 
 static int __cpuinit dbg_reset_notify(struct notifier_block *self,
 				      unsigned long action, void *cpu)
@@ -1015,7 +1023,7 @@ static int __init arch_hw_breakpoint_init(void)
 		core_num_brps, core_has_mismatch_brps() ? "(+1 reserved) " :
 		"", core_num_wrps);
 
-	ARM_DBG_READ(c1, 0, dscr);
+	ARM_DBG_READ(c0, c1, 0, dscr);
 	if (dscr & ARM_DSCR_HDBGEN) {
 		max_watchpoint_len = 4;
 		pr_warning("halting debug mode enabled. Assuming maximum watchpoint size of %u bytes.\n",

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +26,7 @@
 #include <mach/socinfo.h>
 #include <mach/rpm-smd.h>
 #include <mach/clock-generic.h>
+#include <asm/bootinfo.h>
 
 #include "clock-local2.h"
 #include "clock-pll.h"
@@ -4871,8 +4873,32 @@ static struct clk_lookup msm_clocks_8974pro_only[] __initdata = {
 	CLK_LOOKUP("gpll4", gpll4_clk_src.c, ""),
 	CLK_LOOKUP("sleep_clk", gcc_sdcc1_cdccal_sleep_clk.c, "msm_sdcc.1"),
 	CLK_LOOKUP("cal_clk", gcc_sdcc1_cdccal_ff_clk.c, "msm_sdcc.1"),
+	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6e.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "20.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "34.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "5a.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "a0.qcom,eeprom"),
+	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "5a.qcom,eeprom"),
+	CLK_LOOKUP("cam_src_clk", mclk2_clk_src.c, "6c.qcom,camera"),
+	CLK_LOOKUP("cam2_src_clk", mclk2_clk_src.c, "20.qcom,camera"),
 	CLK_LOOKUP("cam_src_clk", mclk1_clk_src.c, "90.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "34.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "5a.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "a0.qcom,eeprom"),
+	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "5a.qcom,eeprom"),
+	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "6e.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "20.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "34.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "5a.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "a0.qcom,eeprom"),
+	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "5a.qcom,eeprom"),
+	CLK_LOOKUP("cam_clk", camss_mclk2_clk.c, "6c.qcom,camera"),
+	CLK_LOOKUP("cam2_clk", camss_mclk2_clk.c, "20.qcom,camera"),
 	CLK_LOOKUP("cam_clk", camss_mclk1_clk.c, "90.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "34.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "5a.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "a0.qcom,eeprom"),
+	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "5a.qcom,eeprom"),
 	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "0.qcom,camera"),
 	CLK_LOOKUP("cam_src_clk", mclk1_clk_src.c, "1.qcom,camera"),
 	CLK_LOOKUP("cam_src_clk", mclk2_clk_src.c, "2.qcom,camera"),
@@ -4882,12 +4908,30 @@ static struct clk_lookup msm_clocks_8974pro_only[] __initdata = {
 };
 
 static struct clk_lookup msm_clocks_8974_only[] __initdata = {
+	CLK_LOOKUP("cam_src_clk", mmss_gp0_clk_src.c, "6e.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk", mmss_gp0_clk_src.c, "34.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk", mmss_gp0_clk_src.c, "5a.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk", mmss_gp0_clk_src.c, "20.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk", mmss_gp0_clk_src.c, "34.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk", mmss_gp0_clk_src.c, "5a.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk", gp1_clk_src.c, "6c.qcom,camera"),
+	CLK_LOOKUP("cam2_src_clk", gp1_clk_src.c, "20.qcom,camera"),
 	CLK_LOOKUP("cam_src_clk", mmss_gp1_clk_src.c, "90.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_gp0_clk.c, "6e.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_gp0_clk.c, "34.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_gp0_clk.c, "5a.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_gp0_clk.c, "20.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_gp0_clk.c, "34.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_gp0_clk.c, "5a.qcom,camera"),
+	CLK_LOOKUP("cam_clk", gcc_gp1_clk.c, "6c.qcom,camera"),
+	CLK_LOOKUP("cam2_clk", gcc_gp1_clk.c, "20.qcom,camera"),
 	CLK_LOOKUP("cam_clk", camss_gp1_clk.c, "90.qcom,camera"),
 	CLK_LOOKUP("cam_src_clk", mmss_gp0_clk_src.c, "0.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk", gp1_clk_src.c, "2.qcom,camera"),
 	CLK_LOOKUP("cam_src_clk", mmss_gp1_clk_src.c, "1.qcom,camera"),
 	CLK_LOOKUP("cam_src_clk", gp1_clk_src.c, "2.qcom,camera"),
 	CLK_LOOKUP("cam_clk", camss_gp0_clk.c, "0.qcom,camera"),
+	CLK_LOOKUP("cam_clk", gcc_gp1_clk.c, "2.qcom,camera"),
 	CLK_LOOKUP("cam_clk", camss_gp1_clk.c, "1.qcom,camera"),
 	CLK_LOOKUP("cam_clk", gcc_gp1_clk.c, "2.qcom,camera"),
 };
@@ -5496,9 +5540,19 @@ static struct clk_lookup msm_clocks_8974_common[] __initdata = {
 	CLK_LOOKUP("",		byte_clk_src_8974.c,               ""),
 };
 
+/* this table should be used just for cancro x5 */
+static struct clk_lookup msm_clocks_8974_sensorhub_i2c[] __initdata = {
+	/* Activate I2C for Sensor Hub */
+	CLK_LOOKUP("iface_clk", gcc_blsp2_ahb_clk.c, "f9968000.i2c"),
+	CLK_LOOKUP("core_clk", gcc_blsp2_qup6_i2c_apps_clk.c, "f9968000.i2c"),
+	CLK_LOOKUP("iface_clk", gcc_blsp1_ahb_clk.c, "f9925000.i2c"),
+	CLK_LOOKUP("core_clk", gcc_blsp1_qup3_i2c_apps_clk.c, "f9925000.i2c"),
+};
+
 static struct clk_lookup msm_clocks_8974[ARRAY_SIZE(msm_clocks_8974_common)
 	+ ARRAY_SIZE(msm_clocks_8974_only)
-	+ ARRAY_SIZE(msm_clocks_8974pro_only)];
+	+ ARRAY_SIZE(msm_clocks_8974pro_only)
+	+ ARRAY_SIZE(msm_clocks_8974_sensorhub_i2c)];
 
 static struct pll_config_regs mmpll0_regs __initdata = {
 	.l_reg = (void __iomem *)MMPLL0_L_REG,
@@ -5866,6 +5920,14 @@ static void __init msm8974_clock_pre_init(void)
 		       sizeof(msm_clocks_8974pro_only));
 		msm8974_clock_init_data.size +=
 			ARRAY_SIZE(msm_clocks_8974pro_only);
+	}
+
+	if (get_hw_version_major() == 5) {
+		memcpy(msm_clocks_8974 + msm8974_clock_init_data.size,
+				msm_clocks_8974_sensorhub_i2c,
+				sizeof(msm_clocks_8974_sensorhub_i2c));
+		msm8974_clock_init_data.size +=
+				ARRAY_SIZE(msm_clocks_8974_sensorhub_i2c);
 	}
 
 	clk_ops_pixel_clock = clk_ops_pixel;

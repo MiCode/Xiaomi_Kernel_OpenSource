@@ -5,6 +5,7 @@
  *
  * Copyright (C) 2009 picoChip Designs, Ltd., Jamie Iles
  * Copyright (C) 2010 ARM Ltd., Will Deacon <will.deacon@arm.com>
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This code is based on the sparc64 perf event code, which is in turn based
  * on the x86 code. Callchain code is based on the ARM OProfile backtrace
@@ -311,6 +312,7 @@ armpmu_add(struct perf_event *event, int flags)
 			pr_err("Event: %llx failed constraint check.\n",
 					event->attr.config);
 			event->state = PERF_EVENT_STATE_OFF;
+			err = -EPERM;
 			goto out;
 		}
 

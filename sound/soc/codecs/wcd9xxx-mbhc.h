@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -360,6 +361,7 @@ struct wcd9xxx_mbhc {
 	bool impedance_detect;
 	/* impedance of hphl and hphr */
 	uint32_t zl, zr;
+	uint32_t impedance_offset;
 
 	u32 rco_clk_rate;
 
@@ -368,6 +370,8 @@ struct wcd9xxx_mbhc {
 	u8   scaling_mux_in;
 	/* Holds codec specific interrupt mapping */
 	const struct wcd9xxx_mbhc_intr *intr_ids;
+
+	bool vddio_on;
 
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs_poke;
@@ -449,4 +453,5 @@ void *wcd9xxx_mbhc_cal_btn_det_mp(
 			    const enum wcd9xxx_mbhc_btn_det_mem mem);
 int wcd9xxx_mbhc_get_impedance(struct wcd9xxx_mbhc *mbhc, uint32_t *zl,
 			       uint32_t *zr);
+void wcd9xxx_mbhc_enable_vddio(struct wcd9xxx_mbhc *mbhc, bool on);
 #endif /* __WCD9XXX_MBHC_H__ */
