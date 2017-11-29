@@ -106,6 +106,8 @@ struct sde_hdmi_bridge {
 #define HDMI_AVI_IFRAME_LINE_NUMBER 1
 #define HDMI_VENDOR_IFRAME_LINE_NUMBER 3
 
+static int _sde_hdmi_bridge_setup_scrambler(struct hdmi *hdmi,
+			struct drm_display_mode *mode);
 void _sde_hdmi_bridge_destroy(struct drm_bridge *bridge)
 {
 }
@@ -129,6 +131,8 @@ static void _sde_hdmi_bridge_power_on(struct drm_bridge *bridge)
 	struct sde_hdmi_bridge *sde_hdmi_bridge = to_hdmi_bridge(bridge);
 	struct hdmi *hdmi = sde_hdmi_bridge->hdmi;
 	const struct hdmi_platform_config *config = hdmi->config;
+	struct sde_connector *c_conn = to_sde_connector(hdmi->connector);
+	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
 	int i, ret;
 
 	for (i = 0; i < config->pwr_reg_cnt; i++) {
@@ -155,6 +159,13 @@ static void _sde_hdmi_bridge_power_on(struct drm_bridge *bridge)
 					config->pwr_clk_names[i], ret);
 		}
 	}
+
+	if (display->non_pluggable) {
+		ret = sde_hdmi_core_enable(display);
+		if (ret)
+			SDE_ERROR("failed to enable hpd clks: %d\n", ret);
+	}
+	_sde_hdmi_bridge_setup_scrambler(hdmi, &display->mode);
 }
 
 static void _sde_hdmi_bridge_power_off(struct drm_bridge *bridge)
@@ -162,6 +173,8 @@ static void _sde_hdmi_bridge_power_off(struct drm_bridge *bridge)
 	struct sde_hdmi_bridge *sde_hdmi_bridge = to_hdmi_bridge(bridge);
 	struct hdmi *hdmi = sde_hdmi_bridge->hdmi;
 	const struct hdmi_platform_config *config = hdmi->config;
+	struct sde_connector *c_conn = to_sde_connector(hdmi->connector);
+	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
 	int i, ret;
 
 	/* Wait for vsync */
@@ -177,6 +190,9 @@ static void _sde_hdmi_bridge_power_off(struct drm_bridge *bridge)
 					config->pwr_reg_names[i], ret);
 		}
 	}
+
+	if (display->non_pluggable)
+		sde_hdmi_core_disable(display);
 }
 
 static int _sde_hdmi_bridge_ddc_clear_irq(struct hdmi *hdmi,
@@ -487,6 +503,9 @@ static void _sde_hdmi_bridge_pre_enable(struct drm_bridge *bridge)
 
 	if (hdmi->hdcp_ctrl && hdmi->is_hdcp_supported)
 		hdmi_hdcp_ctrl_on(hdmi->hdcp_ctrl);
+
+	/* turn on scrambler, scrambler was skipped if HDMI is off */
+	_sde_hdmi_bridge_setup_scrambler(hdmi, &display->mode);
 
 	mutex_lock(&display->display_lock);
 	if (display->codec_ready)
@@ -896,7 +915,8 @@ static void _sde_hdmi_bridge_mode_set(struct drm_bridge *bridge,
 	}
 
 	_sde_hdmi_save_mode(hdmi, mode);
-	_sde_hdmi_bridge_setup_scrambler(hdmi, mode);
+	if (hdmi->power_on)
+		_sde_hdmi_bridge_setup_scrambler(hdmi, mode);
 	_sde_hdmi_bridge_setup_deep_color(hdmi);
 }
 
