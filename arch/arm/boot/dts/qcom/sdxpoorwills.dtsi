@@ -28,17 +28,29 @@
 		#size-cells = <1>;
 		ranges;
 
-		peripheral2_mem: peripheral2_region@8fd00000 {
+		peripheral2_mem: peripheral2_region@8fe00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x8fd00000 0x300000>;
+			reg = <0x8fe00000 0x200000>;
 			label = "peripheral2_mem";
 		};
 
-		mss_mem: mss_region@87800000 {
+		sbl_region: sbl_region@8fd00000 {
+			no-map;
+			reg = <0x8fd00000 0x100000>;
+			label = "sbl_mem";
+		};
+
+		hyp_region: hyp_region@8fc00000 {
+			no-map;
+			reg = <0x8fc00000 0x80000>;
+			label = "hyp_mem";
+		};
+
+		mss_mem: mss_region@87400000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x87800000 0x8000000>;
+			reg = <0x87400000 0x7700000>;
 			label = "mss_mem";
 		};
 
