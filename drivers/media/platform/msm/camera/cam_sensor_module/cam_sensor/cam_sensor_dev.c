@@ -208,13 +208,19 @@ free_s_ctrl:
 
 static int cam_sensor_platform_remove(struct platform_device *pdev)
 {
+	int                        i;
 	struct cam_sensor_ctrl_t  *s_ctrl;
+	struct cam_hw_soc_info    *soc_info;
 
 	s_ctrl = platform_get_drvdata(pdev);
 	if (!s_ctrl) {
 		CAM_ERR(CAM_SENSOR, "sensor device is NULL");
 		return 0;
 	}
+
+	soc_info = &s_ctrl->soc_info;
+	for (i = 0; i < soc_info->num_clk; i++)
+		devm_clk_put(soc_info->dev, soc_info->clk[i]);
 
 	kfree(s_ctrl->i2c_data.per_frame);
 	devm_kfree(&pdev->dev, s_ctrl);
@@ -224,12 +230,18 @@ static int cam_sensor_platform_remove(struct platform_device *pdev)
 
 static int cam_sensor_driver_i2c_remove(struct i2c_client *client)
 {
+	int                        i;
 	struct cam_sensor_ctrl_t  *s_ctrl = i2c_get_clientdata(client);
+	struct cam_hw_soc_info    *soc_info;
 
 	if (!s_ctrl) {
 		CAM_ERR(CAM_SENSOR, "sensor device is NULL");
 		return 0;
 	}
+
+	soc_info = &s_ctrl->soc_info;
+	for (i = 0; i < soc_info->num_clk; i++)
+		devm_clk_put(soc_info->dev, soc_info->clk[i]);
 
 	kfree(s_ctrl->i2c_data.per_frame);
 	kfree(s_ctrl);
