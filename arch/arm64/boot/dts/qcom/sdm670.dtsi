@@ -1034,14 +1034,12 @@
 		compatible = "qcom,clk-cpu-osm-sdm670";
 		reg = <0x17d41000 0x1400>,
 			<0x17d43000 0x1400>,
-			<0x17d45800 0x1400>,
-			<0x784248 0x4>;
-		reg-names = "osm_l3_base", "osm_pwrcl_base", "osm_perfcl_base",
-				"cpr_rc";
+			<0x17d45800 0x1400>;
+		reg-names = "osm_l3_base", "osm_pwrcl_base", "osm_perfcl_base";
 		vdd_l3_mx_ao-supply = <&pm660l_s1_level_ao>;
 		vdd_pwrcl_mx_ao-supply = <&pm660l_s1_level_ao>;
 
-		qcom,mx-turbo-freq = <1478400000 1689600000 3300000001>;
+		qcom,mx-turbo-freq = <3300000001 3300000001 3300000001>;
 		l3-devs = <&l3_cpu0 &l3_cpu6>;
 
 		clock-names = "xo_ao";

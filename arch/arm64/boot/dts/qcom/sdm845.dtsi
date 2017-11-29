@@ -1229,10 +1229,8 @@
 		compatible = "qcom,clk-cpu-osm";
 		reg = <0x17d41000 0x1400>,
 			<0x17d43000 0x1400>,
-			<0x17d45800 0x1400>,
-			<0x784248 0x4>;
-		reg-names = "osm_l3_base", "osm_pwrcl_base", "osm_perfcl_base",
-							"cpr_rc";
+			<0x17d45800 0x1400>;
+		reg-names = "osm_l3_base", "osm_pwrcl_base", "osm_perfcl_base";
 		vdd_l3_mx_ao-supply = <&pm8998_s6_level_ao>;
 		vdd_pwrcl_mx_ao-supply = <&pm8998_s6_level_ao>;
 

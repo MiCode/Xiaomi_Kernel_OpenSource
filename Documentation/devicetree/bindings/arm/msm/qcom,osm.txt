@@ -21,26 +21,26 @@ Properties:
 	Usage:      required
 	Value type: <stringlist>
 	Definition: Address names. Must be "osm_l3_base", "osm_pwrcl_base",
-		    "osm_perfcl_base", and "cpr_rc".
+		    "osm_perfcl_base".
 		    Must be specified in the same order as the corresponding
 		    addresses are specified in the reg property.
 
-- vdd_l3_mx_ao-supply
-	Usage:      required
-	Value type: <phandle>
-	Definition: Phandle to the MX active-only regulator device.
-
-- vdd_pwrcl_mx_ao-supply
-	Usage:      required
-	Value type: <phandle>
-	Definition: Phandle to the MX active-only regulator device.
-
 - qcom,mx-turbo-freq
-	Usage:      required
+	Usage:      optional
 	Value type: <array>
 	Definition: List of frequencies for the 3 clock domains (following the
 		    order of L3, power, and performance clusters) that denote
 		    the lowest rate that requires a TURBO vote on the MX rail.
+
+- vdd_l3_mx_ao-supply
+	Usage:      required if qcom,mx-turbo-freq is specified
+	Value type: <phandle>
+	Definition: Phandle to the MX active-only regulator device.
+
+- vdd_pwrcl_mx_ao-supply
+	Usage:      required if qcom,mx-turbo-freq is specified
+	Value type: <phandle>
+	Definition: Phandle to the MX active-only regulator device.
 
 - l3-devs
 	Usage: optional
@@ -63,10 +63,8 @@ Example:
 		compatible = "qcom,clk-cpu-osm";
 		reg = <0x17d41000 0x1400>,
 			<0x17d43000 0x1400>,
-			<0x17d45800 0x1400>,
-			<0x784248 0x4>;
-		reg-names = "osm_l3_base", "osm_pwrcl_base", "osm_perfcl_base",
-							"cpr_rc";
+			<0x17d45800 0x1400>;
+		reg-names = "osm_l3_base", "osm_pwrcl_base", "osm_perfcl_base";
 		vdd_l3_mx_ao-supply = <&pm8998_s6_level_ao>;
 		vdd_pwrcl_mx_ao-supply = <&pm8998_s6_level_ao>;
 
