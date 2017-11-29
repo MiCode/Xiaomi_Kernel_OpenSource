@@ -1353,6 +1353,19 @@ static struct clk_branch gcc_mss_snoc_axi_clk = {
 	},
 };
 
+static struct clk_branch gcc_pcie_0_clkref_clk = {
+	.halt_reg = 0x88004,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x88004,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_pcie_0_clkref_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_pcie_aux_clk = {
 	.halt_reg = 0x37020,
 	.halt_check = BRANCH_HALT_VOTED,
@@ -1695,14 +1708,26 @@ static struct clk_branch gcc_usb3_phy_aux_clk = {
 	},
 };
 
-static struct clk_branch gcc_usb3_phy_pipe_clk = {
-	.halt_reg = 0xb054,
-	.halt_check = BRANCH_HALT,
+static struct clk_gate2 gcc_usb3_phy_pipe_clk = {
+	.udelay = 500,
 	.clkr = {
 		.enable_reg = 0xb054,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_usb3_phy_pipe_clk",
+			.ops = &clk_gate2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_usb3_prim_clkref_clk = {
+	.halt_reg = 0x88000,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x88000,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_usb3_prim_clkref_clk",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -1782,6 +1807,7 @@ static struct clk_regmap *gcc_sdxpoorwills_clocks[] = {
 	[GCC_MSS_CFG_AHB_CLK] = &gcc_mss_cfg_ahb_clk.clkr,
 	[GCC_MSS_GPLL0_DIV_CLK_SRC] = &gcc_mss_gpll0_div_clk_src.clkr,
 	[GCC_MSS_SNOC_AXI_CLK] = &gcc_mss_snoc_axi_clk.clkr,
+	[GCC_PCIE_0_CLKREF_CLK] = &gcc_pcie_0_clkref_clk.clkr,
 	[GCC_PCIE_AUX_CLK] = &gcc_pcie_aux_clk.clkr,
 	[GCC_PCIE_AUX_PHY_CLK_SRC] = &gcc_pcie_aux_phy_clk_src.clkr,
 	[GCC_PCIE_CFG_AHB_CLK] = &gcc_pcie_cfg_ahb_clk.clkr,
@@ -1813,6 +1839,7 @@ static struct clk_regmap *gcc_sdxpoorwills_clocks[] = {
 	[GCC_USB3_PHY_AUX_CLK] = &gcc_usb3_phy_aux_clk.clkr,
 	[GCC_USB3_PHY_AUX_CLK_SRC] = &gcc_usb3_phy_aux_clk_src.clkr,
 	[GCC_USB3_PHY_PIPE_CLK] = &gcc_usb3_phy_pipe_clk.clkr,
+	[GCC_USB3_PRIM_CLKREF_CLK] = &gcc_usb3_prim_clkref_clk.clkr,
 	[GCC_USB_PHY_CFG_AHB2PHY_CLK] = &gcc_usb_phy_cfg_ahb2phy_clk.clkr,
 	[GPLL0] = &gpll0.clkr,
 	[GPLL0_OUT_EVEN] = &gpll0_out_even.clkr,
@@ -1837,6 +1864,8 @@ static const struct qcom_reset_map gcc_sdxpoorwills_resets[] = {
 	[GCC_SDCC1_BCR] = { 0xf000 },
 	[GCC_SPMI_FETCHER_BCR] = { 0x3f000 },
 	[GCC_USB30_BCR] = { 0xb000 },
+	[GCC_USB3_PHY_BCR] = { 0xc000 },
+	[GCC_USB3PHY_PHY_BCR] = { 0xc004 },
 	[GCC_USB_PHY_CFG_AHB2PHY_BCR] = { 0xe000 },
 };
 
