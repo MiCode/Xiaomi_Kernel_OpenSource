@@ -26,6 +26,7 @@
 #include <linux/of_gpio.h>
 #include <linux/kthread.h>
 #include "bgcom.h"
+#include "bgrsb.h"
 
 #define BG_SPI_WORD_SIZE (0x04)
 #define BG_SPI_READ_LEN (0x04)
@@ -84,16 +85,46 @@ struct bg_context {
 	struct cb_data *cb;
 };
 
+struct event_list {
+	struct event *evnt;
+	struct list_head list;
+};
 static void *bg_com_drv;
 static uint32_t g_slav_status_reg;
 
 /* BGCOM client callbacks set-up */
+static void send_input_events(struct work_struct *work);
 static struct list_head cb_head = LIST_HEAD_INIT(cb_head);
+static struct list_head pr_lst_hd = LIST_HEAD_INIT(pr_lst_hd);
 static enum bgcom_spi_state spi_state;
+
+
+static struct workqueue_struct *wq;
+static DECLARE_WORK(input_work , send_input_events);
 
 static void augmnt_fifo(uint8_t *data, int pos)
 {
 	data[pos] = '\0';
+}
+
+static void send_input_events(struct work_struct *work)
+{
+	struct list_head *temp;
+	struct list_head *pos;
+	struct event_list *node;
+	struct event *evnt;
+
+	if (list_empty(&pr_lst_hd))
+		return;
+
+	list_for_each_safe(pos, temp, &pr_lst_hd) {
+		node = list_entry(pos, struct event_list, list);
+		evnt = node->evnt;
+		bgrsb_send_input(evnt);
+		kfree(evnt);
+		list_del(&node->list);
+		kfree(node);
+	}
 }
 
 int bgcom_set_spi_state(enum bgcom_spi_state state)
@@ -224,8 +255,12 @@ void send_event(enum bgcom_event_type event,
 static void parse_fifo(uint8_t *data, union bgcom_event_data_type *event_data)
 {
 	uint16_t p_len;
+	uint8_t sub_id;
+	uint32_t evnt_tm;
 	uint16_t event_id;
 	void *evnt_data;
+	struct event *evnt;
+	struct event_list *data_list;
 
 	while (*data != '\0') {
 
@@ -234,7 +269,22 @@ static void parse_fifo(uint8_t *data, union bgcom_event_data_type *event_data)
 		p_len = *((uint16_t *) data);
 		data = data + HED_EVENT_SIZE_LEN;
 
-		if (event_id == 0x0001) {
+		if (event_id == 0xFFFE) {
+
+			sub_id = *data;
+			evnt_tm = *((uint32_t *)(data+1));
+
+			evnt = kmalloc(sizeof(*evnt), GFP_KERNEL);
+			evnt->sub_id = sub_id;
+			evnt->evnt_tm = evnt_tm;
+			evnt->evnt_data =
+				*(int16_t *)(data + HED_EVENT_DATA_STRT_LEN);
+
+			data_list = kmalloc(sizeof(*data_list), GFP_KERNEL);
+			data_list->evnt = evnt;
+			list_add_tail(&data_list->list, &pr_lst_hd);
+
+		} else if (event_id == 0x0001) {
 			evnt_data = kmalloc(p_len, GFP_KERNEL);
 			if (evnt_data != NULL) {
 				memcpy(evnt_data, data, p_len);
@@ -247,6 +297,8 @@ static void parse_fifo(uint8_t *data, union bgcom_event_data_type *event_data)
 		}
 		data = data + p_len;
 	}
+	if (!list_empty(&pr_lst_hd))
+		queue_work(wq, &input_work);
 }
 
 static void send_back_notification(uint32_t slav_status_reg,
@@ -764,6 +816,8 @@ static void bg_spi_init(struct bg_spi_priv *bg_spi)
 	bg_spi->irq_lock = 0;
 
 	spi_state = BGCOM_SPI_FREE;
+
+	wq = create_singlethread_workqueue("input_wq");
 }
 
 static int bg_spi_probe(struct spi_device *spi)
