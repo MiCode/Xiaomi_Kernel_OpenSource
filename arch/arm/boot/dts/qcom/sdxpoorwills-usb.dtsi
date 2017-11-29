@@ -215,5 +215,8 @@
 
 		clock-names = "aux_clk", "pipe_clk", "ref_clk_src",
 				"cfg_ahb_clk";
+		resets = <&clock_gcc GCC_USB3_PHY_BCR>,
+		       <&clock_gcc GCC_USB3PHY_PHY_BCR>;
+		reset-names = "phy_reset", "phy_phy_reset";
 	};
 };
