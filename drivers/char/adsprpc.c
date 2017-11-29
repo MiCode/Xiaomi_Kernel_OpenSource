@@ -1455,6 +1455,9 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		inbuf.pgid = current->tgid;
 		inbuf.namelen = strlen(current->comm) + 1;
 		inbuf.filelen = init->filelen;
+		if (!access_ok(VERIFY_READ, (void const __user *)init->file,
+							init->filelen))
+			goto bail;
 		if (init->filelen) {
 			VERIFY(err, !fastrpc_mmap_create(fl, init->filefd,
 				init->file, init->filelen, mflags, &file));
@@ -1462,6 +1465,9 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 				goto bail;
 		}
 		inbuf.pageslen = 1;
+		if (!access_ok(VERIFY_WRITE, (void const __user *)init->mem,
+							init->memlen))
+			goto bail;
 		VERIFY(err, !fastrpc_mmap_create(fl, init->memfd, init->mem,
 					init->memlen, mflags, &mem));
 		if (err)
