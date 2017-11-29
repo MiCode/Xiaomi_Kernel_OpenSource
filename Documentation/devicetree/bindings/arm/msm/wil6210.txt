@@ -1,0 +1,63 @@
+wil6210 - Qualcomm Technologies Inc. 802.11ad Wireless Driver
+
+wil6210 driver is responsible for managing 802.11ad chipset
+connected to MSM over PCIe interface.
+
+The platform data is needed in order to perform proper
+bus-scaling and SMMU initialization by the driver.
+
+Required properties:
+
+- compatible: "qcom,wil6210"
+- qcom,smmu-support: Boolean flag indicating whether PCIe has SMMU support
+- qcom,smmu-s1-en: Boolean flag indicating whether SMMU stage1 should be enabled
+- qcom,smmu-fast-map: Boolean flag indicating whether SMMU fast mapping should be enabled
+- qcom,smmu-coherent: Boolean flag indicating SMMU dma and page table coherency
+- qcom,smmu-mapping: specifies the base address and size of SMMU space
+- qcom,pcie-parent: phandle for the PCIe root complex to which 11ad card is connected
+- Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
+  the below optional properties:
+	- qcom,msm-bus,name
+	- qcom,msm-bus,num-cases
+	- qcom,msm-bus,num-paths
+	- qcom,msm-bus,vectors-KBps
+
+Optional properties:
+- qcom,sleep-clk-en: GPIO for sleep clock used for low power modes by 11ad card
+- qcom,wigig-en: Enable GPIO connected to 11ad card
+- qcom,use-ext-supply: Boolean flag to indicate if 11ad SIP uses external power supply
+- vdd-supply: phandle to 11ad VDD regulator node
+- vddio-supply: phandle to 11ad VDDIO regulator node
+- qcom,use-ext-clocks: Boolean flag to indicate if 11ad SIP uses external clocks
+- clocks	    : List of phandle and clock specifier pairs
+- clock-names       : List of clock input name strings sorted in the same
+		      order as the clocks property.
+- qcom,keep-radio-on-during-sleep: Boolean flag to indicate if to suspend to d3hot
+				   instead of turning off the device
+
+Example:
+	wil6210: qcom,wil6210 {
+		compatible = "qcom,wil6210";
+		qcom,smmu-support;
+		qcom,smmu-s1-en;
+		qcom,smmu-fast-map;
+		qcom,smmu-coherent;
+		qcom,smmu-mapping = <0x20000000 0xe0000000>;
+		qcom,pcie-parent = <&pcie1>;
+		qcom,wigig-en = <&tlmm 94 0>;
+		qcom,msm-bus,name = "wil6210";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<100 512 0 0>,
+			<100 512 600000 800000>; /* ~4.6Gbps (MCS12) */
+		qcom,use-ext-supply;
+		vdd-supply= <&pm8998_s7>;
+		vddio-supply= <&pm8998_s5>;
+		qcom,use-ext-clocks;
+		clocks = <&clock_gcc clk_rf_clk3>,
+			 <&clock_gcc clk_rf_clk3_pin>;
+		clock-names = "rf_clk3_clk", "rf_clk3_pin_clk";
+		qcom,keep-radio-on-during-sleep;
+	};
+
