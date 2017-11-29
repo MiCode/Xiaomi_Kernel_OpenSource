@@ -274,7 +274,7 @@ struct export_desc {
 	void *kva;
 	int                 payload_count;
 	unsigned char       payload[1];
-};
+} __packed;
 
 int hab_vchan_open(struct uhab_context *ctx,
 		unsigned int mmid, int32_t *vcid, uint32_t flags);
