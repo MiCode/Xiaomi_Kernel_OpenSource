@@ -39,6 +39,7 @@
 #include <linux/idr.h>
 #include <linux/sched/task.h>
 #include <linux/bitops.h>
+#include <linux/msm_dma_iommu_mapping.h>
 #include <soc/qcom/secure_buffer.h>
 
 #include "ion.h"
@@ -167,6 +168,8 @@ static void _ion_buffer_destroy(struct ion_buffer *buffer)
 	struct ion_heap *heap = buffer->heap;
 	struct ion_device *dev = buffer->dev;
 
+	msm_dma_buf_freed(buffer);
+
 	mutex_lock(&dev->buffer_lock);
 	rb_erase(&buffer->node, &dev->buffers);
 	mutex_unlock(&dev->buffer_lock);
@@ -293,12 +296,22 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 {
 	struct ion_dma_buf_attachment *a = attachment->priv;
 	struct sg_table *table;
-	int ret;
+	int ret, count, map_attrs;
 
 	table = a->table;
+	map_attrs = attachment->dma_map_attrs;
 
-	if (!dma_map_sg_attrs(attachment->dev, table->sgl, table->nents,
-			      direction, attachment->dma_map_attrs)){
+	if (map_attrs & DMA_ATTR_DELAYED_UNMAP) {
+		count = msm_dma_map_sg_attrs(attachment->dev, table->sgl,
+					     table->nents, direction,
+					     attachment->dmabuf, map_attrs);
+	} else {
+		count = dma_map_sg_attrs(attachment->dev, table->sgl,
+					 table->nents, direction,
+					 map_attrs);
+	}
+
+	if (count <= 0) {
 		ret = -ENOMEM;
 		goto err;
 	}
@@ -313,7 +326,12 @@ static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 			      struct sg_table *table,
 			      enum dma_data_direction direction)
 {
-	dma_unmap_sg(attachment->dev, table->sgl, table->nents, direction);
+	if (attachment->dma_map_attrs & DMA_ATTR_DELAYED_UNMAP)
+		msm_dma_unmap_sg(attachment->dev, table->sgl, table->nents,
+				 direction, attachment->dmabuf);
+	else
+		dma_unmap_sg_attrs(attachment->dev, table->sgl, table->nents,
+				   direction, attachment->dma_map_attrs);
 }
 
 void ion_pages_sync_for_device(struct device *dev, struct page *page,
