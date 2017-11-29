@@ -113,6 +113,7 @@ void dsi_ctrl_hw_kickoff_non_embedded_mode(struct dsi_ctrl_hw *ctrl,
 	reg = DSI_R32(ctrl, DSI_DMA_FIFO_CTRL);
 	reg |= BIT(20);
 	reg |= BIT(16);
+	reg |= 0x33;/* Set READ and WRITE watermark levels to maximum */
 	DSI_W32(ctrl, DSI_DMA_FIFO_CTRL, reg);
 
 	DSI_W32(ctrl, DSI_DMA_CMD_OFFSET, cmd->offset);
