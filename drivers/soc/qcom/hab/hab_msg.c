@@ -139,6 +139,7 @@ void hab_msg_recv(struct physical_channel *pchan,
 	uint32_t vchan_id = HAB_HEADER_GET_ID(*header);
 	struct virtual_channel *vchan = NULL;
 	struct export_desc *exp_desc;
+	struct timeval tv;
 
 	/* get the local virtual channel if it isn't an open message */
 	if (payload_type != HAB_PAYLOAD_TYPE_INIT &&
@@ -198,6 +199,21 @@ void hab_msg_recv(struct physical_channel *pchan,
 
 	case HAB_PAYLOAD_TYPE_CLOSE:
 		hab_vchan_stop(vchan);
+		break;
+
+	case HAB_PAYLOAD_TYPE_PROFILE:
+		do_gettimeofday(&tv);
+
+		/* pull down the incoming data */
+		message = hab_msg_alloc(pchan, sizebytes);
+		if (!message) {
+			pr_err("msg alloc failed\n");
+			break;
+		}
+
+		((uint64_t *)message->data)[2] = tv.tv_sec;
+		((uint64_t *)message->data)[3] = tv.tv_usec;
+		hab_msg_queue(vchan, message);
 		break;
 
 	default:

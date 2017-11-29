@@ -40,6 +40,7 @@ int physical_channel_send(struct physical_channel *pchan,
 	int sizebytes = HAB_HEADER_GET_SIZE(*header);
 	struct qvm_channel *dev  = (struct qvm_channel *)pchan->hyp_data;
 	int total_size = sizeof(*header) + sizebytes;
+	struct timeval tv;
 
 	if (total_size > dev->pipe_ep->tx_info.sh_buf->size)
 		return -EINVAL; /* too much data for ring */
@@ -58,6 +59,12 @@ int physical_channel_send(struct physical_channel *pchan,
 		sizeof(*header)) != sizeof(*header)) {
 		spin_unlock_bh(&dev->io_lock);
 		return -EIO;
+	}
+
+	if (HAB_HEADER_GET_TYPE(*header) == HAB_PAYLOAD_TYPE_PROFILE) {
+		do_gettimeofday(&tv);
+		((uint64_t *)payload)[0] = tv.tv_sec;
+		((uint64_t *)payload)[1] = tv.tv_usec;
 	}
 
 	if (sizebytes) {

@@ -117,6 +117,14 @@ struct hab_unimport {
 
 #define HABMM_SOCKET_SEND_FLAGS_NON_BLOCKING 0x00000001
 
+/*
+ * Collect cross-VM stats: client provides stat-buffer large enough to allow 2
+ * ets of a 2-uint64_t pair to collect seconds and nano-seconds at the
+ * beginning of the stat-buffer. Stats are collected when the stat-buffer leaves
+ * VM1, then enters VM2
+ */
+#define HABMM_SOCKET_SEND_FLAGS_XING_VM_STAT 0x00000002
+
 #define HABMM_SOCKET_RECV_FLAGS_NON_BLOCKING 0x00000001
 
 #define HABMM_EXP_MEM_TYPE_DMA 0x00000001

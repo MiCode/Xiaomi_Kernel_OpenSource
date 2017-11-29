@@ -311,7 +311,11 @@ long hab_vchan_send(struct uhab_context *ctx,
 		return -ENODEV;
 
 	HAB_HEADER_SET_SIZE(header, sizebytes);
-	HAB_HEADER_SET_TYPE(header, HAB_PAYLOAD_TYPE_MSG);
+	if (flags & HABMM_SOCKET_SEND_FLAGS_XING_VM_STAT)
+		HAB_HEADER_SET_TYPE(header, HAB_PAYLOAD_TYPE_PROFILE);
+	else
+		HAB_HEADER_SET_TYPE(header, HAB_PAYLOAD_TYPE_MSG);
+
 	HAB_HEADER_SET_ID(header, vchan->otherend_id);
 
 	while (1) {
