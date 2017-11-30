@@ -1335,7 +1335,23 @@ EXPORT_SYMBOL(sde_rotator_inline_release);
 int sde_rotator_inline_get_dst_pixfmt(struct platform_device *pdev,
 		u32 src_pixfmt, u32 *dst_pixfmt)
 {
-	return sde_rot_get_base_tilea5x_pixfmt(src_pixfmt, dst_pixfmt);
+	int rc;
+
+	if (!src_pixfmt || !dst_pixfmt)
+		return -EINVAL;
+
+	rc = sde_rot_get_base_tilea5x_pixfmt(src_pixfmt, dst_pixfmt);
+	if (rc)
+		return rc;
+
+	/*
+	 * Currently, NV21 tile is not supported as output; hence,
+	 * override with NV12 tile.
+	 */
+	if (*dst_pixfmt == SDE_PIX_FMT_Y_CRCB_H2V2_TILE)
+		*dst_pixfmt = SDE_PIX_FMT_Y_CBCR_H2V2_TILE;
+
+	return 0;
 }
 EXPORT_SYMBOL(sde_rotator_inline_get_dst_pixfmt);
 
