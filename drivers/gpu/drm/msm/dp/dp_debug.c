@@ -23,6 +23,7 @@
 #include "dp_ctrl.h"
 #include "dp_debug.h"
 #include "drm_connector.h"
+#include "sde_connector.h"
 #include "dp_display.h"
 
 #define DEBUG_NAME "drm_dp"
@@ -618,6 +619,201 @@ static ssize_t dp_debug_tpg_read(struct file *file,
 	return len;
 }
 
+static ssize_t dp_debug_write_hdr(struct file *file,
+	const char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct drm_connector *connector;
+	struct sde_connector *c_conn;
+	struct sde_connector_state *c_state;
+	struct dp_debug_private *debug = file->private_data;
+	char buf[SZ_1K];
+	size_t len = 0;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	connector = *debug->connector;
+	c_conn = to_sde_connector(connector);
+	c_state = to_sde_connector_state(connector->state);
+
+	/* Leave room for termination char */
+	len = min_t(size_t, count, SZ_1K - 1);
+	if (copy_from_user(buf, user_buff, len))
+		goto end;
+
+	buf[len] = '\0';
+
+	if (sscanf(buf, "%x %x %x %x %x %x %x %x %x %x %x %x %x %x %x",
+			&c_state->hdr_meta.hdr_supported,
+			&c_state->hdr_meta.hdr_state,
+			&c_state->hdr_meta.eotf,
+			&c_state->hdr_meta.display_primaries_x[0],
+			&c_state->hdr_meta.display_primaries_x[1],
+			&c_state->hdr_meta.display_primaries_x[2],
+			&c_state->hdr_meta.display_primaries_y[0],
+			&c_state->hdr_meta.display_primaries_y[1],
+			&c_state->hdr_meta.display_primaries_y[2],
+			&c_state->hdr_meta.white_point_x,
+			&c_state->hdr_meta.white_point_y,
+			&c_state->hdr_meta.max_luminance,
+			&c_state->hdr_meta.min_luminance,
+			&c_state->hdr_meta.max_content_light_level,
+			&c_state->hdr_meta.max_average_light_level) != 15) {
+		pr_err("invalid input\n");
+		len = -EINVAL;
+	}
+end:
+	return len;
+}
+
+static ssize_t dp_debug_read_hdr(struct file *file,
+		char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char *buf;
+	u32 len = 0, i;
+	u32 max_size = SZ_4K;
+	int rc = 0;
+	struct drm_connector *connector;
+	struct sde_connector *c_conn;
+	struct sde_connector_state *c_state;
+	struct drm_msm_ext_hdr_metadata *hdr;
+
+	if (!debug) {
+		pr_err("invalid data\n");
+		rc = -ENODEV;
+		goto error;
+	}
+
+	connector = *debug->connector;
+
+	if (!connector) {
+		pr_err("connector is NULL\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	if (*ppos)
+		goto error;
+
+	buf = kzalloc(SZ_4K, GFP_KERNEL);
+	if (!buf) {
+		rc = -ENOMEM;
+		goto error;
+	}
+
+	c_conn = to_sde_connector(connector);
+	c_state = to_sde_connector_state(connector->state);
+
+	hdr = &c_state->hdr_meta;
+
+	rc = snprintf(buf + len, max_size,
+		"============SINK HDR PARAMETERS===========\n");
+	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
+		goto error;
+
+	rc = snprintf(buf + len, max_size, "eotf = %d\n",
+		connector->hdr_eotf);
+	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
+		goto error;
+
+	rc = snprintf(buf + len, max_size, "type_one = %d\n",
+		connector->hdr_metadata_type_one);
+	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
+		goto error;
+
+	rc = snprintf(buf + len, max_size, "max_luminance = %d\n",
+		connector->hdr_max_luminance);
+	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
+		goto error;
+
+	rc = snprintf(buf + len, max_size, "avg_luminance = %d\n",
+		connector->hdr_avg_luminance);
+	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
+		goto error;
+
+	rc = snprintf(buf + len, max_size, "min_luminance = %d\n",
+		connector->hdr_min_luminance);
+	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
+		goto error;
+
+	rc = snprintf(buf + len, max_size,
+		"============VIDEO HDR PARAMETERS===========\n");
+	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
+		goto error;
+
+	rc = snprintf(buf + len, max_size, "hdr_state = %d\n", hdr->hdr_state);
+	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
+		goto error;
+
+	rc = snprintf(buf + len, max_size, "hdr_supported = %d\n",
+			hdr->hdr_supported);
+	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
+		goto error;
+
+	rc = snprintf(buf + len, max_size, "eotf = %d\n", hdr->eotf);
+	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
+		goto error;
+
+	rc = snprintf(buf + len, max_size, "white_point_x = %d\n",
+		hdr->white_point_x);
+	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
+		goto error;
+
+	rc = snprintf(buf + len, max_size, "white_point_y = %d\n",
+		hdr->white_point_y);
+	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
+		goto error;
+
+	rc = snprintf(buf + len, max_size, "max_luminance = %d\n",
+		hdr->max_luminance);
+	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
+		goto error;
+
+	rc = snprintf(buf + len, max_size, "min_luminance = %d\n",
+		hdr->min_luminance);
+	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
+		goto error;
+
+	rc = snprintf(buf + len, max_size, "max_content_light_level = %d\n",
+		hdr->max_content_light_level);
+	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
+		goto error;
+
+	rc = snprintf(buf + len, max_size, "min_content_light_level = %d\n",
+		hdr->max_average_light_level);
+	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
+		goto error;
+
+	for (i = 0; i < HDR_PRIMARIES_COUNT; i++) {
+		rc = snprintf(buf + len, max_size, "primaries_x[%d] = %d\n",
+			i, hdr->display_primaries_x[i]);
+		if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
+			goto error;
+
+		rc = snprintf(buf + len, max_size, "primaries_y[%d] = %d\n",
+			i, hdr->display_primaries_y[i]);
+		if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
+			goto error;
+	}
+
+	if (copy_to_user(user_buff, buf, len)) {
+		kfree(buf);
+		rc = -EFAULT;
+		goto error;
+	}
+
+	*ppos += len;
+	kfree(buf);
+
+	return len;
+error:
+	return rc;
+}
+
 static const struct file_operations dp_debug_fops = {
 	.open = simple_open,
 	.read = dp_debug_read_info,
@@ -659,6 +855,12 @@ static const struct file_operations tpg_fops = {
 	.open = simple_open,
 	.read = dp_debug_tpg_read,
 	.write = dp_debug_tpg_write,
+};
+
+static const struct file_operations hdr_fops = {
+	.open = simple_open,
+	.write = dp_debug_write_hdr,
+	.read = dp_debug_read_hdr,
 };
 
 static int dp_debug_init(struct dp_debug *dp_debug)
@@ -750,6 +952,16 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		rc = PTR_ERR(file);
 		pr_err("[%s] debugfs tpg failed, rc=%d\n",
 		       DEBUG_NAME, rc);
+		goto error_remove_dir;
+	}
+
+	file = debugfs_create_file("hdr", 0644, dir,
+		debug, &hdr_fops);
+
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs hdr failed, rc=%d\n",
+			DEBUG_NAME, rc);
 		goto error_remove_dir;
 	}
 
