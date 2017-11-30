@@ -558,9 +558,8 @@ ssize_t ipa_read(struct file *filp, char __user *buf, size_t count,
 			list_del(&msg->link);
 		}
 
-		IPADBG("msg=%p\n", msg);
-
 		if (msg) {
+			IPADBG("msg=%pK\n", msg);
 			locked = 0;
 			mutex_unlock(&ipa_ctx->msg_lock);
 			if (copy_to_user(buf, &msg->meta,
@@ -588,6 +587,7 @@ ssize_t ipa_read(struct file *filp, char __user *buf, size_t count,
 			IPA_STATS_INC_CNT(
 				ipa_ctx->stats.msg_r[msg->meta.msg_type]);
 			kfree(msg);
+			msg = NULL;
 		}
 
 		ret = -EAGAIN;
