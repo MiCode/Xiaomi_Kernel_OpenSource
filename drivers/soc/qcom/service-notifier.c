@@ -105,6 +105,7 @@ struct qmi_client_info {
 	struct work_struct ind_ack;
 	struct work_struct qmi_handle_free;
 	struct workqueue_struct *svc_event_wq;
+	struct rw_semaphore qmi_client_handle_rwlock;
 	struct qmi_handle *clnt_handle;
 	struct notifier_block notifier;
 	void *ssr_handle;
@@ -115,7 +116,6 @@ struct qmi_client_info {
 };
 static LIST_HEAD(qmi_client_list);
 static DEFINE_MUTEX(qmi_list_lock);
-static DEFINE_MUTEX(qmi_client_release_lock);
 
 static DEFINE_MUTEX(notif_add_lock);
 
@@ -128,11 +128,11 @@ static void free_qmi_handle(struct work_struct *work)
 	struct qmi_client_info *data = container_of(work,
 				struct qmi_client_info, qmi_handle_free);
 
-	mutex_lock(&qmi_client_release_lock);
+	down_write(&data->qmi_client_handle_rwlock);
 	data->service_connected = false;
 	qmi_handle_destroy(data->clnt_handle);
 	data->clnt_handle = NULL;
-	mutex_unlock(&qmi_client_release_lock);
+	up_write(&data->qmi_client_handle_rwlock);
 }
 
 static struct service_notif_info *_find_service_info(const char *service_path)
@@ -170,10 +170,12 @@ static void root_service_clnt_recv_msg(struct work_struct *work)
 	struct qmi_client_info *data = container_of(work,
 					struct qmi_client_info, svc_rcv_msg);
 
+	down_read(&data->qmi_client_handle_rwlock);
 	do {
 		pr_debug("Polling for QMI recv msg(instance-id: %d)\n",
 							data->instance_id);
 	} while ((ret = qmi_recv_msg(data->clnt_handle)) == 0);
+	up_read(&data->qmi_client_handle_rwlock);
 
 	pr_debug("Notified about a Receive event (instance-id: %d)\n",
 							data->instance_id);
@@ -237,9 +239,11 @@ static void send_ind_ack(struct work_struct *work)
 	resp_desc.max_msg_len = SERVREG_NOTIF_SET_ACK_RESP_MSG_LEN;
 	resp_desc.ei_array = qmi_servreg_notif_set_ack_resp_msg_v01_ei;
 
+	down_read(&data->qmi_client_handle_rwlock);
 	rc = qmi_send_req_wait(data->clnt_handle, &req_desc,
 				&req, sizeof(req), &resp_desc, &resp,
 				sizeof(resp), SERVER_TIMEOUT);
+	up_read(&data->qmi_client_handle_rwlock);
 	if (rc < 0) {
 		pr_err("%s: Sending Ack failed/server timeout, ret - %d\n",
 						data->ind_msg.service_path, rc);
@@ -308,9 +312,11 @@ static int send_notif_listener_msg_req(struct service_notif_info *service_notif,
 	resp_desc.ei_array =
 			qmi_servreg_notif_register_listener_resp_msg_v01_ei;
 
+	down_read(&data->qmi_client_handle_rwlock);
 	rc = qmi_send_req_wait(data->clnt_handle, &req_desc, &req, sizeof(req),
 				&resp_desc, &resp, sizeof(resp),
 				SERVER_TIMEOUT);
+	up_read(&data->qmi_client_handle_rwlock);
 	if (rc < 0) {
 		pr_err("%s: Message sending failed/server timeout, ret - %d\n",
 					service_notif->service_path, rc);
@@ -349,13 +355,13 @@ static void root_service_service_arrive(struct work_struct *work)
 	int rc;
 	int curr_state;
 
-	mutex_lock(&qmi_client_release_lock);
+	down_read(&data->qmi_client_handle_rwlock);
 	/* Create a Local client port for QMI communication */
 	data->clnt_handle = qmi_handle_create(root_service_clnt_notify, work);
 	if (!data->clnt_handle) {
 		pr_err("QMI client handle alloc failed (instance-id: %d)\n",
 							data->instance_id);
-		mutex_unlock(&qmi_client_release_lock);
+		up_read(&data->qmi_client_handle_rwlock);
 		return;
 	}
 
@@ -368,11 +374,11 @@ static void root_service_service_arrive(struct work_struct *work)
 							data->instance_id, rc);
 		qmi_handle_destroy(data->clnt_handle);
 		data->clnt_handle = NULL;
-		mutex_unlock(&qmi_client_release_lock);
+		up_read(&data->qmi_client_handle_rwlock);
 		return;
 	}
 	data->service_connected = true;
-	mutex_unlock(&qmi_client_release_lock);
+	up_read(&data->qmi_client_handle_rwlock);
 	pr_info("Connection established between QMI handle and %d service\n",
 							data->instance_id);
 	/* Register for indication messages about service */
@@ -554,6 +560,7 @@ static void *add_service_notif(const char *service_path, int instance_id,
 	}
 
 	qmi_data->instance_id = instance_id;
+	init_rwsem(&qmi_data->qmi_client_handle_rwlock);
 	qmi_data->clnt_handle = NULL;
 	qmi_data->notifier.notifier_call = service_event_notify;
 
