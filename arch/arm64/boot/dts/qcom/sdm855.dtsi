@@ -1011,6 +1011,34 @@
 		qcom,wakeup-enable;
 	};
 
+	qcom,npu@0x9800000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x9800000 0x800000>;
+
+		clocks = <&clock_npucc NPU_CC_XO_CLK>,
+			<&clock_npucc NPU_CC_NPU_CORE_CLK>,
+			<&clock_npucc NPU_CC_CAL_DP_CLK>,
+			<&clock_npucc NPU_CC_ARMWIC_CORE_CLK>,
+			<&clock_npucc NPU_CC_COMP_NOC_AXI_CLK>,
+			<&clock_npucc NPU_CC_CONF_NOC_AHB_CLK>;
+		clock-names = "xo", "core", "cal_dp", "armwic",
+				"axi", "ahb";
+		qcom,proxy-clock-names = "xo", "core", "cal_dp",
+				"armwic","axi", "ahb";
+
+		vdd-supply = <&npu_core_gdsc>;
+		vdd_cx-supply = <&pm855l_s6_level>;
+		qcom,proxy-reg-names ="vdd", "vdd_cx";
+		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+
+		status = "ok";
+
+		qcom,pas-id = <23>;
+		qcom,proxy-timeout-ms = <10000>;
+		qcom,firmware-name = "npu";
+		memory-region = <&pil_npu_mem>;
+	};
+
 	qcom,turing@8300000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x8300000 0x100000>;
