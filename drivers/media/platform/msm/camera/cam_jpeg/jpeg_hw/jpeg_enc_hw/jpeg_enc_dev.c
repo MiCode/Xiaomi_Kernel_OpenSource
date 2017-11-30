@@ -139,6 +139,7 @@ static int cam_jpeg_enc_probe(struct platform_device *pdev)
 	jpeg_enc_dev_intf->hw_ops.init = cam_jpeg_enc_init_hw;
 	jpeg_enc_dev_intf->hw_ops.deinit = cam_jpeg_enc_deinit_hw;
 	jpeg_enc_dev_intf->hw_ops.start = cam_jpeg_enc_start_hw;
+	jpeg_enc_dev_intf->hw_ops.stop = cam_jpeg_enc_stop_hw;
 	jpeg_enc_dev_intf->hw_ops.reset = cam_jpeg_enc_reset_hw;
 	jpeg_enc_dev_intf->hw_ops.process_cmd = cam_jpeg_enc_process_cmd;
 	jpeg_enc_dev_intf->hw_type = CAM_JPEG_DEV_ENC;

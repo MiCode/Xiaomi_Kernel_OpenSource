@@ -46,9 +46,9 @@ int32_t cam_ois_construct_default_power_setting(
 		goto free_power_settings;
 	}
 
-	power_info->power_setting[0].seq_type = SENSOR_VAF;
-	power_info->power_setting[0].seq_val = CAM_VAF;
-	power_info->power_setting[0].config_val = 0;
+	power_info->power_down_setting[0].seq_type = SENSOR_VAF;
+	power_info->power_down_setting[0].seq_val = CAM_VAF;
+	power_info->power_down_setting[0].config_val = 0;
 
 	return rc;
 

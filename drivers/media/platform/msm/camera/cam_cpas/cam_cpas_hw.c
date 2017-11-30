@@ -596,17 +596,27 @@ unlock_axi_port:
 }
 
 static int cam_cpas_hw_update_axi_vote(struct cam_hw_info *cpas_hw,
-	uint32_t client_handle, struct cam_axi_vote *axi_vote)
+	uint32_t client_handle, struct cam_axi_vote *client_axi_vote)
 {
+	struct cam_axi_vote axi_vote;
 	struct cam_cpas *cpas_core = (struct cam_cpas *) cpas_hw->core_info;
 	uint32_t client_indx = CAM_CPAS_GET_CLIENT_IDX(client_handle);
 	int rc = 0;
 
-	if (!axi_vote || ((axi_vote->compressed_bw == 0) &&
-		(axi_vote->uncompressed_bw == 0))) {
-		CAM_ERR(CAM_CPAS, "Invalid vote, client_handle=%d",
+	if (!client_axi_vote) {
+		CAM_ERR(CAM_CPAS, "Invalid arg client_handle=%d",
 			client_handle);
 		return -EINVAL;
+	}
+
+	axi_vote = *client_axi_vote;
+
+	if ((axi_vote.compressed_bw == 0) &&
+		(axi_vote.uncompressed_bw == 0)) {
+		CAM_DBG(CAM_CPAS, "0 vote from client_handle=%d",
+			client_handle);
+		axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
+		axi_vote.uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
 	}
 
 	if (!CAM_CPAS_CLIENT_VALID(client_indx))
@@ -622,12 +632,12 @@ static int cam_cpas_hw_update_axi_vote(struct cam_hw_info *cpas_hw,
 
 	CAM_DBG(CAM_CPAS,
 		"Client[%d] Requested compressed[%llu], uncompressed[%llu]",
-		client_indx, axi_vote->compressed_bw,
-		axi_vote->uncompressed_bw);
+		client_indx, axi_vote.compressed_bw,
+		axi_vote.uncompressed_bw);
 
 	rc = cam_cpas_util_apply_client_axi_vote(cpas_core,
 		cpas_hw->soc_info.soc_private,
-		cpas_core->cpas_client[client_indx], axi_vote);
+		cpas_core->cpas_client[client_indx], &axi_vote);
 
 unlock_client:
 	mutex_unlock(&cpas_core->client_mutex[client_indx]);
@@ -742,15 +752,25 @@ unlock_bus_client:
 }
 
 static int cam_cpas_hw_update_ahb_vote(struct cam_hw_info *cpas_hw,
-	uint32_t client_handle, struct cam_ahb_vote *ahb_vote)
+	uint32_t client_handle, struct cam_ahb_vote *client_ahb_vote)
 {
+	struct cam_ahb_vote ahb_vote;
 	struct cam_cpas *cpas_core = (struct cam_cpas *) cpas_hw->core_info;
 	uint32_t client_indx = CAM_CPAS_GET_CLIENT_IDX(client_handle);
 	int rc = 0;
 
-	if (!ahb_vote || (ahb_vote->vote.level == 0)) {
-		CAM_ERR(CAM_CPAS, "Invalid AHB vote, %pK", ahb_vote);
+	if (!client_ahb_vote) {
+		CAM_ERR(CAM_CPAS, "Invalid input arg");
 		return -EINVAL;
+	}
+
+	ahb_vote = *client_ahb_vote;
+
+	if (ahb_vote.vote.level == 0) {
+		CAM_DBG(CAM_CPAS, "0 ahb vote from client %d",
+			client_handle);
+		ahb_vote.type = CAM_VOTE_ABSOLUTE;
+		ahb_vote.vote.level = CAM_SVS_VOTE;
 	}
 
 	if (!CAM_CPAS_CLIENT_VALID(client_indx))
@@ -766,12 +786,12 @@ static int cam_cpas_hw_update_ahb_vote(struct cam_hw_info *cpas_hw,
 
 	CAM_DBG(CAM_CPAS,
 		"client[%d] : type[%d], level[%d], freq[%ld], applied[%d]",
-		client_indx, ahb_vote->type, ahb_vote->vote.level,
-		ahb_vote->vote.freq,
+		client_indx, ahb_vote.type, ahb_vote.vote.level,
+		ahb_vote.vote.freq,
 		cpas_core->cpas_client[client_indx]->ahb_level);
 
 	rc = cam_cpas_util_apply_client_ahb_vote(cpas_hw,
-		cpas_core->cpas_client[client_indx], ahb_vote, NULL);
+		cpas_core->cpas_client[client_indx], &ahb_vote, NULL);
 
 unlock_client:
 	mutex_unlock(&cpas_core->client_mutex[client_indx]);

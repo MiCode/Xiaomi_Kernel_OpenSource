@@ -688,6 +688,14 @@
 				qcom,led-mask = <4>;
 				qcom,default-led-trigger = "switch1_trigger";
 			};
+
+			pmi8998_switch2: qcom,led_switch_2 {
+				label = "switch";
+				qcom,led-name = "led:switch_2";
+				qcom,led-mask = <4>;
+				qcom,default-led-trigger = "switch2_trigger";
+			};
+
 		};
 
 		pmi8998_haptics: qcom,haptics@c000 {

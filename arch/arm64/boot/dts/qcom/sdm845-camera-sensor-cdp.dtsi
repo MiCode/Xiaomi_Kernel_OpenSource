@@ -27,7 +27,7 @@
 		reg = <0x01 0x00>;
 		compatible = "qcom,camera-flash";
 		flash-source = <&pmi8998_flash0 &pmi8998_flash1>;
-		torch-source = <&pmi8998_torch0 &pmi8998_torch1 >;
+		torch-source = <&pmi8998_torch0 &pmi8998_torch1>;
 		switch-source = <&pmi8998_switch0>;
 		status = "ok";
 	};
@@ -39,6 +39,16 @@
 		flash-source = <&pmi8998_flash2>;
 		torch-source = <&pmi8998_torch2>;
 		switch-source = <&pmi8998_switch1>;
+		status = "ok";
+	};
+
+	led_flash_iris: qcom,camera-flash@3 {
+		cell-index = <3>;
+		reg = <0x03 0x00>;
+		compatible = "qcom,camera-flash";
+		flash-source = <&pmi8998_flash2>;
+		torch-source = <&pmi8998_torch2>;
+		switch-source = <&pmi8998_switch2>;
 		status = "ok";
 	};
 
@@ -412,6 +422,7 @@
 		sensor-position-roll = <270>;
 		sensor-position-pitch = <0>;
 		sensor-position-yaw = <0>;
+		led-flash-src = <&led_flash_iris>;
 		cam_vio-supply = <&pm8998_lvs1>;
 		cam_vana-supply = <&pmi8998_bob>;
 		cam_vdig-supply = <&camera_ldo>;

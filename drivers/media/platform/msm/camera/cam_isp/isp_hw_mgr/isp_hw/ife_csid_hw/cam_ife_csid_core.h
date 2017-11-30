@@ -356,10 +356,11 @@ struct cam_ife_csid_tpg_cfg  {
 /**
  * struct cam_ife_csid_cid_data- cid configuration private data
  *
- * @vc:      virtual channel
- * @dt:      Data type
- * @cnt:     cid resource reference count.
- * @tpg_set: tpg used for this cid resource
+ * @vc:          Virtual channel
+ * @dt:          Data type
+ * @cnt:         Cid resource reference count.
+ * @tpg_set:     Tpg used for this cid resource
+ * @pixel_count: Pixel resource connected
  *
  */
 struct cam_ife_csid_cid_data {
@@ -367,6 +368,7 @@ struct cam_ife_csid_cid_data {
 	uint32_t                     dt;
 	uint32_t                     cnt;
 	uint32_t                     tpg_set;
+	int                          pixel_count;
 };
 
 

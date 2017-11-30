@@ -19,6 +19,9 @@
 #define CAM_JPEG_HW_IRQ_STATUS_RESET_ACK_MASK 0x10000000
 #define CAM_JPEG_HW_IRQ_STATUS_RESET_ACK_SHIFT 0x0000000a
 
+#define CAM_JPEG_HW_IRQ_STATUS_STOP_DONE_MASK 0x8000000
+#define CAM_JPEG_HW_IRQ_STATUS_STOP_DONE_SHIFT 0x0000001b
+
 #define CAM_JPEG_HW_IRQ_STATUS_BUS_ERROR_MASK 0x00000800
 #define CAM_JPEG_HW_IRQ_STATUS_BUS_ERROR_SHIFT 0x0000000b
 
@@ -63,11 +66,13 @@ static struct cam_jpeg_enc_device_hw_info cam_jpeg_enc_hw_info = {
 		.int_mask_enable_all = 0xFFFFFFFF,
 		.hw_cmd_start = 0x00000001,
 		.reset_cmd = 0x00032093,
+		.hw_cmd_stop = 0x00000002,
 	},
 	.int_status = {
 		.framedone = CAM_JPEG_HW_MASK_COMP_FRAMEDONE,
 		.resetdone = CAM_JPEG_HW_MASK_COMP_RESET_ACK,
 		.iserror = CAM_JPEG_HW_MASK_COMP_ERR,
+		.stopdone = CAM_JPEG_HW_IRQ_STATUS_STOP_DONE_MASK,
 	}
 };
 
