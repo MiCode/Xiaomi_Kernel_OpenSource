@@ -554,8 +554,8 @@ static int32_t cam_eeprom_init_pkt_parser(struct cam_eeprom_ctrl_t *e_ctrl,
 				rc = cam_sensor_update_power_settings(cmd_buf,
 					cmd_length_in_bytes, power_info);
 				processed_cmd_buf_in_bytes +=
-					total_cmd_buf_in_bytes;
-				cmd_buf += total_cmd_buf_in_bytes/4;
+					cmd_length_in_bytes;
+				cmd_buf += cmd_length_in_bytes/4;
 				if (rc) {
 					CAM_ERR(CAM_EEPROM, "Failed");
 					return rc;
