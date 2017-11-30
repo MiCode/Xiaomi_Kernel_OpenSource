@@ -92,8 +92,10 @@
 	/* USB port for Super Speed PHY */
 	usb3_qmp_phy: ssphy@ff0000 {
 		compatible = "qcom,usb-ssphy-qmp-v2";
-		reg = <0xff0000 0x1000>;
-		reg-names = "qmp_phy_base";
+		reg = <0xff0000 0x1000>,
+		    <0x01fcb244 0x4>;
+		reg-names = "qmp_phy_base",
+			"vls_clamp_reg";
 
 		vdd-supply = <&pmxpoorwills_l4>;
 		core-supply = <&pmxpoorwills_l1>;
