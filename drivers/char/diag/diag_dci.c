@@ -26,6 +26,7 @@
 #include <linux/reboot.h>
 #include <asm/current.h>
 #include <soc/qcom/restart.h>
+#include <linux/sched/signal.h>
 #ifdef CONFIG_DIAG_OVER_USB
 #include <linux/usb/usbdiag.h>
 #endif

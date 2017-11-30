@@ -14,6 +14,7 @@
 #include <linux/diagchar.h>
 #include <linux/kmemleak.h>
 #include <linux/delay.h>
+#include <linux/sched/signal.h>
 #include "diagchar.h"
 #include "diagfwd.h"
 #include "diagfwd_cntl.h"
@@ -337,7 +338,7 @@ static void diag_close_transport_work_fn(struct work_struct *work)
 			continue;
 		driver->close_transport ^= PERIPHERAL_MASK(peripheral);
 		transport = driver->feature[peripheral].sockets_enabled ?
-					TRANSPORT_GLINK : TRANSPORT_SOCKET;
+					TRANSPORT_RPMSG : TRANSPORT_SOCKET;
 		diagfwd_close_transport(transport, peripheral);
 	}
 	mutex_unlock(&driver->cntl_lock);

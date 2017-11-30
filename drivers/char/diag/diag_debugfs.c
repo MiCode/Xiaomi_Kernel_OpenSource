@@ -33,7 +33,7 @@
 #include "diag_usb.h"
 #include "diagfwd_peripheral.h"
 #include "diagfwd_socket.h"
-#include "diagfwd_glink.h"
+#include "diagfwd_rpmsg.h"
 #include "diag_debugfs.h"
 #include "diag_ipc_logging.h"
 
@@ -43,7 +43,7 @@ static int diag_dbgfs_table_index;
 static int diag_dbgfs_mempool_index;
 static int diag_dbgfs_usbinfo_index;
 static int diag_dbgfs_socketinfo_index;
-static int diag_dbgfs_glinkinfo_index;
+static int diag_dbgfs_rpmsginfo_index;
 static int diag_dbgfs_hsicinfo_index;
 static int diag_dbgfs_mhiinfo_index;
 static int diag_dbgfs_bridgeinfo_index;
@@ -173,8 +173,8 @@ static ssize_t diag_dbgfs_read_dcistats(struct file *file,
 		bytes_remaining -= bytes_written;
 #endif
 		bytes_written = scnprintf(buf+bytes_in_buf,
-			bytes_remaining,
-			"dci power: active, relax: %lu, %lu\n",
+					  bytes_remaining,
+					  "dci power: active, relax: %lu, %lu\n",
 			driver->diag_dev->power.wakeup->active_count,
 			driver->diag_dev->power.wakeup->relax_count);
 		bytes_in_buf += bytes_written;
@@ -580,7 +580,7 @@ static ssize_t diag_dbgfs_read_socketinfo(struct file *file, char __user *ubuf,
 	return ret;
 }
 
-static ssize_t diag_dbgfs_read_glinkinfo(struct file *file, char __user *ubuf,
+static ssize_t diag_dbgfs_read_rpmsginfo(struct file *file, char __user *ubuf,
 					  size_t count, loff_t *ppos)
 {
 	char *buf = NULL;
@@ -591,12 +591,12 @@ static ssize_t diag_dbgfs_read_glinkinfo(struct file *file, char __user *ubuf,
 	unsigned int bytes_remaining = 0;
 	unsigned int bytes_written = 0;
 	unsigned int bytes_in_buffer = 0;
-	struct diag_glink_info *info = NULL;
+	struct diag_rpmsg_info *info = NULL;
 	struct diagfwd_info *fwd_ctxt = NULL;
 
-	if (diag_dbgfs_glinkinfo_index >= NUM_PERIPHERALS) {
+	if (diag_dbgfs_rpmsginfo_index >= NUM_PERIPHERALS) {
 		/* Done. Reset to prepare for future requests */
-		diag_dbgfs_socketinfo_index = 0;
+		diag_dbgfs_rpmsginfo_index = 0;
 		return 0;
 	}
 
@@ -610,19 +610,19 @@ static ssize_t diag_dbgfs_read_glinkinfo(struct file *file, char __user *ubuf,
 		for (j = 0; j < NUM_PERIPHERALS; j++) {
 			switch (i) {
 			case TYPE_DATA:
-				info = &glink_data[j];
+				info = &rpmsg_data[j];
 				break;
 			case TYPE_CNTL:
-				info = &glink_cntl[j];
+				info = &rpmsg_cntl[j];
 				break;
 			case TYPE_DCI:
-				info = &glink_dci[j];
+				info = &rpmsg_dci[j];
 				break;
 			case TYPE_CMD:
-				info = &glink_cmd[j];
+				info = &rpmsg_cmd[j];
 				break;
 			case TYPE_DCI_CMD:
-				info = &glink_dci_cmd[j];
+				info = &rpmsg_dci_cmd[j];
 				break;
 			default:
 				return -EINVAL;
@@ -639,7 +639,6 @@ static ssize_t diag_dbgfs_read_glinkinfo(struct file *file, char __user *ubuf,
 				"diag_state\t:\t%d\n"
 				"buf_1 busy\t:\t%d\n"
 				"buf_2 busy\t:\t%d\n"
-				"tx_intent_ready\t:\t%d\n"
 				"open pending\t:\t%d\n"
 				"close pending\t:\t%d\n"
 				"read pending\t:\t%d\n"
@@ -657,7 +656,6 @@ static ssize_t diag_dbgfs_read_glinkinfo(struct file *file, char __user *ubuf,
 				atomic_read(&fwd_ctxt->buf_1->in_busy) : -1,
 				(fwd_ctxt && fwd_ctxt->buf_2) ?
 				atomic_read(&fwd_ctxt->buf_2->in_busy) : -1,
-				atomic_read(&info->tx_intent_ready),
 				work_pending(&info->open_work),
 				work_pending(&info->close_work),
 				work_pending(&info->read_work),
@@ -676,7 +674,7 @@ static ssize_t diag_dbgfs_read_glinkinfo(struct file *file, char __user *ubuf,
 				break;
 		}
 	}
-	diag_dbgfs_glinkinfo_index = i+1;
+	diag_dbgfs_rpmsginfo_index = i+1;
 	*ppos = 0;
 	ret = simple_read_from_buffer(ubuf, count, ppos, buf, bytes_in_buffer);
 
@@ -943,8 +941,8 @@ const struct file_operations diag_dbgfs_socketinfo_ops = {
 	.read = diag_dbgfs_read_socketinfo,
 };
 
-const struct file_operations diag_dbgfs_glinkinfo_ops = {
-	.read = diag_dbgfs_read_glinkinfo,
+const struct file_operations diag_dbgfs_rpmsginfo_ops = {
+	.read = diag_dbgfs_read_rpmsginfo,
 };
 
 const struct file_operations diag_dbgfs_table_ops = {
@@ -989,8 +987,8 @@ int diag_debugfs_init(void)
 	if (!entry)
 		goto err;
 
-	entry = debugfs_create_file("glinkinfo", 0444, diag_dbgfs_dent, 0,
-				    &diag_dbgfs_glinkinfo_ops);
+	entry = debugfs_create_file("rpmsginfo", 0444, diag_dbgfs_dent, 0,
+				    &diag_dbgfs_rpmsginfo_ops);
 	if (!entry)
 		goto err;
 
