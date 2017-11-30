@@ -25,6 +25,7 @@
 #include "rmnet_data_vnd.h"
 #include "rmnet_data_private.h"
 #include "rmnet_data_trace.h"
+#include "rmnet_map.h"
 
 RMNET_LOG_MODULE(RMNET_DATA_LOGMASK_CONFIG);
 
@@ -869,7 +870,8 @@ int rmnet_associate_network_device(struct net_device *dev)
 	conf->dev = dev;
 	spin_lock_init(&conf->agg_lock);
 	config->recycle = kfree_skb;
-
+	hrtimer_init(&conf->hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	conf->hrtimer.function = rmnet_map_flush_packet_queue;
 	rc = netdev_rx_handler_register(dev, rmnet_rx_handler, config);
 
 	if (rc) {
@@ -1232,6 +1234,22 @@ static void rmnet_force_unassociate_device(struct net_device *dev)
 	config = _rmnet_get_phys_ep_config(dev);
 
 	if (config) {
+		unsigned long flags;
+
+		hrtimer_cancel(&config->hrtimer);
+		spin_lock_irqsave(&config->agg_lock, flags);
+		if (config->agg_state == RMNET_MAP_TXFER_SCHEDULED) {
+			if (config->agg_skb) {
+				kfree_skb(config->agg_skb);
+				config->agg_skb = NULL;
+				config->agg_count = 0;
+				memset(&config->agg_time, 0,
+				       sizeof(struct timespec));
+			}
+			config->agg_state = RMNET_MAP_AGG_IDLE;
+		}
+		spin_unlock_irqrestore(&config->agg_lock, flags);
+
 		cfg = &config->local_ep;
 
 		if (cfg && cfg->refcount)

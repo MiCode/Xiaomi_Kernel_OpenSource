@@ -147,4 +147,5 @@ int rmnet_map_checksum_uplink_packet(struct sk_buff *skb,
 				     struct net_device *orig_dev,
 				     u32 egress_data_format);
 int rmnet_ul_aggregation_skip(struct sk_buff *skb, int offset);
+enum hrtimer_restart rmnet_map_flush_packet_queue(struct hrtimer *t);
 #endif /* _RMNET_MAP_H_ */
