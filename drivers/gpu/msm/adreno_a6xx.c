@@ -1592,8 +1592,8 @@ static int a6xx_notify_slumber(struct kgsl_device *device)
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_BOOT_SLUMBER_OPTION,
 			OOB_SLUMBER_OPTION);
-	kgsl_gmu_regwrite(device, A6XX_GMU_GX_VOTE_IDX, bus_level);
-	kgsl_gmu_regwrite(device, A6XX_GMU_MX_VOTE_IDX, perf_idx);
+	kgsl_gmu_regwrite(device, A6XX_GMU_GX_VOTE_IDX, perf_idx);
+	kgsl_gmu_regwrite(device, A6XX_GMU_MX_VOTE_IDX, bus_level);
 
 	ret = a6xx_oob_set(adreno_dev, OOB_BOOT_SLUMBER_SET_MASK,
 			OOB_BOOT_SLUMBER_CHECK_MASK,
