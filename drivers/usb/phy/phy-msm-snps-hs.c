@@ -74,7 +74,7 @@
 #define USB_HSPHY_3P3_HPM_LOAD			16000	/* uA */
 #define USB_HSPHY_3P3_VOL_FSHOST		3150000 /* uV */
 
-#define USB_HSPHY_1P8_VOL_MIN			1800000 /* uV */
+#define USB_HSPHY_1P8_VOL_MIN			1704000 /* uV */
 #define USB_HSPHY_1P8_VOL_MAX			1800000 /* uV */
 #define USB_HSPHY_1P8_HPM_LOAD			19000	/* uA */
 
