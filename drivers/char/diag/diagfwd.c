@@ -86,45 +86,23 @@ static int has_device_tree(void)
 int chk_config_get_id(void)
 {
 	switch (socinfo_get_msm_cpu()) {
-	case MSM_CPU_8X60:
-		return APQ8060_TOOLS_ID;
 	case MSM_CPU_8960:
 	case MSM_CPU_8960AB:
 		return AO8960_TOOLS_ID;
 	case MSM_CPU_8064:
-	case MSM_CPU_8064AB:
-	case MSM_CPU_8064AA:
 		return APQ8064_TOOLS_ID;
-	case MSM_CPU_8930:
-	case MSM_CPU_8930AA:
-	case MSM_CPU_8930AB:
-		return MSM8930_TOOLS_ID;
 	case MSM_CPU_8974:
 		return MSM8974_TOOLS_ID;
-	case MSM_CPU_8625:
-		return MSM8625_TOOLS_ID;
 	case MSM_CPU_8084:
 		return APQ8084_TOOLS_ID;
 	case MSM_CPU_8916:
 		return MSM8916_TOOLS_ID;
-	case MSM_CPU_8939:
-		return MSM8939_TOOLS_ID;
-	case MSM_CPU_8994:
-		return MSM8994_TOOLS_ID;
-	case MSM_CPU_8226:
-		return APQ8026_TOOLS_ID;
-	case MSM_CPU_8909:
-		return MSM8909_TOOLS_ID;
-	case MSM_CPU_8992:
-		return MSM8992_TOOLS_ID;
 	case MSM_CPU_8996:
 		return MSM_8996_TOOLS_ID;
 	default:
 		if (driver->use_device_tree) {
 			if (machine_is_msm8974())
 				return MSM8974_TOOLS_ID;
-			else if (machine_is_apq8074())
-				return APQ8074_TOOLS_ID;
 			else
 				return 0;
 		} else {
@@ -146,13 +124,6 @@ int chk_apps_only(void)
 	case MSM_CPU_8960:
 	case MSM_CPU_8960AB:
 	case MSM_CPU_8064:
-	case MSM_CPU_8064AB:
-	case MSM_CPU_8064AA:
-	case MSM_CPU_8930:
-	case MSM_CPU_8930AA:
-	case MSM_CPU_8930AB:
-	case MSM_CPU_8627:
-	case MSM_CPU_9615:
 	case MSM_CPU_8974:
 		return 1;
 	default:
