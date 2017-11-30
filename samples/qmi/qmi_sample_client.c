@@ -1,7 +1,7 @@
 /*
- * Sample QRTR client driver
+ * Sample in-kernel QMI client driver
  *
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, 2017, The Linux Foundation. All rights reserved.
  * Copyright (C) 2017 Linaro Ltd.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -16,6 +16,7 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/qrtr.h>
@@ -46,7 +47,7 @@
 #define TEST_DATA_REQ_MAX_MSG_LEN_V01	8456
 
 struct test_name_type_v01 {
-	uint32_t name_len;
+	u32 name_len;
 	char name[TEST_MAX_NAME_SIZE_V01];
 };
 
@@ -54,7 +55,7 @@ static struct qmi_elem_info test_name_type_v01_ei[] = {
 	{
 		.data_type      = QMI_DATA_LEN,
 		.elem_len	= 1,
-		.elem_size      = sizeof(uint8_t),
+		.elem_size      = sizeof(u8),
 		.is_array	= NO_ARRAY,
 		.tlv_type	= QMI_COMMON_TLV_TYPE,
 		.offset		= offsetof(struct test_name_type_v01,
@@ -75,7 +76,7 @@ static struct qmi_elem_info test_name_type_v01_ei[] = {
 struct test_ping_req_msg_v01 {
 	char ping[4];
 
-	uint8_t client_name_valid;
+	u8 client_name_valid;
 	struct test_name_type_v01 client_name;
 };
 
@@ -92,7 +93,7 @@ struct qmi_elem_info test_ping_req_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_OPT_FLAG,
 		.elem_len       = 1,
-		.elem_size      = sizeof(uint8_t),
+		.elem_size      = sizeof(u8),
 		.is_array       = NO_ARRAY,
 		.tlv_type       = PING_OPT1_TLV_TYPE,
 		.offset         = offsetof(struct test_ping_req_msg_v01,
@@ -114,10 +115,10 @@ struct qmi_elem_info test_ping_req_msg_v01_ei[] = {
 struct test_ping_resp_msg_v01 {
 	struct qmi_response_type_v01 resp;
 
-	uint8_t pong_valid;
+	u8 pong_valid;
 	char pong[4];
 
-	uint8_t service_name_valid;
+	u8 service_name_valid;
 	struct test_name_type_v01 service_name;
 };
 
@@ -135,7 +136,7 @@ struct qmi_elem_info test_ping_resp_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_OPT_FLAG,
 		.elem_len       = 1,
-		.elem_size      = sizeof(uint8_t),
+		.elem_size      = sizeof(u8),
 		.is_array       = NO_ARRAY,
 		.tlv_type       = PING_OPT1_TLV_TYPE,
 		.offset         = offsetof(struct test_ping_resp_msg_v01,
@@ -153,7 +154,7 @@ struct qmi_elem_info test_ping_resp_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_OPT_FLAG,
 		.elem_len       = 1,
-		.elem_size      = sizeof(uint8_t),
+		.elem_size      = sizeof(u8),
 		.is_array       = NO_ARRAY,
 		.tlv_type       = PING_OPT2_TLV_TYPE,
 		.offset         = offsetof(struct test_ping_resp_msg_v01,
@@ -173,10 +174,10 @@ struct qmi_elem_info test_ping_resp_msg_v01_ei[] = {
 };
 
 struct test_data_req_msg_v01 {
-	uint32_t data_len;
-	uint8_t data[TEST_MED_DATA_SIZE_V01];
+	u32 data_len;
+	u8 data[TEST_MED_DATA_SIZE_V01];
 
-	uint8_t client_name_valid;
+	u8 client_name_valid;
 	struct test_name_type_v01 client_name;
 };
 
@@ -184,7 +185,7 @@ struct qmi_elem_info test_data_req_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_DATA_LEN,
 		.elem_len       = 1,
-		.elem_size      = sizeof(uint32_t),
+		.elem_size      = sizeof(u32),
 		.is_array       = NO_ARRAY,
 		.tlv_type       = DATA_REQ1_TLV_TYPE,
 		.offset         = offsetof(struct test_data_req_msg_v01,
@@ -193,7 +194,7 @@ struct qmi_elem_info test_data_req_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_UNSIGNED_1_BYTE,
 		.elem_len       = TEST_MED_DATA_SIZE_V01,
-		.elem_size      = sizeof(uint8_t),
+		.elem_size      = sizeof(u8),
 		.is_array       = VAR_LEN_ARRAY,
 		.tlv_type       = DATA_REQ1_TLV_TYPE,
 		.offset         = offsetof(struct test_data_req_msg_v01,
@@ -202,7 +203,7 @@ struct qmi_elem_info test_data_req_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_OPT_FLAG,
 		.elem_len       = 1,
-		.elem_size      = sizeof(uint8_t),
+		.elem_size      = sizeof(u8),
 		.is_array       = NO_ARRAY,
 		.tlv_type       = DATA_OPT1_TLV_TYPE,
 		.offset         = offsetof(struct test_data_req_msg_v01,
@@ -224,11 +225,11 @@ struct qmi_elem_info test_data_req_msg_v01_ei[] = {
 struct test_data_resp_msg_v01 {
 	struct qmi_response_type_v01 resp;
 
-	uint8_t data_valid;
-	uint32_t data_len;
-	uint8_t data[TEST_MED_DATA_SIZE_V01];
+	u8 data_valid;
+	u32 data_len;
+	u8 data[TEST_MED_DATA_SIZE_V01];
 
-	uint8_t service_name_valid;
+	u8 service_name_valid;
 	struct test_name_type_v01 service_name;
 };
 
@@ -246,7 +247,7 @@ struct qmi_elem_info test_data_resp_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_OPT_FLAG,
 		.elem_len       = 1,
-		.elem_size      = sizeof(uint8_t),
+		.elem_size      = sizeof(u8),
 		.is_array       = NO_ARRAY,
 		.tlv_type       = DATA_OPT1_TLV_TYPE,
 		.offset         = offsetof(struct test_data_resp_msg_v01,
@@ -255,7 +256,7 @@ struct qmi_elem_info test_data_resp_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_DATA_LEN,
 		.elem_len       = 1,
-		.elem_size      = sizeof(uint32_t),
+		.elem_size      = sizeof(u32),
 		.is_array       = NO_ARRAY,
 		.tlv_type       = DATA_OPT1_TLV_TYPE,
 		.offset         = offsetof(struct test_data_resp_msg_v01,
@@ -264,7 +265,7 @@ struct qmi_elem_info test_data_resp_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_UNSIGNED_1_BYTE,
 		.elem_len       = TEST_MED_DATA_SIZE_V01,
-		.elem_size      = sizeof(uint8_t),
+		.elem_size      = sizeof(u8),
 		.is_array       = VAR_LEN_ARRAY,
 		.tlv_type       = DATA_OPT1_TLV_TYPE,
 		.offset         = offsetof(struct test_data_resp_msg_v01,
@@ -273,7 +274,7 @@ struct qmi_elem_info test_data_resp_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_OPT_FLAG,
 		.elem_len       = 1,
-		.elem_size      = sizeof(uint8_t),
+		.elem_size      = sizeof(u8),
 		.is_array       = NO_ARRAY,
 		.tlv_type       = DATA_OPT2_TLV_TYPE,
 		.offset         = offsetof(struct test_data_resp_msg_v01,
@@ -293,11 +294,11 @@ struct qmi_elem_info test_data_resp_msg_v01_ei[] = {
 };
 
 /*
- * ping_pong_store() - ping_pong attribute store handler
- * @dev:	sample device context
- * @attr:	the ping_pong attribute
- * @buf:	write buffer
- * @count:	length of @buf
+ * ping_write() - ping_pong debugfs file write handler
+ * @file:	debugfs file context
+ * @user_buf:	reference to the user data (ignored)
+ * @count:	number of bytes in @user_buf
+ * @ppos:	offset in @file to write
  *
  * Returns @count, or negative errno on failure.
  *
@@ -306,11 +307,10 @@ struct qmi_elem_info test_data_resp_msg_v01_ei[] = {
  * transaction. It serves as an example of how to provide a custom response
  * handler.
  */
-static ssize_t ping_pong_store(struct device *dev,
-			       struct device_attribute *attr,
-			       const char *buf, size_t count)
+static ssize_t ping_write(struct file *file, const char __user *user_buf,
+			  size_t count, loff_t *ppos)
 {
-	struct qmi_handle *qmi = dev_get_drvdata(dev);
+	struct qmi_handle *qmi = file->private_data;
 	struct test_ping_req_msg_v01 req = {0};
 	struct qmi_txn txn;
 	int ret;
@@ -321,8 +321,7 @@ static ssize_t ping_pong_store(struct device *dev,
 	if (ret < 0)
 		return ret;
 
-	ret = qmi_send_message(qmi, NULL, &txn,
-			       QMI_REQUEST,
+	ret = qmi_send_request(qmi, NULL, &txn,
 			       TEST_PING_REQ_MSG_ID_V01,
 			       TEST_PING_REQ_MAX_MSG_LEN_V01,
 			       test_ping_req_msg_v01_ei, &req);
@@ -337,7 +336,11 @@ static ssize_t ping_pong_store(struct device *dev,
 
 	return count;
 }
-static DEVICE_ATTR_WO(ping_pong);
+
+static const struct file_operations ping_fops = {
+	.open = simple_open,
+	.write = ping_write,
+};
 
 static void ping_pong_cb(struct qmi_handle *qmi, struct sockaddr_qrtr *sq,
 			 struct qmi_txn *txn, const void *data)
@@ -358,11 +361,11 @@ static void ping_pong_cb(struct qmi_handle *qmi, struct sockaddr_qrtr *sq,
 }
 
 /*
- * data_store() - data attribute store handler
- * @dev:	sample device context
- * @attr:	the data attribute
- * @buf:	buffer with message to encode
- * @count:	length of @buf
+ * data_write() - data debugfs file write handler
+ * @file:	debugfs file context
+ * @user_buf:	reference to the user data
+ * @count:	number of bytes in @user_buf
+ * @ppos:	offset in @file to write
  *
  * Returns @count, or negative errno on failure.
  *
@@ -371,10 +374,11 @@ static void ping_pong_cb(struct qmi_handle *qmi, struct sockaddr_qrtr *sq,
  * transaction. It serves as an example of how to have the QMI helpers decode a
  * transaction response into a provided object automatically.
  */
-static ssize_t data_store(struct device *dev, struct device_attribute *attr,
-			  const char *buf, size_t count)
+static ssize_t data_write(struct file *file, const char __user *user_buf,
+			  size_t count, loff_t *ppos)
+
 {
-	struct qmi_handle *qmi = dev_get_drvdata(dev);
+	struct qmi_handle *qmi = file->private_data;
 	struct test_data_resp_msg_v01 *resp;
 	struct test_data_req_msg_v01 *req;
 	struct qmi_txn txn;
@@ -391,51 +395,50 @@ static ssize_t data_store(struct device *dev, struct device_attribute *attr,
 	}
 
 	req->data_len = min_t(size_t, sizeof(req->data), count);
-	memcpy(req->data, buf, req->data_len);
-
-	ret = qmi_txn_init(qmi, &txn, test_data_resp_msg_v01_ei, resp);
-	if (ret < 0) {
-		count = ret;
+	if (copy_from_user(req->data, user_buf, req->data_len)) {
+		ret = -EFAULT;
 		goto out;
 	}
 
-	ret = qmi_send_message(qmi, NULL, &txn,
-			       QMI_REQUEST,
+	ret = qmi_txn_init(qmi, &txn, test_data_resp_msg_v01_ei, resp);
+	if (ret < 0)
+		goto out;
+
+	ret = qmi_send_request(qmi, NULL, &txn,
 			       TEST_DATA_REQ_MSG_ID_V01,
 			       TEST_DATA_REQ_MAX_MSG_LEN_V01,
 			       test_data_req_msg_v01_ei, req);
 	if (ret < 0) {
 		qmi_txn_cancel(&txn);
-		count = ret;
 		goto out;
 	}
 
 	ret = qmi_txn_wait(&txn, 5 * HZ);
 	if (ret < 0) {
-		count = ret;
+		goto out;
 	} else if (!resp->data_valid ||
 		   resp->data_len != req->data_len ||
 		   memcmp(resp->data, req->data, req->data_len)) {
 		pr_err("response data doesn't match expectation\n");
-		count = -EINVAL;
+		ret = -EINVAL;
+		goto out;
 	}
+
+	ret = count;
 
 out:
 	kfree(resp);
 	kfree(req);
 
-	return count;
+	return ret;
 }
-static DEVICE_ATTR_WO(data);
 
-static struct attribute *qrtr_dev_attrs[] = {
-	&dev_attr_ping_pong.attr,
-	&dev_attr_data.attr,
-	NULL
+static const struct file_operations data_fops = {
+	.open = simple_open,
+	.write = data_write,
 };
-ATTRIBUTE_GROUPS(qrtr_dev);
 
-static struct qmi_msg_handler qrtr_sample_handlers[] = {
+static struct qmi_msg_handler qmi_sample_handlers[] = {
 	{
 		.type = QMI_RESPONSE,
 		.msg_id = TEST_PING_REQ_MSG_ID_V01,
@@ -446,67 +449,106 @@ static struct qmi_msg_handler qrtr_sample_handlers[] = {
 	{}
 };
 
-static int qrtr_sample_probe(struct platform_device *pdev)
+struct qmi_sample {
+	struct qmi_handle qmi;
+
+	struct dentry *de_dir;
+	struct dentry *de_data;
+	struct dentry *de_ping;
+};
+
+static struct dentry *qmi_debug_dir;
+
+static int qmi_sample_probe(struct platform_device *pdev)
 {
-	struct qrtr_handle *qrtr;
-	struct qmi_handle *qmi;
 	struct sockaddr_qrtr *sq;
+	struct qmi_sample *sample;
+	char path[20];
 	int ret;
 
-	qmi = devm_kzalloc(&pdev->dev, sizeof(*qmi), GFP_KERNEL);
-	if (!qmi)
+	sample = devm_kzalloc(&pdev->dev, sizeof(*sample), GFP_KERNEL);
+	if (!sample)
 		return -ENOMEM;
 
-	qrtr = &qmi->qrtr;
-
-	ret = qmi_client_init(qmi, TEST_DATA_REQ_MAX_MSG_LEN_V01,
-			      qrtr_sample_handlers);
+	ret = qmi_handle_init(&sample->qmi, TEST_DATA_REQ_MAX_MSG_LEN_V01,
+			      NULL,
+			      qmi_sample_handlers);
 	if (ret < 0)
 		return ret;
 
 	sq = dev_get_platdata(&pdev->dev);
-	ret = kernel_connect(qrtr->sock, (struct sockaddr *)sq,
+	ret = kernel_connect(sample->qmi.sock, (struct sockaddr *)sq,
 			     sizeof(*sq), 0);
 	if (ret < 0) {
 		pr_err("failed to connect to remote service port\n");
-		qmi_client_release(qmi);
-		return ret;
+		goto err_release_qmi_handle;
 	}
 
-	platform_set_drvdata(pdev, qmi);
+	snprintf(path, sizeof(path), "%d:%d", sq->sq_node, sq->sq_port);
+
+	sample->de_dir = debugfs_create_dir(path, qmi_debug_dir);
+	if (IS_ERR(sample->de_dir)) {
+		ret = PTR_ERR(sample->de_dir);
+		goto err_release_qmi_handle;
+	}
+
+	sample->de_data = debugfs_create_file("data", 0600, sample->de_dir,
+					      sample, &data_fops);
+	if (IS_ERR(sample->de_data)) {
+		ret = PTR_ERR(sample->de_data);
+		goto err_remove_de_dir;
+	}
+
+	sample->de_ping = debugfs_create_file("ping", 0600, sample->de_dir,
+					      sample, &ping_fops);
+	if (IS_ERR(sample->de_ping)) {
+		ret = PTR_ERR(sample->de_ping);
+		goto err_remove_de_data;
+	}
+
+	platform_set_drvdata(pdev, sample);
 
 	return 0;
+
+err_remove_de_data:
+	debugfs_remove(sample->de_data);
+err_remove_de_dir:
+	debugfs_remove(sample->de_dir);
+err_release_qmi_handle:
+	qmi_handle_release(&sample->qmi);
+
+	return ret;
 }
 
-static int qrtr_sample_remove(struct platform_device *pdev)
+static int qmi_sample_remove(struct platform_device *pdev)
 {
-	struct qmi_handle *qmi = platform_get_drvdata(pdev);
+	struct qmi_sample *sample = platform_get_drvdata(pdev);
 
-	qmi_client_release(qmi);
+	debugfs_remove(sample->de_ping);
+	debugfs_remove(sample->de_data);
+	debugfs_remove(sample->de_dir);
+
+	qmi_handle_release(&sample->qmi);
 
 	return 0;
 }
 
-static struct platform_driver qrtr_sample_driver = {
-	.probe = qrtr_sample_probe,
-	.remove = qrtr_sample_remove,
+static struct platform_driver qmi_sample_driver = {
+	.probe = qmi_sample_probe,
+	.remove = qmi_sample_remove,
 	.driver = {
-		.name = "qrtr_sample_client",
+		.name = "qmi_sample_client",
 	},
 };
 
-static int qrtr_sample_new_server(struct qrtr_handle *qrtr,
-				  struct qrtr_service *service)
+static int qmi_sample_new_server(struct qmi_handle *qmi,
+				 struct qmi_service *service)
 {
 	struct platform_device *pdev;
 	struct sockaddr_qrtr sq = { AF_QIPCRTR, service->node, service->port };
-	char name[32];
 	int ret;
 
-	snprintf(name, sizeof(name), "qrtr_sample_client@%d:%d",
-		 service->node, service->port);
-
-	pdev = platform_device_alloc(name, PLATFORM_DEVID_NONE);
+	pdev = platform_device_alloc("qmi_sample_client", PLATFORM_DEVID_AUTO);
 	if (!pdev)
 		return -ENOMEM;
 
@@ -514,13 +556,11 @@ static int qrtr_sample_new_server(struct qrtr_handle *qrtr,
 	if (ret)
 		goto err_put_device;
 
-	pdev->dev.groups = qrtr_dev_groups;
-	pdev->driver_override = (char *)qrtr_sample_driver.driver.name;
 	ret = platform_device_add(pdev);
 	if (ret)
 		goto err_put_device;
 
-	service->cookie = pdev;
+	service->priv = pdev;
 
 	return 0;
 
@@ -530,74 +570,62 @@ err_put_device:
 	return ret;
 }
 
-static void qrtr_sample_del_server(struct qrtr_handle *qrtr,
-				   struct qrtr_service *service)
+static void qmi_sample_del_server(struct qmi_handle *qmi,
+				  struct qmi_service *service)
 {
-	struct platform_device *pdev = service->cookie;
+	struct platform_device *pdev = service->priv;
 
 	platform_device_unregister(pdev);
 }
 
-static struct qrtr_handle lookup_client;
+static struct qmi_handle lookup_client;
 
-static struct qrtr_handle_ops lookup_ops;
-
-static void qrtr_sample_net_reset_work(struct work_struct *work)
-{
-	int ret;
-
-	qrtr_client_release(&lookup_client);
-
-	ret = qrtr_client_init(&lookup_client, 0, &lookup_ops);
-	if (ret < 0)
-		return;
-
-	qrtr_client_new_lookup(&lookup_client, 15, 0);
-}
-static DECLARE_WORK(net_reset_work, qrtr_sample_net_reset_work);
-
-static void qrtr_sample_net_reset(struct qrtr_handle *qrtr)
-{
-	schedule_work(&net_reset_work);
-}
-
-static struct qrtr_handle_ops lookup_ops = {
-	.new_server = qrtr_sample_new_server,
-	.del_server = qrtr_sample_del_server,
-	.net_reset = qrtr_sample_net_reset,
+static struct qmi_ops lookup_ops = {
+	.new_server = qmi_sample_new_server,
+	.del_server = qmi_sample_del_server,
 };
 
-static int qrtr_sample_init(void)
+static int qmi_sample_init(void)
 {
 	int ret;
 
-	ret = platform_driver_register(&qrtr_sample_driver);
-	if (ret)
-		return ret;
+	qmi_debug_dir = debugfs_create_dir("qmi_sample", NULL);
+	if (IS_ERR(qmi_debug_dir)) {
+		pr_err("failed to create qmi_sample dir\n");
+		return PTR_ERR(qmi_debug_dir);
+	}
 
-	ret = qrtr_client_init(&lookup_client, 0, &lookup_ops);
+	ret = platform_driver_register(&qmi_sample_driver);
+	if (ret)
+		goto err_remove_debug_dir;
+
+	ret = qmi_handle_init(&lookup_client, 0, &lookup_ops, NULL);
 	if (ret < 0)
 		goto err_unregister_driver;
 
-	qrtr_client_new_lookup(&lookup_client, 15, 0);
+	qmi_add_lookup(&lookup_client, 15, 0, 0);
 
 	return 0;
 
 err_unregister_driver:
-	platform_driver_unregister(&qrtr_sample_driver);
+	platform_driver_unregister(&qmi_sample_driver);
+err_remove_debug_dir:
+	debugfs_remove(qmi_debug_dir);
 
 	return ret;
 }
 
-static void qrtr_sample_exit(void)
+static void qmi_sample_exit(void)
 {
-	qrtr_client_release(&lookup_client);
+	qmi_handle_release(&lookup_client);
 
-	platform_driver_unregister(&qrtr_sample_driver);
+	platform_driver_unregister(&qmi_sample_driver);
+
+	debugfs_remove(qmi_debug_dir);
 }
 
-module_init(qrtr_sample_init);
-module_exit(qrtr_sample_exit);
+module_init(qmi_sample_init);
+module_exit(qmi_sample_exit);
 
-MODULE_DESCRIPTION("Sample QRTR client driver");
+MODULE_DESCRIPTION("Sample QMI client driver");
 MODULE_LICENSE("GPL v2");
