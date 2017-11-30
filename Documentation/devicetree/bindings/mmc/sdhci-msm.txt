@@ -41,6 +41,11 @@ Optional Properties:
 				"HS200_1p2v" - indicates that host can support HS200 at 1.2v.
 				"DDR_1p8v" - indicates that host can support DDR mode at 1.8v.
 				"DDR_1p2v" - indicates that host can support DDR mode at 1.2v.
+	  - qcom,bus-aggr-clk-rates: this is an array that specifies the frequency for
+	  			the bus-aggr-clk which should be set corresponding to the
+				frequency used from clk-rate. The Frequency of this clock
+				should be decided based on the power mode in which the
+				apps clk would run with frequency in clk-rates.
 	- qcom,devfreq,freq-table - specifies supported frequencies for clock scaling.
 				    Clock scaling logic shall toggle between these frequencies based
 				    on card load. In case the defined frequencies are over or below
