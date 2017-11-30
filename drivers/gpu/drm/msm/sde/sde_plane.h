@@ -128,6 +128,7 @@ enum sde_plane_sclcheck_state {
  * @dirty:	bitmask for which pipe h/w config functions need to be updated
  * @multirect_index: index of the rectangle of SSPP
  * @multirect_mode: parallel or time multiplex multirect mode
+ * @const_alpha_en: const alpha channel is enabled for this HW pipe
  * @pending:	whether the current update is still pending
  * @defer_prepare_fb:	indicate if prepare_fb call was deferred
  * @scaler3_cfg: configuration data for scaler3
@@ -146,6 +147,7 @@ struct sde_plane_state {
 	uint32_t dirty;
 	uint32_t multirect_index;
 	uint32_t multirect_mode;
+	bool const_alpha_en;
 	bool pending;
 	bool defer_prepare_fb;
 
