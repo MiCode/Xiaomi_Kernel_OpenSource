@@ -1656,21 +1656,6 @@ static int cam_ife_csid_disable_ipp_path(
 
 	/* For slave mode, halt command should take it from master */
 
-	/* Enable the EOF interrupt for resume at boundary case */
-	if (stop_cmd != CAM_CSID_HALT_IMMEDIATELY) {
-		init_completion(&csid_hw->csid_ipp_complete);
-		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-				csid_reg->ipp_reg->csid_ipp_irq_mask_addr);
-		val |= CSID_PATH_INFO_INPUT_EOF;
-		cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
-			csid_reg->ipp_reg->csid_ipp_irq_mask_addr);
-	} else {
-		val &= ~(CSID_PATH_INFO_RST_DONE |
-			CSID_PATH_ERROR_FIFO_OVERFLOW);
-		cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
-			csid_reg->ipp_reg->csid_ipp_irq_mask_addr);
-	}
-
 	return rc;
 }
 
@@ -1891,7 +1876,7 @@ static int cam_ife_csid_disable_rdi_path(
 	int rc = 0;
 	struct cam_ife_csid_reg_offset       *csid_reg;
 	struct cam_hw_soc_info               *soc_info;
-	uint32_t  val = 0, id;
+	uint32_t id;
 
 	csid_reg = csid_hw->csid_info->csid_reg;
 	soc_info = &csid_hw->hw_info->soc_info;
@@ -1926,24 +1911,8 @@ static int cam_ife_csid_disable_rdi_path(
 		return -EINVAL;
 	}
 
-
 	CAM_DBG(CAM_ISP, "CSID:%d res_id:%d",
 		csid_hw->hw_intf->hw_idx, res->res_id);
-
-	init_completion(&csid_hw->csid_rdin_complete[id]);
-
-	if (stop_cmd != CAM_CSID_HALT_IMMEDIATELY) {
-		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-			csid_reg->rdi_reg[id]->csid_rdi_irq_mask_addr);
-		val |= CSID_PATH_INFO_INPUT_EOF;
-		cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
-			csid_reg->rdi_reg[id]->csid_rdi_irq_mask_addr);
-	} else {
-		val &= ~(CSID_PATH_INFO_RST_DONE |
-				CSID_PATH_ERROR_FIFO_OVERFLOW);
-		cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
-			csid_reg->rdi_reg[id]->csid_rdi_irq_mask_addr);
-	}
 
 	/*Halt the RDI path */
 	cam_io_w_mb(stop_cmd, soc_info->reg_map[0].mem_base +
@@ -2031,9 +2000,7 @@ static int cam_ife_csid_res_wait_for_halt(
 	int rc = 0;
 	struct cam_ife_csid_reg_offset      *csid_reg;
 	struct cam_hw_soc_info              *soc_info;
-
-	struct completion  *complete;
-	uint32_t val = 0, id;
+	uint32_t val = 0, id, status, path_status_reg;
 
 	csid_reg = csid_hw->csid_info->csid_reg;
 	soc_info = &csid_hw->hw_info->soc_info;
@@ -2060,19 +2027,18 @@ static int cam_ife_csid_res_wait_for_halt(
 	}
 
 	if (res->res_id == CAM_IFE_PIX_PATH_RES_IPP)
-		complete = &csid_hw->csid_ipp_complete;
+		path_status_reg = csid_reg->ipp_reg->csid_ipp_status_addr;
 	else
-		complete =  &csid_hw->csid_rdin_complete[res->res_id];
+		path_status_reg = csid_reg->rdi_reg[res->res_id]->
+			csid_rdi_status_addr;
 
-	rc = wait_for_completion_timeout(complete,
-		msecs_to_jiffies(IFE_CSID_TIMEOUT));
-	if (rc <= 0) {
-		CAM_ERR(CAM_ISP, "CSID%d stop at frame boundary failid:%drc:%d",
-			 csid_hw->hw_intf->hw_idx,
-			res->res_id, rc);
-		if (rc == 0)
-			/* continue even have timeout */
-			rc = -ETIMEDOUT;
+	rc = readl_poll_timeout(soc_info->reg_map[0].mem_base +
+		path_status_reg, status,
+		(status == 1),
+		CAM_IFE_CSID_TIMEOUT_SLEEP_US, CAM_IFE_CSID_TIMEOUT_ALL_US);
+	if (rc < 0) {
+		CAM_ERR(CAM_ISP, "End frame wait failed.");
+		rc = -ETIMEDOUT;
 	}
 
 	/* Disable the interrupt */
@@ -2812,9 +2778,6 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 			CAM_ERR(CAM_ISP, "CSID:%d IPP EOF received",
 				csid_hw->hw_intf->hw_idx);
 
-		if (irq_status_ipp & CSID_PATH_INFO_INPUT_EOF)
-			complete(&csid_hw->csid_ipp_complete);
-
 		if (irq_status_ipp & CSID_PATH_ERROR_FIFO_OVERFLOW) {
 			CAM_ERR(CAM_ISP, "CSID:%d IPP fifo over flow",
 				csid_hw->hw_intf->hw_idx);
@@ -2839,9 +2802,6 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 		if ((irq_status_rdi[i]  & CSID_PATH_INFO_INPUT_EOF) &&
 			(csid_hw->csid_debug & CSID_DEBUG_ENABLE_EOF_IRQ))
 			CAM_ERR(CAM_ISP, "CSID RDI:%d EOF received", i);
-
-		if (irq_status_rdi[i] & CSID_PATH_INFO_INPUT_EOF)
-			complete(&csid_hw->csid_rdin_complete[i]);
 
 		if (irq_status_rdi[i] & CSID_PATH_ERROR_FIFO_OVERFLOW) {
 			CAM_ERR(CAM_ISP, "CSID:%d RDI fifo over flow",
