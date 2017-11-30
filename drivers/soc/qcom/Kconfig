@@ -310,6 +310,27 @@ config MSM_SMEM
 	  processors in the System on a Chip (SoC) which allows basic
 	  inter-processor communication.
 
+config MSM_SMD
+	depends on MSM_SMEM
+	bool "MSM Shared Memory Driver (SMD)"
+	help
+	  Support for the shared memory interprocessor communication protocol
+	  which provides virual point to point serial channels between processes
+	  on the apps processor and processes on other processors in the SoC.
+	  Also includes support for the Shared Memory State Machine (SMSM)
+	  protocol which provides a mechanism to publish single bit state
+	  information to one or more processors in the SoC.
+
+config MSM_SMD_DEBUG
+	depends on MSM_SMD
+	bool "MSM SMD debug support"
+	help
+	  Support for debugging SMD and SMSM communication between apps and
+	  other processors in the SoC. Debug support primarily consists of
+	  logs consisting of information such as what interrupts were processed,
+	  what channels caused interrupt activity, and when internal state
+	  change events occur.
+
 config MSM_GLINK
 	bool "Generic Link (G-Link)"
 	help
