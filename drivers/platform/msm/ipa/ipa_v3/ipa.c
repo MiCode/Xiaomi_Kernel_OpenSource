@@ -4030,6 +4030,11 @@ void ipa3_suspend_handler(enum ipa_irq_type interrupt,
 					atomic_set(
 					&ipa3_ctx->transport_pm.dec_clients,
 					1);
+					/*
+					 * acquire wake lock as long as suspend
+					 * vote is held
+					 */
+					ipa3_inc_acquire_wakelock();
 					ipa3_process_irq_schedule_rel();
 				}
 				mutex_unlock(&ipa3_ctx->transport_pm.
@@ -4110,6 +4115,7 @@ static void ipa3_transport_release_resource(struct work_struct *work)
 			ipa3_process_irq_schedule_rel();
 		} else {
 			atomic_set(&ipa3_ctx->transport_pm.dec_clients, 0);
+			ipa3_dec_release_wakelock();
 			IPA_ACTIVE_CLIENTS_DEC_SPECIAL("TRANSPORT_RESOURCE");
 		}
 	}

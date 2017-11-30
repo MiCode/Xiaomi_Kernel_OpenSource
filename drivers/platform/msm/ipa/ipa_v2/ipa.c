@@ -3726,6 +3726,11 @@ void ipa_suspend_handler(enum ipa_irq_type interrupt,
 					atomic_set(
 						&ipa_ctx->sps_pm.dec_clients,
 						1);
+					/*
+					 * acquire wake lock as long as suspend
+					 * vote is held
+					 */
+					ipa_inc_acquire_wakelock();
 					ipa_sps_process_irq_schedule_rel();
 				}
 				mutex_unlock(&ipa_ctx->sps_pm.sps_pm_lock);
@@ -3798,6 +3803,7 @@ static void ipa_sps_release_resource(struct work_struct *work)
 			ipa_sps_process_irq_schedule_rel();
 		} else {
 			atomic_set(&ipa_ctx->sps_pm.dec_clients, 0);
+			ipa_dec_release_wakelock();
 			IPA_ACTIVE_CLIENTS_DEC_SPECIAL("SPS_RESOURCE");
 		}
 	}
