@@ -46,7 +46,7 @@ static unsigned long default_bus_bw_set[] = {0, 19200000, 50000000, 100000000};
  * @bus_bw:		Client handle to the bus bandwidth request.
  * @bus_mas_id:		Master Endpoint ID for bus BW request.
  * @bus_slv_id:		Slave Endpoint ID for bus BW request.
- * @ab_ib_lock:		Lock to protect the bus ab & ib values, list.
+ * @geni_dev_lock:		Lock to protect the bus ab & ib values, list.
  * @ab_list_head:	Sorted resource list based on average bus BW.
  * @ib_list_head:	Sorted resource list based on instantaneous bus BW.
  * @cur_ab:		Current Bus Average BW request value.
@@ -67,7 +67,7 @@ struct geni_se_device {
 	struct msm_bus_client_handle *bus_bw;
 	u32 bus_mas_id;
 	u32 bus_slv_id;
-	struct mutex ab_ib_lock;
+	struct mutex geni_dev_lock;
 	struct list_head ab_list_head;
 	struct list_head ib_list_head;
 	unsigned long cur_ab;
@@ -609,7 +609,7 @@ static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 	if (unlikely(list_empty(&rsc->ab_list) || list_empty(&rsc->ib_list)))
 		return -EINVAL;
 
-	mutex_lock(&geni_se_dev->ab_ib_lock);
+	mutex_lock(&geni_se_dev->geni_dev_lock);
 	list_del_init(&rsc->ab_list);
 	geni_se_dev->cur_ab -= rsc->ab;
 
@@ -630,7 +630,7 @@ static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 		    "%s: %lu:%lu (%lu:%lu) %d\n", __func__,
 		    geni_se_dev->cur_ab, geni_se_dev->cur_ib,
 		    rsc->ab, rsc->ib, bus_bw_update);
-	mutex_unlock(&geni_se_dev->ab_ib_lock);
+	mutex_unlock(&geni_se_dev->geni_dev_lock);
 	return ret;
 }
 
@@ -704,7 +704,7 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 	bool bus_bw_update = false;
 	int ret = 0;
 
-	mutex_lock(&geni_se_dev->ab_ib_lock);
+	mutex_lock(&geni_se_dev->geni_dev_lock);
 	list_add(&rsc->ab_list, &geni_se_dev->ab_list_head);
 	geni_se_dev->cur_ab += rsc->ab;
 
@@ -728,7 +728,7 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 		    "%s: %lu:%lu (%lu:%lu) %d\n", __func__,
 		    geni_se_dev->cur_ab, geni_se_dev->cur_ib,
 		    rsc->ab, rsc->ib, bus_bw_update);
-	mutex_unlock(&geni_se_dev->ab_ib_lock);
+	mutex_unlock(&geni_se_dev->geni_dev_lock);
 	return ret;
 }
 
@@ -878,24 +878,29 @@ int geni_se_clk_tbl_get(struct se_geni_rsc *rsc, unsigned long **tbl)
 	struct geni_se_device *geni_se_dev;
 	int i;
 	unsigned long prev_freq = 0;
+	int ret = 0;
 
 	if (unlikely(!rsc || !rsc->wrapper_dev || !rsc->se_clk || !tbl))
 		return -EINVAL;
 
-	*tbl = NULL;
 	geni_se_dev = dev_get_drvdata(rsc->wrapper_dev);
 	if (unlikely(!geni_se_dev))
 		return -EPROBE_DEFER;
+	mutex_lock(&geni_se_dev->geni_dev_lock);
+	*tbl = NULL;
 
 	if (geni_se_dev->clk_perf_tbl) {
 		*tbl = geni_se_dev->clk_perf_tbl;
-		return geni_se_dev->num_clk_levels;
+		ret = geni_se_dev->num_clk_levels;
+		goto exit_se_clk_tbl_get;
 	}
 
 	geni_se_dev->clk_perf_tbl = kzalloc(sizeof(*geni_se_dev->clk_perf_tbl) *
 						MAX_CLK_PERF_LEVEL, GFP_KERNEL);
-	if (!geni_se_dev->clk_perf_tbl)
-		return -ENOMEM;
+	if (!geni_se_dev->clk_perf_tbl) {
+		ret = -ENOMEM;
+		goto exit_se_clk_tbl_get;
+	}
 
 	for (i = 0; i < MAX_CLK_PERF_LEVEL; i++) {
 		geni_se_dev->clk_perf_tbl[i] = clk_round_rate(rsc->se_clk,
@@ -908,7 +913,10 @@ int geni_se_clk_tbl_get(struct se_geni_rsc *rsc, unsigned long **tbl)
 	}
 	geni_se_dev->num_clk_levels = i;
 	*tbl = geni_se_dev->clk_perf_tbl;
-	return geni_se_dev->num_clk_levels;
+	ret = geni_se_dev->num_clk_levels;
+exit_se_clk_tbl_get:
+	mutex_unlock(&geni_se_dev->geni_dev_lock);
+	return ret;
 }
 EXPORT_SYMBOL(geni_se_clk_tbl_get);
 
@@ -1437,7 +1445,7 @@ static int geni_se_probe(struct platform_device *pdev)
 	mutex_init(&geni_se_dev->iommu_lock);
 	INIT_LIST_HEAD(&geni_se_dev->ab_list_head);
 	INIT_LIST_HEAD(&geni_se_dev->ib_list_head);
-	mutex_init(&geni_se_dev->ab_ib_lock);
+	mutex_init(&geni_se_dev->geni_dev_lock);
 	geni_se_dev->log_ctx = ipc_log_context_create(NUM_LOG_PAGES,
 						dev_name(geni_se_dev->dev), 0);
 	if (!geni_se_dev->log_ctx)
