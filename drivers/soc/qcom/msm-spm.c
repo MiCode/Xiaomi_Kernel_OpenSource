@@ -170,7 +170,7 @@ static inline uint32_t msm_spm_drv_get_num_spm_entry(
 		struct msm_spm_driver_data *dev)
 {
 	if (!dev)
-		return;
+		return -ENODEV;
 
 	msm_spm_drv_load_shadow(dev, MSM_SPM_REG_SAW_ID);
 	return (dev->reg_shadow[MSM_SPM_REG_SAW_ID] >> 24) & 0xFF;
@@ -198,7 +198,7 @@ static inline void msm_spm_drv_set_vctl2(struct msm_spm_driver_data *dev,
 	 * Ensure that vctl_port is always set to 0.
 	 */
 	if (dev->vctl_port) {
-		WARN();
+		__WARN();
 		return;
 	}
 

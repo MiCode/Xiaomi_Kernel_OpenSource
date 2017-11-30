@@ -124,6 +124,7 @@
 
 #include "msm8953-pinctrl.dtsi"
 #include "msm8953-cpu.dtsi"
+#include "msm8953-pm.dtsi"
 
 
 &soc {
@@ -558,6 +559,12 @@
 			qcom,smdpkt-dev-name = "smd_pkt_loopback";
 		};
 	};
+
+	rpm_bus: qcom,rpm-smd {
+		compatible = "qcom,rpm-smd";
+		rpm-channel-name = "rpm_requests";
+		rpm-channel-type = <15>; /* SMD_APPS_RPM */
+		};
 
 	qcom,wdt@b017000 {
 		compatible = "qcom,msm-watchdog";
