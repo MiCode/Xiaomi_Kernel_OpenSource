@@ -85,6 +85,11 @@
 			compatible = "qcom,msm-imem-boot_stats";
 			reg = <0x6b0 32>;
 		};
+
+		mem_dump_table@10 {
+			compatible = "qcom,msm-imem-mem_dump_table";
+			reg = <0x10 8>;
+		};
 	};
 
 	sdhc_2: sdhci@74a4900 {
@@ -880,5 +885,16 @@
 		regulator-name = "pm8994_l13";
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <2950000>;
+	};
+
+	wdog: qcom,wdt@9830000 {
+		compatible = "qcom,msm-watchdog";
+		reg = <0x9830000 0x1000>;
+		reg-names = "wdt-base";
+		interrupts = <0 28 0>, <0 29 0>;
+		qcom,bark-time = <11000>;
+		qcom,pet-time = <10000>;
+		qcom,ipi-ping;
+		qcom,wakeup-enable;
 	};
 };
