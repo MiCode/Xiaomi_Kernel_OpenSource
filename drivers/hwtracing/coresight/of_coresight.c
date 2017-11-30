@@ -103,14 +103,16 @@ int of_coresight_get_cpu(const struct device_node *node)
 	struct device_node *dn;
 
 	dn = of_parse_phandle(node, "cpu", 0);
-	/* Affinity defaults to CPU0 */
+
+	/* Affinity defaults to invalid */
 	if (!dn)
-		return 0;
+		return -ENODEV;
+
 	cpu = of_cpu_node_to_id(dn);
 	of_node_put(dn);
 
-	/* Affinity to CPU0 if no cpu nodes are found */
-	return (cpu < 0) ? 0 : cpu;
+	/* Affinity to invalid if no cpu nodes are found */
+	return (cpu < 0) ? -ENODEV : cpu;
 }
 EXPORT_SYMBOL_GPL(of_coresight_get_cpu);
 
