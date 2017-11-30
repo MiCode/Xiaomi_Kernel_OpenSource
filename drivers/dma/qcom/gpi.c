@@ -56,24 +56,6 @@
 	} while (0)
 
 /* gpii specific logging macros */
-#define GPII_REG(gpii, ch, fmt, ...) do { \
-	if (gpii->klog_lvl >= LOG_LVL_REG_ACCESS) \
-		pr_info("%s:%u:%s: " fmt, gpii->label, \
-			ch, __func__, ##__VA_ARGS__); \
-	if (gpii->ilctxt && gpii->ipc_log_lvl >= LOG_LVL_REG_ACCESS) \
-		ipc_log_string(gpii->ilctxt, \
-			       "ch:%u %s: " fmt, ch, \
-			       __func__, ##__VA_ARGS__); \
-	} while (0)
-#define GPII_VERB(gpii, ch, fmt, ...) do { \
-	if (gpii->klog_lvl >= LOG_LVL_VERBOSE) \
-		pr_info("%s:%u:%s: " fmt, gpii->label, \
-			ch, __func__, ##__VA_ARGS__); \
-	if (gpii->ilctxt && gpii->ipc_log_lvl >= LOG_LVL_VERBOSE) \
-		ipc_log_string(gpii->ilctxt, \
-			       "ch:%u %s: " fmt, ch, \
-			       __func__, ##__VA_ARGS__); \
-	} while (0)
 #define GPII_INFO(gpii, ch, fmt, ...) do { \
 	if (gpii->klog_lvl >= LOG_LVL_INFO) \
 		pr_info("%s:%u:%s: " fmt, gpii->label, ch, \
@@ -123,11 +105,33 @@ enum EV_PRIORITY {
 #define IPC_LOG_PAGES (40)
 #define GPI_DBG_LOG_SIZE (SZ_1K) /* size must be power of 2 */
 #define CMD_TIMEOUT_MS (1000)
+#define GPII_REG(gpii, ch, fmt, ...) do { \
+	if (gpii->klog_lvl >= LOG_LVL_REG_ACCESS) \
+		pr_info("%s:%u:%s: " fmt, gpii->label, \
+			ch, __func__, ##__VA_ARGS__); \
+	if (gpii->ilctxt && gpii->ipc_log_lvl >= LOG_LVL_REG_ACCESS) \
+		ipc_log_string(gpii->ilctxt, \
+			       "ch:%u %s: " fmt, ch, \
+			       __func__, ##__VA_ARGS__); \
+	} while (0)
+#define GPII_VERB(gpii, ch, fmt, ...) do { \
+	if (gpii->klog_lvl >= LOG_LVL_VERBOSE) \
+		pr_info("%s:%u:%s: " fmt, gpii->label, \
+			ch, __func__, ##__VA_ARGS__); \
+	if (gpii->ilctxt && gpii->ipc_log_lvl >= LOG_LVL_VERBOSE) \
+		ipc_log_string(gpii->ilctxt, \
+			       "ch:%u %s: " fmt, ch, \
+			       __func__, ##__VA_ARGS__); \
+	} while (0)
+
 #else
 #define IPC_LOG_PAGES (2)
 #define GPI_DBG_LOG_SIZE (0) /* size must be power of 2 */
 #define DEFAULT_IPC_LOG_LVL (LOG_LVL_ERROR)
 #define CMD_TIMEOUT_MS (250)
+/* verbose and register logging are disabled if !debug */
+#define GPII_REG(gpii, ch, fmt, ...)
+#define GPII_VERB(gpii, ch, fmt, ...)
 #endif
 
 #define GPI_LABEL_SIZE (256)
@@ -934,11 +938,8 @@ static void gpi_generate_cb_event(struct gpii_chan *gpii_chan,
 /* process transfer completion interrupt */
 static void gpi_process_ieob(struct gpii *gpii)
 {
-	u32 ieob_irq;
 
-	ieob_irq = gpi_read_reg(gpii, gpii->ieob_src_reg);
-	gpi_write_reg(gpii, gpii->ieob_clr_reg, ieob_irq);
-	GPII_VERB(gpii, GPI_DBG_COMMON, "IEOB_IRQ:0x%x\n", ieob_irq);
+	gpi_write_reg(gpii, gpii->ieob_clr_reg, BIT(0));
 
 	/* process events based on priority */
 	if (likely(gpii->ev_priority >= EV_PRIORITY_TASKLET)) {
@@ -1104,6 +1105,14 @@ static irqreturn_t gpi_handle_irq(int irq, void *data)
 			type &= ~(GPI_GPII_n_CNTXT_TYPE_IRQ_MSK_GLOB);
 		}
 
+		/* transfer complete interrupt */
+		if (type & GPI_GPII_n_CNTXT_TYPE_IRQ_MSK_IEOB) {
+			GPII_VERB(gpii, GPI_DBG_COMMON,
+				  "process IEOB interrupts\n");
+			gpi_process_ieob(gpii);
+			type &= ~GPI_GPII_n_CNTXT_TYPE_IRQ_MSK_IEOB;
+		}
+
 		/* event control irq */
 		if (type & GPI_GPII_n_CNTXT_TYPE_IRQ_MSK_EV_CTRL) {
 			u32 ev_state;
@@ -1146,14 +1155,6 @@ static irqreturn_t gpi_handle_irq(int irq, void *data)
 			type &= ~(GPI_GPII_n_CNTXT_TYPE_IRQ_MSK_CH_CTRL);
 		}
 
-		/* transfer complete interrupt */
-		if (type & GPI_GPII_n_CNTXT_TYPE_IRQ_MSK_IEOB) {
-			GPII_VERB(gpii, GPI_DBG_COMMON,
-				  "process IEOB interrupts\n");
-			gpi_process_ieob(gpii);
-			type &= ~GPI_GPII_n_CNTXT_TYPE_IRQ_MSK_IEOB;
-		}
-
 		if (type) {
 			GPII_CRITIC(gpii, GPI_DBG_COMMON,
 				 "Unhandled interrupt status:0x%x\n", type);
@@ -1174,11 +1175,10 @@ exit_irq:
 static void gpi_process_qup_notif_event(struct gpii_chan *gpii_chan,
 					struct qup_notif_event *notif_event)
 {
-	struct gpii *gpii = gpii_chan->gpii;
 	struct gpi_client_info *client_info = &gpii_chan->client_info;
 	struct msm_gpi_cb msm_gpi_cb;
 
-	GPII_VERB(gpii, gpii_chan->chid,
+	GPII_VERB(gpii_chan->gpii, gpii_chan->chid,
 		  "status:0x%x time:0x%x count:0x%x\n",
 		  notif_event->status, notif_event->time, notif_event->count);
 
@@ -1186,7 +1186,7 @@ static void gpi_process_qup_notif_event(struct gpii_chan *gpii_chan,
 	msm_gpi_cb.status = notif_event->status;
 	msm_gpi_cb.timestamp = notif_event->time;
 	msm_gpi_cb.count = notif_event->count;
-	GPII_VERB(gpii, gpii_chan->chid, "sending CB event:%s\n",
+	GPII_VERB(gpii_chan->gpii, gpii_chan->chid, "sending CB event:%s\n",
 		  TO_GPI_CB_EVENT_STR(msm_gpi_cb.cb_event));
 	client_info->callback(&gpii_chan->vc.chan, &msm_gpi_cb,
 			      client_info->cb_param);
@@ -1271,7 +1271,7 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 	smp_wmb();
 
 	tx_cb_param = vd->tx.callback_param;
-	if (tx_cb_param) {
+	if (vd->tx.callback && tx_cb_param) {
 		struct msm_gpi_tre *imed_tre = &tx_cb_param->imed_tre;
 
 		GPII_VERB(gpii, gpii_chan->chid,
@@ -1283,11 +1283,9 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 		tx_cb_param->length = imed_event->length;
 		tx_cb_param->completion_code = imed_event->code;
 		tx_cb_param->status = imed_event->status;
+		vd->tx.callback(tx_cb_param);
 	}
-
-	spin_lock_irqsave(&gpii_chan->vc.lock, flags);
-	vchan_cookie_complete(vd);
-	spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
+	kfree(gpi_desc);
 }
 
 /* processing transfer completion events */
@@ -1360,7 +1358,7 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 	smp_wmb();
 
 	tx_cb_param = vd->tx.callback_param;
-	if (tx_cb_param) {
+	if (vd->tx.callback && tx_cb_param) {
 		GPII_VERB(gpii, gpii_chan->chid,
 			  "cb_length:%u compl_code:0x%x status:0x%x\n",
 			  compl_event->length, compl_event->code,
@@ -1368,37 +1366,36 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 		tx_cb_param->length = compl_event->length;
 		tx_cb_param->completion_code = compl_event->code;
 		tx_cb_param->status = compl_event->status;
+		vd->tx.callback(tx_cb_param);
 	}
-
-	spin_lock_irqsave(&gpii_chan->vc.lock, flags);
-	vchan_cookie_complete(vd);
-	spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
+	kfree(gpi_desc);
 }
 
 /* process all events */
 static void gpi_process_events(struct gpii *gpii)
 {
 	struct gpi_ring *ev_ring = &gpii->ev_ring;
-	u32 cntxt_rp, local_rp;
+	phys_addr_t cntxt_rp, local_rp;
+	void *rp;
 	union gpi_event *gpi_event;
 	struct gpii_chan *gpii_chan;
 	u32 chid, type;
-	u32 ieob_irq;
 
 	cntxt_rp = gpi_read_reg(gpii, gpii->ev_ring_rp_lsb_reg);
-	local_rp = (u32)to_physical(ev_ring, (void *)ev_ring->rp);
+	rp = to_virtual(ev_ring, cntxt_rp);
+	local_rp = to_physical(ev_ring, ev_ring->rp);
 
-	GPII_VERB(gpii, GPI_DBG_COMMON, "cntxt_rp: 0x08%x local_rp:0x08%x\n",
-		  cntxt_rp, local_rp);
+	GPII_VERB(gpii, GPI_DBG_COMMON, "cntxt_rp:%pa local_rp:%pa\n",
+		  &cntxt_rp, &local_rp);
 
 	do {
-		while (local_rp != cntxt_rp) {
+		while (rp != ev_ring->rp) {
 			gpi_event = ev_ring->rp;
 			chid = gpi_event->xfer_compl_event.chid;
 			type = gpi_event->xfer_compl_event.type;
 			GPII_VERB(gpii, GPI_DBG_COMMON,
-				  "rp:0x%08x chid:%u type:0x%x %08x %08x %08x %08x\n",
-				  local_rp, chid, type,
+				  "chid:%u type:0x%x %08x %08x %08x %08x\n",
+				  chid, type,
 				  gpi_event->gpi_ere.dword[0],
 				  gpi_event->gpi_ere.dword[1],
 				  gpi_event->gpi_ere.dword[2],
@@ -1430,22 +1427,18 @@ static void gpi_process_events(struct gpii *gpii)
 					  type);
 			}
 			gpi_ring_recycle_ev_element(ev_ring);
-			local_rp = (u32)to_physical(ev_ring,
-						    (void *)ev_ring->rp);
 		}
 		gpi_write_ev_db(gpii, ev_ring, ev_ring->wp);
 
 		/* clear pending IEOB events */
-		ieob_irq = gpi_read_reg(gpii, gpii->ieob_src_reg);
-		gpi_write_reg(gpii, gpii->ieob_clr_reg, ieob_irq);
+		gpi_write_reg(gpii, gpii->ieob_clr_reg, BIT(0));
 
 		cntxt_rp = gpi_read_reg(gpii, gpii->ev_ring_rp_lsb_reg);
-		local_rp = (u32)to_physical(ev_ring, (void *)ev_ring->rp);
+		rp = to_virtual(ev_ring, cntxt_rp);
 
-	} while (cntxt_rp != local_rp);
+	} while (rp != ev_ring->rp);
 
-	GPII_VERB(gpii, GPI_DBG_COMMON, "exit: c_rp:0x%x l_rp:0x%x\n", cntxt_rp,
-		  local_rp);
+	GPII_VERB(gpii, GPI_DBG_COMMON, "exit: c_rp:%pa\n", &cntxt_rp);
 }
 
 /* processing events using tasklet */
