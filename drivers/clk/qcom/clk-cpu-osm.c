@@ -1188,11 +1188,11 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 
 	/* Check if per-core DCVS is enabled/not */
 	val = clk_osm_read_reg(&pwrcl_clk, CORE_DCVS_CTRL);
-	if (val && BIT(0))
+	if (val & BIT(0))
 		pwrcl_clk.per_core_dcvs = true;
 
 	val = clk_osm_read_reg(&perfcl_clk, CORE_DCVS_CTRL);
-	if (val && BIT(0))
+	if (val & BIT(0))
 		perfcl_clk.per_core_dcvs = true;
 
 	rc = clk_osm_read_lut(pdev, &l3_clk);
