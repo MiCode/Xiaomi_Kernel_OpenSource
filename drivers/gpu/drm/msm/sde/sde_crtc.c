@@ -3957,12 +3957,6 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 
 		sde_cp_crtc_post_ipc(crtc);
 
-		event.type = DRM_EVENT_SDE_POWER;
-		event.length = sizeof(power_on);
-		power_on = 1;
-		msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
-				(u8 *)&power_on);
-
 		for (i = 0; i < sde_crtc->num_mixers; ++i) {
 			m = &sde_crtc->mixers[i];
 			if (!m->hw_lm || !m->hw_lm->ops.setup_misr ||
