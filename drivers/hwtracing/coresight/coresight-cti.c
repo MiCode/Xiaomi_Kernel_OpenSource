@@ -1451,8 +1451,8 @@ static int cti_probe(struct amba_device *adev, const struct amba_id *id)
 	drvdata->cpu = -1;
 	cpu_node = of_parse_phandle(adev->dev.of_node, "cpu", 0);
 	if (cpu_node) {
-		drvdata->cpu = pdata ? pdata->cpu : -1;
-		if (drvdata->cpu == -1) {
+		drvdata->cpu = pdata ? pdata->cpu : -ENODEV;
+		if (drvdata->cpu == -ENODEV) {
 			dev_err(drvdata->dev, "CTI cpu node invalid\n");
 			return -EINVAL;
 		}

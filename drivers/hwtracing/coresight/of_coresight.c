@@ -109,9 +109,9 @@ int of_coresight_get_cpu(const struct device_node *node)
 
 	dn = of_parse_phandle(node, "cpu", 0);
 
-	/* Affinity defaults to CPU0 */
+	/* Affinity defaults to invalid */
 	if (!dn)
-		return 0;
+		return -ENODEV;
 
 	for_each_possible_cpu(cpu) {
 		np = of_cpu_device_node_get(cpu);
@@ -122,8 +122,8 @@ int of_coresight_get_cpu(const struct device_node *node)
 	}
 	of_node_put(dn);
 
-	/* Affinity to CPU0 if no cpu nodes are found */
-	return found ? cpu : 0;
+	/* Affinity to invalid if no cpu nodes are found */
+	return found ? cpu : -ENODEV;
 }
 EXPORT_SYMBOL_GPL(of_coresight_get_cpu);
 
@@ -207,8 +207,6 @@ of_get_coresight_platform_data(struct device *dev,
 	}
 
 	pdata->cpu = of_coresight_get_cpu(node);
-	/* Affinity defaults to invalid */
-	pdata->cpu = -1;
 
 	return pdata;
 }
