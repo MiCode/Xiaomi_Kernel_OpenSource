@@ -42,3 +42,7 @@
 	qcom,chg-led-sw-controls;
 	qcom,chg-led-support;
 };
+
+&usb3 {
+	extcon = <&pmi8950_charger>;
+};
