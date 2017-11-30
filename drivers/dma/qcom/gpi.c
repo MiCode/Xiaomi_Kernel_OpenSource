@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -468,7 +468,6 @@ struct gpii_chan {
 	u32 req_tres; /* # of tre's client requested */
 	u32 dir;
 	struct gpi_ring ch_ring;
-	struct gpi_ring sg_ring; /* points to client scatterlist */
 	struct gpi_client_info client_info;
 };
 
@@ -510,7 +509,6 @@ struct gpii {
 struct gpi_desc {
 	struct virt_dma_desc vd;
 	void *wp; /* points to TRE last queued during issue_pending */
-	struct sg_tre *sg_tre; /* points to last scatterlist */
 	void *db; /* DB register to program */
 	struct gpii_chan *gpii_chan;
 };
@@ -1200,11 +1198,8 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 {
 	struct gpii *gpii = gpii_chan->gpii;
 	struct gpi_ring *ch_ring = &gpii_chan->ch_ring;
-	struct gpi_ring *sg_ring = &gpii_chan->sg_ring;
 	struct virt_dma_desc *vd;
 	struct gpi_desc *gpi_desc;
-	struct msm_gpi_tre *client_tre;
-	void *sg_tre;
 	void *tre = ch_ring->base +
 		(ch_ring->el_size * imed_event->tre_index);
 	struct msm_gpi_dma_async_tx_cb_param *tx_cb_param;
@@ -1262,8 +1257,6 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 	list_del(&vd->node);
 	spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
 
-	sg_tre = gpi_desc->sg_tre;
-	client_tre = ((struct sg_tre *)sg_tre)->ptr;
 
 	/*
 	 * RP pointed by Event is to last TRE processed,
@@ -1273,30 +1266,20 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 	if (tre >= (ch_ring->base + ch_ring->len))
 		tre = ch_ring->base;
 	ch_ring->rp = tre;
-	sg_tre += sg_ring->el_size;
-	if (sg_tre >= (sg_ring->base + sg_ring->len))
-		sg_tre = sg_ring->base;
-	sg_ring->rp = sg_tre;
 
 	/* make sure rp updates are immediately visible to all cores */
 	smp_wmb();
 
-	/* update Immediate data from Event back in to TRE if it's RX channel */
-	if (gpii_chan->dir == GPI_CHTYPE_DIR_IN) {
-		client_tre->dword[0] =
-			((struct msm_gpi_tre *)imed_event)->dword[0];
-		client_tre->dword[1] =
-			((struct msm_gpi_tre *)imed_event)->dword[1];
-		client_tre->dword[2] = MSM_GPI_DMA_IMMEDIATE_TRE_DWORD2(
-						      imed_event->length);
-	}
-
 	tx_cb_param = vd->tx.callback_param;
 	if (tx_cb_param) {
+		struct msm_gpi_tre *imed_tre = &tx_cb_param->imed_tre;
+
 		GPII_VERB(gpii, gpii_chan->chid,
 			  "cb_length:%u compl_code:0x%x status:0x%x\n",
 			  imed_event->length, imed_event->code,
 			  imed_event->status);
+		/* Update immediate data if any from event */
+		*imed_tre = *((struct msm_gpi_tre *)imed_event);
 		tx_cb_param->length = imed_event->length;
 		tx_cb_param->completion_code = imed_event->code;
 		tx_cb_param->status = imed_event->status;
@@ -1313,13 +1296,10 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 {
 	struct gpii *gpii = gpii_chan->gpii;
 	struct gpi_ring *ch_ring = &gpii_chan->ch_ring;
-	struct gpi_ring *sg_ring = &gpii_chan->sg_ring;
 	void *ev_rp = to_virtual(ch_ring, compl_event->ptr);
-	struct msm_gpi_tre *client_tre;
 	struct virt_dma_desc *vd;
 	struct msm_gpi_dma_async_tx_cb_param *tx_cb_param;
 	struct gpi_desc *gpi_desc;
-	void *sg_tre = NULL;
 	unsigned long flags;
 
 	/* only process events on active channel */
@@ -1366,8 +1346,6 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 	list_del(&vd->node);
 	spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
 
-	sg_tre = gpi_desc->sg_tre;
-	client_tre = ((struct sg_tre *)sg_tre)->ptr;
 
 	/*
 	 * RP pointed by Event is to last TRE processed,
@@ -1377,10 +1355,6 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 	if (ev_rp >= (ch_ring->base + ch_ring->len))
 		ev_rp = ch_ring->base;
 	ch_ring->rp = ev_rp;
-	sg_tre += sg_ring->el_size;
-	if (sg_tre >= (sg_ring->base + sg_ring->len))
-		sg_tre = sg_ring->base;
-	sg_ring->rp = sg_tre;
 
 	/* update must be visible to other cores */
 	smp_wmb();
@@ -1532,7 +1506,6 @@ static int gpi_reset_chan(struct gpii_chan *gpii_chan, enum gpi_cmd gpi_cmd)
 {
 	struct gpii *gpii = gpii_chan->gpii;
 	struct gpi_ring *ch_ring = &gpii_chan->ch_ring;
-	struct gpi_ring *sg_ring = &gpii_chan->sg_ring;
 	unsigned long flags;
 	LIST_HEAD(list);
 	int ret;
@@ -1549,8 +1522,6 @@ static int gpi_reset_chan(struct gpii_chan *gpii_chan, enum gpi_cmd gpi_cmd)
 	/* initialize the local ring ptrs */
 	ch_ring->rp = ch_ring->base;
 	ch_ring->wp = ch_ring->base;
-	sg_ring->rp = sg_ring->base;
-	sg_ring->wp = sg_ring->base;
 
 	/* visible to other cores */
 	smp_wmb();
@@ -1840,11 +1811,8 @@ static void gpi_ring_recycle_ev_element(struct gpi_ring *ring)
 static void gpi_free_ring(struct gpi_ring *ring,
 			  struct gpii *gpii)
 {
-	if (ring->dma_handle)
-		dma_free_coherent(gpii->gpi_dev->dev, ring->alloc_size,
-				  ring->pre_aligned, ring->dma_handle);
-	else
-		vfree(ring->pre_aligned);
+	dma_free_coherent(gpii->gpi_dev->dev, ring->alloc_size,
+			  ring->pre_aligned, ring->dma_handle);
 	memset(ring, 0, sizeof(*ring));
 }
 
@@ -1852,51 +1820,34 @@ static void gpi_free_ring(struct gpi_ring *ring,
 static int gpi_alloc_ring(struct gpi_ring *ring,
 			  u32 elements,
 			  u32 el_size,
-			  struct gpii *gpii,
-			  bool alloc_coherent)
+			  struct gpii *gpii)
 {
 	u64 len = elements * el_size;
 	int bit;
 
-	if (alloc_coherent) {
-		/* ring len must be power of 2 */
-		bit = find_last_bit((unsigned long *)&len, 32);
-		if (((1 << bit) - 1) & len)
-			bit++;
-		len = 1 << bit;
-		ring->alloc_size = (len + (len - 1));
-		GPII_INFO(gpii, GPI_DBG_COMMON,
-			  "#el:%u el_size:%u len:%u actual_len:%llu alloc_size:%lu\n",
-			  elements, el_size, (elements * el_size), len,
-			  ring->alloc_size);
-		ring->pre_aligned = dma_alloc_coherent(gpii->gpi_dev->dev,
-						       ring->alloc_size,
-						       &ring->dma_handle,
-						       GFP_KERNEL);
-		if (!ring->pre_aligned) {
-			GPII_CRITIC(gpii, GPI_DBG_COMMON,
-				    "could not alloc size:%lu mem for ring\n",
-				    ring->alloc_size);
-			return -ENOMEM;
-		}
-
-		/* align the physical mem */
-		ring->phys_addr = (ring->dma_handle + (len - 1)) & ~(len - 1);
-		ring->base = ring->pre_aligned +
-			(ring->phys_addr - ring->dma_handle);
-	} else {
-		ring->pre_aligned = vmalloc(len);
-		if (!ring->pre_aligned) {
-			GPII_CRITIC(gpii, GPI_DBG_COMMON,
-				    "could not allocsize:%llu mem for ring\n",
-				    len);
-			return -ENOMEM;
-		}
-		ring->phys_addr = 0;
-		ring->dma_handle = 0;
-		ring->base = ring->pre_aligned;
+	/* ring len must be power of 2 */
+	bit = find_last_bit((unsigned long *)&len, 32);
+	if (((1 << bit) - 1) & len)
+		bit++;
+	len = 1 << bit;
+	ring->alloc_size = (len + (len - 1));
+	GPII_INFO(gpii, GPI_DBG_COMMON,
+		  "#el:%u el_size:%u len:%u actual_len:%llu alloc_size:%lu\n",
+		  elements, el_size, (elements * el_size), len,
+		  ring->alloc_size);
+	ring->pre_aligned = dma_alloc_coherent(gpii->gpi_dev->dev,
+					       ring->alloc_size,
+					       &ring->dma_handle, GFP_KERNEL);
+	if (!ring->pre_aligned) {
+		GPII_CRITIC(gpii, GPI_DBG_COMMON,
+			    "could not alloc size:%lu mem for ring\n",
+			    ring->alloc_size);
+		return -ENOMEM;
 	}
 
+	/* align the physical mem */
+	ring->phys_addr = (ring->dma_handle + (len - 1)) & ~(len - 1);
+	ring->base = ring->pre_aligned + (ring->phys_addr - ring->dma_handle);
 	ring->rp = ring->base;
 	ring->wp = ring->base;
 	ring->len = len;
@@ -1920,8 +1871,7 @@ static int gpi_alloc_ring(struct gpi_ring *ring,
 static void gpi_queue_xfer(struct gpii *gpii,
 			   struct gpii_chan *gpii_chan,
 			   struct msm_gpi_tre *gpi_tre,
-			   void **wp,
-			   struct sg_tre **sg_tre)
+			   void **wp)
 {
 	struct msm_gpi_tre *ch_tre;
 	int ret;
@@ -1933,18 +1883,9 @@ static void gpi_queue_xfer(struct gpii *gpii,
 			    "Error adding ring element to xfer ring\n");
 		return;
 	}
-	/* get next sg tre location we can use */
-	ret = gpi_ring_add_element(&gpii_chan->sg_ring, (void **)sg_tre);
-	if (unlikely(ret)) {
-		GPII_CRITIC(gpii, gpii_chan->chid,
-			    "Error adding ring element to sg ring\n");
-		return;
-	}
 
 	/* copy the tre info */
 	memcpy(ch_tre, gpi_tre, sizeof(*ch_tre));
-	(*sg_tre)->ptr = gpi_tre;
-	(*sg_tre)->wp = ch_tre;
 	*wp = ch_tre;
 }
 
@@ -2122,14 +2063,12 @@ struct dma_async_tx_descriptor *gpi_prep_slave_sg(struct dma_chan *chan,
 {
 	struct gpii_chan *gpii_chan = to_gpii_chan(chan);
 	struct gpii *gpii = gpii_chan->gpii;
-	u32 nr, sg_nr;
+	u32 nr;
 	u32 nr_req = 0;
 	int i, j;
 	struct scatterlist *sg;
 	struct gpi_ring *ch_ring = &gpii_chan->ch_ring;
-	struct gpi_ring *sg_ring = &gpii_chan->sg_ring;
 	void *tre, *wp = NULL;
-	struct sg_tre *sg_tre = NULL;
 	const gfp_t gfp = GFP_ATOMIC;
 	struct gpi_desc *gpi_desc;
 
@@ -2143,20 +2082,17 @@ struct dma_async_tx_descriptor *gpi_prep_slave_sg(struct dma_chan *chan,
 
 	/* calculate # of elements required & available */
 	nr = gpi_ring_num_elements_avail(ch_ring);
-	sg_nr = gpi_ring_num_elements_avail(sg_ring);
 	for_each_sg(sgl, sg, sg_len, i) {
 		GPII_VERB(gpii, gpii_chan->chid,
 			  "%d of %u len:%u\n", i, sg_len, sg->length);
 		nr_req += (sg->length / ch_ring->el_size);
 	}
-	GPII_VERB(gpii, gpii_chan->chid,
-		  "nr_elements_avail:%u sg_avail:%u required:%u\n",
-		  nr, sg_nr, nr_req);
+	GPII_VERB(gpii, gpii_chan->chid, "el avail:%u req:%u\n", nr, nr_req);
 
-	if (nr < nr_req || sg_nr < nr_req) {
+	if (nr < nr_req) {
 		GPII_ERR(gpii, gpii_chan->chid,
-			 "not enough space in ring, avail:%u,%u required:%u\n",
-			 nr, sg_nr, nr_req);
+			 "not enough space in ring, avail:%u required:%u\n",
+			 nr, nr_req);
 		return NULL;
 	}
 
@@ -2171,12 +2107,11 @@ struct dma_async_tx_descriptor *gpi_prep_slave_sg(struct dma_chan *chan,
 	for_each_sg(sgl, sg, sg_len, i)
 		for (j = 0, tre = sg_virt(sg); j < sg->length;
 		     j += ch_ring->el_size, tre += ch_ring->el_size)
-			gpi_queue_xfer(gpii, gpii_chan, tre, &wp, &sg_tre);
+			gpi_queue_xfer(gpii, gpii_chan, tre, &wp);
 
 	/* set up the descriptor */
 	gpi_desc->db = ch_ring->wp;
 	gpi_desc->wp = wp;
-	gpi_desc->sg_tre = sg_tre;
 	gpi_desc->gpii_chan = gpii_chan;
 	GPII_VERB(gpii, gpii_chan->chid, "exit wp:0x%0llx rp:0x%0llx\n",
 		  to_physical(ch_ring, ch_ring->wp),
@@ -2271,7 +2206,7 @@ static int gpi_config(struct dma_chan *chan,
 		elements = max(gpii->gpii_chan[0].req_tres,
 			       gpii->gpii_chan[1].req_tres);
 		ret = gpi_alloc_ring(&gpii->ev_ring, elements << ev_factor,
-				     sizeof(union gpi_event), gpii, true);
+				     sizeof(union gpi_event), gpii);
 		if (ret) {
 			GPII_ERR(gpii, gpii_chan->chid,
 				 "error allocating mem for ev ring\n");
@@ -2396,7 +2331,6 @@ static void gpi_free_chan_resources(struct dma_chan *chan)
 
 	/* free all allocated memory */
 	gpi_free_ring(&gpii_chan->ch_ring, gpii);
-	gpi_free_ring(&gpii_chan->sg_ring, gpii);
 	vchan_free_chan_resources(&gpii_chan->vc);
 
 	write_lock_irq(&gpii->pm_lock);
@@ -2451,26 +2385,15 @@ static int gpi_alloc_chan_resources(struct dma_chan *chan)
 
 	/* allocate memory for transfer ring */
 	ret = gpi_alloc_ring(&gpii_chan->ch_ring, gpii_chan->req_tres,
-			     sizeof(struct msm_gpi_tre), gpii, true);
+			     sizeof(struct msm_gpi_tre), gpii);
 	if (ret) {
 		GPII_ERR(gpii, gpii_chan->chid,
 			 "error allocating xfer ring, ret:%d\n", ret);
 		goto xfer_alloc_err;
 	}
-
-	ret = gpi_alloc_ring(&gpii_chan->sg_ring, gpii_chan->ch_ring.elements,
-			     sizeof(struct sg_tre), gpii, false);
-	if (ret) {
-		GPII_ERR(gpii, gpii_chan->chid,
-			 "error allocating sg ring, ret:%d\n", ret);
-		goto sg_alloc_error;
-	}
 	mutex_unlock(&gpii->ctrl_lock);
 
 	return 0;
-
-sg_alloc_error:
-	gpi_free_ring(&gpii_chan->ch_ring, gpii);
 xfer_alloc_err:
 	mutex_unlock(&gpii->ctrl_lock);
 
