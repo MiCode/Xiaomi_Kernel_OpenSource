@@ -3165,6 +3165,10 @@ struct wmi_mgmt_rx_ext_info {
 #define PHY_ERROR_10_4_RADAR_MASK               0x4
 #define PHY_ERROR_10_4_SPECTRAL_SCAN_MASK       0x4000000
 
+#define WMI_PHY_ERROR_MASK0_RADAR		BIT(2)
+#define WMI_PHY_ERROR_MASK0_FALSE_RADAR_EXT	BIT(24)
+#define WMI_PHY_ERROR_MASK0_SPECTRAL_SCAN	BIT(26)
+
 enum phy_err_type {
 	PHY_ERROR_UNKNOWN,
 	PHY_ERROR_SPECTRAL_SCAN,
@@ -6352,6 +6356,8 @@ struct wmi_phyerr_hdr_arg {
 	u32 tsf_u32;
 	u32 buf_len;
 	const void *phyerrs;
+	u32 phy_err_mask0;
+	u32 phy_err_mask1;
 };
 
 struct wmi_svc_rdy_ev_arg {

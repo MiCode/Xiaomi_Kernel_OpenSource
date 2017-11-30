@@ -923,6 +923,11 @@ static int ath10k_wmi_tlv_op_pull_phyerr_ev_hdr(struct ath10k *ar,
 	arg->buf_len = __le32_to_cpu(ev->buf_len);
 	arg->phyerrs = phyerrs;
 
+	if (QCA_REV_WCN3990(ar)) {
+		arg->phy_err_mask0 = __le32_to_cpu(ev->rs_phy_err_mask0);
+		arg->phy_err_mask1 = __le32_to_cpu(ev->rs_phy_err_mask1);
+	}
+
 	kfree(tb);
 	return 0;
 }
