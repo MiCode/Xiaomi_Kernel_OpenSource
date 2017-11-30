@@ -891,6 +891,8 @@ static int wdm_probe(struct usb_interface *intf, const struct usb_device_id *id)
 		case USB_CDC_HEADER_TYPE:
 			break;
 		case USB_CDC_DMM_TYPE:
+			if (buflen < sizeof(struct usb_cdc_dmm_desc))
+				break;
 			dmhd = (struct usb_cdc_dmm_desc *)buffer;
 			maxcom = le16_to_cpu(dmhd->wMaxCommand);
 			dev_dbg(&intf->dev,
