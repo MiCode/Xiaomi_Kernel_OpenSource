@@ -2215,7 +2215,8 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 	if (wled->pmic_rev_id->pmic_subtype == PMI8998_SUBTYPE ||
 		wled->pmic_rev_id->pmic_subtype == PM660L_SUBTYPE) {
 
-		if (wled->pmic_rev_id->rev4 == PMI8998_V2P0_REV4)
+		if (wled->pmic_rev_id->pmic_subtype == PMI8998_SUBTYPE &&
+				wled->pmic_rev_id->rev4 == PMI8998_V2P0_REV4)
 			wled->lcd_auto_pfm_en = false;
 		else
 			wled->lcd_auto_pfm_en = true;
