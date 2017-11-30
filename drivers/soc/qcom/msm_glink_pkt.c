@@ -66,9 +66,9 @@
 #define map_from_smd_trans_signal(sigs) \
 	do { \
 		if (sigs & SMD_DTR_SIG) \
-			sigs |= TIOCM_DTR; \
+			sigs |= TIOCM_DSR; \
 		if (sigs & SMD_CTS_SIG) \
-			sigs |= TIOCM_RTS; \
+			sigs |= TIOCM_CTS; \
 		if (sigs & SMD_CD_SIG) \
 			sigs |= TIOCM_CD; \
 		if (sigs & SMD_RI_SIG) \
