@@ -3088,6 +3088,7 @@ static void _sde_crtc_setup_mixer_for_encoder(
 		} else {
 			mixer->hw_ctl = (struct sde_hw_ctl *)ctl_iter.hw;
 			last_valid_ctl = mixer->hw_ctl;
+			sde_crtc->num_ctls++;
 		}
 
 		/* Shouldn't happen, mixers are always >= ctls */
@@ -3123,6 +3124,7 @@ static void _sde_crtc_setup_mixers(struct drm_crtc *crtc)
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 	struct drm_encoder *enc;
 
+	sde_crtc->num_ctls = 0;
 	sde_crtc->num_mixers = 0;
 	sde_crtc->mixers_swapped = false;
 	memset(sde_crtc->mixers, 0, sizeof(sde_crtc->mixers));
@@ -3519,7 +3521,7 @@ static int _sde_crtc_commit_kickoff_rot(struct drm_crtc *crtc,
 	}
 
 	master_ctl = NULL;
-	for (i = 0; i < sde_crtc->num_mixers; i++) {
+	for (i = 0; i < sde_crtc->num_ctls; i++) {
 		ctl = sde_crtc->mixers[i].hw_ctl;
 		if (!ctl)
 			continue;
@@ -3601,7 +3603,7 @@ static int _sde_crtc_reset_hw(struct drm_crtc *crtc,
 	struct sde_crtc_state *cstate;
 	struct sde_hw_ctl *ctl;
 	enum sde_ctl_rot_op_mode old_rot_op_mode;
-	signed int i, n, plane_count;
+	signed int i, plane_count;
 	int rc;
 
 	if (!crtc || !crtc->dev || !old_state || !crtc->state)
@@ -3619,8 +3621,7 @@ static int _sde_crtc_reset_hw(struct drm_crtc *crtc,
 	/* optionally generate a panic instead of performing a h/w reset */
 	SDE_DBG_CTRL("stop_ftrace", "reset_hw_panic");
 
-	n = min_t(size_t, sde_crtc->num_mixers, ARRAY_SIZE(sde_crtc->mixers));
-	for (i = 0; i < n; ++i) {
+	for (i = 0; i < sde_crtc->num_ctls; ++i) {
 		ctl = sde_crtc->mixers[i].hw_ctl;
 		if (!ctl || !ctl->ops.reset)
 			continue;
@@ -3645,13 +3646,14 @@ static int _sde_crtc_reset_hw(struct drm_crtc *crtc,
 	 * depending on the rotation mode; don't handle this for now
 	 * and just force a hard reset in those cases.
 	 */
-	if (i == n && old_rot_op_mode == SDE_CTL_ROT_OP_MODE_OFFLINE)
+	if (i == sde_crtc->num_ctls &&
+			old_rot_op_mode == SDE_CTL_ROT_OP_MODE_OFFLINE)
 		return false;
 
 	SDE_DEBUG("crtc%d: issuing hard reset\n", DRMID(crtc));
 
 	/* force all components in the system into reset at the same time */
-	for (i = 0; i < n; ++i) {
+	for (i = 0; i < sde_crtc->num_ctls; ++i) {
 		ctl = sde_crtc->mixers[i].hw_ctl;
 		if (!ctl || !ctl->ops.hard_reset)
 			continue;
@@ -3706,7 +3708,7 @@ static int _sde_crtc_reset_hw(struct drm_crtc *crtc,
 			sde_encoder_poll_line_counts(encoder);
 	}
 
-	for (i = 0; i < n; ++i) {
+	for (i = 0; i < sde_crtc->num_ctls; ++i) {
 		ctl = sde_crtc->mixers[i].hw_ctl;
 		if (!ctl || !ctl->ops.hard_reset)
 			continue;
