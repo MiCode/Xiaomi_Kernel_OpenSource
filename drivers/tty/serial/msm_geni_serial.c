@@ -494,6 +494,7 @@ static int msm_geni_serial_power_on(struct uart_port *uport)
 			} else {
 				pm_runtime_get_noresume(uport->dev);
 				pm_runtime_set_active(uport->dev);
+				enable_irq(uport->irq);
 			}
 			pm_runtime_enable(uport->dev);
 			if (lock)
@@ -2580,7 +2581,8 @@ static int msm_geni_serial_runtime_resume(struct device *dev)
 						SE_UART_MANUAL_RFR);
 	/* Ensure that the Rx is running before enabling interrupts */
 	mb();
-	enable_irq(port->uport.irq);
+	if (pm_runtime_enabled(dev))
+		enable_irq(port->uport.irq);
 	IPC_LOG_MSG(port->ipc_log_pwr, "%s:\n", __func__);
 exit_runtime_resume:
 	return ret;
