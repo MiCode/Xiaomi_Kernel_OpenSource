@@ -457,9 +457,9 @@
 				<CONTROL_TCS   1>;
 	};
 
-	cmd_db: qcom,cmd-db@ca0000c {
+	cmd_db: qcom,cmd-db@c37000c {
 		compatible = "qcom,cmd-db";
-		reg = <0xca0000c 8>;
+		reg = <0xc37000c 8>;
 	};
 
 	system_pm {
