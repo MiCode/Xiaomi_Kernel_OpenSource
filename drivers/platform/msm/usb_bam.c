@@ -1194,6 +1194,7 @@ static int usb_bam_init(struct platform_device *pdev)
 	struct usb_bam_ctx_type *ctx = dev_get_drvdata(&pdev->dev);
 	enum usb_ctrl bam_type = ctx->usb_bam_data->bam_type;
 	struct sps_bam_props props;
+	struct device *dev;
 
 	memset(&props, 0, sizeof(props));
 
@@ -1210,6 +1211,14 @@ static int usb_bam_init(struct platform_device *pdev)
 
 	if (ctx->usb_bam_data->disable_clk_gating)
 		props.options |= SPS_BAM_NO_LOCAL_CLK_GATING;
+
+	dev = &ctx->usb_bam_pdev->dev;
+	if (dev && dev->parent && !device_property_present(dev->parent,
+						"qcom,smmu-s1-bypass")) {
+		pr_info("%s: setting SPS_BAM_SMMU_EN flag with (%s)\n",
+						__func__, dev_name(dev));
+		props.options |= SPS_BAM_SMMU_EN;
+	}
 
 	ret = sps_register_bam_device(&props, &ctx->h_bam);
 	if (ret < 0) {
