@@ -61,20 +61,21 @@ struct cam_ife_csid_hw_caps {
 
 /**
  * struct cam_csid_hw_reserve_resource- hw reserve
- * @res_type :  reource type CID or PATH
- *              if type is CID, then res_id is not required,
- *              if type is path then res id need to be filled
- * @res_id  :  res id to be reserved
- * @in_port : input port resource info
- * @out_port: output port resource info, used for RDI path only
- * @sync_mode : Sync mode
- *              Sync mode could be master, slave or none
- * @master_idx: master device index to be configured in the slave path
- *              for master path, this value is not required.
- *              only slave need to configure the master index value
- * @cid:        cid (DT_ID) value for path, this is applicable for CSID path
- *              reserve
- * @node_res :  reserved resource structure pointer
+ * @res_type :    Reource type CID or PATH
+ *                if type is CID, then res_id is not required,
+ *                if type is path then res id need to be filled
+ * @res_id  :     Resource id to be reserved
+ * @in_port :     Input port resource info
+ * @out_port:     Output port resource info, used for RDI path only
+ * @sync_mode:    Sync mode
+ *                Sync mode could be master, slave or none
+ * @master_idx:   Master device index to be configured in the slave path
+ *                for master path, this value is not required.
+ *                only slave need to configure the master index value
+ * @cid:          cid (DT_ID) value for path, this is applicable for CSID path
+ *                reserve
+ * @node_res :    Reserved resource structure pointer
+ * @pixel_count:  Number of pixel resources
  *
  */
 struct cam_csid_hw_reserve_resource_args {
@@ -86,6 +87,7 @@ struct cam_csid_hw_reserve_resource_args {
 	uint32_t                                  master_idx;
 	uint32_t                                  cid;
 	struct cam_isp_resource_node             *node_res;
+	int                                       pixel_count;
 };
 
 /**

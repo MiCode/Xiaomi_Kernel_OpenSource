@@ -230,6 +230,33 @@
 		compatible = "qcom,msm-cam-smmu";
 		status = "ok";
 
+		msm_cam_smmu_lrme {
+			compatible = "qcom,msm-cam-smmu-cb";
+			iommus = <&apps_smmu 0x1038 0x0>,
+				<&apps_smmu 0x1058 0x0>,
+				<&apps_smmu 0x1039 0x0>,
+				<&apps_smmu 0x1059 0x0>;
+			label = "lrme";
+			lrme_iova_mem_map: iova-mem-map {
+				iova-mem-region-shared {
+					/* Shared region is 100MB long */
+					iova-region-name = "shared";
+					iova-region-start = <0x7400000>;
+					iova-region-len = <0x6400000>;
+					iova-region-id = <0x1>;
+					status = "ok";
+				};
+				/* IO region is approximately 3.3 GB */
+				iova-mem-region-io {
+					iova-region-name = "io";
+					iova-region-start = <0xd800000>;
+					iova-region-len = <0xd2800000>;
+					iova-region-id = <0x3>;
+					status = "ok";
+				};
+			};
+		};
+
 		msm_cam_smmu_ife {
 			compatible = "qcom,msm-cam-smmu-cb";
 			iommus = <&apps_smmu 0x808 0x0>,
@@ -435,13 +462,14 @@
 			"csid0", "csid1", "csid2",
 			"ife0", "ife1", "ife2", "ipe0",
 			"ipe1", "cam-cdm-intf0", "cpas-cdm0", "bps0",
-			"icp0", "jpeg-dma0", "jpeg-enc0", "fd0";
+			"icp0", "jpeg-dma0", "jpeg-enc0", "fd0", "lrmecpas0";
 		client-axi-port-names =
 			"cam_hf_1", "cam_hf_2", "cam_hf_2", "cam_sf_1",
 			"cam_hf_1", "cam_hf_2", "cam_hf_2",
 			"cam_hf_1", "cam_hf_2", "cam_hf_2", "cam_sf_1",
 			"cam_sf_1", "cam_sf_1", "cam_sf_1", "cam_sf_1",
-			"cam_sf_1", "cam_sf_1", "cam_sf_1", "cam_sf_1";
+			"cam_sf_1", "cam_sf_1", "cam_sf_1", "cam_sf_1",
+			"cam_sf_1";
 		client-bus-camnoc-based;
 		qcom,axi-port-list {
 			qcom,axi-port1 {
@@ -530,7 +558,8 @@
 		cdm-client-names = "vfe",
 			"jpegdma",
 			"jpegenc",
-			"fd";
+			"fd",
+			"lrmecdm";
 		status = "ok";
 	};
 
@@ -1060,6 +1089,45 @@
 			<0 0 0 0 0 400000000 0 0>,
 			<0 0 0 0 0 538000000 0 0>,
 			<0 0 0 0 0 600000000 0 0>;
+		status = "ok";
+	};
+
+	qcom,cam-lrme {
+		compatible = "qcom,cam-lrme";
+		arch-compat = "lrme";
+		status = "ok";
+	};
+
+	cam_lrme: qcom,lrme@ac6b000 {
+		cell-index = <0>;
+		compatible = "qcom,lrme";
+		reg-names = "lrme";
+		reg = <0xac6b000 0xa00>;
+		reg-cam-base = <0x6b000>;
+		interrupt-names = "lrme";
+		interrupts = <0 476 0>;
+		regulator-names = "camss";
+		camss-supply = <&titan_top_gdsc>;
+		clock-names = "camera_ahb",
+			"camera_axi",
+			"soc_ahb_clk",
+			"cpas_ahb_clk",
+			"camnoc_axi_clk",
+			"lrme_clk_src",
+			"lrme_clk";
+		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>,
+			<&clock_gcc GCC_CAMERA_AXI_CLK>,
+			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
+			<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
+			<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
+			<&clock_camcc CAM_CC_LRME_CLK_SRC>,
+			<&clock_camcc CAM_CC_LRME_CLK>;
+		clock-rates = <0 0 0 0 0 200000000 200000000>,
+			<0 0 0 0 0 269000000 269000000>,
+			<0 0 0 0 0 320000000 320000000>,
+			<0 0 0 0 0 400000000 400000000>;
+		clock-cntl-level = "lowsvs", "svs", "svs_l1", "turbo";
+		src-clock-name = "lrme_clk_src";
 		status = "ok";
 	};
 };

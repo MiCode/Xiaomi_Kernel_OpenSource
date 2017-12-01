@@ -501,11 +501,10 @@ int32_t cam_context_stop_dev_to_hw(struct cam_context *ctx)
 	mutex_unlock(&ctx->sync_mutex);
 
 	/* stop hw first */
-	if (ctx->ctxt_to_hw_map) {
+	if (ctx->hw_mgr_intf->hw_stop) {
 		stop.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
-		if (ctx->hw_mgr_intf->hw_stop)
-			ctx->hw_mgr_intf->hw_stop(ctx->hw_mgr_intf->hw_mgr_priv,
-				&stop);
+		ctx->hw_mgr_intf->hw_stop(ctx->hw_mgr_intf->hw_mgr_priv,
+			&stop);
 	}
 
 	/*
