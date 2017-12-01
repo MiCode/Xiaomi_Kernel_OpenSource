@@ -612,7 +612,7 @@ static int pil_init_image_trusted(struct pil_desc *pil,
 
 	dev.coherent_dma_mask =
 		DMA_BIT_MASK(sizeof(dma_addr_t) * 8);
-	attrs |= DMA_ATTR_PRIVILEGED;
+	attrs |= DMA_ATTR_STRONGLY_ORDERED;
 	mdata_buf = dma_alloc_attrs(&dev, size, &mdata_phys, GFP_KERNEL,
 					attrs);
 	if (!mdata_buf) {
