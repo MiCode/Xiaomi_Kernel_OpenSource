@@ -13,6 +13,7 @@
 #ifndef __FG_CORE_H__
 #define __FG_CORE_H__
 
+#include <linux/alarmtimer.h>
 #include <linux/atomic.h>
 #include <linux/bitops.h>
 #include <linux/debugfs.h>
@@ -299,6 +300,12 @@ enum slope_limit_status {
 	SLOPE_LIMIT_NUM_COEFFS,
 };
 
+enum esr_filter_status {
+	ROOM_TEMP = 1,
+	LOW_TEMP,
+	RELAX_TEMP,
+};
+
 enum esr_timer_config {
 	TIMER_RETRY = 0,
 	TIMER_MAX,
@@ -457,6 +464,8 @@ struct fg_dev {
 	int			delta_soc;
 	int			last_msoc;
 	int			last_recharge_volt_mv;
+	int			delta_temp_irq_count;
+	enum esr_filter_status	esr_flt_sts;
 	bool			profile_available;
 	enum prof_load_status	profile_load_status;
 	bool			battery_missing;
@@ -474,6 +483,9 @@ struct fg_dev {
 	struct delayed_work	profile_load_work;
 	struct work_struct	status_change_work;
 	struct delayed_work	sram_dump_work;
+	struct work_struct	esr_filter_work;
+	struct alarm		esr_filter_alarm;
+	ktime_t			last_delta_temp_time;
 };
 
 /* Debugfs data structures are below */
