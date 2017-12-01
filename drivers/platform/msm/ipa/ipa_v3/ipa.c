@@ -604,6 +604,7 @@ static int ipa3_send_wan_msg(unsigned long usr_param,
 	int retval;
 	struct ipa_wan_msg *wan_msg;
 	struct ipa_msg_meta msg_meta;
+	struct ipa_wan_msg cache_wan_msg;
 
 	wan_msg = kzalloc(sizeof(struct ipa_wan_msg), GFP_KERNEL);
 	if (!wan_msg) {
@@ -616,6 +617,8 @@ static int ipa3_send_wan_msg(unsigned long usr_param,
 		kfree(wan_msg);
 		return -EFAULT;
 	}
+
+	memcpy(&cache_wan_msg, wan_msg, sizeof(cache_wan_msg));
 
 	memset(&msg_meta, 0, sizeof(struct ipa_msg_meta));
 	msg_meta.msg_type = msg_type;
