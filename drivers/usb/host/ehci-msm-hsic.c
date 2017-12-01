@@ -2318,6 +2318,9 @@ static int ehci_hsic_msm_remove(struct platform_device *pdev)
 	/* Remove the HCD prior to releasing our resources. */
 	usb_remove_hcd(hcd);
 
+	/* Disable HSIC mode in HSIC_CFG register */
+	ulpi_write(mehci, 0x0, 0x30);
+
 	if (pdata && pdata->standalone_latency)
 		pm_qos_remove_request(&mehci->pm_qos_req_dma);
 
