@@ -561,6 +561,8 @@ struct mdss_util_intf {
 	int (*panel_intf_status)(u32 disp_num, u32 intf_type);
 	struct mdss_panel_cfg* (*panel_intf_type)(int intf_val);
 	int (*dyn_clk_gating_ctrl)(int enable);
+	bool (*param_check)(char *param_string);
+	bool display_disabled;
 };
 
 struct mdss_util_intf *mdss_get_util_intf(void);

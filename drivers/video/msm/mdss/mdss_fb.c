@@ -942,6 +942,9 @@ static void mdss_fb_shutdown(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
 
+	if (!mfd)
+		return;
+
 	mfd->shutdown_pending = true;
 
 	/* wake up threads waiting on idle or kickoff queues */

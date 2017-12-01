@@ -2586,6 +2586,12 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	mdss_res->mdss_util->panel_intf_type = mdss_panel_intf_type;
 	mdss_res->mdss_util->panel_intf_status = mdss_panel_get_intf_status;
 
+	if (mdss_res->mdss_util->param_check(mdss_mdp_panel)) {
+		mdss_res->mdss_util->display_disabled = true;
+		mdss_res->mdss_util->mdp_probe_done = true;
+		return 0;
+	}
+
 	rc = msm_dss_ioremap_byname(pdev, &mdata->mdss_io, "mdp_phys");
 	if (rc) {
 		pr_err("unable to map MDP base\n");

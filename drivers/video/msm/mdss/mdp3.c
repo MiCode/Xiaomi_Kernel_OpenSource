@@ -2882,6 +2882,13 @@ static int mdp3_probe(struct platform_device *pdev)
 		mdp3_dynamic_clock_gating_ctrl;
 	mdp3_res->mdss_util->panel_intf_type = mdp3_panel_intf_type;
 	mdp3_res->mdss_util->panel_intf_status = mdp3_panel_get_intf_status;
+
+	if (mdp3_res->mdss_util->param_check(mdss_mdp3_panel)) {
+		mdp3_res->mdss_util->display_disabled = true;
+		mdp3_res->mdss_util->mdp_probe_done = true;
+		return 0;
+	}
+
 	rc = mdp3_parse_dt(pdev);
 	if (rc)
 		goto probe_done;
