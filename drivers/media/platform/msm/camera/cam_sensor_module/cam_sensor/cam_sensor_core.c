@@ -1011,7 +1011,6 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 					return rc;
 				}
 			}
-			i2c_set->is_settings_valid = 0;
 		}
 	} else {
 		offset = req_id % MAX_PER_FRAME_ARRAY;
