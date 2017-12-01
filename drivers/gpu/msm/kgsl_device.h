@@ -498,6 +498,7 @@ struct kgsl_device_private {
  * @sysfs_read: Count of current reads via sysfs
  * @first_read: True until the snapshot read is started
  * @gmu_fault: Snapshot collected when GMU fault happened
+ * @recovered: True if GPU was recovered after previous snapshot
  */
 struct kgsl_snapshot {
 	uint64_t ib1base;
@@ -521,6 +522,7 @@ struct kgsl_snapshot {
 	unsigned int sysfs_read;
 	bool first_read;
 	bool gmu_fault;
+	bool recovered;
 };
 
 /**
