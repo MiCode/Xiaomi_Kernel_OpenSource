@@ -11,6 +11,16 @@ emac_hw node:
 - interrupts: Interrupt number used by this controller
 - io-macro-info: Internal io-macro-info
 
+Optional:
+- qcom,msm-bus,name: String representing the client-name
+- qcom,msm-bus,num-cases: Total number of usecases
+- qcom,msm-bus,num-paths: Total number of master-slave pairs
+- qcom,msm-bus,vectors-KBps: Arrays of unsigned integers representing:
+                             master-id, slave-id, arbitrated bandwidth
+                             in KBps, instantaneous bandwidth in KBps
+qcom,bus-vector-names: specifies string IDs for the corresponding bus vectors
+                       in the same order as qcom,msm-bus,vectors-KBps property.
+
 Internal io-macro-info:
 - io-macro-bypass-mode: <0 or 1> internal or external delay configuration
 - io-interface: <rgmii/mii/rmii> PHY interface used
@@ -35,6 +45,14 @@ soc {
 				"tx-ch4-intr", "rx-ch0-intr",
 				"rx-ch1-intr", "rx-ch2-intr",
 				"rx-ch3-intr";
+			qcom,msm-bus,name = "emac";
+			qcom,msm-bus,num-cases = <3>;
+			qcom,msm-bus,num-paths = <2>;
+			qcom,msm-bus,vectors-KBps =
+				<98 512 1250 0>, <1 781 0 40000>,  /* 10Mbps vote */
+				<98 512 12500 0>, <1 781 0 40000>,  /* 100Mbps vote */
+				<98 512 125000 0>, <1 781 0 40000>; /* 1000Mbps vote */
+			qcom,bus-vector-names = "10", "100", "1000";
 			io-macro-info {
 				io-macro-bypass-mode = <0>;
 				io-interface = "rgmii";
