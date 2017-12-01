@@ -205,7 +205,8 @@ static int check_bufsize_for_encoding(struct diagfwd_buf_t *buf, uint32_t len)
 		}
 
 		if (buf->len < max_size) {
-			if (driver->logging_mode == DIAG_MEMORY_DEVICE_MODE) {
+			if (driver->logging_mode == DIAG_MEMORY_DEVICE_MODE ||
+				driver->logging_mode == DIAG_MULTI_MODE) {
 				ch = &diag_md[DIAG_LOCAL_PROC];
 				for (i = 0; ch != NULL &&
 						i < ch->num_tbl_entries; i++) {
@@ -1631,6 +1632,10 @@ void diagfwd_channel_read(struct diagfwd_info *fwd_info)
 fail_return:
 	diag_ws_release();
 	atomic_set(&temp_buf->in_busy, 0);
+	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+	"Buffer for core PD is marked free, p: %d, t: %d, buf_num: %d\n",
+		fwd_info->peripheral, fwd_info->type,
+		GET_BUF_NUM(temp_buf->ctxt));
 }
 
 static void diagfwd_queue_read(struct diagfwd_info *fwd_info)
