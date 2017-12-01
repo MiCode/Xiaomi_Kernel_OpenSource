@@ -59,6 +59,7 @@ enum cnss_debug_quirks {
 	LINK_DOWN_SELF_RECOVERY,
 	SKIP_DEVICE_BOOT,
 	USE_CORE_ONLY_FW,
+	SKIP_RECOVERY,
 };
 
 unsigned long quirks;
@@ -1453,6 +1454,11 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 	    test_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state))
 		plat_priv->driver_ops->update_status(pci_priv->pci_dev,
 						     CNSS_RECOVERY);
+
+	if (test_bit(SKIP_RECOVERY, &quirks)) {
+		cnss_pr_dbg("Skip device recovery\n");
+		return 0;
+	}
 
 	switch (reason) {
 	case CNSS_REASON_LINK_DOWN:
