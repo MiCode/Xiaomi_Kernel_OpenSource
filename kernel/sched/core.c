@@ -86,6 +86,8 @@ int sysctl_sched_rt_runtime = 950000;
 /* CPUs with isolated domains */
 cpumask_var_t cpu_isolated_map;
 
+__read_mostly unsigned int sched_ravg_window = (3333333 * 6);
+
 /*
  * __task_rq_lock - lock the rq @p resides on.
  */

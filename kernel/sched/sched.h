@@ -2055,6 +2055,31 @@ static inline u64 irq_time_read(int cpu)
 }
 #endif /* CONFIG_IRQ_TIME_ACCOUNTING */
 
+struct sched_walt_cpu_load {
+	unsigned long prev_window_util;
+	unsigned long nl;
+	unsigned long pl;
+	u64 ws;
+};
+
+#ifdef CONFIG_SCHED_WALT
+inline unsigned long cpu_util_freq(int cpu,
+				   struct sched_walt_cpu_load *walt_load);
+inline unsigned long capacity_curr_of(int cpu);
+extern unsigned int sched_ravg_window;
+#else
+static inline unsigned long
+cpu_util_freq(int cpu, struct sched_walt_cpu_load *walt_load)
+{
+	return 0;
+}
+static inline unsigned long capacity_curr_of(int cpu)
+{
+	return 0;
+}
+extern unsigned int sched_ravg_window;
+#endif /* CONFIG_SCHED_WALT */
+
 #ifdef CONFIG_CPU_FREQ
 DECLARE_PER_CPU(struct update_util_data *, cpufreq_update_util_data);
 
