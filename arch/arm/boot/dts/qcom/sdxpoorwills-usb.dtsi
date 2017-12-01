@@ -199,12 +199,12 @@
 			 0xffffffff 0xffffffff 0x00>;
 
 		qcom,qmp-phy-reg-offset =
-				<0x974 /* USB3_UNI_PCS_PCS_STATUS */
-				 0x8d8 /* USB3_UNI_PCS_AUTONOMOUS_MODE_CTRL */
-				 0x8dc /* USB3_UNI_PCS_LFPS_RXTERM_IRQ_CLEAR */
-				 0x804 /* USB3_UNI_PCS_POWER_DOWN_CONTROL */
+				<0x814 /* USB3_UNI_PCS_PCS_STATUS */
+				 0xe08 /* USB3_UNI_PCS_AUTONOMOUS_MODE_CTRL */
+				 0xe14 /* USB3_UNI_PCS_LFPS_RXTERM_IRQ_CLEAR */
+				 0x840 /* USB3_UNI_PCS_POWER_DOWN_CONTROL */
 				 0x800 /* USB3_UNI_PCS_SW_RESET */
-				 0x808>; /* USB3_UNI_PCS_START_CONTROL */
+				 0x844>; /* USB3_UNI_PCS_START_CONTROL */
 
 		clocks = <&clock_gcc GCC_USB3_PHY_AUX_CLK>,
 			 <&clock_gcc GCC_USB3_PHY_PIPE_CLK>,
