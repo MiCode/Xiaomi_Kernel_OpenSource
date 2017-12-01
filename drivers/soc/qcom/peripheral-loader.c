@@ -528,8 +528,10 @@ static int pil_alloc_region(struct pil_priv *priv, phys_addr_t min_addr,
 
 	if (align > SZ_4M)
 		aligned_size = ALIGN(aligned_size, SZ_4M);
-	else
+	else if (align > SZ_1M)
 		aligned_size = ALIGN(aligned_size, SZ_1M);
+	else
+		aligned_size = ALIGN(aligned_size, SZ_4K);
 
 	priv->desc->attrs = 0;
 	priv->desc->attrs |= DMA_ATTR_SKIP_ZEROING | DMA_ATTR_NO_KERNEL_MAPPING;
