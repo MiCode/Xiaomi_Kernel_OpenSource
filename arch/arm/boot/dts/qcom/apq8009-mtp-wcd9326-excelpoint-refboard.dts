@@ -129,7 +129,9 @@
 	interrupts = <0 134 0>,<0 140 0>,<0 136 0>;
 	interrupt-names = "core_irq", "async_irq", "phy_irq";
 
-	qcom,hsusb-otg-mode = <3>;
+	qcom,hsusb-otg-mode = <1>; /* peripheral mode */
+	qcom,hsusb-otg-otg-control= <3>;
+	qcom,hsusb-otg-default-mode= <1>; /* peripheral mode */
 	vbus_otg-supply = <&smb1360_otg_supply>;
 };
 
