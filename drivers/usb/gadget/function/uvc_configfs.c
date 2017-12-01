@@ -2158,6 +2158,7 @@ static int __uvcg_iter_strm_cls(struct uvcg_streaming_header *h,
 		if (ret)
 			return ret;
 		grp = &f->fmt->group;
+		j = 0;
 		list_for_each_entry(item, &grp->cg_children, ci_entry) {
 			frm = to_uvcg_frame(item);
 			ret = fun(frm, priv2, priv3, j++, UVCG_FRAME);
