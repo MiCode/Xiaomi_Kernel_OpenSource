@@ -50,7 +50,7 @@
 		mss_mem: mss_region@87400000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x87400000 0x7700000>;
+			reg = <0x87400000 0x8300000>;
 			label = "mss_mem";
 		};
 
