@@ -206,6 +206,16 @@
 		mbox-names = "apps";
 	};
 
+	snoc_cnoc_keepalive: qcom,snoc_cnoc_keepalive {
+		compatible = "qcom,devbw";
+		governor = "powersave";
+		qcom,src-dst-ports = <53 747>;
+		qcom,active-only;
+		status = "ok";
+		qcom,bw-tbl =
+			< 1 >;
+	};
+
 	blsp1_uart2: serial@831000 {
 		compatible = "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm";
 		reg = <0x831000 0x200>;
