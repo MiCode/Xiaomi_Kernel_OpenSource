@@ -590,10 +590,6 @@ static int pil_init_image_trusted(struct pil_desc *pil,
 		const u8 *metadata, size_t size)
 {
 	struct pil_tz_data *d = desc_to_data(pil);
-	struct pas_init_image_req {
-		u32	proc;
-		u32	image_addr;
-	} request;
 	u32 scm_ret = 0;
 	void *mdata_buf;
 	dma_addr_t mdata_phys;
@@ -623,9 +619,6 @@ static int pil_init_image_trusted(struct pil_desc *pil,
 
 	memcpy(mdata_buf, metadata, size);
 
-	request.proc = d->pas_id;
-	request.image_addr = mdata_phys;
-
 	desc.args[0] = d->pas_id;
 	desc.args[1] = mdata_phys;
 	desc.arginfo = SCM_ARGS(2, SCM_VAL, SCM_RW);
@@ -644,21 +637,12 @@ static int pil_mem_setup_trusted(struct pil_desc *pil, phys_addr_t addr,
 			       size_t size)
 {
 	struct pil_tz_data *d = desc_to_data(pil);
-	struct pas_init_image_req {
-		u32	proc;
-		u32	start_addr;
-		u32	len;
-	} request;
 	u32 scm_ret = 0;
 	int ret;
 	struct scm_desc desc = {0};
 
 	if (d->subsys_desc.no_auth)
 		return 0;
-
-	request.proc = d->pas_id;
-	request.start_addr = addr;
-	request.len = size;
 
 	desc.args[0] = d->pas_id;
 	desc.args[1] = addr;
