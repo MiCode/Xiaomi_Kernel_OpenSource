@@ -597,6 +597,33 @@ static void cam_irq_controller_th_processing(
 	CAM_DBG(CAM_ISP, "Exit");
 }
 
+irqreturn_t cam_irq_controller_clear_and_mask(int irq_num, void *priv)
+{
+	struct cam_irq_controller  *controller  = priv;
+	uint32_t i = 0;
+
+	if (!controller)
+		return IRQ_NONE;
+
+	for (i = 0; i < controller->num_registers; i++) {
+
+		cam_io_w_mb(0x0, controller->mem_base +
+			controller->irq_register_arr[i].clear_reg_offset);
+	}
+
+	if (controller->global_clear_offset)
+		cam_io_w_mb(controller->global_clear_bitmask,
+			controller->mem_base +
+			controller->global_clear_offset);
+
+	for (i = 0; i < controller->num_registers; i++) {
+		cam_io_w_mb(0x0, controller->mem_base +
+		controller->irq_register_arr[i].mask_reg_offset);
+	}
+
+	return IRQ_HANDLED;
+}
+
 irqreturn_t cam_irq_controller_handle_irq(int irq_num, void *priv)
 {
 	struct cam_irq_controller  *controller  = priv;
