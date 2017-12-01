@@ -65,6 +65,7 @@
 #define BALIGN		128
 #define NUM_CHANNELS	3		/*1 compute 1 cpz 1 mdsp*/
 #define NUM_SESSIONS	8		/*8 compute*/
+#define FASTRPC_CTX_MAGIC (0xbeeddeed)
 
 #define IS_CACHE_ALIGNED(x) (((x) & ((L1_CACHE_BYTES)-1)) == 0)
 
@@ -153,6 +154,7 @@ struct smq_invoke_ctx {
 	struct overlap *overs;
 	struct overlap **overps;
 	struct smq_msg msg;
+	unsigned int magic;
 };
 
 struct fastrpc_ctx_lst {
@@ -829,6 +831,7 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 	ctx->pid = current->pid;
 	ctx->tgid = current->tgid;
 	init_completion(&ctx->work);
+	ctx->magic = FASTRPC_CTX_MAGIC;
 
 	spin_lock(&fl->hlock);
 	hlist_add_head(&ctx->hn, &clst->pending);
@@ -863,6 +866,7 @@ static void context_free(struct smq_invoke_ctx *ctx)
 	for (i = 0; i < nbufs; ++i)
 		fastrpc_mmap_free(ctx->maps[i]);
 	fastrpc_buf_free(ctx->buf, 1);
+	ctx->magic = 0;
 	kfree(ctx);
 }
 
@@ -1285,15 +1289,23 @@ static void fastrpc_smd_read_handler(int cid)
 {
 	struct fastrpc_apps *me = &gfa;
 	struct smq_invoke_rsp rsp = {0};
-	int ret = 0;
+	struct smq_invoke_ctx *ctx;
+	int ret = 0, err = 0;
 
 	do {
 		ret = smd_read_from_cb(me->channel[cid].chan, &rsp,
 					sizeof(rsp));
 		if (ret != sizeof(rsp))
 			break;
+		ctx = (struct smq_invoke_ctx *)(uint64_to_ptr(rsp.ctx));
+		VERIFY(err, (ctx && ctx->magic == FASTRPC_CTX_MAGIC));
+		if (err)
+			goto bail;
 		context_notify_user(uint64_to_ptr(rsp.ctx), rsp.retval);
 	} while (ret == sizeof(rsp));
+bail:
+	if (err)
+			pr_err("adsprpc: invalid response or context\n");
 }
 
 static void smd_event_handler(void *priv, unsigned event)
@@ -1845,13 +1857,22 @@ void fastrpc_glink_notify_rx(void *handle, const void *priv,
 	const void *pkt_priv, const void *ptr, size_t size)
 {
 	struct smq_invoke_rsp *rsp = (struct smq_invoke_rsp *)ptr;
-	int len = size;
+	struct smq_invoke_ctx *ctx;
+	int err = 0;
 
-	while (len >= sizeof(*rsp) && rsp) {
-		context_notify_user(uint64_to_ptr(rsp->ctx), rsp->retval);
-		rsp++;
-		len = len - sizeof(*rsp);
-	}
+	VERIFY(err, (rsp && size >= sizeof(*rsp)));
+	if (err)
+		goto bail;
+
+	ctx = (struct smq_invoke_ctx *)(uint64_to_ptr(rsp->ctx));
+	VERIFY(err, (ctx && ctx->magic == FASTRPC_CTX_MAGIC));
+	if (err)
+		goto bail;
+
+	context_notify_user(ctx, rsp->retval);
+bail:
+	if (err)
+		pr_err("adsprpc: invalid response or context\n");
 	glink_rx_done(handle, ptr, true);
 }
 
