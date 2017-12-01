@@ -32,7 +32,7 @@
 };
 
 &soc {
-	i2c@78b9000 { /* BLSP1 QUP5 */
+	i2c@78b7000 { /* BLSP1 QUP3 */
 		synaptics@20 {
 			compatible = "synaptics,dsx-i2c";
 			reg = <0x20>;
@@ -109,15 +109,15 @@
 	status = "disabled";
 };
 
-&i2c_3 {
-	status = "disabled";
-};
-
 &i2c_4 {
 	status = "disabled";
 };
 
 &i2c_2 {
+	status = "disabled";
+};
+
+&i2c_5 {
 	status = "disabled";
 };
 
@@ -154,11 +154,11 @@
 
 &ts_reset_active {
 	mux {
-		pins = "gpio16";
+		pins = "gpio31";
 	};
 
 	config {
-		pins = "gpio16";
+		pins = "gpio31";
 	};
 };
 
