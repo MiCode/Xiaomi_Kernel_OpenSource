@@ -82,7 +82,7 @@ void crm_timer_exit(struct cam_req_mgr_timer **crm_timer)
 {
 	CAM_DBG(CAM_CRM, "destroy timer %pK", *crm_timer);
 	if (*crm_timer) {
-		del_timer(&(*crm_timer)->sys_timer);
+		del_timer_sync(&(*crm_timer)->sys_timer);
 		kfree(*crm_timer);
 		*crm_timer = NULL;
 	}
