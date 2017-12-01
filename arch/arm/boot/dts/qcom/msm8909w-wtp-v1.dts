@@ -1,0 +1,183 @@
+/*
+ * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8909-mtp.dtsi"
+#include "msm8909w-gpu.dtsi"
+#include "msm8909w.dtsi"
+#include "msm8909w-memory.dtsi"
+#include "msm8909w-pm660-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM8909W-PM660 V1 WTP";
+	compatible = "qcom,msm8909-mtp", "qcom,msm8909", "qcom,mtp";
+	qcom,msm-id =   <245 0>,
+			<258 0>,
+			<275 0>,
+			<300 0>;
+	qcom,board-id = <8 0x112>;
+	qcom,pmic-id =  <0x0001001b 0x0 0x0 0x0>,
+			<0x0001011b 0x0 0x0 0x0>;
+};
+
+&soc {
+	i2c@78b9000 { /* BLSP1 QUP5 */
+		synaptics@20 {
+			compatible = "synaptics,dsx-i2c";
+			reg = <0x20>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <98 0x2008>;
+			vdd_ana-supply = <&pm660_l18>;
+			vcc_i2c-supply = <&pm660_l13>;
+			synaptics,pwr-reg-name = "vdd_ana";
+			synaptics,bus-reg-name = "vcc_i2c";
+			pinctrl-names = "pmx_ts_active", "pmx_ts_suspend",
+							"pmx_ts_release";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-2 = <&ts_release>;
+			synaptics,irq-gpio = <&msm_gpio 98 0x2008>;
+			synaptics,irq-on-state = <0>;
+			synaptics,irq-flags = <0x2008>;
+			synaptics,power-delay-ms = <200>;
+			synaptics,reset-delay-ms = <200>;
+			synaptics,max-y-for-2d = <389>;
+			synaptics,resume-in-workqueue;
+			synaptics,x-flip;
+			synaptics,y-flip;
+			/delete-property/ synaptics,reset-gpio;
+			/delete-property/ synaptics,display-coords;
+			/delete-property/ synaptics,panel-coords;
+			/delete-property/ synaptics,power-down;
+			/delete-property/ synaptics,disable-gpios;
+			/delete-property/ synaptics,is_wake;
+		};
+
+		/delete-node/ it7260@46;
+	};
+
+
+	qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
+	};
+
+	qcom,msm-thermal {
+		vdd-dig-supply = <&pm660_s2_floor_corner>;
+
+		msm_thermal_freq: qcom,vdd-apps-rstr {
+			qcom,vdd-rstr-reg = "vdd-apps";
+			qcom,levels = <1094400>;
+			qcom,freq-req;
+		};
+	};
+
+	qcom,bcl {
+		compatible = "qcom,bcl";
+		qcom,bcl-enable;
+		qcom,bcl-framework-interface;
+		qcom,bcl-freq-control-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,bcl-hotplug-list = <&CPU2 &CPU3>;
+		qcom,bcl-soc-hotplug-list = <&CPU2 &CPU3>;
+		qcom,ibat-monitor {
+			qcom,low-threshold-uamp = <1000000>;
+			qcom,high-threshold-uamp = <2000000>;
+			qcom,mitigation-freq-khz = <1094400>;
+			qcom,vph-high-threshold-uv = <3500000>;
+			qcom,vph-low-threshold-uv = <3200000>;
+			qcom,soc-low-threshold = <10>;
+			qcom,thermal-handle = <&msm_thermal_freq>;
+		};
+	};
+};
+
+&i2c_1 {
+	status = "disabled";
+};
+
+&spi_0 {
+	status = "disabled";
+};
+
+&i2c_3 {
+	status = "disabled";
+};
+
+&i2c_4 {
+	status = "disabled";
+};
+
+&i2c_2 {
+	status = "disabled";
+};
+
+&sdhc_2 {
+	status = "disabled";
+};
+
+&blsp1_uart1 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_sleep>;
+};
+
+/* Pinctrl dt nodes for interrupt & reset gpio for Synaptics touch controller */
+&ts_int_active {
+	mux {
+		pins = "gpio98";
+	};
+
+	config {
+		pins = "gpio98";
+	};
+};
+
+&ts_int_suspend {
+	mux {
+		pins = "gpio98";
+	};
+
+	config {
+		pins = "gpio98";
+	};
+};
+
+&ts_reset_active {
+	mux {
+		pins = "gpio16";
+	};
+
+	config {
+		pins = "gpio16";
+	};
+};
+
+&ts_reset_suspend {
+	mux {
+		pins = "gpio16";
+	};
+
+	config {
+		pins = "gpio16";
+	};
+};
+
+&ts_release {
+	mux {
+		pins = "gpio98", "gpio16";
+	};
+
+	config {
+		pins = "gpio98", "gpio16";
+	};
+};
