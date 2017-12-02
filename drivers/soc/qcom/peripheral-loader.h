@@ -119,7 +119,7 @@ struct md_ssr_toc /* Shared IMEM ToC struct */
  */
 struct pil_reset_ops {
 	int (*init_image)(struct pil_desc *pil, const u8 *metadata,
-			  size_t size);
+			  size_t size, phys_addr_t mdata_phys, void *region);
 	int (*mem_setup)(struct pil_desc *pil, phys_addr_t addr, size_t size);
 	int (*verify_blob)(struct pil_desc *pil, phys_addr_t phy_addr,
 			   size_t size);
