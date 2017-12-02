@@ -51,6 +51,8 @@ int cam_sync_init_object(struct sync_table_row *table,
 	init_completion(&row->signaled);
 	INIT_LIST_HEAD(&row->callback_list);
 	INIT_LIST_HEAD(&row->user_payload_list);
+	CAM_DBG(CAM_SYNC, "Sync object Initialised: sync_id:%u row_state:%u ",
+		row->sync_id, row->state);
 
 	return 0;
 }
@@ -308,6 +310,7 @@ int cam_sync_deinit_object(struct sync_table_row *table, uint32_t idx)
 	clear_bit(idx, sync_dev->bitmap);
 	spin_unlock_bh(&sync_dev->row_spinlocks[idx]);
 
+	CAM_DBG(CAM_SYNC, "Destroying sync obj:%d successful", idx);
 	return 0;
 }
 
@@ -345,6 +348,8 @@ void cam_sync_util_send_v4l2_event(uint32_t id,
 	memcpy(payload_data, payload, len);
 
 	v4l2_event_queue(sync_dev->vdev, &event);
+	CAM_DBG(CAM_SYNC, "send v4l2 event for sync_obj :%d",
+		sync_obj);
 }
 
 int cam_sync_util_validate_merge(uint32_t *sync_obj, uint32_t num_objs)
@@ -387,6 +392,8 @@ int cam_sync_util_add_to_signalable_list(int32_t sync_obj,
 	signalable_info->status = status;
 
 	list_add_tail(&signalable_info->list, sync_list);
+	CAM_DBG(CAM_SYNC, "Add sync_obj :%d with status :%d to signalable list",
+		sync_obj, status);
 
 	return 0;
 }
