@@ -69,6 +69,12 @@ struct drm_msm_timespec {
 
 #define HDR_PRIMARIES_COUNT   3
 
+/* HDR EOTF */
+#define HDR_EOTF_SDR_LUM_RANGE	0x0
+#define HDR_EOTF_HDR_LUM_RANGE	0x1
+#define HDR_EOTF_SMTPE_ST2084	0x2
+#define HDR_EOTF_HLG		0x3
+
 #define DRM_MSM_EXT_HDR_METADATA
 struct drm_msm_ext_hdr_metadata {
 	__u32 hdr_state;        /* HDR state */

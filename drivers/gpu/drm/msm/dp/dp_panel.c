@@ -19,6 +19,11 @@
 #define DP_PANEL_DEFAULT_BPP 24
 #define DP_MAX_DS_PORT_COUNT 1
 
+#define DPRX_FEATURE_ENUMERATION_LIST 0x2210
+#define VSC_SDP_EXTENSION_FOR_COLORIMETRY_SUPPORTED BIT(3)
+#define VSC_EXT_VESA_SDP_SUPPORTED BIT(4)
+#define VSC_EXT_VESA_SDP_CHAINING_SUPPORTED BIT(5)
+
 enum dp_panel_hdr_pixel_encoding {
 	RGB,
 	YCbCr444,
@@ -65,9 +70,14 @@ struct dp_panel_private {
 	bool custom_edid;
 	bool custom_dpcd;
 	bool panel_on;
+	bool vsc_supported;
+	bool vscext_supported;
+	bool vscext_chaining_supported;
 	enum dp_panel_hdr_state hdr_state;
 	u8 spd_vendor_name[8];
 	u8 spd_product_description[16];
+	u8 major;
+	u8 minor;
 };
 
 static const struct dp_panel_info fail_safe = {
@@ -99,7 +109,7 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
 	int rlen, rc = 0;
 	struct dp_panel_private *panel;
 	struct drm_dp_link *link_info;
-	u8 *dpcd, major = 0, minor = 0;
+	u8 *dpcd, rx_feature;
 	u32 dfp_count = 0;
 	unsigned long caps = DP_LINK_CAP_ENHANCED_FRAMING;
 
@@ -131,11 +141,33 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
 			DUMP_PREFIX_NONE, 8, 1, dp_panel->dpcd, rlen, false);
 	}
 
+	rlen = drm_dp_dpcd_read(panel->aux->drm_aux,
+		DPRX_FEATURE_ENUMERATION_LIST, &rx_feature, 1);
+	if (rlen != 1) {
+		pr_debug("failed to read DPRX_FEATURE_ENUMERATION_LIST\n");
+		panel->vsc_supported = false;
+		panel->vscext_supported = false;
+		panel->vscext_chaining_supported = false;
+	} else {
+		panel->vsc_supported = !!(rx_feature &
+			VSC_SDP_EXTENSION_FOR_COLORIMETRY_SUPPORTED);
+
+		panel->vscext_supported = !!(rx_feature &
+			VSC_EXT_VESA_SDP_SUPPORTED);
+
+		panel->vscext_chaining_supported = !!(rx_feature &
+			VSC_EXT_VESA_SDP_CHAINING_SUPPORTED);
+	}
+
+	pr_debug("vsc=%d, vscext=%d, vscext_chaining=%d\n",
+		panel->vsc_supported, panel->vscext_supported,
+		panel->vscext_chaining_supported);
+
 	link_info->revision = dp_panel->dpcd[DP_DPCD_REV];
 
-	major = (link_info->revision >> 4) & 0x0f;
-	minor = link_info->revision & 0x0f;
-	pr_debug("version: %d.%d\n", major, minor);
+	panel->major = (link_info->revision >> 4) & 0x0f;
+	panel->minor = link_info->revision & 0x0f;
+	pr_debug("version: %d.%d\n", panel->major, panel->minor);
 
 	link_info->rate =
 		drm_dp_bw_code_to_link_rate(dp_panel->dpcd[DP_MAX_LINK_RATE]);
@@ -655,6 +687,21 @@ end:
 	return min_link_rate_khz;
 }
 
+static bool dp_panel_hdr_supported(struct dp_panel *dp_panel)
+{
+	struct dp_panel_private *panel;
+
+	if (!dp_panel) {
+		pr_err("invalid input\n");
+		return false;
+	}
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+
+	return panel->major >= 1 && panel->vsc_supported &&
+		(panel->minor >= 4 || panel->vscext_supported);
+}
+
 static bool dp_panel_is_validate_hdr_state(struct dp_panel_private *panel,
 		struct drm_msm_ext_hdr_metadata *hdr_meta)
 {
@@ -731,7 +778,10 @@ static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
 	hdr->version = 0x01;
 	hdr->length = 0x1A;
 
-	memcpy(&hdr->hdr_meta, hdr_meta, sizeof(hdr->hdr_meta));
+	if (panel->hdr_state)
+		memcpy(&hdr->hdr_meta, hdr_meta, sizeof(hdr->hdr_meta));
+	else
+		memset(&hdr->hdr_meta, 0, sizeof(hdr->hdr_meta));
 
 	panel->catalog->config_hdr(panel->catalog, panel->hdr_state);
 end:
@@ -806,6 +856,7 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	dp_panel->tpg_config = dp_panel_tpg_config;
 	dp_panel->spd_config = dp_panel_spd_config;
 	dp_panel->setup_hdr = dp_panel_setup_hdr;
+	dp_panel->hdr_supported = dp_panel_hdr_supported;
 
 	dp_panel_edid_register(panel);
 
