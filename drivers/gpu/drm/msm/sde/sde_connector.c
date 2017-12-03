@@ -425,6 +425,20 @@ void sde_connector_schedule_status_work(struct drm_connector *connector,
 	}
 }
 
+void sde_connector_helper_bridge_disable(struct drm_connector *connector)
+{
+	int rc;
+
+	if (!connector)
+		return;
+
+	/* trigger a final connector pre-kickoff for power mode updates */
+	rc = sde_connector_pre_kickoff(connector);
+	if (rc)
+		SDE_ERROR("conn %d final pre kickoff failed %d\n",
+				connector->base.id, rc);
+}
+
 static int _sde_connector_update_power_locked(struct sde_connector *c_conn)
 {
 	struct drm_connector *connector;
