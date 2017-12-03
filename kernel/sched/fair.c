@@ -7144,6 +7144,14 @@ retry:
 			return target_cpu;
 		}
 
+		if (need_idle) {
+			trace_sched_task_util_need_idle(p, task_cpu(p),
+						task_util(p),
+						target_cpu, target_cpu,
+						0, need_idle);
+			return target_cpu;
+		}
+
 		/*
 		 * We always want to migrate the task to the best CPU when
 		 * placement boost is active.
