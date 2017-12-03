@@ -7093,11 +7093,14 @@ retry:
 
 	/*
 	 * If we don't find a CPU that fits this task without
-	 * increasing OPP above sched_smp_overlap_capacity,
-	 * expand the search to the other groups on a SMP system.
+	 * increasing OPP above sched_smp_overlap_capacity or
+	 * when placement boost is active, expand the search to
+	 * the other groups on a SMP system.
 	 */
-	if (!sysctl_sched_is_big_little && target_cpu == -1 &&
-			min_util_cpu_util_cum > sched_smp_overlap_capacity) {
+	if (!sysctl_sched_is_big_little &&
+			(placement_boost == SCHED_BOOST_ON_ALL ||
+			(target_cpu == -1 && min_util_cpu_util_cum >
+					     sched_smp_overlap_capacity))) {
 		if (sg_target->next != start_sg) {
 			sg_target = sg_target->next;
 			goto next_sg;
