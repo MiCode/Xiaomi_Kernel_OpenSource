@@ -268,7 +268,8 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 {
 	int rc = 0;
 	struct dsi_bridge *c_bridge = to_dsi_bridge(bridge);
-	struct dsi_display_mode dsi_mode, cur_dsi_mode;
+	struct dsi_display *display;
+	struct dsi_display_mode dsi_mode, cur_dsi_mode, *panel_dsi_mode;
 	struct drm_display_mode cur_mode;
 	struct drm_crtc_state *crtc_state;
 
@@ -279,7 +280,25 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 		return false;
 	}
 
+	display = c_bridge->display;
+	if (!display) {
+		pr_err("Invalid params\n");
+		return false;
+	}
+
 	convert_to_dsi_mode(mode, &dsi_mode);
+
+	/*
+	 * retrieve dsi mode from dsi driver's cache since not safe to take
+	 * the drm mode config mutex in all paths
+	 */
+	rc = dsi_display_find_mode(display, &dsi_mode, &panel_dsi_mode);
+	if (rc)
+		return rc;
+
+	/* propagate the private info to the adjusted_mode derived dsi mode */
+	dsi_mode.priv_info = panel_dsi_mode->priv_info;
+	dsi_mode.dsi_mode_flags = panel_dsi_mode->dsi_mode_flags;
 
 	rc = dsi_display_validate_mode(c_bridge->display, &dsi_mode,
 			DSI_VALIDATE_FLAG_ALLOW_ADJUST);
@@ -307,6 +326,7 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 			dsi_mode.dsi_mode_flags |= DSI_MODE_FLAG_DMS;
 	}
 
+	/* convert back to drm mode, propagating the private info & flags */
 	dsi_convert_to_drm_mode(&dsi_mode, adjusted_mode);
 
 	return true;
@@ -540,7 +560,6 @@ int dsi_connector_get_modes(struct drm_connector *connector,
 		void *display)
 {
 	u32 count = 0;
-	u32 size = 0;
 	struct dsi_display_mode *modes = NULL;
 	struct drm_display_mode drm_mode;
 	int rc, i;
@@ -556,21 +575,14 @@ int dsi_connector_get_modes(struct drm_connector *connector,
 	rc = dsi_display_get_mode_count(display, &count);
 	if (rc) {
 		pr_err("failed to get num of modes, rc=%d\n", rc);
-		goto error;
-	}
-
-	size = count * sizeof(*modes);
-	modes = kzalloc(size,  GFP_KERNEL);
-	if (!modes) {
-		count = 0;
 		goto end;
 	}
 
-	rc = dsi_display_get_modes(display, modes);
+	rc = dsi_display_get_modes(display, &modes);
 	if (rc) {
 		pr_err("failed to get modes, rc=%d\n", rc);
 		count = 0;
-		goto error;
+		goto end;
 	}
 
 	for (i = 0; i < count; i++) {
@@ -584,14 +596,12 @@ int dsi_connector_get_modes(struct drm_connector *connector,
 			       drm_mode.hdisplay,
 			       drm_mode.vdisplay);
 			count = -ENOMEM;
-			goto error;
+			goto end;
 		}
 		m->width_mm = connector->display_info.width_mm;
 		m->height_mm = connector->display_info.height_mm;
 		drm_mode_probed_add(connector, m);
 	}
-error:
-	kfree(modes);
 end:
 	pr_debug("MODE COUNT =%d\n\n", count);
 	return count;

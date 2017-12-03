@@ -2113,7 +2113,6 @@ static int _sde_kms_gen_drm_mode(struct sde_kms *sde_kms,
 {
 	struct dsi_display_mode *modes = NULL;
 	u32 count = 0;
-	u32 size = 0;
 	int rc = 0;
 
 	rc = dsi_display_get_mode_count(display, &count);
@@ -2123,18 +2122,12 @@ static int _sde_kms_gen_drm_mode(struct sde_kms *sde_kms,
 	}
 
 	SDE_DEBUG("num of modes = %d\n", count);
-	size = count * sizeof(*modes);
-	modes = kzalloc(size,  GFP_KERNEL);
-	if (!modes) {
-		count = 0;
-		goto end;
-	}
 
-	rc = dsi_display_get_modes(display, modes);
+	rc = dsi_display_get_modes(display, &modes);
 	if (rc) {
 		SDE_ERROR("failed to get modes, rc=%d\n", rc);
 		count = 0;
-		goto error;
+		return rc;
 	}
 
 	/* TODO; currently consider modes[0] as the preferred mode */
@@ -2144,9 +2137,6 @@ static int _sde_kms_gen_drm_mode(struct sde_kms *sde_kms,
 		drm_mode->hdisplay, drm_mode->vdisplay);
 	drm_mode_set_name(drm_mode);
 	drm_mode_set_crtcinfo(drm_mode, 0);
-error:
-	kfree(modes);
-end:
 	return rc;
 }
 
