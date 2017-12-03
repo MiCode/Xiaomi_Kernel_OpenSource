@@ -806,6 +806,21 @@ void sde_crtc_get_crtc_roi(struct drm_crtc_state *state,
 	*crtc_roi = &crtc_state->crtc_roi;
 }
 
+bool sde_crtc_is_crtc_roi_dirty(struct drm_crtc_state *state)
+{
+	struct sde_crtc_state *cstate;
+	struct sde_crtc *sde_crtc;
+
+	if (!state || !state->crtc)
+		return false;
+
+	sde_crtc = to_sde_crtc(state->crtc);
+	cstate = to_sde_crtc_state(state);
+
+	return msm_property_is_dirty(&sde_crtc->property_info,
+			&cstate->property_state, CRTC_PROP_ROI_V1);
+}
+
 static int _sde_crtc_set_roi_v1(struct drm_crtc_state *state,
 		void __user *usr_ptr)
 {
@@ -894,6 +909,8 @@ static int _sde_crtc_set_crtc_roi(struct drm_crtc *crtc,
 	struct sde_crtc_state *crtc_state;
 	struct sde_rect *crtc_roi;
 	int i, num_attached_conns = 0;
+	bool is_crtc_roi_dirty;
+	bool is_any_conn_roi_dirty;
 
 	if (!crtc || !state)
 		return -EINVAL;
@@ -902,7 +919,11 @@ static int _sde_crtc_set_crtc_roi(struct drm_crtc *crtc,
 	crtc_state = to_sde_crtc_state(state);
 	crtc_roi = &crtc_state->crtc_roi;
 
+	is_crtc_roi_dirty = sde_crtc_is_crtc_roi_dirty(state);
+	is_any_conn_roi_dirty = false;
+
 	for_each_connector_in_state(state->state, conn, conn_state, i) {
+		struct sde_connector *sde_conn;
 		struct sde_connector_state *sde_conn_state;
 		struct sde_rect conn_roi;
 
@@ -917,7 +938,14 @@ static int _sde_crtc_set_crtc_roi(struct drm_crtc *crtc,
 		}
 		++num_attached_conns;
 
+		sde_conn = to_sde_connector(conn_state->connector);
 		sde_conn_state = to_sde_connector_state(conn_state);
+
+		is_any_conn_roi_dirty = is_any_conn_roi_dirty ||
+				msm_property_is_dirty(
+						&sde_conn->property_info,
+						&sde_conn_state->property_state,
+						CONNECTOR_PROP_ROI_V1);
 
 		/*
 		 * current driver only supports same connector and crtc size,
@@ -938,7 +966,23 @@ static int _sde_crtc_set_crtc_roi(struct drm_crtc *crtc,
 				conn_roi.w, conn_roi.h);
 	}
 
+	/*
+	 * Check against CRTC ROI and Connector ROI not being updated together.
+	 * This restriction should be relaxed when Connector ROI scaling is
+	 * supported.
+	 */
+	if (is_any_conn_roi_dirty != is_crtc_roi_dirty) {
+		SDE_ERROR("connector/crtc rois not updated together\n");
+		return -EINVAL;
+	}
+
 	sde_kms_rect_merge_rectangles(&crtc_state->user_roi_list, crtc_roi);
+
+	/* clear the ROI to null if it matches full screen anyways */
+	if (crtc_roi->x == 0 && crtc_roi->y == 0 &&
+			crtc_roi->w == state->adjusted_mode.hdisplay &&
+			crtc_roi->h == state->adjusted_mode.vdisplay)
+		memset(crtc_roi, 0, sizeof(*crtc_roi));
 
 	SDE_DEBUG("%s: crtc roi (%d,%d,%d,%d)\n", sde_crtc->name,
 			crtc_roi->x, crtc_roi->y, crtc_roi->w, crtc_roi->h);
