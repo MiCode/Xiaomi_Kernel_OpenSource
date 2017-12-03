@@ -9301,7 +9301,7 @@ static struct sched_group *find_busiest_group(struct lb_env *env)
 	if (energy_aware() && !env->dst_rq->rd->overutilized) {
 		int cpu_local, cpu_busiest;
 		long util_cum;
-		unsigned long capacity_local, capacity_busiest;
+		unsigned long energy_local, energy_busiest;
 
 		if (env->idle != CPU_NEWLY_IDLE)
 			goto out_balanced;
@@ -9312,12 +9312,12 @@ static struct sched_group *find_busiest_group(struct lb_env *env)
 		cpu_local = group_first_cpu(sds.local);
 		cpu_busiest = group_first_cpu(sds.busiest);
 
-		 /* TODO: don't assume same cap cpus are in same domain */
-		capacity_local = capacity_orig_of(cpu_local);
-		capacity_busiest = capacity_orig_of(cpu_busiest);
-		if (capacity_local > capacity_busiest) {
+		 /* TODO: don't assume same energy cpus are in same domain */
+		energy_local = cpu_max_power_cost(cpu_local);
+		energy_busiest = cpu_max_power_cost(cpu_busiest);
+		if (energy_local > energy_busiest) {
 			goto out_balanced;
-		} else if (capacity_local == capacity_busiest) {
+		} else if (energy_local == energy_busiest) {
 			if (cpu_rq(cpu_busiest)->nr_running < 2)
 				goto out_balanced;
 
