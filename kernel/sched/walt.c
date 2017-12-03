@@ -2145,7 +2145,7 @@ compare_clusters(void *priv, struct list_head *a, struct list_head *b)
 	return ret;
 }
 
-void sort_clusters(void)
+static void sort_clusters(void)
 {
 	struct sched_cluster *cluster;
 	struct list_head new_head;
@@ -2155,9 +2155,9 @@ void sort_clusters(void)
 
 	for_each_sched_cluster(cluster) {
 		cluster->max_power_cost = power_cost(cluster_first_cpu(cluster),
-							       max_task_load());
+							       true);
 		cluster->min_power_cost = power_cost(cluster_first_cpu(cluster),
-							       0);
+							       false);
 
 		if (cluster->max_power_cost > tmp_max)
 			tmp_max = cluster->max_power_cost;
@@ -2174,6 +2174,37 @@ void sort_clusters(void)
 	 * cluster_head visible.
 	 */
 	move_list(&cluster_head, &new_head, false);
+}
+
+void walt_sched_energy_populated_callback(void)
+{
+	struct sched_cluster *cluster;
+	int prev_max = 0;
+
+	mutex_lock(&cluster_lock);
+
+	if (num_clusters == 1) {
+		sysctl_sched_is_big_little = 0;
+		mutex_unlock(&cluster_lock);
+		return;
+	}
+
+	sort_clusters();
+
+	for_each_sched_cluster(cluster) {
+		if (cluster->min_power_cost > prev_max) {
+			prev_max = cluster->max_power_cost;
+			continue;
+		}
+		/*
+		 * We assume no overlap in the power curves of
+		 * clusters on a big.LITTLE system.
+		 */
+		sysctl_sched_is_big_little = 0;
+		break;
+	}
+
+	mutex_unlock(&cluster_lock);
 }
 
 static void update_all_clusters_stats(void)
@@ -2337,10 +2368,58 @@ static struct notifier_block notifier_policy_block = {
 	.notifier_call = cpufreq_notifier_policy
 };
 
+static int cpufreq_notifier_trans(struct notifier_block *nb,
+		unsigned long val, void *data)
+{
+	struct cpufreq_freqs *freq = (struct cpufreq_freqs *)data;
+	unsigned int cpu = freq->cpu, new_freq = freq->new;
+	unsigned long flags;
+	struct sched_cluster *cluster;
+	struct cpumask policy_cpus = cpu_rq(cpu)->freq_domain_cpumask;
+	int i, j;
+
+	if (val != CPUFREQ_POSTCHANGE)
+		return NOTIFY_DONE;
+
+	if (cpu_cur_freq(cpu) == new_freq)
+		return NOTIFY_OK;
+
+	for_each_cpu(i, &policy_cpus) {
+		cluster = cpu_rq(i)->cluster;
+
+		if (!use_cycle_counter) {
+			for_each_cpu(j, &cluster->cpus) {
+				struct rq *rq = cpu_rq(j);
+
+				raw_spin_lock_irqsave(&rq->lock, flags);
+				update_task_ravg(rq->curr, rq, TASK_UPDATE,
+						 ktime_get_ns(), 0);
+				raw_spin_unlock_irqrestore(&rq->lock, flags);
+			}
+		}
+
+		cluster->cur_freq = new_freq;
+		cpumask_andnot(&policy_cpus, &policy_cpus, &cluster->cpus);
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block notifier_trans_block = {
+	.notifier_call = cpufreq_notifier_trans
+};
+
 static int register_walt_callback(void)
 {
-	return cpufreq_register_notifier(&notifier_policy_block,
-					 CPUFREQ_POLICY_NOTIFIER);
+	int ret;
+
+	ret = cpufreq_register_notifier(&notifier_policy_block,
+					CPUFREQ_POLICY_NOTIFIER);
+	if (!ret)
+		ret = cpufreq_register_notifier(&notifier_trans_block,
+						CPUFREQ_TRANSITION_NOTIFIER);
+
+	return ret;
 }
 /*
  * cpufreq callbacks can be registered at core_initcall or later time.

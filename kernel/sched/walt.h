@@ -281,8 +281,6 @@ static inline int same_cluster(int src_cpu, int dst_cpu)
 	return cpu_rq(src_cpu)->cluster == cpu_rq(dst_cpu)->cluster;
 }
 
-void sort_clusters(void);
-
 void walt_irq_work(struct irq_work *irq_work);
 
 void walt_sched_init(struct rq *rq);
