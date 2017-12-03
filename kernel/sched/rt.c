@@ -1758,6 +1758,8 @@ static int find_lowest_rq(struct task_struct *task)
 	int best_cpu_idle_idx = INT_MAX;
 	int cpu_idle_idx = -1;
 	enum sched_boost_policy placement_boost;
+	int prev_cpu = task_cpu(task);
+	int start_cpu = walt_start_cpu(prev_cpu);
 	bool do_rotate = false;
 	bool avoid_prev_cpu = false;
 
@@ -1780,7 +1782,7 @@ static int find_lowest_rq(struct task_struct *task)
 		best_capacity = placement_boost ? 0 : ULONG_MAX;
 
 		rcu_read_lock();
-		sd = rcu_dereference(per_cpu(sd_ea, task_cpu(task)));
+		sd = rcu_dereference(per_cpu(sd_ea, start_cpu));
 		if (!sd) {
 			rcu_read_unlock();
 			goto noea;
@@ -1840,7 +1842,7 @@ retry:
 			 */
 			util = cpu_util(cpu);
 
-			if (avoid_prev_cpu && cpu == task_cpu(task))
+			if (avoid_prev_cpu && cpu == prev_cpu)
 				continue;
 
 			if (__cpu_overutilized(cpu, util + tutil))

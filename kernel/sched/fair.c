@@ -6850,10 +6850,11 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	struct related_thread_group *grp;
 	cpumask_t search_cpus;
 	int prev_cpu = task_cpu(p);
+	int start_cpu = walt_start_cpu(prev_cpu);
 	bool do_rotate = false;
 	bool avoid_prev_cpu = false;
 
-	sd = rcu_dereference(per_cpu(sd_ea, prev_cpu));
+	sd = rcu_dereference(per_cpu(sd_ea, start_cpu));
 
 	if (!sd)
 		return target;

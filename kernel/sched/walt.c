@@ -2176,6 +2176,8 @@ static void sort_clusters(void)
 	move_list(&cluster_head, &new_head, false);
 }
 
+int __read_mostly min_power_cpu;
+
 void walt_sched_energy_populated_callback(void)
 {
 	struct sched_cluster *cluster;
@@ -2220,6 +2222,8 @@ void walt_sched_energy_populated_callback(void)
 				break;
 			}
 		}
+
+		min_power_cpu = cpu;
 	}
 
 	mutex_unlock(&cluster_lock);
