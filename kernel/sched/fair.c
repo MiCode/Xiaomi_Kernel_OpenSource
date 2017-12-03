@@ -6819,6 +6819,8 @@ is_packing_eligible(struct task_struct *p, unsigned long task_util,
 	return cpu_cap_idx_pack == cpu_cap_idx_spread;
 }
 
+static unsigned int sched_smp_overlap_capacity = SCHED_CAPACITY_SCALE;
+
 static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 {
 	struct sched_domain *sd;
@@ -7091,10 +7093,11 @@ retry:
 
 	/*
 	 * If we don't find a CPU that fits this task without
-	 * increasing OPP, expand the search to the other
-	 * groups on a SMP system.
+	 * increasing OPP above sched_smp_overlap_capacity,
+	 * expand the search to the other groups on a SMP system.
 	 */
-	if (!sysctl_sched_is_big_little && target_cpu == -1) {
+	if (!sysctl_sched_is_big_little && target_cpu == -1 &&
+			min_util_cpu_util_cum > sched_smp_overlap_capacity) {
 		if (sg_target->next != start_sg) {
 			sg_target = sg_target->next;
 			goto next_sg;
