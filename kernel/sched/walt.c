@@ -2179,7 +2179,7 @@ static void sort_clusters(void)
 void walt_sched_energy_populated_callback(void)
 {
 	struct sched_cluster *cluster;
-	int prev_max = 0;
+	int prev_max = 0, next_min = 0;
 
 	mutex_lock(&cluster_lock);
 
@@ -2201,7 +2201,25 @@ void walt_sched_energy_populated_callback(void)
 		 * clusters on a big.LITTLE system.
 		 */
 		sysctl_sched_is_big_little = 0;
-		break;
+		next_min = cluster->min_power_cost;
+	}
+
+	/*
+	 * Find the OPP at which the lower power cluster
+	 * power is overlapping with the next cluster.
+	 */
+	if (!sysctl_sched_is_big_little) {
+		int cpu = cluster_first_cpu(sched_cluster[0]);
+		struct sched_group_energy *sge = sge_array[cpu][SD_LEVEL1];
+		int i;
+
+		for (i = 1; i < sge->nr_cap_states; i++) {
+			if (sge->cap_states[i].power >= next_min) {
+				sched_smp_overlap_capacity =
+						sge->cap_states[i-1].cap;
+				break;
+			}
+		}
 	}
 
 	mutex_unlock(&cluster_lock);
