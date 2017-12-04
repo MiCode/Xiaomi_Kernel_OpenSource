@@ -1138,9 +1138,8 @@ static void __cam_req_mgr_destroy_subdev(
  * @brief    : Cleans up the mem allocated while linking
  * @link     : pointer to link, mem associated with this link is freed
  *
- * @return   : returns if unlink for any device was success or failure
  */
-static int __cam_req_mgr_destroy_link_info(struct cam_req_mgr_core_link *link)
+static void __cam_req_mgr_destroy_link_info(struct cam_req_mgr_core_link *link)
 {
 	int32_t                                 i = 0;
 	struct cam_req_mgr_connected_device    *dev;
@@ -1157,12 +1156,13 @@ static int __cam_req_mgr_destroy_link_info(struct cam_req_mgr_core_link *link)
 		dev = &link->l_dev[i];
 		if (dev != NULL) {
 			link_data.dev_hdl = dev->dev_hdl;
-			if (dev->ops && dev->ops->link_setup)
+			if (dev->ops && dev->ops->link_setup) {
 				rc = dev->ops->link_setup(&link_data);
 				if (rc)
 					CAM_ERR(CAM_CRM,
-						"Unlink failed dev_hdl %d",
-						dev->dev_hdl);
+						"Unlink failed dev_hdl 0x%x rc=%d",
+						dev->dev_hdl, rc);
+			}
 			dev->dev_hdl = 0;
 			dev->parent = NULL;
 			dev->ops = NULL;
@@ -1176,8 +1176,6 @@ static int __cam_req_mgr_destroy_link_info(struct cam_req_mgr_core_link *link)
 	link->pd_mask = 0;
 	link->num_devs = 0;
 	link->max_delay = 0;
-
-	return rc;
 }
 
 /**
@@ -2200,11 +2198,7 @@ static int __cam_req_mgr_unlink(struct cam_req_mgr_core_link *link)
 	cam_req_mgr_workq_destroy(&link->workq);
 
 	/* Cleanup request tables and unlink devices */
-	rc = __cam_req_mgr_destroy_link_info(link);
-	if (rc) {
-		CAM_ERR(CAM_CORE, "Unlink failed. Cannot proceed");
-		goto done;
-	}
+	__cam_req_mgr_destroy_link_info(link);
 
 	/* Free memory holding data of linked devs */
 	__cam_req_mgr_destroy_subdev(link->l_dev);
@@ -2216,7 +2210,6 @@ static int __cam_req_mgr_unlink(struct cam_req_mgr_core_link *link)
 			rc, link->link_hdl);
 	}
 
-done:
 	mutex_unlock(&link->lock);
 	return rc;
 }
