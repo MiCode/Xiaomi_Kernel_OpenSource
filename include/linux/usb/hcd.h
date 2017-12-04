@@ -407,6 +407,8 @@ struct hc_driver {
 			struct usb_device *udev, struct usb_host_endpoint *ep,
 			dma_addr_t *dma);
 	int (*get_core_id)(struct usb_hcd *hcd);
+	int (*stop_endpoint)(struct usb_hcd *hcd, struct usb_device *udev,
+			struct usb_host_endpoint *ep);
 };
 
 static inline int hcd_giveback_urb_in_bh(struct usb_hcd *hcd)
@@ -454,6 +456,8 @@ extern phys_addr_t usb_hcd_get_sec_event_ring_phys_addr(
 extern phys_addr_t usb_hcd_get_xfer_ring_phys_addr(
 	struct usb_device *udev, struct usb_host_endpoint *ep, dma_addr_t *dma);
 extern int usb_hcd_get_controller_id(struct usb_device *udev);
+extern int usb_hcd_stop_endpoint(struct usb_device *udev,
+	struct usb_host_endpoint *ep);
 
 struct usb_hcd *__usb_create_hcd(const struct hc_driver *driver,
 		struct device *sysdev, struct device *dev, const char *bus_name,

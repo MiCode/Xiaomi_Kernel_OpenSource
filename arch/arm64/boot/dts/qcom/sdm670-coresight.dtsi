@@ -537,6 +537,58 @@
 					  <&funnel_apss_merg_out_funnel_in2>;
 				};
 			};
+			port@4 {
+				reg = <6>;
+				funnel_in2_in_funnel_gfx: endpoint {
+					slave-mode;
+					remote-endpoint =
+					  <&funnel_gfx_out_funnel_in2>;
+				};
+			};
+		};
+	};
+
+	funnel_gfx: funnel@0x6943000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b908>;
+
+		reg = <0x6943000 0x1000>;
+		reg-names = "funnel-base";
+
+		coresight-name = "coresight-funnel-gfx";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				funnel_gfx_out_funnel_in2: endpoint {
+					remote-endpoint =
+					  <&funnel_in2_in_funnel_gfx>;
+				};
+			};
+
+			port@1 {
+				reg = <0>;
+				funnel_in2_in_gfx: endpoint {
+					slave-mode;
+					remote-endpoint =
+					  <&gfx_out_funnel_in2>;
+				};
+			};
+
+			port@2 {
+				reg = <1>;
+				funnel_in2_in_gfx_cx: endpoint {
+					slave-mode;
+					remote-endpoint =
+					  <&gfx_cx_out_funnel_in2>;
+				};
+			};
 		};
 	};
 
@@ -1421,6 +1473,7 @@
 		reg-names = "cti-base";
 
 		coresight-name = "coresight-cti-wcss_cti0";
+		status = "disabled";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -1433,6 +1486,7 @@
 		reg-names = "cti-base";
 
 		coresight-name = "coresight-cti-wcss_cti1";
+		status = "disabled";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -1445,6 +1499,7 @@
 		reg-names = "cti-base";
 
 		coresight-name = "coresight-cti-wcss_cti2";
+		status = "disabled";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -1481,6 +1536,7 @@
 		reg-names = "cti-base";
 
 		coresight-name = "coresight-cti-ssc_sdc_cti2";
+		status = "disabled";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -1493,6 +1549,7 @@
 		reg-names = "cti-base";
 
 		coresight-name = "coresight-cti-ssc_cti1";
+		status = "disabled";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -1505,6 +1562,7 @@
 		reg-names = "cti-base";
 
 		coresight-name = "coresight-cti-ssc_q6_cti0";
+		status = "disabled";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -1517,6 +1575,7 @@
 		reg-names = "cti-base";
 
 		coresight-name = "coresight-cti-ssc_noc";
+		status = "disabled";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -1529,6 +1588,7 @@
 		reg-names = "cti-base";
 
 		coresight-name = "coresight-cti-ssc_noc_cti6";
+		status = "disabled";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";

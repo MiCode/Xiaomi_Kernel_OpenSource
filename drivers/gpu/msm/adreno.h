@@ -121,6 +121,8 @@
 #define ADRENO_HW_NAP BIT(14)
 /* The GMU supports min voltage*/
 #define ADRENO_MIN_VOLT BIT(15)
+/* The core supports IO-coherent memory */
+#define ADRENO_IOCOHERENT BIT(16)
 
 /*
  * Adreno GPU quirks - control bits for various workarounds
@@ -270,6 +272,7 @@ enum adreno_preempt_states {
  * preempt_level: The level of preemption (for 6XX)
  * skipsaverestore: To skip saverestore during L1 preemption (for 6XX)
  * usesgmem: enable GMEM save/restore across preemption (for 6XX)
+ * count: Track the number of preemptions triggered
  */
 struct adreno_preemption {
 	atomic_t state;
@@ -280,6 +283,7 @@ struct adreno_preemption {
 	unsigned int preempt_level;
 	bool skipsaverestore;
 	bool usesgmem;
+	unsigned int count;
 };
 
 
@@ -371,6 +375,13 @@ struct adreno_gpu_core {
 	const char *regfw_name;
 	unsigned int gpmu_tsens;
 	unsigned int max_power;
+};
+
+
+enum gpu_coresight_sources {
+	GPU_CORESIGHT_GX = 0,
+	GPU_CORESIGHT_CX = 1,
+	GPU_CORESIGHT_MAX,
 };
 
 /**
@@ -507,7 +518,7 @@ struct adreno_device {
 	unsigned int speed_bin;
 	unsigned int quirks;
 
-	struct coresight_device *csdev;
+	struct coresight_device *csdev[GPU_CORESIGHT_MAX];
 	uint32_t gpmu_throttle_counters[ADRENO_GPMU_THROTTLE_COUNTERS];
 	struct work_struct irq_storm_work;
 
@@ -561,6 +572,7 @@ enum adreno_device_flags {
 	ADRENO_DEVICE_CACHE_FLUSH_TS_SUSPENDED = 13,
 	ADRENO_DEVICE_HARD_RESET = 14,
 	ADRENO_DEVICE_PREEMPTION_EXECUTION = 15,
+	ADRENO_DEVICE_CORESIGHT_CX = 16,
 };
 
 /**
@@ -874,7 +886,7 @@ struct adreno_gpudev {
 	const struct adreno_invalid_countables *invalid_countables;
 	struct adreno_snapshot_data *snapshot_data;
 
-	struct adreno_coresight *coresight;
+	struct adreno_coresight *coresight[GPU_CORESIGHT_MAX];
 
 	struct adreno_irq *irq;
 	int num_prio_levels;
@@ -943,6 +955,9 @@ struct adreno_gpudev {
 	bool (*sptprac_is_on)(struct adreno_device *);
 	unsigned int (*ccu_invalidate)(struct adreno_device *adreno_dev,
 				unsigned int *cmds);
+	int (*perfcounter_update)(struct adreno_device *adreno_dev,
+				struct adreno_perfcount_register *reg,
+				bool update_reg);
 };
 
 /**

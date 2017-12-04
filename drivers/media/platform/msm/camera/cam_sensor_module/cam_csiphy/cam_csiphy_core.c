@@ -224,30 +224,18 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev)
 {
 	int32_t      rc = 0;
 	uint32_t     lane_enable = 0, mask = 1, size = 0;
-	uint16_t     lane_mask = 0, i = 0, cfg_size = 0;
+	uint16_t     lane_mask = 0, i = 0, cfg_size = 0, temp = 0;
 	uint8_t      lane_cnt, lane_pos = 0;
 	uint16_t     settle_cnt = 0;
 	void __iomem *csiphybase;
 	struct csiphy_reg_t (*reg_array)[MAX_SETTINGS_PER_LANE];
 
 	lane_cnt = csiphy_dev->csiphy_info.lane_cnt;
-	lane_mask = csiphy_dev->csiphy_info.lane_mask & 0x1f;
 	csiphybase = csiphy_dev->soc_info.reg_map[0].mem_base;
 
 	if (!csiphybase) {
 		CAM_ERR(CAM_CSIPHY, "csiphybase NULL");
 		return -EINVAL;
-	}
-
-	for (i = 0; i < MAX_DPHY_DATA_LN; i++) {
-		if (mask == 0x2) {
-			if (lane_mask & mask)
-				lane_enable |= 0x80;
-			i--;
-		} else if (lane_mask & mask) {
-			lane_enable |= 0x1 << (i<<1);
-		}
-		mask <<= 1;
 	}
 
 	if (!csiphy_dev->csiphy_info.csiphy_3phase) {
@@ -260,6 +248,18 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev)
 		csiphy_dev->num_irq_registers = 11;
 		cfg_size = csiphy_dev->ctrl_reg->csiphy_reg.
 			csiphy_2ph_config_array_size;
+
+		lane_mask = csiphy_dev->csiphy_info.lane_mask & 0x1f;
+		for (i = 0; i < MAX_DPHY_DATA_LN; i++) {
+			if (mask == 0x2) {
+				if (lane_mask & mask)
+					lane_enable |= 0x80;
+				i--;
+			} else if (lane_mask & mask) {
+				lane_enable |= 0x1 << (i<<1);
+			}
+			mask <<= 1;
+		}
 	} else {
 		if (csiphy_dev->csiphy_info.combo_mode == 1)
 			reg_array =
@@ -267,9 +267,18 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev)
 		else
 			reg_array =
 				csiphy_dev->ctrl_reg->csiphy_3ph_reg;
-		csiphy_dev->num_irq_registers = 20;
+		csiphy_dev->num_irq_registers = 11;
 		cfg_size = csiphy_dev->ctrl_reg->csiphy_reg.
 			csiphy_3ph_config_array_size;
+
+		lane_mask = csiphy_dev->csiphy_info.lane_mask & 0x7;
+		mask = lane_mask;
+		while (mask != 0) {
+			temp = (i << 1)+1;
+			lane_enable |= ((mask & 0x1) << temp);
+			mask >>= 1;
+			i++;
+		}
 	}
 
 	size = csiphy_dev->ctrl_reg->csiphy_reg.csiphy_common_array_size;
@@ -295,7 +304,7 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev)
 		}
 	}
 
-	while (lane_mask & 0x1f) {
+	while (lane_mask) {
 		if (!(lane_mask & 0x1)) {
 			lane_pos++;
 			lane_mask >>= 1;

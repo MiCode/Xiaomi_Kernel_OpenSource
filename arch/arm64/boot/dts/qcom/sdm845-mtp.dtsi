@@ -263,6 +263,12 @@
 	pinctrl-1 = <&flash_led3_front_dis>;
 };
 
+&pmi8998_switch2 {
+	pinctrl-names = "led_enable", "led_disable";
+	pinctrl-0 = <&flash_led3_iris_en>;
+	pinctrl-1 = <&flash_led3_iris_dis>;
+};
+
 &vendor {
 	mtp_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;

@@ -138,6 +138,8 @@ struct kgsl_mmu_pt_ops {
 #define KGSL_MMU_PAGED BIT(8)
 /* The device requires a guard page */
 #define KGSL_MMU_NEED_GUARD_PAGE BIT(9)
+/* The device supports IO coherency */
+#define KGSL_MMU_IO_COHERENT BIT(10)
 
 /**
  * struct kgsl_mmu - Master definition for KGSL MMU devices
@@ -174,7 +176,9 @@ int kgsl_mmu_start(struct kgsl_device *device);
 struct kgsl_pagetable *kgsl_mmu_getpagetable_ptbase(struct kgsl_mmu *mmu,
 						u64 ptbase);
 
-void kgsl_add_global_secure_entry(struct kgsl_device *device,
+int kgsl_iommu_map_global_secure_pt_entry(struct kgsl_device *device,
+					struct kgsl_memdesc *memdesc);
+void kgsl_iommu_unmap_global_secure_pt_entry(struct kgsl_device *device,
 					struct kgsl_memdesc *memdesc);
 void kgsl_print_global_pt_entries(struct seq_file *s);
 void kgsl_mmu_putpagetable(struct kgsl_pagetable *pagetable);

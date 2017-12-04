@@ -212,6 +212,7 @@ out_free:
 	kfree(source_vm_copy);
 	return ret;
 }
+EXPORT_SYMBOL(hyp_assign_table);
 
 int hyp_assign_phys(phys_addr_t addr, u64 size, u32 *source_vm_list,
 			int source_nelems, int *dest_vmids,

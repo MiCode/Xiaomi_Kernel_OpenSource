@@ -15,6 +15,7 @@
 
 enum labibb_notify_event {
 	LAB_VREG_OK = 1,
+	LAB_VREG_NOT_OK,
 };
 
 int qpnp_labibb_notifier_register(struct notifier_block *nb);

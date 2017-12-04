@@ -823,19 +823,9 @@ static int sde_encoder_phys_vid_prepare_for_kickoff(
 		if (vid_enc->error_count >= KICKOFF_MAX_ERRORS) {
 			vid_enc->error_count = KICKOFF_MAX_ERRORS;
 
-			sde_encoder_helper_unregister_irq(
-					phys_enc, INTR_IDX_VSYNC);
 			SDE_DBG_DUMP("panic");
-			sde_encoder_helper_register_irq(
-					phys_enc, INTR_IDX_VSYNC);
 		} else if (vid_enc->error_count == 1) {
 			SDE_EVT32(DRMID(phys_enc->parent), SDE_EVTLOG_FATAL);
-
-			sde_encoder_helper_unregister_irq(
-					phys_enc, INTR_IDX_VSYNC);
-			SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus");
-			sde_encoder_helper_register_irq(
-					phys_enc, INTR_IDX_VSYNC);
 		}
 
 		/* request a ctl reset before the next flush */
@@ -1111,6 +1101,7 @@ static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->trigger_flush = sde_encoder_helper_trigger_flush;
 	ops->hw_reset = sde_encoder_helper_hw_reset;
 	ops->get_line_count = sde_encoder_phys_vid_get_line_count;
+	ops->get_wr_line_count = sde_encoder_phys_vid_get_line_count;
 	ops->wait_dma_trigger = sde_encoder_phys_vid_wait_dma_trigger;
 	ops->wait_for_active = sde_encoder_phys_vid_wait_for_active;
 }

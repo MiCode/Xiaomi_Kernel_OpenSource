@@ -50,8 +50,8 @@
 	qcom,hph-en0-gpio = <&tavil_hph_en0>;
 	qcom,hph-en1-gpio = <&tavil_hph_en1>;
 	qcom,msm-mclk-freq = <9600000>;
-	asoc-codec = <&stub_codec>;
-	asoc-codec-names = "msm-stub-codec.1";
+	asoc-codec = <&stub_codec>, <&ext_disp_audio_codec>;
+	asoc-codec-names = "msm-stub-codec.1", "msm-ext-disp-audio-codec-rx";
 	qcom,wsa-max-devs = <2>;
 	qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0212>,
 		<&wsa881x_0213>, <&wsa881x_0214>;
@@ -100,9 +100,11 @@
 	qcom,cdc-dmic-gpios = <&cdc_dmic_gpios>;
 
 	asoc-codec = <&stub_codec>, <&msm_digital_codec>,
-		     <&pmic_analog_codec>, <&msm_sdw_codec>;
+		     <&pmic_analog_codec>, <&msm_sdw_codec>,
+		     <&ext_disp_audio_codec>;
 	asoc-codec-names = "msm-stub-codec.1", "msm-dig-codec",
-			   "analog-codec", "msm_sdw_codec";
+			   "analog-codec", "msm_sdw_codec",
+			   "msm-ext-disp-audio-codec-rx";
 
 	qcom,wsa-max-devs = <2>;
 	qcom,wsa-devs = <&wsa881x_211_en>, <&wsa881x_212_en>,

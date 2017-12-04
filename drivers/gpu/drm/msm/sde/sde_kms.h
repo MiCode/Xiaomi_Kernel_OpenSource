@@ -244,6 +244,23 @@ struct vsync_info {
 bool sde_is_custom_client(void);
 
 /**
+ * sde_kms_power_resource_is_enabled - whether or not power resource is enabled
+ * @dev: Pointer to drm device
+ * Return: true if power resource is enabled; false otherwise
+ */
+static inline bool sde_kms_power_resource_is_enabled(struct drm_device *dev)
+{
+	struct msm_drm_private *priv;
+
+	if (!dev || !dev->dev_private)
+		return false;
+
+	priv = dev->dev_private;
+
+	return sde_power_resource_is_enabled(&priv->phandle);
+}
+
+/**
  * sde_kms_is_suspend_state - whether or not the system is pm suspended
  * @dev: Pointer to drm device
  * Return: Suspend status

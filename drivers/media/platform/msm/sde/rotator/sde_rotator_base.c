@@ -182,7 +182,7 @@ u32 sde_mdp_get_ot_limit(u32 width, u32 height, u32 pixfmt, u32 fps, u32 is_rd)
 	struct sde_mdp_format_params *fmt;
 	u32 ot_lim;
 	u32 is_yuv;
-	u32 res;
+	u64 res;
 
 	ot_lim = (is_rd) ? mdata->default_ot_rd_limit :
 				mdata->default_ot_wr_limit;
@@ -198,7 +198,11 @@ u32 sde_mdp_get_ot_limit(u32 width, u32 height, u32 pixfmt, u32 fps, u32 is_rd)
 	if (false == test_bit(SDE_QOS_OTLIM, mdata->sde_qos_map))
 		goto exit;
 
+	width = min_t(u32, width, SDE_ROT_MAX_IMG_WIDTH);
+	height = min_t(u32, height, SDE_ROT_MAX_IMG_HEIGHT);
+
 	res = width * height;
+	res = res * fps;
 
 	fmt = sde_get_format_params(pixfmt);
 
@@ -209,17 +213,14 @@ u32 sde_mdp_get_ot_limit(u32 width, u32 height, u32 pixfmt, u32 fps, u32 is_rd)
 
 	is_yuv = sde_mdp_is_yuv_format(fmt);
 
-	SDEROT_DBG("w:%d h:%d fps:%d pixfmt:%8.8x yuv:%d res:%d rd:%d\n",
+	SDEROT_DBG("w:%d h:%d fps:%d pixfmt:%8.8x yuv:%d res:%llu rd:%d\n",
 		width, height, fps, pixfmt, is_yuv, res, is_rd);
 
-	if (!is_yuv)
-		goto exit;
-
-	if ((res <= RES_1080p) && (fps <= 30))
+	if (res <= (RES_1080p * 30))
 		ot_lim = 2;
-	else if ((res <= RES_1080p) && (fps <= 60))
+	else if (res <= (RES_1080p * 60))
 		ot_lim = 4;
-	else if ((res <= RES_UHD) && (fps <= 30))
+	else if (res <= (RES_UHD * 30))
 		ot_lim = 8;
 
 exit:

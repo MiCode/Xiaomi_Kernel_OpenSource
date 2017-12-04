@@ -378,7 +378,7 @@ static void wmi_evt_rx_mgmt(struct wil6210_priv *wil, int id, void *d, int len)
 	s32 signal;
 	__le16 fc;
 	u32 d_len;
-	u16 d_status;
+	s16 snr;
 
 	if (flen < 0) {
 		wil_err(wil, "MGMT Rx: short event, len %d\n", len);
@@ -400,13 +400,13 @@ static void wmi_evt_rx_mgmt(struct wil6210_priv *wil, int id, void *d, int len)
 		signal = 100 * data->info.rssi;
 	else
 		signal = data->info.sqi;
-	d_status = le16_to_cpu(data->info.status);
+	snr = le16_to_cpu(data->info.snr); /* 1/4 dB units */
 	fc = rx_mgmt_frame->frame_control;
 
 	wil_dbg_wmi(wil, "MGMT Rx: channel %d MCS %d RSSI %d SQI %d%%\n",
 		    data->info.channel, data->info.mcs, data->info.rssi,
 		    data->info.sqi);
-	wil_dbg_wmi(wil, "status 0x%04x len %d fc 0x%04x\n", d_status, d_len,
+	wil_dbg_wmi(wil, "snr %ddB len %d fc 0x%04x\n", snr / 4, d_len,
 		    le16_to_cpu(fc));
 	wil_dbg_wmi(wil, "qid %d mid %d cid %d\n",
 		    data->info.qid, data->info.mid, data->info.cid);
@@ -433,6 +433,11 @@ static void wmi_evt_rx_mgmt(struct wil6210_priv *wil, int id, void *d, int len)
 				 ie_len, true);
 
 		wil_dbg_wmi(wil, "Capability info : 0x%04x\n", cap);
+
+		if (wil->snr_thresh.enabled && snr < wil->snr_thresh.omni) {
+			wil_dbg_wmi(wil, "snr below threshold. dropping\n");
+			return;
+		}
 
 		bss = cfg80211_inform_bss_frame(wiphy, channel, rx_mgmt_frame,
 						d_len, signal, GFP_KERNEL);
@@ -2164,4 +2169,33 @@ bool wil_is_wmi_idle(struct wil6210_priv *wil)
 out:
 	spin_unlock_irqrestore(&wil->wmi_ev_lock, flags);
 	return rc;
+}
+
+int wmi_set_snr_thresh(struct wil6210_priv *wil, short omni, short direct)
+{
+	int rc;
+	struct wmi_set_connect_snr_thr_cmd cmd = {
+		.enable = true,
+		.omni_snr_thr = cpu_to_le16(omni),
+		.direct_snr_thr = cpu_to_le16(direct),
+	};
+
+	if (!test_bit(WMI_FW_CAPABILITY_CONNECT_SNR_THR, wil->fw_capabilities))
+		return -ENOTSUPP;
+
+	if (omni == 0 && direct == 0)
+		cmd.enable = false;
+
+	wil_dbg_wmi(wil, "%s snr thresh omni=%d, direct=%d (1/4 dB units)\n",
+		    cmd.enable ? "enable" : "disable", omni, direct);
+
+	rc = wmi_send(wil, WMI_SET_CONNECT_SNR_THR_CMDID, &cmd, sizeof(cmd));
+	if (rc)
+		return rc;
+
+	wil->snr_thresh.enabled = cmd.enable;
+	wil->snr_thresh.omni = omni;
+	wil->snr_thresh.direct = direct;
+
+	return 0;
 }

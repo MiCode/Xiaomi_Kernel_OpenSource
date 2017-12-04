@@ -312,6 +312,7 @@ static const u32 sde_hw_rotator_v4_inpixfmts[] = {
 	SDE_PIX_FMT_RGBA_1010102_UBWC,
 	SDE_PIX_FMT_RGBX_1010102_UBWC,
 	SDE_PIX_FMT_Y_CBCR_H2V2_P010,
+	SDE_PIX_FMT_Y_CBCR_H2V2_P010_VENUS,
 	SDE_PIX_FMT_Y_CBCR_H2V2_TP10,
 	SDE_PIX_FMT_Y_CBCR_H2V2_TP10_UBWC,
 	SDE_PIX_FMT_Y_CBCR_H2V2_P010_UBWC,
@@ -392,6 +393,7 @@ static const u32 sde_hw_rotator_v4_outpixfmts[] = {
 	SDE_PIX_FMT_RGBA_1010102_UBWC,
 	SDE_PIX_FMT_RGBX_1010102_UBWC,
 	SDE_PIX_FMT_Y_CBCR_H2V2_P010,
+	SDE_PIX_FMT_Y_CBCR_H2V2_P010_VENUS,
 	SDE_PIX_FMT_Y_CBCR_H2V2_TP10,
 	SDE_PIX_FMT_Y_CBCR_H2V2_TP10_UBWC,
 	SDE_PIX_FMT_Y_CBCR_H2V2_P010_UBWC,
@@ -1634,7 +1636,7 @@ static void sde_hw_rotator_setup_wbengine(struct sde_hw_rotator_context *ctx,
 
 		/* use prefill bandwidth instead if specified */
 		if (cfg->prefill_bw)
-			bw = DIV_ROUND_UP(cfg->prefill_bw,
+			bw = DIV_ROUND_UP_SECTOR_T(cfg->prefill_bw,
 					TRAFFIC_SHAPE_VSYNC_CLK);
 
 		if (bw > 0xFF)

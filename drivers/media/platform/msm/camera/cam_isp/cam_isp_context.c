@@ -66,6 +66,73 @@ static int __cam_isp_ctx_enqueue_request_in_order(
 	return 0;
 }
 
+static int __cam_isp_ctx_enqueue_init_request(
+	struct cam_context *ctx, struct cam_ctx_request *req)
+{
+	int rc = 0;
+	struct cam_ctx_request           *req_old;
+	struct cam_isp_ctx_req           *req_isp_old;
+	struct cam_isp_ctx_req           *req_isp_new;
+
+	spin_lock_bh(&ctx->lock);
+	if (list_empty(&ctx->pending_req_list)) {
+		list_add_tail(&req->list, &ctx->pending_req_list);
+		CAM_DBG(CAM_ISP, "INIT packet added req id= %d",
+			req->request_id);
+		goto end;
+	}
+
+	req_old = list_first_entry(&ctx->pending_req_list,
+		struct cam_ctx_request, list);
+	req_isp_old = (struct cam_isp_ctx_req *) req_old->req_priv;
+	req_isp_new = (struct cam_isp_ctx_req *) req->req_priv;
+	if (req_isp_old->packet_opcode_type == CAM_ISP_PACKET_INIT_DEV) {
+		if ((req_isp_old->num_cfg + req_isp_new->num_cfg) >=
+			CAM_ISP_CTX_CFG_MAX) {
+			CAM_WARN(CAM_ISP, "Can not merge INIT pkt");
+			rc = -ENOMEM;
+		}
+
+		if (req_isp_old->num_fence_map_out != 0 ||
+			req_isp_old->num_fence_map_in != 0) {
+			CAM_WARN(CAM_ISP, "Invalid INIT pkt sequence");
+			rc = -EINVAL;
+		}
+
+		if (!rc) {
+			memcpy(req_isp_old->fence_map_out,
+				req_isp_new->fence_map_out,
+				sizeof(req_isp_new->fence_map_out[0])*
+				req_isp_new->num_fence_map_out);
+			req_isp_old->num_fence_map_out =
+				req_isp_new->num_fence_map_out;
+
+			memcpy(req_isp_old->fence_map_in,
+				req_isp_new->fence_map_in,
+				sizeof(req_isp_new->fence_map_in[0])*
+				req_isp_new->num_fence_map_in);
+			req_isp_old->num_fence_map_in =
+				req_isp_new->num_fence_map_in;
+
+			memcpy(&req_isp_old->cfg[req_isp_old->num_cfg],
+				req_isp_new->cfg,
+				sizeof(req_isp_new->cfg[0])*
+				req_isp_new->num_cfg);
+			req_isp_old->num_cfg += req_isp_new->num_cfg;
+
+			list_add_tail(&req->list, &ctx->free_req_list);
+		}
+	} else {
+		CAM_WARN(CAM_ISP,
+			"Received Update pkt before INIT pkt. req_id= %lld",
+			req->request_id);
+		rc = -EINVAL;
+	}
+end:
+	spin_unlock_bh(&ctx->lock);
+	return rc;
+}
+
 static const char *__cam_isp_resource_handle_id_to_type
 	(uint32_t resource_handle)
 {
@@ -1028,9 +1095,9 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 	struct cam_ctx_request           *req_temp;
 	struct cam_isp_ctx_req           *req_isp;
 
-	spin_lock(&ctx->lock);
+	spin_lock_bh(&ctx->lock);
 	if (list_empty(req_list)) {
-		spin_unlock(&ctx->lock);
+		spin_unlock_bh(&ctx->lock);
 		CAM_DBG(CAM_ISP, "request list is empty");
 		return 0;
 	}
@@ -1064,7 +1131,7 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 			break;
 		}
 	}
-	spin_unlock(&ctx->lock);
+	spin_unlock_bh(&ctx->lock);
 
 	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ &&
 		!cancel_req_id_found)
@@ -1098,10 +1165,10 @@ static int __cam_isp_ctx_flush_req_in_ready(
 	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, flush_req);
 
 	/* if nothing is in pending req list, change state to acquire*/
-	spin_lock(&ctx->lock);
+	spin_lock_bh(&ctx->lock);
 	if (list_empty(&ctx->pending_req_list))
 		ctx->state = CAM_CTX_ACQUIRED;
-	spin_unlock(&ctx->lock);
+	spin_unlock_bh(&ctx->lock);
 
 	trace_cam_context_state("ISP", ctx);
 
@@ -1627,6 +1694,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	struct cam_req_mgr_add_request    add_req;
 	struct cam_isp_context           *ctx_isp =
 		(struct cam_isp_context *) ctx->ctx_priv;
+	struct cam_isp_prepare_hw_update_data    hw_update_data;
 
 	CAM_DBG(CAM_ISP, "get free request object......");
 
@@ -1677,6 +1745,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	cfg.max_in_map_entries = CAM_ISP_CTX_RES_MAX;
 	cfg.out_map_entries = req_isp->fence_map_out;
 	cfg.in_map_entries = req_isp->fence_map_in;
+	cfg.priv  = &hw_update_data;
 
 	CAM_DBG(CAM_ISP, "try to prepare config packet......");
 
@@ -1691,31 +1760,48 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	req_isp->num_fence_map_out = cfg.num_out_map_entries;
 	req_isp->num_fence_map_in = cfg.num_in_map_entries;
 	req_isp->num_acked = 0;
+	req_isp->packet_opcode_type = hw_update_data.packet_opcode_type;
 
 	CAM_DBG(CAM_ISP, "num_entry: %d, num fence out: %d, num fence in: %d",
-		 req_isp->num_cfg, req_isp->num_fence_map_out,
+		req_isp->num_cfg, req_isp->num_fence_map_out,
 		req_isp->num_fence_map_in);
 
 	req->request_id = packet->header.request_id;
 	req->status = 1;
 
-	if (ctx->state >= CAM_CTX_READY && ctx->ctx_crm_intf->add_req) {
-		add_req.link_hdl = ctx->link_hdl;
-		add_req.dev_hdl  = ctx->dev_hdl;
-		add_req.req_id   = req->request_id;
-		add_req.skip_before_applying = 0;
-		rc = ctx->ctx_crm_intf->add_req(&add_req);
-		if (rc) {
-			CAM_ERR(CAM_ISP, "Error: Adding request id=%llu",
-				req->request_id);
-				goto free_req;
+	CAM_DBG(CAM_ISP, "Packet request id 0x%llx packet opcode:%d",
+		packet->header.request_id, req_isp->packet_opcode_type);
+
+	if (req_isp->packet_opcode_type == CAM_ISP_PACKET_INIT_DEV) {
+		if (ctx->state < CAM_CTX_ACTIVATED) {
+			rc = __cam_isp_ctx_enqueue_init_request(ctx, req);
+			if (rc)
+				CAM_ERR(CAM_ISP, "Enqueue INIT pkt failed");
+		} else {
+			rc = -EINVAL;
+			CAM_ERR(CAM_ISP, "Recevied INIT pkt in wrong state");
+		}
+	} else {
+		if (ctx->state >= CAM_CTX_READY && ctx->ctx_crm_intf->add_req) {
+			add_req.link_hdl = ctx->link_hdl;
+			add_req.dev_hdl  = ctx->dev_hdl;
+			add_req.req_id   = req->request_id;
+			add_req.skip_before_applying = 0;
+			rc = ctx->ctx_crm_intf->add_req(&add_req);
+			if (rc) {
+				CAM_ERR(CAM_ISP, "Add req failed: req id=%llu",
+					req->request_id);
+			} else {
+				__cam_isp_ctx_enqueue_request_in_order(
+					ctx, req);
+			}
+		} else {
+			rc = -EINVAL;
+			CAM_ERR(CAM_ISP, "Recevied Update in wrong state");
 		}
 	}
-
-	CAM_DBG(CAM_ISP, "Packet request id 0x%llx",
-		packet->header.request_id);
-
-	__cam_isp_ctx_enqueue_request_in_order(ctx, req);
+	if (rc)
+		goto free_req;
 
 	CAM_DBG(CAM_ISP, "Preprocessing Config %lld successful",
 		req->request_id);

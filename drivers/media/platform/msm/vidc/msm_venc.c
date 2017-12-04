@@ -1275,7 +1275,7 @@ static struct msm_vidc_format venc_formats[] = {
 	{
 		.name = "YCbCr Semiplanar 4:2:0 10bit",
 		.description = "Y/CbCr 4:2:0 10bit",
-		.fourcc = V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010,
+		.fourcc = V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010_VENUS,
 		.get_frame_size = get_frame_size_p010,
 		.type = OUTPUT_PORT,
 	},
@@ -1868,7 +1868,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_USELTRFRAME:
 		property_id = HAL_CONFIG_VENC_USELTRFRAME;
-		use_ltr.ref_ltr = 0x1 << ctrl->val;
+		use_ltr.ref_ltr = ctrl->val;
 		use_ltr.use_constraint = false;
 		use_ltr.frames = 0;
 		pdata = &use_ltr;

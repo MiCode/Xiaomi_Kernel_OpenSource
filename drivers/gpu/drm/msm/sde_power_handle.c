@@ -983,6 +983,16 @@ data_bus_hdl_err:
 	return rc;
 }
 
+int sde_power_resource_is_enabled(struct sde_power_handle *phandle)
+{
+	if (!phandle) {
+		pr_err("invalid input argument\n");
+		return false;
+	}
+
+	return phandle->current_usecase_ndx != VOTE_INDEX_DISABLE;
+}
+
 int sde_power_clk_set_rate(struct sde_power_handle *phandle, char *clock_name,
 	u64 rate)
 {

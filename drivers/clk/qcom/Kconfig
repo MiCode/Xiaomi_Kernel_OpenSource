@@ -243,4 +243,13 @@ config MDM_GCC_SDXPOORWILLS
 	  Say Y if you want to use peripheral devices such as UART, SPI,
 	  i2c, USB, SD/eMMC, etc.
 
+config MDM_CLOCK_CPU_SDXPOORWILLS
+	tristate "SDXPOORWILLS CPU Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	Support for the cpu clock controller on sdxpoorwills
+	based devices.
+	Say Y if you want to support CPU clock scaling using
+	CPUfreq drivers for dyanmic power management.
+
 source "drivers/clk/qcom/mdss/Kconfig"

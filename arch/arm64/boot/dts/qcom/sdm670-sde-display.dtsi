@@ -124,33 +124,6 @@
 			qcom,supply-enable-load = <13200>;
 			qcom,supply-disable-load = <80>;
 		};
-
-		qcom,panel-supply-entry@2 {
-			reg = <2>;
-			qcom,supply-name = "lab";
-			qcom,supply-min-voltage = <4600000>;
-			qcom,supply-max-voltage = <6100000>;
-			qcom,supply-enable-load = <100000>;
-			qcom,supply-disable-load = <100>;
-		};
-
-		qcom,panel-supply-entry@3 {
-			reg = <3>;
-			qcom,supply-name = "ibb";
-			qcom,supply-min-voltage = <4000000>;
-			qcom,supply-max-voltage = <6300000>;
-			qcom,supply-enable-load = <100000>;
-			qcom,supply-disable-load = <100>;
-		};
-
-		qcom,panel-supply-entry@4 {
-			reg = <4>;
-			qcom,supply-name = "oledb";
-			qcom,supply-min-voltage = <5000000>;
-			qcom,supply-max-voltage = <8100000>;
-			qcom,supply-enable-load = <100000>;
-			qcom,supply-disable-load = <100>;
-		};
 	};
 
 	dsi_dual_nt35597_truly_video_display: qcom,dsi-display@0 {
@@ -422,9 +395,6 @@
 		qcom,dsi-panel = <&dsi_rm67195_amoled_fhd_cmd>;
 		vddio-supply = <&pm660_l11>;
 		vdda-3p3-supply = <&pm660l_l6>;
-		lab-supply = <&lab_regulator>;
-		ibb-supply = <&ibb_regulator>;
-		oledb-supply = <&pm660a_oledb>;
 	};
 
 	dsi_nt35695b_truly_fhd_video_display: qcom,dsi-display@13 {
@@ -556,8 +526,6 @@
 	qcom,mdss-dsi-t-clk-post = <0x0D>;
 	qcom,mdss-dsi-t-clk-pre = <0x2D>;
 	qcom,ulps-enabled;
-	qcom,partial-update-enabled = "single_roi";
-	qcom,panel-roi-alignment = <720 128 720 128 1440 128>;
 	qcom,esd-check-enabled;
 	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
 	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
@@ -572,6 +540,8 @@
 			qcom,display-topology = <2 0 2>,
 						<1 0 2>;
 			qcom,default-topology-index = <0>;
+			qcom,partial-update-enabled = "single_roi";
+			qcom,panel-roi-alignment = <720 128 720 128 1440 128>;
 		};
 	};
 };
@@ -752,8 +722,6 @@
 	qcom,mdss-dsi-t-clk-post = <0x0d>;
 	qcom,mdss-dsi-t-clk-pre = <0x2d>;
 	qcom,ulps-enabled;
-	qcom,partial-update-enabled = "single_roi";
-	qcom,panel-roi-alignment = <720 128 720 128 1440 128>;
 	qcom,mdss-dsi-display-timings {
 		 timing@0 {
 			qcom,mdss-dsi-panel-timings = [00 1c 08 07 23 22 07 07
@@ -761,6 +729,8 @@
 			qcom,display-topology = <2 0 2>,
 						<1 0 2>;
 			qcom,default-topology-index = <0>;
+			qcom,partial-update-enabled = "single_roi";
+			qcom,panel-roi-alignment = <720 128 720 128 1440 128>;
 		};
 	};
 };

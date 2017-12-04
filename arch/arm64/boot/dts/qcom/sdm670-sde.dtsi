@@ -140,8 +140,8 @@
 		qcom,sde-has-dest-scaler;
 		qcom,sde-max-dest-scaler-input-linewidth = <2048>;
 		qcom,sde-max-dest-scaler-output-linewidth = <2560>;
-		qcom,sde-max-bw-low-kbps = <9600000>;
-		qcom,sde-max-bw-high-kbps = <9600000>;
+		qcom,sde-max-bw-low-kbps = <6800000>;
+		qcom,sde-max-bw-high-kbps = <6800000>;
 		qcom,sde-dram-channels = <2>;
 		qcom,sde-num-nrt-paths = <0>;
 		qcom,sde-dspp-ad-version = <0x00040000>;

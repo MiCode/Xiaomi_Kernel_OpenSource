@@ -31,6 +31,38 @@
 	/delete-property/ qcom,dsi-display-active;
 };
 
+&dsi_panel_pwr_supply_labibb_amoled {
+	qcom,panel-supply-entry@2 {
+		reg = <2>;
+		qcom,supply-name = "lab";
+		qcom,supply-min-voltage = <4600000>;
+		qcom,supply-max-voltage = <6100000>;
+		qcom,supply-enable-load = <100000>;
+		qcom,supply-disable-load = <100>;
+	};
+
+	qcom,panel-supply-entry@3 {
+		reg = <3>;
+		qcom,supply-name = "ibb";
+		qcom,supply-min-voltage = <4000000>;
+		qcom,supply-max-voltage = <6300000>;
+		qcom,supply-enable-load = <100000>;
+		qcom,supply-disable-load = <100>;
+	};
+
+	qcom,panel-supply-entry@4 {
+		reg = <4>;
+		qcom,supply-name = "oledb";
+		qcom,supply-min-voltage = <5000000>;
+		qcom,supply-max-voltage = <8100000>;
+		qcom,supply-enable-load = <100000>;
+		qcom,supply-disable-load = <100>;
+	};
+};
+
 &dsi_rm67195_amoled_fhd_cmd_display {
 	qcom,dsi-display-active;
+	lab-supply = <&lab_regulator>;
+	ibb-supply = <&ibb_regulator>;
+	oledb-supply = <&pm660a_oledb>;
 };

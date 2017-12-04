@@ -64,6 +64,7 @@ struct dp_usbpd_capabilities {
 };
 
 struct dp_usbpd_private {
+	bool forced_disconnect;
 	u32 vdo;
 	struct device *dev;
 	struct usbpd *pd;
@@ -345,7 +346,7 @@ static void dp_usbpd_response_cb(struct usbpd_svid_handler *hdlr, u8 cmd,
 		dp_usbpd_send_event(pd, DP_USBPD_EVT_STATUS);
 		break;
 	case USBPD_SVDM_ATTENTION:
-		if (pd->dp_usbpd.forced_disconnect)
+		if (pd->forced_disconnect)
 			break;
 
 		pd->vdo = *vdos;
@@ -396,7 +397,7 @@ static void dp_usbpd_response_cb(struct usbpd_svid_handler *hdlr, u8 cmd,
 	}
 }
 
-static int dp_usbpd_connect(struct dp_usbpd *dp_usbpd, bool hpd)
+static int dp_usbpd_simulate_connect(struct dp_usbpd *dp_usbpd, bool hpd)
 {
 	int rc = 0;
 	struct dp_usbpd_private *pd;
@@ -410,7 +411,7 @@ static int dp_usbpd_connect(struct dp_usbpd *dp_usbpd, bool hpd)
 	pd = container_of(dp_usbpd, struct dp_usbpd_private, dp_usbpd);
 
 	dp_usbpd->hpd_high = hpd;
-	dp_usbpd->forced_disconnect = !hpd;
+	pd->forced_disconnect = !hpd;
 
 	if (hpd)
 		pd->dp_cb->configure(pd->dev);
@@ -469,7 +470,7 @@ struct dp_usbpd *dp_usbpd_get(struct device *dev, struct dp_usbpd_cb *cb)
 	}
 
 	dp_usbpd = &usbpd->dp_usbpd;
-	dp_usbpd->connect = dp_usbpd_connect;
+	dp_usbpd->simulate_connect = dp_usbpd_simulate_connect;
 
 	return dp_usbpd;
 error:

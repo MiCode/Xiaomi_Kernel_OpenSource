@@ -961,7 +961,7 @@ enum hal_uncompressed_format msm_comm_get_hal_uncompressed(int fourcc)
 	case V4L2_PIX_FMT_NV12_TP10_UBWC:
 		format = HAL_COLOR_FORMAT_NV12_TP10_UBWC;
 		break;
-	case V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010:
+	case V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010_VENUS:
 		format = HAL_COLOR_FORMAT_P010;
 		break;
 	default:
@@ -5761,8 +5761,9 @@ int msm_comm_dqbuf_cache_operations(struct msm_vidc_inst *inst,
 					skip = true;
 			} else if (b->type ==
 					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-				if (!i) /* yuv */
-					skip = true;
+				if (!i) { /* yuv */
+					/* all values are correct */
+				}
 			}
 		} else if (inst->session_type == MSM_VIDC_ENCODER) {
 			if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {

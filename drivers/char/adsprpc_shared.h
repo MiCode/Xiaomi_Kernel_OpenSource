@@ -29,6 +29,7 @@
 #define FASTRPC_IOCTL_INIT_ATTRS _IOWR('R', 10, struct fastrpc_ioctl_init_attrs)
 #define FASTRPC_IOCTL_INVOKE_CRC _IOWR('R', 11, struct fastrpc_ioctl_invoke_crc)
 #define FASTRPC_IOCTL_CONTROL   _IOWR('R', 12, struct fastrpc_ioctl_control)
+#define FASTRPC_IOCTL_MUNMAP_FD _IOWR('R', 13, struct fastrpc_ioctl_munmap_fd)
 
 #define FASTRPC_GLINK_GUID "fastrpcglink-apps-dsp"
 #define FASTRPC_SMD_GUID "fastrpcsmd-apps-dsp"
@@ -42,6 +43,9 @@
 
 /* Set for buffers that are dma coherent */
 #define FASTRPC_ATTR_COHERENT 0x4
+
+/* Fastrpc attribute for keeping the map persistent */
+#define FASTRPC_ATTR_KEEP_MAP	0x8
 
 /* Driver should operate in parallel with the co-processor */
 #define FASTRPC_MODE_PARALLEL    0
@@ -202,6 +206,13 @@ struct fastrpc_ioctl_mmap {
 	uintptr_t __user *vaddrin;	/* optional virtual address */
 	ssize_t size;			/* size */
 	uintptr_t vaddrout;		/* dsps virtual address */
+};
+
+struct fastrpc_ioctl_munmap_fd {
+	int     fd;				/* fd */
+	uint32_t  flags;		/* control flags */
+	uintptr_t va;			/* va */
+	ssize_t  len;			/* length */
 };
 
 struct fastrpc_ioctl_perf {			/* kernel performance data */

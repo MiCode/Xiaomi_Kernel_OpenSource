@@ -768,6 +768,21 @@ static void _power_counter_enable_default(struct adreno_device *adreno_dev,
 	reg->value = 0;
 }
 
+static inline bool _perfcounter_inline_update(
+	struct adreno_device *adreno_dev, unsigned int group)
+{
+	if (adreno_is_a6xx(adreno_dev)) {
+		if ((group == KGSL_PERFCOUNTER_GROUP_HLSQ) ||
+			(group == KGSL_PERFCOUNTER_GROUP_SP) ||
+			(group == KGSL_PERFCOUNTER_GROUP_TP))
+			return true;
+		else
+			return false;
+	}
+
+	return true;
+}
+
 static int _perfcounter_enable_default(struct adreno_device *adreno_dev,
 		struct adreno_perfcounters *counters, unsigned int group,
 		unsigned int counter, unsigned int countable)
@@ -775,6 +790,7 @@ static int _perfcounter_enable_default(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_perfcount_register *reg;
+	struct adreno_perfcount_group *grp;
 	int i;
 	int ret = 0;
 
@@ -789,14 +805,19 @@ static int _perfcounter_enable_default(struct adreno_device *adreno_dev,
 			if (countable == invalid_countable.countables[i])
 				return -EACCES;
 	}
-	reg = &(counters->groups[group].regs[counter]);
+	grp = &(counters->groups[group]);
+	reg = &(grp->regs[counter]);
 
-	if (!adreno_is_a6xx(adreno_dev) &&
-			test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv)) {
+	if (_perfcounter_inline_update(adreno_dev, group) &&
+		test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv)) {
 		struct adreno_ringbuffer *rb = &adreno_dev->ringbuffers[0];
 		unsigned int buf[4];
 		unsigned int *cmds = buf;
 		int ret;
+
+		if (gpudev->perfcounter_update && (grp->flags &
+				ADRENO_PERFCOUNTER_GROUP_RESTORE))
+			gpudev->perfcounter_update(adreno_dev, reg, false);
 
 		cmds += cp_wait_for_idle(adreno_dev, cmds);
 		*cmds++ = cp_register(adreno_dev, reg->select, 1);
@@ -834,12 +855,16 @@ static int _perfcounter_enable_default(struct adreno_device *adreno_dev,
 		}
 	} else {
 		/* Select the desired perfcounter */
-		kgsl_regwrite(device, reg->select, countable);
+		if (gpudev->perfcounter_update && (grp->flags &
+				ADRENO_PERFCOUNTER_GROUP_RESTORE))
+			ret = gpudev->perfcounter_update(adreno_dev, reg, true);
+		else
+			kgsl_regwrite(device, reg->select, countable);
 	}
 
 	if (!ret)
 		reg->value = 0;
-	return 0;
+	return ret;
 }
 
 /**

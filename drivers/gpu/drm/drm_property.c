@@ -557,7 +557,7 @@ drm_property_create_blob(struct drm_device *dev, size_t length,
 	if (!length || length > ULONG_MAX - sizeof(struct drm_property_blob))
 		return ERR_PTR(-EINVAL);
 
-	blob = vmalloc(sizeof(struct drm_property_blob)+length);
+	blob = vzalloc(sizeof(struct drm_property_blob)+length);
 	if (!blob)
 		return ERR_PTR(-ENOMEM);
 

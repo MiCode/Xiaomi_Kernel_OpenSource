@@ -119,6 +119,7 @@ static struct adreno_device device_3d0 = {
 		.skipsaverestore = 1,
 		.usesgmem = 1,
 	},
+	.priv = BIT(ADRENO_DEVICE_PREEMPTION_EXECUTION),
 };
 
 /* Ptr to array for the current set of fault detect registers */
@@ -1147,6 +1148,9 @@ static int adreno_probe(struct platform_device *pdev)
 
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_CONTENT_PROTECTION))
 		device->mmu.secured = false;
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_IOCOHERENT))
+		device->mmu.features |= KGSL_MMU_IO_COHERENT;
 
 	status = adreno_ringbuffer_probe(adreno_dev, nopreempt);
 	if (status)

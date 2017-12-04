@@ -37,12 +37,14 @@ struct cam_jpeg_enc_regval {
 	uint32_t int_mask_enable_all;
 	uint32_t hw_cmd_start;
 	uint32_t reset_cmd;
+	uint32_t hw_cmd_stop;
 };
 
 struct cam_jpeg_enc_int_status {
 	uint32_t framedone;
 	uint32_t resetdone;
 	uint32_t iserror;
+	uint32_t stopdone;
 };
 
 struct cam_jpeg_enc_device_hw_info {
@@ -55,6 +57,7 @@ enum cam_jpeg_enc_core_state {
 	CAM_JPEG_ENC_CORE_NOT_READY,
 	CAM_JPEG_ENC_CORE_READY,
 	CAM_JPEG_ENC_CORE_RESETTING,
+	CAM_JPEG_ENC_CORE_ABORTING,
 	CAM_JPEG_ENC_CORE_STATE_MAX,
 };
 
@@ -73,6 +76,8 @@ int cam_jpeg_enc_deinit_hw(void *device_priv,
 	void *init_hw_args, uint32_t arg_size);
 int cam_jpeg_enc_start_hw(void *device_priv,
 	void *start_hw_args, uint32_t arg_size);
+int cam_jpeg_enc_stop_hw(void *device_priv,
+	void *stop_hw_args, uint32_t arg_size);
 int cam_jpeg_enc_reset_hw(void *device_priv,
 	void *reset_hw_args, uint32_t arg_size);
 int cam_jpeg_enc_process_cmd(void *device_priv, uint32_t cmd_type,

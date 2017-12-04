@@ -434,6 +434,7 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			qcom,pmic-revid = <&pmi8950_revid>;
+			qcom,qpnp-labibb-mode = "lcd";
 
 			ibb_regulator: qcom,ibb@dc00 {
 				reg = <0xdc00 0x100>;

@@ -1972,6 +1972,7 @@ static void dsi_display_aspace_cb_locked(void *cb_data, bool is_detach)
 		display_ctrl->ctrl->cmd_buffer_size = display->cmd_buffer_size;
 		display_ctrl->ctrl->cmd_buffer_iova = display->cmd_buffer_iova;
 		display_ctrl->ctrl->vaddr = display->vaddr;
+		display_ctrl->ctrl->secure_mode = is_detach ? true : false;
 	}
 
 end:
@@ -4452,8 +4453,9 @@ static void dsi_display_handle_lp_rx_timeout(struct work_struct *work)
 	void *data;
 	u32 version = 0;
 
-	display =  container_of(work, struct dsi_display, fifo_overflow_work);
-	if (!display || (display->panel->panel_mode != DSI_OP_VIDEO_MODE))
+	display =  container_of(work, struct dsi_display, lp_rx_timeout_work);
+	if (!display || !display->panel ||
+			(display->panel->panel_mode != DSI_OP_VIDEO_MODE))
 		return;
 	pr_debug("handle DSI LP RX Timeout error\n");
 

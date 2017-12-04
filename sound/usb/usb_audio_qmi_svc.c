@@ -68,6 +68,8 @@ struct intf_info {
 	unsigned long xfer_buf_va;
 	size_t xfer_buf_size;
 	phys_addr_t xfer_buf_pa;
+	unsigned int data_ep_pipe;
+	unsigned int sync_ep_pipe;
 	u8 *xfer_buf;
 	u8 intf_num;
 	u8 pcm_card_num;
@@ -415,6 +417,7 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 	int protocol, card_num, pcm_dev_num;
 	void *hdr_ptr;
 	u8 *xfer_buf;
+	unsigned int data_ep_pipe = 0, sync_ep_pipe = 0;
 	u32 len, mult, remainder, xfer_buf_len, sg_len, i, total_len = 0;
 	unsigned long va, va_sg, tr_data_va = 0, tr_sync_va = 0;
 	phys_addr_t xhci_pa, xfer_buf_pa, tr_data_pa = 0, tr_sync_pa = 0;
@@ -531,6 +534,7 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 			subs->data_endpoint->ep_num);
 		goto err;
 	}
+	data_ep_pipe = subs->data_endpoint->pipe;
 	memcpy(&resp->std_as_data_ep_desc, &ep->desc, sizeof(ep->desc));
 	resp->std_as_data_ep_desc_valid = 1;
 
@@ -548,6 +552,7 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 			pr_debug("%s: implicit fb on data ep\n", __func__);
 			goto skip_sync_ep;
 		}
+		sync_ep_pipe = subs->sync_endpoint->pipe;
 		memcpy(&resp->std_as_sync_ep_desc, &ep->desc, sizeof(ep->desc));
 		resp->std_as_sync_ep_desc_valid = 1;
 
@@ -704,6 +709,8 @@ skip_sync:
 	uadev[card_num].info[info_idx].xfer_buf_va = va;
 	uadev[card_num].info[info_idx].xfer_buf_pa = xfer_buf_pa;
 	uadev[card_num].info[info_idx].xfer_buf_size = len;
+	uadev[card_num].info[info_idx].data_ep_pipe = data_ep_pipe;
+	uadev[card_num].info[info_idx].sync_ep_pipe = sync_ep_pipe;
 	uadev[card_num].info[info_idx].xfer_buf = xfer_buf;
 	uadev[card_num].info[info_idx].pcm_card_num = card_num;
 	uadev[card_num].info[info_idx].pcm_dev_num = pcm_dev_num;
@@ -732,6 +739,26 @@ err:
 static void uaudio_dev_intf_cleanup(struct usb_device *udev,
 	struct intf_info *info)
 {
+
+	struct usb_host_endpoint *ep;
+
+	if (info->data_ep_pipe) {
+		ep = usb_pipe_endpoint(udev, info->data_ep_pipe);
+		if (!ep)
+			pr_debug("%s: no data ep\n", __func__);
+		else
+			usb_stop_endpoint(udev, ep);
+		info->data_ep_pipe = 0;
+	}
+	if (info->sync_ep_pipe) {
+		ep = usb_pipe_endpoint(udev, info->sync_ep_pipe);
+		if (!ep)
+			pr_debug("%s: no sync ep\n", __func__);
+		else
+			usb_stop_endpoint(udev, ep);
+		info->sync_ep_pipe = 0;
+	}
+
 	uaudio_iommu_unmap(MEM_XFER_RING, info->data_xfer_ring_va,
 		info->data_xfer_ring_size);
 	info->data_xfer_ring_va = 0;

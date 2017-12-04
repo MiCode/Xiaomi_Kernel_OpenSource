@@ -363,3 +363,12 @@
 &mdss_mdp {
 	#cooling-cells = <2>;
 };
+
+&thermal_zones {
+	xo-therm-cpu-step {
+		status = "disabled";
+	};
+	xo-therm-mdm-step {
+		status = "disabled";
+	};
+};

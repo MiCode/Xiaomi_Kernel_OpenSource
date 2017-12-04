@@ -312,6 +312,7 @@ static int __bpp(enum hal_uncompressed_format f)
 	case HAL_COLOR_FORMAT_NV12_UBWC:
 		return 8;
 	case HAL_COLOR_FORMAT_NV12_TP10_UBWC:
+	case HAL_COLOR_FORMAT_P010:
 		return 10;
 	default:
 		dprintk(VIDC_ERR,
