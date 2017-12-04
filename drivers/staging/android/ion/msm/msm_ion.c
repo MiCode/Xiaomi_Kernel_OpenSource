@@ -340,7 +340,7 @@ static int ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 	if (!ION_IS_CACHED(flags))
 		return 0;
 
-	if (flags & ION_FLAG_SECURE)
+	if (!is_buffer_hlos_assigned(ion_handle_buffer(handle)))
 		return 0;
 
 	table = ion_sg_table(client, handle);
@@ -675,6 +675,20 @@ int get_secure_vmid(unsigned long flags)
 	return -EINVAL;
 }
 
+bool is_buffer_hlos_assigned(struct ion_buffer *buffer)
+{
+	bool is_hlos = false;
+
+	if (buffer->heap->type == (enum ion_heap_type)ION_HEAP_TYPE_HYP_CMA &&
+	    (buffer->flags & ION_FLAG_CP_HLOS))
+		is_hlos = true;
+
+	if (get_secure_vmid(buffer->flags) <= 0)
+		is_hlos = true;
+
+	return is_hlos;
+}
+
 int get_vmid(unsigned long flags)
 {
 	int vmid;
@@ -751,9 +765,9 @@ long msm_ion_custom_ioctl(struct ion_client *client,
 
 		down_read(&mm->mmap_sem);
 
-		start = (unsigned long)data.flush_data.vaddr;
-		end = (unsigned long)data.flush_data.vaddr
-			+ data.flush_data.length;
+		start = (unsigned long)data.flush_data.vaddr +
+			data.flush_data.offset;
+		end = start + data.flush_data.length;
 
 		if (check_vaddr_bounds(start, end)) {
 			pr_err("%s: virtual address %pK is out of bounds\n",
