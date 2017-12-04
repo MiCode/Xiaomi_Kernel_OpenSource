@@ -27,6 +27,8 @@
 
 #define UFS_QCOM_ICE_DEFAULT_DBG_PRINT_EN	0
 
+static struct workqueue_struct *ice_workqueue;
+
 static void ufs_qcom_ice_dump_regs(struct ufs_qcom_host *qcom_host, int offset,
 					int len, char *prefix)
 {
@@ -235,6 +237,13 @@ int ufs_qcom_ice_init(struct ufs_qcom_host *qcom_host)
 	}
 
 	qcom_host->dbg_print_en |= UFS_QCOM_ICE_DEFAULT_DBG_PRINT_EN;
+	ice_workqueue = alloc_workqueue("ice-set-key",
+			WQ_MEM_RECLAIM | WQ_HIGHPRI, 0);
+	if (!ice_workqueue) {
+		dev_err(ufs_dev, "%s: workqueue allocation failed.\n",
+			__func__);
+		goto out;
+	}
 	INIT_WORK(&qcom_host->ice_cfg_work, ufs_qcom_ice_cfg_work);
 
 out:
@@ -299,7 +308,7 @@ int ufs_qcom_ice_req_setup(struct ufs_qcom_host *qcom_host,
 						qcom_host->hba);
 					qcom_host->req_pending = cmd->request;
 
-					if (!schedule_work(
+					if (!queue_work(ice_workqueue,
 						&qcom_host->ice_cfg_work)) {
 						qcom_host->req_pending = NULL;
 
@@ -423,7 +432,7 @@ int ufs_qcom_ice_cfg_start(struct ufs_qcom_host *qcom_host,
 					ufshcd_scsi_block_requests(
 						qcom_host->hba);
 					qcom_host->req_pending = cmd->request;
-					if (!schedule_work(
+					if (!queue_work(ice_workqueue,
 						&qcom_host->ice_cfg_work)) {
 						qcom_host->req_pending = NULL;
 
