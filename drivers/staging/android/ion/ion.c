@@ -1561,6 +1561,11 @@ static int ion_sync_for_device(struct ion_client *client, int fd)
 	}
 	buffer = dmabuf->priv;
 
+	if (get_secure_vmid(buffer->flags) > 0) {
+		pr_err("%s: cannot sync a secure dmabuf\n", __func__);
+		dma_buf_put(dmabuf);
+		return -EINVAL;
+	}
 	dma_sync_sg_for_device(NULL, buffer->sg_table->sgl,
 			       buffer->sg_table->nents, DMA_BIDIRECTIONAL);
 	dma_buf_put(dmabuf);
