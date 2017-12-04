@@ -270,7 +270,6 @@ enum adreno_preempt_states {
  * preempt_level: The level of preemption (for 6XX)
  * skipsaverestore: To skip saverestore during L1 preemption (for 6XX)
  * usesgmem: enable GMEM save/restore across preemption (for 6XX)
- * count: Track the number of preemptions triggered
  */
 struct adreno_preemption {
 	atomic_t state;
@@ -281,7 +280,6 @@ struct adreno_preemption {
 	unsigned int preempt_level;
 	bool skipsaverestore;
 	bool usesgmem;
-	unsigned int count;
 };
 
 

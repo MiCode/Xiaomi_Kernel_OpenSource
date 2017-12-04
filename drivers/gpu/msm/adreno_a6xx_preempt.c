@@ -292,8 +292,6 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	kgsl_sharedmem_writel(device, &next->preemption_desc,
 		PREEMPT_RECORD(wptr), next->wptr);
 
-	preempt->count++;
-
 	spin_unlock_irqrestore(&next->preempt_lock, flags);
 
 	/* And write it to the smmu info */
