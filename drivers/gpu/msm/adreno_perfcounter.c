@@ -768,21 +768,6 @@ static void _power_counter_enable_default(struct adreno_device *adreno_dev,
 	reg->value = 0;
 }
 
-static inline bool _perfcounter_inline_update(
-	struct adreno_device *adreno_dev, unsigned int group)
-{
-	if (adreno_is_a6xx(adreno_dev)) {
-		if ((group == KGSL_PERFCOUNTER_GROUP_HLSQ) ||
-			(group == KGSL_PERFCOUNTER_GROUP_SP) ||
-			(group == KGSL_PERFCOUNTER_GROUP_TP))
-			return true;
-		else
-			return false;
-	}
-
-	return true;
-}
-
 static int _perfcounter_enable_default(struct adreno_device *adreno_dev,
 		struct adreno_perfcounters *counters, unsigned int group,
 		unsigned int counter, unsigned int countable)
@@ -808,16 +793,12 @@ static int _perfcounter_enable_default(struct adreno_device *adreno_dev,
 	grp = &(counters->groups[group]);
 	reg = &(grp->regs[counter]);
 
-	if (_perfcounter_inline_update(adreno_dev, group) &&
-		test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv)) {
+	if (!adreno_is_a6xx(adreno_dev) &&
+			test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv)) {
 		struct adreno_ringbuffer *rb = &adreno_dev->ringbuffers[0];
 		unsigned int buf[4];
 		unsigned int *cmds = buf;
 		int ret;
-
-		if (gpudev->perfcounter_update && (grp->flags &
-				ADRENO_PERFCOUNTER_GROUP_RESTORE))
-			gpudev->perfcounter_update(adreno_dev, reg, false);
 
 		cmds += cp_wait_for_idle(adreno_dev, cmds);
 		*cmds++ = cp_register(adreno_dev, reg->select, 1);
