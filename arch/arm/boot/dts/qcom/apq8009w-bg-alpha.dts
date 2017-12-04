@@ -249,3 +249,7 @@
 		pins = "gpio98", "gpio16";
 	};
 };
+
+&pm660_charger {
+	qcom,micro-usb;
+};
