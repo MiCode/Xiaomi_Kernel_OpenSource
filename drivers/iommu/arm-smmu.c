@@ -1100,8 +1100,10 @@ static void arm_smmu_tlb_sync_cb(struct arm_smmu_device *smmu,
 	writel_relaxed(0, base + ARM_SMMU_CB_TLBSYNC);
 	if (readl_poll_timeout_atomic(base + ARM_SMMU_CB_TLBSTATUS, val,
 				      !(val & TLBSTATUS_SACTIVE),
-				      0, TLB_LOOP_TIMEOUT))
+				      0, TLB_LOOP_TIMEOUT)) {
+		trace_tlbsync_timeout(smmu->dev, 0);
 		dev_err(smmu->dev, "TLBSYNC timeout!\n");
+	}
 }
 
 static void __arm_smmu_tlb_sync(struct arm_smmu_device *smmu)
@@ -1132,11 +1134,15 @@ static void arm_smmu_tlb_sync(void *cookie)
 static void arm_smmu_tlb_inv_context(void *cookie)
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
+	struct device *dev = smmu_domain->dev;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	bool stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
 	void __iomem *base;
 	bool use_tlbiall = smmu->options & ARM_SMMU_OPT_NO_ASID_RETENTION;
+	ktime_t cur = ktime_get();
+
+	trace_tlbi_start(dev, 0);
 
 	if (stage1 && !use_tlbiall) {
 		base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
@@ -1153,6 +1159,8 @@ static void arm_smmu_tlb_inv_context(void *cookie)
 			       base + ARM_SMMU_GR0_TLBIVMID);
 		__arm_smmu_tlb_sync(smmu);
 	}
+
+	trace_tlbi_end(dev, ktime_us_delta(ktime_get(), cur));
 }
 
 static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
