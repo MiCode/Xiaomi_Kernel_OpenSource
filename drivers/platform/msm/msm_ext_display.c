@@ -32,7 +32,7 @@ struct msm_ext_disp {
 	struct platform_device *pdev;
 	enum msm_ext_disp_type current_disp;
 	struct msm_ext_disp_audio_codec_ops *ops;
-	struct extcon_dev audio_sdev;
+	struct extcon_dev *audio_sdev;
 	bool audio_session_on;
 	struct list_head display_list;
 	struct mutex lock;
@@ -44,33 +44,22 @@ static const unsigned int msm_ext_disp_supported_cable[] = {
 	EXTCON_NONE,
 };
 
-static int msm_ext_disp_find_index(struct extcon_dev *edev,
-		enum msm_ext_disp_type id)
-{
-	int i;
-
-	/* Find the the index of extcon cable in edev->supported_cable */
-	for (i = 0; i < edev->max_supported; i++) {
-		if (edev->supported_cable[i] == id)
-			return i;
-	}
-
-	return -EINVAL;
-}
-
 static int msm_ext_disp_extcon_register(struct msm_ext_disp *ext_disp)
 {
 	int ret = 0;
 
-	if (!ext_disp) {
+	if (!ext_disp || !ext_disp->pdev) {
 		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 
-	memset(&ext_disp->audio_sdev, 0x0, sizeof(ext_disp->audio_sdev));
-	ext_disp->audio_sdev.supported_cable = msm_ext_disp_supported_cable;
-	ext_disp->audio_sdev.dev.parent = &ext_disp->pdev->dev;
-	ret = extcon_dev_register(&ext_disp->audio_sdev);
+	ext_disp->audio_sdev = devm_extcon_dev_allocate(&ext_disp->pdev->dev,
+			msm_ext_disp_supported_cable);
+	if (IS_ERR(ext_disp->audio_sdev))
+		return PTR_ERR(ext_disp->audio_sdev);
+
+	ret = devm_extcon_dev_register(&ext_disp->pdev->dev,
+		ext_disp->audio_sdev);
 	if (ret) {
 		pr_err("audio registration failed");
 		return ret;
@@ -83,12 +72,12 @@ static int msm_ext_disp_extcon_register(struct msm_ext_disp *ext_disp)
 
 static void msm_ext_disp_extcon_unregister(struct msm_ext_disp *ext_disp)
 {
-	if (!ext_disp) {
+	if (!ext_disp || !ext_disp->pdev) {
 		pr_err("Invalid params\n");
 		return;
 	}
 
-	extcon_dev_unregister(&ext_disp->audio_sdev);
+	devm_extcon_dev_unregister(&ext_disp->pdev->dev, ext_disp->audio_sdev);
 }
 
 static const char *msm_ext_disp_name(enum msm_ext_disp_type type)
@@ -159,8 +148,7 @@ static int msm_ext_disp_process_audio(struct msm_ext_disp *ext_disp,
 		enum msm_ext_disp_cable_state new_state)
 {
 	int ret = 0;
-	int state, index;
-	enum msm_ext_disp_cable_state current_state;
+	int state;
 
 	if (!ext_disp->ops) {
 		pr_err("codec not registered, skip notification\n");
@@ -168,28 +156,20 @@ static int msm_ext_disp_process_audio(struct msm_ext_disp *ext_disp,
 		goto end;
 	}
 
-	state = ext_disp->audio_sdev.state;
-
-	index = msm_ext_disp_find_index(&ext_disp->audio_sdev, type);
-	if (index < 0 || index >= ext_disp->audio_sdev.max_supported) {
-		pr_err("invalid index\n");
-		ret = -EINVAL;
+	state = extcon_get_state(ext_disp->audio_sdev, ext_disp->current_disp);
+	if (state == !!new_state) {
+		ret = -EEXIST;
+		pr_debug("same state\n");
 		goto end;
 	}
 
-	if (state & BIT(index))
-		current_state = EXT_DISPLAY_CABLE_CONNECT;
-	else
-		current_state = EXT_DISPLAY_CABLE_DISCONNECT;
-
-	if (current_state == new_state) {
-		ret = -EEXIST;
-		pr_debug("same state\n");
-	} else {
-		ret = extcon_set_state_sync(&ext_disp->audio_sdev,
+	ret = extcon_set_state_sync(ext_disp->audio_sdev,
 			ext_disp->current_disp, !!new_state);
+	if (ret)
+		pr_err("Failed to set state. Error = %d\n", ret);
+	else
 		pr_debug("state changed to %d\n", new_state);
-	}
+
 end:
 	return ret;
 }
