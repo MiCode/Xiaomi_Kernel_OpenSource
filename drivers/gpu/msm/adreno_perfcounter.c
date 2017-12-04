@@ -775,7 +775,6 @@ static int _perfcounter_enable_default(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_perfcount_register *reg;
-	struct adreno_perfcount_group *grp;
 	int i;
 	int ret = 0;
 
@@ -790,8 +789,7 @@ static int _perfcounter_enable_default(struct adreno_device *adreno_dev,
 			if (countable == invalid_countable.countables[i])
 				return -EACCES;
 	}
-	grp = &(counters->groups[group]);
-	reg = &(grp->regs[counter]);
+	reg = &(counters->groups[group].regs[counter]);
 
 	if (!adreno_is_a6xx(adreno_dev) &&
 			test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv)) {
@@ -836,16 +834,12 @@ static int _perfcounter_enable_default(struct adreno_device *adreno_dev,
 		}
 	} else {
 		/* Select the desired perfcounter */
-		if (gpudev->perfcounter_update && (grp->flags &
-				ADRENO_PERFCOUNTER_GROUP_RESTORE))
-			ret = gpudev->perfcounter_update(adreno_dev, reg, true);
-		else
-			kgsl_regwrite(device, reg->select, countable);
+		kgsl_regwrite(device, reg->select, countable);
 	}
 
 	if (!ret)
 		reg->value = 0;
-	return ret;
+	return 0;
 }
 
 /**

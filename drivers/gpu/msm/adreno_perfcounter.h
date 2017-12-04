@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2015, 2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -69,13 +69,6 @@ struct adreno_perfcount_group {
  */
 
 #define ADRENO_PERFCOUNTER_GROUP_FIXED BIT(0)
-
-/*
- * ADRENO_PERFCOUNTER_GROUP_RESTORE indicates CP needs to restore the select
- * registers of this perfcounter group as part of preemption and IFPC
- */
-#define ADRENO_PERFCOUNTER_GROUP_RESTORE BIT(1)
-
 
 /**
  * adreno_perfcounts: all available perfcounter groups

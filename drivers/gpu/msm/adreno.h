@@ -945,9 +945,6 @@ struct adreno_gpudev {
 	bool (*sptprac_is_on)(struct adreno_device *);
 	unsigned int (*ccu_invalidate)(struct adreno_device *adreno_dev,
 				unsigned int *cmds);
-	int (*perfcounter_update)(struct adreno_device *adreno_dev,
-				struct adreno_perfcount_register *reg,
-				bool update_reg);
 };
 
 /**
