@@ -26,9 +26,8 @@
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/power_supply.h>
+#include <linux/workqueue.h>
 #include <linux/pmic-voter.h>
-
-#define SMB1355_DEFAULT_FCC_UA 1000000
 
 /* SMB1355 registers, different than mentioned in smb-reg.h */
 
@@ -72,8 +71,12 @@
 #define BATIF_CFG_SMISC_BATID_REG		(BATIF_BASE + 0x73)
 #define CFG_SMISC_RBIAS_EXT_CTRL_BIT		BIT(2)
 
+#define SMB2CHGS_BATIF_ENG_SMISC_DIETEMP	(BATIF_BASE + 0xC0)
+#define TDIE_COMPARATOR_THRESHOLD		GENMASK(5, 0)
+
 #define BATIF_ENG_SCMISC_SPARE1_REG		(BATIF_BASE + 0xC2)
 #define EXT_BIAS_PIN_BIT			BIT(2)
+#define DIE_TEMP_COMP_HYST_BIT			BIT(1)
 
 #define TEMP_COMP_STATUS_REG			(MISC_BASE + 0x07)
 #define SKIN_TEMP_RST_HOT_BIT			BIT(6)
@@ -147,7 +150,6 @@ struct smb_irq_info {
 };
 
 struct smb_iio {
-	struct iio_channel	*temp_chan;
 	struct iio_channel	*temp_max_chan;
 };
 
@@ -170,6 +172,10 @@ struct smb1355 {
 	struct pmic_revid_data	*pmic_rev_id;
 
 	int			c_health;
+	int			die_temp_deciDegC;
+	bool			exit_die_temp;
+	struct delayed_work	die_temp_work;
+	bool			disabled;
 };
 
 static bool is_secure(struct smb1355 *chip, int addr)
@@ -269,6 +275,48 @@ static int smb1355_get_charge_param(struct smb1355 *chip,
 	return rc;
 }
 
+#define UB_COMP_OFFSET_DEGC		34
+#define DIE_TEMP_MEAS_PERIOD_MS		10000
+static void die_temp_work(struct work_struct *work)
+{
+	struct smb1355 *chip = container_of(work, struct smb1355,
+							die_temp_work.work);
+	int rc, i;
+	u8 temp_stat;
+
+	for (i = 0; i < BIT(5); i++) {
+		rc = smb1355_masked_write(chip,
+				SMB2CHGS_BATIF_ENG_SMISC_DIETEMP,
+				TDIE_COMPARATOR_THRESHOLD, i);
+		if (rc < 0) {
+			pr_err("Couldn't set temp comp threshold rc=%d\n", rc);
+			continue;
+		}
+
+		if (chip->exit_die_temp)
+			return;
+
+		/* wait for the comparator output to deglitch */
+		msleep(100);
+
+		rc = smb1355_read(chip, TEMP_COMP_STATUS_REG, &temp_stat);
+		if (rc < 0) {
+			pr_err("Couldn't read temp comp status rc=%d\n", rc);
+			continue;
+		}
+
+		if (!(temp_stat & DIE_TEMP_UB_HOT_BIT)) {
+			/* found the temp */
+			break;
+		}
+	}
+
+	chip->die_temp_deciDegC = 10 * (i + UB_COMP_OFFSET_DEGC);
+
+	schedule_delayed_work(&chip->die_temp_work,
+			msecs_to_jiffies(DIE_TEMP_MEAS_PERIOD_MS));
+}
+
 static irqreturn_t smb1355_handle_chg_state_change(int irq, void *data)
 {
 	struct smb1355 *chip = data;
@@ -366,25 +414,6 @@ static int smb1355_get_prop_batt_charge_type(struct smb1355 *chip,
 	return rc;
 }
 
-static int smb1355_get_parallel_charging(struct smb1355 *chip, int *disabled)
-{
-	int rc;
-	u8 cfg2;
-
-	rc = smb1355_read(chip, CHGR_CFG2_REG, &cfg2);
-	if (rc < 0) {
-		pr_err("Couldn't read en_cmg_reg rc=%d\n", rc);
-		return rc;
-	}
-
-	if (cfg2 & CHG_EN_SRC_BIT)
-		*disabled = 0;
-	else
-		*disabled = 1;
-
-	return 0;
-}
-
 static int smb1355_get_prop_connector_health(struct smb1355 *chip)
 {
 	u8 temp;
@@ -408,24 +437,6 @@ static int smb1355_get_prop_connector_health(struct smb1355 *chip)
 	return POWER_SUPPLY_HEALTH_COOL;
 }
 
-
-static int smb1355_get_prop_charger_temp(struct smb1355 *chip,
-				union power_supply_propval *val)
-{
-	int rc;
-
-	if (!chip->iio.temp_chan ||
-		PTR_ERR(chip->iio.temp_chan) == -EPROBE_DEFER)
-		chip->iio.temp_chan = devm_iio_channel_get(chip->dev,
-						"charger_temp");
-
-	if (IS_ERR(chip->iio.temp_chan))
-		return PTR_ERR(chip->iio.temp_chan);
-
-	rc = iio_read_channel_processed(chip->iio.temp_chan, &val->intval);
-	val->intval /= 100;
-	return rc;
-}
 
 static int smb1355_get_prop_charger_temp_max(struct smb1355 *chip,
 				union power_supply_propval *val)
@@ -467,13 +478,13 @@ static int smb1355_parallel_get_prop(struct power_supply *psy,
 			val->intval = !(stat & DISABLE_CHARGING_BIT);
 		break;
 	case POWER_SUPPLY_PROP_CHARGER_TEMP:
-		rc = smb1355_get_prop_charger_temp(chip, val);
+		val->intval = chip->die_temp_deciDegC;
 		break;
 	case POWER_SUPPLY_PROP_CHARGER_TEMP_MAX:
 		rc = smb1355_get_prop_charger_temp_max(chip, val);
 		break;
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
-		rc = smb1355_get_parallel_charging(chip, &val->intval);
+		val->intval = chip->disabled;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		rc = smb1355_get_charge_param(chip, &chip->param.ov,
@@ -513,6 +524,9 @@ static int smb1355_set_parallel_charging(struct smb1355 *chip, bool disable)
 {
 	int rc;
 
+	if (chip->disabled == disable)
+		return 0;
+
 	rc = smb1355_masked_write(chip, WD_CFG_REG, WDOG_TIMER_EN_BIT,
 				 disable ? 0 : WDOG_TIMER_EN_BIT);
 	if (rc < 0) {
@@ -531,8 +545,20 @@ static int smb1355_set_parallel_charging(struct smb1355 *chip, bool disable)
 			disable ? 0 : CHG_EN_SRC_BIT);
 	if (rc < 0) {
 		pr_err("Couldn't configure charge enable source rc=%d\n", rc);
-		return rc;
+		disable = true;
 	}
+
+	chip->die_temp_deciDegC = -EINVAL;
+	if (disable) {
+		chip->exit_die_temp = true;
+		cancel_delayed_work_sync(&chip->die_temp_work);
+	} else {
+		/* start the work to measure temperature */
+		chip->exit_die_temp = false;
+		schedule_delayed_work(&chip->die_temp_work, 0);
+	}
+
+	chip->disabled = disable;
 
 	return 0;
 }
@@ -769,15 +795,26 @@ static int smb1355_init_hw(struct smb1355 *chip)
 	}
 
 	/*
-	 * Disable thermal Die temperature comparator source and hw mitigation
-	 * for skin/die
+	 * Enable thermal Die temperature comparator source and disable hw
+	 * mitigation for skin/die
 	 */
 	rc = smb1355_masked_write(chip, MISC_THERMREG_SRC_CFG_REG,
 		THERMREG_DIE_CMP_SRC_EN_BIT | BYP_THERM_CHG_CURR_ADJUST_BIT,
-		BYP_THERM_CHG_CURR_ADJUST_BIT);
+		THERMREG_DIE_CMP_SRC_EN_BIT | BYP_THERM_CHG_CURR_ADJUST_BIT);
 	if (rc < 0) {
 		pr_err("Couldn't set Skin temperature comparator src rc=%d\n",
 			rc);
+		return rc;
+	}
+
+	/*
+	 * Disable hysterisis for die temperature. This is so that sw can run
+	 * stepping scheme quickly
+	 */
+	rc = smb1355_masked_write(chip, BATIF_ENG_SCMISC_SPARE1_REG,
+				DIE_TEMP_COMP_HYST_BIT, 0);
+	if (rc < 0) {
+		pr_err("Couldn't disable hyst. for die rc=%d\n", rc);
 		return rc;
 	}
 
@@ -905,6 +942,9 @@ static int smb1355_probe(struct platform_device *pdev)
 	chip->c_health = -EINVAL;
 	chip->name = "smb1355";
 	mutex_init(&chip->write_lock);
+	INIT_DELAYED_WORK(&chip->die_temp_work, die_temp_work);
+	chip->disabled = true;
+	chip->die_temp_deciDegC = -EINVAL;
 
 	chip->regmap = dev_get_regmap(chip->dev->parent, NULL);
 	if (!chip->regmap) {
