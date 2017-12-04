@@ -815,6 +815,13 @@ config QTI_L2_REUSE
 	  to let the power collapsed cluster's L2 cache usage by the active
 	  cluster cpu. Use sysfs interface to control enabling this feature.
 
+config QCOM_DCC
+	bool "QCOM Data Capture and Compare engine support"
+	help
+	  This option enables driver for Data Capture and Compare engine. DCC
+	  driver provides interface to configure DCC block and read back
+	  captured data from DCC's internal SRAM.
+
 config QTI_RPM_STATS_LOG
 	bool "Qualcomm Technologies RPM Stats Driver"
 	depends on QCOM_RPMH || MSM_RPM_SMD
