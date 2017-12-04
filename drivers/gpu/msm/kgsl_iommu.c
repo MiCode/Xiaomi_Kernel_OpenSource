@@ -110,7 +110,7 @@ struct global_pt_entry {
 };
 
 static struct global_pt_entry global_pt_entries[GLOBAL_PT_ENTRIES];
-static int secure_global_size;
+static struct kgsl_memdesc *kgsl_global_secure_pt_entry;
 static int global_pt_count;
 uint64_t global_pt_alloc;
 static struct kgsl_memdesc gpu_qdss_desc;
@@ -162,33 +162,24 @@ static int kgsl_iommu_map_globals(struct kgsl_pagetable *pagetable)
 	return 0;
 }
 
-void kgsl_iommu_unmap_global_secure_pt_entry(struct kgsl_device *device,
-				struct kgsl_memdesc *entry)
+static void kgsl_iommu_unmap_global_secure_pt_entry(struct kgsl_pagetable
+								*pagetable)
 {
-	if (!kgsl_mmu_is_secured(&device->mmu))
-		return;
+	struct kgsl_memdesc *entry = kgsl_global_secure_pt_entry;
 
-	if (entry != NULL && entry->pagetable->name == KGSL_MMU_SECURE_PT)
-		kgsl_mmu_unmap(entry->pagetable, entry);
+	if (entry != NULL)
+		kgsl_mmu_unmap(pagetable, entry);
 
 }
 
-int kgsl_iommu_map_global_secure_pt_entry(struct kgsl_device *device,
-				struct kgsl_memdesc *entry)
+static int kgsl_map_global_secure_pt_entry(struct kgsl_pagetable *pagetable)
 {
 	int ret = 0;
-
-	if (!kgsl_mmu_is_secured(&device->mmu))
-		return -ENOTSUPP;
+	struct kgsl_memdesc *entry = kgsl_global_secure_pt_entry;
 
 	if (entry != NULL) {
-		struct kgsl_pagetable *pagetable = device->mmu.securepagetable;
 		entry->pagetable = pagetable;
-		entry->gpuaddr = KGSL_IOMMU_SECURE_BASE + secure_global_size;
-
 		ret = kgsl_mmu_map(pagetable, entry);
-		if (ret == 0)
-			secure_global_size += entry->size;
 	}
 	return ret;
 }
@@ -231,6 +222,13 @@ static void kgsl_iommu_add_global(struct kgsl_mmu *mmu,
 	strlcpy(global_pt_entries[global_pt_count].name, name,
 			sizeof(global_pt_entries[global_pt_count].name));
 	global_pt_count++;
+}
+
+void kgsl_add_global_secure_entry(struct kgsl_device *device,
+					struct kgsl_memdesc *memdesc)
+{
+	memdesc->gpuaddr = KGSL_IOMMU_SECURE_BASE;
+	kgsl_global_secure_pt_entry = memdesc;
 }
 
 struct kgsl_memdesc *kgsl_iommu_get_qdss_global_entry(void)
@@ -1070,6 +1068,7 @@ static void kgsl_iommu_destroy_pagetable(struct kgsl_pagetable *pt)
 
 	if (pt->name == KGSL_MMU_SECURE_PT) {
 		ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_SECURE];
+		kgsl_iommu_unmap_global_secure_pt_entry(pt);
 	} else {
 		ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 		kgsl_iommu_unmap_globals(pt);
@@ -1090,10 +1089,13 @@ static void setup_64bit_pagetable(struct kgsl_mmu *mmu,
 		struct kgsl_pagetable *pagetable,
 		struct kgsl_iommu_pt *pt)
 {
+	unsigned int secure_global_size = kgsl_global_secure_pt_entry != NULL ?
+					kgsl_global_secure_pt_entry->size : 0;
 	if (mmu->secured && pagetable->name == KGSL_MMU_SECURE_PT) {
-		pt->compat_va_start = KGSL_IOMMU_SECURE_BASE;
+		pt->compat_va_start = KGSL_IOMMU_SECURE_BASE +
+						secure_global_size;
 		pt->compat_va_end = KGSL_IOMMU_SECURE_END;
-		pt->va_start = KGSL_IOMMU_SECURE_BASE;
+		pt->va_start = KGSL_IOMMU_SECURE_BASE + secure_global_size;
 		pt->va_end = KGSL_IOMMU_SECURE_END;
 	} else {
 		pt->compat_va_start = KGSL_IOMMU_SVM_BASE32;
@@ -1118,11 +1120,15 @@ static void setup_32bit_pagetable(struct kgsl_mmu *mmu,
 		struct kgsl_pagetable *pagetable,
 		struct kgsl_iommu_pt *pt)
 {
+	unsigned int secure_global_size = kgsl_global_secure_pt_entry != NULL ?
+					kgsl_global_secure_pt_entry->size : 0;
 	if (mmu->secured) {
 		if (pagetable->name == KGSL_MMU_SECURE_PT) {
-			pt->compat_va_start = KGSL_IOMMU_SECURE_BASE;
+			pt->compat_va_start = KGSL_IOMMU_SECURE_BASE +
+						secure_global_size;
 			pt->compat_va_end = KGSL_IOMMU_SECURE_END;
-			pt->va_start = KGSL_IOMMU_SECURE_BASE;
+			pt->va_start = KGSL_IOMMU_SECURE_BASE +
+						secure_global_size;
 			pt->va_end = KGSL_IOMMU_SECURE_END;
 		} else {
 			pt->va_start = KGSL_IOMMU_SVM_BASE32;
@@ -1355,6 +1361,8 @@ static int _init_secure_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	ctx->cb_num = cb_num;
 	ctx->regbase = iommu->regbase + KGSL_IOMMU_CB0_OFFSET
 			+ (cb_num << KGSL_IOMMU_CB_SHIFT);
+
+	ret = kgsl_map_global_secure_pt_entry(pt);
 
 done:
 	if (ret)
@@ -1599,18 +1607,6 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	kgsl_setup_qdss_desc(device);
 	kgsl_setup_qtimer_desc(device);
 
-	if (!mmu->secured)
-		goto done;
-
-	mmu->securepagetable = kgsl_mmu_getpagetable(mmu,
-				KGSL_MMU_SECURE_PT);
-	if (IS_ERR(mmu->securepagetable)) {
-		status = PTR_ERR(mmu->securepagetable);
-		mmu->securepagetable = NULL;
-	} else if (mmu->securepagetable == NULL) {
-		status = -ENOMEM;
-	}
-
 done:
 	if (status)
 		kgsl_iommu_close(mmu);
@@ -1692,9 +1688,17 @@ static int _setup_secure_context(struct kgsl_mmu *mmu)
 	if (ctx->dev == NULL || !mmu->secured)
 		return 0;
 
-	if (mmu->securepagetable == NULL)
-		return -ENOMEM;
-
+	if (mmu->securepagetable == NULL) {
+		mmu->securepagetable = kgsl_mmu_getpagetable(mmu,
+						KGSL_MMU_SECURE_PT);
+		if (IS_ERR(mmu->securepagetable)) {
+			ret = PTR_ERR(mmu->securepagetable);
+			mmu->securepagetable = NULL;
+			return ret;
+		} else if (mmu->securepagetable == NULL) {
+			return -ENOMEM;
+		}
+	}
 	iommu_pt = mmu->securepagetable->priv;
 
 	ret = _attach_pt(iommu_pt, ctx);
@@ -2496,13 +2500,6 @@ static int kgsl_iommu_get_gpuaddr(struct kgsl_pagetable *pagetable,
 		start = pt->va_start;
 		end = pt->va_end;
 	}
-
-	/*
-	 * When mapping secure buffers, adjust the start of the va range
-	 * to the end of secure global buffers.
-	 */
-	if (kgsl_memdesc_is_secured(memdesc))
-		start += secure_global_size;
 
 	spin_lock(&pagetable->lock);
 
