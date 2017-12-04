@@ -3396,31 +3396,22 @@ static void _sde_crtc_remove_pipe_flush(struct sde_crtc *sde_crtc)
  * _sde_crtc_reset_hw - attempt hardware reset on errors
  * @crtc: Pointer to DRM crtc instance
  * @old_state: Pointer to crtc state for previous commit
- * @dump_status: Whether or not to dump debug status before reset
  * Returns: Zero if current commit should still be attempted
  */
 static int _sde_crtc_reset_hw(struct drm_crtc *crtc,
-		struct drm_crtc_state *old_state, bool dump_status)
+		struct drm_crtc_state *old_state)
 {
 	struct drm_plane *plane_halt[MAX_PLANES];
 	struct drm_plane *plane;
 	const struct drm_plane_state *pstate;
 	struct sde_crtc *sde_crtc;
 	struct sde_hw_ctl *ctl;
-	enum sde_ctl_rot_op_mode old_rot_op_mode;
 	signed int i, plane_count;
 	int rc;
 
 	if (!crtc || !old_state)
 		return -EINVAL;
 	sde_crtc = to_sde_crtc(crtc);
-
-	old_rot_op_mode = to_sde_crtc_state(old_state)->sbuf_cfg.rot_op_mode;
-	SDE_EVT32(DRMID(crtc), old_rot_op_mode,
-			dump_status, SDE_EVTLOG_FUNC_ENTRY);
-
-	if (dump_status)
-		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus");
 
 	for (i = 0; i < sde_crtc->num_mixers; ++i) {
 		ctl = sde_crtc->mixers[i].hw_ctl;
@@ -3437,19 +3428,11 @@ static int _sde_crtc_reset_hw(struct drm_crtc *crtc,
 		}
 	}
 
-	/*
-	 * Early out if simple ctl reset succeeded and previous commit
-	 * did not involve the rotator.
-	 *
-	 * If the previous commit had rotation enabled, then the ctl
-	 * reset would also have reset the rotator h/w. The rotator
-	 * programming for the current commit may need to be repeated,
-	 * depending on the rotation mode; don't handle this for now
-	 * and just force a hard reset in those cases.
-	 */
-	if (i == sde_crtc->num_mixers &&
-			old_rot_op_mode == SDE_CTL_ROT_OP_MODE_OFFLINE)
+	/* early out if simple ctl reset succeeded */
+	if (i == sde_crtc->num_mixers) {
+		SDE_EVT32(DRMID(crtc), i);
 		return false;
+	}
 
 	SDE_DEBUG("crtc%d: issuing hard reset\n", DRMID(crtc));
 
@@ -3622,8 +3605,7 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 	 * preparing for the kickoff
 	 */
 	if (reset_req) {
-		if (_sde_crtc_reset_hw(crtc, old_state,
-					!sde_crtc->reset_request))
+		if (_sde_crtc_reset_hw(crtc, old_state))
 			is_error = true;
 
 		/* force offline rotation mode since the commit has no pipes */
@@ -3631,7 +3613,6 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 			cstate->sbuf_cfg.rot_op_mode =
 				SDE_CTL_ROT_OP_MODE_OFFLINE;
 	}
-	sde_crtc->reset_request = reset_req;
 
 	/* wait for frame_event_done completion */
 	SDE_ATRACE_BEGIN("wait_for_frame_done_event");
