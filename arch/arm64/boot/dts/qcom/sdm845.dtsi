@@ -4052,7 +4052,7 @@
 #include "sdm845-pcie.dtsi"
 #include "sdm845-audio.dtsi"
 #include "sdm845-gpu.dtsi"
-#include "sdm845-usb.dtsi"
+#include "sdm845-670-usb-common.dtsi"
 
 &pm8998_temp_alarm {
 	cooling-maps {
