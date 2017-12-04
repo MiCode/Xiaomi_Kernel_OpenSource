@@ -907,8 +907,7 @@ static int _preemption_init(struct adreno_device *adreno_dev,
 			rb->preemption_desc.gpuaddr);
 
 	*cmds++ = 2;
-	cmds += cp_gpuaddr(adreno_dev, cmds,
-			rb->secure_preemption_desc.gpuaddr);
+	cmds += cp_gpuaddr(adreno_dev, cmds, 0);
 
 	/* Turn CP protection ON */
 	*cmds++ = cp_type7_packet(CP_SET_PROTECTED_MODE, 1);
