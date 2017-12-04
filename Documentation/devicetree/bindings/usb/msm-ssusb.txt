@@ -65,15 +65,23 @@ Optional properties :
 - qcom,use-pdc-interrupts: It present, it configures provided PDC IRQ with required
   configuration for wakeup functionality.
 - extcon: phandles to external connector devices. First phandle should point to
-	  external connector, which provide "USB" cable events, the second
-	  should point to external connector device, which provide "USB-HOST"
-	  cable events. A single phandle may be specified if a single connector
-	  device provides both "USB" and "USB-HOST" events.
+	  external connector, which provide type-C based "USB" cable events, the
+	  second should point to external connector device, which provide type-C
+	  "USB-HOST" cable events. A single phandle may be specified if a single
+	  connector device provides both "USB" and "USB-HOST" events. An optional
+	  third phandle may be specified for EUD based attach/detach events. A
+	  mandatory fourth phandle has to be specified to provide microUSB based
+	  "USB" cable events. An optional fifth phandle may be specified to provide
+	  microUSB based "USB-HOST" cable events. Only the fourth phandle may be
+	  specified if a single connector device provides both "USB" and "USB-HOST"
+	  events.
 - qcom,num-gsi-evt-buffs: If present, specifies number of GSI based hardware accelerated
   event buffers. 1 event buffer is needed per h/w accelerated endpoint.
 - qcom,pm-qos-latency: This represents max tolerable CPU latency in microsecs,
 	which is used as a vote by driver to get max performance in perf mode.
 - qcom,smmu-s1-bypass: If present, configure SMMU to bypass stage 1 translation.
+- qcom,no-vbus-vote-with-type-C: If present, then do not try to get and enable VBUS
+	regulator in type-C host mode from dwc3-msm driver.
 
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".
