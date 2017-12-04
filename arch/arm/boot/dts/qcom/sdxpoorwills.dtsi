@@ -13,6 +13,7 @@
 #include <dt-bindings/soc/qcom,tcs-mbox.h>
 #include "skeleton.dtsi"
 #include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/clock/qcom,cpu-a7.h>
 #include <dt-bindings/clock/qcom,gcc-sdxpoorwills.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
@@ -155,6 +156,20 @@
 			reg = <0x17829000 0x1000>;
 			status = "disabled";
 		};
+	};
+
+	msm_cpufreq: qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clocks = <&clock_cpu APCS_CLK>;
+		clock-names = "cpu0_clk";
+
+		qcom,cpufreq-table-0 =
+				<  153600 >,
+				<  300000 >,
+				<  345600 >,
+				<  576000 >,
+				< 1094400 >,
+				< 1497600 >;
 	};
 
 	clock_gcc: qcom,gcc@100000 {
