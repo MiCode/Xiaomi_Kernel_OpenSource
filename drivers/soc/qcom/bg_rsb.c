@@ -66,7 +66,7 @@ enum bgrsb_state {
 	BGRSB_STATE_LDO11_ENABLED,
 	BGRSB_STATE_RSB_CONFIGURED,
 	BGRSB_STATE_LDO15_ENABLED,
-	BGRSB_STATE_RSB_EBNABLED
+	BGRSB_STATE_RSB_ENABLED
 };
 
 struct bgrsb_msg {
@@ -85,7 +85,12 @@ struct bgrsb_priv {
 	bool chnl_state;
 	void *lhndl;
 
-	struct work_struct bg_work;
+	struct work_struct bg_up_work;
+	struct work_struct bg_down_work;
+
+	struct work_struct rsb_up_work;
+	struct work_struct rsb_down_work;
+
 	struct work_struct glink_work;
 
 	struct workqueue_struct *bgrsb_event_wq;
@@ -333,38 +338,6 @@ static int bgrsb_init_regulators(struct device *pdev)
 	return 0;
 }
 
-static int bgrsb_init(struct bgrsb_priv *dev)
-{
-	bgrsb_drv = &dev->lhndl;
-	dev->chnl.chnl_name = "RSB_CTRL";
-	dev->chnl.chnl_edge = "bg";
-	dev->chnl.chnl_trnsprt = "bgcom";
-	mutex_init(&dev->glink_mutex);
-	dev->link_state = GLINK_LINK_STATE_DOWN;
-
-	dev->ldo_action = BGRSB_NO_ACTION;
-
-	dev->bgrsb_event_wq =
-		create_singlethread_workqueue(dev->chnl.chnl_name);
-	if (!dev->bgrsb_event_wq) {
-		pr_err("Failed to init Glink work-queue\n");
-		return -EFAULT;
-	}
-
-	dev->bgrsb_wq =
-		create_singlethread_workqueue("bg-work-queue");
-	if (!dev->bgrsb_wq) {
-		pr_err("Failed to init BG-RSB work-queue\n");
-		return -EFAULT;
-	}
-
-	init_waitqueue_head(&dev->link_state_wait);
-
-	/* set default bgrsb state */
-	dev->bgrsb_current_state = BGRSB_STATE_INIT;
-	return 0;
-}
-
 static int bgrsb_ldo_work(struct bgrsb_priv *dev, enum ldo_task ldo_action)
 {
 	int ret = 0;
@@ -423,7 +396,8 @@ err_ret:
 
 static void bgrsb_bgdown_work(struct work_struct *work)
 {
-	struct bgrsb_priv *dev = container_of(work, struct bgrsb_priv, bg_work);
+	struct bgrsb_priv *dev = container_of(work, struct bgrsb_priv,
+								bg_down_work);
 
 	bgrsb_ldo_work(dev, BGRSB_DISABLE_LDO15);
 	bgrsb_ldo_work(dev, BGRSB_DISABLE_LDO11);
@@ -433,7 +407,8 @@ static void bgrsb_bgdown_work(struct work_struct *work)
 static void bgrsb_bgup_work(struct work_struct *work)
 {
 	int rc = 0;
-	struct bgrsb_priv *dev = container_of(work, struct bgrsb_priv, bg_work);
+	struct bgrsb_priv *dev = container_of(work, struct bgrsb_priv,
+								bg_up_work);
 
 	if (bgrsb_ldo_work(dev, BGRSB_ENABLE_LDO11) == 0) {
 
@@ -452,7 +427,7 @@ static void bgrsb_bgup_work(struct work_struct *work)
 			return;
 		}
 		dev->bgrsb_current_state = BGRSB_STATE_RSB_CONFIGURED;
-		pr_debug("BGRSB_STATE_RSB_CONFIGURED\n");
+		pr_debug("RSB Cofigured\n");
 	}
 }
 
@@ -469,14 +444,11 @@ static int ssr_bgrsb_cb(struct notifier_block *this,
 
 	switch (opcode) {
 	case SUBSYS_BEFORE_SHUTDOWN:
-		INIT_WORK(&dev->bg_work, bgrsb_bgdown_work);
-		queue_work(dev->bgrsb_wq, &dev->bg_work);
+		queue_work(dev->bgrsb_wq, &dev->bg_down_work);
 		break;
 	case SUBSYS_AFTER_POWERUP:
-		if (dev->bgrsb_current_state == BGRSB_STATE_INIT) {
-			INIT_WORK(&dev->bg_work, bgrsb_bgup_work);
-			queue_work(dev->bgrsb_wq, &dev->bg_work);
-		}
+		if (dev->bgrsb_current_state == BGRSB_STATE_INIT)
+			queue_work(dev->bgrsb_wq, &dev->bg_up_work);
 		break;
 	}
 	return NOTIFY_DONE;
@@ -545,7 +517,8 @@ static void bgrsb_enable_rsb(struct work_struct *work)
 {
 	int rc = 0;
 	struct bgrsb_msg req = {0};
-	struct bgrsb_priv *dev = container_of(work, struct bgrsb_priv, bg_work);
+	struct bgrsb_priv *dev = container_of(work, struct bgrsb_priv,
+								rsb_up_work);
 
 	if (dev->bgrsb_current_state != BGRSB_STATE_RSB_CONFIGURED) {
 		pr_err("BG is not yet configured for RSB\n");
@@ -565,17 +538,18 @@ static void bgrsb_enable_rsb(struct work_struct *work)
 			return;
 		}
 	}
-	dev->bgrsb_current_state = BGRSB_STATE_RSB_EBNABLED;
-	pr_debug("BGRSB_STATE_RSB_EBNABLED\n");
+	dev->bgrsb_current_state = BGRSB_STATE_RSB_ENABLED;
+	pr_debug("RSB Enabled\n");
 }
 
 static void bgrsb_disable_rsb(struct work_struct *work)
 {
 	int rc = 0;
 	struct bgrsb_msg req = {0};
-	struct bgrsb_priv *dev = container_of(work, struct bgrsb_priv, bg_work);
+	struct bgrsb_priv *dev = container_of(work, struct bgrsb_priv,
+								rsb_down_work);
 
-	if (dev->bgrsb_current_state == BGRSB_STATE_RSB_EBNABLED) {
+	if (dev->bgrsb_current_state == BGRSB_STATE_RSB_ENABLED) {
 		if (bgrsb_ldo_work(dev, BGRSB_DISABLE_LDO15) != 0)
 			return;
 
@@ -588,7 +562,7 @@ static void bgrsb_disable_rsb(struct work_struct *work)
 			return;
 		}
 		dev->bgrsb_current_state = BGRSB_STATE_RSB_CONFIGURED;
-		pr_debug("BGRSB_STATE_RSB_CONFIGURED\n");
+		pr_debug("RSB Disabled\n");
 	}
 }
 
@@ -604,13 +578,13 @@ static int store_enable(struct device *pdev, struct device_attribute *attr,
 		return ret;
 
 	if (pwr_st == BGRSB_POWER_ENABLE) {
-		if (dev->bgrsb_current_state == BGRSB_STATE_RSB_EBNABLED)
+		if (dev->bgrsb_current_state == BGRSB_STATE_RSB_ENABLED)
 			return 0;
-		INIT_WORK(&dev->bg_work, bgrsb_enable_rsb);
-		queue_work(dev->bgrsb_wq, &dev->bg_work);
+		queue_work(dev->bgrsb_wq, &dev->rsb_up_work);
 	} else if (pwr_st == BGRSB_POWER_DISABLE) {
-		INIT_WORK(&dev->bg_work, bgrsb_disable_rsb);
-		queue_work(dev->bgrsb_wq, &dev->bg_work);
+		if (dev->bgrsb_current_state == BGRSB_STATE_RSB_CONFIGURED)
+			return 0;
+		queue_work(dev->bgrsb_wq, &dev->rsb_down_work);
 	}
 	return 0;
 }
@@ -629,6 +603,50 @@ static struct device_attribute dev_attr_rsb = {
 	.show = show_enable,
 	.store = store_enable,
 };
+
+static int bgrsb_init(struct bgrsb_priv *dev)
+{
+	bgrsb_drv = &dev->lhndl;
+	dev->chnl.chnl_name = "RSB_CTRL";
+	dev->chnl.chnl_edge = "bg";
+	dev->chnl.chnl_trnsprt = "bgcom";
+	mutex_init(&dev->glink_mutex);
+	dev->link_state = GLINK_LINK_STATE_DOWN;
+
+	dev->ldo_action = BGRSB_NO_ACTION;
+
+	dev->bgrsb_event_wq =
+		create_singlethread_workqueue(dev->chnl.chnl_name);
+	if (!dev->bgrsb_event_wq) {
+		pr_err("Failed to init Glink work-queue\n");
+		goto err_ret;
+	}
+
+	dev->bgrsb_wq =
+		create_singlethread_workqueue("bg-work-queue");
+	if (!dev->bgrsb_wq) {
+		pr_err("Failed to init BG-RSB work-queue\n");
+		goto free_rsb_wq;
+	}
+
+	init_waitqueue_head(&dev->link_state_wait);
+
+	/* set default bgrsb state */
+	dev->bgrsb_current_state = BGRSB_STATE_INIT;
+
+	/* Init all works */
+	INIT_WORK(&dev->bg_up_work, bgrsb_bgup_work);
+	INIT_WORK(&dev->bg_down_work, bgrsb_bgdown_work);
+	INIT_WORK(&dev->rsb_up_work, bgrsb_enable_rsb);
+	INIT_WORK(&dev->rsb_down_work, bgrsb_disable_rsb);
+
+	return 0;
+
+free_rsb_wq:
+	destroy_workqueue(dev->bgrsb_event_wq);
+err_ret:
+	return -EFAULT;
+}
 
 static int bg_rsb_probe(struct platform_device *pdev)
 {
@@ -695,7 +713,10 @@ static int bg_rsb_remove(struct platform_device *pdev)
 {
 	struct bgrsb_priv *dev = platform_get_drvdata(pdev);
 
+	destroy_workqueue(dev->bgrsb_event_wq);
+	destroy_workqueue(dev->bgrsb_wq);
 	input_free_device(dev->input);
+
 	return 0;
 }
 
