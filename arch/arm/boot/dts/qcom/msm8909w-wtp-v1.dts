@@ -73,6 +73,9 @@
 		/delete-node/ it7260@46;
 	};
 
+	spi@78b8000 {  /* BLSP1 QUP4 */
+		status = "ok";
+	};
 
 	qcom,msm-ssc-sensors {
 		compatible = "qcom,msm-ssc-sensors";
