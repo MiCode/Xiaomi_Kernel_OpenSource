@@ -59,6 +59,7 @@
 #include <dt-bindings/msm/msm-bus-ids.h>
 #include <linux/irq.h>
 #include <linux/wait.h>
+#include <linux/notifier.h>
 
 #include <linux/amba/bus.h>
 
@@ -266,6 +267,7 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_STATIC_CB		(1 << 6)
 #define ARM_SMMU_OPT_DISABLE_ATOS	(1 << 7)
 #define ARM_SMMU_OPT_NO_DYNAMIC_ASID	(1 << 8)
+#define ARM_SMMU_OPT_HALT		(1 << 9)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 	enum arm_smmu_implementation	model;
@@ -307,6 +309,7 @@ struct arm_smmu_device {
 	unsigned int			num_impl_def_attach_registers;
 
 	struct arm_smmu_power_resources *pwr;
+	struct notifier_block		regulator_nb;
 
 	spinlock_t			atos_lock;
 
@@ -451,6 +454,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_STATIC_CB, "qcom,enable-static-cb"},
 	{ ARM_SMMU_OPT_DISABLE_ATOS, "qcom,disable-atos" },
 	{ ARM_SMMU_OPT_NO_DYNAMIC_ASID, "qcom,no-dynamic-asid" },
+	{ ARM_SMMU_OPT_HALT, "qcom,enable-smmu-halt"},
 	{ 0, NULL},
 };
 
@@ -5161,6 +5165,71 @@ static int arm_smmu_init_clocks(struct arm_smmu_power_resources *pwr)
 	return 0;
 }
 
+static int regulator_notifier(struct notifier_block *nb,
+			      unsigned long event, void *data)
+{
+	int ret = 0;
+	struct arm_smmu_device *smmu = container_of(nb, struct arm_smmu_device,
+						    regulator_nb);
+
+	if (event != REGULATOR_EVENT_PRE_DISABLE &&
+	    event != REGULATOR_EVENT_ENABLE)
+		return NOTIFY_OK;
+
+	ret = arm_smmu_prepare_clocks(smmu->pwr);
+	if (ret)
+		goto out;
+
+	ret = arm_smmu_power_on_atomic(smmu->pwr);
+	if (ret)
+		goto unprepare_clock;
+
+	if (event == REGULATOR_EVENT_PRE_DISABLE)
+		qsmmuv2_halt(smmu);
+	else if (event == REGULATOR_EVENT_ENABLE) {
+		if (arm_smmu_restore_sec_cfg(smmu, 0))
+			goto power_off;
+		qsmmuv2_resume(smmu);
+	}
+power_off:
+	arm_smmu_power_off_atomic(smmu->pwr);
+unprepare_clock:
+	arm_smmu_unprepare_clocks(smmu->pwr);
+out:
+	return NOTIFY_OK;
+}
+
+static int register_regulator_notifier(struct arm_smmu_device *smmu)
+{
+	struct device *dev = smmu->dev;
+	struct regulator_bulk_data *consumers;
+	int ret = 0, num_consumers;
+	struct arm_smmu_power_resources *pwr = smmu->pwr;
+
+	if (!(smmu->options & ARM_SMMU_OPT_HALT))
+		goto out;
+
+	num_consumers = pwr->num_gdscs;
+	consumers = pwr->gdscs;
+
+	if (!num_consumers) {
+		dev_info(dev, "no regulator info exist for %s\n",
+			 dev_name(dev));
+		goto out;
+	}
+
+	smmu->regulator_nb.notifier_call = regulator_notifier;
+	/* registering the notifier against one gdsc is sufficient as
+	 * we do enable/disable regulators in group.
+	 */
+	ret = regulator_register_notifier(consumers[0].consumer,
+					  &smmu->regulator_nb);
+	if (ret)
+		dev_err(dev, "Regulator notifier request failed\n");
+out:
+	return ret;
+}
+
 static int arm_smmu_init_regulators(struct arm_smmu_power_resources *pwr)
 {
 	const char *cname;
@@ -5777,6 +5846,10 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	 */
 	if (!using_legacy_binding)
 		arm_smmu_bus_init();
+
+	err = register_regulator_notifier(smmu);
+	if (err)
+		goto out_power_off;
 
 	return 0;
 
