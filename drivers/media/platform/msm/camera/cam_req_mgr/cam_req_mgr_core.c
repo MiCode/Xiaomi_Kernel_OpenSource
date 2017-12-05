@@ -2314,21 +2314,23 @@ int cam_req_mgr_schedule_request(
 
 	if (!sched_req) {
 		CAM_ERR(CAM_CRM, "csl_req is NULL");
-		rc = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
+	mutex_lock(&g_crm_core_dev->crm_lock);
 	link = (struct cam_req_mgr_core_link *)
 		cam_get_device_priv(sched_req->link_hdl);
 	if (!link) {
 		CAM_DBG(CAM_CRM, "link ptr NULL %x", sched_req->link_hdl);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto end;
 	}
 
 	session = (struct cam_req_mgr_core_session *)link->parent;
 	if (!session) {
 		CAM_WARN(CAM_CRM, "session ptr NULL %x", sched_req->link_hdl);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto end;
 	}
 
 	CAM_DBG(CAM_CRM, "link %x req %lld, sync_mode %d",
@@ -2351,6 +2353,7 @@ int cam_req_mgr_schedule_request(
 	CAM_DBG(CAM_CRM, "DONE dev %x req %lld sync_mode %d",
 		sched_req->link_hdl, sched_req->req_id, sched_req->sync_mode);
 end:
+	mutex_unlock(&g_crm_core_dev->crm_lock);
 	return rc;
 }
 
@@ -2373,11 +2376,13 @@ int cam_req_mgr_sync_config(
 		return -EINVAL;
 	}
 
+	mutex_lock(&g_crm_core_dev->crm_lock);
 	/* session hdl's priv data is cam session struct */
 	cam_session = (struct cam_req_mgr_core_session *)
 		cam_get_device_priv(sync_info->session_hdl);
 	if (!cam_session) {
 		CAM_ERR(CAM_CRM, "NULL pointer");
+		mutex_unlock(&g_crm_core_dev->crm_lock);
 		return -EINVAL;
 	}
 
@@ -2414,6 +2419,7 @@ int cam_req_mgr_sync_config(
 
 done:
 	mutex_unlock(&cam_session->lock);
+	mutex_unlock(&g_crm_core_dev->crm_lock);
 	return rc;
 }
 
@@ -2439,6 +2445,7 @@ int cam_req_mgr_flush_requests(
 		goto end;
 	}
 
+	mutex_lock(&g_crm_core_dev->crm_lock);
 	/* session hdl's priv data is cam session struct */
 	session = (struct cam_req_mgr_core_session *)
 		cam_get_device_priv(flush_info->session_hdl);
@@ -2482,6 +2489,7 @@ int cam_req_mgr_flush_requests(
 		&link->workq_comp,
 		msecs_to_jiffies(CAM_REQ_MGR_SCHED_REQ_TIMEOUT));
 end:
+	mutex_unlock(&g_crm_core_dev->crm_lock);
 	return rc;
 }
 
