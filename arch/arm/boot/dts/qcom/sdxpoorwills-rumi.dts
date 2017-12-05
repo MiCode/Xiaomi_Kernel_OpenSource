@@ -61,6 +61,10 @@
 	compatible = "regulator-fixed";
 };
 
+&ipa_hw {
+	qcom,ipa-hw-mode = <1>; /* IPA hw type = Virtual */
+};
+
 &usb {
 	/delete-property/ qcom,usb-dbm;
 	qcom,charging-disabled;
