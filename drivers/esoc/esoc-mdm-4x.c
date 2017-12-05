@@ -220,7 +220,7 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 		}
 		dev_dbg(mdm->dev, "Waiting for status gpio go low\n");
 		status_down = false;
-		end_time = jiffies + msecs_to_jiffies(10000);
+		end_time = jiffies + msecs_to_jiffies(mdm->shutdown_timeout_ms);
 		while (time_before(jiffies, end_time)) {
 			if (gpio_get_value(MDM_GPIO(mdm, MDM2AP_STATUS))
 									== 0) {
@@ -1084,6 +1084,12 @@ static int mdm9x55_setup_hw(struct mdm_ctrl *mdm,
 					&esoc->link_info);
 	if (ret)
 		dev_info(mdm->dev, "esoc link info missing\n");
+
+	ret = of_property_read_u32(node, "qcom,shutdown-timeout-ms",
+				   &mdm->shutdown_timeout_ms);
+	if (ret)
+		mdm->shutdown_timeout_ms = DEF_SHUTDOWN_TIMEOUT;
+
 	esoc->clink_ops = clink_ops;
 	esoc->parent = mdm->dev;
 	esoc->owner = THIS_MODULE;

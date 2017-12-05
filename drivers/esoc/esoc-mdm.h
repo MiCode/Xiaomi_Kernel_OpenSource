@@ -43,6 +43,8 @@
 #define MDM_MODEM_TIMEOUT		3000
 #define DEF_RAMDUMP_TIMEOUT		120000
 #define DEF_RAMDUMP_DELAY		2000
+#define DEF_SHUTDOWN_TIMEOUT		10000
+#define DEF_MDM9X55_RESET_TIME		203
 #define RD_BUF_SIZE			100
 #define SFR_MAX_RETRIES			10
 #define SFR_RETRY_INTERVAL		1000
@@ -96,6 +98,8 @@ struct mdm_ctrl {
 	bool debug_fail;
 	unsigned int dump_timeout_ms;
 	unsigned int ramdump_delay_ms;
+	unsigned int shutdown_timeout_ms;
+	unsigned int reset_time_ms;
 	struct esoc_clink *esoc;
 	bool get_restart_reason;
 	unsigned long irq_mask;

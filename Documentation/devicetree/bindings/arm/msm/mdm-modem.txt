@@ -114,6 +114,15 @@ Optional driver parameters:
 - qcom,mdm-statusline-not-a-powersource: Boolean. If set, status line to esoc device is not a
 		power source.
 - qcom,mdm-userspace-handle-shutdown: Boolean. If set, userspace handles shutdown requests.
+- qcom,shutdown-timeout-ms: graceful shutdown timeout in milliseconds.
+		This interval is the time needed for the external modem to gracefully shutdown
+		after the host sends a shutdown command. The value depends on how long it takes
+		for the high level OS in the external modem to shutdown gracefully. The default
+		value is 10000 milliseconds.
+- qcom,reset-time-ms: time it takes for the external modem to forcefully reset in milliseconds.
+		This interval is the time it takes to toggle the reset of an external modem by
+		holding down the reset pin. The value depends on the external modem's power
+		management boot options. The default value is 203 milliseconds.
 
 Example:
 	mdm0: qcom,mdm0 {
