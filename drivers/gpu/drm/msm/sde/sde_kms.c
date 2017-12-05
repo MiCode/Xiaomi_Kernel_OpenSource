@@ -2052,7 +2052,8 @@ retry:
 	if (num_crtcs == 0) {
 		DRM_DEBUG("all crtcs are already in the off state\n");
 		drm_atomic_state_put(state);
-		goto suspended;
+		sde_kms->suspend_block = true;
+		goto unlock;
 	}
 
 	/* commit the "disable all" state */
@@ -2063,9 +2064,26 @@ retry:
 		goto unlock;
 	}
 
-suspended:
 	sde_kms->suspend_block = true;
 
+	drm_connector_list_iter_begin(ddev, &conn_iter);
+	drm_for_each_connector_iter(conn, &conn_iter) {
+		uint64_t lp;
+
+		lp = sde_connector_get_lp(conn);
+		if (lp != SDE_MODE_DPMS_LP2)
+			continue;
+
+		ret = sde_encoder_wait_for_event(conn->encoder,
+						MSM_ENC_TX_COMPLETE);
+		if (ret && ret != -EWOULDBLOCK)
+			SDE_ERROR(
+				"[enc: %d] wait for commit done returned %d\n",
+				conn->encoder->base.id, ret);
+		else if (!ret)
+			sde_encoder_idle_request(conn->encoder);
+	}
+	drm_connector_list_iter_end(&conn_iter);
 unlock:
 	if (ret == -EDEADLK) {
 		drm_modeset_backoff(&ctx);
