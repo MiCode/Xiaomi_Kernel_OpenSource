@@ -345,8 +345,10 @@ static __init void detect_machine_facilities(void)
 		S390_lowcore.machine_flags |= MACHINE_FLAG_IDTE;
 	if (test_facility(40))
 		S390_lowcore.machine_flags |= MACHINE_FLAG_LPP;
-	if (test_facility(50) && test_facility(73))
+	if (test_facility(50) && test_facility(73)) {
 		S390_lowcore.machine_flags |= MACHINE_FLAG_TE;
+		__ctl_set_bit(0, 55);
+	}
 	if (test_facility(51))
 		S390_lowcore.machine_flags |= MACHINE_FLAG_TLB_LC;
 	if (test_facility(129)) {
@@ -362,6 +364,18 @@ static inline void save_vector_registers(void)
 		save_vx_regs(boot_cpu_vector_save_area);
 #endif
 }
+
+static int __init topology_setup(char *str)
+{
+	bool enabled;
+	int rc;
+
+	rc = kstrtobool(str, &enabled);
+	if (!rc && !enabled)
+		S390_lowcore.machine_flags &= ~MACHINE_HAS_TOPOLOGY;
+	return rc;
+}
+early_param("topology", topology_setup);
 
 static int __init disable_vector_extension(char *str)
 {

@@ -97,6 +97,8 @@ enum board_idx {
 	BCM57407_NPAR,
 	BCM57414_NPAR,
 	BCM57416_NPAR,
+	BCM57452,
+	BCM57454,
 	NETXTREME_E_VF,
 	NETXTREME_C_VF,
 };
@@ -131,6 +133,8 @@ static const struct {
 	{ "Broadcom BCM57407 NetXtreme-E Ethernet Partition" },
 	{ "Broadcom BCM57414 NetXtreme-E Ethernet Partition" },
 	{ "Broadcom BCM57416 NetXtreme-E Ethernet Partition" },
+	{ "Broadcom BCM57452 NetXtreme-E 10Gb/25Gb/40Gb/50Gb Ethernet" },
+	{ "Broadcom BCM57454 NetXtreme-E 10Gb/25Gb/40Gb/50Gb/100Gb Ethernet" },
 	{ "Broadcom NetXtreme-E Ethernet Virtual Function" },
 	{ "Broadcom NetXtreme-C Ethernet Virtual Function" },
 };
@@ -166,6 +170,8 @@ static const struct pci_device_id bnxt_pci_tbl[] = {
 	{ PCI_VDEVICE(BROADCOM, 0x16ed), .driver_data = BCM57414_NPAR },
 	{ PCI_VDEVICE(BROADCOM, 0x16ee), .driver_data = BCM57416_NPAR },
 	{ PCI_VDEVICE(BROADCOM, 0x16ef), .driver_data = BCM57416_NPAR },
+	{ PCI_VDEVICE(BROADCOM, 0x16f1), .driver_data = BCM57452 },
+	{ PCI_VDEVICE(BROADCOM, 0x1614), .driver_data = BCM57454 },
 #ifdef CONFIG_BNXT_SRIOV
 	{ PCI_VDEVICE(BROADCOM, 0x16c1), .driver_data = NETXTREME_E_VF },
 	{ PCI_VDEVICE(BROADCOM, 0x16cb), .driver_data = NETXTREME_C_VF },
@@ -3794,6 +3800,30 @@ static int hwrm_ring_alloc_send_msg(struct bnxt *bp,
 	return rc;
 }
 
+static int bnxt_hwrm_set_async_event_cr(struct bnxt *bp, int idx)
+{
+	int rc;
+
+	if (BNXT_PF(bp)) {
+		struct hwrm_func_cfg_input req = {0};
+
+		bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_FUNC_CFG, -1, -1);
+		req.fid = cpu_to_le16(0xffff);
+		req.enables = cpu_to_le32(FUNC_CFG_REQ_ENABLES_ASYNC_EVENT_CR);
+		req.async_event_cr = cpu_to_le16(idx);
+		rc = hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
+	} else {
+		struct hwrm_func_vf_cfg_input req = {0};
+
+		bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_FUNC_VF_CFG, -1, -1);
+		req.enables =
+			cpu_to_le32(FUNC_VF_CFG_REQ_ENABLES_ASYNC_EVENT_CR);
+		req.async_event_cr = cpu_to_le16(idx);
+		rc = hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
+	}
+	return rc;
+}
+
 static int bnxt_hwrm_ring_alloc(struct bnxt *bp)
 {
 	int i, rc = 0;
@@ -3810,6 +3840,12 @@ static int bnxt_hwrm_ring_alloc(struct bnxt *bp)
 			goto err_out;
 		BNXT_CP_DB(cpr->cp_doorbell, cpr->cp_raw_cons);
 		bp->grp_info[i].cp_fw_ring_id = ring->fw_ring_id;
+
+		if (!i) {
+			rc = bnxt_hwrm_set_async_event_cr(bp, ring->fw_ring_id);
+			if (rc)
+				netdev_warn(bp->dev, "Failed to set async event completion ring.\n");
+		}
 	}
 
 	for (i = 0; i < bp->tx_nr_rings; i++) {

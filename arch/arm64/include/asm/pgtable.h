@@ -52,7 +52,7 @@ extern void __pgd_error(const char *file, int line, unsigned long val);
  * for zero-mapped memory areas etc..
  */
 extern unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)];
-#define ZERO_PAGE(vaddr)	pfn_to_page(PHYS_PFN(__pa(empty_zero_page)))
+#define ZERO_PAGE(vaddr)	phys_to_page(__pa_symbol(empty_zero_page))
 
 #define pte_ERROR(pte)		__pte_error(__FILE__, __LINE__, pte_val(pte))
 
@@ -91,6 +91,8 @@ extern unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)];
 	((pte_val(pte) & (PTE_VALID | PTE_USER | PTE_UXN)) == (PTE_VALID | PTE_UXN))
 #define pte_valid_young(pte) \
 	((pte_val(pte) & (PTE_VALID | PTE_AF)) == (PTE_VALID | PTE_AF))
+#define pte_valid_user(pte) \
+	((pte_val(pte) & (PTE_VALID | PTE_USER)) == (PTE_VALID | PTE_USER))
 
 /*
  * Could the pte be present in the TLB? We must check mm_tlb_flush_pending
@@ -99,6 +101,18 @@ extern unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)];
  */
 #define pte_accessible(mm, pte)	\
 	(mm_tlb_flush_pending(mm) ? pte_present(pte) : pte_valid_young(pte))
+
+/*
+ * p??_access_permitted() is true for valid user mappings (subject to the
+ * write permission check) other than user execute-only which do not have the
+ * PTE_USER bit set. PROT_NONE mappings do not have the PTE_VALID bit set.
+ */
+#define pte_access_permitted(pte, write) \
+	(pte_valid_user(pte) && (!(write) || pte_write(pte)))
+#define pmd_access_permitted(pmd, write) \
+	(pte_access_permitted(pmd_pte(pmd), (write)))
+#define pud_access_permitted(pud, write) \
+	(pte_access_permitted(pud_pte(pud), (write)))
 
 static inline pte_t clear_pte_bit(pte_t pte, pgprot_t prot)
 {

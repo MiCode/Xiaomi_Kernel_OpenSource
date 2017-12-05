@@ -431,7 +431,7 @@ EXPORT_SYMBOL(tcp_init_sock);
 
 static void tcp_tx_timestamp(struct sock *sk, u16 tsflags, struct sk_buff *skb)
 {
-	if (tsflags) {
+	if (tsflags && skb) {
 		struct skb_shared_info *shinfo = skb_shinfo(skb);
 		struct tcp_skb_cb *tcb = TCP_SKB_CB(skb);
 
@@ -538,6 +538,12 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
 
 		if (tp->urg_data & TCP_URG_VALID)
 			mask |= POLLPRI;
+	} else if (sk->sk_state == TCP_SYN_SENT && inet_sk(sk)->defer_connect) {
+		/* Active TCP fastopen socket with defer_connect
+		 * Return POLLOUT so application can call write()
+		 * in order for kernel to generate SYN+data
+		 */
+		mask |= POLLOUT | POLLWRNORM;
 	}
 	/* This barrier is coupled with smp_wmb() in tcp_reset() */
 	smp_rmb();
@@ -966,10 +972,8 @@ new_segment:
 		copied += copy;
 		offset += copy;
 		size -= copy;
-		if (!size) {
-			tcp_tx_timestamp(sk, sk->sk_tsflags, skb);
+		if (!size)
 			goto out;
-		}
 
 		if (skb->len < size_goal || (flags & MSG_OOB))
 			continue;
@@ -995,8 +999,11 @@ wait_for_memory:
 	}
 
 out:
-	if (copied && !(flags & MSG_SENDPAGE_NOTLAST))
-		tcp_push(sk, flags, mss_now, tp->nonagle, size_goal);
+	if (copied) {
+		tcp_tx_timestamp(sk, sk->sk_tsflags, tcp_write_queue_tail(sk));
+		if (!(flags & MSG_SENDPAGE_NOTLAST))
+			tcp_push(sk, flags, mss_now, tp->nonagle, size_goal);
+	}
 	return copied;
 
 do_error:
@@ -1078,6 +1085,7 @@ static int tcp_sendmsg_fastopen(struct sock *sk, struct msghdr *msg,
 				int *copied, size_t size)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
+	struct inet_sock *inet = inet_sk(sk);
 	struct sockaddr *uaddr = msg->msg_name;
 	int err, flags;
 
@@ -1095,9 +1103,19 @@ static int tcp_sendmsg_fastopen(struct sock *sk, struct msghdr *msg,
 	tp->fastopen_req->data = msg;
 	tp->fastopen_req->size = size;
 
+	if (inet->defer_connect) {
+		err = tcp_connect(sk);
+		/* Same failure procedure as in tcp_v4/6_connect */
+		if (err) {
+			tcp_set_state(sk, TCP_CLOSE);
+			inet->inet_dport = 0;
+			sk->sk_route_caps = 0;
+		}
+	}
 	flags = (msg->msg_flags & MSG_DONTWAIT) ? O_NONBLOCK : 0;
 	err = __inet_stream_connect(sk->sk_socket, uaddr,
 				    msg->msg_namelen, flags);
+	inet->defer_connect = 0;
 	*copied = tp->fastopen_req->copied;
 	tcp_free_fastopen_req(tp);
 	return err;
@@ -1117,7 +1135,7 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
 	lock_sock(sk);
 
 	flags = msg->msg_flags;
-	if (flags & MSG_FASTOPEN) {
+	if (unlikely(flags & MSG_FASTOPEN || inet_sk(sk)->defer_connect)) {
 		err = tcp_sendmsg_fastopen(sk, msg, &copied_syn, size);
 		if (err == -EINPROGRESS && copied_syn > 0)
 			goto out;
@@ -1289,7 +1307,6 @@ new_segment:
 
 		copied += copy;
 		if (!msg_data_left(msg)) {
-			tcp_tx_timestamp(sk, sockc.tsflags, skb);
 			if (unlikely(flags & MSG_EOR))
 				TCP_SKB_CB(skb)->eor = 1;
 			goto out;
@@ -1320,8 +1337,10 @@ wait_for_memory:
 	}
 
 out:
-	if (copied)
+	if (copied) {
+		tcp_tx_timestamp(sk, sockc.tsflags, tcp_write_queue_tail(sk));
 		tcp_push(sk, flags, mss_now, tp->nonagle, size_goal);
+	}
 out_nopush:
 	release_sock(sk);
 	return copied + copied_syn;
@@ -2674,6 +2693,18 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
 			err = -EINVAL;
 		}
 		break;
+	case TCP_FASTOPEN_CONNECT:
+		if (val > 1 || val < 0) {
+			err = -EINVAL;
+		} else if (sysctl_tcp_fastopen & TFO_CLIENT_ENABLE) {
+			if (sk->sk_state == TCP_CLOSE)
+				tp->fastopen_connect = val;
+			else
+				err = -EINVAL;
+		} else {
+			err = -EOPNOTSUPP;
+		}
+		break;
 	case TCP_TIMESTAMP:
 		if (!tp->repair)
 			err = -EPERM;
@@ -2985,6 +3016,10 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
 
 	case TCP_FASTOPEN:
 		val = icsk->icsk_accept_queue.fastopenq.max_qlen;
+		break;
+
+	case TCP_FASTOPEN_CONNECT:
+		val = tp->fastopen_connect;
 		break;
 
 	case TCP_TIMESTAMP:

@@ -1996,6 +1996,7 @@ static int tcp_mtu_probe(struct sock *sk)
 	nskb->ip_summed = skb->ip_summed;
 
 	tcp_insert_write_queue_before(nskb, skb, sk);
+	tcp_highest_sack_replace(sk, skb, nskb);
 
 	len = 0;
 	tcp_for_write_queue_from_safe(skb, next, sk) {
@@ -2535,7 +2536,7 @@ static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
 
 	BUG_ON(tcp_skb_pcount(skb) != 1 || tcp_skb_pcount(next_skb) != 1);
 
-	tcp_highest_sack_combine(sk, next_skb, skb);
+	tcp_highest_sack_replace(sk, next_skb, skb);
 
 	tcp_unlink_write_queue(next_skb, sk);
 
@@ -3109,13 +3110,8 @@ struct sk_buff *tcp_make_synack(const struct sock *sk, struct dst_entry *dst,
 	tcp_ecn_make_synack(req, th);
 	th->source = htons(ireq->ir_num);
 	th->dest = ireq->ir_rmt_port;
-	/* Setting of flags are superfluous here for callers (and ECE is
-	 * not even correctly set)
-	 */
-	tcp_init_nondata_skb(skb, tcp_rsk(req)->snt_isn,
-			     TCPHDR_SYN | TCPHDR_ACK);
-
-	th->seq = htonl(TCP_SKB_CB(skb)->seq);
+	skb->ip_summed = CHECKSUM_PARTIAL;
+	th->seq = htonl(tcp_rsk(req)->snt_isn);
 	/* XXX data is queued and acked as is. No buffer/window check */
 	th->ack_seq = htonl(tcp_rsk(req)->rcv_nxt);
 
@@ -3255,23 +3251,11 @@ static int tcp_send_syn_data(struct sock *sk, struct sk_buff *syn)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct tcp_fastopen_request *fo = tp->fastopen_req;
-	int syn_loss = 0, space, err = 0;
-	unsigned long last_syn_loss = 0;
+	int space, err = 0;
 	struct sk_buff *syn_data;
 
 	tp->rx_opt.mss_clamp = tp->advmss;  /* If MSS is not cached */
-	tcp_fastopen_cache_get(sk, &tp->rx_opt.mss_clamp, &fo->cookie,
-			       &syn_loss, &last_syn_loss);
-	/* Recurring FO SYN losses: revert to regular handshake temporarily */
-	if (syn_loss > 1 &&
-	    time_before(jiffies, last_syn_loss + (60*HZ << syn_loss))) {
-		fo->cookie.len = -1;
-		goto fallback;
-	}
-
-	if (sysctl_tcp_fastopen & TFO_CLIENT_NO_COOKIE)
-		fo->cookie.len = -1;
-	else if (fo->cookie.len <= 0)
+	if (!tcp_fastopen_cookie_check(sk, &tp->rx_opt.mss_clamp, &fo->cookie))
 		goto fallback;
 
 	/* MSS for SYN-data is based on cached MSS and bounded by PMTU and

@@ -806,9 +806,10 @@ static void sctp_inet6_skb_msgname(struct sk_buff *skb, char *msgname,
 		addr->v6.sin6_flowinfo = 0;
 		addr->v6.sin6_port = sh->source;
 		addr->v6.sin6_addr = ipv6_hdr(skb)->saddr;
-		if (ipv6_addr_type(&addr->v6.sin6_addr) & IPV6_ADDR_LINKLOCAL) {
+		if (ipv6_addr_type(&addr->v6.sin6_addr) & IPV6_ADDR_LINKLOCAL)
 			addr->v6.sin6_scope_id = sctp_v6_skb_iif(skb);
-		}
+		else
+			addr->v6.sin6_scope_id = 0;
 	}
 
 	*addr_len = sctp_v6_addr_to_user(sctp_sk(skb->sk), addr);
@@ -881,8 +882,10 @@ static int sctp_inet6_bind_verify(struct sctp_sock *opt, union sctp_addr *addr)
 			net = sock_net(&opt->inet.sk);
 			rcu_read_lock();
 			dev = dev_get_by_index_rcu(net, addr->v6.sin6_scope_id);
-			if (!dev ||
-			    !ipv6_chk_addr(net, &addr->v6.sin6_addr, dev, 0)) {
+			if (!dev || !(opt->inet.freebind ||
+				      net->ipv6.sysctl.ip_nonlocal_bind ||
+				      ipv6_chk_addr(net, &addr->v6.sin6_addr,
+						    dev, 0))) {
 				rcu_read_unlock();
 				return 0;
 			}

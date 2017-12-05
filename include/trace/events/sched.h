@@ -617,7 +617,7 @@ TRACE_EVENT(sched_contrib_scale_f,
 extern unsigned int sysctl_sched_use_walt_cpu_util;
 extern unsigned int sysctl_sched_use_walt_task_util;
 extern unsigned int walt_ravg_window;
-extern unsigned int walt_disabled;
+extern bool walt_disabled;
 #endif
 
 /*
@@ -654,7 +654,7 @@ TRACE_EVENT(sched_load_avg_task,
 		__entry->util_avg_pelt  = avg->util_avg;
 		__entry->util_avg_walt  = 0;
 #ifdef CONFIG_SCHED_WALT
-		__entry->util_avg_walt = (((unsigned long)((struct ravg*)_ravg)->demand) << NICE_0_LOAD_SHIFT);
+		__entry->util_avg_walt = (((unsigned long)((struct ravg*)_ravg)->demand) << SCHED_CAPACITY_SHIFT);
 		do_div(__entry->util_avg_walt, walt_ravg_window);
 		if (!walt_disabled && sysctl_sched_use_walt_task_util)
 			__entry->util_avg = __entry->util_avg_walt;
@@ -700,7 +700,7 @@ TRACE_EVENT(sched_load_avg_cpu,
 		__entry->util_avg_walt	= 0;
 #ifdef CONFIG_SCHED_WALT
 		__entry->util_avg_walt	=
-				cpu_rq(cpu)->prev_runnable_sum << NICE_0_LOAD_SHIFT;
+			cpu_rq(cpu)->prev_runnable_sum << SCHED_CAPACITY_SHIFT;
 		do_div(__entry->util_avg_walt, walt_ravg_window);
 		if (!walt_disabled && sysctl_sched_use_walt_cpu_util)
 			__entry->util_avg		= __entry->util_avg_walt;
@@ -1020,7 +1020,6 @@ TRACE_EVENT(walt_update_task_ravg,
 		__array(	char,	comm,   TASK_COMM_LEN	)
 		__field(	pid_t,	pid			)
 		__field(	pid_t,	cur_pid			)
-		__field(unsigned int,	cur_freq		)
 		__field(	u64,	wallclock		)
 		__field(	u64,	mark_start		)
 		__field(	u64,	delta_m			)
@@ -1048,7 +1047,6 @@ TRACE_EVENT(walt_update_task_ravg,
 		__entry->evt            = evt;
 		__entry->cpu            = rq->cpu;
 		__entry->cur_pid        = rq->curr->pid;
-		__entry->cur_freq       = rq->cur_freq;
 		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
 		__entry->pid            = p->pid;
 		__entry->mark_start     = p->ravg.mark_start;
@@ -1058,7 +1056,7 @@ TRACE_EVENT(walt_update_task_ravg,
 		__entry->irqtime        = irqtime;
 		__entry->cs             = rq->curr_runnable_sum;
 		__entry->ps             = rq->prev_runnable_sum;
-		__entry->util           = rq->prev_runnable_sum << NICE_0_LOAD_SHIFT;
+		__entry->util           = rq->prev_runnable_sum << SCHED_CAPACITY_SHIFT;
 		do_div(__entry->util, walt_ravg_window);
 		__entry->curr_window	= p->ravg.curr_window;
 		__entry->prev_window	= p->ravg.prev_window;
@@ -1067,11 +1065,10 @@ TRACE_EVENT(walt_update_task_ravg,
 		__entry->active_windows	= p->ravg.active_windows;
 	),
 
-	TP_printk("wc %llu ws %llu delta %llu event %d cpu %d cur_freq %u cur_pid %d task %d (%s) ms %llu delta %llu demand %u sum %u irqtime %llu"
+	TP_printk("wc %llu ws %llu delta %llu event %d cpu %d cur_pid %d task %d (%s) ms %llu delta %llu demand %u sum %u irqtime %llu"
 		" cs %llu ps %llu util %lu cur_window %u prev_window %u active_wins %u"
 		, __entry->wallclock, __entry->win_start, __entry->delta,
-		__entry->evt, __entry->cpu,
-		__entry->cur_freq, __entry->cur_pid,
+		__entry->evt, __entry->cpu, __entry->cur_pid,
 		__entry->pid, __entry->comm, __entry->mark_start,
 		__entry->delta_m, __entry->demand,
 		__entry->sum, __entry->irqtime,
@@ -1108,7 +1105,7 @@ TRACE_EVENT(walt_update_history,
 		__entry->samples        = samples;
 		__entry->evt            = evt;
 		__entry->demand         = p->ravg.demand;
-		__entry->walt_avg	= (__entry->demand << 10);
+		__entry->walt_avg	= (__entry->demand << SCHED_CAPACITY_SHIFT);
 		__entry->walt_avg	= div_u64(__entry->walt_avg,
 						  walt_ravg_window);
 		__entry->pelt_avg	= p->se.avg.util_avg;
