@@ -335,9 +335,16 @@
 	/delete-property/ vin-supply;
 };
 
+&pcie0 {
+	/delete-property/ qcom,l1-supported;
+	/delete-property/ qcom,l1ss-supported;
+};
+
 &pcie1 {
 	qcom,msi-gicm-addr = <0x09bd0040>;
 	qcom,msi-gicm-base = <0x240>;
+	/delete-property/ qcom,l1-supported;
+	/delete-property/ qcom,l1ss-supported;
 };
 
 &pcie2 {
