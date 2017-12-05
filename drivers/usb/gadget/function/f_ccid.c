@@ -121,7 +121,7 @@ static struct usb_ccid_class_descriptor ccid_class_desc = {
 	.dwSynchProtocols =	0,
 	.dwMechanical =		0,
 	/* This value indicates what intelligent features the CCID has */
-	.dwFeatures =		CCID_FEATURES_EXC_SAPDU |
+	.dwFeatures =		CCID_FEATURES_EXC_TPDU |
 				CCID_FEATURES_AUTO_PNEGO |
 				CCID_FEATURES_AUTO_BAUD |
 				CCID_FEATURES_AUTO_CLOCK |
