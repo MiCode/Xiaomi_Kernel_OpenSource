@@ -565,6 +565,8 @@
 
 #include "sdm670-smp2p.dtsi"
 
+#include "msm-rdbg.dtsi"
+
 #include "sdm670-qupv3.dtsi"
 
 #include "sdm670-coresight.dtsi"
