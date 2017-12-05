@@ -162,7 +162,7 @@
 };
 
 &mdss_mdp {
-	connectors = <&sde_rscc &sde_wb>;
+	connectors = <&sde_rscc &sde_wb &sde_dp>;
 };
 
 &dsi_nt35597_truly_dsc_cmd {
