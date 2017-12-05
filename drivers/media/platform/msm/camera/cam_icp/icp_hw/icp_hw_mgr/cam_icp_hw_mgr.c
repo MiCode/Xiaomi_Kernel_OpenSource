@@ -1229,13 +1229,13 @@ static int cam_icp_process_msg_pkt_type(
 {
 	int rc = 0;
 	int size_processed = 0;
-	struct hfi_msg_ipebps_async_ack *async_ack = NULL;
 
 	switch (msg_ptr[ICP_PACKET_TYPE]) {
 	case HFI_MSG_SYS_INIT_DONE:
 		CAM_DBG(CAM_ICP, "received SYS_INIT_DONE");
 		complete(&hw_mgr->a5_complete);
-		size_processed = sizeof(struct hfi_msg_init_done);
+		size_processed = (
+			(struct hfi_msg_init_done *)msg_ptr)->size;
 		break;
 
 	case HFI_MSG_SYS_PING_ACK:
@@ -1253,20 +1253,21 @@ static int cam_icp_process_msg_pkt_type(
 	case HFI_MSG_IPEBPS_ASYNC_COMMAND_INDIRECT_ACK:
 		CAM_DBG(CAM_ICP, "received ASYNC_INDIRECT_ACK");
 		rc = cam_icp_mgr_process_indirect_ack_msg(msg_ptr);
-		async_ack = (struct hfi_msg_ipebps_async_ack *)msg_ptr;
-		size_processed = async_ack->size;
-		async_ack = NULL;
+		size_processed = (
+			(struct hfi_msg_ipebps_async_ack *)msg_ptr)->size;
 		break;
 
 	case  HFI_MSG_IPEBPS_ASYNC_COMMAND_DIRECT_ACK:
 		CAM_DBG(CAM_ICP, "received ASYNC_DIRECT_ACK");
 		rc = cam_icp_mgr_process_direct_ack_msg(msg_ptr);
-		size_processed = sizeof(struct hfi_msg_ipebps_async_ack);
+		size_processed = (
+			(struct hfi_msg_ipebps_async_ack *)msg_ptr)->size;
 		break;
 
 	case HFI_MSG_EVENT_NOTIFY:
 		CAM_DBG(CAM_ICP, "received EVENT_NOTIFY");
-		size_processed = sizeof(struct hfi_msg_event_notify);
+		size_processed = (
+			(struct hfi_msg_event_notify *)msg_ptr)->size;
 		break;
 
 	default:
@@ -1679,7 +1680,7 @@ static int cam_icp_mgr_release_ctx(struct cam_icp_hw_mgr *hw_mgr, int ctx_id)
 		CAM_ICP_CTX_STATE_ACQUIRED) {
 		mutex_unlock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
 		mutex_unlock(&hw_mgr->hw_mgr_mutex);
-		CAM_WARN(CAM_ICP,
+		CAM_DBG(CAM_ICP,
 			"ctx with id: %d not in right state to release: %d",
 			ctx_id, hw_mgr->ctx_data[ctx_id].state);
 		return 0;
