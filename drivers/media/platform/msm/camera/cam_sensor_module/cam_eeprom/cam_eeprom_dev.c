@@ -419,8 +419,10 @@ static int32_t cam_eeprom_platform_driver_probe(
 	e_ctrl->io_master_info.master_type = CCI_MASTER;
 	e_ctrl->io_master_info.cci_client = kzalloc(
 		sizeof(struct cam_sensor_cci_client), GFP_KERNEL);
-	if (!e_ctrl->io_master_info.cci_client)
+	if (!e_ctrl->io_master_info.cci_client) {
+		rc = -ENOMEM;
 		goto free_e_ctrl;
+	}
 
 	soc_private = kzalloc(sizeof(struct cam_eeprom_soc_private),
 		GFP_KERNEL);

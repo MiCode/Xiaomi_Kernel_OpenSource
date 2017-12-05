@@ -46,8 +46,10 @@ int32_t cam_actuator_parse_dt(struct cam_actuator_ctrl_t *a_ctrl,
 		CAM_DBG(CAM_ACTUATOR, "cci-master %d, rc %d",
 			a_ctrl->cci_i2c_master, rc);
 		if ((rc < 0) || (a_ctrl->cci_i2c_master >= MASTER_MAX)) {
-			CAM_ERR(CAM_ACTUATOR, "Wrong info: dt CCI master:%d",
-				a_ctrl->cci_i2c_master);
+			CAM_ERR(CAM_ACTUATOR,
+				"Wrong info: rc: %d, dt CCI master:%d",
+				rc, a_ctrl->cci_i2c_master);
+			rc = -EFAULT;
 			return rc;
 		}
 	}

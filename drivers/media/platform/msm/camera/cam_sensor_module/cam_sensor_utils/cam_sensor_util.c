@@ -676,14 +676,12 @@ int32_t cam_sensor_update_power_settings(void *cmd_buf,
 			struct cam_cmd_power *pwr_cmd =
 				(struct cam_cmd_power *)ptr;
 
-			power_info->
-				power_setting_size +=
-				pwr_cmd->count;
+			power_info->power_setting_size += pwr_cmd->count;
 			scr = ptr + sizeof(struct cam_cmd_power);
 			tot_size = tot_size + sizeof(struct cam_cmd_power);
 
 			if (pwr_cmd->count == 0)
-				CAM_DBG(CAM_SENSOR, "Un expected Command");
+				CAM_WARN(CAM_SENSOR, "Un expected Command");
 
 			for (i = 0; i < pwr_cmd->count; i++, pwr_up++) {
 				power_info->
@@ -979,7 +977,7 @@ int cam_sensor_util_init_gpio_pin_tbl(
 		GFP_KERNEL);
 	if (!*pgpio_num_info)
 		return -ENOMEM;
-	gpio_num_info =  *pgpio_num_info;
+	gpio_num_info = *pgpio_num_info;
 
 	rc = of_property_read_u32(of_node, "gpio-vana", &val);
 	if (rc != -EINVAL) {
@@ -1265,6 +1263,8 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 	if (ret)
 		CAM_ERR(CAM_SENSOR,
 			"Cannot set shared pin to active state");
+
+	CAM_DBG(CAM_SENSOR, "power setting size: %d", ctrl->power_setting_size);
 
 	for (index = 0; index < ctrl->power_setting_size; index++) {
 		CAM_DBG(CAM_SENSOR, "index: %d", index);
