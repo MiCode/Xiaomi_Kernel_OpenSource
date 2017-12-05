@@ -1955,7 +1955,7 @@ static inline int adreno_vbif_clear_pending_transactions(
 	return ret;
 }
 
-void adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
+int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 	enum adreno_regs offset, unsigned int val,
 	unsigned int fence_mask);
 #endif /*__ADRENO_H */

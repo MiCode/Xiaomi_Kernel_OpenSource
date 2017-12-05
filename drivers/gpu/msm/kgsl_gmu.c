@@ -1632,7 +1632,7 @@ void gmu_remove(struct kgsl_device *device)
  * the write to the fenced register went through. If it didn't then we retry
  * the write until it goes through or we time out.
  */
-void adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
+int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 		enum adreno_regs offset, unsigned int val,
 		unsigned int fence_mask)
 {
@@ -1641,7 +1641,7 @@ void adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 	adreno_writereg(adreno_dev, offset, val);
 
 	if (!kgsl_gmu_isenabled(KGSL_DEVICE(adreno_dev)))
-		return;
+		return 0;
 
 	for (i = 0; i < GMU_WAKEUP_RETRY_MAX; i++) {
 		adreno_read_gmureg(adreno_dev, ADRENO_REG_GMU_AHB_FENCE_STATUS,
@@ -1652,7 +1652,7 @@ void adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 		 * was successful
 		 */
 		if (!(status & fence_mask))
-			return;
+			return 0;
 		/* Wait a small amount of time before trying again */
 		udelay(GMU_WAKEUP_DELAY_US);
 
@@ -1662,4 +1662,5 @@ void adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 
 	dev_err(adreno_dev->dev.dev,
 		"GMU fenced register write timed out: reg %x\n", offset);
+	return -ETIMEDOUT;
 }
