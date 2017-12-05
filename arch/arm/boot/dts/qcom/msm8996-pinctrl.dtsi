@@ -2773,5 +2773,19 @@
 				};
 			};
 		};
+
+		ntn_clk_sync: ntn_clk_sync {
+			mux {
+				pins = "gpio69";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio69";
+				drive-strength = <8>; /* 8 mA */
+				output-low;
+				bias-pull-down;         /* PULL down */
+			};
+		};
 	};
 };

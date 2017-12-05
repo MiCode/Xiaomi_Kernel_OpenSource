@@ -661,6 +661,8 @@
 		compatible = "qcom,ntn_avb";
 
 		ntn-rst-gpio = <&pm8994_gpios 13 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&ntn_clk_sync>;
 
 		vdd-ntn-hsic-supply = <&pm8994_l25>;
 		vdd-ntn-pci-supply = <&pm8994_s4>;
