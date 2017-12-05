@@ -393,6 +393,43 @@ void cam_csiphy_shutdown(struct csiphy_device *csiphy_dev)
 	csiphy_dev->csiphy_state = CAM_CSIPHY_INIT;
 }
 
+static int32_t cam_csiphy_external_cmd(struct csiphy_device *csiphy_dev,
+	struct cam_config_dev_cmd *p_submit_cmd)
+{
+	struct cam_csiphy_info cam_cmd_csiphy_info;
+	int32_t rc = 0;
+
+	if (copy_from_user(&cam_cmd_csiphy_info,
+		(void __user *)p_submit_cmd->packet_handle,
+		sizeof(struct cam_csiphy_info))) {
+		CAM_ERR(CAM_CSIPHY, "failed to copy cam_csiphy_info\n");
+		rc = -EFAULT;
+	} else {
+		csiphy_dev->csiphy_info.lane_cnt =
+			cam_cmd_csiphy_info.lane_cnt;
+		csiphy_dev->csiphy_info.lane_cnt =
+			cam_cmd_csiphy_info.lane_cnt;
+		csiphy_dev->csiphy_info.lane_mask =
+			cam_cmd_csiphy_info.lane_mask;
+		csiphy_dev->csiphy_info.csiphy_3phase =
+			cam_cmd_csiphy_info.csiphy_3phase;
+		csiphy_dev->csiphy_info.combo_mode =
+			cam_cmd_csiphy_info.combo_mode;
+		csiphy_dev->csiphy_info.settle_time =
+			cam_cmd_csiphy_info.settle_time;
+		csiphy_dev->csiphy_info.data_rate =
+			cam_cmd_csiphy_info.data_rate;
+		CAM_DBG(CAM_CSIPHY,
+			"%s CONFIG_DEV_EXT settle_time= %lld lane_cnt=%d lane_mask=0x%x",
+			__func__,
+			csiphy_dev->csiphy_info.settle_time,
+			csiphy_dev->csiphy_info.lane_cnt,
+			csiphy_dev->csiphy_info.lane_mask);
+	}
+
+	return rc;
+}
+
 int32_t cam_csiphy_core_cfg(void *phy_dev,
 			void *arg)
 {
@@ -629,6 +666,19 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		csiphy_dev->csiphy_state = CAM_CSIPHY_START;
 	}
 		break;
+	case CAM_CONFIG_DEV_EXTERNAL: {
+		struct cam_config_dev_cmd submit_cmd;
+
+		if (copy_from_user(&submit_cmd,
+			(void __user *)cmd->handle,
+			sizeof(struct cam_config_dev_cmd))) {
+			CAM_ERR(CAM_CSIPHY, "failed copy config ext\n");
+			rc = -EFAULT;
+		} else {
+			rc = cam_csiphy_external_cmd(csiphy_dev, &submit_cmd);
+		}
+		break;
+	}
 	default:
 		CAM_ERR(CAM_CSIPHY, "Invalid Opcode: %d", cmd->op_code);
 		rc = -EINVAL;
