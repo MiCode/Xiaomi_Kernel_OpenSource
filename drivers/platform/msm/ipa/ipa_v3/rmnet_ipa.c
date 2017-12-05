@@ -2455,8 +2455,14 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 				ret);
 		goto config_err;
 	}
+
+	/*
+	 * for IPA 4.0 offline charge is not needed and we need to prevent
+	 * power collapse until IPA uC is loaded.
+	 */
 	atomic_set(&rmnet_ipa3_ctx->is_initialized, 1);
-	if (!atomic_read(&rmnet_ipa3_ctx->is_ssr)) {
+	if (!atomic_read(&rmnet_ipa3_ctx->is_ssr) && ipa3_ctx->ipa_hw_type !=
+		IPA_HW_v4_0) {
 		/* offline charging mode */
 		ipa3_proxy_clk_unvote();
 	}
