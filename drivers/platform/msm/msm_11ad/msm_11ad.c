@@ -1118,7 +1118,7 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	rc = msm_11ad_init_vregs(ctx);
 	if (rc) {
 		dev_err(ctx->dev, "msm_11ad_init_vregs failed: %d\n", rc);
-		goto out_bus_scale;
+		return rc;
 	}
 	rc = msm_11ad_enable_vregs(ctx);
 	if (rc) {
@@ -1267,8 +1267,6 @@ out_vreg_clk:
 	msm_11ad_release_clocks(ctx);
 	msm_11ad_disable_vregs(ctx);
 	msm_11ad_release_vregs(ctx);
-out_bus_scale:
-	msm_bus_cl_clear_pdata(ctx->bus_scale);
 
 	return rc;
 }
