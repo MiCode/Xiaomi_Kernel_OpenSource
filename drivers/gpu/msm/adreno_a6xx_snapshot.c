@@ -210,6 +210,11 @@ static const unsigned int a6xx_vbif_ver_20xxxxxx_registers[] = {
 	0x3410, 0x3410, 0x3800, 0x3801,
 };
 
+static const unsigned int a6xx_gbif_registers[] = {
+	/* GBIF */
+	0x3C00, 0X3C0B, 0X3C40, 0X3C47, 0X3CC0, 0X3CD1,
+};
+
 static const unsigned int a6xx_gmu_gx_registers[] = {
 	/* GMU GX */
 	0x1A800, 0x1A800, 0x1A810, 0x1A813, 0x1A816, 0x1A816, 0x1A818, 0x1A81B,
@@ -1274,13 +1279,21 @@ static void a6xx_snapshot_debugbus(struct kgsl_device *device,
 			snapshot, a6xx_snapshot_dbgc_debugbus_block,
 			(void *) &a6xx_dbgc_debugbus_blocks[i]);
 	}
-
-	/* Skip if GPU has GBIF */
-	if (!adreno_has_gbif(adreno_dev))
+	/*
+	 * GBIF has same debugbus as of other GPU blocks hence fall back to
+	 * default path if GPU uses GBIF.
+	 * GBIF uses exactly same ID as of VBIF so use it as it is.
+	 */
+	if (adreno_has_gbif(adreno_dev))
 		kgsl_snapshot_add_section(device,
-				KGSL_SNAPSHOT_SECTION_DEBUGBUS,
-				snapshot, a6xx_snapshot_vbif_debugbus_block,
-				(void *) &a6xx_vbif_debugbus_blocks);
+			KGSL_SNAPSHOT_SECTION_DEBUGBUS,
+			snapshot, a6xx_snapshot_dbgc_debugbus_block,
+			(void *) &a6xx_vbif_debugbus_blocks);
+	else
+		kgsl_snapshot_add_section(device,
+			KGSL_SNAPSHOT_SECTION_DEBUGBUS,
+			snapshot, a6xx_snapshot_vbif_debugbus_block,
+			(void *) &a6xx_vbif_debugbus_blocks);
 
 	/* Dump the CX debugbus data if the block exists */
 	if (adreno_is_cx_dbgc_register(device, A6XX_CX_DBGC_CFG_DBGBUS_SEL_A)) {
@@ -1289,6 +1302,17 @@ static void a6xx_snapshot_debugbus(struct kgsl_device *device,
 				KGSL_SNAPSHOT_SECTION_DEBUGBUS,
 				snapshot, a6xx_snapshot_cx_dbgc_debugbus_block,
 				(void *) &a6xx_cx_dbgc_debugbus_blocks[i]);
+			/*
+			 * Get debugbus for GBIF CX part if GPU has GBIF block
+			 * GBIF uses exactly same ID as of VBIF so use
+			 * it as it is.
+			 */
+			if (adreno_has_gbif(adreno_dev))
+				kgsl_snapshot_add_section(device,
+					KGSL_SNAPSHOT_SECTION_DEBUGBUS,
+					snapshot,
+					a6xx_snapshot_cx_dbgc_debugbus_block,
+					(void *) &a6xx_vbif_debugbus_blocks);
 		}
 	}
 }
@@ -1429,6 +1453,10 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 		adreno_snapshot_vbif_registers(device, snapshot,
 			a6xx_vbif_snapshot_registers,
 			ARRAY_SIZE(a6xx_vbif_snapshot_registers));
+	else
+		adreno_snapshot_registers(device, snapshot,
+			a6xx_gbif_registers,
+			ARRAY_SIZE(a6xx_gbif_registers) / 2);
 
 	/* Try to run the crash dumper */
 	if (sptprac_on)
