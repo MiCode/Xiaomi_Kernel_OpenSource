@@ -28,7 +28,7 @@ int cam_flash_process_evt(struct cam_req_mgr_link_evt_data *event_data);
 int cam_flash_flush_request(struct cam_req_mgr_flush_request *flush);
 int cam_flash_off(struct cam_flash_ctrl *fctrl);
 int cam_flash_prepare(struct cam_flash_ctrl *flash_ctrl,
-	enum cam_flash_state state);
+	bool regulator_enable);
 void cam_flash_shutdown(struct cam_flash_ctrl *flash_ctrl);
 int cam_flash_stop_dev(struct cam_flash_ctrl *flash_ctrl);
 int cam_flash_release_dev(struct cam_flash_ctrl *fctrl);

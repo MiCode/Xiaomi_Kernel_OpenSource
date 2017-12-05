@@ -139,7 +139,7 @@ static int32_t cam_flash_driver_cmd(struct cam_flash_ctrl *fctrl,
 			goto release_mutex;
 		}
 
-		rc = cam_flash_prepare(fctrl, CAM_FLASH_STATE_START);
+		rc = cam_flash_prepare(fctrl, true);
 		if (rc) {
 			CAM_ERR(CAM_FLASH,
 				"Enable Regulator Failed rc = %d", rc);
