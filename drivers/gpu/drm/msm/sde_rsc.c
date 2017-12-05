@@ -39,8 +39,11 @@
 /* this time is ~1ms - only wake tcs in any mode */
 #define RSC_BACKOFF_TIME_NS		 (SINGLE_TCS_EXECUTION_TIME + 100)
 
-/* this time is ~1ms - only wake TCS in mode-0 */
-#define RSC_MODE_THRESHOLD_TIME_IN_NS	(SINGLE_TCS_EXECUTION_TIME + 100)
+/**
+ * this time is ~1ms - only wake TCS in mode-0.
+ * This time must be greater than backoff time.
+ */
+#define RSC_MODE_THRESHOLD_TIME_IN_NS	(RSC_BACKOFF_TIME_NS + 2700)
 
 /* this time is ~2ms - sleep+ wake TCS in mode-1 */
 #define RSC_TIME_SLOT_0_NS		((SINGLE_TCS_EXECUTION_TIME * 2) + 100)
