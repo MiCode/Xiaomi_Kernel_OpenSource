@@ -4263,6 +4263,14 @@ static void put_event(struct perf_event *event)
 }
 
 /*
+ * Maintain a zombie list to collect all the zombie events
+ */
+#if defined CONFIG_HOTPLUG_CPU || defined CONFIG_KEXEC_CORE
+static LIST_HEAD(zombie_list);
+static DEFINE_SPINLOCK(zombie_list_lock);
+#endif
+
+/*
  * Kill an event dead; while event:refcount will preserve the event
  * object, it will not preserve its functionality. Once the last 'user'
  * gives up the object, we'll destroy the thing.
@@ -4271,6 +4279,26 @@ int perf_event_release_kernel(struct perf_event *event)
 {
 	struct perf_event_context *ctx = event->ctx;
 	struct perf_event *child, *tmp;
+
+	/*
+	 * If the cpu associated to this event is offline, set the event as a
+	 *  zombie event. The cleanup of the cpu would be done if the CPU is
+	 *  back online.
+	 */
+#if defined CONFIG_HOTPLUG_CPU || defined CONFIG_KEXEC_CORE
+	if (!cpu_online(event->cpu)) {
+		if (event->state == PERF_EVENT_STATE_ZOMBIE)
+			return 0;
+
+		event->state = PERF_EVENT_STATE_ZOMBIE;
+
+		spin_lock(&zombie_list_lock);
+		list_add_tail(&event->zombie_entry, &zombie_list);
+		spin_unlock(&zombie_list_lock);
+
+		return 0;
+	}
+#endif
 
 	/*
 	 * If we got here through err_file: fput(event_file); we will not have
@@ -9388,6 +9416,7 @@ perf_event_alloc(struct perf_event_attr *attr, int cpu,
 	INIT_LIST_HEAD(&event->rb_entry);
 	INIT_LIST_HEAD(&event->active_entry);
 	INIT_LIST_HEAD(&event->addr_filters.list);
+	INIT_LIST_HEAD(&event->zombie_entry);
 	INIT_HLIST_NODE(&event->hlist_entry);
 
 
@@ -11043,12 +11072,40 @@ check_hotplug_start_event(struct perf_event *event)
 		event->pmu->start(event, 0);
 }
 
+static void perf_event_zombie_cleanup(unsigned int cpu)
+{
+	struct perf_event *event, *tmp;
+
+	spin_lock(&zombie_list_lock);
+
+	list_for_each_entry_safe(event, tmp, &zombie_list, zombie_entry) {
+		if (event->cpu != cpu)
+			continue;
+
+		list_del(&event->zombie_entry);
+		spin_unlock(&zombie_list_lock);
+
+		/*
+		 * The detachment of the event with the
+		 * PMU expects it to be in an active state
+		 */
+		event->state = PERF_EVENT_STATE_ACTIVE;
+		perf_event_release_kernel(event);
+
+		spin_lock(&zombie_list_lock);
+	}
+
+	spin_unlock(&zombie_list_lock);
+}
+
 static int perf_event_start_swevents(unsigned int cpu)
 {
 	struct perf_event_context *ctx;
 	struct pmu *pmu;
 	struct perf_event *event;
 	int idx;
+
+	perf_event_zombie_cleanup(cpu);
 
 	idx = srcu_read_lock(&pmus_srcu);
 	list_for_each_entry_rcu(pmu, &pmus, entry) {
