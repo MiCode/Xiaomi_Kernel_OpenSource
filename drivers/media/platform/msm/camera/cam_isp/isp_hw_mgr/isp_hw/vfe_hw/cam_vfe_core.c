@@ -177,7 +177,10 @@ static int cam_vfe_irq_err_top_half(uint32_t    evt_id,
 	rc  = cam_vfe_get_evt_payload(handler_priv->core_info, &evt_payload);
 	if (rc) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP,
-			"No tasklet_cmd is free in queue\n");
+			"No tasklet_cmd is free in queue");
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "IRQ status0=0x%x status1=0x%x",
+			th_payload->evt_status_arr[0],
+			th_payload->evt_status_arr[1]);
 		return rc;
 	}
 
@@ -431,7 +434,10 @@ static int cam_vfe_irq_top_half(uint32_t    evt_id,
 	rc  = cam_vfe_get_evt_payload(handler_priv->core_info, &evt_payload);
 	if (rc) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP,
-			"No tasklet_cmd is free in queue\n");
+			"No tasklet_cmd is free in queue");
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "IRQ status0=0x%x status1=0x%x",
+			th_payload->evt_status_arr[0],
+			th_payload->evt_status_arr[1]);
 		return rc;
 	}
 
