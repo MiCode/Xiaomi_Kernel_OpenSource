@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,7 +87,8 @@ static const struct ep_pcie_res_info_t ep_pcie_res_info[EP_PCIE_MAX_RES] = {
 	{"mmio",	0, 0},
 	{"msi",		0, 0},
 	{"dm_core",	0, 0},
-	{"elbi",	0, 0}
+	{"elbi",	0, 0},
+	{"iatu",	0, 0},
 };
 
 static const struct ep_pcie_irq_info_t ep_pcie_irq_info[EP_PCIE_MAX_IRQ] = {
@@ -671,6 +672,26 @@ static void ep_pcie_config_inbound_iatu(struct ep_pcie_dev_t *dev)
 	ep_pcie_write_reg(dev->parf, PCIE20_PARF_MHI_BASE_ADDR_LOWER, lower);
 	ep_pcie_write_reg(dev->parf, PCIE20_PARF_MHI_BASE_ADDR_UPPER, 0x0);
 
+	if (dev->phy_rev >= 6) {
+		ep_pcie_write_reg(dev->iatu, PCIE20_IATU_I_CTRL1(0), 0x0);
+		ep_pcie_write_reg(dev->iatu, PCIE20_IATU_I_LTAR(0), lower);
+		ep_pcie_write_reg(dev->iatu, PCIE20_IATU_I_UTAR(0), 0x0);
+		ep_pcie_write_reg(dev->iatu, PCIE20_IATU_I_CTRL2(0),
+					0xc0000000);
+
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: Inbound iATU configuration.\n", dev->rev);
+		EP_PCIE_DBG(dev, "PCIE20_IATU_I_CTRL1(0):0x%x\n",
+			readl_relaxed(dev->iatu + PCIE20_IATU_I_CTRL1(0)));
+		EP_PCIE_DBG(dev, "PCIE20_IATU_I_LTAR(0):0x%x\n",
+			readl_relaxed(dev->iatu + PCIE20_IATU_I_LTAR(0)));
+		EP_PCIE_DBG(dev, "PCIE20_IATU_I_UTAR(0):0x%x\n",
+			readl_relaxed(dev->iatu + PCIE20_IATU_I_UTAR(0)));
+		EP_PCIE_DBG(dev, "PCIE20_IATU_I_CTRL2(0):0x%x\n",
+			readl_relaxed(dev->iatu + PCIE20_IATU_I_CTRL2(0)));
+		return;
+	}
+
 	/* program inbound address translation using region 0 */
 	ep_pcie_write_reg(dev->dm_core, PCIE20_PLR_IATU_VIEWPORT, 0x80000000);
 	/* set region to mem type */
@@ -700,6 +721,49 @@ static void ep_pcie_config_outbound_iatu_entry(struct ep_pcie_dev_t *dev,
 	EP_PCIE_DBG(dev,
 		"PCIe V%d: region:%d; lower:0x%x; limit:0x%x; target_lower:0x%x; target_upper:0x%x\n",
 		dev->rev, region, lower, limit, tgt_lower, tgt_upper);
+
+	if (dev->phy_rev >= 6) {
+		ep_pcie_write_reg(dev->iatu, PCIE20_IATU_O_CTRL1(region),
+					0x0);
+		ep_pcie_write_reg(dev->iatu, PCIE20_IATU_O_LBAR(region),
+					lower);
+		ep_pcie_write_reg(dev->iatu, PCIE20_IATU_O_UBAR(region),
+					upper);
+		ep_pcie_write_reg(dev->iatu, PCIE20_IATU_O_LAR(region),
+					limit);
+		ep_pcie_write_reg(dev->iatu, PCIE20_IATU_O_LTAR(region),
+					tgt_lower);
+		ep_pcie_write_reg(dev->iatu, PCIE20_IATU_O_UTAR(region),
+					tgt_upper);
+		ep_pcie_write_mask(dev->iatu + PCIE20_IATU_O_CTRL2(region),
+					0, BIT(31));
+
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: Outbound iATU configuration.\n", dev->rev);
+		EP_PCIE_DBG(dev, "PCIE20_IATU_O_CTRL1:0x%x\n",
+			readl_relaxed(dev->iatu
+					+ PCIE20_IATU_O_CTRL1(region)));
+		EP_PCIE_DBG(dev, "PCIE20_IATU_O_LBAR:0x%x\n",
+			readl_relaxed(dev->iatu +
+					PCIE20_IATU_O_LBAR(region)));
+		EP_PCIE_DBG(dev, "PCIE20_IATU_O_UBAR:0x%x\n",
+			readl_relaxed(dev->iatu +
+					PCIE20_IATU_O_UBAR(region)));
+		EP_PCIE_DBG(dev, "PCIE20_IATU_O_LAR:0x%x\n",
+			readl_relaxed(dev->iatu +
+					PCIE20_IATU_O_LAR(region)));
+		EP_PCIE_DBG(dev, "PCIE20_IATU_O_LTAR:0x%x\n",
+			readl_relaxed(dev->iatu +
+					PCIE20_IATU_O_LTAR(region)));
+		EP_PCIE_DBG(dev, "PCIE20_IATU_O_UTAR:0x%x\n",
+			readl_relaxed(dev->iatu +
+					PCIE20_IATU_O_UTAR(region)));
+		EP_PCIE_DBG(dev, "PCIE20_IATU_O_CTRL2:0x%x\n",
+			readl_relaxed(dev->iatu +
+					PCIE20_IATU_O_CTRL2(region)));
+
+		return;
+	}
 
 	/* program outbound address translation using an input region */
 	ep_pcie_write_reg(dev->dm_core, PCIE20_PLR_IATU_VIEWPORT, region);
@@ -1037,6 +1101,7 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 	dev->msi = dev->res[EP_PCIE_RES_MSI].base;
 	dev->dm_core = dev->res[EP_PCIE_RES_DM_CORE].base;
 	dev->elbi = dev->res[EP_PCIE_RES_ELBI].base;
+	dev->iatu = dev->res[EP_PCIE_RES_IATU].base;
 
 out:
 	kfree(clkfreq);
@@ -1051,6 +1116,7 @@ static void ep_pcie_release_resources(struct ep_pcie_dev_t *dev)
 	dev->phy = NULL;
 	dev->mmio = NULL;
 	dev->msi = NULL;
+	dev->iatu = NULL;
 
 	if (dev->bus_client) {
 		msm_bus_scale_unregister_client(dev->bus_client);
