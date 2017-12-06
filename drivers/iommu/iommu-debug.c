@@ -174,7 +174,7 @@ static int iommu_debug_build_phoney_sg_table(struct device *dev,
 {
 	unsigned long nents = total_size / chunk_size;
 	struct scatterlist *sg;
-	int i;
+	int i, j;
 	struct page *page;
 
 	if (!IS_ALIGNED(total_size, PAGE_SIZE))
@@ -183,17 +183,18 @@ static int iommu_debug_build_phoney_sg_table(struct device *dev,
 		return -EINVAL;
 	if (sg_alloc_table(table, nents, GFP_KERNEL))
 		return -EINVAL;
-	page = alloc_pages(GFP_KERNEL, get_order(chunk_size));
-	if (!page)
-		goto free_table;
 
-	/* all the same page... why not. */
-	for_each_sg(table->sgl, sg, table->nents, i)
+	for_each_sg(table->sgl, sg, table->nents, i) {
+		page = alloc_pages(GFP_KERNEL, get_order(chunk_size));
+		if (!page)
+			goto free_pages;
 		sg_set_page(sg, page, chunk_size, 0);
+	}
 
 	return 0;
-
-free_table:
+free_pages:
+	for_each_sg(table->sgl, sg, i--, j)
+		__free_pages(sg_page(sg), get_order(chunk_size));
 	sg_free_table(table);
 	return -ENOMEM;
 }
@@ -202,7 +203,11 @@ static void iommu_debug_destroy_phoney_sg_table(struct device *dev,
 						struct sg_table *table,
 						unsigned long chunk_size)
 {
-	__free_pages(sg_page(table->sgl), get_order(chunk_size));
+	struct scatterlist *sg;
+	int i;
+
+	for_each_sg(table->sgl, sg, table->nents, i)
+		__free_pages(sg_page(sg), get_order(chunk_size));
 	sg_free_table(table);
 }
 
@@ -1067,6 +1072,76 @@ out:
 	return ret;
 }
 
+static int __functional_dma_api_map_sg_test(struct device *dev,
+					   struct seq_file *s,
+					   struct iommu_domain *domain,
+					   size_t sizes[])
+{
+	const size_t *sz;
+	int i, ret = 0, count = 0;
+	dma_addr_t iova;
+	phys_addr_t pa, pa2;
+
+	ds_printf(dev, s, "Map SG DMA API test\n");
+
+	for (sz = sizes; *sz; ++sz) {
+		size_t size = *sz;
+		struct sg_table table;
+		unsigned long chunk_size = SZ_4K;
+		struct scatterlist *sg;
+
+		/* Build us a table */
+		ret = iommu_debug_build_phoney_sg_table(dev, &table, size,
+				chunk_size);
+		if (ret) {
+			seq_puts(s,
+				"couldn't build phoney sg table! bailing...\n");
+			goto out;
+		}
+		count = dma_map_sg(dev, table.sgl, table.nents,
+				DMA_BIDIRECTIONAL);
+		if (!count) {
+			ret = -EINVAL;
+			goto destroy_table;
+		}
+		/* Check mappings... */
+		for_each_sg(table.sgl, sg, count, i) {
+			iova = sg_dma_address(sg);
+			pa = iommu_iova_to_phys(domain, iova);
+			pa2 = iommu_iova_to_phys_hard(domain, iova);
+			if (pa != pa2) {
+				dev_err(dev,
+					"iova_to_phys doesn't match iova_to_phys_hard: %pa != %pa\n",
+					&pa, &pa2);
+				ret = -EINVAL;
+				goto unmap;
+			}
+			/* check mappings at end of buffer */
+			iova += sg_dma_len(sg) - 1;
+			pa = iommu_iova_to_phys(domain, iova);
+			pa2 = iommu_iova_to_phys_hard(domain, iova);
+			if (pa != pa2) {
+				dev_err(dev,
+					"iova_to_phys doesn't match iova_to_phys_hard: %pa != %pa\n",
+					&pa, &pa2);
+				ret = -EINVAL;
+				goto unmap;
+			}
+		}
+unmap:
+		dma_unmap_sg(dev, table.sgl, table.nents, DMA_BIDIRECTIONAL);
+destroy_table:
+		iommu_debug_destroy_phoney_sg_table(dev, &table, chunk_size);
+	}
+out:
+	if (ret)
+		ds_printf(dev, s, "  -> FAILED\n");
+	else
+		ds_printf(dev, s, "  -> SUCCEEDED\n");
+
+	return ret;
+}
+
 /* Creates a fresh fast mapping and applies @fn to it */
 static int __apply_to_new_mapping(struct seq_file *s,
 				    int (*fn)(struct device *dev,
@@ -1162,6 +1237,7 @@ static int iommu_debug_functional_arm_dma_api_show(struct seq_file *s,
 
 	ret = __functional_dma_api_alloc_test(dev, s, mapping->domain, sizes);
 	ret |= __functional_dma_api_basic_test(dev, s, mapping->domain, sizes);
+	ret |= __functional_dma_api_map_sg_test(dev, s, mapping->domain, sizes);
 
 	arm_iommu_detach_device(dev);
 out_release_mapping:
