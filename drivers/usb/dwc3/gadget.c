@@ -989,7 +989,7 @@ static void dwc3_prepare_one_trb(struct dwc3_ep *dep,
 			 */
 			if (speed == USB_SPEED_HIGH) {
 				struct usb_ep *ep = &dep->endpoint;
-				unsigned int mult = ep->mult - 1;
+				unsigned int mult = 2;
 				unsigned int maxp;
 
 				maxp = usb_endpoint_maxp(ep->desc) & 0x07ff;
