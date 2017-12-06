@@ -371,4 +371,7 @@
 	xo-therm-mdm-step {
 		status = "disabled";
 	};
+	xo-therm-batt-step {
+		status = "disabled";
+	};
 };

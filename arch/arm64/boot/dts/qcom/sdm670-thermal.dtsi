@@ -1539,7 +1539,7 @@
 				type = "passive";
 			};
 			silver_trip1: silver-trip1 {
-				temperature = <48000>;
+				temperature = <50000>;
 				hysteresis = <0>;
 				type = "passive";
 			};
@@ -1606,7 +1606,7 @@
 			};
 			modem_trip2: modem-trip2 {
 				temperature = <48000>;
-				hysteresis = <2000>;
+				hysteresis = <3000>;
 				type = "passive";
 			};
 			modem_trip3: modem-trip3 {
