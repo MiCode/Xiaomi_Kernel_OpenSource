@@ -88,8 +88,12 @@ int btfm_slim_chrk_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
 
 	BTFMSLIM_DBG("port(%d) enable(%d)", port_num, enable);
 	if (rxport) {
-		if (enable) {
-			/* For SCO Rx, A2DP Rx */
+		BTFMSLIM_DBG("sample rate is %d", btfmslim->sample_rate);
+		if (enable &&
+			btfmslim->sample_rate != 44100 &&
+			btfmslim->sample_rate != 88200) {
+			BTFMSLIM_DBG("setting multichannel bit");
+			/* For SCO Rx, A2DP Rx other than 44.1 and 88.2Khz */
 			if (port_num < 24) {
 				rxport_num = port_num - 16;
 				reg_val = 0x01 << rxport_num;
