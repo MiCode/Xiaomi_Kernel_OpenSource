@@ -2547,6 +2547,16 @@
 			< MHZ_TO_MBPS(1804, 4) >; /* 6881 MB/s */
 	};
 
+	snoc_cnoc_keepalive: qcom,snoc_cnoc_keepalive {
+		compatible = "qcom,devbw";
+		governor = "powersave";
+		qcom,src-dst-ports = <139 627>;
+		qcom,active-only;
+		status = "ok";
+		qcom,bw-tbl =
+			< 1 >;
+	};
+
 	devfreq_memlat_0: qcom,cpu0-memlat-mon {
 		compatible = "qcom,arm-memlat-mon";
 		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3 &CPU4 &CPU5>;
