@@ -2174,6 +2174,12 @@ static int icnss_pd_restart_complete(struct icnss_priv *priv)
 	if (!priv->ops || !priv->ops->reinit)
 		goto out;
 
+	if (test_bit(ICNSS_FW_DOWN, &priv->state)) {
+		icnss_pr_err("FW is in bad state, state: 0x%lx\n",
+			     priv->state);
+		goto out;
+	}
+
 	if (!test_bit(ICNSS_DRIVER_PROBED, &priv->state))
 		goto call_probe;
 
