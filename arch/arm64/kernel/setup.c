@@ -63,6 +63,7 @@
 #include <asm/efi.h>
 #include <asm/xen/hypervisor.h>
 #include <asm/mmu_context.h>
+#include <asm/system_misc.h>
 
 phys_addr_t __fdt_pointer __initdata;
 
@@ -183,10 +184,15 @@ static void __init smp_build_mpidr_hash(void)
 		pr_warn("Large number of MPIDR hash buckets detected\n");
 }
 
+const char * __init __weak arch_read_machine_name(void)
+{
+	return of_flat_dt_get_machine_name();
+}
+
 static void __init setup_machine_fdt(phys_addr_t dt_phys)
 {
 	void *dt_virt = fixmap_remap_fdt(dt_phys);
-	const char *name;
+	const char *machine_name;
 
 	if (!dt_virt || !early_init_dt_scan(dt_virt)) {
 		pr_crit("\n"
@@ -199,12 +205,12 @@ static void __init setup_machine_fdt(phys_addr_t dt_phys)
 			cpu_relax();
 	}
 
-	name = of_flat_dt_get_machine_name();
-	if (!name)
+	machine_name = arch_read_machine_name();
+	if (!machine_name)
 		return;
 
-	pr_info("Machine model: %s\n", name);
-	dump_stack_set_arch_desc("%s (DT)", name);
+	pr_info("Machine: %s\n", machine_name);
+	dump_stack_set_arch_desc("%s (DT)", machine_name);
 }
 
 static void __init request_standard_resources(void)
