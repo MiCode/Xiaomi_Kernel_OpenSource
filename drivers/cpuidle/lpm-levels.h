@@ -109,8 +109,6 @@ struct lpm_cluster {
 	struct hrtimer histtimer;
 };
 
-void lpm_suspend_wake_time(uint64_t wakeup_time);
-
 struct lpm_cluster *lpm_of_parse_cluster(struct platform_device *pdev);
 void free_cluster_node(struct lpm_cluster *cluster);
 void cluster_dt_walkthrough(struct lpm_cluster *cluster);
