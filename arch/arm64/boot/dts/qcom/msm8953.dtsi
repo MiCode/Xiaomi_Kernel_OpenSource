@@ -23,7 +23,7 @@
 	compatible = "qcom,msm8953";
 	qcom,msm-id = <293 0x0>;
 	qcom,msm-name = "MSM8953";
-	interrupt-parent = <&intc>;
+	interrupt-parent = <&wakegic>;
 
 	chosen {
 		bootargs = "sched_enable_hmp=1 sched_enable_power_aware=1";
@@ -198,9 +198,26 @@
 	intc: interrupt-controller@b000000 {
 		compatible = "qcom,msm-qgic2";
 		interrupt-controller;
+		interrupt-parent = <&intc>;
 		#interrupt-cells = <3>;
 		reg = <0x0b000000 0x1000>,
 		      <0x0b002000 0x1000>;
+	};
+
+	mpm: mpm@601d4 {
+		compatible = "qcom,mpm";
+		interrupts = <GIC_SPI 171 IRQ_TYPE_EDGE_RISING>;
+		reg = <0x601d4 0x1000>,
+			<0xb011008 0x4>;  /* MSM_APCS_GCC_BASE 4K */
+		reg-names = "vmpm", "ipc";
+		qcom,num-mpm-irqs = <96>;
+
+		wakegic: wake-gic {
+			compatible = "qcom,mpm-gic", "qcom,mpm-gic-msm8953";
+			interrupt-controller;
+			interrupt-parent = <&intc>;
+			#interrupt-cells = <3>;
+		};
 	};
 
 	qcom,msm-gladiator@b1c0000 {
