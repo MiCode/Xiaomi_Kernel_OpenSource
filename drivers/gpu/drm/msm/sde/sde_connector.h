@@ -287,6 +287,9 @@ struct sde_connector_evt {
  * @bl_device: backlight device node
  * @status_work: work object to perform status checks
  * @force_panel_dead: variable to trigger forced ESD recovery
+ * @bl_scale_dirty: Flag to indicate PP BL scale value(s) is changed
+ * @bl_scale: BL scale value for ABA feature
+ * @bl_scale_ad: BL scale value for AD feature
  */
 struct sde_connector {
 	struct drm_connector base;
@@ -323,6 +326,10 @@ struct sde_connector {
 	struct backlight_device *bl_device;
 	struct delayed_work status_work;
 	u32 force_panel_dead;
+
+	bool bl_scale_dirty;
+	u32 bl_scale;
+	u32 bl_scale_ad;
 };
 
 /**
