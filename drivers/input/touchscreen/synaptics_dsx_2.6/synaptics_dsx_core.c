@@ -56,8 +56,6 @@
 #define TYPE_B_PROTOCOL
 #endif
 
-#define WAKEUP_GESTURE true
-
 #define NO_0D_WHILE_2D
 #define REPORT_2D_Z
 #define REPORT_2D_W
@@ -1014,8 +1012,10 @@ static ssize_t synaptics_rmi4_wake_gesture_store(struct device *dev,
 
 	input = input > 0 ? 1 : 0;
 
-	if (rmi4_data->f11_wakeup_gesture || rmi4_data->f12_wakeup_gesture)
+	if (rmi4_data->f11_wakeup_gesture || rmi4_data->f12_wakeup_gesture) {
 		rmi4_data->enable_wakeup_gesture = input;
+		rmi4_data->wakeup_gesture_en = input;
+	}
 
 	return count;
 }
@@ -3112,7 +3112,7 @@ flash_prog_mode:
 	}
 
 	if (rmi4_data->f11_wakeup_gesture || rmi4_data->f12_wakeup_gesture)
-		rmi4_data->enable_wakeup_gesture = WAKEUP_GESTURE;
+		rmi4_data->enable_wakeup_gesture = rmi4_data->wakeup_gesture_en;
 	else
 		rmi4_data->enable_wakeup_gesture = false;
 
@@ -3952,6 +3952,7 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 	rmi4_data->suspend = false;
 	rmi4_data->irq_enabled = false;
 	rmi4_data->fingers_on_2d = false;
+	rmi4_data->wakeup_gesture_en = bdata->wakeup_gesture_en;
 
 	rmi4_data->reset_device = synaptics_rmi4_reset_device;
 	rmi4_data->irq_enable = synaptics_rmi4_irq_enable;
