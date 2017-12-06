@@ -7583,6 +7583,7 @@ static const struct ieee80211_ops ath10k_ops = {
 	.suspend			= ath10k_wow_op_suspend,
 	.resume				= ath10k_wow_op_resume,
 	.set_wakeup			= ath10k_wow_op_set_wakeup,
+	.set_rekey_data			= ath10k_wow_op_set_rekey_data,
 #endif
 #ifdef CONFIG_MAC80211_DEBUGFS
 	.sta_add_debugfs		= ath10k_sta_add_debugfs,
