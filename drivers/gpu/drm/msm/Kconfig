@@ -3,7 +3,7 @@ config DRM_MSM
 	tristate "MSM DRM"
 	depends on DRM
 	depends on ARCH_QCOM || (ARM && COMPILE_TEST)
-	depends on OF && COMMON_CLK
+	depends on OF
 	depends on MMU
 	select QCOM_MDT_LOADER if ARCH_QCOM
 	select REGULATOR
@@ -41,6 +41,7 @@ config DRM_MSM_HDMI_HDCP
 config DRM_MSM_HDMI
 	bool "Enable HDMI support in MSM DRM driver"
 	depends on DRM_MSM
+	depends on COMMON_CLK
 	default n
 	help
 	  Compile in support for HDMI driver in msm drm
