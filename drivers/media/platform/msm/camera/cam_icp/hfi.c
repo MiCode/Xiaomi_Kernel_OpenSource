@@ -40,6 +40,8 @@
 #define HFI_VERSION_INFO_STEP_BMSK   0xFF
 #define HFI_VERSION_INFO_STEP_SHFT  0
 
+#define HFI_MAX_POLL_TRY 5
+
 static struct hfi_info *g_hfi;
 unsigned int g_icp_mmu_hdl;
 static DEFINE_MUTEX(hfi_cmd_q_mutex);
@@ -248,7 +250,7 @@ int hfi_cmd_ubwc_config(uint32_t *ubwc_cfg)
 	return 0;
 }
 
-int hfi_enable_ipe_bps_pc(bool enable)
+int hfi_enable_ipe_bps_pc(bool enable, uint32_t core_info)
 {
 	uint8_t *prop;
 	struct hfi_cmd_prop *dbg_prop;
@@ -267,6 +269,7 @@ int hfi_enable_ipe_bps_pc(bool enable)
 	dbg_prop->num_prop = 1;
 	dbg_prop->prop_data[0] = HFI_PROP_SYS_IPEBPS_PC;
 	dbg_prop->prop_data[1] = enable;
+	dbg_prop->prop_data[2] = core_info;
 
 	hfi_write_cmd(prop);
 	kfree(prop);
@@ -420,14 +423,28 @@ void cam_hfi_disable_cpu(void __iomem *icp_base)
 {
 	uint32_t data;
 	uint32_t val;
+	uint32_t try = 0;
 
-	data = cam_io_r(icp_base + HFI_REG_A5_CSR_A5_STATUS);
-	/* Add waiting logic in case it is not idle */
-	if (data & ICP_CSR_A5_STATUS_WFI) {
-		val = cam_io_r(icp_base + HFI_REG_A5_CSR_A5_CONTROL);
-		val &= ~(ICP_FLAG_CSR_A5_EN | ICP_FLAG_CSR_WAKE_UP_EN);
-		cam_io_w(val, icp_base + HFI_REG_A5_CSR_A5_CONTROL);
+	while (try < HFI_MAX_POLL_TRY) {
+		data = cam_io_r(icp_base + HFI_REG_A5_CSR_A5_STATUS);
+		CAM_DBG(CAM_HFI, "wfi status = %x\n", (int)data);
+
+		if (data & ICP_CSR_A5_STATUS_WFI)
+			break;
+		/* Need to poll here to confirm that FW is going trigger wfi
+		 * and Host can the proceed. No interrupt is expected from FW
+		 * at this time.
+		 */
+		msleep(100);
+		try++;
 	}
+
+	val = cam_io_r(icp_base + HFI_REG_A5_CSR_A5_CONTROL);
+	val &= ~(ICP_FLAG_CSR_A5_EN | ICP_FLAG_CSR_WAKE_UP_EN);
+	cam_io_w(val, icp_base + HFI_REG_A5_CSR_A5_CONTROL);
+
+	val = cam_io_r(icp_base + HFI_REG_A5_CSR_NSEC_RESET);
+	cam_io_w(val, icp_base + HFI_REG_A5_CSR_NSEC_RESET);
 }
 
 void cam_hfi_enable_cpu(void __iomem *icp_base)
@@ -435,6 +452,64 @@ void cam_hfi_enable_cpu(void __iomem *icp_base)
 	cam_io_w((uint32_t)ICP_FLAG_CSR_A5_EN,
 			icp_base + HFI_REG_A5_CSR_A5_CONTROL);
 	cam_io_w((uint32_t)0x10, icp_base + HFI_REG_A5_CSR_NSEC_RESET);
+}
+
+int cam_hfi_resume(struct hfi_mem_info *hfi_mem,
+	void __iomem *icp_base, bool debug)
+{
+	int rc = 0;
+	uint32_t data;
+	uint32_t fw_version, status = 0;
+
+	cam_hfi_enable_cpu(icp_base);
+	g_hfi->csr_base = icp_base;
+
+	rc = readw_poll_timeout((icp_base + HFI_REG_ICP_HOST_INIT_RESPONSE),
+		status, status != ICP_INIT_RESP_SUCCESS, 15, 200);
+
+	if (rc) {
+		CAM_ERR(CAM_HFI, "timed out , status = %u", status);
+		return -EINVAL;
+	}
+
+	fw_version = cam_io_r(icp_base + HFI_REG_FW_VERSION);
+	CAM_DBG(CAM_HFI, "fw version : [%x]", fw_version);
+
+	cam_io_w((uint32_t)INTR_ENABLE, icp_base + HFI_REG_A5_CSR_A2HOSTINTEN);
+
+	if (debug) {
+		cam_io_w_mb(ICP_FLAG_A5_CTRL_DBG_EN,
+			(icp_base + HFI_REG_A5_CSR_A5_CONTROL));
+
+		/* Barrier needed as next write should be done after
+		 * sucessful previous write. Next write enable clock
+		 * gating
+		 */
+		wmb();
+
+		cam_io_w_mb((uint32_t)ICP_FLAG_A5_CTRL_EN,
+			icp_base + HFI_REG_A5_CSR_A5_CONTROL);
+
+	} else {
+		cam_io_w_mb((uint32_t)ICP_FLAG_A5_CTRL_EN,
+			icp_base + HFI_REG_A5_CSR_A5_CONTROL);
+	}
+
+	data = cam_io_r(icp_base + HFI_REG_A5_CSR_A5_STATUS);
+	CAM_DBG(CAM_HFI, "wfi status = %x", (int)data);
+
+	cam_io_w((uint32_t)hfi_mem->qtbl.iova, icp_base + HFI_REG_QTBL_PTR);
+	cam_io_w((uint32_t)hfi_mem->shmem.iova,
+		icp_base + HFI_REG_SHARED_MEM_PTR);
+	cam_io_w((uint32_t)hfi_mem->shmem.len,
+		icp_base + HFI_REG_SHARED_MEM_SIZE);
+	cam_io_w((uint32_t)hfi_mem->sec_heap.iova,
+		icp_base + HFI_REG_UNCACHED_HEAP_PTR);
+	cam_io_w((uint32_t)hfi_mem->sec_heap.len,
+		icp_base + HFI_REG_UNCACHED_HEAP_SIZE);
+
+	cam_io_w((uint32_t)INTR_ENABLE, icp_base + HFI_REG_A5_CSR_A2HOSTINTEN);
+	return rc;
 }
 
 int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
