@@ -1169,13 +1169,19 @@ static int cam_vfe_bus_handle_wm_done_top_half(uint32_t evt_id,
 
 	rsrc_data = wm_res->res_priv;
 
-	CAM_DBG(CAM_ISP, "IRQ status_0 = %x", th_payload->evt_status_arr[0]);
-	CAM_DBG(CAM_ISP, "IRQ status_1 = %x", th_payload->evt_status_arr[1]);
+	CAM_DBG(CAM_ISP, "IRQ status_0 = 0x%x", th_payload->evt_status_arr[0]);
+	CAM_DBG(CAM_ISP, "IRQ status_1 = 0x%x", th_payload->evt_status_arr[1]);
 
 	rc  = cam_vfe_bus_get_evt_payload(rsrc_data->common_data, &evt_payload);
 	if (rc) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP,
 			"No tasklet_cmd is free in queue");
+		CAM_ERR_RATE_LIMIT(CAM_ISP,
+			"IRQ status_0 = 0x%x status_1 = 0x%x status_2 = 0x%x",
+			th_payload->evt_status_arr[0],
+			th_payload->evt_status_arr[1],
+			th_payload->evt_status_arr[2]);
+
 		return rc;
 	}
 
@@ -1665,14 +1671,20 @@ static int cam_vfe_bus_handle_comp_done_top_half(uint32_t evt_id,
 
 	rsrc_data = comp_grp->res_priv;
 
-	CAM_DBG(CAM_ISP, "IRQ status_0 = %x", th_payload->evt_status_arr[0]);
-	CAM_DBG(CAM_ISP, "IRQ status_1 = %x", th_payload->evt_status_arr[1]);
-	CAM_DBG(CAM_ISP, "IRQ status_2 = %x", th_payload->evt_status_arr[2]);
+	CAM_DBG(CAM_ISP, "IRQ status_0 = 0x%x", th_payload->evt_status_arr[0]);
+	CAM_DBG(CAM_ISP, "IRQ status_1 = 0x%x", th_payload->evt_status_arr[1]);
+	CAM_DBG(CAM_ISP, "IRQ status_2 = 0x%x", th_payload->evt_status_arr[2]);
 
 	rc  = cam_vfe_bus_get_evt_payload(rsrc_data->common_data, &evt_payload);
 	if (rc) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP,
 			"No tasklet_cmd is free in queue");
+		CAM_ERR_RATE_LIMIT(CAM_ISP,
+			"IRQ status_0 = 0x%x status_1 = 0x%x status_2 = 0x%x",
+			th_payload->evt_status_arr[0],
+			th_payload->evt_status_arr[1],
+			th_payload->evt_status_arr[2]);
+
 		return rc;
 	}
 
