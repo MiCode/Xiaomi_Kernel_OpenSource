@@ -13,11 +13,9 @@
 
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
-
 #include <soc/qcom/rpmh.h>
-#include <soc/qcom/system_pm.h>
-
 #include <clocksource/arm_arch_timer.h>
+#include <soc/qcom/lpm_levels.h>
 
 #define PDC_TIME_VALID_SHIFT	31
 #define PDC_TIME_UPPER_MASK	0xFFFFFF
@@ -35,7 +33,7 @@ static int setup_wakeup(uint32_t lo, uint32_t hi)
 	return rpmh_write_control(rpmh_client, cmd, ARRAY_SIZE(cmd));
 }
 
-int system_sleep_update_wakeup(void)
+static int system_sleep_update_wakeup(bool from_idle)
 {
 	uint32_t lo = ~0U, hi = ~0U;
 
@@ -44,16 +42,14 @@ int system_sleep_update_wakeup(void)
 
 	return setup_wakeup(lo, hi);
 }
-EXPORT_SYMBOL(system_sleep_update_wakeup);
 
 /**
  * system_sleep_allowed() - Returns if its okay to enter system low power modes
  */
-bool system_sleep_allowed(void)
+static bool system_sleep_allowed(void)
 {
 	return (rpmh_ctrlr_idle(rpmh_client) == 0);
 }
-EXPORT_SYMBOL(system_sleep_allowed);
 
 /**
  * system_sleep_enter() - Activties done when entering system low power modes
@@ -61,22 +57,24 @@ EXPORT_SYMBOL(system_sleep_allowed);
  * Returns 0 for success or error values from writing the sleep/wake values to
  * the hardware block.
  */
-int system_sleep_enter(void)
+static int system_sleep_enter(struct cpumask *mask)
 {
-	if (IS_ERR_OR_NULL(rpmh_client))
-		return -EFAULT;
-
 	return rpmh_flush(rpmh_client);
 }
-EXPORT_SYMBOL(system_sleep_enter);
 
 /**
  * system_sleep_exit() - Activities done when exiting system low power modes
  */
-void system_sleep_exit(void)
+static void system_sleep_exit(void)
 {
 }
-EXPORT_SYMBOL(system_sleep_exit);
+
+static struct system_pm_ops pm_ops = {
+	.enter = system_sleep_enter,
+	.exit = system_sleep_exit,
+	.update_wakeup = system_sleep_update_wakeup,
+	.sleep_allowed = system_sleep_allowed,
+};
 
 static int sys_pm_probe(struct platform_device *pdev)
 {
@@ -84,7 +82,7 @@ static int sys_pm_probe(struct platform_device *pdev)
 	if (IS_ERR_OR_NULL(rpmh_client))
 		return PTR_ERR(rpmh_client);
 
-	return 0;
+	return register_system_pm_ops(&pm_ops);
 }
 
 static const struct of_device_id sys_pm_drv_match[] = {
