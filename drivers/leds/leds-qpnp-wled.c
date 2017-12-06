@@ -210,6 +210,7 @@
 #define QPNP_WLED_SEC_ACCESS_REG(b)    (b + 0xD0)
 #define QPNP_WLED_SEC_UNLOCK           0xA5
 
+#define NUM_DDIC_CODES			256
 #define QPNP_WLED_MAX_STRINGS		4
 #define QPNP_PM660_WLED_MAX_STRINGS	3
 #define WLED_MAX_LEVEL_4095		4095
@@ -340,6 +341,10 @@ static struct wled_vref_setting vref_setting_pmi8998 = {
  *  @ ramp_ms - delay between ramp steps in ms
  *  @ ramp_step - ramp step size
  *  @ cons_sync_write_delay_us - delay between two consecutive writes to SYNC
+ *  @ auto_calibration_ovp_count - OVP fault irq count to run auto calibration
+ *  @ max_strings - Number of strings supported in WLED peripheral
+ *  @ prev_level - Previous brightness level
+ *  @ brt_map_table - Brightness map table
  *  @ strings - supported list of strings
  *  @ num_strings - number of strings
  *  @ loop_auto_gm_thresh - the clamping level for auto gm
@@ -353,6 +358,12 @@ static struct wled_vref_setting vref_setting_pmi8998 = {
  *  @ en_cabc - enable or disable cabc
  *  @ disp_type_amoled - type of display: LCD/AMOLED
  *  @ en_ext_pfet_sc_pro - enable sc protection on external pfet
+ *  @ prev_state - previous state of WLED
+ *  @ ovp_irq_disabled - OVP interrupt disable status
+ *  @ auto_calib_enabled - Flag to enable auto calibration feature
+ *  @ auto_calib_done - Flag to indicate auto calibration is done
+ *  @ module_dis_perm - Flat to keep module permanently disabled
+ *  @ start_ovp_fault_time - Time when the OVP fault first occurred
  */
 struct qpnp_wled {
 	struct led_classdev	cdev;
@@ -388,6 +399,8 @@ struct qpnp_wled {
 	u16			cons_sync_write_delay_us;
 	u16			auto_calibration_ovp_count;
 	u16			max_strings;
+	u16			prev_level;
+	u16			*brt_map_table;
 	u8			strings[QPNP_WLED_MAX_STRINGS];
 	u8			num_strings;
 	u8			loop_auto_gm_thresh;
@@ -568,6 +581,33 @@ static int qpnp_wled_set_level(struct qpnp_wled *wled, int level)
 	if (rc < 0) {
 		dev_err(&wled->pdev->dev, "Failed to toggle sync reg %d\n", rc);
 		return rc;
+	}
+
+	return 0;
+}
+
+static int qpnp_wled_set_map_level(struct qpnp_wled *wled, int level)
+{
+	int rc, i;
+
+	if (level < wled->prev_level) {
+		for (i = wled->prev_level; i >= level; i--) {
+			rc = qpnp_wled_set_level(wled, wled->brt_map_table[i]);
+			if (rc < 0) {
+				pr_err("set brightness level failed, rc:%d\n",
+					rc);
+				return rc;
+			}
+		}
+	} else if (level > wled->prev_level) {
+		for (i = wled->prev_level; i <= level; i++) {
+			rc = qpnp_wled_set_level(wled, wled->brt_map_table[i]);
+			if (rc < 0) {
+				pr_err("set brightness level failed, rc:%d\n",
+					rc);
+				return rc;
+			}
+		}
 	}
 
 	return 0;
@@ -942,15 +982,30 @@ static struct device_attribute qpnp_wled_attrs[] = {
 static void qpnp_wled_work(struct work_struct *work)
 {
 	struct qpnp_wled *wled;
-	int level, rc;
+	int level, level_255, rc;
 
 	wled = container_of(work, struct qpnp_wled, work);
 
+	mutex_lock(&wled->lock);
 	level = wled->cdev.brightness;
 
-	mutex_lock(&wled->lock);
+	if (wled->brt_map_table) {
+		/*
+		 * Change the 12 bit level to 8 bit level and use the mapped
+		 * values for 12 bit level from brightness map table.
+		 */
+		level_255 = DIV_ROUND_CLOSEST(level, 16);
+		if (level_255 > 255)
+			level_255 = 255;
 
-	if (level) {
+		pr_debug("level: %d level_255: %d\n", level, level_255);
+		rc = qpnp_wled_set_map_level(wled, level_255);
+		if (rc) {
+			dev_err(&wled->pdev->dev, "wled set level failed\n");
+			goto unlock_mutex;
+		}
+		wled->prev_level = level_255;
+	} else if (level) {
 		rc = qpnp_wled_set_level(wled, level);
 		if (rc) {
 			dev_err(&wled->pdev->dev, "wled set level failed\n");
@@ -2115,7 +2170,7 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 	struct property *prop;
 	const char *temp_str;
 	u32 temp_val;
-	int rc, i;
+	int rc, i, size;
 	u8 *strings;
 
 	wled->cdev.name = "wled";
@@ -2132,6 +2187,43 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 	if (rc && (rc != -EINVAL)) {
 		dev_err(&pdev->dev, "Unable to read led trigger\n");
 		return rc;
+	}
+
+	if (of_find_property(pdev->dev.of_node, "qcom,wled-brightness-map",
+			NULL)) {
+		size = of_property_count_elems_of_size(pdev->dev.of_node,
+				"qcom,wled-brightness-map", sizeof(u16));
+		if (size != NUM_DDIC_CODES) {
+			pr_err("Invalid WLED brightness map size:%d\n", size);
+			return rc;
+		}
+
+		wled->brt_map_table = devm_kcalloc(&pdev->dev, NUM_DDIC_CODES,
+						sizeof(u16), GFP_KERNEL);
+		if (!wled->brt_map_table)
+			return -ENOMEM;
+
+		rc = of_property_read_u16_array(pdev->dev.of_node,
+			"qcom,wled-brightness-map", wled->brt_map_table,
+			NUM_DDIC_CODES);
+		if (rc < 0) {
+			pr_err("Error in reading WLED brightness map, rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		for (i = 0; i < NUM_DDIC_CODES; i++) {
+			if (wled->brt_map_table[i] > WLED_MAX_LEVEL_4095) {
+				pr_err("WLED brightness map not in range\n");
+				return -EDOM;
+			}
+
+			if ((i > 1) && wled->brt_map_table[i]
+						< wled->brt_map_table[i - 1]) {
+				pr_err("WLED brightness map not in ascending order?\n");
+				return -EDOM;
+			}
+		}
 	}
 
 	wled->disp_type_amoled = of_property_read_bool(pdev->dev.of_node,
