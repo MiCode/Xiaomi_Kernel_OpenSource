@@ -61,6 +61,9 @@ int adreno_get_param(struct msm_gpu *gpu, uint32_t param, uint64_t *value)
 	case MSM_PARAM_NR_RINGS:
 		*value = gpu->nr_rings;
 		return 0;
+	case MSM_PARAM_GPU_HANG_TIMEOUT:
+		*value = DRM_MSM_HANGCHECK_PERIOD;
+		return 0;
 	default:
 		DBG("%s: invalid param: %u", gpu->name, param);
 		return -EINVAL;
