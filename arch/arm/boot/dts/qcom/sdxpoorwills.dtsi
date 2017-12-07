@@ -518,7 +518,7 @@
 		reg = <0xc300000 0x400>,
 			<0x17811008 0x4>;
 		reg-names = "msgram", "irq-reg-base";
-		qcom,irq-mask = <0x1>;
+		qcom,irq-mask = <0x2>;
 		interrupts = <GIC_SPI 221 IRQ_TYPE_EDGE_RISING>;
 		priority = <0>;
 		mbox-desc-offset = <0x0>;
