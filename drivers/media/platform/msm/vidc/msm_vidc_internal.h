@@ -410,6 +410,7 @@ struct msm_vidc_inst {
 	u32 level;
 	u32 entropy_mode;
 	struct msm_vidc_codec_data *codec_data;
+	struct hal_hdr10_pq_sei hdr10_sei_params;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
