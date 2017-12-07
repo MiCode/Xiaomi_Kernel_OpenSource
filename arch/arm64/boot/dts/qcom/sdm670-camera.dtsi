@@ -229,6 +229,7 @@
 	qcom,cam_smmu {
 		compatible = "qcom,msm-cam-smmu";
 		status = "ok";
+		non-fatal-fault-disabled;
 
 		msm_cam_smmu_lrme {
 			compatible = "qcom,msm-cam-smmu-cb";
