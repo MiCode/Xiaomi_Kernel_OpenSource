@@ -59,6 +59,7 @@ static const char *const pmic_names[] = {
 	[PM8937_SUBTYPE] = "PM8937",
 	[PM660L_SUBTYPE] = "PM660L",
 	[PM660_SUBTYPE] = "PM660",
+	[PMI632_SUBTYPE] = "PMI632",
 	[PMI8937_SUBTYPE] = "PMI8937",
 	[PM855_SUBTYPE] = "PM855",
 	[PM855B_SUBTYPE] = "PM855B",
