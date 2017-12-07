@@ -345,6 +345,7 @@
 		compatible = "qcom,pil-tz-generic";
 		qcom,pas-id = <0xf>;
 		qcom,firmware-name = "ipa_fws";
+		qcom,pil-force-shutdown;
 	};
 
 	spmi_bus: qcom,spmi@c440000 {
