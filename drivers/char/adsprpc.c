@@ -1662,6 +1662,10 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		inbuf.filelen = init->filelen;
 		fl->pd = 1;
 
+		VERIFY(err, access_ok(0, (void __user *)init->file,
+			init->filelen));
+		if (err)
+			goto bail;
 		if (init->filelen) {
 			VERIFY(err, !fastrpc_mmap_create(fl, init->filefd, 0,
 				init->file, init->filelen, mflags, &file));
@@ -1669,7 +1673,10 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 				goto bail;
 		}
 		inbuf.pageslen = 1;
-
+		VERIFY(err, access_ok(1, (void __user *)init->mem,
+			init->memlen));
+		if (err)
+			goto bail;
 		VERIFY(err, !fastrpc_mmap_create(fl, init->memfd, 0,
 				init->mem, init->memlen, mflags, &mem));
 		if (err)
