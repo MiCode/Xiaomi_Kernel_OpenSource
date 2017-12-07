@@ -268,7 +268,7 @@ static void programmable_rot_fetch_config(struct sde_encoder_phys *phys_enc,
 
 	timing = &vid_enc->timing_params;
 	vfp_fetch_lines = programmable_fetch_get_num_lines(vid_enc, timing);
-	if (vfp_fetch_lines && rot_fetch_lines) {
+	if (rot_fetch_lines) {
 		vert_total = get_vertical_total(timing);
 		horiz_total = get_horizontal_total(timing);
 		if (vert_total >= (vfp_fetch_lines + rot_fetch_lines)) {
@@ -277,6 +277,13 @@ static void programmable_rot_fetch_config(struct sde_encoder_phys *phys_enc,
 			    horiz_total + 1;
 			f.enable = 1;
 			f.fetch_start = rot_fetch_start_vsync_counter;
+		} else {
+			SDE_ERROR_VIDENC(vid_enc,
+				"vert_total %u rot_fetch_lines %u vfp_fetch_lines %u\n",
+				vert_total, rot_fetch_lines, vfp_fetch_lines);
+			SDE_EVT32(DRMID(phys_enc->parent), vert_total,
+				rot_fetch_lines, vfp_fetch_lines,
+				SDE_EVTLOG_ERROR);
 		}
 	}
 
