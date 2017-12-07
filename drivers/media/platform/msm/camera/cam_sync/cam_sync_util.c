@@ -306,6 +306,10 @@ int cam_sync_deinit_object(struct sync_table_row *table, uint32_t idx)
 	row->state = CAM_SYNC_STATE_INVALID;
 	memset(row, 0, sizeof(*row));
 	clear_bit(idx, sync_dev->bitmap);
+	INIT_LIST_HEAD(&row->callback_list);
+	INIT_LIST_HEAD(&row->parents_list);
+	INIT_LIST_HEAD(&row->children_list);
+	INIT_LIST_HEAD(&row->user_payload_list);
 	spin_unlock_bh(&sync_dev->row_spinlocks[idx]);
 
 	return 0;
