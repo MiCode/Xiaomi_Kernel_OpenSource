@@ -993,6 +993,7 @@ void gbridge_disconnect(void *gptr, u8 portno)
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	port->is_connected = false;
+	gser->notify_modem = NULL;
 	port->port_usb = NULL;
 	port->nbytes_from_host = port->nbytes_to_host = 0;
 	port->nbytes_to_port_bridge = 0;
