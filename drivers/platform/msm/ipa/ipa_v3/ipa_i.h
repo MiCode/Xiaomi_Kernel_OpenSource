@@ -1230,6 +1230,8 @@ struct ipa3_context {
 	u32 enable_clock_scaling;
 	u32 curr_ipa_clk_rate;
 	bool q6_proxy_clk_vote_valid;
+	struct mutex q6_proxy_clk_vote_mutex;
+	u32 q6_proxy_clk_vote_cnt;
 	u32 ipa_num_pipes;
 
 	struct ipa3_wlan_comm_memb wc_memb;

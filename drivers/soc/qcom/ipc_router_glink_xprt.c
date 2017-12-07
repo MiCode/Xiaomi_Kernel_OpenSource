@@ -43,6 +43,7 @@ if (ipc_router_glink_xprt_debug_mask) \
 #define MIN_FRAG_SZ (IPC_ROUTER_HDR_SIZE + sizeof(union rr_control_msg))
 #define IPC_RTR_XPRT_NAME_LEN (2 * GLINK_NAME_SIZE)
 #define PIL_SUBSYSTEM_NAME_LEN 32
+#define IPC_RTR_WS_NAME_LEN ((2 * GLINK_NAME_SIZE) + 4)
 
 #define MAX_NUM_LO_INTENTS 5
 #define MAX_NUM_MD_INTENTS 3
@@ -59,6 +60,7 @@ if (ipc_router_glink_xprt_debug_mask) \
  * @transport: Physical Transport Name as identified by Glink.
  * @pil_edge: Edge name understood by PIL.
  * @ipc_rtr_xprt_name: XPRT Name to be registered with IPC Router.
+ * @notify_rx_ws_name: Name of wakesource used in notify rx path.
  * @xprt: IPC Router XPRT structure to contain XPRT specific info.
  * @ch_hndl: Opaque Channel handle returned by GLink.
  * @xprt_wq: Workqueue to queue read & other XPRT related works.
@@ -79,6 +81,7 @@ struct ipc_router_glink_xprt {
 	char transport[GLINK_NAME_SIZE];
 	char pil_edge[PIL_SUBSYSTEM_NAME_LEN];
 	char ipc_rtr_xprt_name[IPC_RTR_XPRT_NAME_LEN];
+	char notify_rx_ws_name[IPC_RTR_WS_NAME_LEN];
 	struct msm_ipc_router_xprt xprt;
 	void *ch_hndl;
 	struct workqueue_struct *xprt_wq;
@@ -763,8 +766,10 @@ static int ipc_router_glink_config_init(
 		kfree(glink_xprtp);
 		return -EFAULT;
 	}
-
-	wakeup_source_init(&glink_xprtp->notify_rxv_ws, xprt_wq_name);
+	scnprintf(glink_xprtp->notify_rx_ws_name, IPC_RTR_WS_NAME_LEN,
+			"%s_%s_rx", glink_xprtp->ch_name, glink_xprtp->edge);
+	wakeup_source_init(&glink_xprtp->notify_rxv_ws,
+				glink_xprtp->notify_rx_ws_name);
 	mutex_lock(&glink_xprt_list_lock_lha1);
 	list_add(&glink_xprtp->list, &glink_xprt_list);
 	mutex_unlock(&glink_xprt_list_lock_lha1);

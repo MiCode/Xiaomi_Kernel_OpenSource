@@ -1399,6 +1399,10 @@ struct wmi_tlv_phyerr_ev {
 	__le32 tsf_l32;
 	__le32 tsf_u32;
 	__le32 buf_len;
+	__le32 pdev_id;
+	__le32 rs_phy_err_mask0;
+	__le32 rs_phy_err_mask1;
+	__le32 rs_phy_err_mask2;
 } __packed;
 
 enum wmi_tlv_dbglog_param {
@@ -1554,6 +1558,13 @@ struct wmi_tlv_wow_add_del_event_cmd {
 
 struct wmi_tlv_wow_enable_cmd {
 	__le32 enable;
+	__le32 pause_iface_config;
+} __packed;
+
+struct wmi_tlv_arp_ns_offload_cmd {
+	__le32 flags;
+	__le32 vdev_id;
+	__le32 num_ns_ext_tuples;
 } __packed;
 
 struct wmi_tlv_wow_host_wakeup_ind {

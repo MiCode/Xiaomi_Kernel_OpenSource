@@ -299,6 +299,7 @@ static int print_sparse_mem_entry(int id, void *ptr, void *data)
 	if (!(m->flags & KGSL_MEMFLAGS_SPARSE_VIRT))
 		return 0;
 
+	spin_lock(&entry->bind_lock);
 	node = rb_first(&entry->bind_tree);
 
 	while (node != NULL) {
@@ -309,6 +310,7 @@ static int print_sparse_mem_entry(int id, void *ptr, void *data)
 				obj->v_off, obj->size, obj->p_off);
 		node = rb_next(node);
 	}
+	spin_unlock(&entry->bind_lock);
 
 	seq_putc(s, '\n');
 
