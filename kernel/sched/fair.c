@@ -5500,6 +5500,19 @@ unsigned long capacity_curr_of(int cpu)
 }
 
 /*
+ * Returns the current capacity of cpu after applying both
+ * cpu and min freq scaling.
+ */
+unsigned long capacity_min_of(int cpu)
+{
+	if (!sched_feat(MIN_CAPACITY_CAPPING))
+		return 0;
+	return arch_scale_cpu_capacity(NULL, cpu) *
+	       arch_scale_min_freq_capacity(NULL, cpu)
+	       >> SCHED_CAPACITY_SHIFT;
+}
+
+/*
  * CPU candidates.
  *
  * These are labels to reference CPU candidates for an energy_diff.
