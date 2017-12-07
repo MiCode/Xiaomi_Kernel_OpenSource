@@ -14,6 +14,20 @@
 #include "cam_lrme_hw_soc.h"
 #include "cam_smmu_api.h"
 
+static void cam_lrme_dump_registers(void __iomem *base)
+{
+	/* dump the clc registers */
+	cam_io_dump(base, 0x60, (0xc0 - 0x60) / 0x4);
+	/* dump the fe and we registers */
+	cam_io_dump(base, 0x200, (0x29c - 0x200) / 0x4);
+	cam_io_dump(base, 0x2f0, (0x330 - 0x2f0) / 0x4);
+	cam_io_dump(base, 0x500, (0x5b4 - 0x500) / 0x4);
+	cam_io_dump(base, 0x700, (0x778 - 0x700) / 0x4);
+	cam_io_dump(base, 0x800, (0x878 - 0x800) / 0x4);
+	/* dump lrme sw registers, interrupts */
+	cam_io_dump(base, 0x900, (0x928 - 0x900) / 0x4);
+}
+
 static void cam_lrme_cdm_write_reg_val_pair(uint32_t *buffer,
 	uint32_t *index, uint32_t reg_offset, uint32_t reg_value)
 {
@@ -64,7 +78,8 @@ static void cam_lrme_hw_util_fill_fe_reg(struct cam_lrme_hw_io_buffer *io_buf,
 		cam_lrme_cdm_write_reg_val_pair(reg_val_pair, num_cmd,
 			hw_info->bus_rd_reg.bus_client_reg[index].unpack_cfg_0,
 			0x0);
-	else if (io_buf->io_cfg->format == CAM_FORMAT_Y_ONLY)
+	else if (io_buf->io_cfg->format == CAM_FORMAT_Y_ONLY ||
+			io_buf->io_cfg->format == CAM_FORMAT_PLAIN8)
 		cam_lrme_cdm_write_reg_val_pair(reg_val_pair, num_cmd,
 			hw_info->bus_rd_reg.bus_client_reg[index].unpack_cfg_0,
 			0x1);
@@ -567,6 +582,8 @@ static int cam_lrme_hw_util_process_err(struct cam_hw_info *lrme_hw)
 			lrme_core->state);
 	}
 
+	cam_lrme_dump_registers(lrme_hw->soc_info.reg_map[0].mem_base);
+
 	CAM_ERR_RATE_LIMIT(CAM_LRME, "Start recovery");
 	lrme_core->state = CAM_LRME_CORE_STATE_RECOVERY;
 	rc = cam_lrme_hw_util_reset(lrme_hw, CAM_LRME_HW_RESET_TYPE_HW_RESET);
@@ -609,6 +626,9 @@ static int cam_lrme_hw_util_process_reg_update(
 
 	lrme_core->req_proc = lrme_core->req_submit;
 	lrme_core->req_submit = NULL;
+
+	if (lrme_core->dump_flag)
+		cam_lrme_dump_registers(lrme_hw->soc_info.reg_map[0].mem_base);
 
 	return 0;
 }
@@ -654,13 +674,13 @@ void cam_lrme_set_irq(struct cam_hw_info *lrme_hw,
 		cam_io_w_mb(0xFFFF,
 			soc_info->reg_map[0].mem_base +
 			hw_info->titan_reg.top_irq_mask);
-		cam_io_w_mb(0xFFFF,
+		cam_io_w_mb(0xFFFFF,
 			soc_info->reg_map[0].mem_base +
 			hw_info->bus_wr_reg.common_reg.irq_mask_0);
-		cam_io_w_mb(0xFFFF,
+		cam_io_w_mb(0xFFFFF,
 			soc_info->reg_map[0].mem_base +
 			hw_info->bus_wr_reg.common_reg.irq_mask_1);
-		cam_io_w_mb(0xFFFF,
+		cam_io_w_mb(0xFFFFF,
 			soc_info->reg_map[0].mem_base +
 			hw_info->bus_rd_reg.common_reg.irq_mask);
 		break;
@@ -952,6 +972,7 @@ int cam_lrme_hw_submit_req(void *hw_priv, void *hw_submit_args,
 	}
 
 	lrme_core->req_submit = frame_req;
+
 	mutex_unlock(&lrme_hw->hw_mutex);
 	CAM_DBG(CAM_LRME, "Release lock, submit done for req %llu",
 		frame_req->req_id);
@@ -1232,6 +1253,14 @@ int cam_lrme_hw_process_cmd(void *hw_priv, uint32_t cmd_type,
 		submit_args = (struct cam_lrme_hw_submit_args *)cmd_args;
 		rc = cam_lrme_hw_submit_req(hw_priv,
 			submit_args, arg_size);
+		break;
+	}
+
+	case CAM_LRME_HW_CMD_DUMP_REGISTER: {
+		struct cam_lrme_core *lrme_core =
+			(struct cam_lrme_core *)lrme_hw->core_info;
+		lrme_core->dump_flag = *(bool *)cmd_args;
+		CAM_DBG(CAM_LRME, "dump_flag %d", lrme_core->dump_flag);
 		break;
 	}
 
