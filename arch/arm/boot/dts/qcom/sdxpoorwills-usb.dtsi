@@ -46,6 +46,7 @@
 
 		resets = <&clock_gcc GCC_USB30_BCR>;
 		reset-names = "core_reset";
+		status = "disabled";
 
 		dwc3@a600000 {
 			compatible = "snps,dwc3";
