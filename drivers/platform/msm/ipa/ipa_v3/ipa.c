@@ -4079,6 +4079,7 @@ static enum gsi_ver ipa3_get_gsi_ver(enum ipa_hw_type ipa_hw_type)
 		gsi_ver = GSI_VER_1_3;
 		break;
 	case IPA_HW_v4_0:
+	case IPA_HW_v4_1:
 		gsi_ver = GSI_VER_2_0;
 		break;
 	default:
