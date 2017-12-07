@@ -59,7 +59,7 @@
 		bcm_ip0: bcm-ip0 {
 			cell-id = <MSM_BUS_BCM_IP0>;
 			label = "IP0";
-			qcom,bcm-name = "CE";
+			qcom,bcm-name = "IP0";
 			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
@@ -261,7 +261,7 @@
 		mas_llcc_mc: mas-llcc-mc {
 			cell-id = <MSM_BUS_MASTER_LLCC>;
 			label = "mas-llcc-mc";
-			qcom,buswidth = <16>;
+			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
 			qcom,connections = <&slv_ebi>;
 			qcom,bus-dev = <&fab_mc_virt>;
@@ -532,7 +532,7 @@
 		slv_ebi:slv-ebi {
 			cell-id = <MSM_BUS_SLAVE_EBI_CH0>;
 			label = "slv-ebi";
-			qcom,buswidth = <16>;
+			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
 			qcom,bus-dev = <&fab_mc_virt>;
 			qcom,bcms = <&bcm_mc0>;
