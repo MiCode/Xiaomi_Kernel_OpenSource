@@ -932,7 +932,7 @@ config MSM_BG_GLINK
 config WCD_DSP_GLINK
 	tristate "WCD DSP GLINK Driver"
 	depends on MSM_GLINK
-	default y if SND_SOC_WCD934X=y
+	default y if (SND_SOC_WCD934X=y || MSM_BG_GLINK=y)
 	help
 	   This option enables driver which provides communication interface
 	   between MSM and WCD DSP over glink transport protocol. This driver

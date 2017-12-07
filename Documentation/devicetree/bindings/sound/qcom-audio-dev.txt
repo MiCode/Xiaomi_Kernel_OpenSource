@@ -411,6 +411,9 @@ Required properties:
 Required properties:
 
  - compatible :                            "qcom,wcd-dsp-glink"
+ - qcom,msm-codec-glink-edge:              Name of the glink edge which is used
+					    for IPC.
+					    If no name is set, it defaults to "wdsp"
 
 Example:
 
@@ -689,6 +692,7 @@ Example:
 
 	wcd_dsp_glink {
 		compatible = "qcom,wcd-dsp-glink";
+		qcom,msm-codec-glink-edge = "bg";
 	};
 
 
