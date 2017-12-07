@@ -215,6 +215,7 @@ static enum power_supply_property smb138x_usb_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_TYPE,
+	POWER_SUPPLY_PROP_REAL_TYPE,
 	POWER_SUPPLY_PROP_TYPEC_MODE,
 	POWER_SUPPLY_PROP_TYPEC_POWER_ROLE,
 	POWER_SUPPLY_PROP_TYPEC_CC_ORIENTATION,
@@ -250,6 +251,9 @@ static int smb138x_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
 		val->intval = chg->usb_psy_desc.type;
+		break;
+	case POWER_SUPPLY_PROP_REAL_TYPE:
+		val->intval = chg->real_charger_type;
 		break;
 	case POWER_SUPPLY_PROP_TYPEC_MODE:
 		val->intval = chg->typec_mode;
