@@ -625,7 +625,6 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		rc = cam_sensor_power_up(s_ctrl);
 		if (rc < 0) {
 			CAM_ERR(CAM_SENSOR, "power up failed");
-			cam_sensor_power_down(s_ctrl);
 			kfree(pu);
 			kfree(pd);
 			goto release_mutex;
