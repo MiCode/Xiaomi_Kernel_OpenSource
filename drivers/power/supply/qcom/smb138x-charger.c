@@ -1106,6 +1106,17 @@ static int smb138x_init_hw(struct smb138x *chip)
 		return rc;
 	}
 
+	/* enable usb-src-change interrupt sources */
+	rc = smblib_masked_write(chg, USBIN_SOURCE_CHANGE_INTRPT_ENB_REG,
+				APSD_IRQ_EN_CFG_BIT | HVDCP_IRQ_EN_CFG_BIT
+			      | AUTH_IRQ_EN_CFG_BIT | VADP_IRQ_EN_CFG_BIT,
+				APSD_IRQ_EN_CFG_BIT | HVDCP_IRQ_EN_CFG_BIT
+			      | AUTH_IRQ_EN_CFG_BIT | VADP_IRQ_EN_CFG_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't configure Type-C interrupts rc=%d\n", rc);
+		return rc;
+	}
+
 	/* configure to a fixed 700khz freq to avoid tdie errors */
 	rc = smblib_set_charge_param(chg, &chg->param.freq_buck, 700);
 	if (rc < 0) {
