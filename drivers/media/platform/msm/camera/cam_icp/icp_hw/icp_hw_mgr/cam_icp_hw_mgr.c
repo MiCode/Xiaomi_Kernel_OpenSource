@@ -2894,8 +2894,10 @@ static int cam_icp_get_acquire_info(struct cam_icp_hw_mgr *hw_mgr,
 
 	if (copy_from_user(&icp_dev_acquire_info,
 		(void __user *)args->acquire_info,
-		sizeof(struct cam_icp_acquire_dev_info)))
+		sizeof(struct cam_icp_acquire_dev_info))) {
+		CAM_ERR(CAM_ICP, "Failed in acquire");
 		return -EFAULT;
+	}
 
 	if (icp_dev_acquire_info.secure_mode > CAM_SECURE_MODE_SECURE) {
 		CAM_ERR(CAM_ICP, "Invalid mode:%d",
@@ -2928,7 +2930,7 @@ static int cam_icp_get_acquire_info(struct cam_icp_hw_mgr *hw_mgr,
 	}
 
 	acquire_size = sizeof(struct cam_icp_acquire_dev_info) +
-		(icp_dev_acquire_info.num_out_res *
+		((icp_dev_acquire_info.num_out_res - 1) *
 		sizeof(struct cam_icp_res_info));
 	ctx_data->icp_dev_acquire_info = kzalloc(acquire_size, GFP_KERNEL);
 	if (!ctx_data->icp_dev_acquire_info) {
@@ -2939,6 +2941,7 @@ static int cam_icp_get_acquire_info(struct cam_icp_hw_mgr *hw_mgr,
 
 	if (copy_from_user(ctx_data->icp_dev_acquire_info,
 		(void __user *)args->acquire_info, acquire_size)) {
+		CAM_ERR(CAM_ICP, "Failed in acquire: size = %d", acquire_size);
 		if (!hw_mgr->ctxt_cnt)
 			hw_mgr->secure_mode = CAM_SECURE_MODE_NON_SECURE;
 		kfree(ctx_data->icp_dev_acquire_info);
