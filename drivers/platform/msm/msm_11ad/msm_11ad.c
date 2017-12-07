@@ -33,16 +33,14 @@
 #include "wil_platform.h"
 #include "msm_11ad.h"
 
-#define WIGIG_VENDOR (0x1ae9)
-#define WIGIG_DEVICE (0x0310)
-
 #define SMMU_BASE	0x20000000 /* Device address range base */
 #define SMMU_SIZE	((SZ_1G * 4ULL) - SMMU_BASE)
 
 #define WIGIG_ENABLE_DELAY	50
 
 #define WIGIG_SUBSYS_NAME	"WIGIG"
-#define WIGIG_RAMDUMP_SIZE    0x200000 /* maximum ramdump size */
+#define WIGIG_RAMDUMP_SIZE_SPARROW	0x200000 /* maximum ramdump size */
+#define WIGIG_RAMDUMP_SIZE_TALYN	0x400000 /* maximum ramdump size */
 #define WIGIG_DUMP_FORMAT_VER   0x1
 #define WIGIG_DUMP_MAGIC_VER_V1 0x57474947
 #define VDD_MIN_UV	1028000
@@ -60,6 +58,18 @@ struct device;
 
 static const char * const gpio_en_name = "qcom,wigig-en";
 static const char * const sleep_clk_en_name = "qcom,sleep-clk-en";
+
+struct wigig_pci {
+	struct pci_device_id pci_dev;
+	u32 ramdump_sz;
+};
+
+static const struct wigig_pci wigig_pci_tbl[] = {
+	{ .pci_dev = { PCI_DEVICE(0x1ae9, 0x0310) },
+	  .ramdump_sz = WIGIG_RAMDUMP_SIZE_SPARROW},
+	{ .pci_dev = { PCI_DEVICE(0x17cb, 0x1201) },
+	  .ramdump_sz = WIGIG_RAMDUMP_SIZE_TALYN},
+};
 
 struct msm11ad_vreg {
 	const char *name;
@@ -113,6 +123,7 @@ struct msm11ad_ctx {
 	void *ramdump_addr;
 	struct msm_dump_data dump_data;
 	struct ramdump_device *ramdump_dev;
+	u32 ramdump_size;
 
 	/* external vregs and clocks */
 	struct msm11ad_vreg vdd;
@@ -859,7 +870,7 @@ static int msm_11ad_ssr_copy_ramdump(struct msm11ad_ctx *ctx)
 {
 	if (ctx->rops.ramdump && ctx->wil_handle) {
 		int rc = ctx->rops.ramdump(ctx->wil_handle, ctx->ramdump_addr,
-					   WIGIG_RAMDUMP_SIZE);
+					   ctx->ramdump_size);
 		if (rc) {
 			dev_err(ctx->dev, "ramdump failed : %d\n", rc);
 			return -EINVAL;
@@ -898,7 +909,7 @@ static int msm_11ad_ssr_ramdump(int enable, const struct subsys_desc *subsys)
 
 	memset(&segment, 0, sizeof(segment));
 	segment.v_address = ctx->ramdump_addr;
-	segment.size = WIGIG_RAMDUMP_SIZE;
+	segment.size = ctx->ramdump_size;
 
 	return do_ramdump(ctx->ramdump_dev, &segment, 1);
 }
@@ -961,14 +972,14 @@ static int msm_11ad_ssr_init(struct msm11ad_ctx *ctx)
 	}
 
 	/* register ramdump area */
-	ctx->ramdump_addr = kmalloc(WIGIG_RAMDUMP_SIZE, GFP_KERNEL);
+	ctx->ramdump_addr = kmalloc(ctx->ramdump_size, GFP_KERNEL);
 	if (!ctx->ramdump_addr) {
 		rc = -ENOMEM;
 		goto out_rc;
 	}
 
 	ctx->dump_data.addr = virt_to_phys(ctx->ramdump_addr);
-	ctx->dump_data.len = WIGIG_RAMDUMP_SIZE;
+	ctx->dump_data.len = ctx->ramdump_size;
 	dump_entry.id = MSM_DUMP_DATA_WIGIG;
 	dump_entry.addr = virt_to_phys(&ctx->dump_data);
 
@@ -1031,8 +1042,9 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	struct device_node *rc_node;
 	struct pci_dev *pcidev = NULL;
 	u32 smmu_mapping[2];
-	int rc;
+	int rc, i;
 	u32 val;
+	bool pcidev_found = false;
 
 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
@@ -1161,21 +1173,32 @@ static int msm_11ad_probe(struct platform_device *pdev)
 		goto out_rc;
 	}
 	/* search for PCIE device in our domain */
-	do {
-		pcidev = pci_get_device(WIGIG_VENDOR, WIGIG_DEVICE, pcidev);
-		if (!pcidev)
-			break;
+	for (i = 0; i < ARRAY_SIZE(wigig_pci_tbl); ++i) {
+		do {
+			pcidev = pci_get_device(wigig_pci_tbl[i].pci_dev.vendor,
+						wigig_pci_tbl[i].pci_dev.device,
+						pcidev);
+			if (!pcidev)
+				break;
 
-		if (pci_domain_nr(pcidev->bus) == ctx->rc_index)
+			if (pci_domain_nr(pcidev->bus) == ctx->rc_index) {
+				ctx->ramdump_size = wigig_pci_tbl[i].ramdump_sz;
+				pcidev_found = true;
+				break;
+			}
+		} while (true);
+
+		if (pcidev_found)
 			break;
-	} while (true);
-	if (!pcidev) {
+	}
+	if (!pcidev_found) {
 		rc = -ENODEV;
-		dev_err(ctx->dev, "Wigig device %4x:%4x not found\n",
-			WIGIG_VENDOR, WIGIG_DEVICE);
+		dev_err(ctx->dev, "Wigig device not found\n");
 		goto out_rc;
 	}
 	ctx->pcidev = pcidev;
+	dev_dbg(ctx->dev, "Wigig device %4x:%4x found\n",
+		ctx->pcidev->vendor, ctx->pcidev->device);
 
 	rc = msm_pcie_pm_control(MSM_PCIE_RESUME, pcidev->bus->number,
 				 pcidev, NULL, 0);
