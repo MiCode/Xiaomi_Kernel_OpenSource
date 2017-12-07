@@ -119,7 +119,8 @@ static int32_t cam_cci_validate_queue(struct cci_device *cci_dev,
 		rc = wait_for_completion_timeout(&cci_dev->
 			cci_master_info[master].report_q[queue], CCI_TIMEOUT);
 		if (rc <= 0) {
-			CAM_ERR(CAM_CCI, "Wait_for_completion_timeout %d");
+			CAM_ERR(CAM_CCI, "Wait_for_completion_timeout: rc: %d",
+				rc);
 			if (rc == 0)
 				rc = -ETIMEDOUT;
 			cam_cci_flush_queue(cci_dev, master);
@@ -312,7 +313,7 @@ static int32_t cam_cci_transfer_end(struct cci_device *cci_dev,
 	if (atomic_read(&cci_dev->cci_master_info[master].q_free[queue]) == 0) {
 		rc = cam_cci_lock_queue(cci_dev, master, queue, 0);
 		if (rc < 0) {
-			CAM_ERR(CAM_CCI, "failed line %d");
+			CAM_ERR(CAM_CCI, "failed rc: %d", rc);
 			return rc;
 		}
 		rc = cam_cci_wait_report_cmd(cci_dev, master, queue);

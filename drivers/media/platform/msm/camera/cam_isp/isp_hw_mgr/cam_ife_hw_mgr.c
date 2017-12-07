@@ -1008,8 +1008,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_rdi(
 		rc = cam_ife_hw_mgr_get_res(&ife_ctx->free_res_list,
 			&csid_res);
 		if (rc) {
-			CAM_ERR(CAM_ISP, "No more free hw mgr resource",
-				__func__);
+			CAM_ERR(CAM_ISP, "No more free hw mgr resource");
 			goto err;
 		}
 		cam_ife_hw_mgr_put_res(&ife_ctx->res_list_ife_csid, &csid_res);
@@ -2015,6 +2014,7 @@ static int cam_ife_mgr_release_hw(void *hw_mgr_priv,
 	/* clean context */
 	list_del_init(&ctx->list);
 	ctx->ctx_in_use = 0;
+	ctx->is_rdi_only_context = 0;
 	CAM_DBG(CAM_ISP, "Exit...ctx id:%d",
 		ctx->ctx_index);
 	cam_ife_hw_mgr_put_ctx(&hw_mgr->free_ctx_list, &ctx);
@@ -2761,8 +2761,7 @@ static int  cam_ife_hw_mgr_process_overflow(
 	CAM_DBG(CAM_ISP, "Enter");
 
 	if (!recovery_data) {
-		CAM_ERR(CAM_ISP, "recovery_data parameter is NULL",
-			__func__);
+		CAM_ERR(CAM_ISP, "recovery_data parameter is NULL");
 		return -EINVAL;
 	}
 	recovery_data->no_of_context = 0;
