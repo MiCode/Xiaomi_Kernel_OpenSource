@@ -230,8 +230,8 @@ static int setup_fifo_params(struct spi_device *spi_slv,
 	u32 cpha = geni_read_reg(mas->base, SE_SPI_CPHA);
 	u32 demux_sel = 0;
 	u32 demux_output_inv = 0;
-	u32 clk_sel = geni_read_reg(mas->base, SE_GENI_CLK_SEL);
-	u32 m_clk_cfg = geni_read_reg(mas->base, GENI_SER_M_CLK_CFG);
+	u32 clk_sel = 0;
+	u32 m_clk_cfg = 0;
 	int ret = 0;
 	int idx;
 	int div;
@@ -884,8 +884,8 @@ static void setup_fifo_xfer(struct spi_transfer *xfer,
 	/* Speed and bits per word can be overridden per transfer */
 	if (xfer->speed_hz != mas->cur_speed_hz) {
 		int ret = 0;
-		u32 clk_sel = geni_read_reg(mas->base, SE_GENI_CLK_SEL);
-		u32 m_clk_cfg = geni_read_reg(mas->base, GENI_SER_M_CLK_CFG);
+		u32 clk_sel = 0;
+		u32 m_clk_cfg = 0;
 		int idx = 0;
 		int div = 0;
 
