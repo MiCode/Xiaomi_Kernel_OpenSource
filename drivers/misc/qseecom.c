@@ -4111,9 +4111,15 @@ static int __qseecom_allocate_img_data(struct ion_handle **pihandle,
 	ion_phys_addr_t pa;
 	struct ion_handle *ihandle = NULL;
 	u8 *img_data = NULL;
+	int retry = 0;
 
-	ihandle = ion_alloc(qseecom.ion_clnt, fw_size,
-			SZ_4K, ION_HEAP(ION_QSECOM_HEAP_ID), 0);
+	do {
+		if (retry++)
+			msleep(QSEECOM_TA_ION_ALLOCATE_DELAY);
+		ihandle = ion_alloc(qseecom.ion_clnt, fw_size,
+			SZ_4K, ION_HEAP(ION_QSECOM_TA_HEAP_ID), 0);
+	} while (IS_ERR_OR_NULL(ihandle) &&
+			(retry <= QSEECOM_TA_ION_ALLOCATE_MAX_ATTEMP));
 
 	if (IS_ERR_OR_NULL(ihandle)) {
 		pr_err("ION alloc failed\n");
