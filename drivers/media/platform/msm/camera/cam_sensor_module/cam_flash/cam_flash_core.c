@@ -36,7 +36,6 @@ int cam_flash_prepare(struct cam_flash_ctrl *flash_ctrl,
 			return rc;
 		}
 		flash_ctrl->is_regulator_enabled = true;
-		flash_ctrl->flash_state = CAM_FLASH_STATE_START;
 	} else if ((!regulator_enable) &&
 		(flash_ctrl->is_regulator_enabled == true)) {
 		rc = qpnp_flash_led_prepare(flash_ctrl->switch_trigger,
@@ -47,7 +46,6 @@ int cam_flash_prepare(struct cam_flash_ctrl *flash_ctrl,
 			return rc;
 		}
 		flash_ctrl->is_regulator_enabled = false;
-		flash_ctrl->flash_state = CAM_FLASH_STATE_ACQUIRE;
 	} else {
 		CAM_ERR(CAM_FLASH, "Wrong Flash State : %d",
 			flash_ctrl->flash_state);
@@ -68,12 +66,14 @@ static int cam_flash_flush_nrt(struct cam_flash_ctrl *fctrl)
 	nrt_settings = &fctrl->nrt_info;
 
 	if (nrt_settings->cmn_attr.cmd_type ==
-		CAMERA_SENSOR_FLASH_CMD_TYPE_INIT) {
+		CAMERA_SENSOR_FLASH_CMD_TYPE_INIT_INFO) {
 		fctrl->flash_init_setting.cmn_attr.is_settings_valid = false;
 	} else if ((nrt_settings->cmn_attr.cmd_type ==
 		CAMERA_SENSOR_FLASH_CMD_TYPE_WIDGET) ||
 		(nrt_settings->cmn_attr.cmd_type ==
-		CAMERA_SENSOR_FLASH_CMD_TYPE_RER)) {
+		CAMERA_SENSOR_FLASH_CMD_TYPE_RER) ||
+		(nrt_settings->cmn_attr.cmd_type ==
+		CAMERA_SENSOR_FLASH_CMD_TYPE_INIT_FIRE)) {
 		fctrl->nrt_info.cmn_attr.is_settings_valid = false;
 		fctrl->nrt_info.cmn_attr.count = 0;
 		fctrl->nrt_info.num_iterations = 0;
@@ -312,6 +312,49 @@ int cam_flash_apply_setting(struct cam_flash_ctrl *fctrl,
 
 	if (req_id == 0) {
 		if (fctrl->nrt_info.cmn_attr.cmd_type ==
+			CAMERA_SENSOR_FLASH_CMD_TYPE_INIT_FIRE) {
+			flash_data = &fctrl->nrt_info;
+			if (flash_data->opcode ==
+				CAMERA_SENSOR_FLASH_OP_FIREHIGH) {
+				if (fctrl->flash_state !=
+					CAM_FLASH_STATE_CONFIG) {
+					CAM_WARN(CAM_FLASH,
+					"Cannot apply Start Dev:Prev state: %d",
+					fctrl->flash_state);
+					return rc;
+				}
+				rc = cam_flash_prepare(fctrl, true);
+				if (rc) {
+					CAM_ERR(CAM_FLASH,
+					"Enable Regulator Failed rc = %d", rc);
+					return rc;
+				}
+				rc = cam_flash_high(fctrl, flash_data);
+				if (rc)
+					CAM_ERR(CAM_FLASH,
+						"FLASH ON failed : %d",
+						rc);
+			}
+			if (flash_data->opcode ==
+				CAMERA_SENSOR_FLASH_OP_OFF) {
+				rc = cam_flash_off(fctrl);
+				if (rc) {
+					CAM_ERR(CAM_FLASH,
+					"LED OFF FAILED: %d",
+					rc);
+					return rc;
+				}
+				if ((fctrl->flash_state ==
+					CAM_FLASH_STATE_START) &&
+					(fctrl->is_regulator_enabled == true)) {
+					rc = cam_flash_prepare(fctrl, false);
+					if (rc)
+						CAM_ERR(CAM_FLASH,
+						"Disable Regulator failed: %d",
+						rc);
+				}
+			}
+		} else if (fctrl->nrt_info.cmn_attr.cmd_type ==
 			CAMERA_SENSOR_FLASH_CMD_TYPE_WIDGET) {
 			flash_data = &fctrl->nrt_info;
 			if (flash_data->opcode ==
@@ -491,11 +534,39 @@ int cam_flash_parser(struct cam_flash_ctrl *fctrl, void *arg)
 		cam_flash_info = (struct cam_flash_init *)cmd_buf;
 
 		switch (cam_flash_info->cmd_type) {
-		case CAMERA_SENSOR_FLASH_CMD_TYPE_INIT:
+		case CAMERA_SENSOR_FLASH_CMD_TYPE_INIT_INFO:
 			fctrl->flash_type = cam_flash_info->flash_type;
 			fctrl->is_regulator_enabled = false;
 			fctrl->nrt_info.cmn_attr.cmd_type =
-				CAMERA_SENSOR_FLASH_CMD_TYPE_INIT;
+				CAMERA_SENSOR_FLASH_CMD_TYPE_INIT_INFO;
+			fctrl->flash_state =
+				CAM_FLASH_STATE_CONFIG;
+			break;
+		case CAMERA_SENSOR_FLASH_CMD_TYPE_INIT_FIRE:
+			CAM_DBG(CAM_FLASH, "Widget Flash Operation");
+				flash_operation_info =
+					(struct cam_flash_set_on_off *) cmd_buf;
+				fctrl->nrt_info.cmn_attr.count =
+					flash_operation_info->count;
+				fctrl->nrt_info.cmn_attr.request_id = 0;
+				fctrl->nrt_info.opcode =
+					flash_operation_info->opcode;
+				fctrl->nrt_info.cmn_attr.cmd_type =
+					CAMERA_SENSOR_FLASH_CMD_TYPE_INIT_FIRE;
+				for (i = 0;
+					i < flash_operation_info->count; i++)
+					fctrl->nrt_info.led_current_ma[i] =
+					flash_operation_info->led_current_ma[i];
+
+				mutex_lock(&fctrl->flash_wq_mutex);
+				rc = cam_flash_apply_setting(fctrl, 0);
+				if (rc)
+					CAM_ERR(CAM_FLASH,
+						"Apply setting failed: %d",
+						rc);
+				mutex_unlock(&fctrl->flash_wq_mutex);
+				fctrl->flash_state =
+					CAM_FLASH_STATE_CONFIG;
 			break;
 		default:
 			CAM_ERR(CAM_FLASH, "Wrong cmd_type = %d",
@@ -541,28 +612,35 @@ int cam_flash_parser(struct cam_flash_ctrl *fctrl, void *arg)
 		case CAMERA_SENSOR_FLASH_CMD_TYPE_FIRE: {
 			CAM_DBG(CAM_FLASH,
 				"CAMERA_FLASH_CMD_TYPE_OPS case called");
-			if (fctrl->flash_state != CAM_FLASH_STATE_START) {
+			if ((fctrl->flash_state == CAM_FLASH_STATE_START) ||
+				(fctrl->flash_state ==
+					CAM_FLASH_STATE_CONFIG)) {
+				flash_operation_info =
+					(struct cam_flash_set_on_off *) cmd_buf;
+				if (!flash_operation_info) {
+					CAM_ERR(CAM_FLASH,
+						"flash_operation_info Null");
+					return -EINVAL;
+				}
+
+				fctrl->per_frame[frame_offset].opcode =
+					flash_operation_info->opcode;
+				fctrl->per_frame[frame_offset].cmn_attr.count =
+					flash_operation_info->count;
+				for (i = 0;
+					i < flash_operation_info->count; i++)
+					fctrl->per_frame[frame_offset].
+						led_current_ma[i]
+						= flash_operation_info->
+						led_current_ma[i];
+
+			} else {
 				CAM_ERR(CAM_FLASH,
 					"Rxed Update packets without linking");
 				fctrl->per_frame[frame_offset].
 					cmn_attr.is_settings_valid = false;
 				return -EINVAL;
 			}
-			flash_operation_info =
-				(struct cam_flash_set_on_off *) cmd_buf;
-			if (!flash_operation_info) {
-				CAM_ERR(CAM_FLASH, "flash_operation_info Null");
-				return -EINVAL;
-			}
-
-			fctrl->per_frame[frame_offset].opcode =
-				flash_operation_info->opcode;
-			fctrl->per_frame[frame_offset].cmn_attr.count =
-				flash_operation_info->count;
-			for (i = 0; i < flash_operation_info->count; i++)
-				fctrl->per_frame[frame_offset].led_current_ma[i]
-					= flash_operation_info->
-					led_current_ma[i];
 			break;
 		}
 		default:
@@ -663,17 +741,18 @@ int cam_flash_parser(struct cam_flash_ctrl *fctrl, void *arg)
 		break;
 	}
 	case CAM_PKT_NOP_OPCODE: {
-		if (fctrl->flash_state != CAM_FLASH_STATE_START) {
+		if ((fctrl->flash_state == CAM_FLASH_STATE_START) ||
+			(fctrl->flash_state == CAM_FLASH_STATE_CONFIG)) {
+			CAM_DBG(CAM_FLASH, "NOP Packet is Received: req_id: %u",
+				csl_packet->header.request_id);
+			goto update_req_mgr;
+		} else {
 			CAM_ERR(CAM_FLASH,
 				"Rxed Update packets without linking");
 			fctrl->per_frame[frame_offset].
 				cmn_attr.is_settings_valid = false;
 			return -EINVAL;
 		}
-
-		CAM_DBG(CAM_FLASH, "NOP Packet is Received: req_id: %u",
-			csl_packet->header.request_id);
-		goto update_req_mgr;
 	}
 	default:
 		CAM_ERR(CAM_FLASH, "Wrong Opcode : %d",
@@ -795,14 +874,12 @@ void cam_flash_shutdown(struct cam_flash_ctrl *fctrl)
 	if (fctrl->flash_state == CAM_FLASH_STATE_INIT)
 		return;
 
-	if (fctrl->flash_state == CAM_FLASH_STATE_ACQUIRE) {
-		cam_flash_release_dev(fctrl);
-		return;
+	if ((fctrl->flash_state == CAM_FLASH_STATE_CONFIG) ||
+		(fctrl->flash_state == CAM_FLASH_STATE_START)) {
+		rc = cam_flash_stop_dev(fctrl);
+		if (rc)
+			CAM_ERR(CAM_FLASH, "Stop Failed rc: %d", rc);
 	}
-
-	rc = cam_flash_stop_dev(fctrl);
-	if (rc)
-		CAM_ERR(CAM_FLASH, "Stop Failed rc: %d", rc);
 
 	rc = cam_flash_release_dev(fctrl);
 	if (rc)
