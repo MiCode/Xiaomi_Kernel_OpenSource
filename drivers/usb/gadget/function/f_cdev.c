@@ -48,7 +48,7 @@
 
 #define DEVICE_NAME "at_usb"
 #define MODULE_NAME "msm_usb_bridge"
-#define NUM_INSTANCE 2
+#define NUM_INSTANCE 3
 
 #define MAX_CDEV_INST_NAME	15
 #define MAX_CDEV_FUNC_NAME	5
