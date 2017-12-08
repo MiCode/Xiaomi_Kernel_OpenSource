@@ -5488,8 +5488,9 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	input_height = inst->prop.height[OUTPUT_PORT];
 	input_width = inst->prop.width[OUTPUT_PORT];
 
-	if (input_width % 2 != 0 || input_height % 2 != 0 ||
-			output_width % 2 != 0 || output_height % 2 != 0) {
+	if (inst->session_type == MSM_VIDC_ENCODER && (input_width % 2 != 0 ||
+			input_height % 2 != 0 || output_width % 2 != 0 ||
+			output_height % 2 != 0)) {
 		dprintk(VIDC_ERR,
 			"Height and Width should be even numbers for NV12\n");
 		dprintk(VIDC_ERR,
