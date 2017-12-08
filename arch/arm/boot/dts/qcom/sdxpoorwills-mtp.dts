@@ -20,7 +20,7 @@
 	model = "Qualcomm Technologies, Inc. SDXPOORWILLS MTP";
 	compatible = "qcom,sdxpoorwills-mtp",
 		"qcom,sdxpoorwills", "qcom,mtp";
-	qcom,board-id = <8 0x0>, <8 0x100>;
+	qcom,board-id = <8 0x0>, <8 0x100>, <8 0x2>, <8 0x102>;
 };
 
 &blsp1_uart2 {
