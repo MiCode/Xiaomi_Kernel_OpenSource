@@ -3759,6 +3759,12 @@ static int mdss_dsi_probe(struct platform_device *pdev)
 		return -EPROBE_DEFER;
 	}
 
+	if (util->display_disabled) {
+		pr_info("%s: Display is disabled, not progressing with dsi probe\n",
+			__func__);
+		return -ENOTSUPP;
+	}
+
 	if (!pdev || !pdev->dev.of_node) {
 		pr_err("%s: DSI driver only supports device tree probe\n",
 			__func__);
