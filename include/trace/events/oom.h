@@ -27,6 +27,85 @@ TRACE_EVENT(oom_score_adj_update,
 		__entry->pid, __entry->comm, __entry->oom_score_adj)
 );
 
+TRACE_EVENT(mark_victim,
+	TP_PROTO(int pid),
+
+	TP_ARGS(pid),
+
+	TP_STRUCT__entry(
+		__field(int, pid)
+	),
+
+	TP_fast_assign(
+		__entry->pid = pid;
+	),
+
+	TP_printk("pid=%d", __entry->pid)
+);
+
+TRACE_EVENT(wake_reaper,
+	TP_PROTO(int pid),
+
+	TP_ARGS(pid),
+
+	TP_STRUCT__entry(
+		__field(int, pid)
+	),
+
+	TP_fast_assign(
+		__entry->pid = pid;
+	),
+
+	TP_printk("pid=%d", __entry->pid)
+);
+
+TRACE_EVENT(start_task_reaping,
+	TP_PROTO(int pid),
+
+	TP_ARGS(pid),
+
+	TP_STRUCT__entry(
+		__field(int, pid)
+	),
+
+	TP_fast_assign(
+		__entry->pid = pid;
+	),
+
+	TP_printk("pid=%d", __entry->pid)
+);
+
+TRACE_EVENT(finish_task_reaping,
+	TP_PROTO(int pid),
+
+	TP_ARGS(pid),
+
+	TP_STRUCT__entry(
+		__field(int, pid)
+	),
+
+	TP_fast_assign(
+		__entry->pid = pid;
+	),
+
+	TP_printk("pid=%d", __entry->pid)
+);
+
+TRACE_EVENT(skip_task_reaping,
+	TP_PROTO(int pid),
+
+	TP_ARGS(pid),
+
+	TP_STRUCT__entry(
+		__field(int, pid)
+	),
+
+	TP_fast_assign(
+		__entry->pid = pid;
+	),
+
+	TP_printk("pid=%d", __entry->pid)
+);
 #endif
 
 /* This part must be outside protection */
