@@ -3944,6 +3944,7 @@ static int dwc3_restart_usb_host_mode(struct notifier_block *nb,
 	if (ret)
 		goto err;
 
+	dbg_event(0xFF, "USB_lpm_state", atomic_read(&dwc->in_lpm));
 	/*
 	 * stop host mode functionality performs autosuspend with mdwc
 	 * device, and it may take sometime to call PM runtime suspend.
@@ -3951,6 +3952,12 @@ static int dwc3_restart_usb_host_mode(struct notifier_block *nb,
 	 * suspend immediately to put USB controller and PHYs into suspend.
 	 */
 	ret = pm_runtime_suspend(mdwc->dev);
+	/*
+	 * If mdwc device is already suspended, pm_runtime_suspend() API
+	 * returns 1, which is not error. Overwrite with zero if it is.
+	 */
+	if (ret > 0)
+		ret = 0;
 	dbg_event(0xFF, "pm_runtime_sus", ret);
 
 	dwc->maximum_speed = usb_speed;
