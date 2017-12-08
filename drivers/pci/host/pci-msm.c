@@ -3343,8 +3343,8 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 
 	PCIE_DBG(dev, "RC%d: entry\n", dev->rc_idx);
 
-	cnt = of_property_count_strings((&pdev->dev)->of_node,
-			"clock-names");
+	cnt = of_property_count_elems_of_size((&pdev->dev)->of_node,
+			"max-clock-frequency-hz", sizeof(u32));
 	if (cnt > 0) {
 		clkfreq = kzalloc((MSM_PCIE_MAX_CLK + MSM_PCIE_MAX_PIPE_CLK) *
 					sizeof(*clkfreq), GFP_KERNEL);
