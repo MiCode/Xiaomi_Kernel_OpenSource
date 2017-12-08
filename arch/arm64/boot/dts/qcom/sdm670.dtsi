@@ -689,6 +689,14 @@
 		interrupt-parent = <&intc>;
 	};
 
+	pdc: interrupt-controller@b220000{
+		compatible = "qcom,pdc-sdm670";
+		reg = <0xb220000 0x400>;
+		#interrupt-cells = <3>;
+		interrupt-parent = <&intc>;
+		interrupt-controller;
+	};
+
 	timer {
 		compatible = "arm,armv8-timer";
 		interrupts = <1 1 0xf08>,
