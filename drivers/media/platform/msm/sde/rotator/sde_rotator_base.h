@@ -40,6 +40,7 @@
 #define SDE_MDP_HW_REV_301	SDE_MDP_REV(3, 0, 1)	/* 8998 v1.1 */
 #define SDE_MDP_HW_REV_400	SDE_MDP_REV(4, 0, 0)	/* sdm845 v1.0 */
 #define SDE_MDP_HW_REV_410	SDE_MDP_REV(4, 1, 0)	/* sdm670 v1.0 */
+#define SDE_MDP_HW_REV_500	SDE_MDP_REV(5, 0, 0)	/* sdm855 v1.0 */
 
 #define SDE_MDP_VBIF_4_LEVEL_REMAPPER	4
 #define SDE_MDP_VBIF_8_LEVEL_REMAPPER	8
@@ -125,6 +126,7 @@ enum sde_rot_type {
  * @SDE_CAPS_SBUF_1: stream buffer support for inline rotation
  * @SDE_CAPS_UBWC_2: universal bandwidth compression version 2
  * @SDE_CAPS_PARTIALWR: partial write override
+ * @SDE_CAPS_HW_TIMESTAMP: rotator has hw timestamp support
  */
 enum sde_caps_settings {
 	SDE_CAPS_R1_WB,
@@ -134,6 +136,7 @@ enum sde_caps_settings {
 	SDE_CAPS_SBUF_1,
 	SDE_CAPS_UBWC_2,
 	SDE_CAPS_PARTIALWR,
+	SDE_CAPS_HW_TIMESTAMP,
 	SDE_CAPS_MAX,
 };
 
