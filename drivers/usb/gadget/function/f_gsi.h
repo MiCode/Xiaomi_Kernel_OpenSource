@@ -572,7 +572,7 @@ static struct usb_endpoint_descriptor rndis_gsi_fs_notify_desc = {
 static struct usb_endpoint_descriptor rndis_gsi_fs_in_desc = {
 	.bLength =		USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType =	USB_DT_ENDPOINT,
-
+	.wMaxPacketSize =	cpu_to_le16(64),
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
 };
@@ -580,7 +580,7 @@ static struct usb_endpoint_descriptor rndis_gsi_fs_in_desc = {
 static struct usb_endpoint_descriptor rndis_gsi_fs_out_desc = {
 	.bLength =		USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType =	USB_DT_ENDPOINT,
-
+	.wMaxPacketSize =	cpu_to_le16(64),
 	.bEndpointAddress =	USB_DIR_OUT,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
 };
