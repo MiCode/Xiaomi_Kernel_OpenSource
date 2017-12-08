@@ -2324,6 +2324,8 @@ static int cam_vfe_bus_error_irq_top_half(uint32_t evt_id,
 	}
 	cam_irq_controller_disable_irq(bus_priv->common_data.bus_irq_controller,
 		bus_priv->error_irq_handle);
+	cam_irq_controller_clear_and_mask(evt_id,
+		bus_priv->common_data.bus_irq_controller);
 
 	/* Returning error stops from enqueuing bottom half */
 	return -EFAULT;
