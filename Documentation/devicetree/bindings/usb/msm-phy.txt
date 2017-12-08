@@ -38,7 +38,8 @@ SSUSB-QMP PHY
 
 Required properties:
  - compatible: Should be "qcom,usb-ssphy-qmp", "qcom,usb-ssphy-qmp-v1" or
-   "qcom,usb-ssphy-qmp-v2" or "qcom,usb-ssphy-qmp-dp-combo"
+   "qcom,usb-ssphy-qmp-v2" or "qcom,usb-ssphy-qmp-usb3-or-dp" or
+   "qcom,usb-ssphy-qmp-dp-combo"
  - reg: Address and length of the register set for the device
    Required regs are:
    "qmp_phy_base" : QMP PHY Base register set.
