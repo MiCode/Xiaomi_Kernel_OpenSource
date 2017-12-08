@@ -815,6 +815,9 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 
 		if (cluster->no_saw_devices && !use_psci)
 			msm_spm_set_rpm_hs(false);
+
+		if (!from_idle)
+			suspend_wake_time = 0;
 	}
 
 	update_debug_pc_event(CLUSTER_EXIT, cluster->last_level,
