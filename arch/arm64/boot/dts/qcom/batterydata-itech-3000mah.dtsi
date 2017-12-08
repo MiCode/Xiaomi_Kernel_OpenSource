@@ -1,0 +1,61 @@
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,itech-3000mah {
+	/* #Itech_B00826LF_3000mAh_Feb24th_Averaged*/
+	qcom,max-voltage-uv = <4350000>;
+	qcom,v-cutoff-uv = <3400000>;
+	qcom,chg-term-ua = <100000>;
+	qcom,batt-id-kohm = <100>;
+	qcom,battery-type = "itech_3000mah";
+	qcom,chg-rslow-comp-c1 = <4365000>;
+	qcom,chg-rslow-comp-c2 = <8609000>;
+	qcom,chg-rslow-comp-thr = <0xBE>;
+	qcom,chg-rs-to-rslow = <761000>;
+	qcom,fastchg-current-ma = <2000>;
+	qcom,fg-cc-cv-threshold-mv = <4340>;
+	qcom,checksum = <0x0B7C>;
+	qcom,fg-profile-data = [
+		F0 83 6B 7D
+		66 81 EC 77
+		43 83 E3 5A
+		7C 81 33 8D
+		E1 81 EC 98
+		7B B5 F8 BB
+		5B 12 E2 83
+		4A 7C 63 80
+		CF 75 50 83
+		FD 5A 83 82
+		E6 8E 12 82
+		B6 9A 1A BE
+		BE CB 55 0E
+		96 0B E0 5A
+		CE 6E 71 FD
+		2A 31 7E 47
+		CF 40 00 00
+		DB 45 0F 32
+		AF 31 00 00
+		00 00 00 00
+		00 00 00 00
+		E3 6A 60 69
+		9E 6D 47 83
+		13 7C 23 70
+		0B 74 8F 80
+		DB 75 17 68
+		BA 75 BF B3
+		21 5B 69 B5
+		6C A0 71 0C
+		28 00 FF 36
+		F0 11 30 03
+		00 00 00 0E
+	];
+};
