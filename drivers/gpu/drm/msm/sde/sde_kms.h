@@ -216,7 +216,6 @@ struct sde_kms {
 	struct sde_rm rm;
 	bool rm_init;
 	struct sde_splash_data splash_data;
-	bool cont_splash_en;
 	struct sde_hw_vbif *hw_vbif[VBIF_MAX];
 	struct sde_hw_mdp *hw_mdp;
 	int dsi_display_count;

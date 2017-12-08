@@ -666,9 +666,9 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 
 	SDE_EVT32_VERBOSE(SDE_EVTLOG_FUNC_EXIT);
 
-	if (sde_kms->cont_splash_en) {
+	if (sde_kms->splash_data.cont_splash_en) {
 		SDE_DEBUG("Disabling cont_splash feature\n");
-		sde_kms->cont_splash_en = false;
+		sde_kms->splash_data.cont_splash_en = false;
 		sde_power_resource_enable(&priv->phandle,
 				sde_kms->core_client, false);
 		SDE_DEBUG("removing Vote for MDP Resources\n");
@@ -2165,7 +2165,7 @@ static int sde_kms_cont_splash_config(struct msm_kms *kms)
 		return -EINVAL;
 	}
 
-	if (!sde_kms->cont_splash_en) {
+	if (!sde_kms->splash_data.cont_splash_en) {
 		DRM_INFO("cont_splash feature not enabled\n");
 		return rc;
 	}
@@ -2489,68 +2489,6 @@ fail:
 	return ret;
 }
 
-/* the caller api needs to turn on clock before calling this function */
-static int _sde_kms_cont_splash_res_init(struct sde_kms *sde_kms)
-{
-	struct sde_mdss_cfg *cat;
-	struct drm_device *dev;
-	struct msm_drm_private *priv;
-	struct sde_splash_data *splash_data;
-	int i;
-	int ctl_top_cnt;
-
-	if (!sde_kms || !sde_kms->catalog) {
-		SDE_ERROR("invalid kms\n");
-		return -EINVAL;
-	}
-	cat = sde_kms->catalog;
-	dev = sde_kms->dev;
-	priv = dev->dev_private;
-	splash_data = &sde_kms->splash_data;
-	SDE_DEBUG("mixer_count=%d, ctl_count=%d, dsc_count=%d\n",
-			cat->mixer_count,
-			cat->ctl_count,
-			cat->dsc_count);
-
-	ctl_top_cnt = cat->ctl_count;
-
-	if (ctl_top_cnt > ARRAY_SIZE(splash_data->top)) {
-		SDE_ERROR("Mismatch in ctl_top array size\n");
-		return -EINVAL;
-	}
-	for (i = 0; i < ctl_top_cnt; i++) {
-		sde_get_ctl_top_for_cont_splash(sde_kms->mmio,
-				&splash_data->top[i], i);
-		if (splash_data->top[i].intf_sel) {
-			splash_data->lm_cnt +=
-				sde_get_ctl_lm_for_cont_splash
-					(sde_kms->mmio,
-					sde_kms->catalog->mixer_count,
-					splash_data->lm_cnt,
-					splash_data->lm_ids,
-					&splash_data->top[i], i);
-			splash_data->ctl_ids[splash_data->ctl_top_cnt]
-							= i + CTL_0;
-			splash_data->ctl_top_cnt++;
-			sde_kms->cont_splash_en = true;
-		}
-	}
-
-	/* Skip DSC blk reads if cont_splash is disabled */
-	if (!sde_kms->cont_splash_en)
-		return 0;
-
-	splash_data->dsc_cnt =
-		sde_get_pp_dsc_for_cont_splash(sde_kms->mmio,
-				sde_kms->catalog->dsc_count,
-				splash_data->dsc_ids);
-	SDE_DEBUG("splash_data: ctl_top_cnt=%d, lm_cnt=%d, dsc_cnt=%d\n",
-		splash_data->ctl_top_cnt, splash_data->lm_cnt,
-		splash_data->dsc_cnt);
-
-	return 0;
-}
-
 static void sde_kms_handle_power_event(u32 event_type, void *usr)
 {
 	struct sde_kms *sde_kms = usr;
@@ -2663,6 +2601,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	struct sde_kms *sde_kms;
 	struct drm_device *dev;
 	struct msm_drm_private *priv;
+	struct sde_rm *rm = NULL;
 	bool splash_mem_found = false;
 	int i, rc = -EINVAL;
 
@@ -2787,12 +2726,24 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 
 	sde_dbg_init_dbg_buses(sde_kms->core_rev);
 
+	rm = &sde_kms->rm;
+	rc = sde_rm_init(rm, sde_kms->catalog, sde_kms->mmio,
+			sde_kms->dev);
+	if (rc) {
+		SDE_ERROR("rm init failed: %d\n", rc);
+		goto power_error;
+	}
+
+	sde_kms->rm_init = true;
+
 	/*
 	 * Attempt continuous splash handoff only if reserved
 	 * splash memory is found.
 	 */
 	if (splash_mem_found)
-		_sde_kms_cont_splash_res_init(sde_kms);
+		sde_rm_cont_splash_res_init(&sde_kms->rm,
+					&sde_kms->splash_data,
+					sde_kms->catalog);
 
 	/* Initialize reg dma block which is a singleton */
 	rc = sde_reg_dma_init(sde_kms->reg_dma, sde_kms->catalog,
@@ -2807,16 +2758,6 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		SDE_ERROR("sde_kms_mmu_init failed: %d\n", rc);
 		goto power_error;
 	}
-
-	rc = sde_rm_init(&sde_kms->rm, sde_kms->catalog, sde_kms->mmio,
-			sde_kms->dev);
-	if (rc) {
-		SDE_ERROR("rm init failed: %d\n", rc);
-		goto power_error;
-	}
-
-	sde_kms->rm_init = true;
-
 	sde_kms->hw_mdp = sde_rm_get_mdp(&sde_kms->rm);
 	if (IS_ERR_OR_NULL(sde_kms->hw_mdp)) {
 		rc = PTR_ERR(sde_kms->hw_mdp);
@@ -2925,7 +2866,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		SDE_DEBUG("added genpd provider %s\n", sde_kms->genpd.name);
 	}
 
-	if (sde_kms->cont_splash_en)
+	if (sde_kms->splash_data.cont_splash_en)
 		SDE_DEBUG("Skipping MDP Resources disable\n");
 	else
 		sde_power_resource_enable(&priv->phandle,
