@@ -7,6 +7,12 @@ Required properties:
   - vdd-ntn-hsic-supply: Neutrino HSIC power supply
   - ntn-rst-gpio: Neutrino reset GPIO
   - ntn-phy-id: Neutrino PHY ID
+Optional properties:
+  - ntn-timestamp-valid-window: Timestamp valid window in ms.
+				Each unit represents 16.75ms.
+  - ntn-timestamp-valid-window-disable: Disable Timestamp valid window feature.
+				if this property not set, then feature disabled
+				in driver.
 
 Example:
 	qcom,ntn_hsic {
@@ -16,4 +22,6 @@ Example:
 		pinctrl-0 = <&ntn_rst_gpio_default>;
 		ntn-rst-gpio = <&tlmm_pinmux 30 1>;
 		ntn-phy-id = <7>;
+		ntn-timestamp-valid-window = <4>;
+		ntn-timestamp-valid-window-disable = <0>;
 	};

@@ -36,6 +36,8 @@
 		pinctrl-0 = <&ntn_rst_gpio_default>;
 		ntn-rst-gpio = <&tlmm_pinmux 30 1>;
 		ntn-phy-id = <7>;
+		ntn-timestamp-valid-window = <4>; /* Each unit is 16.75ms */
+		ntn-timestamp-valid-window-disable = <1>; /* 1: To Disable */
 	};
 
 };
