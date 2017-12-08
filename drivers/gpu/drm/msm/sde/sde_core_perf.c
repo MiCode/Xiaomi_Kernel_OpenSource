@@ -170,6 +170,15 @@ static void _sde_core_perf_calc_crtc(struct sde_kms *kms,
 	}
 
 	SDE_EVT32(crtc->base.id, perf->core_clk_rate);
+	trace_sde_perf_calc_crtc(crtc->base.id,
+			perf->bw_ctl[SDE_POWER_HANDLE_DBUS_ID_MNOC],
+			perf->bw_ctl[SDE_POWER_HANDLE_DBUS_ID_LLCC],
+			perf->bw_ctl[SDE_POWER_HANDLE_DBUS_ID_EBI],
+			perf->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_MNOC],
+			perf->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_LLCC],
+			perf->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_EBI],
+			perf->core_clk_rate);
+
 	SDE_DEBUG(
 		"crtc=%d clk_rate=%llu core_ib=%llu core_ab=%llu llcc_ib=%llu llcc_ab=%llu mem_ib=%llu mem_ab=%llu\n",
 			crtc->base.id, perf->core_clk_rate,
@@ -552,19 +561,32 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 			 * 2. new bandwidth vote - "ab or ib vote" is lower
 			 *    than current vote at end of commit or stop.
 			 */
-			if ((params_changed && ((new->bw_ctl[i] >
-						old->bw_ctl[i]) ||
-				  (new->max_per_pipe_ib[i] >
-						old->max_per_pipe_ib[i]))) ||
-			    (!params_changed && ((new->bw_ctl[i] <
-						old->bw_ctl[i]) ||
-				  (new->max_per_pipe_ib[i] <
-						old->max_per_pipe_ib[i])))) {
+
+			if ((params_changed &&
+				(new->bw_ctl[i] > old->bw_ctl[i])) ||
+			    (!params_changed &&
+				(new->bw_ctl[i] < old->bw_ctl[i]))) {
+
 				SDE_DEBUG(
 					"crtc=%d p=%d new_bw=%llu,old_bw=%llu\n",
 					crtc->base.id, params_changed,
 					new->bw_ctl[i], old->bw_ctl[i]);
 				old->bw_ctl[i] = new->bw_ctl[i];
+				update_bus |= BIT(i);
+			}
+
+			if ((params_changed &&
+				(new->max_per_pipe_ib[i] >
+				 old->max_per_pipe_ib[i])) ||
+			    (!params_changed &&
+				(new->max_per_pipe_ib[i] <
+				old->max_per_pipe_ib[i]))) {
+
+				SDE_DEBUG(
+					"crtc=%d p=%d new_ib=%llu,old_ib=%llu\n",
+					crtc->base.id, params_changed,
+					new->max_per_pipe_ib[i],
+					old->max_per_pipe_ib[i]);
 				old->max_per_pipe_ib[i] =
 						new->max_per_pipe_ib[i];
 				update_bus |= BIT(i);
@@ -608,11 +630,14 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 		update_clk = 1;
 	}
 	trace_sde_perf_crtc_update(crtc->base.id,
-				new->bw_ctl[SDE_POWER_HANDLE_DBUS_ID_MNOC],
-				new->bw_ctl[SDE_POWER_HANDLE_DBUS_ID_LLCC],
-				new->bw_ctl[SDE_POWER_HANDLE_DBUS_ID_EBI],
-				new->core_clk_rate, stop_req,
-				update_bus, update_clk);
+		new->bw_ctl[SDE_POWER_HANDLE_DBUS_ID_MNOC],
+		new->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_MNOC],
+		new->bw_ctl[SDE_POWER_HANDLE_DBUS_ID_LLCC],
+		new->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_LLCC],
+		new->bw_ctl[SDE_POWER_HANDLE_DBUS_ID_EBI],
+		new->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_EBI],
+		new->core_clk_rate, stop_req,
+		update_bus, update_clk, params_changed);
 
 	for (i = 0; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++) {
 		if (update_bus & BIT(i))
