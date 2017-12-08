@@ -456,6 +456,9 @@ static int __cam_isp_ctx_notify_sof_in_actived_state(
 			}
 		}
 
+		if (ctx_isp->substate_activated == CAM_ISP_CTX_ACTIVATED_BUBBLE)
+			request_id = 0;
+
 		__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
 			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 	} else {
@@ -612,7 +615,10 @@ static int __cam_isp_ctx_epoch_in_applied(struct cam_isp_context *ctx_isp,
 		req_isp->bubble_report = 0;
 	}
 
-	request_id = req->request_id;
+	if (req->request_id > ctx_isp->reported_req_id) {
+		request_id = req->request_id;
+		ctx_isp->reported_req_id = request_id;
+	}
 	__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
 		CAM_REQ_MGR_SOF_EVENT_ERROR);
 
@@ -738,9 +744,18 @@ static int __cam_isp_ctx_epoch_in_bubble_applied(
 		req_isp->bubble_report = 0;
 	}
 
-	request_id = req->request_id;
-	__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
-		CAM_REQ_MGR_SOF_EVENT_ERROR);
+	if (!req_isp->bubble_report) {
+		if (req->request_id > ctx_isp->reported_req_id) {
+			request_id = req->request_id;
+			ctx_isp->reported_req_id = request_id;
+			__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
+			CAM_REQ_MGR_SOF_EVENT_ERROR);
+		} else
+			__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
+				CAM_REQ_MGR_SOF_EVENT_SUCCESS);
+	} else
+		__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
+			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 
 	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_BUBBLE;
 	CAM_DBG(CAM_ISP, "next substate %d", ctx_isp->substate_activated);
@@ -1310,6 +1325,17 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_applied(
 	struct cam_isp_hw_sof_event_data      *sof_event_data = evt_data;
 	uint64_t  request_id = 0;
 
+	/*
+	 * Sof in bubble applied state means, reg update not received.
+	 * before increment frame id and override time stamp value, send
+	 * the previous sof time stamp that got captured in the
+	 * sof in applied state.
+	 */
+	CAM_DBG(CAM_ISP, "frame id: %lld time stamp:0x%llx",
+		ctx_isp->frame_id, ctx_isp->sof_timestamp_val);
+	__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
+		CAM_REQ_MGR_SOF_EVENT_SUCCESS);
+
 	ctx_isp->frame_id++;
 	ctx_isp->sof_timestamp_val = sof_event_data->timestamp;
 	CAM_DBG(CAM_ISP, "frame id: %lld time stamp:0x%llx",
@@ -1359,9 +1385,18 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_applied(
 		req_isp->bubble_report = 0;
 	}
 
-	request_id = req->request_id;
-	__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
-		CAM_REQ_MGR_SOF_EVENT_ERROR);
+	if (!req_isp->bubble_report) {
+		if (req->request_id > ctx_isp->reported_req_id) {
+			request_id = req->request_id;
+			ctx_isp->reported_req_id = request_id;
+			__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
+			CAM_REQ_MGR_SOF_EVENT_ERROR);
+		} else
+			__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
+				CAM_REQ_MGR_SOF_EVENT_SUCCESS);
+	} else
+		__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
+			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 
 	/* change the state to bubble, as reg update has not come */
 	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_BUBBLE;
