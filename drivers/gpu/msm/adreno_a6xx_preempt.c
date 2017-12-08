@@ -366,14 +366,6 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	/* Trigger the preemption */
 	adreno_gmu_fenced_write(adreno_dev, ADRENO_REG_CP_PREEMPT, cntl,
 		FENCE_STATUS_WRITEDROPPED1_MASK);
-
-	/*
-	 * Once preemption has been requested with the final register write,
-	 * the preemption process starts and the GPU is considered busy.
-	 * We can now safely clear the preemption keepalive bit, allowing
-	 * power collapse to resume its regular activity.
-	 */
-	kgsl_gmu_regrmw(device, A6XX_GMU_AO_SPARE_CNTL, 0x2, 0x0);
 }
 
 void a6xx_preemption_callback(struct adreno_device *adreno_dev, int bit)
@@ -400,6 +392,13 @@ void a6xx_preemption_callback(struct adreno_device *adreno_dev, int bit)
 		adreno_dispatcher_schedule(KGSL_DEVICE(adreno_dev));
 		return;
 	}
+
+	/*
+	 * We can now safely clear the preemption keepalive bit, allowing
+	 * power collapse to resume its regular activity.
+	 */
+	kgsl_gmu_regrmw(KGSL_DEVICE(adreno_dev), A6XX_GMU_AO_SPARE_CNTL, 0x2,
+			0x0);
 
 	del_timer(&adreno_dev->preempt.timer);
 
