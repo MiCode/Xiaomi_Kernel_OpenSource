@@ -78,6 +78,8 @@
 };
 
 &pm660_charger {
+	qcom,thermal-mitigation = <4200000 3500000 3000000 2500000
+				2000000 1500000 1000000 500000>;
 	qcom,battery-data = <&qrd_batterydata>;
 	qcom,sw-jeita-enable;
 };
