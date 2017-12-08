@@ -382,19 +382,6 @@ struct ipa_api_controller {
 	void (*ipa_ntn_uc_dereg_rdyCB)(void);
 };
 
-#ifdef CONFIG_IPA
-int ipa_plat_drv_probe(struct platform_device *pdev_p,
-	struct ipa_api_controller *api_ctrl,
-	const struct of_device_id *pdrv_match);
-#else
-static inline int ipa_plat_drv_probe(struct platform_device *pdev_p,
-	struct ipa_api_controller *api_ctrl,
-	const struct of_device_id *pdrv_match)
-{
-	return -ENODEV;
-}
-#endif /* (CONFIG_IPA) */
-
 #ifdef CONFIG_IPA3
 int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 	struct ipa_api_controller *api_ctrl,
