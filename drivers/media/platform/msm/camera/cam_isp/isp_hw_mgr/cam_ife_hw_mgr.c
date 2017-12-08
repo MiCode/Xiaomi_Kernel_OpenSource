@@ -3733,10 +3733,13 @@ int cam_ife_mgr_do_tasklet(void *handler_priv, void *evt_payload_priv)
 	struct cam_vfe_top_irq_evt_payload   *evt_payload;
 	int rc = -EINVAL;
 
-	if (!handler_priv)
+	if (!evt_payload_priv)
 		return rc;
 
 	evt_payload = evt_payload_priv;
+	if (!handler_priv)
+		goto put_payload;
+
 	ife_hwr_mgr_ctx = (struct cam_ife_hw_mgr_ctx *)handler_priv;
 
 	CAM_DBG(CAM_ISP, "addr of evt_payload = %pK core_index:%d",
@@ -3764,7 +3767,7 @@ int cam_ife_mgr_do_tasklet(void *handler_priv, void *evt_payload_priv)
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Encountered Error (%d), ignoring other irqs",
 			 rc);
-		return IRQ_HANDLED;
+		goto put_payload;
 	}
 
 	CAM_DBG(CAM_ISP, "Calling EOF");
@@ -3786,6 +3789,8 @@ int cam_ife_mgr_do_tasklet(void *handler_priv, void *evt_payload_priv)
 	cam_ife_hw_mgr_handle_epoch_for_camif_hw_res(ife_hwr_mgr_ctx,
 		evt_payload_priv);
 
+put_payload:
+	cam_vfe_put_evt_payload(evt_payload->core_info, &evt_payload);
 	return IRQ_HANDLED;
 }
 
