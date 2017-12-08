@@ -305,12 +305,14 @@ static int dp_panel_read_edid(struct dp_panel *dp_panel,
 static int dp_panel_read_sink_caps(struct dp_panel *dp_panel,
 	struct drm_connector *connector)
 {
-	int rc = 0;
+	int rc = 0, rlen, count, downstream_ports;
+	const int count_len = 1;
 	struct dp_panel_private *panel;
 
 	if (!dp_panel || !connector) {
 		pr_err("invalid input\n");
-		return -EINVAL;
+		rc = -EINVAL;
+		goto end;
 	}
 
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
@@ -323,10 +325,26 @@ static int dp_panel_read_sink_caps(struct dp_panel *dp_panel,
 		dp_panel->max_bw_code)) {
 		if ((rc == -ETIMEDOUT) || (rc == -ENODEV)) {
 			pr_err("DPCD read failed, return early\n");
-			return rc;
+			goto end;
 		}
 		pr_err("panel dpcd read failed/incorrect, set default params\n");
 		dp_panel_set_default_link_params(dp_panel);
+	}
+
+	downstream_ports = dp_panel->dpcd[DP_DOWNSTREAMPORT_PRESENT] &
+				DP_DWN_STRM_PORT_PRESENT;
+
+	if (downstream_ports) {
+		rlen = drm_dp_dpcd_read(panel->aux->drm_aux, DP_SINK_COUNT,
+				&count, count_len);
+		if (rlen == count_len) {
+			count = DP_GET_SINK_COUNT(count);
+			if (!count) {
+				pr_err("no downstream ports connected\n");
+				rc = -ENOTCONN;
+				goto end;
+			}
+		}
 	}
 
 	rc = dp_panel_read_edid(dp_panel, connector);
@@ -334,8 +352,8 @@ static int dp_panel_read_sink_caps(struct dp_panel *dp_panel,
 		pr_err("panel edid read failed, set failsafe mode\n");
 		return rc;
 	}
-
-	return 0;
+end:
+	return rc;
 }
 
 static u32 dp_panel_get_supported_bpp(struct dp_panel *dp_panel,
