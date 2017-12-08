@@ -635,15 +635,19 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 
 	sde_cp_get_hw_payload(prop_node, &hw_cfg, &feature_enabled);
 	hw_cfg.num_of_mixers = sde_crtc->num_mixers;
-	hw_cfg.displayh = sde_crtc->base.mode.hdisplay;
-	hw_cfg.displayv = sde_crtc->base.mode.vdisplay;
 	hw_cfg.last_feature = 0;
 
 	for (i = 0; i < num_mixers && !ret; i++) {
 		hw_lm = sde_crtc->mixers[i].hw_lm;
 		hw_dspp = sde_crtc->mixers[i].hw_dspp;
+		if (!hw_lm) {
+			ret = -EINVAL;
+			continue;
+		}
 		hw_cfg.ctl = sde_crtc->mixers[i].hw_ctl;
 		hw_cfg.mixer_info = hw_lm;
+		hw_cfg.displayh = num_mixers * hw_lm->cfg.out_width;
+		hw_cfg.displayv = hw_lm->cfg.out_height;
 		switch (prop_node->feature) {
 		case SDE_CP_CRTC_DSPP_VLUT:
 			if (!hw_dspp || !hw_dspp->ops.setup_vlut) {
@@ -723,7 +727,7 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 			hw_dspp->ops.setup_gamut(hw_dspp, &hw_cfg);
 			break;
 		case SDE_CP_CRTC_LM_GC:
-			if (!hw_lm || !hw_lm->ops.setup_gc) {
+			if (!hw_lm->ops.setup_gc) {
 				ret = -EINVAL;
 				continue;
 			}
@@ -737,7 +741,7 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 			hw_dspp->ops.setup_histogram(hw_dspp, &feature_enabled);
 			break;
 		case SDE_CP_CRTC_DSPP_HIST_IRQ:
-			if (!hw_dspp || !hw_lm) {
+			if (!hw_dspp) {
 				ret = -EINVAL;
 				continue;
 			}
@@ -1726,8 +1730,6 @@ static void sde_cp_ad_set_prop(struct sde_crtc *sde_crtc,
 	int i = 0, ret = 0;
 
 	hw_cfg.num_of_mixers = sde_crtc->num_mixers;
-	hw_cfg.displayh = sde_crtc->base.mode.hdisplay;
-	hw_cfg.displayv = sde_crtc->base.mode.vdisplay;
 
 	for (i = 0; i < num_mixers && !ret; i++) {
 		hw_lm = sde_crtc->mixers[i].hw_lm;
@@ -1738,6 +1740,8 @@ static void sde_cp_ad_set_prop(struct sde_crtc *sde_crtc,
 			continue;
 		}
 
+		hw_cfg.displayh = num_mixers * hw_lm->cfg.out_width;
+		hw_cfg.displayv = hw_lm->cfg.out_height;
 		hw_cfg.mixer_info = hw_lm;
 		ad_cfg.prop = ad_prop;
 		ad_cfg.hw_cfg = &hw_cfg;
