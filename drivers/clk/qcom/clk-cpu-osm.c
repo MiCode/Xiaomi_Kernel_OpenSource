@@ -55,9 +55,6 @@
 #define VOLT_REG			0x114
 #define CORE_DCVS_CTRL			0xbc
 
-#define EFUSE_SHIFT(v1)			((v1) ? 3 : 2)
-#define EFUSE_MASK			0x7
-
 #define DCVS_PERF_STATE_DESIRED_REG_0_V1	0x780
 #define DCVS_PERF_STATE_DESIRED_REG_0_V2	0x920
 #define DCVS_PERF_STATE_DESIRED_REG(n, v1) \
@@ -77,6 +74,7 @@ struct osm_entry {
 	u16 virtual_corner;
 	u16 open_loop_volt;
 	long frequency;
+	u16 ccount;
 };
 
 struct clk_osm {
@@ -95,7 +93,6 @@ struct clk_osm {
 	u32 prev_cycle_counter;
 	u32 max_core_count;
 	u32 mx_turbo_freq;
-	unsigned int cpr_rc;
 };
 
 static bool is_sdm845v1;
@@ -670,7 +667,7 @@ static int osm_cpufreq_cpu_init(struct cpufreq_policy *policy)
 	struct clk_osm *c, *parent;
 	struct clk_hw *p_hw;
 	int ret;
-	unsigned int i;
+	unsigned int i, prev_cc = 0;
 	unsigned int xo_kHz;
 
 	c = osm_configure_policy(policy);
@@ -717,8 +714,12 @@ static int osm_cpufreq_cpu_init(struct cpufreq_policy *policy)
 		if (core_count != parent->max_core_count)
 			table[i].frequency = CPUFREQ_ENTRY_INVALID;
 
-		/* Two of the same frequencies means end of table */
-		if (i > 0 && table[i - 1].driver_data == table[i].driver_data) {
+		/*
+		 * Two of the same frequencies with the same core counts means
+		 * end of table.
+		 */
+		if (i > 0 && table[i - 1].driver_data == table[i].driver_data
+					&& prev_cc == core_count) {
 			struct cpufreq_frequency_table *prev = &table[i - 1];
 
 			if (prev->frequency == CPUFREQ_ENTRY_INVALID) {
@@ -728,6 +729,7 @@ static int osm_cpufreq_cpu_init(struct cpufreq_policy *policy)
 
 			break;
 		}
+		prev_cc = core_count;
 	}
 	table[i].frequency = CPUFREQ_TABLE_END;
 
@@ -971,6 +973,7 @@ static int clk_osm_read_lut(struct platform_device *pdev, struct clk_osm *c)
 		data = clk_osm_read_reg(c, FREQ_REG + i * OSM_REG_SIZE);
 		src = ((data & GENMASK(31, 30)) >> 30);
 		lval = (data & GENMASK(7, 0));
+		c->osm_table[i].ccount = CORE_COUNT_VAL(data);
 
 		if (!src)
 			c->osm_table[i].frequency = OSM_INIT_RATE;
@@ -987,8 +990,10 @@ static int clk_osm_read_lut(struct platform_device *pdev, struct clk_osm *c)
 			 c->osm_table[i].virtual_corner,
 			 c->osm_table[i].open_loop_volt);
 
-		if (i > 0 && j == OSM_TABLE_SIZE && c->osm_table[i].frequency ==
-					c->osm_table[i - 1].frequency)
+		if (i > 0 && j == OSM_TABLE_SIZE &&
+				c->osm_table[i].frequency ==
+					c->osm_table[i - 1].frequency &&
+			c->osm_table[i].ccount == c->osm_table[i - 1].ccount)
 			j = i;
 	}
 
@@ -1010,8 +1015,7 @@ static int clk_osm_read_lut(struct platform_device *pdev, struct clk_osm *c)
 			return -ENOMEM;
 
 		for (i = 0; i < j; i++) {
-			if (c->osm_table[i].frequency < c->mx_turbo_freq ||
-								(c->cpr_rc > 1))
+			if (c->osm_table[i].frequency < c->mx_turbo_freq)
 				vdd->vdd_uv[i] = RPMH_REGULATOR_LEVEL_NOM;
 			else
 				vdd->vdd_uv[i] = RPMH_REGULATOR_LEVEL_TURBO;
@@ -1102,19 +1106,68 @@ static void clk_cpu_osm_driver_sdm670_fixup(void)
 	perfcl_clk.max_core_count = 2;
 }
 
+/* Request MX supply if configured in device tree */
+static int clk_cpu_osm_request_mx_supply(struct device *dev)
+{
+	u32 *array;
+	int rc;
+
+	if (!of_find_property(dev->of_node, "qcom,mx-turbo-freq", NULL)) {
+		osm_clks_init[l3_clk.cluster_num].vdd_class = NULL;
+		osm_clks_init[pwrcl_clk.cluster_num].vdd_class = NULL;
+		return 0;
+	}
+
+	vdd_l3_mx_ao.regulator[0] = devm_regulator_get(dev, "vdd_l3_mx_ao");
+	if (IS_ERR(vdd_l3_mx_ao.regulator[0])) {
+		rc = PTR_ERR(vdd_l3_mx_ao.regulator[0]);
+		if (rc != -EPROBE_DEFER)
+			dev_err(dev, "Unable to get vdd_l3_mx_ao regulator, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	vdd_pwrcl_mx_ao.regulator[0] = devm_regulator_get(dev,
+							"vdd_pwrcl_mx_ao");
+	if (IS_ERR(vdd_pwrcl_mx_ao.regulator[0])) {
+		rc = PTR_ERR(vdd_pwrcl_mx_ao.regulator[0]);
+		if (rc != -EPROBE_DEFER)
+			dev_err(dev, "Unable to get vdd_pwrcl_mx_ao regulator, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	array = kcalloc(MAX_CLUSTER_CNT, sizeof(*array), GFP_KERNEL);
+	if (!array)
+		return -ENOMEM;
+
+	rc = of_property_read_u32_array(dev->of_node, "qcom,mx-turbo-freq",
+					array, MAX_CLUSTER_CNT);
+	if (rc) {
+		dev_err(dev, "unable to read qcom,mx-turbo-freq property, rc=%d\n",
+			rc);
+		kfree(array);
+		return rc;
+	}
+
+	l3_clk.mx_turbo_freq = array[l3_clk.cluster_num];
+	pwrcl_clk.mx_turbo_freq = array[pwrcl_clk.cluster_num];
+	perfcl_clk.mx_turbo_freq = array[perfcl_clk.cluster_num];
+
+	kfree(array);
+
+	return 0;
+}
+
 static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 {
 	int rc = 0, i, cpu;
-	bool is_sdm670 = false;
-	u32 *array;
-	u32 val, pte_efuse;
-	void __iomem *vbase;
+	u32 val;
 	int num_clks = ARRAY_SIZE(osm_qcom_clk_hws);
 	struct clk *ext_xo_clk, *clk;
 	struct clk_osm *osm_clk;
 	struct device *dev = &pdev->dev;
 	struct clk_onecell_data *clk_data;
-	struct resource *res;
 	struct cpu_cycle_counter_cb cb = {
 		.get_cpu_cycle_counter = clk_osm_get_cpu_cycle_counter,
 	};
@@ -1134,68 +1187,12 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 					"qcom,clk-cpu-osm");
 
 	if (of_device_is_compatible(pdev->dev.of_node,
-					 "qcom,clk-cpu-osm-sdm670")) {
-		is_sdm670 = true;
+					 "qcom,clk-cpu-osm-sdm670"))
 		clk_cpu_osm_driver_sdm670_fixup();
-	}
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cpr_rc");
-	if (res) {
-		vbase = devm_ioremap(&pdev->dev, res->start,
-						resource_size(res));
-		if (!vbase) {
-			dev_err(&pdev->dev, "Unable to map in cpr_rc base\n");
-			return -ENOMEM;
-		}
-		pte_efuse = readl_relaxed(vbase);
-		l3_clk.cpr_rc = pwrcl_clk.cpr_rc = perfcl_clk.cpr_rc =
-			((pte_efuse >> EFUSE_SHIFT(is_sdm845v1 | is_sdm670))
-							& EFUSE_MASK);
-		pr_info("LOCAL_CPR_RC: %u\n", l3_clk.cpr_rc);
-		devm_iounmap(&pdev->dev, vbase);
-	} else {
-		dev_err(&pdev->dev,
-			"Unable to get platform resource for cpr_rc\n");
-		return -ENOMEM;
-	}
-
-	vdd_l3_mx_ao.regulator[0] = devm_regulator_get(&pdev->dev,
-						"vdd_l3_mx_ao");
-	if (IS_ERR(vdd_l3_mx_ao.regulator[0])) {
-		if (PTR_ERR(vdd_l3_mx_ao.regulator[0]) != -EPROBE_DEFER)
-			dev_err(&pdev->dev,
-				"Unable to get vdd_l3_mx_ao regulator\n");
-		return PTR_ERR(vdd_l3_mx_ao.regulator[0]);
-	}
-
-	vdd_pwrcl_mx_ao.regulator[0] = devm_regulator_get(&pdev->dev,
-						"vdd_pwrcl_mx_ao");
-	if (IS_ERR(vdd_pwrcl_mx_ao.regulator[0])) {
-		if (PTR_ERR(vdd_pwrcl_mx_ao.regulator[0]) != -EPROBE_DEFER)
-			dev_err(&pdev->dev,
-				"Unable to get vdd_pwrcl_mx_ao regulator\n");
-		return PTR_ERR(vdd_pwrcl_mx_ao.regulator[0]);
-	}
-
-	array = devm_kcalloc(&pdev->dev, MAX_CLUSTER_CNT, sizeof(*array),
-							GFP_KERNEL);
-	if (!array)
-		return -ENOMEM;
-
-	rc = of_property_read_u32_array(pdev->dev.of_node, "qcom,mx-turbo-freq",
-							array, MAX_CLUSTER_CNT);
-	if (rc) {
-		dev_err(&pdev->dev, "unable to find qcom,mx-turbo-freq property, rc=%d\n",
-							rc);
-		devm_kfree(&pdev->dev, array);
+	rc = clk_cpu_osm_request_mx_supply(dev);
+	if (rc)
 		return rc;
-	}
-
-	l3_clk.mx_turbo_freq = array[l3_clk.cluster_num];
-	pwrcl_clk.mx_turbo_freq = array[pwrcl_clk.cluster_num];
-	perfcl_clk.mx_turbo_freq = array[perfcl_clk.cluster_num];
-
-	devm_kfree(&pdev->dev, array);
 
 	clk_data = devm_kzalloc(&pdev->dev, sizeof(struct clk_onecell_data),
 								GFP_KERNEL);
