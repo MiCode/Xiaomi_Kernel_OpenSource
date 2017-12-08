@@ -461,7 +461,7 @@ static DEVICE_ATTR_RW(block_size);
 static int tmc_iommu_init(struct tmc_drvdata *drvdata)
 {
 	struct device_node *node = drvdata->dev->of_node;
-	int atomic_ctx = 1, ret = 0;
+	int ret = 0;
 
 	if (!of_property_read_bool(node, "iommus"))
 		return 0;
