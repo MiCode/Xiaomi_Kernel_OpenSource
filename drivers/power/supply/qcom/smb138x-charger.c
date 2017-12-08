@@ -1307,7 +1307,7 @@ static struct smb_irq_info smb138x_irqs[] = {
 	},
 	[OTG_OVERCURRENT_IRQ] = {
 		.name		= "otg-overcurrent",
-		.handler	= smblib_handle_debug,
+		.handler	= smblib_handle_otg_overcurrent,
 	},
 	[OTG_OC_DIS_SW_STS_IRQ] = {
 		.name		= "otg-oc-dis-sw-sts",
