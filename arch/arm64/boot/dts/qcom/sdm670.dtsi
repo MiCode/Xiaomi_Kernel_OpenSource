@@ -488,22 +488,28 @@
 			reg = <0 0x92e00000 0 0x500000>;
 		};
 
-		pil_cdsp_mem: cdsp_regions@93300000 {
+		wlan_msa_mem: wlan_msa_region@93300000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x93300000 0 0x800000>;
+			reg = <0 0x93300000 0 0x100000>;
 		};
 
-		pil_mba_mem: pil_mba_region@0x93b00000 {
+		pil_cdsp_mem: cdsp_regions@93400000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x93b00000 0 0x200000>;
+			reg = <0 0x93400000 0 0x800000>;
 		};
 
-		pil_adsp_mem: pil_adsp_region@93d00000 {
+		pil_mba_mem: pil_mba_region@0x93c00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x93d00000 0 0x1e00000>;
+			reg = <0 0x93c00000 0 0x200000>;
+		};
+
+		pil_adsp_mem: pil_adsp_region@93e00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x93e00000 0 0x1e00000>;
 		};
 
 		adsp_mem: adsp_region {
