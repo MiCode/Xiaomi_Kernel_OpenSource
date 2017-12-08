@@ -38,6 +38,7 @@
 #define BG_SPI_AHB_CMD_LEN (0x05)
 #define BG_SPI_AHB_READ_CMD_LEN (0x08)
 #define BG_STATUS_REG (0x05)
+#define BG_CMND_REG (0x14)
 
 #define BG_SPI_MAX_WORDS (0x3FFFFFFD)
 #define BG_SPI_MAX_REGS (0x0A)
@@ -46,10 +47,14 @@
 #define HED_EVENT_SIZE_LEN (0x02)
 #define HED_EVENT_DATA_STRT_LEN (0x05)
 
+#define MAX_RETRY 3
+
 enum bgcom_state {
 	/*BGCOM Staus ready*/
 	BGCOM_PROB_SUCCESS = 0,
 	BGCOM_PROB_WAIT = 1,
+	BGCOM_STATE_SUSPEND = 2,
+	BGCOM_STATE_ACTIVE = 3
 };
 
 enum bgcom_req_type {
@@ -68,6 +73,8 @@ struct bg_spi_priv {
 	struct spi_message msg1;
 	struct spi_transfer xfer1;
 	int irq_lock;
+
+	enum bgcom_state bg_state;
 };
 
 struct cb_data {
@@ -154,7 +161,7 @@ void add_to_irq_list(struct  cb_data *data)
 
 static bool is_bgcom_ready(void)
 {
-	return bg_com_drv ? true : false;
+	return (bg_com_drv != NULL ? true : false);
 }
 
 static void bg_spi_reinit_xfer(struct spi_transfer *xfer)
@@ -208,6 +215,8 @@ static int bgcom_transfer(void *handle, uint8_t *tx_buf,
 	cntx = (struct bg_context *)handle;
 
 	if (cntx->state == BGCOM_PROB_WAIT) {
+		if (!is_bgcom_ready())
+			return -ENODEV;
 		cntx->bg_spi = container_of(bg_com_drv,
 						struct bg_spi_priv, lhandle);
 		cntx->state = BGCOM_PROB_SUCCESS;
@@ -708,16 +717,56 @@ int bgcom_reg_read(void *handle, uint8_t reg_start_addr,
 }
 EXPORT_SYMBOL(bgcom_reg_read);
 
-int bgcom_resume(void *handle)
+int bgcom_resume(void **handle)
 {
-	return handle ? 0 : -EINVAL;
+	struct bg_spi_priv *bg_spi;
+	struct bg_context *cntx;
+	uint32_t cmnd_reg = 0;
+	int retry = 0;
+
+	if (*handle == NULL)
+		return -EINVAL;
+
+	cntx = *handle;
+	bg_spi = cntx->bg_spi;
+
+	if (bg_spi->bg_state == BGCOM_STATE_ACTIVE)
+		return 0;
+
+	do {
+		bgcom_reg_read(*handle, BG_STATUS_REG, 1, &cmnd_reg);
+		if (cmnd_reg & BIT(31)) {
+			bg_spi->bg_state = BGCOM_STATE_ACTIVE;
+			break;
+		}
+		udelay(10);
+		++retry;
+	} while (retry < MAX_RETRY);
+
+	return (retry == MAX_RETRY ? -ETIMEDOUT : 0);
 }
 EXPORT_SYMBOL(bgcom_resume);
 
-int bgcom_suspend(void *handle)
+int bgcom_suspend(void **handle)
 {
-	return handle ? 0 : -EINVAL;
+	int ret;
+	struct bg_spi_priv *bg_spi;
+	struct bg_context *cntx;
+	uint32_t cmnd_reg = 0;
 
+	if (*handle == NULL)
+		return -EINVAL;
+
+	cntx = *handle;
+	bg_spi = cntx->bg_spi;
+	if (bg_spi->bg_state == BGCOM_STATE_SUSPEND)
+		return 0;
+
+	cmnd_reg |= BIT(31);
+	ret = bgcom_reg_write(*handle, BG_CMND_REG, 1, &cmnd_reg);
+	if (ret == 0)
+		bg_spi->bg_state = BGCOM_STATE_SUSPEND;
+	return ret;
 }
 EXPORT_SYMBOL(bgcom_suspend);
 
@@ -812,12 +861,15 @@ static void bg_spi_init(struct bg_spi_priv *bg_spi)
 	spi_message_add_tail(&bg_spi->xfer1, &bg_spi->msg1);
 
 	/* BGCOM IRQ set-up */
-	bg_com_drv = &bg_spi->lhandle;
 	bg_spi->irq_lock = 0;
 
 	spi_state = BGCOM_SPI_FREE;
 
 	wq = create_singlethread_workqueue("input_wq");
+
+	bg_spi->bg_state = BGCOM_STATE_ACTIVE;
+
+	bg_com_drv = &bg_spi->lhandle;
 }
 
 static int bg_spi_probe(struct spi_device *spi)
