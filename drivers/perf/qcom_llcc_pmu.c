@@ -53,7 +53,6 @@ static ktime_t last_read;
 static int qcom_llcc_event_init(struct perf_event *event)
 {
 	u64 config = event->attr.config;
-	u64 type = event->attr.type;
 
 	if (config == LLCC_RD_EV) {
 		event->hw.config_base = event->attr.config;
@@ -90,7 +89,6 @@ static void qcom_llcc_event_read(struct perf_event *event)
 
 static void qcom_llcc_event_start(struct perf_event *event, int flags)
 {
-	struct llcc_pmu *llccpmu = to_llcc_pmu(event->pmu);
 
 	if (flags & PERF_EF_RELOAD)
 		WARN_ON(!(event->hw.state & PERF_HES_UPTODATE));
@@ -99,7 +97,6 @@ static void qcom_llcc_event_start(struct perf_event *event, int flags)
 
 static void qcom_llcc_event_stop(struct perf_event *event, int flags)
 {
-	struct llcc_pmu *llccpmu = to_llcc_pmu(event->pmu);
 
 	qcom_llcc_event_read(event);
 	event->hw.state |= PERF_HES_STOPPED | PERF_HES_UPTODATE;
@@ -107,9 +104,6 @@ static void qcom_llcc_event_stop(struct perf_event *event, int flags)
 
 static int qcom_llcc_event_add(struct perf_event *event, int flags)
 {
-	int i;
-	unsigned int cpu = event->cpu;
-	unsigned long irq_flags;
 	struct llcc_pmu *llccpmu = to_llcc_pmu(event->pmu);
 
 	raw_spin_lock(&users_lock);
@@ -130,9 +124,6 @@ static int qcom_llcc_event_add(struct perf_event *event, int flags)
 
 static void qcom_llcc_event_del(struct perf_event *event, int flags)
 {
-	int i;
-	unsigned int cpu = event->cpu;
-	unsigned long irq_flags;
 	struct llcc_pmu *llccpmu = to_llcc_pmu(event->pmu);
 
 	raw_spin_lock(&users_lock);
@@ -148,7 +139,7 @@ static int qcom_llcc_pmu_probe(struct platform_device *pdev)
 {
 	struct llcc_pmu *llccpmu;
 	struct resource *res;
-	int ret, i;
+	int ret;
 
 	llccpmu = devm_kzalloc(&pdev->dev, sizeof(struct llcc_pmu), GFP_KERNEL);
 	if (!llccpmu)

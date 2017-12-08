@@ -3805,9 +3805,6 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 	smmu->streamid_mask = size - 1;
 	if (id & ID0_SMS) {
 
-		u32 smr;
-		int i;
-
 		smmu->features |= ARM_SMMU_FEAT_STREAM_MATCH;
 		size = (id >> ID0_NUMSMRG_SHIFT) & ID0_NUMSMRG_MASK;
 		if (size == 0) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015, 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1043,7 +1043,7 @@ static int clk_regera_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 {
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
 	unsigned long rrate;
-	u32 regval, l, off = pll->offset;
+	u32 l, off = pll->offset;
 	u64 a;
 	int ret;
 

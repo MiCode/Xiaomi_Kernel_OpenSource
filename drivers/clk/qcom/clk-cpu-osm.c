@@ -557,7 +557,6 @@ static int osm_cpufreq_cpu_init(struct cpufreq_policy *policy)
 	struct clk_hw *p_hw;
 	int ret;
 	unsigned int i;
-	unsigned int xo_kHz;
 
 	c = osm_configure_policy(policy);
 	if (!c) {
@@ -965,7 +964,6 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 	u32 val;
 	int num_clks = ARRAY_SIZE(osm_qcom_clk_hws);
 	struct clk *clk;
-	struct device *dev = &pdev->dev;
 	struct clk_onecell_data *clk_data;
 	struct cpu_cycle_counter_cb cycle_counter_cb = {
 		.get_cpu_cycle_counter = clk_osm_get_cpu_cycle_counter,

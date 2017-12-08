@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -751,7 +751,6 @@ static struct v4l2_ctrl *get_ctrl_from_cluster(int id,
 int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 {
 	int rc = 0;
-	struct hal_nal_stream_format_supported stream_format;
 	struct hal_enable_picture enable_picture;
 	struct hal_enable hal_property;
 	enum hal_property property_id = 0;
@@ -1114,7 +1113,7 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 int msm_vdec_s_ext_ctrl(struct msm_vidc_inst *inst,
 	struct v4l2_ext_controls *ctrl)
 {
-	int rc = 0, i = 0, fourcc = 0;
+	int rc = 0, i = 0;
 	struct v4l2_ext_control *ext_control;
 	struct v4l2_control control;
 	struct hal_conceal_color conceal_color = {0};

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -834,7 +834,7 @@ static int map_debug_bases(struct platform_device *pdev, char *base, int cc)
 			syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
 					base);
 	if (IS_ERR(gcc_debug_mux.regmap[cc])) {
-		pr_err("Failed to map %s (ret=%d)\n", base,
+		pr_err("Failed to map %s (ret=%ld)\n", base,
 				PTR_ERR(gcc_debug_mux.regmap[cc]));
 		return PTR_ERR(gcc_debug_mux.regmap[cc]);
 	}

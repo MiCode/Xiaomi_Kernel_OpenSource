@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -451,7 +451,7 @@ static void socket_open_server(struct diag_socket_info *info)
 	ret = kernel_getsockname(info->hdl, (struct sockaddr *)&sq, &sl);
 	if (ret < 0) {
 		pr_err("diag: In %s, getsockname failed %d\n", __func__,
-		       info->name, ret);
+		       ret);
 		sock_release(info->hdl);
 		return;
 	}

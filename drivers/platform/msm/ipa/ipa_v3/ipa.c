@@ -4711,7 +4711,7 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
  */
 int ipa3_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs)
 {
-	int i, size, ret, resp;
+	int i, size, ret;
 	struct tz_smmu_ipa_protect_region_iovec_s *ipa_tz_unlock_vec;
 	struct tz_smmu_ipa_protect_region_s cmd_buf;
 	struct scm_desc desc = {0};

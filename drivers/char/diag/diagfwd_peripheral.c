@@ -1049,7 +1049,6 @@ void diagfwd_close_transport(uint8_t transport, uint8_t peripheral)
 	void (*invalidate_fn)(void *, struct diagfwd_info *) = NULL;
 	int (*check_channel_state)(void *) = NULL;
 	uint8_t transport_open = 0;
-	int i = 0;
 
 	if (peripheral >= NUM_PERIPHERALS)
 		return;
@@ -1258,7 +1257,6 @@ void diagfwd_close(uint8_t peripheral, uint8_t type)
 
 int diagfwd_channel_open(struct diagfwd_info *fwd_info)
 {
-	int i;
 
 	if (!fwd_info)
 		return -EIO;
@@ -1295,8 +1293,6 @@ int diagfwd_channel_open(struct diagfwd_info *fwd_info)
 
 int diagfwd_channel_close(struct diagfwd_info *fwd_info)
 {
-	int i;
-
 	if (!fwd_info)
 		return -EIO;
 

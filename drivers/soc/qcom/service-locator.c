@@ -66,7 +66,6 @@ struct pd_qmi_data service_locator;
 static int service_locator_new_server(struct qmi_handle *qmi,
 		struct qmi_service *svc)
 {
-	int rc = 0;
 
 	/* Create a Local client port for QMI communication */
 	service_locator.s_addr.sq_family = AF_QIPCRTR;

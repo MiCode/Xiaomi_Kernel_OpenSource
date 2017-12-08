@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -620,7 +620,6 @@ static struct diag_rpmsg_info *diag_get_rpmsg_ptr(char *name)
 
 static int diag_rpmsg_probe(struct rpmsg_device *rpdev)
 {
-	int err;
 	struct diag_rpmsg_info *rpmsg_info = NULL;
 
 	if (!rpdev)
