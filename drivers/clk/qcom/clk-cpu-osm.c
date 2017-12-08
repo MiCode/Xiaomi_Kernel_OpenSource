@@ -90,6 +90,7 @@ struct clk_osm {
 	u32 num_entries;
 	u32 cluster_num;
 	u32 core_num;
+	unsigned long rate;
 	u64 total_cycle_counter;
 	u32 prev_cycle_counter;
 	u32 max_core_count;
@@ -151,6 +152,24 @@ static int clk_osm_search_table(struct osm_entry *table, int entries, long rate)
 	}
 
 	return -EINVAL;
+}
+
+static int clk_osm_set_rate(struct clk_hw *hw, unsigned long rate,
+				unsigned long parent_rate)
+{
+	struct clk_osm *c = to_clk_osm(hw);
+
+	c->rate = rate;
+
+	return 0;
+}
+
+static unsigned long clk_osm_recalc_rate(struct clk_hw *hw,
+				unsigned long parent_rate)
+{
+	struct clk_osm *c = to_clk_osm(hw);
+
+	return c->rate;
 }
 
 static long clk_osm_round_rate(struct clk_hw *hw, unsigned long rate,
@@ -294,7 +313,7 @@ static unsigned long l3_clk_recalc_rate(struct clk_hw *hw,
 	return cpuclk->osm_table[index].frequency;
 }
 
-static struct clk_ops clk_ops_l3_osm = {
+static const struct clk_ops clk_ops_l3_osm = {
 	.round_rate = clk_osm_round_rate,
 	.list_rate = clk_osm_list_rate,
 	.recalc_rate = l3_clk_recalc_rate,
@@ -302,8 +321,20 @@ static struct clk_ops clk_ops_l3_osm = {
 	.debug_init = clk_debug_measure_add,
 };
 
-static struct clk_ops clk_ops_core;
-static struct clk_ops clk_ops_cpu_osm;
+static const struct clk_ops clk_ops_core = {
+	.set_rate = clk_cpu_set_rate,
+	.round_rate = clk_cpu_round_rate,
+	.recalc_rate = clk_cpu_recalc_rate,
+	.debug_init = clk_debug_measure_add,
+};
+
+static const struct clk_ops clk_ops_cpu_osm = {
+	.set_rate = clk_osm_set_rate,
+	.round_rate = clk_osm_round_rate,
+	.recalc_rate = clk_osm_recalc_rate,
+	.list_rate = clk_osm_list_rate,
+	.debug_init = clk_debug_measure_add,
+};
 
 static struct clk_init_data osm_clks_init[] = {
 	[0] = {
@@ -1219,16 +1250,6 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 	spin_lock_init(&l3_clk.lock);
 	spin_lock_init(&pwrcl_clk.lock);
 	spin_lock_init(&perfcl_clk.lock);
-
-	clk_ops_core = clk_dummy_ops;
-	clk_ops_core.set_rate = clk_cpu_set_rate;
-	clk_ops_core.round_rate = clk_cpu_round_rate;
-	clk_ops_core.recalc_rate = clk_cpu_recalc_rate;
-
-	clk_ops_cpu_osm = clk_dummy_ops;
-	clk_ops_cpu_osm.round_rate = clk_osm_round_rate;
-	clk_ops_cpu_osm.list_rate = clk_osm_list_rate;
-	clk_ops_cpu_osm.debug_init = clk_debug_measure_add;
 
 	/* Register OSM l3, pwr and perf clocks with Clock Framework */
 	for (i = 0; i < num_clks; i++) {
