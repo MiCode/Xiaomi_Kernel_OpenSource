@@ -37,6 +37,11 @@ struct radar_types {
 #define MIN_PPB_THRESH	50
 #define PPB_THRESH_RATE(PPB, RATE) ((PPB * RATE + 100 - RATE) / 100)
 #define PPB_THRESH(PPB) PPB_THRESH_RATE(PPB, MIN_PPB_THRESH)
+/* percentage on ppb threshold, for ETSI type4, to trigger detection */
+#define MIN_PPB_THRESH_TYPE4	30
+#define PPB_THRESH_RATE_TYPE4(PPB, RATE) ((PPB * RATE + 100 - RATE) / 100)
+#define PPB_THRESH_TYPE4(PPB) PPB_THRESH_RATE_TYPE4(PPB, MIN_PPB_THRESH_TYPE4)
+
 #define PRF2PRI(PRF) ((1000000 + PRF / 2) / PRF)
 /* percentage of pulse width tolerance */
 #define WIDTH_TOLERANCE 5
@@ -51,13 +56,21 @@ struct radar_types {
 	PPB_THRESH(PPB), PRI_TOLERANCE,	CHIRP			\
 }
 
+#define ETSI_PATTERN_TYPE4(ID, WMIN, WMAX, PMIN, PMAX, PRF, PPB, CHIRP)	\
+{								\
+	ID, WIDTH_LOWER(WMIN), WIDTH_UPPER(WMAX),		\
+	(PRF2PRI(PMAX) - PRI_TOLERANCE),			\
+	(PRF2PRI(PMIN) * PRF + PRI_TOLERANCE), PRF, PPB * PRF,	\
+	PPB_THRESH_TYPE4(PPB), PRI_TOLERANCE,	CHIRP			\
+}
+
 /* radar types as defined by ETSI EN-301-893 v1.5.1 */
 static const struct radar_detector_specs etsi_radar_ref_types_v15[] = {
 	ETSI_PATTERN(0,  0,  1,  700,  700, 1, 18, false),
 	ETSI_PATTERN(1,  0,  5,  200, 1000, 1, 10, false),
 	ETSI_PATTERN(2,  0, 15,  200, 1600, 1, 15, false),
 	ETSI_PATTERN(3,  0, 15, 2300, 4000, 1, 25, false),
-	ETSI_PATTERN(4, 20, 30, 2000, 4000, 1, 20, false),
+	ETSI_PATTERN_TYPE4(4, 20, 30, 2000, 4000, 1, 20, false),
 	ETSI_PATTERN(5,  0,  2,  300,  400, 3, 10, false),
 	ETSI_PATTERN(6,  0,  2,  400, 1200, 3, 15, false),
 };
