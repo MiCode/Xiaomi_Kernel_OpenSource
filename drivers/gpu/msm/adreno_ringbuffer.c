@@ -37,6 +37,11 @@
 #define RB_GPUADDR(_rb, _pos) \
 	((_rb)->buffer_desc.gpuaddr + ((_pos) * sizeof(unsigned int)))
 
+static inline bool is_internal_cmds(unsigned int flags)
+{
+	return (flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE);
+}
+
 static void adreno_get_submit_time(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb,
 		struct adreno_submit_time *time)
@@ -389,7 +394,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 
 	if (drawctxt != NULL && kgsl_context_detached(&drawctxt->base) &&
-		!(flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE))
+		!is_internal_cmds(flags))
 		return -ENOENT;
 
 	/* On fault return error so that we don't keep submitting */
@@ -399,7 +404,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	rb->timestamp++;
 
 	/* If this is a internal IB, use the global timestamp for it */
-	if (!drawctxt || (flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE))
+	if (!drawctxt || is_internal_cmds(flags))
 		timestamp = rb->timestamp;
 	else {
 		context_id = drawctxt->base.id;
@@ -428,7 +433,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	 */
 	profile_ready = drawctxt &&
 		adreno_profile_assignments_ready(&adreno_dev->profile) &&
-		!(flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE);
+		!is_internal_cmds(flags);
 
 	/*
 	 * reserve space to temporarily turn off protected mode
@@ -438,7 +443,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	/* 2 dwords to store the start of command sequence */
 	total_sizedwords += 2;
 	/* internal ib command identifier for the ringbuffer */
-	total_sizedwords += (flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE) ? 2 : 0;
+	total_sizedwords += is_internal_cmds(flags) ? 2 : 0;
 
 	total_sizedwords += (secured_ctxt) ? 26 : 0;
 
@@ -472,7 +477,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	total_sizedwords += 8; /* sop timestamp */
 	total_sizedwords += 5; /* eop timestamp */
 
-	if (drawctxt && !(flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE)) {
+	if (drawctxt && !is_internal_cmds(flags)) {
 		/* global timestamp without cache flush for non-zero context */
 		total_sizedwords += 4;
 	}
@@ -516,7 +521,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 		ringcmds += gpudev->preemption_pre_ibsubmit(
 					adreno_dev, rb, ringcmds, context);
 
-	if (flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE) {
+	if (is_internal_cmds(flags)) {
 		*ringcmds++ = cp_packet(adreno_dev, CP_NOP, 1);
 		*ringcmds++ = KGSL_CMD_INTERNAL_IDENTIFIER;
 	}
@@ -553,7 +558,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 				&flags, &ringcmds);
 
 	/* start-of-pipeline timestamp for the context */
-	if (drawctxt && !(flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE))
+	if (drawctxt && !is_internal_cmds(flags))
 		ringcmds += cp_mem_write(adreno_dev, ringcmds,
 			MEMSTORE_ID_GPU_ADDR(device, context_id, soptimestamp),
 			timestamp);
@@ -627,12 +632,12 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	 * set and hence the rb timestamp will be used in else statement below.
 	 */
 	*ringcmds++ = cp_mem_packet(adreno_dev, CP_EVENT_WRITE, 3, 1);
-	if (drawctxt || (flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE))
+	if (drawctxt || is_internal_cmds(flags))
 		*ringcmds++ = CACHE_FLUSH_TS | (1 << 31);
 	else
 		*ringcmds++ = CACHE_FLUSH_TS;
 
-	if (drawctxt && !(flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE)) {
+	if (drawctxt && !is_internal_cmds(flags)) {
 		ringcmds += cp_gpuaddr(adreno_dev, ringcmds,
 			MEMSTORE_ID_GPU_ADDR(device, context_id, eoptimestamp));
 		*ringcmds++ = timestamp;
@@ -693,7 +698,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 }
 
 int
-adreno_ringbuffer_issuecmds(struct adreno_ringbuffer *rb,
+adreno_ringbuffer_issue_internal_cmds(struct adreno_ringbuffer *rb,
 				unsigned int flags,
 				unsigned int *cmds,
 				int sizedwords)
