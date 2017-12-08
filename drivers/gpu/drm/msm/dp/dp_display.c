@@ -499,26 +499,21 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 	rc = dp->panel->read_sink_caps(dp->panel,
 		dp->dp_display.connector, dp->usbpd->multi_func);
 	if (rc) {
-		if (rc == -ETIMEDOUT) {
-			pr_err("Sink cap read failed, skip notification\n");
+		/*
+		 * ETIMEDOUT --> cable may have been removed
+		 * ENOTCONN --> no downstream device connected
+		 */
+		if (rc == -ETIMEDOUT || rc == -ENOTCONN)
 			goto end;
-		} else {
+		else
 			goto notify;
-		}
-	}
-
-	dp->link->process_request(dp->link);
-
-	if (dp_display_is_sink_count_zero(dp)) {
-		pr_debug("no downstream devices connected\n");
-		rc = -EINVAL;
-		goto end;
 	}
 
 	edid = dp->panel->edid_ctrl->edid;
 
 	dp->audio_supported = drm_detect_monitor_audio(edid);
 
+	dp->link->process_request(dp->link);
 	dp->panel->handle_sink_request(dp->panel);
 
 	dp->dp_display.max_pclk_khz = dp->parser->max_pclk_khz;
