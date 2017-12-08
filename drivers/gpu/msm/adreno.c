@@ -614,7 +614,6 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 	struct adreno_irq *irq_params = gpudev->irq;
 	irqreturn_t ret = IRQ_NONE;
 	unsigned int status = 0, fence = 0, fence_retries = 0, tmp, int_bit;
-	unsigned int status_retries = 0;
 	int i;
 
 	atomic_inc(&adreno_dev->pending_irq_refcnt);
@@ -652,32 +651,6 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 	}
 
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS, &status);
-
-	/*
-	 * Read status again to make sure the bits aren't transitory.
-	 * Transitory bits mean that they are spurious interrupts and are
-	 * seen while preemption is on going. Empirical experiments have
-	 * shown that the transitory bits are a timing thing and they
-	 * go away in the small time window between two or three consecutive
-	 * reads. If they don't go away, log the message and return.
-	 */
-	while (status_retries < STATUS_RETRY_MAX) {
-		unsigned int new_status;
-
-		adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS,
-			&new_status);
-
-		if (status == new_status)
-			break;
-
-		status = new_status;
-		status_retries++;
-	}
-
-	if (status_retries == STATUS_RETRY_MAX) {
-		KGSL_DRV_CRIT_RATELIMIT(device, "STATUS bits are not stable\n");
-			return ret;
-	}
 
 	/*
 	 * Clear all the interrupt bits but ADRENO_INT_RBBM_AHB_ERROR. Because
