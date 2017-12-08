@@ -111,6 +111,11 @@ module_param_named(
 	debug_mask, __debug_mask, int, 0600
 );
 
+static int __try_sink_enabled;
+module_param_named(
+	try_sink_enabled, __try_sink_enabled, int, 0600
+);
+
 static irqreturn_t smb138x_handle_slave_chg_state_change(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
@@ -1766,6 +1771,7 @@ static int smb138x_probe(struct platform_device *pdev)
 
 	chip->chg.dev = &pdev->dev;
 	chip->chg.debug_mask = &__debug_mask;
+	chip->chg.try_sink_enabled = &__try_sink_enabled;
 	chip->chg.irq_info = smb138x_irqs;
 	chip->chg.name = "SMB";
 
