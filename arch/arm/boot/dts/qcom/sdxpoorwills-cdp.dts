@@ -20,7 +20,7 @@
 	model = "Qualcomm Technologies, Inc. SDXPOORWILLS CDP";
 	compatible = "qcom,sdxpoorwills-cdp",
 		"qcom,sdxpoorwills", "qcom,cdp";
-	qcom,board-id = <1 0x0>, <1 0x100>;
+	qcom,board-id = <1 0x0>, <1 0x100>, <1 0x2>, <1 0x102>;
 };
 
 &blsp1_uart2 {
