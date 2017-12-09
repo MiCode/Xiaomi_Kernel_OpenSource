@@ -216,7 +216,7 @@
 			< 1 >;
 	};
 
-	blsp1_uart2: serial@831000 {
+	serial_uart: serial@831000 {
 		compatible = "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm";
 		reg = <0x831000 0x200>;
 		interrupts = <0 26 0>;
