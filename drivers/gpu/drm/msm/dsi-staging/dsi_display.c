@@ -3218,20 +3218,6 @@ static int dsi_display_set_mode_sub(struct dsi_display *display,
 		}
 	}
 
-	for (i = 0; i < display->ctrl_count; i++) {
-		ctrl = &display->ctrl[i];
-
-		if (!ctrl->phy || !ctrl->ctrl)
-			continue;
-
-		rc = dsi_phy_set_clk_freq(ctrl->phy, &ctrl->ctrl->clk_freq);
-		if (rc) {
-			pr_err("[%s] failed to set phy clk freq, rc=%d\n",
-			       display->name, rc);
-			goto error;
-		}
-	}
-
 	if (priv_info->phy_timing_len) {
 		for (i = 0; i < display->ctrl_count; i++) {
 			ctrl = &display->ctrl[i];
@@ -3575,6 +3561,21 @@ static int dsi_display_bind(struct device *dev,
 
 	pr_info("Successfully bind display panel '%s'\n", display->name);
 	display->drm_dev = drm;
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		display_ctrl = &display->ctrl[i];
+
+		if (!display_ctrl->phy || !display_ctrl->ctrl)
+			continue;
+
+		rc = dsi_phy_set_clk_freq(display_ctrl->phy,
+				&display_ctrl->ctrl->clk_freq);
+		if (rc) {
+			pr_err("[%s] failed to set phy clk freq, rc=%d\n",
+					display->name, rc);
+			goto error;
+		}
+	}
 
 	/* Initialize resources for continuous splash */
 	rc = dsi_display_splash_res_init(display);
