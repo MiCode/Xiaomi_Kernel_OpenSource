@@ -484,42 +484,6 @@ static void sde_encoder_phys_vid_underrun_irq(void *arg, int irq_idx)
 			phys_enc);
 }
 
-static bool _sde_encoder_phys_is_ppsplit(struct sde_encoder_phys *phys_enc)
-{
-	enum sde_rm_topology_name topology;
-
-	if (!phys_enc)
-		return false;
-
-	topology = sde_connector_get_topology_name(phys_enc->connector);
-	if (topology == SDE_RM_TOPOLOGY_PPSPLIT)
-		return true;
-
-	return false;
-}
-
-static bool _sde_encoder_phys_is_dual_ctl(struct sde_encoder_phys *phys_enc)
-{
-	enum sde_rm_topology_name topology;
-
-	if (!phys_enc)
-		return false;
-
-	topology = sde_connector_get_topology_name(phys_enc->connector);
-	if ((topology == SDE_RM_TOPOLOGY_DUALPIPE_DSC) ||
-		(topology == SDE_RM_TOPOLOGY_DUALPIPE))
-		return true;
-
-	return false;
-}
-
-static bool sde_encoder_phys_vid_needs_single_flush(
-		struct sde_encoder_phys *phys_enc)
-{
-	return phys_enc && (_sde_encoder_phys_is_ppsplit(phys_enc) ||
-		_sde_encoder_phys_is_dual_ctl(phys_enc));
-}
-
 static void _sde_encoder_phys_vid_setup_irq_hw_idx(
 		struct sde_encoder_phys *phys_enc)
 {
@@ -742,7 +706,7 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	 * flush bit for the slave intf, since both intfs use same ctl
 	 * and HW will only flush the master.
 	 */
-	if (sde_encoder_phys_vid_needs_single_flush(phys_enc) &&
+	if (sde_encoder_phys_needs_single_flush(phys_enc) &&
 		!sde_encoder_phys_vid_is_master(phys_enc))
 		goto skip_flush;
 
@@ -1160,7 +1124,7 @@ static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->irq_control = sde_encoder_phys_vid_irq_control;
 	ops->prepare_for_kickoff = sde_encoder_phys_vid_prepare_for_kickoff;
 	ops->handle_post_kickoff = sde_encoder_phys_vid_handle_post_kickoff;
-	ops->needs_single_flush = sde_encoder_phys_vid_needs_single_flush;
+	ops->needs_single_flush = sde_encoder_phys_needs_single_flush;
 	ops->setup_misr = sde_encoder_phys_vid_setup_misr;
 	ops->collect_misr = sde_encoder_phys_vid_collect_misr;
 	ops->trigger_flush = sde_encoder_helper_trigger_flush;

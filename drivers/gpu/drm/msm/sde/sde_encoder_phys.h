@@ -604,4 +604,54 @@ int sde_encoder_helper_unregister_irq(struct sde_encoder_phys *phys_enc,
 void sde_encoder_helper_update_intf_cfg(
 		struct sde_encoder_phys *phys_enc);
 
+/**
+ * _sde_encoder_phys_is_dual_ctl - check if encoder needs dual ctl path.
+ * @phys_enc: Pointer to physical encoder structure
+ * @Return: true if dual ctl paths else false
+ */
+static inline bool _sde_encoder_phys_is_dual_ctl(
+		struct sde_encoder_phys *phys_enc)
+{
+	enum sde_rm_topology_name topology;
+
+	if (!phys_enc)
+		return false;
+
+	topology = sde_connector_get_topology_name(phys_enc->connector);
+	if ((topology == SDE_RM_TOPOLOGY_DUALPIPE_DSC) ||
+		(topology == SDE_RM_TOPOLOGY_DUALPIPE))
+		return true;
+
+	return false;
+}
+
+/**
+ * _sde_encoder_phys_is_ppsplit - check if pp_split is enabled
+ * @phys_enc: Pointer to physical encoder structure
+ * @Return: true or false
+ */
+static inline bool _sde_encoder_phys_is_ppsplit(
+		struct sde_encoder_phys *phys_enc)
+{
+	enum sde_rm_topology_name topology;
+
+	if (!phys_enc)
+		return false;
+
+	topology = sde_connector_get_topology_name(phys_enc->connector);
+	if (topology == SDE_RM_TOPOLOGY_PPSPLIT)
+		return true;
+
+	return false;
+}
+
+static inline bool sde_encoder_phys_needs_single_flush(
+		struct sde_encoder_phys *phys_enc)
+{
+	if (!phys_enc)
+		return false;
+
+	return phys_enc && (_sde_encoder_phys_is_ppsplit(phys_enc) ||
+		_sde_encoder_phys_is_dual_ctl(phys_enc));
+}
 #endif /* __sde_encoder_phys_H__ */

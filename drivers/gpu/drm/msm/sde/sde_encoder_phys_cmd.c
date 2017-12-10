@@ -457,20 +457,6 @@ static void sde_encoder_phys_cmd_mode_set(
 	_sde_encoder_phys_cmd_setup_irq_hw_idx(phys_enc);
 }
 
-static bool _sde_encoder_phys_is_ppsplit(struct sde_encoder_phys *phys_enc)
-{
-	enum sde_rm_topology_name topology;
-
-	if (!phys_enc)
-		return false;
-
-	topology = sde_connector_get_topology_name(phys_enc->connector);
-	if (topology == SDE_RM_TOPOLOGY_PPSPLIT)
-		return true;
-
-	return false;
-}
-
 static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 		struct sde_encoder_phys *phys_enc)
 {
@@ -880,15 +866,6 @@ static void _sde_encoder_phys_cmd_pingpong_config(
 	if (!_sde_encoder_phys_is_ppsplit_slave(phys_enc))
 		_sde_encoder_phys_cmd_update_intf_cfg(phys_enc);
 	sde_encoder_phys_cmd_tearcheck_config(phys_enc);
-}
-
-static bool sde_encoder_phys_cmd_needs_single_flush(
-		struct sde_encoder_phys *phys_enc)
-{
-	if (!phys_enc)
-		return false;
-
-	return _sde_encoder_phys_is_ppsplit(phys_enc);
 }
 
 static void sde_encoder_phys_cmd_enable_helper(
@@ -1349,7 +1326,7 @@ static void sde_encoder_phys_cmd_init_ops(
 	ops->wait_for_vblank = sde_encoder_phys_cmd_wait_for_vblank;
 	ops->trigger_flush = sde_encoder_helper_trigger_flush;
 	ops->trigger_start = sde_encoder_phys_cmd_trigger_start;
-	ops->needs_single_flush = sde_encoder_phys_cmd_needs_single_flush;
+	ops->needs_single_flush = sde_encoder_phys_needs_single_flush;
 	ops->hw_reset = sde_encoder_helper_hw_reset;
 	ops->irq_control = sde_encoder_phys_cmd_irq_control;
 	ops->update_split_role = sde_encoder_phys_cmd_update_split_role;
