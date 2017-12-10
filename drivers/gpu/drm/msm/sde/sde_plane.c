@@ -1804,8 +1804,8 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 	char feature_name[256];
 	struct sde_phy_plane *pp;
 	uint32_t features = 0xFFFFFFFF, nformats = 64;
-	u32 maxlinewidth = -1, maxupscale = -1, maxdwnscale = -1;
-	u32 maxhdeciexp = -1, maxvdeciexp = -1;
+	u32 maxlinewidth = 0, maxupscale = 0, maxdwnscale = 0;
+	u32 maxhdeciexp = 0, maxvdeciexp = 0;
 
 	if (!plane || !psde) {
 		SDE_ERROR("invalid plane\n");
