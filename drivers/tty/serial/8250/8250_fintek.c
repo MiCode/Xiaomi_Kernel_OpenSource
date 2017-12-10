@@ -118,7 +118,7 @@ static int fintek_8250_rs4850_config(struct uart_8250_port *uart,
 
 	if ((!!(rs485->flags & SER_RS485_RTS_ON_SEND)) ==
 			(!!(rs485->flags & SER_RS485_RTS_AFTER_SEND)))
-		rs485->flags &= SER_RS485_ENABLED;
+		rs485->flags &= ~SER_RS485_ENABLED;
 	else
 		config |= RS485_URA;
 
