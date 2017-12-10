@@ -437,11 +437,69 @@ static long msm_isp_v4l2_fops_ioctl(struct file *file, unsigned int cmd,
 	return video_usercopy(file, cmd, arg, msm_isp_subdev_do_ioctl);
 }
 
+static void isp_vma_open(struct vm_area_struct *vma)
+{
+	pr_debug("%s: open called\n", __func__);
+}
+
+static void isp_vma_close(struct vm_area_struct *vma)
+{
+	pr_debug("%s: close called\n", __func__);
+}
+
+static int isp_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+{
+	struct page *page;
+	struct vfe_device *vfe_dev = vma->vm_private_data;
+	struct isp_proc *isp_page = NULL;
+
+	isp_page = vfe_dev->isp_page;
+
+	pr_debug("%s: vfeid:%d u_virt_addr:0x%lx k_virt_addr:%pK\n",
+		__func__, vfe_dev->pdev->id, vma->vm_start,
+		(void *)isp_page);
+	if (isp_page != NULL) {
+		page = virt_to_page(isp_page);
+		get_page(page);
+		vmf->page = page;
+		isp_page->kernel_sofid =
+			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
+		isp_page->vfeid = vfe_dev->pdev->id;
+	}
+	return 0;
+}
+
+static const struct vm_operations_struct isp_vm_ops = {
+	.open = isp_vma_open,
+	.close = isp_vma_close,
+	.fault = isp_vma_fault,
+};
+
+static int msm_isp_v4l2_fops_mmap(struct file *filep,
+	struct vm_area_struct *vma)
+{
+	int ret =  -EINVAL;
+	struct video_device *vdev = video_devdata(filep);
+	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
+	struct vfe_device *vfe_dev = v4l2_get_subdevdata(sd);
+
+	vma->vm_ops = &isp_vm_ops;
+	vma->vm_flags |=
+		(unsigned long)(VM_DONTEXPAND | VM_DONTDUMP);
+	vma->vm_private_data = vfe_dev;
+	isp_vma_open(vma);
+	ret = 0;
+	pr_debug("%s: isp mmap is called vm_start: 0x%lx\n",
+		__func__, vma->vm_start);
+	return ret;
+}
+
 static struct v4l2_file_operations msm_isp_v4l2_fops = {
 #ifdef CONFIG_COMPAT
 	.compat_ioctl32 = msm_isp_v4l2_fops_ioctl,
 #endif
-	.unlocked_ioctl = msm_isp_v4l2_fops_ioctl
+	.unlocked_ioctl = msm_isp_v4l2_fops_ioctl,
+	.mmap = msm_isp_v4l2_fops_mmap
 };
 
 static int vfe_set_common_data(struct platform_device *pdev)
@@ -637,6 +695,8 @@ int vfe_hw_probe(struct platform_device *pdev)
 	msm_isp_v4l2_fops.compat_ioctl32 =
 		msm_isp_v4l2_fops_ioctl;
 #endif
+	msm_isp_v4l2_fops.mmap = msm_isp_v4l2_fops_mmap;
+
 	vfe_dev->subdev.sd.devnode->fops = &msm_isp_v4l2_fops;
 
 	vfe_dev->buf_mgr = &vfe_buf_mgr;
@@ -655,6 +715,14 @@ int vfe_hw_probe(struct platform_device *pdev)
 		vfe_dev->hw_info->num_iommu_secure_ctx;
 	vfe_dev->buf_mgr->init_done = 1;
 	vfe_dev->vfe_open_cnt = 0;
+	/*Allocate a page in kernel and map it to camera user process*/
+	vfe_dev->isp_page = (struct isp_proc *)get_zeroed_page(GFP_KERNEL);
+	if (vfe_dev->isp_page == NULL) {
+		pr_err("%s: no enough memory\n", __func__);
+		rc = -ENOMEM;
+		goto probe_fail3;
+	}
+	vfe_dev->isp_page->vfeid = vfe_dev->pdev->id;
 	return rc;
 
 probe_fail3:

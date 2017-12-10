@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -707,7 +707,7 @@ static inline u32 bam_get_register_offset(void *base, enum bam_regs reg,
 	struct sps_bam *dev = to_sps_bam_dev(base);
 
 	if ((dev == NULL) || (&dev->base != base)) {
-		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%pK\n",
 				__func__, base);
 		return SPS_ERROR;
 	}
@@ -756,7 +756,7 @@ static inline u32 bam_read_reg(void *base, enum bam_regs reg, u32 param)
 	struct sps_bam *dev = to_sps_bam_dev(base);
 
 	if ((dev == NULL) || (&dev->base != base)) {
-		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%pK\n",
 				__func__, base);
 		return SPS_ERROR;
 	}
@@ -767,7 +767,7 @@ static inline u32 bam_read_reg(void *base, enum bam_regs reg, u32 param)
 		return offset;
 	}
 	val = ioread32(dev->base + offset);
-	SPS_DBG(dev, "sps:bam 0x%p(va) offset 0x%x reg 0x%x r_val 0x%x.\n",
+	SPS_DBG(dev, "sps:bam 0x%pK(va) offset 0x%x reg 0x%x r_val 0x%x.\n",
 			dev->base, offset, reg, val);
 	return val;
 }
@@ -788,7 +788,7 @@ static inline u32 bam_read_reg_field(void *base, enum bam_regs reg, u32 param,
 	struct sps_bam *dev = to_sps_bam_dev(base);
 
 	if ((dev == NULL) || (&dev->base != base)) {
-		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%pK\n",
 				__func__, base);
 		return SPS_ERROR;
 	}
@@ -802,7 +802,7 @@ static inline u32 bam_read_reg_field(void *base, enum bam_regs reg, u32 param,
 	val = ioread32(dev->base + offset);
 	val &= mask;		/* clear other bits */
 	val >>= shift;
-	SPS_DBG(dev, "sps:bam 0x%p(va) read reg 0x%x mask 0x%x r_val 0x%x.\n",
+	SPS_DBG(dev, "sps:bam 0x%pK(va) read reg 0x%x mask 0x%x r_val 0x%x.\n",
 			dev->base, offset, mask, val);
 	return val;
 }
@@ -823,7 +823,7 @@ static inline void bam_write_reg(void *base, enum bam_regs reg,
 	struct sps_bam *dev = to_sps_bam_dev(base);
 
 	if ((dev == NULL) || (&dev->base != base)) {
-		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%pK\n",
 				__func__, base);
 		return;
 	}
@@ -834,7 +834,7 @@ static inline void bam_write_reg(void *base, enum bam_regs reg,
 		return;
 	}
 	iowrite32(val, dev->base + offset);
-	SPS_DBG(dev, "sps:bam 0x%p(va) write reg 0x%x w_val 0x%x.\n",
+	SPS_DBG(dev, "sps:bam 0x%pK(va) write reg 0x%x w_val 0x%x.\n",
 			dev->base, offset, val);
 }
 
@@ -854,7 +854,7 @@ static inline void bam_write_reg_field(void *base, enum bam_regs reg,
 	struct sps_bam *dev = to_sps_bam_dev(base);
 
 	if ((dev == NULL) || (&dev->base != base)) {
-		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%pK\n",
 				__func__, base);
 		return;
 	}
@@ -870,7 +870,7 @@ static inline void bam_write_reg_field(void *base, enum bam_regs reg,
 	tmp &= ~mask;		/* clear written bits */
 	val = tmp | (val << shift);
 	iowrite32(val, dev->base + offset);
-	SPS_DBG(dev, "sps:bam 0x%p(va) write reg 0x%x w_val 0x%x.\n",
+	SPS_DBG(dev, "sps:bam 0x%pK(va) write reg 0x%x w_val 0x%x.\n",
 			dev->base, offset, val);
 }
 
@@ -888,28 +888,28 @@ int bam_init(void *base, u32 ee,
 	struct sps_bam *dev = to_sps_bam_dev(base);
 
 	if ((dev == NULL) || (&dev->base != base)) {
-		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%pK\n",
 				__func__, base);
 		return SPS_ERROR;
 	}
 
-	SPS_DBG3(dev, "sps:%s:bam=%pa 0x%p(va).ee=%d.", __func__,
+	SPS_DBG3(dev, "sps:%s:bam=%pa 0x%pK(va).ee=%d.", __func__,
 			BAM_ID(dev), dev->base, ee);
 
 	ver = bam_read_reg_field(base, REVISION, 0, BAM_REVISION);
 
 	if ((ver < BAM_MIN_VERSION) || (ver > BAM_MAX_VERSION)) {
-		SPS_ERR(dev, "sps:bam 0x%p(va) Invalid BAM REVISION 0x%x.\n",
+		SPS_ERR(dev, "sps:bam 0x%pK(va) Invalid BAM REVISION 0x%x.\n",
 				dev->base, ver);
 		return -ENODEV;
 	} else
-		SPS_DBG(dev, "sps:REVISION of BAM 0x%p is 0x%x.\n",
+		SPS_DBG(dev, "sps:REVISION of BAM 0x%pK is 0x%x.\n",
 				dev->base, ver);
 
 	if (summing_threshold == 0) {
 		summing_threshold = 4;
 		SPS_ERR(dev,
-			"sps:bam 0x%p(va) summing_threshold is zero,use default 4.\n",
+			"sps:bam 0x%pK(va) summing_threshold is zero,use default 4.\n",
 			dev->base);
 	}
 
@@ -1009,12 +1009,12 @@ int bam_security_init(void *base, u32 ee, u32 vmid, u32 pipe_mask)
 	struct sps_bam *dev = to_sps_bam_dev(base);
 
 	if ((dev == NULL) || (&dev->base != base)) {
-		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%pK\n",
 				__func__, base);
 		return SPS_ERROR;
 	}
 
-	SPS_DBG3(dev, "sps:%s:bam=%pa 0x%p(va).", __func__,
+	SPS_DBG3(dev, "sps:%s:bam=%pa 0x%pK(va).", __func__,
 			BAM_ID(dev), dev->base);
 
 	/*
@@ -1025,14 +1025,14 @@ int bam_security_init(void *base, u32 ee, u32 vmid, u32 pipe_mask)
 	num_pipes = bam_read_reg_field(base, NUM_PIPES, 0, BAM_NUM_PIPES);
 	if (version < 3 || version > 0x1F) {
 		SPS_ERR(dev,
-			"sps:bam 0x%p(va) security is not supported for this BAM version 0x%x.\n",
+			"sps:bam 0x%pK(va) security is not supported for this BAM version 0x%x.\n",
 			dev->base, version);
 		return -ENODEV;
 	}
 
 	if (num_pipes > BAM_MAX_PIPES) {
 		SPS_ERR(dev,
-		"sps:bam 0x%p(va) the number of pipes is more than the maximum number allowed.\n",
+		"sps:bam 0x%pK(va) the number of pipes is more than the maximum number allowed.\n",
 			dev->base);
 		return -ENODEV;
 	}
@@ -1080,12 +1080,12 @@ int bam_check(void *base, u32 *version, u32 ee, u32 *num_pipes)
 	struct sps_bam *dev = to_sps_bam_dev(base);
 
 	if ((dev == NULL) || (&dev->base != base)) {
-		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%pK\n",
 				__func__, base);
 		return SPS_ERROR;
 	}
 
-	SPS_DBG3(dev, "sps:%s:bam=%pa 0x%p(va).",
+	SPS_DBG3(dev, "sps:%s:bam=%pa 0x%pK(va).",
 			__func__, BAM_ID(dev), dev->base);
 
 	if (!enhd_pipe)
@@ -1094,7 +1094,7 @@ int bam_check(void *base, u32 *version, u32 ee, u32 *num_pipes)
 		enabled = bam_get_pipe_attr(base, ee, true);
 
 	if (!enabled) {
-		SPS_ERR(dev, "sps:%s:bam 0x%p(va) is not enabled.\n",
+		SPS_ERR(dev, "sps:%s:bam 0x%pK(va) is not enabled.\n",
 				__func__, dev->base);
 		return -ENODEV;
 	}
@@ -1110,7 +1110,7 @@ int bam_check(void *base, u32 *version, u32 ee, u32 *num_pipes)
 
 	/* Check BAM version */
 	if ((ver < BAM_MIN_VERSION) || (ver > BAM_MAX_VERSION)) {
-		SPS_ERR(dev, "sps:%s:bam 0x%p(va) Invalid BAM version 0x%x.\n",
+		SPS_ERR(dev, "sps:%s:bam 0x%pK(va) Invalid BAM version 0x%x.\n",
 				__func__, dev->base, ver);
 		return -ENODEV;
 	}
@@ -1127,11 +1127,11 @@ void bam_exit(void *base, u32 ee)
 	struct sps_bam *dev = to_sps_bam_dev(base);
 
 	if ((dev == NULL) || (&dev->base != base)) {
-		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%pK\n",
 				__func__, base);
 		return;
 	}
-	SPS_DBG3(dev, "sps:%s:bam=%pa 0x%p(va).ee=%d.",
+	SPS_DBG3(dev, "sps:%s:bam=%pa 0x%pK(va).ee=%d.",
 			__func__, BAM_ID(dev), dev->base, ee);
 
 	bam_write_reg_field(base, IRQ_SRCS_MSK_EE, ee, BAM_IRQ, 0);
@@ -1155,7 +1155,7 @@ void bam_output_register_content(void *base, u32 ee)
 	struct sps_bam *dev = to_sps_bam_dev(base);
 
 	if ((dev == NULL) || (&dev->base != base)) {
-		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%pK\n",
 				__func__, base);
 		return;
 	}
@@ -1166,7 +1166,7 @@ void bam_output_register_content(void *base, u32 ee)
 
 	num_pipes = bam_read_reg_field(base, NUM_PIPES, 0,
 					BAM_NUM_PIPES);
-	SPS_INFO(dev, "sps:bam %pa 0x%p(va) has %d pipes.",
+	SPS_INFO(dev, "sps:bam %pa 0x%pK(va) has %d pipes.",
 			BAM_ID(dev), dev->base, num_pipes);
 
 	pipe_attr = enhd_pipe ?
@@ -1193,7 +1193,7 @@ u32 bam_check_irq_source(void *base, u32 ee, u32 mask,
 	struct sps_bam *dev = to_sps_bam_dev(base);
 
 	if ((dev == NULL) || (&dev->base != base)) {
-		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%pK\n",
 				__func__, base);
 		return SPS_ERROR;
 	}
@@ -1205,13 +1205,13 @@ u32 bam_check_irq_source(void *base, u32 ee, u32 mask,
 		status = bam_read_reg(base, IRQ_STTS, 0);
 
 		if (status & IRQ_STTS_BAM_ERROR_IRQ) {
-			SPS_ERR(dev, "sps:bam %pa 0x%p(va);bam irq status="
+			SPS_ERR(dev, "sps:bam %pa 0x%pK(va);bam irq status="
 				"0x%x.\nsps: BAM_ERROR_IRQ\n",
 				BAM_ID(dev), dev->base, status);
 			bam_output_register_content(base, ee);
 			*cb_case = SPS_CALLBACK_BAM_ERROR_IRQ;
 		} else if (status & IRQ_STTS_BAM_HRESP_ERR_IRQ) {
-			SPS_ERR(dev, "sps:bam %pa 0x%p(va);bam irq status="
+			SPS_ERR(dev, "sps:bam %pa 0x%pK(va);bam irq status="
 				"0x%x.\nsps: BAM_HRESP_ERR_IRQ\n",
 				BAM_ID(dev), dev->base, status);
 			bam_output_register_content(base, ee);
@@ -1219,13 +1219,13 @@ u32 bam_check_irq_source(void *base, u32 ee, u32 mask,
 #ifdef CONFIG_SPS_SUPPORT_NDP_BAM
 		} else if (status & IRQ_STTS_BAM_TIMER_IRQ) {
 			SPS_DBG1(dev,
-				"sps:bam 0x%p(va);receive BAM_TIMER_IRQ\n",
+				"sps:bam 0x%pK(va);receive BAM_TIMER_IRQ\n",
 					dev->base);
 			*cb_case = SPS_CALLBACK_BAM_TIMER_IRQ;
 #endif
 		} else
 			SPS_INFO(dev,
-				"sps:bam %pa 0x%p(va);bam irq status=0x%x.\n",
+				"sps:bam %pa 0x%pK(va);bam irq status=0x%x.\n",
 				BAM_ID(dev), dev->base, status);
 
 		bam_write_reg(base, IRQ_CLR, 0, status);
@@ -1243,11 +1243,11 @@ void bam_pipe_reset(void *base, u32 pipe)
 	struct sps_bam *dev = to_sps_bam_dev(base);
 
 	if ((dev == NULL) || (&dev->base != base)) {
-		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%pK\n",
 				__func__, base);
 		return;
 	}
-	SPS_DBG2(dev, "sps:%s:bam=%pa 0x%p(va).pipe=%d.",
+	SPS_DBG2(dev, "sps:%s:bam=%pa 0x%pK(va).pipe=%d.",
 			__func__, BAM_ID(dev), dev->base, pipe);
 
 	bam_write_reg(base, P_RST, pipe, 1);
@@ -1264,11 +1264,11 @@ void bam_disable_pipe(void *base, u32 pipe)
 	struct sps_bam *dev = to_sps_bam_dev(base);
 
 	if ((dev == NULL) || (&dev->base != base)) {
-		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%pK\n",
 				__func__, base);
 		return;
 	}
-	SPS_DBG2(dev, "sps:%s:bam=0x%p(va).pipe=%d.", __func__, base, pipe);
+	SPS_DBG2(dev, "sps:%s:bam=0x%pK(va).pipe=%d.", __func__, base, pipe);
 	bam_write_reg_field(base, P_CTRL, pipe, P_EN, 0);
 	wmb(); /* ensure pipe is disabled */
 }
@@ -1281,20 +1281,20 @@ bool bam_pipe_check_zlt(void *base, u32 pipe)
 	struct sps_bam *dev = to_sps_bam_dev(base);
 
 	if ((dev == NULL) || (&dev->base != base)) {
-		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%pK\n",
 				__func__, base);
 		return false;
 	}
 
 	if (bam_read_reg_field(base, P_HALT, pipe, P_HALT_P_LAST_DESC_ZLT)) {
 		SPS_DBG(dev,
-			"sps:%s:bam=0x%p(va).pipe=%d: the last desc is ZLT.",
+			"sps:%s:bam=0x%pK(va).pipe=%d: the last desc is ZLT.",
 			__func__, base, pipe);
 		return true;
 	}
 
 	SPS_DBG(dev,
-		"sps:%s:bam=0x%p(va).pipe=%d: the last desc is not ZLT.",
+		"sps:%s:bam=0x%pK(va).pipe=%d: the last desc is not ZLT.",
 		__func__, base, pipe);
 	return false;
 }
@@ -1307,20 +1307,20 @@ bool bam_pipe_check_pipe_empty(void *base, u32 pipe)
 	struct sps_bam *dev = to_sps_bam_dev(base);
 
 	if ((dev == NULL) || (&dev->base != base)) {
-		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%pK\n",
 				__func__, base);
 		return false;
 	}
 
 	if (bam_read_reg_field(base, P_HALT, pipe, P_HALT_P_PIPE_EMPTY)) {
 		SPS_DBG(dev,
-			"sps:%s:bam=0x%p(va).pipe=%d: desc FIFO is empty.",
+			"sps:%s:bam=0x%pK(va).pipe=%d: desc FIFO is empty.",
 			__func__, base, pipe);
 		return true;
 	}
 
 	SPS_DBG(dev,
-		"sps:%s:bam=0x%p(va).pipe=%d: desc FIFO is not empty.",
+		"sps:%s:bam=0x%pK(va).pipe=%d: desc FIFO is not empty.",
 		__func__, base, pipe);
 	return false;
 }
@@ -1334,11 +1334,11 @@ int bam_pipe_init(void *base, u32 pipe,	struct bam_pipe_parameters *param,
 	struct sps_bam *dev = to_sps_bam_dev(base);
 
 	if ((dev == NULL) || (&dev->base != base)) {
-		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%pK\n",
 				__func__, base);
 		return SPS_ERROR;
 	}
-	SPS_DBG2(dev, "sps:%s:bam=%pa 0x%p(va).pipe=%d.",
+	SPS_DBG2(dev, "sps:%s:bam=%pa 0x%pK(va).pipe=%d.",
 			__func__, BAM_ID(dev), dev->base, pipe);
 
 	/* Reset the BAM pipe */
@@ -1372,7 +1372,7 @@ int bam_pipe_init(void *base, u32 pipe,	struct bam_pipe_parameters *param,
 	bam_write_reg_field(base, P_CTRL, pipe, P_LOCK_GROUP,
 				param->lock_group);
 
-	SPS_DBG(dev, "sps:bam=0x%p(va).pipe=%d.lock_group=%d.\n",
+	SPS_DBG(dev, "sps:bam=0x%pK(va).pipe=%d.lock_group=%d.\n",
 			dev->base, pipe, param->lock_group);
 #endif
 
@@ -1388,7 +1388,7 @@ int bam_pipe_init(void *base, u32 pipe,	struct bam_pipe_parameters *param,
 
 		bam_write_reg(base, P_EVNT_DEST_ADDR, pipe, peer_dest_addr);
 
-		SPS_DBG2(dev, "sps:bam=0x%p(va).pipe=%d.peer_bam=0x%x."
+		SPS_DBG2(dev, "sps:bam=0x%pK(va).pipe=%d.peer_bam=0x%x."
 			"peer_pipe=%d.\n",
 			dev->base, pipe,
 			(u32) param->peer_phys_addr,
@@ -1424,11 +1424,11 @@ void bam_pipe_exit(void *base, u32 pipe, u32 ee)
 	struct sps_bam *dev = to_sps_bam_dev(base);
 
 	if ((dev == NULL) || (&dev->base != base)) {
-		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%pK\n",
 				__func__, base);
 		return;
 	}
-	SPS_DBG2(dev, "sps:%s:bam=%pa 0x%p(va).pipe=%d.",
+	SPS_DBG2(dev, "sps:%s:bam=%pa 0x%pK(va).pipe=%d.",
 			__func__, BAM_ID(dev), dev->base, pipe);
 
 	bam_write_reg(base, P_IRQ_EN, pipe, 0);
@@ -1449,15 +1449,15 @@ void bam_pipe_enable(void *base, u32 pipe)
 	struct sps_bam *dev = to_sps_bam_dev(base);
 
 	if ((dev == NULL) || (&dev->base != base)) {
-		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%pK\n",
 				__func__, base);
 		return;
 	}
-	SPS_DBG2(dev, "sps:%s:bam=%pa 0x%p(va).pipe=%d.",
+	SPS_DBG2(dev, "sps:%s:bam=%pa 0x%pK(va).pipe=%d.",
 			__func__, BAM_ID(dev), dev->base, pipe);
 
 	if (bam_read_reg_field(base, P_CTRL, pipe, P_EN))
-		SPS_DBG2(dev, "sps:bam=0x%p(va).pipe=%d is already enabled.\n",
+		SPS_DBG2(dev, "sps:bam=0x%pK(va).pipe=%d is already enabled.\n",
 				dev->base, pipe);
 	else
 		bam_write_reg_field(base, P_CTRL, pipe, P_EN, 1);
@@ -1472,11 +1472,11 @@ void bam_pipe_disable(void *base, u32 pipe)
 	struct sps_bam *dev = to_sps_bam_dev(base);
 
 	if ((dev == NULL) || (&dev->base != base)) {
-		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%pK\n",
 				__func__, base);
 		return;
 	}
-	SPS_DBG2(dev, "sps:%s:bam=%pa 0x%p(va).pipe=%d.",
+	SPS_DBG2(dev, "sps:%s:bam=%pa 0x%pK(va).pipe=%d.",
 			__func__, BAM_ID(dev), dev->base, pipe);
 
 	bam_write_reg_field(base, P_CTRL, pipe, P_EN, 0);
@@ -1501,12 +1501,12 @@ void bam_pipe_set_irq(void *base, u32 pipe, enum bam_enable irq_en,
 	struct sps_bam *dev = to_sps_bam_dev(base);
 
 	if ((dev == NULL) || (&dev->base != base)) {
-		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%pK\n",
 				__func__, base);
 		return;
 	}
 	SPS_DBG2(dev,
-		"sps:%s:bam=%pa 0x%p(va).pipe=%d; irq_en:%d; src_mask:0x%x; ee:%d.\n",
+		"sps:%s:bam=%pa 0x%pK(va).pipe=%d; irq_en:%d; src_mask:0x%x; ee:%d.\n",
 			__func__, BAM_ID(dev), dev->base, pipe,
 			irq_en, src_mask, ee);
 	if (src_mask & BAM_PIPE_IRQ_RST_ERROR) {

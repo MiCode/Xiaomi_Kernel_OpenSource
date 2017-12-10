@@ -3385,7 +3385,7 @@ static int bma2x2_get_bandwidth(struct i2c_client *client, unsigned char *BW)
 	return comres;
 }
 
-int bma2x2_get_sleep_duration(struct i2c_client *client, unsigned char
+static int bma2x2_get_sleep_duration(struct i2c_client *client, unsigned char
 		*sleep_dur)
 {
 	int comres = 0;
@@ -3399,7 +3399,7 @@ int bma2x2_get_sleep_duration(struct i2c_client *client, unsigned char
 	return comres;
 }
 
-int bma2x2_set_sleep_duration(struct i2c_client *client, unsigned char
+static int bma2x2_set_sleep_duration(struct i2c_client *client, unsigned char
 		sleep_dur)
 {
 	int comres = 0;
@@ -4956,7 +4956,7 @@ static ssize_t bma2x2_selftest_store(struct device *dev,
 	short value2 = 0;
 	short diff = 0;
 	unsigned long result = 0;
-	unsigned char test_result_branch = 0;
+	unsigned long test_result_branch = 0;
 	struct i2c_client *client = to_i2c_client(dev);
 	struct bma2x2_data *bma2x2 = i2c_get_clientdata(client);
 
@@ -5225,7 +5225,7 @@ static ssize_t bma2x2_flat_hold_time_store(struct device *dev,
 	return count;
 }
 
-const int bma2x2_sensor_bitwidth[] = {
+static const int bma2x2_sensor_bitwidth[] = {
 	12,  10,  8, 14
 };
 
@@ -7528,7 +7528,8 @@ static struct attribute_group bma2x2_double_tap_attribute_group = {
 
 
 #if defined(BMA2X2_ENABLE_INT1) || defined(BMA2X2_ENABLE_INT2)
-unsigned char *orient[] = {"upward looking portrait upright",
+#ifdef ENABLE_ISR_DEBUG_MSG
+static unsigned char *orient[] = {"upward looking portrait upright",
 	"upward looking portrait upside-down",
 		"upward looking landscape left",
 		"upward looking landscape right",
@@ -7536,6 +7537,7 @@ unsigned char *orient[] = {"upward looking portrait upright",
 		"downward looking portrait upside-down",
 		"downward looking landscape left",
 		"downward looking landscape right"};
+#endif
 
 
 static void bma2x2_high_g_interrupt_handle(struct bma2x2_data *bma2x2)
@@ -8125,7 +8127,7 @@ static int bma2x2_parse_dt(struct device *dev,
 		dev_err(dev, "Unable to read sensor place parameter\n");
 		return rc;
 	}
-	if (temp_val > 7 || temp_val < 0) {
+	if (temp_val > 7) {
 		dev_err(dev, "Invalid place parameter, use default value 0\n");
 		pdata->place = 0;
 	} else {
@@ -8842,7 +8844,7 @@ static int bma2x2_remove(struct i2c_client *client)
 				&bma2x2_attribute_group);
 
 	bma2x2_set_enable(&client->dev, 0);
-	if (!data->pdata->use_hrtimer) {
+	if (data->pdata && !data->pdata->use_hrtimer) {
 		destroy_workqueue(data->data_wq);
 	} else {
 		hrtimer_cancel(&data->accel_timer);
@@ -8859,7 +8861,7 @@ static int bma2x2_remove(struct i2c_client *client)
 	return 0;
 }
 
-void bma2x2_shutdown(struct i2c_client *client)
+static void bma2x2_shutdown(struct i2c_client *client)
 {
 	struct bma2x2_data *data = i2c_get_clientdata(client);
 
