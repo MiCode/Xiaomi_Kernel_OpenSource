@@ -4240,13 +4240,15 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 	struct sde_crtc_irq_info *node = NULL;
 	struct drm_event event;
 	u32 power_on;
-	int ret;
+	int ret, i;
+	struct sde_crtc_state *cstate;
 
 	if (!crtc || !crtc->dev || !crtc->dev->dev_private) {
 		SDE_ERROR("invalid crtc\n");
 		return;
 	}
 	priv = crtc->dev->dev_private;
+	cstate = to_sde_crtc_state(crtc->state);
 
 	if (!sde_kms_power_resource_is_enabled(crtc->dev)) {
 		SDE_ERROR("power resource is not enabled\n");
@@ -4315,6 +4317,10 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 		SDE_POWER_EVENT_POST_ENABLE | SDE_POWER_EVENT_POST_DISABLE |
 		SDE_POWER_EVENT_PRE_DISABLE,
 		sde_crtc_handle_power_event, crtc, sde_crtc->name);
+
+	/* Enable ESD thread */
+	for (i = 0; i < cstate->num_connectors; i++)
+		sde_connector_schedule_status_work(cstate->connectors[i], true);
 }
 
 struct plane_state {
