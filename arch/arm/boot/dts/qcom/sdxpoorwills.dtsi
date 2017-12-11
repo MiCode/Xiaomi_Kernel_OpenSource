@@ -306,10 +306,10 @@
 		};
 };
 
-	restart@4ab000 {
+	restart@c264000 {
 		compatible = "qcom,pshold";
-		reg = <0x4ab000 0x4>,
-			<0x193d100 0x4>;
+		reg = <0x0c264000 0x4>,
+			<0x01fd3000 0x4>;
 		reg-names = "pshold-base", "tcsr-boot-misc-detect";
 	};
 
