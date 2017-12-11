@@ -93,6 +93,8 @@ int cam_bps_init_hw(void *device_priv,
 			CAM_ERR(CAM_ICP, "cpas stop is failed");
 		else
 			core_info->cpas_start = false;
+	} else {
+		core_info->clk_enable = true;
 	}
 
 	return rc;
@@ -119,9 +121,10 @@ int cam_bps_deinit_hw(void *device_priv,
 		return -EINVAL;
 	}
 
-	rc = cam_bps_disable_soc_resources(soc_info);
+	rc = cam_bps_disable_soc_resources(soc_info, core_info->clk_enable);
 	if (rc)
 		CAM_ERR(CAM_ICP, "soc disable is failed: %d", rc);
+	core_info->clk_enable = false;
 
 	if (core_info->cpas_start) {
 		if (cam_cpas_stop(core_info->cpas_handle))
@@ -276,8 +279,30 @@ int cam_bps_process_cmd(void *device_priv, uint32_t cmd_type,
 		uint32_t clk_rate = *(uint32_t *)cmd_args;
 
 		CAM_DBG(CAM_ICP, "bps_src_clk rate = %d", (int)clk_rate);
+		if (!core_info->clk_enable) {
+			cam_bps_handle_pc(bps_dev);
+			cam_cpas_reg_write(core_info->cpas_handle,
+				CAM_CPAS_REG_CPASTOP,
+				hw_info->pwr_ctrl, true, 0x0);
+			rc = cam_bps_toggle_clk(soc_info, true);
+			if (rc)
+				CAM_ERR(CAM_ICP, "Enable failed");
+			else
+				core_info->clk_enable = true;
+			rc = cam_bps_handle_resume(bps_dev);
+			if (rc)
+				CAM_ERR(CAM_ICP, "handle resume failed");
+		}
+		CAM_DBG(CAM_ICP, "clock rate %d", clk_rate);
 		rc = cam_bps_update_clk_rate(soc_info, clk_rate);
-	}
+		if (rc)
+			CAM_ERR(CAM_ICP, "Failed to update clk");
+		}
+		break;
+	case CAM_ICP_BPS_CMD_DISABLE_CLK:
+		if (core_info->clk_enable == true)
+			cam_bps_toggle_clk(soc_info, false);
+		core_info->clk_enable = false;
 		break;
 	default:
 		break;

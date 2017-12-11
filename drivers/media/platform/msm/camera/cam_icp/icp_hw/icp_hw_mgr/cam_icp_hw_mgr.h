@@ -25,6 +25,7 @@
 #include "cam_mem_mgr.h"
 #include "cam_smmu_api.h"
 #include "cam_soc_util.h"
+#include "cam_req_mgr_timer.h"
 
 #define CAM_ICP_ROLE_PARENT     1
 #define CAM_ICP_ROLE_CHILD      2
@@ -108,6 +109,16 @@ struct hfi_msg_work_data {
 	uint32_t type;
 	void *data;
 	uint32_t irq_status;
+};
+
+/**
+  * struct clk_work_data
+  * @type: Task type
+  * @data: Pointer to clock info
+  */
+struct clk_work_data {
+	uint32_t type;
+	void *data;
 };
 
 /**
@@ -206,8 +217,10 @@ struct icp_cmd_generic_blob {
  * @curr_clk: Current clock of hadrware
  * @threshold: Threshold for overclk count
  * @over_clked: Over clock count
- * #uncompressed_bw: Current bandwidth voting
+ * @uncompressed_bw: Current bandwidth voting
  * @compressed_bw: Current compressed bandwidth voting
+ * @hw_type: IPE/BPS device type
+ * @watch_dog: watchdog timer handle
  */
 struct cam_icp_clk_info {
 	uint32_t base_clk;
@@ -216,6 +229,8 @@ struct cam_icp_clk_info {
 	uint32_t over_clked;
 	uint64_t uncompressed_bw;
 	uint64_t compressed_bw;
+	uint32_t hw_type;
+	struct cam_req_mgr_timer *watch_dog;
 };
 
 /**
