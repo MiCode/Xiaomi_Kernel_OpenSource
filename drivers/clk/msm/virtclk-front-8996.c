@@ -337,6 +337,134 @@ static struct virtclk_front gcc_sdcc2_apps_clk = {
 	},
 };
 
+static struct virtclk_front gcc_usb3_phy_pipe_clk = {
+	.c = {
+		.dbg_name = "gcc_usb3_phy_pipe_clk",
+		.ops = &virtclk_front_ops,
+		CLK_INIT(gcc_usb3_phy_pipe_clk.c),
+	},
+};
+
+static struct virtclk_front gcc_usb3_phy_aux_clk = {
+	.c = {
+		.dbg_name = "gcc_usb3_phy_aux_clk",
+		.ops = &virtclk_front_ops,
+		CLK_INIT(gcc_usb3_phy_aux_clk.c),
+	},
+};
+
+static struct virtclk_front gcc_usb30_mock_utmi_clk = {
+	.c = {
+		.dbg_name = "gcc_usb30_mock_utmi_clk",
+		.ops = &virtclk_front_ops,
+		CLK_INIT(gcc_usb30_mock_utmi_clk.c),
+	},
+};
+
+static struct virtclk_front gcc_aggre2_usb3_axi_clk = {
+	.c = {
+		.dbg_name = "gcc_aggre2_usb3_axi_clk",
+		.ops = &virtclk_front_ops,
+		CLK_INIT(gcc_aggre2_usb3_axi_clk.c),
+	},
+};
+
+static struct virtclk_front gcc_sys_noc_usb3_axi_clk = {
+	.c = {
+		.dbg_name = "gcc_sys_noc_usb3_axi_clk",
+		.ops = &virtclk_front_ops,
+		CLK_INIT(gcc_sys_noc_usb3_axi_clk.c),
+	},
+};
+
+static struct virtclk_front gcc_usb30_master_clk = {
+	.c = {
+		.dbg_name = "gcc_usb30_master_clk",
+		.ops = &virtclk_front_ops,
+		CLK_INIT(gcc_usb30_master_clk.c),
+	},
+};
+
+static struct virtclk_front gcc_usb30_sleep_clk = {
+	.c = {
+		.dbg_name = "gcc_usb30_sleep_clk",
+		.ops = &virtclk_front_ops,
+		CLK_INIT(gcc_usb30_sleep_clk.c),
+	},
+};
+
+static struct virtclk_front gcc_usb_phy_cfg_ahb2phy_clk = {
+	.c = {
+		.dbg_name = "gcc_usb_phy_cfg_ahb2phy_clk",
+		.ops = &virtclk_front_ops,
+		CLK_INIT(gcc_usb_phy_cfg_ahb2phy_clk.c),
+	},
+};
+
+static struct virtclk_front gcc_usb3_clkref_clk = {
+	.c = {
+		.dbg_name = "gcc_usb3_clkref_clk",
+		.ops = &virtclk_front_ops,
+		CLK_INIT(gcc_usb3_clkref_clk.c),
+	},
+};
+
+static struct virtclk_front hlos1_vote_lpass_adsp_smmu_clk = {
+	.c = {
+		.dbg_name = "gcc_lpass_adsp_smmu_clk",
+		.ops = &virtclk_front_ops,
+		CLK_INIT(hlos1_vote_lpass_adsp_smmu_clk.c),
+	},
+};
+
+static struct virtclk_front gcc_mss_cfg_ahb_clk = {
+	.c = {
+		.dbg_name = "gcc_mss_cfg_ahb_clk",
+		.ops = &virtclk_front_ops,
+		CLK_INIT(gcc_mss_cfg_ahb_clk.c),
+	},
+};
+
+static struct virtclk_front gcc_mss_q6_bimc_axi_clk = {
+	.c = {
+		.dbg_name = "gcc_mss_q6_bimc_axi_clk",
+		.ops = &virtclk_front_ops,
+		CLK_INIT(gcc_mss_q6_bimc_axi_clk.c),
+	},
+};
+
+static struct virtclk_front gcc_boot_rom_ahb_clk = {
+	.c = {
+		.dbg_name = "gcc_boot_rom_ahb_clk",
+		.ops = &virtclk_front_ops,
+		CLK_INIT(gcc_boot_rom_ahb_clk.c),
+	},
+};
+
+static struct virtclk_front gpll0_out_msscc = {
+	.c = {
+		.dbg_name = "gcc_mss_gpll0_clk",
+		.ops = &virtclk_front_ops,
+		CLK_INIT(gpll0_out_msscc.c),
+	},
+};
+
+static struct virtclk_front gcc_mss_snoc_axi_clk = {
+	.c = {
+		.dbg_name = "gcc_mss_snoc_axi_clk",
+		.ops = &virtclk_front_ops,
+		CLK_INIT(gcc_mss_snoc_axi_clk.c),
+	},
+};
+
+static struct virtclk_front gcc_mss_mnoc_bimc_axi_clk = {
+	.c = {
+		.dbg_name = "gcc_mss_mnoc_bimc_axi_clk",
+		.ops = &virtclk_front_ops,
+		CLK_INIT(gcc_mss_mnoc_bimc_axi_clk.c),
+	},
+};
+
 static struct clk_lookup msm_clocks_8996[] = {
 	CLK_LIST(gcc_blsp1_ahb_clk),
 	CLK_LIST(gcc_blsp1_qup1_spi_apps_clk),
@@ -378,6 +506,22 @@ static struct clk_lookup msm_clocks_8996[] = {
 	CLK_LIST(gcc_blsp2_uart6_apps_clk),
 	CLK_LIST(gcc_sdcc2_ahb_clk),
 	CLK_LIST(gcc_sdcc2_apps_clk),
+	CLK_LIST(gcc_usb3_phy_pipe_clk),
+	CLK_LIST(gcc_usb3_phy_aux_clk),
+	CLK_LIST(gcc_usb30_mock_utmi_clk),
+	CLK_LIST(gcc_aggre2_usb3_axi_clk),
+	CLK_LIST(gcc_sys_noc_usb3_axi_clk),
+	CLK_LIST(gcc_usb30_master_clk),
+	CLK_LIST(gcc_usb30_sleep_clk),
+	CLK_LIST(gcc_usb_phy_cfg_ahb2phy_clk),
+	CLK_LIST(gcc_usb3_clkref_clk),
+	CLK_LIST(hlos1_vote_lpass_adsp_smmu_clk),
+	CLK_LIST(gcc_mss_cfg_ahb_clk),
+	CLK_LIST(gcc_mss_q6_bimc_axi_clk),
+	CLK_LIST(gcc_boot_rom_ahb_clk),
+	CLK_LIST(gpll0_out_msscc),
+	CLK_LIST(gcc_mss_snoc_axi_clk),
+	CLK_LIST(gcc_mss_mnoc_bimc_axi_clk),
 };
 
 static const struct of_device_id msm8996_virtclk_front_match_table[] = {
