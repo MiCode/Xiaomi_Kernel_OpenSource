@@ -215,6 +215,7 @@ int cam_sync_deinit_object(struct sync_table_row *table, uint32_t idx)
 		spin_unlock_bh(&sync_dev->row_spinlocks[idx]);
 		return -EINVAL;
 	}
+	row->state = CAM_SYNC_STATE_INVALID;
 
 	/* Object's child and parent objects will be added into this list */
 	INIT_LIST_HEAD(&temp_child_list);
@@ -303,7 +304,6 @@ int cam_sync_deinit_object(struct sync_table_row *table, uint32_t idx)
 		kfree(sync_cb);
 	}
 
-	row->state = CAM_SYNC_STATE_INVALID;
 	memset(row, 0, sizeof(*row));
 	clear_bit(idx, sync_dev->bitmap);
 	INIT_LIST_HEAD(&row->callback_list);
