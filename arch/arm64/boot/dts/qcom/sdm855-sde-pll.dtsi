@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,7 +66,7 @@
 	};
 
 	mdss_dp_pll: qcom,mdss_dp_pll@c011000 {
-		compatible = "qcom,mdss_dp_pll_10nm";
+		compatible = "qcom,mdss_dp_pll_7nm";
 		label = "MDSS DP PLL";
 		cell-index = <0>;
 		#clock-cells = <1>;
@@ -83,10 +83,11 @@
 
 		clocks = <&clock_dispcc DISP_CC_MDSS_AHB_CLK>,
 			 <&clock_rpmh RPMH_CXO_CLK>,
+			 <&clock_gcc GCC_DISP_AHB_CLK>,
 			 <&clock_gcc GCC_USB3_PRIM_CLKREF_CLK>,
 			 <&clock_gcc GCC_USB3_PRIM_PHY_PIPE_CLK>;
-		clock-names = "iface_clk", "ref_clk_src", "ref_clk",
-			"pipe_clk";
+		clock-names = "iface_clk", "ref_clk_src", "gcc_iface",
+			"ref_clk", "pipe_clk";
 		clock-rate = <0>;
 
 		qcom,platform-supply-entries {
