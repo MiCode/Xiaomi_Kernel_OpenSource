@@ -172,7 +172,6 @@ static int cam_vfe_irq_err_top_half(uint32_t    evt_id,
 			th_payload->evt_status_arr[1]);
 		cam_irq_controller_disable_irq(core_info->vfe_irq_controller,
 			core_info->irq_err_handle);
-		cam_io_w(0, handler_priv->mem_base + 0x60);
 	}
 
 	rc  = cam_vfe_get_evt_payload(handler_priv->core_info, &evt_payload);
