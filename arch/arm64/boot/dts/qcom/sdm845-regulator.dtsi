@@ -296,7 +296,7 @@
 		qcom,supported-modes =
 			<RPMH_REGULATOR_MODE_LDO_LPM
 			 RPMH_REGULATOR_MODE_LDO_HPM>;
-		qcom,mode-threshold-currents = <0 1>;
+		qcom,mode-threshold-currents = <0 10000>;
 		pm8998_l7: regulator-l7 {
 			regulator-name = "pm8998_l7";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
@@ -479,7 +479,7 @@
 		qcom,supported-modes =
 			<RPMH_REGULATOR_MODE_LDO_LPM
 			 RPMH_REGULATOR_MODE_LDO_HPM>;
-		qcom,mode-threshold-currents = <0 1>;
+		qcom,mode-threshold-currents = <0 10000>;
 		pm8998_l17: regulator-l17 {
 			regulator-name = "pm8998_l17";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
@@ -587,7 +587,7 @@
 		qcom,supported-modes =
 			<RPMH_REGULATOR_MODE_LDO_LPM
 			 RPMH_REGULATOR_MODE_LDO_HPM>;
-		qcom,mode-threshold-currents = <0 1>;
+		qcom,mode-threshold-currents = <0 10000>;
 		pm8998_l23: regulator-l23 {
 			regulator-name = "pm8998_l23";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
@@ -624,7 +624,7 @@
 		qcom,supported-modes =
 			<RPMH_REGULATOR_MODE_LDO_LPM
 			 RPMH_REGULATOR_MODE_LDO_HPM>;
-		qcom,mode-threshold-currents = <0 1>;
+		qcom,mode-threshold-currents = <0 10000>;
 		pm8998_l25: regulator-l25 {
 			regulator-name = "pm8998_l25";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
