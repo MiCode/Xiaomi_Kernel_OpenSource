@@ -305,6 +305,10 @@ struct cam_icp_hw_mgr {
 	bool ipe1_enable;
 	bool bps_enable;
 	uint32_t core_info;
+	struct cam_hw_intf *a5_dev_intf;
+	struct cam_hw_intf *ipe0_dev_intf;
+	struct cam_hw_intf *ipe1_dev_intf;
+	struct cam_hw_intf *bps_dev_intf;
 };
 
 static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args);
