@@ -103,7 +103,6 @@
 		pinctrl-names = "i2c_active", "i2c_sleep";
 		pinctrl-0 = <&i2c_3_active>;
 		pinctrl-1 = <&i2c_3_sleep>;
-		status = "disabled";
 	};
 
 	i2c_4: i2c@838000 { /* BLSP1 QUP4: GPIO: 76,77 */
