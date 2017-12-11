@@ -103,6 +103,7 @@ static int _sde_danger_signal_status(struct seq_file *s,
 	struct msm_drm_private *priv;
 	struct sde_danger_safe_status status;
 	int i;
+	int rc;
 
 	if (!kms || !kms->dev || !kms->dev->dev_private || !kms->hw_mdp) {
 		SDE_ERROR("invalid arg(s)\n");
@@ -112,7 +113,13 @@ static int _sde_danger_signal_status(struct seq_file *s,
 	priv = kms->dev->dev_private;
 	memset(&status, 0, sizeof(struct sde_danger_safe_status));
 
-	sde_power_resource_enable(&priv->phandle, kms->core_client, true);
+	rc = sde_power_resource_enable(&priv->phandle, kms->core_client, true);
+	if (rc) {
+		SDE_ERROR("failed to enable power resource %d\n", rc);
+		SDE_EVT32(rc, SDE_EVTLOG_ERROR);
+		return rc;
+	}
+
 	if (danger_status) {
 		seq_puts(s, "\nDanger signal status:\n");
 		if (kms->hw_mdp->ops.get_danger_status)
@@ -541,7 +548,13 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 		return;
 	priv = dev->dev_private;
 
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
+	rc = sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
+			true);
+	if (rc) {
+		SDE_ERROR("failed to enable power resource %d\n", rc);
+		SDE_EVT32(rc, SDE_EVTLOG_ERROR);
+		return;
+	}
 
 	for_each_crtc_in_state(state, crtc, crtc_state, i) {
 		list_for_each_entry(encoder, &dev->mode_config.encoder_list,
@@ -587,9 +600,19 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 static void sde_kms_commit(struct msm_kms *kms,
 		struct drm_atomic_state *old_state)
 {
+	struct sde_kms *sde_kms;
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *old_crtc_state;
 	int i;
+
+	if (!kms || !old_state)
+		return;
+	sde_kms = to_sde_kms(kms);
+
+	if (!sde_kms_power_resource_is_enabled(sde_kms->dev)) {
+		SDE_ERROR("power resource is not enabled\n");
+		return;
+	}
 
 	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i) {
 		if (crtc->state->active) {
@@ -617,6 +640,11 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 	if (!sde_kms->dev || !sde_kms->dev->dev_private)
 		return;
 	priv = sde_kms->dev->dev_private;
+
+	if (!sde_kms_power_resource_is_enabled(sde_kms->dev)) {
+		SDE_ERROR("power resource is not enabled\n");
+		return;
+	}
 
 	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i)
 		sde_crtc_complete_commit(crtc, old_crtc_state);
@@ -829,7 +857,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		struct sde_kms *sde_kms)
 {
 	static const struct sde_connector_ops dsi_ops = {
-		.post_init =  dsi_conn_post_init,
+		.set_info_blob = dsi_conn_set_info_blob,
 		.detect =     dsi_conn_detect,
 		.get_modes =  dsi_connector_get_modes,
 		.put_modes =  dsi_connector_put_modes,
@@ -848,6 +876,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 	};
 	static const struct sde_connector_ops wb_ops = {
 		.post_init =    sde_wb_connector_post_init,
+		.set_info_blob = sde_wb_connector_set_info_blob,
 		.detect =       sde_wb_connector_detect,
 		.get_modes =    sde_wb_connector_get_modes,
 		.set_property = sde_wb_connector_set_property,
@@ -864,7 +893,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.mode_valid = dp_connector_mode_valid,
 		.get_info   = dp_connector_get_info,
 		.get_mode_info  = dp_connector_get_mode_info,
-		.send_hpd_event = dp_connector_send_hpd_event,
+		.post_open  = dp_connector_post_open,
 		.check_status = NULL,
 		.pre_kickoff  = dp_connector_pre_kickoff,
 	};
@@ -1974,7 +2003,7 @@ static int sde_kms_check_secure_transition(struct msm_kms *kms,
 		} else if (global_crtc && (global_crtc != cur_crtc)) {
 			SDE_ERROR(
 			    "crtc%d-sec%d not allowed during crtc%d-sec%d\n",
-				cur_crtc->base.id, sec_session,
+				cur_crtc ? cur_crtc->base.id : -1, sec_session,
 				global_crtc->base.id, global_sec_session);
 			return -EPERM;
 		}
@@ -2071,8 +2100,8 @@ static void _sde_kms_post_open(struct msm_kms *kms, struct drm_file *file)
 
 		sde_conn = to_sde_connector(connector);
 
-		if (sde_conn->ops.send_hpd_event)
-			sde_conn->ops.send_hpd_event(sde_conn->display);
+		if (sde_conn->ops.post_open)
+			sde_conn->ops.post_open(sde_conn->display);
 	}
 	mutex_unlock(&dev->mode_config.mutex);
 
@@ -2470,41 +2499,6 @@ fail:
 	return ret;
 }
 
-static void _sde_kms_pm_qos_add_request(struct sde_kms *sde_kms)
-{
-	struct pm_qos_request *req;
-	u32 cpu_mask;
-	u32 cpu_dma_latency;
-	int cpu;
-
-	if (!sde_kms || !sde_kms->catalog)
-		return;
-
-	cpu_mask = sde_kms->catalog->perf.cpu_mask;
-	cpu_dma_latency = sde_kms->catalog->perf.cpu_dma_latency;
-	if (!cpu_mask)
-		return;
-
-	req = &sde_kms->pm_qos_cpu_req;
-	req->type = PM_QOS_REQ_AFFINE_CORES;
-	cpumask_empty(&req->cpus_affine);
-	for_each_possible_cpu(cpu) {
-		if ((1 << cpu) & cpu_mask)
-			cpumask_set_cpu(cpu, &req->cpus_affine);
-	}
-	pm_qos_add_request(req, PM_QOS_CPU_DMA_LATENCY, cpu_dma_latency);
-
-	SDE_EVT32_VERBOSE(cpu_mask, cpu_dma_latency);
-}
-
-static void _sde_kms_pm_qos_remove_request(struct sde_kms *sde_kms)
-{
-	if (!sde_kms || !sde_kms->catalog || !sde_kms->catalog->perf.cpu_mask)
-		return;
-
-	pm_qos_remove_request(&sde_kms->pm_qos_cpu_req);
-}
-
 /* the caller api needs to turn on clock before calling this function */
 static int _sde_kms_cont_splash_res_init(struct sde_kms *sde_kms)
 {
@@ -2582,9 +2576,7 @@ static void sde_kms_handle_power_event(u32 event_type, void *usr)
 	if (event_type == SDE_POWER_EVENT_POST_ENABLE) {
 		sde_irq_update(msm_kms, true);
 		sde_vbif_init_memtypes(sde_kms);
-		_sde_kms_pm_qos_add_request(sde_kms);
 	} else if (event_type == SDE_POWER_EVENT_PRE_DISABLE) {
-		_sde_kms_pm_qos_remove_request(sde_kms);
 		sde_irq_update(msm_kms, false);
 	}
 }
@@ -2681,6 +2673,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	struct sde_kms *sde_kms;
 	struct drm_device *dev;
 	struct msm_drm_private *priv;
+	bool splash_mem_found = false;
 	int i, rc = -EINVAL;
 
 	if (!kms) {
@@ -2775,8 +2768,10 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 
 	rc = _sde_kms_get_splash_data(&sde_kms->splash_data);
 	if (rc) {
-		SDE_ERROR("sde splash data fetch failed: %d\n", rc);
-		goto error;
+		SDE_DEBUG("sde splash data fetch failed: %d\n", rc);
+		splash_mem_found = false;
+	} else {
+		splash_mem_found = true;
 	}
 
 	rc = sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
@@ -2802,7 +2797,12 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 
 	sde_dbg_init_dbg_buses(sde_kms->core_rev);
 
-	_sde_kms_cont_splash_res_init(sde_kms);
+	/*
+	 * Attempt continuous splash handoff only if reserved
+	 * splash memory is found.
+	 */
+	if (splash_mem_found)
+		_sde_kms_cont_splash_res_init(sde_kms);
 
 	/* Initialize reg dma block which is a singleton */
 	rc = sde_reg_dma_init(sde_kms->reg_dma, sde_kms->catalog,

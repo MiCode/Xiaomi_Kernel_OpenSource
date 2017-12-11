@@ -40,6 +40,7 @@
 #define MR_LINK_SYMBOL_ERM 0x80
 #define MR_LINK_PRBS7 0x100
 #define MR_LINK_CUSTOM80 0x200
+#define MR_LINK_TRAINING4  0x40
 
 struct dp_vc_tu_mapping_table {
 	u32 vic;
@@ -760,18 +761,18 @@ static int dp_ctrl_update_sink_vx_px(struct dp_ctrl_private *ctrl,
 	return drm_dp_dpcd_write(ctrl->aux->drm_aux, 0x103, buf, 4);
 }
 
-static void dp_ctrl_update_vx_px(struct dp_ctrl_private *ctrl)
+static int dp_ctrl_update_vx_px(struct dp_ctrl_private *ctrl)
 {
 	struct dp_link *link = ctrl->link;
 
 	ctrl->catalog->update_vx_px(ctrl->catalog,
 		link->phy_params.v_level, link->phy_params.p_level);
 
-	dp_ctrl_update_sink_vx_px(ctrl, link->phy_params.v_level,
+	return dp_ctrl_update_sink_vx_px(ctrl, link->phy_params.v_level,
 		link->phy_params.p_level);
 }
 
-static void dp_ctrl_train_pattern_set(struct dp_ctrl_private *ctrl,
+static int dp_ctrl_train_pattern_set(struct dp_ctrl_private *ctrl,
 		u8 pattern)
 {
 	u8 buf[4];
@@ -779,7 +780,8 @@ static void dp_ctrl_train_pattern_set(struct dp_ctrl_private *ctrl,
 	pr_debug("sink: pattern=%x\n", pattern);
 
 	buf[0] = pattern;
-	drm_dp_dpcd_write(ctrl->aux->drm_aux, DP_TRAINING_PATTERN_SET, buf, 1);
+	return drm_dp_dpcd_write(ctrl->aux->drm_aux,
+		DP_TRAINING_PATTERN_SET, buf, 1);
 }
 
 static int dp_ctrl_read_link_status(struct dp_ctrl_private *ctrl,
@@ -816,9 +818,18 @@ static int dp_ctrl_link_train_1(struct dp_ctrl_private *ctrl)
 	wmb();
 
 	ctrl->catalog->set_pattern(ctrl->catalog, 0x01);
-	dp_ctrl_train_pattern_set(ctrl, DP_TRAINING_PATTERN_1 |
+	ret = dp_ctrl_train_pattern_set(ctrl, DP_TRAINING_PATTERN_1 |
 		DP_LINK_SCRAMBLING_DISABLE); /* train_1 */
-	dp_ctrl_update_vx_px(ctrl);
+	if (ret <= 0) {
+		ret = -EINVAL;
+		return ret;
+	}
+
+	ret = dp_ctrl_update_vx_px(ctrl);
+	if (ret <= 0) {
+		ret = -EINVAL;
+		return ret;
+	}
 
 	tries = 0;
 	old_v_level = ctrl->link->phy_params.v_level;
@@ -855,7 +866,11 @@ static int dp_ctrl_link_train_1(struct dp_ctrl_private *ctrl)
 		pr_debug("clock recovery not done, adjusting vx px\n");
 
 		ctrl->link->adjust_levels(ctrl->link, link_status);
-		dp_ctrl_update_vx_px(ctrl);
+		ret = dp_ctrl_update_vx_px(ctrl);
+		if (ret <= 0) {
+			ret = -EINVAL;
+			break;
+		}
 	}
 
 	return ret;
@@ -909,9 +924,18 @@ static int dp_ctrl_link_training_2(struct dp_ctrl_private *ctrl)
 	else
 		pattern = DP_TRAINING_PATTERN_2;
 
-	dp_ctrl_update_vx_px(ctrl);
+	ret = dp_ctrl_update_vx_px(ctrl);
+	if (ret <= 0) {
+		ret = -EINVAL;
+		return ret;
+	}
 	ctrl->catalog->set_pattern(ctrl->catalog, pattern);
-	dp_ctrl_train_pattern_set(ctrl, pattern | DP_RECOVERED_CLOCK_OUT_EN);
+	ret = dp_ctrl_train_pattern_set(ctrl,
+		pattern | DP_RECOVERED_CLOCK_OUT_EN);
+	if (ret <= 0) {
+		ret = -EINVAL;
+		return ret;
+	}
 
 	do  {
 		drm_dp_link_train_channel_eq_delay(ctrl->panel->dpcd);
@@ -931,7 +955,11 @@ static int dp_ctrl_link_training_2(struct dp_ctrl_private *ctrl)
 		tries++;
 
 		ctrl->link->adjust_levels(ctrl->link, link_status);
-		dp_ctrl_update_vx_px(ctrl);
+		ret = dp_ctrl_update_vx_px(ctrl);
+		if (ret <= 0) {
+			ret = -EINVAL;
+			break;
+		}
 	} while (1);
 
 	return ret;
@@ -953,9 +981,16 @@ static int dp_ctrl_link_train(struct dp_ctrl_private *ctrl)
 		ctrl->link->link_params.bw_code);
 	link_info.capabilities = ctrl->panel->link_info.capabilities;
 
-	drm_dp_link_configure(ctrl->aux->drm_aux, &link_info);
-	drm_dp_dpcd_write(ctrl->aux->drm_aux, DP_MAIN_LINK_CHANNEL_CODING_SET,
-				&encoding, 1);
+	ret = drm_dp_link_configure(ctrl->aux->drm_aux, &link_info);
+	if (ret)
+		goto end;
+
+	ret = drm_dp_dpcd_write(ctrl->aux->drm_aux,
+		DP_MAIN_LINK_CHANNEL_CODING_SET, &encoding, 1);
+	if (ret <= 0) {
+		ret = -EINVAL;
+		goto end;
+	}
 
 	ret = dp_ctrl_link_train_1(ctrl);
 	if (ret) {
@@ -990,11 +1025,6 @@ static int dp_ctrl_setup_main_link(struct dp_ctrl_private *ctrl, bool train)
 	int ret = 0;
 
 	ctrl->catalog->mainlink_ctrl(ctrl->catalog, true);
-
-	ret = ctrl->link->psm_config(ctrl->link,
-		&ctrl->panel->link_info, false);
-	if (ret)
-		goto end;
 
 	if (ctrl->link->sink_request & DP_TEST_LINK_PHY_TEST_PATTERN)
 		goto end;
@@ -1072,7 +1102,8 @@ static int dp_ctrl_disable_mainlink_clocks(struct dp_ctrl_private *ctrl)
 	return ctrl->power->clk_enable(ctrl->power, DP_CTRL_PM, false);
 }
 
-static int dp_ctrl_host_init(struct dp_ctrl *dp_ctrl, bool flip)
+static int dp_ctrl_host_init(struct dp_ctrl *dp_ctrl,
+	bool flip, bool multi_func)
 {
 	struct dp_ctrl_private *ctrl;
 	struct dp_catalog_ctrl *catalog;
@@ -1087,8 +1118,10 @@ static int dp_ctrl_host_init(struct dp_ctrl *dp_ctrl, bool flip)
 	ctrl->orientation = flip;
 	catalog = ctrl->catalog;
 
-	catalog->usb_reset(ctrl->catalog, flip);
-	catalog->phy_reset(ctrl->catalog);
+	if (!multi_func) {
+		catalog->usb_reset(ctrl->catalog, flip);
+		catalog->phy_reset(ctrl->catalog);
+	}
 	catalog->enable_irq(ctrl->catalog, true);
 
 	return 0;
@@ -1135,9 +1168,17 @@ static bool dp_ctrl_use_fixed_nvid(struct dp_ctrl_private *ctrl)
 	return false;
 }
 
-static int dp_ctrl_link_maintenance(struct dp_ctrl_private *ctrl)
+static int dp_ctrl_link_maintenance(struct dp_ctrl *dp_ctrl)
 {
 	int ret = 0;
+	struct dp_ctrl_private *ctrl;
+
+	if (!dp_ctrl) {
+		pr_err("Invalid input data\n");
+		return -EINVAL;
+	}
+
+	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
 	ctrl->dp_ctrl.push_idle(&ctrl->dp_ctrl);
 	ctrl->dp_ctrl.reset(&ctrl->dp_ctrl);
@@ -1181,9 +1222,17 @@ static int dp_ctrl_link_maintenance(struct dp_ctrl_private *ctrl)
 	return ret;
 }
 
-static void dp_ctrl_process_phy_test_request(struct dp_ctrl_private *ctrl)
+static void dp_ctrl_process_phy_test_request(struct dp_ctrl *dp_ctrl)
 {
 	int ret = 0;
+	struct dp_ctrl_private *ctrl;
+
+	if (!dp_ctrl) {
+		pr_err("Invalid input data\n");
+		return;
+	}
+
+	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
 	if (!ctrl->link->phy_params.phy_test_pattern_sel) {
 		pr_debug("no test pattern selected by sink\n");
@@ -1214,9 +1263,6 @@ static void dp_ctrl_send_phy_test_pattern(struct dp_ctrl_private *ctrl)
 	u32 pattern_sent = 0x0;
 	u32 pattern_requested = ctrl->link->phy_params.phy_test_pattern_sel;
 
-	pr_debug("request: %s\n",
-			dp_link_get_phy_test_pattern(pattern_requested));
-
 	ctrl->catalog->update_vx_px(ctrl->catalog,
 			ctrl->link->phy_params.v_level,
 			ctrl->link->phy_params.p_level);
@@ -1224,6 +1270,9 @@ static void dp_ctrl_send_phy_test_pattern(struct dp_ctrl_private *ctrl)
 	ctrl->link->send_test_response(ctrl->link);
 
 	pattern_sent = ctrl->catalog->read_phy_pattern(ctrl->catalog);
+	pr_debug("pattern_request: %s. pattern_sent: 0x%x\n",
+			dp_link_get_phy_test_pattern(pattern_requested),
+			pattern_sent);
 
 	switch (pattern_sent) {
 	case MR_LINK_TRAINING1:
@@ -1235,7 +1284,7 @@ static void dp_ctrl_send_phy_test_pattern(struct dp_ctrl_private *ctrl)
 		if ((pattern_requested ==
 				DP_TEST_PHY_PATTERN_SYMBOL_ERR_MEASUREMENT_CNT)
 			|| (pattern_requested ==
-				DP_TEST_PHY_PATTERN_HBR2_CTS_EYE_PATTERN))
+				DP_TEST_PHY_PATTERN_CP2520_PATTERN_1))
 			success = true;
 		break;
 	case MR_LINK_PRBS7:
@@ -1247,40 +1296,18 @@ static void dp_ctrl_send_phy_test_pattern(struct dp_ctrl_private *ctrl)
 				DP_TEST_PHY_PATTERN_80_BIT_CUSTOM_PATTERN)
 			success = true;
 		break;
+	case MR_LINK_TRAINING4:
+		if (pattern_requested ==
+				DP_TEST_PHY_PATTERN_CP2520_PATTERN_3)
+			success = true;
+		break;
 	default:
 		success = false;
-		return;
+		break;
 	}
 
 	pr_debug("%s: %s\n", success ? "success" : "failed",
 			dp_link_get_phy_test_pattern(pattern_requested));
-}
-
-static void dp_ctrl_handle_sink_request(struct dp_ctrl *dp_ctrl)
-{
-	struct dp_ctrl_private *ctrl;
-	u32 sink_request = 0x0;
-
-	if (!dp_ctrl) {
-		pr_err("invalid input\n");
-		return;
-	}
-
-	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
-	sink_request = ctrl->link->sink_request;
-
-	if (sink_request & DP_TEST_LINK_PHY_TEST_PATTERN) {
-		pr_info("PHY_TEST_PATTERN request\n");
-		dp_ctrl_process_phy_test_request(ctrl);
-	}
-
-	if (sink_request & DP_LINK_STATUS_UPDATED)
-		dp_ctrl_link_maintenance(ctrl);
-
-	if (sink_request & DP_TEST_LINK_TRAINING) {
-		ctrl->link->send_test_response(ctrl->link);
-		dp_ctrl_link_maintenance(ctrl);
-	}
 }
 
 static void dp_ctrl_reset(struct dp_ctrl *dp_ctrl)
@@ -1455,7 +1482,8 @@ struct dp_ctrl *dp_ctrl_get(struct dp_ctrl_in *in)
 	dp_ctrl->abort     = dp_ctrl_abort;
 	dp_ctrl->isr       = dp_ctrl_isr;
 	dp_ctrl->reset	   = dp_ctrl_reset;
-	dp_ctrl->handle_sink_request = dp_ctrl_handle_sink_request;
+	dp_ctrl->link_maintenance = dp_ctrl_link_maintenance;
+	dp_ctrl->process_phy_test_request = dp_ctrl_process_phy_test_request;
 
 	return dp_ctrl;
 error:

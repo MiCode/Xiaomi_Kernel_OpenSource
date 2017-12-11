@@ -908,7 +908,6 @@ static void ufshcd_print_host_state(struct ufs_hba *hba)
 		hba->capabilities, hba->caps);
 	dev_err(hba->dev, "quirks=0x%x, dev. quirks=0x%x\n", hba->quirks,
 		hba->dev_info.quirks);
-	ufshcd_print_fsm_state(hba);
 }
 
 /**
@@ -7033,6 +7032,7 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 	 */
 	scsi_print_command(cmd);
 	if (!hba->req_abort_count) {
+		ufshcd_print_fsm_state(hba);
 		ufshcd_print_host_regs(hba);
 		ufshcd_print_host_state(hba);
 		ufshcd_print_pwr_info(hba);
@@ -9260,7 +9260,6 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 			goto enable_gating;
 	}
 
-	flush_work(&hba->eeh_work);
 	ret = ufshcd_link_state_transition(hba, req_link_state, 1);
 	if (ret)
 		goto set_dev_active;

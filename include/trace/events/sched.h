@@ -262,9 +262,9 @@ TRACE_EVENT(sched_update_history,
 
 TRACE_EVENT(sched_get_task_cpu_cycles,
 
-	TP_PROTO(int cpu, int event, u64 cycles, u64 exec_time),
+	TP_PROTO(int cpu, int event, u64 cycles, u64 exec_time, struct task_struct *p),
 
-	TP_ARGS(cpu, event, cycles, exec_time),
+	TP_ARGS(cpu, event, cycles, exec_time, p),
 
 	TP_STRUCT__entry(
 		__field(int,		cpu		)
@@ -273,6 +273,8 @@ TRACE_EVENT(sched_get_task_cpu_cycles,
 		__field(u64,		exec_time	)
 		__field(u32,		freq		)
 		__field(u32,		legacy_freq	)
+		__field(pid_t,		pid		)
+		__array(char,	comm,   TASK_COMM_LEN	)
 	),
 
 	TP_fast_assign(
@@ -282,11 +284,13 @@ TRACE_EVENT(sched_get_task_cpu_cycles,
 		__entry->exec_time	= exec_time;
 		__entry->freq		= cpu_cycles_to_freq(cycles, exec_time);
 		__entry->legacy_freq	= cpu_cur_freq(cpu);
+		__entry->pid            = p->pid;
+		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
 	),
 
-	TP_printk("cpu=%d event=%d cycles=%llu exec_time=%llu freq=%u legacy_freq=%u",
+	TP_printk("cpu=%d event=%d cycles=%llu exec_time=%llu freq=%u legacy_freq=%u task=%d (%s)",
 		  __entry->cpu, __entry->event, __entry->cycles,
-		  __entry->exec_time, __entry->freq, __entry->legacy_freq)
+		  __entry->exec_time, __entry->freq, __entry->legacy_freq, __entry->pid, __entry->comm)
 );
 
 TRACE_EVENT(sched_update_task_ravg,
@@ -779,6 +783,11 @@ DEFINE_EVENT(sched_task_util, sched_task_util_energy_aware,
 );
 
 DEFINE_EVENT(sched_task_util, sched_task_util_imbalance,
+	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff, bool need_idle),
+	TP_ARGS(p, task_cpu, task_util, nominated_cpu, target_cpu, ediff, need_idle)
+);
+
+DEFINE_EVENT(sched_task_util, sched_task_util_need_idle,
 	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff, bool need_idle),
 	TP_ARGS(p, task_cpu, task_util, nominated_cpu, target_cpu, ediff, need_idle)
 );

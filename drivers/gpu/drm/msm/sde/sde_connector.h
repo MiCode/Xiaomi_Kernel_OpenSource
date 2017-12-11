@@ -36,12 +36,21 @@ struct sde_connector_ops {
 	/**
 	 * post_init - perform additional initialization steps
 	 * @connector: Pointer to drm connector structure
+	 * @display: Pointer to private display handle
+	 * Returns: Zero on success
+	 */
+	int (*post_init)(struct drm_connector *connector,
+			void *display);
+
+	/**
+	 * set_info_blob - initialize given info blob
+	 * @connector: Pointer to drm connector structure
 	 * @info: Pointer to sde connector info structure
 	 * @display: Pointer to private display handle
 	 * @mode_info: Pointer to mode info structure
 	 * Returns: Zero on success
 	 */
-	int (*post_init)(struct drm_connector *connector,
+	int (*set_info_blob)(struct drm_connector *connector,
 			void *info,
 			void *display,
 			struct msm_mode_info *mode_info);
@@ -211,10 +220,10 @@ struct sde_connector_ops {
 	int (*post_kickoff)(struct drm_connector *connector);
 
 	/**
-	 * send_hpd_event - send HPD uevent notification to userspace
+	 * post_open - calls connector to process post open functionalities
 	 * @display: Pointer to private display structure
 	 */
-	void (*send_hpd_event)(void *display);
+	void (*post_open)(void *display);
 
 	/**
 	 * check_status - check status of connected display panel
@@ -271,6 +280,7 @@ struct sde_connector_evt {
  * @blob_hdr: Pointer to blob structure for 'hdr_properties' property
  * @blob_ext_hdr: Pointer to blob structure for 'ext_hdr_properties' property
  * @blob_dither: Pointer to blob structure for default dither config
+ * @blob_mode_info: Pointer to blob structure for mode info
  * @fb_kmap: true if kernel mapping of framebuffer is requested
  * @event_table: Array of registered events
  * @event_lock: Lock object for event_table
@@ -304,6 +314,7 @@ struct sde_connector {
 	struct drm_property_blob *blob_hdr;
 	struct drm_property_blob *blob_ext_hdr;
 	struct drm_property_blob *blob_dither;
+	struct drm_property_blob *blob_mode_info;
 
 	bool fb_kmap;
 	struct sde_connector_evt event_table[SDE_CONN_EVENT_COUNT];
@@ -363,6 +374,8 @@ struct sde_connector {
  * @property_blobs: blob properties
  * @mode_info: local copy of msm_mode_info struct
  * @hdr_meta: HDR metadata info passed from userspace
+ * @old_topology_name: topology of previous atomic state. remove this in later
+ *	kernel versions which provide drm_atomic_state old_state pointers
  */
 struct sde_connector_state {
 	struct drm_connector_state base;
@@ -374,6 +387,7 @@ struct sde_connector_state {
 	struct drm_property_blob *property_blobs[CONNECTOR_PROP_BLOBCOUNT];
 	struct msm_mode_info mode_info;
 	struct drm_msm_ext_hdr_metadata hdr_meta;
+	enum sde_rm_topology_name old_topology_name;
 };
 
 /**
@@ -423,6 +437,43 @@ static inline uint64_t sde_connector_get_topology_name(
 		return 0;
 	return sde_connector_get_property(connector->state,
 			CONNECTOR_PROP_TOPOLOGY_NAME);
+}
+
+/**
+ * sde_connector_get_old_topology_name - helper accessor to retrieve
+ *	topology_name for the previous mode
+ * @connector: pointer to drm connector state
+ * Returns: cached value of the previous topology, or SDE_RM_TOPOLOGY_NONE
+ */
+static inline enum sde_rm_topology_name sde_connector_get_old_topology_name(
+		struct drm_connector_state *state)
+{
+	struct sde_connector_state *c_state = to_sde_connector_state(state);
+
+	if (!state)
+		return SDE_RM_TOPOLOGY_NONE;
+
+	return c_state->old_topology_name;
+}
+
+/**
+ * sde_connector_set_old_topology_name - helper to cache value of previous
+ *	mode's topology
+ * @connector: pointer to drm connector state
+ * Returns: 0 on success, negative errno on failure
+ */
+static inline int sde_connector_set_old_topology_name(
+		struct drm_connector_state *state,
+		enum sde_rm_topology_name top)
+{
+	struct sde_connector_state *c_state = to_sde_connector_state(state);
+
+	if (!state)
+		return -EINVAL;
+
+	c_state->old_topology_name = top;
+
+	return 0;
 }
 
 /**
@@ -505,8 +556,9 @@ int sde_connector_get_info(struct drm_connector *connector,
  * sde_connector_clk_ctrl - enables/disables the connector clks
  * @connector: Pointer to drm connector object
  * @enable: true/false to enable/disable
+ * Returns: Zero on success
  */
-void sde_connector_clk_ctrl(struct drm_connector *connector, bool enable);
+int sde_connector_clk_ctrl(struct drm_connector *connector, bool enable);
 
 /**
  * sde_connector_get_dpms - query dpms setting
@@ -604,13 +656,15 @@ int sde_connector_get_dither_cfg(struct drm_connector *conn,
 		struct drm_connector_state *state, void **cfg, size_t *len);
 
 /**
- * sde_connector_set_info - set connector property value
+ * sde_connector_set_blob_data - set connector blob property data
  * @conn: Pointer to drm_connector struct
  * @state: Pointer to the drm_connector_state struct
+ * @prop_id: property id to be populated
  * Returns: Zero on success
  */
-int sde_connector_set_info(struct drm_connector *conn,
-		struct drm_connector_state *state);
+int sde_connector_set_blob_data(struct drm_connector *conn,
+		struct drm_connector_state *state,
+		enum msm_mdp_conn_property prop_id);
 
 /**
  * sde_connector_roi_v1_check_roi - validate connector ROI

@@ -582,6 +582,10 @@ static irqreturn_t pdphy_msg_tx_irq(int irq, void *data)
 {
 	struct usb_pdphy *pdphy = data;
 
+	/* TX already aborted by received signal */
+	if (pdphy->tx_status != -EINPROGRESS)
+		return IRQ_HANDLED;
+
 	if (irq == pdphy->msg_tx_irq) {
 		pdphy->msg_tx_cnt++;
 		pdphy->tx_status = 0;
@@ -635,6 +639,10 @@ static irqreturn_t pdphy_sig_rx_irq_thread(int irq, void *data)
 	if (pdphy->signal_cb)
 		pdphy->signal_cb(pdphy->usbpd, frame_type);
 
+	if (pdphy->tx_status == -EINPROGRESS) {
+		pdphy->tx_status = -EBUSY;
+		wake_up(&pdphy->tx_waitq);
+	}
 done:
 	return IRQ_HANDLED;
 }

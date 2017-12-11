@@ -80,44 +80,6 @@ static void adreno_get_submit_time(struct adreno_device *adreno_dev,
 	local_irq_restore(flags);
 }
 
-/*
- * Wait time before trying to write the register again.
- * Hopefully the GMU has finished waking up during this delay.
- * This delay must be less than the IFPC main hysteresis or
- * the GMU will start shutting down before we try again.
- */
-#define GMU_WAKEUP_DELAY 10
-/* Max amount of tries to wake up the GMU. */
-#define GMU_WAKEUP_RETRY_MAX 60
-
-/*
- * Check the WRITEDROPPED0 bit in the
- * FENCE_STATUS regsiter to check if the write went
- * through. If it didn't then we retry the write.
- */
-static inline void _gmu_wptr_update_if_dropped(struct adreno_device *adreno_dev,
-		struct adreno_ringbuffer *rb)
-{
-	unsigned int val, i;
-
-	for (i = 0; i < GMU_WAKEUP_RETRY_MAX; i++) {
-		adreno_read_gmureg(adreno_dev, ADRENO_REG_GMU_AHB_FENCE_STATUS,
-				&val);
-
-		/* If !writedropped, then wptr update was successful */
-		if (!(val & 0x1))
-			return;
-
-		/* Wait a small amount of time before trying again */
-		udelay(GMU_WAKEUP_DELAY);
-
-		/* Try to write WPTR again */
-		adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_WPTR, rb->_wptr);
-	}
-
-	dev_err(adreno_dev->dev.dev, "GMU WPTR update timed out\n");
-}
-
 static void adreno_ringbuffer_wptr(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb)
 {
@@ -132,15 +94,14 @@ static void adreno_ringbuffer_wptr(struct adreno_device *adreno_dev,
 			 * been submitted.
 			 */
 			kgsl_pwrscale_busy(KGSL_DEVICE(adreno_dev));
-			adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_WPTR,
-				rb->_wptr);
 
 			/*
-			 * If GMU, ensure the write posted after a possible
+			 * Ensure the write posted after a possible
 			 * GMU wakeup (write could have dropped during wakeup)
 			 */
-			if (kgsl_gmu_isenabled(KGSL_DEVICE(adreno_dev)))
-				_gmu_wptr_update_if_dropped(adreno_dev, rb);
+			adreno_gmu_fenced_write(adreno_dev,
+				ADRENO_REG_CP_RB_WPTR, rb->_wptr,
+				FENCE_STATUS_WRITEDROPPED0_MASK);
 
 		}
 	}
@@ -425,6 +386,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	struct kgsl_context *context = NULL;
 	bool secured_ctxt = false;
 	static unsigned int _seq_cnt;
+	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 
 	if (drawctxt != NULL && kgsl_context_detached(&drawctxt->base) &&
 		!(flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE))
@@ -494,11 +456,11 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 
 	if (gpudev->preemption_pre_ibsubmit &&
 			adreno_is_preemption_execution_enabled(adreno_dev))
-		total_sizedwords += 22;
+		total_sizedwords += 27;
 
 	if (gpudev->preemption_post_ibsubmit &&
 			adreno_is_preemption_execution_enabled(adreno_dev))
-		total_sizedwords += 5;
+		total_sizedwords += 10;
 
 	/*
 	 * a5xx uses 64 bit memory address. pm4 commands that involve read/write
@@ -559,8 +521,13 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 		*ringcmds++ = KGSL_CMD_INTERNAL_IDENTIFIER;
 	}
 
-	if (gpudev->set_marker)
-		ringcmds += gpudev->set_marker(ringcmds, 1);
+	if (gpudev->set_marker) {
+		/* Firmware versions before 1.49 do not support IFPC markers */
+		if (adreno_is_a6xx(adreno_dev) && (fw->version & 0xFFF) < 0x149)
+			ringcmds += gpudev->set_marker(ringcmds, IB1LIST_START);
+		else
+			ringcmds += gpudev->set_marker(ringcmds, IFPC_DISABLE);
+	}
 
 	if (flags & KGSL_CMD_FLAGS_PWRON_FIXUP) {
 		/* Disable protected mode for the fixup */
@@ -680,8 +647,12 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 		*ringcmds++ = timestamp;
 	}
 
-	if (gpudev->set_marker)
-		ringcmds += gpudev->set_marker(ringcmds, 0);
+	if (gpudev->set_marker) {
+		if (adreno_is_a6xx(adreno_dev) && (fw->version & 0xFFF) < 0x149)
+			ringcmds += gpudev->set_marker(ringcmds, IB1LIST_END);
+		else
+			ringcmds += gpudev->set_marker(ringcmds, IFPC_ENABLE);
+	}
 
 	if (adreno_is_a3xx(adreno_dev)) {
 		/* Dummy set-constant to trigger context rollover */
@@ -796,8 +767,9 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	struct kgsl_drawobj_profiling_buffer *profile_buffer = NULL;
 	unsigned int dwords = 0;
 	struct adreno_submit_time local;
-
 	struct kgsl_mem_entry *entry = cmdobj->profiling_buf_entry;
+	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
+	bool set_ib1list_marker = false;
 
 	if (entry)
 		profile_buffer = kgsl_gpuaddr_to_vaddr(&entry->memdesc,
@@ -907,6 +879,17 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 			dwords += 8;
 	}
 
+	/*
+	 * Prior to SQE FW version 1.49, there was only one marker for
+	 * both preemption and IFPC. Only include the IB1LIST markers if
+	 * we are using a firmware that supports them.
+	 */
+	if (gpudev->set_marker && numibs && adreno_is_a6xx(adreno_dev) &&
+			((fw->version & 0xFFF) >= 0x149)) {
+		set_ib1list_marker = true;
+		dwords += 4;
+	}
+
 	if (gpudev->ccu_invalidate)
 		dwords += 4;
 
@@ -940,6 +923,9 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	}
 
 	if (numibs) {
+		if (set_ib1list_marker)
+			cmds += gpudev->set_marker(cmds, IB1LIST_START);
+
 		list_for_each_entry(ib, &cmdobj->cmdlist, node) {
 			/*
 			 * Skip 0 sized IBs - these are presumed to have been
@@ -958,6 +944,9 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 			/* preamble is required on only for first command */
 			use_preamble = false;
 		}
+
+		if (set_ib1list_marker)
+			cmds += gpudev->set_marker(cmds, IB1LIST_END);
 	}
 
 	if (gpudev->ccu_invalidate)

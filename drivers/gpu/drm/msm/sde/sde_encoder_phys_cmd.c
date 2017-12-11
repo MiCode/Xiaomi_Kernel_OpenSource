@@ -448,9 +448,7 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 		cmd_enc->pp_timeout_report_cnt = PP_TIMEOUT_MAX_TRIALS;
 		frame_event |= SDE_ENCODER_FRAME_EVENT_PANEL_DEAD;
 
-		sde_encoder_helper_unregister_irq(phys_enc, INTR_IDX_RDPTR);
 		SDE_DBG_DUMP("panic");
-		sde_encoder_helper_register_irq(phys_enc, INTR_IDX_RDPTR);
 	} else if (cmd_enc->pp_timeout_report_cnt == 1) {
 		/* to avoid flooding, only log first time, and "dead" time */
 		SDE_ERROR_CMDENC(cmd_enc,
@@ -461,10 +459,6 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 				atomic_read(&phys_enc->pending_kickoff_cnt));
 
 		SDE_EVT32(DRMID(phys_enc->parent), SDE_EVTLOG_FATAL);
-
-		sde_encoder_helper_unregister_irq(phys_enc, INTR_IDX_RDPTR);
-		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus");
-		sde_encoder_helper_register_irq(phys_enc, INTR_IDX_RDPTR);
 	}
 
 	atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
@@ -487,6 +481,21 @@ static bool _sde_encoder_phys_is_ppsplit_slave(
 
 	return _sde_encoder_phys_is_ppsplit(phys_enc) &&
 			phys_enc->split_role == ENC_ROLE_SLAVE;
+}
+
+static bool _sde_encoder_phys_is_disabling_ppsplit_slave(
+		struct sde_encoder_phys *phys_enc)
+{
+	enum sde_rm_topology_name old_top;
+
+	if (!phys_enc || !phys_enc->connector ||
+			phys_enc->split_role != ENC_ROLE_SLAVE)
+		return false;
+
+	old_top = sde_connector_get_old_topology_name(
+			phys_enc->connector->state);
+
+	return old_top == SDE_RM_TOPOLOGY_PPSPLIT;
 }
 
 static int _sde_encoder_phys_cmd_poll_write_pointer_started(
@@ -678,7 +687,15 @@ void sde_encoder_phys_cmd_irq_control(struct sde_encoder_phys *phys_enc,
 {
 	struct sde_encoder_phys_cmd *cmd_enc;
 
-	if (!phys_enc || _sde_encoder_phys_is_ppsplit_slave(phys_enc))
+	if (!phys_enc)
+		return;
+
+	/**
+	 * pingpong split slaves do not register for IRQs
+	 * check old and new topologies
+	 */
+	if (_sde_encoder_phys_is_ppsplit_slave(phys_enc) ||
+			_sde_encoder_phys_is_disabling_ppsplit_slave(phys_enc))
 		return;
 
 	cmd_enc = to_sde_encoder_phys_cmd(phys_enc);
@@ -935,6 +952,28 @@ static int sde_encoder_phys_cmd_get_line_count(
 	return hw_pp->ops.get_line_count(hw_pp);
 }
 
+static int sde_encoder_phys_cmd_get_write_line_count(
+		struct sde_encoder_phys *phys_enc)
+{
+	struct sde_hw_pingpong *hw_pp;
+	struct sde_hw_pp_vsync_info info;
+
+	if (!phys_enc || !phys_enc->hw_pp)
+		return -EINVAL;
+
+	if (!sde_encoder_phys_cmd_is_master(phys_enc))
+		return -EINVAL;
+
+	hw_pp = phys_enc->hw_pp;
+	if (!hw_pp->ops.get_vsync_info)
+		return -EINVAL;
+
+	if (hw_pp->ops.get_vsync_info(hw_pp, &info))
+		return -EINVAL;
+
+	return (int)info.wr_ptr_line_count;
+}
+
 static void sde_encoder_phys_cmd_disable(struct sde_encoder_phys *phys_enc)
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
@@ -1038,6 +1077,7 @@ static int _sde_encoder_phys_cmd_wait_for_ctl_start(
 			to_sde_encoder_phys_cmd(phys_enc);
 	struct sde_encoder_wait_info wait_info;
 	int ret;
+	bool frame_pending = true;
 
 	if (!phys_enc || !phys_enc->hw_ctl) {
 		SDE_ERROR("invalid argument(s)\n");
@@ -1055,10 +1095,17 @@ static int _sde_encoder_phys_cmd_wait_for_ctl_start(
 	ret = sde_encoder_helper_wait_for_irq(phys_enc, INTR_IDX_CTL_START,
 			&wait_info);
 	if (ret == -ETIMEDOUT) {
-		SDE_ERROR_CMDENC(cmd_enc, "ctl start interrupt wait failed\n");
-		ret = -EINVAL;
-	} else if (!ret)
-		ret = 0;
+		struct sde_hw_ctl *ctl = phys_enc->hw_ctl;
+
+		if (ctl && ctl->ops.get_start_state)
+			frame_pending = ctl->ops.get_start_state(ctl);
+
+		if (frame_pending)
+			SDE_ERROR_CMDENC(cmd_enc,
+					"ctl start interrupt wait failed\n");
+		else
+			ret = 0;
+	}
 
 	return ret;
 }
@@ -1271,6 +1318,7 @@ static void sde_encoder_phys_cmd_init_ops(
 	ops->is_autorefresh_enabled =
 			sde_encoder_phys_cmd_is_autorefresh_enabled;
 	ops->get_line_count = sde_encoder_phys_cmd_get_line_count;
+	ops->get_wr_line_count = sde_encoder_phys_cmd_get_write_line_count;
 	ops->wait_for_active = NULL;
 }
 

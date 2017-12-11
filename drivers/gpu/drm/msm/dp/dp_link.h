@@ -86,7 +86,6 @@ struct dp_link_params {
 struct dp_link {
 	u32 sink_request;
 	u32 test_response;
-	bool psm_enabled;
 
 	struct dp_link_sink_count sink_count;
 	struct dp_link_test_video test_video;
@@ -121,9 +120,12 @@ static inline char *dp_link_get_phy_test_pattern(u32 phy_test_pattern_sel)
 	case DP_TEST_PHY_PATTERN_80_BIT_CUSTOM_PATTERN:
 		return DP_LINK_ENUM_STR(
 			DP_TEST_PHY_PATTERN_80_BIT_CUSTOM_PATTERN);
-	case DP_TEST_PHY_PATTERN_HBR2_CTS_EYE_PATTERN:
-		return DP_LINK_ENUM_STR(
-			DP_TEST_PHY_PATTERN_HBR2_CTS_EYE_PATTERN);
+	case DP_TEST_PHY_PATTERN_CP2520_PATTERN_1:
+		return DP_LINK_ENUM_STR(DP_TEST_PHY_PATTERN_CP2520_PATTERN_1);
+	case DP_TEST_PHY_PATTERN_CP2520_PATTERN_2:
+		return DP_LINK_ENUM_STR(DP_TEST_PHY_PATTERN_CP2520_PATTERN_2);
+	case DP_TEST_PHY_PATTERN_CP2520_PATTERN_3:
+		return DP_LINK_ENUM_STR(DP_TEST_PHY_PATTERN_CP2520_PATTERN_3);
 	default:
 		return "unknown";
 	}

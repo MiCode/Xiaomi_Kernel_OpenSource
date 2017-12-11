@@ -1757,14 +1757,11 @@ static int find_lowest_rq(struct task_struct *task)
 	unsigned long tutil = task_util(task);
 	int best_cpu_idle_idx = INT_MAX;
 	int cpu_idle_idx = -1;
-	bool placement_boost;
-#ifdef CONFIG_SCHED_CORE_ROTATE
+	enum sched_boost_policy placement_boost;
+	int prev_cpu = task_cpu(task);
+	int start_cpu = walt_start_cpu(prev_cpu);
 	bool do_rotate = false;
 	bool avoid_prev_cpu = false;
-#else
-#define do_rotate false
-#define avoid_prev_cpu false
-#endif
 
 	/* Make sure the mask is initialized first */
 	if (unlikely(!lowest_mask))
@@ -1776,19 +1773,16 @@ static int find_lowest_rq(struct task_struct *task)
 	if (!cpupri_find(&task_rq(task)->rd->cpupri, task, lowest_mask))
 		return -1; /* No targets found */
 
-	if (energy_aware() && sysctl_sched_is_big_little) {
+	if (energy_aware()) {
 		sg_target = NULL;
 		best_cpu = -1;
 
-		/*
-		 * Since this code is inside sched_is_big_little, we are going
-		 * to assume that boost policy is SCHED_BOOST_ON_BIG
-		 */
-		placement_boost = sched_boost() == FULL_THROTTLE_BOOST;
+		placement_boost = sched_boost() == FULL_THROTTLE_BOOST ?
+				  sched_boost_policy() : SCHED_BOOST_NONE;
 		best_capacity = placement_boost ? 0 : ULONG_MAX;
 
 		rcu_read_lock();
-		sd = rcu_dereference(per_cpu(sd_ea, task_cpu(task)));
+		sd = rcu_dereference(per_cpu(sd_ea, start_cpu));
 		if (!sd) {
 			rcu_read_unlock();
 			goto noea;
@@ -1799,6 +1793,11 @@ static int find_lowest_rq(struct task_struct *task)
 			if (!cpumask_intersects(lowest_mask,
 						sched_group_cpus(sg)))
 				continue;
+
+			if (!sysctl_sched_is_big_little) {
+				sg_target = sg;
+				break;
+			}
 
 			cpu = group_first_cpu(sg);
 			cpu_capacity = capacity_orig_of(cpu);
@@ -1824,11 +1823,9 @@ static int find_lowest_rq(struct task_struct *task)
 			cpumask_andnot(&backup_search_cpu, &backup_search_cpu,
 				       &search_cpu);
 
-#ifdef CONFIG_SCHED_CORE_ROTATE
 			cpu = find_first_cpu_bit(task, &search_cpu, sg_target,
 						 &avoid_prev_cpu, &do_rotate,
 						 &first_cpu_bit_env);
-#endif
 		} else {
 			cpumask_copy(&search_cpu, lowest_mask);
 			cpumask_clear(&backup_search_cpu);
@@ -1845,7 +1842,7 @@ retry:
 			 */
 			util = cpu_util(cpu);
 
-			if (avoid_prev_cpu && cpu == task_cpu(task))
+			if (avoid_prev_cpu && cpu == prev_cpu)
 				continue;
 
 			if (__cpu_overutilized(cpu, util + tutil))
@@ -1894,7 +1891,6 @@ retry:
 			best_cpu = cpu;
 		}
 
-#ifdef CONFIG_SCHED_CORE_ROTATE
 		if (do_rotate) {
 			/*
 			 * We started iteration somewhere in the middle of
@@ -1905,13 +1901,14 @@ retry:
 			cpu = -1;
 			goto retry;
 		}
-#endif
 
-		if (best_cpu != -1) {
+		if (best_cpu != -1 && placement_boost != SCHED_BOOST_ON_ALL) {
 			return best_cpu;
 		} else if (!cpumask_empty(&backup_search_cpu)) {
 			cpumask_copy(&search_cpu, &backup_search_cpu);
 			cpumask_clear(&backup_search_cpu);
+			cpu = -1;
+			placement_boost = SCHED_BOOST_NONE;
 			goto retry;
 		}
 	}

@@ -1805,18 +1805,15 @@ long kgsl_ioctl_drawctxt_destroy(struct kgsl_device_private *dev_priv,
 
 long gpumem_free_entry(struct kgsl_mem_entry *entry)
 {
-	pid_t ptname = 0;
-
 	if (!kgsl_mem_entry_set_pend(entry))
 		return -EBUSY;
 
 	trace_kgsl_mem_free(entry);
-
-	if (entry->memdesc.pagetable != NULL)
-		ptname = entry->memdesc.pagetable->name;
-
-	kgsl_memfree_add(entry->priv->pid, ptname, entry->memdesc.gpuaddr,
-		entry->memdesc.size, entry->memdesc.flags);
+	kgsl_memfree_add(entry->priv->pid,
+			entry->memdesc.pagetable ?
+				entry->memdesc.pagetable->name : 0,
+			entry->memdesc.gpuaddr, entry->memdesc.size,
+			entry->memdesc.flags);
 
 	kgsl_mem_entry_put(entry);
 
@@ -1835,6 +1832,12 @@ static void gpumem_free_func(struct kgsl_device *device,
 	/* Free the memory for all event types */
 	trace_kgsl_mem_timestamp_free(device, entry, KGSL_CONTEXT_ID(context),
 		timestamp, 0);
+	kgsl_memfree_add(entry->priv->pid,
+			entry->memdesc.pagetable ?
+				entry->memdesc.pagetable->name : 0,
+			entry->memdesc.gpuaddr, entry->memdesc.size,
+			entry->memdesc.flags);
+
 	kgsl_mem_entry_put(entry);
 }
 
@@ -1928,6 +1931,13 @@ static bool gpuobj_free_fence_func(void *priv)
 {
 	struct kgsl_mem_entry *entry = priv;
 
+	trace_kgsl_mem_free(entry);
+	kgsl_memfree_add(entry->priv->pid,
+			entry->memdesc.pagetable ?
+				entry->memdesc.pagetable->name : 0,
+			entry->memdesc.gpuaddr, entry->memdesc.size,
+			entry->memdesc.flags);
+
 	INIT_WORK(&entry->work, _deferred_put);
 	queue_work(kgsl_driver.mem_workqueue, &entry->work);
 	return true;
@@ -1960,14 +1970,14 @@ static long gpuobj_free_on_fence(struct kgsl_device_private *dev_priv,
 	handle = kgsl_sync_fence_async_wait(event.fd,
 		gpuobj_free_fence_func, entry, NULL, 0);
 
-	/* if handle is NULL the fence has already signaled */
-	if (handle == NULL)
-		return gpumem_free_entry(entry);
-
 	if (IS_ERR(handle)) {
 		kgsl_mem_entry_unset_pend(entry);
 		return PTR_ERR(handle);
 	}
+
+	/* if handle is NULL the fence has already signaled */
+	if (handle == NULL)
+		gpuobj_free_fence_func(entry);
 
 	return 0;
 }
@@ -2284,7 +2294,8 @@ static long _gpuobj_map_useraddr(struct kgsl_device *device,
 	param->flags &= KGSL_MEMFLAGS_GPUREADONLY
 		| KGSL_CACHEMODE_MASK
 		| KGSL_MEMTYPE_MASK
-		| KGSL_MEMFLAGS_FORCE_32BIT;
+		| KGSL_MEMFLAGS_FORCE_32BIT
+		| KGSL_MEMFLAGS_IOCOHERENT;
 
 	/* Specifying SECURE is an explicit error */
 	if (param->flags & KGSL_MEMFLAGS_SECURE)
@@ -2378,7 +2389,12 @@ long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 			| KGSL_MEMALIGN_MASK
 			| KGSL_MEMFLAGS_USE_CPU_MAP
 			| KGSL_MEMFLAGS_SECURE
-			| KGSL_MEMFLAGS_FORCE_32BIT;
+			| KGSL_MEMFLAGS_FORCE_32BIT
+			| KGSL_MEMFLAGS_IOCOHERENT;
+
+	/* Disable IO coherence if it is not supported on the chip */
+	if (!MMU_FEATURE(mmu, KGSL_MMU_IO_COHERENT))
+		param->flags &= ~((uint64_t)KGSL_MEMFLAGS_IOCOHERENT);
 
 	entry->memdesc.flags = param->flags;
 
@@ -2663,7 +2679,13 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 			| KGSL_MEMTYPE_MASK
 			| KGSL_MEMALIGN_MASK
 			| KGSL_MEMFLAGS_USE_CPU_MAP
-			| KGSL_MEMFLAGS_SECURE;
+			| KGSL_MEMFLAGS_SECURE
+			| KGSL_MEMFLAGS_IOCOHERENT;
+
+	/* Disable IO coherence if it is not supported on the chip */
+	if (!MMU_FEATURE(mmu, KGSL_MMU_IO_COHERENT))
+		param->flags &= ~((uint64_t)KGSL_MEMFLAGS_IOCOHERENT);
+
 	entry->memdesc.flags = ((uint64_t) param->flags)
 		| KGSL_MEMFLAGS_FORCE_32BIT;
 
@@ -3062,6 +3084,7 @@ struct kgsl_mem_entry *gpumem_alloc_entry(
 	int ret;
 	struct kgsl_process_private *private = dev_priv->process_priv;
 	struct kgsl_mem_entry *entry;
+	struct kgsl_mmu *mmu = &dev_priv->device->mmu;
 	unsigned int align;
 
 	flags &= KGSL_MEMFLAGS_GPUREADONLY
@@ -3070,14 +3093,15 @@ struct kgsl_mem_entry *gpumem_alloc_entry(
 		| KGSL_MEMALIGN_MASK
 		| KGSL_MEMFLAGS_USE_CPU_MAP
 		| KGSL_MEMFLAGS_SECURE
-		| KGSL_MEMFLAGS_FORCE_32BIT;
+		| KGSL_MEMFLAGS_FORCE_32BIT
+		| KGSL_MEMFLAGS_IOCOHERENT;
 
 	/* Turn off SVM if the system doesn't support it */
-	if (!kgsl_mmu_use_cpu_map(&dev_priv->device->mmu))
+	if (!kgsl_mmu_use_cpu_map(mmu))
 		flags &= ~((uint64_t) KGSL_MEMFLAGS_USE_CPU_MAP);
 
 	/* Return not supported error if secure memory isn't enabled */
-	if (!kgsl_mmu_is_secured(&dev_priv->device->mmu) &&
+	if (!kgsl_mmu_is_secured(mmu) &&
 			(flags & KGSL_MEMFLAGS_SECURE)) {
 		dev_WARN_ONCE(dev_priv->device->dev, 1,
 				"Secure memory not supported");
@@ -3106,11 +3130,15 @@ struct kgsl_mem_entry *gpumem_alloc_entry(
 
 	flags = kgsl_filter_cachemode(flags);
 
+	/* Disable IO coherence if it is not supported on the chip */
+	if (!MMU_FEATURE(mmu, KGSL_MMU_IO_COHERENT))
+		flags &= ~((uint64_t)KGSL_MEMFLAGS_IOCOHERENT);
+
 	entry = kgsl_mem_entry_create();
 	if (entry == NULL)
 		return ERR_PTR(-ENOMEM);
 
-	if (MMU_FEATURE(&dev_priv->device->mmu, KGSL_MMU_NEED_GUARD_PAGE))
+	if (MMU_FEATURE(mmu, KGSL_MMU_NEED_GUARD_PAGE))
 		entry->memdesc.priv |= KGSL_MEMDESC_GUARD_PAGE;
 
 	if (flags & KGSL_MEMFLAGS_SECURE)

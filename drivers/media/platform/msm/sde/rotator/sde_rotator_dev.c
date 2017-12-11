@@ -1201,6 +1201,8 @@ static void sde_rotator_retire_request(struct sde_rotator_request *request)
 	list_add_tail(&request->list, &ctx->retired_list);
 	spin_unlock(&ctx->list_lock);
 
+	wake_up(&ctx->wait_queue);
+
 	SDEROT_DBG("retire request s:%d.%d\n",
 				ctx->session_id, ctx->retired_sequence_id);
 }
@@ -1440,6 +1442,61 @@ int sde_rotator_inline_get_pixfmt_caps(struct platform_device *pdev,
 EXPORT_SYMBOL(sde_rotator_inline_get_pixfmt_caps);
 
 /*
+ * _sde_rotator_inline_cleanup - perform inline related request cleanup
+ *	This function assumes rot_dev->mgr lock has been taken when called.
+ * @handle: Pointer to rotator context
+ * @request: Pointer to rotation request
+ * return: 0 if success; -EAGAIN if cleanup should be retried
+ */
+static int _sde_rotator_inline_cleanup(void *handle,
+		struct sde_rotator_request *request)
+{
+	struct sde_rotator_ctx *ctx;
+	struct sde_rotator_device *rot_dev;
+	int ret;
+
+	if (!handle || !request) {
+		SDEROT_ERR("invalid rotator handle/request\n");
+		return -EINVAL;
+	}
+
+	ctx = handle;
+	rot_dev = ctx->rot_dev;
+
+	if (!rot_dev || !rot_dev->mgr) {
+		SDEROT_ERR("invalid rotator device\n");
+		return -EINVAL;
+	}
+
+	if (request->committed) {
+		/* wait until request is finished */
+		sde_rot_mgr_unlock(rot_dev->mgr);
+		mutex_unlock(&rot_dev->lock);
+		ret = wait_event_timeout(ctx->wait_queue,
+			sde_rotator_is_request_retired(request),
+			msecs_to_jiffies(rot_dev->streamoff_timeout));
+		mutex_lock(&rot_dev->lock);
+		sde_rot_mgr_lock(rot_dev->mgr);
+
+		if (!ret) {
+			SDEROT_ERR("timeout w/o retire s:%d\n",
+					ctx->session_id);
+			SDEROT_EVTLOG(ctx->session_id, SDE_ROT_EVTLOG_ERROR);
+			sde_rotator_abort_inline_request(rot_dev->mgr,
+					ctx->private, request->req);
+			return -EAGAIN;
+		} else if (ret == 1) {
+			SDEROT_ERR("timeout w/ retire s:%d\n", ctx->session_id);
+			SDEROT_EVTLOG(ctx->session_id, SDE_ROT_EVTLOG_ERROR);
+		}
+	}
+
+	sde_rotator_req_finish(rot_dev->mgr, ctx->private, request->req);
+	sde_rotator_retire_request(request);
+	return 0;
+}
+
+/*
  * sde_rotator_inline_commit - commit given rotator command
  * @handle: Pointer to rotator context
  * @cmd: Pointer to rotator command
@@ -1466,7 +1523,7 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 	ctx = handle;
 	rot_dev = ctx->rot_dev;
 
-	if (!rot_dev) {
+	if (!rot_dev || !rot_dev->mgr) {
 		SDEROT_ERR("invalid rotator device\n");
 		return -EINVAL;
 	}
@@ -1498,6 +1555,7 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 		(cmd->video_mode << 5) |
 		(cmd_type << 24));
 
+	mutex_lock(&rot_dev->lock);
 	sde_rot_mgr_lock(rot_dev->mgr);
 
 	if (cmd_type == SDE_ROTATOR_INLINE_CMD_VALIDATE ||
@@ -1707,30 +1765,12 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 		}
 
 		request = cmd->priv_handle;
-		req = request->req;
 
-		if (request->committed) {
-			/* wait until request is finished */
-			sde_rot_mgr_unlock(rot_dev->mgr);
-			ret = wait_event_timeout(ctx->wait_queue,
-				sde_rotator_is_request_retired(request),
-				msecs_to_jiffies(rot_dev->streamoff_timeout));
-			if (!ret) {
-				SDEROT_ERR("timeout w/o retire s:%d\n",
-						ctx->session_id);
-				SDEROT_EVTLOG(ctx->session_id,
-						SDE_ROT_EVTLOG_ERROR);
-			} else if (ret == 1) {
-				SDEROT_ERR("timeout w/ retire s:%d\n",
-						ctx->session_id);
-				SDEROT_EVTLOG(ctx->session_id,
-						SDE_ROT_EVTLOG_ERROR);
-			}
-			sde_rot_mgr_lock(rot_dev->mgr);
-		}
+		/* attempt single retry if first cleanup attempt failed */
+		if (_sde_rotator_inline_cleanup(handle, request) == -EAGAIN)
+			_sde_rotator_inline_cleanup(handle, request);
 
-		sde_rotator_req_finish(rot_dev->mgr, ctx->private, req);
-		sde_rotator_retire_request(request);
+		cmd->priv_handle = NULL;
 	} else if (cmd_type == SDE_ROTATOR_INLINE_CMD_ABORT) {
 		if (!cmd->priv_handle) {
 			ret = -EINVAL;
@@ -1739,11 +1779,13 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 		}
 
 		request = cmd->priv_handle;
-		sde_rotator_abort_inline_request(rot_dev->mgr,
-				ctx->private, request->req);
+		if (!sde_rotator_is_request_retired(request))
+			sde_rotator_abort_inline_request(rot_dev->mgr,
+					ctx->private, request->req);
 	}
 
 	sde_rot_mgr_unlock(rot_dev->mgr);
+	mutex_unlock(&rot_dev->lock);
 	return 0;
 
 error_handle_request:
@@ -1756,13 +1798,29 @@ error_session_config:
 error_invalid_handle:
 error_init_request:
 	sde_rot_mgr_unlock(rot_dev->mgr);
+	mutex_unlock(&rot_dev->lock);
 	return ret;
 }
 EXPORT_SYMBOL(sde_rotator_inline_commit);
 
 void sde_rotator_inline_reg_dump(struct platform_device *pdev)
 {
-	sde_rot_dump_panic(false);
+	struct sde_rotator_device *rot_dev;
+
+	if (!pdev) {
+		SDEROT_ERR("invalid platform device\n");
+		return;
+	}
+
+	rot_dev = (struct sde_rotator_device *) platform_get_drvdata(pdev);
+	if (!rot_dev || !rot_dev->mgr) {
+		SDEROT_ERR("invalid rotator device\n");
+		return;
+	}
+
+	sde_rot_mgr_lock(rot_dev->mgr);
+	sde_rotator_core_dump(rot_dev->mgr);
+	sde_rot_mgr_unlock(rot_dev->mgr);
 }
 EXPORT_SYMBOL(sde_rotator_inline_reg_dump);
 

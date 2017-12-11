@@ -36,6 +36,8 @@
 
 #define MISR_BUFF_SIZE	256
 
+#define MAX_NAME_SIZE	64
+
 static DEFINE_MUTEX(dsi_display_list_lock);
 static LIST_HEAD(dsi_display_list);
 static char dsi_display_primary[MAX_CMDLINE_PARAM_LEN];
@@ -261,6 +263,9 @@ static int dsi_display_read_status(struct dsi_display_ctrl *ctrl,
 	if (!panel)
 		return -EINVAL;
 
+	/* acquire panel_lock to make sure no commands are in progress */
+	dsi_panel_acquire_panel_lock(panel);
+
 	config = &(panel->esd_config);
 	lenp = config->status_valid_params ?: config->status_cmds_rlen;
 	count = config->status_cmd.count;
@@ -287,6 +292,8 @@ static int dsi_display_read_status(struct dsi_display_ctrl *ctrl,
 	}
 
 error:
+	/* release panel_lock */
+	dsi_panel_release_panel_lock(panel);
 	return rc;
 }
 
@@ -719,6 +726,8 @@ static int dsi_display_debugfs_init(struct dsi_display *display)
 {
 	int rc = 0;
 	struct dentry *dir, *dump_file, *misr_data;
+	char name[MAX_NAME_SIZE];
+	int i;
 
 	dir = debugfs_create_dir(display->name, NULL);
 	if (IS_ERR_OR_NULL(dir)) {
@@ -750,6 +759,35 @@ static int dsi_display_debugfs_init(struct dsi_display *display)
 		pr_err("[%s] debugfs create misr datafile failed, rc=%d\n",
 		       display->name, rc);
 		goto error_remove_dir;
+	}
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		struct msm_dsi_phy *phy = display->ctrl[i].phy;
+
+		if (!phy || !phy->name)
+			continue;
+
+		snprintf(name, ARRAY_SIZE(name),
+				"%s_allow_phy_power_off", phy->name);
+		dump_file = debugfs_create_bool(name, 0600, dir,
+				&phy->allow_phy_power_off);
+		if (IS_ERR_OR_NULL(dump_file)) {
+			rc = PTR_ERR(dump_file);
+			pr_err("[%s] debugfs create %s failed, rc=%d\n",
+			       display->name, name, rc);
+			goto error_remove_dir;
+		}
+
+		snprintf(name, ARRAY_SIZE(name),
+				"%s_regulator_min_datarate_bps", phy->name);
+		dump_file = debugfs_create_u32(name, 0600, dir,
+				&phy->regulator_min_datarate_bps);
+		if (IS_ERR_OR_NULL(dump_file)) {
+			rc = PTR_ERR(dump_file);
+			pr_err("[%s] debugfs create %s failed, rc=%d\n",
+			       display->name, name, rc);
+			goto error_remove_dir;
+		}
 	}
 
 	display->root = dir;
@@ -969,7 +1007,7 @@ static int dsi_display_phy_enable(struct dsi_display *display);
 /**
  * dsi_display_phy_idle_on() - enable DSI PHY while coming out of idle screen.
  * @dsi_display:         DSI display handle.
- * @enable:           enable/disable DSI PHY.
+ * @mmss_clamp:          True if clamp is enabled.
  *
  * Return: error code.
  */
@@ -1016,7 +1054,6 @@ static int dsi_display_phy_idle_on(struct dsi_display *display,
 /**
  * dsi_display_phy_idle_off() - disable DSI PHY while going to idle screen.
  * @dsi_display:         DSI display handle.
- * @enable:           enable/disable DSI PHY.
  *
  * Return: error code.
  */
@@ -1031,9 +1068,16 @@ static int dsi_display_phy_idle_off(struct dsi_display *display)
 		return -EINVAL;
 	}
 
-	if (!display->panel->allow_phy_power_off) {
-		pr_debug("panel doesn't support this feature\n");
-		return 0;
+	for (i = 0; i < display->ctrl_count; i++) {
+		struct msm_dsi_phy *phy = display->ctrl[i].phy;
+
+		if (!phy)
+			continue;
+
+		if (!phy->allow_phy_power_off) {
+			pr_debug("phy doesn't support this feature\n");
+			return 0;
+		}
 	}
 
 	m_ctrl = &display->ctrl[display->cmd_master_idx];
@@ -1880,6 +1924,62 @@ error:
 	return rc;
 }
 
+static void dsi_display_aspace_cb_locked(void *cb_data, bool is_detach)
+{
+	struct dsi_display *display;
+	struct dsi_display_ctrl *display_ctrl;
+	int rc, cnt;
+
+	if (!cb_data) {
+		pr_err("aspace cb called with invalid cb_data\n");
+		return;
+	}
+	display = (struct dsi_display *)cb_data;
+
+	/*
+	 * acquire panel_lock to make sure no commands are in-progress
+	 * while detaching the non-secure context banks
+	 */
+	dsi_panel_acquire_panel_lock(display->panel);
+
+	if (is_detach) {
+		/* invalidate the stored iova */
+		display->cmd_buffer_iova = 0;
+
+		/* return the virtual address mapping */
+		msm_gem_put_vaddr_locked(display->tx_cmd_buf);
+		msm_gem_vunmap(display->tx_cmd_buf);
+
+	} else {
+		rc = msm_gem_get_iova_locked(display->tx_cmd_buf,
+				display->aspace, &(display->cmd_buffer_iova));
+		if (rc) {
+			pr_err("failed to get the iova rc %d\n", rc);
+			goto end;
+		}
+
+		display->vaddr =
+			(void *) msm_gem_get_vaddr_locked(display->tx_cmd_buf);
+
+		if (IS_ERR_OR_NULL(display->vaddr)) {
+			pr_err("failed to get va rc %d\n", rc);
+			goto end;
+		}
+	}
+
+	for (cnt = 0; cnt < display->ctrl_count; cnt++) {
+		display_ctrl = &display->ctrl[cnt];
+		display_ctrl->ctrl->cmd_buffer_size = display->cmd_buffer_size;
+		display_ctrl->ctrl->cmd_buffer_iova = display->cmd_buffer_iova;
+		display_ctrl->ctrl->vaddr = display->vaddr;
+		display_ctrl->ctrl->secure_mode = is_detach ? true : false;
+	}
+
+end:
+	/* release panel_lock */
+	dsi_panel_release_panel_lock(display->panel);
+}
+
 static int dsi_host_attach(struct mipi_dsi_host *host,
 			   struct mipi_dsi_device *dsi)
 {
@@ -1897,7 +1997,6 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 {
 	struct dsi_display *display = to_dsi_display(host);
 	struct dsi_display_ctrl *display_ctrl;
-	struct msm_gem_address_space *aspace = NULL;
 	int rc = 0, cnt = 0;
 
 	if (!host || !msg) {
@@ -1941,19 +2040,27 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 			goto error_disable_cmd_engine;
 		}
 
-		aspace = msm_gem_smmu_address_space_get(display->drm_dev,
-				MSM_SMMU_DOMAIN_UNSECURE);
-		if (!aspace) {
+		display->aspace = msm_gem_smmu_address_space_get(
+				display->drm_dev, MSM_SMMU_DOMAIN_UNSECURE);
+		if (!display->aspace) {
 			pr_err("failed to get aspace\n");
 			rc = -EINVAL;
 			goto free_gem;
 		}
 
-		rc = msm_gem_get_iova(display->tx_cmd_buf, aspace,
+		/* register to aspace */
+		rc = msm_gem_address_space_register_cb(display->aspace,
+				dsi_display_aspace_cb_locked, (void *)display);
+		if (rc) {
+			pr_err("failed to register callback %d", rc);
+			goto free_gem;
+		}
+
+		rc = msm_gem_get_iova(display->tx_cmd_buf, display->aspace,
 					&(display->cmd_buffer_iova));
 		if (rc) {
 			pr_err("failed to get the iova rc %d\n", rc);
-			goto free_gem;
+			goto free_aspace_cb;
 		}
 
 		display->vaddr =
@@ -2005,7 +2112,10 @@ error_disable_clks:
 	}
 	return rc;
 put_iova:
-	msm_gem_put_iova(display->tx_cmd_buf, aspace);
+	msm_gem_put_iova(display->tx_cmd_buf, display->aspace);
+free_aspace_cb:
+	msm_gem_address_space_unregister_cb(display->aspace,
+			dsi_display_aspace_cb_locked, display);
 free_gem:
 	mutex_lock(&display->drm_dev->struct_mutex);
 	msm_gem_free_object(display->tx_cmd_buf);
@@ -3056,6 +3166,20 @@ static int dsi_display_set_mode_sub(struct dsi_display *display,
 				mode->dsi_mode_flags, display->dsi_clk_handle);
 		if (rc) {
 			pr_err("[%s] failed to update ctrl config, rc=%d\n",
+			       display->name, rc);
+			goto error;
+		}
+	}
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+
+		if (!ctrl->phy || !ctrl->ctrl)
+			continue;
+
+		rc = dsi_phy_set_clk_freq(ctrl->phy, &ctrl->ctrl->clk_freq);
+		if (rc) {
+			pr_err("[%s] failed to set phy clk freq, rc=%d\n",
 			       display->name, rc);
 			goto error;
 		}
@@ -4329,8 +4453,9 @@ static void dsi_display_handle_lp_rx_timeout(struct work_struct *work)
 	void *data;
 	u32 version = 0;
 
-	display =  container_of(work, struct dsi_display, fifo_overflow_work);
-	if (!display || (display->panel->panel_mode != DSI_OP_VIDEO_MODE))
+	display =  container_of(work, struct dsi_display, lp_rx_timeout_work);
+	if (!display || !display->panel ||
+			(display->panel->panel_mode != DSI_OP_VIDEO_MODE))
 		return;
 	pr_debug("handle DSI LP RX Timeout error\n");
 

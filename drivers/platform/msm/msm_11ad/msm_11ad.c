@@ -1086,6 +1086,10 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	ctx->keep_radio_on_during_sleep = of_property_read_bool(of_node,
 		"qcom,keep-radio-on-during-sleep");
 	ctx->bus_scale = msm_bus_cl_get_pdata(pdev);
+	if (!ctx->bus_scale) {
+		dev_err(ctx->dev, "Unable to read bus-scaling from DT\n");
+		return -EINVAL;
+	}
 
 	ctx->smmu_s1_en = of_property_read_bool(of_node, "qcom,smmu-s1-en");
 	if (ctx->smmu_s1_en) {
@@ -1114,7 +1118,7 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	rc = msm_11ad_init_vregs(ctx);
 	if (rc) {
 		dev_err(ctx->dev, "msm_11ad_init_vregs failed: %d\n", rc);
-		return rc;
+		goto out_bus_scale;
 	}
 	rc = msm_11ad_enable_vregs(ctx);
 	if (rc) {
@@ -1173,6 +1177,18 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	}
 	ctx->pcidev = pcidev;
 
+	rc = msm_pcie_pm_control(MSM_PCIE_RESUME, pcidev->bus->number,
+				 pcidev, NULL, 0);
+	if (rc) {
+		dev_err(ctx->dev, "msm_pcie_pm_control(RESUME) failed:%d\n",
+			rc);
+		goto out_rc;
+	}
+
+	pci_set_power_state(pcidev, PCI_D0);
+
+	pci_restore_state(ctx->pcidev);
+
 	/* Read current state */
 	rc = pci_read_config_dword(pcidev,
 				   PCIE20_CAP_LINKCTRLSTATUS, &val);
@@ -1180,7 +1196,7 @@ static int msm_11ad_probe(struct platform_device *pdev)
 		dev_err(ctx->dev,
 			"reading PCIE20_CAP_LINKCTRLSTATUS failed:%d\n",
 			rc);
-		goto out_rc;
+		goto out_suspend;
 	}
 
 	ctx->l1_enabled_in_enum = val & PCI_EXP_LNKCTL_ASPM_L1;
@@ -1193,7 +1209,7 @@ static int msm_11ad_probe(struct platform_device *pdev)
 		if (rc) {
 			dev_err(ctx->dev,
 				"failed to disable L1, rc %d\n", rc);
-			goto out_rc;
+			goto out_suspend;
 		}
 	}
 
@@ -1213,7 +1229,7 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	rc = msm_11ad_ssr_init(ctx);
 	if (rc) {
 		dev_err(ctx->dev, "msm_11ad_ssr_init failed: %d\n", rc);
-		goto out_rc;
+		goto out_suspend;
 	}
 
 	msm_11ad_init_cpu_boost(ctx);
@@ -1235,6 +1251,9 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	msm_11ad_suspend_power_off(ctx);
 
 	return 0;
+out_suspend:
+	msm_pcie_pm_control(MSM_PCIE_SUSPEND, pcidev->bus->number,
+			    pcidev, NULL, 0);
 out_rc:
 	if (ctx->gpio_en >= 0)
 		gpio_direction_output(ctx->gpio_en, 0);
@@ -1248,6 +1267,8 @@ out_vreg_clk:
 	msm_11ad_release_clocks(ctx);
 	msm_11ad_disable_vregs(ctx);
 	msm_11ad_release_vregs(ctx);
+out_bus_scale:
+	msm_bus_cl_clear_pdata(ctx->bus_scale);
 
 	return rc;
 }
@@ -1262,7 +1283,6 @@ static int msm_11ad_remove(struct platform_device *pdev)
 		 ctx->pcidev);
 	kfree(ctx->pristine_state);
 
-	msm_bus_cl_clear_pdata(ctx->bus_scale);
 	pci_dev_put(ctx->pcidev);
 	if (ctx->gpio_en >= 0) {
 		gpio_direction_output(ctx->gpio_en, 0);
@@ -1423,6 +1443,7 @@ static int msm_11ad_notify_crash(struct msm11ad_ctx *ctx)
 		dev_info(ctx->dev, "SSR requested\n");
 		(void)msm_11ad_ssr_copy_ramdump(ctx);
 		ctx->recovery_in_progress = true;
+		subsys_set_crash_status(ctx->subsys, CRASH_STATUS_ERR_FATAL);
 		rc = subsystem_restart_dev(ctx->subsys);
 		if (rc) {
 			dev_err(ctx->dev,

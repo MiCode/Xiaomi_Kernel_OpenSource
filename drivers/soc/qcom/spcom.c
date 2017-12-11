@@ -506,6 +506,7 @@ static void spcom_notify_state(void *handle, const void *priv,
 		 * We do it here, ASAP, to allow rx data.
 		 */
 
+		ch->rx_abort = false; /* cleanup from previouse close */
 		pr_debug("call glink_queue_rx_intent() ch [%s].\n", ch->name);
 		ret = glink_queue_rx_intent(handle, ch, ch->rx_buf_size);
 		if (ret) {
@@ -536,13 +537,14 @@ static void spcom_notify_state(void *handle, const void *priv,
 		 */
 		pr_err("GLINK_REMOTE_DISCONNECTED, ch [%s].\n", ch->name);
 
-		ch->glink_state = event;
-
 		/*
 		 * Abort any blocking read() operation.
 		 * The glink notification might be after REMOTE_DISCONNECT.
 		 */
 		spcom_notify_rx_abort(NULL, ch, NULL);
+
+		/* set the state to not-connected after notify-rx-abort */
+		ch->glink_state = event;
 
 		/*
 		 * after glink_close(),
@@ -579,7 +581,10 @@ static bool spcom_notify_rx_intent_req(void *handle, const void *priv,
  * spcom_notify_rx_abort() - glink callback on aborting rx pending buffer.
  *
  * Rx abort may happen if channel is closed by remote side, while rx buffer is
- * pending in the queue.
+ * pending in the queue, like upon SP reset (SSR).
+ *
+ * More common scenario, is when rx intent is queud (for next transfer),
+ * and the channel is closed locally.
  */
 static void spcom_notify_rx_abort(void *handle, const void *priv,
 				  const void *pkt_priv)
@@ -593,7 +598,8 @@ static void spcom_notify_rx_abort(void *handle, const void *priv,
 
 	pr_debug("ch [%s] pending rx aborted.\n", ch->name);
 
-	if (spcom_is_channel_open(ch) && (!ch->rx_abort)) {
+	/* ignore rx-abort after local channel disconected */
+	if (spcom_is_channel_connected(ch) && (!ch->rx_abort)) {
 		ch->rx_abort = true;
 		complete_all(&ch->rx_done);
 	}
@@ -873,14 +879,16 @@ static int spcom_tx(struct spcom_channel *ch,
 	for (retry = 0; retry < TX_MAX_RETRY ; retry++) {
 		ret = glink_tx(ch->glink_handle, pkt_priv, buf, size, tx_flags);
 		if (ret == -EAGAIN) {
-			pr_err("glink_tx() fail, try again.\n");
+			pr_err("glink_tx() fail, try again, ch [%s].\n",
+				ch->name);
 			/*
 			 * Delay to allow remote side to queue rx buffer.
 			 * This may happen after the first channel connection.
 			 */
 			msleep(TX_RETRY_DELAY_MSEC);
 		} else if (ret < 0) {
-			pr_err("glink_tx() error %d.\n", ret);
+			pr_err("glink_tx() error [%d], ch [%s].\n",
+				ret, ch->name);
 			goto exit_err;
 		} else {
 			break; /* no retry needed */
@@ -953,6 +961,7 @@ static int spcom_rx(struct spcom_channel *ch,
 		return -ETIMEDOUT;
 	} else if (ch->rx_abort) {
 		mutex_unlock(&ch->lock);
+		pr_err("rx_abort, probably remote side reset (SSR).\n");
 		return -ERESTART; /* probably SSR */
 	} else if (ch->actual_rx_size) {
 		pr_debug("actual_rx_size is [%zu]\n", ch->actual_rx_size);
@@ -1072,10 +1081,19 @@ static void spcom_rx_abort_pending_server(void)
 	for (i = 0 ; i < ARRAY_SIZE(spcom_dev->channels); i++) {
 		struct spcom_channel *ch = &spcom_dev->channels[i];
 
-		if (ch->is_server) {
-			pr_debug("rx-abort server on ch [%s].\n", ch->name);
-			spcom_notify_rx_abort(NULL, ch, NULL);
-		}
+		/* relevant only for servers */
+		if (!ch->is_server)
+			continue;
+
+		/* The server might not be connected to a client.
+		 * Don't check if connected, only if open.
+		 */
+		if (!spcom_is_channel_open(ch) || (ch->rx_abort))
+			continue;
+
+		pr_debug("rx-abort server ch [%s].\n", ch->name);
+		ch->rx_abort = true;
+		complete_all(&ch->rx_done);
 	}
 }
 

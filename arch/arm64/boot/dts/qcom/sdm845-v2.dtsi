@@ -81,6 +81,12 @@
 
 &clock_cpucc {
 	compatible = "qcom,clk-cpu-osm-v2";
+	reg = <0x17d41000 0x1400>,
+		<0x17d43000 0x1400>,
+		<0x17d45800 0x1400>,
+		<0x78425c 0x4>;
+	reg-names = "osm_l3_base", "osm_pwrcl_base", "osm_perfcl_base",
+							"cpr_rc";
 };
 
 &pcie1 {
@@ -588,7 +594,7 @@
 			qcom,gpu-freq = <520000000>;
 			qcom,bus-freq = <9>;
 			qcom,bus-min = <8>;
-			qcom,bus-max = <10>;
+			qcom,bus-max = <11>;
 		};
 
 		qcom,gpu-pwrlevel@4 {
@@ -662,7 +668,7 @@
 			    0x40 0x194 /* PLL_BIAS_CONTROL_1 */
 			    0x20 0x198 /* PLL_BIAS_CONTROL_2 */
 			    0x21 0x214 /* PWR_CTRL2 */
-			    0x07 0x220 /* IMP_CTRL1 */
+			    0x08 0x220 /* IMP_CTRL1 */
 			    0x58 0x224 /* IMP_CTRL2 */
 			    0x45 0x240 /* TUNE1 */
 			    0x29 0x244 /* TUNE2 */

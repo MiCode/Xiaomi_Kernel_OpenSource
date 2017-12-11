@@ -18,6 +18,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <soc/qcom/memory_dump.h>
+#include <soc/qcom/minidump.h>
 #include <soc/qcom/scm.h>
 #include <linux/of_device.h>
 #include <linux/dma-mapping.h>
@@ -38,7 +39,18 @@ struct msm_memory_dump {
 	struct msm_dump_table *table;
 };
 
+struct dump_vaddr_entry {
+	uint32_t id;
+	void *dump_vaddr;
+};
+
+struct msm_mem_dump_vaddr_tbl {
+	uint8_t num_node;
+	struct dump_vaddr_entry *entries;
+};
+
 static struct msm_memory_dump memdump;
+static struct msm_mem_dump_vaddr_tbl vaddr_tbl;
 
 uint32_t msm_dump_table_version(void)
 {
@@ -89,6 +101,33 @@ static struct msm_dump_table *msm_dump_get_table(enum msm_dump_table_ids id)
 	return table;
 }
 
+static int msm_dump_data_add_minidump(struct msm_dump_entry *entry)
+{
+	struct msm_dump_data *data;
+	struct md_region md_entry;
+
+	data = (struct msm_dump_data *)(phys_to_virt(entry->addr));
+
+	if (!data->addr || !data->len)
+		return -EINVAL;
+
+	if (!strcmp(data->name, "")) {
+		pr_debug("Entry name is NULL, Use ID %d for minidump\n",
+			 entry->id);
+		snprintf(md_entry.name, sizeof(md_entry.name), "KMDT0x%X",
+			 entry->id);
+	} else {
+		strlcpy(md_entry.name, data->name, sizeof(md_entry.name));
+	}
+
+	md_entry.phys_addr = data->addr;
+	md_entry.virt_addr = (uintptr_t)phys_to_virt(data->addr);
+	md_entry.size = data->len;
+	md_entry.id = entry->id;
+
+	return msm_minidump_add_region(&md_entry);
+}
+
 int msm_dump_data_register(enum msm_dump_table_ids id,
 			   struct msm_dump_entry *entry)
 {
@@ -109,9 +148,35 @@ int msm_dump_data_register(enum msm_dump_table_ids id,
 	table->num_entries++;
 
 	dmac_flush_range(table, (void *)table + sizeof(struct msm_dump_table));
+
+	if (msm_dump_data_add_minidump(entry))
+		pr_err("Failed to add entry in Minidump table\n");
+
 	return 0;
 }
 EXPORT_SYMBOL(msm_dump_data_register);
+
+void *get_msm_dump_ptr(enum msm_dump_data_ids id)
+{
+	int i;
+
+	if (!vaddr_tbl.entries)
+		return NULL;
+
+	if (id > MSM_DUMP_DATA_MAX)
+		return NULL;
+
+	for (i = 0; i < vaddr_tbl.num_node; i++) {
+		if (vaddr_tbl.entries[i].id == id)
+			break;
+	}
+
+	if (i == vaddr_tbl.num_node)
+		return NULL;
+
+	return (void *)vaddr_tbl.entries[i].dump_vaddr;
+}
+EXPORT_SYMBOL(get_msm_dump_ptr);
 
 static int __init init_memory_dump(void)
 {
@@ -209,6 +274,14 @@ static int mem_dump_probe(struct platform_device *pdev)
 	struct msm_dump_entry dump_entry;
 	int ret;
 	u32 size, id;
+	int i = 0;
+
+	vaddr_tbl.num_node = of_get_child_count(node);
+	vaddr_tbl.entries = devm_kcalloc(&pdev->dev, vaddr_tbl.num_node,
+				 sizeof(struct dump_vaddr_entry),
+				 GFP_KERNEL);
+	if (!vaddr_tbl.entries)
+		dev_err(&pdev->dev, "Unable to allocate mem for ptr addr\n");
 
 	for_each_available_child_of_node(node, child_node) {
 		ret = of_property_read_u32(child_node, "qcom,dump-size", &size);
@@ -245,6 +318,9 @@ static int mem_dump_probe(struct platform_device *pdev)
 
 		dump_data->addr = dump_addr;
 		dump_data->len = size;
+		strlcpy(dump_data->name, child_node->name,
+			strlen(child_node->name) + 1);
+
 		dump_entry.id = id;
 		dump_entry.addr = virt_to_phys(dump_data);
 		ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
@@ -254,6 +330,10 @@ static int mem_dump_probe(struct platform_device *pdev)
 			dma_free_coherent(&pdev->dev, size, dump_vaddr,
 					dump_addr);
 			devm_kfree(&pdev->dev, dump_data);
+		} else if (vaddr_tbl.entries) {
+			vaddr_tbl.entries[i].id = id;
+			vaddr_tbl.entries[i].dump_vaddr = dump_vaddr;
+			i++;
 		}
 	}
 	return 0;

@@ -690,6 +690,32 @@
 		clock-frequency = <19200000>;
 	};
 
+	qcom,memshare {
+		compatible = "qcom,memshare";
+
+		qcom,client_1 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x0>;
+			qcom,client-id = <0>;
+			qcom,allocate-boot-time;
+			label = "modem";
+		};
+
+		qcom,client_2 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x0>;
+			qcom,client-id = <2>;
+			label = "modem";
+		};
+
+		mem_client_3_size: qcom,client_3 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x500000>;
+			qcom,client-id = <1>;
+			label = "modem";
+		};
+	};
+
 	qcom,sps {
 		compatible = "qcom,msm_sps_4k";
 		qcom,pipe-attr-ee;
@@ -721,8 +747,8 @@
 		qcom,ce-opp-freq = <171430000>;
 		qcom,request-bw-before-clk;
 		qcom,smmu-s1-enable;
-		iommus = <&apps_smmu 0x706 0x3>,
-			 <&apps_smmu 0x716 0x3>;
+		iommus = <&apps_smmu 0x706 0x1>,
+			 <&apps_smmu 0x716 0x1>;
 	};
 
 	qcom_crypto: qcrypto@1de0000 {
@@ -758,8 +784,8 @@
 		qcom,use-sw-ahash-algo;
 		qcom,use-sw-hmac-algo;
 		qcom,smmu-s1-enable;
-		iommus = <&apps_smmu 0x704 0x3>,
-			 <&apps_smmu 0x714 0x3>;
+		iommus = <&apps_smmu 0x704 0x1>,
+			 <&apps_smmu 0x714 0x1>;
 	};
 
 	qcom,qbt1000 {
@@ -780,6 +806,7 @@
 		qcom,disk-encrypt-pipe-pair = <2>;
 		qcom,support-fde;
 		qcom,no-clock-support;
+		qcom,fde-key-size;
 		qcom,appsbl-qseecom-support;
 		qcom,msm-bus,name = "qseecom-noc";
 		qcom,msm-bus,num-cases = <4>;
@@ -1007,9 +1034,14 @@
 		compatible = "qcom,clk-cpu-osm-sdm670";
 		reg = <0x17d41000 0x1400>,
 			<0x17d43000 0x1400>,
-			<0x17d45800 0x1400>;
-		reg-names = "osm_l3_base", "osm_pwrcl_base", "osm_perfcl_base";
+			<0x17d45800 0x1400>,
+			<0x784248 0x4>;
+		reg-names = "osm_l3_base", "osm_pwrcl_base", "osm_perfcl_base",
+				"cpr_rc";
+		vdd_l3_mx_ao-supply = <&pm660l_s1_level_ao>;
+		vdd_pwrcl_mx_ao-supply = <&pm660l_s1_level_ao>;
 
+		qcom,mx-turbo-freq = <1478400000 1689600000 3300000001>;
 		l3-devs = <&l3_cpu0 &l3_cpu6>;
 
 		clock-names = "xo_ao";
@@ -1104,6 +1136,11 @@
 		mem_dump_table@10 {
 			compatible = "qcom,msm-imem-mem_dump_table";
 			reg = <0x10 8>;
+		};
+
+		dload_type@1c {
+			compatible = "qcom,msm-imem-dload-type";
+			reg = <0x1c 0x4>;
 		};
 
 		restart_reason@65c {
@@ -1280,52 +1317,52 @@
 		compatible = "qcom,mem-dump";
 		memory-region = <&dump_mem>;
 
-		rpmh_dump {
+		rpmh {
 			qcom,dump-size = <0x2000000>;
 			qcom,dump-id = <0xec>;
 		};
 
-		rpm_sw_dump {
+		rpm_sw {
 			qcom,dump-size = <0x28000>;
 			qcom,dump-id = <0xea>;
 		};
 
-		pmic_dump {
+		pmic {
 			qcom,dump-size = <0x10000>;
 			qcom,dump-id = <0xe4>;
 		};
 
-		tmc_etf_dump {
+		tmc_etf {
 			qcom,dump-size = <0x10000>;
 			qcom,dump-id = <0xf0>;
 		};
 
-		tmc_etf_swao_dump {
+		tmc_etfswao {
 			qcom,dump-size = <0x8400>;
 			qcom,dump-id = <0xf1>;
 		};
 
-		tmc_etr_reg_dump {
+		tmc_etr_reg {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0x100>;
 		};
 
-		tmc_etf_reg_dump {
+		tmc_etf_reg {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0x101>;
 		};
 
-		tmc_etf_swao_reg_dump {
+		etfswao_reg {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0x102>;
 		};
 
-		misc_data_dump {
+		misc_data {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0xe8>;
 		};
 
-		power_regs_data_dump {
+		power_regs {
 			qcom,dump-size = <0x100000>;
 			qcom,dump-id = <0xed>;
 		};
@@ -1615,6 +1652,10 @@
 			#cache-cells = <1>;
 			max-slices = <32>;
 			qcom,dump-size = <0x80000>;
+		};
+
+		qcom,llcc-perfmon {
+			compatible = "qcom,llcc-perfmon";
 		};
 
 		qcom,llcc-erp {
@@ -2049,6 +2090,8 @@
 		vdd_cx-voltage = <RPMH_REGULATOR_LEVEL_TURBO>;
 		vdd_mx-supply = <&pm660l_s1_level>;
 		vdd_mx-uV = <RPMH_REGULATOR_LEVEL_TURBO>;
+		vdd_mss-supply = <&pm660_s5_level>;
+		vdd_mss-uV = <RPMH_REGULATOR_LEVEL_TURBO>;
 		qcom,firmware-name = "modem";
 		qcom,pil-self-auth;
 		qcom,sysmon-id = <0>;
@@ -2177,6 +2220,8 @@
 
 		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
 						192000000 384000000>;
+		qcom,bus-aggr-clk-rates = <50000000 50000000 50000000 50000000
+				100000000 200000000 200000000>;
 		qcom,bus-speed-mode = "HS400_1p8v", "HS200_1p8v", "DDR_1p8v";
 
 		qcom,devfreq,freq-table = <50000000 200000000>;
@@ -2198,10 +2243,10 @@
 			<1 782 100000 100000>,
 			/* 50 MB/s */
 			<150 512 130718 200000>,
-			<1 782 133320 133320>,
+			<1 782 100000 100000>,
 			/* 100 MB/s */
 			<150 512 130718 200000>,
-			<1 782 150000 150000>,
+			<1 782 130000 130000>,
 			/* 200 MB/s */
 			<150 512 261438 400000>,
 			<1 782 300000 300000>,
@@ -2234,7 +2279,6 @@
 
 		qcom,nonremovable;
 
-		qcom,scaling-lower-bus-speed-mode = "DDR52";
 		status = "disabled";
 	};
 
@@ -2273,10 +2317,10 @@
 			<1 608 100000 100000>,
 			/* 50 MB/s */
 			<81 512 130718 200000>,
-			<1 608 133320 133320>,
+			<1 608 100000 100000>,
 			/* 100 MB/s */
 			<81 512 261438 200000>,
-			<1 608 150000 150000>,
+			<1 608 130000 130000>,
 			/* 200 MB/s */
 			<81 512 261438 400000>,
 			<1 608 300000 300000>,
@@ -2311,6 +2355,7 @@
 
 	qcom,msm_fastrpc {
 		compatible = "qcom,msm-fastrpc-compute";
+		qcom,adsp-remoteheap-vmid = <37>;
 
 		qcom,msm_fastrpc_compute_cb1 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
@@ -2459,6 +2504,8 @@
 		qcom,count-unit = <0x10000>;
 		qcom,hw-timer-hz = <19200000>;
 		qcom,target-dev = <&cpubw>;
+		qcom,byte-mid-mask = <0xe000>;
+		qcom,byte-mid-match = <0xe000>;
 	};
 
 	memlat_cpu0: qcom,memlat-cpu0 {
@@ -2748,6 +2795,8 @@
 
 &mdss_core_gdsc {
 	status = "ok";
+	proxy-supply = <&mdss_core_gdsc>;
+	qcom,proxy-consumer-enable;
 };
 
 &gpu_cx_gdsc {

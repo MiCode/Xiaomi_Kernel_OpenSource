@@ -1207,6 +1207,7 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 	void *tre = ch_ring->base +
 		(ch_ring->el_size * imed_event->tre_index);
 	struct msm_gpi_dma_async_tx_cb_param *tx_cb_param;
+	unsigned long flags;
 
 	/*
 	 * If channel not active don't process event but let
@@ -1221,13 +1222,13 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 		return;
 	}
 
-	spin_lock_irq(&gpii_chan->vc.lock);
+	spin_lock_irqsave(&gpii_chan->vc.lock, flags);
 	vd = vchan_next_desc(&gpii_chan->vc);
 	if (!vd) {
 		struct gpi_ere *gpi_ere;
 		struct msm_gpi_tre *gpi_tre;
 
-		spin_unlock_irq(&gpii_chan->vc.lock);
+		spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
 		GPII_ERR(gpii, gpii_chan->chid,
 			 "event without a pending descriptor!\n");
 		gpi_ere = (struct gpi_ere *)imed_event;
@@ -1247,7 +1248,7 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 
 	/* Event TR RP gen. don't match descriptor TR */
 	if (gpi_desc->wp != tre) {
-		spin_unlock_irq(&gpii_chan->vc.lock);
+		spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
 		GPII_ERR(gpii, gpii_chan->chid,
 			 "EOT/EOB received for wrong TRE 0x%0llx != 0x%0llx\n",
 			 to_physical(ch_ring, gpi_desc->wp),
@@ -1258,7 +1259,7 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 	}
 
 	list_del(&vd->node);
-	spin_unlock_irq(&gpii_chan->vc.lock);
+	spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
 
 	sg_tre = gpi_desc->sg_tre;
 	client_tre = ((struct sg_tre *)sg_tre)->ptr;
@@ -1300,9 +1301,9 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 		tx_cb_param->status = imed_event->status;
 	}
 
-	spin_lock_irq(&gpii_chan->vc.lock);
+	spin_lock_irqsave(&gpii_chan->vc.lock, flags);
 	vchan_cookie_complete(vd);
-	spin_unlock_irq(&gpii_chan->vc.lock);
+	spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
 }
 
 /* processing transfer completion events */
@@ -1318,6 +1319,7 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 	struct msm_gpi_dma_async_tx_cb_param *tx_cb_param;
 	struct gpi_desc *gpi_desc;
 	void *sg_tre = NULL;
+	unsigned long flags;
 
 	/* only process events on active channel */
 	if (unlikely(gpii_chan->pm_state != ACTIVE_STATE)) {
@@ -1329,12 +1331,12 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 		return;
 	}
 
-	spin_lock_irq(&gpii_chan->vc.lock);
+	spin_lock_irqsave(&gpii_chan->vc.lock, flags);
 	vd = vchan_next_desc(&gpii_chan->vc);
 	if (!vd) {
 		struct gpi_ere *gpi_ere;
 
-		spin_unlock_irq(&gpii_chan->vc.lock);
+		spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
 		GPII_ERR(gpii, gpii_chan->chid,
 			 "Event without a pending descriptor!\n");
 		gpi_ere = (struct gpi_ere *)compl_event;
@@ -1350,7 +1352,7 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 
 	/* TRE Event generated didn't match descriptor's TRE */
 	if (gpi_desc->wp != ev_rp) {
-		spin_unlock_irq(&gpii_chan->vc.lock);
+		spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
 		GPII_ERR(gpii, gpii_chan->chid,
 			 "EOT\EOB received for wrong TRE 0x%0llx != 0x%0llx\n",
 			 to_physical(ch_ring, gpi_desc->wp),
@@ -1361,7 +1363,7 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 	}
 
 	list_del(&vd->node);
-	spin_unlock_irq(&gpii_chan->vc.lock);
+	spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
 
 	sg_tre = gpi_desc->sg_tre;
 	client_tre = ((struct sg_tre *)sg_tre)->ptr;
@@ -1393,9 +1395,9 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 		tx_cb_param->status = compl_event->status;
 	}
 
-	spin_lock_irq(&gpii_chan->vc.lock);
+	spin_lock_irqsave(&gpii_chan->vc.lock, flags);
 	vchan_cookie_complete(vd);
-	spin_unlock_irq(&gpii_chan->vc.lock);
+	spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
 }
 
 /* process all events */

@@ -492,7 +492,8 @@ void diag_update_userspace_clients(unsigned int type)
 
 	mutex_lock(&driver->diagchar_mutex);
 	for (i = 0; i < driver->num_clients; i++)
-		if (driver->client_map[i].pid != 0) {
+		if (driver->client_map[i].pid != 0 &&
+			!(driver->data_ready[i] & type)) {
 			driver->data_ready[i] |= type;
 			atomic_inc(&driver->data_ready_notif[i]);
 		}
@@ -511,9 +512,11 @@ void diag_update_md_clients(unsigned int type)
 				if (driver->client_map[j].pid != 0 &&
 					driver->client_map[j].pid ==
 					driver->md_session_map[i]->pid) {
-					driver->data_ready[j] |= type;
-					atomic_inc(
+					if (!(driver->data_ready[i] & type)) {
+						driver->data_ready[j] |= type;
+						atomic_inc(
 						&driver->data_ready_notif[j]);
+					}
 					break;
 				}
 			}
@@ -528,8 +531,10 @@ void diag_update_sleeping_process(int process_id, int data_type)
 	mutex_lock(&driver->diagchar_mutex);
 	for (i = 0; i < driver->num_clients; i++)
 		if (driver->client_map[i].pid == process_id) {
-			driver->data_ready[i] |= data_type;
-			atomic_inc(&driver->data_ready_notif[i]);
+			if (!(driver->data_ready[i] & data_type)) {
+				driver->data_ready[i] |= data_type;
+				atomic_inc(&driver->data_ready_notif[i]);
+			}
 			break;
 		}
 	wake_up_interruptible(&driver->wait_q);
@@ -1725,6 +1730,7 @@ int diagfwd_init(void)
 	driver->supports_separate_cmdrsp = 1;
 	driver->supports_apps_hdlc_encoding = 1;
 	driver->supports_apps_header_untagging = 1;
+	driver->supports_pd_buffering = 1;
 	for (i = 0; i < NUM_PERIPHERALS; i++)
 		driver->peripheral_untag[i] = 0;
 	mutex_init(&driver->diag_hdlc_mutex);
@@ -1755,6 +1761,7 @@ int diagfwd_init(void)
 		driver->feature[i].stm_support = DISABLE_STM;
 		driver->feature[i].rcvd_feature_mask = 0;
 		driver->feature[i].peripheral_buffering = 0;
+		driver->feature[i].pd_buffering = 0;
 		driver->feature[i].encode_hdlc = 0;
 		driver->feature[i].untag_header =
 			DISABLE_PKT_HEADER_UNTAGGING;
@@ -1762,6 +1769,9 @@ int diagfwd_init(void)
 		driver->feature[i].log_on_demand = 0;
 		driver->feature[i].sent_feature_mask = 0;
 		driver->feature[i].diag_id_support = 0;
+	}
+
+	for (i = 0; i < NUM_MD_SESSIONS; i++) {
 		driver->buffering_mode[i].peripheral = i;
 		driver->buffering_mode[i].mode = DIAG_BUFFERING_MODE_STREAMING;
 		driver->buffering_mode[i].high_wm_val = DEFAULT_HIGH_WM_VAL;

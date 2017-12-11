@@ -638,18 +638,6 @@ static void sde_rot_evtlog_debug_work(struct work_struct *work)
 }
 
 /*
- * sde_rot_dump_panic - Issue evtlog dump and generic panic
- */
-void sde_rot_dump_panic(bool do_panic)
-{
-	sde_rot_evtlog_dump_all();
-	sde_rot_dump_reg_all();
-
-	if (do_panic)
-		panic("sde_rotator");
-}
-
-/*
  * sde_rot_evtlog_tout_handler - log dump timeout handler
  * @queue: boolean indicate putting log dump into queue
  * @name: function name having timeout
@@ -1220,18 +1208,29 @@ static ssize_t sde_rotator_debug_base_reg_write(struct file *file,
 	mutex_lock(&dbg->buflock);
 
 	/* Enable Clock for register access */
+	sde_rot_mgr_lock(dbg->mgr);
+	if (!sde_rotator_resource_ctrl_enabled(dbg->mgr)) {
+		SDEROT_WARN("resource ctrl is not enabled\n");
+		sde_rot_mgr_unlock(dbg->mgr);
+		goto debug_write_error;
+	}
 	sde_rotator_clk_ctrl(dbg->mgr, true);
 
 	writel_relaxed(data, dbg->base + off);
 
 	/* Disable Clock after register access */
 	sde_rotator_clk_ctrl(dbg->mgr, false);
+	sde_rot_mgr_unlock(dbg->mgr);
 
 	mutex_unlock(&dbg->buflock);
 
 	SDEROT_DBG("addr=%zx data=%x\n", off, data);
 
 	return count;
+
+debug_write_error:
+	mutex_unlock(&dbg->buflock);
+	return 0;
 }
 
 static ssize_t sde_rotator_debug_base_reg_read(struct file *file,
@@ -1269,6 +1268,12 @@ static ssize_t sde_rotator_debug_base_reg_read(struct file *file,
 		tot = 0;
 
 		/* Enable clock for register access */
+		sde_rot_mgr_lock(dbg->mgr);
+		if (!sde_rotator_resource_ctrl_enabled(dbg->mgr)) {
+			SDEROT_WARN("resource ctrl is not enabled\n");
+			sde_rot_mgr_unlock(dbg->mgr);
+			goto debug_read_error;
+		}
 		sde_rotator_clk_ctrl(dbg->mgr, true);
 
 		for (cnt = dbg->cnt; cnt > 0; cnt -= ROW_BYTES) {
@@ -1288,6 +1293,7 @@ static ssize_t sde_rotator_debug_base_reg_read(struct file *file,
 		}
 		/* Disable clock after register access */
 		sde_rotator_clk_ctrl(dbg->mgr, false);
+		sde_rot_mgr_unlock(dbg->mgr);
 
 		dbg->buf_len = tot;
 	}

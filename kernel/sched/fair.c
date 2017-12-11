@@ -2769,6 +2769,7 @@ u32 sched_get_wake_up_idle(struct task_struct *p)
 
 	return !!enabled;
 }
+EXPORT_SYMBOL(sched_get_wake_up_idle);
 
 int sched_set_wake_up_idle(struct task_struct *p, int wake_up_idle)
 {
@@ -2781,6 +2782,7 @@ int sched_set_wake_up_idle(struct task_struct *p, int wake_up_idle)
 
 	return 0;
 }
+EXPORT_SYMBOL(sched_set_wake_up_idle);
 
 /* Precomputed fixed inverse multiplies for multiplication by y^n */
 static const u32 runnable_avg_yN_inv[] = {
@@ -5593,13 +5595,6 @@ static unsigned long __cpu_norm_util(int cpu, unsigned long capacity, int delta)
 	return DIV_ROUND_UP(util << SCHED_CAPACITY_SHIFT, capacity);
 }
 
-static inline bool bias_to_waker_cpu_enabled(struct task_struct *wakee,
-		struct task_struct *waker)
-{
-	return task_util(waker) > sched_big_waker_task_load &&
-		task_util(wakee) < sched_small_wakee_task_load;
-}
-
 static inline bool
 bias_to_waker_cpu(struct task_struct *p, int cpu, struct cpumask *rtg_target)
 {
@@ -6751,107 +6746,6 @@ done:
 	return target;
 }
  
-static inline int find_best_target(struct task_struct *p, bool boosted, bool prefer_idle)
-{
-	int iter_cpu;
-	int target_cpu = -1;
-	int target_util = 0;
-	int backup_capacity = 0;
-	int best_idle_cpu = -1;
-	int best_idle_cstate = INT_MAX;
-	int backup_cpu = -1;
-	unsigned long task_util_boosted, new_util;
-
-	task_util_boosted = boosted_task_util(p);
-	for (iter_cpu = 0; iter_cpu < NR_CPUS; iter_cpu++) {
-		int cur_capacity;
-		struct rq *rq;
-		int idle_idx;
-
-		/*
-		 * Iterate from higher cpus for boosted tasks.
-		 */
-		int i = boosted ? NR_CPUS-iter_cpu-1 : iter_cpu;
-
-		if (!cpu_online(i) || !cpumask_test_cpu(i, tsk_cpus_allowed(p)))
-			continue;
-
-		/*
-		 * p's blocked utilization is still accounted for on prev_cpu
-		 * so prev_cpu will receive a negative bias due to the double
-		 * accounting. However, the blocked utilization may be zero.
-		 */
-		new_util = cpu_util(i) + task_util_boosted;
-
-		/*
-		 * Ensure minimum capacity to grant the required boost.
-		 * The target CPU can be already at a capacity level higher
-		 * than the one required to boost the task.
-		 */
-		if (new_util > capacity_orig_of(i))
-			continue;
-
-#ifdef CONFIG_SCHED_WALT
-		if (sched_cpu_high_irqload(i))
-			continue;
-#endif
-		/*
-		 * Unconditionally favoring tasks that prefer idle cpus to
-		 * improve latency.
-		 */
-		if (idle_cpu(i) && prefer_idle) {
-			if (best_idle_cpu < 0)
-				best_idle_cpu = i;
-			continue;
-		}
-
-		cur_capacity = capacity_curr_of(i);
-		rq = cpu_rq(i);
-		idle_idx = idle_get_state_idx(rq);
-
-		if (new_util < cur_capacity) {
-			if (cpu_rq(i)->nr_running) {
-				if(prefer_idle) {
-					// Find a target cpu with lowest
-					// utilization.
-					if (target_util == 0 ||
-						target_util < new_util) {
-						target_cpu = i;
-						target_util = new_util;
-					}
-				} else {
-					// Find a target cpu with highest
-					// utilization.
-					if (target_util == 0 ||
-						target_util > new_util) {
-						target_cpu = i;
-						target_util = new_util;
-					}
-				}
-			} else if (!prefer_idle) {
-				if (best_idle_cpu < 0 ||
-					(sysctl_sched_cstate_aware &&
-						best_idle_cstate > idle_idx)) {
-					best_idle_cstate = idle_idx;
-					best_idle_cpu = i;
-				}
-			}
-		} else if (backup_capacity == 0 ||
-				backup_capacity > cur_capacity) {
-			// Find a backup cpu with least capacity.
-			backup_capacity = cur_capacity;
-			backup_cpu = i;
-		}
-	}
-
-	if (prefer_idle && best_idle_cpu >= 0)
-		target_cpu = best_idle_cpu;
-	else if (target_cpu < 0)
-		target_cpu = best_idle_cpu >= 0 ? best_idle_cpu : backup_cpu;
-
-	return target_cpu;
-}
-
 /*
  * Should task be woken to any available idle cpu?
  *
@@ -6925,15 +6819,17 @@ is_packing_eligible(struct task_struct *p, unsigned long task_util,
 	return cpu_cap_idx_pack == cpu_cap_idx_spread;
 }
 
+unsigned int sched_smp_overlap_capacity = SCHED_CAPACITY_SCALE;
+
 static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 {
 	struct sched_domain *sd;
-	struct sched_group *sg, *sg_target;
+	struct sched_group *sg, *sg_target, *start_sg;
 	int target_max_cap = INT_MAX;
-	int target_cpu, targeted_cpus = 0;
+	int target_cpu = -1, targeted_cpus = 0;
 	unsigned long task_util_boosted = 0, curr_util = 0;
 	long new_util, new_util_cum;
-	int i = -1;
+	int i;
 	int ediff = -1;
 	int cpu = smp_processor_id();
 	int min_util_cpu = -1;
@@ -6954,16 +6850,11 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	struct related_thread_group *grp;
 	cpumask_t search_cpus;
 	int prev_cpu = task_cpu(p);
-	struct task_struct *curr = cpu_rq(cpu)->curr;
-#ifdef CONFIG_SCHED_CORE_ROTATE
+	int start_cpu = walt_start_cpu(prev_cpu);
 	bool do_rotate = false;
 	bool avoid_prev_cpu = false;
-#else
-#define do_rotate false
-#define avoid_prev_cpu false
-#endif
 
-	sd = rcu_dereference(per_cpu(sd_ea, prev_cpu));
+	sd = rcu_dereference(per_cpu(sd_ea, start_cpu));
 
 	if (!sd)
 		return target;
@@ -6976,21 +6867,20 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	curr_util = boosted_task_util(cpu_rq(cpu)->curr);
 
 	need_idle = wake_to_idle(p) || schedtune_prefer_idle(p);
-
+	if (need_idle)
+		sync = 0;
 	grp = task_related_thread_group(p);
 	if (grp && grp->preferred_cluster)
 		rtg_target = &grp->preferred_cluster->cpus;
 
-	if (sync && bias_to_waker_cpu_enabled(p, curr) &&
-		bias_to_waker_cpu(p, cpu, rtg_target)) {
+	if (sync && bias_to_waker_cpu(p, cpu, rtg_target)) {
 		trace_sched_task_util_bias_to_waker(p, prev_cpu,
 					task_util(p), cpu, cpu, 0, need_idle);
 		return cpu;
 	}
 
+	task_util_boosted = boosted_task_util(p);
 	if (sysctl_sched_is_big_little) {
-		task_util_boosted = boosted_task_util(p);
-
 		/*
 		 * Find group with sufficient capacity. We only get here if no cpu is
 		 * overutilized. We may end up overutilizing a cpu by adding the task,
@@ -7043,202 +6933,193 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 				target_max_cap = capacity_of(max_cap_cpu);
 			}
 		} while (sg = sg->next, sg != sd->groups);
+	}
 
-		target_cpu = -1;
+	start_sg = sg_target;
+next_sg:
+	cpumask_copy(&search_cpus, tsk_cpus_allowed(p));
+	cpumask_and(&search_cpus, &search_cpus,
+		    sched_group_cpus(sg_target));
 
-		cpumask_copy(&search_cpus, tsk_cpus_allowed(p));
-		cpumask_and(&search_cpus, &search_cpus,
-			    sched_group_cpus(sg_target));
-
-#ifdef CONFIG_SCHED_CORE_ROTATE
-		i = find_first_cpu_bit(p, &search_cpus, sg_target,
-				       &avoid_prev_cpu, &do_rotate,
-				       &first_cpu_bit_env);
+	i = find_first_cpu_bit(p, &search_cpus, sg_target,
+			       &avoid_prev_cpu, &do_rotate,
+			       &first_cpu_bit_env);
 
 retry:
-#endif
-		/* Find cpu with sufficient capacity */
-		while ((i = cpumask_next(i, &search_cpus)) < nr_cpu_ids) {
-			cpumask_clear_cpu(i, &search_cpus);
+	/* Find cpu with sufficient capacity */
+	while ((i = cpumask_next(i, &search_cpus)) < nr_cpu_ids) {
+		cpumask_clear_cpu(i, &search_cpus);
 
-			if (cpu_isolated(i))
-				continue;
+		if (cpu_isolated(i))
+			continue;
 
-			if (isolated_candidate == -1)
-				isolated_candidate = i;
+		if (isolated_candidate == -1)
+			isolated_candidate = i;
 
-			if (avoid_prev_cpu && i == prev_cpu)
-				continue;
+		if (avoid_prev_cpu && i == prev_cpu)
+			continue;
 
-			if (is_reserved(i))
-				continue;
+		if (is_reserved(i))
+			continue;
 
-			if (sched_cpu_high_irqload(i))
-				continue;
+		if (sched_cpu_high_irqload(i))
+			continue;
 
-			/*
-			 * Since this code is inside sched_is_big_little,
-			 * we are going to assume that boost policy is
-			 * SCHED_BOOST_ON_BIG.
-			 */
-			if (placement_boost != SCHED_BOOST_NONE) {
-				new_util = cpu_util(i);
-				if (new_util < min_util) {
-					min_util_cpu = i;
-					min_util = new_util;
-				}
-				continue;
-			}
-
-			/*
-			 * p's blocked utilization is still accounted for on prev_cpu
-			 * so prev_cpu will receive a negative bias due to the double
-			 * accounting. However, the blocked utilization may be zero.
-			 */
-			new_util = cpu_util(i) + task_util_boosted;
-
-			if (task_in_cum_window_demand(cpu_rq(i), p))
-				new_util_cum = cpu_util_cum(i, 0) +
-					       task_util_boosted - task_util(p);
-			else
-				new_util_cum = cpu_util_cum(i, 0) +
-					       task_util_boosted;
-
-			if (sync && i == cpu)
-				new_util -= curr_util;
-
-			trace_sched_cpu_util(p, i, task_util_boosted, curr_util,
-					     new_util_cum, sync);
-
-			/*
-			 * Ensure minimum capacity to grant the required boost.
-			 * The target CPU can be already at a capacity level higher
-			 * than the one required to boost the task.
-			 */
-			if (new_util > capacity_orig_of(i))
-				continue;
-
-			cpu_idle_idx = idle_get_state_idx(cpu_rq(i));
-
-			if (!need_idle &&
-			    add_capacity_margin(new_util_cum, i) <
-			    capacity_curr_of(i)) {
-				if (sysctl_sched_cstate_aware) {
-					if (cpu_idle_idx < min_idle_idx) {
-						min_idle_idx = cpu_idle_idx;
-						min_idle_idx_cpu = i;
-						target_cpu = i;
-						target_cpu_util = new_util;
-						target_cpu_new_util_cum =
-						    new_util_cum;
-						targeted_cpus = 1;
-					} else if (cpu_idle_idx ==
-						   min_idle_idx &&
-						   (target_cpu_util >
-						    new_util ||
-						    (target_cpu_util ==
-						     new_util &&
-						     (i == prev_cpu ||
-						      (target_cpu !=
-						       prev_cpu &&
-						       target_cpu_new_util_cum >
-						       new_util_cum))))) {
-						min_idle_idx_cpu = i;
-						target_cpu = i;
-						target_cpu_util = new_util;
-						target_cpu_new_util_cum =
-						    new_util_cum;
-						targeted_cpus++;
-					}
-				} else if (cpu_rq(i)->nr_running) {
-					target_cpu = i;
-#ifdef CONFIG_SCHED_CORE_ROTATE
-					do_rotate = false;
-#endif
-					break;
-				}
-			} else if (!need_idle) {
-				/*
-				 * At least one CPU other than target_cpu is
-				 * going to raise CPU's OPP higher than current
-				 * because current CPU util is more than current
-				 * capacity + margin.  We can safely do task
-				 * packing without worrying about doing such
-				 * itself raises OPP.
-				 */
-				safe_to_pack = true;
-			}
-
-			/*
-			 * cpu has capacity at higher OPP, keep it as
-			 * fallback.
-			 */
+		/*
+		 * Since this code is inside sched_is_big_little,
+		 * we are going to assume that boost policy is
+		 * SCHED_BOOST_ON_BIG.
+		 */
+		if (placement_boost != SCHED_BOOST_NONE) {
+			new_util = cpu_util(i);
 			if (new_util < min_util) {
 				min_util_cpu = i;
 				min_util = new_util;
+			}
+			continue;
+		}
+
+		/*
+		 * p's blocked utilization is still accounted for on prev_cpu
+		 * so prev_cpu will receive a negative bias due to the double
+		 * accounting. However, the blocked utilization may be zero.
+		 */
+		new_util = cpu_util(i) + task_util_boosted;
+
+		if (task_in_cum_window_demand(cpu_rq(i), p))
+			new_util_cum = cpu_util_cum(i, 0) +
+				       task_util_boosted - task_util(p);
+		else
+			new_util_cum = cpu_util_cum(i, 0) +
+				       task_util_boosted;
+
+		if (sync && i == cpu)
+			new_util -= curr_util;
+
+		trace_sched_cpu_util(p, i, task_util_boosted, curr_util,
+				     new_util_cum, sync);
+
+		/*
+		 * Ensure minimum capacity to grant the required boost.
+		 * The target CPU can be already at a capacity level higher
+		 * than the one required to boost the task.
+		 */
+		if (new_util > capacity_orig_of(i))
+			continue;
+
+		cpu_idle_idx = idle_get_state_idx(cpu_rq(i));
+
+		if (!need_idle &&
+		    add_capacity_margin(new_util_cum, i) <
+		    capacity_curr_of(i)) {
+			if (sysctl_sched_cstate_aware) {
+				if (cpu_idle_idx < min_idle_idx) {
+					min_idle_idx = cpu_idle_idx;
+					min_idle_idx_cpu = i;
+					target_cpu = i;
+					target_cpu_util = new_util;
+					target_cpu_new_util_cum =
+					    new_util_cum;
+					targeted_cpus = 1;
+				} else if (cpu_idle_idx ==
+					   min_idle_idx &&
+					   (target_cpu_util >
+					    new_util ||
+					    (target_cpu_util ==
+					     new_util &&
+					     (i == prev_cpu ||
+					      (target_cpu !=
+					       prev_cpu &&
+					       target_cpu_new_util_cum >
+					       new_util_cum))))) {
+					min_idle_idx_cpu = i;
+					target_cpu = i;
+					target_cpu_util = new_util;
+					target_cpu_new_util_cum =
+					    new_util_cum;
+					targeted_cpus++;
+				}
+			} else if (cpu_rq(i)->nr_running) {
+				target_cpu = i;
+				do_rotate = false;
+				break;
+			}
+		} else if (!need_idle) {
+			/*
+			 * At least one CPU other than target_cpu is
+			 * going to raise CPU's OPP higher than current
+			 * because current CPU util is more than current
+			 * capacity + margin.  We can safely do task
+			 * packing without worrying about doing such
+			 * itself raises OPP.
+			 */
+			safe_to_pack = true;
+		}
+
+		/*
+		 * cpu has capacity at higher OPP, keep it as
+		 * fallback.
+		 */
+		if (new_util < min_util) {
+			min_util_cpu = i;
+			min_util = new_util;
+			min_util_cpu_idle_idx = cpu_idle_idx;
+			min_util_cpu_util_cum = new_util_cum;
+		} else if (sysctl_sched_cstate_aware &&
+			   min_util == new_util) {
+			if (min_util_cpu == task_cpu(p))
+				continue;
+
+			if (i == task_cpu(p) ||
+			    (cpu_idle_idx < min_util_cpu_idle_idx ||
+			     (cpu_idle_idx == min_util_cpu_idle_idx &&
+			      min_util_cpu_util_cum > new_util_cum))) {
+				min_util_cpu = i;
 				min_util_cpu_idle_idx = cpu_idle_idx;
 				min_util_cpu_util_cum = new_util_cum;
-			} else if (sysctl_sched_cstate_aware &&
-				   min_util == new_util) {
-				if (min_util_cpu == task_cpu(p))
-					continue;
-
-				if (i == task_cpu(p) ||
-				    (cpu_idle_idx < min_util_cpu_idle_idx ||
-				     (cpu_idle_idx == min_util_cpu_idle_idx &&
-				      min_util_cpu_util_cum > new_util_cum))) {
-					min_util_cpu = i;
-					min_util_cpu_idle_idx = cpu_idle_idx;
-					min_util_cpu_util_cum = new_util_cum;
-				}
 			}
 		}
+	}
 
-#ifdef CONFIG_SCHED_CORE_ROTATE
-		if (do_rotate) {
-			/*
-			 * We started iteration somewhere in the middle of
-			 * cpumask.  Iterate once again from bit 0 to the
-			 * previous starting point bit.
-			 */
-			do_rotate = false;
-			i = -1;
-			goto retry;
-		}
-#endif
-
-		if (target_cpu == -1 ||
-		    (target_cpu != min_util_cpu && !safe_to_pack &&
-		     !is_packing_eligible(p, task_util_boosted, sg_target,
-					  target_cpu_new_util_cum,
-					  targeted_cpus))) {
-			if (likely(min_util_cpu != -1))
-				target_cpu = min_util_cpu;
-			else if (cpu_isolated(task_cpu(p)) &&
-					isolated_candidate != -1)
-				target_cpu = isolated_candidate;
-			else
-				target_cpu = task_cpu(p);
-		}
-	} else {
+	if (do_rotate) {
 		/*
-		 * Find a cpu with sufficient capacity
+		 * We started iteration somewhere in the middle of
+		 * cpumask.  Iterate once again from bit 0 to the
+		 * previous starting point bit.
 		 */
-#ifdef CONFIG_CGROUP_SCHEDTUNE
-		bool boosted = schedtune_task_boost(p) > 0;
-		bool prefer_idle = schedtune_prefer_idle(p) > 0;
-#else
-		bool boosted = 0;
-		bool prefer_idle = 0;
-#endif
-		int tmp_target = find_best_target(p, boosted, prefer_idle);
+		do_rotate = false;
+		i = -1;
+		goto retry;
+	}
 
-		target_cpu = task_cpu(p);
-		if (tmp_target >= 0) {
-			target_cpu = tmp_target;
-			if ((boosted || prefer_idle) && idle_cpu(target_cpu))
-				return target_cpu;
+	/*
+	 * If we don't find a CPU that fits this task without
+	 * increasing OPP above sched_smp_overlap_capacity or
+	 * when placement boost is active, expand the search to
+	 * the other groups on a SMP system.
+	 */
+	if (!sysctl_sched_is_big_little &&
+			(placement_boost == SCHED_BOOST_ON_ALL ||
+			(target_cpu == -1 && min_util_cpu_util_cum >
+					     sched_smp_overlap_capacity))) {
+		if (sg_target->next != start_sg) {
+			sg_target = sg_target->next;
+			goto next_sg;
 		}
+	}
+
+	if (target_cpu == -1 ||
+	    (target_cpu != min_util_cpu && !safe_to_pack &&
+	     !is_packing_eligible(p, task_util_boosted, sg_target,
+				  target_cpu_new_util_cum,
+				  targeted_cpus))) {
+		if (likely(min_util_cpu != -1))
+			target_cpu = min_util_cpu;
+		else if (cpu_isolated(task_cpu(p)) &&
+				isolated_candidate != -1)
+			target_cpu = isolated_candidate;
+		else
+			target_cpu = task_cpu(p);
 	}
 
 	if (target_cpu != task_cpu(p) && !avoid_prev_cpu &&
@@ -7260,6 +7141,14 @@ retry:
 						task_util(p),
 						cpumask_first(rtg_target),
 						target_cpu, 0, need_idle);
+			return target_cpu;
+		}
+
+		if (need_idle) {
+			trace_sched_task_util_need_idle(p, task_cpu(p),
+						task_util(p),
+						target_cpu, target_cpu,
+						0, need_idle);
 			return target_cpu;
 		}
 
@@ -9420,7 +9309,7 @@ static struct sched_group *find_busiest_group(struct lb_env *env)
 	if (energy_aware() && !env->dst_rq->rd->overutilized) {
 		int cpu_local, cpu_busiest;
 		long util_cum;
-		unsigned long capacity_local, capacity_busiest;
+		unsigned long energy_local, energy_busiest;
 
 		if (env->idle != CPU_NEWLY_IDLE)
 			goto out_balanced;
@@ -9431,12 +9320,12 @@ static struct sched_group *find_busiest_group(struct lb_env *env)
 		cpu_local = group_first_cpu(sds.local);
 		cpu_busiest = group_first_cpu(sds.busiest);
 
-		 /* TODO: don't assume same cap cpus are in same domain */
-		capacity_local = capacity_orig_of(cpu_local);
-		capacity_busiest = capacity_orig_of(cpu_busiest);
-		if (capacity_local > capacity_busiest) {
+		 /* TODO: don't assume same energy cpus are in same domain */
+		energy_local = cpu_max_power_cost(cpu_local);
+		energy_busiest = cpu_max_power_cost(cpu_busiest);
+		if (energy_local > energy_busiest) {
 			goto out_balanced;
-		} else if (capacity_local == capacity_busiest) {
+		} else if (energy_local == energy_busiest) {
 			if (cpu_rq(cpu_busiest)->nr_running < 2)
 				goto out_balanced;
 

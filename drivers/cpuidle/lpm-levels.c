@@ -39,6 +39,7 @@
 #include <soc/qcom/event_timer.h>
 #include <soc/qcom/lpm-stats.h>
 #include <soc/qcom/system_pm.h>
+#include <soc/qcom/minidump.h>
 #include <asm/arch_timer.h>
 #include <asm/suspend.h>
 #include <asm/cpuidle.h>
@@ -120,9 +121,6 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 static void cluster_prepare(struct lpm_cluster *cluster,
 		const struct cpumask *cpu, int child_idx, bool from_idle,
 		int64_t time);
-
-static bool menu_select;
-module_param_named(menu_select, menu_select, bool, 0664);
 
 static int msm_pm_sleep_time_override;
 module_param_named(sleep_time_override,
@@ -981,7 +979,7 @@ static int cluster_select(struct lpm_cluster *cluster, bool from_idle,
 		if (suspend_in_progress && from_idle && level->notify_rpm)
 			continue;
 
-		if (level->is_reset && !system_sleep_allowed())
+		if (level->notify_rpm && !system_sleep_allowed())
 			continue;
 
 		best_level = i;
@@ -1356,7 +1354,8 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	struct lpm_cpu *cpu = per_cpu(cpu_lpm, dev->cpu);
 	bool success = false;
 	const struct cpumask *cpumask = get_cpu_mask(dev->cpu);
-	int64_t start_time = ktime_to_ns(ktime_get()), end_time;
+	ktime_t start = ktime_get();
+	uint64_t start_time = ktime_to_ns(start), end_time;
 	struct power_params *pwr_params;
 
 	pwr_params = &cpu->levels[idx].pwr;
@@ -1381,9 +1380,7 @@ exit:
 	cluster_unprepare(cpu->parent, cpumask, idx, true, end_time);
 	cpu_unprepare(cpu, idx, true);
 	sched_set_cpu_cstate(smp_processor_id(), 0, 0, 0);
-	end_time = ktime_to_ns(ktime_get()) - start_time;
-	do_div(end_time, 1000);
-	dev->last_residency = end_time;
+	dev->last_residency = ktime_us_delta(ktime_get(), start);
 	update_history(dev, idx);
 	trace_cpu_idle_exit(idx, success);
 	local_irq_enable();
@@ -1642,6 +1639,7 @@ static int lpm_probe(struct platform_device *pdev)
 	int ret;
 	int size;
 	struct kobject *module_kobj = NULL;
+	struct md_region md_entry;
 
 	get_online_cpus();
 	lpm_root_node = lpm_of_parse_cluster(pdev);
@@ -1697,6 +1695,14 @@ static int lpm_probe(struct platform_device *pdev)
 		pr_err("Failed to create cluster level nodes\n");
 		goto failed;
 	}
+
+	/* Add lpm_debug to Minidump*/
+	strlcpy(md_entry.name, "KLPMDEBUG", sizeof(md_entry.name));
+	md_entry.virt_addr = (uintptr_t)lpm_debug;
+	md_entry.phys_addr = lpm_debug_phys;
+	md_entry.size = size;
+	if (msm_minidump_add_region(&md_entry))
+		pr_info("Failed to add lpm_debug in Minidump\n");
 
 	return 0;
 failed:

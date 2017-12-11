@@ -22,7 +22,10 @@ static void dp_parser_unmap_io_resources(struct dp_parser *parser)
 {
 	struct dp_io *io = &parser->io;
 
-	msm_dss_iounmap(&io->ctrl_io);
+	msm_dss_iounmap(&io->dp_ahb);
+	msm_dss_iounmap(&io->dp_aux);
+	msm_dss_iounmap(&io->dp_link);
+	msm_dss_iounmap(&io->dp_p0);
 	msm_dss_iounmap(&io->phy_io);
 	msm_dss_iounmap(&io->ln_tx0_io);
 	msm_dss_iounmap(&io->ln_tx0_io);
@@ -47,7 +50,25 @@ static int dp_parser_ctrl_res(struct dp_parser *parser)
 		goto err;
 	}
 
-	rc = msm_dss_ioremap_byname(pdev, &io->ctrl_io, "dp_ctrl");
+	rc = msm_dss_ioremap_byname(pdev, &io->dp_ahb, "dp_ahb");
+	if (rc) {
+		pr_err("unable to remap dp io resources\n");
+		goto err;
+	}
+
+	rc = msm_dss_ioremap_byname(pdev, &io->dp_aux, "dp_aux");
+	if (rc) {
+		pr_err("unable to remap dp io resources\n");
+		goto err;
+	}
+
+	rc = msm_dss_ioremap_byname(pdev, &io->dp_link, "dp_link");
+	if (rc) {
+		pr_err("unable to remap dp io resources\n");
+		goto err;
+	}
+
+	rc = msm_dss_ioremap_byname(pdev, &io->dp_p0, "dp_p0");
 	if (rc) {
 		pr_err("unable to remap dp io resources\n");
 		goto err;

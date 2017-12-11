@@ -757,6 +757,9 @@ extern phys_addr_t usb_get_xfer_ring_phys_addr(struct usb_device *dev,
 	struct usb_host_endpoint *ep, dma_addr_t *dma);
 extern int usb_get_controller_id(struct usb_device *dev);
 
+extern int usb_stop_endpoint(struct usb_device *dev,
+	struct usb_host_endpoint *ep);
+
 /* Sets up a group of bulk endpoints to support multiple stream IDs. */
 extern int usb_alloc_streams(struct usb_interface *interface,
 		struct usb_host_endpoint **eps, unsigned int num_eps,

@@ -58,7 +58,10 @@ struct dp_display_data {
 /**
  * struct dp_ctrl_resource - controller's IO related data
  *
- * @ctrl_io: controller's mapped memory address
+ * @dp_ahb: controller's ahb mapped memory address
+ * @dp_aux: controller's aux mapped memory address
+ * @dp_link: controller's link mapped memory address
+ * @dp_p0: controller's p0 mapped memory address
  * @phy_io: phy's mapped memory address
  * @ln_tx0_io: USB-DP lane TX0's mapped memory address
  * @ln_tx1_io: USB-DP lane TX1's mapped memory address
@@ -70,6 +73,10 @@ struct dp_display_data {
  */
 struct dp_io {
 	struct dss_io_data ctrl_io;
+	struct dss_io_data dp_ahb;
+	struct dss_io_data dp_aux;
+	struct dss_io_data dp_link;
+	struct dss_io_data dp_p0;
 	struct dss_io_data phy_io;
 	struct dss_io_data ln_tx0_io;
 	struct dss_io_data ln_tx1_io;

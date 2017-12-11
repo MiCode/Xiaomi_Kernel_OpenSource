@@ -287,15 +287,18 @@ int dp_connector_pre_kickoff(struct drm_connector *connector,
 	return dp->pre_kickoff(dp, params->hdr_meta);
 }
 
-int dp_connector_post_init(struct drm_connector *connector,
-		void *info, void *display, struct msm_mode_info *mode_info)
+int dp_connector_post_init(struct drm_connector *connector, void *display)
 {
 	struct dp_display *dp_display = display;
 
-	if (!info || !dp_display)
+	if (!dp_display)
 		return -EINVAL;
 
 	dp_display->connector = connector;
+
+	if (dp_display->post_init)
+		dp_display->post_init(dp_display);
+
 	return 0;
 }
 
@@ -377,7 +380,7 @@ enum drm_connector_status dp_connector_detect(struct drm_connector *conn,
 	return status;
 }
 
-void dp_connector_send_hpd_event(void *display)
+void dp_connector_post_open(void *display)
 {
 	struct dp_display *dp;
 
@@ -388,8 +391,8 @@ void dp_connector_send_hpd_event(void *display)
 
 	dp = display;
 
-	if (dp->send_hpd_event)
-		dp->send_hpd_event(dp);
+	if (dp->post_open)
+		dp->post_open(dp);
 }
 
 int dp_connector_get_modes(struct drm_connector *connector,
@@ -509,9 +512,6 @@ enum drm_mode_status dp_connector_mode_valid(struct drm_connector *connector,
 	debug = dp_disp->get_debug(dp_disp);
 
 	mode->vrefresh = drm_mode_vrefresh(mode);
-
-	if (mode->vrefresh > 60)
-		return MODE_BAD;
 
 	if (mode->clock > dp_disp->max_pclk_khz)
 		return MODE_BAD;

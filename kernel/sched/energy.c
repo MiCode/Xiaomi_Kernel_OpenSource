@@ -28,6 +28,8 @@
 #include <linux/pm_opp.h>
 #include <linux/platform_device.h>
 
+#include "sched.h"
+
 struct sched_group_energy *sge_array[NR_CPUS][NR_SD_LEVELS];
 
 static void free_resources(void)
@@ -269,6 +271,7 @@ static int sched_energy_probe(struct platform_device *pdev)
 
 	kfree(max_frequencies);
 
+	walt_sched_energy_populated_callback();
 	dev_info(&pdev->dev, "Sched-energy-costs capacity updated\n");
 	return 0;
 

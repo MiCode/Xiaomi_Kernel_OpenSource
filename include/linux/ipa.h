@@ -1175,6 +1175,28 @@ struct ipa_tz_unlock_reg_info {
 	u64 size;
 };
 
+/**
+ * struct  ipa_smmu_in_params - information provided from client
+ * @ipa_smmu_client_type: clinet requesting for the smmu info.
+ */
+
+enum ipa_smmu_client_type {
+	IPA_SMMU_WLAN_CLIENT,
+	IPA_SMMU_CLIENT_MAX
+};
+
+struct ipa_smmu_in_params {
+	enum ipa_smmu_client_type smmu_client;
+};
+
+/**
+ * struct  ipa_smmu_out_params - information provided to IPA client
+ * @ipa_smmu_s1_enable: IPA S1 SMMU enable/disable status
+ */
+struct ipa_smmu_out_params {
+	bool smmu_enable;
+};
+
 #if defined CONFIG_IPA || defined CONFIG_IPA3
 
 /*
@@ -1563,6 +1585,9 @@ int ipa_register_ipa_ready_cb(void (*ipa_ready_cb)(void *user_data),
  * Returns: 0 on success, negative on failure
  */
 int ipa_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs);
+
+int ipa_get_smmu_params(struct ipa_smmu_in_params *in,
+	struct ipa_smmu_out_params *out);
 
 #else /* (CONFIG_IPA || CONFIG_IPA3) */
 
@@ -2351,6 +2376,12 @@ static inline int ipa_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info,
 	return -EPERM;
 }
 
+
+static inline int ipa_get_smmu_params(struct ipa_smmu_in_params *in,
+	struct ipa_smmu_out_params *out)
+{
+	return -EPERM;
+}
 #endif /* (CONFIG_IPA || CONFIG_IPA3) */
 
 #endif /* _IPA_H_ */

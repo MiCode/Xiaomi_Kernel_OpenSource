@@ -122,6 +122,7 @@ enum msm_mdp_plane_property {
 	PLANE_PROP_BLEND_OP,
 	PLANE_PROP_SRC_CONFIG,
 	PLANE_PROP_FB_TRANSLATION_MODE,
+	PLANE_PROP_MULTIRECT_MODE,
 
 	/* total # of properties */
 	PLANE_PROP_COUNT
@@ -162,6 +163,7 @@ enum msm_mdp_crtc_property {
 enum msm_mdp_conn_property {
 	/* blob properties, always put these first */
 	CONNECTOR_PROP_SDE_INFO,
+	CONNECTOR_PROP_MODE_INFO,
 	CONNECTOR_PROP_HDR_INFO,
 	CONNECTOR_PROP_EXT_HDR_INFO,
 	CONNECTOR_PROP_PP_DITHER,

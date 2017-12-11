@@ -18,7 +18,6 @@
 #include <linux/netdevice.h>
 #include <linux/rmnet_data.h>
 #include <linux/spinlock.h>
-#include <linux/workqueue.h>
 #include <linux/time.h>
 #include <linux/net_map.h>
 #include <linux/ip.h>
@@ -47,11 +46,6 @@ MODULE_PARM_DESC(agg_time_limit, "Maximum time packets sit in the agg buf");
 long agg_bypass_time __read_mostly = 10000000L;
 module_param(agg_bypass_time, long, 0644);
 MODULE_PARM_DESC(agg_bypass_time, "Skip agg when apart spaced more than this");
-
-struct agg_work {
-	struct delayed_work work;
-	struct rmnet_phys_ep_config *config;
-};
 
 #define RMNET_MAP_DEAGGR_SPACING  64
 #define RMNET_MAP_DEAGGR_HEADROOM (RMNET_MAP_DEAGGR_SPACING / 2)
@@ -166,24 +160,21 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 }
 
 /* rmnet_map_flush_packet_queue() - Transmits aggregeted frame on timeout
- * @work:        struct agg_work containing delayed work and skb to flush
  *
- * This function is scheduled to run in a specified number of jiffies after
+ * This function is scheduled to run in a specified number of ns after
  * the last frame transmitted by the network stack. When run, the buffer
  * containing aggregated packets is finally transmitted on the underlying link.
  *
  */
-static void rmnet_map_flush_packet_queue(struct work_struct *work)
+enum hrtimer_restart rmnet_map_flush_packet_queue(struct hrtimer *t)
 {
-	struct agg_work *real_work;
 	struct rmnet_phys_ep_config *config;
 	unsigned long flags;
 	struct sk_buff *skb;
 	int rc, agg_count = 0;
 
+	config = container_of(t, struct rmnet_phys_ep_config, hrtimer);
 	skb = 0;
-	real_work = (struct agg_work *)work;
-	config = real_work->config;
 	LOGD("%s", "Entering flush thread");
 	spin_lock_irqsave(&config->agg_lock, flags);
 	if (likely(config->agg_state == RMNET_MAP_TXFER_SCHEDULED)) {
@@ -211,7 +202,8 @@ static void rmnet_map_flush_packet_queue(struct work_struct *work)
 		rc = dev_queue_xmit(skb);
 		rmnet_stats_queue_xmit(rc, RMNET_STATS_QUEUE_XMIT_AGG_TIMEOUT);
 	}
-	kfree(work);
+
+	return HRTIMER_NORESTART;
 }
 
 /* rmnet_map_aggregate() - Software aggregates multiple packets.
@@ -226,7 +218,6 @@ static void rmnet_map_flush_packet_queue(struct work_struct *work)
 void rmnet_map_aggregate(struct sk_buff *skb,
 			 struct rmnet_phys_ep_config *config) {
 	u8 *dest_buff;
-	struct agg_work *work;
 	unsigned long flags;
 	struct sk_buff *agg_skb;
 	struct timespec diff, last;
@@ -290,7 +281,9 @@ new_packet:
 		config->agg_skb = 0;
 		config->agg_count = 0;
 		memset(&config->agg_time, 0, sizeof(struct timespec));
+		config->agg_state = RMNET_MAP_AGG_IDLE;
 		spin_unlock_irqrestore(&config->agg_lock, flags);
+		hrtimer_cancel(&config->hrtimer);
 		LOGL("delta t: %ld.%09lu\tcount: %d", diff.tv_sec,
 		     diff.tv_nsec, agg_count);
 		trace_rmnet_map_aggregate(skb, agg_count);
@@ -307,19 +300,9 @@ new_packet:
 
 schedule:
 	if (config->agg_state != RMNET_MAP_TXFER_SCHEDULED) {
-		work = kmalloc(sizeof(*work), GFP_ATOMIC);
-		if (!work) {
-			LOGE("Failed to allocate work item for packet %s",
-			     "transfer. DATA PATH LIKELY BROKEN!");
-			config->agg_state = RMNET_MAP_AGG_IDLE;
-			spin_unlock_irqrestore(&config->agg_lock, flags);
-			return;
-		}
-		INIT_DELAYED_WORK((struct delayed_work *)work,
-				  rmnet_map_flush_packet_queue);
-		work->config = config;
 		config->agg_state = RMNET_MAP_TXFER_SCHEDULED;
-		schedule_delayed_work((struct delayed_work *)work, 1);
+		hrtimer_start(&config->hrtimer, ns_to_ktime(3000000),
+			      HRTIMER_MODE_REL);
 	}
 	spin_unlock_irqrestore(&config->agg_lock, flags);
 }

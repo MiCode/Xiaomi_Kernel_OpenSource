@@ -2903,6 +2903,11 @@ int vfs_create2(struct vfsmount *mnt, struct inode *dir, struct dentry *dentry,
 	if (error)
 		return error;
 	error = dir->i_op->create(dir, dentry, mode, want_excl);
+	if (error)
+		return error;
+	error = security_inode_post_create(dir, dentry, mode);
+	if (error)
+		return error;
 	if (!error)
 		fsnotify_create(dir, dentry);
 	return error;
@@ -3002,9 +3007,15 @@ static inline int open_to_namei_flags(int flag)
 
 static int may_o_create(const struct path *dir, struct dentry *dentry, umode_t mode)
 {
+	struct user_namespace *s_user_ns;
 	int error = security_path_mknod(dir, dentry, mode, 0);
 	if (error)
 		return error;
+
+	s_user_ns = dir->dentry->d_sb->s_user_ns;
+	if (!kuid_has_mapping(s_user_ns, current_fsuid()) ||
+	    !kgid_has_mapping(s_user_ns, current_fsgid()))
+		return -EOVERFLOW;
 
 	error = inode_permission2(dir->mnt, dir->dentry->d_inode, MAY_WRITE | MAY_EXEC);
 	if (error)
@@ -3712,6 +3723,13 @@ int vfs_mknod2(struct vfsmount *mnt, struct inode *dir, struct dentry *dentry, u
 		return error;
 
 	error = dir->i_op->mknod(dir, dentry, mode, dev);
+	if (error)
+		return error;
+
+	error = security_inode_post_create(dir, dentry, mode);
+	if (error)
+		return error;
+
 	if (!error)
 		fsnotify_create(dir, dentry);
 	return error;

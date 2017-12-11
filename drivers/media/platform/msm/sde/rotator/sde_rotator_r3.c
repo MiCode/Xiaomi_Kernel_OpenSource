@@ -55,7 +55,7 @@
  * When in sbuf mode, select a much longer wait, to allow the other driver
  * to detect timeouts and abort if necessary.
  */
-#define KOFF_TIMEOUT_SBUF	(2000)
+#define KOFF_TIMEOUT_SBUF	(10000)
 
 /* default stream buffer headroom in lines */
 #define DEFAULT_SBUF_HEADROOM	20
@@ -132,6 +132,9 @@
 
 #define SDE_ROTREG_READ(base, off) \
 	readl_relaxed(base + (off))
+
+#define SDE_ROTTOP_IN_OFFLINE_MODE(_rottop_op_mode_) \
+	(((_rottop_op_mode_) & ROTTOP_OP_MODE_ROT_OUT_MASK) == 0)
 
 static const u32 sde_hw_rotator_v3_inpixfmts[] = {
 	SDE_PIX_FMT_XRGB_8888,
@@ -309,6 +312,7 @@ static const u32 sde_hw_rotator_v4_inpixfmts[] = {
 	SDE_PIX_FMT_RGBA_1010102_UBWC,
 	SDE_PIX_FMT_RGBX_1010102_UBWC,
 	SDE_PIX_FMT_Y_CBCR_H2V2_P010,
+	SDE_PIX_FMT_Y_CBCR_H2V2_P010_VENUS,
 	SDE_PIX_FMT_Y_CBCR_H2V2_TP10,
 	SDE_PIX_FMT_Y_CBCR_H2V2_TP10_UBWC,
 	SDE_PIX_FMT_Y_CBCR_H2V2_P010_UBWC,
@@ -389,6 +393,7 @@ static const u32 sde_hw_rotator_v4_outpixfmts[] = {
 	SDE_PIX_FMT_RGBA_1010102_UBWC,
 	SDE_PIX_FMT_RGBX_1010102_UBWC,
 	SDE_PIX_FMT_Y_CBCR_H2V2_P010,
+	SDE_PIX_FMT_Y_CBCR_H2V2_P010_VENUS,
 	SDE_PIX_FMT_Y_CBCR_H2V2_TP10,
 	SDE_PIX_FMT_Y_CBCR_H2V2_TP10_UBWC,
 	SDE_PIX_FMT_Y_CBCR_H2V2_P010_UBWC,
@@ -537,6 +542,8 @@ static struct sde_rot_regdump sde_rot_r3_regdump[] = {
 		SDE_ROT_REGDUMP_READ },
 	{ "SDEROT_VBIF_NRT", SDE_ROT_VBIF_NRT_OFFSET, 0x590,
 		SDE_ROT_REGDUMP_VBIF },
+	{ "SDEROT_REGDMA_RESET", ROTTOP_SW_RESET_OVERRIDE, 0,
+		SDE_ROT_REGDUMP_WRITE },
 };
 
 struct sde_rot_cdp_params {
@@ -694,7 +701,7 @@ static void sde_hw_rotator_halt_vbif_xin_client(void)
 /**
  * sde_hw_rotator_reset - Reset rotator hardware
  * @rot: pointer to hw rotator
- * @ctx: pointer to current rotator context during the hw hang
+ * @ctx: pointer to current rotator context during the hw hang (optional)
  */
 static int sde_hw_rotator_reset(struct sde_hw_rotator *rot,
 		struct sde_hw_rotator_context *ctx)
@@ -708,13 +715,8 @@ static int sde_hw_rotator_reset(struct sde_hw_rotator *rot,
 	int i, j;
 	unsigned long flags;
 
-	if (!rot || !ctx) {
-		SDEROT_ERR("NULL rotator context\n");
-		return -EINVAL;
-	}
-
-	if (ctx->q_id >= ROT_QUEUE_MAX) {
-		SDEROT_ERR("context q_id out of range: %d\n", ctx->q_id);
+	if (!rot) {
+		SDEROT_ERR("NULL rotator\n");
 		return -EINVAL;
 	}
 
@@ -725,6 +727,15 @@ static int sde_hw_rotator_reset(struct sde_hw_rotator *rot,
 
 	/* halt vbif xin client to ensure no pending transaction */
 	sde_hw_rotator_halt_vbif_xin_client();
+
+	/* if no ctx is specified, skip ctx wake up */
+	if (!ctx)
+		return 0;
+
+	if (ctx->q_id >= ROT_QUEUE_MAX) {
+		SDEROT_ERR("context q_id out of range: %d\n", ctx->q_id);
+		return -EINVAL;
+	}
 
 	spin_lock_irqsave(&rot->rotisr_lock, flags);
 
@@ -781,10 +792,11 @@ static int sde_hw_rotator_reset(struct sde_hw_rotator *rot,
 }
 
 /**
- * sde_hw_rotator_dump_status - Dump hw rotator status on error
+ * _sde_hw_rotator_dump_status - Dump hw rotator status on error
  * @rot: Pointer to hw rotator
  */
-static void sde_hw_rotator_dump_status(struct sde_hw_rotator *rot, u32 *ubwcerr)
+static void _sde_hw_rotator_dump_status(struct sde_hw_rotator *rot,
+		u32 *ubwcerr)
 {
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	u32 reg = 0;
@@ -816,6 +828,11 @@ static void sde_hw_rotator_dump_status(struct sde_hw_rotator *rot, u32 *ubwcerr)
 		SDE_ROTREG_READ(rot->mdss_base,
 			REGDMA_CSR_REGDMA_FSM_STATE));
 
+	SDEROT_ERR("rottop: op_mode = %x, status = %x, clk_status = %x\n",
+		SDE_ROTREG_READ(rot->mdss_base, ROTTOP_OP_MODE),
+		SDE_ROTREG_READ(rot->mdss_base, ROTTOP_STATUS),
+		SDE_ROTREG_READ(rot->mdss_base, ROTTOP_CLK_STATUS));
+
 	reg = SDE_ROTREG_READ(rot->mdss_base, ROT_SSPP_UBWC_ERROR_STATUS);
 	if (ubwcerr)
 		*ubwcerr = reg;
@@ -827,12 +844,35 @@ static void sde_hw_rotator_dump_status(struct sde_hw_rotator *rot, u32 *ubwcerr)
 		SDE_VBIF_READ(mdata, MMSS_VBIF_XIN_HALT_CTRL1),
 		SDE_VBIF_READ(mdata, MMSS_VBIF_AXI_HALT_CTRL1));
 
-	SDEROT_ERR(
-		"sbuf_status_plane0 = %x, sbuf_status_plane1 = %x\n",
-		SDE_ROTREG_READ(rot->mdss_base,
-			ROT_WB_SBUF_STATUS_PLANE0),
-		SDE_ROTREG_READ(rot->mdss_base,
-			ROT_WB_SBUF_STATUS_PLANE1));
+	SDEROT_ERR("sspp unpack wr: plane0 = %x, plane1 = %x, plane2 = %x\n",
+			SDE_ROTREG_READ(rot->mdss_base,
+				ROT_SSPP_FETCH_SMP_WR_PLANE0),
+			SDE_ROTREG_READ(rot->mdss_base,
+				ROT_SSPP_FETCH_SMP_WR_PLANE1),
+			SDE_ROTREG_READ(rot->mdss_base,
+				ROT_SSPP_FETCH_SMP_WR_PLANE2));
+	SDEROT_ERR("sspp unpack rd: plane0 = %x, plane1 = %x, plane2 = %x\n",
+			SDE_ROTREG_READ(rot->mdss_base,
+					ROT_SSPP_SMP_UNPACK_RD_PLANE0),
+			SDE_ROTREG_READ(rot->mdss_base,
+					ROT_SSPP_SMP_UNPACK_RD_PLANE1),
+			SDE_ROTREG_READ(rot->mdss_base,
+					ROT_SSPP_SMP_UNPACK_RD_PLANE2));
+	SDEROT_ERR("sspp: unpack_ln = %x, unpack_blk = %x, fill_lvl = %x\n",
+			SDE_ROTREG_READ(rot->mdss_base,
+				ROT_SSPP_UNPACK_LINE_COUNT),
+			SDE_ROTREG_READ(rot->mdss_base,
+				ROT_SSPP_UNPACK_BLK_COUNT),
+			SDE_ROTREG_READ(rot->mdss_base,
+				ROT_SSPP_FILL_LEVELS));
+
+	SDEROT_ERR("wb: sbuf0 = %x, sbuf1 = %x, sys_cache = %x\n",
+			SDE_ROTREG_READ(rot->mdss_base,
+				ROT_WB_SBUF_STATUS_PLANE0),
+			SDE_ROTREG_READ(rot->mdss_base,
+				ROT_WB_SBUF_STATUS_PLANE1),
+			SDE_ROTREG_READ(rot->mdss_base,
+				ROT_WB_SYS_CACHE_MODE));
 }
 
 /**
@@ -1596,7 +1636,7 @@ static void sde_hw_rotator_setup_wbengine(struct sde_hw_rotator_context *ctx,
 
 		/* use prefill bandwidth instead if specified */
 		if (cfg->prefill_bw)
-			bw = DIV_ROUND_UP(cfg->prefill_bw,
+			bw = DIV_ROUND_UP_SECTOR_T(cfg->prefill_bw,
 					TRAFFIC_SHAPE_VSYNC_CLK);
 
 		if (bw > 0xFF)
@@ -1953,7 +1993,7 @@ static u32 sde_hw_rotator_wait_done_regdma(
 			else if (status & REGDMA_INVALID_CMD)
 				SDEROT_ERR("REGDMA invalid command\n");
 
-			sde_hw_rotator_dump_status(rot, &ubwcerr);
+			_sde_hw_rotator_dump_status(rot, &ubwcerr);
 
 			if (ubwcerr || abort) {
 				/*
@@ -1998,12 +2038,12 @@ static u32 sde_hw_rotator_wait_done_regdma(
 		if (last_isr & REGDMA_INT_ERR_MASK) {
 			SDEROT_ERR("Rotator error, ts:0x%X/0x%X status:%x\n",
 				ctx->timestamp, swts, last_isr);
-			sde_hw_rotator_dump_status(rot, NULL);
+			_sde_hw_rotator_dump_status(rot, NULL);
 			status = ROT_ERROR_BIT;
 		} else if (pending) {
 			SDEROT_ERR("Rotator timeout, ts:0x%X/0x%X status:%x\n",
 				ctx->timestamp, swts, last_isr);
-			sde_hw_rotator_dump_status(rot, NULL);
+			_sde_hw_rotator_dump_status(rot, NULL);
 			status = ROT_ERROR_BIT;
 		} else {
 			status = 0;
@@ -2165,7 +2205,7 @@ void sde_hw_rotator_pre_pmevent(struct sde_rot_mgr *mgr, bool pmon)
 {
 	struct sde_hw_rotator *rot;
 	u32 l_ts, h_ts, swts, hwts;
-	u32 rotsts, regdmasts;
+	u32 rotsts, regdmasts, rotopmode;
 
 	/*
 	 * Check last HW timestamp with SW timestamp before power off event.
@@ -2190,19 +2230,37 @@ void sde_hw_rotator_pre_pmevent(struct sde_rot_mgr *mgr, bool pmon)
 		regdmasts = SDE_ROTREG_READ(rot->mdss_base,
 				REGDMA_CSR_REGDMA_BLOCK_STATUS);
 		rotsts = SDE_ROTREG_READ(rot->mdss_base, ROTTOP_STATUS);
+		rotopmode = SDE_ROTREG_READ(rot->mdss_base, ROTTOP_OP_MODE);
 
 		SDEROT_DBG(
-			"swts:0x%x, hwts:0x%x, regdma-sts:0x%x, rottop-sts:0x%x\n",
-				swts, hwts, regdmasts, rotsts);
-		SDEROT_EVTLOG(swts, hwts, regdmasts, rotsts);
+			"swts:0x%x, hwts:0x%x, regdma-sts:0x%x, rottop-sts:0x%x, rottop-opmode:0x%x\n",
+				swts, hwts, regdmasts, rotsts, rotopmode);
+		SDEROT_EVTLOG(swts, hwts, regdmasts, rotsts, rotopmode);
 
 		if ((swts != hwts) && ((regdmasts & REGDMA_BUSY) ||
 					(rotsts & ROT_STATUS_MASK))) {
 			SDEROT_ERR(
 				"Mismatch SWTS with HWTS: swts:0x%x, hwts:0x%x, regdma-sts:0x%x, rottop-sts:0x%x\n",
 				swts, hwts, regdmasts, rotsts);
+			_sde_hw_rotator_dump_status(rot, NULL);
 			SDEROT_EVTLOG_TOUT_HANDLER("rot", "rot_dbg_bus",
 					"vbif_dbg_bus", "panic");
+		} else if (!SDE_ROTTOP_IN_OFFLINE_MODE(rotopmode) &&
+				((regdmasts & REGDMA_BUSY) ||
+						(rotsts & ROT_BUSY_BIT))) {
+			/*
+			 * rotator can stuck in inline while mdp is detached
+			 */
+			SDEROT_WARN(
+				"Inline Rot busy: regdma-sts:0x%x, rottop-sts:0x%x, rottop-opmode:0x%x\n",
+				regdmasts, rotsts, rotopmode);
+			sde_hw_rotator_reset(rot, NULL);
+		} else if ((regdmasts & REGDMA_BUSY) ||
+				(rotsts & ROT_BUSY_BIT)) {
+			_sde_hw_rotator_dump_status(rot, NULL);
+			SDEROT_EVTLOG_TOUT_HANDLER("rot", "rot_dbg_bus",
+					"vbif_dbg_bus", "panic");
+			sde_hw_rotator_reset(rot, NULL);
 		}
 
 		/* Turn off rotator clock after checking rotator registers */
@@ -2506,7 +2564,7 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 				if (status & BIT(0)) {
 					SDEROT_ERR("rotator busy 0x%x\n",
 							status);
-					sde_hw_rotator_dump_status(rot, NULL);
+					_sde_hw_rotator_dump_status(rot, NULL);
 					SDEROT_EVTLOG_TOUT_HANDLER("rot",
 							"vbif_dbg_bus",
 							"panic");
@@ -3494,6 +3552,21 @@ static int sde_hw_rotator_get_maxlinewidth(struct sde_rot_mgr *mgr)
 }
 
 /*
+ * sde_hw_rotator_dump_status - dump status to debug output
+ * @mgr: Pointer to rotator manager
+ * return: none
+ */
+static void sde_hw_rotator_dump_status(struct sde_rot_mgr *mgr)
+{
+	if (!mgr || !mgr->hw_data) {
+		SDEROT_ERR("null parameters\n");
+		return;
+	}
+
+	_sde_hw_rotator_dump_status(mgr->hw_data, NULL);
+}
+
+/*
  * sde_hw_rotator_parse_dt - parse r3 specific device tree settings
  * @hw_data: Pointer to rotator hw
  * @dev: Pointer to platform device
@@ -3622,6 +3695,7 @@ int sde_rotator_r3_init(struct sde_rot_mgr *mgr)
 	mgr->ops_hw_post_pmevent = sde_hw_rotator_post_pmevent;
 	mgr->ops_hw_get_downscale_caps = sde_hw_rotator_get_downscale_caps;
 	mgr->ops_hw_get_maxlinewidth = sde_hw_rotator_get_maxlinewidth;
+	mgr->ops_hw_dump_status = sde_hw_rotator_dump_status;
 
 	ret = sde_hw_rotator_parse_dt(mgr->hw_data, mgr->pdev);
 	if (ret)
