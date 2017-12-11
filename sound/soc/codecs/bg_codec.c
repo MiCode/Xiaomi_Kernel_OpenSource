@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,7 +31,9 @@
 #include <sound/tlv.h>
 #include <sound/info.h>
 #include <soc/qcom/bg_glink.h>
+#include "bg_codec.h"
 #include "pktzr.h"
+#include "wcdcal-hwdep.h"
 
 #define SAMPLE_RATE_48KHZ 48000
 
@@ -41,6 +43,7 @@
 #define BG_FORMATS_S16_S24_LE (SNDRV_PCM_FMTBIT_S16_LE | \
 				  SNDRV_PCM_FMTBIT_S24_LE | \
 				  SNDRV_PCM_FMTBIT_S24_3LE)
+#define BG_BLOB_DATA_SIZE 3136
 
 enum {
 	BG_AIF1_PB = 0,
@@ -78,8 +81,15 @@ struct bg_cdc_priv {
 	struct delayed_work bg_cdc_pktzr_init_work;
 	unsigned long status_mask;
 	struct bg_hw_params hw_params;
+	/* cal info for codec */
+	struct fw_info *fw_data;
+	struct firmware_cal *hwdep_spk_cal;
+	struct firmware_cal *hwdep_mic_cal;
+	/* Lock to protect init cal */
+	struct mutex bg_cal_lock;
 	int src[NUM_CODEC_DAIS];
 	bool hwd_started;
+	bool bg_cal_updated;
 };
 
 struct codec_ssn_rt_setup_t {
@@ -138,11 +148,107 @@ static uint32_t get_active_session_id(int dai_id)
 	return active_session;
 }
 
+static int bg_cdc_cal(struct bg_cdc_priv *bg_cdc)
+{
+	u8 *init_params = NULL, *init_head = NULL;
+	struct pktzr_cmd_rsp rsp;
+	u32 mic_blob_size = sizeof(app_mic_init_params);
+	u32 spk_blob_size = sizeof(smart_pa_init_params);
+	int ret = 0;
+
+	mutex_lock(&bg_cdc->bg_cal_lock);
+	init_params = kzalloc(BG_BLOB_DATA_SIZE, GFP_KERNEL);
+	if (!init_params) {
+		ret = -ENOMEM;
+		goto err2;
+	}
+	init_head = init_params;
+
+	bg_cdc->hwdep_mic_cal = wcdcal_get_fw_cal(bg_cdc->fw_data,
+						  BG_CODEC_MIC_CAL);
+
+	if (bg_cdc->hwdep_mic_cal &&
+		(mic_blob_size < bg_cdc->hwdep_mic_cal->size))
+		bg_cdc->hwdep_mic_cal = NULL;
+
+	bg_cdc->hwdep_spk_cal = wcdcal_get_fw_cal(bg_cdc->fw_data,
+						 BG_CODEC_SPEAKER_CAL);
+	if (bg_cdc->hwdep_spk_cal &&
+		(spk_blob_size < bg_cdc->hwdep_spk_cal->size))
+		bg_cdc->hwdep_spk_cal = NULL;
+
+	if (bg_cdc->hwdep_mic_cal) {
+		pr_debug("%s:mic cal size %d", __func__,
+				bg_cdc->hwdep_mic_cal->size);
+		memcpy(init_params, &bg_cdc->hwdep_mic_cal->size,
+				sizeof(bg_cdc->hwdep_mic_cal->size));
+		init_params += sizeof(bg_cdc->hwdep_mic_cal->size);
+		memcpy(init_params, bg_cdc->hwdep_mic_cal->data,
+				bg_cdc->hwdep_mic_cal->size);
+		init_params += bg_cdc->hwdep_mic_cal->size;
+	} else {
+		pr_debug("%s:default mic cal size %d", __func__, mic_blob_size);
+		memcpy(init_params, &mic_blob_size,
+			sizeof(mic_blob_size));
+		init_params += sizeof(mic_blob_size);
+		memcpy(init_params, app_mic_init_params,
+		sizeof(app_mic_init_params));
+		init_params += sizeof(app_mic_init_params);
+	}
+	if (bg_cdc->hwdep_spk_cal) {
+		pr_debug("%s: spk cal size %d", __func__,
+				bg_cdc->hwdep_spk_cal->size);
+		memcpy(init_params, &bg_cdc->hwdep_spk_cal->size,
+				sizeof(bg_cdc->hwdep_spk_cal->size));
+		init_params += sizeof(bg_cdc->hwdep_spk_cal->size);
+		memcpy(init_params, bg_cdc->hwdep_spk_cal->data,
+				bg_cdc->hwdep_spk_cal->size);
+	} else {
+		pr_debug("%s: default spk cal size %d", __func__,
+				spk_blob_size);
+		memcpy(init_params, &spk_blob_size,
+			sizeof(spk_blob_size));
+		init_params += sizeof(spk_blob_size);
+		memcpy(init_params, smart_pa_init_params,
+			sizeof(smart_pa_init_params));
+	}
+	rsp.buf_size = sizeof(struct graphite_basic_rsp_result);
+	rsp.buf = kzalloc(rsp.buf_size, GFP_KERNEL);
+	if (!rsp.buf) {
+		ret = -ENOMEM;
+		goto err1;
+	}
+	/* Send command to BG to init session */
+	ret = pktzr_cmd_init_params(init_head, BG_BLOB_DATA_SIZE, &rsp);
+	if (ret < 0) {
+		pr_err("pktzr cmd set params failed\n");
+		goto err;
+	}
+	bg_cdc->bg_cal_updated = true;
+err:
+	kfree(rsp.buf);
+err1:
+	kfree(init_head);
+err2:
+	mutex_unlock(&bg_cdc->bg_cal_lock);
+	return ret;
+}
+
 static int _bg_codec_hw_params(struct bg_cdc_priv *bg_cdc)
 {
 	struct bg_hw_params hw_params;
 	struct pktzr_cmd_rsp rsp;
 	int ret = 0;
+
+	if (!bg_cdc->bg_cal_updated) {
+		ret =  bg_cdc_cal(bg_cdc);
+		if (ret < 0) {
+			pr_err("%s:failed to send cal data", __func__);
+			return ret;
+		}
+	} else {
+		pr_debug("%s:cal data already sent to BG", __func__);
+	}
 
 	rsp.buf_size = sizeof(struct graphite_basic_rsp_result);
 	rsp.buf = kzalloc(rsp.buf_size, GFP_KERNEL);
@@ -636,7 +742,7 @@ static void bg_cdc_pktzr_init(struct work_struct *work)
 	struct bg_cdc_priv *bg_cdc;
 	struct delayed_work *dwork;
 	int num_of_intents = 2;
-	uint32_t size[2] = {2048, 2048};
+	uint32_t size[2] = {4096, 4096};
 	struct bg_glink_ch_cfg ch_info[1] = {
 		{"CODEC_CHANNEL", num_of_intents, size}
 	};
@@ -670,17 +776,36 @@ static void bg_cdc_pktzr_init(struct work_struct *work)
 static int bg_cdc_codec_probe(struct snd_soc_codec *codec)
 {
 	struct bg_cdc_priv *bg_cdc = dev_get_drvdata(codec->dev);
+	int ret;
 
 	schedule_delayed_work(&bg_cdc->bg_cdc_pktzr_init_work,
 				msecs_to_jiffies(400));
 
+	bg_cdc->fw_data = devm_kzalloc(codec->dev,
+				      sizeof(*(bg_cdc->fw_data)), GFP_KERNEL);
+
+	bg_cdc->bg_cal_updated = false;
+	mutex_init(&bg_cdc->bg_cal_lock);
+
+	set_bit(BG_CODEC_MIC_CAL, bg_cdc->fw_data->cal_bit);
+	set_bit(BG_CODEC_SPEAKER_CAL, bg_cdc->fw_data->cal_bit);
+
+	ret = wcd_cal_create_hwdep(bg_cdc->fw_data,
+				   WCD9XXX_CODEC_HWDEP_NODE, codec);
+	if (ret < 0) {
+		dev_err(codec->dev, "%s hwdep failed %d\n", __func__, ret);
+		devm_kfree(codec->dev, bg_cdc->fw_data);
+	}
 	return 0;
 }
 
 static int bg_cdc_codec_remove(struct snd_soc_codec *codec)
 {
+	struct bg_cdc_priv *bg_cdc = dev_get_drvdata(codec->dev);
 	pr_debug("In func %s\n", __func__);
 	pktzr_deinit();
+	mutex_destroy(&bg_cdc->bg_cal_lock);
+	kfree(bg_cdc->fw_data);
 	return 0;
 }
 

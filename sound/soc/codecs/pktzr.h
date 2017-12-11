@@ -1,4 +1,4 @@
-/* Copyright (c) 2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,7 +37,7 @@
 #define PKTZR_CMD_EVENT             0x000B
 #define PKTZR_CMD_DATA              0x000C
 #define PKTZR_CMDRSP_DATA           0x000D
-
+#define PKTZR_CMD_INIT_PARAM        0x0029
 
 typedef int (*pktzr_data_cmd_cb_fn)(void *buf, uint32_t len, void *priv_data,
 				     bool *is_basic_rsp);
@@ -68,4 +68,6 @@ extern int pktzr_cmd_data(void *payload, uint32_t size, void *priv_data);
 
 extern int pktzr_cmd_set_params(void *payload, uint32_t size,
 				struct pktzr_cmd_rsp *rsp);
+extern int pktzr_cmd_init_params(void *payload, uint32_t size,
+				 struct pktzr_cmd_rsp *rsp);
 #endif

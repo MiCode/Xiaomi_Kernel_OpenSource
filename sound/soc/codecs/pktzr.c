@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -205,6 +205,12 @@ int pktzr_cmd_set_params(void *payload, uint32_t size,
 int pktzr_cmd_data(void *payload, uint32_t size, void *priv_data)
 {
 	return pktzr_send_pkt(payload, size, priv_data, PKTZR_CMD_DATA, false);
+}
+
+int pktzr_cmd_init_params(void *payload, uint32_t size,
+				struct pktzr_cmd_rsp *rsp)
+{
+	return pktzr_send_pkt(payload, size, rsp, PKTZR_CMD_INIT_PARAM, true);
 }
 
 int pktzr_init(void *pdev, struct bg_glink_ch_cfg *ch_info, int num_channels,
