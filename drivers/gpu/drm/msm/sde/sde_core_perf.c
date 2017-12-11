@@ -520,11 +520,6 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 		return;
 	}
 	priv = kms->dev->dev_private;
-
-	/* wake vote update is not required with display rsc */
-	if (kms->perf.bw_vote_mode == DISP_RSC_MODE && stop_req)
-		return;
-
 	sde_crtc = to_sde_crtc(crtc);
 	sde_cstate = to_sde_crtc_state(crtc->state);
 
