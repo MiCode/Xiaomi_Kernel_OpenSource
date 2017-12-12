@@ -3546,6 +3546,11 @@ static bool ffs_func_req_match(struct usb_function *f,
 {
 	struct ffs_function *func = ffs_func_from_usb(f);
 
+	if (!test_bit(FFS_FL_BOUND, &func->ffs->flags)) {
+		ffs_log("ffs function do not bind yet.\n");
+		return false;
+	}
+
 	if (config0 && !(func->ffs->user_flags & FUNCTIONFS_CONFIG0_SETUP))
 		return false;
 
