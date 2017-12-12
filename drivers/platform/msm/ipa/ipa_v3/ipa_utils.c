@@ -4318,6 +4318,38 @@ static void ipa3_set_tag_process_before_gating(bool val)
 	ipa3_ctx->tag_process_before_gating = val;
 }
 
+/**
+ * ipa3_is_vlan_mode - check if a LAN driver should load in VLAN mode
+ * @iface - type of vlan capable device
+ * @res - query result: true for vlan mode, false for non vlan mode
+ *
+ * API must be called after ipa_is_ready() returns true, otherwise it will fail
+ *
+ * Returns: 0 on success, negative on failure
+ */
+static int ipa3_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res)
+{
+	if (!res) {
+		IPAERR("NULL out param\n");
+		return -EINVAL;
+	}
+
+	if (iface < 0 || iface > IPA_VLAN_IF_MAX) {
+		IPAERR("invalid iface %d\n", iface);
+		return -EINVAL;
+	}
+
+	if (!ipa3_is_ready()) {
+		IPAERR("IPA is not ready yet\n");
+		return -ENODEV;
+	}
+
+	*res = ipa3_ctx->vlan_mode_iface[iface];
+
+	IPADBG("Driver %d vlan mode is %d\n", iface, *res);
+	return 0;
+}
+
 int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	struct ipa_api_controller *api_ctrl)
 {
@@ -4504,6 +4536,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_disable_wdi3_pipes = ipa3_disable_wdi3_pipes;
 	api_ctrl->ipa_tz_unlock_reg = ipa3_tz_unlock_reg;
 	api_ctrl->ipa_get_smmu_params = ipa3_get_smmu_params;
+	api_ctrl->ipa_is_vlan_mode = ipa3_is_vlan_mode;
 
 	return 0;
 }

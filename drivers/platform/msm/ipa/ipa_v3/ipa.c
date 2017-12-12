@@ -4633,7 +4633,7 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 {
 	unsigned long missing;
 
-	char dbg_buff[16] = { 0 };
+	char dbg_buff[32] = { 0 };
 
 	if (sizeof(dbg_buff) < count + 1)
 		return -EFAULT;
@@ -4648,19 +4648,44 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 	if (count > 0)
 		dbg_buff[count - 1] = '\0';
 
+	IPADBG("user input string %s\n", dbg_buff);
+
 	/* Prevent consequent calls from trying to load the FW again. */
 	if (ipa3_is_ready())
 		return count;
 
 	/* Check MHI configuration on MDM devices */
 	if (!ipa3_is_msm_device()) {
+
+		if (strnstr(dbg_buff, "vlan", strlen(dbg_buff))) {
+			if (strnstr(dbg_buff, "eth", strlen(dbg_buff)))
+				ipa3_ctx->vlan_mode_iface[IPA_VLAN_IF_EMAC] =
+				true;
+			if (strnstr(dbg_buff, "rndis", strlen(dbg_buff)))
+				ipa3_ctx->vlan_mode_iface[IPA_VLAN_IF_RNDIS] =
+				true;
+			if (strnstr(dbg_buff, "ecm", strlen(dbg_buff)))
+				ipa3_ctx->vlan_mode_iface[IPA_VLAN_IF_ECM] =
+				true;
+
+			/*
+			 * when vlan mode is passed to our dev we expect
+			 * another write
+			 */
+			return count;
+		}
+
 		if (!strcasecmp(dbg_buff, "MHI")) {
 			ipa3_ctx->ipa_config_is_mhi = true;
 			pr_info(
-			"IPA is loading with MHI configuration\n");
-		} else {
+				"IPA is loading with MHI configuration\n");
+		} else if (!strcmp(dbg_buff, "1\n")) {
 			pr_info(
-			"IPA is loading with non MHI configuration\n");
+				"IPA is loading with non MHI configuration\n");
+		} else {
+			IPAERR("got invalid string %s not loading FW\n",
+				dbg_buff);
+			return count;
 		}
 	}
 

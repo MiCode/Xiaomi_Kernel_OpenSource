@@ -819,13 +819,17 @@ struct ipa_flt_rule {
  * IPA_HDR_L2_NONE: L2 header which isn't Ethernet II and isn't 802_3
  * IPA_HDR_L2_ETHERNET_II: L2 header of type Ethernet II
  * IPA_HDR_L2_802_3: L2 header of type 802_3
+ * IPA_HDR_L2_802_1Q: L2 header of type 802_1Q
  */
 enum ipa_hdr_l2_type {
 	IPA_HDR_L2_NONE,
 	IPA_HDR_L2_ETHERNET_II,
 	IPA_HDR_L2_802_3,
+	IPA_HDR_L2_802_1Q,
 };
-#define IPA_HDR_L2_MAX (IPA_HDR_L2_802_3 + 1)
+#define IPA_HDR_L2_MAX (IPA_HDR_L2_802_1Q + 1)
+
+#define IPA_HDR_L2_802_1Q IPA_HDR_L2_802_1Q
 
 /**
  * enum ipa_hdr_l2_type - Processing context type
