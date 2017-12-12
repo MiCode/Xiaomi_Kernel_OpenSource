@@ -669,6 +669,14 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 	if (sde_kms->splash_data.cont_splash_en) {
 		SDE_DEBUG("Disabling cont_splash feature\n");
 		sde_kms->splash_data.cont_splash_en = false;
+
+		for (i = 0; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++)
+			sde_power_data_bus_set_quota(&priv->phandle,
+				sde_kms->core_client,
+				SDE_POWER_HANDLE_DATA_BUS_CLIENT_RT, i,
+				SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA,
+				SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA);
+
 		sde_power_resource_enable(&priv->phandle,
 				sde_kms->core_client, false);
 		SDE_DEBUG("removing Vote for MDP Resources\n");
@@ -2709,6 +2717,13 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		SDE_ERROR("resource enable failed: %d\n", rc);
 		goto error;
 	}
+
+	for (i = 0; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++)
+		sde_power_data_bus_set_quota(&priv->phandle,
+			sde_kms->core_client,
+			SDE_POWER_HANDLE_DATA_BUS_CLIENT_RT, i,
+			SDE_POWER_HANDLE_CONT_SPLASH_BUS_AB_QUOTA,
+			SDE_POWER_HANDLE_CONT_SPLASH_BUS_IB_QUOTA);
 
 	_sde_kms_core_hw_rev_init(sde_kms);
 

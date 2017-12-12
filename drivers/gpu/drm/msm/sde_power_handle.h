@@ -22,6 +22,9 @@
 #define SDE_POWER_HANDLE_ENABLE_NRT_BUS_IB_QUOTA	0
 #define SDE_POWER_HANDLE_DISABLE_BUS_IB_QUOTA	0
 
+#define SDE_POWER_HANDLE_CONT_SPLASH_BUS_IB_QUOTA	1800000000
+#define SDE_POWER_HANDLE_CONT_SPLASH_BUS_AB_QUOTA	1800000000
+
 #include <linux/sde_io_util.h>
 
 /* event will be triggered before power handler disable */
