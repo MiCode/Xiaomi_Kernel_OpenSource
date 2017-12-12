@@ -117,11 +117,11 @@ static inline uint64_t buf_page_offset(uint64_t buf)
 	return offset;
 }
 
-static inline int buf_num_pages(uint64_t buf, ssize_t len)
+static inline uint64_t buf_num_pages(uint64_t buf, size_t len)
 {
 	uint64_t start = buf_page_start(buf) >> PAGE_SHIFT;
 	uint64_t end = (((uint64_t) buf + len - 1) & PAGE_MASK) >> PAGE_SHIFT;
-	int nPages = end - start + 1;
+	uint64_t nPages = end - start + 1;
 	return nPages;
 }
 
@@ -153,7 +153,7 @@ struct fastrpc_buf {
 	struct fastrpc_file *fl;
 	void *virt;
 	uint64_t phys;
-	ssize_t size;
+	size_t size;
 };
 
 struct fastrpc_ctx_lst;
@@ -179,7 +179,7 @@ struct smq_invoke_ctx {
 	unsigned int *attrs;
 	struct fastrpc_mmap **maps;
 	struct fastrpc_buf *buf;
-	ssize_t used;
+	size_t used;
 	struct fastrpc_file *fl;
 	uint32_t sc;
 	struct overlap *overs;
@@ -268,9 +268,9 @@ struct fastrpc_mmap {
 	struct dma_buf_attachment *attach;
 	struct ion_handle *handle;
 	uint64_t phys;
-	ssize_t size;
-	uintptr_t __user va;
-	ssize_t len;
+	size_t size;
+	uintptr_t va;
+	size_t len;
 	int refs;
 	uintptr_t raddr;
 	int uncached;
@@ -424,12 +424,15 @@ static void fastrpc_mmap_add(struct fastrpc_mmap *map)
 }
 
 static int fastrpc_mmap_find(struct fastrpc_file *fl, int fd,
-		uintptr_t __user va, ssize_t len, int mflags, int refs,
+		uintptr_t va, size_t len, int mflags, int refs,
 		struct fastrpc_mmap **ppmap)
 {
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_mmap *match = NULL, *map = NULL;
 	struct hlist_node *n;
+
+	if ((va + len) < va)
+		return -EOVERFLOW;
 	if (mflags == ADSP_MMAP_HEAP_ADDR ||
 				 mflags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
 		spin_lock(&me->hlock);
@@ -465,7 +468,7 @@ static int fastrpc_mmap_find(struct fastrpc_file *fl, int fd,
 	return -ENOTTY;
 }
 
-static int dma_alloc_memory(phys_addr_t *region_start, ssize_t size)
+static int dma_alloc_memory(phys_addr_t *region_start, size_t size)
 {
 	struct fastrpc_apps *me = &gfa;
 	void *vaddr = NULL;
@@ -484,7 +487,7 @@ static int dma_alloc_memory(phys_addr_t *region_start, ssize_t size)
 }
 
 static int fastrpc_mmap_remove(struct fastrpc_file *fl, uintptr_t va,
-			       ssize_t len, struct fastrpc_mmap **ppmap)
+			       size_t len, struct fastrpc_mmap **ppmap)
 {
 	struct fastrpc_mmap *match = NULL, *map;
 	struct hlist_node *n;
@@ -603,7 +606,7 @@ static int fastrpc_session_alloc(struct fastrpc_channel_ctx *chan, int secure,
 					struct fastrpc_session_ctx **session);
 
 static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
-	unsigned int attr, uintptr_t __user va, ssize_t len, int mflags,
+	unsigned int attr, uintptr_t va, size_t len, int mflags,
 	struct fastrpc_mmap **ppmap)
 {
 	struct fastrpc_apps *me = &gfa;
@@ -638,7 +641,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 			goto bail;
 		map->phys = (uintptr_t)region_start;
 		map->size = len;
-		map->va = (uintptr_t __user)map->phys;
+		map->va = (uintptr_t)map->phys;
 	} else {
 		if (map->attr && (map->attr & FASTRPC_ATTR_KEEP_MAP)) {
 			pr_info("adsprpc: buffer mapped with persist attr %x\n",
@@ -740,7 +743,7 @@ bail:
 	return err;
 }
 
-static int fastrpc_buf_alloc(struct fastrpc_file *fl, ssize_t size,
+static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 			     struct fastrpc_buf **obuf)
 {
 	int err = 0, vmid;
@@ -1118,7 +1121,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	int outbufs = REMOTE_SCALARS_OUTBUFS(sc);
 	int handles, bufs = inbufs + outbufs;
 	uintptr_t args;
-	ssize_t rlen = 0, copylen = 0, metalen = 0;
+	size_t rlen = 0, copylen = 0, metalen = 0;
 	int i, oix;
 	int err = 0;
 	int mflags = 0;
@@ -1132,8 +1135,8 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	ipage = pages;
 
 	for (i = 0; i < bufs; ++i) {
-		uintptr_t __user buf = (uintptr_t __user)lpra[i].buf.pv;
-		ssize_t len = lpra[i].buf.len;
+		uintptr_t buf = (uintptr_t)lpra[i].buf.pv;
+		size_t len = lpra[i].buf.len;
 
 		if (ctx->fds[i] && (ctx->fds[i] != -1))
 			fastrpc_mmap_create(ctx->fl, ctx->fds[i],
@@ -1149,14 +1152,14 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			goto bail;
 		ipage += 1;
 	}
-	metalen = copylen = (ssize_t)&ipage[0] + (sizeof(uint64_t) * M_FDLIST) +
+	metalen = copylen = (size_t)&ipage[0] + (sizeof(uint64_t) * M_FDLIST) +
 				 (sizeof(uint32_t) * M_CRCLIST);
 
 	/* calculate len requreed for copying */
 	for (oix = 0; oix < inbufs + outbufs; ++oix) {
 		int i = ctx->overps[oix]->raix;
 		uintptr_t mstart, mend;
-		ssize_t len = lpra[i].buf.len;
+		size_t len = lpra[i].buf.len;
 
 		if (!len)
 			continue;
@@ -1206,7 +1209,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	for (i = 0; rpra && i < inbufs + outbufs; ++i) {
 		struct fastrpc_mmap *map = ctx->maps[i];
 		uint64_t buf = ptr_to_uint64(lpra[i].buf.pv);
-		ssize_t len = lpra[i].buf.len;
+		size_t len = lpra[i].buf.len;
 
 		rpra[i].buf.pv = 0;
 		rpra[i].buf.len = len;
@@ -1215,7 +1218,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		if (map) {
 			struct vm_area_struct *vma;
 			uintptr_t offset;
-			int num = buf_num_pages(buf, len);
+			uint64_t num = buf_num_pages(buf, len);
 			int idx = list[i].pgidx;
 
 			if (map->attr & FASTRPC_ATTR_NOVA) {
@@ -1258,9 +1261,9 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	for (oix = 0; oix < inbufs + outbufs; ++oix) {
 		int i = ctx->overps[oix]->raix;
 		struct fastrpc_mmap *map = ctx->maps[i];
-		ssize_t mlen;
+		size_t mlen;
 		uint64_t buf;
-		ssize_t len = lpra[i].buf.len;
+		size_t len = lpra[i].buf.len;
 
 		if (!len)
 			continue;
@@ -1647,9 +1650,9 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		int mflags = 0;
 		struct {
 			int pgid;
-			int namelen;
-			int filelen;
-			int pageslen;
+			unsigned int namelen;
+			unsigned int filelen;
+			unsigned int pageslen;
 			int attrs;
 			int siglen;
 		} inbuf;
@@ -1658,14 +1661,15 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		inbuf.namelen = strlen(current->comm) + 1;
 		inbuf.filelen = init->filelen;
 		fl->pd = 1;
+
 		if (init->filelen) {
 			VERIFY(err, !fastrpc_mmap_create(fl, init->filefd, 0,
 				init->file, init->filelen, mflags, &file));
 			if (err)
 				goto bail;
 		}
-
 		inbuf.pageslen = 1;
+
 		VERIFY(err, !fastrpc_mmap_create(fl, init->memfd, 0,
 				init->mem, init->memlen, mflags, &mem));
 		if (err)
@@ -1714,12 +1718,12 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 	} else if (init->flags == FASTRPC_INIT_CREATE_STATIC) {
 		remote_arg_t ra[3];
 		uint64_t phys = 0;
-		ssize_t size = 0;
+		size_t size = 0;
 		int fds[3];
 		struct {
 			int pgid;
-			int namelen;
-			int pageslen;
+			unsigned int namelen;
+			unsigned int pageslen;
 		} inbuf;
 
 		if (!init->filelen)
@@ -1961,7 +1965,7 @@ static int fastrpc_munmap_on_dsp(struct fastrpc_file *fl,
 	struct {
 		int pid;
 		uintptr_t vaddrout;
-		ssize_t size;
+		size_t size;
 	} inargs;
 
 	inargs.pid = fl->tgid;
@@ -2040,7 +2044,7 @@ bail:
 }
 
 static int fastrpc_mmap_remove(struct fastrpc_file *fl, uintptr_t va,
-			     ssize_t len, struct fastrpc_mmap **ppmap);
+			     size_t len, struct fastrpc_mmap **ppmap);
 
 static void fastrpc_mmap_add(struct fastrpc_mmap *map);
 
@@ -2093,12 +2097,12 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 	struct fastrpc_mmap *map = NULL;
 	int err = 0;
 
-	if (!fastrpc_mmap_find(fl, ud->fd, (uintptr_t __user)ud->vaddrin,
+	if (!fastrpc_mmap_find(fl, ud->fd, (uintptr_t)ud->vaddrin,
 			 ud->size, ud->flags, 1, &map))
 		return 0;
 
 	VERIFY(err, !fastrpc_mmap_create(fl, ud->fd, 0,
-			(uintptr_t __user)ud->vaddrin, ud->size,
+			(uintptr_t)ud->vaddrin, ud->size,
 			 ud->flags, &map));
 	if (err)
 		goto bail;
