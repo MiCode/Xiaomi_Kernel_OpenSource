@@ -1,0 +1,14 @@
+QTI Virtual Clock Frontend Binding
+------------------------------------------------
+
+Required properties :
+- compatible : shall contain:
+		"qcom,virtclk-frontend-8996"
+
+- #clock-cells : shall contain 1
+
+Example:
+	virtclk-frontend@0 {
+		compatible = "qcom,virtclk-frontend-8996";
+		#clock-cells = <1>;
+	};
