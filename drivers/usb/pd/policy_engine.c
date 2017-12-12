@@ -1140,14 +1140,13 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 	case PE_SRC_READY:
 		pd->in_explicit_contract = true;
-		if (pd->current_dr == DR_DFP) {
-			/* don't start USB host until after SVDM discovery */
-			if (pd->vdm_state == VDM_NONE)
-				usbpd_send_svdm(pd, USBPD_SID,
-						USBPD_SVDM_DISCOVER_IDENTITY,
-						SVDM_CMD_TYPE_INITIATOR, 0,
-						NULL, 0);
-		}
+
+		if (pd->vdm_tx)
+			kick_sm(pd, 0);
+		else if (pd->current_dr == DR_DFP && pd->vdm_state == VDM_NONE)
+			usbpd_send_svdm(pd, USBPD_SID,
+					USBPD_SVDM_DISCOVER_IDENTITY,
+					SVDM_CMD_TYPE_INITIATOR, 0, NULL, 0);
 
 		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 		complete(&pd->is_ready);
@@ -1282,6 +1281,14 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 	case PE_SNK_READY:
 		pd->in_explicit_contract = true;
+
+		if (pd->vdm_tx)
+			kick_sm(pd, 0);
+		else if (pd->current_dr == DR_DFP && pd->vdm_state == VDM_NONE)
+			usbpd_send_svdm(pd, USBPD_SID,
+					USBPD_SVDM_DISCOVER_IDENTITY,
+					SVDM_CMD_TYPE_INITIATOR, 0, NULL, 0);
+
 		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 		complete(&pd->is_ready);
 		dual_role_instance_changed(pd->dual_role);
