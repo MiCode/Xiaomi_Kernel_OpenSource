@@ -374,6 +374,8 @@
 	qcom,mdm-statusline-not-a-powersource;
 	qcom,mdm-userspace-handle-shutdown;
 	qcom,pil-force-shutdown;
+	qcom,shutdown-timeout-ms = <30000>;
+	qcom,reset-time-ms = <16203>;
 	status = "okay";
 };
 
