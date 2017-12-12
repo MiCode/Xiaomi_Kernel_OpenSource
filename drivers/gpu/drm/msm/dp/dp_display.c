@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,17 +87,23 @@ struct dp_display_private {
 
 	struct workqueue_struct *wq;
 	struct delayed_work hdcp_cb_work;
-	struct work_struct connect_work;
+	struct delayed_work connect_work;
 	struct work_struct attention_work;
 	struct mutex hdcp_mutex;
 	struct mutex session_lock;
 	int hdcp_status;
+	unsigned long audio_status;
 };
 
 static const struct of_device_id dp_dt_match[] = {
 	{.compatible = "qcom,dp-display"},
 	{}
 };
+
+static bool dp_display_framework_ready(struct dp_display_private *dp)
+{
+	return dp->dp_display.post_open ? false : true;
+}
 
 static inline bool dp_display_is_hdcp_enabled(struct dp_display_private *dp)
 {
@@ -448,31 +454,30 @@ static void dp_display_post_open(struct dp_display *dp_display)
 	}
 
 	/* if cable is already connected, send notification */
-	if (dp_display->is_connected)
-		dp_display_send_hpd_event(dp);
+	if (dp->usbpd->hpd_high)
+		queue_delayed_work(dp->wq, &dp->connect_work, HZ * 10);
 	else
 		dp_display->post_open = NULL;
-
 }
 
 static int dp_display_send_hpd_notification(struct dp_display_private *dp,
 		bool hpd)
 {
+	u32 timeout_sec;
+
 	dp->dp_display.is_connected = hpd;
 
-	/* in case, framework is not yet up, don't notify hpd */
-	if (dp->dp_display.post_open)
-		return 0;
+	if  (dp_display_framework_ready(dp))
+		timeout_sec = 5;
+	else
+		timeout_sec = 10;
 
 	reinit_completion(&dp->notification_comp);
 	dp_display_send_hpd_event(dp);
 
-	if (!wait_for_completion_timeout(&dp->notification_comp, HZ * 5)) {
+	if (!wait_for_completion_timeout(&dp->notification_comp,
+						HZ * timeout_sec)) {
 		pr_warn("%s timeout\n", hpd ? "connect" : "disconnect");
-		/* cancel any pending request */
-		dp->ctrl->abort(dp->ctrl);
-		dp->aux->abort(dp->aux);
-
 		return -EINVAL;
 	}
 
@@ -572,6 +577,8 @@ static int dp_display_process_hpd_low(struct dp_display_private *dp)
 	if (dp->audio_supported)
 		dp->audio->off(dp->audio);
 
+	dp->audio_status = -ENODEV;
+
 	rc = dp_display_send_hpd_notification(dp, false);
 
 	dp->aux->deinit(dp->aux);
@@ -601,8 +608,9 @@ static int dp_display_usbpd_configure_cb(struct device *dev)
 
 	dp_display_host_init(dp);
 
-	if (dp->usbpd->hpd_high)
-		queue_work(dp->wq, &dp->connect_work);
+	/* check for hpd high and framework ready */
+	if  (dp->usbpd->hpd_high && dp_display_framework_ready(dp))
+		queue_delayed_work(dp->wq, &dp->connect_work, 0);
 end:
 	return rc;
 }
@@ -666,6 +674,7 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 	dp->aux->abort(dp->aux);
 
 	/* wait for idle state */
+	cancel_delayed_work(&dp->connect_work);
 	flush_workqueue(dp->wq);
 
 	dp_display_handle_disconnect(dp);
@@ -677,13 +686,13 @@ static void dp_display_handle_maintenance_req(struct dp_display_private *dp)
 {
 	mutex_lock(&dp->audio->ops_lock);
 
-	if (dp->audio_supported)
+	if (dp->audio_supported && !IS_ERR_VALUE(dp->audio_status))
 		dp->audio->off(dp->audio);
 
 	dp->ctrl->link_maintenance(dp->ctrl);
 
-	if (dp->audio_supported)
-		dp->audio->on(dp->audio);
+	if (dp->audio_supported && !IS_ERR_VALUE(dp->audio_status))
+		dp->audio_status = dp->audio->on(dp->audio);
 
 	mutex_unlock(&dp->audio->ops_lock);
 }
@@ -706,7 +715,7 @@ static void dp_display_attention_work(struct work_struct *work)
 			return;
 		}
 
-		queue_work(dp->wq, &dp->connect_work);
+		queue_delayed_work(dp->wq, &dp->connect_work, 0);
 		return;
 	}
 
@@ -756,13 +765,14 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 		dp->link->process_request(dp->link);
 		queue_work(dp->wq, &dp->attention_work);
 	} else if (dp->usbpd->hpd_high) {
-		queue_work(dp->wq, &dp->connect_work);
+		queue_delayed_work(dp->wq, &dp->connect_work, 0);
 	} else {
 		/* cancel any pending request */
 		dp->ctrl->abort(dp->ctrl);
 		dp->aux->abort(dp->aux);
 
 		/* wait for idle state */
+		cancel_delayed_work(&dp->connect_work);
 		flush_workqueue(dp->wq);
 
 		dp_display_handle_disconnect(dp);
@@ -773,7 +783,8 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 
 static void dp_display_connect_work(struct work_struct *work)
 {
-	struct dp_display_private *dp = container_of(work,
+	struct delayed_work *dw = to_delayed_work(work);
+	struct dp_display_private *dp = container_of(dw,
 			struct dp_display_private, connect_work);
 
 	if (dp->dp_display.is_connected) {
@@ -1069,7 +1080,7 @@ static int dp_display_post_enable(struct dp_display *dp_display)
 	if (dp->audio_supported) {
 		dp->audio->bw_code = dp->link->link_params.bw_code;
 		dp->audio->lane_count = dp->link->link_params.lane_count;
-		dp->audio->on(dp->audio);
+		dp->audio_status = dp->audio->on(dp->audio);
 	}
 
 	dp_display_update_hdcp_info(dp);
@@ -1280,7 +1291,7 @@ static int dp_display_create_workqueue(struct dp_display_private *dp)
 	}
 
 	INIT_DELAYED_WORK(&dp->hdcp_cb_work, dp_display_hdcp_cb_work);
-	INIT_WORK(&dp->connect_work, dp_display_connect_work);
+	INIT_DELAYED_WORK(&dp->connect_work, dp_display_connect_work);
 	INIT_WORK(&dp->attention_work, dp_display_attention_work);
 
 	return 0;
@@ -1307,6 +1318,7 @@ static int dp_display_probe(struct platform_device *pdev)
 
 	dp->pdev = pdev;
 	dp->name = "drm_dp";
+	dp->audio_status = -ENODEV;
 
 	rc = dp_display_create_workqueue(dp);
 	if (rc) {
