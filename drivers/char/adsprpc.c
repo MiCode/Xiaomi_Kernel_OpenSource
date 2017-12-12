@@ -468,17 +468,16 @@ static int fastrpc_mmap_find(struct fastrpc_file *fl, int fd,
 	return -ENOTTY;
 }
 
-static int dma_alloc_memory(phys_addr_t *region_start, size_t size)
+static int dma_alloc_memory(dma_addr_t *region_phys, void **vaddr, size_t size)
 {
 	struct fastrpc_apps *me = &gfa;
-	void *vaddr = NULL;
 
 	if (me->dev == NULL) {
 		pr_err("device adsprpc-mem is not initialized\n");
 		return -ENODEV;
 	}
-	vaddr = dma_alloc_coherent(me->dev, size, region_start, GFP_KERNEL);
-	if (!vaddr) {
+	*vaddr = dma_alloc_coherent(me->dev, size, region_phys, GFP_KERNEL);
+	if (!*vaddr) {
 		pr_err("ADSPRPC: Failed to allocate %x remote heap memory\n",
 						(unsigned int)size);
 		return -ENOMEM;
@@ -563,7 +562,7 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 		}
 		if (map->phys) {
 			dma_free_coherent(me->dev, map->size,
-					&(map->va), map->phys);
+				(void *)map->va, (dma_addr_t)map->phys);
 		}
 	} else {
 		int destVM[1] = {VMID_HLOS};
@@ -616,7 +615,8 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 	struct fastrpc_channel_ctx *chan = &apps->channel[cid];
 	struct fastrpc_mmap *map = NULL;
 	unsigned long attrs;
-	phys_addr_t region_start = 0;
+	dma_addr_t region_phys = 0;
+	void *region_vaddr = NULL;
 	unsigned long flags;
 	int err = 0, vmid;
 
@@ -636,12 +636,13 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 				mflags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
 		map->apps = me;
 		map->fl = NULL;
-		VERIFY(err, !dma_alloc_memory(&region_start, len));
+		VERIFY(err, !dma_alloc_memory(&region_phys, &region_vaddr,
+						 len));
 		if (err)
 			goto bail;
-		map->phys = (uintptr_t)region_start;
+		map->phys = (uintptr_t)region_phys;
 		map->size = len;
-		map->va = (uintptr_t)map->phys;
+		map->va = (uintptr_t)region_vaddr;
 	} else {
 		if (map->attr && (map->attr & FASTRPC_ATTR_KEEP_MAP)) {
 			pr_info("adsprpc: buffer mapped with persist attr %x\n",
@@ -1662,6 +1663,10 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		inbuf.filelen = init->filelen;
 		fl->pd = 1;
 
+		VERIFY(err, access_ok(0, (void __user *)init->file,
+			init->filelen));
+		if (err)
+			goto bail;
 		if (init->filelen) {
 			VERIFY(err, !fastrpc_mmap_create(fl, init->filefd, 0,
 				init->file, init->filelen, mflags, &file));
@@ -1669,7 +1674,10 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 				goto bail;
 		}
 		inbuf.pageslen = 1;
-
+		VERIFY(err, access_ok(1, (void __user *)init->mem,
+			init->memlen));
+		if (err)
+			goto bail;
 		VERIFY(err, !fastrpc_mmap_create(fl, init->memfd, 0,
 				init->mem, init->memlen, mflags, &mem));
 		if (err)
