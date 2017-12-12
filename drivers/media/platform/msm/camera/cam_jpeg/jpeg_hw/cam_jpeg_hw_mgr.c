@@ -556,6 +556,7 @@ static int cam_jpeg_mgr_config_hw(void *hw_mgr_priv, void *config_hw_args)
 	p_cfg_req->dev_type = ctx_data->jpeg_dev_acquire_info.dev_type;
 
 	request_id = (uint64_t)config_args->priv;
+	p_cfg_req->req_id = request_id;
 	hw_update_entries = config_args->hw_update_entries;
 	CAM_DBG(CAM_JPEG, "ctx_data = %pK req_id = %lld %lld",
 		ctx_data, request_id, (uint64_t)config_args->priv);
@@ -779,9 +780,88 @@ static int cam_jpeg_mgr_flush(void *hw_mgr_priv,
 			hw_cfg_args.ctxt_to_hw_map != ctx_data)
 			continue;
 
-		CAM_INFO(CAM_JPEG, "deleting req %pK", cfg_req);
 		list_del_init(&cfg_req->list);
 	}
+
+	return rc;
+}
+
+
+static int cam_jpeg_mgr_flush_req(void *hw_mgr_priv,
+	struct cam_jpeg_hw_ctx_data *ctx_data,
+	struct cam_hw_flush_args *flush_args)
+{
+	struct cam_jpeg_hw_mgr *hw_mgr = hw_mgr_priv;
+	struct cam_jpeg_hw_cfg_req *cfg_req, *req_temp;
+	int64_t request_id;
+
+	if (!hw_mgr || !ctx_data || !flush_args) {
+		CAM_ERR(CAM_JPEG, "Invalid args");
+		return -EINVAL;
+	}
+
+	request_id = *(int64_t *)flush_args->flush_req_pending[0];
+	list_for_each_entry_safe(cfg_req, req_temp,
+		&hw_mgr->hw_config_req_list, list) {
+		if (cfg_req->hw_cfg_args.ctxt_to_hw_map
+			!= ctx_data)
+			continue;
+
+		if (cfg_req->req_id != request_id)
+			continue;
+
+		list_del_init(&cfg_req->list);
+	}
+
+	return 0;
+}
+
+static int cam_jpeg_mgr_hw_flush(void *hw_mgr_priv, void *flush_hw_args)
+{
+	int rc = 0;
+	struct cam_hw_flush_args *flush_args = flush_hw_args;
+	struct cam_jpeg_hw_mgr *hw_mgr = hw_mgr_priv;
+	struct cam_jpeg_hw_ctx_data *ctx_data = NULL;
+
+	if (!hw_mgr || !flush_args || !flush_args->ctxt_to_hw_map) {
+		CAM_ERR(CAM_JPEG, "Invalid args");
+		return -EINVAL;
+	}
+	mutex_lock(&hw_mgr->hw_mgr_mutex);
+
+	ctx_data = (struct cam_jpeg_hw_ctx_data *)flush_args->ctxt_to_hw_map;
+	if (!ctx_data->in_use) {
+		CAM_ERR(CAM_JPEG, "ctx is not in use");
+		mutex_unlock(&hw_mgr->hw_mgr_mutex);
+		return -EINVAL;
+	}
+
+	if ((flush_args->flush_type >= CAM_FLUSH_TYPE_MAX) ||
+		(flush_args->flush_type < CAM_FLUSH_TYPE_REQ)) {
+		CAM_ERR(CAM_JPEG, "Invalid flush type: %d",
+			flush_args->flush_type);
+		mutex_unlock(&hw_mgr->hw_mgr_mutex);
+		return -EINVAL;
+	}
+
+	switch (flush_args->flush_type) {
+	case CAM_FLUSH_TYPE_ALL:
+		rc = cam_jpeg_mgr_flush(hw_mgr_priv, ctx_data);
+		if ((rc))
+			CAM_ERR(CAM_JPEG, "Flush failed %d", rc);
+		break;
+	case CAM_FLUSH_TYPE_REQ:
+		rc = cam_jpeg_mgr_flush_req(hw_mgr_priv, ctx_data, flush_args);
+		CAM_ERR(CAM_JPEG, "Flush per request is not supported");
+		break;
+	default:
+		CAM_ERR(CAM_JPEG, "Invalid flush type: %d",
+			flush_args->flush_type);
+		mutex_unlock(&hw_mgr->hw_mgr_mutex);
+		return -EINVAL;
+	}
+
+	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
 	return rc;
 }
@@ -1281,6 +1361,7 @@ int cam_jpeg_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl)
 	hw_mgr_intf->hw_release = cam_jpeg_mgr_release_hw;
 	hw_mgr_intf->hw_prepare_update = cam_jpeg_mgr_prepare_hw_update;
 	hw_mgr_intf->hw_config = cam_jpeg_mgr_config_hw;
+	hw_mgr_intf->hw_flush = cam_jpeg_mgr_hw_flush;
 	hw_mgr_intf->hw_stop = cam_jpeg_mgr_hw_stop;
 
 	mutex_init(&g_jpeg_hw_mgr.hw_mgr_mutex);

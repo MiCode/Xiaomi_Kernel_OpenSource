@@ -1118,6 +1118,17 @@ static int cam_icp_mgr_cleanup_ctx(struct cam_icp_hw_ctx_data *ctx_data)
 		clear_bit(i, ctx_data->hfi_frame_process.bitmap);
 	}
 
+	for (i = 0; i < CAM_FRAME_CMD_MAX; i++) {
+		if (!hfi_frame_process->in_free_resource[i])
+			continue;
+
+		CAM_INFO(CAM_ICP, "Delete merged sync in object: %d",
+			ctx_data->hfi_frame_process.in_free_resource[i]);
+		cam_sync_destroy(
+			ctx_data->hfi_frame_process.in_free_resource[i]);
+		ctx_data->hfi_frame_process.in_resource[i] = 0;
+	}
+
 	return 0;
 }
 
@@ -1945,7 +1956,7 @@ static int cam_icp_mgr_abort_handle(
 			msecs_to_jiffies((timeout)));
 	if (!rem_jiffies) {
 		rc = -ETIMEDOUT;
-		CAM_DBG(CAM_ICP, "FW timeout/err in abort handle command");
+		CAM_ERR(CAM_ICP, "FW timeout/err in abort handle command");
 	}
 
 	kfree(abort_cmd);
@@ -2828,6 +2839,175 @@ static int cam_icp_mgr_send_abort_status(struct cam_icp_hw_ctx_data *ctx_data)
 		clear_bit(idx, ctx_data->hfi_frame_process.bitmap);
 	}
 	mutex_unlock(&ctx_data->ctx_mutex);
+	return 0;
+}
+
+static int cam_icp_mgr_delete_sync(void *priv, void *data)
+{
+	struct hfi_cmd_work_data *task_data = NULL;
+	struct cam_icp_hw_ctx_data *ctx_data;
+	struct hfi_frame_process_info *hfi_frame_process;
+	int idx;
+
+	if (!data || !priv) {
+		CAM_ERR(CAM_ICP, "Invalid params%pK %pK", data, priv);
+		return -EINVAL;
+	}
+
+	task_data = (struct hfi_cmd_work_data *)data;
+	ctx_data = task_data->data;
+
+	if (!ctx_data) {
+		CAM_ERR(CAM_ICP, "Null Context");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ctx_data->ctx_mutex);
+	hfi_frame_process = &ctx_data->hfi_frame_process;
+	for (idx = 0; idx < CAM_FRAME_CMD_MAX; idx++) {
+		if (!hfi_frame_process->in_free_resource[idx])
+			continue;
+		//cam_sync_destroy(
+			//ctx_data->hfi_frame_process.in_free_resource[idx]);
+		ctx_data->hfi_frame_process.in_resource[idx] = 0;
+	}
+	mutex_unlock(&ctx_data->ctx_mutex);
+	return 0;
+}
+
+static int cam_icp_mgr_delete_sync_obj(struct cam_icp_hw_ctx_data *ctx_data)
+{
+	int rc = 0;
+	struct crm_workq_task *task;
+	struct hfi_cmd_work_data *task_data;
+
+	task = cam_req_mgr_workq_get_task(icp_hw_mgr.cmd_work);
+	if (!task) {
+		CAM_ERR(CAM_ICP, "no empty task");
+		return -ENOMEM;
+	}
+
+	task_data = (struct hfi_cmd_work_data *)task->payload;
+	task_data->data = (void *)ctx_data;
+	task_data->request_id = 0;
+	task_data->type = ICP_WORKQ_TASK_CMD_TYPE;
+	task->process_cb = cam_icp_mgr_delete_sync;
+	rc = cam_req_mgr_workq_enqueue_task(task, &icp_hw_mgr,
+		CRM_TASK_PRIORITY_0);
+
+	return rc;
+}
+
+static int cam_icp_mgr_flush_all(struct cam_icp_hw_ctx_data *ctx_data,
+	struct cam_hw_flush_args *flush_args)
+{
+	struct hfi_frame_process_info *hfi_frame_process;
+	int idx;
+	bool clear_in_resource = false;
+
+	hfi_frame_process = &ctx_data->hfi_frame_process;
+	for (idx = 0; idx < CAM_FRAME_CMD_MAX; idx++) {
+		if (!hfi_frame_process->request_id[idx])
+			continue;
+
+		/* now release memory for hfi frame process command */
+		hfi_frame_process->request_id[idx] = 0;
+		if (ctx_data->hfi_frame_process.in_resource[idx] > 0) {
+			ctx_data->hfi_frame_process.in_free_resource[idx] =
+				ctx_data->hfi_frame_process.in_resource[idx];
+			ctx_data->hfi_frame_process.in_resource[idx] = 0;
+		}
+		clear_bit(idx, ctx_data->hfi_frame_process.bitmap);
+		clear_in_resource = true;
+	}
+
+	if (clear_in_resource)
+		cam_icp_mgr_delete_sync_obj(ctx_data);
+
+	return 0;
+}
+
+static int cam_icp_mgr_flush_req(struct cam_icp_hw_ctx_data *ctx_data,
+	struct cam_hw_flush_args *flush_args)
+{
+	int64_t request_id;
+	struct hfi_frame_process_info *hfi_frame_process;
+	int idx;
+	bool clear_in_resource = false;
+
+	hfi_frame_process = &ctx_data->hfi_frame_process;
+	request_id = *(int64_t *)flush_args->flush_req_pending[0];
+	for (idx = 0; idx < CAM_FRAME_CMD_MAX; idx++) {
+		if (!hfi_frame_process->request_id[idx])
+			continue;
+
+		if (hfi_frame_process->request_id[idx] != request_id)
+			continue;
+
+		/* now release memory for hfi frame process command */
+		hfi_frame_process->request_id[idx] = 0;
+		if (ctx_data->hfi_frame_process.in_resource[idx] > 0) {
+			ctx_data->hfi_frame_process.in_free_resource[idx] =
+				ctx_data->hfi_frame_process.in_resource[idx];
+			ctx_data->hfi_frame_process.in_resource[idx] = 0;
+		}
+		clear_bit(idx, ctx_data->hfi_frame_process.bitmap);
+		clear_in_resource = true;
+	}
+
+	if (clear_in_resource)
+		cam_icp_mgr_delete_sync_obj(ctx_data);
+
+	return 0;
+}
+
+static int cam_icp_mgr_hw_flush(void *hw_priv, void *hw_flush_args)
+{
+	struct cam_hw_flush_args *flush_args = hw_flush_args;
+	struct cam_icp_hw_ctx_data *ctx_data;
+
+	if ((!hw_priv) || (!hw_flush_args)) {
+		CAM_ERR(CAM_ICP, "Input params are Null:");
+		return -EINVAL;
+	}
+
+	ctx_data = flush_args->ctxt_to_hw_map;
+	if (!ctx_data) {
+		CAM_ERR(CAM_ICP, "Ctx data is NULL");
+		return -EINVAL;
+	}
+
+	if ((flush_args->flush_type >= CAM_FLUSH_TYPE_MAX) ||
+		(flush_args->flush_type < CAM_FLUSH_TYPE_REQ)) {
+		CAM_ERR(CAM_ICP, "Invalid lush type: %d",
+			flush_args->flush_type);
+		return -EINVAL;
+	}
+
+	switch (flush_args->flush_type) {
+	case CAM_FLUSH_TYPE_ALL:
+		if (flush_args->num_req_active)
+			cam_icp_mgr_abort_handle(ctx_data);
+		mutex_lock(&ctx_data->ctx_mutex);
+		cam_icp_mgr_flush_all(ctx_data, flush_args);
+		mutex_unlock(&ctx_data->ctx_mutex);
+		break;
+	case CAM_FLUSH_TYPE_REQ:
+		mutex_lock(&ctx_data->ctx_mutex);
+		if (flush_args->num_req_active) {
+			CAM_ERR(CAM_ICP, "Flush request is not supported");
+			mutex_unlock(&ctx_data->ctx_mutex);
+			return -EINVAL;
+		}
+		if (flush_args->num_req_pending)
+			cam_icp_mgr_flush_req(ctx_data, flush_args);
+		mutex_unlock(&ctx_data->ctx_mutex);
+		break;
+	default:
+		CAM_ERR(CAM_ICP, "Invalid flush type: %d",
+			flush_args->flush_type);
+		return -EINVAL;
+	}
 
 	return 0;
 }
@@ -3500,6 +3680,7 @@ int cam_icp_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl)
 	hw_mgr_intf->hw_config = cam_icp_mgr_config_hw;
 	hw_mgr_intf->hw_open = cam_icp_mgr_hw_open;
 	hw_mgr_intf->hw_close = cam_icp_mgr_hw_close;
+	hw_mgr_intf->hw_flush = cam_icp_mgr_hw_flush;
 
 	icp_hw_mgr.secure_mode = CAM_SECURE_MODE_NON_SECURE;
 	mutex_init(&icp_hw_mgr.hw_mgr_mutex);
