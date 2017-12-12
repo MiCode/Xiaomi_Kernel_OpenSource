@@ -18,6 +18,7 @@
 #include "msm8909-pm8916-mtp.dtsi"
 #include "apq8009-audio-external_codec.dtsi"
 #include "apq8009-memory.dtsi"
+#include "apq8009-led-pca9956.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ8009 Excelpoint RefBoard";
