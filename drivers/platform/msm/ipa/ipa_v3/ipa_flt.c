@@ -427,6 +427,8 @@ fail_desc_alloc:
  */
 static bool ipa_flt_skip_pipe_config(int pipe)
 {
+	struct ipa3_ep_context *ep;
+
 	if (ipa_is_modem_pipe(pipe)) {
 		IPADBG_LOW("skip %d - modem owned pipe\n", pipe);
 		return true;
@@ -437,8 +439,11 @@ static bool ipa_flt_skip_pipe_config(int pipe)
 		return true;
 	}
 
+	ep = &ipa3_ctx->ep[pipe];
+
 	if ((ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_PROD) == pipe
-		&& ipa3_ctx->modem_cfg_emb_pipe_flt)) {
+		&& ipa3_ctx->modem_cfg_emb_pipe_flt)
+		&& ep->client == IPA_CLIENT_APPS_WAN_PROD) {
 		IPADBG_LOW("skip %d\n", pipe);
 		return true;
 	}
