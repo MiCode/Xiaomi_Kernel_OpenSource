@@ -106,7 +106,6 @@
 			 regulator-max-microvolt = <1128000>;
 			 qcom,init-voltage = <1128000>;
 			 qcom,init-mode = <RPMH_REGULATOR_MODE_LDO_LPM>;
-			 regulator-always-on;
 		 };
 	};
 
@@ -175,9 +174,9 @@
 		pmxpoorwills_l7: regualtor-pmxpoorwills-l7 {
 			regulator-name = "pmxpoorwills_l7";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <2952000>;
+			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <2952000>;
-			qcom,init-voltage = <2952000>;
+			qcom,init-voltage = <1800000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LDO_LPM>;
 		};
 	};
@@ -193,9 +192,9 @@
 		pmxpoorwills_l8: regualtor-pmxpoorwills-l8 {
 			regulator-name = "pmxpoorwills_l8";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <800000>;
-			regulator-max-microvolt = <800000>;
-			qcom,init-voltage = <800000>;
+			regulator-min-microvolt = <480000>;
+			regulator-max-microvolt = <900000>;
+			qcom,init-voltage = <480000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LDO_LPM>;
 		};
 	};
@@ -257,9 +256,9 @@
 		pmxpoorwills_l11: regualtor-pmxpoorwills-l11 {
 			  regulator-name = "pmxpoorwills_l11";
 			  qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			  regulator-min-microvolt = <1808000>;
-			  regulator-max-microvolt = <1808000>;
-			  qcom,init-voltage = <1808000>;
+			  regulator-min-microvolt = <1704000>;
+			  regulator-max-microvolt = <3000000>;
+			  qcom,init-voltage = <1704000>;
 			  qcom,init-mode = <RPMH_REGULATOR_MODE_LDO_LPM>;
 		  };
 	};
@@ -293,9 +292,9 @@
 		pmxpoorwills_l13: regualtor-pmxpoorwills-l13 {
 			  regulator-name = "pmxpoorwills_l13";
 			  qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			  regulator-min-microvolt = <1808000>;
-			  regulator-max-microvolt = <1808000>;
-			  qcom,init-voltage = <1808000>;
+			  regulator-min-microvolt = <1704000>;
+			  regulator-max-microvolt = <3000000>;
+			  qcom,init-voltage = <1704000>;
 			  qcom,init-mode = <RPMH_REGULATOR_MODE_LDO_LPM>;
 		  };
 	};
@@ -311,9 +310,9 @@
 		pmxpoorwills_l14: regualtor-pmxpoorwills-l14 {
 			  regulator-name = "pmxpoorwills_l14";
 			  qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			  regulator-min-microvolt = <620000>;
-			  regulator-max-microvolt = <620000>;
-			  qcom,init-voltage = <620000>;
+			  regulator-min-microvolt = <600000>;
+			  regulator-max-microvolt = <800000>;
+			  qcom,init-voltage = <600000>;
 			  qcom,init-mode = <RPMH_REGULATOR_MODE_LDO_LPM>;
 		  };
 	};
@@ -329,11 +328,10 @@
 		pmxpoorwills_l16: regualtor-pmxpoorwills-l16 {
 			  regulator-name = "pmxpoorwills_l16";
 			  qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			  regulator-min-microvolt = <752000>;
-			  regulator-max-microvolt = <752000>;
-			  qcom,init-voltage = <752000>;
+			  regulator-min-microvolt = <304000>;
+			  regulator-max-microvolt = <880000>;
+			  qcom,init-voltage = <304000>;
 			  qcom,init-mode = <RPMH_REGULATOR_MODE_LDO_LPM>;
-			  regulator-always-on;
 		  };
 	};
 
