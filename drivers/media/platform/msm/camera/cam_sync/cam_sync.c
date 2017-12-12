@@ -31,6 +31,7 @@ int cam_sync_create(int32_t *sync_obj, const char *name)
 		idx = find_first_zero_bit(sync_dev->bitmap, CAM_SYNC_MAX_OBJS);
 		if (idx >= CAM_SYNC_MAX_OBJS)
 			return -ENOMEM;
+		CAM_DBG(CAM_SYNC, "Index location available at idx: %ld", idx);
 		bit = test_and_set_bit(idx, sync_dev->bitmap);
 	} while (bit);
 
@@ -97,6 +98,8 @@ int cam_sync_register_callback(sync_callback cb_func,
 		INIT_WORK(&sync_cb->cb_dispatch_work,
 			cam_sync_util_cb_dispatch);
 		sync_cb->status = row->state;
+		CAM_DBG(CAM_SYNC, "Callback trigger for sync object:%d",
+			sync_cb->sync_obj);
 		queue_work(sync_dev->work_queue,
 			&sync_cb->cb_dispatch_work);
 
@@ -134,6 +137,8 @@ int cam_sync_deregister_callback(sync_callback cb_func,
 		return -EINVAL;
 	}
 
+	CAM_DBG(CAM_SYNC, "deregistered callback for sync object:%d",
+		sync_obj);
 	list_for_each_entry_safe(sync_cb, temp, &row->callback_list, list) {
 		if (sync_cb->callback_func == cb_func &&
 			sync_cb->cb_data == userdata) {
@@ -202,6 +207,9 @@ int cam_sync_signal(int32_t sync_obj, uint32_t status)
 	rc = cam_sync_util_add_to_signalable_list(sync_obj, status, &sync_list);
 	if (rc < 0) {
 		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
+		CAM_ERR(CAM_SYNC,
+			"Error: Unable to add sync object :%d to signalable list",
+			sync_obj);
 		return rc;
 	}
 
@@ -261,6 +269,7 @@ int cam_sync_signal(int32_t sync_obj, uint32_t status)
 		}
 
 		/* Dispatch kernel callbacks if any were registered earlier */
+
 		list_for_each_entry_safe(sync_cb,
 			temp_sync_cb, &signalable_row->callback_list, list) {
 			sync_cb->status = list_info->status;
@@ -347,7 +356,7 @@ int cam_sync_merge(int32_t *sync_obj, uint32_t num_objs, int32_t *merged_obj)
 		spin_unlock_bh(&sync_dev->row_spinlocks[idx]);
 		return -EINVAL;
 	}
-
+	CAM_DBG(CAM_SYNC, "Init row at idx:%ld to merge objects", idx);
 	*merged_obj = idx;
 	spin_unlock_bh(&sync_dev->row_spinlocks[idx]);
 
