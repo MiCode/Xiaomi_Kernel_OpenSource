@@ -84,6 +84,16 @@
 		.is_ubwc = isubwc,				\
 	}
 
+#define FMT_YUV10_COMMON(fmt)					\
+		.format = (fmt),				\
+		.is_yuv = 1,					\
+		.bits = {					\
+			[C2_R_Cr] = SDE_COLOR_8BIT,		\
+			[C0_G_Y] = SDE_COLOR_8BIT,		\
+			[C1_B_Cb] = SDE_COLOR_8BIT,		\
+		},						\
+		.alpha_enable = 0
+
 #define FMT_YUV_COMMON(fmt)					\
 		.format = (fmt),				\
 		.is_yuv = 1,					\
@@ -643,8 +653,23 @@ static struct sde_mdp_format_params sde_mdp_format_map[] = {
 		0, C2_R_Cr, C1_B_Cb, SDE_MDP_COMPRESS_NONE),
 
 	{
-		FMT_YUV_COMMON(SDE_PIX_FMT_Y_CBCR_H2V2_P010),
+		FMT_YUV10_COMMON(SDE_PIX_FMT_Y_CBCR_H2V2_P010),
 		.description = "SDE/Y_CBCR_H2V2_P010",
+		.flag = 0,
+		.fetch_planes = SDE_MDP_PLANE_PSEUDO_PLANAR,
+		.chroma_sample = SDE_MDP_CHROMA_420,
+		.unpack_count = 2,
+		.bpp = 2,
+		.frame_format = SDE_MDP_FMT_LINEAR,
+		.pixel_mode = SDE_MDP_PIXEL_10BIT,
+		.element = { C1_B_Cb, C2_R_Cr },
+		.unpack_tight = 0,
+		.unpack_align_msb = 1,
+		.is_ubwc = SDE_MDP_COMPRESS_NONE,
+	},
+	{
+		FMT_YUV10_COMMON(SDE_PIX_FMT_Y_CBCR_H2V2_P010_VENUS),
+		.description = "SDE/Y_CBCR_H2V2_P010_VENUS",
 		.flag = 0,
 		.fetch_planes = SDE_MDP_PLANE_PSEUDO_PLANAR,
 		.chroma_sample = SDE_MDP_CHROMA_420,

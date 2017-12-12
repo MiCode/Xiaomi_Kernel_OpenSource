@@ -2034,12 +2034,13 @@ static struct vbif_debug_bus_entry vbif_dbg_bus_msm8998[] = {
 /**
  * _sde_dbg_enable_power - use callback to turn power on for hw register access
  * @enable: whether to turn power on or off
+ * Return: zero if success; error code otherwise
  */
-static inline void _sde_dbg_enable_power(int enable)
+static inline int _sde_dbg_enable_power(int enable)
 {
 	if (!sde_dbg_base.power_ctrl.enable_fn)
-		return;
-	sde_dbg_base.power_ctrl.enable_fn(
+		return -EINVAL;
+	return sde_dbg_base.power_ctrl.enable_fn(
 			sde_dbg_base.power_ctrl.handle,
 			sde_dbg_base.power_ctrl.client,
 			enable);
@@ -2063,6 +2064,7 @@ static void _sde_dump_reg(const char *dump_name, u32 reg_dump_flag,
 	u32 *dump_addr = NULL;
 	char *end_addr;
 	int i;
+	int rc;
 
 	if (!len_bytes)
 		return;
@@ -2103,8 +2105,13 @@ static void _sde_dump_reg(const char *dump_name, u32 reg_dump_flag,
 		}
 	}
 
-	if (!from_isr)
-		_sde_dbg_enable_power(true);
+	if (!from_isr) {
+		rc = _sde_dbg_enable_power(true);
+		if (rc) {
+			pr_err("failed to enable power %d\n", rc);
+			return;
+		}
+	}
 
 	for (i = 0; i < len_align; i++) {
 		u32 x0, x4, x8, xc;
@@ -2288,6 +2295,7 @@ static void _sde_dbg_dump_sde_dbg_bus(struct sde_dbg_sde_debug_bus *bus)
 	u32 offset;
 	void __iomem *mem_base = NULL;
 	struct sde_dbg_reg_base *reg_base;
+	int rc;
 
 	if (!bus || !bus->cmn.entries_size)
 		return;
@@ -2333,7 +2341,12 @@ static void _sde_dbg_dump_sde_dbg_bus(struct sde_dbg_sde_debug_bus *bus)
 		}
 	}
 
-	_sde_dbg_enable_power(true);
+	rc = _sde_dbg_enable_power(true);
+	if (rc) {
+		pr_err("failed to enable power %d\n", rc);
+		return;
+	}
+
 	for (i = 0; i < bus->cmn.entries_size; i++) {
 		head = bus->entries + i;
 		writel_relaxed(TEST_MASK(head->block_id, head->test_id),
@@ -2427,6 +2440,7 @@ static void _sde_dbg_dump_vbif_dbg_bus(struct sde_dbg_vbif_debug_bus *bus)
 	struct vbif_debug_bus_entry *dbg_bus;
 	u32 bus_size;
 	struct sde_dbg_reg_base *reg_base;
+	int rc;
 
 	if (!bus || !bus->cmn.entries_size)
 		return;
@@ -2484,7 +2498,11 @@ static void _sde_dbg_dump_vbif_dbg_bus(struct sde_dbg_vbif_debug_bus *bus)
 		}
 	}
 
-	_sde_dbg_enable_power(true);
+	rc = _sde_dbg_enable_power(true);
+	if (rc) {
+		pr_err("failed to enable power %d\n", rc);
+		return;
+	}
 
 	value = readl_relaxed(mem_base + MMSS_VBIF_CLKON);
 	writel_relaxed(value | BIT(1), mem_base + MMSS_VBIF_CLKON);
@@ -2558,7 +2576,8 @@ static void _sde_dump_array(struct sde_dbg_reg_base *blk_arr[],
 
 	mutex_lock(&sde_dbg_base.mutex);
 
-	sde_evtlog_dump_all(sde_dbg_base.evtlog);
+	if (dump_all)
+		sde_evtlog_dump_all(sde_dbg_base.evtlog);
 
 	if (dump_all || !blk_arr || !len) {
 		_sde_dump_reg_all();
@@ -2711,7 +2730,7 @@ static ssize_t sde_evtlog_dump_read(struct file *file, char __user *buff,
 		return -EINVAL;
 
 	len = sde_evtlog_dump_to_buffer(sde_dbg_base.evtlog, evtlog_buf,
-			SDE_EVTLOG_BUF_MAX);
+			SDE_EVTLOG_BUF_MAX, true);
 	if (copy_to_user(buff, evtlog_buf, len))
 		return -EFAULT;
 	*ppos += len;
@@ -2968,6 +2987,7 @@ static ssize_t sde_dbg_reg_base_reg_write(struct file *file,
 	size_t off;
 	u32 data, cnt;
 	char buf[24];
+	int rc;
 
 	if (!file)
 		return -EINVAL;
@@ -2998,7 +3018,12 @@ static ssize_t sde_dbg_reg_base_reg_write(struct file *file,
 		return -EFAULT;
 	}
 
-	_sde_dbg_enable_power(true);
+	rc = _sde_dbg_enable_power(true);
+	if (rc) {
+		mutex_unlock(&sde_dbg_base.mutex);
+		pr_err("failed to enable power %d\n", rc);
+		return rc;
+	}
 
 	writel_relaxed(data, dbg->base + off);
 
@@ -3023,6 +3048,7 @@ static ssize_t sde_dbg_reg_base_reg_read(struct file *file,
 {
 	struct sde_dbg_reg_base *dbg;
 	size_t len;
+	int rc;
 
 	if (!file)
 		return -EINVAL;
@@ -3059,7 +3085,12 @@ static ssize_t sde_dbg_reg_base_reg_read(struct file *file,
 		ptr = dbg->base + dbg->off;
 		tot = 0;
 
-		_sde_dbg_enable_power(true);
+		rc = _sde_dbg_enable_power(true);
+		if (rc) {
+			mutex_unlock(&sde_dbg_base.mutex);
+			pr_err("failed to enable power %d\n", rc);
+			return rc;
+		}
 
 		for (cnt = dbg->cnt; cnt > 0; cnt -= ROW_BYTES) {
 			hex_dump_to_buffer(ptr, min(cnt, ROW_BYTES),

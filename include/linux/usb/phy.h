@@ -138,6 +138,7 @@ struct usb_phy {
 
 	/* reset the PHY clocks */
 	int     (*reset)(struct usb_phy *x);
+	int	(*disable_chirp)(struct usb_phy *x, bool disable);
 };
 
 /**

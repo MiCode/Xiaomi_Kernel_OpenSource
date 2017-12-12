@@ -33,7 +33,6 @@ struct lpm_cpu_level {
 	struct power_params pwr;
 	unsigned int psci_id;
 	bool is_reset;
-	bool hyp_psci;
 	int reset_level;
 };
 
@@ -125,7 +124,7 @@ uint32_t *get_per_cpu_max_residency(int cpu);
 uint32_t *get_per_cpu_min_residency(int cpu);
 extern struct lpm_cluster *lpm_root_node;
 
-#if CONFIG_SMP
+#if defined(CONFIG_SMP)
 extern DEFINE_PER_CPU(bool, pending_ipi);
 static inline bool is_IPI_pending(const struct cpumask *mask)
 {

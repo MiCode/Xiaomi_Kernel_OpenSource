@@ -117,8 +117,8 @@
 		cache-slices = <&llcc 12>, <&llcc 11>;
 
 		/* CPU latency parameter */
-		qcom,pm-qos-active-latency = <660>;
-		qcom,pm-qos-wakeup-latency = <460>;
+		qcom,pm-qos-active-latency = <914>;
+		qcom,pm-qos-wakeup-latency = <899>;
 
 		/* Enable context aware freq. scaling */
 		qcom,enable-ca-jump;
@@ -128,6 +128,36 @@
 		qcom,ca-target-pwrlevel = <1>;
 
 		qcom,gpu-speed-bin = <0x41a0 0x1fe00000 21>;
+
+		qcom,gpu-coresights {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "qcom,gpu-coresight";
+
+			qcom,gpu-coresight@0 {
+				reg = <0>;
+				coresight-name = "coresight-gfx";
+				coresight-atid = <50>;
+				port {
+					gfx_out_funnel_in2: endpoint {
+						remote-endpoint =
+						  <&funnel_in2_in_gfx>;
+					};
+				};
+			};
+
+			qcom,gpu-coresight@1 {
+				reg = <1>;
+				coresight-name = "coresight-gfx-cx";
+				coresight-atid = <51>;
+				port {
+					gfx_cx_out_funnel_in2: endpoint {
+						remote-endpoint =
+						  <&funnel_in2_in_gfx_cx>;
+					};
+				};
+			};
+		};
 
 		/* GPU Mempools */
 		qcom,gpu-mempools {
@@ -364,6 +394,60 @@
 
 			};
 
+			qcom,gpu-pwrlevels-3 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				qcom,speed-bin = <163>;
+
+				qcom,initial-pwrlevel = <3>;
+
+				/* SVS_L1 */
+				qcom,gpu-pwrlevel@0 {
+					reg = <0>;
+					qcom,gpu-freq = <430000000>;
+					qcom,bus-freq = <11>;
+					qcom,bus-min = <8>;
+					qcom,bus-max = <11>;
+				};
+
+				/* SVS */
+				qcom,gpu-pwrlevel@1 {
+					reg = <1>;
+					qcom,gpu-freq = <355000000>;
+					qcom,bus-freq = <8>;
+					qcom,bus-min = <5>;
+					qcom,bus-max = <9>;
+				};
+
+				/* LOW SVS */
+				qcom,gpu-pwrlevel@2 {
+					reg = <2>;
+					qcom,gpu-freq = <267000000>;
+					qcom,bus-freq = <6>;
+					qcom,bus-min = <4>;
+					qcom,bus-max = <8>;
+				};
+
+				/* MIN SVS */
+				qcom,gpu-pwrlevel@3 {
+					reg = <3>;
+					qcom,gpu-freq = <180000000>;
+					qcom,bus-freq = <4>;
+					qcom,bus-min = <3>;
+					qcom,bus-max = <4>;
+				};
+
+				/* XO */
+				qcom,gpu-pwrlevel@4 {
+					reg = <4>;
+					qcom,gpu-freq = <0>;
+					qcom,bus-freq = <0>;
+					qcom,bus-min = <0>;
+					qcom,bus-max = <0>;
+				};
+			};
+
 		};
 
 	};
@@ -394,7 +478,7 @@
 
 		gfx3d_secure: gfx3d_secure {
 			compatible = "qcom,smmu-kgsl-cb";
-			iommus = <&kgsl_smmu 2>;
+			iommus = <&kgsl_smmu 2>, <&kgsl_smmu 1>;
 		};
 	};
 
@@ -404,12 +488,10 @@
 
 		reg =
 			<0x506a000 0x31000>,
-			<0xb200000 0x300000>,
-			<0xc200000 0x10000>;
+			<0xb200000 0x300000>;
 		reg-names =
 			"kgsl_gmu_reg",
-			"kgsl_gmu_pdc_reg",
-			"kgsl_gmu_cpr_reg";
+			"kgsl_gmu_pdc_reg";
 
 		interrupts = <0 304 0>, <0 305 0>;
 		interrupt-names = "kgsl_hfi_irq", "kgsl_gmu_irq";

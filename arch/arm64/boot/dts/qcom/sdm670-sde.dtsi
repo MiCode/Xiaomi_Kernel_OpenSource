@@ -69,6 +69,11 @@
 		qcom,sde-dspp-off = <0x55000 0x57000>;
 		qcom,sde-dspp-size = <0x17e0>;
 
+		qcom,sde-dest-scaler-top-off = <0x00061000>;
+		qcom,sde-dest-scaler-top-size = <0xc>;
+		qcom,sde-dest-scaler-off = <0x800 0x1000>;
+		qcom,sde-dest-scaler-size = <0x800>;
+
 		qcom,sde-wb-off = <0x66000>;
 		qcom,sde-wb-size = <0x2c8>;
 		qcom,sde-wb-xin-id = <6>;
@@ -126,13 +131,17 @@
 		qcom,sde-mixer-blendstages = <0xb>;
 		qcom,sde-highest-bank-bit = <0x1>;
 		qcom,sde-ubwc-version = <0x200>;
+		qcom,sde-smart-panel-align-mode = <0xc>;
 		qcom,sde-panic-per-pipe;
 		qcom,sde-has-cdp;
 		qcom,sde-has-src-split;
 		qcom,sde-has-dim-layer;
 		qcom,sde-has-idle-pc;
-		qcom,sde-max-bw-low-kbps = <9600000>;
-		qcom,sde-max-bw-high-kbps = <9600000>;
+		qcom,sde-has-dest-scaler;
+		qcom,sde-max-dest-scaler-input-linewidth = <2048>;
+		qcom,sde-max-dest-scaler-output-linewidth = <2560>;
+		qcom,sde-max-bw-low-kbps = <6800000>;
+		qcom,sde-max-bw-high-kbps = <6800000>;
 		qcom,sde-dram-channels = <2>;
 		qcom,sde-num-nrt-paths = <0>;
 		qcom,sde-dspp-ad-version = <0x00040000>;
@@ -561,7 +570,10 @@
 		vdda-1p2-supply = <&pm660_l1>;
 		vdda-0p9-supply = <&pm660l_l1>;
 
-		reg =	<0xae90000 0xa84>,
+		reg =	<0xae90000 0x0dc>,
+			<0xae90200 0x0c0>,
+			<0xae90400 0x508>,
+			<0xae90a00 0x094>,
 			<0x88eaa00 0x200>,
 			<0x88ea200 0x200>,
 			<0x88ea600 0x200>,
@@ -570,7 +582,9 @@
 			<0x88ea030 0x10>,
 			<0x88e8000 0x20>,
 			<0x0aee1000 0x034>;
-		reg-names = "dp_ctrl", "dp_phy", "dp_ln_tx0", "dp_ln_tx1",
+		/* dp_ctrl: dp_ahb, dp_aux, dp_link, dp_p0 */
+		reg-names = "dp_ahb", "dp_aux", "dp_link",
+			"dp_p0", "dp_phy", "dp_ln_tx0", "dp_ln_tx1",
 			"dp_mmss_cc", "qfprom_physical", "dp_pll",
 			"usb3_dp_com", "hdcp_physical";
 

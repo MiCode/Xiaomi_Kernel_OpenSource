@@ -1923,5 +1923,5 @@ struct adreno_gpudev adreno_a3xx_gpudev = {
 	.perfcounter_close = a3xx_perfcounter_close,
 	.start = a3xx_start,
 	.snapshot = a3xx_snapshot,
-	.coresight = &a3xx_coresight,
+	.coresight = {&a3xx_coresight},
 };

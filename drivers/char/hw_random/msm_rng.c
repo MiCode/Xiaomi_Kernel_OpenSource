@@ -53,6 +53,9 @@
 #define MAX_HW_FIFO_DEPTH 16                     /* FIFO is 16 words deep */
 #define MAX_HW_FIFO_SIZE (MAX_HW_FIFO_DEPTH * 4) /* FIFO is 32 bits wide  */
 
+#define RETRY_MAX_CNT		5	/* max retry times to read register */
+#define RETRY_DELAY_INTERVAL	440	/* retry delay interval in us */
+
 struct msm_rng_device {
 	struct platform_device *pdev;
 	void __iomem *base;
@@ -96,7 +99,7 @@ static int msm_rng_direct_read(struct msm_rng_device *msm_rng_dev,
 	struct platform_device *pdev;
 	void __iomem *base;
 	size_t currsize = 0;
-	u32 val;
+	u32 val = 0;
 	u32 *retdata = data;
 	int ret;
 	int failed = 0;
@@ -113,38 +116,40 @@ static int msm_rng_direct_read(struct msm_rng_device *msm_rng_dev,
 	if (msm_rng_dev->qrng_perf_client) {
 		ret = msm_bus_scale_client_update_request(
 				msm_rng_dev->qrng_perf_client, 1);
-		if (ret)
+		if (ret) {
 			pr_err("bus_scale_client_update_req failed!\n");
+			goto bus_err;
+		}
 	}
 	/* enable PRNG clock */
 	ret = clk_prepare_enable(msm_rng_dev->prng_clk);
 	if (ret) {
-		dev_err(&pdev->dev, "failed to enable clock in callback\n");
+		pr_err("failed to enable prng clock\n");
 		goto err;
 	}
 	/* read random data from h/w */
 	do {
 		/* check status bit if data is available */
-		while (!(readl_relaxed(base + PRNG_STATUS_OFFSET)
+		if (!(readl_relaxed(base + PRNG_STATUS_OFFSET)
 				& 0x00000001)) {
-			if (failed == 10) {
-				pr_err("Data not available after retry\n");
+			if (failed++ == RETRY_MAX_CNT) {
+				if (currsize == 0)
+					pr_err("Data not available\n");
 				break;
 			}
-			pr_err("msm_rng:Data not available!\n");
-			msleep_interruptible(10);
-			failed++;
+			udelay(RETRY_DELAY_INTERVAL);
+		} else {
+
+			/* read FIFO */
+			val = readl_relaxed(base + PRNG_DATA_OUT_OFFSET);
+
+			/* write data back to callers pointer */
+			*(retdata++) = val;
+			currsize += 4;
+			/* make sure we stay on 32bit boundary */
+			if ((max - currsize) < 4)
+				break;
 		}
-
-		/* read FIFO */
-		val = readl_relaxed(base + PRNG_DATA_OUT_OFFSET);
-
-		/* write data back to callers pointer */
-		*(retdata++) = val;
-		currsize += 4;
-		/* make sure we stay on 32bit boundary */
-		if ((max - currsize) < 4)
-			break;
 
 	} while (currsize < max);
 
@@ -157,6 +162,7 @@ err:
 		if (ret)
 			pr_err("bus_scale_client_update_req failed!\n");
 	}
+bus_err:
 	mutex_unlock(&msm_rng_dev->rng_lock);
 
 	val = 0L;

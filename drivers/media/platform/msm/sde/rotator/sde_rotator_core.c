@@ -54,7 +54,7 @@
 #define ROT_HW_ACQUIRE_TIMEOUT_IN_MS 100
 
 /* waiting for inline hw start */
-#define ROT_INLINE_START_TIMEOUT_IN_MS 2000
+#define ROT_INLINE_START_TIMEOUT_IN_MS	(10000 + 500)
 
 /* default pixel per clock ratio */
 #define ROT_PIXEL_PER_CLK_NUMERATOR	36
@@ -3180,6 +3180,26 @@ void sde_rotator_core_destroy(struct sde_rot_mgr *mgr)
 	sde_rotator_res_destroy(mgr);
 	sysfs_remove_group(&mgr->device->kobj, &sde_rotator_fs_attr_group);
 	devm_kfree(dev, mgr);
+}
+
+void sde_rotator_core_dump(struct sde_rot_mgr *mgr)
+{
+	if (!mgr) {
+		SDEROT_ERR("null parameters\n");
+		return;
+	}
+
+	sde_rotator_resource_ctrl(mgr, true);
+	/* dump first snapshot */
+	if (mgr->ops_hw_dump_status)
+		mgr->ops_hw_dump_status(mgr->hw_data);
+
+	SDEROT_EVTLOG_TOUT_HANDLER("rot", "rot_dbg_bus", "vbif_dbg_bus");
+
+	/* dump second snapshot for comparison */
+	if (mgr->ops_hw_dump_status)
+		mgr->ops_hw_dump_status(mgr->hw_data);
+	sde_rotator_resource_ctrl(mgr, false);
 }
 
 static void sde_rotator_suspend_cancel_rot_work(struct sde_rot_mgr *mgr)

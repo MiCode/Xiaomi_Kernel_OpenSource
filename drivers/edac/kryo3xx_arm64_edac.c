@@ -30,10 +30,11 @@ module_param(poll_msec, int, 0444);
 #endif
 
 #ifdef CONFIG_EDAC_KRYO3XX_ARM64_PANIC_ON_CE
-#define ARM64_ERP_PANIC_ON_CE 1
+static bool panic_on_ce = 1;
 #else
-#define ARM64_ERP_PANIC_ON_CE 0
+static bool panic_on_ce;
 #endif
+module_param_named(panic_on_ce, panic_on_ce, bool, 0664);
 
 #ifdef CONFIG_EDAC_KRYO3XX_ARM64_PANIC_ON_UE
 #define ARM64_ERP_PANIC_ON_UE 1
@@ -238,6 +239,8 @@ static void dump_err_reg(int errorcode, int level, u64 errxstatus, u64 errxmisc,
 	else
 		edac_printk(KERN_CRIT, EDAC_CPU,
 			"Way: %d\n", (int) KRYO3XX_ERRXMISC_WAY(errxmisc) >> 2);
+
+	edev_ctl->panic_on_ce = panic_on_ce;
 	errors[errorcode].func(edev_ctl, smp_processor_id(),
 				level, errors[errorcode].msg);
 }
@@ -427,7 +430,7 @@ static int kryo3xx_cpu_erp_probe(struct platform_device *pdev)
 	drv->edev_ctl->mod_name = dev_name(dev);
 	drv->edev_ctl->dev_name = dev_name(dev);
 	drv->edev_ctl->ctl_name = "cache";
-	drv->edev_ctl->panic_on_ce = ARM64_ERP_PANIC_ON_CE;
+	drv->edev_ctl->panic_on_ce = panic_on_ce;
 	drv->edev_ctl->panic_on_ue = ARM64_ERP_PANIC_ON_UE;
 	drv->nb_pm.notifier_call = kryo3xx_pmu_cpu_pm_notify;
 	platform_set_drvdata(pdev, drv);

@@ -4744,7 +4744,7 @@ hub_power_remaining(struct usb_hub *hub)
 static void hub_port_connect(struct usb_hub *hub, int port1, u16 portstatus,
 		u16 portchange)
 {
-	int status = -ENODEV;
+	int ret, status = -ENODEV;
 	int i;
 	unsigned unit_load;
 	struct usb_device *hdev = hub->hdev;
@@ -4752,6 +4752,7 @@ static void hub_port_connect(struct usb_hub *hub, int port1, u16 portstatus,
 	struct usb_port *port_dev = hub->ports[port1 - 1];
 	struct usb_device *udev = port_dev->child;
 	static int unreliable_port = -1;
+	enum usb_device_speed dev_speed = USB_SPEED_UNKNOWN;
 
 	/* Disconnect any existing devices under this port */
 	if (udev) {
@@ -4806,6 +4807,7 @@ static void hub_port_connect(struct usb_hub *hub, int port1, u16 portstatus,
 	else
 		unit_load = 100;
 
+retry_enum:
 	status = 0;
 	for (i = 0; i < SET_CONFIG_TRIES; i++) {
 
@@ -4842,6 +4844,13 @@ static void hub_port_connect(struct usb_hub *hub, int port1, u16 portstatus,
 		usb_unlock_port(port_dev);
 		if (status < 0)
 			goto loop;
+
+		dev_speed = udev->speed;
+		if (udev->speed > USB_SPEED_UNKNOWN &&
+				udev->speed <= USB_SPEED_HIGH && hcd->usb_phy
+				&& hcd->usb_phy->disable_chirp)
+			hcd->usb_phy->disable_chirp(hcd->usb_phy,
+					false);
 
 		if (udev->quirks & USB_QUIRK_DELAY_INIT)
 			msleep(2000);
@@ -4945,6 +4954,19 @@ loop:
 		if (status != -ENOTCONN && status != -ENODEV)
 			dev_err(&port_dev->dev,
 					"unable to enumerate USB device\n");
+		if (!hub->hdev->parent && dev_speed == USB_SPEED_UNKNOWN
+			&& hcd->usb_phy && hcd->usb_phy->disable_chirp) {
+			ret = hcd->usb_phy->disable_chirp(hcd->usb_phy, true);
+			if (!ret) {
+				dev_dbg(&port_dev->dev,
+					"chirp disabled re-try enum\n");
+				goto retry_enum;
+			} else {
+				/* bail out and re-enable chirping */
+				hcd->usb_phy->disable_chirp(hcd->usb_phy,
+						false);
+			}
+		}
 	}
 
 done:

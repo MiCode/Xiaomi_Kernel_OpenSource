@@ -67,6 +67,9 @@ enum phy_engine_state {
  * @mode:              Current mode.
  * @data_lanes:        Number of data lanes used.
  * @dst_format:        Destination format.
+ * @allow_phy_power_off: True if PHY is allowed to power off when idle
+ * @regulator_min_datarate_bps: Minimum per lane data rate to turn on regulator
+ * @regulator_required: True if phy regulator is required
  */
 struct msm_dsi_phy {
 	struct platform_device *pdev;
@@ -88,6 +91,10 @@ struct msm_dsi_phy {
 	struct dsi_mode_info mode;
 	enum dsi_data_lanes data_lanes;
 	enum dsi_pixel_format dst_format;
+
+	bool allow_phy_power_off;
+	u32 regulator_min_datarate_bps;
+	bool regulator_required;
 };
 
 /**
@@ -209,6 +216,16 @@ int dsi_phy_clk_cb_register(struct msm_dsi_phy *phy,
  * Return: error code.
  */
 int dsi_phy_idle_ctrl(struct msm_dsi_phy *phy, bool enable);
+
+/**
+ * dsi_phy_set_clk_freq() - set DSI PHY clock frequency setting
+ * @phy:          DSI PHY handle
+ * @clk_freq:     link clock frequency
+ *
+ * Return: error code.
+ */
+int dsi_phy_set_clk_freq(struct msm_dsi_phy *phy,
+		struct link_clk_freq *clk_freq);
 
 /**
  * dsi_phy_set_timing_params() - timing parameters for the panel

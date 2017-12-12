@@ -225,6 +225,12 @@ struct sde_hw_ctl_ops {
 	 */
 	void (*reg_dma_flush)(struct sde_hw_ctl *ctx, bool blocking);
 
+	/**
+	 * check if ctl start trigger state to confirm the frame pending
+	 * status
+	 * @ctx       : ctl path ctx pointer
+	 */
+	int (*get_start_state)(struct sde_hw_ctl *ctx);
 };
 
 /**

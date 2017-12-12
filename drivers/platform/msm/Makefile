@@ -7,6 +7,7 @@ obj-$(CONFIG_IPA3) += ipa/
 obj-$(CONFIG_SPS) += sps/
 obj-$(CONFIG_QPNP_COINCELL) += qpnp-coincell.o
 obj-$(CONFIG_QPNP_REVID) += qpnp-revid.o
+obj-$(CONFIG_EP_PCIE) += ep_pcie/
 obj-$(CONFIG_MSM_MHI_DEV) += mhi_dev/
 obj-$(CONFIG_USB_BAM) += usb_bam.o
 obj-$(CONFIG_MSM_11AD) += msm_11ad/

@@ -640,7 +640,7 @@ static size_t a6xx_snapshot_shader_memory(struct kgsl_device *device,
 	header->size = block->sz;
 
 	memcpy(data, a6xx_crashdump_registers.hostptr + info->offset,
-		block->sz);
+		block->sz * sizeof(unsigned int));
 
 	return SHADER_SECTION_SZ(block->sz);
 }

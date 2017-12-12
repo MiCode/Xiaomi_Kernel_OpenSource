@@ -42,6 +42,7 @@ struct dp_aux_private {
 	bool no_send_stop;
 	u32 offset;
 	u32 segment;
+	atomic_t aborted;
 
 	struct drm_dp_aux drm_aux;
 };
@@ -279,6 +280,20 @@ static void dp_aux_reconfig(struct dp_aux *dp_aux)
 	aux->catalog->reset(aux->catalog);
 }
 
+static void dp_aux_abort_transaction(struct dp_aux *dp_aux)
+{
+	struct dp_aux_private *aux;
+
+	if (!dp_aux) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	aux = container_of(dp_aux, struct dp_aux_private, dp_aux);
+
+	atomic_set(&aux->aborted, 1);
+}
+
 static void dp_aux_update_offset_and_segment(struct dp_aux_private *aux,
 		struct drm_dp_aux_msg *input_msg)
 {
@@ -330,17 +345,19 @@ static void dp_aux_transfer_helper(struct dp_aux_private *aux,
 	aux->no_send_stop = true;
 
 	/*
-	 * Send the segment address for every i2c read in which the
-	 * middle-of-tranaction flag is set. This is required to support EDID
-	 * reads of more than 2 blocks as the segment address is reset to 0
+	 * Send the segment address for i2c reads for segment > 0 and for which
+	 * the middle-of-transaction flag is set. This is required to support
+	 * EDID reads of more than 2 blocks as the segment address is reset to 0
 	 * since we are overriding the middle-of-transaction flag for read
 	 * transactions.
 	 */
-	memset(&helper_msg, 0, sizeof(helper_msg));
-	helper_msg.address = segment_address;
-	helper_msg.buffer = &aux->segment;
-	helper_msg.size = 1;
-	dp_aux_cmd_fifo_tx(aux, &helper_msg);
+	if (aux->segment) {
+		memset(&helper_msg, 0, sizeof(helper_msg));
+		helper_msg.address = segment_address;
+		helper_msg.buffer = &aux->segment;
+		helper_msg.size = 1;
+		dp_aux_cmd_fifo_tx(aux, &helper_msg);
+	}
 
 	/*
 	 * Send the offset address for every i2c read in which the
@@ -377,6 +394,11 @@ static ssize_t dp_aux_transfer(struct drm_dp_aux *drm_aux,
 
 	mutex_lock(&aux->mutex);
 
+	if (atomic_read(&aux->aborted)) {
+		ret = -ETIMEDOUT;
+		goto unlock_exit;
+	}
+
 	aux->native = msg->request & (DP_AUX_NATIVE_WRITE & DP_AUX_NATIVE_READ);
 
 	/* Ignore address only message */
@@ -411,7 +433,7 @@ static ssize_t dp_aux_transfer(struct drm_dp_aux *drm_aux,
 	}
 
 	ret = dp_aux_cmd_fifo_tx(aux, msg);
-	if ((ret < 0) && aux->native) {
+	if ((ret < 0) && aux->native && !atomic_read(&aux->aborted)) {
 		aux->retry_cnt++;
 		if (!(aux->retry_cnt % retry_count))
 			aux->catalog->update_aux_cfg(aux->catalog,
@@ -467,6 +489,7 @@ static void dp_aux_init(struct dp_aux *dp_aux, struct dp_aux_cfg *aux_cfg)
 	aux->catalog->setup(aux->catalog, aux_cfg);
 	aux->catalog->reset(aux->catalog);
 	aux->catalog->enable(aux->catalog, true);
+	atomic_set(&aux->aborted, 0);
 	aux->retry_cnt = 0;
 }
 
@@ -481,6 +504,7 @@ static void dp_aux_deinit(struct dp_aux *dp_aux)
 
 	aux = container_of(dp_aux, struct dp_aux_private, dp_aux);
 
+	atomic_set(&aux->aborted, 1);
 	aux->catalog->enable(aux->catalog, false);
 }
 
@@ -558,6 +582,7 @@ struct dp_aux *dp_aux_get(struct device *dev, struct dp_catalog_aux *catalog,
 	dp_aux->drm_aux_register = dp_aux_register;
 	dp_aux->drm_aux_deregister = dp_aux_deregister;
 	dp_aux->reconfig = dp_aux_reconfig;
+	dp_aux->abort = dp_aux_abort_transaction;
 
 	return dp_aux;
 error:

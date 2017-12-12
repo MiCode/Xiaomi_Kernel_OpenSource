@@ -1,0 +1,285 @@
+/*
+ * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "sdm670-mtp.dtsi"
+#include "sdm670-camera-sensor-360camera.dtsi"
+#include "sdm670-audio-overlay.dtsi"
+
+&qupv3_se3_i2c {
+	status = "disabled";
+};
+
+&qupv3_se10_i2c {
+	status = "okay";
+};
+
+&qupv3_se12_2uart {
+	status = "okay";
+};
+
+&qupv3_se6_4uart {
+	status = "okay";
+};
+
+&qupv3_se13_i2c {
+	status = "disabled";
+};
+
+&qupv3_se13_spi {
+	status = "disabled";
+};
+
+&int_codec {
+	qcom,model = "sdm670-360cam-snd-card";
+	qcom,audio-routing =
+		"RX_BIAS", "INT_MCLK0",
+		"SPK_RX_BIAS", "INT_MCLK0",
+		"INT_LDO_H", "INT_MCLK0",
+		"DMIC1", "MIC BIAS External",
+		"MIC BIAS External", "Digital Mic1",
+		"DMIC2", "MIC BIAS External",
+		"MIC BIAS External", "Digital Mic2",
+		"DMIC3", "MIC BIAS External2",
+		"MIC BIAS External2", "Digital Mic3",
+		"DMIC4", "MIC BIAS External2",
+		"MIC BIAS External2", "Digital Mic4",
+		"PDM_IN_RX1", "PDM_OUT_RX1",
+		"PDM_IN_RX2", "PDM_OUT_RX2",
+		"PDM_IN_RX3", "PDM_OUT_RX3",
+		"ADC1_IN", "ADC1_OUT",
+		"ADC2_IN", "ADC2_OUT",
+		"ADC3_IN", "ADC3_OUT";
+	qcom,wsa-max-devs = <0>;
+};
+
+&tlmm {
+	pwr_led_green_default: pwr_led_green_default {
+		mux {
+			pins = "gpio106";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio106";
+			drive-strength = <8>;   /* 8 mA */
+			bias-disable;
+			output-low;
+		};
+	};
+
+	pwr_led_red_default: pwr_led_red_default {
+		mux {
+			pins = "gpio111";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio111";
+			drive-strength = <8>;   /* 8 mA */
+			bias-disable;
+			output-low;
+		};
+	};
+
+	wifi_led_green_default: wifi_led_green_default {
+		mux {
+			pins = "gpio114";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio114";
+			drive-strength = <8>;   /* 8 mA */
+			bias-disable;
+			output-low;
+		};
+	};
+
+	wifi_led_red_default: wifi_led_red_default {
+		mux {
+			pins = "gpio115";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio115";
+			drive-strength = <8>;   /* 8 mA */
+			bias-disable;
+			output-low;
+		};
+	};
+
+	key_wcnss_default: key_wcnss_default {
+		mux {
+			pins = "gpio120";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio120";
+			drive-strength = <8>;   /* 8 mA */
+			bias-pull-up;
+			input-enable;
+		};
+	};
+
+	key_record_default: key_record_default {
+		mux {
+			pins = "gpio119";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio119";
+			drive-strength = <8>;   /* 8 mA */
+			bias-pull-up;
+			input-enable;
+		};
+	};
+
+	key_snapshot_default: key_snapshot_default {
+		mux {
+			pins = "gpio91";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio91";
+			drive-strength = <8>;   /* 8 mA */
+			bias-pull-up;
+			input-enable;
+		};
+	};
+};
+
+&soc {
+	gpio-leds {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pwr_led_green_default
+				&pwr_led_red_default
+				&wifi_led_green_default
+				&wifi_led_red_default>;
+		status = "okay";
+
+		led@1 {
+			label = "PWR_LED:red:106";
+			gpios = <&tlmm 106 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "wlan";
+			default-state = "off";
+		};
+
+		led@2 {
+			label = "PWR_LED:green:111";
+			gpios = <&tlmm 111 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "wlan";
+			default-state = "on";
+		};
+
+		led@3 {
+			label = "WIFI_LED:red:114";
+			gpios = <&tlmm 114 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "wlan";
+			default-state = "on";
+		};
+
+		led@4 {
+			label = "WIFI_LED:green:115";
+			gpios = <&tlmm 115 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "wlan";
+			default-state = "off";
+		};
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		label = "gpio-keys";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&key_snapshot_default
+				&key_record_default
+				&key_wcnss_default>;
+		status = "okay";
+		cam_snapshot {
+			label = "cam_snapshot";
+			gpios = <&tlmm 91 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <766>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+			linux,can-disable;
+		};
+
+		cam_record {
+			label = "cam_record";
+			gpios = <&tlmm 119 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <766>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+			linux,can-disable;
+		};
+
+		wcnss_key {
+			label = "wcnss_key";
+			gpios = <&tlmm 120 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <528>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+			linux,can-disable;
+		};
+	};
+};
+&pm660_vadc{
+
+	chan@4e {
+		label = "emmc_therm";
+		reg = <0x4e>;
+		qcom,decimation = <2>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@4f {
+		label = "pa_therm0";
+		reg = <0x4f>;
+		qcom,decimation = <2>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
+};
+
+&pm660_adc_tm{
+
+	chan@4e {
+		label = "emmc_therm";
+		reg = <0x4e>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,btm-channel-number = <0x80>;
+		qcom,thermal-node;
+	};
+
+	chan@4f {
+		label = "pa_therm0";
+		reg = <0x4f>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,btm-channel-number = <0x88>;
+		qcom,thermal-node;
+	};
+};

@@ -1971,6 +1971,87 @@ static void cam_cc_sdm845_fixup_sdm845v2(void)
 	cam_cc_sdm845_clocks[CAM_CC_CSIPHY3_CLK] = &cam_cc_csiphy3_clk.clkr;
 	cam_cc_sdm845_clocks[CAM_CC_CSI3PHYTIMER_CLK_SRC] =
 		&cam_cc_csi3phytimer_clk_src.clkr;
+	cam_cc_bps_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_bps_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_cci_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_cci_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_cphy_rx_clk_src.freq_tbl = ftbl_cam_cc_cphy_rx_clk_src_sdm845_v2;
+	cam_cc_cphy_rx_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_cphy_rx_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_cphy_rx_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 384000000;
+	cam_cc_csi0phytimer_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_csi0phytimer_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_csi1phytimer_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_csi1phytimer_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_csi2phytimer_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_csi2phytimer_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_fast_ahb_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_fast_ahb_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_fd_core_clk_src.freq_tbl = ftbl_cam_cc_fd_core_clk_src_sdm845_v2;
+	cam_cc_fd_core_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_fd_core_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_icp_clk_src.freq_tbl = ftbl_cam_cc_icp_clk_src_sdm845_v2;
+	cam_cc_icp_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_icp_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_icp_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] = 600000000;
+	cam_cc_ife_0_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_ife_0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_ife_0_csid_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_ife_0_csid_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_ife_0_csid_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] =
+		384000000;
+	cam_cc_ife_1_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_ife_1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_ife_1_csid_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_ife_1_csid_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_ife_1_csid_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] =
+		384000000;
+	cam_cc_ife_lite_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_ife_lite_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_ife_lite_csid_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_ife_lite_csid_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_ife_lite_csid_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] =
+		384000000;
+	cam_cc_ipe_0_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_ipe_0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_ipe_0_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] = 600000000;
+	cam_cc_ipe_1_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_ipe_1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_ipe_1_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] = 600000000;
+	cam_cc_jpeg_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_jpeg_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_lrme_clk_src.freq_tbl = ftbl_cam_cc_lrme_clk_src_sdm845_v2;
+	cam_cc_lrme_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_lrme_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_lrme_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 269333333;
+	cam_cc_lrme_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] = 320000000;
+	cam_cc_lrme_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] = 400000000;
+	cam_cc_mclk0_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_mclk0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_mclk0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 34285714;
+	cam_cc_mclk1_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_mclk1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_mclk1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 34285714;
+	cam_cc_mclk2_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_mclk2_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_mclk2_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 34285714;
+	cam_cc_mclk3_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_mclk3_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_mclk3_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 34285714;
+	cam_cc_slow_ahb_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_slow_ahb_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_slow_ahb_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 80000000;
+	cam_cc_slow_ahb_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
+		80000000;
+}
+
+static void cam_cc_sdm845_fixup_sdm670(void)
+{
+	cam_cc_sdm845_clocks[CAM_CC_CSI3PHYTIMER_CLK] =
+		&cam_cc_csi3phytimer_clk.clkr;
+	cam_cc_sdm845_clocks[CAM_CC_CSIPHY3_CLK] = &cam_cc_csiphy3_clk.clkr;
+	cam_cc_sdm845_clocks[CAM_CC_CSI3PHYTIMER_CLK_SRC] =
+		&cam_cc_csi3phytimer_clk_src.clkr;
 	cam_cc_cphy_rx_clk_src.freq_tbl = ftbl_cam_cc_cphy_rx_clk_src_sdm845_v2;
 	cam_cc_cphy_rx_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 384000000;
 	cam_cc_cphy_rx_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 384000000;
@@ -1989,11 +2070,6 @@ static void cam_cc_sdm845_fixup_sdm845v2(void)
 	cam_cc_slow_ahb_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 80000000;
 	cam_cc_slow_ahb_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
 		80000000;
-}
-
-static void cam_cc_sdm845_fixup_sdm670(void)
-{
-	cam_cc_sdm845_fixup_sdm845v2();
 }
 
 static int cam_cc_sdm845_fixup(struct platform_device *pdev)

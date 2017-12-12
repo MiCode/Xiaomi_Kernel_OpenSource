@@ -22,3 +22,19 @@
 &sdhc_2 {
 	cd-gpios = <&tlmm 126 GPIO_ACTIVE_LOW>;
 };
+
+&usb1 {
+	status = "ok";
+	dwc3@a800000 {
+		maximum-speed = "high-speed";
+		dr_mode = "host";
+	};
+};
+
+&qusb_phy1 {
+	status = "ok";
+};
+
+&usb_qmp_phy {
+	status = "ok";
+};

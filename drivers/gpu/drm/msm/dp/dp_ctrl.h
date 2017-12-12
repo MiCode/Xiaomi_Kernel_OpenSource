@@ -23,7 +23,7 @@
 #include "dp_catalog.h"
 
 struct dp_ctrl {
-	int (*init)(struct dp_ctrl *dp_ctrl, bool flip);
+	int (*init)(struct dp_ctrl *dp_ctrl, bool flip, bool multi_func);
 	void (*deinit)(struct dp_ctrl *dp_ctrl);
 	int (*on)(struct dp_ctrl *dp_ctrl);
 	void (*off)(struct dp_ctrl *dp_ctrl);
@@ -31,7 +31,9 @@ struct dp_ctrl {
 	void (*push_idle)(struct dp_ctrl *dp_ctrl);
 	void (*abort)(struct dp_ctrl *dp_ctrl);
 	void (*isr)(struct dp_ctrl *dp_ctrl);
-	void (*handle_sink_request)(struct dp_ctrl *dp_ctrl);
+	bool (*handle_sink_request)(struct dp_ctrl *dp_ctrl);
+	void (*process_phy_test_request)(struct dp_ctrl *dp_ctrl);
+	int (*link_maintenance)(struct dp_ctrl *dp_ctrl);
 };
 
 struct dp_ctrl_in {

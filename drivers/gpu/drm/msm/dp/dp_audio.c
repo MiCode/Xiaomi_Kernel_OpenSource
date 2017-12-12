@@ -23,13 +23,6 @@
 #include "dp_audio.h"
 #include "dp_panel.h"
 
-#define HEADER_BYTE_2_BIT	 0
-#define PARITY_BYTE_2_BIT	 8
-#define HEADER_BYTE_1_BIT	16
-#define PARITY_BYTE_1_BIT	24
-#define HEADER_BYTE_3_BIT	16
-#define PARITY_BYTE_3_BIT	24
-
 struct dp_audio_private {
 	struct platform_device *ext_pdev;
 	struct platform_device *pdev;
@@ -44,74 +37,11 @@ struct dp_audio_private {
 	u32 channels;
 
 	struct completion hpd_comp;
+	struct workqueue_struct *notify_workqueue;
+	struct delayed_work notify_delayed_work;
 
 	struct dp_audio dp_audio;
 };
-
-static u8 dp_audio_get_g0_value(u8 data)
-{
-	u8 c[4];
-	u8 g[4];
-	u8 ret_data = 0;
-	u8 i;
-
-	for (i = 0; i < 4; i++)
-		c[i] = (data >> i) & 0x01;
-
-	g[0] = c[3];
-	g[1] = c[0] ^ c[3];
-	g[2] = c[1];
-	g[3] = c[2];
-
-	for (i = 0; i < 4; i++)
-		ret_data = ((g[i] & 0x01) << i) | ret_data;
-
-	return ret_data;
-}
-
-static u8 dp_audio_get_g1_value(u8 data)
-{
-	u8 c[4];
-	u8 g[4];
-	u8 ret_data = 0;
-	u8 i;
-
-	for (i = 0; i < 4; i++)
-		c[i] = (data >> i) & 0x01;
-
-	g[0] = c[0] ^ c[3];
-	g[1] = c[0] ^ c[1] ^ c[3];
-	g[2] = c[1] ^ c[2];
-	g[3] = c[2] ^ c[3];
-
-	for (i = 0; i < 4; i++)
-		ret_data = ((g[i] & 0x01) << i) | ret_data;
-
-	return ret_data;
-}
-
-static u8 dp_audio_calculate_parity(u32 data)
-{
-	u8 x0 = 0;
-	u8 x1 = 0;
-	u8 ci = 0;
-	u8 iData = 0;
-	u8 i = 0;
-	u8 parity_byte;
-	u8 num_byte = (data & 0xFF00) > 0 ? 8 : 2;
-
-	for (i = 0; i < num_byte; i++) {
-		iData = (data >> i*4) & 0xF;
-
-		ci = iData ^ x1;
-		x1 = x0 ^ dp_audio_get_g1_value(ci);
-		x0 = dp_audio_get_g0_value(ci);
-	}
-
-	parity_byte = x1 | (x0 << 4);
-
-	return parity_byte;
-}
 
 static u32 dp_audio_get_header(struct dp_catalog_audio *catalog,
 		enum dp_catalog_audio_sdp_type sdp,
@@ -144,9 +74,10 @@ static void dp_audio_stream_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 1 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_STREAM, DP_AUDIO_SDP_HEADER_1);
+	value &= 0x0000ffff;
 
 	new_value = 0x02;
-	parity_byte = dp_audio_calculate_parity(new_value);
+	parity_byte = dp_header_get_parity(new_value);
 	value |= ((new_value << HEADER_BYTE_1_BIT)
 			| (parity_byte << PARITY_BYTE_1_BIT));
 	pr_debug("Header Byte 1: value = 0x%x, parity_byte = 0x%x\n",
@@ -157,8 +88,9 @@ static void dp_audio_stream_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 2 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_STREAM, DP_AUDIO_SDP_HEADER_2);
-	new_value = value;
-	parity_byte = dp_audio_calculate_parity(new_value);
+	value &= 0xffff0000;
+	new_value = 0x0;
+	parity_byte = dp_header_get_parity(new_value);
 	value |= ((new_value << HEADER_BYTE_2_BIT)
 			| (parity_byte << PARITY_BYTE_2_BIT));
 	pr_debug("Header Byte 2: value = 0x%x, parity_byte = 0x%x\n",
@@ -170,9 +102,10 @@ static void dp_audio_stream_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 3 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_STREAM, DP_AUDIO_SDP_HEADER_3);
+	value &= 0x0000ffff;
 
 	new_value = audio->channels - 1;
-	parity_byte = dp_audio_calculate_parity(new_value);
+	parity_byte = dp_header_get_parity(new_value);
 	value |= ((new_value << HEADER_BYTE_3_BIT)
 			| (parity_byte << PARITY_BYTE_3_BIT));
 	pr_debug("Header Byte 3: value = 0x%x, parity_byte = 0x%x\n",
@@ -191,9 +124,10 @@ static void dp_audio_timestamp_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 1 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_TIMESTAMP, DP_AUDIO_SDP_HEADER_1);
+	value &= 0x0000ffff;
 
 	new_value = 0x1;
-	parity_byte = dp_audio_calculate_parity(new_value);
+	parity_byte = dp_header_get_parity(new_value);
 	value |= ((new_value << HEADER_BYTE_1_BIT)
 			| (parity_byte << PARITY_BYTE_1_BIT));
 	pr_debug("Header Byte 1: value = 0x%x, parity_byte = 0x%x\n",
@@ -204,9 +138,10 @@ static void dp_audio_timestamp_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 2 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_TIMESTAMP, DP_AUDIO_SDP_HEADER_2);
+	value &= 0xffff0000;
 
 	new_value = 0x17;
-	parity_byte = dp_audio_calculate_parity(new_value);
+	parity_byte = dp_header_get_parity(new_value);
 	value |= ((new_value << HEADER_BYTE_2_BIT)
 			| (parity_byte << PARITY_BYTE_2_BIT));
 	pr_debug("Header Byte 2: value = 0x%x, parity_byte = 0x%x\n",
@@ -217,9 +152,10 @@ static void dp_audio_timestamp_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 3 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_TIMESTAMP, DP_AUDIO_SDP_HEADER_3);
+	value &= 0x0000ffff;
 
 	new_value = (0x0 | (0x11 << 2));
-	parity_byte = dp_audio_calculate_parity(new_value);
+	parity_byte = dp_header_get_parity(new_value);
 	value |= ((new_value << HEADER_BYTE_3_BIT)
 			| (parity_byte << PARITY_BYTE_3_BIT));
 	pr_debug("Header Byte 3: value = 0x%x, parity_byte = 0x%x\n",
@@ -237,9 +173,10 @@ static void dp_audio_infoframe_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 1 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_INFOFRAME, DP_AUDIO_SDP_HEADER_1);
+	value &= 0x0000ffff;
 
 	new_value = 0x84;
-	parity_byte = dp_audio_calculate_parity(new_value);
+	parity_byte = dp_header_get_parity(new_value);
 	value |= ((new_value << HEADER_BYTE_1_BIT)
 			| (parity_byte << PARITY_BYTE_1_BIT));
 	pr_debug("Header Byte 1: value = 0x%x, parity_byte = 0x%x\n",
@@ -250,9 +187,10 @@ static void dp_audio_infoframe_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 2 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_INFOFRAME, DP_AUDIO_SDP_HEADER_2);
+	value &= 0xffff0000;
 
 	new_value = 0x1b;
-	parity_byte = dp_audio_calculate_parity(new_value);
+	parity_byte = dp_header_get_parity(new_value);
 	value |= ((new_value << HEADER_BYTE_2_BIT)
 			| (parity_byte << PARITY_BYTE_2_BIT));
 	pr_debug("Header Byte 2: value = 0x%x, parity_byte = 0x%x\n",
@@ -263,9 +201,10 @@ static void dp_audio_infoframe_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 3 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_INFOFRAME, DP_AUDIO_SDP_HEADER_3);
+	value &= 0x0000ffff;
 
 	new_value = (0x0 | (0x11 << 2));
-	parity_byte = dp_audio_calculate_parity(new_value);
+	parity_byte = dp_header_get_parity(new_value);
 	value |= ((new_value << HEADER_BYTE_3_BIT)
 			| (parity_byte << PARITY_BYTE_3_BIT));
 	pr_debug("Header Byte 3: value = 0x%x, parity_byte = 0x%x\n",
@@ -283,9 +222,10 @@ static void dp_audio_copy_management_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 1 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_COPYMANAGEMENT, DP_AUDIO_SDP_HEADER_1);
+	value &= 0x0000ffff;
 
 	new_value = 0x05;
-	parity_byte = dp_audio_calculate_parity(new_value);
+	parity_byte = dp_header_get_parity(new_value);
 	value |= ((new_value << HEADER_BYTE_1_BIT)
 			| (parity_byte << PARITY_BYTE_1_BIT));
 	pr_debug("Header Byte 1: value = 0x%x, parity_byte = 0x%x\n",
@@ -296,9 +236,10 @@ static void dp_audio_copy_management_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 2 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_COPYMANAGEMENT, DP_AUDIO_SDP_HEADER_2);
+	value &= 0xffff0000;
 
 	new_value = 0x0F;
-	parity_byte = dp_audio_calculate_parity(new_value);
+	parity_byte = dp_header_get_parity(new_value);
 	value |= ((new_value << HEADER_BYTE_2_BIT)
 			| (parity_byte << PARITY_BYTE_2_BIT));
 	pr_debug("Header Byte 2: value = 0x%x, parity_byte = 0x%x\n",
@@ -309,9 +250,10 @@ static void dp_audio_copy_management_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 3 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_COPYMANAGEMENT, DP_AUDIO_SDP_HEADER_3);
+	value &= 0x0000ffff;
 
 	new_value = 0x0;
-	parity_byte = dp_audio_calculate_parity(new_value);
+	parity_byte = dp_header_get_parity(new_value);
 	value |= ((new_value << HEADER_BYTE_3_BIT)
 			| (parity_byte << PARITY_BYTE_3_BIT));
 	pr_debug("Header Byte 3: value = 0x%x, parity_byte = 0x%x\n",
@@ -329,9 +271,10 @@ static void dp_audio_isrc_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 1 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_ISRC, DP_AUDIO_SDP_HEADER_1);
+	value &= 0x0000ffff;
 
 	new_value = 0x06;
-	parity_byte = dp_audio_calculate_parity(new_value);
+	parity_byte = dp_header_get_parity(new_value);
 	value |= ((new_value << HEADER_BYTE_1_BIT)
 			| (parity_byte << PARITY_BYTE_1_BIT));
 	pr_debug("Header Byte 1: value = 0x%x, parity_byte = 0x%x\n",
@@ -342,9 +285,10 @@ static void dp_audio_isrc_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 2 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_ISRC, DP_AUDIO_SDP_HEADER_2);
+	value &= 0xffff0000;
 
 	new_value = 0x0F;
-	parity_byte = dp_audio_calculate_parity(new_value);
+	parity_byte = dp_header_get_parity(new_value);
 	value |= ((new_value << HEADER_BYTE_2_BIT)
 			| (parity_byte << PARITY_BYTE_2_BIT));
 	pr_debug("Header Byte 2: value = 0x%x, parity_byte = 0x%x\n",
@@ -465,12 +409,16 @@ static int dp_audio_info_setup(struct platform_device *pdev,
 		goto end;
 	}
 
+	mutex_lock(&audio->dp_audio.ops_lock);
+
 	audio->channels = params->num_of_channels;
 
 	dp_audio_setup_sdp(audio);
 	dp_audio_setup_acr(audio);
 	dp_audio_safe_to_exit_level(audio);
 	dp_audio_enable(audio, true);
+
+	mutex_unlock(&audio->dp_audio.ops_lock);
 end:
 	return rc;
 }
@@ -545,7 +493,9 @@ static void dp_audio_teardown_done(struct platform_device *pdev)
 	if (IS_ERR(audio))
 		return;
 
+	mutex_lock(&audio->dp_audio.ops_lock);
 	dp_audio_enable(audio, false);
+	mutex_unlock(&audio->dp_audio.ops_lock);
 
 	complete_all(&audio->hpd_comp);
 
@@ -585,6 +535,24 @@ end:
 	return rc;
 }
 
+static int dp_audio_codec_ready(struct platform_device *pdev)
+{
+	int rc = 0;
+	struct dp_audio_private *audio;
+
+	audio = dp_audio_get_data(pdev);
+	if (IS_ERR(audio)) {
+		pr_err("invalid input\n");
+		rc = PTR_ERR(audio);
+		goto end;
+	}
+
+	queue_delayed_work(audio->notify_workqueue,
+			&audio->notify_delayed_work, HZ/4);
+end:
+	return rc;
+}
+
 static int dp_audio_init_ext_disp(struct dp_audio_private *audio)
 {
 	int rc = 0;
@@ -606,6 +574,7 @@ static int dp_audio_init_ext_disp(struct dp_audio_private *audio)
 	ops->get_intf_id        = dp_audio_get_intf_id;
 	ops->teardown_done      = dp_audio_teardown_done;
 	ops->acknowledge        = dp_audio_ack_done;
+	ops->ready              = dp_audio_codec_ready;
 
 	if (!audio->pdev->dev.of_node) {
 		pr_err("cannot find audio dev.of_node\n");
@@ -637,6 +606,31 @@ end:
 	return rc;
 }
 
+static int dp_audio_notify(struct dp_audio_private *audio, u32 state)
+{
+	int rc = 0;
+	struct msm_ext_disp_init_data *ext = &audio->ext_audio_data;
+
+	rc = ext->intf_ops.audio_notify(audio->ext_pdev,
+			EXT_DISPLAY_TYPE_DP, state);
+	if (rc) {
+		pr_err("failed to notify audio. state=%d err=%d\n", state, rc);
+		goto end;
+	}
+
+	reinit_completion(&audio->hpd_comp);
+	rc = wait_for_completion_timeout(&audio->hpd_comp, HZ * 5);
+	if (!rc) {
+		pr_err("timeout. state=%d err=%d\n", state, rc);
+		rc = -ETIMEDOUT;
+		goto end;
+	}
+
+	pr_debug("success\n");
+end:
+	return rc;
+}
+
 static int dp_audio_on(struct dp_audio *dp_audio)
 {
 	int rc = 0;
@@ -645,11 +639,14 @@ static int dp_audio_on(struct dp_audio *dp_audio)
 
 	if (!dp_audio) {
 		pr_err("invalid input\n");
-		rc = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
 	audio = container_of(dp_audio, struct dp_audio_private, dp_audio);
+	if (IS_ERR(audio)) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
 
 	ext = &audio->ext_audio_data;
 
@@ -663,21 +660,9 @@ static int dp_audio_on(struct dp_audio *dp_audio)
 		goto end;
 	}
 
-	rc = ext->intf_ops.audio_notify(audio->ext_pdev,
-			EXT_DISPLAY_TYPE_DP,
-			EXT_DISPLAY_CABLE_CONNECT);
-	if (rc) {
-		pr_err("failed to notify audio, err=%d\n", rc);
+	rc = dp_audio_notify(audio, EXT_DISPLAY_CABLE_CONNECT);
+	if (rc)
 		goto end;
-	}
-
-	reinit_completion(&audio->hpd_comp);
-	rc = wait_for_completion_timeout(&audio->hpd_comp, HZ * 5);
-	if (!rc) {
-		pr_err("timeout\n");
-		rc = -ETIMEDOUT;
-		goto end;
-	}
 
 	pr_debug("success\n");
 end:
@@ -689,6 +674,7 @@ static int dp_audio_off(struct dp_audio *dp_audio)
 	int rc = 0;
 	struct dp_audio_private *audio;
 	struct msm_ext_disp_init_data *ext;
+	bool work_pending = false;
 
 	if (!dp_audio) {
 		pr_err("invalid input\n");
@@ -698,21 +684,13 @@ static int dp_audio_off(struct dp_audio *dp_audio)
 	audio = container_of(dp_audio, struct dp_audio_private, dp_audio);
 	ext = &audio->ext_audio_data;
 
-	rc = ext->intf_ops.audio_notify(audio->ext_pdev,
-			EXT_DISPLAY_TYPE_DP,
-			EXT_DISPLAY_CABLE_DISCONNECT);
-	if (rc) {
-		pr_err("failed to notify audio, err=%d\n", rc);
-		goto end;
-	}
+	work_pending = cancel_delayed_work_sync(&audio->notify_delayed_work);
+	if (work_pending)
+		pr_debug("pending notification work completed\n");
 
-	reinit_completion(&audio->hpd_comp);
-	rc = wait_for_completion_timeout(&audio->hpd_comp, HZ * 5);
-	if (!rc) {
-		pr_err("timeout\n");
-		rc = -ETIMEDOUT;
+	rc = dp_audio_notify(audio, EXT_DISPLAY_CABLE_DISCONNECT);
+	if (rc)
 		goto end;
-	}
 
 	pr_debug("success\n");
 end:
@@ -726,6 +704,35 @@ end:
 	audio->engine_on  = false;
 
 	return rc;
+}
+
+static void dp_audio_notify_work_fn(struct work_struct *work)
+{
+	struct dp_audio_private *audio;
+	struct delayed_work *dw = to_delayed_work(work);
+
+	audio = container_of(dw, struct dp_audio_private, notify_delayed_work);
+
+	dp_audio_notify(audio, EXT_DISPLAY_CABLE_CONNECT);
+}
+
+static int dp_audio_create_notify_workqueue(struct dp_audio_private *audio)
+{
+	audio->notify_workqueue = create_workqueue("sdm_dp_audio_notify");
+	if (IS_ERR_OR_NULL(audio->notify_workqueue)) {
+		pr_err("Error creating notify_workqueue\n");
+		return -EPERM;
+	}
+
+	INIT_DELAYED_WORK(&audio->notify_delayed_work, dp_audio_notify_work_fn);
+
+	return 0;
+}
+
+static void dp_audio_destroy_notify_workqueue(struct dp_audio_private *audio)
+{
+	if (audio->notify_workqueue)
+		destroy_workqueue(audio->notify_workqueue);
 }
 
 struct dp_audio *dp_audio_get(struct platform_device *pdev,
@@ -748,6 +755,10 @@ struct dp_audio *dp_audio_get(struct platform_device *pdev,
 		goto error;
 	}
 
+	rc = dp_audio_create_notify_workqueue(audio);
+	if (rc)
+		goto error_notify_workqueue;
+
 	init_completion(&audio->hpd_comp);
 
 	audio->pdev = pdev;
@@ -756,18 +767,23 @@ struct dp_audio *dp_audio_get(struct platform_device *pdev,
 
 	dp_audio = &audio->dp_audio;
 
+	mutex_init(&dp_audio->ops_lock);
+
 	dp_audio->on  = dp_audio_on;
 	dp_audio->off = dp_audio_off;
 
 	rc = dp_audio_init_ext_disp(audio);
 	if (rc) {
-		devm_kfree(&pdev->dev, audio);
-		goto error;
+		goto error_ext_disp;
 	}
 
 	catalog->init(catalog);
 
 	return dp_audio;
+error_ext_disp:
+	dp_audio_destroy_notify_workqueue(audio);
+error_notify_workqueue:
+	devm_kfree(&pdev->dev, audio);
 error:
 	return ERR_PTR(rc);
 }
@@ -780,6 +796,9 @@ void dp_audio_put(struct dp_audio *dp_audio)
 		return;
 
 	audio = container_of(dp_audio, struct dp_audio_private, dp_audio);
+	mutex_destroy(&dp_audio->ops_lock);
+
+	dp_audio_destroy_notify_workqueue(audio);
 
 	devm_kfree(&audio->pdev->dev, audio);
 }

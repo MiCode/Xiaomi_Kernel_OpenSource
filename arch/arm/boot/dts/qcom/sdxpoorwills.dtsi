@@ -15,11 +15,12 @@
 #include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/clock/qcom,gcc-sdxpoorwills.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SDX POORWILLS";
 	compatible = "qcom,sdxpoorwills";
-	qcom,msm-id = <334 0x0>;
+	qcom,msm-id = <334 0x0>, <335 0x0>;
 	interrupt-parent = <&intc>;
 
 	reserved-memory {
@@ -40,6 +41,12 @@
 			reg = <0x87800000 0x8000000>;
 			label = "mss_mem";
 		};
+
+		audio_mem: audio_region@0 {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0x400000>;
+		 };
 	};
 
 	cpus {
@@ -151,22 +158,40 @@
 	};
 
 	clock_gcc: qcom,gcc@100000 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gcc_clocks";
+		compatible = "qcom,gcc-sdxpoorwills";
+		reg = <0x100000 0x1f0000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&pmxpoorwills_s5_level>;
+		vdd_cx_ao-supply = <&pmxpoorwills_s5_level_ao>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
 
-	clock_cpu: qcom,clock-a7@17810008 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "cpu_clocks";
+	clock_cpu: qcom,clock-a7@17808100 {
+		compatible = "qcom,cpu-sdxpoorwills";
+		clocks = <&clock_rpmh RPMH_CXO_CLK_A>;
+		clock-names = "xo_ao";
+		qcom,a7cc-init-rate = <1497600000>;
+		reg = <0x17808100 0x7F10>;
+		reg-names = "apcs_pll";
+		qcom,rcg-reg-offset = <0x7F08>;
+
+		vdd_dig_ao-supply = <&pmxpoorwills_s5_level_ao>;
+		cpu-vdd-supply = <&pmxpoorwills_s5_level_ao>;
+		qcom,speed0-bin-v0 =
+			<          0 RPMH_REGULATOR_LEVEL_OFF>,
+			<  345600000 RPMH_REGULATOR_LEVEL_LOW_SVS>,
+			<  576000000 RPMH_REGULATOR_LEVEL_SVS>,
+			< 1094400000 RPMH_REGULATOR_LEVEL_NOM>,
+			< 1497600000 RPMH_REGULATOR_LEVEL_TURBO>;
 		#clock-cells = <1>;
 	};
 
 	clock_rpmh: qcom,rpmhclk {
-		compatible = "qcom,dummycc";
-		clock-output-names = "rpmh_clocks";
+		compatible = "qcom,rpmh-clk-sdxpoorwills";
 		#clock-cells = <1>;
+		mboxes = <&apps_rsc 0>;
+		mbox-names = "apps";
 	};
 
 	blsp1_uart2: serial@831000 {
@@ -183,7 +208,6 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_usb30";
 		reg = <0x0010b004 0x4>;
-		status = "ok";
 	};
 
 	qcom,sps {
@@ -195,7 +219,12 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_pcie";
 		reg = <0x00137004 0x4>;
-		status = "ok";
+	};
+
+	gdsc_emac: qcom,gdsc@147004 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_emac";
+		reg = <0x00147004 0x4>;
 	};
 
 	qnand_1: nand@1b00000 {
@@ -222,10 +251,10 @@
 		status = "disabled";
 	};
 
-	qcom,msm-imem@8600000 {
+	qcom,msm-imem@1468B000 {
 		compatible = "qcom,msm-imem";
-		reg = <0x8600000 0x1000>; /* Address and size of IMEM */
-		ranges = <0x0 0x8600000 0x1000>;
+		reg = <0x1468B000 0x1000>; /* Address and size of IMEM */
+		ranges = <0x0 0x1468B000 0x1000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 
@@ -243,7 +272,17 @@
 			compatible = "qcom,msm-imem-boot_stats";
 			reg = <0x6b0 32>;
 		};
-	};
+
+		pil@94c {
+			compatible = "qcom,msm-imem-pil";
+			reg = <0x94c 200>;
+		};
+
+		diag_dload@c8 {
+			compatible = "qcom,msm-imem-diag-dload";
+			reg = <0xc8 200>;
+		};
+};
 
 	restart@4ab000 {
 		compatible = "qcom,pshold";
@@ -428,9 +467,9 @@
 				<CONTROL_TCS   1>;
 	};
 
-	cmd_db: qcom,cmd-db@ca0000c {
+	cmd_db: qcom,cmd-db@c37000c {
 		compatible = "qcom,cmd-db";
-		reg = <0xca0000c 8>;
+		reg = <0xc37000c 8>;
 	};
 
 	system_pm {
@@ -460,6 +499,19 @@
 			io-interface = "rgmii";
 		};
 	};
+
+	qmp_aop: qcom,qmp-aop@c300000 {
+		compatible = "qcom,qmp-mbox";
+		label = "aop";
+		reg = <0xc300000 0x400>,
+			<0x17811008 0x4>;
+		reg-names = "msgram", "irq-reg-base";
+		qcom,irq-mask = <0x1>;
+		interrupts = <GIC_SPI 221 IRQ_TYPE_EDGE_RISING>;
+		priority = <0>;
+		mbox-desc-offset = <0x0>;
+		#mbox-cells = <1>;
+	};
 };
 
 #include "pmxpoorwills.dtsi"
@@ -469,3 +521,4 @@
 #include "sdxpoorwills-usb.dtsi"
 #include "sdxpoorwills-bus.dtsi"
 #include "sdxpoorwills-thermal.dtsi"
+#include "sdxpoorwills-audio.dtsi"

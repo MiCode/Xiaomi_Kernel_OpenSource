@@ -352,46 +352,18 @@ int sde_wb_get_mode_info(const struct drm_display_mode *drm_mode,
 	return 0;
 }
 
-int sde_wb_connector_post_init(struct drm_connector *connector,
+int sde_wb_connector_set_info_blob(struct drm_connector *connector,
 		void *info, void *display, struct msm_mode_info *mode_info)
 {
-	struct sde_connector *c_conn;
 	struct sde_wb_device *wb_dev = display;
 	const struct sde_format_extended *format_list;
-	static const struct drm_prop_enum_list e_fb_translation_mode[] = {
-		{SDE_DRM_FB_NON_SEC, "non_sec"},
-		{SDE_DRM_FB_SEC, "sec"},
-	};
 
 	if (!connector || !info || !display || !wb_dev->wb_cfg) {
 		SDE_ERROR("invalid params\n");
 		return -EINVAL;
 	}
 
-	c_conn = to_sde_connector(connector);
-	wb_dev->connector = connector;
-	wb_dev->detect_status = connector_status_connected;
 	format_list = wb_dev->wb_cfg->format_list;
-
-	/*
-	 * Add extra connector properties
-	 */
-	msm_property_install_range(&c_conn->property_info, "FB_ID",
-			0x0, 0, ~0, 0, CONNECTOR_PROP_OUT_FB);
-	msm_property_install_range(&c_conn->property_info, "DST_X",
-			0x0, 0, UINT_MAX, 0, CONNECTOR_PROP_DST_X);
-	msm_property_install_range(&c_conn->property_info, "DST_Y",
-			0x0, 0, UINT_MAX, 0, CONNECTOR_PROP_DST_Y);
-	msm_property_install_range(&c_conn->property_info, "DST_W",
-			0x0, 0, UINT_MAX, 0, CONNECTOR_PROP_DST_W);
-	msm_property_install_range(&c_conn->property_info, "DST_H",
-			0x0, 0, UINT_MAX, 0, CONNECTOR_PROP_DST_H);
-	msm_property_install_enum(&c_conn->property_info,
-			"fb_translation_mode",
-			0x0,
-			0, e_fb_translation_mode,
-			ARRAY_SIZE(e_fb_translation_mode),
-			CONNECTOR_PROP_FB_TRANSLATION_MODE);
 
 	/*
 	 * Populate info buffer
@@ -419,6 +391,47 @@ int sde_wb_connector_post_init(struct drm_connector *connector,
 	if (wb_dev->wb_cfg && (wb_dev->wb_cfg->features & SDE_WB_UBWC))
 		sde_kms_info_append(info, "wb_ubwc");
 	sde_kms_info_stop(info);
+
+	return 0;
+}
+
+int sde_wb_connector_post_init(struct drm_connector *connector, void *display)
+{
+	struct sde_connector *c_conn;
+	struct sde_wb_device *wb_dev = display;
+	static const struct drm_prop_enum_list e_fb_translation_mode[] = {
+		{SDE_DRM_FB_NON_SEC, "non_sec"},
+		{SDE_DRM_FB_SEC, "sec"},
+	};
+
+	if (!connector || !display || !wb_dev->wb_cfg) {
+		SDE_ERROR("invalid params\n");
+		return -EINVAL;
+	}
+
+	c_conn = to_sde_connector(connector);
+	wb_dev->connector = connector;
+	wb_dev->detect_status = connector_status_connected;
+
+	/*
+	 * Add extra connector properties
+	 */
+	msm_property_install_range(&c_conn->property_info, "FB_ID",
+			0x0, 0, ~0, 0, CONNECTOR_PROP_OUT_FB);
+	msm_property_install_range(&c_conn->property_info, "DST_X",
+			0x0, 0, UINT_MAX, 0, CONNECTOR_PROP_DST_X);
+	msm_property_install_range(&c_conn->property_info, "DST_Y",
+			0x0, 0, UINT_MAX, 0, CONNECTOR_PROP_DST_Y);
+	msm_property_install_range(&c_conn->property_info, "DST_W",
+			0x0, 0, UINT_MAX, 0, CONNECTOR_PROP_DST_W);
+	msm_property_install_range(&c_conn->property_info, "DST_H",
+			0x0, 0, UINT_MAX, 0, CONNECTOR_PROP_DST_H);
+	msm_property_install_enum(&c_conn->property_info,
+			"fb_translation_mode",
+			0x0,
+			0, e_fb_translation_mode,
+			ARRAY_SIZE(e_fb_translation_mode),
+			CONNECTOR_PROP_FB_TRANSLATION_MODE);
 
 	return 0;
 }

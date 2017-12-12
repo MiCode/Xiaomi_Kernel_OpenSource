@@ -50,6 +50,8 @@
 #define ROTTOP_START_CTRL_TRIG_SEL_REGDMA       2
 #define ROTTOP_START_CTRL_TRIG_SEL_MDP          3
 
+#define ROTTOP_OP_MODE_ROT_OUT_MASK             (0x3 << 4)
+
 /* SDE_ROT_SSPP:
  * OFFSET=0x0A8900
  */

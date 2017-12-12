@@ -159,3 +159,7 @@
 
 	status = "ok";
 };
+
+&wil6210 {
+	status = "ok";
+};

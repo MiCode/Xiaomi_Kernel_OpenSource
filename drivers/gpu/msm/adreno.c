@@ -37,6 +37,7 @@
 #include "adreno_trace.h"
 
 #include "a3xx_reg.h"
+#include "a6xx_reg.h"
 #include "adreno_snapshot.h"
 
 /* Include the master list of GPU cores that are supported */
@@ -118,6 +119,7 @@ static struct adreno_device device_3d0 = {
 		.skipsaverestore = 1,
 		.usesgmem = 1,
 	},
+	.priv = BIT(ADRENO_DEVICE_PREEMPTION_EXECUTION),
 };
 
 /* Ptr to array for the current set of fault detect registers */
@@ -612,6 +614,7 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 	struct adreno_irq *irq_params = gpudev->irq;
 	irqreturn_t ret = IRQ_NONE;
 	unsigned int status = 0, fence = 0, fence_retries = 0, tmp, int_bit;
+	unsigned int status_retries = 0;
 	int i;
 
 	atomic_inc(&adreno_dev->pending_irq_refcnt);
@@ -649,6 +652,32 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 	}
 
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS, &status);
+
+	/*
+	 * Read status again to make sure the bits aren't transitory.
+	 * Transitory bits mean that they are spurious interrupts and are
+	 * seen while preemption is on going. Empirical experiments have
+	 * shown that the transitory bits are a timing thing and they
+	 * go away in the small time window between two or three consecutive
+	 * reads. If they don't go away, log the message and return.
+	 */
+	while (status_retries < STATUS_RETRY_MAX) {
+		unsigned int new_status;
+
+		adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS,
+			&new_status);
+
+		if (status == new_status)
+			break;
+
+		status = new_status;
+		status_retries++;
+	}
+
+	if (status_retries == STATUS_RETRY_MAX) {
+		KGSL_DRV_CRIT_RATELIMIT(device, "STATUS bits are not stable\n");
+			return ret;
+	}
 
 	/*
 	 * Clear all the interrupt bits but ADRENO_INT_RBBM_AHB_ERROR. Because
@@ -1119,6 +1148,9 @@ static int adreno_probe(struct platform_device *pdev)
 
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_CONTENT_PROTECTION))
 		device->mmu.secured = false;
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_IOCOHERENT))
+		device->mmu.features |= KGSL_MMU_IO_COHERENT;
 
 	status = adreno_ringbuffer_probe(adreno_dev, nopreempt);
 	if (status)
@@ -1639,29 +1671,91 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 					adreno_dev->starved_ram_lo_ch1 = 0;
 				}
 			}
-		}
 
-		/* VBIF DDR cycles */
-		if (adreno_dev->ram_cycles_lo == 0) {
-			ret = adreno_perfcounter_get(adreno_dev,
-				KGSL_PERFCOUNTER_GROUP_VBIF,
-				VBIF_AXI_TOTAL_BEATS,
-				&adreno_dev->ram_cycles_lo, NULL,
-				PERFCOUNTER_FLAG_KERNEL);
+			if (adreno_dev->ram_cycles_lo == 0) {
+				ret = adreno_perfcounter_get(adreno_dev,
+					KGSL_PERFCOUNTER_GROUP_VBIF,
+					GBIF_AXI0_READ_DATA_TOTAL_BEATS,
+					&adreno_dev->ram_cycles_lo, NULL,
+					PERFCOUNTER_FLAG_KERNEL);
 
-			if (ret) {
-				KGSL_DRV_ERR(device,
-					"Unable to get perf counters for bus DCVS\n");
-				adreno_dev->ram_cycles_lo = 0;
+				if (ret) {
+					KGSL_DRV_ERR(device,
+						"Unable to get perf counters for bus DCVS\n");
+					adreno_dev->ram_cycles_lo = 0;
+				}
+			}
+
+			if (adreno_dev->ram_cycles_lo_ch1_read == 0) {
+				ret = adreno_perfcounter_get(adreno_dev,
+					KGSL_PERFCOUNTER_GROUP_VBIF,
+					GBIF_AXI1_READ_DATA_TOTAL_BEATS,
+					&adreno_dev->ram_cycles_lo_ch1_read,
+					NULL,
+					PERFCOUNTER_FLAG_KERNEL);
+
+				if (ret) {
+					KGSL_DRV_ERR(device,
+						"Unable to get perf counters for bus DCVS\n");
+					adreno_dev->ram_cycles_lo_ch1_read = 0;
+				}
+			}
+
+			if (adreno_dev->ram_cycles_lo_ch0_write == 0) {
+				ret = adreno_perfcounter_get(adreno_dev,
+					KGSL_PERFCOUNTER_GROUP_VBIF,
+					GBIF_AXI0_WRITE_DATA_TOTAL_BEATS,
+					&adreno_dev->ram_cycles_lo_ch0_write,
+					NULL,
+					PERFCOUNTER_FLAG_KERNEL);
+
+				if (ret) {
+					KGSL_DRV_ERR(device,
+						"Unable to get perf counters for bus DCVS\n");
+					adreno_dev->ram_cycles_lo_ch0_write = 0;
+				}
+			}
+
+			if (adreno_dev->ram_cycles_lo_ch1_write == 0) {
+				ret = adreno_perfcounter_get(adreno_dev,
+					KGSL_PERFCOUNTER_GROUP_VBIF,
+					GBIF_AXI1_WRITE_DATA_TOTAL_BEATS,
+					&adreno_dev->ram_cycles_lo_ch1_write,
+					NULL,
+					PERFCOUNTER_FLAG_KERNEL);
+
+				if (ret) {
+					KGSL_DRV_ERR(device,
+						"Unable to get perf counters for bus DCVS\n");
+					adreno_dev->ram_cycles_lo_ch1_write = 0;
+				}
+			}
+		} else {
+			/* VBIF DDR cycles */
+			if (adreno_dev->ram_cycles_lo == 0) {
+				ret = adreno_perfcounter_get(adreno_dev,
+					KGSL_PERFCOUNTER_GROUP_VBIF,
+					VBIF_AXI_TOTAL_BEATS,
+					&adreno_dev->ram_cycles_lo, NULL,
+					PERFCOUNTER_FLAG_KERNEL);
+
+				if (ret) {
+					KGSL_DRV_ERR(device,
+						"Unable to get perf counters for bus DCVS\n");
+					adreno_dev->ram_cycles_lo = 0;
+				}
 			}
 		}
 	}
 
 	/* Clear the busy_data stats - we're starting over from scratch */
 	adreno_dev->busy_data.gpu_busy = 0;
-	adreno_dev->busy_data.vbif_ram_cycles = 0;
-	adreno_dev->busy_data.vbif_starved_ram = 0;
-	adreno_dev->busy_data.vbif_starved_ram_ch1 = 0;
+	adreno_dev->busy_data.bif_ram_cycles = 0;
+	adreno_dev->busy_data.bif_ram_cycles_read_ch1 = 0;
+	adreno_dev->busy_data.bif_ram_cycles_write_ch0 = 0;
+	adreno_dev->busy_data.bif_ram_cycles_write_ch1 = 0;
+	adreno_dev->busy_data.bif_starved_ram = 0;
+	adreno_dev->busy_data.bif_starved_ram_ch1 = 0;
 
 	/* Restore performance counter registers with saved values */
 	adreno_perfcounter_restore(adreno_dev);
@@ -2495,9 +2589,12 @@ int adreno_soft_reset(struct kgsl_device *device)
 
 	/* Clear the busy_data stats - we're starting over from scratch */
 	adreno_dev->busy_data.gpu_busy = 0;
-	adreno_dev->busy_data.vbif_ram_cycles = 0;
-	adreno_dev->busy_data.vbif_starved_ram = 0;
-	adreno_dev->busy_data.vbif_starved_ram_ch1 = 0;
+	adreno_dev->busy_data.bif_ram_cycles = 0;
+	adreno_dev->busy_data.bif_ram_cycles_read_ch1 = 0;
+	adreno_dev->busy_data.bif_ram_cycles_write_ch0 = 0;
+	adreno_dev->busy_data.bif_ram_cycles_write_ch1 = 0;
+	adreno_dev->busy_data.bif_starved_ram = 0;
+	adreno_dev->busy_data.bif_starved_ram_ch1 = 0;
 
 	/* Set the page table back to the default page table */
 	adreno_ringbuffer_set_global(adreno_dev, 0);
@@ -3078,18 +3175,35 @@ static void adreno_power_stats(struct kgsl_device *device,
 		if (adreno_dev->ram_cycles_lo != 0)
 			ram_cycles = counter_delta(device,
 				adreno_dev->ram_cycles_lo,
-				&busy->vbif_ram_cycles);
+				&busy->bif_ram_cycles);
+
+		if (adreno_has_gbif(adreno_dev)) {
+			if (adreno_dev->ram_cycles_lo_ch1_read != 0)
+				ram_cycles += counter_delta(device,
+					adreno_dev->ram_cycles_lo_ch1_read,
+					&busy->bif_ram_cycles_read_ch1);
+
+			if (adreno_dev->ram_cycles_lo_ch0_write != 0)
+				ram_cycles += counter_delta(device,
+					adreno_dev->ram_cycles_lo_ch0_write,
+					&busy->bif_ram_cycles_write_ch0);
+
+			if (adreno_dev->ram_cycles_lo_ch1_write != 0)
+				ram_cycles += counter_delta(device,
+					adreno_dev->ram_cycles_lo_ch1_write,
+					&busy->bif_ram_cycles_write_ch1);
+		}
 
 		if (adreno_dev->starved_ram_lo != 0)
 			starved_ram = counter_delta(device,
 				adreno_dev->starved_ram_lo,
-				&busy->vbif_starved_ram);
+				&busy->bif_starved_ram);
 
 		if (adreno_has_gbif(adreno_dev)) {
 			if (adreno_dev->starved_ram_lo_ch1 != 0)
 				starved_ram += counter_delta(device,
 					adreno_dev->starved_ram_lo_ch1,
-					&busy->vbif_starved_ram_ch1);
+					&busy->bif_starved_ram_ch1);
 		}
 
 		stats->ram_time = ram_cycles;

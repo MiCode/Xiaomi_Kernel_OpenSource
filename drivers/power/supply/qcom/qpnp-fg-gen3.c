@@ -881,7 +881,7 @@ static int fg_get_prop_capacity(struct fg_chip *chip, int *val)
 		return 0;
 	}
 
-	if (chip->battery_missing) {
+	if (chip->battery_missing || !chip->soc_reporting_ready) {
 		*val = BATT_MISS_SOC;
 		return 0;
 	}
@@ -2567,6 +2567,11 @@ static void status_change_work(struct work_struct *work)
 		goto out;
 	}
 
+	if (!chip->soc_reporting_ready) {
+		fg_dbg(chip, FG_STATUS, "Profile load is not complete yet\n");
+		goto out;
+	}
+
 	rc = power_supply_get_property(chip->batt_psy, POWER_SUPPLY_PROP_STATUS,
 			&prop);
 	if (rc < 0) {
@@ -2630,7 +2635,7 @@ static void status_change_work(struct work_struct *work)
 	fg_ttf_update(chip);
 	chip->prev_charge_status = chip->charge_status;
 out:
-	fg_dbg(chip, FG_POWER_SUPPLY, "charge_status:%d charge_type:%d charge_done:%d\n",
+	fg_dbg(chip, FG_STATUS, "charge_status:%d charge_type:%d charge_done:%d\n",
 		chip->charge_status, chip->charge_type, chip->charge_done);
 	pm_relax(chip->dev);
 }
@@ -2733,6 +2738,49 @@ static bool is_profile_load_required(struct fg_chip *chip)
 	return true;
 }
 
+static void fg_update_batt_profile(struct fg_chip *chip)
+{
+	int rc, offset;
+	u8 val;
+
+	rc = fg_sram_read(chip, PROFILE_INTEGRITY_WORD,
+			SW_CONFIG_OFFSET, &val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in reading SW_CONFIG_OFFSET, rc=%d\n", rc);
+		return;
+	}
+
+	/*
+	 * If the RCONN had not been updated, no need to update battery
+	 * profile. Else, update the battery profile so that the profile
+	 * modified by bootloader or HLOS matches with the profile read
+	 * from device tree.
+	 */
+
+	if (!(val & RCONN_CONFIG_BIT))
+		return;
+
+	rc = fg_sram_read(chip, ESR_RSLOW_CHG_WORD,
+			ESR_RSLOW_CHG_OFFSET, &val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in reading ESR_RSLOW_CHG_OFFSET, rc=%d\n", rc);
+		return;
+	}
+	offset = (ESR_RSLOW_CHG_WORD - PROFILE_LOAD_WORD) * 4
+			+ ESR_RSLOW_CHG_OFFSET;
+	chip->batt_profile[offset] = val;
+
+	rc = fg_sram_read(chip, ESR_RSLOW_DISCHG_WORD,
+			ESR_RSLOW_DISCHG_OFFSET, &val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in reading ESR_RSLOW_DISCHG_OFFSET, rc=%d\n", rc);
+		return;
+	}
+	offset = (ESR_RSLOW_DISCHG_WORD - PROFILE_LOAD_WORD) * 4
+			+ ESR_RSLOW_DISCHG_OFFSET;
+	chip->batt_profile[offset] = val;
+}
+
 static void clear_battery_profile(struct fg_chip *chip)
 {
 	u8 val = 0;
@@ -2826,6 +2874,8 @@ static void profile_load_work(struct work_struct *work)
 	if (!chip->profile_available)
 		goto out;
 
+	fg_update_batt_profile(chip);
+
 	if (!is_profile_load_required(chip))
 		goto done;
 
@@ -2887,6 +2937,10 @@ done:
 				rc);
 	}
 
+	rc = fg_rconn_config(chip);
+	if (rc < 0)
+		pr_err("Error in configuring Rconn, rc=%d\n", rc);
+
 	batt_psy_initialized(chip);
 	fg_notify_charger(chip);
 	chip->profile_loaded = true;
@@ -2896,6 +2950,10 @@ out:
 	vote(chip->awake_votable, ESR_FCC_VOTER, true, 0);
 	schedule_delayed_work(&chip->pl_enable_work, msecs_to_jiffies(5000));
 	vote(chip->awake_votable, PROFILE_LOAD, false, 0);
+	if (!work_pending(&chip->status_change_work)) {
+		pm_stay_awake(chip->dev);
+		schedule_work(&chip->status_change_work);
+	}
 }
 
 static void sram_dump_work(struct work_struct *work)
@@ -4083,12 +4141,6 @@ static int fg_hw_init(struct fg_chip *chip)
 		return rc;
 	}
 
-	rc = fg_rconn_config(chip);
-	if (rc < 0) {
-		pr_err("Error in configuring Rconn, rc=%d\n", rc);
-		return rc;
-	}
-
 	fg_encode(chip->sp, FG_SRAM_ESR_TIGHT_FILTER,
 		chip->dt.esr_tight_flt_upct, buf);
 	rc = fg_sram_write(chip, chip->sp[FG_SRAM_ESR_TIGHT_FILTER].addr_word,
@@ -4183,25 +4235,6 @@ static int fg_adjust_timebase(struct fg_chip *chip)
 }
 
 /* INTERRUPT HANDLERS STAY HERE */
-
-static irqreturn_t fg_dma_grant_irq_handler(int irq, void *data)
-{
-	struct fg_chip *chip = data;
-	u8 status;
-	int rc;
-
-	rc = fg_read(chip, MEM_IF_INT_RT_STS(chip), &status, 1);
-	if (rc < 0) {
-		pr_err("failed to read addr=0x%04x, rc=%d\n",
-			MEM_IF_INT_RT_STS(chip), rc);
-		return IRQ_HANDLED;
-	}
-
-	fg_dbg(chip, FG_IRQ, "irq %d triggered, status:%d\n", irq, status);
-	complete_all(&chip->mem_grant);
-
-	return IRQ_HANDLED;
-}
 
 static irqreturn_t fg_mem_xcp_irq_handler(int irq, void *data)
 {
@@ -4490,7 +4523,7 @@ static struct fg_irq_info fg_irqs[FG_IRQ_MAX] = {
 	/* MEM_IF irqs */
 	[DMA_GRANT_IRQ] = {
 		.name		= "dma-grant",
-		.handler	= fg_dma_grant_irq_handler,
+		.handler	= fg_dummy_irq_handler,
 		.wakeable	= true,
 	},
 	[MEM_XCP_IRQ] = {
@@ -5167,7 +5200,6 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	mutex_init(&chip->qnovo_esr_ctrl_lock);
 	init_completion(&chip->soc_update);
 	init_completion(&chip->soc_ready);
-	init_completion(&chip->mem_grant);
 	INIT_DELAYED_WORK(&chip->profile_load_work, profile_load_work);
 	INIT_DELAYED_WORK(&chip->pl_enable_work, pl_enable_work);
 	INIT_WORK(&chip->status_change_work, status_change_work);
@@ -5182,23 +5214,6 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, chip);
-
-	rc = fg_register_interrupts(chip);
-	if (rc < 0) {
-		dev_err(chip->dev, "Error in registering interrupts, rc:%d\n",
-			rc);
-		goto exit;
-	}
-
-	/* Keep SOC_UPDATE irq disabled until we require it */
-	if (fg_irqs[SOC_UPDATE_IRQ].irq)
-		disable_irq_nosync(fg_irqs[SOC_UPDATE_IRQ].irq);
-
-	/* Keep BSOC_DELTA_IRQ disabled until we require it */
-	vote(chip->delta_bsoc_irq_en_votable, DELTA_BSOC_IRQ_VOTER, false, 0);
-
-	/* Keep BATT_MISSING_IRQ disabled until we require it */
-	vote(chip->batt_miss_irq_en_votable, BATT_MISS_IRQ_VOTER, false, 0);
 
 	rc = fg_hw_init(chip);
 	if (rc < 0) {
@@ -5226,6 +5241,23 @@ static int fg_gen3_probe(struct platform_device *pdev)
 		pr_err("Couldn't register psy notifier rc = %d\n", rc);
 		goto exit;
 	}
+
+	rc = fg_register_interrupts(chip);
+	if (rc < 0) {
+		dev_err(chip->dev, "Error in registering interrupts, rc:%d\n",
+			rc);
+		goto exit;
+	}
+
+	/* Keep SOC_UPDATE irq disabled until we require it */
+	if (fg_irqs[SOC_UPDATE_IRQ].irq)
+		disable_irq_nosync(fg_irqs[SOC_UPDATE_IRQ].irq);
+
+	/* Keep BSOC_DELTA_IRQ disabled until we require it */
+	vote(chip->delta_bsoc_irq_en_votable, DELTA_BSOC_IRQ_VOTER, false, 0);
+
+	/* Keep BATT_MISSING_IRQ disabled until we require it */
+	vote(chip->batt_miss_irq_en_votable, BATT_MISS_IRQ_VOTER, false, 0);
 
 	rc = fg_debugfs_create(chip);
 	if (rc < 0) {
