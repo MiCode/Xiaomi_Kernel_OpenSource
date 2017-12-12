@@ -43,6 +43,8 @@
 	/delete-node/ rpmh-regulator-ldoa14;
 	/delete-node/ rpmh-regulator-ldoa16;
 	/delete-node/ rpmh-regulator-rgmii;
+
+	/delete-node/ thermal-zones;
 };
 
 #include "sdxpoorwills-stub-regulator.dtsi"
