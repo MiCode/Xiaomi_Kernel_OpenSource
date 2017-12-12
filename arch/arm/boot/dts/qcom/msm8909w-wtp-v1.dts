@@ -130,9 +130,13 @@
 };
 
 &blsp1_uart1 {
+	status = "disabled";
+};
+
+&blsp1_uart2 {
 	status = "ok";
 	pinctrl-names = "default";
-	pinctrl-0 = <&uart_console_sleep>;
+	pinctrl-0 = <&uart_console2_sleep>;
 };
 
 /* Pinctrl dt nodes for interrupt & reset gpio for Synaptics touch controller */
