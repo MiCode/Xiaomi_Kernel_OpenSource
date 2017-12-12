@@ -254,6 +254,12 @@ int cam_sync_signal(int32_t sync_obj, uint32_t status)
 		signalable_row = sync_dev->sync_table + list_info->sync_obj;
 
 		spin_lock_bh(&sync_dev->row_spinlocks[list_info->sync_obj]);
+		if (signalable_row->state == CAM_SYNC_STATE_INVALID) {
+			spin_unlock_bh(
+				&sync_dev->row_spinlocks[list_info->sync_obj]);
+			continue;
+		}
+
 		/* Dispatch kernel callbacks if any were registered earlier */
 		list_for_each_entry_safe(sync_cb,
 			temp_sync_cb, &signalable_row->callback_list, list) {

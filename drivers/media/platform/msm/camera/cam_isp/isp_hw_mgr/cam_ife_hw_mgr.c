@@ -1986,6 +1986,7 @@ static int cam_ife_mgr_release_hw(void *hw_mgr_priv,
 	struct cam_hw_release_args       *release_args = release_hw_args;
 	struct cam_ife_hw_mgr            *hw_mgr       = hw_mgr_priv;
 	struct cam_ife_hw_mgr_ctx        *ctx;
+	uint32_t                          i;
 
 	if (!hw_mgr_priv || !release_hw_args) {
 		CAM_ERR(CAM_ISP, "Invalid arguments");
@@ -2015,6 +2016,14 @@ static int cam_ife_mgr_release_hw(void *hw_mgr_priv,
 	list_del_init(&ctx->list);
 	ctx->ctx_in_use = 0;
 	ctx->is_rdi_only_context = 0;
+	ctx->cdm_handle = 0;
+	ctx->cdm_ops = NULL;
+	atomic_set(&ctx->overflow_pending, 0);
+	for (i = 0; i < CAM_IFE_HW_NUM_MAX; i++) {
+		ctx->sof_cnt[i] = 0;
+		ctx->eof_cnt[i] = 0;
+		ctx->epoch_cnt[i] = 0;
+	}
 	CAM_DBG(CAM_ISP, "Exit...ctx id:%d",
 		ctx->ctx_index);
 	cam_ife_hw_mgr_put_ctx(&hw_mgr->free_ctx_list, &ctx);

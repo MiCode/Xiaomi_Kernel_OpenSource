@@ -140,12 +140,6 @@ int32_t cam_cmd_buf_parser(struct csiphy_device *csiphy_dev,
 	csiphy_dev->csiphy_info.data_rate = cam_cmd_csiphy_info->data_rate;
 	csiphy_dev->csiphy_info.secure_mode = cam_cmd_csiphy_info->secure_mode;
 
-	if (csiphy_dev->csiphy_info.secure_mode &&
-		(csiphy_dev->config_count == 1))
-		rc = cam_csiphy_notify_secure_mode(
-			csiphy_dev->soc_info.index,
-			CAM_SECURE_MODE_SECURE);
-
 	return rc;
 }
 
@@ -365,6 +359,14 @@ void cam_csiphy_shutdown(struct csiphy_device *csiphy_dev)
 	if (csiphy_dev->csiphy_state == CAM_CSIPHY_START) {
 		soc_info = &csiphy_dev->soc_info;
 
+		if (csiphy_dev->csiphy_info.secure_mode)
+			cam_csiphy_notify_secure_mode(
+				csiphy_dev->soc_info.index,
+				CAM_SECURE_MODE_NON_SECURE);
+
+		csiphy_dev->csiphy_info.secure_mode =
+			CAM_SECURE_MODE_NON_SECURE;
+
 		cam_csiphy_reset(csiphy_dev);
 		cam_soc_util_disable_platform_resource(soc_info, true, true);
 
@@ -391,6 +393,43 @@ void cam_csiphy_shutdown(struct csiphy_device *csiphy_dev)
 	csiphy_dev->is_acquired_dev_combo_mode = 0;
 	csiphy_dev->acquire_count = 0;
 	csiphy_dev->csiphy_state = CAM_CSIPHY_INIT;
+}
+
+static int32_t cam_csiphy_external_cmd(struct csiphy_device *csiphy_dev,
+	struct cam_config_dev_cmd *p_submit_cmd)
+{
+	struct cam_csiphy_info cam_cmd_csiphy_info;
+	int32_t rc = 0;
+
+	if (copy_from_user(&cam_cmd_csiphy_info,
+		(void __user *)p_submit_cmd->packet_handle,
+		sizeof(struct cam_csiphy_info))) {
+		CAM_ERR(CAM_CSIPHY, "failed to copy cam_csiphy_info\n");
+		rc = -EFAULT;
+	} else {
+		csiphy_dev->csiphy_info.lane_cnt =
+			cam_cmd_csiphy_info.lane_cnt;
+		csiphy_dev->csiphy_info.lane_cnt =
+			cam_cmd_csiphy_info.lane_cnt;
+		csiphy_dev->csiphy_info.lane_mask =
+			cam_cmd_csiphy_info.lane_mask;
+		csiphy_dev->csiphy_info.csiphy_3phase =
+			cam_cmd_csiphy_info.csiphy_3phase;
+		csiphy_dev->csiphy_info.combo_mode =
+			cam_cmd_csiphy_info.combo_mode;
+		csiphy_dev->csiphy_info.settle_time =
+			cam_cmd_csiphy_info.settle_time;
+		csiphy_dev->csiphy_info.data_rate =
+			cam_cmd_csiphy_info.data_rate;
+		CAM_DBG(CAM_CSIPHY,
+			"%s CONFIG_DEV_EXT settle_time= %lld lane_cnt=%d lane_mask=0x%x",
+			__func__,
+			csiphy_dev->csiphy_info.settle_time,
+			csiphy_dev->csiphy_info.lane_cnt,
+			csiphy_dev->csiphy_info.lane_mask);
+	}
+
+	return rc;
 }
 
 int32_t cam_csiphy_core_cfg(void *phy_dev,
@@ -516,6 +555,14 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			goto release_mutex;
 		}
 
+		if (csiphy_dev->csiphy_info.secure_mode)
+			cam_csiphy_notify_secure_mode(
+				csiphy_dev->soc_info.index,
+				CAM_SECURE_MODE_NON_SECURE);
+
+		csiphy_dev->csiphy_info.secure_mode =
+			CAM_SECURE_MODE_NON_SECURE;
+
 		rc = cam_csiphy_disable_hw(csiphy_dev);
 		if (rc < 0)
 			CAM_ERR(CAM_CSIPHY, "Failed in csiphy release");
@@ -560,15 +607,6 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		csiphy_dev->config_count--;
 		csiphy_dev->acquire_count--;
 
-		if (csiphy_dev->csiphy_info.secure_mode &&
-			(!csiphy_dev->config_count)) {
-			csiphy_dev->csiphy_info.secure_mode =
-				CAM_SECURE_MODE_NON_SECURE;
-			rc = cam_csiphy_notify_secure_mode(
-				csiphy_dev->soc_info.index,
-				CAM_SECURE_MODE_NON_SECURE);
-		}
-
 		if (csiphy_dev->acquire_count == 0)
 			csiphy_dev->csiphy_state = CAM_CSIPHY_INIT;
 	}
@@ -609,6 +647,15 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			goto release_mutex;
 		}
 
+		if (csiphy_dev->csiphy_info.secure_mode) {
+			rc = cam_csiphy_notify_secure_mode(
+				csiphy_dev->soc_info.index,
+				CAM_SECURE_MODE_SECURE);
+			if (rc < 0)
+				csiphy_dev->csiphy_info.secure_mode =
+					CAM_SECURE_MODE_NON_SECURE;
+		}
+
 		rc = cam_csiphy_enable_hw(csiphy_dev);
 		if (rc != 0) {
 			CAM_ERR(CAM_CSIPHY, "cam_csiphy_enable_hw failed");
@@ -629,6 +676,19 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		csiphy_dev->csiphy_state = CAM_CSIPHY_START;
 	}
 		break;
+	case CAM_CONFIG_DEV_EXTERNAL: {
+		struct cam_config_dev_cmd submit_cmd;
+
+		if (copy_from_user(&submit_cmd,
+			(void __user *)cmd->handle,
+			sizeof(struct cam_config_dev_cmd))) {
+			CAM_ERR(CAM_CSIPHY, "failed copy config ext\n");
+			rc = -EFAULT;
+		} else {
+			rc = cam_csiphy_external_cmd(csiphy_dev, &submit_cmd);
+		}
+		break;
+	}
 	default:
 		CAM_ERR(CAM_CSIPHY, "Invalid Opcode: %d", cmd->op_code);
 		rc = -EINVAL;

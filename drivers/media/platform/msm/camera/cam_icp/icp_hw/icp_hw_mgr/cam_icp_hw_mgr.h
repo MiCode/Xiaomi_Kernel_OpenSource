@@ -252,6 +252,7 @@ struct cam_icp_clk_info {
  * @ipe0_enable: Flag for IPE0
  * @ipe1_enable: Flag for IPE1
  * @bps_enable: Flag for BPS
+ * @core_info: 32 bit value , tells IPE0/1 and BPS
  */
 struct cam_icp_hw_mgr {
 	struct mutex hw_mgr_mutex;
@@ -288,9 +289,11 @@ struct cam_icp_hw_mgr {
 	bool ipe0_enable;
 	bool ipe1_enable;
 	bool bps_enable;
+	uint32_t core_info;
 };
 
 static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args);
 static int cam_icp_mgr_hw_open(void *hw_mgr_priv, void *download_fw_args);
-
+static int cam_icp_mgr_icp_resume(struct cam_icp_hw_mgr *hw_mgr);
+static int cam_icp_mgr_icp_power_collapse(struct cam_icp_hw_mgr *hw_mgr);
 #endif /* CAM_ICP_HW_MGR_H */

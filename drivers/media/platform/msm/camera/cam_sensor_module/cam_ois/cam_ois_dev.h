@@ -34,6 +34,7 @@
 enum cam_ois_state {
 	CAM_OIS_INIT,
 	CAM_OIS_ACQUIRE,
+	CAM_OIS_CONFIG,
 	CAM_OIS_START,
 };
 

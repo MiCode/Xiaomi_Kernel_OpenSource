@@ -79,12 +79,14 @@ struct crm_task_payload {
  * EMPTY   : indicates req slot is empty
  * PENDING : indicates req slot is waiting for reqs from all devs
  * READY   : indicates req slot is ready to be sent to devs
+ * APPLIED : indicates req slot is already sent to devs
  * INVALID : indicates req slot is not in valid state
  */
 enum crm_req_state {
 	CRM_REQ_STATE_EMPTY,
 	CRM_REQ_STATE_PENDING,
 	CRM_REQ_STATE_READY,
+	CRM_REQ_STATE_APPLIED,
 	CRM_REQ_STATE_INVALID,
 };
 

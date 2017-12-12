@@ -51,6 +51,15 @@
 #define ICP_CSR_DBGSWENABLE                     (1 << 22)
 #define ICP_CSR_A5_STATUS_WFI                   (1 << 7)
 
+#define ICP_FLAG_A5_CTRL_DBG_EN                 (ICP_FLAG_CSR_WAKE_UP_EN|\
+						ICP_FLAG_CSR_A5_EN|\
+						ICP_CSR_EDBGRQ|\
+						ICP_CSR_DBGSWENABLE)
+
+#define ICP_FLAG_A5_CTRL_EN                     (ICP_FLAG_CSR_WAKE_UP_EN|\
+						ICP_FLAG_CSR_A5_EN|\
+						ICP_CSR_EN_CLKGATE_WFI)
+
 /* start of Queue table and queues */
 #define MAX_ICP_HFI_QUEUES                      4
 #define ICP_QHDR_TX_TYPE_MASK                   0xFF000000

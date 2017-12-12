@@ -424,6 +424,7 @@ struct cam_req_mgr_frame_msg {
  */
 struct cam_req_mgr_message {
 	int32_t session_hdl;
+	int32_t reserved;
 	union {
 		struct cam_req_mgr_error_msg err_msg;
 		struct cam_req_mgr_frame_msg frame_msg;

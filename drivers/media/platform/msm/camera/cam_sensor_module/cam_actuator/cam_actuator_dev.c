@@ -183,7 +183,7 @@ static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client,
 	rc = cam_actuator_parse_dt(a_ctrl, &client->dev);
 	if (rc < 0) {
 		CAM_ERR(CAM_ACTUATOR, "failed: cam_sensor_parse_dt rc %d", rc);
-		goto free_ctrl;
+		goto free_soc;
 	}
 
 	rc = cam_actuator_init_subdev(a_ctrl);
@@ -218,19 +218,10 @@ static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client,
 
 	v4l2_set_subdevdata(&(a_ctrl->v4l2_dev_str.sd), a_ctrl);
 
-	rc = cam_actuator_construct_default_power_setting(
-		&soc_private->power_info);
-	if (rc < 0) {
-		CAM_ERR(CAM_ACTUATOR,
-			"Construct default actuator power setting failed.");
-		goto free_mem;
-	}
-
 	a_ctrl->cam_act_state = CAM_ACTUATOR_INIT;
 
 	return rc;
-free_mem:
-	kfree(a_ctrl->i2c_data.per_frame);
+
 unreg_subdev:
 	cam_unregister_subdev(&(a_ctrl->v4l2_dev_str));
 free_soc:
@@ -311,7 +302,7 @@ static int32_t cam_actuator_driver_platform_probe(
 	struct cam_actuator_ctrl_t      *a_ctrl = NULL;
 	struct cam_actuator_soc_private *soc_private = NULL;
 
-	/* Create sensor control structure */
+	/* Create actuator control structure */
 	a_ctrl = devm_kzalloc(&pdev->dev,
 		sizeof(struct cam_actuator_ctrl_t), GFP_KERNEL);
 	if (!a_ctrl)
@@ -379,18 +370,10 @@ static int32_t cam_actuator_driver_platform_probe(
 
 	platform_set_drvdata(pdev, a_ctrl);
 	v4l2_set_subdevdata(&a_ctrl->v4l2_dev_str.sd, a_ctrl);
-
-	rc = cam_actuator_construct_default_power_setting(
-		&soc_private->power_info);
-	if (rc < 0) {
-		CAM_ERR(CAM_ACTUATOR,
-			"Construct default actuator power setting failed.");
-		goto unreg_subdev;
-	}
+	a_ctrl->cam_act_state = CAM_ACTUATOR_INIT;
 
 	return rc;
-unreg_subdev:
-	cam_unregister_subdev(&(a_ctrl->v4l2_dev_str));
+
 free_mem:
 	kfree(a_ctrl->i2c_data.per_frame);
 free_soc:
