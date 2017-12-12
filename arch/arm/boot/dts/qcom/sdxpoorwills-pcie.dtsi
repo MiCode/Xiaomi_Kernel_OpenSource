@@ -139,6 +139,8 @@
 
 		qcom,slv-addr-space-size = <0x40000000>;
 
+		qcom,phy-status-offset = <0x814>;
+
 		qcom,cpl-timeout = <0x2>;
 
 		qcom,boot-option = <0x1>;

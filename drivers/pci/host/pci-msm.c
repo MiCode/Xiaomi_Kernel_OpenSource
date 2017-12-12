@@ -63,7 +63,6 @@
 
 #define PCIE_N_SW_RESET(n)			(PCS_PORT(n) + 0x00)
 #define PCIE_N_POWER_DOWN_CONTROL(n)		(PCS_PORT(n) + 0x04)
-#define PCIE_N_PCS_STATUS(n)			(PCS_PORT(n) + 0x174)
 
 #define PCIE_GEN3_COM_INTEGLOOP_GAIN1_MODE0	0x0154
 #define PCIE_GEN3_L0_DRVR_CTRL0			0x080c
@@ -71,7 +70,6 @@
 #define PCIE_GEN3_L0_BIST_ERR_CNT1_STATUS	0x08a8
 #define PCIE_GEN3_L0_BIST_ERR_CNT2_STATUS	0x08ac
 #define PCIE_GEN3_L0_DEBUG_BUS_STATUS4		0x08bc
-#define PCIE_GEN3_PCIE_PHY_PCS_STATUS		0x1aac
 
 #define PCIE20_PARF_SYS_CTRL	     0x00
 #define PCIE20_PARF_PM_CTRL		0x20
@@ -590,6 +588,7 @@ struct msm_pcie_dev_t {
 	uint32_t			switch_latency;
 	uint32_t			wr_halt_size;
 	uint32_t			slv_addr_space_size;
+	uint32_t			phy_status_offset;
 	uint32_t			cpl_timeout;
 	uint32_t			current_bdf;
 	uint32_t			perst_delay_us_min;
@@ -998,11 +997,7 @@ static void pcie_phy_init(struct msm_pcie_dev_t *dev)
 
 static bool pcie_phy_is_ready(struct msm_pcie_dev_t *dev)
 {
-	u32 pos = (dev->max_link_speed == GEN2_SPEED) ?
-		PCIE_N_PCS_STATUS(dev->rc_idx) :
-		PCIE_GEN3_PCIE_PHY_PCS_STATUS;
-
-	if (readl_relaxed(dev->phy + pos) & BIT(6))
+	if (readl_relaxed(dev->phy + dev->phy_status_offset) & BIT(6))
 		return false;
 	else
 		return true;
@@ -1260,6 +1255,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->wr_halt_size);
 	PCIE_DBG_FS(dev, "slv_addr_space_size: 0x%x\n",
 		dev->slv_addr_space_size);
+	PCIE_DBG_FS(dev, "phy_status_offset: 0x%x\n",
+		dev->phy_status_offset);
 	PCIE_DBG_FS(dev, "cpl_timeout: 0x%x\n",
 		dev->cpl_timeout);
 	PCIE_DBG_FS(dev, "current_bdf: 0x%x\n",
@@ -5862,6 +5859,21 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	PCIE_DBG(&msm_pcie_dev[rc_idx],
 		"RC%d: slv-addr-space-size: 0x%x.\n",
 		rc_idx, msm_pcie_dev[rc_idx].slv_addr_space_size);
+
+	msm_pcie_dev[rc_idx].phy_status_offset = 0;
+	ret = of_property_read_u32(pdev->dev.of_node,
+				"qcom,phy-status-offset",
+				&msm_pcie_dev[rc_idx].phy_status_offset);
+	if (ret) {
+		PCIE_ERR(&msm_pcie_dev[rc_idx],
+			"RC%d: failed to get PCIe PHY status offset.\n",
+			rc_idx);
+		goto decrease_rc_num;
+	} else {
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d: phy-status-offset: 0x%x.\n",
+			rc_idx, msm_pcie_dev[rc_idx].phy_status_offset);
+	}
 
 	msm_pcie_dev[rc_idx].cpl_timeout = 0;
 	ret = of_property_read_u32((&pdev->dev)->of_node,
