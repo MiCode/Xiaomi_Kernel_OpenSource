@@ -103,6 +103,7 @@ struct mdm_ctrl {
 	struct coresight_cti *cti;
 	int trig_cnt;
 	const struct mdm_pon_ops *pon_ops;
+	bool skip_restart_for_mdm_crash;
 };
 
 struct mdm_pon_ops {
