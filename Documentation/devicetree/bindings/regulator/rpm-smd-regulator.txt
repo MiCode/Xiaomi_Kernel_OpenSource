@@ -1,4 +1,4 @@
-Qualcomm RPM Regulators
+Qualcomm Technologies, Inc. RPM Regulators
 
 rpm-regulator-smd is a regulator driver which supports regulators inside of
 PMICs which are controlled by the RPM processor.  Communication with the RPM
