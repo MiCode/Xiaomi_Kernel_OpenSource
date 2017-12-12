@@ -363,7 +363,7 @@ config ARM_SMMU_V3
 
 config QCOM_LAZY_MAPPING
 	bool "Reference counted iommu-mapping support"
-	depends on ION_MSM
+	depends on ION
 	depends on IOMMU_API
 	help
 	  ION buffers may be shared between several software clients.
