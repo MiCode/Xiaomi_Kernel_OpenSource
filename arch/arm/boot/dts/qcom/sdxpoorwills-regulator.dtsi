@@ -347,4 +347,18 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 		};
 	};
+
+	/* Stub regulators */
+
+	/*
+	 * RPMh does not provide support for PMXPOORWILLS L6 because it is
+	 * always on at 1.8 V.  Therefore, use a fixed regulator for L6.
+	 */
+	pmxpoorwills_l6: regulator-pmxpoorwills-l6 {
+		compatible = "regulator-fixed";
+		regulator-name = "pmxpoorwills_l6";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
 };
