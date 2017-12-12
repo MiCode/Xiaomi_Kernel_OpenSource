@@ -1047,7 +1047,7 @@
 		vdd_l3_mx_ao-supply = <&pm660l_s1_level_ao>;
 		vdd_pwrcl_mx_ao-supply = <&pm660l_s1_level_ao>;
 
-		qcom,mx-turbo-freq = <3300000001 3300000001 3300000001>;
+		qcom,mx-turbo-freq = <1440000000 1708000000 3300000001>;
 		l3-devs = <&l3_cpu0 &l3_cpu6>;
 
 		clock-names = "xo_ao";
