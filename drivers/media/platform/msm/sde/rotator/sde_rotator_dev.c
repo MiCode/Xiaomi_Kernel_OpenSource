@@ -17,8 +17,6 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
-#include <linux/ion.h>
-#include <linux/msm_ion.h>
 #include <linux/delay.h>
 #include <linux/wait.h>
 #include <linux/of.h>
@@ -544,7 +542,6 @@ static void *sde_rotator_get_userptr(struct device *dev,
 	struct sde_rotator_ctx *ctx = (struct sde_rotator_ctx *)dev;
 	struct sde_rotator_device *rot_dev = ctx->rot_dev;
 	struct sde_rotator_buf_handle *buf;
-	struct ion_client *iclient = rot_dev->mdata->iclient;
 
 	buf = kzalloc(sizeof(*buf), GFP_KERNEL);
 	if (!buf)
@@ -554,32 +551,18 @@ static void *sde_rotator_get_userptr(struct device *dev,
 	buf->secure = ctx->secure || ctx->secure_camera;
 	buf->ctx = ctx;
 	buf->rot_dev = rot_dev;
-	if (ctx->secure_camera) {
-		buf->handle = ion_import_dma_buf_fd(iclient,
-				buf->fd);
-		if (IS_ERR_OR_NULL(buf->handle)) {
-			SDEDEV_ERR(rot_dev->dev,
-				"fail get ion_handler fd:%d r:%ld\n",
-				buf->fd, PTR_ERR(buf->buffer));
-			goto error_buf_get;
-		}
-		SDEDEV_DBG(rot_dev->dev,
-				"get ion_handle s:%d fd:%d buf:%pad\n",
-				buf->ctx->session_id,
-				buf->fd, &buf->handle);
-	} else {
-		buf->buffer = dma_buf_get(buf->fd);
-		if (IS_ERR_OR_NULL(buf->buffer)) {
-			SDEDEV_ERR(rot_dev->dev,
-				"fail get dmabuf fd:%d r:%ld\n",
-				buf->fd, PTR_ERR(buf->buffer));
-			goto error_buf_get;
-		}
-		SDEDEV_DBG(rot_dev->dev,
-				"get dmabuf s:%d fd:%d buf:%pad\n",
-				buf->ctx->session_id,
-				buf->fd, &buf->buffer);
+	buf->size = size;
+	buf->buffer = dma_buf_get(buf->fd);
+	if (IS_ERR_OR_NULL(buf->buffer)) {
+		SDEDEV_ERR(rot_dev->dev,
+			"fail get dmabuf fd:%d r:%ld\n",
+			buf->fd, PTR_ERR(buf->buffer));
+		goto error_buf_get;
 	}
+	SDEDEV_DBG(rot_dev->dev,
+			"get dmabuf s:%d fd:%d buf:%pad\n",
+			buf->ctx->session_id,
+			buf->fd, &buf->buffer);
 
 	return buf;
 error_buf_get:
@@ -2970,15 +2953,15 @@ static int sde_rotator_process_buffers(struct sde_rotator_ctx *ctx,
 	/* fill in item work structure */
 	sde_rotator_get_item_from_ctx(ctx, &item);
 	item.flags |= SDE_ROTATION_EXT_DMA_BUF;
+	item.input.planes[0].fd = src_handle->fd;
 	item.input.planes[0].buffer = src_handle->buffer;
-	item.input.planes[0].handle = src_handle->handle;
 	item.input.planes[0].offset = src_handle->addr;
 	item.input.planes[0].stride = ctx->format_out.fmt.pix.bytesperline;
 	item.input.plane_count = 1;
 	item.input.fence = NULL;
 	item.input.comp_ratio = vbinfo_out->comp_ratio;
+	item.output.planes[0].fd = dst_handle->fd;
 	item.output.planes[0].buffer = dst_handle->buffer;
-	item.output.planes[0].handle = dst_handle->handle;
 	item.output.planes[0].offset = dst_handle->addr;
 	item.output.planes[0].stride = ctx->format_cap.fmt.pix.bytesperline;
 	item.output.plane_count = 1;

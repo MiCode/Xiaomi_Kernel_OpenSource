@@ -22,7 +22,6 @@
 #include <linux/interrupt.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-buf.h>
-#include <linux/msm_ion.h>
 #include <linux/clk.h>
 #include <linux/clk/qcom.h>
 
@@ -2034,27 +2033,18 @@ static void setup_rotator_ops(struct sde_hw_rotator_ops *ops,
 static int sde_hw_rotator_swts_create(struct sde_hw_rotator *rot)
 {
 	int rc = 0;
-	struct ion_handle *handle;
 	struct sde_mdp_img_data *data;
-	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	u32 bufsize = sizeof(int) * SDE_HW_ROT_REGDMA_TOTAL_CTX * 2;
 
-	rot->iclient = mdata->iclient;
-
-	handle = ion_alloc(rot->iclient, bufsize, SZ_4K,
-			ION_HEAP(ION_SYSTEM_HEAP_ID), 0);
-	if (IS_ERR_OR_NULL(handle)) {
-		SDEROT_ERR("ion memory allocation failed\n");
-		return -ENOMEM;
-	}
+	if (bufsize < SZ_4K)
+		bufsize = SZ_4K;
 
 	data = &rot->swts_buf;
 	data->len = bufsize;
-	data->srcp_dma_buf = ion_share_dma_buf(rot->iclient, handle);
-	if (IS_ERR(data->srcp_dma_buf)) {
-		SDEROT_ERR("ion_dma_buf setup failed\n");
-		rc = -ENOMEM;
-		goto imap_err;
+	data->srcp_dma_buf = sde_rot_get_dmabuf(data);
+	if (!data->srcp_dma_buf) {
+		SDEROT_ERR("Fail dmabuf create\n");
+		return -ENOMEM;
 	}
 
 	sde_smmu_ctrl(1);
@@ -2083,52 +2073,34 @@ static int sde_hw_rotator_swts_create(struct sde_hw_rotator *rot)
 		goto err_unmap;
 	}
 
-	dma_buf_begin_cpu_access(data->srcp_dma_buf, DMA_FROM_DEVICE);
-	rot->swts_buffer = dma_buf_kmap(data->srcp_dma_buf, 0);
-	if (IS_ERR_OR_NULL(rot->swts_buffer)) {
-		SDEROT_ERR("ion kernel memory mapping failed\n");
-		rc = IS_ERR(rot->swts_buffer);
-		goto kmap_err;
-	}
-
 	data->mapped = true;
 	SDEROT_DBG("swts buffer mapped: %pad/%lx va:%p\n", &data->addr,
 			data->len, rot->swts_buffer);
 
-	ion_free(rot->iclient, handle);
-
 	sde_smmu_ctrl(0);
 
 	return rc;
-kmap_err:
-	sde_smmu_unmap_dma_buf(data->srcp_table, SDE_IOMMU_DOMAIN_ROT_UNSECURE,
-			DMA_FROM_DEVICE, data->srcp_dma_buf);
 err_unmap:
 	dma_buf_unmap_attachment(data->srcp_attachment, data->srcp_table,
 			DMA_FROM_DEVICE);
 err_detach:
 	dma_buf_detach(data->srcp_dma_buf, data->srcp_attachment);
 err_put:
-	dma_buf_put(data->srcp_dma_buf);
 	data->srcp_dma_buf = NULL;
-imap_err:
-	ion_free(rot->iclient, handle);
 
+	sde_smmu_ctrl(0);
 	return rc;
 }
 
 /*
- * sde_hw_rotator_swtc_destroy - destroy software timestamp buffer
+ * sde_hw_rotator_swts_destroy - destroy software timestamp buffer
  * @rot: Pointer to rotator hw
  */
-static void sde_hw_rotator_swtc_destroy(struct sde_hw_rotator *rot)
+static void sde_hw_rotator_swts_destroy(struct sde_hw_rotator *rot)
 {
 	struct sde_mdp_img_data *data;
 
 	data = &rot->swts_buf;
-
-	dma_buf_end_cpu_access(data->srcp_dma_buf, DMA_FROM_DEVICE);
-	dma_buf_kunmap(data->srcp_dma_buf, 0, rot->swts_buffer);
 
 	sde_smmu_unmap_dma_buf(data->srcp_table, SDE_IOMMU_DOMAIN_ROT_UNSECURE,
 			DMA_FROM_DEVICE, data->srcp_dma_buf);
@@ -2136,7 +2108,10 @@ static void sde_hw_rotator_swtc_destroy(struct sde_hw_rotator *rot)
 			DMA_FROM_DEVICE);
 	dma_buf_detach(data->srcp_dma_buf, data->srcp_attachment);
 	dma_buf_put(data->srcp_dma_buf);
+	data->addr = 0;
 	data->srcp_dma_buf = NULL;
+	data->srcp_attachment = NULL;
+	data->mapped = false;
 }
 
 /*
@@ -2246,7 +2221,7 @@ static void sde_hw_rotator_destroy(struct sde_rot_mgr *mgr)
 		devm_free_irq(&mgr->pdev->dev, rot->irq_num, mdata);
 
 	if (rot->mode == ROT_REGDMA_ON)
-		sde_hw_rotator_swtc_destroy(rot);
+		sde_hw_rotator_swts_destroy(rot);
 
 	devm_kfree(&mgr->pdev->dev, mgr->hw_data);
 	mgr->hw_data = NULL;
@@ -2291,7 +2266,7 @@ static struct sde_rot_hw_resource *sde_hw_rotator_alloc_ext(
 	else {
 		resinfo->hw.max_active = SDE_HW_ROT_REGDMA_TOTAL_CTX - 1;
 
-		if (resinfo->rot->iclient == NULL)
+		if (resinfo->rot->swts_buf.mapped == false)
 			sde_hw_rotator_swts_create(resinfo->rot);
 	}
 

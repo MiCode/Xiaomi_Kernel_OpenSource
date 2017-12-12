@@ -16,7 +16,6 @@
 #include <linux/types.h>
 #include <linux/atomic.h>
 #include <linux/slab.h>
-#include <linux/ion.h>
 #include <linux/ktime.h>
 #include <linux/iommu.h>
 #include <linux/dma-buf.h>
@@ -54,17 +53,15 @@ struct sde_rotator_ctx;
  * @addr: Address of rotator mmu mapped buffer.
  * @secure: Non-secure/secure buffer.
  * @buffer: Pointer to dma buf associated with this fd.
- * @ihandle: ion handle associated with this fd
  */
 struct sde_rotator_buf_handle {
 	int fd;
 	struct sde_rotator_device *rot_dev;
 	struct sde_rotator_ctx *ctx;
 	unsigned long size;
-	ion_phys_addr_t addr;
+	dma_addr_t addr;
 	int secure;
 	struct dma_buf *buffer;
-	struct ion_handle *handle;
 };
 
 /*
