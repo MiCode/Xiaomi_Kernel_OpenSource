@@ -3855,6 +3855,9 @@ int ipa3_set_clock_plan_from_pm(int idx)
 {
 	u32 clk_rate;
 
+	if (!ipa3_ctx->enable_clock_scaling)
+		return 0;
+
 	IPADBG_LOW("idx = %d\n", idx);
 
 	if (idx <= 0 || idx >= ipa3_ctx->ctrl->msm_bus_data_ptr->num_usecases) {
@@ -3863,10 +3866,12 @@ int ipa3_set_clock_plan_from_pm(int idx)
 	}
 
 	if (idx == 1)
-		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_svs;
+		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_svs2;
 	else if (idx == 2)
-		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_nominal;
+		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_svs;
 	else if (idx == 3)
+		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_nominal;
+	else if (idx == 4)
 		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_turbo;
 	else {
 		IPAERR("bad voltage\n");
