@@ -965,7 +965,9 @@ fail:
  * @dev: device pointer
  * @Return: 0 on success, otherwise -error
  */
-static int msm_disable_all_modes(struct drm_device *dev)
+static int msm_disable_all_modes(
+		struct drm_device *dev,
+		struct drm_modeset_acquire_ctx *ctx)
 {
 	struct drm_atomic_state *state;
 	int ret, i;
@@ -974,14 +976,14 @@ static int msm_disable_all_modes(struct drm_device *dev)
 	if (!state)
 		return -ENOMEM;
 
-	state->acquire_ctx = dev->mode_config.acquire_ctx;
+	state->acquire_ctx = ctx;
 
 	for (i = 0; i < TEARDOWN_DEADLOCK_RETRY_MAX; i++) {
 		ret = msm_disable_all_modes_commit(dev, state);
 		if (ret != -EDEADLK)
 			break;
 		drm_atomic_state_clear(state);
-		drm_atomic_legacy_backoff(state);
+		drm_modeset_backoff(ctx);
 	}
 
 	/* on successful atomic commit state ownership transfers to framework */
@@ -995,6 +997,7 @@ static void msm_lastclose(struct drm_device *dev)
 {
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_kms *kms = priv->kms;
+	struct drm_modeset_acquire_ctx ctx;
 	int i;
 
 	/*
@@ -1014,11 +1017,13 @@ static void msm_lastclose(struct drm_device *dev)
 	if (priv->fbdev) {
 		drm_fb_helper_restore_fbdev_mode_unlocked(priv->fbdev);
 	} else {
-		drm_modeset_lock_all(dev);
-		msm_disable_all_modes(dev);
+		drm_modeset_acquire_init(&ctx, 0);
+		drm_modeset_lock_all_ctx(dev, &ctx);
+		msm_disable_all_modes(dev, &ctx);
 		if (kms && kms->funcs && kms->funcs->lastclose)
-			kms->funcs->lastclose(kms);
-		drm_modeset_unlock_all(dev);
+			kms->funcs->lastclose(kms, &ctx);
+		drm_modeset_drop_locks(&ctx);
+		drm_modeset_acquire_fini(&ctx);
 	}
 }
 
