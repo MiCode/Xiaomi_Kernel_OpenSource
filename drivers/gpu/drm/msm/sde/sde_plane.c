@@ -238,7 +238,7 @@ static inline int _sde_plane_calc_fill_level(struct drm_plane *plane,
 		src_width = max_t(u32, src_width, tmp->pipe_cfg.src_rect.w);
 	}
 
-	if ((rstate->out_rotation & DRM_REFLECT_X) &&
+	if ((rstate->out_rotation & DRM_MODE_REFLECT_X) &&
 			SDE_FORMAT_IS_LINEAR(fmt))
 		hflip_bytes = (src_width + 32) * fmt->bpp;
 	else
@@ -1671,9 +1671,7 @@ static int sde_plane_rot_calc_cfg(struct drm_plane *plane,
 		if (attached_state->fb != state->fb)
 			continue;
 
-		if (sde_plane_get_property(pstate, PLANE_PROP_ROTATION) !=
-			sde_plane_get_property(attached_pstate,
-				PLANE_PROP_ROTATION))
+		if (state->rotation != attached_state->rotation)
 			continue;
 
 		found++;
@@ -1735,8 +1733,7 @@ static int sde_plane_rot_calc_cfg(struct drm_plane *plane,
 					state->src_h >> 16,
 					state->src_x >> 16,
 					state->src_y >> 16,
-					sde_plane_get_property(pstate,
-							PLANE_PROP_ROTATION),
+					state->rotation,
 					state->fb ?
 						state->fb->base.id :
 						-1,
@@ -1746,8 +1743,7 @@ static int sde_plane_rot_calc_cfg(struct drm_plane *plane,
 					attached_state->src_h >> 16,
 					attached_state->src_x >> 16,
 					attached_state->src_y >> 16,
-					sde_plane_get_property(attached_pstate,
-							PLANE_PROP_ROTATION),
+					attached_state->rotation,
 					attached_state->fb ?
 						attached_state->fb->base.id :
 						-1);
@@ -1988,13 +1984,13 @@ static int sde_plane_rot_submit_command(struct drm_plane *plane,
 	rstate->out_src_h = drm_rect_height(&rstate->out_src_rect);
 
 	if (rot_cmd->rot90)
-		rstate->out_rotation &= ~DRM_ROTATE_90;
+		rstate->out_rotation &= ~DRM_MODE_ROTATE_90;
 
 	if (rot_cmd->hflip)
-		rstate->out_rotation &= ~DRM_REFLECT_X;
+		rstate->out_rotation &= ~DRM_MODE_REFLECT_X;
 
 	if (rot_cmd->vflip)
-		rstate->out_rotation &= ~DRM_REFLECT_Y;
+		rstate->out_rotation &= ~DRM_MODE_REFLECT_Y;
 
 	SDE_DEBUG(
 		"plane%d.%d rot:%d/%c%c%c%c/%dx%d/%4.4s/%llx/%dx%d+%d+%d\n",
@@ -2292,12 +2288,12 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 			sde_plane_crtc_enabled(state));
 
 	rstate->in_rotation = drm_rotation_simplify(
-			sde_plane_get_property(pstate, PLANE_PROP_ROTATION),
-			DRM_ROTATE_0 | DRM_ROTATE_90 |
-			DRM_REFLECT_X | DRM_REFLECT_Y);
-	rstate->rot90 = rstate->in_rotation & DRM_ROTATE_90 ? true : false;
-	rstate->hflip = rstate->in_rotation & DRM_REFLECT_X ? true : false;
-	rstate->vflip = rstate->in_rotation & DRM_REFLECT_Y ? true : false;
+			state->rotation,
+			DRM_MODE_ROTATE_0 | DRM_MODE_ROTATE_90 |
+			DRM_MODE_REFLECT_X | DRM_MODE_REFLECT_Y);
+	rstate->rot90 = rstate->in_rotation & DRM_MODE_ROTATE_90 ? true : false;
+	rstate->hflip = rstate->in_rotation & DRM_MODE_REFLECT_X ? true : false;
+	rstate->vflip = rstate->in_rotation & DRM_MODE_REFLECT_Y ? true : false;
 	rstate->out_sbuf = psde->sbuf_mode || rstate->rot90;
 
 	if (sde_plane_enabled(state) && rstate->out_sbuf) {
@@ -2732,8 +2728,9 @@ static void sde_plane_rot_install_properties(struct drm_plane *plane,
 	struct sde_mdss_cfg *catalog)
 {
 	struct sde_plane *psde = to_sde_plane(plane);
-	unsigned long supported_rotations = DRM_ROTATE_0 | DRM_REFLECT_X |
-			DRM_REFLECT_Y;
+	unsigned long supported_rotations = DRM_MODE_ROTATE_0 |
+			DRM_MODE_REFLECT_X | DRM_MODE_REFLECT_Y;
+	int ret = 0;
 
 	if (!plane || !psde) {
 		SDE_ERROR("invalid plane\n");
@@ -2744,11 +2741,15 @@ static void sde_plane_rot_install_properties(struct drm_plane *plane,
 	}
 
 	if ((psde->features & BIT(SDE_SSPP_SBUF)) && catalog->rot_count)
-		supported_rotations |= DRM_ROTATE_0 | DRM_ROTATE_90 |
-				DRM_ROTATE_180 | DRM_ROTATE_270;
+		supported_rotations |= DRM_MODE_ROTATE_0 | DRM_MODE_ROTATE_90 |
+				DRM_MODE_ROTATE_180 | DRM_MODE_ROTATE_270;
 
-	msm_property_install_rotation(&psde->property_info,
-			supported_rotations, PLANE_PROP_ROTATION);
+	ret = drm_plane_create_rotation_property(plane,
+			DRM_MODE_ROTATE_0, supported_rotations);
+	if (ret) {
+		DRM_ERROR("create rotation property failed: %d\n", ret);
+		return;
+	}
 
 	if (!(psde->features & BIT(SDE_SSPP_SBUF)) || !catalog->rot_count)
 		return;
@@ -3602,9 +3603,6 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 			/* potentially need to refresh everything */
 			pstate->dirty = SDE_PLANE_DIRTY_ALL;
 			break;
-		case PLANE_PROP_ROTATION:
-			pstate->dirty |= SDE_PLANE_DIRTY_FORMAT;
-			break;
 		case PLANE_PROP_INFO:
 		case PLANE_PROP_ALPHA:
 		case PLANE_PROP_INPUT_FENCE:
@@ -3757,9 +3755,9 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 			psde->pipe_hw->ops.setup_format) {
 		src_flags = 0x0;
 		SDE_DEBUG_PLANE(psde, "rotation 0x%X\n", rstate->out_rotation);
-		if (rstate->out_rotation & DRM_REFLECT_X)
+		if (rstate->out_rotation & DRM_MODE_REFLECT_X)
 			src_flags |= SDE_SSPP_FLIP_LR;
-		if (rstate->out_rotation & DRM_REFLECT_Y)
+		if (rstate->out_rotation & DRM_MODE_REFLECT_Y)
 			src_flags |= SDE_SSPP_FLIP_UD;
 
 		blend_enabled = (SDE_DRM_BLEND_OP_OPAQUE !=
