@@ -1267,15 +1267,18 @@ static int ath10k_start_cac(struct ath10k *ar)
 
 	set_bit(ATH10K_CAC_RUNNING, &ar->dev_flags);
 
-	ret = ath10k_monitor_recalc(ar);
-	if (ret) {
-		ath10k_warn(ar, "failed to start monitor (cac): %d\n", ret);
-		clear_bit(ATH10K_CAC_RUNNING, &ar->dev_flags);
-		return ret;
-	}
+	if (!QCA_REV_WCN3990(ar)) {
+		ret = ath10k_monitor_recalc(ar);
+		if (ret) {
+			ath10k_warn(ar, "failed to start monitor (cac): %d\n",
+				    ret);
+			clear_bit(ATH10K_CAC_RUNNING, &ar->dev_flags);
+			return ret;
+		}
 
-	ath10k_dbg(ar, ATH10K_DBG_MAC, "mac cac start monitor vdev %d\n",
-		   ar->monitor_vdev_id);
+		ath10k_dbg(ar, ATH10K_DBG_MAC, "mac cac start monitor vdev %d\n",
+			   ar->monitor_vdev_id);
+	}
 
 	return 0;
 }
@@ -1289,7 +1292,8 @@ static int ath10k_stop_cac(struct ath10k *ar)
 		return 0;
 
 	clear_bit(ATH10K_CAC_RUNNING, &ar->dev_flags);
-	ath10k_monitor_stop(ar);
+	if (!QCA_REV_WCN3990(ar))
+		ath10k_monitor_stop(ar);
 
 	ath10k_dbg(ar, ATH10K_DBG_MAC, "mac cac finished\n");
 
