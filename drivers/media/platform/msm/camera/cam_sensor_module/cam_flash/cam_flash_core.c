@@ -17,7 +17,7 @@
 #include "cam_res_mgr_api.h"
 
 int cam_flash_prepare(struct cam_flash_ctrl *flash_ctrl,
-	bool regulator_enable)
+	enum cam_flash_state state)
 {
 	int rc = 0;
 
@@ -26,7 +26,7 @@ int cam_flash_prepare(struct cam_flash_ctrl *flash_ctrl,
 		return -EINVAL;
 	}
 
-	if (regulator_enable &&
+	if ((state == CAM_FLASH_STATE_START) &&
 		(flash_ctrl->is_regulator_enabled == false)) {
 		rc = qpnp_flash_led_prepare(flash_ctrl->switch_trigger,
 			ENABLE_REGULATOR, NULL);
@@ -37,7 +37,7 @@ int cam_flash_prepare(struct cam_flash_ctrl *flash_ctrl,
 		}
 		flash_ctrl->is_regulator_enabled = true;
 		flash_ctrl->flash_state = CAM_FLASH_STATE_START;
-	} else if ((!regulator_enable) &&
+	} else if ((state == CAM_FLASH_STATE_STOP) &&
 		(flash_ctrl->is_regulator_enabled == true)) {
 		rc = qpnp_flash_led_prepare(flash_ctrl->switch_trigger,
 			DISABLE_REGULATOR, NULL);
@@ -323,13 +323,18 @@ int cam_flash_apply_setting(struct cam_flash_ctrl *fctrl,
 						rc);
 					goto nrt_del_req;
 				}
+				fctrl->flash_state =
+						CAM_FLASH_STATE_LOW;
 			} else if (flash_data->opcode ==
 				CAMERA_SENSOR_FLASH_OP_OFF) {
-				rc = cam_flash_off(fctrl);
-				if (rc)
-					CAM_ERR(CAM_FLASH,
-					"LED off failed: %d",
-					rc);
+				if (fctrl->flash_state ==
+					CAM_FLASH_STATE_LOW) {
+					rc = cam_flash_off(fctrl);
+					if (rc)
+						CAM_ERR(CAM_FLASH,
+						"LED off failed: %d",
+						rc);
+				}
 			}
 		} else if (fctrl->nrt_info.cmn_attr.cmd_type ==
 			CAMERA_SENSOR_FLASH_CMD_TYPE_RER) {
@@ -355,6 +360,8 @@ int cam_flash_apply_setting(struct cam_flash_ctrl *fctrl,
 							"Fire Torch Failed");
 						goto nrt_del_req;
 					}
+					fctrl->flash_state =
+						CAM_FLASH_STATE_LOW;
 
 					usleep_range(
 					flash_data->led_on_delay_ms * 1000,
@@ -391,6 +398,7 @@ int cam_flash_apply_setting(struct cam_flash_ctrl *fctrl,
 						rc);
 					goto apply_setting_err;
 				}
+				fctrl->flash_state = CAM_FLASH_STATE_HIGH;
 			}
 		} else if ((flash_data->opcode ==
 			CAMERA_SENSOR_FLASH_OP_FIRELOW) &&
@@ -405,15 +413,19 @@ int cam_flash_apply_setting(struct cam_flash_ctrl *fctrl,
 						rc);
 					goto apply_setting_err;
 				}
+				fctrl->flash_state = CAM_FLASH_STATE_LOW;
 			}
 		} else if ((flash_data->opcode == CAMERA_SENSOR_FLASH_OP_OFF) &&
 			(flash_data->cmn_attr.is_settings_valid) &&
 			(flash_data->cmn_attr.request_id == req_id)) {
-			rc = cam_flash_off(fctrl);
-			if (rc) {
-				CAM_ERR(CAM_FLASH,
-					"Flash off failed %d", rc);
-				goto apply_setting_err;
+			if ((fctrl->flash_state == CAM_FLASH_STATE_LOW) ||
+				(fctrl->flash_state == CAM_FLASH_STATE_HIGH)) {
+				rc = cam_flash_off(fctrl);
+				if (rc) {
+					CAM_ERR(CAM_FLASH,
+						"Flash off failed %d", rc);
+					goto apply_setting_err;
+				}
 			}
 		} else {
 			CAM_DBG(CAM_FLASH, "NOP opcode: req_id: %u", req_id);
@@ -541,13 +553,6 @@ int cam_flash_parser(struct cam_flash_ctrl *fctrl, void *arg)
 		case CAMERA_SENSOR_FLASH_CMD_TYPE_FIRE: {
 			CAM_DBG(CAM_FLASH,
 				"CAMERA_FLASH_CMD_TYPE_OPS case called");
-			if (fctrl->flash_state != CAM_FLASH_STATE_START) {
-				CAM_ERR(CAM_FLASH,
-					"Rxed Update packets without linking");
-				fctrl->per_frame[frame_offset].
-					cmn_attr.is_settings_valid = false;
-				return -EINVAL;
-			}
 			flash_operation_info =
 				(struct cam_flash_set_on_off *) cmd_buf;
 			if (!flash_operation_info) {
@@ -663,14 +668,6 @@ int cam_flash_parser(struct cam_flash_ctrl *fctrl, void *arg)
 		break;
 	}
 	case CAM_PKT_NOP_OPCODE: {
-		if (fctrl->flash_state != CAM_FLASH_STATE_START) {
-			CAM_ERR(CAM_FLASH,
-				"Rxed Update packets without linking");
-			fctrl->per_frame[frame_offset].
-				cmn_attr.is_settings_valid = false;
-			return -EINVAL;
-		}
-
 		CAM_DBG(CAM_FLASH, "NOP Packet is Received: req_id: %u",
 			csl_packet->header.request_id);
 		goto update_req_mgr;
@@ -742,7 +739,9 @@ int cam_flash_stop_dev(struct cam_flash_ctrl *fctrl)
 {
 	int rc = 0, i, j;
 
-	cam_flash_off(fctrl);
+	if ((fctrl->flash_state == CAM_FLASH_STATE_LOW) ||
+		(fctrl->flash_state == CAM_FLASH_STATE_HIGH))
+		cam_flash_off(fctrl);
 
 	for (i = 0; i < MAX_PER_FRAME_ARRAY; i++) {
 		fctrl->per_frame[i].cmn_attr.request_id = 0;
@@ -761,7 +760,7 @@ int cam_flash_stop_dev(struct cam_flash_ctrl *fctrl)
 
 	if ((fctrl->flash_state == CAM_FLASH_STATE_START) &&
 		(fctrl->is_regulator_enabled == true)) {
-		rc = cam_flash_prepare(fctrl, false);
+		rc = cam_flash_prepare(fctrl, CAM_FLASH_STATE_STOP);
 		if (rc)
 			CAM_ERR(CAM_FLASH, "Disable Regulator Failed rc: %d",
 				rc);
