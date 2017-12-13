@@ -3138,6 +3138,29 @@ static int _sde_plane_fetch_halt(struct drm_plane *plane)
 	return sde_vbif_halt_plane_xin(sde_kms, xin_id, clk_ctrl);
 }
 
+
+static inline int _sde_plane_power_enable(struct drm_plane *plane, bool enable)
+{
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+
+	if (!plane->dev || !plane->dev->dev_private) {
+		SDE_ERROR("invalid drm device\n");
+		return -EINVAL;
+	}
+
+	priv = plane->dev->dev_private;
+	if (!priv->kms) {
+		SDE_ERROR("invalid kms\n");
+		return -EINVAL;
+	}
+
+	sde_kms = to_sde_kms(priv->kms);
+
+	return sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
+									enable);
+}
+
 static void sde_plane_cleanup_fb(struct drm_plane *plane,
 		struct drm_plane_state *old_state)
 {
@@ -3163,6 +3186,13 @@ static void sde_plane_cleanup_fb(struct drm_plane *plane,
 			       psde->pipe - SSPP_VIG0);
 
 		/* halt this plane now */
+		ret = _sde_plane_power_enable(plane, true);
+		if (ret) {
+			SDE_ERROR("power resource enable failed with %d", ret);
+			SDE_EVT32(ret);
+			return;
+		}
+
 		ret = _sde_plane_fetch_halt(plane);
 		if (ret) {
 			SDE_ERROR_PLANE(psde,
@@ -3171,6 +3201,7 @@ static void sde_plane_cleanup_fb(struct drm_plane *plane,
 			SDE_EVT32(DRMID(plane), psde->pipe - SSPP_VIG0,
 				       ret, SDE_EVTLOG_ERROR);
 		}
+		_sde_plane_power_enable(plane, false);
 	}
 
 	old_rstate = &old_pstate->rot;
