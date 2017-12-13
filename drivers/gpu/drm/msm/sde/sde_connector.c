@@ -1046,19 +1046,6 @@ end:
 	return rc;
 }
 
-static int sde_connector_set_property(struct drm_connector *connector,
-		struct drm_property *property,
-		uint64_t val)
-{
-	if (!connector) {
-		SDE_ERROR("invalid connector\n");
-		return -EINVAL;
-	}
-
-	return sde_connector_atomic_set_property(connector,
-			connector->state, property, val);
-}
-
 static int sde_connector_atomic_get_property(struct drm_connector *connector,
 		const struct drm_connector_state *state,
 		struct drm_property *property,
@@ -1233,7 +1220,7 @@ int sde_connector_set_property_for_commit(struct drm_connector *connector,
 		return -EINVAL;
 	}
 
-	return drm_atomic_connector_set_property(
+	return sde_connector_atomic_set_property(
 			connector, state, property, value);
 }
 
@@ -1276,7 +1263,7 @@ int sde_connector_helper_reset_custom_properties(
 		SDE_DEBUG_CONN(c_conn, "set prop %s idx %d from %llu to %llu\n",
 				drm_prop->name, prop_idx, val, def);
 
-		ret = drm_atomic_connector_set_property(connector,
+		ret = sde_connector_atomic_set_property(connector,
 				connector_state, drm_prop, def);
 		if (ret) {
 			SDE_ERROR_CONN(c_conn,
@@ -1374,7 +1361,6 @@ static const struct drm_connector_funcs sde_connector_ops = {
 	.atomic_destroy_state =   sde_connector_atomic_destroy_state,
 	.atomic_set_property =    sde_connector_atomic_set_property,
 	.atomic_get_property =    sde_connector_atomic_get_property,
-	.set_property =           sde_connector_set_property,
 	.late_register =          sde_connector_late_register,
 	.early_unregister =       sde_connector_early_unregister,
 };
