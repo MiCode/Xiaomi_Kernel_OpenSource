@@ -14,4 +14,6 @@ obj-$(CONFIG_MSM_CLK_CONTROLLER_V2)	+= msm-clock-controller.o
 
 ifeq ($(CONFIG_COMMON_CLK_MSM), y)
 obj-$(CONFIG_ARCH_MSM8953)	+= clock-gcc-8953.o
+obj-$(CONFIG_ARCH_MSM8953)	+= clock-cpu-8953.o
+obj-$(CONFIG_ARCH_MSM8953)	+= clock-rcgwr.o
 endif
