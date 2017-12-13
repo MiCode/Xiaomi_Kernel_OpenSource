@@ -1731,6 +1731,18 @@ static int __init lpm_levels_module_init(void)
 {
 	int rc;
 
+#ifdef CONFIG_ARM
+	int cpu;
+
+	for_each_possible_cpu(cpu) {
+		rc = arm_cpuidle_init(smp_processor_id());
+		if (rc) {
+			pr_err("CPU%d ARM CPUidle init failed (%d)\n", cpu, rc);
+			return rc;
+		}
+	}
+#endif
+
 	rc = platform_driver_register(&lpm_driver);
 	if (rc) {
 		pr_info("Error registering %s\n", lpm_driver.driver.name);
