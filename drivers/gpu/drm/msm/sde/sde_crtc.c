@@ -3566,11 +3566,10 @@ static bool _sde_crtc_prepare_for_kickoff_rot(struct drm_device *dev,
 
 		/*
 		 * For inline ASYNC modes, the flush bits are not written
-		 * to hardware atomically. This is not fully supported for
-		 * non-command mode encoders, so force SYNC mode if any
-		 * of them are attached to the CRTC.
+		 * to hardware atomically, so avoid using it if a video
+		 * mode encoder is active on this CRTC.
 		 */
-		if (sde_encoder_get_intf_mode(encoder) != INTF_MODE_CMD) {
+		if (sde_encoder_get_intf_mode(encoder) == INTF_MODE_VIDEO) {
 			cstate->sbuf_cfg.rot_op_mode =
 				SDE_CTL_ROT_OP_MODE_INLINE_SYNC;
 			return false;
