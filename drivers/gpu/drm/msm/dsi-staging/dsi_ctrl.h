@@ -703,4 +703,18 @@ void dsi_message_setup_tx_mode(struct dsi_ctrl *dsi_ctrl, u32 cmd_len,
 int dsi_message_validate_tx_mode(struct dsi_ctrl *dsi_ctrl, u32 cmd_len,
 		u32 *flags);
 
+/**
+ * dsi_ctrl_isr_configure() - API to register/deregister dsi isr
+ * @dsi_ctrl:              DSI controller handle.
+ * @enable:		   variable to control register/deregister isr
+ */
+void dsi_ctrl_isr_configure(struct dsi_ctrl *dsi_ctrl, bool enable);
+
+/**
+ * dsi_ctrl_irq_update() - Put a irq vote to process DSI error
+ *				interrupts at any time.
+ * @dsi_ctrl:              DSI controller handle.
+ * @enable:		   variable to control enable/disable irq line
+ */
+void dsi_ctrl_irq_update(struct dsi_ctrl *dsi_ctrl, bool enable);
 #endif /* _DSI_CTRL_H_ */

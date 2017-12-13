@@ -2223,6 +2223,8 @@ static irqreturn_t dsi_ctrl_isr(int irq, void *ptr)
 	if (dsi_ctrl->hw.ops.clear_interrupt_status)
 		dsi_ctrl->hw.ops.clear_interrupt_status(&dsi_ctrl->hw, 0x0);
 
+	SDE_EVT32_IRQ(dsi_ctrl->cell_index, status, errors);
+
 	/* handle DSI error recovery */
 	if (status & DSI_ERROR)
 		dsi_ctrl_handle_error_status(dsi_ctrl, errors);
@@ -2282,7 +2284,7 @@ static irqreturn_t dsi_ctrl_isr(int irq, void *ptr)
  * @dsi_ctrl: Pointer to associated dsi_ctrl structure
  * Returns: Zero on success
  */
-static int dsi_ctrl_setup_isr(struct dsi_ctrl *dsi_ctrl)
+static int _dsi_ctrl_setup_isr(struct dsi_ctrl *dsi_ctrl)
 {
 	int irq_num, rc;
 
@@ -2476,8 +2478,6 @@ int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl, bool is_splash_enabled)
 		}
 	}
 
-	dsi_ctrl_setup_isr(dsi_ctrl);
-
 	dsi_ctrl->hw.ops.enable_status_interrupts(&dsi_ctrl->hw, 0x0);
 	dsi_ctrl->hw.ops.enable_error_interrupts(&dsi_ctrl->hw, 0xFF00E0);
 
@@ -2487,6 +2487,25 @@ int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl, bool is_splash_enabled)
 error:
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
 	return rc;
+}
+
+/**
+ * dsi_ctrl_isr_configure() - API to register/deregister dsi isr
+ * @dsi_ctrl:              DSI controller handle.
+ * @enable:		   variable to control register/deregister isr
+ */
+void dsi_ctrl_isr_configure(struct dsi_ctrl *dsi_ctrl, bool enable)
+{
+	if (!dsi_ctrl)
+		return;
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	if (enable)
+		_dsi_ctrl_setup_isr(dsi_ctrl);
+	else
+		_dsi_ctrl_destroy_isr(dsi_ctrl);
+
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
 }
 
 int dsi_ctrl_soft_reset(struct dsi_ctrl *dsi_ctrl)
@@ -2563,8 +2582,6 @@ int dsi_ctrl_host_deinit(struct dsi_ctrl *dsi_ctrl)
 	}
 
 	mutex_lock(&dsi_ctrl->ctrl_lock);
-
-	_dsi_ctrl_destroy_isr(dsi_ctrl);
 
 	rc = dsi_ctrl_check_state(dsi_ctrl, DSI_CTRL_OP_HOST_INIT, 0x0);
 	if (rc) {
@@ -3253,6 +3270,28 @@ u32 dsi_ctrl_collect_misr(struct dsi_ctrl *dsi_ctrl)
 		dsi_ctrl->cell_index, dsi_ctrl->misr_cache, misr);
 
 	return misr;
+}
+
+/**
+ * dsi_ctrl_irq_update() - Put a irq vote to process DSI error
+ *				interrupts at any time.
+ * @dsi_ctrl:              DSI controller handle.
+ * @enable:		   variable to enable/disable irq
+ */
+void dsi_ctrl_irq_update(struct dsi_ctrl *dsi_ctrl, bool enable)
+{
+	if (!dsi_ctrl)
+		return;
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	if (enable)
+		dsi_ctrl_enable_status_interrupt(dsi_ctrl,
+					DSI_SINT_ERROR, NULL);
+	else
+		dsi_ctrl_disable_status_interrupt(dsi_ctrl,
+					DSI_SINT_ERROR);
+
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
 }
 
 /**

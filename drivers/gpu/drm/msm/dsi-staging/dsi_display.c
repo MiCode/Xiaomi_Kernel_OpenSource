@@ -2369,6 +2369,40 @@ static int dsi_display_clk_ctrl_cb(void *priv,
 	return 0;
 }
 
+static void dsi_display_ctrl_isr_configure(struct dsi_display *display, bool en)
+{
+	int i;
+	struct dsi_display_ctrl *ctrl;
+
+	if (!display)
+		return;
+
+	for (i = 0; (i < display->ctrl_count) &&
+			(i < MAX_DSI_CTRLS_PER_DISPLAY); i++) {
+		ctrl = &display->ctrl[i];
+		if (!ctrl)
+			continue;
+		dsi_ctrl_isr_configure(ctrl->ctrl, en);
+	}
+}
+
+static void dsi_display_ctrl_irq_update(struct dsi_display *display, bool en)
+{
+	int i;
+	struct dsi_display_ctrl *ctrl;
+
+	if (!display)
+		return;
+
+	for (i = 0; (i < display->ctrl_count) &&
+			(i < MAX_DSI_CTRLS_PER_DISPLAY); i++) {
+		ctrl = &display->ctrl[i];
+		if (!ctrl)
+			continue;
+		dsi_ctrl_irq_update(ctrl->ctrl, en);
+	}
+}
+
 int dsi_pre_clkoff_cb(void *priv,
 			   enum dsi_clk_type clk,
 			   enum dsi_clk_state new_state)
@@ -2485,6 +2519,9 @@ int dsi_post_clkon_cb(void *priv,
 		 */
 		if (display->phy_idle_power_off || mmss_clamp)
 			dsi_display_phy_idle_on(display, mmss_clamp);
+
+		/* enable dsi to serve irqs */
+		dsi_display_ctrl_irq_update(display, true);
 	}
 	if (clk & DSI_LINK_CLK) {
 		if (display->ulps_enabled) {
@@ -2514,6 +2551,8 @@ int dsi_post_clkoff_cb(void *priv,
 
 	if ((clk_type & DSI_CORE_CLK) &&
 	    (curr_state == DSI_CLK_OFF)) {
+		/* dsi will not be able to serve irqs from here */
+		dsi_display_ctrl_irq_update(display, false);
 
 		rc = dsi_display_phy_power_off(display);
 		if (rc)
@@ -4752,6 +4791,9 @@ int dsi_display_prepare(struct dsi_display *display)
 		}
 	}
 
+	/* Set up ctrl isr before enabling core clk */
+	dsi_display_ctrl_isr_configure(display, true);
+
 	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
 			DSI_CORE_CLK, DSI_CLK_ON);
 	if (rc) {
@@ -5279,6 +5321,9 @@ int dsi_display_unprepare(struct dsi_display *display)
 	if (rc)
 		pr_err("[%s] failed to disable DSI clocks, rc=%d\n",
 		       display->name, rc);
+
+	/* destrory dsi isr set up */
+	dsi_display_ctrl_isr_configure(display, false);
 
 	rc = dsi_panel_post_unprepare(display->panel);
 	if (rc)
