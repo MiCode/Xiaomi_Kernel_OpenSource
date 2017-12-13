@@ -295,15 +295,15 @@ int cam_eeprom_parse_dt(struct cam_eeprom_ctrl_t *e_ctrl)
 		(struct cam_eeprom_soc_private *)e_ctrl->soc_info.soc_private;
 	uint32_t                        temp;
 
+	if (!soc_info->dev) {
+		CAM_ERR(CAM_EEPROM, "Dev is NULL");
+		return -EINVAL;
+	}
+
 	rc = cam_soc_util_get_dt_properties(soc_info);
 	if (rc < 0) {
 		CAM_ERR(CAM_EEPROM, "Failed to read DT properties rc : %d", rc);
 		return rc;
-	}
-
-	if (!soc_info->dev) {
-		CAM_ERR(CAM_EEPROM, "Dev is NULL");
-		return -EINVAL;
 	}
 
 	of_node = soc_info->dev->of_node;
@@ -318,8 +318,9 @@ int cam_eeprom_parse_dt(struct cam_eeprom_ctrl_t *e_ctrl)
 	if (e_ctrl->io_master_info.master_type == CCI_MASTER) {
 		rc = of_property_read_u32(of_node, "cci-master",
 			&e_ctrl->cci_i2c_master);
-		if (rc < 0) {
+		if (rc < 0 || (e_ctrl->cci_i2c_master >= MASTER_MAX)) {
 			CAM_DBG(CAM_EEPROM, "failed rc %d", rc);
+			rc = -EFAULT;
 			return rc;
 		}
 	}
@@ -349,7 +350,7 @@ int cam_eeprom_parse_dt(struct cam_eeprom_ctrl_t *e_ctrl)
 				"i2c-freq-mode read fail %d", rc);
 			soc_private->i2c_info.i2c_freq_mode = 0;
 		}
-		if (soc_private->i2c_info.i2c_freq_mode	>= I2C_MAX_MODES) {
+		if (soc_private->i2c_info.i2c_freq_mode >= I2C_MAX_MODES) {
 			CAM_ERR(CAM_EEPROM, "invalid i2c_freq_mode = %d",
 				soc_private->i2c_info.i2c_freq_mode);
 			soc_private->i2c_info.i2c_freq_mode = 0;
@@ -362,7 +363,7 @@ int cam_eeprom_parse_dt(struct cam_eeprom_ctrl_t *e_ctrl)
 		soc_info->clk[i] = devm_clk_get(soc_info->dev,
 			soc_info->clk_name[i]);
 		if (!soc_info->clk[i]) {
-			CAM_ERR(CAM_SENSOR, "get failed for %s",
+			CAM_ERR(CAM_EEPROM, "get failed for %s",
 				soc_info->clk_name[i]);
 			rc = -ENOENT;
 			return rc;

@@ -56,6 +56,7 @@ enum cam_actuator_apply_state_t {
 enum cam_actuator_state {
 	CAM_ACTUATOR_INIT,
 	CAM_ACTUATOR_ACQUIRE,
+	CAM_ACTUATOR_CONFIG,
 	CAM_ACTUATOR_START,
 };
 

@@ -131,7 +131,7 @@ static int32_t cam_flash_driver_cmd(struct cam_flash_ctrl *fctrl,
 	}
 	case CAM_START_DEV: {
 		CAM_DBG(CAM_FLASH, "CAM_START_DEV");
-		if (fctrl->flash_state != CAM_FLASH_STATE_ACQUIRE) {
+		if (fctrl->flash_state != CAM_FLASH_STATE_CONFIG) {
 			CAM_WARN(CAM_FLASH,
 				"Cannot apply Start Dev: Prev state: %d",
 				fctrl->flash_state);
@@ -154,6 +154,7 @@ static int32_t cam_flash_driver_cmd(struct cam_flash_ctrl *fctrl,
 		break;
 	}
 	case CAM_STOP_DEV: {
+		CAM_DBG(CAM_FLASH, "CAM_STOP_DEV ENTER");
 		if (fctrl->flash_state != CAM_FLASH_STATE_START) {
 			CAM_WARN(CAM_FLASH,
 				"Cannot apply Stop dev: Prev state is: %d",

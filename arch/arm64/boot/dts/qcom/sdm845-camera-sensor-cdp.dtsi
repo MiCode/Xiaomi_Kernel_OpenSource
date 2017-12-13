@@ -97,6 +97,10 @@
 	qcom,cam-res-mgr {
 		compatible = "qcom,cam-res-mgr";
 		status = "ok";
+		shared-gpios = <8>;
+		pinctrl-names = "cam_res_mgr_default", "cam_res_mgr_suspend";
+		pinctrl-0 = <&cam_res_mgr_active>;
+		pinctrl-1 = <&cam_res_mgr_suspend>;
 	};
 
 	actuator_rear: qcom,actuator@0 {
