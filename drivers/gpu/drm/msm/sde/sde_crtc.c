@@ -3501,6 +3501,9 @@ static int _sde_crtc_reset_hw(struct drm_crtc *crtc,
 	if (dump_status)
 		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus");
 
+	/* optionally generate a panic instead of performing a h/w reset */
+	SDE_DBG_CTRL("stop_ftrace", "reset_hw_panic");
+
 	for (i = 0; i < sde_crtc->num_mixers; ++i) {
 		ctl = sde_crtc->mixers[i].hw_ctl;
 		if (!ctl || !ctl->ops.reset)
@@ -3618,10 +3621,11 @@ static bool _sde_crtc_prepare_for_kickoff_rot(struct drm_device *dev,
 
 		/*
 		 * For inline ASYNC modes, the flush bits are not written
-		 * to hardware atomically, so avoid using it if a video
-		 * mode encoder is active on this CRTC.
+		 * to hardware atomically. This is not fully supported for
+		 * non-command mode encoders, so force SYNC mode if any
+		 * of them are attached to the CRTC.
 		 */
-		if (sde_encoder_get_intf_mode(encoder) == INTF_MODE_VIDEO) {
+		if (sde_encoder_get_intf_mode(encoder) != INTF_MODE_CMD) {
 			cstate->sbuf_cfg.rot_op_mode =
 				SDE_CTL_ROT_OP_MODE_INLINE_SYNC;
 			return false;
