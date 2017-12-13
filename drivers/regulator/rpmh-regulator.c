@@ -46,6 +46,23 @@ enum rpmh_regulator_type {
 };
 
 /**
+ * enum rpmh_regulator_hw_type - supported PMIC regulator hardware types
+ * This enum defines the specific regulator type along with its PMIC family.
+ */
+enum rpmh_regulator_hw_type {
+	RPMH_REGULATOR_HW_TYPE_UNKNOWN,
+	RPMH_REGULATOR_HW_TYPE_PMIC4_LDO,
+	RPMH_REGULATOR_HW_TYPE_PMIC4_HFSMPS,
+	RPMH_REGULATOR_HW_TYPE_PMIC4_FTSMPS,
+	RPMH_REGULATOR_HW_TYPE_PMIC4_BOB,
+	RPMH_REGULATOR_HW_TYPE_PMIC5_LDO,
+	RPMH_REGULATOR_HW_TYPE_PMIC5_HFSMPS,
+	RPMH_REGULATOR_HW_TYPE_PMIC5_FTSMPS,
+	RPMH_REGULATOR_HW_TYPE_PMIC5_BOB,
+	RPMH_REGULATOR_HW_TYPE_MAX,
+};
+
+/**
  * enum rpmh_regulator_reg_index - RPMh accelerator register indices
  * %RPMH_REGULATOR_REG_VRM_VOLTAGE:	VRM voltage voting register index
  * %RPMH_REGULATOR_REG_ARC_LEVEL:	ARC voltage level voting register index
@@ -115,20 +132,6 @@ enum rpmh_regulator_reg_index {
 /* XOB voting registers are found in the VRM hardware module */
 #define CMD_DB_HW_XOB			CMD_DB_HW_VRM
 
-/*
- * Mapping from RPMh VRM accelerator modes to regulator framework modes
- * Assumes that SMPS PFM mode == LDO LPM mode and SMPS PWM mode == LDO HPM mode
- */
-static const int rpmh_regulator_mode_map[] = {
-	[RPMH_REGULATOR_MODE_SMPS_PFM]	= REGULATOR_MODE_IDLE,
-	[RPMH_REGULATOR_MODE_SMPS_AUTO]	= REGULATOR_MODE_NORMAL,
-	[RPMH_REGULATOR_MODE_SMPS_PWM]	= REGULATOR_MODE_FAST,
-	[RPMH_REGULATOR_MODE_BOB_PASS]	= REGULATOR_MODE_STANDBY,
-	[RPMH_REGULATOR_MODE_BOB_PFM]	= REGULATOR_MODE_IDLE,
-	[RPMH_REGULATOR_MODE_BOB_AUTO]	= REGULATOR_MODE_NORMAL,
-	[RPMH_REGULATOR_MODE_BOB_PWM]	= REGULATOR_MODE_FAST,
-};
-
 /**
  * struct rpmh_regulator_request - rpmh request data
  * @reg:			Array of RPMh accelerator register values
@@ -175,6 +178,8 @@ struct rpmh_vreg;
  *				common to a single aggregated resource
  * @regulator_type:		RPMh accelerator type for this regulator
  *				resource
+ * @regulator_hw_type:		The regulator hardware type (e.g. LDO or SMPS)
+ *				along with PMIC family (i.e. PMIC4 or PMIC5)
  * @level:			Mapping from ARC resource specific voltage
  *				levels (0 to RPMH_ARC_MAX_LEVELS - 1) to common
  *				consumer voltage levels (i.e.
@@ -221,6 +226,7 @@ struct rpmh_aggr_vreg {
 	struct rpmh_client		*rpmh_client;
 	struct mutex			lock;
 	enum rpmh_regulator_type	regulator_type;
+	enum rpmh_regulator_hw_type	regulator_hw_type;
 	u32				level[RPMH_ARC_MAX_LEVELS];
 	int				level_count;
 	bool				always_wait_for_ack;
@@ -266,6 +272,187 @@ struct rpmh_vreg {
 	bool				set_sleep;
 	struct rpmh_regulator_request	req;
 	int				mode_index;
+};
+
+#define RPMH_REGULATOR_MODE_COUNT		5
+
+#define RPMH_REGULATOR_MODE_PMIC4_LDO_RM	4
+#define RPMH_REGULATOR_MODE_PMIC4_LDO_LPM	5
+#define RPMH_REGULATOR_MODE_PMIC4_LDO_HPM	7
+
+#define RPMH_REGULATOR_MODE_PMIC4_SMPS_RM	4
+#define RPMH_REGULATOR_MODE_PMIC4_SMPS_PFM	5
+#define RPMH_REGULATOR_MODE_PMIC4_SMPS_AUTO	6
+#define RPMH_REGULATOR_MODE_PMIC4_SMPS_PWM	7
+
+#define RPMH_REGULATOR_MODE_PMIC4_BOB_PASS	0
+#define RPMH_REGULATOR_MODE_PMIC4_BOB_PFM	1
+#define RPMH_REGULATOR_MODE_PMIC4_BOB_AUTO	2
+#define RPMH_REGULATOR_MODE_PMIC4_BOB_PWM	3
+
+#define RPMH_REGULATOR_MODE_PMIC5_LDO_RM	3
+#define RPMH_REGULATOR_MODE_PMIC5_LDO_LPM	4
+#define RPMH_REGULATOR_MODE_PMIC5_LDO_HPM	7
+
+#define RPMH_REGULATOR_MODE_PMIC5_HFSMPS_RM	3
+#define RPMH_REGULATOR_MODE_PMIC5_HFSMPS_PFM	4
+#define RPMH_REGULATOR_MODE_PMIC5_HFSMPS_AUTO	6
+#define RPMH_REGULATOR_MODE_PMIC5_HFSMPS_PWM	7
+
+#define RPMH_REGULATOR_MODE_PMIC5_FTSMPS_RM	3
+#define RPMH_REGULATOR_MODE_PMIC5_FTSMPS_PWM	7
+
+#define RPMH_REGULATOR_MODE_PMIC5_BOB_PASS	2
+#define RPMH_REGULATOR_MODE_PMIC5_BOB_PFM	4
+#define RPMH_REGULATOR_MODE_PMIC5_BOB_AUTO	6
+#define RPMH_REGULATOR_MODE_PMIC5_BOB_PWM	7
+
+/*
+ * Mappings from RPMh generic modes to VRM accelerator modes and regulator
+ * framework modes for each regulator type.
+ */
+static const struct rpmh_regulator_mode
+rpmh_regulator_mode_map_pmic4_ldo[RPMH_REGULATOR_MODE_COUNT] = {
+	[RPMH_REGULATOR_MODE_RET] = {
+		.pmic_mode = RPMH_REGULATOR_MODE_PMIC4_LDO_RM,
+		.framework_mode = REGULATOR_MODE_STANDBY,
+	},
+	[RPMH_REGULATOR_MODE_LPM] = {
+		.pmic_mode = RPMH_REGULATOR_MODE_PMIC4_LDO_LPM,
+		.framework_mode = REGULATOR_MODE_IDLE,
+	},
+	[RPMH_REGULATOR_MODE_HPM] = {
+		.pmic_mode = RPMH_REGULATOR_MODE_PMIC4_LDO_HPM,
+		.framework_mode = REGULATOR_MODE_FAST,
+	},
+};
+
+static const struct rpmh_regulator_mode
+rpmh_regulator_mode_map_pmic4_smps[RPMH_REGULATOR_MODE_COUNT] = {
+	[RPMH_REGULATOR_MODE_RET] = {
+		.pmic_mode = RPMH_REGULATOR_MODE_PMIC4_SMPS_RM,
+		.framework_mode = REGULATOR_MODE_STANDBY,
+	},
+	[RPMH_REGULATOR_MODE_LPM] = {
+		.pmic_mode = RPMH_REGULATOR_MODE_PMIC4_SMPS_PFM,
+		.framework_mode = REGULATOR_MODE_IDLE,
+	},
+	[RPMH_REGULATOR_MODE_AUTO] = {
+		.pmic_mode = RPMH_REGULATOR_MODE_PMIC4_SMPS_AUTO,
+		.framework_mode = REGULATOR_MODE_NORMAL,
+	},
+	[RPMH_REGULATOR_MODE_HPM] = {
+		.pmic_mode = RPMH_REGULATOR_MODE_PMIC4_SMPS_PWM,
+		.framework_mode = REGULATOR_MODE_FAST,
+	},
+};
+
+static const struct rpmh_regulator_mode
+rpmh_regulator_mode_map_pmic4_bob[RPMH_REGULATOR_MODE_COUNT] = {
+	[RPMH_REGULATOR_MODE_PASS] = {
+		.pmic_mode = RPMH_REGULATOR_MODE_PMIC4_BOB_PASS,
+		.framework_mode = REGULATOR_MODE_STANDBY,
+	},
+	[RPMH_REGULATOR_MODE_LPM] = {
+		.pmic_mode = RPMH_REGULATOR_MODE_PMIC4_BOB_PFM,
+		.framework_mode = REGULATOR_MODE_IDLE,
+	},
+	[RPMH_REGULATOR_MODE_AUTO] = {
+		.pmic_mode = RPMH_REGULATOR_MODE_PMIC4_BOB_AUTO,
+		.framework_mode = REGULATOR_MODE_NORMAL,
+	},
+	[RPMH_REGULATOR_MODE_HPM] = {
+		.pmic_mode = RPMH_REGULATOR_MODE_PMIC4_BOB_PWM,
+		.framework_mode = REGULATOR_MODE_FAST,
+	},
+};
+
+static const struct rpmh_regulator_mode
+rpmh_regulator_mode_map_pmic5_ldo[RPMH_REGULATOR_MODE_COUNT] = {
+	[RPMH_REGULATOR_MODE_RET] = {
+		.pmic_mode = RPMH_REGULATOR_MODE_PMIC5_LDO_RM,
+		.framework_mode = REGULATOR_MODE_STANDBY,
+	},
+	[RPMH_REGULATOR_MODE_LPM] = {
+		.pmic_mode = RPMH_REGULATOR_MODE_PMIC5_LDO_LPM,
+		.framework_mode = REGULATOR_MODE_IDLE,
+	},
+	[RPMH_REGULATOR_MODE_HPM] = {
+		.pmic_mode = RPMH_REGULATOR_MODE_PMIC5_LDO_HPM,
+		.framework_mode = REGULATOR_MODE_FAST,
+	},
+};
+
+static const struct rpmh_regulator_mode
+rpmh_regulator_mode_map_pmic5_hfsmps[RPMH_REGULATOR_MODE_COUNT] = {
+	[RPMH_REGULATOR_MODE_RET] = {
+		.pmic_mode = RPMH_REGULATOR_MODE_PMIC5_HFSMPS_RM,
+		.framework_mode = REGULATOR_MODE_STANDBY,
+	},
+	[RPMH_REGULATOR_MODE_LPM] = {
+		.pmic_mode = RPMH_REGULATOR_MODE_PMIC5_HFSMPS_PFM,
+		.framework_mode = REGULATOR_MODE_IDLE,
+	},
+	[RPMH_REGULATOR_MODE_AUTO] = {
+		.pmic_mode = RPMH_REGULATOR_MODE_PMIC5_HFSMPS_AUTO,
+		.framework_mode = REGULATOR_MODE_NORMAL,
+	},
+	[RPMH_REGULATOR_MODE_HPM] = {
+		.pmic_mode = RPMH_REGULATOR_MODE_PMIC5_HFSMPS_PWM,
+		.framework_mode = REGULATOR_MODE_FAST,
+	},
+};
+
+static const struct rpmh_regulator_mode
+rpmh_regulator_mode_map_pmic5_ftsmps[RPMH_REGULATOR_MODE_COUNT] = {
+	[RPMH_REGULATOR_MODE_RET] = {
+		.pmic_mode = RPMH_REGULATOR_MODE_PMIC5_FTSMPS_RM,
+		.framework_mode = REGULATOR_MODE_STANDBY,
+	},
+	[RPMH_REGULATOR_MODE_HPM] = {
+		.pmic_mode = RPMH_REGULATOR_MODE_PMIC5_FTSMPS_PWM,
+		.framework_mode = REGULATOR_MODE_FAST,
+	},
+};
+
+static const struct rpmh_regulator_mode
+rpmh_regulator_mode_map_pmic5_bob[RPMH_REGULATOR_MODE_COUNT] = {
+	[RPMH_REGULATOR_MODE_PASS] = {
+		.pmic_mode = RPMH_REGULATOR_MODE_PMIC5_BOB_PASS,
+		.framework_mode = REGULATOR_MODE_STANDBY,
+	},
+	[RPMH_REGULATOR_MODE_LPM] = {
+		.pmic_mode = RPMH_REGULATOR_MODE_PMIC5_BOB_PFM,
+		.framework_mode = REGULATOR_MODE_IDLE,
+	},
+	[RPMH_REGULATOR_MODE_AUTO] = {
+		.pmic_mode = RPMH_REGULATOR_MODE_PMIC5_BOB_AUTO,
+		.framework_mode = REGULATOR_MODE_NORMAL,
+	},
+	[RPMH_REGULATOR_MODE_HPM] = {
+		.pmic_mode = RPMH_REGULATOR_MODE_PMIC5_BOB_PWM,
+		.framework_mode = REGULATOR_MODE_FAST,
+	},
+};
+
+static const struct rpmh_regulator_mode * const
+rpmh_regulator_mode_map[RPMH_REGULATOR_HW_TYPE_MAX] = {
+	[RPMH_REGULATOR_HW_TYPE_PMIC4_LDO]
+		= rpmh_regulator_mode_map_pmic4_ldo,
+	[RPMH_REGULATOR_HW_TYPE_PMIC4_HFSMPS]
+		= rpmh_regulator_mode_map_pmic4_smps,
+	[RPMH_REGULATOR_HW_TYPE_PMIC4_FTSMPS]
+		= rpmh_regulator_mode_map_pmic4_smps,
+	[RPMH_REGULATOR_HW_TYPE_PMIC4_BOB]
+		= rpmh_regulator_mode_map_pmic4_bob,
+	[RPMH_REGULATOR_HW_TYPE_PMIC5_LDO]
+		= rpmh_regulator_mode_map_pmic5_ldo,
+	[RPMH_REGULATOR_HW_TYPE_PMIC5_HFSMPS]
+		= rpmh_regulator_mode_map_pmic5_hfsmps,
+	[RPMH_REGULATOR_HW_TYPE_PMIC5_FTSMPS]
+		= rpmh_regulator_mode_map_pmic5_ftsmps,
+	[RPMH_REGULATOR_HW_TYPE_PMIC5_BOB]
+		= rpmh_regulator_mode_map_pmic5_bob,
 };
 
 /*
@@ -869,9 +1056,9 @@ static int rpmh_regulator_vrm_set_mode_index(struct rpmh_vreg *vreg,
  *
  * This function sets the PMIC mode corresponding to the specified framework
  * mode.  The set of PMIC modes allowed is defined in device tree for a given
- * RPMh regulator resource.  The full mapping from PMIC modes to framework modes
- * is defined in the rpmh_regulator_mode_map[] array.  The RPMh resource
- * specific mapping is defined in the aggr_vreg->mode[] array.
+ * RPMh regulator resource.  The full mapping from generic modes to PMIC modes
+ * and framework modes is defined in the rpmh_regulator_mode_map[] array.  The
+ * RPMh resource specific mapping is defined in the aggr_vreg->mode[] array.
  *
  * Return: 0 on success, errno on failure
  */
@@ -1148,11 +1335,60 @@ done:
 static int rpmh_regulator_parse_vrm_modes(struct rpmh_aggr_vreg *aggr_vreg)
 {
 	struct device_node *node = aggr_vreg->dev->of_node;
-	const char *prop = "qcom,supported-modes";
+	const char *type = "";
+	const struct rpmh_regulator_mode *map;
+	const char *prop;
 	int i, len, rc;
 	u32 *buf;
 
+	aggr_vreg->regulator_hw_type = RPMH_REGULATOR_HW_TYPE_UNKNOWN;
+
+	/* qcom,regulator-type is optional */
+	prop = "qcom,regulator-type";
+	if (!of_find_property(node, prop, &len))
+		return 0;
+
+	rc = of_property_read_string(node, prop, &type);
+	if (rc) {
+		aggr_vreg_err(aggr_vreg, "unable to read %s, rc=%d\n",
+				prop, rc);
+		return rc;
+	}
+
+	if (!strcmp(type, "pmic4-ldo")) {
+		aggr_vreg->regulator_hw_type
+			= RPMH_REGULATOR_HW_TYPE_PMIC4_LDO;
+	} else if (!strcmp(type, "pmic4-hfsmps")) {
+		aggr_vreg->regulator_hw_type
+			= RPMH_REGULATOR_HW_TYPE_PMIC4_HFSMPS;
+	} else if (!strcmp(type, "pmic4-ftsmps")) {
+		aggr_vreg->regulator_hw_type
+			= RPMH_REGULATOR_HW_TYPE_PMIC4_FTSMPS;
+	} else if (!strcmp(type, "pmic4-bob")) {
+		aggr_vreg->regulator_hw_type
+			= RPMH_REGULATOR_HW_TYPE_PMIC4_BOB;
+	} else if (!strcmp(type, "pmic5-ldo")) {
+		aggr_vreg->regulator_hw_type
+			= RPMH_REGULATOR_HW_TYPE_PMIC5_LDO;
+	} else if (!strcmp(type, "pmic5-hfsmps")) {
+		aggr_vreg->regulator_hw_type
+			= RPMH_REGULATOR_HW_TYPE_PMIC5_HFSMPS;
+	} else if (!strcmp(type, "pmic5-ftsmps")) {
+		aggr_vreg->regulator_hw_type
+			= RPMH_REGULATOR_HW_TYPE_PMIC5_FTSMPS;
+	} else if (!strcmp(type, "pmic5-bob")) {
+		aggr_vreg->regulator_hw_type
+			= RPMH_REGULATOR_HW_TYPE_PMIC5_BOB;
+	} else {
+		aggr_vreg_err(aggr_vreg, "unknown %s = %s\n",
+				prop, type);
+		return -EINVAL;
+	}
+
+	map = rpmh_regulator_mode_map[aggr_vreg->regulator_hw_type];
+
 	/* qcom,supported-modes is optional */
+	prop = "qcom,supported-modes";
 	if (!of_find_property(node, prop, &len))
 		return 0;
 
@@ -1176,15 +1412,22 @@ static int rpmh_regulator_parse_vrm_modes(struct rpmh_aggr_vreg *aggr_vreg)
 	}
 
 	for (i = 0; i < len; i++) {
-		if (buf[i] >= ARRAY_SIZE(rpmh_regulator_mode_map)) {
+		if (buf[i] >= RPMH_REGULATOR_MODE_COUNT) {
 			aggr_vreg_err(aggr_vreg, "element %d of %s = %u is invalid\n",
 				i, prop, buf[i]);
 			rc = -EINVAL;
 			goto done;
 		}
-		aggr_vreg->mode[i].pmic_mode = buf[i];
-		aggr_vreg->mode[i].framework_mode
-			= rpmh_regulator_mode_map[buf[i]];
+
+		if (!map[buf[i]].framework_mode) {
+			aggr_vreg_err(aggr_vreg, "element %d of %s = %u is invalid for regulator type = %s\n",
+				i, prop, buf[i], type);
+			rc = -EINVAL;
+			goto done;
+		}
+
+		aggr_vreg->mode[i].pmic_mode = map[buf[i]].pmic_mode;
+		aggr_vreg->mode[i].framework_mode = map[buf[i]].framework_mode;
 
 		if (i > 0 && aggr_vreg->mode[i].pmic_mode
 				<= aggr_vreg->mode[i - 1].pmic_mode) {
@@ -1287,6 +1530,7 @@ static int rpmh_regulator_allocate_vreg(struct rpmh_aggr_vreg *aggr_vreg)
 static int rpmh_regulator_load_default_parameters(struct rpmh_vreg *vreg)
 {
 	enum rpmh_regulator_type type = vreg->aggr_vreg->regulator_type;
+	const struct rpmh_regulator_mode *map;
 	const char *prop;
 	int i, rc;
 	u32 temp;
@@ -1336,15 +1580,36 @@ static int rpmh_regulator_load_default_parameters(struct rpmh_vreg *vreg)
 		prop = "qcom,init-mode";
 		rc = of_property_read_u32(vreg->of_node, prop, &temp);
 		if (!rc) {
-			if (temp < RPMH_VRM_MODE_MIN ||
-			    temp > RPMH_VRM_MODE_MAX)  {
+			if (temp >= RPMH_REGULATOR_MODE_COUNT) {
 				vreg_err(vreg, "%s=%u is invalid\n",
 					prop, temp);
 				return -EINVAL;
+			} else if (vreg->aggr_vreg->regulator_hw_type
+					== RPMH_REGULATOR_HW_TYPE_UNKNOWN) {
+				vreg_err(vreg, "qcom,regulator-type missing so %s cannot be used\n",
+					prop);
+				return -EINVAL;
 			}
+
+			map = rpmh_regulator_mode_map[
+					vreg->aggr_vreg->regulator_hw_type];
+			if (!map[temp].framework_mode) {
+				vreg_err(vreg, "%s=%u is not supported by type = %d\n",
+					prop, temp,
+					vreg->aggr_vreg->regulator_hw_type);
+				return -EINVAL;
+			}
+
 			rpmh_regulator_set_reg(vreg,
 						RPMH_REGULATOR_REG_VRM_MODE,
-						temp);
+						map[temp].pmic_mode);
+			for (i = 0; i < vreg->aggr_vreg->mode_count; i++) {
+				if (vreg->aggr_vreg->mode[i].pmic_mode
+				    == map[temp].pmic_mode) {
+					vreg->mode_index = i;
+					break;
+				}
+			}
 		}
 
 		prop = "qcom,init-headroom-voltage";
