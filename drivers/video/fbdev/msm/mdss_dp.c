@@ -1967,6 +1967,7 @@ static int mdss_dp_edid_init(struct mdss_panel_data *pdata)
 
 	edid_init_data.kobj = dp_drv->kobj;
 	edid_init_data.max_pclk_khz = dp_drv->max_pclk_khz;
+	edid_init_data.yc420_support = false;
 
 	edid_data = hdmi_edid_init(&edid_init_data);
 	if (!edid_data) {

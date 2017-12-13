@@ -632,6 +632,12 @@ const char *msm_hdmi_mode_2string(u32 mode)
 	case HDMI_RES_AR_16_10:
 		aspect_ratio = "16/10";
 		break;
+	case HDMI_RES_AR_64_27:
+		aspect_ratio = "64/27";
+		break;
+	case HDMI_RES_AR_256_135:
+		aspect_ratio = "256/135";
+		break;
 	default:
 		aspect_ratio = "???";
 	};
