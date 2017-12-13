@@ -172,7 +172,7 @@ static int cam_jpeg_dma_probe(struct platform_device *pdev)
 		cam_jpeg_dma_irq,
 		jpeg_dma_dev);
 	if (rc) {
-		CAM_ERR(CAM_JPEG, "failed to init_soc %d", rc);
+		CAM_ERR(CAM_JPEG, "%failed to init_soc %d", rc);
 		goto error_init_soc;
 	}
 

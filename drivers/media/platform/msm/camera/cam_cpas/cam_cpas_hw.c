@@ -585,7 +585,7 @@ static int cam_cpas_util_apply_client_axi_vote(
 		if (rc) {
 			CAM_ERR(CAM_CPAS,
 				"Failed camnoc vote ab[%llu] ib[%llu] rc=%d",
-				(uint64_t)0, camnoc_bw, rc);
+				0, camnoc_bw, rc);
 			goto unlock_axi_port;
 		}
 	}

@@ -211,7 +211,7 @@ int cam_packet_util_process_generic_cmd_buffer(
 	rc = cam_mem_get_cpu_buf(cmd_buf->mem_handle, &cpu_addr, &buf_size);
 	if (rc || !cpu_addr || (buf_size == 0)) {
 		CAM_ERR(CAM_UTIL, "Failed in Get cpu addr, rc=%d, cpu_addr=%pK",
-			rc, (void *)cpu_addr);
+			rc, cpu_addr);
 		return rc;
 	}
 
@@ -219,7 +219,7 @@ int cam_packet_util_process_generic_cmd_buffer(
 
 	CAM_DBG(CAM_UTIL,
 		"GenericCmdBuffer cpuaddr=%pK, blobptr=%pK, len=%d",
-		(void *)cpu_addr, (void *)blob_ptr, cmd_buf->length);
+		cpu_addr, blob_ptr, cmd_buf->length);
 
 	len_read = 0;
 	while (len_read < cmd_buf->length) {

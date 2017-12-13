@@ -402,7 +402,7 @@ static int cam_fd_packet_generic_blob_handler(void *user_data,
 		(struct cam_fd_hw_cmd_prestart_args *)user_data;
 
 	if (!blob_data || (blob_size == 0)) {
-		CAM_ERR(CAM_FD, "Invalid blob info %pK %u", blob_data,
+		CAM_ERR(CAM_FD, "Invalid blob info %pK %d", blob_data,
 			blob_size);
 		return -EINVAL;
 	}
@@ -417,7 +417,7 @@ static int cam_fd_packet_generic_blob_handler(void *user_data,
 		uint32_t *get_raw_results = (uint32_t *)blob_data;
 
 		if (sizeof(uint32_t) != blob_size) {
-			CAM_ERR(CAM_FD, "Invalid blob size %lu %u",
+			CAM_ERR(CAM_FD, "Invalid blob size %d %d",
 				sizeof(uint32_t), blob_size);
 			return -EINVAL;
 		}
@@ -430,7 +430,7 @@ static int cam_fd_packet_generic_blob_handler(void *user_data,
 			(struct cam_fd_soc_clock_bw_request *)blob_data;
 
 		if (sizeof(struct cam_fd_soc_clock_bw_request) != blob_size) {
-			CAM_ERR(CAM_FD, "Invalid blob size %lu %u",
+			CAM_ERR(CAM_FD, "Invalid blob size %d %d",
 				sizeof(struct cam_fd_soc_clock_bw_request),
 				blob_size);
 			return -EINVAL;

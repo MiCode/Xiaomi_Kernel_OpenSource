@@ -1008,7 +1008,8 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_rdi(
 		rc = cam_ife_hw_mgr_get_res(&ife_ctx->free_res_list,
 			&csid_res);
 		if (rc) {
-			CAM_ERR(CAM_ISP, "No more free hw mgr resource");
+			CAM_ERR(CAM_ISP, "No more free hw mgr resource",
+				__func__);
 			goto err;
 		}
 		cam_ife_hw_mgr_put_res(&ife_ctx->res_list_ife_csid, &csid_res);
@@ -2760,7 +2761,8 @@ static int  cam_ife_hw_mgr_process_overflow(
 	CAM_DBG(CAM_ISP, "Enter");
 
 	if (!recovery_data) {
-		CAM_ERR(CAM_ISP, "recovery_data parameter is NULL");
+		CAM_ERR(CAM_ISP, "recovery_data parameter is NULL",
+			__func__);
 		return -EINVAL;
 	}
 	recovery_data->no_of_context = 0;

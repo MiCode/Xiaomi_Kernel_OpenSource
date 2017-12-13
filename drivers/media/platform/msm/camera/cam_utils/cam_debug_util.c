@@ -94,19 +94,43 @@ const char *cam_get_module_name(unsigned int module_id)
 	return name;
 }
 
-void cam_debug_log(unsigned int module_id, const char *func, const int line,
-	const char *fmt, ...)
+void cam_debug_log(unsigned int module_id, enum cam_debug_level dbg_level,
+	const char *func, const int line, const char *fmt, ...)
 {
 	char str_buffer[STR_BUFFER_MAX_LENGTH];
 	va_list args;
 
 	va_start(args, fmt);
 
-	if (debug_mdl & module_id) {
+	switch (dbg_level) {
+	case CAM_LEVEL_DBG:
+		if (debug_mdl & module_id) {
+			vsnprintf(str_buffer, STR_BUFFER_MAX_LENGTH, fmt, args);
+			pr_info("CAM_DBG: %s: %s: %d: %s\n",
+				cam_get_module_name(module_id),
+				func, line, str_buffer);
+			va_end(args);
+		}
+		break;
+	case CAM_LEVEL_ERR:
 		vsnprintf(str_buffer, STR_BUFFER_MAX_LENGTH, fmt, args);
-		pr_info("CAM_DBG: %s: %s: %d: %s\n",
-			cam_get_module_name(module_id),
-			func, line, str_buffer);
+		pr_err("CAM_ERR: %s: %s: %d: %s\n",
+			cam_get_module_name(module_id), func, line, str_buffer);
 		va_end(args);
+		break;
+	case CAM_LEVEL_INFO:
+		vsnprintf(str_buffer, STR_BUFFER_MAX_LENGTH, fmt, args);
+		pr_info("CAM_INFO: %s: %s: %d: %s\n",
+			cam_get_module_name(module_id), func, line, str_buffer);
+		va_end(args);
+		break;
+	case CAM_LEVEL_WARN:
+		vsnprintf(str_buffer, STR_BUFFER_MAX_LENGTH, fmt, args);
+		pr_warn("CAM_WARN: %s: %s: %d: %s\n",
+			cam_get_module_name(module_id), func, line, str_buffer);
+		va_end(args);
+		break;
+	default:
+		break;
 	}
 }
