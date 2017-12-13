@@ -36,8 +36,8 @@
 		pinctrl-0 = <&spi_9_active>;
 		pinctrl-1 = <&spi_9_sleep>;
 		clock-names = "iface_clk", "core_clk";
-		clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
-			 <&clock_gcc clk_gcc_blsp2_qup3_spi_apps_clk>;
+		clocks = <&clock_virt clk_gcc_blsp2_ahb_clk>,
+			 <&clock_virt clk_gcc_blsp2_qup3_spi_apps_clk>;
 		status = "disabled";
 	};
 
@@ -54,8 +54,8 @@
 		qcom,clk-freq-out = <400000>;
 		qcom,clk-freq-in  = <19200000>;
 		clock-names = "iface_clk", "core_clk";
-		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
-			      <&clock_gcc clk_gcc_blsp1_qup6_i2c_apps_clk>;
+		clocks = <&clock_virt clk_gcc_blsp1_ahb_clk>,
+			      <&clock_virt clk_gcc_blsp1_qup6_i2c_apps_clk>;
 		pinctrl-names = "i2c_active", "i2c_sleep";
 		pinctrl-0 = <&i2c_6_active>;
 		pinctrl-1 = <&i2c_6_sleep>;
@@ -75,8 +75,8 @@
 		qcom,clk-freq-out = <400000>;
 		qcom,clk-freq-in  = <19200000>;
 		clock-names = "iface_clk", "core_clk";
-		clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
-			<&clock_gcc clk_gcc_blsp2_qup2_i2c_apps_clk>;
+		clocks = <&clock_virt clk_gcc_blsp2_ahb_clk>,
+			<&clock_virt clk_gcc_blsp2_qup2_i2c_apps_clk>;
 		pinctrl-names = "i2c_active", "i2c_sleep";
 		pinctrl-0 = <&i2c_8_active>;
 		pinctrl-1 = <&i2c_8_sleep>;
@@ -99,8 +99,8 @@
 		qcom,bam-rx-ep-pipe-index = <3>;
 		qcom,master-id = <86>;
 		clock-names = "core_clk", "iface_clk";
-		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
-		    <&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		clocks = <&clock_virt clk_gcc_blsp1_uart2_apps_clk>,
+		    <&clock_virt clk_gcc_blsp1_ahb_clk>;
 		pinctrl-names = "sleep", "default";
 		pinctrl-0 = <&blsp1_uart2_sleep>;
 		pinctrl-1 = <&blsp1_uart2_active>;

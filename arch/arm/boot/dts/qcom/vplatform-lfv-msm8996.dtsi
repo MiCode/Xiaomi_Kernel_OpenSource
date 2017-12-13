@@ -96,8 +96,8 @@
 		interrupt-names = "hc_irq", "pwr_irq";
 
 		clock-names = "iface_clk", "core_clk";
-		clocks = <&clock_gcc clk_gcc_sdcc2_ahb_clk>,
-			 <&clock_gcc clk_gcc_sdcc2_apps_clk>;
+		clocks = <&clock_virt clk_gcc_sdcc2_ahb_clk>,
+			 <&clock_virt clk_gcc_sdcc2_apps_clk>;
 
 		qcom,large-address-bus;
 		qcom,bus-width = <4>;
@@ -690,6 +690,11 @@
 		compatible = "qcom,msm_sps_4k";
 		qcom,device-type = <3>;
 		qcom,pipe-attr-ee;
+	};
+
+	clock_virt: qcom,virtclk-frontend@0 {
+		compatible = "qcom,virtclk-frontend-8996";
+		#clock-cells = <1>;
 	};
 
 	clock_gcc: qcom,gcc@300000 {
