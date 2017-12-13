@@ -3020,6 +3020,13 @@ static int dwc3_msm_init_iommu(struct dwc3_msm *mdwc)
 		return ret;
 	}
 	dev_dbg(mdwc->dev, "IOMMU mapping created: %pK\n", mdwc->iommu_map);
+	ret = iommu_domain_set_attr(mdwc->iommu_map->domain,
+			DOMAIN_ATTR_UPSTREAM_IOVA_ALLOCATOR, &atomic_ctx);
+	if (ret) {
+		dev_err(mdwc->dev, "set UPSTREAM_IOVA_ALLOCATOR failed(%d)\n",
+				ret);
+		goto release_mapping;
+	}
 
 	ret = iommu_domain_set_attr(mdwc->iommu_map->domain, DOMAIN_ATTR_ATOMIC,
 			&atomic_ctx);
@@ -3140,14 +3147,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	mdwc = devm_kzalloc(&pdev->dev, sizeof(*mdwc), GFP_KERNEL);
 	if (!mdwc)
 		return -ENOMEM;
-
-	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64))) {
-		dev_err(&pdev->dev, "setting DMA mask to 64 failed.\n");
-		if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32))) {
-			dev_err(&pdev->dev, "setting DMA mask to 32 failed.\n");
-			return -EOPNOTSUPP;
-		}
-	}
 
 	platform_set_drvdata(pdev, mdwc);
 	mdwc->dev = &pdev->dev;
@@ -3340,6 +3339,15 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	ret = dwc3_msm_init_iommu(mdwc);
 	if (ret)
 		goto err;
+
+	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64))) {
+		dev_err(&pdev->dev, "setting DMA mask to 64 failed.\n");
+		if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32))) {
+			dev_err(&pdev->dev, "setting DMA mask to 32 failed.\n");
+			ret = -EOPNOTSUPP;
+			goto uninit_iommu;
+		}
+	}
 
 	/* Assumes dwc3 is the first DT child of dwc3-msm */
 	dwc3_node = of_get_next_available_child(node, NULL);
