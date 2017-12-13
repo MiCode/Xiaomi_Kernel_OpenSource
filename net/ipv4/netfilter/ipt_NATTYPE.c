@@ -98,7 +98,8 @@ static void nattype_free(struct ipt_nattype *nte)
 /* netfilter NATTYPE nattype_refresh_timer()
  * Refresh the timer for this object.
  */
-bool nattype_refresh_timer(unsigned long nat_type, unsigned long timeout_value)
+bool nattype_refresh_timer_impl(unsigned long nat_type,
+				unsigned long timeout_value)
 {
 	struct ipt_nattype *nte = (struct ipt_nattype *)nat_type;
 
@@ -154,7 +155,7 @@ static bool nattype_packet_in_match(const struct ipt_nattype *nte,
 	 * further.
 	 */
 	if (nte->proto != iph->protocol) {
-		DEBUGP("nattype_packet_in_match: protocol failed: nte proto:"
+		DEBUGP("nattype_packet_in_match: protocol failed: nte proto:");
 		DEBUGP(" %d, packet proto: %d\n",
 		       nte->proto, iph->protocol);
 		return false;
@@ -375,7 +376,7 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 			 * found the entry.
 			 */
 			if (!nattype_refresh_timer((unsigned long)nte,
-						   ct->timeout.expires))
+						   ct->timeout))
 				break;
 
 			/* netfilter NATTYPE
@@ -473,8 +474,8 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 	/* netfilter NATTYPE
 	 * Add the new entry to the list.
 	 */
-	nte->timeout_value = ct->timeout.expires;
-	nte->timeout.expires = ct->timeout.expires + jiffies;
+	nte->timeout_value = ct->timeout;
+	nte->timeout.expires = ct->timeout + jiffies;
 	add_timer(&nte->timeout);
 	list_add(&nte->list, &nattype_list);
 	ct->nattype_entry = (unsigned long)nte;
