@@ -1075,6 +1075,7 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 		for (cnt = 0; cnt < length; cnt++)
 			cmdbuf[dsi_ctrl->cmd_len + cnt] = buffer[cnt];
 
+		msm_gem_sync(dsi_ctrl->tx_cmd_buf);
 		dsi_ctrl->cmd_len += length;
 
 		if (!(msg->flags & MIPI_DSI_MSG_LASTCOMMAND)) {

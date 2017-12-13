@@ -150,6 +150,24 @@ void msm_gem_put_pages(struct drm_gem_object *obj)
 	/* when we start tracking the pin count, then do something here */
 }
 
+void msm_gem_sync(struct drm_gem_object *obj)
+{
+	struct msm_gem_object *msm_obj;
+
+	if (!obj)
+		return;
+
+	msm_obj = to_msm_bo(obj);
+
+	/*
+	 * dma_sync_sg_for_device synchronises a single contiguous or
+	 * scatter/gather mapping for the CPU and device.
+	 */
+	dma_sync_sg_for_device(obj->dev->dev, msm_obj->sgt->sgl,
+		       msm_obj->sgt->nents, DMA_BIDIRECTIONAL);
+}
+
+
 int msm_gem_mmap_obj(struct drm_gem_object *obj,
 		struct vm_area_struct *vma)
 {
