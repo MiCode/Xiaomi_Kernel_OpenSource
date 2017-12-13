@@ -204,13 +204,13 @@
 &sdhc_1 {
 	vdd-supply = <&pm660l_l4>;
 	qcom,vdd-voltage-level = <2960000 2960000>;
-	qcom,vdd-current-level = <200 570000>;
+	qcom,vdd-current-level = <0 570000>;
 
 	vdd-io-supply = <&pm660_l8>;
 	qcom,vdd-io-always-on;
 	qcom,vdd-io-lpm-sup;
 	qcom,vdd-io-voltage-level = <1800000 1800000>;
-	qcom,vdd-io-current-level = <200 325000>;
+	qcom,vdd-io-current-level = <0 325000>;
 
 	pinctrl-names = "active", "sleep";
 	pinctrl-0 = <&sdc1_clk_on  &sdc1_cmd_on &sdc1_data_on &sdc1_rclk_on>;
@@ -222,11 +222,11 @@
 &sdhc_2 {
 	vdd-supply = <&pm660l_l5>;
 	qcom,vdd-voltage-level = <2960000 2960000>;
-	qcom,vdd-current-level = <200 800000>;
+	qcom,vdd-current-level = <0 800000>;
 
 	vdd-io-supply = <&pm660l_l2>;
 	qcom,vdd-io-voltage-level = <1800000 2960000>;
-	qcom,vdd-io-current-level = <200 22000>;
+	qcom,vdd-io-current-level = <0 22000>;
 
 	pinctrl-names = "active", "sleep";
 	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
