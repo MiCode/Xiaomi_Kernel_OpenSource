@@ -82,6 +82,7 @@ struct msm_lmh_dcvs_hw {
 	uint32_t affinity;
 	uint32_t temp_limits[LIMITS_TRIP_MAX];
 	struct sensor_threshold default_lo, default_hi;
+	struct thermal_cooling_device *cdev;
 	int irq_num;
 	void *osm_hw_reg;
 	void *int_clr_reg;
@@ -377,13 +378,38 @@ int msm_lmh_dcvsh_sw_notify(int cpu)
 	return 0;
 }
 
+static int __ref lmh_dcvs_cpu_callback(struct notifier_block *nfb,
+		unsigned long action, void *hcpu)
+{
+	uint32_t cpu = (uintptr_t)hcpu;
+	struct msm_lmh_dcvs_hw *hw = get_dcvsh_hw_from_cpu(cpu);
+
+	if (!hw || hw->cdev)
+		return NOTIFY_OK;
+
+	switch (action & ~CPU_TASKS_FROZEN) {
+	case CPU_ONLINE:
+		hw->cdev = cpufreq_platform_cooling_register(&hw->core_map,
+				&cd_ops);
+		if (IS_ERR_OR_NULL(hw->cdev))
+			hw->cdev = NULL;
+		break;
+	default:
+		break;
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block __refdata lmh_dcvs_cpu_notifier = {
+	.notifier_call = lmh_dcvs_cpu_callback,
+};
+
 static int msm_lmh_dcvs_probe(struct platform_device *pdev)
 {
 	int ret;
 	int affinity = -1;
 	struct msm_lmh_dcvs_hw *hw;
 	struct thermal_zone_device *tzdev;
-	struct thermal_cooling_device *cdev;
 	struct device_node *dn = pdev->dev.of_node;
 	struct device_node *cpu_node, *lmh_node;
 	uint32_t id, max_freq, request_reg, clear_reg;
@@ -458,10 +484,6 @@ static int msm_lmh_dcvs_probe(struct platform_device *pdev)
 	if (IS_ERR_OR_NULL(tzdev))
 		return PTR_ERR(tzdev);
 
-	/* Setup cooling devices to request mitigation states */
-	cdev = cpufreq_platform_cooling_register(&hw->core_map, &cd_ops);
-	if (IS_ERR_OR_NULL(cdev))
-		return PTR_ERR(cdev);
 	/*
 	 * Driver defaults to for low and hi thresholds.
 	 * Since we make a check for hi > lo value, set the hi threshold
@@ -531,8 +553,15 @@ static int msm_lmh_dcvs_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	if (list_empty(&lmh_dcvs_hw_list))
+		register_cpu_notifier(&lmh_dcvs_cpu_notifier);
+
 	INIT_LIST_HEAD(&hw->list);
 	list_add(&hw->list, &lmh_dcvs_hw_list);
+
+	/* Better register explicitly for 1st CPU of each HW */
+	lmh_dcvs_cpu_callback(&lmh_dcvs_cpu_notifier, CPU_ONLINE,
+			(void *)(long)cpumask_first(&hw->core_map));
 
 	return ret;
 }
