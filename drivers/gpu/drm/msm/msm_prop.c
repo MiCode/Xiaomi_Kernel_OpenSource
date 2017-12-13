@@ -419,7 +419,7 @@ int msm_property_atomic_set(struct msm_property_info *info,
 
 				/* save blob - need to clear previous ref */
 				if (property_state->values[property_idx].blob)
-					drm_property_unreference_blob(
+					drm_property_blob_put(
 						property_state->values[
 						property_idx].blob);
 				property_state->values[property_idx].blob =
@@ -561,7 +561,7 @@ void msm_property_duplicate_state(struct msm_property_info *info,
 		/* add ref count for blobs and initialize dirty nodes */
 		for (i = 0; i < info->property_count; ++i) {
 			if (property_state->values[i].blob)
-				drm_property_reference_blob(
+				drm_property_blob_get(
 						property_state->values[i].blob);
 			INIT_LIST_HEAD(&property_state->values[i].dirty_node);
 		}
@@ -580,7 +580,7 @@ void msm_property_destroy_state(struct msm_property_info *info, void *state,
 		/* remove ref count for blobs */
 		for (i = 0; i < info->property_count; ++i)
 			if (property_state->values[i].blob) {
-				drm_property_unreference_blob(
+				drm_property_blob_put(
 						property_state->values[i].blob);
 				property_state->values[i].blob = NULL;
 			}
@@ -646,13 +646,13 @@ int msm_property_set_blob(struct msm_property_info *info,
 		if (rc) {
 			DRM_ERROR("failed to set blob to property\n");
 			if (blob)
-				drm_property_unreference_blob(blob);
+				drm_property_blob_put(blob);
 			goto exit;
 		}
 
 		/* update local reference */
 		if (*blob_reference)
-			drm_property_unreference_blob(*blob_reference);
+			drm_property_blob_put(*blob_reference);
 		*blob_reference = blob;
 	}
 

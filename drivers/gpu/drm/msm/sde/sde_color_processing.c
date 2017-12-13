@@ -199,7 +199,7 @@ static int sde_cp_disable_crtc_blob_property(struct sde_cp_node *prop_node)
 
 	if (!blob)
 		return 0;
-	drm_property_unreference_blob(blob);
+	drm_property_blob_put(blob);
 	prop_node->blob_ptr = NULL;
 	return 0;
 }
@@ -237,7 +237,7 @@ static void sde_cp_destroy_local_blob(struct sde_cp_node *prop_node)
 {
 	if (!(prop_node->prop_flags & DRM_MODE_PROP_BLOB) &&
 		prop_node->blob_ptr)
-		drm_property_unreference_blob(prop_node->blob_ptr);
+		drm_property_blob_put(prop_node->blob_ptr);
 }
 
 static int sde_cp_handle_range_property(struct sde_cp_node *prop_node,
@@ -302,12 +302,12 @@ static int sde_cp_enable_crtc_blob_property(struct drm_crtc *crtc,
 	if (blob->length != prop_node->prop_blob_sz) {
 		DRM_ERROR("invalid blob len %zd exp %d feature %d\n",
 		    blob->length, prop_node->prop_blob_sz, prop_node->feature);
-		drm_property_unreference_blob(blob);
+		drm_property_blob_put(blob);
 		return -EINVAL;
 	}
 	/* Release refernce to existing payload of the property */
 	if (prop_node->blob_ptr)
-		drm_property_unreference_blob(prop_node->blob_ptr);
+		drm_property_blob_put(prop_node->blob_ptr);
 
 	prop_node->blob_ptr = blob;
 	return 0;
@@ -1131,7 +1131,7 @@ void sde_cp_crtc_destroy_properties(struct drm_crtc *crtc)
 				 feature_list) {
 		if (prop_node->prop_flags & DRM_MODE_PROP_BLOB
 		    && prop_node->blob_ptr)
-			drm_property_unreference_blob(prop_node->blob_ptr);
+			drm_property_blob_put(prop_node->blob_ptr);
 
 		list_del_init(&prop_node->active_list);
 		list_del_init(&prop_node->dirty_list);
@@ -1141,7 +1141,7 @@ void sde_cp_crtc_destroy_properties(struct drm_crtc *crtc)
 	}
 
 	if (sde_crtc->hist_blob)
-		drm_property_unreference_blob(sde_crtc->hist_blob);
+		drm_property_blob_put(sde_crtc->hist_blob);
 
 	mutex_destroy(&sde_crtc->crtc_cp_lock);
 	INIT_LIST_HEAD(&sde_crtc->active_list);

@@ -1517,12 +1517,12 @@ static int _sde_plane_color_fill(struct sde_plane *psde,
  */
 static void *_sde_plane_fb_get(void *fb, u32 type, u64 tag)
 {
-	drm_framebuffer_reference(fb);
+	drm_framebuffer_get(fb);
 	return fb;
 }
 static void _sde_plane_fb_put(void *fb)
 {
-	drm_framebuffer_unreference(fb);
+	drm_framebuffer_put(fb);
 }
 static struct sde_crtc_res_ops fb_res_ops = {
 	.put = _sde_plane_fb_put,
@@ -4500,7 +4500,7 @@ static void sde_plane_destroy(struct drm_plane *plane)
 		_sde_plane_set_qos_ctrl(plane, false, SDE_PLANE_QOS_PANIC_CTRL);
 
 		if (psde->blob_info)
-			drm_property_unreference_blob(psde->blob_info);
+			drm_property_blob_put(psde->blob_info);
 		msm_property_destroy(&psde->property_info);
 		mutex_destroy(&psde->lock);
 
@@ -4537,7 +4537,7 @@ static void sde_plane_destroy_state(struct drm_plane *plane,
 
 	/* remove ref count for frame buffers */
 	if (state->fb)
-		drm_framebuffer_unreference(state->fb);
+		drm_framebuffer_put(state->fb);
 
 	/* remove ref count for fence */
 	if (pstate->input_fence)

@@ -614,13 +614,13 @@ static void sde_connector_destroy(struct drm_connector *connector)
 		c_conn->ops.put_modes(connector, c_conn->display);
 
 	if (c_conn->blob_caps)
-		drm_property_unreference_blob(c_conn->blob_caps);
+		drm_property_blob_put(c_conn->blob_caps);
 	if (c_conn->blob_hdr)
-		drm_property_unreference_blob(c_conn->blob_hdr);
+		drm_property_blob_put(c_conn->blob_hdr);
 	if (c_conn->blob_dither)
-		drm_property_unreference_blob(c_conn->blob_dither);
+		drm_property_blob_put(c_conn->blob_dither);
 	if (c_conn->blob_mode_info)
-		drm_property_unreference_blob(c_conn->blob_mode_info);
+		drm_property_blob_put(c_conn->blob_mode_info);
 	msm_property_destroy(&c_conn->property_info);
 
 	if (c_conn->bl_device)
@@ -645,7 +645,7 @@ static void _sde_connector_destroy_fb(struct sde_connector *c_conn,
 		return;
 	}
 
-	drm_framebuffer_unreference(c_state->out_fb);
+	drm_framebuffer_put(c_state->out_fb);
 	c_state->out_fb = NULL;
 
 	if (c_conn)
@@ -756,7 +756,7 @@ sde_connector_atomic_duplicate_state(struct drm_connector *connector)
 
 	/* additional handling for drm framebuffer objects */
 	if (c_state->out_fb)
-		drm_framebuffer_reference(c_state->out_fb);
+		drm_framebuffer_get(c_state->out_fb);
 
 	return &c_state->base;
 }
@@ -1905,13 +1905,13 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 
 error_destroy_property:
 	if (c_conn->blob_caps)
-		drm_property_unreference_blob(c_conn->blob_caps);
+		drm_property_blob_put(c_conn->blob_caps);
 	if (c_conn->blob_hdr)
-		drm_property_unreference_blob(c_conn->blob_hdr);
+		drm_property_blob_put(c_conn->blob_hdr);
 	if (c_conn->blob_dither)
-		drm_property_unreference_blob(c_conn->blob_dither);
+		drm_property_blob_put(c_conn->blob_dither);
 	if (c_conn->blob_mode_info)
-		drm_property_unreference_blob(c_conn->blob_mode_info);
+		drm_property_blob_put(c_conn->blob_mode_info);
 
 	msm_property_destroy(&c_conn->property_info);
 error_cleanup_fence:

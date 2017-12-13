@@ -1074,7 +1074,7 @@ static int _sde_encoder_phys_wb_init_internal_fb(
 	fb = msm_framebuffer_init(dev, &mode_cmd, wb_enc->bo_disable);
 	if (IS_ERR_OR_NULL(fb)) {
 		ret = PTR_ERR(fb);
-		drm_gem_object_unreference(wb_enc->bo_disable[0]);
+		drm_gem_object_put(wb_enc->bo_disable[0]);
 		wb_enc->bo_disable[0] = NULL;
 
 		SDE_ERROR("failed to init fb, %d\n", ret);
@@ -1105,7 +1105,7 @@ static void _sde_encoder_phys_wb_destroy_internal_fb(
 	}
 
 	if (wb_enc->bo_disable[0]) {
-		drm_gem_object_unreference(wb_enc->bo_disable[0]);
+		drm_gem_object_put(wb_enc->bo_disable[0]);
 		wb_enc->bo_disable[0] = NULL;
 	}
 }

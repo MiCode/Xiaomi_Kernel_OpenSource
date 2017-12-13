@@ -1235,13 +1235,13 @@ struct drm_framebuffer *sde_kms_fbo_create_fb(struct drm_device *dev,
 
 	/* need to take one reference for gem object */
 	for (i = 0; i < fbo->nplane; i++)
-		drm_gem_object_reference(fbo->bo[i]);
+		drm_gem_object_get(fbo->bo[i]);
 
 	SDE_DEBUG("register private fb:%d\n", fb->base.id);
 
 	INIT_LIST_HEAD(&fbo_fb->list);
 	fbo_fb->fb = fb;
-	drm_framebuffer_reference(fbo_fb->fb);
+	drm_framebuffer_get(fbo_fb->fb);
 	list_add_tail(&fbo_fb->list, &fbo->fb_list);
 
 	return fb;
@@ -1285,7 +1285,7 @@ static void sde_kms_fbo_destroy(struct sde_kms_fbo *fbo)
 	list_for_each_entry_safe(curr, next, &fbo->fb_list, list) {
 		SDE_DEBUG("unregister private fb:%d\n", curr->fb->base.id);
 		drm_framebuffer_unregister_private(curr->fb);
-		drm_framebuffer_unreference(curr->fb);
+		drm_framebuffer_put(curr->fb);
 		list_del(&curr->list);
 		kfree(curr);
 	}
@@ -1293,7 +1293,7 @@ static void sde_kms_fbo_destroy(struct sde_kms_fbo *fbo)
 	for (i = 0; i < fbo->layout.num_planes; i++) {
 		if (fbo->bo[i]) {
 			mutex_lock(&dev->struct_mutex);
-			drm_gem_object_unreference(fbo->bo[i]);
+			drm_gem_object_put(fbo->bo[i]);
 			mutex_unlock(&dev->struct_mutex);
 			fbo->bo[i] = NULL;
 		}
@@ -1424,7 +1424,7 @@ struct sde_kms_fbo *sde_kms_fbo_alloc(struct drm_device *dev, u32 width,
 	mutex_lock(&dev->struct_mutex);
 	for (i = 1; i < fbo->layout.num_planes; i++) {
 		fbo->bo[i] = fbo->bo[0];
-		drm_gem_object_reference(fbo->bo[i]);
+		drm_gem_object_get(fbo->bo[i]);
 	}
 	mutex_unlock(&dev->struct_mutex);
 
@@ -1716,13 +1716,13 @@ static int _sde_kms_remove_fbs(struct sde_kms *sde_kms, struct drm_file *file,
 			}
 		} else {
 			list_del_init(&fb->filp_head);
-			drm_framebuffer_unreference(fb);
+			drm_framebuffer_put(fb);
 		}
 	}
 
 	if (list_empty(&fbs)) {
 		SDE_DEBUG("skip commit as no fb(s)\n");
-		drm_atomic_state_free(state);
+		drm_atomic_state_put(state);
 		return 0;
 	}
 
@@ -1745,7 +1745,7 @@ static int _sde_kms_remove_fbs(struct sde_kms *sde_kms, struct drm_file *file,
 		fb = list_first_entry(&fbs, typeof(*fb), filp_head);
 
 		list_del_init(&fb->filp_head);
-		drm_framebuffer_unreference(fb);
+		drm_framebuffer_put(fb);
 	}
 
 end:
@@ -1795,7 +1795,7 @@ retry:
 
 end:
 	if ((ret != 0) && state)
-		drm_atomic_state_free(state);
+		drm_atomic_state_put(state);
 
 	SDE_DEBUG("sde preclose done, ret:%d\n", ret);
 	drm_modeset_drop_locks(&ctx);
@@ -1911,7 +1911,7 @@ static void sde_kms_lastclose(struct msm_kms *kms,
 		 * on success, atomic state object ownership transfers to
 		 * framework, otherwise, free it here
 		 */
-		drm_atomic_state_free(state);
+		drm_atomic_state_put(state);
 		SDE_ERROR("failed to run last close: %d\n", ret);
 	}
 }
@@ -2257,7 +2257,7 @@ retry:
 
 	/* save current state for resume */
 	if (sde_kms->suspend_state)
-		drm_atomic_state_free(sde_kms->suspend_state);
+		drm_atomic_state_put(sde_kms->suspend_state);
 	sde_kms->suspend_state = drm_atomic_helper_duplicate_state(ddev, &ctx);
 	if (IS_ERR_OR_NULL(sde_kms->suspend_state)) {
 		DRM_ERROR("failed to back up suspend state\n");
@@ -2289,7 +2289,7 @@ retry:
 			if (ret) {
 				DRM_ERROR("failed to set lp2 for conn %d\n",
 						conn->base.id);
-				drm_atomic_state_free(state);
+				drm_atomic_state_put(state);
 				goto unlock;
 			}
 		}
@@ -2301,7 +2301,7 @@ retry:
 			if (IS_ERR_OR_NULL(crtc_state)) {
 				DRM_ERROR("failed to get crtc %d state\n",
 						conn->state->crtc->base.id);
-				drm_atomic_state_free(state);
+				drm_atomic_state_put(state);
 				goto unlock;
 			}
 
@@ -2314,7 +2314,7 @@ retry:
 	/* check for nothing to do */
 	if (num_crtcs == 0) {
 		DRM_DEBUG("all crtcs are already in the off state\n");
-		drm_atomic_state_free(state);
+		drm_atomic_state_put(state);
 		goto suspended;
 	}
 
@@ -2322,7 +2322,7 @@ retry:
 	ret = drm_atomic_commit(state);
 	if (ret < 0) {
 		DRM_ERROR("failed to disable crtcs, %d\n", ret);
-		drm_atomic_state_free(state);
+		drm_atomic_state_put(state);
 		goto unlock;
 	}
 
@@ -2384,7 +2384,7 @@ retry:
 
 		if (ret < 0) {
 			DRM_ERROR("failed to restore state, %d\n", ret);
-			drm_atomic_state_free(sde_kms->suspend_state);
+			drm_atomic_state_put(sde_kms->suspend_state);
 		}
 		sde_kms->suspend_state = NULL;
 	}
