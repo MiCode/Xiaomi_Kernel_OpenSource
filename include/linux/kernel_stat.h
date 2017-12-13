@@ -33,6 +33,7 @@ enum cpu_usage_stat {
 
 struct kernel_cpustat {
 	u64 cpustat[NR_STATS];
+	u64 softirq_no_ksoftirqd;
 };
 
 struct kernel_stat {
