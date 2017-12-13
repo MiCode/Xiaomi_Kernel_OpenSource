@@ -98,7 +98,8 @@ static void nattype_free(struct ipt_nattype *nte)
 /* netfilter NATTYPE nattype_refresh_timer()
  * Refresh the timer for this object.
  */
-bool nattype_refresh_timer(unsigned long nat_type, unsigned long timeout_value)
+bool nattype_refresh_timer_impl(unsigned long nat_type,
+				unsigned long timeout_value)
 {
 	struct ipt_nattype *nte = (struct ipt_nattype *)nat_type;
 
@@ -289,7 +290,7 @@ static unsigned int nattype_nat(struct sk_buff *skb,
 {
 	struct ipt_nattype *nte;
 
-	if (par->hooknum != NF_INET_PRE_ROUTING)
+	if (xt_hooknum(par) != NF_INET_PRE_ROUTING)
 		return XT_CONTINUE;
 	spin_lock_bh(&nattype_lock);
 	list_for_each_entry(nte, &nattype_list, list) {
@@ -356,7 +357,7 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 	u16 nat_port;
 	enum ip_conntrack_dir dir;
 
-	if (par->hooknum != NF_INET_POST_ROUTING)
+	if (xt_hooknum(par) != NF_INET_POST_ROUTING)
 		return XT_CONTINUE;
 
 	/* netfilter
@@ -387,7 +388,7 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 			 * found the entry.
 			 */
 			if (!nattype_refresh_timer((unsigned long)nte,
-						   ct->timeout.expires))
+						   ct->timeout))
 				break;
 
 			/* netfilter NATTYPE
@@ -485,8 +486,8 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 	/* netfilter NATTYPE
 	 * Add the new entry to the list.
 	 */
-	nte->timeout_value = ct->timeout.expires;
-	nte->timeout.expires = ct->timeout.expires + jiffies;
+	nte->timeout_value = ct->timeout;
+	nte->timeout.expires = ct->timeout + jiffies;
 	add_timer(&nte->timeout);
 	list_add(&nte->list, &nattype_list);
 	ct->nattype_entry = (unsigned long)nte;
@@ -538,7 +539,7 @@ static unsigned int nattype_target(struct sk_buff *skb,
 		return XT_CONTINUE;
 
 	DEBUGP("%s: type = %s, mode = %s\n",
-	       __func_, types[info->type], modes[info->mode]);
+	       __func__, types[info->type], modes[info->mode]);
 
 	/* netfilter NATTYPE
 	 * TODO: why have mode at all since par->hooknum provides
