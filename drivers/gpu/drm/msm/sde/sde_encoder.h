@@ -155,6 +155,14 @@ void sde_encoder_kickoff(struct drm_encoder *encoder, bool is_error);
 int sde_encoder_wait_for_event(struct drm_encoder *drm_encoder,
 						enum msm_event_wait event);
 
+/**
+ * sde_encoder_idle_request - request for idle request to avoid 4 vsync cycle
+ *                            to turn off the clocks.
+ * @encoder:	encoder pointer
+ * Returns: 0 on success, errorcode otherwise
+ */
+int sde_encoder_idle_request(struct drm_encoder *drm_enc);
+
 /*
  * sde_encoder_get_intf_mode - get interface mode of the given encoder
  * @encoder: Pointer to drm encoder object
