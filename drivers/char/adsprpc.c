@@ -238,13 +238,13 @@ struct fastrpc_channel_ctx {
 	int ramdumpenabled;
 	void *remoteheap_ramdump_dev;
 	struct fastrpc_glink_info link;
+	struct mutex mut;
 };
 
 struct fastrpc_apps {
 	struct fastrpc_channel_ctx *channel;
 	struct cdev cdev;
 	struct class *class;
-	struct mutex smd_mutex;
 	struct smq_phy_page range;
 	struct hlist_head maps;
 	uint32_t staticpd_flags;
@@ -654,6 +654,10 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 		if (err)
 			goto bail;
 
+		map->uncached = !ION_IS_CACHED(flags);
+		if (map->attr & FASTRPC_ATTR_NOVA)
+			map->uncached = 1;
+
 		map->secure = flags & ION_FLAG_SECURE;
 		if (map->secure) {
 			if (!fl->secsctx)
@@ -666,15 +670,9 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 			sess = fl->secsctx;
 		else
 			sess = fl->sctx;
-
 		VERIFY(err, !IS_ERR_OR_NULL(sess));
 		if (err)
 			goto bail;
-
-		map->uncached = !ION_IS_CACHED(flags);
-		if (map->attr & FASTRPC_ATTR_NOVA && !sess->smmu.coherent)
-			map->uncached = 1;
-
 		VERIFY(err, !IS_ERR_OR_NULL(map->buf = dma_buf_get(fd)));
 		if (err)
 			goto bail;
@@ -1498,12 +1496,12 @@ static void fastrpc_init(struct fastrpc_apps *me)
 
 	INIT_HLIST_HEAD(&me->drivers);
 	spin_lock_init(&me->hlock);
-	mutex_init(&me->smd_mutex);
 	me->channel = &gcinfo[0];
 	for (i = 0; i < NUM_CHANNELS; i++) {
 		init_completion(&me->channel[i].work);
 		init_completion(&me->channel[i].workport);
 		me->channel[i].sesscount = 0;
+		mutex_init(&me->channel[i].mut);
 	}
 }
 
@@ -1621,7 +1619,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 	int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 	int hlosVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 
-	VERIFY(err, 0 == (err = fastrpc_channel_open(fl)));
+	VERIFY(err, !fastrpc_channel_open(fl));
 	if (err)
 		goto bail;
 	if (init->flags == FASTRPC_INIT_ATTACH) {
@@ -2124,7 +2122,7 @@ static void fastrpc_channel_close(struct kref *kref)
 	ctx->chan = NULL;
 	glink_unregister_link_state_cb(ctx->link.link_notify_handle);
 	ctx->link.link_notify_handle = NULL;
-	mutex_unlock(&me->smd_mutex);
+	mutex_unlock(&ctx->mut);
 	pr_info("'closed /dev/%s c %d %d'\n", gcinfo[cid].name,
 						MAJOR(me->dev_no), cid);
 }
@@ -2217,6 +2215,15 @@ static void fastrpc_glink_notify_state(void *handle, const void *priv,
 		link->port_state = FASTRPC_LINK_DISCONNECTED;
 		break;
 	case GLINK_REMOTE_DISCONNECTED:
+		mutex_lock(&me->channel[cid].mut);
+		if (me->channel[cid].chan) {
+			link->port_state = FASTRPC_LINK_REMOTE_DISCONNECTING;
+			fastrpc_glink_close(me->channel[cid].chan, cid);
+			me->channel[cid].chan = NULL;
+		} else {
+			link->port_state = FASTRPC_LINK_DISCONNECTED;
+		}
+		mutex_unlock(&me->channel[cid].mut);
 		break;
 	default:
 		break;
@@ -2227,23 +2234,20 @@ static int fastrpc_session_alloc(struct fastrpc_channel_ctx *chan, int secure,
 					struct fastrpc_session_ctx **session)
 {
 	int err = 0;
-	struct fastrpc_apps *me = &gfa;
 
-	mutex_lock(&me->smd_mutex);
+	mutex_lock(&chan->mut);
 	if (!*session)
 		err = fastrpc_session_alloc_locked(chan, secure, session);
-	mutex_unlock(&me->smd_mutex);
+	mutex_unlock(&chan->mut);
 	return err;
 }
 
 static void fastrpc_session_free(struct fastrpc_channel_ctx *chan,
 				struct fastrpc_session_ctx *session)
 {
-	struct fastrpc_apps *me = &gfa;
-
-	mutex_lock(&me->smd_mutex);
+	mutex_lock(&chan->mut);
 	session->used = 0;
-	mutex_unlock(&me->smd_mutex);
+	mutex_unlock(&chan->mut);
 }
 
 static int fastrpc_file_free(struct fastrpc_file *fl)
@@ -2276,7 +2280,7 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	}
 	if (fl->ssrcount == fl->apps->channel[cid].ssrcount)
 		kref_put_mutex(&fl->apps->channel[cid].kref,
-				fastrpc_channel_close, &fl->apps->smd_mutex);
+			fastrpc_channel_close, &fl->apps->channel[cid].mut);
 	if (fl->sctx)
 		fastrpc_session_free(&fl->apps->channel[cid], fl->sctx);
 	if (fl->secsctx)
@@ -2351,6 +2355,20 @@ static int fastrpc_glink_register(int cid, struct fastrpc_apps *me)
 			RPC_TIMEOUT));
 bail:
 	return err;
+}
+
+static void fastrpc_glink_stop(int cid)
+{
+	int err = 0;
+	struct fastrpc_glink_info *link;
+
+	VERIFY(err, (cid >= 0 && cid < NUM_CHANNELS));
+	if (err)
+		return;
+	link = &gfa.channel[cid].link;
+
+	if (link->port_state == FASTRPC_LINK_CONNECTED)
+		link->port_state = FASTRPC_LINK_REMOTE_DISCONNECTING;
 }
 
 static void fastrpc_glink_close(void *chan, int cid)
@@ -2530,23 +2548,20 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 	struct fastrpc_apps *me = &gfa;
 	int cid, err = 0;
 
-	mutex_lock(&me->smd_mutex);
-
 	VERIFY(err, fl && fl->sctx);
 	if (err)
-		goto bail;
+		return err;
 	cid = fl->cid;
 	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
 	if (err)
 		goto bail;
+	mutex_lock(&me->channel[cid].mut);
 	if (me->channel[cid].ssrcount !=
 				 me->channel[cid].prevssrcount) {
 		if (!me->channel[cid].issubsystemup) {
 			VERIFY(err, 0);
-			if (err) {
-				err = -ENOTCONN;
+			if (err)
 				goto bail;
-			}
 		}
 	}
 	fl->ssrcount = me->channel[cid].ssrcount;
@@ -2559,9 +2574,11 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 		if (err)
 			goto bail;
 
+		mutex_unlock(&me->channel[cid].mut);
 		VERIFY(err,
 			 wait_for_completion_timeout(&me->channel[cid].workport,
 						RPC_TIMEOUT));
+		mutex_lock(&me->channel[cid].mut);
 		if (err) {
 			me->channel[cid].chan = NULL;
 			goto bail;
@@ -2586,7 +2603,7 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 	}
 
 bail:
-	mutex_unlock(&me->smd_mutex);
+	mutex_unlock(&me->channel[cid].mut);
 	return err;
 }
 
@@ -2849,7 +2866,7 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 			p.init.init.memlen < INIT_MEMLEN_MAX);
 		if (err)
 			goto bail;
-		VERIFY(err, 0 == (err = fastrpc_init_process(fl, &p.init)));
+		VERIFY(err, 0 == fastrpc_init_process(fl, &p.init));
 		if (err)
 			goto bail;
 		break;
@@ -2875,16 +2892,14 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 	ctx = container_of(nb, struct fastrpc_channel_ctx, nb);
 	cid = ctx - &me->channel[0];
 	if (code == SUBSYS_BEFORE_SHUTDOWN) {
-		mutex_lock(&me->smd_mutex);
+		mutex_lock(&ctx->mut);
 		ctx->ssrcount++;
 		ctx->issubsystemup = 0;
-		if (ctx->chan) {
-			fastrpc_glink_close(ctx->chan, cid);
-			ctx->chan = NULL;
-			pr_info("'restart notifier: closed /dev/%s c %d %d'\n",
-				 gcinfo[cid].name, MAJOR(me->dev_no), cid);
-		}
-		mutex_unlock(&me->smd_mutex);
+		pr_info("'restart notifier: /dev/%s c %d %d'\n",
+			 gcinfo[cid].name, MAJOR(me->dev_no), cid);
+		if (ctx->chan)
+			fastrpc_glink_stop(cid);
+		mutex_unlock(&ctx->mut);
 		if (cid == 0)
 			me->staticpd_flags = 0;
 		fastrpc_notify_drivers(me, cid);
@@ -3056,15 +3071,15 @@ bail:
 
 static void fastrpc_deinit(void)
 {
-	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_channel_ctx *chan = gcinfo;
 	int i, j;
 
 	for (i = 0; i < NUM_CHANNELS; i++, chan++) {
 		if (chan->chan) {
 			kref_put_mutex(&chan->kref,
-				fastrpc_channel_close, &me->smd_mutex);
+				fastrpc_channel_close, &chan->mut);
 			chan->chan = NULL;
+			mutex_destroy(&chan->mut);
 		}
 		for (j = 0; j < NUM_SESSIONS; j++) {
 			struct fastrpc_session_ctx *sess = &chan->session[j];
