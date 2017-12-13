@@ -151,6 +151,13 @@ extern struct sde_dbg_evtlog *sde_dbg_base_evtlog;
 #define SDE_DBG_DUMP_WQ(...) sde_dbg_dump(true, __func__, ##__VA_ARGS__, \
 		SDE_DBG_DUMP_DATA_LIMITER)
 
+/**
+ * SDE_DBG_EVT_CTRL - trigger a different driver events
+ *  event: event that trigger different behavior in the driver
+ */
+#define SDE_DBG_CTRL(...) sde_dbg_ctrl(__func__, ##__VA_ARGS__, \
+		SDE_DBG_DUMP_DATA_LIMITER)
+
 #if defined(CONFIG_DEBUG_FS)
 
 /**
@@ -247,6 +254,15 @@ void sde_dbg_destroy(void);
  * Returns:	none
  */
 void sde_dbg_dump(bool queue_work, const char *name, ...);
+
+/**
+ * sde_dbg_ctrl - trigger specific actions for the driver with debugging
+ *		purposes. Those actions need to be enabled by the debugfs entry
+ *		so the driver executes those actions in the corresponding calls.
+ * @va_args:	list of actions to trigger
+ * Returns:	none
+ */
+void sde_dbg_ctrl(const char *name, ...);
 
 /**
  * sde_dbg_reg_register_base - register a hw register address section for later
@@ -383,6 +399,10 @@ static inline void sde_dbg_destroy(void)
 }
 
 static inline void sde_dbg_dump(bool queue_work, const char *name, ...)
+{
+}
+
+static inline void sde_dbg_ctrl(const char *name, ...)
 {
 }
 

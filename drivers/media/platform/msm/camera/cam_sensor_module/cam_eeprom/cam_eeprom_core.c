@@ -128,7 +128,6 @@ static int cam_eeprom_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
 			i2c_reg_settings.reg_setting = &i2c_reg_array;
 			rc = camera_io_dev_write(&e_ctrl->io_master_info,
 				&i2c_reg_settings);
-
 			if (rc) {
 				CAM_ERR(CAM_EEPROM,
 					"page disable failed rc %d",
@@ -410,10 +409,12 @@ static int32_t cam_eeprom_update_slaveInfo(struct cam_eeprom_ctrl_t *e_ctrl,
 static int32_t cam_eeprom_parse_memory_map(
 	struct cam_eeprom_memory_block_t *data,
 	void *cmd_buf, int cmd_length, uint16_t *cmd_length_bytes,
-	int16_t num_map)
+	int *num_map)
 {
 	int32_t                            rc = 0;
+	int32_t                            cnt = 0;
 	int32_t                            processed_size = 0;
+	uint8_t                            generic_op_code;
 	struct cam_eeprom_memory_map_t    *map = data->map;
 	struct common_header              *cmm_hdr =
 		(struct common_header *)cmd_buf;
@@ -421,19 +422,30 @@ static int32_t cam_eeprom_parse_memory_map(
 	struct cam_cmd_i2c_random_wr      *i2c_random_wr = NULL;
 	struct cam_cmd_i2c_continuous_rd  *i2c_cont_rd = NULL;
 	struct cam_cmd_conditional_wait   *i2c_poll = NULL;
+	struct cam_cmd_unconditional_wait *i2c_uncond_wait = NULL;
 
+	generic_op_code = cmm_hdr->third_byte;
 	switch (cmm_hdr->cmd_type) {
 	case CAMERA_SENSOR_CMD_TYPE_I2C_RNDM_WR:
 		i2c_random_wr = (struct cam_cmd_i2c_random_wr *)cmd_buf;
-		cmd_length_in_bytes   = sizeof(struct cam_cmd_i2c_random_wr);
+		cmd_length_in_bytes   = sizeof(struct cam_cmd_i2c_random_wr) +
+			((i2c_random_wr->header.count - 1) *
+			sizeof(struct i2c_random_wr_payload));
 
-		map[num_map].page.addr =
-			i2c_random_wr->random_wr_payload[0].reg_addr;
-		map[num_map].page.addr_type = i2c_random_wr->header.addr_type;
-		map[num_map].page.data =
-			i2c_random_wr->random_wr_payload[0].reg_data;
-		map[num_map].page.data_type = i2c_random_wr->header.data_type;
-		map[num_map].page.valid_size = 1;
+		for (cnt = 0; cnt < (i2c_random_wr->header.count);
+			cnt++) {
+			map[*num_map + cnt].page.addr =
+				i2c_random_wr->random_wr_payload[cnt].reg_addr;
+			map[*num_map + cnt].page.addr_type =
+				i2c_random_wr->header.addr_type;
+			map[*num_map + cnt].page.data =
+				i2c_random_wr->random_wr_payload[cnt].reg_data;
+			map[*num_map + cnt].page.data_type =
+				i2c_random_wr->header.data_type;
+			map[*num_map + cnt].page.valid_size = 1;
+		}
+
+		*num_map += (i2c_random_wr->header.count - 1);
 		cmd_buf += cmd_length_in_bytes / sizeof(int32_t);
 		processed_size +=
 			cmd_length_in_bytes;
@@ -442,30 +454,62 @@ static int32_t cam_eeprom_parse_memory_map(
 		i2c_cont_rd = (struct cam_cmd_i2c_continuous_rd *)cmd_buf;
 		cmd_length_in_bytes = sizeof(struct cam_cmd_i2c_continuous_rd);
 
-		map[num_map].mem.addr = i2c_cont_rd->reg_addr;
-		map[num_map].mem.addr_type = i2c_cont_rd->header.addr_type;
-		map[num_map].mem.data_type = i2c_cont_rd->header.data_type;
-		map[num_map].mem.valid_size =
+		map[*num_map].mem.addr = i2c_cont_rd->reg_addr;
+		map[*num_map].mem.addr_type = i2c_cont_rd->header.addr_type;
+		map[*num_map].mem.data_type = i2c_cont_rd->header.data_type;
+		map[*num_map].mem.valid_size =
 			i2c_cont_rd->header.count;
 		cmd_buf += cmd_length_in_bytes / sizeof(int32_t);
 		processed_size +=
 			cmd_length_in_bytes;
-		data->num_data += map[num_map].mem.valid_size;
+		data->num_data += map[*num_map].mem.valid_size;
 		break;
 	case CAMERA_SENSOR_CMD_TYPE_WAIT:
-		i2c_poll = (struct cam_cmd_conditional_wait *)cmd_buf;
-		cmd_length_in_bytes = sizeof(struct cam_cmd_conditional_wait);
+		if (generic_op_code ==
+			CAMERA_SENSOR_WAIT_OP_HW_UCND ||
+			generic_op_code ==
+			CAMERA_SENSOR_WAIT_OP_SW_UCND) {
+			i2c_uncond_wait =
+				(struct cam_cmd_unconditional_wait *)cmd_buf;
+			cmd_length_in_bytes =
+				sizeof(struct cam_cmd_unconditional_wait);
 
-		map[num_map].poll.addr = i2c_poll->reg_addr;
-		map[num_map].poll.addr_type = i2c_poll->addr_type;
-		map[num_map].poll.data = i2c_poll->reg_data;
-		map[num_map].poll.data_type = i2c_poll->data_type;
-		map[num_map].poll.delay = i2c_poll->timeout;
-		map[num_map].poll.valid_size = 1;
+			if (*num_map < 1) {
+				CAM_ERR(CAM_EEPROM,
+					"invalid map number, num_map=%d",
+					*num_map);
+				return -EINVAL;
+			}
+
+			/*
+			 * Though delay is added all of them, but delay will
+			 * be applicable to only one of them as only one of
+			 * them will have valid_size set to >= 1.
+			 */
+			map[*num_map - 1].mem.delay = i2c_uncond_wait->delay;
+			map[*num_map - 1].page.delay = i2c_uncond_wait->delay;
+			map[*num_map - 1].pageen.delay = i2c_uncond_wait->delay;
+		} else if (generic_op_code ==
+			CAMERA_SENSOR_WAIT_OP_COND) {
+			i2c_poll = (struct cam_cmd_conditional_wait *)cmd_buf;
+			cmd_length_in_bytes =
+				sizeof(struct cam_cmd_conditional_wait);
+
+			map[*num_map].poll.addr = i2c_poll->reg_addr;
+			map[*num_map].poll.addr_type = i2c_poll->addr_type;
+			map[*num_map].poll.data = i2c_poll->reg_data;
+			map[*num_map].poll.data_type = i2c_poll->data_type;
+			map[*num_map].poll.delay = i2c_poll->timeout;
+			map[*num_map].poll.valid_size = 1;
+		}
+		cmd_buf += cmd_length_in_bytes / sizeof(int32_t);
+		processed_size +=
+			cmd_length_in_bytes;
 		break;
 	default:
 		break;
 	}
+
 	*cmd_length_bytes = processed_size;
 	return rc;
 }
@@ -536,8 +580,8 @@ static int32_t cam_eeprom_init_pkt_parser(struct cam_eeprom_ctrl_t *e_ctrl,
 			switch (cmm_hdr->cmd_type) {
 			case CAMERA_SENSOR_CMD_TYPE_I2C_INFO:
 				i2c_info = (struct cam_cmd_i2c_info *)cmd_buf;
-				num_map++;
-				map[num_map].saddr = i2c_info->slave_addr;
+				/* Configure the following map slave address */
+				map[num_map + 1].saddr = i2c_info->slave_addr;
 				rc = cam_eeprom_update_slaveInfo(e_ctrl,
 					cmd_buf);
 				cmd_length_in_bytes =
@@ -545,7 +589,6 @@ static int32_t cam_eeprom_init_pkt_parser(struct cam_eeprom_ctrl_t *e_ctrl,
 				processed_cmd_buf_in_bytes +=
 					cmd_length_in_bytes;
 				cmd_buf += cmd_length_in_bytes/4;
-				e_ctrl->cal_data.num_map = num_map + 1;
 				break;
 			case CAMERA_SENSOR_CMD_TYPE_PWR_UP:
 			case CAMERA_SENSOR_CMD_TYPE_PWR_DOWN:
@@ -564,10 +607,11 @@ static int32_t cam_eeprom_init_pkt_parser(struct cam_eeprom_ctrl_t *e_ctrl,
 			case CAMERA_SENSOR_CMD_TYPE_I2C_RNDM_WR:
 			case CAMERA_SENSOR_CMD_TYPE_I2C_CONT_RD:
 			case CAMERA_SENSOR_CMD_TYPE_WAIT:
+				num_map++;
 				rc = cam_eeprom_parse_memory_map(
 					&e_ctrl->cal_data, cmd_buf,
 					total_cmd_buf_in_bytes,
-					&cmd_length_in_bytes, num_map);
+					&cmd_length_in_bytes, &num_map);
 				processed_cmd_buf_in_bytes +=
 					cmd_length_in_bytes;
 				cmd_buf += cmd_length_in_bytes/4;
@@ -576,6 +620,7 @@ static int32_t cam_eeprom_init_pkt_parser(struct cam_eeprom_ctrl_t *e_ctrl,
 				break;
 			}
 		}
+		e_ctrl->cal_data.num_map = num_map + 1;
 	}
 	return rc;
 }

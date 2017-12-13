@@ -1100,8 +1100,10 @@ static void arm_smmu_tlb_sync_cb(struct arm_smmu_device *smmu,
 	writel_relaxed(0, base + ARM_SMMU_CB_TLBSYNC);
 	if (readl_poll_timeout_atomic(base + ARM_SMMU_CB_TLBSTATUS, val,
 				      !(val & TLBSTATUS_SACTIVE),
-				      0, TLB_LOOP_TIMEOUT))
+				      0, TLB_LOOP_TIMEOUT)) {
+		trace_tlbsync_timeout(smmu->dev, 0);
 		dev_err(smmu->dev, "TLBSYNC timeout!\n");
+	}
 }
 
 static void __arm_smmu_tlb_sync(struct arm_smmu_device *smmu)
@@ -1132,11 +1134,15 @@ static void arm_smmu_tlb_sync(void *cookie)
 static void arm_smmu_tlb_inv_context(void *cookie)
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
+	struct device *dev = smmu_domain->dev;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	bool stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
 	void __iomem *base;
 	bool use_tlbiall = smmu->options & ARM_SMMU_OPT_NO_ASID_RETENTION;
+	ktime_t cur = ktime_get();
+
+	trace_tlbi_start(dev, 0);
 
 	if (stage1 && !use_tlbiall) {
 		base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
@@ -1153,6 +1159,8 @@ static void arm_smmu_tlb_inv_context(void *cookie)
 			       base + ARM_SMMU_GR0_TLBIVMID);
 		__arm_smmu_tlb_sync(smmu);
 	}
+
+	trace_tlbi_end(dev, ktime_us_delta(ktime_get(), cur));
 }
 
 static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
@@ -4453,18 +4461,18 @@ static void __qsmmuv500_errata1_tlbiall(struct arm_smmu_domain *smmu_domain)
 	if (readl_poll_timeout_atomic(base + ARM_SMMU_CB_TLBSTATUS, val,
 				      !(val & TLBSTATUS_SACTIVE), 0, 100)) {
 		cur = ktime_get();
-		trace_errata_throttle_start(dev, 0);
+		trace_tlbi_throttle_start(dev, 0);
 
 		msm_bus_noc_throttle_wa(true);
 		if (readl_poll_timeout_atomic(base + ARM_SMMU_CB_TLBSTATUS, val,
 				      !(val & TLBSTATUS_SACTIVE), 0, 10000)) {
 			dev_err(smmu->dev, "ERRATA1 TLBSYNC timeout");
-			trace_errata_failed(dev, 0);
+			trace_tlbsync_timeout(dev, 0);
 		}
 
 		msm_bus_noc_throttle_wa(false);
 
-		trace_errata_throttle_end(
+		trace_tlbi_throttle_end(
 				dev, ktime_us_delta(ktime_get(), cur));
 	}
 }
@@ -4481,7 +4489,7 @@ static void qsmmuv500_errata1_tlb_inv_context(void *cookie)
 	bool errata;
 
 	cur = ktime_get();
-	trace_errata_tlbi_start(dev, 0);
+	trace_tlbi_start(dev, 0);
 
 	errata = qsmmuv500_errata1_required(smmu_domain, data);
 	remote_spin_lock_irqsave(&data->errata1_lock, flags);
@@ -4500,7 +4508,7 @@ static void qsmmuv500_errata1_tlb_inv_context(void *cookie)
 	}
 	remote_spin_unlock_irqrestore(&data->errata1_lock, flags);
 
-	trace_errata_tlbi_end(dev, ktime_us_delta(ktime_get(), cur));
+	trace_tlbi_end(dev, ktime_us_delta(ktime_get(), cur));
 }
 
 static struct iommu_gather_ops qsmmuv500_errata1_smmu_gather_ops = {

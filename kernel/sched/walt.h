@@ -281,11 +281,15 @@ static inline int same_cluster(int src_cpu, int dst_cpu)
 	return cpu_rq(src_cpu)->cluster == cpu_rq(dst_cpu)->cluster;
 }
 
-void sort_clusters(void);
-
 void walt_irq_work(struct irq_work *irq_work);
 
 void walt_sched_init(struct rq *rq);
+
+extern int __read_mostly min_power_cpu;
+static inline int walt_start_cpu(int prev_cpu)
+{
+	return sysctl_sched_is_big_little ? prev_cpu : min_power_cpu;
+}
 
 #else /* CONFIG_SCHED_WALT */
 
@@ -356,6 +360,11 @@ static inline void
 fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
 			      u32 new_task_load, u32 new_pred_demand)
 {
+}
+
+static inline int walt_start_cpu(int prev_cpu)
+{
+	return prev_cpu;
 }
 
 #endif /* CONFIG_SCHED_WALT */

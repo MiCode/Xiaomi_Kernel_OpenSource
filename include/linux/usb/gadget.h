@@ -520,7 +520,6 @@ struct usb_gadget {
 	unsigned			is_selfpowered:1;
 	unsigned			deactivated:1;
 	unsigned			connected:1;
-	bool				l1_supported;
 	bool				remote_wakeup;
 };
 #define work_to_gadget(w)	(container_of((w), struct usb_gadget, work))

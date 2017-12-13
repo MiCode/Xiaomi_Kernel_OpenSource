@@ -477,6 +477,21 @@ enum plug_orientation usbpd_get_plug_orientation(struct usbpd *pd)
 }
 EXPORT_SYMBOL(usbpd_get_plug_orientation);
 
+static unsigned int get_connector_type(struct usbpd *pd)
+{
+	int ret;
+	union power_supply_propval val;
+
+	ret = power_supply_get_property(pd->usb_psy,
+		POWER_SUPPLY_PROP_CONNECTOR_TYPE, &val);
+
+	if (ret) {
+		dev_err(&pd->dev, "Unable to read CONNECTOR TYPE: %d\n", ret);
+		return ret;
+	}
+	return val.intval;
+}
+
 static inline void stop_usb_host(struct usbpd *pd)
 {
 	extcon_set_state_sync(pd->extcon, EXTCON_USB_HOST, 0);
@@ -894,7 +909,7 @@ static struct rx_msg *pd_ext_msg_received(struct usbpd *pd, u16 header, u8 *buf,
 		/* allocate new message if first chunk */
 		rx_msg = kzalloc(sizeof(*rx_msg) +
 				PD_MSG_EXT_HDR_DATA_SIZE(ext_hdr),
-				GFP_KERNEL);
+				GFP_ATOMIC);
 		if (!rx_msg)
 			return NULL;
 
@@ -947,7 +962,7 @@ static struct rx_msg *pd_ext_msg_received(struct usbpd *pd, u16 header, u8 *buf,
 
 		pd->rx_ext_msg = rx_msg;
 
-		req = kzalloc(sizeof(*req), GFP_KERNEL);
+		req = kzalloc(sizeof(*req), GFP_ATOMIC);
 		if (!req)
 			goto queue_rx; /* return what we have anyway */
 
@@ -1021,7 +1036,7 @@ static void phy_msg_received(struct usbpd *pd, enum pd_sop_type sop,
 			PD_MSG_HDR_TYPE(header), PD_MSG_HDR_COUNT(header));
 
 	if (!PD_MSG_HDR_IS_EXTENDED(header)) {
-		rx_msg = kzalloc(sizeof(*rx_msg) + len, GFP_KERNEL);
+		rx_msg = kzalloc(sizeof(*rx_msg) + len, GFP_ATOMIC);
 		if (!rx_msg)
 			return;
 
@@ -3906,6 +3921,11 @@ struct usbpd *usbpd_create(struct device *parent)
 		goto destroy_wq;
 	}
 
+	if (get_connector_type(pd) == POWER_SUPPLY_CONNECTOR_MICRO_USB) {
+		usbpd_dbg(&pd->dev, "USB connector is microAB hence failing pdphy_probe\n");
+		ret = -EINVAL;
+		goto put_psy;
+	}
 	/*
 	 * associate extcon with the parent dev as it could have a DT
 	 * node which will be useful for extcon_get_edev_by_phandle()

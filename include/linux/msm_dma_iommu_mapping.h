@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,21 @@ int msm_dma_map_sg_attrs(struct device *dev, struct scatterlist *sg, int nents,
 		   enum dma_data_direction dir, struct dma_buf *dma_buf,
 		   unsigned long attrs);
 
+/*
+ * This function takes an extra reference to the dma_buf.
+ * What this means is that calling msm_dma_unmap_sg will not result in buffer's
+ * iommu mapping being removed, which means that subsequent calls to lazy map
+ * will simply re-use the existing iommu mapping.
+ * The iommu unmapping of the buffer will occur when the ION buffer is
+ * destroyed.
+ * Using lazy mapping can provide a performance benefit because subsequent
+ * mappings are faster.
+ *
+ * The limitation of using this API are that all subsequent iommu mappings
+ * must be the same as the original mapping, ie they must map the same part of
+ * the buffer with the same dma data direction. Also there can't be multiple
+ * mappings of different parts of the buffer.
+ */
 static inline int msm_dma_map_sg_lazy(struct device *dev,
 			       struct scatterlist *sg, int nents,
 			       enum dma_data_direction dir,

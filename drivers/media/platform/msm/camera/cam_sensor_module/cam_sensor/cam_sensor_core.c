@@ -165,6 +165,11 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 	}
 
 	case CAM_SENSOR_PACKET_OPCODE_SENSOR_UPDATE: {
+		if (s_ctrl->sensor_state != CAM_SENSOR_START) {
+			CAM_ERR(CAM_SENSOR,
+				"Rxed Update packets without linking");
+			return -EINVAL;
+		}
 		i2c_reg_settings =
 			&i2c_data->
 			per_frame[csl_packet->header.request_id %
@@ -185,6 +190,12 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 	break;
 	}
 	case CAM_SENSOR_PACKET_OPCODE_SENSOR_NOP: {
+		if (s_ctrl->sensor_state != CAM_SENSOR_START) {
+			CAM_ERR(CAM_SENSOR,
+				"Rxed Update packets without linking");
+			return -EINVAL;
+		}
+
 		cam_sensor_update_req_mgr(s_ctrl, csl_packet);
 		return rc;
 	}
@@ -1000,7 +1011,6 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 					return rc;
 				}
 			}
-			i2c_set->is_settings_valid = 0;
 		}
 	} else {
 		offset = req_id % MAX_PER_FRAME_ARRAY;

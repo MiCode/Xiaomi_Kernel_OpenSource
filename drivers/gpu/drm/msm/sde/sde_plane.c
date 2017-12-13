@@ -2958,6 +2958,50 @@ int sde_plane_validate_multirect_v2(struct sde_multirect_plane_states *plane)
 	return 0;
 }
 
+int sde_plane_confirm_hw_rsvps(struct drm_plane *plane,
+		const struct drm_plane_state *state)
+{
+	struct drm_crtc_state *cstate;
+	struct sde_plane_state *pstate;
+	struct sde_plane_rot_state *rstate;
+	struct sde_hw_blk *hw_blk;
+
+	if (!plane || !state) {
+		SDE_ERROR("invalid plane/state\n");
+		return -EINVAL;
+	}
+
+	pstate = to_sde_plane_state(state);
+	rstate = &pstate->rot;
+
+	/* cstate will be null if crtc is disconnected from plane */
+	cstate = _sde_plane_get_crtc_state((struct drm_plane_state *)state);
+	if (IS_ERR_OR_NULL(cstate)) {
+		SDE_ERROR("invalid crtc state\n");
+		return -EINVAL;
+	}
+
+	if (sde_plane_enabled((struct drm_plane_state *)state) &&
+			rstate->out_sbuf) {
+		SDE_DEBUG("plane%d.%d acquire rotator, fb %d\n",
+				plane->base.id, rstate->sequence_id,
+				state->fb ? state->fb->base.id : -1);
+
+		hw_blk = sde_crtc_res_get(cstate, SDE_HW_BLK_ROT,
+				(u64) state->fb);
+		if (!hw_blk) {
+			SDE_ERROR("plane%d.%d no available rotator, fb %d\n",
+					plane->base.id, rstate->sequence_id,
+					state->fb ? state->fb->base.id : -1);
+			SDE_EVT32(DRMID(plane), rstate->sequence_id,
+					state->fb ? state->fb->base.id : -1,
+					SDE_EVTLOG_ERROR);
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
 /**
  * sde_plane_get_ctl_flush - get control flush for the given plane
  * @plane: Pointer to drm plane structure
@@ -3593,7 +3637,6 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 	struct drm_crtc *crtc;
 	struct drm_framebuffer *fb;
 	struct sde_rect src, dst;
-	const struct sde_rect *crtc_roi;
 	bool q16_data = true;
 	bool blend_enabled = true;
 	int idx;
@@ -3712,9 +3755,8 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 	_sde_plane_sspp_atomic_check_mode_changed(psde, state,
 								old_state);
 
-	/* re-program the output rects always in the case of partial update */
-	sde_crtc_get_crtc_roi(crtc->state, &crtc_roi);
-	if (!sde_kms_rect_is_null(crtc_roi))
+	/* re-program the output rects always if partial update roi changed */
+	if (sde_crtc_is_crtc_roi_dirty(crtc->state))
 		pstate->dirty |= SDE_PLANE_DIRTY_RECTS;
 
 	if (pstate->dirty & SDE_PLANE_DIRTY_RECTS)
@@ -3747,6 +3789,8 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 
 	/* update roi config */
 	if (pstate->dirty & SDE_PLANE_DIRTY_RECTS) {
+		const struct sde_rect *crtc_roi;
+
 		POPULATE_RECT(&src, rstate->out_src_x, rstate->out_src_y,
 			rstate->out_src_w, rstate->out_src_h, q16_data);
 		POPULATE_RECT(&dst, state->crtc_x, state->crtc_y,
@@ -3773,6 +3817,7 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 		 * adjust layer mixer position of the sspp in the presence
 		 * of a partial update to the active lm origin
 		 */
+		sde_crtc_get_crtc_roi(crtc->state, &crtc_roi);
 		dst.x -= crtc_roi->x;
 		dst.y -= crtc_roi->y;
 

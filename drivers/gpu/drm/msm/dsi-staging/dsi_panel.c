@@ -506,7 +506,8 @@ static int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
 			goto error;
 		}
 		if (cmds->post_wait_ms)
-			msleep(cmds->post_wait_ms);
+			usleep_range(cmds->post_wait_ms*1000,
+					((cmds->post_wait_ms*1000)+10));
 		cmds++;
 	}
 error:
@@ -1669,8 +1670,14 @@ static int dsi_panel_parse_misc_features(struct dsi_panel *panel,
 	panel->ulps_enabled =
 		of_property_read_bool(of_node, "qcom,ulps-enabled");
 
-	if (panel->ulps_enabled)
-		pr_debug("ulps_enabled:%d\n", panel->ulps_enabled);
+	pr_info("%s: ulps feature %s\n", __func__,
+		(panel->ulps_enabled ? "enabled" : "disabled"));
+
+	panel->ulps_suspend_enabled =
+		of_property_read_bool(of_node, "qcom,suspend-ulps-enabled");
+
+	pr_info("%s: ulps during suspend feature %s", __func__,
+		(panel->ulps_suspend_enabled ? "enabled" : "disabled"));
 
 	panel->te_using_watchdog_timer = of_property_read_bool(of_node,
 					"qcom,mdss-dsi-te-using-wd");

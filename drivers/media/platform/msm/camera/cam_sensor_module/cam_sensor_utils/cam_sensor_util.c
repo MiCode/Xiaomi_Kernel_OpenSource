@@ -421,7 +421,7 @@ int32_t msm_camera_fill_vreg_params(
 
 		if (power_setting[i].seq_type < SENSOR_MCLK ||
 			power_setting[i].seq_type >= SENSOR_SEQ_TYPE_MAX) {
-			CAM_ERR(CAM_SENSOR, "failed: Invalid Seq type\n",
+			CAM_ERR(CAM_SENSOR, "failed: Invalid Seq type: %d",
 				power_setting[i].seq_type);
 			return -EINVAL;
 		}

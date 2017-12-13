@@ -497,7 +497,8 @@ struct perf_addr_filters_head {
  * enum perf_event_active_state - the states of a event
  */
 enum perf_event_active_state {
-	PERF_EVENT_STATE_DEAD		= -4,
+	PERF_EVENT_STATE_DEAD		= -5,
+	PERF_EVENT_STATE_ZOMBIE		= -4,
 	PERF_EVENT_STATE_EXIT		= -3,
 	PERF_EVENT_STATE_ERROR		= -2,
 	PERF_EVENT_STATE_OFF		= -1,
@@ -720,6 +721,7 @@ struct perf_event {
 
 	/* Is this event shared with other events */
 	bool					shared;
+	struct list_head		zombie_entry;
 #endif /* CONFIG_PERF_EVENTS */
 };
 

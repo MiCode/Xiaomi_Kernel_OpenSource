@@ -385,10 +385,12 @@ static struct snd_soc_dai_driver btfmslim_dai[] = {
 		.id = BTFM_BT_SCO_A2DP_SLIM_RX,
 		.playback = {
 			.stream_name = "SCO A2DP RX Playback",
+			/* 8/16/44.1/48/88.2/96 Khz */
 			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000
-				| SNDRV_PCM_RATE_48000, /* 8 or 16 or 48 Khz*/
+				| SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_48000
+				| SNDRV_PCM_RATE_88200 | SNDRV_PCM_RATE_96000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE, /* 16 bits */
-			.rate_max = 48000,
+			.rate_max = 96000,
 			.rate_min = 8000,
 			.channels_min = 1,
 			.channels_max = 1,

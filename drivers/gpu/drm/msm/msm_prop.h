@@ -316,6 +316,19 @@ int msm_property_set_dirty(struct msm_property_info *info,
 		int property_idx);
 
 /**
+ * msm_property_is_dirty - check whether a property is dirty
+ *	Note: Intended for use during atomic_check before pop_dirty usage
+ * @info: Pointer to property info container struct
+ * @property_state: Pointer to property state container struct
+ * @property_idx: Property index
+ * Returns: true if dirty, false otherwise
+ */
+bool msm_property_is_dirty(
+		struct msm_property_info *info,
+		struct msm_property_state *property_state,
+		uint32_t property_idx);
+
+/**
  * msm_property_atomic_set - helper function for atomic property set callback
  * @info: Pointer to property info container struct
  * @property_state: Pointer to local state structure

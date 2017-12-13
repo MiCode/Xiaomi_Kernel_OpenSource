@@ -127,7 +127,7 @@
 } while (0)
 
 #define DMA_RX_BUF_SIZE		(2048)
-#define CONSOLE_YIELD_LEN	(8 * 1024)
+#define UART_CONSOLE_RX_WM	(2)
 struct msm_geni_serial_port {
 	struct uart_port uport;
 	char name[20];
@@ -163,7 +163,6 @@ struct msm_geni_serial_port {
 	unsigned int cur_baud;
 	int ioctl_count;
 	int edge_count;
-	unsigned int tx_yield_count;
 	bool manual_flow;
 };
 
@@ -494,6 +493,7 @@ static int msm_geni_serial_power_on(struct uart_port *uport)
 			} else {
 				pm_runtime_get_noresume(uport->dev);
 				pm_runtime_set_active(uport->dev);
+				enable_irq(uport->irq);
 			}
 			pm_runtime_enable(uport->dev);
 			if (lock)
@@ -1196,20 +1196,13 @@ static int msm_geni_serial_handle_tx(struct uart_port *uport)
 	unsigned int fifo_width_bytes =
 		(uart_console(uport) ? 1 : (msm_port->tx_fifo_width >> 3));
 	unsigned int geni_m_irq_en;
+	int temp_tail = 0;
 
-	xmit->tail = (xmit->tail + msm_port->xmit_size) & (UART_XMIT_SIZE - 1);
-	msm_port->xmit_size = 0;
-	if (uart_console(uport) &&
-	    (uport->icount.tx - msm_port->tx_yield_count) > CONSOLE_YIELD_LEN) {
-		msm_port->tx_yield_count = uport->icount.tx;
-		msm_geni_serial_stop_tx(uport);
-		uart_write_wakeup(uport);
-		goto exit_handle_tx;
-	}
-
+	xmit_size = uart_circ_chars_pending(xmit);
 	tx_fifo_status = geni_read_reg_nolog(uport->membase,
 					SE_GENI_TX_FIFO_STATUS);
-	if (uart_circ_empty(xmit) && !tx_fifo_status) {
+	/* Both FIFO and framework buffer are drained */
+	if ((xmit_size == msm_port->xmit_size) && !tx_fifo_status) {
 		/*
 		 * This will balance out the power vote put in during start_tx
 		 * allowing the device to suspend.
@@ -1219,9 +1212,12 @@ static int msm_geni_serial_handle_tx(struct uart_port *uport)
 				"%s.Power Off.\n", __func__);
 			msm_geni_serial_power_off(uport);
 		}
+		msm_port->xmit_size = 0;
+		uart_circ_clear(xmit);
 		msm_geni_serial_stop_tx(uport);
 		goto exit_handle_tx;
 	}
+	xmit_size -= msm_port->xmit_size;
 
 	if (!uart_console(uport)) {
 		geni_m_irq_en = geni_read_reg_nolog(uport->membase,
@@ -1235,9 +1231,9 @@ static int msm_geni_serial_handle_tx(struct uart_port *uport)
 
 	avail_fifo_bytes = (msm_port->tx_fifo_depth - msm_port->tx_wm) *
 							fifo_width_bytes;
-	xmit_size = uart_circ_chars_pending(xmit);
-	if (xmit_size > (UART_XMIT_SIZE - xmit->tail))
-		xmit_size = UART_XMIT_SIZE - xmit->tail;
+	temp_tail = (xmit->tail + msm_port->xmit_size) & (UART_XMIT_SIZE - 1);
+	if (xmit_size > (UART_XMIT_SIZE - temp_tail))
+		xmit_size = (UART_XMIT_SIZE - temp_tail);
 	if (xmit_size > avail_fifo_bytes)
 		xmit_size = avail_fifo_bytes;
 
@@ -1247,33 +1243,29 @@ static int msm_geni_serial_handle_tx(struct uart_port *uport)
 	msm_geni_serial_setup_tx(uport, xmit_size);
 
 	bytes_remaining = xmit_size;
-	dump_ipc(msm_port->ipc_log_tx, "Tx", (char *)&xmit->buf[xmit->tail], 0,
+	dump_ipc(msm_port->ipc_log_tx, "Tx", (char *)&xmit->buf[temp_tail], 0,
 								xmit_size);
 	while (i < xmit_size) {
 		unsigned int tx_bytes;
 		unsigned int buf = 0;
-		int temp_tail;
 		int c;
 
 		tx_bytes = ((bytes_remaining < fifo_width_bytes) ?
 					bytes_remaining : fifo_width_bytes);
 
-		temp_tail = (xmit->tail + i) & (UART_XMIT_SIZE - 1);
 		for (c = 0; c < tx_bytes ; c++)
 			buf |= (xmit->buf[temp_tail + c] << (c * 8));
 		geni_write_reg_nolog(buf, uport->membase, SE_GENI_TX_FIFOn);
 		i += tx_bytes;
+		temp_tail = (temp_tail + tx_bytes) & (UART_XMIT_SIZE - 1);
 		uport->icount.tx += tx_bytes;
 		bytes_remaining -= tx_bytes;
 		/* Ensure FIFO write goes through */
 		wmb();
 	}
-	if (uart_console(uport)) {
+	if (uart_console(uport))
 		msm_geni_serial_poll_cancel_tx(uport);
-		xmit->tail = (xmit->tail + xmit_size) & (UART_XMIT_SIZE - 1);
-	} else {
-		msm_port->xmit_size = xmit_size;
-	}
+	msm_port->xmit_size += xmit_size;
 exit_handle_tx:
 	uart_write_wakeup(uport);
 	return ret;
@@ -1368,6 +1360,7 @@ static irqreturn_t msm_geni_serial_isr(int isr, void *dev)
 	unsigned long flags;
 	unsigned int m_irq_en;
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
+	struct tty_port *tport = &uport->state->port;
 	bool drop_rx = false;
 
 	spin_lock_irqsave(&uport->lock, flags);
@@ -1397,7 +1390,8 @@ static irqreturn_t msm_geni_serial_isr(int isr, void *dev)
 	}
 
 	if (s_irq_status & S_RX_FIFO_WR_ERR_EN) {
-		uport->icount.buf_overrun++;
+		uport->icount.overrun++;
+		tty_insert_flip_char(tport, 0, TTY_OVERRUN);
 		IPC_LOG_MSG(msm_port->ipc_log_misc,
 			"%s.sirq 0x%x buf_overrun:%d\n",
 			__func__, s_irq_status, uport->icount.buf_overrun);
@@ -1536,7 +1530,10 @@ static void set_rfr_wm(struct msm_geni_serial_port *port)
 	 * TX WM level at 10% TX_FIFO_DEPTH.
 	 */
 	port->rx_rfr = port->rx_fifo_depth - 2;
-	port->rx_wm = port->rx_fifo_depth >>  1;
+	if (!uart_console(&port->uport))
+		port->rx_wm = port->rx_fifo_depth >>  1;
+	else
+		port->rx_wm = UART_CONSOLE_RX_WM;
 	port->tx_wm = 2;
 }
 
@@ -2580,7 +2577,8 @@ static int msm_geni_serial_runtime_resume(struct device *dev)
 						SE_UART_MANUAL_RFR);
 	/* Ensure that the Rx is running before enabling interrupts */
 	mb();
-	enable_irq(port->uport.irq);
+	if (pm_runtime_enabled(dev))
+		enable_irq(port->uport.irq);
 	IPC_LOG_MSG(port->ipc_log_pwr, "%s:\n", __func__);
 exit_runtime_resume:
 	return ret;

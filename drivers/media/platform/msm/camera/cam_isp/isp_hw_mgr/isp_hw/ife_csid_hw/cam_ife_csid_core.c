@@ -2778,7 +2778,8 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
 			csid_reg->csi2_reg->
 			csid_csi2_rx_captured_short_pkt_1_addr);
-		CAM_ERR(CAM_ISP, "CSID:%d short packet ECC :%d", val);
+		CAM_ERR(CAM_ISP, "CSID:%d short packet ECC :%d",
+			csid_hw->hw_intf->hw_idx, val);
 	}
 
 	if ((csid_hw->csid_debug & CSID_DEBUG_ENABLE_CPHY_PKT_CAPTURE) &&

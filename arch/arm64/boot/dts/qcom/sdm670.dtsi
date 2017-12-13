@@ -488,22 +488,28 @@
 			reg = <0 0x92e00000 0 0x500000>;
 		};
 
-		pil_cdsp_mem: cdsp_regions@93300000 {
+		wlan_msa_mem: wlan_msa_region@93300000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x93300000 0 0x800000>;
+			reg = <0 0x93300000 0 0x100000>;
 		};
 
-		pil_mba_mem: pil_mba_region@0x93b00000 {
+		pil_cdsp_mem: cdsp_regions@93400000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x93b00000 0 0x200000>;
+			reg = <0 0x93400000 0 0x800000>;
 		};
 
-		pil_adsp_mem: pil_adsp_region@93d00000 {
+		pil_mba_mem: pil_mba_region@0x93c00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x93d00000 0 0x1e00000>;
+			reg = <0 0x93c00000 0 0x200000>;
+		};
+
+		pil_adsp_mem: pil_adsp_region@93e00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x93e00000 0 0x1e00000>;
 		};
 
 		adsp_mem: adsp_region {
@@ -1034,14 +1040,12 @@
 		compatible = "qcom,clk-cpu-osm-sdm670";
 		reg = <0x17d41000 0x1400>,
 			<0x17d43000 0x1400>,
-			<0x17d45800 0x1400>,
-			<0x784248 0x4>;
-		reg-names = "osm_l3_base", "osm_pwrcl_base", "osm_perfcl_base",
-				"cpr_rc";
+			<0x17d45800 0x1400>;
+		reg-names = "osm_l3_base", "osm_pwrcl_base", "osm_perfcl_base";
 		vdd_l3_mx_ao-supply = <&pm660l_s1_level_ao>;
 		vdd_pwrcl_mx_ao-supply = <&pm660l_s1_level_ao>;
 
-		qcom,mx-turbo-freq = <1478400000 1689600000 3300000001>;
+		qcom,mx-turbo-freq = <3300000001 3300000001 3300000001>;
 		l3-devs = <&l3_cpu0 &l3_cpu6>;
 
 		clock-names = "xo_ao";
@@ -2545,6 +2549,16 @@
 			< MHZ_TO_MBPS(1353, 4) >, /* 5161 MB/s */
 			< MHZ_TO_MBPS(1555, 4) >, /* 5931 MB/s */
 			< MHZ_TO_MBPS(1804, 4) >; /* 6881 MB/s */
+	};
+
+	snoc_cnoc_keepalive: qcom,snoc_cnoc_keepalive {
+		compatible = "qcom,devbw";
+		governor = "powersave";
+		qcom,src-dst-ports = <139 627>;
+		qcom,active-only;
+		status = "ok";
+		qcom,bw-tbl =
+			< 1 >;
 	};
 
 	devfreq_memlat_0: qcom,cpu0-memlat-mon {

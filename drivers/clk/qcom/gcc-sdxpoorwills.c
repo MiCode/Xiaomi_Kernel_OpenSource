@@ -1903,7 +1903,7 @@ static int __init gcc_sdxpoorwills_init(void)
 {
 	return platform_driver_register(&gcc_sdxpoorwills_driver);
 }
-core_initcall(gcc_sdxpoorwills_init);
+subsys_initcall(gcc_sdxpoorwills_init);
 
 static void __exit gcc_sdxpoorwills_exit(void)
 {

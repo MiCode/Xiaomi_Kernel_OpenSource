@@ -125,6 +125,22 @@ TRACE_EVENT(sde_cmd_release_bw,
 	TP_printk("crtc:%d", __entry->crtc_id)
 );
 
+TRACE_EVENT(sde_encoder_underrun,
+	TP_PROTO(u32 enc_id, u32 underrun_cnt),
+	TP_ARGS(enc_id, underrun_cnt),
+	TP_STRUCT__entry(
+			__field(u32, enc_id)
+			__field(u32, underrun_cnt)
+	),
+	TP_fast_assign(
+			__entry->enc_id = enc_id;
+			__entry->underrun_cnt = underrun_cnt;
+
+	),
+	TP_printk("enc:%d underrun_cnt:%d", __entry->enc_id,
+		__entry->underrun_cnt)
+);
+
 TRACE_EVENT(tracing_mark_write,
 	TP_PROTO(int pid, const char *name, bool trace_begin),
 	TP_ARGS(pid, name, trace_begin),

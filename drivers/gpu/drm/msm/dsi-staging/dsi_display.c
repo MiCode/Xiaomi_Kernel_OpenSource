@@ -214,6 +214,135 @@ done:
 	return rc;
 }
 
+static void dsi_display_aspace_cb_locked(void *cb_data, bool is_detach)
+{
+	struct dsi_display *display;
+	struct dsi_display_ctrl *display_ctrl;
+	int rc, cnt;
+
+	if (!cb_data) {
+		pr_err("aspace cb called with invalid cb_data\n");
+		return;
+	}
+	display = (struct dsi_display *)cb_data;
+
+	/*
+	 * acquire panel_lock to make sure no commands are in-progress
+	 * while detaching the non-secure context banks
+	 */
+	dsi_panel_acquire_panel_lock(display->panel);
+
+	if (is_detach) {
+		/* invalidate the stored iova */
+		display->cmd_buffer_iova = 0;
+
+		/* return the virtual address mapping */
+		msm_gem_put_vaddr_locked(display->tx_cmd_buf);
+		msm_gem_vunmap(display->tx_cmd_buf);
+
+	} else {
+		rc = msm_gem_get_iova_locked(display->tx_cmd_buf,
+				display->aspace, &(display->cmd_buffer_iova));
+		if (rc) {
+			pr_err("failed to get the iova rc %d\n", rc);
+			goto end;
+		}
+
+		display->vaddr =
+			(void *) msm_gem_get_vaddr_locked(display->tx_cmd_buf);
+
+		if (IS_ERR_OR_NULL(display->vaddr)) {
+			pr_err("failed to get va rc %d\n", rc);
+			goto end;
+		}
+	}
+
+	for (cnt = 0; cnt < display->ctrl_count; cnt++) {
+		display_ctrl = &display->ctrl[cnt];
+		display_ctrl->ctrl->cmd_buffer_size = display->cmd_buffer_size;
+		display_ctrl->ctrl->cmd_buffer_iova = display->cmd_buffer_iova;
+		display_ctrl->ctrl->vaddr = display->vaddr;
+	}
+
+end:
+	/* release panel_lock */
+	dsi_panel_release_panel_lock(display->panel);
+}
+
+/* Allocate memory for cmd dma tx buffer */
+static int dsi_host_alloc_cmd_tx_buffer(struct dsi_display *display)
+{
+	int rc = 0, cnt = 0;
+	struct dsi_display_ctrl *display_ctrl;
+
+	mutex_lock(&display->drm_dev->struct_mutex);
+	display->tx_cmd_buf = msm_gem_new(display->drm_dev,
+			SZ_4K,
+			MSM_BO_UNCACHED);
+	mutex_unlock(&display->drm_dev->struct_mutex);
+
+	if ((display->tx_cmd_buf) == NULL) {
+		pr_err("Failed to allocate cmd tx buf memory\n");
+		rc = -ENOMEM;
+		goto error;
+	}
+
+	display->cmd_buffer_size = SZ_4K;
+
+	display->aspace = msm_gem_smmu_address_space_get(
+			display->drm_dev, MSM_SMMU_DOMAIN_UNSECURE);
+	if (!display->aspace) {
+		pr_err("failed to get aspace\n");
+		rc = -EINVAL;
+		goto free_gem;
+	}
+	/* register to aspace */
+	rc = msm_gem_address_space_register_cb(display->aspace,
+			dsi_display_aspace_cb_locked, (void *)display);
+	if (rc) {
+		pr_err("failed to register callback %d", rc);
+		goto free_gem;
+	}
+
+	rc = msm_gem_get_iova(display->tx_cmd_buf, display->aspace,
+				&(display->cmd_buffer_iova));
+	if (rc) {
+		pr_err("failed to get the iova rc %d\n", rc);
+		goto free_aspace_cb;
+	}
+
+	display->vaddr =
+		(void *) msm_gem_get_vaddr(display->tx_cmd_buf);
+	if (IS_ERR_OR_NULL(display->vaddr)) {
+		pr_err("failed to get va rc %d\n", rc);
+		rc = -EINVAL;
+		goto put_iova;
+	}
+
+	for (cnt = 0; cnt < display->ctrl_count; cnt++) {
+		display_ctrl = &display->ctrl[cnt];
+		display_ctrl->ctrl->cmd_buffer_size = SZ_4K;
+		display_ctrl->ctrl->cmd_buffer_iova =
+					display->cmd_buffer_iova;
+		display_ctrl->ctrl->vaddr = display->vaddr;
+		display_ctrl->ctrl->tx_cmd_buf = display->tx_cmd_buf;
+	}
+
+	return rc;
+
+put_iova:
+	msm_gem_put_iova(display->tx_cmd_buf, display->aspace);
+free_aspace_cb:
+	msm_gem_address_space_unregister_cb(display->aspace,
+			dsi_display_aspace_cb_locked, display);
+free_gem:
+	mutex_lock(&display->drm_dev->struct_mutex);
+	msm_gem_free_object(display->tx_cmd_buf);
+	mutex_unlock(&display->drm_dev->struct_mutex);
+error:
+	return rc;
+}
+
 static bool dsi_display_validate_reg_read(struct dsi_panel *panel)
 {
 	int i, j = 0;
@@ -330,6 +459,14 @@ static int dsi_display_status_reg_read(struct dsi_display *display)
 
 	m_ctrl = &display->ctrl[display->cmd_master_idx];
 
+	if (display->tx_cmd_buf == NULL) {
+		rc = dsi_host_alloc_cmd_tx_buffer(display);
+		if (rc) {
+			pr_err("failed to allocate cmd tx buffer memory\n");
+			goto done;
+		}
+	}
+
 	rc = dsi_display_cmd_engine_enable(display);
 	if (rc) {
 		pr_err("cmd engine enable failed\n");
@@ -358,9 +495,9 @@ static int dsi_display_status_reg_read(struct dsi_display *display)
 			goto exit;
 		}
 	}
-
 exit:
 	dsi_display_cmd_engine_disable(display);
+done:
 	return rc;
 }
 
@@ -790,6 +927,20 @@ static int dsi_display_debugfs_init(struct dsi_display *display)
 		}
 	}
 
+	if (!debugfs_create_bool("ulps_enable", 0600, dir,
+			&display->panel->ulps_enabled)) {
+		pr_err("[%s] debugfs create ulps enable file failed\n",
+		       display->name);
+		goto error_remove_dir;
+	}
+
+	if (!debugfs_create_bool("ulps_suspend_enable", 0600, dir,
+			&display->panel->ulps_suspend_enabled)) {
+		pr_err("[%s] debugfs create ulps-suspend enable file failed\n",
+		       display->name);
+		goto error_remove_dir;
+	}
+
 	display->root = dir;
 	return rc;
 error_remove_dir:
@@ -826,12 +977,17 @@ static int dsi_display_is_ulps_req_valid(struct dsi_display *display,
 
 	pr_debug("checking ulps req validity\n");
 
-	if (!dsi_panel_ulps_feature_enabled(display->panel))
+	if (!dsi_panel_ulps_feature_enabled(display->panel) &&
+			!display->panel->ulps_suspend_enabled) {
+		pr_debug("%s: ULPS feature is not enabled\n", __func__);
 		return false;
+	}
 
-	/* TODO: ULPS during suspend */
-	if (!dsi_panel_initialized(display->panel))
+	if (!dsi_panel_initialized(display->panel) &&
+			!display->panel->ulps_suspend_enabled) {
+		pr_debug("%s: panel not yet initialized\n", __func__);
 		return false;
+	}
 
 	if (enable && display->ulps_enabled) {
 		pr_debug("ULPS already enabled\n");
@@ -1924,62 +2080,6 @@ error:
 	return rc;
 }
 
-static void dsi_display_aspace_cb_locked(void *cb_data, bool is_detach)
-{
-	struct dsi_display *display;
-	struct dsi_display_ctrl *display_ctrl;
-	int rc, cnt;
-
-	if (!cb_data) {
-		pr_err("aspace cb called with invalid cb_data\n");
-		return;
-	}
-	display = (struct dsi_display *)cb_data;
-
-	/*
-	 * acquire panel_lock to make sure no commands are in-progress
-	 * while detaching the non-secure context banks
-	 */
-	dsi_panel_acquire_panel_lock(display->panel);
-
-	if (is_detach) {
-		/* invalidate the stored iova */
-		display->cmd_buffer_iova = 0;
-
-		/* return the virtual address mapping */
-		msm_gem_put_vaddr_locked(display->tx_cmd_buf);
-		msm_gem_vunmap(display->tx_cmd_buf);
-
-	} else {
-		rc = msm_gem_get_iova_locked(display->tx_cmd_buf,
-				display->aspace, &(display->cmd_buffer_iova));
-		if (rc) {
-			pr_err("failed to get the iova rc %d\n", rc);
-			goto end;
-		}
-
-		display->vaddr =
-			(void *) msm_gem_get_vaddr_locked(display->tx_cmd_buf);
-
-		if (IS_ERR_OR_NULL(display->vaddr)) {
-			pr_err("failed to get va rc %d\n", rc);
-			goto end;
-		}
-	}
-
-	for (cnt = 0; cnt < display->ctrl_count; cnt++) {
-		display_ctrl = &display->ctrl[cnt];
-		display_ctrl->ctrl->cmd_buffer_size = display->cmd_buffer_size;
-		display_ctrl->ctrl->cmd_buffer_iova = display->cmd_buffer_iova;
-		display_ctrl->ctrl->vaddr = display->vaddr;
-		display_ctrl->ctrl->secure_mode = is_detach ? true : false;
-	}
-
-end:
-	/* release panel_lock */
-	dsi_panel_release_panel_lock(display->panel);
-}
-
 static int dsi_host_attach(struct mipi_dsi_host *host,
 			   struct mipi_dsi_device *dsi)
 {
@@ -1996,8 +2096,7 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 				 const struct mipi_dsi_msg *msg)
 {
 	struct dsi_display *display = to_dsi_display(host);
-	struct dsi_display_ctrl *display_ctrl;
-	int rc = 0, cnt = 0;
+	int rc = 0;
 
 	if (!host || !msg) {
 		pr_err("Invalid params\n");
@@ -2027,57 +2126,10 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 	}
 
 	if (display->tx_cmd_buf == NULL) {
-		mutex_lock(&display->drm_dev->struct_mutex);
-		display->tx_cmd_buf = msm_gem_new(display->drm_dev,
-				SZ_4K,
-				MSM_BO_UNCACHED);
-		mutex_unlock(&display->drm_dev->struct_mutex);
-
-		display->cmd_buffer_size = SZ_4K;
-
-		if ((display->tx_cmd_buf) == NULL) {
-			pr_err("value of display->tx_cmd_buf is NULL");
+		rc = dsi_host_alloc_cmd_tx_buffer(display);
+		if (rc) {
+			pr_err("failed to allocate cmd tx buffer memory\n");
 			goto error_disable_cmd_engine;
-		}
-
-		display->aspace = msm_gem_smmu_address_space_get(
-				display->drm_dev, MSM_SMMU_DOMAIN_UNSECURE);
-		if (!display->aspace) {
-			pr_err("failed to get aspace\n");
-			rc = -EINVAL;
-			goto free_gem;
-		}
-
-		/* register to aspace */
-		rc = msm_gem_address_space_register_cb(display->aspace,
-				dsi_display_aspace_cb_locked, (void *)display);
-		if (rc) {
-			pr_err("failed to register callback %d", rc);
-			goto free_gem;
-		}
-
-		rc = msm_gem_get_iova(display->tx_cmd_buf, display->aspace,
-					&(display->cmd_buffer_iova));
-		if (rc) {
-			pr_err("failed to get the iova rc %d\n", rc);
-			goto free_aspace_cb;
-		}
-
-		display->vaddr =
-			(void *) msm_gem_get_vaddr(display->tx_cmd_buf);
-
-		if (IS_ERR_OR_NULL(display->vaddr)) {
-			pr_err("failed to get va rc %d\n", rc);
-			rc = -EINVAL;
-			goto put_iova;
-		}
-
-		for (cnt = 0; cnt < display->ctrl_count; cnt++) {
-			display_ctrl = &display->ctrl[cnt];
-			display_ctrl->ctrl->cmd_buffer_size = SZ_4K;
-			display_ctrl->ctrl->cmd_buffer_iova =
-						display->cmd_buffer_iova;
-			display_ctrl->ctrl->vaddr = display->vaddr;
 		}
 	}
 
@@ -2110,16 +2162,6 @@ error_disable_clks:
 		pr_err("[%s] failed to disable all DSI clocks, rc=%d\n",
 		       display->name, rc);
 	}
-	return rc;
-put_iova:
-	msm_gem_put_iova(display->tx_cmd_buf, display->aspace);
-free_aspace_cb:
-	msm_gem_address_space_unregister_cb(display->aspace,
-			dsi_display_aspace_cb_locked, display);
-free_gem:
-	mutex_lock(&display->drm_dev->struct_mutex);
-	msm_gem_free_object(display->tx_cmd_buf);
-	mutex_unlock(&display->drm_dev->struct_mutex);
 error:
 	return rc;
 }
@@ -2337,22 +2379,27 @@ int dsi_pre_clkoff_cb(void *priv,
 	if ((clk & DSI_LINK_CLK) && (new_state == DSI_CLK_OFF)) {
 		/*
 		 * If ULPS feature is enabled, enter ULPS first.
+		 * However, when blanking the panel, we should enter ULPS
+		 * only if ULPS during suspend feature is enabled.
 		 */
-		if (dsi_panel_initialized(display->panel) &&
-			dsi_panel_ulps_feature_enabled(display->panel)) {
+		if (!dsi_panel_initialized(display->panel)) {
+			if (display->panel->ulps_suspend_enabled)
+				rc = dsi_display_set_ulps(display, true);
+		} else if (dsi_panel_ulps_feature_enabled(display->panel)) {
 			rc = dsi_display_set_ulps(display, true);
-			if (rc) {
-				pr_err("%s: failed enable ulps, rc = %d\n",
-			       __func__, rc);
-			}
 		}
+		if (rc)
+			pr_err("%s: failed enable ulps, rc = %d\n",
+			       __func__, rc);
 	}
 
 	if ((clk & DSI_CORE_CLK) && (new_state == DSI_CLK_OFF)) {
 		/*
-		 * Enable DSI clamps only if entering idle power collapse.
+		 * Enable DSI clamps only if entering idle power collapse or
+		 * when ULPS during suspend is enabled..
 		 */
-		if (dsi_panel_initialized(display->panel)) {
+		if (dsi_panel_initialized(display->panel) ||
+			display->panel->ulps_suspend_enabled) {
 			dsi_display_phy_idle_off(display);
 			rc = dsi_display_set_clamp(display, true);
 			if (rc)
@@ -3958,7 +4005,7 @@ error:
 	return rc;
 }
 
-int dsi_display_get_mode_count(struct dsi_display *display,
+static int dsi_display_get_mode_count_no_lock(struct dsi_display *display,
 			u32 *count)
 {
 	struct dsi_dfps_capabilities dfps_caps;
@@ -3970,15 +4017,13 @@ int dsi_display_get_mode_count(struct dsi_display *display,
 		return -EINVAL;
 	}
 
-	mutex_lock(&display->display_lock);
-
 	*count = display->panel->num_timing_nodes;
 
 	rc = dsi_panel_get_dfps_caps(display->panel, &dfps_caps);
 	if (rc) {
 		pr_err("[%s] failed to get dfps caps from panel\n",
 				display->name);
-		goto done;
+		return rc;
 	}
 
 	num_dfps_rates = !dfps_caps.dfps_support ? 1 :
@@ -3988,7 +4033,22 @@ int dsi_display_get_mode_count(struct dsi_display *display,
 	/* Inflate num_of_modes by fps in dfps */
 	*count = display->panel->num_timing_nodes * num_dfps_rates;
 
-done:
+	return 0;
+}
+
+int dsi_display_get_mode_count(struct dsi_display *display,
+			u32 *count)
+{
+	int rc;
+
+	if (!display || !display->panel) {
+		pr_err("invalid display:%d panel:%d\n", display != NULL,
+				display ? display->panel != NULL : 0);
+		return -EINVAL;
+	}
+
+	mutex_lock(&display->display_lock);
+	rc = dsi_display_get_mode_count_no_lock(display, count);
 	mutex_unlock(&display->display_lock);
 
 	return 0;
@@ -4001,19 +4061,35 @@ void dsi_display_put_mode(struct dsi_display *display,
 }
 
 int dsi_display_get_modes(struct dsi_display *display,
-			  struct dsi_display_mode *modes)
+			  struct dsi_display_mode **out_modes)
 {
 	struct dsi_dfps_capabilities dfps_caps;
-	u32 num_dfps_rates, panel_mode_count;
+	u32 num_dfps_rates, panel_mode_count, total_mode_count;
 	u32 mode_idx, array_idx = 0;
-	int i, rc = 0;
+	int i, rc = -EINVAL;
 
-	if (!display || !modes) {
+	if (!display || !out_modes) {
 		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
 
+	*out_modes = NULL;
+
 	mutex_lock(&display->display_lock);
+
+	rc = dsi_display_get_mode_count_no_lock(display, &total_mode_count);
+	if (rc)
+		goto error;
+
+	/* free any previously probed modes */
+	kfree(display->modes);
+
+	display->modes = kcalloc(total_mode_count, sizeof(*display->modes),
+			GFP_KERNEL);
+	if (!display->modes) {
+		rc = -ENOMEM;
+		goto error;
+	}
 
 	rc = dsi_panel_get_dfps_caps(display->panel, &dfps_caps);
 	if (rc) {
@@ -4055,12 +4131,14 @@ int dsi_display_get_modes(struct dsi_display *display,
 		}
 
 		for (i = 0; i < num_dfps_rates; i++) {
-			struct dsi_display_mode *sub_mode = &modes[array_idx];
+			struct dsi_display_mode *sub_mode =
+					&display->modes[array_idx];
 			u32 curr_refresh_rate;
 
 			if (!sub_mode) {
 				pr_err("invalid mode data\n");
-				return -EFAULT;
+				rc = -EFAULT;
+				goto error;
 			}
 
 			memcpy(sub_mode, &panel_mode, sizeof(panel_mode));
@@ -4084,8 +4162,54 @@ int dsi_display_get_modes(struct dsi_display *display,
 		}
 	}
 
+	*out_modes = display->modes;
+	rc = 0;
+
 error:
+	if (rc)
+		kfree(display->modes);
+
 	mutex_unlock(&display->display_lock);
+	return rc;
+}
+
+int dsi_display_find_mode(struct dsi_display *display,
+		const struct dsi_display_mode *cmp,
+		struct dsi_display_mode **out_mode)
+{
+	u32 count, i;
+	int rc;
+
+	if (!display || !out_mode)
+		return -EINVAL;
+
+	*out_mode = NULL;
+
+	rc = dsi_display_get_mode_count(display, &count);
+	if (rc)
+		return rc;
+
+	mutex_lock(&display->display_lock);
+	for (i = 0; i < count; i++) {
+		struct dsi_display_mode *m = &display->modes[i];
+
+		if (cmp->timing.v_active == m->timing.v_active &&
+			cmp->timing.h_active == m->timing.h_active &&
+			cmp->timing.refresh_rate == m->timing.refresh_rate) {
+			*out_mode = m;
+			rc = 0;
+			break;
+		}
+	}
+	mutex_unlock(&display->display_lock);
+
+	if (!*out_mode) {
+		pr_err("[%s] failed to find mode for v_active %u h_active %u rate %u\n",
+				display->name, cmp->timing.v_active,
+				cmp->timing.h_active, cmp->timing.refresh_rate);
+		rc = -ENOENT;
+	}
+
 	return rc;
 }
 
@@ -4636,17 +4760,27 @@ int dsi_display_prepare(struct dsi_display *display)
 		goto error_panel_post_unprep;
 	}
 
-	rc = dsi_display_phy_sw_reset(display);
-	if (rc) {
-		pr_err("[%s] failed to reset phy, rc=%d\n", display->name, rc);
-		goto error_ctrl_clk_off;
-	}
+	/*
+	 * If ULPS during suspend feature is enabled, then DSI PHY was
+	 * left on during suspend. In this case, we do not need to reset/init
+	 * PHY. This would have already been done when the CORE clocks are
+	 * turned on. However, if cont splash is disabled, the first time DSI
+	 * is powered on, phy init needs to be done unconditionally.
+	 */
+	if (!display->panel->ulps_suspend_enabled || !display->ulps_enabled) {
+		rc = dsi_display_phy_sw_reset(display);
+		if (rc) {
+			pr_err("[%s] failed to reset phy, rc=%d\n",
+				display->name, rc);
+			goto error_ctrl_clk_off;
+		}
 
-	rc = dsi_display_phy_enable(display);
-	if (rc) {
-		pr_err("[%s] failed to enable DSI PHY, rc=%d\n",
-		       display->name, rc);
-		goto error_ctrl_clk_off;
+		rc = dsi_display_phy_enable(display);
+		if (rc) {
+			pr_err("[%s] failed to enable DSI PHY, rc=%d\n",
+			       display->name, rc);
+			goto error_ctrl_clk_off;
+		}
 	}
 
 	rc = dsi_display_set_clk_src(display);
@@ -5133,10 +5267,12 @@ int dsi_display_unprepare(struct dsi_display *display)
 		pr_err("[%s] failed to deinit controller, rc=%d\n",
 		       display->name, rc);
 
-	rc = dsi_display_phy_disable(display);
-	if (rc)
-		pr_err("[%s] failed to disable DSI PHY, rc=%d\n",
-		       display->name, rc);
+	if (!display->panel->ulps_suspend_enabled) {
+		rc = dsi_display_phy_disable(display);
+		if (rc)
+			pr_err("[%s] failed to disable DSI PHY, rc=%d\n",
+			       display->name, rc);
+	}
 
 	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
 			DSI_CORE_CLK, DSI_CLK_OFF);

@@ -421,6 +421,7 @@ static const u32 sde_hw_rotator_v4_outpixfmts[] = {
 static const u32 sde_hw_rotator_v4_inpixfmts_sbuf[] = {
 	SDE_PIX_FMT_Y_CBCR_H2V2_P010,
 	SDE_PIX_FMT_Y_CBCR_H2V2,
+	SDE_PIX_FMT_Y_CRCB_H2V2,
 	SDE_PIX_FMT_Y_CBCR_H2V2_TP10_UBWC,
 	SDE_PIX_FMT_Y_CBCR_H2V2_P010_UBWC,
 	SDE_PIX_FMT_Y_CBCR_H2V2_UBWC,

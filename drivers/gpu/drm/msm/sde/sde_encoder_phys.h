@@ -379,6 +379,7 @@ struct sde_encoder_phys_cmd {
  * @end_time:		End time of writeback latest request
  * @bo_disable:		Buffer object(s) to use during the disabling state
  * @fb_disable:		Frame buffer to use during the disabling state
+ * @crtc		Pointer to drm_crtc
  */
 struct sde_encoder_phys_wb {
 	struct sde_encoder_phys base;
@@ -403,6 +404,7 @@ struct sde_encoder_phys_wb {
 	ktime_t end_time;
 	struct drm_gem_object *bo_disable[SDE_MAX_PLANES];
 	struct drm_framebuffer *fb_disable;
+	struct drm_crtc *crtc;
 };
 
 /**
