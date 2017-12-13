@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1727,7 +1727,8 @@ exit_startup:
 static int get_clk_cfg(unsigned long clk_freq, unsigned long *ser_clk)
 {
 	unsigned long root_freq[] = {7372800, 14745600, 19200000, 29491200,
-		32000000, 48000000, 64000000, 80000000, 96000000, 100000000};
+		32000000, 48000000, 64000000, 80000000, 96000000, 100000000,
+		102400000, 112000000, 120000000, 128000000};
 	int i;
 	int match = -1;
 
