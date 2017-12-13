@@ -817,7 +817,7 @@ static struct rx_msg *pd_ext_msg_received(struct usbpd *pd, u16 header, u8 *buf,
 		/* allocate new message if first chunk */
 		rx_msg = kzalloc(sizeof(*rx_msg) +
 				PD_MSG_EXT_HDR_DATA_SIZE(ext_hdr),
-				GFP_KERNEL);
+				GFP_ATOMIC);
 		if (!rx_msg)
 			return NULL;
 
@@ -870,7 +870,7 @@ static struct rx_msg *pd_ext_msg_received(struct usbpd *pd, u16 header, u8 *buf,
 
 		pd->rx_ext_msg = rx_msg;
 
-		req = kzalloc(sizeof(*req), GFP_KERNEL);
+		req = kzalloc(sizeof(*req), GFP_ATOMIC);
 		if (!req)
 			goto queue_rx; /* return what we have anyway */
 
@@ -944,7 +944,7 @@ static void phy_msg_received(struct usbpd *pd, enum pd_sop_type sop,
 			PD_MSG_HDR_TYPE(header), PD_MSG_HDR_COUNT(header));
 
 	if (!PD_MSG_HDR_IS_EXTENDED(header)) {
-		rx_msg = kzalloc(sizeof(*rx_msg) + len, GFP_KERNEL);
+		rx_msg = kzalloc(sizeof(*rx_msg) + len, GFP_ATOMIC);
 		if (!rx_msg)
 			return;
 
