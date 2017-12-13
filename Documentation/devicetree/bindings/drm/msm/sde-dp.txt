@@ -95,6 +95,7 @@ display interfaces, e.g. Display Port, and the audio subsystem.
 Optional properties:
 - qcom,ext-disp:		phandle for msm-ext-display module
 - compatible:			Must be "qcom,msm-ext-disp"
+- qcom,phy-version:		Phy version
 
 [Optional child nodes]: These nodes are for devices which are
 dependent on msm_ext_disp. If msm_ext_disp is disabled then
@@ -154,6 +155,7 @@ Example:
 
 		qcom,dp-usbpd-detection = <&pmi8998_pdphy>;
 		qcom,ext-disp = <&ext_disp>;
+		qcom,phy-version = <0x420>;
 
 		qcom,aux-cfg0-settings = [1c 00];
 		qcom,aux-cfg1-settings = [20 13 23 1d];

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -134,6 +134,27 @@ enum dp_phy_aux_config_type {
 	PHY_AUX_CFG_MAX,
 };
 
+/**
+ * enum dp_phy_version - version of the dp phy
+ * @DP_PHY_VERSION_UNKNOWN: Unknown controller version
+ * @DP_PHY_VERSION_4_2_0:   DP phy v4.2.0 controller
+ * @DP_PHY_VERSION_MAX:     max version
+ */
+enum dp_phy_version {
+	DP_PHY_VERSION_UNKNOWN,
+	DP_PHY_VERSION_4_2_0,
+	DP_PHY_VERSION_MAX
+};
+
+/**
+ * struct dp_hw_cfg - DP HW specific configuration
+ *
+ * @phy_version: DP PHY HW version
+ */
+struct dp_hw_cfg {
+	enum dp_phy_version phy_version;
+};
+
 static inline char *dp_phy_aux_config_type_to_string(u32 cfg_type)
 {
 	switch (cfg_type) {
@@ -169,6 +190,7 @@ static inline char *dp_phy_aux_config_type_to_string(u32 cfg_type)
  * @mp: gpio, regulator and clock related data
  * @pinctrl: pin-control related data
  * @disp_data: controller's display related data
+ * @hw_cfg: DP HW specific settings
  * @parse: function to be called by client to parse device tree.
  */
 struct dp_parser {
@@ -181,6 +203,7 @@ struct dp_parser {
 	u8 l_map[4];
 	struct dp_aux_cfg aux_cfg[AUX_CFG_LEN];
 	u32 max_pclk_khz;
+	struct dp_hw_cfg hw_cfg;
 
 	int (*parse)(struct dp_parser *parser);
 };

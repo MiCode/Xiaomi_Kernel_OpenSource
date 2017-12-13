@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -608,6 +608,20 @@ exit:
 	return rc;
 }
 
+static int dp_parser_catalog(struct dp_parser *parser)
+{
+	int rc;
+	u32 version;
+	struct device *dev = &parser->pdev->dev;
+
+	rc = of_property_read_u32(dev->of_node, "qcom,phy-version", &version);
+
+	if (!rc && (version == 0x420))
+		parser->hw_cfg.phy_version = DP_PHY_VERSION_4_2_0;
+
+	return 0;
+}
+
 static int dp_parser_parse(struct dp_parser *parser)
 {
 	int rc = 0;
@@ -639,6 +653,10 @@ static int dp_parser_parse(struct dp_parser *parser)
 		goto err;
 
 	rc = dp_parser_gpio(parser);
+	if (rc)
+		goto err;
+
+	rc = dp_parser_catalog(parser);
 	if (rc)
 		goto err;
 
