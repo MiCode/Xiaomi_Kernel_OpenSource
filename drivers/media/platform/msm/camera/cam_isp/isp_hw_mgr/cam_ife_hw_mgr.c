@@ -68,7 +68,7 @@ static int cam_ife_notify_safe_lut_scm(bool safe_trigger)
 			desc.args[1] = safe_trigger;
 
 			CAM_DBG(CAM_ISP, "Safe scm call %d", safe_trigger);
-			if (scm_call2_atomic(SCM_SIP_FNID(TZ_SVC_SMMU_PROGRAM,
+			if (scm_call2(SCM_SIP_FNID(TZ_SVC_SMMU_PROGRAM,
 					TZ_SAFE_SYSCALL_ID), &desc)) {
 				CAM_ERR(CAM_ISP,
 					"scm call to Enable Safe failed");
