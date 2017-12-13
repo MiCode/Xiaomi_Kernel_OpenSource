@@ -425,20 +425,6 @@ void sde_connector_schedule_status_work(struct drm_connector *connector,
 	}
 }
 
-void sde_connector_helper_bridge_disable(struct drm_connector *connector)
-{
-	int rc;
-
-	if (!connector)
-		return;
-
-	/* trigger a final connector pre-kickoff for power mode updates */
-	rc = sde_connector_pre_kickoff(connector);
-	if (rc)
-		SDE_ERROR("conn %d final pre kickoff failed %d\n",
-				connector->base.id, rc);
-}
-
 static int _sde_connector_update_power_locked(struct sde_connector *c_conn)
 {
 	struct drm_connector *connector;
@@ -529,12 +515,12 @@ static int _sde_connector_update_bl_scale(struct sde_connector *c_conn)
 	return rc;
 }
 
-int sde_connector_pre_kickoff(struct drm_connector *connector)
+static int _sde_connector_update_dirty_properties(
+				struct drm_connector *connector)
 {
 	struct sde_connector *c_conn;
 	struct sde_connector_state *c_state;
-	struct msm_display_kickoff_params params;
-	int idx, rc;
+	int idx;
 
 	if (!connector) {
 		SDE_ERROR("invalid argument\n");
@@ -543,11 +529,6 @@ int sde_connector_pre_kickoff(struct drm_connector *connector)
 
 	c_conn = to_sde_connector(connector);
 	c_state = to_sde_connector_state(connector->state);
-
-	if (!c_conn->display) {
-		SDE_ERROR("invalid argument\n");
-		return -EINVAL;
-	}
 
 	while ((idx = msm_property_pop_dirty(&c_conn->property_info,
 					&c_state->property_state)) >= 0) {
@@ -575,6 +556,34 @@ int sde_connector_pre_kickoff(struct drm_connector *connector)
 		c_conn->bl_scale_dirty = false;
 	}
 
+	return 0;
+}
+
+int sde_connector_pre_kickoff(struct drm_connector *connector)
+{
+	struct sde_connector *c_conn;
+	struct sde_connector_state *c_state;
+	struct msm_display_kickoff_params params;
+	int rc;
+
+	if (!connector) {
+		SDE_ERROR("invalid argument\n");
+		return -EINVAL;
+	}
+
+	c_conn = to_sde_connector(connector);
+	c_state = to_sde_connector_state(connector->state);
+	if (!c_conn->display) {
+		SDE_ERROR("invalid connector display\n");
+		return -EINVAL;
+	}
+
+	rc = _sde_connector_update_dirty_properties(connector);
+	if (rc) {
+		SDE_EVT32(connector->base.id, SDE_EVTLOG_ERROR);
+		goto end;
+	}
+
 	if (!c_conn->ops.pre_kickoff)
 		return 0;
 
@@ -585,7 +594,23 @@ int sde_connector_pre_kickoff(struct drm_connector *connector)
 
 	rc = c_conn->ops.pre_kickoff(connector, c_conn->display, &params);
 
+end:
 	return rc;
+}
+
+void sde_connector_helper_bridge_disable(struct drm_connector *connector)
+{
+	int rc;
+
+	if (!connector)
+		return;
+
+	rc = _sde_connector_update_dirty_properties(connector);
+	if (rc) {
+		SDE_ERROR("conn %d final pre kickoff failed %d\n",
+				connector->base.id, rc);
+		SDE_EVT32(connector->base.id, SDE_EVTLOG_ERROR);
+	}
 }
 
 int sde_connector_clk_ctrl(struct drm_connector *connector, bool enable)
