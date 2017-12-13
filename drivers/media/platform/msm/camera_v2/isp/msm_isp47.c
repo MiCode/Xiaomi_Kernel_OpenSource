@@ -1728,8 +1728,7 @@ void msm_vfe47_cfg_axi_ub_equal_default(
 				vfe_dev->hw_info->vfe_ops.axi_ops.
 					ub_reg_offset(vfe_dev, i));
 		}
-		if (!axi_data->free_wm[i] || frame_src != SRC_TO_INTF(
-				HANDLE_TO_IDX(axi_data->free_wm[i])))
+		if (!axi_data->free_wm[i])
 			continue;
 
 		delta = (uint64_t)axi_data->wm_image_size[i] *
