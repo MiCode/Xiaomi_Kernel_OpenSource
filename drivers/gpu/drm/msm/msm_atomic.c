@@ -341,8 +341,9 @@ static void msm_atomic_helper_commit_modeset_enables(struct drm_device *dev,
 {
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *old_crtc_state;
+	struct drm_crtc_state *new_crtc_state;
 	struct drm_connector *connector;
-	struct drm_connector_state *old_conn_state;
+	struct drm_connector_state *new_conn_state;
 	struct msm_drm_notifier notifier_data;
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_kms *kms = priv->kms;
@@ -350,18 +351,20 @@ static void msm_atomic_helper_commit_modeset_enables(struct drm_device *dev,
 	int i, blank;
 
 	SDE_ATRACE_BEGIN("msm_enable");
-	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i) {
+	for_each_oldnew_crtc_in_state(old_state, crtc, old_crtc_state,
+			new_crtc_state, i) {
 		const struct drm_crtc_helper_funcs *funcs;
 
 		/* Need to filter out CRTCs where only planes change. */
-		if (!drm_atomic_crtc_needs_modeset(crtc->state))
+		if (!drm_atomic_crtc_needs_modeset(new_crtc_state))
 			continue;
 
-		if (!crtc->state->active)
+		if (!new_crtc_state->active)
 			continue;
 
-		if (msm_is_mode_seamless(&crtc->state->mode) ||
-			msm_is_mode_seamless_vrr(&crtc->state->adjusted_mode))
+		if (msm_is_mode_seamless(&new_crtc_state->mode) ||
+				msm_is_mode_seamless_vrr(
+				&new_crtc_state->adjusted_mode))
 			continue;
 
 		funcs = crtc->helper_private;
@@ -370,33 +373,32 @@ static void msm_atomic_helper_commit_modeset_enables(struct drm_device *dev,
 			DRM_DEBUG_ATOMIC("enabling [CRTC:%d]\n",
 					 crtc->base.id);
 
-			if (funcs->enable)
-				funcs->enable(crtc);
+			if (funcs->atomic_enable)
+				funcs->atomic_enable(crtc, old_crtc_state);
 			else
 				funcs->commit(crtc);
 		}
 
-		if (msm_needs_vblank_pre_modeset(&crtc->state->adjusted_mode))
+		if (msm_needs_vblank_pre_modeset(
+					&new_crtc_state->adjusted_mode))
 			drm_crtc_wait_one_vblank(crtc);
+
 	}
 
-	/* ensure bridge/encoder updates happen on same vblank */
-	msm_atomic_wait_for_commit_done(dev, old_state,
-			MSM_MODE_FLAG_VBLANK_PRE_MODESET);
-
-	for_each_connector_in_state(old_state, connector, old_conn_state, i) {
+	for_each_new_connector_in_state(old_state, connector,
+			new_conn_state, i) {
 		const struct drm_encoder_helper_funcs *funcs;
 		struct drm_encoder *encoder;
 
-		if (!connector->state->best_encoder)
+		if (!new_conn_state->best_encoder)
 			continue;
 
-		if (!connector->state->crtc->state->active ||
-		    !drm_atomic_crtc_needs_modeset(
-				    connector->state->crtc->state))
+		if (!new_conn_state->crtc->state->active ||
+				!drm_atomic_crtc_needs_modeset(
+					new_conn_state->crtc->state))
 			continue;
 
-		encoder = connector->state->best_encoder;
+		encoder = new_conn_state->best_encoder;
 		funcs = encoder->helper_private;
 
 		DRM_DEBUG_ATOMIC("enabling [ENCODER:%d:%s]\n",
@@ -405,7 +407,7 @@ static void msm_atomic_helper_commit_modeset_enables(struct drm_device *dev,
 		blank = MSM_DRM_BLANK_UNBLANK;
 		notifier_data.data = &blank;
 		notifier_data.id =
-			connector->state->crtc->index;
+			new_conn_state->crtc->index;
 		msm_drm_notifier_call_chain(MSM_DRM_EARLY_EVENT_BLANK,
 					    &notifier_data);
 		/*
@@ -432,18 +434,19 @@ static void msm_atomic_helper_commit_modeset_enables(struct drm_device *dev,
 		return;
 	}
 
-	for_each_connector_in_state(old_state, connector, old_conn_state, i) {
+	for_each_new_connector_in_state(old_state, connector,
+			new_conn_state, i) {
 		struct drm_encoder *encoder;
 
-		if (!connector->state->best_encoder)
+		if (!new_conn_state->best_encoder)
 			continue;
 
-		if (!connector->state->crtc->state->active ||
+		if (!new_conn_state->crtc->state->active ||
 		    !drm_atomic_crtc_needs_modeset(
-				    connector->state->crtc->state))
+				    new_conn_state->crtc->state))
 			continue;
 
-		encoder = connector->state->best_encoder;
+		encoder = new_conn_state->best_encoder;
 
 		DRM_DEBUG_ATOMIC("bridge enable enabling [ENCODER:%d:%s]\n",
 				 encoder->base.id, encoder->name);
