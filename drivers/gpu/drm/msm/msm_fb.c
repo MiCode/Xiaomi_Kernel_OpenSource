@@ -67,7 +67,7 @@ static void msm_framebuffer_destroy(struct drm_framebuffer *fb)
 	}
 
 	msm_fb = to_msm_framebuffer(fb);
-	n = drm_format_num_planes(fb->pixel_format);
+	n = fb->format->num_planes;
 
 	DBG("destroy: FB ID: %d (%p)", fb->base.id, fb);
 
@@ -99,7 +99,7 @@ void msm_framebuffer_describe(struct drm_framebuffer *fb, struct seq_file *m)
 	}
 
 	msm_fb = to_msm_framebuffer(fb);
-	n = drm_format_num_planes(fb->pixel_format);
+	n = fb->format->num_planes;
 	seq_printf(m, "fb: %dx%d@%4.4s (%2d, ID:%d)\n",
 			fb->width, fb->height, (char *)&fb->format->format,
 			drm_framebuffer_read_refcount(fb), fb->base.id);
@@ -140,7 +140,7 @@ static int msm_framebuffer_kmap(struct drm_framebuffer *fb)
 	}
 
 	msm_fb = to_msm_framebuffer(fb);
-	n = drm_format_num_planes(fb->pixel_format);
+	n = fb->format->num_planes;
 	if (atomic_inc_return(&msm_fb->kmap_count) > 1)
 		return 0;
 
@@ -171,7 +171,7 @@ static void msm_framebuffer_kunmap(struct drm_framebuffer *fb)
 	}
 
 	msm_fb = to_msm_framebuffer(fb);
-	n = drm_format_num_planes(fb->pixel_format);
+	n = fb->format->num_planes;
 	if (atomic_dec_return(&msm_fb->kmap_count) > 0)
 		return;
 
@@ -205,7 +205,7 @@ int msm_framebuffer_prepare(struct drm_framebuffer *fb,
 	}
 
 	msm_fb = to_msm_framebuffer(fb);
-	n = drm_format_num_planes(fb->pixel_format);
+	n = fb->format->num_planes;
 	for (i = 0; i < n; i++) {
 		ret = msm_gem_get_iova(msm_fb->planes[i], aspace, &iova);
 		DBG("FB[%u]: iova[%d]: %08llx (%d)", fb->base.id, i, iova, ret);
@@ -231,7 +231,7 @@ void msm_framebuffer_cleanup(struct drm_framebuffer *fb,
 	}
 
 	msm_fb = to_msm_framebuffer(fb);
-	n = drm_format_num_planes(fb->pixel_format);
+	n = fb->format->num_planes;
 
 	if (msm_fb->flags & MSM_FRAMEBUFFER_FLAG_KMAP)
 		msm_framebuffer_kunmap(fb);
@@ -346,7 +346,7 @@ static struct drm_framebuffer *msm_framebuffer_init(struct drm_device *dev,
 	vsub = drm_format_vert_chroma_subsampling(mode_cmd->pixel_format);
 
 	format = kms->funcs->get_format(kms, mode_cmd->pixel_format,
-			mode_cmd->modifier, num_planes);
+			mode_cmd->modifier[0]);
 	if (!format) {
 		dev_err(dev->dev, "unsupported pixel format: %4.4s\n",
 				(char *)&mode_cmd->pixel_format);

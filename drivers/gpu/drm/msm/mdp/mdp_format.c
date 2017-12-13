@@ -174,8 +174,7 @@ uint32_t mdp_get_formats(uint32_t *pixel_formats, uint32_t max_formats,
 const struct msm_format *mdp_get_format(
 		struct msm_kms *kms,
 		uint32_t format,
-		const uint64_t *modifiers,
-		uint32_t modifiers_len)
+		const uint64_t modifier)
 {
 	int i;
 	for (i = 0; i < ARRAY_SIZE(formats); i++) {

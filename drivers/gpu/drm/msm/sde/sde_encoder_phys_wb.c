@@ -312,8 +312,7 @@ static void sde_encoder_phys_wb_setup_fb(struct sde_encoder_phys *phys_enc,
 
 	wb_cfg->dest.format = sde_get_sde_format_ext(
 			format->pixel_format,
-			fb->modifier,
-			drm_format_num_planes(fb->pixel_format));
+			fb->modifier);
 	if (!wb_cfg->dest.format) {
 		/* this error should be detected during atomic_check */
 		SDE_ERROR("failed to get format %x\n", format->pixel_format);
@@ -468,16 +467,15 @@ static int sde_encoder_phys_wb_atomic_check(
 	SDE_DEBUG("[fb_id:%u][fb:%u,%u]\n", fb->base.id,
 			fb->width, fb->height);
 
-	fmt = sde_get_sde_format_ext(fb->pixel_format, fb->modifier,
-			drm_format_num_planes(fb->pixel_format));
+	fmt = sde_get_sde_format_ext(fb->format->format, fb->modifier);
 	if (!fmt) {
 		SDE_ERROR("unsupported output pixel format:%x\n",
-				fb->pixel_format);
+				fb->format->format);
 		return -EINVAL;
 	}
 
-	SDE_DEBUG("[fb_fmt:%x,%llx]\n", fb->pixel_format,
-			fb->modifier[0]);
+	SDE_DEBUG("[fb_fmt:%x,%llx]\n", fb->format->format,
+			fb->modifier);
 
 	if (SDE_FORMAT_IS_YUV(fmt) &&
 			!(wb_cfg->features & BIT(SDE_WB_YUV_CONFIG))) {
@@ -631,16 +629,16 @@ static void sde_encoder_phys_wb_setup(
 	SDE_DEBUG("[roi:%u,%u,%u,%u]\n", wb_roi->x, wb_roi->y,
 			wb_roi->w, wb_roi->h);
 
-	wb_enc->wb_fmt = sde_get_sde_format_ext(fb->pixel_format, fb->modifier,
-			drm_format_num_planes(fb->pixel_format));
+	wb_enc->wb_fmt = sde_get_sde_format_ext(fb->format->format,
+							fb->modifier);
 	if (!wb_enc->wb_fmt) {
 		SDE_ERROR("unsupported output pixel format: %d\n",
-				fb->pixel_format);
+				fb->format->format);
 		return;
 	}
 
-	SDE_DEBUG("[fb_fmt:%x,%llx]\n", fb->pixel_format,
-			fb->modifier[0]);
+	SDE_DEBUG("[fb_fmt:%x,%llx]\n", fb->format->format,
+			fb->modifier);
 
 	sde_encoder_phys_wb_set_ot_limit(phys_enc);
 
@@ -1210,11 +1208,10 @@ static void sde_encoder_phys_wb_get_hw_resources(
 
 	fb = sde_wb_connector_state_get_output_fb(conn_state);
 	if (fb) {
-		fmt = sde_get_sde_format_ext(fb->pixel_format, fb->modifier,
-				drm_format_num_planes(fb->pixel_format));
+		fmt = sde_get_sde_format_ext(fb->format->format, fb->modifier);
 		if (!fmt) {
 			SDE_ERROR("unsupported output pixel format:%d\n",
-					fb->pixel_format);
+					fb->format->format);
 			return;
 		}
 	}

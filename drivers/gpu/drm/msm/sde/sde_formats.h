@@ -20,29 +20,25 @@
 /**
  * sde_get_sde_format_ext() - Returns sde format structure pointer.
  * @format:          DRM FourCC Code
- * @modifiers:       format modifier array from client, one per plane
- * @modifiers_len:   number of planes and array size for plane_modifiers
+ * @modifier:        format modifier from client
  */
 const struct sde_format *sde_get_sde_format_ext(
 		const uint32_t format,
-		const uint64_t *modifiers,
-		const uint32_t modifiers_len);
+		const uint64_t modifier);
 
-#define sde_get_sde_format(f) sde_get_sde_format_ext(f, NULL, 0)
+#define sde_get_sde_format(f) sde_get_sde_format_ext(f, 0)
 
 /**
  * sde_get_msm_format - get an sde_format by its msm_format base
  *                     callback function registers with the msm_kms layer
  * @kms:             kms driver
  * @format:          DRM FourCC Code
- * @modifiers:       format modifier array from client, one per plane
- * @modifiers_len:   number of planes and array size for plane_modifiers
+ * @modifier:        data layout modifier
  */
 const struct msm_format *sde_get_msm_format(
 		struct msm_kms *kms,
 		const uint32_t format,
-		const uint64_t *modifiers,
-		const uint32_t modifiers_len);
+		const uint64_t modifier);
 
 /**
  * sde_populate_formats - populate the given array with fourcc codes supported
@@ -142,8 +138,7 @@ int sde_format_populate_layout_with_roi(
  * @height:            pixel height
  * @pitches:           array of size [SDE_MAX_PLANES] to populate
  *		       pitch for each plane
- * @modifiers:         array to populate with drm modifiers, can be NULL
- * @modifiers_len:     length of modifers array
+ * @modifier:          drm modifier
  *
  * Return: memory size required for frame buffer
  */
@@ -152,7 +147,6 @@ uint32_t sde_format_get_framebuffer_size(
 		const uint32_t width,
 		const uint32_t height,
 		const uint32_t *pitches,
-		const uint64_t *modifiers,
-		const uint32_t modifiers_len);
+		const uint64_t modifier);
 
 #endif /*_SDE_FORMATS_H */

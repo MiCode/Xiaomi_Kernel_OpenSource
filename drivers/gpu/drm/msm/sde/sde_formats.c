@@ -908,13 +908,12 @@ uint32_t sde_format_get_framebuffer_size(
 		const uint32_t width,
 		const uint32_t height,
 		const uint32_t *pitches,
-		const uint64_t *modifiers,
-		const uint32_t modifiers_len)
+		const uint64_t modifier)
 {
 	const struct sde_format *fmt;
 	struct sde_hw_fmt_layout layout;
 
-	fmt = sde_get_sde_format_ext(format, modifiers, modifiers_len);
+	fmt = sde_get_sde_format_ext(format, modifier);
 	if (!fmt)
 		return 0;
 
@@ -1204,35 +1203,20 @@ int sde_format_check_modified_format(
 
 const struct sde_format *sde_get_sde_format_ext(
 		const uint32_t format,
-		const uint64_t *modifiers,
-		const uint32_t modifiers_len)
+		const uint64_t modifier)
 {
 	uint32_t i = 0;
-	uint64_t mod0 = 0;
 	const struct sde_format *fmt = NULL;
 	const struct sde_format *map = NULL;
 	ssize_t map_size = 0;
 
 	/*
 	 * Currently only support exactly zero or one modifier.
-	 * All planes used must specify the same modifier.
+	 * All planes use the same modifier.
 	 */
-	if (modifiers_len && !modifiers) {
-		SDE_ERROR("invalid modifiers array\n");
-		return NULL;
-	} else if (modifiers && modifiers_len && modifiers[0]) {
-		mod0 = modifiers[0];
-		SDE_DEBUG("plane format modifier 0x%llX\n", mod0);
-		for (i = 1; i < modifiers_len; i++) {
-			if (modifiers[i] != mod0) {
-				SDE_ERROR("bad fmt mod 0x%llX on plane %d\n",
-					modifiers[i], i);
-				return NULL;
-			}
-		}
-	}
+	SDE_DEBUG("plane format modifier 0x%llX\n", modifier);
 
-	switch (mod0) {
+	switch (modifier) {
 	case 0:
 		map = sde_format_map;
 		map_size = ARRAY_SIZE(sde_format_map);
@@ -1290,7 +1274,7 @@ const struct sde_format *sde_get_sde_format_ext(
 				(char *)&format);
 		break;
 	default:
-		SDE_ERROR("unsupported format modifier %llX\n", mod0);
+		SDE_ERROR("unsupported format modifier %llX\n", modifier);
 		return NULL;
 	}
 
@@ -1303,10 +1287,10 @@ const struct sde_format *sde_get_sde_format_ext(
 
 	if (fmt == NULL)
 		SDE_ERROR("unsupported fmt: %4.4s modifier 0x%llX\n",
-				(char *)&format, mod0);
+				(char *)&format, modifier);
 	else
 		SDE_DEBUG("fmt %4.4s mod 0x%llX ubwc %d yuv %d\n",
-				(char *)&format, mod0,
+				(char *)&format, modifier,
 				SDE_FORMAT_IS_UBWC(fmt),
 				SDE_FORMAT_IS_YUV(fmt));
 
@@ -1316,11 +1300,10 @@ const struct sde_format *sde_get_sde_format_ext(
 const struct msm_format *sde_get_msm_format(
 		struct msm_kms *kms,
 		const uint32_t format,
-		const uint64_t *modifiers,
-		const uint32_t modifiers_len)
+		const uint64_t modifier)
 {
 	const struct sde_format *fmt = sde_get_sde_format_ext(format,
-			modifiers, modifiers_len);
+			modifier);
 	if (fmt)
 		return &fmt->base;
 	return NULL;

@@ -99,8 +99,7 @@ struct mdp_format {
 
 uint32_t mdp_get_formats(uint32_t *formats, uint32_t max_formats, bool rgb_only);
 const struct msm_format *mdp_get_format(struct msm_kms *kms,
-		uint32_t format, const uint64_t *modifiers,
-		uint32_t modifiers_len);
+		uint32_t format, const uint64_t *modifier);
 
 /* MDP capabilities */
 #define MDP_CAP_SMP		BIT(0)	/* Shared Memory Pool                 */

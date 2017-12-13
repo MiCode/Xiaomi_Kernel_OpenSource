@@ -1387,7 +1387,7 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 		SDE_EVT32(DRMID(crtc), DRMID(plane), stage_idx,
 			sde_plane_pipe(plane) - SSPP_VIG0, pstate->stage,
 			pstate->multirect_index, pstate->multirect_mode,
-			format->base.pixel_format, fb ? fb->modifier[0] : 0);
+			format->base.pixel_format, fb ? fb->modifier : 0);
 
 		/* blend config update */
 		for (lm_idx = 0; lm_idx < sde_crtc->num_mixers; lm_idx++) {
@@ -5269,14 +5269,15 @@ static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 		if (plane->state->fb) {
 			fb = plane->state->fb;
 
-			seq_printf(s, "\tfb:%d image format:%4.4s wxh:%ux%u bpp:%d\n",
-				fb->base.id, (char *) &fb->pixel_format,
-				fb->width, fb->height, fb->bits_per_pixel);
+			seq_printf(s, "\tfb:%d image format:%4.4s wxh:%ux%u ",
+				fb->base.id, (char *) &fb->format->format,
+				fb->width, fb->height);
+			for (i = 0; i < ARRAY_SIZE(fb->format->cpp); ++i)
+				seq_printf(s, "cpp[%d]:%u ",
+						i, fb->format->cpp[i]);
+			seq_puts(s, "\n\t");
 
-			seq_puts(s, "\t");
-			for (i = 0; i < ARRAY_SIZE(fb->modifier); i++)
-				seq_printf(s, "modifier[%d]:%8llu ", i,
-							fb->modifier[i]);
+			seq_printf(s, "modifier:%8llu ", fb->modifier);
 			seq_puts(s, "\n");
 
 			seq_puts(s, "\t");

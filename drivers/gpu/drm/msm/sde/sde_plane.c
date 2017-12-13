@@ -336,9 +336,8 @@ static void _sde_plane_set_qos_lut(struct drm_plane *plane,
 		lut_usage = SDE_QOS_LUT_USAGE_NRT;
 	} else {
 		fmt = sde_get_sde_format_ext(
-				fb->pixel_format,
-				fb->modifier,
-				drm_format_num_planes(fb->pixel_format));
+				fb->format->format,
+				fb->modifier);
 		total_fl = _sde_plane_calc_fill_level(plane, fmt,
 				psde->pipe_cfg.src_rect.w);
 
@@ -399,9 +398,8 @@ static void _sde_plane_set_danger_lut(struct drm_plane *plane,
 		lut_usage = SDE_QOS_LUT_USAGE_NRT;
 	} else {
 		fmt = sde_get_sde_format_ext(
-				fb->pixel_format,
-				fb->modifier,
-				drm_format_num_planes(fb->pixel_format));
+				fb->format->format,
+				fb->modifier);
 		total_fl = _sde_plane_calc_fill_level(plane, fmt,
 				psde->pipe_cfg.src_rect.w);
 
@@ -1907,8 +1905,8 @@ static int sde_plane_rot_submit_command(struct drm_plane *plane,
 	else
 		rot_cmd->video_mode = false;
 
-	rot_cmd->src_pixel_format = state->fb->pixel_format;
-	rot_cmd->src_modifier = state->fb->modifier[0];
+	rot_cmd->src_pixel_format = state->fb->format->format;
+	rot_cmd->src_modifier = state->fb->modifier;
 	rot_cmd->src_stride = state->fb->pitches[0];
 
 	rot_cmd->src_format = to_sde_format(msm_framebuffer_format(state->fb));
@@ -2006,8 +2004,8 @@ static int sde_plane_rot_submit_command(struct drm_plane *plane,
 			rot_cmd->vflip ? 'v' : '_',
 			rot_cmd->video_mode ? 'V' : 'C',
 			state->fb->width, state->fb->height,
-			(char *) &state->fb->pixel_format,
-			state->fb->modifier[0],
+			(char *) &state->fb->format->format,
+			state->fb->modifier,
 			drm_rect_width(&rstate->in_rot_rect) >> 16,
 			drm_rect_height(&rstate->in_rot_rect) >> 16,
 			rstate->in_rot_rect.x1 >> 16,
@@ -2364,9 +2362,9 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 			((rstate->out_fb_height != rstate->out_fb->height) ||
 			(rstate->out_fb_width != rstate->out_fb->width) ||
 			(rstate->out_fb_pixel_format !=
-					rstate->out_fb->pixel_format) ||
+					rstate->out_fb->format->format) ||
 			(rstate->out_fb_modifier[0] !=
-					rstate->out_fb->modifier[0]) ||
+					rstate->out_fb->modifier) ||
 			(rstate->out_fb_flags != rstate->out_fb->flags))) {
 
 			SDE_DEBUG("plane%d.%d release fb/fbo\n", plane->base.id,
@@ -2389,10 +2387,10 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 		/* bypass rotator - initialize output setting as input */
 		for (i = 0; i < ARRAY_SIZE(rstate->out_fb_modifier); i++)
 			rstate->out_fb_modifier[i] = state->fb ?
-				state->fb->modifier[i] : 0x0;
+				state->fb->modifier : 0x0;
 
 		if (state->fb) {
-			rstate->out_fb_pixel_format = state->fb->pixel_format;
+			rstate->out_fb_pixel_format = state->fb->format->format;
 			rstate->out_fb_flags = state->fb->flags;
 			rstate->out_fb_width = state->fb->width;
 			rstate->out_fb_height = state->fb->height;
@@ -3123,29 +3121,27 @@ static void _sde_plane_sspp_atomic_check_mode_changed(struct sde_plane *psde,
 
 	if (!fb || !old_fb) {
 		SDE_DEBUG_PLANE(psde, "can't compare fb handles\n");
-	} else if (fb->pixel_format != old_fb->pixel_format) {
+	} else if (fb->format->format != old_fb->format->format) {
 		SDE_DEBUG_PLANE(psde, "format change\n");
 		pstate->dirty |= SDE_PLANE_DIRTY_FORMAT | SDE_PLANE_DIRTY_RECTS;
 	} else {
-		uint64_t *new_mods = fb->modifier;
-		uint64_t *old_mods = old_fb->modifier;
+		uint64_t new_mod = fb->modifier;
+		uint64_t old_mod = old_fb->modifier;
 		uint32_t *new_pitches = fb->pitches;
 		uint32_t *old_pitches = old_fb->pitches;
 		uint32_t *new_offset = fb->offsets;
 		uint32_t *old_offset = old_fb->offsets;
 		int i;
 
-		for (i = 0; i < ARRAY_SIZE(fb->modifier); i++) {
-			if (new_mods[i] != old_mods[i]) {
-				SDE_DEBUG_PLANE(psde,
-					"format modifiers change\"\
-					plane:%d new_mode:%llu old_mode:%llu\n",
-					i, new_mods[i], old_mods[i]);
-				pstate->dirty |= SDE_PLANE_DIRTY_FORMAT |
-					SDE_PLANE_DIRTY_RECTS;
-				break;
-			}
+		if (new_mod != old_mod) {
+			SDE_DEBUG_PLANE(psde,
+				"format modifiers change\"\
+				new_mode:%llu old_mode:%llu\n",
+				new_mod, old_mod);
+			pstate->dirty |= SDE_PLANE_DIRTY_FORMAT |
+				SDE_PLANE_DIRTY_RECTS;
 		}
+
 		for (i = 0; i < ARRAY_SIZE(fb->pitches); i++) {
 			if (new_pitches[i] != old_pitches[i]) {
 				SDE_DEBUG_PLANE(psde,

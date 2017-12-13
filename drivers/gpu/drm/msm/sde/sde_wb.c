@@ -274,20 +274,19 @@ int sde_wb_connector_set_property(struct drm_connector *connector,
 		if (!out_fb)
 			goto done;
 
-		sde_format = sde_get_sde_format_ext(out_fb->pixel_format,
-				out_fb->modifier,
-				drm_format_num_planes(out_fb->pixel_format));
+		sde_format = sde_get_sde_format_ext(out_fb->format->format,
+				out_fb->modifier);
 		if (!sde_format) {
 			SDE_ERROR("failed to get sde format\n");
 			rc = -EINVAL;
 			goto done;
 		}
 
-		if (!sde_wb_is_format_valid(wb_dev, out_fb->pixel_format,
-				out_fb->modifier[0])) {
+		if (!sde_wb_is_format_valid(wb_dev, out_fb->format->format,
+				out_fb->modifier)) {
 			SDE_ERROR("unsupported writeback format 0x%x/0x%llx\n",
-					out_fb->pixel_format,
-					out_fb->modifier[0]);
+					out_fb->format->format,
+					out_fb->modifier);
 			rc = -EINVAL;
 			goto done;
 		}

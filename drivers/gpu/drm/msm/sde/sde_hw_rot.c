@@ -655,7 +655,7 @@ static int sde_hw_rot_commit(struct sde_hw_rot *hw, struct sde_hw_rot_cmd *data,
 		}
 
 		data->dst_format = sde_get_sde_format_ext(
-				data->dst_pixel_format, &data->dst_modifier, 1);
+				data->dst_pixel_format, data->dst_modifier);
 		if (!data->dst_format) {
 			SDE_ERROR("failed to get dst format\n");
 			return -EINVAL;

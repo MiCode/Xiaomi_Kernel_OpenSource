@@ -1356,8 +1356,7 @@ struct sde_kms_fbo *sde_kms_fbo_alloc(struct drm_device *dev, u32 width,
 	for (i = 0; i < ARRAY_SIZE(fbo->modifier); i++)
 		fbo->modifier[i] = modifier[i];
 	fbo->nplane = drm_format_num_planes(fbo->pixel_format);
-	fbo->fmt = sde_get_sde_format_ext(fbo->pixel_format, fbo->modifier,
-			fbo->nplane);
+	fbo->fmt = sde_get_sde_format_ext(fbo->pixel_format, fbo->modifier[0]);
 	if (!fbo->fmt) {
 		ret = -EINVAL;
 		SDE_ERROR("failed to find pixel format\n");

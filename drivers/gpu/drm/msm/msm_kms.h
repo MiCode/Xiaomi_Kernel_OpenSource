@@ -74,8 +74,7 @@ struct msm_kms_funcs {
 	/* get msm_format w/ optional format modifiers from drm_mode_fb_cmd2 */
 	const struct msm_format *(*get_format)(struct msm_kms *kms,
 					const uint32_t format,
-					const uint64_t *modifiers,
-					const uint32_t modifiers_len);
+					const uint64_t modifier);
 	/* do format checking on format modified through fb_cmd2 modifiers */
 	int (*check_modified_format)(const struct msm_kms *kms,
 			const struct msm_format *msm_fmt,
