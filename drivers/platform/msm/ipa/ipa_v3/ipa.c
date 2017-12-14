@@ -4608,7 +4608,7 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 	}
 
 	if (count > 0)
-		dbg_buff[count - 1] = '\0';
+		dbg_buff[count] = '\0';
 
 	/* Prevent consequent calls from trying to load the FW again. */
 	if (ipa3_is_ready())
