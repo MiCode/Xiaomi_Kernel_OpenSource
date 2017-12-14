@@ -338,4 +338,39 @@
 			};
 		};
 	};
+
+	xo-therm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pmxpoorwills_vadc 0x4c>;
+		thermal-governor = "user_space";
+	};
+
+	pa-therm1-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pmxpoorwills_vadc 0x4d>;
+		thermal-governor = "user_space";
+	};
+
+	pa-therm2-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pmxpoorwills_vadc 0x4e>;
+		thermal-governor = "user_space";
+	};
+
+	mdm-case-therm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pmxpoorwills_vadc 0x4f>;
+		thermal-governor = "user_space";
+	};
+
+	ambient-therm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pmxpoorwills_vadc 0x52>;
+		thermal-governor = "user_space";
+	};
 };
