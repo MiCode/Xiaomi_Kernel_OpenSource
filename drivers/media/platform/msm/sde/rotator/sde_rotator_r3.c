@@ -50,6 +50,12 @@
 /* wait for at most 2 vsync for lowest refresh rate (24hz) */
 #define KOFF_TIMEOUT		(42 * 8)
 
+/*
+ * When in sbuf mode, select a much longer wait, to allow the other driver
+ * to detect timeouts and abort if necessary.
+ */
+#define KOFF_TIMEOUT_SBUF	(2000)
+
 /* default stream buffer headroom in lines */
 #define DEFAULT_SBUF_HEADROOM	20
 #define DEFAULT_UBWC_MALSIZE	0
@@ -1787,6 +1793,8 @@ static u32 sde_hw_rotator_start_regdma(struct sde_hw_rotator_context *ctx,
 		mask = ~(SDE_REGDMA_SWTS_MASK << SDE_REGDMA_SWTS_SHIFT);
 	}
 
+	SDEROT_EVTLOG(ctx->timestamp, queue_id, length, offset, ctx->sbuf_mode);
+
 	/* timestamp update can only be used in offline multi-context mode */
 	if (!ctx->sbuf_mode) {
 		/* Write timestamp after previous rotator job finished */
@@ -1798,6 +1806,8 @@ static u32 sde_hw_rotator_start_regdma(struct sde_hw_rotator_context *ctx,
 
 		/* ensure command packet is issue before the submit command */
 		wmb();
+
+		SDEROT_EVTLOG(queue_id, enableInt, ts_length, offset);
 
 		if (queue_id == ROT_QUEUE_HIGH_PRIORITY) {
 			SDE_ROTREG_WRITE(rot->mdss_base,
@@ -1835,6 +1845,8 @@ static u32 sde_hw_rotator_wait_done_no_regdma(
 	if (rot->irq_num >= 0) {
 		SDEROT_DBG("Wait for Rotator completion\n");
 		rc = wait_for_completion_timeout(&ctx->rot_comp,
+				ctx->sbuf_mode ?
+				msecs_to_jiffies(KOFF_TIMEOUT_SBUF) :
 				msecs_to_jiffies(rot->koff_timeout));
 
 		spin_lock_irqsave(&rot->rotisr_lock, flags);
@@ -1893,6 +1905,7 @@ static u32 sde_hw_rotator_wait_done_regdma(
 {
 	struct sde_hw_rotator *rot = ctx->rot;
 	int rc = 0;
+	bool abort;
 	u32 status;
 	u32 last_isr;
 	u32 last_ts;
@@ -1907,6 +1920,8 @@ static u32 sde_hw_rotator_wait_done_regdma(
 				ctx, ctx->timestamp);
 		rc = wait_event_timeout(ctx->regdma_waitq,
 				!sde_hw_rotator_pending_swts(rot, ctx, &swts),
+				ctx->sbuf_mode ?
+				msecs_to_jiffies(KOFF_TIMEOUT_SBUF) :
 				msecs_to_jiffies(rot->koff_timeout));
 
 		ATRACE_INT("sde_rot_done", 0);
@@ -1914,18 +1929,19 @@ static u32 sde_hw_rotator_wait_done_regdma(
 
 		last_isr = ctx->last_regdma_isr_status;
 		last_ts  = ctx->last_regdma_timestamp;
+		abort    = ctx->abort;
 		status   = last_isr & REGDMA_INT_MASK;
 		int_id   = last_ts & 1;
 		SDEROT_DBG("INT status:0x%X, INT id:%d, timestamp:0x%X\n",
 				status, int_id, last_ts);
 
-		if (rc == 0 || (status & REGDMA_INT_ERR_MASK)) {
+		if (rc == 0 || (status & REGDMA_INT_ERR_MASK) || abort) {
 			bool pending;
 
 			pending = sde_hw_rotator_pending_swts(rot, ctx, &swts);
 			SDEROT_ERR(
-				"Timeout wait for regdma interrupt status, ts:0x%X/0x%X pending:%d\n",
-				ctx->timestamp, swts, pending);
+				"Timeout wait for regdma interrupt status, ts:0x%X/0x%X, pending:%d, abort:%d\n",
+				ctx->timestamp, swts, pending, abort);
 
 			if (status & REGDMA_WATCHDOG_INT)
 				SDEROT_ERR("REGDMA watchdog interrupt\n");
@@ -1938,7 +1954,7 @@ static u32 sde_hw_rotator_wait_done_regdma(
 
 			sde_hw_rotator_dump_status(rot, &ubwcerr);
 
-			if (ubwcerr) {
+			if (ubwcerr || abort) {
 				/*
 				 * Perform recovery for ROT SSPP UBWC decode
 				 * error.
@@ -2753,6 +2769,42 @@ static int sde_hw_rotator_kickoff(struct sde_rot_hw_resource *hw,
 	return 0;
 }
 
+static int sde_hw_rotator_abort_kickoff(struct sde_rot_hw_resource *hw,
+		struct sde_rot_entry *entry)
+{
+	struct sde_hw_rotator *rot;
+	struct sde_hw_rotator_resource_info *resinfo;
+	struct sde_hw_rotator_context *ctx;
+	unsigned long flags;
+
+	if (!hw || !entry) {
+		SDEROT_ERR("null hw resource/entry\n");
+		return -EINVAL;
+	}
+
+	resinfo = container_of(hw, struct sde_hw_rotator_resource_info, hw);
+	rot = resinfo->rot;
+
+	/* Lookup rotator context from session-id */
+	ctx = sde_hw_rotator_get_ctx(rot, entry->item.session_id,
+			entry->item.sequence_id, hw->wb_id);
+	if (!ctx) {
+		SDEROT_ERR("Cannot locate rotator ctx from sesison id:%d\n",
+				entry->item.session_id);
+		return -EINVAL;
+	}
+
+	spin_lock_irqsave(&rot->rotisr_lock, flags);
+	sde_hw_rotator_update_swts(rot, ctx, ctx->timestamp);
+	ctx->abort = true;
+	wake_up_all(&ctx->regdma_waitq);
+	spin_unlock_irqrestore(&rot->rotisr_lock, flags);
+
+	SDEROT_EVTLOG(entry->item.session_id, ctx->timestamp);
+
+	return 0;
+}
+
 /*
  * sde_hw_rotator_wait4done - wait for completion notification
  * @hw: Pointer to rotator resource
@@ -3557,6 +3609,7 @@ int sde_rotator_r3_init(struct sde_rot_mgr *mgr)
 	mgr->ops_hw_free = sde_hw_rotator_free_ext;
 	mgr->ops_config_hw = sde_hw_rotator_config;
 	mgr->ops_cancel_hw = sde_hw_rotator_cancel;
+	mgr->ops_abort_hw = sde_hw_rotator_abort_kickoff;
 	mgr->ops_kickoff_entry = sde_hw_rotator_kickoff;
 	mgr->ops_wait_for_entry = sde_hw_rotator_wait4done;
 	mgr->ops_hw_validate_entry = sde_hw_rotator_validate_entry;
