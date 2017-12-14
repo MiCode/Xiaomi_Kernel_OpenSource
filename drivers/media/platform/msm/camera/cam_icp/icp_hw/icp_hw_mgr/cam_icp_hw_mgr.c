@@ -1159,11 +1159,9 @@ static int cam_icp_mgr_handle_frame_process(uint32_t *msg_ptr, int flag)
 
 	mutex_lock(&ctx_data->ctx_mutex);
 	if (ctx_data->state != CAM_ICP_CTX_STATE_ACQUIRED) {
+		CAM_DBG(CAM_ICP, "ctx %u is in %d state",
+			ctx_data->ctx_id, ctx_data->state);
 		mutex_unlock(&ctx_data->ctx_mutex);
-		CAM_WARN(CAM_ICP,
-			"ctx with id: %u not in the right state : %x",
-			ctx_data->ctx_id,
-			ctx_data->state);
 		return 0;
 	}
 
@@ -2021,7 +2019,10 @@ static int cam_icp_mgr_destroy_handle(
 			msecs_to_jiffies((timeout)));
 	if (!rem_jiffies) {
 		rc = -ETIMEDOUT;
-		CAM_ERR(CAM_ICP, "FW response timeout: %d", rc);
+		CAM_ERR(CAM_ICP, "FW response timeout: %d for %u",
+			rc, ctx_data->ctx_id);
+		if (icp_hw_mgr.a5_debug_q)
+			cam_icp_mgr_process_dbg_buf();
 	}
 
 	kfree(destroy_cmd);
@@ -2050,6 +2051,7 @@ static int cam_icp_mgr_release_ctx(struct cam_icp_hw_mgr *hw_mgr, int ctx_id)
 	cam_icp_mgr_ipe_bps_power_collapse(hw_mgr,
 		&hw_mgr->ctx_data[ctx_id], 0);
 	hw_mgr->ctx_data[ctx_id].state = CAM_ICP_CTX_STATE_RELEASE;
+	CAM_DBG(CAM_ICP, "E: ctx_id = %d", ctx_id);
 	cam_icp_mgr_destroy_handle(&hw_mgr->ctx_data[ctx_id]);
 	cam_icp_mgr_cleanup_ctx(&hw_mgr->ctx_data[ctx_id]);
 
@@ -2068,6 +2070,7 @@ static int cam_icp_mgr_release_ctx(struct cam_icp_hw_mgr *hw_mgr, int ctx_id)
 	hw_mgr->ctx_data[ctx_id].state = CAM_ICP_CTX_STATE_FREE;
 	mutex_unlock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
 
+	CAM_DBG(CAM_ICP, "X: ctx_id = %d", ctx_id);
 	return 0;
 }
 
@@ -2489,6 +2492,8 @@ static int cam_icp_mgr_config_hw(void *hw_mgr_priv, void *config_hw_args)
 	rc = cam_icp_mgr_enqueue_config(hw_mgr, config_args);
 	if (rc)
 		goto config_err;
+	CAM_DBG(CAM_ICP, "req_id = %lld %u",
+		req_id, ctx_data->ctx_id);
 	mutex_unlock(&ctx_data->ctx_mutex);
 
 	return 0;
@@ -2539,14 +2544,17 @@ static int cam_icp_mgr_pkt_validation(struct cam_packet *packet)
 }
 
 static int cam_icp_mgr_process_cmd_desc(struct cam_icp_hw_mgr *hw_mgr,
-	struct cam_packet *packet,
+	struct cam_packet *packet, struct cam_icp_hw_ctx_data *ctx_data,
 	uint32_t *fw_cmd_buf_iova_addr)
 {
 	int rc = 0;
-	int i;
+	int i, j, k;
 	uint64_t addr;
 	size_t len;
 	struct cam_cmd_buf_desc *cmd_desc = NULL;
+	uint64_t cpu_addr = 0;
+	struct ipe_frame_process_data *frame_process_data = NULL;
+	struct bps_frame_process_data *bps_frame_process_data = NULL;
 
 	cmd_desc = (struct cam_cmd_buf_desc *)
 		((uint32_t *) &packet->payload + packet->cmd_buf_offset/4);
@@ -2564,6 +2572,67 @@ static int cam_icp_mgr_process_cmd_desc(struct cam_icp_hw_mgr *hw_mgr,
 			*fw_cmd_buf_iova_addr = addr;
 			*fw_cmd_buf_iova_addr =
 				(*fw_cmd_buf_iova_addr + cmd_desc[i].offset);
+			rc = cam_mem_get_cpu_buf(cmd_desc[i].mem_handle,
+				&cpu_addr, &len);
+			if (rc) {
+				CAM_ERR(CAM_ICP, "get cmd buf failed %x",
+					hw_mgr->iommu_hdl);
+				*fw_cmd_buf_iova_addr = 0;
+				return rc;
+			}
+			cpu_addr = cpu_addr + cmd_desc[i].offset;
+		}
+	}
+
+	if (!cpu_addr) {
+		CAM_ERR(CAM_ICP, "Invalid cpu addr");
+		return -EINVAL;
+	}
+
+	if (ctx_data->icp_dev_acquire_info->dev_type !=
+		CAM_ICP_RES_TYPE_BPS) {
+		CAM_DBG(CAM_ICP, "cpu addr = %llx", cpu_addr);
+		frame_process_data = (struct ipe_frame_process_data *)cpu_addr;
+		CAM_DBG(CAM_ICP, "%u %u %u", frame_process_data->max_num_cores,
+			frame_process_data->target_time,
+			frame_process_data->frames_in_batch);
+		frame_process_data->strip_lib_out_addr = 0;
+		frame_process_data->iq_settings_addr = 0;
+		frame_process_data->scratch_buffer_addr = 0;
+		frame_process_data->ubwc_stats_buffer_addr = 0;
+		frame_process_data->cdm_buffer_addr = 0;
+		frame_process_data->cdm_prog_base = 0;
+		for (i = 0; i < frame_process_data->frames_in_batch; i++) {
+			for (j = 0; j < IPE_IO_IMAGES_MAX; j++) {
+				for (k = 0; k < MAX_NUM_OF_IMAGE_PLANES; k++) {
+					frame_process_data->
+					framesets[i].buffers[j].
+					buffer_ptr[k] = 0;
+					frame_process_data->
+					framesets[i].buffers[j].
+					meta_buffer_ptr[k] = 0;
+				}
+			}
+		}
+	} else {
+		CAM_DBG(CAM_ICP, "cpu addr = %llx", cpu_addr);
+		bps_frame_process_data =
+			(struct bps_frame_process_data *)cpu_addr;
+		CAM_DBG(CAM_ICP, "%u %u",
+			bps_frame_process_data->max_num_cores,
+			bps_frame_process_data->target_time);
+		bps_frame_process_data->ubwc_stats_buffer_addr = 0;
+		bps_frame_process_data->cdm_buffer_addr = 0;
+		bps_frame_process_data->iq_settings_addr = 0;
+		bps_frame_process_data->strip_lib_out_addr = 0;
+		bps_frame_process_data->cdm_prog_addr = 0;
+		for (i = 0; i < BPS_IO_IMAGES_MAX; i++) {
+			for (j = 0; j < MAX_NUM_OF_IMAGE_PLANES; j++) {
+				bps_frame_process_data->
+				buffers[i].buffer_ptr[j] = 0;
+				bps_frame_process_data->
+				buffers[i].meta_buffer_ptr[j] = 0;
+			}
 		}
 	}
 
@@ -2766,12 +2835,13 @@ static int cam_icp_mgr_prepare_hw_update(void *hw_mgr_priv,
 	}
 
 	rc = cam_icp_mgr_process_cmd_desc(hw_mgr, packet,
-		&fw_cmd_buf_iova_addr);
+		ctx_data, &fw_cmd_buf_iova_addr);
 	if (rc) {
 		mutex_unlock(&ctx_data->ctx_mutex);
 		return rc;
 	}
 
+	CAM_DBG(CAM_ICP, "E: req id = %lld", packet->header.request_id);
 	/* Update Buffer Address from handles and patch information */
 	rc = cam_packet_util_process_patches(packet, hw_mgr->iommu_hdl,
 		hw_mgr->iommu_sec_hdl);
@@ -2809,6 +2879,8 @@ static int cam_icp_mgr_prepare_hw_update(void *hw_mgr_priv,
 	prepare_args->hw_update_entries[0].addr = (uint64_t)hfi_cmd;
 	prepare_args->priv = &ctx_data->hfi_frame_process.request_id[idx];
 
+	CAM_DBG(CAM_ICP, "X: req id = %lld ctx_id = %u",
+		packet->header.request_id, ctx_data->ctx_id);
 	mutex_unlock(&ctx_data->ctx_mutex);
 	return rc;
 }
