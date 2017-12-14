@@ -2144,7 +2144,7 @@ static void configure_nonpdc_usb_interrupt(struct dwc3_msm *mdwc,
 		dbg_event(0xFF, "IRQ_DIS", uirq->irq);
 		disable_irq_wake(uirq->irq);
 		disable_irq_nosync(uirq->irq);
-		uirq->enable = true;
+		uirq->enable = false;
 	}
 }
 
