@@ -28,6 +28,7 @@
 #define DEFAULT_VIDEO_CONCEAL_COLOR_BLACK 0x8020010
 #define MB_SIZE_IN_PIXEL (16 * 16)
 #define OPERATING_FRAME_RATE_STEP (1 << 16)
+#define MAX_VP9D_INST_COUNT 6
 
 static const char *const mpeg_video_stream_format[] = {
 	"NAL Format Start Codes",
@@ -551,6 +552,24 @@ struct msm_vidc_format vdec_formats[] = {
 	},
 };
 
+static bool msm_vidc_check_for_vp9d_overload(struct msm_vidc_core *core)
+{
+	u32 vp9d_instance_count = 0;
+	struct msm_vidc_inst *inst = NULL;
+
+	mutex_lock(&core->lock);
+	list_for_each_entry(inst, &core->instances, list) {
+		if (inst->session_type == MSM_VIDC_DECODER &&
+			inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_VP9)
+			vp9d_instance_count++;
+	}
+	mutex_unlock(&core->lock);
+
+	if (vp9d_instance_count > MAX_VP9D_INST_COUNT)
+		return true;
+	return false;
+}
+
 int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 {
 	struct msm_vidc_format *fmt = NULL;
@@ -648,6 +667,14 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		}
 		memcpy(&inst->fmts[fmt->type], fmt,
 				sizeof(struct msm_vidc_format));
+
+		if (inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_VP9) {
+			if (msm_vidc_check_for_vp9d_overload(inst->core)) {
+				dprintk(VIDC_ERR, "VP9 Decode overload\n");
+				rc = -ENOTSUPP;
+				goto err_invalid_fmt;
+			}
+		}
 
 		rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
 		if (rc) {
