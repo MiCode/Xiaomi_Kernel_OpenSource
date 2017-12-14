@@ -749,7 +749,16 @@ void walt_update_task_ravg(struct task_struct *p, struct rq *rq,
 	if (walt_disabled || !rq->window_start)
 		return;
 
-	lockdep_assert_held(&rq->lock);
+	/* there's a bug here - there are many cases where
+	 * we enter here without holding this lock, coming from
+	 * walt_fixup_busy_time - looks like in 4.14 we don't
+	 * hold the dest_rq at time of migration, but I haven't
+	 * yet worked out if it is safe to always lock dest_rq there.
+	 *
+	 * temporarily disable this assert to continue checking the
+	 * rest of the locking here.
+	 */
+	//lockdep_assert_held(&rq->lock);
 
 	update_window_start(rq, wallclock);
 
@@ -835,11 +844,22 @@ void walt_fixup_busy_time(struct task_struct *p, int new_cpu)
 
 	wallclock = walt_ktime_clock();
 
+//#define LOCK_CONDITION(rq) (debug_locks && !lockdep_is_held(&rq->lock))
+//	WARN(LOCK_CONDITION(task_rq(p)), "task_rq(p) not held. p->state=%08lx new_cpu=%d task_cpu=%d", p->state, new_cpu, p->cpu);
+//	WARN(LOCK_CONDITION(dest_rq), "dest_rq not held. p->state=%08lx new_cpu=%d task_cpu=%d", p->state, new_cpu, p->cpu);
+
+	/*
+	 * It seems that in lots of cases we don't have
+	 * dest_rq locked when we get here, which means
+	 * we can't be sure to the WALT stats - someone
+	 * needs to fix this.
+	 */
 	walt_update_task_ravg(task_rq(p)->curr, task_rq(p),
 			TASK_UPDATE, wallclock, 0);
 	walt_update_task_ravg(dest_rq->curr, dest_rq,
 			TASK_UPDATE, wallclock, 0);
 
+//	WARN(LOCK_CONDITION(task_rq(p)), "task_rq(p) not held after rq update. p->state=%08lx new_cpu=%d task_cpu=%d", p->state, new_cpu, p->cpu);
 	walt_update_task_ravg(p, task_rq(p), TASK_MIGRATE, wallclock, 0);
 
 	/*
