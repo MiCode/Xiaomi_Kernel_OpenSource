@@ -612,7 +612,8 @@ static int ipa_mhi_test_config_channel_context(
 		p_events[ev_ring_idx].rp =
 			(u32)event_ring_bufs[ev_ring_idx].phys_base;
 		p_events[ev_ring_idx].wp =
-			(u32)event_ring_bufs[ev_ring_idx].phys_base;
+			(u32)event_ring_bufs[ev_ring_idx].phys_base +
+			event_ring_bufs[ev_ring_idx].size - 16;
 	} else {
 		IPA_UT_LOG("Skip configuring event ring - already done\n");
 	}
@@ -3261,11 +3262,11 @@ IPA_UT_DEFINE_SUITE_START(mhi, "MHI for GSI",
 	IPA_UT_ADD_TEST(suspend_resume_with_open_aggr,
 		"several suspend/resume iterations with open aggregation frame",
 		ipa_mhi_test_in_loop_suspend_resume_aggr_open,
-		true, IPA_HW_v3_0, IPA_HW_MAX),
+		true, IPA_HW_v3_0, IPA_HW_v3_5_1),
 	IPA_UT_ADD_TEST(force_suspend_resume_with_open_aggr,
 		"several force suspend/resume iterations with open aggregation frame",
 		ipa_mhi_test_in_loop_force_suspend_resume_aggr_open,
-		true, IPA_HW_v3_0, IPA_HW_MAX),
+		true, IPA_HW_v3_0, IPA_HW_v3_5_1),
 	IPA_UT_ADD_TEST(suspend_resume_with_host_wakeup,
 		"several suspend and host wakeup resume iterations",
 		ipa_mhi_test_in_loop_suspend_host_wakeup,
