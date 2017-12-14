@@ -18,6 +18,8 @@
 #include "msm8909w.dtsi"
 #include "msm8909w-memory.dtsi"
 #include "msm8909w-pm660-mtp.dtsi"
+#include "msm8909w-pm660-camera.dtsi"
+#include "msm8909w-pm660-camera-sensor-wtp-v1.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8909W-PM660 V1 WTP";
