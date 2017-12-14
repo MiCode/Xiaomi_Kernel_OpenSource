@@ -14,7 +14,7 @@
 &soc {
 	mdss_mdp: qcom,mdss_mdp@ae00000 {
 		compatible = "qcom,sde-kms";
-		reg = <0x0ae00000 0x81d40>,
+		reg = <0x0ae00000 0x84208>,
 		      <0x0aeb0000 0x2008>,
 		      <0x0aeac000 0xf0>;
 		reg-names = "mdp_phys",
@@ -23,11 +23,12 @@
 
 		clocks =
 			<&clock_gcc GCC_DISP_AHB_CLK>,
+			<&clock_gcc GCC_DISP_HF_AXI_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_AHB_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_MDP_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_VSYNC_CLK>;
-		clock-names = "gcc_iface", "iface_clk",
-				"core_clk", "vsync_clk";
+		clock-names = "gcc_iface", "gcc_bus",
+				"iface_clk", "core_clk", "vsync_clk";
 		clock-rate = <0 0 0 0 300000000 19200000 0>;
 		clock-max-rate = <0 0 0 0 412500000 19200000 0>;
 
@@ -52,10 +53,14 @@
 		qcom,sde-ctl-off = <0x2000 0x2200 0x2400
 				     0x2600 0x2800 0x2a00>;
 		qcom,sde-ctl-size = <0x1e0>;
+		qcom,sde-ctl-display-pref = "primary", "primary", "none",
+			    "none", "none";
 
 		qcom,sde-mixer-off = <0x45000 0x46000 0x47000
 				      0x48000 0x49000 0x4a000>;
 		qcom,sde-mixer-size = <0x320>;
+		qcom,sde-mixer-display-pref = "primary", "primary", "none",
+					      "none", "none", "none";
 
 		qcom,sde-dspp-top-off = <0x1300>;
 		qcom,sde-dspp-top-size = <0x80>;
@@ -82,6 +87,11 @@
 					  0x72000 0x72800 0x73000 0x73800>;
 		qcom,sde-pp-slave = <0x0 0x0 0x0 0x0 0x0 0x0>;
 		qcom,sde-pp-size = <0xd4>;
+		qcom,sde-pp-merge-3d-id = <0x0 0x0 0x1 0x1 0x2 0x2>;
+
+		qcom,sde-merge-3d-off = <0x84000 0x84100 0x84200>;
+		qcom,sde-merge-3d-size = <0x100>;
+
 		qcom,sde-te2-off = <0x2000 0x2000 0x0 0x0 0x0 0x0>;
 
 		qcom,sde-cdm-off = <0x7a200>;
@@ -157,7 +167,18 @@
 
 		qcom,sde-danger-lut = <0x0000000f 0x0000ffff 0x00000000
 			0x00000000>;
-		qcom,sde-safe-lut = <0xfffc 0xff00 0xffff 0xffff>;
+		qcom,sde-safe-lut-linear =
+			<4 0xfff8>,
+			<0 0xfff0>;
+		qcom,sde-safe-lut-macrotile =
+			<10 0xfe00>,
+			<11 0xfc00>,
+			<12 0xf800>,
+			<0 0xf000>;
+		qcom,sde-safe-lut-nrt =
+			<0 0xffff>;
+		qcom,sde-safe-lut-cwb =
+			<0 0xffff>;
 		qcom,sde-qos-lut-linear =
 			<4 0x00000000 0x00000357>,
 			<5 0x00000000 0x00003357>,
@@ -184,6 +205,9 @@
 			<0 0x75300000 0x00000000>;
 
 		qcom,sde-cdp-setting = <1 1>, <1 0>;
+
+		qcom,sde-qos-cpu-mask = <0x3>;
+		qcom,sde-qos-cpu-dma-latency = <300>;
 
 		qcom,sde-inline-rotator = <&mdss_rotator 0>;
 		qcom,sde-inline-rot-xin = <10 11>;
@@ -358,9 +382,10 @@
 
 		clocks =
 			<&clock_gcc GCC_DISP_AHB_CLK>,
+			<&clock_gcc GCC_DISP_SF_AXI_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_AHB_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_ROT_CLK>;
-		clock-names = "gcc_iface",
+		clock-names = "gcc_iface", "gcc_bus",
 			"iface_clk", "rot_clk";
 
 		interrupt-parent = <&mdss_mdp>;
