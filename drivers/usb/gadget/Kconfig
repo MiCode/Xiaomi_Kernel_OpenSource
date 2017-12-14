@@ -230,6 +230,9 @@ config USB_F_ACC
 config USB_F_DIAG
 	tristate
 
+config USB_F_CDEV
+	tristate
+
 config USB_F_QDSS
 	tristate
 
@@ -545,6 +548,18 @@ config USB_CONFIGFS_F_DIAG
 	help
 	  Diag function driver enables support for Qualcomm diagnostics
 	  port over USB.
+
+config USB_CONFIGFS_F_CDEV
+	bool "USB Serial Character function"
+	select USB_F_CDEV
+	depends on USB_CONFIGFS
+	help
+	  The serial character function is a generic function driver that
+	  exposes a pair of bulk IN and OUT endpoints which are backed by
+	  a character device and mapped to its read/write routines. The
+	  function also supports a single interrupt IN endpoint for
+	  asynchronous notification to the host. This driver is typically
+	  used to support DUN/NMEA functions.
 
 config USB_CONFIGFS_F_QDSS
 	bool "USB QDSS function"
