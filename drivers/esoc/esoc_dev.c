@@ -14,6 +14,7 @@
 #include <linux/sched.h>
 #include <linux/uaccess.h>
 #include <linux/wait.h>
+#include <linux/esoc_client.h>
 #include "esoc.h"
 
 /**
@@ -172,6 +173,50 @@ void esoc_udev_handle_clink_evt(enum esoc_evt evt, struct esoc_eng *eng)
 	wake_up_interruptible(&esoc_udev->evt_wait);
 }
 
+static int esoc_get_link_id(struct esoc_clink *esoc_clink,
+						unsigned long arg)
+{
+	struct esoc_link_data link_data;
+	struct esoc_client_hook *client_hook;
+	struct esoc_link_data __user *user_arg;
+
+	user_arg = (struct esoc_link_data __user *) arg;
+	if (!user_arg) {
+		dev_err(&esoc_clink->dev, "Missing argument for link id\n");
+		return -EINVAL;
+	}
+
+	if (copy_from_user((void *) &link_data, user_arg, sizeof(*user_arg))) {
+		dev_err(&esoc_clink->dev,
+			"Unable to copy the data from the user\n");
+		return -EFAULT;
+	}
+
+	if (link_data.prio < 0 || link_data.prio >= ESOC_MAX_HOOKS) {
+		dev_err(&esoc_clink->dev, "Invalid client identifier passed\n");
+		return -EINVAL;
+	}
+
+	client_hook = esoc_clink->client_hook[link_data.prio];
+	if (client_hook && client_hook->esoc_link_get_id) {
+		link_data.link_id =
+		client_hook->esoc_link_get_id(client_hook->priv);
+
+		if (copy_to_user((void *) user_arg, &link_data,
+						sizeof(*user_arg))) {
+			dev_err(&esoc_clink->dev,
+				"Failed to send the data to the user\n");
+			return -EFAULT;
+		}
+
+		return 0;
+	}
+
+	dev_err(&esoc_clink->dev,
+			"Client hooks not registered for the device\n");
+	return -EINVAL;
+}
+
 static long esoc_dev_ioctl(struct file *file, unsigned int cmd,
 						unsigned long arg)
 {
@@ -246,6 +291,8 @@ static long esoc_dev_ioctl(struct file *file, unsigned int cmd,
 			put_user(evt, (unsigned int __user *)uarg);
 		}
 		return err;
+	case ESOC_GET_LINK_ID:
+		return esoc_get_link_id(esoc_clink, arg);
 	default:
 		return -EINVAL;
 	};

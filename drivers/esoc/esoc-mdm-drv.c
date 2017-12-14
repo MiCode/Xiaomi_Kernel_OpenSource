@@ -14,6 +14,7 @@
 #include <linux/workqueue.h>
 #include <linux/reboot.h>
 #include <linux/of.h>
+#include <linux/esoc_client.h>
 #include "esoc.h"
 #include "mdm-dbg.h"
 
@@ -105,6 +106,39 @@ static void mdm_ssr_fn(struct work_struct *work)
 	esoc_clink_request_ssr(mdm_drv->esoc_clink);
 }
 
+static void esoc_client_link_power_on(struct esoc_clink *esoc_clink,
+							bool mdm_crashed)
+{
+	int i;
+	struct esoc_client_hook *client_hook;
+
+	dev_dbg(&esoc_clink->dev, "Calling power_on hooks\n");
+
+	for (i = 0; i < ESOC_MAX_HOOKS; i++) {
+		client_hook = esoc_clink->client_hook[i];
+		if (client_hook && client_hook->esoc_link_power_on)
+			client_hook->esoc_link_power_on(client_hook->priv,
+							mdm_crashed);
+	}
+}
+
+static void esoc_client_link_power_off(struct esoc_clink *esoc_clink,
+							bool mdm_crashed)
+{
+	int i;
+	struct esoc_client_hook *client_hook;
+
+	dev_dbg(&esoc_clink->dev, "Calling power_off hooks\n");
+
+	for (i = 0; i < ESOC_MAX_HOOKS; i++) {
+		client_hook = esoc_clink->client_hook[i];
+		if (client_hook && client_hook->esoc_link_power_off) {
+			client_hook->esoc_link_power_off(client_hook->priv,
+							mdm_crashed);
+		}
+	}
+}
+
 static void mdm_crash_shutdown(const struct subsys_desc *mdm_subsys)
 {
 	struct esoc_clink *esoc_clink =
@@ -134,6 +168,9 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
 			 * to move to next stage
 			 */
 			return 0;
+
+		esoc_client_link_power_off(esoc_clink, true);
+
 		ret = clink_ops->cmd_exe(ESOC_PREPARE_DEBUG,
 							esoc_clink);
 		if (ret) {
@@ -159,6 +196,7 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
 			return ret;
 		}
 		mdm_drv->mode = PWR_OFF;
+		esoc_client_link_power_off(esoc_clink, false);
 	}
 	return 0;
 }
@@ -185,6 +223,7 @@ static int mdm_subsys_powerup(const struct subsys_desc *crashed_subsys)
 			dev_err(&esoc_clink->dev, "pwr on fail\n");
 			return ret;
 		}
+		esoc_client_link_power_on(esoc_clink, false);
 	} else if (mdm_drv->mode == IN_DEBUG) {
 		ret = clink_ops->cmd_exe(ESOC_EXIT_DEBUG, esoc_clink);
 		if (ret) {
@@ -197,6 +236,7 @@ static int mdm_subsys_powerup(const struct subsys_desc *crashed_subsys)
 			dev_err(&esoc_clink->dev, "pwr on fail\n");
 			return ret;
 		}
+		esoc_client_link_power_on(esoc_clink, true);
 	}
 
 	/*

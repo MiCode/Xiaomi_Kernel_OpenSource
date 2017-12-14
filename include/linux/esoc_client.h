@@ -16,6 +16,15 @@
 #include <linux/esoc_ctrl.h>
 #include <linux/notifier.h>
 
+struct esoc_client_hook {
+	char *name;
+	void *priv;
+	enum esoc_client_hook_prio prio;
+	int (*esoc_link_power_on)(void *priv, bool mdm_crashed);
+	void (*esoc_link_power_off)(void *priv, bool mdm_crashed);
+	u64 (*esoc_link_get_id)(void *priv);
+};
+
 /*
  * struct esoc_desc: Describes an external soc
  * @name: external soc name
@@ -35,6 +44,10 @@ struct esoc_desc *devm_register_esoc_client(struct device *dev,
 void devm_unregister_esoc_client(struct device *dev,
 						struct esoc_desc *esoc_desc);
 int esoc_register_client_notifier(struct notifier_block *nb);
+int esoc_register_client_hook(struct esoc_desc *desc,
+				struct esoc_client_hook *client_hook);
+int esoc_unregister_client_hook(struct esoc_desc *desc,
+				struct esoc_client_hook *client_hook);
 #else
 static inline struct esoc_desc *devm_register_esoc_client(struct device *dev,
 							const char *name)
@@ -46,6 +59,16 @@ static inline void devm_unregister_esoc_client(struct device *dev,
 {
 }
 static inline int esoc_register_client_notifier(struct notifier_block *nb)
+{
+	return -EIO;
+}
+int esoc_register_client_hook(struct esoc_desc *desc,
+				struct esoc_client_hook *client_hook)
+{
+	return -EIO;
+}
+int esoc_unregister_client_hook(struct esoc_desc *desc,
+				struct esoc_client_hook *client_hook);
 {
 	return -EIO;
 }

@@ -1,6 +1,18 @@
 #ifndef _UAPI_ESOC_CTRL_H_
 #define _UAPI_ESOC_CTRL_H_
 
+#include <linux/types.h>
+
+enum esoc_client_hook_prio {
+	ESOC_MHI_HOOK,
+	ESOC_MAX_HOOKS
+};
+
+struct esoc_link_data {
+	enum esoc_client_hook_prio prio;
+	__u64 link_id;
+};
+
 #define ESOC_CODE		0xCC
 
 #define ESOC_CMD_EXE		_IOW(ESOC_CODE, 1, unsigned int)
@@ -11,6 +23,7 @@
 #define ESOC_WAIT_FOR_CRASH	_IOR(ESOC_CODE, 6, unsigned int)
 #define ESOC_REG_REQ_ENG	_IO(ESOC_CODE, 7)
 #define ESOC_REG_CMD_ENG	_IO(ESOC_CODE, 8)
+#define ESOC_GET_LINK_ID	_IOWR(ESOC_CODE, 9, struct esoc_link_data)
 
 #define ESOC_REQ_SEND_SHUTDOWN	ESOC_REQ_SEND_SHUTDOWN
 
