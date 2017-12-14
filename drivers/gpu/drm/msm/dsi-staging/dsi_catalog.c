@@ -76,6 +76,8 @@ static void dsi_catalog_cmn_init(struct dsi_ctrl_hw *ctrl,
 		ctrl->ops.clamp_disable = dsi_ctrl_hw_14_clamp_disable;
 		ctrl->ops.reg_dump_to_buffer =
 			dsi_ctrl_hw_14_reg_dump_to_buffer;
+		ctrl->ops.schedule_dma_cmd = NULL;
+		ctrl->ops.get_cont_splash_status = NULL;
 		break;
 	case DSI_CTRL_VERSION_2_0:
 		ctrl->ops.setup_lane_map = dsi_ctrl_hw_20_setup_lane_map;
@@ -88,9 +90,13 @@ static void dsi_catalog_cmn_init(struct dsi_ctrl_hw *ctrl,
 		ctrl->ops.ulps_ops.get_lanes_in_ulps = NULL;
 		ctrl->ops.clamp_enable = NULL;
 		ctrl->ops.clamp_disable = NULL;
+		ctrl->ops.schedule_dma_cmd = NULL;
+		ctrl->ops.get_cont_splash_status = NULL;
 		break;
 	case DSI_CTRL_VERSION_2_2:
 		ctrl->ops.phy_reset_config = dsi_ctrl_hw_22_phy_reset_config;
+		ctrl->ops.get_cont_splash_status =
+			dsi_ctrl_hw_22_get_cont_splash_status;
 		ctrl->ops.setup_lane_map = dsi_ctrl_hw_20_setup_lane_map;
 		ctrl->ops.wait_for_lane_idle =
 			dsi_ctrl_hw_20_wait_for_lane_idle;
@@ -101,6 +107,7 @@ static void dsi_catalog_cmn_init(struct dsi_ctrl_hw *ctrl,
 		ctrl->ops.ulps_ops.get_lanes_in_ulps = NULL;
 		ctrl->ops.clamp_enable = NULL;
 		ctrl->ops.clamp_disable = NULL;
+		ctrl->ops.schedule_dma_cmd = dsi_ctrl_hw_22_schedule_dma_cmd;
 		break;
 	default:
 		break;
@@ -113,6 +120,7 @@ static void dsi_catalog_cmn_init(struct dsi_ctrl_hw *ctrl,
  * @version:     DSI controller version.
  * @index:       DSI controller instance ID.
  * @phy_isolation_enabled:       DSI controller works isolated from phy.
+ * @null_insertion_enabled:      DSI controller inserts null packet.
  *
  * This function setups the catalog information in the dsi_ctrl_hw object.
  *
@@ -120,7 +128,7 @@ static void dsi_catalog_cmn_init(struct dsi_ctrl_hw *ctrl,
  */
 int dsi_catalog_ctrl_setup(struct dsi_ctrl_hw *ctrl,
 		   enum dsi_ctrl_version version, u32 index,
-		   bool phy_isolation_enabled)
+		   bool phy_isolation_enabled, bool null_insertion_enabled)
 {
 	int rc = 0;
 
@@ -131,6 +139,7 @@ int dsi_catalog_ctrl_setup(struct dsi_ctrl_hw *ctrl,
 	}
 
 	ctrl->index = index;
+	ctrl->null_insertion_enabled = null_insertion_enabled;
 	set_bit(DSI_CTRL_VIDEO_TPG, ctrl->feature_map);
 	set_bit(DSI_CTRL_CMD_TPG, ctrl->feature_map);
 	set_bit(DSI_CTRL_VARIABLE_REFRESH_RATE, ctrl->feature_map);

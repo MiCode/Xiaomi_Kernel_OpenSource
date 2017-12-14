@@ -43,15 +43,31 @@ static int msm_framebuffer_create_handle(struct drm_framebuffer *fb,
 		struct drm_file *file_priv,
 		unsigned int *handle)
 {
-	struct msm_framebuffer *msm_fb = to_msm_framebuffer(fb);
+	struct msm_framebuffer *msm_fb;
+
+	if (!fb) {
+		DRM_ERROR("from:%pS null fb\n", __builtin_return_address(0));
+		return -EINVAL;
+	}
+
+	msm_fb = to_msm_framebuffer(fb);
+
 	return drm_gem_handle_create(file_priv,
 			msm_fb->planes[0], handle);
 }
 
 static void msm_framebuffer_destroy(struct drm_framebuffer *fb)
 {
-	struct msm_framebuffer *msm_fb = to_msm_framebuffer(fb);
-	int i, n = fb->format->num_planes;
+	struct msm_framebuffer *msm_fb;
+	int i, n;
+
+	if (!fb) {
+		DRM_ERROR("from:%pS null fb\n", __builtin_return_address(0));
+		return;
+	}
+
+	msm_fb = to_msm_framebuffer(fb);
+	n = drm_format_num_planes(fb->pixel_format);
 
 	DBG("destroy: FB ID: %d (%p)", fb->base.id, fb);
 
@@ -74,9 +90,16 @@ static const struct drm_framebuffer_funcs msm_framebuffer_funcs = {
 #ifdef CONFIG_DEBUG_FS
 void msm_framebuffer_describe(struct drm_framebuffer *fb, struct seq_file *m)
 {
-	struct msm_framebuffer *msm_fb = to_msm_framebuffer(fb);
-	int i, n = fb->format->num_planes;
+	struct msm_framebuffer *msm_fb;
+	int i, n;
 
+	if (!fb) {
+		DRM_ERROR("from:%pS null fb\n", __builtin_return_address(0));
+		return;
+	}
+
+	msm_fb = to_msm_framebuffer(fb);
+	n = drm_format_num_planes(fb->pixel_format);
 	seq_printf(m, "fb: %dx%d@%4.4s (%2d, ID:%d)\n",
 			fb->width, fb->height, (char *)&fb->format->format,
 			drm_framebuffer_read_refcount(fb), fb->base.id);
@@ -91,8 +114,14 @@ void msm_framebuffer_describe(struct drm_framebuffer *fb, struct seq_file *m)
 
 void msm_framebuffer_set_kmap(struct drm_framebuffer *fb, bool enable)
 {
-	struct msm_framebuffer *msm_fb = to_msm_framebuffer(fb);
+	struct msm_framebuffer *msm_fb;
 
+	if (!fb) {
+		DRM_ERROR("from:%pS null fb\n", __builtin_return_address(0));
+		return;
+	}
+
+	msm_fb = to_msm_framebuffer(fb);
 	if (enable)
 		msm_fb->flags |= MSM_FRAMEBUFFER_FLAG_KMAP;
 	else
@@ -101,10 +130,17 @@ void msm_framebuffer_set_kmap(struct drm_framebuffer *fb, bool enable)
 
 static int msm_framebuffer_kmap(struct drm_framebuffer *fb)
 {
-	struct msm_framebuffer *msm_fb = to_msm_framebuffer(fb);
-	int i, n = drm_format_num_planes(fb->pixel_format);
+	struct msm_framebuffer *msm_fb;
+	int i, n;
 	struct drm_gem_object *bo;
 
+	if (!fb) {
+		DRM_ERROR("from:%pS null fb\n", __builtin_return_address(0));
+		return -EINVAL;
+	}
+
+	msm_fb = to_msm_framebuffer(fb);
+	n = drm_format_num_planes(fb->pixel_format);
 	if (atomic_inc_return(&msm_fb->kmap_count) > 1)
 		return 0;
 
@@ -125,10 +161,17 @@ static int msm_framebuffer_kmap(struct drm_framebuffer *fb)
 
 static void msm_framebuffer_kunmap(struct drm_framebuffer *fb)
 {
-	struct msm_framebuffer *msm_fb = to_msm_framebuffer(fb);
-	int i, n = drm_format_num_planes(fb->pixel_format);
+	struct msm_framebuffer *msm_fb;
+	int i, n;
 	struct drm_gem_object *bo;
 
+	if (!fb) {
+		DRM_ERROR("from:%pS null fb\n", __builtin_return_address(0));
+		return;
+	}
+
+	msm_fb = to_msm_framebuffer(fb);
+	n = drm_format_num_planes(fb->pixel_format);
 	if (atomic_dec_return(&msm_fb->kmap_count) > 0)
 		return;
 
@@ -152,10 +195,17 @@ static void msm_framebuffer_kunmap(struct drm_framebuffer *fb)
 int msm_framebuffer_prepare(struct drm_framebuffer *fb,
 		struct msm_gem_address_space *aspace)
 {
-	struct msm_framebuffer *msm_fb = to_msm_framebuffer(fb);
-	int ret, i, n = fb->format->num_planes;
+	struct msm_framebuffer *msm_fb;
+	int ret, i, n;
 	uint64_t iova;
 
+	if (!fb) {
+		DRM_ERROR("from:%pS null fb\n", __builtin_return_address(0));
+		return -EINVAL;
+	}
+
+	msm_fb = to_msm_framebuffer(fb);
+	n = drm_format_num_planes(fb->pixel_format);
 	for (i = 0; i < n; i++) {
 		ret = msm_gem_get_iova(msm_fb->planes[i], aspace, &iova);
 		DBG("FB[%u]: iova[%d]: %08llx (%d)", fb->base.id, i, iova, ret);
@@ -172,8 +222,16 @@ int msm_framebuffer_prepare(struct drm_framebuffer *fb,
 void msm_framebuffer_cleanup(struct drm_framebuffer *fb,
 		struct msm_gem_address_space *aspace)
 {
-	struct msm_framebuffer *msm_fb = to_msm_framebuffer(fb);
-	int i, n = fb->format->num_planes;
+	struct msm_framebuffer *msm_fb;
+	int i, n;
+
+	if (fb == NULL) {
+		DRM_ERROR("from:%pS null fb\n", __builtin_return_address(0));
+		return;
+	}
+
+	msm_fb = to_msm_framebuffer(fb);
+	n = drm_format_num_planes(fb->pixel_format);
 
 	if (msm_fb->flags & MSM_FRAMEBUFFER_FLAG_KMAP)
 		msm_framebuffer_kunmap(fb);
@@ -185,7 +243,14 @@ void msm_framebuffer_cleanup(struct drm_framebuffer *fb,
 uint32_t msm_framebuffer_iova(struct drm_framebuffer *fb,
 		struct msm_gem_address_space *aspace, int plane)
 {
-	struct msm_framebuffer *msm_fb = to_msm_framebuffer(fb);
+	struct msm_framebuffer *msm_fb;
+
+	if (!fb) {
+		DRM_ERROR("from:%pS null fb\n", __builtin_return_address(0));
+		return -EINVAL;
+	}
+
+	msm_fb = to_msm_framebuffer(fb);
 	if (!msm_fb->planes[plane])
 		return 0;
 	return msm_gem_iova(msm_fb->planes[plane], aspace) + fb->offsets[plane];
@@ -194,9 +259,15 @@ uint32_t msm_framebuffer_iova(struct drm_framebuffer *fb,
 uint32_t msm_framebuffer_phys(struct drm_framebuffer *fb,
 		int plane)
 {
-	struct msm_framebuffer *msm_fb = to_msm_framebuffer(fb);
+	struct msm_framebuffer *msm_fb;
 	dma_addr_t phys_addr;
 
+	if (!fb) {
+		DRM_ERROR("from:%pS null fb\n", __builtin_return_address(0));
+		return -EINVAL;
+	}
+
+	msm_fb = to_msm_framebuffer(fb);
 	if (!msm_fb->planes[plane])
 		return 0;
 
@@ -209,7 +280,14 @@ uint32_t msm_framebuffer_phys(struct drm_framebuffer *fb,
 
 struct drm_gem_object *msm_framebuffer_bo(struct drm_framebuffer *fb, int plane)
 {
-	struct msm_framebuffer *msm_fb = to_msm_framebuffer(fb);
+	struct msm_framebuffer *msm_fb;
+
+	if (!fb) {
+		DRM_ERROR("from:%pS null fb\n", __builtin_return_address(0));
+		return ERR_PTR(-EINVAL);
+	}
+
+	msm_fb = to_msm_framebuffer(fb);
 	return msm_fb->planes[plane];
 }
 

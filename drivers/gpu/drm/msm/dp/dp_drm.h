@@ -32,15 +32,28 @@ struct dp_bridge {
 };
 
 /**
+ * dp_connector_pre_kickoff - callback to perform pre kickoff initialization
+ * @connector: Pointer to drm connector structure
+ * @display: Pointer to private display handle
+ * @params: Pointer to kickoff parameters
+ * Returns: Zero on success
+ */
+int dp_connector_pre_kickoff(struct drm_connector *connector,
+		void *display,
+		struct msm_display_kickoff_params *params);
+
+/**
  * dp_connector_post_init - callback to perform additional initialization steps
  * @connector: Pointer to drm connector structure
  * @info: Pointer to sde connector info structure
  * @display: Pointer to private display handle
+ * @mode_info: Pointer to mode info structure
  * Returns: Zero on success
  */
 int dp_connector_post_init(struct drm_connector *connector,
 		void *info,
-		void *display);
+		void *display,
+		struct msm_mode_info *mode_info);
 
 /**
  * dp_connector_detect - callback to determine if connector is connected
@@ -78,11 +91,12 @@ enum drm_mode_status dp_connector_mode_valid(struct drm_connector *connector,
  * @drm_mode: Display mode set for the display
  * @mode_info: Out parameter. Information of the mode
  * @max_mixer_width: max width supported by HW layer mixer
+ * @display: Pointer to private display structure
  * Returns: zero on success
  */
 int dp_connector_get_mode_info(const struct drm_display_mode *drm_mode,
 		struct msm_mode_info *mode_info,
-		u32 max_mixer_width);
+		u32 max_mixer_width, void *display);
 
 int dp_connector_get_info(struct msm_display_info *info, void *display);
 

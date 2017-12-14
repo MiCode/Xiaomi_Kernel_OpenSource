@@ -493,9 +493,11 @@ static int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
 	}
 
 	for (i = 0; i < count; i++) {
-		/* TODO:  handle last command */
 		if (state == DSI_CMD_SET_STATE_LP)
 			cmds->msg.flags |= MIPI_DSI_MSG_USE_LPM;
+
+		if (cmds->last_command)
+			cmds->msg.flags |= MIPI_DSI_MSG_LASTCOMMAND;
 
 		len = ops->transfer(panel->host, &cmds->msg);
 		if (len < 0) {
@@ -683,6 +685,21 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 				  struct device_node *of_node)
 {
 	int rc = 0;
+	u64 tmp64;
+	struct dsi_display_mode *display_mode;
+
+	display_mode = container_of(mode, struct dsi_display_mode, timing);
+
+	rc = of_property_read_u64(of_node,
+			"qcom,mdss-dsi-panel-clockrate", &tmp64);
+	if (rc == -EOVERFLOW) {
+		tmp64 = 0;
+		rc = of_property_read_u32(of_node,
+			"qcom,mdss-dsi-panel-clockrate", (u32 *)&tmp64);
+	}
+
+	mode->clk_rate_hz = !rc ? tmp64 : 0;
+	display_mode->priv_info->clk_rate_hz = mode->clk_rate_hz;
 
 	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-framerate",
 				  &mode->refresh_rate);
@@ -728,6 +745,10 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 	if (rc)
 		pr_err("qcom,mdss-dsi-h-sync-skew is not defined, rc=%d\n", rc);
 
+	pr_debug("panel horz active:%d front_portch:%d back_porch:%d sync_skew:%d\n",
+		mode->h_active, mode->h_front_porch, mode->h_back_porch,
+		mode->h_sync_width);
+
 	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-height",
 				  &mode->v_active);
 	if (rc) {
@@ -759,6 +780,9 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 		       rc);
 		goto error;
 	}
+	pr_debug("panel vert active:%d front_portch:%d back_porch:%d pulse_width:%d\n",
+		mode->v_active, mode->v_front_porch, mode->v_back_porch,
+		mode->v_sync_width);
 
 error:
 	return rc;
@@ -2158,7 +2182,9 @@ static int dsi_panel_parse_dsc_params(struct dsi_display_mode *mode,
 
 	intf_width = mode->timing.h_active;
 	if (intf_width % priv_info->dsc.slice_width) {
-		pr_err("invalid slice width for the panel\n");
+		pr_err("invalid slice width for the intf width:%d slice width:%d\n",
+			intf_width, priv_info->dsc.slice_width);
+		rc = -EINVAL;
 		goto error;
 	}
 
@@ -2377,12 +2403,19 @@ static int dsi_panel_parse_roi_alignment(struct device_node *of_node,
 	return rc;
 }
 
-static int dsi_panel_parse_partial_update_caps(struct dsi_panel *panel,
-					       struct device_node *of_node)
+static int dsi_panel_parse_partial_update_caps(struct dsi_display_mode *mode,
+				struct device_node *of_node)
 {
-	struct msm_roi_caps *roi_caps = &panel->roi_caps;
+	struct msm_roi_caps *roi_caps = NULL;
 	const char *data;
 	int rc = 0;
+
+	if (!mode || !mode->priv_info) {
+		pr_err("invalid arguments\n");
+		return -EINVAL;
+	}
+
+	roi_caps = &mode->priv_info->roi_caps;
 
 	memset(roi_caps, 0, sizeof(*roi_caps));
 
@@ -2390,8 +2423,17 @@ static int dsi_panel_parse_partial_update_caps(struct dsi_panel *panel,
 	if (data) {
 		if (!strcmp(data, "dual_roi"))
 			roi_caps->num_roi = 2;
-		else
+		else if (!strcmp(data, "single_roi"))
 			roi_caps->num_roi = 1;
+		else {
+			pr_info(
+			"invalid value for qcom,partial-update-enabled: %s\n",
+			data);
+			return 0;
+		}
+	} else {
+		pr_info("partial update disabled as the property is not set\n");
+		return 0;
 	}
 
 	roi_caps->merge_rois = of_property_read_bool(of_node,
@@ -2404,7 +2446,7 @@ static int dsi_panel_parse_partial_update_caps(struct dsi_panel *panel,
 
 	if (roi_caps->enabled)
 		rc = dsi_panel_parse_roi_alignment(of_node,
-				&panel->roi_caps.align);
+				&roi_caps->align);
 
 	if (rc)
 		memset(roi_caps, 0, sizeof(*roi_caps));
@@ -2512,8 +2554,10 @@ static int dsi_panel_parse_esd_config(struct dsi_panel *panel,
 	struct property *data;
 	const char *string;
 	struct drm_panel_esd_config *esd_config;
+	u8 *esd_mode = NULL;
 
 	esd_config = &panel->esd_config;
+	esd_config->status_mode = ESD_MODE_MAX;
 	esd_config->esd_enabled = of_property_read_bool(of_node,
 		"qcom,esd-check-enabled");
 
@@ -2635,6 +2679,15 @@ static int dsi_panel_parse_esd_config(struct dsi_panel *panel,
 				esd_config->groups * status_len);
 	}
 
+	if (panel->esd_config.status_mode == ESD_MODE_REG_READ)
+		esd_mode = "register_read";
+	else if (panel->esd_config.status_mode == ESD_MODE_SW_BTA)
+		esd_mode = "bta_trigger";
+	else if (panel->esd_config.status_mode ==  ESD_MODE_PANEL_TE)
+		esd_mode = "te_check";
+
+	pr_info("ESD enabled with mode: %s\n", esd_mode);
+
 	return 0;
 
 error4:
@@ -2710,10 +2763,6 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	if (rc)
 		pr_err("failed to parse hdr config, rc=%d\n", rc);
 
-	rc = dsi_panel_parse_partial_update_caps(panel, of_node);
-	if (rc)
-		pr_debug("failed to partial update caps, rc=%d\n", rc);
-
 	rc = dsi_panel_get_mode_count(panel, of_node);
 	if (rc) {
 		pr_err("failed to get mode count, rc=%d\n", rc);
@@ -2725,20 +2774,8 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 		pr_debug("failed to get dms info, rc=%d\n", rc);
 
 	rc = dsi_panel_parse_esd_config(panel, of_node);
-	if (rc) {
+	if (rc)
 		pr_debug("failed to parse esd config, rc=%d\n", rc);
-	} else {
-		u8 *esd_mode = NULL;
-
-		if (panel->esd_config.status_mode == ESD_MODE_REG_READ)
-			esd_mode = "register_read";
-		else if (panel->esd_config.status_mode == ESD_MODE_SW_BTA)
-			esd_mode = "bta_trigger";
-		else if (panel->esd_config.status_mode ==  ESD_MODE_PANEL_TE)
-			esd_mode = "te_check";
-
-		pr_info("ESD enabled with mode: %s\n", esd_mode);
-	}
 
 	panel->panel_of_node = of_node;
 	drm_panel_init(&panel->drm_panel);
@@ -3034,6 +3071,10 @@ int dsi_panel_get_mode(struct dsi_panel *panel,
 			"failed to parse panel phy timings, rc=%d\n", rc);
 			goto parse_fail;
 		}
+
+		rc = dsi_panel_parse_partial_update_caps(mode, child_np);
+		if (rc)
+			pr_err("failed to partial update caps, rc=%d\n", rc);
 	}
 	goto done;
 
@@ -3075,6 +3116,7 @@ int dsi_panel_get_host_cfg_for_mode(struct dsi_panel *panel,
 	config->video_timing.dsc_enabled = mode->priv_info->dsc_enabled;
 	config->video_timing.dsc = &mode->priv_info->dsc;
 
+	config->bit_clk_rate_hz = mode->priv_info->clk_rate_hz;
 	config->esc_clk_rate_hz = 19200000;
 	mutex_unlock(&panel->panel_lock);
 	return rc;

@@ -29,9 +29,8 @@
 #define SDE_ENCODER_FRAME_EVENT_PANEL_DEAD		BIT(2)
 #define SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE	BIT(3)
 #define SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE	BIT(4)
-#define SDE_ENCODER_FRAME_EVENT_IDLE			BIT(5)
 
-#define IDLE_TIMEOUT	(66 - 16/2)
+#define IDLE_POWERCOLLAPSE_DURATION	(66 - 16/2)
 
 /**
  * Encoder functions and data types
@@ -40,6 +39,7 @@
  * @needs_cdm:	Encoder requests a CDM based on pixel format conversion needs
  * @display_num_of_h_tiles: Number of horizontal tiles in case of split
  *                          interface
+ * @is_primary: set to true if the display is primary display
  * @topology:   Topology of the display
  */
 struct sde_encoder_hw_resources {
@@ -47,6 +47,7 @@ struct sde_encoder_hw_resources {
 	enum sde_intf_mode wbs[WB_MAX];
 	bool needs_cdm;
 	u32 display_num_of_h_tiles;
+	bool is_primary;
 	struct msm_display_topology topology;
 };
 
@@ -113,8 +114,9 @@ struct sde_rsc_client *sde_encoder_get_rsc_client(struct drm_encoder *encoder);
  *	Delayed: Block until next trigger can be issued.
  * @encoder:	encoder pointer
  * @params:	kickoff time parameters
+ * @Returns:	Zero on success, last detected error otherwise
  */
-void sde_encoder_prepare_for_kickoff(struct drm_encoder *encoder,
+int sde_encoder_prepare_for_kickoff(struct drm_encoder *encoder,
 		struct sde_encoder_kickoff_params *params);
 
 /**
@@ -128,8 +130,10 @@ void sde_encoder_trigger_kickoff_pending(struct drm_encoder *encoder);
  * sde_encoder_kickoff - trigger a double buffer flip of the ctl path
  *	(i.e. ctl flush and start) immediately.
  * @encoder:	encoder pointer
+ * @is_error:	whether the current commit needs to be aborted and replaced
+ *		with a 'safe' commit
  */
-void sde_encoder_kickoff(struct drm_encoder *encoder);
+void sde_encoder_kickoff(struct drm_encoder *encoder, bool is_error);
 
 /**
  * sde_encoder_wait_for_event - Waits for encoder events
@@ -158,17 +162,17 @@ int sde_encoder_wait_for_event(struct drm_encoder *drm_encoder,
 enum sde_intf_mode sde_encoder_get_intf_mode(struct drm_encoder *encoder);
 
 /**
+ * sde_encoder_control_te - control enabling/disabling VSYNC_IN_EN
+ * @encoder:	encoder pointer
+ * @enable:	boolean to indicate enable/disable
+ */
+void sde_encoder_control_te(struct drm_encoder *encoder, bool enable);
+
+/**
  * sde_encoder_virt_restore - restore the encoder configs
  * @encoder:	encoder pointer
  */
 void sde_encoder_virt_restore(struct drm_encoder *encoder);
-
-/**
- * sde_encoder_is_dsc_enabled - check if encoder is in DSC mode
- * @drm_enc: Pointer to drm encoder object
- * @Return: true if encoder is in DSC mode
- */
-bool sde_encoder_is_dsc_enabled(struct drm_encoder *drm_enc);
 
 /**
  * sde_encoder_is_dsc_merge - check if encoder is in DSC merge mode
@@ -207,14 +211,5 @@ void sde_encoder_destroy(struct drm_encoder *drm_enc);
  * @drm_enc:    Pointer to previously created drm encoder structure
  */
 void sde_encoder_prepare_commit(struct drm_encoder *drm_enc);
-
-/**
- * sde_encoder_set_idle_timeout - set the idle timeout for video
- *                    and command mode encoders.
- * @drm_enc:    Pointer to previously created drm encoder structure
- * @idle_timeout:    idle timeout duration in milliseconds
- */
-void sde_encoder_set_idle_timeout(struct drm_encoder *drm_enc,
-							u32 idle_timeout);
 
 #endif /* __SDE_ENCODER_H__ */

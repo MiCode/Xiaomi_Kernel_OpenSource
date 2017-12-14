@@ -35,6 +35,8 @@
  *				   reading data from memory.
  * @DSI_CTRL_CMD_FETCH_MEMORY:     Fetch command from memory through AXI bus
  *				   and transfer it.
+ * @DSI_CTRL_CMD_LAST_COMMAND:     Trigger the DMA cmd transfer if this is last
+ *				   command in the batch.
  */
 #define DSI_CTRL_CMD_READ             0x1
 #define DSI_CTRL_CMD_BROADCAST        0x2
@@ -42,6 +44,7 @@
 #define DSI_CTRL_CMD_DEFER_TRIGGER    0x8
 #define DSI_CTRL_CMD_FIFO_STORE       0x10
 #define DSI_CTRL_CMD_FETCH_MEMORY     0x20
+#define DSI_CTRL_CMD_LAST_COMMAND     0x40
 
 /**
  * enum dsi_power_state - defines power states for dsi controller.
@@ -192,6 +195,8 @@ struct dsi_ctrl_interrupts {
  * @misr_cache:          Cached Frame MISR value
  * @phy_isolation_enabled:    A boolean property allows to isolate the phy from
  *                          dsi controller and run only dsi controller.
+ * @null_insertion_enabled:  A boolean property to allow dsi controller to
+ *                           insert null packet.
  */
 struct dsi_ctrl {
 	struct platform_device *pdev;
@@ -225,6 +230,7 @@ struct dsi_ctrl {
 	struct drm_gem_object *tx_cmd_buf;
 	u32 cmd_buffer_size;
 	u32 cmd_buffer_iova;
+	u32 cmd_len;
 	void *vaddr;
 
 	/* Debug Information */
@@ -235,6 +241,7 @@ struct dsi_ctrl {
 	u32 misr_cache;
 
 	bool phy_isolation_enabled;
+	bool null_insertion_enabled;
 };
 
 /**
@@ -388,6 +395,7 @@ int dsi_ctrl_host_timing_update(struct dsi_ctrl *dsi_ctrl);
 /**
  * dsi_ctrl_host_init() - Initialize DSI host hardware.
  * @dsi_ctrl:        DSI controller handle.
+ * @is_splash_enabled:       boolean signifying splash status.
  *
  * Initializes DSI controller hardware with host configuration provided by
  * dsi_ctrl_update_host_config(). Initialization can be performed only during
@@ -396,7 +404,7 @@ int dsi_ctrl_host_timing_update(struct dsi_ctrl *dsi_ctrl);
  *
  * Return: error code.
  */
-int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl);
+int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl, bool is_splash_enabled);
 
 /**
  * dsi_ctrl_host_deinit() - De-Initialize DSI host hardware.
@@ -484,6 +492,17 @@ int dsi_ctrl_cmd_transfer(struct dsi_ctrl *dsi_ctrl,
  * Return: error code.
  */
 int dsi_ctrl_cmd_tx_trigger(struct dsi_ctrl *dsi_ctrl, u32 flags);
+
+/**
+ * dsi_ctrl_update_host_engine_state_for_cont_splash() - update engine
+ *                                 states for cont splash usecase
+ * @dsi_ctrl:              DSI controller handle.
+ * @state:                 DSI engine state
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_update_host_engine_state_for_cont_splash(struct dsi_ctrl *dsi_ctrl,
+				enum dsi_engine_state state);
 
 /**
  * dsi_ctrl_set_power_state() - set power state for dsi controller

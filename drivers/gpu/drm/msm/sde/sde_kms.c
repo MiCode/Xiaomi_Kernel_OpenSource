@@ -433,8 +433,7 @@ static int sde_kms_prepare_secure_transition(struct msm_kms *kms,
 		 * secure transition can be initiated.
 		 */
 		ops = sde_crtc_get_secure_transition_ops(crtc,
-				old_crtc_state,
-				old_valid_fb);
+				old_crtc_state, old_valid_fb);
 		if (ops < 0) {
 			SDE_ERROR("invalid secure operations %x\n", ops);
 			return ops;
@@ -444,9 +443,8 @@ static int sde_kms_prepare_secure_transition(struct msm_kms *kms,
 			goto no_ops;
 
 		SDE_DEBUG("%d:secure operations(%x) started on state:%pK\n",
-				crtc->base.id,
-				ops,
-				crtc->state);
+				crtc->base.id, ops, crtc->state);
+		SDE_EVT32(DRMID(crtc), ops, crtc->state, old_valid_fb);
 
 		/* 3. Perform operations needed for secure transition */
 		if  (ops & SDE_KMS_OPS_WAIT_FOR_TX_DONE) {
@@ -485,6 +483,7 @@ static int sde_kms_prepare_secure_transition(struct msm_kms *kms,
 				}
 			}
 		}
+		SDE_EVT32(DRMID(crtc), SDE_EVTLOG_FUNC_EXIT);
 		SDE_DEBUG("secure operations completed\n");
 	}
 
@@ -499,6 +498,9 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 	struct msm_drm_private *priv;
 	struct drm_device *dev;
 	struct drm_encoder *encoder;
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *crtc_state;
+	int i;
 
 	if (!kms)
 		return;
@@ -511,9 +513,15 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
 
-	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head)
-		if (encoder->crtc != NULL)
+	for_each_crtc_in_state(state, crtc, crtc_state, i) {
+		list_for_each_entry(encoder, &dev->mode_config.encoder_list,
+				head) {
+			if (encoder->crtc != crtc)
+				continue;
+
 			sde_encoder_prepare_commit(encoder);
+		}
+	}
 
 	/*
 	 * NOTE: for secure use cases we want to apply the new HW
@@ -533,7 +541,7 @@ static void sde_kms_commit(struct msm_kms *kms,
 	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i) {
 		if (crtc->state->active) {
 			SDE_EVT32(DRMID(crtc));
-			sde_crtc_commit_kickoff(crtc);
+			sde_crtc_commit_kickoff(crtc, old_crtc_state);
 		}
 	}
 }
@@ -796,6 +804,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.get_mode_info  = dp_connector_get_mode_info,
 		.send_hpd_event = dp_connector_send_hpd_event,
 		.check_status = NULL,
+		.pre_kickoff  = dp_connector_pre_kickoff,
 	};
 	struct msm_display_info info;
 	struct drm_encoder *encoder;
@@ -1087,6 +1096,30 @@ fail:
 fail_irq:
 	sde_core_irq_domain_fini(sde_kms);
 	return ret;
+}
+
+/**
+ * sde_kms_timeline_status - provides current timeline status
+ *    This API should be called without mode config lock.
+ * @dev: Pointer to drm device
+ */
+void sde_kms_timeline_status(struct drm_device *dev)
+{
+	struct drm_crtc *crtc;
+	struct drm_connector *conn;
+
+	if (!dev) {
+		SDE_ERROR("invalid drm device node\n");
+		return;
+	}
+
+	drm_for_each_crtc(crtc, dev)
+		sde_crtc_timeline_status(crtc);
+
+	mutex_lock(&dev->mode_config.mutex);
+	drm_for_each_connector(conn, dev)
+		sde_conn_timeline_status(conn);
+	mutex_unlock(&dev->mode_config.mutex);
 }
 
 /**
@@ -1569,15 +1602,245 @@ static void sde_kms_destroy(struct msm_kms *kms)
 	kfree(sde_kms);
 }
 
+static void _sde_kms_plane_force_remove(struct drm_plane *plane,
+			struct drm_atomic_state *state)
+{
+	struct drm_plane_state *plane_state;
+	int ret = 0;
+
+	if (!plane->crtc)
+		return;
+
+	plane_state = drm_atomic_get_plane_state(state, plane);
+	if (IS_ERR(plane_state)) {
+		ret = PTR_ERR(plane_state);
+		SDE_ERROR("error %d getting plane %d state\n",
+				ret, plane->base.id);
+		return;
+	}
+
+	plane->old_fb = plane->fb;
+
+	SDE_DEBUG("disabling plane %d\n", plane->base.id);
+
+	ret = __drm_atomic_helper_disable_plane(plane, plane_state);
+	if (ret != 0)
+		SDE_ERROR("error %d disabling plane %d\n", ret,
+				plane->base.id);
+}
+
+static int _sde_kms_remove_fbs(struct sde_kms *sde_kms, struct drm_file *file,
+		struct drm_atomic_state *state)
+{
+	struct drm_device *dev = sde_kms->dev;
+	struct drm_framebuffer *fb, *tfb;
+	struct list_head fbs;
+	struct drm_plane *plane;
+	int ret = 0;
+	u32 plane_mask = 0;
+
+	INIT_LIST_HEAD(&fbs);
+
+	list_for_each_entry_safe(fb, tfb, &file->fbs, filp_head) {
+		if (drm_framebuffer_read_refcount(fb) > 1) {
+			list_move_tail(&fb->filp_head, &fbs);
+
+			drm_for_each_plane(plane, dev) {
+				if (plane->fb == fb) {
+					plane_mask |=
+						1 << drm_plane_index(plane);
+					 _sde_kms_plane_force_remove(
+								plane, state);
+				}
+			}
+		} else {
+			list_del_init(&fb->filp_head);
+			drm_framebuffer_unreference(fb);
+		}
+	}
+
+	if (list_empty(&fbs)) {
+		SDE_DEBUG("skip commit as no fb(s)\n");
+		drm_atomic_state_free(state);
+		return 0;
+	}
+
+	SDE_DEBUG("committing after removing all the pipes\n");
+	ret = drm_atomic_commit(state);
+
+	if (ret) {
+		/*
+		 * move the fbs back to original list, so it would be
+		 * handled during drm_release
+		 */
+		list_for_each_entry_safe(fb, tfb, &fbs, filp_head)
+			list_move_tail(&fb->filp_head, &file->fbs);
+
+		SDE_ERROR("atomic commit failed in preclose, ret:%d\n", ret);
+		goto end;
+	}
+
+	while (!list_empty(&fbs)) {
+		fb = list_first_entry(&fbs, typeof(*fb), filp_head);
+
+		list_del_init(&fb->filp_head);
+		drm_framebuffer_unreference(fb);
+	}
+
+end:
+	drm_atomic_clean_old_fb(dev, plane_mask, ret);
+
+	return ret;
+}
+
 static void sde_kms_preclose(struct msm_kms *kms, struct drm_file *file)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
 	struct drm_device *dev = sde_kms->dev;
 	struct msm_drm_private *priv = dev->dev_private;
 	unsigned int i;
+	struct drm_atomic_state *state = NULL;
+	int ret = 0;
 
 	for (i = 0; i < priv->num_crtcs; i++)
 		sde_crtc_cancel_pending_flip(priv->crtcs[i], file);
+
+	drm_modeset_lock_all(dev);
+	state = drm_atomic_state_alloc(dev);
+	if (!state) {
+		ret = -ENOMEM;
+		goto end;
+	}
+
+	state->acquire_ctx = dev->mode_config.acquire_ctx;
+
+	for (i = 0; i < TEARDOWN_DEADLOCK_RETRY_MAX; i++) {
+		ret = _sde_kms_remove_fbs(sde_kms, file, state);
+		if (ret != -EDEADLK)
+			break;
+		drm_atomic_state_clear(state);
+		drm_atomic_legacy_backoff(state);
+	}
+
+end:
+	if ((ret != 0) && state)
+		drm_atomic_state_free(state);
+
+	SDE_DEBUG("sde preclose done, ret:%d\n", ret);
+	drm_modeset_unlock_all(dev);
+}
+
+static int _sde_kms_helper_reset_custom_properties(struct sde_kms *sde_kms,
+		struct drm_atomic_state *state)
+{
+	struct drm_device *dev = sde_kms->dev;
+	struct drm_plane *plane;
+	struct drm_plane_state *plane_state;
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *crtc_state;
+	struct drm_connector *conn;
+	struct drm_connector_state *conn_state;
+	int ret = 0;
+
+	drm_for_each_plane(plane, dev) {
+		plane_state = drm_atomic_get_plane_state(state, plane);
+		if (IS_ERR(plane_state)) {
+			ret = PTR_ERR(plane_state);
+			SDE_ERROR("error %d getting plane %d state\n",
+					ret, DRMID(plane));
+			return ret;
+		}
+
+		ret = sde_plane_helper_reset_custom_properties(plane,
+				plane_state);
+		if (ret) {
+			SDE_ERROR("error %d resetting plane props %d\n",
+					ret, DRMID(plane));
+			return ret;
+		}
+	}
+	drm_for_each_crtc(crtc, dev) {
+		crtc_state = drm_atomic_get_crtc_state(state, crtc);
+		if (IS_ERR(crtc_state)) {
+			ret = PTR_ERR(crtc_state);
+			SDE_ERROR("error %d getting crtc %d state\n",
+					ret, DRMID(crtc));
+			return ret;
+		}
+
+		ret = sde_crtc_helper_reset_custom_properties(crtc, crtc_state);
+		if (ret) {
+			SDE_ERROR("error %d resetting crtc props %d\n",
+					ret, DRMID(crtc));
+			return ret;
+		}
+	}
+
+	drm_for_each_connector(conn, dev) {
+		conn_state = drm_atomic_get_connector_state(state, conn);
+		if (IS_ERR(conn_state)) {
+			ret = PTR_ERR(conn_state);
+			SDE_ERROR("error %d getting connector %d state\n",
+					ret, DRMID(conn));
+			return ret;
+		}
+
+		ret = sde_connector_helper_reset_custom_properties(conn,
+				conn_state);
+		if (ret) {
+			SDE_ERROR("error %d resetting connector props %d\n",
+					ret, DRMID(conn));
+			return ret;
+		}
+	}
+
+	return ret;
+}
+
+static void sde_kms_lastclose(struct msm_kms *kms)
+{
+	struct sde_kms *sde_kms;
+	struct drm_device *dev;
+	struct drm_atomic_state *state;
+	int ret, i;
+
+	if (!kms) {
+		SDE_ERROR("invalid argument\n");
+		return;
+	}
+
+	sde_kms = to_sde_kms(kms);
+	dev = sde_kms->dev;
+
+	state = drm_atomic_state_alloc(dev);
+	if (!state)
+		return;
+
+	state->acquire_ctx = dev->mode_config.acquire_ctx;
+
+	for (i = 0; i < TEARDOWN_DEADLOCK_RETRY_MAX; i++) {
+		/* add reset of custom properties to the state */
+		ret = _sde_kms_helper_reset_custom_properties(sde_kms, state);
+		if (ret)
+			break;
+
+		ret = drm_atomic_commit(state);
+		if (ret != -EDEADLK)
+			break;
+
+		drm_atomic_state_clear(state);
+		drm_atomic_legacy_backoff(state);
+		SDE_DEBUG("deadlock backoff on attempt %d\n", i);
+	}
+
+	if (ret) {
+		/**
+		 * on success, atomic state object ownership transfers to
+		 * framework, otherwise, free it here
+		 */
+		drm_atomic_state_free(state);
+		SDE_ERROR("failed to run last close: %d\n", ret);
+	}
 }
 
 static int sde_kms_check_secure_transition(struct msm_kms *kms,
@@ -1586,10 +1849,10 @@ static int sde_kms_check_secure_transition(struct msm_kms *kms,
 	struct sde_kms *sde_kms;
 	struct drm_device *dev;
 	struct drm_crtc *crtc;
-	struct drm_crtc *sec_crtc = NULL, *temp_crtc = NULL;
+	struct drm_crtc *cur_crtc = NULL, *global_crtc = NULL;
 	struct drm_crtc_state *crtc_state;
-	int secure_crtc_cnt = 0, active_crtc_cnt = 0;
-	int secure_global_crtc_cnt = 0, active_mode_crtc_cnt = 0;
+	int active_crtc_cnt = 0, global_active_crtc_cnt = 0;
+	bool sec_session = false, global_sec_session = false;
 	int i;
 
 	if (!kms || !state) {
@@ -1597,56 +1860,64 @@ static int sde_kms_check_secure_transition(struct msm_kms *kms,
 		SDE_ERROR("invalid arguments\n");
 	}
 
-	/* iterate state object for active and secure crtc */
+	sde_kms = to_sde_kms(kms);
+	dev = sde_kms->dev;
+
+	/* iterate state object for active secure/non-secure crtc */
 	for_each_crtc_in_state(state, crtc, crtc_state, i) {
 		if (!crtc_state->active)
 			continue;
+
 		active_crtc_cnt++;
 		if (sde_crtc_get_secure_level(crtc, crtc_state) ==
-				SDE_DRM_SEC_ONLY) {
-			sec_crtc = crtc;
-			secure_crtc_cnt++;
-		}
+				SDE_DRM_SEC_ONLY)
+			sec_session = true;
+
+		cur_crtc = crtc;
 	}
 
-	/* bail out from further validation if no secure ctrc */
-	if (!secure_crtc_cnt)
-		return 0;
-
-	if ((secure_crtc_cnt > MAX_ALLOWED_SECURE_CLIENT_CNT) ||
-		(secure_crtc_cnt &&
-		 (active_crtc_cnt > MAX_ALLOWED_CRTC_CNT_DURING_SECURE))) {
-		SDE_ERROR("Secure check failed active:%d, secure:%d\n",
-				active_crtc_cnt, secure_crtc_cnt);
-		return -EPERM;
-	}
-
-	sde_kms = to_sde_kms(kms);
-	dev = sde_kms->dev;
 	/* iterate global list for active and secure crtc */
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
-
 		if (!crtc->state->active)
 			continue;
 
-		active_mode_crtc_cnt++;
-
+		global_active_crtc_cnt++;
 		if (sde_crtc_get_secure_level(crtc, crtc->state) ==
-				SDE_DRM_SEC_ONLY) {
-			secure_global_crtc_cnt++;
-			temp_crtc = crtc;
-		}
+				SDE_DRM_SEC_ONLY)
+			global_sec_session = true;
+
+		global_crtc = crtc;
 	}
 
-	/**
-	 * if more than one crtc is active fail
-	 * check if the previous and current commit secure
-	 * are same
+	/*
+	 * - fail secure crtc commit, if any other crtc session is already
+	 *   in progress
+	 * - fail non-secure crtc commit, if any secure crtc session is already
+	 *   in progress
 	 */
-	if (secure_crtc_cnt && ((active_mode_crtc_cnt > 1) ||
-			(secure_global_crtc_cnt && (temp_crtc != sec_crtc))))
-		SDE_ERROR("Secure check failed active:%d crtc_id:%d\n",
-				active_mode_crtc_cnt, temp_crtc->base.id);
+	if (global_sec_session || sec_session) {
+		if ((global_active_crtc_cnt >
+					MAX_ALLOWED_CRTC_CNT_DURING_SECURE) ||
+		    (active_crtc_cnt > MAX_ALLOWED_CRTC_CNT_DURING_SECURE)) {
+			SDE_ERROR(
+			"Secure check failed global_active:%d active:%d\n",
+				global_active_crtc_cnt, active_crtc_cnt);
+			return -EPERM;
+
+		/*
+		 * As only one crtc is allowed during secure session, the crtc
+		 * in this commit should match with the global crtc, if it
+		 * exists
+		 */
+		} else if (global_crtc && (global_crtc != cur_crtc)) {
+			SDE_ERROR(
+			    "crtc%d-sec%d not allowed during crtc%d-sec%d\n",
+				cur_crtc->base.id, sec_session,
+				global_crtc->base.id, global_sec_session);
+			return -EPERM;
+		}
+
+	}
 
 	return 0;
 }
@@ -1909,6 +2180,7 @@ static const struct msm_kms_funcs kms_funcs = {
 	.irq_uninstall   = sde_irq_uninstall,
 	.irq             = sde_irq,
 	.preclose        = sde_kms_preclose,
+	.lastclose       = sde_kms_lastclose,
 	.prepare_fence   = sde_kms_prepare_fence,
 	.prepare_commit  = sde_kms_prepare_commit,
 	.commit          = sde_kms_commit,
@@ -1999,15 +2271,122 @@ fail:
 	return ret;
 }
 
+static void _sde_kms_pm_qos_add_request(struct sde_kms *sde_kms)
+{
+	struct pm_qos_request *req;
+	u32 cpu_mask;
+	u32 cpu_dma_latency;
+	int cpu;
+
+	if (!sde_kms || !sde_kms->catalog)
+		return;
+
+	cpu_mask = sde_kms->catalog->perf.cpu_mask;
+	cpu_dma_latency = sde_kms->catalog->perf.cpu_dma_latency;
+	if (!cpu_mask)
+		return;
+
+	req = &sde_kms->pm_qos_cpu_req;
+	req->type = PM_QOS_REQ_AFFINE_CORES;
+	cpumask_empty(&req->cpus_affine);
+	for_each_possible_cpu(cpu) {
+		if ((1 << cpu) & cpu_mask)
+			cpumask_set_cpu(cpu, &req->cpus_affine);
+	}
+	pm_qos_add_request(req, PM_QOS_CPU_DMA_LATENCY, cpu_dma_latency);
+
+	SDE_EVT32_VERBOSE(cpu_mask, cpu_dma_latency);
+}
+
+static void _sde_kms_pm_qos_remove_request(struct sde_kms *sde_kms)
+{
+	if (!sde_kms || !sde_kms->catalog || !sde_kms->catalog->perf.cpu_mask)
+		return;
+
+	pm_qos_remove_request(&sde_kms->pm_qos_cpu_req);
+}
+
+/* the caller api needs to turn on clock before calling this function */
+static int _sde_kms_cont_splash_res_init(struct sde_kms *sde_kms)
+{
+	struct sde_mdss_cfg *cat;
+	struct drm_device *dev;
+	struct msm_drm_private *priv;
+	struct sde_splash_data *splash_data;
+	int i;
+	int ctl_top_cnt;
+
+	if (!sde_kms || !sde_kms->catalog) {
+		SDE_ERROR("invalid kms\n");
+		return -EINVAL;
+	}
+	cat = sde_kms->catalog;
+	dev = sde_kms->dev;
+	priv = dev->dev_private;
+	splash_data = &sde_kms->splash_data;
+	SDE_DEBUG("mixer_count=%d, ctl_count=%d, dsc_count=%d\n",
+			cat->mixer_count,
+			cat->ctl_count,
+			cat->dsc_count);
+
+	ctl_top_cnt = cat->ctl_count;
+
+	if (ctl_top_cnt > ARRAY_SIZE(splash_data->top)) {
+		SDE_ERROR("Mismatch in ctl_top array size\n");
+		return -EINVAL;
+	}
+	for (i = 0; i < ctl_top_cnt; i++) {
+		sde_get_ctl_top_for_cont_splash(sde_kms->mmio,
+				&splash_data->top[i], i);
+		if (splash_data->top[i].intf_sel) {
+			splash_data->lm_cnt +=
+				sde_get_ctl_lm_for_cont_splash
+					(sde_kms->mmio,
+					sde_kms->catalog->mixer_count,
+					splash_data->lm_cnt,
+					splash_data->lm_ids,
+					&splash_data->top[i], i);
+			splash_data->ctl_ids[splash_data->ctl_top_cnt] =
+							i + CTL_0;
+			splash_data->ctl_top_cnt++;
+		}
+	}
+
+	/* Skip DSC blk reads if cont_splash is disabled */
+	if (!sde_kms->cont_splash_en)
+		return 0;
+
+	splash_data->dsc_cnt =
+		sde_get_pp_dsc_for_cont_splash(sde_kms->mmio,
+				sde_kms->catalog->dsc_count,
+				splash_data->dsc_ids);
+	SDE_DEBUG("splash_data: ctl_top_cnt=%d, lm_cnt=%d, dsc_cnt=%d\n",
+		splash_data->ctl_top_cnt, splash_data->lm_cnt,
+		splash_data->dsc_cnt);
+
+	return 0;
+}
+
 static void sde_kms_handle_power_event(u32 event_type, void *usr)
 {
 	struct sde_kms *sde_kms = usr;
+	struct msm_kms *msm_kms;
 
+	msm_kms = &sde_kms->base;
 	if (!sde_kms)
 		return;
 
-	if (event_type == SDE_POWER_EVENT_POST_ENABLE)
+	SDE_DEBUG("event_type:%d\n", event_type);
+	SDE_EVT32_VERBOSE(event_type);
+
+	if (event_type == SDE_POWER_EVENT_POST_ENABLE) {
+		sde_irq_update(msm_kms, true);
 		sde_vbif_init_memtypes(sde_kms);
+		_sde_kms_pm_qos_add_request(sde_kms);
+	} else if (event_type == SDE_POWER_EVENT_PRE_DISABLE) {
+		_sde_kms_pm_qos_remove_request(sde_kms);
+		sde_irq_update(msm_kms, false);
+	}
 }
 
 #define genpd_to_sde_kms(domain) container_of(domain, struct sde_kms, genpd)
@@ -2275,6 +2654,8 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	dev->mode_config.max_width = sde_kms->catalog->max_mixer_width * 2;
 	dev->mode_config.max_height = 4096;
 
+	_sde_kms_cont_splash_res_init(sde_kms);
+
 	/*
 	 * Support format modifiers for compression etc.
 	 */
@@ -2285,7 +2666,8 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	 */
 	sde_kms_handle_power_event(SDE_POWER_EVENT_POST_ENABLE, sde_kms);
 	sde_kms->power_event = sde_power_handle_register_event(&priv->phandle,
-			SDE_POWER_EVENT_POST_ENABLE,
+			SDE_POWER_EVENT_POST_ENABLE |
+			SDE_POWER_EVENT_PRE_DISABLE,
 			sde_kms_handle_power_event, sde_kms, "kms");
 
 	/* initialize power domain if defined */

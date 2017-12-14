@@ -27,20 +27,18 @@ struct sde_hw_ds;
 #define SDE_DS_OP_MODE_DUAL BIT(16)
 
 /* struct sde_hw_ds_cfg - destination scaler config
- * @ndx          : DS selection index
+ * @idx          : DS selection index
  * @flags        : Flag to switch between mode for DS
  * @lm_width     : Layer mixer width configuration
  * @lm_heigh     : Layer mixer height configuration
- * @set_lm_flush : LM flush bit
- * @scl3_cfg     : Pointer to sde_hw_scaler3_cfg.
+ * @scl3_cfg     : Configuration data for scaler
  */
 struct sde_hw_ds_cfg {
-	u32 ndx;
+	u32 idx;
 	int flags;
 	u32 lm_width;
 	u32 lm_height;
-	bool set_lm_flush;
-	struct sde_hw_scaler3_cfg *scl3_cfg;
+	struct sde_hw_scaler3_cfg scl3_cfg;
 };
 
 /**

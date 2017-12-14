@@ -131,18 +131,19 @@ static int dsi_display_cmd_engine_enable(struct dsi_display *display)
 	int i;
 	struct dsi_display_ctrl *m_ctrl, *ctrl;
 
+	m_ctrl = &display->ctrl[display->cmd_master_idx];
+	mutex_lock(&m_ctrl->ctrl->ctrl_lock);
+
 	if (display->cmd_engine_refcount > 0) {
 		display->cmd_engine_refcount++;
-		return 0;
+		goto done;
 	}
-
-	m_ctrl = &display->ctrl[display->cmd_master_idx];
 
 	rc = dsi_ctrl_set_cmd_engine_state(m_ctrl->ctrl, DSI_CTRL_ENGINE_ON);
 	if (rc) {
 		pr_err("[%s] failed to enable cmd engine, rc=%d\n",
 		       display->name, rc);
-		goto error;
+		goto done;
 	}
 
 	for (i = 0; i < display->ctrl_count; i++) {
@@ -160,10 +161,11 @@ static int dsi_display_cmd_engine_enable(struct dsi_display *display)
 	}
 
 	display->cmd_engine_refcount++;
-	return rc;
+	goto done;
 error_disable_master:
 	(void)dsi_ctrl_set_cmd_engine_state(m_ctrl->ctrl, DSI_CTRL_ENGINE_OFF);
-error:
+done:
+	mutex_unlock(&m_ctrl->ctrl->ctrl_lock);
 	return rc;
 }
 
@@ -173,15 +175,17 @@ static int dsi_display_cmd_engine_disable(struct dsi_display *display)
 	int i;
 	struct dsi_display_ctrl *m_ctrl, *ctrl;
 
+	m_ctrl = &display->ctrl[display->cmd_master_idx];
+	mutex_lock(&m_ctrl->ctrl->ctrl_lock);
+
 	if (display->cmd_engine_refcount == 0) {
 		pr_err("[%s] Invalid refcount\n", display->name);
-		return 0;
+		goto done;
 	} else if (display->cmd_engine_refcount > 1) {
 		display->cmd_engine_refcount--;
-		return 0;
+		goto done;
 	}
 
-	m_ctrl = &display->ctrl[display->cmd_master_idx];
 	for (i = 0; i < display->ctrl_count; i++) {
 		ctrl = &display->ctrl[i];
 		if (!ctrl->ctrl || (ctrl == m_ctrl))
@@ -203,6 +207,8 @@ static int dsi_display_cmd_engine_disable(struct dsi_display *display)
 
 error:
 	display->cmd_engine_refcount = 0;
+done:
+	mutex_unlock(&m_ctrl->ctrl->ctrl_lock);
 	return rc;
 }
 
@@ -255,11 +261,18 @@ static int dsi_display_read_status(struct dsi_display_ctrl *ctrl,
 	if (!panel)
 		return -EINVAL;
 
+	/* acquire panel_lock to make sure no commands are in progress */
+	dsi_panel_acquire_panel_lock(panel);
+
 	config = &(panel->esd_config);
 	lenp = config->status_valid_params ?: config->status_cmds_rlen;
 	count = config->status_cmd.count;
 	cmds = config->status_cmd.cmds;
-	flags = (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ);
+	if (cmds->last_command) {
+		cmds->msg.flags |= MIPI_DSI_MSG_LASTCOMMAND;
+		flags |= DSI_CTRL_CMD_LAST_COMMAND;
+	}
+	flags |= (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ);
 
 	for (i = 0; i < count; ++i) {
 		memset(config->status_buf, 0x0, SZ_4K);
@@ -277,6 +290,8 @@ static int dsi_display_read_status(struct dsi_display_ctrl *ctrl,
 	}
 
 error:
+	/* release panel_lock */
+	dsi_panel_release_panel_lock(panel);
 	return rc;
 }
 
@@ -372,7 +387,7 @@ int dsi_display_check_status(void *display)
 	struct dsi_display *dsi_display = display;
 	struct dsi_panel *panel;
 	u32 status_mode;
-	int rc = 0;
+	int rc = 0x1;
 
 	if (dsi_display == NULL)
 		return -EINVAL;
@@ -380,6 +395,14 @@ int dsi_display_check_status(void *display)
 	panel = dsi_display->panel;
 
 	status_mode = panel->esd_config.status_mode;
+
+	mutex_lock(&dsi_display->display_lock);
+
+	if (!panel->panel_initialized) {
+		pr_debug("Panel not initialized\n");
+		mutex_unlock(&dsi_display->display_lock);
+		return rc;
+	}
 
 	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
 		DSI_ALL_CLKS, DSI_CLK_ON);
@@ -397,6 +420,7 @@ int dsi_display_check_status(void *display)
 
 	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
 		DSI_ALL_CLKS, DSI_CLK_OFF);
+	mutex_unlock(&dsi_display->display_lock);
 
 	return rc;
 }
@@ -451,6 +475,32 @@ static void _dsi_display_setup_misr(struct dsi_display *display)
 				display->misr_enable,
 				display->misr_frame_count);
 	}
+}
+
+/**
+ * dsi_display_get_cont_splash_status - Get continuous splash status.
+ * @dsi_display:         DSI display handle.
+ *
+ * Return: boolean to signify whether continuous splash is enabled.
+ */
+static bool dsi_display_get_cont_splash_status(struct dsi_display *display)
+{
+	u32 val = 0;
+	int i;
+	struct dsi_display_ctrl *ctrl;
+	struct dsi_ctrl_hw *hw;
+
+	for (i = 0; i < display->ctrl_count ; i++) {
+		ctrl = &(display->ctrl[i]);
+		if (!ctrl || !ctrl->ctrl)
+			continue;
+
+		hw = &(ctrl->ctrl->hw);
+		val = hw->ops.get_cont_splash_status(hw);
+		if (!val)
+			return false;
+	}
+	return true;
 }
 
 int dsi_display_set_power(struct drm_connector *connector,
@@ -1055,6 +1105,30 @@ void dsi_display_enable_event(struct dsi_display *display,
 	}
 }
 
+/**
+ * dsi_config_host_engine_state_for_cont_splash()- update host engine state
+ *                                                 during continuous splash.
+ * @display: Handle to dsi display
+ *
+ */
+static void dsi_config_host_engine_state_for_cont_splash
+					(struct dsi_display *display)
+{
+	int i;
+	struct dsi_display_ctrl *ctrl;
+	enum dsi_engine_state host_state = DSI_CTRL_ENGINE_ON;
+
+	/* Sequence does not matter for split dsi usecases */
+	for (i = 0; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		if (!ctrl->ctrl)
+			continue;
+
+		dsi_ctrl_update_host_engine_state_for_cont_splash(ctrl->ctrl,
+							host_state);
+	}
+}
+
 static int dsi_display_ctrl_power_on(struct dsi_display *display)
 {
 	int rc = 0;
@@ -1452,7 +1526,8 @@ static int dsi_display_ctrl_init(struct dsi_display *display)
 
 	for (i = 0 ; i < display->ctrl_count; i++) {
 		ctrl = &display->ctrl[i];
-		rc = dsi_ctrl_host_init(ctrl->ctrl);
+		rc = dsi_ctrl_host_init(ctrl->ctrl,
+				display->is_cont_splash_enabled);
 		if (rc) {
 			pr_err("[%s] failed to init host_%d, rc=%d\n",
 			       display->name, i, rc);
@@ -1492,6 +1567,14 @@ static int dsi_display_ctrl_host_enable(struct dsi_display *display)
 	int rc = 0;
 	int i;
 	struct dsi_display_ctrl *m_ctrl, *ctrl;
+
+	/* Host engine states are already taken care for
+	 * continuous splash case
+	 */
+	if (display->is_cont_splash_enabled) {
+		pr_debug("cont splash enabled, host enable not required\n");
+		return 0;
+	}
 
 	m_ctrl = &display->ctrl[display->cmd_master_idx];
 
@@ -1631,7 +1714,8 @@ static int dsi_display_phy_enable(struct dsi_display *display)
 	rc = dsi_phy_enable(m_ctrl->phy,
 			    &display->config,
 			    m_src,
-			    true);
+			    true,
+			    display->is_cont_splash_enabled);
 	if (rc) {
 		pr_err("[%s] failed to enable DSI PHY, rc=%d\n",
 		       display->name, rc);
@@ -1646,7 +1730,8 @@ static int dsi_display_phy_enable(struct dsi_display *display)
 		rc = dsi_phy_enable(ctrl->phy,
 				    &display->config,
 				    DSI_PLL_SOURCE_NON_NATIVE,
-				    true);
+				    true,
+				    display->is_cont_splash_enabled);
 		if (rc) {
 			pr_err("[%s] failed to enable DSI PHY, rc=%d\n",
 			       display->name, rc);
@@ -1707,6 +1792,10 @@ static int dsi_display_broadcast_cmd(struct dsi_display *display,
 	flags = (DSI_CTRL_CMD_BROADCAST | DSI_CTRL_CMD_DEFER_TRIGGER |
 		 DSI_CTRL_CMD_FETCH_MEMORY);
 
+	if ((msg->flags & MIPI_DSI_MSG_LASTCOMMAND)) {
+		flags |= DSI_CTRL_CMD_LAST_COMMAND;
+		m_flags |= DSI_CTRL_CMD_LAST_COMMAND;
+	}
 	/*
 	 * 1. Setup commands in FIFO
 	 * 2. Trigger commands
@@ -1756,6 +1845,14 @@ static int dsi_display_phy_sw_reset(struct dsi_display *display)
 	int i;
 	struct dsi_display_ctrl *m_ctrl, *ctrl;
 
+	/* For continuous splash use case ctrl states are updated
+	 * separately and hence we do an early return
+	 */
+	if (display->is_cont_splash_enabled) {
+		pr_debug("cont splash enabled, phy sw reset not required\n");
+		return 0;
+	}
+
 	m_ctrl = &display->ctrl[display->cmd_master_idx];
 
 	rc = dsi_ctrl_phy_sw_reset(m_ctrl->ctrl);
@@ -1781,6 +1878,61 @@ error:
 	return rc;
 }
 
+static void dsi_display_aspace_cb_locked(void *cb_data, bool is_detach)
+{
+	struct dsi_display *display;
+	struct dsi_display_ctrl *display_ctrl;
+	int rc, cnt;
+
+	if (!cb_data) {
+		pr_err("aspace cb called with invalid cb_data\n");
+		return;
+	}
+	display = (struct dsi_display *)cb_data;
+
+	/*
+	 * acquire panel_lock to make sure no commands are in-progress
+	 * while detaching the non-secure context banks
+	 */
+	dsi_panel_acquire_panel_lock(display->panel);
+
+	if (is_detach) {
+		/* invalidate the stored iova */
+		display->cmd_buffer_iova = 0;
+
+		/* return the virtual address mapping */
+		msm_gem_put_vaddr_locked(display->tx_cmd_buf);
+		msm_gem_vunmap(display->tx_cmd_buf);
+
+	} else {
+		rc = msm_gem_get_iova_locked(display->tx_cmd_buf,
+				display->aspace, &(display->cmd_buffer_iova));
+		if (rc) {
+			pr_err("failed to get the iova rc %d\n", rc);
+			goto end;
+		}
+
+		display->vaddr =
+			(void *) msm_gem_get_vaddr_locked(display->tx_cmd_buf);
+
+		if (IS_ERR_OR_NULL(display->vaddr)) {
+			pr_err("failed to get va rc %d\n", rc);
+			goto end;
+		}
+	}
+
+	for (cnt = 0; cnt < display->ctrl_count; cnt++) {
+		display_ctrl = &display->ctrl[cnt];
+		display_ctrl->ctrl->cmd_buffer_size = display->cmd_buffer_size;
+		display_ctrl->ctrl->cmd_buffer_iova = display->cmd_buffer_iova;
+		display_ctrl->ctrl->vaddr = display->vaddr;
+	}
+
+end:
+	/* release panel_lock */
+	dsi_panel_release_panel_lock(display->panel);
+}
+
 static int dsi_host_attach(struct mipi_dsi_host *host,
 			   struct mipi_dsi_device *dsi)
 {
@@ -1798,7 +1950,6 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 {
 	struct dsi_display *display = to_dsi_display(host);
 	struct dsi_display_ctrl *display_ctrl;
-	struct msm_gem_address_space *aspace = NULL;
 	int rc = 0, cnt = 0;
 
 	if (!host || !msg) {
@@ -1842,19 +1993,27 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 			goto error_disable_cmd_engine;
 		}
 
-		aspace = msm_gem_smmu_address_space_get(display->drm_dev,
-				MSM_SMMU_DOMAIN_UNSECURE);
-		if (!aspace) {
+		display->aspace = msm_gem_smmu_address_space_get(
+				display->drm_dev, MSM_SMMU_DOMAIN_UNSECURE);
+		if (!display->aspace) {
 			pr_err("failed to get aspace\n");
 			rc = -EINVAL;
 			goto free_gem;
 		}
 
-		rc = msm_gem_get_iova(display->tx_cmd_buf, aspace,
+		/* register to aspace */
+		rc = msm_gem_address_space_register_cb(display->aspace,
+				dsi_display_aspace_cb_locked, (void *)display);
+		if (rc) {
+			pr_err("failed to register callback %d", rc);
+			goto free_gem;
+		}
+
+		rc = msm_gem_get_iova(display->tx_cmd_buf, display->aspace,
 					&(display->cmd_buffer_iova));
 		if (rc) {
 			pr_err("failed to get the iova rc %d\n", rc);
-			goto free_gem;
+			goto free_aspace_cb;
 		}
 
 		display->vaddr =
@@ -1906,7 +2065,10 @@ error_disable_clks:
 	}
 	return rc;
 put_iova:
-	msm_gem_put_iova(display->tx_cmd_buf, aspace);
+	msm_gem_put_iova(display->tx_cmd_buf, display->aspace);
+free_aspace_cb:
+	msm_gem_address_space_unregister_cb(display->aspace,
+			dsi_display_aspace_cb_locked, display);
 free_gem:
 	mutex_lock(&display->drm_dev->struct_mutex);
 	msm_gem_free_object(display->tx_cmd_buf);
@@ -2295,6 +2457,7 @@ int dsi_pre_clkon_cb(void *priv,
 		 *     not be changed during static screen.
 		 */
 
+	  pr_debug("updating power states for ctrl and phy\n");
 		rc = dsi_display_ctrl_power_on(display);
 		if (rc) {
 			pr_err("[%s] failed to power on dsi controllers, rc=%d\n",
@@ -3038,6 +3201,110 @@ static int _dsi_display_dev_deinit(struct dsi_display *display)
 }
 
 /**
+ * dsi_display_splash_res_init() - Initialize resources for continuous splash
+ * @display:    Pointer to dsi display
+ * Returns:     Zero on success
+ */
+static int dsi_display_splash_res_init(struct  dsi_display *display)
+{
+	int rc = 0;
+
+	/* Vote for gdsc required to read register address space */
+
+	display->cont_splash_client = sde_power_client_create(display->phandle,
+						"cont_splash_client");
+	rc = sde_power_resource_enable(display->phandle,
+			display->cont_splash_client, true);
+	if (rc) {
+		pr_err("failed to vote gdsc for continuous splash, rc=%d\n",
+							rc);
+		return -EINVAL;
+	}
+
+	/* Verify whether continuous splash is enabled or not */
+	display->is_cont_splash_enabled =
+		dsi_display_get_cont_splash_status(display);
+	if (!display->is_cont_splash_enabled) {
+		pr_err("Continuous splash is not enabled\n");
+		goto splash_disabled;
+	}
+
+	/* Update splash status for clock manager */
+	dsi_display_clk_mngr_update_splash_status(display->clk_mngr,
+				display->is_cont_splash_enabled);
+
+	/* Vote for Core clk and link clk. Votes on ctrl and phy
+	 * regulator are inplicit from  pre clk on callback
+	 */
+	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_ALL_CLKS, DSI_CLK_ON);
+	if (rc) {
+		pr_err("[%s] failed to enable DSI link clocks, rc=%d\n",
+		       display->name, rc);
+		goto clk_manager_update;
+	}
+
+	/* Vote on panel regulator will be removed during suspend path */
+	rc = dsi_pwr_enable_regulator(&display->panel->power_info, true);
+	if (rc) {
+		pr_err("[%s] failed to enable vregs, rc=%d\n",
+				display->panel->name, rc);
+		goto clks_disabled;
+	}
+
+	dsi_config_host_engine_state_for_cont_splash(display);
+
+	return rc;
+
+clks_disabled:
+	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_ALL_CLKS, DSI_CLK_OFF);
+
+clk_manager_update:
+	/* Update splash status for clock manager */
+	dsi_display_clk_mngr_update_splash_status(display->clk_mngr,
+				false);
+
+splash_disabled:
+	(void)sde_power_resource_enable(display->phandle,
+			display->cont_splash_client, false);
+	display->is_cont_splash_enabled = false;
+	return rc;
+}
+
+/**
+ * dsi_display_splash_res_cleanup() - cleanup for continuous splash
+ * @display:    Pointer to dsi display
+ * Returns:     Zero on success
+ */
+int dsi_display_splash_res_cleanup(struct  dsi_display *display)
+{
+	int rc = 0;
+
+	if (!display->is_cont_splash_enabled)
+		return 0;
+
+	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_ALL_CLKS, DSI_CLK_OFF);
+	if (rc)
+		pr_err("[%s] failed to disable DSI link clocks, rc=%d\n",
+		       display->name, rc);
+
+	rc = sde_power_resource_enable(display->phandle,
+			display->cont_splash_client, false);
+	if (rc)
+		pr_err("failed to remove vote on gdsc for continuous splash, rc=%d\n",
+				rc);
+
+	display->is_cont_splash_enabled = false;
+	/* Update splash status for clock manager */
+	dsi_display_clk_mngr_update_splash_status(display->clk_mngr,
+				display->is_cont_splash_enabled);
+
+	return rc;
+}
+
+/**
  * dsi_display_bind - bind dsi device with controlling device
  * @dev:        Pointer to base of platform device
  * @master:     Pointer to container of drm device
@@ -3123,6 +3390,7 @@ static int dsi_display_bind(struct device *dev,
 		}
 	}
 
+	display->phandle = &priv->phandle;
 	info.pre_clkoff_cb = dsi_pre_clkoff_cb;
 	info.pre_clkon_cb = dsi_pre_clkon_cb;
 	info.post_clkoff_cb = dsi_post_clkoff_cb;
@@ -3199,6 +3467,12 @@ static int dsi_display_bind(struct device *dev,
 
 	pr_info("Successfully bind display panel '%s'\n", display->name);
 	display->drm_dev = drm;
+
+	/* Initialize resources for continuous splash */
+	rc = dsi_display_splash_res_init(display);
+	if (rc)
+		pr_err("Continuous splash resource init failed, rc=%d\n", rc);
+
 	goto error;
 
 error_host_deinit:
@@ -3307,6 +3581,8 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	display->name = of_get_property(pdev->dev.of_node, "label", NULL);
+	if (!display->name)
+		display->name = "unknown";
 
 	if (!boot_displays_parsed) {
 		boot_displays[DSI_PRIMARY].boot_disp_en = false;
@@ -3613,9 +3889,6 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 
 	if (display->panel->esd_config.esd_enabled)
 		info->capabilities |= MSM_DISPLAY_ESD_ENABLED;
-
-	memcpy(&info->roi_caps, &display->panel->roi_caps,
-			sizeof(info->roi_caps));
 
 error:
 	mutex_unlock(&display->display_lock);
@@ -4051,11 +4324,18 @@ int dsi_display_prepare(struct dsi_display *display)
 		goto error;
 	}
 
-	rc = dsi_panel_pre_prepare(display->panel);
-	if (rc) {
-		pr_err("[%s] panel pre-prepare failed, rc=%d\n",
-		       display->name, rc);
-		goto error;
+	if (!display->is_cont_splash_enabled) {
+		/*
+		 * For continuous splash usecase we skip panel
+		 * pre prepare since the regulator vote is already
+		 * taken care in splash resource init
+		 */
+		rc = dsi_panel_pre_prepare(display->panel);
+		if (rc) {
+			pr_err("[%s] panel pre-prepare failed, rc=%d\n",
+					display->name, rc);
+			goto error;
+		}
 	}
 
 	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
@@ -4114,12 +4394,19 @@ int dsi_display_prepare(struct dsi_display *display)
 		goto error_ctrl_link_off;
 	}
 
-	rc = dsi_panel_prepare(display->panel);
-	if (rc) {
-		pr_err("[%s] panel prepare failed, rc=%d\n", display->name, rc);
-		goto error_ctrl_link_off;
+	if (!display->is_cont_splash_enabled) {
+		/*
+		 * For continuous splash usecase we skip panel
+		 * prepare since the pnael is already in
+		 * active state and panel on commands are not needed
+		 */
+		rc = dsi_panel_prepare(display->panel);
+		if (rc) {
+			pr_err("[%s] panel prepare failed, rc=%d\n",
+					display->name, rc);
+			goto error_ctrl_link_off;
+		}
 	}
-
 	goto error;
 
 error_ctrl_link_off:
@@ -4147,13 +4434,20 @@ static int dsi_display_calc_ctrl_roi(const struct dsi_display *display,
 		struct dsi_rect *out_roi)
 {
 	const struct dsi_rect *bounds = &ctrl->ctrl->mode_bounds;
+	struct dsi_display_mode *cur_mode;
+	struct msm_roi_caps *roi_caps;
 	struct dsi_rect req_roi = { 0 };
 	int rc = 0;
 
-	if (req_rois->num_rects > display->panel->roi_caps.num_roi) {
+	cur_mode = display->panel->cur_mode;
+	if (!cur_mode)
+		return 0;
+
+	roi_caps = &cur_mode->priv_info->roi_caps;
+	if (req_rois->num_rects > roi_caps->num_roi) {
 		pr_err("request for %d rois greater than max %d\n",
 				req_rois->num_rects,
-				display->panel->roi_caps.num_roi);
+				roi_caps->num_roi);
 		rc = -EINVAL;
 		goto exit;
 	}
@@ -4190,13 +4484,20 @@ exit:
 static int dsi_display_set_roi(struct dsi_display *display,
 		struct msm_roi_list *rois)
 {
+	struct dsi_display_mode *cur_mode;
+	struct msm_roi_caps *roi_caps;
 	int rc = 0;
 	int i;
 
 	if (!display || !rois || !display->panel)
 		return -EINVAL;
 
-	if (!display->panel->roi_caps.enabled)
+	cur_mode = display->panel->cur_mode;
+	if (!cur_mode)
+		return 0;
+
+	roi_caps = &cur_mode->priv_info->roi_caps;
+	if (!roi_caps->enabled)
 		return 0;
 
 	for (i = 0; i < display->ctrl_count; i++) {
@@ -4251,6 +4552,46 @@ int dsi_display_pre_kickoff(struct dsi_display *display,
 	return rc;
 }
 
+int dsi_display_config_ctrl_for_cont_splash(struct dsi_display *display)
+{
+	int rc = 0;
+
+	if (!display || !display->panel) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	if (!display->panel->cur_mode) {
+		pr_err("no valid mode set for the display");
+		return -EINVAL;
+	}
+
+	if (!display->is_cont_splash_enabled)
+		return 0;
+
+	if (display->config.panel_mode == DSI_OP_VIDEO_MODE) {
+		rc = dsi_display_vid_engine_enable(display);
+		if (rc) {
+			pr_err("[%s]failed to enable DSI video engine, rc=%d\n",
+			       display->name, rc);
+			goto error_out;
+		}
+	} else if (display->config.panel_mode == DSI_OP_CMD_MODE) {
+		rc = dsi_display_cmd_engine_enable(display);
+		if (rc) {
+			pr_err("[%s]failed to enable DSI cmd engine, rc=%d\n",
+			       display->name, rc);
+			goto error_out;
+		}
+	} else {
+		pr_err("[%s] Invalid configuration\n", display->name);
+		rc = -EINVAL;
+	}
+
+error_out:
+	return rc;
+}
+
 int dsi_display_enable(struct dsi_display *display)
 {
 	int rc = 0;
@@ -4264,6 +4605,25 @@ int dsi_display_enable(struct dsi_display *display)
 	if (!display->panel->cur_mode) {
 		pr_err("no valid mode set for the display");
 		return -EINVAL;
+	}
+
+	/* Engine states and panel states are populated during splash
+	 * resource init and hence we return early
+	 */
+	if (display->is_cont_splash_enabled) {
+
+		dsi_display_config_ctrl_for_cont_splash(display);
+
+		rc = dsi_display_splash_res_cleanup(display);
+		if (rc) {
+			pr_err("Continuous splash res cleanup failed, rc=%d\n",
+				rc);
+			return -EINVAL;
+		}
+
+		display->panel->panel_initialized = true;
+		pr_debug("cont splash enabled, display enable not required\n");
+		return 0;
 	}
 
 	mutex_lock(&display->display_lock);

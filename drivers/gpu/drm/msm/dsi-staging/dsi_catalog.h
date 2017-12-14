@@ -24,6 +24,7 @@
  * @version:     DSI controller version.
  * @index:       DSI controller instance ID.
  * @phy_isolation_enabled:       DSI controller works isolated from phy.
+ * @null_insertion_enabled:      DSI controller inserts null packet.
  *
  * This function setups the catalog information in the dsi_ctrl_hw object.
  *
@@ -31,7 +32,7 @@
  */
 int dsi_catalog_ctrl_setup(struct dsi_ctrl_hw *ctrl,
 		   enum dsi_ctrl_version version, u32 index,
-		   bool phy_isolation_enabled);
+		   bool phy_isolation_enabled, bool null_insertion_enabled);
 
 /**
  * dsi_catalog_phy_setup() - return catalog info for dsi phy hardware
@@ -176,6 +177,7 @@ u32 dsi_ctrl_hw_cmn_get_cmd_read_data(struct dsi_ctrl_hw *ctrl,
 				     u32 rx_byte,
 				     u32 pkt_size, u32 *hw_read_cnt);
 void dsi_ctrl_hw_cmn_clear_rdbk_reg(struct dsi_ctrl_hw *ctrl);
+void dsi_ctrl_hw_22_schedule_dma_cmd(struct dsi_ctrl_hw *ctrl, int line_on);
 
 /* Definitions specific to 1.4 DSI controller hardware */
 int dsi_ctrl_hw_14_wait_for_lane_idle(struct dsi_ctrl_hw *ctrl, u32 lanes);
@@ -203,5 +205,8 @@ int dsi_ctrl_hw_20_wait_for_lane_idle(struct dsi_ctrl_hw *ctrl, u32 lanes);
 ssize_t dsi_ctrl_hw_20_reg_dump_to_buffer(struct dsi_ctrl_hw *ctrl,
 					  char *buf,
 					  u32 size);
+
+/* Definitions specific to 2.2 DSI controller hardware */
+bool dsi_ctrl_hw_22_get_cont_splash_status(struct dsi_ctrl_hw *ctrl);
 
 #endif /* _DSI_CATALOG_H_ */

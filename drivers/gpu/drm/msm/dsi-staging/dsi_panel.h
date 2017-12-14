@@ -156,8 +156,6 @@ struct dsi_panel {
 	enum dsi_op_mode panel_mode;
 
 	struct dsi_dfps_capabilities dfps_caps;
-	struct msm_roi_caps roi_caps;
-
 	struct dsi_panel_phy_props phy_props;
 
 	struct dsi_display_mode *cur_mode;
@@ -191,6 +189,16 @@ static inline bool dsi_panel_ulps_feature_enabled(struct dsi_panel *panel)
 static inline bool dsi_panel_initialized(struct dsi_panel *panel)
 {
 	return panel->panel_initialized;
+}
+
+static inline void dsi_panel_acquire_panel_lock(struct dsi_panel *panel)
+{
+	mutex_lock(&panel->panel_lock);
+}
+
+static inline void dsi_panel_release_panel_lock(struct dsi_panel *panel)
+{
+	mutex_unlock(&panel->panel_lock);
 }
 
 struct dsi_panel *dsi_panel_get(struct device *parent,

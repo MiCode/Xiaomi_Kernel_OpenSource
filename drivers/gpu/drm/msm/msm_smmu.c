@@ -33,6 +33,10 @@
 #define SZ_4G	(((size_t) SZ_1G) * 4)
 #endif
 
+#ifndef SZ_2G
+#define SZ_2G	(((size_t) SZ_1G) * 2)
+#endif
+
 struct msm_smmu_client {
 	struct device *dev;
 	struct dma_iommu_mapping *mmu_mapping;
@@ -300,26 +304,26 @@ static const struct msm_mmu_funcs funcs = {
 static struct msm_smmu_domain msm_smmu_domains[MSM_SMMU_DOMAIN_MAX] = {
 	[MSM_SMMU_DOMAIN_UNSECURE] = {
 		.label = "mdp_ns",
-		.va_start = SZ_128K,
-		.va_size = SZ_4G - SZ_128K,
+		.va_start = SZ_2G,
+		.va_size = SZ_4G - SZ_2G,
 		.secure = false,
 	},
 	[MSM_SMMU_DOMAIN_SECURE] = {
 		.label = "mdp_s",
-		.va_start = SZ_128K,
-		.va_size = SZ_4G - SZ_128K,
+		.va_start = SZ_2G,
+		.va_size = SZ_4G - SZ_2G,
 		.secure = true,
 	},
 	[MSM_SMMU_DOMAIN_NRT_UNSECURE] = {
 		.label = "rot_ns",
-		.va_start = SZ_128K,
-		.va_size = SZ_4G - SZ_128K,
+		.va_start = SZ_2G,
+		.va_size = SZ_4G - SZ_2G,
 		.secure = false,
 	},
 	[MSM_SMMU_DOMAIN_NRT_SECURE] = {
 		.label = "rot_s",
-		.va_start = SZ_128K,
-		.va_size = SZ_4G - SZ_128K,
+		.va_start = SZ_2G,
+		.va_size = SZ_4G - SZ_2G,
 		.secure = true,
 	},
 };
@@ -455,6 +459,7 @@ static int _msm_smmu_create_mapping(struct msm_smmu_client *client,
 	const struct msm_smmu_domain *domain)
 {
 	int rc;
+	int mdphtw_llc_enable = 1;
 
 	client->mmu_mapping = arm_iommu_create_mapping(&platform_bus_type,
 			domain->va_start, domain->va_size);
@@ -463,6 +468,14 @@ static int _msm_smmu_create_mapping(struct msm_smmu_client *client,
 			"iommu create mapping failed for domain=%s\n",
 			domain->label);
 		return PTR_ERR(client->mmu_mapping);
+	}
+
+	rc = iommu_domain_set_attr(client->mmu_mapping->domain,
+			DOMAIN_ATTR_USE_UPSTREAM_HINT, &mdphtw_llc_enable);
+	if (rc) {
+		dev_err(client->dev, "couldn't enable mdp pagetable walks: %d\n",
+			rc);
+		goto error;
 	}
 
 	if (domain->secure) {

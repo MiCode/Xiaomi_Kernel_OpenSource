@@ -206,9 +206,9 @@ static int _sde_fence_create_fd(void *fence_ctx, uint32_t val)
 	/* create fd */
 	fd = get_unused_fd_flags(0);
 	if (fd < 0) {
-		fence_put(&sde_fence->base);
 		SDE_ERROR("failed to get_unused_fd_flags(), %s\n",
 							sde_fence->name);
+		fence_put(&sde_fence->base);
 		goto exit;
 	}
 
@@ -217,8 +217,8 @@ static int _sde_fence_create_fd(void *fence_ctx, uint32_t val)
 	if (sync_file == NULL) {
 		put_unused_fd(fd);
 		fd = -EINVAL;
-		fence_put(&sde_fence->base);
 		SDE_ERROR("couldn't create fence, %s\n", sde_fence->name);
+		fence_put(&sde_fence->base);
 		goto exit;
 	}
 
@@ -401,4 +401,31 @@ void sde_fence_signal(struct sde_fence_context *ctx, ktime_t ts,
 			ktime_to_us(ts));
 
 	_sde_fence_trigger(ctx, ts);
+}
+
+void sde_fence_timeline_status(struct sde_fence_context *ctx,
+					struct drm_mode_object *drm_obj)
+{
+	char *obj_name;
+
+	if (!ctx || !drm_obj) {
+		SDE_ERROR("invalid input params\n");
+		return;
+	}
+
+	switch (drm_obj->type) {
+	case DRM_MODE_OBJECT_CRTC:
+		obj_name = "crtc";
+		break;
+	case DRM_MODE_OBJECT_CONNECTOR:
+		obj_name = "connector";
+		break;
+	default:
+		obj_name = "unknown";
+		break;
+	}
+
+	SDE_ERROR("drm obj:%s id:%d type:0x%x done_count:%d commit_count:%d\n",
+		obj_name, drm_obj->id, drm_obj->type, ctx->done_count,
+		ctx->commit_count);
 }

@@ -785,10 +785,14 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 	if (host_cfg->data_lanes & DSI_DATA_LANE_3)
 		num_of_lanes++;
 
-	h_period = DSI_H_TOTAL_DSC(timing);
-	v_period = DSI_V_TOTAL(timing);
+	if (config->bit_clk_rate_hz == 0) {
+		h_period = DSI_H_TOTAL_DSC(timing);
+		v_period = DSI_V_TOTAL(timing);
+		bit_rate = h_period * v_period * timing->refresh_rate * bpp * 8;
+	} else {
+		bit_rate = config->bit_clk_rate_hz * num_of_lanes;
+	}
 
-	bit_rate = h_period * v_period * timing->refresh_rate * bpp * 8;
 	bit_rate_per_lane = bit_rate;
 	do_div(bit_rate_per_lane, num_of_lanes);
 	pclk_rate = bit_rate;
@@ -885,7 +889,6 @@ static int dsi_ctrl_copy_and_pad_cmd(struct dsi_ctrl *dsi_ctrl,
 	if (packet->payload_length > 0)
 		buf[3] |= BIT(6);
 
-	buf[3] |= BIT(7);
 
 	/* send embedded BTA for read commands */
 	if ((buf[2] & 0x3f) == MIPI_DSI_DCS_READ)
@@ -902,7 +905,15 @@ static void dsi_ctrl_wait_for_video_done(struct dsi_ctrl *dsi_ctrl)
 	u32 v_total = 0, v_blank = 0, sleep_ms = 0, fps = 0, ret;
 	struct dsi_mode_info *timing;
 
-	if (dsi_ctrl->host_config.panel_mode != DSI_OP_VIDEO_MODE)
+	/**
+	 * No need to wait if the panel is not video mode or
+	 * if DSI controller supports command DMA scheduling or
+	 * if we are sending init commands.
+	 */
+	if ((dsi_ctrl->host_config.panel_mode != DSI_OP_VIDEO_MODE) ||
+		(dsi_ctrl->version >= DSI_CTRL_VERSION_2_2) ||
+		(dsi_ctrl->current_state.vid_engine_state !=
+					DSI_CTRL_ENGINE_ON))
 		return;
 
 	dsi_ctrl->hw.ops.clear_interrupt_status(&dsi_ctrl->hw,
@@ -940,8 +951,9 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 	u32 hw_flags = 0;
 	u32 length = 0;
 	u8 *buffer = NULL;
-	u32 cnt = 0;
+	u32 cnt = 0, line_no = 0x1;
 	u8 *cmdbuf;
+	struct dsi_mode_info *timing;
 
 	rc = mipi_dsi_create_packet(&packet, msg);
 	if (rc) {
@@ -949,20 +961,21 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 		goto error;
 	}
 
+	rc = dsi_ctrl_copy_and_pad_cmd(dsi_ctrl,
+			&packet,
+			&buffer,
+			&length);
+	if (rc) {
+		pr_err("[%s] failed to copy message, rc=%d\n",
+				dsi_ctrl->name, rc);
+		goto error;
+	}
+
+	if ((msg->flags & MIPI_DSI_MSG_LASTCOMMAND))
+		buffer[3] |= BIT(7);//set the last cmd bit in header.
+
 	if (flags & DSI_CTRL_CMD_FETCH_MEMORY) {
-		rc = dsi_ctrl_copy_and_pad_cmd(dsi_ctrl,
-				&packet,
-				&buffer,
-				&length);
-
-		if (rc) {
-			pr_err("[%s] failed to copy message, rc=%d\n",
-					dsi_ctrl->name, rc);
-			goto error;
-		}
-
 		cmd_mem.offset = dsi_ctrl->cmd_buffer_iova;
-		cmd_mem.length = length;
 		cmd_mem.en_broadcast = (flags & DSI_CTRL_CMD_BROADCAST) ?
 			true : false;
 		cmd_mem.is_master = (flags & DSI_CTRL_CMD_BROADCAST_MASTER) ?
@@ -971,19 +984,20 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 			true : false;
 
 		cmdbuf = (u8 *)(dsi_ctrl->vaddr);
+
 		for (cnt = 0; cnt < length; cnt++)
-			cmdbuf[cnt] = buffer[cnt];
+			cmdbuf[dsi_ctrl->cmd_len + cnt] = buffer[cnt];
+
+		dsi_ctrl->cmd_len += length;
+
+		if (!(msg->flags & MIPI_DSI_MSG_LASTCOMMAND)) {
+			goto error;
+		} else {
+			cmd_mem.length = dsi_ctrl->cmd_len;
+			dsi_ctrl->cmd_len = 0;
+		}
 
 	} else if (flags & DSI_CTRL_CMD_FIFO_STORE) {
-		rc = dsi_ctrl_copy_and_pad_cmd(dsi_ctrl,
-					       &packet,
-					       &buffer,
-					       &length);
-		if (rc) {
-			pr_err("[%s] failed to copy message, rc=%d\n",
-			       dsi_ctrl->name, rc);
-			goto error;
-		}
 		cmd.command =  (u32 *)buffer;
 		cmd.size = length;
 		cmd.en_broadcast = (flags & DSI_CTRL_CMD_BROADCAST) ?
@@ -994,8 +1008,22 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 				  true : false;
 	}
 
+	timing = &(dsi_ctrl->host_config.video_timing);
+	if (timing)
+		line_no += timing->v_back_porch + timing->v_sync_width +
+				timing->v_active;
+	if ((dsi_ctrl->host_config.panel_mode == DSI_OP_VIDEO_MODE) &&
+		dsi_ctrl->hw.ops.schedule_dma_cmd &&
+		(dsi_ctrl->current_state.vid_engine_state ==
+					DSI_CTRL_ENGINE_ON))
+		dsi_ctrl->hw.ops.schedule_dma_cmd(&dsi_ctrl->hw,
+				line_no);
+
 	hw_flags |= (flags & DSI_CTRL_CMD_DEFER_TRIGGER) ?
 			DSI_CTRL_HW_CMD_WAIT_FOR_TRIGGER : 0;
+
+	if ((msg->flags & MIPI_DSI_MSG_LASTCOMMAND))
+		hw_flags |= DSI_CTRL_CMD_LAST_COMMAND;
 
 	if (flags & DSI_CTRL_CMD_DEFER_TRIGGER) {
 		if (flags & DSI_CTRL_CMD_FETCH_MEMORY) {
@@ -1030,7 +1058,8 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 				msecs_to_jiffies(DSI_CTRL_TX_TO_MS));
 
 		if (ret == 0) {
-			u32 status = 0;
+			u32 status = dsi_ctrl->hw.ops.get_interrupt_status(
+								&dsi_ctrl->hw);
 			u32 mask = DSI_CMD_MODE_DMA_DONE;
 
 			if (status & mask) {
@@ -1440,6 +1469,9 @@ static int dsi_ctrl_dts_parse(struct dsi_ctrl *dsi_ctrl,
 	dsi_ctrl->phy_isolation_enabled = of_property_read_bool(of_node,
 				    "qcom,dsi-phy-isolation-enabled");
 
+	dsi_ctrl->null_insertion_enabled = of_property_read_bool(of_node,
+					"qcom,null-insertion-enabled");
+
 	return 0;
 }
 
@@ -1497,7 +1529,8 @@ static int dsi_ctrl_dev_probe(struct platform_device *pdev)
 	}
 
 	rc = dsi_catalog_ctrl_setup(&dsi_ctrl->hw, dsi_ctrl->version,
-		    dsi_ctrl->cell_index, dsi_ctrl->phy_isolation_enabled);
+		dsi_ctrl->cell_index, dsi_ctrl->phy_isolation_enabled,
+		dsi_ctrl->null_insertion_enabled);
 	if (rc) {
 		pr_err("Catalog does not support version (%d)\n",
 		       dsi_ctrl->version);
@@ -1637,7 +1670,9 @@ struct dsi_ctrl *dsi_ctrl_get(struct device_node *of_node)
 	mutex_lock(&ctrl->ctrl_lock);
 	if (ctrl->refcount == 1) {
 		pr_err("[%s] Device in use\n", ctrl->name);
+		mutex_unlock(&ctrl->ctrl_lock);
 		ctrl = ERR_PTR(-EBUSY);
+		return ctrl;
 	} else {
 		ctrl->refcount++;
 	}
@@ -2221,6 +2256,7 @@ int dsi_ctrl_host_timing_update(struct dsi_ctrl *dsi_ctrl)
 /**
  * dsi_ctrl_host_init() - Initialize DSI host hardware.
  * @dsi_ctrl:        DSI controller handle.
+ * @is_splash_enabled:        boolean signifying splash status.
  *
  * Initializes DSI controller hardware with host configuration provided by
  * dsi_ctrl_update_host_config(). Initialization can be performed only during
@@ -2229,7 +2265,7 @@ int dsi_ctrl_host_timing_update(struct dsi_ctrl *dsi_ctrl)
  *
  * Return: error code.
  */
-int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl)
+int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl, bool is_splash_enabled)
 {
 	int rc = 0;
 
@@ -2246,28 +2282,33 @@ int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl)
 		goto error;
 	}
 
-	dsi_ctrl->hw.ops.setup_lane_map(&dsi_ctrl->hw,
+	/* For Splash usecases we omit hw operations as bootloader
+	 * already takes care of them
+	 */
+	if (!is_splash_enabled) {
+		dsi_ctrl->hw.ops.setup_lane_map(&dsi_ctrl->hw,
 					&dsi_ctrl->host_config.lane_map);
 
-	dsi_ctrl->hw.ops.host_setup(&dsi_ctrl->hw,
+		dsi_ctrl->hw.ops.host_setup(&dsi_ctrl->hw,
 				    &dsi_ctrl->host_config.common_config);
 
-	if (dsi_ctrl->host_config.panel_mode == DSI_OP_CMD_MODE) {
-		dsi_ctrl->hw.ops.cmd_engine_setup(&dsi_ctrl->hw,
+		if (dsi_ctrl->host_config.panel_mode == DSI_OP_CMD_MODE) {
+			dsi_ctrl->hw.ops.cmd_engine_setup(&dsi_ctrl->hw,
 					&dsi_ctrl->host_config.common_config,
 					&dsi_ctrl->host_config.u.cmd_engine);
 
-		dsi_ctrl->hw.ops.setup_cmd_stream(&dsi_ctrl->hw,
+			dsi_ctrl->hw.ops.setup_cmd_stream(&dsi_ctrl->hw,
 				&dsi_ctrl->host_config.video_timing,
 				dsi_ctrl->host_config.video_timing.h_active * 3,
 				0x0,
 				NULL);
-	} else {
-		dsi_ctrl->hw.ops.video_engine_setup(&dsi_ctrl->hw,
+		} else {
+			dsi_ctrl->hw.ops.video_engine_setup(&dsi_ctrl->hw,
 					&dsi_ctrl->host_config.common_config,
 					&dsi_ctrl->host_config.u.video_engine);
-		dsi_ctrl->hw.ops.set_video_timing(&dsi_ctrl->hw,
+			dsi_ctrl->hw.ops.set_video_timing(&dsi_ctrl->hw,
 					  &dsi_ctrl->host_config.video_timing);
+		}
 	}
 
 	dsi_ctrl_setup_isr(dsi_ctrl);
@@ -2275,8 +2316,8 @@ int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl)
 	dsi_ctrl->hw.ops.enable_status_interrupts(&dsi_ctrl->hw, 0x0);
 	dsi_ctrl->hw.ops.enable_error_interrupts(&dsi_ctrl->hw, 0x0);
 
-	pr_debug("[DSI_%d]Host initialization complete\n",
-		dsi_ctrl->cell_index);
+	pr_debug("[DSI_%d]Host initialization complete, continuous splash status:%d\n",
+		dsi_ctrl->cell_index, is_splash_enabled);
 	dsi_ctrl_update_state(dsi_ctrl, DSI_CTRL_OP_HOST_INIT, 0x1);
 error:
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
@@ -2483,6 +2524,10 @@ int dsi_ctrl_cmd_tx_trigger(struct dsi_ctrl *dsi_ctrl, u32 flags)
 		return -EINVAL;
 	}
 
+	/* Dont trigger the command if this is not the last ocmmand */
+	if (!(flags & DSI_CTRL_CMD_LAST_COMMAND))
+		return rc;
+
 	mutex_lock(&dsi_ctrl->ctrl_lock);
 
 	if (!(flags & DSI_CTRL_CMD_BROADCAST_MASTER))
@@ -2490,6 +2535,7 @@ int dsi_ctrl_cmd_tx_trigger(struct dsi_ctrl *dsi_ctrl, u32 flags)
 
 	if ((flags & DSI_CTRL_CMD_BROADCAST) &&
 		(flags & DSI_CTRL_CMD_BROADCAST_MASTER)) {
+		dsi_ctrl_wait_for_video_done(dsi_ctrl);
 		dsi_ctrl_enable_status_interrupt(dsi_ctrl,
 					DSI_SINT_CMD_MODE_DMA_DONE, NULL);
 		reinit_completion(&dsi_ctrl->irq_info.cmd_dma_done);
@@ -2548,6 +2594,43 @@ static void _dsi_ctrl_cache_misr(struct dsi_ctrl *dsi_ctrl)
 	pr_debug("DSI_%d misr_cache = %x\n", dsi_ctrl->cell_index,
 		dsi_ctrl->misr_cache);
 
+}
+
+/**
+ * dsi_ctrl_update_host_engine_state_for_cont_splash() -
+ *            set engine state for dsi controller during continuous splash
+ * @dsi_ctrl:          DSI controller handle.
+ * @state:             Engine state.
+ *
+ * Set host engine state for DSI controller during continuous splash.
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_update_host_engine_state_for_cont_splash(struct dsi_ctrl *dsi_ctrl,
+					enum dsi_engine_state state)
+{
+	int rc = 0;
+
+	if (!dsi_ctrl || (state >= DSI_CTRL_ENGINE_MAX)) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+
+	rc = dsi_ctrl_check_state(dsi_ctrl, DSI_CTRL_OP_HOST_ENGINE, state);
+	if (rc) {
+		pr_err("[DSI_%d] Controller state check failed, rc=%d\n",
+		       dsi_ctrl->cell_index, rc);
+		goto error;
+	}
+
+	pr_debug("[DSI_%d] Set host engine state = %d\n", dsi_ctrl->cell_index,
+		 state);
+	dsi_ctrl_update_state(dsi_ctrl, DSI_CTRL_OP_HOST_ENGINE, state);
+error:
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
+	return rc;
 }
 
 /**
@@ -2720,8 +2803,6 @@ int dsi_ctrl_set_cmd_engine_state(struct dsi_ctrl *dsi_ctrl,
 		return -EINVAL;
 	}
 
-	mutex_lock(&dsi_ctrl->ctrl_lock);
-
 	rc = dsi_ctrl_check_state(dsi_ctrl, DSI_CTRL_OP_CMD_ENGINE, state);
 	if (rc) {
 		pr_err("[DSI_%d] Controller state check failed, rc=%d\n",
@@ -2738,7 +2819,6 @@ int dsi_ctrl_set_cmd_engine_state(struct dsi_ctrl *dsi_ctrl,
 		 state);
 	dsi_ctrl_update_state(dsi_ctrl, DSI_CTRL_OP_CMD_ENGINE, state);
 error:
-	mutex_unlock(&dsi_ctrl->ctrl_lock);
 	return rc;
 }
 

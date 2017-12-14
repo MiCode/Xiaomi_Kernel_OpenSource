@@ -30,6 +30,7 @@
 #define   CTL_START                     0x01C
 #define   CTL_PREPARE                   0x0d0
 #define   CTL_SW_RESET                  0x030
+#define   CTL_SW_RESET_OVERRIDE         0x060
 #define   CTL_LAYER_EXTN_OFFSET         0x40
 #define   CTL_ROT_TOP                   0x0C0
 #define   CTL_ROT_FLUSH                 0x0C4
@@ -345,12 +346,21 @@ static int sde_hw_ctl_reset_control(struct sde_hw_ctl *ctx)
 {
 	struct sde_hw_blk_reg_map *c = &ctx->hw;
 
-	pr_debug("issuing hw ctl reset for ctl:%d\n", ctx->idx);
+	pr_debug("issuing hw ctl reset for ctl:%d\n", ctx->idx - CTL_0);
 	SDE_REG_WRITE(c, CTL_SW_RESET, 0x1);
 	if (sde_hw_ctl_poll_reset_status(ctx, SDE_REG_RESET_TIMEOUT_US))
 		return -EINVAL;
 
 	return 0;
+}
+
+static void sde_hw_ctl_hard_reset(struct sde_hw_ctl *ctx, bool enable)
+{
+	struct sde_hw_blk_reg_map *c = &ctx->hw;
+
+	pr_debug("hw ctl hard reset for ctl:%d, %d\n",
+			ctx->idx - CTL_0, enable);
+	SDE_REG_WRITE(c, CTL_SW_RESET_OVERRIDE, enable);
 }
 
 static int sde_hw_ctl_wait_reset_status(struct sde_hw_ctl *ctx)
@@ -378,10 +388,12 @@ static void sde_hw_ctl_clear_all_blendstages(struct sde_hw_ctl *ctx)
 	int i;
 
 	for (i = 0; i < ctx->mixer_count; i++) {
-		SDE_REG_WRITE(c, CTL_LAYER(LM_0 + i), 0);
-		SDE_REG_WRITE(c, CTL_LAYER_EXT(LM_0 + i), 0);
-		SDE_REG_WRITE(c, CTL_LAYER_EXT2(LM_0 + i), 0);
-		SDE_REG_WRITE(c, CTL_LAYER_EXT3(LM_0 + i), 0);
+		int mixer_id = ctx->mixer_hw_caps[i].id;
+
+		SDE_REG_WRITE(c, CTL_LAYER(mixer_id), 0);
+		SDE_REG_WRITE(c, CTL_LAYER_EXT(mixer_id), 0);
+		SDE_REG_WRITE(c, CTL_LAYER_EXT2(mixer_id), 0);
+		SDE_REG_WRITE(c, CTL_LAYER_EXT3(mixer_id), 0);
 	}
 }
 
@@ -563,12 +575,13 @@ static void sde_hw_ctl_setup_sbuf_cfg(struct sde_hw_ctl *ctx,
 	SDE_REG_WRITE(c, CTL_ROT_TOP, val);
 }
 
-static void sde_hw_reg_dma_flush(struct sde_hw_ctl *ctx)
+static void sde_hw_reg_dma_flush(struct sde_hw_ctl *ctx, bool blocking)
 {
 	struct sde_hw_reg_dma_ops *ops = sde_reg_dma_get_ops();
 
 	if (ops && ops->last_command)
-		ops->last_command(ctx, DMA_CTL_QUEUE0);
+		ops->last_command(ctx, DMA_CTL_QUEUE0,
+		    (blocking ? REG_DMA_WAIT4_COMP : REG_DMA_NOWAIT));
 }
 
 static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
@@ -583,6 +596,7 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 	ops->trigger_pending = sde_hw_ctl_trigger_pending;
 	ops->setup_intf_cfg = sde_hw_ctl_intf_cfg;
 	ops->reset = sde_hw_ctl_reset_control;
+	ops->hard_reset = sde_hw_ctl_hard_reset;
 	ops->wait_reset_status = sde_hw_ctl_wait_reset_status;
 	ops->clear_all_blendstages = sde_hw_ctl_clear_all_blendstages;
 	ops->setup_blendstage = sde_hw_ctl_setup_blendstage;
@@ -601,6 +615,27 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 		ops->trigger_rot_start = sde_hw_ctl_trigger_rot_start;
 	}
 };
+
+#define CTL_BASE_OFFSET	0x2000
+#define CTL_TOP_OFFSET(index) (CTL_BASE_OFFSET + (0x200 * (index)) + CTL_TOP)
+
+void sde_get_ctl_top_for_cont_splash(void __iomem *mmio,
+		struct ctl_top *top, int index)
+{
+	if (!mmio || !top) {
+		SDE_ERROR("invalid input parameters\n");
+		return;
+	}
+
+	top->value = readl_relaxed(mmio + CTL_TOP_OFFSET(index));
+	top->intf_sel = (top->value >> 4) & 0xf;
+	top->pp_sel = (top->value >> 8) & 0x7;
+	top->dspp_sel = (top->value >> 11) & 0x3;
+	top->mode_sel = (top->value >> 17) & 0x1;
+
+	SDE_DEBUG("ctl[%d]_top->0x%x,pp_sel=0x%x,dspp_sel=0x%x,intf_sel=0x%x\n",
+	       index, top->value, top->pp_sel, top->dspp_sel, top->intf_sel);
+}
 
 static struct sde_hw_blk_ops sde_hw_ops = {
 	.start = NULL,

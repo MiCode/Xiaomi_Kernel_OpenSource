@@ -130,3 +130,13 @@
 	spm-level = <0>;
 	status = "ok";
 };
+
+&dsi_sim_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,platform-reset-gpio = <&tlmm 6 0>;
+};
+
+&dsi_sim_cmd_display {
+	qcom,dsi-display-active;
+};

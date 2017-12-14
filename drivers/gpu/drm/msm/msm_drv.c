@@ -58,8 +58,6 @@
 #define MSM_VERSION_MINOR	2
 #define MSM_VERSION_PATCHLEVEL	0
 
-#define TEARDOWN_DEADLOCK_RETRY_MAX 5
-
 static void msm_fb_output_poll_changed(struct drm_device *dev)
 {
 	struct msm_drm_private *priv = NULL;
@@ -283,12 +281,16 @@ static void vblank_ctrl_worker(struct kthread_work *work)
 	struct msm_kms *kms = priv->kms;
 	struct vblank_event *vbl_ev, *tmp;
 	unsigned long flags;
+	LIST_HEAD(tmp_head);
 
 	spin_lock_irqsave(&vbl_ctrl->lock, flags);
 	list_for_each_entry_safe(vbl_ev, tmp, &vbl_ctrl->event_list, node) {
 		list_del(&vbl_ev->node);
-		spin_unlock_irqrestore(&vbl_ctrl->lock, flags);
+		list_add_tail(&vbl_ev->node, &tmp_head);
+	}
+	spin_unlock_irqrestore(&vbl_ctrl->lock, flags);
 
+	list_for_each_entry_safe(vbl_ev, tmp, &tmp_head, node) {
 		if (vbl_ev->enable)
 			kms->funcs->enable_vblank(kms,
 						priv->crtcs[vbl_ev->crtc_id]);
@@ -297,11 +299,7 @@ static void vblank_ctrl_worker(struct kthread_work *work)
 						priv->crtcs[vbl_ev->crtc_id]);
 
 		kfree(vbl_ev);
-
-		spin_lock_irqsave(&vbl_ctrl->lock, flags);
 	}
-
-	spin_unlock_irqrestore(&vbl_ctrl->lock, flags);
 }
 
 static int vblank_ctrl_queue_work(struct msm_drm_private *priv,
@@ -764,6 +762,14 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 
 	drm_mode_config_reset(ddev);
 
+	if (kms && kms->funcs && kms->funcs->cont_splash_config) {
+		ret = kms->funcs->cont_splash_config(kms);
+		if (ret) {
+			dev_err(dev, "kms cont_splash config failed.\n");
+			goto fail;
+		}
+	}
+
 #ifdef CONFIG_DRM_FBDEV_EMULATION
 	if (fbdev)
 		priv->fbdev = msm_fbdev_init(ddev);
@@ -1010,9 +1016,9 @@ static void msm_lastclose(struct drm_device *dev)
 	} else {
 		drm_modeset_lock_all(dev);
 		msm_disable_all_modes(dev);
-		drm_modeset_unlock_all(dev);
 		if (kms && kms->funcs && kms->funcs->lastclose)
 			kms->funcs->lastclose(kms);
+		drm_modeset_unlock_all(dev);
 	}
 }
 
@@ -1877,6 +1883,14 @@ static int add_display_components(struct device *dev,
 		struct device_node *np = dev->of_node;
 		unsigned int i;
 
+		for (i = 0; ; i++) {
+			node = of_parse_phandle(np, "connectors", i);
+			if (!node)
+				break;
+
+			component_match_add(dev, matchptr, compare_of, node);
+		}
+
 		for (i = 0; i < MAX_DSI_ACTIVE_DISPLAY; i++) {
 			node = dsi_display_get_boot_display(i);
 
@@ -1888,13 +1902,6 @@ static int add_display_components(struct device *dev,
 			}
 		}
 
-		for (i = 0; ; i++) {
-			node = of_parse_phandle(np, "connectors", i);
-			if (!node)
-				break;
-
-			component_match_add(dev, matchptr, compare_of, node);
-		}
 		return 0;
 	}
 
@@ -2041,6 +2048,28 @@ static int msm_pdev_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void msm_pdev_shutdown(struct platform_device *pdev)
+{
+	struct drm_device *ddev = platform_get_drvdata(pdev);
+	struct msm_drm_private *priv = NULL;
+
+	if (!ddev) {
+		DRM_ERROR("invalid drm device node\n");
+		return;
+	}
+
+	priv = ddev->dev_private;
+	if (!priv) {
+		DRM_ERROR("invalid msm drm private node\n");
+		return;
+	}
+
+	msm_lastclose(ddev);
+
+	/* set this after lastclose to allow kickoff from lastclose */
+	priv->shutdown_in_progress = true;
+}
+
 static const struct of_device_id dt_match[] = {
 	{ .compatible = "qcom,mdp4", .data = (void *)4 },	/* MDP4 */
 	{ .compatible = "qcom,mdss", .data = (void *)5 },	/* MDP5 MDSS */
@@ -2052,6 +2081,7 @@ MODULE_DEVICE_TABLE(of, dt_match);
 static struct platform_driver msm_platform_driver = {
 	.probe      = msm_pdev_probe,
 	.remove     = msm_pdev_remove,
+	.shutdown   = msm_pdev_shutdown,
 	.driver     = {
 		.name   = "msm_drm",
 		.of_match_table = dt_match,

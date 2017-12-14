@@ -21,6 +21,7 @@
 
 #include <linux/msm_ion.h>
 #include <linux/pm_domain.h>
+#include <linux/pm_qos.h>
 
 #include "msm_drv.h"
 #include "msm_kms.h"
@@ -30,6 +31,7 @@
 #include "sde_hw_catalog.h"
 #include "sde_hw_ctl.h"
 #include "sde_hw_lm.h"
+#include "sde_hw_pingpong.h"
 #include "sde_hw_interrupts.h"
 #include "sde_hw_wb.h"
 #include "sde_hw_top.h"
@@ -182,6 +184,7 @@ struct sde_kms {
 
 	struct msm_gem_address_space *aspace[MSM_SMMU_DOMAIN_MAX];
 	struct sde_power_client *core_client;
+	struct pm_qos_request pm_qos_cpu_req;
 
 	struct ion_client *iclient;
 	struct sde_power_event *power_event;
@@ -202,6 +205,7 @@ struct sde_kms {
 
 	struct sde_hw_intr *hw_intr;
 	struct sde_irq irq_obj;
+	int irq_num;	/* mdss irq number */
 
 	struct sde_core_perf perf;
 
@@ -211,7 +215,8 @@ struct sde_kms {
 
 	struct sde_rm rm;
 	bool rm_init;
-
+	struct sde_splash_data splash_data;
+	bool cont_splash_en;
 	struct sde_hw_vbif *hw_vbif[VBIF_MAX];
 	struct sde_hw_mdp *hw_mdp;
 	int dsi_display_count;
@@ -365,7 +370,8 @@ struct sde_kms_info {
  * @S: Pointer to sde_kms_info structure
  * Returns: Pointer to byte data
  */
-#define SDE_KMS_INFO_DATA(S)    ((S) ? ((struct sde_kms_info *)(S))->data : 0)
+#define SDE_KMS_INFO_DATA(S)    ((S) ? ((struct sde_kms_info *)(S))->data \
+							: NULL)
 
 /**
  * SDE_KMS_INFO_DATALEN - Macro for accessing sde_kms_info data length
@@ -560,5 +566,11 @@ void sde_kms_fbo_unreference(struct sde_kms_fbo *fbo);
  */
 int sde_kms_mmu_attach(struct sde_kms *sde_kms, bool secure_only);
 int sde_kms_mmu_detach(struct sde_kms *sde_kms, bool secure_only);
+
+/**
+ * sde_kms_timeline_status - provides current timeline status
+ * @dev: Pointer to drm device
+ */
+void sde_kms_timeline_status(struct drm_device *dev);
 
 #endif /* __sde_kms_H__ */

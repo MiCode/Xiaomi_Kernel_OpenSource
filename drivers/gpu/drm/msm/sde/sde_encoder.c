@@ -73,6 +73,10 @@
 
 #define IDLE_SHORT_TIMEOUT	1
 
+#define FAULT_TOLERENCE_DELTA_IN_MS 2
+
+#define FAULT_TOLERENCE_WAIT_IN_MS 5
+
 /* Maximum number of VSYNC wait attempts for RSC state transition */
 #define MAX_RSC_WAIT	5
 
@@ -88,7 +92,7 @@
  *	This event happens at INTERRUPT level.
  *	Event signals the end of the data transfer after the PP FRAME_DONE
  *	event. At the end of this event, a delayed work is scheduled to go to
- *	IDLE_PC state after IDLE_TIMEOUT time.
+ *	IDLE_PC state after IDLE_POWERCOLLAPSE_DURATION time.
  * @SDE_ENC_RC_EVENT_PRE_STOP:
  *	This event happens at NORMAL priority.
  *	This event, when received during the ON state, set RSC to IDLE, and
@@ -114,9 +118,9 @@
  *	with new vtotal.
  * @SDE_ENC_RC_EVENT_ENTER_IDLE:
  *	This event happens at NORMAL priority from a work item.
- *	Event signals that there were no frame updates for IDLE_TIMEOUT time.
- *	This would disable MDP/DSI core clocks and request RSC with IDLE state
- *	and change the resource state to IDLE.
+ *	Event signals that there were no frame updates for
+ *	IDLE_POWERCOLLAPSE_DURATION time. This would disable MDP/DSI core clocks
+ *      and request RSC with IDLE state and change the resource state to IDLE.
  */
 enum sde_enc_rc_events {
 	SDE_ENC_RC_EVENT_KICKOFF = 1,
@@ -177,13 +181,10 @@ enum sde_enc_rc_states {
  *				Bit0 = phys_encs[0] etc.
  * @crtc_frame_event_cb:	callback handler for frame event
  * @crtc_frame_event_cb_data:	callback handler private data
- * @frame_done_timeout:		frame done timeout in Hz
- * @frame_done_timer:		watchdog timer for frame done event
  * @vsync_event_timer:		vsync timer
  * @rsc_client:			rsc client pointer
  * @rsc_state_init:		boolean to indicate rsc config init
  * @disp_info:			local copy of msm_display_info struct
- * @mode_info:			local copy of msm_mode_info struct
  * @misr_enable:		misr enable/disable status
  * @misr_frame_count:		misr frame count before start capturing the data
  * @idle_pc_supported:		indicate if idle power collaps is supported
@@ -194,11 +195,10 @@ enum sde_enc_rc_states {
  *				clks and resources after IDLE_TIMEOUT time.
  * @vsync_event_work:		worker to handle vsync event for autorefresh
  * @topology:                   topology of the display
- * @mode_set_complete:          flag to indicate modeset completion
+ * @vblank_enabled:		boolean to track userspace vblank vote
  * @rsc_config:			rsc configuration for display vtotal, fps, etc.
  * @cur_conn_roi:		current connector roi
  * @prv_conn_roi:		previous connector roi to optimize if unchanged
- * @idle_timeout:		idle timeout duration in milliseconds
  */
 struct sde_encoder_virt {
 	struct drm_encoder base;
@@ -224,14 +224,11 @@ struct sde_encoder_virt {
 	void (*crtc_frame_event_cb)(void *, u32 event);
 	void *crtc_frame_event_cb_data;
 
-	atomic_t frame_done_timeout;
-	struct timer_list frame_done_timer;
 	struct timer_list vsync_event_timer;
 
 	struct sde_rsc_client *rsc_client;
 	bool rsc_state_init;
 	struct msm_display_info disp_info;
-	struct msm_mode_info mode_info;
 	bool misr_enable;
 	u32 misr_frame_count;
 
@@ -241,41 +238,78 @@ struct sde_encoder_virt {
 	struct kthread_delayed_work delayed_off_work;
 	struct kthread_work vsync_event_work;
 	struct msm_display_topology topology;
-	bool mode_set_complete;
+	bool vblank_enabled;
 
 	struct sde_rsc_cmd_config rsc_config;
 	struct sde_rect cur_conn_roi;
 	struct sde_rect prv_conn_roi;
-
-	u32 idle_timeout;
 };
 
 #define to_sde_encoder_virt(x) container_of(x, struct sde_encoder_virt, base)
 
-bool sde_encoder_is_dsc_enabled(struct drm_encoder *drm_enc)
-
+static struct drm_connector_state *_sde_encoder_get_conn_state(
+		struct drm_encoder *drm_enc)
 {
-	struct sde_encoder_virt *sde_enc;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+	struct list_head *connector_list;
+	struct drm_connector *conn_iter;
+
+	if (!drm_enc) {
+		SDE_ERROR("invalid argument\n");
+		return NULL;
+	}
+
+	priv = drm_enc->dev->dev_private;
+	sde_kms = to_sde_kms(priv->kms);
+	connector_list = &sde_kms->dev->mode_config.connector_list;
+
+	list_for_each_entry(conn_iter, connector_list, head)
+		if (conn_iter->encoder == drm_enc)
+			return conn_iter->state;
+
+	return NULL;
+}
+
+static int _sde_encoder_get_mode_info(struct drm_encoder *drm_enc,
+		struct msm_mode_info *mode_info)
+{
+	struct drm_connector_state *conn_state;
+
+	if (!drm_enc || !mode_info) {
+		SDE_ERROR("invalid arguments\n");
+		return -EINVAL;
+	}
+
+	conn_state = _sde_encoder_get_conn_state(drm_enc);
+	if (!conn_state) {
+		SDE_ERROR("invalid connector state for the encoder: %d\n",
+			drm_enc->base.id);
+		return -EINVAL;
+	}
+
+	return sde_connector_get_mode_info(conn_state, mode_info);
+}
+
+static bool _sde_encoder_is_dsc_enabled(struct drm_encoder *drm_enc)
+{
 	struct msm_compression_info *comp_info;
+	struct msm_mode_info mode_info;
+	int rc = 0;
 
 	if (!drm_enc)
 		return false;
 
-	sde_enc = to_sde_encoder_virt(drm_enc);
-	comp_info = &sde_enc->mode_info.comp_info;
+	rc = _sde_encoder_get_mode_info(drm_enc, &mode_info);
+	if (rc) {
+		SDE_ERROR("failed to get mode info, enc: %d\n",
+			drm_enc->base.id);
+		return false;
+	}
+
+	comp_info = &mode_info.comp_info;
 
 	return (comp_info->comp_type == MSM_DISPLAY_COMPRESSION_DSC);
-}
-
-void sde_encoder_set_idle_timeout(struct drm_encoder *drm_enc, u32 idle_timeout)
-{
-	struct sde_encoder_virt *sde_enc;
-
-	if (!drm_enc)
-		return;
-
-	sde_enc = to_sde_encoder_virt(drm_enc);
-	sde_enc->idle_timeout = idle_timeout;
 }
 
 bool sde_encoder_is_dsc_merge(struct drm_encoder *drm_enc)
@@ -536,7 +570,8 @@ void sde_encoder_get_hw_resources(struct drm_encoder *drm_enc,
 		struct drm_connector_state *conn_state)
 {
 	struct sde_encoder_virt *sde_enc = NULL;
-	int i = 0;
+	struct msm_mode_info mode_info;
+	int rc, i = 0;
 
 	if (!hw_res || !drm_enc || !conn_state) {
 		SDE_ERROR("invalid argument(s), drm_enc %d, res %d, state %d\n",
@@ -558,7 +593,19 @@ void sde_encoder_get_hw_resources(struct drm_encoder *drm_enc,
 			phys->ops.get_hw_resources(phys, hw_res, conn_state);
 	}
 
-	hw_res->topology = sde_enc->mode_info.topology;
+	/**
+	 * NOTE: Do not use sde_encoder_get_mode_info here as this function is
+	 * called from atomic_check phase. Use the below API to get mode
+	 * information of the temporary conn_state passed.
+	 */
+	rc = sde_connector_get_mode_info(conn_state, &mode_info);
+	if (rc) {
+		SDE_ERROR_ENC(sde_enc, "failed to get mode info\n");
+		return;
+	}
+
+	hw_res->topology = mode_info.topology;
+	hw_res->is_primary = sde_enc->disp_info.is_primary;
 }
 
 void sde_encoder_destroy(struct drm_encoder *drm_enc)
@@ -697,6 +744,9 @@ static int sde_encoder_virt_atomic_check(
 	struct sde_kms *sde_kms;
 	const struct drm_display_mode *mode;
 	struct drm_display_mode *adj_mode;
+	struct sde_connector *sde_conn = NULL;
+	struct sde_connector_state *sde_conn_state = NULL;
+	struct sde_crtc_state *sde_crtc_state = NULL;
 	int i = 0;
 	int ret = 0;
 
@@ -713,7 +763,11 @@ static int sde_encoder_virt_atomic_check(
 	sde_kms = to_sde_kms(priv->kms);
 	mode = &crtc_state->mode;
 	adj_mode = &crtc_state->adjusted_mode;
-	SDE_EVT32(DRMID(drm_enc));
+	sde_conn = to_sde_connector(conn_state->connector);
+	sde_conn_state = to_sde_connector_state(conn_state);
+	sde_crtc_state = to_sde_crtc_state(crtc_state);
+
+	SDE_EVT32(DRMID(drm_enc), drm_atomic_crtc_needs_modeset(crtc_state));
 
 	/*
 	 * display drivers may populate private fields of the drm display mode
@@ -742,18 +796,93 @@ static int sde_encoder_virt_atomic_check(
 		}
 	}
 
-	/* Reserve dynamic resources now. Indicating AtomicTest phase */
-	if (!ret) {
-		/*
-		 * Avoid reserving resources when mode set is pending. Topology
-		 * info may not be available to complete reservation.
-		 */
-		if (drm_atomic_crtc_needs_modeset(crtc_state)
-				&& sde_enc->mode_set_complete) {
-			ret = sde_rm_reserve(&sde_kms->rm, drm_enc, crtc_state,
-				conn_state, true);
-			sde_enc->mode_set_complete = false;
+	if (!ret && drm_atomic_crtc_needs_modeset(crtc_state)) {
+		struct sde_rect mode_roi, roi;
+
+		mode_roi.x = 0;
+		mode_roi.y = 0;
+		mode_roi.w = crtc_state->adjusted_mode.hdisplay;
+		mode_roi.h = crtc_state->adjusted_mode.vdisplay;
+
+		if (sde_conn_state->rois.num_rects) {
+			sde_kms_rect_merge_rectangles(
+					&sde_conn_state->rois, &roi);
+			if (!sde_kms_rect_is_equal(&mode_roi, &roi)) {
+				SDE_ERROR_ENC(sde_enc,
+					"roi (%d,%d,%d,%d) on connector invalid during modeset\n",
+					roi.x, roi.y, roi.w, roi.h);
+				ret = -EINVAL;
+			}
 		}
+
+		if (sde_crtc_state->user_roi_list.num_rects) {
+			sde_kms_rect_merge_rectangles(
+					&sde_crtc_state->user_roi_list, &roi);
+			if (!sde_kms_rect_is_equal(&mode_roi, &roi)) {
+				SDE_ERROR_ENC(sde_enc,
+					"roi (%d,%d,%d,%d) on crtc invalid during modeset\n",
+					roi.x, roi.y, roi.w, roi.h);
+				ret = -EINVAL;
+			}
+		}
+
+		if (ret)
+			return ret;
+	}
+
+	if (!ret && sde_conn && drm_atomic_crtc_needs_modeset(crtc_state)) {
+		struct msm_display_topology *topology = NULL;
+
+		ret = sde_conn->ops.get_mode_info(adj_mode,
+				&sde_conn_state->mode_info,
+				sde_kms->catalog->max_mixer_width,
+				sde_conn->display);
+		if (ret) {
+			SDE_ERROR_ENC(sde_enc,
+				"failed to get mode info, rc = %d\n", ret);
+			return ret;
+		}
+
+		/* Reserve dynamic resources, indicating atomic_check phase */
+		ret = sde_rm_reserve(&sde_kms->rm, drm_enc, crtc_state,
+			conn_state, true);
+		if (ret) {
+			SDE_ERROR_ENC(sde_enc,
+				"RM failed to reserve resources, rc = %d\n",
+				ret);
+			return ret;
+		}
+
+		/**
+		 * Update connector state with the topology selected for the
+		 * resource set validated. Reset the topology if we are
+		 * de-activating crtc.
+		 */
+		if (crtc_state->active)
+			topology = &sde_conn_state->mode_info.topology;
+
+		ret = sde_rm_update_topology(conn_state, topology);
+		if (ret) {
+			SDE_ERROR_ENC(sde_enc,
+				"RM failed to update topology, rc: %d\n", ret);
+			return ret;
+		}
+
+		ret = sde_connector_set_info(conn_state->connector, conn_state);
+		if (ret) {
+			SDE_ERROR_ENC(sde_enc,
+				"connector failed to update info, rc: %d\n",
+				ret);
+			return ret;
+		}
+
+	}
+
+	ret = sde_connector_roi_v1_check_roi(conn_state);
+	if (ret) {
+		SDE_ERROR_ENC(sde_enc, "connector roi check failed, rc: %d",
+				ret);
+		return ret;
 	}
 
 	if (!ret)
@@ -919,13 +1048,22 @@ static int _sde_encoder_dsc_n_lm_1_enc_1_intf(struct sde_encoder_virt *sde_enc)
 	struct sde_hw_dsc *hw_dsc = sde_enc->hw_dsc[0];
 	struct sde_encoder_phys *enc_master = sde_enc->cur_master;
 	const struct sde_rect *roi = &sde_enc->cur_conn_roi;
-	struct msm_display_dsc_info *dsc =
-		&sde_enc->mode_info.comp_info.dsc_info;
+	struct msm_mode_info mode_info;
+	struct msm_display_dsc_info *dsc = NULL;
+	int rc;
 
-	if (dsc == NULL || hw_dsc == NULL || hw_pp == NULL || !enc_master) {
+	if (hw_dsc == NULL || hw_pp == NULL || !enc_master) {
 		SDE_ERROR_ENC(sde_enc, "invalid params for DSC\n");
 		return -EINVAL;
 	}
+
+	rc = _sde_encoder_get_mode_info(&sde_enc->base, &mode_info);
+	if (rc) {
+		SDE_ERROR_ENC(sde_enc, "failed to get mode info\n");
+		return -EINVAL;
+	}
+
+	dsc = &mode_info.comp_info.dsc_info;
 
 	_sde_encoder_dsc_update_pic_dim(dsc, roi->w, roi->h);
 
@@ -963,8 +1101,9 @@ static int _sde_encoder_dsc_2_lm_2_enc_2_intf(struct sde_encoder_virt *sde_enc,
 	struct sde_hw_dsc *hw_dsc[MAX_CHANNELS_PER_ENC];
 	struct sde_hw_pingpong *hw_pp[MAX_CHANNELS_PER_ENC];
 	struct msm_display_dsc_info dsc[MAX_CHANNELS_PER_ENC];
+	struct msm_mode_info mode_info;
 	bool half_panel_partial_update;
-	int i;
+	int i, rc;
 
 	for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
 		hw_pp[i] = sde_enc->hw_pp[i];
@@ -976,6 +1115,12 @@ static int _sde_encoder_dsc_2_lm_2_enc_2_intf(struct sde_encoder_virt *sde_enc,
 		}
 	}
 
+	rc = _sde_encoder_get_mode_info(&sde_enc->base, &mode_info);
+	if (rc) {
+		SDE_ERROR_ENC(sde_enc, "failed to get mode info\n");
+		return -EINVAL;
+	}
+
 	half_panel_partial_update =
 			hweight_long(params->affected_displays) == 1;
 
@@ -985,8 +1130,8 @@ static int _sde_encoder_dsc_2_lm_2_enc_2_intf(struct sde_encoder_virt *sde_enc,
 	if (enc_master->intf_mode == INTF_MODE_VIDEO)
 		dsc_common_mode |= DSC_MODE_VIDEO;
 
-	memcpy(&dsc[0], &sde_enc->mode_info.comp_info.dsc_info, sizeof(dsc[0]));
-	memcpy(&dsc[1], &sde_enc->mode_info.comp_info.dsc_info, sizeof(dsc[1]));
+	memcpy(&dsc[0], &mode_info.comp_info.dsc_info, sizeof(dsc[0]));
+	memcpy(&dsc[1], &mode_info.comp_info.dsc_info, sizeof(dsc[1]));
 
 	/*
 	 * Since both DSC use same pic dimension, set same pic dimension
@@ -1049,10 +1194,10 @@ static int _sde_encoder_dsc_2_lm_2_enc_1_intf(struct sde_encoder_virt *sde_enc,
 	const struct sde_rect *roi = &sde_enc->cur_conn_roi;
 	struct sde_hw_dsc *hw_dsc[MAX_CHANNELS_PER_ENC];
 	struct sde_hw_pingpong *hw_pp[MAX_CHANNELS_PER_ENC];
-	struct msm_display_dsc_info *dsc =
-		&sde_enc->mode_info.comp_info.dsc_info;
+	struct msm_display_dsc_info *dsc = NULL;
+	struct msm_mode_info mode_info;
 	bool half_panel_partial_update;
-	int i;
+	int i, rc;
 
 	for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
 		hw_pp[i] = sde_enc->hw_pp[i];
@@ -1063,6 +1208,14 @@ static int _sde_encoder_dsc_2_lm_2_enc_1_intf(struct sde_encoder_virt *sde_enc,
 			return -EINVAL;
 		}
 	}
+
+	rc = _sde_encoder_get_mode_info(&sde_enc->base, &mode_info);
+	if (rc) {
+		SDE_ERROR_ENC(sde_enc, "failed to get mode info\n");
+		return -EINVAL;
+	}
+
+	dsc = &mode_info.comp_info.dsc_info;
 
 	half_panel_partial_update =
 			hweight_long(params->affected_displays) == 1;
@@ -1152,7 +1305,17 @@ static int _sde_encoder_dsc_setup(struct sde_encoder_virt *sde_enc,
 	}
 
 	SDE_DEBUG_ENC(sde_enc, "topology:%d\n", topology);
-	SDE_EVT32(DRMID(&sde_enc->base));
+	SDE_EVT32(DRMID(&sde_enc->base), topology,
+			sde_enc->cur_conn_roi.x,
+			sde_enc->cur_conn_roi.y,
+			sde_enc->cur_conn_roi.w,
+			sde_enc->cur_conn_roi.h,
+			sde_enc->prv_conn_roi.x,
+			sde_enc->prv_conn_roi.y,
+			sde_enc->prv_conn_roi.w,
+			sde_enc->prv_conn_roi.h,
+			sde_enc->base.crtc->state->adjusted_mode.hdisplay,
+			sde_enc->base.crtc->state->adjusted_mode.vdisplay);
 
 	if (sde_kms_rect_is_equal(&sde_enc->cur_conn_roi,
 			&sde_enc->prv_conn_roi))
@@ -1186,8 +1349,8 @@ static void _sde_encoder_update_vsync_source(struct sde_encoder_virt *sde_enc,
 	struct sde_kms *sde_kms;
 	struct sde_hw_mdp *hw_mdptop;
 	struct drm_encoder *drm_enc;
-	struct msm_mode_info *mode_info;
-	int i;
+	struct msm_mode_info mode_info;
+	int i, rc = 0;
 
 	if (!sde_enc || !disp_info) {
 		SDE_ERROR("invalid param sde_enc:%d or disp_info:%d\n",
@@ -1216,9 +1379,9 @@ static void _sde_encoder_update_vsync_source(struct sde_encoder_virt *sde_enc,
 		return;
 	}
 
-	mode_info = &sde_enc->mode_info;
-	if (!mode_info) {
-		SDE_ERROR("invalid mode info\n");
+	rc = _sde_encoder_get_mode_info(drm_enc, &mode_info);
+	if (rc) {
+		SDE_ERROR_ENC(sde_enc, "failed to get mode info\n");
 		return;
 	}
 
@@ -1228,7 +1391,7 @@ static void _sde_encoder_update_vsync_source(struct sde_encoder_virt *sde_enc,
 			vsync_cfg.ppnumber[i] = sde_enc->hw_pp[i]->idx;
 
 		vsync_cfg.pp_count = sde_enc->num_phys_encs;
-		vsync_cfg.frame_rate = mode_info->frame_rate;
+		vsync_cfg.frame_rate = mode_info.frame_rate;
 		if (is_dummy)
 			vsync_cfg.vsync_source = SDE_VSYNC_SOURCE_WD_TIMER_1;
 		else if (disp_info->is_te_using_watchdog_timer)
@@ -1243,13 +1406,9 @@ static void _sde_encoder_update_vsync_source(struct sde_encoder_virt *sde_enc,
 
 static int _sde_encoder_dsc_disable(struct sde_encoder_virt *sde_enc)
 {
-	enum sde_rm_topology_name topology;
-	struct drm_connector *drm_conn;
 	int i, ret = 0;
-	struct sde_hw_pingpong *hw_pp[MAX_CHANNELS_PER_ENC];
-	struct sde_hw_dsc *hw_dsc[MAX_CHANNELS_PER_ENC] = {NULL};
-	int pp_count = 0;
-	int dsc_count = 0;
+	struct sde_hw_pingpong *hw_pp = NULL;
+	struct sde_hw_dsc *hw_dsc = NULL;
 
 	if (!sde_enc || !sde_enc->phys_encs[0] ||
 			!sde_enc->phys_encs[0]->connector) {
@@ -1258,80 +1417,16 @@ static int _sde_encoder_dsc_disable(struct sde_encoder_virt *sde_enc)
 		return -EINVAL;
 	}
 
-	drm_conn = sde_enc->phys_encs[0]->connector;
-
-	topology = sde_connector_get_topology_name(drm_conn);
-	if (topology == SDE_RM_TOPOLOGY_NONE) {
-		SDE_ERROR_ENC(sde_enc, "topology not set yet\n");
-		return -EINVAL;
-	}
-
-	switch (topology) {
-	case SDE_RM_TOPOLOGY_SINGLEPIPE:
-	case SDE_RM_TOPOLOGY_SINGLEPIPE_DSC:
-		/* single PP */
-		hw_pp[0] = sde_enc->hw_pp[0];
-		hw_dsc[0] = sde_enc->hw_dsc[0];
-		pp_count = 1;
-		dsc_count = 1;
-		break;
-	case SDE_RM_TOPOLOGY_DUALPIPE_DSC:
-	case SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE_DSC:
-	case SDE_RM_TOPOLOGY_DUALPIPE_DSCMERGE:
-		/* dual dsc */
-		for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
-			hw_dsc[i] = sde_enc->hw_dsc[i];
-			if (hw_dsc[i])
-				dsc_count++;
-		}
-		/* fall through */
-	case SDE_RM_TOPOLOGY_DUALPIPE:
-	case SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE:
-		/* dual pp */
-		for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
-			hw_pp[i] = sde_enc->hw_pp[i];
-			if (hw_pp[i])
-				pp_count++;
-		}
-		break;
-	default:
-		SDE_DEBUG_ENC(sde_enc, "Unexpected topology:%d\n", topology);
-		return -EINVAL;
-	};
-
-	SDE_EVT32(DRMID(&sde_enc->base), topology, pp_count, dsc_count);
-
-	if (pp_count > MAX_CHANNELS_PER_ENC ||
-		dsc_count > MAX_CHANNELS_PER_ENC) {
-		SDE_ERROR_ENC(sde_enc, "Wrong count pp:%d dsc:%d top:%d\n",
-				pp_count, dsc_count, topology);
-		return -EINVAL;
-	}
-
 	/* Disable DSC for all the pp's present in this topology */
-	for (i = 0; i < pp_count; i++) {
+	for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
+		hw_pp = sde_enc->hw_pp[i];
+		hw_dsc = sde_enc->hw_dsc[i];
 
-		if (!hw_pp[i]) {
-			SDE_ERROR_ENC(sde_enc, "null pp:%d top:%d cnt:%d\n",
-					i, topology, pp_count);
-			return -EINVAL;
-		}
+		if (hw_pp && hw_pp->ops.disable_dsc)
+			hw_pp->ops.disable_dsc(hw_pp);
 
-		if (hw_pp[i]->ops.disable_dsc)
-			hw_pp[i]->ops.disable_dsc(hw_pp[i]);
-	}
-
-	/* Disable DSC HW */
-	for (i = 0; i < dsc_count; i++) {
-
-		if (!hw_dsc[i]) {
-			SDE_ERROR_ENC(sde_enc, "null dsc:%d top:%d cnt:%d\n",
-					i, topology, dsc_count);
-			return -EINVAL;
-		}
-
-		if (hw_dsc[i]->ops.dsc_disable)
-			hw_dsc[i]->ops.dsc_disable(hw_dsc[i]);
+		if (hw_dsc && hw_dsc->ops.dsc_disable)
+			hw_dsc->ops.dsc_disable(hw_dsc);
 	}
 
 	return ret;
@@ -1347,11 +1442,12 @@ static int _sde_encoder_update_rsc_client(
 	struct sde_rsc_cmd_config *rsc_config;
 	int ret, prefill_lines;
 	struct msm_display_info *disp_info;
-	struct msm_mode_info *mode_info;
+	struct msm_mode_info mode_info;
 	int wait_vblank_crtc_id = SDE_RSC_INVALID_CRTC_ID;
 	int wait_count = 0;
 	struct drm_crtc *primary_crtc;
 	int pipe = -1;
+	int rc = 0;
 
 	if (!drm_enc || !drm_enc->crtc || !drm_enc->dev) {
 		SDE_ERROR("invalid arguments\n");
@@ -1361,11 +1457,16 @@ static int _sde_encoder_update_rsc_client(
 	sde_enc = to_sde_encoder_virt(drm_enc);
 	crtc = drm_enc->crtc;
 	disp_info = &sde_enc->disp_info;
-	mode_info = &sde_enc->mode_info;
 	rsc_config = &sde_enc->rsc_config;
 
 	if (!sde_enc->rsc_client) {
 		SDE_DEBUG_ENC(sde_enc, "rsc client not created\n");
+		return 0;
+	}
+
+	rc = _sde_encoder_get_mode_info(drm_enc, &mode_info);
+	if (rc) {
+		SDE_ERROR_ENC(sde_enc, "failed to mode info\n");
 		return 0;
 	}
 
@@ -1378,20 +1479,20 @@ static int _sde_encoder_update_rsc_client(
 		(((disp_info->capabilities & MSM_DISPLAY_CAP_CMD_MODE) &&
 		  disp_info->is_primary) ? SDE_RSC_CMD_STATE :
 		SDE_RSC_VID_STATE) : SDE_RSC_IDLE_STATE;
-	prefill_lines = config ? mode_info->prefill_lines +
-		config->inline_rotate_prefill : mode_info->prefill_lines;
+	prefill_lines = config ? mode_info.prefill_lines +
+		config->inline_rotate_prefill : mode_info.prefill_lines;
 
 	/* compare specific items and reconfigure the rsc */
-	if ((rsc_config->fps != mode_info->frame_rate) ||
-	    (rsc_config->vtotal != mode_info->vtotal) ||
+	if ((rsc_config->fps != mode_info.frame_rate) ||
+	    (rsc_config->vtotal != mode_info.vtotal) ||
 	    (rsc_config->prefill_lines != prefill_lines) ||
-	    (rsc_config->jitter_numer != mode_info->jitter_numer) ||
-	    (rsc_config->jitter_denom != mode_info->jitter_denom)) {
-		rsc_config->fps = mode_info->frame_rate;
-		rsc_config->vtotal = mode_info->vtotal;
+	    (rsc_config->jitter_numer != mode_info.jitter_numer) ||
+	    (rsc_config->jitter_denom != mode_info.jitter_denom)) {
+		rsc_config->fps = mode_info.frame_rate;
+		rsc_config->vtotal = mode_info.vtotal;
 		rsc_config->prefill_lines = prefill_lines;
-		rsc_config->jitter_numer = mode_info->jitter_numer;
-		rsc_config->jitter_denom = mode_info->jitter_denom;
+		rsc_config->jitter_numer = mode_info.jitter_numer;
+		rsc_config->jitter_denom = mode_info.jitter_denom;
 		sde_enc->rsc_state_init = false;
 	}
 
@@ -1491,6 +1592,44 @@ static void _sde_encoder_irq_control(struct drm_encoder *drm_enc, bool enable)
 
 }
 
+/* keep track of the userspace vblank during modeset */
+static void _sde_encoder_modeset_helper_locked(struct drm_encoder *drm_enc,
+		u32 sw_event)
+{
+	struct sde_encoder_virt *sde_enc;
+	bool enable;
+	int i;
+
+	if (!drm_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	SDE_DEBUG_ENC(sde_enc, "sw_event:%d, vblank_enabled:%d\n",
+			sw_event, sde_enc->vblank_enabled);
+
+	/* nothing to do if vblank not enabled by userspace */
+	if (!sde_enc->vblank_enabled)
+		return;
+
+	/* disable vblank on pre_modeset */
+	if (sw_event == SDE_ENC_RC_EVENT_PRE_MODESET)
+		enable = false;
+	/* enable vblank on post_modeset */
+	else if (sw_event == SDE_ENC_RC_EVENT_POST_MODESET)
+		enable = true;
+	else
+		return;
+
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
+		if (phys && phys->ops.control_vblank_irq)
+			phys->ops.control_vblank_irq(phys, enable);
+	}
+}
+
 struct sde_rsc_client *sde_encoder_get_rsc_client(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc;
@@ -1504,9 +1643,7 @@ struct sde_rsc_client *sde_encoder_get_rsc_client(struct drm_encoder *drm_enc)
 static void _sde_encoder_resource_control_rsc_update(
 		struct drm_encoder *drm_enc, bool enable)
 {
-	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
 	struct sde_encoder_rsc_config rsc_cfg = { 0 };
-	int i;
 
 	if (enable) {
 		rsc_cfg.inline_rotate_prefill =
@@ -1515,22 +1652,6 @@ static void _sde_encoder_resource_control_rsc_update(
 		_sde_encoder_update_rsc_client(drm_enc, &rsc_cfg, true);
 	} else {
 		_sde_encoder_update_rsc_client(drm_enc, NULL, false);
-
-		/**
-		 * disable the vsync source after updating the rsc state. rsc
-		 * state update might have vsync wait and vsync source must be
-		 * disabled after it. It will avoid generating any vsync from
-		 * this point till mode-2 entry. It is SW workaround for
-		 * HW limitation and should not be removed without checking the
-		 * updated design.
-		 */
-		for (i = 0; i < sde_enc->num_phys_encs; i++) {
-			struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
-
-			if (phys && phys->ops.prepare_idle_pc)
-				phys->ops.prepare_idle_pc(phys);
-		}
-
 	}
 }
 
@@ -1582,7 +1703,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		u32 sw_event)
 {
 	bool autorefresh_enabled = false;
-	unsigned int lp, idle_timeout;
+	unsigned int lp, idle_pc_duration;
 	struct sde_encoder_virt *sde_enc;
 	struct msm_drm_private *priv;
 	struct msm_drm_thread *disp_thread;
@@ -1706,18 +1827,18 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 			lp = SDE_MODE_DPMS_ON;
 
 		if (lp == SDE_MODE_DPMS_LP2)
-			idle_timeout = IDLE_SHORT_TIMEOUT;
+			idle_pc_duration = IDLE_SHORT_TIMEOUT;
 		else
-			idle_timeout = sde_enc->idle_timeout;
+			idle_pc_duration = IDLE_POWERCOLLAPSE_DURATION;
 
 		if (!autorefresh_enabled)
 			kthread_queue_delayed_work(
 				&disp_thread->worker,
 				&sde_enc->delayed_off_work,
-				msecs_to_jiffies(idle_timeout));
+				msecs_to_jiffies(idle_pc_duration));
 		SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
 				autorefresh_enabled,
-				idle_timeout, SDE_EVTLOG_FUNC_CASE2);
+				idle_pc_duration, SDE_EVTLOG_FUNC_CASE2);
 		SDE_DEBUG_ENC(sde_enc, "sw_event:%d, work scheduled\n",
 				sw_event);
 		break;
@@ -1762,8 +1883,10 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		break;
 
 	case SDE_ENC_RC_EVENT_STOP:
-		mutex_lock(&sde_enc->rc_lock);
+		/* cancel vsync event work */
+		kthread_cancel_work_sync(&sde_enc->vsync_event_work);
 
+		mutex_lock(&sde_enc->rc_lock);
 		/* return if the resource control is already in OFF state */
 		if (sde_enc->rc_state == SDE_ENC_RC_STATE_OFF) {
 			SDE_DEBUG_ENC(sde_enc, "sw_event:%d, rc in OFF state\n",
@@ -1830,6 +1953,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		}
 
 		_sde_encoder_irq_control(drm_enc, false);
+		_sde_encoder_modeset_helper_locked(drm_enc, sw_event);
 
 		SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
 			SDE_ENC_RC_STATE_MODESET, SDE_EVTLOG_FUNC_CASE5);
@@ -1852,6 +1976,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 			return -EINVAL;
 		}
 
+		_sde_encoder_modeset_helper_locked(drm_enc, sw_event);
 		_sde_encoder_irq_control(drm_enc, true);
 
 		_sde_encoder_update_rsc_client(drm_enc, NULL, true);
@@ -1926,6 +2051,7 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	struct sde_kms *sde_kms;
 	struct list_head *connector_list;
 	struct drm_connector *conn = NULL, *conn_iter;
+	struct sde_connector_state *sde_conn_state = NULL;
 	struct sde_connector *sde_conn = NULL;
 	struct sde_rm_hw_iter dsc_iter, pp_iter;
 	int i = 0, ret;
@@ -1957,12 +2083,15 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	}
 
 	sde_conn = to_sde_connector(conn);
-	if (sde_conn) {
-		ret = sde_conn->ops.get_mode_info(adj_mode, &sde_enc->mode_info,
-				sde_kms->catalog->max_mixer_width);
+	sde_conn_state = to_sde_connector_state(conn->state);
+	if (sde_conn && sde_conn_state) {
+		ret = sde_conn->ops.get_mode_info(adj_mode,
+				&sde_conn_state->mode_info,
+				sde_kms->catalog->max_mixer_width,
+				sde_conn->display);
 		if (ret) {
 			SDE_ERROR_ENC(sde_enc,
-				"invalid topology for the mode\n");
+				"failed to get mode info from the display\n");
 			return;
 		}
 	}
@@ -2031,8 +2160,30 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	if (msm_is_mode_seamless_dms(adj_mode))
 		sde_encoder_resource_control(&sde_enc->base,
 						SDE_ENC_RC_EVENT_POST_MODESET);
+}
 
-	sde_enc->mode_set_complete = true;
+void sde_encoder_control_te(struct drm_encoder *drm_enc, bool enable)
+{
+	struct sde_encoder_virt *sde_enc;
+	struct sde_encoder_phys *phys;
+	int i;
+
+	if (!drm_enc) {
+		SDE_ERROR("invalid parameters\n");
+		return;
+	}
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	if (!sde_enc) {
+		SDE_ERROR("invalid sde encoder\n");
+		return;
+	}
+
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		phys = sde_enc->phys_encs[i];
+		if (phys && phys->ops.control_te)
+			phys->ops.control_te(phys, enable);
+	}
 }
 
 static void _sde_encoder_virt_enable_helper(struct drm_encoder *drm_enc)
@@ -2072,6 +2223,7 @@ static void _sde_encoder_virt_enable_helper(struct drm_encoder *drm_enc)
 				sde_kms->catalog);
 
 	_sde_encoder_update_vsync_source(sde_enc, &sde_enc->disp_info, false);
+	sde_encoder_control_te(drm_enc, true);
 
 	memset(&sde_enc->prv_conn_roi, 0, sizeof(sde_enc->prv_conn_roi));
 	memset(&sde_enc->cur_conn_roi, 0, sizeof(sde_enc->cur_conn_roi));
@@ -2107,13 +2259,22 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 	int i, ret = 0;
 	struct msm_compression_info *comp_info = NULL;
 	struct drm_display_mode *cur_mode = NULL;
+	struct msm_mode_info mode_info;
+	struct drm_connector *drm_conn = NULL;
 
 	if (!drm_enc) {
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
 	sde_enc = to_sde_encoder_virt(drm_enc);
-	comp_info = &sde_enc->mode_info.comp_info;
+
+	ret = _sde_encoder_get_mode_info(drm_enc, &mode_info);
+	if (ret) {
+		SDE_ERROR_ENC(sde_enc, "failed to get mode info\n");
+		return;
+	}
+
+	comp_info = &mode_info.comp_info;
 	cur_mode = &sde_enc->base.crtc->state->adjusted_mode;
 
 	SDE_DEBUG_ENC(sde_enc, "\n");
@@ -2175,6 +2336,10 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 		sde_enc->cur_master->ops.enable(sde_enc->cur_master);
 
 	_sde_encoder_virt_enable_helper(drm_enc);
+
+	/* Enable ESD thread */
+	drm_conn = sde_enc->cur_master->connector;
+	sde_connector_schedule_status_work(drm_conn, true);
 }
 
 static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
@@ -2182,6 +2347,8 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	struct sde_encoder_virt *sde_enc = NULL;
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
+	struct drm_connector *drm_conn = NULL;
+	enum sde_intf_mode intf_mode;
 	int i = 0;
 
 	if (!drm_enc) {
@@ -2200,19 +2367,44 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 
 	priv = drm_enc->dev->dev_private;
 	sde_kms = to_sde_kms(priv->kms);
+	intf_mode = sde_encoder_get_intf_mode(drm_enc);
 
 	SDE_EVT32(DRMID(drm_enc));
+
+	/* Disable ESD thread */
+	drm_conn = sde_enc->cur_master->connector;
+	sde_connector_schedule_status_work(drm_conn, false);
 
 	/* wait for idle */
 	sde_encoder_wait_for_event(drm_enc, MSM_ENC_TX_COMPLETE);
 
-	sde_encoder_resource_control(drm_enc, SDE_ENC_RC_EVENT_PRE_STOP);
+	/*
+	 * For primary command mode encoders, execute the resource control
+	 * pre-stop operations before the physical encoders are disabled, to
+	 * allow the rsc to transition its states properly.
+	 *
+	 * For other encoder types, rsc should not be enabled until after
+	 * they have been fully disabled, so delay the pre-stop operations
+	 * until after the physical disable calls have returned.
+	 */
+	if (sde_enc->disp_info.is_primary && intf_mode == INTF_MODE_CMD) {
+		sde_encoder_resource_control(drm_enc,
+				SDE_ENC_RC_EVENT_PRE_STOP);
+		for (i = 0; i < sde_enc->num_phys_encs; i++) {
+			struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-	for (i = 0; i < sde_enc->num_phys_encs; i++) {
-		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+			if (phys && phys->ops.disable)
+				phys->ops.disable(phys);
+		}
+	} else {
+		for (i = 0; i < sde_enc->num_phys_encs; i++) {
+			struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-		if (phys && phys->ops.disable)
-			phys->ops.disable(phys);
+			if (phys && phys->ops.disable)
+				phys->ops.disable(phys);
+		}
+		sde_encoder_resource_control(drm_enc,
+				SDE_ENC_RC_EVENT_PRE_STOP);
 	}
 
 	/*
@@ -2221,12 +2413,6 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	 * engine is already disabled (for video mode).
 	 */
 	_sde_encoder_dsc_disable(sde_enc);
-
-	/* after phys waits for frame-done, should be no more frames pending */
-	if (atomic_xchg(&sde_enc->frame_done_timeout, 0)) {
-		SDE_ERROR("enc%d timeout pending\n", drm_enc->base.id);
-		del_timer_sync(&sde_enc->frame_done_timer);
-	}
 
 	sde_encoder_resource_control(drm_enc, SDE_ENC_RC_EVENT_STOP);
 
@@ -2327,6 +2513,7 @@ void sde_encoder_register_vblank_callback(struct drm_encoder *drm_enc,
 		if (phys && phys->ops.control_vblank_irq)
 			phys->ops.control_vblank_irq(phys, enable);
 	}
+	sde_enc->vblank_enabled = enable;
 }
 
 void sde_encoder_register_frame_event_callback(struct drm_encoder *drm_enc,
@@ -2382,9 +2569,6 @@ static void sde_encoder_frame_done_callback(
 		}
 
 		if (!sde_enc->frame_busy_mask[0]) {
-			atomic_set(&sde_enc->frame_done_timeout, 0);
-			del_timer(&sde_enc->frame_done_timer);
-
 			sde_encoder_resource_control(drm_enc,
 					SDE_ENC_RC_EVENT_FRAME_DONE);
 
@@ -2412,9 +2596,6 @@ static void sde_encoder_off_work(struct kthread_work *work)
 
 	sde_encoder_resource_control(&sde_enc->base,
 						SDE_ENC_RC_EVENT_ENTER_IDLE);
-
-	sde_encoder_frame_done_callback(&sde_enc->base, NULL,
-				SDE_ENCODER_FRAME_EVENT_IDLE);
 }
 
 /**
@@ -2441,8 +2622,8 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 	}
 
 	ctl = phys->hw_ctl;
-	if (!ctl || !ctl->ops.trigger_flush) {
-		SDE_ERROR("missing trigger cb\n");
+	if (!ctl || !phys->ops.trigger_flush) {
+		SDE_ERROR("missing ctl/trigger cb\n");
 		return;
 	}
 
@@ -2462,14 +2643,15 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 	if (extra_flush_bits && ctl->ops.update_pending_flush)
 		ctl->ops.update_pending_flush(ctl, extra_flush_bits);
 
-	ctl->ops.trigger_flush(ctl);
+	phys->ops.trigger_flush(phys);
 
 	if (ctl->ops.get_pending_flush)
-		SDE_EVT32(DRMID(drm_enc), phys->intf_idx, pending_kickoff_cnt,
-			ctl->idx, ctl->ops.get_pending_flush(ctl));
+		SDE_EVT32(DRMID(drm_enc), phys->intf_idx - INTF_0,
+			pending_kickoff_cnt, ctl->idx - CTL_0,
+			ctl->ops.get_pending_flush(ctl));
 	else
-		SDE_EVT32(DRMID(drm_enc), phys->intf_idx, ctl->idx,
-						pending_kickoff_cnt);
+		SDE_EVT32(DRMID(drm_enc), phys->intf_idx - INTF_0,
+			ctl->idx - CTL_0, pending_kickoff_cnt);
 }
 
 /**
@@ -2502,6 +2684,20 @@ static inline void _sde_encoder_trigger_start(struct sde_encoder_phys *phys)
 		phys->ops.trigger_start(phys);
 }
 
+void sde_encoder_helper_trigger_flush(struct sde_encoder_phys *phys_enc)
+{
+	struct sde_hw_ctl *ctl;
+
+	if (!phys_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+
+	ctl = phys_enc->hw_ctl;
+	if (ctl && ctl->ops.trigger_flush)
+		ctl->ops.trigger_flush(ctl);
+}
+
 void sde_encoder_helper_trigger_start(struct sde_encoder_phys *phys_enc)
 {
 	struct sde_hw_ctl *ctl;
@@ -2514,30 +2710,50 @@ void sde_encoder_helper_trigger_start(struct sde_encoder_phys *phys_enc)
 	ctl = phys_enc->hw_ctl;
 	if (ctl && ctl->ops.trigger_start) {
 		ctl->ops.trigger_start(ctl);
-		SDE_EVT32(DRMID(phys_enc->parent), ctl->idx);
+		SDE_EVT32(DRMID(phys_enc->parent), ctl->idx - CTL_0);
 	}
 }
 
-int sde_encoder_helper_wait_event_timeout(
-		int32_t drm_id,
-		int32_t hw_id,
-		struct sde_encoder_wait_info *info)
+static int _sde_encoder_wait_timeout(int32_t drm_id, int32_t hw_id,
+	s64 timeout_ms, struct sde_encoder_wait_info *info)
 {
 	int rc = 0;
-	s64 expected_time = ktime_to_ms(ktime_get()) + info->timeout_ms;
-	s64 jiffies = msecs_to_jiffies(info->timeout_ms);
-	s64 time;
+	s64 wait_time_jiffies = msecs_to_jiffies(timeout_ms);
+	ktime_t cur_ktime;
+	ktime_t exp_ktime = ktime_add_ms(ktime_get(), timeout_ms);
 
 	do {
 		rc = wait_event_timeout(*(info->wq),
-				atomic_read(info->atomic_cnt) == 0, jiffies);
-		time = ktime_to_ms(ktime_get());
+			atomic_read(info->atomic_cnt) == 0, wait_time_jiffies);
+		cur_ktime = ktime_get();
 
-		SDE_EVT32_VERBOSE(drm_id, hw_id, rc, time, expected_time,
-				atomic_read(info->atomic_cnt));
+		SDE_EVT32(drm_id, hw_id, rc, ktime_to_ms(cur_ktime),
+			timeout_ms, atomic_read(info->atomic_cnt));
 	/* If we timed out, counter is valid and time is less, wait again */
 	} while (atomic_read(info->atomic_cnt) && (rc == 0) &&
-			(time < expected_time));
+			(ktime_compare_safe(exp_ktime, cur_ktime) > 0));
+
+	return rc;
+}
+
+int sde_encoder_helper_wait_event_timeout(int32_t drm_id, int32_t hw_id,
+	struct sde_encoder_wait_info *info)
+{
+	int rc;
+	ktime_t exp_ktime = ktime_add_ms(ktime_get(), info->timeout_ms);
+
+	rc = _sde_encoder_wait_timeout(drm_id, hw_id, info->timeout_ms, info);
+
+	/**
+	 * handle disabled irq case where timer irq is also delayed.
+	 * wait for additional timeout of FAULT_TOLERENCE_WAIT_IN_MS
+	 * if it event_timeout expired late detected.
+	 */
+	if (atomic_read(info->atomic_cnt) && (!rc) &&
+	    (ktime_compare_safe(ktime_get(), ktime_add_ms(exp_ktime,
+	     FAULT_TOLERENCE_DELTA_IN_MS)) > 0))
+		rc = _sde_encoder_wait_timeout(drm_id, hw_id,
+			FAULT_TOLERENCE_WAIT_IN_MS, info);
 
 	return rc;
 }
@@ -2579,12 +2795,6 @@ void sde_encoder_helper_hw_reset(struct sde_encoder_phys *phys_enc)
 		}
 	}
 
-	rc = ctl->ops.reset(ctl);
-	if (rc) {
-		SDE_ERROR_ENC(sde_enc, "ctl %d reset failure\n",  ctl->idx);
-		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus", "panic");
-	}
-
 	phys_enc->enable_state = SDE_ENC_ENABLED;
 }
 
@@ -2609,6 +2819,29 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 	}
 
 	pending_flush = 0x0;
+
+	/*
+	 * Trigger LUT DMA flush, this might need a wait, so we need
+	 * to do this outside of the atomic context
+	 */
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+		bool wait_for_dma = false;
+
+		if (!phys || phys->enable_state == SDE_ENC_DISABLED)
+			continue;
+
+		ctl = phys->hw_ctl;
+		if (!ctl)
+			continue;
+
+		if (phys->ops.wait_dma_trigger)
+			wait_for_dma = phys->ops.wait_dma_trigger(phys);
+
+		if (phys->hw_ctl->ops.reg_dma_flush)
+			phys->hw_ctl->ops.reg_dma_flush(phys->hw_ctl,
+					wait_for_dma);
+	}
 
 	/* update pending counts and trigger kickoff ctl flush atomically */
 	spin_lock_irqsave(&sde_enc->enc_spinlock, lock_flags);
@@ -2637,8 +2870,7 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 				phys->split_role == ENC_ROLE_SLAVE) &&
 				phys->split_role != ENC_ROLE_SKIP)
 			set_bit(i, sde_enc->frame_busy_mask);
-		if (phys->hw_ctl->ops.reg_dma_flush)
-			phys->hw_ctl->ops.reg_dma_flush(phys->hw_ctl);
+
 		if (!phys->ops.needs_single_flush ||
 				!phys->ops.needs_single_flush(phys))
 			_sde_encoder_trigger_flush(&sde_enc->base, phys, 0x0);
@@ -2739,6 +2971,8 @@ static void _sde_encoder_update_master(struct drm_encoder *drm_enc,
 
 	SDE_DEBUG_ENC(sde_enc, "affected_displays 0x%lx num_active_phys %d\n",
 			params->affected_displays, num_active_phys);
+	SDE_EVT32_VERBOSE(DRMID(drm_enc), params->affected_displays,
+			num_active_phys);
 
 	/* for left/right only update, ppsplit master switches interface */
 	_sde_encoder_ppsplit_swap_intf_for_right_only_update(drm_enc,
@@ -2948,7 +3182,6 @@ static void sde_encoder_vsync_event_handler(unsigned long data)
 	struct sde_encoder_virt *sde_enc;
 	struct msm_drm_private *priv;
 	struct msm_drm_thread *event_thread;
-	bool autorefresh_enabled = false;
 
 	if (!drm_enc || !drm_enc->dev || !drm_enc->dev->dev_private ||
 			!drm_enc->crtc) {
@@ -2970,34 +3203,40 @@ static void sde_encoder_vsync_event_handler(unsigned long data)
 		return;
 	}
 
-	if (sde_enc->cur_master &&
-		sde_enc->cur_master->ops.is_autorefresh_enabled)
-		autorefresh_enabled =
-			sde_enc->cur_master->ops.is_autorefresh_enabled(
-						sde_enc->cur_master);
-
-	/*
-	 * Queue work to update the vsync event timer
-	 * if autorefresh is enabled.
-	 */
-	SDE_EVT32_VERBOSE(autorefresh_enabled);
-	if (autorefresh_enabled)
-		kthread_queue_work(&event_thread->worker,
+	kthread_queue_work(&event_thread->worker,
 				&sde_enc->vsync_event_work);
-	else
-		del_timer(&sde_enc->vsync_event_timer);
 }
 
 static void sde_encoder_vsync_event_work_handler(struct kthread_work *work)
 {
 	struct sde_encoder_virt *sde_enc = container_of(work,
 			struct sde_encoder_virt, vsync_event_work);
+	bool autorefresh_enabled = false;
+	int rc = 0;
 	ktime_t wakeup_time;
 
 	if (!sde_enc) {
 		SDE_ERROR("invalid sde encoder\n");
 		return;
 	}
+
+	rc = _sde_encoder_power_enable(sde_enc, true);
+	if (rc) {
+		SDE_ERROR_ENC(sde_enc, "sde enc power enabled failed:%d\n", rc);
+		return;
+	}
+
+	if (sde_enc->cur_master &&
+		sde_enc->cur_master->ops.is_autorefresh_enabled)
+		autorefresh_enabled =
+			sde_enc->cur_master->ops.is_autorefresh_enabled(
+						sde_enc->cur_master);
+
+	_sde_encoder_power_enable(sde_enc, false);
+
+	/* Update timer if autorefresh is enabled else return */
+	if (!autorefresh_enabled)
+		return;
 
 	if (_sde_encoder_wakeup_time(&sde_enc->base, &wakeup_time))
 		return;
@@ -3007,18 +3246,18 @@ static void sde_encoder_vsync_event_work_handler(struct kthread_work *work)
 			nsecs_to_jiffies(ktime_to_ns(wakeup_time)));
 }
 
-void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
+int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 		struct sde_encoder_kickoff_params *params)
 {
 	struct sde_encoder_virt *sde_enc;
 	struct sde_encoder_phys *phys;
 	bool needs_hw_reset = false;
 	unsigned int i;
-	int rc;
+	int rc, ret = 0;
 
 	if (!drm_enc || !params) {
 		SDE_ERROR("invalid args\n");
-		return;
+		return -EINVAL;
 	}
 	sde_enc = to_sde_encoder_virt(drm_enc);
 
@@ -3030,8 +3269,12 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		phys = sde_enc->phys_encs[i];
 		if (phys) {
-			if (phys->ops.prepare_for_kickoff)
-				phys->ops.prepare_for_kickoff(phys, params);
+			if (phys->ops.prepare_for_kickoff) {
+				rc = phys->ops.prepare_for_kickoff(
+						phys, params);
+				if (rc)
+					ret = rc;
+			}
 			if (phys->enable_state == SDE_ENC_ERR_NEEDS_HW_RESET)
 				needs_hw_reset = true;
 			_sde_encoder_setup_dither(phys);
@@ -3057,20 +3300,65 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 
 	if (sde_enc->cur_master && sde_enc->cur_master->connector) {
 		rc = sde_connector_pre_kickoff(sde_enc->cur_master->connector);
-		if (rc)
+		if (rc) {
 			SDE_ERROR_ENC(sde_enc, "kickoff conn%d failed rc %d\n",
 					sde_enc->cur_master->connector->base.id,
 					rc);
+			ret = rc;
+		}
 	}
 
-	if (sde_encoder_is_dsc_enabled(drm_enc)) {
+	if (_sde_encoder_is_dsc_enabled(drm_enc)) {
 		rc = _sde_encoder_dsc_setup(sde_enc, params);
-		if (rc)
+		if (rc) {
 			SDE_ERROR_ENC(sde_enc, "failed to setup DSC: %d\n", rc);
+			ret = rc;
+		}
 	}
+
+	return ret;
 }
 
-void sde_encoder_kickoff(struct drm_encoder *drm_enc)
+/**
+ * _sde_encoder_reset_ctl_hw - reset h/w configuration for all ctl's associated
+ *	with the specified encoder, and unstage all pipes from it
+ * @encoder:	encoder pointer
+ * Returns: 0 on success
+ */
+static int _sde_encoder_reset_ctl_hw(struct drm_encoder *drm_enc)
+{
+	struct sde_encoder_virt *sde_enc;
+	struct sde_encoder_phys *phys;
+	unsigned int i;
+	int rc = 0;
+
+	if (!drm_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return -EINVAL;
+	}
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+
+	SDE_ATRACE_BEGIN("encoder_release_lm");
+	SDE_DEBUG_ENC(sde_enc, "\n");
+
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		phys = sde_enc->phys_encs[i];
+		if (!phys)
+			continue;
+
+		SDE_EVT32(DRMID(drm_enc), phys->intf_idx - INTF_0);
+
+		rc = sde_encoder_helper_reset_mixers(phys, NULL);
+		if (rc)
+			SDE_EVT32(DRMID(drm_enc), rc, SDE_EVTLOG_ERROR);
+	}
+
+	SDE_ATRACE_END("encoder_release_lm");
+	return rc;
+}
+
+void sde_encoder_kickoff(struct drm_encoder *drm_enc, bool is_error)
 {
 	struct sde_encoder_virt *sde_enc;
 	struct sde_encoder_phys *phys;
@@ -3086,11 +3374,9 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc)
 
 	SDE_DEBUG_ENC(sde_enc, "\n");
 
-	atomic_set(&sde_enc->frame_done_timeout,
-			SDE_FRAME_DONE_TIMEOUT * 1000 /
-			drm_enc->crtc->state->adjusted_mode.vrefresh);
-	mod_timer(&sde_enc->frame_done_timer, jiffies +
-		((atomic_read(&sde_enc->frame_done_timeout) * HZ) / 1000));
+	/* create a 'no pipes' commit to release buffers on errors */
+	if (is_error)
+		_sde_encoder_reset_ctl_hw(drm_enc);
 
 	/* All phys encs are ready to go, trigger the kickoff */
 	_sde_encoder_kickoff_phys(sde_enc);
@@ -3112,7 +3398,7 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc)
 	SDE_ATRACE_END("encoder_kickoff");
 }
 
-int sde_encoder_helper_hw_release(struct sde_encoder_phys *phys_enc,
+int sde_encoder_helper_reset_mixers(struct sde_encoder_phys *phys_enc,
 		struct drm_framebuffer *fb)
 {
 	struct drm_encoder *drm_enc;
@@ -3129,8 +3415,6 @@ int sde_encoder_helper_hw_release(struct sde_encoder_phys *phys_enc,
 	memset(&mixer, 0, sizeof(mixer));
 
 	/* reset associated CTL/LMs */
-	if (phys_enc->hw_ctl->ops.clear_pending_flush)
-		phys_enc->hw_ctl->ops.clear_pending_flush(phys_enc->hw_ctl);
 	if (phys_enc->hw_ctl->ops.clear_all_blendstages)
 		phys_enc->hw_ctl->ops.clear_all_blendstages(phys_enc->hw_ctl);
 
@@ -3170,7 +3454,7 @@ int sde_encoder_helper_hw_release(struct sde_encoder_phys *phys_enc,
 	}
 
 	if (!lm_valid) {
-		SDE_DEBUG_ENC(to_sde_encoder_virt(drm_enc), "lm not found\n");
+		SDE_ERROR_ENC(to_sde_encoder_virt(drm_enc), "lm not found\n");
 		return -EFAULT;
 	}
 	return 0;
@@ -3651,36 +3935,6 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 	return ret;
 }
 
-static void sde_encoder_frame_done_timeout(unsigned long data)
-{
-	struct drm_encoder *drm_enc = (struct drm_encoder *) data;
-	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
-	struct msm_drm_private *priv;
-	u32 event;
-
-	if (!drm_enc || !drm_enc->dev || !drm_enc->dev->dev_private) {
-		SDE_ERROR("invalid parameters\n");
-		return;
-	}
-	priv = drm_enc->dev->dev_private;
-
-	if (!sde_enc->frame_busy_mask[0] || !sde_enc->crtc_frame_event_cb) {
-		SDE_DEBUG_ENC(sde_enc, "invalid timeout\n");
-		SDE_EVT32(DRMID(drm_enc), sde_enc->frame_busy_mask[0], 0);
-		return;
-	} else if (!atomic_xchg(&sde_enc->frame_done_timeout, 0)) {
-		SDE_ERROR_ENC(sde_enc, "invalid timeout\n");
-		SDE_EVT32(DRMID(drm_enc), 0, 1);
-		return;
-	}
-
-	SDE_ERROR_ENC(sde_enc, "frame done timeout\n");
-
-	event = SDE_ENCODER_FRAME_EVENT_ERROR;
-	SDE_EVT32(DRMID(drm_enc), event);
-	sde_enc->crtc_frame_event_cb(sde_enc->crtc_frame_event_cb_data, event);
-}
-
 static const struct drm_encoder_helper_funcs sde_encoder_helper_funcs = {
 	.mode_set = sde_encoder_virt_mode_set,
 	.disable = sde_encoder_virt_disable,
@@ -3724,10 +3978,6 @@ struct drm_encoder *sde_encoder_init(
 	drm_encoder_init(dev, drm_enc, &sde_encoder_funcs, drm_enc_mode, NULL);
 	drm_encoder_helper_add(drm_enc, &sde_encoder_helper_funcs);
 
-	atomic_set(&sde_enc->frame_done_timeout, 0);
-	setup_timer(&sde_enc->frame_done_timer, sde_encoder_frame_done_timeout,
-			(unsigned long) sde_enc);
-
 	if ((disp_info->intf_type == DRM_MODE_CONNECTOR_DSI) &&
 			disp_info->is_primary)
 		setup_timer(&sde_enc->vsync_event_timer,
@@ -3746,7 +3996,7 @@ struct drm_encoder *sde_encoder_init(
 	mutex_init(&sde_enc->rc_lock);
 	kthread_init_delayed_work(&sde_enc->delayed_off_work,
 			sde_encoder_off_work);
-	sde_enc->idle_timeout = IDLE_TIMEOUT;
+	sde_enc->vblank_enabled = false;
 
 	kthread_init_work(&sde_enc->vsync_event_work,
 			sde_encoder_vsync_event_work_handler);

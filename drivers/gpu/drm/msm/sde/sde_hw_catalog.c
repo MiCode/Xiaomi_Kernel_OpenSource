@@ -15,6 +15,7 @@
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/soc/qcom/llcc-qcom.h>
+#include <linux/pm_qos.h>
 
 #include "sde_hw_mdss.h"
 #include "sde_hw_catalog.h"
@@ -115,6 +116,8 @@
 		"NV12/5/1/1.25 AB24/5/1/1.25 XB24/5/1/1.25"
 #define DEFAULT_MAX_PER_PIPE_BW			2400000
 #define DEFAULT_AMORTIZABLE_THRESHOLD		25
+#define DEFAULT_CPU_MASK			0
+#define DEFAULT_CPU_DMA_LATENCY			PM_QOS_DEFAULT_VALUE
 
 /*************************************************************
  *  DTSI PROPERTY INDEX
@@ -122,6 +125,7 @@
 enum {
 	HW_OFF,
 	HW_LEN,
+	HW_DISP,
 	HW_PROP_MAX,
 };
 
@@ -144,6 +148,7 @@ enum sde_prop {
 	SMART_DMA_REV,
 	IDLE_PC,
 	DEST_SCALER,
+	SMART_PANEL_ALIGN_MODE,
 	SDE_PROP_MAX,
 };
 
@@ -166,12 +171,17 @@ enum {
 	PERF_XTRA_PREFILL_LINES,
 	PERF_AMORTIZABLE_THRESHOLD,
 	PERF_DANGER_LUT,
-	PERF_SAFE_LUT,
+	PERF_SAFE_LUT_LINEAR,
+	PERF_SAFE_LUT_MACROTILE,
+	PERF_SAFE_LUT_NRT,
+	PERF_SAFE_LUT_CWB,
 	PERF_QOS_LUT_LINEAR,
 	PERF_QOS_LUT_MACROTILE,
 	PERF_QOS_LUT_NRT,
 	PERF_QOS_LUT_CWB,
 	PERF_CDP_SETTING,
+	PERF_CPU_MASK,
+	PERF_CPU_DMA_LATENCY,
 	PERF_PROP_MAX,
 };
 
@@ -288,6 +298,7 @@ enum {
 	MIXER_LEN,
 	MIXER_PAIR_MASK,
 	MIXER_BLOCKS,
+	MIXER_DISP,
 	MIXER_PROP_MAX,
 };
 
@@ -393,6 +404,8 @@ static struct sde_prop_type sde_prop[] = {
 	{SMART_DMA_REV, "qcom,sde-smart-dma-rev", false, PROP_TYPE_STRING},
 	{IDLE_PC, "qcom,sde-has-idle-pc", false, PROP_TYPE_BOOL},
 	{DEST_SCALER, "qcom,sde-has-dest-scaler", false, PROP_TYPE_BOOL},
+	{SMART_PANEL_ALIGN_MODE, "qcom,sde-smart-panel-align-mode",
+			false, PROP_TYPE_U32},
 };
 
 static struct sde_prop_type sde_perf_prop[] = {
@@ -424,7 +437,14 @@ static struct sde_prop_type sde_perf_prop[] = {
 	{PERF_AMORTIZABLE_THRESHOLD, "qcom,sde-amortizable-threshold",
 			false, PROP_TYPE_U32},
 	{PERF_DANGER_LUT, "qcom,sde-danger-lut", false, PROP_TYPE_U32_ARRAY},
-	{PERF_SAFE_LUT, "qcom,sde-safe-lut", false, PROP_TYPE_U32_ARRAY},
+	{PERF_SAFE_LUT_LINEAR, "qcom,sde-safe-lut-linear", false,
+			PROP_TYPE_U32_ARRAY},
+	{PERF_SAFE_LUT_MACROTILE, "qcom,sde-safe-lut-macrotile", false,
+			PROP_TYPE_U32_ARRAY},
+	{PERF_SAFE_LUT_NRT, "qcom,sde-safe-lut-nrt", false,
+			PROP_TYPE_U32_ARRAY},
+	{PERF_SAFE_LUT_CWB, "qcom,sde-safe-lut-cwb", false,
+			PROP_TYPE_U32_ARRAY},
 	{PERF_QOS_LUT_LINEAR, "qcom,sde-qos-lut-linear", false,
 			PROP_TYPE_U32_ARRAY},
 	{PERF_QOS_LUT_MACROTILE, "qcom,sde-qos-lut-macrotile", false,
@@ -433,8 +453,12 @@ static struct sde_prop_type sde_perf_prop[] = {
 			PROP_TYPE_U32_ARRAY},
 	{PERF_QOS_LUT_CWB, "qcom,sde-qos-lut-cwb", false,
 			PROP_TYPE_U32_ARRAY},
+
 	{PERF_CDP_SETTING, "qcom,sde-cdp-setting", false,
 			PROP_TYPE_U32_ARRAY},
+	{PERF_CPU_MASK, "qcom,sde-qos-cpu-mask", false, PROP_TYPE_U32},
+	{PERF_CPU_DMA_LATENCY, "qcom,sde-qos-cpu-dma-latency", false,
+			PROP_TYPE_U32},
 };
 
 static struct sde_prop_type sspp_prop[] = {
@@ -475,6 +499,7 @@ static struct sde_prop_type rgb_prop[] = {
 static struct sde_prop_type ctl_prop[] = {
 	{HW_OFF, "qcom,sde-ctl-off", true, PROP_TYPE_U32_ARRAY},
 	{HW_LEN, "qcom,sde-ctl-size", false, PROP_TYPE_U32},
+	{HW_DISP, "qcom,sde-ctl-display-pref", false, PROP_TYPE_STRING_ARRAY},
 };
 
 struct sde_prop_type mixer_blend_prop[] = {
@@ -488,6 +513,8 @@ static struct sde_prop_type mixer_prop[] = {
 	{MIXER_PAIR_MASK, "qcom,sde-mixer-pair-mask", true,
 		PROP_TYPE_U32_ARRAY},
 	{MIXER_BLOCKS, "qcom,sde-mixer-blocks", false, PROP_TYPE_NODE},
+	{MIXER_DISP, "qcom,sde-mixer-display-pref", false,
+		PROP_TYPE_STRING_ARRAY},
 };
 
 static struct sde_prop_type mixer_blocks_prop[] = {
@@ -1292,6 +1319,8 @@ static int sde_ctl_parse_dt(struct device_node *np,
 		goto end;
 
 	for (i = 0; i < off_count; i++) {
+		const char *disp_pref = NULL;
+
 		ctl = sde_cfg->ctl + i;
 		ctl->base = PROP_VALUE_ACCESS(prop_value, HW_OFF, i);
 		ctl->len = PROP_VALUE_ACCESS(prop_value, HW_LEN, 0);
@@ -1299,6 +1328,10 @@ static int sde_ctl_parse_dt(struct device_node *np,
 		snprintf(ctl->name, SDE_HW_BLK_NAME_LEN, "ctl_%u",
 				ctl->id - CTL_0);
 
+		of_property_read_string_index(np,
+				ctl_prop[HW_DISP].prop_name, i, &disp_pref);
+		if (disp_pref && !strcmp(disp_pref, "primary"))
+			set_bit(SDE_CTL_PRIMARY_PREF, &ctl->features);
 		if (i < MAX_SPLIT_DISPLAY_CTL)
 			set_bit(SDE_CTL_SPLIT_DISPLAY, &ctl->features);
 		if (i < MAX_PP_SPLIT_DISPLAY_CTL)
@@ -1306,7 +1339,6 @@ static int sde_ctl_parse_dt(struct device_node *np,
 		if (sde_cfg->has_sbuf)
 			set_bit(SDE_CTL_SBUF, &ctl->features);
 	}
-
 end:
 	kfree(prop_value);
 	return rc;
@@ -1326,8 +1358,9 @@ static int sde_mixer_parse_dt(struct device_node *np,
 	u32 off_count, blend_off_count, max_blendstages, lm_pair_mask;
 	struct sde_lm_cfg *mixer;
 	struct sde_lm_sub_blks *sblk;
-	int pp_count, dspp_count, ds_count;
+	int pp_count, dspp_count, ds_count, mixer_count;
 	u32 pp_idx, dspp_idx, ds_idx;
+	u32 mixer_base;
 	struct device_node *snp = NULL;
 
 	if (!sde_cfg) {
@@ -1348,8 +1381,6 @@ static int sde_mixer_parse_dt(struct device_node *np,
 		prop_count, &off_count);
 	if (rc)
 		goto end;
-
-	sde_cfg->mixer_count = off_count;
 
 	rc = _read_dt_entry(np, mixer_prop, ARRAY_SIZE(mixer_prop), prop_count,
 		prop_exists, prop_value);
@@ -1398,8 +1429,16 @@ static int sde_mixer_parse_dt(struct device_node *np,
 	if (rc)
 		goto end;
 
-	for (i = 0, pp_idx = 0, dspp_idx = 0, ds_idx = 0; i < off_count; i++) {
-		mixer = sde_cfg->mixer + i;
+	for (i = 0, mixer_count = 0, pp_idx = 0, dspp_idx = 0,
+			ds_idx = 0; i < off_count; i++) {
+		const char *disp_pref = NULL;
+
+		mixer_base = PROP_VALUE_ACCESS(prop_value, MIXER_OFF, i);
+		if (!mixer_base)
+			continue;
+
+		mixer = sde_cfg->mixer + mixer_count;
+
 		sblk = kzalloc(sizeof(*sblk), GFP_KERNEL);
 		if (!sblk) {
 			rc = -ENOMEM;
@@ -1408,7 +1447,7 @@ static int sde_mixer_parse_dt(struct device_node *np,
 		}
 		mixer->sblk = sblk;
 
-		mixer->base = PROP_VALUE_ACCESS(prop_value, MIXER_OFF, i);
+		mixer->base = mixer_base;
 		mixer->len = PROP_VALUE_ACCESS(prop_value, MIXER_LEN, 0);
 		mixer->id = LM_0 + i;
 		snprintf(mixer->name, SDE_HW_BLK_NAME_LEN, "lm_%u",
@@ -1435,23 +1474,24 @@ static int sde_mixer_parse_dt(struct device_node *np,
 		if (sde_cfg->has_dim_layer)
 			set_bit(SDE_DIM_LAYER, &mixer->features);
 
-		if ((i < ROT_LM_OFFSET) || (i >= LINE_LM_OFFSET)) {
-			mixer->pingpong = pp_count > 0 ? pp_idx + PINGPONG_0
-								: PINGPONG_MAX;
-			mixer->dspp = dspp_count > 0 ? dspp_idx + DSPP_0
-								: DSPP_MAX;
-			mixer->ds = ds_count > 0 ? ds_idx + DS_0 : DS_MAX;
-			pp_count--;
-			dspp_count--;
-			ds_count--;
-			pp_idx++;
-			dspp_idx++;
-			ds_idx++;
-		} else {
-			mixer->pingpong = PINGPONG_MAX;
-			mixer->dspp = DSPP_MAX;
-			mixer->ds = DS_MAX;
-		}
+		of_property_read_string_index(np,
+			mixer_prop[MIXER_DISP].prop_name, i, &disp_pref);
+		if (disp_pref && !strcmp(disp_pref, "primary"))
+			set_bit(SDE_DISP_PRIMARY_PREF, &mixer->features);
+
+		mixer->pingpong = pp_count > 0 ? pp_idx + PINGPONG_0
+							: PINGPONG_MAX;
+		mixer->dspp = dspp_count > 0 ? dspp_idx + DSPP_0
+							: DSPP_MAX;
+		mixer->ds = ds_count > 0 ? ds_idx + DS_0 : DS_MAX;
+		pp_count--;
+		dspp_count--;
+		ds_count--;
+		pp_idx++;
+		dspp_idx++;
+		ds_idx++;
+
+		mixer_count++;
 
 		sblk->gc.id = SDE_MIXER_GC;
 		if (blocks_prop_value && blocks_prop_exists[MIXER_GC_PROP]) {
@@ -1463,6 +1503,7 @@ static int sde_mixer_parse_dt(struct device_node *np,
 			set_bit(SDE_MIXER_GC, &mixer->features);
 		}
 	}
+	sde_cfg->mixer_count = mixer_count;
 
 end:
 	kfree(prop_value);
@@ -2699,6 +2740,9 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 	cfg->mdp[0].has_dest_scaler =
 		PROP_VALUE_ACCESS(prop_value, DEST_SCALER, 0);
 
+	cfg->mdp[0].smart_panel_align_mode =
+		PROP_VALUE_ACCESS(prop_value, SMART_PANEL_ALIGN_MODE, 0);
+
 	rc = of_property_read_string(np, sde_prop[QSEED_TYPE].prop_name, &type);
 	if (!rc && !strcmp(type, "qseedv3")) {
 		cfg->qseed_type = SDE_SSPP_SCALER_QSEED3;
@@ -2805,8 +2849,23 @@ static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 	if (rc)
 		goto freeprop;
 
-	rc = _validate_dt_entry(np, &sde_perf_prop[PERF_SAFE_LUT], 1,
-			&prop_count[PERF_SAFE_LUT], NULL);
+	rc = _validate_dt_entry(np, &sde_perf_prop[PERF_SAFE_LUT_LINEAR], 1,
+			&prop_count[PERF_SAFE_LUT_LINEAR], NULL);
+	if (rc)
+		goto freeprop;
+
+	rc = _validate_dt_entry(np, &sde_perf_prop[PERF_SAFE_LUT_MACROTILE], 1,
+			&prop_count[PERF_SAFE_LUT_MACROTILE], NULL);
+	if (rc)
+		goto freeprop;
+
+	rc = _validate_dt_entry(np, &sde_perf_prop[PERF_SAFE_LUT_NRT], 1,
+			&prop_count[PERF_SAFE_LUT_NRT], NULL);
+	if (rc)
+		goto freeprop;
+
+	rc = _validate_dt_entry(np, &sde_perf_prop[PERF_SAFE_LUT_CWB], 1,
+			&prop_count[PERF_SAFE_LUT_CWB], NULL);
 	if (rc)
 		goto freeprop;
 
@@ -2931,15 +2990,46 @@ static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 		}
 	}
 
-	if (prop_exists[PERF_SAFE_LUT] && prop_count[PERF_SAFE_LUT] <=
-			SDE_QOS_LUT_USAGE_MAX) {
-		for (j = 0; j < prop_count[PERF_SAFE_LUT]; j++) {
-			cfg->perf.safe_lut_tbl[j] =
-					PROP_VALUE_ACCESS(prop_value,
-						PERF_SAFE_LUT, j);
-			SDE_DEBUG("safe usage:%d lut:0x%x\n",
-					j, cfg->perf.safe_lut_tbl[j]);
+	for (j = 0; j < SDE_QOS_LUT_USAGE_MAX; j++) {
+		static const u32 safe_key[SDE_QOS_LUT_USAGE_MAX] = {
+			[SDE_QOS_LUT_USAGE_LINEAR] =
+					PERF_SAFE_LUT_LINEAR,
+			[SDE_QOS_LUT_USAGE_MACROTILE] =
+					PERF_SAFE_LUT_MACROTILE,
+			[SDE_QOS_LUT_USAGE_NRT] =
+					PERF_SAFE_LUT_NRT,
+			[SDE_QOS_LUT_USAGE_CWB] =
+					PERF_SAFE_LUT_CWB,
+		};
+		const u32 entry_size = 2;
+		int m, count;
+		int key = safe_key[j];
+
+		if (!prop_exists[key])
+			continue;
+
+		count = prop_count[key] / entry_size;
+
+		cfg->perf.sfe_lut_tbl[j].entries = kcalloc(count,
+			sizeof(struct sde_qos_lut_entry), GFP_KERNEL);
+		if (!cfg->perf.sfe_lut_tbl[j].entries) {
+			rc = -ENOMEM;
+			goto freeprop;
 		}
+
+		for (k = 0, m = 0; k < count; k++, m += entry_size) {
+			u64 lut_lo;
+
+			cfg->perf.sfe_lut_tbl[j].entries[k].fl =
+					PROP_VALUE_ACCESS(prop_value, key, m);
+			lut_lo = PROP_VALUE_ACCESS(prop_value, key, m + 1);
+			cfg->perf.sfe_lut_tbl[j].entries[k].lut = lut_lo;
+			SDE_DEBUG("safe usage:%d.%d fl:%d lut:0x%llx\n",
+				j, k,
+				cfg->perf.sfe_lut_tbl[j].entries[k].fl,
+				cfg->perf.sfe_lut_tbl[j].entries[k].lut);
+		}
+		cfg->perf.sfe_lut_tbl[j].nentry = count;
 	}
 
 	for (j = 0; j < SDE_QOS_LUT_USAGE_MAX; j++) {
@@ -3007,6 +3097,15 @@ static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 		cfg->has_cdp = true;
 	}
 
+	cfg->perf.cpu_mask =
+			prop_exists[PERF_CPU_MASK] ?
+			PROP_VALUE_ACCESS(prop_value, PERF_CPU_MASK, 0) :
+			DEFAULT_CPU_MASK;
+	cfg->perf.cpu_dma_latency =
+			prop_exists[PERF_CPU_DMA_LATENCY] ?
+			PROP_VALUE_ACCESS(prop_value, PERF_CPU_DMA_LATENCY, 0) :
+			DEFAULT_CPU_DMA_LATENCY;
+
 freeprop:
 	kfree(prop_value);
 end:
@@ -3070,6 +3169,12 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 		rc = -ENOMEM;
 		goto end;
 	}
+
+	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_300) ||
+	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_301) ||
+	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400) ||
+	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_401))
+		sde_cfg->has_hdr = true;
 
 	index = sde_copy_formats(sde_cfg->dma_formats, dma_list_size,
 		0, plane_formats, ARRAY_SIZE(plane_formats));

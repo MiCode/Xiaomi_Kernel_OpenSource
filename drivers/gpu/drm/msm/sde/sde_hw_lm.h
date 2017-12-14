@@ -117,6 +117,19 @@ static inline struct sde_hw_mixer *to_sde_hw_mixer(struct sde_hw_blk *hw)
 }
 
 /**
+ * sde_get_ctl_lm_for_cont_splash - retrieve the current LM blocks
+ * @mmio: mapped register io address of MDP
+ * @max_lm_cnt: number of LM blocks supported in the hw
+ * @lm_cnt: number of LM blocks already active
+ * @lm_ids: pointer to store the active LM block IDs
+ * @top: pointer to the current "ctl_top" structure
+ * @index: ctl_top index
+ * return: number of active LM blocks for this CTL block
+ */
+int sde_get_ctl_lm_for_cont_splash(void __iomem *mmio, int max_lm_cnt,
+		u8 lm_cnt, u8 *lm_ids, struct ctl_top *top, int index);
+
+/**
  * sde_hw_lm_init(): Initializes the mixer hw driver object.
  * should be called once before accessing every mixer.
  * @idx:  mixer index for which driver object is required

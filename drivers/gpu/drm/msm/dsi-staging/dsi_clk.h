@@ -198,6 +198,13 @@ struct dsi_clk_link_set {
 };
 
 /**
+ * dsi_display_clk_mngr_update_splash_status() - Update splash stattus
+ * @clk_mngr:     Structure containing DSI clock information
+ * @status:     Splash status
+ */
+void dsi_display_clk_mngr_update_splash_status(void *clk_mgr, bool status);
+
+/**
  * dsi_display_clk_mgr_register() - Register DSI clock manager
  * @info:     Structure containing DSI clock information
  */

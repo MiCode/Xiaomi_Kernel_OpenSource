@@ -125,6 +125,11 @@ Optional properties:
 				configuration value.
 - qcom,sde-ubwc-swizzle:	Property to specify the default UBWC swizzle
 				configuration value.
+- qcom,sde-smart-panel-align-mode: A u32 property to specify the align mode for
+				split display on smart panel. Possible values:
+				0x0 - no alignment
+				0xc - align at start of frame
+				0xd - align at start of line
 - qcom,sde-panic-per-pipe:	Boolean property to indicate if panic signal
 				control feature is available on each source pipe.
 - qcom,sde-has-src-split:	Boolean property to indicate if source split
@@ -331,9 +336,22 @@ Optional properties:
 - qcom,sde-danger-lut:		A 4 cell property, with a format of <linear,
 				tile, nrt, cwb>,
 				indicating the danger luts on sspp.
-- qcom,sde-safe-lut:		A 4 cell property, with a format of <linear,
-				tile, nrt, cwb>,
-				indicating the safe luts on sspp.
+- qcom,sde-safe-lut-linear:	Array of 2 cell property, with a format of
+				<fill level, lut> in ascending fill level
+				indicating the safe luts for linear format on sspp.
+				Zero fill level on the last entry identifies the default lut.
+- qcom,sde-safe-lut-macrotile:	Array of 2 cell property, with a format of
+				<fill level, lut> in ascending fill level
+				indicating the safe luts for macrotile format on sspp.
+				Zero fill level on the last entry identifies the default lut.
+- qcom,sde-safe-lut-nrt:	Array of 2 cell property, with a format of
+				<fill level, lut> in ascending fill level
+				indicating the safe luts for nrt (e.g wfd) on sspp.
+				Zero fill level on the last entry identifies the default lut.
+- qcom,sde-safe-lut-cwb:	Array of 2 cell property, with a format of
+				<fill level, lut> in ascending fill level
+				indicating the safe luts for cwb on sspp.
+				Zero fill level on the last entry identifies the default lut.
 - qcom,sde-qos-lut-linear:	Array of 3 cell property, with a format of
 				<fill level, lut hi, lut lo> in ascending fill level
 				indicating the qos luts for linear format on sspp.
@@ -353,6 +371,8 @@ Optional properties:
 - qcom,sde-cdp-setting:		Array of 2 cell property, with a format of
 				<read enable, write enable> for cdp use cases in
 				order of <real_time>, and <non_real_time>.
+- qcom,sde-qos-cpu-mask:	A u32 value indicating desired PM QoS CPU affine mask.
+- qcom,sde-qos-cpu-dma-latency:	A u32 value indicating desired PM QoS CPU DMA latency in usec.
 - qcom,sde-inline-rot-xin:	An integer array of xin-ids related to inline
 				rotation.
 - qcom,sde-inline-rot-xin-type:	A string array indicating the type of xin,
@@ -367,6 +387,14 @@ Optional properties:
 				match the number of xin-ids defined in
 				property: qcom,sde-inline-rot-xin
 - #power-domain-cells:		Number of cells in a power-domain specifier and should contain 0.
+- qcom,sde-mixer-display-pref:  A string array indicating the preferred display type
+				for the mixer block. Possible values:
+				"primary" - preferred for primary display
+				"none" - no preference on display
+- qcom,sde-ctl-display-pref:    A string array indicating the preferred display type
+                                for the ctl block. Possible values:
+				"primary" - preferred for primary display
+				"none" - no preference on display
 
 Bus Scaling Subnodes:
 - qcom,sde-reg-bus:		Property to provide Bus scaling for register access for
@@ -452,8 +480,12 @@ Example:
     qcom,sde-off = <0x1000>;
     qcom,sde-ctl-off = <0x00002000 0x00002200 0x00002400
 		     0x00002600 0x00002800>;
+    qcom,sde-ctl-display-pref = "primary", "none", "none",
+	             "none", "none";
     qcom,sde-mixer-off = <0x00045000 0x00046000
 			0x00047000 0x0004a000>;
+    qcom,sde-mixer-display-pref = "primary", "none",
+	                "none", "none";
     qcom,sde-dspp-top-off = <0x1300>;
     qcom,sde-dspp-off = <0x00055000 0x00057000>;
     qcom,sde-dspp-ad-off = <0x24000 0x22800>;
@@ -508,6 +540,7 @@ Example:
     qcom,sde-ubwc-version = <0x100>;
     qcom,sde-ubwc-static = <0x100>;
     qcom,sde-ubwc-swizzle = <0>;
+    qcom,sde-smart-panel-align-mode = <0xd>;
     qcom,sde-panic-per-pipe;
     qcom,sde-has-src-split;
     qcom,sde-has-dim-layer;
@@ -585,6 +618,9 @@ Example:
             <0 0x75300000 0x00000000>;
 
     qcom,sde-cdp-setting = <1 1>, <1 0>;
+
+    qcom,sde-qos-cpu-mask = <0x3>;
+    qcom,sde-qos-cpu-dma-latency = <300>;
 
     qcom,sde-vbif-off = <0 0>;
     qcom,sde-vbif-id = <0 1>;

@@ -38,11 +38,13 @@ struct sde_connector_ops {
 	 * @connector: Pointer to drm connector structure
 	 * @info: Pointer to sde connector info structure
 	 * @display: Pointer to private display handle
+	 * @mode_info: Pointer to mode info structure
 	 * Returns: Zero on success
 	 */
 	int (*post_init)(struct drm_connector *connector,
 			void *info,
-			void *display);
+			void *display,
+			struct msm_mode_info *mode_info);
 
 	/**
 	 * detect - determine if connector is connected
@@ -134,11 +136,12 @@ struct sde_connector_ops {
 	 * @drm_mode: Display mode set for the display
 	 * @mode_info: Out parameter. information of the display mode
 	 * @max_mixer_width: max width supported by HW layer mixer
+	 * @display: Pointer to private display structure
 	 * Returns: Zero on success
 	 */
 	int (*get_mode_info)(const struct drm_display_mode *drm_mode,
 			struct msm_mode_info *mode_info,
-			u32 max_mixer_width);
+			u32 max_mixer_width, void *display);
 
 	/**
 	 * enable_event - notify display of event registration/unregistration
@@ -263,12 +266,14 @@ struct sde_connector_evt {
  * @property_data: Array of private data for generic property handling
  * @blob_caps: Pointer to blob structure for 'capabilities' property
  * @blob_hdr: Pointer to blob structure for 'hdr_properties' property
+ * @blob_ext_hdr: Pointer to blob structure for 'ext_hdr_properties' property
  * @blob_dither: Pointer to blob structure for default dither config
  * @fb_kmap: true if kernel mapping of framebuffer is requested
  * @event_table: Array of registered events
  * @event_lock: Lock object for event_table
  * @bl_device: backlight device node
  * @status_work: work object to perform status checks
+ * @force_panel_dead: variable to trigger forced ESD recovery
  */
 struct sde_connector {
 	struct drm_connector base;
@@ -294,6 +299,7 @@ struct sde_connector {
 	struct msm_property_data property_data[CONNECTOR_PROP_COUNT];
 	struct drm_property_blob *blob_caps;
 	struct drm_property_blob *blob_hdr;
+	struct drm_property_blob *blob_ext_hdr;
 	struct drm_property_blob *blob_dither;
 
 	bool fb_kmap;
@@ -302,6 +308,7 @@ struct sde_connector {
 
 	struct backlight_device *bl_device;
 	struct delayed_work status_work;
+	u32 force_panel_dead;
 };
 
 /**
@@ -317,7 +324,7 @@ struct sde_connector {
  * Returns: Pointer to associated private display structure
  */
 #define sde_connector_get_display(C) \
-	((C) ? to_sde_connector((C))->display : 0)
+	((C) ? to_sde_connector((C))->display : NULL)
 
 /**
  * sde_connector_get_panel - get sde connector's private panel pointer
@@ -333,7 +340,7 @@ struct sde_connector {
  * Returns: Pointer to associated private encoder structure
  */
 #define sde_connector_get_encoder(C) \
-	((C) ? to_sde_connector((C))->encoder : 0)
+	((C) ? to_sde_connector((C))->encoder : NULL)
 
 /**
  * sde_connector_get_propinfo - get sde connector's property info pointer
@@ -341,7 +348,7 @@ struct sde_connector {
  * Returns: Pointer to associated private property info structure
  */
 #define sde_connector_get_propinfo(C) \
-	((C) ? &to_sde_connector((C))->property_info : 0)
+	((C) ? &to_sde_connector((C))->property_info : NULL)
 
 /**
  * struct sde_connector_state - private connector status structure
@@ -351,6 +358,8 @@ struct sde_connector {
  * @property_values: Local cache of current connector property values
  * @rois: Regions of interest structure for mapping CRTC to Connector output
  * @property_blobs: blob properties
+ * @mode_info: local copy of msm_mode_info struct
+ * @hdr_meta: HDR metadata info passed from userspace
  */
 struct sde_connector_state {
 	struct drm_connector_state base;
@@ -360,6 +369,8 @@ struct sde_connector_state {
 
 	struct msm_roi_list rois;
 	struct drm_property_blob *property_blobs[CONNECTOR_PROP_BLOBCOUNT];
+	struct msm_mode_info mode_info;
+	struct drm_msm_ext_hdr_metadata hdr_meta;
 };
 
 /**
@@ -590,10 +601,51 @@ int sde_connector_get_dither_cfg(struct drm_connector *conn,
 		struct drm_connector_state *state, void **cfg, size_t *len);
 
 /**
+ * sde_connector_set_info - set connector property value
+ * @conn: Pointer to drm_connector struct
+ * @state: Pointer to the drm_connector_state struct
+ * Returns: Zero on success
+ */
+int sde_connector_set_info(struct drm_connector *conn,
+		struct drm_connector_state *state);
+
+/**
+ * sde_connector_roi_v1_check_roi - validate connector ROI
+ * @conn_state: Pointer to drm_connector_state struct
+ * Returns: Zero on success
+ */
+int sde_connector_roi_v1_check_roi(struct drm_connector_state *conn_state);
+
+/**
  * sde_connector_schedule_status_work - manage ESD thread
  * conn: Pointer to drm_connector struct
  * @en: flag to start/stop ESD thread
  */
 void sde_connector_schedule_status_work(struct drm_connector *conn, bool en);
 
+/**
+ * sde_connector_helper_reset_properties - reset properties to default values in
+ *	the given DRM connector state object
+ * @connector: Pointer to DRM connector object
+ * @connector_state: Pointer to DRM connector state object
+ * Returns: 0 on success, negative errno on failure
+ */
+int sde_connector_helper_reset_custom_properties(
+		struct drm_connector *connector,
+		struct drm_connector_state *connector_state);
+
+/**
+ * sde_connector_get_mode_info - get information of the current mode in the
+ *                               given connector state.
+ * conn_state: Pointer to the DRM connector state object
+ * mode_info: Pointer to the mode info structure
+ */
+int sde_connector_get_mode_info(struct drm_connector_state *conn_state,
+	struct msm_mode_info *mode_info);
+
+/**
+ * sde_conn_timeline_status - current buffer timeline status
+ * conn: Pointer to drm_connector struct
+ */
+void sde_conn_timeline_status(struct drm_connector *conn);
 #endif /* _SDE_CONNECTOR_H_ */

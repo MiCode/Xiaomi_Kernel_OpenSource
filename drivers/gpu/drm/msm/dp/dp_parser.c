@@ -240,6 +240,9 @@ static int dp_parser_gpio(struct dp_parser *parser)
 
 	mp->gpio_config = devm_kzalloc(dev,
 		sizeof(struct dss_gpio) * ARRAY_SIZE(dp_gpios), GFP_KERNEL);
+	if (!mp->gpio_config)
+		return -ENOMEM;
+
 	mp->num_gpio = ARRAY_SIZE(dp_gpios);
 
 	for (i = 0; i < ARRAY_SIZE(dp_gpios); i++) {
@@ -438,6 +441,22 @@ static void dp_parser_put_clk_data(struct device *dev,
 	mp->num_clk = 0;
 }
 
+static void dp_parser_put_gpio_data(struct device *dev,
+	struct dss_module_power *mp)
+{
+	if (!mp) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return;
+	}
+
+	if (mp->gpio_config) {
+		devm_kfree(dev, mp->gpio_config);
+		mp->gpio_config = NULL;
+	}
+
+	mp->num_gpio = 0;
+}
+
 static int dp_parser_init_clk_data(struct dp_parser *parser)
 {
 	int num_clk = 0, i = 0, rc = 0;
@@ -634,11 +653,9 @@ void dp_parser_put(struct dp_parser *parser)
 	power = parser->mp;
 
 	for (i = 0; i < DP_MAX_PM; i++) {
-		struct dss_module_power *mp = &power[i];
-
-		devm_kfree(&parser->pdev->dev, mp->clk_config);
-		devm_kfree(&parser->pdev->dev, mp->vreg_config);
-		devm_kfree(&parser->pdev->dev, mp->gpio_config);
+		dp_parser_put_clk_data(&parser->pdev->dev, &power[i]);
+		dp_parser_put_vreg_data(&parser->pdev->dev, &power[i]);
+		dp_parser_put_gpio_data(&parser->pdev->dev, &power[i]);
 	}
 
 	devm_kfree(&parser->pdev->dev, parser);

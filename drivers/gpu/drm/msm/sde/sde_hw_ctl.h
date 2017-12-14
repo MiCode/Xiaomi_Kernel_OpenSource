@@ -152,6 +152,13 @@ struct sde_hw_ctl_ops {
 
 	int (*reset)(struct sde_hw_ctl *c);
 
+	/**
+	 * hard_reset - force reset on ctl_path
+	 * @ctx    : ctl path ctx pointer
+	 * @enable : whether to enable/disable hard reset
+	 */
+	void (*hard_reset)(struct sde_hw_ctl *c, bool enable);
+
 	/*
 	 * wait_reset_status - checks ctl reset status
 	 * @ctx       : ctl path ctx pointer
@@ -214,8 +221,9 @@ struct sde_hw_ctl_ops {
 	/**
 	 * Flush the reg dma by sending last command.
 	 * @ctx       : ctl path ctx pointer
+	 * @blocking  : if set to true api will block until flush is done
 	 */
-	void (*reg_dma_flush)(struct sde_hw_ctl *ctx);
+	void (*reg_dma_flush)(struct sde_hw_ctl *ctx, bool blocking);
 
 };
 
@@ -244,6 +252,15 @@ struct sde_hw_ctl {
 	/* ops */
 	struct sde_hw_ctl_ops ops;
 };
+
+/**
+ * sde_get_ctl_top_for_cont_splash - retrieve the current LM blocks
+ * @mmio: mapped register io address of MDP
+ * @top: pointer to the current "ctl_top" structure thats needs update
+ * @index: ctl_top index
+ */
+void sde_get_ctl_top_for_cont_splash(void __iomem *mmio,
+		struct ctl_top *top, int index);
 
 /**
  * sde_hw_ctl - convert base object sde_hw_base to container

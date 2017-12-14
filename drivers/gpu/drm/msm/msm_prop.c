@@ -393,20 +393,25 @@ int msm_property_atomic_set(struct msm_property_info *info,
 	struct drm_property_blob *blob;
 	int property_idx, rc = -EINVAL;
 
+	if (!info || !property_state) {
+		DRM_ERROR("invalid argument(s)\n");
+		return -EINVAL;
+	}
+
 	property_idx = msm_property_index(info, property);
-	if (!info || !property_state ||
-			(property_idx == -EINVAL) || !property_state->values) {
-		DRM_DEBUG("invalid argument(s)\n");
+	if ((property_idx == -EINVAL) || !property_state->values) {
+		DRM_ERROR("invalid argument(s)\n");
 	} else {
 		/* extra handling for incoming properties */
 		mutex_lock(&info->property_lock);
-		if ((property->flags & DRM_MODE_PROP_BLOB) &&
+		if (val && (property->flags & DRM_MODE_PROP_BLOB) &&
 			(property_idx < info->blob_count)) {
 			/* DRM lookup also takes a reference */
 			blob = drm_property_lookup_blob(info->dev,
 				(uint32_t)val);
 			if (!blob) {
-				DRM_ERROR("blob not found\n");
+				DRM_ERROR("prop %d blob id 0x%llx not found\n",
+						property_idx, val);
 				val = 0;
 			} else {
 				DBG("Blob %u saved", blob->base.id);

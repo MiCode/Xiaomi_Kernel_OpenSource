@@ -533,6 +533,12 @@ struct dsi_ctrl_hw_ops {
 				 u32 *hw_read_cnt);
 
 	/**
+	 * get_cont_splash_status() - get continuous splash status
+	 * @ctrl:           Pointer to the controller host hardware.
+	 */
+	bool (*get_cont_splash_status)(struct dsi_ctrl_hw *ctrl);
+
+	/**
 	 * wait_for_lane_idle() - wait for DSI lanes to go to idle state
 	 * @ctrl:          Pointer to the controller host hardware.
 	 * @lanes:         ORed list of lanes (enum dsi_data_lanes) which need
@@ -721,6 +727,14 @@ struct dsi_ctrl_hw_ops {
 	 * @ctrl:         Pointer to the controller host hardware.
 	 */
 	void (*clear_rdbk_register)(struct dsi_ctrl_hw *ctrl);
+
+	/** schedule_dma_cmd() - Schdeule DMA command transfer on a
+	 *                       particular blanking line.
+	 * @ctrl:         Pointer to the controller host hardware.
+	 * @line_no:      Blanking line number on whihch DMA command
+	 *                needs to be sent.
+	 */
+	void (*schedule_dma_cmd)(struct dsi_ctrl_hw *ctrl, int line_no);
 };
 
 /*
@@ -739,6 +753,8 @@ struct dsi_ctrl_hw_ops {
  * @supported_errors:       Number of supported errors.
  * @phy_isolation_enabled:    A boolean property allows to isolate the phy from
  *                          dsi controller and run only dsi controller.
+ * @null_insertion_enabled:  A boolean property to allow dsi controller to
+ *                           insert null packet.
  */
 struct dsi_ctrl_hw {
 	void __iomem *base;
@@ -758,6 +774,7 @@ struct dsi_ctrl_hw {
 	u64 supported_errors;
 
 	bool phy_isolation_enabled;
+	bool null_insertion_enabled;
 };
 
 #endif /* _DSI_CTRL_HW_H_ */

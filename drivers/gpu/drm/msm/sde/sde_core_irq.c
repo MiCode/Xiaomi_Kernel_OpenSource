@@ -31,14 +31,17 @@ static void sde_core_irq_callback_handler(void *arg, int irq_idx)
 	struct sde_irq *irq_obj = &sde_kms->irq_obj;
 	struct sde_irq_callback *cb;
 	unsigned long irq_flags;
+	bool cb_tbl_error = false;
+	int enable_counts = 0;
 
 	pr_debug("irq_idx=%d\n", irq_idx);
 
+	spin_lock_irqsave(&sde_kms->irq_obj.cb_lock, irq_flags);
 	if (list_empty(&irq_obj->irq_cb_tbl[irq_idx])) {
-		SDE_ERROR("irq_idx=%d has no registered callback\n", irq_idx);
-		SDE_EVT32_IRQ(irq_idx, atomic_read(
-				&sde_kms->irq_obj.enable_counts[irq_idx]),
-				SDE_EVTLOG_ERROR);
+		/* print error outside lock */
+		cb_tbl_error = true;
+		enable_counts = atomic_read(
+				&sde_kms->irq_obj.enable_counts[irq_idx]);
 	}
 
 	atomic_inc(&irq_obj->irq_counts[irq_idx]);
@@ -46,11 +49,29 @@ static void sde_core_irq_callback_handler(void *arg, int irq_idx)
 	/*
 	 * Perform registered function callback
 	 */
-	spin_lock_irqsave(&sde_kms->irq_obj.cb_lock, irq_flags);
 	list_for_each_entry(cb, &irq_obj->irq_cb_tbl[irq_idx], list)
 		if (cb->func)
 			cb->func(cb->arg, irq_idx);
 	spin_unlock_irqrestore(&sde_kms->irq_obj.cb_lock, irq_flags);
+
+	if (cb_tbl_error) {
+		/*
+		 * If enable count is zero and callback list is empty, then it's
+		 * not a fatal issue. Log this case as debug. If the enable
+		 * count is nonzero and callback list is empty, then its a real
+		 * issue. Log this case as error to ensure we don't have silent
+		 * IRQs running.
+		 */
+		if (!enable_counts) {
+			SDE_DEBUG("irq has no callback, idx %d enables %d\n",
+					irq_idx, enable_counts);
+			SDE_EVT32_IRQ(irq_idx, enable_counts);
+		} else {
+			SDE_ERROR("irq has no callback, idx %d enables %d\n",
+					irq_idx, enable_counts);
+			SDE_EVT32_IRQ(irq_idx, enable_counts, SDE_EVTLOG_ERROR);
+		}
+	}
 
 	/*
 	 * Clear pending interrupt status in HW.

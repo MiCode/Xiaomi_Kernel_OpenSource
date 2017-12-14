@@ -111,6 +111,7 @@ struct sde_crtc_retire_event {
  * @encoder:	Encoder attached to this lm & ctl
  * @mixer_op_mode:	mixer blending operation mode
  * @flush_mask:	mixer flush mask for ctl, mixer and pipe
+ * @pipe_mask:	mixer flush mask for pipe
  */
 struct sde_crtc_mixer {
 	struct sde_hw_mixer *hw_lm;
@@ -120,6 +121,7 @@ struct sde_crtc_mixer {
 	struct drm_encoder *encoder;
 	u32 mixer_op_mode;
 	u32 flush_mask;
+	u32 pipe_mask;
 };
 
 /**
@@ -186,6 +188,7 @@ struct sde_crtc_event {
  * @enabled       : whether the SDE CRTC is currently enabled. updated in the
  *                  commit-thread, not state-swap time which is earlier, so
  *                  safe to make decisions on during VBLANK on/off work
+ * @ds_reconfig   : force reconfiguration of the destination scaler block
  * @feature_list  : list of color processing features supported on a crtc
  * @active_list   : list of color processing features are active
  * @dirty_list    : list of color processing features are dirty
@@ -209,11 +212,11 @@ struct sde_crtc_event {
  * @misr_data     : store misr data before turning off the clocks.
  * @sbuf_flush_mask: flush mask for inline rotator
  * @sbuf_flush_mask_old: inline rotator flush mask for previous commit
+ * @idle_notify_work: delayed worker to notify idle timeout to user space
  * @power_event   : registered power event handle
  * @cur_perf      : current performance committed to clock/bandwidth driver
  * @rp_lock       : serialization lock for resource pool
  * @rp_head       : list of active resource pool
- * @scl3_cfg_lut  : qseed3 lut config
  */
 struct sde_crtc {
 	struct drm_crtc base;
@@ -224,7 +227,6 @@ struct sde_crtc {
 	u32 num_mixers;
 	bool mixers_swapped;
 	struct sde_crtc_mixer mixers[CRTC_DUAL_MIXERS];
-	struct sde_hw_scaler3_lut_cfg *scl3_lut_cfg;
 
 	struct drm_pending_vblank_event *event;
 	u32 vsync_count;
@@ -246,6 +248,7 @@ struct sde_crtc {
 	bool suspend;
 	bool enabled;
 
+	bool ds_reconfig;
 	struct list_head feature_list;
 	struct list_head active_list;
 	struct list_head dirty_list;
@@ -274,15 +277,20 @@ struct sde_crtc {
 
 	u32 sbuf_flush_mask;
 	u32 sbuf_flush_mask_old;
+	struct kthread_delayed_work idle_notify_work;
 
 	struct sde_power_event *power_event;
 
 	struct sde_core_perf_params cur_perf;
+	struct sde_core_perf_params new_perf;
 
 	struct mutex rp_lock;
 	struct list_head rp_head;
 
 	struct sde_crtc_smmu_state_data smmu_state;
+
+	/* blob for histogram data */
+	struct drm_property_blob *hist_blob;
 };
 
 #define to_sde_crtc(x) container_of(x, struct sde_crtc, base)
@@ -368,6 +376,7 @@ struct sde_crtc_respool {
  * @num_ds_enabled: Number of destination scalers enabled
  * @ds_dirty: Boolean to indicate if dirty or not
  * @ds_cfg: Destination scaler config
+ * @scl3_lut_cfg: QSEED3 lut config
  * @new_perf: new performance state being requested
  * @sbuf_cfg: stream buffer configuration
  * @sbuf_prefill_line: number of line for inline rotator prefetch
@@ -397,12 +406,36 @@ struct sde_crtc_state {
 	uint32_t num_ds_enabled;
 	bool ds_dirty;
 	struct sde_hw_ds_cfg ds_cfg[SDE_MAX_DS_COUNT];
+	struct sde_hw_scaler3_lut_cfg scl3_lut_cfg;
 
 	struct sde_core_perf_params new_perf;
 	struct sde_ctl_sbuf_cfg sbuf_cfg;
 	u32 sbuf_prefill_line;
 
 	struct sde_crtc_respool rp;
+};
+
+enum sde_crtc_irq_state {
+	IRQ_NOINIT,
+	IRQ_ENABLED,
+	IRQ_DISABLED,
+};
+
+/**
+ * sde_crtc_irq_info - crtc interrupt info
+ * @irq: interrupt callback
+ * @event: event type of the interrupt
+ * @func: function pointer to enable/disable the interrupt
+ * @list: list of user customized event in crtc
+ * @ref_count: reference count for the interrupt
+ */
+struct sde_crtc_irq_info {
+	struct sde_irq_callback irq;
+	u32 event;
+	int (*func)(struct drm_crtc *crtc, bool en,
+			struct sde_irq_callback *irq);
+	struct list_head list;
+	enum sde_crtc_irq_state state;
 };
 
 #define to_sde_crtc_state(x) \
@@ -479,8 +512,10 @@ int sde_crtc_vblank(struct drm_crtc *crtc, bool en);
 /**
  * sde_crtc_commit_kickoff - trigger kickoff of the commit for this crtc
  * @crtc: Pointer to drm crtc object
+ * @old_state: Pointer to drm crtc old state object
  */
-void sde_crtc_commit_kickoff(struct drm_crtc *crtc);
+void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
+		struct drm_crtc_state *old_state);
 
 /**
  * sde_crtc_prepare_commit - callback to prepare for output fences
@@ -683,4 +718,19 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
  */
 int sde_crtc_secure_ctrl(struct drm_crtc *crtc, bool post_commit);
 
+/**
+ * sde_crtc_helper_reset_properties - reset properties to default values in the
+ *	given DRM CRTC state object
+ * @crtc: Pointer to DRM crtc object
+ * @crtc_state: Pointer to DRM crtc state object
+ * Returns: 0 on success, negative errno on failure
+ */
+int sde_crtc_helper_reset_custom_properties(struct drm_crtc *crtc,
+		struct drm_crtc_state *crtc_state);
+
+/**
+ * sde_crtc_timeline_status - current buffer timeline status
+ * @crtc: Pointer to crtc
+ */
+void sde_crtc_timeline_status(struct drm_crtc *crtc);
 #endif /* _SDE_CRTC_H_ */

@@ -16,6 +16,7 @@
 
 #include "sde_kms.h"
 #include "sde_connector.h"
+#include "sde_encoder.h"
 #include <linux/backlight.h>
 #include "dsi_drm.h"
 #include "dsi_display.h"
@@ -345,6 +346,23 @@ int sde_connector_get_dither_cfg(struct drm_connector *conn,
 	return 0;
 }
 
+int sde_connector_get_mode_info(struct drm_connector_state *conn_state,
+	struct msm_mode_info *mode_info)
+{
+	struct sde_connector_state *sde_conn_state = NULL;
+
+	if (!conn_state || !mode_info) {
+		SDE_ERROR("Invalid arguments\n");
+		return -EINVAL;
+	}
+
+	sde_conn_state = to_sde_connector_state(conn_state);
+	memcpy(mode_info, &sde_conn_state->mode_info,
+		sizeof(sde_conn_state->mode_info));
+
+	return 0;
+}
+
 int sde_connector_get_info(struct drm_connector *connector,
 		struct msm_display_info *info)
 {
@@ -441,6 +459,54 @@ static int _sde_connector_update_power_locked(struct sde_connector *c_conn)
 	return rc;
 }
 
+static int _sde_connector_update_bl_scale(struct sde_connector *c_conn, int idx)
+{
+	struct drm_connector conn;
+	struct dsi_display *dsi_display;
+	struct dsi_backlight_config *bl_config;
+	uint64_t value;
+	int rc = 0;
+
+	if (!c_conn) {
+		SDE_ERROR("Invalid params sde_connector null\n");
+		return -EINVAL;
+	}
+
+	conn = c_conn->base;
+	dsi_display = c_conn->display;
+	if (!dsi_display || !dsi_display->panel) {
+		SDE_ERROR("Invalid params(s) dsi_display %pK, panel %pK\n",
+			dsi_display,
+			((dsi_display) ? dsi_display->panel : NULL));
+		return -EINVAL;
+	}
+
+	bl_config = &dsi_display->panel->bl_config;
+	value = sde_connector_get_property(conn.state, idx);
+
+	if (idx == CONNECTOR_PROP_BL_SCALE) {
+		if (value > MAX_BL_SCALE_LEVEL)
+			bl_config->bl_scale = MAX_BL_SCALE_LEVEL;
+		else
+			bl_config->bl_scale = (u32)value;
+	} else if (idx == CONNECTOR_PROP_AD_BL_SCALE) {
+		if (value > MAX_AD_BL_SCALE_LEVEL)
+			bl_config->bl_scale_ad = MAX_AD_BL_SCALE_LEVEL;
+		else
+			bl_config->bl_scale_ad = (u32)value;
+	} else {
+		SDE_DEBUG("invalid idx %d\n", idx);
+		return 0;
+	}
+
+	SDE_DEBUG("bl_scale = %u, bl_scale_ad = %u, bl_level = %u\n",
+		bl_config->bl_scale, bl_config->bl_scale_ad,
+		bl_config->bl_level);
+	rc = c_conn->ops.set_backlight(dsi_display, bl_config->bl_level);
+
+	return rc;
+}
+
 int sde_connector_pre_kickoff(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn;
@@ -471,6 +537,10 @@ int sde_connector_pre_kickoff(struct drm_connector *connector)
 			_sde_connector_update_power_locked(c_conn);
 			mutex_unlock(&c_conn->lock);
 			break;
+		case CONNECTOR_PROP_BL_SCALE:
+		case CONNECTOR_PROP_AD_BL_SCALE:
+			_sde_connector_update_bl_scale(c_conn, idx);
+			break;
 		default:
 			/* nothing to do for most properties */
 			break;
@@ -481,6 +551,7 @@ int sde_connector_pre_kickoff(struct drm_connector *connector)
 		return 0;
 
 	params.rois = &c_state->rois;
+	params.hdr_meta = &c_state->hdr_meta;
 
 	SDE_EVT32_VERBOSE(connector->base.id);
 
@@ -589,6 +660,8 @@ static void sde_connector_atomic_destroy_state(struct drm_connector *connector,
 	if (c_state->out_fb)
 		_sde_connector_destroy_fb(c_conn, c_state);
 
+	__drm_atomic_helper_connector_destroy_state(&c_state->base);
+
 	if (!c_conn) {
 		kfree(c_state);
 	} else {
@@ -632,8 +705,7 @@ static void sde_connector_atomic_reset(struct drm_connector *connector)
 			&c_state->property_state,
 			c_state->property_values);
 
-	c_state->base.connector = connector;
-	connector->state = &c_state->base;
+	__drm_atomic_helper_connector_reset(connector, &c_state->base);
 }
 
 static struct drm_connector_state *
@@ -660,6 +732,9 @@ sde_connector_atomic_duplicate_state(struct drm_connector *connector)
 			c_oldstate, c_state,
 			&c_state->property_state, c_state->property_values);
 
+	__drm_atomic_helper_connector_duplicate_state(connector,
+			&c_state->base);
+
 	/* additional handling for drm framebuffer objects */
 	if (c_state->out_fb)
 		drm_framebuffer_reference(c_state->out_fb);
@@ -667,44 +742,81 @@ sde_connector_atomic_duplicate_state(struct drm_connector *connector)
 	return &c_state->base;
 }
 
-static int _sde_connector_roi_v1_check_roi(
-		struct sde_connector *c_conn,
-		struct drm_clip_rect *roi_conn,
-		const struct msm_roi_caps *caps)
+int sde_connector_roi_v1_check_roi(struct drm_connector_state *conn_state)
 {
-	const struct msm_roi_alignment *align = &caps->align;
-	int w = roi_conn->x2 - roi_conn->x1;
-	int h = roi_conn->y2 - roi_conn->y1;
+	const struct msm_roi_alignment *align = NULL;
+	struct sde_connector *c_conn = NULL;
+	struct msm_mode_info mode_info;
+	struct sde_connector_state *c_state;
+	int i, w, h;
 
-	if (w <= 0 || h <= 0) {
-		SDE_ERROR_CONN(c_conn, "invalid conn roi w %d h %d\n", w, h);
+	if (!conn_state)
 		return -EINVAL;
-	}
 
-	if (w < align->min_width || w % align->width_pix_align) {
-		SDE_ERROR_CONN(c_conn,
-				"invalid conn roi width %d min %d align %d\n",
-				w, align->min_width, align->width_pix_align);
-		return -EINVAL;
-	}
+	memset(&mode_info, 0, sizeof(mode_info));
 
-	if (h < align->min_height || h % align->height_pix_align) {
-		SDE_ERROR_CONN(c_conn,
-				"invalid conn roi height %d min %d align %d\n",
-				h, align->min_height, align->height_pix_align);
-		return -EINVAL;
-	}
+	c_state = to_sde_connector_state(conn_state);
+	c_conn = to_sde_connector(conn_state->connector);
 
-	if (roi_conn->x1 % align->xstart_pix_align) {
-		SDE_ERROR_CONN(c_conn, "invalid conn roi x1 %d align %d\n",
-				roi_conn->x1, align->xstart_pix_align);
-		return -EINVAL;
-	}
+	memcpy(&mode_info, &c_state->mode_info, sizeof(c_state->mode_info));
 
-	if (roi_conn->y1 % align->ystart_pix_align) {
-		SDE_ERROR_CONN(c_conn, "invalid conn roi y1 %d align %d\n",
-				roi_conn->y1, align->ystart_pix_align);
-		return -EINVAL;
+	if (!mode_info.roi_caps.enabled)
+		return 0;
+
+	if (c_state->rois.num_rects > mode_info.roi_caps.num_roi) {
+		SDE_ERROR_CONN(c_conn, "too many rects specified: %d > %d\n",
+				c_state->rois.num_rects,
+				mode_info.roi_caps.num_roi);
+		return -E2BIG;
+	};
+
+	align = &mode_info.roi_caps.align;
+	for (i = 0; i < c_state->rois.num_rects; ++i) {
+		struct drm_clip_rect *roi_conn;
+
+		roi_conn = &c_state->rois.roi[i];
+		w = roi_conn->x2 - roi_conn->x1;
+		h = roi_conn->y2 - roi_conn->y1;
+
+		SDE_EVT32_VERBOSE(DRMID(&c_conn->base),
+				roi_conn->x1, roi_conn->y1,
+				roi_conn->x2, roi_conn->y2);
+
+		if (w <= 0 || h <= 0) {
+			SDE_ERROR_CONN(c_conn, "invalid conn roi w %d h %d\n",
+					w, h);
+			return -EINVAL;
+		}
+
+		if (w < align->min_width || w % align->width_pix_align) {
+			SDE_ERROR_CONN(c_conn,
+					"invalid conn roi width %d min %d align %d\n",
+					w, align->min_width,
+					align->width_pix_align);
+			return -EINVAL;
+		}
+
+		if (h < align->min_height || h % align->height_pix_align) {
+			SDE_ERROR_CONN(c_conn,
+					"invalid conn roi height %d min %d align %d\n",
+					h, align->min_height,
+					align->height_pix_align);
+			return -EINVAL;
+		}
+
+		if (roi_conn->x1 % align->xstart_pix_align) {
+			SDE_ERROR_CONN(c_conn,
+					"invalid conn roi x1 %d align %d\n",
+					roi_conn->x1, align->xstart_pix_align);
+			return -EINVAL;
+		}
+
+		if (roi_conn->y1 % align->ystart_pix_align) {
+			SDE_ERROR_CONN(c_conn,
+					"invalid conn roi y1 %d align %d\n",
+					roi_conn->y1, align->ystart_pix_align);
+			return -EINVAL;
+		}
 	}
 
 	return 0;
@@ -716,25 +828,11 @@ static int _sde_connector_set_roi_v1(
 		void *usr_ptr)
 {
 	struct sde_drm_roi_v1 roi_v1;
-	struct msm_display_info display_info;
-	struct msm_roi_caps *caps;
-	int i, rc;
+	int i;
 
 	if (!c_conn || !c_state) {
 		SDE_ERROR("invalid args\n");
 		return -EINVAL;
-	}
-
-	rc = sde_connector_get_info(&c_conn->base, &display_info);
-	if (rc) {
-		SDE_ERROR_CONN(c_conn, "display get info error: %d\n", rc);
-		return rc;
-	}
-
-	caps = &display_info.roi_caps;
-	if (!caps->enabled) {
-		SDE_ERROR_CONN(c_conn, "display roi capability is disabled\n");
-		return -ENOTSUPP;
 	}
 
 	memset(&c_state->rois, 0, sizeof(c_state->rois));
@@ -756,22 +854,14 @@ static int _sde_connector_set_roi_v1(
 		return 0;
 	}
 
-	if (roi_v1.num_rects > SDE_MAX_ROI_V1 ||
-			roi_v1.num_rects > caps->num_roi) {
-		SDE_ERROR_CONN(c_conn, "too many rects specified: %d\n",
+	if (roi_v1.num_rects > SDE_MAX_ROI_V1) {
+		SDE_ERROR_CONN(c_conn, "num roi rects more than supported: %d",
 				roi_v1.num_rects);
 		return -EINVAL;
 	}
 
 	c_state->rois.num_rects = roi_v1.num_rects;
 	for (i = 0; i < roi_v1.num_rects; ++i) {
-		int rc;
-
-		rc = _sde_connector_roi_v1_check_roi(c_conn, &roi_v1.roi[i],
-				caps);
-		if (rc)
-			return rc;
-
 		c_state->rois.roi[i] = roi_v1.roi[i];
 		SDE_DEBUG_CONN(c_conn, "roi%d: roi (%d,%d) (%d,%d)\n", i,
 				c_state->rois.roi[i].x1,
@@ -783,40 +873,62 @@ static int _sde_connector_set_roi_v1(
 	return 0;
 }
 
-static int _sde_connector_update_bl_scale(struct sde_connector *c_conn,
-		int idx,
-		uint64_t value)
+static int _sde_connector_set_ext_hdr_info(
+	struct sde_connector *c_conn,
+	struct sde_connector_state *c_state,
+	void *usr_ptr)
 {
-	struct dsi_display *dsi_display = c_conn->display;
-	struct dsi_backlight_config *bl_config;
-	int rc = 0;
+	struct drm_connector *connector;
+	struct drm_msm_ext_hdr_metadata *hdr_meta;
+	int i;
 
-	if (!dsi_display || !dsi_display->panel) {
-		pr_err("Invalid params(s) dsi_display %pK, panel %pK\n",
-			dsi_display,
-			((dsi_display) ? dsi_display->panel : NULL));
+	if (!c_conn || !c_state) {
+		SDE_ERROR_CONN(c_conn, "invalid args\n");
 		return -EINVAL;
 	}
 
-	bl_config = &dsi_display->panel->bl_config;
-	if (idx == CONNECTOR_PROP_BL_SCALE) {
-		bl_config->bl_scale = value;
-		if (value > MAX_BL_SCALE_LEVEL)
-			bl_config->bl_scale = MAX_BL_SCALE_LEVEL;
-		SDE_DEBUG("set to panel: bl_scale = %u, bl_level = %u\n",
-			bl_config->bl_scale, bl_config->bl_level);
-		rc = c_conn->ops.set_backlight(dsi_display,
-					       bl_config->bl_level);
-	} else if (idx == CONNECTOR_PROP_AD_BL_SCALE) {
-		bl_config->bl_scale_ad = value;
-		if (value > MAX_AD_BL_SCALE_LEVEL)
-			bl_config->bl_scale_ad = MAX_AD_BL_SCALE_LEVEL;
-		SDE_DEBUG("set to panel: bl_scale_ad = %u, bl_level = %u\n",
-			bl_config->bl_scale_ad, bl_config->bl_level);
-		rc = c_conn->ops.set_backlight(dsi_display,
-					       bl_config->bl_level);
+	connector = &c_conn->base;
+
+	if (!connector->hdr_supported) {
+		SDE_ERROR_CONN(c_conn, "sink doesn't support HDR\n");
+		return -ENOTSUPP;
 	}
-	return rc;
+
+	memset(&c_state->hdr_meta, 0, sizeof(c_state->hdr_meta));
+
+	if (!usr_ptr) {
+		SDE_DEBUG_CONN(c_conn, "hdr metadata cleared\n");
+		return 0;
+	}
+
+	if (copy_from_user(&c_state->hdr_meta,
+		(void __user *)usr_ptr,
+			sizeof(*hdr_meta))) {
+		SDE_ERROR_CONN(c_conn, "failed to copy hdr metadata\n");
+		return -EFAULT;
+	}
+
+	hdr_meta = &c_state->hdr_meta;
+
+	SDE_DEBUG_CONN(c_conn, "hdr_state %d\n", hdr_meta->hdr_state);
+	SDE_DEBUG_CONN(c_conn, "hdr_supported %d\n", hdr_meta->hdr_supported);
+	SDE_DEBUG_CONN(c_conn, "eotf %d\n", hdr_meta->eotf);
+	SDE_DEBUG_CONN(c_conn, "white_point_x %d\n", hdr_meta->white_point_x);
+	SDE_DEBUG_CONN(c_conn, "white_point_y %d\n", hdr_meta->white_point_y);
+	SDE_DEBUG_CONN(c_conn, "max_luminance %d\n", hdr_meta->max_luminance);
+	SDE_DEBUG_CONN(c_conn, "max_content_light_level %d\n",
+				hdr_meta->max_content_light_level);
+	SDE_DEBUG_CONN(c_conn, "max_average_light_level %d\n",
+				hdr_meta->max_average_light_level);
+
+	for (i = 0; i < HDR_PRIMARIES_COUNT; i++) {
+		SDE_DEBUG_CONN(c_conn, "display_primaries_x [%d]\n",
+				   hdr_meta->display_primaries_x[i]);
+		SDE_DEBUG_CONN(c_conn, "display_primaries_y [%d]\n",
+				   hdr_meta->display_primaries_y[i]);
+	}
+
+	return 0;
 }
 
 static int sde_connector_atomic_set_property(struct drm_connector *connector,
@@ -865,10 +977,6 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 					c_conn->fb_kmap);
 		}
 		break;
-	case CONNECTOR_PROP_BL_SCALE:
-	case CONNECTOR_PROP_AD_BL_SCALE:
-		rc = _sde_connector_update_bl_scale(c_conn, idx, val);
-		break;
 	default:
 		break;
 	}
@@ -877,6 +985,13 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		rc = _sde_connector_set_roi_v1(c_conn, c_state, (void *)val);
 		if (rc)
 			SDE_ERROR_CONN(c_conn, "invalid roi_v1, rc: %d\n", rc);
+	}
+
+	if (idx == CONNECTOR_PROP_HDR_METADATA) {
+		rc = _sde_connector_set_ext_hdr_info(c_conn,
+			c_state, (void *)val);
+		if (rc)
+			SDE_ERROR_CONN(c_conn, "cannot set hdr info %d\n", rc);
 	}
 
 	/* check for custom property handling */
@@ -944,6 +1059,19 @@ static int sde_connector_atomic_get_property(struct drm_connector *connector,
 	return rc;
 }
 
+void sde_conn_timeline_status(struct drm_connector *conn)
+{
+	struct sde_connector *c_conn;
+
+	if (!conn) {
+		SDE_ERROR("invalid connector\n");
+		return;
+	}
+
+	c_conn = to_sde_connector(conn);
+	sde_fence_timeline_status(&c_conn->retire_fence, &conn->base);
+}
+
 void sde_connector_prepare_fence(struct drm_connector *connector)
 {
 	if (!connector) {
@@ -975,6 +1103,29 @@ void sde_connector_commit_reset(struct drm_connector *connector, ktime_t ts)
 
 	/* signal connector's retire fence */
 	sde_fence_signal(&to_sde_connector(connector)->retire_fence, ts, true);
+}
+
+static void sde_connector_update_hdr_props(struct drm_connector *connector)
+{
+	struct sde_connector *c_conn = to_sde_connector(connector);
+	struct drm_msm_ext_hdr_properties hdr = {};
+
+	hdr.hdr_supported = connector->hdr_supported;
+
+	if (hdr.hdr_supported) {
+		hdr.hdr_eotf = connector->hdr_eotf;
+		hdr.hdr_metadata_type_one = connector->hdr_metadata_type_one;
+		hdr.hdr_max_luminance = connector->hdr_max_luminance;
+		hdr.hdr_avg_luminance = connector->hdr_avg_luminance;
+		hdr.hdr_min_luminance = connector->hdr_min_luminance;
+
+		msm_property_set_blob(&c_conn->property_info,
+			      &c_conn->blob_ext_hdr,
+			      &hdr,
+			      sizeof(hdr),
+			      CONNECTOR_PROP_EXT_HDR_INFO);
+
+	}
 }
 
 static enum drm_connector_status
@@ -1084,6 +1235,58 @@ int sde_connector_set_property_for_commit(struct drm_connector *connector,
 			connector, state, property, value);
 }
 
+int sde_connector_helper_reset_custom_properties(
+		struct drm_connector *connector,
+		struct drm_connector_state *connector_state)
+{
+	struct sde_connector *c_conn;
+	struct sde_connector_state *c_state;
+	struct drm_property *drm_prop;
+	enum msm_mdp_conn_property prop_idx;
+
+	if (!connector || !connector_state) {
+		SDE_ERROR("invalid params\n");
+		return -EINVAL;
+	}
+
+	c_conn = to_sde_connector(connector);
+	c_state = to_sde_connector_state(connector_state);
+
+	for (prop_idx = 0; prop_idx < CONNECTOR_PROP_COUNT; prop_idx++) {
+		uint64_t val = c_state->property_values[prop_idx].value;
+		uint64_t def;
+		int ret;
+
+		drm_prop = msm_property_index_to_drm_property(
+				&c_conn->property_info, prop_idx);
+		if (!drm_prop) {
+			/* not all props will be installed, based on caps */
+			SDE_DEBUG_CONN(c_conn, "invalid property index %d\n",
+					prop_idx);
+			continue;
+		}
+
+		def = msm_property_get_default(&c_conn->property_info,
+				prop_idx);
+		if (val == def)
+			continue;
+
+		SDE_DEBUG_CONN(c_conn, "set prop %s idx %d from %llu to %llu\n",
+				drm_prop->name, prop_idx, val, def);
+
+		ret = drm_atomic_connector_set_property(connector,
+				connector_state, drm_prop, def);
+		if (ret) {
+			SDE_ERROR_CONN(c_conn,
+					"set property failed, idx %d ret %d\n",
+					prop_idx, ret);
+			continue;
+		}
+	}
+
+	return 0;
+}
+
 #ifdef CONFIG_DEBUG_FS
 /**
  * sde_connector_init_debugfs - initialize connector debugfs
@@ -1092,6 +1295,7 @@ int sde_connector_set_property_for_commit(struct drm_connector *connector,
 static int sde_connector_init_debugfs(struct drm_connector *connector)
 {
 	struct sde_connector *sde_connector;
+	struct msm_display_info info;
 
 	if (!connector || !connector->debugfs_entry) {
 		SDE_ERROR("invalid connector\n");
@@ -1099,6 +1303,13 @@ static int sde_connector_init_debugfs(struct drm_connector *connector)
 	}
 
 	sde_connector = to_sde_connector(connector);
+
+	sde_connector_get_info(connector, &info);
+	if (sde_connector->ops.check_status &&
+		(info.capabilities & MSM_DISPLAY_ESD_ENABLED))
+		debugfs_create_u32("force_panel_dead", 0600,
+				connector->debugfs_entry,
+				&sde_connector->force_panel_dead);
 
 	if (!debugfs_create_bool("fb_kmap", 0600, connector->debugfs_entry,
 			&sde_connector->fb_kmap)) {
@@ -1143,6 +1354,7 @@ static const struct drm_connector_funcs sde_connector_ops = {
 static int sde_connector_get_modes(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn;
+	int ret = 0;
 
 	if (!connector) {
 		SDE_ERROR("invalid connector\n");
@@ -1154,8 +1366,11 @@ static int sde_connector_get_modes(struct drm_connector *connector)
 		SDE_DEBUG("missing get_modes callback\n");
 		return 0;
 	}
+	ret = c_conn->ops.get_modes(connector, c_conn->display);
+	if (ret)
+		sde_connector_update_hdr_props(connector);
 
-	return c_conn->ops.get_modes(connector, c_conn->display);
+	return ret;
 }
 
 static enum drm_mode_status
@@ -1220,22 +1435,30 @@ static void sde_connector_check_status_work(struct work_struct *work)
 
 	rc = conn->ops.check_status(conn->display);
 	mutex_unlock(&conn->lock);
+
+	if (conn->force_panel_dead) {
+		conn->force_panel_dead--;
+		if (!conn->force_panel_dead)
+			goto status_dead;
+	}
+
 	if (rc > 0) {
 		SDE_DEBUG("esd check status success conn_id: %d enc_id: %d\n",
 				conn->base.base.id, conn->encoder->base.id);
 		schedule_delayed_work(&conn->status_work,
 			msecs_to_jiffies(STATUS_CHECK_INTERVAL_MS));
-	} else {
-		SDE_EVT32(rc, SDE_EVTLOG_ERROR);
-		SDE_ERROR("failed report PANEL_DEAD conn_id: %d enc_id: %d\n",
-				conn->base.base.id, conn->encoder->base.id);
-		/* report panel dead event */
-		panel_dead = true;
-		event.type = DRM_EVENT_PANEL_DEAD;
-		event.length = sizeof(u32);
-		msm_mode_object_event_notify(&conn->base.base,
-			conn->base.dev, &event, (u8 *)&panel_dead);
+		return;
 	}
+
+status_dead:
+	SDE_EVT32(rc, SDE_EVTLOG_ERROR);
+	SDE_ERROR("esd check failed report PANEL_DEAD conn_id: %d enc_id: %d\n",
+			conn->base.base.id, conn->encoder->base.id);
+	panel_dead = true;
+	event.type = DRM_EVENT_PANEL_DEAD;
+	event.length = sizeof(u32);
+	msm_mode_object_event_notify(&conn->base.base,
+		conn->base.dev, &event, (u8 *)&panel_dead);
 }
 
 static const struct drm_connector_helper_funcs sde_connector_helper_ops = {
@@ -1243,6 +1466,64 @@ static const struct drm_connector_helper_funcs sde_connector_helper_ops = {
 	.mode_valid =   sde_connector_mode_valid,
 	.best_encoder = sde_connector_best_encoder,
 };
+
+int sde_connector_set_info(struct drm_connector *conn,
+				struct drm_connector_state *state)
+{
+	struct sde_kms_info *info;
+	struct sde_connector *c_conn = NULL;
+	struct sde_connector_state *sde_conn_state = NULL;
+	struct msm_mode_info mode_info;
+	int rc = 0;
+
+	c_conn = to_sde_connector(conn);
+	if (!c_conn) {
+		SDE_ERROR("invalid argument\n");
+		return -EINVAL;
+	}
+
+	if (!c_conn->ops.post_init) {
+		SDE_DEBUG_CONN(c_conn, "post_init not defined\n");
+		return 0;
+	}
+
+	memset(&mode_info, 0, sizeof(mode_info));
+
+	info = kzalloc(sizeof(*info), GFP_KERNEL);
+	if (!info)
+		return -ENOMEM;
+
+	if (state) {
+		sde_conn_state = to_sde_connector_state(state);
+		memcpy(&mode_info, &sde_conn_state->mode_info,
+			sizeof(sde_conn_state->mode_info));
+	} else {
+		/**
+		 * connector state is assigned only on first atomic_commit.
+		 * But this function is allowed to be invoked during
+		 * probe/init sequence. So not throwing an error.
+		 */
+		SDE_DEBUG_CONN(c_conn, "invalid connector state\n");
+	}
+
+	sde_kms_info_reset(info);
+	rc = c_conn->ops.post_init(&c_conn->base, info,
+			c_conn->display, &mode_info);
+	if (rc) {
+		SDE_ERROR_CONN(c_conn, "post-init failed, %d\n", rc);
+		goto exit;
+	}
+
+	msm_property_set_blob(&c_conn->property_info,
+			&c_conn->blob_caps,
+			SDE_KMS_INFO_DATA(info),
+			SDE_KMS_INFO_DATALEN(info),
+			CONNECTOR_PROP_SDE_INFO);
+exit:
+	kfree(info);
+
+	return rc;
+}
 
 struct drm_connector *sde_connector_init(struct drm_device *dev,
 		struct drm_encoder *encoder,
@@ -1254,7 +1535,6 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 {
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
-	struct sde_kms_info *info;
 	struct sde_connector *c_conn = NULL;
 	struct dsi_display *dsi_display;
 	struct msm_display_info display_info;
@@ -1351,33 +1631,16 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 			CONNECTOR_PROP_COUNT, CONNECTOR_PROP_BLOBCOUNT,
 			sizeof(struct sde_connector_state));
 
-	if (c_conn->ops.post_init) {
-		info = kmalloc(sizeof(*info), GFP_KERNEL);
-		if (!info) {
-			SDE_ERROR("failed to allocate info buffer\n");
-			rc = -ENOMEM;
-			goto error_cleanup_fence;
-		}
+	msm_property_install_blob(&c_conn->property_info,
+			"capabilities",
+			DRM_MODE_PROP_IMMUTABLE,
+			CONNECTOR_PROP_SDE_INFO);
 
-		sde_kms_info_reset(info);
-		rc = c_conn->ops.post_init(&c_conn->base, info, display);
-		if (rc) {
-			SDE_ERROR("post-init failed, %d\n", rc);
-			kfree(info);
-			goto error_cleanup_fence;
-		}
-
-		msm_property_install_blob(&c_conn->property_info,
-				"capabilities",
-				DRM_MODE_PROP_IMMUTABLE,
-				CONNECTOR_PROP_SDE_INFO);
-
-		msm_property_set_blob(&c_conn->property_info,
-				&c_conn->blob_caps,
-				SDE_KMS_INFO_DATA(info),
-				SDE_KMS_INFO_DATALEN(info),
-				CONNECTOR_PROP_SDE_INFO);
-		kfree(info);
+	rc = sde_connector_set_info(&c_conn->base, c_conn->base.state);
+	if (rc) {
+		SDE_ERROR_CONN(c_conn,
+			"failed to setup connector info, rc = %d\n", rc);
+		goto error_cleanup_fence;
 	}
 
 	if (connector_type == DRM_MODE_CONNECTOR_DSI) {
@@ -1397,14 +1660,22 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 		}
 	}
 
-	rc = sde_connector_get_info(&c_conn->base, &display_info);
-	if (!rc && display_info.roi_caps.enabled) {
-		msm_property_install_volatile_range(
+	msm_property_install_volatile_range(
 				&c_conn->property_info, "sde_drm_roi_v1", 0x0,
 				0, ~0, 0, CONNECTOR_PROP_ROI_V1);
-	}
+
 	/* install PP_DITHER properties */
 	_sde_connector_install_dither_property(dev, sde_kms, c_conn);
+
+	if (connector_type == DRM_MODE_CONNECTOR_DisplayPort) {
+		msm_property_install_blob(&c_conn->property_info,
+				"ext_hdr_properties",
+				DRM_MODE_PROP_IMMUTABLE,
+				CONNECTOR_PROP_EXT_HDR_INFO);
+	}
+
+	msm_property_install_volatile_range(&c_conn->property_info,
+		"hdr_metadata", 0x0, 0, ~0, 0, CONNECTOR_PROP_HDR_METADATA);
 
 	msm_property_install_range(&c_conn->property_info, "RETIRE_FENCE",
 			0x0, 0, INR_OPEN_MAX, 0, CONNECTOR_PROP_RETIRE_FENCE);
