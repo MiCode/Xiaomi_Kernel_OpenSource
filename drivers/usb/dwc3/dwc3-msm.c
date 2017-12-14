@@ -461,7 +461,7 @@ static inline bool dwc3_msm_is_superspeed(struct dwc3_msm *mdwc)
  * @size - size of data fifo.
  *
  */
-int msm_data_fifo_config(struct usb_ep *ep, phys_addr_t addr,
+int msm_data_fifo_config(struct usb_ep *ep, unsigned long addr,
 			 u32 size, u8 dst_pipe_idx)
 {
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
