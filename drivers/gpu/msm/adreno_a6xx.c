@@ -43,6 +43,8 @@
 #define A6XX_GPU_CX_REG_BASE		0x509E000
 #define A6XX_GPU_CX_REG_SIZE		0x1000
 
+#define GPU_LIMIT_THRESHOLD_ENABLE	BIT(31)
+
 static int _load_gmu_firmware(struct kgsl_device *device);
 
 static const struct adreno_vbif_data a630_vbif[] = {
@@ -758,6 +760,21 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 
 	a6xx_preemption_start(adreno_dev);
 	a6xx_protect_init(adreno_dev);
+
+	/*
+	 * We start LM here because we want all the following to be up
+	 * 1. GX HS
+	 * 2. SPTPRAC
+	 * 3. HFI
+	 * At this point, we are guaranteed all.
+	 */
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM) &&
+		test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag)) {
+		kgsl_gmu_regwrite(device, A6XX_GPU_GMU_CX_GMU_PWR_THRESHOLD,
+			GPU_LIMIT_THRESHOLD_ENABLE | lm_limit(adreno_dev));
+		kgsl_gmu_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 1);
+		kgsl_gmu_regwrite(device, A6XX_GPU_GMU_CX_GMU_ISENSE_CTRL, 0x1);
+	}
 }
 
 /*
@@ -1713,80 +1730,6 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 	return 0;
 }
 
-#define KMASK(start, n) (GENMASK((start + n), (start)))
-
-static void isense_cold_trimm(struct kgsl_device *device)
-{
-	unsigned int reg;
-	struct gmu_device *gmu = &device->gmu;
-
-	kgsl_gmu_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 1);
-	kgsl_gmu_regwrite(device, A6XX_GPU_CS_AMP_CALIBRATION_DONE, 0);
-
-	kgsl_gmu_regwrite(device, A6XX_GPU_GMU_CX_GMU_ISENSE_CTRL, 0x1);
-	kgsl_gmu_regwrite(device, A6XX_GPU_CS_AMP_CALIBRATION_CONTROL3,
-		0x00000F8F);
-	kgsl_gmu_regwrite(device, A6XX_GPU_CS_AMP_CALIBRATION_CONTROL2,
-		0x00705161);
-	udelay(10);
-	kgsl_gmu_regwrite(device, A6XX_GPU_CS_ENABLE_REG, 0x3);
-	kgsl_gmu_regwrite(device, A6XX_GPU_CS_A_SENSOR_CTRL_0, 0x10040a);
-	kgsl_gmu_regwrite(device, A6XX_GPU_CS_A_SENSOR_CTRL_2, 0x10040a);
-
-	kgsl_gmu_regread(device, A6XX_GPU_CS_SENSOR_GENERAL_STATUS, &reg);
-	if ((reg & BIT(CS_PWR_ON_STATUS)) != (1 << CS_PWR_ON_STATUS)) {
-		dev_err(&gmu->pdev->dev, "ERROR - ISENSE power-up\n");
-		return;
-	}
-
-	kgsl_gmu_regrmw(device, A6XX_GPU_CS_AMP_CALIBRATION_CONTROL1,
-		KMASK(AMP_TRIM_TIMER, 15), 70 << AMP_TRIM_TIMER);
-	kgsl_gmu_regrmw(device, A6XX_GPU_CS_AMP_CALIBRATION_CONTROL1,
-		KMASK(AMP_SW_TRIM_START, 1), 0 << AMP_SW_TRIM_START);
-	kgsl_gmu_regrmw(device, A6XX_GPU_CS_AMP_CALIBRATION_CONTROL1,
-		KMASK(AMP_SW_TRIM_START, 1), 1 << AMP_SW_TRIM_START);
-
-	if (timed_poll_check(device, A6XX_GPU_CS_SENSOR_GENERAL_STATUS,
-		BIT(SS_AMPTRIM_DONE), GMU_START_TIMEOUT,
-		BIT(SS_AMPTRIM_DONE))) {
-		dev_err(&gmu->pdev->dev, "ISENSE SS_AMPTRIM failure\n");
-		return;
-	}
-
-	kgsl_gmu_regread(device, A6XX_GPU_CS_AMP_CALIBRATION_STATUS1_0, &reg);
-	if (reg & AMP_ERR) {
-		kgsl_gmu_regread(device, A6XX_GPU_CS_AMP_CALIBRATION_STATUS1_0,
-			&reg);
-		dev_err(&gmu->pdev->dev,
-			"ISENSE ERROR:trimming GX 0x%08x\n", reg);
-		return;
-	}
-
-	kgsl_gmu_regread(device, A6XX_GPU_CS_AMP_CALIBRATION_STATUS1_2, &reg);
-	if (reg & AMP_ERR) {
-		kgsl_gmu_regread(device, A6XX_GPU_CS_AMP_CALIBRATION_STATUS1_2,
-			&reg);
-		dev_err(&gmu->pdev->dev,
-			"ISENSE ERROR:trimming SPTPRAC 0x%08x\n", reg);
-		return;
-	}
-
-	kgsl_gmu_regwrite(device, A6XX_GPU_CS_AMP_CALIBRATION_DONE, 1);
-	kgsl_gmu_regrmw(device, A6XX_GPU_CS_AMP_PERIOD_CTRL,
-		KMASK(TRIM_CNT_VALUE, 13), 20 << TRIM_CNT_VALUE);
-	kgsl_gmu_regrmw(device, A6XX_GPU_CS_AMP_PERIOD_CTRL,
-		KMASK(RUNTIME_CNT_VALUE, 9), 50 << RUNTIME_CNT_VALUE);
-
-	kgsl_gmu_regrmw(device, A6XX_GPU_CS_AMP_PERIOD_CTRL,
-		KMASK(TRIM_ENABLE, 1), 1 << TRIM_ENABLE);
-	udelay(4);
-	kgsl_gmu_regrmw(device, A6XX_GPU_CS_AMP_PERIOD_CTRL,
-		KMASK(TRIM_ENABLE, 1), 0 << TRIM_ENABLE);
-	kgsl_gmu_regwrite(device, A6XX_GPU_CS_AMP_CALIBRATION_DONE, 1);
-
-}
-
-#define GPU_LIMIT_THRESHOLD_ENABLE	BIT(31)
 /*
  * a6xx_gmu_fw_start() - set up GMU and start FW
  * @device: Pointer to KGSL device
@@ -1866,13 +1809,6 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 			| (ADRENO_CHIPID_PATCH(adreno_dev->chipid) << 8);
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_HFI_SFR_ADDR, chipid);
-
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM) &&
-		test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag)) {
-		kgsl_gmu_regwrite(device, A6XX_GPU_GMU_CX_GMU_PWR_THRESHOLD,
-			GPU_LIMIT_THRESHOLD_ENABLE | lm_limit(adreno_dev));
-		isense_cold_trimm(device);
-	}
 
 	/* Configure power control and bring the GMU out of reset */
 	a6xx_gmu_power_config(device);
