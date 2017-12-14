@@ -55,7 +55,7 @@
 #define ADSP_MMAP_REMOTE_HEAP_ADDR 8
 #define FASTRPC_ENOSUCH 39
 #define VMID_SSC_Q6     5
-#define VMID_ADSP_Q6    33
+#define VMID_ADSP_Q6    6
 #define DEBUGFS_SIZE 1024
 
 #define RPC_TIMEOUT	(5 * HZ)
