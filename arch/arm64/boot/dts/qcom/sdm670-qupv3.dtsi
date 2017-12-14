@@ -245,6 +245,9 @@
 		interrupts = <GIC_SPI 601 0>;
 		spi-max-frequency = <50000000>;
 		qcom,wrapper-core = <&qupv3_0>;
+		dmas = <&gpi_dma0 0 0 1 64 0>,
+			<&gpi_dma0 1 0 1 64 0>;
+		dma-names = "tx", "rx";
 		status = "disabled";
 	};
 
@@ -264,6 +267,9 @@
 		interrupts = <GIC_SPI 602 0>;
 		spi-max-frequency = <50000000>;
 		qcom,wrapper-core = <&qupv3_0>;
+		dmas = <&gpi_dma0 0 1 1 64 0>,
+			<&gpi_dma0 1 1 1 64 0>;
+		dma-names = "tx", "rx";
 		status = "disabled";
 	};
 
@@ -283,6 +289,9 @@
 		interrupts = <GIC_SPI 603 0>;
 		spi-max-frequency = <50000000>;
 		qcom,wrapper-core = <&qupv3_0>;
+		dmas = <&gpi_dma0 0 2 1 64 0>,
+			<&gpi_dma0 1 2 1 64 0>;
+		dma-names = "tx", "rx";
 		status = "disabled";
 	};
 
@@ -302,6 +311,9 @@
 		interrupts = <GIC_SPI 604 0>;
 		spi-max-frequency = <50000000>;
 		qcom,wrapper-core = <&qupv3_0>;
+		dmas = <&gpi_dma0 0 3 1 64 0>,
+			<&gpi_dma0 1 3 1 64 0>;
+		dma-names = "tx", "rx";
 		status = "disabled";
 	};
 
@@ -321,6 +333,9 @@
 		interrupts = <GIC_SPI 605 0>;
 		spi-max-frequency = <50000000>;
 		qcom,wrapper-core = <&qupv3_0>;
+		dmas = <&gpi_dma0 0 4 1 64 0>,
+			<&gpi_dma0 1 4 1 64 0>;
+		dma-names = "tx", "rx";
 		status = "disabled";
 	};
 
@@ -340,6 +355,9 @@
 		interrupts = <GIC_SPI 606 0>;
 		spi-max-frequency = <50000000>;
 		qcom,wrapper-core = <&qupv3_0>;
+		dmas = <&gpi_dma0 0 5 1 64 0>,
+			<&gpi_dma0 1 5 1 64 0>;
+		dma-names = "tx", "rx";
 		status = "disabled";
 	};
 
@@ -359,6 +377,9 @@
 		interrupts = <GIC_SPI 607 0>;
 		spi-max-frequency = <50000000>;
 		qcom,wrapper-core = <&qupv3_0>;
+		dmas = <&gpi_dma0 0 6 1 64 0>,
+			<&gpi_dma0 1 6 1 64 0>;
+		dma-names = "tx", "rx";
 		status = "disabled";
 	};
 
@@ -378,6 +399,9 @@
 		interrupts = <GIC_SPI 608 0>;
 		spi-max-frequency = <50000000>;
 		qcom,wrapper-core = <&qupv3_0>;
+		dmas = <&gpi_dma0 0 7 1 64 0>,
+			<&gpi_dma0 1 7 1 64 0>;
+		dma-names = "tx", "rx";
 		status = "disabled";
 	};
 
@@ -626,6 +650,9 @@
 		interrupts = <GIC_SPI 353 0>;
 		spi-max-frequency = <50000000>;
 		qcom,wrapper-core = <&qupv3_1>;
+		dmas = <&gpi_dma1 0 0 1 64 0>,
+			<&gpi_dma1 1 0 1 64 0>;
+		dma-names = "tx", "rx";
 		status = "disabled";
 	};
 
@@ -645,6 +672,9 @@
 		interrupts = <GIC_SPI 354 0>;
 		spi-max-frequency = <50000000>;
 		qcom,wrapper-core = <&qupv3_1>;
+		dmas = <&gpi_dma1 0 1 1 64 0>,
+			<&gpi_dma1 1 1 1 64 0>;
+		dma-names = "tx", "rx";
 		status = "disabled";
 	};
 
@@ -664,6 +694,9 @@
 		interrupts = <GIC_SPI 355 0>;
 		spi-max-frequency = <50000000>;
 		qcom,wrapper-core = <&qupv3_1>;
+		dmas = <&gpi_dma1 0 2 1 64 0>,
+			<&gpi_dma1 1 2 1 64 0>;
+		dma-names = "tx", "rx";
 		status = "disabled";
 	};
 
@@ -683,6 +716,9 @@
 		interrupts = <GIC_SPI 356 0>;
 		spi-max-frequency = <50000000>;
 		qcom,wrapper-core = <&qupv3_1>;
+		dmas = <&gpi_dma1 0 3 1 64 0>,
+			<&gpi_dma1 1 3 1 64 0>;
+		dma-names = "tx", "rx";
 		status = "disabled";
 	};
 
@@ -702,6 +738,9 @@
 		interrupts = <GIC_SPI 357 0>;
 		spi-max-frequency = <50000000>;
 		qcom,wrapper-core = <&qupv3_1>;
+		dmas = <&gpi_dma1 0 4 1 64 0>,
+			<&gpi_dma1 1 4 1 64 0>;
+		dma-names = "tx", "rx";
 		status = "disabled";
 	};
 
@@ -721,6 +760,9 @@
 		interrupts = <GIC_SPI 358 0>;
 		spi-max-frequency = <50000000>;
 		qcom,wrapper-core = <&qupv3_1>;
+		dmas = <&gpi_dma1 0 5 1 64 0>,
+			<&gpi_dma1 1 5 1 64 0>;
+		dma-names = "tx", "rx";
 		status = "disabled";
 	};
 
@@ -740,6 +782,9 @@
 		interrupts = <GIC_SPI 359 0>;
 		spi-max-frequency = <50000000>;
 		qcom,wrapper-core = <&qupv3_1>;
+		dmas = <&gpi_dma1 0 6 1 64 0>,
+			<&gpi_dma1 1 6 1 64 0>;
+		dma-names = "tx", "rx";
 		status = "disabled";
 	};
 
@@ -759,6 +804,9 @@
 		interrupts = <GIC_SPI 360 0>;
 		spi-max-frequency = <50000000>;
 		qcom,wrapper-core = <&qupv3_1>;
+		dmas = <&gpi_dma1 0 7 1 64 0>,
+			<&gpi_dma1 1 7 1 64 0>;
+		dma-names = "tx", "rx";
 		status = "disabled";
 	};
 };
