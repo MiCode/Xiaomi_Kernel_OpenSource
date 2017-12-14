@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,6 +55,7 @@ static int get_local_resources(struct msm_spi *dd);
 static void put_local_resources(struct msm_spi *dd);
 static void msm_spi_slv_setup(struct msm_spi *dd);
 static inline int msm_spi_wait_valid(struct msm_spi *dd);
+static int reset_core(struct msm_spi *dd);
 
 static inline int msm_spi_configure_gsbi(struct msm_spi *dd,
 					struct platform_device *pdev)
@@ -1491,6 +1492,10 @@ static int msm_spi_process_transfer(struct msm_spi *dd)
 		}
 	} while (msm_spi_dma_send_next(dd));
 
+	if (status && dd->pdata->is_slv_ctrl) {
+		if (reset_core(dd))
+			dev_err(dd->dev, "Reset failed\n");
+	}
 	msm_spi_udelay(dd->xfrs_delay_usec);
 
 transfer_end:
@@ -1578,14 +1583,15 @@ static int reset_core(struct msm_spi *dd)
 	 * bit.
 	 */
 	msm_spi_enable_error_flags(dd);
-
-	spi_ioc = readl_relaxed(dd->base + SPI_IO_CONTROL);
-	spi_ioc |= SPI_IO_C_NO_TRI_STATE;
-	writel_relaxed(spi_ioc , dd->base + SPI_IO_CONTROL);
-	/*
-	 * Ensure that the IO control is written to before returning.
-	 */
-	mb();
+	if (!dd->pdata->is_slv_ctrl) {
+		spi_ioc = readl_relaxed(dd->base + SPI_IO_CONTROL);
+		spi_ioc |= SPI_IO_C_NO_TRI_STATE;
+		writel_relaxed(spi_ioc, dd->base + SPI_IO_CONTROL);
+		/*
+		 * Ensure that the IO control is written to before returning.
+		 */
+		mb();
+	}
 	msm_spi_set_state(dd, SPI_OP_STATE_RESET);
 	return 0;
 }
@@ -2471,7 +2477,9 @@ static int init_resources(struct platform_device *pdev)
 	 */
 	msm_spi_enable_error_flags(dd);
 
-	writel_relaxed(SPI_IO_C_NO_TRI_STATE, dd->base + SPI_IO_CONTROL);
+	if (dd->pdata && !dd->pdata->is_slv_ctrl)
+		writel_relaxed(SPI_IO_C_NO_TRI_STATE,
+				dd->base + SPI_IO_CONTROL);
 	rc = msm_spi_set_state(dd, SPI_OP_STATE_RESET);
 	if (rc)
 		goto err_spi_state;
