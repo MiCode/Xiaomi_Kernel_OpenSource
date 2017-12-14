@@ -1030,8 +1030,9 @@ int ipa_pm_deactivate_all_deferred(void)
 				client->state);
 			spin_unlock_irqrestore(&client->state_lock, flags);
 		} else if (client->state ==
-			IPA_PM_ACTIVATED_PENDING_DEACTIVATION ||
-			IPA_PM_ACTIVATED_PENDING_RESCHEDULE) {
+				IPA_PM_ACTIVATED_PENDING_DEACTIVATION ||
+			client->state ==
+				IPA_PM_ACTIVATED_PENDING_RESCHEDULE) {
 			run_algorithm = true;
 			client->state = IPA_PM_DEACTIVATED;
 			IPA_PM_DBG_STATE(client->hdl, client->name,
