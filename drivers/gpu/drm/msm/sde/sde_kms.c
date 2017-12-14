@@ -20,8 +20,11 @@
 
 #include <drm/drm_crtc.h>
 #include <linux/debugfs.h>
+#include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/dma-buf.h>
+#include <linux/memblock.h>
+#include <linux/bootmem.h>
 
 #include "msm_drv.h"
 #include "msm_mmu.h"
@@ -84,6 +87,7 @@ MODULE_PARM_DESC(sdecustom, "Enable customizations for sde clients");
 
 static int sde_kms_hw_init(struct msm_kms *kms);
 static int _sde_kms_mmu_destroy(struct sde_kms *sde_kms);
+static int _sde_kms_mmu_init(struct sde_kms *sde_kms);
 static int _sde_kms_register_events(struct msm_kms *kms,
 		struct drm_mode_object *obj, u32 event, bool en);
 bool sde_is_custom_client(void)
@@ -491,6 +495,30 @@ no_ops:
 	return 0;
 }
 
+static int _sde_kms_release_splash_buffer(unsigned int mem_addr,
+							unsigned int size)
+{
+	unsigned long pfn_start, pfn_end, pfn_idx;
+	int ret = 0;
+
+	if (!mem_addr || !size)
+		SDE_ERROR("invalid params\n");
+
+	pfn_start = mem_addr >> PAGE_SHIFT;
+	pfn_end = (mem_addr + size) >> PAGE_SHIFT;
+
+	ret = memblock_free(mem_addr, size);
+	if (ret) {
+		SDE_ERROR("continuous splash memory free failed:%d\n", ret);
+		return ret;
+	}
+	for (pfn_idx = pfn_start; pfn_idx < pfn_end; pfn_idx++)
+		free_reserved_page(pfn_to_page(pfn_idx));
+
+	return ret;
+
+}
+
 static void sde_kms_prepare_commit(struct msm_kms *kms,
 		struct drm_atomic_state *state)
 {
@@ -500,7 +528,9 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 	struct drm_encoder *encoder;
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *crtc_state;
-	int i;
+	int i, rc = 0;
+	struct drm_plane *plane;
+	bool commit_no_planes = true;
 
 	if (!kms)
 		return;
@@ -521,6 +551,29 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 
 			sde_encoder_prepare_commit(encoder);
 		}
+	}
+
+	if (sde_kms->splash_data.smmu_handoff_pending) {
+		list_for_each_entry(plane, &dev->mode_config.plane_list, head)
+			if (plane->state != NULL &&
+					plane->state->crtc != NULL)
+				commit_no_planes = false;
+	}
+
+	if (sde_kms->splash_data.smmu_handoff_pending && commit_no_planes) {
+
+		rc = sde_unstage_pipe_for_cont_splash(&sde_kms->splash_data,
+						sde_kms->mmio);
+		if (rc)
+			SDE_ERROR("pipe staging failed: %d\n", rc);
+
+		rc = _sde_kms_release_splash_buffer(
+				sde_kms->splash_data.splash_base,
+				sde_kms->splash_data.splash_size);
+		if (rc)
+			SDE_ERROR("release of splash memory failed %d\n", rc);
+
+		sde_kms->splash_data.smmu_handoff_pending = false;
 	}
 
 	/*
@@ -2439,6 +2492,43 @@ static int sde_kms_pd_disable(struct generic_pm_domain *genpd)
 	return rc;
 }
 
+static int _sde_kms_get_splash_data(struct sde_splash_data *data)
+{
+	int ret = 0;
+	struct device_node *parent, *node;
+	struct resource r;
+
+	if (!data)
+		return -EINVAL;
+
+	parent = of_find_node_by_path("/reserved-memory");
+	if (!parent) {
+		SDE_ERROR("failed to find reserved-memory node\n");
+		return -EINVAL;
+	}
+
+	node = of_find_node_by_name(parent, "cont_splash_region");
+	if (!node) {
+		SDE_ERROR("failed to find splash memory reservation\n");
+		return -EINVAL;
+	}
+
+	if (of_address_to_resource(node, 0, &r)) {
+		SDE_ERROR("failed to find data for  splash memory\n");
+		return -EINVAL;
+	}
+
+	data->splash_base = (unsigned long)r.start;
+	data->splash_size = (r.end - r.start) + 1;
+
+	pr_info("found continuous splash base address:%lx size:%x\n",
+						data->splash_base,
+						data->splash_size);
+	data->smmu_handoff_pending = true;
+
+	return ret;
+}
+
 static int sde_kms_hw_init(struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms;
@@ -2536,6 +2626,12 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		goto error;
 	}
 
+	rc = _sde_kms_get_splash_data(&sde_kms->splash_data);
+	if (rc) {
+		SDE_ERROR("sde splash data fetch failed: %d\n", rc);
+		goto error;
+	}
+
 	rc = sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
 		true);
 	if (rc) {
@@ -2559,21 +2655,19 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 
 	sde_dbg_init_dbg_buses(sde_kms->core_rev);
 
-	/*
-	 * Now we need to read the HW catalog and initialize resources such as
-	 * clocks, regulators, GDSC/MMAGIC, ioremap the register ranges etc
-	 */
-	rc = _sde_kms_mmu_init(sde_kms);
-	if (rc) {
-		SDE_ERROR("sde_kms_mmu_init failed: %d\n", rc);
-		goto power_error;
-	}
+	_sde_kms_cont_splash_res_init(sde_kms);
 
 	/* Initialize reg dma block which is a singleton */
 	rc = sde_reg_dma_init(sde_kms->reg_dma, sde_kms->catalog,
 			sde_kms->dev);
 	if (rc) {
 		SDE_ERROR("failed: reg dma init failed\n");
+		goto power_error;
+	}
+
+	rc = _sde_kms_mmu_init(sde_kms);
+	if (rc) {
+		SDE_ERROR("sde_kms_mmu_init failed: %d\n", rc);
 		goto power_error;
 	}
 
@@ -2653,8 +2747,6 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	 */
 	dev->mode_config.max_width = sde_kms->catalog->max_mixer_width * 2;
 	dev->mode_config.max_height = 4096;
-
-	_sde_kms_cont_splash_res_init(sde_kms);
 
 	/*
 	 * Support format modifiers for compression etc.
