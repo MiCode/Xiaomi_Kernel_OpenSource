@@ -5229,12 +5229,19 @@ static int sde_crtc_atomic_set_property(struct drm_crtc *crtc,
 	}
 
 exit:
-	if (ret)
-		SDE_ERROR("%s: failed to set property%d %s: %d\n", crtc->name,
-				DRMID(property), property->name, ret);
-	else
+	if (ret) {
+		if (ret != -EPERM)
+			SDE_ERROR("%s: failed to set property%d %s: %d\n",
+				crtc->name, DRMID(property),
+				property->name, ret);
+		else
+			SDE_DEBUG("%s: failed to set property%d %s: %d\n",
+				crtc->name, DRMID(property),
+				property->name, ret);
+	} else {
 		SDE_DEBUG("%s: %s[%d] <= 0x%llx\n", crtc->name, property->name,
 				property->base.id, val);
+	}
 
 	return ret;
 }

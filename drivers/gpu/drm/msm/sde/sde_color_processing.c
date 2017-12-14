@@ -1028,7 +1028,7 @@ int sde_cp_crtc_set_property(struct drm_crtc *crtc,
 	 */
 	if (!sde_crtc->num_mixers ||
 	    sde_crtc->num_mixers > ARRAY_SIZE(sde_crtc->mixers)) {
-		DRM_ERROR("Invalid mixer config act cnt %d max cnt %ld\n",
+		DRM_INFO("Invalid mixer config act cnt %d max cnt %ld\n",
 			sde_crtc->num_mixers, ARRAY_SIZE(sde_crtc->mixers));
 		ret = -EPERM;
 		goto exit;
