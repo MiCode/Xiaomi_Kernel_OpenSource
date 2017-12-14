@@ -2124,9 +2124,11 @@ static void _sde_crtc_dest_scaler_setup(struct drm_crtc *crtc)
 void sde_crtc_prepare_commit(struct drm_crtc *crtc,
 		struct drm_crtc_state *old_state)
 {
+	struct drm_device *dev;
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *cstate;
 	struct drm_connector *conn;
+	struct drm_connector_list_iter conn_iter;
 	struct sde_crtc_retire_event *retire_event = NULL;
 	unsigned long flags;
 	int i;
@@ -2136,6 +2138,7 @@ void sde_crtc_prepare_commit(struct drm_crtc *crtc,
 		return;
 	}
 
+	dev = crtc->dev;
 	sde_crtc = to_sde_crtc(crtc);
 	cstate = to_sde_crtc_state(crtc->state);
 	SDE_EVT32_VERBOSE(DRMID(crtc));
@@ -2143,12 +2146,14 @@ void sde_crtc_prepare_commit(struct drm_crtc *crtc,
 	/* identify connectors attached to this crtc */
 	cstate->num_connectors = 0;
 
-	drm_for_each_connector(conn, crtc->dev)
+	drm_connector_list_iter_begin(dev, &conn_iter);
+	drm_for_each_connector_iter(conn, &conn_iter)
 		if (conn->state && conn->state->crtc == crtc &&
 				cstate->num_connectors < MAX_CONNECTORS) {
 			cstate->connectors[cstate->num_connectors++] = conn;
 			sde_connector_prepare_fence(conn);
 		}
+	drm_connector_list_iter_end(&conn_iter);
 
 	for (i = 0; i < SDE_CRTC_FRAME_EVENT_SIZE; i++) {
 		retire_event = &sde_crtc->retire_events[i];

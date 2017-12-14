@@ -1169,6 +1169,7 @@ void sde_kms_timeline_status(struct drm_device *dev)
 {
 	struct drm_crtc *crtc;
 	struct drm_connector *conn;
+	struct drm_connector_list_iter conn_iter;
 
 	if (!dev) {
 		SDE_ERROR("invalid drm device node\n");
@@ -1179,8 +1180,10 @@ void sde_kms_timeline_status(struct drm_device *dev)
 		sde_crtc_timeline_status(crtc);
 
 	mutex_lock(&dev->mode_config.mutex);
-	drm_for_each_connector(conn, dev)
+	drm_connector_list_iter_begin(dev, &conn_iter);
+	drm_for_each_connector_iter(conn, &conn_iter)
 		sde_conn_timeline_status(conn);
+	drm_connector_list_iter_end(&conn_iter);
 	mutex_unlock(&dev->mode_config.mutex);
 }
 
@@ -1812,6 +1815,7 @@ static int _sde_kms_helper_reset_custom_properties(struct sde_kms *sde_kms,
 	struct drm_crtc_state *crtc_state;
 	struct drm_connector *conn;
 	struct drm_connector_state *conn_state;
+	struct drm_connector_list_iter conn_iter;
 	int ret = 0;
 
 	drm_for_each_plane(plane, dev) {
@@ -1848,7 +1852,8 @@ static int _sde_kms_helper_reset_custom_properties(struct sde_kms *sde_kms,
 		}
 	}
 
-	drm_for_each_connector(conn, dev) {
+	drm_connector_list_iter_begin(dev, &conn_iter);
+	drm_for_each_connector_iter(conn, &conn_iter) {
 		conn_state = drm_atomic_get_connector_state(state, conn);
 		if (IS_ERR(conn_state)) {
 			ret = PTR_ERR(conn_state);
@@ -1865,6 +1870,7 @@ static int _sde_kms_helper_reset_custom_properties(struct sde_kms *sde_kms,
 			return ret;
 		}
 	}
+	drm_connector_list_iter_end(&conn_iter);
 
 	return ret;
 }
@@ -2056,6 +2062,7 @@ static void _sde_kms_post_open(struct msm_kms *kms, struct drm_file *file)
 	struct drm_device *dev = NULL;
 	struct sde_kms *sde_kms = NULL;
 	struct drm_connector *connector = NULL;
+	struct drm_connector_list_iter conn_iter;
 	struct sde_connector *sde_conn = NULL;
 
 	if (!kms) {
@@ -2075,7 +2082,8 @@ static void _sde_kms_post_open(struct msm_kms *kms, struct drm_file *file)
 		return;
 
 	mutex_lock(&dev->mode_config.mutex);
-	drm_for_each_connector(connector, dev) {
+	drm_connector_list_iter_begin(dev, &conn_iter);
+	drm_for_each_connector_iter(connector, &conn_iter) {
 		/* Only handle HPD capable connectors. */
 		if (!(connector->polled & DRM_CONNECTOR_POLL_HPD))
 			continue;
@@ -2085,6 +2093,7 @@ static void _sde_kms_post_open(struct msm_kms *kms, struct drm_file *file)
 		if (sde_conn->ops.send_hpd_event)
 			sde_conn->ops.send_hpd_event(sde_conn->display);
 	}
+	drm_connector_list_iter_end(&conn_iter);
 	mutex_unlock(&dev->mode_config.mutex);
 
 }
@@ -2230,6 +2239,7 @@ static int sde_kms_pm_suspend(struct device *dev)
 	struct drm_device *ddev;
 	struct drm_modeset_acquire_ctx ctx;
 	struct drm_connector *conn;
+	struct drm_connector_list_iter conn_iter;
 	struct drm_atomic_state *state;
 	struct sde_kms *sde_kms;
 	int ret = 0, num_crtcs = 0;
@@ -2273,7 +2283,8 @@ retry:
 	}
 
 	state->acquire_ctx = &ctx;
-	drm_for_each_connector(conn, ddev) {
+	drm_connector_list_iter_begin(ddev, &conn_iter);
+	drm_for_each_connector_iter(conn, &conn_iter) {
 		struct drm_crtc_state *crtc_state;
 		uint64_t lp;
 
@@ -2310,6 +2321,7 @@ retry:
 			++num_crtcs;
 		}
 	}
+	drm_connector_list_iter_end(&conn_iter);
 
 	/* check for nothing to do */
 	if (num_crtcs == 0) {
