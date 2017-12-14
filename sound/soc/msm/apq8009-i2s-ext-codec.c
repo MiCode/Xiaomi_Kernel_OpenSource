@@ -1,4 +1,4 @@
- /* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ /* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
   *
   * This program is free software; you can redistribute it and/or modify
   * it under the terms of the GNU General Public License version 2 and
@@ -2733,6 +2733,7 @@ static int apq8009_asoc_machine_probe(struct platform_device *pdev)
 	const char *mclk = "qcom,msm-mclk-freq";
 	const char *type = NULL;
 	int ret, id;
+	int tdm_i2s_switch_enable = -EINVAL;
 
 	pdata = devm_kzalloc(&pdev->dev,
 			sizeof(struct apq8009_asoc_mach_data), GFP_KERNEL);
@@ -2830,6 +2831,23 @@ static int apq8009_asoc_machine_probe(struct platform_device *pdev)
 				ret);
 		goto err;
 	}
+
+	tdm_i2s_switch_enable = of_get_named_gpio(pdev->dev.of_node,
+				"qcom,tdm-i2s-switch-enable", 0);
+	if (tdm_i2s_switch_enable >= 0) {
+		dev_dbg(&pdev->dev, "%s: tdm switch gpio %d", __func__,
+			tdm_i2s_switch_enable);
+		ret = gpio_request(tdm_i2s_switch_enable, "TDM_RESET");
+		if (ret) {
+			pr_err("%s: Failed to request gpio\n", __func__);
+			goto err;
+		}
+		gpio_direction_output(tdm_i2s_switch_enable, 1);
+	} else
+		dev_err(&pdev->dev, "Looking up %s property in node %s failed\n",
+			"qcom,tdm-i2s-switch-enable",
+			pdev->dev.of_node->full_name);
+
 	return 0;
 err:
 	if (pdata->vaddr_gpio_mux_spkr_ctl)
