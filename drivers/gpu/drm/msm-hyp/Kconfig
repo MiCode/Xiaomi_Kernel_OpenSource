@@ -1,0 +1,15 @@
+#
+# Drm MSM hypervisor configuration
+#
+# This driver provides support for the User Space DRM Masters
+#
+config DRM_MSM_HYP
+	tristate "MSM DRM HYP"
+	depends on DRM
+	depends on MSM_GVM_QUIN
+	depends on OF
+	default y
+	help
+	  DRM/KMS driver for MSM/snapdragon in Guest VM mode. This driver registers
+	  with DRM framework to create /dev/dri/card0 path and issue events to User
+	  Space listeners.

@@ -1,0 +1,8 @@
+NOTES about msm drm/kms hyp driver:
+
+This driver registers with drm framework for the purpose of creating the
+/dev/dri/card0 path, which User Space DRM Masters rely on.
+Furthermore, per-CRTC VBLANK and PAGE_FLIP events are queued to the device
+path to notify User Space components listeners.
+
+No other IOCTL or HW support is provided through this driver.
