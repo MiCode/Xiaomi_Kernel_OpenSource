@@ -573,34 +573,40 @@ TRACE_EVENT(adreno_hw_preempt_token_submit,
 );
 
 TRACE_EVENT(adreno_preempt_trigger,
-	TP_PROTO(struct adreno_ringbuffer *cur, struct adreno_ringbuffer *next),
-	TP_ARGS(cur, next),
+	TP_PROTO(struct adreno_ringbuffer *cur, struct adreno_ringbuffer *next,
+		unsigned int cntl),
+	TP_ARGS(cur, next, cntl),
 	TP_STRUCT__entry(
 		__field(struct adreno_ringbuffer *, cur)
 		__field(struct adreno_ringbuffer *, next)
+		__field(unsigned int, cntl)
 	),
 	TP_fast_assign(
 		__entry->cur = cur;
 		__entry->next = next;
+		__entry->cntl = cntl;
 	),
-	TP_printk("trigger from id=%d to id=%d",
-		__entry->cur->id, __entry->next->id
+	TP_printk("trigger from id=%d to id=%d cntl=%x",
+		__entry->cur->id, __entry->next->id, __entry->cntl
 	)
 );
 
 TRACE_EVENT(adreno_preempt_done,
-	TP_PROTO(struct adreno_ringbuffer *cur, struct adreno_ringbuffer *next),
-	TP_ARGS(cur, next),
+	TP_PROTO(struct adreno_ringbuffer *cur, struct adreno_ringbuffer *next,
+		unsigned int level),
+	TP_ARGS(cur, next, level),
 	TP_STRUCT__entry(
 		__field(struct adreno_ringbuffer *, cur)
 		__field(struct adreno_ringbuffer *, next)
+		__field(unsigned int, level)
 	),
 	TP_fast_assign(
 		__entry->cur = cur;
 		__entry->next = next;
+		__entry->level = level;
 	),
-	TP_printk("done switch to id=%d from id=%d",
-		__entry->next->id, __entry->cur->id
+	TP_printk("done switch to id=%d from id=%d level=%x",
+		__entry->next->id, __entry->cur->id, __entry->level
 	)
 );
 #endif /* _ADRENO_TRACE_H */
