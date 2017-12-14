@@ -275,7 +275,7 @@
 			qcom,msm-bus,active-only;
 			qcom,msm-bus,vectors-KBps =
 				<1 590 0 0>,
-				<1 590 0 120000>,
+				<1 590 0 76800>,
 				<1 590 0 150000>,
 				<1 590 0 300000>;
 		};
