@@ -192,9 +192,9 @@ static int cam_icp_supported_clk_rates(struct cam_icp_hw_mgr *hw_mgr,
 	struct cam_hw_info *dev = NULL;
 
 	if (ctx_data->icp_dev_acquire_info->dev_type == CAM_ICP_RES_TYPE_BPS)
-		dev_intf = hw_mgr->devices[CAM_ICP_DEV_BPS][0];
+		dev_intf = hw_mgr->bps_dev_intf;
 	else
-		dev_intf = hw_mgr->devices[CAM_ICP_DEV_IPE][0];
+		dev_intf = hw_mgr->ipe0_dev_intf;
 
 	if (!dev_intf) {
 		CAM_ERR(CAM_ICP, "dev_intf is invalid");
@@ -254,9 +254,9 @@ static int32_t cam_icp_deinit_idle_clk(void *priv, void *data)
 	struct cam_hw_intf *dev_intf = NULL;
 	struct cam_a5_clk_update_cmd clk_upd_cmd;
 
-	ipe0_dev_intf = hw_mgr->devices[CAM_ICP_DEV_IPE][0];
-	ipe1_dev_intf = hw_mgr->devices[CAM_ICP_DEV_IPE][1];
-	bps_dev_intf = hw_mgr->devices[CAM_ICP_DEV_BPS][0];
+	ipe0_dev_intf = hw_mgr->ipe0_dev_intf;
+	ipe1_dev_intf = hw_mgr->ipe1_dev_intf;
+	bps_dev_intf = hw_mgr->bps_dev_intf;
 
 	clk_info->base_clk = 0;
 	clk_info->curr_clk = 0;
