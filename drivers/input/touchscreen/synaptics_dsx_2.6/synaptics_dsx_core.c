@@ -68,7 +68,6 @@
 
 #define IGNORE_FN_INIT_FAILURE
 
-#define FB_READY_RESET
 #define FB_READY_WAIT_MS 100
 #define FB_READY_TIMEOUT_S 30
 
@@ -4611,6 +4610,7 @@ static int synaptics_rmi4_resume(struct device *dev)
 #ifdef FB_READY_RESET
 	int retval;
 #endif
+	int retval;
 	struct synaptics_rmi4_exp_fhandler *exp_fhandler;
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
 
