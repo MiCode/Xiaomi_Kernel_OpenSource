@@ -68,6 +68,9 @@ Optional properties:
 			first segment to end address of last segment will be collected without
 			leaving any hole in between.
 - qcom,ignore-ssr-failure: Boolean. If set, SSR failures are not considered fatal.
+- qcom,signal-aop: Boolean. If set, when subsystem is brought up, pil will send a notification
+			to AOP through qmp mailbox driver.
+
 
 Example:
 	qcom,venus@fdce0000 {
