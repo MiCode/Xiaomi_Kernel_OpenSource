@@ -1980,6 +1980,7 @@ static int tx_data(struct glink_transport_if *if_ptr, uint16_t cmd_id,
 	/* Need enough space to write the command and some data */
 	if (size <= sizeof(cmd)) {
 		einfo->tx_resume_needed = true;
+		send_tx_blocked_signal(einfo);
 		spin_unlock_irqrestore(&einfo->write_lock, flags);
 		srcu_read_unlock(&einfo->use_ref, rcu_id);
 		return -EAGAIN;
