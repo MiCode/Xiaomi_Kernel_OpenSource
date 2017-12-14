@@ -46,6 +46,8 @@
 #include <linux/usb/msm_hsusb_hw.h>
 #include <linux/usb/msm_ext_chg.h>
 #include <linux/regulator/consumer.h>
+#include <linux/regulator/driver.h>
+#include <linux/regulator/machine.h>
 #include <linux/qpnp/qpnp-adc.h>
 
 #include <linux/msm-bus.h>
@@ -3920,6 +3922,81 @@ static enum power_supply_property otg_pm_power_props_usb[] = {
 	POWER_SUPPLY_PROP_USB_OTG,
 };
 
+static int msm_otg_dpdm_regulator_enable(struct regulator_dev *rdev)
+{
+	int ret = 0;
+	struct msm_otg *motg = rdev_get_drvdata(rdev);
+
+	if (!motg->rm_pulldown) {
+		ret = msm_hsusb_ldo_enable(motg, USB_PHY_REG_3P3_ON);
+		if (!ret) {
+			motg->rm_pulldown = true;
+			msm_otg_dbg_log_event(&motg->phy, "RM Pulldown",
+					motg->rm_pulldown, 0);
+		}
+	}
+
+	return ret;
+}
+
+static int msm_otg_dpdm_regulator_disable(struct regulator_dev *rdev)
+{
+	int ret = 0;
+	struct msm_otg *motg = rdev_get_drvdata(rdev);
+
+	if (motg->rm_pulldown) {
+		ret = msm_hsusb_ldo_enable(motg, USB_PHY_REG_3P3_OFF);
+		if (!ret) {
+			motg->rm_pulldown = false;
+			msm_otg_dbg_log_event(&motg->phy, "RM Pulldown",
+					motg->rm_pulldown, 0);
+		}
+	}
+
+	return ret;
+}
+
+static int msm_otg_dpdm_regulator_is_enabled(struct regulator_dev *rdev)
+{
+	struct msm_otg *motg = rdev_get_drvdata(rdev);
+
+	return motg->rm_pulldown;
+}
+
+static struct regulator_ops msm_otg_dpdm_regulator_ops = {
+	.enable		= msm_otg_dpdm_regulator_enable,
+	.disable	= msm_otg_dpdm_regulator_disable,
+	.is_enabled	= msm_otg_dpdm_regulator_is_enabled,
+};
+
+static int usb_phy_regulator_init(struct msm_otg *motg)
+{
+	struct device *dev = motg->phy.dev;
+	struct regulator_config cfg = {};
+	struct regulator_init_data *init_data;
+
+	init_data = devm_kzalloc(dev, sizeof(*init_data), GFP_KERNEL);
+	if (!init_data)
+		return -ENOMEM;
+
+	init_data->constraints.valid_ops_mask |= REGULATOR_CHANGE_STATUS;
+	motg->dpdm_rdesc.owner = THIS_MODULE;
+	motg->dpdm_rdesc.type = REGULATOR_VOLTAGE;
+	motg->dpdm_rdesc.ops = &msm_otg_dpdm_regulator_ops;
+	motg->dpdm_rdesc.name = kbasename(dev->of_node->full_name);
+
+	cfg.dev = dev;
+	cfg.init_data = init_data;
+	cfg.driver_data = motg;
+	cfg.of_node = dev->of_node;
+
+	motg->dpdm_rdev = devm_regulator_register(dev, &motg->dpdm_rdesc, &cfg);
+	if (IS_ERR(motg->dpdm_rdev))
+		return PTR_ERR(motg->dpdm_rdev);
+
+	return 0;
+}
+
 const struct file_operations msm_otg_bus_fops = {
 	.open = msm_otg_bus_open,
 	.read = seq_read,
@@ -5051,6 +5128,12 @@ static int msm_otg_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "usb_add_phy failed\n");
 		goto free_async_irq;
+	}
+
+	ret = usb_phy_regulator_init(motg);
+	if (ret) {
+		dev_err(&pdev->dev, "usb_phy_regulator_init failed\n");
+		goto remove_phy;
 	}
 
 	if (motg->pdata->mode == USB_OTG &&

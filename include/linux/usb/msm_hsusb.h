@@ -28,6 +28,7 @@
 #include <linux/power_supply.h>
 #include <linux/cdev.h>
 #include <linux/usb_bam.h>
+#include <linux/regulator/driver.h>
 /**
  * Requested USB votes for NOC frequency
  *
@@ -166,6 +167,8 @@ enum usb_id_state {
  * @phy_irq_pending: Gets set when PHY IRQ arrives in LPM.
  * @id_state: Indicates USBID line status.
  * @rm_pulldown: Indicates pulldown status on D+ and D- data lines.
+ * @dpdm_desc: Regulator descriptor for D+ and D- voting.
+ * @dpdm_rdev: Regulator class device for dpdm regulator.
  * @dbg_idx: Dynamic debug buffer Index.
  * @dbg_lock: Dynamic debug buffer Lock.
  * @buf: Dynamic Debug Buffer.
@@ -296,6 +299,8 @@ struct msm_otg {
 	bool phy_irq_pending;
 	enum usb_id_state id_state;
 	bool rm_pulldown;
+	struct regulator_desc	dpdm_rdesc;
+	struct regulator_dev	*dpdm_rdev;
 /* Maximum debug message length */
 #define DEBUG_MSG_LEN   128UL
 /* Maximum number of messages */
