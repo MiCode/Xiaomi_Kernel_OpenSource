@@ -18,7 +18,7 @@ requires the remote-pid and transport type to be specified in the subnodes.
 - transport :
 	Usage: required
 	Value type: <stringlist>
-	Definition: must be "smem", "mbox", or "spi"
+	Definition: must be "smem", "spss", or "spi"
 
 - qcom,remote-pid :
 	Usage: required
