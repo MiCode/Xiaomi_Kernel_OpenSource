@@ -956,10 +956,6 @@ static void handle_main_charge_type(struct pl_data *chip)
 	if ((pval.intval != POWER_SUPPLY_CHARGE_TYPE_FAST)
 		&& (pval.intval != POWER_SUPPLY_CHARGE_TYPE_TAPER)) {
 		vote(chip->pl_disable_votable, CHG_STATE_VOTER, true, 0);
-		vote(chip->pl_disable_votable, TAPER_END_VOTER, false, 0);
-		vote(chip->pl_disable_votable, PL_TAPER_EARLY_BAD_VOTER,
-				false, 0);
-		vote(chip->pl_disable_votable, ICL_LIMIT_VOTER, false, 0);
 		chip->charge_type = pval.intval;
 		return;
 	}
@@ -1091,6 +1087,34 @@ static void handle_parallel_in_taper(struct pl_data *chip)
 	}
 }
 
+static void handle_usb_change(struct pl_data *chip)
+{
+	int rc;
+	union power_supply_propval pval = {0, };
+
+	if (!chip->usb_psy)
+		chip->usb_psy = power_supply_get_by_name("usb");
+	if (!chip->usb_psy) {
+		pr_err("Couldn't get usbpsy\n");
+		return;
+	}
+
+	rc = power_supply_get_property(chip->usb_psy,
+			POWER_SUPPLY_PROP_PRESENT, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't get present from USB rc=%d\n", rc);
+		return;
+	}
+
+	if (!pval.intval) {
+		/* USB removed: remove all stale votes */
+		vote(chip->pl_disable_votable, TAPER_END_VOTER, false, 0);
+		vote(chip->pl_disable_votable, PL_TAPER_EARLY_BAD_VOTER,
+				false, 0);
+		vote(chip->pl_disable_votable, ICL_LIMIT_VOTER, false, 0);
+	}
+}
+
 static void status_change_work(struct work_struct *work)
 {
 	struct pl_data *chip = container_of(work,
@@ -1115,6 +1139,7 @@ static void status_change_work(struct work_struct *work)
 
 	is_parallel_available(chip);
 
+	handle_usb_change(chip);
 	handle_main_charge_type(chip);
 	handle_settled_icl_change(chip);
 	handle_parallel_in_taper(chip);
