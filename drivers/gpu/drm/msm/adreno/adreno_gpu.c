@@ -397,14 +397,6 @@ static int _adreno_get_pwrlevels(struct msm_gpu *gpu, struct device_node *node)
 {
 	struct device_node *child;
 
-	gpu->active_level = 1;
-
-	/* The device tree will tell us the best clock to initialize with */
-	of_property_read_u32(node, "qcom,initial-pwrlevel", &gpu->active_level);
-
-	if (gpu->active_level >= ARRAY_SIZE(gpu->gpufreq))
-		gpu->active_level = 1;
-
 	for_each_child_of_node(node, child) {
 		unsigned int index;
 
@@ -452,6 +444,15 @@ static int adreno_get_pwrlevels(struct msm_gpu *gpu, struct device_node *parent)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 	struct device_node *node, *child;
+
+	gpu->active_level = 1;
+
+	/* The device tree will tell us the best clock to initialize with */
+	of_property_read_u32(parent, "qcom,initial-pwrlevel",
+			&gpu->active_level);
+
+	if (gpu->active_level >= ARRAY_SIZE(gpu->gpufreq))
+		gpu->active_level = 1;
 
 	/* See if the target has defined a number of power bins */
 	node = of_find_node_by_name(parent, "qcom,gpu-pwrlevel-bins");
