@@ -3443,6 +3443,51 @@ exit:
 	_sde_encoder_power_enable(sde_enc, false);
 }
 
+int sde_encoder_poll_line_counts(struct drm_encoder *drm_enc)
+{
+	static const uint64_t timeout_us = 50000;
+	static const uint64_t sleep_us = 20;
+	struct sde_encoder_virt *sde_enc;
+	ktime_t cur_ktime, exp_ktime;
+	uint32_t line_count, tmp, i;
+
+	if (!drm_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return -EINVAL;
+	}
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	if (!sde_enc->cur_master ||
+			!sde_enc->cur_master->ops.get_line_count) {
+		SDE_DEBUG_ENC(sde_enc, "can't get master line count\n");
+		SDE_EVT32(DRMID(drm_enc), SDE_EVTLOG_ERROR);
+		return -EINVAL;
+	}
+
+	exp_ktime = ktime_add_ms(ktime_get(), timeout_us / 1000);
+
+	line_count = sde_enc->cur_master->ops.get_line_count(
+			sde_enc->cur_master);
+
+	for (i = 0; i < (timeout_us * 2 / sleep_us); ++i) {
+		tmp = line_count;
+		line_count = sde_enc->cur_master->ops.get_line_count(
+				sde_enc->cur_master);
+		if (line_count < tmp) {
+			SDE_EVT32(DRMID(drm_enc), line_count);
+			return 0;
+		}
+
+		cur_ktime = ktime_get();
+		if (ktime_compare_safe(exp_ktime, cur_ktime) <= 0)
+			break;
+
+		usleep_range(sleep_us / 2, sleep_us);
+	}
+
+	SDE_EVT32(DRMID(drm_enc), line_count, SDE_EVTLOG_ERROR);
+	return -ETIMEDOUT;
+}
+
 int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 		struct sde_encoder_kickoff_params *params)
 {
