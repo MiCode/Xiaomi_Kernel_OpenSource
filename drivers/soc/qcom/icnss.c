@@ -36,6 +36,7 @@
 #include <linux/thread_info.h>
 #include <linux/uaccess.h>
 #include <linux/etherdevice.h>
+#include <linux/of_gpio.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/icnss.h>
 #include <soc/qcom/secure_buffer.h>
@@ -607,6 +608,47 @@ int icnss_power_off(struct device *dev)
 }
 EXPORT_SYMBOL(icnss_power_off);
 
+static irqreturn_t fw_error_fatal_handler(int irq, void *ctx)
+{
+	struct icnss_priv *priv = ctx;
+
+	if (priv)
+		priv->force_err_fatal = true;
+
+	icnss_pr_err("Received force error fatal request from FW\n");
+
+	return IRQ_HANDLED;
+}
+
+static void icnss_register_force_error_fatal(struct icnss_priv *priv)
+{
+	int gpio, irq, ret;
+
+	if (!of_find_property(priv->pdev->dev.of_node,
+				"qcom,gpio-force-fatal-error", NULL)) {
+		icnss_pr_dbg("Error fatal smp2p handler not registered\n");
+		return;
+	}
+	gpio = of_get_named_gpio(priv->pdev->dev.of_node,
+				"qcom,gpio-force-fatal-error", 0);
+	if (!gpio_is_valid(gpio)) {
+		icnss_pr_err("Invalid GPIO for error fatal smp2p %d\n", gpio);
+		return;
+	}
+	irq = gpio_to_irq(gpio);
+	if (irq < 0) {
+		icnss_pr_err("Invalid IRQ for error fatal smp2p %u\n", irq);
+		return;
+	}
+	ret = request_irq(irq, fw_error_fatal_handler,
+			IRQF_TRIGGER_RISING, "wlanfw-err", priv);
+	if (ret < 0) {
+		icnss_pr_err("Unable to regiser for error fatal IRQ handler %d",
+				irq);
+		return;
+	}
+	icnss_pr_dbg("FW force error fatal handler registered\n");
+}
 
 int icnss_call_driver_uevent(struct icnss_priv *priv,
 				    enum icnss_uevent uevent, void *data)
@@ -677,6 +719,8 @@ static int icnss_driver_event_server_arrive(void *data)
 
 	wlfw_dynamic_feature_mask_send_sync_msg(penv,
 						dynamic_feature_mask);
+
+	icnss_register_force_error_fatal(penv);
 
 	return ret;
 
@@ -963,6 +1007,9 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 		ICNSS_ASSERT(0);
 		goto out;
 	}
+
+	if (priv->force_err_fatal)
+		ICNSS_ASSERT(0);
 
 	if (event_data->crashed)
 		icnss_fw_crashed(priv, event_data);

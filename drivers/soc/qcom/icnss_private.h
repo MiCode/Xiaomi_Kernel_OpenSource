@@ -332,6 +332,7 @@ struct icnss_priv {
 	atomic_t pm_count;
 	struct ramdump_device *msa0_dump_dev;
 	bool bypass_s1_smmu;
+	bool force_err_fatal;
 	u8 cause_for_rejuvenation;
 	u8 requesting_sub_system;
 	u16 line_number;
