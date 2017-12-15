@@ -478,6 +478,7 @@ struct sde_rot_mgr {
 	int (*ops_hw_get_downscale_caps)(struct sde_rot_mgr *mgr, char *caps,
 			int len);
 	int (*ops_hw_get_maxlinewidth)(struct sde_rot_mgr *mgr);
+	void (*ops_hw_dump_status)(struct sde_rot_mgr *mgr);
 
 	void *hw_data;
 };
@@ -568,6 +569,12 @@ int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
  * return: none
  */
 void sde_rotator_core_destroy(struct sde_rot_mgr *mgr);
+
+/*
+ * sde_rotator_core_dump - perform register dump
+ * @mgr: Pointer to rotator manager
+ */
+void sde_rotator_core_dump(struct sde_rot_mgr *mgr);
 
 /*
  * sde_rotator_session_open - open a new rotator per file session
