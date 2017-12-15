@@ -241,10 +241,10 @@
 };
 
 / {
+	/delete-node/ qcom,battery-data;
 	mtp_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
-		#include "fg-gen3-batterydata-itech-3000mah.dtsi"
-		#include "fg-gen3-batterydata-ascent-3450mah.dtsi"
+		#include "fg-gen3-batterydata-palladium-1500mah.dtsi"
 	};
 };
 
