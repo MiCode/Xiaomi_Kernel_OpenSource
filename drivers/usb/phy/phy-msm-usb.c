@@ -35,6 +35,7 @@
 #include <linux/irqchip/msm-mpm-irq.h>
 #include <linux/pm_wakeup.h>
 #include <linux/reset.h>
+#include <linux/extcon.h>
 #include <soc/qcom/scm.h>
 
 #include <linux/usb.h>
@@ -4502,6 +4503,88 @@ static ssize_t dpdm_pulldown_enable_store(struct device *dev,
 static DEVICE_ATTR(dpdm_pulldown_enable, 0644,
 		dpdm_pulldown_enable_show, dpdm_pulldown_enable_store);
 
+static int msm_otg_vbus_notifier(struct notifier_block *nb, unsigned long event,
+				void *ptr)
+{
+	struct msm_otg *motg = container_of(nb, struct msm_otg, vbus_nb);
+
+	if (event)
+		set_bit(B_SESS_VLD, &motg->inputs);
+	else
+		clear_bit(B_SESS_VLD, &motg->inputs);
+
+	queue_work(motg->otg_wq, &motg->sm_work);
+
+	return NOTIFY_DONE;
+}
+
+static int msm_otg_id_notifier(struct notifier_block *nb, unsigned long event,
+				void *ptr)
+{
+	struct msm_otg *motg = container_of(nb, struct msm_otg, id_nb);
+
+	if (event)
+		clear_bit(ID, &motg->inputs);
+	else
+		set_bit(ID, &motg->inputs);
+
+	queue_work(motg->otg_wq, &motg->sm_work);
+
+	return NOTIFY_DONE;
+}
+
+static int msm_otg_extcon_register(struct msm_otg *motg)
+{
+	struct device_node *node = motg->pdev->dev.of_node;
+	struct extcon_dev *edev;
+	int ret = 0;
+
+	if (!of_property_read_bool(node, "extcon"))
+		return 0;
+
+	edev = extcon_get_edev_by_phandle(&motg->pdev->dev, 0);
+	if (IS_ERR(edev) && PTR_ERR(edev) != -ENODEV)
+		return PTR_ERR(edev);
+
+	if (!IS_ERR(edev)) {
+		motg->extcon_vbus = edev;
+		motg->vbus_nb.notifier_call = msm_otg_vbus_notifier;
+		ret = extcon_register_notifier(edev, EXTCON_USB,
+							&motg->vbus_nb);
+		if (ret < 0) {
+			dev_err(&motg->pdev->dev, "failed to register notifier for USB\n");
+			return ret;
+		}
+	}
+
+	if (of_count_phandle_with_args(node, "extcon", NULL) > 1) {
+		edev = extcon_get_edev_by_phandle(&motg->pdev->dev, 1);
+		if (IS_ERR(edev) && PTR_ERR(edev) != -ENODEV) {
+			ret = PTR_ERR(edev);
+			goto err;
+		}
+	}
+
+	if (!IS_ERR(edev)) {
+		motg->extcon_id = edev;
+		motg->id_nb.notifier_call = msm_otg_id_notifier;
+		ret = extcon_register_notifier(edev, EXTCON_USB_HOST,
+							&motg->id_nb);
+		if (ret < 0) {
+			dev_err(&motg->pdev->dev, "failed to register notifier for USB-HOST\n");
+			goto err;
+		}
+	}
+
+	return 0;
+err:
+	if (motg->extcon_vbus)
+		extcon_unregister_notifier(motg->extcon_vbus, EXTCON_USB,
+								&motg->vbus_nb);
+
+	return ret;
+}
+
 struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
@@ -4835,7 +4918,7 @@ static int msm_otg_probe(struct platform_device *pdev)
 							GFP_KERNEL);
 	if (!motg->phy.otg) {
 		ret = -ENOMEM;
-		goto otg_remove_devices;
+		goto disable_phy_csr_clk;
 	}
 
 	the_msm_otg = motg;
@@ -5286,6 +5369,26 @@ static int msm_otg_probe(struct platform_device *pdev)
 		}
 	}
 
+	ret = msm_otg_extcon_register(motg);
+	if (ret)
+		goto otg_remove_devices;
+
+	if (motg->extcon_vbus) {
+		ret = extcon_get_cable_state_(motg->extcon_vbus, EXTCON_USB);
+		if (ret)
+			set_bit(B_SESS_VLD, &motg->inputs);
+		else
+			clear_bit(B_SESS_VLD, &motg->inputs);
+	}
+
+	if (motg->extcon_id) {
+		ret = extcon_get_cable_state_(motg->extcon_id, EXTCON_USB_HOST);
+		if (ret)
+			clear_bit(ID, &motg->inputs);
+		else
+			set_bit(ID, &motg->inputs);
+	}
+
 	if (gpio_is_valid(motg->pdata->hub_reset_gpio)) {
 		ret = devm_gpio_request(&pdev->dev,
 				motg->pdata->hub_reset_gpio,
@@ -5324,6 +5427,9 @@ static int msm_otg_probe(struct platform_device *pdev)
 
 	return 0;
 
+otg_remove_devices:
+	if (pdev->dev.of_node)
+		msm_otg_setup_devices(pdev, motg->pdata->mode, false);
 remove_cdev:
 	if (!motg->ext_chg_device) {
 		device_destroy(motg->ext_chg_class, motg->ext_chg_dev);
@@ -5371,9 +5477,6 @@ devote_bus_bw:
 		msm_otg_bus_vote(motg, USB_NO_PERF_VOTE);
 		msm_bus_scale_unregister_client(motg->bus_perf_client);
 	}
-otg_remove_devices:
-	if (pdev->dev.of_node)
-		msm_otg_setup_devices(pdev, motg->pdata->mode, false);
 disable_phy_csr_clk:
 	if (motg->phy_csr_clk)
 		clk_disable_unprepare(motg->phy_csr_clk);
@@ -5404,6 +5507,11 @@ static int msm_otg_remove(struct platform_device *pdev)
 		return -EBUSY;
 
 	unregister_pm_notifier(&motg->pm_notify);
+
+	extcon_unregister_notifier(motg->extcon_id, EXTCON_USB_HOST,
+							&motg->id_nb);
+	extcon_unregister_notifier(motg->extcon_vbus, EXTCON_USB,
+							&motg->vbus_nb);
 
 	if (!motg->ext_chg_device) {
 		device_destroy(motg->ext_chg_class, motg->ext_chg_dev);

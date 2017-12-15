@@ -190,6 +190,11 @@ Optional properties :
 - qcom,usbeth-reset-gpio: If present then an external usb-to-eth is connected to
 	the USB host controller and its RESET_N signal is connected to this
 	usbeth-reset-gpio GPIO. It should be driven LOW to RESET the usb-to-eth.
+- extcon: phandles to external connector devices. First phandle should point to
+	external connector, which provide "USB" cable events, the second should
+	point to external connector device, which provide "USB-HOST" cable events.
+	A single phandle may be specified if a single connector device provides
+	both "USB" and "USB-HOST" events.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
