@@ -195,6 +195,10 @@ struct sde_kms {
 	int dp_stream_count;
 
 	bool has_danger_ctrl;
+
+	atomic_t detach_sec_cb;
+	atomic_t detach_all_cb;
+	struct mutex secure_transition_lock;
 };
 
 struct vsync_info {
