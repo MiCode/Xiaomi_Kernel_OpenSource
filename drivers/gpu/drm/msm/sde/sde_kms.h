@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -226,6 +226,10 @@ struct sde_kms {
 	void **dp_displays;
 
 	bool has_danger_ctrl;
+
+	atomic_t detach_sec_cb;
+	atomic_t detach_all_cb;
+	struct mutex secure_transition_lock;
 };
 
 struct vsync_info {

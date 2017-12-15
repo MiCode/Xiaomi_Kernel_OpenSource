@@ -2024,6 +2024,93 @@ void sde_crtc_timeline_status(struct drm_crtc *crtc)
 	sde_fence_timeline_status(&sde_crtc->output_fence, &crtc->base);
 }
 
+static int _sde_crtc_detach_all_cb(struct sde_kms *sde_kms)
+{
+	u32 ret = 0;
+
+	if (atomic_inc_return(&sde_kms->detach_all_cb) > 1)
+		goto end;
+
+	/* detach_all_contexts */
+	ret = sde_kms_mmu_detach(sde_kms, false);
+	if (ret) {
+		SDE_ERROR("failed to detach all cb ret:%d\n", ret);
+		goto end;
+	}
+
+	ret = _sde_crtc_scm_call(VMID_CP_SEC_DISPLAY);
+	if (ret)
+		goto end;
+
+end:
+	return ret;
+}
+
+static int _sde_crtc_attach_all_cb(struct sde_kms *sde_kms)
+{
+	u32 ret = 0;
+
+	if (atomic_dec_return(&sde_kms->detach_all_cb) != 0)
+		goto end;
+
+	ret = _sde_crtc_scm_call(VMID_CP_PIXEL);
+	if (ret)
+		goto end;
+
+	/* attach_all_contexts */
+	ret = sde_kms_mmu_attach(sde_kms, false);
+	if (ret) {
+		SDE_ERROR("failed to attach all cb ret:%d\n", ret);
+		goto end;
+	}
+
+end:
+	return ret;
+}
+
+static int _sde_crtc_detach_sec_cb(struct sde_kms *sde_kms)
+{
+	u32 ret = 0;
+
+	if (atomic_inc_return(&sde_kms->detach_sec_cb) > 1)
+		goto end;
+
+	/* detach secure_context */
+	ret = sde_kms_mmu_detach(sde_kms, true);
+	if (ret) {
+		SDE_ERROR("failed to detach sec cb ret:%d\n", ret);
+		goto end;
+	}
+
+	ret = _sde_crtc_scm_call(VMID_CP_CAMERA_PREVIEW);
+	if (ret)
+		goto end;
+
+end:
+	return ret;
+}
+
+static int _sde_crtc_attach_sec_cb(struct sde_kms *sde_kms)
+{
+	u32 ret = 0;
+
+	if (atomic_dec_return(&sde_kms->detach_sec_cb) != 0)
+		goto end;
+
+	ret = _sde_crtc_scm_call(VMID_CP_PIXEL);
+	if (ret)
+		goto end;
+
+	ret = sde_kms_mmu_attach(sde_kms, true);
+	if (ret) {
+		SDE_ERROR("failed to attach sec cb ret:%d\n", ret);
+		goto end;
+	}
+
+end:
+	return ret;
+}
+
 /**
  * sde_crtc_secure_ctrl - Initiates the operations to swtich  between secure
  *                       and non-secure mode
@@ -2063,85 +2150,47 @@ int sde_crtc_secure_ctrl(struct drm_crtc *crtc, bool post_commit)
 		/* Bail out */
 		return 0;
 
+	mutex_lock(&sde_kms->secure_transition_lock);
 	/* Secure UI use case enable */
 	switch (smmu_state->state) {
 	case DETACH_ALL_REQ:
-		/* detach_all_contexts */
-		ret = sde_kms_mmu_detach(sde_kms, false);
-		if (ret) {
-			SDE_ERROR("crtc: %d, failed to detach %d\n",
-					crtc->base.id, ret);
-			goto error;
-		}
-
-		ret = _sde_crtc_scm_call(VMID_CP_SEC_DISPLAY);
-		if (ret)
-			goto error;
-
-		smmu_state->state = DETACHED;
+		ret = _sde_crtc_detach_all_cb(sde_kms);
+		if (!ret)
+			smmu_state->state = DETACHED;
 		break;
 	/* Secure UI use case disable */
 	case ATTACH_ALL_REQ:
-		ret = _sde_crtc_scm_call(VMID_CP_PIXEL);
-		if (ret)
-			goto error;
-
-		/* attach_all_contexts */
-		ret = sde_kms_mmu_attach(sde_kms, false);
-		if (ret) {
-			SDE_ERROR("crtc: %d, failed to attach %d\n",
-					crtc->base.id,
-					ret);
-			goto error;
-		}
-
-		smmu_state->state = ATTACHED;
-
+		ret = _sde_crtc_attach_all_cb(sde_kms);
+		if (!ret)
+			smmu_state->state = ATTACHED;
 		break;
 	/* Secure preview enable */
 	case DETACH_SEC_REQ:
-		/* detach secure_context */
-		ret = sde_kms_mmu_detach(sde_kms, true);
-		if (ret) {
-			SDE_ERROR("crtc: %d, failed to detach %d\n",
-					crtc->base.id,
-					ret);
-			goto error;
-		}
-
-		smmu_state->state = DETACHED_SEC;
-		ret = _sde_crtc_scm_call(VMID_CP_CAMERA_PREVIEW);
-		if (ret)
-			goto error;
-
+		ret = _sde_crtc_detach_sec_cb(sde_kms);
+		if (!ret)
+			smmu_state->state = DETACHED_SEC;
 		break;
-
 	/* Secure preview disable */
 	case ATTACH_SEC_REQ:
-		ret = _sde_crtc_scm_call(VMID_CP_PIXEL);
-		if (ret)
-			goto error;
-
-		ret = sde_kms_mmu_attach(sde_kms, true);
-		if (ret) {
-			SDE_ERROR("crtc: %d, failed to attach %d\n",
-					crtc->base.id,
-					ret);
-			goto error;
-		}
-		smmu_state->state = ATTACHED;
+		ret = _sde_crtc_attach_sec_cb(sde_kms);
+		if (!ret)
+			smmu_state->state = ATTACHED;
 		break;
 	default:
+		SDE_ERROR("crtc:%d invalid smmu state:%d transition type:%d\n",
+			crtc->base.id, smmu_state->state,
+			smmu_state->transition_type);
 		break;
 	}
+	mutex_unlock(&sde_kms->secure_transition_lock);
 
 	SDE_DEBUG("crtc: %d, old_state %d new_state %d\n", crtc->base.id,
 			old_smmu_state,
 			smmu_state->state);
-	smmu_state->transition_type = NONE;
 
-error:
+	smmu_state->transition_type = NONE;
 	smmu_state->transition_error = ret ? true : false;
+
 	SDE_EVT32(DRMID(crtc), smmu_state->state, smmu_state->transition_type,
 			smmu_state->transition_error, ret,
 			SDE_EVTLOG_FUNC_EXIT);

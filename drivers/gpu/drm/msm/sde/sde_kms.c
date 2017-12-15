@@ -3021,6 +3021,10 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	dev->mode_config.max_width = sde_kms->catalog->max_display_width;
 	dev->mode_config.max_height = sde_kms->catalog->max_display_height;
 
+	mutex_init(&sde_kms->secure_transition_lock);
+	atomic_set(&sde_kms->detach_sec_cb, 0);
+	atomic_set(&sde_kms->detach_all_cb, 0);
+
 	/*
 	 * Support format modifiers for compression etc.
 	 */
