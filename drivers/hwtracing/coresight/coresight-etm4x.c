@@ -984,9 +984,9 @@ static int etm4_probe(struct amba_device *adev, const struct amba_id *id)
 
 	spin_lock_init(&drvdata->spinlock);
 
-	drvdata->cpu = pdata ? pdata->cpu : -1;
+	drvdata->cpu = pdata ? pdata->cpu : -ENODEV;
 
-	if (drvdata->cpu == -1) {
+	if (drvdata->cpu == -ENODEV) {
 		dev_info(dev, "CPU not available\n");
 		return -ENODEV;
 	}
