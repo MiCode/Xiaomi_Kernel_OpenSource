@@ -66,8 +66,6 @@ extern void *kmem_realloc(const void *, size_t, size_t, xfs_km_flags_t);
 extern void  kmem_free(const void *);
 
 
-extern void *kmem_zalloc_greedy(size_t *, size_t, size_t);
-
 static inline void *
 kmem_zalloc(size_t size, xfs_km_flags_t flags)
 {

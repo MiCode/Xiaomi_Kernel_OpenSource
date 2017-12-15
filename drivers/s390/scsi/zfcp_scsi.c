@@ -138,9 +138,14 @@ static int zfcp_scsi_slave_alloc(struct scsi_device *sdev)
 	struct zfcp_unit *unit;
 	int npiv = adapter->connection_features & FSF_FEATURE_NPIV_MODE;
 
+	zfcp_sdev->erp_action.adapter = adapter;
+	zfcp_sdev->erp_action.sdev = sdev;
+
 	port = zfcp_get_port_by_wwpn(adapter, rport->port_name);
 	if (!port)
 		return -ENXIO;
+
+	zfcp_sdev->erp_action.port = port;
 
 	unit = zfcp_unit_find(port, zfcp_scsi_dev_lun(sdev));
 	if (unit)
@@ -245,8 +250,10 @@ static int zfcp_task_mgmt_function(struct scsi_cmnd *scpnt, u8 tm_flags)
 
 		zfcp_erp_wait(adapter);
 		ret = fc_block_scsi_eh(scpnt);
-		if (ret)
+		if (ret) {
+			zfcp_dbf_scsi_devreset("fiof", scpnt, tm_flags);
 			return ret;
+		}
 
 		if (!(atomic_read(&adapter->status) &
 		      ZFCP_STATUS_COMMON_RUNNING)) {
@@ -254,8 +261,10 @@ static int zfcp_task_mgmt_function(struct scsi_cmnd *scpnt, u8 tm_flags)
 			return SUCCESS;
 		}
 	}
-	if (!fsf_req)
+	if (!fsf_req) {
+		zfcp_dbf_scsi_devreset("reqf", scpnt, tm_flags);
 		return FAILED;
+	}
 
 	wait_for_completion(&fsf_req->completion);
 

@@ -196,7 +196,7 @@ enum zfcp_dbf_scsi_id {
  * @id: unique number of recovery record type
  * @tag: identifier string specifying the location of initiation
  * @scsi_id: scsi device id
- * @scsi_lun: scsi device logical unit number
+ * @scsi_lun: scsi device logical unit number, low part of 64 bit, old 32 bit
  * @scsi_result: scsi result
  * @scsi_retries: current retry number of scsi request
  * @scsi_allowed: allowed retries
@@ -206,6 +206,7 @@ enum zfcp_dbf_scsi_id {
  * @host_scribble: LLD specific data attached to SCSI request
  * @pl_len: length of paload stored as zfcp_dbf_pay
  * @fsf_rsp: response for fsf request
+ * @scsi_lun_64_hi: scsi device logical unit number, high part of 64 bit
  */
 struct zfcp_dbf_scsi {
 	u8 id;
@@ -222,6 +223,7 @@ struct zfcp_dbf_scsi {
 	u64 host_scribble;
 	u16 pl_len;
 	struct fcp_resp_with_ext fcp_rsp;
+	u32 scsi_lun_64_hi;
 } __packed;
 
 /**
@@ -291,7 +293,11 @@ void zfcp_dbf_hba_fsf_response(struct zfcp_fsf_req *req)
 {
 	struct fsf_qtcb *qtcb = req->qtcb;
 
-	if ((qtcb->prefix.prot_status != FSF_PROT_GOOD) &&
+	if (unlikely(req->status & (ZFCP_STATUS_FSFREQ_DISMISSED |
+				    ZFCP_STATUS_FSFREQ_ERROR))) {
+		zfcp_dbf_hba_fsf_resp("fs_rerr", 3, req);
+
+	} else if ((qtcb->prefix.prot_status != FSF_PROT_GOOD) &&
 	    (qtcb->prefix.prot_status != FSF_PROT_FSF_STATUS_PRESENTED)) {
 		zfcp_dbf_hba_fsf_resp("fs_perr", 1, req);
 

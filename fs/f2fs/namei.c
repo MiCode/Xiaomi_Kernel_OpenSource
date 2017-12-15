@@ -59,6 +59,12 @@ static struct inode *f2fs_new_inode(struct inode *dir, umode_t mode)
 		goto fail;
 	}
 
+	if (f2fs_sb_has_project_quota(sbi->sb) &&
+		(F2FS_I(dir)->i_flags & FS_PROJINHERIT_FL))
+		F2FS_I(inode)->i_projid = F2FS_I(dir)->i_projid;
+	else
+		F2FS_I(inode)->i_projid = make_kprojid(&init_user_ns,
+							F2FS_DEF_PROJID);
 	dquot_initialize(inode);
 
 	err = dquot_alloc_inode(inode);
@@ -70,6 +76,11 @@ static struct inode *f2fs_new_inode(struct inode *dir, umode_t mode)
 		f2fs_set_encrypted_inode(inode);
 
 	set_inode_flag(inode, FI_NEW_INODE);
+
+	if (f2fs_sb_has_extra_attr(sbi->sb)) {
+		set_inode_flag(inode, FI_EXTRA_ATTR);
+		F2FS_I(inode)->i_extra_isize = F2FS_TOTAL_EXTRA_ATTR_SIZE;
+	}
 
 	if (test_opt(sbi, INLINE_XATTR))
 		set_inode_flag(inode, FI_INLINE_XATTR);
@@ -83,6 +94,15 @@ static struct inode *f2fs_new_inode(struct inode *dir, umode_t mode)
 	stat_inc_inline_xattr(inode);
 	stat_inc_inline_inode(inode);
 	stat_inc_inline_dir(inode);
+
+	F2FS_I(inode)->i_flags =
+		f2fs_mask_flags(mode, F2FS_I(dir)->i_flags & F2FS_FL_INHERITED);
+
+	if (S_ISDIR(inode->i_mode))
+		F2FS_I(inode)->i_flags |= FS_INDEX_FL;
+
+	if (F2FS_I(inode)->i_flags & FS_PROJINHERIT_FL)
+		set_inode_flag(inode, FI_PROJ_INHERIT);
 
 	trace_f2fs_new_inode(inode, 0);
 	return inode;
@@ -201,6 +221,11 @@ static int f2fs_link(struct dentry *old_dentry, struct inode *dir,
 			!fscrypt_has_permitted_context(dir, inode))
 		return -EPERM;
 
+	if (is_inode_flag_set(dir, FI_PROJ_INHERIT) &&
+			(!projid_eq(F2FS_I(dir)->i_projid,
+			F2FS_I(old_dentry->d_inode)->i_projid)))
+		return -EXDEV;
+
 	dquot_initialize(dir);
 
 	f2fs_balance_fs(sbi, true);
@@ -255,6 +280,8 @@ static int __recover_dot_dentries(struct inode *dir, nid_t pino)
 			"in readonly mountpoint", dir->i_ino, pino);
 		return 0;
 	}
+
+	dquot_initialize(dir);
 
 	f2fs_balance_fs(sbi, true);
 
@@ -720,6 +747,11 @@ static int f2fs_rename(struct inode *old_dir, struct dentry *old_dentry,
 		goto out;
 	}
 
+	if (is_inode_flag_set(new_dir, FI_PROJ_INHERIT) &&
+			(!projid_eq(F2FS_I(new_dir)->i_projid,
+			F2FS_I(old_dentry->d_inode)->i_projid)))
+		return -EXDEV;
+
 	dquot_initialize(old_dir);
 
 	dquot_initialize(new_dir);
@@ -903,6 +935,14 @@ static int f2fs_cross_rename(struct inode *old_dir, struct dentry *old_dentry,
 			(!fscrypt_has_permitted_context(new_dir, old_inode) ||
 			 !fscrypt_has_permitted_context(old_dir, new_inode)))
 		return -EPERM;
+
+	if ((is_inode_flag_set(new_dir, FI_PROJ_INHERIT) &&
+			!projid_eq(F2FS_I(new_dir)->i_projid,
+			F2FS_I(old_dentry->d_inode)->i_projid)) ||
+	    (is_inode_flag_set(new_dir, FI_PROJ_INHERIT) &&
+			!projid_eq(F2FS_I(old_dir)->i_projid,
+			F2FS_I(new_dentry->d_inode)->i_projid)))
+		return -EXDEV;
 
 	dquot_initialize(old_dir);
 
