@@ -54,6 +54,7 @@ static inline void msm_spi_dma_unmap_buffers(struct msm_spi *dd);
 static int get_local_resources(struct msm_spi *dd);
 static void put_local_resources(struct msm_spi *dd);
 static void msm_spi_slv_setup(struct msm_spi *dd);
+static inline int msm_spi_wait_valid(struct msm_spi *dd);
 
 static inline int msm_spi_configure_gsbi(struct msm_spi *dd,
 					struct platform_device *pdev)
@@ -84,18 +85,22 @@ static inline int msm_spi_configure_gsbi(struct msm_spi *dd,
 	return 0;
 }
 
-static inline void msm_spi_register_init(struct msm_spi *dd)
+static inline int msm_spi_register_init(struct msm_spi *dd)
 {
-	if (dd->pdata->is_slv_ctrl)
+	if (dd->pdata->is_slv_ctrl) {
 		writel_relaxed(0x00000002, dd->base + SPI_SW_RESET);
-	else
+		 if (msm_spi_wait_valid(dd))
+			return -EIO;
+	} else {
 		writel_relaxed(0x00000001, dd->base + SPI_SW_RESET);
+	}
 	msm_spi_set_state(dd, SPI_OP_STATE_RESET);
 	writel_relaxed(0x00000000, dd->base + SPI_OPERATIONAL);
 	writel_relaxed(0x00000000, dd->base + SPI_CONFIG);
 	writel_relaxed(0x00000000, dd->base + SPI_IO_MODES);
 	if (dd->qup_ver)
 		writel_relaxed(0x00000000, dd->base + QUP_OPERATIONAL_MASK);
+	return 0;
 }
 
 static int msm_spi_pinctrl_init(struct msm_spi *dd)
@@ -1561,10 +1566,11 @@ static inline void msm_spi_set_cs(struct spi_device *spi, bool set_flag)
 	pm_runtime_put_autosuspend(dd->dev);
 }
 
-static void reset_core(struct msm_spi *dd)
+static int reset_core(struct msm_spi *dd)
 {
 	u32 spi_ioc;
-	msm_spi_register_init(dd);
+	if (msm_spi_register_init(dd))
+		return -EIO;
 	/*
 	 * The SPI core generates a bogus input overrun error on some targets,
 	 * when a transition from run to reset state occurs and if the FIFO has
@@ -1581,6 +1587,7 @@ static void reset_core(struct msm_spi *dd)
 	 */
 	mb();
 	msm_spi_set_state(dd, SPI_OP_STATE_RESET);
+	return 0;
 }
 
 static void put_local_resources(struct msm_spi *dd)
@@ -1694,7 +1701,11 @@ static int msm_spi_transfer_one(struct spi_master *master,
 			return -EINVAL;
 		}
 
-		reset_core(dd);
+		if (reset_core(dd)) {
+			mutex_unlock(&dd->core_lock);
+			spi_finalize_current_message(master);
+			return -EIO;
+		}
 		if (dd->use_dma) {
 			msm_spi_bam_pipe_connect(dd, &dd->bam.prod,
 					&dd->bam.prod.config);
@@ -2450,7 +2461,8 @@ static int init_resources(struct platform_device *pdev)
 		}
 	}
 
-	msm_spi_register_init(dd);
+	if (msm_spi_register_init(dd))
+		goto err_spi_state;
 	/*
 	 * The SPI core generates a bogus input overrun error on some targets,
 	 * when a transition from run to reset state occurs and if the FIFO has
