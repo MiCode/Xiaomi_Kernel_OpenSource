@@ -4565,7 +4565,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 
 		/* identify attached planes that are not in the delta state */
 		if (!drm_atomic_get_existing_plane_state(state->state, plane)) {
-			rc = sde_plane_confirm_hw_rsvps(plane, pstate);
+			rc = sde_plane_confirm_hw_rsvps(plane, pstate, state);
 			if (rc) {
 				SDE_ERROR("crtc%d confirmation hw failed %d\n",
 						crtc->base.id, rc);
