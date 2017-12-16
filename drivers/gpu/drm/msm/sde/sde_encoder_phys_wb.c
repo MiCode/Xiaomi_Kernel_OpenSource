@@ -1052,11 +1052,9 @@ static int _sde_encoder_phys_wb_init_internal_fb(
 		SDE_ERROR("requested format has too many planes\n");
 		return -EINVAL;
 	}
-	mutex_lock(&dev->struct_mutex);
+
 	wb_enc->bo_disable[0] = msm_gem_new(dev, size,
 			MSM_BO_SCANOUT | MSM_BO_WC);
-	mutex_unlock(&dev->struct_mutex);
-
 	if (IS_ERR_OR_NULL(wb_enc->bo_disable[0])) {
 		ret = PTR_ERR(wb_enc->bo_disable[0]);
 		wb_enc->bo_disable[0] = NULL;

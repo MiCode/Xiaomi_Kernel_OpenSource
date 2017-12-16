@@ -196,7 +196,7 @@ struct sde_reg_dma_buffer {
 	struct msm_gem_address_space *aspace;
 	u32 buffer_size;
 	u32 index;
-	u32 iova;
+	u64 iova;
 	void *vaddr;
 	u32 next_op_allowed;
 	u32 ops_completed;

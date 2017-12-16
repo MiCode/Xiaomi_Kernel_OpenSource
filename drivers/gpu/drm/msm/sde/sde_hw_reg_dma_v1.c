@@ -643,18 +643,18 @@ static void sde_reg_dma_aspace_cb_locked(void *cb_data, bool is_detach)
 		dma_buf->iova = 0;
 
 		/* return the virtual address mapping */
-		msm_gem_put_vaddr_locked(dma_buf->buf);
-		msm_gem_vunmap(dma_buf->buf);
+		msm_gem_put_vaddr(dma_buf->buf);
+		msm_gem_vunmap(dma_buf->buf, OBJ_LOCK_NORMAL);
 
 	} else {
-		rc = msm_gem_get_iova_locked(dma_buf->buf, aspace,
+		rc = msm_gem_get_iova(dma_buf->buf, aspace,
 				&dma_buf->iova);
 		if (rc) {
 			DRM_ERROR("failed to get the iova rc %d\n", rc);
 			return;
 		}
 
-		dma_buf->vaddr = msm_gem_get_vaddr_locked(dma_buf->buf);
+		dma_buf->vaddr = msm_gem_get_vaddr(dma_buf->buf);
 		if (IS_ERR_OR_NULL(dma_buf->vaddr)) {
 			DRM_ERROR("failed to get va rc %d\n", rc);
 			return;
@@ -685,10 +685,8 @@ static struct sde_reg_dma_buffer *alloc_reg_dma_buf_v1(u32 size)
 	if (!dma_buf)
 		return ERR_PTR(-ENOMEM);
 
-	mutex_lock(&reg_dma->drm_dev->struct_mutex);
 	dma_buf->buf = msm_gem_new(reg_dma->drm_dev,
 				    rsize, MSM_BO_UNCACHED);
-	mutex_unlock(&reg_dma->drm_dev->struct_mutex);
 	if (IS_ERR_OR_NULL(dma_buf->buf)) {
 		rc = -EINVAL;
 		goto fail;

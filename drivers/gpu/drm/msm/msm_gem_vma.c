@@ -21,48 +21,44 @@
 
 /* SDE address space operations */
 static void smmu_aspace_unmap_vma(struct msm_gem_address_space *aspace,
-		struct msm_gem_vma *vma, struct sg_table *sgt,
-		void *priv)
+		struct msm_gem_vma *vma, struct sg_table *sgt)
 {
-	struct dma_buf *buf = priv;
+	if (!vma->iova)
+		return;
 
-	if (buf)
-		aspace->mmu->funcs->unmap_dma_buf(aspace->mmu,
-			sgt, buf, DMA_BIDIRECTIONAL);
-	else
-		aspace->mmu->funcs->unmap_sg(aspace->mmu, sgt,
-			DMA_BIDIRECTIONAL);
+	if (aspace) {
+		aspace->mmu->funcs->unmap_dma_buf(aspace->mmu, sgt,
+				DMA_BIDIRECTIONAL);
+	}
 
 	vma->iova = 0;
+	msm_gem_address_space_put(aspace);
 }
-
 
 static int smmu_aspace_map_vma(struct msm_gem_address_space *aspace,
 		struct msm_gem_vma *vma, struct sg_table *sgt,
-		void *priv, unsigned int flags)
+		int npages, unsigned int flags)
 {
-	struct dma_buf *buf = priv;
-	int ret;
+	int ret = -EINVAL;
 
 	if (!aspace || !aspace->domain_attached)
-		return -EINVAL;
+		return ret;
 
-	if (buf)
-		ret = aspace->mmu->funcs->map_dma_buf(aspace->mmu, sgt, buf,
+	ret = aspace->mmu->funcs->map_dma_buf(aspace->mmu, sgt,
 			DMA_BIDIRECTIONAL, flags);
-	else
-		ret = aspace->mmu->funcs->map_sg(aspace->mmu, sgt,
-			DMA_BIDIRECTIONAL);
-
 	if (!ret)
 		vma->iova = sg_dma_address(sgt->sgl);
+
+	/* Get a reference to the aspace to keep it around */
+	kref_get(&aspace->kref);
 
 	return ret;
 }
 
 static void smmu_aspace_destroy(struct msm_gem_address_space *aspace)
 {
-	aspace->mmu->funcs->destroy(aspace->mmu);
+	if (aspace->mmu)
+		aspace->mmu->funcs->destroy(aspace->mmu);
 }
 
 static void smmu_aspace_add_to_active(
@@ -155,7 +151,6 @@ static int smmu_aspace_unregister_cb(
 	return rc;
 }
 
-
 static const struct msm_gem_aspace_ops smmu_aspace_ops = {
 	.map = smmu_aspace_map_vma,
 	.unmap = smmu_aspace_unmap_vma,
@@ -179,37 +174,20 @@ msm_gem_smmu_address_space_create(struct drm_device *dev, struct msm_mmu *mmu,
 	if (!aspace)
 		return ERR_PTR(-ENOMEM);
 
+	spin_lock_init(&aspace->lock);
 	aspace->dev = dev;
 	aspace->name = name;
 	aspace->mmu = mmu;
 	aspace->ops = &smmu_aspace_ops;
 	INIT_LIST_HEAD(&aspace->active_list);
 	INIT_LIST_HEAD(&aspace->clients);
+	kref_init(&aspace->kref);
 
 	return aspace;
 }
 
-static void
-msm_gem_address_space_destroy(struct kref *kref)
-{
-	struct msm_gem_address_space *aspace = container_of(kref,
-			struct msm_gem_address_space, kref);
-
-	drm_mm_takedown(&aspace->mm);
-	if (aspace->mmu)
-		aspace->mmu->funcs->destroy(aspace->mmu);
-	kfree(aspace);
-}
-
-
-void msm_gem_address_space_put(struct msm_gem_address_space *aspace)
-{
-	if (aspace)
-		kref_put(&aspace->kref, msm_gem_address_space_destroy);
-}
-
-void
-msm_gem_unmap_vma(struct msm_gem_address_space *aspace,
+/* GPU address space operations */
+static void iommu_aspace_unmap_vma(struct msm_gem_address_space *aspace,
 		struct msm_gem_vma *vma, struct sg_table *sgt)
 {
 	if (!aspace || !vma->iova)
@@ -229,9 +207,9 @@ msm_gem_unmap_vma(struct msm_gem_address_space *aspace,
 	msm_gem_address_space_put(aspace);
 }
 
-int
-msm_gem_map_vma(struct msm_gem_address_space *aspace,
-		struct msm_gem_vma *vma, struct sg_table *sgt, int npages)
+static int iommu_aspace_map_vma(struct msm_gem_address_space *aspace,
+		struct msm_gem_vma *vma, struct sg_table *sgt,
+		int npages, unsigned int flags)
 {
 	int ret;
 
@@ -261,6 +239,19 @@ msm_gem_map_vma(struct msm_gem_address_space *aspace,
 	return ret;
 }
 
+static void iommu_aspace_destroy(struct msm_gem_address_space *aspace)
+{
+	drm_mm_takedown(&aspace->mm);
+	if (aspace->mmu)
+		aspace->mmu->funcs->destroy(aspace->mmu);
+}
+
+static const struct msm_gem_aspace_ops msm_iommu_aspace_ops = {
+	.map = iommu_aspace_map_vma,
+	.unmap = iommu_aspace_unmap_vma,
+	.destroy = iommu_aspace_destroy,
+};
+
 struct msm_gem_address_space *
 msm_gem_address_space_create(struct device *dev, struct iommu_domain *domain,
 		const char *name)
@@ -274,6 +265,7 @@ msm_gem_address_space_create(struct device *dev, struct iommu_domain *domain,
 	spin_lock_init(&aspace->lock);
 	aspace->name = name;
 	aspace->mmu = msm_iommu_new(dev, domain);
+	aspace->ops = &msm_iommu_aspace_ops;
 
 	drm_mm_init(&aspace->mm, (domain->geometry.aperture_start >> PAGE_SHIFT),
 			(domain->geometry.aperture_end >> PAGE_SHIFT) - 1);
@@ -281,6 +273,45 @@ msm_gem_address_space_create(struct device *dev, struct iommu_domain *domain,
 	kref_init(&aspace->kref);
 
 	return aspace;
+}
+
+
+/* Generic address space operations */
+static void
+msm_gem_address_space_destroy(struct kref *kref)
+{
+	struct msm_gem_address_space *aspace = container_of(kref,
+			struct msm_gem_address_space, kref);
+
+	if (aspace && aspace->ops->destroy)
+		aspace->ops->destroy(aspace);
+
+	kfree(aspace);
+}
+
+void msm_gem_address_space_put(struct msm_gem_address_space *aspace)
+{
+	if (aspace)
+		kref_put(&aspace->kref, msm_gem_address_space_destroy);
+}
+
+void
+msm_gem_unmap_vma(struct msm_gem_address_space *aspace,
+		struct msm_gem_vma *vma, struct sg_table *sgt)
+{
+	if (aspace && aspace->ops->unmap)
+		aspace->ops->unmap(aspace, vma, sgt);
+}
+
+int
+msm_gem_map_vma(struct msm_gem_address_space *aspace,
+		struct msm_gem_vma *vma, struct sg_table *sgt, int npages,
+		unsigned int flags)
+{
+	if (aspace && aspace->ops->map)
+		return aspace->ops->map(aspace, vma, sgt, npages, flags);
+
+	return -EINVAL;
 }
 
 void msm_gem_add_obj_to_aspace_active_list(

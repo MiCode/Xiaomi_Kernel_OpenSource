@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -994,7 +994,6 @@ static int dsi_tx_buf_alloc(struct msm_dsi_host *msm_host, int size)
 
 		ret = msm_gem_get_iova(msm_host->tx_gem_obj,
 				priv->kms->aspace, &iova);
-		mutex_unlock(&dev->struct_mutex);
 		if (ret) {
 			pr_err("%s: failed to get iova, %d\n", __func__, ret);
 			return ret;

@@ -1411,17 +1411,14 @@ struct sde_kms_fbo *sde_kms_fbo_alloc(struct drm_device *dev, u32 width,
 		/* insert extra bo flags */
 		sde_kms_set_gem_flags(to_msm_bo(fbo->bo[0]), MSM_BO_KEEPATTRS);
 	} else {
-		mutex_lock(&dev->struct_mutex);
 		fbo->bo[0] = msm_gem_new(dev, fbo->layout.total_size,
 				MSM_BO_SCANOUT | MSM_BO_WC | MSM_BO_KEEPATTRS);
 		if (IS_ERR(fbo->bo[0])) {
-			mutex_unlock(&dev->struct_mutex);
 			SDE_ERROR("failed to new gem buffer\n");
 			ret = PTR_ERR(fbo->bo[0]);
 			fbo->bo[0] = NULL;
 			goto done;
 		}
-		mutex_unlock(&dev->struct_mutex);
 	}
 
 	mutex_lock(&dev->struct_mutex);
@@ -2460,7 +2457,7 @@ static int _sde_kms_mmu_destroy(struct sde_kms *sde_kms)
 
 		mmu->funcs->detach(mmu, (const char **)iommu_ports,
 				ARRAY_SIZE(iommu_ports));
-		msm_gem_address_space_destroy(sde_kms->aspace[i]);
+		msm_gem_address_space_put(sde_kms->aspace[i]);
 
 		sde_kms->aspace[i] = NULL;
 	}
@@ -2498,7 +2495,7 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 				ARRAY_SIZE(iommu_ports));
 		if (ret) {
 			SDE_ERROR("failed to attach iommu %d: %d\n", i, ret);
-			msm_gem_address_space_destroy(aspace);
+			msm_gem_address_space_put(aspace);
 			goto fail;
 		}
 		aspace->domain_attached = true;

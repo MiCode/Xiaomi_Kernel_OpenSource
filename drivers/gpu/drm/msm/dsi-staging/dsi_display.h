@@ -192,7 +192,7 @@ struct dsi_display {
 	bool phy_idle_power_off;
 	struct drm_gem_object *tx_cmd_buf;
 	u32 cmd_buffer_size;
-	u32 cmd_buffer_iova;
+	u64 cmd_buffer_iova;
 	void *vaddr;
 	struct msm_gem_address_space *aspace;
 

@@ -1390,7 +1390,7 @@ static int dsi_ctrl_buffer_deinit(struct dsi_ctrl *dsi_ctrl)
 int dsi_ctrl_buffer_init(struct dsi_ctrl *dsi_ctrl)
 {
 	int rc = 0;
-	u32 iova = 0;
+	u64 iova = 0;
 	struct msm_gem_address_space *aspace = NULL;
 
 	aspace = dsi_ctrl_get_aspace(dsi_ctrl, MSM_SMMU_DOMAIN_UNSECURE);

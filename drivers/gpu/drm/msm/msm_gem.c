@@ -28,7 +28,6 @@
 
 static void msm_gem_vunmap_locked(struct drm_gem_object *obj);
 
-
 static dma_addr_t physaddr(struct drm_gem_object *obj)
 {
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
@@ -380,36 +379,6 @@ static void put_iova(struct drm_gem_object *obj)
 	}
 }
 
-static struct msm_gem_vma *obj_add_domain(struct drm_gem_object *obj,
-		struct msm_gem_address_space *aspace)
-{
-	struct msm_gem_object *msm_obj = to_msm_bo(obj);
-	struct msm_gem_vma *domain = kzalloc(sizeof(*domain), GFP_KERNEL);
-
-	if (!domain)
-		return ERR_PTR(-ENOMEM);
-
-	domain->aspace = aspace;
-
-	list_add_tail(&domain->list, &msm_obj->domains);
-
-	return domain;
-}
-
-static struct msm_gem_vma *obj_get_domain(struct drm_gem_object *obj,
-		struct msm_gem_address_space *aspace)
-{
-	struct msm_gem_object *msm_obj = to_msm_bo(obj);
-	struct msm_gem_vma *domain;
-
-	list_for_each_entry(domain, &msm_obj->domains, list) {
-		if (domain->aspace == aspace)
-			return domain;
-	}
-
-	return NULL;
-}
-
 /* get iova, taking a reference.  Should have a matching put */
 int msm_gem_get_iova(struct drm_gem_object *obj,
 		struct msm_gem_address_space *aspace, uint64_t *iova)
@@ -443,7 +412,8 @@ int msm_gem_get_iova(struct drm_gem_object *obj,
 		}
 
 		ret = msm_gem_map_vma(aspace, vma, msm_obj->sgt,
-				obj->size >> PAGE_SHIFT);
+				obj->size >> PAGE_SHIFT,
+				msm_obj->flags);
 		if (ret)
 			goto fail;
 	}
@@ -499,7 +469,7 @@ void msm_gem_aspace_domain_attach_detach_update(
 	struct drm_gem_object *obj;
 	struct aspace_client *aclient;
 	int ret;
-	uint32_t iova;
+	uint64_t iova;
 
 	if (!aspace)
 		return;
@@ -528,7 +498,7 @@ void msm_gem_aspace_domain_attach_detach_update(
 		/* map active buffers */
 		list_for_each_entry(msm_obj, &aspace->active_list, iova_list) {
 			obj = &msm_obj->base;
-			ret = msm_gem_get_iova_locked(obj, aspace, &iova);
+			ret = msm_gem_get_iova(obj, aspace, &iova);
 			if (ret) {
 				mutex_unlock(&aspace->dev->struct_mutex);
 				return;
@@ -945,7 +915,8 @@ int msm_gem_new_handle(struct drm_device *dev, struct drm_file *file,
 static int msm_gem_new_impl(struct drm_device *dev,
 		uint32_t size, uint32_t flags,
 		struct reservation_object *resv,
-		struct drm_gem_object **obj)
+		struct drm_gem_object **obj,
+		bool struct_mutex_locked)
 {
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_gem_object *msm_obj;
@@ -960,8 +931,6 @@ static int msm_gem_new_impl(struct drm_device *dev,
 				(flags & MSM_BO_CACHE_MASK));
 		return -EINVAL;
 	}
-
-	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
 
 	msm_obj = kzalloc(sizeof(*msm_obj), GFP_KERNEL);
 	if (!msm_obj)
@@ -1092,12 +1061,8 @@ struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 
 	size = PAGE_ALIGN(dmabuf->size);
 
-	ret = mutex_lock_interruptible(&dev->struct_mutex);
-	if (ret)
-		return ERR_PTR(ret);
-
-	ret = msm_gem_new_impl(dev, size, MSM_BO_WC, dmabuf->resv, &obj);
-	mutex_unlock(&dev->struct_mutex);
+	ret = msm_gem_new_impl(dev, size, MSM_BO_WC, dmabuf->resv, &obj,
+			false);
 	if (ret)
 		goto fail;
 

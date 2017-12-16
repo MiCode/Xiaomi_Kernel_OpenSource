@@ -112,41 +112,6 @@ static const struct drm_mode_config_funcs mode_config_funcs = {
 	.atomic_state_free = msm_atomic_state_free,
 };
 
-int msm_register_mmu(struct drm_device *dev, struct msm_mmu *mmu)
-{
-	struct msm_drm_private *priv = dev->dev_private;
-	int idx = priv->num_mmus++;
-
-	if (WARN_ON(idx >= ARRAY_SIZE(priv->mmus)))
-		return -EINVAL;
-
-	priv->mmus[idx] = mmu;
-
-	return idx;
-}
-
-void msm_unregister_mmu(struct drm_device *dev, struct msm_mmu *mmu)
-{
-	struct msm_drm_private *priv = dev->dev_private;
-	int idx;
-
-	if (priv->num_mmus <= 0) {
-		dev_err(dev->dev, "invalid num mmus %d\n", priv->num_mmus);
-		return;
-	}
-
-	idx = priv->num_mmus - 1;
-
-	/* only support reverse-order deallocation */
-	if (priv->mmus[idx] != mmu) {
-		dev_err(dev->dev, "unexpected mmu at idx %d\n", idx);
-		return;
-	}
-
-	--priv->num_mmus;
-	priv->mmus[idx] = 0;
-}
-
 #ifdef CONFIG_DRM_MSM_REGISTER_LOGGING
 static bool reglog = false;
 MODULE_PARM_DESC(reglog, "Enable register read/write logging");

@@ -651,7 +651,8 @@ void msm_atomic_state_free(struct drm_atomic_state *state);
 void msm_gem_unmap_vma(struct msm_gem_address_space *aspace,
 		struct msm_gem_vma *vma, struct sg_table *sgt);
 int msm_gem_map_vma(struct msm_gem_address_space *aspace,
-		struct msm_gem_vma *vma, struct sg_table *sgt, int npages);
+		struct msm_gem_vma *vma, struct sg_table *sgt, int npages,
+		unsigned int flags);
 
 void msm_gem_address_space_put(struct msm_gem_address_space *aspace);
 

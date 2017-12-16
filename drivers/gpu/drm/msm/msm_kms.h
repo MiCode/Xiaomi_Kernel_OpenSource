@@ -105,6 +105,10 @@ struct msm_kms_funcs {
 	int (*pm_resume)(struct device *dev);
 	/* cleanup: */
 	void (*destroy)(struct msm_kms *kms);
+	/* get address space */
+	struct msm_gem_address_space *(*get_address_space)(
+			struct msm_kms *kms,
+			unsigned int domain);
 #ifdef CONFIG_DEBUG_FS
 	/* debugfs: */
 	int (*debugfs_init)(struct msm_kms *kms, struct drm_minor *minor);
