@@ -4650,8 +4650,7 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 		return -EFAULT;
 	}
 
-	if (count > 0)
-		dbg_buff[count] = '\0';
+	dbg_buff[count] = '\0';
 
 	IPADBG("user input string %s\n", dbg_buff);
 
@@ -4680,11 +4679,15 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 			return count;
 		}
 
+		/* trim ending newline character if any */
+		if (count && (dbg_buff[count - 1] == '\n'))
+			dbg_buff[count - 1] = '\0';
+
 		if (!strcasecmp(dbg_buff, "MHI")) {
 			ipa3_ctx->ipa_config_is_mhi = true;
 			pr_info(
 				"IPA is loading with MHI configuration\n");
-		} else if (!strcmp(dbg_buff, "1\n")) {
+		} else if (!strcmp(dbg_buff, "1")) {
 			pr_info(
 				"IPA is loading with non MHI configuration\n");
 		} else {
