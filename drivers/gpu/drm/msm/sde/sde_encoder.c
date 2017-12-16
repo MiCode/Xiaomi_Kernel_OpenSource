@@ -830,6 +830,20 @@ static int sde_encoder_virt_atomic_check(
 			return ret;
 	}
 
+	if (!ret) {
+		/**
+		 * record topology in previous atomic state to be able to handle
+		 * topology transitions correctly.
+		 */
+		enum sde_rm_topology_name old_top;
+
+		old_top  = sde_connector_get_property(conn_state,
+				CONNECTOR_PROP_TOPOLOGY_NAME);
+		ret = sde_connector_set_old_topology_name(conn_state, old_top);
+		if (ret)
+			return ret;
+	}
+
 	if (!ret && sde_conn && drm_atomic_crtc_needs_modeset(crtc_state)) {
 		struct msm_display_topology *topology = NULL;
 
@@ -868,7 +882,9 @@ static int sde_encoder_virt_atomic_check(
 			return ret;
 		}
 
-		ret = sde_connector_set_info(conn_state->connector, conn_state);
+		ret = sde_connector_set_blob_data(conn_state->connector,
+				conn_state,
+				CONNECTOR_PROP_SDE_INFO);
 		if (ret) {
 			SDE_ERROR_ENC(sde_enc,
 				"connector failed to update info, rc: %d\n",
@@ -1883,8 +1899,9 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		break;
 
 	case SDE_ENC_RC_EVENT_STOP:
-		/* cancel vsync event work */
+		/* cancel vsync event work and timer */
 		kthread_cancel_work_sync(&sde_enc->vsync_event_work);
+		del_timer_sync(&sde_enc->vsync_event_timer);
 
 		mutex_lock(&sde_enc->rc_lock);
 		/* return if the resource control is already in OFF state */
@@ -3232,18 +3249,20 @@ static void sde_encoder_vsync_event_work_handler(struct kthread_work *work)
 			sde_enc->cur_master->ops.is_autorefresh_enabled(
 						sde_enc->cur_master);
 
-	_sde_encoder_power_enable(sde_enc, false);
-
 	/* Update timer if autorefresh is enabled else return */
 	if (!autorefresh_enabled)
-		return;
+		goto exit;
 
-	if (_sde_encoder_wakeup_time(&sde_enc->base, &wakeup_time))
-		return;
+	rc = _sde_encoder_wakeup_time(&sde_enc->base, &wakeup_time);
+	if (rc)
+		goto exit;
 
 	SDE_EVT32_VERBOSE(ktime_to_ms(wakeup_time));
 	mod_timer(&sde_enc->vsync_event_timer,
 			nsecs_to_jiffies(ktime_to_ns(wakeup_time)));
+
+exit:
+	_sde_encoder_power_enable(sde_enc, false);
 }
 
 int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
@@ -4042,6 +4061,9 @@ int sde_encoder_wait_for_event(struct drm_encoder *drm_enc,
 		case MSM_ENC_VBLANK:
 			fn_wait = phys->ops.wait_for_vblank;
 			break;
+		case MSM_ENC_ACTIVE_REGION:
+			fn_wait = phys->ops.wait_for_active;
+			break;
 		default:
 			SDE_ERROR_ENC(sde_enc, "unknown wait event %d\n",
 					event);
@@ -4082,4 +4104,177 @@ enum sde_intf_mode sde_encoder_get_intf_mode(struct drm_encoder *encoder)
 	}
 
 	return INTF_MODE_NONE;
+}
+
+/**
+ * sde_encoder_update_caps_for_cont_splash - update encoder settings during
+ *	device bootup when cont_splash is enabled
+ * @drm_enc:    Pointer to drm encoder structure
+ * @Return:	true if successful in updating the encoder structure
+ */
+int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder)
+{
+	struct sde_encoder_virt *sde_enc;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+	struct drm_connector *conn = NULL;
+	struct sde_connector *sde_conn = NULL;
+	struct sde_connector_state *sde_conn_state = NULL;
+	struct drm_display_mode *drm_mode = NULL;
+	struct sde_rm_hw_iter dsc_iter, pp_iter, ctl_iter;
+	int ret = 0, i;
+
+	if (!encoder) {
+		SDE_ERROR("invalid drm enc\n");
+		return -EINVAL;
+	}
+
+	if (!encoder->dev || !encoder->dev->dev_private) {
+		SDE_ERROR("drm device invalid\n");
+		return -EINVAL;
+	}
+
+	priv = encoder->dev->dev_private;
+	if (!priv->kms) {
+		SDE_ERROR("invalid kms\n");
+		return -EINVAL;
+	}
+
+	sde_kms = to_sde_kms(priv->kms);
+	sde_enc = to_sde_encoder_virt(encoder);
+	if (!priv->num_connectors) {
+		SDE_ERROR_ENC(sde_enc, "No connectors registered\n");
+		return -EINVAL;
+	}
+	SDE_DEBUG_ENC(sde_enc,
+			"num of connectors: %d\n", priv->num_connectors);
+
+	for (i = 0; i < priv->num_connectors; i++) {
+		SDE_DEBUG_ENC(sde_enc, "connector id: %d\n",
+				priv->connectors[i]->base.id);
+		sde_conn = to_sde_connector(priv->connectors[i]);
+		if (!sde_conn->encoder) {
+			SDE_DEBUG_ENC(sde_enc,
+				"encoder not attached to connector\n");
+			continue;
+		}
+		if (sde_conn->encoder->base.id
+				== encoder->base.id) {
+			conn = (priv->connectors[i]);
+			break;
+		}
+	}
+
+	if (!conn || !conn->state) {
+		SDE_ERROR_ENC(sde_enc, "connector not found\n");
+		return -EINVAL;
+	}
+
+	sde_conn_state = to_sde_connector_state(conn->state);
+
+	if (!sde_conn->ops.get_mode_info) {
+		SDE_ERROR_ENC(sde_enc, "conn: get_mode_info ops not found\n");
+		return -EINVAL;
+	}
+
+	ret = sde_conn->ops.get_mode_info(&encoder->crtc->state->adjusted_mode,
+				&sde_conn_state->mode_info,
+				sde_kms->catalog->max_mixer_width,
+				sde_conn->display);
+	if (ret) {
+		SDE_ERROR_ENC(sde_enc,
+			"conn: ->get_mode_info failed. ret=%d\n", ret);
+		return ret;
+	}
+
+	ret = sde_rm_reserve(&sde_kms->rm, encoder, encoder->crtc->state,
+			conn->state, false);
+	if (ret) {
+		SDE_ERROR_ENC(sde_enc,
+			"failed to reserve hw resources, %d\n", ret);
+		return ret;
+	}
+
+	if (conn->encoder) {
+		conn->state->best_encoder = conn->encoder;
+		SDE_DEBUG_ENC(sde_enc,
+			"configured cstate->best_encoder to ID = %d\n",
+			conn->state->best_encoder->base.id);
+	} else {
+		SDE_ERROR_ENC(sde_enc, "No encoder mapped to connector=%d\n",
+				conn->base.id);
+	}
+
+	SDE_DEBUG_ENC(sde_enc, "connector topology = %llu\n",
+			sde_connector_get_topology_name(conn));
+	drm_mode = &encoder->crtc->state->adjusted_mode;
+	SDE_DEBUG_ENC(sde_enc, "hdisplay = %d, vdisplay = %d\n",
+			drm_mode->hdisplay, drm_mode->vdisplay);
+	drm_set_preferred_mode(conn, drm_mode->hdisplay, drm_mode->vdisplay);
+
+	if (encoder->bridge) {
+		SDE_DEBUG_ENC(sde_enc, "Bridge mapped to encoder\n");
+		/*
+		 * For cont-splash use case, we update the mode
+		 * configurations manually. This will skip the
+		 * usually mode set call when actual frame is
+		 * pushed from framework. The bridge needs to
+		 * be updated with the current drm mode by
+		 * calling the bridge mode set ops.
+		 */
+		if (encoder->bridge->funcs) {
+			SDE_DEBUG_ENC(sde_enc, "calling mode_set\n");
+			encoder->bridge->funcs->mode_set(encoder->bridge,
+						drm_mode, drm_mode);
+		}
+	} else {
+		SDE_ERROR_ENC(sde_enc, "No bridge attached to encoder\n");
+	}
+
+	sde_rm_init_hw_iter(&pp_iter, encoder->base.id, SDE_HW_BLK_PINGPONG);
+	for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
+		sde_enc->hw_pp[i] = NULL;
+		if (!sde_rm_get_hw(&sde_kms->rm, &pp_iter))
+			break;
+		sde_enc->hw_pp[i] = (struct sde_hw_pingpong *) pp_iter.hw;
+	}
+
+	sde_rm_init_hw_iter(&dsc_iter, encoder->base.id, SDE_HW_BLK_DSC);
+	for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
+		sde_enc->hw_dsc[i] = NULL;
+		if (!sde_rm_get_hw(&sde_kms->rm, &dsc_iter))
+			break;
+		sde_enc->hw_dsc[i] = (struct sde_hw_dsc *) dsc_iter.hw;
+	}
+
+	sde_rm_init_hw_iter(&ctl_iter, encoder->base.id, SDE_HW_BLK_CTL);
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
+		phys->hw_ctl = NULL;
+		if (!sde_rm_get_hw(&sde_kms->rm, &ctl_iter))
+			break;
+		phys->hw_ctl = (struct sde_hw_ctl *) ctl_iter.hw;
+	}
+
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
+		if (!phys) {
+			SDE_ERROR_ENC(sde_enc,
+				"phys encoders not initialized\n");
+			return -EINVAL;
+		}
+
+		phys->hw_pp = sde_enc->hw_pp[i];
+		if (phys->ops.cont_splash_mode_set)
+			phys->ops.cont_splash_mode_set(phys, drm_mode);
+
+		if (phys->ops.is_master && phys->ops.is_master(phys)) {
+			phys->connector = conn;
+			sde_enc->cur_master = phys;
+		}
+	}
+
+	return ret;
 }

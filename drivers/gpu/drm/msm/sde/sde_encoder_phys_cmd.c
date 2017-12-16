@@ -359,6 +359,21 @@ static void _sde_encoder_phys_cmd_setup_irq_hw_idx(
 	irq->irq_idx = -EINVAL;
 }
 
+static void sde_encoder_phys_cmd_cont_splash_mode_set(
+		struct sde_encoder_phys *phys_enc,
+		struct drm_display_mode *adj_mode)
+{
+	if (!phys_enc || !adj_mode) {
+		SDE_ERROR("invalid args\n");
+		return;
+	}
+
+	phys_enc->cached_mode = *adj_mode;
+	phys_enc->enable_state = SDE_ENC_ENABLED;
+
+	_sde_encoder_phys_cmd_setup_irq_hw_idx(phys_enc);
+}
+
 static void sde_encoder_phys_cmd_mode_set(
 		struct sde_encoder_phys *phys_enc,
 		struct drm_display_mode *mode,
@@ -472,6 +487,21 @@ static bool _sde_encoder_phys_is_ppsplit_slave(
 
 	return _sde_encoder_phys_is_ppsplit(phys_enc) &&
 			phys_enc->split_role == ENC_ROLE_SLAVE;
+}
+
+static bool _sde_encoder_phys_is_disabling_ppsplit_slave(
+		struct sde_encoder_phys *phys_enc)
+{
+	enum sde_rm_topology_name old_top;
+
+	if (!phys_enc || !phys_enc->connector ||
+			phys_enc->split_role != ENC_ROLE_SLAVE)
+		return false;
+
+	old_top = sde_connector_get_old_topology_name(
+			phys_enc->connector->state);
+
+	return old_top == SDE_RM_TOPOLOGY_PPSPLIT;
 }
 
 static int _sde_encoder_phys_cmd_poll_write_pointer_started(
@@ -663,7 +693,15 @@ void sde_encoder_phys_cmd_irq_control(struct sde_encoder_phys *phys_enc,
 {
 	struct sde_encoder_phys_cmd *cmd_enc;
 
-	if (!phys_enc || _sde_encoder_phys_is_ppsplit_slave(phys_enc))
+	if (!phys_enc)
+		return;
+
+	/**
+	 * pingpong split slaves do not register for IRQs
+	 * check old and new topologies
+	 */
+	if (_sde_encoder_phys_is_ppsplit_slave(phys_enc) ||
+			_sde_encoder_phys_is_disabling_ppsplit_slave(phys_enc))
 		return;
 
 	cmd_enc = to_sde_encoder_phys_cmd(phys_enc);
@@ -1234,6 +1272,7 @@ static void sde_encoder_phys_cmd_init_ops(
 	ops->prepare_commit = sde_encoder_phys_cmd_prepare_commit;
 	ops->is_master = sde_encoder_phys_cmd_is_master;
 	ops->mode_set = sde_encoder_phys_cmd_mode_set;
+	ops->cont_splash_mode_set = sde_encoder_phys_cmd_cont_splash_mode_set;
 	ops->mode_fixup = sde_encoder_phys_cmd_mode_fixup;
 	ops->enable = sde_encoder_phys_cmd_enable;
 	ops->disable = sde_encoder_phys_cmd_disable;
@@ -1255,6 +1294,7 @@ static void sde_encoder_phys_cmd_init_ops(
 	ops->is_autorefresh_enabled =
 			sde_encoder_phys_cmd_is_autorefresh_enabled;
 	ops->get_line_count = sde_encoder_phys_cmd_get_line_count;
+	ops->wait_for_active = NULL;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_cmd_init(

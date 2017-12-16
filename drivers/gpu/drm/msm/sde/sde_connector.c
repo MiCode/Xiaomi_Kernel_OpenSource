@@ -21,6 +21,7 @@
 #include "dsi_drm.h"
 #include "dsi_display.h"
 #include "sde_crtc.h"
+#include "sde_rm.h"
 
 #define BL_NODE_NAME_SIZE 32
 
@@ -153,7 +154,7 @@ int sde_connector_trigger_event(void *drm_connector,
 {
 	struct sde_connector *c_conn;
 	unsigned long irq_flags;
-	void (*cb_func)(uint32_t event_idx,
+	int (*cb_func)(uint32_t event_idx,
 			uint32_t instance_idx, void *usr,
 			uint32_t data0, uint32_t data1,
 			uint32_t data2, uint32_t data3);
@@ -176,7 +177,7 @@ int sde_connector_trigger_event(void *drm_connector,
 	spin_unlock_irqrestore(&c_conn->event_lock, irq_flags);
 
 	if (cb_func)
-		cb_func(event_idx, instance_idx, usr,
+		rc = cb_func(event_idx, instance_idx, usr,
 			data0, data1, data2, data3);
 	else
 		rc = -EAGAIN;
@@ -186,7 +187,7 @@ int sde_connector_trigger_event(void *drm_connector,
 
 int sde_connector_register_event(struct drm_connector *connector,
 		uint32_t event_idx,
-		void (*cb_func)(uint32_t event_idx,
+		int (*cb_func)(uint32_t event_idx,
 			uint32_t instance_idx, void *usr,
 			uint32_t data0, uint32_t data1,
 			uint32_t data2, uint32_t data3),
@@ -361,6 +362,22 @@ int sde_connector_get_mode_info(struct drm_connector_state *conn_state,
 		sizeof(sde_conn_state->mode_info));
 
 	return 0;
+}
+
+static int sde_connector_handle_disp_recovery(uint32_t event_idx,
+			uint32_t instance_idx, void *usr,
+			uint32_t data0, uint32_t data1,
+			uint32_t data2, uint32_t data3)
+{
+	struct sde_connector *c_conn = usr;
+	int rc = 0;
+
+	if (!c_conn)
+		return -EINVAL;
+
+	rc = sde_kms_handle_recovery(c_conn->encoder);
+
+	return rc;
 }
 
 int sde_connector_get_info(struct drm_connector *connector,
@@ -602,6 +619,8 @@ static void sde_connector_destroy(struct drm_connector *connector)
 		drm_property_unreference_blob(c_conn->blob_hdr);
 	if (c_conn->blob_dither)
 		drm_property_unreference_blob(c_conn->blob_dither);
+	if (c_conn->blob_mode_info)
+		drm_property_unreference_blob(c_conn->blob_mode_info);
 	msm_property_destroy(&c_conn->property_info);
 
 	if (c_conn->bl_device)
@@ -1336,12 +1355,39 @@ static void sde_connector_early_unregister(struct drm_connector *connector)
 	/* debugfs under connector->debugfs are deleted by drm_debugfs */
 }
 
+static int sde_connector_fill_modes(struct drm_connector *connector,
+		uint32_t max_width, uint32_t max_height)
+{
+	int rc, mode_count = 0;
+	struct sde_connector *sde_conn = NULL;
+
+	sde_conn = to_sde_connector(connector);
+	if (!sde_conn) {
+		SDE_ERROR("invalid arguments\n");
+		return 0;
+	}
+
+	mode_count = drm_helper_probe_single_connector_modes(connector,
+			max_width, max_height);
+
+	rc = sde_connector_set_blob_data(connector,
+				connector->state,
+				CONNECTOR_PROP_MODE_INFO);
+	if (rc) {
+		SDE_ERROR_CONN(sde_conn,
+			"failed to setup mode info prop, rc = %d\n", rc);
+		return 0;
+	}
+
+	return mode_count;
+}
+
 static const struct drm_connector_funcs sde_connector_ops = {
 	.dpms =                   sde_connector_dpms,
 	.reset =                  sde_connector_atomic_reset,
 	.detect =                 sde_connector_detect,
 	.destroy =                sde_connector_destroy,
-	.fill_modes =             drm_helper_probe_single_connector_modes,
+	.fill_modes =             sde_connector_fill_modes,
 	.atomic_duplicate_state = sde_connector_atomic_duplicate_state,
 	.atomic_destroy_state =   sde_connector_atomic_destroy_state,
 	.atomic_set_property =    sde_connector_atomic_set_property,
@@ -1354,7 +1400,7 @@ static const struct drm_connector_funcs sde_connector_ops = {
 static int sde_connector_get_modes(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn;
-	int ret = 0;
+	int mode_count = 0;
 
 	if (!connector) {
 		SDE_ERROR("invalid connector\n");
@@ -1366,11 +1412,16 @@ static int sde_connector_get_modes(struct drm_connector *connector)
 		SDE_DEBUG("missing get_modes callback\n");
 		return 0;
 	}
-	ret = c_conn->ops.get_modes(connector, c_conn->display);
-	if (ret)
-		sde_connector_update_hdr_props(connector);
 
-	return ret;
+	mode_count = c_conn->ops.get_modes(connector, c_conn->display);
+	if (!mode_count) {
+		SDE_ERROR_CONN(c_conn, "failed to get modes\n");
+		return 0;
+	}
+
+	sde_connector_update_hdr_props(connector);
+
+	return mode_count;
 }
 
 static enum drm_mode_status
@@ -1467,13 +1518,90 @@ static const struct drm_connector_helper_funcs sde_connector_helper_ops = {
 	.best_encoder = sde_connector_best_encoder,
 };
 
-int sde_connector_set_info(struct drm_connector *conn,
-				struct drm_connector_state *state)
+static int sde_connector_populate_mode_info(struct drm_connector *conn,
+	struct sde_kms_info *info)
+{
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+	struct sde_connector *c_conn = NULL;
+	struct drm_display_mode *mode;
+	struct msm_mode_info mode_info;
+	int rc = 0;
+
+	if (!conn || !conn->dev || !conn->dev->dev_private) {
+		SDE_ERROR("invalid arguments\n");
+		return -EINVAL;
+	}
+
+	priv = conn->dev->dev_private;
+	sde_kms = to_sde_kms(priv->kms);
+
+	c_conn = to_sde_connector(conn);
+	if (!c_conn->ops.get_mode_info) {
+		SDE_ERROR_CONN(c_conn, "get_mode_info not defined\n");
+		return -EINVAL;
+	}
+
+	list_for_each_entry(mode, &conn->modes, head) {
+		int topology_idx = 0;
+
+		memset(&mode_info, 0, sizeof(mode_info));
+
+		rc = c_conn->ops.get_mode_info(mode, &mode_info,
+			sde_kms->catalog->max_mixer_width,
+			c_conn->display);
+		if (rc) {
+			SDE_ERROR_CONN(c_conn,
+				"failed to get mode info for mode %s\n",
+				mode->name);
+			continue;
+		}
+
+		sde_kms_info_add_keystr(info, "mode_name", mode->name);
+
+		topology_idx = (int)sde_rm_get_topology_name(
+							mode_info.topology);
+		if (topology_idx < SDE_RM_TOPOLOGY_MAX) {
+			sde_kms_info_add_keystr(info, "topology",
+					e_topology_name[topology_idx].name);
+		} else {
+			SDE_ERROR_CONN(c_conn, "invalid topology\n");
+			continue;
+		}
+
+		if (!mode_info.roi_caps.num_roi)
+			continue;
+
+		sde_kms_info_add_keyint(info, "partial_update_num_roi",
+			mode_info.roi_caps.num_roi);
+		sde_kms_info_add_keyint(info, "partial_update_xstart",
+			mode_info.roi_caps.align.xstart_pix_align);
+		sde_kms_info_add_keyint(info, "partial_update_walign",
+			mode_info.roi_caps.align.width_pix_align);
+		sde_kms_info_add_keyint(info, "partial_update_wmin",
+			mode_info.roi_caps.align.min_width);
+		sde_kms_info_add_keyint(info, "partial_update_ystart",
+			mode_info.roi_caps.align.ystart_pix_align);
+		sde_kms_info_add_keyint(info, "partial_update_halign",
+			mode_info.roi_caps.align.height_pix_align);
+		sde_kms_info_add_keyint(info, "partial_update_hmin",
+			mode_info.roi_caps.align.min_height);
+		sde_kms_info_add_keyint(info, "partial_update_roimerge",
+			mode_info.roi_caps.merge_rois);
+	}
+
+	return rc;
+}
+
+int sde_connector_set_blob_data(struct drm_connector *conn,
+		struct drm_connector_state *state,
+		enum msm_mdp_conn_property prop_id)
 {
 	struct sde_kms_info *info;
 	struct sde_connector *c_conn = NULL;
 	struct sde_connector_state *sde_conn_state = NULL;
 	struct msm_mode_info mode_info;
+	struct drm_property_blob *blob = NULL;
 	int rc = 0;
 
 	c_conn = to_sde_connector(conn);
@@ -1482,43 +1610,64 @@ int sde_connector_set_info(struct drm_connector *conn,
 		return -EINVAL;
 	}
 
-	if (!c_conn->ops.post_init) {
-		SDE_DEBUG_CONN(c_conn, "post_init not defined\n");
-		return 0;
-	}
-
-	memset(&mode_info, 0, sizeof(mode_info));
-
 	info = kzalloc(sizeof(*info), GFP_KERNEL);
 	if (!info)
 		return -ENOMEM;
 
-	if (state) {
-		sde_conn_state = to_sde_connector_state(state);
-		memcpy(&mode_info, &sde_conn_state->mode_info,
-			sizeof(sde_conn_state->mode_info));
-	} else {
-		/**
-		 * connector state is assigned only on first atomic_commit.
-		 * But this function is allowed to be invoked during
-		 * probe/init sequence. So not throwing an error.
-		 */
-		SDE_DEBUG_CONN(c_conn, "invalid connector state\n");
-	}
-
 	sde_kms_info_reset(info);
-	rc = c_conn->ops.post_init(&c_conn->base, info,
-			c_conn->display, &mode_info);
-	if (rc) {
-		SDE_ERROR_CONN(c_conn, "post-init failed, %d\n", rc);
+
+	switch (prop_id) {
+	case CONNECTOR_PROP_SDE_INFO:
+		memset(&mode_info, 0, sizeof(mode_info));
+
+		if (state) {
+			sde_conn_state = to_sde_connector_state(state);
+			memcpy(&mode_info, &sde_conn_state->mode_info,
+					sizeof(sde_conn_state->mode_info));
+		} else {
+			/**
+			 * connector state is assigned only on first
+			 * atomic_commit. But this function is allowed to be
+			 * invoked during probe/init sequence. So not throwing
+			 * an error.
+			 */
+			SDE_DEBUG_CONN(c_conn, "invalid connector state\n");
+		}
+
+		if (!c_conn->ops.post_init) {
+			SDE_ERROR_CONN(c_conn, "post_init not defined\n");
+			goto exit;
+		}
+
+		rc = c_conn->ops.post_init(conn, info, c_conn->display,
+				&mode_info);
+		if (rc) {
+			SDE_ERROR_CONN(c_conn, "post-init failed, %d\n", rc);
+			goto exit;
+		}
+
+		blob = c_conn->blob_caps;
+	break;
+	case CONNECTOR_PROP_MODE_INFO:
+		rc = sde_connector_populate_mode_info(conn, info);
+		if (rc) {
+			SDE_ERROR_CONN(c_conn,
+					"mode info population failed, %d\n",
+					rc);
+			goto exit;
+		}
+		blob = c_conn->blob_mode_info;
+	break;
+	default:
+		SDE_ERROR_CONN(c_conn, "invalid prop_id: %d\n", prop_id);
 		goto exit;
-	}
+	};
 
 	msm_property_set_blob(&c_conn->property_info,
-			&c_conn->blob_caps,
+			&blob,
 			SDE_KMS_INFO_DATA(info),
 			SDE_KMS_INFO_DATALEN(info),
-			CONNECTOR_PROP_SDE_INFO);
+			prop_id);
 exit:
 	kfree(info);
 
@@ -1636,12 +1785,19 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 			DRM_MODE_PROP_IMMUTABLE,
 			CONNECTOR_PROP_SDE_INFO);
 
-	rc = sde_connector_set_info(&c_conn->base, c_conn->base.state);
+	rc = sde_connector_set_blob_data(&c_conn->base,
+			NULL,
+			CONNECTOR_PROP_SDE_INFO);
 	if (rc) {
 		SDE_ERROR_CONN(c_conn,
 			"failed to setup connector info, rc = %d\n", rc);
 		goto error_cleanup_fence;
 	}
+
+	msm_property_install_blob(&c_conn->property_info,
+			"mode_properties",
+			DRM_MODE_PROP_IMMUTABLE,
+			CONNECTOR_PROP_MODE_INFO);
 
 	if (connector_type == DRM_MODE_CONNECTOR_DSI) {
 		dsi_display = (struct dsi_display *)(display);
@@ -1660,9 +1816,17 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 		}
 	}
 
+	rc = sde_connector_get_info(&c_conn->base, &display_info);
+	if (!rc && (connector_type == DRM_MODE_CONNECTOR_DSI) &&
+			(display_info.capabilities & MSM_DISPLAY_CAP_VID_MODE))
+		sde_connector_register_event(&c_conn->base,
+			SDE_CONN_EVENT_VID_FIFO_OVERFLOW,
+			sde_connector_handle_disp_recovery,
+			c_conn);
+
 	msm_property_install_volatile_range(
-				&c_conn->property_info, "sde_drm_roi_v1", 0x0,
-				0, ~0, 0, CONNECTOR_PROP_ROI_V1);
+			&c_conn->property_info, "sde_drm_roi_v1", 0x0,
+			0, ~0, 0, CONNECTOR_PROP_ROI_V1);
 
 	/* install PP_DITHER properties */
 	_sde_connector_install_dither_property(dev, sde_kms, c_conn);
@@ -1729,6 +1893,8 @@ error_destroy_property:
 		drm_property_unreference_blob(c_conn->blob_hdr);
 	if (c_conn->blob_dither)
 		drm_property_unreference_blob(c_conn->blob_dither);
+	if (c_conn->blob_mode_info)
+		drm_property_unreference_blob(c_conn->blob_mode_info);
 
 	msm_property_destroy(&c_conn->property_info);
 error_cleanup_fence:
