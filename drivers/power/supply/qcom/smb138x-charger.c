@@ -111,6 +111,11 @@ module_param_named(
 	debug_mask, __debug_mask, int, 0600
 );
 
+static int __try_sink_enabled;
+module_param_named(
+	try_sink_enabled, __try_sink_enabled, int, 0600
+);
+
 static irqreturn_t smb138x_handle_slave_chg_state_change(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
@@ -215,6 +220,7 @@ static enum power_supply_property smb138x_usb_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_TYPE,
+	POWER_SUPPLY_PROP_REAL_TYPE,
 	POWER_SUPPLY_PROP_TYPEC_MODE,
 	POWER_SUPPLY_PROP_TYPEC_POWER_ROLE,
 	POWER_SUPPLY_PROP_TYPEC_CC_ORIENTATION,
@@ -250,6 +256,9 @@ static int smb138x_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
 		val->intval = chg->usb_psy_desc.type;
+		break;
+	case POWER_SUPPLY_PROP_REAL_TYPE:
+		val->intval = chg->real_charger_type;
 		break;
 	case POWER_SUPPLY_PROP_TYPEC_MODE:
 		val->intval = chg->typec_mode;
@@ -327,6 +336,120 @@ static int smb138x_init_usb_psy(struct smb138x *chip)
 	if (IS_ERR(chg->usb_psy)) {
 		pr_err("Couldn't register USB power supply\n");
 		return PTR_ERR(chg->usb_psy);
+	}
+
+	return 0;
+}
+
+/*****************************
+ * USB MAIN PSY REGISTRATION *
+ *****************************/
+
+static enum power_supply_property smb138x_usb_main_props[] = {
+	POWER_SUPPLY_PROP_VOLTAGE_MAX,
+	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+	POWER_SUPPLY_PROP_TYPE,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
+	POWER_SUPPLY_PROP_INPUT_VOLTAGE_SETTLED,
+	POWER_SUPPLY_PROP_FCC_DELTA,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
+};
+
+static int smb138x_usb_main_get_prop(struct power_supply *psy,
+		enum power_supply_property psp,
+		union power_supply_propval *val)
+{
+	struct smb138x *chip = power_supply_get_drvdata(psy);
+	struct smb_charger *chg = &chip->chg;
+	int rc = 0;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		rc = smblib_get_charge_param(chg, &chg->param.fv, &val->intval);
+		break;
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+		rc = smblib_get_charge_param(chg, &chg->param.fcc,
+							&val->intval);
+		break;
+	case POWER_SUPPLY_PROP_TYPE:
+		val->intval = POWER_SUPPLY_TYPE_MAIN;
+		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED:
+		rc = smblib_get_prop_input_current_settled(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_SETTLED:
+		rc = smblib_get_prop_input_voltage_settled(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_FCC_DELTA:
+		rc = smblib_get_prop_fcc_delta(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		rc = smblib_get_icl_current(chg, &val->intval);
+		break;
+	default:
+		pr_debug("get prop %d is not supported in usb-main\n", psp);
+		rc = -EINVAL;
+		break;
+	}
+
+	if (rc < 0) {
+		pr_debug("Couldn't get prop %d rc = %d\n", psp, rc);
+		return -ENODATA;
+	}
+	return 0;
+}
+
+static int smb138x_usb_main_set_prop(struct power_supply *psy,
+		enum power_supply_property psp,
+		const union power_supply_propval *val)
+{
+	struct smb138x *chip = power_supply_get_drvdata(psy);
+	struct smb_charger *chg = &chip->chg;
+	int rc = 0;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		rc = smblib_set_charge_param(chg, &chg->param.fv, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+		rc = smblib_set_charge_param(chg, &chg->param.fcc, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		rc = smblib_set_icl_current(chg, val->intval);
+		break;
+	default:
+		rc = -EINVAL;
+		break;
+	}
+
+	if (rc < 0)
+		pr_err("Couldn't set prop %d, rc=%d\n", psp, rc);
+
+	return rc;
+}
+
+static const struct power_supply_desc usb_main_psy_desc = {
+	.name           = "main",
+	.type           = POWER_SUPPLY_TYPE_MAIN,
+	.properties     = smb138x_usb_main_props,
+	.num_properties = ARRAY_SIZE(smb138x_usb_main_props),
+	.get_property   = smb138x_usb_main_get_prop,
+	.set_property   = smb138x_usb_main_set_prop,
+};
+
+static int smb138x_init_usb_main_psy(struct smb138x *chip)
+{
+	struct power_supply_config usb_main_cfg = {};
+	struct smb_charger *chg = &chip->chg;
+
+	usb_main_cfg.drv_data = chip;
+	usb_main_cfg.of_node = chg->dev->of_node;
+	chg->usb_main_psy = devm_power_supply_register(chg->dev,
+						  &usb_main_psy_desc,
+						  &usb_main_cfg);
+	if (IS_ERR(chg->usb_main_psy)) {
+		pr_err("Couldn't register USB main power supply\n");
+		return PTR_ERR(chg->usb_main_psy);
 	}
 
 	return 0;
@@ -992,6 +1115,17 @@ static int smb138x_init_hw(struct smb138x *chip)
 		return rc;
 	}
 
+	/* enable usb-src-change interrupt sources */
+	rc = smblib_masked_write(chg, USBIN_SOURCE_CHANGE_INTRPT_ENB_REG,
+				APSD_IRQ_EN_CFG_BIT | HVDCP_IRQ_EN_CFG_BIT
+			      | AUTH_IRQ_EN_CFG_BIT | VADP_IRQ_EN_CFG_BIT,
+				APSD_IRQ_EN_CFG_BIT | HVDCP_IRQ_EN_CFG_BIT
+			      | AUTH_IRQ_EN_CFG_BIT | VADP_IRQ_EN_CFG_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't configure Type-C interrupts rc=%d\n", rc);
+		return rc;
+	}
+
 	/* configure to a fixed 700khz freq to avoid tdie errors */
 	rc = smblib_set_charge_param(chg, &chg->param.freq_buck, 700);
 	if (rc < 0) {
@@ -1173,7 +1307,7 @@ static struct smb_irq_info smb138x_irqs[] = {
 	},
 	[OTG_OVERCURRENT_IRQ] = {
 		.name		= "otg-overcurrent",
-		.handler	= smblib_handle_debug,
+		.handler	= smblib_handle_otg_overcurrent,
 	},
 	[OTG_OC_DIS_SW_STS_IRQ] = {
 		.name		= "otg-oc-dis-sw-sts",
@@ -1388,6 +1522,21 @@ static int smb138x_request_interrupts(struct smb138x *chip)
 	return rc;
 }
 
+static void smb138x_free_interrupts(struct smb_charger *chg)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(smb138x_irqs); i++) {
+		if (smb138x_irqs[i].irq > 0) {
+			if (smb138x_irqs[i].wake)
+				disable_irq_wake(smb138x_irqs[i].irq);
+
+			devm_free_irq(chg->dev, smb138x_irqs[i].irq,
+					smb138x_irqs[i].irq_data);
+		}
+	}
+}
+
 /*********
  * PROBE *
  *********/
@@ -1467,6 +1616,12 @@ static int smb138x_master_probe(struct smb138x *chip)
 		goto cleanup;
 	}
 
+	rc = smb138x_init_usb_main_psy(chip);
+	if (rc < 0) {
+		pr_err("Couldn't initialize main usb psy rc=%d\n", rc);
+		goto cleanup;
+	}
+
 	rc = smb138x_init_batt_psy(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize batt psy rc=%d\n", rc);
@@ -1495,7 +1650,9 @@ static int smb138x_master_probe(struct smb138x *chip)
 	return rc;
 
 cleanup:
+	smb138x_free_interrupts(chg);
 	smblib_deinit(chg);
+
 	return rc;
 }
 
@@ -1614,6 +1771,7 @@ static int smb138x_probe(struct platform_device *pdev)
 
 	chip->chg.dev = &pdev->dev;
 	chip->chg.debug_mask = &__debug_mask;
+	chip->chg.try_sink_enabled = &__try_sink_enabled;
 	chip->chg.irq_info = smb138x_irqs;
 	chip->chg.name = "SMB";
 
