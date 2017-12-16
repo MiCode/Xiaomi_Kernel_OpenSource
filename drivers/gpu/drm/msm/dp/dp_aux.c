@@ -332,12 +332,22 @@ static void dp_aux_transfer_helper(struct dp_aux_private *aux,
 	struct drm_dp_aux_msg helper_msg;
 	u32 const message_size = 0x10;
 	u32 const segment_address = 0x30;
+	u32 const edid_block_length = 0x80;
 	bool i2c_mot = input_msg->request & DP_AUX_I2C_MOT;
 	bool i2c_read = input_msg->request &
 		(DP_AUX_I2C_READ & DP_AUX_NATIVE_READ);
 
 	if (!i2c_mot || !i2c_read || (input_msg->size == 0))
 		return;
+
+	/*
+	 * Sending the segment value and EDID offset will be performed
+	 * from the DRM upstream EDID driver for each block. Avoid
+	 * duplicate AUX transactions related to this while reading the
+	 * first 16 bytes of each block.
+	 */
+	if (!(aux->offset % edid_block_length))
+		goto end;
 
 	aux->read = false;
 	aux->cmd_busy = true;
@@ -371,6 +381,7 @@ static void dp_aux_transfer_helper(struct dp_aux_private *aux,
 	helper_msg.buffer = &aux->offset;
 	helper_msg.size = 1;
 	dp_aux_cmd_fifo_tx(aux, &helper_msg);
+end:
 	aux->offset += message_size;
 
 	if (aux->offset == 0x80 || aux->offset == 0x100)
