@@ -964,6 +964,41 @@ next:
 	update_group_capacity(sd, cpu);
 }
 
+#define cap_state_power(s,i) (s->cap_states[i].power)
+#define cap_state_cap(s,i) (s->cap_states[i].cap)
+#define idle_state_power(s,i) (s->idle_states[i].power)
+
+static inline int sched_group_energy_equal(const struct sched_group_energy *a,
+		const struct sched_group_energy *b)
+{
+	int i;
+
+	/* check pointers first */
+	if (a == b)
+		return true;
+
+	/* check contents are equivalent */
+	if (a->nr_cap_states != b->nr_cap_states)
+		return false;
+	if (a->nr_idle_states != b->nr_idle_states)
+		return false;
+	for (i=0;i<a->nr_cap_states;i++){
+		if (cap_state_power(a,i) !=
+			cap_state_power(b,i))
+			return false;
+		if (cap_state_cap(a,i) !=
+			cap_state_cap(b,i))
+			return false;
+	}
+	for (i=0;i<a->nr_idle_states;i++){
+		if (idle_state_power(a,i) !=
+			idle_state_power(b,i))
+			return false;
+	}
+
+	return true;
+}
+
 #define energy_eff(e, n) \
     ((e->cap_states[n].cap << SCHED_CAPACITY_SHIFT)/e->cap_states[n].power)
 
@@ -1009,7 +1044,7 @@ static void init_sched_groups_energy(int cpu, struct sched_domain *sd,
 		cpumask_xor(&mask, sched_group_span(sg), get_cpu_mask(cpu));
 
 		for_each_cpu(i, &mask)
-			BUG_ON(sge != fn(i));
+			BUG_ON(!sched_group_energy_equal(sge,fn(i)));
 	}
 
 	/* Check that energy efficiency (capacity/power) is monotonically

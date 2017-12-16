@@ -22,6 +22,7 @@
 #include <linux/string.h>
 #include <linux/sched/topology.h>
 #include <linux/cpuset.h>
+#include <linux/sched_energy.h>
 
 DEFINE_PER_CPU(unsigned long, freq_scale) = SCHED_CAPACITY_SCALE;
 
@@ -71,6 +72,10 @@ static ssize_t cpu_capacity_store(struct device *dev,
 
 	if (!count)
 		return 0;
+
+	/* don't allow changes if sched-group-energy is installed */
+	if(sched_energy_installed(this_cpu))
+		return -EINVAL;
 
 	ret = kstrtoul(buf, 0, &new_capacity);
 	if (ret)
@@ -352,14 +357,19 @@ void topology_normalize_cpu_scale(void)
 bool __init topology_parse_cpu_capacity(struct device_node *cpu_node, int cpu)
 {
 	static bool cap_parsing_failed;
-	int ret;
+	int ret = 0;
 	u32 cpu_capacity;
 
 	if (cap_parsing_failed)
 		return false;
 
-	ret = of_property_read_u32(cpu_node, "capacity-dmips-mhz",
+	/* override capacity-dmips-mhz if we have sched-energy-costs */
+	if (of_find_property(cpu_node, "sched-energy-costs", NULL))
+		cpu_capacity = topology_get_cpu_scale(NULL, cpu);
+	else
+		ret = of_property_read_u32(cpu_node, "capacity-dmips-mhz",
 				   &cpu_capacity);
+
 	if (!ret) {
 		if (!raw_capacity) {
 			raw_capacity = kcalloc(num_possible_cpus(),
