@@ -1298,6 +1298,19 @@
 				};
 			};
 		};
+
+		smb_int_default: smb_int_default {
+			mux {
+				pins = "gpio42";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio42";
+				drive-strength = <2>;
+				bias-pull-up;
+				input-enable;
+			};
+		};
 	};
 };
 

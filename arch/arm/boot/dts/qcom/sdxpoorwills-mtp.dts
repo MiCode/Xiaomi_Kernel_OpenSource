@@ -105,3 +105,24 @@
 		qcom,vadc-thermal-node;
 	};
 };
+
+&i2c_3 {
+	status = "okay";
+	#include "smb138x.dtsi"
+};
+
+&smb138x {
+	pinctrl-names = "default";
+	pinctrl-0 = <&smb_int_default>;
+	interrupt-parent = <&tlmm>;
+	interrupts = <42 IRQ_TYPE_LEVEL_LOW>;
+
+	smb1381_charger: qcom,smb1381-charger@1000 {
+		compatible = "qcom,smb138x-charger";
+		qcom,use-extcon;
+	};
+};
+
+&smb138x_vbus {
+	status = "okay";
+};
