@@ -1040,7 +1040,7 @@ static int _sde_encoder_phys_wb_init_internal_fb(
 
 	size = sde_format_get_framebuffer_size(pixel_format,
 			mode_cmd.width, mode_cmd.height,
-			mode_cmd.pitches, NULL, 0);
+			mode_cmd.pitches, 0);
 	if (!size) {
 		SDE_DEBUG("not creating zero size buffer\n");
 		return -EINVAL;

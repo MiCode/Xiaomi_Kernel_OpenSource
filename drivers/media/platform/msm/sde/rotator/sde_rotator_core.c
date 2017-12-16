@@ -28,6 +28,7 @@
 #include <soc/qcom/scm.h>
 #include <soc/qcom/secure_buffer.h>
 #include <asm/cacheflush.h>
+#include <uapi/linux/sched/types.h>
 
 #include "sde_rotator_base.h"
 #include "sde_rotator_core.h"

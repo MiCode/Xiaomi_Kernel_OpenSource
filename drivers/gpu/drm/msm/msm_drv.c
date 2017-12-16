@@ -39,6 +39,7 @@
 
 #include <linux/of_address.h>
 #include <linux/kthread.h>
+#include <uapi/linux/sched/types.h>
 #include <drm/drm_of.h>
 #include "msm_drv.h"
 #include "msm_debugfs.h"
@@ -332,7 +333,6 @@ static int msm_drm_uninit(struct device *dev)
 	drm_kms_helper_poll_fini(ddev);
 
 	drm_mode_config_cleanup(ddev);
-	drm_vblank_cleanup(ddev);
 
 	if (priv->registered) {
 		drm_dev_unregister(ddev);
@@ -1340,7 +1340,6 @@ static int msm_ioctl_register_event(struct drm_device *dev, void *data,
 		return -ENOMEM;
 
 	client->base.file_priv = file;
-	client->base.pid = current->pid;
 	client->base.event = &client->event;
 	client->event.type = req_event->event;
 	memcpy(&client->info, req_event, sizeof(client->info));
@@ -1452,7 +1451,6 @@ void msm_mode_object_event_notify(struct drm_mode_object *obj,
 			continue;
 		notify->base.file_priv = node->base.file_priv;
 		notify->base.event = &notify->event;
-		notify->base.pid = node->base.pid;
 		notify->event.type = node->event.type;
 		notify->event.length = event->length +
 					sizeof(struct drm_msm_event_resp);

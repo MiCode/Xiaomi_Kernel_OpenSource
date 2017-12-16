@@ -2239,7 +2239,7 @@ static void sde_crtc_vblank_cb(void *data)
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 
 	/* keep statistics on vblank callback - with auto reset via debugfs */
-	if (ktime_equal(sde_crtc->vblank_cb_time, ktime_set(0, 0)))
+	if (ktime_compare(sde_crtc->vblank_cb_time, ktime_set(0, 0)) == 0)
 		sde_crtc->vblank_cb_time = ktime_get();
 	else
 		sde_crtc->vblank_cb_count++;
@@ -4152,7 +4152,8 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	mutex_unlock(&sde_crtc->crtc_lock);
 }
 
-static void sde_crtc_enable(struct drm_crtc *crtc)
+static void sde_crtc_enable(struct drm_crtc *crtc,
+		struct drm_crtc_state *old_crtc_state)
 {
 	struct sde_crtc *sde_crtc;
 	struct drm_encoder *encoder;
@@ -5578,7 +5579,7 @@ static const struct drm_crtc_funcs sde_crtc_funcs = {
 static const struct drm_crtc_helper_funcs sde_crtc_helper_funcs = {
 	.mode_fixup = sde_crtc_mode_fixup,
 	.disable = sde_crtc_disable,
-	.enable = sde_crtc_enable,
+	.atomic_enable = sde_crtc_enable,
 	.atomic_check = sde_crtc_atomic_check,
 	.atomic_begin = sde_crtc_atomic_begin,
 	.atomic_flush = sde_crtc_atomic_flush,

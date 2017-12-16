@@ -3877,7 +3877,7 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 	psde->catalog = catalog;
 
 	if (sde_is_custom_client()) {
-		if (catalog->mixer_count && catalog->mixer &&
+		if (catalog->mixer_count &&
 				catalog->mixer[0].sblk->maxblendstages) {
 			zpos_max = catalog->mixer[0].sblk->maxblendstages - 1;
 			if (zpos_max > SDE_STAGE_MAX - SDE_STAGE_0 - 1)
@@ -4886,7 +4886,7 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 		type = DRM_PLANE_TYPE_OVERLAY;
 	ret = drm_universal_plane_init(dev, plane, 0xff, &sde_plane_funcs,
 				psde->formats, psde->nformats,
-				type, NULL);
+				NULL, type, NULL);
 	if (ret)
 		goto clean_sspp;
 

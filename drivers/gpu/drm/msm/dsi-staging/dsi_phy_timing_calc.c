@@ -39,7 +39,7 @@ static int calc_clk_prepare(struct dsi_phy_hw *phy,
 			    s32 *actual_frac,
 			    s64 *actual_intermediate)
 {
-	u64 const multiplier = BIT(20);
+	u64 multiplier = BIT(20);
 	struct timing_entry *t = &desc->clk_prepare;
 	int rc = 0;
 	u64 dividend, temp, temp_multiple;
@@ -196,7 +196,7 @@ static int calc_hs_prepare(struct dsi_phy_hw *phy,
 			struct phy_timing_desc *desc,
 			u64 *temp_mul)
 {
-	u64 const multiplier = BIT(20);
+	u64 multiplier = BIT(20);
 	int rc = 0;
 	struct timing_entry *t = &desc->hs_prepare;
 	u64 temp_multiple, dividend, temp;
