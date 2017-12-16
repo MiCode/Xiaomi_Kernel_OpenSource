@@ -97,7 +97,9 @@ void sde_irq_preinstall(struct msm_kms *kms)
 
 	sde_core_irq_preinstall(sde_kms);
 
-	sde_kms->irq_num = platform_get_irq(sde_kms->dev->platformdev, 0);
+	sde_kms->irq_num = platform_get_irq(
+				to_platform_device(sde_kms->dev->dev),
+				0);
 	if (sde_kms->irq_num < 0) {
 		SDE_ERROR("invalid irq number %d\n", sde_kms->irq_num);
 		return;
