@@ -33,6 +33,7 @@ enum ion_heap_ids {
 	ION_CP_MFC_HEAP_ID = 12,
 	ION_SPSS_HEAP_ID = 13, /* Secure Processor ION heap */
 	ION_CP_WB_HEAP_ID = 16, /* 8660 only */
+	ION_QSECOM_TA_HEAP_ID = 19,
 	ION_CAMERA_HEAP_ID = 20, /* 8660 only */
 	ION_SYSTEM_CONTIG_HEAP_ID = 21,
 	ION_ADSP_HEAP_ID = 22,
@@ -130,6 +131,7 @@ enum cp_mem_usage {
 #define ION_PIL1_HEAP_NAME  "pil_1"
 #define ION_PIL2_HEAP_NAME  "pil_2"
 #define ION_QSECOM_HEAP_NAME	"qsecom"
+#define ION_QSECOM_TA_HEAP_NAME	"qsecom_ta"
 #define ION_SECURE_HEAP_NAME	"secure_heap"
 #define ION_SECURE_DISPLAY_HEAP_NAME "secure_display"
 
