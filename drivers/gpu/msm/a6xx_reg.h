@@ -405,6 +405,7 @@
 #define A6XX_RBBM_SECVID_TSB_ADDR_MODE_CNTL      0xF810
 
 #define A6XX_RBBM_VBIF_CLIENT_QOS_CNTL   0x00010
+#define A6XX_RBBM_GPR0_CNTL              0x00018
 #define A6XX_RBBM_INTERFACE_HANG_INT_CNTL 0x0001f
 #define A6XX_RBBM_INT_CLEAR_CMD          0x00037
 #define A6XX_RBBM_INT_0_MASK             0x00038
@@ -809,7 +810,7 @@
 /* GBIF registers */
 #define A6XX_GBIF_HALT                    0x3c45
 #define A6XX_GBIF_HALT_ACK                0x3c46
-#define A6XX_GBIF_HALT_MASK               0x1
+#define A6XX_GBIF_HALT_MASK               0x2
 
 #define A6XX_GBIF_PERF_PWR_CNT_EN         0x3cc0
 #define A6XX_GBIF_PERF_CNT_SEL            0x3cc2
