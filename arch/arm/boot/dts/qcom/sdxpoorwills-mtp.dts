@@ -126,3 +126,8 @@
 &smb138x_vbus {
 	status = "okay";
 };
+
+&usb {
+	status = "okay";
+	extcon = <&smb1381_charger>;
+};

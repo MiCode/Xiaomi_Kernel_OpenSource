@@ -47,6 +47,7 @@
 
 		resets = <&clock_gcc GCC_USB30_BCR>;
 		reset-names = "core_reset";
+		status = "disabled";
 
 		qcom,msm-bus,name = "usb";
 		qcom,msm-bus,num-cases = <2>;
