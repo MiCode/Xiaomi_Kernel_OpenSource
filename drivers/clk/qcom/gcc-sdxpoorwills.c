@@ -1340,19 +1340,6 @@ static struct clk_gate2 gcc_mss_gpll0_div_clk_src = {
 	},
 };
 
-static struct clk_branch gcc_mss_snoc_axi_clk = {
-	.halt_reg = 0x40148,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x40148,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_mss_snoc_axi_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch gcc_pcie_0_clkref_clk = {
 	.halt_reg = 0x88004,
 	.halt_check = BRANCH_HALT,
@@ -1806,7 +1793,6 @@ static struct clk_regmap *gcc_sdxpoorwills_clocks[] = {
 	[GCC_GP3_CLK_SRC] = &gcc_gp3_clk_src.clkr,
 	[GCC_MSS_CFG_AHB_CLK] = &gcc_mss_cfg_ahb_clk.clkr,
 	[GCC_MSS_GPLL0_DIV_CLK_SRC] = &gcc_mss_gpll0_div_clk_src.clkr,
-	[GCC_MSS_SNOC_AXI_CLK] = &gcc_mss_snoc_axi_clk.clkr,
 	[GCC_PCIE_0_CLKREF_CLK] = &gcc_pcie_0_clkref_clk.clkr,
 	[GCC_PCIE_AUX_CLK] = &gcc_pcie_aux_clk.clkr,
 	[GCC_PCIE_AUX_PHY_CLK_SRC] = &gcc_pcie_aux_phy_clk_src.clkr,
