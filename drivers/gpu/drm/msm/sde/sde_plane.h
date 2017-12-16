@@ -209,10 +209,12 @@ bool is_sde_plane_virtual(struct drm_plane *plane);
  * sde_plane_confirm_hw_rsvps - reserve an sbuf resource, if needed
  * @plane: Pointer to DRM plane object
  * @state: Pointer to plane state
+ * @cstate: Pointer to crtc state containing the resource pool
  * Returns: Zero on success
  */
 int sde_plane_confirm_hw_rsvps(struct drm_plane *plane,
-		const struct drm_plane_state *state);
+		const struct drm_plane_state *state,
+		struct drm_crtc_state *cstate);
 
 /**
  * sde_plane_ctl_flush - set/clear control flush mask
