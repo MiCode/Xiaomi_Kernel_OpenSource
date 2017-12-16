@@ -1729,7 +1729,7 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 		if (ptr_svc->svc.listener_id != lstnr) {
 			pr_warn("Service requested does not exist\n");
 			__qseecom_qseos_fail_return_resp_tz(data, resp,
-					&send_data_rsp, ptr_svc, lstnr);
+					&send_data_rsp, NULL, lstnr);
 			return -ERESTARTSYS;
 		}
 		pr_debug("waking up rcv_req_wq and waiting for send_resp_wq\n");
