@@ -846,7 +846,7 @@ static void sde_hw_sspp_setup_ts_prefill(struct sde_hw_pipe *ctx,
 
 	cap = ctx->cap;
 
-	if (index == SDE_SSPP_RECT_0 &&
+	if ((index == SDE_SSPP_RECT_SOLO || index == SDE_SSPP_RECT_0) &&
 			test_bit(SDE_SSPP_TS_PREFILL, &cap->features)) {
 		ts_offset = SSPP_TRAFFIC_SHAPER;
 		ts_prefill_offset = SSPP_TRAFFIC_SHAPER_PREFILL;
@@ -855,6 +855,7 @@ static void sde_hw_sspp_setup_ts_prefill(struct sde_hw_pipe *ctx,
 		ts_offset = SSPP_TRAFFIC_SHAPER_REC1;
 		ts_prefill_offset = SSPP_TRAFFIC_SHAPER_REC1_PREFILL;
 	} else {
+		pr_err("%s: unexpected idx:%d\n", __func__, index);
 		return;
 	}
 
@@ -888,12 +889,14 @@ static void sde_hw_sspp_setup_cdp(struct sde_hw_pipe *ctx,
 	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx))
 		return;
 
-	if (index == SDE_SSPP_RECT_0)
+	if (index == SDE_SSPP_RECT_SOLO || index == SDE_SSPP_RECT_0) {
 		cdp_cntl_offset = SSPP_CDP_CNTL;
-	else if (index == SDE_SSPP_RECT_1)
+	} else if (index == SDE_SSPP_RECT_1) {
 		cdp_cntl_offset = SSPP_CDP_CNTL_REC1;
-	else
+	} else {
+		pr_err("%s: unexpected idx:%d\n", __func__, index);
 		return;
+	}
 
 	if (cfg->enable)
 		cdp_cntl |= BIT(0);
