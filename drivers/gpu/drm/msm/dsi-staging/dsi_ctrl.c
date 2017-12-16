@@ -940,6 +940,62 @@ static void dsi_ctrl_wait_for_video_done(struct dsi_ctrl *dsi_ctrl)
 	udelay(sleep_ms * 1000);
 }
 
+void dsi_message_setup_tx_mode(struct dsi_ctrl *dsi_ctrl,
+		u32 cmd_len,
+		u32 *flags)
+{
+	/**
+	 * Setup the mode of transmission
+	 * override cmd fetch mode during secure session
+	 */
+	if (dsi_ctrl->secure_mode) {
+		*flags &= ~DSI_CTRL_CMD_FETCH_MEMORY;
+		*flags |= DSI_CTRL_CMD_FIFO_STORE;
+		pr_debug("[%s] override to TPG during secure session\n",
+				dsi_ctrl->name);
+		return;
+	}
+
+	/* Check to see if cmd len plus header is greater than fifo size */
+	if ((cmd_len + 4) > DSI_EMBEDDED_MODE_DMA_MAX_SIZE_BYTES) {
+		*flags |= DSI_CTRL_CMD_NON_EMBEDDED_MODE;
+		pr_debug("[%s] override to non-embedded mode,cmd len =%d\n",
+				dsi_ctrl->name, cmd_len);
+		return;
+	}
+}
+
+int dsi_message_validate_tx_mode(struct dsi_ctrl *dsi_ctrl,
+		u32 cmd_len,
+		u32 *flags)
+{
+	int rc = 0;
+
+	if (*flags & DSI_CTRL_CMD_FIFO_STORE) {
+		/* if command size plus header is greater than fifo size */
+		if ((cmd_len + 4) > DSI_CTRL_MAX_CMD_FIFO_STORE_SIZE) {
+			pr_err("Cannot transfer Cmd in FIFO config\n");
+			return -ENOTSUPP;
+		}
+		if (!dsi_ctrl->hw.ops.kickoff_fifo_command) {
+			pr_err("Cannot transfer command,ops not defined\n");
+			return -ENOTSUPP;
+		}
+	}
+
+	if (*flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
+		if (*flags & DSI_CTRL_CMD_BROADCAST) {
+			pr_err("Non embedded not supported with broadcast\n");
+			return -ENOTSUPP;
+		}
+		if (!dsi_ctrl->hw.ops.kickoff_command_non_embedded_mode) {
+			pr_err(" Cannot transfer command,ops not defined\n");
+			return -ENOTSUPP;
+		}
+	}
+	return rc;
+}
+
 static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 			  const struct mipi_dsi_msg *msg,
 			  u32 flags)
@@ -955,27 +1011,39 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 	u8 *cmdbuf;
 	struct dsi_mode_info *timing;
 
-	/* override cmd fetch mode during secure session */
-	if (dsi_ctrl->secure_mode) {
-		flags &= ~DSI_CTRL_CMD_FETCH_MEMORY;
-		flags |= DSI_CTRL_CMD_FIFO_STORE;
-		pr_debug("[%s] override to TPG during secure session\n",
-				dsi_ctrl->name);
+	/* Select the tx mode to transfer the command */
+	dsi_message_setup_tx_mode(dsi_ctrl, msg->tx_len, &flags);
+
+	/* Validate the mode before sending the command */
+	rc = dsi_message_validate_tx_mode(dsi_ctrl, msg->tx_len, &flags);
+	if (rc) {
+		pr_err(" Cmd tx validation failed, cannot transfer cmd\n");
+		rc = -ENOTSUPP;
+		goto error;
+	}
+
+	if (flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
+		cmd_mem.offset = dsi_ctrl->cmd_buffer_iova;
+		cmd_mem.en_broadcast = (flags & DSI_CTRL_CMD_BROADCAST) ?
+			true : false;
+		cmd_mem.is_master = (flags & DSI_CTRL_CMD_BROADCAST_MASTER) ?
+			true : false;
+		cmd_mem.use_lpm = (msg->flags & MIPI_DSI_MSG_USE_LPM) ?
+			true : false;
+		cmd_mem.datatype = msg->type;
+		cmd_mem.length = msg->tx_len;
+
+		dsi_ctrl->cmd_len = msg->tx_len;
+		memcpy(dsi_ctrl->vaddr, msg->tx_buf, msg->tx_len);
+		pr_debug(" non-embedded mode , size of command =%zd\n",
+					msg->tx_len);
+
+		goto kickoff;
 	}
 
 	rc = mipi_dsi_create_packet(&packet, msg);
 	if (rc) {
 		pr_err("Failed to create message packet, rc=%d\n", rc);
-		goto error;
-	}
-
-	/* fail cmds more than the supported size in TPG mode */
-	if ((flags & DSI_CTRL_CMD_FIFO_STORE) &&
-			(msg->tx_len > DSI_CTRL_MAX_CMD_FIFO_STORE_SIZE)) {
-		pr_err("[%s] TPG cmd size:%zd not supported, secure:%d\n",
-				dsi_ctrl->name, msg->tx_len,
-				dsi_ctrl->secure_mode);
-		rc = -ENOTSUPP;
 		goto error;
 	}
 
@@ -993,6 +1061,7 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 		buffer[3] |= BIT(7);//set the last cmd bit in header.
 
 	if (flags & DSI_CTRL_CMD_FETCH_MEMORY) {
+		/* Embedded mode config is selected */
 		cmd_mem.offset = dsi_ctrl->cmd_buffer_iova;
 		cmd_mem.en_broadcast = (flags & DSI_CTRL_CMD_BROADCAST) ?
 			true : false;
@@ -1006,6 +1075,7 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 		for (cnt = 0; cnt < length; cnt++)
 			cmdbuf[dsi_ctrl->cmd_len + cnt] = buffer[cnt];
 
+		msm_gem_sync(dsi_ctrl->tx_cmd_buf);
 		dsi_ctrl->cmd_len += length;
 
 		if (!(msg->flags & MIPI_DSI_MSG_LASTCOMMAND)) {
@@ -1026,6 +1096,7 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 				  true : false;
 	}
 
+kickoff:
 	timing = &(dsi_ctrl->host_config.video_timing);
 	if (timing)
 		line_no += timing->v_back_porch + timing->v_sync_width +
@@ -1045,9 +1116,18 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 
 	if (flags & DSI_CTRL_CMD_DEFER_TRIGGER) {
 		if (flags & DSI_CTRL_CMD_FETCH_MEMORY) {
-			dsi_ctrl->hw.ops.kickoff_command(&dsi_ctrl->hw,
+			if (flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
+				dsi_ctrl->hw.ops.
+					kickoff_command_non_embedded_mode(
+							&dsi_ctrl->hw,
 							&cmd_mem,
 							hw_flags);
+			} else {
+				dsi_ctrl->hw.ops.kickoff_command(
+						&dsi_ctrl->hw,
+						&cmd_mem,
+						hw_flags);
+			}
 		} else if (flags & DSI_CTRL_CMD_FIFO_STORE) {
 			dsi_ctrl->hw.ops.kickoff_fifo_command(&dsi_ctrl->hw,
 							      &cmd,
@@ -1065,9 +1145,18 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 		reinit_completion(&dsi_ctrl->irq_info.cmd_dma_done);
 
 		if (flags & DSI_CTRL_CMD_FETCH_MEMORY) {
-			dsi_ctrl->hw.ops.kickoff_command(&dsi_ctrl->hw,
-						      &cmd_mem,
-						      hw_flags);
+			if (flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
+				dsi_ctrl->hw.ops.
+					kickoff_command_non_embedded_mode(
+							&dsi_ctrl->hw,
+							&cmd_mem,
+							hw_flags);
+			} else {
+				dsi_ctrl->hw.ops.kickoff_command(
+						&dsi_ctrl->hw,
+						&cmd_mem,
+						hw_flags);
+			}
 		} else if (flags & DSI_CTRL_CMD_FIFO_STORE) {
 			dsi_ctrl->hw.ops.kickoff_fifo_command(&dsi_ctrl->hw,
 							      &cmd,
@@ -1106,6 +1195,16 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 			dsi_ctrl->hw.ops.mask_error_intr(&dsi_ctrl->hw,
 					BIT(DSI_FIFO_OVERFLOW), false);
 		dsi_ctrl->hw.ops.reset_cmd_fifo(&dsi_ctrl->hw);
+
+		/*
+		 * DSI 2.2 needs a soft reset whenever we send non-embedded
+		 * mode command followed by embedded mode. Otherwise it will
+		 * result in smmu write faults with DSI as client.
+		 */
+		if (flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
+			dsi_ctrl->hw.ops.soft_reset(&dsi_ctrl->hw);
+			dsi_ctrl->cmd_len = 0;
+		}
 	}
 error:
 	if (buffer)
@@ -2124,6 +2223,8 @@ static irqreturn_t dsi_ctrl_isr(int irq, void *ptr)
 	if (dsi_ctrl->hw.ops.clear_interrupt_status)
 		dsi_ctrl->hw.ops.clear_interrupt_status(&dsi_ctrl->hw, 0x0);
 
+	SDE_EVT32_IRQ(dsi_ctrl->cell_index, status, errors);
+
 	/* handle DSI error recovery */
 	if (status & DSI_ERROR)
 		dsi_ctrl_handle_error_status(dsi_ctrl, errors);
@@ -2183,7 +2284,7 @@ static irqreturn_t dsi_ctrl_isr(int irq, void *ptr)
  * @dsi_ctrl: Pointer to associated dsi_ctrl structure
  * Returns: Zero on success
  */
-static int dsi_ctrl_setup_isr(struct dsi_ctrl *dsi_ctrl)
+static int _dsi_ctrl_setup_isr(struct dsi_ctrl *dsi_ctrl)
 {
 	int irq_num, rc;
 
@@ -2377,8 +2478,6 @@ int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl, bool is_splash_enabled)
 		}
 	}
 
-	dsi_ctrl_setup_isr(dsi_ctrl);
-
 	dsi_ctrl->hw.ops.enable_status_interrupts(&dsi_ctrl->hw, 0x0);
 	dsi_ctrl->hw.ops.enable_error_interrupts(&dsi_ctrl->hw, 0xFF00E0);
 
@@ -2388,6 +2487,25 @@ int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl, bool is_splash_enabled)
 error:
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
 	return rc;
+}
+
+/**
+ * dsi_ctrl_isr_configure() - API to register/deregister dsi isr
+ * @dsi_ctrl:              DSI controller handle.
+ * @enable:		   variable to control register/deregister isr
+ */
+void dsi_ctrl_isr_configure(struct dsi_ctrl *dsi_ctrl, bool enable)
+{
+	if (!dsi_ctrl)
+		return;
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	if (enable)
+		_dsi_ctrl_setup_isr(dsi_ctrl);
+	else
+		_dsi_ctrl_destroy_isr(dsi_ctrl);
+
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
 }
 
 int dsi_ctrl_soft_reset(struct dsi_ctrl *dsi_ctrl)
@@ -2464,8 +2582,6 @@ int dsi_ctrl_host_deinit(struct dsi_ctrl *dsi_ctrl)
 	}
 
 	mutex_lock(&dsi_ctrl->ctrl_lock);
-
-	_dsi_ctrl_destroy_isr(dsi_ctrl);
 
 	rc = dsi_ctrl_check_state(dsi_ctrl, DSI_CTRL_OP_HOST_INIT, 0x0);
 	if (rc) {
@@ -2682,6 +2798,11 @@ int dsi_ctrl_cmd_tx_trigger(struct dsi_ctrl *dsi_ctrl, u32 flags)
 		if (dsi_ctrl->hw.ops.mask_error_intr)
 			dsi_ctrl->hw.ops.mask_error_intr(&dsi_ctrl->hw,
 					BIT(DSI_FIFO_OVERFLOW), false);
+
+		if (flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
+			dsi_ctrl->hw.ops.soft_reset(&dsi_ctrl->hw);
+			dsi_ctrl->cmd_len = 0;
+		}
 	}
 
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
@@ -3149,6 +3270,28 @@ u32 dsi_ctrl_collect_misr(struct dsi_ctrl *dsi_ctrl)
 		dsi_ctrl->cell_index, dsi_ctrl->misr_cache, misr);
 
 	return misr;
+}
+
+/**
+ * dsi_ctrl_irq_update() - Put a irq vote to process DSI error
+ *				interrupts at any time.
+ * @dsi_ctrl:              DSI controller handle.
+ * @enable:		   variable to enable/disable irq
+ */
+void dsi_ctrl_irq_update(struct dsi_ctrl *dsi_ctrl, bool enable)
+{
+	if (!dsi_ctrl)
+		return;
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	if (enable)
+		dsi_ctrl_enable_status_interrupt(dsi_ctrl,
+					DSI_SINT_ERROR, NULL);
+	else
+		dsi_ctrl_disable_status_interrupt(dsi_ctrl,
+					DSI_SINT_ERROR);
+
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
 }
 
 /**

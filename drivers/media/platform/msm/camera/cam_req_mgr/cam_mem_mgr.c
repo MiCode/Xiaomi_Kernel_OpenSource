@@ -768,7 +768,10 @@ static int cam_mem_mgr_cleanup_table(void)
 		}
 
 		mutex_lock(&tbl.bufq[i].q_lock);
-		ion_free(tbl.client, tbl.bufq[i].i_hdl);
+		if (tbl.bufq[i].i_hdl) {
+			ion_free(tbl.client, tbl.bufq[i].i_hdl);
+			tbl.bufq[i].i_hdl = NULL;
+		}
 		tbl.bufq[i].fd = -1;
 		tbl.bufq[i].flags = 0;
 		tbl.bufq[i].buf_handle = -1;
@@ -813,7 +816,17 @@ static int cam_mem_util_unmap(int32_t idx,
 		return -EINVAL;
 	}
 
-	CAM_DBG(CAM_CRM, "Flags = %X", tbl.bufq[idx].flags);
+	CAM_DBG(CAM_CRM, "Flags = %X idx %d", tbl.bufq[idx].flags, idx);
+
+	mutex_lock(&tbl.m_lock);
+	if ((!tbl.bufq[idx].active) &&
+		(tbl.bufq[idx].vaddr) == 0) {
+		CAM_WARN(CAM_CRM, "Buffer at idx=%d is already unmapped,",
+			idx);
+		mutex_unlock(&tbl.m_lock);
+		return 0;
+	}
+
 
 	if (tbl.bufq[idx].flags & CAM_MEM_FLAG_KMD_ACCESS)
 		if (tbl.bufq[idx].i_hdl && tbl.bufq[idx].kmdvaddr)
@@ -856,8 +869,11 @@ static int cam_mem_util_unmap(int32_t idx,
 	tbl.bufq[idx].is_imported = false;
 	tbl.bufq[idx].len = 0;
 	tbl.bufq[idx].num_hdl = 0;
+	tbl.bufq[idx].active = false;
 	mutex_unlock(&tbl.bufq[idx].q_lock);
-	cam_mem_put_slot(idx);
+	mutex_destroy(&tbl.bufq[idx].q_lock);
+	clear_bit(idx, tbl.bitmap);
+	mutex_unlock(&tbl.m_lock);
 
 	return rc;
 }
@@ -1043,6 +1059,10 @@ int cam_mem_mgr_release_mem(struct cam_mem_mgr_memory_desc *inp)
 	}
 
 	if (!tbl.bufq[idx].active) {
+		if (tbl.bufq[idx].vaddr == 0) {
+			CAM_ERR(CAM_CRM, "buffer is released already");
+			return 0;
+		}
 		CAM_ERR(CAM_CRM, "Released buffer state should be active");
 		return -EINVAL;
 	}
@@ -1184,6 +1204,10 @@ int cam_mem_mgr_free_memory_region(struct cam_mem_mgr_memory_desc *inp)
 	}
 
 	if (!tbl.bufq[idx].active) {
+		if (tbl.bufq[idx].vaddr == 0) {
+			CAM_ERR(CAM_CRM, "buffer is released already");
+			return 0;
+		}
 		CAM_ERR(CAM_CRM, "Released buffer state should be active");
 		return -EINVAL;
 	}

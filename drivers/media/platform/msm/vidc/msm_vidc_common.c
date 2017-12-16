@@ -5488,8 +5488,9 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	input_height = inst->prop.height[OUTPUT_PORT];
 	input_width = inst->prop.width[OUTPUT_PORT];
 
-	if (input_width % 2 != 0 || input_height % 2 != 0 ||
-			output_width % 2 != 0 || output_height % 2 != 0) {
+	if (inst->session_type == MSM_VIDC_ENCODER && (input_width % 2 != 0 ||
+			input_height % 2 != 0 || output_width % 2 != 0 ||
+			output_height % 2 != 0)) {
 		dprintk(VIDC_ERR,
 			"Height and Width should be even numbers for NV12\n");
 		dprintk(VIDC_ERR,
@@ -5682,7 +5683,7 @@ int msm_comm_qbuf_cache_operations(struct msm_vidc_inst *inst,
 		handle = msm_smem_get_handle(inst->mem_client, dma_buf);
 
 		offset = b->m.planes[i].data_offset;
-		size = b->m.planes[i].length;
+		size = b->m.planes[i].length - offset;
 		cache_ops = SMEM_CACHE_INVALIDATE;
 		skip = false;
 
@@ -5751,7 +5752,7 @@ int msm_comm_dqbuf_cache_operations(struct msm_vidc_inst *inst,
 		handle = msm_smem_get_handle(inst->mem_client, dma_buf);
 
 		offset = b->m.planes[i].data_offset;
-		size = b->m.planes[i].length;
+		size = b->m.planes[i].length - offset;
 		cache_ops = SMEM_CACHE_INVALIDATE;
 		skip = false;
 
@@ -5771,8 +5772,15 @@ int msm_comm_dqbuf_cache_operations(struct msm_vidc_inst *inst,
 				skip = true;
 			} else if (b->type ==
 					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-				if (!i) /* bitstream */
-					skip = true;
+				if (!i) { /* bitstream */
+					/*
+					 * Include vp8e header bytes as well
+					 * by making offset equal to zero
+					 */
+					offset = 0;
+					size = b->m.planes[i].bytesused +
+						b->m.planes[i].data_offset;
+				}
 			}
 		}
 

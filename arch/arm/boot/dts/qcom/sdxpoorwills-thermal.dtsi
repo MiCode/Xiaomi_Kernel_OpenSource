@@ -163,6 +163,14 @@
 				trip = <&aoss_trip>;
 				cooling-device = <&adsp_vdd 0 0>;
 			};
+			cx_vdd_cdev {
+				trip = <&aoss_trip>;
+				cooling-device = <&cx_cdev 0 0>;
+			};
+			mx_vdd_cdev {
+				trip = <&aoss_trip>;
+				cooling-device = <&mx_cdev 0 0>;
+			};
 		};
 	};
 
@@ -187,6 +195,14 @@
 			adsp_vdd_cdev {
 				trip = <&mdm_q6_trip>;
 				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cx_vdd_cdev {
+				trip = <&mdm_q6_trip>;
+				cooling-device = <&cx_cdev 0 0>;
+			};
+			mx_vdd_cdev {
+				trip = <&mdm_q6_trip>;
+				cooling-device = <&mx_cdev 0 0>;
 			};
 		};
 	};
@@ -213,6 +229,14 @@
 				trip = <&ddrss_trip>;
 				cooling-device = <&adsp_vdd 0 0>;
 			};
+			cx_vdd_cdev {
+				trip = <&ddrss_trip>;
+				cooling-device = <&cx_cdev 0 0>;
+			};
+			mx_vdd_cdev {
+				trip = <&ddrss_trip>;
+				cooling-device = <&mx_cdev 0 0>;
+			};
 		};
 	};
 
@@ -237,6 +261,14 @@
 			adsp_vdd_cdev {
 				trip = <&cpu_trip>;
 				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cx_vdd_cdev {
+				trip = <&cpu_trip>;
+				cooling-device = <&cx_cdev 0 0>;
+			};
+			mx_vdd_cdev {
+				trip = <&cpu_trip>;
+				cooling-device = <&mx_cdev 0 0>;
 			};
 		};
 	};
@@ -263,6 +295,14 @@
 				trip = <&mdm_trip>;
 				cooling-device = <&adsp_vdd 0 0>;
 			};
+			cx_vdd_cdev {
+				trip = <&mdm_trip>;
+				cooling-device = <&cx_cdev 0 0>;
+			};
+			mx_vdd_cdev {
+				trip = <&mdm_trip>;
+				cooling-device = <&mx_cdev 0 0>;
+			};
 		};
 	};
 
@@ -274,8 +314,8 @@
 		tracks-low;
 		trips {
 			mdm_vpe_trip: mdm-vpe-trip {
-				temperature = <125000>;
-				hysteresis = <1000>;
+				temperature = <5000>;
+				hysteresis = <5000>;
 				type = "passive";
 			};
 		};
@@ -287,6 +327,14 @@
 			adsp_vdd_cdev {
 				trip = <&mdm_vpe_trip>;
 				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cx_vdd_cdev {
+				trip = <&mdm_vpe_trip>;
+				cooling-device = <&cx_cdev 0 0>;
+			};
+			mx_vdd_cdev {
+				trip = <&mdm_vpe_trip>;
+				cooling-device = <&mx_cdev 0 0>;
 			};
 		};
 	};

@@ -1512,6 +1512,7 @@ static int _sde_encoder_update_rsc_client(
 	struct drm_crtc *primary_crtc;
 	int pipe = -1;
 	int rc = 0;
+	int wait_refcount;
 
 	if (!drm_enc || !drm_enc->dev) {
 		SDE_ERROR("invalid encoder arguments\n");
@@ -1599,6 +1600,12 @@ static int _sde_encoder_update_rsc_client(
 		return ret;
 	}
 
+	if (wait_vblank_crtc_id)
+		wait_refcount =
+			sde_rsc_client_get_vsync_refcount(sde_enc->rsc_client);
+	SDE_EVT32_VERBOSE(DRMID(drm_enc), wait_vblank_crtc_id, wait_refcount,
+			SDE_EVTLOG_FUNC_ENTRY);
+
 	if (crtc->base.id != wait_vblank_crtc_id) {
 		primary_crtc = drm_crtc_find(drm_enc->dev, wait_vblank_crtc_id);
 		if (!primary_crtc) {
@@ -1635,6 +1642,11 @@ static int _sde_encoder_update_rsc_client(
 	if (wait_count >= MAX_RSC_WAIT)
 		SDE_EVT32(DRMID(drm_enc), wait_vblank_crtc_id, wait_count,
 				SDE_EVTLOG_ERROR);
+
+	if (wait_refcount)
+		sde_rsc_client_reset_vsync_refcount(sde_enc->rsc_client);
+	SDE_EVT32_VERBOSE(DRMID(drm_enc), wait_vblank_crtc_id, wait_refcount,
+			SDE_EVTLOG_FUNC_EXIT);
 
 	return ret;
 }
@@ -2128,7 +2140,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		mutex_lock(&sde_enc->rc_lock);
 
 		if (sde_enc->rc_state != SDE_ENC_RC_STATE_ON) {
-			SDE_ERROR_ENC(sde_enc, "sw_event:%d, rc:%d !ON state\n",
+			SDE_DEBUG_ENC(sde_enc, "sw_event:%d, rc:%d !ON state\n",
 					sw_event, sde_enc->rc_state);
 			SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
 					SDE_EVTLOG_ERROR);
@@ -2756,18 +2768,35 @@ static void sde_encoder_frame_done_callback(
 	}
 }
 
+int sde_encoder_idle_request(struct drm_encoder *drm_enc)
+{
+	struct sde_encoder_virt *sde_enc;
+
+	if (!drm_enc) {
+		SDE_ERROR("invalid drm encoder\n");
+		return -EINVAL;
+	}
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	sde_encoder_resource_control(&sde_enc->base,
+						SDE_ENC_RC_EVENT_ENTER_IDLE);
+
+	return 0;
+}
+
 static void sde_encoder_off_work(struct kthread_work *work)
 {
 	struct sde_encoder_virt *sde_enc = container_of(work,
 			struct sde_encoder_virt, delayed_off_work.work);
+	struct drm_encoder *drm_enc;
 
 	if (!sde_enc) {
 		SDE_ERROR("invalid sde encoder\n");
 		return;
 	}
+	drm_enc = &sde_enc->base;
 
-	sde_encoder_resource_control(&sde_enc->base,
-						SDE_ENC_RC_EVENT_ENTER_IDLE);
+	sde_encoder_idle_request(drm_enc);
 }
 
 /**

@@ -731,7 +731,7 @@
 
 		trips {
 			ibat_high: low-ibat {
-				temperature = <4200>;
+				temperature = <5000>;
 				hysteresis = <200>;
 				type = "passive";
 			};
@@ -745,7 +745,7 @@
 
 		trips {
 			ibat_vhigh: ibat_vhigh {
-				temperature = <4300>;
+				temperature = <6000>;
 				hysteresis = <100>;
 				type = "passive";
 			};
@@ -760,7 +760,7 @@
 
 		trips {
 			low_vbat: low-vbat {
-				temperature = <3300>;
+				temperature = <3200>;
 				hysteresis = <100>;
 				type = "passive";
 			};
@@ -801,7 +801,7 @@
 
 		trips {
 			low-vbat {
-				temperature = <3100>;
+				temperature = <2800>;
 				hysteresis = <0>;
 				type = "passive";
 			};
@@ -816,7 +816,7 @@
 
 		trips {
 			low-vbat {
-				temperature = <2900>;
+				temperature = <2600>;
 				hysteresis = <0>;
 				type = "passive";
 			};
@@ -883,7 +883,7 @@
 			 pmi8998_trip2: pmi8998-trip2 {
 				temperature = <145000>;
 				hysteresis = <0>;
-				type = "critical";
+				type = "passive";
 			};
 		};
 	};

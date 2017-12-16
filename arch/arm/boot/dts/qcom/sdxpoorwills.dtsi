@@ -216,7 +216,7 @@
 			< 1 >;
 	};
 
-	blsp1_uart2: serial@831000 {
+	serial_uart: serial@831000 {
 		compatible = "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm";
 		reg = <0x831000 0x200>;
 		interrupts = <0 26 0>;
@@ -306,10 +306,10 @@
 		};
 };
 
-	restart@4ab000 {
+	restart@c264000 {
 		compatible = "qcom,pshold";
-		reg = <0x4ab000 0x4>,
-			<0x193d100 0x4>;
+		reg = <0x0c264000 0x4>,
+			<0x01fd3000 0x4>;
 		reg-names = "pshold-base", "tcsr-boot-misc-detect";
 	};
 
@@ -523,6 +523,7 @@
 		qcom,ipa-hw-mode = <0>;
 		qcom,ee = <0>;
 		qcom,use-ipa-tethering-bridge;
+		qcom,mhi-event-ring-id-limits = <9 10>; /* start and end */
 		qcom,modem-cfg-emb-pipe-flt;
 		qcom,use-ipa-pm;
 		qcom,bandwidth-vote-for-ipa;
@@ -694,7 +695,7 @@
 		reg = <0xc300000 0x400>,
 			<0x17811008 0x4>;
 		reg-names = "msgram", "irq-reg-base";
-		qcom,irq-mask = <0x1>;
+		qcom,irq-mask = <0x2>;
 		interrupts = <GIC_SPI 221 IRQ_TYPE_EDGE_RISING>;
 		priority = <0>;
 		mbox-desc-offset = <0x0>;

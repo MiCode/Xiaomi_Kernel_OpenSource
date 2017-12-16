@@ -3020,6 +3020,13 @@ static int dwc3_msm_init_iommu(struct dwc3_msm *mdwc)
 		return ret;
 	}
 	dev_dbg(mdwc->dev, "IOMMU mapping created: %pK\n", mdwc->iommu_map);
+	ret = iommu_domain_set_attr(mdwc->iommu_map->domain,
+			DOMAIN_ATTR_UPSTREAM_IOVA_ALLOCATOR, &atomic_ctx);
+	if (ret) {
+		dev_err(mdwc->dev, "set UPSTREAM_IOVA_ALLOCATOR failed(%d)\n",
+				ret);
+		goto release_mapping;
+	}
 
 	ret = iommu_domain_set_attr(mdwc->iommu_map->domain, DOMAIN_ATTR_ATOMIC,
 			&atomic_ctx);
@@ -3140,14 +3147,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	mdwc = devm_kzalloc(&pdev->dev, sizeof(*mdwc), GFP_KERNEL);
 	if (!mdwc)
 		return -ENOMEM;
-
-	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64))) {
-		dev_err(&pdev->dev, "setting DMA mask to 64 failed.\n");
-		if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32))) {
-			dev_err(&pdev->dev, "setting DMA mask to 32 failed.\n");
-			return -EOPNOTSUPP;
-		}
-	}
 
 	platform_set_drvdata(pdev, mdwc);
 	mdwc->dev = &pdev->dev;
@@ -3340,6 +3339,15 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	ret = dwc3_msm_init_iommu(mdwc);
 	if (ret)
 		goto err;
+
+	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64))) {
+		dev_err(&pdev->dev, "setting DMA mask to 64 failed.\n");
+		if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32))) {
+			dev_err(&pdev->dev, "setting DMA mask to 32 failed.\n");
+			ret = -EOPNOTSUPP;
+			goto uninit_iommu;
+		}
+	}
 
 	/* Assumes dwc3 is the first DT child of dwc3-msm */
 	dwc3_node = of_get_next_available_child(node, NULL);
@@ -3944,6 +3952,7 @@ static int dwc3_restart_usb_host_mode(struct notifier_block *nb,
 	if (ret)
 		goto err;
 
+	dbg_event(0xFF, "USB_lpm_state", atomic_read(&dwc->in_lpm));
 	/*
 	 * stop host mode functionality performs autosuspend with mdwc
 	 * device, and it may take sometime to call PM runtime suspend.
@@ -3951,6 +3960,12 @@ static int dwc3_restart_usb_host_mode(struct notifier_block *nb,
 	 * suspend immediately to put USB controller and PHYs into suspend.
 	 */
 	ret = pm_runtime_suspend(mdwc->dev);
+	/*
+	 * If mdwc device is already suspended, pm_runtime_suspend() API
+	 * returns 1, which is not error. Overwrite with zero if it is.
+	 */
+	if (ret > 0)
+		ret = 0;
 	dbg_event(0xFF, "pm_runtime_sus", ret);
 
 	dwc->maximum_speed = usb_speed;
@@ -3989,7 +4004,10 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA)
 
 	psy_type = get_psy_type(mdwc);
 	if (psy_type == POWER_SUPPLY_TYPE_USB_FLOAT) {
-		pval.intval = -ETIMEDOUT;
+		if (!mA)
+			pval.intval = -ETIMEDOUT;
+		else
+			pval.intval = 1000 * mA;
 		goto set_prop;
 	}
 

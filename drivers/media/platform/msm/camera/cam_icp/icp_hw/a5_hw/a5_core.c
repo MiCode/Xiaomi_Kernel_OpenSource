@@ -422,6 +422,11 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 	case CAM_ICP_A5_SEND_INIT:
 		hfi_send_system_cmd(HFI_CMD_SYS_INIT, 0, 0);
 		break;
+
+	case CAM_ICP_A5_CMD_PC_PREP:
+		hfi_send_system_cmd(HFI_CMD_SYS_PC_PREP, 0, 0);
+		break;
+
 	case CAM_ICP_A5_CMD_VOTE_CPAS: {
 		struct cam_icp_cpas_vote *cpas_vote = cmd_args;
 

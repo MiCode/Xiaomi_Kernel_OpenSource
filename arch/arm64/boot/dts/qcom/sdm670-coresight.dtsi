@@ -63,6 +63,9 @@
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
 
+		interrupts = <GIC_SPI 270 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "byte-cntr-irq";
+
 		port {
 			tmc_etr_in_replicator: endpoint {
 				slave-mode;

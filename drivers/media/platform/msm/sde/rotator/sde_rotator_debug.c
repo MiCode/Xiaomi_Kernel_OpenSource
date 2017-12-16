@@ -422,7 +422,12 @@ static void sde_rot_dump_reg_all(void)
 		head = &regdump[i];
 
 		if (head->access == SDE_ROT_REGDUMP_WRITE) {
-			writel_relaxed(1, mdata->sde_io.base + head->offset);
+			if (head->len != 1) {
+				SDEROT_ERR("invalid write len %u\n", head->len);
+				continue;
+			}
+			writel_relaxed(head->value,
+					mdata->sde_io.base + head->offset);
 			/* Make sure write go through */
 			wmb();
 		} else {

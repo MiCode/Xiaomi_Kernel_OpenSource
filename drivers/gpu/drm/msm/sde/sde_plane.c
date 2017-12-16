@@ -2810,6 +2810,7 @@ int sde_plane_validate_multirect_v2(struct sde_multirect_plane_states *plane)
 	bool parallel_fetch_qualified = true;
 	enum sde_sspp_multirect_mode mode = SDE_SSPP_MULTIRECT_NONE;
 	const struct msm_format *msm_fmt;
+	bool const_alpha_enable = true;
 
 	for (i = 0; i < R_MAX; i++) {
 		drm_state[i] = i ? plane->r1 : plane->r0;
@@ -2877,6 +2878,10 @@ int sde_plane_validate_multirect_v2(struct sde_multirect_plane_states *plane)
 		if (sde_plane[i]->is_virtual)
 			mode = sde_plane_get_property(pstate[i],
 					PLANE_PROP_MULTIRECT_MODE);
+
+		if (pstate[i]->const_alpha_en != const_alpha_enable)
+			const_alpha_enable = false;
+
 	}
 
 	buffer_lines = 2 * max_tile_height;
@@ -2936,8 +2941,10 @@ int sde_plane_validate_multirect_v2(struct sde_multirect_plane_states *plane)
 		break;
 	}
 
-	for (i = 0; i < R_MAX; i++)
+	for (i = 0; i < R_MAX; i++) {
 		pstate[i]->multirect_mode = mode;
+		pstate[i]->const_alpha_en = const_alpha_enable;
+	}
 
 	if (mode == SDE_SSPP_MULTIRECT_NONE)
 		return -EINVAL;
@@ -3138,6 +3145,29 @@ static int _sde_plane_fetch_halt(struct drm_plane *plane)
 	return sde_vbif_halt_plane_xin(sde_kms, xin_id, clk_ctrl);
 }
 
+
+static inline int _sde_plane_power_enable(struct drm_plane *plane, bool enable)
+{
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+
+	if (!plane->dev || !plane->dev->dev_private) {
+		SDE_ERROR("invalid drm device\n");
+		return -EINVAL;
+	}
+
+	priv = plane->dev->dev_private;
+	if (!priv->kms) {
+		SDE_ERROR("invalid kms\n");
+		return -EINVAL;
+	}
+
+	sde_kms = to_sde_kms(priv->kms);
+
+	return sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
+									enable);
+}
+
 static void sde_plane_cleanup_fb(struct drm_plane *plane,
 		struct drm_plane_state *old_state)
 {
@@ -3163,6 +3193,13 @@ static void sde_plane_cleanup_fb(struct drm_plane *plane,
 			       psde->pipe - SSPP_VIG0);
 
 		/* halt this plane now */
+		ret = _sde_plane_power_enable(plane, true);
+		if (ret) {
+			SDE_ERROR("power resource enable failed with %d", ret);
+			SDE_EVT32(ret);
+			return;
+		}
+
 		ret = _sde_plane_fetch_halt(plane);
 		if (ret) {
 			SDE_ERROR_PLANE(psde,
@@ -3171,6 +3208,7 @@ static void sde_plane_cleanup_fb(struct drm_plane *plane,
 			SDE_EVT32(DRMID(plane), psde->pipe - SSPP_VIG0,
 				       ret, SDE_EVTLOG_ERROR);
 		}
+		_sde_plane_power_enable(plane, false);
 	}
 
 	old_rstate = &old_pstate->rot;
@@ -3541,6 +3579,10 @@ static int sde_plane_sspp_atomic_check(struct drm_plane *plane,
 				pstate->excl_rect.w, pstate->excl_rect.h);
 	}
 
+	pstate->const_alpha_en = fmt->alpha_enable &&
+		(SDE_DRM_BLEND_OP_OPAQUE !=
+		 sde_plane_get_property(pstate, PLANE_PROP_BLEND_OP));
+
 modeset_update:
 	if (!ret)
 		_sde_plane_sspp_atomic_check_mode_changed(psde,
@@ -3638,7 +3680,6 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 	struct drm_framebuffer *fb;
 	struct sde_rect src, dst;
 	bool q16_data = true;
-	bool blend_enabled = true;
 	int idx;
 
 	if (!plane) {
@@ -3876,12 +3917,9 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 		if (rstate->out_rotation & DRM_REFLECT_Y)
 			src_flags |= SDE_SSPP_FLIP_UD;
 
-		blend_enabled = (SDE_DRM_BLEND_OP_OPAQUE !=
-			sde_plane_get_property(pstate, PLANE_PROP_BLEND_OP));
-
 		/* update format */
 		psde->pipe_hw->ops.setup_format(psde->pipe_hw, fmt,
-				blend_enabled, src_flags,
+				pstate->const_alpha_en, src_flags,
 				pstate->multirect_index);
 
 		if (psde->pipe_hw->ops.setup_cdp) {
