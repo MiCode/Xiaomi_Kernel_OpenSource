@@ -128,7 +128,8 @@ int ipa3_teth_bridge_disconnect(enum ipa_client_type client)
 			TETH_ERR("fail to deactivate modem %d\n", res);
 			return res;
 		}
-		res = ipa_pm_destroy();
+		res = ipa_pm_deregister(ipa3_teth_ctx->modem_pm_hdl);
+		ipa3_teth_ctx->modem_pm_hdl = ~0;
 	} else {
 		ipa_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
 					IPA_RM_RESOURCE_Q6_CONS);
