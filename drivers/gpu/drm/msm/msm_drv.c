@@ -656,6 +656,15 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	priv->kms = kms;
 	pm_runtime_enable(dev);
 
+	/**
+	 * Since kms->funcs->hw_init(kms) might call
+	 * drm_object_property_set_value to initialize some custom
+	 * properties we need to make sure mode_config.funcs are populated
+	 * beforehand to avoid dereferencing an unset value during the
+	 * drm_drv_uses_atomic_modeset check.
+	 */
+	ddev->mode_config.funcs = &mode_config_funcs;
+
 	if (kms) {
 		ret = kms->funcs->hw_init(kms);
 		if (ret) {
@@ -663,7 +672,6 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 			goto fail;
 		}
 	}
-	ddev->mode_config.funcs = &mode_config_funcs;
 
 	/**
 	 * this priority was found during empiric testing to have appropriate
