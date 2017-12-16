@@ -459,7 +459,7 @@ int dp_drm_bridge_init(void *data, struct drm_encoder *encoder)
 
 	priv = dev->dev_private;
 
-	rc = drm_bridge_attach(dev, &bridge->base);
+	rc = drm_bridge_attach(encoder, &bridge->base, NULL);
 	if (rc) {
 		pr_err("failed to attach bridge, rc=%d\n", rc);
 		goto error_free_bridge;
