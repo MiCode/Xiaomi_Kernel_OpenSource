@@ -1185,40 +1185,6 @@ sde_connector_detect(struct drm_connector *connector, bool force)
 	return status;
 }
 
-static int sde_connector_dpms(struct drm_connector *connector,
-				     int mode)
-{
-	struct sde_connector *c_conn;
-
-	if (!connector) {
-		SDE_ERROR("invalid connector\n");
-		return -EINVAL;
-	}
-	c_conn = to_sde_connector(connector);
-
-	/* validate incoming dpms request */
-	switch (mode) {
-	case DRM_MODE_DPMS_ON:
-	case DRM_MODE_DPMS_STANDBY:
-	case DRM_MODE_DPMS_SUSPEND:
-	case DRM_MODE_DPMS_OFF:
-		SDE_DEBUG("conn %d dpms set to %d\n", connector->base.id, mode);
-		break;
-	default:
-		SDE_ERROR("conn %d dpms set to unrecognized mode %d\n",
-				connector->base.id, mode);
-		break;
-	}
-
-	mutex_lock(&c_conn->lock);
-	c_conn->dpms_mode = mode;
-	_sde_connector_update_power_locked(c_conn);
-	mutex_unlock(&c_conn->lock);
-
-	/* use helper for boilerplate handling */
-	return drm_atomic_helper_connector_dpms(connector, mode);
-}
-
 int sde_connector_get_dpms(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn;
@@ -1400,7 +1366,6 @@ static int sde_connector_fill_modes(struct drm_connector *connector,
 }
 
 static const struct drm_connector_funcs sde_connector_ops = {
-	.dpms =                   sde_connector_dpms,
 	.reset =                  sde_connector_atomic_reset,
 	.detect =                 sde_connector_detect,
 	.destroy =                sde_connector_destroy,
