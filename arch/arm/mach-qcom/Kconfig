@@ -43,7 +43,6 @@ config ARCH_SDXPOORWILLS
 	select CPU_V7
 	select HAVE_ARM_ARCH_TIMER
 	select MSM_CORTEX_A7
-	select COMMON_CLK_MSM
 	select PINCTRL
 	select QCOM_SCM if SMP
 	select MSM_JTAG_MM if CORESIGHT_ETM

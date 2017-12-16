@@ -124,6 +124,7 @@ config ARCH_QCOM
 config ARCH_SDM845
 	bool "Enable Support for Qualcomm Technologies Inc. SDM845"
 	depends on ARCH_QCOM
+	select COMMON_CLK
 	select COMMON_CLK_QCOM
 	select QCOM_GDSC
 	help
@@ -133,6 +134,7 @@ config ARCH_SDM845
 config ARCH_SDM670
 	bool "Enable Support for Qualcomm Technologies Inc. SDM670"
 	depends on ARCH_QCOM
+	select COMMON_CLK
 	select COMMON_CLK_QCOM
 	select QCOM_GDSC
 	help
