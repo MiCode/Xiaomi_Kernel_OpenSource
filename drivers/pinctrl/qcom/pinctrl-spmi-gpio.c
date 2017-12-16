@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, 2016-2017 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/gpio/driver.h>
@@ -423,6 +423,9 @@ static int pmic_gpio_config_get(struct pinctrl_dev *pctldev,
 			return -EINVAL;
 		arg = 1;
 		break;
+	case PIN_CONFIG_OUTPUT_ENABLE:
+		arg = pad->output_enabled;
+		break;
 	case PIN_CONFIG_OUTPUT:
 		arg = pad->out_value;
 		break;
@@ -501,6 +504,9 @@ static int pmic_gpio_config_set(struct pinctrl_dev *pctldev, unsigned int pin,
 			break;
 		case PIN_CONFIG_INPUT_ENABLE:
 			pad->input_enabled = arg ? true : false;
+			break;
+		case PIN_CONFIG_OUTPUT_ENABLE:
+			pad->output_enabled = arg ? true : false;
 			break;
 		case PIN_CONFIG_OUTPUT:
 			pad->output_enabled = true;
