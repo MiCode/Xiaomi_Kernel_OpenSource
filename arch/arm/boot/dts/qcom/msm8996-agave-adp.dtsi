@@ -1137,6 +1137,9 @@
 		compatible = "qcom,adv7481";
 		reg = <0x70 0xff>;
 		cam_vdig-supply = <&pm8994_s3>;
+		tx_lanes = <4 2 1>;
+		settle_count = <16 16 16>;
+		res_array = "RES_1080P", "RES_720P", "RES_576P_480P";
 		/* Cameras powered by PMIC: */
 		cam_vio-supply = <&pm8994_lvs1>;
 		cam_vana-supply = <&pm8994_l17>;
