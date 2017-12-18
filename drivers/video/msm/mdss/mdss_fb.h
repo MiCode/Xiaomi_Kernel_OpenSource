@@ -233,6 +233,8 @@ struct msm_mdp_interface {
 				int dest_ctrl);
 	int (*input_event_handler)(struct msm_fb_data_type *mfd);
 	int (*pp_release_fnc)(struct msm_fb_data_type *mfd);
+	void (*signal_retire_fence)(struct msm_fb_data_type *mfd,
+					int retire_cnt);
 	void *private1;
 };
 
