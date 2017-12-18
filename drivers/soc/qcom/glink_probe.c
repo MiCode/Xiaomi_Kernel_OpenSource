@@ -39,6 +39,8 @@ static void probe_subsystem(struct device *dev, struct device_node *np)
 	}
 	if (!strcmp(transport, "smem"))
 		glink = qcom_glink_smem_register(dev, np);
+	else if (!strcmp(transport, "spss"))
+		glink = qcom_glink_spss_register(dev, np);
 
 	if (IS_ERR(glink)) {
 		dev_err(dev, "%s failed %d\n", np->name, PTR_ERR(glink));
