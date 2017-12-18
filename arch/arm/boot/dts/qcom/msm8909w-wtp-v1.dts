@@ -195,3 +195,11 @@
 		pins = "gpio98", "gpio16";
 	};
 };
+
+&system_fstab {
+	fsmgr_flags = "wait";
+};
+
+&vendor_fstab {
+	fsmgr_flags = "wait";
+};

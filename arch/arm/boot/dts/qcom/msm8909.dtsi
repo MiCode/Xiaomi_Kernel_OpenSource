@@ -112,7 +112,7 @@
 			compatible = "android,firmware";
 			fstab {
 				compatible = "android,fstab";
-				vendor {
+				vendor_fstab: vendor {
 					compatible = "android,vendor";
 					dev = "/dev/block/platform/soc/7824900.sdhci/by-name/vendor";
 					type = "ext4";
@@ -120,7 +120,7 @@
 					fsmgr_flags = "wait,verify";
 					status = "ok";
 				};
-				system {
+				system_fstab: system {
 					compatible = "android,system";
 					dev = "/dev/block/platform/soc/7824900.sdhci/by-name/system";
 					type = "ext4";
