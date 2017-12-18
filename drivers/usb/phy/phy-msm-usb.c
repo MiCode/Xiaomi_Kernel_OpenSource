@@ -3658,271 +3658,6 @@ const struct file_operations msm_otg_dbg_buff_fops = {
 	.release = single_release,
 };
 
-static int
-otg_get_prop_usbin_voltage_now(struct msm_otg *motg)
-{
-	int rc = 0;
-	struct qpnp_vadc_result results;
-
-	if (IS_ERR_OR_NULL(motg->vadc_dev)) {
-		motg->vadc_dev = qpnp_get_vadc(motg->phy.dev, "usbin");
-		if (IS_ERR(motg->vadc_dev))
-			return PTR_ERR(motg->vadc_dev);
-	}
-
-	rc = qpnp_vadc_read(motg->vadc_dev, USBIN, &results);
-	if (rc) {
-		pr_err("Unable to read usbin rc=%d\n", rc);
-		return 0;
-	} else {
-		return results.physical;
-	}
-}
-
-static int msm_otg_pmic_dp_dm(struct msm_otg *motg, int value)
-{
-	int ret = 0;
-
-	switch (value) {
-	case POWER_SUPPLY_DP_DM_DPF_DMF:
-		if (!motg->rm_pulldown) {
-			ret = msm_hsusb_ldo_enable(motg, USB_PHY_REG_3P3_ON);
-			if (!ret) {
-				motg->rm_pulldown = true;
-				msm_otg_dbg_log_event(&motg->phy, "RM Pulldown",
-						motg->rm_pulldown, 0);
-			}
-		}
-		break;
-	case POWER_SUPPLY_DP_DM_DPR_DMR:
-		if (motg->rm_pulldown) {
-			ret = msm_hsusb_ldo_enable(motg, USB_PHY_REG_3P3_OFF);
-			if (!ret) {
-				motg->rm_pulldown = false;
-				msm_otg_dbg_log_event(&motg->phy, "RM Pulldown",
-						motg->rm_pulldown, 0);
-			}
-		}
-		break;
-	default:
-		ret = -EINVAL;
-		break;
-	}
-
-	return ret;
-}
-
-static int otg_power_get_property_usb(struct power_supply *psy,
-				  enum power_supply_property psp,
-				  union power_supply_propval *val)
-{
-	struct msm_otg *motg = container_of(psy, struct msm_otg, usb_psy);
-
-	switch (psp) {
-	case POWER_SUPPLY_PROP_SCOPE:
-		if (motg->host_mode)
-			val->intval = POWER_SUPPLY_SCOPE_SYSTEM;
-		else
-			val->intval = POWER_SUPPLY_SCOPE_DEVICE;
-		break;
-	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
-		val->intval = motg->voltage_max;
-		break;
-	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		val->intval = motg->current_max;
-		break;
-	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
-		val->intval = motg->typec_current_max;
-		break;
-	case POWER_SUPPLY_PROP_PRESENT:
-		val->intval = !!test_bit(B_SESS_VLD, &motg->inputs);
-		break;
-	case POWER_SUPPLY_PROP_DP_DM:
-		val->intval = motg->rm_pulldown;
-		break;
-	/* Reflect USB enumeration */
-	case POWER_SUPPLY_PROP_ONLINE:
-		val->intval = motg->online;
-		break;
-	case POWER_SUPPLY_PROP_TYPE:
-		val->intval = psy->type;
-		break;
-	case POWER_SUPPLY_PROP_HEALTH:
-		val->intval = motg->usbin_health;
-		break;
-	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		val->intval = otg_get_prop_usbin_voltage_now(motg);
-		break;
-	case POWER_SUPPLY_PROP_USB_OTG:
-		val->intval = !motg->id_state;
-		break;
-	default:
-		return -EINVAL;
-	}
-	return 0;
-}
-
-static int otg_power_set_property_usb(struct power_supply *psy,
-				  enum power_supply_property psp,
-				  const union power_supply_propval *val)
-{
-	struct msm_otg *motg = container_of(psy, struct msm_otg, usb_psy);
-	struct msm_otg_platform_data *pdata = motg->pdata;
-
-	msm_otg_dbg_log_event(&motg->phy, "SET PWR PROPERTY", psp, psy->type);
-	switch (psp) {
-	case POWER_SUPPLY_PROP_USB_OTG:
-		motg->id_state = val->intval ? USB_ID_GROUND : USB_ID_FLOAT;
-		queue_delayed_work(motg->otg_wq, &motg->id_status_work, 0);
-		break;
-	/* PMIC notification for DP DM state */
-	case POWER_SUPPLY_PROP_DP_DM:
-		msm_otg_pmic_dp_dm(motg, val->intval);
-		break;
-	/* Process PMIC notification in PRESENT prop */
-	case POWER_SUPPLY_PROP_PRESENT:
-		msm_otg_set_vbus_state(val->intval);
-		break;
-	/* The ONLINE property reflects if usb has enumerated */
-	case POWER_SUPPLY_PROP_ONLINE:
-		motg->online = val->intval;
-		break;
-	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
-		motg->voltage_max = val->intval;
-		break;
-	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		motg->current_max = val->intval;
-		break;
-	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
-		/*
-		 * Limit type-c charger current to 500 for SDP charger
-		 * to avoid more current drawn than 500 with legacy Hosts.
-		 */
-		if (pdata->enable_sdp_typec_current_limit &&
-				(motg->chg_type == USB_SDP_CHARGER)
-					&& val->intval > 500)
-			motg->typec_current_max = 500;
-		else
-			motg->typec_current_max = val->intval;
-
-		msm_otg_dbg_log_event(&motg->phy, "type-c charger",
-					val->intval, motg->bc1p2_current_max);
-		/* Update chg_current as per type-c charger detection on VBUS */
-		if (motg->chg_type != USB_INVALID_CHARGER) {
-			dev_dbg(motg->phy.dev, "update type-c charger\n");
-			msm_otg_notify_charger(motg, motg->bc1p2_current_max);
-		}
-		break;
-	case POWER_SUPPLY_PROP_TYPE:
-		psy->type = val->intval;
-
-		/*
-		 * If charger detection is done by the USB driver,
-		 * motg->chg_type is already assigned in the
-		 * charger detection work.
-		 *
-		 * There is a possibility of overriding the
-		 * actual charger type with power supply type
-		 * charger. For example USB NONCOMPLIANT charger
-		 * does not exist in power supply enum and it
-		 * gets overridden as DCP.
-		 */
-		if (motg->chg_state == USB_CHG_STATE_DETECTED)
-			break;
-
-		switch (psy->type) {
-		case POWER_SUPPLY_TYPE_USB:
-			motg->chg_type = USB_SDP_CHARGER;
-			motg->voltage_max = MICRO_5V;
-			motg->current_max = SDP_CURRENT_UA;
-			break;
-		case POWER_SUPPLY_TYPE_USB_DCP:
-			motg->chg_type = USB_DCP_CHARGER;
-			motg->voltage_max = MICRO_5V;
-			motg->current_max = DCP_CURRENT_UA;
-			break;
-		case POWER_SUPPLY_TYPE_USB_HVDCP:
-			motg->chg_type = USB_DCP_CHARGER;
-			motg->voltage_max = MICRO_9V;
-			motg->current_max = HVDCP_CURRENT_UA;
-			msm_otg_notify_charger(motg, hvdcp_max_current);
-			break;
-		case POWER_SUPPLY_TYPE_USB_CDP:
-			motg->chg_type = USB_CDP_CHARGER;
-			motg->voltage_max = MICRO_5V;
-			motg->current_max = CDP_CURRENT_UA;
-			break;
-		case POWER_SUPPLY_TYPE_USB_ACA:
-			motg->chg_type = USB_NONCOMPLIANT_CHARGER;
-			break;
-		default:
-			motg->chg_type = USB_INVALID_CHARGER;
-			break;
-		}
-
-		if (motg->chg_type != USB_INVALID_CHARGER) {
-			if (motg->chg_type == USB_DCP_CHARGER)
-				motg->is_ext_chg_dcp = true;
-			motg->chg_state = USB_CHG_STATE_DETECTED;
-		}
-
-		dev_dbg(motg->phy.dev, "%s: charger type = %s\n", __func__,
-			chg_to_string(motg->chg_type));
-		msm_otg_dbg_log_event(&motg->phy, "SET CHARGER TYPE ",
-				motg->chg_type, psy->type);
-		break;
-	case POWER_SUPPLY_PROP_HEALTH:
-		if (val->intval > POWER_SUPPLY_HEALTH_HOT)
-			motg->usbin_health = 0;
-		else
-			motg->usbin_health = val->intval;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	power_supply_changed(&motg->usb_psy);
-	return 0;
-}
-
-static int otg_power_property_is_writeable_usb(struct power_supply *psy,
-						enum power_supply_property psp)
-{
-	switch (psp) {
-	case POWER_SUPPLY_PROP_HEALTH:
-	case POWER_SUPPLY_PROP_PRESENT:
-	case POWER_SUPPLY_PROP_ONLINE:
-	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
-	case POWER_SUPPLY_PROP_CURRENT_MAX:
-	case POWER_SUPPLY_PROP_DP_DM:
-	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
-	case POWER_SUPPLY_PROP_USB_OTG:
-		return 1;
-	default:
-		break;
-	}
-
-	return 0;
-}
-
-static char *otg_pm_power_supplied_to[] = {
-	"battery",
-};
-
-static enum power_supply_property otg_pm_power_props_usb[] = {
-	POWER_SUPPLY_PROP_HEALTH,
-	POWER_SUPPLY_PROP_PRESENT,
-	POWER_SUPPLY_PROP_ONLINE,
-	POWER_SUPPLY_PROP_VOLTAGE_MAX,
-	POWER_SUPPLY_PROP_CURRENT_MAX,
-	POWER_SUPPLY_PROP_INPUT_CURRENT_MAX,
-	POWER_SUPPLY_PROP_SCOPE,
-	POWER_SUPPLY_PROP_TYPE,
-	POWER_SUPPLY_PROP_VOLTAGE_NOW,
-	POWER_SUPPLY_PROP_DP_DM,
-	POWER_SUPPLY_PROP_USB_OTG,
-};
-
 static int msm_otg_dpdm_regulator_enable(struct regulator_dev *rdev)
 {
 	int ret = 0;
@@ -4245,22 +3980,6 @@ static int msm_otg_setup_devices(struct platform_device *ofdev,
 	return retval;
 }
 
-static int msm_otg_register_power_supply(struct platform_device *pdev,
-					struct msm_otg *motg)
-{
-	int ret;
-
-	ret = power_supply_register(&pdev->dev, &motg->usb_psy);
-	if (ret < 0) {
-		dev_err(motg->phy.dev,
-			"%s:power_supply_register usb failed\n",
-			__func__);
-		return ret;
-	}
-
-	return 0;
-}
-
 static int msm_otg_ext_chg_open(struct inode *inode, struct file *file)
 {
 	struct msm_otg *motg = the_msm_otg;
@@ -4424,8 +4143,7 @@ static int msm_otg_setup_ext_chg_cdev(struct msm_otg *motg)
 	int ret;
 
 	if (motg->pdata->enable_sec_phy || motg->pdata->mode == USB_HOST ||
-			motg->pdata->otg_control != OTG_PMIC_CONTROL ||
-			psy != &motg->usb_psy) {
+			motg->pdata->otg_control != OTG_PMIC_CONTROL) {
 		pr_debug("usb ext chg is not supported by msm otg\n");
 		return -ENODEV;
 	}
@@ -5343,20 +5061,6 @@ static int msm_otg_probe(struct platform_device *pdev)
 		pm_runtime_use_autosuspend(&pdev->dev);
 	}
 
-	motg->usb_psy.name = "usb";
-	motg->usb_psy.type = POWER_SUPPLY_TYPE_USB;
-	motg->usb_psy.supplied_to = otg_pm_power_supplied_to;
-	motg->usb_psy.num_supplicants = ARRAY_SIZE(otg_pm_power_supplied_to);
-	motg->usb_psy.properties = otg_pm_power_props_usb;
-	motg->usb_psy.num_properties = ARRAY_SIZE(otg_pm_power_props_usb);
-	motg->usb_psy.get_property = otg_power_get_property_usb;
-	motg->usb_psy.set_property = otg_power_set_property_usb;
-	motg->usb_psy.property_is_writeable
-		= otg_power_property_is_writeable_usb;
-
-	if (!msm_otg_register_power_supply(pdev, motg))
-		psy = &motg->usb_psy;
-
 	ret = msm_otg_setup_ext_chg_cdev(motg);
 	if (ret)
 		dev_dbg(&pdev->dev, "fail to setup cdev\n");
@@ -5369,9 +5073,17 @@ static int msm_otg_probe(struct platform_device *pdev)
 		}
 	}
 
+	psy = power_supply_get_by_name("usb");
+	if (!psy) {
+		dev_dbg(&pdev->dev, "Could not get usb power_supply\n");
+		ret = -EPROBE_DEFER;
+		goto otg_remove_devices;
+	}
+
+
 	ret = msm_otg_extcon_register(motg);
 	if (ret)
-		goto otg_remove_devices;
+		goto put_psy;
 
 	if (motg->extcon_vbus) {
 		ret = extcon_get_cable_state_(motg->extcon_vbus, EXTCON_USB);
@@ -5427,6 +5139,9 @@ static int msm_otg_probe(struct platform_device *pdev)
 
 	return 0;
 
+put_psy:
+	if (psy)
+		power_supply_put(psy);
 otg_remove_devices:
 	if (pdev->dev.of_node)
 		msm_otg_setup_devices(pdev, motg->pdata->mode, false);
@@ -5437,8 +5152,6 @@ remove_cdev:
 		class_destroy(motg->ext_chg_class);
 		unregister_chrdev_region(motg->ext_chg_dev, 1);
 	}
-	if (psy)
-		power_supply_unregister(psy);
 remove_phy:
 	usb_remove_phy(&motg->phy);
 free_async_irq:
@@ -5523,7 +5236,7 @@ static int msm_otg_remove(struct platform_device *pdev)
 	if (pdev->dev.of_node)
 		msm_otg_setup_devices(pdev, motg->pdata->mode, false);
 	if (psy)
-		power_supply_unregister(psy);
+		power_supply_put(psy);
 	msm_otg_debugfs_cleanup();
 	cancel_delayed_work_sync(&motg->chg_work);
 	cancel_delayed_work_sync(&motg->id_status_work);

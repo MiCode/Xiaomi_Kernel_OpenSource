@@ -281,14 +281,10 @@ struct msm_otg {
 #define CLOCKS_DOWN			BIT(3)
 #define PHY_REGULATORS_LPM	BIT(4)
 	int reset_counter;
-	struct power_supply usb_psy;
 	unsigned int online;
 	unsigned int host_mode;
-	unsigned int voltage_max;
-	unsigned int current_max;
 	unsigned int bc1p2_current_max;
 	unsigned int typec_current_max;
-	unsigned int usbin_health;
 
 	dev_t ext_chg_dev;
 	struct cdev ext_chg_cdev;
