@@ -66,8 +66,11 @@ hab_pchan_find_domid(struct hab_device *dev, int dom_id)
 		if (pchan->dom_id == dom_id || dom_id == HABCFG_VMID_DONT_CARE)
 			break;
 
-	if (pchan->dom_id != dom_id && dom_id != HABCFG_VMID_DONT_CARE)
+	if (pchan->dom_id != dom_id && dom_id != HABCFG_VMID_DONT_CARE) {
+		pr_err("dom_id mismatch requested %d, existing %d\n",
+			dom_id, pchan->dom_id);
 		pchan = NULL;
+	}
 
 	if (pchan && !kref_get_unless_zero(&pchan->refcount))
 		pchan = NULL;

@@ -78,6 +78,7 @@ struct uhab_context *hab_ctx_alloc(int kernel)
 	kref_init(&ctx->refcount);
 	ctx->import_ctx = habmem_imp_hyp_open();
 	if (!ctx->import_ctx) {
+		pr_err("habmem_imp_hyp_open failed\n");
 		kfree(ctx);
 		return NULL;
 	}
@@ -155,6 +156,7 @@ struct virtual_channel *frontend_open(struct uhab_context *ctx,
 
 	dev = find_hab_device(mm_id);
 	if (dev == NULL) {
+		pr_err("HAB device %d is not initialized\n", mm_id);
 		ret = -EINVAL;
 		goto err;
 	}
@@ -168,6 +170,7 @@ struct virtual_channel *frontend_open(struct uhab_context *ctx,
 
 	vchan = hab_vchan_alloc(ctx, pchan);
 	if (!vchan) {
+		pr_err("vchan alloc failed\n");
 		ret = -ENOMEM;
 		goto err;
 	}
@@ -195,6 +198,7 @@ struct virtual_channel *frontend_open(struct uhab_context *ctx,
 	hab_open_request_free(recv_request);
 
 	vchan->session_id = open_id;
+	pr_debug("vchan->session_id:%d\n", vchan->session_id);
 
 	/* Send Ack sequence */
 	hab_open_request_init(&request, HAB_PAYLOAD_TYPE_ACK, pchan,
@@ -230,6 +234,7 @@ struct virtual_channel *backend_listen(struct uhab_context *ctx,
 
 	dev = find_hab_device(mm_id);
 	if (dev == NULL) {
+		pr_err("failed to find dev based on id %d\n", mm_id);
 		ret = -EINVAL;
 		goto err;
 	}
@@ -259,6 +264,7 @@ struct virtual_channel *backend_listen(struct uhab_context *ctx,
 		vchan->otherend_id = otherend_vchan_id;
 
 		vchan->session_id = open_id;
+		pr_debug("vchan->session_id:%d\n", vchan->session_id);
 
 		/* Send Init-Ack sequence */
 		hab_open_request_init(&request, HAB_PAYLOAD_TYPE_INIT_ACK,
@@ -291,6 +297,7 @@ struct virtual_channel *backend_listen(struct uhab_context *ctx,
 	hab_pchan_put(pchan);
 	return vchan;
 err:
+	pr_err("listen on mmid %d failed\n", mm_id);
 	if (vchan)
 		hab_vchan_put(vchan);
 	if (pchan)
@@ -396,6 +403,9 @@ int hab_vchan_open(struct uhab_context *ctx,
 	struct virtual_channel *vchan = NULL;
 	struct hab_device *dev;
 
+	pr_debug("Open mmid=%d, loopback mode=%d, loopback num=%d\n",
+		mmid, hab_driver.b_loopback, hab_driver.loopback_num);
+
 	if (!vcid)
 		return -EINVAL;
 
@@ -424,8 +434,13 @@ int hab_vchan_open(struct uhab_context *ctx,
 		}
 	}
 
-	if (IS_ERR(vchan))
+	if (IS_ERR(vchan)) {
+		pr_err("vchan open failed over mmid=%d\n", mmid);
 		return PTR_ERR(vchan);
+	}
+
+	pr_debug("vchan id %x, remote id %x\n",
+		vchan->id, vchan->otherend_id);
 
 	write_lock(&ctx->ctx_lock);
 	list_add_tail(&vchan->node, &ctx->vchannels);
@@ -717,6 +732,8 @@ static int hab_release(struct inode *inodep, struct file *filep)
 
 	if (!ctx)
 		return 0;
+
+	pr_debug("inode %pK, filep %pK\n", inodep, filep);
 
 	write_lock(&ctx->ctx_lock);
 

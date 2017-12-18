@@ -13,7 +13,7 @@
 #ifndef __HAB_H
 #define __HAB_H
 
-#define pr_fmt(fmt) "hab: " fmt
+#define pr_fmt(fmt) "|hab:%s:%d|" fmt, __func__, __LINE__
 
 #include <linux/types.h>
 

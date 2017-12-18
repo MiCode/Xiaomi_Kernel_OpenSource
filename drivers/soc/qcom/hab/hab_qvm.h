@@ -30,6 +30,7 @@ struct qvm_channel {
 	struct tasklet_struct task;
 	struct guest_shm_factory *guest_factory;
 	struct guest_shm_control *guest_ctrl;
+	/* cached guest ctrl idx value to prevent trap when accessed */
 	uint32_t idx;
 
 	int channel;

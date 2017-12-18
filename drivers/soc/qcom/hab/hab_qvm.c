@@ -93,11 +93,14 @@ static uint64_t get_guest_factory_paddr(struct qvm_channel *dev,
 {
 	int i;
 
+	pr_debug("name = %s, factory paddr = 0x%lx, irq %d, pages %d\n",
+			name, factory_addr, irq, pages);
 	dev->guest_factory = (struct guest_shm_factory *)factory_addr;
 
 	if (dev->guest_factory->signature != GUEST_SHM_SIGNATURE) {
-		pr_err("shmem factory signature incorrect: %ld != %llu\n",
-			GUEST_SHM_SIGNATURE, dev->guest_factory->signature);
+		pr_err("signature error: %ld != %llu, factory addr %lx\n",
+			GUEST_SHM_SIGNATURE, dev->guest_factory->signature,
+			factory_addr);
 		return 0;
 	}
 
@@ -119,7 +122,11 @@ static uint64_t get_guest_factory_paddr(struct qvm_channel *dev,
 		return 0;
 	}
 
-	pr_debug("shm creation size %x\n", dev->guest_factory->size);
+	pr_debug("shm creation size %x, paddr=%llx, vector %d, dev %pK\n",
+		dev->guest_factory->size,
+		dev->guest_factory->shmem,
+		dev->guest_intr,
+		dev);
 
 	dev->factory_addr = factory_addr;
 	dev->irq = irq;
@@ -135,6 +142,8 @@ static int create_dispatcher(struct physical_channel *pchan)
 	tasklet_init(&dev->task, physical_channel_rx_dispatch,
 		(unsigned long) pchan);
 
+	pr_debug("request_irq: irq = %d, pchan name = %s",
+			dev->irq, pchan->name);
 	ret = request_irq(dev->irq, shm_irq_handler, IRQF_SHARED,
 		pchan->name, pchan);
 
@@ -152,6 +161,8 @@ void hab_pipe_reset(struct physical_channel *pchan)
 
 	pipe_ep = hab_pipe_init(dev->pipe, PIPE_SHMEM_SIZE,
 				pchan->is_be ? 0 : 1);
+	if (dev->pipe_ep != pipe_ep)
+		pr_warn("The pipe endpoint must not change\n");
 }
 
 /*
@@ -180,6 +191,9 @@ int habhyp_commdev_alloc(void **commdev, int is_be, char *name,
 	int total_pages;
 	struct page **pages;
 
+	pr_debug("habhyp_commdev_alloc: pipe_alloc_size is %d\n",
+		pipe_alloc_size);
+
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev)
 		return -ENOMEM;
@@ -193,6 +207,8 @@ int habhyp_commdev_alloc(void **commdev, int is_be, char *name,
 			pipe_alloc_pages);
 	qvm_priv->curr++;
 	if (qvm_priv->curr > qvm_priv->probe_cnt) {
+		pr_err("factory setting %d overflow probed cnt %d\n",
+					qvm_priv->curr, qvm_priv->probe_cnt);
 		ret = -1;
 		goto err;
 	}
@@ -215,11 +231,17 @@ int habhyp_commdev_alloc(void **commdev, int is_be, char *name,
 	}
 
 	shmdata = (char *)dev->guest_ctrl + PAGE_SIZE;
+
+	pr_debug("ctrl page 0x%llx mapped at 0x%pK, idx %d\n",
+			paddr, dev->guest_ctrl, dev->guest_ctrl->idx);
+	pr_debug("data buffer mapped at 0x%pK\n", shmdata);
 	dev->idx = dev->guest_ctrl->idx;
 
 	kfree(pages);
 
 	dev->pipe = (struct hab_pipe *) shmdata;
+	pr_debug("\"%s\": pipesize %d, addr 0x%pK, be %d\n", name,
+				 pipe_alloc_size, dev->pipe, is_be);
 	dev->pipe_ep = hab_pipe_init(dev->pipe, PIPE_SHMEM_SIZE,
 		is_be ? 0 : 1);
 	/* newly created pchan is added to mmid device list */

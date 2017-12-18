@@ -126,6 +126,11 @@ static int hab_receive_create_export_ack(struct physical_channel *pchan,
 		sizebytes) != sizebytes)
 		return -EIO;
 
+	pr_debug("receive export id %d, local vc %X, vd remote %X\n",
+		ack_recvd->ack.export_id,
+		ack_recvd->ack.vcid_local,
+		ack_recvd->ack.vcid_remote);
+
 	spin_lock_bh(&ctx->expq_lock);
 	list_add_tail(&ack_recvd->node, &ctx->exp_rxq);
 	spin_unlock_bh(&ctx->expq_lock);
@@ -235,6 +240,10 @@ void hab_msg_recv(struct physical_channel *pchan,
 		break;
 
 	case HAB_PAYLOAD_TYPE_CLOSE:
+		/* remote request close */
+		pr_debug("remote side request close\n");
+		pr_debug(" vchan id %X, other end %X, session %d\n",
+				vchan->id, vchan->otherend_id, session_id);
 		hab_vchan_stop(vchan);
 		break;
 
@@ -254,6 +263,12 @@ void hab_msg_recv(struct physical_channel *pchan,
 		break;
 
 	default:
+		pr_err("unknown msg is received\n");
+		pr_err("payload type %d, vchan id %x\n",
+				payload_type, vchan_id);
+		pr_err("sizebytes %zx, session %d\n",
+				sizebytes, session_id);
+
 		break;
 	}
 	if (vchan)
