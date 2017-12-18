@@ -29,6 +29,7 @@
 &usb0 {
 	/delete-property/ iommus;
 	/delete-property/ qcom,smmu-s1-bypass;
+	qcom,pm-qos-latency = <601>; /* CPU-CLUSTER-WFI-LVL latency +1 */
 	extcon = <0>, <0>, <&eud>, <0>, <0>;
 };
 
