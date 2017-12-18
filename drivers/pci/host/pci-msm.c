@@ -5444,7 +5444,8 @@ static void msm_pcie_config_l1(struct msm_pcie_dev_t *dev,
 static void msm_pcie_config_l1ss(struct msm_pcie_dev_t *dev,
 				struct pci_dev *pdev, bool enable)
 {
-	bool l1_1_cap_support, l1_2_cap_support;
+	bool l1_1_pcipm_support, l1_2_pcipm_support;
+	bool l1_1_aspm_support, l1_2_aspm_support;
 	u32 val, val2;
 	u32 l1ss_cap_id_offset, l1ss_cap_offset, l1ss_ctl1_offset;
 	u32 devctl2_offset = pdev->pcie_cap + PCI_EXP_DEVCTL2;
@@ -5461,11 +5462,14 @@ static void msm_pcie_config_l1ss(struct msm_pcie_dev_t *dev,
 	l1ss_ctl1_offset = l1ss_cap_id_offset + PCI_L1SS_CTL1;
 
 	pci_read_config_dword(pdev, l1ss_cap_offset, &val);
-	l1_1_cap_support = !!(val & (PCI_L1SS_CAP_ASPM_L1_1));
-	l1_2_cap_support = !!(val & (PCI_L1SS_CAP_ASPM_L1_2));
-	if (!l1_1_cap_support && !l1_2_cap_support) {
+	l1_1_pcipm_support = !!(val & (PCI_L1SS_CAP_PCIPM_L1_1));
+	l1_2_pcipm_support = !!(val & (PCI_L1SS_CAP_PCIPM_L1_2));
+	l1_1_aspm_support = !!(val & (PCI_L1SS_CAP_ASPM_L1_1));
+	l1_2_aspm_support = !!(val & (PCI_L1SS_CAP_ASPM_L1_2));
+	if (!l1_1_pcipm_support && !l1_2_pcipm_support &&
+		!l1_1_aspm_support && !l1_2_aspm_support) {
 		PCIE_DBG(dev,
-			"PCIe: RC%d: PCI device does not support L1.1 and L1.2\n",
+			"PCIe: RC%d: PCI device does not support any L1ss\n",
 			dev->rc_idx);
 		return;
 	}
@@ -5484,14 +5488,18 @@ static void msm_pcie_config_l1ss(struct msm_pcie_dev_t *dev,
 		msm_pcie_config_clear_set_dword(pdev, devctl2_offset, 0,
 			PCI_EXP_DEVCTL2_LTR_EN);
 		msm_pcie_config_clear_set_dword(pdev, l1ss_ctl1_offset, 0,
-			(l1_1_cap_support ? PCI_L1SS_CTL1_ASPM_L1_1 : 0) |
-			(l1_2_cap_support ? PCI_L1SS_CTL1_ASPM_L1_2 : 0));
+			(l1_1_pcipm_support ? PCI_L1SS_CTL1_PCIPM_L1_1 : 0) |
+			(l1_2_pcipm_support ? PCI_L1SS_CTL1_PCIPM_L1_2 : 0) |
+			(l1_1_aspm_support ? PCI_L1SS_CTL1_ASPM_L1_1 : 0) |
+			(l1_2_aspm_support ? PCI_L1SS_CTL1_ASPM_L1_2 : 0));
 	} else {
 		msm_pcie_config_clear_set_dword(pdev, devctl2_offset,
 			PCI_EXP_DEVCTL2_LTR_EN, 0);
 		msm_pcie_config_clear_set_dword(pdev, l1ss_ctl1_offset,
-			(l1_1_cap_support ? PCI_L1SS_CTL1_ASPM_L1_1 : 0) |
-			(l1_2_cap_support ? PCI_L1SS_CTL1_ASPM_L1_2 : 0), 0);
+			(l1_1_pcipm_support ? PCI_L1SS_CTL1_PCIPM_L1_1 : 0) |
+			(l1_2_pcipm_support ? PCI_L1SS_CTL1_PCIPM_L1_2 : 0) |
+			(l1_1_aspm_support ? PCI_L1SS_CTL1_ASPM_L1_1 : 0) |
+			(l1_2_aspm_support ? PCI_L1SS_CTL1_ASPM_L1_2 : 0), 0);
 	}
 
 	pci_read_config_dword(pdev, l1ss_ctl1_offset, &val);
@@ -5588,7 +5596,9 @@ static void msm_pcie_config_link_pm_rc(struct msm_pcie_dev_t *dev,
 			pci_read_config_dword(child_pdev,
 				l1ss_cap_id_offset + PCI_L1SS_CTL1, &val);
 			child_l1ss_enable = !!(val &
-				(PCI_L1SS_CTL1_ASPM_L1_1 |
+				(PCI_L1SS_CTL1_PCIPM_L1_1 |
+				PCI_L1SS_CTL1_PCIPM_L1_2 |
+				PCI_L1SS_CTL1_ASPM_L1_1 |
 				PCI_L1SS_CTL1_ASPM_L1_2));
 			if (child_l1ss_enable)
 				break;
