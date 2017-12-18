@@ -45,7 +45,6 @@
 #include <linux/usb/hcd.h>
 #include <linux/usb/msm_hsusb.h>
 #include <linux/usb/msm_hsusb_hw.h>
-#include <linux/usb/msm_ext_chg.h>
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
@@ -1451,12 +1450,12 @@ lpm_start:
 	 * bus suspend scenarios.  Otherwise PHY can not be suspended when
 	 * a charger that pulls DP/DM high is connected.
 	 */
-	config2 = readl_relaxed(USB_GENCONFIG2);
+	config2 = readl_relaxed(USB_GENCONFIG_2);
 	if (device_bus_suspend)
-		config2 |= GENCFG2_LINESTATE_DIFF_WAKEUP_EN;
+		config2 |= GENCONFIG_2_LINESTATE_DIFF_WAKEUP_EN;
 	else
-		config2 &= ~GENCFG2_LINESTATE_DIFF_WAKEUP_EN;
-	writel_relaxed(config2, USB_GENCONFIG2);
+		config2 &= ~GENCONFIG_2_LINESTATE_DIFF_WAKEUP_EN;
+	writel_relaxed(config2, USB_GENCONFIG_2);
 
 	/*
 	 * Abort suspend when,
@@ -1638,9 +1637,9 @@ phcd_retry:
 			 * Without this WA, the async_irq will be fired right
 			 * after suspending whithout any bus resume.
 			 */
-			config2 = readl_relaxed(USB_GENCONFIG2);
-			config2 &= ~GENCFG2_DPSE_DMSE_HV_INTR_EN;
-			writel_relaxed(config2, USB_GENCONFIG2);
+			config2 = readl_relaxed(USB_GENCONFIG_2);
+			config2 &= ~GENCONFIG_2_DPSE_DMSE_HV_INTR_EN;
+			writel_relaxed(config2, USB_GENCONFIG_2);
 
 			msm_otg_enter_phy_retention(motg);
 			motg->lpm_flags |= PHY_RETENTIONED;
@@ -1933,6 +1932,7 @@ static void msm_otg_notify_host_mode(struct msm_otg *motg, bool host_mode)
 static int msm_otg_notify_chg_type(struct msm_otg *motg)
 {
 	static int charger_type;
+	union power_supply_propval pval = {0};
 
 	/*
 	 * TODO
@@ -1960,12 +1960,17 @@ static int msm_otg_notify_chg_type(struct msm_otg *motg)
 	pr_debug("setting usb power supply type %d\n", charger_type);
 	msm_otg_dbg_log_event(&motg->phy, "SET USB PWR SUPPLY TYPE",
 			motg->chg_type, charger_type);
-	power_supply_set_supply_type(psy, charger_type);
+	pval.intval = charger_type;
+	power_supply_set_property(psy, POWER_SUPPLY_PROP_TYPE, &pval);
 	return 0;
 }
 
 static int msm_otg_notify_power_supply(struct msm_otg *motg, unsigned int mA)
 {
+	union power_supply_propval pval = {0};
+	bool enable;
+	int limit;
+
 	if (!psy) {
 		dev_dbg(motg->phy.dev, "no usb power supply registered\n");
 		goto psy_error;
@@ -1973,24 +1978,27 @@ static int msm_otg_notify_power_supply(struct msm_otg *motg, unsigned int mA)
 
 	if (motg->cur_power == 0 && mA > 2) {
 		/* Enable charging */
-		if (power_supply_set_online(psy, true))
-			goto psy_error;
-		if (power_supply_set_current_limit(psy, 1000*mA))
-			goto psy_error;
+		enable = true;
+		limit = 1000 * mA;
 	} else if (motg->cur_power >= 0 && (mA == 0 || mA == 2)) {
 		/* Disable charging */
-		if (power_supply_set_online(psy, false))
-			goto psy_error;
+		enable = false;
 		/* Set max current limit in uA */
-		if (power_supply_set_current_limit(psy, 1000*mA))
-			goto psy_error;
+		limit = 1000 * mA;
 	} else {
-		if (power_supply_set_online(psy, true))
-			goto psy_error;
+		enable = true;
 		/* Current has changed (100/2 --> 500) */
-		if (power_supply_set_current_limit(psy, 1000*mA))
-			goto psy_error;
+		limit = 1000 * mA;
 	}
+
+	pval.intval = enable;
+	if (power_supply_set_property(psy, POWER_SUPPLY_PROP_ONLINE, &pval))
+		goto psy_error;
+
+	pval.intval = limit;
+	if (power_supply_set_property(psy, POWER_SUPPLY_PROP_CURRENT_MAX,
+									&pval))
+		goto psy_error;
 
 	power_supply_changed(psy);
 	return 0;
@@ -2002,13 +2010,16 @@ psy_error:
 
 static void msm_otg_set_online_status(struct msm_otg *motg)
 {
+	union power_supply_propval pval = {0};
+
 	if (!psy) {
 		dev_dbg(motg->phy.dev, "no usb power supply registered\n");
 		return;
 	}
 
 	/* Set power supply online status to false */
-	if (power_supply_set_online(psy, false))
+	pval.intval = false;
+	if (power_supply_set_property(psy, POWER_SUPPLY_PROP_ONLINE, &pval))
 		dev_dbg(motg->phy.dev, "error setting power supply property\n");
 }
 
@@ -2442,13 +2453,15 @@ static int msm_otg_set_peripheral(struct usb_otg *otg,
 static bool msm_otg_read_pmic_id_state(struct msm_otg *motg)
 {
 	unsigned long flags;
-	int id;
+	bool id;
+	int ret;
 
 	if (!motg->pdata->pmic_id_irq)
 		return -ENODEV;
 
 	local_irq_save(flags);
-	id = irq_read_line(motg->pdata->pmic_id_irq);
+	ret = irq_get_irqchip_state(motg->pdata->pmic_id_irq,
+					IRQCHIP_STATE_LINE_LEVEL, &id);
 	local_irq_restore(flags);
 
 	/*
@@ -2456,6 +2469,9 @@ static bool msm_otg_read_pmic_id_state(struct msm_otg *motg)
 	 * it as float. This would prevent MHL discovery and kicking
 	 * host mode unnecessarily.
 	 */
+	if (ret < 0)
+		return true;
+
 	return !!id;
 }
 
@@ -3813,9 +3829,9 @@ set_msm_otg_perf_mode(struct device *dev, struct device_attribute *attr,
 	int ret;
 	long clk_rate;
 
-	pr_debug("%s: enable:%d\n", __func__, !strnicmp(buf, "enable", 6));
+	pr_debug("%s: enable:%d\n", __func__, !strncasecmp(buf, "enable", 6));
 
-	if (!strnicmp(buf, "enable", 6)) {
+	if (!strncasecmp(buf, "enable", 6)) {
 		clk_rate = motg->core_clk_nominal_rate;
 		msm_otg_bus_freq_set(motg, USB_NOC_NOM_VOTE);
 	} else {
@@ -4207,10 +4223,10 @@ static ssize_t dpdm_pulldown_enable_store(struct device *dev,
 	struct msm_otg *motg = the_msm_otg;
 	struct msm_otg_platform_data *pdata = motg->pdata;
 
-	if (!strnicmp(buf, "enable", 6)) {
+	if (!strncasecmp(buf, "enable", 6)) {
 		pdata->dpdm_pulldown_added = true;
 		return size;
-	} else if (!strnicmp(buf, "disable", 7)) {
+	} else if (!strncasecmp(buf, "disable", 7)) {
 		pdata->dpdm_pulldown_added = false;
 		return size;
 	}

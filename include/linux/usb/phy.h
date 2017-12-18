@@ -58,6 +58,7 @@ enum usb_otg_state {
 	OTG_STATE_B_SRP_INIT,
 	OTG_STATE_B_PERIPHERAL,
 	OTG_STATE_B_SUSPEND,
+	OTG_STATE_B_CHARGER,
 
 	/* extra dual-role default-b states */
 	OTG_STATE_B_WAIT_ACON,
@@ -141,6 +142,10 @@ struct usb_phy {
 
 	/* reset the PHY clocks */
 	int     (*reset)(struct usb_phy *x);
+
+	/* for notification of usb_phy_dbg_events */
+	void    (*dbg_event)(struct usb_phy *x,
+			char *event, int msg1, int msg2);
 	int	(*disable_chirp)(struct usb_phy *x, bool disable);
 };
 
