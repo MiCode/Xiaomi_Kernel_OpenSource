@@ -756,7 +756,12 @@ normally open.
 
 Optional Properties:
 - qcom,us-euro-gpios : GPIO on which gnd/mic swap signal is coming.
-
+- qcom,subsys-name: This value provides the subsystem name where codec
+		is present. This property enables the codec driver to
+		register and receive subsytem restart notification from subsystem
+		and follow appropriate steps to ensure codec is in proper state
+		after subsytem restart. By default codec driver register
+		with ADSP subsystem.
 Example:
 
 	sound {
@@ -1622,6 +1627,12 @@ capacitor mode.
 - qcom,msm-micbias2-ext-cap : Boolean. Enable micbias2 external
 capacitor mode.
 - qcom,msm-spk-ext-pa : GPIO which enables external speaker pa.
+- qcom,subsys-name: This value provides the subsystem name where codec
+		is present. This property enables the codec driver to
+		register and receive subsytem restart notification from subsystem
+		and follow appropriate steps to ensure codec is in proper state
+		after subsytem restart. By default codec driver register
+		with ADSP subsystem.
 
 To Configure External Audio Switch
 - qcom,msm-ext-audio-switch : GPIO which controls external switch that switches

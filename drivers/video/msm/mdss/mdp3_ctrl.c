@@ -23,6 +23,7 @@
 #include <linux/dma-buf.h>
 #include <linux/pm_runtime.h>
 #include <linux/sw_sync.h>
+#include <linux/iommu.h>
 
 #include "mdp3_ctrl.h"
 #include "mdp3.h"
@@ -1171,6 +1172,16 @@ int mdp3_ctrl_reset(struct msm_fb_data_type *mfd)
 		mdp3_clk_enable(1, 0);
 		mdp3_dynamic_clock_gating_ctrl(0);
 		mdp3_qos_remapper_setup(panel);
+	}
+
+	/*Map the splash addr for VIDEO mode panel before smmu attach*/
+	if ((mfd->panel.type == MIPI_VIDEO_PANEL) &&
+				(mdp3_session->in_splash_screen)) {
+		rc = mdss_smmu_map(MDSS_IOMMU_DOMAIN_UNSECURE,
+				mdp3_res->splash_mem_addr,
+				mdp3_res->splash_mem_addr,
+				mdp3_res->splash_mem_size,
+				IOMMU_READ | IOMMU_NOEXEC);
 	}
 
 	rc = mdp3_iommu_enable(MDP3_CLIENT_DMA_P);

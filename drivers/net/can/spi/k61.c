@@ -23,6 +23,7 @@
 #include <linux/of_device.h>
 #include <linux/of_gpio.h>
 #include <linux/uaccess.h>
+#include <linux/pm.h>
 
 #define DEBUG_K61	0
 #if DEBUG_K61 == 1
@@ -920,11 +921,39 @@ static const struct of_device_id k61_match_table[] = {
 	{ }
 };
 
+#ifdef CONFIG_PM
+static int k61_suspend(struct device *dev)
+{
+	struct spi_device *spi = to_spi_device(dev);
+
+	enable_irq_wake(spi->irq);
+	return 0;
+}
+
+static int k61_resume(struct device *dev)
+{
+	struct spi_device *spi = to_spi_device(dev);
+	struct k61_can *priv_data = spi_get_drvdata(spi);
+
+	disable_irq_wake(spi->irq);
+	k61_rx_message(priv_data);
+	return 0;
+}
+
+static const struct dev_pm_ops k61_dev_pm_ops = {
+	.suspend	= k61_suspend,
+	.resume		= k61_resume,
+};
+#endif
+
 static struct spi_driver k61_driver = {
 	.driver = {
 		.name = "k61",
 		.of_match_table = k61_match_table,
 		.owner = THIS_MODULE,
+#ifdef CONFIG_PM
+		.pm = &k61_dev_pm_ops,
+#endif
 	},
 	.probe = k61_probe,
 	.remove = k61_remove,
