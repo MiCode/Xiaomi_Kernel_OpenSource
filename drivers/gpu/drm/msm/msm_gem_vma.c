@@ -60,7 +60,7 @@ msm_gem_address_space_new(struct msm_mmu *mmu, const char *name,
 
 	if (aspace->va_len)
 		drm_mm_init(&aspace->mm, (start >> PAGE_SHIFT),
-			(end >> PAGE_SHIFT) - 1);
+			(aspace->va_len >> PAGE_SHIFT));
 
 	kref_init(&aspace->kref);
 
