@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -749,9 +750,13 @@ static int msm_fd_s_fmt_vid_out(struct file *file,
 static int msm_fd_reqbufs(struct file *file,
 	void *fh, struct v4l2_requestbuffers *req)
 {
+	int ret;
 	struct fd_ctx *ctx = msm_fd_ctx_from_fh(fh);
 
-	return vb2_reqbufs(&ctx->vb2_q, req);
+	mutex_lock(&ctx->fd_device->recovery_lock);
+	ret = vb2_reqbufs(&ctx->vb2_q, req);
+	mutex_unlock(&ctx->fd_device->recovery_lock);
+	return ret;
 }
 
 /*
@@ -763,9 +768,14 @@ static int msm_fd_reqbufs(struct file *file,
 static int msm_fd_qbuf(struct file *file, void *fh,
 	struct v4l2_buffer *pb)
 {
+	int ret;
 	struct fd_ctx *ctx = msm_fd_ctx_from_fh(fh);
 
-	return vb2_qbuf(&ctx->vb2_q, pb);
+	mutex_lock(&ctx->fd_device->recovery_lock);
+	ret = vb2_qbuf(&ctx->vb2_q, pb);
+	mutex_unlock(&ctx->fd_device->recovery_lock);
+	return ret;
+
 }
 
 /*
@@ -777,9 +787,13 @@ static int msm_fd_qbuf(struct file *file, void *fh,
 static int msm_fd_dqbuf(struct file *file,
 	void *fh, struct v4l2_buffer *pb)
 {
+	int ret;
 	struct fd_ctx *ctx = msm_fd_ctx_from_fh(fh);
 
-	return vb2_dqbuf(&ctx->vb2_q, pb, file->f_flags & O_NONBLOCK);
+	mutex_lock(&ctx->fd_device->recovery_lock);
+	ret = vb2_dqbuf(&ctx->vb2_q, pb, file->f_flags & O_NONBLOCK);
+	mutex_unlock(&ctx->fd_device->recovery_lock);
+	return ret;
 }
 
 /*

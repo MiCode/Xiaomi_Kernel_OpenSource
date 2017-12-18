@@ -2,6 +2,7 @@
  * firmware_class.c - Multi purpose firmware loading support
  *
  * Copyright (c) 2003 Manuel Estrada Sainz
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * Please see Documentation/firmware_class/ for more information.
  *
@@ -295,6 +296,7 @@ static void fw_free_buf(struct firmware_buf *buf)
 {
 	struct firmware_cache *fwc = buf->fwc;
 	if (!fwc) {
+		kfree_const(buf->fw_id);
 		kfree(buf);
 		return;
 	}

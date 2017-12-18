@@ -330,7 +330,9 @@ struct mmc_devfeq_clk_scaling {
 	atomic_t	devfreq_abort;
 	bool		skip_clk_scale_freq_update;
 	int		freq_table_sz;
+	int		pltfm_freq_table_sz;
 	u32		*freq_table;
+	u32		*pltfm_freq_table;
 	unsigned long	total_busy_time_us;
 	unsigned long	target_freq;
 	unsigned long	curr_freq;
@@ -821,6 +823,8 @@ static inline bool mmc_card_hs400(struct mmc_card *card)
 	return card->host->ios.timing == MMC_TIMING_MMC_HS400;
 }
 
+void mmc_retune_enable(struct mmc_host *host);
+void mmc_retune_disable(struct mmc_host *host);
 void mmc_retune_timer_stop(struct mmc_host *host);
 
 static inline void mmc_retune_needed(struct mmc_host *host)

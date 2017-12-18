@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +35,7 @@
 #include <soc/qcom/socinfo.h>
 #include <soc/qcom/smem.h>
 #include <soc/qcom/boot_stats.h>
+#include <asm/hwconf_manager.h>
 
 #define BUILD_ID_LENGTH 32
 #define SMEM_IMAGE_VERSION_BLOCKS_COUNT 32
@@ -65,6 +67,7 @@ enum {
 	HW_PLATFORM_RCM	= 21,
 	HW_PLATFORM_STP = 23,
 	HW_PLATFORM_SBC = 24,
+	HW_PLATFORM_JASON = 30,
 	HW_PLATFORM_INVALID
 };
 
@@ -85,6 +88,7 @@ const char *hw_platform[] = {
 	[HW_PLATFORM_DTV] = "DTV",
 	[HW_PLATFORM_STP] = "STP",
 	[HW_PLATFORM_SBC] = "SBC",
+	[HW_PLATFORM_JASON] = "JASON",
 };
 
 enum {
@@ -1093,6 +1097,72 @@ msm_get_images(struct device *dev,
 	return pos;
 }
 
+uint32_t get_hw_version_platform(void)
+{
+	uint32_t hw_type = socinfo_get_platform_type();
+	if (hw_type == HW_PLATFORM_JASON)
+		return HARDWARE_PLATFORM_JASON;
+	else
+		return HARDWARE_PLATFORM_UNKNOWN;
+}
+EXPORT_SYMBOL(get_hw_version_platform);
+
+uint32_t get_hw_version_major(void)
+{
+	return SOCINFO_VERSION_MAJOR(socinfo_get_platform_version());
+}
+EXPORT_SYMBOL(get_hw_version_major);
+
+uint32_t get_hw_version_minor(void)
+{
+	return SOCINFO_VERSION_MINOR(socinfo_get_platform_version());
+}
+EXPORT_SYMBOL(get_hw_version_minor);
+
+static int hwinfo_get_ddr_info_from_smem(void)
+{
+	unsigned size;
+	uint32_t *ddr_table_ptr;
+
+	ddr_table_ptr = smem_get_entry(SMEM_ID_VENDOR2, &size, 0,
+			SMEM_ANY_HOST_FLAG);
+	if (IS_ERR_OR_NULL(ddr_table_ptr)) {
+		pr_err("Error fetching DDR manufacturer id from SMEM!\n");
+		return PTR_ERR(ddr_table_ptr);
+	}
+
+	if (register_hw_component_info("DDR")) {
+		printk("register_hw_component_info failed\n");
+		return -EINVAL;
+	 }
+	switch (*ddr_table_ptr) {
+	case HWINFO_DDRID_SAMSUNG:
+		add_hw_component_info("DDR", "ManufacturerName", "Samsung");
+		break;
+	case HWINFO_DDRID_HYNIX:
+		add_hw_component_info("DDR", "ManufacturerName", "Hynix");
+		break;
+	case HWINFO_DDRID_ELPIDA:
+		add_hw_component_info("DDR", "ManufacturerName", "Elpida");
+		break;
+	case HWINFO_DDRID_MICRON:
+		add_hw_component_info("DDR", "ManufacturerName", "Micron");
+		break;
+	case HWINFO_DDRID_NANYA:
+		add_hw_component_info("DDR", "ManufacturerName", "Nanya");
+		break;
+	case HWINFO_DDRID_INTEL:
+		add_hw_component_info("DDR", "ManufacturerName", "Intel");
+		break;
+	default:
+		add_hw_component_info("DDR", "ManufacturerName", "unknow");
+		break;
+	}
+
+	return 0;
+}
+
+
 static struct device_attribute msm_soc_attr_raw_version =
 	__ATTR(raw_version, S_IRUGO, msm_get_raw_version,  NULL);
 
@@ -1549,6 +1619,8 @@ int __init socinfo_init(void)
 		pr_warn("Can't find SMEM_HW_SW_BUILD_ID; falling back on dummy values.\n");
 		socinfo = setup_dummy_socinfo();
 	}
+
+	hwinfo_get_ddr_info_from_smem();
 
 	socinfo_select_format();
 

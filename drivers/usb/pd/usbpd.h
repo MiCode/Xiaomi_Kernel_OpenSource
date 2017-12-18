@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,7 +69,6 @@ struct pd_phy_params {
 	enum data_role	data_role;
 	enum power_role power_role;
 	u8		frame_filter_val;
-	u8		spec_rev;
 };
 
 #if IS_ENABLED(CONFIG_QPNP_USB_PDPHY)
@@ -77,7 +77,6 @@ int pd_phy_signal(enum pd_sig_type type, unsigned int timeout_ms);
 int pd_phy_write(u16 hdr, const u8 *data, size_t data_len,
 	enum pd_msg_type type, unsigned int timeout_ms);
 int pd_phy_update_roles(enum data_role dr, enum power_role pr);
-int pd_phy_update_spec_rev(enum pd_spec_rev rev);
 void pd_phy_close(void);
 #else
 static inline int pd_phy_open(struct pd_phy_params *params)
@@ -97,11 +96,6 @@ static inline int pd_phy_write(u16 hdr, const u8 *data, size_t data_len,
 }
 
 static inline int pd_phy_update_roles(enum data_role dr, enum power_role pr)
-{
-	return -ENODEV;
-}
-
-static inline int pd_phy_update_spec_rev(enum pd_spec_rev rev)
 {
 	return -ENODEV;
 }

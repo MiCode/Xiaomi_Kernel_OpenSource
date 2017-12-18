@@ -1521,7 +1521,6 @@ static int msm_eeprom_config32(struct msm_eeprom_ctrl_t *e_ctrl,
 		if (e_ctrl->userspace_probe == 0) {
 			pr_err("%s:%d Eeprom already probed at kernel boot",
 				__func__, __LINE__);
-			rc = -EINVAL;
 			break;
 		}
 		if (e_ctrl->cal_data.num_data == 0) {
@@ -1603,7 +1602,7 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 
 	e_ctrl->cal_data.mapdata = NULL;
 	e_ctrl->cal_data.map = NULL;
-	e_ctrl->userspace_probe = 0;
+	e_ctrl->userspace_probe = 1;
 	e_ctrl->is_supported = 0;
 	if (!of_node) {
 		pr_err("%s dev.of_node NULL\n", __func__);

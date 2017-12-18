@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1337,8 +1338,6 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 				"Failed to release output buffers\n");
 		}
 
-		debugfs_remove_recursive(inst->debugfs_root);
-
 		mutex_lock(&inst->pending_getpropq.lock);
 		if (!list_empty(&inst->pending_getpropq.list)) {
 			dprintk(VIDC_ERR,
@@ -1352,7 +1351,6 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 int msm_vidc_destroy(struct msm_vidc_inst *inst)
 {
 	struct msm_vidc_core *core;
-	int i = 0;
 
 	if (!inst || !inst->core)
 		return -EINVAL;
@@ -1376,13 +1374,12 @@ int msm_vidc_destroy(struct msm_vidc_inst *inst)
 	v4l2_fh_del(&inst->event_handler);
 	v4l2_fh_exit(&inst->event_handler);
 
-	for (i = 0; i < MAX_PORT_NUM; i++)
-		vb2_queue_release(&inst->bufq[i].vb2_bufq);
-
 	mutex_destroy(&inst->sync_lock);
 	mutex_destroy(&inst->bufq[CAPTURE_PORT].lock);
 	mutex_destroy(&inst->bufq[OUTPUT_PORT].lock);
 	mutex_destroy(&inst->lock);
+
+	msm_vidc_debugfs_deinit_inst(inst);
 
 	pr_info(VIDC_DBG_TAG "Closed video instance: %pK\n",
 			VIDC_MSG_PRIO2STRING(VIDC_INFO), inst);
@@ -1402,7 +1399,7 @@ int msm_vidc_close(void *instance)
 
 	struct msm_vidc_inst *inst = instance;
 	struct buffer_info *bi, *dummy;
-	int rc = 0;
+	int rc = 0, i = 0;
 
 	if (!inst || !inst->core)
 		return -EINVAL;
@@ -1438,6 +1435,12 @@ int msm_vidc_close(void *instance)
 
 	msm_comm_session_clean(inst);
 	msm_smem_delete_client(inst->mem_client);
+
+	for (i = 0; i < MAX_PORT_NUM; i++) {
+		mutex_lock(&inst->bufq[i].lock);
+		vb2_queue_release(&inst->bufq[i].vb2_bufq);
+		mutex_unlock(&inst->bufq[i].lock);
+	}
 
 	kref_put(&inst->kref, close_helper);
 	return 0;

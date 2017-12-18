@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -387,12 +388,13 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 	void __user *priv_arg = (void __user *)arg;
 	struct qbt1000_drvdata *drvdata;
 
+	drvdata = file->private_data;
+
 	if (!file->private_data) {
 		pr_err("Null pointer passed in file->private_data");
 		return -EINVAL;
 	}
 
-	drvdata = file->private_data;
 
 	if (IS_ERR(priv_arg)) {
 		dev_err(drvdata->dev, "%s: invalid user space pointer %lu\n",

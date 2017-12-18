@@ -3,6 +3,7 @@
  * Anonymous Shared Memory Subsystem, ashmem
  *
  * Copyright (C) 2008 Google, Inc.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * Robert Love <rlove@google.com>
  *
@@ -392,6 +393,7 @@ static int ashmem_mmap(struct file *file, struct vm_area_struct *vma)
 			ret = PTR_ERR(vmfile);
 			goto out;
 		}
+		vmfile->f_mode |= FMODE_LSEEK;
 		asma->file = vmfile;
 	}
 	get_file(asma->file);

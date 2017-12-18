@@ -58,6 +58,7 @@ Optional properties:
 - pinctrl-names, pinctrl-0, pinctrl-1,.. pinctrl-n: Refer to "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt"
 			for these optional properties
 
+- non-removable		: defines if the connected ufs device is not removable
 
 
 Note: If above properties are not defined it can be assumed that the supply

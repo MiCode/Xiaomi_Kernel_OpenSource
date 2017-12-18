@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -463,17 +464,11 @@ static int32_t msm_sensor_create_pd_settings(void *setting,
 
 #ifdef CONFIG_COMPAT
 	if (is_compat_task()) {
-		int i = 0;
-		struct msm_sensor_power_setting32 *power_setting_iter =
-		(struct msm_sensor_power_setting32 *)compat_ptr((
-		(struct msm_camera_sensor_slave_info32 *)setting)->
-		power_setting_array.power_setting);
-
-		for (i = 0; i < size_down; i++) {
-			pd[i].config_val = power_setting_iter[i].config_val;
-			pd[i].delay = power_setting_iter[i].delay;
-			pd[i].seq_type = power_setting_iter[i].seq_type;
-			pd[i].seq_val = power_setting_iter[i].seq_val;
+		rc = msm_sensor_get_pw_settings_compat(
+			pd, pu, size_down);
+		if (rc < 0) {
+			pr_err("failed");
+			return -EFAULT;
 		}
 	} else
 #endif
@@ -755,6 +750,7 @@ int32_t msm_sensor_driver_probe(void *setting,
 
 		slave_info->i2c_freq_mode = slave_info32->i2c_freq_mode;
 		slave_info->sensor_id_info = slave_info32->sensor_id_info;
+		slave_info->vendor_id_info = slave_info32->vendor_id_info;
 
 		slave_info->slave_addr = slave_info32->slave_addr;
 		slave_info->power_setting_array.size =
@@ -836,9 +832,10 @@ int32_t msm_sensor_driver_probe(void *setting,
 		 * and probe already succeeded for that sensor. Ignore this
 		 * probe
 		 */
-		if (slave_info->sensor_id_info.sensor_id ==
-			s_ctrl->sensordata->cam_slave_info->
-				sensor_id_info.sensor_id) {
+		if ((slave_info->sensor_id_info.sensor_id ==
+			s_ctrl->sensordata->cam_slave_info->sensor_id_info.sensor_id) &&
+			(slave_info->vendor_id_info.vendor_id ==
+			s_ctrl->sensordata->cam_slave_info->vendor_id_info.vendor_id)) {
 			pr_err("slot%d: sensor id%d already probed\n",
 				slave_info->camera_id,
 				s_ctrl->sensordata->cam_slave_info->
@@ -936,6 +933,7 @@ CSID_TG:
 	s_ctrl->sensordata->actuator_name = slave_info->actuator_name;
 	s_ctrl->sensordata->ois_name = slave_info->ois_name;
 	s_ctrl->sensordata->flash_name = slave_info->flash_name;
+	s_ctrl->sensordata->vendor_id_info = &(slave_info->vendor_id_info);
 	/*
 	 * Update eeporm subdevice Id by input eeprom name
 	 */

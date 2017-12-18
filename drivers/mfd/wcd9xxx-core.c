@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1541,18 +1542,19 @@ static int wcd9xxx_slim_device_down(struct slim_device *sldev)
 
 	mutex_lock(&wcd9xxx->reset_lock);
 
-	dev_info(wcd9xxx->dev, "%s: device down, dev_up = %lu\n",
-			__func__, wcd9xxx->dev_up);
 	if (!wcd9xxx->dev_up) {
 		mutex_unlock(&wcd9xxx->reset_lock);
 		return 0;
 	}
 
+	wcd9xxx->dev_up = false;
+	dev_info(wcd9xxx->dev, "%s: device down,set dev_up = %lu\n",
+			__func__, wcd9xxx->dev_up);
+
 	if (wcd9xxx->dev_down)
 		wcd9xxx->dev_down(wcd9xxx);
 	wcd9xxx_irq_exit(&wcd9xxx->core_res);
 	wcd9xxx_reset_low(wcd9xxx->dev);
-	wcd9xxx->dev_up = false;
 	mutex_unlock(&wcd9xxx->reset_lock);
 
 	return 0;

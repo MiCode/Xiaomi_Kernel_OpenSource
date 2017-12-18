@@ -1,0 +1,24 @@
+Device tree bindings for IR LED connected through SPI bus which is used as
+remote controller.
+
+The IR LED switch is connected to the MOSI line of the SPI device and the data
+are delivered thourgh that.
+
+Required properties:
+	- compatible: should be "ir-spi"
+
+Optional properties:
+	- irled,switch: specifies the gpio switch which enables the irled
+
+Example:
+
+	irled@0 {
+		compatible = "ir-spi";
+		reg = <0x0>;
+		spi-max-frequency = <5000000>;
+		irled,switch = <&gpr3 3 0>;
+
+		controller-data {
+			samsung,spi-feedback-delay = <0>;
+		};
+	};

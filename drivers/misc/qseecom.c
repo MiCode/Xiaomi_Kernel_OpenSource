@@ -1,6 +1,7 @@
 /*Qualcomm Secure Execution Environment Communicator (QSEECOM) driver
  *
  * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2908,8 +2909,12 @@ static int qseecom_send_service_cmd(struct qseecom_dev_handle *data,
 		}
 		if (req.cmd_id == QSEOS_RPMB_CHECK_PROV_STATUS_COMMAND) {
 			pr_warn("RPMB key status is 0x%x\n", resp.result);
-			*(uint32_t *)req.resp_buf = resp.result;
-			ret = 0;
+			if (copy_to_user(req.resp_buf, &resp.result, sizeof(resp.result))) {
+				pr_err("copy_to_user failed");
+				ret = -EINVAL;
+			} else {
+				ret = 0;
+			}
 		}
 		break;
 	case QSEOS_RESULT_FAILURE:

@@ -2,6 +2,7 @@
  *  linux/drivers/mmc/core/mmc_ops.h
  *
  *  Copyright 2006-2007 Pierre Ossman
+ *  Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -389,6 +390,13 @@ err:
 	kfree(cid_tmp);
 	return ret;
 }
+
+int mmc_send_ext_csd(struct mmc_card *card, u8 *ext_csd)
+{
+	return mmc_send_cxd_data(card, card->host, MMC_SEND_EXT_CSD,
+			ext_csd, 512);
+}
+EXPORT_SYMBOL_GPL(mmc_send_ext_csd);
 
 int mmc_get_ext_csd(struct mmc_card *card, u8 **new_ext_csd)
 {

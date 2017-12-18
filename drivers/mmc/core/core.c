@@ -5,6 +5,7 @@
  *  SD support Copyright (C) 2004 Ian Molton, All Rights Reserved.
  *  Copyright (C) 2005-2008 Pierre Ossman, All Rights Reserved.
  *  MMCv4 support Copyright (C) 2006 Philip Langdale, All Rights Reserved.
+ *  Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -65,6 +66,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(mmc_blk_rw_end);
  * operations the card has to perform.
  */
 #define MMC_BKOPS_MAX_TIMEOUT	(4 * 60 * 1000) /* max time to wait in ms */
+#define MMC_CACHE_DISBALE_TIMEOUT_MS 180000 /* msec */
 
 static struct workqueue_struct *workqueue;
 static const unsigned freqs[] = { 400000, 300000, 200000, 100000 };
@@ -616,17 +618,39 @@ static int mmc_devfreq_create_freq_table(struct mmc_host *host)
 		host->card->clk_scaling_lowest,
 		host->card->clk_scaling_highest);
 
+	/*
+	 * Create the frequency table and initialize it with default values.
+	 * Initialize it with platform specific frequencies if the frequency
+	 * table supplied by platform driver is present, otherwise initialize
+	 * it with min and max frequencies supported by the card.
+	 */
 	if (!clk_scaling->freq_table) {
-		pr_debug("%s: no frequency table defined -  setting default\n",
-			mmc_hostname(host));
+		if (clk_scaling->pltfm_freq_table_sz)
+			clk_scaling->freq_table_sz =
+				clk_scaling->pltfm_freq_table_sz;
+		else
+			clk_scaling->freq_table_sz = 2;
+
 		clk_scaling->freq_table = kzalloc(
-			2*sizeof(*(clk_scaling->freq_table)), GFP_KERNEL);
+			(clk_scaling->freq_table_sz *
+			sizeof(*(clk_scaling->freq_table))), GFP_KERNEL);
 		if (!clk_scaling->freq_table)
 			return -ENOMEM;
-		clk_scaling->freq_table[0] = host->card->clk_scaling_lowest;
-		clk_scaling->freq_table[1] = host->card->clk_scaling_highest;
-		clk_scaling->freq_table_sz = 2;
-		goto out;
+
+		if (clk_scaling->pltfm_freq_table) {
+			memcpy(clk_scaling->freq_table,
+				clk_scaling->pltfm_freq_table,
+				(clk_scaling->pltfm_freq_table_sz *
+				sizeof(*(clk_scaling->pltfm_freq_table))));
+		} else {
+			pr_debug("%s: no frequency table defined -  setting default\n",
+				mmc_hostname(host));
+			clk_scaling->freq_table[0] =
+				host->card->clk_scaling_lowest;
+			clk_scaling->freq_table[1] =
+				host->card->clk_scaling_highest;
+			goto out;
+		}
 	}
 
 	if (host->card->clk_scaling_lowest >
@@ -835,7 +859,7 @@ int mmc_resume_clk_scaling(struct mmc_host *host)
 	devfreq_min_clk = host->clk_scaling.freq_table[0];
 
 	host->clk_scaling.curr_freq = devfreq_max_clk;
-	if (host->ios.clock < host->card->clk_scaling_highest)
+	if (host->ios.clock < host->clk_scaling.freq_table[max_clk_idx])
 		host->clk_scaling.curr_freq = devfreq_min_clk;
 
 	host->clk_scaling.clk_scaling_in_progress = false;
@@ -895,6 +919,10 @@ int mmc_exit_clk_scaling(struct mmc_host *host)
 
 	host->clk_scaling.devfreq = NULL;
 	atomic_set(&host->clk_scaling.devfreq_abort, 1);
+
+	kfree(host->clk_scaling.freq_table);
+	host->clk_scaling.freq_table = NULL;
+
 	pr_debug("%s: devfreq was removed\n", mmc_hostname(host));
 
 	return 0;
@@ -4373,6 +4401,55 @@ int mmc_flush_cache(struct mmc_card *card)
 	return err;
 }
 EXPORT_SYMBOL(mmc_flush_cache);
+
+/*
+ * Turn the cache ON/OFF.
+ * Turning the cache OFF shall trigger flushing of the data
+ * to the non-volatile storage.
+ * This function should be called with host claimed
+ */
+int mmc_cache_ctrl(struct mmc_host *host, u8 enable)
+{
+	struct mmc_card *card = host->card;
+	unsigned int timeout = card->ext_csd.generic_cmd6_time;
+	int err = 0, rc;
+
+	if (mmc_card_is_removable(host) ||
+			(card->quirks & MMC_QUIRK_CACHE_DISABLE))
+		return err;
+
+	if (card && mmc_card_mmc(card) &&
+			(card->ext_csd.cache_size > 0)) {
+		enable = !!enable;
+
+		if (card->ext_csd.cache_ctrl ^ enable) {
+			if (!enable)
+				timeout = MMC_CACHE_DISBALE_TIMEOUT_MS;
+
+			err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+					EXT_CSD_CACHE_CTRL, enable, 0);
+
+			if (err == -ETIMEDOUT && !enable) {
+				pr_err("%s:cache disable operation timeout\n",
+						mmc_hostname(card->host));
+				rc = mmc_interrupt_hpi(card);
+				if (rc)
+					pr_err("%s: mmc_interrupt_hpi() failed (%d)\n",
+							mmc_hostname(host), rc);
+			} else if (err) {
+				pr_err("%s: cache %s error %d\n",
+						mmc_hostname(card->host),
+						enable ? "on" : "off",
+						err);
+			} else {
+				card->ext_csd.cache_ctrl = enable;
+			}
+		}
+	}
+
+	return err;
+}
+EXPORT_SYMBOL(mmc_cache_ctrl);
 
 #ifdef CONFIG_PM
 

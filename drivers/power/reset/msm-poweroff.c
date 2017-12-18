@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -72,7 +73,7 @@ static void scm_disable_sdi(void);
 
 static int in_panic;
 static int dload_type = SCM_DLOAD_FULLDUMP;
-static int download_mode = 1;
+static int download_mode;
 static struct kobject dload_kobj;
 static void *dload_mode_addr, *dload_type_addr;
 static bool dload_mode_enabled;
@@ -155,31 +156,6 @@ static void set_dload_mode(int on)
 static bool get_dload_mode(void)
 {
 	return dload_mode_enabled;
-}
-
-static void enable_emergency_dload_mode(void)
-{
-	int ret;
-
-	if (emergency_dload_mode_addr) {
-		__raw_writel(EMERGENCY_DLOAD_MAGIC1,
-				emergency_dload_mode_addr);
-		__raw_writel(EMERGENCY_DLOAD_MAGIC2,
-				emergency_dload_mode_addr +
-				sizeof(unsigned int));
-		__raw_writel(EMERGENCY_DLOAD_MAGIC3,
-				emergency_dload_mode_addr +
-				(2 * sizeof(unsigned int)));
-
-		/* Need disable the pmic wdt, then the emergency dload mode
-		 * will not auto reset. */
-		qpnp_pon_wd_config(0);
-		mb();
-	}
-
-	ret = scm_set_dload_mode(SCM_EDLOAD_MODE, 0);
-	if (ret)
-		pr_err("Failed to set secure EDLOAD mode: %d\n", ret);
 }
 
 static int dload_set(const char *val, struct kernel_param *kp)
@@ -301,7 +277,10 @@ static void msm_restart_prepare(const char *cmd)
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
 	}
 
-	if (cmd != NULL) {
+	if (in_panic) {
+		qpnp_pon_set_restart_reason(PON_RESTART_REASON_PANIC);
+		qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
+	} else if (cmd != NULL) {
 		if (!strncmp(cmd, "bootloader", 10)) {
 			qpnp_pon_set_restart_reason(
 				PON_RESTART_REASON_BOOTLOADER);
@@ -333,11 +312,13 @@ static void msm_restart_prepare(const char *cmd)
 			if (!ret)
 				__raw_writel(0x6f656d00 | (code & 0xff),
 					     restart_reason);
-		} else if (!strncmp(cmd, "edl", 3)) {
-			enable_emergency_dload_mode();
 		} else {
+			qpnp_pon_set_restart_reason(PON_RESTART_REASON_NORMAL);
 			__raw_writel(0x77665501, restart_reason);
 		}
+	} else {
+		qpnp_pon_set_restart_reason(PON_RESTART_REASON_NORMAL);
+		__raw_writel(0x77665501, restart_reason);
 	}
 
 	flush_cache_all();
@@ -487,8 +468,13 @@ static DEFINE_MUTEX(tcsr_lock);
 static ssize_t show_dload_mode(struct kobject *kobj, struct attribute *attr,
 				char *buf)
 {
-	return scnprintf(buf, PAGE_SIZE, "DLOAD dump type: %s\n",
-			(dload_type == SCM_DLOAD_MINIDUMP) ? "mini" : "full");
+	if (dload_type == SCM_DLOAD_MINIDUMP)
+		return scnprintf(buf, PAGE_SIZE, "DLOAD dump type: %s\n", "mini");
+
+	if (dload_type == SCM_DLOAD_FULLDUMP)
+		return scnprintf(buf, PAGE_SIZE, "DLOAD dump type: %s\n", "full");
+
+	return scnprintf(buf, PAGE_SIZE, "DLOAD dump type: %s\n", "both");
 }
 
 static size_t store_dload_mode(struct kobject *kobj, struct attribute *attr,
@@ -502,6 +488,12 @@ static size_t store_dload_mode(struct kobject *kobj, struct attribute *attr,
 			return -ENODEV;
 		}
 		dload_type = SCM_DLOAD_MINIDUMP;
+	} else if (sysfs_streq(buf, "both")) {
+		if (!minidump_enabled) {
+			pr_err("Minidump is not enabled\n");
+			return -ENODEV;
+		}
+		dload_type = SCM_DLOAD_FULLDUMP | SCM_DLOAD_MINIDUMP;
 	} else {
 		pr_err("Invalid value. Use 'full' or 'mini'\n");
 		return -EINVAL;

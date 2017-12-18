@@ -2,6 +2,7 @@
  * xHCI host controller driver
  *
  * Copyright (C) 2008 Intel Corp.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * Author: Sarah Sharp
  * Some code borrowed from the Linux EHCI driver.
@@ -376,10 +377,6 @@ static int xhci_stop_device(struct xhci_hcd *xhci, int slot_id, int suspend)
 	int i;
 
 	ret = 0;
-	virt_dev = xhci->devs[slot_id];
-	if (!virt_dev)
-		return -ENODEV;
-
 	cmd = xhci_alloc_command(xhci, false, true, GFP_NOIO);
 	if (!cmd) {
 		xhci_dbg(xhci, "Couldn't allocate command structure.\n");
@@ -387,6 +384,13 @@ static int xhci_stop_device(struct xhci_hcd *xhci, int slot_id, int suspend)
 	}
 
 	spin_lock_irqsave(&xhci->lock, flags);
+	virt_dev = xhci->devs[slot_id];
+	if (!virt_dev) {
+		spin_unlock_irqrestore(&xhci->lock, flags);
+		xhci_free_command(xhci, cmd);
+		return -ENODEV;
+	}
+
 	for (i = LAST_EP_INDEX; i > 0; i--) {
 		if (virt_dev->eps[i].ring && virt_dev->eps[i].ring->dequeue) {
 			struct xhci_command *command;
@@ -403,6 +407,7 @@ static int xhci_stop_device(struct xhci_hcd *xhci, int slot_id, int suspend)
 					i, suspend);
 			if (ret) {
 				spin_unlock_irqrestore(&xhci->lock, flags);
+				xhci_free_command(xhci, command);
 				goto err_cmd_queue;
 			}
 		}

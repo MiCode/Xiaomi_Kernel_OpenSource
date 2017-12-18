@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -156,6 +157,7 @@ struct cci_device {
 
 	uint32_t hw_version;
 	uint8_t ref_count;
+	struct mutex mutex;
 	enum msm_cci_state_t cci_state;
 	size_t num_clk;
 	size_t num_clk_cases;

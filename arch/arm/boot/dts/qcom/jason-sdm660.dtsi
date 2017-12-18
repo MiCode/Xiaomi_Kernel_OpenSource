@@ -1,0 +1,210 @@
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "xiaomi-sdm660-common.dtsi"
+#include "jason-camera-sensor-mtp.dtsi"
+
+&pm660_charger {
+	qcom,usb-icl-ua = <3000000>;
+	qcom,fcc-max-ua = <3300000>;
+	qcom,fv-max-uv = <4400000>;
+	qcom,warm-current-comp-ua = <1600000>;
+	qcom,cool-current-comp-ua = <2300000>;
+	qcom,critical-cool-current-comp-ua = <2975000>;
+	qcom,thermal-mitigation
+				= <3000000 2000000 1500000 1200000 1000000 800000 600000 500000>;
+	qcom,thermal-mitigation-dcp
+				= <1800000 1600000 1400000 1200000 1000000 1000000 1000000 500000>;
+	qcom,thermal-mitigation-qc3
+				= <3000000 2425000 2175000 1875000 1525000 1225000 925000 925000>;
+	qcom,thermal-mitigation-qc2
+				= <1500000 1400000 1200000 1000000 900000 900000 900000 500000>;
+};
+
+&pm660_fg {
+	qcom,fg-force-load-profile;
+	qcom,fg-sys-term-current = <(-300)>;
+	qcom,fg-chg-term-current = <120>;
+	qcom,fg-recharge-soc-thr = <99>;
+	qcom,fg-cutoff-voltage = <3400>;
+	qcom,fg-empty-voltage = <3100>;
+	qcom,fg-jeita-hyst-temp = <0>;
+	qcom,fg-jeita-thresholds = <0 15 45 60>;
+	qcom,fg-batt-temp-delta = <6>;
+	qcom,fg-esr-clamp-mohms = <60>;
+};
+
+/{
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "batterydata-jason-coslight-3500mAh.dtsi"
+		#include "batterydata-jason-atl-3500mAh.dtsi"
+		#include "batterydata-itech-3000mah.dtsi"
+	};
+};
+
+&pm660_fg {
+	qcom,battery-data = <&mtp_batterydata>;
+};
+
+&qusb_phy0 {
+	qcom,qusb-phy-init-seq = <0xf8 0x80
+			0x2f 0x84
+			0x83 0x88
+			0xc0 0x8c
+			0x30 0x08
+			0x79 0x0c
+			0x21 0x10
+			0x14 0x9c
+			0x9f 0x1c
+			0x00 0x18>;
+};
+
+&soc {
+	sound {
+		qcom,us-euro-gpios = <&us_euro_gpio>;
+		qcom,asel-gpio = <&pm660_gpios 13 0>;
+		qcom,msm-micbias1-ext-cap;
+		qcom,audio-uart-sw-gpio = <&tlmm 77 0>;
+	};
+
+	gpio_rf {
+		pinctrl-names = "tlmm_gpio_rf_active","tlmm_gpio_rf_suspend";
+		pinctrl-0 = <&gpio_rf_active_c8>;
+		pinctrl-1 = <&gpio_rf_suspend_c8>;
+		compatible = "gpio_rf";
+		gpios = <&tlmm 104 0x01>;
+		debounce-interval = <15>;
+	};
+};
+
+&pm660_haptics {
+	status = "okay";
+	qcom,wave-play-rate-us = <4878>;
+	qcom,vmax-mv = <2900>;
+	qcom,wave-shape = "sine";
+	qcom,brake-pattern = [03 02 00 00];
+	qcom,disable_force_back_emf_delay;
+	qcom,vmax-overbrake-mv = <3596>;
+	qcom,brake-pattern-count = <4>;
+	qcom,brake-pattern-arry = [01 01 00 00
+			02 01 01 00
+			02 01 01 00
+			02 02 02 00];
+};
+
+&pm660_l11 {
+	status = "okay";
+	regulator-always-on;
+};
+
+&i2c_4 {
+	status = "okay";
+	synaptics_dsi_i2c@20 {
+		compatible = "synaptics,dsx-i2c-force";
+		reg = <0x20>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <67 0x2008>;
+		lab-supply = <&lcdb_ldo_vreg>;
+		ibb-supply = <&lcdb_ncp_vreg>;
+		disp-supply = <&disp_vdd_vreg>;
+		avdd-supply = <&disp_vddts_vreg>;
+		synaptics,lab-reg-name = "lab";
+		synaptics,ibb-reg-name = "ibb";
+		synaptics,disp-reg-name = "disp";
+		synaptics,bus-reg-name = "avdd";
+		synaptics,ub-i2c-addr = <0x2c>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		synaptics,mdss-dsi-reset = <&tlmm 53 0>;
+		synaptics,reset-gpio = <&tlmm 66 0x00>;
+		synaptics,irq-gpio = <&tlmm 67 0x2008>;
+		synaptics,reset-gpio-name = "dsx_reset";
+		synaptics,irq-gpio-name = "dsx_irq";
+		synaptics,irq-on-state = <0>;
+		synaptics,irq-flags = <0x2008>; /* IRQF_ONESHOT | IRQF_TRIGGER_LOW */
+		synaptics,power-delay-ms = <5>;
+		synaptics,reset-delay-ms = <200>;
+		synaptics,reset-active-ms = <5>;
+		synaptics,power-on-state = <1>;
+		synaptics,reset-on-state = <0>;
+		synaptics,mdss-reset-state = <1>;
+		synaptics,panel-is-incell;
+		synaptics,dump-click-count;
+		synaptics,cap-button-codes = <158 139 102>;
+		synaptics,short-jdi-25 = "000: 0x6f\n001: 0x00\n002: 0x00\n003: 0x00\n004: 0xff\n005: 0xff\n006: 0xff";
+		synaptics,short-jdi-26 = "000: 0x03\n001: 0x00\n002: 0x00\n003: 0x00\n004: 0x03\n005: 0x00\n006: 0x00";
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc GCC_BLSP1_AHB_CLK>,
+			 <&clock_gcc GCC_BLSP1_QUP4_I2C_APPS_CLK>;
+		synaptics,guest-serialization-as-lockdown;
+		synaptics,tp-id-byte = /bits/ 8 <0>;
+		synaptics,config-array-size = <3>;
+		synaptics,cfg_1 {
+			synaptics,chip-id = <0>;
+			synaptics,chip-id-name = "S3330";
+			synaptics,tp-id = /bits/ 8 <0x31>;
+			synaptics,fw-name = "synaptics_jdi_3330_c8.fw";
+			synaptics,clicknum-file-name = "synaptics+jdi";
+		};
+		synaptics,cfg_2 {
+			synaptics,chip-id = <1>;
+			synaptics,chip-id-name = "S3331";
+			synaptics,tp-id = /bits/ 8 <0x31>;
+		};
+		synaptics,cfg_3 {
+			synaptics,chip-id = <2>;
+			synaptics,chip-id-name = "TD4322";
+			synaptics,chip-is-tddi;
+
+			synaptics,factory-param;
+			synaptics,tddi-short-limit_b = <150>;
+			synaptics,tddi-noise-limit = <60>;
+			synaptics,tddi-extend-ee-short-reset-dur = <60>;
+			synaptics,tddi-extend-ee-short-int_dur = <150>;
+			synaptics,tddi-extend-ee-short-tx-on-count = <146>;
+			synaptics,tddi-extend-ee-short-rx-on-count = <146>;
+			synaptics,tddi-extend-ee-short-test-limit-part1 = <100>;
+			synaptics,tddi-extend-ee-short-test-limit-part2 = <96>;
+
+			synaptics,tddi-open-test-int-dur-one = <145>;
+			synaptics,tddi-open-test-int-dur-two = <15>;
+			synaptics,tddi-open-test-limit-phase2-lower = <50>;
+
+			synaptics,tddi-b7-open-test-int-dur-one = <23>;
+			synaptics,tddi-b7-open-test-int-dur-two = <27>;
+			synaptics,tddi-b7-open-test-limit-phase2-lower = <0>;
+			synaptics,tddi-b7-open-test-limit-phase2-upper = <115>;
+			synaptics,button-count = <2>;
+			synaptics,abs-0d-open-factor = <9>;
+			synaptics,abs-0d-open-test-limit = <30>;
+
+			synaptics,disp-pre-on-sleep = <10>;
+			synaptics,disp-post-on-sleep = <10>;
+			synaptics,disp-pre-off-sleep = <10>;
+			synaptics,disp-post-off-sleep = <0>;
+			synaptics,lab-pre-on-sleep = <0>;
+			synaptics,lab-post-on-sleep = <10>;
+			synaptics,lab-pre-off-sleep = <10>;
+			synaptics,lab-post-off-sleep = <0>;
+			synaptics,ibb-pre-on-sleep = <0>;
+			synaptics,ibb-post-on-sleep = <10>;
+			synaptics,ibb-pre-off-sleep = <10>;
+			synaptics,ibb-post-off-sleep = <0>;
+			synaptics,tp-id = /bits/ 8 <0x34>;
+			synaptics,fw-name = "synaptics_sharp_4322_c8.fw";
+			synaptics,clicknum-file-name = "synaptics+sharp";
+		};
+	};
+};

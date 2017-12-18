@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,12 +50,26 @@
 				qcom,pon-type = <0>;
 				qcom,pull-up = <1>;
 				linux,code = <116>;
+				qcom,support-reset = <1>;
+				qcom,s1-timer = <4480>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <7>;
 			};
 
 			qcom,pon_2 {
 				qcom,pon-type = <1>;
 				qcom,pull-up = <1>;
 				linux,code = <114>;
+			};
+
+			qcom,pon_3 {
+				qcom,pon-type = <3>;
+				qcom,support-reset = <1>;
+				qcom,pull-up = <1>;
+				qcom,s1-timer = <1352>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <1>;
+				qcom,use-bark;
 			};
 		};
 
@@ -471,7 +486,7 @@
 					  "msg-rx-discarded";
 
 			qcom,default-sink-caps = <5000 3000>, /* 5V @ 3A */
-						 <9000 3000>; /* 9V @ 3A */
+						 <9000 2000>; /* 9V @ 2A */
 		};
 
 		pm660_adc_tm: vadc@3400 {
@@ -650,7 +665,9 @@
 			qcom,lra-high-z = "opt0";
 			qcom,lra-auto-res-mode = "qwd";
 			qcom,lra-calibrate-at-eop = <0>;
+			qcom,lra-res-cal-period = <4>;
 			qcom,correct-lra-drive-freq;
+			qcom,misc-trim-error-rc19p2-clk-reg-present;
 		};
 	};
 };

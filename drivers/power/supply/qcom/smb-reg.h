@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -486,11 +487,11 @@ enum {
 #define UFP_TYPEC_OPEN_OPEN_BIT			BIT(0)
 
 #define TYPE_C_STATUS_2_REG			(USBIN_BASE + 0x0C)
-#define DFP_TYPEC_MASK				0x8F
 #define DFP_RA_OPEN_BIT				BIT(7)
 #define TIMER_STAGE_BIT				BIT(6)
 #define EXIT_UFP_MODE_BIT			BIT(5)
 #define EXIT_DFP_MODE_BIT			BIT(4)
+#define DFP_TYPEC_MASK				GENMASK(3, 0)
 #define DFP_RD_OPEN_BIT				BIT(3)
 #define DFP_RD_RA_VCONN_BIT			BIT(2)
 #define DFP_RD_RD_BIT				BIT(1)
@@ -586,6 +587,11 @@ enum {
 #define EN_TRYSINK_MODE_BIT			BIT(2)
 #define EN_LEGACY_CABLE_DETECTION_BIT		BIT(1)
 #define ALLOW_PD_DRING_UFP_TCCDB_BIT		BIT(0)
+
+#define HVDCP_PULSE_COUNT_MAX_REG		(USBIN_BASE + 0x5B)
+#define PULSE_COUNT_QC2P0_12V			BIT(7)
+#define PULSE_COUNT_QC2P0_9V			BIT(6)
+#define PULSE_COUNT_QC3P0_MASK			GENMASK(5, 0)
 
 #define USBIN_ADAPTER_ALLOW_CFG_REG		(USBIN_BASE + 0x60)
 #define USBIN_ADAPTER_ALLOW_MASK		GENMASK(3, 0)
@@ -921,6 +927,7 @@ enum {
 #define GSM_PA_ON_ADJ_SEL_BIT			BIT(0)
 #define STAT_PARALLEL_1400MA_EN_CFG_BIT		BIT(3)
 #define TCC_DEBOUNCE_20MS_BIT			BIT(5)
+#define STAT_PARALLEL_1400MA_EN_CFG		BIT(3)
 
 #define SNARL_BARK_BITE_WD_CFG_REG		(MISC_BASE + 0x53)
 #define BITE_WDOG_DISABLE_CHARGING_CFG_BIT	BIT(7)
@@ -1024,15 +1031,5 @@ enum {
 
 /* CHGR FREQ Peripheral registers */
 #define FREQ_CLK_DIV_REG			(CHGR_FREQ_BASE + 0x50)
-
-/* SMB1355 specific registers */
-#define SMB1355_TEMP_COMP_STATUS_REG		(MISC_BASE + 0x07)
-#define SKIN_TEMP_RST_HOT_BIT			BIT(6)
-#define SKIN_TEMP_UB_HOT_BIT			BIT(5)
-#define SKIN_TEMP_LB_HOT_BIT			BIT(4)
-#define DIE_TEMP_TSD_HOT_BIT			BIT(3)
-#define DIE_TEMP_RST_HOT_BIT			BIT(2)
-#define DIE_TEMP_UB_HOT_BIT			BIT(1)
-#define DIE_TEMP_LB_HOT_BIT			BIT(0)
 
 #endif /* __SMB2_CHARGER_REG_H */

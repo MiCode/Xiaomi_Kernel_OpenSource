@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -173,6 +174,7 @@
 #define AFVC_IRQ_BIT				BIT(7)
 #define CHG_CONFIG_MASK				SMB1351_MASK(6, 4)
 #define LOW_BATT_VOLTAGE_DET_TH_MASK		SMB1351_MASK(3, 0)
+#define CHG_CONFIG				0x0
 
 #define VARIOUS_FUNC_3_REG			0x11
 #define SAFETY_TIMER_EN_MASK			SMB1351_MASK(7, 6)
@@ -915,6 +917,30 @@ static int smb_chip_get_version(struct smb1351_charger *chip)
 	return rc;
 }
 
+static int smb_chip_get_version_for_factory(struct smb1351_charger *chip)
+{
+	u8 ver;
+	int rc = 0;
+	int version = SMB_UNKNOWN;
+
+	if (chip == NULL)
+		return EPROBE_DEFER;
+
+	rc = smb1351_read_reg(chip, VERSION_REG, &ver);
+	if (rc) {
+		pr_err("Couldn't read version rc=%d\n", rc);
+		return rc;
+	}
+
+	/* If bit 1 is set, it is SMB1350 */
+	if (ver & VERSION_MASK)
+		version = SMB1350;
+	else
+		version = SMB1351;
+
+	return version;
+}
+
 static int smb1351_hw_init(struct smb1351_charger *chip)
 {
 	int rc;
@@ -1416,6 +1442,7 @@ static enum power_supply_property smb1351_parallel_properties[] = {
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
 	POWER_SUPPLY_PROP_PARALLEL_MODE,
+	POWER_SUPPLY_PROP_PARALLEL_CHIP_VERSION,
 };
 
 static int smb1351_parallel_set_chg_suspend(struct smb1351_charger *chip,
@@ -1442,7 +1469,14 @@ static int smb1351_parallel_set_chg_suspend(struct smb1351_charger *chip,
 			pr_err("Couldn't configure for volatile rc = %d\n", rc);
 			return rc;
 		}
-
+		/* set chg_config: 5-9 V, as pm660 only support 5-9V */
+		reg = CHG_CONFIG;
+		rc = smb1351_masked_write(chip, FLEXCHARGER_REG,
+					CHG_CONFIG_MASK, reg);
+		if (rc) {
+			pr_err("Couldn't set FLEXCHARGER_REG rc=%d\n",  rc);
+			return rc;
+		}
 		/* set the float voltage */
 		if (chip->vfloat_mv != -EINVAL) {
 			rc = smb1351_float_voltage_set(chip, chip->vfloat_mv);
@@ -1512,7 +1546,7 @@ static int smb1351_parallel_set_chg_suspend(struct smb1351_charger *chip,
 					rc);
 			return rc;
 		}
-
+		/* set fast charging current limit */
 		rc = smb1351_fastchg_current_set(chip,
 					chip->target_fastchg_current_max_ma);
 		if (rc) {
@@ -1628,7 +1662,7 @@ static int smb1351_parallel_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		chip->vfloat_mv = val->intval / 1000;
 		if (!chip->parallel_charger_suspended)
-			rc = smb1351_float_voltage_set(chip, val->intval);
+			rc = smb1351_float_voltage_set(chip, val->intval / 1000);
 		break;
 	default:
 		return -EINVAL;
@@ -1701,6 +1735,18 @@ static int smb1351_parallel_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_PARALLEL_MODE:
 		val->intval = chip->parallel_mode;
+		break;
+	case POWER_SUPPLY_PROP_PARALLEL_CHIP_VERSION:
+		/* Check if SMB1351 is present, if present, check smb1350/1 version */
+		if (smb1351_is_usb_present(chip)) {
+			val->intval = smb_chip_get_version_for_factory(chip);
+			if (val->intval < 0) {
+				pr_err("Couldn't get version val->intval = %d\n",
+						val->intval);
+				return -EINVAL;
+			}
+		} else
+			val->intval = SMB_UNKNOWN;
 		break;
 	default:
 		return -EINVAL;
@@ -3197,6 +3243,9 @@ static int smb1351_parallel_charger_probe(struct i2c_client *client,
 		chip->parallel_mode = POWER_SUPPLY_PL_USBIN_USBIN_EXT;
 	else
 		chip->parallel_mode = POWER_SUPPLY_PL_USBIN_USBIN;
+
+	/* init target_fastchg_current_max_ma as 1A when smb1350 probe */
+	chip->target_fastchg_current_max_ma = SMB1351_CHG_FAST_MIN_MA;
 
 	i2c_set_clientdata(client, chip);
 

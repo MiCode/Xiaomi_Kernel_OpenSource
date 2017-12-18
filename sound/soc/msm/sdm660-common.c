@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +22,7 @@
 #include "sdm660-external.h"
 #include "../codecs/sdm660_cdc/msm-analog-cdc.h"
 #include "../codecs/wsa881x.h"
+#include "../codecs/usb-headset.h"
 
 #define DRV_NAME "sdm660-asoc-snd"
 
@@ -201,9 +203,9 @@ static struct wcd_mbhc_config mbhc_cfg = {
 	.swap_gnd_mic = NULL,
 	.hs_ext_micbias = true,
 	.key_code[0] = KEY_MEDIA,
-	.key_code[1] = KEY_VOICECOMMAND,
-	.key_code[2] = KEY_VOLUMEUP,
-	.key_code[3] = KEY_VOLUMEDOWN,
+	.key_code[1] = BTN_1,
+	.key_code[2] = BTN_2,
+	.key_code[3] = 0,
 	.key_code[4] = 0,
 	.key_code[5] = 0,
 	.key_code[6] = 0,
@@ -3153,6 +3155,7 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 	if (pdata->snd_card_val != INT_SND_CARD)
 		msm_ext_register_audio_notifier(pdev);
 
+	usbhs_init(pdev);
 	return 0;
 err:
 	if (pdata->us_euro_gpio > 0) {
@@ -3189,6 +3192,7 @@ static int msm_asoc_machine_remove(struct platform_device *pdev)
 		msm_ext_cdc_deinit(pdata);
 	msm_free_auxdev_mem(pdev);
 
+	usbhs_deinit();
 	gpio_free(pdata->us_euro_gpio);
 	gpio_free(pdata->hph_en1_gpio);
 	gpio_free(pdata->hph_en0_gpio);

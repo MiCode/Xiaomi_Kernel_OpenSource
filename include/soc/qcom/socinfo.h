@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +32,14 @@
 #define SOCINFO_VERSION_MAJOR(ver) (((ver) & 0xffff0000) >> 16)
 #define SOCINFO_VERSION_MINOR(ver) ((ver) & 0x0000ffff)
 #define SOCINFO_VERSION(maj, min)  ((((maj) & 0xffff) << 16)|((min) & 0xffff))
+
+/* Raw data of DDR manufacturer id(MR5) */
+#define HWINFO_DDRID_SAMSUNG	0x01
+#define HWINFO_DDRID_HYNIX	0x06
+#define HWINFO_DDRID_ELPIDA	0x03
+#define HWINFO_DDRID_MICRON	0xFF
+#define HWINFO_DDRID_NANYA	0x05
+#define HWINFO_DDRID_INTEL	0x0E
 
 #ifdef CONFIG_OF
 #define of_board_is_cdp()	of_machine_is_compatible("qcom,cdp")
@@ -244,5 +253,13 @@ uint32_t socinfo_get_serial_number(void);
 enum pmic_model socinfo_get_pmic_model(void);
 uint32_t socinfo_get_pmic_die_revision(void);
 int __init socinfo_init(void) __must_check;
+
+#define HARDWARE_PLATFORM_UNKNOWN 0
+#define HARDWARE_PLATFORM_JASON  8
+#define HARDWARE_PLATFORM_ACHILLES 2
+
+uint32_t get_hw_version_platform(void);
+uint32_t get_hw_version_major(void);
+uint32_t get_hw_version_minor(void);
 
 #endif

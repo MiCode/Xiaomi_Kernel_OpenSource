@@ -4,6 +4,7 @@
  *  Copyright © 2007  Anton Vorontsov <cbou@mail.ru>
  *  Copyright © 2004  Szabolcs Gyurko
  *  Copyright © 2003  Ian Molton <spyro@f2s.com>
+ *  Copyright (C) 2017 XiaoMi, Inc.
  *
  *  Modified: 2004, Oct     Szabolcs Gyurko
  *
@@ -200,6 +201,8 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_COOL_TEMP,
 	POWER_SUPPLY_PROP_WARM_TEMP,
 	POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL,
+	POWER_SUPPLY_PROP_CHARGER_TYPE,
+	POWER_SUPPLY_PROP_SCREEN_ICL_STATUS,
 	POWER_SUPPLY_PROP_RESISTANCE,
 	POWER_SUPPLY_PROP_RESISTANCE_CAPACITIVE,
 	POWER_SUPPLY_PROP_RESISTANCE_ID, /* in Ohms */
@@ -246,8 +249,10 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_DIE_HEALTH,
 	POWER_SUPPLY_PROP_CONNECTOR_HEALTH,
 	POWER_SUPPLY_PROP_CTM_CURRENT_MAX,
+	POWER_SUPPLY_PROP_PARALLEL_CHIP_VERSION,
 	POWER_SUPPLY_PROP_HW_CURRENT_MAX,
 	POWER_SUPPLY_PROP_REAL_TYPE,
+	POWER_SUPPLY_PROP_PR_SWAP,
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT,
 	/* Properties of type `const char *' */

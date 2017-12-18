@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -719,9 +720,22 @@ static int clk_osm_set_rate(struct clk_hw *hw, unsigned long rate,
 	return 0;
 }
 
+static int clk_osm_acd_init(struct clk_osm *c);
+
 static int clk_osm_enable(struct clk_hw *hw)
 {
 	struct clk_osm *cpuclk = to_clk_osm(hw);
+	int rc;
+
+	rc = clk_osm_acd_init(cpuclk);
+	if (rc) {
+		pr_err("Failed to initialize ACD for cluster %d, rc=%d\n",
+				cpuclk->cluster_num, rc);
+		return rc;
+	}
+
+	/* Wait for 5 usecs before enabling OSM */
+	udelay(5);
 
 	clk_osm_write_reg(cpuclk, 1, ENABLE_REG);
 
@@ -3270,17 +3284,6 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,osm-pll-setup")) {
 		clk_osm_setup_cluster_pll(&pwrcl_clk);
 		clk_osm_setup_cluster_pll(&perfcl_clk);
-	}
-
-	rc = clk_osm_acd_init(&pwrcl_clk);
-	if (rc) {
-		pr_err("failed to initialize ACD for pwrcl, rc=%d\n", rc);
-		return rc;
-	}
-	rc = clk_osm_acd_init(&perfcl_clk);
-	if (rc) {
-		pr_err("failed to initialize ACD for perfcl, rc=%d\n", rc);
-		return rc;
 	}
 
 	spin_lock_init(&pwrcl_clk.lock);

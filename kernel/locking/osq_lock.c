@@ -104,6 +104,7 @@ bool osq_lock(struct optimistic_spin_queue *lock)
 
 	prev = decode_cpu(old);
 	node->prev = prev;
+	smp_mb();
 	WRITE_ONCE(prev->next, node);
 
 	/*

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -832,6 +833,11 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 					buf_node->frame.pktlen = count -
 					(sizeof(buf_node->frame.frm_hdr) +
 					 sizeof(buf_node->frame.pktlen));
+			}
+			if (ret) {
+				pr_err("%s: copy from user failed %d\n",
+				       __func__, ret);
+				return -EFAULT;
 			}
 			spin_lock_irqsave(&prtd->dsp_lock, dsp_flags);
 			list_add_tail(&buf_node->list, &prtd->in_queue);

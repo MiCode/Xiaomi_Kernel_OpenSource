@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -368,6 +369,7 @@ static struct icnss_priv {
 	bool is_wlan_mac_set;
 	struct icnss_wlan_mac_addr wlan_mac_addr;
 	bool bypass_s1_smmu;
+	struct mutex dev_lock;
 } *penv;
 
 #ifdef CONFIG_ICNSS_DEBUG
@@ -3911,9 +3913,11 @@ static int icnss_regread_show(struct seq_file *s, void *data)
 	seq_hex_dump(s, "", DUMP_PREFIX_OFFSET, 32, 4, priv->diag_reg_read_buf,
 		     priv->diag_reg_read_len, false);
 
+	mutex_lock(&priv->dev_lock);
 	priv->diag_reg_read_len = 0;
 	kfree(priv->diag_reg_read_buf);
 	priv->diag_reg_read_buf = NULL;
+	mutex_unlock(&priv->dev_lock);
 
 	return 0;
 }
@@ -3986,10 +3990,12 @@ static ssize_t icnss_regread_write(struct file *fp, const char __user *user_buf,
 		return ret;
 	}
 
+	mutex_lock(&priv->dev_lock);
 	priv->diag_reg_read_addr = reg_offset;
 	priv->diag_reg_read_mem_type = mem_type;
 	priv->diag_reg_read_len = data_len;
 	priv->diag_reg_read_buf = reg_buf;
+	mutex_unlock(&priv->dev_lock);
 
 	return count;
 }
@@ -4215,6 +4221,7 @@ static int icnss_probe(struct platform_device *pdev)
 
 	spin_lock_init(&priv->event_lock);
 	spin_lock_init(&priv->on_off_lock);
+	mutex_init(&priv->dev_lock);
 
 	priv->event_wq = alloc_workqueue("icnss_driver_event", WQ_UNBOUND, 1);
 	if (!priv->event_wq) {

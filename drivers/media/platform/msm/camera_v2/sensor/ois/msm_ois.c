@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,7 +27,7 @@ DEFINE_MSM_MUTEX(msm_ois_mutex);
 #else
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 #endif
-
+#define OIS_FW_TRANS_SIZE (32*2)
 static struct v4l2_file_operations msm_ois_v4l2_subdev_fops;
 static int32_t msm_ois_power_up(struct msm_ois_ctrl_t *o_ctrl);
 static int32_t msm_ois_power_down(struct msm_ois_ctrl_t *o_ctrl);
@@ -72,7 +73,7 @@ static int32_t msm_ois_download(struct msm_ois_ctrl_t *o_ctrl)
 	total_bytes = fw->size;
 	for (ptr = (uint8_t *)fw->data; total_bytes;
 		total_bytes -= bytes_in_tx, ptr += bytes_in_tx) {
-		bytes_in_tx = (total_bytes > 10) ? 10 : total_bytes;
+		bytes_in_tx = (total_bytes > OIS_FW_TRANS_SIZE) ? OIS_FW_TRANS_SIZE : total_bytes;
 		rc = o_ctrl->i2c_client.i2c_func_tbl->i2c_write_seq(
 			&o_ctrl->i2c_client, o_ctrl->oboard_info->opcode.prog,
 			 ptr, bytes_in_tx);
@@ -94,7 +95,7 @@ static int32_t msm_ois_download(struct msm_ois_ctrl_t *o_ctrl)
 	total_bytes = fw->size;
 	for (ptr = (uint8_t *)fw->data; total_bytes;
 		total_bytes -= bytes_in_tx, ptr += bytes_in_tx) {
-		bytes_in_tx = (total_bytes > 10) ? 10 : total_bytes;
+		bytes_in_tx = (total_bytes > OIS_FW_TRANS_SIZE) ? OIS_FW_TRANS_SIZE : total_bytes;
 		rc = o_ctrl->i2c_client.i2c_func_tbl->i2c_write_seq(
 			&o_ctrl->i2c_client, o_ctrl->oboard_info->opcode.coeff,
 			ptr, bytes_in_tx);
@@ -108,7 +109,7 @@ static int32_t msm_ois_download(struct msm_ois_ctrl_t *o_ctrl)
 release_firmware:
 	release_firmware(fw);
 	o_ctrl->i2c_client.addr_type = save_addr_type;
-
+	CDBG("Exit\n");
 	return rc;
 }
 
@@ -157,9 +158,13 @@ static int32_t msm_ois_write_settings(struct msm_ois_ctrl_t *o_ctrl,
 	int32_t rc = -EFAULT;
 	int32_t i = 0;
 	struct msm_camera_i2c_seq_reg_array *reg_setting;
+	enum msm_camera_i2c_reg_addr_type save_addr_type;
+
 	CDBG("Enter\n");
+	save_addr_type = o_ctrl->i2c_client.addr_type;
 
 	for (i = 0; i < size; i++) {
+		o_ctrl->i2c_client.addr_type = settings[i].addr_type;
 		switch (settings[i].i2c_operation) {
 		case MSM_OIS_WRITE: {
 			switch (settings[i].data_type) {
@@ -175,8 +180,10 @@ static int32_t msm_ois_write_settings(struct msm_ois_ctrl_t *o_ctrl,
 			reg_setting =
 			kzalloc(sizeof(struct msm_camera_i2c_seq_reg_array),
 				GFP_KERNEL);
-				if (!reg_setting)
+				if (!reg_setting) {
+					o_ctrl->i2c_client.addr_type = save_addr_type;
 					return -ENOMEM;
+				}
 
 				reg_setting->reg_addr = settings[i].reg_addr;
 				reg_setting->reg_data[0] = (uint8_t)
@@ -198,8 +205,10 @@ static int32_t msm_ois_write_settings(struct msm_ois_ctrl_t *o_ctrl,
 					reg_setting->reg_data_size);
 				kfree(reg_setting);
 				reg_setting = NULL;
-				if (rc < 0)
+				if (rc < 0) {
+					o_ctrl->i2c_client.addr_type = save_addr_type;
 					return rc;
+				}
 				break;
 
 			default:
@@ -239,6 +248,7 @@ static int32_t msm_ois_write_settings(struct msm_ois_ctrl_t *o_ctrl,
 		if (rc < 0)
 			break;
 	}
+	o_ctrl->i2c_client.addr_type = save_addr_type;
 
 	CDBG("Exit\n");
 	return rc;
@@ -276,6 +286,14 @@ static int32_t msm_ois_power_down(struct msm_ois_ctrl_t *o_ctrl)
 
 	CDBG("Enter\n");
 	if (o_ctrl->ois_state != OIS_DISABLE_STATE) {
+
+		rc = msm_camera_clk_enable(&o_ctrl->pdev->dev,
+				o_ctrl->clk_info, o_ctrl->clk_ptr,
+				o_ctrl->clk_info_size, false);
+		if (rc < 0) {
+			pr_err("%s: clk enable failed\n", __func__);
+				return rc;
+		}
 
 		rc = msm_ois_vreg_control(o_ctrl, 0);
 		if (rc < 0) {
@@ -638,6 +656,13 @@ static int32_t msm_ois_power_up(struct msm_ois_ctrl_t *o_ctrl)
 		pr_err("%s failed %d\n", __func__, __LINE__);
 		return rc;
 	}
+	rc = msm_camera_clk_enable(&o_ctrl->pdev->dev,
+				o_ctrl->clk_info, o_ctrl->clk_ptr,
+				o_ctrl->clk_info_size, true);
+	if (rc < 0) {
+		pr_err("%s: clk enable failed\n", __func__);
+		return rc;
+	}
 
 	for (gpio = SENSOR_GPIO_AF_PWDM;
 		gpio < SENSOR_GPIO_MAX; gpio++) {
@@ -901,6 +926,16 @@ static int32_t msm_ois_platform_probe(struct platform_device *pdev)
 			msm_ois_t->cam_pinctrl_status = 0;
 		}
 	}
+
+	/*Get clocks information*/
+	rc = msm_camera_get_clk_info(pdev,
+		&msm_ois_t->clk_info,
+		&msm_ois_t->clk_ptr,
+		&msm_ois_t->clk_info_size);
+	if (rc < 0) {
+		pr_err("failed: msm_camera_get_clk_info rc %d", rc);
+	}
+
 
 	msm_ois_t->ois_v4l2_subdev_ops = &msm_ois_subdev_ops;
 	msm_ois_t->ois_mutex = &msm_ois_mutex;

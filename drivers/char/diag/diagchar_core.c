@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -481,20 +482,21 @@ static void diag_close_logging_process(const int pid)
 
 	params.req_mode = USB_MODE;
 	params.mode_param = 0;
+	params.pd_mask = 0;
 	params.peripheral_mask =
 		diag_translate_kernel_to_user_mask(session_mask);
 
-	for (i = UPD_WLAN; i < NUM_MD_SESSIONS; i++) {
-		if (session_mask &
-			MD_PERIPHERAL_MASK(i)) {
+	if (driver->num_pd_session > 0) {
+		for (i = UPD_WLAN; ((i < NUM_MD_SESSIONS) &&
+			(session_mask & MD_PERIPHERAL_MASK(i)));
+			i++) {
 			j = i - UPD_WLAN;
 			driver->pd_session_clear[j] = 1;
 			driver->pd_logging_mode[j] = 0;
 			driver->num_pd_session -= 1;
 			params.pd_mask =
 			diag_translate_kernel_to_user_mask(session_mask);
-		} else
-			params.pd_mask = 0;
+		}
 	}
 
 	diag_switch_logging(&params);
@@ -1612,7 +1614,7 @@ static uint32_t diag_translate_mask(uint32_t peripheral_mask)
 
 static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 {
-	int new_mode, i;
+	int new_mode, i = 0;
 	int curr_mode;
 	int err = 0;
 	uint8_t do_switch = 1;
@@ -1653,6 +1655,8 @@ static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 			diag_mux->mux_mask)) {
 			DIAG_LOG(DIAG_DEBUG_USERSPACE,
 			"diag_fr: User PD is already logging onto active peripheral logging\n");
+			i = upd - UPD_WLAN;
+			driver->pd_session_clear[i] = 0;
 			return -EINVAL;
 		}
 		peripheral_mask =
@@ -1662,8 +1666,8 @@ static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 		if (!driver->pd_session_clear[i]) {
 			driver->pd_logging_mode[i] = 1;
 			driver->num_pd_session += 1;
-			driver->pd_session_clear[i] = 0;
 		}
+		driver->pd_session_clear[i] = 0;
 	} else {
 		peripheral_mask =
 			diag_translate_mask(param->peripheral_mask);
@@ -3621,7 +3625,6 @@ static int __init diagchar_init(void)
 	mutex_init(&driver->msg_mask_lock);
 	for (i = 0; i < NUM_PERIPHERALS; i++)
 		mutex_init(&driver->diagfwd_channel_mutex[i]);
-	mutex_init(&driver->diagfwd_untag_mutex);
 	init_waitqueue_head(&driver->wait_q);
 	INIT_WORK(&(driver->diag_drain_work), diag_drain_work_fn);
 	INIT_WORK(&(driver->update_user_clients),

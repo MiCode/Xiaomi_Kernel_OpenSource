@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -62,5 +63,15 @@ void reset_storm_count(struct storm_watch *data)
 {
 	mutex_lock(&data->storm_lock);
 	data->storm_count = 0;
+	mutex_unlock(&data->storm_lock);
+}
+
+void update_storm_count(struct storm_watch *data, int max_count)
+{
+	if (!data)
+		return;
+
+	mutex_lock(&data->storm_lock);
+	data->max_storm_count = max_count;
 	mutex_unlock(&data->storm_lock);
 }

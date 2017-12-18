@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2001, 2002 Sistina Software (UK) Limited.
  * Copyright (C) 2004-2008 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This file is released under the GPL.
  */
@@ -2133,9 +2134,11 @@ static void dm_request_fn(struct request_queue *q)
 		tio = tio_from_request(rq);
 		/* Establish tio->ti before queuing work (map_tio_request) */
 		tio->ti = ti;
+		spin_unlock(q->queue_lock);
 		if (map_request(tio, rq, md) == DM_MAPIO_REQUEUE)
 			dm_requeue_original_request(md, rq);
 		BUG_ON(!irqs_disabled());
+		spin_lock(q->queue_lock);
 	}
 
 	goto out;

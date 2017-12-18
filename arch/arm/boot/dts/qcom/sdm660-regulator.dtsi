@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -857,4 +858,31 @@
 			};
 		};
 	};
+
+	disp_vddts_vreg: disp_vddts_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "disp_vddts_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		regulator-boot-on;
+		gpio = <&tlmm 73 0>;
+	};
+
+	disp_vdd_vreg: disp_vdd_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "disp_vdd_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		regulator-boot-on;
+		gpio = <&tlmm 62 0>;
+	};
+
+	fp_vdd_vreg: fp_vdd_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "fp_vdd_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&tlmm 64 0>;
+	};
+
 };

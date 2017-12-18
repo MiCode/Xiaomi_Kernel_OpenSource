@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +21,9 @@
 #include "dsi-panel-nt35597-truly-dsc-wqxga-cmd.dtsi"
 #include "dsi-panel-nt35597-dualmipi-wqxga-video.dtsi"
 #include "dsi-panel-nt35597-dualmipi-wqxga-cmd.dtsi"
+#include "dsi-panel-jdi-fhd-r63452-cmd.dtsi"
+#include "dsi-panel-lgd-fhd-td4322-cmd.dtsi"
+#include "dsi-panel-sharp-fhd-td4322-cmd.dtsi"
 #include "dsi-panel-nt35695b-truly-fhd-video.dtsi"
 #include "dsi-panel-nt35695b-truly-fhd-cmd.dtsi"
 #include "dsi-panel-truly-1080p-cmd.dtsi"
@@ -38,6 +42,8 @@
 			qcom,supply-max-voltage = <1950000>;
 			qcom,supply-enable-load = <32000>;
 			qcom,supply-disable-load = <80>;
+			qcom,supply-post-on-sleep = <1>;
+			qcom,supply-pre-off-sleep = <10>;
 		};
 
 		qcom,panel-supply-entry@1 {
@@ -47,6 +53,7 @@
 			qcom,supply-max-voltage = <6000000>;
 			qcom,supply-enable-load = <100000>;
 			qcom,supply-disable-load = <100>;
+			qcom,supply-pre-off-sleep = <10>;
 		};
 
 		qcom,panel-supply-entry@2 {
@@ -57,6 +64,7 @@
 			qcom,supply-enable-load = <100000>;
 			qcom,supply-disable-load = <100>;
 			qcom,supply-post-on-sleep = <10>;
+			qcom,supply-pre-off-sleep = <5>;
 		};
 	};
 
@@ -122,6 +130,45 @@
 			qcom,supply-max-voltage = <1950000>;
 			qcom,supply-enable-load = <32000>;
 			qcom,supply-disable-load = <80>;
+		};
+	};
+};
+
+&soc {
+	dsi_panel_pwr_supply_sharp_td4322: dsi_panel_pwr_supply_sharp_td4322 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "wqhd-vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1950000>;
+			qcom,supply-enable-load = <32000>;
+			qcom,supply-disable-load = <80>;
+			qcom,supply-post-on-sleep = <10>;
+			qcom,supply-pre-off-sleep = <10>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "lab";
+			qcom,supply-min-voltage = <4600000>;
+			qcom,supply-max-voltage = <6000000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+			qcom,supply-pre-off-sleep = <10>;
+		};
+
+		qcom,panel-supply-entry@2 {
+			reg = <2>;
+			qcom,supply-name = "ibb";
+			qcom,supply-min-voltage = <4600000>;
+			qcom,supply-max-voltage = <6000000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+			qcom,supply-post-on-sleep = <10>;
+			qcom,supply-pre-off-sleep = <5>;
 		};
 	};
 };
@@ -228,6 +275,36 @@
 		23 1e 07 08 05 03 04 a0
 		23 1e 07 08 05 03 04 a0
 		23 18 07 08 04 03 04 a0];
+};
+
+&dsi_jdi_fhd_r63452_cmd {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1b 08 09 05 03 04 a0];
+	qcom,mdss-dsi-t-clk-post = <0x07>;
+	qcom,mdss-dsi-t-clk-pre = <0x28>;
+};
+
+&dsi_lgd_fhd_td4322_cmd {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [23 1e 08 09 05 03 04 a0
+		23 1e 08 09 05 03 04 a0
+		23 1e 08 09 05 03 04 a0
+		23 1e 08 09 05 03 04 a0
+		23 1a 08 09 05 03 04 a0];
+	qcom,mdss-dsi-t-clk-post = <0x07>;
+	qcom,mdss-dsi-t-clk-pre = <0x28>;
+};
+
+&dsi_sharp_fhd_td4322_cmd {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1b 08 09 05 03 04 a0];
+	qcom,mdss-dsi-t-clk-post = <0x07>;
+	qcom,mdss-dsi-t-clk-pre = <0x28>;
 };
 
 &dsi_nt35695b_truly_fhd_video {

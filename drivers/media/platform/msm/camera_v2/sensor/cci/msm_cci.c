@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1308,10 +1309,12 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 	uint32_t *clk_rates  = NULL;
 
 	cci_dev = v4l2_get_subdevdata(sd);
+	mutex_lock(&cci_dev->mutex);
 	if (!cci_dev || !c_ctrl) {
 		pr_err("%s:%d failed: invalid params %pK %pK\n", __func__,
 			__LINE__, cci_dev, c_ctrl);
 		rc = -EINVAL;
+		mutex_unlock(&cci_dev->mutex);
 		return rc;
 	}
 
@@ -1319,6 +1322,7 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 			CAM_AHB_SVS_VOTE);
 	if (rc < 0) {
 		pr_err("%s: failed to vote for AHB\n", __func__);
+		mutex_unlock(&cci_dev->mutex);
 		return rc;
 	}
 
@@ -1362,6 +1366,7 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 				mutex_q[PRIORITY_QUEUE]);
 			mutex_unlock(&cci_dev->cci_master_info[master].mutex);
 		}
+		mutex_unlock(&cci_dev->mutex);
 		return 0;
 	}
 	ret = msm_cci_pinctrl_init(cci_dev);
@@ -1499,7 +1504,7 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 		}
 	}
 	cci_dev->cci_state = CCI_STATE_ENABLED;
-
+	mutex_unlock(&cci_dev->mutex);
 	return 0;
 
 reset_complete_failed:
@@ -1524,6 +1529,7 @@ request_gpio_failed:
 	if (cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CCI,
 		CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to remove vote for AHB\n", __func__);
+	mutex_unlock(&cci_dev->mutex);
 	return rc;
 }
 
@@ -1533,6 +1539,7 @@ static int32_t msm_cci_release(struct v4l2_subdev *sd)
 	struct cci_device *cci_dev;
 
 	cci_dev = v4l2_get_subdevdata(sd);
+	mutex_lock(&cci_dev->mutex);
 	if (!cci_dev->ref_count || cci_dev->cci_state != CCI_STATE_ENABLED) {
 		pr_err("%s invalid ref count %d / cci state %d\n",
 			__func__, cci_dev->ref_count, cci_dev->cci_state);
@@ -1582,6 +1589,7 @@ ahb_vote_suspend:
 	if (cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CCI,
 		CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to remove vote for AHB\n", __func__);
+	mutex_unlock(&cci_dev->mutex);
 	return rc;
 }
 
@@ -1623,11 +1631,13 @@ static int32_t msm_cci_write(struct v4l2_subdev *sd,
 		break;
 	case MSM_CCI_I2C_WRITE:
 	case MSM_CCI_I2C_WRITE_SEQ:
+		mutex_lock(&cci_dev->mutex);
 		for (i = 0; i < NUM_QUEUES; i++) {
 			if (mutex_trylock(&cci_master_info->mutex_q[i])) {
 				rc = msm_cci_i2c_write(sd, c_ctrl, i,
 					MSM_SYNC_DISABLE);
 				mutex_unlock(&cci_master_info->mutex_q[i]);
+				mutex_unlock(&cci_dev->mutex);
 				return rc;
 			}
 		}
@@ -1635,6 +1645,7 @@ static int32_t msm_cci_write(struct v4l2_subdev *sd,
 		rc = msm_cci_i2c_write(sd, c_ctrl,
 			PRIORITY_QUEUE, MSM_SYNC_DISABLE);
 		mutex_unlock(&cci_master_info->mutex_q[PRIORITY_QUEUE]);
+		mutex_unlock(&cci_dev->mutex);
 		break;
 	case MSM_CCI_I2C_WRITE_ASYNC:
 		rc = msm_cci_i2c_write_async(sd, c_ctrl,
@@ -1847,6 +1858,7 @@ static const struct v4l2_subdev_internal_ops msm_cci_internal_ops;
 static void msm_cci_init_cci_params(struct cci_device *new_cci_dev)
 {
 	uint8_t i = 0, j = 0;
+	mutex_init(&new_cci_dev->mutex);
 	for (i = 0; i < NUM_MASTERS; i++) {
 		new_cci_dev->cci_master_info[i].status = 0;
 		mutex_init(&new_cci_dev->cci_master_info[i].mutex);

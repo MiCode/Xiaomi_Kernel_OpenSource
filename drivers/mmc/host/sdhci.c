@@ -2,6 +2,7 @@
  *  linux/drivers/mmc/host/sdhci.c - Secure Digital Host Controller Interface driver
  *
  *  Copyright (C) 2005-2008 Pierre Ossman, All Rights Reserved.
+ *  Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -2418,7 +2419,13 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 
 	if (host->ops->platform_execute_tuning) {
 		spin_unlock_irqrestore(&host->lock, flags);
+		/*
+		 * Make sure re-tuning won't get triggered for the CRC errors
+		 * occurred while executing tuning
+		 */
+		mmc_retune_disable(mmc);
 		err = host->ops->platform_execute_tuning(host, opcode);
+		mmc_retune_enable(mmc);
 		sdhci_runtime_pm_put(host);
 		return err;
 	}

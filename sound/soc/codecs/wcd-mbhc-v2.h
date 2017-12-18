@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -417,6 +418,7 @@ struct wcd_mbhc {
 	bool is_extn_cable;
 	bool skip_imped_detection;
 	bool is_btn_already_regd;
+	bool is_spl_selfie;
 
 	struct snd_soc_codec *codec;
 	/* Work to perform MBHC Firmware Read */
@@ -428,6 +430,7 @@ struct wcd_mbhc {
 	unsigned long hph_pa_dac_state;
 	unsigned long event_state;
 	unsigned long jiffies_atreport;
+	unsigned long jiffies_selfie;
 
 	/* impedance of hphl and hphr */
 	uint32_t zl, zr;

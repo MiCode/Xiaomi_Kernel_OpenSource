@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -664,7 +665,8 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, unsigned attr,
 			init_dma_attrs(&attrs);
 			dma_set_attr(DMA_ATTR_EXEC_MAPPING, &attrs);
 
-			if (map->attr & FASTRPC_ATTR_NON_COHERENT)
+			if ((map->attr & FASTRPC_ATTR_NON_COHERENT) ||
+				(sess->smmu.coherent && map->uncached))
 				dma_set_attr(DMA_ATTR_FORCE_NON_COHERENT,
 								 &attrs);
 			else if (map->attr & FASTRPC_ATTR_COHERENT)
@@ -1636,6 +1638,9 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 			int namelen;
 			int pageslen;
 		} inbuf;
+
+		if (!init->filelen)
+			goto bail;
 		VERIFY(err, proc_name = kzalloc(init->filelen, GFP_KERNEL));
 		if (err)
 			goto bail;
@@ -1644,7 +1649,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		if (err)
 			goto bail;
 		inbuf.pgid = current->tgid;
-		inbuf.namelen = strlen(proc_name)+1;
+		inbuf.namelen = init->filelen;
 		inbuf.pageslen = 0;
 		if (!me->staticpd_flags) {
 			inbuf.pageslen = 1;

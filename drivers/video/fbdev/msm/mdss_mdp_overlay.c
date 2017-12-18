@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2575,6 +2576,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 		commit_cb.data = mfd;
 		ret = mdss_mdp_display_commit(mdp5_data->ctl, NULL,
 			&commit_cb);
+		ctl->panel_data->panel_info.kickoff_count++;
 		ATRACE_END("display_commit");
 	}
 	__vsync_set_vsync_handler(mfd);
@@ -3505,7 +3507,8 @@ static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct dynamic_fps_data data = {0};
 
-	if (!mdp5_data->ctl || !mdss_mdp_ctl_is_power_on(mdp5_data->ctl)) {
+	if (!mdp5_data->ctl || !mdss_mdp_ctl_is_power_on(mdp5_data->ctl) ||
+			mdss_panel_is_power_off(mfd->panel_power_state)) {
 		pr_debug("panel is off\n");
 		return count;
 	}
@@ -4409,7 +4412,7 @@ static int mdss_mdp_hw_cursor_pipe_update(struct msm_fb_data_type *mfd,
 	if (!mfd->cursor_buf && (cursor->set & FB_CUR_SETIMAGE)) {
 		ret = mdss_smmu_dma_alloc_coherent(&pdev->dev,
 			cursor_frame_size, (dma_addr_t *) &mfd->cursor_buf_phys,
-			&mfd->cursor_buf_iova, mfd->cursor_buf,
+			&mfd->cursor_buf_iova, &mfd->cursor_buf,
 			GFP_KERNEL, MDSS_IOMMU_DOMAIN_UNSECURE);
 		if (ret) {
 			pr_err("can't allocate cursor buffer rc:%d\n", ret);
@@ -4597,7 +4600,7 @@ static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 	if (!mfd->cursor_buf && (cursor->set & FB_CUR_SETIMAGE)) {
 		ret = mdss_smmu_dma_alloc_coherent(&pdev->dev,
 			cursor_frame_size, (dma_addr_t *) &mfd->cursor_buf_phys,
-			&mfd->cursor_buf_iova, mfd->cursor_buf,
+			&mfd->cursor_buf_iova, &mfd->cursor_buf,
 			GFP_KERNEL, MDSS_IOMMU_DOMAIN_UNSECURE);
 		if (ret) {
 			pr_err("can't allocate cursor buffer rc:%d\n", ret);
@@ -4645,7 +4648,7 @@ static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 
-	if (cursor->set & FB_CUR_SETIMAGE) {
+	if (mfd->cursor_buf && (cursor->set & FB_CUR_SETIMAGE)) {
 		u32 cursor_addr;
 		ret = copy_from_user(mfd->cursor_buf, img->data,
 				     img->width * img->height * 4);
@@ -4983,9 +4986,10 @@ static int mdss_fb_get_metadata(struct msm_fb_data_type *mfd,
 		ret = mdss_fb_get_hw_caps(mfd, &metadata->data.caps);
 		break;
 	case metadata_op_get_ion_fd:
-		if (mfd->fb_ion_handle) {
+		if (mfd->fb_ion_handle && mfd->fb_ion_client) {
 			metadata->data.fbmem_ionfd =
-				dma_buf_fd(mfd->fbmem_buf, 0);
+				ion_share_dma_buf_fd(mfd->fb_ion_client,
+					mfd->fb_ion_handle);
 			if (metadata->data.fbmem_ionfd < 0)
 				pr_err("fd allocation failed. fd = %d\n",
 						metadata->data.fbmem_ionfd);

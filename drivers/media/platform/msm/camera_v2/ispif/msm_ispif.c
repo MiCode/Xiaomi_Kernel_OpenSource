@@ -612,7 +612,7 @@ static int msm_ispif_reset(struct ispif_device *ispif)
 			ispif->base + ISPIF_VFE_m_INTF_CMD_0(i));
 		msm_camera_io_w(ISPIF_STOP_INTF_IMMEDIATELY,
 			ispif->base + ISPIF_VFE_m_INTF_CMD_1(i));
-		pr_debug("%s: base %lx", __func__, (unsigned long)ispif->base);
+		pr_debug("%s: base %pK", __func__, ispif->base);
 		msm_camera_io_w(0, ispif->base +
 			ISPIF_VFE_m_PIX_INTF_n_CID_MASK(i, 0));
 		msm_camera_io_w(0, ispif->base +

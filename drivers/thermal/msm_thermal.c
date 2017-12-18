@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -7409,11 +7410,11 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 		pr_err("thermal pre init failed. err:%d\n", ret);
 		goto probe_exit;
 	}
+	probe_sensor_info(node, &data, pdev);
 	ret = probe_deferrable_properties(node, &data, pdev);
 	if (ret)
 		goto probe_exit;
 
-	probe_sensor_info(node, &data, pdev);
 	probe_cc(node, &data, pdev);
 	probe_freq_mitigation(node, &data, pdev);
 	probe_cx_phase_ctrl(node, &data, pdev);

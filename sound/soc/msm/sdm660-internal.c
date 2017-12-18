@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -875,6 +876,34 @@ static int msm_bt_sample_rate_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int usbhs_direction_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct snd_soc_card *card = codec->component.card;
+	struct msm_asoc_mach_data *pdata =
+				snd_soc_card_get_drvdata(card);
+
+	ucontrol->value.integer.value[0] = 0;
+
+	codec = snd_soc_kcontrol_codec(kcontrol);
+	if (codec) {
+		card = codec->component.card;
+		if (card) {
+			pdata = snd_soc_card_get_drvdata(card);
+			if (!pdata)
+				return 0;
+		}
+	}
+
+	if (pdata->us_euro_gpio_p)
+		ucontrol->value.integer.value[0] = msm_cdc_pinctrl_get_state(pdata->us_euro_gpio_p);
+	else if (pdata->us_euro_gpio >= 0)
+		ucontrol->value.integer.value[0] = gpio_get_value_cansleep(pdata->us_euro_gpio);
+
+	return 0;
+}
+
 static const struct snd_kcontrol_new msm_snd_controls[] = {
 	SOC_ENUM_EXT("INT0_MI2S_RX Format", int0_mi2s_rx_format,
 		     int_mi2s_bit_format_get, int_mi2s_bit_format_put),
@@ -902,6 +931,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 	SOC_ENUM_EXT("BT SampleRate", bt_sample_rate,
 			msm_bt_sample_rate_get,
 			msm_bt_sample_rate_put),
+	SOC_SINGLE_EXT("USB Headset Direction", 0, 0, UINT_MAX, 0,
+			usbhs_direction_get, NULL),
 };
 
 static const struct snd_kcontrol_new msm_sdw_controls[] = {
@@ -1212,7 +1243,7 @@ static void *def_msm_int_wcd_mbhc_cal(void)
 		return NULL;
 
 #define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(msm_int_wcd_cal)->X) = (Y))
-	S(v_hs_max, 1500);
+	S(v_hs_max, 1700);
 #undef S
 #define S(X, Y) ((WCD_MBHC_CAL_BTN_DET_PTR(msm_int_wcd_cal)->X) = (Y))
 	S(num_btn, WCD_MBHC_DEF_BUTTONS);
@@ -1237,14 +1268,14 @@ static void *def_msm_int_wcd_mbhc_cal(void)
 	 */
 	btn_low[0] = 75;
 	btn_high[0] = 75;
-	btn_low[1] = 150;
-	btn_high[1] = 150;
-	btn_low[2] = 225;
-	btn_high[2] = 225;
-	btn_low[3] = 450;
-	btn_high[3] = 450;
-	btn_low[4] = 500;
-	btn_high[4] = 500;
+	btn_low[1] = 260;
+	btn_high[1] = 260;
+	btn_low[2] = 750;
+	btn_high[2] = 750;
+	btn_low[3] = 750;
+	btn_high[3] = 750;
+	btn_low[4] = 750;
+	btn_high[4] = 750;
 
 	return msm_int_wcd_cal;
 }

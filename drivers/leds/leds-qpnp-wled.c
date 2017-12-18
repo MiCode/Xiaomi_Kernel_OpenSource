@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1108,12 +1109,15 @@ static irqreturn_t qpnp_wled_ovp_irq_handler(int irq, void *_wled)
 			QPNP_WLED_FAULT_STATUS(wled->ctrl_base), &fault_sts);
 	if (rc < 0) {
 		pr_err("Error in reading WLED_FAULT_STATUS rc=%d\n", rc);
-		return IRQ_HANDLED;
+		goto end;
 	}
 
 	if (fault_sts & (QPNP_WLED_OVP_FAULT_BIT | QPNP_WLED_ILIM_FAULT_BIT))
 		pr_err("WLED OVP fault detected, int_sts=%x fault_sts= %x\n",
 			int_sts, fault_sts);
+end:
+	disable_irq_nosync(wled->ovp_irq);
+	wled->ovp_irq_disabled = true;
 	return IRQ_HANDLED;
 }
 

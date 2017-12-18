@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2478,6 +2479,12 @@ int msm_isp_ab_ib_update_lpm_mode(struct vfe_device *vfe_dev, void *arg)
 	ab_ib_vote = (struct msm_vfe_dual_lpm_mode *)arg;
 	if (!ab_ib_vote) {
 		pr_err("%s: ab_ib_vote is NULL !!!\n", __func__);
+		rc = -1;
+		return rc;
+	}
+	if (ab_ib_vote->num_src >= VFE_AXI_SRC_MAX) {
+		pr_err("%s: ab_ib_vote num_src is exceeding limit\n",
+			__func__);
 		rc = -1;
 		return rc;
 	}

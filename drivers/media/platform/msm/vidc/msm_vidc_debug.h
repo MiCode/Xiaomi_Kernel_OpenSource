@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2015, 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -124,9 +125,9 @@ struct dentry *msm_vidc_debugfs_init_core(struct msm_vidc_core *core,
 		struct dentry *parent);
 struct dentry *msm_vidc_debugfs_init_inst(struct msm_vidc_inst *inst,
 		struct dentry *parent);
+void msm_vidc_debugfs_deinit_inst(struct msm_vidc_inst *inst);
 void msm_vidc_debugfs_update(struct msm_vidc_inst *inst,
 		enum msm_vidc_debugfs_event e);
-void msm_vidc_debugfs_deinit_drv(void);
 
 static inline void tic(struct msm_vidc_inst *i, enum profiling_points p,
 				 char *b)

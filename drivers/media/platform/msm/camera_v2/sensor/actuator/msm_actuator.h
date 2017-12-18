@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -108,6 +109,10 @@ struct msm_actuator_ctrl_t {
 	struct msm_camera_gpio_conf *gconf;
 	struct msm_pinctrl_info pinctrl_info;
 	uint8_t cam_pinctrl_status;
+	wait_queue_head_t exit_q;
+	struct work_struct pd_wk;
+	struct work_struct sd_wk;
+	struct workqueue_struct *exit_wq;
 };
 
 #endif

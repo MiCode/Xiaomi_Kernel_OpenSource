@@ -29,6 +29,8 @@
 #include <linux/dcache.h>
 #include <linux/file.h>
 #include <linux/fs.h>
+#include <linux/aio.h>
+#include <linux/kref.h>
 #include <linux/mm.h>
 #include <linux/mount.h>
 #include <linux/namei.h>
@@ -52,7 +54,7 @@
 #define SDCARDFS_ROOT_INO     1
 
 /* useful for tracking code reachability */
-#define UDBG printk(KERN_DEFAULT "DBG:%s:%s:%d\n", __FILE__, __func__, __LINE__)
+#define UDBG pr_default("DBG:%s:%s:%d\n", __FILE__, __func__, __LINE__)
 
 #define SDCARDFS_DIRENT_SIZE 256
 
@@ -65,71 +67,90 @@
 #define AID_SDCARD_PICS   1033	/* external storage photos access */
 #define AID_SDCARD_AV     1034	/* external storage audio/video access */
 #define AID_SDCARD_ALL    1035	/* access all users external storage */
+#define AID_MEDIA_OBB     1059  /* obb files */
+
+#define AID_SDCARD_IMAGE  1057
 
 #define AID_PACKAGE_INFO  1027
 
-#define fix_derived_permission(x)	\
+
+/*
+ * Permissions are handled by our permission function.
+ * We don't want anyone who happens to look at our inode value to prematurely
+ * block access, so store more permissive values. These are probably never
+ * used.
+ */
+#define fixup_tmp_permissions(x)	\
 	do {						\
-		(x)->i_uid = make_kuid(&init_user_ns, SDCARDFS_I(x)->d_uid);	\
-		(x)->i_gid = make_kgid(&init_user_ns, get_gid(SDCARDFS_I(x)));	\
-		(x)->i_mode = ((x)->i_mode & S_IFMT) | get_mode(SDCARDFS_I(x));\
+		(x)->i_uid = make_kuid(&init_user_ns,	\
+				SDCARDFS_I(x)->data->d_uid);	\
+		(x)->i_gid = make_kgid(&init_user_ns, AID_SDCARD_RW);	\
+		(x)->i_mode = ((x)->i_mode & S_IFMT) | 0775;\
 	} while (0)
 
-
 /* OVERRIDE_CRED() and REVERT_CRED()
- * 	OVERRID_CRED()
- * 		backup original task->cred
- * 		and modifies task->cred->fsuid/fsgid to specified value.
+ *	OVERRIDE_CRED()
+ *		backup original task->cred
+ *		and modifies task->cred->fsuid/fsgid to specified value.
  *	REVERT_CRED()
- * 		restore original task->cred->fsuid/fsgid.
+ *		restore original task->cred->fsuid/fsgid.
  * These two macro should be used in pair, and OVERRIDE_CRED() should be
  * placed at the beginning of a function, right after variable declaration.
  */
-#define OVERRIDE_CRED(sdcardfs_sbi, saved_cred)		\
-	saved_cred = override_fsids(sdcardfs_sbi);	\
-	if (!saved_cred) { return -ENOMEM; }
+#define OVERRIDE_CRED(sdcardfs_sbi, saved_cred, info)		\
+	do {	\
+		saved_cred = override_fsids(sdcardfs_sbi, info->data);	\
+		if (!saved_cred)	\
+			return -ENOMEM;	\
+	} while (0)
 
-#define OVERRIDE_CRED_PTR(sdcardfs_sbi, saved_cred)	\
-	saved_cred = override_fsids(sdcardfs_sbi);	\
-	if (!saved_cred) { return ERR_PTR(-ENOMEM); }
+#define OVERRIDE_CRED_PTR(sdcardfs_sbi, saved_cred, info)	\
+	do {	\
+		saved_cred = override_fsids(sdcardfs_sbi, info->data);	\
+		if (!saved_cred)	\
+			return ERR_PTR(-ENOMEM);	\
+	} while (0)
 
 #define REVERT_CRED(saved_cred)	revert_fsids(saved_cred)
-
-#define DEBUG_CRED()		\
-	printk("KAKJAGI: %s:%d fsuid %d fsgid %d\n", 	\
-		__FUNCTION__, __LINE__, 		\
-		(int)current->cred->fsuid, 		\
-		(int)current->cred->fsgid);
 
 /* Android 5.0 support */
 
 /* Permission mode for a specific node. Controls how file permissions
- * are derived for children nodes. */
+ * are derived for children nodes.
+ */
 typedef enum {
-    /* Nothing special; this node should just inherit from its parent. */
-    PERM_INHERIT,
-    /* This node is one level above a normal root; used for legacy layouts
-     * which use the first level to represent user_id. */
-    PERM_PRE_ROOT,
-    /* This node is "/" */
-    PERM_ROOT,
-    /* This node is "/Android" */
-    PERM_ANDROID,
-    /* This node is "/Android/data" */
-    PERM_ANDROID_DATA,
-    /* This node is "/Android/obb" */
-    PERM_ANDROID_OBB,
-    /* This node is "/Android/media" */
-    PERM_ANDROID_MEDIA,
+	/* Nothing special; this node should just inherit from its parent. */
+	PERM_INHERIT,
+	/* This node is one level above a normal root; used for legacy layouts
+	 * which use the first level to represent user_id.
+	 */
+	PERM_PRE_ROOT,
+	/* This node is "/" */
+	PERM_ROOT,
+	/* This node is "/Android" */
+	PERM_ANDROID,
+	/* This node is "/Android/data" */
+	PERM_ANDROID_DATA,
+	/* This node is "/Android/obb" */
+	PERM_ANDROID_OBB,
+	/* This node is "/Android/media" */
+	PERM_ANDROID_MEDIA,
+	/* This node is "/Android/[data|media|obb]/[package]" */
+	PERM_ANDROID_PACKAGE,
+	/* This node is "/Android/[data|media|obb]/[package]/cache" */
+	PERM_ANDROID_PACKAGE_CACHE,
 } perm_t;
 
 struct sdcardfs_sb_info;
 struct sdcardfs_mount_options;
+struct sdcardfs_inode_info;
+struct sdcardfs_inode_data;
 
 /* Do not directly use this function. Use OVERRIDE_CRED() instead. */
-const struct cred * override_fsids(struct sdcardfs_sb_info* sbi);
+const struct cred *override_fsids(struct sdcardfs_sb_info *sbi,
+			struct sdcardfs_inode_data *data);
 /* Do not directly use this function, use REVERT_CRED() instead. */
-void revert_fsids(const struct cred * old_cred);
+void revert_fsids(const struct cred *old_cred);
 
 /* operations vectors defined in specific files */
 extern const struct file_operations sdcardfs_main_fops;
@@ -161,14 +182,26 @@ struct sdcardfs_file_info {
 	const struct vm_operations_struct *lower_vm_ops;
 };
 
-/* sdcardfs inode data in memory */
-struct sdcardfs_inode_info {
-	struct inode *lower_inode;
-	/* state derived based on current position in hierachy */
+struct sdcardfs_inode_data {
+	struct kref refcount;
+	bool abandoned;
+
 	perm_t perm;
 	userid_t userid;
 	uid_t d_uid;
 	bool under_android;
+	bool under_cache;
+	bool under_obb;
+};
+
+/* sdcardfs inode data in memory */
+struct sdcardfs_inode_info {
+	struct inode *lower_inode;
+	/* state derived based on current position in hierarchy */
+	struct sdcardfs_inode_data *data;
+
+	/* top folder for ownership */
+	struct sdcardfs_inode_data *top_data;
 
 	struct inode vfs_inode;
 };
@@ -185,18 +218,25 @@ struct sdcardfs_mount_options {
 	uid_t fs_low_uid;
 	gid_t fs_low_gid;
 	userid_t fs_user_id;
-	gid_t gid;
-	mode_t mask;
 	bool multiuser;
 	unsigned int reserved_mb;
 };
+
+struct sdcardfs_vfsmount_options {
+	gid_t gid;
+	mode_t mask;
+};
+
+extern int parse_options_remount(struct super_block *sb, char *options, int silent,
+		struct sdcardfs_vfsmount_options *vfsopts);
 
 /* sdcardfs super-block data in memory */
 struct sdcardfs_sb_info {
 	struct super_block *sb;
 	struct super_block *lower_sb;
 	/* derived perm policy : some of options have been added
-	 * to sdcardfs_mount_options (Android 4.4 support) */
+	 * to sdcardfs_mount_options (Android 4.4 support)
+	 */
 	struct sdcardfs_mount_options options;
 	spinlock_t lock;	/* protects obbpath */
 	char *obbpath_s;
@@ -307,7 +347,7 @@ static inline void sdcardfs_put_reset_##pname(const struct dentry *dent) \
 { \
 	struct path pname; \
 	spin_lock(&SDCARDFS_D(dent)->lock); \
-	if(SDCARDFS_D(dent)->pname.dentry) { \
+	if (SDCARDFS_D(dent)->pname.dentry) { \
 		pathcpy(&pname, &SDCARDFS_D(dent)->pname); \
 		SDCARDFS_D(dent)->pname.dentry = NULL; \
 		SDCARDFS_D(dent)->pname.mnt = NULL; \
@@ -321,38 +361,97 @@ static inline void sdcardfs_put_reset_##pname(const struct dentry *dent) \
 SDCARDFS_DENT_FUNC(lower_path)
 SDCARDFS_DENT_FUNC(orig_path)
 
-static inline int get_gid(struct sdcardfs_inode_info *info) {
-	struct sdcardfs_sb_info *sb_info = SDCARDFS_SB(info->vfs_inode.i_sb);
-	if (sb_info->options.gid == AID_SDCARD_RW) {
+static inline bool sbinfo_has_sdcard_magic(struct sdcardfs_sb_info *sbinfo)
+{
+	return sbinfo && sbinfo->sb
+			&& sbinfo->sb->s_magic == SDCARDFS_SUPER_MAGIC;
+}
+
+static inline struct sdcardfs_inode_data *data_get(
+		struct sdcardfs_inode_data *data)
+{
+	if (data)
+		kref_get(&data->refcount);
+	return data;
+}
+
+static inline struct sdcardfs_inode_data *top_data_get(
+		struct sdcardfs_inode_info *info)
+{
+	return data_get(info->top_data);
+}
+
+extern void data_release(struct kref *ref);
+
+static inline void data_put(struct sdcardfs_inode_data *data)
+{
+	kref_put(&data->refcount, data_release);
+}
+
+static inline void release_own_data(struct sdcardfs_inode_info *info)
+{
+	/*
+	 * This happens exactly once per inode. At this point, the inode that
+	 * originally held this data is about to be freed, and all references
+	 * to it are held as a top value, and will likely be released soon.
+	 */
+	info->data->abandoned = true;
+	data_put(info->data);
+}
+
+static inline void set_top(struct sdcardfs_inode_info *info,
+			struct sdcardfs_inode_data *top)
+{
+	struct sdcardfs_inode_data *old_top = info->top_data;
+
+	if (top)
+		data_get(top);
+	info->top_data = top;
+	if (old_top)
+		data_put(old_top);
+}
+
+static inline int get_gid(struct vfsmount *mnt,
+		struct sdcardfs_inode_data *data)
+{
+	struct sdcardfs_vfsmount_options *opts = mnt->data;
+
+	if (opts->gid == AID_SDCARD_RW)
 		/* As an optimization, certain trusted system components only run
 		 * as owner but operate across all users. Since we're now handing
 		 * out the sdcard_rw GID only to trusted apps, we're okay relaxing
 		 * the user boundary enforcement for the default view. The UIDs
-		 * assigned to app directories are still multiuser aware. */
+		 * assigned to app directories are still multiuser aware.
+		 */
 		return AID_SDCARD_RW;
-	} else {
-		return multiuser_get_uid(info->userid, sb_info->options.gid);
-	}
+	else
+		return multiuser_get_uid(data->userid, opts->gid);
 }
-static inline int get_mode(struct sdcardfs_inode_info *info) {
+
+static inline int get_mode(struct vfsmount *mnt,
+		struct sdcardfs_inode_info *info,
+		struct sdcardfs_inode_data *data)
+{
 	int owner_mode;
 	int filtered_mode;
-	struct sdcardfs_sb_info *sb_info = SDCARDFS_SB(info->vfs_inode.i_sb);
-	int visible_mode = 0775 & ~sb_info->options.mask;
+	struct sdcardfs_vfsmount_options *opts = mnt->data;
+	int visible_mode = 0775 & ~opts->mask;
 
-	if (info->perm == PERM_PRE_ROOT) {
+
+	if (data->perm == PERM_PRE_ROOT) {
 		/* Top of multi-user view should always be visible to ensure
-		* secondary users can traverse inside. */
+		* secondary users can traverse inside.
+		*/
 		visible_mode = 0711;
-	} else if (info->under_android) {
+	} else if (data->under_android) {
 		/* Block "other" access to Android directories, since only apps
 		* belonging to a specific user should be in there; we still
-		* leave +x open for the default view. */
-		if (sb_info->options.gid == AID_SDCARD_RW) {
+		* leave +x open for the default view.
+		*/
+		if (opts->gid == AID_SDCARD_RW)
 			visible_mode = visible_mode & ~0006;
-		} else {
+		else
 			visible_mode = visible_mode & ~0007;
-		}
 	}
 	owner_mode = info->lower_inode->i_mode & 0700;
 	filtered_mode = visible_mode & (owner_mode | (owner_mode >> 3) | (owner_mode >> 6));
@@ -377,7 +476,7 @@ static inline void sdcardfs_get_real_lower(const struct dentry *dent,
 	/* in case of a local obb dentry
 	 * the orig_path should be returned
 	 */
-	if(has_graft_path(dent))
+	if (has_graft_path(dent))
 		sdcardfs_get_orig_path(dent, real_lower);
 	else
 		sdcardfs_get_lower_path(dent, real_lower);
@@ -386,7 +485,7 @@ static inline void sdcardfs_get_real_lower(const struct dentry *dent,
 static inline void sdcardfs_put_real_lower(const struct dentry *dent,
 						struct path *real_lower)
 {
-	if(has_graft_path(dent))
+	if (has_graft_path(dent))
 		sdcardfs_put_orig_path(dent, real_lower);
 	else
 		sdcardfs_put_lower_path(dent, real_lower);
@@ -396,20 +495,31 @@ extern struct mutex sdcardfs_super_list_lock;
 extern struct list_head sdcardfs_super_list;
 
 /* for packagelist.c */
-extern appid_t get_appid(void *pkgl_id, const char *app_name);
-extern int check_caller_access_to_name(struct inode *parent_node, const char* name);
-extern int open_flags_to_access_mode(int open_flags);
+extern appid_t get_appid(const char *app_name);
+extern appid_t get_ext_gid(const char *app_name);
+extern appid_t is_excluded(const char *app_name, userid_t userid);
+extern int check_caller_access_to_name(struct inode *parent_node, const struct qstr *name);
 extern int packagelist_init(void);
 extern void packagelist_exit(void);
 
 /* for derived_perm.c */
+#define BY_NAME		(1 << 0)
+#define BY_USERID	(1 << 1)
+struct limit_search {
+	unsigned int flags;
+	struct qstr name;
+	userid_t userid;
+};
+
 extern void setup_derived_state(struct inode *inode, perm_t perm,
-			userid_t userid, uid_t uid, bool under_android);
+		userid_t userid, uid_t uid, bool under_android,
+		struct sdcardfs_inode_data *top);
 extern void get_derived_permission(struct dentry *parent, struct dentry *dentry);
-extern void get_derived_permission_new(struct dentry *parent, struct dentry *dentry, struct dentry *newdentry);
-extern void get_derive_permissions_recursive(struct dentry *parent);
+extern void get_derived_permission_new(struct dentry *parent, struct dentry *dentry, const struct qstr *name);
+extern void fixup_perms_recursive(struct dentry *dentry, struct limit_search *limit);
 
 extern void update_derived_permission_lock(struct dentry *dentry);
+void fixup_lower_ownership(struct dentry *dentry, const char *name);
 extern int need_graft_path(struct dentry *dentry);
 extern int is_base_obbpath(struct dentry *dentry);
 extern int is_obbpath_invalid(struct dentry *dentry);
@@ -419,6 +529,7 @@ extern int setup_obb_dentry(struct dentry *dentry, struct path *lower_path);
 static inline struct dentry *lock_parent(struct dentry *dentry)
 {
 	struct dentry *dir = dget_parent(dentry);
+
 	mutex_lock_nested(&d_inode(dir)->i_mutex, I_MUTEX_PARENT);
 	return dir;
 }
@@ -444,7 +555,7 @@ static inline int prepare_dir(const char *path_s, uid_t uid, gid_t gid, mode_t m
 		goto out_unlock;
 	}
 
-	err = vfs_mkdir(d_inode(parent.dentry), dent, mode);
+	err = vfs_mkdir2(parent.mnt, d_inode(parent.dentry), dent, mode);
 	if (err) {
 		if (err == -EEXIST)
 			err = 0;
@@ -455,7 +566,7 @@ static inline int prepare_dir(const char *path_s, uid_t uid, gid_t gid, mode_t m
 	attrs.ia_gid = make_kgid(&init_user_ns, gid);
 	attrs.ia_valid = ATTR_UID | ATTR_GID;
 	mutex_lock(&d_inode(dent)->i_mutex);
-	notify_change(dent, &attrs, NULL);
+	notify_change2(parent.mnt, dent, &attrs, NULL);
 	mutex_unlock(&d_inode(dent)->i_mutex);
 
 out_dput:
@@ -513,12 +624,16 @@ static inline int check_min_free_space(struct dentry *dentry, size_t size, int d
 		return 1;
 }
 
-/* Copies attrs and maintains sdcardfs managed attrs */
+/*
+ * Copies attrs and maintains sdcardfs managed attrs
+ * Since our permission check handles all special permissions, set those to be open
+ */
 static inline void sdcardfs_copy_and_fix_attrs(struct inode *dest, const struct inode *src)
 {
-	dest->i_mode = (src->i_mode  & S_IFMT) | get_mode(SDCARDFS_I(dest));
-	dest->i_uid = make_kuid(&init_user_ns, SDCARDFS_I(dest)->d_uid);
-	dest->i_gid = make_kgid(&init_user_ns, get_gid(SDCARDFS_I(dest)));
+	dest->i_mode = (src->i_mode  & S_IFMT) | S_IRWXU | S_IRWXG |
+			S_IROTH | S_IXOTH; /* 0775 */
+	dest->i_uid = make_kuid(&init_user_ns, SDCARDFS_I(dest)->data->d_uid);
+	dest->i_gid = make_kgid(&init_user_ns, AID_SDCARD_RW);
 	dest->i_rdev = src->i_rdev;
 	dest->i_atime = src->i_atime;
 	dest->i_mtime = src->i_mtime;
@@ -527,4 +642,22 @@ static inline void sdcardfs_copy_and_fix_attrs(struct inode *dest, const struct 
 	dest->i_flags = src->i_flags;
 	set_nlink(dest, src->i_nlink);
 }
+
+static inline bool str_case_eq(const char *s1, const char *s2)
+{
+	return !strcasecmp(s1, s2);
+}
+
+static inline bool str_n_case_eq(const char *s1, const char *s2, size_t len)
+{
+	return !strncasecmp(s1, s2, len);
+}
+
+static inline bool qstr_case_eq(const struct qstr *q1, const struct qstr *q2)
+{
+	return q1->len == q2->len && str_n_case_eq(q1->name, q2->name, q1->len);
+}
+
+#define QSTR_LITERAL(string) QSTR_INIT(string, sizeof(string)-1)
+
 #endif	/* not _SDCARDFS_H_ */

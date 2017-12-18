@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -571,6 +572,9 @@ static u32 __calc_qseed3_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
 	u64 ver_dwnscale;
 	u64 active_line;
 	u64 backfill_line;
+	struct mdss_mdp_ctl *ctl = pipe->mixer_left->ctl;
+	u64 pclk_rate;
+	struct mdss_panel_info *pinfo = &ctl->panel_data->panel_info;
 
 	ver_dwnscale = (u64)src_h << PHASE_STEP_SHIFT;
 	do_div(ver_dwnscale, dst.h);
@@ -596,12 +600,26 @@ static u32 __calc_qseed3_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
 
 	total_cycle = active_line_cycle + backfill_cycle;
 
+	/*
+	 * MDP clkrate = total_cycle * PixelClock / Dest-width
+	 * if pixelClock not available:
+	 *             = total_cycle * fps * v_total
+	 */
+	if ((pinfo->type == MIPI_CMD_PANEL) && dst.w) {
+		pclk_rate = (u64)mdss_panel_get_htotal(pinfo, false) *
+			v_total * fps;
+		do_div(pclk_rate, pinfo->xres);
+		total_cycle *= pclk_rate;
+	} else {
+		total_cycle *= (fps * v_total);
+	}
+
 	pr_debug("line: active=%lld backfill=%lld vds=%lld\n",
 		active_line, backfill_line, ver_dwnscale);
 	pr_debug("cycle: total=%lld active=%lld backfill=%lld\n",
 		total_cycle, active_line_cycle, backfill_cycle);
 
-	return (u32)total_cycle * (fps * v_total);
+	return (u32)total_cycle;
 }
 
 static inline bool __is_vert_downscaling(u32 src_h,
@@ -659,6 +677,7 @@ static u32 get_pipe_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
 	if (flags & PERF_CALC_PIPE_APPLY_CLK_FUDGE)
 		rate = mdss_mdp_clk_fudge_factor(mixer, rate);
 
+	rate = min(mdata->max_mdp_clk_rate, rate);
 	return rate;
 }
 
@@ -815,7 +834,7 @@ static inline bool validate_comp_ratio(struct mult_factor *factor)
 	return factor->numer && factor->denom;
 }
 
-u32 apply_comp_ratio_factor(u32 quota,
+u64 apply_comp_ratio_factor(u64 quota,
 	struct mdss_mdp_format_params *fmt,
 	struct mult_factor *factor)
 {
@@ -2495,6 +2514,7 @@ struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 	u32 nmixers_wb;
 	u32 i;
 	u32 nmixers;
+	u32 nmixers_active;
 	struct mdss_mdp_mixer *mixer_pool = NULL;
 
 	if (!ctl || !ctl->mdata)
@@ -2508,10 +2528,21 @@ struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 	case MDSS_MDP_MIXER_TYPE_INTF:
 		mixer_pool = ctl->mdata->mixer_intf;
 		nmixers = nmixers_intf;
+		nmixers_active = nmixers;
+
+		for (i = 0; i < nmixers; i++) {
+			mixer = mixer_pool + i;
+			if (mixer->ref_cnt)
+				nmixers_active--;
+		}
+		mixer = NULL;
 
 		/*
 		 * try to reserve first layer mixer for write back if
-		 * assertive display needs to be supported through wfd
+		 * assertive display needs to be supported through wfd.
+		 * For external displays(pluggable) and writeback avoid
+		 * allocating mixers LM0 and LM1 which are allocated
+		 * to primary display first.
 		 */
 		if (ctl->mdata->has_wb_ad && ctl->intf_num &&
 			((ctl->panel_data->panel_info.type != MIPI_CMD_PANEL) ||
@@ -2521,6 +2552,10 @@ struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 			nmixers--;
 		} else if ((ctl->panel_data->panel_info.type == WRITEBACK_PANEL)
 			&& (ctl->mdata->ndspp < nmixers)) {
+			mixer_pool += ctl->mdata->ndspp;
+			nmixers -= ctl->mdata->ndspp;
+		} else if ((ctl->panel_data->panel_info.is_pluggable) &&
+				nmixers_active) {
 			mixer_pool += ctl->mdata->ndspp;
 			nmixers -= ctl->mdata->ndspp;
 		}
@@ -2736,10 +2771,7 @@ int mdss_mdp_display_wakeup_time(struct mdss_mdp_ctl *ctl,
 	if (!clk_period)
 		return -EINVAL;
 
-	time_of_line = (pinfo->lcdc.h_back_porch +
-		 pinfo->lcdc.h_front_porch +
-		 pinfo->lcdc.h_pulse_width +
-		 pinfo->xres) * clk_period;
+	time_of_line = mdss_panel_get_htotal(pinfo, true) * clk_period;
 
 	time_of_line /= 1000;	/* in nano second */
 	if (!time_of_line)
@@ -2747,10 +2779,7 @@ int mdss_mdp_display_wakeup_time(struct mdss_mdp_ctl *ctl,
 
 	current_line = ctl->ops.read_line_cnt_fnc(ctl);
 
-	total_line = pinfo->lcdc.v_back_porch +
-		pinfo->lcdc.v_front_porch +
-		pinfo->lcdc.v_pulse_width +
-		pinfo->yres;
+	total_line = mdss_panel_get_vtotal(pinfo);
 
 	if (current_line >= total_line)
 		time_to_vsync = time_of_line * total_line;
@@ -5735,15 +5764,6 @@ static void mdss_mdp_force_border_color(struct mdss_mdp_ctl *ctl)
 		ctl->mixer_right->params_changed++;
 }
 
-static bool mdss_mdp_handle_backlight_extn(struct mdss_mdp_ctl *ctl)
-{
-	if (ctl->intf_type == MDSS_INTF_DSI && !ctl->is_video_mode &&
-	    ctl->mfd->bl_extn_level >= 0)
-		return true;
-	else
-		return false;
-}
-
 int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	struct mdss_mdp_commit_cb *commit_cb)
 {
@@ -5910,15 +5930,6 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	if (ctl->ops.wait_pingpong && !mdata->serialize_wait4pp)
 		mdss_mdp_display_wait4pingpong(ctl, false);
 
-	/*
-	 * If backlight needs to change, wait for 1 vsync before setting
-	 * PCC and kickoff
-	 */
-	if (mdss_mdp_handle_backlight_extn(ctl) &&
-	    ctl->ops.wait_for_vsync_fnc) {
-		ret = ctl->ops.wait_for_vsync_fnc(ctl);
-	}
-
 	/* Moved pp programming to post ping pong */
 	ATRACE_BEGIN("postproc_programming_deferred");
 	if (!ctl->is_video_mode && ctl->mfd &&
@@ -6077,10 +6088,10 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 		pr_warn("ctl %d error displaying frame\n", ctl->num);
 
 	/* update backlight in commit */
-	if (mdss_mdp_handle_backlight_extn(ctl)) {
-		if (ctl->mfd && !IS_CALIB_MODE_BL(ctl->mfd) &&
-			(!ctl->mfd->ext_bl_ctrl ||
-			 !ctl->mfd->bl_level)) {
+	if (ctl->intf_type == MDSS_INTF_DSI && !ctl->is_video_mode &&
+	    ctl->mfd && ctl->mfd->bl_extn_level >= 0) {
+		if (!IS_CALIB_MODE_BL(ctl->mfd) && (!ctl->mfd->ext_bl_ctrl ||
+						!ctl->mfd->bl_level)) {
 			mutex_lock(&ctl->mfd->bl_lock);
 			mdss_fb_set_backlight(ctl->mfd,
 					      ctl->mfd->bl_extn_level);

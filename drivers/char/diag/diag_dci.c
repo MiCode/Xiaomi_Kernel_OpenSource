@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2896,6 +2897,8 @@ int diag_dci_register_client(struct diag_dci_reg_tbl_t *reg_entry)
 		new_entry->num_buffers = 1;
 		break;
 	}
+
+	new_entry->buffers = NULL;
 	new_entry->real_time = MODE_REALTIME;
 	new_entry->in_service = 0;
 	INIT_LIST_HEAD(&new_entry->list_write_buf);
@@ -2969,7 +2972,8 @@ int diag_dci_register_client(struct diag_dci_reg_tbl_t *reg_entry)
 
 fail_alloc:
 	if (new_entry) {
-		for (i = 0; i < new_entry->num_buffers; i++) {
+		for (i = 0; ((i < new_entry->num_buffers) &&
+			new_entry->buffers); i++) {
 			proc_buf = &new_entry->buffers[i];
 			if (proc_buf) {
 				mutex_destroy(&proc_buf->health_mutex);

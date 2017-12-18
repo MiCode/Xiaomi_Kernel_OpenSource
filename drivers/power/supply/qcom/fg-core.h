@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,8 +52,11 @@
 #define PROFILE_LOAD		"fg_profile_load"
 #define DELTA_SOC		"fg_delta_soc"
 
-/* Delta BSOC votable reasons */
+/* Delta BSOC irq votable reasons */
 #define DELTA_BSOC_IRQ_VOTER	"fg_delta_bsoc_irq"
+
+/* Battery missing irq votable reasons */
+#define BATT_MISS_IRQ_VOTER	"fg_batt_miss_irq"
 
 #define DEBUG_PRINT_BUFFER_SIZE		64
 /* 3 byte address + 1 space character */
@@ -277,6 +281,7 @@ struct fg_batt_props {
 	int		float_volt_uv;
 	int		vbatt_full_mv;
 	int		fastchg_curr_ma;
+	int		nom_cap_uah;
 };
 
 struct fg_cyc_ctr_data {
@@ -361,6 +366,7 @@ struct fg_chip {
 	struct fg_irq_info	*irqs;
 	struct votable		*awake_votable;
 	struct votable		*delta_bsoc_irq_en_votable;
+	struct votable		*batt_miss_irq_en_votable;
 	struct fg_sram_param	*sp;
 	struct fg_alg_flag	*alg_flags;
 	int			*debug_mask;
@@ -405,6 +411,7 @@ struct fg_chip {
 	bool			esr_flt_cold_temp_en;
 	bool			slope_limit_en;
 	bool			use_ima_single_mode;
+	bool			bsoc_irq_disabled;
 	struct completion	soc_update;
 	struct completion	soc_ready;
 	struct delayed_work	profile_load_work;
@@ -412,6 +419,7 @@ struct fg_chip {
 	struct work_struct	cycle_count_work;
 	struct delayed_work	batt_avg_work;
 	struct delayed_work	sram_dump_work;
+	struct delayed_work	soc_work;
 	struct fg_circ_buf	ibatt_circ_buf;
 	struct fg_circ_buf	vbatt_circ_buf;
 };
@@ -467,6 +475,7 @@ extern void dump_sram(u8 *buf, int addr, int len);
 extern int64_t twos_compliment_extend(int64_t val, int s_bit_pos);
 extern s64 fg_float_decode(u16 val);
 extern bool is_input_present(struct fg_chip *chip);
+extern bool is_qnovo_en(struct fg_chip *chip);
 extern void fg_circ_buf_add(struct fg_circ_buf *, int);
 extern void fg_circ_buf_clr(struct fg_circ_buf *);
 extern int fg_circ_buf_avg(struct fg_circ_buf *, int *);

@@ -838,7 +838,7 @@
 	qcom,hw-thd-dat = <22>;
 	qcom,hw-thd-sta = <35>;
 	qcom,hw-tbuf = <62>;
-	qcom,hw-scl-stretch-en = <0>;
+	qcom,hw-scl-stretch-en = <1>;
 	qcom,hw-trdhld = <6>;
 	qcom,hw-tsp = <3>;
 	qcom,cci-clk-src = <37500000>;

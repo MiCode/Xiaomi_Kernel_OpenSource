@@ -165,6 +165,7 @@ extern int __mmc_switch_cmdq_mode(struct mmc_command *cmd, u8 set, u8 index,
 				  u8 value, unsigned int timeout_ms,
 				  bool use_busy_signal, bool ignore_timeout);
 extern int mmc_send_tuning(struct mmc_host *host, u32 opcode, int *cmd_error);
+extern int mmc_send_ext_csd(struct mmc_card *card, u8 *ext_csd);
 extern int mmc_get_ext_csd(struct mmc_card *card, u8 **new_ext_csd);
 extern int mmc_set_auto_bkops(struct mmc_card *card, bool enable);
 extern int mmc_suspend_clk_scaling(struct mmc_host *host);
@@ -210,6 +211,7 @@ extern void __mmc_put_card(struct mmc_card *card);
 
 extern void mmc_set_ios(struct mmc_host *host);
 extern int mmc_flush_cache(struct mmc_card *);
+extern int mmc_cache_ctrl(struct mmc_host *host, u8 enable);
 extern int mmc_cache_barrier(struct mmc_card *);
 
 extern int mmc_detect_card_removed(struct mmc_host *host);

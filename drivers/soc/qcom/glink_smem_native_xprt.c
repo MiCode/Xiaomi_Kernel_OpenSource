@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -845,7 +846,7 @@ static void __rx_worker(struct edge_info *einfo, bool atomic_ctx)
 
 	rcu_id = srcu_read_lock(&einfo->use_ref);
 
-	if (unlikely(!einfo->rx_fifo)) {
+	if (unlikely(!einfo->rx_fifo) && atomic_ctx) {
 		if (!get_rx_fifo(einfo)) {
 			srcu_read_unlock(&einfo->use_ref, rcu_id);
 			return;

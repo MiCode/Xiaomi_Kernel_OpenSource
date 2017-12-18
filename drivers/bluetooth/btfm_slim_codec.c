@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +27,9 @@
 #include <sound/tlv.h>
 #include <btfm_slim.h>
 
+static int bt_soc_enable_status;
+
+
 static int btfm_slim_codec_write(struct snd_soc_codec *codec, unsigned int reg,
 	unsigned int value)
 {
@@ -38,8 +42,31 @@ static unsigned int btfm_slim_codec_read(struct snd_soc_codec *codec,
 	return 0;
 }
 
+static int bt_soc_status_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = bt_soc_enable_status;
+	return 1;
+}
+
+static int bt_soc_status_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	return 1;
+}
+
+static const struct snd_kcontrol_new status_controls[] = {
+	SOC_SINGLE_EXT("BT SOC status", 0, 0, 1, 0,
+			bt_soc_status_get,
+			bt_soc_status_put)
+
+};
+
+
 static int btfm_slim_codec_probe(struct snd_soc_codec *codec)
 {
+	snd_soc_add_codec_controls(codec, status_controls,
+				   ARRAY_SIZE(status_controls));
 	return 0;
 }
 
@@ -130,6 +157,7 @@ int btfm_slim_dai_prepare(struct snd_pcm_substream *substream,
 	struct btfmslim *btfmslim = dai->dev->platform_data;
 	struct btfmslim_ch *ch;
 	uint8_t rxport, grp = false, nchan = 1;
+	bt_soc_enable_status = 0;
 
 	BTFMSLIM_DBG("dai->name: %s, dai->id: %d, dai->rate: %d", dai->name,
 		dai->id, dai->rate);
@@ -171,6 +199,10 @@ int btfm_slim_dai_prepare(struct snd_pcm_substream *substream,
 	}
 
 	ret = btfm_slim_enable_ch(btfmslim, ch, rxport, dai->rate, grp, nchan);
+
+	/* save the enable channel status */
+	if (ret == 0)
+		bt_soc_enable_status = 1;
 	return ret;
 }
 

@@ -3,6 +3,7 @@
  * driver source file
  *
  * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1837,13 +1838,13 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 	}
 
 	if (sdhci_msm_dt_get_array(dev, "qcom,devfreq,freq-table",
-			&msm_host->mmc->clk_scaling.freq_table,
-			&msm_host->mmc->clk_scaling.freq_table_sz, 0))
+			&msm_host->mmc->clk_scaling.pltfm_freq_table,
+			&msm_host->mmc->clk_scaling.pltfm_freq_table_sz, 0))
 		pr_debug("%s: no clock scaling frequencies were supplied\n",
 			dev_name(dev));
-	else if (!msm_host->mmc->clk_scaling.freq_table ||
-			!msm_host->mmc->clk_scaling.freq_table_sz)
-			dev_err(dev, "bad dts clock scaling frequencies\n");
+	else if (!msm_host->mmc->clk_scaling.pltfm_freq_table ||
+			!msm_host->mmc->clk_scaling.pltfm_freq_table_sz)
+		dev_err(dev, "bad dts clock scaling frequencies\n");
 
 	/*
 	 * Few hosts can support DDR52 mode at the same lower
@@ -2366,21 +2367,6 @@ out:
 	return ret;
 }
 
-/*
- * Reset vreg by ensuring it is off during probe. A call
- * to enable vreg is needed to balance disable vreg
- */
-static int sdhci_msm_vreg_reset(struct sdhci_msm_pltfm_data *pdata)
-{
-	int ret;
-
-	ret = sdhci_msm_setup_vreg(pdata, 1, true);
-	if (ret)
-		return ret;
-	ret = sdhci_msm_setup_vreg(pdata, 0, true);
-	return ret;
-}
-
 /* This init function should be called only once for each SDHC slot */
 static int sdhci_msm_vreg_init(struct device *dev,
 				struct sdhci_msm_pltfm_data *pdata,
@@ -2415,7 +2401,7 @@ static int sdhci_msm_vreg_init(struct device *dev,
 		if (ret)
 			goto vdd_reg_deinit;
 	}
-	ret = sdhci_msm_vreg_reset(pdata);
+
 	if (ret)
 		dev_err(dev, "vreg reset failed (%d)\n", ret);
 	goto out;
@@ -2592,7 +2578,9 @@ static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 		io_level = REQ_IO_HIGH;
 	}
 	if (irq_status & CORE_PWRCTL_BUS_OFF) {
-		ret = sdhci_msm_setup_vreg(msm_host->pdata, false, false);
+		if (msm_host->pltfm_init_done)
+			ret = sdhci_msm_setup_vreg(msm_host->pdata,
+					false, false);
 		if (!ret) {
 			ret = sdhci_msm_setup_pins(msm_host->pdata, false);
 			ret |= sdhci_msm_set_vdd_io_vol(msm_host->pdata,
@@ -4649,6 +4637,8 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Add host failed (%d)\n", ret);
 		goto vreg_deinit;
 	}
+
+	msm_host->pltfm_init_done = true;
 
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
