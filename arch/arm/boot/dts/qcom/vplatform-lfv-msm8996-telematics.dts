@@ -34,17 +34,24 @@
 		no-map;
 		reg = <0 0x88800000 0 0x6200000>;
 	};
+
 	peripheral_mem: peripheral_region@8ea00000 {
 		compatible = "removed-dma-pool";
 		no-map;
 		reg = <0 0x8ea00000 0 0x2b00000>;
 	};
+
 	adsp_mem: adsp_region {
 		compatible = "shared-dma-pool";
 		alloc-ranges = <0 0x00000000 0 0xffffffff>;
 		reusable;
 		alignment = <0 0x100000>;
 		size = <0 0x400000>;
+	};
+
+	ion_system: ion_system_region@ff000000 {
+		reg = <0 0xff000000 0 0x00400000>;
+		label = "ion_system_mem";
 	};
 };
 
