@@ -5310,7 +5310,7 @@ static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 	struct drm_plane_state *state;
 	struct sde_crtc_state *cstate;
 
-	int i, out_width;
+	int i, out_width, out_height;
 
 	if (!s || !s->private)
 		return -EINVAL;
@@ -5322,6 +5322,7 @@ static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 	mutex_lock(&sde_crtc->crtc_lock);
 	mode = &crtc->state->adjusted_mode;
 	out_width = sde_crtc_get_mixer_width(sde_crtc, cstate, mode);
+	out_height = sde_crtc_get_mixer_height(sde_crtc, cstate, mode);
 
 	seq_printf(s, "crtc:%d width:%d height:%d\n", crtc->base.id,
 				mode->hdisplay, mode->vdisplay);
@@ -5337,7 +5338,7 @@ static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 		else
 			seq_printf(s, "\tmixer:%d ctl:%d width:%d height:%d\n",
 				m->hw_lm->idx - LM_0, m->hw_ctl->idx - CTL_0,
-				out_width, mode->vdisplay);
+				out_width, out_height);
 	}
 
 	seq_puts(s, "\n");
