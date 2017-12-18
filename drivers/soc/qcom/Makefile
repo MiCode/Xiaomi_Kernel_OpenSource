@@ -50,3 +50,4 @@ CFLAGS_rpmh-rsc.o := -I$(src)
 obj-$(CONFIG_QCOM_BUS_SCALING) += msm_bus/
 obj-$(CONFIG_QCOM_FSA4480_I2C) += fsa4480-i2c.o
 obj-$(CONFIG_QCOM_GLINK) += glink_probe.o
+obj-$(CONFIG_QCOM_GLINK_PKT) += glink_pkt.o
