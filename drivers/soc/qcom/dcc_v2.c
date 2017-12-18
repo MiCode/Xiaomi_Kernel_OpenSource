@@ -1610,6 +1610,14 @@ static struct platform_driver dcc_driver = {
 
 static int __init dcc_init(void)
 {
+	int ret;
+
+	ret = scm_is_secure_device();
+	if (ret == 0) {
+		pr_info("DCC is not available\n");
+		return -ENODEV;
+	}
+
 	return platform_driver_register(&dcc_driver);
 }
 pure_initcall(dcc_init);

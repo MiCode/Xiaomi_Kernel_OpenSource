@@ -15,6 +15,7 @@
 
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
+#include <linux/kref.h>
 #include "cam_req_mgr_interface.h"
 #include "cam_hw_mgr_intf.h"
 
@@ -54,6 +55,8 @@ enum cam_context_state {
  * @num_out_map_entries:   Number of out map entries
  * @num_in_acked:          Number of in fence acked
  * @num_out_acked:         Number of out fence acked
+ * @flushed:               Request is flushed
+ * @ctx:                   The context to which this request belongs
  *
  */
 struct cam_ctx_request {
@@ -69,6 +72,8 @@ struct cam_ctx_request {
 	uint32_t                      num_out_map_entries;
 	uint32_t                      num_in_acked;
 	uint32_t                      num_out_acked;
+	int                           flushed;
+	struct cam_context           *ctx;
 };
 
 /**
@@ -156,6 +161,9 @@ struct cam_ctx_ops {
  * @state_machine:         Top level state machine
  * @ctx_priv:              Private context pointer
  * @ctxt_to_hw_map:        Context to hardware mapping pointer
+ * @refcount:              Context object refcount
+ * @node:                  The main node to which this context belongs
+ * @sync_mutex:            mutex to sync with sync cb thread
  *
  */
 struct cam_context {
@@ -185,6 +193,10 @@ struct cam_context {
 
 	void                        *ctx_priv;
 	void                        *ctxt_to_hw_map;
+
+	struct kref                  refcount;
+	void                        *node;
+	struct mutex                 sync_mutex;
 };
 
 /**
@@ -347,5 +359,24 @@ int cam_context_init(struct cam_context *ctx,
 		struct cam_ctx_request *req_list,
 		uint32_t req_size);
 
+/**
+ * cam_context_putref()
+ *
+ * @brief:       Put back context reference.
+ *
+ * @ctx:                  Context for which ref is returned
+ *
+ */
+void cam_context_putref(struct cam_context *ctx);
+
+/**
+ * cam_context_getref()
+ *
+ * @brief:       Get back context reference.
+ *
+ * @ctx:                  Context for which ref is taken
+ *
+ */
+void cam_context_getref(struct cam_context *ctx);
 
 #endif  /* _CAM_CONTEXT_H_ */

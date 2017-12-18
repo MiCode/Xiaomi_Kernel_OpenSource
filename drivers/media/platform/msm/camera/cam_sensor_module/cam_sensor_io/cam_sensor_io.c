@@ -15,8 +15,8 @@
 
 int32_t camera_io_dev_poll(struct camera_io_master *io_master_info,
 	uint32_t addr, uint16_t data, uint32_t data_mask,
-	enum camera_sensor_i2c_type data_type,
 	enum camera_sensor_i2c_type addr_type,
+	enum camera_sensor_i2c_type data_type,
 	uint32_t delay_ms)
 {
 	int16_t mask = data_mask & 0xFF;
@@ -129,8 +129,8 @@ int32_t camera_io_dev_write_continuous(struct camera_io_master *io_master_info,
 		return cam_cci_i2c_write_continuous_table(io_master_info,
 			write_setting, cam_sensor_i2c_write_flag);
 	} else if (io_master_info->master_type == I2C_MASTER) {
-		return cam_qup_i2c_write_table(io_master_info,
-			write_setting);
+		return cam_qup_i2c_write_continuous_table(io_master_info,
+			write_setting, cam_sensor_i2c_write_flag);
 	} else if (io_master_info->master_type == SPI_MASTER) {
 		return cam_spi_write_table(io_master_info,
 			write_setting);

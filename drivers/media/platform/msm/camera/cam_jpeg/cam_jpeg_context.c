@@ -63,6 +63,20 @@ static int __cam_jpeg_ctx_handle_buf_done_in_acquired(void *ctx,
 	return cam_context_buf_done_from_hw(ctx, done, evt_id);
 }
 
+static int __cam_jpeg_ctx_stop_dev_in_acquired(struct cam_context *ctx,
+	struct cam_start_stop_dev_cmd *cmd)
+{
+	int rc;
+
+	rc = cam_context_stop_dev_to_hw(ctx);
+	if (rc) {
+		CAM_ERR(CAM_JPEG, "Failed in Stop dev, rc=%d", rc);
+		return rc;
+	}
+
+	return rc;
+}
+
 /* top state machine */
 static struct cam_ctx_ops
 	cam_jpeg_ctx_state_machine[CAM_CTX_STATE_MAX] = {
@@ -85,6 +99,7 @@ static struct cam_ctx_ops
 		.ioctl_ops = {
 			.release_dev = __cam_jpeg_ctx_release_dev_in_acquired,
 			.config_dev = __cam_jpeg_ctx_config_dev_in_acquired,
+			.stop_dev = __cam_jpeg_ctx_stop_dev_in_acquired,
 		},
 		.crm_ops = { },
 		.irq_ops = __cam_jpeg_ctx_handle_buf_done_in_acquired,

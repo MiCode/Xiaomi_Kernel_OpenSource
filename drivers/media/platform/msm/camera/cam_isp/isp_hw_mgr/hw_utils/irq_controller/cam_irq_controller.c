@@ -88,7 +88,7 @@ struct cam_irq_register_obj {
  * @th_list_head:           List of handlers sorted by priority
  * @hdl_idx:                Unique identity of handler assigned on Subscribe.
  *                          Used to Unsubscribe.
- * @rw_lock:                Read-Write Lock for use by controller
+ * @lock:                   Lock for use by controller
  */
 struct cam_irq_controller {
 	const char                     *name;
@@ -101,7 +101,7 @@ struct cam_irq_controller {
 	struct list_head                evt_handler_list_head;
 	struct list_head                th_list_head[CAM_IRQ_PRIORITY_MAX];
 	uint32_t                        hdl_idx;
-	rwlock_t                        rw_lock;
+	spinlock_t                      lock;
 	struct cam_irq_th_payload       th_payload;
 };
 
@@ -208,7 +208,7 @@ int cam_irq_controller_init(const char       *name,
 	for (i = 0; i < CAM_IRQ_PRIORITY_MAX; i++)
 		INIT_LIST_HEAD(&controller->th_list_head[i]);
 
-	rwlock_init(&controller->rw_lock);
+	spin_lock_init(&controller->lock);
 
 	controller->hdl_idx = 1;
 	*irq_controller = controller;
@@ -304,7 +304,7 @@ int cam_irq_controller_subscribe_irq(void *irq_controller,
 
 	need_lock = !in_irq();
 	if (need_lock)
-		write_lock_irqsave(&controller->rw_lock, flags);
+		spin_lock_irqsave(&controller->lock, flags);
 	for (i = 0; i < controller->num_registers; i++) {
 		controller->irq_register_arr[i].top_half_enable_mask[priority]
 			|= evt_bit_mask_arr[i];
@@ -316,13 +316,14 @@ int cam_irq_controller_subscribe_irq(void *irq_controller,
 		cam_io_w_mb(irq_mask, controller->mem_base +
 			controller->irq_register_arr[i].mask_reg_offset);
 	}
-	if (need_lock)
-		write_unlock_irqrestore(&controller->rw_lock, flags);
 
 	list_add_tail(&evt_handler->list_node,
 		&controller->evt_handler_list_head);
 	list_add_tail(&evt_handler->th_list_node,
 		&controller->th_list_head[priority]);
+
+	if (need_lock)
+		spin_unlock_irqrestore(&controller->lock, flags);
 
 	return evt_handler->index;
 
@@ -348,6 +349,10 @@ int cam_irq_controller_enable_irq(void *irq_controller, uint32_t handle)
 	if (!controller)
 		return rc;
 
+	need_lock = !in_irq();
+	if (need_lock)
+		spin_lock_irqsave(&controller->lock, flags);
+
 	list_for_each_entry_safe(evt_handler, evt_handler_temp,
 		&controller->evt_handler_list_head, list_node) {
 		if (evt_handler->index == handle) {
@@ -358,12 +363,12 @@ int cam_irq_controller_enable_irq(void *irq_controller, uint32_t handle)
 		}
 	}
 
-	if (!found)
+	if (!found) {
+		if (need_lock)
+			spin_unlock_irqrestore(&controller->lock, flags);
 		return rc;
+	}
 
-	need_lock = !in_irq();
-	if (need_lock)
-		write_lock_irqsave(&controller->rw_lock, flags);
 	for (i = 0; i < controller->num_registers; i++) {
 		controller->irq_register_arr[i].
 		top_half_enable_mask[evt_handler->priority] |=
@@ -378,7 +383,7 @@ int cam_irq_controller_enable_irq(void *irq_controller, uint32_t handle)
 		controller->irq_register_arr[i].mask_reg_offset);
 	}
 	if (need_lock)
-		write_unlock_irqrestore(&controller->rw_lock, flags);
+		spin_unlock_irqrestore(&controller->lock, flags);
 
 	return rc;
 }
@@ -398,6 +403,10 @@ int cam_irq_controller_disable_irq(void *irq_controller, uint32_t handle)
 	if (!controller)
 		return rc;
 
+	need_lock = !in_irq();
+	if (need_lock)
+		spin_lock_irqsave(&controller->lock, flags);
+
 	list_for_each_entry_safe(evt_handler, evt_handler_temp,
 		&controller->evt_handler_list_head, list_node) {
 		if (evt_handler->index == handle) {
@@ -408,12 +417,12 @@ int cam_irq_controller_disable_irq(void *irq_controller, uint32_t handle)
 		}
 	}
 
-	if (!found)
+	if (!found) {
+		if (need_lock)
+			spin_unlock_irqrestore(&controller->lock, flags);
 		return rc;
+	}
 
-	need_lock = !in_irq();
-	if (need_lock)
-		write_lock_irqsave(&controller->rw_lock, flags);
 	for (i = 0; i < controller->num_registers; i++) {
 		controller->irq_register_arr[i].
 		top_half_enable_mask[evt_handler->priority] &=
@@ -441,7 +450,7 @@ int cam_irq_controller_disable_irq(void *irq_controller, uint32_t handle)
 				controller->global_clear_offset);
 	}
 	if (need_lock)
-		write_unlock_irqrestore(&controller->rw_lock, flags);
+		spin_unlock_irqrestore(&controller->lock, flags);
 
 	return rc;
 }
@@ -459,6 +468,10 @@ int cam_irq_controller_unsubscribe_irq(void *irq_controller,
 	int                         rc = -EINVAL;
 	bool                        need_lock;
 
+	need_lock = !in_irq();
+	if (need_lock)
+		spin_lock_irqsave(&controller->lock, flags);
+
 	list_for_each_entry_safe(evt_handler, evt_handler_temp,
 		&controller->evt_handler_list_head, list_node) {
 		if (evt_handler->index == handle) {
@@ -471,11 +484,7 @@ int cam_irq_controller_unsubscribe_irq(void *irq_controller,
 		}
 	}
 
-	need_lock = !in_irq();
-
 	if (found) {
-		if (need_lock)
-			write_lock_irqsave(&controller->rw_lock, flags);
 		for (i = 0; i < controller->num_registers; i++) {
 			controller->irq_register_arr[i].
 				top_half_enable_mask[evt_handler->priority] &=
@@ -501,12 +510,13 @@ int cam_irq_controller_unsubscribe_irq(void *irq_controller,
 					controller->mem_base +
 					controller->global_clear_offset);
 		}
-		if (need_lock)
-			write_unlock_irqrestore(&controller->rw_lock, flags);
 
 		kfree(evt_handler->evt_bit_mask_arr);
 		kfree(evt_handler);
 	}
+
+	if (need_lock)
+		spin_unlock_irqrestore(&controller->lock, flags);
 
 	return rc;
 }
@@ -607,9 +617,9 @@ irqreturn_t cam_irq_controller_handle_irq(int irq_num, void *priv)
 	if (!controller)
 		return IRQ_NONE;
 
-	CAM_DBG(CAM_ISP, "locking controller %pK name %s rw_lock %pK",
-		controller, controller->name, &controller->rw_lock);
-	read_lock(&controller->rw_lock);
+	CAM_DBG(CAM_ISP, "locking controller %pK name %s lock %pK",
+		controller, controller->name, &controller->lock);
+	spin_lock(&controller->lock);
 	for (i = 0; i < controller->num_registers; i++) {
 		controller->irq_status_arr[i] = cam_io_r_mb(
 			controller->mem_base +
@@ -630,8 +640,6 @@ irqreturn_t cam_irq_controller_handle_irq(int irq_num, void *priv)
 					i, j, need_th_processing[j]);
 		}
 	}
-	CAM_DBG(CAM_ISP, "unlocked controller %pK name %s rw_lock %pK",
-		controller, controller->name, &controller->rw_lock);
 
 	CAM_DBG(CAM_ISP, "Status Registers read Successful");
 
@@ -648,7 +656,9 @@ irqreturn_t cam_irq_controller_handle_irq(int irq_num, void *priv)
 				&controller->th_list_head[i]);
 		}
 	}
-	read_unlock(&controller->rw_lock);
+	spin_unlock(&controller->lock);
+	CAM_DBG(CAM_ISP, "unlocked controller %pK name %s lock %pK",
+		controller, controller->name, &controller->lock);
 
 	return IRQ_HANDLED;
 }

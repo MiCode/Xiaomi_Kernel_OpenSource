@@ -34,6 +34,7 @@
 enum cam_ois_state {
 	CAM_OIS_INIT,
 	CAM_OIS_ACQUIRE,
+	CAM_OIS_CONFIG,
 	CAM_OIS_START,
 };
 
@@ -93,7 +94,6 @@ struct cam_ois_intf_params {
  * @ois_mutex       :   ois mutex
  * @soc_info        :   ois soc related info
  * @io_master_info  :   Information about the communication master
- * @gpio_num_info   :   gpio info
  * @cci_i2c_master  :   I2C structure
  * @v4l2_dev_str    :   V4L2 device structure
  * @bridge_intf     :   bridge interface params
@@ -114,7 +114,6 @@ struct cam_ois_ctrl_t {
 	struct mutex ois_mutex;
 	struct cam_hw_soc_info soc_info;
 	struct camera_io_master io_master_info;
-	struct msm_camera_gpio_num_info *gpio_num_info;
 	enum cci_i2c_master_t cci_i2c_master;
 	struct cam_subdev v4l2_dev_str;
 	struct cam_ois_intf_params bridge_intf;

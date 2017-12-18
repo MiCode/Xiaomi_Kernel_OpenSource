@@ -206,7 +206,7 @@ unsigned int sched_get_cpu_util(int cpu)
 	raw_spin_unlock_irqrestore(&rq->lock, flags);
 
 	util = (util >= capacity) ? capacity : util;
-	busy = (util * 100) / capacity;
+	busy = div64_ul((util * 100), capacity);
 	return busy;
 }
 

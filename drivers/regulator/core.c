@@ -4184,6 +4184,7 @@ static void rdev_deinit_debugfs(struct regulator_dev *rdev)
 		debugfs_remove_recursive(rdev->debugfs);
 		if (rdev->debug_consumer)
 			rdev->debug_consumer->debugfs = NULL;
+		rdev->debugfs = NULL;
 		regulator_put(rdev->debug_consumer);
 	}
 }
@@ -4196,6 +4197,10 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 	struct regulator *regulator;
 	const struct regulator_ops *ops;
 	mode_t mode;
+
+	/* Check if debugfs directory already exists */
+	if (rdev->debugfs)
+		return;
 
 	/* Avoid duplicate debugfs directory names */
 	if (parent && rname == rdev->desc->name) {
@@ -4221,8 +4226,10 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 
 	regulator = regulator_get(NULL, rdev_get_name(rdev));
 	if (IS_ERR(regulator)) {
-		rdev_err(rdev, "regulator get failed, ret=%ld\n",
-			PTR_ERR(regulator));
+		rdev_deinit_debugfs(rdev);
+		if (PTR_ERR(regulator) != -EPROBE_DEFER)
+			rdev_err(rdev, "regulator get failed, ret=%ld\n",
+				 PTR_ERR(regulator));
 		return;
 	}
 	rdev->debug_consumer = regulator;
@@ -4291,6 +4298,8 @@ static int regulator_register_resolve_supply(struct device *dev, void *data)
 
 	if (regulator_resolve_supply(rdev))
 		rdev_dbg(rdev, "unable to resolve supply\n");
+	else
+		rdev_init_debugfs(rdev);
 
 	return 0;
 }

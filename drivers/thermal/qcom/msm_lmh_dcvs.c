@@ -58,8 +58,7 @@
 #define LIMITS_CLUSTER_0            0x6370302D
 #define LIMITS_CLUSTER_1            0x6370312D
 
-#define LIMITS_DOMAIN_MAX           0x444D4158
-#define LIMITS_DOMAIN_MIN           0x444D494E
+#define LIMITS_FREQ_CAP             0x46434150
 
 #define LIMITS_TEMP_DEFAULT         75000
 #define LIMITS_TEMP_HIGH_THRESH_MAX 120000
@@ -225,31 +224,36 @@ static irqreturn_t lmh_dcvs_handle_isr(int irq, void *data)
 }
 
 static int limits_dcvs_write(uint32_t node_id, uint32_t fn,
-			      uint32_t setting, uint32_t val)
+			      uint32_t setting, uint32_t val, uint32_t val1,
+			      bool enable_val1)
 {
 	int ret;
 	struct scm_desc desc_arg;
 	uint32_t *payload = NULL;
+	uint32_t payload_len;
 
-	payload = kzalloc(sizeof(uint32_t) * 5, GFP_KERNEL);
+	payload_len = ((enable_val1) ? 6 : 5) * sizeof(uint32_t);
+	payload = kzalloc(payload_len, GFP_KERNEL);
 	if (!payload)
 		return -ENOMEM;
 
 	payload[0] = fn; /* algorithm */
 	payload[1] = 0; /* unused sub-algorithm */
 	payload[2] = setting;
-	payload[3] = 1; /* number of values */
+	payload[3] = enable_val1 ? 2 : 1; /* number of values */
 	payload[4] = val;
+	if (enable_val1)
+		payload[5] = val1;
 
 	desc_arg.args[0] = SCM_BUFFER_PHYS(payload);
-	desc_arg.args[1] = sizeof(uint32_t) * 5;
+	desc_arg.args[1] = payload_len;
 	desc_arg.args[2] = LIMITS_NODE_DCVS;
 	desc_arg.args[3] = node_id;
 	desc_arg.args[4] = 0; /* version */
 	desc_arg.arginfo = SCM_ARGS(5, SCM_RO, SCM_VAL, SCM_VAL,
 					SCM_VAL, SCM_VAL);
 
-	dmac_flush_range(payload, (void *)payload + 5 * (sizeof(uint32_t)));
+	dmac_flush_range(payload, (void *)payload + payload_len);
 	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_LMH, LIMITS_DCVSH), &desc_arg);
 
 	kfree(payload);
@@ -288,16 +292,17 @@ static int lmh_set_trips(void *data, int low, int high)
 	hw->temp_limits[LIMITS_TRIP_ARM] = (uint32_t)low;
 
 	ret =  limits_dcvs_write(hw->affinity, LIMITS_SUB_FN_THERMAL,
-				  LIMITS_ARM_THRESHOLD, low);
+				  LIMITS_ARM_THRESHOLD, low, 0, 0);
 	if (ret)
 		return ret;
 	ret =  limits_dcvs_write(hw->affinity, LIMITS_SUB_FN_THERMAL,
-				  LIMITS_HI_THRESHOLD, high);
+				  LIMITS_HI_THRESHOLD, high, 0, 0);
 	if (ret)
 		return ret;
 	ret =  limits_dcvs_write(hw->affinity, LIMITS_SUB_FN_THERMAL,
 				  LIMITS_LOW_THRESHOLD,
-				  high - LIMITS_LOW_THRESHOLD_OFFSET);
+				  high - LIMITS_LOW_THRESHOLD_OFFSET,
+				  0, 0);
 	if (ret)
 		return ret;
 
@@ -365,8 +370,9 @@ static int lmh_set_max_limit(int cpu, u32 freq)
 			max_freq = hw->cdev_data[idx].max_freq;
 		idx++;
 	}
-	ret = limits_dcvs_write(hw->affinity, LIMITS_SUB_FN_GENERAL,
-				  LIMITS_DOMAIN_MAX, max_freq);
+	ret = limits_dcvs_write(hw->affinity, LIMITS_SUB_FN_THERMAL,
+				  LIMITS_FREQ_CAP, max_freq,
+				  (max_freq == U32_MAX) ? 0 : 1, 1);
 	mutex_unlock(&hw->access_lock);
 	lmh_dcvs_notify(hw);
 
@@ -556,22 +562,22 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 
 	/* Enable the thermal algorithm early */
 	ret = limits_dcvs_write(hw->affinity, LIMITS_SUB_FN_THERMAL,
-		 LIMITS_ALGO_MODE_ENABLE, 1);
+		 LIMITS_ALGO_MODE_ENABLE, 1, 0, 0);
 	if (ret)
 		return ret;
 	/* Enable the LMH outer loop algorithm */
 	ret = limits_dcvs_write(hw->affinity, LIMITS_SUB_FN_CRNT,
-		 LIMITS_ALGO_MODE_ENABLE, 1);
+		 LIMITS_ALGO_MODE_ENABLE, 1, 0, 0);
 	if (ret)
 		return ret;
 	/* Enable the Reliability algorithm */
 	ret = limits_dcvs_write(hw->affinity, LIMITS_SUB_FN_REL,
-		 LIMITS_ALGO_MODE_ENABLE, 1);
+		 LIMITS_ALGO_MODE_ENABLE, 1, 0, 0);
 	if (ret)
 		return ret;
 	/* Enable the BCL algorithm */
 	ret = limits_dcvs_write(hw->affinity, LIMITS_SUB_FN_BCL,
-		 LIMITS_ALGO_MODE_ENABLE, 1);
+		 LIMITS_ALGO_MODE_ENABLE, 1, 0, 0);
 	if (ret)
 		return ret;
 	ret = enable_lmh();

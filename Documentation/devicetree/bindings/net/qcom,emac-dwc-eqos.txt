@@ -1,0 +1,43 @@
+Qualcomm Technologies Inc. EMAC Gigabit Ethernet controller
+
+This network controller consists of the MAC and
+RGMII IO Macro for interfacing with PHY.
+
+Required properties:
+
+emac_hw node:
+- compatible: Should be "qcom,emac-dwc-eqos"
+- reg: Offset and length of the register regions for the mac and io-macro
+- interrupts: Interrupt number used by this controller
+- io-macro-info: Internal io-macro-info
+
+Internal io-macro-info:
+- io-macro-bypass-mode: <0 or 1> internal or external delay configuration
+- io-interface: <rgmii/mii/rmii> PHY interface used
+
+Example:
+
+soc {
+	emac_hw: qcom,emac@00020000 {
+			compatible = "qcom,emac-dwc-eqos";
+			reg = <0x20000 0x10000>,
+				  <0x36000 0x100>;
+			reg-names = "emac-base", "rgmii-base";
+			interrupts = <0 62 4>, <0 60 4>,
+					<0 49 4>, <0 50 4>,
+					<0 51 4>, <0 52 4>,
+					<0 53 4>, <0 54 4>,
+					<0 55 4>, <0 56 4>,
+					<0 57 4>;
+			interrupt-names = "sbd-intr", "lpi-intr",
+				"tx-ch0-intr", "tx-ch1-intr",
+				"tx-ch2-intr", "tx-ch3-intr",
+				"tx-ch4-intr", "rx-ch0-intr",
+				"rx-ch1-intr", "rx-ch2-intr",
+				"rx-ch3-intr";
+			io-macro-info {
+				io-macro-bypass-mode = <0>;
+				io-interface = "rgmii";
+			};
+		};
+}

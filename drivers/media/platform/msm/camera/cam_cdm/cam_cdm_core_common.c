@@ -67,11 +67,15 @@ bool cam_cdm_set_cam_hw_version(
 	return false;
 }
 
-void cam_cdm_cpas_cb(uint32_t client_handle, void *userdata,
-	enum cam_camnoc_irq_type evt_type, uint32_t evt_data)
+bool cam_cdm_cpas_cb(uint32_t client_handle, void *userdata,
+	struct cam_cpas_irq_data *irq_data)
 {
-	CAM_ERR(CAM_CDM, "CPAS error callback type=%d with data=%x", evt_type,
-		evt_data);
+	if (!irq_data)
+		return false;
+
+	CAM_DBG(CAM_CDM, "CPAS error callback type=%d", irq_data->irq_type);
+
+	return false;
 }
 
 struct cam_cdm_utils_ops *cam_cdm_get_ops(

@@ -96,6 +96,7 @@ enum dsi_test_pattern {
  * @DSI_SINT_DESKEW_DONE:              The deskew calibration operation done.
  * @DSI_SINT_DYN_BLANK_DMA_DONE:       The dynamic blankin DMA operation has
  *                                     completed.
+ * @DSI_SINT_ERROR:                    DSI error has happened.
  */
 enum dsi_status_int_index {
 	DSI_SINT_CMD_MODE_DMA_DONE = 0,
@@ -108,6 +109,7 @@ enum dsi_status_int_index {
 	DSI_SINT_DYN_REFRESH_DONE = 7,
 	DSI_SINT_DESKEW_DONE = 8,
 	DSI_SINT_DYN_BLANK_DMA_DONE = 9,
+	DSI_SINT_ERROR = 10,
 
 	DSI_STATUS_INTERRUPT_COUNT
 };
@@ -126,6 +128,7 @@ enum dsi_status_int_index {
  * @DSI_DESKEW_DONE:              The deskew calibration operation has completed
  * @DSI_DYN_BLANK_DMA_DONE:       The dynamic blankin DMA operation has
  *                                completed.
+ * @DSI_ERROR:                    DSI error has happened.
  */
 enum dsi_status_int_type {
 	DSI_CMD_MODE_DMA_DONE = BIT(DSI_SINT_CMD_MODE_DMA_DONE),
@@ -137,7 +140,8 @@ enum dsi_status_int_type {
 	DSI_CMD_FRAME_DONE = BIT(DSI_SINT_CMD_FRAME_DONE),
 	DSI_DYN_REFRESH_DONE = BIT(DSI_SINT_DYN_REFRESH_DONE),
 	DSI_DESKEW_DONE = BIT(DSI_SINT_DESKEW_DONE),
-	DSI_DYN_BLANK_DMA_DONE = BIT(DSI_SINT_DYN_BLANK_DMA_DONE)
+	DSI_DYN_BLANK_DMA_DONE = BIT(DSI_SINT_DYN_BLANK_DMA_DONE),
+	DSI_ERROR = BIT(DSI_SINT_ERROR)
 };
 
 /**
@@ -175,6 +179,7 @@ enum dsi_status_int_type {
  * @DSI_EINT_DLN1_LP1_CONTENTION:        PHY level contention while lane 1 high.
  * @DSI_EINT_DLN2_LP1_CONTENTION:        PHY level contention while lane 2 high.
  * @DSI_EINT_DLN3_LP1_CONTENTION:        PHY level contention while lane 3 high.
+ * @DSI_EINT_PANEL_SPECIFIC_ERR:         DSI Protocol violation error.
  */
 enum dsi_error_int_index {
 	DSI_EINT_RDBK_SINGLE_ECC_ERR = 0,
@@ -209,6 +214,7 @@ enum dsi_error_int_index {
 	DSI_EINT_DLN1_LP1_CONTENTION = 29,
 	DSI_EINT_DLN2_LP1_CONTENTION = 30,
 	DSI_EINT_DLN3_LP1_CONTENTION = 31,
+	DSI_EINT_PANEL_SPECIFIC_ERR = 32,
 
 	DSI_ERROR_INTERRUPT_COUNT
 };
@@ -248,6 +254,7 @@ enum dsi_error_int_index {
  * @DSI_DLN1_LP1_CONTENTION:        PHY level contention while lane 1 is high.
  * @DSI_DLN2_LP1_CONTENTION:        PHY level contention while lane 2 is high.
  * @DSI_DLN3_LP1_CONTENTION:        PHY level contention while lane 3 is high.
+ * @DSI_PANEL_SPECIFIC_ERR:         DSI Protocol violation.
  */
 enum dsi_error_int_type {
 	DSI_RDBK_SINGLE_ECC_ERR = BIT(DSI_EINT_RDBK_SINGLE_ECC_ERR),
@@ -282,12 +289,14 @@ enum dsi_error_int_type {
 	DSI_DLN1_LP1_CONTENTION = BIT(DSI_EINT_DLN1_LP1_CONTENTION),
 	DSI_DLN2_LP1_CONTENTION = BIT(DSI_EINT_DLN2_LP1_CONTENTION),
 	DSI_DLN3_LP1_CONTENTION = BIT(DSI_EINT_DLN3_LP1_CONTENTION),
+	DSI_PANEL_SPECIFIC_ERR = BIT(DSI_EINT_PANEL_SPECIFIC_ERR),
 };
 
 /**
  * struct dsi_ctrl_cmd_dma_info - command buffer information
  * @offset:        IOMMU VA for command buffer address.
  * @length:        Length of the command buffer.
+ * @datatype:      Datatype of cmd.
  * @en_broadcast:  Enable broadcast mode if set to true.
  * @is_master:     Is master in broadcast mode.
  * @use_lpm:       Use low power mode for command transmission.
@@ -295,6 +304,7 @@ enum dsi_error_int_type {
 struct dsi_ctrl_cmd_dma_info {
 	u32 offset;
 	u32 length;
+	u8  datatype;
 	bool en_broadcast;
 	bool is_master;
 	bool use_lpm;
@@ -489,6 +499,25 @@ struct dsi_ctrl_hw_ops {
 				u32 flags);
 
 	/**
+	 * kickoff_command_non_embedded_mode() - cmd in non embedded mode
+	 * @ctrl:          Pointer to the controller host hardware.
+	 * @cmd:           Command information.
+	 * @flags:         Modifiers for command transmission.
+	 *
+	 * If command length is greater than DMA FIFO size of 256 bytes we use
+	 * this non- embedded mode.
+	 * The controller hardware is programmed with address and size of the
+	 * command buffer. The transmission is kicked off if
+	 * DSI_CTRL_HW_CMD_WAIT_FOR_TRIGGER flag is not set. If this flag is
+	 * set, caller should make a separate call to trigger_command_dma() to
+	 * transmit the command.
+	 */
+
+	void (*kickoff_command_non_embedded_mode)(struct dsi_ctrl_hw *ctrl,
+				struct dsi_ctrl_cmd_dma_info *cmd,
+				u32 flags);
+
+	/**
 	 * kickoff_fifo_command() - transmits a command using FIFO in dsi
 	 *                          hardware.
 	 * @ctrl:          Pointer to the controller host hardware.
@@ -531,6 +560,12 @@ struct dsi_ctrl_hw_ops {
 				 u32 rx_byte,
 				 u32 pkt_size,
 				 u32 *hw_read_cnt);
+
+	/**
+	 * get_cont_splash_status() - get continuous splash status
+	 * @ctrl:           Pointer to the controller host hardware.
+	 */
+	bool (*get_cont_splash_status)(struct dsi_ctrl_hw *ctrl);
 
 	/**
 	 * wait_for_lane_idle() - wait for DSI lanes to go to idle state
@@ -729,6 +764,40 @@ struct dsi_ctrl_hw_ops {
 	 *                needs to be sent.
 	 */
 	void (*schedule_dma_cmd)(struct dsi_ctrl_hw *ctrl, int line_no);
+
+	/**
+	 * ctrl_reset() - Reset DSI lanes to recover from DSI errors
+	 * @ctrl:         Pointer to the controller host hardware.
+	 * @mask:         Indicates the error type.
+	 */
+	int (*ctrl_reset)(struct dsi_ctrl_hw *ctrl, int mask);
+
+	/**
+	 * mask_error_int() - Mask/Unmask particular DSI error interrupts
+	 * @ctrl:         Pointer to the controller host hardware.
+	 * @idx:	  Indicates the errors to be masked.
+	 * @en:		  Bool for mask or unmask of the error
+	 */
+	void (*mask_error_intr)(struct dsi_ctrl_hw *ctrl, u32 idx, bool en);
+
+	/**
+	 * error_intr_ctrl() - Mask/Unmask master DSI error interrupt
+	 * @ctrl:         Pointer to the controller host hardware.
+	 * @en:		  Bool for mask or unmask of DSI error
+	 */
+	void (*error_intr_ctrl)(struct dsi_ctrl_hw *ctrl, bool en);
+
+	/**
+	 * get_error_mask() - get DSI error interrupt mask status
+	 * @ctrl:         Pointer to the controller host hardware.
+	 */
+	u32 (*get_error_mask)(struct dsi_ctrl_hw *ctrl);
+
+	/**
+	 * get_hw_version() - get DSI controller hw version
+	 * @ctrl:         Pointer to the controller host hardware.
+	 */
+	u32 (*get_hw_version)(struct dsi_ctrl_hw *ctrl);
 };
 
 /*
@@ -747,6 +816,8 @@ struct dsi_ctrl_hw_ops {
  * @supported_errors:       Number of supported errors.
  * @phy_isolation_enabled:    A boolean property allows to isolate the phy from
  *                          dsi controller and run only dsi controller.
+ * @null_insertion_enabled:  A boolean property to allow dsi controller to
+ *                           insert null packet.
  */
 struct dsi_ctrl_hw {
 	void __iomem *base;
@@ -766,6 +837,7 @@ struct dsi_ctrl_hw {
 	u64 supported_errors;
 
 	bool phy_isolation_enabled;
+	bool null_insertion_enabled;
 };
 
 #endif /* _DSI_CTRL_HW_H_ */

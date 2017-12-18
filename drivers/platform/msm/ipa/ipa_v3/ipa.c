@@ -2116,6 +2116,12 @@ static void ipa3_q6_avoid_holb(void)
 			if (ep_idx == -1)
 				continue;
 
+			/* from IPA 4.0 pipe suspend is not supported */
+			if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0)
+				ipahal_write_reg_n_fields(
+				IPA_ENDP_INIT_CTRL_n,
+				ep_idx, &ep_suspend);
+
 			/*
 			 * ipa3_cfg_ep_holb is not used here because we are
 			 * setting HOLB on Q6 pipes, and from APPS perspective
@@ -2128,12 +2134,6 @@ static void ipa3_q6_avoid_holb(void)
 			ipahal_write_reg_n_fields(
 				IPA_ENDP_INIT_HOL_BLOCK_EN_n,
 				ep_idx, &ep_holb);
-
-			/* from IPA 4.0 pipe suspend is not supported */
-			if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0)
-				ipahal_write_reg_n_fields(
-					IPA_ENDP_INIT_CTRL_n,
-					ep_idx, &ep_suspend);
 		}
 	}
 }
@@ -3855,6 +3855,9 @@ int ipa3_set_clock_plan_from_pm(int idx)
 {
 	u32 clk_rate;
 
+	if (!ipa3_ctx->enable_clock_scaling)
+		return 0;
+
 	IPADBG_LOW("idx = %d\n", idx);
 
 	if (idx <= 0 || idx >= ipa3_ctx->ctrl->msm_bus_data_ptr->num_usecases) {
@@ -3863,10 +3866,12 @@ int ipa3_set_clock_plan_from_pm(int idx)
 	}
 
 	if (idx == 1)
-		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_svs;
+		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_svs2;
 	else if (idx == 2)
-		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_nominal;
+		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_svs;
 	else if (idx == 3)
+		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_nominal;
+	else if (idx == 4)
 		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_turbo;
 	else {
 		IPAERR("bad voltage\n");
@@ -4030,6 +4035,11 @@ void ipa3_suspend_handler(enum ipa_irq_type interrupt,
 					atomic_set(
 					&ipa3_ctx->transport_pm.dec_clients,
 					1);
+					/*
+					 * acquire wake lock as long as suspend
+					 * vote is held
+					 */
+					ipa3_inc_acquire_wakelock();
 					ipa3_process_irq_schedule_rel();
 				}
 				mutex_unlock(&ipa3_ctx->transport_pm.
@@ -4110,6 +4120,7 @@ static void ipa3_transport_release_resource(struct work_struct *work)
 			ipa3_process_irq_schedule_rel();
 		} else {
 			atomic_set(&ipa3_ctx->transport_pm.dec_clients, 0);
+			ipa3_dec_release_wakelock();
 			IPA_ACTIVE_CLIENTS_DEC_SPECIAL("TRANSPORT_RESOURCE");
 		}
 	}
@@ -4518,6 +4529,7 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_register_panic_hdlr();
 
 	ipa3_ctx->q6_proxy_clk_vote_valid = true;
+	ipa3_ctx->q6_proxy_clk_vote_cnt++;
 
 	mutex_lock(&ipa3_ctx->lock);
 	ipa3_ctx->ipa_initialization_complete = true;
@@ -4626,7 +4638,7 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 {
 	unsigned long missing;
 
-	char dbg_buff[16] = { 0 };
+	char dbg_buff[32] = { 0 };
 
 	if (sizeof(dbg_buff) < count + 1)
 		return -EFAULT;
@@ -4641,19 +4653,44 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 	if (count > 0)
 		dbg_buff[count - 1] = '\0';
 
+	IPADBG("user input string %s\n", dbg_buff);
+
 	/* Prevent consequent calls from trying to load the FW again. */
 	if (ipa3_is_ready())
 		return count;
 
 	/* Check MHI configuration on MDM devices */
 	if (!ipa3_is_msm_device()) {
+
+		if (strnstr(dbg_buff, "vlan", strlen(dbg_buff))) {
+			if (strnstr(dbg_buff, "eth", strlen(dbg_buff)))
+				ipa3_ctx->vlan_mode_iface[IPA_VLAN_IF_EMAC] =
+				true;
+			if (strnstr(dbg_buff, "rndis", strlen(dbg_buff)))
+				ipa3_ctx->vlan_mode_iface[IPA_VLAN_IF_RNDIS] =
+				true;
+			if (strnstr(dbg_buff, "ecm", strlen(dbg_buff)))
+				ipa3_ctx->vlan_mode_iface[IPA_VLAN_IF_ECM] =
+				true;
+
+			/*
+			 * when vlan mode is passed to our dev we expect
+			 * another write
+			 */
+			return count;
+		}
+
 		if (!strcasecmp(dbg_buff, "MHI")) {
 			ipa3_ctx->ipa_config_is_mhi = true;
 			pr_info(
-			"IPA is loading with MHI configuration\n");
-		} else {
+				"IPA is loading with MHI configuration\n");
+		} else if (!strcmp(dbg_buff, "1\n")) {
 			pr_info(
-			"IPA is loading with non MHI configuration\n");
+				"IPA is loading with non MHI configuration\n");
+		} else {
+			IPAERR("got invalid string %s not loading FW\n",
+				dbg_buff);
+			return count;
 		}
 	}
 
@@ -5138,6 +5175,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	mutex_init(&ipa3_ctx->lock);
 	mutex_init(&ipa3_ctx->q6_proxy_clk_vote_mutex);
 	mutex_init(&ipa3_ctx->ipa_cne_evt_lock);
+	ipa3_ctx->q6_proxy_clk_vote_cnt = 0;
 
 	idr_init(&ipa3_ctx->ipa_idr);
 	spin_lock_init(&ipa3_ctx->idr_lock);
@@ -6401,6 +6439,40 @@ int ipa3_iommu_map(struct iommu_domain *domain,
 	}
 
 	return iommu_map(domain, iova, paddr, size, prot);
+}
+
+/**
+ * ipa3_get_smmu_params()- Return the ipa3 smmu related params.
+ */
+int ipa3_get_smmu_params(struct ipa_smmu_in_params *in,
+	struct ipa_smmu_out_params *out)
+{
+	bool is_smmu_enable = 0;
+
+	if (out == NULL || in == NULL) {
+		IPAERR("bad parms for Client SMMU out params\n");
+		return -EINVAL;
+	}
+
+	if (!ipa3_ctx) {
+		IPAERR("IPA not yet initialized\n");
+		return -EINVAL;
+	}
+
+	switch (in->smmu_client) {
+	case IPA_SMMU_WLAN_CLIENT:
+		is_smmu_enable = !(ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC] |
+			ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_WLAN]);
+		break;
+	default:
+		is_smmu_enable = 0;
+		IPAERR("Trying to get illegal clients SMMU status");
+		return -EINVAL;
+	}
+
+	out->smmu_enable = is_smmu_enable;
+
+	return 0;
 }
 
 MODULE_LICENSE("GPL v2");

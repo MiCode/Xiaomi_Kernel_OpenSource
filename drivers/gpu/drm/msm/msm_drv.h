@@ -122,6 +122,7 @@ enum msm_mdp_plane_property {
 	PLANE_PROP_BLEND_OP,
 	PLANE_PROP_SRC_CONFIG,
 	PLANE_PROP_FB_TRANSLATION_MODE,
+	PLANE_PROP_MULTIRECT_MODE,
 
 	/* total # of properties */
 	PLANE_PROP_COUNT
@@ -162,6 +163,7 @@ enum msm_mdp_crtc_property {
 enum msm_mdp_conn_property {
 	/* blob properties, always put these first */
 	CONNECTOR_PROP_SDE_INFO,
+	CONNECTOR_PROP_MODE_INFO,
 	CONNECTOR_PROP_HDR_INFO,
 	CONNECTOR_PROP_EXT_HDR_INFO,
 	CONNECTOR_PROP_PP_DITHER,
@@ -231,11 +233,13 @@ enum msm_display_caps {
  * @MSM_ENC_COMMIT_DONE - wait for the driver to flush the registers to HW
  * @MSM_ENC_TX_COMPLETE - wait for the HW to transfer the frame to panel
  * @MSM_ENC_VBLANK - wait for the HW VBLANK event (for driver-internal waiters)
+ * @MSM_ENC_ACTIVE_REGION - wait for the TG to be in active pixel region
  */
 enum msm_event_wait {
 	MSM_ENC_COMMIT_DONE = 0,
 	MSM_ENC_TX_COMPLETE,
 	MSM_ENC_VBLANK,
+	MSM_ENC_ACTIVE_REGION,
 };
 
 /**
@@ -723,6 +727,7 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 void msm_gem_shrinker_init(struct drm_device *dev);
 void msm_gem_shrinker_cleanup(struct drm_device *dev);
 
+void msm_gem_sync(struct drm_gem_object *obj);
 int msm_gem_mmap_obj(struct drm_gem_object *obj,
 			struct vm_area_struct *vma);
 int msm_gem_mmap(struct file *filp, struct vm_area_struct *vma);

@@ -29,6 +29,7 @@
 
 #include "sde_power_handle.h"
 #include "sde_trace.h"
+#include "sde_dbg.h"
 
 static const char *data_bus_name[SDE_POWER_HANDLE_DBUS_ID_MAX] = {
 	[SDE_POWER_HANDLE_DBUS_ID_MNOC] = "qcom,sde-data-bus",
@@ -360,7 +361,7 @@ static int _sde_power_data_bus_set_quota(
 		ab_quota_nrt = max_t(u64, ab_quota_nrt,
 				SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA);
 		ib_quota_nrt = max_t(u64, ib_quota_nrt,
-				SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA);
+				SDE_POWER_HANDLE_ENABLE_NRT_BUS_IB_QUOTA);
 	} else {
 		ab_quota_rt = min_t(u64, ab_quota_rt,
 				SDE_POWER_HANDLE_DISABLE_BUS_AB_QUOTA);
@@ -379,30 +380,30 @@ static int _sde_power_data_bus_set_quota(
 		struct msm_bus_vectors *vect = NULL;
 		struct msm_bus_scale_pdata *bw_table =
 			pdbus->data_bus_scale_table;
-		u32 nrt_axi_port_cnt = pdbus->nrt_axi_port_cnt;
-		u32 total_axi_port_cnt = pdbus->axi_port_cnt;
-		u32 rt_axi_port_cnt = total_axi_port_cnt - nrt_axi_port_cnt;
+		u32 nrt_data_paths_cnt = pdbus->nrt_data_paths_cnt;
+		u32 total_data_paths_cnt = pdbus->data_paths_cnt;
+		u32 rt_data_paths_cnt = total_data_paths_cnt -
+			nrt_data_paths_cnt;
 
-		if (!bw_table || !total_axi_port_cnt ||
-		    total_axi_port_cnt > MAX_AXI_PORT_COUNT) {
+		if (!bw_table || !total_data_paths_cnt ||
+		    total_data_paths_cnt > MAX_AXI_PORT_COUNT) {
 			pr_err("invalid input\n");
 			return -EINVAL;
 		}
 
-		if (pdbus->bus_channels) {
+		if (nrt_data_paths_cnt) {
+
+			ab_quota_rt = div_u64(ab_quota_rt, rt_data_paths_cnt);
+			ab_quota_nrt = div_u64(ab_quota_nrt,
+						nrt_data_paths_cnt);
+
 			ib_quota_rt = div_u64(ib_quota_rt,
-						pdbus->bus_channels);
+						rt_data_paths_cnt);
 			ib_quota_nrt = div_u64(ib_quota_nrt,
-						pdbus->bus_channels);
-		}
+						nrt_data_paths_cnt);
 
-		if (nrt_axi_port_cnt) {
-
-			ab_quota_rt = div_u64(ab_quota_rt, rt_axi_port_cnt);
-			ab_quota_nrt = div_u64(ab_quota_nrt, nrt_axi_port_cnt);
-
-			for (i = 0; i < total_axi_port_cnt; i++) {
-				if (i < rt_axi_port_cnt) {
+			for (i = 0; i < total_data_paths_cnt; i++) {
+				if (i < rt_data_paths_cnt) {
 					ab_quota[i] = ab_quota_rt;
 					ib_quota[i] = ib_quota_rt;
 				} else {
@@ -412,10 +413,11 @@ static int _sde_power_data_bus_set_quota(
 			}
 		} else {
 			ab_quota[0] = div_u64(ab_quota_rt + ab_quota_nrt,
-					total_axi_port_cnt);
-			ib_quota[0] = ib_quota_rt + ib_quota_nrt;
+					total_data_paths_cnt);
+			ib_quota[0] = div_u64(ib_quota_rt + ib_quota_nrt,
+					total_data_paths_cnt);
 
-			for (i = 1; i < total_axi_port_cnt; i++) {
+			for (i = 1; i < total_data_paths_cnt; i++) {
 				ab_quota[i] = ab_quota[0];
 				ib_quota[i] = ib_quota[0];
 			}
@@ -424,7 +426,7 @@ static int _sde_power_data_bus_set_quota(
 		new_uc_idx = (pdbus->curr_bw_uc_idx %
 			(bw_table->num_usecases - 1)) + 1;
 
-		for (i = 0; i < total_axi_port_cnt; i++) {
+		for (i = 0; i < total_data_paths_cnt; i++) {
 			vect = &bw_table->usecase[new_uc_idx].vectors[i];
 			vect->ab = ab_quota[i];
 			vect->ib = ib_quota[i];
@@ -432,8 +434,8 @@ static int _sde_power_data_bus_set_quota(
 			pr_debug(
 				"%s uc_idx=%d %s path idx=%d ab=%llu ib=%llu\n",
 				bw_table->name,
-				new_uc_idx, (i < rt_axi_port_cnt) ? "rt" : "nrt"
-				, i, vect->ab, vect->ib);
+				new_uc_idx, (i < rt_data_paths_cnt) ?
+				"rt" : "nrt", i, vect->ab, vect->ib);
 		}
 	}
 	pdbus->curr_bw_uc_idx = new_uc_idx;
@@ -469,7 +471,7 @@ int sde_power_data_bus_set_quota(struct sde_power_handle *phandle,
 
 	pclient->ab[bus_client] = ab_quota;
 	pclient->ib[bus_client] = ib_quota;
-	trace_sde_perf_update_bus(bus_client, ab_quota, ib_quota);
+	trace_sde_perf_update_bus(bus_client, bus_id, ab_quota, ib_quota);
 
 	list_for_each_entry(client, &phandle->power_client_clist, list) {
 		for (i = 0; i < SDE_POWER_HANDLE_DATA_BUS_CLIENT_MAX; i++) {
@@ -518,10 +520,10 @@ static int sde_power_data_bus_parse(struct platform_device *pdev,
 		rc = 0;
 	}
 
-	pdbus->nrt_axi_port_cnt = 0;
+	pdbus->nrt_data_paths_cnt = 0;
 	rc = of_property_read_u32(pdev->dev.of_node,
 			"qcom,sde-num-nrt-paths",
-			&pdbus->nrt_axi_port_cnt);
+			&pdbus->nrt_data_paths_cnt);
 	if (rc) {
 		pr_debug("number of axi port property not specified\n");
 		rc = 0;
@@ -535,7 +537,7 @@ static int sde_power_data_bus_parse(struct platform_device *pdev,
 			pr_err("Error. qcom,msm-bus,num-paths not found\n");
 			return rc;
 		}
-		pdbus->axi_port_cnt = paths;
+		pdbus->data_paths_cnt = paths;
 
 		pdbus->data_bus_scale_table =
 				msm_bus_pdata_from_node(pdev, node);
@@ -931,6 +933,7 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 			goto rsc_err;
 		}
 
+		SDE_EVT32_VERBOSE(enable, SDE_EVTLOG_FUNC_CASE1);
 		rc = msm_dss_enable_clk(mp->clk_config, mp->num_clk, enable);
 		if (rc) {
 			pr_err("clock enable failed rc:%d\n", rc);
@@ -944,6 +947,7 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 		sde_power_event_trigger_locked(phandle,
 				SDE_POWER_EVENT_PRE_DISABLE);
 
+		SDE_EVT32_VERBOSE(enable, SDE_EVTLOG_FUNC_CASE2);
 		msm_dss_enable_clk(mp->clk_config, mp->num_clk, enable);
 
 		sde_power_rsc_update(phandle, false);
@@ -963,7 +967,9 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 	}
 
 end:
+	SDE_EVT32_VERBOSE(enable, SDE_EVTLOG_FUNC_EXIT);
 	mutex_unlock(&phandle->phandle_lock);
+
 	return rc;
 
 clk_err:
@@ -980,6 +986,16 @@ data_bus_hdl_err:
 	phandle->current_usecase_ndx = prev_usecase_ndx;
 	mutex_unlock(&phandle->phandle_lock);
 	return rc;
+}
+
+int sde_power_resource_is_enabled(struct sde_power_handle *phandle)
+{
+	if (!phandle) {
+		pr_err("invalid input argument\n");
+		return false;
+	}
+
+	return phandle->current_usecase_ndx != VOTE_INDEX_DISABLE;
 }
 
 int sde_power_clk_set_rate(struct sde_power_handle *phandle, char *clock_name,

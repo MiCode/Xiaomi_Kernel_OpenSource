@@ -58,6 +58,9 @@
 
 #define SDE_PLANE_COLOR_FILL_FLAG	BIT(31)
 
+#define TIME_MULTIPLEX_RECT(r0, r1, buffer_lines) \
+	 ((r0).y >= ((r1).y + (r1).h + buffer_lines))
+
 /* multirect rect index */
 enum {
 	R0,
@@ -515,6 +518,7 @@ int sde_plane_danger_signal_ctrl(struct drm_plane *plane, bool enable)
 	struct sde_plane *psde;
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
+	int rc;
 
 	if (!plane || !plane->dev) {
 		SDE_ERROR("invalid arguments\n");
@@ -533,7 +537,13 @@ int sde_plane_danger_signal_ctrl(struct drm_plane *plane, bool enable)
 	if (!psde->is_rt_pipe)
 		goto end;
 
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
+	rc = sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
+			true);
+	if (rc) {
+		SDE_ERROR("failed to enable power resource %d\n", rc);
+		SDE_EVT32(rc, SDE_EVTLOG_ERROR);
+		return rc;
+	}
 
 	_sde_plane_set_qos_ctrl(plane, enable, SDE_PLANE_QOS_PANIC_CTRL);
 
@@ -1451,6 +1461,7 @@ static int _sde_plane_color_fill(struct sde_plane *psde,
 	const struct sde_format *fmt;
 	const struct drm_plane *plane;
 	struct sde_plane_state *pstate;
+	bool blend_enable = true;
 
 	if (!psde || !psde->base.state) {
 		SDE_ERROR("invalid plane\n");
@@ -1473,6 +1484,9 @@ static int _sde_plane_color_fill(struct sde_plane *psde,
 	 */
 	fmt = sde_get_sde_format(DRM_FORMAT_ABGR8888);
 
+	blend_enable = (SDE_DRM_BLEND_OP_OPAQUE !=
+			sde_plane_get_property(pstate, PLANE_PROP_BLEND_OP));
+
 	/* update sspp */
 	if (fmt && psde->pipe_hw->ops.setup_solidfill) {
 		psde->pipe_hw->ops.setup_solidfill(psde->pipe_hw,
@@ -1488,7 +1502,7 @@ static int _sde_plane_color_fill(struct sde_plane *psde,
 
 		if (psde->pipe_hw->ops.setup_format)
 			psde->pipe_hw->ops.setup_format(psde->pipe_hw,
-					fmt, SDE_SSPP_SOLID_FILL,
+					fmt, blend_enable, SDE_SSPP_SOLID_FILL,
 					pstate->multirect_index);
 
 		if (psde->pipe_hw->ops.setup_rects)
@@ -2776,6 +2790,12 @@ void sde_plane_clear_multirect(const struct drm_plane_state *drm_state)
 	pstate->multirect_mode = SDE_SSPP_MULTIRECT_NONE;
 }
 
+/**
+ * multi_rect validate API allows to validate only R0 and R1 RECT
+ * passing for each plane. Client of this API must not pass multiple
+ * plane which are not sharing same XIN client. Such calls will fail
+ * even though kernel client is passing valid multirect configuration.
+ */
 int sde_plane_validate_multirect_v2(struct sde_multirect_plane_states *plane)
 {
 	struct sde_plane_state *pstate[R_MAX];
@@ -2783,37 +2803,45 @@ int sde_plane_validate_multirect_v2(struct sde_multirect_plane_states *plane)
 	struct sde_rect src[R_MAX], dst[R_MAX];
 	struct sde_plane *sde_plane[R_MAX];
 	const struct sde_format *fmt[R_MAX];
+	int xin_id[R_MAX];
 	bool q16_data = true;
-	int i, buffer_lines;
+	int i, j, buffer_lines, width_threshold[R_MAX];
 	unsigned int max_tile_height = 1;
 	bool parallel_fetch_qualified = true;
-	bool has_tiled_rect = false;
+	enum sde_sspp_multirect_mode mode = SDE_SSPP_MULTIRECT_NONE;
+	const struct msm_format *msm_fmt;
+	bool const_alpha_enable = true;
 
 	for (i = 0; i < R_MAX; i++) {
-		const struct msm_format *msm_fmt;
-
 		drm_state[i] = i ? plane->r1 : plane->r0;
-		msm_fmt = msm_framebuffer_format(drm_state[i]->fb);
-		fmt[i] = to_sde_format(msm_fmt);
-
-		if (SDE_FORMAT_IS_UBWC(fmt[i])) {
-			has_tiled_rect = true;
-			if (fmt[i]->tile_height > max_tile_height)
-				max_tile_height = fmt[i]->tile_height;
+		if (!drm_state[i]) {
+			SDE_ERROR("drm plane state is NULL\n");
+			return -EINVAL;
 		}
-	}
-
-	for (i = 0; i < R_MAX; i++) {
-		int width_threshold;
 
 		pstate[i] = to_sde_plane_state(drm_state[i]);
 		sde_plane[i] = to_sde_plane(drm_state[i]->plane);
+		xin_id[i] = sde_plane[i]->pipe_hw->cap->xin_id;
 
-		if (pstate[i] == NULL) {
-			SDE_ERROR("SDE plane state of plane id %d is NULL\n",
-				drm_state[i]->plane->base.id);
+		for (j = 0; j < i; j++) {
+			if (xin_id[i] != xin_id[j]) {
+				SDE_ERROR_PLANE(sde_plane[i],
+					"invalid multirect validate call base:%d xin_id:%d curr:%d xin:%d\n",
+					j, xin_id[j], i, xin_id[i]);
+				return -EINVAL;
+			}
+		}
+
+		msm_fmt = msm_framebuffer_format(drm_state[i]->fb);
+		if (!msm_fmt) {
+			SDE_ERROR_PLANE(sde_plane[i], "null fb\n");
 			return -EINVAL;
 		}
+		fmt[i] = to_sde_format(msm_fmt);
+
+		if (SDE_FORMAT_IS_UBWC(fmt[i]) &&
+		    (fmt[i]->tile_height > max_tile_height))
+			max_tile_height = fmt[i]->tile_height;
 
 		POPULATE_RECT(&src[i], drm_state[i]->src_x, drm_state[i]->src_y,
 			drm_state[i]->src_w, drm_state[i]->src_h, q16_data);
@@ -2840,41 +2868,87 @@ int sde_plane_validate_multirect_v2(struct sde_multirect_plane_states *plane)
 		 * So we cannot support more than half of the supported SSPP
 		 * width for tiled formats.
 		 */
-		width_threshold = sde_plane[i]->pipe_sblk->maxlinewidth;
-		if (has_tiled_rect)
-			width_threshold /= 2;
+		width_threshold[i] = sde_plane[i]->pipe_sblk->maxlinewidth;
+		if (SDE_FORMAT_IS_UBWC(fmt[i]))
+			width_threshold[i] /= 2;
 
-		if (parallel_fetch_qualified && src[i].w > width_threshold)
+		if (parallel_fetch_qualified && src[i].w > width_threshold[i])
 			parallel_fetch_qualified = false;
 
+		if (sde_plane[i]->is_virtual)
+			mode = sde_plane_get_property(pstate[i],
+					PLANE_PROP_MULTIRECT_MODE);
+
+		if (pstate[i]->const_alpha_en != const_alpha_enable)
+			const_alpha_enable = false;
+
 	}
 
-	/* Validate RECT's and set the mode */
-
-	/* Prefer PARALLEL FETCH Mode over TIME_MX Mode */
-	if (parallel_fetch_qualified) {
-		pstate[R0]->multirect_mode = SDE_SSPP_MULTIRECT_PARALLEL;
-		pstate[R1]->multirect_mode = SDE_SSPP_MULTIRECT_PARALLEL;
-
-		goto done;
-	}
-
-	/* TIME_MX Mode */
 	buffer_lines = 2 * max_tile_height;
 
-	if ((dst[R1].y >= dst[R0].y + dst[R0].h + buffer_lines) ||
-		(dst[R0].y >= dst[R1].y + dst[R1].h + buffer_lines)) {
-		pstate[R0]->multirect_mode = SDE_SSPP_MULTIRECT_TIME_MX;
-		pstate[R1]->multirect_mode = SDE_SSPP_MULTIRECT_TIME_MX;
-	} else {
-		SDE_ERROR(
-			"No multirect mode possible for the planes (%d - %d)\n",
-			drm_state[R0]->plane->base.id,
-			drm_state[R1]->plane->base.id);
-		return -EINVAL;
+	/**
+	 * fallback to driver mode selection logic if client is using
+	 * multirect plane without setting property.
+	 *
+	 * validate multirect mode configuration based on rectangle
+	 */
+	switch (mode) {
+	case SDE_SSPP_MULTIRECT_NONE:
+		if (parallel_fetch_qualified)
+			mode = SDE_SSPP_MULTIRECT_PARALLEL;
+		else if (TIME_MULTIPLEX_RECT(dst[R1], dst[R0], buffer_lines) ||
+			 TIME_MULTIPLEX_RECT(dst[R0], dst[R1], buffer_lines))
+			mode = SDE_SSPP_MULTIRECT_TIME_MX;
+		else
+			SDE_ERROR(
+				"planes(%d - %d) multirect mode selection fail\n",
+				drm_state[R0]->plane->base.id,
+				drm_state[R1]->plane->base.id);
+		break;
+
+	case SDE_SSPP_MULTIRECT_PARALLEL:
+		if (!parallel_fetch_qualified) {
+			SDE_ERROR("R0 plane:%d width_threshold:%d src_w:%d\n",
+				drm_state[R0]->plane->base.id,
+				width_threshold[R0],  src[R0].w);
+			SDE_ERROR("R1 plane:%d width_threshold:%d src_w:%d\n",
+				drm_state[R1]->plane->base.id,
+				width_threshold[R1],  src[R1].w);
+			SDE_ERROR("parallel fetch not qualified\n");
+			mode = SDE_SSPP_MULTIRECT_NONE;
+		}
+		break;
+
+	case SDE_SSPP_MULTIRECT_TIME_MX:
+		if (!TIME_MULTIPLEX_RECT(dst[R1], dst[R0], buffer_lines) &&
+		    !TIME_MULTIPLEX_RECT(dst[R0], dst[R1], buffer_lines)) {
+			SDE_ERROR(
+				"buffer_lines:%d R0 plane:%d dst_y:%d dst_h:%d\n",
+				buffer_lines, drm_state[R0]->plane->base.id,
+				dst[R0].y, dst[R0].h);
+			SDE_ERROR(
+				"buffer_lines:%d R1 plane:%d dst_y:%d dst_h:%d\n",
+				buffer_lines, drm_state[R1]->plane->base.id,
+				dst[R1].y, dst[R1].h);
+			SDE_ERROR("time multiplexed fetch not qualified\n");
+			mode = SDE_SSPP_MULTIRECT_NONE;
+		}
+		break;
+
+	default:
+		SDE_ERROR("bad mode:%d selection\n", mode);
+		mode = SDE_SSPP_MULTIRECT_NONE;
+		break;
 	}
 
-done:
+	for (i = 0; i < R_MAX; i++) {
+		pstate[i]->multirect_mode = mode;
+		pstate[i]->const_alpha_en = const_alpha_enable;
+	}
+
+	if (mode == SDE_SSPP_MULTIRECT_NONE)
+		return -EINVAL;
+
 	if (sde_plane[R0]->is_virtual) {
 		pstate[R0]->multirect_index = SDE_SSPP_RECT_1;
 		pstate[R1]->multirect_index = SDE_SSPP_RECT_0;
@@ -2887,6 +2961,51 @@ done:
 		pstate[R0]->multirect_mode, pstate[R0]->multirect_index);
 	SDE_DEBUG_PLANE(sde_plane[R1], "R1: %d - %d\n",
 		pstate[R1]->multirect_mode, pstate[R1]->multirect_index);
+
+	return 0;
+}
+
+int sde_plane_confirm_hw_rsvps(struct drm_plane *plane,
+		const struct drm_plane_state *state)
+{
+	struct drm_crtc_state *cstate;
+	struct sde_plane_state *pstate;
+	struct sde_plane_rot_state *rstate;
+	struct sde_hw_blk *hw_blk;
+
+	if (!plane || !state) {
+		SDE_ERROR("invalid plane/state\n");
+		return -EINVAL;
+	}
+
+	pstate = to_sde_plane_state(state);
+	rstate = &pstate->rot;
+
+	/* cstate will be null if crtc is disconnected from plane */
+	cstate = _sde_plane_get_crtc_state((struct drm_plane_state *)state);
+	if (IS_ERR_OR_NULL(cstate)) {
+		SDE_ERROR("invalid crtc state\n");
+		return -EINVAL;
+	}
+
+	if (sde_plane_enabled((struct drm_plane_state *)state) &&
+			rstate->out_sbuf) {
+		SDE_DEBUG("plane%d.%d acquire rotator, fb %d\n",
+				plane->base.id, rstate->sequence_id,
+				state->fb ? state->fb->base.id : -1);
+
+		hw_blk = sde_crtc_res_get(cstate, SDE_HW_BLK_ROT,
+				(u64) state->fb);
+		if (!hw_blk) {
+			SDE_ERROR("plane%d.%d no available rotator, fb %d\n",
+					plane->base.id, rstate->sequence_id,
+					state->fb ? state->fb->base.id : -1);
+			SDE_EVT32(DRMID(plane), rstate->sequence_id,
+					state->fb ? state->fb->base.id : -1,
+					SDE_EVTLOG_ERROR);
+			return -EINVAL;
+		}
+	}
 	return 0;
 }
 
@@ -3026,6 +3145,29 @@ static int _sde_plane_fetch_halt(struct drm_plane *plane)
 	return sde_vbif_halt_plane_xin(sde_kms, xin_id, clk_ctrl);
 }
 
+
+static inline int _sde_plane_power_enable(struct drm_plane *plane, bool enable)
+{
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+
+	if (!plane->dev || !plane->dev->dev_private) {
+		SDE_ERROR("invalid drm device\n");
+		return -EINVAL;
+	}
+
+	priv = plane->dev->dev_private;
+	if (!priv->kms) {
+		SDE_ERROR("invalid kms\n");
+		return -EINVAL;
+	}
+
+	sde_kms = to_sde_kms(priv->kms);
+
+	return sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
+									enable);
+}
+
 static void sde_plane_cleanup_fb(struct drm_plane *plane,
 		struct drm_plane_state *old_state)
 {
@@ -3051,6 +3193,13 @@ static void sde_plane_cleanup_fb(struct drm_plane *plane,
 			       psde->pipe - SSPP_VIG0);
 
 		/* halt this plane now */
+		ret = _sde_plane_power_enable(plane, true);
+		if (ret) {
+			SDE_ERROR("power resource enable failed with %d", ret);
+			SDE_EVT32(ret);
+			return;
+		}
+
 		ret = _sde_plane_fetch_halt(plane);
 		if (ret) {
 			SDE_ERROR_PLANE(psde,
@@ -3059,6 +3208,7 @@ static void sde_plane_cleanup_fb(struct drm_plane *plane,
 			SDE_EVT32(DRMID(plane), psde->pipe - SSPP_VIG0,
 				       ret, SDE_EVTLOG_ERROR);
 		}
+		_sde_plane_power_enable(plane, false);
 	}
 
 	old_rstate = &old_pstate->rot;
@@ -3429,6 +3579,10 @@ static int sde_plane_sspp_atomic_check(struct drm_plane *plane,
 				pstate->excl_rect.w, pstate->excl_rect.h);
 	}
 
+	pstate->const_alpha_en = fmt->alpha_enable &&
+		(SDE_DRM_BLEND_OP_OPAQUE !=
+		 sde_plane_get_property(pstate, PLANE_PROP_BLEND_OP));
+
 modeset_update:
 	if (!ret)
 		_sde_plane_sspp_atomic_check_mode_changed(psde,
@@ -3525,7 +3679,6 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 	struct drm_crtc *crtc;
 	struct drm_framebuffer *fb;
 	struct sde_rect src, dst;
-	const struct sde_rect *crtc_roi;
 	bool q16_data = true;
 	int idx;
 
@@ -3597,6 +3750,7 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 		case PLANE_PROP_CSC_V1:
 			pstate->dirty |= SDE_PLANE_DIRTY_FORMAT;
 			break;
+		case PLANE_PROP_MULTIRECT_MODE:
 		case PLANE_PROP_COLOR_FILL:
 			/* potentially need to refresh everything */
 			pstate->dirty = SDE_PLANE_DIRTY_ALL;
@@ -3642,9 +3796,8 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 	_sde_plane_sspp_atomic_check_mode_changed(psde, state,
 								old_state);
 
-	/* re-program the output rects always in the case of partial update */
-	sde_crtc_get_crtc_roi(crtc->state, &crtc_roi);
-	if (!sde_kms_rect_is_null(crtc_roi))
+	/* re-program the output rects always if partial update roi changed */
+	if (sde_crtc_is_crtc_roi_dirty(crtc->state))
 		pstate->dirty |= SDE_PLANE_DIRTY_RECTS;
 
 	if (pstate->dirty & SDE_PLANE_DIRTY_RECTS)
@@ -3677,6 +3830,8 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 
 	/* update roi config */
 	if (pstate->dirty & SDE_PLANE_DIRTY_RECTS) {
+		const struct sde_rect *crtc_roi;
+
 		POPULATE_RECT(&src, rstate->out_src_x, rstate->out_src_y,
 			rstate->out_src_w, rstate->out_src_h, q16_data);
 		POPULATE_RECT(&dst, state->crtc_x, state->crtc_y,
@@ -3703,6 +3858,7 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 		 * adjust layer mixer position of the sspp in the presence
 		 * of a partial update to the active lm origin
 		 */
+		sde_crtc_get_crtc_roi(crtc->state, &crtc_roi);
 		dst.x -= crtc_roi->x;
 		dst.y -= crtc_roi->y;
 
@@ -3762,7 +3918,8 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 			src_flags |= SDE_SSPP_FLIP_UD;
 
 		/* update format */
-		psde->pipe_hw->ops.setup_format(psde->pipe_hw, fmt, src_flags,
+		psde->pipe_hw->ops.setup_format(psde->pipe_hw, fmt,
+				pstate->const_alpha_en, src_flags,
 				pstate->multirect_index);
 
 		if (psde->pipe_hw->ops.setup_cdp) {
@@ -4013,6 +4170,11 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 		{SDE_DRM_FB_NON_SEC_DIR_TRANS, "non_sec_direct_translation"},
 		{SDE_DRM_FB_SEC_DIR_TRANS, "sec_direct_translation"},
 	};
+	static const struct drm_prop_enum_list e_multirect_mode[] = {
+		{SDE_SSPP_MULTIRECT_NONE, "none"},
+		{SDE_SSPP_MULTIRECT_PARALLEL, "parallel"},
+		{SDE_SSPP_MULTIRECT_TIME_MX,  "serial"},
+	};
 	const struct sde_format_extended *format_list;
 	struct sde_kms_info *info;
 	struct sde_plane *psde = to_sde_plane(plane);
@@ -4162,6 +4324,10 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 		format_list = psde->pipe_sblk->virt_format_list;
 		sde_kms_info_add_keyint(info, "primary_smart_plane_id",
 						master_plane_id);
+		msm_property_install_enum(&psde->property_info,
+			"multirect_mode", 0x0, 0, e_multirect_mode,
+			ARRAY_SIZE(e_multirect_mode),
+			PLANE_PROP_MULTIRECT_MODE);
 	}
 
 	if (format_list) {

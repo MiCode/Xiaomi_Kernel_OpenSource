@@ -1732,7 +1732,7 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 		if (ptr_svc->svc.listener_id != lstnr) {
 			pr_warn("Service requested does not exist\n");
 			__qseecom_qseos_fail_return_resp_tz(data, resp,
-					&send_data_rsp, ptr_svc, lstnr);
+					&send_data_rsp, NULL, lstnr);
 			return -ERESTARTSYS;
 		}
 		pr_debug("waking up rcv_req_wq and waiting for send_resp_wq\n");
@@ -1900,20 +1900,22 @@ static int __qseecom_process_blocked_on_listener_legacy(
 	ptr_app->blocked_on_listener_id = resp->data;
 
 	/* sleep until listener is available */
-	qseecom.app_block_ref_cnt++;
-	ptr_app->app_blocked = true;
-	mutex_unlock(&app_access_lock);
-	if (wait_event_freezable(
+	do {
+		qseecom.app_block_ref_cnt++;
+		ptr_app->app_blocked = true;
+		mutex_unlock(&app_access_lock);
+		if (wait_event_freezable(
 			list_ptr->listener_block_app_wq,
 			!list_ptr->listener_in_use)) {
-		pr_err("Interrupted: listener_id %d, app_id %d\n",
+			pr_err("Interrupted: listener_id %d, app_id %d\n",
 				resp->data, ptr_app->app_id);
-		ret = -ERESTARTSYS;
-		goto exit;
-	}
-	mutex_lock(&app_access_lock);
-	ptr_app->app_blocked = false;
-	qseecom.app_block_ref_cnt--;
+			ret = -ERESTARTSYS;
+			goto exit;
+		}
+		mutex_lock(&app_access_lock);
+		ptr_app->app_blocked = false;
+		qseecom.app_block_ref_cnt--;
+	}  while (list_ptr->listener_in_use);
 
 	ptr_app->blocked_on_listener_id = 0;
 	/* notify the blocked app that listener is available */
@@ -1941,7 +1943,7 @@ exit:
 }
 
 static int __qseecom_process_blocked_on_listener_smcinvoke(
-			struct qseecom_command_scm_resp *resp)
+			struct qseecom_command_scm_resp *resp, uint32_t app_id)
 {
 	struct qseecom_registered_listener_list *list_ptr;
 	int ret = 0;
@@ -1964,18 +1966,20 @@ static int __qseecom_process_blocked_on_listener_smcinvoke(
 	pr_debug("lsntr %d in_use = %d\n",
 			resp->data, list_ptr->listener_in_use);
 	/* sleep until listener is available */
-	qseecom.app_block_ref_cnt++;
-	mutex_unlock(&app_access_lock);
-	if (wait_event_freezable(
+	do {
+		qseecom.app_block_ref_cnt++;
+		mutex_unlock(&app_access_lock);
+		if (wait_event_freezable(
 			list_ptr->listener_block_app_wq,
 			!list_ptr->listener_in_use)) {
-		pr_err("Interrupted: listener_id %d, session_id %d\n",
+			pr_err("Interrupted: listener_id %d, session_id %d\n",
 				resp->data, session_id);
-		ret = -ERESTARTSYS;
-		goto exit;
-	}
-	mutex_lock(&app_access_lock);
-	qseecom.app_block_ref_cnt--;
+			ret = -ERESTARTSYS;
+			goto exit;
+		}
+		mutex_lock(&app_access_lock);
+		qseecom.app_block_ref_cnt--;
+	}  while (list_ptr->listener_in_use);
 
 	/* notify TZ that listener is available */
 	pr_warn("Lsntr %d is available, unblock session(%d) in TZ\n",
@@ -1986,9 +1990,18 @@ static int __qseecom_process_blocked_on_listener_smcinvoke(
 			&ireq, sizeof(ireq),
 			&continue_resp, sizeof(continue_resp));
 	if (ret) {
-		pr_err("scm_call for continue blocked req for session %d failed, ret %d\n",
-			session_id, ret);
-		goto exit;
+		/* retry with legacy cmd */
+		qseecom.smcinvoke_support = false;
+		ireq.app_or_session_id = app_id;
+		ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1,
+			&ireq, sizeof(ireq),
+			&continue_resp, sizeof(continue_resp));
+		qseecom.smcinvoke_support = true;
+		if (ret) {
+			pr_err("cont block req for app %d or session %d fail\n",
+				app_id, session_id);
+			goto exit;
+		}
 	}
 	resp->result = QSEOS_RESULT_INCOMPLETE;
 exit:
@@ -2005,7 +2018,7 @@ static int __qseecom_process_reentrancy_blocked_on_listener(
 			resp, ptr_app, data);
 	else
 		return __qseecom_process_blocked_on_listener_smcinvoke(
-			resp);
+			resp, data->client.app_id);
 }
 static int __qseecom_reentrancy_process_incomplete_cmd(
 					struct qseecom_dev_handle *data,
@@ -4785,6 +4798,9 @@ int qseecom_process_listener_from_smcinvoke(struct scm_desc *desc)
 	resp.result = desc->ret[0];	/*req_cmd*/
 	resp.resp_type = desc->ret[1]; /*incomplete:unused;blocked:session_id*/
 	resp.data = desc->ret[2];	/*listener_id*/
+
+	dummy_private_data.client.app_id = desc->ret[1];
+	dummy_app_entry.app_id = desc->ret[1];
 
 	mutex_lock(&app_access_lock);
 	if (qseecom.qsee_reentrancy_support)

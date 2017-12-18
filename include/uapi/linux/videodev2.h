@@ -718,6 +718,8 @@ struct v4l2_pix_format {
 	v4l2_fourcc('T', 'P', '1', '0') /* Y/CbCr 4:2:0 TP10 */
 #define V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010 \
 	v4l2_fourcc('P', '0', '1', '0') /* Y/CbCr 4:2:0 P10 */
+#define V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010_VENUS \
+	v4l2_fourcc('Q', 'P', '1', '0') /* Y/CbCr 4:2:0 P10 Venus*/
 
 /* SDR formats - used only for Software Defined Radio devices */
 #define V4L2_SDR_FMT_CU8          v4l2_fourcc('C', 'U', '0', '8') /* IQ u8 */

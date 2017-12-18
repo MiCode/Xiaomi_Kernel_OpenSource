@@ -773,10 +773,6 @@ resizefs_out:
 	case EXT4_IOC_SET_ENCRYPTION_POLICY: {
 #ifdef CONFIG_EXT4_FS_ENCRYPTION
 		struct fscrypt_policy policy;
-
-		if (!ext4_has_feature_encrypt(sb))
-			return -EOPNOTSUPP;
-
 		if (copy_from_user(&policy,
 				   (struct fscrypt_policy __user *)arg,
 				   sizeof(policy)))

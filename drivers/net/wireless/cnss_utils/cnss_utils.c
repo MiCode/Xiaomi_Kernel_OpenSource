@@ -13,8 +13,10 @@
 #define pr_fmt(fmt) "cnss_utils: " fmt
 
 #include <linux/module.h>
+#include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/etherdevice.h>
+#include <linux/debugfs.h>
 #include <net/cnss_utils.h>
 
 #define CNSS_MAX_CH_NUM 45
@@ -29,9 +31,15 @@ struct cnss_dfs_nol_info {
 };
 
 #define MAX_NO_OF_MAC_ADDR 4
+#define MAC_PREFIX_LEN 2
 struct cnss_wlan_mac_addr {
 	u8 mac_addr[MAX_NO_OF_MAC_ADDR][ETH_ALEN];
 	u32 no_of_mac_addr_set;
+};
+
+enum mac_type {
+	CNSS_MAC_PROVISIONED,
+	CNSS_MAC_DERIVED,
 };
 
 static struct cnss_utils_priv {
@@ -42,9 +50,10 @@ static struct cnss_utils_priv {
 	/* generic spin-lock for dfs_nol info */
 	spinlock_t dfs_nol_info_lock;
 	int driver_load_cnt;
-	bool is_wlan_mac_set;
 	struct cnss_wlan_mac_addr wlan_mac_addr;
+	struct cnss_wlan_mac_addr wlan_der_mac_addr;
 	enum cnss_utils_cc_src cc_source;
+	struct dentry *root_dentry;
 } *cnss_utils_priv;
 
 int cnss_utils_set_wlan_unsafe_channel(struct device *dev,
@@ -189,7 +198,8 @@ int cnss_utils_get_driver_load_cnt(struct device *dev)
 }
 EXPORT_SYMBOL(cnss_utils_get_driver_load_cnt);
 
-int cnss_utils_set_wlan_mac_address(const u8 *in, const uint32_t len)
+static int set_wlan_mac_address(const u8 *mac_list, const uint32_t len,
+				enum mac_type type)
 {
 	struct cnss_utils_priv *priv = cnss_utils_priv;
 	u32 no_of_mac_addr;
@@ -199,11 +209,6 @@ int cnss_utils_set_wlan_mac_address(const u8 *in, const uint32_t len)
 
 	if (!priv)
 		return -EINVAL;
-
-	if (priv->is_wlan_mac_set) {
-		pr_debug("WLAN MAC address is already set\n");
-		return 0;
-	}
 
 	if (len == 0 || (len % ETH_ALEN) != 0) {
 		pr_err("Invalid length %d\n", len);
@@ -217,24 +222,45 @@ int cnss_utils_set_wlan_mac_address(const u8 *in, const uint32_t len)
 		return -EINVAL;
 	}
 
-	priv->is_wlan_mac_set = true;
-	addr = &priv->wlan_mac_addr;
+	if (type == CNSS_MAC_PROVISIONED)
+		addr = &priv->wlan_mac_addr;
+	else
+		addr = &priv->wlan_der_mac_addr;
+
+	if (addr->no_of_mac_addr_set) {
+		pr_err("WLAN MAC address is already set, num %d type %d\n",
+		       addr->no_of_mac_addr_set, type);
+		return 0;
+	}
+
 	addr->no_of_mac_addr_set = no_of_mac_addr;
 	temp = &addr->mac_addr[0][0];
 
 	for (iter = 0; iter < no_of_mac_addr;
-	     ++iter, temp += ETH_ALEN, in += ETH_ALEN) {
-		ether_addr_copy(temp, in);
+	     ++iter, temp += ETH_ALEN, mac_list += ETH_ALEN) {
+		ether_addr_copy(temp, mac_list);
 		pr_debug("MAC_ADDR:%02x:%02x:%02x:%02x:%02x:%02x\n",
 			 temp[0], temp[1], temp[2],
 			 temp[3], temp[4], temp[5]);
 	}
-
 	return 0;
+}
+
+int cnss_utils_set_wlan_mac_address(const u8 *mac_list, const uint32_t len)
+{
+	return set_wlan_mac_address(mac_list, len, CNSS_MAC_PROVISIONED);
 }
 EXPORT_SYMBOL(cnss_utils_set_wlan_mac_address);
 
-u8 *cnss_utils_get_wlan_mac_address(struct device *dev, uint32_t *num)
+int cnss_utils_set_wlan_derived_mac_address(
+				const u8 *mac_list, const uint32_t len)
+{
+	return set_wlan_mac_address(mac_list, len, CNSS_MAC_DERIVED);
+}
+EXPORT_SYMBOL(cnss_utils_set_wlan_derived_mac_address);
+
+static u8 *get_wlan_mac_address(struct device *dev,
+				u32 *num, enum mac_type type)
 {
 	struct cnss_utils_priv *priv = cnss_utils_priv;
 	struct cnss_wlan_mac_addr *addr = NULL;
@@ -242,19 +268,35 @@ u8 *cnss_utils_get_wlan_mac_address(struct device *dev, uint32_t *num)
 	if (!priv)
 		goto out;
 
-	if (!priv->is_wlan_mac_set) {
-		pr_debug("WLAN MAC address is not set\n");
+	if (type == CNSS_MAC_PROVISIONED)
+		addr = &priv->wlan_mac_addr;
+	else
+		addr = &priv->wlan_der_mac_addr;
+
+	if (!addr->no_of_mac_addr_set) {
+		pr_err("WLAN MAC address is not set, type %d\n", type);
 		goto out;
 	}
-
-	addr = &priv->wlan_mac_addr;
 	*num = addr->no_of_mac_addr_set;
 	return &addr->mac_addr[0][0];
+
 out:
 	*num = 0;
 	return NULL;
 }
+
+u8 *cnss_utils_get_wlan_mac_address(struct device *dev, uint32_t *num)
+{
+	return get_wlan_mac_address(dev, num, CNSS_MAC_PROVISIONED);
+}
 EXPORT_SYMBOL(cnss_utils_get_wlan_mac_address);
+
+u8 *cnss_utils_get_wlan_derived_mac_address(
+			struct device *dev, uint32_t *num)
+{
+	return get_wlan_mac_address(dev, num, CNSS_MAC_DERIVED);
+}
+EXPORT_SYMBOL(cnss_utils_get_wlan_derived_mac_address);
 
 void cnss_utils_set_cc_source(struct device *dev,
 			      enum cnss_utils_cc_src cc_source)
@@ -279,6 +321,137 @@ enum cnss_utils_cc_src cnss_utils_get_cc_source(struct device *dev)
 }
 EXPORT_SYMBOL(cnss_utils_get_cc_source);
 
+static ssize_t cnss_utils_mac_write(struct file *fp,
+				    const char __user *user_buf,
+				    size_t count, loff_t *off)
+{
+	struct cnss_utils_priv *priv =
+		((struct seq_file *)fp->private_data)->private;
+	char buf[128];
+	char *input, *mac_type, *mac_address;
+	u8 *dest_mac;
+	u8 val;
+	const char *delim = " \n";
+	size_t len = 0;
+	char temp[3] = "";
+
+	len = min_t(size_t, count, sizeof(buf) - 1);
+	if (copy_from_user(buf, user_buf, len))
+		return -EINVAL;
+	buf[len] = '\0';
+
+	input = buf;
+
+	mac_type = strsep(&input, delim);
+	if (!mac_type)
+		return -EINVAL;
+	if (!input)
+		return -EINVAL;
+
+	mac_address = strsep(&input, delim);
+	if (!mac_address)
+		return -EINVAL;
+	if (strncmp("0x", mac_address, MAC_PREFIX_LEN)) {
+		pr_err("Invalid MAC prefix\n");
+		return -EINVAL;
+	}
+
+	len = strlen(mac_address);
+	mac_address += MAC_PREFIX_LEN;
+	len -= MAC_PREFIX_LEN;
+	if (len < ETH_ALEN * 2 || len > ETH_ALEN * 2 * MAX_NO_OF_MAC_ADDR ||
+	    len % (ETH_ALEN * 2) != 0) {
+		pr_err("Invalid MAC address length %zu\n", len);
+		return -EINVAL;
+	}
+
+	if (!strcmp("provisioned", mac_type)) {
+		dest_mac = &priv->wlan_mac_addr.mac_addr[0][0];
+		priv->wlan_mac_addr.no_of_mac_addr_set = len / (ETH_ALEN * 2);
+	} else if (!strcmp("derived", mac_type)) {
+		dest_mac = &priv->wlan_der_mac_addr.mac_addr[0][0];
+		priv->wlan_der_mac_addr.no_of_mac_addr_set =
+			len / (ETH_ALEN * 2);
+	} else {
+		pr_err("Invalid MAC address type %s\n", mac_type);
+		return -EINVAL;
+	}
+
+	while (len--) {
+		temp[0] = *mac_address++;
+		temp[1] = *mac_address++;
+		if (kstrtou8(temp, 16, &val))
+			return -EINVAL;
+		*dest_mac++ = val;
+	}
+	return count;
+}
+
+static int cnss_utils_mac_show(struct seq_file *s, void *data)
+{
+	u8 mac[6];
+	int i;
+	struct cnss_utils_priv *priv = s->private;
+	struct cnss_wlan_mac_addr *addr = NULL;
+
+	addr = &priv->wlan_mac_addr;
+	if (addr->no_of_mac_addr_set) {
+		seq_puts(s, "\nProvisioned MAC addresseses\n");
+		for (i = 0; i < addr->no_of_mac_addr_set; i++) {
+			ether_addr_copy(mac, addr->mac_addr[i]);
+			seq_printf(s, "MAC_ADDR:%02x:%02x:%02x:%02x:%02x:%02x\n",
+				   mac[0], mac[1], mac[2],
+				   mac[3], mac[4], mac[5]);
+		}
+	}
+
+	addr = &priv->wlan_der_mac_addr;
+	if (addr->no_of_mac_addr_set) {
+		seq_puts(s, "\nDerived MAC addresseses\n");
+		for (i = 0; i < addr->no_of_mac_addr_set; i++) {
+			ether_addr_copy(mac, addr->mac_addr[i]);
+			seq_printf(s, "MAC_ADDR:%02x:%02x:%02x:%02x:%02x:%02x\n",
+				   mac[0], mac[1], mac[2],
+				   mac[3], mac[4], mac[5]);
+		}
+	}
+
+	return 0;
+}
+
+static int cnss_utils_mac_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, cnss_utils_mac_show, inode->i_private);
+}
+
+static const struct file_operations cnss_utils_mac_fops = {
+	.read		= seq_read,
+	.write		= cnss_utils_mac_write,
+	.release	= single_release,
+	.open		= cnss_utils_mac_open,
+	.owner		= THIS_MODULE,
+	.llseek		= seq_lseek,
+};
+
+static int cnss_utils_debugfs_create(struct cnss_utils_priv *priv)
+{
+	int ret = 0;
+	struct dentry *root_dentry;
+
+	root_dentry = debugfs_create_dir("cnss_utils", NULL);
+
+	if (IS_ERR(root_dentry)) {
+		ret = PTR_ERR(root_dentry);
+		pr_err("Unable to create debugfs %d\n", ret);
+		goto out;
+	}
+	priv->root_dentry = root_dentry;
+	debugfs_create_file("mac_address", 0600, root_dentry, priv,
+			    &cnss_utils_mac_fops);
+out:
+	return ret;
+}
+
 static int __init cnss_utils_init(void)
 {
 	struct cnss_utils_priv *priv = NULL;
@@ -291,7 +464,7 @@ static int __init cnss_utils_init(void)
 
 	mutex_init(&priv->unsafe_channel_list_lock);
 	spin_lock_init(&priv->dfs_nol_info_lock);
-
+	cnss_utils_debugfs_create(priv);
 	cnss_utils_priv = priv;
 
 	return 0;

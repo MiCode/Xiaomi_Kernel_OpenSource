@@ -17,6 +17,11 @@
 #include "cam_vfe_top.h"
 #include "cam_vfe_top_ver2.h"
 #include "cam_debug_util.h"
+#include "cam_cpas_api.h"
+#include "cam_vfe_soc.h"
+
+#define CAM_VFE_HW_RESET_HW_AND_REG_VAL   0x00003F9F
+#define CAM_VFE_HW_RESET_HW_VAL           0x00003F87
 
 struct cam_vfe_top_ver2_common_data {
 	struct cam_hw_soc_info                     *soc_info;
@@ -26,8 +31,11 @@ struct cam_vfe_top_ver2_common_data {
 
 struct cam_vfe_top_ver2_priv {
 	struct cam_vfe_top_ver2_common_data common_data;
-	struct cam_vfe_camif               *camif;
 	struct cam_isp_resource_node        mux_rsrc[CAM_VFE_TOP_VER2_MUX_MAX];
+	unsigned long                       hw_clk_rate;
+	struct cam_axi_vote                 hw_axi_vote;
+	struct cam_axi_vote             req_axi_vote[CAM_VFE_TOP_VER2_MUX_MAX];
+	unsigned long                   req_clk_rate[CAM_VFE_TOP_VER2_MUX_MAX];
 };
 
 static int cam_vfe_top_mux_get_base(struct cam_vfe_top_ver2_priv *top_priv,
@@ -35,10 +43,10 @@ static int cam_vfe_top_mux_get_base(struct cam_vfe_top_ver2_priv *top_priv,
 {
 	uint32_t                          size = 0;
 	uint32_t                          mem_base = 0;
-	struct cam_isp_hw_get_cdm_args   *cdm_args  = cmd_args;
+	struct cam_isp_hw_get_cmd_update *cdm_args  = cmd_args;
 	struct cam_cdm_utils_ops         *cdm_util_ops = NULL;
 
-	if (arg_size != sizeof(struct cam_isp_hw_get_cdm_args)) {
+	if (arg_size != sizeof(struct cam_isp_hw_get_cmd_update)) {
 		CAM_ERR(CAM_ISP, "Error! Invalid cmd size");
 		return -EINVAL;
 	}
@@ -59,9 +67,9 @@ static int cam_vfe_top_mux_get_base(struct cam_vfe_top_ver2_priv *top_priv,
 
 	size = cdm_util_ops->cdm_required_size_changebase();
 	/* since cdm returns dwords, we need to convert it into bytes */
-	if ((size * 4) > cdm_args->size) {
+	if ((size * 4) > cdm_args->cmd.size) {
 		CAM_ERR(CAM_ISP, "buf size:%d is not sufficient, expected: %d",
-			cdm_args->size, size);
+			cdm_args->cmd.size, size);
 		return -EINVAL;
 	}
 
@@ -70,21 +78,190 @@ static int cam_vfe_top_mux_get_base(struct cam_vfe_top_ver2_priv *top_priv,
 	CAM_DBG(CAM_ISP, "core %d mem_base 0x%x",
 		top_priv->common_data.soc_info->index, mem_base);
 
-	cdm_util_ops->cdm_write_changebase(cdm_args->cmd_buf_addr, mem_base);
-	cdm_args->used_bytes = (size * 4);
+	cdm_util_ops->cdm_write_changebase(
+	cdm_args->cmd.cmd_buf_addr, mem_base);
+	cdm_args->cmd.used_bytes = (size * 4);
 
 	return 0;
+}
+
+static int cam_vfe_top_set_hw_clk_rate(
+	struct cam_vfe_top_ver2_priv *top_priv)
+{
+	struct cam_hw_soc_info        *soc_info = NULL;
+	int                            i, rc = 0;
+	unsigned long                  max_clk_rate = 0;
+
+	soc_info = top_priv->common_data.soc_info;
+
+	for (i = 0; i < CAM_VFE_TOP_VER2_MUX_MAX; i++) {
+		if (top_priv->req_clk_rate[i] > max_clk_rate)
+			max_clk_rate = top_priv->req_clk_rate[i];
+	}
+	if (max_clk_rate == top_priv->hw_clk_rate)
+		return 0;
+
+	CAM_DBG(CAM_ISP, "VFE: Clock name=%s idx=%d clk=%lld",
+		soc_info->clk_name[soc_info->src_clk_idx],
+		soc_info->src_clk_idx, max_clk_rate);
+
+	rc = cam_soc_util_set_clk_rate(
+		soc_info->clk[soc_info->src_clk_idx],
+		soc_info->clk_name[soc_info->src_clk_idx],
+		max_clk_rate);
+
+	if (!rc)
+		top_priv->hw_clk_rate = max_clk_rate;
+	else
+		CAM_ERR(CAM_ISP, "Set Clock rate failed, rc=%d", rc);
+
+	return rc;
+}
+
+static int cam_vfe_top_set_axi_bw_vote(
+	struct cam_vfe_top_ver2_priv *top_priv)
+{
+	struct cam_axi_vote sum = {0, 0};
+	int i, rc = 0;
+	struct cam_hw_soc_info   *soc_info =
+		top_priv->common_data.soc_info;
+	struct cam_vfe_soc_private *soc_private =
+		soc_info->soc_private;
+
+	if (!soc_private) {
+		CAM_ERR(CAM_ISP, "Error soc_private NULL");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < CAM_VFE_TOP_VER2_MUX_MAX; i++) {
+		sum.uncompressed_bw +=
+			top_priv->req_axi_vote[i].uncompressed_bw;
+		sum.compressed_bw +=
+			top_priv->req_axi_vote[i].compressed_bw;
+	}
+
+	CAM_DBG(CAM_ISP, "BW Vote: u=%lld c=%lld",
+		sum.uncompressed_bw,
+		sum.compressed_bw);
+
+	if ((top_priv->hw_axi_vote.uncompressed_bw ==
+		sum.uncompressed_bw) &&
+		(top_priv->hw_axi_vote.compressed_bw ==
+		sum.compressed_bw))
+		return 0;
+
+	rc = cam_cpas_update_axi_vote(
+			soc_private->cpas_handle,
+			&sum);
+	if (!rc) {
+		top_priv->hw_axi_vote.uncompressed_bw = sum.uncompressed_bw;
+		top_priv->hw_axi_vote.compressed_bw = sum.compressed_bw;
+	} else
+		CAM_ERR(CAM_ISP, "BW request failed, rc=%d", rc);
+
+	return rc;
+}
+
+static int cam_vfe_top_clock_update(
+	struct cam_vfe_top_ver2_priv *top_priv,
+	void *cmd_args, uint32_t arg_size)
+{
+	struct cam_vfe_clock_update_args     *clk_update = NULL;
+	struct cam_isp_resource_node         *res = NULL;
+	struct cam_hw_info                   *hw_info = NULL;
+	int                                   i, rc = 0;
+
+	clk_update =
+		(struct cam_vfe_clock_update_args *)cmd_args;
+	res = clk_update->node_res;
+
+	if (!res || !res->hw_intf->hw_priv) {
+		CAM_ERR(CAM_ISP, "Invalid input res %pK", res);
+		return -EINVAL;
+	}
+
+	hw_info = res->hw_intf->hw_priv;
+
+	if (res->res_type != CAM_ISP_RESOURCE_VFE_IN ||
+		res->res_id >= CAM_ISP_HW_VFE_IN_MAX) {
+		CAM_ERR(CAM_ISP, "VFE:%d Invalid res_type:%d res id%d",
+			res->hw_intf->hw_idx, res->res_type,
+			res->res_id);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < CAM_VFE_TOP_VER2_MUX_MAX; i++) {
+		if (top_priv->mux_rsrc[i].res_id == res->res_id) {
+			top_priv->req_clk_rate[i] = clk_update->clk_rate;
+			break;
+		}
+	}
+
+	if (hw_info->hw_state != CAM_HW_STATE_POWER_UP) {
+		CAM_DBG(CAM_ISP, "VFE:%d Not ready to set clocks yet :%d",
+			res->hw_intf->hw_idx,
+			hw_info->hw_state);
+	} else
+		rc = cam_vfe_top_set_hw_clk_rate(top_priv);
+
+	return rc;
+}
+
+static int cam_vfe_top_bw_update(
+	struct cam_vfe_top_ver2_priv *top_priv,
+	void *cmd_args, uint32_t arg_size)
+{
+	struct cam_vfe_bw_update_args        *bw_update = NULL;
+	struct cam_isp_resource_node         *res = NULL;
+	struct cam_hw_info                   *hw_info = NULL;
+	int                                   rc = 0;
+	int                                   i;
+
+	bw_update = (struct cam_vfe_bw_update_args *)cmd_args;
+	res = bw_update->node_res;
+
+	if (!res || !res->hw_intf->hw_priv)
+		return -EINVAL;
+
+	hw_info = res->hw_intf->hw_priv;
+
+	if (res->res_type != CAM_ISP_RESOURCE_VFE_IN ||
+		res->res_id >= CAM_ISP_HW_VFE_IN_MAX) {
+		CAM_ERR(CAM_ISP, "VFE:%d Invalid res_type:%d res id%d",
+			res->hw_intf->hw_idx, res->res_type,
+			res->res_id);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < CAM_VFE_TOP_VER2_MUX_MAX; i++) {
+		if (top_priv->mux_rsrc[i].res_id == res->res_id) {
+			top_priv->req_axi_vote[i].uncompressed_bw =
+				bw_update->camnoc_bw_bytes;
+			top_priv->req_axi_vote[i].compressed_bw =
+				bw_update->external_bw_bytes;
+			break;
+		}
+	}
+
+	if (hw_info->hw_state != CAM_HW_STATE_POWER_UP) {
+		CAM_DBG(CAM_ISP, "VFE:%d Not ready to set BW yet :%d",
+			res->hw_intf->hw_idx,
+			hw_info->hw_state);
+	} else
+		rc = cam_vfe_top_set_axi_bw_vote(top_priv);
+
+	return rc;
 }
 
 static int cam_vfe_top_mux_get_reg_update(
 	struct cam_vfe_top_ver2_priv *top_priv,
 	void *cmd_args, uint32_t arg_size)
 {
-	struct cam_isp_hw_get_cdm_args   *cdm_args = cmd_args;
+	struct cam_isp_hw_get_cmd_update  *cmd_update = cmd_args;
 
-	if (cdm_args->res->process_cmd)
-		return cdm_args->res->process_cmd(cdm_args->res,
-			CAM_VFE_HW_CMD_GET_REG_UPDATE, cmd_args, arg_size);
+	if (cmd_update->res->process_cmd)
+		return cmd_update->res->process_cmd(cmd_update->res,
+			CAM_ISP_HW_CMD_GET_REG_UPDATE, cmd_args, arg_size);
 
 	return -EINVAL;
 }
@@ -107,12 +284,24 @@ int cam_vfe_top_reset(void *device_priv,
 	struct cam_vfe_top_ver2_priv   *top_priv = device_priv;
 	struct cam_hw_soc_info         *soc_info = NULL;
 	struct cam_vfe_top_ver2_reg_offset_common *reg_common = NULL;
+	uint32_t *reset_reg_args = reset_core_args;
+	uint32_t reset_reg_val;
 
-	if (!top_priv) {
+	if (!top_priv || !reset_reg_args) {
 		CAM_ERR(CAM_ISP, "Invalid arguments");
 		return -EINVAL;
 	}
 
+	switch (*reset_reg_args) {
+	case CAM_VFE_HW_RESET_HW_AND_REG:
+		reset_reg_val = CAM_VFE_HW_RESET_HW_AND_REG_VAL;
+		break;
+	default:
+		reset_reg_val = CAM_VFE_HW_RESET_HW_VAL;
+		break;
+	}
+
+	CAM_DBG(CAM_ISP, "reset reg value: %x", reset_reg_val);
 	soc_info = top_priv->common_data.soc_info;
 	reg_common = top_priv->common_data.common_reg;
 
@@ -121,7 +310,7 @@ int cam_vfe_top_reset(void *device_priv,
 		CAM_SOC_GET_REG_MAP_START(soc_info, VFE_CORE_BASE_IDX) + 0x5C);
 
 	/* Reset HW */
-	cam_io_w_mb(0x00003F9F,
+	cam_io_w_mb(reset_reg_val,
 		CAM_SOC_GET_REG_MAP_START(soc_info, VFE_CORE_BASE_IDX) +
 		reg_common->global_reset_cmd);
 
@@ -214,8 +403,20 @@ int cam_vfe_top_start(void *device_priv,
 		return -EINVAL;
 	}
 
-	top_priv = (struct cam_vfe_top_ver2_priv   *)device_priv;
+	top_priv = (struct cam_vfe_top_ver2_priv *)device_priv;
 	mux_res = (struct cam_isp_resource_node *)start_args;
+
+	rc = cam_vfe_top_set_hw_clk_rate(top_priv);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "set_hw_clk_rate failed, rc=%d", rc);
+		return rc;
+	}
+
+	rc = cam_vfe_top_set_axi_bw_vote(top_priv);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "set_axi_bw_vote failed, rc=%d", rc);
+		return rc;
+	}
 
 	if (mux_res->start) {
 		rc = mux_res->start(mux_res);
@@ -232,7 +433,7 @@ int cam_vfe_top_stop(void *device_priv,
 {
 	struct cam_vfe_top_ver2_priv            *top_priv;
 	struct cam_isp_resource_node            *mux_res;
-	int rc = 0;
+	int i, rc = 0;
 
 	if (!device_priv || !stop_args) {
 		CAM_ERR(CAM_ISP, "Error! Invalid input arguments");
@@ -248,11 +449,33 @@ int cam_vfe_top_stop(void *device_priv,
 		rc = mux_res->stop(mux_res);
 	} else {
 		CAM_ERR(CAM_ISP, "Invalid res id:%d", mux_res->res_id);
-		rc = -EINVAL;
+		return -EINVAL;
+	}
+
+	if (!rc) {
+		for (i = 0; i < CAM_VFE_TOP_VER2_MUX_MAX; i++) {
+			if (top_priv->mux_rsrc[i].res_id == mux_res->res_id) {
+				top_priv->req_clk_rate[i] = 0;
+				top_priv->req_axi_vote[i].compressed_bw = 0;
+				top_priv->req_axi_vote[i].uncompressed_bw = 0;
+				break;
+			}
+		}
+
+		rc = cam_vfe_top_set_hw_clk_rate(top_priv);
+		if (rc) {
+			CAM_ERR(CAM_ISP, "set_hw_clk_rate failed, rc=%d", rc);
+			return rc;
+		}
+
+		rc = cam_vfe_top_set_axi_bw_vote(top_priv);
+		if (rc) {
+			CAM_ERR(CAM_ISP, "set_axi_bw_vote failed, rc=%d", rc);
+			return rc;
+		}
 	}
 
 	return rc;
-
 }
 
 int cam_vfe_top_read(void *device_priv,
@@ -280,11 +503,19 @@ int cam_vfe_top_process_cmd(void *device_priv, uint32_t cmd_type,
 	top_priv = (struct cam_vfe_top_ver2_priv *)device_priv;
 
 	switch (cmd_type) {
-	case CAM_VFE_HW_CMD_GET_CHANGE_BASE:
+	case CAM_ISP_HW_CMD_GET_CHANGE_BASE:
 		rc = cam_vfe_top_mux_get_base(top_priv, cmd_args, arg_size);
 		break;
-	case CAM_VFE_HW_CMD_GET_REG_UPDATE:
+	case CAM_ISP_HW_CMD_GET_REG_UPDATE:
 		rc = cam_vfe_top_mux_get_reg_update(top_priv, cmd_args,
+			arg_size);
+		break;
+	case CAM_ISP_HW_CMD_CLOCK_UPDATE:
+		rc = cam_vfe_top_clock_update(top_priv, cmd_args,
+			arg_size);
+		break;
+	case CAM_ISP_HW_CMD_BW_UPDATE:
+		rc = cam_vfe_top_bw_update(top_priv, cmd_args,
 			arg_size);
 		break;
 	default:
@@ -322,12 +553,19 @@ int cam_vfe_top_ver2_init(
 		goto free_vfe_top;
 	}
 	vfe_top->top_priv = top_priv;
+	top_priv->hw_clk_rate = 0;
+	top_priv->hw_axi_vote.compressed_bw = 0;
+	top_priv->hw_axi_vote.uncompressed_bw = 0;
 
 	for (i = 0, j = 0; i < CAM_VFE_TOP_VER2_MUX_MAX; i++) {
 		top_priv->mux_rsrc[i].res_type = CAM_ISP_RESOURCE_VFE_IN;
 		top_priv->mux_rsrc[i].hw_intf = hw_intf;
 		top_priv->mux_rsrc[i].res_state =
 			CAM_ISP_RESOURCE_STATE_AVAILABLE;
+		top_priv->req_clk_rate[i] = 0;
+		top_priv->req_axi_vote[i].compressed_bw = 0;
+		top_priv->req_axi_vote[i].uncompressed_bw = 0;
+
 		if (ver2_hw_info->mux_type[i] == CAM_VFE_CAMIF_VER_2_0) {
 			top_priv->mux_rsrc[i].res_id =
 				CAM_ISP_HW_VFE_IN_CAMIF;

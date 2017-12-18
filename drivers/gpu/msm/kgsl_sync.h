@@ -13,7 +13,7 @@
 #ifndef __KGSL_SYNC_H
 #define __KGSL_SYNC_H
 
-#include "sync_file.h"
+#include <linux/sync_file.h>
 #include "kgsl_device.h"
 
 #define KGSL_TIMELINE_NAME_LEN 32

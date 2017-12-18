@@ -1,0 +1,61 @@
+Qualcomm Technologies Inc. SPM Regulators
+
+spm-regulator is a regulator device which supports PMIC processor supply
+regulators via the SPM module.
+
+Required properties:
+- compatible:      Must be "qcom,spm-regulator"
+- reg:             Specifies the SPMI address and size for this regulator device
+- regulator-name:  A string used as a descriptive name for the regulator
+
+Required structure:
+- A qcom,spm-regulator node must be a child of an SPMI node that has specified
+	the spmi-slave-container property
+
+Optional properties:
+- qcom,mode:       A string which specifies the mode to use for the regulator.
+		    Supported values are "pwm" and "auto".  PWM mode is more
+		    robust, but draws more current than auto mode.  If this
+		    property is not specified, then the regulator will remain
+		    in whatever mode hardware or bootloaders set it to.
+- qcom,cpu-num:    Specifies which CPU this regulator powers.  This property is
+		    not need when the SPM regulator is shared between all CPUs.
+- qcom,bypass-spm: Boolean flag which indicates that voltage control should not
+		    be managed by an SPM.  Instead, the voltage should be
+		    controlled via SPMI.
+- qcom,max-voltage-step:  Maximum single voltage step size in microvolts.
+- qcom,recal-mask: Bit mask of the APSS clusters to recalibrate after each
+		    voltage change.  Bit 0 corresponds to the first cluster,
+		    bit 1 corresponds to the second cluster, and so on.
+
+Optional structure:
+- A child node may be specified within a qcom,spm-regulator node which defines
+	an additional regulator which controls the AVS minimum and maximum
+	voltage limits.
+- The AVS child node must contain these properties defined in regulator.txt:
+	regulator-name, regulator-min-microvolt, regulator-max-microvolt.
+
+All properties specified within the core regulator framework can also be used.
+These bindings can be found in regulator.txt.
+
+Example:
+	qcom,spmi@fc4c0000 {
+
+		qcom,pm8226@1 {
+			spmi-slave-container;
+
+			spm-regulator@1700 {
+				compatible = "qcom,spm-regulator";
+				regulator-name = "8226_s2";
+				reg = <0x1700 0x100>;
+				regulator-min-microvolt = <900000>;
+				regulator-max-microvolt = <1275000>;
+
+				avs-limit-regulator {
+					regulator-name = "8226_s2_avs_limit";
+					regulator-min-microvolt = <900000>;
+					regulator-max-microvolt = <1275000>;
+				}
+			};
+		};
+	};

@@ -50,12 +50,13 @@ struct cam_vfe_hw_core_info {
 	void                               *vfe_irq_controller;
 	struct cam_vfe_top                 *vfe_top;
 	struct cam_vfe_bus                 *vfe_bus;
-
+	void                               *tasklet_info;
 	struct cam_vfe_top_irq_evt_payload  evt_payload[CAM_VFE_EVT_MAX];
 	struct list_head                    free_payload_list;
 	struct cam_vfe_irq_handler_priv     irq_payload;
 	uint32_t                            cpas_handle;
 	int                                 irq_handle;
+	int                                 irq_err_handle;
 	spinlock_t                          spin_lock;
 };
 

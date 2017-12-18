@@ -17,6 +17,7 @@
 #include <linux/of_device.h>
 #include <linux/delay.h>
 #include <linux/input.h>
+#include <linux/io.h>
 #include <soc/qcom/scm.h>
 
 #include <linux/msm-bus-board.h>
@@ -118,6 +119,7 @@ static struct adreno_device device_3d0 = {
 		.skipsaverestore = 1,
 		.usesgmem = 1,
 	},
+	.priv = BIT(ADRENO_DEVICE_PREEMPTION_EXECUTION),
 };
 
 /* Ptr to array for the current set of fault detect registers */
@@ -612,6 +614,7 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 	struct adreno_irq *irq_params = gpudev->irq;
 	irqreturn_t ret = IRQ_NONE;
 	unsigned int status = 0, fence = 0, fence_retries = 0, tmp, int_bit;
+	unsigned int status_retries = 0;
 	int i;
 
 	atomic_inc(&adreno_dev->pending_irq_refcnt);
@@ -649,6 +652,32 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 	}
 
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS, &status);
+
+	/*
+	 * Read status again to make sure the bits aren't transitory.
+	 * Transitory bits mean that they are spurious interrupts and are
+	 * seen while preemption is on going. Empirical experiments have
+	 * shown that the transitory bits are a timing thing and they
+	 * go away in the small time window between two or three consecutive
+	 * reads. If they don't go away, log the message and return.
+	 */
+	while (status_retries < STATUS_RETRY_MAX) {
+		unsigned int new_status;
+
+		adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS,
+			&new_status);
+
+		if (status == new_status)
+			break;
+
+		status = new_status;
+		status_retries++;
+	}
+
+	if (status_retries == STATUS_RETRY_MAX) {
+		KGSL_DRV_CRIT_RATELIMIT(device, "STATUS bits are not stable\n");
+			return ret;
+	}
 
 	/*
 	 * Clear all the interrupt bits but ADRENO_INT_RBBM_AHB_ERROR. Because
@@ -1034,6 +1063,28 @@ adreno_ocmem_free(struct adreno_device *adreno_dev)
 }
 #endif
 
+static void adreno_cx_dbgc_probe(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct resource *res;
+
+	res = platform_get_resource_byname(device->pdev, IORESOURCE_MEM,
+					   "kgsl_3d0_cx_dbgc_memory");
+
+	if (res == NULL)
+		return;
+
+	adreno_dev->cx_dbgc_base = res->start - device->reg_phys;
+	adreno_dev->cx_dbgc_len = resource_size(res);
+	adreno_dev->cx_dbgc_virt = devm_ioremap(device->dev,
+					device->reg_phys +
+						adreno_dev->cx_dbgc_base,
+					adreno_dev->cx_dbgc_len);
+
+	if (adreno_dev->cx_dbgc_virt == NULL)
+		KGSL_DRV_WARN(device, "cx_dbgc ioremap failed\n");
+}
+
 static int adreno_probe(struct platform_device *pdev)
 {
 	struct kgsl_device *device;
@@ -1084,6 +1135,9 @@ static int adreno_probe(struct platform_device *pdev)
 		return status;
 	}
 
+	/* Probe for the optional CX_DBGC block */
+	adreno_cx_dbgc_probe(device);
+
 	/*
 	 * qcom,iommu-secure-id is used to identify MMUs that can handle secure
 	 * content but that is only part of the story - the GPU also has to be
@@ -1094,6 +1148,9 @@ static int adreno_probe(struct platform_device *pdev)
 
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_CONTENT_PROTECTION))
 		device->mmu.secured = false;
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_IOCOHERENT))
+		device->mmu.features |= KGSL_MMU_IO_COHERENT;
 
 	status = adreno_ringbuffer_probe(adreno_dev, nopreempt);
 	if (status)
@@ -1815,8 +1872,18 @@ static int adreno_stop(struct kgsl_device *device)
 				OOB_GPU_CHECK_MASK,
 				OOB_GPU_CLEAR_MASK);
 		if (error) {
+			struct gmu_device *gmu = &device->gmu;
+
 			gpudev->oob_clear(adreno_dev, OOB_GPU_CLEAR_MASK);
-			return error;
+			if (gmu->gx_gdsc &&
+				regulator_is_enabled(gmu->gx_gdsc)) {
+				/* GPU is on. Try recovery */
+				set_bit(GMU_FAULT, &gmu->flags);
+				gmu_snapshot(device);
+				error = -EINVAL;
+			} else {
+				return error;
+			}
 		}
 	}
 
@@ -1850,7 +1917,7 @@ static int adreno_stop(struct kgsl_device *device)
 	 * GMU to return to the lowest idle level. This is
 	 * because some idle level transitions require VBIF and MMU.
 	 */
-	if (gpudev->wait_for_lowest_idle &&
+	if (!error && gpudev->wait_for_lowest_idle &&
 			gpudev->wait_for_lowest_idle(adreno_dev)) {
 		struct gmu_device *gmu = &device->gmu;
 
@@ -2875,6 +2942,56 @@ static void adreno_gmu_regread(struct kgsl_device *device,
 	rmb();
 }
 
+bool adreno_is_cx_dbgc_register(struct kgsl_device *device,
+		unsigned int offsetwords)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	return adreno_dev->cx_dbgc_virt &&
+		(offsetwords >= (adreno_dev->cx_dbgc_base >> 2)) &&
+		(offsetwords < (adreno_dev->cx_dbgc_base +
+				adreno_dev->cx_dbgc_len) >> 2);
+}
+
+void adreno_cx_dbgc_regread(struct kgsl_device *device,
+	unsigned int offsetwords, unsigned int *value)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	unsigned int cx_dbgc_offset;
+
+	if (!adreno_is_cx_dbgc_register(device, offsetwords))
+		return;
+
+	cx_dbgc_offset = (offsetwords << 2) - adreno_dev->cx_dbgc_base;
+	*value = __raw_readl(adreno_dev->cx_dbgc_virt + cx_dbgc_offset);
+
+	/*
+	 * ensure this read finishes before the next one.
+	 * i.e. act like normal readl()
+	 */
+	rmb();
+}
+
+void adreno_cx_dbgc_regwrite(struct kgsl_device *device,
+	unsigned int offsetwords, unsigned int value)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	unsigned int cx_dbgc_offset;
+
+	if (!adreno_is_cx_dbgc_register(device, offsetwords))
+		return;
+
+	cx_dbgc_offset = (offsetwords << 2) - adreno_dev->cx_dbgc_base;
+	trace_kgsl_regwrite(device, offsetwords, value);
+
+	/*
+	 * ensure previous writes post before this one,
+	 * i.e. act like normal writel()
+	 */
+	wmb();
+	__raw_writel(value, adreno_dev->cx_dbgc_virt + cx_dbgc_offset);
+}
+
 /**
  * adreno_waittimestamp - sleep while waiting for the specified timestamp
  * @device - pointer to a KGSL device structure
@@ -3053,7 +3170,8 @@ static void adreno_power_stats(struct kgsl_device *device,
 
 		if (adreno_is_a6xx(adreno_dev)) {
 			/* clock sourced from XO */
-			stats->busy_time = gpu_busy * 10 / 192;
+			stats->busy_time = gpu_busy * 10;
+			do_div(stats->busy_time, 192);
 		} else {
 			/* clock sourced from GFX3D */
 			stats->busy_time = adreno_ticks_to_us(gpu_busy,

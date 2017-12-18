@@ -205,7 +205,8 @@ static int check_bufsize_for_encoding(struct diagfwd_buf_t *buf, uint32_t len)
 		}
 
 		if (buf->len < max_size) {
-			if (driver->logging_mode == DIAG_MEMORY_DEVICE_MODE) {
+			if (driver->logging_mode == DIAG_MEMORY_DEVICE_MODE ||
+				driver->logging_mode == DIAG_MULTI_MODE) {
 				ch = &diag_md[DIAG_LOCAL_PROC];
 				for (i = 0; ch != NULL &&
 						i < ch->num_tbl_entries; i++) {
@@ -478,7 +479,8 @@ static void diagfwd_data_read_untag_done(struct diagfwd_info *fwd_info,
 			flag_buf_1 = 1;
 			temp_fwdinfo_cpd = fwd_info->buf_1;
 			if (fwd_info->type == TYPE_DATA) {
-				for (i = 0; i <= (fwd_info->num_pd - 2); i++)
+				for (i = 0; (i <= (fwd_info->num_pd - 2)) &&
+					fwd_info->buf_upd[i][0]; i++)
 					temp_buf_upd[i] =
 					fwd_info->buf_upd[i][0]->data_raw;
 			}
@@ -487,7 +489,8 @@ static void diagfwd_data_read_untag_done(struct diagfwd_info *fwd_info,
 			flag_buf_2 = 1;
 			temp_fwdinfo_cpd = fwd_info->buf_2;
 			if (fwd_info->type == TYPE_DATA) {
-				for (i = 0; i <= (fwd_info->num_pd - 2); i++)
+				for (i = 0; (i <= (fwd_info->num_pd - 2)) &&
+					fwd_info->buf_upd[i][1]; i++)
 					temp_buf_upd[i] =
 					fwd_info->buf_upd[i][1]->data_raw;
 			}
@@ -557,6 +560,8 @@ static void diagfwd_data_read_untag_done(struct diagfwd_info *fwd_info,
 				else
 					temp_fwdinfo_upd =
 						fwd_info->buf_upd[i][1];
+				if (!temp_fwdinfo_upd)
+					break;
 				temp_fwdinfo_upd->ctxt &= 0x00FFFFFF;
 				temp_fwdinfo_upd->ctxt |=
 					(SET_PD_CTXT(ctxt_upd[i]));
@@ -1631,6 +1636,10 @@ void diagfwd_channel_read(struct diagfwd_info *fwd_info)
 fail_return:
 	diag_ws_release();
 	atomic_set(&temp_buf->in_busy, 0);
+	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+	"Buffer for core PD is marked free, p: %d, t: %d, buf_num: %d\n",
+		fwd_info->peripheral, fwd_info->type,
+		GET_BUF_NUM(temp_buf->ctxt));
 }
 
 static void diagfwd_queue_read(struct diagfwd_info *fwd_info)

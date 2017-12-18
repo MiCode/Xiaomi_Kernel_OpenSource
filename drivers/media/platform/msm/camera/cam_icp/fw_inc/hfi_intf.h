@@ -60,10 +60,12 @@ int hfi_write_cmd(void *cmd_ptr);
  * hfi_read_message() - function for hfi read
  * @pmsg: buffer to place read message for hfi queue
  * @q_id: queue id
+ * @words_read: total number of words read from the queue
+ *              returned as output to the caller
  *
- * Returns size read in words/failure(negative value)
+ * Returns success(zero)/failure(non zero)
  */
-int64_t hfi_read_message(uint32_t *pmsg, uint8_t q_id);
+int hfi_read_message(uint32_t *pmsg, uint8_t q_id, uint32_t *words_read);
 
 /**
  * hfi_init() - function initialize hfi after firmware download
@@ -121,13 +123,25 @@ int hfi_set_debug_level(uint32_t lvl);
  * power collapse for IPE and BPS hardware.
  *
  * @enable: flag to enable/disable
+ * @core_info: Core information to firmware
  */
-int hfi_enable_ipe_bps_pc(bool enable);
+int hfi_enable_ipe_bps_pc(bool enable, uint32_t core_info);
 
 /**
  * hfi_cmd_ubwc_config() - UBWC configuration to firmware
  * @ubwc_cfg: UBWC configuration parameters
  */
 int hfi_cmd_ubwc_config(uint32_t *ubwc_cfg);
+
+/**
+ * cam_hfi_resume() - function to resume
+ * @hfi_mem: hfi memory info
+ * @icp_base: icp base address
+ * @debug: debug flag
+ *
+ * Returns success(zero)/failure(non zero)
+ */
+int cam_hfi_resume(struct hfi_mem_info *hfi_mem,
+	void __iomem *icp_base, bool debug);
 
 #endif /* _HFI_INTF_H_ */

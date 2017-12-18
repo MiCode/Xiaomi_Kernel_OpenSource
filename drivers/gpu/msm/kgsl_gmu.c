@@ -182,8 +182,8 @@ static int alloc_and_map(struct gmu_device *gmu, unsigned int ctx_id,
 
 	if (ret) {
 		dev_err(&gmu->pdev->dev,
-				"gmu map err: gaddr=0x%016llX, paddr=0x%016llX\n",
-				md->gmuaddr, md->physaddr);
+				"gmu map err: gaddr=0x%016llX, paddr=0x%pa\n",
+				md->gmuaddr, &(md->physaddr));
 		free_gmu_mem(gmu, md);
 	}
 
@@ -1343,29 +1343,27 @@ void gmu_snapshot(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_device *gmu = &device->gmu;
 
-	if (!gmu->fault_count) {
-		/* Mask so there's no interrupt caused by NMI */
-		adreno_write_gmureg(adreno_dev,
-				ADRENO_REG_GMU_GMU2HOST_INTR_MASK, 0xFFFFFFFF);
+	/* Mask so there's no interrupt caused by NMI */
+	adreno_write_gmureg(adreno_dev,
+			ADRENO_REG_GMU_GMU2HOST_INTR_MASK, 0xFFFFFFFF);
 
-		/* Make sure the interrupt is masked before causing it */
-		wmb();
-		adreno_write_gmureg(adreno_dev,
-			ADRENO_REG_GMU_NMI_CONTROL_STATUS, 0);
-		adreno_write_gmureg(adreno_dev,
-			ADRENO_REG_GMU_CM3_CFG, (1 << 9));
+	/* Make sure the interrupt is masked before causing it */
+	wmb();
+	adreno_write_gmureg(adreno_dev,
+		ADRENO_REG_GMU_NMI_CONTROL_STATUS, 0);
+	adreno_write_gmureg(adreno_dev,
+		ADRENO_REG_GMU_CM3_CFG, (1 << 9));
 
-		/* Wait for the NMI to be handled */
-		wmb();
-		udelay(100);
-		kgsl_device_snapshot(device, NULL, true);
+	/* Wait for the NMI to be handled */
+	wmb();
+	udelay(100);
+	kgsl_device_snapshot(device, NULL, true);
 
-		adreno_write_gmureg(adreno_dev,
-				ADRENO_REG_GMU_GMU2HOST_INTR_CLR, 0xFFFFFFFF);
-		adreno_write_gmureg(adreno_dev,
-				ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
-				(unsigned int) ~HFI_IRQ_MASK);
-	}
+	adreno_write_gmureg(adreno_dev,
+			ADRENO_REG_GMU_GMU2HOST_INTR_CLR, 0xFFFFFFFF);
+	adreno_write_gmureg(adreno_dev,
+			ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
+			(unsigned int) ~HFI_IRQ_MASK);
 
 	gmu->fault_count++;
 }
@@ -1619,4 +1617,47 @@ void gmu_remove(struct kgsl_device *device)
 	}
 
 	device->gmu.pdev = NULL;
+}
+
+/*
+ * adreno_gmu_fenced_write() - Check if there is a GMU and it is enabled
+ * @adreno_dev: Pointer to the Adreno device device that owns the GMU
+ * @offset: 32bit register enum that is to be written
+ * @val: The value to be written to the register
+ * @fence_mask: The value to poll the fence status register
+ *
+ * Check the WRITEDROPPED0/1 bit in the FENCE_STATUS regsiter to check if
+ * the write to the fenced register went through. If it didn't then we retry
+ * the write until it goes through or we time out.
+ */
+void adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
+		enum adreno_regs offset, unsigned int val,
+		unsigned int fence_mask)
+{
+	unsigned int status, i;
+
+	adreno_writereg(adreno_dev, offset, val);
+
+	if (!kgsl_gmu_isenabled(KGSL_DEVICE(adreno_dev)))
+		return;
+
+	for (i = 0; i < GMU_WAKEUP_RETRY_MAX; i++) {
+		adreno_read_gmureg(adreno_dev, ADRENO_REG_GMU_AHB_FENCE_STATUS,
+			&status);
+
+		/*
+		 * If !writedropped0/1, then the write to fenced register
+		 * was successful
+		 */
+		if (!(status & fence_mask))
+			return;
+		/* Wait a small amount of time before trying again */
+		udelay(GMU_WAKEUP_DELAY_US);
+
+		/* Try to write the fenced register again */
+		adreno_writereg(adreno_dev, offset, val);
+	}
+
+	dev_err(adreno_dev->dev.dev,
+		"GMU fenced register write timed out: reg %x\n", offset);
 }

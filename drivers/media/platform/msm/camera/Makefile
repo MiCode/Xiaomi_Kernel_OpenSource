@@ -10,3 +10,4 @@ obj-$(CONFIG_SPECTRA_CAMERA) += cam_sensor_module/
 obj-$(CONFIG_SPECTRA_CAMERA) += cam_icp/
 obj-$(CONFIG_SPECTRA_CAMERA) += cam_jpeg/
 obj-$(CONFIG_SPECTRA_CAMERA) += cam_fd/
+obj-$(CONFIG_SPECTRA_CAMERA) += cam_lrme/

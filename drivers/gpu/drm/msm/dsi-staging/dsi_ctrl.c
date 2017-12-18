@@ -940,6 +940,62 @@ static void dsi_ctrl_wait_for_video_done(struct dsi_ctrl *dsi_ctrl)
 	udelay(sleep_ms * 1000);
 }
 
+void dsi_message_setup_tx_mode(struct dsi_ctrl *dsi_ctrl,
+		u32 cmd_len,
+		u32 *flags)
+{
+	/**
+	 * Setup the mode of transmission
+	 * override cmd fetch mode during secure session
+	 */
+	if (dsi_ctrl->secure_mode) {
+		*flags &= ~DSI_CTRL_CMD_FETCH_MEMORY;
+		*flags |= DSI_CTRL_CMD_FIFO_STORE;
+		pr_debug("[%s] override to TPG during secure session\n",
+				dsi_ctrl->name);
+		return;
+	}
+
+	/* Check to see if cmd len plus header is greater than fifo size */
+	if ((cmd_len + 4) > DSI_EMBEDDED_MODE_DMA_MAX_SIZE_BYTES) {
+		*flags |= DSI_CTRL_CMD_NON_EMBEDDED_MODE;
+		pr_debug("[%s] override to non-embedded mode,cmd len =%d\n",
+				dsi_ctrl->name, cmd_len);
+		return;
+	}
+}
+
+int dsi_message_validate_tx_mode(struct dsi_ctrl *dsi_ctrl,
+		u32 cmd_len,
+		u32 *flags)
+{
+	int rc = 0;
+
+	if (*flags & DSI_CTRL_CMD_FIFO_STORE) {
+		/* if command size plus header is greater than fifo size */
+		if ((cmd_len + 4) > DSI_CTRL_MAX_CMD_FIFO_STORE_SIZE) {
+			pr_err("Cannot transfer Cmd in FIFO config\n");
+			return -ENOTSUPP;
+		}
+		if (!dsi_ctrl->hw.ops.kickoff_fifo_command) {
+			pr_err("Cannot transfer command,ops not defined\n");
+			return -ENOTSUPP;
+		}
+	}
+
+	if (*flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
+		if (*flags & DSI_CTRL_CMD_BROADCAST) {
+			pr_err("Non embedded not supported with broadcast\n");
+			return -ENOTSUPP;
+		}
+		if (!dsi_ctrl->hw.ops.kickoff_command_non_embedded_mode) {
+			pr_err(" Cannot transfer command,ops not defined\n");
+			return -ENOTSUPP;
+		}
+	}
+	return rc;
+}
+
 static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 			  const struct mipi_dsi_msg *msg,
 			  u32 flags)
@@ -954,6 +1010,36 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 	u32 cnt = 0, line_no = 0x1;
 	u8 *cmdbuf;
 	struct dsi_mode_info *timing;
+
+	/* Select the tx mode to transfer the command */
+	dsi_message_setup_tx_mode(dsi_ctrl, msg->tx_len, &flags);
+
+	/* Validate the mode before sending the command */
+	rc = dsi_message_validate_tx_mode(dsi_ctrl, msg->tx_len, &flags);
+	if (rc) {
+		pr_err(" Cmd tx validation failed, cannot transfer cmd\n");
+		rc = -ENOTSUPP;
+		goto error;
+	}
+
+	if (flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
+		cmd_mem.offset = dsi_ctrl->cmd_buffer_iova;
+		cmd_mem.en_broadcast = (flags & DSI_CTRL_CMD_BROADCAST) ?
+			true : false;
+		cmd_mem.is_master = (flags & DSI_CTRL_CMD_BROADCAST_MASTER) ?
+			true : false;
+		cmd_mem.use_lpm = (msg->flags & MIPI_DSI_MSG_USE_LPM) ?
+			true : false;
+		cmd_mem.datatype = msg->type;
+		cmd_mem.length = msg->tx_len;
+
+		dsi_ctrl->cmd_len = msg->tx_len;
+		memcpy(dsi_ctrl->vaddr, msg->tx_buf, msg->tx_len);
+		pr_debug(" non-embedded mode , size of command =%zd\n",
+					msg->tx_len);
+
+		goto kickoff;
+	}
 
 	rc = mipi_dsi_create_packet(&packet, msg);
 	if (rc) {
@@ -975,6 +1061,7 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 		buffer[3] |= BIT(7);//set the last cmd bit in header.
 
 	if (flags & DSI_CTRL_CMD_FETCH_MEMORY) {
+		/* Embedded mode config is selected */
 		cmd_mem.offset = dsi_ctrl->cmd_buffer_iova;
 		cmd_mem.en_broadcast = (flags & DSI_CTRL_CMD_BROADCAST) ?
 			true : false;
@@ -988,6 +1075,7 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 		for (cnt = 0; cnt < length; cnt++)
 			cmdbuf[dsi_ctrl->cmd_len + cnt] = buffer[cnt];
 
+		msm_gem_sync(dsi_ctrl->tx_cmd_buf);
 		dsi_ctrl->cmd_len += length;
 
 		if (!(msg->flags & MIPI_DSI_MSG_LASTCOMMAND)) {
@@ -1008,6 +1096,7 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 				  true : false;
 	}
 
+kickoff:
 	timing = &(dsi_ctrl->host_config.video_timing);
 	if (timing)
 		line_no += timing->v_back_porch + timing->v_sync_width +
@@ -1027,9 +1116,18 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 
 	if (flags & DSI_CTRL_CMD_DEFER_TRIGGER) {
 		if (flags & DSI_CTRL_CMD_FETCH_MEMORY) {
-			dsi_ctrl->hw.ops.kickoff_command(&dsi_ctrl->hw,
+			if (flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
+				dsi_ctrl->hw.ops.
+					kickoff_command_non_embedded_mode(
+							&dsi_ctrl->hw,
 							&cmd_mem,
 							hw_flags);
+			} else {
+				dsi_ctrl->hw.ops.kickoff_command(
+						&dsi_ctrl->hw,
+						&cmd_mem,
+						hw_flags);
+			}
 		} else if (flags & DSI_CTRL_CMD_FIFO_STORE) {
 			dsi_ctrl->hw.ops.kickoff_fifo_command(&dsi_ctrl->hw,
 							      &cmd,
@@ -1041,12 +1139,24 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 		dsi_ctrl_wait_for_video_done(dsi_ctrl);
 		dsi_ctrl_enable_status_interrupt(dsi_ctrl,
 					DSI_SINT_CMD_MODE_DMA_DONE, NULL);
+		if (dsi_ctrl->hw.ops.mask_error_intr)
+			dsi_ctrl->hw.ops.mask_error_intr(&dsi_ctrl->hw,
+					BIT(DSI_FIFO_OVERFLOW), true);
 		reinit_completion(&dsi_ctrl->irq_info.cmd_dma_done);
 
 		if (flags & DSI_CTRL_CMD_FETCH_MEMORY) {
-			dsi_ctrl->hw.ops.kickoff_command(&dsi_ctrl->hw,
-						      &cmd_mem,
-						      hw_flags);
+			if (flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
+				dsi_ctrl->hw.ops.
+					kickoff_command_non_embedded_mode(
+							&dsi_ctrl->hw,
+							&cmd_mem,
+							hw_flags);
+			} else {
+				dsi_ctrl->hw.ops.kickoff_command(
+						&dsi_ctrl->hw,
+						&cmd_mem,
+						hw_flags);
+			}
 		} else if (flags & DSI_CTRL_CMD_FIFO_STORE) {
 			dsi_ctrl->hw.ops.kickoff_fifo_command(&dsi_ctrl->hw,
 							      &cmd,
@@ -1081,7 +1191,20 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 			}
 		}
 
+		if (dsi_ctrl->hw.ops.mask_error_intr)
+			dsi_ctrl->hw.ops.mask_error_intr(&dsi_ctrl->hw,
+					BIT(DSI_FIFO_OVERFLOW), false);
 		dsi_ctrl->hw.ops.reset_cmd_fifo(&dsi_ctrl->hw);
+
+		/*
+		 * DSI 2.2 needs a soft reset whenever we send non-embedded
+		 * mode command followed by embedded mode. Otherwise it will
+		 * result in smmu write faults with DSI as client.
+		 */
+		if (flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
+			dsi_ctrl->hw.ops.soft_reset(&dsi_ctrl->hw);
+			dsi_ctrl->cmd_len = 0;
+		}
 	}
 error:
 	if (buffer)
@@ -1469,6 +1592,9 @@ static int dsi_ctrl_dts_parse(struct dsi_ctrl *dsi_ctrl,
 	dsi_ctrl->phy_isolation_enabled = of_property_read_bool(of_node,
 				    "qcom,dsi-phy-isolation-enabled");
 
+	dsi_ctrl->null_insertion_enabled = of_property_read_bool(of_node,
+					"qcom,null-insertion-enabled");
+
 	return 0;
 }
 
@@ -1526,7 +1652,8 @@ static int dsi_ctrl_dev_probe(struct platform_device *pdev)
 	}
 
 	rc = dsi_catalog_ctrl_setup(&dsi_ctrl->hw, dsi_ctrl->version,
-		    dsi_ctrl->cell_index, dsi_ctrl->phy_isolation_enabled);
+		dsi_ctrl->cell_index, dsi_ctrl->phy_isolation_enabled,
+		dsi_ctrl->null_insertion_enabled);
 	if (rc) {
 		pr_err("Catalog does not support version (%d)\n",
 		       dsi_ctrl->version);
@@ -1544,6 +1671,7 @@ static int dsi_ctrl_dev_probe(struct platform_device *pdev)
 	mutex_unlock(&dsi_ctrl_list_lock);
 
 	mutex_init(&dsi_ctrl->ctrl_lock);
+	dsi_ctrl->secure_mode = false;
 
 	dsi_ctrl->pdev = pdev;
 	platform_set_drvdata(pdev, dsi_ctrl);
@@ -1941,7 +2069,7 @@ int dsi_ctrl_setup(struct dsi_ctrl *dsi_ctrl)
 	}
 
 	dsi_ctrl->hw.ops.enable_status_interrupts(&dsi_ctrl->hw, 0x0);
-	dsi_ctrl->hw.ops.enable_error_interrupts(&dsi_ctrl->hw, 0x0);
+	dsi_ctrl->hw.ops.enable_error_interrupts(&dsi_ctrl->hw, 0xFF00E0);
 	dsi_ctrl->hw.ops.ctrl_en(&dsi_ctrl->hw, true);
 
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
@@ -1992,33 +2120,77 @@ int dsi_ctrl_phy_reset_config(struct dsi_ctrl *dsi_ctrl, bool enable)
 static void dsi_ctrl_handle_error_status(struct dsi_ctrl *dsi_ctrl,
 				unsigned long int error)
 {
-	pr_err("%s: %lu\n", __func__, error);
+	struct dsi_event_cb_info cb_info;
+
+	cb_info = dsi_ctrl->irq_info.irq_err_cb;
+
+	/* disable error interrupts */
+	if (dsi_ctrl->hw.ops.error_intr_ctrl)
+		dsi_ctrl->hw.ops.error_intr_ctrl(&dsi_ctrl->hw, false);
+
+	/* clear error interrupts first */
+	if (dsi_ctrl->hw.ops.clear_error_status)
+		dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
+					error);
 
 	/* DTLN PHY error */
-	if (error & 0x3000e00)
-		if (dsi_ctrl->hw.ops.clear_error_status)
-			dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
-					0x3000e00);
+	if (error & 0x3000E00)
+		pr_err("dsi PHY contention error: 0x%lx\n", error);
+
+	/* TX timeout error */
+	if (error & 0xE0) {
+		if (error & 0xA0) {
+			if (cb_info.event_cb) {
+				cb_info.event_idx = DSI_LP_Rx_TIMEOUT;
+				(void)cb_info.event_cb(cb_info.event_usr_ptr,
+							cb_info.event_idx,
+							dsi_ctrl->cell_index,
+							0, 0, 0, 0);
+			}
+		}
+		pr_err("tx timeout error: 0x%lx\n", error);
+	}
 
 	/* DSI FIFO OVERFLOW error */
-	if (error & 0xf0000) {
-		if (dsi_ctrl->hw.ops.clear_error_status)
-			dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
-					0xf0000);
+	if (error & 0xF0000) {
+		u32 mask = 0;
+
+		if (dsi_ctrl->hw.ops.get_error_mask)
+			mask = dsi_ctrl->hw.ops.get_error_mask(&dsi_ctrl->hw);
+		/* no need to report FIFO overflow if already masked */
+		if (cb_info.event_cb && !(mask & 0xf0000)) {
+			cb_info.event_idx = DSI_FIFO_OVERFLOW;
+			(void)cb_info.event_cb(cb_info.event_usr_ptr,
+						cb_info.event_idx,
+						dsi_ctrl->cell_index,
+						0, 0, 0, 0);
+			pr_err("dsi FIFO OVERFLOW error: 0x%lx\n", error);
+		}
 	}
 
 	/* DSI FIFO UNDERFLOW error */
-	if (error & 0xf00000) {
-		if (dsi_ctrl->hw.ops.clear_error_status)
-			dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
-					0xf00000);
+	if (error & 0xF00000) {
+		if (cb_info.event_cb) {
+			cb_info.event_idx = DSI_FIFO_UNDERFLOW;
+			(void)cb_info.event_cb(cb_info.event_usr_ptr,
+						cb_info.event_idx,
+						dsi_ctrl->cell_index,
+						0, 0, 0, 0);
+		}
+		pr_err("dsi FIFO UNDERFLOW error: 0x%lx\n", error);
 	}
 
 	/* DSI PLL UNLOCK error */
 	if (error & BIT(8))
-		if (dsi_ctrl->hw.ops.clear_error_status)
-			dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
-					BIT(8));
+		pr_err("dsi PLL unlock error: 0x%lx\n", error);
+
+	/* ACK error */
+	if (error & 0xF)
+		pr_err("ack error: 0x%lx\n", error);
+
+	/* enable back DSI interrupts */
+	if (dsi_ctrl->hw.ops.error_intr_ctrl)
+		dsi_ctrl->hw.ops.error_intr_ctrl(&dsi_ctrl->hw, true);
 }
 
 /**
@@ -2032,39 +2204,30 @@ static irqreturn_t dsi_ctrl_isr(int irq, void *ptr)
 	struct dsi_ctrl *dsi_ctrl;
 	struct dsi_event_cb_info cb_info;
 	unsigned long flags;
-	uint32_t cell_index, status, i;
-	uint64_t errors;
+	uint32_t status = 0x0, i;
+	uint64_t errors = 0x0;
 
 	if (!ptr)
 		return IRQ_NONE;
 	dsi_ctrl = ptr;
 
-	/* clear status interrupts */
+	/* check status interrupts */
 	if (dsi_ctrl->hw.ops.get_interrupt_status)
 		status = dsi_ctrl->hw.ops.get_interrupt_status(&dsi_ctrl->hw);
-	else
-		status = 0x0;
 
-	if (dsi_ctrl->hw.ops.clear_interrupt_status)
-		dsi_ctrl->hw.ops.clear_interrupt_status(&dsi_ctrl->hw, status);
-
-	spin_lock_irqsave(&dsi_ctrl->irq_info.irq_lock, flags);
-	cell_index = dsi_ctrl->cell_index;
-	spin_unlock_irqrestore(&dsi_ctrl->irq_info.irq_lock, flags);
-
-	/* clear error interrupts */
+	/* check error interrupts */
 	if (dsi_ctrl->hw.ops.get_error_status)
 		errors = dsi_ctrl->hw.ops.get_error_status(&dsi_ctrl->hw);
-	else
-		errors = 0x0;
 
-	if (errors) {
-		/* handle DSI error recovery */
+	/* clear interrupts */
+	if (dsi_ctrl->hw.ops.clear_interrupt_status)
+		dsi_ctrl->hw.ops.clear_interrupt_status(&dsi_ctrl->hw, 0x0);
+
+	SDE_EVT32_IRQ(dsi_ctrl->cell_index, status, errors);
+
+	/* handle DSI error recovery */
+	if (status & DSI_ERROR)
 		dsi_ctrl_handle_error_status(dsi_ctrl, errors);
-		if (dsi_ctrl->hw.ops.clear_error_status)
-			dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
-							errors);
-	}
 
 	if (status & DSI_CMD_MODE_DMA_DONE) {
 		dsi_ctrl_disable_status_interrupt(dsi_ctrl,
@@ -2085,9 +2248,16 @@ static irqreturn_t dsi_ctrl_isr(int irq, void *ptr)
 	}
 
 	if (status & DSI_BTA_DONE) {
+		u32 fifo_overflow_mask = (DSI_DLN0_HS_FIFO_OVERFLOW |
+					DSI_DLN1_HS_FIFO_OVERFLOW |
+					DSI_DLN2_HS_FIFO_OVERFLOW |
+					DSI_DLN3_HS_FIFO_OVERFLOW);
 		dsi_ctrl_disable_status_interrupt(dsi_ctrl,
 					DSI_SINT_BTA_DONE);
 		complete_all(&dsi_ctrl->irq_info.bta_done);
+		if (dsi_ctrl->hw.ops.clear_error_status)
+			dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
+					fifo_overflow_mask);
 	}
 
 	for (i = 0; status && i < DSI_STATUS_INTERRUPT_COUNT; ++i) {
@@ -2100,7 +2270,8 @@ static irqreturn_t dsi_ctrl_isr(int irq, void *ptr)
 			if (cb_info.event_cb)
 				(void)cb_info.event_cb(cb_info.event_usr_ptr,
 						cb_info.event_idx,
-						cell_index, irq, 0, 0, 0);
+						dsi_ctrl->cell_index,
+						irq, 0, 0, 0);
 		}
 		status >>= 1;
 	}
@@ -2113,7 +2284,7 @@ static irqreturn_t dsi_ctrl_isr(int irq, void *ptr)
  * @dsi_ctrl: Pointer to associated dsi_ctrl structure
  * Returns: Zero on success
  */
-static int dsi_ctrl_setup_isr(struct dsi_ctrl *dsi_ctrl)
+static int _dsi_ctrl_setup_isr(struct dsi_ctrl *dsi_ctrl)
 {
 	int irq_num, rc;
 
@@ -2252,6 +2423,7 @@ int dsi_ctrl_host_timing_update(struct dsi_ctrl *dsi_ctrl)
 /**
  * dsi_ctrl_host_init() - Initialize DSI host hardware.
  * @dsi_ctrl:        DSI controller handle.
+ * @is_splash_enabled:        boolean signifying splash status.
  *
  * Initializes DSI controller hardware with host configuration provided by
  * dsi_ctrl_update_host_config(). Initialization can be performed only during
@@ -2260,7 +2432,7 @@ int dsi_ctrl_host_timing_update(struct dsi_ctrl *dsi_ctrl)
  *
  * Return: error code.
  */
-int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl)
+int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl, bool is_splash_enabled)
 {
 	int rc = 0;
 
@@ -2277,41 +2449,63 @@ int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl)
 		goto error;
 	}
 
-	dsi_ctrl->hw.ops.setup_lane_map(&dsi_ctrl->hw,
+	/* For Splash usecases we omit hw operations as bootloader
+	 * already takes care of them
+	 */
+	if (!is_splash_enabled) {
+		dsi_ctrl->hw.ops.setup_lane_map(&dsi_ctrl->hw,
 					&dsi_ctrl->host_config.lane_map);
 
-	dsi_ctrl->hw.ops.host_setup(&dsi_ctrl->hw,
+		dsi_ctrl->hw.ops.host_setup(&dsi_ctrl->hw,
 				    &dsi_ctrl->host_config.common_config);
 
-	if (dsi_ctrl->host_config.panel_mode == DSI_OP_CMD_MODE) {
-		dsi_ctrl->hw.ops.cmd_engine_setup(&dsi_ctrl->hw,
+		if (dsi_ctrl->host_config.panel_mode == DSI_OP_CMD_MODE) {
+			dsi_ctrl->hw.ops.cmd_engine_setup(&dsi_ctrl->hw,
 					&dsi_ctrl->host_config.common_config,
 					&dsi_ctrl->host_config.u.cmd_engine);
 
-		dsi_ctrl->hw.ops.setup_cmd_stream(&dsi_ctrl->hw,
+			dsi_ctrl->hw.ops.setup_cmd_stream(&dsi_ctrl->hw,
 				&dsi_ctrl->host_config.video_timing,
 				dsi_ctrl->host_config.video_timing.h_active * 3,
 				0x0,
 				NULL);
-	} else {
-		dsi_ctrl->hw.ops.video_engine_setup(&dsi_ctrl->hw,
+		} else {
+			dsi_ctrl->hw.ops.video_engine_setup(&dsi_ctrl->hw,
 					&dsi_ctrl->host_config.common_config,
 					&dsi_ctrl->host_config.u.video_engine);
-		dsi_ctrl->hw.ops.set_video_timing(&dsi_ctrl->hw,
+			dsi_ctrl->hw.ops.set_video_timing(&dsi_ctrl->hw,
 					  &dsi_ctrl->host_config.video_timing);
+		}
 	}
 
-	dsi_ctrl_setup_isr(dsi_ctrl);
-
 	dsi_ctrl->hw.ops.enable_status_interrupts(&dsi_ctrl->hw, 0x0);
-	dsi_ctrl->hw.ops.enable_error_interrupts(&dsi_ctrl->hw, 0x0);
+	dsi_ctrl->hw.ops.enable_error_interrupts(&dsi_ctrl->hw, 0xFF00E0);
 
-	pr_debug("[DSI_%d]Host initialization complete\n",
-		dsi_ctrl->cell_index);
+	pr_debug("[DSI_%d]Host initialization complete, continuous splash status:%d\n",
+		dsi_ctrl->cell_index, is_splash_enabled);
 	dsi_ctrl_update_state(dsi_ctrl, DSI_CTRL_OP_HOST_INIT, 0x1);
 error:
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
 	return rc;
+}
+
+/**
+ * dsi_ctrl_isr_configure() - API to register/deregister dsi isr
+ * @dsi_ctrl:              DSI controller handle.
+ * @enable:		   variable to control register/deregister isr
+ */
+void dsi_ctrl_isr_configure(struct dsi_ctrl *dsi_ctrl, bool enable)
+{
+	if (!dsi_ctrl)
+		return;
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	if (enable)
+		_dsi_ctrl_setup_isr(dsi_ctrl);
+	else
+		_dsi_ctrl_destroy_isr(dsi_ctrl);
+
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
 }
 
 int dsi_ctrl_soft_reset(struct dsi_ctrl *dsi_ctrl)
@@ -2325,6 +2519,48 @@ int dsi_ctrl_soft_reset(struct dsi_ctrl *dsi_ctrl)
 
 	pr_debug("[DSI_%d]Soft reset complete\n", dsi_ctrl->cell_index);
 	return 0;
+}
+
+int dsi_ctrl_reset(struct dsi_ctrl *dsi_ctrl, int mask)
+{
+	int rc = 0;
+
+	if (!dsi_ctrl)
+		return -EINVAL;
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	rc = dsi_ctrl->hw.ops.ctrl_reset(&dsi_ctrl->hw, mask);
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
+
+	return rc;
+}
+
+int dsi_ctrl_get_hw_version(struct dsi_ctrl *dsi_ctrl)
+{
+	int rc = 0;
+
+	if (!dsi_ctrl)
+		return -EINVAL;
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	rc = dsi_ctrl->hw.ops.get_hw_version(&dsi_ctrl->hw);
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
+
+	return rc;
+}
+
+int dsi_ctrl_vid_engine_en(struct dsi_ctrl *dsi_ctrl, bool on)
+{
+	int rc = 0;
+
+	if (!dsi_ctrl)
+		return -EINVAL;
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	dsi_ctrl->hw.ops.video_engine_en(&dsi_ctrl->hw, on);
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
+
+	return rc;
 }
 
 /**
@@ -2346,8 +2582,6 @@ int dsi_ctrl_host_deinit(struct dsi_ctrl *dsi_ctrl)
 	}
 
 	mutex_lock(&dsi_ctrl->ctrl_lock);
-
-	_dsi_ctrl_destroy_isr(dsi_ctrl);
 
 	rc = dsi_ctrl_check_state(dsi_ctrl, DSI_CTRL_OP_HOST_INIT, 0x0);
 	if (rc) {
@@ -2528,6 +2762,9 @@ int dsi_ctrl_cmd_tx_trigger(struct dsi_ctrl *dsi_ctrl, u32 flags)
 		dsi_ctrl_wait_for_video_done(dsi_ctrl);
 		dsi_ctrl_enable_status_interrupt(dsi_ctrl,
 					DSI_SINT_CMD_MODE_DMA_DONE, NULL);
+		if (dsi_ctrl->hw.ops.mask_error_intr)
+			dsi_ctrl->hw.ops.mask_error_intr(&dsi_ctrl->hw,
+					BIT(DSI_FIFO_OVERFLOW), true);
 		reinit_completion(&dsi_ctrl->irq_info.cmd_dma_done);
 
 		/* trigger command */
@@ -2558,6 +2795,14 @@ int dsi_ctrl_cmd_tx_trigger(struct dsi_ctrl *dsi_ctrl, u32 flags)
 						dsi_ctrl->cell_index);
 			}
 		}
+		if (dsi_ctrl->hw.ops.mask_error_intr)
+			dsi_ctrl->hw.ops.mask_error_intr(&dsi_ctrl->hw,
+					BIT(DSI_FIFO_OVERFLOW), false);
+
+		if (flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
+			dsi_ctrl->hw.ops.soft_reset(&dsi_ctrl->hw);
+			dsi_ctrl->cmd_len = 0;
+		}
 	}
 
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
@@ -2584,6 +2829,43 @@ static void _dsi_ctrl_cache_misr(struct dsi_ctrl *dsi_ctrl)
 	pr_debug("DSI_%d misr_cache = %x\n", dsi_ctrl->cell_index,
 		dsi_ctrl->misr_cache);
 
+}
+
+/**
+ * dsi_ctrl_update_host_engine_state_for_cont_splash() -
+ *            set engine state for dsi controller during continuous splash
+ * @dsi_ctrl:          DSI controller handle.
+ * @state:             Engine state.
+ *
+ * Set host engine state for DSI controller during continuous splash.
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_update_host_engine_state_for_cont_splash(struct dsi_ctrl *dsi_ctrl,
+					enum dsi_engine_state state)
+{
+	int rc = 0;
+
+	if (!dsi_ctrl || (state >= DSI_CTRL_ENGINE_MAX)) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+
+	rc = dsi_ctrl_check_state(dsi_ctrl, DSI_CTRL_OP_HOST_ENGINE, state);
+	if (rc) {
+		pr_err("[DSI_%d] Controller state check failed, rc=%d\n",
+		       dsi_ctrl->cell_index, rc);
+		goto error;
+	}
+
+	pr_debug("[DSI_%d] Set host engine state = %d\n", dsi_ctrl->cell_index,
+		 state);
+	dsi_ctrl_update_state(dsi_ctrl, DSI_CTRL_OP_HOST_ENGINE, state);
+error:
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
+	return rc;
 }
 
 /**
@@ -2756,8 +3038,6 @@ int dsi_ctrl_set_cmd_engine_state(struct dsi_ctrl *dsi_ctrl,
 		return -EINVAL;
 	}
 
-	mutex_lock(&dsi_ctrl->ctrl_lock);
-
 	rc = dsi_ctrl_check_state(dsi_ctrl, DSI_CTRL_OP_CMD_ENGINE, state);
 	if (rc) {
 		pr_err("[DSI_%d] Controller state check failed, rc=%d\n",
@@ -2774,7 +3054,6 @@ int dsi_ctrl_set_cmd_engine_state(struct dsi_ctrl *dsi_ctrl,
 		 state);
 	dsi_ctrl_update_state(dsi_ctrl, DSI_CTRL_OP_CMD_ENGINE, state);
 error:
-	mutex_unlock(&dsi_ctrl->ctrl_lock);
 	return rc;
 }
 
@@ -2991,6 +3270,28 @@ u32 dsi_ctrl_collect_misr(struct dsi_ctrl *dsi_ctrl)
 		dsi_ctrl->cell_index, dsi_ctrl->misr_cache, misr);
 
 	return misr;
+}
+
+/**
+ * dsi_ctrl_irq_update() - Put a irq vote to process DSI error
+ *				interrupts at any time.
+ * @dsi_ctrl:              DSI controller handle.
+ * @enable:		   variable to enable/disable irq
+ */
+void dsi_ctrl_irq_update(struct dsi_ctrl *dsi_ctrl, bool enable)
+{
+	if (!dsi_ctrl)
+		return;
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	if (enable)
+		dsi_ctrl_enable_status_interrupt(dsi_ctrl,
+					DSI_SINT_ERROR, NULL);
+	else
+		dsi_ctrl_disable_status_interrupt(dsi_ctrl,
+					DSI_SINT_ERROR);
+
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
 }
 
 /**

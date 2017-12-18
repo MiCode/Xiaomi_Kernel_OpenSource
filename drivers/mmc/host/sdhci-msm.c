@@ -1900,6 +1900,8 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 	u32 *ice_clk_table = NULL;
 	enum of_gpio_flags flags = OF_GPIO_ACTIVE_LOW;
 	const char *lower_bus_speed = NULL;
+	int bus_clk_table_len;
+	u32 *bus_clk_table = NULL;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
@@ -1954,6 +1956,14 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 	}
 	pdata->sup_clk_table = clk_table;
 	pdata->sup_clk_cnt = clk_table_len;
+
+	if (!sdhci_msm_dt_get_array(dev, "qcom,bus-aggr-clk-rates",
+			&bus_clk_table, &bus_clk_table_len, 0)) {
+		if (bus_clk_table && bus_clk_table_len) {
+			pdata->bus_clk_table = bus_clk_table;
+			pdata->bus_clk_cnt = bus_clk_table_len;
+		}
+	}
 
 	if (msm_host->ice.pdev) {
 		if (sdhci_msm_dt_get_array(dev, "qcom,ice-clk-rates",
@@ -2962,6 +2972,34 @@ static unsigned int sdhci_msm_get_sup_clk_rate(struct sdhci_host *host,
 	return sel_clk;
 }
 
+static long sdhci_msm_get_bus_aggr_clk_rate(struct sdhci_host *host,
+						u32 apps_clk)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	long sel_clk = -1;
+	unsigned char cnt;
+
+	if (msm_host->pdata->bus_clk_cnt != msm_host->pdata->sup_clk_cnt) {
+		pr_err("%s: %s: mismatch between bus_clk_cnt(%u) and apps_clk_cnt(%u)\n",
+				mmc_hostname(host->mmc), __func__,
+				(unsigned int)msm_host->pdata->bus_clk_cnt,
+				(unsigned int)msm_host->pdata->sup_clk_cnt);
+		return msm_host->pdata->bus_clk_table[0];
+	}
+	if (apps_clk == sdhci_msm_get_min_clock(host)) {
+		sel_clk = msm_host->pdata->bus_clk_table[0];
+		return sel_clk;
+	}
+
+	for (cnt = 0; cnt < msm_host->pdata->bus_clk_cnt; cnt++) {
+		if (msm_host->pdata->sup_clk_table[cnt] > apps_clk)
+			break;
+		sel_clk = msm_host->pdata->bus_clk_table[cnt];
+	}
+	return sel_clk;
+}
+
 static void sdhci_msm_registers_save(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -3251,6 +3289,7 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 	struct mmc_card *card = host->mmc->card;
 	struct mmc_ios	curr_ios = host->mmc->ios;
 	u32 sup_clock, ddr_clock, dll_lock;
+	long bus_clk_rate;
 	bool curr_pwrsave;
 
 	if (!clock) {
@@ -3404,6 +3443,26 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 		}
 		msm_host->clk_rate = sup_clock;
 		host->clock = clock;
+
+		if (!IS_ERR(msm_host->bus_aggr_clk) &&
+				msm_host->pdata->bus_clk_cnt) {
+			bus_clk_rate = sdhci_msm_get_bus_aggr_clk_rate(host,
+					sup_clock);
+			if (bus_clk_rate >= 0) {
+				rc = clk_set_rate(msm_host->bus_aggr_clk,
+						bus_clk_rate);
+				if (rc) {
+					pr_err("%s: %s: Failed to set rate %ld for bus-aggr-clk : %d\n",
+						mmc_hostname(host->mmc),
+						__func__, bus_clk_rate, rc);
+					goto out;
+				}
+			} else {
+				pr_err("%s: %s: Unsupported apps clk rate %u for bus-aggr-clk, err: %ld\n",
+					mmc_hostname(host->mmc), __func__,
+					sup_clock, bus_clk_rate);
+			}
+		}
 
 		/* Configure pinctrl drive type according to
 		 * current clock rate

@@ -80,11 +80,23 @@ static int cam_jpeg_mgr_process_irq(void *priv, void *data)
 
 	dev_type = ctx_data->jpeg_dev_acquire_info.dev_type;
 
+	mutex_lock(&g_jpeg_hw_mgr.hw_mgr_mutex);
+
+	p_cfg_req = hw_mgr->dev_hw_cfg_args[dev_type][0];
+
+	if (hw_mgr->device_in_use[dev_type][0] == false ||
+		p_cfg_req == NULL) {
+		CAM_ERR(CAM_JPEG, "irq for old request %d", rc);
+		mutex_unlock(&g_jpeg_hw_mgr.hw_mgr_mutex);
+		return -EINVAL;
+	}
+
 	irq_cb.jpeg_hw_mgr_cb = cam_jpeg_hw_mgr_cb;
 	irq_cb.data = NULL;
 	irq_cb.b_set_cb = false;
 	if (!hw_mgr->devices[dev_type][0]->hw_ops.process_cmd) {
 		CAM_ERR(CAM_JPEG, "process_cmd null ");
+		mutex_unlock(&g_jpeg_hw_mgr.hw_mgr_mutex);
 		return -EINVAL;
 	}
 	rc = hw_mgr->devices[dev_type][0]->hw_ops.process_cmd(
@@ -93,6 +105,7 @@ static int cam_jpeg_mgr_process_irq(void *priv, void *data)
 		&irq_cb, sizeof(irq_cb));
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "CMD_SET_IRQ_CB failed %d", rc);
+		mutex_unlock(&g_jpeg_hw_mgr.hw_mgr_mutex);
 		return rc;
 	}
 
@@ -103,9 +116,7 @@ static int cam_jpeg_mgr_process_irq(void *priv, void *data)
 			CAM_ERR(CAM_JPEG, "Failed to Deinit %d HW", dev_type);
 	}
 
-	mutex_lock(&g_jpeg_hw_mgr.hw_mgr_mutex);
 	hw_mgr->device_in_use[dev_type][0] = false;
-	p_cfg_req = hw_mgr->dev_hw_cfg_args[dev_type][0];
 	hw_mgr->dev_hw_cfg_args[dev_type][0] = NULL;
 	mutex_unlock(&g_jpeg_hw_mgr.hw_mgr_mutex);
 
@@ -166,7 +177,6 @@ static int cam_jpeg_mgr_process_irq(void *priv, void *data)
 	ctx_data->ctxt_event_cb(ctx_data->context_priv, 0, &buf_data);
 
 	list_add_tail(&p_cfg_req->list, &hw_mgr->free_req_list);
-
 
 	return rc;
 }
@@ -319,8 +329,11 @@ static int cam_jpeg_mgr_process_cmd(void *priv, void *data)
 		return -EINVAL;
 	}
 
+	mutex_lock(&hw_mgr->hw_mgr_mutex);
+
 	if (list_empty(&hw_mgr->hw_config_req_list)) {
 		CAM_DBG(CAM_JPEG, "no available request");
+		mutex_unlock(&hw_mgr->hw_mgr_mutex);
 		rc = -EFAULT;
 		goto end;
 	}
@@ -329,11 +342,11 @@ static int cam_jpeg_mgr_process_cmd(void *priv, void *data)
 		struct cam_jpeg_hw_cfg_req, list);
 	if (!p_cfg_req) {
 		CAM_ERR(CAM_JPEG, "no request");
+		mutex_unlock(&hw_mgr->hw_mgr_mutex);
 		rc = -EFAULT;
 		goto end;
 	}
 
-	mutex_lock(&hw_mgr->hw_mgr_mutex);
 	if (false == hw_mgr->device_in_use[p_cfg_req->dev_type][0]) {
 		hw_mgr->device_in_use[p_cfg_req->dev_type][0] = true;
 		hw_mgr->dev_hw_cfg_args[p_cfg_req->dev_type][0] = p_cfg_req;
@@ -344,6 +357,7 @@ static int cam_jpeg_mgr_process_cmd(void *priv, void *data)
 		rc = -EFAULT;
 		goto end;
 	}
+
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
 	config_args = (struct cam_hw_config_args *)&p_cfg_req->hw_cfg_args;
@@ -464,7 +478,7 @@ static int cam_jpeg_mgr_process_cmd(void *priv, void *data)
 		hw_mgr->devices[dev_type][0]->hw_priv,
 		NULL, 0);
 	if (rc) {
-		CAM_ERR(CAM_JPEG, "Failed to apply the configs %d",
+		CAM_ERR(CAM_JPEG, "Failed to start hw %d",
 			rc);
 		goto end_callcb;
 	}
@@ -553,12 +567,12 @@ static int cam_jpeg_mgr_config_hw(void *hw_mgr_priv, void *config_hw_args)
 		goto err_after_dq_free_list;
 	}
 
-	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
 	task_data = (struct cam_jpeg_process_frame_work_data_t *)
 		task->payload;
 	if (!task_data) {
 		CAM_ERR(CAM_JPEG, "task_data is NULL");
+		mutex_unlock(&hw_mgr->hw_mgr_mutex);
 		rc = -EINVAL;
 		goto err_after_dq_free_list;
 	}
@@ -567,6 +581,7 @@ static int cam_jpeg_mgr_config_hw(void *hw_mgr_priv, void *config_hw_args)
 		p_cfg_req->hw_cfg_args.num_hw_update_entries);
 
 	list_add_tail(&p_cfg_req->list, &hw_mgr->hw_config_req_list);
+	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
 	task_data->data = (void *)(int64_t)p_cfg_req->dev_type;
 	task_data->request_id = request_id;
@@ -715,6 +730,88 @@ static int cam_jpeg_mgr_prepare_hw_update(void *hw_mgr_priv,
 
 	CAM_DBG(CAM_JPEG, "will wait on input sync sync_id %d",
 		prepare_args->in_map_entries[0].sync_id);
+
+	return rc;
+}
+
+static int cam_jpeg_mgr_flush(void *hw_mgr_priv,
+	struct cam_jpeg_hw_ctx_data *ctx_data)
+{
+	int rc = 0;
+	struct cam_jpeg_hw_mgr *hw_mgr = hw_mgr_priv;
+	uint32_t dev_type;
+	struct cam_jpeg_hw_cfg_req *p_cfg_req = NULL;
+	struct cam_jpeg_hw_cfg_req *cfg_req, *req_temp;
+
+	if (!hw_mgr || !ctx_data) {
+		CAM_ERR(CAM_JPEG, "Invalid args");
+		return -EINVAL;
+	}
+
+	dev_type = ctx_data->jpeg_dev_acquire_info.dev_type;
+
+	p_cfg_req = hw_mgr->dev_hw_cfg_args[dev_type][0];
+	if (hw_mgr->device_in_use[dev_type][0] == true &&
+		p_cfg_req != NULL) {
+		if ((struct cam_jpeg_hw_ctx_data *)p_cfg_req->
+		hw_cfg_args.ctxt_to_hw_map == ctx_data) {
+			/* stop reset Unregister CB and deinit */
+			if (hw_mgr->devices[dev_type][0]->hw_ops.stop) {
+				rc = hw_mgr->devices[dev_type][0]->hw_ops.stop(
+					hw_mgr->devices[dev_type][0]->hw_priv,
+					NULL, 0);
+				if (rc)
+					CAM_ERR(CAM_JPEG, "stop fail %d", rc);
+			} else {
+				CAM_ERR(CAM_JPEG, "op stop null ");
+				rc = -EINVAL;
+			}
+		}
+
+		hw_mgr->device_in_use[dev_type][0] = false;
+		p_cfg_req = hw_mgr->dev_hw_cfg_args[dev_type][0];
+		hw_mgr->dev_hw_cfg_args[dev_type][0] = NULL;
+	}
+
+	list_for_each_entry_safe(cfg_req, req_temp,
+		&hw_mgr->hw_config_req_list, list) {
+		if ((struct cam_jpeg_hw_ctx_data *)cfg_req->
+			hw_cfg_args.ctxt_to_hw_map != ctx_data)
+			continue;
+
+		CAM_INFO(CAM_JPEG, "deleting req %pK", cfg_req);
+		list_del_init(&cfg_req->list);
+	}
+
+	return rc;
+}
+
+static int cam_jpeg_mgr_hw_stop(void *hw_mgr_priv, void *stop_hw_args)
+{
+	int rc;
+	struct cam_hw_stop_args *stop_args =
+		(struct cam_hw_stop_args *)stop_hw_args;
+	struct cam_jpeg_hw_mgr *hw_mgr = hw_mgr_priv;
+	struct cam_jpeg_hw_ctx_data *ctx_data = NULL;
+
+	if (!hw_mgr || !stop_args || !stop_args->ctxt_to_hw_map) {
+		CAM_ERR(CAM_JPEG, "Invalid args");
+		return -EINVAL;
+	}
+	mutex_lock(&hw_mgr->hw_mgr_mutex);
+
+	ctx_data = (struct cam_jpeg_hw_ctx_data *)stop_args->ctxt_to_hw_map;
+	if (!ctx_data->in_use) {
+		CAM_ERR(CAM_JPEG, "ctx is not in use");
+		mutex_unlock(&hw_mgr->hw_mgr_mutex);
+		return -EINVAL;
+	}
+
+	rc = cam_jpeg_mgr_flush(hw_mgr_priv, ctx_data);
+	if ((rc))
+		CAM_ERR(CAM_JPEG, "flush failed %d", rc);
+
+	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
 	return rc;
 }
@@ -1184,6 +1281,7 @@ int cam_jpeg_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl)
 	hw_mgr_intf->hw_release = cam_jpeg_mgr_release_hw;
 	hw_mgr_intf->hw_prepare_update = cam_jpeg_mgr_prepare_hw_update;
 	hw_mgr_intf->hw_config = cam_jpeg_mgr_config_hw;
+	hw_mgr_intf->hw_stop = cam_jpeg_mgr_hw_stop;
 
 	mutex_init(&g_jpeg_hw_mgr.hw_mgr_mutex);
 	spin_lock_init(&g_jpeg_hw_mgr.hw_mgr_lock);

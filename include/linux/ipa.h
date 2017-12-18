@@ -117,6 +117,19 @@ enum hdr_total_len_or_pad_type {
 };
 
 /**
+* enum ipa_vlan_ifaces - vlan interfaces types
+* @IPA_VLAN_IF_EMAC: used for EMAC ethernet device
+* @IPA_VLAN_IF_RNDIS: used for RNDIS USB device
+* @IPA_VLAN_IF_ECM: used for ECM USB device
+*/
+enum ipa_vlan_ifaces {
+	IPA_VLAN_IF_EMAC,
+	IPA_VLAN_IF_RNDIS,
+	IPA_VLAN_IF_ECM,
+	IPA_VLAN_IF_MAX
+};
+
+/**
  * struct ipa_ep_cfg_nat - NAT configuration in IPA end-point
  * @nat_en:	This defines the default NAT mode for the pipe: in case of
  *		filter miss - the default NAT mode defines the NATing operation
@@ -1175,6 +1188,28 @@ struct ipa_tz_unlock_reg_info {
 	u64 size;
 };
 
+/**
+ * struct  ipa_smmu_in_params - information provided from client
+ * @ipa_smmu_client_type: clinet requesting for the smmu info.
+ */
+
+enum ipa_smmu_client_type {
+	IPA_SMMU_WLAN_CLIENT,
+	IPA_SMMU_CLIENT_MAX
+};
+
+struct ipa_smmu_in_params {
+	enum ipa_smmu_client_type smmu_client;
+};
+
+/**
+ * struct  ipa_smmu_out_params - information provided to IPA client
+ * @ipa_smmu_s1_enable: IPA S1 SMMU enable/disable status
+ */
+struct ipa_smmu_out_params {
+	bool smmu_enable;
+};
+
 #if defined CONFIG_IPA || defined CONFIG_IPA3
 
 /*
@@ -1563,7 +1598,18 @@ int ipa_register_ipa_ready_cb(void (*ipa_ready_cb)(void *user_data),
  * Returns: 0 on success, negative on failure
  */
 int ipa_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs);
-
+int ipa_get_smmu_params(struct ipa_smmu_in_params *in,
+	struct ipa_smmu_out_params *out);
+/**
+ * ipa_is_vlan_mode - check if a LAN driver should load in VLAN mode
+ * @iface - type of vlan capable device
+ * @res - query result: true for vlan mode, false for non vlan mode
+ *
+ * API must be called after ipa_is_ready() returns true, otherwise it will fail
+ *
+ * Returns: 0 on success, negative on failure
+ */
+int ipa_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res);
 #else /* (CONFIG_IPA || CONFIG_IPA3) */
 
 /*
@@ -2351,6 +2397,17 @@ static inline int ipa_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info,
 	return -EPERM;
 }
 
+
+static inline int ipa_get_smmu_params(struct ipa_smmu_in_params *in,
+	struct ipa_smmu_out_params *out)
+{
+	return -EPERM;
+}
+
+static inline int ipa_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res)
+{
+	return -EPERM;
+}
 #endif /* (CONFIG_IPA || CONFIG_IPA3) */
 
 #endif /* _IPA_H_ */

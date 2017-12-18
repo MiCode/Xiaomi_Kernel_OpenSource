@@ -304,11 +304,18 @@ static inline int get_bufs_outside_fw(struct msm_vidc_inst *inst)
 		 */
 
 		if (inst->session_type == MSM_VIDC_DECODER) {
+			struct vb2_v4l2_buffer *vbuf = NULL;
+
 			q = &inst->bufq[CAPTURE_PORT].vb2_bufq;
 			for (i = 0; i < q->num_buffers; i++) {
 				vb = q->bufs[i];
-				if (vb && vb->state != VB2_BUF_STATE_ACTIVE &&
-						vb->planes[0].bytesused)
+				if (!vb)
+					continue;
+				vbuf = to_vb2_v4l2_buffer(vb);
+				if (vbuf &&
+					vb->state != VB2_BUF_STATE_ACTIVE &&
+					!(vbuf->flags &
+						V4L2_QCOM_BUF_FLAG_DECODEONLY))
 					fw_out_qsize++;
 			}
 		} else {
@@ -633,8 +640,8 @@ static int msm_vidc_set_clocks(struct msm_vidc_core *core)
 		else if (temp->clk_data.core_id == VIDC_CORE_ID_2)
 			freq_core_2 += temp->clk_data.min_freq;
 		else if (temp->clk_data.core_id == VIDC_CORE_ID_3) {
-			freq_core_1 += temp->clk_data.min_freq / 2;
-			freq_core_2 += temp->clk_data.min_freq / 2;
+			freq_core_1 += temp->clk_data.min_freq;
+			freq_core_2 += temp->clk_data.min_freq;
 		}
 
 		freq_core_max = max_t(unsigned long, freq_core_1, freq_core_2);

@@ -368,6 +368,7 @@ struct usbpd {
 
 	enum usbpd_state	current_state;
 	bool			hard_reset_recvd;
+	ktime_t			hard_reset_recvd_time;
 	struct list_head	rx_q;
 	spinlock_t		rx_lock;
 	struct rx_msg		*rx_ext_msg;
@@ -475,6 +476,21 @@ enum plug_orientation usbpd_get_plug_orientation(struct usbpd *pd)
 	return val.intval;
 }
 EXPORT_SYMBOL(usbpd_get_plug_orientation);
+
+static unsigned int get_connector_type(struct usbpd *pd)
+{
+	int ret;
+	union power_supply_propval val;
+
+	ret = power_supply_get_property(pd->usb_psy,
+		POWER_SUPPLY_PROP_CONNECTOR_TYPE, &val);
+
+	if (ret) {
+		dev_err(&pd->dev, "Unable to read CONNECTOR TYPE: %d\n", ret);
+		return ret;
+	}
+	return val.intval;
+}
 
 static inline void stop_usb_host(struct usbpd *pd)
 {
@@ -613,6 +629,9 @@ static int pd_send_msg(struct usbpd *pd, u8 msg_type, const u32 *data,
 {
 	int ret;
 	u16 hdr;
+
+	if (pd->hard_reset_recvd)
+		return -EBUSY;
 
 	hdr = PD_MSG_HDR(msg_type, pd->current_dr, pd->current_pr,
 			pd->tx_msgid, num_data, pd->spec_rev);
@@ -805,11 +824,13 @@ static void phy_sig_received(struct usbpd *pd, enum pd_sig_type sig)
 		return;
 	}
 
-	usbpd_dbg(&pd->dev, "hard reset received\n");
+	pd->hard_reset_recvd = true;
+	pd->hard_reset_recvd_time = ktime_get();
+
+	usbpd_err(&pd->dev, "hard reset received\n");
 
 	/* Force CC logic to source/sink to keep Rp/Rd unchanged */
 	set_power_role(pd, pd->current_pr);
-	pd->hard_reset_recvd = true;
 	power_supply_set_property(pd->usb_psy,
 			POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
 
@@ -888,7 +909,7 @@ static struct rx_msg *pd_ext_msg_received(struct usbpd *pd, u16 header, u8 *buf,
 		/* allocate new message if first chunk */
 		rx_msg = kzalloc(sizeof(*rx_msg) +
 				PD_MSG_EXT_HDR_DATA_SIZE(ext_hdr),
-				GFP_KERNEL);
+				GFP_ATOMIC);
 		if (!rx_msg)
 			return NULL;
 
@@ -941,7 +962,7 @@ static struct rx_msg *pd_ext_msg_received(struct usbpd *pd, u16 header, u8 *buf,
 
 		pd->rx_ext_msg = rx_msg;
 
-		req = kzalloc(sizeof(*req), GFP_KERNEL);
+		req = kzalloc(sizeof(*req), GFP_ATOMIC);
 		if (!req)
 			goto queue_rx; /* return what we have anyway */
 
@@ -1015,7 +1036,7 @@ static void phy_msg_received(struct usbpd *pd, enum pd_sop_type sop,
 			PD_MSG_HDR_TYPE(header), PD_MSG_HDR_COUNT(header));
 
 	if (!PD_MSG_HDR_IS_EXTENDED(header)) {
-		rx_msg = kzalloc(sizeof(*rx_msg) + len, GFP_KERNEL);
+		rx_msg = kzalloc(sizeof(*rx_msg) + len, GFP_ATOMIC);
 		if (!rx_msg)
 			return;
 
@@ -1073,6 +1094,9 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 	union power_supply_propval val = {0};
 	unsigned long flags;
 	int ret;
+
+	if (pd->hard_reset_recvd) /* let usbpd_sm handle it */
+		return;
 
 	usbpd_dbg(&pd->dev, "%s -> %s\n",
 			usbpd_state_strings[pd->current_state],
@@ -2044,8 +2068,13 @@ static void usbpd_sm(struct work_struct *w)
 		if (pd->current_pr == PR_SINK) {
 			usbpd_set_state(pd, PE_SNK_TRANSITION_TO_DEFAULT);
 		} else {
+			s64 delta = ktime_ms_delta(ktime_get(),
+					pd->hard_reset_recvd_time);
 			pd->current_state = PE_SRC_TRANSITION_TO_DEFAULT;
-			kick_sm(pd, PS_HARD_RESET_TIME);
+			if (delta >= PS_HARD_RESET_TIME)
+				kick_sm(pd, 0);
+			else
+				kick_sm(pd, PS_HARD_RESET_TIME - (int)delta);
 		}
 
 		goto sm_done;
@@ -2070,7 +2099,6 @@ static void usbpd_sm(struct work_struct *w)
 		if (pd->current_pr == PR_SINK) {
 			usbpd_set_state(pd, PE_SNK_STARTUP);
 		} else if (pd->current_pr == PR_SRC) {
-			enable_vbus(pd);
 			if (!pd->vconn_enabled &&
 					pd->typec_mode ==
 					POWER_SUPPLY_TYPEC_SINK_POWERED_CABLE) {
@@ -2080,6 +2108,7 @@ static void usbpd_sm(struct work_struct *w)
 				else
 					pd->vconn_enabled = true;
 			}
+			enable_vbus(pd);
 
 			usbpd_set_state(pd, PE_SRC_STARTUP);
 		}
@@ -3892,6 +3921,11 @@ struct usbpd *usbpd_create(struct device *parent)
 		goto destroy_wq;
 	}
 
+	if (get_connector_type(pd) == POWER_SUPPLY_CONNECTOR_MICRO_USB) {
+		usbpd_dbg(&pd->dev, "USB connector is microAB hence failing pdphy_probe\n");
+		ret = -EINVAL;
+		goto put_psy;
+	}
 	/*
 	 * associate extcon with the parent dev as it could have a DT
 	 * node which will be useful for extcon_get_edev_by_phandle()

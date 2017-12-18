@@ -50,6 +50,40 @@ struct cam_a5_device_hw_info cam_a5_hw_info = {
 };
 EXPORT_SYMBOL(cam_a5_hw_info);
 
+static bool cam_a5_cpas_cb(uint32_t client_handle, void *userdata,
+	struct cam_cpas_irq_data *irq_data)
+{
+	bool error_handled = false;
+
+	if (!irq_data)
+		return error_handled;
+
+	switch (irq_data->irq_type) {
+	case CAM_CAMNOC_IRQ_IPE_BPS_UBWC_DECODE_ERROR:
+		CAM_ERR_RATE_LIMIT(CAM_ICP,
+			"IPE/BPS UBWC Decode error type=%d status=%x thr_err=%d, fcl_err=%d, len_md_err=%d, format_err=%d",
+			irq_data->irq_type,
+			irq_data->u.dec_err.decerr_status.value,
+			irq_data->u.dec_err.decerr_status.thr_err,
+			irq_data->u.dec_err.decerr_status.fcl_err,
+			irq_data->u.dec_err.decerr_status.len_md_err,
+			irq_data->u.dec_err.decerr_status.format_err);
+		error_handled = true;
+		break;
+	case CAM_CAMNOC_IRQ_IPE_BPS_UBWC_ENCODE_ERROR:
+		CAM_ERR_RATE_LIMIT(CAM_ICP,
+			"IPE/BPS UBWC Encode error type=%d status=%x",
+			irq_data->irq_type,
+			irq_data->u.enc_err.encerr_status.value);
+		error_handled = true;
+		break;
+	default:
+		break;
+	}
+
+	return error_handled;
+}
+
 int cam_a5_register_cpas(struct cam_hw_soc_info *soc_info,
 			struct cam_a5_device_core_info *core_info,
 			uint32_t hw_idx)
@@ -59,7 +93,7 @@ int cam_a5_register_cpas(struct cam_hw_soc_info *soc_info,
 
 	cpas_register_params.dev = &soc_info->pdev->dev;
 	memcpy(cpas_register_params.identifier, "icp", sizeof("icp"));
-	cpas_register_params.cam_cpas_client_cb = NULL;
+	cpas_register_params.cam_cpas_client_cb = cam_a5_cpas_cb;
 	cpas_register_params.cell_index = hw_idx;
 	cpas_register_params.userdata = NULL;
 

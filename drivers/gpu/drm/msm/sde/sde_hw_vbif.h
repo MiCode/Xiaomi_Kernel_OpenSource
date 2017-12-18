@@ -111,6 +111,12 @@ struct sde_hw_vbif {
 
 	/* ops */
 	struct sde_hw_vbif_ops ops;
+
+	/*
+	 * vbif is common across all displays, lock to serialize access.
+	 * must be take by client before using any ops
+	 */
+	struct mutex mutex;
 };
 
 /**

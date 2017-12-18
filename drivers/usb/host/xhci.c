@@ -138,7 +138,13 @@ static int xhci_start(struct xhci_hcd *xhci)
 {
 	u32 temp;
 	int ret;
+	struct usb_hcd *hcd = xhci_to_hcd(xhci);
 
+	/*
+	 * disable irq to avoid xhci_irq flooding due to unhandeled port
+	 * change event in halt state, as soon as xhci_start clears halt bit
+	 */
+	disable_irq(hcd->irq);
 	temp = readl(&xhci->op_regs->command);
 	temp |= (CMD_RUN);
 	xhci_dbg_trace(xhci, trace_xhci_dbg_init, "// Turn on HC, cmd = 0x%x.",
@@ -158,6 +164,8 @@ static int xhci_start(struct xhci_hcd *xhci)
 	if (!ret)
 		/* clear state flags. Including dying, halted or removing */
 		xhci->xhc_state = 0;
+
+	enable_irq(hcd->irq);
 
 	return ret;
 }
@@ -5045,6 +5053,61 @@ int xhci_get_core_id(struct usb_hcd *hcd)
 	return xhci->core_id;
 }
 
+static int  xhci_stop_endpoint(struct usb_hcd *hcd,
+	struct usb_device *udev, struct usb_host_endpoint *ep)
+{
+	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
+	unsigned int ep_index;
+	struct xhci_virt_device *virt_dev;
+	struct xhci_command *cmd;
+	unsigned long flags;
+	int ret = 0;
+
+	cmd = xhci_alloc_command(xhci, false, true, GFP_NOIO);
+	if (!cmd)
+		return -ENOMEM;
+
+	spin_lock_irqsave(&xhci->lock, flags);
+	virt_dev = xhci->devs[udev->slot_id];
+	if (!virt_dev) {
+		ret = -ENODEV;
+		goto err;
+	}
+
+	ep_index = xhci_get_endpoint_index(&ep->desc);
+	if (virt_dev->eps[ep_index].ring &&
+			virt_dev->eps[ep_index].ring->dequeue) {
+		ret = xhci_queue_stop_endpoint(xhci, cmd, udev->slot_id,
+				ep_index, 0);
+		if (ret)
+			goto err;
+
+		xhci_ring_cmd_db(xhci);
+		spin_unlock_irqrestore(&xhci->lock, flags);
+
+		/* Wait for stop endpoint command to finish */
+		wait_for_completion(cmd->completion);
+
+		if (cmd->status == COMP_CMD_ABORT ||
+				cmd->status == COMP_CMD_STOP) {
+			xhci_warn(xhci,
+				"stop endpoint command timeout for ep%d%s\n",
+				usb_endpoint_num(&ep->desc),
+				usb_endpoint_dir_in(&ep->desc) ? "in" : "out");
+			ret = -ETIME;
+		}
+		goto free_cmd;
+	}
+
+err:
+	spin_unlock_irqrestore(&xhci->lock, flags);
+free_cmd:
+	xhci_free_command(xhci, cmd);
+	return ret;
+}
+
+
+
 static const struct hc_driver xhci_hc_driver = {
 	.description =		"xhci-hcd",
 	.product_desc =		"xHCI Host Controller",
@@ -5109,6 +5172,7 @@ static const struct hc_driver xhci_hc_driver = {
 	.get_sec_event_ring_phys_addr =	xhci_get_sec_event_ring_phys_addr,
 	.get_xfer_ring_phys_addr =	xhci_get_xfer_ring_phys_addr,
 	.get_core_id =			xhci_get_core_id,
+	.stop_endpoint =		xhci_stop_endpoint,
 };
 
 void xhci_init_driver(struct hc_driver *drv,

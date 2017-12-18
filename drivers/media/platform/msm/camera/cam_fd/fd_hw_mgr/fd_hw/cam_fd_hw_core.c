@@ -127,7 +127,7 @@ static int cam_fd_hw_util_fdwrapper_sync_reset(struct cam_hw_info *fd_hw)
 	time_left = wait_for_completion_timeout(&fd_core->reset_complete,
 		msecs_to_jiffies(CAM_FD_HW_HALT_RESET_TIMEOUT));
 	if (time_left <= 0)
-		CAM_WARN(CAM_FD, "HW reset timeout time_left=%d", time_left);
+		CAM_WARN(CAM_FD, "HW reset timeout time_left=%ld", time_left);
 
 	CAM_DBG(CAM_FD, "FD Wrapper SW Sync Reset complete");
 
@@ -157,7 +157,7 @@ static int cam_fd_hw_util_fdwrapper_halt(struct cam_hw_info *fd_hw)
 	time_left = wait_for_completion_timeout(&fd_core->halt_complete,
 		msecs_to_jiffies(CAM_FD_HW_HALT_RESET_TIMEOUT));
 	if (time_left <= 0)
-		CAM_WARN(CAM_FD, "HW halt timeout time_left=%d", time_left);
+		CAM_WARN(CAM_FD, "HW halt timeout time_left=%ld", time_left);
 
 	CAM_DBG(CAM_FD, "FD Wrapper Halt complete");
 
@@ -643,6 +643,7 @@ int cam_fd_hw_init(void *hw_priv, void *init_hw_args, uint32_t arg_size)
 	struct cam_fd_hw_init_args *init_args =
 		(struct cam_fd_hw_init_args *)init_hw_args;
 	int rc = 0;
+	unsigned long flags;
 
 	if (!fd_hw || !init_args) {
 		CAM_ERR(CAM_FD, "Invalid argument %pK %pK", fd_hw, init_args);
@@ -650,7 +651,7 @@ int cam_fd_hw_init(void *hw_priv, void *init_hw_args, uint32_t arg_size)
 	}
 
 	if (arg_size != sizeof(struct cam_fd_hw_init_args)) {
-		CAM_ERR(CAM_FD, "Invalid arg size %d, %d", arg_size,
+		CAM_ERR(CAM_FD, "Invalid arg size %u, %lu", arg_size,
 			sizeof(struct cam_fd_hw_init_args));
 		return -EINVAL;
 	}
@@ -671,6 +672,11 @@ int cam_fd_hw_init(void *hw_priv, void *init_hw_args, uint32_t arg_size)
 		goto unlock_return;
 	}
 
+	spin_lock_irqsave(&fd_core->spin_lock, flags);
+	fd_hw->hw_state = CAM_HW_STATE_POWER_UP;
+	fd_core->core_state = CAM_FD_CORE_STATE_IDLE;
+	spin_unlock_irqrestore(&fd_core->spin_lock, flags);
+
 	rc = cam_fd_hw_reset(hw_priv, NULL, 0);
 	if (rc) {
 		CAM_ERR(CAM_FD, "Reset Failed, rc=%d", rc);
@@ -678,9 +684,6 @@ int cam_fd_hw_init(void *hw_priv, void *init_hw_args, uint32_t arg_size)
 	}
 
 	cam_fd_hw_util_enable_power_on_settings(fd_hw);
-
-	fd_hw->hw_state = CAM_HW_STATE_POWER_UP;
-	fd_core->core_state = CAM_FD_CORE_STATE_IDLE;
 
 cdm_streamon:
 	fd_hw->open_count++;
@@ -707,6 +710,11 @@ cdm_streamon:
 disable_soc:
 	if (cam_fd_soc_disable_resources(&fd_hw->soc_info))
 		CAM_ERR(CAM_FD, "Error in disable soc resources");
+
+	spin_lock_irqsave(&fd_core->spin_lock, flags);
+	fd_hw->hw_state = CAM_HW_STATE_POWER_DOWN;
+	fd_core->core_state = CAM_FD_CORE_STATE_POWERDOWN;
+	spin_unlock_irqrestore(&fd_core->spin_lock, flags);
 unlock_return:
 	mutex_unlock(&fd_hw->hw_mutex);
 	return rc;
@@ -719,6 +727,7 @@ int cam_fd_hw_deinit(void *hw_priv, void *deinit_hw_args, uint32_t arg_size)
 	struct cam_fd_hw_deinit_args *deinit_args =
 		(struct cam_fd_hw_deinit_args *)deinit_hw_args;
 	int rc = 0;
+	unsigned long flags;
 
 	if (!fd_hw || !deinit_hw_args) {
 		CAM_ERR(CAM_FD, "Invalid argument");
@@ -726,7 +735,7 @@ int cam_fd_hw_deinit(void *hw_priv, void *deinit_hw_args, uint32_t arg_size)
 	}
 
 	if (arg_size != sizeof(struct cam_fd_hw_deinit_args)) {
-		CAM_ERR(CAM_FD, "Invalid arg size %d, %d", arg_size,
+		CAM_ERR(CAM_FD, "Invalid arg size %u, %lu", arg_size,
 			sizeof(struct cam_fd_hw_deinit_args));
 		return -EINVAL;
 	}
@@ -756,8 +765,9 @@ int cam_fd_hw_deinit(void *hw_priv, void *deinit_hw_args, uint32_t arg_size)
 	/* With the ref_cnt correct, this should never happen */
 	WARN_ON(!fd_core);
 
+	spin_lock_irqsave(&fd_core->spin_lock, flags);
 	fd_core->core_state = CAM_FD_CORE_STATE_POWERDOWN;
-
+	spin_unlock_irqrestore(&fd_core->spin_lock, flags);
 positive_ref_cnt:
 	if (deinit_args->ctx_hw_private) {
 		struct cam_fd_ctx_hw_private *ctx_hw_private =
@@ -794,7 +804,8 @@ int cam_fd_hw_reset(void *hw_priv, void *reset_core_args, uint32_t arg_size)
 	soc_info = &fd_hw->soc_info;
 
 	spin_lock_irqsave(&fd_core->spin_lock, flags);
-	if (fd_core->core_state == CAM_FD_CORE_STATE_RESET_PROGRESS) {
+	if ((fd_core->core_state == CAM_FD_CORE_STATE_POWERDOWN) ||
+		(fd_core->core_state == CAM_FD_CORE_STATE_RESET_PROGRESS)) {
 		CAM_ERR(CAM_FD, "Reset not allowed in %d state",
 			fd_core->core_state);
 		spin_unlock_irqrestore(&fd_core->spin_lock, flags);
@@ -848,7 +859,7 @@ int cam_fd_hw_start(void *hw_priv, void *hw_start_args, uint32_t arg_size)
 	}
 
 	if (arg_size != sizeof(struct cam_fd_hw_cmd_start_args)) {
-		CAM_ERR(CAM_FD, "Invalid arg size %d, %d", arg_size,
+		CAM_ERR(CAM_FD, "Invalid arg size %u, %lu", arg_size,
 			sizeof(struct cam_fd_hw_cmd_start_args));
 		return -EINVAL;
 	}
@@ -999,7 +1010,7 @@ int cam_fd_hw_reserve(void *hw_priv, void *hw_reserve_args, uint32_t arg_size)
 	}
 
 	if (arg_size != sizeof(struct cam_fd_hw_reserve_args)) {
-		CAM_ERR(CAM_FD, "Invalid arg size %d, %d", arg_size,
+		CAM_ERR(CAM_FD, "Invalid arg size %u, %lu", arg_size,
 			sizeof(struct cam_fd_hw_reserve_args));
 		return -EINVAL;
 	}
@@ -1068,7 +1079,7 @@ int cam_fd_hw_release(void *hw_priv, void *hw_release_args, uint32_t arg_size)
 	}
 
 	if (arg_size != sizeof(struct cam_fd_hw_release_args)) {
-		CAM_ERR(CAM_FD, "Invalid arg size %d, %d", arg_size,
+		CAM_ERR(CAM_FD, "Invalid arg size %u, %lu", arg_size,
 			sizeof(struct cam_fd_hw_release_args));
 		return -EINVAL;
 	}

@@ -60,3 +60,67 @@ void dsi_ctrl_hw_22_schedule_dma_cmd(struct dsi_ctrl_hw *ctrl, int line_no)
 
 	DSI_W32(ctrl, DSI_DMA_SCHEDULE_CTRL, reg);
 }
+
+/*
+ * dsi_ctrl_hw_22_get_cont_splash_status() - to verify whether continuous
+ *                                           splash is enabled or not
+ * @ctrl:          Pointer to the controller host hardware.
+ *
+ * Return:         Return Continuous splash status
+ */
+bool dsi_ctrl_hw_22_get_cont_splash_status(struct dsi_ctrl_hw *ctrl)
+{
+	u32 reg = 0;
+
+	/**
+	 * DSI scratch register 1 is used to notify whether continuous
+	 * splash is enabled or not by bootloader
+	 */
+	reg = DSI_R32(ctrl, DSI_SCRATCH_REGISTER_1);
+	return reg == 0x1 ? true : false;
+}
+
+/*
+ * dsi_ctrl_hw_kickoff_non_embedded_mode()-Kickoff cmd  in non-embedded mode
+ * @ctrl:                  - Pointer to the controller host hardware.
+ * @dsi_ctrl_cmd_dma_info: - command buffer information.
+ * @flags:		   - DSI CTRL Flags.
+ */
+void dsi_ctrl_hw_kickoff_non_embedded_mode(struct dsi_ctrl_hw *ctrl,
+				    struct dsi_ctrl_cmd_dma_info *cmd,
+				    u32 flags)
+{
+	u32 reg = 0;
+
+	reg = DSI_R32(ctrl, DSI_COMMAND_MODE_DMA_CTRL);
+
+	reg &= ~BIT(31);/* disable broadcast */
+	reg &= ~BIT(30);
+
+	if (cmd->use_lpm)
+		reg |= BIT(26);
+	else
+		reg &= ~BIT(26);
+
+	/* Select non EMBEDDED_MODE, pick the packet header from register */
+	reg &= ~BIT(28);
+	reg |= BIT(24);/* long packet */
+	reg |= BIT(29);/* wc_sel = 1 */
+	reg |= (((cmd->datatype) & 0x03f) << 16);/* data type */
+	DSI_W32(ctrl, DSI_COMMAND_MODE_DMA_CTRL, reg);
+
+	/* Enable WRITE_WATERMARK_DISABLE and READ_WATERMARK_DISABLE bits */
+	reg = DSI_R32(ctrl, DSI_DMA_FIFO_CTRL);
+	reg |= BIT(20);
+	reg |= BIT(16);
+	DSI_W32(ctrl, DSI_DMA_FIFO_CTRL, reg);
+
+	DSI_W32(ctrl, DSI_DMA_CMD_OFFSET, cmd->offset);
+	DSI_W32(ctrl, DSI_DMA_CMD_LENGTH, ((cmd->length) & 0xFFFFFF));
+
+	/* wait for writes to complete before kick off */
+	wmb();
+
+	if (!(flags & DSI_CTRL_HW_CMD_WAIT_FOR_TRIGGER))
+		DSI_W32(ctrl, DSI_CMD_MODE_DMA_SW_TRIGGER, 0x1);
+}

@@ -341,6 +341,11 @@ int dsi_pwr_enable_regulator(struct dsi_regulator_info *regs, bool enable)
 {
 	int rc = 0;
 
+	if (!regs->vregs) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
 	if (enable) {
 		if (regs->refcount == 0) {
 			rc = dsi_pwr_enable_vregs(regs, true);
@@ -350,7 +355,8 @@ int dsi_pwr_enable_regulator(struct dsi_regulator_info *regs, bool enable)
 		regs->refcount++;
 	} else {
 		if (regs->refcount == 0) {
-			pr_err("Unbalanced regulator off\n");
+			pr_err("Unbalanced regulator off:%s\n",
+					regs->vregs->vreg_name);
 		} else {
 			regs->refcount--;
 			if (regs->refcount == 0) {

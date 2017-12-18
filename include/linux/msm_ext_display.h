@@ -117,6 +117,7 @@ struct msm_ext_disp_intf_ops {
  *  @get_intf_id: id of connected interface
  *  @teardown_done: audio session teardown done by qdsp
  *  @acknowledge: acknowledge audio status received by user modules
+ *  @ready: notify audio when codec driver is ready.
  */
 struct msm_ext_disp_audio_codec_ops {
 	int (*audio_info_setup)(struct platform_device *pdev,
@@ -127,6 +128,7 @@ struct msm_ext_disp_audio_codec_ops {
 	int (*get_intf_id)(struct platform_device *pdev);
 	void (*teardown_done)(struct platform_device *pdev);
 	int (*acknowledge)(struct platform_device *pdev, u32 ack);
+	int (*ready)(struct platform_device *pdev);
 };
 
 /**

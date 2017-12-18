@@ -1309,7 +1309,7 @@ static int _mmc_sd_resume(struct mmc_host *host)
 	while (retries) {
 		err = mmc_sd_init_card(host, host->card->ocr, host->card);
 
-		if (err) {
+		if (err && err != -ENOENT) {
 			printk(KERN_ERR "%s: Re-init card rc = %d (retries = %d)\n",
 			       mmc_hostname(host), err, retries);
 			retries--;
@@ -1324,6 +1324,12 @@ static int _mmc_sd_resume(struct mmc_host *host)
 #else
 	err = mmc_sd_init_card(host, host->card->ocr, host->card);
 #endif
+	if (err == -ENOENT) {
+		pr_debug("%s: %s: found a different card(%d), do detect change\n",
+			mmc_hostname(host), __func__, err);
+		mmc_card_set_removed(host->card);
+		mmc_detect_change(host, msecs_to_jiffies(200));
+	}
 	mmc_card_clr_suspended(host->card);
 
 	if (host->card->sdr104_blocked)

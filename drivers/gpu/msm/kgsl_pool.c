@@ -422,6 +422,24 @@ void kgsl_pool_free_page(struct page *page)
 	__free_pages(page, page_order);
 }
 
+/*
+ * Return true if the pool of specified page size is supported
+ * or no pools are supported otherwise return false.
+ */
+bool kgsl_pool_avaialable(int page_size)
+{
+	int i;
+
+	if (!kgsl_num_pools)
+		return true;
+
+	for (i = 0; i < kgsl_num_pools; i++)
+		if (ilog2(page_size >> PAGE_SHIFT) == kgsl_pools[i].pool_order)
+			return true;
+
+	return false;
+}
+
 static void kgsl_pool_reserve_pages(void)
 {
 	int i, j;

@@ -42,6 +42,47 @@
 
 #define SDE_REG_RESET_TIMEOUT_US        2000
 
+#define MDP_CTL_FLUSH(n) ((0x2000) + (0x200*n) + CTL_FLUSH)
+#define CTL_FLUSH_LM_BIT(n) (6 + n)
+#define CTL_TOP_LM_OFFSET(index, lm) (0x2000 + (0x200 * index) + (lm * 0x4))
+
+int sde_unstage_pipe_for_cont_splash(struct sde_splash_data *data,
+		void __iomem *mmio)
+{
+	int i, j;
+	u32 op_mode;
+
+	if (!data) {
+		pr_err("invalid splash data\n");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < data->ctl_top_cnt; i++) {
+		struct ctl_top *top = &data->top[i];
+		u8 ctl_id = data->ctl_ids[i] - CTL_0;
+		u32 regval = 0;
+
+		op_mode = readl_relaxed(mmio + MDP_CTL_FLUSH(ctl_id));
+
+		/* Set border fill*/
+		regval |= CTL_MIXER_BORDER_OUT;
+
+		for (j = 0; j < top->ctl_lm_cnt; j++) {
+			u8 lm_id = top->lm[j].lm_id - LM_0;
+
+			writel_relaxed(regval,
+			mmio + CTL_TOP_LM_OFFSET(ctl_id, lm_id));
+
+			op_mode |= BIT(CTL_FLUSH_LM_BIT(lm_id));
+		}
+		op_mode |= CTL_FLUSH_MASK_CTL;
+
+		writel_relaxed(op_mode, mmio + MDP_CTL_FLUSH(ctl_id));
+	}
+	return 0;
+
+}
+
 static struct sde_ctl_cfg *_ctl_offset(enum sde_ctl ctl,
 		struct sde_mdss_cfg *m,
 		void __iomem *addr,
@@ -81,6 +122,11 @@ static int _mixer_stages(const struct sde_lm_cfg *mixer, int count,
 static inline void sde_hw_ctl_trigger_start(struct sde_hw_ctl *ctx)
 {
 	SDE_REG_WRITE(&ctx->hw, CTL_START, 0x1);
+}
+
+static inline int sde_hw_ctl_get_start_state(struct sde_hw_ctl *ctx)
+{
+	return SDE_REG_READ(&ctx->hw, CTL_START);
 }
 
 static inline void sde_hw_ctl_trigger_pending(struct sde_hw_ctl *ctx)
@@ -564,6 +610,35 @@ static void sde_hw_ctl_intf_cfg(struct sde_hw_ctl *ctx,
 	SDE_REG_WRITE(c, CTL_TOP, intf_cfg);
 }
 
+static inline u32 sde_hw_ctl_read_ctl_top(struct sde_hw_ctl *ctx)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 ctl_top;
+
+	if (!ctx) {
+		pr_err("Invalid input argument\n");
+		return 0;
+	}
+	c = &ctx->hw;
+	ctl_top = SDE_REG_READ(c, CTL_TOP);
+	return ctl_top;
+}
+
+static inline u32 sde_hw_ctl_read_ctl_layers(struct sde_hw_ctl *ctx, int index)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 ctl_top;
+
+	if (!ctx) {
+		pr_err("Invalid input argument\n");
+		return 0;
+	}
+	c = &ctx->hw;
+	ctl_top = SDE_REG_READ(c, CTL_LAYER(index));
+	pr_debug("Ctl_layer value = 0x%x\n", ctl_top);
+	return ctl_top;
+}
+
 static void sde_hw_ctl_setup_sbuf_cfg(struct sde_hw_ctl *ctx,
 	struct sde_ctl_sbuf_cfg *cfg)
 {
@@ -594,6 +669,8 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 	ops->get_flush_register = sde_hw_ctl_get_flush_register;
 	ops->trigger_start = sde_hw_ctl_trigger_start;
 	ops->trigger_pending = sde_hw_ctl_trigger_pending;
+	ops->read_ctl_top = sde_hw_ctl_read_ctl_top;
+	ops->read_ctl_layers = sde_hw_ctl_read_ctl_layers;
 	ops->setup_intf_cfg = sde_hw_ctl_intf_cfg;
 	ops->reset = sde_hw_ctl_reset_control;
 	ops->hard_reset = sde_hw_ctl_hard_reset;
@@ -608,6 +685,7 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 	ops->get_bitmask_cdm = sde_hw_ctl_get_bitmask_cdm;
 	ops->get_bitmask_wb = sde_hw_ctl_get_bitmask_wb;
 	ops->reg_dma_flush = sde_hw_reg_dma_flush;
+	ops->get_start_state = sde_hw_ctl_get_start_state;
 
 	if (cap & BIT(SDE_CTL_SBUF)) {
 		ops->get_bitmask_rot = sde_hw_ctl_get_bitmask_rot;

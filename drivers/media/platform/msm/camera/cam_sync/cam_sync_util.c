@@ -144,8 +144,8 @@ int cam_sync_init_group_object(struct sync_table_row *table,
 		child_info = kzalloc(sizeof(*child_info), GFP_ATOMIC);
 
 		if (!child_info) {
-			cam_sync_util_cleanup_children_list(
-				&row->children_list);
+			cam_sync_util_cleanup_children_list(row,
+				SYNC_LIST_CLEAN_ALL, 0);
 			return -ENOMEM;
 		}
 
@@ -159,10 +159,10 @@ int cam_sync_init_group_object(struct sync_table_row *table,
 		spin_lock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
 		parent_info = kzalloc(sizeof(*parent_info), GFP_ATOMIC);
 		if (!parent_info) {
-			cam_sync_util_cleanup_parents_list(
-				&child_row->parents_list);
-			cam_sync_util_cleanup_children_list(
-				&row->children_list);
+			cam_sync_util_cleanup_parents_list(child_row,
+				SYNC_LIST_CLEAN_ALL, 0);
+			cam_sync_util_cleanup_children_list(row,
+				SYNC_LIST_CLEAN_ALL, 0);
 			spin_unlock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
 			return -ENOMEM;
 		}
@@ -196,42 +196,121 @@ int cam_sync_init_group_object(struct sync_table_row *table,
 
 int cam_sync_deinit_object(struct sync_table_row *table, uint32_t idx)
 {
-	struct sync_table_row *row = table + idx;
-	struct sync_child_info *child_info, *temp_child;
-	struct sync_callback_info *sync_cb, *temp_cb;
-	struct sync_parent_info *parent_info, *temp_parent;
-	struct sync_user_payload *upayload_info, *temp_upayload;
+	struct sync_table_row      *row = table + idx;
+	struct sync_child_info     *child_info, *temp_child;
+	struct sync_callback_info  *sync_cb, *temp_cb;
+	struct sync_parent_info    *parent_info, *temp_parent;
+	struct sync_user_payload   *upayload_info, *temp_upayload;
+	struct sync_table_row      *child_row = NULL, *parent_row = NULL;
+	struct list_head            temp_child_list, temp_parent_list;
 
 	if (!table || idx <= 0 || idx >= CAM_SYNC_MAX_OBJS)
 		return -EINVAL;
 
-	clear_bit(idx, sync_dev->bitmap);
-	list_for_each_entry_safe(child_info, temp_child,
-				&row->children_list, list) {
+	spin_lock_bh(&sync_dev->row_spinlocks[idx]);
+	if (row->state == CAM_SYNC_STATE_INVALID) {
+		CAM_ERR(CAM_SYNC,
+			"Error: accessing an uninitialized sync obj: idx = %d",
+			idx);
+		spin_unlock_bh(&sync_dev->row_spinlocks[idx]);
+		return -EINVAL;
+	}
+
+	/* Object's child and parent objects will be added into this list */
+	INIT_LIST_HEAD(&temp_child_list);
+	INIT_LIST_HEAD(&temp_parent_list);
+
+	list_for_each_entry_safe(child_info, temp_child, &row->children_list,
+		list) {
+		if (child_info->sync_id <= 0)
+			continue;
+
+		list_del_init(&child_info->list);
+		list_add_tail(&child_info->list, &temp_child_list);
+	}
+
+	list_for_each_entry_safe(parent_info, temp_parent, &row->parents_list,
+		list) {
+		if (parent_info->sync_id <= 0)
+			continue;
+
+		list_del_init(&parent_info->list);
+		list_add_tail(&parent_info->list, &temp_parent_list);
+	}
+
+	spin_unlock_bh(&sync_dev->row_spinlocks[idx]);
+
+	/* Cleanup the child to parent link from child list */
+	while (!list_empty(&temp_child_list)) {
+		child_info = list_first_entry(&temp_child_list,
+			struct sync_child_info, list);
+		child_row = sync_dev->sync_table + child_info->sync_id;
+
+		spin_lock_bh(&sync_dev->row_spinlocks[child_info->sync_id]);
+
+		if (child_row->state == CAM_SYNC_STATE_INVALID) {
+			spin_unlock_bh(&sync_dev->row_spinlocks[
+				child_info->sync_id]);
+			list_del_init(&child_info->list);
+			kfree(child_info);
+			continue;
+		}
+
+		cam_sync_util_cleanup_parents_list(child_row,
+			SYNC_LIST_CLEAN_ONE, idx);
+
+		spin_unlock_bh(&sync_dev->row_spinlocks[child_info->sync_id]);
+
 		list_del_init(&child_info->list);
 		kfree(child_info);
 	}
 
-	list_for_each_entry_safe(parent_info, temp_parent,
-				&row->parents_list, list) {
+	/* Cleanup the parent to child link */
+	while (!list_empty(&temp_parent_list)) {
+		parent_info = list_first_entry(&temp_parent_list,
+			struct sync_parent_info, list);
+		parent_row = sync_dev->sync_table + parent_info->sync_id;
+
+		spin_lock_bh(&sync_dev->row_spinlocks[parent_info->sync_id]);
+
+		if (parent_row->state == CAM_SYNC_STATE_INVALID) {
+			spin_unlock_bh(&sync_dev->row_spinlocks[
+				parent_info->sync_id]);
+			list_del_init(&parent_info->list);
+			kfree(parent_info);
+			continue;
+		}
+
+		cam_sync_util_cleanup_children_list(parent_row,
+			SYNC_LIST_CLEAN_ONE, idx);
+
+		spin_unlock_bh(&sync_dev->row_spinlocks[parent_info->sync_id]);
+
 		list_del_init(&parent_info->list);
 		kfree(parent_info);
 	}
 
+	spin_lock_bh(&sync_dev->row_spinlocks[idx]);
 	list_for_each_entry_safe(upayload_info, temp_upayload,
-				&row->user_payload_list, list) {
+			&row->user_payload_list, list) {
 		list_del_init(&upayload_info->list);
 		kfree(upayload_info);
 	}
 
 	list_for_each_entry_safe(sync_cb, temp_cb,
-				&row->callback_list, list) {
+			&row->callback_list, list) {
 		list_del_init(&sync_cb->list);
 		kfree(sync_cb);
 	}
 
 	row->state = CAM_SYNC_STATE_INVALID;
 	memset(row, 0, sizeof(*row));
+	clear_bit(idx, sync_dev->bitmap);
+	INIT_LIST_HEAD(&row->callback_list);
+	INIT_LIST_HEAD(&row->parents_list);
+	INIT_LIST_HEAD(&row->children_list);
+	INIT_LIST_HEAD(&row->user_payload_list);
+	spin_unlock_bh(&sync_dev->row_spinlocks[idx]);
 
 	return 0;
 }
@@ -241,10 +320,6 @@ void cam_sync_util_cb_dispatch(struct work_struct *cb_dispatch_work)
 	struct sync_callback_info *cb_info = container_of(cb_dispatch_work,
 		struct sync_callback_info,
 		cb_dispatch_work);
-
-	spin_lock_bh(&sync_dev->row_spinlocks[cb_info->sync_obj]);
-	list_del_init(&cb_info->list);
-	spin_unlock_bh(&sync_dev->row_spinlocks[cb_info->sync_obj]);
 
 	cb_info->callback_func(cb_info->sync_obj,
 		cb_info->status,
@@ -350,26 +425,48 @@ int cam_sync_util_get_state(int current_state,
 	return result;
 }
 
-void cam_sync_util_cleanup_children_list(struct list_head *list_to_clean)
+void cam_sync_util_cleanup_children_list(struct sync_table_row *row,
+	uint32_t list_clean_type, uint32_t sync_obj)
 {
 	struct sync_child_info *child_info = NULL;
 	struct sync_child_info *temp_child_info = NULL;
+	uint32_t                curr_sync_obj;
 
 	list_for_each_entry_safe(child_info,
-			temp_child_info, list_to_clean, list) {
+			temp_child_info, &row->children_list, list) {
+		if ((list_clean_type == SYNC_LIST_CLEAN_ONE) &&
+			(child_info->sync_id != sync_obj))
+			continue;
+
+		curr_sync_obj = child_info->sync_id;
 		list_del_init(&child_info->list);
 		kfree(child_info);
+
+		if ((list_clean_type == SYNC_LIST_CLEAN_ONE) &&
+			(curr_sync_obj == sync_obj))
+			break;
 	}
 }
 
-void cam_sync_util_cleanup_parents_list(struct list_head *list_to_clean)
+void cam_sync_util_cleanup_parents_list(struct sync_table_row *row,
+	uint32_t list_clean_type, uint32_t sync_obj)
 {
 	struct sync_parent_info *parent_info = NULL;
 	struct sync_parent_info *temp_parent_info = NULL;
+	uint32_t                 curr_sync_obj;
 
 	list_for_each_entry_safe(parent_info,
-			temp_parent_info, list_to_clean, list) {
+			temp_parent_info, &row->parents_list, list) {
+		if ((list_clean_type == SYNC_LIST_CLEAN_ONE) &&
+			(parent_info->sync_id != sync_obj))
+			continue;
+
+		curr_sync_obj = parent_info->sync_id;
 		list_del_init(&parent_info->list);
 		kfree(parent_info);
+
+		if ((list_clean_type == SYNC_LIST_CLEAN_ONE) &&
+			(curr_sync_obj == sync_obj))
+			break;
 	}
 }

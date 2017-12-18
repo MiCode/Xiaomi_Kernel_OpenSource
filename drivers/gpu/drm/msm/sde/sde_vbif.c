@@ -82,16 +82,22 @@ int sde_vbif_halt_plane_xin(struct sde_kms *sde_kms, u32 xin_id, u32 clk_ctrl)
 		return -EINVAL;
 	}
 
+	mutex_lock(&vbif->mutex);
+
+	SDE_EVT32_VERBOSE(vbif->idx, xin_id);
+
 	/*
 	 * If status is 0, then make sure client clock is not gated
 	 * while halting by forcing it ON only if it was not previously
 	 * forced on. If status is 1 then its already halted.
 	 */
 	status = vbif->ops.get_halt_ctrl(vbif, xin_id);
-	if (status == 0)
-		forced_on = mdp->ops.setup_clk_force_ctrl(mdp, clk_ctrl, true);
-	else
+	if (status) {
+		mutex_unlock(&vbif->mutex);
 		return 0;
+	}
+
+	forced_on = mdp->ops.setup_clk_force_ctrl(mdp, clk_ctrl, true);
 
 	/* send halt request for unused plane's xin client */
 	vbif->ops.set_halt_ctrl(vbif, xin_id, true);
@@ -102,15 +108,6 @@ int sde_vbif_halt_plane_xin(struct sde_kms *sde_kms, u32 xin_id, u32 clk_ctrl)
 		"wait failed for pipe halt:xin_id %u, clk_ctrl %u, rc %u\n",
 			xin_id, clk_ctrl, rc);
 		SDE_EVT32(xin_id, clk_ctrl, rc, SDE_EVTLOG_ERROR);
-		return rc;
-	}
-
-	status = vbif->ops.get_halt_ctrl(vbif, xin_id);
-	if (status == 0) {
-		SDE_ERROR("halt failed for pipe xin_id %u halt clk_ctrl %u\n",
-			       xin_id, clk_ctrl);
-		SDE_EVT32(xin_id, clk_ctrl, SDE_EVTLOG_ERROR);
-		return -ETIMEDOUT;
 	}
 
 	/* open xin client to enable transactions */
@@ -118,7 +115,9 @@ int sde_vbif_halt_plane_xin(struct sde_kms *sde_kms, u32 xin_id, u32 clk_ctrl)
 	if (forced_on)
 		mdp->ops.setup_clk_force_ctrl(mdp, clk_ctrl, false);
 
-	return 0;
+	mutex_unlock(&vbif->mutex);
+
+	return rc;
 }
 
 /**
@@ -247,6 +246,10 @@ void sde_vbif_set_ot_limit(struct sde_kms *sde_kms,
 			!vbif->ops.set_halt_ctrl)
 		return;
 
+	mutex_lock(&vbif->mutex);
+
+	SDE_EVT32_VERBOSE(vbif->idx, params->xin_id);
+
 	/* set write_gather_en for all write clients */
 	if (vbif->ops.set_write_gather_en && !params->rd)
 		vbif->ops.set_write_gather_en(vbif, params->xin_id);
@@ -274,6 +277,7 @@ void sde_vbif_set_ot_limit(struct sde_kms *sde_kms,
 	if (forced_on)
 		mdp->ops.setup_clk_force_ctrl(mdp, params->clk_ctrl, false);
 exit:
+	mutex_unlock(&vbif->mutex);
 	return;
 }
 
@@ -309,6 +313,10 @@ bool sde_vbif_set_xin_halt(struct sde_kms *sde_kms,
 			!vbif->ops.set_halt_ctrl)
 		return false;
 
+	mutex_lock(&vbif->mutex);
+
+	SDE_EVT32_VERBOSE(vbif->idx, params->xin_id);
+
 	if (params->enable) {
 		forced_on = mdp->ops.setup_clk_force_ctrl(mdp,
 				params->clk_ctrl, true);
@@ -325,6 +333,8 @@ bool sde_vbif_set_xin_halt(struct sde_kms *sde_kms,
 			mdp->ops.setup_clk_force_ctrl(mdp,
 					params->clk_ctrl, false);
 	}
+
+	mutex_unlock(&vbif->mutex);
 
 	return forced_on;
 }
@@ -370,6 +380,8 @@ void sde_vbif_set_qos_remap(struct sde_kms *sde_kms,
 		return;
 	}
 
+	mutex_lock(&vbif->mutex);
+
 	forced_on = mdp->ops.setup_clk_force_ctrl(mdp, params->clk_ctrl, true);
 
 	for (i = 0; i < qos_tbl->npriority_lvl; i++) {
@@ -382,6 +394,8 @@ void sde_vbif_set_qos_remap(struct sde_kms *sde_kms,
 
 	if (forced_on)
 		mdp->ops.setup_clk_force_ctrl(mdp, params->clk_ctrl, false);
+
+	mutex_unlock(&vbif->mutex);
 }
 
 void sde_vbif_clear_errors(struct sde_kms *sde_kms)
@@ -397,12 +411,14 @@ void sde_vbif_clear_errors(struct sde_kms *sde_kms)
 	for (i = 0; i < ARRAY_SIZE(sde_kms->hw_vbif); i++) {
 		vbif = sde_kms->hw_vbif[i];
 		if (vbif && vbif->ops.clear_errors) {
+			mutex_lock(&vbif->mutex);
 			vbif->ops.clear_errors(vbif, &pnd, &src);
 			if (pnd || src) {
 				SDE_EVT32(i, pnd, src);
 				SDE_DEBUG("VBIF %d: pnd 0x%X, src 0x%X\n",
 						vbif->idx - VBIF_0, pnd, src);
 			}
+			mutex_unlock(&vbif->mutex);
 		}
 	}
 }
@@ -420,9 +436,11 @@ void sde_vbif_init_memtypes(struct sde_kms *sde_kms)
 	for (i = 0; i < ARRAY_SIZE(sde_kms->hw_vbif); i++) {
 		vbif = sde_kms->hw_vbif[i];
 		if (vbif && vbif->cap && vbif->ops.set_mem_type) {
+			mutex_lock(&vbif->mutex);
 			for (j = 0; j < vbif->cap->memtype_count; j++)
 				vbif->ops.set_mem_type(
 						vbif, j, vbif->cap->memtype[j]);
+			mutex_unlock(&vbif->mutex);
 		}
 	}
 }

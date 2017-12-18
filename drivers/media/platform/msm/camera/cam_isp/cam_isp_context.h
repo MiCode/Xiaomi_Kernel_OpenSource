@@ -31,7 +31,7 @@
  * Maxiimum configuration entry size  - This is based on the
  * worst case DUAL IFE use case plus some margin.
  */
-#define CAM_ISP_CTX_CFG_MAX                     20
+#define CAM_ISP_CTX_CFG_MAX                     22
 
 /* forward declaration */
 struct cam_isp_context;
@@ -50,6 +50,7 @@ enum cam_isp_ctx_activated_substate {
 	CAM_ISP_CTX_ACTIVATED_EPOCH,
 	CAM_ISP_CTX_ACTIVATED_BUBBLE,
 	CAM_ISP_CTX_ACTIVATED_BUBBLE_APPLIED,
+	CAM_ISP_CTX_ACTIVATED_HW_ERROR,
 	CAM_ISP_CTX_ACTIVATED_HALT,
 	CAM_ISP_CTX_ACTIVATED_MAX,
 };
@@ -80,6 +81,8 @@ struct cam_isp_ctx_irq_ops {
  *                         the request has been completed.
  * @bubble_report:         Flag to track if bubble report is active on
  *                         current request
+ * @packet_opcode_type:    Request packet opcode type,
+ *                         ie INIT packet or update packet
  *
  */
 struct cam_isp_ctx_req {
@@ -93,6 +96,7 @@ struct cam_isp_ctx_req {
 	uint32_t                         num_fence_map_in;
 	uint32_t                         num_acked;
 	int32_t                          bubble_report;
+	uint32_t                         packet_opcode_type;
 };
 
 /**
@@ -111,6 +115,7 @@ struct cam_isp_ctx_req {
  * @reported_req_id:       Last reported request id
  * @subscribe_event:       The irq event mask that CRM subscribes to, IFE will
  *                         invoke CRM cb at those event.
+ * @last_applied_req_id:   Last applied request id
  *
  */
 struct cam_isp_context {
@@ -129,6 +134,7 @@ struct cam_isp_context {
 	int32_t                          active_req_cnt;
 	int64_t                          reported_req_id;
 	uint32_t                         subscribe_event;
+	int64_t                          last_applied_req_id;
 };
 
 /**

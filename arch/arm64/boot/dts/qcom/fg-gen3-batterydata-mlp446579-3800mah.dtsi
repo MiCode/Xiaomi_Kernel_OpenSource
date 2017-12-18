@@ -17,6 +17,12 @@ qcom,mlp446579_3800mah {
 	qcom,fastchg-current-ma = <3800>;
 	qcom,batt-id-kohm = <91>;
 	qcom,battery-beta = <4250>;
+	qcom,jeita-fcc-ranges = <0   150  760000
+				 151 450  3800000
+				 451 550  1900000>;
+	qcom,jeita-fv-ranges =  <0   150  4150000
+				 151 450  4400000
+				 451 550  4150000>;
 	qcom,battery-type = "mlp446579_3800mah_averaged_masterslave_oct9th2017";
 	qcom,checksum = <0x3F0A>;
 	qcom,gui-version = "PMI8998GUI - 2.0.0.58";

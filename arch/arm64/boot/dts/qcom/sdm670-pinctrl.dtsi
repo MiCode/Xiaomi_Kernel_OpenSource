@@ -1558,6 +1558,36 @@
 			};
 		};
 
+		flash_led3_front {
+			flash_led3_front_en: flash_led3_front_en {
+				mux {
+					pins = "gpio21";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio21";
+					drive_strength = <2>;
+					output-high;
+					bias-disable;
+				};
+			};
+
+			flash_led3_front_dis: flash_led3_front_dis {
+				mux {
+					pins = "gpio21";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio21";
+					drive_strength = <2>;
+					output-low;
+					bias-disable;
+				};
+			};
+		};
+
 		/* Pinctrl setting for CAMERA GPIO key */
 		key_cam_snapshot {
 			key_cam_snapshot_default: key_cam_snapshot_default {

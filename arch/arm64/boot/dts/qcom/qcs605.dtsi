@@ -17,3 +17,33 @@
 	model = "Qualcomm Technologies, Inc. QCS605";
 	qcom,msm-id = <347 0x0>;
 };
+
+&soc {
+	qcom,rmnet-ipa {
+		status = "disabled";
+	};
+};
+
+&ipa_hw {
+	status = "disabled";
+};
+
+&thermal_zones {
+	lmh-dcvs-00 {
+		trips {
+			active-config {
+				temperature = <105000>;
+				hysteresis = <40000>;
+			};
+		};
+	};
+
+	lmh-dcvs-01 {
+		trips {
+			active-config {
+				temperature = <105000>;
+				hysteresis = <40000>;
+			};
+		};
+	};
+};

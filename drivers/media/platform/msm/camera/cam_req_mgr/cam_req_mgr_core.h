@@ -30,6 +30,8 @@
 
 #define CRM_WORKQ_NUM_TASKS 60
 
+#define MAX_SYNC_COUNT 65535
+
 /**
  * enum crm_workq_task_type
  * @codes: to identify which type of task is present
@@ -77,12 +79,14 @@ struct crm_task_payload {
  * EMPTY   : indicates req slot is empty
  * PENDING : indicates req slot is waiting for reqs from all devs
  * READY   : indicates req slot is ready to be sent to devs
+ * APPLIED : indicates req slot is already sent to devs
  * INVALID : indicates req slot is not in valid state
  */
 enum crm_req_state {
 	CRM_REQ_STATE_EMPTY,
 	CRM_REQ_STATE_PENDING,
 	CRM_REQ_STATE_READY,
+	CRM_REQ_STATE_APPLIED,
 	CRM_REQ_STATE_INVALID,
 };
 
@@ -122,11 +126,12 @@ enum cam_req_mgr_link_state {
 
 /**
  * struct cam_req_mgr_traverse
- * @idx        : slot index
- * @result     : contains which all tables were able to apply successfully
- * @tbl        : pointer of pipeline delay based request table
- * @apply_data : pointer which various tables will update during traverse
- * @in_q       : input request queue pointer
+ * @idx           : slot index
+ * @result        : contains which all tables were able to apply successfully
+ * @tbl           : pointer of pipeline delay based request table
+ * @apply_data    : pointer which various tables will update during traverse
+ * @in_q          : input request queue pointer
+ * @validate_only : Whether to validate only and/or update settings
  */
 struct cam_req_mgr_traverse {
 	int32_t                       idx;
@@ -134,6 +139,7 @@ struct cam_req_mgr_traverse {
 	struct cam_req_mgr_req_tbl   *tbl;
 	struct cam_req_mgr_apply     *apply_data;
 	struct cam_req_mgr_req_queue *in_q;
+	bool                          validate_only;
 };
 
 /**
@@ -198,6 +204,7 @@ struct cam_req_mgr_req_tbl {
  * - members updated due to external events
  * @recover      : if user enabled recovery for this request.
  * @req_id       : mask tracking which all devices have request ready
+ * @sync_mode    : Sync mode in which req id in this slot has to applied
  */
 struct cam_req_mgr_slot {
 	int32_t               idx;
@@ -205,6 +212,7 @@ struct cam_req_mgr_slot {
 	enum crm_slot_status  status;
 	int32_t               recover;
 	int64_t               req_id;
+	int32_t               sync_mode;
 };
 
 /**
@@ -282,6 +290,12 @@ struct cam_req_mgr_connected_device {
  * @subscribe_event      : irqs that link subscribes, IFE should send
  *                         notification to CRM at those hw events.
  * @trigger_mask         : mask on which irq the req is already applied
+ * @sync_link            : pointer to the sync link for synchronization
+ * @sof_counter          : sof counter during sync_mode
+ * @sync_self_ref        : reference sync count against which the difference
+ *                         between sync_counts for a given link is checked
+ * @frame_skip_flag      : flag that determines if a frame needs to be skipped
+ *
  */
 struct cam_req_mgr_core_link {
 	int32_t                              link_hdl;
@@ -299,6 +313,10 @@ struct cam_req_mgr_core_link {
 	spinlock_t                           link_state_spin_lock;
 	uint32_t                             subscribe_event;
 	uint32_t                             trigger_mask;
+	struct cam_req_mgr_core_link        *sync_link;
+	int64_t                              sof_counter;
+	int64_t                              sync_self_ref;
+	bool                                 frame_skip_flag;
 };
 
 /**
@@ -315,6 +333,7 @@ struct cam_req_mgr_core_link {
  * - Debug data
  * @force_err_recovery : For debugging, we can force bubble recovery
  *                       to be always ON or always OFF using debugfs.
+ * @sync_mode          : Sync mode for this session links
  */
 struct cam_req_mgr_core_session {
 	int32_t                       session_hdl;
@@ -323,6 +342,7 @@ struct cam_req_mgr_core_session {
 	struct list_head              entry;
 	struct mutex                  lock;
 	int32_t                       force_err_recovery;
+	int32_t                       sync_mode;
 };
 
 /**
@@ -384,11 +404,11 @@ int cam_req_mgr_schedule_request(
 	struct cam_req_mgr_sched_request *sched_req);
 
 /**
- * cam_req_mgr_sync_link()
+ * cam_req_mgr_sync_mode_setup()
  * @brief: sync for links in a session
- * @sync_links: session, links info and master link info
+ * @sync_info: session, links info and master link info
  */
-int cam_req_mgr_sync_link(struct cam_req_mgr_sync_mode *sync_links);
+int cam_req_mgr_sync_config(struct cam_req_mgr_sync_mode *sync_info);
 
 /**
  * cam_req_mgr_flush_requests()
@@ -415,5 +435,13 @@ int cam_req_mgr_core_device_deinit(void);
  * @brief: Handles camera close
  */
 void cam_req_mgr_handle_core_shutdown(void);
+
+/**
+ * cam_req_mgr_link_control()
+ * @brief:   Handles link control operations
+ * @control: Link control command
+ */
+int cam_req_mgr_link_control(struct cam_req_mgr_link_control *control);
+
 #endif
 

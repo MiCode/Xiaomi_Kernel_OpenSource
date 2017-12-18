@@ -163,4 +163,18 @@ int32_t cam_qup_i2c_poll(struct i2c_client *client,
 int32_t cam_qup_i2c_write_table(
 	struct camera_io_master *client,
 	struct cam_sensor_i2c_reg_setting *write_setting);
+
+/**
+ * cam_qup_i2c_write_continuous_write: QUP based I2C write continuous(Burst/Seq)
+ * @client: QUP I2C client structure
+ * @write_setting: I2C register setting
+ * @cam_sensor_i2c_write_flag: burst or seq write
+ *
+ * This API handles QUP continuous write
+ */
+int32_t cam_qup_i2c_write_continuous_table(
+	struct camera_io_master *client,
+	struct cam_sensor_i2c_reg_setting *write_setting,
+	uint8_t cam_sensor_i2c_write_flag);
+
 #endif /*_CAM_SENSOR_I2C_H*/

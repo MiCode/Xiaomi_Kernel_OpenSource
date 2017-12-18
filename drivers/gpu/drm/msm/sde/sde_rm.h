@@ -107,6 +107,15 @@ struct sde_rm_hw_iter {
 };
 
 /**
+ * sde_rm_get_topology_name - get the name of the given topology config
+ * @topology: msm_display_topology topology config
+ * @Return: name of the given topology
+ */
+enum sde_rm_topology_name sde_rm_get_topology_name(
+	struct msm_display_topology topology);
+
+
+/**
  * sde_rm_init - Read hardware catalog and create reservation tracking objects
  *	for all HW blocks.
  * @rm: SDE Resource Manager handle
@@ -117,7 +126,7 @@ struct sde_rm_hw_iter {
  */
 int sde_rm_init(struct sde_rm *rm,
 		struct sde_mdss_cfg *cat,
-		void *mmio,
+		void __iomem *mmio,
 		struct drm_device *dev);
 
 /**
@@ -196,6 +205,19 @@ bool sde_rm_get_hw(struct sde_rm *rm, struct sde_rm_hw_iter *iter);
  * @Return: 0 on success or error
  */
 int sde_rm_check_property_topctl(uint64_t val);
+
+/**
+ * sde_rm_cont_splash_res_init - Read the current MDSS configuration
+ *	to update the splash data structure with the topology
+ *	configured by the bootloader.
+ * @rm: SDE Resource Manager handle
+ * @splash_data: Pointer to the splash_data structure to be updated.
+ * @cat: Pointer to the SDE catalog
+ * @Return: 0 on success or error
+ */
+int sde_rm_cont_splash_res_init(struct sde_rm *rm,
+				struct sde_splash_data *splash_data,
+				struct sde_mdss_cfg *cat);
 
 /**
  * sde_rm_update_topology - sets topology property of the connector

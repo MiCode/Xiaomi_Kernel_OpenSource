@@ -128,6 +128,7 @@ enum sde_plane_sclcheck_state {
  * @dirty:	bitmask for which pipe h/w config functions need to be updated
  * @multirect_index: index of the rectangle of SSPP
  * @multirect_mode: parallel or time multiplex multirect mode
+ * @const_alpha_en: const alpha channel is enabled for this HW pipe
  * @pending:	whether the current update is still pending
  * @defer_prepare_fb:	indicate if prepare_fb call was deferred
  * @scaler3_cfg: configuration data for scaler3
@@ -146,6 +147,7 @@ struct sde_plane_state {
 	uint32_t dirty;
 	uint32_t multirect_index;
 	uint32_t multirect_mode;
+	bool const_alpha_en;
 	bool pending;
 	bool defer_prepare_fb;
 
@@ -197,6 +199,15 @@ enum sde_sspp sde_plane_pipe(struct drm_plane *plane);
  *          false - if the plane is primary
  */
 bool is_sde_plane_virtual(struct drm_plane *plane);
+
+/**
+ * sde_plane_confirm_hw_rsvps - reserve an sbuf resource, if needed
+ * @plane: Pointer to DRM plane object
+ * @state: Pointer to plane state
+ * Returns: Zero on success
+ */
+int sde_plane_confirm_hw_rsvps(struct drm_plane *plane,
+		const struct drm_plane_state *state);
 
 /**
  * sde_plane_get_ctl_flush - get control flush mask

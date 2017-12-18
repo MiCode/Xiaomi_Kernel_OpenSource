@@ -65,7 +65,7 @@ static void convert_to_dsi_mode(const struct drm_display_mode *drm_mode,
 		dsi_mode->dsi_mode_flags |= DSI_MODE_FLAG_VRR;
 }
 
-static void convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
+void dsi_convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
 				struct drm_display_mode *drm_mode)
 {
 	memset(drm_mode, 0, sizeof(*drm_mode));
@@ -129,6 +129,9 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 		return;
 	}
 
+	if (!c_bridge || !c_bridge->display)
+		pr_err("Incorrect bridge details\n");
+
 	/* By this point mode should have been validated through mode_fixup */
 	rc = dsi_display_set_mode(c_bridge->display,
 			&(c_bridge->dsi_mode), 0x0);
@@ -157,11 +160,16 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 	rc = dsi_display_enable(c_bridge->display);
 	if (rc) {
 		pr_err("[%d] DSI display enable failed, rc=%d\n",
-		       c_bridge->id, rc);
+				c_bridge->id, rc);
 		(void)dsi_display_unprepare(c_bridge->display);
 	}
 	SDE_ATRACE_END("dsi_display_enable");
 	SDE_ATRACE_END("dsi_bridge_pre_enable");
+
+	rc = dsi_display_splash_res_cleanup(c_bridge->display);
+	if (rc)
+		pr_err("Continuous splash pipeline cleanup failed, rc=%d\n",
+									rc);
 }
 
 static void dsi_bridge_enable(struct drm_bridge *bridge)
@@ -189,12 +197,17 @@ static void dsi_bridge_enable(struct drm_bridge *bridge)
 static void dsi_bridge_disable(struct drm_bridge *bridge)
 {
 	int rc = 0;
+	struct dsi_display *display;
 	struct dsi_bridge *c_bridge = to_dsi_bridge(bridge);
 
 	if (!bridge) {
 		pr_err("Invalid params\n");
 		return;
 	}
+	display = c_bridge->display;
+
+	if (display && display->drm_conn)
+		sde_connector_helper_bridge_disable(display->drm_conn);
 
 	rc = dsi_display_pre_disable(c_bridge->display);
 	if (rc) {
@@ -255,15 +268,37 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 {
 	int rc = 0;
 	struct dsi_bridge *c_bridge = to_dsi_bridge(bridge);
-	struct dsi_display_mode dsi_mode, cur_dsi_mode;
+	struct dsi_display *display;
+	struct dsi_display_mode dsi_mode, cur_dsi_mode, *panel_dsi_mode;
 	struct drm_display_mode cur_mode;
+	struct drm_crtc_state *crtc_state;
+
+	crtc_state = container_of(mode, struct drm_crtc_state, mode);
 
 	if (!bridge || !mode || !adjusted_mode) {
 		pr_err("Invalid params\n");
 		return false;
 	}
 
+	display = c_bridge->display;
+	if (!display) {
+		pr_err("Invalid params\n");
+		return false;
+	}
+
 	convert_to_dsi_mode(mode, &dsi_mode);
+
+	/*
+	 * retrieve dsi mode from dsi driver's cache since not safe to take
+	 * the drm mode config mutex in all paths
+	 */
+	rc = dsi_display_find_mode(display, &dsi_mode, &panel_dsi_mode);
+	if (rc)
+		return rc;
+
+	/* propagate the private info to the adjusted_mode derived dsi mode */
+	dsi_mode.priv_info = panel_dsi_mode->priv_info;
+	dsi_mode.dsi_mode_flags = panel_dsi_mode->dsi_mode_flags;
 
 	rc = dsi_display_validate_mode(c_bridge->display, &dsi_mode,
 			DSI_VALIDATE_FLAG_ALLOW_ADJUST);
@@ -272,9 +307,10 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 		return false;
 	}
 
-	if (bridge->encoder && bridge->encoder->crtc) {
+	if (bridge->encoder && bridge->encoder->crtc &&
+			crtc_state->crtc) {
 
-		convert_to_dsi_mode(&bridge->encoder->crtc->mode,
+		convert_to_dsi_mode(&crtc_state->crtc->state->mode,
 							&cur_dsi_mode);
 		rc = dsi_display_validate_mode_vrr(c_bridge->display,
 					&cur_dsi_mode, &dsi_mode);
@@ -282,7 +318,7 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 			pr_debug("[%s] vrr mode mismatch failure rc=%d\n",
 				c_bridge->display->name, rc);
 
-		cur_mode = bridge->encoder->crtc->mode;
+		cur_mode = crtc_state->crtc->mode;
 
 		if (!drm_mode_equal(&cur_mode, adjusted_mode) &&
 			(!(dsi_mode.dsi_mode_flags &
@@ -290,7 +326,8 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 			dsi_mode.dsi_mode_flags |= DSI_MODE_FLAG_DMS;
 	}
 
-	convert_to_drm_mode(&dsi_mode, adjusted_mode);
+	/* convert back to drm mode, propagating the private info & flags */
+	dsi_convert_to_drm_mode(&dsi_mode, adjusted_mode);
 
 	return true;
 }
@@ -348,7 +385,7 @@ static const struct drm_bridge_funcs dsi_bridge_ops = {
 	.mode_set     = dsi_bridge_mode_set,
 };
 
-int dsi_conn_post_init(struct drm_connector *connector,
+int dsi_conn_set_info_blob(struct drm_connector *connector,
 		void *info, void *display, struct msm_mode_info *mode_info)
 {
 	struct dsi_display *dsi_display = display;
@@ -356,6 +393,8 @@ int dsi_conn_post_init(struct drm_connector *connector,
 
 	if (!info || !dsi_display)
 		return -EINVAL;
+
+	dsi_display->drm_conn = connector;
 
 	sde_kms_info_add_keystr(info,
 		"display type", dsi_display->display_type);
@@ -521,7 +560,6 @@ int dsi_connector_get_modes(struct drm_connector *connector,
 		void *display)
 {
 	u32 count = 0;
-	u32 size = 0;
 	struct dsi_display_mode *modes = NULL;
 	struct drm_display_mode drm_mode;
 	int rc, i;
@@ -537,42 +575,33 @@ int dsi_connector_get_modes(struct drm_connector *connector,
 	rc = dsi_display_get_mode_count(display, &count);
 	if (rc) {
 		pr_err("failed to get num of modes, rc=%d\n", rc);
-		goto error;
-	}
-
-	size = count * sizeof(*modes);
-	modes = kzalloc(size,  GFP_KERNEL);
-	if (!modes) {
-		count = 0;
 		goto end;
 	}
 
-	rc = dsi_display_get_modes(display, modes);
+	rc = dsi_display_get_modes(display, &modes);
 	if (rc) {
 		pr_err("failed to get modes, rc=%d\n", rc);
 		count = 0;
-		goto error;
+		goto end;
 	}
 
 	for (i = 0; i < count; i++) {
 		struct drm_display_mode *m;
 
 		memset(&drm_mode, 0x0, sizeof(drm_mode));
-		convert_to_drm_mode(&modes[i], &drm_mode);
+		dsi_convert_to_drm_mode(&modes[i], &drm_mode);
 		m = drm_mode_duplicate(connector->dev, &drm_mode);
 		if (!m) {
 			pr_err("failed to add mode %ux%u\n",
 			       drm_mode.hdisplay,
 			       drm_mode.vdisplay);
 			count = -ENOMEM;
-			goto error;
+			goto end;
 		}
 		m->width_mm = connector->display_info.width_mm;
 		m->height_mm = connector->display_info.height_mm;
 		drm_mode_probed_add(connector, m);
 	}
-error:
-	kfree(modes);
 end:
 	pr_debug("MODE COUNT =%d\n\n", count);
 	return count;

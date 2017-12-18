@@ -356,10 +356,11 @@ struct cam_ife_csid_tpg_cfg  {
 /**
  * struct cam_ife_csid_cid_data- cid configuration private data
  *
- * @vc:      virtual channel
- * @dt:      Data type
- * @cnt:     cid resource reference count.
- * @tpg_set: tpg used for this cid resource
+ * @vc:          Virtual channel
+ * @dt:          Data type
+ * @cnt:         Cid resource reference count.
+ * @tpg_set:     Tpg used for this cid resource
+ * @pixel_count: Pixel resource connected
  *
  */
 struct cam_ife_csid_cid_data {
@@ -367,6 +368,7 @@ struct cam_ife_csid_cid_data {
 	uint32_t                     dt;
 	uint32_t                     cnt;
 	uint32_t                     tpg_set;
+	int                          pixel_count;
 };
 
 
@@ -392,6 +394,7 @@ struct cam_ife_csid_cid_data {
  *                  for RDI, set  mode to none
  * @master_idx:     For Slave reservation, Give master IFE instance Index.
  *                  Slave will synchronize with master Start and stop operations
+ * @clk_rate        Clock rate
  *
  */
 struct cam_ife_csid_path_cfg {
@@ -409,6 +412,7 @@ struct cam_ife_csid_path_cfg {
 	uint32_t                        height;
 	enum cam_isp_hw_sync_mode       sync_mode;
 	uint32_t                        master_idx;
+	uint64_t                        clk_rate;
 };
 
 /**
@@ -432,6 +436,7 @@ struct cam_ife_csid_path_cfg {
  * @csid_rdin_reset_complete: rdi n completion
  * @csid_debug:               csid debug information to enable the SOT, EOT,
  *                            SOF, EOF, measure etc in the csid hw
+ * @clk_rate                  Clock rate
  *
  */
 struct cam_ife_csid_hw {
@@ -452,6 +457,7 @@ struct cam_ife_csid_hw {
 	struct completion                csid_ipp_complete;
 	struct completion    csid_rdin_complete[CAM_IFE_CSID_RDI_MAX];
 	uint64_t                         csid_debug;
+	uint64_t                         clk_rate;
 };
 
 int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,

@@ -790,8 +790,12 @@ int ipa_uc_monitor_holb(enum ipa_client_type ipa_client, bool enable)
 	int ep_idx;
 	int ret;
 
-	/* HOLB monitoring is applicable only to 2.6L. */
-	if (ipa_ctx->ipa_hw_type != IPA_HW_v2_6L) {
+	/*
+	 * HOLB monitoring is applicable to 2.6L.
+	 * And also could be enabled from dtsi node.
+	 */
+	if (ipa_ctx->ipa_hw_type != IPA_HW_v2_6L ||
+		!ipa_ctx->ipa_uc_monitor_holb) {
 		IPADBG("Not applicable on this target\n");
 		return 0;
 	}

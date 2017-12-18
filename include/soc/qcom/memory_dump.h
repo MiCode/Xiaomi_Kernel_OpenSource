@@ -83,6 +83,7 @@ enum msm_dump_data_ids {
 	MSM_DUMP_DATA_RPM = 0xEA,
 	MSM_DUMP_DATA_SCANDUMP = 0xEB,
 	MSM_DUMP_DATA_RPMH = 0xEC,
+	MSM_DUMP_DATA_FCM = 0xEE,
 	MSM_DUMP_DATA_POWER_REGS = 0xED,
 	MSM_DUMP_DATA_TMC_ETF = 0xF0,
 	MSM_DUMP_DATA_TMC_REG = 0x100,
@@ -122,11 +123,18 @@ struct msm_dump_entry {
 #ifdef CONFIG_QCOM_MEMORY_DUMP_V2
 extern int msm_dump_data_register(enum msm_dump_table_ids id,
 				  struct msm_dump_entry *entry);
+
+extern void *get_msm_dump_ptr(enum msm_dump_data_ids id);
 #else
 static inline int msm_dump_data_register(enum msm_dump_table_ids id,
 					 struct msm_dump_entry *entry)
 {
 	return -EINVAL;
+}
+
+static inline void *get_msm_dump_ptr(enum msm_dump_data_ids id)
+{
+	return NULL;
 }
 #endif
 

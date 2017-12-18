@@ -86,6 +86,9 @@ static void sde_hw_setup_split_pipe(struct sde_hw_mdp *mdp,
 				lower_pipe = FLD_SMART_PANEL_FREE_RUN;
 
 			upper_pipe = lower_pipe;
+
+			/* smart panel align mode */
+			lower_pipe |= BIT(mdp->caps->smart_panel_align_mode);
 		} else {
 			if (cfg->intf == INTF_2) {
 				lower_pipe = FLD_INTF_1_SW_TRG_MUX;

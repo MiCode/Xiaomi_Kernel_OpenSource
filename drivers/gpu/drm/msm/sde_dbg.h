@@ -17,7 +17,8 @@
 #include <linux/debugfs.h>
 #include <linux/list.h>
 
-#define SDE_EVTLOG_DATA_LIMITER	(-1)
+/* select an uncommon hex value for the limiter */
+#define SDE_EVTLOG_DATA_LIMITER	(0xC0DEBEEF)
 #define SDE_EVTLOG_FUNC_ENTRY	0x1111
 #define SDE_EVTLOG_FUNC_EXIT	0x2222
 #define SDE_EVTLOG_FUNC_CASE1	0x3333
@@ -66,7 +67,7 @@ enum sde_dbg_dump_flag {
  * number must be greater than print entry to prevent out of bound evtlog
  * entry array access.
  */
-#define SDE_EVTLOG_ENTRY	(SDE_EVTLOG_PRINT_ENTRY * 4)
+#define SDE_EVTLOG_ENTRY	(SDE_EVTLOG_PRINT_ENTRY * 8)
 #define SDE_EVTLOG_MAX_DATA 15
 #define SDE_EVTLOG_BUF_MAX 512
 #define SDE_EVTLOG_BUF_ALIGN 32
@@ -87,12 +88,14 @@ struct sde_dbg_evtlog_log {
 };
 
 /**
+ * @last_dump: Index of last entry to be output during evtlog dumps
  * @filter_list: Linked list of currently active filter strings
  */
 struct sde_dbg_evtlog {
 	struct sde_dbg_evtlog_log logs[SDE_EVTLOG_ENTRY];
 	u32 first;
 	u32 last;
+	u32 last_dump;
 	u32 curr;
 	u32 next;
 	u32 enable;
@@ -148,6 +151,13 @@ extern struct sde_dbg_evtlog *sde_dbg_base_evtlog;
 #define SDE_DBG_DUMP_WQ(...) sde_dbg_dump(true, __func__, ##__VA_ARGS__, \
 		SDE_DBG_DUMP_DATA_LIMITER)
 
+/**
+ * SDE_DBG_EVT_CTRL - trigger a different driver events
+ *  event: event that trigger different behavior in the driver
+ */
+#define SDE_DBG_CTRL(...) sde_dbg_ctrl(__func__, ##__VA_ARGS__, \
+		SDE_DBG_DUMP_DATA_LIMITER)
+
 #if defined(CONFIG_DEBUG_FS)
 
 /**
@@ -197,10 +207,12 @@ bool sde_evtlog_is_enabled(struct sde_dbg_evtlog *evtlog, u32 flag);
  * @evtlog:		pointer to evtlog
  * @evtlog_buf:		target buffer to print into
  * @evtlog_buf_size:	size of target buffer
+ * @update_last_entry:	whether or not to stop at most recent entry
  * Returns:		number of bytes written to buffer
  */
 ssize_t sde_evtlog_dump_to_buffer(struct sde_dbg_evtlog *evtlog,
-		char *evtlog_buf, ssize_t evtlog_buf_size);
+		char *evtlog_buf, ssize_t evtlog_buf_size,
+		bool update_last_entry);
 
 /**
  * sde_dbg_init_dbg_buses - initialize debug bus dumping support for the chipset
@@ -242,6 +254,15 @@ void sde_dbg_destroy(void);
  * Returns:	none
  */
 void sde_dbg_dump(bool queue_work, const char *name, ...);
+
+/**
+ * sde_dbg_ctrl - trigger specific actions for the driver with debugging
+ *		purposes. Those actions need to be enabled by the debugfs entry
+ *		so the driver executes those actions in the corresponding calls.
+ * @va_args:	list of actions to trigger
+ * Returns:	none
+ */
+void sde_dbg_ctrl(const char *name, ...);
 
 /**
  * sde_dbg_reg_register_base - register a hw register address section for later
@@ -352,7 +373,8 @@ static inline bool sde_evtlog_is_enabled(struct sde_dbg_evtlog *evtlog,
 }
 
 static inline ssize_t sde_evtlog_dump_to_buffer(struct sde_dbg_evtlog *evtlog,
-		char *evtlog_buf, ssize_t evtlog_buf_size)
+		char *evtlog_buf, ssize_t evtlog_buf_size,
+		bool update_last_entry)
 {
 	return 0;
 }
@@ -377,6 +399,10 @@ static inline void sde_dbg_destroy(void)
 }
 
 static inline void sde_dbg_dump(bool queue_work, const char *name, ...)
+{
+}
+
+static inline void sde_dbg_ctrl(const char *name, ...)
 {
 }
 

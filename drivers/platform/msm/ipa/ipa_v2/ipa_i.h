@@ -55,7 +55,7 @@
 #define IPA_QMAP_HEADER_LENGTH (4)
 #define IPA_DL_CHECKSUM_LENGTH (8)
 #define IPA_NUM_DESC_PER_SW_TX (2)
-#define IPA_GENERIC_RX_POOL_SZ 1000
+#define IPA_GENERIC_RX_POOL_SZ 192
 #define IPA_UC_FINISH_MAX 6
 #define IPA_UC_WAIT_MIN_SLEEP 1000
 #define IPA_UC_WAII_MAX_SLEEP 1200
@@ -65,11 +65,37 @@
 
 
 #define IPA_MAX_NUM_REQ_CACHE 10
+#define IPA_IPC_LOG_PAGES 50
 
 #define IPADBG(fmt, args...) \
-	pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+	do { \
+		pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
+		if (ipa_ctx) { \
+			IPA_IPC_LOGGING(ipa_ctx->logbuf, \
+				DRV_NAME " %s:%d " fmt, ## args); \
+			IPA_IPC_LOGGING(ipa_ctx->logbuf_low, \
+				DRV_NAME " %s:%d " fmt, ## args); \
+			} \
+	} while (0)
+
+#define IPADBG_LOW(fmt, args...) \
+	do { \
+		pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
+		if (ipa_ctx) \
+			IPA_IPC_LOGGING(ipa_ctx->logbuf_low, \
+				DRV_NAME " %s:%d " fmt, ## args); \
+	} while (0)
+
 #define IPAERR(fmt, args...) \
-	pr_err(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+	do { \
+		pr_err(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
+		if (ipa_ctx) { \
+			IPA_IPC_LOGGING(ipa_ctx->logbuf, \
+				DRV_NAME " %s:%d " fmt, ## args); \
+			IPA_IPC_LOGGING(ipa_ctx->logbuf_low, \
+				DRV_NAME " %s:%d " fmt, ## args); \
+		} \
+	} while (0)
 
 #define IPAERR_RL(fmt, args...) \
 	do { \
@@ -1040,6 +1066,8 @@ struct ipa_cne_evt {
  * @use_ipa_teth_bridge: use tethering bridge driver
  * @ipa_bam_remote_mode: ipa bam is in remote mode
  * @modem_cfg_emb_pipe_flt: modem configure embedded pipe filtering rules
+ * @logbuf: ipc log buffer for high priority messages
+ * @logbuf_low: ipc log buffer for low priority messages
  * @ipa_wdi2: using wdi-2.0
  * @ipa_bus_hdl: msm driver handle for the data path bus
  * @ctrl: holds the core specific operations based on
@@ -1132,6 +1160,8 @@ struct ipa_context {
 	/* featurize if memory footprint becomes a concern */
 	struct ipa_stats stats;
 	void *smem_pipe_mem;
+	void *logbuf;
+	void *logbuf_low;
 	u32 ipa_bus_hdl;
 	struct ipa_controller *ctrl;
 	struct idr ipa_idr;
@@ -1175,6 +1205,7 @@ struct ipa_context {
 	struct ipa_cne_evt ipa_cne_evt_req_cache[IPA_MAX_NUM_REQ_CACHE];
 	int num_ipa_cne_evt_req;
 	struct mutex ipa_cne_evt_lock;
+	bool ipa_uc_monitor_holb;
 };
 
 /**
@@ -1230,6 +1261,7 @@ struct ipa_plat_drv_res {
 	bool tethered_flow_control;
 	u32 ipa_rx_polling_sleep_msec;
 	u32 ipa_polling_iteration;
+	bool ipa_uc_monitor_holb;
 };
 
 struct ipa_mem_partition {

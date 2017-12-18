@@ -20,8 +20,11 @@
 
 #include <drm/drm_crtc.h>
 #include <linux/debugfs.h>
+#include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/dma-buf.h>
+#include <linux/memblock.h>
+#include <linux/bootmem.h>
 
 #include "msm_drv.h"
 #include "msm_mmu.h"
@@ -84,6 +87,7 @@ MODULE_PARM_DESC(sdecustom, "Enable customizations for sde clients");
 
 static int sde_kms_hw_init(struct msm_kms *kms);
 static int _sde_kms_mmu_destroy(struct sde_kms *sde_kms);
+static int _sde_kms_mmu_init(struct sde_kms *sde_kms);
 static int _sde_kms_register_events(struct msm_kms *kms,
 		struct drm_mode_object *obj, u32 event, bool en);
 bool sde_is_custom_client(void)
@@ -99,6 +103,7 @@ static int _sde_danger_signal_status(struct seq_file *s,
 	struct msm_drm_private *priv;
 	struct sde_danger_safe_status status;
 	int i;
+	int rc;
 
 	if (!kms || !kms->dev || !kms->dev->dev_private || !kms->hw_mdp) {
 		SDE_ERROR("invalid arg(s)\n");
@@ -108,7 +113,13 @@ static int _sde_danger_signal_status(struct seq_file *s,
 	priv = kms->dev->dev_private;
 	memset(&status, 0, sizeof(struct sde_danger_safe_status));
 
-	sde_power_resource_enable(&priv->phandle, kms->core_client, true);
+	rc = sde_power_resource_enable(&priv->phandle, kms->core_client, true);
+	if (rc) {
+		SDE_ERROR("failed to enable power resource %d\n", rc);
+		SDE_EVT32(rc, SDE_EVTLOG_ERROR);
+		return rc;
+	}
+
 	if (danger_status) {
 		seq_puts(s, "\nDanger signal status:\n");
 		if (kms->hw_mdp->ops.get_danger_status)
@@ -491,6 +502,30 @@ no_ops:
 	return 0;
 }
 
+static int _sde_kms_release_splash_buffer(unsigned int mem_addr,
+							unsigned int size)
+{
+	unsigned long pfn_start, pfn_end, pfn_idx;
+	int ret = 0;
+
+	if (!mem_addr || !size)
+		SDE_ERROR("invalid params\n");
+
+	pfn_start = mem_addr >> PAGE_SHIFT;
+	pfn_end = (mem_addr + size) >> PAGE_SHIFT;
+
+	ret = memblock_free(mem_addr, size);
+	if (ret) {
+		SDE_ERROR("continuous splash memory free failed:%d\n", ret);
+		return ret;
+	}
+	for (pfn_idx = pfn_start; pfn_idx < pfn_end; pfn_idx++)
+		free_reserved_page(pfn_to_page(pfn_idx));
+
+	return ret;
+
+}
+
 static void sde_kms_prepare_commit(struct msm_kms *kms,
 		struct drm_atomic_state *state)
 {
@@ -500,7 +535,9 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 	struct drm_encoder *encoder;
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *crtc_state;
-	int i;
+	int i, rc = 0;
+	struct drm_plane *plane;
+	bool commit_no_planes = true;
 
 	if (!kms)
 		return;
@@ -511,7 +548,13 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 		return;
 	priv = dev->dev_private;
 
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
+	rc = sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
+			true);
+	if (rc) {
+		SDE_ERROR("failed to enable power resource %d\n", rc);
+		SDE_EVT32(rc, SDE_EVTLOG_ERROR);
+		return;
+	}
 
 	for_each_crtc_in_state(state, crtc, crtc_state, i) {
 		list_for_each_entry(encoder, &dev->mode_config.encoder_list,
@@ -521,6 +564,29 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 
 			sde_encoder_prepare_commit(encoder);
 		}
+	}
+
+	if (sde_kms->splash_data.smmu_handoff_pending) {
+		list_for_each_entry(plane, &dev->mode_config.plane_list, head)
+			if (plane->state != NULL &&
+					plane->state->crtc != NULL)
+				commit_no_planes = false;
+	}
+
+	if (sde_kms->splash_data.smmu_handoff_pending && commit_no_planes) {
+
+		rc = sde_unstage_pipe_for_cont_splash(&sde_kms->splash_data,
+						sde_kms->mmio);
+		if (rc)
+			SDE_ERROR("pipe staging failed: %d\n", rc);
+
+		rc = _sde_kms_release_splash_buffer(
+				sde_kms->splash_data.splash_base,
+				sde_kms->splash_data.splash_size);
+		if (rc)
+			SDE_ERROR("release of splash memory failed %d\n", rc);
+
+		sde_kms->splash_data.smmu_handoff_pending = false;
 	}
 
 	/*
@@ -534,9 +600,19 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 static void sde_kms_commit(struct msm_kms *kms,
 		struct drm_atomic_state *old_state)
 {
+	struct sde_kms *sde_kms;
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *old_crtc_state;
 	int i;
+
+	if (!kms || !old_state)
+		return;
+	sde_kms = to_sde_kms(kms);
+
+	if (!sde_kms_power_resource_is_enabled(sde_kms->dev)) {
+		SDE_ERROR("power resource is not enabled\n");
+		return;
+	}
 
 	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i) {
 		if (crtc->state->active) {
@@ -565,6 +641,11 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 		return;
 	priv = sde_kms->dev->dev_private;
 
+	if (!sde_kms_power_resource_is_enabled(sde_kms->dev)) {
+		SDE_ERROR("power resource is not enabled\n");
+		return;
+	}
+
 	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i)
 		sde_crtc_complete_commit(crtc, old_crtc_state);
 
@@ -584,6 +665,14 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
 	SDE_EVT32_VERBOSE(SDE_EVTLOG_FUNC_EXIT);
+
+	if (sde_kms->splash_data.cont_splash_en) {
+		SDE_DEBUG("Disabling cont_splash feature\n");
+		sde_kms->splash_data.cont_splash_en = false;
+		sde_power_resource_enable(&priv->phandle,
+				sde_kms->core_client, false);
+		SDE_DEBUG("removing Vote for MDP Resources\n");
+	}
 }
 
 static void sde_kms_wait_for_commit_done(struct msm_kms *kms,
@@ -768,7 +857,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		struct sde_kms *sde_kms)
 {
 	static const struct sde_connector_ops dsi_ops = {
-		.post_init =  dsi_conn_post_init,
+		.set_info_blob = dsi_conn_set_info_blob,
 		.detect =     dsi_conn_detect,
 		.get_modes =  dsi_connector_get_modes,
 		.put_modes =  dsi_connector_put_modes,
@@ -783,9 +872,11 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.get_dst_format = dsi_display_get_dst_format,
 		.post_kickoff = dsi_conn_post_kickoff,
 		.check_status = dsi_display_check_status,
+		.enable_event = dsi_conn_enable_event
 	};
 	static const struct sde_connector_ops wb_ops = {
 		.post_init =    sde_wb_connector_post_init,
+		.set_info_blob = sde_wb_connector_set_info_blob,
 		.detect =       sde_wb_connector_detect,
 		.get_modes =    sde_wb_connector_get_modes,
 		.set_property = sde_wb_connector_set_property,
@@ -802,7 +893,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.mode_valid = dp_connector_mode_valid,
 		.get_info   = dp_connector_get_info,
 		.get_mode_info  = dp_connector_get_mode_info,
-		.send_hpd_event = dp_connector_send_hpd_event,
+		.post_open  = dp_connector_post_open,
 		.check_status = NULL,
 		.pre_kickoff  = dp_connector_pre_kickoff,
 	};
@@ -1849,10 +1940,10 @@ static int sde_kms_check_secure_transition(struct msm_kms *kms,
 	struct sde_kms *sde_kms;
 	struct drm_device *dev;
 	struct drm_crtc *crtc;
-	struct drm_crtc *sec_crtc = NULL, *temp_crtc = NULL;
+	struct drm_crtc *cur_crtc = NULL, *global_crtc = NULL;
 	struct drm_crtc_state *crtc_state;
-	int secure_crtc_cnt = 0, active_crtc_cnt = 0;
-	int secure_global_crtc_cnt = 0, active_mode_crtc_cnt = 0;
+	int active_crtc_cnt = 0, global_active_crtc_cnt = 0;
+	bool sec_session = false, global_sec_session = false;
 	int i;
 
 	if (!kms || !state) {
@@ -1860,56 +1951,64 @@ static int sde_kms_check_secure_transition(struct msm_kms *kms,
 		SDE_ERROR("invalid arguments\n");
 	}
 
-	/* iterate state object for active and secure crtc */
+	sde_kms = to_sde_kms(kms);
+	dev = sde_kms->dev;
+
+	/* iterate state object for active secure/non-secure crtc */
 	for_each_crtc_in_state(state, crtc, crtc_state, i) {
 		if (!crtc_state->active)
 			continue;
+
 		active_crtc_cnt++;
 		if (sde_crtc_get_secure_level(crtc, crtc_state) ==
-				SDE_DRM_SEC_ONLY) {
-			sec_crtc = crtc;
-			secure_crtc_cnt++;
-		}
+				SDE_DRM_SEC_ONLY)
+			sec_session = true;
+
+		cur_crtc = crtc;
 	}
 
-	/* bail out from further validation if no secure ctrc */
-	if (!secure_crtc_cnt)
-		return 0;
-
-	if ((secure_crtc_cnt > MAX_ALLOWED_SECURE_CLIENT_CNT) ||
-		(secure_crtc_cnt &&
-		 (active_crtc_cnt > MAX_ALLOWED_CRTC_CNT_DURING_SECURE))) {
-		SDE_ERROR("Secure check failed active:%d, secure:%d\n",
-				active_crtc_cnt, secure_crtc_cnt);
-		return -EPERM;
-	}
-
-	sde_kms = to_sde_kms(kms);
-	dev = sde_kms->dev;
 	/* iterate global list for active and secure crtc */
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
-
 		if (!crtc->state->active)
 			continue;
 
-		active_mode_crtc_cnt++;
-
+		global_active_crtc_cnt++;
 		if (sde_crtc_get_secure_level(crtc, crtc->state) ==
-				SDE_DRM_SEC_ONLY) {
-			secure_global_crtc_cnt++;
-			temp_crtc = crtc;
-		}
+				SDE_DRM_SEC_ONLY)
+			global_sec_session = true;
+
+		global_crtc = crtc;
 	}
 
-	/**
-	 * if more than one crtc is active fail
-	 * check if the previous and current commit secure
-	 * are same
+	/*
+	 * - fail secure crtc commit, if any other crtc session is already
+	 *   in progress
+	 * - fail non-secure crtc commit, if any secure crtc session is already
+	 *   in progress
 	 */
-	if (secure_crtc_cnt && ((active_mode_crtc_cnt > 1) ||
-			(secure_global_crtc_cnt && (temp_crtc != sec_crtc))))
-		SDE_ERROR("Secure check failed active:%d crtc_id:%d\n",
-				active_mode_crtc_cnt, temp_crtc->base.id);
+	if (global_sec_session || sec_session) {
+		if ((global_active_crtc_cnt >
+					MAX_ALLOWED_CRTC_CNT_DURING_SECURE) ||
+		    (active_crtc_cnt > MAX_ALLOWED_CRTC_CNT_DURING_SECURE)) {
+			SDE_ERROR(
+			"Secure check failed global_active:%d active:%d\n",
+				global_active_crtc_cnt, active_crtc_cnt);
+			return -EPERM;
+
+		/*
+		 * As only one crtc is allowed during secure session, the crtc
+		 * in this commit should match with the global crtc, if it
+		 * exists
+		 */
+		} else if (global_crtc && (global_crtc != cur_crtc)) {
+			SDE_ERROR(
+			    "crtc%d-sec%d not allowed during crtc%d-sec%d\n",
+				cur_crtc ? cur_crtc->base.id : -1, sec_session,
+				global_crtc->base.id, global_sec_session);
+			return -EPERM;
+		}
+
+	}
 
 	return 0;
 }
@@ -2001,11 +2100,137 @@ static void _sde_kms_post_open(struct msm_kms *kms, struct drm_file *file)
 
 		sde_conn = to_sde_connector(connector);
 
-		if (sde_conn->ops.send_hpd_event)
-			sde_conn->ops.send_hpd_event(sde_conn->display);
+		if (sde_conn->ops.post_open)
+			sde_conn->ops.post_open(sde_conn->display);
 	}
 	mutex_unlock(&dev->mode_config.mutex);
 
+}
+
+static int _sde_kms_gen_drm_mode(struct sde_kms *sde_kms,
+				void *display,
+				struct drm_display_mode *drm_mode)
+{
+	struct dsi_display_mode *modes = NULL;
+	u32 count = 0;
+	int rc = 0;
+
+	rc = dsi_display_get_mode_count(display, &count);
+	if (rc) {
+		SDE_ERROR("failed to get num of modes, rc=%d\n", rc);
+		return rc;
+	}
+
+	SDE_DEBUG("num of modes = %d\n", count);
+
+	rc = dsi_display_get_modes(display, &modes);
+	if (rc) {
+		SDE_ERROR("failed to get modes, rc=%d\n", rc);
+		count = 0;
+		return rc;
+	}
+
+	/* TODO; currently consider modes[0] as the preferred mode */
+	dsi_convert_to_drm_mode(&modes[0], drm_mode);
+
+	SDE_DEBUG("hdisplay = %d, vdisplay = %d\n",
+		drm_mode->hdisplay, drm_mode->vdisplay);
+	drm_mode_set_name(drm_mode);
+	drm_mode_set_crtcinfo(drm_mode, 0);
+	return rc;
+}
+
+static int sde_kms_cont_splash_config(struct msm_kms *kms)
+{
+	void *display;
+	struct dsi_display *dsi_display;
+	struct msm_display_info info;
+	struct drm_encoder *encoder = NULL;
+	struct drm_crtc *crtc = NULL;
+	int i, rc = 0;
+	struct drm_display_mode *drm_mode = NULL;
+	struct drm_device *dev;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+
+	if (!kms) {
+		SDE_ERROR("invalid kms\n");
+		return -EINVAL;
+	}
+
+	sde_kms = to_sde_kms(kms);
+	dev = sde_kms->dev;
+	if (!dev || !dev->platformdev) {
+		SDE_ERROR("invalid device\n");
+		return -EINVAL;
+	}
+
+	if (!sde_kms->splash_data.cont_splash_en) {
+		DRM_INFO("cont_splash feature not enabled\n");
+		return rc;
+	}
+
+	/* Currently, we only support one dsi display configuration */
+	/* dsi */
+	for (i = 0; i < sde_kms->dsi_display_count; ++i) {
+		display = sde_kms->dsi_displays[i];
+		dsi_display = (struct dsi_display *)display;
+		SDE_DEBUG("display->name = %s\n", dsi_display->name);
+
+		if (dsi_display->bridge->base.encoder) {
+			encoder = dsi_display->bridge->base.encoder;
+			SDE_DEBUG("encoder name = %s\n", encoder->name);
+		}
+		memset(&info, 0x0, sizeof(info));
+		rc = dsi_display_get_info(&info, display);
+		if (rc) {
+			SDE_ERROR("dsi get_info %d failed\n", i);
+			encoder = NULL;
+			continue;
+		}
+		SDE_DEBUG("info.is_connected = %s, info.is_primary = %s\n",
+			((info.is_connected) ? "true" : "false"),
+			((info.is_primary) ? "true" : "false"));
+		break;
+	}
+
+	if (!encoder) {
+		SDE_ERROR("encoder not initialized\n");
+		return -EINVAL;
+	}
+
+	priv = sde_kms->dev->dev_private;
+	encoder->crtc = priv->crtcs[0];
+	crtc = encoder->crtc;
+	SDE_DEBUG("crtc id = %d\n", crtc->base.id);
+
+	crtc->state->encoder_mask = (1 << drm_encoder_index(encoder));
+	drm_mode = drm_mode_create(encoder->dev);
+	if (!drm_mode) {
+		SDE_ERROR("drm_mode create failed\n");
+		return -EINVAL;
+	}
+	_sde_kms_gen_drm_mode(sde_kms, display, drm_mode);
+	SDE_DEBUG("drm_mode->name = %s, id=%d, type=0x%x, flags=0x%x\n",
+			drm_mode->name, drm_mode->base.id,
+			drm_mode->type, drm_mode->flags);
+
+	/* Update CRTC drm structure */
+	crtc->state->active = true;
+	rc = drm_atomic_set_mode_for_crtc(crtc->state, drm_mode);
+	if (rc) {
+		SDE_ERROR("Failed: set mode for crtc. rc = %d\n", rc);
+		return rc;
+	}
+	drm_mode_copy(&crtc->state->adjusted_mode, drm_mode);
+	drm_mode_copy(&crtc->mode, drm_mode);
+
+	/* Update encoder structure */
+	sde_encoder_update_caps_for_cont_splash(encoder);
+
+	sde_crtc_update_cont_splash_mixer_settings(crtc);
+
+	return rc;
 }
 
 static int sde_kms_pm_suspend(struct device *dev)
@@ -2098,7 +2323,8 @@ retry:
 	if (num_crtcs == 0) {
 		DRM_DEBUG("all crtcs are already in the off state\n");
 		drm_atomic_state_free(state);
-		goto suspended;
+		sde_kms->suspend_block = true;
+		goto unlock;
 	}
 
 	/* commit the "disable all" state */
@@ -2109,9 +2335,24 @@ retry:
 		goto unlock;
 	}
 
-suspended:
 	sde_kms->suspend_block = true;
 
+	drm_for_each_connector(conn, ddev) {
+		uint64_t lp;
+
+		lp = sde_connector_get_lp(conn);
+		if (lp != SDE_MODE_DPMS_LP2)
+			continue;
+
+		ret = sde_encoder_wait_for_event(conn->encoder,
+						MSM_ENC_TX_COMPLETE);
+		if (ret && ret != -EWOULDBLOCK)
+			SDE_ERROR(
+				"[enc: %d] wait for commit done returned %d\n",
+				conn->encoder->base.id, ret);
+		else if (!ret)
+			sde_encoder_idle_request(conn->encoder);
+	}
 unlock:
 	if (ret == -EDEADLK) {
 		drm_modeset_backoff(&ctx);
@@ -2188,6 +2429,7 @@ static const struct msm_kms_funcs kms_funcs = {
 	.pm_suspend      = sde_kms_pm_suspend,
 	.pm_resume       = sde_kms_pm_resume,
 	.destroy         = sde_kms_destroy,
+	.cont_splash_config = sde_kms_cont_splash_config,
 	.register_events = _sde_kms_register_events,
 	.get_address_space = _sde_kms_get_address_space,
 	.postopen = _sde_kms_post_open,
@@ -2263,41 +2505,6 @@ fail:
 	return ret;
 }
 
-static void _sde_kms_pm_qos_add_request(struct sde_kms *sde_kms)
-{
-	struct pm_qos_request *req;
-	u32 cpu_mask;
-	u32 cpu_dma_latency;
-	int cpu;
-
-	if (!sde_kms || !sde_kms->catalog)
-		return;
-
-	cpu_mask = sde_kms->catalog->perf.cpu_mask;
-	cpu_dma_latency = sde_kms->catalog->perf.cpu_dma_latency;
-	if (!cpu_mask)
-		return;
-
-	req = &sde_kms->pm_qos_cpu_req;
-	req->type = PM_QOS_REQ_AFFINE_CORES;
-	cpumask_empty(&req->cpus_affine);
-	for_each_possible_cpu(cpu) {
-		if ((1 << cpu) & cpu_mask)
-			cpumask_set_cpu(cpu, &req->cpus_affine);
-	}
-	pm_qos_add_request(req, PM_QOS_CPU_DMA_LATENCY, cpu_dma_latency);
-
-	SDE_EVT32_VERBOSE(cpu_mask, cpu_dma_latency);
-}
-
-static void _sde_kms_pm_qos_remove_request(struct sde_kms *sde_kms)
-{
-	if (!sde_kms || !sde_kms->catalog || !sde_kms->catalog->perf.cpu_mask)
-		return;
-
-	pm_qos_remove_request(&sde_kms->pm_qos_cpu_req);
-}
-
 static void sde_kms_handle_power_event(u32 event_type, void *usr)
 {
 	struct sde_kms *sde_kms = usr;
@@ -2313,9 +2520,7 @@ static void sde_kms_handle_power_event(u32 event_type, void *usr)
 	if (event_type == SDE_POWER_EVENT_POST_ENABLE) {
 		sde_irq_update(msm_kms, true);
 		sde_vbif_init_memtypes(sde_kms);
-		_sde_kms_pm_qos_add_request(sde_kms);
 	} else if (event_type == SDE_POWER_EVENT_PRE_DISABLE) {
-		_sde_kms_pm_qos_remove_request(sde_kms);
 		sde_irq_update(msm_kms, false);
 	}
 }
@@ -2370,11 +2575,50 @@ static int sde_kms_pd_disable(struct generic_pm_domain *genpd)
 	return rc;
 }
 
+static int _sde_kms_get_splash_data(struct sde_splash_data *data)
+{
+	int ret = 0;
+	struct device_node *parent, *node;
+	struct resource r;
+
+	if (!data)
+		return -EINVAL;
+
+	parent = of_find_node_by_path("/reserved-memory");
+	if (!parent) {
+		SDE_ERROR("failed to find reserved-memory node\n");
+		return -EINVAL;
+	}
+
+	node = of_find_node_by_name(parent, "cont_splash_region");
+	if (!node) {
+		SDE_ERROR("failed to find splash memory reservation\n");
+		return -EINVAL;
+	}
+
+	if (of_address_to_resource(node, 0, &r)) {
+		SDE_ERROR("failed to find data for  splash memory\n");
+		return -EINVAL;
+	}
+
+	data->splash_base = (unsigned long)r.start;
+	data->splash_size = (r.end - r.start) + 1;
+
+	pr_info("found continuous splash base address:%lx size:%x\n",
+						data->splash_base,
+						data->splash_size);
+	data->smmu_handoff_pending = true;
+
+	return ret;
+}
+
 static int sde_kms_hw_init(struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms;
 	struct drm_device *dev;
 	struct msm_drm_private *priv;
+	struct sde_rm *rm = NULL;
+	bool splash_mem_found = false;
 	int i, rc = -EINVAL;
 
 	if (!kms) {
@@ -2467,6 +2711,14 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		goto error;
 	}
 
+	rc = _sde_kms_get_splash_data(&sde_kms->splash_data);
+	if (rc) {
+		SDE_DEBUG("sde splash data fetch failed: %d\n", rc);
+		splash_mem_found = false;
+	} else {
+		splash_mem_found = true;
+	}
+
 	rc = sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
 		true);
 	if (rc) {
@@ -2490,15 +2742,24 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 
 	sde_dbg_init_dbg_buses(sde_kms->core_rev);
 
-	/*
-	 * Now we need to read the HW catalog and initialize resources such as
-	 * clocks, regulators, GDSC/MMAGIC, ioremap the register ranges etc
-	 */
-	rc = _sde_kms_mmu_init(sde_kms);
+	rm = &sde_kms->rm;
+	rc = sde_rm_init(rm, sde_kms->catalog, sde_kms->mmio,
+			sde_kms->dev);
 	if (rc) {
-		SDE_ERROR("sde_kms_mmu_init failed: %d\n", rc);
+		SDE_ERROR("rm init failed: %d\n", rc);
 		goto power_error;
 	}
+
+	sde_kms->rm_init = true;
+
+	/*
+	 * Attempt continuous splash handoff only if reserved
+	 * splash memory is found.
+	 */
+	if (splash_mem_found)
+		sde_rm_cont_splash_res_init(&sde_kms->rm,
+					&sde_kms->splash_data,
+					sde_kms->catalog);
 
 	/* Initialize reg dma block which is a singleton */
 	rc = sde_reg_dma_init(sde_kms->reg_dma, sde_kms->catalog,
@@ -2508,15 +2769,11 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		goto power_error;
 	}
 
-	rc = sde_rm_init(&sde_kms->rm, sde_kms->catalog, sde_kms->mmio,
-			sde_kms->dev);
+	rc = _sde_kms_mmu_init(sde_kms);
 	if (rc) {
-		SDE_ERROR("rm init failed: %d\n", rc);
+		SDE_ERROR("sde_kms_mmu_init failed: %d\n", rc);
 		goto power_error;
 	}
-
-	sde_kms->rm_init = true;
-
 	sde_kms->hw_mdp = sde_rm_get_mdp(&sde_kms->rm);
 	if (IS_ERR_OR_NULL(sde_kms->hw_mdp)) {
 		rc = PTR_ERR(sde_kms->hw_mdp);
@@ -2625,7 +2882,11 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		SDE_DEBUG("added genpd provider %s\n", sde_kms->genpd.name);
 	}
 
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
+	if (sde_kms->splash_data.cont_splash_en)
+		SDE_DEBUG("Skipping MDP Resources disable\n");
+	else
+		sde_power_resource_enable(&priv->phandle,
+						sde_kms->core_client, false);
 
 	return 0;
 
@@ -2693,4 +2954,10 @@ static int _sde_kms_register_events(struct msm_kms *kms,
 	}
 
 	return ret;
+}
+
+int sde_kms_handle_recovery(struct drm_encoder *encoder)
+{
+	SDE_EVT32(DRMID(encoder), MSM_ENC_ACTIVE_REGION);
+	return sde_encoder_wait_for_event(encoder, MSM_ENC_ACTIVE_REGION);
 }

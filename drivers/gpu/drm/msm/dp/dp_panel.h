@@ -68,6 +68,7 @@ struct dp_panel {
 	struct sde_edid_ctrl *edid_ctrl;
 	struct dp_panel_info pinfo;
 	bool video_test;
+	bool spd_enabled;
 
 	u32 vic;
 	u32 max_pclk_khz;
@@ -90,6 +91,9 @@ struct dp_panel {
 	int (*set_dpcd)(struct dp_panel *dp_panel, u8 *dpcd);
 	int (*setup_hdr)(struct dp_panel *dp_panel,
 		struct drm_msm_ext_hdr_metadata *hdr_meta);
+	void (*tpg_config)(struct dp_panel *dp_panel, bool enable);
+	int (*spd_config)(struct dp_panel *dp_panel);
+	bool (*hdr_supported)(struct dp_panel *dp_panel);
 };
 
 /**

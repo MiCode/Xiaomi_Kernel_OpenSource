@@ -104,12 +104,13 @@ static struct page **get_pages(struct drm_gem_object *obj)
 
 		msm_obj->pages = p;
 
-		/* For non-cached buffers, ensure the new pages are clean
-		 * because display controller, GPU, etc. are not coherent:
+		/*
+		 * Make sure to flush the CPU cache for newly allocated memory
+		 * so we don't get ourselves into trouble with a dirty cache
 		 */
 		if (msm_obj->flags & (MSM_BO_WC|MSM_BO_UNCACHED))
-			dma_map_sg(dev->dev, msm_obj->sgt->sgl,
-					msm_obj->sgt->nents, DMA_BIDIRECTIONAL);
+			dma_sync_sg_for_device(dev->dev, msm_obj->sgt->sgl,
+				msm_obj->sgt->nents, DMA_BIDIRECTIONAL);
 	}
 
 	return msm_obj->pages;
@@ -120,12 +121,6 @@ static void put_pages(struct drm_gem_object *obj)
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
 
 	if (msm_obj->pages) {
-		/* For non-cached buffers, ensure the new pages are clean
-		 * because display controller, GPU, etc. are not coherent:
-		 */
-		if (msm_obj->flags & (MSM_BO_WC|MSM_BO_UNCACHED))
-			dma_unmap_sg(obj->dev->dev, msm_obj->sgt->sgl,
-					msm_obj->sgt->nents, DMA_BIDIRECTIONAL);
 		sg_free_table(msm_obj->sgt);
 		kfree(msm_obj->sgt);
 
@@ -154,6 +149,24 @@ void msm_gem_put_pages(struct drm_gem_object *obj)
 {
 	/* when we start tracking the pin count, then do something here */
 }
+
+void msm_gem_sync(struct drm_gem_object *obj)
+{
+	struct msm_gem_object *msm_obj;
+
+	if (!obj)
+		return;
+
+	msm_obj = to_msm_bo(obj);
+
+	/*
+	 * dma_sync_sg_for_device synchronises a single contiguous or
+	 * scatter/gather mapping for the CPU and device.
+	 */
+	dma_sync_sg_for_device(obj->dev->dev, msm_obj->sgt->sgl,
+		       msm_obj->sgt->nents, DMA_BIDIRECTIONAL);
+}
+
 
 int msm_gem_mmap_obj(struct drm_gem_object *obj,
 		struct vm_area_struct *vma)

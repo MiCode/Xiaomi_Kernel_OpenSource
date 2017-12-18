@@ -25,22 +25,25 @@ int cam_sync_create(int32_t *sync_obj, const char *name)
 {
 	int rc;
 	long idx;
+	bool bit;
 
 	do {
 		idx = find_first_zero_bit(sync_dev->bitmap, CAM_SYNC_MAX_OBJS);
 		if (idx >= CAM_SYNC_MAX_OBJS)
 			return -ENOMEM;
-	} while (!spin_trylock_bh(&sync_dev->row_spinlocks[idx]));
+		bit = test_and_set_bit(idx, sync_dev->bitmap);
+	} while (bit);
 
+	spin_lock_bh(&sync_dev->row_spinlocks[idx]);
 	rc = cam_sync_init_object(sync_dev->sync_table, idx, name);
 	if (rc) {
 		CAM_ERR(CAM_SYNC, "Error: Unable to init row at idx = %ld",
 			idx);
+		clear_bit(idx, sync_dev->bitmap);
 		spin_unlock_bh(&sync_dev->row_spinlocks[idx]);
 		return -EINVAL;
 	}
 
-	set_bit(idx, sync_dev->bitmap);
 	*sync_obj = idx;
 	spin_unlock_bh(&sync_dev->row_spinlocks[idx]);
 
@@ -52,7 +55,6 @@ int cam_sync_register_callback(sync_callback cb_func,
 {
 	struct sync_callback_info *sync_cb;
 	struct sync_callback_info *cb_info;
-	struct sync_callback_info *temp_cb;
 	struct sync_table_row *row = NULL;
 
 	if (sync_obj >= CAM_SYNC_MAX_OBJS || sync_obj <= 0 || !cb_func)
@@ -69,6 +71,17 @@ int cam_sync_register_callback(sync_callback cb_func,
 		return -EINVAL;
 	}
 
+	/* Don't register if callback was registered earlier */
+	list_for_each_entry(cb_info, &row->callback_list, list) {
+		if (cb_info->callback_func == cb_func &&
+			cb_info->cb_data == userdata) {
+			CAM_ERR(CAM_SYNC, "Duplicate register for sync_obj %d",
+				sync_obj);
+			spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
+			return -EALREADY;
+		}
+	}
+
 	sync_cb = kzalloc(sizeof(*sync_cb), GFP_ATOMIC);
 	if (!sync_cb) {
 		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
@@ -83,23 +96,12 @@ int cam_sync_register_callback(sync_callback cb_func,
 		sync_cb->sync_obj = sync_obj;
 		INIT_WORK(&sync_cb->cb_dispatch_work,
 			cam_sync_util_cb_dispatch);
-		list_add_tail(&sync_cb->list, &row->callback_list);
 		sync_cb->status = row->state;
 		queue_work(sync_dev->work_queue,
 			&sync_cb->cb_dispatch_work);
 
 		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
 		return 0;
-	}
-
-	/* Don't register if callback was registered earlier */
-	list_for_each_entry_safe(cb_info, temp_cb, &row->callback_list, list) {
-		if (cb_info->callback_func == cb_func &&
-			cb_info->cb_data == userdata) {
-			kfree(sync_cb);
-			spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
-			return -EALREADY;
-		}
 	}
 
 	sync_cb->callback_func = cb_func;
@@ -227,11 +229,15 @@ int cam_sync_signal(int32_t sync_obj, uint32_t status)
 				spin_unlock_bh(
 					&sync_dev->row_spinlocks[
 						parent_info->sync_id]);
+				spin_unlock_bh(
+					&sync_dev->row_spinlocks[sync_obj]);
 				return rc;
 			}
 		}
 		spin_unlock_bh(&sync_dev->row_spinlocks[parent_info->sync_id]);
 	}
+
+	spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
 
 	/*
 	 * Now dispatch the various sync objects collected so far, in our
@@ -246,17 +252,26 @@ int cam_sync_signal(int32_t sync_obj, uint32_t status)
 		struct sync_user_payload *temp_payload_info;
 
 		signalable_row = sync_dev->sync_table + list_info->sync_obj;
+
+		spin_lock_bh(&sync_dev->row_spinlocks[list_info->sync_obj]);
+		if (signalable_row->state == CAM_SYNC_STATE_INVALID) {
+			spin_unlock_bh(
+				&sync_dev->row_spinlocks[list_info->sync_obj]);
+			continue;
+		}
+
 		/* Dispatch kernel callbacks if any were registered earlier */
 		list_for_each_entry_safe(sync_cb,
-		temp_sync_cb, &signalable_row->callback_list, list) {
+			temp_sync_cb, &signalable_row->callback_list, list) {
 			sync_cb->status = list_info->status;
+			list_del_init(&sync_cb->list);
 			queue_work(sync_dev->work_queue,
 				&sync_cb->cb_dispatch_work);
 		}
 
 		/* Dispatch user payloads if any were registered earlier */
 		list_for_each_entry_safe(payload_info, temp_payload_info,
-		&signalable_row->user_payload_list, list) {
+			&signalable_row->user_payload_list, list) {
 			spin_lock_bh(&sync_dev->cam_sync_eventq_lock);
 			if (!sync_dev->cam_sync_eventq) {
 				spin_unlock_bh(
@@ -286,11 +301,11 @@ int cam_sync_signal(int32_t sync_obj, uint32_t status)
 		 */
 		complete_all(&signalable_row->signaled);
 
+		spin_unlock_bh(&sync_dev->row_spinlocks[list_info->sync_obj]);
+
 		list_del_init(&list_info->list);
 		kfree(list_info);
 	}
-
-	spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
 
 	return rc;
 }
@@ -299,6 +314,7 @@ int cam_sync_merge(int32_t *sync_obj, uint32_t num_objs, int32_t *merged_obj)
 {
 	int rc;
 	long idx = 0;
+	bool bit;
 
 	if (!sync_obj || !merged_obj) {
 		CAM_ERR(CAM_SYNC, "Invalid pointer(s)");
@@ -316,9 +332,10 @@ int cam_sync_merge(int32_t *sync_obj, uint32_t num_objs, int32_t *merged_obj)
 		idx = find_first_zero_bit(sync_dev->bitmap, CAM_SYNC_MAX_OBJS);
 		if (idx >= CAM_SYNC_MAX_OBJS)
 			return -ENOMEM;
-	} while (!spin_trylock_bh(&sync_dev->row_spinlocks[idx]));
+		bit = test_and_set_bit(idx, sync_dev->bitmap);
+	} while (bit);
 
-	set_bit(idx, sync_dev->bitmap);
+	spin_lock_bh(&sync_dev->row_spinlocks[idx]);
 
 	rc = cam_sync_init_group_object(sync_dev->sync_table,
 		idx, sync_obj,
@@ -326,6 +343,7 @@ int cam_sync_merge(int32_t *sync_obj, uint32_t num_objs, int32_t *merged_obj)
 	if (rc < 0) {
 		CAM_ERR(CAM_SYNC, "Error: Unable to init row at idx = %ld",
 			idx);
+		clear_bit(idx, sync_dev->bitmap);
 		spin_unlock_bh(&sync_dev->row_spinlocks[idx]);
 		return -EINVAL;
 	}
@@ -338,25 +356,7 @@ int cam_sync_merge(int32_t *sync_obj, uint32_t num_objs, int32_t *merged_obj)
 
 int cam_sync_destroy(int32_t sync_obj)
 {
-	struct sync_table_row *row = NULL;
-
-	if (sync_obj >= CAM_SYNC_MAX_OBJS || sync_obj <= 0)
-		return -EINVAL;
-
-	spin_lock_bh(&sync_dev->row_spinlocks[sync_obj]);
-	row = sync_dev->sync_table + sync_obj;
-	if (row->state == CAM_SYNC_STATE_INVALID) {
-		CAM_ERR(CAM_SYNC,
-			"Error: accessing an uninitialized sync obj: idx = %d",
-			sync_obj);
-		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
-		return -EINVAL;
-	}
-
-	cam_sync_deinit_object(sync_dev->sync_table, sync_obj);
-	spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
-
-	return 0;
+	return cam_sync_deinit_object(sync_dev->sync_table, sync_obj);
 }
 
 int cam_sync_wait(int32_t sync_obj, uint64_t timeout_ms)

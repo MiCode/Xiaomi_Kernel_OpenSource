@@ -13,6 +13,7 @@
 #ifndef _CAM_NODE_H_
 #define _CAM_NODE_H_
 
+#include <linux/kref.h>
 #include "cam_context.h"
 #include "cam_hw_mgr_intf.h"
 #include "cam_req_mgr_interface.h"
@@ -96,5 +97,15 @@ int cam_node_shutdown(struct cam_node *node);
  */
 int cam_node_init(struct cam_node *node, struct cam_hw_mgr_intf *hw_mgr_intf,
 	struct cam_context *ctx_list, uint32_t ctx_size, char *name);
+
+/**
+ * cam_node_put_ctxt_to_free_list()
+ *
+ * @brief:       Put context in node free list.
+ *
+ * @ref:         Context's kref object
+ *
+ */
+void cam_node_put_ctxt_to_free_list(struct kref *ref);
 
 #endif /* _CAM_NODE_H_ */

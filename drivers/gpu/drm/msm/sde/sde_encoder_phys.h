@@ -99,6 +99,8 @@ struct sde_encoder_virt_ops {
  *				encoder. Can be switched at enable time. Based
  *				on split_role and current mode (CMD/VID).
  * @mode_fixup:			DRM Call. Fixup a DRM mode.
+ * @cont_splash_mode_set:	mode set with specific HW resources during
+ *                              cont splash enabled state.
  * @mode_set:			DRM Call. Set a DRM mode.
  *				This likely caches the mode, for use at enable.
  * @enable:			DRM Call. Enable a DRM mode.
@@ -126,14 +128,15 @@ struct sde_encoder_virt_ops {
  *				SDE_ENC_ERR_NEEDS_HW_RESET state
  * @irq_control:		Handler to enable/disable all the encoder IRQs
  * @update_split_role:		Update the split role of the phys enc
- * @prepare_idle_pc:		phys encoder can update the vsync_enable status
- *                              on idle power collapse prepare
+ * @control_te:			Interface to control the vsync_enable status
  * @restore:			Restore all the encoder configs.
  * @is_autorefresh_enabled:	provides the autorefresh current
  *                              enable/disable state.
- * @get_line_count:		Obtain current vertical line count
+ * @get_line_count:		Obtain current internal vertical line count
+ * @get_wr_line_count:		Obtain current output vertical line count
  * @wait_dma_trigger:		Returns true if lut dma has to trigger and wait
  *                              unitl transaction is complete.
+ * @wait_for_active:		Wait for display scan line to be in active area
  */
 
 struct sde_encoder_phys_ops {
@@ -146,6 +149,8 @@ struct sde_encoder_phys_ops {
 			struct drm_display_mode *adjusted_mode);
 	void (*mode_set)(struct sde_encoder_phys *encoder,
 			struct drm_display_mode *mode,
+			struct drm_display_mode *adjusted_mode);
+	void (*cont_splash_mode_set)(struct sde_encoder_phys *encoder,
 			struct drm_display_mode *adjusted_mode);
 	void (*enable)(struct sde_encoder_phys *encoder);
 	void (*disable)(struct sde_encoder_phys *encoder);
@@ -174,11 +179,13 @@ struct sde_encoder_phys_ops {
 	void (*irq_control)(struct sde_encoder_phys *phys, bool enable);
 	void (*update_split_role)(struct sde_encoder_phys *phys_enc,
 			enum sde_enc_split_role role);
-	void (*prepare_idle_pc)(struct sde_encoder_phys *phys_enc);
+	void (*control_te)(struct sde_encoder_phys *phys_enc, bool enable);
 	void (*restore)(struct sde_encoder_phys *phys);
 	bool (*is_autorefresh_enabled)(struct sde_encoder_phys *phys);
 	int (*get_line_count)(struct sde_encoder_phys *phys);
+	int (*get_wr_line_count)(struct sde_encoder_phys *phys);
 	bool (*wait_dma_trigger)(struct sde_encoder_phys *phys);
+	int (*wait_for_active)(struct sde_encoder_phys *phys);
 };
 
 /**
@@ -372,6 +379,7 @@ struct sde_encoder_phys_cmd {
  * @end_time:		End time of writeback latest request
  * @bo_disable:		Buffer object(s) to use during the disabling state
  * @fb_disable:		Frame buffer to use during the disabling state
+ * @crtc		Pointer to drm_crtc
  */
 struct sde_encoder_phys_wb {
 	struct sde_encoder_phys base;
@@ -396,6 +404,7 @@ struct sde_encoder_phys_wb {
 	ktime_t end_time;
 	struct drm_gem_object *bo_disable[SDE_MAX_PLANES];
 	struct drm_framebuffer *fb_disable;
+	struct drm_crtc *crtc;
 };
 
 /**

@@ -417,6 +417,10 @@ struct ipa_api_controller {
 
 	int (*ipa_tz_unlock_reg)(struct ipa_tz_unlock_reg_info *reg_info,
 		u16 num_regs);
+
+	int (*ipa_get_smmu_params)(struct ipa_smmu_in_params *in,
+		struct ipa_smmu_out_params *out);
+	int (*ipa_is_vlan_mode)(enum ipa_vlan_ifaces iface, bool *res);
 };
 
 #ifdef CONFIG_IPA

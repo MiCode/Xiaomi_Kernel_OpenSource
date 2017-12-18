@@ -27,7 +27,8 @@
 #define to_sde_encoder_phys_wb(x) \
 	container_of(x, struct sde_encoder_phys_wb, base)
 
-#define WBID(wb_enc) ((wb_enc) ? wb_enc->wb_dev->wb_idx : -1)
+#define WBID(wb_enc) \
+	((wb_enc && wb_enc->wb_dev) ? wb_enc->wb_dev->wb_idx - WB_0 : -1)
 
 #define TO_S15D16(_x_)	((_x_) << 7)
 
@@ -123,7 +124,12 @@ static void sde_encoder_phys_wb_set_qos_remap(
 	}
 
 	wb_enc = to_sde_encoder_phys_wb(phys_enc);
-	crtc = phys_enc->parent->crtc;
+	if (!wb_enc->crtc) {
+		SDE_ERROR("invalid crtc");
+		return;
+	}
+
+	crtc = wb_enc->crtc;
 
 	if (!wb_enc->hw_wb || !wb_enc->hw_wb->caps) {
 		SDE_ERROR("invalid writeback hardware\n");
@@ -867,11 +873,11 @@ static int sde_encoder_phys_wb_wait_for_commit_done(
 				wb_enc->irq_idx, true);
 		if (irq_status) {
 			SDE_DEBUG("wb:%d done but irq not triggered\n",
-					wb_enc->wb_dev->wb_idx - WB_0);
+					WBID(wb_enc));
 			sde_encoder_phys_wb_done_irq(wb_enc, wb_enc->irq_idx);
 		} else {
 			SDE_ERROR("wb:%d kickoff timed out\n",
-					wb_enc->wb_dev->wb_idx - WB_0);
+					WBID(wb_enc));
 			atomic_add_unless(
 				&phys_enc->pending_retire_fence_cnt, -1, 0);
 
@@ -904,8 +910,7 @@ static int sde_encoder_phys_wb_wait_for_commit_done(
 	if (!rc) {
 		wb_time = (u64)ktime_to_us(wb_enc->end_time) -
 				(u64)ktime_to_us(wb_enc->start_time);
-		SDE_DEBUG("wb:%d took %llu us\n",
-			wb_enc->wb_dev->wb_idx - WB_0, wb_time);
+		SDE_DEBUG("wb:%d took %llu us\n", WBID(wb_enc), wb_time);
 	}
 
 	/* cleanup writeback framebuffer */
@@ -1141,6 +1146,12 @@ static void sde_encoder_phys_wb_enable(struct sde_encoder_phys *phys_enc)
 	wb_enc->wb_dev = sde_wb_connector_get_wb(connector);
 
 	phys_enc->enable_state = SDE_ENC_ENABLED;
+
+	/*
+	 * cache the crtc in wb_enc on enable for duration of use case
+	 * for correctly servicing asynchronous irq events and timers
+	 */
+	wb_enc->crtc = phys_enc->parent->crtc;
 }
 
 /**
@@ -1186,6 +1197,7 @@ static void sde_encoder_phys_wb_disable(struct sde_encoder_phys *phys_enc)
 	sde_encoder_phys_wb_wait_for_commit_done(phys_enc);
 exit:
 	phys_enc->enable_state = SDE_ENC_DISABLED;
+	wb_enc->crtc = NULL;
 }
 
 /**

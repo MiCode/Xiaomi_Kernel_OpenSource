@@ -691,6 +691,14 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 
 	drm_mode_config_reset(ddev);
 
+	if (kms && kms->funcs && kms->funcs->cont_splash_config) {
+		ret = kms->funcs->cont_splash_config(kms);
+		if (ret) {
+			dev_err(dev, "kms cont_splash config failed.\n");
+			goto fail;
+		}
+	}
+
 #ifdef CONFIG_DRM_FBDEV_EMULATION
 	if (fbdev)
 		priv->fbdev = msm_fbdev_init(ddev);
@@ -1365,7 +1373,7 @@ void msm_mode_object_event_notify(struct drm_mode_object *obj,
 		if (node->event.type != event->type ||
 			obj->id != node->info.object_id)
 			continue;
-		len = event->length + sizeof(struct drm_msm_event_resp);
+		len = event->length + sizeof(struct msm_drm_event);
 		if (node->base.file_priv->event_space < len) {
 			DRM_ERROR("Insufficient space %d for event %x len %d\n",
 				node->base.file_priv->event_space, event->type,
@@ -1379,7 +1387,8 @@ void msm_mode_object_event_notify(struct drm_mode_object *obj,
 		notify->base.event = &notify->event;
 		notify->base.pid = node->base.pid;
 		notify->event.type = node->event.type;
-		notify->event.length = len;
+		notify->event.length = event->length +
+					sizeof(struct drm_msm_event_resp);
 		memcpy(&notify->info, &node->info, sizeof(notify->info));
 		memcpy(notify->data, payload, event->length);
 		ret = drm_event_reserve_init_locked(dev, node->base.file_priv,
@@ -1766,6 +1775,14 @@ static int add_display_components(struct device *dev,
 		struct device_node *np = dev->of_node;
 		unsigned int i;
 
+		for (i = 0; ; i++) {
+			node = of_parse_phandle(np, "connectors", i);
+			if (!node)
+				break;
+
+			component_match_add(dev, matchptr, compare_of, node);
+		}
+
 		for (i = 0; i < MAX_DSI_ACTIVE_DISPLAY; i++) {
 			node = dsi_display_get_boot_display(i);
 
@@ -1777,13 +1794,6 @@ static int add_display_components(struct device *dev,
 			}
 		}
 
-		for (i = 0; ; i++) {
-			node = of_parse_phandle(np, "connectors", i);
-			if (!node)
-				break;
-
-			component_match_add(dev, matchptr, compare_of, node);
-		}
 		return 0;
 	}
 

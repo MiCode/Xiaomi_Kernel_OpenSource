@@ -592,7 +592,7 @@
 			alloc-ranges = <0 0x00000000 0 0xffffffff>;
 			reusable;
 			alignment = <0 0x400000>;
-			size = <0 0xc00000>;
+			size = <0 0x1000000>;
 		};
 
 		qseecom_mem: qseecom_region {
@@ -1231,7 +1231,10 @@
 			<0x17d43000 0x1400>,
 			<0x17d45800 0x1400>;
 		reg-names = "osm_l3_base", "osm_pwrcl_base", "osm_perfcl_base";
+		vdd_l3_mx_ao-supply = <&pm8998_s6_level_ao>;
+		vdd_pwrcl_mx_ao-supply = <&pm8998_s6_level_ao>;
 
+		qcom,mx-turbo-freq = <1478400000 1689600000 3300000001>;
 		l3-devs = <&l3_cpu0 &l3_cpu4 &l3_cdsp>;
 
 		clock-names = "xo_ao";
@@ -1377,7 +1380,13 @@
 		<123 512 2097152 0>, <1 757 102400 0>,  /* HS G3 RB */
 		<123 512 298189 0>, <1 757 1000 0>,  /* HS G1 RB L2 */
 		<123 512 596378 0>, <1 757 1000 0>,  /* HS G2 RB L2 */
-		<123 512 4194304 0>, <1 757 204800 0>, /* HS G3 RB L2 */
+		/* As UFS working in HS G3 RB L2 mode, aggregated
+		 * bandwidth (AB) should take care of providing
+		 * optimum throughput requested. However, as tested,
+		 * in order to scale up CNOC clock, instantaneous
+		 * bindwidth (IB) needs to be given a proper value too.
+		 */
+		<123 512 4194304 0>, <1 757 204800 409600>, /* HS G3 RB L2 */
 		<123 512 7643136 0>, <1 757 307200 0>; /* Max. bandwidth */
 
 		qcom,bus-vector-names = "MIN",
@@ -2187,6 +2196,7 @@
 		qcom,irq-mask = <0x100>;
 		interrupts = <GIC_SPI 156 IRQ_TYPE_EDGE_RISING>;
 		label = "lpass";
+		cpu-affinity = <1 2>;
 		qcom,qos-config = <&glink_qos_adsp>;
 		qcom,ramp-time = <0xaf>;
 	};
@@ -2485,7 +2495,7 @@
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 			<1 618 0 0>,    /* No vote */
-			<1 618 0 800>;  /* 100 KHz */
+			<1 618 0 300000>;  /* 75 MHz */
 		clocks = <&clock_gcc GCC_PRNG_AHB_CLK>;
 		clock-names = "iface_clk";
 	};
@@ -3491,6 +3501,182 @@
 			};
 		};
 
+		cpu0-silver-step {
+			polling-delay-passive = <100>;
+			polling-delay = <0>;
+			thermal-sensors = <&tsens0 1>;
+			thermal-governor = "step_wise";
+			trips {
+				emerg_config0: emerg-config0 {
+					temperature = <110000>;
+					hysteresis = <10000>;
+					type = "passive";
+				};
+			};
+			cooling-maps {
+				emerg_cdev0 {
+					trip = <&emerg_config0>;
+					cooling-device =
+						<&CPU0 THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+				};
+			};
+		};
+
+		cpu1-silver-step {
+			polling-delay-passive = <100>;
+			polling-delay = <0>;
+			thermal-sensors = <&tsens0 2>;
+			thermal-governor = "step_wise";
+			trips {
+				emerg_config1: emerg-config1 {
+					temperature = <110000>;
+					hysteresis = <10000>;
+					type = "passive";
+				};
+			};
+			cooling-maps {
+				emerg_cdev1 {
+					trip = <&emerg_config1>;
+					cooling-device =
+						<&CPU1 THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+				};
+			};
+		};
+
+		cpu2-silver-step {
+			polling-delay-passive = <100>;
+			polling-delay = <0>;
+			thermal-sensors = <&tsens0 3>;
+			thermal-governor = "step_wise";
+			trips {
+				emerg_config2: emerg-config2 {
+					temperature = <110000>;
+					hysteresis = <10000>;
+					type = "passive";
+				};
+			};
+			cooling-maps {
+				emerg_cdev2 {
+					trip = <&emerg_config2>;
+					cooling-device =
+						<&CPU2 THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+				};
+			};
+		};
+
+		cpu3-silver-step {
+			polling-delay-passive = <100>;
+			polling-delay = <0>;
+			thermal-sensors = <&tsens0 4>;
+			thermal-governor = "step_wise";
+			trips {
+				emerg_config3: emerg-config3 {
+					temperature = <110000>;
+					hysteresis = <10000>;
+					type = "passive";
+				};
+			};
+			cooling-maps {
+				emerg_cdev3 {
+					trip = <&emerg_config3>;
+					cooling-device =
+						<&CPU3 THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+				};
+			};
+		};
+
+		cpu0-gold-step {
+			polling-delay-passive = <100>;
+			polling-delay = <0>;
+			thermal-sensors = <&tsens0 7>;
+			thermal-governor = "step_wise";
+			trips {
+				emerg_config4: emerg-config4 {
+					temperature = <110000>;
+					hysteresis = <10000>;
+					type = "passive";
+				};
+			};
+			cooling-maps {
+				emerg_cdev4 {
+					trip = <&emerg_config4>;
+					cooling-device =
+						<&CPU4 THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+				};
+			};
+		};
+
+		cpu1-gold-step {
+			polling-delay-passive = <100>;
+			polling-delay = <0>;
+			thermal-sensors = <&tsens0 8>;
+			thermal-governor = "step_wise";
+			trips {
+				emerg_config5: emerg-config5 {
+					temperature = <110000>;
+					hysteresis = <10000>;
+					type = "passive";
+				};
+			};
+			cooling-maps {
+				emerg_cdev5 {
+					trip = <&emerg_config5>;
+					cooling-device =
+						<&CPU5 THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+				};
+			};
+		};
+
+		cpu2-gold-step {
+			polling-delay-passive = <100>;
+			polling-delay = <0>;
+			thermal-sensors = <&tsens0 9>;
+			thermal-governor = "step_wise";
+			trips {
+				emerg_config6: emerg-config6 {
+					temperature = <110000>;
+					hysteresis = <10000>;
+					type = "passive";
+				};
+			};
+			cooling-maps {
+				emerg_cdev6 {
+					trip = <&emerg_config6>;
+					cooling-device =
+						<&CPU6 THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+				};
+			};
+		};
+
+		cpu3-gold-step {
+			polling-delay-passive = <100>;
+			polling-delay = <0>;
+			thermal-sensors = <&tsens0 10>;
+			thermal-governor = "step_wise";
+			trips {
+				emerg_config7: emerg-config7 {
+					temperature = <110000>;
+					hysteresis = <10000>;
+					type = "passive";
+				};
+			};
+			cooling-maps {
+				emerg_cdev7 {
+					trip = <&emerg_config7>;
+					cooling-device =
+						<&CPU7 THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+				};
+			};
+		};
+
 		lmh-dcvs-01 {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
@@ -3554,6 +3740,11 @@
 			qcom,dump-id = <0xec>;
 		};
 
+		fcm_dump {
+			qcom,dump-size = <0x400>;
+			qcom,dump-id = <0xee>;
+		};
+
 		rpm_sw_dump {
 			qcom,dump-size = <0x28000>;
 			qcom,dump-id = <0xea>;
@@ -3592,6 +3783,11 @@
 		misc_data_dump {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0xe8>;
+		};
+
+		tpdm_swao_dump {
+			qcom,dump-size = <0x512>;
+			qcom,dump-id = <0xf2>;
 		};
 	};
 
@@ -3854,7 +4050,7 @@
 #include "sdm845-pcie.dtsi"
 #include "sdm845-audio.dtsi"
 #include "sdm845-gpu.dtsi"
-#include "sdm845-usb.dtsi"
+#include "sdm845-670-usb-common.dtsi"
 
 &pm8998_temp_alarm {
 	cooling-maps {

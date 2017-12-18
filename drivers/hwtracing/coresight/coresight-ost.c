@@ -123,13 +123,14 @@ static int stm_trace_ost_header(void __iomem *ch_addr, uint32_t flags,
 
 static int stm_trace_data_header(void __iomem *addr)
 {
-	char hdr[16];
+	char hdr[24];
 	int len = 0;
 
-	*(uint16_t *)(hdr) = STM_MAKE_VERSION(0, 1);
+	*(uint16_t *)(hdr) = STM_MAKE_VERSION(0, 2);
 	*(uint16_t *)(hdr + 2) = STM_HEADER_MAGIC;
 	*(uint32_t *)(hdr + 4) = raw_smp_processor_id();
 	*(uint64_t *)(hdr + 8) = sched_clock();
+	*(uint64_t *)(hdr + 16) = task_tgid_nr(get_current());
 
 	len += stm_ost_send(addr, hdr, sizeof(hdr));
 	len += stm_ost_send(addr, current->comm, TASK_COMM_LEN);

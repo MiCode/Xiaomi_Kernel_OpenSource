@@ -128,6 +128,12 @@ struct sde_hw_pingpong_ops {
 	void (*disable_dsc)(struct sde_hw_pingpong *pp);
 
 	/**
+	 * Get DSC status
+	 * @Return: register value of DSC config
+	 */
+	u32 (*get_dsc_status)(struct sde_hw_pingpong *pp);
+
+	/**
 	 * Program the dither hw block
 	 */
 	int (*setup_dither)(struct sde_hw_pingpong *pp, void *cfg, size_t len);

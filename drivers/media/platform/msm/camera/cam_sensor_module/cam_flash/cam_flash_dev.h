@@ -50,10 +50,8 @@ enum cam_flash_switch_trigger_ops {
 enum cam_flash_state {
 	CAM_FLASH_STATE_INIT,
 	CAM_FLASH_STATE_ACQUIRE,
+	CAM_FLASH_STATE_CONFIG,
 	CAM_FLASH_STATE_START,
-	CAM_FLASH_STATE_LOW,
-	CAM_FLASH_STATE_HIGH,
-	CAM_FLASH_STATE_STOP,
 };
 
 /**

@@ -684,6 +684,7 @@ struct slim_pending_ch {
  *	first time it has reported present.
  *  @dev_list: List of devices on a controller
  *  @wd: Work structure associated with workqueue for presence notification
+ *  @device_reset: Work structure for device reset notification
  *  @sldev_reconf: Mutex to protect the pending data-channel lists.
  *  @pending_msgsl: Message bandwidth reservation request by this client in
  *	slots that's pending reconfiguration.
@@ -706,6 +707,7 @@ struct slim_device {
 	bool			notified;
 	struct list_head	dev_list;
 	struct work_struct	wd;
+	struct work_struct	device_reset;
 	struct mutex		sldev_reconf;
 	u32			pending_msgsl;
 	u32			cur_msgsl;

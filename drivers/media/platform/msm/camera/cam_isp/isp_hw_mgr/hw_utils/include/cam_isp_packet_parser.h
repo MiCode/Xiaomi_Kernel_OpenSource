@@ -20,26 +20,32 @@
 #include "cam_hw_intf.h"
 #include "cam_packet_util.h"
 
-/**
- * struct cam_isp_generic_blob_info  Generic blob information
+/*
+ * struct cam_isp_generic_blob_info
  *
- * @hfr_config             Initial configuration required to enable HFR
- *
+ * @prepare:            Payload for prepare command
+ * @ctx_base_info:      Base hardware information for the context
+ * @kmd_buf_info:       Kmd buffer to store the custom cmd data
  */
 struct cam_isp_generic_blob_info {
-	struct cam_isp_resource_hfr_config *hfr_config;
+	struct cam_hw_prepare_update_args     *prepare;
+	struct ctx_base_info                  *base_info;
+	struct cam_kmd_buf_info               *kmd_buf_info;
 };
 
-/**
+/*
+ * cam_isp_add_change_base()
+ *
  * @brief                  Add change base in the hw entries list
  *                         processe the isp source list get the change base from
  *                         ISP HW instance
  *
- * @prepare:               Contain the  packet and HW update variables
+ * @prepare:               Contain the packet and HW update variables
  * @res_list_isp_src:      Resource list for IFE/VFE source
  * @base_idx:              Base or dev index of the IFE/VFE HW instance for
  *                         which change change base need to be added
  * @kmd_buf_info:          Kmd buffer to store the change base command
+ *
  * @return:                0 for success
  *                         -EINVAL for Fail
  */
@@ -49,26 +55,63 @@ int cam_isp_add_change_base(
 	uint32_t                               base_idx,
 	struct cam_kmd_buf_info               *kmd_buf_info);
 
-/**
+/*
+ * cam_isp_add_cmd_buf_update()
+ *
+ * @brief                  Add command buffer in the HW entries list for given
+ *                         Blob Data.
+ *
+ * @hw_mgr_res:            HW resource to get the update from
+ * @cmd_type:              Cmd type to get update for
+ * @hw_cmd_type:           HW Cmd type corresponding to cmd_type
+ * @base_idx:              Base hardware index
+ * @cmd_buf_addr:          Cpu buf addr of kmd scratch buffer
+ * @kmd_buf_remain_size:   Remaining size left for cmd buffer update
+ * @cmd_update_data:       Data needed by HW to process the cmd and provide
+ *                         cmd buffer
+ * @bytes_used:            Address of the field to be populated with
+ *                         total bytes used as output to caller
+ *
+ * @return:                Negative for Failure
+ *                         otherwise returns bytes used
+ */
+int cam_isp_add_cmd_buf_update(
+	struct cam_ife_hw_mgr_res            *hw_mgr_res,
+	uint32_t                              cmd_type,
+	uint32_t                              hw_cmd_type,
+	uint32_t                              base_idx,
+	uint32_t                             *cmd_buf_addr,
+	uint32_t                              kmd_buf_remain_size,
+	void                                 *cmd_update_data,
+	uint32_t                             *bytes_used);
+
+/*
+ * cam_isp_add_command_buffers()
+ *
  * @brief                  Add command buffer in the HW entries list for given
  *                         left or right VFE/IFE instance.
  *
- * @prepare:               Contain the  packet and HW update variables
- * @split_id:              Left or right command buffers to be extracted
- * @base_idx:              Base or dev index of the IFE/VFE HW instance
+ * @prepare:               Contain the packet and HW update variables
+ * @kmd_buf_info:          KMD buffer to store the custom cmd data
+ * @base_info:             base hardware information
+ * @blob_handler_cb:       Call_back_function for Meta handling
  * @res_list_isp_out:      IFE /VFE out resource list
  * @size_isp_out:          Size of the res_list_isp_out array
+ *
  * @return:                0 for success
- *                         -EINVAL for Fail
+ *                         Negative for Failure
  */
 int cam_isp_add_command_buffers(
 	struct cam_hw_prepare_update_args  *prepare,
-	enum cam_isp_hw_split_id            split_id,
-	uint32_t                            base_idx,
+	struct cam_kmd_buf_info            *kmd_buf_info,
+	struct ctx_base_info               *base_info,
+	cam_packet_generic_blob_handler     blob_handler_cb,
 	struct cam_ife_hw_mgr_res          *res_list_isp_out,
 	uint32_t                            size_isp_out);
 
-/**
+/*
+ * cam_isp_add_io_buffers()
+ *
  * @brief                  Add io buffer configurations in the HW entries list
  *                         processe the io configurations based on the base
  *                         index and update the HW entries list
@@ -96,8 +139,9 @@ int cam_isp_add_io_buffers(
 	uint32_t                              size_isp_out,
 	bool                                  fill_fence);
 
-
-/**
+/*
+ * cam_isp_add_reg_update()
+ *
  * @brief                  Add reg update in the hw entries list
  *                         processe the isp source list get the reg update from
  *                         ISP HW instance
@@ -114,41 +158,5 @@ int cam_isp_add_reg_update(
 	struct list_head                     *res_list_isp_src,
 	uint32_t                              base_idx,
 	struct cam_kmd_buf_info              *kmd_buf_info);
-
-/**
- * @brief                  Add HFR configurations in the HW entries list
- *                         processe the hfr configurations based on the base
- *                         index and update the HW entries list
- *
- * @hfr_config:            HFR resource configuration info
- * @prepare:               Contain the  packet and HW update variables
- * @base_idx:              Base or dev index of the IFE/VFE HW instance
- * @kmd_buf_info:          Kmd buffer to store the change base command
- * @res_list_isp_out:      IFE /VFE out resource list
- * @size_isp_out:          Size of the res_list_isp_out array
- *
- * @return:                0 for success
- *                         -EINVAL for Fail
- */
-int cam_isp_add_hfr_config_hw_update(
-	struct cam_isp_resource_hfr_config   *hfr_config,
-	struct cam_hw_prepare_update_args    *prepare,
-	uint32_t                              base_idx,
-	struct cam_kmd_buf_info              *kmd_buf_info,
-	struct cam_ife_hw_mgr_res            *res_list_isp_out,
-	uint32_t                              size_isp_out);
-
-/**
- * @brief                  Processing Generic command buffer.
- *
- * @prepare:               Contain the  packet and HW update variables
- * @blob_info:             Information from generic blob command buffer
- *
- * @return:                0 for success
- *                         -EINVAL for Fail
- */
-int cam_isp_process_generic_cmd_buffer(
-	struct cam_hw_prepare_update_args *prepare,
-	struct cam_isp_generic_blob_info  *blob_info);
 
 #endif /*_CAM_ISP_HW_PARSER_H */

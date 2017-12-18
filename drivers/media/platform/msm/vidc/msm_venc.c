@@ -1275,7 +1275,7 @@ static struct msm_vidc_format venc_formats[] = {
 	{
 		.name = "YCbCr Semiplanar 4:2:0 10bit",
 		.description = "Y/CbCr 4:2:0 10bit",
-		.fourcc = V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010,
+		.fourcc = V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010_VENUS,
 		.get_frame_size = get_frame_size_p010,
 		.type = OUTPUT_PORT,
 	},
@@ -1868,7 +1868,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_USELTRFRAME:
 		property_id = HAL_CONFIG_VENC_USELTRFRAME;
-		use_ltr.ref_ltr = 0x1 << ctrl->val;
+		use_ltr.ref_ltr = ctrl->val;
 		use_ltr.use_constraint = false;
 		use_ltr.frames = 0;
 		pdata = &use_ltr;
@@ -2274,11 +2274,8 @@ int msm_venc_s_ext_ctrl(struct msm_vidc_inst *inst,
 	struct hal_frame_size blur_res;
 	struct hal_quantization_range qp_range;
 	struct hal_quantization qp;
-	struct hal_hdr10_pq_sei hdr10_sei_params;
-	struct msm_vidc_mastering_display_colour_sei_payload *mdisp_sei
-		= &(hdr10_sei_params.disp_color_sei);
-	struct msm_vidc_content_light_level_sei_payload *cll_sei
-		= &(hdr10_sei_params.cll_sei);
+	struct msm_vidc_mastering_display_colour_sei_payload *mdisp_sei = NULL;
+	struct msm_vidc_content_light_level_sei_payload *cll_sei = NULL;
 
 	if (!inst || !inst->core || !inst->core->device || !ctrl) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
@@ -2292,6 +2289,9 @@ int msm_venc_s_ext_ctrl(struct msm_vidc_inst *inst,
 	cap = &inst->capability;
 
 	control = ctrl->controls;
+
+	mdisp_sei = &(inst->hdr10_sei_params.disp_color_sei);
+	cll_sei = &(inst->hdr10_sei_params.cll_sei);
 
 	for (i = 0; i < ctrl->count; i++) {
 		switch (control[i].id) {
@@ -2429,9 +2429,9 @@ int msm_venc_s_ext_ctrl(struct msm_vidc_inst *inst,
 			break;
 		case V4L2_CID_MPEG_VIDC_VENC_HDR_INFO:
 			if (control[i].value ==
-				V4L2_MPEG_VIDC_VENC_HDR_INFO_DISABLED)
+				V4L2_MPEG_VIDC_VENC_HDR_INFO_DISABLED ||
+					!mdisp_sei || !cll_sei)
 				break;
-			memset(&hdr10_sei_params, 0, sizeof(hdr10_sei_params));
 			i++;
 			while (i < ctrl->count) {
 				switch (control[i].id) {
@@ -2494,7 +2494,7 @@ int msm_venc_s_ext_ctrl(struct msm_vidc_inst *inst,
 			}
 			property_id =
 				HAL_PARAM_VENC_HDR10_PQ_SEI;
-			pdata = &hdr10_sei_params;
+			pdata = &inst->hdr10_sei_params;
 			break;
 		default:
 			dprintk(VIDC_ERR, "Invalid id set: %d\n",

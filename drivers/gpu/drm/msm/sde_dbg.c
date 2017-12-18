@@ -68,6 +68,12 @@
 #define REG_DUMP_ALIGN		16
 
 #define RSC_DEBUG_MUX_SEL_SDM845 9
+
+#define DBG_CTRL_STOP_FTRACE	BIT(0)
+#define DBG_CTRL_PANIC_UNDERRUN	BIT(1)
+#define DBG_CTRL_RESET_HW_PANIC	BIT(2)
+#define DBG_CTRL_MAX			BIT(3)
+
 /**
  * struct sde_dbg_reg_offset - tracking for start and end of region
  * @start: start offset
@@ -198,6 +204,7 @@ static struct sde_dbg_base {
 	struct sde_dbg_vbif_debug_bus dbgbus_vbif_rt;
 	bool dump_all;
 	bool dsi_dbg_bus;
+	u32 debugfs_ctrl;
 } sde_dbg_base;
 
 /* sde_dbg_base_evtlog - global pointer to main sde event log for macro use */
@@ -2034,12 +2041,13 @@ static struct vbif_debug_bus_entry vbif_dbg_bus_msm8998[] = {
 /**
  * _sde_dbg_enable_power - use callback to turn power on for hw register access
  * @enable: whether to turn power on or off
+ * Return: zero if success; error code otherwise
  */
-static inline void _sde_dbg_enable_power(int enable)
+static inline int _sde_dbg_enable_power(int enable)
 {
 	if (!sde_dbg_base.power_ctrl.enable_fn)
-		return;
-	sde_dbg_base.power_ctrl.enable_fn(
+		return -EINVAL;
+	return sde_dbg_base.power_ctrl.enable_fn(
 			sde_dbg_base.power_ctrl.handle,
 			sde_dbg_base.power_ctrl.client,
 			enable);
@@ -2063,6 +2071,7 @@ static void _sde_dump_reg(const char *dump_name, u32 reg_dump_flag,
 	u32 *dump_addr = NULL;
 	char *end_addr;
 	int i;
+	int rc;
 
 	if (!len_bytes)
 		return;
@@ -2103,8 +2112,13 @@ static void _sde_dump_reg(const char *dump_name, u32 reg_dump_flag,
 		}
 	}
 
-	if (!from_isr)
-		_sde_dbg_enable_power(true);
+	if (!from_isr) {
+		rc = _sde_dbg_enable_power(true);
+		if (rc) {
+			pr_err("failed to enable power %d\n", rc);
+			return;
+		}
+	}
 
 	for (i = 0; i < len_align; i++) {
 		u32 x0, x4, x8, xc;
@@ -2288,6 +2302,7 @@ static void _sde_dbg_dump_sde_dbg_bus(struct sde_dbg_sde_debug_bus *bus)
 	u32 offset;
 	void __iomem *mem_base = NULL;
 	struct sde_dbg_reg_base *reg_base;
+	int rc;
 
 	if (!bus || !bus->cmn.entries_size)
 		return;
@@ -2333,7 +2348,12 @@ static void _sde_dbg_dump_sde_dbg_bus(struct sde_dbg_sde_debug_bus *bus)
 		}
 	}
 
-	_sde_dbg_enable_power(true);
+	rc = _sde_dbg_enable_power(true);
+	if (rc) {
+		pr_err("failed to enable power %d\n", rc);
+		return;
+	}
+
 	for (i = 0; i < bus->cmn.entries_size; i++) {
 		head = bus->entries + i;
 		writel_relaxed(TEST_MASK(head->block_id, head->test_id),
@@ -2427,6 +2447,7 @@ static void _sde_dbg_dump_vbif_dbg_bus(struct sde_dbg_vbif_debug_bus *bus)
 	struct vbif_debug_bus_entry *dbg_bus;
 	u32 bus_size;
 	struct sde_dbg_reg_base *reg_base;
+	int rc;
 
 	if (!bus || !bus->cmn.entries_size)
 		return;
@@ -2484,7 +2505,11 @@ static void _sde_dbg_dump_vbif_dbg_bus(struct sde_dbg_vbif_debug_bus *bus)
 		}
 	}
 
-	_sde_dbg_enable_power(true);
+	rc = _sde_dbg_enable_power(true);
+	if (rc) {
+		pr_err("failed to enable power %d\n", rc);
+		return;
+	}
 
 	value = readl_relaxed(mem_base + MMSS_VBIF_CLKON);
 	writel_relaxed(value | BIT(1), mem_base + MMSS_VBIF_CLKON);
@@ -2558,7 +2583,8 @@ static void _sde_dump_array(struct sde_dbg_reg_base *blk_arr[],
 
 	mutex_lock(&sde_dbg_base.mutex);
 
-	sde_evtlog_dump_all(sde_dbg_base.evtlog);
+	if (dump_all)
+		sde_evtlog_dump_all(sde_dbg_base.evtlog);
 
 	if (dump_all || !blk_arr || !len) {
 		_sde_dump_reg_all();
@@ -2678,6 +2704,53 @@ void sde_dbg_dump(bool queue_work, const char *name, ...)
 	}
 }
 
+void sde_dbg_ctrl(const char *name, ...)
+{
+	int i = 0;
+	va_list args;
+	char *blk_name = NULL;
+
+	/* no debugfs controlled events are enabled, just return */
+	if (!sde_dbg_base.debugfs_ctrl)
+		return;
+
+	va_start(args, name);
+
+	while ((blk_name = va_arg(args, char*))) {
+		if (i++ >= SDE_EVTLOG_MAX_DATA) {
+			pr_err("could not parse all dbg arguments\n");
+			break;
+		}
+
+		if (IS_ERR_OR_NULL(blk_name))
+			break;
+
+		if (!strcmp(blk_name, "stop_ftrace") &&
+				sde_dbg_base.debugfs_ctrl &
+				DBG_CTRL_STOP_FTRACE) {
+			pr_debug("tracing off\n");
+			tracing_off();
+		}
+
+		if (!strcmp(blk_name, "panic_underrun") &&
+				sde_dbg_base.debugfs_ctrl &
+				DBG_CTRL_PANIC_UNDERRUN) {
+			pr_debug("panic underrun\n");
+			panic("underrun");
+		}
+
+		if (!strcmp(blk_name, "reset_hw_panic") &&
+				sde_dbg_base.debugfs_ctrl &
+				DBG_CTRL_RESET_HW_PANIC) {
+			pr_debug("reset hw panic\n");
+			panic("reset_hw");
+		}
+	}
+
+	va_end(args);
+}
+
+
 /*
  * sde_dbg_debugfs_open - debugfs open handler for evtlog dump
  * @inode: debugfs inode
@@ -2711,7 +2784,7 @@ static ssize_t sde_evtlog_dump_read(struct file *file, char __user *buff,
 		return -EINVAL;
 
 	len = sde_evtlog_dump_to_buffer(sde_dbg_base.evtlog, evtlog_buf,
-			SDE_EVTLOG_BUF_MAX);
+			SDE_EVTLOG_BUF_MAX, true);
 	if (copy_to_user(buff, evtlog_buf, len))
 		return -EFAULT;
 	*ppos += len;
@@ -2739,6 +2812,82 @@ static const struct file_operations sde_evtlog_fops = {
 	.open = sde_dbg_debugfs_open,
 	.read = sde_evtlog_dump_read,
 	.write = sde_evtlog_dump_write,
+};
+
+/**
+ * sde_dbg_ctrl_read - debugfs read handler for debug ctrl read
+ * @file: file handler
+ * @buff: user buffer content for debugfs
+ * @count: size of user buffer
+ * @ppos: position offset of user buffer
+ */
+static ssize_t sde_dbg_ctrl_read(struct file *file, char __user *buff,
+		size_t count, loff_t *ppos)
+{
+	ssize_t len = 0;
+	char buf[24] = {'\0'};
+
+	if (!buff || !ppos)
+		return -EINVAL;
+
+	if (*ppos)
+		return 0;	/* the end */
+
+	len = snprintf(buf, sizeof(buf), "0x%x\n", sde_dbg_base.debugfs_ctrl);
+	pr_debug("%s: ctrl:0x%x len:0x%zx\n",
+		__func__, sde_dbg_base.debugfs_ctrl, len);
+
+	if ((count < sizeof(buf)) || copy_to_user(buff, buf, len)) {
+		pr_err("error copying the buffer! count:0x%zx\n", count);
+		return -EFAULT;
+	}
+
+	*ppos += len;	/* increase offset */
+	return len;
+}
+
+/**
+ * sde_dbg_ctrl_write - debugfs read handler for debug ctrl write
+ * @file: file handler
+ * @user_buf: user buffer content from debugfs
+ * @count: size of user buffer
+ * @ppos: position offset of user buffer
+ */
+static ssize_t sde_dbg_ctrl_write(struct file *file,
+	const char __user *user_buf, size_t count, loff_t *ppos)
+{
+	u32 dbg_ctrl = 0;
+	char buf[24];
+
+	if (!file) {
+		pr_err("DbgDbg: %s: error no file --\n", __func__);
+		return -EINVAL;
+	}
+
+	if (count >= sizeof(buf))
+		return -EFAULT;
+
+
+	if (copy_from_user(buf, user_buf, count))
+		return -EFAULT;
+
+	buf[count] = 0; /* end of string */
+
+	if (kstrtouint(buf, 0, &dbg_ctrl)) {
+		pr_err("%s: error in the number of bytes\n", __func__);
+		return -EFAULT;
+	}
+
+	pr_debug("dbg_ctrl_read:0x%x\n", dbg_ctrl);
+	sde_dbg_base.debugfs_ctrl = dbg_ctrl;
+
+	return count;
+}
+
+static const struct file_operations sde_dbg_ctrl_fops = {
+	.open = sde_dbg_debugfs_open,
+	.read = sde_dbg_ctrl_read,
+	.write = sde_dbg_ctrl_write,
 };
 
 /*
@@ -2968,6 +3117,7 @@ static ssize_t sde_dbg_reg_base_reg_write(struct file *file,
 	size_t off;
 	u32 data, cnt;
 	char buf[24];
+	int rc;
 
 	if (!file)
 		return -EINVAL;
@@ -2998,7 +3148,12 @@ static ssize_t sde_dbg_reg_base_reg_write(struct file *file,
 		return -EFAULT;
 	}
 
-	_sde_dbg_enable_power(true);
+	rc = _sde_dbg_enable_power(true);
+	if (rc) {
+		mutex_unlock(&sde_dbg_base.mutex);
+		pr_err("failed to enable power %d\n", rc);
+		return rc;
+	}
 
 	writel_relaxed(data, dbg->base + off);
 
@@ -3023,6 +3178,7 @@ static ssize_t sde_dbg_reg_base_reg_read(struct file *file,
 {
 	struct sde_dbg_reg_base *dbg;
 	size_t len;
+	int rc;
 
 	if (!file)
 		return -EINVAL;
@@ -3059,7 +3215,12 @@ static ssize_t sde_dbg_reg_base_reg_read(struct file *file,
 		ptr = dbg->base + dbg->off;
 		tot = 0;
 
-		_sde_dbg_enable_power(true);
+		rc = _sde_dbg_enable_power(true);
+		if (rc) {
+			mutex_unlock(&sde_dbg_base.mutex);
+			pr_err("failed to enable power %d\n", rc);
+			return rc;
+		}
 
 		for (cnt = dbg->cnt; cnt > 0; cnt -= ROW_BYTES) {
 			hex_dump_to_buffer(ptr, min(cnt, ROW_BYTES),
@@ -3123,6 +3284,8 @@ int sde_dbg_debugfs_register(struct dentry *debugfs_root)
 	if (!debugfs_root)
 		return -EINVAL;
 
+	debugfs_create_file("dbg_ctrl", 0600, debugfs_root, NULL,
+			&sde_dbg_ctrl_fops);
 	debugfs_create_file("dump", 0600, debugfs_root, NULL,
 			&sde_evtlog_fops);
 	debugfs_create_u32("enable", 0600, debugfs_root,

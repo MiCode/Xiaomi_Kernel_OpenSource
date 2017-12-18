@@ -25,13 +25,16 @@
  * @vdisplay: used to filter out vdisplay value
  * @hdisplay: used to filter out hdisplay value
  * @vrefresh: used to filter out vrefresh value
+ * @tpg_state: specifies whether tpg feature is enabled
  */
 struct dp_debug {
 	bool debug_en;
+	bool psm_enabled;
 	int aspect_ratio;
 	int vdisplay;
 	int hdisplay;
 	int vrefresh;
+	bool tpg_state;
 };
 
 /**

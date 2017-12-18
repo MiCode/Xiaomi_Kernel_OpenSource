@@ -44,16 +44,6 @@ enum cam_isp_hw_vfe_core {
 	CAM_ISP_HW_VFE_CORE_MAX,
 };
 
-enum cam_vfe_hw_cmd_type {
-	CAM_VFE_HW_CMD_GET_CHANGE_BASE,
-	CAM_VFE_HW_CMD_GET_BUF_UPDATE,
-	CAM_VFE_HW_CMD_GET_REG_UPDATE,
-	CAM_VFE_HW_CMD_GET_HFR_UPDATE,
-	CAM_VFE_HW_CMD_GET_SECURE_MODE,
-	CAM_VFE_HW_CMD_STRIPE_UPDATE,
-	CAM_VFE_HW_CMD_MAX,
-};
-
 enum cam_vfe_hw_irq_status {
 	CAM_VFE_IRQ_STATUS_ERR_COMP             = -3,
 	CAM_VFE_IRQ_STATUS_COMP_OWRT            = -2,
@@ -78,6 +68,12 @@ enum cam_vfe_bus_irq_regs {
 	CAM_IFE_IRQ_BUS_DUAL_COMP_ERR           = 5,
 	CAM_IFE_IRQ_BUS_DUAL_COMP_OWRT          = 6,
 	CAM_IFE_BUS_IRQ_REGISTERS_MAX,
+};
+
+enum cam_vfe_reset_type {
+	CAM_VFE_HW_RESET_HW_AND_REG,
+	CAM_VFE_HW_RESET_HW,
+	CAM_VFE_HW_RESET_MAX,
 };
 
 /*
@@ -162,6 +158,31 @@ struct cam_vfe_acquire_args {
 		struct cam_vfe_hw_vfe_out_acquire_args  vfe_out;
 		struct cam_vfe_hw_vfe_in_acquire_args   vfe_in;
 	};
+};
+
+/*
+ * struct cam_vfe_clock_update_args:
+ *
+ * @node_res:                Resource to get the time stamp
+ * @clk_rate:                Clock rate requested
+ */
+struct cam_vfe_clock_update_args {
+	struct cam_isp_resource_node      *node_res;
+	uint64_t                           clk_rate;
+};
+
+/*
+ * struct cam_vfe_bw_update_args:
+ *
+ * @node_res:             Resource to get the time stamp
+ * @camnoc_bw_bytes:      Bandwidth vote request for CAMNOC
+ * @external_bw_bytes:    Bandwidth vote request from CAMNOC
+ *                        out to the rest of the path-to-DDR
+ */
+struct cam_vfe_bw_update_args {
+	struct cam_isp_resource_node      *node_res;
+	uint64_t                           camnoc_bw_bytes;
+	uint64_t                           external_bw_bytes;
 };
 
 /*

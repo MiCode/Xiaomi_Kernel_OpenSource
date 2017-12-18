@@ -180,6 +180,7 @@ struct cam_hw_soc_info {
 	struct regulator               *rgltr[CAM_SOC_MAX_REGULATOR];
 	uint32_t                        rgltr_delay[CAM_SOC_MAX_REGULATOR];
 
+	uint32_t                        use_shared_clk;
 	uint32_t                        num_clk;
 	const char                     *clk_name[CAM_SOC_MAX_CLK];
 	struct clk                     *clk[CAM_SOC_MAX_CLK];

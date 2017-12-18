@@ -14,9 +14,15 @@ qcom,mlp356477_2800mah {
 	/* #mlp356477_2800mah_averaged_MasterSlave_Aug14th2017*/
 	qcom,max-voltage-uv = <4400000>;
 	qcom,fg-cc-cv-threshold-mv = <4390>;
-	qcom,fastchg-current-ma = <2800>;
+	qcom,fastchg-current-ma = <4200>;
 	qcom,batt-id-kohm = <82>;
 	qcom,battery-beta = <4250>;
+	qcom,jeita-fcc-ranges = <0   150   560000
+				 151 450  4200000
+				 451 550  2380000>;
+	qcom,jeita-fv-ranges =  <0   150  4150000
+				 151 450  4400000
+				 451 550  4150000>;
 	qcom,battery-type =
 		"mlp356477_2800mah_averaged_masterslave_aug14th2017";
 	qcom,checksum = <0x71B8>;

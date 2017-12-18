@@ -59,7 +59,7 @@
 		bcm_ip0: bcm-ip0 {
 			cell-id = <MSM_BUS_BCM_IP0>;
 			label = "IP0";
-			qcom,bcm-name = "CE";
+			qcom,bcm-name = "IP0";
 			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
@@ -240,8 +240,8 @@
 			label = "fab-system_noc";
 			qcom,fab-dev;
 			qcom,base-name = "system_noc-base";
-			qcom,qos-off = <0>;
-			qcom,base-offset = <0>;
+			qcom,qos-off = <4096>;
+			qcom,base-offset = <45056>;
 			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			clocks = <>;
@@ -261,7 +261,7 @@
 		mas_llcc_mc: mas-llcc-mc {
 			cell-id = <MSM_BUS_MASTER_LLCC>;
 			label = "mas-llcc-mc";
-			qcom,buswidth = <16>;
+			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
 			qcom,connections = <&slv_ebi>;
 			qcom,bus-dev = <&fab_mc_virt>;
@@ -277,7 +277,7 @@
 			qcom,bus-dev = <&fab_mem_noc>;
 			qcom,bcms = <&bcm_sh1>;
 			qcom,ap-owned;
-			qcom,prio = <0>;
+			qcom,prio = <6>;
 		};
 
 		mas_qnm_snoc_gc: mas-qnm-snoc-gc {
@@ -290,6 +290,7 @@
 			qcom,bus-dev = <&fab_mem_noc>;
 			qcom,ap-owned;
 			qcom,prio = <0>;
+			qcom,forwarding;
 		};
 
 		mas_xm_apps_rdwr: mas-xm-apps-rdwr {
@@ -310,9 +311,12 @@
 			label = "mas-qhm-audio";
 			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
+			qcom,qport = <9>;
 			qcom,connections = <&slv_qns_aggre_noc>;
 			qcom,bus-dev = <&fab_system_noc>;
 			qcom,bcms = <&bcm_pn2>;
+			qcom,ap-owned;
+			qcom,prio = <1>;
 		};
 
 		mas_qhm_blsp1: mas-qhm-blsp1 {
@@ -320,9 +324,12 @@
 			label = "mas-qhm-blsp1";
 			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
+			qcom,qport = <10>;
 			qcom,connections = <&slv_qns_aggre_noc>;
 			qcom,bus-dev = <&fab_system_noc>;
 			qcom,bcms = <&bcm_pn3>;
+			qcom,ap-owned;
+			qcom,prio = <1>;
 		};
 
 		mas_qhm_qdss_bam: mas-qhm-qdss-bam {
@@ -330,20 +337,22 @@
 			label = "mas-qhm-qdss-bam";
 			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
+			qcom,qport = <11>;
 			qcom,connections = <&slv_qhs_crypto_cfg
-				 &slv_qhs_snoc_cfg &slv_qhs_emac_cfg
-				 &slv_qhs_aoss &slv_qhs_spmi_fetcher
-				 &slv_qhs_pdm &slv_qns_snoc_memnoc
-				 &slv_qhs_tcsr &slv_qhs_qpic
-				 &slv_qxs_imem &slv_qhs_ipa
-				 &slv_qhs_usb3_phy &slv_qhs_aop
-				 &slv_qhs_blsp1 &slv_qhs_sdc1
-				 &slv_qhs_pcie_parf &slv_qhs_audio
-				 &slv_qhs_tlmm &slv_qhs_prng
-				 &slv_xs_sys_tcu_cfg &slv_qhs_clk_ctl
-				 &slv_qhs_usb3>;
+				&slv_qhs_pdm &slv_qhs_pcie_parf
+				 &slv_qhs_tlmm &slv_qhs_spmi_fetcher
+				 &slv_qhs_prng &slv_qhs_qpic
+				 &slv_qxs_imem &slv_qhs_snoc_cfg
+				 &slv_qhs_audio &slv_qhs_sdc1
+				 &slv_qhs_aoss &slv_qhs_ipa
+				 &slv_qns_snoc_memnoc &slv_qhs_usb3_phy
+				 &slv_qhs_aop &slv_qhs_tcsr
+				 &slv_qhs_blsp1 &slv_xs_sys_tcu_cfg
+				 &slv_qhs_usb3 &slv_qhs_clk_ctl>;
 			qcom,bus-dev = <&fab_system_noc>;
 			qcom,bcms = <&bcm_sn8>;
+			qcom,ap-owned;
+			qcom,prio = <1>;
 		};
 
 		mas_qhm_qpic: mas-qhm-qpic {
@@ -381,18 +390,17 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,connections = <&slv_qhs_crypto_cfg
-				 &slv_qhs_snoc_cfg &slv_qhs_emac_cfg
+				&slv_qhs_snoc_cfg &slv_qhs_sdc1
 				 &slv_qhs_aoss &slv_qhs_spmi_fetcher
 				 &slv_qhs_pdm &slv_qns_snoc_memnoc
 				 &slv_qhs_tcsr &slv_xs_qdss_stm
 				 &slv_qhs_qpic &slv_qxs_imem
 				 &slv_qhs_ipa &slv_qhs_usb3_phy
 				 &slv_qhs_aop &slv_qhs_blsp1
-				 &slv_qhs_sdc1 &slv_qhs_pcie_parf
-				 &slv_qhs_audio &slv_qxs_pcie
-				 &slv_qhs_tlmm &slv_qhs_prng
-				 &slv_xs_sys_tcu_cfg &slv_qhs_clk_ctl
-				 &slv_qhs_usb3>;
+				 &slv_qhs_pcie_parf &slv_qhs_audio
+				 &slv_qxs_pcie &slv_qhs_tlmm
+				 &slv_qhs_prng &slv_xs_sys_tcu_cfg
+				 &slv_qhs_clk_ctl &slv_qhs_usb3>;
 			qcom,bus-dev = <&fab_system_noc>;
 			qcom,bcms = <&bcm_sn7>;
 		};
@@ -403,17 +411,17 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,connections = <&slv_qhs_crypto_cfg
-				 &slv_qhs_snoc_cfg &slv_qhs_emac_cfg
+				&slv_qhs_snoc_cfg &slv_qhs_sdc1
 				 &slv_qhs_aoss &slv_qhs_spmi_fetcher
 				 &slv_qhs_pdm &slv_qns_snoc_memnoc
 				 &slv_qhs_tcsr &slv_xs_qdss_stm
 				 &slv_qhs_qpic &slv_qxs_imem
 				 &slv_qhs_ipa &slv_qhs_usb3_phy
 				 &slv_qhs_aop &slv_qhs_blsp1
-				 &slv_qhs_sdc1 &slv_qhs_pcie_parf
-				 &slv_qhs_audio &slv_qhs_tlmm
-				 &slv_qhs_prng &slv_xs_sys_tcu_cfg
-				 &slv_qhs_clk_ctl &slv_qhs_usb3>;
+				 &slv_qhs_pcie_parf &slv_qhs_audio
+				 &slv_qhs_tlmm &slv_qhs_prng
+				 &slv_xs_sys_tcu_cfg &slv_qhs_clk_ctl
+				 &slv_qhs_usb3>;
 			qcom,bus-dev = <&fab_system_noc>;
 		};
 
@@ -423,17 +431,16 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,connections = <&slv_qhs_crypto_cfg
-				 &slv_qhs_snoc_cfg &slv_qhs_emac_cfg
-				 &slv_qhs_aoss &slv_qhs_spmi_fetcher
-				 &slv_qhs_pdm &slv_qhs_tcsr
-				 &slv_xs_qdss_stm &slv_qhs_qpic
-				 &slv_qxs_imem &slv_qhs_ipa
+				&slv_qhs_pdm &slv_qhs_pcie_parf
+				 &slv_qhs_tlmm &slv_qhs_spmi_fetcher
+				 &slv_qhs_prng &slv_qhs_qpic
+				 &slv_qxs_imem &slv_qhs_snoc_cfg
+				 &slv_qhs_audio &slv_qhs_sdc1
+				 &slv_qhs_aoss &slv_qhs_ipa
 				 &slv_qhs_usb3_phy &slv_qhs_aop
-				 &slv_qhs_blsp1 &slv_qhs_sdc1
-				 &slv_qhs_pcie_parf &slv_qhs_audio
-				 &slv_qhs_tlmm &slv_qhs_prng
-				 &slv_xs_sys_tcu_cfg &slv_qhs_clk_ctl
-				 &slv_qhs_usb3>;
+				 &slv_qhs_tcsr &slv_qhs_blsp1
+				 &slv_xs_sys_tcu_cfg &slv_qhs_usb3
+				 &slv_xs_qdss_stm &slv_qhs_clk_ctl>;
 			qcom,bus-dev = <&fab_system_noc>;
 			qcom,bcms = <&bcm_sn9>;
 		};
@@ -443,9 +450,12 @@
 			label = "mas-qxm-crypto";
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
+			qcom,qport = <1>;
 			qcom,connections = <&slv_qhs_aoss &slv_qns_aggre_noc>;
 			qcom,bus-dev = <&fab_system_noc>;
-			qcom,bcms = <&bcm_ce>;
+			qcom,bcms = <&bcm_ce>, <&bcm_pn5>;
+			qcom,ap-owned;
+			qcom,prio = <2>;
 		};
 
 		mas_qxm_ipa: mas-qxm-ipa {
@@ -453,9 +463,25 @@
 			label = "mas-qxm-ipa";
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
+			qcom,qport = <5>;
 			qcom,connections = <&slv_qns_aggre_noc_ipa>;
 			qcom,bus-dev = <&fab_system_noc>;
 			qcom,bcms = <&bcm_sn11>;
+			qcom,ap-owned;
+			qcom,prio = <2>;
+			qcom,forwarding;
+		};
+
+		mas_qxm_ipa2pcie_slv: mas-qxm-ipa2pcie-slv {
+			cell-id = <MSM_BUS_MASTER_IPA_PCIE>;
+			label = "mas-qxm-ipa2pcie-slv";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,qport = <6>;
+			qcom,connections = <&slv_qxs_pcie>;
+			qcom,bus-dev = <&fab_system_noc>;
+			qcom,ap-owned;
+			qcom,prio = <2>;
 		};
 
 		mas_xm_emac: mas-xm-emac {
@@ -463,8 +489,11 @@
 			label = "mas-xm-emac";
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
+			qcom,qport = <7>;
 			qcom,connections = <&slv_qns_aggre_noc>;
 			qcom,bus-dev = <&fab_system_noc>;
+			qcom,ap-owned;
+			qcom,prio = <1>;
 		};
 
 		mas_xm_pcie: mas-xm-pcie {
@@ -472,8 +501,12 @@
 			label = "mas-xm-pcie";
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
+			qcom,qport = <2>;
 			qcom,connections = <&slv_qns_aggre_noc>;
 			qcom,bus-dev = <&fab_system_noc>;
+			qcom,ap-owned;
+			qcom,prio = <2>;
+			qcom,forwarding;
 		};
 
 		mas_xm_qdss_etr: mas-xm-qdss-etr {
@@ -481,20 +514,22 @@
 			label = "mas-xm-qdss-etr";
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
+			qcom,qport = <3>;
 			qcom,connections = <&slv_qhs_crypto_cfg
-				 &slv_qhs_snoc_cfg &slv_qhs_emac_cfg
-				 &slv_qhs_aoss &slv_qhs_spmi_fetcher
-				 &slv_qhs_pdm &slv_qns_snoc_memnoc
-				 &slv_qhs_tcsr &slv_qhs_qpic
-				 &slv_qxs_imem &slv_qhs_ipa
-				 &slv_qhs_usb3_phy &slv_qhs_aop
-				 &slv_qhs_blsp1 &slv_qhs_sdc1
-				 &slv_qhs_pcie_parf &slv_qhs_audio
-				 &slv_qhs_tlmm &slv_qhs_prng
-				 &slv_xs_sys_tcu_cfg &slv_qhs_clk_ctl
-				 &slv_qhs_usb3>;
+				&slv_qhs_pdm &slv_qhs_pcie_parf
+				 &slv_qhs_tlmm &slv_qhs_spmi_fetcher
+				 &slv_qhs_prng &slv_qhs_qpic
+				 &slv_qxs_imem &slv_qhs_snoc_cfg
+				 &slv_qhs_audio &slv_qhs_sdc1
+				 &slv_qhs_aoss &slv_qhs_ipa
+				 &slv_qns_snoc_memnoc &slv_qhs_usb3_phy
+				 &slv_qhs_aop &slv_qhs_tcsr
+				 &slv_qhs_blsp1 &slv_xs_sys_tcu_cfg
+				 &slv_qhs_usb3 &slv_qhs_clk_ctl>;
 			qcom,bus-dev = <&fab_system_noc>;
 			qcom,bcms = <&bcm_sn8>;
+			qcom,ap-owned;
+			qcom,prio = <1>;
 		};
 
 		mas_xm_sdc1: mas-xm-sdc1 {
@@ -502,9 +537,12 @@
 			label = "mas-xm-sdc1";
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
+			qcom,qport = <8>;
 			qcom,connections = <&slv_qhs_aoss &slv_qns_aggre_noc>;
 			qcom,bus-dev = <&fab_system_noc>;
 			qcom,bcms = <&bcm_pn1>;
+			qcom,ap-owned;
+			qcom,prio = <1>;
 		};
 
 		mas_xm_usb3: mas-xm-usb3 {
@@ -512,8 +550,11 @@
 			label = "mas-xm-usb3";
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
+			qcom,qport = <4>;
 			qcom,connections = <&slv_qns_aggre_noc>;
 			qcom,bus-dev = <&fab_system_noc>;
+			qcom,ap-owned;
+			qcom,prio = <2>;
 		};
 
 		/*Internal nodes*/
@@ -532,7 +573,7 @@
 		slv_ebi:slv-ebi {
 			cell-id = <MSM_BUS_SLAVE_EBI_CH0>;
 			label = "slv-ebi";
-			qcom,buswidth = <16>;
+			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
 			qcom,bus-dev = <&fab_mc_virt>;
 			qcom,bcms = <&bcm_mc0>;
@@ -606,15 +647,6 @@
 		slv_qhs_crypto_cfg:slv-qhs-crypto-cfg {
 			cell-id = <MSM_BUS_SLAVE_CRYPTO_0_CFG>;
 			label = "slv-qhs-crypto-cfg";
-			qcom,buswidth = <4>;
-			qcom,agg-ports = <1>;
-			qcom,bus-dev = <&fab_system_noc>;
-			qcom,bcms = <&bcm_pn0>;
-		};
-
-		slv_qhs_emac_cfg:slv-qhs-emac-cfg {
-			cell-id = <MSM_BUS_SLAVE_EMAC_CFG>;
-			label = "slv-qhs-emac-cfg";
 			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
 			qcom,bus-dev = <&fab_system_noc>;

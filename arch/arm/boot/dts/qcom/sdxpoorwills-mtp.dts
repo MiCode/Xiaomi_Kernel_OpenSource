@@ -20,12 +20,12 @@
 	model = "Qualcomm Technologies, Inc. SDXPOORWILLS MTP";
 	compatible = "qcom,sdxpoorwills-mtp",
 		"qcom,sdxpoorwills", "qcom,mtp";
-	qcom,board-id = <8 0x0>, <8 0x100>;
+	qcom,board-id = <8 0x0>, <8 0x100>, <8 0x2>, <8 0x102>;
 };
 
-&blsp1_uart2 {
+&serial_uart {
 	pinctrl-names = "default";
-	pinctrl-0 = <&uart2_console_active>;
+	pinctrl-0 = <&uart3_console_active>;
 	status = "ok";
 };
 

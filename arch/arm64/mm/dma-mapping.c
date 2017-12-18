@@ -971,14 +971,21 @@ static bool do_iommu_attach(struct device *dev, const struct iommu_ops *ops,
 	 * then the IOMMU core will have already configured a group for this
 	 * device, and allocated the default domain for that group.
 	 */
-	if (!domain || iommu_dma_init_domain(domain, dma_base, size, dev)) {
-		pr_debug("Failed to set up IOMMU for device %s; retaining platform DMA ops\n",
-			dev_name(dev));
-		return false;
+	if (!domain)
+		goto out_err;
+
+	if (domain->type == IOMMU_DOMAIN_DMA) {
+		if (iommu_dma_init_domain(domain, dma_base, size, dev))
+			goto out_err;
+
+		dev->archdata.dma_ops = &iommu_dma_ops;
 	}
 
-	dev->archdata.dma_ops = &iommu_dma_ops;
 	return true;
+out_err:
+	pr_debug("Failed to set up IOMMU for device %s; retaining platform DMA ops\n",
+		 dev_name(dev));
+	return false;
 }
 
 static void queue_iommu_attach(struct device *dev, const struct iommu_ops *ops,
@@ -1224,12 +1231,12 @@ static inline void __free_iova(struct dma_iommu_mapping *mapping,
 
 	addr = addr & PAGE_MASK;
 	size = PAGE_ALIGN(size);
-	if (mapping->min_iova_align)
+	if (mapping->min_iova_align) {
 		guard_len = ALIGN(size, mapping->min_iova_align) - size;
-	else
+		iommu_unmap(mapping->domain, addr + size, guard_len);
+	} else {
 		guard_len = 0;
-
-	iommu_unmap(mapping->domain, addr + size, guard_len);
+	}
 
 	start = (addr - mapping->base) >> PAGE_SHIFT;
 	count = (size + guard_len) >> PAGE_SHIFT;
@@ -1979,7 +1986,7 @@ bitmap_iommu_init_mapping(struct device *dev, struct dma_iommu_mapping *mapping)
 {
 	unsigned int bitmap_size = BITS_TO_LONGS(mapping->bits) * sizeof(long);
 	int vmid = VMID_HLOS;
-	bool min_iova_align = 0;
+	int min_iova_align = 0;
 
 	iommu_domain_get_attr(mapping->domain,
 			DOMAIN_ATTR_MMU500_ERRATA_MIN_ALIGN,

@@ -33,14 +33,14 @@ struct dsi_bridge {
 };
 
 /**
- * dsi_conn_post_init - callback to perform additional initialization steps
+ * dsi_conn_set_info_blob - callback to perform info blob initialization
  * @connector: Pointer to drm connector structure
  * @info: Pointer to sde connector info structure
  * @display: Pointer to private display handle
  * @mode_info: Pointer to mode info structure
  * Returns: Zero on success
  */
-int dsi_conn_post_init(struct drm_connector *connector,
+int dsi_conn_set_info_blob(struct drm_connector *connector,
 		void *info,
 		void *display,
 		struct msm_mode_info *mode_info);
@@ -129,5 +129,13 @@ int dsi_conn_pre_kickoff(struct drm_connector *connector,
  * Returns: Zero on success
  */
 int dsi_conn_post_kickoff(struct drm_connector *connector);
+
+/**
+ * dsi_convert_to_drm_mode - Update drm mode with dsi mode information
+ * @dsi_mode: input parameter. structure having dsi mode information.
+ * @drm_mode: output parameter. DRM mode set for the display
+ */
+void dsi_convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
+				struct drm_display_mode *drm_mode);
 
 #endif /* _DSI_DRM_H_ */

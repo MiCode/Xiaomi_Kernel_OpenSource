@@ -1113,12 +1113,6 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			{ 31, 31, 8, 8, IPA_EE_AP } },
 
 	/* IPA_4_0 */
-	[IPA_4_0][IPA_CLIENT_WLAN1_PROD]          = {
-			true, IPA_v4_0_GROUP_UL_DL,
-			true,
-			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
-			QMB_MASTER_SELECT_DDR,
-			{ 7, 9, 8, 16, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_USB_PROD]            = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			true,
@@ -1211,25 +1205,25 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 18, 12, 6, 9, IPA_EE_AP } },
+			{ 18, 11, 6, 9, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_WLAN2_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 20, 14, 9, 9, IPA_EE_AP } },
+			{ 20, 13, 9, 9, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_WLAN3_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 21, 15, 9, 9, IPA_EE_AP } },
+			{ 21, 14, 9, 9, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_USB_CONS]            = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_PCIE,
-			{ 19, 13, 9, 9, IPA_EE_AP } },
+			{ 19, 12, 9, 9, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_USB_DPL_CONS]        = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
@@ -1297,19 +1291,19 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_PCIE,
-			{ 18, 12, 6, 9, IPA_EE_AP } },
+			{ 18, 11, 6, 9, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_TEST3_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 20, 14, 9, 9, IPA_EE_AP } },
+			{ 20, 13, 9, 9, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_TEST4_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_PCIE,
-			{ 21, 15, 9, 9, IPA_EE_AP } },
+			{ 21, 14, 9, 9, IPA_EE_AP } },
 	/* Dummy consumer (pipe 31) is used in L2TP rt rule */
 	[IPA_4_0][IPA_CLIENT_DUMMY_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
@@ -1348,13 +1342,13 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
-			{ 3, 0, 16, 32, IPA_EE_Q6 } },
+			{ 6, 2, 12, 24, IPA_EE_Q6 } },
 	[IPA_4_0_MHI][IPA_CLIENT_Q6_WAN_PROD]         = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
-			{ 6, 2, 12, 24, IPA_EE_Q6 } },
+			{ 3, 0, 16, 32, IPA_EE_Q6 } },
 	[IPA_4_0_MHI][IPA_CLIENT_Q6_CMD_PROD]	  = {
 			true, IPA_v4_0_MHI_GROUP_PCIE,
 			false,
@@ -1410,7 +1404,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 19, 13, 9, 9, IPA_EE_AP } },
+			{ 19, 12, 9, 9, IPA_EE_AP } },
 	[IPA_4_0_MHI][IPA_CLIENT_USB_DPL_CONS]        = {
 			true, IPA_v4_0_MHI_GROUP_DDR,
 			false,
@@ -1452,13 +1446,13 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_PCIE,
-			{ 20, 14, 9, 9, IPA_EE_AP } },
+			{ 20, 13, 9, 9, IPA_EE_AP } },
 	[IPA_4_0_MHI][IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS] = {
 			true, IPA_v4_0_MHI_GROUP_DMA,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_PCIE,
-			{ 21, 15, 9, 9, IPA_EE_AP } },
+			{ 21, 14, 9, 9, IPA_EE_AP } },
 	[IPA_4_0_MHI][IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS] = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
@@ -1483,19 +1477,19 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_PCIE,
-			{ 18, 12, 6, 9, IPA_EE_AP } },
+			{ 18, 11, 6, 9, IPA_EE_AP } },
 	[IPA_4_0_MHI][IPA_CLIENT_TEST3_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 20, 14, 9, 9, IPA_EE_AP } },
+			{ 20, 13, 9, 9, IPA_EE_AP } },
 	[IPA_4_0_MHI][IPA_CLIENT_TEST4_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_PCIE,
-			{ 21, 15, 9, 9, IPA_EE_AP } },
+			{ 21, 14, 9, 9, IPA_EE_AP } },
 	/* Dummy consumer (pipe 31) is used in L2TP rt rule */
 	[IPA_4_0_MHI][IPA_CLIENT_DUMMY_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
@@ -4194,7 +4188,9 @@ void ipa3_proxy_clk_unvote(void)
 	mutex_lock(&ipa3_ctx->q6_proxy_clk_vote_mutex);
 	if (ipa3_ctx->q6_proxy_clk_vote_valid) {
 		IPA_ACTIVE_CLIENTS_DEC_SPECIAL("PROXY_CLK_VOTE");
-		ipa3_ctx->q6_proxy_clk_vote_valid = false;
+		ipa3_ctx->q6_proxy_clk_vote_cnt--;
+		if (ipa3_ctx->q6_proxy_clk_vote_cnt == 0)
+			ipa3_ctx->q6_proxy_clk_vote_valid = false;
 	}
 	mutex_unlock(&ipa3_ctx->q6_proxy_clk_vote_mutex);
 }
@@ -4210,8 +4206,10 @@ void ipa3_proxy_clk_vote(void)
 		return;
 
 	mutex_lock(&ipa3_ctx->q6_proxy_clk_vote_mutex);
-	if (!ipa3_ctx->q6_proxy_clk_vote_valid) {
+	if (!ipa3_ctx->q6_proxy_clk_vote_valid ||
+		(ipa3_ctx->q6_proxy_clk_vote_cnt > 0)) {
 		IPA_ACTIVE_CLIENTS_INC_SPECIAL("PROXY_CLK_VOTE");
+		ipa3_ctx->q6_proxy_clk_vote_cnt++;
 		ipa3_ctx->q6_proxy_clk_vote_valid = true;
 	}
 	mutex_unlock(&ipa3_ctx->q6_proxy_clk_vote_mutex);
@@ -4318,6 +4316,38 @@ static void ipa3_get_holb(int ep_idx, struct ipa_ep_cfg_holb *holb)
 static void ipa3_set_tag_process_before_gating(bool val)
 {
 	ipa3_ctx->tag_process_before_gating = val;
+}
+
+/**
+ * ipa3_is_vlan_mode - check if a LAN driver should load in VLAN mode
+ * @iface - type of vlan capable device
+ * @res - query result: true for vlan mode, false for non vlan mode
+ *
+ * API must be called after ipa_is_ready() returns true, otherwise it will fail
+ *
+ * Returns: 0 on success, negative on failure
+ */
+static int ipa3_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res)
+{
+	if (!res) {
+		IPAERR("NULL out param\n");
+		return -EINVAL;
+	}
+
+	if (iface < 0 || iface > IPA_VLAN_IF_MAX) {
+		IPAERR("invalid iface %d\n", iface);
+		return -EINVAL;
+	}
+
+	if (!ipa3_is_ready()) {
+		IPAERR("IPA is not ready yet\n");
+		return -ENODEV;
+	}
+
+	*res = ipa3_ctx->vlan_mode_iface[iface];
+
+	IPADBG("Driver %d vlan mode is %d\n", iface, *res);
+	return 0;
 }
 
 int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
@@ -4505,6 +4535,8 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_enable_wdi3_pipes = ipa3_enable_wdi3_pipes;
 	api_ctrl->ipa_disable_wdi3_pipes = ipa3_disable_wdi3_pipes;
 	api_ctrl->ipa_tz_unlock_reg = ipa3_tz_unlock_reg;
+	api_ctrl->ipa_get_smmu_params = ipa3_get_smmu_params;
+	api_ctrl->ipa_is_vlan_mode = ipa3_is_vlan_mode;
 
 	return 0;
 }
@@ -4868,6 +4900,77 @@ static void ipa3_gsi_poll_after_suspend(struct ipa3_ep_context *ep)
 	}
 }
 
+static int __ipa3_stop_gsi_channel(u32 clnt_hdl)
+{
+	struct ipa_mem_buffer mem;
+	int res = 0;
+	int i;
+	struct ipa3_ep_context *ep;
+
+	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
+		ipa3_ctx->ep[clnt_hdl].valid == 0) {
+		IPAERR("bad parm.\n");
+		return -EINVAL;
+	}
+
+	ep = &ipa3_ctx->ep[clnt_hdl];
+	memset(&mem, 0, sizeof(mem));
+
+	if (IPA_CLIENT_IS_PROD(ep->client)) {
+		IPADBG("Calling gsi_stop_channel ch:%lu\n",
+			ep->gsi_chan_hdl);
+		res = gsi_stop_channel(ep->gsi_chan_hdl);
+		IPADBG("gsi_stop_channel ch: %lu returned %d\n",
+			ep->gsi_chan_hdl, res);
+		return res;
+	}
+
+	for (i = 0; i < IPA_GSI_CHANNEL_STOP_MAX_RETRY; i++) {
+		IPADBG("Calling gsi_stop_channel ch:%lu\n",
+			ep->gsi_chan_hdl);
+		res = gsi_stop_channel(ep->gsi_chan_hdl);
+		IPADBG("gsi_stop_channel ch: %lu returned %d\n",
+			ep->gsi_chan_hdl, res);
+		if (res != -GSI_STATUS_AGAIN && res != -GSI_STATUS_TIMED_OUT)
+			return res;
+
+		IPADBG("Inject a DMA_TASK with 1B packet to IPA\n");
+		/* Send a 1B packet DMA_TASK to IPA and try again */
+		res = ipa3_inject_dma_task_for_gsi();
+		if (res) {
+			IPAERR("Failed to inject DMA TASk for GSI\n");
+			return res;
+		}
+
+		/* sleep for short period to flush IPA */
+		usleep_range(IPA_GSI_CHANNEL_STOP_SLEEP_MIN_USEC,
+			IPA_GSI_CHANNEL_STOP_SLEEP_MAX_USEC);
+	}
+
+	IPAERR("Failed  to stop GSI channel with retries\n");
+	return -EFAULT;
+}
+
+/**
+ * ipa3_stop_gsi_channel()- Stops a GSI channel in IPA
+ * @chan_hdl: GSI channel handle
+ *
+ * This function implements the sequence to stop a GSI channel
+ * in IPA. This function returns when the channel is in STOP state.
+ *
+ * Return value: 0 on success, negative otherwise
+ */
+int ipa3_stop_gsi_channel(u32 clnt_hdl)
+{
+	int res;
+
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
+	res = __ipa3_stop_gsi_channel(clnt_hdl);
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
+
+	return res;
+}
+
 void ipa3_suspend_apps_pipes(bool suspend)
 {
 	struct ipa_ep_cfg_ctrl cfg;
@@ -4890,7 +4993,7 @@ void ipa3_suspend_apps_pipes(bool suspend)
 			ipa_ep_idx);
 		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
 			if (suspend) {
-				res = ipa3_stop_gsi_channel(ipa_ep_idx);
+				res = __ipa3_stop_gsi_channel(ipa_ep_idx);
 				if (res) {
 					IPAERR("failed to stop LAN channel\n");
 					ipa_assert();
@@ -4924,7 +5027,7 @@ void ipa3_suspend_apps_pipes(bool suspend)
 			ipa_ep_idx);
 		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
 			if (suspend) {
-				res = ipa3_stop_gsi_channel(ipa_ep_idx);
+				res = __ipa3_stop_gsi_channel(ipa_ep_idx);
 				if (res) {
 					IPAERR("failed to stop WAN channel\n");
 					ipa_assert();
@@ -5012,73 +5115,6 @@ int ipa3_inject_dma_task_for_gsi(void)
 	}
 
 	return 0;
-}
-
-/**
- * ipa3_stop_gsi_channel()- Stops a GSI channel in IPA
- * @chan_hdl: GSI channel handle
- *
- * This function implements the sequence to stop a GSI channel
- * in IPA. This function returns when the channel is is STOP state.
- *
- * Return value: 0 on success, negative otherwise
- */
-int ipa3_stop_gsi_channel(u32 clnt_hdl)
-{
-	struct ipa_mem_buffer mem;
-	int res = 0;
-	int i;
-	struct ipa3_ep_context *ep;
-
-	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
-		ipa3_ctx->ep[clnt_hdl].valid == 0) {
-		IPAERR("bad parm.\n");
-		return -EINVAL;
-	}
-
-	ep = &ipa3_ctx->ep[clnt_hdl];
-
-	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
-
-	memset(&mem, 0, sizeof(mem));
-
-	if (IPA_CLIENT_IS_PROD(ep->client)) {
-		IPADBG("Calling gsi_stop_channel ch:%lu\n",
-			ep->gsi_chan_hdl);
-		res = gsi_stop_channel(ep->gsi_chan_hdl);
-		IPADBG("gsi_stop_channel ch: %lu returned %d\n",
-			ep->gsi_chan_hdl, res);
-		goto end_sequence;
-	}
-
-	for (i = 0; i < IPA_GSI_CHANNEL_STOP_MAX_RETRY; i++) {
-		IPADBG("Calling gsi_stop_channel ch:%lu\n",
-			ep->gsi_chan_hdl);
-		res = gsi_stop_channel(ep->gsi_chan_hdl);
-		IPADBG("gsi_stop_channel ch: %lu returned %d\n",
-			ep->gsi_chan_hdl, res);
-		if (res != -GSI_STATUS_AGAIN && res != -GSI_STATUS_TIMED_OUT)
-			goto end_sequence;
-
-		IPADBG("Inject a DMA_TASK with 1B packet to IPA\n");
-		/* Send a 1B packet DMA_TASK to IPA and try again */
-		res = ipa3_inject_dma_task_for_gsi();
-		if (res) {
-			IPAERR("Failed to inject DMA TASk for GSI\n");
-			goto end_sequence;
-		}
-
-		/* sleep for short period to flush IPA */
-		usleep_range(IPA_GSI_CHANNEL_STOP_SLEEP_MIN_USEC,
-			IPA_GSI_CHANNEL_STOP_SLEEP_MAX_USEC);
-	}
-
-	IPAERR("Failed  to stop GSI channel with retries\n");
-	res = -EFAULT;
-end_sequence:
-	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
-
-	return res;
 }
 
 static int ipa3_load_single_fw(const struct firmware *firmware,

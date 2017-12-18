@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation.All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -124,15 +124,18 @@ struct dsi_display_clk_info {
  * struct dsi_display - dsi display information
  * @pdev:             Pointer to platform device.
  * @drm_dev:          DRM device associated with the display.
+ * @drm_conn:         Pointer to DRM connector associated with the display
  * @name:             Name of the display.
  * @display_type:     Display type as defined in device tree.
  * @list:             List pointer.
  * @is_active:        Is display active.
+ * @is_cont_splash_enabled:  Is continuous splash enabled
  * @display_lock:     Mutex for dsi_display interface.
  * @ctrl_count:       Number of DSI interfaces required by panel.
  * @ctrl:             Controller information for DSI display.
  * @panel:            Handle to DSI panel.
  * @panel_of:         pHandle to DSI panel.
+ * @modes:            Array of probed DSI modes
  * @type:             DSI display type.
  * @clk_master_idx:   The master controller for controlling clocks. This is an
  *		      index into the ctrl[MAX_DSI_CTRLS_PER_DISPLAY] array.
@@ -160,11 +163,13 @@ struct dsi_display_clk_info {
 struct dsi_display {
 	struct platform_device *pdev;
 	struct drm_device *drm_dev;
+	struct drm_connector *drm_conn;
 
 	const char *name;
 	const char *display_type;
 	struct list_head list;
 	bool is_active;
+	bool is_cont_splash_enabled;
 	struct mutex display_lock;
 
 	u32 ctrl_count;
@@ -173,6 +178,8 @@ struct dsi_display {
 	/* panel info */
 	struct dsi_panel *panel;
 	struct device_node *panel_of;
+
+	struct dsi_display_mode *modes;
 
 	enum dsi_display_type type;
 	u32 clk_master_idx;
@@ -192,10 +199,14 @@ struct dsi_display {
 	u32 cmd_buffer_size;
 	u32 cmd_buffer_iova;
 	void *vaddr;
+	struct msm_gem_address_space *aspace;
 
 	struct mipi_dsi_host host;
 	struct dsi_bridge    *bridge;
 	u32 cmd_engine_refcount;
+
+	struct sde_power_handle *phandle;
+	struct sde_power_client *cont_splash_client;
 
 	void *clk_mngr;
 	void *dsi_clk_handle;
@@ -206,6 +217,11 @@ struct dsi_display {
 
 	bool misr_enable;
 	u32 misr_frame_count;
+	/* multiple dsi error handlers */
+	struct workqueue_struct *err_workq;
+	struct work_struct fifo_underflow_work;
+	struct work_struct fifo_overflow_work;
+	struct work_struct lp_rx_timeout_work;
 };
 
 int dsi_display_dev_probe(struct platform_device *pdev);
@@ -291,15 +307,13 @@ int dsi_display_get_mode_count(struct dsi_display *display, u32 *count);
 /**
  * dsi_display_get_modes() - get modes supported by display
  * @display:            Handle to display.
- * @modes;              Pointer to array of modes. Memory allocated should be
- *			big enough to store (count * struct dsi_display_mode)
- *			elements. If modes pointer is NULL, number of modes will
- *			be stored in the memory pointed to by count.
+ * @modes;              Output param, list of DSI modes. Number of modes matches
+ *                      count returned by dsi_display_get_mode_count
  *
  * Return: error code.
  */
 int dsi_display_get_modes(struct dsi_display *display,
-			  struct dsi_display_mode *modes);
+			  struct dsi_display_mode **modes);
 
 /**
  * dsi_display_put_mode() - free up mode created for the display
@@ -311,6 +325,17 @@ int dsi_display_get_modes(struct dsi_display *display,
 void dsi_display_put_mode(struct dsi_display *display,
 	struct dsi_display_mode *mode);
 
+/**
+ * dsi_display_find_mode() - retrieve cached DSI mode given relevant params
+ * @display:            Handle to display.
+ * @cmp:                Mode to use as comparison to find original
+ * @out_mode:           Output parameter, pointer to retrieved mode
+ *
+ * Return: error code.
+ */
+int dsi_display_find_mode(struct dsi_display *display,
+		const struct dsi_display_mode *cmp,
+		struct dsi_display_mode **out_mode);
 /**
  * dsi_display_validate_mode() - validates if mode is supported by display
  * @display:             Handle to display.
@@ -357,6 +382,22 @@ int dsi_display_set_mode(struct dsi_display *display,
  * Return: error code.
  */
 int dsi_display_prepare(struct dsi_display *display);
+
+/**
+ * dsi_display_splash_res_cleanup() - cleanup for continuous splash
+ * @display:    Pointer to dsi display
+ * Returns:     Zero on success
+ */
+int dsi_display_splash_res_cleanup(struct  dsi_display *display);
+
+/**
+ * dsi_display_config_ctrl_for_cont_splash()- Enable engine modes for DSI
+ *                                     controller during continuous splash
+ * @display: Handle to DSI display
+ *
+ * Return:        returns error code
+ */
+int dsi_display_config_ctrl_for_cont_splash(struct dsi_display *display);
 
 /**
  * dsi_display_enable() - enable display

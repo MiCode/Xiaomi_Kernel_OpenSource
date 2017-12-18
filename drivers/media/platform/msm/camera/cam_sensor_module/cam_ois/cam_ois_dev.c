@@ -197,16 +197,19 @@ static int cam_ois_i2c_driver_probe(struct i2c_client *client,
 	rc = cam_ois_driver_soc_init(o_ctrl);
 	if (rc) {
 		CAM_ERR(CAM_OIS, "failed: cam_sensor_parse_dt rc %d", rc);
-		goto octrl_free;
+		goto soc_free;
 	}
 
 	rc = cam_ois_init_subdev_param(o_ctrl);
 	if (rc)
-		goto octrl_free;
+		goto soc_free;
+
 	o_ctrl->cam_ois_state = CAM_OIS_INIT;
 
 	return rc;
 
+soc_free:
+	kfree(soc_private);
 octrl_free:
 	kfree(o_ctrl);
 probe_failure:
@@ -215,13 +218,28 @@ probe_failure:
 
 static int cam_ois_i2c_driver_remove(struct i2c_client *client)
 {
-	struct cam_ois_ctrl_t       *o_ctrl = i2c_get_clientdata(client);
+	int                             i;
+	struct cam_ois_ctrl_t          *o_ctrl = i2c_get_clientdata(client);
+	struct cam_hw_soc_info         *soc_info;
+	struct cam_ois_soc_private     *soc_private;
+	struct cam_sensor_power_ctrl_t *power_info;
 
 	if (!o_ctrl) {
 		CAM_ERR(CAM_OIS, "ois device is NULL");
 		return -EINVAL;
 	}
 
+	soc_info = &o_ctrl->soc_info;
+
+	for (i = 0; i < soc_info->num_clk; i++)
+		devm_clk_put(soc_info->dev, soc_info->clk[i]);
+
+	soc_private =
+		(struct cam_ois_soc_private *)soc_info->soc_private;
+	power_info = &soc_private->power_info;
+
+	kfree(power_info->power_setting);
+	kfree(power_info->power_down_setting);
 	kfree(o_ctrl->soc_info.soc_private);
 	kfree(o_ctrl);
 
@@ -240,6 +258,7 @@ static int32_t cam_ois_platform_driver_probe(
 		return -ENOMEM;
 
 	o_ctrl->soc_info.pdev = pdev;
+	o_ctrl->pdev = pdev;
 	o_ctrl->soc_info.dev = &pdev->dev;
 	o_ctrl->soc_info.dev_name = pdev->name;
 
@@ -258,6 +277,7 @@ static int32_t cam_ois_platform_driver_probe(
 		goto free_cci_client;
 	}
 	o_ctrl->soc_info.soc_private = soc_private;
+	soc_private->power_info.dev  = &pdev->dev;
 
 	INIT_LIST_HEAD(&(o_ctrl->i2c_init_data.list_head));
 	INIT_LIST_HEAD(&(o_ctrl->i2c_calib_data.list_head));
@@ -283,6 +303,8 @@ static int32_t cam_ois_platform_driver_probe(
 	platform_set_drvdata(pdev, o_ctrl);
 	v4l2_set_subdevdata(&o_ctrl->v4l2_dev_str.sd, o_ctrl);
 
+	o_ctrl->cam_ois_state = CAM_OIS_INIT;
+
 	return rc;
 unreg_subdev:
 	cam_unregister_subdev(&(o_ctrl->v4l2_dev_str));
@@ -297,7 +319,11 @@ free_o_ctrl:
 
 static int cam_ois_platform_driver_remove(struct platform_device *pdev)
 {
-	struct cam_ois_ctrl_t  *o_ctrl;
+	int                             i;
+	struct cam_ois_ctrl_t          *o_ctrl;
+	struct cam_ois_soc_private     *soc_private;
+	struct cam_sensor_power_ctrl_t *power_info;
+	struct cam_hw_soc_info         *soc_info;
 
 	o_ctrl = platform_get_drvdata(pdev);
 	if (!o_ctrl) {
@@ -305,6 +331,16 @@ static int cam_ois_platform_driver_remove(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	soc_info = &o_ctrl->soc_info;
+	for (i = 0; i < soc_info->num_clk; i++)
+		devm_clk_put(soc_info->dev, soc_info->clk[i]);
+
+	soc_private =
+		(struct cam_ois_soc_private *)o_ctrl->soc_info.soc_private;
+	power_info = &soc_private->power_info;
+
+	kfree(power_info->power_setting);
+	kfree(power_info->power_down_setting);
 	kfree(o_ctrl->soc_info.soc_private);
 	kfree(o_ctrl->io_master_info.cci_client);
 	kfree(o_ctrl);

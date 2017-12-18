@@ -1632,7 +1632,11 @@ int create_pkt_cmd_session_set_property(
 			&pkt->rg_property_data[1];
 
 		hfi->input_color_primaries = hal->input_color_primaries;
-		hfi->custom_matrix_enabled = hal->custom_matrix_enabled;
+		if (hal->custom_matrix_enabled)
+			/* Bit Mask to enable all custom values */
+			hfi->custom_matrix_enabled = 0x7;
+		else
+			hfi->custom_matrix_enabled = 0x0;
 		memcpy(hfi->csc_matrix, hal->csc_matrix,
 				sizeof(hfi->csc_matrix));
 		memcpy(hfi->csc_bias, hal->csc_bias, sizeof(hfi->csc_bias));

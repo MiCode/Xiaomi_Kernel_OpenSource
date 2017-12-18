@@ -162,6 +162,17 @@ static void sde_hw_pp_dsc_enable(struct sde_hw_pingpong *pp)
 	SDE_REG_WRITE(c, PP_DSC_MODE, 1);
 }
 
+static u32 sde_hw_pp_get_dsc_status(struct sde_hw_pingpong *pp)
+{
+	struct sde_hw_blk_reg_map *c;
+
+	if (!pp)
+		return 0;
+
+	c = &pp->hw;
+	return SDE_REG_READ(c, PP_DSC_MODE);
+}
+
 static void sde_hw_pp_dsc_disable(struct sde_hw_pingpong *pp)
 {
 	struct sde_hw_blk_reg_map *c;
@@ -342,6 +353,7 @@ static void _setup_pingpong_ops(struct sde_hw_pingpong_ops *ops,
 	ops->setup_dsc = sde_hw_pp_setup_dsc;
 	ops->enable_dsc = sde_hw_pp_dsc_enable;
 	ops->disable_dsc = sde_hw_pp_dsc_disable;
+	ops->get_dsc_status = sde_hw_pp_get_dsc_status;
 	ops->get_autorefresh = sde_hw_pp_get_autorefresh_config;
 	ops->poll_timeout_wr_ptr = sde_hw_pp_poll_timeout_wr_ptr;
 	ops->get_line_count = sde_hw_pp_get_line_count;

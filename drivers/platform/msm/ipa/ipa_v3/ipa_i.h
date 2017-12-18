@@ -106,7 +106,7 @@
 
 #define IPAERR_RL(fmt, args...) \
 	do { \
-		pr_err_ratelimited(DRV_NAME " %s:%d " fmt, __func__,\
+		pr_err_ratelimited_ipa(DRV_NAME " %s:%d " fmt, __func__,\
 		__LINE__, ## args);\
 		if (ipa3_ctx) { \
 			IPA_IPC_LOGGING(ipa3_ctx->logbuf, \
@@ -1331,6 +1331,7 @@ struct ipa3_context {
 	u32 curr_ipa_clk_rate;
 	bool q6_proxy_clk_vote_valid;
 	struct mutex q6_proxy_clk_vote_mutex;
+	u32 q6_proxy_clk_vote_cnt;
 	u32 ipa_num_pipes;
 	dma_addr_t pkt_init_imm[IPA3_MAX_NUM_PIPES];
 	u32 pkt_init_imm_opcode;
@@ -1372,6 +1373,7 @@ struct ipa3_context {
 	int num_ipa_cne_evt_req;
 	struct mutex ipa_cne_evt_lock;
 	bool use_ipa_pm;
+	bool vlan_mode_iface[IPA_VLAN_IF_MAX];
 };
 
 struct ipa3_plat_drv_res {
@@ -1680,6 +1682,8 @@ int ipa3_xdci_start(u32 clnt_hdl, u8 xferrscidx, bool xferrscidx_valid);
 int ipa3_xdci_connect(u32 clnt_hdl);
 
 int ipa3_xdci_disconnect(u32 clnt_hdl, bool should_force_clear, u32 qmi_req_id);
+
+void ipa3_xdci_ep_delay_rm(u32 clnt_hdl);
 
 int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	bool should_force_clear, u32 qmi_req_id, bool is_dpl);
@@ -2019,6 +2023,9 @@ enum ipa_rm_resource_name ipa3_get_rm_resource_from_ep(int pipe_idx);
 bool ipa3_get_modem_cfg_emb_pipe_flt(void);
 
 u8 ipa3_get_qmb_master_sel(enum ipa_client_type client);
+
+int ipa3_get_smmu_params(struct ipa_smmu_in_params *in,
+	struct ipa_smmu_out_params *out);
 
 /* internal functions */
 

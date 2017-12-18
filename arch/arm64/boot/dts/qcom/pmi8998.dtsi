@@ -483,6 +483,10 @@
 				regulator-min-microvolt = <4600000>;
 				regulator-max-microvolt = <6000000>;
 
+				interrupts = <0x3 0xdc 0x2
+						IRQ_TYPE_EDGE_RISING>;
+				interrupt-names = "ibb-sc-err";
+
 				qcom,qpnp-ibb-min-voltage = <1400000>;
 				qcom,qpnp-ibb-step-size = <100000>;
 				qcom,qpnp-ibb-slew-rate = <2000000>;
@@ -516,8 +520,11 @@
 				regulator-max-microvolt = <6000000>;
 
 				interrupts = <0x3 0xde 0x0
+						IRQ_TYPE_EDGE_RISING>,
+					     <0x3 0xde 0x1
 						IRQ_TYPE_EDGE_RISING>;
-				interrupt-names = "lab-vreg-ok";
+				interrupt-names = "lab-vreg-ok", "lab-sc-err";
+
 				qcom,qpnp-lab-min-voltage = <4600000>;
 				qcom,qpnp-lab-step-size = <100000>;
 				qcom,qpnp-lab-slew-rate = <5000>;
@@ -681,6 +688,14 @@
 				qcom,led-mask = <4>;
 				qcom,default-led-trigger = "switch1_trigger";
 			};
+
+			pmi8998_switch2: qcom,led_switch_2 {
+				label = "switch";
+				qcom,led-name = "led:switch_2";
+				qcom,led-mask = <4>;
+				qcom,default-led-trigger = "switch2_trigger";
+			};
+
 		};
 
 		pmi8998_haptics: qcom,haptics@c000 {
@@ -716,7 +731,7 @@
 
 		trips {
 			ibat_high: low-ibat {
-				temperature = <4200>;
+				temperature = <5000>;
 				hysteresis = <200>;
 				type = "passive";
 			};
@@ -730,7 +745,7 @@
 
 		trips {
 			ibat_vhigh: ibat_vhigh {
-				temperature = <4300>;
+				temperature = <6000>;
 				hysteresis = <100>;
 				type = "passive";
 			};
@@ -745,7 +760,7 @@
 
 		trips {
 			low_vbat: low-vbat {
-				temperature = <3300>;
+				temperature = <3200>;
 				hysteresis = <100>;
 				type = "passive";
 			};
@@ -786,7 +801,7 @@
 
 		trips {
 			low-vbat {
-				temperature = <3100>;
+				temperature = <2800>;
 				hysteresis = <0>;
 				type = "passive";
 			};
@@ -801,7 +816,7 @@
 
 		trips {
 			low-vbat {
-				temperature = <2900>;
+				temperature = <2600>;
 				hysteresis = <0>;
 				type = "passive";
 			};
@@ -868,7 +883,7 @@
 			 pmi8998_trip2: pmi8998-trip2 {
 				temperature = <145000>;
 				hysteresis = <0>;
-				type = "critical";
+				type = "passive";
 			};
 		};
 	};

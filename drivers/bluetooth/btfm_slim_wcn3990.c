@@ -83,22 +83,35 @@ int btfm_slim_chrk_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
 {
 	int ret = 0;
 	uint8_t reg_val = 0, en;
-	uint8_t port_bit = 0;
+	uint8_t rxport_num = 0;
 	uint16_t reg;
 
 	BTFMSLIM_DBG("port(%d) enable(%d)", port_num, enable);
 	if (rxport) {
-		if (enable) {
-			/* For SCO Rx, A2DP Rx */
-			reg_val = 0x1;
-			port_bit = port_num - 0x10;
-			reg = CHRK_SB_PGD_RX_PORTn_MULTI_CHNL_0(port_bit);
+		BTFMSLIM_DBG("sample rate is %d", btfmslim->sample_rate);
+		if (enable &&
+			btfmslim->sample_rate != 44100 &&
+			btfmslim->sample_rate != 88200) {
+			BTFMSLIM_DBG("setting multichannel bit");
+			/* For SCO Rx, A2DP Rx other than 44.1 and 88.2Khz */
+			if (port_num < 24) {
+				rxport_num = port_num - 16;
+				reg_val = 0x01 << rxport_num;
+				reg = CHRK_SB_PGD_RX_PORTn_MULTI_CHNL_0(
+					rxport_num);
+			} else {
+				rxport_num = port_num - 24;
+				reg_val = 0x01 << rxport_num;
+				reg = CHRK_SB_PGD_RX_PORTn_MULTI_CHNL_1(
+					rxport_num);
+			}
+
 			BTFMSLIM_DBG("writing reg_val (%d) to reg(%x)",
-					reg_val, reg);
+				reg_val, reg);
 			ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
 			if (ret) {
 				BTFMSLIM_ERR("failed to write (%d) reg 0x%x",
-						ret, reg);
+					ret, reg);
 				goto error;
 			}
 		}

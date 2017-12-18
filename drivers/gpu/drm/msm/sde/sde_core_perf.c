@@ -29,6 +29,8 @@
 
 #define SDE_PERF_MODE_STRING_SIZE	128
 
+static DEFINE_MUTEX(sde_core_perf_lock);
+
 /**
  * enum sde_perf_mode - performance tuning mode
  * @SDE_PERF_MODE_NORMAL: performance controlled by user mode client
@@ -170,6 +172,15 @@ static void _sde_core_perf_calc_crtc(struct sde_kms *kms,
 	}
 
 	SDE_EVT32(crtc->base.id, perf->core_clk_rate);
+	trace_sde_perf_calc_crtc(crtc->base.id,
+			perf->bw_ctl[SDE_POWER_HANDLE_DBUS_ID_MNOC],
+			perf->bw_ctl[SDE_POWER_HANDLE_DBUS_ID_LLCC],
+			perf->bw_ctl[SDE_POWER_HANDLE_DBUS_ID_EBI],
+			perf->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_MNOC],
+			perf->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_LLCC],
+			perf->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_EBI],
+			perf->core_clk_rate);
+
 	SDE_DEBUG(
 		"crtc=%d clk_rate=%llu core_ib=%llu core_ab=%llu llcc_ib=%llu llcc_ab=%llu mem_ib=%llu mem_ab=%llu\n",
 			crtc->base.id, perf->core_clk_rate,
@@ -294,8 +305,7 @@ static inline enum sde_crtc_client_type _get_sde_client_type(
 }
 
 static void _sde_core_perf_crtc_update_bus(struct sde_kms *kms,
-		struct drm_crtc *crtc, u32 bus_id,
-		struct sde_core_perf_params *crtc_perf)
+		struct drm_crtc *crtc, u32 bus_id)
 {
 	u64 bw_sum_of_intfs = 0, bus_ab_quota, bus_ib_quota;
 	struct sde_core_perf_params perf = { { 0 } };
@@ -304,6 +314,7 @@ static void _sde_core_perf_crtc_update_bus(struct sde_kms *kms,
 	struct drm_crtc *tmp_crtc;
 	struct sde_crtc_state *sde_cstate;
 	struct msm_drm_private *priv = kms->dev->dev_private;
+	struct sde_crtc *sde_crtc;
 
 	u64 tmp_max_per_pipe_ib;
 	u64 tmp_bw_ctl;
@@ -313,18 +324,12 @@ static void _sde_core_perf_crtc_update_bus(struct sde_kms *kms,
 		    _is_crtc_client_type_matches(tmp_crtc, curr_client_type,
 								&kms->perf)) {
 
-			if (crtc->base.id == tmp_crtc->base.id) {
-				/* for current crtc use the cached values */
-				tmp_max_per_pipe_ib =
-					crtc_perf->max_per_pipe_ib[bus_id];
-				tmp_bw_ctl = crtc_perf->bw_ctl[bus_id];
-			} else {
-				sde_cstate = to_sde_crtc_state(tmp_crtc->state);
-				tmp_max_per_pipe_ib =
-				  sde_cstate->new_perf.max_per_pipe_ib[bus_id];
-				tmp_bw_ctl =
-				  sde_cstate->new_perf.bw_ctl[bus_id];
-			}
+			/* use current perf, which are the values voted */
+			sde_crtc = to_sde_crtc(tmp_crtc);
+			tmp_max_per_pipe_ib =
+			  sde_crtc->cur_perf.max_per_pipe_ib[bus_id];
+			tmp_bw_ctl =
+			  sde_crtc->cur_perf.bw_ctl[bus_id];
 
 			perf.max_per_pipe_ib[bus_id] =
 				max(perf.max_per_pipe_ib[bus_id],
@@ -459,30 +464,25 @@ void sde_core_perf_crtc_release_bw(struct drm_crtc *crtc)
 		SDE_DEBUG("Release BW crtc=%d\n", crtc->base.id);
 		for (i = 0; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++) {
 			sde_crtc->cur_perf.bw_ctl[i] = 0;
-			_sde_core_perf_crtc_update_bus(kms, crtc, i,
-				&sde_crtc->cur_perf);
+			_sde_core_perf_crtc_update_bus(kms, crtc, i);
 		}
 	}
 }
 
-static u64 _sde_core_perf_get_core_clk_rate(struct sde_kms *kms,
-	struct sde_core_perf_params *crct_perf, struct drm_crtc *crtc)
+static u64 _sde_core_perf_get_core_clk_rate(struct sde_kms *kms)
 {
 	u64 clk_rate = kms->perf.perf_tune.min_core_clk;
 	struct drm_crtc *tmp_crtc;
-	struct sde_crtc_state *sde_cstate;
+	struct sde_crtc *sde_crtc;
 	u64 tmp_rate;
 
 	drm_for_each_crtc(tmp_crtc, kms->dev) {
 		if (_sde_core_perf_crtc_is_power_on(tmp_crtc)) {
 
-			if (crtc->base.id == tmp_crtc->base.id) {
-				/* for current CRTC, use the cached value */
-				tmp_rate = crct_perf->core_clk_rate;
-			} else {
-				sde_cstate = to_sde_crtc_state(tmp_crtc->state);
-				tmp_rate = sde_cstate->new_perf.core_clk_rate;
-			}
+			/* use current perf, which are the values voted */
+			sde_crtc = to_sde_crtc(tmp_crtc);
+			tmp_rate = sde_crtc->cur_perf.core_clk_rate;
+
 			clk_rate = max(tmp_rate, clk_rate);
 
 			clk_rate = clk_round_rate(kms->perf.core_clk, clk_rate);
@@ -531,6 +531,8 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 	SDE_DEBUG("crtc:%d stop_req:%d core_clk:%llu\n",
 			crtc->base.id, stop_req, kms->perf.core_clk_rate);
 
+	mutex_lock(&sde_core_perf_lock);
+
 	/*
 	 * cache the performance numbers in the crtc prior to the
 	 * crtc kickoff, so the same numbers are used during the
@@ -552,19 +554,32 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 			 * 2. new bandwidth vote - "ab or ib vote" is lower
 			 *    than current vote at end of commit or stop.
 			 */
-			if ((params_changed && ((new->bw_ctl[i] >
-						old->bw_ctl[i]) ||
-				  (new->max_per_pipe_ib[i] >
-						old->max_per_pipe_ib[i]))) ||
-			    (!params_changed && ((new->bw_ctl[i] <
-						old->bw_ctl[i]) ||
-				  (new->max_per_pipe_ib[i] <
-						old->max_per_pipe_ib[i])))) {
+
+			if ((params_changed &&
+				(new->bw_ctl[i] > old->bw_ctl[i])) ||
+			    (!params_changed &&
+				(new->bw_ctl[i] < old->bw_ctl[i]))) {
+
 				SDE_DEBUG(
 					"crtc=%d p=%d new_bw=%llu,old_bw=%llu\n",
 					crtc->base.id, params_changed,
 					new->bw_ctl[i], old->bw_ctl[i]);
 				old->bw_ctl[i] = new->bw_ctl[i];
+				update_bus |= BIT(i);
+			}
+
+			if ((params_changed &&
+				(new->max_per_pipe_ib[i] >
+				 old->max_per_pipe_ib[i])) ||
+			    (!params_changed &&
+				(new->max_per_pipe_ib[i] <
+				old->max_per_pipe_ib[i]))) {
+
+				SDE_DEBUG(
+					"crtc=%d p=%d new_ib=%llu,old_ib=%llu\n",
+					crtc->base.id, params_changed,
+					new->max_per_pipe_ib[i],
+					old->max_per_pipe_ib[i]);
 				old->max_per_pipe_ib[i] =
 						new->max_per_pipe_ib[i];
 				update_bus |= BIT(i);
@@ -608,15 +623,18 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 		update_clk = 1;
 	}
 	trace_sde_perf_crtc_update(crtc->base.id,
-				new->bw_ctl[SDE_POWER_HANDLE_DBUS_ID_MNOC],
-				new->bw_ctl[SDE_POWER_HANDLE_DBUS_ID_LLCC],
-				new->bw_ctl[SDE_POWER_HANDLE_DBUS_ID_EBI],
-				new->core_clk_rate, stop_req,
-				update_bus, update_clk);
+		new->bw_ctl[SDE_POWER_HANDLE_DBUS_ID_MNOC],
+		new->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_MNOC],
+		new->bw_ctl[SDE_POWER_HANDLE_DBUS_ID_LLCC],
+		new->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_LLCC],
+		new->bw_ctl[SDE_POWER_HANDLE_DBUS_ID_EBI],
+		new->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_EBI],
+		new->core_clk_rate, stop_req,
+		update_bus, update_clk, params_changed);
 
 	for (i = 0; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++) {
 		if (update_bus & BIT(i))
-			_sde_core_perf_crtc_update_bus(kms, crtc, i, old);
+			_sde_core_perf_crtc_update_bus(kms, crtc, i);
 	}
 
 	/*
@@ -624,7 +642,7 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 	 * bandwidth is available before clock rate is increased.
 	 */
 	if (update_clk) {
-		clk_rate = _sde_core_perf_get_core_clk_rate(kms, old, crtc);
+		clk_rate = _sde_core_perf_get_core_clk_rate(kms);
 
 		SDE_EVT32(kms->dev, stop_req, clk_rate, params_changed,
 			old->core_clk_rate, new->core_clk_rate);
@@ -633,12 +651,15 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 		if (ret) {
 			SDE_ERROR("failed to set %s clock rate %llu\n",
 					kms->perf.clk_name, clk_rate);
+			mutex_unlock(&sde_core_perf_lock);
 			return;
 		}
 
 		kms->perf.core_clk_rate = clk_rate;
 		SDE_DEBUG("update clk rate = %lld HZ\n", clk_rate);
 	}
+	mutex_unlock(&sde_core_perf_lock);
+
 }
 
 #ifdef CONFIG_DEBUG_FS

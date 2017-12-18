@@ -29,21 +29,6 @@ struct cam_vfe_top {
 	struct cam_hw_ops       hw_ops;
 };
 
-struct cam_vfe_camif {
-	void               *camif_priv;
-	int (*start_resource)(void *priv,
-		struct cam_isp_resource_node *camif_res);
-	int (*stop_resource)(void *priv,
-		struct cam_isp_resource_node *camif_res);
-	int (*acquire_resource)(void *priv,
-		struct cam_isp_resource_node *camif_res,
-		void *acquire_param);
-	int (*release_resource)(void *priv,
-		struct cam_isp_resource_node *camif_res);
-	int (*process_cmd)(void *priv, uint32_t cmd_type, void *cmd_args,
-				uint32_t arg_size);
-};
-
 int cam_vfe_top_init(uint32_t          top_version,
 	struct cam_hw_soc_info        *soc_info,
 	struct cam_hw_intf            *hw_intf,

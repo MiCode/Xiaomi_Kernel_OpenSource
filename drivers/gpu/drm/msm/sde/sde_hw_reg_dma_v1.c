@@ -481,6 +481,7 @@ static int write_kick_off_v1(struct sde_reg_dma_kickoff_cfg *cfg)
 	cmd1 |= (cfg->op == REG_DMA_WRITE) ? (BIT(22)) : 0;
 	cmd1 |= (SIZE_DWORD(cfg->dma_buf->index) & MAX_DWORDS_SZ);
 
+	msm_gem_sync(cfg->dma_buf->buf);
 	SET_UP_REG_DMA_REG(hw, reg_dma);
 	SDE_REG_WRITE(&hw, REG_DMA_OP_MODE_OFF, BIT(0));
 	SDE_REG_WRITE(&hw, reg_dma_clear_status_off,
@@ -509,8 +510,13 @@ int init_v1(struct sde_hw_reg_dma *cfg)
 			last_cmd_buf[i] =
 			    alloc_reg_dma_buf_v1(REG_DMA_HEADERS_BUFFER_SZ);
 			if (IS_ERR_OR_NULL(last_cmd_buf[i])) {
-				rc = -EINVAL;
-				break;
+				/*
+				 * This will allow reg dma to fall back to
+				 * AHB domain
+				 */
+				pr_info("Failed to allocate reg dma, ret:%lu\n",
+						PTR_ERR(last_cmd_buf[i]));
+				return 0;
 			}
 		}
 	}

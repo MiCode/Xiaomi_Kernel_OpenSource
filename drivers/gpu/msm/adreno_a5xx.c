@@ -193,6 +193,8 @@ static void a5xx_critical_packet_destroy(struct adreno_device *adreno_dev)
 	kgsl_free_global(&adreno_dev->dev, &crit_pkts_refbuf2);
 	kgsl_free_global(&adreno_dev->dev, &crit_pkts_refbuf3);
 
+	kgsl_iommu_unmap_global_secure_pt_entry(KGSL_DEVICE(adreno_dev),
+			&crit_pkts_refbuf0);
 	kgsl_sharedmem_free(&crit_pkts_refbuf0);
 
 }
@@ -231,8 +233,10 @@ static int a5xx_critical_packet_construct(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
-	kgsl_add_global_secure_entry(&adreno_dev->dev,
+	ret = kgsl_iommu_map_global_secure_pt_entry(&adreno_dev->dev,
 					&crit_pkts_refbuf0);
+	if (ret)
+		return ret;
 
 	ret = kgsl_allocate_global(&adreno_dev->dev,
 					&crit_pkts_refbuf1,
@@ -293,8 +297,13 @@ static void a5xx_init(struct adreno_device *adreno_dev)
 
 	INIT_WORK(&adreno_dev->irq_storm_work, a5xx_irq_storm_worker);
 
-	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CRITICAL_PACKETS))
-		a5xx_critical_packet_construct(adreno_dev);
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CRITICAL_PACKETS)) {
+		int ret;
+
+		ret = a5xx_critical_packet_construct(adreno_dev);
+		if (ret)
+			a5xx_critical_packet_destroy(adreno_dev);
+	}
 
 	a5xx_crashdump_init(adreno_dev);
 }
@@ -3588,7 +3597,7 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.int_bits = a5xx_int_bits,
 	.ft_perf_counters = a5xx_ft_perf_counters,
 	.ft_perf_counters_count = ARRAY_SIZE(a5xx_ft_perf_counters),
-	.coresight = &a5xx_coresight,
+	.coresight = {&a5xx_coresight},
 	.start = a5xx_start,
 	.snapshot = a5xx_snapshot,
 	.irq = &a5xx_irq,

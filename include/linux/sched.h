@@ -184,6 +184,8 @@ extern void sched_get_nr_running_avg(int *avg, int *iowait_avg, int *big_avg,
 				     unsigned int *big_max_nr);
 extern unsigned int sched_get_cpu_util(int cpu);
 extern u64 sched_get_cpu_last_busy_time(int cpu);
+extern u32 sched_get_wake_up_idle(struct task_struct *p);
+extern int sched_set_wake_up_idle(struct task_struct *p, int wake_up_idle);
 #else
 static inline void sched_update_nr_prod(int cpu, long delta, bool inc)
 {
@@ -198,6 +200,15 @@ static inline unsigned int sched_get_cpu_util(int cpu)
 	return 0;
 }
 static inline u64 sched_get_cpu_last_busy_time(int cpu)
+{
+	return 0;
+}
+static inline u32 sched_get_wake_up_idle(struct task_struct *p)
+{
+	return 0;
+}
+static inline int sched_set_wake_up_idle(struct task_struct *p,
+					 int wake_up_idle)
 {
 	return 0;
 }
@@ -2723,9 +2734,6 @@ struct sched_load {
 	unsigned long new_task_load;
 	unsigned long predicted_load;
 };
-
-extern int sched_set_wake_up_idle(struct task_struct *p, int wake_up_idle);
-extern u32 sched_get_wake_up_idle(struct task_struct *p);
 
 struct cpu_cycle_counter_cb {
 	u64 (*get_cpu_cycle_counter)(int cpu);

@@ -31,6 +31,7 @@
 #include "sde_hw_catalog.h"
 #include "sde_hw_ctl.h"
 #include "sde_hw_lm.h"
+#include "sde_hw_pingpong.h"
 #include "sde_hw_interrupts.h"
 #include "sde_hw_wb.h"
 #include "sde_hw_top.h"
@@ -214,7 +215,7 @@ struct sde_kms {
 
 	struct sde_rm rm;
 	bool rm_init;
-
+	struct sde_splash_data splash_data;
 	struct sde_hw_vbif *hw_vbif[VBIF_MAX];
 	struct sde_hw_mdp *hw_mdp;
 	int dsi_display_count;
@@ -240,6 +241,23 @@ struct vsync_info {
  * Return: Whether or not the 'sdeclient' module parameter was set on boot up
  */
 bool sde_is_custom_client(void);
+
+/**
+ * sde_kms_power_resource_is_enabled - whether or not power resource is enabled
+ * @dev: Pointer to drm device
+ * Return: true if power resource is enabled; false otherwise
+ */
+static inline bool sde_kms_power_resource_is_enabled(struct drm_device *dev)
+{
+	struct msm_drm_private *priv;
+
+	if (!dev || !dev->dev_private)
+		return false;
+
+	priv = dev->dev_private;
+
+	return sde_power_resource_is_enabled(&priv->phandle);
+}
 
 /**
  * sde_kms_is_suspend_state - whether or not the system is pm suspended
@@ -570,5 +588,12 @@ int sde_kms_mmu_detach(struct sde_kms *sde_kms, bool secure_only);
  * @dev: Pointer to drm device
  */
 void sde_kms_timeline_status(struct drm_device *dev);
+
+/**
+ * sde_kms_handle_recovery - handler function for FIFO overflow issue
+ * @encoder: pointer to drm encoder structure
+ * return: 0 on success; error code otherwise
+ */
+int sde_kms_handle_recovery(struct drm_encoder *encoder);
 
 #endif /* __sde_kms_H__ */

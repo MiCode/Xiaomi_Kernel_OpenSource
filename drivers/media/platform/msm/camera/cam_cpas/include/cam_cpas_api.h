@@ -82,6 +82,183 @@ enum cam_camnoc_irq_type {
 };
 
 /**
+ * struct cam_camnoc_irq_slave_err_data : Data for Slave error.
+ *
+ * @mainctrl     : Err logger mainctrl info
+ * @errvld       : Err logger errvld info
+ * @errlog0_low  : Err logger errlog0_low info
+ * @errlog0_high : Err logger errlog0_high info
+ * @errlog1_low  : Err logger errlog1_low info
+ * @errlog1_high : Err logger errlog1_high info
+ * @errlog2_low  : Err logger errlog2_low info
+ * @errlog2_high : Err logger errlog2_high info
+ * @errlog3_low  : Err logger errlog3_low info
+ * @errlog3_high : Err logger errlog3_high info
+ *
+ */
+struct cam_camnoc_irq_slave_err_data {
+	union {
+		struct {
+			uint32_t stall_en : 1; /* bit 0 */
+			uint32_t fault_en : 1; /* bit 1 */
+			uint32_t rsv      : 30; /* bits 2-31 */
+		};
+		uint32_t value;
+	} mainctrl;
+	union {
+		struct {
+			uint32_t err_vld : 1; /* bit 0 */
+			uint32_t rsv     : 31; /* bits 1-31 */
+		};
+		uint32_t value;
+	} errvld;
+	union {
+		struct {
+			uint32_t loginfo_vld : 1; /* bit 0 */
+			uint32_t word_error  : 1; /* bit 1 */
+			uint32_t non_secure  : 1; /* bit 2 */
+			uint32_t device      : 1; /* bit 3 */
+			uint32_t opc         : 3; /* bits 4 - 6 */
+			uint32_t rsv0        : 1; /* bit 7 */
+			uint32_t err_code    : 3; /* bits 8 - 10 */
+			uint32_t sizef       : 3; /* bits 11 - 13 */
+			uint32_t rsv1        : 2; /* bits 14 - 15 */
+			uint32_t addr_space  : 6; /* bits 16 - 21 */
+			uint32_t rsv2        : 10; /* bits 22 - 31 */
+		};
+		uint32_t value;
+	}  errlog0_low;
+	union {
+		struct {
+			uint32_t len1 : 10; /* bits 0 - 9 */
+			uint32_t rsv  : 22; /* bits 10 - 31 */
+		};
+		uint32_t value;
+	} errlog0_high;
+	union {
+		struct {
+			uint32_t path : 16; /* bits 0 - 15 */
+			uint32_t rsv  : 16; /* bits 16 - 31 */
+		};
+		uint32_t value;
+	} errlog1_low;
+	union {
+		struct {
+			uint32_t extid : 18; /* bits 0 - 17 */
+			uint32_t rsv   : 14; /* bits 18 - 31 */
+		};
+		uint32_t value;
+	} errlog1_high;
+	union {
+		struct {
+			uint32_t errlog2_lsb : 32; /* bits 0 - 31 */
+		};
+		uint32_t value;
+	} errlog2_low;
+	union {
+		struct {
+			uint32_t errlog2_msb : 16; /* bits 0 - 16 */
+			uint32_t rsv         : 16; /* bits 16 - 31 */
+		};
+		uint32_t value;
+	} errlog2_high;
+	union {
+		struct {
+			uint32_t errlog3_lsb : 32; /* bits 0 - 31 */
+		};
+		uint32_t value;
+	} errlog3_low;
+	union {
+		struct {
+			uint32_t errlog3_msb : 32; /* bits 0 - 31 */
+		};
+		uint32_t value;
+	} errlog3_high;
+};
+
+/**
+ * struct cam_camnoc_irq_ubwc_enc_data : Data for UBWC Encode error.
+ *
+ * @encerr_status : Encode error status
+ *
+ */
+struct cam_camnoc_irq_ubwc_enc_data {
+	union {
+		struct {
+			uint32_t encerrstatus : 3; /* bits 0 - 2 */
+			uint32_t rsv          : 29; /* bits 3 - 31 */
+		};
+		uint32_t value;
+	} encerr_status;
+};
+
+/**
+ * struct cam_camnoc_irq_ubwc_dec_data : Data for UBWC Decode error.
+ *
+ * @decerr_status : Decoder error status
+ * @thr_err       : Set to 1 if
+ *                  At least one of the bflc_len fields in the bit steam exceeds
+ *                  its threshold value. This error is possible only for
+ *                  RGBA1010102, TP10, and RGB565 formats
+ * @fcl_err       : Set to 1 if
+ *                  Fast clear with a legal non-RGB format
+ * @len_md_err    : Set to 1 if
+ *                  The calculated burst length does not match burst length
+ *                  specified by the metadata value
+ * @format_err    : Set to 1 if
+ *                  Illegal format
+ *                  1. bad format :2,3,6
+ *                  2. For 32B MAL, metadata=6
+ *                  3. For 32B MAL RGB565, Metadata != 0,1,7
+ *                  4. For 64B MAL RGB565, metadata[3:1] == 1,2
+ *
+ */
+struct cam_camnoc_irq_ubwc_dec_data {
+	union {
+		struct {
+			uint32_t thr_err    : 1; /* bit 0 */
+			uint32_t fcl_err    : 1; /* bit 1 */
+			uint32_t len_md_err : 1; /* bit 2 */
+			uint32_t format_err : 1; /* bit 3 */
+			uint32_t rsv        : 28; /* bits 4 - 31 */
+		};
+		uint32_t value;
+	} decerr_status;
+};
+
+struct cam_camnoc_irq_ahb_timeout_data {
+	uint32_t data;
+};
+
+/**
+ * struct cam_cpas_irq_data : CAMNOC IRQ data
+ *
+ * @irq_type  : To identify the type of IRQ
+ * @u         : Union of irq err data information
+ * @slave_err : Data for Slave error.
+ *              Valid if type is CAM_CAMNOC_IRQ_SLAVE_ERROR
+ * @enc_err   : Data for UBWC Encode error.
+ *              Valid if type is one of below:
+ *              CAM_CAMNOC_IRQ_IFE02_UBWC_ENCODE_ERROR
+ *              CAM_CAMNOC_IRQ_IFE13_UBWC_ENCODE_ERROR
+ *              CAM_CAMNOC_IRQ_IPE_BPS_UBWC_ENCODE_ERROR
+ * @dec_err   : Data for UBWC Decode error.
+ *              Valid if type is CAM_CAMNOC_IRQ_IPE_BPS_UBWC_DECODE_ERROR
+ * @ahb_err   : Data for Slave error.
+ *              Valid if type is CAM_CAMNOC_IRQ_AHB_TIMEOUT
+ *
+ */
+struct cam_cpas_irq_data {
+	enum cam_camnoc_irq_type irq_type;
+	union {
+		struct cam_camnoc_irq_slave_err_data   slave_err;
+		struct cam_camnoc_irq_ubwc_enc_data    enc_err;
+		struct cam_camnoc_irq_ubwc_dec_data    dec_err;
+		struct cam_camnoc_irq_ahb_timeout_data ahb_err;
+	} u;
+};
+
+/**
  * struct cam_cpas_register_params : Register params for cpas client
  *
  * @identifier        : Input identifier string which is the device label
@@ -107,11 +284,10 @@ struct cam_cpas_register_params {
 	uint32_t        cell_index;
 	struct device  *dev;
 	void           *userdata;
-	void          (*cam_cpas_client_cb)(
+	bool          (*cam_cpas_client_cb)(
 			uint32_t                  client_handle,
 			void                     *userdata,
-			enum cam_camnoc_irq_type  event_type,
-			uint32_t                  event_data);
+			struct cam_cpas_irq_data *irq_data);
 	uint32_t        client_handle;
 };
 

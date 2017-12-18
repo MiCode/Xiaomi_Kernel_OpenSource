@@ -1249,9 +1249,11 @@ halt_failed:
 	return err;
 }
 
-static void mmc_start_cmdq_request(struct mmc_host *host,
+static int mmc_start_cmdq_request(struct mmc_host *host,
 				   struct mmc_request *mrq)
 {
+	int ret = 0;
+
 	if (mrq->data) {
 		pr_debug("%s:     blksz %d blocks %d flags %08x tsac %lu ms nsac %d\n",
 			mmc_hostname(host), mrq->data->blksz,
@@ -1274,11 +1276,21 @@ static void mmc_start_cmdq_request(struct mmc_host *host,
 
 	mmc_host_clk_hold(host);
 	mmc_cmdq_check_retune(host);
-	if (likely(host->cmdq_ops->request))
-		host->cmdq_ops->request(host, mrq);
-	else
-		pr_err("%s: %s: issue request failed\n", mmc_hostname(host),
-				__func__);
+	if (likely(host->cmdq_ops->request)) {
+		ret = host->cmdq_ops->request(host, mrq);
+	} else {
+		ret = -ENOENT;
+		pr_err("%s: %s: cmdq request host op is not available\n",
+			mmc_hostname(host), __func__);
+	}
+
+	if (ret) {
+		mmc_host_clk_release(host);
+		pr_err("%s: %s: issue request failed, err=%d\n",
+			mmc_hostname(host), __func__, ret);
+	}
+
+	return ret;
 }
 
 /**
@@ -1810,8 +1822,7 @@ int mmc_cmdq_start_req(struct mmc_host *host, struct mmc_cmdq_req *cmdq_req)
 		mrq->cmd->error = -ENOMEDIUM;
 		return -ENOMEDIUM;
 	}
-	mmc_start_cmdq_request(host, mrq);
-	return 0;
+	return mmc_start_cmdq_request(host, mrq);
 }
 EXPORT_SYMBOL(mmc_cmdq_start_req);
 
@@ -2309,8 +2320,10 @@ int __mmc_claim_host(struct mmc_host *host, atomic_t *abort)
 	spin_unlock_irqrestore(&host->lock, flags);
 	remove_wait_queue(&host->wq, &wait);
 
-	if (pm)
+	if (pm) {
+		mmc_host_clk_hold(host);
 		pm_runtime_get_sync(mmc_dev(host));
+	}
 
 	if (host->ops->enable && !stop && host->claim_cnt == 1)
 		host->ops->enable(host);
@@ -2349,8 +2362,10 @@ int mmc_try_claim_host(struct mmc_host *host, unsigned int delay_ms)
 			mmc_delay(10);
 	} while (!claimed_host && retry_cnt--);
 
-	if (pm)
+	if (pm) {
+		mmc_host_clk_hold(host);
 		pm_runtime_get_sync(mmc_dev(host));
+	}
 
 	if (host->ops->enable && claimed_host && host->claim_cnt == 1)
 		host->ops->enable(host);
@@ -2385,6 +2400,7 @@ void mmc_release_host(struct mmc_host *host)
 		wake_up(&host->wq);
 		pm_runtime_mark_last_busy(mmc_dev(host));
 		pm_runtime_put_autosuspend(mmc_dev(host));
+		mmc_host_clk_release(host);
 	}
 }
 EXPORT_SYMBOL(mmc_release_host);
@@ -3460,6 +3476,9 @@ static void _mmc_detect_change(struct mmc_host *host, unsigned long delay,
 	 */
 	if (cd_irq && mmc_bus_manual_resume(host))
 		host->ignore_bus_resume_flags = true;
+
+	if (delayed_work_pending(&host->detect))
+		cancel_delayed_work(&host->detect);
 
 	mmc_schedule_delayed_work(&host->detect, delay);
 }
