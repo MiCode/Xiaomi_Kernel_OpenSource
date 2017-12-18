@@ -726,3 +726,4 @@
 #include "sdxpoorwills-bus.dtsi"
 #include "sdxpoorwills-thermal.dtsi"
 #include "sdxpoorwills-audio.dtsi"
+#include "sdxpoorwills-ion.dtsi"
