@@ -570,8 +570,8 @@ static int ipa_send_wan_msg(unsigned long usr_param,
 		/* cache the cne event */
 		memcpy(&ipa_ctx->ipa_cne_evt_req_cache[
 			ipa_ctx->num_ipa_cne_evt_req].wan_msg,
-			wan_msg,
-			sizeof(struct ipa_wan_msg));
+			&cache_wan_msg,
+			sizeof(cache_wan_msg));
 
 		memcpy(&ipa_ctx->ipa_cne_evt_req_cache[
 			ipa_ctx->num_ipa_cne_evt_req].msg_meta,
