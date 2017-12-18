@@ -1,0 +1,70 @@
+Qualcomm Technologies MSM8953 CPU clock tree
+
+clock-cpu-8953 is a device that represents the MSM8953 CPU subystem clock
+tree. It lists the various power supplies that need to be scaled when the
+clocks are scaled and also other HW specific parameters like fmax tables etc.
+
+The root clock generator could have the ramp controller in built.
+Ramp control will allow programming the sequence ID for pulse swallowing,
+enable sequence and for linking sequence IDs.
+
+Required properties:
+- compatible:		Must be "qcom,clock-cpu-8953".
+
+- reg:			Pairs of physical base addresses and region sizes of
+			memory mapped registers.
+- reg-names:		Names of the bases for the above registers. Expected
+			bases are:
+			"c0-pll", "c1-pll", "c0-mux", "c1-mux", "cci-mux",
+			"efuse", "perf_base"(optional), "rcgwr-c0-base(optional)",
+			"rcgwr-c1-base(optional)".
+- clocks:		The clocks sources used by the cluster/cci mux.
+- clock-names:		Name of the clocks for the above clocks.
+- vdd-mx-supply:	The regulator powering all the PLLs of clusters & cci.
+- vdd-cl-supply:	The regulator powering the clusters & cci.
+- qcom,speedX-bin-vY-ZZZ:
+			A table of CPU frequency (Hz) to voltage (corner)
+			mapping that represents the max frequency possible
+			for each supported voltage level for a CPU. 'X' is
+			the speed bin into which the device falls into - a
+			bin will have unique frequency-voltage relationships.
+			'Y' is the characterization version, implying that
+			characterization (deciding what speed bin a device
+			falls into) methods and/or encoding may change. The
+			values 'X' and 'Y' are read from efuse registers, and
+			the right table is picked from multiple possible tables.
+			'ZZZ' can be cl for(c0 & c1) or cci depending on whether
+			the table for the clusters or cci.
+
+Optional Properties:
+- qcom,enable-qos:      Boolean property to indicate the pm qos is required
+			during set rate of the cluster clocks, which would not
+			allow the cluster cores to go to low power mode.
+
+Example:
+	clock_cpu: qcom,cpu-clock-8953@b116000 {
+		compatible = "qcom,cpu-clock-8953";
+		reg =   <0xb114000  0x68>,
+			<0xb014000  0x68>,
+			<0xb116000  0x400>,
+			<0xb111050  0x08>,
+			<0xb011050  0x08>,
+			<0xb1d1050  0x08>,
+			<0x00a412c  0x08>;
+		reg-names = "rcgwr-c0-base", "rcgwr-c1-base",
+			    "c0-pll", "c0-mux", "c1-mux",
+			    "cci-mux", "efuse";
+		vdd-mx-supply = <&pm8953_s7_level_ao>;
+		vdd-cl-supply = <&apc_vreg_corner>;
+		clocks = <&clock_gcc clk_xo_a_clk_src>;
+		clock-names = "xo_a";
+		qcom,num-clusters = <2>;
+		qcom,speed0-bin-v0-cl =
+			<          0 0>,
+			< 2208000000 7>;
+		qcom,speed0-bin-v0-cci =
+			<          0 0>,
+			<  883200000 7>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+	};
