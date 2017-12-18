@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -105,6 +105,7 @@ struct glink_transport_if {
 	void (*tx_cmd_ch_remote_close_ack)(struct glink_transport_if *if_ptr,
 			uint32_t rcid);
 	int (*ssr)(struct glink_transport_if *if_ptr);
+	void (*subsys_up)(struct glink_transport_if *if_ptr);
 
 	/* channel data */
 	int (*allocate_rx_intent)(struct glink_transport_if *if_ptr,
