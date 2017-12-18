@@ -35,6 +35,7 @@
 #define ANA2_BASE	0x1100
 #define BATIF_BASE	0x1200
 #define USBIN_BASE	0x1300
+#define ANA1_BASE	0x1400
 #define MISC_BASE	0x1600
 
 #define BATTERY_STATUS_2_REG			(CHGR_BASE + 0x0B)
@@ -82,6 +83,9 @@
 #define EXT_BIAS_PIN_BIT			BIT(2)
 #define DIE_TEMP_COMP_HYST_BIT			BIT(1)
 
+#define ANA1_ENG_SREFGEN_CFG2_REG		(ANA1_BASE + 0xC1)
+#define VALLEY_COMPARATOR_EN_BIT		BIT(0)
+
 #define TEMP_COMP_STATUS_REG			(MISC_BASE + 0x07)
 #define SKIN_TEMP_RST_HOT_BIT			BIT(6)
 #define SKIN_TEMP_UB_HOT_BIT			BIT(5)
@@ -107,6 +111,9 @@
 
 #define MISC_CUST_SDCDC_CLK_CFG_REG		(MISC_BASE + 0xA0)
 #define SWITCHER_CLK_FREQ_MASK			GENMASK(3, 0)
+
+#define MISC_CUST_SDCDC_ILIMIT_CFG_REG		(MISC_BASE + 0xA1)
+#define LS_VALLEY_THRESH_PCT_BIT		BIT(3)
 
 #define SNARL_BARK_BITE_WD_CFG_REG		(MISC_BASE + 0x53)
 #define BITE_WDOG_DISABLE_CHARGING_CFG_BIT	BIT(7)
@@ -944,6 +951,22 @@ static int smb1355_init_hw(struct smb1355 *chip)
 				DIE_TEMP_COMP_HYST_BIT, 0);
 	if (rc < 0) {
 		pr_err("Couldn't disable hyst. for die rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Enable valley current comparator all the time */
+	rc = smb1355_masked_write(chip, ANA1_ENG_SREFGEN_CFG2_REG,
+		VALLEY_COMPARATOR_EN_BIT, VALLEY_COMPARATOR_EN_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't enable valley current comparator rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Set LS_VALLEY threshold to 85% */
+	rc = smb1355_masked_write(chip, MISC_CUST_SDCDC_ILIMIT_CFG_REG,
+		LS_VALLEY_THRESH_PCT_BIT, LS_VALLEY_THRESH_PCT_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't set LS valley threshold to 85pc rc=%d\n", rc);
 		return rc;
 	}
 
