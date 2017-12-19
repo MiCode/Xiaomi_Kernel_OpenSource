@@ -165,42 +165,42 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 	}
 
 	case CAM_SENSOR_PACKET_OPCODE_SENSOR_UPDATE: {
-		if ((s_ctrl->sensor_state == CAM_SENSOR_CONFIG) ||
-			(s_ctrl->sensor_state == CAM_SENSOR_START)) {
-			i2c_reg_settings =
-				&i2c_data->
-				per_frame[csl_packet->header.request_id %
-				MAX_PER_FRAME_ARRAY];
-			CAM_DBG(CAM_SENSOR, "Received Packet: %lld",
-			csl_packet->header.request_id % MAX_PER_FRAME_ARRAY);
-			if (i2c_reg_settings->is_settings_valid == 1) {
-				CAM_ERR(CAM_SENSOR,
-					"Already some pkt in offset req : %lld",
-					csl_packet->header.request_id);
-				rc = delete_request(i2c_reg_settings);
-				if (rc < 0) {
-					CAM_ERR(CAM_SENSOR,
-					"Failed in Deleting the err: %d", rc);
-					return rc;
-				}
-			}
-		} else {
-			CAM_ERR(CAM_SENSOR,
+		if ((s_ctrl->sensor_state == CAM_SENSOR_INIT) ||
+			(s_ctrl->sensor_state == CAM_SENSOR_ACQUIRE)) {
+			CAM_WARN(CAM_SENSOR,
 				"Rxed Update packets without linking");
-			return -EINVAL;
+			return 0;
+		}
+
+		i2c_reg_settings =
+			&i2c_data->
+			per_frame[csl_packet->header.request_id %
+			MAX_PER_FRAME_ARRAY];
+		CAM_DBG(CAM_SENSOR, "Received Packet: %lld",
+		csl_packet->header.request_id % MAX_PER_FRAME_ARRAY);
+		if (i2c_reg_settings->is_settings_valid == 1) {
+			CAM_ERR(CAM_SENSOR,
+				"Already some pkt in offset req : %lld",
+				csl_packet->header.request_id);
+			rc = delete_request(i2c_reg_settings);
+			if (rc < 0) {
+				CAM_ERR(CAM_SENSOR,
+				"Failed in Deleting the err: %d", rc);
+				return rc;
+			}
 		}
 	break;
 	}
 	case CAM_SENSOR_PACKET_OPCODE_SENSOR_NOP: {
-		if ((s_ctrl->sensor_state == CAM_SENSOR_CONFIG) ||
-			(s_ctrl->sensor_state == CAM_SENSOR_START)) {
-			cam_sensor_update_req_mgr(s_ctrl, csl_packet);
-		} else {
-			CAM_ERR(CAM_SENSOR,
-				"Rxed Update packets without linking");
-			rc = -EINVAL;
+		if ((s_ctrl->sensor_state == CAM_SENSOR_INIT) ||
+			(s_ctrl->sensor_state == CAM_SENSOR_ACQUIRE)) {
+			CAM_WARN(CAM_SENSOR,
+				"Rxed NOP packets without linking");
+			return 0;
 		}
-		return rc;
+
+		cam_sensor_update_req_mgr(s_ctrl, csl_packet);
+		return 0;
 	}
 	default:
 		CAM_ERR(CAM_SENSOR, "Invalid Packet Header");
@@ -706,8 +706,8 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 	}
 		break;
 	case CAM_RELEASE_DEV: {
-		if ((s_ctrl->sensor_state < CAM_SENSOR_ACQUIRE) ||
-			(s_ctrl->sensor_state > CAM_SENSOR_CONFIG)) {
+		if ((s_ctrl->sensor_state == CAM_SENSOR_INIT) ||
+			(s_ctrl->sensor_state == CAM_SENSOR_START)) {
 			rc = -EINVAL;
 			CAM_WARN(CAM_SENSOR,
 			"Not in right state to release : %d",
@@ -754,7 +754,8 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		break;
 	}
 	case CAM_START_DEV: {
-		if (s_ctrl->sensor_state != CAM_SENSOR_CONFIG) {
+		if ((s_ctrl->sensor_state == CAM_SENSOR_INIT) ||
+			(s_ctrl->sensor_state == CAM_SENSOR_START)) {
 			rc = -EINVAL;
 			CAM_WARN(CAM_SENSOR,
 			"Not in right state to start : %d",
