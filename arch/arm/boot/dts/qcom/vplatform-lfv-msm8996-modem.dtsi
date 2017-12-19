@@ -105,13 +105,13 @@
 			"halt_nc", "rmb_base", "restart_reg";
 
 		clocks = <&clock_gcc clk_cxo_clk_src>,
-			<&clock_gcc clk_gcc_mss_cfg_ahb_clk>,
+			<&clock_virt clk_gcc_mss_cfg_ahb_clk>,
 			<&clock_gcc clk_pnoc_clk>,
-			<&clock_gcc clk_gcc_mss_q6_bimc_axi_clk>,
-			<&clock_gcc clk_gcc_boot_rom_ahb_clk>,
-			<&clock_gcc clk_gpll0_out_msscc>,
-			<&clock_gcc clk_gcc_mss_snoc_axi_clk>,
-			<&clock_gcc clk_gcc_mss_mnoc_bimc_axi_clk>,
+			<&clock_virt clk_gcc_mss_q6_bimc_axi_clk>,
+			<&clock_virt clk_gcc_boot_rom_ahb_clk>,
+			<&clock_virt clk_gpll0_out_msscc>,
+			<&clock_virt clk_gcc_mss_snoc_axi_clk>,
+			<&clock_virt clk_gcc_mss_mnoc_bimc_axi_clk>,
 			<&clock_gcc clk_qdss_clk>;
 		clock-names = "xo", "iface_clk", "pnoc_clk", "bus_clk",
 				"mem_clk", "gpll0_mss_clk", "snoc_axi_clk",
