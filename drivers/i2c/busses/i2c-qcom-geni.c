@@ -57,7 +57,7 @@
 #define SLV_ADDR_SHFT		(9)
 
 #define I2C_PACK_EN		(BIT(0) | BIT(1))
-#define I2C_CORE2X_VOTE		(10000)
+#define I2C_CORE2X_VOTE		(960)
 #define GP_IRQ0			0
 #define GP_IRQ1			1
 #define GP_IRQ2			2
