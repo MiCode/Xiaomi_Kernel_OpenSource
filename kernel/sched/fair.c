@@ -5515,6 +5515,59 @@ static unsigned long __cpu_norm_util(unsigned long util, unsigned long capacity)
  * energy_diff - supports the computation of the estimated energy impact in
  * moving a "task"'s "util_delta" between different CPU candidates.
  */
+/*
+ * NOTE: When using or examining WALT task signals, all wakeup
+ * latency is included as busy time for task util.
+ *
+ * This is relevant here because:
+ * When debugging is enabled, it can take as much as 1ms to
+ * write the output to the trace buffer for each eenv
+ * scenario. For periodic tasks where the sleep time is of
+ * a similar order, the WALT task util can be inflated.
+ *
+ * Further, and even without debugging enabled,
+ * task wakeup latency changes depending upon the EAS
+ * wakeup algorithm selected - FIND_BEST_TARGET only does
+ * energy calculations for up to 2 candidate CPUs. When
+ * NO_FIND_BEST_TARGET is configured, we can potentially
+ * do an energy calculation across all CPUS in the system.
+ *
+ * The impact to WALT task util on a Juno board
+ * running a periodic task which only sleeps for 200usec
+ * between 1ms activations has been measured.
+ * (i.e. the wakeup latency induced by energy calculation
+ * and debug output is double the desired sleep time and
+ * almost equivalent to the runtime which is more-or-less
+ * the worst case possible for this test)
+ *
+ * In this scenario, a task which has a PELT util of around
+ * 220 is inflated under WALT to have util around 400.
+ *
+ * This is simply a property of the way WALT includes
+ * wakeup latency in busy time while PELT does not.
+ *
+ * Hence - be careful when enabling DEBUG_EENV_DECISIONS
+ * expecially if WALT is the task signal.
+ */
+/*#define DEBUG_EENV_DECISIONS*/
+
+#ifdef DEBUG_EENV_DECISIONS
+/* max of 8 levels of sched groups traversed */
+#define EAS_EENV_DEBUG_LEVELS 16
+
+struct _eenv_debug {
+	unsigned long cap;
+	unsigned long norm_util;
+	unsigned long cap_energy;
+	unsigned long idle_energy;
+	unsigned long this_energy;
+	unsigned long this_busy_energy;
+	unsigned long this_idle_energy;
+	cpumask_t group_cpumask;
+	unsigned long cpu_util[1];
+};
+#endif
+
 struct eenv_cpu {
 	/* CPU ID, must be in cpus_mask */
 	int     cpu_id;
@@ -5534,6 +5587,11 @@ struct eenv_cpu {
 
 	/* Estimated energy variation wrt EAS_CPU_PRV */
 	long nrg_delta;
+
+#ifdef DEBUG_EENV_DECISIONS
+	struct _eenv_debug *debug;
+	int debug_idx;
+#endif /* DEBUG_EENV_DECISIONS */
 };
 
 struct energy_env {
@@ -5549,6 +5607,15 @@ struct energy_env {
 	struct eenv_cpu *cpu;
 	int eenv_cpu_count;
 
+#ifdef DEBUG_EENV_DECISIONS
+	/* pointer to the memory block reserved
+	 * for debug on this CPU - there will be
+	 * sizeof(struct _eenv_debug) *
+	 *  (EAS_CPU_CNT * EAS_EENV_DEBUG_LEVELS)
+	 * bytes allocated here.
+	 */
+	struct _eenv_debug *debug;
+#endif
 	/*
 	 * Index (into energy_env::cpu) of the morst energy efficient CPU for
 	 * the specified energy_env::task
@@ -5714,6 +5781,47 @@ static int group_idle_state(struct energy_env *eenv, int cpu_idx)
 	return new_state;
 }
 
+#ifdef DEBUG_EENV_DECISIONS
+static struct _eenv_debug *eenv_debug_entry_ptr(struct _eenv_debug *base, int idx);
+
+static void store_energy_calc_debug_info(struct energy_env *eenv, int cpu_idx, int cap_idx, int idle_idx)
+{
+	int debug_idx = eenv->cpu[cpu_idx].debug_idx;
+	unsigned long sg_util, busy_energy, idle_energy;
+	const struct sched_group_energy *sge;
+	struct _eenv_debug *dbg;
+	int cpu;
+
+	if (debug_idx < EAS_EENV_DEBUG_LEVELS) {
+		sge = eenv->sg->sge;
+		sg_util = group_norm_util(eenv, cpu_idx);
+		busy_energy   = sge->cap_states[cap_idx].power;
+		busy_energy  *= sg_util;
+		idle_energy   = SCHED_CAPACITY_SCALE - sg_util;
+		idle_energy  *= sge->idle_states[idle_idx].power;
+		/* should we use sg_cap or sg? */
+		dbg = eenv_debug_entry_ptr(eenv->cpu[cpu_idx].debug, debug_idx);
+		dbg->cap = sge->cap_states[cap_idx].cap;
+		dbg->norm_util = sg_util;
+		dbg->cap_energy = sge->cap_states[cap_idx].power;
+		dbg->idle_energy = sge->idle_states[idle_idx].power;
+		dbg->this_energy = busy_energy + idle_energy;
+		dbg->this_busy_energy = busy_energy;
+		dbg->this_idle_energy = idle_energy;
+
+		cpumask_copy(&dbg->group_cpumask,
+				sched_group_span(eenv->sg));
+
+		for_each_cpu(cpu, &dbg->group_cpumask)
+			dbg->cpu_util[cpu] = cpu_util(cpu);
+
+		eenv->cpu[cpu_idx].debug_idx = debug_idx+1;
+	}
+}
+#else
+#define store_energy_calc_debug_info(a,b,c,d) {}
+#endif /* DEBUG_EENV_DECISIONS */
+
 /*
  * calc_sg_energy: compute energy for the eenv's SG (i.e. eenv->sg).
  *
@@ -5748,6 +5856,8 @@ static void calc_sg_energy(struct energy_env *eenv)
 
 		total_energy = busy_energy + idle_energy;
 		eenv->cpu[cpu_idx].energy += total_energy;
+
+		store_energy_calc_debug_info(eenv, cpu_idx, cap_idx, idle_idx);
 	}
 }
 
@@ -5822,6 +5932,60 @@ static inline bool cpu_in_sg(struct sched_group *sg, int cpu)
 	return cpu != -1 && cpumask_test_cpu(cpu, sched_group_span(sg));
 }
 
+#ifdef DEBUG_EENV_DECISIONS
+static void dump_eenv_debug(struct energy_env *eenv)
+{
+	int cpu_idx, grp_idx;
+	char cpu_utils[(NR_CPUS*12)+10]="cpu_util: ";
+	char cpulist[64];
+
+	trace_printk("eenv scenario: task=%p %s task_util=%lu prev_cpu=%d",
+			eenv->p, eenv->p->comm, eenv->util_delta, eenv->cpu[EAS_CPU_PRV].cpu_id);
+
+	for (cpu_idx=EAS_CPU_PRV; cpu_idx < eenv->max_cpu_count; cpu_idx++) {
+		if (eenv->cpu[cpu_idx].cpu_id == -1)
+			continue;
+		trace_printk("---Scenario %d: Place task on cpu %d energy=%lu (%d debug logs at %p)",
+				cpu_idx+1, eenv->cpu[cpu_idx].cpu_id,
+				eenv->cpu[cpu_idx].energy >> SCHED_CAPACITY_SHIFT,
+				eenv->cpu[cpu_idx].debug_idx,
+				eenv->cpu[cpu_idx].debug);
+		for (grp_idx = 0; grp_idx < eenv->cpu[cpu_idx].debug_idx; grp_idx++) {
+			struct _eenv_debug *debug;
+			int cpu, written=0;
+
+			debug = eenv_debug_entry_ptr(eenv->cpu[cpu_idx].debug, grp_idx);
+			cpu = scnprintf(cpulist, sizeof(cpulist), "%*pbl", cpumask_pr_args(&debug->group_cpumask));
+
+			cpu_utils[0] = 0;
+			/* print out the relevant cpu_util */
+			for_each_cpu(cpu, &(debug->group_cpumask)) {
+				char tmp[64];
+				if (written > sizeof(cpu_utils)-10) {
+					cpu_utils[written]=0;
+					break;
+				}
+				written += snprintf(tmp, sizeof(tmp), "cpu%d(%lu) ", cpu, debug->cpu_util[cpu]);
+				strcat(cpu_utils, tmp);
+			}
+			/* trace the data */
+			trace_printk("  | %s : cap=%lu nutil=%lu, cap_nrg=%lu, idle_nrg=%lu energy=%lu busy_energy=%lu idle_energy=%lu %s",
+					cpulist, debug->cap, debug->norm_util,
+					debug->cap_energy, debug->idle_energy,
+					debug->this_energy >> SCHED_CAPACITY_SHIFT,
+					debug->this_busy_energy >> SCHED_CAPACITY_SHIFT,
+					debug->this_idle_energy >> SCHED_CAPACITY_SHIFT,
+					cpu_utils);
+
+		}
+		trace_printk("---");
+	}
+	trace_printk("----- done");
+	return;
+}
+#else
+#define dump_eenv_debug(a) {}
+#endif /* DEBUG_EENV_DECISIONS */
 /*
  * select_energy_cpu_idx(): estimate the energy impact of changing the
  * utilization distribution.
@@ -5898,6 +6062,8 @@ static inline int select_energy_cpu_idx(struct energy_env *eenv)
 	 */
 	eenv->next_idx = EAS_CPU_PRV;
 	eenv->cpu[EAS_CPU_PRV].nrg_delta = 0;
+
+	dump_eenv_debug(eenv);
 
 	/*
 	 * Compare the other CPU candidates to find a CPU which can be
@@ -7024,6 +7190,44 @@ DEFINE_PER_CPU(struct energy_env, eenv_cache);
  * Allocate the cpu array for eenv calculations
  * at boot time to avoid massive overprovisioning.
  */
+#ifdef DEBUG_EENV_DECISIONS
+static inline int eenv_debug_size_per_dbg_entry(void)
+{
+	return sizeof(struct _eenv_debug) + (sizeof(unsigned long) * num_possible_cpus());
+}
+
+static inline int eenv_debug_size_per_cpu_entry(void)
+{
+	/* each cpu struct has an array of _eenv_debug structs
+	 * which have an array of unsigned longs at the end -
+	 * the allocation should be extended so that there are
+	 * at least 'num_possible_cpus' entries in the array.
+	 */
+	return EAS_EENV_DEBUG_LEVELS * eenv_debug_size_per_dbg_entry();
+}
+/* given a per-_eenv_cpu debug env ptr, get the ptr for a given index */
+static inline struct _eenv_debug *eenv_debug_entry_ptr(struct _eenv_debug *base, int idx)
+{
+	char *ptr = (char *)base;
+	ptr += (idx * eenv_debug_size_per_dbg_entry());
+	return (struct _eenv_debug *)ptr;
+}
+/* given a pointer to the per-cpu global copy of _eenv_debug, get
+ * a pointer to the specified _eenv_cpu debug env.
+ */
+static inline struct _eenv_debug *eenv_debug_percpu_debug_env_ptr(struct _eenv_debug *base, int cpu_idx)
+{
+	char *ptr = (char *)base;
+	ptr += (cpu_idx * eenv_debug_size_per_cpu_entry());
+	return (struct _eenv_debug *)ptr;
+}
+
+static inline int eenv_debug_size(void)
+{
+	return num_possible_cpus() * eenv_debug_size_per_cpu_entry();
+}
+#endif
+
 static inline void alloc_eenv(void)
 {
 	int cpu;
@@ -7033,6 +7237,9 @@ static inline void alloc_eenv(void)
 		struct energy_env *eenv = &per_cpu(eenv_cache, cpu);
 		eenv->cpu = kmalloc(sizeof(struct eenv_cpu) * cpu_count, GFP_KERNEL);
 		eenv->eenv_cpu_count = cpu_count;
+#ifdef DEBUG_EENV_DECISIONS
+		eenv->debug = (struct _eenv_debug *)kmalloc(eenv_debug_size(), GFP_KERNEL);
+#endif
 	}
 }
 
@@ -7040,6 +7247,11 @@ static inline void reset_eenv(struct energy_env *eenv)
 {
 	int cpu_count;
 	struct eenv_cpu *cpu;
+#ifdef DEBUG_EENV_DECISIONS
+	struct _eenv_debug *debug;
+	int cpu_idx;
+	debug = eenv->debug;
+#endif
 
 	cpu_count = eenv->eenv_cpu_count;
 	cpu = eenv->cpu;
@@ -7048,6 +7260,12 @@ static inline void reset_eenv(struct energy_env *eenv)
 	memset(eenv->cpu, 0, sizeof(struct eenv_cpu)*cpu_count);
 	eenv->eenv_cpu_count = cpu_count;
 
+#ifdef DEBUG_EENV_DECISIONS
+	memset(debug, 0, eenv_debug_size());
+	eenv->debug = debug;
+	for(cpu_idx = 0; cpu_idx < eenv->cpu_array_len; cpu_idx++)
+		eenv->cpu[cpu_idx].debug = eenv_debug_percpu_debug_env_ptr(debug, cpu_idx);
+#endif
 }
 /*
  * get_eenv - reset the eenv struct cached for this CPU
