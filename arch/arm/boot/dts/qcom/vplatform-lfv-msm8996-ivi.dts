@@ -30,14 +30,6 @@
 	};
 };
 
-&spi_9 {
-	status = "okay";
-};
-
-&i2c_8 {
-	status = "okay";
-};
-
 &blsp1_uart2 {
 	status = "okay";
 };
