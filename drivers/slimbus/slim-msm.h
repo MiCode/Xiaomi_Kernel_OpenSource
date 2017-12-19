@@ -13,10 +13,12 @@
 #ifndef _SLIM_MSM_H
 #define _SLIM_MSM_H
 
+#include <linux/ipc_logging.h>
 #include <linux/irq.h>
 #include <linux/kthread.h>
-#include <soc/qcom/msm_qmi_interface.h>
-#include <linux/ipc_logging.h>
+#include <linux/qrtr.h>
+#include <linux/soc/qcom/qmi.h>
+#include <net/sock.h>
 
 /* Per spec.max 40 bytes per received message */
 #define SLIM_MSGQ_BUF_LEN	40
@@ -94,8 +96,8 @@
 #define SLIMBUS_QMI_SVC_V1 1
 #define SLIMBUS_QMI_INS_ID 0
 
-/* QMI response timeout of 500ms */
-#define SLIM_QMI_RESP_TOUT 1000
+/* QMI response timeout of 1000ms */
+#define SLIM_QMI_RESP_TOUT (HZ)
 
 #define PGD_THIS_EE(r, v) ((v) ? PGD_THIS_EE_V2(r) : PGD_THIS_EE_V1(r))
 #define PGD_PORT(r, p, v) ((v) ? PGD_PORT_V2(r, p) : PGD_PORT_V1(r, p))
@@ -221,17 +223,14 @@ struct msm_slim_endp {
 
 struct msm_slim_qmi {
 	struct qmi_handle		*handle;
-	struct task_struct		*task;
+	struct sockaddr_qrtr		svc_info;
 	struct task_struct		*slave_thread;
 	struct completion		slave_notify;
-	struct kthread_work		kwork;
-	struct kthread_worker		kworker;
 	struct completion		qmi_comp;
-	struct notifier_block		nb;
+	struct qmi_handle		svc_event_hdl;
 	bool				deferred_resp;
 	struct qmi_response_type_v01	resp;
-	struct msg_desc			resp_desc;
-	struct completion		defer_comp;
+	struct qmi_txn			deferred_txn;
 };
 
 enum msm_slim_dom {

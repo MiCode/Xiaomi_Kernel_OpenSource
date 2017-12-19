@@ -1408,7 +1408,7 @@ struct slimbus_deferred_status_resp {
 	struct qmi_response_type_v01 resp;
 };
 
-static struct elem_info slimbus_select_inst_req_msg_v01_ei[] = {
+static struct qmi_elem_info slimbus_select_inst_req_msg_v01_ei[] = {
 	{
 		.data_type = QMI_UNSIGNED_4_BYTE,
 		.elem_len  = 1,
@@ -1450,7 +1450,7 @@ static struct elem_info slimbus_select_inst_req_msg_v01_ei[] = {
 	},
 };
 
-static struct elem_info slimbus_select_inst_resp_msg_v01_ei[] = {
+static struct qmi_elem_info slimbus_select_inst_resp_msg_v01_ei[] = {
 	{
 		.data_type = QMI_STRUCT,
 		.elem_len  = 1,
@@ -1459,7 +1459,7 @@ static struct elem_info slimbus_select_inst_resp_msg_v01_ei[] = {
 		.tlv_type  = 0x02,
 		.offset    = offsetof(struct slimbus_select_inst_resp_msg_v01,
 				      resp),
-		.ei_array  = get_qmi_response_type_v01_ei(),
+		.ei_array  = qmi_response_type_v01_ei,
 	},
 	{
 		.data_type = QMI_EOTI,
@@ -1472,7 +1472,7 @@ static struct elem_info slimbus_select_inst_resp_msg_v01_ei[] = {
 	},
 };
 
-static struct elem_info slimbus_power_req_msg_v01_ei[] = {
+static struct qmi_elem_info slimbus_power_req_msg_v01_ei[] = {
 	{
 		.data_type = QMI_UNSIGNED_4_BYTE,
 		.elem_len  = 1,
@@ -1511,7 +1511,7 @@ static struct elem_info slimbus_power_req_msg_v01_ei[] = {
 	},
 };
 
-static struct elem_info slimbus_power_resp_msg_v01_ei[] = {
+static struct qmi_elem_info slimbus_power_resp_msg_v01_ei[] = {
 	{
 		.data_type = QMI_STRUCT,
 		.elem_len  = 1,
@@ -1519,7 +1519,7 @@ static struct elem_info slimbus_power_resp_msg_v01_ei[] = {
 		.is_array  = NO_ARRAY,
 		.tlv_type  = 0x02,
 		.offset    = offsetof(struct slimbus_power_resp_msg_v01, resp),
-		.ei_array  = get_qmi_response_type_v01_ei(),
+		.ei_array  = qmi_response_type_v01_ei,
 	},
 	{
 		.data_type = QMI_EOTI,
@@ -1532,7 +1532,7 @@ static struct elem_info slimbus_power_resp_msg_v01_ei[] = {
 	},
 };
 
-static struct elem_info slimbus_chkfrm_resp_msg_v01_ei[] = {
+static struct qmi_elem_info slimbus_chkfrm_resp_msg_v01_ei[] = {
 	{
 		.data_type = QMI_STRUCT,
 		.elem_len  = 1,
@@ -1540,7 +1540,7 @@ static struct elem_info slimbus_chkfrm_resp_msg_v01_ei[] = {
 		.is_array  = NO_ARRAY,
 		.tlv_type  = 0x02,
 		.offset    = offsetof(struct slimbus_chkfrm_resp_msg, resp),
-		.ei_array  = get_qmi_response_type_v01_ei(),
+		.ei_array  = qmi_response_type_v01_ei,
 	},
 	{
 		.data_type = QMI_EOTI,
@@ -1553,7 +1553,7 @@ static struct elem_info slimbus_chkfrm_resp_msg_v01_ei[] = {
 	},
 };
 
-static struct elem_info slimbus_deferred_status_resp_msg_v01_ei[] = {
+static struct qmi_elem_info slimbus_deferred_status_resp_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_STRUCT,
 		.elem_len       = 1,
@@ -1562,41 +1562,27 @@ static struct elem_info slimbus_deferred_status_resp_msg_v01_ei[] = {
 		.tlv_type       = 0x02,
 		.offset         = offsetof(struct slimbus_deferred_status_resp,
 					   resp),
-		.ei_array      = get_qmi_response_type_v01_ei(),
+		.ei_array      = qmi_response_type_v01_ei,
 	},
 	{
 		.data_type      = QMI_EOTI,
 		.is_array       = NO_ARRAY,
 	},
 };
-static void msm_slim_qmi_recv_msg(struct kthread_work *work)
-{
-	int rc;
-	struct msm_slim_qmi *qmi =
-			container_of(work, struct msm_slim_qmi, kwork);
 
-	/* Drain all packets received */
-	do {
-		rc = qmi_recv_msg(qmi->handle);
-	} while (rc == 0);
-	if (rc != -ENOMSG)
-		pr_err("%s: Error receiving QMI message:%d\n", __func__, rc);
-}
+static void msm_slim_qmi_power_resp_cb(struct qmi_handle *handle,
+	struct sockaddr_qrtr *sq, struct qmi_txn *txn, const void *data);
 
-static void msm_slim_qmi_notify(struct qmi_handle *handle,
-				enum qmi_event_type event, void *notify_priv)
-{
-	struct msm_slim_ctrl *dev = notify_priv;
-	struct msm_slim_qmi *qmi = &dev->qmi;
-
-	switch (event) {
-	case QMI_RECV_MSG:
-		kthread_queue_work(&qmi->kworker, &qmi->kwork);
-		break;
-	default:
-		break;
-	}
-}
+static struct qmi_msg_handler msm_slim_qmi_msg_handlers[] = {
+	{
+		.type = QMI_RESPONSE,
+		.msg_id = SLIMBUS_QMI_POWER_RESP_V01,
+		.ei = slimbus_power_resp_msg_v01_ei,
+		.decoded_size = sizeof(struct slimbus_power_resp_msg_v01),
+		.fn = msm_slim_qmi_power_resp_cb,
+	},
+	{}
+};
 
 static const char *get_qmi_error(struct qmi_response_type_v01 *r)
 {
@@ -1618,21 +1604,93 @@ static int msm_slim_qmi_send_select_inst_req(struct msm_slim_ctrl *dev,
 				struct slimbus_select_inst_req_msg_v01 *req)
 {
 	struct slimbus_select_inst_resp_msg_v01 resp = { { 0, 0 } };
-	struct msg_desc req_desc, resp_desc;
+	struct qmi_txn txn;
 	int rc;
 
-	req_desc.msg_id = SLIMBUS_QMI_SELECT_INSTANCE_REQ_V01;
-	req_desc.max_msg_len = SLIMBUS_QMI_SELECT_INSTANCE_REQ_MAX_MSG_LEN;
-	req_desc.ei_array = slimbus_select_inst_req_msg_v01_ei;
+	rc = qmi_txn_init(dev->qmi.handle, &txn,
+				slimbus_select_inst_resp_msg_v01_ei, &resp);
+	if (rc < 0) {
+		SLIM_ERR(dev, "%s: QMI TXN init failed: %d\n", __func__, rc);
+		return rc;
+	}
 
-	resp_desc.msg_id = SLIMBUS_QMI_SELECT_INSTANCE_RESP_V01;
-	resp_desc.max_msg_len = SLIMBUS_QMI_SELECT_INSTANCE_RESP_MAX_MSG_LEN;
-	resp_desc.ei_array = slimbus_select_inst_resp_msg_v01_ei;
-
-	rc = qmi_send_req_wait(dev->qmi.handle, &req_desc, req, sizeof(*req),
-			&resp_desc, &resp, sizeof(resp), SLIM_QMI_RESP_TOUT);
+	rc = qmi_send_request(dev->qmi.handle, NULL, &txn,
+				SLIMBUS_QMI_SELECT_INSTANCE_REQ_V01,
+				SLIMBUS_QMI_SELECT_INSTANCE_REQ_MAX_MSG_LEN,
+				slimbus_select_inst_req_msg_v01_ei, req);
 	if (rc < 0) {
 		SLIM_ERR(dev, "%s: QMI send req failed %d\n", __func__, rc);
+		qmi_txn_cancel(&txn);
+		return rc;
+	}
+
+	rc = qmi_txn_wait(&txn, SLIM_QMI_RESP_TOUT);
+	if (rc < 0) {
+		SLIM_ERR(dev, "%s: QMI TXN wait failed: %d\n", __func__, rc);
+		return rc;
+	}
+	/* Check the response */
+	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
+		SLIM_ERR(dev, "%s: QMI request failed 0x%x (%s)\n", __func__,
+				resp.resp.result, get_qmi_error(&resp.resp));
+		return -EREMOTEIO;
+	}
+
+	return 0;
+}
+
+static void msm_slim_qmi_power_resp_cb(struct qmi_handle *handle,
+	struct sockaddr_qrtr *sq, struct qmi_txn *txn, const void *data)
+{
+	struct slimbus_power_resp_msg_v01 *resp =
+				(struct slimbus_power_resp_msg_v01 *)data;
+
+	if (!txn) {
+		pr_err("%s: with a NULL txn\n", __func__);
+		return;
+	}
+
+	if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		pr_err("%s: QMI power request failed 0x%x (%s)\n", __func__,
+				resp->resp.result, get_qmi_error(&resp->resp));
+	}
+
+	complete(&txn->completion);
+}
+
+static int msm_slim_qmi_send_power_request(struct msm_slim_ctrl *dev,
+				struct slimbus_power_req_msg_v01 *req)
+{
+	struct slimbus_power_resp_msg_v01 resp = { { 0, 0 } };
+	struct qmi_txn txn;
+	struct qmi_txn *temp;
+	int rc;
+
+	if (dev->qmi.deferred_resp) {
+		rc = qmi_txn_init(dev->qmi.handle, &dev->qmi.deferred_txn,
+								NULL, NULL);
+		temp = &dev->qmi.deferred_txn;
+	} else {
+		rc = qmi_txn_init(dev->qmi.handle, &txn,
+				slimbus_power_resp_msg_v01_ei, &resp);
+		temp = &txn;
+	}
+
+	rc = qmi_send_request(dev->qmi.handle, NULL, temp,
+				SLIMBUS_QMI_POWER_REQ_V01,
+				SLIMBUS_QMI_POWER_REQ_MAX_MSG_LEN,
+				slimbus_power_req_msg_v01_ei, req);
+	if (rc < 0) {
+		SLIM_ERR(dev, "%s: QMI send req failed %d\n", __func__, rc);
+		qmi_txn_cancel(temp);
+	}
+
+	if (rc < 0 || dev->qmi.deferred_resp)
+		return rc;
+
+	rc = qmi_txn_wait(temp, SLIM_QMI_RESP_TOUT);
+	if (rc < 0) {
+		SLIM_ERR(dev, "%s: QMI TXN wait failed: %d\n", __func__, rc);
 		return rc;
 	}
 
@@ -1646,93 +1704,28 @@ static int msm_slim_qmi_send_select_inst_req(struct msm_slim_ctrl *dev,
 	return 0;
 }
 
-static void slim_qmi_resp_cb(struct qmi_handle *handle, unsigned int msg_id,
-			     void *msg, void *resp_cb_data, int stat)
-{
-	struct slimbus_power_resp_msg_v01 *resp = msg;
-	struct msm_slim_ctrl *dev = resp_cb_data;
-
-	if (msg_id != SLIMBUS_QMI_POWER_RESP_V01)
-		SLIM_WARN(dev, "incorrect msg id in qmi-resp CB:0x%x", msg_id);
-	else if (resp->resp.result != QMI_RESULT_SUCCESS_V01)
-		SLIM_ERR(dev, "%s: QMI power failed 0x%x (%s)\n", __func__,
-			 resp->resp.result, get_qmi_error(&resp->resp));
-
-	complete(&dev->qmi.defer_comp);
-}
-
-static int msm_slim_qmi_send_power_request(struct msm_slim_ctrl *dev,
-				struct slimbus_power_req_msg_v01 *req)
-{
-	struct slimbus_power_resp_msg_v01 *resp =
-		(struct slimbus_power_resp_msg_v01 *)&dev->qmi.resp;
-	struct msg_desc req_desc;
-	struct msg_desc *resp_desc = &dev->qmi.resp_desc;
-	int rc;
-
-	req_desc.msg_id = SLIMBUS_QMI_POWER_REQ_V01;
-	req_desc.max_msg_len = SLIMBUS_QMI_POWER_REQ_MAX_MSG_LEN;
-	req_desc.ei_array = slimbus_power_req_msg_v01_ei;
-
-	resp_desc->msg_id = SLIMBUS_QMI_POWER_RESP_V01;
-	resp_desc->max_msg_len = SLIMBUS_QMI_POWER_RESP_MAX_MSG_LEN;
-	resp_desc->ei_array = slimbus_power_resp_msg_v01_ei;
-
-	if (dev->qmi.deferred_resp)
-		rc = qmi_send_req_nowait(dev->qmi.handle, &req_desc, req,
-				       sizeof(*req), resp_desc, resp,
-				       sizeof(*resp), slim_qmi_resp_cb, dev);
-	else
-		rc = qmi_send_req_wait(dev->qmi.handle, &req_desc, req,
-				       sizeof(*req), resp_desc, resp,
-				       sizeof(*resp), SLIM_QMI_RESP_TOUT);
-	if (rc < 0)
-		SLIM_ERR(dev, "%s: QMI send req failed %d\n", __func__, rc);
-
-	if (rc < 0 || dev->qmi.deferred_resp)
-		return rc;
-
-	/* Check the response */
-	if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
-		SLIM_ERR(dev, "%s: QMI request failed 0x%x (%s)\n", __func__,
-				resp->resp.result, get_qmi_error(&resp->resp));
-		return -EREMOTEIO;
-	}
-
-	return 0;
-}
-
 int msm_slim_qmi_init(struct msm_slim_ctrl *dev, bool apps_is_master)
 {
 	int rc = 0;
 	struct qmi_handle *handle;
 	struct slimbus_select_inst_req_msg_v01 req;
 
-	kthread_init_worker(&dev->qmi.kworker);
-	init_completion(&dev->qmi.defer_comp);
-
-	dev->qmi.task = kthread_run(kthread_worker_fn,
-			&dev->qmi.kworker, "msm_slim_qmi_clnt%d", dev->ctrl.nr);
-
-	if (IS_ERR(dev->qmi.task)) {
-		pr_err("%s: Failed to create QMI client kthread\n", __func__);
+	handle = devm_kzalloc(dev->dev, sizeof(*handle), GFP_KERNEL);
+	if (!handle)
 		return -ENOMEM;
-	}
 
-	kthread_init_work(&dev->qmi.kwork, msm_slim_qmi_recv_msg);
-
-	handle = qmi_handle_create(msm_slim_qmi_notify, dev);
-	if (!handle) {
-		rc = -ENOMEM;
-		pr_err("%s: QMI client handle alloc failed\n", __func__);
-		goto qmi_handle_create_failed;
-	}
-
-	rc = qmi_connect_to_service(handle, SLIMBUS_QMI_SVC_ID,
-						SLIMBUS_QMI_SVC_V1,
-						SLIMBUS_QMI_INS_ID);
+	rc = qmi_handle_init(handle, SLIMBUS_QMI_POWER_REQ_MAX_MSG_LEN,
+				NULL, msm_slim_qmi_msg_handlers);
 	if (rc < 0) {
-		SLIM_ERR(dev, "%s: QMI server not found\n", __func__);
+		pr_err("%s: QMI client init failed: %d\n", __func__, rc);
+		goto qmi_handle_init_failed;
+	}
+
+	rc = kernel_connect(handle->sock, (struct sockaddr *)&dev->qmi.svc_info,
+				sizeof(dev->qmi.svc_info), 0);
+	if (rc < 0) {
+		SLIM_ERR(dev, "%s: Remote Service connect failed: %d\n",
+								__func__, rc);
 		goto qmi_connect_to_service_failed;
 	}
 
@@ -1759,22 +1752,19 @@ int msm_slim_qmi_init(struct msm_slim_ctrl *dev, bool apps_is_master)
 qmi_select_instance_failed:
 	dev->qmi.handle = NULL;
 qmi_connect_to_service_failed:
-	qmi_handle_destroy(handle);
-qmi_handle_create_failed:
-	kthread_flush_worker(&dev->qmi.kworker);
-	kthread_stop(dev->qmi.task);
-	dev->qmi.task = NULL;
+	qmi_handle_release(handle);
+qmi_handle_init_failed:
+	devm_kfree(dev->dev, handle);
 	return rc;
 }
 
 void msm_slim_qmi_exit(struct msm_slim_ctrl *dev)
 {
-	if (!dev->qmi.handle || !dev->qmi.task)
+	if (!dev->qmi.handle)
 		return;
-	qmi_handle_destroy(dev->qmi.handle);
-	kthread_flush_worker(&dev->qmi.kworker);
-	kthread_stop(dev->qmi.task);
-	dev->qmi.task = NULL;
+
+	qmi_handle_release(dev->qmi.handle);
+	devm_kfree(dev->dev, dev->qmi.handle);
 	dev->qmi.handle = NULL;
 }
 
@@ -1800,23 +1790,31 @@ int msm_slim_qmi_power_request(struct msm_slim_ctrl *dev, bool active)
 int msm_slim_qmi_check_framer_request(struct msm_slim_ctrl *dev)
 {
 	struct slimbus_chkfrm_resp_msg resp = { { 0, 0 } };
-	struct msg_desc req_desc, resp_desc;
+	struct qmi_txn txn;
 	int rc;
 
-	req_desc.msg_id = SLIMBUS_QMI_CHECK_FRAMER_STATUS_REQ;
-	req_desc.max_msg_len = 0;
-	req_desc.ei_array = NULL;
-
-	resp_desc.msg_id = SLIMBUS_QMI_CHECK_FRAMER_STATUS_RESP;
-	resp_desc.max_msg_len = SLIMBUS_QMI_CHECK_FRAMER_STAT_RESP_MAX_MSG_LEN;
-	resp_desc.ei_array = slimbus_chkfrm_resp_msg_v01_ei;
-
-	rc = qmi_send_req_wait(dev->qmi.handle, &req_desc, NULL, 0,
-		&resp_desc, &resp, sizeof(resp), SLIM_QMI_RESP_TOUT);
+	rc = qmi_txn_init(dev->qmi.handle, &txn,
+			slimbus_chkfrm_resp_msg_v01_ei, &resp);
 	if (rc < 0) {
-		SLIM_ERR(dev, "%s: QMI send req failed %d\n", __func__, rc);
+		SLIM_ERR(dev, "%s: QMI TXN init failed: %d\n", __func__, rc);
 		return rc;
 	}
+
+	rc = qmi_send_request(dev->qmi.handle, NULL, &txn,
+				SLIMBUS_QMI_CHECK_FRAMER_STATUS_REQ, 0,
+				NULL, NULL);
+	if (rc < 0) {
+		SLIM_ERR(dev, "%s: QMI send req failed %d\n", __func__, rc);
+		qmi_txn_cancel(&txn);
+		return rc;
+	}
+
+	rc = qmi_txn_wait(&txn, SLIM_QMI_RESP_TOUT);
+	if (rc < 0) {
+		SLIM_ERR(dev, "%s: QMI TXN wait failed: %d\n", __func__, rc);
+		return rc;
+	}
+
 	/* Check the response */
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
 		SLIM_ERR(dev, "%s: QMI request failed 0x%x (%s)\n",
@@ -1829,24 +1827,31 @@ int msm_slim_qmi_check_framer_request(struct msm_slim_ctrl *dev)
 int msm_slim_qmi_deferred_status_req(struct msm_slim_ctrl *dev)
 {
 	struct slimbus_deferred_status_resp resp = { { 0, 0 } };
-	struct msg_desc req_desc, resp_desc;
+	struct qmi_txn txn;
 	int rc;
 
-	req_desc.msg_id = SLIMBUS_QMI_DEFERRED_STATUS_REQ;
-	req_desc.max_msg_len = 0;
-	req_desc.ei_array = NULL;
-
-	resp_desc.msg_id = SLIMBUS_QMI_DEFERRED_STATUS_RESP;
-	resp_desc.max_msg_len =
-		SLIMBUS_QMI_DEFERRED_STATUS_RESP_STAT_MSG_MAX_MSG_LEN;
-	resp_desc.ei_array = slimbus_deferred_status_resp_msg_v01_ei;
-
-	rc = qmi_send_req_wait(dev->qmi.handle, &req_desc, NULL, 0,
-		&resp_desc, &resp, sizeof(resp), SLIM_QMI_RESP_TOUT);
+	rc = qmi_txn_init(dev->qmi.handle, &txn,
+			slimbus_deferred_status_resp_msg_v01_ei, &resp);
 	if (rc < 0) {
-		SLIM_ERR(dev, "%s: QMI send req failed %d\n", __func__, rc);
+		SLIM_ERR(dev, "%s: QMI TXN init failed: %d\n", __func__, rc);
 		return rc;
 	}
+
+	rc = qmi_send_request(dev->qmi.handle, NULL, &txn,
+				SLIMBUS_QMI_DEFERRED_STATUS_REQ, 0,
+				NULL, NULL);
+	if (rc < 0) {
+		SLIM_ERR(dev, "%s: QMI send req failed %d\n", __func__, rc);
+		qmi_txn_cancel(&txn);
+		return rc;
+	}
+
+	rc = qmi_txn_wait(&txn, SLIM_QMI_RESP_TOUT);
+	if (rc < 0) {
+		SLIM_ERR(dev, "%s: QMI TXN wait failed: %d\n", __func__, rc);
+		return rc;
+	}
+
 	/* Check the response */
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
 		SLIM_ERR(dev, "%s: QMI request failed 0x%x (%s)\n",
@@ -1855,10 +1860,10 @@ int msm_slim_qmi_deferred_status_req(struct msm_slim_ctrl *dev)
 	}
 
 	/* wait for the deferred response */
-	rc = wait_for_completion_timeout(&dev->qmi.defer_comp, HZ);
-	if (rc == 0) {
+	rc = qmi_txn_wait(&dev->qmi.deferred_txn, SLIM_QMI_RESP_TOUT);
+	if (rc < 0) {
 		SLIM_WARN(dev, "slimbus power deferred response not rcvd\n");
-		return -ETIMEDOUT;
+		return rc;
 	}
 	/* Check what response we got in callback */
 	if (dev->qmi.resp.result != QMI_RESULT_SUCCESS_V01) {
