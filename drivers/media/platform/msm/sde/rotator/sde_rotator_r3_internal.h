@@ -180,6 +180,31 @@ struct sde_hw_rotator_ops {
 			struct sde_hw_rotator_context  *ctx,
 			enum   sde_rot_queue_prio       queue_id,
 			u32                             flags);
+
+	/**
+	 * get_pending_ts():
+	 *     Obtain current active timestamp from rotator hw
+	 * @rot:    HW Rotator structure
+	 * @ctx:    Rotator context
+	 * @ts:     current timestamp return from rot hw
+	 * Returns: true if context has pending requests
+	 */
+	int (*get_pending_ts)(
+			struct sde_hw_rotator *rot,
+			struct sde_hw_rotator_context *ctx,
+			u32 *ts);
+
+	/**
+	 * update_ts():
+	 *     Update rotator timestmap with given value
+	 * @rot:    HW Rotator structure
+	 * @q_id:   rotator queue id
+	 * @ts:     new timestamp for rotator
+	 */
+	void (*update_ts)(
+			struct sde_hw_rotator *rot,
+			u32 q_id,
+			u32 ts);
 };
 
 /**
@@ -314,7 +339,7 @@ struct sde_hw_rotator {
 
 	bool    dbgmem;
 	bool reset_hw_ts;
-	u32 last_hw_ts;
+	u32 last_hwts[ROT_QUEUE_MAX];
 	u32 koff_timeout;
 	u32 vid_trigger;
 	u32 cmd_trigger;
