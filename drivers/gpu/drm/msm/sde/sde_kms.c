@@ -1762,26 +1762,36 @@ static void sde_kms_preclose(struct msm_kms *kms, struct drm_file *file)
 	struct msm_drm_private *priv = dev->dev_private;
 	unsigned int i;
 	struct drm_atomic_state *state = NULL;
+	struct drm_modeset_acquire_ctx ctx;
 	int ret = 0;
 
 	for (i = 0; i < priv->num_crtcs; i++)
 		sde_crtc_cancel_pending_flip(priv->crtcs[i], file);
 
-	drm_modeset_lock_all(dev);
+	drm_modeset_acquire_init(&ctx, 0);
+retry:
+	ret = drm_modeset_lock_all_ctx(dev, &ctx);
+	if (ret == -EDEADLK) {
+		drm_modeset_backoff(&ctx);
+		goto retry;
+	} else if (WARN_ON(ret)) {
+		goto end;
+	}
+
 	state = drm_atomic_state_alloc(dev);
 	if (!state) {
 		ret = -ENOMEM;
 		goto end;
 	}
 
-	state->acquire_ctx = dev->mode_config.acquire_ctx;
+	state->acquire_ctx = &ctx;
 
 	for (i = 0; i < TEARDOWN_DEADLOCK_RETRY_MAX; i++) {
 		ret = _sde_kms_remove_fbs(sde_kms, file, state);
 		if (ret != -EDEADLK)
 			break;
 		drm_atomic_state_clear(state);
-		drm_atomic_legacy_backoff(state);
+		drm_modeset_backoff(&ctx);
 	}
 
 end:
@@ -1789,7 +1799,8 @@ end:
 		drm_atomic_state_free(state);
 
 	SDE_DEBUG("sde preclose done, ret:%d\n", ret);
-	drm_modeset_unlock_all(dev);
+	drm_modeset_drop_locks(&ctx);
+	drm_modeset_acquire_fini(&ctx);
 }
 
 static int _sde_kms_helper_reset_custom_properties(struct sde_kms *sde_kms,
@@ -1859,7 +1870,8 @@ static int _sde_kms_helper_reset_custom_properties(struct sde_kms *sde_kms,
 	return ret;
 }
 
-static void sde_kms_lastclose(struct msm_kms *kms)
+static void sde_kms_lastclose(struct msm_kms *kms,
+		struct drm_modeset_acquire_ctx *ctx)
 {
 	struct sde_kms *sde_kms;
 	struct drm_device *dev;
@@ -1878,7 +1890,7 @@ static void sde_kms_lastclose(struct msm_kms *kms)
 	if (!state)
 		return;
 
-	state->acquire_ctx = dev->mode_config.acquire_ctx;
+	state->acquire_ctx = ctx;
 
 	for (i = 0; i < TEARDOWN_DEADLOCK_RETRY_MAX; i++) {
 		/* add reset of custom properties to the state */
@@ -1891,7 +1903,7 @@ static void sde_kms_lastclose(struct msm_kms *kms)
 			break;
 
 		drm_atomic_state_clear(state);
-		drm_atomic_legacy_backoff(state);
+		drm_modeset_backoff(ctx);
 		SDE_DEBUG("deadlock backoff on attempt %d\n", i);
 	}
 
@@ -2333,7 +2345,8 @@ static int sde_kms_pm_resume(struct device *dev)
 {
 	struct drm_device *ddev;
 	struct sde_kms *sde_kms;
-	int ret;
+	struct drm_modeset_acquire_ctx ctx;
+	int ret, i;
 
 	if (!dev)
 		return -EINVAL;
@@ -2348,21 +2361,38 @@ static int sde_kms_pm_resume(struct device *dev)
 
 	drm_mode_config_reset(ddev);
 
-	drm_modeset_lock_all(ddev);
+	drm_modeset_acquire_init(&ctx, 0);
+retry:
+	ret = drm_modeset_lock_all_ctx(ddev, &ctx);
+	if (ret == -EDEADLK) {
+		drm_modeset_backoff(&ctx);
+		goto retry;
+	} else if (WARN_ON(ret)) {
+		goto end;
+	}
 
 	sde_kms->suspend_block = false;
 
 	if (sde_kms->suspend_state) {
-		sde_kms->suspend_state->acquire_ctx =
-			ddev->mode_config.acquire_ctx;
-		ret = drm_atomic_commit(sde_kms->suspend_state);
+		sde_kms->suspend_state->acquire_ctx = &ctx;
+		for (i = 0; i < TEARDOWN_DEADLOCK_RETRY_MAX; i++) {
+			ret = drm_atomic_commit(sde_kms->suspend_state);
+			if (ret != -EDEADLK)
+				break;
+
+			drm_modeset_backoff(&ctx);
+		}
+
 		if (ret < 0) {
 			DRM_ERROR("failed to restore state, %d\n", ret);
 			drm_atomic_state_free(sde_kms->suspend_state);
 		}
 		sde_kms->suspend_state = NULL;
 	}
-	drm_modeset_unlock_all(ddev);
+
+end:
+	drm_modeset_drop_locks(&ctx);
+	drm_modeset_acquire_fini(&ctx);
 
 	/* enable hot-plug polling */
 	drm_kms_helper_poll_enable(ddev);
