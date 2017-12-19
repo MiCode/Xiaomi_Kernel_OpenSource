@@ -15,6 +15,7 @@
 
 #include "apq8053.dtsi"
 #include "msm-pmi8950.dtsi"
+#include "apq8053-iot-memory.dtsi"
 #include "msm8953-mtp.dtsi"
 #include "msm8953-pmi8950.dtsi"
 #include "msm8953-camera-sensor-mtp.dtsi"
@@ -146,18 +147,6 @@
 &ext_codec {
 	qcom,model = "msm8953-tasha-snd-card";
 	status = "okay";
-};
-
-&modem_mem {
-	reg = <0x0 0x86c00000 0x0 0x1e00000>;
-};
-
-&adsp_fw_mem {
-	reg = <0x0 0x88a00000 0x0 0x1100000>;
-};
-
-&wcnss_fw_mem {
-	reg = <0x0 0x89b00000 0x0 0x700000>;
 };
 
 &gpio_key_suspend {
