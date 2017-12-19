@@ -552,7 +552,8 @@ static uint64_t aggregate_bus_req(struct msm_bus_node_device_type *bus_dev,
 	uint64_t max_ab = 0;
 	uint64_t sum_ab = 0;
 
-	if (!bus_dev || !to_msm_bus_node(bus_dev->node_info->bus_device)) {
+	if (!bus_dev || !bus_dev->node_info->bus_device ||
+			!to_msm_bus_node(bus_dev->node_info->bus_device)) {
 		MSM_BUS_ERR("Bus node pointer is Invalid");
 		goto exit_agg_bus_req;
 	}
@@ -1016,7 +1017,7 @@ static uint32_t register_client_adhoc(struct msm_bus_scale_pdata *pdata)
 		src = pdata->usecase->vectors[i].src;
 		dest = pdata->usecase->vectors[i].dst;
 
-		if ((src < 0) || (dest < 0)) {
+		if ((src < 0) || (dest < 0) || (src == dest)) {
 			MSM_BUS_ERR("%s:Invalid src/dst.src %d dest %d",
 				__func__, src, dest);
 			goto exit_invalid_data;
