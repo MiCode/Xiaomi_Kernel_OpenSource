@@ -514,7 +514,7 @@ enum slim_clk_state {
  * @devs: List of devices on this controller
  * @wq: Workqueue per controller used to notify devices when they report present
  * @txnt: Table of transactions having transaction ID
- * @last_tid: size of the table txnt (can't grow beyond 256 since TID is 8-bits)
+ * @last_tid: size of the table txnt (can't grow beyond 256)
  * @ports: Ports associated with this controller
  * @nports: Number of ports supported by the controller
  * @chans: Channels associated with this controller
@@ -576,7 +576,7 @@ struct slim_controller {
 	struct list_head	devs;
 	struct workqueue_struct *wq;
 	struct slim_msg_txn	*txnt[SLIM_MAX_TXNS];
-	u8			last_tid;
+	unsigned int		last_tid;
 	spinlock_t		txn_lock;
 	struct slim_port	*ports;
 	int			nports;
