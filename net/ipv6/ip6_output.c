@@ -1177,11 +1177,11 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
 			if (WARN_ON(np->cork.opt))
 				return -EINVAL;
 
-			np->cork.opt = kzalloc(opt->tot_len, sk->sk_allocation);
+			np->cork.opt = kzalloc(sizeof(*opt), sk->sk_allocation);
 			if (unlikely(np->cork.opt == NULL))
 				return -ENOBUFS;
 
-			np->cork.opt->tot_len = opt->tot_len;
+			np->cork.opt->tot_len = sizeof(*opt);
 			np->cork.opt->opt_flen = opt->opt_flen;
 			np->cork.opt->opt_nflen = opt->opt_nflen;
 

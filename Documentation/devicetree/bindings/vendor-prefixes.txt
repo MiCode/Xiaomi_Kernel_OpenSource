@@ -92,6 +92,7 @@ karo	Ka-Ro electronics GmbH
 keymile	Keymile GmbH
 lacie	LaCie
 lantiq	Lantiq Semiconductor
+lego	LEGO Systems A/S
 lenovo	Lenovo Group Ltd.
 invn	InvenSense Inc.
 isl	Intersil
