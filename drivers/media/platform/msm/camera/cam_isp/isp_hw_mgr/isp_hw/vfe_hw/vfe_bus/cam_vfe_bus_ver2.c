@@ -60,7 +60,7 @@ static const char drv_name[] = "vfe_bus";
 static uint32_t bus_error_irq_mask[3] = {
 	0x7800,
 	0x0000,
-	0x00C0,
+	0x0040,
 };
 
 enum cam_vfe_bus_packer_format {
