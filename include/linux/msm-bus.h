@@ -130,8 +130,6 @@ int msm_bus_scale_query_tcs_cmd(struct msm_bus_tcs_usecase *tcs_usecase,
 					uint32_t cl, unsigned int index);
 int msm_bus_scale_query_tcs_cmd_all(struct msm_bus_tcs_handle *tcs_handle,
 					uint32_t cl);
-int msm_bus_noc_throttle_wa(bool enable);
-int msm_bus_noc_priority_wa(bool enable);
 
 /* AXI Port configuration APIs */
 int msm_bus_axi_porthalt(int master_port);
@@ -213,6 +211,12 @@ static inline int msm_bus_scale_query_tcs_cmd_all(struct msm_bus_tcs_handle
 	return 0;
 }
 
+#endif
+
+#if defined(CONFIG_QCOM_BUS_SCALING) && defined(CONFIG_QCOM_BUS_CONFIG_RPMH)
+int msm_bus_noc_throttle_wa(bool enable);
+int msm_bus_noc_priority_wa(bool enable);
+#else
 static inline int msm_bus_noc_throttle_wa(bool enable)
 {
 	return 0;
