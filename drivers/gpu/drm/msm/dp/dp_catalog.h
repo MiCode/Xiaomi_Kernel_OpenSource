@@ -147,8 +147,18 @@ struct dp_catalog_panel {
 
 	struct dp_catalog_hdr_data hdr_data;
 
+	/* TPG */
+	u32 hsync_period;
+	u32 vsync_period;
+	u32 display_v_start;
+	u32 display_v_end;
+	u32 v_sync_width;
+	u32 hsync_ctl;
+	u32 display_hctl;
+
 	int (*timing_cfg)(struct dp_catalog_panel *panel);
 	void (*config_hdr)(struct dp_catalog_panel *panel);
+	void (*tpg_config)(struct dp_catalog_panel *panel, bool enable);
 };
 
 struct dp_catalog {

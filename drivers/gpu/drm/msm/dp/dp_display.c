@@ -277,7 +277,6 @@ static void dp_display_deinitialize_hdcp(struct dp_display_private *dp)
 static int dp_display_initialize_hdcp(struct dp_display_private *dp)
 {
 	struct sde_hdcp_init_data hdcp_init_data;
-	struct resource *res;
 	int rc = 0;
 
 	if (!dp) {
@@ -293,15 +292,6 @@ static int dp_display_initialize_hdcp(struct dp_display_private *dp)
 		goto error;
 	}
 
-	res = platform_get_resource_byname(dp->pdev,
-		IORESOURCE_MEM, "dp_ctrl");
-	if (!res) {
-		pr_err("Error getting dp ctrl resource\n");
-		rc = -EINVAL;
-		goto error;
-	}
-
-	hdcp_init_data.phy_addr      = res->start;
 	hdcp_init_data.client_id     = HDCP_CLIENT_DP;
 	hdcp_init_data.drm_aux       = dp->aux->drm_aux;
 	hdcp_init_data.cb_data       = (void *)dp;
@@ -310,6 +300,10 @@ static int dp_display_initialize_hdcp(struct dp_display_private *dp)
 	hdcp_init_data.sec_access    = true;
 	hdcp_init_data.notify_status = dp_display_notify_hdcp_status_cb;
 	hdcp_init_data.core_io       = &dp->parser->io.ctrl_io;
+	hdcp_init_data.dp_ahb        = &dp->parser->io.dp_ahb;
+	hdcp_init_data.dp_aux        = &dp->parser->io.dp_aux;
+	hdcp_init_data.dp_link       = &dp->parser->io.dp_link;
+	hdcp_init_data.dp_p0         = &dp->parser->io.dp_p0;
 	hdcp_init_data.qfprom_io     = &dp->parser->io.qfprom_io;
 	hdcp_init_data.hdcp_io       = &dp->parser->io.hdcp_io;
 	hdcp_init_data.revision      = &dp->panel->link_info.revision;
@@ -545,7 +539,7 @@ static void dp_display_host_init(struct dp_display_private *dp)
 		flip = true;
 
 	dp->power->init(dp->power, flip);
-	dp->ctrl->init(dp->ctrl, flip);
+	dp->ctrl->init(dp->ctrl, flip, dp->usbpd->multi_func);
 	enable_irq(dp->irq);
 	dp->core_initialized = true;
 }
@@ -677,6 +671,8 @@ static void dp_display_handle_video_request(struct dp_display_private *dp)
 
 static int dp_display_handle_hpd_irq(struct dp_display_private *dp)
 {
+	bool req_handled;
+
 	if (dp->link->sink_request & DS_PORT_STATUS_CHANGED) {
 		dp_display_send_hpd_notification(dp, false);
 
@@ -688,7 +684,18 @@ static int dp_display_handle_hpd_irq(struct dp_display_private *dp)
 		return dp_display_process_hpd_high(dp);
 	}
 
-	dp->ctrl->handle_sink_request(dp->ctrl);
+	mutex_lock(&dp->audio->ops_lock);
+	req_handled = dp->ctrl->handle_sink_request(dp->ctrl);
+	mutex_unlock(&dp->audio->ops_lock);
+
+	/*
+	 * reconfigure audio if test was executed
+	 * which could have changed the controller's state
+	 */
+	if (req_handled && dp->audio_supported) {
+		dp->audio->off(dp->audio);
+		dp->audio->on(dp->audio);
+	}
 
 	dp_display_handle_video_request(dp);
 
@@ -947,6 +954,10 @@ static int dp_display_enable(struct dp_display *dp_display)
 	}
 
 	rc = dp->ctrl->on(dp->ctrl);
+
+	if (dp->debug->tpg_state)
+		dp->panel->tpg_config(dp->panel, true);
+
 	if (!rc)
 		dp->power_on = true;
 end:

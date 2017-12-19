@@ -33,6 +33,8 @@
 
 #define DSI_PHY_DEFAULT_LABEL "MDSS PHY CTRL"
 
+#define BITS_PER_BYTE	8
+
 struct dsi_phy_list_item {
 	struct msm_dsi_phy *phy;
 	struct list_head list;
@@ -290,6 +292,14 @@ static int dsi_phy_settings_init(struct platform_device *pdev,
 
 	/* Actual timing values are dependent on panel */
 	timing->count_per_lane = phy->ver_info->timing_cfg_count;
+
+	phy->allow_phy_power_off = of_property_read_bool(pdev->dev.of_node,
+			"qcom,panel-allow-phy-poweroff");
+
+	of_property_read_u32(pdev->dev.of_node,
+			"qcom,dsi-phy-regulator-min-datarate-bps",
+			&phy->regulator_min_datarate_bps);
+
 	return 0;
 err:
 	lane->count_per_lane = 0;
@@ -641,7 +651,8 @@ int dsi_phy_set_power_state(struct msm_dsi_phy *dsi_phy, bool enable)
 			goto error;
 		}
 
-		if (dsi_phy->dsi_phy_state == DSI_PHY_ENGINE_OFF) {
+		if (dsi_phy->dsi_phy_state == DSI_PHY_ENGINE_OFF &&
+				dsi_phy->regulator_required) {
 			rc = dsi_pwr_enable_regulator(
 				&dsi_phy->pwr_info.phy_pwr, true);
 			if (rc) {
@@ -652,7 +663,8 @@ int dsi_phy_set_power_state(struct msm_dsi_phy *dsi_phy, bool enable)
 			}
 		}
 	} else {
-		if (dsi_phy->dsi_phy_state == DSI_PHY_ENGINE_OFF) {
+		if (dsi_phy->dsi_phy_state == DSI_PHY_ENGINE_OFF &&
+				dsi_phy->regulator_required) {
 			rc = dsi_pwr_enable_regulator(
 				&dsi_phy->pwr_info.phy_pwr, false);
 			if (rc) {
@@ -896,6 +908,8 @@ int dsi_phy_idle_ctrl(struct msm_dsi_phy *phy, bool enable)
 		return -EINVAL;
 	}
 
+	pr_debug("[%s] enable=%d\n", phy->name, enable);
+
 	mutex_lock(&phy->phy_lock);
 	if (enable) {
 		if (phy->hw.ops.phy_idle_on)
@@ -904,11 +918,48 @@ int dsi_phy_idle_ctrl(struct msm_dsi_phy *phy, bool enable)
 		if (phy->hw.ops.regulator_enable)
 			phy->hw.ops.regulator_enable(&phy->hw,
 				&phy->cfg.regulators);
+
+		if (phy->hw.ops.enable)
+			phy->hw.ops.enable(&phy->hw, &phy->cfg);
+
+		phy->dsi_phy_state = DSI_PHY_ENGINE_ON;
 	} else {
+		phy->dsi_phy_state = DSI_PHY_ENGINE_OFF;
+
+		if (phy->hw.ops.disable)
+			phy->hw.ops.disable(&phy->hw, &phy->cfg);
+
 		if (phy->hw.ops.phy_idle_off)
 			phy->hw.ops.phy_idle_off(&phy->hw);
 	}
 	mutex_unlock(&phy->phy_lock);
+
+	return 0;
+}
+
+/**
+ * dsi_phy_set_clk_freq() - set DSI PHY clock frequency setting
+ * @phy:          DSI PHY handle
+ * @clk_freq:     link clock frequency
+ *
+ * Return: error code.
+ */
+int dsi_phy_set_clk_freq(struct msm_dsi_phy *phy,
+		struct link_clk_freq *clk_freq)
+{
+	if (!phy || !clk_freq) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	phy->regulator_required = clk_freq->byte_clk_rate >
+		(phy->regulator_min_datarate_bps / BITS_PER_BYTE);
+
+	pr_debug("[%s] lane_datarate=%u min_datarate=%u required=%d\n",
+			phy->name,
+			clk_freq->byte_clk_rate * BITS_PER_BYTE,
+			phy->regulator_min_datarate_bps,
+			phy->regulator_required);
 
 	return 0;
 }
