@@ -84,6 +84,7 @@ struct cam_ctx_request {
  * @config_dev:            Function pointer for config device
  * @start_dev:             Function pointer for start device
  * @stop_dev:              Function pointer for stop device
+ * @flush_dev:             Function pointer for flush device
  *
  */
 struct cam_ctx_ioctl_ops {
@@ -97,6 +98,8 @@ struct cam_ctx_ioctl_ops {
 			struct cam_start_stop_dev_cmd *cmd);
 	int (*stop_dev)(struct cam_context *ctx,
 			struct cam_start_stop_dev_cmd *cmd);
+	int (*flush_dev)(struct cam_context *ctx,
+			struct cam_flush_dev_cmd *cmd);
 };
 
 /**
@@ -304,6 +307,18 @@ int cam_context_handle_release_dev(struct cam_context *ctx,
  */
 int cam_context_handle_config_dev(struct cam_context *ctx,
 		struct cam_config_dev_cmd *cmd);
+
+/**
+ * cam_context_handle_flush_dev()
+ *
+ * @brief:        Handle flush device command
+ *
+ * @ctx:          Object pointer for cam_context
+ * @cmd:          Flush device command payload
+ *
+ */
+int cam_context_handle_flush_dev(struct cam_context *ctx,
+		struct cam_flush_dev_cmd *cmd);
 
 /**
  * cam_context_handle_start_dev()

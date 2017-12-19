@@ -91,6 +91,17 @@ static int __cam_lrme_ctx_config_dev_in_activated(struct cam_context *ctx,
 	return rc;
 }
 
+static int __cam_lrme_ctx_flush_dev_in_activated(struct cam_context *ctx,
+	struct cam_flush_dev_cmd *cmd)
+{
+	int rc;
+
+	rc = cam_context_flush_dev_to_hw(ctx, cmd);
+	if (rc)
+		CAM_ERR(CAM_LRME, "Failed to flush device");
+
+	return rc;
+}
 static int __cam_lrme_ctx_stop_dev_in_activated(struct cam_context *ctx,
 	struct cam_start_stop_dev_cmd *cmd)
 {
@@ -187,6 +198,7 @@ static struct cam_ctx_ops
 			.config_dev = __cam_lrme_ctx_config_dev_in_activated,
 			.release_dev = __cam_lrme_ctx_release_dev_in_activated,
 			.stop_dev = __cam_lrme_ctx_stop_dev_in_activated,
+			.flush_dev = __cam_lrme_ctx_flush_dev_in_activated,
 		},
 		.crm_ops = {},
 		.irq_ops = __cam_lrme_ctx_handle_irq_in_activated,

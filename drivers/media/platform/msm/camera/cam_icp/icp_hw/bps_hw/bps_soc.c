@@ -72,11 +72,13 @@ int cam_bps_enable_soc_resources(struct cam_hw_soc_info *soc_info)
 	return rc;
 }
 
-int cam_bps_disable_soc_resources(struct cam_hw_soc_info *soc_info)
+int cam_bps_disable_soc_resources(struct cam_hw_soc_info *soc_info,
+	bool disable_clk)
 {
 	int rc = 0;
 
-	rc = cam_soc_util_disable_platform_resource(soc_info, true, false);
+	rc = cam_soc_util_disable_platform_resource(soc_info, disable_clk,
+		false);
 	if (rc)
 		CAM_ERR(CAM_ICP, "disable platform failed");
 
@@ -141,4 +143,16 @@ int cam_bps_update_clk_rate(struct cam_hw_soc_info *soc_info,
 
 	return cam_soc_util_set_clk_rate(soc_info->clk[soc_info->src_clk_idx],
 		soc_info->clk_name[soc_info->src_clk_idx], clk_rate);
+}
+
+int cam_bps_toggle_clk(struct cam_hw_soc_info *soc_info, bool clk_enable)
+{
+	int rc = 0;
+
+	if (clk_enable)
+		rc = cam_soc_util_clk_enable_default(soc_info, CAM_SVS_VOTE);
+	else
+		cam_soc_util_clk_disable_default(soc_info);
+
+	return rc;
 }
