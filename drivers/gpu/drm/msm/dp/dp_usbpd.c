@@ -352,11 +352,15 @@ static void dp_usbpd_response_cb(struct usbpd_svid_handler *hdlr, u8 cmd,
 		pd->vdo = *vdos;
 		dp_usbpd_get_status(pd);
 
+		if (!pd->dp_usbpd.alt_mode_cfg_done) {
+			if (pd->dp_usbpd.port & BIT(1))
+				dp_usbpd_send_event(pd, DP_USBPD_EVT_CONFIGURE);
+			break;
+		}
+
 		if (pd->dp_cb && pd->dp_cb->attention)
 			pd->dp_cb->attention(pd->dev);
 
-		if (!pd->dp_usbpd.alt_mode_cfg_done)
-			dp_usbpd_send_event(pd, DP_USBPD_EVT_CONFIGURE);
 		break;
 	case DP_USBPD_VDM_STATUS:
 		pd->vdo = *vdos;
