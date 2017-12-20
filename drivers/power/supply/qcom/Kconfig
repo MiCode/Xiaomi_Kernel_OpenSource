@@ -91,4 +91,15 @@ config QPNP_QNOVO
 	  module. It also allows userspace code to read diagnostics of voltage
 	  and current measured during certain phases of the pulses.
 
+config QPNP_TYPEC
+	tristate "QPNP Type-C driver"
+	depends on MFD_SPMI_PMIC
+	help
+	  Say Y here to enable QPNP Type-C driver.
+	  The QPNP Type-C module supports the USB type-C protocol. It supports
+	  type-C cable detection and other type-C parameters such as
+	  current-capability and CC-orientation. The module does not support
+	  USB power-delivery. The driver adds support to report these type-C
+	  parameters via the power-supply framework.
+
 endmenu
