@@ -35,6 +35,7 @@
 /* Q6 Register Offsets */
 #define QDSP6SS_RST_EVB			0x010
 #define QDSP6SS_DBG_CFG			0x018
+#define QDSP6SS_NMI_CFG			0x40
 
 /* AXI Halting Registers */
 #define MSS_Q6_HALT_BASE		0x180
@@ -366,10 +367,10 @@ int pil_mss_shutdown(struct pil_desc *pil)
 									ret);
 	}
 
-	pil_mss_assert_resets(drv);
+	pil_mss_restart_reg(drv, true);
 	/* Wait 6 32kHz sleep cycles for reset */
 	udelay(200);
-	ret = pil_mss_deassert_resets(drv);
+	ret =  pil_mss_restart_reg(drv, false);
 
 	if (drv->is_booted) {
 		pil_mss_disable_clks(drv);
@@ -779,6 +780,60 @@ err_invalid_fw:
 	if (fw)
 		release_firmware(fw);
 	drv->mba_dp_virt = NULL;
+	return ret;
+}
+
+int pil_mss_debug_reset(struct pil_desc *pil)
+{
+	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
+	int ret;
+
+	if (!pil->minidump)
+		return 0;
+	/*
+	 * Bring subsystem out of reset and enable required
+	 * regulators and clocks.
+	 */
+	ret = pil_mss_enable_clks(drv);
+	if (ret)
+		return ret;
+
+	if (pil->minidump) {
+		writel_relaxed(0x1, drv->reg_base + QDSP6SS_NMI_CFG);
+		/* Let write complete before proceeding */
+		mb();
+		udelay(2);
+	}
+	/* Assert reset to subsystem */
+	pil_mss_restart_reg(drv, true);
+	/* Wait 6 32kHz sleep cycles for reset */
+	udelay(200);
+	ret =  pil_mss_restart_reg(drv, false);
+	if (ret)
+		goto err_restart;
+	/* Let write complete before proceeding */
+	mb();
+	udelay(200);
+	ret = pil_q6v5_reset(pil);
+	/*
+	 * Need to Wait for timeout for debug reset sequence to
+	 * complete before returning
+	 */
+	pr_debug("Minidump: waiting encryption to complete\n");
+	msleep(30000);
+	if (pil->minidump) {
+		writel_relaxed(0x2, drv->reg_base + QDSP6SS_NMI_CFG);
+		/* Let write complete before proceeding */
+		mb();
+		udelay(200);
+	}
+	if (ret)
+		goto err_restart;
+	return 0;
+err_restart:
+	pil_mss_disable_clks(drv);
+	if (drv->ahb_clk_vote)
+		clk_disable_unprepare(drv->ahb_clk);
 	return ret;
 }
 

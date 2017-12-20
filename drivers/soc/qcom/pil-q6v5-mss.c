@@ -163,6 +163,10 @@ static int modem_ramdump(int enable, const struct subsys_desc *subsys)
 	if (ret)
 		return ret;
 
+	ret = pil_mss_debug_reset(&drv->q6->desc);
+	if (ret)
+		return ret;
+
 	ret = pil_mss_reset_load_mba(&drv->q6->desc);
 	if (ret)
 		return ret;
