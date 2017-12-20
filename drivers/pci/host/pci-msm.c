@@ -50,8 +50,7 @@
 #include <linux/ipc_logging.h>
 #include <linux/msm_pcie.h>
 
-#define PCIE_VENDOR_ID_RCP		0x17cb
-#define PCIE_DEVICE_ID_RCP		0x0106
+#define PCIE_VENDOR_ID_QCOM		0x17cb
 
 #define PCIE20_L1SUB_CONTROL1		0x1E4
 #define PCIE20_PARF_DBI_BASE_ADDR       0x350
@@ -6273,10 +6272,10 @@ static void msm_pcie_fixup_early(struct pci_dev *dev)
 	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev->bus);
 
 	PCIE_DBG(pcie_dev, "hdr_type %d\n", dev->hdr_type);
-	if (dev->hdr_type == 1)
+	if (pci_is_root_bus(dev->bus))
 		dev->class = (dev->class & 0xff) | (PCI_CLASS_BRIDGE_PCI << 8);
 }
-DECLARE_PCI_FIXUP_EARLY(PCIE_VENDOR_ID_RCP, PCIE_DEVICE_ID_RCP,
+DECLARE_PCI_FIXUP_EARLY(PCIE_VENDOR_ID_QCOM, PCI_ANY_ID,
 			msm_pcie_fixup_early);
 
 /* Suspend the PCIe link */
@@ -6359,7 +6358,8 @@ static void msm_pcie_fixup_suspend(struct pci_dev *dev)
 
 	PCIE_DBG(pcie_dev, "RC%d\n", pcie_dev->rc_idx);
 
-	if (pcie_dev->link_status != MSM_PCIE_LINK_ENABLED)
+	if (pcie_dev->link_status != MSM_PCIE_LINK_ENABLED ||
+		!pci_is_root_bus(dev->bus))
 		return;
 
 	spin_lock_irqsave(&pcie_dev->cfg_lock,
@@ -6384,7 +6384,7 @@ static void msm_pcie_fixup_suspend(struct pci_dev *dev)
 
 	mutex_unlock(&pcie_dev->recovery_lock);
 }
-DECLARE_PCI_FIXUP_SUSPEND(PCIE_VENDOR_ID_RCP, PCIE_DEVICE_ID_RCP,
+DECLARE_PCI_FIXUP_SUSPEND(PCIE_VENDOR_ID_QCOM, PCI_ANY_ID,
 			  msm_pcie_fixup_suspend);
 
 /* Resume the PCIe link */
@@ -6458,7 +6458,7 @@ static void msm_pcie_fixup_resume(struct pci_dev *dev)
 	PCIE_DBG(pcie_dev, "RC%d\n", pcie_dev->rc_idx);
 
 	if ((pcie_dev->link_status != MSM_PCIE_LINK_DISABLED) ||
-		pcie_dev->user_suspend)
+		pcie_dev->user_suspend || !pci_is_root_bus(dev->bus))
 		return;
 
 	mutex_lock(&pcie_dev->recovery_lock);
@@ -6470,7 +6470,7 @@ static void msm_pcie_fixup_resume(struct pci_dev *dev)
 
 	mutex_unlock(&pcie_dev->recovery_lock);
 }
-DECLARE_PCI_FIXUP_RESUME(PCIE_VENDOR_ID_RCP, PCIE_DEVICE_ID_RCP,
+DECLARE_PCI_FIXUP_RESUME(PCIE_VENDOR_ID_QCOM, PCI_ANY_ID,
 				 msm_pcie_fixup_resume);
 
 static void msm_pcie_fixup_resume_early(struct pci_dev *dev)
@@ -6481,7 +6481,7 @@ static void msm_pcie_fixup_resume_early(struct pci_dev *dev)
 	PCIE_DBG(pcie_dev, "RC%d\n", pcie_dev->rc_idx);
 
 	if ((pcie_dev->link_status != MSM_PCIE_LINK_DISABLED) ||
-		pcie_dev->user_suspend)
+		pcie_dev->user_suspend || !pci_is_root_bus(dev->bus))
 		return;
 
 	mutex_lock(&pcie_dev->recovery_lock);
@@ -6492,7 +6492,7 @@ static void msm_pcie_fixup_resume_early(struct pci_dev *dev)
 
 	mutex_unlock(&pcie_dev->recovery_lock);
 }
-DECLARE_PCI_FIXUP_RESUME_EARLY(PCIE_VENDOR_ID_RCP, PCIE_DEVICE_ID_RCP,
+DECLARE_PCI_FIXUP_RESUME_EARLY(PCIE_VENDOR_ID_QCOM, PCI_ANY_ID,
 				 msm_pcie_fixup_resume_early);
 
 int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
