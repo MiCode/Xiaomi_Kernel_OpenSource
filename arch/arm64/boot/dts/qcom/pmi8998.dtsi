@@ -103,6 +103,7 @@
 			qcom,thermal-mitigation
 					= <3000000 1500000 1000000 500000>;
 			qcom,auto-recharge-soc;
+			qcom,suspend-input-on-debug-batt;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;

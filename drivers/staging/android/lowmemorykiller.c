@@ -221,6 +221,22 @@ static int test_task_flag(struct task_struct *p, int flag)
 	return 0;
 }
 
+static int test_task_state(struct task_struct *p, int state)
+{
+	struct task_struct *t;
+
+	for_each_thread(p, t) {
+		task_lock(t);
+		if (t->state & state) {
+			task_unlock(t);
+			return 1;
+		}
+		task_unlock(t);
+	}
+
+	return 0;
+}
+
 static int test_task_lmk_waiting(struct task_struct *p)
 {
 	struct task_struct *t;
@@ -435,7 +451,7 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 	int other_free;
 	int other_file;
 
-	if (mutex_lock_interruptible(&scan_mutex) < 0)
+	if (!mutex_trylock(&scan_mutex))
 		return 0;
 
 	other_free = global_page_state(NR_FREE_PAGES) - totalreserve_pages;
@@ -495,8 +511,6 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		if (time_before_eq(jiffies, lowmem_deathpending_timeout)) {
 			if (test_task_lmk_waiting(tsk)) {
 				rcu_read_unlock();
-				/* give the system time to free up the memory */
-				msleep_interruptible(20);
 				mutex_unlock(&scan_mutex);
 				return 0;
 			}
@@ -532,6 +546,16 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		long cache_size = other_file * (long)(PAGE_SIZE / 1024);
 		long cache_limit = minfree * (long)(PAGE_SIZE / 1024);
 		long free = other_free * (long)(PAGE_SIZE / 1024);
+
+		if (test_task_lmk_waiting(selected) &&
+		    (test_task_state(selected, TASK_UNINTERRUPTIBLE))) {
+			lowmem_print(2, "'%s' (%d) is already killed\n",
+				     selected->comm,
+				     selected->pid);
+			rcu_read_unlock();
+			mutex_unlock(&scan_mutex);
+			return 0;
+		}
 
 		task_lock(selected);
 		send_sig(SIGKILL, selected, 0);

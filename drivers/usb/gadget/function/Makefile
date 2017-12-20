@@ -64,3 +64,5 @@ usb_f_gsi-y			:= f_gsi.o rndis.o
 obj-$(CONFIG_USB_F_GSI)         += usb_f_gsi.o
 usb_f_qdss-y			:= f_qdss.o u_qdss.o
 obj-$(CONFIG_USB_F_QDSS)        += usb_f_qdss.o
+usb_f_qcrndis-y			:= f_qc_rndis.o rndis.o u_data_ipa.o
+obj-$(CONFIG_USB_F_QCRNDIS)	+= usb_f_qcrndis.o

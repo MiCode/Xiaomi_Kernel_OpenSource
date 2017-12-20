@@ -226,6 +226,10 @@ enum adreno_gpurev {
 #define ADRENO_HWCG_CTRL    3
 #define ADRENO_THROTTLING_CTRL 4
 
+/* VBIF,  GBIF halt request and ack mask */
+#define GBIF_HALT_REQUEST       0x1E0
+#define VBIF_RESET_ACK_MASK     0x00f0
+#define VBIF_RESET_ACK_TIMEOUT  100
 
 /* number of throttle counters for DCVS adjustment */
 #define ADRENO_GPMU_THROTTLE_COUNTERS 4
@@ -683,6 +687,8 @@ enum adreno_regs {
 	ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE,
 	ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE_HI,
 	ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_SIZE,
+	ADRENO_REG_RBBM_GPR0_CNTL,
+	ADRENO_REG_RBBM_VBIF_GX_RESET_STATUS,
 	ADRENO_REG_VBIF_XIN_HALT_CTRL0,
 	ADRENO_REG_VBIF_XIN_HALT_CTRL1,
 	ADRENO_REG_VBIF_VERSION,
@@ -1889,17 +1895,15 @@ static inline bool adreno_has_gbif(struct adreno_device *adreno_dev)
  * @ack_reg: register offset to wait for acknowledge
  */
 static inline int adreno_wait_for_vbif_halt_ack(struct kgsl_device *device,
-	int ack_reg)
+	int ack_reg, unsigned int mask)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned long wait_for_vbif;
-	unsigned int mask = gpudev->vbif_xin_halt_ctrl0_mask;
 	unsigned int val;
 	int ret = 0;
 
 	/* wait for the transactions to clear */
-	wait_for_vbif = jiffies + msecs_to_jiffies(100);
+	wait_for_vbif = jiffies + msecs_to_jiffies(VBIF_RESET_ACK_TIMEOUT);
 	while (1) {
 		adreno_readreg(adreno_dev, ack_reg,
 			&val);
@@ -1929,15 +1933,27 @@ static inline int adreno_vbif_clear_pending_transactions(
 	int ret = 0;
 
 	if (adreno_has_gbif(adreno_dev)) {
+		/*
+		 * Halt GBIF GX first and then CX part.
+		 * Need to release CX Halt explicitly in case of SW_RESET.
+		 * GX Halt release will be taken care by SW_RESET internally.
+		 */
+		adreno_writereg(adreno_dev, ADRENO_REG_RBBM_GPR0_CNTL,
+				GBIF_HALT_REQUEST);
+		ret = adreno_wait_for_vbif_halt_ack(device,
+				ADRENO_REG_RBBM_VBIF_GX_RESET_STATUS,
+				VBIF_RESET_ACK_MASK);
+		if (ret)
+			return ret;
+
 		adreno_writereg(adreno_dev, ADRENO_REG_GBIF_HALT, mask);
 		ret = adreno_wait_for_vbif_halt_ack(device,
-				ADRENO_REG_GBIF_HALT_ACK);
-		adreno_writereg(adreno_dev, ADRENO_REG_GBIF_HALT, 0);
+				ADRENO_REG_GBIF_HALT_ACK, mask);
 	} else {
 		adreno_writereg(adreno_dev, ADRENO_REG_VBIF_XIN_HALT_CTRL0,
 			mask);
 		ret = adreno_wait_for_vbif_halt_ack(device,
-				ADRENO_REG_VBIF_XIN_HALT_CTRL1);
+				ADRENO_REG_VBIF_XIN_HALT_CTRL1, mask);
 		adreno_writereg(adreno_dev, ADRENO_REG_VBIF_XIN_HALT_CTRL0, 0);
 	}
 	return ret;

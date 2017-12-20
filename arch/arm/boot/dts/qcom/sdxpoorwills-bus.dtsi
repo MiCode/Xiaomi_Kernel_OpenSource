@@ -23,6 +23,9 @@
 		reg-names = "mc_virt-base", "mem_noc-base",
 			"system_noc-base", "ipa_virt-base";
 
+		mbox-names = "apps_rsc";
+		mboxes = <&apps_rsc 0>;
+
 		/*RSCs*/
 		rsc_apps: rsc-apps {
 			cell-id = <MSM_BUS_RSC_APPS>;
@@ -360,7 +363,7 @@
 			label = "mas-qhm-qpic";
 			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
-			qcom,connections = <&slv_qhs_aoss &slv_qns_aggre_noc>;
+			qcom,connections = <&slv_qns_aggre_noc>;
 			qcom,bus-dev = <&fab_system_noc>;
 			qcom,bcms = <&bcm_pn3>;
 		};
@@ -451,7 +454,7 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,qport = <1>;
-			qcom,connections = <&slv_qhs_aoss &slv_qns_aggre_noc>;
+			qcom,connections = <&slv_qns_aggre_noc>;
 			qcom,bus-dev = <&fab_system_noc>;
 			qcom,bcms = <&bcm_ce>, <&bcm_pn5>;
 			qcom,ap-owned;
@@ -538,7 +541,7 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,qport = <8>;
-			qcom,connections = <&slv_qhs_aoss &slv_qns_aggre_noc>;
+			qcom,connections = <&slv_qns_aggre_noc>;
 			qcom,bus-dev = <&fab_system_noc>;
 			qcom,bcms = <&bcm_pn1>;
 			qcom,ap-owned;
