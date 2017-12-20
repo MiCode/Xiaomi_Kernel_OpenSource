@@ -188,7 +188,7 @@ int detect_share_cap_flag(void)
 	return 0;
 }
 #else
-int detect_share_cap_flags(void) { return 0; }
+int detect_share_cap_flag(void) { return 0; }
 #endif
 
 /*
