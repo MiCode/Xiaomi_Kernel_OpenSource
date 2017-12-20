@@ -162,7 +162,7 @@ static void bgrsb_glink_notify_state(void *handle, const void *priv,
 	}
 }
 
-static int bgrsb_configr_rsb(struct bgrsb_priv *dev)
+static int bgrsb_configr_rsb(struct bgrsb_priv *dev, bool enable)
 {
 	int rc = 0;
 	struct bgrsb_msg req = {0};
@@ -181,7 +181,8 @@ static int bgrsb_configr_rsb(struct bgrsb_priv *dev)
 	}
 
 	req.cmd_id = 0x01;
-	req.data = 0x01;
+	req.data = enable ? 0x01 : 0x00;
+
 
 	rc = glink_tx(dev->handle, (void *)dev, &req,
 					BGRSB_MSG_SIZE, GLINK_TX_REQ_INTENT);
@@ -191,7 +192,7 @@ static int bgrsb_configr_rsb(struct bgrsb_priv *dev)
 	}
 
 	rc = wait_for_completion_timeout(&dev->tx_done,
-						msecs_to_jiffies(TIMEOUT_MS));
+						msecs_to_jiffies(TIMEOUT_MS*2));
 	if (!rc) {
 		pr_err("Timed out waiting sending command\n");
 		rc = -ETIMEDOUT;
@@ -419,7 +420,7 @@ static void bgrsb_bgup_work(struct work_struct *work)
 			pr_err("Glink channel connection time out\n");
 			return;
 		}
-		rc = bgrsb_configr_rsb(dev);
+		rc = bgrsb_configr_rsb(dev, true);
 		if (rc != 0) {
 			pr_err("BG failed to configure RSB %d\n", rc);
 			if (bgrsb_ldo_work(dev, BGRSB_DISABLE_LDO11) == 0)
@@ -720,6 +721,45 @@ static int bg_rsb_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int bg_rsb_resume(struct platform_device *pdev)
+{
+	struct bgrsb_priv *dev = platform_get_drvdata(pdev);
+
+	if (dev->bgrsb_current_state == BGRSB_STATE_RSB_CONFIGURED)
+		return 0;
+
+	if (dev->bgrsb_current_state == BGRSB_STATE_INIT) {
+		if (bgrsb_ldo_work(dev, BGRSB_ENABLE_LDO11) == 0) {
+			dev->bgrsb_current_state = BGRSB_STATE_RSB_CONFIGURED;
+			pr_debug("RSB Cofigured\n");
+			return 0;
+		}
+		pr_err("RSB failed to resume\n");
+	}
+	return -EINVAL;
+}
+
+static int bg_rsb_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	struct bgrsb_priv *dev = platform_get_drvdata(pdev);
+
+	if (dev->bgrsb_current_state == BGRSB_STATE_INIT)
+		return 0;
+
+	if (dev->bgrsb_current_state == BGRSB_STATE_RSB_ENABLED) {
+		if (bgrsb_ldo_work(dev, BGRSB_DISABLE_LDO15) != 0)
+			return -EINVAL;
+	}
+
+	if (bgrsb_ldo_work(dev, BGRSB_DISABLE_LDO11) == 0) {
+		dev->bgrsb_current_state = BGRSB_STATE_INIT;
+		pr_debug("RSB Init\n");
+		return 0;
+	}
+	pr_err("RSB failed to suspend\n");
+	return -EINVAL;
+}
+
 static const struct of_device_id bg_rsb_of_match[] = {
 	{ .compatible = "qcom,bg-rsb", },
 	{ }
@@ -732,7 +772,8 @@ static struct platform_driver bg_rsb_driver = {
 	},
 	.probe          = bg_rsb_probe,
 	.remove         = bg_rsb_remove,
-
+	.resume		= bg_rsb_resume,
+	.suspend	= bg_rsb_suspend,
 };
 
 module_platform_driver(bg_rsb_driver);
