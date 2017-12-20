@@ -2113,6 +2113,7 @@ static int rndis_ipa_ep_registers_cfg(
 {
 	int result;
 	struct ipa_ep_cfg *usb_to_ipa_ep_cfg;
+	int add = 0;
 
 	if (deaggr_enable) {
 		usb_to_ipa_ep_cfg = &usb_to_ipa_ep_cfg_deaggr_en;
@@ -2120,17 +2121,18 @@ static int rndis_ipa_ep_registers_cfg(
 	} else {
 		usb_to_ipa_ep_cfg = &usb_to_ipa_ep_cfg_deaggr_dis;
 		RNDIS_IPA_DEBUG("deaggregation disabled\n");
+		add = sizeof(struct rndis_pkt_hdr);
 	}
 
 	if (is_vlan_mode) {
 		usb_to_ipa_ep_cfg->hdr.hdr_len =
-			VLAN_ETH_HLEN + sizeof(struct rndis_pkt_hdr);
+			VLAN_ETH_HLEN + add;
 		ipa_to_usb_ep_cfg.hdr.hdr_len =
 			VLAN_ETH_HLEN + sizeof(struct rndis_pkt_hdr);
 		ipa_to_usb_ep_cfg.hdr.hdr_additional_const_len = VLAN_ETH_HLEN;
 	} else {
 		usb_to_ipa_ep_cfg->hdr.hdr_len =
-			ETH_HLEN + sizeof(struct rndis_pkt_hdr);
+			ETH_HLEN + add;
 		ipa_to_usb_ep_cfg.hdr.hdr_len =
 			ETH_HLEN + sizeof(struct rndis_pkt_hdr);
 		ipa_to_usb_ep_cfg.hdr.hdr_additional_const_len = ETH_HLEN;
