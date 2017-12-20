@@ -2950,7 +2950,7 @@ static int sde_hw_rotator_abort_kickoff(struct sde_rot_hw_resource *hw,
 	}
 
 	spin_lock_irqsave(&rot->rotisr_lock, flags);
-	sde_hw_rotator_update_swts(rot, ctx, ctx->timestamp);
+	rot->ops.update_ts(rot, ctx->q_id, ctx->timestamp);
 	ctx->abort = true;
 	wake_up_all(&ctx->regdma_waitq);
 	spin_unlock_irqrestore(&rot->rotisr_lock, flags);
