@@ -733,18 +733,13 @@ static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
 	capture_port_mbs = NUM_MBS_PER_FRAME(inst->prop.width[CAPTURE_PORT],
 		inst->prop.height[CAPTURE_PORT]);
 
-	if (inst->clk_data.operating_rate) {
+	if ((inst->clk_data.operating_rate >> 16) > inst->prop.fps)
 		fps = (inst->clk_data.operating_rate >> 16) ?
 			inst->clk_data.operating_rate >> 16 : 1;
-		/*
-		 * Check if operating rate is less than fps.
-		 * If Yes, then use fps to scale clocks
-		 */
-		fps = fps > inst->prop.fps ? fps : inst->prop.fps;
-		return max(output_port_mbs, capture_port_mbs) * fps;
-	} else {
-		return max(output_port_mbs, capture_port_mbs) * inst->prop.fps;
-	}
+	else
+		fps = inst->prop.fps;
+
+	return max(output_port_mbs, capture_port_mbs) * fps;
 }
 
 int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
