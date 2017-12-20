@@ -26,3 +26,7 @@
 	status = "ok";
 	qpnp,qpnp-labibb-mode = "lcd";
 };
+
+&usb3 {
+	vbus_dwc3-supply = <&smbcharger_charger_otg>;
+};
