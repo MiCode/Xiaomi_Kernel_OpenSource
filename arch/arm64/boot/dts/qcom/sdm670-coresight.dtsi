@@ -478,15 +478,6 @@
 						<&audio_etm0_out_funnel_in1>;
 				};
 			};
-
-			port@2 {
-				reg = <3>;
-				funnel_in1_in_funnel_modem: endpoint {
-					slave-mode;
-					remote-endpoint =
-					  <&funnel_modem_out_funnel_in1>;
-				};
-			};
 		};
 	};
 
@@ -533,6 +524,14 @@
 				};
 			};
 			port@3 {
+				reg = <2>;
+				funnel_in2_in_funnel_modem: endpoint {
+					slave-mode;
+					remote-endpoint =
+					  <&funnel_modem_out_funnel_in2>;
+				};
+			};
+			port@4 {
 				reg = <5>;
 				funnel_in2_in_funnel_apss_merg: endpoint {
 					slave-mode;
@@ -540,7 +539,7 @@
 					  <&funnel_apss_merg_out_funnel_in2>;
 				};
 			};
-			port@4 {
+			port@5 {
 				reg = <6>;
 				funnel_in2_in_funnel_gfx: endpoint {
 					slave-mode;
@@ -736,9 +735,9 @@
 
 			port@0 {
 				reg = <0>;
-				funnel_modem_out_funnel_in1: endpoint {
+				funnel_modem_out_funnel_in2: endpoint {
 					remote-endpoint =
-					    <&funnel_in1_in_funnel_modem>;
+					    <&funnel_in2_in_funnel_modem>;
 				};
 			};
 
