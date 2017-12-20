@@ -742,6 +742,7 @@ int snd_pcm_new_stream(struct snd_pcm *pcm, int stream, int substream_count)
 		}
 		substream->group = &substream->self_group;
 		spin_lock_init(&substream->self_group.lock);
+		spin_lock_init(&substream->runtime_lock);
 		mutex_init(&substream->self_group.mutex);
 		INIT_LIST_HEAD(&substream->self_group.substreams);
 		list_add_tail(&substream->link_list, &substream->self_group.substreams);
@@ -1020,9 +1021,11 @@ int snd_pcm_attach_substream(struct snd_pcm *pcm, int stream,
 void snd_pcm_detach_substream(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime;
+	unsigned long flags = 0;
 
 	if (PCM_RUNTIME_CHECK(substream))
 		return;
+	spin_lock_irqsave(&substream->runtime_lock, flags);
 	runtime = substream->runtime;
 	if (runtime->private_free != NULL)
 		runtime->private_free(runtime);
@@ -1036,6 +1039,7 @@ void snd_pcm_detach_substream(struct snd_pcm_substream *substream)
 	put_pid(substream->pid);
 	substream->pid = NULL;
 	substream->pstr->substream_opened--;
+	spin_unlock_irqrestore(&substream->runtime_lock, flags);
 }
 
 static ssize_t show_pcm_class(struct device *dev,
