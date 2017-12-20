@@ -47,6 +47,7 @@
 
 struct pl_data {
 	int			pl_mode;
+	int			pl_batfet_mode;
 	int			slave_pct;
 	int			slave_fcc_ua;
 	int			restricted_current;
@@ -367,11 +368,11 @@ static void get_fcc_split(struct pl_data *chip, int total_ua,
 	*slave_ua = (slave_limited_ua * chip->slave_pct) / 100;
 
 	/*
-	 * In USBIN_USBIN configuration with internal rsense parallel
-	 * charger's current goes through main charger's BATFET, keep
-	 * the main charger's FCC to the votable result.
+	 * In stacked BATFET configuration charger's current goes
+	 * through main charger's BATFET, keep the main charger's FCC
+	 * to the votable result.
 	 */
-	if (chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN)
+	if (chip->pl_batfet_mode == POWER_SUPPLY_PL_STACKED_BATFET)
 		*master_ua = max(0, total_ua);
 	else
 		*master_ua = max(0, total_ua - *slave_ua);
@@ -859,6 +860,15 @@ static bool is_parallel_available(struct pl_data *chip)
 		else
 			return false;
 	}
+
+	rc = power_supply_get_property(chip->pl_psy,
+		       POWER_SUPPLY_PROP_PARALLEL_BATFET_MODE, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't get parallel batfet mode rc=%d\n",
+				rc);
+		return false;
+	}
+	chip->pl_batfet_mode = pval.intval;
 
 	vote(chip->pl_disable_votable, PARALLEL_PSY_VOTER, false, 0);
 
