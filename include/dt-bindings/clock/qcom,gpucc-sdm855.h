@@ -40,6 +40,7 @@
 #define GPU_CC_RBCPR_CLK					23
 #define GPU_CC_RBCPR_CLK_SRC					24
 #define GPU_CC_SLEEP_CLK					25
+#define GPU_CC_GX_GFX3D_CLK_SRC					26
 
 #define GPUCC_GPU_CC_ACD_BCR					0
 #define GPUCC_GPU_CC_CX_BCR					1
