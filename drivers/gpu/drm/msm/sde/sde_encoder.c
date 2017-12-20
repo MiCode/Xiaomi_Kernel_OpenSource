@@ -2412,7 +2412,6 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 	struct msm_compression_info *comp_info = NULL;
 	struct drm_display_mode *cur_mode = NULL;
 	struct msm_mode_info mode_info;
-	struct drm_connector *drm_conn = NULL;
 
 	if (!drm_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -2503,10 +2502,6 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 		sde_enc->cur_master->ops.enable(sde_enc->cur_master);
 
 	_sde_encoder_virt_enable_helper(drm_enc);
-
-	/* Enable ESD thread */
-	drm_conn = sde_enc->cur_master->connector;
-	sde_connector_schedule_status_work(drm_conn, true);
 }
 
 static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
