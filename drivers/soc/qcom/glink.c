@@ -3610,6 +3610,7 @@ int glink_start_rx_rt(void *handle)
 	glink_put_ch_ctx(ctx);
 	return ret;
 }
+EXPORT_SYMBOL(glink_start_rx_rt);
 
 /**
  * glink_end_rx_rt() - Vote for RT thread priority on RX.
@@ -3637,6 +3638,7 @@ int glink_end_rx_rt(void *handle)
 	glink_put_ch_ctx(ctx);
 	return ret;
 }
+EXPORT_SYMBOL(glink_end_rx_rt);
 
 /**
  * glink_rpm_rx_poll() - Poll and receive any available events
