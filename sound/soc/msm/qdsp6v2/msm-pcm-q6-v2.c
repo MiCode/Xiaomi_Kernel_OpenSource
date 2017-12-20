@@ -183,6 +183,11 @@ static void event_handler(uint32_t opcode,
 	case ASM_DATA_EVENT_READ_DONE_V2: {
 		pr_debug("ASM_DATA_EVENT_READ_DONE_V2\n");
 		buf_index = q6asm_get_buf_index_from_token(token);
+		if (buf_index >= CAPTURE_MAX_NUM_PERIODS) {
+			pr_err("%s: buffer index %u is out of range.\n",
+				__func__, buf_index);
+			return;
+		}
 		pr_debug("%s: token=0x%08x buf_index=0x%08x\n",
 			 __func__, token, buf_index);
 		prtd->in_frame_info[buf_index].size = payload[4];
