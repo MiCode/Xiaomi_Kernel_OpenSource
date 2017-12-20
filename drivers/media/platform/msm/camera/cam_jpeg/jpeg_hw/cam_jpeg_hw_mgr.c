@@ -742,7 +742,7 @@ static int cam_jpeg_mgr_flush(void *hw_mgr_priv,
 	struct cam_jpeg_hw_mgr *hw_mgr = hw_mgr_priv;
 	uint32_t dev_type;
 	struct cam_jpeg_hw_cfg_req *p_cfg_req = NULL;
-	struct cam_jpeg_hw_cfg_req *cfg_req, *req_temp;
+	struct cam_jpeg_hw_cfg_req *cfg_req = NULL, *req_temp = NULL;
 
 	if (!hw_mgr || !ctx_data) {
 		CAM_ERR(CAM_JPEG, "Invalid args");
@@ -776,8 +776,8 @@ static int cam_jpeg_mgr_flush(void *hw_mgr_priv,
 
 	list_for_each_entry_safe(cfg_req, req_temp,
 		&hw_mgr->hw_config_req_list, list) {
-		if ((struct cam_jpeg_hw_ctx_data *)cfg_req->
-			hw_cfg_args.ctxt_to_hw_map != ctx_data)
+		if ((cfg_req) && ((struct cam_jpeg_hw_ctx_data *)cfg_req->
+			hw_cfg_args.ctxt_to_hw_map != ctx_data))
 			continue;
 
 		list_del_init(&cfg_req->list);
@@ -800,11 +800,14 @@ static int cam_jpeg_mgr_flush_req(void *hw_mgr_priv,
 		return -EINVAL;
 	}
 
-	request_id = *(int64_t *)flush_args->flush_req_pending[0];
+	if (flush_args->num_req_pending)
+		return 0;
+
+	request_id = *(int64_t *)flush_args->flush_req_active[0];
 	list_for_each_entry_safe(cfg_req, req_temp,
 		&hw_mgr->hw_config_req_list, list) {
-		if (cfg_req->hw_cfg_args.ctxt_to_hw_map
-			!= ctx_data)
+		if ((cfg_req) && (cfg_req->hw_cfg_args.ctxt_to_hw_map
+			!= ctx_data))
 			continue;
 
 		if (cfg_req->req_id != request_id)
