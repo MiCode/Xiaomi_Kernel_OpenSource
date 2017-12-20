@@ -86,6 +86,12 @@ static int msm_digcdc_clock_control(bool flag)
 	if (flag) {
 		mutex_lock(&pdata->cdc_int_mclk0_mutex);
 		if (atomic_read(&pdata->int_mclk0_enabled) == false) {
+			if (pdata->native_clk_set)
+				pdata->digital_cdc_core_clk.clk_freq_in_hz =
+							NATIVE_MCLK_RATE;
+			else
+				pdata->digital_cdc_core_clk.clk_freq_in_hz =
+							DEFAULT_MCLK_RATE;
 			pdata->digital_cdc_core_clk.enable = 1;
 			ret = afe_set_lpass_clock_v2(
 						AFE_PORT_ID_INT0_MI2S_RX,
