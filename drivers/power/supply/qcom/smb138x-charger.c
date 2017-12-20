@@ -97,6 +97,7 @@ struct smb_dt_props {
 	int	chg_temp_max_mdegc;
 	int	connector_temp_max_mdegc;
 	int	pl_mode;
+	int	pl_batfet_mode;
 };
 
 struct smb138x {
@@ -204,6 +205,10 @@ static int smb138x_parse_dt(struct smb138x *chip)
 				&chip->dt.connector_temp_max_mdegc);
 	if (rc < 0)
 		chip->dt.connector_temp_max_mdegc = 105000;
+
+	chip->dt.pl_batfet_mode = POWER_SUPPLY_PL_NON_STACKED_BATFET;
+	if (of_property_read_bool(node, "qcom,stacked-batfet"))
+		chip->dt.pl_batfet_mode = POWER_SUPPLY_PL_STACKED_BATFET;
 
 	return 0;
 }
@@ -664,6 +669,7 @@ static enum power_supply_property smb138x_parallel_props[] = {
 	POWER_SUPPLY_PROP_PARALLEL_MODE,
 	POWER_SUPPLY_PROP_CONNECTOR_HEALTH,
 	POWER_SUPPLY_PROP_SET_SHIP_MODE,
+	POWER_SUPPLY_PROP_PARALLEL_BATFET_MODE,
 };
 
 static int smb138x_parallel_get_prop(struct power_supply *psy,
@@ -737,6 +743,9 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SET_SHIP_MODE:
 		/* Not in ship mode as long as device is active */
 		val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_PARALLEL_BATFET_MODE:
+		val->intval = chip->dt.pl_batfet_mode;
 		break;
 	default:
 		pr_err("parallel power supply get prop %d not supported\n",
