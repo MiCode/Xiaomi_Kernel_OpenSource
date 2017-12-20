@@ -3190,15 +3190,12 @@ void sde_rotator_core_dump(struct sde_rot_mgr *mgr)
 	}
 
 	sde_rotator_resource_ctrl(mgr, true);
-	/* dump first snapshot */
+
 	if (mgr->ops_hw_dump_status)
-		mgr->ops_hw_dump_status(mgr->hw_data);
+		mgr->ops_hw_dump_status(mgr);
 
 	SDEROT_EVTLOG_TOUT_HANDLER("rot", "rot_dbg_bus", "vbif_dbg_bus");
 
-	/* dump second snapshot for comparison */
-	if (mgr->ops_hw_dump_status)
-		mgr->ops_hw_dump_status(mgr->hw_data);
 	sde_rotator_resource_ctrl(mgr, false);
 }
 
