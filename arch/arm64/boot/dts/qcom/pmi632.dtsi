@@ -1,0 +1,119 @@
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/msm/power-on.h>
+
+&spmi_bus {
+	qcom,pmi632@2 {
+		compatible = "qcom,spmi-pmic";
+		reg = <0x2 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		pmi632_revid: qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
+		pmi632_pon: qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+			qcom,secondary-pon-reset;
+		};
+
+		pmi632_tz: qcom,temp-alarm@2400 {
+			compatible = "qcom,qpnp-temp-alarm";
+			reg = <0x2400 0x100>;
+			interrupts = <0x2 0x24 0x0 IRQ_TYPE_EDGE_RISING>;
+			label = "pmi632_tz";
+			#thermal-sensor-cells = <0>;
+		};
+
+		pmi632_gpios: pinctrl@c000 {
+			compatible = "qcom,spmi-gpio";
+			reg = <0xc000 0x800>;
+			interrupts = <0x2 0xc1 0 IRQ_TYPE_NONE>,
+					<0x2 0xc2 0 IRQ_TYPE_NONE>,
+					<0x2 0xc3 0 IRQ_TYPE_NONE>,
+					<0x2 0xc4 0 IRQ_TYPE_NONE>,
+					<0x2 0xc5 0 IRQ_TYPE_NONE>,
+					<0x2 0xc6 0 IRQ_TYPE_NONE>,
+					<0x2 0xc7 0 IRQ_TYPE_NONE>,
+			interrupt-names = "pmi632_gpio2", "pmi632_gpio3",
+					"pmi632_gpio4", "pmi632_gpio5",
+					"pmi632_gpio6", "pmi632_gpio7",
+					"pmi632_gpio8";
+			gpio-controller;
+			#gpio-cells = <2>;
+			qcom,gpios-disallowed = <1>;
+		};
+	};
+
+	pmi632_3: qcom,pmi632@3 {
+		compatible ="qcom,spmi-pmic";
+		reg = <0x3 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		pmi632_pwm_1: pwm@b300 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb300 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <1>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+
+		pmi632_pwm_2: pwm@b400 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb400 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <2>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+
+		pmi632_pwm_3: pwm@b500 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb500 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <3>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+
+		pmi632_pwm_4: pwm@b600 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb600 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <4>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+
+		pmi632_pwm_5: pwm@b700 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb700 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <5>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+	};
+};
