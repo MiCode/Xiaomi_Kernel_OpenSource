@@ -1,0 +1,123 @@
+/*
+ * ARM JUNO specific energy cost model data. There are no unit requirements for
+ * the data. Data can be normalized to any reference point, but the
+ * normalization must be consistent. That is, one bogo-joule/watt must be the
+ * same quantity for all data, but we don't care what it is.
+ */
+
+energy-costs {
+	/* Juno r0 Energy */
+	CPU_COST_A57: core-cost0 {
+		busy-cost-data = <
+			417   168
+			579   251
+			744   359
+			883   479
+			1024   616
+		>;
+		idle-cost-data = <
+			15
+			15
+			 0
+			 0
+		>;
+	};
+	CPU_COST_A53: core-cost1 {
+		busy-cost-data = <
+			235    33
+			302    46
+			368    61
+			406    76
+			447    93
+		>;
+		idle-cost-data = <
+		      6
+		      6
+		      0
+		      0
+		>;
+	};
+	CLUSTER_COST_A57: cluster-cost0 {
+		busy-cost-data = <
+			417    24
+			579    32
+			744    43
+			883    49
+			1024    64
+		>;
+		idle-cost-data = <
+			 65
+			 65
+			 65
+			 24
+		>;
+	};
+	CLUSTER_COST_A53: cluster-cost1 {
+		busy-cost-data = <
+			235    26
+			303    30
+			368    39
+			406    47
+			447    57
+		>;
+		idle-cost-data = <
+			56
+			56
+			56
+			17
+		>;
+	};
+	/* Juno r2 Energy */
+	CPU_COST_A72: core-cost2 {
+		busy-cost-data = <
+			501   174
+			849   344
+			1024   526
+		>;
+		idle-cost-data = <
+		      48
+		      48
+		       0
+		       0
+		>;
+	};
+	CPU_COST_A53R2: core-cost3 {
+		busy-cost-data = <
+			276    37
+			501    59
+			593   117
+		>;
+		idle-cost-data = <
+		      33
+		      33
+		      0
+		      0
+		>;
+	};
+	CLUSTER_COST_A72: cluster-cost2 {
+		busy-cost-data = <
+			501    48
+			849    73
+			1024   107
+		>;
+		idle-cost-data = <
+			 48
+			 48
+			 48
+			 18
+		>;
+	};
+	CLUSTER_COST_A53R2: cluster-cost3 {
+		busy-cost-data = <
+			276    41
+			501    86
+			593   107
+		>;
+		idle-cost-data = <
+			41
+			41
+			41
+			14
+		>;
+	};
+};
