@@ -16,6 +16,7 @@
 #include <linux/device-mapper.h>
 #include <crypto/hash.h>
 
+#define DM_VERITY_WAIT_DEV_TIMEOUT_MS	(2000)
 #define DM_VERITY_MAX_LEVELS		63
 
 enum verity_mode {
