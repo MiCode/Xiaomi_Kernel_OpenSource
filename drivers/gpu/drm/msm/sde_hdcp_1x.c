@@ -280,7 +280,8 @@ static int sde_hdcp_1x_load_keys(void *input)
 	dp_link = hdcp->init_data.dp_link;
 	reg_set = &hdcp->reg_set;
 
-	if (hdcp1_set_keys(&aksv_msb, &aksv_lsb)) {
+	if (IS_ENABLED(CONFIG_HDCP_QSEECOM)  &&
+	    hdcp1_set_keys(&aksv_msb, &aksv_lsb)) {
 		pr_err("setting hdcp SW keys failed\n");
 		rc = -EINVAL;
 		goto end;
@@ -1073,12 +1074,14 @@ static void sde_hdcp_1x_cache_topology(struct sde_hdcp_1x *hdcp)
 	memcpy((void *)&hdcp->cached_tp,
 		(void *) &hdcp->current_tp,
 		sizeof(hdcp->cached_tp));
-	hdcp1_cache_repeater_topology((void *)&hdcp->cached_tp);
+	if (IS_ENABLED(CONFIG_HDCP_QSEECOM))
+		hdcp1_cache_repeater_topology((void *)&hdcp->cached_tp);
 }
 
 static void sde_hdcp_1x_notify_topology(void)
 {
-	hdcp1_notify_topology();
+	if (IS_ENABLED(CONFIG_HDCP_QSEECOM))
+		hdcp1_notify_topology();
 }
 
 static void sde_hdcp_1x_update_auth_status(struct sde_hdcp_1x *hdcp)
@@ -1132,7 +1135,8 @@ static void sde_hdcp_1x_auth_work(struct work_struct *work)
 	 * program hw to enable encryption as soon as
 	 * authentication is successful.
 	 */
-	hdcp1_set_enc(true);
+	if (IS_ENABLED(CONFIG_HDCP_QSEECOM))
+		hdcp1_set_enc(true);
 
 	rc = sde_hdcp_1x_authentication_part1(hdcp);
 	if (rc)
@@ -1282,7 +1286,8 @@ static void sde_hdcp_1x_off(void *input)
 		pr_debug("%s: Deleted hdcp auth work\n",
 			SDE_HDCP_STATE_NAME);
 
-	hdcp1_set_enc(false);
+	if (IS_ENABLED(CONFIG_HDCP_QSEECOM))
+		hdcp1_set_enc(false);
 
 	reg = DSS_REG_R(io, reg_set->reset);
 	DSS_REG_W(io, reg_set->reset, reg | reg_set->reset_bit);
