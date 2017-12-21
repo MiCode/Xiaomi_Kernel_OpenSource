@@ -18,22 +18,34 @@
 #include <soc/qcom/rpmh.h>
 #include <soc/qcom/system_pm.h>
 
-#define ARCH_TIMER_HZ		(19200000UL)
+#include <clocksource/arm_arch_timer.h>
+
 #define PDC_TIME_VALID_SHIFT	31
 #define PDC_TIME_UPPER_MASK	0xFFFFFF
 
 static struct rpmh_client *rpmh_client;
 
-static int setup_wakeup(uint64_t sleep_val)
+static int setup_wakeup(uint32_t lo, uint32_t hi)
 {
 	struct tcs_cmd cmd[2] = { { 0 } };
 
-	cmd[0].data = (sleep_val >> 32) & PDC_TIME_UPPER_MASK;
+	cmd[0].data =  hi & PDC_TIME_UPPER_MASK;
 	cmd[0].data |= 1 << PDC_TIME_VALID_SHIFT;
-	cmd[1].data = sleep_val & 0xFFFFFFFF;
+	cmd[1].data = lo;
 
 	return rpmh_write_control(rpmh_client, cmd, ARRAY_SIZE(cmd));
 }
+
+int system_sleep_update_wakeup(void)
+{
+	uint32_t lo = ~0U, hi = ~0U;
+
+	/* Read the hardware to get the most accurate value */
+	arch_timer_mem_get_cval(&lo, &hi);
+
+	return setup_wakeup(lo, hi);
+}
+EXPORT_SYMBOL(system_sleep_update_wakeup);
 
 /**
  * system_sleep_allowed() - Returns if its okay to enter system low power modes
@@ -47,35 +59,15 @@ EXPORT_SYMBOL(system_sleep_allowed);
 /**
  * system_sleep_enter() - Activties done when entering system low power modes
  *
- * @sleep_val: The sleep duration in us.
- *
- * Returns 0 for success or error values from writing the timer value in the
- * hardware block.
+ * Returns 0 for success or error values from writing the sleep/wake values to
+ * the hardware block.
  */
-int system_sleep_enter(uint64_t sleep_val)
+int system_sleep_enter(void)
 {
-	int ret;
-
 	if (IS_ERR_OR_NULL(rpmh_client))
 		return -EFAULT;
 
-	ret = rpmh_flush(rpmh_client);
-	if (ret)
-		return ret;
-
-	/*
-	 * Set up the wake up value offset from the current time.
-	 * Convert us to ns to allow div by 19.2 Mhz tick timer.
-	 */
-	if (sleep_val) {
-		sleep_val *= NSEC_PER_USEC;
-		do_div(sleep_val, NSEC_PER_SEC/ARCH_TIMER_HZ);
-		sleep_val += arch_counter_get_cntvct();
-	} else {
-		sleep_val = ~0ULL;
-	}
-
-	return setup_wakeup(sleep_val);
+	return rpmh_flush(rpmh_client);
 }
 EXPORT_SYMBOL(system_sleep_enter);
 
