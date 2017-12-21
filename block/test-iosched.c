@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -314,6 +314,13 @@ struct test_request *test_iosched_create_test_req(
 	if (!test_rq) {
 		pr_err("%s: Failed to allocate test request", __func__);
 		goto err;
+	}
+
+	/* Restrict num_bios value as it may lead to bios_buffer overflow */
+	if (num_bios >= BLK_MAX_SEGMENTS) {
+		pr_warn("%s: num_bios %d is changed to BLK_MAX_SEGMENTS\n",
+				__func__, num_bios);
+		num_bios = BLK_MAX_SEGMENTS;
 	}
 
 	test_rq->buf_size = TEST_BIO_SIZE * num_bios;

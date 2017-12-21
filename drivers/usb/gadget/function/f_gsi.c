@@ -632,12 +632,12 @@ int ipa_usb_notify_cb(enum ipa_usb_notify_event event,
 				return -ENOMEM;
 			}
 			cpkt_notify_speed->type = GSI_CTRL_NOTIFY_SPEED;
-			spin_lock_irqsave(&gsi->c_port.lock, flags);
+			spin_lock(&gsi->c_port.lock);
 			list_add_tail(&cpkt_notify_connect->list,
 					&gsi->c_port.cpkt_resp_q);
 			list_add_tail(&cpkt_notify_speed->list,
 					&gsi->c_port.cpkt_resp_q);
-			spin_unlock_irqrestore(&gsi->c_port.lock, flags);
+			spin_unlock(&gsi->c_port.lock);
 			gsi_ctrl_send_notification(gsi);
 		}
 

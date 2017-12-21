@@ -115,6 +115,12 @@ conditions.
 		  supported as we are directly comparing client SID with ID bits
 		  of SMR registers.
 
+- qcom,deferred-regulator-disable-delay : The time delay for deferred regulator
+                  disable in ms. In case of unmap call, regulator is
+                  enabled/disabled. This may introduce additional delay. For
+                  clients who do not detach, it's not possible to keep regulator
+                  vote while smmu is attached. Type is <u32>.
+
 - clocks        : List of clocks to be used during SMMU register access. See
                   Documentation/devicetree/bindings/clock/clock-bindings.txt
                   for information about the format. For each clock specified
