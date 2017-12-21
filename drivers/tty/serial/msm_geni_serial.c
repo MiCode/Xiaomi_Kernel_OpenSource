@@ -894,7 +894,6 @@ static void msm_geni_serial_start_tx(struct uart_port *uport)
 
 		msm_geni_serial_prep_dma_tx(uport);
 	}
-	IPC_LOG_MSG(msm_port->ipc_log_misc, "%s\n", __func__);
 	return;
 check_flow_ctrl:
 	geni_ios = geni_read_reg_nolog(uport->membase, SE_GENI_IOS);
@@ -963,7 +962,18 @@ static void stop_tx_sequencer(struct uart_port *uport)
 							SE_GENI_M_IRQ_CLEAR);
 	}
 	geni_write_reg_nolog(M_CMD_CANCEL_EN, uport, SE_GENI_M_IRQ_CLEAR);
-	IPC_LOG_MSG(port->ipc_log_misc, "%s\n", __func__);
+	/*
+	 * If we end up having to cancel an on-going Tx for non-console usecase
+	 * then it means there was some unsent data in the Tx FIFO, consequently
+	 * it means that there is a vote imbalance as we put in a vote during
+	 * start_tx() that is removed only as part of a "done" ISR. To balance
+	 * this out, remove the vote put in during start_tx().
+	 */
+	if (!uart_console(uport)) {
+		IPC_LOG_MSG(port->ipc_log_misc, "%s:Removing vote\n", __func__);
+		msm_geni_serial_power_off(uport);
+	}
+	IPC_LOG_MSG(port->ipc_log_misc, "%s:\n", __func__);
 }
 
 static void msm_geni_serial_stop_tx(struct uart_port *uport)
@@ -2529,6 +2539,8 @@ static int msm_geni_serial_runtime_suspend(struct device *dev)
 		 * doing a stop_rx else we could end up flowing off the peer.
 		 */
 		mb();
+		IPC_LOG_MSG(port->ipc_log_pwr, "%s: Manual Flow ON 0x%x\n",
+						 __func__, uart_manual_rfr);
 	}
 	stop_rx_sequencer(&port->uport);
 	if ((geni_status & M_GENI_CMD_ACTIVE))
@@ -2610,6 +2622,7 @@ static int msm_geni_serial_sys_suspend_noirq(struct device *dev)
 			mutex_unlock(&tty_port->mutex);
 			return -EBUSY;
 		}
+		IPC_LOG_MSG(port->ipc_log_pwr, "%s\n", __func__);
 		mutex_unlock(&tty_port->mutex);
 	}
 	return 0;
