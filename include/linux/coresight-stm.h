@@ -80,6 +80,8 @@ struct stm_drvdata {
 	spinlock_t		spinlock;
 	struct channel_space	chs;
 	bool			enable;
+	struct channel_space	debug_status_chs;
+	bool			master_enable;
 	DECLARE_BITMAP(entities, OST_ENTITY_MAX);
 	struct stm_data		stm;
 	local_t			mode;
