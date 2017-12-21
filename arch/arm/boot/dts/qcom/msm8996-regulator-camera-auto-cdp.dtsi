@@ -1,0 +1,24 @@
+/* Copyright (c) 2014-2016, 2017 The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&rpm_bus {
+	/* PM8994 LDO26 = VDD_SS_CX supply */
+	rpm-regulator-ldoa26 {
+		pm8994_l26: regulator-l26 {
+			regulator-min-microvolt = <1100000>;
+			regulator-max-microvolt = <1100000>;
+			qcom,init-voltage = <1100000>;
+			status = "okay";
+		};
+	};
+};
+
