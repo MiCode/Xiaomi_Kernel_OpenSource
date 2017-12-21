@@ -352,7 +352,7 @@ static int do_clk_scaling(void)
 	clk_scaling = &ipa_pm_ctx->clk_scaling;
 
 	mutex_lock(&ipa_pm_ctx->client_mutex);
-	IPA_PM_DBG("clock scaling started\n");
+	IPA_PM_DBG_LOW("clock scaling started\n");
 	tput = calculate_throughput();
 	ipa_pm_ctx->aggregated_tput = tput;
 	set_current_threshold();
@@ -364,7 +364,7 @@ static int do_clk_scaling(void)
 			new_th_idx++;
 	}
 
-	IPA_PM_DBG("old idx was at %d\n", ipa_pm_ctx->clk_scaling.cur_vote);
+	IPA_PM_DBG_LOW("old idx was at %d\n", ipa_pm_ctx->clk_scaling.cur_vote);
 
 
 	if (ipa_pm_ctx->clk_scaling.cur_vote != new_th_idx) {
@@ -372,7 +372,7 @@ static int do_clk_scaling(void)
 		ipa3_set_clock_plan_from_pm(ipa_pm_ctx->clk_scaling.cur_vote);
 	}
 
-	IPA_PM_DBG("new idx is at %d\n", ipa_pm_ctx->clk_scaling.cur_vote);
+	IPA_PM_DBG_LOW("new idx is at %d\n", ipa_pm_ctx->clk_scaling.cur_vote);
 
 	return 0;
 }
