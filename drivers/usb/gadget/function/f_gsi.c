@@ -1219,14 +1219,16 @@ static long gsi_ctrl_dev_ioctl(struct file *fp, unsigned int cmd,
 		break;
 	case QTI_CTRL_GET_LINE_STATE:
 		val = atomic_read(&gsi->connected);
+		if (gsi->prot_id == IPA_USB_RMNET)
+			val = gsi->rmnet_dtr_status;
+
 		ret = copy_to_user((void __user *)arg, &val, sizeof(val));
 		if (ret) {
 			log_event_err("copy_to_user fail LINE_STATE");
 			ret = -EFAULT;
 		}
 		log_event_dbg("%s: Sent line_state: %d for prot id:%d",
-				__func__,
-				atomic_read(&gsi->connected), gsi->prot_id);
+				__func__, val, gsi->prot_id);
 		break;
 	case QTI_CTRL_EP_LOOKUP:
 	case GSI_MBIM_EP_LOOKUP:
@@ -1750,6 +1752,7 @@ gsi_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 	struct gsi_ctrl_pkt *cpkt;
 	u8 *buf;
 	u32 n;
+	bool line_state;
 
 	if (!atomic_read(&gsi->connected)) {
 		log_event_dbg("usb cable is not connected");
@@ -1830,8 +1833,11 @@ gsi_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 		break;
 	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
 			| USB_CDC_REQ_SET_CONTROL_LINE_STATE:
+		line_state = (w_value & GSI_CTRL_DTR ? true : false);
+		if (gsi->prot_id == IPA_USB_RMNET)
+			gsi->rmnet_dtr_status = line_state;
 		log_event_dbg("%s: USB_CDC_REQ_SET_CONTROL_LINE_STATE DTR:%d\n",
-				__func__, w_value & GSI_CTRL_DTR ? 1 : 0);
+						__func__, line_state);
 		gsi_ctrl_send_cpkt_tomodem(gsi, NULL, 0);
 		value = 0;
 		break;
@@ -2184,7 +2190,10 @@ static void gsi_disable(struct usb_function *f)
 	if (gsi->prot_id == IPA_USB_RNDIS)
 		rndis_uninit(gsi->params);
 
-	 /* Disable Control Path */
+	if (gsi->prot_id == IPA_USB_RMNET)
+		gsi->rmnet_dtr_status = false;
+
+	/* Disable Control Path */
 	if (gsi->c_port.notify &&
 		gsi->c_port.notify->driver_data) {
 		usb_ep_disable(gsi->c_port.notify);

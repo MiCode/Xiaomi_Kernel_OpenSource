@@ -280,6 +280,7 @@ struct f_gsi {
 	struct gsi_data_port d_port;
 	struct gsi_ctrl_port c_port;
 	void *ipc_log_ctxt;
+	bool rmnet_dtr_status;
 };
 
 static inline struct f_gsi *func_to_gsi(struct usb_function *f)
