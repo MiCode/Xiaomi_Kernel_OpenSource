@@ -470,6 +470,7 @@ struct wcd_mbhc {
 	struct notifier_block psy_nb;
 	struct power_supply *usb_psy;
 	struct work_struct usbc_analog_work;
+	bool force_linein;
 };
 #define WCD_MBHC_CAL_SIZE(buttons, rload) ( \
 	sizeof(struct wcd_mbhc_general_cfg) + \
