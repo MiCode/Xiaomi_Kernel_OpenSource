@@ -13,7 +13,7 @@ Required properties:
 Optional properties:
 - qcom,fastrpc-glink:	Flag to use glink instead of smd for IPC
 - qcom,rpc-latency-us:	FastRPC QoS latency vote
-- qcom,adsp-remoteheap-vmid:  FastRPC remote heap VMID number
+- qcom,adsp-remoteheap-vmid:  FastRPC remote heap VMID list
 
 Optional subnodes:
 - qcom,msm_fastrpc_compute_cb :	Child nodes representing the compute context
@@ -29,7 +29,7 @@ Example:
 		compatible = "qcom,msm-fastrpc-adsp";
 		qcom,fastrpc-glink;
 		qcom,rpc-latency-us = <2343>;
-		qcom,adsp-remoteheap-vmid = <37>;
+		qcom,adsp-remoteheap-vmid = <22 37>;
 
 		qcom,msm_fastrpc_compute_cb_1 {
 			compatible = "qcom,msm-fastrpc-compute-cb";

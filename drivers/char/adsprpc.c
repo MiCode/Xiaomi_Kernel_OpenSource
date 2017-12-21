@@ -146,6 +146,12 @@ static inline uint64_t ptr_to_uint64(void *ptr)
 	return addr;
 }
 
+struct secure_vm {
+	int *vmid;
+	int *vmperm;
+	int vmcount;
+};
+
 struct fastrpc_file;
 
 struct fastrpc_buf {
@@ -234,7 +240,7 @@ struct fastrpc_channel_ctx {
 	int prevssrcount;
 	int issubsystemup;
 	int vmid;
-	int rhvmid;
+	struct secure_vm rhvm;
 	int ramdumpenabled;
 	void *remoteheap_ramdump_dev;
 	struct fastrpc_glink_info link;
@@ -341,6 +347,9 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 		.link.link_info.transport = "smem",
 	},
 };
+
+static int hlosvm[1] = {VMID_HLOS};
+static int hlosvmperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 
 static inline int64_t getnstimediff(struct timespec *start)
 {
@@ -1621,10 +1630,6 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 	struct smq_phy_page pages[1];
 	struct fastrpc_mmap *file = NULL, *mem = NULL;
 	char *proc_name = NULL;
-	int srcVM[1] = {VMID_HLOS};
-	int destVM[1] = {me->channel[fl->cid].rhvmid};
-	int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
-	int hlosVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 
 	VERIFY(err, 0 == (err = fastrpc_channel_open(fl)));
 	if (err)
@@ -1760,7 +1765,9 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 			phys = mem->phys;
 			size = mem->size;
 			VERIFY(err, !hyp_assign_phys(phys, (uint64_t)size,
-					srcVM, 1, destVM, destVMperm, 1));
+				hlosvm, 1, me->channel[fl->cid].rhvm.vmid,
+				me->channel[fl->cid].rhvm.vmperm,
+				me->channel[fl->cid].rhvm.vmcount));
 			if (err) {
 				pr_err("ADSPRPC: hyp_assign_phys fail err %d",
 							 err);
@@ -1806,7 +1813,9 @@ bail:
 	if (mem && err) {
 		if (mem->flags == ADSP_MMAP_REMOTE_HEAP_ADDR)
 			hyp_assign_phys(mem->phys, (uint64_t)mem->size,
-					destVM, 1, srcVM, hlosVMperm, 1);
+					me->channel[fl->cid].rhvm.vmid,
+					me->channel[fl->cid].rhvm.vmcount,
+					hlosvm, hlosvmperm, 1);
 		fastrpc_mmap_free(mem, 0);
 	}
 	if (file)
@@ -1899,13 +1908,10 @@ static int fastrpc_mmap_on_dsp(struct fastrpc_file *fl, uint32_t flags,
 		err = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL,
 			TZ_PIL_PROTECT_MEM_SUBSYS_ID), &desc);
 	} else if (flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
-
-		int srcVM[1] = {VMID_HLOS};
-		int destVM[1] = {me->channel[fl->cid].rhvmid};
-		int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
-
 		VERIFY(err, !hyp_assign_phys(map->phys, (uint64_t)map->size,
-				srcVM, 1, destVM, destVMperm, 1));
+				hlosvm, 1, me->channel[fl->cid].rhvm.vmid,
+				me->channel[fl->cid].rhvm.vmperm,
+				me->channel[fl->cid].rhvm.vmcount));
 		if (err)
 			goto bail;
 	}
@@ -1918,7 +1924,6 @@ static int fastrpc_munmap_on_dsp_rh(struct fastrpc_file *fl,
 {
 	int err = 0;
 	struct fastrpc_apps *me = &gfa;
-	int srcVM[1] = {me->channel[fl->cid].rhvmid};
 	int destVM[1] = {VMID_HLOS};
 	int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 
@@ -1956,7 +1961,9 @@ static int fastrpc_munmap_on_dsp_rh(struct fastrpc_file *fl,
 			TZ_PIL_CLEAR_PROTECT_MEM_SUBSYS_ID), &desc);
 	} else if (map->flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
 		VERIFY(err, !hyp_assign_phys(map->phys, (uint64_t)map->size,
-					srcVM, 1, destVM, destVMperm, 1));
+					me->channel[fl->cid].rhvm.vmid,
+					me->channel[fl->cid].rhvm.vmcount,
+					destVM, destVMperm, 1));
 		if (err)
 			goto bail;
 	}
@@ -2992,6 +2999,46 @@ bail:
 	return err;
 }
 
+static void init_secure_vmid_list(struct device *dev, char *prop_name,
+						struct secure_vm *destvm)
+{
+	int err = 0;
+	u32 len = 0, i = 0;
+	u32 *rhvmlist = NULL;
+	u32 *rhvmpermlist = NULL;
+
+	if (!of_find_property(dev->of_node, prop_name, &len))
+		goto bail;
+	if (len == 0)
+		goto bail;
+	len /= sizeof(u32);
+	VERIFY(err, NULL != (rhvmlist = kcalloc(len, sizeof(u32), GFP_KERNEL)));
+	if (err)
+		goto bail;
+	VERIFY(err, NULL != (rhvmpermlist = kcalloc(len, sizeof(u32),
+					 GFP_KERNEL)));
+	if (err)
+		goto bail;
+	for (i = 0; i < len; i++) {
+		err = of_property_read_u32_index(dev->of_node, prop_name, i,
+								&rhvmlist[i]);
+		rhvmpermlist[i] = PERM_READ | PERM_WRITE | PERM_EXEC;
+		pr_info("ADSPRPC: Secure VMID = %d", rhvmlist[i]);
+		if (err) {
+			pr_err("ADSPRPC: Failed to read VMID\n");
+			goto bail;
+		}
+	}
+	destvm->vmid = rhvmlist;
+	destvm->vmperm = rhvmpermlist;
+	destvm->vmcount = len;
+bail:
+	if (err) {
+		kfree(rhvmlist);
+		kfree(rhvmpermlist);
+	}
+}
+
 static int fastrpc_probe(struct platform_device *pdev)
 {
 	int err = 0;
@@ -3006,10 +3053,9 @@ static int fastrpc_probe(struct platform_device *pdev)
 
 	if (of_device_is_compatible(dev->of_node,
 					"qcom,msm-fastrpc-compute")) {
-		of_property_read_u32(dev->of_node, "qcom,adsp-remoteheap-vmid",
-			&gcinfo[0].rhvmid);
+		init_secure_vmid_list(dev, "qcom,adsp-remoteheap-vmid",
+							&gcinfo[0].rhvm);
 
-		pr_info("ADSPRPC : vmids adsp=%d\n", gcinfo[0].rhvmid);
 
 		of_property_read_u32(dev->of_node, "qcom,rpc-latency-us",
 			&me->latency);
@@ -3090,6 +3136,8 @@ static void fastrpc_deinit(void)
 				sess->smmu.mapping = NULL;
 			}
 		}
+		kfree(chan->rhvm.vmid);
+		kfree(chan->rhvm.vmperm);
 	}
 }
 
