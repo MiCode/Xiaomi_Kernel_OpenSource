@@ -1162,15 +1162,12 @@ static int ath10k_snoc_hif_power_up(struct ath10k *ar)
 		atomic_set(&ar_snoc->pm_ops_inprogress, 0);
 	}
 
-	if ((ar->state == ATH10K_STATE_ON) ||
-	    (ar->state == ATH10K_STATE_RESTARTING) ||
-	    test_bit(ATH10K_FLAG_CRASH_FLUSH, &ar->dev_flags)) {
-		ret = ath10k_snoc_bus_configure(ar);
-		if (ret) {
-			ath10k_err(ar, "failed to configure bus: %d\n", ret);
-			return ret;
-		}
+	ret = ath10k_snoc_bus_configure(ar);
+	if (ret) {
+		ath10k_err(ar, "failed to configure bus: %d\n", ret);
+		return ret;
 	}
+
 	ret = ath10k_snoc_init_pipes(ar);
 	if (ret) {
 		ath10k_err(ar, "failed to initialize CE: %d\n", ret);
@@ -1643,9 +1640,9 @@ static int ath10k_snoc_probe(struct platform_device *pdev)
 	int ret;
 	struct ath10k *ar;
 	struct ath10k_snoc *ar_snoc;
+	struct ath10k_snoc_qmi_config *qmi_cfg;
 	enum ath10k_hw_rev hw_rev;
 	struct device *dev;
-	u32 chip_id;
 	u32 i;
 
 	dev = &pdev->dev;
@@ -1671,6 +1668,7 @@ static int ath10k_snoc_probe(struct platform_device *pdev)
 		goto err_core_destroy;
 	}
 
+	qmi_cfg = &ar_snoc->qmi_cfg;
 	spin_lock_init(&ar_snoc->opaque_ctx.ce_lock);
 	ar_snoc->opaque_ctx.bus_ops = &ath10k_snoc_bus_ops;
 	ath10k_snoc_resource_init(ar);
@@ -1706,12 +1704,6 @@ static int ath10k_snoc_probe(struct platform_device *pdev)
 		goto err_hw_power_off;
 	}
 
-	ret = ath10k_snoc_bus_configure(ar);
-	if (ret) {
-		ath10k_err(ar, "failed to configure bus: %d\n", ret);
-		goto err_hw_power_off;
-	}
-
 	ret = ath10k_snoc_alloc_pipes(ar);
 	if (ret) {
 		ath10k_err(ar, "failed to allocate copy engine pipes: %d\n",
@@ -1728,12 +1720,18 @@ static int ath10k_snoc_probe(struct platform_device *pdev)
 		goto err_free_pipes;
 	}
 
-	chip_id = ar_snoc->target_info.soc_version;
+	ar_snoc->drv_state = ATH10K_DRIVER_STATE_PROBED;
 	/* chip id needs to be retrieved from platform driver */
-	ret = ath10k_core_register(ar, chip_id);
-	if (ret) {
-		ath10k_err(ar, "failed to register driver core: %d\n", ret);
-		goto err_free_irq;
+	if (atomic_read(&qmi_cfg->fw_ready)) {
+		ret = ath10k_core_register(ar,
+					   ar_snoc->target_info.soc_version);
+		if (ret) {
+			ath10k_err(ar,
+				   "failed to register driver core: %d\n",
+				   ret);
+			goto err_free_irq;
+		}
+		ar_snoc->drv_state = ATH10K_DRIVER_STATE_STARTED;
 	}
 
 	ath10k_snoc_modem_ssr_register_notifier(ar);

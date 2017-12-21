@@ -53,7 +53,8 @@ ath10k_snoc_service_notifier_notify(struct notifier_block *nb,
 				   atomic_read(&qmi_cfg->server_connected)),
 			msecs_to_jiffies(ATH10K_SNOC_WLAN_FW_READY_TIMEOUT));
 		if (ret) {
-			queue_work(ar->workqueue, &ar->restart_work);
+			if (ar_snoc->drv_state != ATH10K_DRIVER_STATE_PROBED)
+				queue_work(ar->workqueue, &ar->restart_work);
 		} else {
 			ath10k_err(ar, "restart failed, fw_ready timed out\n");
 			return NOTIFY_OK;
@@ -727,9 +728,21 @@ static int ath10k_snoc_driver_event_fw_ready_ind(struct ath10k *ar)
 {
 	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
 	struct ath10k_snoc_qmi_config *qmi_cfg = &ar_snoc->qmi_cfg;
+	int ret;
 
 	ath10k_dbg(ar, ATH10K_DBG_SNOC, "FW Ready event received.\n");
 	atomic_set(&qmi_cfg->fw_ready, 1);
+	if (ar_snoc->drv_state == ATH10K_DRIVER_STATE_PROBED) {
+		ret = ath10k_core_register(ar,
+					   ar_snoc->target_info.soc_version);
+		if (ret) {
+			ath10k_err(ar,
+				   "failed to register driver core: %d\n",
+				   ret);
+			return 0;
+		}
+		ar_snoc->drv_state = ATH10K_DRIVER_STATE_STARTED;
+	}
 	wake_up_all(&ath10k_fw_ready_wait_event);
 
 	return 0;
@@ -862,17 +875,14 @@ int ath10k_snoc_start_qmi_service(struct ath10k *ar)
 		goto out_destroy_wq;
 	}
 
-	if (!icnss_is_fw_ready()) {
-		ath10k_err(ar, "failed to get fw ready indication\n");
-		ret = -EFAULT;
-		goto err_fw_ready;
-	}
+	if (icnss_is_fw_ready())
+		atomic_set(&qmi_cfg->fw_ready, 1);
+	else
+		ath10k_err(ar, "FW ready indication not received yet\n");
 
-	atomic_set(&qmi_cfg->fw_ready, 1);
 	ath10k_dbg(ar, ATH10K_DBG_SNOC, "QMI service started successfully\n");
 	return 0;
 
-err_fw_ready:
 	qmi_svc_event_notifier_unregister(WLFW_SERVICE_ID_V01,
 					  WLFW_SERVICE_VERS_V01,
 					  WLFW_SERVICE_INS_ID_V01,
