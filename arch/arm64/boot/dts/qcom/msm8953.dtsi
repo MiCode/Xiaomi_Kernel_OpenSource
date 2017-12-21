@@ -129,13 +129,24 @@
 #include "msm8953-cpu.dtsi"
 #include "msm8953-pm.dtsi"
 #include "msm8953-bus.dtsi"
-
+#include "msm8953-coresight.dtsi"
 
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
+
+	dcc: dcc@b3000 {
+		compatible = "qcom,dcc";
+		reg = <0xb3000 0x1000>,
+		      <0xb4000 0x800>;
+		reg-names = "dcc-base", "dcc-ram-base";
+
+		clocks = <&clock_gcc clk_gcc_dcc_clk>;
+		clock-names = "apb_pclk";
+		qcom,save-reg;
+	};
 
 	apc_apm: apm@b111000 {
 		compatible = "qcom,msm8953-apm";
