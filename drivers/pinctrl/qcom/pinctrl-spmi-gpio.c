@@ -569,14 +569,6 @@ static int pmic_gpio_config_set(struct pinctrl_dev *pctldev, unsigned int pin,
 	if (ret < 0)
 		return ret;
 
-	val = PMIC_GPIO_MODE_DIGITAL_INPUT;
-	if (pad->output_enabled) {
-		if (pad->input_enabled)
-			val = PMIC_GPIO_MODE_DIGITAL_INPUT_OUTPUT;
-		else
-			val = PMIC_GPIO_MODE_DIGITAL_OUTPUT;
-	}
-
 	if (pad->dtest_buffer != INT_MAX) {
 		val = pad->dtest_buffer;
 		if (pad->lv_mv_type)
@@ -586,6 +578,14 @@ static int pmic_gpio_config_set(struct pinctrl_dev *pctldev, unsigned int pin,
 				PMIC_GPIO_REG_DIG_IN_CTL, val);
 		if (ret < 0)
 			return ret;
+	}
+
+	val = PMIC_GPIO_MODE_DIGITAL_INPUT;
+	if (pad->output_enabled) {
+		if (pad->input_enabled)
+			val = PMIC_GPIO_MODE_DIGITAL_INPUT_OUTPUT;
+		else
+			val = PMIC_GPIO_MODE_DIGITAL_OUTPUT;
 	}
 
 	if (pad->lv_mv_type) {
