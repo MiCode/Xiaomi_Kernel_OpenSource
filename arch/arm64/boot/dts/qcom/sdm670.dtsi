@@ -2386,7 +2386,7 @@
 
 	qcom,msm_fastrpc {
 		compatible = "qcom,msm-fastrpc-compute";
-		qcom,adsp-remoteheap-vmid = <37>;
+		qcom,adsp-remoteheap-vmid = <22 37>;
 
 		qcom,msm_fastrpc_compute_cb1 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
