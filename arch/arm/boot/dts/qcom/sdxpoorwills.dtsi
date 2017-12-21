@@ -727,3 +727,4 @@
 #include "sdxpoorwills-thermal.dtsi"
 #include "sdxpoorwills-audio.dtsi"
 #include "sdxpoorwills-ion.dtsi"
+#include "msm-arm-smmu-sdxpoorwills.dtsi"
