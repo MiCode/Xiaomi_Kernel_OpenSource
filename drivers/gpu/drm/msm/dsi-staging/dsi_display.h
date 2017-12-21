@@ -31,6 +31,7 @@
 #define MAX_DSI_CTRLS_PER_DISPLAY             2
 #define DSI_CLIENT_NAME_SIZE		20
 #define MAX_CMDLINE_PARAM_LEN	 512
+#define MAX_CMD_PAYLOAD_SIZE	256
 /*
  * DSI Validate Mode modifiers
  * @DSI_VALIDATE_FLAG_ALLOW_ADJUST:	Allow mode validation to also do fixup
@@ -534,6 +535,15 @@ int dsi_display_set_backlight(void *display, u32 bl_lvl);
  * @display:            Handle to display.
  */
 int dsi_display_check_status(void *display);
+
+/**
+ * dsi_display_cmd_transfer() - transfer command to the panel
+ * @display:            Handle to display.
+ * @cmd_buf:            Command buffer
+ * @cmd_buf_len:        Command buffer length in bytes
+ */
+int dsi_display_cmd_transfer(void *display, const char *cmd_buffer,
+		u32 cmd_buf_len);
 
 /**
  * dsi_display_soft_reset() - perform a soft reset on DSI controller
