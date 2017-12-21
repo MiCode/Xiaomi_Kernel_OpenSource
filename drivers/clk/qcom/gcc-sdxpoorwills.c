@@ -541,7 +541,10 @@ static struct clk_rcg2 gcc_cpuss_rbcpr_clk_src = {
 };
 
 static const struct freq_tbl ftbl_gcc_emac_clk_src[] = {
+	F(2500000, P_BI_TCXO, 1, 25, 192),
+	F(5000000, P_BI_TCXO, 1, 25, 96),
 	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(25000000, P_GPLL0_OUT_EVEN, 12, 0, 0),
 	F(50000000, P_GPLL0_OUT_EVEN, 6, 0, 0),
 	F(125000000, P_GPLL4_OUT_EVEN, 4, 0, 0),
 	F(250000000, P_GPLL4_OUT_EVEN, 2, 0, 0),
