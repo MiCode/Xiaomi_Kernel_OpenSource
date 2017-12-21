@@ -106,6 +106,7 @@ struct f_rndis_qc {
 	u8				port_num;
 	u16				cdc_filter;
 	bool				net_ready_trigger;
+	bool				use_wceis;
 };
 
 static struct ipa_usb_init_params rndis_ipa_params;
@@ -161,9 +162,9 @@ static struct usb_interface_descriptor rndis_qc_control_intf = {
 	/* .bInterfaceNumber = DYNAMIC */
 	/* status endpoint is optional; this could be patched later */
 	.bNumEndpoints =	1,
-	.bInterfaceClass =	USB_CLASS_WIRELESS_CONTROLLER,
-	.bInterfaceSubClass =   0x01,
-	.bInterfaceProtocol =   0x03,
+	.bInterfaceClass =	USB_CLASS_MISC,
+	.bInterfaceSubClass =   0x04,
+	.bInterfaceProtocol =   0x01, /* RNDIS over ethernet */
 	/* .iInterface = DYNAMIC */
 };
 
@@ -222,9 +223,9 @@ rndis_qc_iad_descriptor = {
 	.bDescriptorType =	USB_DT_INTERFACE_ASSOCIATION,
 	.bFirstInterface =	0, /* XXX, hardcoded */
 	.bInterfaceCount =	2, /* control + data */
-	.bFunctionClass =	USB_CLASS_WIRELESS_CONTROLLER,
-	.bFunctionSubClass =	0x01,
-	.bFunctionProtocol =	0x03,
+	.bFunctionClass =	USB_CLASS_MISC,
+	.bFunctionSubClass =	0x04,
+	.bFunctionProtocol =	0x01, /* RNDIS over ethernet */
 	/* .iFunction = DYNAMIC */
 };
 
@@ -935,6 +936,17 @@ rndis_qc_bind(struct usb_configuration *c, struct usb_function *f)
 		rndis_qc_iad_descriptor.iFunction = status;
 	}
 
+	if (rndis->use_wceis) {
+		rndis_qc_iad_descriptor.bFunctionClass =
+				USB_CLASS_WIRELESS_CONTROLLER;
+		rndis_qc_iad_descriptor.bFunctionSubClass = 0x01;
+		rndis_qc_iad_descriptor.bFunctionProtocol = 0x03;
+		rndis_qc_control_intf.bInterfaceClass =
+				USB_CLASS_WIRELESS_CONTROLLER;
+		rndis_qc_control_intf.bInterfaceSubClass = 0x1;
+		rndis_qc_control_intf.bInterfaceProtocol = 0x03;
+	}
+
 	/* allocate instance-specific interface IDs */
 	status = usb_interface_id(c, f);
 	if (status < 0)
@@ -1470,8 +1482,38 @@ static struct configfs_item_operations qcrndis_item_ops = {
 	.release        = qcrndis_attr_release,
 };
 
+
+static ssize_t qcrndis_wceis_show(struct config_item *item, char *page)
+{
+	struct f_rndis_qc	*rndis = to_f_qc_rndis_opts(item)->rndis;
+
+	return snprintf(page, PAGE_SIZE, "%d\n", rndis->use_wceis);
+}
+
+static ssize_t qcrndis_wceis_store(struct config_item *item,
+			const char *page, size_t len)
+{
+	struct f_rndis_qc	*rndis = to_f_qc_rndis_opts(item)->rndis;
+	bool val;
+
+	if (kstrtobool(page, &val))
+		return -EINVAL;
+
+	rndis->use_wceis = val;
+
+	return len;
+}
+
+CONFIGFS_ATTR(qcrndis_, wceis);
+
+static struct configfs_attribute *qcrndis_attrs[] = {
+	&qcrndis_attr_wceis,
+	NULL,
+};
+
 static struct config_item_type qcrndis_func_type = {
 	.ct_item_ops    = &qcrndis_item_ops,
+	.ct_attrs	= qcrndis_attrs,
 	.ct_owner       = THIS_MODULE,
 };
 
