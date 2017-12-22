@@ -153,6 +153,13 @@ struct sde_hw_ctl_ops {
 	int (*reset)(struct sde_hw_ctl *c);
 
 	/**
+	 * get_reset - check ctl reset status bit
+	 * @ctx    : ctl path ctx pointer
+	 * Returns: current value of ctl reset status
+	 */
+	u32 (*get_reset)(struct sde_hw_ctl *ctx);
+
+	/**
 	 * hard_reset - force reset on ctl_path
 	 * @ctx    : ctl path ctx pointer
 	 * @enable : whether to enable/disable hard reset
