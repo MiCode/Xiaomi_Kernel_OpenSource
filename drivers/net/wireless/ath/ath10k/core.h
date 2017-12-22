@@ -433,6 +433,7 @@ struct ath10k_vif {
 	struct cfg80211_bitrate_mask bitrate_mask;
 	struct wmi_ns_arp_offload_req arp_offload;
 	struct wmi_ns_arp_offload_req ns_offload;
+	struct wmi_gtk_rekey_data gtk_rekey_data;
 };
 
 struct ath10k_vif_iter {

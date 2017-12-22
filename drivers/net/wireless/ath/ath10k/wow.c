@@ -251,7 +251,7 @@ ath10k_wow_fill_vdev_arp_offload_struct(struct ath10k_vif *arvif,
 	arp->offload_type = __cpu_to_le16(WMI_IPV4_ARP_REPLY_OFFLOAD);
 	arp->enable_offload = __cpu_to_le16(WMI_ARP_NS_OFFLOAD_ENABLE);
 	for (ifa = in_dev->ifa_list; ifa; ifa = ifa->ifa_next) {
-		if (!strcmp(ifa->ifa_label, wdev->netdev->name)) {
+		if (!memcmp(ifa->ifa_label, wdev->netdev->name, IFNAMSIZ)) {
 			offload_params_found = true;
 			break;
 		}
@@ -259,8 +259,9 @@ ath10k_wow_fill_vdev_arp_offload_struct(struct ath10k_vif *arvif,
 
 	if (!offload_params_found)
 		return -ENODEV;
+	memcpy(&arp->params.ipv4_addr, &ifa->ifa_local,
+	       sizeof(arp->params.ipv4_addr));
 
-	memcpy(&arp->params.ipv4_addr, &ifa->ifa_local, 4);
 	return 0;
 }
 
@@ -319,6 +320,56 @@ static int ath10k_config_wow_listen_interval(struct ath10k *ar)
 	return 0;
 }
 
+void ath10k_wow_op_set_rekey_data(struct ieee80211_hw *hw,
+				  struct ieee80211_vif *vif,
+				  struct cfg80211_gtk_rekey_data *data)
+{
+	struct ath10k *ar = hw->priv;
+	struct ath10k_vif *arvif = ath10k_vif_to_arvif(vif);
+
+	mutex_lock(&ar->conf_mutex);
+	memcpy(&arvif->gtk_rekey_data.kek, data->kek, NL80211_KEK_LEN);
+	memcpy(&arvif->gtk_rekey_data.kck, data->kck, NL80211_KCK_LEN);
+	arvif->gtk_rekey_data.replay_ctr =
+			__cpu_to_le64(*(__le64 *)data->replay_ctr);
+	arvif->gtk_rekey_data.valid = true;
+	mutex_unlock(&ar->conf_mutex);
+}
+
+static int ath10k_wow_config_gtk_offload(struct ath10k *ar, bool gtk_offload)
+{
+	struct ath10k_vif *arvif;
+	struct ieee80211_bss_conf *bss;
+	struct wmi_gtk_rekey_data *rekey_data;
+	int ret;
+
+	list_for_each_entry(arvif, &ar->arvifs, list) {
+		if (arvif->vdev_type != WMI_VDEV_TYPE_STA)
+			continue;
+
+		bss = &arvif->vif->bss_conf;
+		if (!arvif->is_up || !bss->assoc)
+			continue;
+
+		rekey_data = &arvif->gtk_rekey_data;
+		if (!rekey_data->valid)
+			continue;
+
+		if (gtk_offload)
+			rekey_data->enable_offload = WMI_GTK_OFFLOAD_ENABLE;
+		else
+			rekey_data->enable_offload = WMI_GTK_OFFLOAD_DISABLE;
+		ret = ath10k_wmi_gtk_offload(ar, arvif);
+		if (ret) {
+			ath10k_err(ar, "GTK offload failed for vdev_id: %d\n",
+				   arvif->vdev_id);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
 int ath10k_wow_op_suspend(struct ieee80211_hw *hw,
 			  struct cfg80211_wowlan *wowlan)
 {
@@ -333,10 +384,16 @@ int ath10k_wow_op_suspend(struct ieee80211_hw *hw,
 		goto exit;
 	}
 
+	ret = ath10k_wow_config_gtk_offload(ar, true);
+	if (ret) {
+		ath10k_warn(ar, "failed to enable GTK offload: %d\n", ret);
+		goto exit;
+	}
+
 	ret = ath10k_wow_enable_ns_arp_offload(ar, true);
 	if (ret) {
 		ath10k_warn(ar, "failed to enable ARP-NS offload: %d\n", ret);
-		goto exit;
+		goto disable_gtk_offload;
 	}
 
 	ret =  ath10k_wow_cleanup(ar);
@@ -383,6 +440,8 @@ cleanup:
 disable_ns_arp_offload:
 	ath10k_wow_enable_ns_arp_offload(ar, false);
 
+disable_gtk_offload:
+	ath10k_wow_config_gtk_offload(ar, false);
 exit:
 	mutex_unlock(&ar->conf_mutex);
 	return ret ? 1 : 0;
@@ -426,8 +485,14 @@ int ath10k_wow_op_resume(struct ieee80211_hw *hw)
 	}
 
 	ret = ath10k_wow_enable_ns_arp_offload(ar, false);
-	if (ret)
+	if (ret) {
 		ath10k_warn(ar, "failed to disable ARP-NS offload: %d\n", ret);
+		goto exit;
+	}
+
+	ret = ath10k_wow_config_gtk_offload(ar, false);
+	if (ret)
+		ath10k_warn(ar, "failed to disable GTK offload: %d\n", ret);
 
 exit:
 	if (ret) {

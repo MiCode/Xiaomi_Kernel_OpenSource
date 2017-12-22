@@ -165,6 +165,10 @@ static bool hdmi_edid_is_mode_supported(struct hdmi_edid_ctrl *edid_ctrl,
 		pclk > edid_ctrl->init_data.max_pclk_khz)
 		return false;
 
+	if ((out_format == MDP_Y_CBCR_H2V2) &&
+			!edid_ctrl->init_data.yc420_support)
+		return false;
+
 	return true;
 }
 

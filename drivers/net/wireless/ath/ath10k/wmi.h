@@ -2933,6 +2933,20 @@ struct wmi_arp_offload {
 	struct wmi_mac_addr target_mac;
 } __packed;
 
+/* GTK offload data structure */
+#define WMI_GTK_OFFLOAD_ENABLE_OPCODE	BIT(24)
+#define WMI_GTK_OFFLOAD_DISABLE_OPCODE	BIT(25)
+#define WMI_GTK_OFFLOAD_ENABLE	1
+#define WMI_GTK_OFFLOAD_DISABLE	0
+
+struct wmi_gtk_rekey_data {
+	bool valid;
+	bool enable_offload;
+	u8 kck[NL80211_KCK_LEN];
+	u8 kek[NL80211_KEK_LEN];
+	__le64 replay_ctr;
+} __packed;
+
 struct wmi_start_scan_tlvs {
 	/* TLV parameters. These includes channel list, ssid list, bssid list,
 	 * extra ies.

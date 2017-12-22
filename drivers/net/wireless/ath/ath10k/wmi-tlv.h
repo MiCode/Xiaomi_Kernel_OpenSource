@@ -1567,6 +1567,14 @@ struct wmi_tlv_arp_ns_offload_cmd {
 	__le32 num_ns_ext_tuples;
 } __packed;
 
+struct wmi_tlv_gtk_offload_cmd {
+	__le32 vdev_id;
+	__le32 flags;
+	u8 kek[NL80211_KEK_LEN];
+	u8 kck[NL80211_KCK_LEN];
+	__le64 replay_ctr;
+} __packed;
+
 struct wmi_tlv_wow_host_wakeup_ind {
 	__le32 reserved;
 } __packed;
