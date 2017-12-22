@@ -201,6 +201,7 @@ static int cam_lrme_hw_dev_probe(struct platform_device *pdev)
 	lrme_hw_intf.hw_ops.read = NULL;
 	lrme_hw_intf.hw_ops.write = NULL;
 	lrme_hw_intf.hw_ops.process_cmd = cam_lrme_hw_process_cmd;
+	lrme_hw_intf.hw_ops.flush = cam_lrme_hw_flush;
 	lrme_hw_intf.hw_type = CAM_HW_LRME;
 
 	rc = cam_cdm_get_iommu_handle("lrmecdm", &lrme_core->cdm_iommu);

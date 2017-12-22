@@ -648,6 +648,86 @@ static int cam_lrme_mgr_hw_release(void *hw_mgr_priv, void *hw_release_args)
 	return rc;
 }
 
+static int cam_lrme_mgr_hw_flush(void *hw_mgr_priv, void *hw_flush_args)
+{	int rc = 0, i;
+	struct cam_lrme_hw_mgr *hw_mgr = hw_mgr_priv;
+	struct cam_hw_flush_args *args;
+	struct cam_lrme_device *hw_device;
+	struct cam_lrme_frame_request *frame_req = NULL, *req_to_flush = NULL;
+	struct cam_lrme_frame_request **req_list = NULL;
+	uint32_t device_index;
+	struct cam_lrme_hw_flush_args lrme_flush_args;
+	uint32_t priority;
+
+	if (!hw_mgr_priv || !hw_flush_args) {
+		CAM_ERR(CAM_LRME, "Invalid args %pK %pK",
+			hw_mgr_priv, hw_flush_args);
+		return -EINVAL;
+	}
+
+	args = (struct cam_hw_flush_args *)hw_flush_args;
+	device_index = ((uint64_t)args->ctxt_to_hw_map & 0xF);
+	if (device_index >= hw_mgr->device_count) {
+		CAM_ERR(CAM_LRME, "Invalid device index %d", device_index);
+		return -EPERM;
+	}
+
+	rc = cam_lrme_mgr_util_get_device(hw_mgr, device_index, &hw_device);
+	if (rc) {
+		CAM_ERR(CAM_LRME, "Error in getting device %d", rc);
+		goto end;
+	}
+
+	req_list = (struct cam_lrme_frame_request **)args->flush_req_pending;
+	for (i = 0; i < args->num_req_pending; i++) {
+		frame_req = req_list[i];
+		memset(frame_req, 0x0, sizeof(*frame_req));
+		cam_lrme_mgr_util_put_frame_req(&hw_mgr->frame_free_list,
+			&frame_req->frame_list, &hw_mgr->free_req_lock);
+	}
+
+	req_list = (struct cam_lrme_frame_request **)args->flush_req_active;
+	for (i = 0; i < args->num_req_active; i++) {
+		frame_req = req_list[i];
+		priority = CAM_LRME_DECODE_PRIORITY(args->ctxt_to_hw_map);
+		spin_lock((priority == CAM_LRME_PRIORITY_HIGH) ?
+			&hw_device->high_req_lock :
+			&hw_device->normal_req_lock);
+		if (!list_empty(&frame_req->frame_list)) {
+			list_del_init(&frame_req->frame_list);
+			cam_lrme_mgr_util_put_frame_req(
+				&hw_mgr->frame_free_list,
+				&frame_req->frame_list,
+				&hw_mgr->free_req_lock);
+		} else
+			req_to_flush = frame_req;
+		spin_unlock((priority == CAM_LRME_PRIORITY_HIGH) ?
+			&hw_device->high_req_lock :
+			&hw_device->normal_req_lock);
+	}
+	if (!req_to_flush)
+		goto end;
+	if (hw_device->hw_intf.hw_ops.flush) {
+		lrme_flush_args.ctxt_to_hw_map = req_to_flush->ctxt_to_hw_map;
+		lrme_flush_args.flush_type = args->flush_type;
+		lrme_flush_args.req_to_flush = req_to_flush;
+		rc = hw_device->hw_intf.hw_ops.flush(hw_device->hw_intf.hw_priv,
+			&lrme_flush_args,
+			sizeof(lrme_flush_args));
+		if (rc) {
+			CAM_ERR(CAM_LRME, "Failed in HW Stop %d", rc);
+			goto end;
+		}
+	} else {
+		CAM_ERR(CAM_LRME, "No stop ops");
+		goto end;
+	}
+
+end:
+	return rc;
+}
+
+
 static int cam_lrme_mgr_hw_start(void *hw_mgr_priv, void *hw_start_args)
 {
 	int rc = 0;
@@ -1026,6 +1106,7 @@ int cam_lrme_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf,
 	hw_mgr_intf->hw_read = NULL;
 	hw_mgr_intf->hw_write = NULL;
 	hw_mgr_intf->hw_close = NULL;
+	hw_mgr_intf->hw_flush = cam_lrme_mgr_hw_flush;
 
 	g_lrme_hw_mgr.event_cb = cam_lrme_dev_buf_done_cb;
 

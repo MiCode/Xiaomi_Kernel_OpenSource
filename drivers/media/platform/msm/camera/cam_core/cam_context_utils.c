@@ -146,6 +146,7 @@ static void cam_context_sync_callback(int32_t sync_obj, int status, void *data)
 {
 	struct cam_ctx_request *req = data;
 	struct cam_context *ctx = NULL;
+	struct cam_flush_dev_cmd flush_cmd;
 	struct cam_req_mgr_apply_request apply;
 	int rc;
 
@@ -169,14 +170,22 @@ static void cam_context_sync_callback(int32_t sync_obj, int status, void *data)
 		 * in a critical section which is provided by this
 		 * mutex.
 		 */
+		if (status == CAM_SYNC_STATE_SIGNALED_ERROR) {
+			CAM_DBG(CAM_CTXT, "fence error: %d", sync_obj);
+			flush_cmd.req_id = req->request_id;
+			cam_context_flush_req_to_hw(ctx, &flush_cmd);
+			cam_context_putref(ctx);
+			return;
+		}
+
 		mutex_lock(&ctx->sync_mutex);
 		if (!req->flushed) {
 			cam_context_apply_req_to_hw(req, &apply);
 			mutex_unlock(&ctx->sync_mutex);
 		} else {
-			mutex_unlock(&ctx->sync_mutex);
-			req->ctx = NULL;
 			req->flushed = 0;
+			req->ctx = NULL;
+			mutex_unlock(&ctx->sync_mutex);
 			spin_lock(&ctx->lock);
 			list_del_init(&req->list);
 			list_add_tail(&req->list, &ctx->free_req_list);
@@ -413,6 +422,174 @@ end:
 	return rc;
 }
 
+int32_t cam_context_flush_ctx_to_hw(struct cam_context *ctx)
+{
+	struct cam_hw_flush_args flush_args;
+	struct list_head temp_list;
+	struct cam_ctx_request *req;
+	uint32_t i;
+	int rc = 0;
+
+	/*
+	 * flush pending requests, take the sync lock to synchronize with the
+	 * sync callback thread so that the sync cb thread does not try to
+	 * submit request to h/w while the request is being flushed
+	 */
+	mutex_lock(&ctx->sync_mutex);
+	INIT_LIST_HEAD(&temp_list);
+	spin_lock(&ctx->lock);
+	list_splice_init(&ctx->pending_req_list, &temp_list);
+	spin_unlock(&ctx->lock);
+	flush_args.num_req_pending = 0;
+	while (!list_empty(&temp_list)) {
+		req = list_first_entry(&temp_list,
+				struct cam_ctx_request, list);
+		list_del_init(&req->list);
+		req->flushed = 1;
+		flush_args.flush_req_pending[flush_args.num_req_pending++] =
+			req->req_priv;
+		for (i = 0; i < req->num_out_map_entries; i++)
+			if (req->out_map_entries[i].sync_id != -1)
+				cam_sync_signal(req->out_map_entries[i].sync_id,
+					CAM_SYNC_STATE_SIGNALED_ERROR);
+	}
+	mutex_unlock(&ctx->sync_mutex);
+
+	if (ctx->hw_mgr_intf->hw_flush) {
+		flush_args.num_req_active = 0;
+		spin_lock(&ctx->lock);
+		INIT_LIST_HEAD(&temp_list);
+		list_splice_init(&ctx->active_req_list, &temp_list);
+		list_for_each_entry(req, &temp_list, list) {
+			flush_args.flush_req_active[flush_args.num_req_active++]
+				= req->req_priv;
+		}
+		spin_unlock(&ctx->lock);
+
+		if (flush_args.num_req_pending || flush_args.num_req_active) {
+			flush_args.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
+			flush_args.flush_type = CAM_FLUSH_TYPE_ALL;
+			ctx->hw_mgr_intf->hw_flush(
+				ctx->hw_mgr_intf->hw_mgr_priv, &flush_args);
+		}
+	}
+
+	while (!list_empty(&temp_list)) {
+		req = list_first_entry(&temp_list,
+			struct cam_ctx_request, list);
+		list_del_init(&req->list);
+		for (i = 0; i < req->num_out_map_entries; i++)
+			if (req->out_map_entries[i].sync_id != -1) {
+				cam_sync_signal(req->out_map_entries[i].sync_id,
+					CAM_SYNC_STATE_SIGNALED_ERROR);
+			}
+
+		spin_lock(&ctx->lock);
+		list_add_tail(&req->list, &ctx->free_req_list);
+		spin_unlock(&ctx->lock);
+		req->ctx = NULL;
+	}
+	INIT_LIST_HEAD(&ctx->active_req_list);
+
+	return rc;
+}
+
+int32_t cam_context_flush_req_to_hw(struct cam_context *ctx,
+	struct cam_flush_dev_cmd *cmd)
+{
+	struct cam_ctx_request *req = NULL;
+	struct cam_hw_flush_args flush_args;
+	uint32_t i;
+	int rc = 0;
+
+	flush_args.num_req_pending = 0;
+	flush_args.num_req_active = 0;
+	mutex_lock(&ctx->sync_mutex);
+	spin_lock(&ctx->lock);
+	list_for_each_entry(req, &ctx->pending_req_list, list) {
+		if (req->request_id != cmd->req_id)
+			continue;
+
+		req->flushed = 1;
+		flush_args.flush_req_pending[flush_args.num_req_pending++] =
+			req->req_priv;
+		break;
+	}
+	spin_unlock(&ctx->lock);
+	mutex_unlock(&ctx->sync_mutex);
+
+	if (ctx->hw_mgr_intf->hw_flush) {
+		if (!flush_args.num_req_pending) {
+			spin_lock(&ctx->lock);
+			list_for_each_entry(req, &ctx->active_req_list, list) {
+				if (req->request_id != cmd->req_id)
+					continue;
+
+				flush_args.flush_req_active[
+					flush_args.num_req_active++] =
+					req->req_priv;
+				break;
+			}
+			spin_unlock(&ctx->lock);
+		}
+
+		if (flush_args.num_req_pending || flush_args.num_req_active) {
+			flush_args.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
+			flush_args.flush_type = CAM_FLUSH_TYPE_REQ;
+			ctx->hw_mgr_intf->hw_flush(
+				ctx->hw_mgr_intf->hw_mgr_priv, &flush_args);
+		}
+	}
+
+	if (req) {
+		if (flush_args.num_req_pending || flush_args.num_req_active) {
+			list_del_init(&req->list);
+			for (i = 0; i < req->num_out_map_entries; i++)
+				if (req->out_map_entries[i].sync_id != -1)
+					cam_sync_signal(
+						req->out_map_entries[i].sync_id,
+						CAM_SYNC_STATE_SIGNALED_ERROR);
+			spin_lock(&ctx->lock);
+			list_add_tail(&req->list, &ctx->free_req_list);
+			spin_unlock(&ctx->lock);
+			req->ctx = NULL;
+		}
+	}
+
+	return rc;
+}
+
+int32_t cam_context_flush_dev_to_hw(struct cam_context *ctx,
+	struct cam_flush_dev_cmd *cmd)
+{
+
+	int rc = 0;
+
+	if (!ctx || !cmd) {
+		CAM_ERR(CAM_CTXT, "Invalid input params %pK %pK", ctx, cmd);
+		rc = -EINVAL;
+		goto end;
+	}
+
+	if (!ctx->hw_mgr_intf) {
+		CAM_ERR(CAM_CTXT, "HW interface is not ready");
+		rc = -EFAULT;
+		goto end;
+	}
+
+	if (cmd->flush_type == CAM_FLUSH_TYPE_ALL)
+		rc = cam_context_flush_ctx_to_hw(ctx);
+	else if (cmd->flush_type == CAM_FLUSH_TYPE_REQ)
+		rc = cam_context_flush_req_to_hw(ctx, cmd);
+	else {
+		rc = -EINVAL;
+		CAM_ERR(CAM_CORE, "Invalid flush type %d", cmd->flush_type);
+	}
+
+end:
+	return rc;
+}
+
 int32_t cam_context_start_dev_to_hw(struct cam_context *ctx,
 	struct cam_start_stop_dev_cmd *cmd)
 {
@@ -457,10 +634,7 @@ end:
 int32_t cam_context_stop_dev_to_hw(struct cam_context *ctx)
 {
 	int rc = 0;
-	uint32_t i;
 	struct cam_hw_stop_args stop;
-	struct cam_ctx_request *req;
-	struct list_head temp_list;
 
 	if (!ctx) {
 		CAM_ERR(CAM_CTXT, "Invalid input param");
@@ -478,27 +652,11 @@ int32_t cam_context_stop_dev_to_hw(struct cam_context *ctx)
 	if (rc)
 		goto end;
 
-	/*
-	 * flush pending requests, take the sync lock to synchronize with the
-	 * sync callback thread so that the sync cb thread does not try to
-	 * submit request to h/w while the request is being flushed
-	 */
-	mutex_lock(&ctx->sync_mutex);
-	INIT_LIST_HEAD(&temp_list);
-	spin_lock(&ctx->lock);
-	list_splice_init(&ctx->pending_req_list, &temp_list);
-	spin_unlock(&ctx->lock);
-	while (!list_empty(&temp_list)) {
-		req = list_first_entry(&temp_list,
-				struct cam_ctx_request, list);
-		list_del_init(&req->list);
-		req->flushed = 1;
-		for (i = 0; i < req->num_out_map_entries; i++)
-			if (req->out_map_entries[i].sync_id != -1)
-				cam_sync_signal(req->out_map_entries[i].sync_id,
-					CAM_SYNC_STATE_SIGNALED_ERROR);
+	if (ctx->ctxt_to_hw_map) {
+		rc = cam_context_flush_ctx_to_hw(ctx);
+		if (rc)
+			goto end;
 	}
-	mutex_unlock(&ctx->sync_mutex);
 
 	/* stop hw first */
 	if (ctx->hw_mgr_intf->hw_stop) {
@@ -507,36 +665,6 @@ int32_t cam_context_stop_dev_to_hw(struct cam_context *ctx)
 			&stop);
 	}
 
-	/*
-	 * flush active queue, at this point h/w layer below does not have any
-	 * reference to requests in active queue.
-	 */
-	INIT_LIST_HEAD(&temp_list);
-	spin_lock(&ctx->lock);
-	list_splice_init(&ctx->active_req_list, &temp_list);
-	spin_unlock(&ctx->lock);
-
-	while (!list_empty(&temp_list)) {
-		req = list_first_entry(&temp_list,
-				struct cam_ctx_request, list);
-		list_del_init(&req->list);
-		CAM_DBG(CAM_CTXT, "signal fence in active list. fence num %d",
-			req->num_out_map_entries);
-		for (i = 0; i < req->num_out_map_entries; i++)
-			if (req->out_map_entries[i].sync_id != -1)
-				cam_sync_signal(req->out_map_entries[i].sync_id,
-					CAM_SYNC_STATE_SIGNALED_ERROR);
-		/*
-		 * The spin lock should be taken here to guard the free list,
-		 * as sync cb thread could be adding a pending req to free list
-		 */
-		spin_lock(&ctx->lock);
-		list_add_tail(&req->list, &ctx->free_req_list);
-		req->ctx = NULL;
-		spin_unlock(&ctx->lock);
-	}
-
 end:
 	return rc;
 }
-
