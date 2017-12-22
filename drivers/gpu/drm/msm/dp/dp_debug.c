@@ -345,12 +345,24 @@ static ssize_t dp_debug_read_connected(struct file *file,
 	return len;
 }
 
+static int dp_debug_check_buffer_overflow(int rc, int *max_size, int *len)
+{
+	if (rc >= *max_size) {
+		pr_err("buffer overflow\n");
+		return -EINVAL;
+	}
+	*len += rc;
+	*max_size = SZ_4K - *len;
+
+	return 0;
+}
+
 static ssize_t dp_debug_read_edid_modes(struct file *file,
 		char __user *user_buff, size_t count, loff_t *ppos)
 {
 	struct dp_debug_private *debug = file->private_data;
 	char *buf;
-	u32 len = 0;
+	u32 len = 0, ret = 0, max_size = SZ_4K;
 	int rc = 0;
 	struct drm_connector *connector;
 	struct drm_display_mode *mode;
@@ -380,12 +392,12 @@ static ssize_t dp_debug_read_edid_modes(struct file *file,
 
 	mutex_lock(&connector->dev->mode_config.mutex);
 	list_for_each_entry(mode, &connector->modes, head) {
-		len += snprintf(buf + len, SZ_4K - len,
-		"%s %d %d %d %d %d %d %d %d %d %d 0x%x\n",
+		ret = snprintf(buf + len, max_size,
+		"%s %d %d %d %d %d 0x%x\n",
 		mode->name, mode->vrefresh, mode->picture_aspect_ratio,
-		mode->hdisplay, mode->hsync_start, mode->hsync_end,
-		mode->htotal, mode->vdisplay, mode->vsync_start,
-		mode->vsync_end, mode->vtotal, mode->flags);
+		mode->htotal, mode->vtotal, mode->clock, mode->flags);
+		if (dp_debug_check_buffer_overflow(ret, &max_size, &len))
+			break;
 	}
 	mutex_unlock(&connector->dev->mode_config.mutex);
 
@@ -401,18 +413,6 @@ static ssize_t dp_debug_read_edid_modes(struct file *file,
 	return len;
 error:
 	return rc;
-}
-
-static int dp_debug_check_buffer_overflow(int rc, int *max_size, int *len)
-{
-	if (rc >= *max_size) {
-		pr_err("buffer overflow\n");
-		return -EINVAL;
-	}
-	*len += rc;
-	*max_size = SZ_4K - *len;
-
-	return 0;
 }
 
 static ssize_t dp_debug_read_info(struct file *file, char __user *user_buff,
