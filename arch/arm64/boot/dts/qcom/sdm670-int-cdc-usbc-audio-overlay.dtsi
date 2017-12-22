@@ -14,4 +14,5 @@
 &int_codec {
 	qcom,msm-mbhc-usbc-audio-supported = <1>;
 	qcom,usbc-analog-en1-gpio = <&wcd_usbc_analog_en1_gpio>;
+	qcom,us-euro-gpios = <&wcd_gnd_mic_swap_gpio>;
 };
