@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,6 +48,31 @@
 				};
 			};
 
+			uart1_console_active: uart1_console_active {
+				mux {
+					pins = "gpio20", "gpio21";
+					function = "blsp_uart6";
+				};
+
+				config {
+					pins = "gpio20", "gpio21";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			uart1_console_sleep: uart1_console_sleep {
+				mux {
+					pins = "gpio20", "gpio21";
+					function = "blsp_uart6";
+				};
+
+				config {
+					pins = "gpio20", "gpio21";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
 		};
 		cci {
 			cci0_active: cci0_active {
