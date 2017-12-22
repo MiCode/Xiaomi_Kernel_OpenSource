@@ -1726,27 +1726,27 @@ static int qpnp_rgb_set(struct qpnp_led_data *led)
 					rc);
 				return rc;
 			}
-			period_us = led->rgb_cfg->pwm_cfg->pwm_period_us;
-			if (period_us > INT_MAX / NSEC_PER_USEC) {
-				duty_us = (period_us * led->cdev.brightness) /
-					LED_FULL;
-				rc = pwm_config_us(
-					led->rgb_cfg->pwm_cfg->pwm_dev,
-					duty_us,
-					period_us);
-			} else {
-				duty_ns = ((period_us * NSEC_PER_USEC) /
-					LED_FULL) * led->cdev.brightness;
-				rc = pwm_config(
-					led->rgb_cfg->pwm_cfg->pwm_dev,
-					duty_ns,
-					period_us * NSEC_PER_USEC);
-			}
-			if (rc < 0) {
-				dev_err(&led->pdev->dev,
-					"pwm config failed\n");
-				return rc;
-			}
+		}
+		period_us = led->rgb_cfg->pwm_cfg->pwm_period_us;
+		if (period_us > INT_MAX / NSEC_PER_USEC) {
+			duty_us = (period_us * led->cdev.brightness) /
+				LED_FULL;
+			rc = pwm_config_us(
+				led->rgb_cfg->pwm_cfg->pwm_dev,
+				duty_us,
+				period_us);
+		} else {
+			duty_ns = ((period_us * NSEC_PER_USEC) /
+				LED_FULL) * led->cdev.brightness;
+			rc = pwm_config(
+				led->rgb_cfg->pwm_cfg->pwm_dev,
+				duty_ns,
+				period_us * NSEC_PER_USEC);
+		}
+		if (rc < 0) {
+			dev_err(&led->pdev->dev,
+				"pwm config failed\n");
+			return rc;
 		}
 		rc = qpnp_led_masked_write(led,
 			RGB_LED_EN_CTL(led->base),
