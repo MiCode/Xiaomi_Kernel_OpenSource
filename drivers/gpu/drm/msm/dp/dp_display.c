@@ -494,7 +494,8 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 	if (!dp->dp_display.connector)
 		return 0;
 
-	rc = dp->panel->read_sink_caps(dp->panel, dp->dp_display.connector);
+	rc = dp->panel->read_sink_caps(dp->panel,
+		dp->dp_display.connector, dp->usbpd->multi_func);
 	if (rc) {
 		if (rc == -ETIMEDOUT) {
 			pr_err("Sink cap read failed, skip notification\n");
