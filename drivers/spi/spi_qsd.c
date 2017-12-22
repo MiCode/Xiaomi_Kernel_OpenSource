@@ -552,7 +552,7 @@ static inline int msm_spi_set_state(struct msm_spi *dd,
 	}
 	if (msm_spi_wait_valid(dd))
 		return -EIO;
-
+	atomic_set(&dd->qup_state, state);
 	return 0;
 }
 
@@ -2040,6 +2040,33 @@ static ssize_t set_stats(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR(stats, S_IRUGO | S_IWUSR, show_stats, set_stats);
 
+static ssize_t show_qup_state(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = 0;
+	struct platform_device *pdev = container_of(dev, struct
+						platform_device, dev);
+	struct spi_master *master = platform_get_drvdata(pdev);
+	struct msm_spi *dd;
+
+	dd = spi_master_get_devdata(master);
+	/* This check should not fail */
+	if (dd)
+		ret = snprintf(buf, sizeof(int), "%u\n",
+				atomic_read(&dd->qup_state));
+	return ret;
+}
+
+static ssize_t set_qup_state(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	return 1;
+}
+
+static DEVICE_ATTR(spi_qup_state, S_IWUSR | S_IRUGO,
+			show_qup_state, set_qup_state);
+
 static struct attribute *dev_attrs[] = {
 	&dev_attr_stats.attr,
 	NULL,
@@ -2617,6 +2644,7 @@ static int msm_spi_probe(struct platform_device *pdev)
 	dd->mem_size = resource_size(resource);
 	dd->dev = &pdev->dev;
 
+	atomic_set(&dd->qup_state, SPI_OP_STATE_RESET);
 	if (pdata) {
 		master->rt = pdata->rt_priority;
 		if (pdata->dma_config) {
@@ -2690,6 +2718,7 @@ skip_dma_resources:
 		dev_err(&pdev->dev, "failed to create dev. attrs : %d\n", rc);
 		goto err_attrs;
 	}
+	rc = sysfs_create_file(&(dd->dev->kobj), &dev_attr_spi_qup_state.attr);
 	spi_debugfs_init(dd);
 
 	return 0;
@@ -2843,6 +2872,7 @@ static int msm_spi_remove(struct platform_device *pdev)
 
 	spi_debugfs_exit(dd);
 	sysfs_remove_group(&pdev->dev.kobj, &dev_attr_grp);
+	sysfs_remove_file(&pdev->dev.kobj, &dev_attr_spi_qup_state.attr);
 
 	if (dd->dma_teardown)
 		dd->dma_teardown(dd);
