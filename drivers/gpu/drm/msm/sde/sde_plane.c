@@ -1558,50 +1558,38 @@ static struct sde_crtc_res_ops fbo_res_ops = {
 	.get = _sde_plane_fbo_get,
 };
 
-/**
- * sde_plane_rot_calc_prefill - calculate rotator start prefill
- * @plane: Pointer to drm plane
- * return: prefill time in line
- */
-u32 sde_plane_rot_calc_prefill(struct drm_plane *plane)
+u32 sde_plane_rot_get_prefill(struct drm_plane *plane)
 {
 	struct drm_plane_state *state;
 	struct sde_plane_state *pstate;
 	struct sde_plane_rot_state *rstate;
 	struct sde_kms *sde_kms;
-	u32 blocksize = 128;
-	u32 prefill_line = 0;
+	u32 blocksize = 0;
 
 	if (!plane || !plane->state || !plane->state->fb) {
 		SDE_ERROR("invalid parameters\n");
 		return 0;
 	}
 
-	sde_kms = _sde_plane_get_kms(plane);
 	state = plane->state;
 	pstate = to_sde_plane_state(state);
 	rstate = &pstate->rot;
 
+	if (!rstate->out_fb_format)
+		return 0;
+
+	sde_kms = _sde_plane_get_kms(plane);
 	if (!sde_kms || !sde_kms->catalog) {
 		SDE_ERROR("invalid kms\n");
 		return 0;
 	}
 
-	if (rstate->out_fb_format)
-		sde_format_get_block_size(rstate->out_fb_format,
-				&blocksize, &blocksize);
+	/* return zero if out_fb_format isn't valid */
+	if (sde_format_get_block_size(rstate->out_fb_format,
+			&blocksize, &blocksize))
+		return 0;
 
-	prefill_line = blocksize + sde_kms->catalog->sbuf_headroom;
-	prefill_line = mult_frac(prefill_line, rstate->out_src_h >> 16,
-			state->crtc_h);
-	SDE_DEBUG(
-		"plane%d.%d blk:%u head:%u vdst/vsrc:%u/%u prefill:%u\n",
-			plane->base.id, rstate->sequence_id,
-			blocksize, sde_kms->catalog->sbuf_headroom,
-			state->crtc_h, rstate->out_src_h >> 16,
-			prefill_line);
-
-	return prefill_line;
+	return blocksize + sde_kms->catalog->sbuf_headroom;
 }
 
 /**
@@ -1937,6 +1925,7 @@ static int sde_plane_rot_submit_command(struct drm_plane *plane,
 	rot_cmd->dst_rect_y = 0;
 	rot_cmd->dst_rect_w = drm_rect_width(&rstate->out_rot_rect) >> 16;
 	rot_cmd->dst_rect_h = drm_rect_height(&rstate->out_rot_rect) >> 16;
+	rot_cmd->crtc_h = state->crtc_h;
 
 	if (hw_cmd == SDE_HW_ROT_CMD_COMMIT) {
 		struct sde_hw_fmt_layout layout;
