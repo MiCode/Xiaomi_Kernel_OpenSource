@@ -587,6 +587,10 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* SDM450 ID */
 	[338] = {MSM_CPU_SDM450, "SDM450"},
 
+	/* SDM632 ID */
+	[349] = {MSM_CPU_SDM632, "SDM632"},
+	[350] = {MSM_CPU_SDA632, "SDA632"},
+
 	/* Uninitialized IDs are not known to run Linux.
 	 * MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	 * considered as unknown CPU.
@@ -1468,6 +1472,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_sdm450()) {
 		dummy_socinfo.id = 338;
 		strlcpy(dummy_socinfo.build_id, "sdm450 - ",
+			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_sdm632()) {
+		dummy_socinfo.id = 349;
+		strlcpy(dummy_socinfo.build_id, "sdm632 - ",
 			sizeof(dummy_socinfo.build_id));
 	}
 
