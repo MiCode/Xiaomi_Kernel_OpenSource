@@ -918,6 +918,7 @@ struct sde_perf_cfg {
  * @ubwc_version       UBWC feature version (0x0 for not supported)
  * @has_sbuf           indicate if stream buffer is available
  * @sbuf_headroom      stream buffer headroom in lines
+ * @sbuf_prefill       stream buffer prefill default in lines
  * @has_idle_pc        indicate if idle power collapse feature is supported
  * @has_hdr            HDR feature support
  * @dma_formats        Supported formats for dma pipe
@@ -944,6 +945,7 @@ struct sde_mdss_cfg {
 	u32 ubwc_version;
 	bool has_sbuf;
 	u32 sbuf_headroom;
+	u32 sbuf_prefill;
 	bool has_idle_pc;
 	u32 vbif_qos_nlvl;
 	u32 ts_prefill_rev;
