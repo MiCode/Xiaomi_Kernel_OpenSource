@@ -2862,12 +2862,20 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 
 	sde_kms->rm_init = true;
 
+	sde_kms->hw_intr = sde_hw_intr_init(sde_kms->mmio, sde_kms->catalog);
+	if (IS_ERR_OR_NULL(sde_kms->hw_intr)) {
+		rc = PTR_ERR(sde_kms->hw_intr);
+		SDE_ERROR("hw_intr init failed: %d\n", rc);
+		sde_kms->hw_intr = NULL;
+		goto hw_intr_init_err;
+	}
+
 	/*
 	 * Attempt continuous splash handoff only if reserved
 	 * splash memory is found.
 	 */
 	if (sde_kms->splash_data.splash_base)
-		sde_rm_cont_splash_res_init(&sde_kms->rm,
+		sde_rm_cont_splash_res_init(priv, &sde_kms->rm,
 					&sde_kms->splash_data,
 					sde_kms->catalog);
 
@@ -2929,14 +2937,6 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	if (rc) {
 		SDE_ERROR("failed to init perf %d\n", rc);
 		goto perf_err;
-	}
-
-	sde_kms->hw_intr = sde_hw_intr_init(sde_kms->mmio, sde_kms->catalog);
-	if (IS_ERR_OR_NULL(sde_kms->hw_intr)) {
-		rc = PTR_ERR(sde_kms->hw_intr);
-		SDE_ERROR("hw_intr init failed: %d\n", rc);
-		sde_kms->hw_intr = NULL;
-		goto hw_intr_init_err;
 	}
 
 	/*

@@ -1061,6 +1061,27 @@ static void sde_hw_intr_get_interrupt_statuses(struct sde_hw_intr *intr)
 	spin_unlock_irqrestore(&intr->irq_lock, irq_flags);
 }
 
+static void sde_hw_intr_clear_intr_status_force_mask(struct sde_hw_intr *intr,
+						 int irq_idx, u32 irq_mask)
+{
+	int reg_idx;
+
+	if (!intr)
+		return;
+
+	if (irq_idx >= ARRAY_SIZE(sde_irq_map) || irq_idx < 0) {
+		pr_err("invalid IRQ index: [%d]\n", irq_idx);
+		return;
+	}
+
+	reg_idx = sde_irq_map[irq_idx].reg_idx;
+	SDE_REG_WRITE(&intr->hw, sde_intr_set[reg_idx].clr_off,
+			irq_mask);
+
+	/* ensure register writes go through */
+	wmb();
+}
+
 static void sde_hw_intr_clear_intr_status_nolock(struct sde_hw_intr *intr,
 		int irq_idx)
 {
@@ -1151,6 +1172,31 @@ static u32 sde_hw_intr_get_interrupt_status(struct sde_hw_intr *intr,
 	return intr_status;
 }
 
+static u32 sde_hw_intr_get_intr_status_nomask(struct sde_hw_intr *intr,
+		int irq_idx, bool clear)
+{
+	int reg_idx;
+	unsigned long irq_flags;
+	u32 intr_status;
+
+	if (!intr)
+		return 0;
+
+	if (irq_idx >= ARRAY_SIZE(sde_irq_map) || irq_idx < 0) {
+		pr_err("invalid IRQ index: [%d]\n", irq_idx);
+		return 0;
+	}
+
+	spin_lock_irqsave(&intr->irq_lock, irq_flags);
+
+	reg_idx = sde_irq_map[irq_idx].reg_idx;
+	intr_status = SDE_REG_READ(&intr->hw,
+			sde_intr_set[reg_idx].status_off);
+	spin_unlock_irqrestore(&intr->irq_lock, irq_flags);
+
+	return intr_status;
+}
+
 static void __setup_intr_ops(struct sde_hw_intr_ops *ops)
 {
 	ops->set_mask = sde_hw_intr_set_mask;
@@ -1166,8 +1212,11 @@ static void __setup_intr_ops(struct sde_hw_intr_ops *ops)
 	ops->get_interrupt_statuses = sde_hw_intr_get_interrupt_statuses;
 	ops->clear_interrupt_status = sde_hw_intr_clear_interrupt_status;
 	ops->clear_intr_status_nolock = sde_hw_intr_clear_intr_status_nolock;
+	ops->clear_intr_status_force_mask =
+				sde_hw_intr_clear_intr_status_force_mask;
 	ops->get_interrupt_status = sde_hw_intr_get_interrupt_status;
 	ops->get_intr_status_nolock = sde_hw_intr_get_intr_status_nolock;
+	ops->get_intr_status_nomask = sde_hw_intr_get_intr_status_nomask;
 }
 
 static struct sde_mdss_base_cfg *__intr_offset(struct sde_mdss_cfg *m,
