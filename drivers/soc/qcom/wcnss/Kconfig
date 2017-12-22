@@ -1,0 +1,39 @@
+config WCNSS_CORE
+	tristate "Qualcomm Technologies Inc. WCNSS CORE driver"
+	select WIRELESS_EXT
+	select WEXT_PRIV
+	select WEXT_CORE
+	select WEXT_SPY
+	help
+	  This module adds support for WLAN connectivity subsystem
+	  This module is responsible for communicating WLAN on/off
+	  Core driver for the Qualcomm Technologies Inc. WCNSS triple play
+	  connectivity subsystem, Enable WCNSS core platform driver
+	  for WLAN.
+
+config WCNSS_CORE_PRONTO
+	tristate "Qualcomm Technologies Inc. WCNSS Pronto Support"
+	depends on WCNSS_CORE
+	help
+	  Pronto Support for the Qualcomm Technologies Inc. WCNSS triple
+	  play connectivity subsystem, Enable WCNSS core platform driver
+	  for WLAN. This module adds support for WLAN connectivity subsystem
+	  This module is responsible for communicating WLAN on/off
+
+config WCNSS_REGISTER_DUMP_ON_BITE
+	bool "Enable/disable WCNSS register dump when there is a WCNSS bite"
+	depends on WCNSS_CORE_PRONTO
+	help
+	 When Apps receives a WDOG bite from WCNSS, collecting a register dump
+	 of WCNSS is helpful to root cause the failure. WCNSS may not be
+	 properly clocked in some WCNSS bite cases, and that may cause unclocked
+	 register access failures. So this feature is to enable/disable the
+	 register dump on WCNSS WDOG bite.
+
+config CNSS_CRYPTO
+	tristate "Enable CNSS crypto support"
+	help
+	  Add crypto support for the WLAN  driver module.
+	  This feature enable wlan driver to use the crypto APIs exported
+	  from cnss platform driver. This crypto APIs used to generate cipher
+	  key and add support for the WLAN driver module security protocol.
