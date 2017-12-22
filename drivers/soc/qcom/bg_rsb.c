@@ -43,9 +43,9 @@
 
 #define BGRSB_BGWEAR_SUBSYS "bg-wear"
 
+#define BGRSB_POWER_CALIBRATION 2
 #define BGRSB_POWER_ENABLE 1
 #define BGRSB_POWER_DISABLE 0
-
 
 struct bgrsb_regulator {
 	struct regulator *regldo11;
@@ -91,6 +91,8 @@ struct bgrsb_priv {
 	struct work_struct rsb_up_work;
 	struct work_struct rsb_down_work;
 
+	struct work_struct rsb_calibration_work;
+
 	struct work_struct glink_work;
 
 	struct workqueue_struct *bgrsb_event_wq;
@@ -113,6 +115,9 @@ struct bgrsb_priv {
 	struct device *ldev;
 
 	wait_queue_head_t link_state_wait;
+
+	uint32_t calbrtion_intrvl;
+	uint32_t calbrtion_cpi;
 };
 
 static void *bgrsb_drv;
@@ -160,65 +165,6 @@ static void bgrsb_glink_notify_state(void *handle, const void *priv,
 		dev->chnl_state = false;
 		break;
 	}
-}
-
-static int bgrsb_configr_rsb(struct bgrsb_priv *dev, bool enable)
-{
-	int rc = 0;
-	struct bgrsb_msg req = {0};
-	uint32_t resp = 0;
-
-	mutex_lock(&dev->glink_mutex);
-	init_completion(&dev->bg_resp_cmplt);
-	init_completion(&dev->tx_done);
-
-	rc = glink_queue_rx_intent(dev->handle,
-					(void *)dev, BGRSB_GLINK_INTENT_SIZE);
-
-	if (rc) {
-		pr_err("Failed to queue intent\n");
-		goto err_ret;
-	}
-
-	req.cmd_id = 0x01;
-	req.data = enable ? 0x01 : 0x00;
-
-
-	rc = glink_tx(dev->handle, (void *)dev, &req,
-					BGRSB_MSG_SIZE, GLINK_TX_REQ_INTENT);
-	if (rc) {
-		pr_err("Failed to send command\n");
-		goto err_ret;
-	}
-
-	rc = wait_for_completion_timeout(&dev->tx_done,
-						msecs_to_jiffies(TIMEOUT_MS*2));
-	if (!rc) {
-		pr_err("Timed out waiting sending command\n");
-		rc = -ETIMEDOUT;
-		goto err_ret;
-	}
-
-
-	rc = wait_for_completion_timeout(&dev->bg_resp_cmplt,
-						msecs_to_jiffies(TIMEOUT_MS));
-	if (!rc) {
-		pr_err("Timed out waiting for response\n");
-		rc = -ETIMEDOUT;
-		goto err_ret;
-	}
-
-	resp = *(uint32_t *)dev->rx_buf;
-	if (!(resp == 0x01)) {
-		pr_err("Bad RSB Configure response\n");
-		rc = -EINVAL;
-		goto err_ret;
-	}
-	rc = 0;
-
-err_ret:
-	mutex_unlock(&dev->glink_mutex);
-	return rc;
 }
 
 static void bgrsb_glink_notify_tx_done(void *handle, const void *priv,
@@ -405,6 +351,74 @@ static void bgrsb_bgdown_work(struct work_struct *work)
 	dev->bgrsb_current_state = BGRSB_STATE_INIT;
 }
 
+static int bgrsb_tx_msg(struct bgrsb_priv *dev, void  *msg, size_t len)
+{
+	int rc = 0;
+	uint8_t resp = 0;
+
+	if (!dev->chnl_state)
+		return -ENODEV;
+
+	mutex_lock(&dev->glink_mutex);
+	init_completion(&dev->tx_done);
+	init_completion(&dev->bg_resp_cmplt);
+
+	rc = glink_queue_rx_intent(dev->handle,
+					(void *)dev, BGRSB_GLINK_INTENT_SIZE);
+
+	if (rc) {
+		pr_err("Failed to queue intent\n");
+		goto err_ret;
+	}
+
+	rc = glink_tx(dev->handle, (void *)dev, msg,
+					len, GLINK_TX_REQ_INTENT);
+	if (rc) {
+		pr_err("Failed to send command\n");
+		goto err_ret;
+	}
+
+	rc = wait_for_completion_timeout(&dev->tx_done,
+						msecs_to_jiffies(TIMEOUT_MS));
+	if (!rc) {
+		pr_err("Timed out waiting for Command to send\n");
+		rc = -ETIMEDOUT;
+		goto err_ret;
+	}
+
+	rc = wait_for_completion_timeout(&dev->bg_resp_cmplt,
+						msecs_to_jiffies(TIMEOUT_MS));
+	if (!rc) {
+		pr_err("Timed out waiting for response\n");
+		rc = -ETIMEDOUT;
+		goto err_ret;
+	}
+
+	resp = *(uint8_t *)dev->rx_buf;
+	if (!(resp == 0x01)) {
+		pr_err("Bad RSB response\n");
+		rc = -EINVAL;
+		goto err_ret;
+	}
+	rc = 0;
+
+err_ret:
+	mutex_unlock(&dev->glink_mutex);
+	return rc;
+}
+
+static int bgrsb_configr_rsb(struct bgrsb_priv *dev, bool enable)
+{
+	int rc = 0;
+	struct bgrsb_msg req = {0};
+
+	req.cmd_id = 0x01;
+	req.data = enable ? 0x01 : 0x00;
+
+	rc = bgrsb_tx_msg(dev, &req, BGRSB_MSG_SIZE);
+	return rc;
+}
+
 static void bgrsb_bgup_work(struct work_struct *work)
 {
 	int rc = 0;
@@ -415,7 +429,7 @@ static void bgrsb_bgup_work(struct work_struct *work)
 
 		rc = wait_event_timeout(dev->link_state_wait,
 				(dev->chnl_state == true),
-					msecs_to_jiffies(TIMEOUT_MS*4));
+					msecs_to_jiffies(TIMEOUT_MS*2));
 		if (rc == 0) {
 			pr_err("Glink channel connection time out\n");
 			return;
@@ -482,38 +496,6 @@ static int bgrsb_ssr_register(struct bgrsb_priv *dev)
 	return 0;
 }
 
-static int bgrsb_tx_msg(struct bgrsb_priv *dev, void  *msg, size_t len)
-{
-	int rc = 0;
-
-	if (!dev->chnl_state)
-		return -ENODEV;
-
-	mutex_lock(&dev->glink_mutex);
-	init_completion(&dev->tx_done);
-
-	rc = glink_tx(dev->handle, (void *)dev, msg,
-					len, GLINK_TX_REQ_INTENT);
-	if (rc) {
-		pr_err("Failed to send command\n");
-		goto err_ret;
-	}
-
-	rc = wait_for_completion_timeout(&dev->tx_done,
-						msecs_to_jiffies(TIMEOUT_MS));
-	if (!rc) {
-		pr_err("Timed out waiting for Command to send\n");
-		rc = -ETIMEDOUT;
-		goto err_ret;
-	}
-	rc = 0;
-
-err_ret:
-	mutex_unlock(&dev->glink_mutex);
-	return rc;
-}
-
-
 static void bgrsb_enable_rsb(struct work_struct *work)
 {
 	int rc = 0;
@@ -567,27 +549,102 @@ static void bgrsb_disable_rsb(struct work_struct *work)
 	}
 }
 
-static int store_enable(struct device *pdev, struct device_attribute *attr,
-		const char *buff, size_t count)
+static void bgrsb_calibration(struct work_struct *work)
 {
-	long pwr_st;
-	int ret;
-	struct bgrsb_priv *dev = dev_get_drvdata(pdev);
+	int rc = 0;
+	struct bgrsb_msg req = {0};
+	struct bgrsb_priv *dev =
+			container_of(work, struct bgrsb_priv,
+							rsb_calibration_work);
 
-	ret = kstrtol(buff, 10, &pwr_st);
+	req.cmd_id = 0x03;
+	req.data = dev->calbrtion_cpi;
+
+	rc = bgrsb_tx_msg(dev, &req, 5);
+	if (rc != 0) {
+		pr_err("Failed to send resolution value to BG\n");
+		return;
+	}
+
+	req.cmd_id = 0x04;
+	req.data = dev->calbrtion_intrvl;
+
+	rc = bgrsb_tx_msg(dev, &req, 5);
+	if (rc != 0) {
+		pr_err("Failed to send interval value to BG\n");
+		return;
+	}
+	pr_debug("RSB Calibbered\n");
+}
+
+static int split_bg_work(struct bgrsb_priv *dev, char *str)
+{
+	long val;
+	int ret;
+	char *tmp;
+
+	tmp = strsep(&str, ":");
+	if (!tmp)
+		return -EINVAL;
+
+	ret = kstrtol(tmp, 10, &val);
 	if (ret < 0)
 		return ret;
 
-	if (pwr_st == BGRSB_POWER_ENABLE) {
-		if (dev->bgrsb_current_state == BGRSB_STATE_RSB_ENABLED)
-			return 0;
-		queue_work(dev->bgrsb_wq, &dev->rsb_up_work);
-	} else if (pwr_st == BGRSB_POWER_DISABLE) {
+	switch (val) {
+	case BGRSB_POWER_DISABLE:
 		if (dev->bgrsb_current_state == BGRSB_STATE_RSB_CONFIGURED)
 			return 0;
 		queue_work(dev->bgrsb_wq, &dev->rsb_down_work);
+		break;
+	case BGRSB_POWER_ENABLE:
+		if (dev->bgrsb_current_state == BGRSB_STATE_RSB_ENABLED)
+			return 0;
+		queue_work(dev->bgrsb_wq, &dev->rsb_up_work);
+		break;
+	case BGRSB_POWER_CALIBRATION:
+		tmp = strsep(&str, ":");
+		if (!tmp)
+			return -EINVAL;
+
+		ret = kstrtol(tmp, 10, &val);
+		if (ret < 0)
+			return ret;
+
+		dev->calbrtion_intrvl = (uint32_t)val;
+
+		tmp = strsep(&str, ":");
+		if (!tmp)
+			return -EINVAL;
+
+		ret = kstrtol(tmp, 10, &val);
+		if (ret < 0)
+			return ret;
+
+		dev->calbrtion_cpi = (uint32_t)val;
+
+		queue_work(dev->bgrsb_wq, &dev->rsb_calibration_work);
+		break;
 	}
 	return 0;
+}
+
+static int store_enable(struct device *pdev, struct device_attribute *attr,
+		const char *buff, size_t count)
+{
+	int rc;
+	struct bgrsb_priv *dev = dev_get_drvdata(pdev);
+	char *arr = kstrdup(buff, GFP_KERNEL);
+
+	if (!arr)
+		goto err_ret;
+
+	rc = split_bg_work(dev, arr);
+	if (rc != 0)
+		pr_err("Not able to process request\n");
+
+err_ret:
+	return count;
 }
 
 static int show_enable(struct device *dev, struct device_attribute *attr,
@@ -640,6 +697,7 @@ static int bgrsb_init(struct bgrsb_priv *dev)
 	INIT_WORK(&dev->bg_down_work, bgrsb_bgdown_work);
 	INIT_WORK(&dev->rsb_up_work, bgrsb_enable_rsb);
 	INIT_WORK(&dev->rsb_down_work, bgrsb_disable_rsb);
+	INIT_WORK(&dev->rsb_calibration_work, bgrsb_calibration);
 
 	return 0;
 
@@ -771,7 +829,7 @@ static struct platform_driver bg_rsb_driver = {
 		.of_match_table = bg_rsb_of_match,
 	},
 	.probe          = bg_rsb_probe,
-	.remove         = bg_rsb_remove,
+	.remove		= bg_rsb_remove,
 	.resume		= bg_rsb_resume,
 	.suspend	= bg_rsb_suspend,
 };
