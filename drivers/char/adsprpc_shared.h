@@ -113,7 +113,7 @@ do {\
 
 struct remote_buf64 {
 	uint64_t pv;
-	int64_t len;
+	uint64_t len;
 };
 
 union remote_arg64 {
@@ -125,7 +125,7 @@ union remote_arg64 {
 
 struct remote_buf {
 	void *pv;		/* buffer pointer */
-	ssize_t len;		/* length of buffer */
+	size_t len;		/* length of buffer */
 };
 
 union remote_arg {
@@ -152,37 +152,37 @@ struct fastrpc_ioctl_invoke_attrs {
 
 struct fastrpc_ioctl_init {
 	uint32_t flags;		/* one of FASTRPC_INIT_* macros */
-	uintptr_t __user file;	/* pointer to elf file */
-	int32_t filelen;	/* elf file length */
+	uintptr_t file;		/* pointer to elf file */
+	uint32_t filelen;	/* elf file length */
 	int32_t filefd;		/* ION fd for the file */
-	uintptr_t __user mem;	/* mem for the PD */
-	int32_t memlen;		/* mem length */
+	uintptr_t mem;		/* mem for the PD */
+	uint32_t memlen;	/* mem length */
 	int32_t memfd;		/* ION fd for the mem */
 };
 
 struct fastrpc_ioctl_init_attrs {
 		struct fastrpc_ioctl_init init;
 		int attrs;
-		int siglen;
+		unsigned int siglen;
 };
 
 struct fastrpc_ioctl_munmap {
 	uintptr_t vaddrout;	/* address to unmap */
-	ssize_t size;		/* size */
+	size_t size;		/* size */
 };
 
 struct fastrpc_ioctl_mmap {
 	int fd;				/* ion fd */
 	uint32_t flags;			/* flags for dsp to map with */
-	uintptr_t __user *vaddrin;	/* optional virtual address */
-	ssize_t size;			/* size */
+	uintptr_t vaddrin;		/* optional virtual address */
+	size_t size;			/* size */
 	uintptr_t vaddrout;		/* dsps virtual address */
 };
 
 struct fastrpc_ioctl_perf {			/* kernel performance data */
-	uintptr_t __user data;
+	uintptr_t data;
 	uint32_t numkeys;
-	uintptr_t __user keys;
+	uintptr_t keys;
 };
 
 struct smq_null_invoke {
@@ -220,14 +220,15 @@ struct smq_invoke_rsp {
 static inline struct smq_invoke_buf *smq_invoke_buf_start(remote_arg64_t *pra,
 							uint32_t sc)
 {
-	int len = REMOTE_SCALARS_LENGTH(sc);
+	unsigned int len = REMOTE_SCALARS_LENGTH(sc);
+
 	return (struct smq_invoke_buf *)(&pra[len]);
 }
 
 static inline struct smq_phy_page *smq_phy_page_start(uint32_t sc,
 						struct smq_invoke_buf *buf)
 {
-	int nTotal = REMOTE_SCALARS_INBUFS(sc) + REMOTE_SCALARS_OUTBUFS(sc);
+	uint64_t nTotal = REMOTE_SCALARS_INBUFS(sc)+REMOTE_SCALARS_OUTBUFS(sc);
 	return (struct smq_phy_page *)(&buf[nTotal]);
 }
 
