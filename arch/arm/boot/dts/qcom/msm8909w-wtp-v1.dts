@@ -111,6 +111,14 @@
 	status = "okay";
 };
 
+&modem_adsp_mem {
+	reg = <0x0 0x88000000 0x0 0x05600000>;
+};
+
+&peripheral_mem {
+	reg = <0x0 0x8d600000 0x0 0x0500000>;
+};
+
 &i2c_1 {
 	status = "disabled";
 };
