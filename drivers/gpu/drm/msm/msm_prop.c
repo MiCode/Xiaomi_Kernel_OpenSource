@@ -418,24 +418,29 @@ int msm_property_atomic_set(struct msm_property_info *info,
 	} else {
 		/* extra handling for incoming properties */
 		mutex_lock(&info->property_lock);
-		if (val && (property->flags & DRM_MODE_PROP_BLOB) &&
+		if ((property->flags & DRM_MODE_PROP_BLOB) &&
 			(property_idx < info->blob_count)) {
+
+			/* need to clear previous ref */
+			if (property_state->values[property_idx].blob)
+				drm_property_unreference_blob(
+					property_state->values[
+						property_idx].blob);
+
 			/* DRM lookup also takes a reference */
 			blob = drm_property_lookup_blob(info->dev,
 				(uint32_t)val);
-			if (!blob) {
+			if (val && !blob) {
 				DRM_ERROR("prop %d blob id 0x%llx not found\n",
 						property_idx, val);
 				val = 0;
 			} else {
-				DBG("Blob %u saved", blob->base.id);
-				val = blob->base.id;
+				if (blob) {
+					DBG("Blob %u saved", blob->base.id);
+					val = blob->base.id;
+				}
 
-				/* save blob - need to clear previous ref */
-				if (property_state->values[property_idx].blob)
-					drm_property_unreference_blob(
-						property_state->values[
-						property_idx].blob);
+				/* save the new blob */
 				property_state->values[property_idx].blob =
 					blob;
 			}

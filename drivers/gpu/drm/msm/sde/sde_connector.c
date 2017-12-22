@@ -1816,7 +1816,7 @@ int sde_connector_set_blob_data(struct drm_connector *conn,
 	struct sde_connector *c_conn = NULL;
 	struct sde_connector_state *sde_conn_state = NULL;
 	struct msm_mode_info mode_info;
-	struct drm_property_blob *blob = NULL;
+	struct drm_property_blob **blob = NULL;
 	int rc = 0;
 
 	c_conn = to_sde_connector(conn);
@@ -1860,7 +1860,7 @@ int sde_connector_set_blob_data(struct drm_connector *conn,
 			}
 		}
 
-		blob = c_conn->blob_caps;
+		blob = &c_conn->blob_caps;
 	break;
 	case CONNECTOR_PROP_MODE_INFO:
 		rc = sde_connector_populate_mode_info(conn, info);
@@ -1870,7 +1870,7 @@ int sde_connector_set_blob_data(struct drm_connector *conn,
 					rc);
 			goto exit;
 		}
-		blob = c_conn->blob_mode_info;
+		blob = &c_conn->blob_mode_info;
 	break;
 	default:
 		SDE_ERROR_CONN(c_conn, "invalid prop_id: %d\n", prop_id);
@@ -1878,7 +1878,7 @@ int sde_connector_set_blob_data(struct drm_connector *conn,
 	};
 
 	msm_property_set_blob(&c_conn->property_info,
-			&blob,
+			blob,
 			SDE_KMS_INFO_DATA(info),
 			SDE_KMS_INFO_DATALEN(info),
 			prop_id);
