@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,8 @@
 #include <linux/component.h>
 #include <linux/of_irq.h>
 #include <linux/hdcp_qseecom.h>
+
+#include "sde_connector.h"
 
 #include "msm_drv.h"
 #include "dp_usbpd.h"
@@ -1081,6 +1083,8 @@ static int dp_display_post_enable(struct dp_display *dp_display)
 		dp->hdcp_status = HDCP_STATE_AUTHENTICATING;
 		queue_delayed_work(dp->wq, &dp->hdcp_cb_work, HZ / 2);
 	}
+
+	dp->panel->setup_hdr(dp->panel, NULL);
 end:
 	/* clear framework event notifier */
 	dp_display->post_open = NULL;
@@ -1125,6 +1129,8 @@ end:
 static int dp_display_disable(struct dp_display *dp_display)
 {
 	struct dp_display_private *dp;
+	struct drm_connector *connector;
+	struct sde_connector_state *c_state;
 
 	if (!dp_display) {
 		pr_err("invalid input\n");
@@ -1132,6 +1138,8 @@ static int dp_display_disable(struct dp_display *dp_display)
 	}
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
+	connector = dp->dp_display.connector;
+	c_state = to_sde_connector_state(connector->state);
 
 	mutex_lock(&dp->session_lock);
 
@@ -1142,6 +1150,14 @@ static int dp_display_disable(struct dp_display *dp_display)
 
 	dp->ctrl->off(dp->ctrl);
 	dp->panel->deinit(dp->panel);
+
+	connector->hdr_eotf = 0;
+	connector->hdr_metadata_type_one = 0;
+	connector->hdr_max_luminance = 0;
+	connector->hdr_avg_luminance = 0;
+	connector->hdr_min_luminance = 0;
+
+	memset(&c_state->hdr_meta, 0, sizeof(c_state->hdr_meta));
 
 	dp->power_on = false;
 
@@ -1252,8 +1268,7 @@ static int dp_display_get_modes(struct dp_display *dp,
 	return ret;
 }
 
-
-static int dp_display_pre_kickoff(struct dp_display *dp_display,
+static int dp_display_config_hdr(struct dp_display *dp_display,
 			struct drm_msm_ext_hdr_metadata *hdr)
 {
 	int rc = 0;
@@ -1266,8 +1281,7 @@ static int dp_display_pre_kickoff(struct dp_display *dp_display,
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 
-	if (hdr->hdr_supported && dp->panel->hdr_supported(dp->panel))
-		rc = dp->panel->setup_hdr(dp->panel, hdr);
+	rc = dp->panel->setup_hdr(dp->panel, hdr);
 
 	return rc;
 }
@@ -1332,7 +1346,7 @@ static int dp_display_probe(struct platform_device *pdev)
 	g_dp_display->get_debug     = dp_get_debug;
 	g_dp_display->post_open     = dp_display_post_open;
 	g_dp_display->post_init     = dp_display_post_init;
-	g_dp_display->pre_kickoff   = dp_display_pre_kickoff;
+	g_dp_display->config_hdr    = dp_display_config_hdr;
 
 	rc = component_add(&pdev->dev, &dp_display_comp_ops);
 	if (rc) {

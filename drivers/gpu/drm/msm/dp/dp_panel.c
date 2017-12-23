@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -648,6 +648,7 @@ static int dp_panel_deinit_panel_info(struct dp_panel *dp_panel)
 {
 	int rc = 0;
 	struct dp_panel_private *panel;
+	struct dp_catalog_hdr_data *hdr;
 
 	if (!dp_panel) {
 		pr_err("invalid input\n");
@@ -655,11 +656,13 @@ static int dp_panel_deinit_panel_info(struct dp_panel *dp_panel)
 	}
 
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+	hdr = &panel->catalog->hdr_data;
 
 	if (!panel->custom_edid)
 		sde_free_edid((void **)&dp_panel->edid_ctrl);
 
 	memset(&dp_panel->pinfo, 0, sizeof(dp_panel->pinfo));
+	memset(&hdr->hdr_meta, 0, sizeof(hdr->hdr_meta));
 	panel->panel_on = false;
 
 	return rc;
@@ -706,30 +709,6 @@ static bool dp_panel_hdr_supported(struct dp_panel *dp_panel)
 		(panel->minor >= 4 || panel->vscext_supported);
 }
 
-static bool dp_panel_is_validate_hdr_state(struct dp_panel_private *panel,
-		struct drm_msm_ext_hdr_metadata *hdr_meta)
-{
-	struct drm_msm_ext_hdr_metadata *panel_hdr_meta =
-			&panel->catalog->hdr_data.hdr_meta;
-
-	if (!hdr_meta)
-		goto end;
-
-	/* bail out if HDR not active */
-	if (hdr_meta->hdr_state == HDR_DISABLED &&
-	    panel->hdr_state == HDR_DISABLED)
-		goto end;
-
-	/* bail out if same meta data is received */
-	if (hdr_meta->hdr_state == HDR_ENABLED &&
-		panel_hdr_meta->eotf == hdr_meta->eotf)
-		goto end;
-
-	return true;
-end:
-	return false;
-}
-
 static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
 		struct drm_msm_ext_hdr_metadata *hdr_meta)
 {
@@ -744,13 +723,17 @@ static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
 	}
 
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+	hdr = &panel->catalog->hdr_data;
 
-	if (!dp_panel_is_validate_hdr_state(panel, hdr_meta))
-		goto end;
+	/* use cached meta data in case meta data not provided */
+	if (!hdr_meta) {
+		if (hdr->hdr_meta.hdr_state)
+			goto cached;
+		else
+			goto end;
+	}
 
 	panel->hdr_state = hdr_meta->hdr_state;
-
-	hdr = &panel->catalog->hdr_data;
 
 	hdr->ext_header_byte0 = 0x00;
 	hdr->ext_header_byte1 = 0x04;
@@ -786,8 +769,9 @@ static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
 		memcpy(&hdr->hdr_meta, hdr_meta, sizeof(hdr->hdr_meta));
 	else
 		memset(&hdr->hdr_meta, 0, sizeof(hdr->hdr_meta));
-
-	panel->catalog->config_hdr(panel->catalog, panel->hdr_state);
+cached:
+	if (panel->panel_on)
+		panel->catalog->config_hdr(panel->catalog, panel->hdr_state);
 end:
 	return rc;
 }
