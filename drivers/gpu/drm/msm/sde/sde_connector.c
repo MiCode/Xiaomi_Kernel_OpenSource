@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -939,34 +939,38 @@ static int _sde_connector_set_ext_hdr_info(
 	struct sde_connector_state *c_state,
 	void *usr_ptr)
 {
+	int rc = 0;
 	struct drm_connector *connector;
 	struct drm_msm_ext_hdr_metadata *hdr_meta;
 	int i;
 
 	if (!c_conn || !c_state) {
 		SDE_ERROR_CONN(c_conn, "invalid args\n");
-		return -EINVAL;
+		rc = -EINVAL;
+		goto end;
 	}
 
 	connector = &c_conn->base;
 
 	if (!connector->hdr_supported) {
 		SDE_ERROR_CONN(c_conn, "sink doesn't support HDR\n");
-		return -ENOTSUPP;
+		rc = -ENOTSUPP;
+		goto end;
 	}
 
 	memset(&c_state->hdr_meta, 0, sizeof(c_state->hdr_meta));
 
 	if (!usr_ptr) {
 		SDE_DEBUG_CONN(c_conn, "hdr metadata cleared\n");
-		return 0;
+		goto end;
 	}
 
 	if (copy_from_user(&c_state->hdr_meta,
 		(void __user *)usr_ptr,
 			sizeof(*hdr_meta))) {
 		SDE_ERROR_CONN(c_conn, "failed to copy hdr metadata\n");
-		return -EFAULT;
+		rc = -EFAULT;
+		goto end;
 	}
 
 	hdr_meta = &c_state->hdr_meta;
@@ -989,7 +993,10 @@ static int _sde_connector_set_ext_hdr_info(
 				   hdr_meta->display_primaries_y[i]);
 	}
 
-	return 0;
+	if (c_conn->ops.config_hdr)
+		rc = c_conn->ops.config_hdr(c_conn->display, c_state);
+end:
+	return rc;
 }
 
 static int sde_connector_atomic_set_property(struct drm_connector *connector,
