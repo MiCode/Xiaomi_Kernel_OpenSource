@@ -363,6 +363,8 @@ void ipa2_active_clients_log_clear(void)
 static void ipa2_active_clients_log_destroy(void)
 {
 	ipa_ctx->ipa2_active_clients_logging.log_rdy = 0;
+	kfree(active_clients_table_buf);
+	active_clients_table_buf = NULL;
 	kfree(ipa_ctx->ipa2_active_clients_logging.log_buffer[0]);
 	ipa_ctx->ipa2_active_clients_logging.log_head = 0;
 	ipa_ctx->ipa2_active_clients_logging.log_tail =
@@ -3980,7 +3982,8 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		IPADBG("Skipping bus scaling registration on Virtual plat\n");
 	}
 
-	if (ipa2_active_clients_log_init())
+	result = ipa2_active_clients_log_init()
+	if (result)
 		goto fail_init_active_client;
 
 	/* get IPA clocks */
