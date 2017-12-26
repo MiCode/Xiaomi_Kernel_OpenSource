@@ -131,7 +131,6 @@
 				#size-cells = <0>;
 				qcom,psci-mode-shift = <0>;
 				qcom,psci-mode-mask = <0xf>;
-				qcom,use-prediction;
 				qcom,cpu = <&CPU6 &CPU7>;
 
 				qcom,pm-cpu-level@0 { /* C1 */
