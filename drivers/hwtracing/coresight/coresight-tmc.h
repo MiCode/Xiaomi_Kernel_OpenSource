@@ -189,6 +189,8 @@ struct tmc_drvdata {
 	enum tmc_mem_intf_width	memwidth;
 	u32			trigger_cntr;
 	u32			etr_caps;
+	struct coresight_csr	*csr;
+	const char		*csr_name;
 };
 
 struct etr_buf_operations {

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012,2017, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _LINUX_CORESIGHT_H
@@ -286,11 +286,16 @@ extern int of_coresight_get_cpu(const struct device_node *node);
 extern struct coresight_platform_data *
 of_get_coresight_platform_data(struct device *dev,
 			       const struct device_node *node);
+extern int of_get_coresight_csr_name(struct device_node *node,
+				const char **csr_name);
+
 #else
 static inline int of_coresight_get_cpu(const struct device_node *node)
 { return 0; }
 static inline struct coresight_platform_data *of_get_coresight_platform_data(
 	struct device *dev, const struct device_node *node) { return NULL; }
+static inline int of_get_coresight_csr_name(struct device_node *node,
+		const char **csr_name){ return -EINVAL; }
 #endif
 
 #endif
