@@ -840,6 +840,8 @@ static int spcom_close(struct spcom_channel *ch)
 	ch->glink_state = GLINK_LOCAL_DISCONNECTED;
 	ch->txn_id = INITIAL_TXN_ID; /* use non-zero nonce for debug */
 	ch->pid = 0;
+	ch->actual_rx_size = 0;
+	ch->glink_rx_buf = NULL;
 
 	pr_debug("Channel closed [%s].\n", ch->name);
 
@@ -940,8 +942,8 @@ static int spcom_rx(struct spcom_channel *ch,
 
 	/* check for already pending data */
 	if (ch->actual_rx_size) {
-		pr_debug("already pending data size [%zu]\n",
-			 ch->actual_rx_size);
+		pr_debug("already pending data size [%zu] ch [%s]\n",
+			 ch->actual_rx_size, ch->name);
 		goto copy_buf;
 	}
 
@@ -949,24 +951,27 @@ static int spcom_rx(struct spcom_channel *ch,
 	reinit_completion(&ch->rx_done);
 
 	/* Wait for Rx response */
-	pr_debug("Wait for Rx done.\n");
+	pr_debug("Wait for Rx done, ch [%s].\n", ch->name);
 	if (timeout_msec)
 		timeleft = wait_for_completion_timeout(&ch->rx_done, jiffies);
 	else
 		wait_for_completion(&ch->rx_done);
 
 	if (timeleft == 0) {
-		pr_err("rx_done timeout [%d] msec expired.\n", timeout_msec);
+		pr_err("rx_done timeout [%d] msec expired, ch [%s]\n",
+			timeout_msec, ch->name);
 		mutex_unlock(&ch->lock);
 		return -ETIMEDOUT;
 	} else if (ch->rx_abort) {
 		mutex_unlock(&ch->lock);
-		pr_err("rx_abort, probably remote side reset (SSR).\n");
+		pr_err("rx_abort, probably remote side reset (SSR), ch [%s].\n",
+			ch->name);
 		return -ERESTART; /* probably SSR */
 	} else if (ch->actual_rx_size) {
-		pr_debug("actual_rx_size is [%zu]\n", ch->actual_rx_size);
+		pr_debug("actual_rx_size is [%zu], ch [%s]\n",
+			ch->actual_rx_size, ch->name);
 	} else {
-		pr_err("actual_rx_size is zero.\n");
+		pr_err("actual_rx_size is zero, ch [%s].\n", ch->name);
 		goto exit_err;
 	}
 
@@ -980,7 +985,7 @@ copy_buf:
 	size = min_t(int, ch->actual_rx_size, size);
 	memcpy(buf, ch->glink_rx_buf, size);
 
-	pr_debug("copy size [%d].\n", (int) size);
+	pr_debug("copy size [%d] , ch [%s].\n", (int) size, ch->name);
 
 	/* free glink buffer after copy to spcom buffer */
 	glink_rx_done(ch->glink_handle, ch->glink_rx_buf, false);
@@ -993,7 +998,8 @@ copy_buf:
 		pr_err("glink_queue_rx_intent() failed, ret [%d]", ret);
 		goto exit_err;
 	} else {
-		pr_debug("queue rx_buf, size [%zu]\n", ch->rx_buf_size);
+		pr_debug("queue rx_buf, size [%zu], ch [%s]\n",
+			ch->rx_buf_size, ch->name);
 	}
 
 	mutex_unlock(&ch->lock);
