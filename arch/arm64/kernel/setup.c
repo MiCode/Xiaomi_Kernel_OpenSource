@@ -45,6 +45,7 @@
 #include <linux/efi.h>
 #include <linux/psci.h>
 #include <linux/dma-mapping.h>
+#include <linux/mm.h>
 
 #include <asm/acpi.h>
 #include <asm/fixmap.h>
@@ -212,10 +213,10 @@ static void __init request_standard_resources(void)
 	struct memblock_region *region;
 	struct resource *res;
 
-	kernel_code.start   = virt_to_phys(_text);
-	kernel_code.end     = virt_to_phys(__init_begin - 1);
-	kernel_data.start   = virt_to_phys(_sdata);
-	kernel_data.end     = virt_to_phys(_end - 1);
+	kernel_code.start   = __pa_symbol(_text);
+	kernel_code.end     = __pa_symbol(__init_begin - 1);
+	kernel_data.start   = __pa_symbol(_sdata);
+	kernel_data.end     = __pa_symbol(_end - 1);
 
 	for_each_memblock(memory, region) {
 		res = alloc_bootmem_low(sizeof(*res));
@@ -367,9 +368,9 @@ void __init setup_arch(char **cmdline_p)
 	 * thread.
 	 */
 #ifdef CONFIG_THREAD_INFO_IN_TASK
-	init_task.thread_info.ttbr0 = virt_to_phys(empty_zero_page);
+	init_task.thread_info.ttbr0 = __pa_symbol(empty_zero_page);
 #else
-	init_thread_info.ttbr0 = virt_to_phys(empty_zero_page);
+	init_thread_info.ttbr0 = __pa_symbol(empty_zero_page);
 #endif
 #endif
 

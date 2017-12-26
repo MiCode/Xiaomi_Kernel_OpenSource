@@ -1074,7 +1074,6 @@ static inline void *ufshcd_get_variant(struct ufs_hba *hba)
 	BUG_ON(!hba);
 	return hba->priv;
 }
-
 extern int ufshcd_runtime_suspend(struct ufs_hba *hba);
 extern int ufshcd_runtime_resume(struct ufs_hba *hba);
 extern int ufshcd_runtime_idle(struct ufs_hba *hba);
