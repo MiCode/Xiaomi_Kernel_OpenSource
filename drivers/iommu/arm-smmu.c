@@ -435,6 +435,7 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_NO_ASID_RETENTION	(1 << 5)
 #define ARM_SMMU_OPT_DISABLE_ATOS	(1 << 6)
 #define ARM_SMMU_OPT_MMU500_ERRATA1	(1 << 7)
+#define ARM_SMMU_OPT_STATIC_CB		(1 << 8)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 	enum arm_smmu_implementation	model;
@@ -561,6 +562,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_NO_ASID_RETENTION, "qcom,no-asid-retention" },
 	{ ARM_SMMU_OPT_DISABLE_ATOS, "qcom,disable-atos" },
 	{ ARM_SMMU_OPT_MMU500_ERRATA1, "qcom,mmu500-errata-1" },
+	{ ARM_SMMU_OPT_STATIC_CB, "qcom,enable-static-cb"},
 	{ 0, NULL},
 };
 
@@ -584,6 +586,8 @@ static int arm_smmu_alloc_cb(struct iommu_domain *domain,
 				struct arm_smmu_device *smmu,
 				struct device *dev);
 static struct iommu_gather_ops qsmmuv500_errata1_smmu_gather_ops;
+
+static bool arm_smmu_is_static_cb(struct arm_smmu_device *smmu);
 
 static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
 {
@@ -620,6 +624,11 @@ static bool is_iommu_pt_coherent(struct arm_smmu_domain *smmu_domain)
 		return smmu_domain->smmu->dev->archdata.dma_coherent;
 	else
 		return false;
+}
+
+static bool arm_smmu_is_static_cb(struct arm_smmu_device *smmu)
+{
+	return smmu->options & ARM_SMMU_OPT_STATIC_CB;
 }
 
 static bool arm_smmu_is_domain_secure(struct arm_smmu_domain *smmu_domain)
@@ -3540,7 +3549,7 @@ static int arm_smmu_alloc_cb(struct iommu_domain *domain,
 			cb = smmu->s2crs[idx].cbndx;
 	}
 
-	if (cb < 0) {
+	if (cb < 0 && !arm_smmu_is_static_cb(smmu)) {
 		mutex_unlock(&smmu->stream_map_mutex);
 		return __arm_smmu_alloc_bitmap(smmu->context_map,
 						smmu->num_s2_context_banks,
