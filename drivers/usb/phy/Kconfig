@@ -160,6 +160,16 @@ config USB_MSM_OTG
 	  This driver is not supported on boards like trout which
 	  has an external PHY.
 
+config USB_MSM_SSPHY
+        tristate "MSM SSUSB PHY Driver"
+	depends on ARCH_QCOM
+	select USB_PHY
+	help
+	  Enable this to support the SuperSpeed USB transceiver on MSM chips.
+	  This driver supports the PHY which uses the QSCRATCH-based register
+	  set for its control sequences, normally paired with newer DWC3-based
+	  SuperSpeed controllers.
+
 config USB_QCOM_8X16_PHY
 	tristate "Qualcomm APQ8016/MSM8916 on-chip USB PHY controller support"
 	depends on ARCH_QCOM || COMPILE_TEST
