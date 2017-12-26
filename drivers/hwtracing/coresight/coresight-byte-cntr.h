@@ -16,6 +16,7 @@ struct byte_cntr {
 	atomic_t		irq_cnt;
 	wait_queue_head_t	wq;
 	struct mutex		byte_cntr_lock;
+	struct coresight_csr		*csr;
 };
 
 extern void tmc_etr_byte_cntr_start(struct byte_cntr *byte_cntr_data);
