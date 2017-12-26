@@ -37,6 +37,11 @@ enum cnss_cc_src {
 	CNSS_SOURCE_USER
 };
 
+enum cnss_wlan_status {
+	CNSS_WLAN_LINK_DOWN,
+	CNSS_WLAN_SSR_FAIL
+};
+
 /* FW image files */
 struct cnss_fw_files {
 	char image_file[CNSS_MAX_FILE_NAME];
