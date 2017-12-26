@@ -189,6 +189,8 @@ struct tmc_drvdata {
 	bool			sticky_enable;
 	struct coresight_cti	*cti_flush;
 	struct coresight_cti	*cti_reset;
+	struct coresight_csr	*csr;
+	const char		*csr_name;
 	struct byte_cntr	*byte_cntr;
 };
 
