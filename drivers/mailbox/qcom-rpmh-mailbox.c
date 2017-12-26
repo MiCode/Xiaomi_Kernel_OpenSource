@@ -126,6 +126,7 @@ struct tcs_mbox {
 struct rsc_drv {
 	struct mbox_controller mbox;
 	const char *name;
+	unsigned long addr;
 	void __iomem *base; /* start address of the RSC's registers */
 	void __iomem *reg_base; /* start address for DRV specific register */
 	int drv_id;
@@ -148,7 +149,7 @@ struct rsc_drv {
 
 /* Log to IPC and Ftrace */
 #define log_send_msg(drv, m, n, i, a, d, c, t) do {			\
-	trace_rpmh_send_msg(drv->name, m, n, i, a, d, c, t);		\
+	trace_rpmh_send_msg(drv->name, drv->addr, m, n, i, a, d, c, t);	\
 	ipc_log_string(drv->ipc_log_ctx,				\
 		"send msg: m=%d n=%d msgid=0x%x addr=0x%x data=0x%x cmpl=%d trigger=%d", \
 		m, n, i, a, d, c, t);					\
@@ -1125,6 +1126,7 @@ static int rsc_drv_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
 		return -EINVAL;
+	drv->addr = res->start;
 	drv->base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(drv->base))
 		return PTR_ERR(drv->base);
