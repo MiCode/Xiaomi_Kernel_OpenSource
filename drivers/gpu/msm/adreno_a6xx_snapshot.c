@@ -241,7 +241,7 @@ static const unsigned int a6xx_vbif_ver_20xxxxxx_registers[] = {
 
 static const unsigned int a6xx_gbif_registers[] = {
 	/* GBIF */
-	0x3C00, 0X3C0B, 0X3C40, 0X3C47, 0X3CC0, 0X3CD1,
+	0x3C00, 0X3C0B, 0X3C40, 0X3C47, 0X3CC0, 0X3CD1, 0xE3A, 0xE3A,
 };
 
 static const unsigned int a6xx_gmu_gx_registers[] = {
