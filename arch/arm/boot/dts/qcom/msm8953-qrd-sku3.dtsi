@@ -102,6 +102,21 @@
 
 };
 
+&dsi_otm1911_fhd_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+
+};
+
+&dsi_r63350_ebbg_fhd_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+
+};
+
+&dsi_ili9885_boe_fhd_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+
+};
+
 &dsi_r69006_1080p_cmd {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };

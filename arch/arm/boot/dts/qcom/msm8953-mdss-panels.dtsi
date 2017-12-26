@@ -13,6 +13,7 @@
 #include "dsi-panel-nt35532-fhd-video.dtsi"
 #include "dsi-panel-nt35596-fhd-video.dtsi"
 #include "dsi-panel-nt35596-tianma-fhd-video.dtsi"
+#include "dsi-panel-otm1911-fhd-video.dtsi"
 #include "dsi-panel-sim-video.dtsi"
 #include "dsi-panel-sim-dualmipi-video.dtsi"
 #include "dsi-panel-sim-cmd.dtsi"
@@ -24,6 +25,8 @@
 #include "dsi-panel-r69006-1080p-video.dtsi"
 #include "dsi-panel-r69006-1080p-cmd.dtsi"
 #include "dsi-panel-truly-wuxga-video.dtsi"
+#include "dsi-panel-r63350-ebbg-fhd-video.dtsi"
+#include "dsi-panel-ili9885-boe-fhd-video.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -95,7 +98,29 @@
 		23 1a 08 09 05 03 04 a0];
 };
 
+&dsi_otm1911_fhd_vid {
+	qcom,mdss-dsi-panel-timings-8996 = [23 1E 07 08 05 03 04 a0
+		23 1E 07 08 05 03 04 a0
+		23 1E 07 08 05 03 04 a0
+		23 1E 07 08 05 03 04 a0
+		23 18 07 08 05 03 04 a0];
+};
 
+&dsi_r63350_ebbg_fhd_vid {
+	qcom,mdss-dsi-panel-timings-8996 = [24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1b 08 09 05 03 04 a0];
+};
+
+&dsi_ili9885_boe_fhd_vid {
+	qcom,mdss-dsi-panel-timings-8996 = [24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1B 08 09 05 03 04 a0];
+};
 
 &dsi_truly_1080_vid {
 	qcom,mdss-dsi-panel-timings-8996 = [23 1e 08 09 05 03 04 a0

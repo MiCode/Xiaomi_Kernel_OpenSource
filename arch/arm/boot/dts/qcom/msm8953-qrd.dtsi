@@ -205,9 +205,31 @@
 					20 21 22 24 26 28 29 2A 00 00
 					00 00 00 00 00 00 00 00 00 00
 					00 00 00 00 23 01];
-		};
-
+			goodix,cfg-group1 = [49 38 04 80 07 0A 3D 49 01 48
+					50 0F 50 41 03 65 00 00 00 00
+					00 00 0F 16 1A 23 14 87 27 DD
+					50 52 E7 07 E7 07 00 42 33 91
+					0A 00 00 00 00 83 C4 14 14 C8
+					02 3C 64 8F D0 03 05 1E 00 04
+					93 3F 00 8A 46 00 82 4D 00 7C
+					55 00 76 5F 00 76 18 38 60 00
+					F7 55 40 99 99 17 00 00 D1 00
+					00 00 00 00 00 02 00 00 05 28
+					00 00 00 00 00 28 64 00 00 00
+					00 50 0C 0B 0A 09 08 07 06 05
+					04 03 02 01 00 0D 0E 0F 10 11
+					12 13 14 15 16 17 18 19 1A FF
+					FF FF 29 28 24 22 20 1F 1E 0A
+					08 06 05 04 02 00 FF FF FF 00
+					00 00 00 00 00 00 00 00 28 32
+					3C 10 23 28 0F 00 00 00 00 00
+					00 00 0F 4B 00 00 00 00 00 00
+					1E 50 00 00 00 05 00 00 00 00
+					01 14 78 1A 19 3C 28 00 00 00
+					00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00 00 83 01];
 	};
+};
 
 	i2c@78b6000 { /* BLSP1 QUP3 */
 		aw2013@45 {
@@ -300,18 +322,17 @@
 &pmi8950_charger {
 	qcom,battery-data = <&qrd_batterydata>;
 	qcom,float-voltage-mv = <4400>;
-	qcom,thermal-mitigation = <3000 2500 2000 1500 1000 500 0>;
+	qcom,thermal-mitigation = <3000 2500 2000 2000 1000 500 0>;
 	status = "okay";
 };
 &pmi8950_fg {
 	qcom,battery-data = <&qrd_batterydata>;
 	qcom,thermal-coefficients = [c8 86 c1 50 d3 37];
 	qcom,cold-bat-decidegc = <0>;
-	qcom,cool-bat-decidegc = <100>;
-	qcom,warm-bat-decidegc = <500>;
+	qcom,cool-bat-decidegc = <150>;
+	qcom,warm-bat-decidegc = <450>;
 	qcom,hot-bat-decidegc = <550>;
 	qcom,bad-battery-detection-enable;
-	qcom,hold-soc-while-full;
 };
 
 &blsp1_uart0 {

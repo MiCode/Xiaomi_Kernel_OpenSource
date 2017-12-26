@@ -700,10 +700,10 @@ static int mdss_fb_blanking_mode_switch(struct msm_fb_data_type *mfd, int mode)
 	return 0;
 }
 
+extern char panel_name[MDSS_MAX_PANEL_LEN];
 static ssize_t mdss_fb_change_dispparam(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t len)
 {
-
 	struct dsi_panel_cmds *CABC_on_cmds_point;
 	struct dsi_panel_cmds *CABC_off_cmds_point;
 	struct dsi_panel_cmds *CE_on_cmds_point;
@@ -720,24 +720,35 @@ static ssize_t mdss_fb_change_dispparam(struct device *dev,
 	struct dsi_panel_cmds *PM7_cmds_point;
 	struct dsi_panel_cmds *PM8_cmds_point;
 
-	sscanf(buf, "%x",  &change_par_buf) ;
+	struct dsi_panel_cmds *CABC_on_fb_cmds_point;
+	struct dsi_panel_cmds *CE_on_fb_cmds_point;
+	struct dsi_panel_cmds *cold_gamma_fb_cmds_point;
+	struct dsi_panel_cmds *warm_gamma_fb_cmds_point;
 
-	CABC_on_cmds_point = &change_par_ctrl->CABC_on_cmds;
-	CABC_off_cmds_point = &change_par_ctrl->CABC_off_cmds;
-	CE_on_cmds_point = &change_par_ctrl->CE_on_cmds;
-	CE_off_cmds_point = &change_par_ctrl->CE_off_cmds;
-	cold_gamma_cmds_point = &change_par_ctrl->cold_gamma_cmds;
-	warm_gamma_cmds_point = &change_par_ctrl->warm_gamma_cmds;
-	default_gamma_cmds_point = &change_par_ctrl->default_gamma_cmds;
-	PM1_cmds_point = &change_par_ctrl->PM1_cmds;
-	PM2_cmds_point = &change_par_ctrl->PM2_cmds;
-	PM3_cmds_point = &change_par_ctrl->PM3_cmds;
-	PM4_cmds_point = &change_par_ctrl->PM4_cmds;
-	PM5_cmds_point = &change_par_ctrl->PM5_cmds;
-	PM6_cmds_point = &change_par_ctrl->PM6_cmds;
-	PM7_cmds_point = &change_par_ctrl->PM7_cmds;
-	PM8_cmds_point = &change_par_ctrl->PM8_cmds;
+	sscanf(buf, "%x", &change_par_buf) ;
 
+	CABC_on_cmds_point=&change_par_ctrl->CABC_on_cmds;
+	CABC_off_cmds_point=&change_par_ctrl->CABC_off_cmds;
+	CE_on_cmds_point=&change_par_ctrl->CE_on_cmds;
+	CE_off_cmds_point=&change_par_ctrl->CE_off_cmds;
+	cold_gamma_cmds_point=&change_par_ctrl->cold_gamma_cmds;
+	warm_gamma_cmds_point=&change_par_ctrl->warm_gamma_cmds;
+	default_gamma_cmds_point=&change_par_ctrl->default_gamma_cmds;
+	PM1_cmds_point=&change_par_ctrl->PM1_cmds;
+	PM2_cmds_point=&change_par_ctrl->PM2_cmds;
+	PM3_cmds_point=&change_par_ctrl->PM3_cmds;
+	PM4_cmds_point=&change_par_ctrl->PM4_cmds;
+	PM5_cmds_point=&change_par_ctrl->PM5_cmds;
+	PM6_cmds_point=&change_par_ctrl->PM6_cmds;
+	PM7_cmds_point=&change_par_ctrl->PM7_cmds;
+	PM8_cmds_point=&change_par_ctrl->PM8_cmds;
+
+	if (!strcmp(panel_name, "qcom,mdss_dsi_r63350_ebbg_fhd_video")) {
+		cold_gamma_fb_cmds_point = &change_par_ctrl->cold_gamma_fb_cmds;
+		warm_gamma_fb_cmds_point = &change_par_ctrl->warm_gamma_fb_cmds;
+		CABC_on_fb_cmds_point = &change_par_ctrl->CABC_on_fb_cmds;
+		CE_on_fb_cmds_point = &change_par_ctrl->CE_on_fb_cmds;
+	}
 	if ((change_par_buf >= 0x01) && (change_par_buf <= 0x0c)) {
 		LCM_effect[0] = change_par_buf;
 	} else if ((change_par_buf == 0x10) || (change_par_buf == 0xf0)) {
@@ -746,56 +757,85 @@ static ssize_t mdss_fb_change_dispparam(struct device *dev,
 		LCM_effect[2] = change_par_buf;
 	}
 
-	switch (change_par_buf) {
-	case 0x0001:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, warm_gamma_cmds_point, CMD_REQ_COMMIT);
-		break;
-	case 0x0002:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, default_gamma_cmds_point, CMD_REQ_COMMIT);
-		break;
-	case 0x0003:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, cold_gamma_cmds_point, CMD_REQ_COMMIT);
-		break;
+	if (!strcmp(panel_name, "qcom,mdss_dsi_r63350_ebbg_fhd_video")) {
+		switch (change_par_buf) {
+		case 0x0001:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, warm_gamma_fb_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0002:
+		{
+			mdss_dsi_panel_cmds_send(change_par_ctrl, default_gamma_cmds_point, CMD_REQ_COMMIT);
+			break;
+		}
+		case 0x0003:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, cold_gamma_fb_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0010:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, CE_on_fb_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x00f0:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, CE_off_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0100:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, CABC_on_fb_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0f00:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, CABC_off_cmds_point, CMD_REQ_COMMIT);
+			break;
+		}
 
-	case 0x0006:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, PM1_cmds_point, CMD_REQ_COMMIT);
-		break;
-	case 0x0007:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, PM2_cmds_point, CMD_REQ_COMMIT);
-		break;
-	case 0x0008:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, PM3_cmds_point, CMD_REQ_COMMIT);
-		break;
-	case 0x0009:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, PM4_cmds_point, CMD_REQ_COMMIT);
-		break;
-	case 0x000a:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, PM5_cmds_point, CMD_REQ_COMMIT);
-		break;
-	case 0x000b:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, PM6_cmds_point, CMD_REQ_COMMIT);
-		break;
-	case 0x000c:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, PM7_cmds_point, CMD_REQ_COMMIT);
-		break;
-	case 0x0005:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, PM8_cmds_point, CMD_REQ_COMMIT);
-		break;
-	case 0x0010:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, CE_on_cmds_point, CMD_REQ_COMMIT);
-		break;
-	case 0x00f0:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, CE_off_cmds_point, CMD_REQ_COMMIT);
-		break;
-	case 0x0100:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, CABC_on_cmds_point, CMD_REQ_COMMIT);
-		break;
-	case 0x0f00:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, CABC_off_cmds_point, CMD_REQ_COMMIT);
-		break;
+	} else {
+		switch (change_par_buf) {
+		case 0x0001:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, warm_gamma_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0002:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, default_gamma_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0003:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, cold_gamma_cmds_point, CMD_REQ_COMMIT);
+			break;
+
+		case 0x0006:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM1_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0007:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM2_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0008:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM3_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0009:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM4_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x000a:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM5_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x000b:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM6_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x000c:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM7_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0005:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM8_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0010:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, CE_on_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x00f0:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, CE_off_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0100:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, CABC_on_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0f00:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, CABC_off_cmds_point, CMD_REQ_COMMIT);
+			break;
+		}
 	}
 
-       return len;
+	return len;
 }
 
 static ssize_t mdss_fb_get_dispparam(struct device *dev,
@@ -805,7 +845,7 @@ static ssize_t mdss_fb_get_dispparam(struct device *dev,
 	int ret;
 
 	ret = scnprintf(buf, PAGE_SIZE, "%x%x%x\n",
-		LCM_effect[0] , LCM_effect[1] , LCM_effect[2]);
+		LCM_effect[0], LCM_effect[1], LCM_effect[2]);
 
 	return ret;
 }

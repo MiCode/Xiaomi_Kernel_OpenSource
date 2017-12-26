@@ -1674,10 +1674,16 @@ reinit:
 
 	if (oldcard) {
 		if (memcmp(cid, oldcard->raw_cid, sizeof(cid)) != 0) {
-			err = -ENOENT;
-			pr_err("%s: %s: CID memcmp failed %d\n",
+			if (oldcard->cid_ffu_flag) {
+				memcpy(oldcard->raw_cid, cid, sizeof(cid));
+				oldcard->cid_ffu_flag = 0;
+				pr_info("FFU update CID\n");
+			} else{
+				err = -ENOENT;
+				pr_err("%s: %s: CID memcmp failed %d\n",
 					mmc_hostname(host), __func__, err);
-			goto err;
+				goto err;
+			}
 		}
 
 		card = oldcard;

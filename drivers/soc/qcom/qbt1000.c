@@ -751,13 +751,14 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 	void __user *priv_arg = (void __user *)arg;
 	struct qbt1000_drvdata *drvdata;
 
+	drvdata = file->private_data;
+
 	if (IS_ERR(priv_arg)) {
 		dev_err(drvdata->dev, "%s: invalid user space pointer %lu\n",
 			__func__, arg);
 		return -EINVAL;
 	}
 
-	drvdata = file->private_data;
 	pm_runtime_get_sync(drvdata->dev);
 	mutex_lock(&drvdata->mutex);
 	if (((drvdata->sensor_conn_type == SPI) && (!drvdata->clock_state)) ||
@@ -787,8 +788,8 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 		if (rc == 0) {
 			g_app_buf_size = app.size;
 		} else {
-			dev_err(drvdata->dev, "%s: App %s failed to load\n",
-				__func__, app.name);
+			dev_err(drvdata->dev, "%s: Fingerprint Trusted App failed to load\n",
+				__func__);
 			goto end;
 		}
 

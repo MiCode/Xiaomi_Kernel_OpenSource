@@ -698,6 +698,7 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 	}
 }
 
+extern char panel_name[MDSS_MAX_PANEL_LEN];
 static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
@@ -719,6 +720,9 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 	struct dsi_panel_cmds *PM6_cmds_point;
 	struct dsi_panel_cmds *PM7_cmds_point;
 	struct dsi_panel_cmds *PM8_cmds_point;
+	struct dsi_panel_cmds *cold_gamma_slpout_cmds_point;
+	struct dsi_panel_cmds *warm_gamma_slpout_cmds_point;
+	struct dsi_panel_cmds *default_gamma_slpout_cmds_point;
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -748,80 +752,205 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 	if (on_cmds->cmd_cnt)
 		mdss_dsi_panel_cmds_send(ctrl, on_cmds, CMD_REQ_COMMIT);
 
-	 CABC_on_cmds_point = &change_par_ctrl->CABC_on_cmds;
-	CABC_off_cmds_point = &change_par_ctrl->CABC_off_cmds;
-	CE_on_cmds_point = &change_par_ctrl->CE_on_cmds;
-	CE_off_cmds_point = &change_par_ctrl->CE_off_cmds;
-	cold_gamma_cmds_point = &change_par_ctrl->cold_gamma_cmds;
-	warm_gamma_cmds_point = &change_par_ctrl->warm_gamma_cmds;
-	default_gamma_cmds_point = &change_par_ctrl->default_gamma_cmds;
-	PM1_cmds_point = &change_par_ctrl->PM1_cmds;
-	PM2_cmds_point = &change_par_ctrl->PM2_cmds;
-	PM3_cmds_point = &change_par_ctrl->PM3_cmds;
-	PM4_cmds_point = &change_par_ctrl->PM4_cmds;
-	PM5_cmds_point = &change_par_ctrl->PM5_cmds;
-	PM6_cmds_point = &change_par_ctrl->PM6_cmds;
-	PM7_cmds_point = &change_par_ctrl->PM7_cmds;
-	PM8_cmds_point = &change_par_ctrl->PM8_cmds;
+	CABC_on_cmds_point=&change_par_ctrl->CABC_on_cmds;
+	CABC_off_cmds_point=&change_par_ctrl->CABC_off_cmds;
+	CE_on_cmds_point=&change_par_ctrl->CE_on_cmds;
+	CE_off_cmds_point=&change_par_ctrl->CE_off_cmds;
+	cold_gamma_cmds_point=&change_par_ctrl->cold_gamma_cmds;
+	warm_gamma_cmds_point=&change_par_ctrl->warm_gamma_cmds;
+	default_gamma_cmds_point=&change_par_ctrl->default_gamma_cmds;
+	PM1_cmds_point=&change_par_ctrl->PM1_cmds;
+	PM2_cmds_point=&change_par_ctrl->PM2_cmds;
+	PM3_cmds_point=&change_par_ctrl->PM3_cmds;
+	PM4_cmds_point=&change_par_ctrl->PM4_cmds;
+	PM5_cmds_point=&change_par_ctrl->PM5_cmds;
+	PM6_cmds_point=&change_par_ctrl->PM6_cmds;
+	PM7_cmds_point=&change_par_ctrl->PM7_cmds;
+	PM8_cmds_point=&change_par_ctrl->PM8_cmds;
 
-	switch (LCM_effect[0]) {
-	case 0x0001:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, warm_gamma_cmds_point, CMD_REQ_COMMIT);
-		break;
-	case 0x0002:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, default_gamma_cmds_point, CMD_REQ_COMMIT);
-		break;
-	case 0x0003:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, cold_gamma_cmds_point, CMD_REQ_COMMIT);
-		break;
+	if (!strcmp(panel_name, "qcom,mdss_dsi_r63350_ebbg_fhd_video")) {
+		pr_err("yinchenyang mdss_dsi_panel.c :mdss_dsi_panel_on panel_name = %s \n", panel_name);
 
-	case 0x0006:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, PM1_cmds_point, CMD_REQ_COMMIT);
-		break;
-	case 0x0007:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, PM2_cmds_point, CMD_REQ_COMMIT);
-		break;
-	case 0x0008:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, PM3_cmds_point, CMD_REQ_COMMIT);
-		break;
-	case 0x0009:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, PM4_cmds_point, CMD_REQ_COMMIT);
-		break;
-	case 0x000a:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, PM5_cmds_point, CMD_REQ_COMMIT);
-		break;
-	case 0x000b:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, PM6_cmds_point, CMD_REQ_COMMIT);
-		break;
-	case 0x000c:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, PM7_cmds_point, CMD_REQ_COMMIT);
-		break;
-	case 0x0005:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, PM8_cmds_point, CMD_REQ_COMMIT);
-		break;
+		if (LCM_effect[0] == 0x0001) {
+			if (LCM_effect[1] == 0x0010) {
+				if (LCM_effect[2] == 0x0100)
+					mdss_dsi_panel_cmds_send(change_par_ctrl, PM1_cmds_point, CMD_REQ_COMMIT);
+				else if (LCM_effect[2] == 0x0f00)
+					mdss_dsi_panel_cmds_send(change_par_ctrl, PM2_cmds_point, CMD_REQ_COMMIT);
+			} else if (LCM_effect[1] == 0x00f0) {
+				if (LCM_effect[2] == 0x0100)
+					mdss_dsi_panel_cmds_send(change_par_ctrl, PM3_cmds_point, CMD_REQ_COMMIT);
+				else if (LCM_effect[2] == 0x0f00)
+					mdss_dsi_panel_cmds_send(change_par_ctrl, warm_gamma_cmds_point, CMD_REQ_COMMIT);
+			}
+		}
+
+		else if (LCM_effect[0] == 0x0002) {
+			if (LCM_effect[1] == 0x0010) {
+				if (LCM_effect[2] == 0x0100)
+					mdss_dsi_panel_cmds_send(change_par_ctrl, PM4_cmds_point, CMD_REQ_COMMIT);
+				else if (LCM_effect[2] == 0x0f00) {
+					mdss_dsi_panel_cmds_send(change_par_ctrl, default_gamma_cmds_point, CMD_REQ_COMMIT);
+					mdss_dsi_panel_cmds_send(change_par_ctrl, CE_on_cmds_point, CMD_REQ_COMMIT);
+				}
+			} else if (LCM_effect[1] == 0x00f0) {
+				if (LCM_effect[2] == 0x0100) {
+					mdss_dsi_panel_cmds_send(change_par_ctrl, default_gamma_cmds_point, CMD_REQ_COMMIT);
+					mdss_dsi_panel_cmds_send(change_par_ctrl, CABC_on_cmds_point, CMD_REQ_COMMIT);
+				} else if (LCM_effect[2] == 0x0f00)
+					mdss_dsi_panel_cmds_send(change_par_ctrl, PM8_cmds_point, CMD_REQ_COMMIT);
+			}
+		}
+
+		else if (LCM_effect[0] == 0x0003) {
+			if (LCM_effect[1] == 0x0010) {
+				if (LCM_effect[2] == 0x0100)
+					mdss_dsi_panel_cmds_send(change_par_ctrl, PM5_cmds_point, CMD_REQ_COMMIT);
+				else if (LCM_effect[2] == 0x0f00)
+					mdss_dsi_panel_cmds_send(change_par_ctrl, PM6_cmds_point, CMD_REQ_COMMIT);
+			} else if (LCM_effect[1] == 0x00f0) {
+				if (LCM_effect[2] == 0x0100)
+					mdss_dsi_panel_cmds_send(change_par_ctrl, PM7_cmds_point, CMD_REQ_COMMIT);
+				else if (LCM_effect[2] == 0x0f00)
+					mdss_dsi_panel_cmds_send(change_par_ctrl, cold_gamma_cmds_point, CMD_REQ_COMMIT);
+			}
+		}
+	} else if (!strcmp(panel_name, "qcom,mdss_dsi_ili9885_boe_fhd_video")) {
+		pr_err("yinchenyang mdss_dsi_panel.c :mdss_dsi_panel_on panel_name = %s \n", panel_name);
+
+		cold_gamma_slpout_cmds_point = &change_par_ctrl->cold_gamma_slpout_cmds;
+		warm_gamma_slpout_cmds_point = &change_par_ctrl->warm_gamma_slpout_cmds;
+		default_gamma_slpout_cmds_point = &change_par_ctrl->default_gamma_slpout_cmds;
+
+		switch (LCM_effect[0]) {
+		case 0x0001:
+		{
+			mdss_dsi_panel_cmds_send(change_par_ctrl, warm_gamma_cmds_point, CMD_REQ_COMMIT);
+			mdss_dsi_panel_cmds_send(change_par_ctrl, warm_gamma_slpout_cmds_point, CMD_REQ_COMMIT);
+			pr_err("yinchenyang mdss_dsi_panel.c: warm gamma \n");
+			break;
+		}
+		case 0x0002:
+		{
+			mdss_dsi_panel_cmds_send(change_par_ctrl, default_gamma_cmds_point, CMD_REQ_COMMIT);
+			mdss_dsi_panel_cmds_send(change_par_ctrl, default_gamma_slpout_cmds_point, CMD_REQ_COMMIT);
+			pr_err("yinchenyang mdss_dsi_panel.c: default gamma \n");
+			break;
+		}
+		case 0x0003:
+		{
+			mdss_dsi_panel_cmds_send(change_par_ctrl, cold_gamma_cmds_point, CMD_REQ_COMMIT);
+			mdss_dsi_panel_cmds_send(change_par_ctrl, cold_gamma_slpout_cmds_point, CMD_REQ_COMMIT);
+			pr_err("yinchenyang mdss_dsi_panel.c: cold gamma \n");
+			break;
+		}
+		case 0x0006:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM1_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0007:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM2_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0008:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM3_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0009:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM4_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x000a:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM5_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x000b:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM6_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x000c:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM7_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0005:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM8_cmds_point, CMD_REQ_COMMIT);
+			break;
+		}
+
+		switch (LCM_effect[1]) {
+		case 0x0010:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, CE_on_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x00f0:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, CE_off_cmds_point, CMD_REQ_COMMIT);
+			break;
+		}
+
+		switch (LCM_effect[2]) {
+		case 0x0100:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, CABC_on_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0f00:
+			if (LCM_effect[1] == 0x0010)
+				break;
+			else
+				mdss_dsi_panel_cmds_send(change_par_ctrl, CABC_off_cmds_point, CMD_REQ_COMMIT);
+			break;
+		}
+
+	} else {
+		switch (LCM_effect[0]) {
+		case 0x0001:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, warm_gamma_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0002:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, default_gamma_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0003:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, cold_gamma_cmds_point, CMD_REQ_COMMIT);
+			break;
+
+		case 0x0006:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM1_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0007:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM2_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0008:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM3_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0009:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM4_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x000a:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM5_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x000b:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM6_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x000c:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM7_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0005:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, PM8_cmds_point, CMD_REQ_COMMIT);
+			break;
+		}
+
+		switch (LCM_effect[1]) {
+		case 0x0010:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, CE_on_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x00f0:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, CE_off_cmds_point, CMD_REQ_COMMIT);
+			break;
+		}
+
+		switch (LCM_effect[2]) {
+		case 0x0100:
+			mdss_dsi_panel_cmds_send(change_par_ctrl, CABC_on_cmds_point, CMD_REQ_COMMIT);
+			break;
+		case 0x0f00:
+			if (LCM_effect[1] == 0x0010)
+				break;
+			else
+			mdss_dsi_panel_cmds_send(change_par_ctrl, CABC_off_cmds_point, CMD_REQ_COMMIT);
+			break;
+		}
+
 	}
-
-	switch (LCM_effect[1]) {
-	case 0x0010:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, CE_on_cmds_point, CMD_REQ_COMMIT);
-		break;
-	case 0x00f0:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, CE_off_cmds_point, CMD_REQ_COMMIT);
-		 break;
-	}
-
-	switch (LCM_effect[2]) {
-	case 0x0100:
-		mdss_dsi_panel_cmds_send(change_par_ctrl, CABC_on_cmds_point, CMD_REQ_COMMIT);
-		break;
-	case 0x0f00:
-		if (LCM_effect[1] == 0x0010)
-		break;
-		else
-		mdss_dsi_panel_cmds_send(change_par_ctrl, CABC_off_cmds_point, CMD_REQ_COMMIT);
-		break;
-	}
-
 
 	if (pinfo->compression_mode == COMPRESSION_DSC)
 		mdss_dsi_panel_dsc_pps_send(ctrl, pinfo);
@@ -1466,8 +1595,7 @@ static bool mdss_dsi_cmp_panel_reg_v2(struct mdss_dsi_ctrl_pdata *ctrl)
 
 	for (j = 0; j < ctrl->groups; ++j) {
 		for (i = 0; i < len; ++i) {
-
-	pr_err("return_buf=%x\n",
+			pr_err("return_buf=%x\n",
 			ctrl->return_buf[i]);
 	pr_err("status_value=%x\n",
 			ctrl->status_value[group + i]);
@@ -2552,6 +2680,27 @@ static int mdss_panel_parse_dt(struct device_node *np,
 
 	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->PM8_cmds,
 		"qcom,mdss-dsi-PM8-command", "qcom,mdss-dsi-PM8-command-state");
+
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->cold_gamma_fb_cmds,
+		"qcom,mdss-dsi-cold_gamma_fb-command", "qcom,mdss-dsi-cold_gamma_fb-command-state");
+
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->warm_gamma_fb_cmds,
+		"qcom,mdss-dsi-warm_gamma_fb-command", "qcom,mdss-dsi-warm_gamma_fb-command-state");
+
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->CE_on_fb_cmds,
+		"qcom,mdss-dsi-CE_on_fb-command", "qcom,mdss-dsi-CE_on_fb-command-state");
+
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->CABC_on_fb_cmds,
+		"qcom,mdss-dsi-CABC_on_fb-command", "qcom,mdss-dsi-CABC_on_fb-command-state");
+
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->cold_gamma_slpout_cmds,
+		"qcom,mdss-dsi-cold_slpout-command", "qcom,mdss-dsi-cold_slpout-command-state");
+
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->warm_gamma_slpout_cmds,
+		"qcom,mdss-dsi-warm_slpout-command", "qcom,mdss-dsi-warm_slpout-command-state");
+
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->default_gamma_slpout_cmds,
+		"qcom,mdss-dsi-default_slpout-command", "qcom,mdss-dsi-default_slpout-command-state");
 
 	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->off_cmds,
 		"qcom,mdss-dsi-off-command", "qcom,mdss-dsi-off-command-state");

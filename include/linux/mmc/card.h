@@ -428,6 +428,7 @@ struct mmc_card {
 	u8 *cached_ext_csd;
 	bool cmdq_init;
 	struct mmc_bkops_info bkops;
+	u8    cid_ffu_flag;
 };
 
 /*

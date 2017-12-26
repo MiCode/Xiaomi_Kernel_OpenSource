@@ -24,7 +24,6 @@
 #include "Test_FT5X46.h"
 #include "Config_FT5X46.h"
 
-
 /*******************************************************************************
 * Private constant and macro definitions using #define
 *******************************************************************************/
@@ -60,23 +59,22 @@ enum WaterproofType {
 * Static variables
 *******************************************************************************/
 
-static int m_RawData[TX_NUM_MAX][RX_NUM_MAX] = {{0, 0} };
+static int m_RawData[TX_NUM_MAX][RX_NUM_MAX] = {{0, 0}};
 static int m_iTempRawData[TX_NUM_MAX * RX_NUM_MAX] = {0};
 static unsigned char m_ucTempData[TX_NUM_MAX * RX_NUM_MAX*2] = {0};
-static bool m_bV3TP;
-
+static bool m_bV3TP = false;
 
 static char g_pStoreAllData[1024*80] = {0};
-static char *g_pTmpBuff;
-static char *g_pStoreMsgArea;
-static int g_lenStoreMsgArea;
-static char *g_pMsgAreaLine2;
-static int g_lenMsgAreaLine2;
-static char *g_pStoreDataArea;
-static int g_lenStoreDataArea;
-static unsigned char m_ucTestItemCode;
-static int m_iStartLine;
-static int m_iTestDataCount;
+static char *g_pTmpBuff = NULL;
+static char *g_pStoreMsgArea = NULL;
+static int g_lenStoreMsgArea = 0;
+static char *g_pMsgAreaLine2 = NULL;
+static int g_lenMsgAreaLine2 = 0;
+static char *g_pStoreDataArea = NULL;
+static int g_lenStoreDataArea = 0;
+static unsigned char m_ucTestItemCode = 0;
+static int m_iStartLine = 0;
+static int m_iTestDataCount = 0;
 
 /*******************************************************************************
 * Global variable or extern global variabls/functions
@@ -99,7 +97,6 @@ static void Save_Test_Data(int iData[TX_NUM_MAX][RX_NUM_MAX], int iArrayIndex, u
 static void InitStoreParamOfTestData(void);
 static void MergeAllTestData(void);
 static int AllocateMemory(void);
-static void FreeMemory(void);
 static void ShowRawData(void);
 static boolean GetTestCondition(int iTestType, unsigned char ucChannelValue);
 
@@ -122,12 +119,10 @@ boolean FT5X46_StartTest()
 	unsigned char ucDevice = 0;
 	int iItemCount = 0;
 
-
 	if (InitTest() < 0) {
 		bTestResult = false;
 		return bTestResult;
 	}
-
 
 	if (0 == g_TestItemNum)
 		bTestResult = false;
@@ -180,9 +175,7 @@ boolean FT5X46_StartTest()
 
 	}
 
-
 	FinishTest();
-
 
 	return bTestResult;
 }
@@ -212,7 +205,6 @@ static int InitTest(void)
 static void FinishTest(void)
 {
 	MergeAllTestData();
-	FreeMemory();
 }
 /************************************************************************
 * Name: FT5X46_get_test_data
@@ -267,7 +259,6 @@ unsigned char FT5X46_TestItem_EnterFactoryMode(void)
 		return ReCode;
 	}
 
-
 	ReCode = GetChannelNum();
 
 	ReCode = ReadReg(REG_PATTERN_5422, &chPattern);
@@ -308,8 +299,6 @@ unsigned char FT5X46_TestItem_RawDataTest(bool *bTestResult)
 	}
 
 
-
-
 	if (m_bV3TP) {
 		ReCode = ReadReg(REG_MAPPING_SWITCH, &strSwitch);
 		if (ReCode != ERROR_CODE_OK) {
@@ -326,7 +315,6 @@ unsigned char FT5X46_TestItem_RawDataTest(bool *bTestResult)
 		}
 	}
 
-
 	ReCode = ReadReg(REG_NORMALIZE_TYPE, &OriginValue);
 	if (ReCode != ERROR_CODE_OK) {
 		printk("\n Read  REG_NORMALIZE_TYPE error. Error Code: %d\n", ReCode);
@@ -342,7 +330,6 @@ unsigned char FT5X46_TestItem_RawDataTest(bool *bTestResult)
 			}
 		}
 
-
 		printk("\n=========Set Frequecy High\n");
 		ReCode = WriteReg(0x0A, 0x81);
 		if (ReCode != ERROR_CODE_OK) {
@@ -356,7 +343,6 @@ unsigned char FT5X46_TestItem_RawDataTest(bool *bTestResult)
 			printk("\n FIR State: ON error. Error Code: %d\n", ReCode);
 			goto TEST_ERR;
 		}
-
 
 		for (index = 0; index < 3; ++index) {
 			ReCode = GetRawData();
@@ -401,7 +387,6 @@ unsigned char FT5X46_TestItem_RawDataTest(bool *bTestResult)
 		}
 
 
-
 		if (g_stCfg_FT5X22_BasicThreshold.RawDataTest_SetLowFreq) {
 			printk("\n=========Set Frequecy Low\n");
 			ReCode = WriteReg(0x0A, 0x80);
@@ -410,8 +395,6 @@ unsigned char FT5X46_TestItem_RawDataTest(bool *bTestResult)
 				goto TEST_ERR;
 			}
 
-
-
 			printk("\n=========FIR State: OFF\n");
 			ReCode = WriteReg(0xFB, 0);
 			if (ReCode != ERROR_CODE_OK) {
@@ -419,7 +402,6 @@ unsigned char FT5X46_TestItem_RawDataTest(bool *bTestResult)
 				goto TEST_ERR;
 			}
 			SysDelay(100);
-
 			for (index = 0; index < 3; ++index) {
 				ReCode = GetRawData();
 			}
@@ -445,12 +427,8 @@ unsigned char FT5X46_TestItem_RawDataTest(bool *bTestResult)
 					}
 				}
 			}
-
 			Save_Test_Data(m_RawData, 0, g_ScreenSetParam.iTxNum, g_ScreenSetParam.iRxNum, 1);
 		}
-
-
-
 		if (g_stCfg_FT5X22_BasicThreshold.RawDataTest_SetHighFreq) {
 
 			printk("\n=========Set Frequecy High\n");
@@ -460,8 +438,6 @@ unsigned char FT5X46_TestItem_RawDataTest(bool *bTestResult)
 				goto TEST_ERR;
 			}
 
-
-
 			printk("\n=========FIR State: OFF\n");
 			ReCode = WriteReg(0xFB, 0);
 			if (ReCode != ERROR_CODE_OK) {
@@ -469,7 +445,6 @@ unsigned char FT5X46_TestItem_RawDataTest(bool *bTestResult)
 				goto TEST_ERR;
 			}
 			SysDelay(100);
-
 			for (index = 0; index < 3; ++index) {
 				ReCode = GetRawData();
 			}
@@ -510,7 +485,6 @@ unsigned char FT5X46_TestItem_RawDataTest(bool *bTestResult)
 		goto TEST_ERR;
 	}
 
-
 	if (m_bV3TP) {
 		ReCode = WriteReg(REG_MAPPING_SWITCH, strSwitch);
 		if (ReCode != ERROR_CODE_OK) {
@@ -518,7 +492,6 @@ unsigned char FT5X46_TestItem_RawDataTest(bool *bTestResult)
 			goto TEST_ERR;
 		}
 	}
-
 
 	if (btmpresult) {
 		*bTestResult = true;
@@ -562,14 +535,11 @@ unsigned char FT5X46_TestItem_SCapRawDataTest(bool *bTestResult)
 	int ibiggerValue = 0;
 
 	printk("\n\n==============================Test Item: -------- Scap RawData Test \n\n");
-
-
 	ReCode = EnterFactory();
 	if (ReCode != ERROR_CODE_OK) {
 		printk("\n\n// Failed to Enter factory Mode. Error Code: %d", ReCode);
 		goto TEST_ERR;
 	}
-
 
 	ReCode = ReadReg(REG_WATER_CHANNEL_SELECT, &wc_value);
 	if (ReCode != ERROR_CODE_OK) {
@@ -577,13 +547,11 @@ unsigned char FT5X46_TestItem_SCapRawDataTest(bool *bTestResult)
 		goto TEST_ERR;
 	}
 
-
 	ReCode = SwitchToNoMapping();
 	if (ReCode != ERROR_CODE_OK) {
 		printk("\n\n// Failed to SwitchToNoMapping. Error Code: %d", ReCode);
 		goto TEST_ERR;
 	}
-
 
 	ReCode = StartScan();
 	if (ReCode != ERROR_CODE_OK) {
@@ -592,7 +560,6 @@ unsigned char FT5X46_TestItem_SCapRawDataTest(bool *bTestResult)
 	}
 	for (i = 0; i < 3; i++) {
 		memset(m_iTempRawData, 0, sizeof(m_iTempRawData));
-
 
 		ByteNum = (g_ScreenSetParam.iTxNum + g_ScreenSetParam.iRxNum)*2;
 		ReCode = ReadRawData(0, 0xAC, ByteNum, m_iTempRawData);
@@ -604,7 +571,6 @@ unsigned char FT5X46_TestItem_SCapRawDataTest(bool *bTestResult)
 		memcpy(m_RawData[0+g_ScreenSetParam.iTxNum], m_iTempRawData, sizeof(int)*g_ScreenSetParam.iRxNum);
 		memcpy(m_RawData[1+g_ScreenSetParam.iTxNum], m_iTempRawData + g_ScreenSetParam.iRxNum, sizeof(int)*g_ScreenSetParam.iTxNum);
 
-
 		ByteNum = (g_ScreenSetParam.iTxNum + g_ScreenSetParam.iRxNum)*2;
 		ReCode = ReadRawData(0, 0xAB, ByteNum, m_iTempRawData);
 		if (ReCode != ERROR_CODE_OK) {
@@ -614,10 +580,6 @@ unsigned char FT5X46_TestItem_SCapRawDataTest(bool *bTestResult)
 		memcpy(m_RawData[2+g_ScreenSetParam.iTxNum], m_iTempRawData, sizeof(int)*g_ScreenSetParam.iRxNum);
 		memcpy(m_RawData[3+g_ScreenSetParam.iTxNum], m_iTempRawData + g_ScreenSetParam.iRxNum, sizeof(int)*g_ScreenSetParam.iTxNum);
 	}
-
-
-
-
 
 	bFlag = GetTestCondition(WT_NeedProofOnTest, wc_value);
 	if (g_stCfg_FT5X22_BasicThreshold.SCapRawDataTest_SetWaterproof_ON && bFlag) {
@@ -684,7 +646,6 @@ unsigned char FT5X46_TestItem_SCapRawDataTest(bool *bTestResult)
 		Save_Test_Data(m_RawData, g_ScreenSetParam.iTxNum+0, 2, ibiggerValue, 1);
 	}
 
-
 	bFlag = GetTestCondition(WT_NeedProofOffTest, wc_value);
 	if (g_stCfg_FT5X22_BasicThreshold.SCapRawDataTest_SetWaterproof_OFF && bFlag) {
 		iCount = 0;
@@ -727,7 +688,6 @@ unsigned char FT5X46_TestItem_SCapRawDataTest(bool *bTestResult)
 			Value = m_RawData[3+g_ScreenSetParam.iTxNum][i];
 			RawDataMin = g_stCfg_MCap_DetailThreshold.SCapRawDataTest_OFF_Min[1][i];
 			RawDataMax = g_stCfg_MCap_DetailThreshold.SCapRawDataTest_OFF_Max[1][i];
-
 			iAvg += Value;
 			if (iMax < Value)
 				iMax = Value;
@@ -750,7 +710,6 @@ unsigned char FT5X46_TestItem_SCapRawDataTest(bool *bTestResult)
 		ibiggerValue = g_ScreenSetParam.iTxNum > g_ScreenSetParam.iRxNum?g_ScreenSetParam.iTxNum:g_ScreenSetParam.iRxNum;
 		Save_Test_Data(m_RawData, g_ScreenSetParam.iTxNum+2, 2, ibiggerValue, 2);
 	}
-
 	if (m_bV3TP) {
 		ReCode = ReadReg(REG_MAPPING_SWITCH, &ucValue);
 		if (ReCode != ERROR_CODE_OK) {
@@ -767,14 +726,12 @@ unsigned char FT5X46_TestItem_SCapRawDataTest(bool *bTestResult)
 			}
 		}
 
-
 		ReCode = GetChannelNum();
 		if (ReCode != ERROR_CODE_OK) {
 			printk("\n GetChannelNum error. Error Code: %d\n", ReCode);
 			goto TEST_ERR;
 		}
 	}
-
 
 	if (btmpresult) {
 		*bTestResult = true;
@@ -800,7 +757,7 @@ TEST_ERR:
 ***********************************************************************/
 unsigned char FT5X46_TestItem_SCapCbTest(bool *bTestResult)
 {
-	int i, /* j, iOutNum, */index, Value, CBMin, CBMax;
+	int i, /* j,iOutNum,*/index, Value, CBMin, CBMax;
 	boolean bFlag = true;
 	unsigned char ReCode;
 	boolean btmpresult = true;
@@ -811,14 +768,11 @@ unsigned char FT5X46_TestItem_SCapCbTest(bool *bTestResult)
 	int ibiggerValue = 0;
 
 	printk("\n\n==============================Test Item: -----  Scap CB Test \n\n");
-
-
 	ReCode = EnterFactory();
 	if (ReCode != ERROR_CODE_OK) {
 		printk("\n\n// Failed to Enter factory Mode. Error Code: %d", ReCode);
 		goto TEST_ERR;
 	}
-
 
 	ReCode = ReadReg(REG_WATER_CHANNEL_SELECT, &wc_value);
 	if (ReCode != ERROR_CODE_OK) {
@@ -826,13 +780,11 @@ unsigned char FT5X46_TestItem_SCapCbTest(bool *bTestResult)
 		goto TEST_ERR;
 	}
 
-
 	bFlag = SwitchToNoMapping();
 	if (bFlag) {
 		printk("Failed to SwitchToNoMapping! ReCode = %d. \n", ReCode);
 		goto TEST_ERR;
 	}
-
 
 	ReCode = StartScan();
 	if (ReCode != ERROR_CODE_OK) {
@@ -844,7 +796,6 @@ unsigned char FT5X46_TestItem_SCapCbTest(bool *bTestResult)
 	for (i = 0; i < 3; i++) {
 		memset(m_RawData, 0, sizeof(m_RawData));
 		memset(m_ucTempData, 0, sizeof(m_ucTempData));
-
 
 		ReCode = WriteReg(REG_ScWorkMode, 1);
 		if (ReCode != ERROR_CODE_OK) {
@@ -876,7 +827,6 @@ unsigned char FT5X46_TestItem_SCapCbTest(bool *bTestResult)
 		for (index = 0; index < g_ScreenSetParam.iTxNum; ++index) {
 			m_RawData[1 + g_ScreenSetParam.iTxNum][index] = m_ucTempData[index + g_ScreenSetParam.iRxNum];
 		}
-
 
 		ReCode = WriteReg(REG_ScWorkMode, 0);
 		if (ReCode != ERROR_CODE_OK) {
@@ -1020,7 +970,6 @@ unsigned char FT5X46_TestItem_SCapCbTest(bool *bTestResult)
 		if (bFlag)
 			printk("SCap CB_Tx:  \n");
 		for (i = 0; bFlag && i < g_ScreenSetParam.iTxNum; i++) {
-
 			if (g_stCfg_MCap_DetailThreshold.InvalidNode_SC[1][i] == 0)
 				continue;
 			CBMin = g_stCfg_MCap_DetailThreshold.SCapCbTest_OFF_Min[1][i];
@@ -1050,7 +999,6 @@ unsigned char FT5X46_TestItem_SCapCbTest(bool *bTestResult)
 		ibiggerValue = g_ScreenSetParam.iTxNum > g_ScreenSetParam.iRxNum?g_ScreenSetParam.iTxNum:g_ScreenSetParam.iRxNum;
 		Save_Test_Data(m_RawData, g_ScreenSetParam.iTxNum+2, 2, ibiggerValue, 2);
 	}
-
 	if (m_bV3TP) {
 		ReCode = ReadReg(REG_MAPPING_SWITCH, &ucValue);
 		if (ReCode != ERROR_CODE_OK) {
@@ -1067,15 +1015,12 @@ unsigned char FT5X46_TestItem_SCapCbTest(bool *bTestResult)
 			}
 		}
 
-
 		ReCode = GetChannelNum();
 		if (ReCode != ERROR_CODE_OK) {
 			printk("\n GetChannelNum error. Error Code: %d\n", ReCode);
 			goto TEST_ERR;
 		}
 	}
-
-
 
 	if (btmpresult) {
 		*bTestResult = true;
@@ -1171,9 +1116,6 @@ unsigned char ReadRawData(unsigned char Freq, unsigned char LineNum, int ByteNum
 	int i, iReadNum;
 	unsigned short BytesNumInTestMode1 = 0;
 
-
-
-
 	iReadNum = ByteNum/342;
 
 	if (0 != (ByteNum%342))
@@ -1192,7 +1134,6 @@ unsigned char ReadRawData(unsigned char Freq, unsigned char LineNum, int ByteNum
 		goto READ_ERR;
 	}
 
-
 	I2C_wBuffer[0] = REG_RawBuf0;
 	if (ReCode == ERROR_CODE_OK) {
 		focal_msleep(10);
@@ -1207,7 +1148,7 @@ unsigned char ReadRawData(unsigned char Freq, unsigned char LineNum, int ByteNum
 		if (ReCode != ERROR_CODE_OK)
 			break;
 
-		if (i == iReadNum-1) {
+		if (i == iReadNum - 1) {
 			focal_msleep(10);
 			ReCode = Comm_Base_IIC_IO(NULL, 0, m_ucTempData+342*i, ByteNum-342*i);
 			if (ReCode != ERROR_CODE_OK) {
@@ -1229,10 +1170,6 @@ unsigned char ReadRawData(unsigned char Freq, unsigned char LineNum, int ByteNum
 	if (ReCode == ERROR_CODE_OK) {
 		for (i = 0; i < (ByteNum>>1); i++) {
 			pRevBuffer[i] = (m_ucTempData[i<<1]<<8)+m_ucTempData[(i<<1)+1];
-
-
-
-
 		}
 	}
 
@@ -1260,7 +1197,6 @@ unsigned char GetTxSC_CB(unsigned char index, unsigned char *pcbValue)
 		WriteReg(REG_ScCbAddrR, 0);
 		wBuffer[0] = REG_ScCbBuf0;
 		ReCode = Comm_Base_IIC_IO(wBuffer, 1, pcbValue, index-128);
-
 	}
 
 	return ReCode;
@@ -1274,12 +1210,18 @@ unsigned char GetTxSC_CB(unsigned char index, unsigned char *pcbValue)
 * Output: none
 * Return: none
 ***********************************************************************/
+static char pStoreMsgArea[1024 * 80] ;
+static char pMsgAreaLine2[1024 * 80] ;
+static char pStoreDataArea[1024 * 80];
+static char pTmpBuff[1024 * 16];
+
 static int AllocateMemory(void)
 {
-
+	printk("AllocateMemory changed\n");
 	g_pStoreMsgArea = NULL;
 	if (NULL == g_pStoreMsgArea) {
-		g_pStoreMsgArea = kmalloc(1024*80, GFP_ATOMIC);
+		memset(pStoreMsgArea, 0, sizeof(pStoreMsgArea));
+		g_pStoreMsgArea = pStoreMsgArea;
 		if (g_pStoreMsgArea == NULL) {
 			printk("lancelot g_pStoreMsgArea malloc error.\n");
 			goto ERR_0;
@@ -1287,7 +1229,8 @@ static int AllocateMemory(void)
 	}
 	g_pMsgAreaLine2 = NULL;
 	if (NULL == g_pMsgAreaLine2) {
-		g_pMsgAreaLine2 = kmalloc(1024*80, GFP_ATOMIC);
+		memset(pMsgAreaLine2, 0, sizeof(pMsgAreaLine2));
+		g_pMsgAreaLine2 = pMsgAreaLine2;
 		if (g_pMsgAreaLine2 == NULL) {
 			printk("lancelot g_pMsgAreaLine2 malloc error.\n");
 			goto ERR_1;
@@ -1295,7 +1238,8 @@ static int AllocateMemory(void)
 	}
 	g_pStoreDataArea = NULL;
 	if (NULL == g_pStoreDataArea) {
-		g_pStoreDataArea = kmalloc(1024*80, GFP_ATOMIC);
+		memset(pStoreDataArea, 0, sizeof(pStoreDataArea));
+		g_pStoreDataArea = pStoreDataArea;
 		if (g_pStoreDataArea == NULL) {
 			printk("lancelot g_pStoreDataArea malloc error.\n");
 			goto ERR_2;
@@ -1303,7 +1247,8 @@ static int AllocateMemory(void)
 	}
 	g_pTmpBuff = NULL;
 	if (NULL == g_pTmpBuff) {
-		g_pTmpBuff = kmalloc(1024*16, GFP_ATOMIC);
+		memset(pTmpBuff, 0, sizeof(pTmpBuff));
+		g_pTmpBuff = pTmpBuff;
 		if (g_pTmpBuff == NULL) {
 			printk("lancelot g_pTmpBuff malloc error.\n");
 			goto ERR_3;
@@ -1313,16 +1258,17 @@ static int AllocateMemory(void)
 	return 1;
 
 ERR_3:
-	kfree(g_pStoreDataArea);
 	g_pStoreDataArea = NULL;
+	printk("pTmpBuff fail\n");
 ERR_2:
-	kfree(g_pMsgAreaLine2);
 	g_pMsgAreaLine2 = NULL;
+	printk("pStoreDataArea fail\n");
 ERR_1:
-	kfree(g_pStoreMsgArea);
 	g_pStoreMsgArea = NULL;
+	printk("pMsgAreaLine fail\n");
 
 ERR_0:
+	printk("pStoreMsgArea fail\n");
 
 	return -EPERM;
 
@@ -1334,22 +1280,6 @@ ERR_0:
 * Output: none
 * Return: none
 ***********************************************************************/
-static void FreeMemory(void)
-{
-
-	if (NULL != g_pStoreMsgArea)
-		kfree(g_pStoreMsgArea);
-
-	if (NULL != g_pMsgAreaLine2)
-		kfree(g_pMsgAreaLine2);
-
-	if (NULL != g_pStoreDataArea)
-		kfree(g_pStoreDataArea);
-
-	if (NULL != g_pTmpBuff)
-		kfree(g_pTmpBuff);
-}
-
 /************************************************************************
 * Name: InitStoreParamOfTestData
 * Brief:  Init store param of test data
@@ -1359,16 +1289,9 @@ static void FreeMemory(void)
 ***********************************************************************/
 static void InitStoreParamOfTestData(void)
 {
-
-
 	g_lenStoreMsgArea = 0;
-
 	g_lenStoreMsgArea += sprintf(g_pStoreMsgArea, "ECC, 85, 170, IC Name, %s, IC Code, %x\n", g_strIcName,  g_ScreenSetParam.iSelectedIC);
-
-
 	g_lenMsgAreaLine2 = 0;
-
-
 
 	g_lenStoreDataArea = 0;
 	m_iStartLine = 11;
@@ -1386,17 +1309,14 @@ static void MergeAllTestData(void)
 {
 	int iLen = 0;
 
-
 	iLen = sprintf(g_pTmpBuff, "TestItem, %d, ", m_iTestDataCount);
 	memcpy(g_pStoreMsgArea+g_lenStoreMsgArea, g_pTmpBuff, iLen);
 	g_lenStoreMsgArea += iLen;
 
-
 	memcpy(g_pStoreMsgArea+g_lenStoreMsgArea, g_pMsgAreaLine2, g_lenMsgAreaLine2);
 	g_lenStoreMsgArea += g_lenMsgAreaLine2;
 
-
-	iLen = sprintf(g_pTmpBuff, "\n\n\n\n\n\n\n\n\n");
+	iLen= sprintf(g_pTmpBuff, "\n\n\n\n\n\n\n\n\n");
 	memcpy(g_pStoreMsgArea+g_lenStoreMsgArea, g_pTmpBuff, iLen);
 	g_lenStoreMsgArea += iLen;
 
@@ -1422,8 +1342,7 @@ static void Save_Test_Data(int iData[TX_NUM_MAX][RX_NUM_MAX], int iArrayIndex, u
 	int iLen = 0;
 	int i = 0, j = 0;
 
-
-	iLen = sprintf(g_pTmpBuff, "NA, %d, %d, %d, %d, %d, ", \
+	iLen= sprintf(g_pTmpBuff, "NA, %d, %d, %d, %d, %d, ", \
 		m_ucTestItemCode, Row, Col, m_iStartLine, ItemCount);
 	memcpy(g_pMsgAreaLine2+g_lenMsgAreaLine2, g_pTmpBuff, iLen);
 	g_lenMsgAreaLine2 += iLen;
@@ -1431,13 +1350,12 @@ static void Save_Test_Data(int iData[TX_NUM_MAX][RX_NUM_MAX], int iArrayIndex, u
 	m_iStartLine += Row;
 	m_iTestDataCount++;
 
-
 	for (i = 0+iArrayIndex; i < Row+iArrayIndex; i++) {
 		for (j = 0; j < Col; j++) {
 			if (j == (Col - 1))
-				iLen = sprintf(g_pTmpBuff, "%d, \n", iData[i][j]);
+				iLen= sprintf(g_pTmpBuff, "%d, \n", iData[i][j]);
 			else
-				iLen = sprintf(g_pTmpBuff, "%d, ", iData[i][j]);
+				iLen= sprintf(g_pTmpBuff, "%d, ", iData[i][j]);
 
 			memcpy(g_pStoreDataArea+g_lenStoreDataArea, g_pTmpBuff, iLen);
 			g_lenStoreDataArea += iLen;
@@ -1457,7 +1375,6 @@ static unsigned char GetChannelNum(void)
 {
 	unsigned char ReCode;
 	unsigned char rBuffer[1];
-
 
 	ReCode = GetPanelRows(rBuffer);
 	if (ReCode == ERROR_CODE_OK) {
@@ -1499,13 +1416,11 @@ static unsigned char GetRawData(void)
 	int iRow = 0;
 	int iCol = 0;
 
-
 	ReCode = EnterFactory();
 	if (ERROR_CODE_OK != ReCode) {
 		printk("Failed to Enter Factory Mode...\n");
 		return ReCode;
 	}
-
 
 
 	if (0 == (g_ScreenSetParam.iTxNum + g_ScreenSetParam.iRxNum)) {
@@ -1516,14 +1431,12 @@ static unsigned char GetRawData(void)
 		}
 	}
 
-
 	printk("Start Scan ...\n");
 	ReCode = StartScan();
 	if (ERROR_CODE_OK != ReCode) {
 		printk("Failed to Scan ...\n");
 		return ReCode;
 	}
-
 
 	memset(m_RawData, 0, sizeof(m_RawData));
 	ReCode = ReadRawData(1, 0xAA, (g_ScreenSetParam.iTxNum * g_ScreenSetParam.iRxNum)*2, m_iTempRawData);
@@ -1544,7 +1457,6 @@ static unsigned char GetRawData(void)
 static void ShowRawData(void)
 {
 	int iRow, iCol;
-
 	for (iRow = 0; iRow < g_ScreenSetParam.iTxNum; iRow++) {
 		printk("\nTx%2d:  ", iRow+1);
 		for (iCol = 0; iCol < g_ScreenSetParam.iRxNum; iCol++) {
@@ -1567,7 +1479,7 @@ static unsigned char GetChannelNumNoMapping(void)
 
 
 	printk("Get Tx Num...\n");
-	ReCode = ReadReg(REG_TX_NOMAPPING_NUM,  rBuffer);
+	ReCode = ReadReg(REG_TX_NOMAPPING_NUM, rBuffer);
 	if (ReCode == ERROR_CODE_OK) {
 		g_ScreenSetParam.iTxNum = rBuffer[0];
 	} else {
@@ -1664,5 +1576,3 @@ static boolean GetTestCondition(int iTestType, unsigned char ucChannelValue)
 	}
 	return bIsNeeded;
 }
-
-

@@ -88,9 +88,6 @@ static void tool_set_proc_name(char *procname)
 	int i = 0, n_month = 1, n_day = 0, n_year = 0;
 
 	sprintf(date, "%s", __DATE__);
-
-
-
 	sscanf(date, "%s %d %d", month, &n_day, &n_year);
 
 	for (i = 0; i < 12; ++i) {
@@ -99,10 +96,7 @@ static void tool_set_proc_name(char *procname)
 			break;
 		}
 	}
-
-	sprintf(procname, "gmnode%04d%02d%02d", n_year, n_month, n_day);
-
-
+	sprintf(procname, "gmnode");
 }
 
 static s32 tool_i2c_read_no_extra(u8 *buf, u16 len)

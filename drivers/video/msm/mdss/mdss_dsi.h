@@ -480,6 +480,15 @@ struct mdss_dsi_ctrl_pdata {
 	struct dsi_panel_cmds PM7_cmds;
 	struct dsi_panel_cmds PM8_cmds;
 
+	struct dsi_panel_cmds cold_gamma_fb_cmds;
+	struct dsi_panel_cmds warm_gamma_fb_cmds;
+	struct dsi_panel_cmds CABC_on_fb_cmds;
+	struct dsi_panel_cmds CE_on_fb_cmds;
+
+	struct dsi_panel_cmds cold_gamma_slpout_cmds;
+	struct dsi_panel_cmds warm_gamma_slpout_cmds;
+	struct dsi_panel_cmds default_gamma_slpout_cmds;
+
 	struct dsi_panel_cmds on_cmds;
 	struct dsi_panel_cmds post_dms_on_cmds;
 	struct dsi_panel_cmds post_panel_on_cmds;

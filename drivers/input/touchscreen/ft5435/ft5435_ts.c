@@ -2994,6 +2994,8 @@ static int ftxxxx_SaveTestData(char *file_name, char *data_buf, int iLen)
 	return 0;
 }
 
+char filedata_store[1024*15] ;
+
 static int ftxxxx_get_testparam_from_ini(char *config_name)
 {
 	char *filedata = NULL;
@@ -3007,7 +3009,8 @@ static int ftxxxx_get_testparam_from_ini(char *config_name)
 		return -EIO;
 	}
 
-	filedata = kmalloc(inisize + 1, GFP_ATOMIC);
+	memset(filedata_store, 0, sizeof(filedata_store));
+	filedata = filedata_store;
 
 	if (filedata == NULL) {
 		printk("lancelot filedata kmalloc error Null .\n");
@@ -3016,7 +3019,6 @@ static int ftxxxx_get_testparam_from_ini(char *config_name)
 	if (ftxxxx_ReadInIData(config_name, filedata)) {
 		pr_err("%s() - ERROR: request_firmware failed\n",
 				__func__);
-		kfree(filedata);
 		return -EIO;
 	} else {
 		pr_info("ftxxxx_ReadInIData successful\n");
@@ -3075,6 +3077,7 @@ static ssize_t ftxxxx_ftsscaptest_show(struct device *dev,
 	return num_read_chars;
 }
 
+char testdata_store[1024*8];
 static ssize_t ftxxxx_ftsscaptest_store(struct device *dev,
 			struct device_attribute *attr,
 		const char *buf, size_t count)
@@ -3084,7 +3087,8 @@ static ssize_t ftxxxx_ftsscaptest_store(struct device *dev,
 	char *testdata = NULL;
 
 	ito_test_status = 1;
-	testdata = kmalloc(1024*8, GFP_ATOMIC);
+	memset(testdata_store, 0, sizeof(testdata_store));
+	testdata = testdata_store;
 	if (!testdata) {
 		printk("kmalloc failed in function:%s\n", __func__);
 		return -EPERM;
@@ -3125,10 +3129,6 @@ static ssize_t ftxxxx_ftsscaptest_store(struct device *dev,
 
 	free_test_param_data();
 
-	if (testdata) {
-		kfree(testdata);
-		testdata = NULL;
-	}
 	mutex_unlock(&g_device_mutex);
 
 	return count;

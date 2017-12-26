@@ -40,17 +40,23 @@ int gtp_rst_gpio;
 int gtp_int_gpio;
 u8 config[GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH]
 				= {GTP_REG_CONFIG_DATA >> 8, GTP_REG_CONFIG_DATA & 0xff};
-u8 glove_config1[GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH]
+u8 glove0_config1[GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH]
 				= {GTP_REG_CONFIG_DATA >> 8, GTP_REG_CONFIG_DATA & 0xff};
-u8 glove_config2[GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH]
+u8 glove0_config2[GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH]
 				= {GTP_REG_CONFIG_DATA >> 8, GTP_REG_CONFIG_DATA & 0xff};
-
+u8 glove1_config1[GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH]
+				= {GTP_REG_CONFIG_DATA >> 8, GTP_REG_CONFIG_DATA & 0xff};
+u8 glove1_config2[GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH]
+				= {GTP_REG_CONFIG_DATA >> 8, GTP_REG_CONFIG_DATA & 0xff};
 
 static char tp_lockdown_info[128];
 static char tp_fw_version[10];
 
 static char tp_info_summary[80] = "";
 extern int set_usb_charge_mode_par;
+
+int gt9xx_id;
+int gt9xx_flag;
 
 
 
@@ -78,6 +84,9 @@ static ssize_t gt91xx_config_write_proc(struct file *, const char __user *, size
 static int gtp_lockdown_proc_open (struct inode *inode, struct file *file);
 static int gtp_lockdown_proc_show(struct seq_file *file, void *data);
 static ssize_t gtp_glove_write_proc(struct file *filp, const char __user *buffer, size_t count, loff_t *off);
+
+static int gtp_power_switch(struct i2c_client *client, int on);
+s32 gtp_i2c_write_no_rst(struct i2c_client *client, u8 *buf, s32 len);
 
 
 
@@ -160,12 +169,13 @@ static s32 gtp_bak_ref_proc(struct goodix_ts_data *ts, u8 mode);
 
 
 #if GTP_GESTURE_WAKEUP
-typedef enum {
+typedef enum
+{
 	DOZE_DISABLED = 0,
 	DOZE_ENABLED = 1,
 	DOZE_WAKEUP = 2,
-} DOZE_T;
-static DOZE_T doze_status = DOZE_ENABLED;
+}DOZE_T;
+static DOZE_T doze_status = DOZE_DISABLED;
 static s8 gtp_enter_doze(struct goodix_ts_data *ts);
 #endif
 
@@ -368,46 +378,63 @@ s32 gtp_send_cfg(struct i2c_client *client)
 	}
 
 	for (retry = 0; retry < 5; retry++) {
-		GTP_INFO("before send , gtp_glove_mode : %d", gtp_glove_mode_status);
+		GTP_INFO("before send ,gtp_glove_mode : %d",gtp_glove_mode_status);
 		#if CONFIG_GTP_GLOVE_MODE
-		switch (gtp_glove_mode_status) {
+		switch(gtp_glove_mode_status) {
 		case 1:
-			msleep(100);
-			ret = gtp_i2c_write(client, glove_config1 , GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH);
-			if (ret <  0)
-				GTP_INFO("gtp write glove1 error");
-			else
-				GTP_INFO("glove1 send success");
-			break;
+			if (gt9xx_id == 0) {
+				msleep(100);
+				ret = gtp_i2c_write(client, glove0_config1 , GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH);
+				if (ret <  0)
+					GTP_INFO("gtp write glove1 error");
+				else
+					GTP_INFO("glove1 send success");
+				break;
+			} else {
+				msleep(100);
+				ret = gtp_i2c_write(client, glove1_config1 , GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH);
+				if (ret <  0)
+					GTP_INFO("gt917 write glove1 error");
+				else
+					GTP_INFO("gt917 glove1 send success");
+				break;
+			}
 		case 2:
-			ret = gtp_i2c_write(client, glove_config2, GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH);
-			if (ret <  0)
-				GTP_INFO("gtp write glove2 error");
-			else
-				GTP_INFO("glove2 send success");
-			break;
+			if (gt9xx_id == 0) {
+				ret = gtp_i2c_write(client, glove0_config2, GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH);
+			 if (ret <  0)
+					GTP_INFO("gtp write glove2 error");
+				else
+					GTP_INFO("glove2 send success");
+				break;
+			} else {
+				ret = gtp_i2c_write(client, glove1_config2, GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH);
+				if (ret <  0)
+					GTP_INFO("gtp write gt917 glove2 error");
+				else
+					GTP_INFO("gt917 glove2 send success");
+				break;
+			}
 		case 0:
 		default:
-			ret = gtp_i2c_write(client, config , GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH);
-			if (ret < 0)
-				GTP_DEBUG("gtp_glove_mode_status = %d", gtp_glove_mode_status);
-			else
-				GTP_INFO("send normal config success");
 
-			break;
+			ret = gtp_i2c_write(client, config , GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH);
+				if (ret < 0)
+					GTP_DEBUG("gtp_glove_mode_status = %d", gtp_glove_mode_status);
+				else
+					GTP_INFO("send normal config success");
+				break;
 		}
 		#endif
 		#if (!CONFIG_GTP_GLOVE_MODE)
-		ret = gtp_i2c_write(client, config , GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH);
-		if (ret < 0)
-			GTP_DEBUG("gtp write config error.");
-		GTP_DEBUG("gtp write config success");
+			ret = gtp_i2c_write(client, config , GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH);
+			if (ret < 0)
+				GTP_DEBUG("gtp write config error.");
+			GTP_DEBUG("gtp write config success");
 		#endif
 		GTP_DEBUG("after send ");
-
-
-		if (ret > 0)
-			break;
+	if(ret > 0)
+		break;
 	}
 #endif
 	return ret;
@@ -1312,6 +1339,7 @@ Output:
 	Executive outcomes.
 		0: succeed, otherwise: failed
 *******************************************************/
+
 static s32 gtp_init_panel(struct goodix_ts_data *ts)
 {
 	s32 ret = -1;
@@ -1327,19 +1355,15 @@ static s32 gtp_init_panel(struct goodix_ts_data *ts)
 /* if defined CONFIG_OF, parse config data from dtsi
  *  else parse config data form header file.
  */
-
 #if CONFIG_GTP_GLOVE_MODE
 	u8 cfg_info_group1[] = GTP_CFG_GROUP0_GLOVE1;
-
 	u8 cfg_info_group2[] = GTP_CFG_GROUP0_GLOVE2;
+	u8 cfg_info_group3[] = GTP_CFG_GROUP1_GLOVE2;
+	u8 cfg_info_group4[] = GTP_CFG_GROUP1_GLOVE2;
 
-
-
-
-	u8 *send_glove_cfg_buf[] = {cfg_info_group1, cfg_info_group2};
-	u8 glove_cfg_info_len[] = { CFG_GROUP_LEN(cfg_info_group1)};
-
-	GTP_DEBUG("Glove Config Groups\' Lengths: %d", glove_cfg_info_len[0]);
+	u8 *send_glove_cfg_buf[] = {cfg_info_group1, cfg_info_group2, cfg_info_group3, cfg_info_group4};
+	u8 glove_cfg_info_len[] = { CFG_GROUP_LEN(cfg_info_group1), CFG_GROUP_LEN(cfg_info_group3)};
+	GTP_DEBUG("Glove Config Groups\' Lengths: %d",glove_cfg_info_len[0]);
 #endif
 
 #if GTP_COMPATIBLE_MODE
@@ -1364,6 +1388,8 @@ static s32 gtp_init_panel(struct goodix_ts_data *ts)
 #endif
 	ret = gtp_i2c_read_dbl_check(ts->client, GTP_REG_SENSOR_ID, &sensor_id, 1);
 	if (SUCCESS == ret) {
+	gt9xx_id = sensor_id;
+	printk("[GTP]gt9xx_id = %d\n", gt9xx_id);
 		if (sensor_id >= 0x06) {
 			GTP_ERROR("Invalid sensor_id(0x%02X), No Config Sent!", sensor_id);
 			ts->pnl_init_error = 1;
@@ -1376,11 +1402,7 @@ static s32 gtp_init_panel(struct goodix_ts_data *ts)
 	}
 	GTP_INFO("Sensor_ID: %d", sensor_id);
 	if (sensor_id == 0) {
-
 	}
-	/*else if (sensor_id == 2){//avc
-	hq_regiser_hw_info(HWID_CTP,"gt910P_avc");
-	}//add hw info for CTP */
 
 	/* parse config data*/
 #if 1
@@ -1395,16 +1417,17 @@ static s32 gtp_init_panel(struct goodix_ts_data *ts)
 
 #if CONFIG_GTP_GLOVE_MODE
 	GTP_DEBUG("Get glove config from head file .");
-	if ((!glove_cfg_info_len[1]) && (!glove_cfg_info_len[2]) &&
-		(!glove_cfg_info_len[3]) && (!glove_cfg_info_len[4]) &&
-		(!glove_cfg_info_len[5])) {
-		sensor_id = 0;
-	}
+	sensor_id = gt9xx_id;
+	printk("[GTP] sensor id = gt9xx_id = %d\n", sensor_id);
 	ts->gtp_cfg_len = glove_cfg_info_len[sensor_id];
-	memset(&glove_config1[GTP_ADDR_LENGTH], 0, GTP_CONFIG_MAX_LENGTH);
-	memcpy(&glove_config1[GTP_ADDR_LENGTH], send_glove_cfg_buf[0], ts->gtp_cfg_len);
-	memset(&glove_config2[GTP_ADDR_LENGTH], 0, GTP_CONFIG_MAX_LENGTH);
-	memcpy(&glove_config2[GTP_ADDR_LENGTH], send_glove_cfg_buf[1], ts->gtp_cfg_len);
+	memset(&glove0_config1[GTP_ADDR_LENGTH], 0, GTP_CONFIG_MAX_LENGTH);
+	memcpy(&glove0_config1[GTP_ADDR_LENGTH], send_glove_cfg_buf[0], ts->gtp_cfg_len);
+	memset(&glove0_config2[GTP_ADDR_LENGTH], 0, GTP_CONFIG_MAX_LENGTH);
+	memcpy(&glove0_config2[GTP_ADDR_LENGTH], send_glove_cfg_buf[1], ts->gtp_cfg_len);
+	memset(&glove1_config1[GTP_ADDR_LENGTH], 0, GTP_CONFIG_MAX_LENGTH);
+	memcpy(&glove1_config1[GTP_ADDR_LENGTH], send_glove_cfg_buf[2], ts->gtp_cfg_len);
+	memset(&glove1_config2[GTP_ADDR_LENGTH], 0, GTP_CONFIG_MAX_LENGTH);
+	memcpy(&glove1_config2[GTP_ADDR_LENGTH], send_glove_cfg_buf[3], ts->gtp_cfg_len);
 #endif
 
 	GTP_INFO("Config group%d used,length: %d", sensor_id, ts->gtp_cfg_len);
@@ -1601,16 +1624,15 @@ static ssize_t gtp_glove_write_proc(struct file *filp, const char __user *buffer
 {
 	char ret = 0;
 
-
-	if (count > 2)
-			GTP_ERROR("size not match:%scount : %zd", buffer, count);
-
-	if (get_user(ret , buffer)) {
-			GTP_ERROR("get from user fail\n");
-			return -EFAULT;
+	if (count > 2)  {
+		GTP_ERROR("size not match:%scount : %zd",buffer,count);
 	}
+	if (get_user(ret , buffer)) {
+		GTP_ERROR("get from user fail\n");
+		return -EFAULT;
+	}
+	printk("GTP ret : %c\n", ret);
 	if (ret == '1') {
-
 		gtp_glove_mode_status = 1;
 		GTP_INFO("send glove1");
 		gtp_send_cfg(i2c_connect_client);
@@ -1618,8 +1640,7 @@ static ssize_t gtp_glove_write_proc(struct file *filp, const char __user *buffer
 		gtp_glove_mode_status = 2;
 		GTP_INFO("send glove2");
 		gtp_send_cfg(i2c_connect_client);
-	} else {
-
+	} else if (ret == '0') {
 		gtp_glove_mode_status = 0;
 		GTP_INFO("send glove0");
 		gtp_send_cfg(i2c_connect_client);
@@ -1690,10 +1711,20 @@ s32 gtp_read_version(struct i2c_client *client, u16 *version)
 s32 gtp_read_Color(struct i2c_client *client)
 {
 	s32 ret = -1;
-	u8 buf[10] = {GTP_REG_COLOR >> 8, GTP_REG_COLOR & 0xff};
-
+	u8 buf[10] = {0} ;
+	u8 esd_buf[5] = {0x42, 0x26};
 	char *page = NULL;
-	char  *temp = NULL;
+	char  * temp= NULL;
+
+	if (gt9xx_id == 0) {
+		buf[0] = GTP_REG_COLOR_GT915 >> 8 ;
+		buf[1] = GTP_REG_COLOR_GT915 & 0xff;
+	} else {
+		buf[0] = GTP_REG_COLOR_GT917 >> 8 ;
+		buf[1] = GTP_REG_COLOR_GT917& 0xff;
+	}
+
+
 
 	page = kmalloc(PAGE_SIZE, GFP_KERNEL);
 	if (!page) {
@@ -1714,6 +1745,38 @@ s32 gtp_read_Color(struct i2c_client *client)
 	GTP_INFO("Color : %s\n", temp);
 	strcpy(tp_lockdown_info, temp);
 
+	ret = gtp_i2c_read(client, buf, sizeof(buf));
+	if (ret < 0) {
+		GTP_ERROR("GTP read color failed");
+		return ret;
+	}
+	if (((buf[2] != 0x45) || ((buf[3] != 0x37)&&(buf[3] != 0x35))) || ((buf[2] != 0x32) || (buf[3] != 0x37))) {
+		GTP_ERROR("IC lockdown info error!buf[2] = %02x, buf[3] = %02x, Process reset guitar.", buf[2], buf[3]);
+		esd_buf[0] = 0x42;
+		esd_buf[1] = 0x26;
+		esd_buf[2] = 0x01;
+		esd_buf[3] = 0x01;
+		esd_buf[4] = 0x01;
+		gtp_i2c_write_no_rst(client, esd_buf, 5);
+		msleep(50);
+		gtp_power_switch(client, 0);
+		msleep(20);
+		gtp_power_switch(client, 1);
+		msleep(20);
+		gtp_reset_guitar(client, 50);
+		msleep(50);
+		gtp_send_cfg(client);
+		msleep(20);
+
+		ret = gtp_i2c_read(client, buf, sizeof(buf));
+		if (ret < 0) {
+			GTP_ERROR("GTP read color failed");
+		return ret;
+		}
+	}
+	sprintf(temp,"%02x%02x%02x%02x%02x%02x%02x%02x", buf[2], buf[3], buf[4], buf[5], buf[6],buf[7],buf[8],buf[9]);
+	GTP_INFO("Color : %s\n",temp );
+	strcpy(tp_lockdown_info,temp);
 	return ret;
 }
 
@@ -2471,47 +2534,21 @@ ERR_GET_VCC:
 }
 #endif
 
-#if CONFIG_GTP_GLOVE_MODE
-static int set_gtp_cover_mode_buf;
-
-
-static ssize_t gtp_set_cover_mode(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t size)
-{
-
-	struct goodix_ts_data *data = dev_get_drvdata(dev);
-	sscanf(buf, "%d\n", &set_gtp_cover_mode_buf) ;
-	if (set_gtp_cover_mode_buf == 1) {
-
-	gtp_glove_mode_status = 1;
-		GTP_INFO("send glove1");
-	gtp_send_cfg(data->client);
-	} else if (set_gtp_cover_mode_buf == 2) {
-	gtp_glove_mode_status = 2;
-		GTP_INFO("send glove2");
-	gtp_send_cfg(data->client);
-		} else if (set_gtp_cover_mode_buf == 0) {
-
-	gtp_glove_mode_status = 0;
-		GTP_INFO("send glove0");
-	gtp_send_cfg(data->client);
-		}
-	return size;
-}
-static DEVICE_ATTR(set_gtp_cover_mode, 0664, NULL,
-				gtp_set_cover_mode);
-
-#endif
-
 void gtp_usb_plugin(bool mode)
 {
 	s8 ret = -1;
 	s8 retry = 0;
-	u8 i2c_control_buf[3] = {(u8)(GTP_REG_SLEEP >> 8), (u8)GTP_REG_SLEEP, 6};
+	u8 i2c_control_buf[3] = {(u8)(GTP_REG_SLEEP >> 8), (u8)GTP_REG_SLEEP, 7};
 
 	struct goodix_ts_data *ts = i2c_get_clientdata(i2c_connect_client);
-	GTP_INFO("GTP into USB mode ");
+
+	if (mode) {
+		i2c_control_buf[2] = 6;
+		GTP_INFO("Enter %s, usb in", __func__);
+	} else {
+		i2c_control_buf[2] = 7;
+		GTP_INFO("Enter %s, usb off", __func__);
+	}
 	while (retry++ < 5) {
 		ret = gtp_i2c_write(ts->client, i2c_control_buf, 3);
 		if (ret > 0) {
@@ -2533,22 +2570,19 @@ Output:
 	Executive outcomes.
 	0: succeed.
 *******************************************************/
-
-static int goodix_ts_probe(struct i2c_client *client,
-			   const struct i2c_device_id *id)
+static int goodix_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	s32 ret = -1;
 	struct goodix_ts_data *ts;
 	u16 version_info;
-
+	u8 sensor_id = 0;
 	GTP_DEBUG_FUNC();
 
-
 	GTP_INFO("GTP Driver Version: %s", GTP_DRIVER_VERSION);
-
 	GTP_INFO("GTP I2C Address: 0x%02x", client->addr);
 
 	i2c_connect_client = client;
+	gt9xx_flag = 1;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		GTP_ERROR("I2C check functionality failed.");
@@ -2560,7 +2594,6 @@ static int goodix_ts_probe(struct i2c_client *client,
 		return -ENOMEM;
 	}
 
-#if 1
 	if (client->dev.of_node) {
 		gtp_parse_dt(&client->dev);
 	}
@@ -2569,10 +2602,6 @@ static int goodix_ts_probe(struct i2c_client *client,
 		GTP_ERROR("GTP power on failed.");
 		return -EINVAL;
 	}
-#else			/* use gpio defined in gt9xx.h */
-	gtp_rst_gpio = GTP_RST_PORT;
-	gtp_int_gpio = GTP_INT_PORT;
-#endif
 
 	INIT_WORK(&ts->work, goodix_ts_work_func);
 	ts->client = client;
@@ -2582,14 +2611,24 @@ static int goodix_ts_probe(struct i2c_client *client,
 	ts->clk_tick_cnt = 2 * HZ;
 	GTP_DEBUG("Clock ticks for an esd cycle: %d", ts->clk_tick_cnt);
 	spin_lock_init(&ts->esd_lock);
-
 #endif
 	i2c_set_clientdata(client, ts);
 	ts->gtp_rawdiff_mode = 0;
 	ret = gtp_request_io_port(ts);
-	GTP_INFO("gtp_request_io_port : ret = %d\n", ret);
+	GTP_INFO("gtp_request_io_port : ret = %d\n",ret);
 	if (ret < 0) {
 		GTP_ERROR("GTP request IO port failed.");
+		gt9xx_flag = 0;
+		if (goodix_wq) {
+			GTP_INFO("destroy_workqueue :  goodix_wq");
+			destroy_workqueue(goodix_wq);
+		}
+		#if GTP_ESD_PROTECT
+		if (gtp_esd_check_workqueue) {
+			GTP_INFO("destroy_workqueue :  gtp_esd_check_workqueue");
+			destroy_workqueue(gtp_esd_check_workqueue);
+		}
+		#endif
 		kfree(ts);
 		return ret;
 	}
@@ -2604,30 +2643,27 @@ static int goodix_ts_probe(struct i2c_client *client,
 	}
 #endif
 
-#if CONFIG_GTP_GLOVE_MODE
-		ret = device_create_file(&client->dev, &dev_attr_set_gtp_cover_mode);
-		if (ret) {
-			dev_err(&client->dev, "sys file creation failed\n");
-			GTP_INFO("create gtp_cover_mode fail\n");
-
-		} else{
-			GTP_INFO("create gtp_cover_mode success\n");
-		}
-#endif
-
 	ret = gtp_i2c_test(client);
 	if (ret < 0) {
 		GTP_ERROR("I2C communication ERROR!");
+		gt9xx_flag = 0;
+		if (goodix_wq) {
+			GTP_INFO("destroy_workqueue :  goodix_wq");
+			destroy_workqueue(goodix_wq);
+		}
+		#if GTP_ESD_PROTECT
+		if (gtp_esd_check_workqueue) {
+			GTP_INFO("destroy_workqueue :  gtp_esd_check_workqueue");
+			destroy_workqueue(gtp_esd_check_workqueue);
+		}
+		#endif
+	kfree(ts);
+	return -EINVAL;
 	}
 
 	ret = gtp_read_version(client, &version_info);
 	if (ret < 0) {
 		GTP_ERROR("Read version failed.");
-	}
-
-	ret = gtp_read_Color(client);
-	if (ret < 0) {
-		GTP_ERROR("Read color failed.");
 	}
 
 	ret = gt9xx_ts_pinctrl_init(ts);
@@ -2651,9 +2687,13 @@ static int goodix_ts_probe(struct i2c_client *client,
 		ts->abs_y_max = GTP_MAX_HEIGHT;
 		ts->int_trigger_type = GTP_INT_TRIGGER;
 	}
-	set_usb_charge_mode_par = 3;
-	printk("set_usb_charge_mode_par = %d\n", set_usb_charge_mode_par);
 
+	ret = gtp_read_Color(client);
+	if (ret < 0) {
+		GTP_ERROR("Read color failed.");
+	}
+	set_usb_charge_mode_par = 3;
+	printk("set_usb_charge_mode_par = %d\n",set_usb_charge_mode_par);
 	gt91xx_config_proc = proc_create(GT91XX_CONFIG_PROC_FILE, 0666, NULL, &config_proc_ops);
 	if (gt91xx_config_proc == NULL) {
 		GTP_ERROR("create_proc_entry %s failed\n", GT91XX_CONFIG_PROC_FILE);
@@ -2672,7 +2712,7 @@ static int goodix_ts_probe(struct i2c_client *client,
 	if (gt91xx_glove_proc == NULL) {
 	GTP_ERROR("create_glove_proc %s failed\n", GT91XX_Glove_PROC_FILE);
 	} else {
-	GTP_INFO("create_glove_proc %s success", GT91XX_Glove_PROC_FILE);
+		GTP_INFO("create_glove_proc %s success", GT91XX_Glove_PROC_FILE);
 	}
 
 
@@ -2709,15 +2749,18 @@ static int goodix_ts_probe(struct i2c_client *client,
 	/* register suspend and resume fucntion*/
 	gtp_register_powermanger(ts);
 
-
-if (gtp_read_FW(client))
+if (gtp_read_FW(client) < 0)
 	printk("read FW fail\n");
-
-	strcpy(tp_info_summary, "[Vendor]Dongshan, [IC]GT915, [FW]Ver");
-	strcat(tp_info_summary, tp_fw_version);
-	strcat(tp_info_summary, "\0");
-	hq_regiser_hw_info(HWID_CTP, tp_info_summary);
-
+sensor_id = gt9xx_id;
+if (sensor_id == 0) {
+	strcpy(tp_info_summary, "[Vendor]Lansi, [IC]GT915, [FW]Ver");
+	}
+if (sensor_id == 1) {
+	strcpy(tp_info_summary, "[Vendor]Lansi, [IC]GT917, [FW]Ver");
+}
+	strcat(tp_info_summary,tp_fw_version);
+	strcat(tp_info_summary,"\0");
+	hq_regiser_hw_info(HWID_CTP,tp_info_summary);
 #if GTP_CREATE_WR_NODE
 	init_wr_node(client);
 #endif
@@ -2790,26 +2833,21 @@ static void goodix_ts_suspend(struct goodix_ts_data *ts)
 #if GTP_ESD_PROTECT
 	gtp_esd_switch(ts->client, SWITCH_OFF);
 #endif
-printk("gtp_gesture_func_on: %d\n", gtp_gesture_func_on);
+	printk("gtp_gesture_func_on: %d\n", gtp_gesture_func_on);
 #if GTP_GESTURE_WAKEUP
 	#if defined(CONFIG_GTP_GLOVE_MODE)
-	    if (gtp_glove_mode_status) {
-		    gtp_irq_disable(ts);
-		    ret = gtp_enter_sleep(ts);
-		    if (ret < 0)
-			    GTP_ERROR(" GTP enter suspend failed.");
-
-	    } else if (gtp_gesture_func_on) {
-		    ret = gtp_enter_doze(ts);
-
-	    }
+	if (gtp_glove_mode_status) {
+		gtp_irq_disable(ts);
+		ret = gtp_enter_sleep(ts);
+		if (ret < 0)
+			GTP_ERROR(" GTP enter suspend failed.");
+	} else if (gtp_gesture_func_on) {
+		ret = gtp_enter_doze(ts);
+	}
 	#else
 	if (gtp_gesture_func_on)
-		    ret = gtp_enter_doze(ts);
-
+		ret = gtp_enter_doze(ts);
 #endif
-
-
 #else
 	if (ts->use_irq) {
 		gtp_irq_disable(ts);
@@ -2872,12 +2910,6 @@ static void goodix_ts_resume(struct goodix_ts_data *ts)
 	ts->gtp_is_suspend = 0;
 #if GTP_ESD_PROTECT
 	gtp_esd_switch(ts->client, SWITCH_ON);
-#endif
-
-#if defined(CONFIG_GTP_GLOVE_MODE)
-	glove_tpd_halt = 0;
-	printk("~~liml_gtp resume glove_tpd_halt=%d, gtp_glove_mode_status=%d\n", glove_tpd_halt, gtp_glove_mode_status);
-	gtp_send_cfg(ts->client);
 #endif
 
 }

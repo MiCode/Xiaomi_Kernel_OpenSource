@@ -772,6 +772,7 @@ static void gup_search_file(s32 search_type)
 }
 #endif
 
+extern int gt9xx_id;
 
 static u8 gup_check_update_file(struct i2c_client  *client, st_fw_head *fw_head, u8 *path)
 {
@@ -793,19 +794,41 @@ static u8 gup_check_update_file(struct i2c_client  *client, st_fw_head *fw_head,
 	} else {
 #if GTP_AUTO_UPDATE
 	#if GTP_HEADER_FW_UPDATE
-		GTP_INFO("Update by default firmware array");
-		update_msg.fw_total_len = sizeof(gtp_default_FW) - FW_HEAD_LENGTH;
-		if (sizeof(gtp_default_FW) < (FW_HEAD_LENGTH+FW_SECTION_LENGTH*4+FW_DSP_ISP_LENGTH+FW_DSP_LENGTH+FW_BOOT_LENGTH)) {
-			GTP_ERROR("INVALID gtp_default_FW, check your gt9xx_firmware.h file!");
+	if (gt9xx_id == 0) {
+		GTP_INFO("Update by gt915 firmware array");
+		update_msg.fw_total_len = sizeof(gt915_FW) - FW_HEAD_LENGTH;
+		if (sizeof(gt915_FW) < (FW_HEAD_LENGTH+FW_SECTION_LENGTH*4+FW_DSP_ISP_LENGTH+FW_DSP_LENGTH+FW_BOOT_LENGTH)) {
+			GTP_ERROR("INVALID gt915_FW, check your gt9xx_firmware.h file!");
 			return FAIL;
 		}
 		GTP_DEBUG("Firmware actual size: %d(%dK)", update_msg.fw_total_len, update_msg.fw_total_len/1024);
-		memcpy(fw_head, &gtp_default_FW[0], FW_HEAD_LENGTH);
-
+		memcpy(fw_head, &gt915_FW[0], FW_HEAD_LENGTH);
 
 		fw_checksum = 0;
 		for (i = 0; i < update_msg.fw_total_len; i += 2) {
-			fw_checksum += (gtp_default_FW[FW_HEAD_LENGTH + i] << 8) + gtp_default_FW[FW_HEAD_LENGTH + i + 1];
+			fw_checksum += (gt915_FW[FW_HEAD_LENGTH + i] << 8) + gt915_FW[FW_HEAD_LENGTH + i + 1];
+		}
+		GTP_DEBUG("firmware checksum:%x", fw_checksum&0xFFFF);
+		if (fw_checksum&0xFFFF) {
+			GTP_ERROR("Illegal firmware file.");
+			return FAIL;
+		}
+		got_file_flag = HEADER_FW_READY;
+		return SUCCESS;
+	} else {
+		GTP_INFO("Update by gt917 firmware array");
+
+		update_msg.fw_total_len = sizeof(gt917_FW) - FW_HEAD_LENGTH;
+		if (sizeof(gt917_FW) < (FW_HEAD_LENGTH+FW_SECTION_LENGTH*4+FW_DSP_ISP_LENGTH+FW_DSP_LENGTH+FW_BOOT_LENGTH)) {
+			GTP_ERROR("INVALID gt917_FW, check your gt9xx_firmware.h file!");
+			return FAIL;
+		}
+		GTP_DEBUG("Firmware actual size: %d(%dK)", update_msg.fw_total_len, update_msg.fw_total_len/1024);
+		memcpy(fw_head, &gt917_FW[0], FW_HEAD_LENGTH);
+
+		fw_checksum = 0;
+		for (i = 0; i < update_msg.fw_total_len; i += 2) {
+			fw_checksum += (gt917_FW[FW_HEAD_LENGTH + i] << 8) + gt917_FW[FW_HEAD_LENGTH + i + 1];
 		}
 
 		GTP_DEBUG("firmware checksum:%x", fw_checksum&0xFFFF);
@@ -815,6 +838,7 @@ static u8 gup_check_update_file(struct i2c_client  *client, st_fw_head *fw_head,
 		}
 		got_file_flag = HEADER_FW_READY;
 		return SUCCESS;
+	}
 	#else
 
 	#if GTP_AUTO_UPDATE_CFG
@@ -949,10 +973,10 @@ static u8 gup_load_section_file(u8 *buf, u32 offset, u16 length, u8 set_or_end)
 {
 #if (GTP_AUTO_UPDATE && GTP_HEADER_FW_UPDATE)
 	if (got_file_flag == HEADER_FW_READY) {
-		if (SEEK_SET == set_or_end) {
-			memcpy(buf, &gtp_default_FW[FW_HEAD_LENGTH + offset], length);
+		if(SEEK_SET == set_or_end) {
+			memcpy(buf, &gt915_FW[FW_HEAD_LENGTH + offset], length);
 		} else {
-			memcpy(buf, &gtp_default_FW[update_msg.fw_total_len + FW_HEAD_LENGTH - offset], length);
+			memcpy(buf, &gt915_FW[update_msg.fw_total_len + FW_HEAD_LENGTH - offset], length);
 		}
 		return SUCCESS;
 	}
@@ -2804,10 +2828,9 @@ static u8 gup_download_fw_dsp(struct i2c_client *client, u8 dwn_mode)
 static s32 gup_burn_fw_proc(struct i2c_client *client, u16 start_addr, s32 start_index, s32 burn_len)
 {
 	s32 ret = 0;
-
 	GTP_DEBUG("burn firmware: 0x%04X, %d bytes, start_index: 0x%04X", start_addr, burn_len, start_index);
 
-	ret = i2c_write_bytes(client, start_addr, (u8 *)&gtp_default_FW_fl[FW_HEAD_LENGTH + start_index], burn_len);
+	ret = i2c_write_bytes(client, start_addr, (u8*)&gt915_FW_fl[FW_HEAD_LENGTH + start_index], burn_len);
 	if (ret < 0) {
 		GTP_ERROR("burn 0x%04X, %d bytes failed!", start_addr, burn_len);
 		return FAIL;
@@ -2837,11 +2860,11 @@ static s32 gup_check_and_repair(struct i2c_client *client, u16 start_addr, s32 s
 			break;
 		}
 		for (i = 0; i < cmp_len; ++i) {
-			if (chk_cmp_buf[i] != gtp_default_FW_fl[FW_HEAD_LENGTH + start_index + i]) {
+		if (chk_cmp_buf[i] != gt915_FW_fl[FW_HEAD_LENGTH + start_index + i]) {
 				chk_fail = 1;
-				i2c_write_bytes(client, cmp_addr+i, &gtp_default_FW_fl[FW_HEAD_LENGTH + start_index + i], cmp_len-i);
+			i2c_write_bytes(client, cmp_addr+i, &gt915_FW_fl[FW_HEAD_LENGTH + start_index + i], cmp_len-i);
 				GTP_ERROR("Check failed index: %d(%d != %d), redownload chuck", i, chk_cmp_buf[i],
-						gtp_default_FW_fl[FW_HEAD_LENGTH + start_index + i]);
+					gt915_FW_fl[FW_HEAD_LENGTH + start_index +i]);
 				break;
 			}
 		}
@@ -2991,8 +3014,8 @@ static s32 gup_prepare_fl_fw(char *path, st_fw_head *fw_head)
 	update_msg.fw_total_len = update_msg.file->f_op->llseek(update_msg.file, 0, SEEK_END);
 
 	update_msg.force_update = 0xBE;
-	if (update_msg.fw_total_len != sizeof(gtp_default_FW_fl)) {
-		GTP_ERROR("Inconsistent fw size. default size: %d(%dK), file size: %d(%dK)", sizeof(gtp_default_FW_fl), sizeof(gtp_default_FW_fl)/1024, update_msg.fw_total_len, update_msg.fw_total_len/1024);
+	if (update_msg.fw_total_len != sizeof(gt915_FW_fl)) {
+		GTP_ERROR("Inconsistent fw size. default size: %d(%dK), file size: %d(%dK)", sizeof(gt915_FW_fl), sizeof(gt915_FW_fl)/1024, update_msg.fw_total_len, update_msg.fw_total_len/1024);
 		set_fs(update_msg.old_fs);
 		_CLOSE_FILE(update_msg.file);
 		return FAIL;
@@ -3002,9 +3025,9 @@ static s32 gup_prepare_fl_fw(char *path, st_fw_head *fw_head)
 	GTP_DEBUG("Fimrware size: %d(%dK)", update_msg.fw_total_len, update_msg.fw_total_len / 1024);
 
 	update_msg.file->f_op->llseek(update_msg.file, 0, SEEK_SET);
-	ret = update_msg.file->f_op->read(update_msg.file, (char *)gtp_default_FW_fl,
-						update_msg.fw_total_len + FW_HEAD_LENGTH,
-						&update_msg.file->f_pos);
+	ret = update_msg.file->f_op->read(update_msg.file, (char*)gt915_FW_fl,
+					update_msg.fw_total_len + FW_HEAD_LENGTH,
+					&update_msg.file->f_pos);
 	update_msg.fw_total_len  += FW_HEAD_LENGTH;
 	set_fs(update_msg.old_fs);
 	_CLOSE_FILE(update_msg.file);
@@ -3027,19 +3050,18 @@ static u8 gup_check_update_file_fl(struct i2c_client  *client, st_fw_head *fw_he
 			return FAIL;
 		}
 	} else {
-		update_msg.fw_total_len = sizeof(gtp_default_FW_fl);
+		update_msg.fw_total_len = sizeof(gt915_FW_fl);
 	}
 
-	memcpy(fw_head, gtp_default_FW_fl, FW_HEAD_LENGTH);
+	memcpy(fw_head, gt915_FW_fl, FW_HEAD_LENGTH);
 	GTP_INFO("FILE HARDWARE INFO: %02x%02x%02x%02x", fw_head->hw_info[0], fw_head->hw_info[1], fw_head->hw_info[2], fw_head->hw_info[3]);
 	GTP_INFO("FILE PID: %s", fw_head->pid);
 	fw_head->vid = ((fw_head->vid & 0xFF00) >> 8) + ((fw_head->vid & 0x00FF) << 8);
 	GTP_INFO("FILE VID: %04x", fw_head->vid);
 
-
 	fw_checksum = 0;
-	for (i = FW_HEAD_LENGTH; i < update_msg.fw_total_len; i += 2) {
-		fw_checksum += (gtp_default_FW_fl[i] << 8) + gtp_default_FW_fl[i+1];
+	for(i = FW_HEAD_LENGTH; i < update_msg.fw_total_len; i += 2) {
+		fw_checksum += (gt915_FW_fl[i] << 8) + gt915_FW_fl[i+1];
 	}
 	ret = SUCCESS;
 

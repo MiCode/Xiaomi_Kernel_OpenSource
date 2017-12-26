@@ -205,5 +205,3 @@ int show_lib_ver(char *pLibVer)
 
 	return num_read_chars;
 }
-
-
