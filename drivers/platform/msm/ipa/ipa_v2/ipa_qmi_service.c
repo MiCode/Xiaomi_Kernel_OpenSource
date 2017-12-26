@@ -1029,7 +1029,7 @@ int ipa_qmi_service_init(uint32_t wan_platform_type)
 	qmi_indication_fin = false;
 	atomic_set(&workqueues_stopped, 0);
 
-	if (atomic_read(&ipa_qmi_initialized == 0))
+	if (atomic_read(&ipa_qmi_initialized) == 0)
 		ipa_qmi_service_init_worker();
 	return 0;
 }

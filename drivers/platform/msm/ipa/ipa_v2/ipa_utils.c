@@ -287,14 +287,14 @@ static struct msm_bus_paths ipa_usecases_v2_0[]  = {
 };
 
 static struct msm_bus_scale_pdata ipa_bus_client_pdata_v1_1 = {
-	ipa_usecases_v1_1,
-	ARRAY_SIZE(ipa_usecases_v1_1),
+	.usecase = ipa_usecases_v1_1,
+	.num_usecases = ARRAY_SIZE(ipa_usecases_v1_1),
 	.name = "ipa",
 };
 
 static struct msm_bus_scale_pdata ipa_bus_client_pdata_v2_0 = {
-	ipa_usecases_v2_0,
-	ARRAY_SIZE(ipa_usecases_v2_0),
+	.usecase = ipa_usecases_v2_0,
+	.num_usecases = ARRAY_SIZE(ipa_usecases_v2_0),
 	.name = "ipa",
 };
 

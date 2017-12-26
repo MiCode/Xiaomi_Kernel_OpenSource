@@ -1206,6 +1206,7 @@ struct ipa_context {
 	int num_ipa_cne_evt_req;
 	struct mutex ipa_cne_evt_lock;
 	bool ipa_uc_monitor_holb;
+	bool use_ipa_pm;
 };
 
 /**
@@ -1262,6 +1263,7 @@ struct ipa_plat_drv_res {
 	u32 ipa_rx_polling_sleep_msec;
 	u32 ipa_polling_iteration;
 	bool ipa_uc_monitor_holb;
+	bool use_ipa_pm;
 };
 
 struct ipa_mem_partition {
