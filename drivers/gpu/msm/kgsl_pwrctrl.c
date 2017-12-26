@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2732,9 +2732,11 @@ _aware(struct kgsl_device *device)
 				 * GPU will not be powered on
 				 */
 				WARN_ONCE(1, "Failed to recover GMU\n");
-				device->snapshot->recovered = false;
+				if (device->snapshot)
+					device->snapshot->recovered = false;
 			} else {
-				device->snapshot->recovered = true;
+				if (device->snapshot)
+					device->snapshot->recovered = true;
 			}
 
 			clear_bit(GMU_FAULT, &gmu->flags);
