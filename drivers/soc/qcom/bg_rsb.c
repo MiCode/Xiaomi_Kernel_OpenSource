@@ -346,9 +346,20 @@ static void bgrsb_bgdown_work(struct work_struct *work)
 	struct bgrsb_priv *dev = container_of(work, struct bgrsb_priv,
 								bg_down_work);
 
-	bgrsb_ldo_work(dev, BGRSB_DISABLE_LDO15);
-	bgrsb_ldo_work(dev, BGRSB_DISABLE_LDO11);
-	dev->bgrsb_current_state = BGRSB_STATE_INIT;
+	if (dev->bgrsb_current_state == BGRSB_STATE_RSB_ENABLED) {
+		if (bgrsb_ldo_work(dev, BGRSB_DISABLE_LDO15) == 0)
+			dev->bgrsb_current_state = BGRSB_STATE_RSB_CONFIGURED;
+		else
+			pr_err("Failed to unvote LDO-15 on BG down\n");
+	}
+
+	if (dev->bgrsb_current_state == BGRSB_STATE_RSB_CONFIGURED) {
+		if (bgrsb_ldo_work(dev, BGRSB_DISABLE_LDO11) == 0)
+			dev->bgrsb_current_state = BGRSB_STATE_INIT;
+		else
+			pr_err("Failed to unvote LDO-11 on BG down\n");
+	}
+	pr_debug("RSB current state is : %d\n", dev->bgrsb_current_state);
 }
 
 static int bgrsb_tx_msg(struct bgrsb_priv *dev, void  *msg, size_t len)
