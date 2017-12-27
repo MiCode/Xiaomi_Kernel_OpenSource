@@ -147,7 +147,6 @@ struct msm8916_asoc_mach_data {
 	void __iomem *vaddr_gpio_mux_pcm_ctl;
 	void __iomem *vaddr_gpio_mux_sec_pcm_ctl;
 	struct device_node *pri_mi2s_gpio_p;
-	struct regulator *spkr_vreg;
 };
 
 static inline int param_is_mask(int p)
@@ -985,13 +984,6 @@ static int msm_tdm_startup(struct snd_pcm_substream *substream)
 	case AFE_PORT_ID_PRIMARY_TDM_TX_7:
 		atomic_inc(&pdata->primary_tdm_ref_count);
 		if (atomic_read(&pdata->primary_tdm_ref_count) == 1) {
-			/* Set regulator to normal mode */
-			ret = regulator_set_optimum_mode(pdata->spkr_vreg,
-							100000);
-			if (ret < 0) {
-				pr_err("Failed to set spkr_vreg mode.\n");
-				goto err;
-			}
 			/* Configure mux for Primary TDM */
 			if (pdata->vaddr_gpio_mux_pcm_ctl) {
 				val = ioread32(pdata->vaddr_gpio_mux_pcm_ctl);
@@ -1026,7 +1018,7 @@ static void msm_tdm_shutdown(struct snd_pcm_substream *substream)
 	struct snd_soc_card *card = rtd->card;
 	struct msm8916_asoc_mach_data *pdata =
 		snd_soc_card_get_drvdata(card);
-	int ret = 0, val = 0;
+	int val = 0;
 
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 
@@ -1049,17 +1041,11 @@ static void msm_tdm_shutdown(struct snd_pcm_substream *substream)
 		if (atomic_read(&pdata->primary_tdm_ref_count) > 0)
 			atomic_dec(&pdata->primary_tdm_ref_count);
 		if (atomic_read(&pdata->primary_tdm_ref_count) == 0) {
-			/* Set regulator to standby mode */
-			ret = regulator_set_optimum_mode(pdata->spkr_vreg, 0);
-			if (ret < 0) {
-				pr_err("Failed to set spkr_vreg mode.\n");
-				goto err;
-			}
-
 			if (!q6core_is_adsp_ready()) {
 				pr_err("%s(): adsp not ready\n", __func__);
 				goto err;
 			}
+
 			/* Reset Configuration of mux for Primary TDM */
 			if (pdata->vaddr_gpio_mux_pcm_ctl) {
 				val = ioread32(pdata->vaddr_gpio_mux_pcm_ctl);
@@ -2238,36 +2224,8 @@ static int msm_bg_asoc_machine_probe(struct platform_device *pdev)
 			ret);
 		goto err;
 	}
-	if (of_get_property(
-		pdev->dev.of_node,
-		SPEAK_VREG_NAME "-supply", NULL)) {
-		pdata->spkr_vreg = regulator_get(&pdev->dev, SPEAK_VREG_NAME);
-		if (IS_ERR(pdata->spkr_vreg)) {
-			ret = PTR_ERR(pdata->spkr_vreg);
-			pr_err("VDD-speaker get failed error=%d\n", ret);
-			goto err;
-		}
-
-		ret = regulator_set_voltage(
-			pdata->spkr_vreg, 1800000, 1800000);
-		if (ret) {
-			pr_err("VDD-speaker set voltage failed error=%d\n",
-					 ret);
-			goto err_vreg_regulator;
-		} else {
-			ret = regulator_enable(pdata->spkr_vreg);
-			if (ret) {
-				pr_err("VDD-speaker voltage enable\n"
-					 "\nfailed error=%d\n", ret);
-				goto err_vreg_regulator;
-			}
-		}
-	}
 	atomic_set(&pdata->primary_tdm_ref_count, 0);
 	return 0;
-
-err_vreg_regulator:
-	regulator_put(pdata->spkr_vreg);
 err:
 	if (pdata->vaddr_gpio_mux_spkr_ctl)
 		iounmap(pdata->vaddr_gpio_mux_spkr_ctl);
