@@ -33,6 +33,7 @@
 #include <soc/qcom/bg_glink.h>
 #include "pktzr.h"
 
+#define SAMPLE_RATE_48KHZ 48000
 
 #define BG_RATES_MAX (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |\
 			    SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_48000 |\
@@ -40,8 +41,6 @@
 #define BG_FORMATS_S16_S24_LE (SNDRV_PCM_FMTBIT_S16_LE | \
 				  SNDRV_PCM_FMTBIT_S24_LE | \
 				  SNDRV_PCM_FMTBIT_S24_3LE)
-
-
 
 enum {
 	BG_AIF1_PB = 0,
@@ -80,6 +79,7 @@ struct bg_cdc_priv {
 	unsigned long status_mask;
 	struct bg_hw_params hw_params;
 	int src[NUM_CODEC_DAIS];
+	bool hwd_started;
 };
 
 struct codec_ssn_rt_setup_t {
@@ -93,6 +93,129 @@ struct graphite_basic_rsp_result {
 	/* Valid Graphite error code or completion status */
 	uint32_t status;
 };
+
+static uint32_t get_active_session_id(int dai_id)
+
+{
+	uint32_t active_session;
+
+	if ((dai_id >= NUM_CODEC_DAIS) || (dai_id < 0)) {
+		pr_err("%s invalid dai id\n", __func__);
+		return 0;
+	}
+
+	switch (dai_id) {
+	case BG_AIF1_PB:
+		active_session = 0x0001;
+		break;
+	case BG_AIF1_CAP:
+		active_session = 0x00010000;
+		break;
+	case BG_AIF2_PB:
+		active_session = 0x0001;
+		break;
+	case BG_AIF2_CAP:
+		active_session = 0x00020000;
+		break;
+	case BG_AIF3_PB:
+		active_session = 0x0002;
+		break;
+	case BG_AIF3_CAP:
+		/* BG MIC 1 is at slot 3 of the TDM packet */
+		active_session = 0x00020000;
+		break;
+	case BG_AIF4_PB:
+		active_session = 0x0004;
+		break;
+	case BG_AIF4_CAP:
+		/* BG MIC 0 is at slot 4 of the TDM packet */
+		active_session = 0x00010000;
+		break;
+	default:
+		active_session = 0;
+	}
+	pr_debug("active_session selected %x", active_session);
+	return active_session;
+}
+
+static int _bg_codec_hw_params(struct bg_cdc_priv *bg_cdc)
+{
+	struct bg_hw_params hw_params;
+	struct pktzr_cmd_rsp rsp;
+	int ret = 0;
+
+	rsp.buf_size = sizeof(struct graphite_basic_rsp_result);
+	rsp.buf = kzalloc(rsp.buf_size, GFP_KERNEL);
+	if (!rsp.buf)
+		return -ENOMEM;
+	memcpy(&hw_params, &bg_cdc->hw_params, sizeof(hw_params));
+	/* Send command to BG to set_params */
+	ret = pktzr_cmd_set_params(&hw_params, sizeof(hw_params), &rsp);
+	if (ret < 0)
+		pr_err("pktzr cmd set params failed with error %d\n", ret);
+
+	kfree(rsp.buf);
+
+	return ret;
+}
+
+static int _bg_codec_start(struct bg_cdc_priv *bg_cdc, int dai_id)
+{
+	struct pktzr_cmd_rsp rsp;
+	struct codec_ssn_rt_setup_t codec_start;
+	int ret = 0;
+
+	rsp.buf = NULL;
+	codec_start.active_session = get_active_session_id(dai_id);
+	if (codec_start.active_session == 0) {
+		pr_err("%s:Invalid dai id %d", __func__, dai_id);
+		return -EINVAL;
+	}
+	codec_start.route_to_bg = bg_cdc->src[dai_id];
+	pr_debug("%s active_session %x route_to_bg %d\n",
+		__func__, codec_start.active_session, codec_start.route_to_bg);
+	rsp.buf_size = sizeof(struct graphite_basic_rsp_result);
+	rsp.buf = kzalloc(rsp.buf_size, GFP_KERNEL);
+	if (!rsp.buf)
+		return -ENOMEM;
+	ret = pktzr_cmd_start(&codec_start, sizeof(codec_start), &rsp);
+	if (ret < 0)
+		pr_err("pktzr cmd start failed %d\n", ret);
+
+	kfree(rsp.buf);
+
+	return ret;
+}
+
+static int _bg_codec_stop(struct bg_cdc_priv *bg_cdc, int dai_id)
+{
+	struct pktzr_cmd_rsp rsp;
+	struct codec_ssn_rt_setup_t codec_start;
+	int ret = 0;
+
+	rsp.buf = NULL;
+	codec_start.active_session = get_active_session_id(dai_id);
+	if (codec_start.active_session == 0) {
+		pr_err("%s:Invalid dai id %d", __func__, dai_id);
+		return -EINVAL;
+	}
+	codec_start.route_to_bg = bg_cdc->src[dai_id];
+	pr_debug("%s active_session %x route_to_bg %d\n",
+		__func__, codec_start.active_session, codec_start.route_to_bg);
+	rsp.buf_size = sizeof(struct graphite_basic_rsp_result);
+	rsp.buf = kzalloc(rsp.buf_size, GFP_KERNEL);
+	if (!rsp.buf)
+		return -ENOMEM;
+	ret = pktzr_cmd_stop(&codec_start, sizeof(codec_start), &rsp);
+	if (ret < 0)
+		pr_err("pktzr cmd stop failed with error %d\n", ret);
+
+	kfree(rsp.buf);
+
+	return ret;
+}
+
+
 
 static int bg_get_src(struct snd_kcontrol *kcontrol,
 			    struct snd_ctl_elem_value *ucontrol)
@@ -136,6 +259,83 @@ static int bg_put_src(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int bg_get_hwd_state(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct bg_cdc_priv *bg_cdc = snd_soc_codec_get_drvdata(codec);
+	int dai_id = ((struct soc_multi_mixer_control *)
+				kcontrol->private_value)->reg;
+
+	if ((bg_cdc == NULL) || (dai_id >= NUM_CODEC_DAIS) ||
+		(dai_id < 0)) {
+		pr_err("%s invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	ucontrol->value.integer.value[0] = bg_cdc->hwd_started;
+	dev_dbg(codec->dev, "%s: dai_id: %d hwd_enable: %d\n", __func__,
+			dai_id, bg_cdc->hwd_started);
+
+	return 0;
+}
+
+static int bg_put_hwd_state(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct bg_cdc_priv *bg_cdc = snd_soc_codec_get_drvdata(codec);
+	int dai_id = ((struct soc_multi_mixer_control *)
+				kcontrol->private_value)->reg;
+	uint32_t active_session_id = 0;
+	int ret = 0;
+
+	if ((bg_cdc == NULL) || (dai_id >= NUM_CODEC_DAIS) ||
+		(dai_id < 0)) {
+		pr_err("%s bgcdc is null or invalid dai id\n", __func__);
+		return -EINVAL;
+	}
+
+	dev_dbg(codec->dev, "%s: dai_id: %d hwd_enable %ld\n", __func__,
+			dai_id, ucontrol->value.integer.value[0]);
+
+	if (ucontrol->value.integer.value[0] && (!bg_cdc->hwd_started)) {
+		/* enable bg hwd */
+		bg_cdc->hw_params.tx_sample_rate = SAMPLE_RATE_48KHZ;
+		bg_cdc->hw_params.tx_bit_width = 16;
+		bg_cdc->hw_params.tx_num_channels = 1;
+		active_session_id = get_active_session_id(dai_id);
+		if (active_session_id == 0) {
+			pr_err("%s:Invalid dai id %d", __func__, dai_id);
+			return -EINVAL;
+		}
+		bg_cdc->hw_params.active_session = active_session_id;
+		/* Send command to BG for HW params */
+		ret = _bg_codec_hw_params(bg_cdc);
+		if (ret < 0) {
+			pr_err("_bg_codec_hw_params fail for dai %d", dai_id);
+			return ret;
+		}
+		/* Send command to BG to start session */
+		ret = _bg_codec_start(bg_cdc, dai_id);
+		if (ret < 0) {
+			pr_err("_bg_codec_start fail for dai %d", dai_id);
+			return ret;
+		}
+		bg_cdc->hwd_started = true;
+	} else if (bg_cdc->hwd_started &&
+			(ucontrol->value.integer.value[0] == 0)) {
+		/*hwd was on, this is a command to stop it*/
+		bg_cdc->hwd_started = false;
+		ret = _bg_codec_stop(bg_cdc, dai_id);
+		if (ret < 0) {
+			pr_err("bg_codec_stop failed for dai %d\n", dai_id);
+			return ret;
+		}
+	}
+
+	return ret;
+}
 
 static const struct snd_kcontrol_new bg_snd_controls[] = {
 	SOC_SINGLE_EXT("RX_0 SRC", BG_AIF1_PB, 0, 1, 0,
@@ -154,8 +354,11 @@ static const struct snd_kcontrol_new bg_snd_controls[] = {
 	bg_get_src, bg_put_src),
 	SOC_SINGLE_EXT("TX_3 DST", BG_AIF4_CAP, 0, 1, 0,
 	bg_get_src, bg_put_src),
+	SOC_SINGLE_EXT("TX_2 HWD", BG_AIF3_CAP, 0, 1, 0,
+	bg_get_hwd_state, bg_put_hwd_state),
+	SOC_SINGLE_EXT("TX_3 HWD", BG_AIF4_CAP, 0, 1, 0,
+	bg_get_hwd_state, bg_put_hwd_state),
 };
-
 
 static int bg_cdc_startup(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
@@ -192,47 +395,17 @@ static int bg_cdc_hw_params(struct snd_pcm_substream *substream,
 			    struct snd_soc_dai *dai)
 {
 	struct bg_cdc_priv *bg_cdc = snd_soc_codec_get_drvdata(dai->codec);
-	struct bg_hw_params hw_params;
-	struct pktzr_cmd_rsp rsp;
 	int ret = 0;
-
-	rsp.buf = NULL;
 
 	pr_debug("%s: dai_name = %s DAI-ID %x rate %d width %d num_ch %d\n",
 		 __func__, dai->name, dai->id, params_rate(params),
 		 params_width(params), params_channels(params));
 
-	switch (dai->id) {
-	case BG_AIF1_PB:
-		bg_cdc->hw_params.active_session = 0x0001;
-		break;
-	case BG_AIF1_CAP:
-		bg_cdc->hw_params.active_session = 0x00010000;
-		break;
-	case BG_AIF2_PB:
-		bg_cdc->hw_params.active_session = 0x0001;
-		break;
-	case BG_AIF2_CAP:
-		bg_cdc->hw_params.active_session = 0x00020000;
-		break;
-	case BG_AIF3_PB:
-		bg_cdc->hw_params.active_session = 0x0002;
-		break;
-	case BG_AIF3_CAP:
-		bg_cdc->hw_params.active_session = 0x00010000;
-		break;
-	case BG_AIF4_PB:
-		bg_cdc->hw_params.active_session = 0x0004;
-		break;
-	case BG_AIF4_CAP:
-		bg_cdc->hw_params.active_session = 0x00020000;
-		break;
-	default:
+	bg_cdc->hw_params.active_session = get_active_session_id(dai->id);
+	if (bg_cdc->hw_params.active_session == 0) {
 		pr_err("%s:Invalid dai id %d", __func__, dai->id);
-		ret = -EINVAL;
-		goto exit;
+		return -EINVAL;
 	}
-
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		bg_cdc->hw_params.rx_sample_rate = params_rate(params);
@@ -244,99 +417,36 @@ static int bg_cdc_hw_params(struct snd_pcm_substream *substream,
 		bg_cdc->hw_params.tx_num_channels = params_channels(params);
 	}
 
-	/* check if RX, TX sampling freq is same if not return error. */
 	/* Send command to BG for HW params */
-	rsp.buf_size = sizeof(struct graphite_basic_rsp_result);
-	rsp.buf = kzalloc(rsp.buf_size, GFP_KERNEL);
-	if (!rsp.buf)
-		return -ENOMEM;
-	memcpy(&hw_params, &bg_cdc->hw_params, sizeof(hw_params));
-	/* Send command to BG to start session */
-	ret = pktzr_cmd_set_params(&hw_params, sizeof(hw_params), &rsp);
-	if (ret < 0) {
-		pr_err("pktzr cmd set params failed\n");
-		goto exit;
-	}
-exit:
-	if (rsp.buf)
-		kzfree(rsp.buf);
+
+	ret = _bg_codec_hw_params(bg_cdc);
+	if (ret < 0)
+		pr_err("_bg_codec_hw_params failed for dai %d", dai->id);
 	return ret;
 }
 
 static int bg_cdc_hw_free(struct snd_pcm_substream *substream,
 			  struct snd_soc_dai *dai)
 {
-	struct pktzr_cmd_rsp rsp;
 	int ret = 0;
-	struct codec_ssn_rt_setup_t codec_start;
 	struct bg_cdc_priv *bg_cdc = snd_soc_codec_get_drvdata(dai->codec);
 
 	pr_debug("%s: dai_name = %s DAI-ID %x\n", __func__, dai->name, dai->id);
 
-	rsp.buf = NULL;
+	ret = _bg_codec_stop(bg_cdc, dai->id);
+	if (ret < 0)
+		pr_err("bg_codec_stop failed for dai %d\n", dai->id);
 
-	switch (dai->id) {
-	case BG_AIF1_PB:
-		codec_start.active_session = 0x0001;
-		break;
-	case BG_AIF1_CAP:
-		codec_start.active_session = 0x00010000;
-		break;
-	case BG_AIF2_PB:
-		codec_start.active_session = 0x0001;
-		break;
-	case BG_AIF2_CAP:
-		codec_start.active_session = 0x00020000;
-		break;
-	case BG_AIF3_PB:
-		codec_start.active_session = 0x0002;
-		break;
-	case BG_AIF3_CAP:
-		codec_start.active_session = 0x00010000;
-		break;
-	case BG_AIF4_PB:
-		codec_start.active_session = 0x0004;
-		break;
-	case BG_AIF4_CAP:
-		codec_start.active_session = 0x00020000;
-		break;
-	default:
-		pr_err("%s:Invalid dai id %d", __func__, dai->id);
-		ret = -EINVAL;
-		goto exit;
-	}
-
-	codec_start.route_to_bg = bg_cdc->src[dai->id];
-	pr_debug("%s active_session %x route_to_bg %d\n",
-		__func__, codec_start.active_session, codec_start.route_to_bg);
-	rsp.buf_size = sizeof(struct graphite_basic_rsp_result);
-	rsp.buf = kzalloc(rsp.buf_size, GFP_KERNEL);
-	if (!rsp.buf)
-		return -ENOMEM;
-	/* Send command to BG to stop session */
-	ret = pktzr_cmd_stop(&codec_start,
-			sizeof(codec_start), &rsp);
-	if (ret < 0) {
-		pr_err("pktzr cmd close failed\n");
-		goto exit;
-	}
-exit:
-	if (rsp.buf)
-		kzfree(rsp.buf);
 	return ret;
 }
 
 static int bg_cdc_prepare(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
-	struct pktzr_cmd_rsp rsp;
 	int ret = 0;
-	struct codec_ssn_rt_setup_t codec_start;
 	struct bg_cdc_priv *bg_cdc = snd_soc_codec_get_drvdata(dai->codec);
 
-	rsp.buf = NULL;
-
-
+	/* check if RX, TX sampling freq is same if not return error. */
 	if (test_bit(PLAYBACK, &bg_cdc->status_mask) &&
 	    test_bit(CAPTURE, &bg_cdc->status_mask)) {
 		if ((bg_cdc->hw_params.rx_sample_rate !=
@@ -350,57 +460,17 @@ static int bg_cdc_prepare(struct snd_pcm_substream *substream,
 				bg_cdc->hw_params.rx_bit_width);
 			return -EINVAL;
 		}
+	} else if (test_bit(CAPTURE, &bg_cdc->status_mask) &&
+					bg_cdc->hwd_started){
+		pr_err("Cannot enable recording if hwd is in progress");
+		return -EINVAL;
 	}
 
-	switch (dai->id) {
-	case BG_AIF1_PB:
-		codec_start.active_session = 0x0001;
-		break;
-	case BG_AIF1_CAP:
-		codec_start.active_session = 0x00010000;
-		break;
-	case BG_AIF2_PB:
-		codec_start.active_session = 0x0001;
-		break;
-	case BG_AIF2_CAP:
-		codec_start.active_session = 0x00020000;
-		break;
-	case BG_AIF3_PB:
-		codec_start.active_session = 0x0002;
-		break;
-	case BG_AIF3_CAP:
-		codec_start.active_session = 0x00010000;
-		break;
-	case BG_AIF4_PB:
-		codec_start.active_session = 0x0004;
-		break;
-	case BG_AIF4_CAP:
-		codec_start.active_session = 0x00020000;
-		break;
-	default:
-		pr_err("%s:Invalid dai id %d", __func__, dai->id);
-		ret = -EINVAL;
-		goto exit;
-	}
-
-	codec_start.route_to_bg = bg_cdc->src[dai->id];
-	pr_debug("%s active_session %x route_to_bg %d\n",
-		__func__, codec_start.active_session, codec_start.route_to_bg);
-	rsp.buf_size = sizeof(struct graphite_basic_rsp_result);
-	rsp.buf = kzalloc(rsp.buf_size, GFP_KERNEL);
-	if (!rsp.buf)
-		return -ENOMEM;
 	/* Send command to BG to start session */
-	ret = pktzr_cmd_start(&codec_start, sizeof(codec_start), &rsp);
-	if (ret < 0) {
-		pr_err("pktzr cmd start failed\n");
-		goto exit;
-	}
-exit:
-	if (rsp.buf)
-		kzfree(rsp.buf);
+	ret = _bg_codec_start(bg_cdc, dai->id);
+	if (ret < 0)
+		pr_err("_bg_codec_start failed for dai %d", dai->id);
 	return ret;
-
 }
 
 static int bg_cdc_set_channel_map(struct snd_soc_dai *dai,
