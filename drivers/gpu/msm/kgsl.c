@@ -346,8 +346,10 @@ static int kgsl_mem_entry_track_gpuaddr(struct kgsl_device *device,
 	/*
 	 * If SVM is enabled for this object then the address needs to be
 	 * assigned elsewhere
+	 * Also do not proceed further in case of NoMMU.
 	 */
-	if (kgsl_memdesc_use_cpu_map(&entry->memdesc))
+	if (kgsl_memdesc_use_cpu_map(&entry->memdesc) ||
+		(kgsl_mmu_get_mmutype(device) == KGSL_MMU_TYPE_NONE))
 		return 0;
 
 	pagetable = kgsl_memdesc_is_secured(&entry->memdesc) ?
