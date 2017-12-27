@@ -130,9 +130,9 @@
 	rpm-regulator-ldoa2 {
 		status = "okay";
 		pm660_l2: regulator-l2 {
-			regulator-min-microvolt = <1300000>;
-			regulator-max-microvolt = <1300000>;
-			qcom,init-voltage = <1300000>;
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			qcom,init-voltage = <1200000>;
 			status = "okay";
 		};
 	};
