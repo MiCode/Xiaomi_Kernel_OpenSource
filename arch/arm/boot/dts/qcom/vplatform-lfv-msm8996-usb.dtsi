@@ -73,13 +73,13 @@
 
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
 
-		clocks = <&clock_gcc clk_gcc_usb30_master_clk>,
-			<&clock_gcc clk_gcc_sys_noc_usb3_axi_clk>,
-			<&clock_gcc clk_gcc_aggre2_usb3_axi_clk>,
-			<&clock_gcc clk_gcc_usb30_mock_utmi_clk>,
-			<&clock_gcc clk_gcc_usb30_sleep_clk>,
+		clocks = <&clock_virt clk_gcc_usb30_master_clk>,
+			<&clock_virt clk_gcc_sys_noc_usb3_axi_clk>,
+			<&clock_virt clk_gcc_aggre2_usb3_axi_clk>,
+			<&clock_virt clk_gcc_usb30_mock_utmi_clk>,
+			<&clock_virt clk_gcc_usb30_sleep_clk>,
 			<&clock_gcc clk_cxo_dwc3_clk>,
-			<&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>;
+			<&clock_virt clk_gcc_usb_phy_cfg_ahb2phy_clk>;
 
 		clock-names = "core_clk", "iface_clk", "bus_aggr_clk",
 			"utmi_clk","sleep_clk", "xo", "cfg_ahb_clk";
@@ -237,7 +237,7 @@
 		qcom,phy-clk-scheme = "cmos";
 		qcom,major-rev = <1>;
 
-		clocks = <&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,
+		clocks = <&clock_virt clk_gcc_usb_phy_cfg_ahb2phy_clk>,
 			 <&clock_gcc clk_ln_bb_clk>;
 		clock-names = "cfg_ahb_clk", "ref_clk_src";
 
@@ -356,11 +356,11 @@
 				 0x600 /* USB3_PHY_SW_RESET */
 				 0x608>; /* USB3_PHY_START */
 
-		clocks = <&clock_gcc clk_gcc_usb3_phy_aux_clk>,
-			 <&clock_gcc clk_gcc_usb3_phy_pipe_clk>,
-			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,
+		clocks = <&clock_virt clk_gcc_usb3_phy_aux_clk>,
+			 <&clock_virt clk_gcc_usb3_phy_pipe_clk>,
+			 <&clock_virt clk_gcc_usb_phy_cfg_ahb2phy_clk>,
 			 <&clock_gcc clk_ln_bb_clk>,
-			 <&clock_gcc clk_gcc_usb3_clkref_clk>;
+			 <&clock_virt clk_gcc_usb3_clkref_clk>;
 
 		clock-names = "aux_clk", "pipe_clk", "cfg_ahb_clk",
 				"ref_clk_src", "ref_clk";
