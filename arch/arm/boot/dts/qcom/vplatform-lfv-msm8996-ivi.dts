@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,4 +44,15 @@
 			reg = <0x1 0x0 0 0x10000000>;
 			label = "ion_system_mem";
 		};
+};
+
+#include "vplatform-lfv-msm8996-usb.dtsi"
+
+&usb3 {
+	status = "okay";
+	qcom,no-wakeup-src-in-hostmode;
+};
+
+&usb2s {
+	status = "okay";
 };
