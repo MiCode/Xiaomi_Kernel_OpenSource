@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -181,5 +181,14 @@
 	wdsp_glink: qcom,wcd-dsp-glink {
 		compatible = "qcom,wcd-dsp-glink";
 		qcom,msm-codec-glink-edge = "bg";
+	};
+
+	bg_cdc: bg_codec {
+		status = "disabled";
+		compatible = "qcom,bg-codec";
+		qcom,bg-glink {
+			compatible = "qcom,bg-cdc-glink";
+			qcom,msm-glink-channels = <4>;
+		};
 	};
 };

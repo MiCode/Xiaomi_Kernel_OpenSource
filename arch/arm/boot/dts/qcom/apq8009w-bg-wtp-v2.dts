@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, 2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -200,11 +200,11 @@
 
 &audio_codec_bg {
 	status = "ok";
-	vdd-spkr-supply = <&pm660_l11>;
 };
 
 &bg_cdc {
 	status = "ok";
+	vdd-spkr-supply = <&pm660_l11>;
 };
 
 &blsp1_uart1 {
