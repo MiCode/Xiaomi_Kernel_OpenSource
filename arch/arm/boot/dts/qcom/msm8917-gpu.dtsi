@@ -109,26 +109,6 @@
 		coresight-child-list = <&funnel_mm>;
 		coresight-child-ports = <6>;
 
-		/* GPU Mempools */
-		qcom,gpu-mempools {
-			#address-cells= <1>;
-			#size-cells = <0>;
-			compatible = "qcom,gpu-mempools";
-
-			qcom,mempool-max-pages = <32768>;
-
-			/* 4K Page Pool configuration */
-			qcom,gpu-mempool@0 {
-				reg = <0>;
-				qcom,mempool-page-size = <4096>;
-			};
-			/* 64K Page Pool configuration */
-			qcom,gpu-mempool@1 {
-				reg = <1>;
-				qcom,mempool-page-size  = <65536>;
-			};
-		};
-
 		/* Power levels */
 		qcom,gpu-pwrlevels {
 			#address-cells = <1>;
