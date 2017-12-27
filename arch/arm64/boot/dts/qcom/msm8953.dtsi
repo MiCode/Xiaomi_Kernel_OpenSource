@@ -1794,6 +1794,7 @@
 		vdd_cx-supply = <&pm8953_s2_level>;
 		qcom,proxy-reg-names = "vdd_cx";
 		qcom,vdd_cx-uV-uA = <RPM_SMD_REGULATOR_LEVEL_TURBO 100000>;
+		qcom,mas-crypto = <&mas_crypto>;
 
 		clocks = <&clock_gcc clk_xo_pil_lpass_clk>,
 			 <&clock_gcc clk_gcc_crypto_clk>,
@@ -1825,6 +1826,8 @@
 		vdd_pronto_pll-supply = <&pm8953_l7>;
 		proxy-reg-names = "vdd_pronto_pll";
 		vdd_pronto_pll-uV-uA = <1800000 18000>;
+		qcom,mas-crypto = <&mas_crypto>;
+
 		clocks = <&clock_gcc clk_xo_pil_pronto_clk>,
 			 <&clock_gcc clk_gcc_crypto_clk>,
 			 <&clock_gcc clk_gcc_crypto_ahb_clk>,
