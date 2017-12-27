@@ -125,9 +125,9 @@ static void ci13xxx_msm_connect(void)
 			ULPI_MISC_A_VBUSVLDEXTSEL,
 			ULPI_SET(ULPI_MISC_A));
 
-		temp = readl_relaxed(USB_GENCONFIG2);
-		temp |= GENCFG2_SESS_VLD_CTRL_EN;
-		writel_relaxed(temp, USB_GENCONFIG2);
+		temp = readl_relaxed(USB_GENCONFIG_2);
+		temp |= GENCONFIG_2_SESS_VLD_CTRL_EN;
+		writel_relaxed(temp, USB_GENCONFIG_2);
 
 		temp = readl_relaxed(USB_USBCMD);
 		temp |= USBCMD_SESS_VLD_CTRL;
@@ -229,7 +229,6 @@ static void ci13xxx_msm_notify_event(struct ci13xxx *udc, unsigned int event)
 	case CI13XXX_CONTROLLER_UDC_STARTED_EVENT:
 		dev_info(dev,
 			 "CI13XXX_CONTROLLER_UDC_STARTED_EVENT received\n");
-		udc->gadget.interrupt_num = _udc_ctxt.irq;
 		break;
 	default:
 		dev_dbg(dev, "unknown ci13xxx_udc event\n");
