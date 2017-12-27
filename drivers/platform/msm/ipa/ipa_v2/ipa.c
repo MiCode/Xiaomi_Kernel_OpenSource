@@ -3985,7 +3985,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		IPADBG("Skipping bus scaling registration on Virtual plat\n");
 	}
 
-	result = ipa2_active_clients_log_init()
+	result = ipa2_active_clients_log_init();
 	if (result)
 		goto fail_init_active_client;
 
