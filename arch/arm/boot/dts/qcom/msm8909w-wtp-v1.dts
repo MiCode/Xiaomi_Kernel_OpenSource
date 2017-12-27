@@ -53,12 +53,15 @@
 			synaptics,irq-on-state = <0>;
 			synaptics,irq-flags = <0x2008>;
 			synaptics,power-delay-ms = <200>;
-			synaptics,reset-delay-ms = <200>;
 			synaptics,max-y-for-2d = <389>;
 			synaptics,resume-in-workqueue;
 			synaptics,x-flip;
 			synaptics,y-flip;
-			/delete-property/ synaptics,reset-gpio;
+
+			synaptics,reset-gpio = <&msm_gpio 31 0x0>;
+			synaptics,reset-delay-ms = <200>;
+			synaptics,reset-on-state = <0>;
+			synaptics,reset-active-ms = <20>;
 			/delete-property/ synaptics,display-coords;
 			/delete-property/ synaptics,panel-coords;
 			/delete-property/ synaptics,power-down;
@@ -205,20 +208,20 @@
 
 &ts_reset_suspend {
 	mux {
-		pins = "gpio16";
+		pins = "gpio31";
 	};
 
 	config {
-		pins = "gpio16";
+		pins = "gpio31";
 	};
 };
 
 &ts_release {
 	mux {
-		pins = "gpio98", "gpio16";
+		pins = "gpio98", "gpio31";
 	};
 
 	config {
-		pins = "gpio98", "gpio16";
+		pins = "gpio98", "gpio31";
 	};
 };
