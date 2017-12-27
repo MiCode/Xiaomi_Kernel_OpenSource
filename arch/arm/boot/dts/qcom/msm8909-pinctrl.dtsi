@@ -592,6 +592,30 @@
 				};
 			};
 
+			nfcv2k_disable_active: nfcv2k_disable_active {
+				mux {
+					pins = "gpio52";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio52";
+					drive-strength = <6>;
+					bias-pull-up;
+				};
+			};
+
+			nfcv2k_disable_suspend: nfcv2k_disable_suspend {
+				mux {
+					pins = "gpio52";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio52";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
 			nfc_int_active: nfc_int_active {
 				mux {
 					pins = "gpio21";
