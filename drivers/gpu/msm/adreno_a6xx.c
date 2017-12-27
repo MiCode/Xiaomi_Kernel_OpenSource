@@ -55,7 +55,6 @@ static const struct adreno_vbif_data a630_vbif[] = {
 
 static const struct adreno_vbif_data a615_gbif[] = {
 	{A6XX_RBBM_VBIF_CLIENT_QOS_CNTL, 0x3},
-	{A6XX_UCHE_GBIF_GX_CONFIG, 0x10200F9},
 	{0, 0},
 };
 
@@ -669,6 +668,9 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 
 	adreno_vbif_start(adreno_dev, a6xx_vbif_platforms,
 			ARRAY_SIZE(a6xx_vbif_platforms));
+
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_LIMIT_UCHE_GBIF_RW))
+		kgsl_regwrite(device, A6XX_UCHE_GBIF_GX_CONFIG, 0x10200F9);
 
 	/* Make all blocks contribute to the GPU BUSY perf counter */
 	kgsl_regwrite(device, A6XX_RBBM_PERFCTR_GPU_BUSY_MASKED, 0xFFFFFFFF);
