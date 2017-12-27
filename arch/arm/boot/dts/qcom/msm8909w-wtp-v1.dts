@@ -225,3 +225,16 @@
 		pins = "gpio98", "gpio31";
 	};
 };
+
+&system_fstab {
+	fsmgr_flags = "wait";
+};
+
+&vendor_fstab {
+	fsmgr_flags = "wait";
+};
+
+&mdss_dsi0{
+	qcom,dsi-pref-prim-pan = <&dsi_auo_390p_cmd>;
+	qcom,platform-bklight-en-gpio = <&msm_gpio 37 0>;
+};
