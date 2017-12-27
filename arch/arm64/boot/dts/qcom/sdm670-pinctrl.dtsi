@@ -1448,8 +1448,8 @@
 			};
 		};
 
-		wcd_gnd_mic_swap {
-			wcd_gnd_mic_swap_idle: wcd_gnd_mic_swap_idle {
+		wcd_usbc_analog_en2 {
+			wcd_usbc_analog_en2_idle: wcd_usbc_ana_en2_idle {
 				mux {
 					pins = "gpio40";
 					function = "gpio";
@@ -1463,7 +1463,7 @@
 				};
 			};
 
-			wcd_gnd_mic_swap_active: wcd_gnd_mic_swap_active {
+			wcd_usbc_analog_en2_active: wcd_usbc_ana_en2_active {
 				mux {
 					pins = "gpio40";
 					function = "gpio";

@@ -117,13 +117,6 @@
 		pinctrl-1 = <&wcd_usbc_analog_en1_idle>;
 	};
 
-	wcd_gnd_mic_swap_gpio: msm_cdc_pinctrl_gnd_mic_swap {
-		compatible = "qcom,msm-cdc-pinctrl";
-		pinctrl-names = "aud_active", "aud_sleep";
-		pinctrl-0 = <&wcd_gnd_mic_swap_active>;
-		pinctrl-1 = <&wcd_gnd_mic_swap_idle>;
-	};
-
 	cdc_pdm_gpios: cdc_pdm_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";

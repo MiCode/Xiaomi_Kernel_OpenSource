@@ -14,5 +14,8 @@
 &int_codec {
 	qcom,msm-mbhc-usbc-audio-supported = <1>;
 	qcom,usbc-analog-en1-gpio = <&wcd_usbc_analog_en1_gpio>;
-	qcom,us-euro-gpios = <&wcd_gnd_mic_swap_gpio>;
+	qcom,usbc-analog-en2-gpio = <&tlmm 40 0>;
+	pinctrl-names = "aud_active", "aud_sleep";
+	pinctrl-0 = <&wcd_usbc_analog_en2_active>;
+	pinctrl-1 = <&wcd_usbc_analog_en2_idle>;
 };
