@@ -38,6 +38,7 @@
 #include <linux/uaccess.h>
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/etherdevice.h>
+#include <linux/of_gpio.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/icnss.h>
 #include <soc/qcom/msm_qmi_interface.h>
@@ -461,6 +462,7 @@ static struct icnss_priv {
 	atomic_t pm_count;
 	struct ramdump_device *msa0_dump_dev;
 	bool bypass_s1_smmu;
+	bool force_err_fatal;
 	u8 cause_for_rejuvenation;
 	u8 requesting_sub_system;
 	u16 line_number;
@@ -1175,6 +1177,48 @@ int icnss_power_off(struct device *dev)
 	return icnss_hw_power_off(priv);
 }
 EXPORT_SYMBOL(icnss_power_off);
+
+static irqreturn_t fw_error_fatal_handler(int irq, void *ctx)
+{
+	struct icnss_priv *priv = ctx;
+
+	if (priv)
+		priv->force_err_fatal = true;
+
+	icnss_pr_err("Received force error fatal request from FW\n");
+
+	return IRQ_HANDLED;
+}
+
+static void icnss_register_force_error_fatal(struct icnss_priv *priv)
+{
+	int gpio, irq, ret;
+
+	if (!of_find_property(priv->pdev->dev.of_node,
+				"qcom,gpio-force-fatal-error", NULL)) {
+		icnss_pr_dbg("Error fatal smp2p handler not registered\n");
+		return;
+	}
+	gpio = of_get_named_gpio(priv->pdev->dev.of_node,
+				"qcom,gpio-force-fatal-error", 0);
+	if (!gpio_is_valid(gpio)) {
+		icnss_pr_err("Invalid GPIO for error fatal smp2p %d\n", gpio);
+		return;
+	}
+	irq = gpio_to_irq(gpio);
+	if (irq < 0) {
+		icnss_pr_err("Invalid IRQ for error fatal smp2p %u\n", irq);
+		return;
+	}
+	ret = request_irq(irq, fw_error_fatal_handler,
+			IRQF_TRIGGER_RISING, "wlanfw-err", priv);
+	if (ret < 0) {
+		icnss_pr_err("Unable to regiser for error fatal IRQ handler %d",
+				irq);
+		return;
+	}
+	icnss_pr_dbg("FW force error fatal handler registered\n");
+}
 
 static int wlfw_msa_mem_info_send_sync_msg(void)
 {
@@ -2065,6 +2109,8 @@ static int icnss_driver_event_server_arrive(void *data)
 
 	icnss_init_vph_monitor(penv);
 
+	icnss_register_force_error_fatal(penv);
+
 	return ret;
 
 err_setup_msa:
@@ -2362,6 +2408,9 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 		ICNSS_ASSERT(0);
 		goto out;
 	}
+
+	if (priv->force_err_fatal)
+		ICNSS_ASSERT(0);
 
 	if (event_data->crashed)
 		icnss_fw_crashed(priv, event_data);
