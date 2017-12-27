@@ -220,7 +220,7 @@ static int __cam_node_handle_flush_dev(struct cam_node *node,
 
 	rc = cam_context_handle_flush_dev(ctx, flush);
 	if (rc)
-		CAM_ERR(CAM_CORE, "FLush failure for node %s", node->name);
+		CAM_ERR(CAM_CORE, "Flush failure for node %s", node->name);
 
 	return rc;
 }

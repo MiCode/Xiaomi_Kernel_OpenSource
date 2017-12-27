@@ -281,10 +281,10 @@ int cam_context_handle_release_dev(struct cam_context *ctx,
 int cam_context_handle_flush_dev(struct cam_context *ctx,
 	struct cam_flush_dev_cmd *cmd)
 {
-	int rc;
+	int rc = 0;
 
 	if (!ctx->state_machine) {
-		CAM_ERR(CAM_CORE, "context is not ready");
+		CAM_ERR(CAM_CORE, "Context is not ready");
 		return -EINVAL;
 	}
 
@@ -298,9 +298,8 @@ int cam_context_handle_flush_dev(struct cam_context *ctx,
 		rc = ctx->state_machine[ctx->state].ioctl_ops.flush_dev(
 			ctx, cmd);
 	} else {
-		CAM_ERR(CAM_CORE, "No flush device in dev %d, state %d",
+		CAM_WARN(CAM_CORE, "No flush device in dev %d, state %d",
 			ctx->dev_hdl, ctx->state);
-		rc = -EPROTO;
 	}
 	mutex_unlock(&ctx->ctx_mutex);
 
