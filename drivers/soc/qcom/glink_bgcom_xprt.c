@@ -50,6 +50,8 @@
 #define BGCOM_TO_MASTER_FIFO_READY 0x00000004
 #define BGCOM_AHB_READY 0x00000008
 #define WORD_SIZE 4
+#define TX_BLOCKED_CMD_RESERVE 16
+#define FIFO_FULL_RESERVE (TX_BLOCKED_CMD_RESERVE/WORD_SIZE)
 #define BGCOM_LINKUP (BGCOM_APPLICATION_RUNNING \
 			| BGCOM_TO_SLAVE_FIFO_READY \
 			| BGCOM_TO_MASTER_FIFO_READY \
@@ -216,6 +218,11 @@ static int glink_bgcom_get_tx_avail(struct edge_info *einfo)
 
 	mutex_lock(&einfo->tx_avail_lock);
 	tx_avail = einfo->fifo_fill.tx_avail;
+	if (tx_avail < FIFO_FULL_RESERVE)
+		tx_avail = 0;
+	else
+		tx_avail -= FIFO_FULL_RESERVE;
+
 	mutex_unlock(&einfo->tx_avail_lock);
 	return tx_avail;
 }
@@ -555,13 +562,11 @@ static void process_rx_cmd(struct edge_info *einfo,
  * tx_wakeup_worker() - worker function to wakeup tx blocked thread
  * @work:	kwork associated with the edge to process commands on.
  */
-static void tx_wakeup_worker(struct work_struct *work)
+static void tx_wakeup_worker(struct edge_info *einfo)
 {
-	struct edge_info *einfo;
 	int rcu_id;
 	struct bgcom_fifo_fill fifo_fill;
 
-	einfo = container_of(work, struct edge_info, wakeup_work);
 	mutex_lock(&einfo->tx_avail_lock);
 	bgcom_reg_read(einfo->bgcom_handle, BGCOM_REG_FIFO_FILL, 1,
 						&fifo_fill);
@@ -1440,7 +1445,7 @@ static void glink_bgcom_event_handler(void *handle,
 		break;
 	case BGCOM_EVENT_TO_SLAVE_FIFO_FREE:
 		if (einfo->water_mark_reached)
-			queue_work(system_unbound_wq, &einfo->wakeup_work);
+			tx_wakeup_worker(einfo);
 		break;
 	case BGCOM_EVENT_RESET_OCCURRED:
 		einfo->bgcom_status = BGCOM_RESET;
@@ -1592,7 +1597,6 @@ static int glink_bgcom_probe(struct platform_device *pdev)
 	init_xprt_cfg(einfo, subsys_name);
 	init_xprt_if(einfo);
 
-	INIT_WORK(&einfo->wakeup_work, tx_wakeup_worker);
 	init_kthread_worker(&einfo->kworker);
 	init_srcu_struct(&einfo->use_ref);
 	mutex_init(&einfo->write_lock);
@@ -1646,7 +1650,6 @@ bgcom_open_fail:
 	glink_core_unregister_transport(&einfo->xprt_if);
 reg_xprt_fail:
 	flush_kthread_worker(&einfo->kworker);
-	flush_work(&einfo->wakeup_work);
 	kthread_stop(einfo->task);
 	einfo->task = NULL;
 kthread_fail:
