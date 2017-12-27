@@ -18,6 +18,7 @@
 #include <linux/gpio.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
+#include <linux/regmap.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/of_gpio.h>
@@ -26,7 +27,6 @@
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/machine.h>
 #include <linux/slab.h>
-#include <linux/spmi.h>
 #include <linux/usb/class-dual-role.h>
 
 #define CREATE_MASK(NUM_BITS, POS) \
@@ -88,9 +88,10 @@ static void typec_relax(struct typec_wakeup_source *source)
 
 struct qpnp_typec_chip {
 	struct device		*dev;
-	struct spmi_device	*spmi;
+	struct regmap		*regmap;
 	struct power_supply	*batt_psy;
-	struct power_supply	type_c_psy;
+	struct power_supply	*typec_psy;
+	struct power_supply_desc	typec_psy_desc;
 	struct regulator	*ss_mux_vreg;
 	struct mutex		typec_lock;
 	spinlock_t		rw_lock;
@@ -128,29 +129,28 @@ static char *mode_text[] = {
 	"ufp", "dfp", "none"
 };
 
-/* SPMI operations */
-static int __qpnp_typec_read(struct spmi_device *spmi, u8 *val, u16 addr,
+/* SPMI Read/Write operations */
+static int __qpnp_typec_read(struct qpnp_typec_chip *chip, u8 *val, u16 addr,
 			int count)
 {
 	int rc;
 
-	rc = spmi_ext_register_readl(spmi->ctrl, spmi->sid, addr, val, count);
+	rc = regmap_bulk_read(chip->regmap, addr, val, count);
 	if (rc)
-		pr_err("spmi read failed addr=0x%02x sid=0x%02x rc=%d\n",
-				addr, spmi->sid, rc);
-
+		pr_err("spmi read failed addr=0x%02x rc=%d\n",
+				addr, rc);
 	return rc;
 }
 
-static int __qpnp_typec_write(struct spmi_device *spmi, u8 *val, u16 addr,
+static int __qpnp_typec_write(struct qpnp_typec_chip *chip, u8 *val, u16 addr,
 			int count)
 {
 	int rc;
 
-	rc = spmi_ext_register_writel(spmi->ctrl, spmi->sid, addr, val, count);
+	rc = regmap_bulk_write(chip->regmap, addr, val, count);
 	if (rc)
-		pr_err("spmi write failed addr=0x%02x sid=0x%02x rc=%d\n",
-				addr, spmi->sid, rc);
+		pr_err("spmi write failed addr=0x%02x rc=%d\n",
+				addr, rc);
 	return rc;
 }
 
@@ -159,16 +159,14 @@ static int qpnp_typec_read(struct qpnp_typec_chip *chip, u8 *val, u16 addr,
 {
 	int rc;
 	unsigned long flags;
-	struct spmi_device *spmi = chip->spmi;
 
 	if (addr == 0) {
-		pr_err("addr cannot be zero addr=0x%02x sid=0x%02x\n",
-				addr, spmi->sid);
+		pr_err("addr cannot be zero addr=0x%02x\n", addr);
 		return -EINVAL;
 	}
 
 	spin_lock_irqsave(&chip->rw_lock, flags);
-	rc = __qpnp_typec_read(spmi, val, addr, count);
+	rc = __qpnp_typec_read(chip, val, addr, count);
 	spin_unlock_irqrestore(&chip->rw_lock, flags);
 
 	return rc;
@@ -180,10 +178,9 @@ static int qpnp_typec_masked_write(struct qpnp_typec_chip *chip, u16 base,
 	u8 reg;
 	int rc;
 	unsigned long flags;
-	struct spmi_device *spmi = chip->spmi;
 
 	spin_lock_irqsave(&chip->rw_lock, flags);
-	rc = __qpnp_typec_read(spmi, &reg, base, 1);
+	rc = __qpnp_typec_read(chip, &reg, base, 1);
 	if (rc) {
 		pr_err("spmi read failed: addr=%03X, rc=%d\n", base, rc);
 		goto out;
@@ -194,7 +191,7 @@ static int qpnp_typec_masked_write(struct qpnp_typec_chip *chip, u16 base,
 
 	pr_debug("addr = 0x%x writing 0x%x\n", base, reg);
 
-	rc = __qpnp_typec_write(spmi, &reg, base, 1);
+	rc = __qpnp_typec_write(chip, &reg, base, 1);
 	if (rc) {
 		pr_err("spmi write failed: addr=%03X, rc=%d\n", base, rc);
 		goto out;
@@ -224,7 +221,7 @@ static int set_property_on_battery(struct qpnp_typec_chip *chip,
 	switch (prop) {
 	case POWER_SUPPLY_PROP_CURRENT_CAPABILITY:
 		ret.intval = chip->current_ma;
-		rc = chip->batt_psy->set_property(chip->batt_psy,
+		rc = chip->batt_psy->desc->set_property(chip->batt_psy,
 			POWER_SUPPLY_PROP_CURRENT_CAPABILITY, &ret);
 		if (rc)
 			pr_err("failed to set current max rc=%d\n", rc);
@@ -236,7 +233,7 @@ static int set_property_on_battery(struct qpnp_typec_chip *chip,
 		 * charger driver.
 		 */
 		ret.intval = chip->typec_state;
-		rc = chip->batt_psy->set_property(chip->batt_psy,
+		rc = chip->batt_psy->desc->set_property(chip->batt_psy,
 				POWER_SUPPLY_PROP_TYPEC_MODE, &ret);
 		if (rc)
 			pr_err("failed to set typec mode rc=%d\n", rc);
@@ -369,7 +366,7 @@ static int qpnp_typec_handle_detach(struct qpnp_typec_chip *chip)
 	chip->cc_line_state = OPEN;
 	chip->current_ma = 0;
 	chip->typec_state = POWER_SUPPLY_TYPE_UNKNOWN;
-	chip->type_c_psy.type = POWER_SUPPLY_TYPE_UNKNOWN;
+	chip->typec_psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
 	rc = set_property_on_battery(chip, POWER_SUPPLY_PROP_TYPEC_MODE);
 	if (rc)
 		pr_err("failed to set TYPEC MODE on battery psy rc=%d\n", rc);
@@ -458,7 +455,7 @@ static irqreturn_t ufp_detect_handler(int irq, void *_chip)
 	chip->current_ma = get_max_current(reg & TYPEC_CURRENT_MASK);
 	/* device in UFP state */
 	chip->typec_state = POWER_SUPPLY_TYPE_UFP;
-	chip->type_c_psy.type = POWER_SUPPLY_TYPE_UFP;
+	chip->typec_psy_desc.type = POWER_SUPPLY_TYPE_UFP;
 	rc = set_property_on_battery(chip, POWER_SUPPLY_PROP_TYPEC_MODE);
 	if (rc)
 		pr_err("failed to set TYPEC MODE on battery psy rc=%d\n", rc);
@@ -514,7 +511,7 @@ static irqreturn_t dfp_detect_handler(int irq, void *_chip)
 		}
 
 		chip->typec_state = POWER_SUPPLY_TYPE_DFP;
-		chip->type_c_psy.type = POWER_SUPPLY_TYPE_DFP;
+		chip->typec_psy_desc.type = POWER_SUPPLY_TYPE_DFP;
 		chip->current_ma = 0;
 		rc = set_property_on_battery(chip,
 				POWER_SUPPLY_PROP_TYPEC_MODE);
@@ -618,7 +615,7 @@ static int qpnp_typec_determine_initial_status(struct qpnp_typec_chip *chip)
 
 	chip->cc_line_state = OPEN;
 	chip->typec_state = POWER_SUPPLY_TYPE_UNKNOWN;
-	chip->type_c_psy.type = POWER_SUPPLY_TYPE_UNKNOWN;
+	chip->typec_psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
 
 	if (rt_reg & DFP_DETECT_BIT) {
 		/* we are in DFP state*/
@@ -631,43 +628,44 @@ static int qpnp_typec_determine_initial_status(struct qpnp_typec_chip *chip)
 	return 0;
 }
 
-#define REQUEST_IRQ(chip, irq, irq_name, irq_handler, flags, wake, rc)	\
-do {									\
-	irq = spmi_get_irq_byname(chip->spmi, NULL, irq_name);		\
-	if (irq < 0) {							\
-		pr_err("Unable to get " irq_name " irq\n");		\
-		rc |= -ENXIO;						\
-	}								\
-	rc = devm_request_threaded_irq(chip->dev,			\
-			irq, NULL, irq_handler, flags, irq_name,	\
-			chip);						\
-	if (rc < 0) {							\
-		pr_err("Unable to request " irq_name " irq: %d\n", rc);	\
-		rc |= -ENXIO;						\
-	}								\
-									\
-	if (wake)							\
-		enable_irq_wake(irq);					\
+#define REQUEST_IRQ(chip, pdev, irq, irq_name, irq_handler, flags, wake, rc) \
+do {									     \
+	irq = platform_get_irq_byname(pdev, irq_name);			     \
+	if (irq < 0) {							     \
+		pr_err("Unable to get " irq_name " irq\n");		     \
+		rc |= -ENXIO;						     \
+	}								     \
+	rc = devm_request_threaded_irq(chip->dev,			     \
+			irq, NULL, irq_handler, flags, irq_name,	     \
+			chip);						     \
+	if (rc < 0) {							     \
+		pr_err("Unable to request " irq_name " irq: %d\n", rc);	     \
+		rc |= -ENXIO;						     \
+	}								     \
+									     \
+	if (wake)							     \
+		enable_irq_wake(irq);					     \
 } while (0)
 
-static int qpnp_typec_request_irqs(struct qpnp_typec_chip *chip)
+static int qpnp_typec_request_irqs(struct qpnp_typec_chip *chip,
+				struct platform_device *pdev)
 {
 	int rc = 0;
 	unsigned long flags = IRQF_TRIGGER_RISING | IRQF_ONESHOT;
 
-	REQUEST_IRQ(chip, chip->vrd_changed, "vrd-change", vrd_changed_handler,
+	REQUEST_IRQ(chip, pdev, chip->vrd_changed, "vrd-change",
+			vrd_changed_handler, flags, true, rc);
+	REQUEST_IRQ(chip, pdev, chip->ufp_detach, "ufp-detach",
+			ufp_detach_handler, flags, true, rc);
+	REQUEST_IRQ(chip, pdev, chip->ufp_detect, "ufp-detect",
+			ufp_detect_handler, flags, true, rc);
+	REQUEST_IRQ(chip, pdev, chip->dfp_detach, "dfp-detach",
+			dfp_detach_handler, flags, true, rc);
+	REQUEST_IRQ(chip, pdev, chip->dfp_detect, "dfp-detect",
+			dfp_detect_handler, flags, true, rc);
+	REQUEST_IRQ(chip, pdev, chip->vbus_err, "vbus-err", vbus_err_handler,
 			flags, true, rc);
-	REQUEST_IRQ(chip, chip->ufp_detach, "ufp-detach", ufp_detach_handler,
-			flags, true, rc);
-	REQUEST_IRQ(chip, chip->ufp_detect, "ufp-detect", ufp_detect_handler,
-			flags, true, rc);
-	REQUEST_IRQ(chip, chip->dfp_detach, "dfp-detach", dfp_detach_handler,
-			flags, true, rc);
-	REQUEST_IRQ(chip, chip->dfp_detect, "dfp-detect", dfp_detect_handler,
-			flags, true, rc);
-	REQUEST_IRQ(chip, chip->vbus_err, "vbus-err", vbus_err_handler,
-			flags, true, rc);
-	REQUEST_IRQ(chip, chip->vconn_oc, "vconn-oc", vconn_oc_handler,
+	REQUEST_IRQ(chip, pdev, chip->vconn_oc, "vconn-oc", vconn_oc_handler,
 			flags, true, rc);
 
 	return rc;
@@ -682,8 +680,7 @@ static int qpnp_typec_get_property(struct power_supply *psy,
 				enum power_supply_property prop,
 				union power_supply_propval *val)
 {
-	struct qpnp_typec_chip *chip = container_of(psy,
-					struct qpnp_typec_chip, type_c_psy);
+	struct qpnp_typec_chip *chip = power_supply_get_drvdata(psy);
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_TYPE:
@@ -869,25 +866,32 @@ static int qpnp_typec_dr_get_property(struct dual_role_phy_instance *dual_role,
 	return 0;
 }
 
-static int qpnp_typec_probe(struct spmi_device *spmi)
+static int qpnp_typec_probe(struct platform_device *pdev)
 {
 	int rc;
-	struct resource *resource;
+	unsigned int base;
 	struct qpnp_typec_chip *chip;
+	struct power_supply_config typec_psy_cfg;
 
-	resource = spmi_get_resource(spmi, NULL, IORESOURCE_MEM, 0);
-	if (!resource) {
-		pr_err("Unable to get spmi resource for TYPEC\n");
-		return -EINVAL;
-	}
-
-	chip = devm_kzalloc(&spmi->dev, sizeof(struct qpnp_typec_chip),
+	chip = devm_kzalloc(&pdev->dev, sizeof(struct qpnp_typec_chip),
 			GFP_KERNEL);
 	if (!chip)
 		return -ENOMEM;
 
-	chip->dev = &spmi->dev;
-	chip->spmi = spmi;
+	rc = of_property_read_u32(pdev->dev.of_node, "reg", &base);
+	if (rc < 0) {
+		pr_err("reg property reading falied, rc = %d\n",
+				rc);
+		return rc;
+	}
+
+	chip->regmap = dev_get_regmap(pdev->dev.parent, NULL);
+	if (!chip->regmap) {
+		pr_err("Couldn't get parent's regmap\n");
+		return -EINVAL;
+	}
+
+	chip->dev = &pdev->dev;
 
 	/* parse DT */
 	rc = qpnp_typec_parse_dt(chip);
@@ -896,9 +900,9 @@ static int qpnp_typec_probe(struct spmi_device *spmi)
 		return rc;
 	}
 
-	chip->base = resource->start;
-	dev_set_drvdata(&spmi->dev, chip);
-	device_init_wakeup(&spmi->dev, 1);
+	chip->base = base;
+	dev_set_drvdata(&pdev->dev, chip);
+	device_init_wakeup(&pdev->dev, 1);
 	mutex_init(&chip->typec_lock);
 	spin_lock_init(&chip->rw_lock);
 
@@ -909,16 +913,18 @@ static int qpnp_typec_probe(struct spmi_device *spmi)
 		goto out;
 	}
 
-	chip->type_c_psy.name		= TYPEC_PSY_NAME;
-	chip->type_c_psy.get_property	= qpnp_typec_get_property;
-	chip->type_c_psy.properties	= qpnp_typec_properties;
-	chip->type_c_psy.num_properties	= ARRAY_SIZE(qpnp_typec_properties);
+	chip->typec_psy_desc.name		= TYPEC_PSY_NAME;
+	chip->typec_psy_desc.get_property	= qpnp_typec_get_property;
+	chip->typec_psy_desc.properties		= qpnp_typec_properties;
+	chip->typec_psy_desc.num_properties
+					= ARRAY_SIZE(qpnp_typec_properties);
 
-	rc = power_supply_register(chip->dev, &chip->type_c_psy);
-	if (rc < 0) {
-		pr_err("Unable to register  type_c_psy rc=%d\n", rc);
-		goto out;
-	}
+	typec_psy_cfg.drv_data		= chip;
+	typec_psy_cfg.of_node		= NULL;
+	typec_psy_cfg.supplied_to	= NULL;
+	typec_psy_cfg.num_supplicants	= 0;
+	chip->typec_psy = power_supply_register(chip->dev,
+				&chip->typec_psy_desc, &typec_psy_cfg);
 
 	if (chip->role_reversal_supported) {
 		chip->force_mode = DUAL_ROLE_PROP_MODE_NONE;
@@ -950,7 +956,7 @@ static int qpnp_typec_probe(struct spmi_device *spmi)
 	}
 
 	/* All irqs */
-	rc = qpnp_typec_request_irqs(chip);
+	rc = qpnp_typec_request_irqs(chip, pdev);
 	if (rc) {
 		pr_err("failed to request irqs rc=%d\n", rc);
 		goto unregister_psy;
@@ -961,7 +967,7 @@ static int qpnp_typec_probe(struct spmi_device *spmi)
 	return 0;
 
 unregister_psy:
-	power_supply_unregister(&chip->type_c_psy);
+	power_supply_unregister(chip->typec_psy);
 out:
 	mutex_destroy(&chip->typec_lock);
 	if (chip->role_reversal_supported)
@@ -969,10 +975,10 @@ out:
 	return rc;
 }
 
-static int qpnp_typec_remove(struct spmi_device *spmi)
+static int qpnp_typec_remove(struct platform_device *pdev)
 {
 	int rc;
-	struct qpnp_typec_chip *chip = dev_get_drvdata(&spmi->dev);
+	struct qpnp_typec_chip *chip = dev_get_drvdata(&pdev->dev);
 
 	if (chip->role_reversal_supported) {
 		cancel_delayed_work_sync(&chip->role_reversal_check);
@@ -989,11 +995,13 @@ static int qpnp_typec_remove(struct spmi_device *spmi)
 }
 
 static const struct of_device_id qpnp_typec_match_table[] = {
-	{ .compatible = QPNP_TYPEC_DEV_NAME, },
-	{}
+	{ .compatible = QPNP_TYPEC_DEV_NAME },
+	{ },
 };
 
-static struct spmi_driver qpnp_typec_driver = {
+MODULE_DEVICE_TABLE(of, qpnp_typec_match_table);
+
+static struct platform_driver qpnp_typec_driver = {
 	.probe		= qpnp_typec_probe,
 	.remove		= qpnp_typec_remove,
 	.driver		= {
@@ -1008,13 +1016,13 @@ static struct spmi_driver qpnp_typec_driver = {
  */
 static int __init qpnp_typec_init(void)
 {
-	return spmi_driver_register(&qpnp_typec_driver);
+	return platform_driver_register(&qpnp_typec_driver);
 }
 module_init(qpnp_typec_init);
 
 static void __exit qpnp_typec_exit(void)
 {
-	spmi_driver_unregister(&qpnp_typec_driver);
+	platform_driver_unregister(&qpnp_typec_driver);
 }
 module_exit(qpnp_typec_exit);
 
