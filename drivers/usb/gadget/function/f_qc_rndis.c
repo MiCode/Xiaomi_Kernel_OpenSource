@@ -102,7 +102,7 @@ struct f_rndis_qc {
 	struct usb_ep			*notify;
 	struct usb_request		*notify_req;
 	atomic_t			notify_count;
-	struct gadget_ipa_port		bam_port;
+	struct data_port		bam_port;
 	struct cdev			cdev;
 	struct device			*dev;
 	u8				port_num;

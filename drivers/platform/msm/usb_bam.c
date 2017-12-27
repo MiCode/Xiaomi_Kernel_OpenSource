@@ -3313,7 +3313,7 @@ static int usb_bam_probe(struct platform_device *pdev)
 	return ret;
 }
 
-bool usb_bam_get_prod_granted(enum usb_ctrl bam_type, u8 idx)
+bool usb_bam_get_prod_granted(enum usb_ctrl bam_type)
 {
 	return (info[bam_type].cur_prod_state == IPA_RM_RESOURCE_GRANTED);
 }

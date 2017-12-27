@@ -426,7 +426,7 @@ int usb_bam_get_pipe_type(enum usb_ctrl bam_type,
  *
  * @return true when producer granted, false when prodcuer is released.
  */
-bool usb_bam_get_prod_granted(enum usb_ctrl bam_type, u8 idx);
+bool usb_bam_get_prod_granted(enum usb_ctrl bam_type);
 
 /* Allocates memory for data fifo and descriptor fifos. */
 int usb_bam_alloc_fifos(enum usb_ctrl cur_bam, u8 idx);
@@ -519,7 +519,7 @@ static inline int usb_bam_get_pipe_type(enum usb_ctrl bam_type, u8 idx,
 	return -ENODEV;
 }
 
-static inline bool usb_bam_get_prod_granted(enum usb_ctrl bam_type, u8 idx)
+static inline bool usb_bam_get_prod_granted(enum usb_ctrl bam_type)
 {
 	return false;
 }

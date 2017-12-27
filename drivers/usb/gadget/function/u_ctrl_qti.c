@@ -17,6 +17,8 @@
 #include <linux/cdev.h>
 #include <linux/debugfs.h>
 
+#include <soc/qcom/bam_dmux.h>
+
 #include "u_rmnet.h"
 #include "f_qdss.h"
 
@@ -206,7 +208,8 @@ gqti_ctrl_notify_modem(void *gptr, enum qti_port_type qport, int val)
 	qti_ctrl_queue_notify(port);
 }
 
-int gqti_ctrl_connect(void *gr, enum qti_port_type qport, unsigned int intf)
+int gqti_ctrl_connect(void *gr, enum qti_port_type qport, unsigned int intf,
+						enum data_xport_type dxport)
 {
 	struct qti_ctrl_port	*port;
 	struct grmnet *g_rmnet = NULL;
@@ -226,8 +229,16 @@ int gqti_ctrl_connect(void *gr, enum qti_port_type qport, unsigned int intf)
 
 	spin_lock_irqsave(&port->lock, flags);
 	port->port_type = qport;
-	port->ep_type = DATA_EP_TYPE_HSUSB;
-	port->intf = intf;
+	if (dxport == BAM_DMUX) {
+		port->ep_type = DATA_EP_TYPE_BAM_DMUX;
+		port->intf = (qport == QTI_PORT_RMNET) ?
+			BAM_DMUX_USB_RMNET_0 : BAM_DMUX_USB_DPL;
+		port->ipa_prod_idx = 0;
+		port->ipa_cons_idx = 0;
+	} else {
+		port->ep_type = DATA_EP_TYPE_HSUSB;
+		port->intf = intf;
+	}
 
 	if (gr) {
 		port->port_usb = gr;
