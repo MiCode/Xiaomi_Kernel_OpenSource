@@ -58,6 +58,7 @@
 		qcom,initial-pwrlevel = <3>;
 
 		qcom,gpu-quirk-hfi-use-reg;
+		qcom,gpu-quirk-limit-uche-gbif-rw;
 
 		/* <HZ/12> */
 		qcom,idle-timeout = <80>;
