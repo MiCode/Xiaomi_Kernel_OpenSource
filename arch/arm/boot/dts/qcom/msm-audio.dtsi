@@ -370,6 +370,9 @@
 
 	hostless: qcom,msm-pcm-hostless {
 		compatible = "qcom,msm-pcm-hostless";
+		audio_test_mod {
+			compatible = "qcom,audio-test-mod";
+		};
 	};
 
 	dai_pri_auxpcm: qcom,msm-pri-auxpcm {
