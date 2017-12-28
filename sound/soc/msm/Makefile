@@ -1,6 +1,6 @@
 # MSM Machine Support
 
-snd-soc-hostless-pcm-objs := msm-pcm-hostless.o
+snd-soc-hostless-pcm-objs := msm-pcm-hostless.o audio_test_mod.o
 obj-$(CONFIG_SND_SOC_MSM_HOSTLESS_PCM) += snd-soc-hostless-pcm.o
 
 obj-$(CONFIG_SND_SOC_MSM_QDSP6V2_INTF) += qdsp6v2/
