@@ -4845,6 +4845,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 				msm_host->pwr_irq);
 		goto vreg_deinit;
 	}
+
 	ret = devm_request_threaded_irq(&pdev->dev, msm_host->pwr_irq, NULL,
 					sdhci_msm_pwr_irq, IRQF_ONESHOT,
 					dev_name(&pdev->dev), host);

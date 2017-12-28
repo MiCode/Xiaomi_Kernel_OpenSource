@@ -19,6 +19,11 @@
 #include <linux/mii.h>
 #include <linux/kthread.h>
 #include <linux/slab.h>
+#include <linux/if_vlan.h>
+#include <linux/netdevice.h>
+#include <linux/netdev_features.h>
+#include <linux/skbuff.h>
+
 #include <net/iucv/af_iucv.h>
 #include <net/dsfield.h>
 
@@ -3837,6 +3842,7 @@ EXPORT_SYMBOL_GPL(qeth_get_elements_for_frags);
  * @card:			qeth card structure, to check max. elems.
  * @skb:			SKB address
  * @extra_elems:		extra elems needed, to check against max.
+ * @data_offset:		range starts at skb->data + data_offset
  *
  * Returns the number of pages, and thus QDIO buffer elements, needed to cover
  * skb data, including linear part and fragments. Checks if the result plus
@@ -3844,10 +3850,10 @@ EXPORT_SYMBOL_GPL(qeth_get_elements_for_frags);
  * Note: extra_elems is not included in the returned result.
  */
 int qeth_get_elements_no(struct qeth_card *card,
-		     struct sk_buff *skb, int extra_elems)
+		     struct sk_buff *skb, int extra_elems, int data_offset)
 {
 	int elements = qeth_get_elements_for_range(
-				(addr_t)skb->data,
+				(addr_t)skb->data + data_offset,
 				(addr_t)skb->data + skb_headlen(skb)) +
 			qeth_get_elements_for_frags(skb);
 
@@ -6239,6 +6245,32 @@ netdev_features_t qeth_fix_features(struct net_device *dev,
 	return features;
 }
 EXPORT_SYMBOL_GPL(qeth_fix_features);
+
+netdev_features_t qeth_features_check(struct sk_buff *skb,
+				      struct net_device *dev,
+				      netdev_features_t features)
+{
+	/* GSO segmentation builds skbs with
+	 *	a (small) linear part for the headers, and
+	 *	page frags for the data.
+	 * Compared to a linear skb, the header-only part consumes an
+	 * additional buffer element. This reduces buffer utilization, and
+	 * hurts throughput. So compress small segments into one element.
+	 */
+	if (netif_needs_gso(skb, features)) {
+		/* match skb_segment(): */
+		unsigned int doffset = skb->data - skb_mac_header(skb);
+		unsigned int hsize = skb_shinfo(skb)->gso_size;
+		unsigned int hroom = skb_headroom(skb);
+
+		/* linearize only if resulting skb allocations are order-0: */
+		if (SKB_DATA_ALIGN(hroom + doffset + hsize) <= SKB_MAX_HEAD(0))
+			features &= ~NETIF_F_SG;
+	}
+
+	return vlan_features_check(skb, features);
+}
+EXPORT_SYMBOL_GPL(qeth_features_check);
 
 static int __init qeth_core_init(void)
 {
