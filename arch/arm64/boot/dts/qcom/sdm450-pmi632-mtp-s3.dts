@@ -1,0 +1,25 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "sdm450.dtsi"
+#include "sdm450-pmi632-mtp-s3.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDM450 + PMI632 MTP S3";
+	compatible = "qcom,sdm450-mtp", "qcom,sdm450", "qcom,mtp";
+	qcom,board-id = <8 3>;
+	qcom,pmic-id = <0x010016 0x25 0x0 0x0>;
+};
+
