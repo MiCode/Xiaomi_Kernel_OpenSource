@@ -1722,7 +1722,7 @@ status_dead:
 			conn->base.base.id, conn->encoder->base.id);
 	panel_dead = true;
 	event.type = DRM_EVENT_PANEL_DEAD;
-	event.length = sizeof(u32);
+	event.length = sizeof(bool);
 	msm_mode_object_event_notify(&conn->base.base,
 		conn->base.dev, &event, (u8 *)&panel_dead);
 }
