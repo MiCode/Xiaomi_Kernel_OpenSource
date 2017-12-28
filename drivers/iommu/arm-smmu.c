@@ -3916,6 +3916,35 @@ static size_t msm_secure_smmu_map_sg(struct iommu_domain *domain,
 	return ret;
 }
 
+void *get_smmu_from_addr(struct iommu_device *iommu, void __iomem *addr)
+{
+	struct arm_smmu_device *smmu = NULL;
+	unsigned long base, mask;
+
+	smmu = arm_smmu_get_by_fwnode(iommu->fwnode);
+	if (!smmu)
+		return NULL;
+
+	base = (unsigned long)smmu->base;
+	mask = ~(smmu->size - 1);
+
+	if ((base & mask) == ((unsigned long)addr & mask))
+		return (void *)smmu;
+
+	return NULL;
+}
+
+bool arm_smmu_skip_write(void __iomem *addr)
+{
+	struct arm_smmu_device *smmu;
+
+	smmu = arm_smmu_get_by_addr(addr);
+	if (smmu &&
+	    ((unsigned long)addr & (smmu->size - 1)) >= (smmu->size >> 1))
+		return false;
+	else
+		return true;
+}
 #endif
 
 static int arm_smmu_add_device(struct device *dev)
