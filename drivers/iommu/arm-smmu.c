@@ -55,11 +55,10 @@
 #include <linux/remote_spinlock.h>
 #include <linux/ktime.h>
 #include <trace/events/iommu.h>
-#include <soc/qcom/msm_tz_smmu.h>
-#include <soc/qcom/scm.h>
 #include <linux/notifier.h>
 
 #include <linux/amba/bus.h>
+#include <soc/qcom/msm_tz_smmu.h>
 
 #include "io-pgtable.h"
 
@@ -2735,6 +2734,39 @@ static bool arm_smmu_capable(enum iommu_cap cap)
 		return false;
 	}
 }
+
+#ifdef CONFIG_MSM_TZ_SMMU
+static struct arm_smmu_device *arm_smmu_get_by_addr(void __iomem *addr)
+{
+	struct arm_smmu_device *smmu;
+	unsigned long flags;
+
+	spin_lock_irqsave(&arm_smmu_devices_lock, flags);
+	list_for_each_entry(smmu, &arm_smmu_devices, list) {
+		unsigned long base = (unsigned long)smmu->base;
+		unsigned long mask = ~(smmu->size - 1);
+
+		if ((base & mask) == ((unsigned long)addr & mask)) {
+			spin_unlock_irqrestore(&arm_smmu_devices_lock, flags);
+			return smmu;
+		}
+	}
+	spin_unlock_irqrestore(&arm_smmu_devices_lock, flags);
+	return NULL;
+}
+
+bool arm_smmu_skip_write(void __iomem *addr)
+{
+	struct arm_smmu_device *smmu;
+
+	smmu = arm_smmu_get_by_addr(addr);
+	if (smmu &&
+	    ((unsigned long)addr & (smmu->size - 1)) >= (smmu->size >> 1))
+		return false;
+	else
+		return true;
+}
+#endif
 
 static struct arm_smmu_device *arm_smmu_get_by_list(struct device_node *np)
 {
