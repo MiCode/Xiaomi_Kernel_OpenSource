@@ -21,3 +21,8 @@
 &pm8953_typec {
 	status = "disabled";
 };
+
+&pmi632_pon {
+	qcom,ps-hold-hard-reset-disable;
+	qcom,ps-hold-shutdown-disable;
+};
