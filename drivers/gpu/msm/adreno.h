@@ -1926,13 +1926,15 @@ static inline int adreno_vbif_clear_pending_transactions(
 		 * Need to release CX Halt explicitly in case of SW_RESET.
 		 * GX Halt release will be taken care by SW_RESET internally.
 		 */
-		adreno_writereg(adreno_dev, ADRENO_REG_RBBM_GPR0_CNTL,
-				GBIF_HALT_REQUEST);
-		ret = adreno_wait_for_vbif_halt_ack(device,
-				ADRENO_REG_RBBM_VBIF_GX_RESET_STATUS,
-				VBIF_RESET_ACK_MASK);
-		if (ret)
-			return ret;
+		if (gpudev->gx_is_on(adreno_dev)) {
+			adreno_writereg(adreno_dev, ADRENO_REG_RBBM_GPR0_CNTL,
+					GBIF_HALT_REQUEST);
+			ret = adreno_wait_for_vbif_halt_ack(device,
+					ADRENO_REG_RBBM_VBIF_GX_RESET_STATUS,
+					VBIF_RESET_ACK_MASK);
+			if (ret)
+				return ret;
+		}
 
 		adreno_writereg(adreno_dev, ADRENO_REG_GBIF_HALT, mask);
 		ret = adreno_wait_for_vbif_halt_ack(device,
