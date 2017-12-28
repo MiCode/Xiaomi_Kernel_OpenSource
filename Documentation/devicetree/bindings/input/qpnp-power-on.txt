@@ -84,7 +84,34 @@ Optional properties:
 				case.
 - qcom,kpdpwr-sw-debounce	Boolean property to enable the debounce logic
 				on the KPDPWR_N rising edge.
-
+- qcom,resin-pon-reset		Boolean property which indicates that resin
+				needs to be configured during reset in addition
+				to the primary PON device that is configured
+				for system reset through qcom,system-reset
+				property.
+- qcom,resin-warm-reset-type 	Poweroff type required to be configured on
+				RESIN reset control register when the system
+				goes for warm reset. If this property is not
+				specified, then the default type, warm reset
+				will be configured to RESIN reset control
+				register. This property is effective only if
+				qcom,resin-pon-reset is defined.
+- qcom,resin-hard-reset-type 	Same description as qcom,resin-warm-reset-type
+				but this applies for the system hard reset case.
+- qcom,resin-shutdown-type   	Same description as qcom,resin-warm-reset-type
+				but this applies for the system shutdown case.
+- qcom,resin-shutdown-disable	Boolean property to disable RESIN POFF
+				trigger during system shutdown case.
+				This property is effective only if
+				qcom,resin-pon-reset is defined.
+- qcom,resin-hard-reset-disable	Boolean property to disable RESIN POFF
+	                        trigger during system hard reset case.
+				This property is effective only if
+				qcom,resin-pon-reset is defined.
+- qcom,ps-hold-shutdown-disable	Boolean property to disable PS_HOLD POFF
+				trigger during system shutdown case.
+- qcom,ps-hold-hard-reset-disable	Boolean property to disable PS_HOLD
+				POFF trigger during system hard reset case.
 
 All the below properties are in the sub-node section (properties of the child
 node).
