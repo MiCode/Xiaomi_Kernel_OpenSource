@@ -2932,3 +2932,17 @@
 &pm660_div_clk {
 	status = "ok";
 };
+
+&qupv3_se10_i2c {
+	nx30p6093: nx30p6093@36 {
+		status = "disabled";
+		compatible = "nxp,nx30p6093";
+		reg = <0x36>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <5 IRQ_TYPE_NONE>;
+		nxp,long-wakeup-sec = <28800>; /* 8 hours */
+		nxp,short-wakeup-ms = <180000>; /* 3 mins */
+		pinctrl-names = "default";
+		pinctrl-0 = <&nx30p6093_intr_default>;
+	};
+};

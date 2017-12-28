@@ -1979,6 +1979,19 @@
 				drive-strength = <2>; /* 2 MA */
 			};
 		};
+
+		nx30p6093_intr_default: nx30p6093_intr_default {
+			mux {
+				pins = "gpio5";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio5";
+				bias-disable;
+				input-enable;
+			};
+		};
 	};
 };
 
