@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -851,6 +851,15 @@ static const struct tasha_reg_mask_val tasha_spkr_mode1[] = {
 	{WCD9335_CDC_BOOST1_BOOST_CTL, 0x7C, 0x44},
 };
 
+static const struct tasha_reg_mask_val tasha_high_impedance[] = {
+	{WCD9335_TLMM_I2S_TX_SD0_PINCFG, 0x1F, 0x0C},
+	{WCD9335_TLMM_I2S_TX_SD1_PINCFG, 0x1F, 0x0C},
+	{WCD9335_TLMM_I2S_TX_SCK_PINCFG, 0x1F, 0x0C},
+	{WCD9335_TLMM_I2S_TX_WS_PINCFG, 0x1F, 0x0C},
+	{WCD9335_TEST_DEBUG_PIN_CTL_OE_1, 0xE0, 0xE0},
+	{WCD9335_TEST_DEBUG_PIN_CTL_OE_2, 0x01, 0x01},
+};
+
 /**
  * tasha_set_spkr_gain_offset - offset the speaker path
  * gain with the given offset value.
@@ -952,6 +961,20 @@ static void tasha_cdc_sido_ccl_enable(struct tasha_priv *tasha, bool ccl_flag)
 			snd_soc_update_bits(codec,
 				WCD9335_SIDO_SIDO_CCL_10, 0xFF, 0x02);
 	}
+}
+
+static void tasha_set_high_impedance_mode(struct snd_soc_codec *codec)
+{
+	const struct tasha_reg_mask_val *regs;
+	int i, size;
+
+	dev_dbg(codec->dev, "%s: setting TX I2S in Hi-Z mode\n", __func__);
+	regs = tasha_high_impedance;
+	size = ARRAY_SIZE(tasha_high_impedance);
+
+	for (i = 0; i < size; i++)
+		snd_soc_update_bits(codec, regs[i].reg,
+				    regs[i].mask, regs[i].val);
 }
 
 static bool tasha_cdc_is_svs_enabled(struct tasha_priv *tasha)
@@ -13940,6 +13963,9 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 	snd_soc_dapm_disable_pin(dapm, "ANC EAR");
 	mutex_unlock(&codec->mutex);
 	snd_soc_dapm_sync(dapm);
+
+	if (pdata->wcd9xxx_mic_tristate)
+		tasha_set_high_impedance_mode(codec);
 
 	return ret;
 
