@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -571,8 +571,10 @@ static void glink_pkt_notify_state_worker(struct work_struct *work)
 	mutex_lock(&devp->ch_lock);
 	devp->ch_state = event;
 	if (event == GLINK_CONNECTED) {
-		if (!devp->handle)
-			devp->handle = handle;
+		if (!devp->handle) {
+			GLINK_PKT_ERR("%s: Invalid device handle\n", __func__);
+			goto exit;
+		}
 		devp->in_reset = 0;
 		wake_up_interruptible(&devp->ch_opened_wait_queue);
 	} else if (event == GLINK_REMOTE_DISCONNECTED) {
@@ -584,6 +586,7 @@ static void glink_pkt_notify_state_worker(struct work_struct *work)
 			devp->handle = NULL;
 		wake_up_interruptible(&devp->ch_closed_wait_queue);
 	}
+exit:
 	mutex_unlock(&devp->ch_lock);
 	kfree(work_item);
 }
