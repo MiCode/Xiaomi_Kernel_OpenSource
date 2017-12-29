@@ -159,10 +159,11 @@ struct sde_hw_dspp_ops {
 	/**
 	 * ad_read_intr_resp - function to get interrupt response for ad
 	 * @event: Event for which response needs to be read
-	 * @resp: Pointer to u32 where response value is dumped.
+	 * @resp_in: Pointer to u32 where resp ad4 input value is dumped.
+	 * @resp_out: Pointer to u32 where resp ad4 output value is dumped.
 	 */
 	void (*ad_read_intr_resp)(struct sde_hw_dspp *ctx, u32 event,
-			u32 *resp);
+			u32 *resp_in, u32 *resp_out);
 
 };
 

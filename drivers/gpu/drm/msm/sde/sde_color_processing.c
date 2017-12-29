@@ -24,6 +24,7 @@
 #include "sde_ad4.h"
 #include "sde_hw_interrupts.h"
 #include "sde_core_irq.h"
+#include "dsi_panel.h"
 
 struct sde_cp_node {
 	u32 property_id;
@@ -1575,7 +1576,8 @@ static void sde_cp_ad_interrupt_cb(void *arg, int irq_idx)
 
 static void sde_cp_notify_ad_event(struct drm_crtc *crtc_drm, void *arg)
 {
-	uint32_t bl = 0;
+	uint32_t input_bl = 0, output_bl = 0;
+	uint32_t scale = MAX_AD_BL_SCALE_LEVEL;
 	struct sde_hw_mixer *hw_lm = NULL;
 	struct sde_hw_dspp *hw_dspp = NULL;
 	u32 num_mixers;
@@ -1598,11 +1600,17 @@ static void sde_cp_notify_ad_event(struct drm_crtc *crtc_drm, void *arg)
 	if (!hw_dspp)
 		return;
 
-	hw_dspp->ops.ad_read_intr_resp(hw_dspp, AD4_BACKLIGHT, &bl);
+	hw_dspp->ops.ad_read_intr_resp(hw_dspp, AD4_IN_OUT_BACKLIGHT,
+			&input_bl, &output_bl);
+
+	if (!input_bl || input_bl < output_bl)
+		return;
+
+	scale = (output_bl * MAX_AD_BL_SCALE_LEVEL) / input_bl;
 	event.length = sizeof(u32);
 	event.type = DRM_EVENT_AD_BACKLIGHT;
 	msm_mode_object_event_notify(&crtc_drm->base, crtc_drm->dev,
-			&event, (u8 *)&bl);
+			&event, (u8 *)&scale);
 }
 
 int sde_cp_ad_interrupt(struct drm_crtc *crtc_drm, bool en,
