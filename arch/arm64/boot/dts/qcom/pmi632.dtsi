@@ -49,7 +49,7 @@
 					<0x2 0xc4 0 IRQ_TYPE_NONE>,
 					<0x2 0xc5 0 IRQ_TYPE_NONE>,
 					<0x2 0xc6 0 IRQ_TYPE_NONE>,
-					<0x2 0xc7 0 IRQ_TYPE_NONE>,
+					<0x2 0xc7 0 IRQ_TYPE_NONE>;
 			interrupt-names = "pmi632_gpio2", "pmi632_gpio3",
 					"pmi632_gpio4", "pmi632_gpio5",
 					"pmi632_gpio6", "pmi632_gpio7",
@@ -71,6 +71,7 @@
 			reg = <0x5700 0x100>;
 			qcom,vib-ldo-volt-uv = <1504000>;
 			qcom,vib-overdrive-volt-uv = <3544000>;
+			status = "disabled";
 		};
 
 		pmi632_pwm_1: pwm@b300 {
