@@ -177,4 +177,9 @@
 			qcom,msm-cpudai-tdm-data-align = <0>;
 		};
 	};
+
+	wdsp_glink: qcom,wcd-dsp-glink {
+		compatible = "qcom,wcd-dsp-glink";
+		qcom,msm-codec-glink-edge = "bg";
+	};
 };
