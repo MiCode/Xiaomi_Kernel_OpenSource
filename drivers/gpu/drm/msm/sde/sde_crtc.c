@@ -1404,7 +1404,8 @@ static void _sde_crtc_program_lm_output_roi(struct drm_crtc *crtc)
 }
 
 static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
-	struct sde_crtc *sde_crtc, struct sde_crtc_mixer *mixer)
+		struct drm_crtc_state *old_state, struct sde_crtc *sde_crtc,
+		struct sde_crtc_mixer *mixer)
 {
 	struct drm_plane *plane;
 	struct drm_framebuffer *fb;
@@ -1424,7 +1425,7 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	bool bg_alpha_enable = false;
 	u32 prefill = 0;
 
-	if (!sde_crtc || !mixer) {
+	if (!sde_crtc || !crtc->state || !mixer) {
 		SDE_ERROR("invalid sde_crtc or mixer\n");
 		return;
 	}
@@ -1435,7 +1436,9 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	cstate = to_sde_crtc_state(crtc->state);
 
 	cstate->sbuf_prefill_line = 0;
-	sde_crtc->sbuf_flush_mask = 0x0;
+	sde_crtc->sbuf_flush_mask_old = sde_crtc->sbuf_flush_mask_all;
+	sde_crtc->sbuf_flush_mask_all = 0x0;
+	sde_crtc->sbuf_flush_mask_delta = 0x0;
 
 	drm_atomic_crtc_for_each_plane(plane, crtc) {
 		state = plane->state;
@@ -1457,7 +1460,10 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 		sde_plane_get_ctl_flush(plane, ctl, &flush_mask, &flush_sbuf);
 
 		/* save sbuf flush value for later */
-		sde_crtc->sbuf_flush_mask |= flush_sbuf;
+		if (old_state && drm_atomic_get_existing_plane_state(
+					old_state->state, plane))
+			sde_crtc->sbuf_flush_mask_delta |= flush_sbuf;
+		sde_crtc->sbuf_flush_mask_all |= flush_sbuf;
 
 		SDE_DEBUG("crtc %d stage:%d - plane %d sspp %d fb %d\n",
 				crtc->base.id,
@@ -1584,8 +1590,11 @@ static void _sde_crtc_swap_mixers_for_right_partial_update(
 /**
  * _sde_crtc_blend_setup - configure crtc mixers
  * @crtc: Pointer to drm crtc structure
+ * @old_state: Pointer to old crtc state
+ * @add_planes: Whether or not to add planes to mixers
  */
-static void _sde_crtc_blend_setup(struct drm_crtc *crtc, bool add_planes)
+static void _sde_crtc_blend_setup(struct drm_crtc *crtc,
+		struct drm_crtc_state *old_state, bool add_planes)
 {
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *sde_crtc_state;
@@ -1632,7 +1641,7 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc, bool add_planes)
 	memset(&sde_crtc->stage_cfg, 0, sizeof(struct sde_hw_stage_cfg));
 
 	if (add_planes)
-		_sde_crtc_blend_setup_mixer(crtc, sde_crtc, mixer);
+		_sde_crtc_blend_setup_mixer(crtc, old_state, sde_crtc, mixer);
 
 	for (i = 0; i < sde_crtc->num_mixers; i++) {
 		const struct sde_rect *lm_roi = &sde_crtc_state->lm_roi[i];
@@ -3198,7 +3207,7 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	if (unlikely(!sde_crtc->num_mixers))
 		return;
 
-	_sde_crtc_blend_setup(crtc, true);
+	_sde_crtc_blend_setup(crtc, old_state, true);
 	_sde_crtc_dest_scaler_setup(crtc);
 
 	/* cancel the idle notify delayed work */
@@ -3422,23 +3431,29 @@ static int _sde_crtc_commit_kickoff_rot(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 
 	/*
-	 * Update sbuf configuration and flush bits if a flush
-	 * mask has been defined for either the current or
-	 * previous commit.
+	 * Update sbuf configuration and flush bits if either the rot_op_mode
+	 * is different or a rotator commit was performed.
 	 *
-	 * Updates are also required for the first commit after
-	 * sbuf_flush_mask becomes 0x0, to properly transition
-	 * the hardware out of sbuf mode.
+	 * In the case where the rot_op_mode has changed, further require that
+	 * the transition is either to or from offline mode unless
+	 * sbuf_flush_mask_delta is also non-zero (i.e., a corresponding plane
+	 * update was provided to the current commit).
 	 */
-	if (!sde_crtc->sbuf_flush_mask_old && !sde_crtc->sbuf_flush_mask)
-		return 0;
+	flush_mask = sde_crtc->sbuf_flush_mask_delta;
+	if ((sde_crtc->sbuf_op_mode_old != cstate->sbuf_cfg.rot_op_mode) &&
+		(sde_crtc->sbuf_op_mode_old == SDE_CTL_ROT_OP_MODE_OFFLINE ||
+		cstate->sbuf_cfg.rot_op_mode == SDE_CTL_ROT_OP_MODE_OFFLINE))
+		flush_mask |= sde_crtc->sbuf_flush_mask_all |
+			sde_crtc->sbuf_flush_mask_old;
 
-	flush_mask = sde_crtc->sbuf_flush_mask_old | sde_crtc->sbuf_flush_mask;
-	sde_crtc->sbuf_flush_mask_old = sde_crtc->sbuf_flush_mask;
+	if (!flush_mask &&
+		cstate->sbuf_cfg.rot_op_mode == SDE_CTL_ROT_OP_MODE_OFFLINE)
+		return 0;
 
 	SDE_ATRACE_BEGIN("crtc_kickoff_rot");
 
-	if (cstate->sbuf_cfg.rot_op_mode != SDE_CTL_ROT_OP_MODE_OFFLINE) {
+	if (cstate->sbuf_cfg.rot_op_mode != SDE_CTL_ROT_OP_MODE_OFFLINE &&
+			sde_crtc->sbuf_flush_mask_delta) {
 		drm_atomic_crtc_for_each_plane(plane, crtc) {
 			rc = sde_plane_kickoff_rot(plane);
 			if (rc) {
@@ -3474,11 +3489,15 @@ static int _sde_crtc_commit_kickoff_rot(struct drm_crtc *crtc,
 		/* explicitly trigger rotator for async modes */
 		if (cstate->sbuf_cfg.rot_op_mode ==
 				SDE_CTL_ROT_OP_MODE_INLINE_ASYNC &&
-				master_ctl->ops.trigger_rot_start) {
+				master_ctl->ops.trigger_rot_start)
 			master_ctl->ops.trigger_rot_start(master_ctl);
-			SDE_EVT32(DRMID(crtc), master_ctl->idx - CTL_0);
-		}
+		SDE_EVT32(DRMID(crtc), master_ctl->idx - CTL_0,
+				sde_crtc->sbuf_flush_mask_all,
+				sde_crtc->sbuf_flush_mask_delta);
 	}
+
+	/* save this in sde_crtc for next commit cycle */
+	sde_crtc->sbuf_op_mode_old = cstate->sbuf_cfg.rot_op_mode;
 
 	SDE_ATRACE_END("crtc_kickoff_rot");
 	return rc;
@@ -3492,13 +3511,14 @@ static void _sde_crtc_remove_pipe_flush(struct sde_crtc *sde_crtc)
 {
 	struct sde_crtc_mixer *mixer;
 	struct sde_hw_ctl *ctl;
-	u32 i, flush_mask;
+	u32 i, n, flush_mask;
 
 	if (!sde_crtc)
 		return;
 
 	mixer = sde_crtc->mixers;
-	for (i = 0; i < sde_crtc->num_mixers; i++) {
+	n = min_t(size_t, sde_crtc->num_mixers, ARRAY_SIZE(sde_crtc->mixers));
+	for (i = 0; i < n; i++) {
 		ctl = mixer[i].hw_ctl;
 		if (!ctl || !ctl->ops.get_pending_flush ||
 				!ctl->ops.clear_pending_flush ||
@@ -3524,16 +3544,19 @@ static int _sde_crtc_reset_hw(struct drm_crtc *crtc,
 {
 	struct drm_plane *plane_halt[MAX_PLANES];
 	struct drm_plane *plane;
+	struct drm_encoder *encoder;
 	const struct drm_plane_state *pstate;
 	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *cstate;
 	struct sde_hw_ctl *ctl;
 	enum sde_ctl_rot_op_mode old_rot_op_mode;
-	signed int i, plane_count;
+	signed int i, n, plane_count;
 	int rc;
 
-	if (!crtc || !old_state)
+	if (!crtc || !crtc->dev || !old_state || !crtc->state)
 		return -EINVAL;
 	sde_crtc = to_sde_crtc(crtc);
+	cstate = to_sde_crtc_state(crtc->state);
 
 	old_rot_op_mode = to_sde_crtc_state(old_state)->sbuf_cfg.rot_op_mode;
 	SDE_EVT32(DRMID(crtc), old_rot_op_mode,
@@ -3545,7 +3568,8 @@ static int _sde_crtc_reset_hw(struct drm_crtc *crtc,
 	/* optionally generate a panic instead of performing a h/w reset */
 	SDE_DBG_CTRL("stop_ftrace", "reset_hw_panic");
 
-	for (i = 0; i < sde_crtc->num_mixers; ++i) {
+	n = min_t(size_t, sde_crtc->num_mixers, ARRAY_SIZE(sde_crtc->mixers));
+	for (i = 0; i < n; ++i) {
 		ctl = sde_crtc->mixers[i].hw_ctl;
 		if (!ctl || !ctl->ops.reset)
 			continue;
@@ -3570,14 +3594,13 @@ static int _sde_crtc_reset_hw(struct drm_crtc *crtc,
 	 * depending on the rotation mode; don't handle this for now
 	 * and just force a hard reset in those cases.
 	 */
-	if (i == sde_crtc->num_mixers &&
-			old_rot_op_mode == SDE_CTL_ROT_OP_MODE_OFFLINE)
+	if (i == n && old_rot_op_mode == SDE_CTL_ROT_OP_MODE_OFFLINE)
 		return false;
 
 	SDE_DEBUG("crtc%d: issuing hard reset\n", DRMID(crtc));
 
 	/* force all components in the system into reset at the same time */
-	for (i = 0; i < sde_crtc->num_mixers; ++i) {
+	for (i = 0; i < n; ++i) {
 		ctl = sde_crtc->mixers[i].hw_ctl;
 		if (!ctl || !ctl->ops.hard_reset)
 			continue;
@@ -3613,16 +3636,40 @@ static int _sde_crtc_reset_hw(struct drm_crtc *crtc,
 		sde_plane_reset_rot(plane, (struct drm_plane_state *)pstate);
 	}
 
+	/* provide safe "border color only" commit configuration for later */
+	cstate->sbuf_cfg.rot_op_mode = SDE_CTL_ROT_OP_MODE_OFFLINE;
+	_sde_crtc_commit_kickoff_rot(crtc, cstate);
+	_sde_crtc_remove_pipe_flush(sde_crtc);
+	_sde_crtc_blend_setup(crtc, old_state, false);
+
 	/* take h/w components out of reset */
 	for (i = plane_count - 1; i >= 0; --i)
 		sde_plane_halt_requests(plane_halt[i], false);
 
-	for (i = 0; i < sde_crtc->num_mixers; ++i) {
+	/* attempt to poll for start of frame cycle before reset release */
+	list_for_each_entry(encoder,
+			&crtc->dev->mode_config.encoder_list, head) {
+		if (encoder->crtc != crtc)
+			continue;
+		if (sde_encoder_get_intf_mode(encoder) == INTF_MODE_VIDEO)
+			sde_encoder_poll_line_counts(encoder);
+	}
+
+	for (i = 0; i < n; ++i) {
 		ctl = sde_crtc->mixers[i].hw_ctl;
 		if (!ctl || !ctl->ops.hard_reset)
 			continue;
 
 		ctl->ops.hard_reset(ctl, false);
+	}
+
+	list_for_each_entry(encoder,
+			&crtc->dev->mode_config.encoder_list, head) {
+		if (encoder->crtc != crtc)
+			continue;
+
+		if (sde_encoder_get_intf_mode(encoder) == INTF_MODE_VIDEO)
+			sde_encoder_kickoff(encoder, false);
 	}
 
 	return -EAGAIN;
@@ -3649,7 +3696,7 @@ static bool _sde_crtc_prepare_for_kickoff_rot(struct drm_device *dev,
 	cstate = to_sde_crtc_state(crtc->state);
 
 	/* default to ASYNC mode for inline rotation */
-	cstate->sbuf_cfg.rot_op_mode = sde_crtc->sbuf_flush_mask ?
+	cstate->sbuf_cfg.rot_op_mode = sde_crtc->sbuf_flush_mask_all ?
 		SDE_CTL_ROT_OP_MODE_INLINE_ASYNC : SDE_CTL_ROT_OP_MODE_OFFLINE;
 
 	if (cstate->sbuf_cfg.rot_op_mode == SDE_CTL_ROT_OP_MODE_OFFLINE)
@@ -3749,11 +3796,6 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 		if (_sde_crtc_reset_hw(crtc, old_state,
 					!sde_crtc->reset_request))
 			is_error = true;
-
-		/* force offline rotation mode since the commit has no pipes */
-		if (is_error)
-			cstate->sbuf_cfg.rot_op_mode =
-				SDE_CTL_ROT_OP_MODE_OFFLINE;
 	}
 	sde_crtc->reset_request = reset_req;
 
@@ -3799,7 +3841,7 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 
 	if (is_error) {
 		_sde_crtc_remove_pipe_flush(sde_crtc);
-		_sde_crtc_blend_setup(crtc, false);
+		_sde_crtc_blend_setup(crtc, old_state, false);
 	}
 
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {

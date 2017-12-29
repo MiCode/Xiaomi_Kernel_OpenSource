@@ -215,8 +215,10 @@ struct sde_crtc_event {
  * @misr_enable   : boolean entry indicates misr enable/disable status.
  * @misr_frame_count  : misr frame count provided by client
  * @misr_data     : store misr data before turning off the clocks.
- * @sbuf_flush_mask: flush mask for inline rotator
+ * @sbuf_op_mode_old : inline rotator op mode for previous commit cycle
  * @sbuf_flush_mask_old: inline rotator flush mask for previous commit
+ * @sbuf_flush_mask_all: inline rotator flush mask for all attached planes
+ * @sbuf_flush_mask_delta: inline rotator flush mask for current delta state
  * @idle_notify_work: delayed worker to notify idle timeout to user space
  * @power_event   : registered power event handle
  * @cur_perf      : current performance committed to clock/bandwidth driver
@@ -284,8 +286,10 @@ struct sde_crtc {
 	u32 misr_frame_count;
 	u32 misr_data[CRTC_DUAL_MIXERS];
 
-	u32 sbuf_flush_mask;
+	u32 sbuf_op_mode_old;
 	u32 sbuf_flush_mask_old;
+	u32 sbuf_flush_mask_all;
+	u32 sbuf_flush_mask_delta;
 	struct kthread_delayed_work idle_notify_work;
 
 	struct sde_power_event *power_event;
