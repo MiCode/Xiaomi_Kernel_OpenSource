@@ -25,7 +25,9 @@
 
 static const struct wiphy_wowlan_support ath10k_wowlan_support = {
 	.flags = WIPHY_WOWLAN_DISCONNECT |
-		 WIPHY_WOWLAN_MAGIC_PKT,
+		WIPHY_WOWLAN_MAGIC_PKT |
+		WIPHY_WOWLAN_SUPPORTS_GTK_REKEY |
+		WIPHY_WOWLAN_GTK_REKEY_FAILURE,
 	.pattern_min_len = WOW_MIN_PATTERN_SIZE,
 	.pattern_max_len = WOW_MAX_PATTERN_SIZE,
 	.max_pkt_offset = WOW_MAX_PKT_OFFSET,
@@ -109,6 +111,9 @@ static int ath10k_vif_wow_set_wakeups(struct ath10k_vif *arvif,
 
 		if (wowlan->magic_pkt)
 			__set_bit(WOW_MAGIC_PKT_RECVD_EVENT, &wow_mask);
+
+		if (wowlan->gtk_rekey_failure)
+			__set_bit(WOW_GTK_ERR_EVENT, &wow_mask);
 		break;
 	default:
 		break;
@@ -331,7 +336,7 @@ void ath10k_wow_op_set_rekey_data(struct ieee80211_hw *hw,
 	memcpy(&arvif->gtk_rekey_data.kek, data->kek, NL80211_KEK_LEN);
 	memcpy(&arvif->gtk_rekey_data.kck, data->kck, NL80211_KCK_LEN);
 	arvif->gtk_rekey_data.replay_ctr =
-			__cpu_to_le64(*(__le64 *)data->replay_ctr);
+		cpu_to_le64(be64_to_cpup((__be64 *)data->replay_ctr));
 	arvif->gtk_rekey_data.valid = true;
 	mutex_unlock(&ar->conf_mutex);
 }
