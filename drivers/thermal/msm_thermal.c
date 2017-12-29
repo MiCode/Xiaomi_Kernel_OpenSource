@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1056,6 +1056,16 @@ static int msm_lmh_dcvs_update(int cpu)
 	uint32_t min_freq = cpus[cpu].limited_min_freq;
 	uint32_t affinity;
 	int ret;
+
+	/*
+	 * It is better to use max/min limits of cluster for given
+	 * cpu if cluster mitigation is supported. It ensures that it
+	 * requests aggregated max/min limits of all cpus in that cluster.
+	 */
+	if (core_ptr) {
+		max_freq = cpus[cpu].parent_ptr->limited_max_freq;
+		min_freq = cpus[cpu].parent_ptr->limited_min_freq;
+	}
 
 	switch (id) {
 	case 0:
