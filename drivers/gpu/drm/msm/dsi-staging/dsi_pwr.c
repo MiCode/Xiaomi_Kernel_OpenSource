@@ -111,13 +111,13 @@ static int dsi_pwr_parse_supply_node(struct device_node *root,
 			regs->vregs[i].post_off_sleep = tmp;
 		}
 
-		++i;
 		pr_debug("[%s] minv=%d maxv=%d, en_load=%d, dis_load=%d\n",
 			 regs->vregs[i].vreg_name,
 			 regs->vregs[i].min_voltage,
 			 regs->vregs[i].max_voltage,
 			 regs->vregs[i].enable_load,
 			 regs->vregs[i].disable_load);
+		++i;
 	}
 
 error:
