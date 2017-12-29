@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,6 +50,7 @@
 /* XO clock */
 #define BB_CLK1_ID		1
 #define BB_CLK2_ID		2
+#define BB_CLK3_ID		3
 #define RF_CLK2_ID		5
 
 static void __iomem *virt_base;
@@ -68,10 +69,12 @@ DEFINE_CLK_RPM_SMD_QDSS(qdss_clk, qdss_a_clk, RPM_MISC_CLK_TYPE, QDSS_ID);
 /* SMD_XO_BUFFER */
 DEFINE_CLK_RPM_SMD_XO_BUFFER(bb_clk1, bb_clk1_a, BB_CLK1_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER(bb_clk2, bb_clk2_a, BB_CLK2_ID);
+DEFINE_CLK_RPM_SMD_XO_BUFFER(bb_clk3, bb_clk3_a, BB_CLK3_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER(rf_clk2, rf_clk2_a, RF_CLK2_ID);
 
 DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(bb_clk1_pin, bb_clk1_a_pin, BB_CLK1_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(bb_clk2_pin, bb_clk2_a_pin, BB_CLK2_ID);
+DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(bb_clk3_pin, bb_clk3_a_pin, BB_CLK3_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(rf_clk2_pin, rf_clk2_a_pin, RF_CLK2_ID);
 
 /* Voter clocks */
@@ -171,14 +174,68 @@ static struct clk_lookup msm_clocks_rpm[] = {
 	CLK_LIST(rpm_debug_mux),
 };
 
+/* Lookup Table for MSM8909w-PM660 MTP */
+static struct clk_lookup msm_clocks_rpm_8909_pm660[] = {
+	CLK_LIST(xo_clk_src),
+	CLK_LIST(xo_a_clk_src),
+	CLK_LIST(xo_otg_clk),
+	CLK_LIST(xo_lpm_clk),
+	CLK_LIST(xo_pil_mss_clk),
+	CLK_LIST(xo_pil_pronto_clk),
+	CLK_LIST(xo_wlan_clk),
+
+	CLK_LIST(snoc_msmbus_clk),
+	CLK_LIST(snoc_msmbus_a_clk),
+	CLK_LIST(snoc_mm_msmbus_clk),
+	CLK_LIST(snoc_mm_msmbus_a_clk),
+	CLK_LIST(pcnoc_msmbus_clk),
+	CLK_LIST(pcnoc_msmbus_a_clk),
+	CLK_LIST(bimc_msmbus_clk),
+	CLK_LIST(bimc_msmbus_a_clk),
+	CLK_LIST(pcnoc_keepalive_a_clk),
+
+	CLK_LIST(pcnoc_usb_a_clk),
+	CLK_LIST(snoc_usb_a_clk),
+	CLK_LIST(bimc_usb_a_clk),
+
+	/* CoreSight clocks */
+	CLK_LIST(qdss_clk),
+	CLK_LIST(qdss_a_clk),
+
+	CLK_LIST(snoc_clk),
+	CLK_LIST(pcnoc_clk),
+	CLK_LIST(bimc_clk),
+	CLK_LIST(snoc_a_clk),
+	CLK_LIST(pcnoc_a_clk),
+	CLK_LIST(bimc_a_clk),
+	CLK_LIST(qpic_clk),
+	CLK_LIST(qpic_a_clk),
+
+	CLK_LIST(bb_clk1),
+	CLK_LIST(bb_clk2),
+	CLK_LIST(bb_clk3),
+	CLK_LIST(rf_clk2),
+
+	CLK_LIST(bb_clk1_pin),
+	CLK_LIST(bb_clk2_pin),
+	CLK_LIST(bb_clk3_pin),
+	CLK_LIST(rf_clk2_pin),
+
+	/* RPM debug Mux*/
+	CLK_LIST(rpm_debug_mux),
+};
+
 static int msm_rpmcc_8909_probe(struct platform_device *pdev)
 {
 	struct resource *res;
-	int ret;
+	int ret, is_8909_pm660 = 0;
 
 	ret = enable_rpm_scaling();
 	if (ret)
 		return ret;
+
+	is_8909_pm660 = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,rpmcc-8909-pm660");
 
 	res =  platform_get_resource_byname(pdev, IORESOURCE_MEM, "cc_base");
 	if (!res) {
@@ -192,8 +249,14 @@ static int msm_rpmcc_8909_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	ret = of_msm_clock_register(pdev->dev.of_node, msm_clocks_rpm,
-				ARRAY_SIZE(msm_clocks_rpm));
+	if (is_8909_pm660)
+		ret = of_msm_clock_register(pdev->dev.of_node,
+				msm_clocks_rpm_8909_pm660,
+				ARRAY_SIZE(msm_clocks_rpm_8909_pm660));
+	else
+		ret = of_msm_clock_register(pdev->dev.of_node, msm_clocks_rpm,
+					ARRAY_SIZE(msm_clocks_rpm));
+
 	if (ret) {
 		dev_err(&pdev->dev, "Unable to register RPM clocks\n");
 		return ret;
@@ -214,6 +277,7 @@ static int msm_rpmcc_8909_probe(struct platform_device *pdev)
 
 static struct of_device_id msm_clk_rpm_match_table[] = {
 	{ .compatible = "qcom,rpmcc-8909" },
+	{ .compatible = "qcom,rpmcc-8909-pm660" },
 	{}
 };
 
