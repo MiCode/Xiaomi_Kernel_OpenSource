@@ -2327,6 +2327,7 @@ begin:
 			IPA_STATS_DEC_CNT(ipa3_ctx->stats.rx_excp_pkts
 				[IPAHAL_PKT_STATUS_EXCEPTION_NONE]);
 		}
+		tx_pkt = NULL;
 	};
 
 	return rc;
