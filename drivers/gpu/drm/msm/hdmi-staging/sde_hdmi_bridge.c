@@ -129,7 +129,21 @@ static void _sde_hdmi_bridge_power_on(struct drm_bridge *bridge)
 	struct sde_hdmi_bridge *sde_hdmi_bridge = to_hdmi_bridge(bridge);
 	struct hdmi *hdmi = sde_hdmi_bridge->hdmi;
 	const struct hdmi_platform_config *config = hdmi->config;
+	struct sde_connector *c_conn = to_sde_connector(hdmi->connector);
+	struct sde_hdmi *display = NULL;
 	int i, ret;
+
+	if (c_conn)
+		display = (struct sde_hdmi *)c_conn->display;
+
+	if (display) {
+		if (display->non_pluggable) {
+			ret = sde_hdmi_core_enable(display);
+			if (ret)
+				SDE_ERROR("failed to enable HDMI core (%d)\n",
+					ret);
+		}
+	}
 
 	for (i = 0; i < config->pwr_reg_cnt; i++) {
 		ret = regulator_enable(hdmi->pwr_regs[i]);
@@ -162,6 +176,8 @@ static void _sde_hdmi_bridge_power_off(struct drm_bridge *bridge)
 	struct sde_hdmi_bridge *sde_hdmi_bridge = to_hdmi_bridge(bridge);
 	struct hdmi *hdmi = sde_hdmi_bridge->hdmi;
 	const struct hdmi_platform_config *config = hdmi->config;
+	struct sde_connector *c_conn = to_sde_connector(hdmi->connector);
+	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
 	int i, ret;
 
 	/* Wait for vsync */
@@ -176,6 +192,10 @@ static void _sde_hdmi_bridge_power_off(struct drm_bridge *bridge)
 			SDE_ERROR("failed to disable pwr regulator: %s (%d)\n",
 					config->pwr_reg_names[i], ret);
 		}
+	}
+
+	if (display->non_pluggable) {
+		sde_hdmi_core_disable(display);
 	}
 }
 
@@ -611,8 +631,10 @@ static void _sde_hdmi_bridge_post_disable(struct drm_bridge *bridge)
 		hdmi->power_on = false;
 	}
 
-	/* Powering-on the controller for HPD */
-	sde_hdmi_ctrl_cfg(hdmi, 1);
+	if (!display->non_pluggable) {
+		/* Powering-on the controller for HPD */
+		sde_hdmi_ctrl_cfg(hdmi, 1);
+	}
 }
 
 static void _sde_hdmi_bridge_set_avi_infoframe(struct hdmi *hdmi,
@@ -822,6 +844,11 @@ static void _sde_hdmi_bridge_mode_set(struct drm_bridge *bridge,
 
 	mode = adjusted_mode;
 
+	if (display->non_pluggable && !hdmi->power_on) {
+		if (sde_hdmi_core_enable(display))
+			pr_err("mode set enable core failured\n");
+	}
+
 	display->dc_enable = mode->private_flags &
 				(MSM_MODE_FLAG_RGB444_DC_ENABLE |
 				 MSM_MODE_FLAG_YUV420_DC_ENABLE);
@@ -898,6 +925,9 @@ static void _sde_hdmi_bridge_mode_set(struct drm_bridge *bridge,
 	_sde_hdmi_save_mode(hdmi, mode);
 	_sde_hdmi_bridge_setup_scrambler(hdmi, mode);
 	_sde_hdmi_bridge_setup_deep_color(hdmi);
+	if (display->non_pluggable && !hdmi->power_on) {
+		sde_hdmi_core_disable(display);
+	}
 }
 
 static bool _sde_hdmi_bridge_mode_fixup(struct drm_bridge *bridge,
