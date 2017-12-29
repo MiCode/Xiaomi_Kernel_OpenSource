@@ -2785,3 +2785,30 @@ Example:
                         qcom,msm-glink-channels = <4>;
                 };
         };
+
+* Digital Codec Driver.
+
+Required properties:
+- compatible : "qcom,msm-digital-codec"
+- reg : This property provides the digital codec register address.
+- cdc-vdd-digit-supply : Power supply that controls dmic and external
+  speaker.
+- qcom,cdc-vdd-digit-voltage : dmic and external speaker supply's voltage
+  level in mV
+- qcom,cdc-vdd-digit-current : dmic and external speaker max current level
+  in mA
+- qcom,cdc-on-demand-supplies : List of supplies which can be enabled
+  dynamically. Supplies in this list are off by default.
+
+
+Example:
+
+	msm_digital_codec: msm-dig-codec@771c000 {
+		compatible = "qcom,msm-digital-codec";
+		reg = <0x0771c000 0x0>;
+
+		cdc-vdd-digital-supply = <&pm660_l11>;
+		qcom,cdc-vdd-digital-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-digital-current = <5000>;
+		qcom,cdc-on-demand-supplies = "cdc-vdd-digital";
+	};

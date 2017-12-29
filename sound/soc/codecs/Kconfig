@@ -652,6 +652,10 @@ config SND_SOC_WSA881X_ANALOG
 config SND_SOC_MSM8X16_WCD
 	tristate
 
+config SND_SOC_DIGITAL_CDC
+	tristate
+	select REGMAP_MMIO
+
 config SND_SOC_WCD9XXX
 	tristate
 	default y if SND_SOC_WCD9320=y || SND_SOC_WCD9330=y || SND_SOC_WCD9335=y
