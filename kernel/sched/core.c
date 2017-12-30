@@ -2311,11 +2311,11 @@ void sched_exit(struct task_struct *p)
 	reset_task_stats(p);
 	p->ravg.mark_start = wallclock;
 	p->ravg.sum_history[0] = EXITING_TASK_MARKER;
-	free_task_load_ptrs(p);
 
 	enqueue_task(rq, p, 0);
 	clear_ed_task(p, rq);
 	task_rq_unlock(rq, p, &flags);
+	free_task_load_ptrs(p);
 }
 #endif /* CONFIG_SCHED_HMP */
 
