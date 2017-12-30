@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,21 +11,15 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-
-#include "apq8053.dtsi"
-#include "msm-pmi8950.dtsi"
-#include "msm8953-mdss-panels.dtsi"
-#include "apq8053-iot-memory.dtsi"
-#include "msm8953-pmi8950.dtsi"
-#include "msm8953-ipc.dtsi"
-
-/ {
-	model = "Qualcomm Technologies, Inc. APQ8053 IPC";
-	compatible = "qcom,apq8053-ipc", "qcom,apq8053", "qcom,ipc";
-	qcom,board-id= <12 0>;
+&modem_mem {
+	reg = <0x0 0x86c00000 0x0 0x1e00000>;
 };
 
-&int_codec {
-	/delete-property/asoc-wsa-codec-names;
+&adsp_fw_mem {
+	reg = <0x0 0x88a00000 0x0 0x1100000>;
 };
+
+&wcnss_fw_mem {
+	reg = <0x0 0x89b00000 0x0 0x700000>;
+};
+
