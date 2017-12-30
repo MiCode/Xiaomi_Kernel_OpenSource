@@ -671,13 +671,14 @@ static ssize_t dcc_store_func_type(struct device *dev,
 	if (sscanf(buf, "%s", str) != 1)
 		return -EINVAL;
 
+	mutex_lock(&drvdata->mutex);
 	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
 		dev_err(dev,
 			"Select link list to program using curr_list\n");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto out;
 	}
 
-	mutex_lock(&drvdata->mutex);
 	if (drvdata->enable[drvdata->curr_list]) {
 		ret = -EBUSY;
 		goto out;
@@ -771,10 +772,21 @@ static DEVICE_ATTR(trigger, 0200, NULL, dcc_store_trigger);
 static ssize_t dcc_show_enable(struct device *dev,
 			       struct device_attribute *attr, char *buf)
 {
+	int ret;
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
 
-	return scnprintf(buf, PAGE_SIZE, "%u\n",
+	mutex_lock(&drvdata->mutex);
+	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
+		dev_err(dev, "Select link list to program using curr_list\n");
+		ret = -EINVAL;
+		goto err;
+	}
+
+	ret = scnprintf(buf, PAGE_SIZE, "%u\n",
 			 (unsigned int)drvdata->enable[drvdata->curr_list]);
+err:
+	mutex_unlock(&drvdata->mutex);
+	return ret;
 }
 
 static ssize_t dcc_store_enable(struct device *dev,
@@ -812,10 +824,13 @@ static ssize_t dcc_show_config(struct device *dev,
 
 	buf[0] = '\0';
 
-	if (drvdata->curr_list >= DCC_MAX_LINK_LIST)
-		return -EINVAL;
-
 	mutex_lock(&drvdata->mutex);
+	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
+		dev_err(dev, "Select link list to program using curr_list\n");
+		count = -EINVAL;
+		goto err;
+	}
+
 	list_for_each_entry(entry,
 			    &drvdata->cfg_head[drvdata->curr_list], list) {
 		switch (entry->desc_type) {
@@ -852,8 +867,8 @@ static ssize_t dcc_show_config(struct device *dev,
 		count += len;
 	}
 
+err:
 	mutex_unlock(&drvdata->mutex);
-
 	return count;
 }
 
@@ -865,6 +880,12 @@ static int dcc_config_add(struct dcc_drvdata *drvdata, unsigned int addr,
 	unsigned int base, offset;
 
 	mutex_lock(&drvdata->mutex);
+
+	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
+		dev_err(drvdata->dev, "Select link list to program using curr_list\n");
+		ret = -EINVAL;
+		goto err;
+	}
 
 	if (!len) {
 		dev_err(drvdata->dev, "DCC: Invalid length\n");
@@ -959,11 +980,6 @@ static ssize_t dcc_store_config(struct device *dev,
 	if (nval <= 0 || nval > 3)
 		return -EINVAL;
 
-	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
-		dev_err(dev, "Select link list to program using curr_list\n");
-		return -EINVAL;
-	}
-
 	if (nval == 1) {
 		len = 1;
 		apb_bus = 0;
@@ -1028,6 +1044,12 @@ static ssize_t dcc_show_crc_error(struct device *dev,
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
 
 	mutex_lock(&drvdata->mutex);
+	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
+		dev_err(dev, "Select link list to program using curr_list\n");
+		ret = -EINVAL;
+		goto err;
+	}
+
 	if (!drvdata->enable[drvdata->curr_list]) {
 		ret = -EINVAL;
 		goto err;
@@ -1049,6 +1071,13 @@ static ssize_t dcc_show_ready(struct device *dev,
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
 
 	mutex_lock(&drvdata->mutex);
+
+	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
+		dev_err(dev, "Select link list to program using curr_list\n");
+		ret = -EINVAL;
+		goto err;
+	}
+
 	if (!drvdata->enable[drvdata->curr_list]) {
 		ret = -EINVAL;
 		goto err;
@@ -1159,6 +1188,12 @@ static ssize_t dcc_rd_mod_wr(struct device *dev,
 		goto err;
 	}
 
+	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
+		dev_err(dev, "Select link list to program using curr_list\n");
+		ret = -EINVAL;
+		goto err;
+	}
+
 	if (list_empty(&drvdata->cfg_head[drvdata->curr_list])) {
 		dev_err(drvdata->dev, "DCC: No read address programmed\n");
 		ret = -EPERM;
@@ -1265,6 +1300,12 @@ static ssize_t dcc_store_cti_trig(struct device *dev,
 		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
+
+	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
+		dev_err(dev, "Select link list to program using curr_list\n");
+		ret = -EINVAL;
+		goto out;
+	}
 
 	if (drvdata->enable[drvdata->curr_list]) {
 		ret = -EBUSY;
