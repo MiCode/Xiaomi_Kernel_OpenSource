@@ -77,8 +77,16 @@ static irqreturn_t gpio_usbdetect_id_irq(int irq, void *data)
 static irqreturn_t gpio_usbdetect_id_irq_thread(int irq, void *data)
 {
 	struct gpio_usbdetect *usb = data;
+	bool curr_id_state;
+	static int prev_id_state = -EINVAL;
 
-	if (usb->id_state) {
+	curr_id_state = usb->id_state;
+	if (curr_id_state == prev_id_state) {
+		dev_dbg(&usb->pdev->dev, "no change in ID state\n");
+		return IRQ_HANDLED;
+	}
+
+	if (curr_id_state) {
 		dev_dbg(&usb->pdev->dev, "stopping usb host\n");
 		extcon_set_cable_state_(usb->extcon_dev, EXTCON_USB_HOST, 0);
 		enable_irq(usb->vbus_det_irq);
@@ -88,6 +96,8 @@ static irqreturn_t gpio_usbdetect_id_irq_thread(int irq, void *data)
 		extcon_set_cable_state_(usb->extcon_dev, EXTCON_USB_SPEED, 1);
 		extcon_set_cable_state_(usb->extcon_dev, EXTCON_USB_HOST, 1);
 	}
+
+	prev_id_state = curr_id_state;
 	return IRQ_HANDLED;
 }
 
