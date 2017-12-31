@@ -706,7 +706,9 @@ int qmi_filter_notify_send(struct ipa_fltr_installed_notif_req_msg_v01 *req)
 				req->filter_index_list[i].filter_handle,
 				req->filter_index_list[i].filter_index);
 		return -EINVAL;
-	} else if (req->install_status != IPA_QMI_RESULT_SUCCESS_V01) {
+	}
+
+	if (req->install_status != IPA_QMI_RESULT_SUCCESS_V01) {
 		IPAWANERR(" UL filter rule for pipe %d install_status = %d\n",
 			req->source_pipe_index, req->install_status);
 		return -EINVAL;
