@@ -234,7 +234,7 @@
 		interrupts = <78 0>;
 		reset-gpio = <&tlmm 71 GPIO_ACTIVE_LOW>;
 		bits-per-word = <8>;
-		reset-delay-msec = <100>;
+		reset-delay-msec = <300>;
 		pinctrl-names = "active", "sleep";
 		pinctrl-0 = <&can_rst_on>;
 		pinctrl-1 = <&can_rst_off>;
