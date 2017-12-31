@@ -39,7 +39,7 @@
 };
 
 &cpp_fd_smmu {
-	status = "ok";
+	status = "disabled";
 	qcom,register-save;
 	qcom,skip-init;
 	qcom,fatal-asf;
@@ -71,5 +71,6 @@
 		 * anyways, so using a dummy value is ok.
 		 */
 		iommus = <&cpp_fd_smmu 42>;
+		status = "disabled";
 	};
 };
