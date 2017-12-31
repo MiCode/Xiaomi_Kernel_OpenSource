@@ -12,7 +12,7 @@ Required properties:
               "qcom,name", "qcom,ba-input", "qcom,ba-output", "qcom,sd-name",
               "qcom,ba-node" and "qcom,user-type".
 Required properties:
-- qcom,type: Input type such as CVBS(0), HDMI(4) etc as defined in BA driver.
+- qcom,type: Input type such as CVBS(0), HDMI(4), TUNER(8) etc as defined in BA driver.
              This property is of type u32.
 - qcom,name: Name of the input type. This property is of type string.
 - qcom,ba-input: BA input id supported by a bridge chip for this profile.

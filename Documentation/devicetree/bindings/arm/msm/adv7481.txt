@@ -15,6 +15,12 @@ Required properties
 	interrupt 1, interrupt 2 and interrupt 3.
 - cam_vdig-supply: Should contain regulator to be used for the digital
 	vdd.
+- tx-lanes: Should contain array of csi transmission lanes required
+	to select csi lane by adv7481 driver.
+- settle-count: Should contain array of csi settle count required
+	to select settle count by adv7481 driver.
+- res-array: Should contain array of resolution supported by
+	adv7481 driver.
 - cam_vio-supply: Should contain regulator to be used for the IO vdd.
 - cam_vana-supply: Should contain regulator from which analog voltage
 	is supplied.
@@ -35,6 +41,9 @@ Example:
 		compatible = "qcom,adv7481";
 		reg = <0x70 0xff>;
 		cam_vdig-supply = <&vph_pwr_vreg>;
+                tx-lanes = <4 2 1>;
+                settle-count = <16 16 16>;
+                res-array = "RES_1080P", "RES_720P", "RES_576P_480P";
 		/* Cameras powered by PMIC: */
 		cam_vio-supply = <&pm8994_lvs1>;
 		cam_vana-supply = <&pm8994_l17>;

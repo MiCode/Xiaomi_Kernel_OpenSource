@@ -1,0 +1,15 @@
+TVTUNER driver (VIDEO_TVTUNER)
+
+VIDEO_TVTUNER is a sample kernel platform driver that is used to control the tv
+tuner hardware for the capture of Tv tuner received a/v signal.
+
+The devicetree representation of the VIDEO_TVTUNER block should be:
+
+Required properties
+
+- compatible: "qcom,tv-tuner"
+
+Example:
+	qcom,tv-tuner {
+		compatible = "qcom,tv-tuner";
+	};

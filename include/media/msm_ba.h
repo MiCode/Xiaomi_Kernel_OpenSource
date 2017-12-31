@@ -35,6 +35,7 @@ enum msm_ba_ip {
 	BA_IP_HDMI_1,
 	BA_IP_MHL_1,
 	BA_IP_TTL,
+	BA_IP_TV_TUNER,
 	BA_IP_MAX = 0xffffffff
 };
 

@@ -39,6 +39,7 @@ ccflags-y += -Idrivers/media/platform/msm/camera_v2/sensor/io
 ccflags-y += -Idrivers/media/platform/msm/camera_v2/sensor/cci
 endif
 obj-$(CONFIG_VIDEO_ADV7481) += adv7481.o
+obj-$(CONFIG_VIDEO_TVTUNER) += tvtuner.o
 obj-$(CONFIG_VIDEO_AD9389B) += ad9389b.o
 obj-$(CONFIG_VIDEO_ADV7511) += adv7511.o
 obj-$(CONFIG_VIDEO_VPX3220) += vpx3220.o

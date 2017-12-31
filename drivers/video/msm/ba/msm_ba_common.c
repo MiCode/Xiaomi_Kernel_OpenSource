@@ -191,8 +191,6 @@ void msm_ba_add_inputs(struct v4l2_subdev *sd)
 	int dev_id = 0;
 
 	dev_ctxt = get_ba_dev();
-	if (!list_empty(&dev_ctxt->inputs))
-		start_index = dev_ctxt->num_inputs;
 
 	msm_ba_inp_cfg = dev_ctxt->msm_ba_inp_cfg;
 	dev_id = msm_ba_inp_cfg[start_index].ba_out;
