@@ -1,0 +1,78 @@
+QTI MDSS Rotator
+
+MDSS rotator is a rotator driver, which manages the rotator hw
+block inside the Mobile Display Subsystem.
+
+Required properties
+- compatible :			Must be "qcom,mdss-rotator".
+- qcom,mdss-wb-count:		The number of writeback block
+				in the hardware
+- <name>-supply:		Phandle for <name> regulator device node.
+
+Bus Scaling Data:
+- qcom,msm-bus,name:		String property describing MDSS client.
+- qcom,msm-bus,num-cases:	This is the the number of Bus Scaling use cases
+				defined in the vectors property. This must be
+				set to <3> for MDSS driver where use-case 0 is
+				used to take off MDSS BW votes from the system.
+				And use-case 1 & 2 are used in ping-pong fashion
+				to generate run-time BW requests.
+- qcom,msm-bus,num-paths:	This represents the number of paths in each
+				Bus Scaling Usecase. This value depends on
+				how many number of AXI master ports are
+				dedicated to MDSS for particular chipset.
+- qcom,msm-bus,vectors-KBps:	* A series of 4 cell properties, with a format
+				of (src, dst, ab, ib) which is defined at
+				Documentation/devicetree/bindings/arm/msm/msm_bus.txt
+				* Current values of src & dst are defined at
+				include/linux/msm-bus-board.h
+				src values allowed for MDSS are:
+					22 = MSM_BUS_MASTER_MDP_PORT0
+					23 = MSM_BUS_MASTER_MDP_PORT1
+					25 = MSM_BUS_MASTER_ROTATOR
+				dst values allowed for MDSS are:
+					512 = MSM_BUS_SLAVE_EBI_CH0
+				ab: Represents aggregated bandwidth.
+				ib: Represents instantaneous bandwidth.
+				* Total number of 4 cell properties will be
+				(number of use-cases * number of paths).
+				* These values will be overridden by the driver
+				based on the run-time requirements. So initial
+				ab and ib values defined here are random and
+				bare no logic except for the use-case 0 where ab
+				and ib values needs to be 0.
+				* Define realtime vector properties followed by
+				non-realtime vector properties.
+
+Optional properties
+- qcom,mdss-has-reg-bus:	Boolean property to indicate
+				if rotator needs to vote for register bus. This
+				property is needed starting 8996
+- qcom,mdss-has-ubwc:		Boolean property to indicate
+				if the hw supports universal
+				bandwidth compression (ubwc)
+- qcom,mdss-has-downscale	Boolean property to indicate
+				if the hw supports downscale
+
+Example:
+	mdss_rotator: qcom,mdss_rotator {
+		compatible = "qcom,mdss_rotator";
+		qcom,mdss-has-downscale;
+		qcom,mdss-has-ubwc;
+		qcom,mdss-wb-count = <2>;
+
+		qcom,mdss-has-reg-bus;
+		/* Bus Scale Settings */
+		qcom,msm-bus,name = "mdss_rotator";
+		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,mdss-num-nrt-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<25 512 0 0>,
+			<25 512 0 6400000>,
+			<25 512 0 6400000>;
+
+		vdd-supply = <&gdsc_mdss>;
+		gdsc-mmagic-mdss-supply = <&gdsc_mmagic_mdss>;
+		qcom,supply-names = "vdd", "gdsc-mmagic-mdss";
+	};
