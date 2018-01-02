@@ -2680,19 +2680,16 @@ int mmc_resume_bus(struct mmc_host *host)
 		mmc_power_up(host, host->card->ocr);
 		BUG_ON(!host->bus_ops->deferred_resume);
 		err = host->bus_ops->deferred_resume(host);
-		if (err) {
-			pr_err("%s: %s: resume failed: %d\n",
-				       mmc_hostname(host), __func__, err);
-			/*
-			 * If we have cd-gpio based detection mechanism and
-			 * deferred resume is supported, we will not detect
-			 * card removal event when system is suspended. So if
-			 * resume fails after a system suspend/resume,
-			 * schedule the work to detect card presence.
-			 */
-			if (mmc_card_is_removable(host) &&
-					!(host->caps & MMC_CAP_NEEDS_POLL)) {
-				mmc_detect_change(host, 0);
+		if (err && (err != -ENOMEDIUM)) {
+			pr_err("%s: bus resume: failed: %d\n",
+			       mmc_hostname(host), err);
+			err = mmc_hw_reset(host);
+			if (err) {
+				pr_err("%s: reset: failed: %d\n",
+				       mmc_hostname(host), err);
+				goto err_reset;
+			} else {
+				mmc_card_clr_suspended(host->card);
 			}
 		}
 		if (host->card->ext_csd.cmdq_en && !host->cqe_enabled) {
@@ -2701,14 +2698,13 @@ int mmc_resume_bus(struct mmc_host *host)
 			if (err)
 				pr_err("%s: %s: cqe enable failed: %d\n",
 				       mmc_hostname(host), __func__, err);
-			else
-				mmc_card_clr_suspended(host->card);
 		}
 	}
 
+err_reset:
 	mmc_bus_put(host);
 	pr_debug("%s: Deferred resume completed\n", mmc_hostname(host));
-	return 0;
+	return err;
 }
 EXPORT_SYMBOL(mmc_resume_bus);
 
