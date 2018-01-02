@@ -104,26 +104,17 @@ static int of_coresight_alloc_memory(struct device *dev,
 int of_coresight_get_cpu(const struct device_node *node)
 {
 	int cpu;
-	bool found;
-	struct device_node *dn, *np;
+	struct device_node *dn;
 
 	dn = of_parse_phandle(node, "cpu", 0);
-
-	/* Affinity defaults to invalid */
+	/* Affinity defaults to CPU0 */
 	if (!dn)
-		return -ENODEV;
-
-	for_each_possible_cpu(cpu) {
-		np = of_cpu_device_node_get(cpu);
-		found = (dn == np);
-		of_node_put(np);
-		if (found)
-			break;
-	}
+		return 0;
+	cpu = of_cpu_node_to_id(dn);
 	of_node_put(dn);
 
-	/* Affinity to invalid if no cpu nodes are found */
-	return found ? cpu : -ENODEV;
+	/* Affinity to CPU0 if no cpu nodes are found */
+	return (cpu < 0) ? 0 : cpu;
 }
 EXPORT_SYMBOL_GPL(of_coresight_get_cpu);
 
