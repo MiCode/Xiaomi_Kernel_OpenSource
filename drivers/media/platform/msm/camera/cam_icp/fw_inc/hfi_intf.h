@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -110,7 +110,8 @@ void cam_hfi_disable_cpu(void __iomem *icp_base);
 /**
  * cam_hfi_deinit() - cleanup HFI
  */
-void cam_hfi_deinit(void);
+void cam_hfi_deinit(void __iomem *icp_base);
+
 /**
  * hfi_set_debug_level() - set debug level
  * @lvl: FW debug message level

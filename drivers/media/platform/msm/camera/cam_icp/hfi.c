@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -717,7 +717,7 @@ alloc_fail:
 }
 
 
-void cam_hfi_deinit(void)
+void cam_hfi_deinit(void __iomem *icp_base)
 {
 	mutex_lock(&hfi_cmd_q_mutex);
 	mutex_lock(&hfi_msg_q_mutex);
@@ -729,6 +729,9 @@ void cam_hfi_deinit(void)
 
 	g_hfi->cmd_q_state = false;
 	g_hfi->msg_q_state = false;
+
+	cam_io_w((uint32_t)ICP_INIT_REQUEST_RESET,
+		icp_base + HFI_REG_HOST_ICP_INIT_REQUEST);
 
 	cam_io_w((uint32_t)INTR_DISABLE,
 		g_hfi->csr_base + HFI_REG_A5_CSR_A2HOSTINTEN);
