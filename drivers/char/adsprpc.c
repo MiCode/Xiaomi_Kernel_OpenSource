@@ -311,6 +311,7 @@ struct fastrpc_file {
 	struct dentry *debugfs_file;
 	struct pm_qos_request pm_qos_req;
 	int qos_request;
+	struct mutex map_mutex;
 };
 
 static struct fastrpc_apps gfa;
@@ -2063,6 +2064,7 @@ static int fastrpc_internal_munmap(struct fastrpc_file *fl,
 	int err = 0;
 	struct fastrpc_mmap *map = NULL;
 
+	mutex_lock(&fl->map_mutex);
 	VERIFY(err, !fastrpc_mmap_remove(fl, ud->vaddrout, ud->size, &map));
 	if (err)
 		goto bail;
@@ -2073,6 +2075,7 @@ static int fastrpc_internal_munmap(struct fastrpc_file *fl,
 bail:
 	if (err && map)
 		fastrpc_mmap_add(map);
+	mutex_unlock(&fl->map_mutex);
 	return err;
 }
 
@@ -2106,10 +2109,12 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 	struct fastrpc_mmap *map = NULL;
 	int err = 0;
 
+	mutex_lock(&fl->map_mutex);
 	if (!fastrpc_mmap_find(fl, ud->fd, (uintptr_t)ud->vaddrin,
-			 ud->size, ud->flags, 1, &map))
+			 ud->size, ud->flags, 1, &map)){
+		mutex_unlock(&fl->map_mutex);
 		return 0;
-
+	}
 	VERIFY(err, !fastrpc_mmap_create(fl, ud->fd, 0,
 			(uintptr_t)ud->vaddrin, ud->size,
 			 ud->flags, &map));
@@ -2122,6 +2127,7 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
  bail:
 	if (err && map)
 		fastrpc_mmap_free(map, 0);
+	mutex_unlock(&fl->map_mutex);
 	return err;
 }
 
@@ -2307,6 +2313,7 @@ static int fastrpc_device_release(struct inode *inode, struct file *file)
 			pm_qos_remove_request(&fl->pm_qos_req);
 		if (fl->debugfs_file != NULL)
 			debugfs_remove(fl->debugfs_file);
+		mutex_destroy(&fl->map_mutex);
 		fastrpc_file_free(fl);
 		file->private_data = NULL;
 	}
@@ -2630,6 +2637,7 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	memset(&fl->perf, 0, sizeof(fl->perf));
 	fl->qos_request = 0;
 	filp->private_data = fl;
+	mutex_init(&fl->map_mutex);
 	spin_lock(&me->hlock);
 	hlist_add_head(&fl->hn, &me->drivers);
 	spin_unlock(&me->hlock);
