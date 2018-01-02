@@ -271,7 +271,7 @@ void dma_done_notify_handler(void *arg)
 	struct mdp3_session_data *session = (struct mdp3_session_data *)arg;
 
 	atomic_inc(&session->dma_done_cnt);
-	queue_kthread_work(&session->worker, &session->dma_done_work);
+	kthread_queue_work(&session->worker, &session->dma_done_work);
 	complete_all(&session->dma_completion);
 }
 

@@ -1661,7 +1661,7 @@ int mdp3_ppp_parse_req(void __user *p,
 
 	mdp3_ppp_req_push(req_q, req);
 	mutex_unlock(&ppp_stat->req_mutex);
-	queue_kthread_work(&ppp_stat->kworker, &ppp_stat->blit_work);
+	kthread_queue_work(&ppp_stat->kworker, &ppp_stat->blit_work);
 	if (!async) {
 		/* wait for release fence */
 		rc = sync_fence_wait(fence,

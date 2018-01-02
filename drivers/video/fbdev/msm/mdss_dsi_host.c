@@ -1656,7 +1656,7 @@ static int mdss_dsi_cmds2buf_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 				len = mdss_dsi_cmd_dma_tpg_tx(ctrl, tp);
 			else
 				len = mdss_dsi_cmd_dma_tx(ctrl, tp);
-			if (IS_ERR_VALUE(len)) {
+			if (IS_ERR_VALUE((unsigned long)len)) {
 				mdss_dsi_disable_irq(ctrl, DSI_CMD_TERM);
 				pr_err("%s: failed to call cmd_dma_tx for cmd = 0x%x\n",
 					__func__,  cm->payload[0]);
@@ -1886,7 +1886,7 @@ do_send:
 			ret = mdss_dsi_cmd_dma_tpg_tx(ctrl, tp);
 		else
 			ret = mdss_dsi_cmd_dma_tx(ctrl, tp);
-		if (IS_ERR_VALUE(ret)) {
+		if (IS_ERR_VALUE((unsigned long)ret)) {
 			mdss_dsi_disable_irq(ctrl, DSI_CMD_TERM);
 			pr_err("%s: failed to tx max_pkt_size\n",
 				__func__);
@@ -1924,7 +1924,7 @@ skip_max_pkt_size:
 			ret = mdss_dsi_cmd_dma_tpg_tx(ctrl, tp);
 		else
 			ret = mdss_dsi_cmd_dma_tx(ctrl, tp);
-		if (IS_ERR_VALUE(ret)) {
+		if (IS_ERR_VALUE((unsigned long)ret)) {
 			mdss_dsi_disable_irq(ctrl, DSI_CMD_TERM);
 			pr_err("%s: failed to tx cmd = 0x%x\n",
 				__func__,  cmds->payload[0]);
@@ -2043,7 +2043,7 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 	if (ctrl->mdss_util->iommu_attached()) {
 		ret = mdss_smmu_dsi_map_buffer(tp->dmap, domain, ctrl->dma_size,
 			&(ctrl->dma_addr), tp->start, DMA_TO_DEVICE);
-		if (IS_ERR_VALUE(ret)) {
+		if (IS_ERR_VALUE((unsigned long)ret)) {
 			pr_err("unable to map dma memory to iommu(%d)\n", ret);
 			ctrl->mdss_util->iommu_unlock();
 			return -ENOMEM;
@@ -2116,7 +2116,7 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 		}
 	}
 
-	if (!IS_ERR_VALUE(ret))
+	if (!IS_ERR_VALUE((unsigned long)ret))
 		ret = tp->len;
 
 	if (mctrl && mctrl->dma_addr) {
@@ -2678,7 +2678,7 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 
 		if (ctrl->mdss_util->iommu_ctrl) {
 			rc = ctrl->mdss_util->iommu_ctrl(1);
-			if (IS_ERR_VALUE(rc)) {
+			if (IS_ERR_VALUE((unsigned long)rc)) {
 				pr_err("IOMMU attach failed\n");
 				mutex_unlock(&ctrl->cmd_mutex);
 				return rc;

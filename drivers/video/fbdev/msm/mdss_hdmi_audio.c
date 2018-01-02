@@ -19,7 +19,7 @@
 #include <linux/mutex.h>
 #include <linux/iopoll.h>
 #include <linux/types.h>
-#include <linux/switch.h>
+#include <linux/extcon.h>
 #include <linux/gcd.h>
 
 #include "mdss_hdmi_audio.h"
@@ -65,7 +65,7 @@ enum hdmi_audio_sample_rates {
 struct hdmi_audio {
 	struct dss_io_data *io;
 	struct msm_hdmi_audio_setup_params params;
-	struct switch_dev sdev;
+	struct extcon_dev sdev;
 	u32 pclk;
 	bool ack_enabled;
 	bool audio_ack_enabled;
@@ -393,7 +393,7 @@ static void hdmi_audio_notify(void *ctx, int val)
 		return;
 	}
 
-	switch_set_state(&audio->sdev, val);
+	extcon_set_state_sync(&audio->sdev, 0, val);
 	switched = audio->sdev.state != state;
 
 	if (audio->ack_enabled && switched)
@@ -490,7 +490,7 @@ void *hdmi_audio_register(struct hdmi_audio_init_data *data)
 		goto end;
 
 	audio->sdev.name = "hdmi_audio";
-	rc = switch_dev_register(&audio->sdev);
+	rc = extcon_dev_register(&audio->sdev);
 	if (rc) {
 		pr_err("audio switch registration failed\n");
 		kzfree(audio);
@@ -520,7 +520,7 @@ void hdmi_audio_unregister(void *ctx)
 	struct hdmi_audio *audio = ctx;
 
 	if (audio) {
-		switch_dev_unregister(&audio->sdev);
+		extcon_dev_unregister(&audio->sdev);
 		kfree(ctx);
 	}
 }

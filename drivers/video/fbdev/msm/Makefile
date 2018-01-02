@@ -1,6 +1,7 @@
 ccflags-y += -I$(src)
 
 obj-$(CONFIG_FB_MSM_MDSS_MHL3) += mhl3/
+obj-$(CONFIG_MSM_DBA) += msm_dba/
 
 mdss-mdp3-objs = mdp3.o mdp3_layer.o mdp3_dma.o mdp3_ctrl.o dsi_status_v2.o
 mdss-mdp3-objs += mdp3_ppp.o mdp3_ppp_hwio.o mdp3_ppp_data.o

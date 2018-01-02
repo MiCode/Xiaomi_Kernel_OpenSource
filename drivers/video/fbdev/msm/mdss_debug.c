@@ -886,7 +886,7 @@ static ssize_t mdss_debug_perf_mode_write(struct file *file,
 
 	buf[count] = 0;	/* end of string */
 
-	if (kstrtoint(buf, "%d", &perf_mode) != 1)
+	if (kstrtoint(buf, 10, &perf_mode) != 1)
 		return -EFAULT;
 
 	if (perf_mode) {
@@ -1023,7 +1023,7 @@ static ssize_t mdss_debug_perf_panic_write(struct file *file,
 
 	buf[count] = 0;	/* end of string */
 
-	if (kstrtoint(buf, "%d", &disable_panic) != 1)
+	if (kstrtoint(buf, 10, &disable_panic) != 1)
 		return -EFAULT;
 
 	if (disable_panic) {
@@ -1169,10 +1169,10 @@ static int mdss_debugfs_perf_init(struct mdss_debug_data *mdd,
 		(struct mdss_data_type *)mdata, &mdss_perf_panic_enable);
 
 	debugfs_create_bool("enable_bw_release", 0644, mdd->perf,
-		(u32 *)&mdata->enable_bw_release);
+		(bool *)&mdata->enable_bw_release);
 
 	debugfs_create_bool("enable_rotator_bw_release", 0644, mdd->perf,
-		(u32 *)&mdata->enable_rotator_bw_release);
+		(bool *)&mdata->enable_rotator_bw_release);
 
 	debugfs_create_file("ab_factor", 0644, mdd->perf,
 		&mdata->ab_factor, &mdss_factor_fops);
@@ -1685,7 +1685,7 @@ int mdss_misr_get(struct mdss_data_type *mdata,
 		resp->crc_op_mode = map->crc_op_mode;
 		break;
 	default:
-		ret = -ENOTSUP;
+		ret = -ENOTSUPP;
 		break;
 	}
 

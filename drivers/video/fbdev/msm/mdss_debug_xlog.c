@@ -734,7 +734,7 @@ int mdss_create_xlog_debug(struct mdss_debug_data *mdd)
 	debugfs_create_u32("enable", 0644, mdss_dbg_xlog.xlog,
 			    &mdss_dbg_xlog.xlog_enable);
 	debugfs_create_bool("panic", 0644, mdss_dbg_xlog.xlog,
-			    &mdss_dbg_xlog.panic_on_err);
+			    (bool *)&mdss_dbg_xlog.panic_on_err);
 	debugfs_create_u32("reg_dump", 0644, mdss_dbg_xlog.xlog,
 			    &mdss_dbg_xlog.enable_reg_dump);
 	debugfs_create_u32("dbgbus_dump", 0644, mdss_dbg_xlog.xlog,

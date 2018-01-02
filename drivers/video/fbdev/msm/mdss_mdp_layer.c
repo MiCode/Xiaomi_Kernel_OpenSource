@@ -1522,7 +1522,7 @@ static int __update_multirect_info(struct msm_fb_data_type *mfd,
 	int cnt = 1;
 
 	mode = __multirect_layer_flags_to_mode(layer_list[ndx].flags);
-	if (IS_ERR_VALUE(mode))
+	if (IS_ERR_VALUE((unsigned long)mode))
 		return mode;
 
 	pr_debug("layer #%d pipe_ndx=%d multirect mode=%d\n",
@@ -1557,7 +1557,7 @@ static int __update_multirect_info(struct msm_fb_data_type *mfd,
 
 			mode = __multirect_layer_flags_to_mode(
 					layer_list[i].flags);
-			if (IS_ERR_VALUE(mode))
+			if (IS_ERR_VALUE((unsigned long)mode))
 				return mode;
 
 			if (mode != vinfo[0]->multirect.mode) {
@@ -1598,7 +1598,7 @@ static int __validate_multirect(struct msm_fb_data_type *mfd,
 
 	cnt = __update_multirect_info(mfd, validate_info_list,
 			layer_list, ndx, layer_cnt);
-	if (IS_ERR_VALUE(cnt))
+	if (IS_ERR_VALUE((unsigned long)cnt))
 		return cnt;
 
 	if (cnt <= 1) {
@@ -1619,7 +1619,7 @@ static int __validate_multirect(struct msm_fb_data_type *mfd,
 	}
 
 	rc = __multirect_validate_mode(mfd, layers, cnt);
-	if (IS_ERR_VALUE(rc))
+	if (IS_ERR_VALUE((unsigned long)rc))
 		return rc;
 
 	return 0;
@@ -1647,7 +1647,7 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 	u32 mixer_mux, dst_x;
 	int layer_count = commit->input_layer_cnt;
 
-	struct mdss_mdp_pipe *pipe, *tmp, *left_blend_pipe;
+	struct mdss_mdp_pipe *pipe = NULL, *tmp, *left_blend_pipe;
 	struct mdss_mdp_pipe *right_plist[MAX_PIPES_PER_LM] = {0};
 	struct mdss_mdp_pipe *left_plist[MAX_PIPES_PER_LM] = {0};
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
@@ -1867,7 +1867,7 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 			rec_destroy_ndx[rect_num] |= pipe->ndx;
 
 		ret = mdss_mdp_pipe_map(pipe);
-		if (IS_ERR_VALUE(ret)) {
+		if (IS_ERR_VALUE((unsigned long)ret)) {
 			pr_err("Unable to map used pipe%d ndx=%x\n",
 				pipe->num, pipe->ndx);
 			layer->error_code = ret;
@@ -1937,7 +1937,7 @@ validate_exit:
 			rec_destroy_ndx[0], rec_destroy_ndx[1], ret);
 	mutex_lock(&mdp5_data->list_lock);
 	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_used, list) {
-		if (IS_ERR_VALUE(ret)) {
+		if (IS_ERR_VALUE((unsigned long)ret)) {
 			if (((pipe->ndx & rec_release_ndx[0]) &&
 						(pipe->multirect.num == 0)) ||
 					((pipe->ndx & rec_release_ndx[1]) &&
@@ -2062,7 +2062,7 @@ int mdss_mdp_layer_pre_commit(struct msm_fb_data_type *mfd,
 		if (!validate_info_list[i].layer) {
 			ret = __update_multirect_info(mfd, validate_info_list,
 						   layer_list, i, layer_count);
-			if (IS_ERR_VALUE(ret)) {
+			if (IS_ERR_VALUE((unsigned long)ret)) {
 				pr_err("error updating multirect config. ret=%d i=%d\n",
 					ret, i);
 				goto end;

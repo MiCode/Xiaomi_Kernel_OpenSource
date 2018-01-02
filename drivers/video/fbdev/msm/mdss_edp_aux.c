@@ -28,10 +28,6 @@
 #include <linux/of_gpio.h>
 #include <linux/clk/msm-clk.h>
 
-#include <mach/hardware.h>
-#include <mach/gpio.h>
-#include <mach/dma.h>
-
 #include "mdss_panel.h"
 #include "mdss_edp.h"
 
