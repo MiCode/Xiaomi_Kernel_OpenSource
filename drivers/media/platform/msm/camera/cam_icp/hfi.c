@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -138,6 +138,7 @@ int hfi_read_message(uint32_t *pmsg, uint8_t q_id,
 	struct hfi_q_hdr *q;
 	uint32_t new_read_idx, size_in_words, word_diff, temp;
 	uint32_t *read_q, *read_ptr, *write_ptr;
+	uint32_t size_upper_bound = 0;
 	int rc = 0;
 
 	if (!pmsg) {
@@ -175,10 +176,13 @@ int hfi_read_message(uint32_t *pmsg, uint8_t q_id,
 		goto err;
 	}
 
-	if (q_id == Q_MSG)
+	if (q_id == Q_MSG) {
 		read_q = (uint32_t *)g_hfi->map.msg_q.kva;
-	else
+		size_upper_bound = ICP_HFI_MAX_PKT_SIZE_MSGQ_IN_WORDS;
+	} else {
 		read_q = (uint32_t *)g_hfi->map.dbg_q.kva;
+		size_upper_bound = ICP_HFI_MAX_PKT_SIZE_IN_WORDS;
+	}
 
 	read_ptr = (uint32_t *)(read_q + q->qhdr_read_idx);
 	write_ptr = (uint32_t *)(read_q + q->qhdr_write_idx);
@@ -196,7 +200,7 @@ int hfi_read_message(uint32_t *pmsg, uint8_t q_id,
 	}
 
 	if ((size_in_words == 0) ||
-		(size_in_words > ICP_HFI_MAX_PKT_SIZE_IN_WORDS)) {
+		(size_in_words > size_upper_bound)) {
 		CAM_ERR(CAM_HFI, "invalid HFI message packet size - 0x%08x",
 			size_in_words << BYTE_WORD_SHIFT);
 		q->qhdr_read_idx = q->qhdr_write_idx;
