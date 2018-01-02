@@ -805,7 +805,7 @@ void __init enable_cpu_capabilities(const struct arm64_cpu_capabilities *caps)
 
 	for (i = 0; caps[i].matches; i++)
 		if (caps[i].enable && cpus_have_cap(caps[i].capability))
-			on_each_cpu(caps[i].enable, NULL, true);
+			on_each_cpu(caps[i].enable, (void *)&(caps[i]), true);
 }
 
 #ifdef CONFIG_HOTPLUG_CPU
@@ -920,7 +920,7 @@ void verify_local_cpu_capabilities(void)
 		if (!feature_matches(__raw_read_system_reg(caps[i].sys_reg), &caps[i]))
 			fail_incapable_cpu("arm64_features", &caps[i]);
 		if (caps[i].enable)
-			caps[i].enable(NULL);
+			caps[i].enable((void *)&(caps[i]));
 	}
 
 	for (i = 0, caps = arm64_hwcaps; caps[i].matches; i++) {
