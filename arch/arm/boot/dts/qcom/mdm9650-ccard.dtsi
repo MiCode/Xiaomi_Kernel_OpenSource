@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -609,14 +609,19 @@
 	/delete-property/ qcom,use-bam;
 
 	can-controller@0 {
-		compatible = "nxp,mpc5746c";
+		compatible = "qcom,nxp,mpc5746c";
 		reg = <0>;
 		spi-max-frequency = <9600000>;
 		interrupt-parent = <&tlmm_pinmux>;
 		interrupts = <87 0>;
-		reset-gpio = <&tlmm_pinmux 89 0x1>;
-		bits-per-word = <8>;
-		reset-delay-msec = <100>;
+		qcom,reset-gpio = <&tlmm_pinmux 89 0x1>;
+		qcom,clk-freq-mhz = <20000000>;
+		qcom,max-can-channels = <1>;
+		qcom,bits-per-word = <8>;
+		qcom,reset-delay-msec = <200>;
+		qcom,can-fw-cmd-timeout-req;
+		qcom,can-fw-cmd-timeout-ms = <400>;
+		qcom,rem-all-buffering-timeout-ms = <2000>;
 		pinctrl-names = "active", "sleep";
 		pinctrl-0 = <&can_rst_on>;
 		pinctrl-1 = <&can_rst_off>;
