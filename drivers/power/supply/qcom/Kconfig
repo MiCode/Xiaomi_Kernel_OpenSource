@@ -115,4 +115,13 @@ config QPNP_TYPEC
 	  USB power-delivery. The driver adds support to report these type-C
 	  parameters via the power-supply framework.
 
+config QPNP_QG
+	bool "QPNP Qgauge driver"
+	depends on MFD_SPMI_PMIC
+	help
+	  Say Y here to enable the Qualcomm Technologies, Inc. QGauge driver
+	  which uses the periodic sampling of the battery voltage and current
+	  to determine the battery state-of-charge (SOC) and supports other
+	  battery management features.
+
 endmenu
