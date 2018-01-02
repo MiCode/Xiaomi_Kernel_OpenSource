@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -726,6 +726,24 @@ static int qpnpint_get_irqchip_state(struct irq_data *d,
 	return 0;
 }
 
+static int qpnpint_irq_request_resources(struct irq_data *d)
+{
+	struct spmi_pmic_arb *pmic_arb = irq_data_get_irq_chip_data(d);
+	u16 periph = HWIRQ_PER(d->hwirq);
+	u16 apid = HWIRQ_APID(d->hwirq);
+	u16 sid = HWIRQ_SID(d->hwirq);
+	u16 irq = HWIRQ_IRQ(d->hwirq);
+
+	if (pmic_arb->apid_data[apid].irq_owner != pmic_arb->ee) {
+		dev_err(&pmic_arb->spmic->dev, "failed to xlate sid = %#x, periph = %#x, irq = %u: ee=%u but owner=%u\n",
+			sid, periph, irq, pmic_arb->ee,
+			pmic_arb->apid_data[apid].irq_owner);
+		return -ENODEV;
+	}
+
+	return 0;
+}
+
 static struct irq_chip pmic_arb_irqchip = {
 	.name		= "pmic_arb",
 	.irq_ack	= qpnpint_irq_ack,
@@ -733,6 +751,7 @@ static struct irq_chip pmic_arb_irqchip = {
 	.irq_unmask	= qpnpint_irq_unmask,
 	.irq_set_type	= qpnpint_irq_set_type,
 	.irq_get_irqchip_state	= qpnpint_get_irqchip_state,
+	.irq_request_resources = qpnpint_irq_request_resources,
 	.flags		= IRQCHIP_MASK_ON_SUSPEND
 			| IRQCHIP_SKIP_SET_WAKE,
 };
@@ -777,13 +796,6 @@ static int qpnpint_irq_domain_dt_translate(struct irq_domain *d,
 		"failed to xlate sid = 0x%x, periph = 0x%x, irq = %u rc = %d\n",
 		intspec[0], intspec[1], intspec[2], rc);
 		return rc;
-	}
-
-	if (pa->apid_data[apid].irq_owner != pa->ee) {
-		dev_err(&pa->spmic->dev, "failed to xlate sid = 0x%x, periph = 0x%x, irq = %u: ee=%u but owner=%u\n",
-			intspec[0], intspec[1], intspec[2], pa->ee,
-			pa->apid_data[apid].irq_owner);
-		return -ENODEV;
 	}
 
 	/* Keep track of {max,min}_apid for bounding search during interrupt */
