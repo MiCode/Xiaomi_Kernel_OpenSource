@@ -86,31 +86,33 @@ static inline unsigned int set_section_name(const char *name)
 	return ret;
 }
 
-static inline bool md_check_name(const char *name)
-{
-	struct md_region *mde = minidump_table.entry;
-	int i, regno = minidump_table.num_regions;
-
-	for (i = 0; i < regno; i++, mde++)
-		if (!strcmp(mde->name, name))
-			return true;
-	return false;
-}
-
-/* Return next seq no, if name already exists in the table */
-static inline int md_get_seq_num(const char *name)
+static inline int md_region_num(const char *name, int *seqno)
 {
 	struct md_ss_region *mde = minidump_table.md_regions;
 	int i, regno = minidump_table.md_ss_toc->ss_region_count;
-	int seqno = 0;
+	int ret = -EINVAL;
 
-	for (i = 0; i < (regno - 1); i++, mde++) {
+	for (i = 0; i < regno; i++, mde++) {
 		if (!strcmp(mde->name, name)) {
-			if (mde->seq_num >= seqno)
-				seqno = mde->seq_num + 1;
+			ret = i;
+			if (mde->seq_num > *seqno)
+				*seqno = mde->seq_num;
 		}
 	}
-	return seqno;
+	return ret;
+}
+
+static inline int md_entry_num(const struct md_region *entry)
+{
+	struct md_region *mdr;
+	int i, regno = minidump_table.num_regions;
+
+	for (i = 0; i < regno; i++) {
+		mdr = &minidump_table.entry[i];
+		if (!strcmp(mdr->name, entry->name))
+			return i;
+	}
+	return -EINVAL;
 }
 
 /* Update Mini dump table in SMEM */
@@ -120,14 +122,15 @@ static void md_update_ss_toc(const struct md_region *entry)
 	struct elfhdr *hdr = minidump_elfheader.ehdr;
 	struct elf_shdr *shdr = elf_section(hdr, hdr->e_shnum++);
 	struct elf_phdr *phdr = elf_program(hdr, hdr->e_phnum++);
-	int reg_cnt = minidump_table.md_ss_toc->ss_region_count++;
+	int seq = 0, reg_cnt = minidump_table.md_ss_toc->ss_region_count;
 
 	mdr = &minidump_table.md_regions[reg_cnt];
 
 	strlcpy(mdr->name, entry->name, sizeof(mdr->name));
 	mdr->region_base_address = entry->phys_addr;
 	mdr->region_size = entry->size;
-	mdr->seq_num = md_get_seq_num(entry->name);
+	if (md_region_num(entry->name, &seq) >= 0)
+		mdr->seq_num = seq + 1;
 
 	/* Update elf header */
 	shdr->sh_type = SHT_PROGBITS;
@@ -144,9 +147,9 @@ static void md_update_ss_toc(const struct md_region *entry)
 	phdr->p_paddr = entry->phys_addr;
 	phdr->p_filesz = phdr->p_memsz =  mdr->region_size;
 	phdr->p_flags = PF_R | PF_W;
-
 	minidump_elfheader.elf_offset += shdr->sh_size;
 	mdr->md_valid = MD_REGION_VALID;
+	minidump_table.md_ss_toc->ss_region_count++;
 }
 
 bool msm_minidump_enabled(void)
@@ -167,23 +170,23 @@ int msm_minidump_add_region(const struct md_region *entry)
 {
 	u32 entries;
 	struct md_region *mdr;
-	int ret = 0;
 
 	if (!entry)
 		return -EINVAL;
 
-	if ((strlen(entry->name) > MAX_NAME_LENGTH) ||
-		md_check_name(entry->name) || !entry->virt_addr) {
+	if ((strlen(entry->name) > MAX_NAME_LENGTH) || !entry->virt_addr ||
+		(!IS_ALIGNED(entry->size, 4))) {
 		pr_err("Invalid entry details\n");
 		return -EINVAL;
 	}
 
-	if (!IS_ALIGNED(entry->size, 4)) {
-		pr_err("size should be 4 byte aligned\n");
+	spin_lock(&mdt_lock);
+	if (md_entry_num(entry) >= 0) {
+		pr_err("Entry name already exist.\n");
+		spin_unlock(&mdt_lock);
 		return -EINVAL;
 	}
 
-	spin_lock(&mdt_lock);
 	entries = minidump_table.num_regions;
 	if (entries >= MAX_NUM_ENTRIES) {
 		pr_err("Maximum entries reached.\n");
@@ -209,9 +212,140 @@ int msm_minidump_add_region(const struct md_region *entry)
 
 	spin_unlock(&mdt_lock);
 
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL(msm_minidump_add_region);
+
+int msm_minidump_clear_headers(const struct md_region *entry)
+{
+	struct elfhdr *hdr = minidump_elfheader.ehdr;
+	struct elf_shdr *shdr = NULL, *tshdr = NULL;
+	struct elf_phdr *phdr = NULL, *tphdr = NULL;
+	int pidx, shidx, strln, i;
+	char *shname;
+	u64 esize;
+
+	esize = entry->size;
+	for (i = 0; i < hdr->e_phnum; i++) {
+		phdr = elf_program(hdr, i);
+		if ((phdr->p_paddr == entry->phys_addr) &&
+			(phdr->p_memsz == entry->size))
+			break;
+	}
+	if (i == hdr->e_phnum) {
+		pr_err("Cannot find entry in elf\n");
+		return -EINVAL;
+	}
+	pidx = i;
+
+	for (i = 0; i < hdr->e_shnum; i++) {
+		shdr = elf_section(hdr, i);
+		shname = elf_lookup_string(hdr, shdr->sh_name);
+		if (shname && !strcmp(shname, entry->name))
+			if ((shdr->sh_addr == entry->virt_addr) &&
+				(shdr->sh_size == entry->size))
+				break;
+
+	}
+	if (i == hdr->e_shnum) {
+		pr_err("Cannot find entry in elf\n");
+		return -EINVAL;
+	}
+	shidx = i;
+
+	if (shdr->sh_offset != phdr->p_offset) {
+		pr_err("Invalid entry details in elf, Minidump broken..\n");
+		return -EINVAL;
+	}
+
+	/* Clear name in string table */
+	strln = strlen(shname) + 1;
+	memmove(shname, shname + strln,
+		(minidump_elfheader.strtable_idx - shdr->sh_name));
+	minidump_elfheader.strtable_idx -= strln;
+
+	/* Clear program header */
+	tphdr = elf_program(hdr, pidx);
+	for (i = pidx; i < hdr->e_phnum - 1; i++) {
+		tphdr = elf_program(hdr, i + 1);
+		phdr = elf_program(hdr, i);
+		memcpy(phdr, tphdr, sizeof(struct elf_phdr));
+		phdr->p_offset = phdr->p_offset - esize;
+	}
+	memset(tphdr, 0, sizeof(struct elf_phdr));
+	hdr->e_phnum--;
+
+	/* Clear section header */
+	tshdr = elf_section(hdr, shidx);
+	for (i = shidx; i < hdr->e_shnum - 1; i++) {
+		tshdr = elf_section(hdr, i + 1);
+		shdr = elf_section(hdr, i);
+		memcpy(shdr, tshdr, sizeof(struct elf_shdr));
+		shdr->sh_offset -= esize;
+		shdr->sh_name -= strln;
+	}
+	memset(tshdr, 0, sizeof(struct elf_shdr));
+	hdr->e_shnum--;
+
+	minidump_elfheader.elf_offset -= esize;
+	return 0;
+}
+
+int msm_minidump_remove_region(const struct md_region *entry)
+{
+	int rcount, ecount, seq = 0, rgno, ret;
+
+	if (!entry || !minidump_table.md_ss_toc ||
+		(minidump_table.md_ss_toc->md_ss_enable_status !=
+						MD_SS_ENABLED))
+		return -EINVAL;
+
+	spin_lock(&mdt_lock);
+	ecount = minidump_table.num_regions;
+	rcount = minidump_table.md_ss_toc->ss_region_count;
+	rgno = md_entry_num(entry);
+	if (rgno < 0) {
+		pr_err("Not able to find the entry in table\n");
+		goto out;
+	}
+
+	minidump_table.md_ss_toc->md_ss_toc_init = 0;
+
+	/* Remove entry from: entry list, ss region list and elf header */
+	memmove(&minidump_table.entry[rgno], &minidump_table.entry[rgno + 1],
+		((ecount - rgno - 1) * sizeof(struct md_region)));
+	memset(&minidump_table.entry[ecount - 1], 0, sizeof(struct md_region));
+
+
+	rgno = md_region_num(entry->name, &seq);
+	if (rgno < 0) {
+		pr_err("Not able to find region in table\n");
+		goto out;
+	}
+
+	memmove(&minidump_table.md_regions[rgno],
+		&minidump_table.md_regions[rgno + 1],
+		((rcount - rgno - 1) * sizeof(struct md_ss_region)));
+	memset(&minidump_table.md_regions[rcount - 1], 0,
+					sizeof(struct md_ss_region));
+
+
+	ret = msm_minidump_clear_headers(entry);
+	if (ret)
+		goto out;
+
+	minidump_table.md_ss_toc->ss_region_count--;
+	minidump_table.md_ss_toc->md_ss_toc_init = 1;
+
+	minidump_table.num_regions--;
+	spin_unlock(&mdt_lock);
+	return 0;
+out:
+	spin_unlock(&mdt_lock);
+	pr_err("Minidump is broken..disable Minidump collection\n");
+	return -EINVAL;
+}
+EXPORT_SYMBOL(msm_minidump_remove_region);
 
 static int msm_minidump_add_header(void)
 {
@@ -226,8 +360,11 @@ static int msm_minidump_add_header(void)
 	 * elf header, MAX_NUM_ENTRIES+4 of section and program elf headers,
 	 * string table section and linux banner.
 	 */
-	elfh_size = sizeof(*ehdr) + MAX_STRTBL_SIZE + (strlen(linux_banner) +
-		1) + ((sizeof(*shdr) + sizeof(*phdr)) * (MAX_NUM_ENTRIES + 4));
+	elfh_size = sizeof(*ehdr) + MAX_STRTBL_SIZE +
+			(strlen(linux_banner) + 1) +
+			((sizeof(*shdr) + sizeof(*phdr))
+			 * (MAX_NUM_ENTRIES + 4));
+
 	elfh_size = ALIGN(elfh_size, 4);
 
 	minidump_elfheader.ehdr = kzalloc(elfh_size, GFP_KERNEL);
