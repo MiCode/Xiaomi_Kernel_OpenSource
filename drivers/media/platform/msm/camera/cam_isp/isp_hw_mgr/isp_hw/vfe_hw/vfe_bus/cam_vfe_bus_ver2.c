@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2569,8 +2569,21 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 		CAM_DBG(CAM_ISP, "WM %d image address 0x%x",
 			wm_data->index, reg_val_pair[j-1]);
 
-		frame_inc = io_cfg->planes[i].plane_stride *
-			io_cfg->planes[i].slice_height;
+		if (wm_data->en_ubwc) {
+			frame_inc = ALIGNUP(io_cfg->planes[i].plane_stride *
+			    io_cfg->planes[i].slice_height, 4096);
+			frame_inc += io_cfg->planes[i].meta_size;
+			CAM_DBG(CAM_ISP,
+				"WM %d frm %d: ht: %d stride %d meta: %d",
+				wm_data->index, frame_inc,
+				io_cfg->planes[i].slice_height,
+				io_cfg->planes[i].plane_stride,
+				io_cfg->planes[i].meta_size);
+		} else {
+			frame_inc = io_cfg->planes[i].plane_stride *
+				io_cfg->planes[i].slice_height;
+		}
+
 		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
 			wm_data->hw_regs->frame_inc, frame_inc);
 		CAM_DBG(CAM_ISP, "WM %d frame_inc %d",
