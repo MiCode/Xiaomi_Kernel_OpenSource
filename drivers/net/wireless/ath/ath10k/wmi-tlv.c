@@ -1156,8 +1156,10 @@ static int ath10k_wmi_tlv_op_pull_fw_stats(struct ath10k *ar,
 		struct ath10k_fw_stats_pdev *dst;
 
 		src = data;
-		if (data_len < sizeof(*src))
+		if (data_len < sizeof(*src)) {
+			kfree(tb);
 			return -EPROTO;
+		}
 
 		data += sizeof(*src);
 		data_len -= sizeof(*src);
@@ -1177,8 +1179,10 @@ static int ath10k_wmi_tlv_op_pull_fw_stats(struct ath10k *ar,
 		struct ath10k_fw_stats_vdev *dst;
 
 		src = data;
-		if (data_len < sizeof(*src))
+		if (data_len < sizeof(*src)) {
+			kfree(tb);
 			return -EPROTO;
+		}
 
 		data += sizeof(*src);
 		data_len -= sizeof(*src);
@@ -1196,8 +1200,10 @@ static int ath10k_wmi_tlv_op_pull_fw_stats(struct ath10k *ar,
 		struct ath10k_fw_stats_peer *dst;
 
 		src = data;
-		if (data_len < sizeof(*src))
+		if (data_len < sizeof(*src)) {
+			kfree(tb);
 			return -EPROTO;
+		}
 
 		data += sizeof(*src);
 		data_len -= sizeof(*src);

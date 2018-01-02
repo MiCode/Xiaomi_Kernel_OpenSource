@@ -220,11 +220,9 @@ int _ext4_get_encryption_info(struct inode *inode)
 	int mode;
 	int res;
 
-	if (!ext4_read_workqueue) {
-		res = ext4_init_crypto();
-		if (res)
-			return res;
-	}
+	res = ext4_init_crypto();
+	if (res)
+		return res;
 
 retry:
 	crypt_info = ACCESS_ONCE(ei->i_crypt_info);
