@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -192,10 +192,6 @@ static void rmnet_map_flush_packet_work(struct work_struct *work)
 			memset(&config->agg_time, 0, sizeof(struct timespec));
 		}
 		config->agg_state = RMNET_MAP_AGG_IDLE;
-	} else {
-		/* How did we get here? */
-		LOGE("Ran queued command when state %s",
-		     "is idle. State machine likely broken");
 	}
 
 	spin_unlock_irqrestore(&config->agg_lock, flags);
