@@ -828,13 +828,14 @@ static inline bool __force_buffered_io(struct inode *inode, int rw)
 }
 
 int f2fs_preallocate_blocks(struct inode *inode, loff_t pos,
-					size_t count, bool dio)
+				size_t count, bool direct_io)
 {
 	struct f2fs_map_blocks map;
+	int flag;
 	int err = 0;
 
 	/* convert inline data for Direct I/O*/
-	if (dio) {
+	if (direct_io) {
 		err = f2fs_convert_inline_inode(inode);
 		if (err)
 			return err;
@@ -853,26 +854,30 @@ int f2fs_preallocate_blocks(struct inode *inode, loff_t pos,
 	map.m_next_pgofs = NULL;
 	map.m_seg_type = NO_CHECK_TYPE;
 
-	if (dio) {
+	if (direct_io) {
 		/* map.m_seg_type = rw_hint_to_seg_type(iocb->ki_hint); */
 		map.m_seg_type = rw_hint_to_seg_type(WRITE_LIFE_NOT_SET);
-		return f2fs_map_blocks(inode, &map, 1,
-			__force_buffered_io(inode, WRITE) ?
-				F2FS_GET_BLOCK_PRE_AIO :
-				F2FS_GET_BLOCK_PRE_DIO);
+		flag = __force_buffered_io(inode, WRITE) ?
+					F2FS_GET_BLOCK_PRE_AIO :
+					F2FS_GET_BLOCK_PRE_DIO;
+		goto map_blocks;
 	}
 	if (pos + count > MAX_INLINE_DATA(inode)) {
 		err = f2fs_convert_inline_inode(inode);
 		if (err)
 			return err;
 	}
-	if (!f2fs_has_inline_data(inode)) {
-		err = f2fs_map_blocks(inode, &map, 1, F2FS_GET_BLOCK_PRE_AIO);
-		if (map.m_len > 0 && err == -ENOSPC) {
-			set_inode_flag(inode, FI_NO_PREALLOC);
-			err = 0;
-		}
+	if (f2fs_has_inline_data(inode))
 		return err;
+
+	flag = F2FS_GET_BLOCK_PRE_AIO;
+
+map_blocks:
+	err = f2fs_map_blocks(inode, &map, 1, flag);
+	if (map.m_len > 0 && err == -ENOSPC) {
+		if (!direct_io)
+			set_inode_flag(inode, FI_NO_PREALLOC);
+		err = 0;
 	}
 	return err;
 }
