@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -77,6 +77,7 @@ struct q6v5_data {
 	int mss_pdc_offset;
 	bool ahb_clk_vote;
 	bool mx_spike_wa;
+	bool reset_clk;
 };
 
 int pil_q6v5_make_proxy_votes(struct pil_desc *pil);

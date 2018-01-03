@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -278,6 +278,8 @@ static int pil_mss_loadable_init(struct modem_data *drv,
 
 	q6_desc->ops = &pil_msa_mss_ops;
 
+	q6->reset_clk = of_property_read_bool(pdev->dev.of_node,
+							"qcom,reset-clk");
 	q6->self_auth = of_property_read_bool(pdev->dev.of_node,
 							"qcom,pil-self-auth");
 	if (q6->self_auth) {
