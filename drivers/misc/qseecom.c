@@ -1261,7 +1261,7 @@ static int qseecom_unregister_listener(struct qseecom_dev_handle *data)
 				atomic_read(&data->ioctl_count) <= 1)) {
 			pr_err("Interrupted from abort\n");
 			ret = -ERESTARTSYS;
-			break;
+			return ret;
 		}
 	}
 
