@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -596,25 +596,6 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 		strlcpy(do_cleanup_data->name, ss_info->edge,
 				do_cleanup_data->name_len + 1);
 
-		ret = glink_queue_rx_intent(handle, do_cleanup_data,
-				sizeof(struct cleanup_done_msg));
-		if (ret) {
-			GLINK_SSR_ERR(
-				"%s %s: %s, ret[%d], resp. remaining[%d]\n",
-				"<SSR>", __func__,
-				"queue_rx_intent failed", ret,
-				atomic_read(&responses_remaining));
-			kfree(do_cleanup_data);
-
-			if (!strcmp(ss_leaf_entry->ssr_name, "rpm"))
-				panic("%s: Could not queue intent for RPM!\n",
-						__func__);
-			atomic_dec(&responses_remaining);
-			kref_put(&ss_leaf_entry->cb_data->cb_kref,
-							cb_data_release);
-			continue;
-		}
-
 		if (strcmp(ss_leaf_entry->ssr_name, "rpm"))
 			ret = glink_tx(handle, do_cleanup_data,
 					do_cleanup_data,
@@ -634,6 +615,24 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 
 			if (!strcmp(ss_leaf_entry->ssr_name, "rpm"))
 				panic("%s: glink_tx() to RPM failed!\n",
+						__func__);
+			atomic_dec(&responses_remaining);
+			kref_put(&ss_leaf_entry->cb_data->cb_kref,
+							cb_data_release);
+			continue;
+		}
+		ret = glink_queue_rx_intent(handle, do_cleanup_data,
+				sizeof(struct cleanup_done_msg));
+		if (ret) {
+			GLINK_SSR_ERR(
+				"%s %s: %s, ret[%d], resp. remaining[%d]\n",
+				"<SSR>", __func__,
+				"queue_rx_intent failed", ret,
+				atomic_read(&responses_remaining));
+			kfree(do_cleanup_data);
+
+			if (!strcmp(ss_leaf_entry->ssr_name, "rpm"))
+				panic("%s: Could not queue intent for RPM!\n",
 						__func__);
 			atomic_dec(&responses_remaining);
 			kref_put(&ss_leaf_entry->cb_data->cb_kref,
