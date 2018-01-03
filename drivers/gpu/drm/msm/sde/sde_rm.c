@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1129,17 +1129,29 @@ static int _sde_rm_make_next_rsvp(
 	return ret;
 }
 
-/**
- * poll_intr_status - Gets HW interrupt status based on
- *			given lookup IRQ index.
- * @intr:	HW interrupt handle
- * @irq_idx:	Lookup irq index return from irq_idx_lookup
- * @msec:	Maximum delay allowed to check intr status
- * return:	return zero on success.
- */
-static u32 _sde_rm_poll_intr_status_for_cont_splash
-			(struct sde_hw_intr *intr,
-			int irq_idx, u32 const msec)
+static void _sde_rm_clear_irq_status(struct sde_hw_intr *hw_intr,
+	int irq_idx_pp_done, int irq_idx_autorefresh)
+{
+	u32 intr_value = 0;
+
+	if ((irq_idx_pp_done >= 0) && (hw_intr->ops.get_intr_status_nomask)) {
+		intr_value = hw_intr->ops.get_intr_status_nomask(hw_intr,
+			irq_idx_pp_done, false);
+		hw_intr->ops.clear_intr_status_force_mask(hw_intr,
+			irq_idx_pp_done, intr_value);
+	}
+
+	if ((irq_idx_autorefresh >= 0) &&
+			(hw_intr->ops.get_intr_status_nomask)) {
+		intr_value = hw_intr->ops.get_intr_status_nomask(hw_intr,
+			irq_idx_autorefresh, false);
+		hw_intr->ops.clear_intr_status_force_mask(hw_intr,
+			irq_idx_autorefresh, intr_value);
+	}
+}
+
+static u32 _sde_rm_poll_intr_status_for_cont_splash(struct sde_hw_intr *intr,
+	int irq_idx_pp_done, int irq_idx_autorefresh, u32 const msec)
 {
 	int i;
 	u32 status = 0;
@@ -1153,17 +1165,110 @@ static u32 _sde_rm_poll_intr_status_for_cont_splash
 
 	for (i = 0; i < loop; i++) {
 		status = intr->ops.get_intr_status_nomask
-				(intr, irq_idx, false);
+				(intr, irq_idx_pp_done, false);
 
-		if (status & BIT(irq_idx)) {
-			SDE_DEBUG(" Poll success. i=%d, status=0x%x\n",
+		if (status & BIT(irq_idx_pp_done)) {
+			SDE_DEBUG("pp_done received i=%d, status=0x%x\n",
 							i, status);
-			return 0;
+			SDE_EVT32(status, i, irq_idx_pp_done);
+
+			if (status & BIT(irq_idx_autorefresh))
+				_sde_rm_clear_irq_status(intr,
+					irq_idx_pp_done, irq_idx_autorefresh);
+			else
+				return 0;
 		}
 		usleep_range(delay_us, delay_us + 10);
 	}
+
+	SDE_EVT32(status, irq_idx_pp_done, SDE_EVTLOG_ERROR);
 	SDE_ERROR("polling timed out. status = 0x%x\n", status);
 	return -ETIMEDOUT;
+}
+
+static int _sde_rm_autorefresh_disable(struct sde_hw_pingpong *pp,
+		struct sde_hw_intr *hw_intr)
+{
+	u32 const timeout_ms = 35; /* Max two vsyncs delay */
+	int rc = 0, i, loop = 3;
+	struct sde_hw_pp_vsync_info info;
+	int irq_idx_pp_done = -1, irq_idx_autorefresh = -1;
+	struct sde_hw_autorefresh cfg = {0};
+
+	if (!pp->ops.get_autorefresh || !pp->ops.setup_autorefresh ||
+		!pp->ops.connect_external_te || !pp->ops.get_vsync_info) {
+		SDE_ERROR("autorefresh update api not supported\n");
+		return 0;
+	}
+
+	/* read default autorefresh configuration */
+	pp->ops.get_autorefresh(pp, &cfg);
+	if (!cfg.enable) {
+		SDE_DEBUG("autorefresh already disabled\n");
+		SDE_EVT32(pp->idx - PINGPONG_0, SDE_EVTLOG_FUNC_CASE1);
+		return 0;
+	}
+
+	/* disable external TE first */
+	pp->ops.connect_external_te(pp, false);
+
+	/* get all IRQ indexes */
+	if (hw_intr->ops.irq_idx_lookup) {
+		irq_idx_pp_done = hw_intr->ops.irq_idx_lookup(
+				SDE_IRQ_TYPE_PING_PONG_COMP, pp->idx);
+		irq_idx_autorefresh = hw_intr->ops.irq_idx_lookup(
+				SDE_IRQ_TYPE_PING_PONG_AUTO_REF, pp->idx);
+		SDE_DEBUG("pp_done itr_idx = %d autorefresh irq_idx:%d\n",
+				irq_idx_pp_done, irq_idx_autorefresh);
+	}
+
+	/* disable autorefresh */
+	cfg.enable = false;
+	pp->ops.setup_autorefresh(pp, &cfg);
+
+	SDE_EVT32(pp->idx - PINGPONG_0, irq_idx_pp_done, irq_idx_autorefresh);
+	_sde_rm_clear_irq_status(hw_intr, irq_idx_pp_done, irq_idx_autorefresh);
+
+	/*
+	 * Check the line count again if
+	 * the line count is equal to the active
+	 * height to make sure their is no
+	 * additional frame updates
+	 */
+	for (i = 0; i < loop; i++) {
+		info.wr_ptr_line_count = 0;
+		info.rd_ptr_init_val = 0;
+		pp->ops.get_vsync_info(pp, &info);
+
+		SDE_EVT32(pp->idx - PINGPONG_0, info.wr_ptr_line_count,
+			info.rd_ptr_init_val, SDE_EVTLOG_FUNC_CASE1);
+
+		/* wait for read ptr intr */
+		rc = _sde_rm_poll_intr_status_for_cont_splash(hw_intr,
+			irq_idx_pp_done, irq_idx_autorefresh, timeout_ms);
+
+		info.wr_ptr_line_count = 0;
+		info.rd_ptr_init_val = 0;
+		pp->ops.get_vsync_info(pp, &info);
+		SDE_DEBUG("i=%d, line count=%d\n", i, info.wr_ptr_line_count);
+
+		SDE_EVT32(pp->idx - PINGPONG_0, info.wr_ptr_line_count,
+			info.rd_ptr_init_val, SDE_EVTLOG_FUNC_CASE2);
+
+		/* log line count and return */
+		if (!rc)
+			break;
+		/*
+		 * Wait for few milli seconds for line count
+		 * to increase if any frame transfer is
+		 * pending.
+		 */
+		usleep_range(3000, 4000);
+	}
+
+	pp->ops.connect_external_te(pp, true);
+
+	return rc;
 }
 
 /**
@@ -1181,9 +1286,7 @@ static int _sde_rm_get_pp_dsc_for_cont_splash(struct sde_rm *rm,
 {
 	int index = 0;
 	int value, dsc_cnt = 0;
-	struct sde_hw_autorefresh cfg;
 	struct sde_rm_hw_iter iter_pp;
-	int irq_idx_pp_done = -1;
 
 	if (!rm || !sde_kms || !dsc_ids) {
 		SDE_ERROR("invalid input parameters\n");
@@ -1195,11 +1298,7 @@ static int _sde_rm_get_pp_dsc_for_cont_splash(struct sde_rm *rm,
 	while (_sde_rm_get_hw_locked(rm, &iter_pp)) {
 		struct sde_hw_pingpong *pp =
 				to_sde_hw_pingpong(iter_pp.blk->hw);
-		u32 intr_value = 0;
-		u32 const timeout_ms = 35; /* Max two vsyncs delay */
-		int rc = 0, i, loop = 2;
 		struct sde_hw_intr *hw_intr = NULL;
-		struct sde_hw_pp_vsync_info info;
 
 		if (!pp->ops.get_dsc_status) {
 			SDE_ERROR("get_dsc_status ops not initialized\n");
@@ -1219,70 +1318,7 @@ static int _sde_rm_get_pp_dsc_for_cont_splash(struct sde_rm *rm,
 		}
 		index++;
 
-		if (!pp->ops.get_autorefresh) {
-			SDE_ERROR("get_autorefresh api not supported\n");
-			return 0;
-		}
-		memset(&cfg, 0, sizeof(cfg));
-		if (!pp->ops.get_autorefresh(pp, &cfg)
-				&& (cfg.enable)
-				&& (pp->ops.setup_autorefresh)) {
-			if (hw_intr->ops.irq_idx_lookup) {
-				irq_idx_pp_done = hw_intr->ops.irq_idx_lookup
-					(SDE_IRQ_TYPE_PING_PONG_COMP,
-								pp->idx);
-				SDE_DEBUG(" itr_idx = %d\n", irq_idx_pp_done);
-			}
-
-			if ((irq_idx_pp_done >= 0) &&
-					(hw_intr->ops.get_intr_status_nomask)) {
-				intr_value = hw_intr->ops.get_intr_status_nomask
-					(hw_intr, irq_idx_pp_done, false);
-				hw_intr->ops.clear_intr_status_force_mask
-					(hw_intr, irq_idx_pp_done, intr_value);
-			}
-			cfg.enable = false;
-			SDE_DEBUG("Disabling autorefresh\n");
-			pp->ops.setup_autorefresh(pp, &cfg);
-
-			/*
-			 * Check the line count again if
-			 * the line count is equal to the active
-			 * height to make sure their is no
-			 * additional frame updates
-			 */
-			for (i = 0; i < loop; i++) {
-				info.wr_ptr_line_count = 0;
-				info.rd_ptr_init_val = 0;
-				if (pp->ops.get_vsync_info)
-					pp->ops.get_vsync_info(pp, &info);
-				/*
-				 * For cmd-mode using external-TE logic,
-				 * the rd_ptr_init_val is equal to
-				 * active-height. Use this init_val to
-				 * compare that with lane count. Need
-				 * to implement a different check
-				 * if external-TE is not used.
-				 */
-				if (info.wr_ptr_line_count
-						< info.rd_ptr_init_val) {
-					/* wait for read ptr intr */
-					rc =
-					_sde_rm_poll_intr_status_for_cont_splash
-					(hw_intr, irq_idx_pp_done, timeout_ms);
-					if (!rc)
-						break;
-				}
-				SDE_DEBUG("i=%d, line count=%d\n",
-						i, info.wr_ptr_line_count);
-				/*
-				 * Wait for few milli seconds for line count
-				 * to increase if any frame transfer is
-				 * pending.
-				 */
-				usleep_range(3000, 4000);
-			}
-		}
+		_sde_rm_autorefresh_disable(pp, hw_intr);
 	}
 
 	return dsc_cnt;
