@@ -1129,12 +1129,12 @@ static int fts_ts_probe(struct i2c_client *client,
 
 	fts_input_dev_init(client, data, input_dev, pdata);
 
-	fts_ctpm_get_upgrade_array();
-
 #if FTS_POWER_SOURCE_CUST_EN
 	fts_power_source_init(data);
 	fts_power_source_ctrl(data, 1);
 #endif
+
+	fts_ctpm_get_upgrade_array();
 
 	err = fts_gpio_configure(data);
 	if (err < 0) {
