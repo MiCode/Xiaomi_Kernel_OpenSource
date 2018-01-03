@@ -2034,6 +2034,60 @@
 		interrupts = <0 291 0>, <0 292 0>;
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
 	};
+
+	gpi_dma0: qcom,gpi-dma@0x800000 {
+		#dma-cells = <5>;
+		compatible = "qcom,gpi-dma";
+		reg = <0x800000 0x60000>;
+		reg-names = "gpi-top";
+		interrupts = <0 244 0>, <0 245 0>, <0 246 0>, <0 247 0>,
+			     <0 248 0>, <0 249 0>, <0 250 0>, <0 251 0>,
+			     <0 252 0>, <0 253 0>, <0 254 0>, <0 255 0>,
+			     <0 256 0>;
+		qcom,max-num-gpii = <13>;
+		qcom,gpii-mask = <0xfa>;
+		qcom,ev-factor = <2>;
+		iommus = <&apps_smmu 0x00d6 0x0>;
+		qcom,smmu-cfg = <0>;
+		qcom,iova-range = <0x0 0x100000 0x0 0x100000>;
+		status = "ok";
+	};
+
+	gpi_dma1: qcom,gpi-dma@0xa00000 {
+		#dma-cells = <5>;
+		compatible = "qcom,gpi-dma";
+		reg = <0xa00000 0x60000>;
+		reg-names = "gpi-top";
+		interrupts = <0 279 0>, <0 280 0>, <0 281 0>, <0 282 0>,
+			     <0 283 0>, <0 284 0>, <0 293 0>, <0 294 0>,
+			     <0 295 0>, <0 296 0>, <0 297 0>, <0 298 0>,
+			     <0 299 0>;
+		qcom,max-num-gpii = <13>;
+		qcom,gpii-mask = <0xfa>;
+		qcom,ev-factor = <2>;
+		iommus = <&apps_smmu 0x0616 0x0>;
+		qcom,smmu-cfg = <0>;
+		qcom,iova-range = <0x0 0x100000 0x0 0x100000>;
+		status = "ok";
+	};
+
+	gpi_dma2: qcom,gpi-dma@0xc00000 {
+		#dma-cells = <5>;
+		compatible = "qcom,gpi-dma";
+		reg = <0xc00000 0x60000>;
+		reg-names = "gpi-top";
+		interrupts = <0 588 0>, <0 589 0>, <0 590 0>, <0 591 0>,
+			     <0 592 0>, <0 593 0>, <0 594 0>, <0 595 0>,
+			     <0 596 0>, <0 597 0>, <0 598 0>, <0 599 0>,
+			     <0 600 0>;
+		qcom,max-num-gpii = <13>;
+		qcom,gpii-mask = <0xfa>;
+		qcom,ev-factor = <2>;
+		iommus = <&apps_smmu 0x07b6 0x0>;
+		qcom,smmu-cfg = <0x0>;
+		qcom,iova-range = <0x0 0x100000 0x0 0x100000>;
+		status = "ok";
+	};
 };
 
 &emac_gdsc {
