@@ -2929,17 +2929,23 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 	}
 
 	/*
-	 * Current SDE support only Smart DMA 2.0.
+	 * Current SDE support only Smart DMA 2.0-2.5.
 	 * No support for Smart DMA 1.0 yet.
 	 */
 	cfg->smart_dma_rev = 0;
 	dma_rc = of_property_read_string(np, sde_prop[SMART_DMA_REV].prop_name,
 			&type);
-	if (!dma_rc && !strcmp(type, "smart_dma_v2")) {
+	if (dma_rc) {
+		SDE_DEBUG("invalid SMART_DMA_REV node in device tree: %d\n",
+				dma_rc);
+	} else if (!strcmp(type, "smart_dma_v2p5")) {
+		cfg->smart_dma_rev = SDE_SSPP_SMART_DMA_V2p5;
+	} else if (!strcmp(type, "smart_dma_v2")) {
 		cfg->smart_dma_rev = SDE_SSPP_SMART_DMA_V2;
-	} else if (!dma_rc && !strcmp(type, "smart_dma_v1")) {
+	} else if (!strcmp(type, "smart_dma_v1")) {
 		SDE_ERROR("smart dma 1.0 is not supported in SDE\n");
-		cfg->smart_dma_rev = 0;
+	} else {
+		SDE_DEBUG("unknown smart dma version\n");
 	}
 
 	cfg->has_src_split = PROP_VALUE_ACCESS(prop_value, SRC_SPLIT, 0);

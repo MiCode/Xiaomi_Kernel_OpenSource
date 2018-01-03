@@ -5116,12 +5116,13 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 		sde_kms_info_add_keystr(info, "qseed_type", "qseed3");
 
 	if (sde_is_custom_client()) {
-		if (catalog->smart_dma_rev == SDE_SSPP_SMART_DMA_V1)
-			sde_kms_info_add_keystr(info,
-					"smart_dma_rev", "smart_dma_v1");
+		/* No support for SMART_DMA_V1 yet */
 		if (catalog->smart_dma_rev == SDE_SSPP_SMART_DMA_V2)
 			sde_kms_info_add_keystr(info,
 					"smart_dma_rev", "smart_dma_v2");
+		else if (catalog->smart_dma_rev == SDE_SSPP_SMART_DMA_V2p5)
+			sde_kms_info_add_keystr(info,
+					"smart_dma_rev", "smart_dma_v2p5");
 	}
 
 	if (catalog->mdp[0].has_dest_scaler) {
