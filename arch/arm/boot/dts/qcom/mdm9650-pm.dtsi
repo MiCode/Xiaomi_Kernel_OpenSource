@@ -147,6 +147,7 @@
 			<0xff 63>,  /* APCS_wcnIPCInterrupt(1) */
 			<0xff 66>,  /* bam_irq[2] */
 			<0xff 73>,  /* pcie20_int_msi */
+			<0xff 81>,  /* pcie20_int_global */
 			<0xff 88>,  /* qpic_lcdc_irq */
 			<0xff 89>,  /* qpic_bam_irq[1] */
 			<0xff 91>,  /* qpic_nandc_op_done_irq */
