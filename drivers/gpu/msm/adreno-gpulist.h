@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -335,8 +335,8 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.num_protected_regs = 0x20,
 		.busy_mask = 0xFFFFFFFE,
 		.gpmufw_name = "a630_gmu.bin",
-		.gpmu_major = 0x0,
-		.gpmu_minor = 0x005,
+		.gpmu_major = 0x1,
+		.gpmu_minor = 0x003,
 		.gpmu_tsens = 0x000C000D,
 		.max_power = 5448,
 	},
@@ -357,7 +357,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.busy_mask = 0xFFFFFFFE,
 		.gpmufw_name = "a630_gmu.bin",
 		.gpmu_major = 0x1,
-		.gpmu_minor = 0x001,
+		.gpmu_minor = 0x003,
 		.gpmu_tsens = 0x000C000D,
 		.max_power = 5448,
 	},
@@ -377,6 +377,6 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.busy_mask = 0xFFFFFFFE,
 		.gpmufw_name = "a630_gmu.bin",
 		.gpmu_major = 0x1,
-		.gpmu_minor = 0x001,
+		.gpmu_minor = 0x003,
 	},
 };
