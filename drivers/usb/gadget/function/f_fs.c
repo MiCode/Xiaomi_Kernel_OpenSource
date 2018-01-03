@@ -1187,7 +1187,7 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 			ret = __ffs_epfile_read_data(epfile, data, ep->status,
 						     &io_data->data);
 		goto error_mutex;
-	} else if (!(req = usb_ep_alloc_request(ep->ep, GFP_KERNEL))) {
+	} else if (!(req = usb_ep_alloc_request(ep->ep, GFP_ATOMIC))) {
 		ret = -ENOMEM;
 	} else {
 		req->buf      = data;
