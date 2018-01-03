@@ -48,6 +48,8 @@ is_affected_midr_range(const struct arm64_cpu_capabilities *entry)
 DEFINE_PER_CPU_READ_MOSTLY(struct bp_hardening_data, bp_hardening_data);
 
 #ifdef CONFIG_KVM
+extern char __psci_hyp_bp_inval_start[], __psci_hyp_bp_inval_end[];
+
 static void __copy_hyp_vect_bpi(int slot, const char *hyp_vecs_start,
 				const char *hyp_vecs_end)
 {
@@ -89,10 +91,12 @@ static void __install_bp_hardening_cb(bp_hardening_cb_t fn,
 	spin_unlock(&bp_lock);
 }
 #else
-static void __maybe_unused
-__install_bp_hardening_cb(bp_hardening_cb_t fn,
-			  const char *hyp_vecs_start,
-			  const char *hyp_vecs_end)
+#define __psci_hyp_bp_inval_start	NULL
+#define __psci_hyp_bp_inval_end		NULL
+
+static void __install_bp_hardening_cb(bp_hardening_cb_t fn,
+				      const char *hyp_vecs_start,
+				      const char *hyp_vecs_end)
 {
 	__this_cpu_write(bp_hardening_data.fn, fn);
 }
@@ -114,6 +118,20 @@ install_bp_hardening_cb(const struct arm64_cpu_capabilities *entry,
 		return;
 
 	__install_bp_hardening_cb(fn, hyp_vecs_start, hyp_vecs_end);
+}
+
+#include <asm/psci.h>
+
+static void enable_psci_bp_hardening(void *data)
+{
+	const struct arm64_cpu_capabilities *entry = data;
+
+	if (psci_ops.get_version)
+		install_bp_hardening_cb(entry,
+				       (bp_hardening_cb_t)psci_ops.get_version,
+				       __psci_hyp_bp_inval_start,
+				       __psci_hyp_bp_inval_end);
+
 }
 #endif	/* CONFIG_HARDEN_BRANCH_PREDICTOR */
 
@@ -169,6 +187,13 @@ const struct arm64_cpu_capabilities arm64_errata[] = {
 		.desc = "Kryo2xx Silver erratum 845719",
 		.capability = ARM64_WORKAROUND_845719,
 		MIDR_RANGE(MIDR_KRYO2XX_SILVER, 0xA00004, 0xA00004),
+	},
+#endif
+#ifdef CONFIG_HARDEN_BRANCH_PREDICTOR
+	{
+		.capability = ARM64_HARDEN_BRANCH_PREDICTOR,
+		MIDR_ALL_VERSIONS(MIDR_CORTEX_A57),
+		.enable = enable_psci_bp_hardening,
 	},
 #endif
 	{
