@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -251,21 +251,17 @@ static int sde_hdcp_1x_count_one(u8 *array, u8 len)
 static int sde_hdcp_1x_load_keys(void *input)
 {
 	int rc = 0;
-	bool use_sw_keys = false;
-	u32 reg_val;
-	u32 ksv_lsb_addr, ksv_msb_addr;
 	u32 aksv_lsb, aksv_msb;
 	u8 aksv[5];
 	struct dss_io_data *dp_ahb;
 	struct dss_io_data *dp_aux;
 	struct dss_io_data *dp_link;
-	struct dss_io_data *qfprom_io;
 	struct sde_hdcp_1x *hdcp = input;
 	struct sde_hdcp_reg_set *reg_set;
 
 	if (!hdcp || !hdcp->init_data.dp_ahb ||
 		!hdcp->init_data.dp_aux ||
-		!hdcp->init_data.qfprom_io) {
+		!hdcp->init_data.dp_link) {
 		pr_err("invalid input\n");
 		rc = -EINVAL;
 		goto end;
@@ -282,38 +278,12 @@ static int sde_hdcp_1x_load_keys(void *input)
 	dp_ahb = hdcp->init_data.dp_ahb;
 	dp_aux = hdcp->init_data.dp_aux;
 	dp_link = hdcp->init_data.dp_link;
-	qfprom_io = hdcp->init_data.qfprom_io;
 	reg_set = &hdcp->reg_set;
 
-	/* On compatible hardware, use SW keys */
-	reg_val = DSS_REG_R(qfprom_io, SEC_CTRL_HW_VERSION);
-	if (reg_val >= HDCP_SEL_MIN_SEC_VERSION) {
-		reg_val = DSS_REG_R(qfprom_io,
-			QFPROM_RAW_FEAT_CONFIG_ROW0_MSB +
-			QFPROM_RAW_VERSION_4);
-
-		if (!(reg_val & BIT(23)))
-			use_sw_keys = true;
-	}
-
-	if (use_sw_keys) {
-		if (hdcp1_set_keys(&aksv_msb, &aksv_lsb)) {
-			pr_err("setting hdcp SW keys failed\n");
-			rc = -EINVAL;
-			goto end;
-		}
-	} else {
-		/* Fetch aksv from QFPROM, this info should be public. */
-		ksv_lsb_addr = HDCP_KSV_LSB;
-		ksv_msb_addr = HDCP_KSV_MSB;
-
-		if (hdcp->init_data.sec_access) {
-			ksv_lsb_addr += HDCP_KSV_VERSION_4_OFFSET;
-			ksv_msb_addr += HDCP_KSV_VERSION_4_OFFSET;
-		}
-
-		aksv_lsb = DSS_REG_R(qfprom_io, ksv_lsb_addr);
-		aksv_msb = DSS_REG_R(qfprom_io, ksv_msb_addr);
+	if (hdcp1_set_keys(&aksv_msb, &aksv_lsb)) {
+		pr_err("setting hdcp SW keys failed\n");
+		rc = -EINVAL;
+		goto end;
 	}
 
 	pr_debug("%s: AKSV=%02x%08x\n", SDE_HDCP_STATE_NAME,
