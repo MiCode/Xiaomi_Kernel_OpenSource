@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2618,6 +2618,7 @@ static int32_t qpnp_vadc_init_thermal(struct qpnp_vadc_chip *vadc,
 				&qpnp_vadc_thermal_ops);
 			if (IS_ERR(vadc->vadc_therm_chan[i].tz_dev)) {
 				pr_err("thermal device register failed.\n");
+				rc = PTR_ERR(vadc->vadc_therm_chan[i].tz_dev);
 				goto thermal_err_sens;
 			}
 		}
