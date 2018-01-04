@@ -98,6 +98,7 @@
 			next-level-cache = <&A72_L2>;
 			clocks = <&scpi_dvfs 0>;
 			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0>;
+			sched-energy-costs = <&CPU_COST_A72 &CLUSTER_COST_A72>;
 			capacity-dmips-mhz = <1024>;
 		};
 
@@ -115,6 +116,7 @@
 			next-level-cache = <&A72_L2>;
 			clocks = <&scpi_dvfs 0>;
 			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0>;
+			sched-energy-costs = <&CPU_COST_A72 &CLUSTER_COST_A72>;
 			capacity-dmips-mhz = <1024>;
 		};
 
@@ -132,6 +134,7 @@
 			next-level-cache = <&A53_L2>;
 			clocks = <&scpi_dvfs 1>;
 			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0>;
+			sched-energy-costs = <&CPU_COST_A53R2 &CLUSTER_COST_A53R2>;
 			capacity-dmips-mhz = <485>;
 		};
 
@@ -149,6 +152,7 @@
 			next-level-cache = <&A53_L2>;
 			clocks = <&scpi_dvfs 1>;
 			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0>;
+			sched-energy-costs = <&CPU_COST_A53R2 &CLUSTER_COST_A53R2>;
 			capacity-dmips-mhz = <485>;
 		};
 
@@ -166,6 +170,7 @@
 			next-level-cache = <&A53_L2>;
 			clocks = <&scpi_dvfs 1>;
 			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0>;
+			sched-energy-costs = <&CPU_COST_A53R2 &CLUSTER_COST_A53R2>;
 			capacity-dmips-mhz = <485>;
 		};
 
@@ -183,6 +188,7 @@
 			next-level-cache = <&A53_L2>;
 			clocks = <&scpi_dvfs 1>;
 			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0>;
+			sched-energy-costs = <&CPU_COST_A53R2 &CLUSTER_COST_A53R2>;
 			capacity-dmips-mhz = <485>;
 		};
 
@@ -199,6 +205,7 @@
 			cache-line-size = <64>;
 			cache-sets = <1024>;
 		};
+		/include/ "juno-sched-energy.dtsi"
 	};
 
 	pmu_a72 {
