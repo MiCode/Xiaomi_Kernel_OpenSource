@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,8 +60,17 @@ static void cam_lrme_hw_util_fill_fe_reg(struct cam_lrme_hw_io_buffer *io_buf,
 		hw_info->bus_rd_reg.bus_client_reg[index].core_cfg, 0x1);
 
 	/* 5. unpack_cfg */
-	cam_lrme_cdm_write_reg_val_pair(reg_val_pair, num_cmd,
-		hw_info->bus_rd_reg.bus_client_reg[index].unpack_cfg_0, 0x0);
+	if (io_buf->io_cfg->format == CAM_FORMAT_PD10)
+		cam_lrme_cdm_write_reg_val_pair(reg_val_pair, num_cmd,
+			hw_info->bus_rd_reg.bus_client_reg[index].unpack_cfg_0,
+			0x0);
+	else if (io_buf->io_cfg->format == CAM_FORMAT_Y_ONLY)
+		cam_lrme_cdm_write_reg_val_pair(reg_val_pair, num_cmd,
+			hw_info->bus_rd_reg.bus_client_reg[index].unpack_cfg_0,
+			0x1);
+	else
+		CAM_ERR(CAM_LRME, "Unsupported format %d",
+			io_buf->io_cfg->format);
 }
 
 static void cam_lrme_hw_util_fill_we_reg(struct cam_lrme_hw_io_buffer *io_buf,
