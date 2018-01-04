@@ -169,7 +169,7 @@ static int omap_enter_idle_coupled(struct cpuidle_device *dev,
 		 * to save GIC and wakeupgen context.
 		 */
 		if (mpuss_can_lose_context)
-			cpu_cluster_pm_enter();
+			cpu_cluster_pm_enter(0);
 	}
 
 	omap4_enter_lowpower(dev->cpu, cx->cpu_state);
@@ -207,7 +207,7 @@ static int omap_enter_idle_coupled(struct cpuidle_device *dev,
 	 * to restore GIC and wakeupgen context.
 	 */
 	if (dev->cpu == 0 && mpuss_can_lose_context)
-		cpu_cluster_pm_exit();
+		cpu_cluster_pm_exit(0);
 
 	tick_broadcast_exit();
 
