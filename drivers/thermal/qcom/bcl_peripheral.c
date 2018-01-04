@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -748,10 +748,10 @@ static int bcl_probe(struct platform_device *pdev)
 	}
 
 	bcl_get_devicetree_data(pdev);
+	bcl_configure_lmh_peripheral();
 	bcl_probe_ibat(pdev);
 	bcl_probe_vbat(pdev);
 	bcl_probe_soc(pdev);
-	bcl_configure_lmh_peripheral();
 
 	dev_set_drvdata(&pdev->dev, bcl_perph);
 	ret = bcl_write_register(BCL_MONITOR_EN, BIT(7));
