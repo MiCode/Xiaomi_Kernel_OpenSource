@@ -26,6 +26,7 @@ MODULE_PARM_DESC(alt_ifname, " use an alternate interface name wigigN instead of
 static int wil_open(struct net_device *ndev)
 {
 	struct wil6210_priv *wil = ndev_to_wil(ndev);
+	int rc;
 
 	wil_dbg_misc(wil, "open\n");
 
@@ -35,16 +36,29 @@ static int wil_open(struct net_device *ndev)
 		return -EINVAL;
 	}
 
-	return wil_up(wil);
+	rc = wil_pm_runtime_get(wil);
+	if (rc < 0)
+		return rc;
+
+	rc = wil_up(wil);
+	if (rc)
+		wil_pm_runtime_put(wil);
+
+	return rc;
 }
 
 static int wil_stop(struct net_device *ndev)
 {
 	struct wil6210_priv *wil = ndev_to_wil(ndev);
+	int rc;
 
 	wil_dbg_misc(wil, "stop\n");
 
-	return wil_down(wil);
+	rc = wil_down(wil);
+	if (!rc)
+		wil_pm_runtime_put(wil);
+
+	return rc;
 }
 
 static int wil_do_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
