@@ -705,7 +705,7 @@ struct dsi_bridge *dsi_drm_bridge_init(struct dsi_display *display,
 	bridge->base.funcs = &dsi_bridge_ops;
 	bridge->base.encoder = encoder;
 
-	rc = drm_bridge_attach(dev, &bridge->base);
+	rc = drm_bridge_attach(encoder, &bridge->base, NULL);
 	if (rc) {
 		pr_err("failed to attach bridge, rc=%d\n", rc);
 		goto error_free_bridge;
