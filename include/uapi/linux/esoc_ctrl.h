@@ -26,6 +26,7 @@ struct esoc_link_data {
 #define ESOC_GET_LINK_ID	_IOWR(ESOC_CODE, 9, struct esoc_link_data)
 
 #define ESOC_REQ_SEND_SHUTDOWN	ESOC_REQ_SEND_SHUTDOWN
+#define ESOC_REQ_CRASH_SHUTDOWN ESOC_REQ_CRASH_SHUTDOWN
 
 enum esoc_evt {
 	ESOC_RUN_STATE = 0x1,
@@ -67,6 +68,7 @@ enum esoc_req {
 	ESOC_REQ_DEBUG,
 	ESOC_REQ_SHUTDOWN,
 	ESOC_REQ_SEND_SHUTDOWN,
+	ESOC_REQ_CRASH_SHUTDOWN,
 };
 
 #ifdef __KERNEL__
