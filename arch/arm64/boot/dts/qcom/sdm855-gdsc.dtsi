@@ -208,6 +208,7 @@
 		hw-ctrl-addr = <&gpu_cx_hw_ctrl>;
 		qcom,no-status-check-on-disable;
 		qcom,gds-timeout = <500>;
+		qcom,clk-dis-wait-val = <8>;
 		status = "disabled";
 	};
 
@@ -228,7 +229,6 @@
 		domain-addr = <&gpu_gx_domain_addr>;
 		sw-reset = <&gpu_gx_sw_reset>;
 		qcom,reset-aon-logic;
-		qcom,toggle-sw-collapse-in-disable;
 		status = "disabled";
 	};
 

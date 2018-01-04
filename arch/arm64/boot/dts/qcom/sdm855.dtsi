@@ -2113,6 +2113,9 @@
 &gpu_gx_gdsc {
 	parent-supply = <&pm855l_s2_level>;
 	qcom,vote-parent-supply-voltage;
+	clock-names = "core_root_clk";
+	clocks = <&clock_gpucc GPU_CC_GX_GFX3D_CLK_SRC>;
+	qcom,force-enable-root-clk;
 	status = "ok";
 };
 
