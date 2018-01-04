@@ -2589,7 +2589,7 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 		if (err)
 			pr_warn("adsprpc: initial intent fail for %d err %d\n",
 					 cid, err);
-		if (me->channel[cid].ssrcount !=
+		if (cid == 0 && me->channel[cid].ssrcount !=
 				 me->channel[cid].prevssrcount) {
 			if (fastrpc_mmap_remove_ssr(fl))
 				pr_err("ADSPRPC: SSR: Failed to unmap remote heap\n");
