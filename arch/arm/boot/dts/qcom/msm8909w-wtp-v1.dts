@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,6 +54,7 @@
 			synaptics,irq-flags = <0x2008>;
 			synaptics,power-delay-ms = <200>;
 			synaptics,max-y-for-2d = <389>;
+			synaptics,wakeup-gestures-en = <1>;
 			synaptics,resume-in-workqueue;
 			synaptics,x-flip;
 			synaptics,y-flip;
