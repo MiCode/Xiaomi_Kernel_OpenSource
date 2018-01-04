@@ -307,6 +307,12 @@
 	 qcom,dsi-display-active;
 };
 
+&dsi_panel_pwr_supply {
+	qcom,panel-supply-entry@2 {
+		qcom,supply-post-off-sleep = <5>;
+	};
+};
+
 &pm660l_wled {
 	status = "okay";
 	qcom,led-strings-list = [00 01];
