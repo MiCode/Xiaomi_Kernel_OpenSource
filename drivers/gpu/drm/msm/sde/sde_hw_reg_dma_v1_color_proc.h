@@ -40,6 +40,13 @@ void reg_dmav1_setup_dspp_vlutv18(struct sde_hw_dspp *ctx, void *cfg);
 void reg_dmav1_setup_dspp_3d_gamutv4(struct sde_hw_dspp *ctx, void *cfg);
 
 /**
+ * reg_dmav1_setup_3d_gamutv41() - gamut v4_1 implementation using reg dma v1.
+ * @ctx: dspp ctx info
+ * @cfg: pointer to struct sde_hw_cp_cfg
+ */
+void reg_dmav1_setup_dspp_3d_gamutv41(struct sde_hw_dspp *ctx, void *cfg);
+
+/**
  * reg_dmav1_setup_dspp_gcv18() - gc v18 implementation using reg dma v1.
  * @ctx: dspp ctx info
  * @cfg: pointer to struct sde_hw_cp_cfg

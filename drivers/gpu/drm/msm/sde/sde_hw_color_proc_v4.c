@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,7 +15,8 @@
 
 static int sde_write_3d_gamut(struct sde_hw_blk_reg_map *hw,
 		struct drm_msm_3d_gamut *payload, u32 base,
-		u32 *opcode)
+		u32 *opcode, u32 pipe, u32 scale_tbl_a_len,
+		u32 scale_tbl_b_len)
 {
 	u32 reg, tbl_len, tbl_off, scale_off, i, j;
 	u32 scale_tbl_len, scale_tbl_off;
@@ -31,8 +32,19 @@ static int sde_write_3d_gamut(struct sde_hw_blk_reg_map *hw,
 	case GAMUT_3D_MODE_17:
 		tbl_len = GAMUT_3D_MODE17_TBL_SZ;
 		tbl_off = 0;
-		scale_off = GAMUT_SCALEA_OFFSET_OFF;
-		*opcode = gamut_mode_17 << 2;
+		if (pipe == DSPP) {
+			scale_off = GAMUT_SCALEA_OFFSET_OFF;
+			*opcode = gamut_mode_17;
+		} else {
+			*opcode = (*opcode & (BIT(5) - 1)) >> 2;
+			if (*opcode == gamut_mode_17b)
+				*opcode = gamut_mode_17;
+			else
+				*opcode = gamut_mode_17b;
+			scale_off = (*opcode == gamut_mode_17) ?
+				GAMUT_SCALEA_OFFSET_OFF :
+				GAMUT_SCALEB_OFFSET_OFF;
+		}
 		break;
 	case GAMUT_3D_MODE_13:
 		*opcode = (*opcode & (BIT(4) - 1)) >> 2;
@@ -76,9 +88,9 @@ static int sde_write_3d_gamut(struct sde_hw_blk_reg_map *hw,
 
 	if ((*opcode & GAMUT_MAP_EN)) {
 		if (scale_off == GAMUT_SCALEA_OFFSET_OFF)
-			scale_tbl_len = GAMUT_3D_SCALE_OFF_SZ;
+			scale_tbl_len = scale_tbl_a_len;
 		else
-			scale_tbl_len = GAMUT_3D_SCALEB_OFF_SZ;
+			scale_tbl_len = scale_tbl_b_len;
 		for (i = 0; i < GAMUT_3D_SCALE_OFF_TBL_NUM; i++) {
 			scale_tbl_off = base + scale_off +
 					i * scale_tbl_len * sizeof(u32);
@@ -113,8 +125,31 @@ void sde_setup_dspp_3d_gamutv4(struct sde_hw_dspp *ctx, void *cfg)
 
 	payload = hw_cfg->payload;
 	sde_write_3d_gamut(&ctx->hw, payload, ctx->cap->sblk->gamut.base,
-		&op_mode);
+		&op_mode, DSPP, GAMUT_3D_SCALE_OFF_SZ, GAMUT_3D_SCALEB_OFF_SZ);
 
+}
+
+void sde_setup_dspp_3d_gamutv41(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct drm_msm_3d_gamut *payload;
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	u32 op_mode;
+
+	if (!ctx || !cfg) {
+		DRM_ERROR("invalid param ctx %pK cfg %pK\n", ctx, cfg);
+		return;
+	}
+
+	op_mode = SDE_REG_READ(&ctx->hw, ctx->cap->sblk->gamut.base);
+	if (!hw_cfg->payload) {
+		DRM_DEBUG_DRIVER("disable gamut feature\n");
+		SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->gamut.base, 0);
+		return;
+	}
+
+	payload = hw_cfg->payload;
+	sde_write_3d_gamut(&ctx->hw, payload, ctx->cap->sblk->gamut.base,
+		&op_mode, DSPP, GAMUT_3D_SCALE_OFF_SZ, GAMUT_3D_SCALE_OFF_SZ);
 }
 
 void sde_setup_dspp_igcv3(struct sde_hw_dspp *ctx, void *cfg)
