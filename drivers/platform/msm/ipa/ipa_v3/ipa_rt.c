@@ -1138,6 +1138,13 @@ int ipa3_add_rt_rule_after(struct ipa_ioc_add_rt_rule_after *rules)
 		goto bail;
 	}
 
+	if (entry->cookie != IPA_RT_RULE_COOKIE) {
+		IPAERR_RL("Invalid cookie value =  %u rule %d in rt tbls\n",
+			entry->cookie, rules->add_after_hdl);
+		ret = -EINVAL;
+		goto bail;
+	}
+
 	if (entry->tbl != tbl) {
 		IPAERR_RL("given rt rule does not match the table\n");
 		ret = -EINVAL;
