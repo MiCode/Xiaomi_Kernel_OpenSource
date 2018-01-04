@@ -103,6 +103,7 @@ struct request {
 	/* the following two fields are internal, NEVER access directly */
 	unsigned int __data_len;	/* total data len */
 	sector_t __sector;		/* sector cursor */
+	u64 __dun;			/* dun for UFS */
 
 	struct bio *bio;
 	struct bio *biotail;
@@ -864,6 +865,11 @@ static inline struct request_queue *bdev_get_queue(struct block_device *bdev)
 static inline sector_t blk_rq_pos(const struct request *rq)
 {
 	return rq->__sector;
+}
+
+static inline sector_t blk_rq_dun(const struct request *rq)
+{
+	return rq->__dun;
 }
 
 static inline unsigned int blk_rq_bytes(const struct request *rq)
