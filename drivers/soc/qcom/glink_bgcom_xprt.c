@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -293,13 +293,19 @@ static void send_tx_blocked_signal(struct edge_info *einfo)
 		uint64_t reserved3;
 	};
 	struct read_notif_request read_notif_req = {0};
+	int size_in_word = sizeof(read_notif_req)/WORD_SIZE;
+	void *src = &read_notif_req;
+	int ret;
 
 	read_notif_req.cmd = READ_NOTIF_CMD;
-
 	if (!einfo->tx_blocked_signal_sent) {
 		einfo->tx_blocked_signal_sent = true;
-		glink_bgcom_xprt_tx_cmd_safe(einfo, &read_notif_req,
-					    sizeof(read_notif_req));
+		ret = bgcom_fifo_write(einfo->bgcom_handle, size_in_word, src);
+		if (ret < 0) {
+			GLINK_ERR("%s: Err %d send blocked\n", __func__, ret);
+			return;
+		}
+		glink_bgcom_update_tx_avail(einfo, size_in_word);
 	}
 }
 
@@ -1271,8 +1277,10 @@ static int tx_data(struct glink_transport_if *if_ptr, uint16_t cmd_id,
 	/* Need enough space to write the command */
 	if (glink_bgcom_get_tx_avail(einfo) <= sizeof(cmd)/WORD_SIZE) {
 		einfo->tx_resume_needed = true;
+		send_tx_blocked_signal(einfo);
 		mutex_unlock(&einfo->write_lock);
 		srcu_read_unlock(&einfo->use_ref, rcu_id);
+		GLINK_ERR("%s: No Space in Fifo\n", __func__);
 		return -EAGAIN;
 	}
 	cmd.addr = 0;
