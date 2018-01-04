@@ -93,4 +93,10 @@ void common(void) {
 
 	BLANK();
 	DEFINE(PTREGS_SIZE, sizeof(struct pt_regs));
+
+	/* Layout info for cpu_entry_area */
+	OFFSET(CPU_ENTRY_AREA_tss, cpu_entry_area, tss);
+	OFFSET(CPU_ENTRY_AREA_entry_trampoline, cpu_entry_area, entry_trampoline);
+	OFFSET(CPU_ENTRY_AREA_entry_stack, cpu_entry_area, entry_stack_page);
+	DEFINE(SIZEOF_entry_stack, sizeof(struct entry_stack));
 }
