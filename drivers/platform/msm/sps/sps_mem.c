@@ -1,5 +1,5 @@
-/* Copyright (c) 2011-2013, 2015, 2017, The Linux Foundation. All rights
- * reserved.
+/* Copyright (c) 2011-2013, 2015, 2017, The Linux Foundation.
+ * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -129,7 +129,7 @@ int sps_mem_init(phys_addr_t pipemem_phys_base, u32 pipemem_size)
 
 		iomem_offset = 0;
 		SPS_DBG(sps,
-			"sps:%s.iomem_phys=%pa,iomem_virt=0x%p.",
+			"sps:%s.iomem_phys=%pa,iomem_virt=0x%pK.",
 			__func__, &iomem_phys, iomem_virt);
 	}
 
