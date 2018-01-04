@@ -42,6 +42,8 @@ struct cpufreq_suspend_t {
 };
 
 static DEFINE_PER_CPU(struct cpufreq_suspend_t, suspend_data);
+static DEFINE_PER_CPU(int, cached_resolve_idx);
+static DEFINE_PER_CPU(unsigned int, cached_resolve_freq);
 
 static int set_cpu_freq(struct cpufreq_policy *policy, unsigned int new_freq,
 			unsigned int index)
@@ -74,6 +76,7 @@ static int msm_cpufreq_target(struct cpufreq_policy *policy,
 	int ret = 0;
 	int index;
 	struct cpufreq_frequency_table *table;
+	int first_cpu = cpumask_first(policy->related_cpus);
 
 	mutex_lock(&per_cpu(suspend_data, policy->cpu).suspend_mutex);
 
@@ -88,6 +91,11 @@ static int msm_cpufreq_target(struct cpufreq_policy *policy,
 	}
 
 	table = policy->freq_table;
+	if (per_cpu(cached_resolve_freq, first_cpu) == target_freq)
+		index = per_cpu(cached_resolve_idx, first_cpu);
+	else
+		index = cpufreq_frequency_table_target(policy, target_freq,
+						       relation);
 
 	pr_debug("CPU[%d] target %d relation %d (%d-%d) selected %d\n",
 		policy->cpu, target_freq, relation,
@@ -104,10 +112,17 @@ static unsigned int msm_cpufreq_resolve_freq(struct cpufreq_policy *policy,
 					     unsigned int target_freq)
 {
 	int index;
+	int first_cpu = cpumask_first(policy->related_cpus);
+	unsigned int freq;
 
 	index = cpufreq_frequency_table_target(policy, target_freq,
 					       CPUFREQ_RELATION_L);
-	return policy->freq_table[index].frequency;
+	freq = policy->freq_table[index].frequency;
+
+	per_cpu(cached_resolve_idx, first_cpu) = index;
+	per_cpu(cached_resolve_freq, first_cpu) = freq;
+
+	return freq;
 }
 
 static int msm_cpufreq_verify(struct cpufreq_policy *policy)
@@ -461,6 +476,7 @@ static int __init msm_cpufreq_register(void)
 	for_each_possible_cpu(cpu) {
 		mutex_init(&(per_cpu(suspend_data, cpu).suspend_mutex));
 		per_cpu(suspend_data, cpu).device_suspended = 0;
+		per_cpu(cached_resolve_freq, cpu) = UINT_MAX;
 	}
 
 	rc = platform_driver_register(&msm_cpufreq_plat_driver);
