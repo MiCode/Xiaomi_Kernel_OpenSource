@@ -308,16 +308,8 @@
 };
 
 &dsi_panel_pwr_supply {
-	qcom,panel-supply-entry@0 {
-		qcom,supply-post-off-sleep = <20>;
-	};
-	qcom,panel-supply-entry@1 {
-		qcom,supply-post-on-sleep = <20>;
-		qcom,supply-post-off-sleep = <20>;
-	};
 	qcom,panel-supply-entry@2 {
-		qcom,supply-post-on-sleep = <20>;
-		qcom,supply-post-off-sleep = <20>;
+		qcom,supply-post-off-sleep = <5>;
 	};
 };
 
