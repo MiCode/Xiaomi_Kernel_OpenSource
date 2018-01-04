@@ -39,9 +39,6 @@ static int sched_domain_debug_one(struct sched_domain *sd, int cpu, int level,
 
 	if (!(sd->flags & SD_LOAD_BALANCE)) {
 		printk("does not load-balance\n");
-		if (sd->parent)
-			printk(KERN_ERR "ERROR: !SD_LOAD_BALANCE domain"
-					" has parent");
 		return -1;
 	}
 
@@ -154,8 +151,12 @@ static inline bool sched_debug(void)
 
 static int sd_degenerate(struct sched_domain *sd)
 {
-	if (cpumask_weight(sched_domain_span(sd)) == 1)
-		return 1;
+	if (cpumask_weight(sched_domain_span(sd)) == 1) {
+		if (sd->groups->sge)
+			sd->flags &= ~SD_LOAD_BALANCE;
+		else
+			return 1;
+	}
 
 	/* Following flags need at least 2 groups */
 	if (sd->flags & (SD_LOAD_BALANCE |
@@ -165,7 +166,8 @@ static int sd_degenerate(struct sched_domain *sd)
 			 SD_SHARE_CPUCAPACITY |
 			 SD_ASYM_CPUCAPACITY |
 			 SD_SHARE_PKG_RESOURCES |
-			 SD_SHARE_POWERDOMAIN)) {
+			 SD_SHARE_POWERDOMAIN |
+			 SD_SHARE_CAP_STATES)) {
 		if (sd->groups != sd->groups->next)
 			return 0;
 	}
@@ -198,7 +200,12 @@ sd_parent_degenerate(struct sched_domain *sd, struct sched_domain *parent)
 				SD_SHARE_CPUCAPACITY |
 				SD_SHARE_PKG_RESOURCES |
 				SD_PREFER_SIBLING |
-				SD_SHARE_POWERDOMAIN);
+				SD_SHARE_POWERDOMAIN |
+				SD_SHARE_CAP_STATES);
+		if (parent->groups->sge) {
+			parent->flags &= ~SD_LOAD_BALANCE;
+			return 0;
+		}
 		if (nr_node_ids == 1)
 			pflags &= ~SD_SERIALIZE;
 	}
@@ -392,11 +399,14 @@ DEFINE_PER_CPU(int, sd_llc_id);
 DEFINE_PER_CPU(struct sched_domain_shared *, sd_llc_shared);
 DEFINE_PER_CPU(struct sched_domain *, sd_numa);
 DEFINE_PER_CPU(struct sched_domain *, sd_asym);
+DEFINE_PER_CPU(struct sched_domain *, sd_ea);
+DEFINE_PER_CPU(struct sched_domain *, sd_scs);
 
 static void update_top_cache_domain(int cpu)
 {
 	struct sched_domain_shared *sds = NULL;
 	struct sched_domain *sd;
+	struct sched_domain *ea_sd = NULL;
 	int id = cpu;
 	int size = 1;
 
@@ -417,6 +427,17 @@ static void update_top_cache_domain(int cpu)
 
 	sd = highest_flag_domain(cpu, SD_ASYM_PACKING);
 	rcu_assign_pointer(per_cpu(sd_asym, cpu), sd);
+
+	for_each_domain(cpu, sd) {
+		if (sd->groups->sge)
+			ea_sd = sd;
+		else
+			break;
+	}
+	rcu_assign_pointer(per_cpu(sd_ea, cpu), ea_sd);
+
+	sd = highest_flag_domain(cpu, SD_SHARE_CAP_STATES);
+	rcu_assign_pointer(per_cpu(sd_scs, cpu), sd);
 }
 
 /*
@@ -949,6 +970,73 @@ next:
 	update_group_capacity(sd, cpu);
 }
 
+#define energy_eff(e, n) \
+    ((e->cap_states[n].cap << SCHED_CAPACITY_SHIFT)/e->cap_states[n].power)
+
+static void init_sched_groups_energy(int cpu, struct sched_domain *sd,
+				     sched_domain_energy_f fn)
+{
+	struct sched_group *sg = sd->groups;
+	const struct sched_group_energy *sge;
+	int i;
+
+	if (!(fn && fn(cpu)))
+		return;
+
+	if (cpu != group_balance_cpu(sg))
+		return;
+
+	if (sd->flags & SD_OVERLAP) {
+		pr_err("BUG: EAS does not support overlapping sd spans\n");
+#ifdef CONFIG_SCHED_DEBUG
+		pr_err("     the %s domain has SD_OVERLAP set\n", sd->name);
+#endif
+		return;
+	}
+
+	if (sd->child && !sd->child->groups->sge) {
+		pr_err("BUG: EAS setup borken for CPU%d\n", cpu);
+#ifdef CONFIG_SCHED_DEBUG
+		pr_err("     energy data on %s but not on %s domain\n",
+			sd->name, sd->child->name);
+#endif
+		return;
+	}
+
+	sge = fn(cpu);
+
+	/*
+	 * Check that the per-cpu provided sd energy data is consistent for all
+	 * cpus within the mask.
+	 */
+	if (cpumask_weight(sched_group_span(sg)) > 1) {
+		struct cpumask mask;
+
+		cpumask_xor(&mask, sched_group_span(sg), get_cpu_mask(cpu));
+
+		for_each_cpu(i, &mask)
+			BUG_ON(sge != fn(i));
+	}
+
+	/* Check that energy efficiency (capacity/power) is monotonically
+	 * decreasing in the capacity state vector with higher indexes
+	 */
+	for (i = 0; i < (sge->nr_cap_states - 1); i++) {
+		if (energy_eff(sge, i) > energy_eff(sge, i+1))
+			continue;
+#ifdef CONFIG_SCHED_DEBUG
+		pr_warn("WARN: cpu=%d, domain=%s: incr. energy eff %lu[%d]->%lu[%d]\n",
+			cpu, sd->name, energy_eff(sge, i), i,
+			energy_eff(sge, i+1), i+1);
+#else
+		pr_warn("WARN: cpu=%d: incr. energy eff %lu[%d]->%lu[%d]\n",
+			cpu, energy_eff(sge, i), i, energy_eff(sge, i+1), i+1);
+#endif
+	}
+
+	sd->groups->sge = fn(cpu);
+}
+
 /*
  * Initializers for schedule domains
  * Non-inlined to reduce accumulated stack pressure in build_sched_domains()
@@ -1068,6 +1156,7 @@ static int sched_domains_curr_level;
  *   SD_NUMA                - describes NUMA topologies
  *   SD_SHARE_POWERDOMAIN   - describes shared power domain
  *   SD_ASYM_CPUCAPACITY    - describes mixed capacity topologies
+ *   SD_SHARE_CAP_STATES    - describes shared capacity states
  *
  * Odd one out, which beside describing the topology has a quirk also
  * prescribes the desired behaviour that goes along with it:
@@ -1080,7 +1169,8 @@ static int sched_domains_curr_level;
 	 SD_NUMA |			\
 	 SD_ASYM_PACKING |		\
 	 SD_ASYM_CPUCAPACITY |		\
-	 SD_SHARE_POWERDOMAIN)
+	 SD_SHARE_POWERDOMAIN |		\
+	 SD_SHARE_CAP_STATES)
 
 static struct sched_domain *
 sd_init(struct sched_domain_topology_level *tl,
@@ -1189,15 +1279,11 @@ sd_init(struct sched_domain_topology_level *tl,
 		sd->idle_idx = 1;
 	}
 
-	/*
-	 * For all levels sharing cache; connect a sched_domain_shared
-	 * instance.
-	 */
-	if (sd->flags & SD_SHARE_PKG_RESOURCES) {
-		sd->shared = *per_cpu_ptr(sdd->sds, sd_id);
-		atomic_inc(&sd->shared->ref);
+	sd->shared = *per_cpu_ptr(sdd->sds, sd_id);
+	atomic_inc(&sd->shared->ref);
+
+	if (sd->flags & SD_SHARE_PKG_RESOURCES)
 		atomic_set(&sd->shared->nr_busy_cpus, sd_weight);
-	}
 
 	sd->private = sdd;
 
@@ -1656,8 +1742,6 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 				*per_cpu_ptr(d.sd, i) = sd;
 			if (tl->flags & SDTL_OVERLAP)
 				sd->flags |= SD_OVERLAP;
-			if (cpumask_equal(cpu_map, sched_domain_span(sd)))
-				break;
 		}
 	}
 
@@ -1677,10 +1761,13 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 
 	/* Calculate CPU capacity for physical packages and nodes */
 	for (i = nr_cpumask_bits-1; i >= 0; i--) {
+		struct sched_domain_topology_level *tl = sched_domain_topology;
+
 		if (!cpumask_test_cpu(i, cpu_map))
 			continue;
 
-		for (sd = *per_cpu_ptr(d.sd, i); sd; sd = sd->parent) {
+		for (sd = *per_cpu_ptr(d.sd, i); sd; sd = sd->parent, tl++) {
+			init_sched_groups_energy(i, sd, tl->energy);
 			claim_allocations(i, sd);
 			init_sched_groups_capacity(i, sd);
 		}

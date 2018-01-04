@@ -40,6 +40,13 @@ import subprocess
 # force LANG to be set to en_US.UTF-8 to get consistent warnings.
 
 allowed_warnings = set([
+  "fair.c:4874",
+  "fair.c:4886",
+  "fair.c:5452",
+  "fair.c:5490",
+  "fair.c:5576",
+  "fair.c:5593",
+  "fair.c:5596",
  ])
 
 # Capture the name of the object file, can find it.

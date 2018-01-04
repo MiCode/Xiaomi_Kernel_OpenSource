@@ -741,6 +741,8 @@ struct rq {
 	struct callback_head *balance_callback;
 
 	unsigned char idle_balance;
+
+	unsigned int misfit_task;
 	/* For active balancing */
 	int active_balance;
 	int push_cpu;
@@ -807,6 +809,7 @@ struct rq {
 #ifdef CONFIG_CPU_IDLE
 	/* Must be inspected within a rcu lock section */
 	struct cpuidle_state *idle_state;
+	int idle_state_idx;
 #endif
 };
 
@@ -1065,6 +1068,8 @@ DECLARE_PER_CPU(int, sd_llc_id);
 DECLARE_PER_CPU(struct sched_domain_shared *, sd_llc_shared);
 DECLARE_PER_CPU(struct sched_domain *, sd_numa);
 DECLARE_PER_CPU(struct sched_domain *, sd_asym);
+DECLARE_PER_CPU(struct sched_domain *, sd_ea);
+DECLARE_PER_CPU(struct sched_domain *, sd_scs);
 
 struct sched_group_capacity {
 	atomic_t ref;
@@ -1091,6 +1096,7 @@ struct sched_group {
 	unsigned int group_weight;
 	struct sched_group_capacity *sgc;
 	int asym_prefer_cpu;		/* cpu of highest priority in group */
+	struct sched_group_energy const *sge;
 
 	/*
 	 * The CPUs this group covers.
@@ -1518,6 +1524,17 @@ static inline struct cpuidle_state *idle_get_state(struct rq *rq)
 	SCHED_WARN_ON(!rcu_read_lock_held());
 	return rq->idle_state;
 }
+
+static inline void idle_set_state_idx(struct rq *rq, int idle_state_idx)
+{
+	rq->idle_state_idx = idle_state_idx;
+}
+
+static inline int idle_get_state_idx(struct rq *rq)
+{
+	WARN_ON(!rcu_read_lock_held());
+	return rq->idle_state_idx;
+}
 #else
 static inline void idle_set_state(struct rq *rq,
 				  struct cpuidle_state *idle_state)
@@ -1527,6 +1544,15 @@ static inline void idle_set_state(struct rq *rq,
 static inline struct cpuidle_state *idle_get_state(struct rq *rq)
 {
 	return NULL;
+}
+
+static inline void idle_set_state_idx(struct rq *rq, int idle_state_idx)
+{
+}
+
+static inline int idle_get_state_idx(struct rq *rq)
+{
+	return -1;
 }
 #endif
 
