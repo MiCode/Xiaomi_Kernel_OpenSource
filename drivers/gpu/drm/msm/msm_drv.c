@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -1436,42 +1436,6 @@ static int msm_release(struct inode *inode, struct file *filp)
 }
 
 /**
- * msm_drv_framebuffer_remove - remove and unreference a framebuffer object
- * @fb: framebuffer to remove
- */
-void msm_drv_framebuffer_remove(struct drm_framebuffer *fb)
-{
-	struct drm_device *dev;
-
-	if (!fb)
-		return;
-
-	dev = fb->dev;
-
-	WARN_ON(!list_empty(&fb->filp_head));
-
-	drm_framebuffer_unreference(fb);
-}
-
-struct msm_drv_rmfb2_work {
-	struct work_struct work;
-	struct list_head fbs;
-};
-
-static void msm_drv_rmfb2_work_fn(struct work_struct *w)
-{
-	struct msm_drv_rmfb2_work *arg = container_of(w, typeof(*arg), work);
-
-	while (!list_empty(&arg->fbs)) {
-		struct drm_framebuffer *fb =
-			list_first_entry(&arg->fbs, typeof(*fb), filp_head);
-
-		list_del_init(&fb->filp_head);
-		msm_drv_framebuffer_remove(fb);
-	}
-}
-
-/**
  * msm_ioctl_rmfb2 - remove an FB from the configuration
  * @dev: drm device for the ioctl
  * @data: data pointer for the ioctl
@@ -1514,25 +1478,7 @@ int msm_ioctl_rmfb2(struct drm_device *dev, void *data,
 	list_del_init(&fb->filp_head);
 	mutex_unlock(&file_priv->fbs_lock);
 
-	/*
-	 * we now own the reference that was stored in the fbs list
-	 *
-	 * drm_framebuffer_remove may fail with -EINTR on pending signals,
-	 * so run this in a separate stack as there's no way to correctly
-	 * handle this after the fb is already removed from the lookup table.
-	 */
-	if (drm_framebuffer_read_refcount(fb) > 1) {
-		struct msm_drv_rmfb2_work arg;
-
-		INIT_WORK_ONSTACK(&arg.work, msm_drv_rmfb2_work_fn);
-		INIT_LIST_HEAD(&arg.fbs);
-		list_add_tail(&fb->filp_head, &arg.fbs);
-
-		schedule_work(&arg.work);
-		flush_work(&arg.work);
-		destroy_work_on_stack(&arg.work);
-	} else
-		drm_framebuffer_unreference(fb);
+	drm_framebuffer_unreference(fb);
 
 	return 0;
 }
