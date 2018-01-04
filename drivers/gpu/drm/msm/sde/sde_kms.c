@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -2999,12 +2999,19 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		SDE_DEBUG("added genpd provider %s\n", sde_kms->genpd.name);
 	}
 
-	if (sde_kms->splash_data.cont_splash_en)
+	if (sde_kms->splash_data.cont_splash_en) {
 		SDE_DEBUG("Skipping MDP Resources disable\n");
-	else
+	} else {
+		for (i = 0; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++)
+			sde_power_data_bus_set_quota(&priv->phandle,
+				sde_kms->core_client,
+				SDE_POWER_HANDLE_DATA_BUS_CLIENT_RT, i,
+				SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA,
+				SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA);
+
 		sde_power_resource_enable(&priv->phandle,
 						sde_kms->core_client, false);
-
+	}
 	return 0;
 
 genpd_err:
