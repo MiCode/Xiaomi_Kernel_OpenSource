@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,6 +65,7 @@ struct pktzr_priv {
 	struct platform_device *pdev;
 	pktzr_data_cmd_cb_fn data_cmd_cb;
 	int num_channels;
+	bool pktzr_init_complete;
 };
 
 static struct pktzr_priv *ppriv;
@@ -103,8 +104,8 @@ static int pktzr_send_pkt(void *payload, uint32_t size, void *rsp,
 	int rc = 0;
 
 	pr_debug("%s: cmd=%d sync=%d size=%d\n", __func__, cmd, sync_cmd, size);
-	if (!ppriv) {
-		pr_err("packetizer not initialized");
+	if (!ppriv || !ppriv->pktzr_init_complete) {
+		pr_err_ratelimited("packetizer not initialized\n");
 		return -EINVAL;
 	}
 	mutex_lock(&ppriv->pktzr_lock);
@@ -237,22 +238,21 @@ int pktzr_init(void *pdev, struct bg_glink_ch_cfg *ch_info, int num_channels,
 			pr_err("%s: Failed to open channel\n", __func__);
 			goto err;
 		}
-		ppriv->token = i;
 	}
 	ppriv->num_channels = num_channels;
 	ppriv->data_cmd_cb = func;
-	ppriv->token = 0;
 	ppriv->pdev = pdev;
 	init_completion(&ppriv->thread_complete);
 	mutex_init(&ppriv->pktzr_lock);
 	INIT_LIST_HEAD(&ppriv->ch_list);
+	ppriv->pktzr_init_complete = true;
 
 done:
 	return 0;
 err:
 	for (i = 0; i < ppriv->token; i++)
-		bg_cdc_channel_close(ppriv->pdev, ppriv->ch_info[i]);
-	ppriv->token = 0;
+		bg_cdc_channel_close(pdev, ppriv->ch_info[i]);
+
 	if (ppriv)
 		kzfree(ppriv);
 	ppriv = NULL;

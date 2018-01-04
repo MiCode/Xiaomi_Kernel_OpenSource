@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +25,7 @@ enum apr_subsys_state apr_get_subsys_state(void)
 {
 	return apr_get_q6_state();
 }
+EXPORT_SYMBOL(apr_get_subsys_state);
 
 void apr_set_subsys_state(void)
 {
