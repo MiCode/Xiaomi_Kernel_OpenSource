@@ -71,11 +71,14 @@ static int msm_cpufreq_target(struct cpufreq_policy *policy,
 				unsigned int target_freq,
 				unsigned int relation)
 {
-	int ret = -EFAULT;
+	int ret = 0;
 	int index;
 	struct cpufreq_frequency_table *table;
 
 	mutex_lock(&per_cpu(suspend_data, policy->cpu).suspend_mutex);
+
+	if (target_freq == policy->cur)
+		goto done;
 
 	if (per_cpu(suspend_data, policy->cpu).device_suspended) {
 		pr_debug("cpufreq: cpu%d scheduling frequency change in suspend\n",
@@ -349,7 +352,7 @@ static int msm_cpufreq_probe(struct platform_device *pdev)
 	char clk_name[] = "cpu??_clk";
 	char tbl_name[] = "qcom,cpufreq-table-??";
 	struct clk *c;
-	int cpu;
+	int cpu, ret;
 	struct cpufreq_frequency_table *ftbl;
 
 	l2_clk = devm_clk_get(dev, "l2_clk");
@@ -416,7 +419,15 @@ static int msm_cpufreq_probe(struct platform_device *pdev)
 		per_cpu(freq_table, cpu) = ftbl;
 	}
 
-	return 0;
+	ret = register_pm_notifier(&msm_cpufreq_pm_notifier);
+	if (ret)
+		return ret;
+
+	ret = cpufreq_register_driver(&msm_cpufreq_driver);
+	if (ret)
+		unregister_pm_notifier(&msm_cpufreq_pm_notifier);
+
+	return ret;
 }
 
 static const struct of_device_id msm_cpufreq_match_table[] = {
@@ -452,8 +463,7 @@ static int __init msm_cpufreq_register(void)
 		return rc;
 	}
 
-	register_pm_notifier(&msm_cpufreq_pm_notifier);
-	return cpufreq_register_driver(&msm_cpufreq_driver);
+	return 0;
 }
 
 subsys_initcall(msm_cpufreq_register);
