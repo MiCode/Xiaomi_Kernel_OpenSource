@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -103,6 +103,199 @@ int msm_early_cam_disable_clocks(void)
 	}
 
 	rc = cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_VFE0,
+			CAM_AHB_SUSPEND_VOTE);
+	if (rc < 0) {
+		pr_err("%s: failed to vote OFF AHB_CLIENT_VFE0 %d\n",
+			__func__, rc);
+		return rc;
+	}
+	pr_debug("Turned OFF camera clocks\n");
+	return 0;
+
+}
+
+int msm_ais_enable_clocks(void)
+{
+	int rc = 0;
+
+	CDBG("%s:\n", __func__);
+	/* Vote ON for clocks */
+	if (new_early_cam_dev == NULL) {
+		rc = -EINVAL;
+		pr_err("%s: clock structure uninitialised %d\n", __func__,
+			rc);
+		return rc;
+	}
+
+	/* Vote for camera abh clocks */
+	rc = cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CSIPHY,
+		CAM_AHB_SVS_VOTE);
+	if (rc < 0) {
+		pr_err("%s: failed to vote for AHB\n", __func__);
+		return rc;
+	}
+
+	rc = cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CSID,
+		CAM_AHB_SVS_VOTE);
+	if (rc < 0) {
+		pr_err("%s: failed to vote for AHB\n", __func__);
+		return rc;
+	}
+
+	rc = cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_ISPIF,
+		CAM_AHB_SVS_VOTE);
+	if (rc < 0) {
+		pr_err("%s: failed to vote for AHB\n", __func__);
+		return rc;
+	}
+
+	rc = cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_VFE0,
+			CAM_AHB_SVS_VOTE);
+	if (rc < 0) {
+		pr_err("%s: failed to vote for AHB\n", __func__);
+		return rc;
+	}
+
+	rc = cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_VFE1,
+			CAM_AHB_SVS_VOTE);
+	if (rc < 0) {
+		pr_err("%s: failed to vote for AHB\n", __func__);
+		return rc;
+	}
+
+	if (new_early_cam_dev->pdev->dev.of_node)
+		of_property_read_u32((&new_early_cam_dev->pdev->dev)->of_node,
+			"cell-index", &new_early_cam_dev->pdev->id);
+
+	rc = msm_camera_get_clk_info_and_rates(new_early_cam_dev->pdev,
+		&new_early_cam_dev->early_cam_clk_info,
+		&new_early_cam_dev->early_cam_clk,
+		&new_early_cam_dev->early_cam_clk_rates,
+		&new_early_cam_dev->num_clk_cases,
+		&new_early_cam_dev->num_clk);
+	if (rc < 0) {
+		pr_err("%s: msm_early_cam_get_clk_info() failed", __func__);
+		return -EFAULT;
+	}
+
+	rc = msm_camera_get_dt_vreg_data(
+		new_early_cam_dev->pdev->dev.of_node,
+		&(new_early_cam_dev->early_cam_vreg),
+		&(new_early_cam_dev->regulator_count));
+	if (rc < 0) {
+		pr_err("%s: msm_camera_get_dt_vreg_data fail\n", __func__);
+		rc = -EFAULT;
+		return rc;
+	}
+
+	if ((new_early_cam_dev->regulator_count < 0) ||
+		(new_early_cam_dev->regulator_count > MAX_REGULATOR)) {
+		pr_err("%s: invalid reg count = %d, max is %d\n", __func__,
+			new_early_cam_dev->regulator_count, MAX_REGULATOR);
+		rc = -EFAULT;
+		return rc;
+	}
+
+	rc = msm_camera_config_vreg(&new_early_cam_dev->pdev->dev,
+		new_early_cam_dev->early_cam_vreg,
+		new_early_cam_dev->regulator_count,
+		NULL,
+		0,
+		&new_early_cam_dev->early_cam_reg_ptr[0], 1);
+	if (rc < 0)
+		pr_err("%s:%d early_cam config_vreg failed\n", __func__,
+			__LINE__);
+
+	rc = msm_camera_enable_vreg(&new_early_cam_dev->pdev->dev,
+		new_early_cam_dev->early_cam_vreg,
+		new_early_cam_dev->regulator_count,
+		NULL,
+		0,
+		&new_early_cam_dev->early_cam_reg_ptr[0], 1);
+	if (rc < 0)
+		pr_err("%s:%d early_cam enable_vreg failed\n", __func__,
+		__LINE__);
+
+	rc = msm_camera_clk_enable(&new_early_cam_dev->pdev->dev,
+		new_early_cam_dev->early_cam_clk_info,
+		new_early_cam_dev->early_cam_clk,
+		new_early_cam_dev->num_clk, true);
+
+	if (rc < 0) {
+		pr_err("%s: clk enable failed %d\n", __func__, rc);
+		rc = 0;
+		return rc;
+	}
+	pr_debug("Turned ON camera clocks\n");
+	return 0;
+
+}
+
+int msm_ais_disable_clocks(void)
+{
+	int rc = 0;
+
+	CDBG("%s:\n", __func__);
+	/* Vote OFF for clocks */
+	if (new_early_cam_dev == NULL) {
+		rc = -EINVAL;
+		pr_err("%s: clock structure uninitialised %d\n", __func__,
+			rc);
+		return rc;
+	}
+
+	if ((new_early_cam_dev->pdev == NULL) ||
+		(new_early_cam_dev->early_cam_clk_info == NULL) ||
+		(new_early_cam_dev->early_cam_clk == NULL) ||
+		(new_early_cam_dev->num_clk == 0)) {
+		rc = -EINVAL;
+		pr_err("%s: Clock details uninitialised %d\n", __func__,
+			rc);
+		return rc;
+	}
+
+	rc = msm_camera_clk_enable(&new_early_cam_dev->pdev->dev,
+		new_early_cam_dev->early_cam_clk_info,
+		new_early_cam_dev->early_cam_clk,
+		new_early_cam_dev->num_clk, false);
+	if (rc < 0) {
+		pr_err("%s: clk disable failed %d\n", __func__, rc);
+		return rc;
+	}
+
+	rc = cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CSIPHY,
+		CAM_AHB_SUSPEND_VOTE);
+	if (rc < 0) {
+		pr_err("%s: failed to vote OFF AHB_CLIENT_CSIPHY %d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	rc = cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CSID,
+		CAM_AHB_SUSPEND_VOTE);
+	if (rc < 0) {
+		pr_err("%s: failed to vote OFF AHB_CLIENT_CSID %d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	rc = cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_ISPIF,
+		CAM_AHB_SUSPEND_VOTE);
+	if (rc < 0) {
+		pr_err("%s: failed to vote OFF AHB_CLIENT_ISPIF %d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	rc = cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_VFE0,
+			CAM_AHB_SUSPEND_VOTE);
+	if (rc < 0) {
+		pr_err("%s: failed to vote OFF AHB_CLIENT_VFE0 %d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	rc = cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_VFE1,
 			CAM_AHB_SUSPEND_VOTE);
 	if (rc < 0) {
 		pr_err("%s: failed to vote OFF AHB_CLIENT_VFE0 %d\n",

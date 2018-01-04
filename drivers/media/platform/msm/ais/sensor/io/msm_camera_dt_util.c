@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1733,3 +1733,50 @@ int msm_camera_power_down(struct msm_camera_power_ctrl_t *ctrl,
 	return 0;
 }
 
+int msm_camera_cci_power_up(enum msm_camera_device_type_t device_type,
+	struct msm_camera_i2c_client *sensor_i2c_client)
+{
+	int rc = 0;
+
+	CDBG("%s:%d\n", __func__, __LINE__);
+	if (!sensor_i2c_client) {
+		pr_err("failed sensor_i2c_client %pK\n",
+			sensor_i2c_client);
+		return -EINVAL;
+	}
+
+	if (device_type == MSM_CAMERA_PLATFORM_DEVICE) {
+		rc = sensor_i2c_client->i2c_func_tbl->i2c_util(
+			sensor_i2c_client, MSM_CCI_INIT);
+		if (rc < 0) {
+			pr_err("%s cci_init failed\n", __func__);
+			return rc;
+		}
+	}
+	CDBG("%s exit\n", __func__);
+	return rc;
+}
+
+int msm_camera_cci_power_down(enum msm_camera_device_type_t device_type,
+	struct msm_camera_i2c_client *sensor_i2c_client)
+{
+	int rc = 0;
+
+	CDBG("%s:%d\n", __func__, __LINE__);
+	if (!sensor_i2c_client) {
+		pr_err("failed sensor_i2c_client %pK\n",
+			sensor_i2c_client);
+		return -EINVAL;
+	}
+
+	if (device_type == MSM_CAMERA_PLATFORM_DEVICE) {
+		rc = sensor_i2c_client->i2c_func_tbl->i2c_util(
+			sensor_i2c_client, MSM_CCI_RELEASE);
+		if (rc < 0) {
+			pr_err("%s MSM_CCI_RELEASE failed\n", __func__);
+			return rc;
+		}
+	}
+	CDBG("%s exit\n", __func__);
+	return rc;
+}

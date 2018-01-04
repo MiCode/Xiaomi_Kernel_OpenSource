@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,7 @@
 #include <linux/workqueue.h>
 #include <media/ais/msm_ais_sensor.h>
 #include <soc/qcom/ais.h>
+#include <media/ais/msm_ais.h>
 #include "msm_sd.h"
 #include "cam_soc_api.h"
 
@@ -50,4 +51,6 @@ struct early_cam_device {
 };
 
 int msm_early_cam_disable_clocks(void);
+int msm_ais_enable_clocks(void);
+int msm_ais_disable_clocks(void);
 #endif

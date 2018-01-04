@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2217,6 +2217,7 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	struct vfe_device *vfe_dev = v4l2_get_subdevdata(sd);
 	long rc = 0;
+	enum cam_ahb_clk_client id;
 
 	ISP_DBG("%s open_cnt %u\n", __func__, vfe_dev->vfe_open_cnt);
 
@@ -2291,6 +2292,17 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	cam_smmu_reg_client_page_fault_handler(
 			vfe_dev->buf_mgr->iommu_hdl,
 			msm_vfe_iommu_fault_handler, vfe_dev);
+
+	/* Disable vfe clks and allow device to go XO shutdown mode */
+	if (vfe_dev->pdev->id == 0)
+		id = CAM_AHB_CLIENT_VFE0;
+	else
+		id = CAM_AHB_CLIENT_VFE1;
+	if (cam_config_ahb_clk(NULL, 0, id, CAM_AHB_SUSPEND_VOTE) < 0)
+		pr_err("%s: failed to remove vote for AHB\n", __func__);
+	vfe_dev->hw_info->vfe_ops.platform_ops.enable_clks(vfe_dev, 0);
+	vfe_dev->hw_info->vfe_ops.platform_ops.enable_regulators(vfe_dev, 0);
+
 	mutex_unlock(&vfe_dev->core_mutex);
 	mutex_unlock(&vfe_dev->realtime_mutex);
 	return 0;
@@ -2313,10 +2325,21 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	long rc = 0;
 	int wm;
 	struct vfe_device *vfe_dev = v4l2_get_subdevdata(sd);
+	enum cam_ahb_clk_client id;
 
 	ISP_DBG("%s E open_cnt %u\n", __func__, vfe_dev->vfe_open_cnt);
 	mutex_lock(&vfe_dev->realtime_mutex);
 	mutex_lock(&vfe_dev->core_mutex);
+
+	/* Enable vfe clks to wake up from XO shutdown mode */
+	if (vfe_dev->pdev->id == 0)
+		id = CAM_AHB_CLIENT_VFE0;
+	else
+		id = CAM_AHB_CLIENT_VFE1;
+	if (cam_config_ahb_clk(NULL, 0, id, CAM_AHB_SVS_VOTE) < 0)
+		pr_err("%s: failed to vote for AHB\n", __func__);
+	vfe_dev->hw_info->vfe_ops.platform_ops.enable_clks(vfe_dev, 1);
+	vfe_dev->hw_info->vfe_ops.platform_ops.enable_regulators(vfe_dev, 1);
 
 	if (!vfe_dev->vfe_open_cnt) {
 		pr_err("%s invalid state open cnt %d\n", __func__,

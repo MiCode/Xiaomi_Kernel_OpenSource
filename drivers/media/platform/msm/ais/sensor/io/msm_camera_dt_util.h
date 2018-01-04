@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,4 +68,10 @@ int msm_cam_sensor_handle_reg_gpio(int seq_val,
 int32_t msm_sensor_driver_get_gpio_data(
 	struct msm_camera_gpio_conf **gpio_conf,
 	struct device_node *of_node);
+
+int msm_camera_cci_power_up(enum msm_camera_device_type_t device_type,
+	struct msm_camera_i2c_client *sensor_i2c_client);
+
+int msm_camera_cci_power_down(enum msm_camera_device_type_t device_type,
+	struct msm_camera_i2c_client *sensor_i2c_client);
 #endif
