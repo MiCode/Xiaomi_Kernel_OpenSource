@@ -2,7 +2,7 @@
  * drivers/staging/android/ion/ion.h
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -87,6 +87,11 @@ struct ion_platform_data {
 	struct ion_platform_heap *heaps;
 };
 
+struct ion_vma_list {
+	struct list_head list;
+	struct vm_area_struct *vma;
+};
+
 /**
  * struct ion_buffer - metadata for a particular buffer
  * @ref:		reference count
@@ -102,6 +107,7 @@ struct ion_platform_data {
  * @kmap_cnt:		number of times the buffer is mapped to the kernel
  * @vaddr:		the kernel mapping if kmap_cnt is not zero
  * @sg_table:		the sg table for the buffer if dmap_cnt is not zero
+ * @vmas:		list of vma's mapping this buffer
  */
 struct ion_buffer {
 	union {
@@ -120,6 +126,7 @@ struct ion_buffer {
 	void *vaddr;
 	struct sg_table *sg_table;
 	struct list_head attachments;
+	struct list_head vmas;
 };
 
 void ion_buffer_destroy(struct ion_buffer *buffer);
