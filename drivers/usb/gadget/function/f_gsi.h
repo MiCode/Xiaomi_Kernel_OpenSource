@@ -27,9 +27,14 @@
 #include <linux/ipa_usb.h>
 #include <linux/ipc_logging.h>
 
+#include "u_ether.h"
+
 #define GSI_RMNET_CTRL_NAME "rmnet_ctrl"
 #define GSI_MBIM_CTRL_NAME "android_mbim"
 #define GSI_DPL_CTRL_NAME "dpl_ctrl"
+#define ETHER_RMNET_CTRL_NAME "rmnet_ctrl0"
+#define ETHER_DPL_CTRL_NAME "dpl_ctrl0"
+
 #define GSI_CTRL_NAME_LEN (sizeof(GSI_MBIM_CTRL_NAME)+2)
 #define GSI_MAX_CTRL_PKT_SIZE 4096
 #define GSI_CTRL_DTR (1 << 0)
@@ -112,6 +117,21 @@ enum rndis_class_id {
 	MISC_RNDIS_FOR_IPV6,
 	MISC_RNDIS_FOR_GPRS,
 	RNDIS_ID_MAX,
+};
+
+enum usb_prot_id {
+	/* accelerated: redefined from ipa_usb.h, do not change order */
+	USB_PROT_RNDIS_IPA,
+	USB_PROT_ECM_IPA,
+	USB_PROT_RMNET_IPA,
+	USB_PROT_MBIM_IPA,
+	USB_PROT_DIAG_IPA,
+
+	/* non-accelerated */
+	USB_PROT_RMNET_ETHER,
+	USB_PROT_DPL_ETHER,
+
+	USB_PROT_MAX,
 };
 
 #define MAXQUEUELEN 128
@@ -228,6 +248,7 @@ struct gsi_data_port {
 	enum connection_state sm_state;
 	struct event_queue evt_q;
 	wait_queue_head_t wait_for_ipa_ready;
+	struct gether gether_port;
 
 	/* Track these for debugfs */
 	struct ipa_usb_xdci_chan_params ipa_in_channel_params;
@@ -237,7 +258,7 @@ struct gsi_data_port {
 
 struct f_gsi {
 	struct usb_function function;
-	enum ipa_usb_teth_prot prot_id;
+	enum usb_prot_id prot_id;
 	int ctrl_id;
 	int data_id;
 	u32 vendorID;
@@ -285,21 +306,25 @@ static inline struct gsi_opts *to_gsi_opts(struct config_item *item)
 			    func_inst.group);
 }
 
-static enum ipa_usb_teth_prot name_to_prot_id(const char *name)
+static enum usb_prot_id name_to_prot_id(const char *name)
 {
 	if (!name)
 		goto error;
 
 	if (!strncasecmp(name, "rndis", MAX_INST_NAME_LEN))
-		return IPA_USB_RNDIS;
+		return USB_PROT_RNDIS_IPA;
 	if (!strncasecmp(name, "ecm", MAX_INST_NAME_LEN))
-		return IPA_USB_ECM;
+		return USB_PROT_ECM_IPA;
 	if (!strncasecmp(name, "rmnet", MAX_INST_NAME_LEN))
-		return IPA_USB_RMNET;
+		return USB_PROT_RMNET_IPA;
 	if (!strncasecmp(name, "mbim", MAX_INST_NAME_LEN))
-		return IPA_USB_MBIM;
+		return USB_PROT_MBIM_IPA;
 	if (!strncasecmp(name, "dpl", MAX_INST_NAME_LEN))
-		return IPA_USB_DIAG;
+		return USB_PROT_DIAG_IPA;
+	if (!strncasecmp(name, "rmnet.ether", MAX_INST_NAME_LEN))
+		return USB_PROT_RMNET_ETHER;
+	if (!strncasecmp(name, "dpl.ether", MAX_INST_NAME_LEN))
+		return USB_PROT_DPL_ETHER;
 
 error:
 	return -EINVAL;
