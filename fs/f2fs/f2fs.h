@@ -20,6 +20,7 @@
 #include <linux/kobject.h>
 #include <linux/sched.h>
 #include <linux/writeback.h>
+#include <linux/cred.h>
 #include <linux/vmalloc.h>
 #include <linux/bio.h>
 #include <linux/blkdev.h>
@@ -131,6 +132,12 @@ struct f2fs_mount_info {
 	(F2FS_SB(sb)->raw_super->feature |= cpu_to_le32(mask))
 #define F2FS_CLEAR_FEATURE(sb, mask)					\
 	(F2FS_SB(sb)->raw_super->feature &= ~cpu_to_le32(mask))
+
+/*
+ * Default values for user and/or group using reserved blocks
+ */
+#define	F2FS_DEF_RESUID		0
+#define	F2FS_DEF_RESGID		0
 
 /*
  * For checkpoint manager
@@ -1105,6 +1112,8 @@ struct f2fs_sb_info {
 	block_t reserved_blocks;		/* configurable reserved blocks */
 	block_t current_reserved_blocks;	/* current reserved blocks */
 	block_t root_reserved_blocks;		/* root reserved blocks */
+	kuid_t s_resuid;			/* reserved blocks for uid */
+	kgid_t s_resgid;			/* reserved blocks for gid */
 
 	unsigned int nquota_files;		/* # of quota sysfile */
 
@@ -1554,6 +1563,20 @@ static inline bool f2fs_has_xattr_block(unsigned int ofs)
 	return ofs == XATTR_NODE_OFFSET;
 }
 
+static inline bool __allow_reserved_blocks(struct f2fs_sb_info *sbi)
+{
+	if (!test_opt(sbi, RESERVE_ROOT))
+		return false;
+	if (capable(CAP_SYS_RESOURCE))
+		return true;
+	if (uid_eq(sbi->s_resuid, current_fsuid()))
+		return true;
+	if (!gid_eq(sbi->s_resgid, GLOBAL_ROOT_GID) &&
+					in_group_p(sbi->s_resgid))
+		return true;
+	return false;
+}
+
 static inline void f2fs_i_blocks_write(struct inode *, block_t, bool, bool);
 static inline int inc_valid_block_count(struct f2fs_sb_info *sbi,
 				 struct inode *inode, blkcnt_t *count)
@@ -1584,7 +1607,7 @@ static inline int inc_valid_block_count(struct f2fs_sb_info *sbi,
 	avail_user_block_count = sbi->user_block_count -
 					sbi->current_reserved_blocks;
 
-	if (!(test_opt(sbi, RESERVE_ROOT) && capable(CAP_SYS_RESOURCE)))
+	if (!__allow_reserved_blocks(sbi))
 		avail_user_block_count -= sbi->root_reserved_blocks;
 
 	if (unlikely(sbi->total_valid_block_count > avail_user_block_count)) {
@@ -1785,7 +1808,7 @@ static inline int inc_valid_node_count(struct f2fs_sb_info *sbi,
 	valid_block_count = sbi->total_valid_block_count +
 					sbi->current_reserved_blocks + 1;
 
-	if (!(test_opt(sbi, RESERVE_ROOT) && capable(CAP_SYS_RESOURCE)))
+	if (!__allow_reserved_blocks(sbi))
 		valid_block_count += sbi->root_reserved_blocks;
 
 	if (unlikely(valid_block_count > sbi->user_block_count)) {
