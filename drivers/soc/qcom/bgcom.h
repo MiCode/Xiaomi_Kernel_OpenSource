@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -207,5 +207,7 @@ int bgcom_suspend(void **handle);
 int bgcom_resume(void **handle);
 
 int bgcom_set_spi_state(enum bgcom_spi_state state);
+
+void bgcom_bgdown_handler(void);
 
 #endif /* BGCOM_H */

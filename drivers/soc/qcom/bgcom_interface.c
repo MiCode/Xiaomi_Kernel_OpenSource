@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -285,6 +285,7 @@ static int ssr_bg_cb(struct notifier_block *this,
 	switch (opcode) {
 	case SUBSYS_BEFORE_SHUTDOWN:
 		bge.e_type = BG_BEFORE_POWER_DOWN;
+		bgcom_bgdown_handler();
 		bgcom_set_spi_state(BGCOM_SPI_BUSY);
 		send_uevent(&bge);
 		break;

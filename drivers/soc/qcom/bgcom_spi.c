@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -260,6 +260,13 @@ void send_event(enum bgcom_event_type event,
 		cb->priv,  event, data);
 	}
 }
+
+void bgcom_bgdown_handler(void)
+{
+	send_event(BGCOM_EVENT_RESET_OCCURRED, NULL);
+	g_slav_status_reg = 0;
+}
+EXPORT_SYMBOL(bgcom_bgdown_handler);
 
 static void parse_fifo(uint8_t *data, union bgcom_event_data_type *event_data)
 {
