@@ -1,0 +1,142 @@
+Introduction:
+=============
+
+QTI Crypto (qcrypto) driver is a Linux crypto driver which interfaces
+with the Linux kernel crypto API layer to provide the HW crypto functions.
+This driver is accessed by kernel space apps via the kernel crypto API layer.
+At present there is no means for user space apps to access this module.
+
+Hardware description:
+=====================
+
+QTI Crypto HW device family provides a series of algorithms implemented
+in the device.
+
+Crypto 2 hardware provides hashing - SHA-1, SHA-256, ciphering - DES, 3DES, AES
+algorithms, and concurrent operations of hashing, and ciphering.
+
+In addition to those functions provided by Crypto 2 HW, Crypto 3 provides fast
+AES algorithms.
+
+In addition to those functions provided by Crypto 3 HW, Crypto 3E provides
+HMAC-SHA1 hashing algorithm.
+
+In addition to those functions provided by Crypto 3 HW, Crypto 4.0 provides
+HMAC-SHA1/SHA256, AES CBC-MAC hashing algorithm and AES XTS/CCM cipher
+algorithms.
+
+
+Software description
+====================
+
+The module init function (_qcrypto_init()), does a platform_register(),
+to register the driver. As the result, the driver probe function,
+_qcrypto_probe(), will be invoked for each registered device.
+
+In the probe function, driver opens the low level CE (qce_open), and
+registers the supported algorithms to the kernel crypto API layer.
+Currently, qcrypto supports the following algorithms.
+
+      ablkcipher -
+          cbc(aes),ecb(aes),ctr(aes)
+      ahash -
+          sha1, sha256
+      aead -
+          authenc(hmac(sha1),cbc(aes))
+
+      The hmac(sha1), hmac(sha256, authenc(hmac(sha1),cbc(aes)), ccm(aes)
+      and xts(aes) algorithms are registered for some platforms that
+      support these in the CE hardware
+
+The HW device  can support various algorithms. However, the most important
+algorithms to gain the performance using a HW crypto accelerator are
+AEAD, and ABLKCIPHER.
+
+AEAD stands for "authentication encryption with association data".
+ABLKCIPHER stands of "asynchronous block cipher".
+
+The AEAD structure is described in the following header file aead.h
+
+The design of the driver is to allow multiple requests
+issued from kernel client SW (eg IPSec).
+Therefore, the driver will have to internally queue the requests, and
+serialize the requests to the low level qce driver.
+
+When a request is received from the client, if there is no outstanding
+request, a qce (or qce40) request is issued, otherwise, the request is
+queued in the driver queue.
+
+On completion of a request, the qce (or qce40) invokes the registered
+callback from the qcrypto.  The internal tasklet (done_tasklet) is scheduled
+in this callback function. The sole purpose of done_tasklet is
+to call the completion of the current active request, and
+issue more requests to the qce (or qce40), if any exists.
+
+A spin lock is used to protect the critical section of internal queue to
+be accessed from multiple tasks, SMP, and completion callback
+from qce.
+
+The driver maintains a set of statistics using debug fs. The files are
+in /debug/qcrypto/stats1, /debug/qcrypto/stats2, /debug/qcrypto/stats3;
+one for each instance of device. Reading the file associated with
+a device will retrieve the driver statistics for that device.
+Any write to the file will clear the statistics.
+
+Test vectors for  authenc(hmac(sha1),cbc(aes)) algorithm are
+developed offline, and imported to crypto/testmgr.c, and crypto/testmgr.h.
+
+
+Power Management
+================
+  none
+
+
+Interface:
+==========
+The kernel interface is defined in crypto.h.
+
+
+Module parameters:
+==================
+
+All the platform specific parameters are defined in the board init
+file, eg. arch/arm/mach-msm/board-mssm7x30.c for msm7x30.
+
+Dependencies:
+=============
+qce driver.
+
+
+User space utilities:
+=====================
+  n/a
+
+Known issues:
+=============
+  n/a
+
+To do:
+======
+  Add Hashing algorithms.
+
+
+Limitations:
+===============
+(1) Each packet transfer size (for cipher and hash) is limited to maximum of
+    32KB.  This is a limitation in the crypto engine hardware. Client will
+    have to break packets larger than 32KB into multiple requests of smaller
+    size data packets.
+
+(2) Do not load this driver if your device has user space apps that needs to
+    access the crypto hardware. Please make sure to have the qcrypto module
+    disabled/unloaded.
+    Not having the driver loaded, will result in the kernel space apps to use
+    the registered software implementation of the crypto algorithms.
+
+(3) If your device has Playready application enabled and uses the qcedev module
+    to access the crypto hardware accelerator, please be informed that for
+    performance reasons, the CE hardware will need to be dedicated to playready
+    application.  Any other user space or kernel application should be implemented
+    to use the software implementation of the crypto algorithms.
+
+    (NOTE:  Please refer to details on the limitations listed in qce/40.txt)
