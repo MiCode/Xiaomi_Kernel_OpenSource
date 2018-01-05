@@ -25,6 +25,7 @@ static DEFINE_MUTEX(clk_debug_lock);
 #define XO_DIV4_CNT_DONE	BIT(25)
 #define CNT_EN			BIT(20)
 #define MEASURE_CNT		GENMASK(24, 0)
+#define CBCR_ENA		BIT(0)
 
 /* Sample clock for 'ticks' reference clock ticks. */
 static u32 run_measurement(unsigned int ticks, struct regmap *regmap,
@@ -169,15 +170,6 @@ static int clk_debug_mux_set_parent(struct clk_hw *hw, u8 index)
 				meas->parent[index].post_div_shift;
 		regmap_write(meas->regmap[dbg_cc],
 				meas->parent[index].post_div_offset, regval);
-
-		/* Not all recursive muxes have a DEBUG clock. */
-		if (meas->parent[index].cbcr_offset != U32_MAX) {
-			regmap_read(meas->regmap[dbg_cc],
-				meas->parent[index].cbcr_offset, &regval);
-			regval |= BIT(0);
-			regmap_write(meas->regmap[dbg_cc],
-				meas->parent[index].cbcr_offset, regval);
-		}
 	}
 
 	/* Update the debug sel for GCC */
@@ -194,11 +186,6 @@ static int clk_debug_mux_set_parent(struct clk_hw *hw, u8 index)
 			meas->post_div_mask) << meas->post_div_shift;
 	regmap_write(meas->regmap[GCC], meas->post_div_offset, regval);
 
-	/* Turn on the GCC_DEBUG_CBCR */
-	regmap_read(meas->regmap[GCC], meas->cbcr_offset, &regval);
-	regval |= BIT(0);
-	regmap_write(meas->regmap[GCC], meas->cbcr_offset, regval);
-
 	return 0;
 }
 
@@ -207,6 +194,40 @@ const struct clk_ops clk_debug_mux_ops = {
 	.set_parent = clk_debug_mux_set_parent,
 };
 EXPORT_SYMBOL(clk_debug_mux_ops);
+
+static void enable_debug_clks(struct clk_debug_mux *meas, u8 index)
+{
+	int dbg_cc = meas->parent[index].dbg_cc;
+
+	if (dbg_cc != GCC) {
+		/* Not all recursive muxes have a DEBUG clock. */
+		if (meas->parent[index].cbcr_offset != U32_MAX)
+			regmap_update_bits(meas->regmap[dbg_cc],
+					meas->parent[index].cbcr_offset,
+					CBCR_ENA, CBCR_ENA);
+	}
+
+	/* Turn on the GCC_DEBUG_CBCR */
+	regmap_update_bits(meas->regmap[GCC], meas->cbcr_offset,
+					CBCR_ENA, CBCR_ENA);
+
+}
+
+static void disable_debug_clks(struct clk_debug_mux *meas, u8 index)
+{
+	int dbg_cc = meas->parent[index].dbg_cc;
+
+	/* Turn off the GCC_DEBUG_CBCR */
+	regmap_update_bits(meas->regmap[GCC], meas->cbcr_offset,
+					CBCR_ENA, 0);
+
+	if (dbg_cc != GCC) {
+		if (meas->parent[index].cbcr_offset != U32_MAX)
+			regmap_update_bits(meas->regmap[dbg_cc],
+					meas->parent[index].cbcr_offset,
+					CBCR_ENA, 0);
+	}
+}
 
 static int clk_debug_measure_get(void *data, u64 *val)
 {
@@ -222,6 +243,8 @@ static int clk_debug_measure_get(void *data, u64 *val)
 	if (!ret) {
 		par = measure;
 		index =  clk_debug_mux_get_parent(measure);
+
+		enable_debug_clks(meas, index);
 		while (par && par != hw) {
 			if (par->init->ops->enable)
 				par->init->ops->enable(par);
@@ -235,18 +258,25 @@ static int clk_debug_measure_get(void *data, u64 *val)
 		/* Accommodate for any pre-set dividers */
 		if (meas->parent[index].misc_div_val)
 			*val *= meas->parent[index].misc_div_val;
+	} else {
+		pr_err("Failed to set the debug mux's parent.\n");
+		goto exit;
 	}
 
 	meas_rate = clk_get_rate(hw->clk);
 	par = clk_hw_get_parent(measure);
-	if (!par)
-		return -EINVAL;
+	if (!par) {
+		ret = -EINVAL;
+		goto exit1;
+	}
 
 	sw_rate = clk_get_rate(par->clk);
 	if (sw_rate && meas_rate >= (sw_rate * 2))
 		*val *= DIV_ROUND_CLOSEST(meas_rate, sw_rate);
+exit1:
+	disable_debug_clks(meas, index);
+exit:
 	mutex_unlock(&clk_debug_lock);
-
 	return ret;
 }
 
