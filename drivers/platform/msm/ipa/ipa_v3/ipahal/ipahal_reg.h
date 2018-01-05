@@ -199,6 +199,47 @@ struct ipahal_reg_ep_cfg_status {
 };
 
 /*
+ * struct ipahal_reg_clkon_cfg-  Enables SW bypass clock-gating for the IPA core
+ *
+ * @all: Enables SW bypass clock-gating controls for this sub-module;
+ *	0: CGC is enabled by internal logic, 1: No CGC (clk is always 'ON').
+ *	sub-module affected is based on var name -> ex: open_rx refers
+ *	to IPA_RX sub-module and open_global refers to global IPA 1x clock
+ */
+struct ipahal_reg_clkon_cfg {
+	bool open_global_2x_clk;
+	bool open_global;
+	bool open_gsi_if;
+	bool open_weight_arb;
+	bool open_qmb;
+	bool open_ram_slaveway;
+	bool open_aggr_wrapper;
+	bool open_qsb2axi_cmdq_l;
+	bool open_fnr;
+	bool open_tx_1;
+	bool open_tx_0;
+	bool open_ntf_tx_cmdqs;
+	bool open_dcmp;
+	bool open_h_dcph;
+	bool open_d_dcph;
+	bool open_ack_mngr;
+	bool open_ctx_handler;
+	bool open_rsrc_mngr;
+	bool open_dps_tx_cmdqs;
+	bool open_hps_dps_cmdqs;
+	bool open_rx_hps_cmdqs;
+	bool open_dps;
+	bool open_hps;
+	bool open_ftch_dps;
+	bool open_ftch_hps;
+	bool open_ram_arb;
+	bool open_misc;
+	bool open_tx_wrapper;
+	bool open_proc;
+	bool open_rx;
+};
+
+/*
  * struct ipa_hash_tuple - Hash tuple members for flt and rt
  *  the fields tells if to be masked or not
  * @src_id: pipe number for flt, table index for rt

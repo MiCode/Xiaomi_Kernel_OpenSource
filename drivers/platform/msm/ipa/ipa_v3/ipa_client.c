@@ -391,6 +391,8 @@ int ipa3_reset_gsi_channel(u32 clnt_hdl)
 	int result = -EFAULT;
 	enum gsi_status gsi_res;
 	int aggr_active_bitmap = 0;
+	bool undo_aggr_value = false;
+	struct ipahal_reg_clkon_cfg fields;
 
 	IPADBG("entry\n");
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
@@ -403,6 +405,25 @@ int ipa3_reset_gsi_channel(u32 clnt_hdl)
 
 	if (!ep->keep_ipa_awake)
 		IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
+
+	/*
+	 * IPAv4.0 HW has a limitation where WSEQ in MBIM NTH header is not
+	 * reset to 0 when MBIM pipe is reset. Workaround is to disable
+	 * HW clock gating for AGGR block using IPA_CLKON_CFG reg. undo flag to
+	 * disable the bit after reset is finished
+	 */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+		if (ep->cfg.aggr.aggr == IPA_MBIM_16 &&
+			ep->cfg.aggr.aggr_en != IPA_BYPASS_AGGR) {
+			ipahal_read_reg_fields(IPA_CLKON_CFG, &fields);
+			if (fields.open_aggr_wrapper == true) {
+				undo_aggr_value = true;
+				fields.open_aggr_wrapper = false;
+				ipahal_write_reg_fields(IPA_CLKON_CFG, &fields);
+			}
+		}
+	}
+
 	/*
 	 * Check for open aggregation frame on Consumer EP -
 	 * reset with open aggregation frame WA
@@ -434,10 +455,22 @@ finish_reset:
 	if (!ep->keep_ipa_awake)
 		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
+	/* undo the aggr value if flag was set above*/
+	if (undo_aggr_value) {
+		fields.open_aggr_wrapper = false;
+		ipahal_write_reg_fields(IPA_CLKON_CFG, &fields);
+	}
+
 	IPADBG("exit\n");
 	return 0;
 
 reset_chan_fail:
+	/* undo the aggr value if flag was set above*/
+	if (undo_aggr_value) {
+		fields.open_aggr_wrapper = false;
+		ipahal_write_reg_fields(IPA_CLKON_CFG, &fields);
+	}
+
 	if (!ep->keep_ipa_awake)
 		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	return result;
