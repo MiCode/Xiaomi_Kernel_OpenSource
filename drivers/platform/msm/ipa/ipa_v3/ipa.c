@@ -3484,7 +3484,7 @@ static unsigned int ipa3_get_bus_vote(void)
 	} else {
 		WARN(1, "unexpected clock rate");
 	}
-	IPADBG("curr %d idx %d\n", ipa3_ctx->curr_ipa_clk_rate, idx);
+	IPADBG_LOW("curr %d idx %d\n", ipa3_ctx->curr_ipa_clk_rate, idx);
 
 	return idx;
 }
