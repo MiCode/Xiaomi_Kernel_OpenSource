@@ -15,11 +15,6 @@
 
 #include <linux/key.h>
 #include <linux/fs.h>
-#include <linux/mm.h>
-#include <linux/bio.h>
-#include <linux/dcache.h>
-#include <crypto/skcipher.h>
-#include <uapi/linux/fs.h>
 
 #define FS_CRYPTO_BLOCK_SIZE		16
 
