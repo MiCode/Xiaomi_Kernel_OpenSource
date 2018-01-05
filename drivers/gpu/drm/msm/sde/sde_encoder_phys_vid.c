@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -299,6 +299,8 @@ static void programmable_rot_fetch_config(struct sde_encoder_phys *phys_enc,
 		rot_fetch_start_vsync_counter);
 
 	if (!phys_enc->sde_kms->splash_data.cont_splash_en) {
+		SDE_EVT32(DRMID(phys_enc->parent), f.enable, f.fetch_start);
+
 		phys_enc->hw_ctl->ops.get_bitmask_intf(
 				phys_enc->hw_ctl, &flush_mask,
 				vid_enc->hw_intf->idx);
@@ -308,10 +310,10 @@ static void programmable_rot_fetch_config(struct sde_encoder_phys *phys_enc,
 		spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
 		vid_enc->hw_intf->ops.setup_rot_start(vid_enc->hw_intf, &f);
 		spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
-	}
 
-	vid_enc->rot_fetch = f;
-	vid_enc->rot_fetch_valid = true;
+		vid_enc->rot_fetch = f;
+		vid_enc->rot_fetch_valid = true;
+	}
 }
 
 static bool sde_encoder_phys_vid_mode_fixup(
