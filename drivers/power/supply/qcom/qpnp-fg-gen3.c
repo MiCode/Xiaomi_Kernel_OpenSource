@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2905,14 +2905,6 @@ static void profile_load_work(struct work_struct *work)
 		goto out;
 	}
 
-	rc = __fg_restart(chip);
-	if (rc < 0) {
-		pr_err("Error in restarting FG, rc=%d\n", rc);
-		goto out;
-	}
-
-	fg_dbg(chip, FG_STATUS, "SOC is ready\n");
-
 	/* Set the profile integrity bit */
 	val = HLOS_RESTART_BIT | PROFILE_LOAD_BIT;
 	rc = fg_sram_write(chip, PROFILE_INTEGRITY_WORD,
@@ -2922,6 +2914,13 @@ static void profile_load_work(struct work_struct *work)
 		goto out;
 	}
 
+	rc = __fg_restart(chip);
+	if (rc < 0) {
+		pr_err("Error in restarting FG, rc=%d\n", rc);
+		goto out;
+	}
+
+	fg_dbg(chip, FG_STATUS, "SOC is ready\n");
 done:
 	rc = fg_bp_params_config(chip);
 	if (rc < 0)
