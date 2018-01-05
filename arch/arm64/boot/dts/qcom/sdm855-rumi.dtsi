@@ -57,33 +57,6 @@
 			     <0 425 0 /* CE11 */ >;
 		qcom,wlan-msa-memory = <0x100000>;
 	};
-
-	spmi_bus: spmi-sim {
-		compatible = "qcom,spmi-sim";
-		reg = <0x00000 0x60000>;
-		#address-cells = <2>;
-		#size-cells = <0>;
-		interrupt-controller;
-		#interrupt-cells = <4>;
-	};
-
-	pm855-sim {
-		compatible = "qcom,pm855-sim";
-		qcom,spmi-sim = <&spmi_bus>;
-		qcom,sid-offset = <0>;
-	};
-
-	pm855b-sim {
-		compatible = "qcom,pm855b-sim";
-		qcom,spmi-sim = <&spmi_bus>;
-		qcom,sid-offset = <2>;
-	};
-
-	pm855l-sim {
-		compatible = "qcom,pm855l-sim";
-		qcom,spmi-sim = <&spmi_bus>;
-		qcom,sid-offset = <4>;
-	};
 };
 
 #include "sdm855-pmic-overlay.dtsi"
