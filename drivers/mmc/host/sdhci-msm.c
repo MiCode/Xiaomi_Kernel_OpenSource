@@ -2,7 +2,7 @@
  * drivers/mmc/host/sdhci-msm.c - Qualcomm MSM SDHCI Platform
  * driver source file
  *
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4157,8 +4157,6 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 			goto vreg_deinit;
 		}
 		writel_relaxed(readl_relaxed(tlmm_mem) | 0x2, tlmm_mem);
-		dev_dbg(&pdev->dev, "tlmm reg %pa value 0x%08x\n",
-				&tlmm_memres->start, readl_relaxed(tlmm_mem));
 	}
 
 	/*
