@@ -161,10 +161,13 @@ struct sock *xt_socket_lookup_slow_v4(struct net *net,
 #endif
 
 	if (iph->protocol == IPPROTO_UDP || iph->protocol == IPPROTO_TCP) {
-		struct udphdr _hdr, *hp;
+		struct udphdr *hp;
+		struct tcphdr _hdr;
 
 		hp = skb_header_pointer(skb, ip_hdrlen(skb),
-					sizeof(_hdr), &_hdr);
+					iph->protocol == IPPROTO_UDP ?
+					sizeof(*hp) : sizeof(_hdr),
+					&_hdr);
 		if (hp == NULL)
 			return NULL;
 
@@ -370,9 +373,11 @@ struct sock *xt_socket_lookup_slow_v6(struct net *net,
 	}
 
 	if (tproto == IPPROTO_UDP || tproto == IPPROTO_TCP) {
-		struct udphdr _hdr, *hp;
+		struct udphdr *hp;
+		struct tcphdr _hdr;
 
-		hp = skb_header_pointer(skb, thoff, sizeof(_hdr), &_hdr);
+		hp = skb_header_pointer(skb, thoff, tproto == IPPROTO_UDP ?
+					sizeof(*hp) : sizeof(_hdr), &_hdr);
 		if (hp == NULL)
 			return NULL;
 
