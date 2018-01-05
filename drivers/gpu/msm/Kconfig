@@ -1,0 +1,26 @@
+config QCOM_KGSL
+	tristate "Qualcomm Technologies, Inc. 3D Graphics driver"
+	default n
+	depends on ARCH_QCOM
+	select GENERIC_ALLOCATOR
+	select FW_LOADER
+	select PM_DEVFREQ
+	select DEVFREQ_GOV_SIMPLE_ONDEMAND
+	select DEVFREQ_GOV_PERFORMANCE
+	select DEVFREQ_GOV_QCOM_ADRENO_TZ
+	select DEVFREQ_GOV_QCOM_GPUBW_MON
+	---help---
+	  3D graphics driver for the Adreno family of GPUs from QTI.
+	  Required to use hardware accelerated OpenGL, compute and Vulkan
+	  on QTI targets. This includes power management, memory management,
+	  and scheduling for the Adreno GPUs.
+
+config QCOM_ADRENO_DEFAULT_GOVERNOR
+	string "devfreq governor for the adreno core"
+	default "msm-adreno-tz" if DEVFREQ_GOV_QCOM_ADRENO_TZ
+	default "simple_ondemand"
+	depends on QCOM_KGSL
+
+config QCOM_KGSL_IOMMU
+	bool
+	default y if QCOM_KGSL && (MSM_IOMMU || ARM_SMMU)
