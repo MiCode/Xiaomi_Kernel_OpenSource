@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2234,8 +2234,6 @@ static int icnss_driver_event_fw_ready_ind(void *data)
 		return -ENODEV;
 
 	set_bit(ICNSS_FW_READY, &penv->state);
-
-	icnss_call_driver_uevent(penv, ICNSS_UEVENT_FW_READY, NULL);
 
 	icnss_pr_info("WLAN FW is ready: 0x%lx\n", penv->state);
 
