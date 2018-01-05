@@ -250,18 +250,4 @@ int cam_irq_controller_disable_irq(void *irq_controller, uint32_t handle);
  */
 int cam_irq_controller_enable_irq(void *irq_controller, uint32_t handle);
 
-/*
- * cam_irq_controller_clear_and_mask()
- *
- * @brief:              This function clears and masks all the irq bits
- *
- * @irq_num:            Number of IRQ line that was set that lead to this
- *                      function being called
- * @priv:               Private data registered with request_irq is passed back
- *                      here. This private data should be the irq_controller
- *                      structure.
- *
- * @return:             IRQ_HANDLED/IRQ_NONE
- */
-irqreturn_t cam_irq_controller_clear_and_mask(int irq_num, void *priv);
 #endif /* _CAM_IRQ_CONTROLLER_H_ */
