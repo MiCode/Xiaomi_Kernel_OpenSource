@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1303,6 +1303,7 @@ static int ipa_mhi_test_q_transfer_re(struct ipa_mem_buffer *mmio,
 	u32 next_wp_ofst;
 	int i;
 	u32 num_of_ed_to_queue;
+	u32 avail_ev;
 
 	IPA_UT_LOG("Entry\n");
 
@@ -1340,6 +1341,8 @@ static int ipa_mhi_test_q_transfer_re(struct ipa_mem_buffer *mmio,
 
 	wp_ofst = (u32)(p_events[event_ring_index].wp -
 		p_events[event_ring_index].rbase);
+	rp_ofst = (u32)(p_events[event_ring_index].rp -
+		p_events[event_ring_index].rbase);
 
 	if (p_events[event_ring_index].rlen & 0xFFFFFFFF00000000) {
 		IPA_UT_LOG("invalid ev rlen %llu\n",
@@ -1347,23 +1350,48 @@ static int ipa_mhi_test_q_transfer_re(struct ipa_mem_buffer *mmio,
 		return -EFAULT;
 	}
 
-	next_wp_ofst = (wp_ofst + num_of_ed_to_queue *
-		sizeof(struct ipa_mhi_event_ring_element)) %
-		(u32)p_events[event_ring_index].rlen;
+	if (wp_ofst > rp_ofst) {
+		avail_ev = (wp_ofst - rp_ofst) /
+			sizeof(struct ipa_mhi_event_ring_element);
+	} else {
+		avail_ev = (u32)p_events[event_ring_index].rlen -
+			(rp_ofst - wp_ofst);
+		avail_ev /= sizeof(struct ipa_mhi_event_ring_element);
+	}
 
-	/* set next WP */
-	p_events[event_ring_index].wp =
-		(u32)p_events[event_ring_index].rbase + next_wp_ofst;
+	IPA_UT_LOG("wp_ofst=0x%x rp_ofst=0x%x rlen=%llu avail_ev=%u\n",
+		wp_ofst, rp_ofst, p_events[event_ring_index].rlen, avail_ev);
 
-	/* write value to event ring doorbell */
-	IPA_UT_LOG("DB to event 0x%llx: base %pa ofst 0x%x\n",
-		p_events[event_ring_index].wp,
-		&(gsi_ctx->per.phys_addr), GSI_EE_n_EV_CH_k_DOORBELL_0_OFFS(
+	if (num_of_ed_to_queue > ((u32)p_events[event_ring_index].rlen /
+		sizeof(struct ipa_mhi_event_ring_element))) {
+		IPA_UT_LOG("event ring too small for %u credits\n",
+			num_of_ed_to_queue);
+		return -EFAULT;
+	}
+
+	if (num_of_ed_to_queue > avail_ev) {
+		IPA_UT_LOG("Need to add event credits (needed=%u)\n",
+			num_of_ed_to_queue - avail_ev);
+
+		next_wp_ofst = (wp_ofst + (num_of_ed_to_queue - avail_ev) *
+			sizeof(struct ipa_mhi_event_ring_element)) %
+			(u32)p_events[event_ring_index].rlen;
+
+		/* set next WP */
+		p_events[event_ring_index].wp =
+			(u32)p_events[event_ring_index].rbase + next_wp_ofst;
+
+		/* write value to event ring doorbell */
+		IPA_UT_LOG("DB to event 0x%llx: base %pa ofst 0x%x\n",
+			p_events[event_ring_index].wp,
+			&(gsi_ctx->per.phys_addr),
+			GSI_EE_n_EV_CH_k_DOORBELL_0_OFFS(
 			event_ring_index + IPA_MHI_GSI_ER_START, 0));
-	iowrite32(p_events[event_ring_index].wp,
-		test_mhi_ctx->gsi_mmio +
-		GSI_EE_n_EV_CH_k_DOORBELL_0_OFFS(
+		iowrite32(p_events[event_ring_index].wp,
+			test_mhi_ctx->gsi_mmio +
+			GSI_EE_n_EV_CH_k_DOORBELL_0_OFFS(
 			event_ring_index + IPA_MHI_GSI_ER_START, 0));
+	}
 
 	for (i = 0; i < buf_array_size; i++) {
 		/* calculate virtual pointer for current WP and RP */
