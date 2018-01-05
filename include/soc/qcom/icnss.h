@@ -23,7 +23,6 @@
 #endif
 
 enum icnss_uevent {
-	ICNSS_UEVENT_FW_READY,
 	ICNSS_UEVENT_FW_CRASHED,
 	ICNSS_UEVENT_FW_DOWN,
 };
