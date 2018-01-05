@@ -21,6 +21,7 @@
 #include <linux/types.h>
 #include <net/mac80211.h>
 #include <linux/ipv6.h>
+#include <net/ipv6.h>
 #include <linux/in.h>
 
 /*
@@ -2887,13 +2888,12 @@ struct wmi_start_scan_common {
 } __packed;
 
 /* ARP-NS offload data structure */
-#define WMI_NSOFF_MAX_TARGET_IPS	2
-#define WMI_MAX_NS_OFFLOADS		2
-#define WMI_MAX_ARP_OFFLOADS		2
-#define WMI_ARPOFF_FLAGS_VALID		BIT(0)
+#define WMI_NS_ARP_OFFLOAD		2
+#define WMI_ARP_NS_OFF_FLAGS_VALID	BIT(0)
 #define WMI_IPV4_ARP_REPLY_OFFLOAD	0
 #define WMI_ARP_NS_OFFLOAD_DISABLE	0
 #define WMI_ARP_NS_OFFLOAD_ENABLE	1
+#define WMI_NSOFF_IPV6_ANYCAST		BIT(3)
 
 struct wmi_ns_offload_info {
 	struct in6_addr src_addr;
@@ -2902,7 +2902,7 @@ struct wmi_ns_offload_info {
 	struct wmi_mac_addr self_macaddr;
 	u8 src_ipv6_addr_valid;
 	struct in6_addr target_addr_valid;
-	struct in6_addr target_addr_ac_type;
+	struct in6_addr target_ipv6_ac;
 	u8 slot_idx;
 } __packed;
 
@@ -2914,13 +2914,13 @@ struct wmi_ns_arp_offload_req {
 		struct in_addr ipv4_addr;
 		struct in6_addr ipv6_addr;
 	} params;
-	struct wmi_ns_offload_info offload_info;
+	struct wmi_ns_offload_info info;
 	struct wmi_mac_addr bssid;
 } __packed;
 
 struct wmi_ns_offload {
 	__le32 flags;
-	struct in6_addr target_ipaddr[WMI_NSOFF_MAX_TARGET_IPS];
+	struct in6_addr target_ipaddr[WMI_NS_ARP_OFFLOAD];
 	struct in6_addr solicitation_ipaddr;
 	struct in6_addr remote_ipaddr;
 	struct wmi_mac_addr target_mac;
