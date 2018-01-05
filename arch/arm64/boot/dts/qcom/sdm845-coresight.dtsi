@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -166,6 +166,15 @@
 			};
 
 			port@1 {
+				reg = <6>;
+				funnel_swao_in_sensor_etm0: endpoint {
+					slave-mode;
+					remote-endpoint=
+						<&sensor_etm0_out_funnel_swao>;
+				};
+			};
+
+			port@2 {
 				reg = <7>;
 				funnel_swao_in_tpda_swao: endpoint {
 					slave-mode;
@@ -2043,6 +2052,20 @@
 				slave-mode;
 				remote-endpoint =
 					<&replicator_swao_out_eud>;
+			};
+		};
+	};
+
+	sensor_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-name = "coresight-sensor-etm0";
+		qcom,inst-id = <8>;
+
+		port {
+			sensor_etm0_out_funnel_swao: endpoint {
+				remote-endpoint =
+					<&funnel_swao_in_sensor_etm0>;
 			};
 		};
 	};
