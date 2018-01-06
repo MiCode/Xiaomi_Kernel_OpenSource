@@ -81,12 +81,18 @@ enum gsi_ep_op {
  * @buf_len: Size of each individual buffer is determined based on aggregation
  *	negotiated as per the protocol. In case of no aggregation supported by
  *	the protocol, we use default values.
+ * @db_reg_phs_addr_lsb: IPA channel doorbell register's physical address LSB
+ * @mapped_db_reg_phs_addr_lsb: doorbell LSB IOVA address mapped with IOMMU
+ * @db_reg_phs_addr_msb: IPA channel doorbell register's physical address MSB
  */
 struct usb_gsi_request {
 	void *buf_base_addr;
 	dma_addr_t dma;
 	size_t num_bufs;
 	size_t buf_len;
+	u32 db_reg_phs_addr_lsb;
+	dma_addr_t mapped_db_reg_phs_addr_lsb;
+	u32 db_reg_phs_addr_msb;
 };
 
 /*
