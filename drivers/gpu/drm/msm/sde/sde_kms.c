@@ -699,6 +699,14 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 		rc = _sde_kms_splash_smmu_unmap(sde_kms);
 		SDE_DEBUG("Disabling cont_splash feature\n");
 		sde_kms->splash_data.cont_splash_en = false;
+
+		for (i = 0; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++)
+			sde_power_data_bus_set_quota(&priv->phandle,
+				sde_kms->core_client,
+				SDE_POWER_HANDLE_DATA_BUS_CLIENT_RT, i,
+				SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA,
+				SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA);
+
 		sde_power_resource_enable(&priv->phandle,
 				sde_kms->core_client, false);
 		SDE_DEBUG("removing Vote for MDP Resources\n");
@@ -916,7 +924,8 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.get_dst_format = dsi_display_get_dst_format,
 		.post_kickoff = dsi_conn_post_kickoff,
 		.check_status = dsi_display_check_status,
-		.enable_event = dsi_conn_enable_event
+		.enable_event = dsi_conn_enable_event,
+		.cmd_transfer = dsi_display_cmd_transfer,
 	};
 	static const struct sde_connector_ops wb_ops = {
 		.post_init =    sde_wb_connector_post_init,
@@ -929,6 +938,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.get_mode_info = sde_wb_get_mode_info,
 		.get_dst_format = NULL,
 		.check_status = NULL,
+		.cmd_transfer = NULL,
 	};
 	static const struct sde_connector_ops dp_ops = {
 		.post_init  = dp_connector_post_init,
@@ -940,6 +950,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.post_open  = dp_connector_post_open,
 		.check_status = NULL,
 		.pre_kickoff  = dp_connector_pre_kickoff,
+		.cmd_transfer = NULL,
 	};
 	struct msm_display_info info;
 	struct drm_encoder *encoder;
@@ -1551,6 +1562,7 @@ static int sde_kms_postinit(struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
 	struct drm_device *dev;
+	struct drm_crtc *crtc;
 	int rc;
 
 	if (!sde_kms || !sde_kms->dev || !sde_kms->dev->dev) {
@@ -1563,6 +1575,9 @@ static int sde_kms_postinit(struct msm_kms *kms)
 	rc = _sde_debugfs_init(sde_kms);
 	if (rc)
 		SDE_ERROR("sde_debugfs init failed: %d\n", rc);
+
+	drm_for_each_crtc(crtc, dev)
+		sde_crtc_post_init(dev, crtc);
 
 	return rc;
 }
@@ -2814,6 +2829,13 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		goto error;
 	}
 
+	for (i = 0; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++)
+		sde_power_data_bus_set_quota(&priv->phandle,
+			sde_kms->core_client,
+			SDE_POWER_HANDLE_DATA_BUS_CLIENT_RT, i,
+			SDE_POWER_HANDLE_CONT_SPLASH_BUS_AB_QUOTA,
+			SDE_POWER_HANDLE_CONT_SPLASH_BUS_IB_QUOTA);
+
 	_sde_kms_core_hw_rev_init(sde_kms);
 
 	pr_info("sde hardware revision:0x%x\n", sde_kms->core_rev);
@@ -2840,12 +2862,20 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 
 	sde_kms->rm_init = true;
 
+	sde_kms->hw_intr = sde_hw_intr_init(sde_kms->mmio, sde_kms->catalog);
+	if (IS_ERR_OR_NULL(sde_kms->hw_intr)) {
+		rc = PTR_ERR(sde_kms->hw_intr);
+		SDE_ERROR("hw_intr init failed: %d\n", rc);
+		sde_kms->hw_intr = NULL;
+		goto hw_intr_init_err;
+	}
+
 	/*
 	 * Attempt continuous splash handoff only if reserved
 	 * splash memory is found.
 	 */
 	if (sde_kms->splash_data.splash_base)
-		sde_rm_cont_splash_res_init(&sde_kms->rm,
+		sde_rm_cont_splash_res_init(priv, &sde_kms->rm,
 					&sde_kms->splash_data,
 					sde_kms->catalog);
 
@@ -2907,14 +2937,6 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	if (rc) {
 		SDE_ERROR("failed to init perf %d\n", rc);
 		goto perf_err;
-	}
-
-	sde_kms->hw_intr = sde_hw_intr_init(sde_kms->mmio, sde_kms->catalog);
-	if (IS_ERR_OR_NULL(sde_kms->hw_intr)) {
-		rc = PTR_ERR(sde_kms->hw_intr);
-		SDE_ERROR("hw_intr init failed: %d\n", rc);
-		sde_kms->hw_intr = NULL;
-		goto hw_intr_init_err;
 	}
 
 	/*

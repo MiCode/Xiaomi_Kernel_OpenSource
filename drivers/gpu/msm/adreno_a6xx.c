@@ -363,6 +363,10 @@ static struct reg_list_pair a6xx_ifpc_pwrup_reglist[] = {
 	{ A6XX_CP_AHB_CNTL, 0x0 },
 };
 
+static struct reg_list_pair a615_ifpc_pwrup_reglist[] = {
+	{ A6XX_UCHE_GBIF_GX_CONFIG, 0x0 },
+};
+
 static void _update_always_on_regs(struct adreno_device *adreno_dev)
 {
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
@@ -584,6 +588,7 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 	uint32_t i;
 	struct cpu_gpu_lock *lock;
 	struct reg_list_pair *r;
+	uint16_t a615_list_size = 0;
 
 	/* Set up the register values */
 	for (i = 0; i < ARRAY_SIZE(a6xx_ifpc_pwrup_reglist); i++) {
@@ -594,6 +599,19 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 	for (i = 0; i < ARRAY_SIZE(a6xx_pwrup_reglist); i++) {
 		r = &a6xx_pwrup_reglist[i];
 		kgsl_regread(KGSL_DEVICE(adreno_dev), r->offset, &r->val);
+	}
+
+	if (adreno_is_a615(adreno_dev)) {
+		for (i = 0; i < ARRAY_SIZE(a615_ifpc_pwrup_reglist); i++) {
+			r = &a615_ifpc_pwrup_reglist[i];
+			kgsl_regread(KGSL_DEVICE(adreno_dev),
+				r->offset, &r->val);
+		}
+
+		a615_list_size = sizeof(a615_ifpc_pwrup_reglist);
+
+		memcpy(adreno_dev->pwrup_reglist.hostptr + sizeof(*lock),
+			a615_ifpc_pwrup_reglist, a615_list_size);
 	}
 
 	lock = (struct cpu_gpu_lock *) adreno_dev->pwrup_reglist.hostptr;
@@ -614,13 +632,15 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 	 * of the static IFPC-only register list.
 	 */
 	lock->list_length = (sizeof(a6xx_ifpc_pwrup_reglist) +
-			sizeof(a6xx_pwrup_reglist)) >> 2;
-	lock->list_offset = sizeof(a6xx_ifpc_pwrup_reglist) >> 2;
+			sizeof(a6xx_pwrup_reglist) + a615_list_size) >> 2;
+	lock->list_offset = (sizeof(a6xx_ifpc_pwrup_reglist) +
+			a615_list_size) >> 2;
 
-	memcpy(adreno_dev->pwrup_reglist.hostptr + sizeof(*lock),
+	memcpy(adreno_dev->pwrup_reglist.hostptr + sizeof(*lock)
+		+ a615_list_size,
 		a6xx_ifpc_pwrup_reglist, sizeof(a6xx_ifpc_pwrup_reglist));
 	memcpy(adreno_dev->pwrup_reglist.hostptr + sizeof(*lock)
-		+ sizeof(a6xx_ifpc_pwrup_reglist),
+		+ sizeof(a6xx_ifpc_pwrup_reglist) + a615_list_size,
 		a6xx_pwrup_reglist, sizeof(a6xx_pwrup_reglist));
 }
 
@@ -749,7 +769,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		kgsl_regrmw(device, A6XX_PC_DBG_ECO_CNTL, 0, (1 << 8));
 
 	/* Enable the GMEM save/restore feature for preemption */
-	if (adreno_is_preemption_setup_enabled(adreno_dev))
+	if (adreno_is_preemption_enabled(adreno_dev))
 		kgsl_regwrite(device, A6XX_RB_CONTEXT_SWITCH_GMEM_SAVE_RESTORE,
 			0x1);
 
@@ -999,7 +1019,7 @@ static int a6xx_post_start(struct adreno_device *adreno_dev)
 	struct adreno_ringbuffer *rb = adreno_dev->cur_rb;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	if (!adreno_is_preemption_execution_enabled(adreno_dev))
+	if (!adreno_is_preemption_enabled(adreno_dev))
 		return 0;
 
 	cmds = adreno_ringbuffer_allocspace(rb, 42);
@@ -2555,7 +2575,7 @@ static void a6xx_cp_callback(struct adreno_device *adreno_dev, int bit)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	if (adreno_is_preemption_execution_enabled(adreno_dev))
+	if (adreno_is_preemption_enabled(adreno_dev))
 		a6xx_preemption_trigger(adreno_dev);
 
 	adreno_dispatcher_schedule(device);
@@ -3626,6 +3646,8 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 			A6XX_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_LO),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_HI,
 			A6XX_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_HI),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_PREEMPT_LEVEL_STATUS,
+			A6XX_CP_CONTEXT_SWITCH_LEVEL_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_STATUS, A6XX_RBBM_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_STATUS3, A6XX_RBBM_STATUS3),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_CTL, A6XX_RBBM_PERFCTR_CNTL),

@@ -210,12 +210,14 @@ int sde_rm_check_property_topctl(uint64_t val);
  * sde_rm_cont_splash_res_init - Read the current MDSS configuration
  *	to update the splash data structure with the topology
  *	configured by the bootloader.
+ * @priv: DRM private structure handle
  * @rm: SDE Resource Manager handle
  * @splash_data: Pointer to the splash_data structure to be updated.
  * @cat: Pointer to the SDE catalog
  * @Return: 0 on success or error
  */
-int sde_rm_cont_splash_res_init(struct sde_rm *rm,
+int sde_rm_cont_splash_res_init(struct msm_drm_private *priv,
+				struct sde_rm *rm,
 				struct sde_splash_data *splash_data,
 				struct sde_mdss_cfg *cat);
 

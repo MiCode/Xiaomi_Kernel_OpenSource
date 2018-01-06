@@ -461,6 +461,8 @@ static void ipa3_active_clients_log_destroy(void)
 
 	spin_lock_irqsave(&ipa3_ctx->ipa3_active_clients_logging.lock, flags);
 	ipa3_ctx->ipa3_active_clients_logging.log_rdy = 0;
+	kfree(active_clients_table_buf);
+	active_clients_table_buf = NULL;
 	kfree(ipa3_ctx->ipa3_active_clients_logging.log_buffer[0]);
 	ipa3_ctx->ipa3_active_clients_logging.log_head = 0;
 	ipa3_ctx->ipa3_active_clients_logging.log_tail =
@@ -4974,7 +4976,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_clk;
 
 	/* init active_clients_log after getting ipa-clk */
-	if (ipa3_active_clients_log_init())
+	result = ipa3_active_clients_log_init();
+	if (result)
 		goto fail_init_active_client;
 
 	/* Enable ipa3_ctx->enable_clock_scaling */

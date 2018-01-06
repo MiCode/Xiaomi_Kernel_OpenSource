@@ -1,0 +1,91 @@
+/*
+ * Copyright (c) 2013-2015, 2017 The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	gdsc_venus: qcom,gdsc@184c018 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_venus";
+		reg = <0x184c018 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_mdss: qcom,gdsc@184d078 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_mdss";
+		reg = <0x184d078 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_jpeg: qcom,gdsc@185701c {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_jpeg";
+		reg = <0x185701c 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_vfe: qcom,gdsc@1858034 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_vfe";
+		reg = <0x1858034 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_vfe1: qcom,gdsc@185806c {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_vfe1";
+		reg = <0x185806c 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_cpp: qcom,gdsc@1858078 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_cpp";
+		reg = <0x1858078 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_oxili_gx: qcom,gdsc@185901c {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_oxili_gx";
+		reg = <0x185901c 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_venus_core0: qcom,gdsc@184c028 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_venus_core0";
+		reg = <0x184c028 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_venus_core1: qcom,gdsc@184c030 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_venus_core1";
+		reg = <0x184c030 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_oxili_cx: qcom,gdsc@185904c {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_oxili_cx";
+		reg = <0x185904c 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_usb30: qcom,gdsc@183f078 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_usb30";
+		reg = <0x183f078 0x4>;
+		status = "disabled";
+	};
+};

@@ -1,0 +1,67 @@
+Qualcomm Technologies MSM Clock controller
+
+Qualcomm Technologies MSM Clock controller devices contain PLLs, root clock
+generators and other clocking hardware blocks that provide stable, low power
+clocking to hardware blocks on Qualcomm Technologies SOCs. The clock controller
+device node lists the power supplies needed to be scaled using the vdd_*-supply
+property.
+
+Minor differences between hardware revisions are handled in code by re-using
+the compatible string to indicate the revision.
+
+Required properties:
+- compatible:           Must be one of following,
+			"qcom,gcc-8953"
+			"qcom,cc-debug-8953"
+			"qcom,gcc-mdss-8953"
+                        "qcom,gcc-gfx-8953"
+                        "qcom,gcc-gfx-sdm450"
+
+- reg:                  Pairs of physical base addresses and region sizes of
+                        memory mapped registers.
+- reg-names:            Names of the bases for the above registers. Currently,
+                        there is one expected base: "cc_base". Optional
+                        reg-names are "apcs_base", "meas", "mmss_base",
+                        "lpass_base", "apcs_c0_base", "apcs_c1_base",
+                        "apcs_cci_base", "efuse".
+
+Optional properties:
+- vdd_dig-supply:       The digital logic rail supply.
+- <pll>_dig-supply:     Some PLLs might have separate digital supply on some
+                        targets. These properties will be provided on those
+                        targets for specific PLLs.
+- <pll>_analog-supply:  Some PLLs might have separate analog supply on some
+                        targets. These properties will be provided on those
+                        targets for specific PLLs.
+- vdd_gpu_mx-supply:    MX rail supply for the GPU core.
+- #clock_cells:         If this device will also be providing controllable
+                        clocks, the clock_cells property needs to be specified.
+                        This will allow the common clock device tree framework
+                        to recognize _this_ device node as a clock provider.
+- qcom,<clk>-corner-<vers>: List of frequency voltage pairs that the clock can
+                            operate at. Drivers can use the OPP library API to
+                            operate on the list of OPPs registered using these
+                            values.
+- qcom,<clk>-speedbinX: A table of frequency (Hz) to voltage (corner) mapping
+                        that represents the max frequency possible for each
+                        supported voltage level for the clock.
+                        'X' is the speed bin into which the device falls into -
+                        a bin will have unique frequency-voltage relationships.
+                        The value 'X' is read from efuse registers, and the right
+                        table is picked from multiple possible tables.
+- qcom,<clock-name>-opp-handle: phandle references to the devices for which OPP
+                        table is filled with the clock frequency and voltage
+                        values.
+- qcom,<clock-name>-opp-store-vcorner: phandle references to the devices for
+                        which OPP table is filled with the clock frequency
+                         and voltage corner/level.
+
+Example:
+        clock_gcc: qcom,gcc@fc400000 {
+                compatible = "qcom,gcc-8974";
+                reg = <0xfc400000 0x4000>;
+                reg-names = "cc_base";
+                vdd_dig-supply = <&pm8841_s2_corner>;
+                #clock-cells = <1>;
+        };
+

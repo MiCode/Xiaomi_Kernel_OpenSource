@@ -1656,7 +1656,9 @@ static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 				}
 			}
 		}
-		if (!param->diag_id) {
+		if (!param->diag_id ||
+			(param->pd_val < UPD_WLAN) ||
+			(param->pd_val > NUM_MD_SESSIONS)) {
 			DIAG_LOG(DIAG_DEBUG_USERSPACE,
 			"diag_id support is not present for the pd mask = %d\n",
 			param->pd_mask);
@@ -1669,19 +1671,19 @@ static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 			param->peripheral, param->pd_val);
 
 		peripheral = param->peripheral;
+		i = param->pd_val - UPD_WLAN;
 		if (driver->md_session_map[peripheral] &&
 			(MD_PERIPHERAL_MASK(peripheral) &
-			diag_mux->mux_mask)) {
+			diag_mux->mux_mask) &&
+			!driver->pd_session_clear[i]) {
 			DIAG_LOG(DIAG_DEBUG_USERSPACE,
 			"diag_fr: User PD is already logging onto active peripheral logging\n");
-			i = param->pd_val - UPD_WLAN;
 			driver->pd_session_clear[i] = 0;
 			return -EINVAL;
 		}
 		peripheral_mask =
 			diag_translate_mask(param->pd_mask);
 		param->peripheral_mask = peripheral_mask;
-		i = param->pd_val - UPD_WLAN;
 		if (!driver->pd_session_clear[i]) {
 			driver->pd_logging_mode[i] = 1;
 			driver->num_pd_session += 1;

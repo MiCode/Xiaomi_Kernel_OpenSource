@@ -92,6 +92,11 @@ enum cp_mem_usage {
 #define ION_FLAG_CP_CAMERA_PREVIEW	ION_BIT(27)
 #define ION_FLAG_CP_SPSS_HLOS_SHARED	ION_BIT(30)
 
+/**
+ * Flag to allow non continguous allocation of memory from secure
+ * heap
+ */
+#define ION_FLAG_ALLOW_NON_CONTIG       ION_BIT(28)
 
 /**
  * Flag to use when allocating to indicate that a heap is secure.

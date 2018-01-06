@@ -192,6 +192,39 @@ static int __cam_node_handle_config_dev(struct cam_node *node,
 	return rc;
 }
 
+static int __cam_node_handle_flush_dev(struct cam_node *node,
+	struct cam_flush_dev_cmd *flush)
+{
+	struct cam_context *ctx = NULL;
+	int rc;
+
+	if (!flush)
+		return -EINVAL;
+
+	if (flush->dev_handle <= 0) {
+		CAM_ERR(CAM_CORE, "Invalid device handle for context");
+		return -EINVAL;
+	}
+
+	if (flush->session_handle <= 0) {
+		CAM_ERR(CAM_CORE, "Invalid session handle for context");
+		return -EINVAL;
+	}
+
+	ctx = (struct cam_context *)cam_get_device_priv(flush->dev_handle);
+	if (!ctx) {
+		CAM_ERR(CAM_CORE, "Can not get context for handle %d",
+			flush->dev_handle);
+		return -EINVAL;
+	}
+
+	rc = cam_context_handle_flush_dev(ctx, flush);
+	if (rc)
+		CAM_ERR(CAM_CORE, "FLush failure for node %s", node->name);
+
+	return rc;
+}
+
 static int __cam_node_handle_release_dev(struct cam_node *node,
 	struct cam_release_dev_cmd *release)
 {
@@ -488,6 +521,20 @@ int cam_node_handle_ioctl(struct cam_node *node, struct cam_control *cmd)
 			if (rc)
 				CAM_ERR(CAM_CORE,
 					"release device failed(rc = %d)", rc);
+		}
+		break;
+	}
+	case CAM_FLUSH_REQ: {
+		struct cam_flush_dev_cmd flush;
+
+		if (copy_from_user(&flush, (void __user *)cmd->handle,
+			sizeof(flush)))
+			rc = -EFAULT;
+		else {
+			rc = __cam_node_handle_flush_dev(node, &flush);
+			if (rc)
+				CAM_ERR(CAM_CORE,
+					"flush device failed(rc = %d)", rc);
 		}
 		break;
 	}

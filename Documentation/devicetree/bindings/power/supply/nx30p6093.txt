@@ -1,0 +1,72 @@
+Binding for NXP NX30P6093 moisture detection module
+
+NX30P6093 is an I2C controlled module and features an input impedance detection
+function, along with OVP protection upto 29V. The impedance detection can detect
+moisture or dust on USB lines and report the same to system to take necessary
+steps to avoid circuit damage to the Type-C port power supply pin.
+
+=======================
+Supported Properties
+=======================
+
+- compatible
+	Usage:      required
+	Value type: <string>
+	Definition: should be "nxp,nx30p6093".
+
+- reg
+	Usage:      required
+	Value type: <u32>
+	Definition: The device 8-bit I2C address.
+
+- interrupts
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Moisture detect interrupt specifier.
+
+- nxp,always-on-detect
+	Usage:      optional
+	Value type: <boolean>
+	Definition: If specified, the NX30P6093 is configured to perform
+		    mositure detection on every detection duty cycle configured
+		    in "nxp,always-on-tduty-val" property.
+
+- nxp,always-on-tduty-ms
+	Usage:      required if "nxp,always-on-detect" specified
+	Value type: <u32>
+	Definition: The detection duty cycle (Tduty) in milliseconds.
+		    Supported values are 10, 20, 50, 100, 200, 500, 1000,
+		    2000, 3000, 6000, 12000, 30000, 60000, 120000 and 300000.
+		    If this property is not specified a default value of
+		    300000 milliseconds is used.
+
+- nxp,long-wakeup-sec
+	Usage:      required if "nxp,always-on-detect" not specified.
+	Value type: <u32>
+	Definition: A longer time interval in seconds maintained between
+		    moisture detection events after a previous moisture
+		    detection event resulted in a good impedance detected
+		    on USB lines. If this property is not specified a default
+		    value of 28800 seconds (8 hrs) is used.
+
+- nxp,short-wakeup-ms
+	Usage:      required if "nxp,always-on-detect" not specified.
+	Value type: <u32>
+	Definition: A shorter time interval in milliseconds maintained
+		    between moisture detection events after a previous
+		    moisture detection event resulted in a bad impedance
+		    detected on USB lines. If this property is not specified
+		    a default value of 180000 milliseconds (3 mins) is used.
+
+=======
+Example
+=======
+
+nx30p6093@0 {
+	compatible = "nxp,nx30p6093";
+	reg = <0x36>;
+	interrupt-parent = <&tlmm>;
+	interrupts = <5 IRQ_TYPE_NONE>;
+	nxp,long-wakeup-sec = <28800>; /* 8 hours */
+	nxp,short-wakeup-ms = <180000>; /* 3 mins */
+};

@@ -179,10 +179,21 @@ static void sde_encoder_phys_cmd_pp_tx_done_irq(void *arg, int irq_idx)
 	SDE_ATRACE_BEGIN("pp_done_irq");
 
 	/* handle rare cases where the ctl_start_irq is not received */
-	if (sde_encoder_phys_cmd_is_master(phys_enc)
-	    && atomic_add_unless(&phys_enc->pending_retire_fence_cnt, -1, 0))
-		phys_enc->parent_ops.handle_frame_done(phys_enc->parent,
-			phys_enc, SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE);
+	if (sde_encoder_phys_cmd_is_master(phys_enc)) {
+		/*
+		 * Reduce the refcount for the retire fence as well
+		 * as for the ctl_start if the counters are greater
+		 * than zero. If there was a retire fence count pending,
+		 * then signal the RETIRE FENCE here.
+		 */
+		if (atomic_add_unless(&phys_enc->pending_retire_fence_cnt,
+				-1, 0))
+			phys_enc->parent_ops.handle_frame_done(
+				phys_enc->parent,
+				phys_enc,
+				SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE);
+		atomic_add_unless(&phys_enc->pending_ctlstart_cnt, -1, 0);
+	}
 
 	/* notify all synchronous clients first, then asynchronous clients */
 	if (phys_enc->parent_ops.handle_frame_done)

@@ -777,6 +777,12 @@ static int fg_direct_mem_request(struct fg_chip *chip, bool request)
 	if (!request)
 		return 0;
 
+	/*
+	 * HW takes 5 cycles (200 KHz clock) to grant access after requesting
+	 * for DMA. Wait for 40 us before polling for MEM_GNT first time.
+	 */
+	usleep_range(40, 41);
+
 	while (i < MEM_GNT_RETRIES) {
 		rc = fg_read(chip, MEM_IF_INT_RT_STS(chip), &val, 1);
 		if (rc < 0) {

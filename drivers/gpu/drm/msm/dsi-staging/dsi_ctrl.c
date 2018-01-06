@@ -2830,6 +2830,27 @@ static void _dsi_ctrl_cache_misr(struct dsi_ctrl *dsi_ctrl)
 		dsi_ctrl->misr_cache);
 
 }
+/**
+ * dsi_ctrl_get_host_engine_init_state() - Return host init state
+ * @dsi_ctrl:          DSI controller handle.
+ * @state:             Controller initialization state
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_get_host_engine_init_state(struct dsi_ctrl *dsi_ctrl,
+		bool *state)
+{
+	if (!dsi_ctrl || !state) {
+		pr_err("Invalid Params\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	*state = dsi_ctrl->current_state.host_initialized;
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
+
+	return 0;
+}
 
 /**
  * dsi_ctrl_update_host_engine_state_for_cont_splash() -

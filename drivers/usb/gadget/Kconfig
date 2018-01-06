@@ -185,6 +185,9 @@ config USB_F_RNDIS
 config USB_F_QCRNDIS
 	tristate
 
+config USB_F_RMNET_BAM
+	tristate
+
 config USB_F_MASS_STORAGE
 	tristate
 
@@ -338,6 +341,12 @@ config USB_CONFIGFS_RNDIS
 	   as the "driver info file".  For versions of MS-Windows older than
 	   XP, you'll need to download drivers from Microsoft's website; a URL
 	   is given in comments found in that info file.
+
+config USB_CONFIGFS_RMNET_BAM
+	bool "RMNET_BAM"
+	depends on USB_CONFIGFS
+	depends on IPA
+	select USB_F_RMNET_BAM
 
 config USB_CONFIGFS_EEM
 	bool "Ethernet Emulation Model (EEM)"

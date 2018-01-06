@@ -34,6 +34,7 @@
  * @read:                  Function pointer for read hardware registers
  * @write:                 Function pointer for Write hardware registers
  * @process_cmd:           Function pointer for additional hardware controls
+ * @flush_cmd:             Function pointer for flush requests
  *
  */
 struct cam_hw_ops {
@@ -59,6 +60,8 @@ struct cam_hw_ops {
 		void *write_args, uint32_t arg_size);
 	int (*process_cmd)(void *hw_priv,
 		uint32_t cmd_type, void *cmd_args, uint32_t arg_size);
+	int (*flush)(void *hw_priv,
+		void *flush_args, uint32_t arg_size);
 };
 
 /**

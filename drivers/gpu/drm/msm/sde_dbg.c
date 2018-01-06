@@ -2364,7 +2364,7 @@ static void _sde_dbg_dump_sde_dbg_bus(struct sde_dbg_sde_debug_bus *bus)
 			offset = DBGBUS_DSPP_STATUS;
 			/* keep DSPP test point enabled */
 			if (head->wr_addr != DBGBUS_DSPP)
-				writel_relaxed(0xF, mem_base + DBGBUS_DSPP);
+				writel_relaxed(0x7001, mem_base + DBGBUS_DSPP);
 		} else {
 			offset = head->wr_addr + 0x4;
 		}
