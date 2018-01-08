@@ -147,7 +147,7 @@ static void enable_psci_bp_hardening(void *data)
 
 }
 
-static void __maybe_unused qcom_link_stack_sanitization(void)
+static void qcom_link_stack_sanitization(void)
 {
 	u64 tmp;
 
@@ -159,6 +159,22 @@ static void __maybe_unused qcom_link_stack_sanitization(void)
 		     : "=&r" (tmp));
 }
 
+static void qcom_bp_hardening(void)
+{
+	qcom_link_stack_sanitization();
+	if (psci_ops.get_version)
+		psci_ops.get_version();
+}
+
+static void enable_qcom_bp_hardening(void *data)
+{
+	const struct arm64_cpu_capabilities *entry = data;
+
+	install_bp_hardening_cb(entry,
+				(bp_hardening_cb_t)qcom_bp_hardening,
+				 __psci_hyp_bp_inval_start,
+				 __psci_hyp_bp_inval_end);
+}
 #endif	/* CONFIG_HARDEN_BRANCH_PREDICTOR */
 
 #define MIDR_RANGE(model, min, max) \
@@ -220,6 +236,12 @@ const struct arm64_cpu_capabilities arm64_errata[] = {
 		.capability = ARM64_HARDEN_BRANCH_PREDICTOR,
 		MIDR_ALL_VERSIONS(MIDR_CORTEX_A57),
 		.enable = enable_psci_bp_hardening,
+	},
+	{
+		.capability = ARM64_HARDEN_BRANCH_PREDICTOR,
+		.midr_model = MIDR_QCOM_KRYO,
+		.matches = is_kryo_midr,
+		.enable = enable_qcom_bp_hardening,
 	},
 #endif
 	{
