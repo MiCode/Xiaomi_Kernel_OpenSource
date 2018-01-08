@@ -94,6 +94,9 @@
 #define MISC_RT_STS_REG				(MISC_BASE + 0x10)
 #define HARD_ILIMIT_RT_STS_BIT			BIT(5)
 
+#define BANDGAP_ENABLE_REG			(MISC_BASE + 0x42)
+#define BANDGAP_ENABLE_CMD_BIT			BIT(0)
+
 #define BARK_BITE_WDOG_PET_REG			(MISC_BASE + 0x43)
 #define BARK_BITE_WDOG_PET_BIT			BIT(0)
 
@@ -149,6 +152,8 @@
 #define IS_USBIN(mode)				\
 	((mode == POWER_SUPPLY_PL_USBIN_USBIN) \
 	 || (mode == POWER_SUPPLY_PL_USBIN_USBIN_EXT))
+
+#define PARALLEL_ENABLE_VOTER			"PARALLEL_ENABLE_VOTER"
 
 struct smb_chg_param {
 	const char	*name;
@@ -224,6 +229,8 @@ struct smb1355 {
 	bool			exit_die_temp;
 	struct delayed_work	die_temp_work;
 	bool			disabled;
+
+	struct votable		*irq_disable_votable;
 };
 
 static bool is_secure(struct smb1355 *chip, int addr)
@@ -662,6 +669,18 @@ static int smb1355_set_parallel_charging(struct smb1355 *chip, bool disable)
 		schedule_delayed_work(&chip->die_temp_work, 0);
 	}
 
+	if (chip->irq_disable_votable)
+		vote(chip->irq_disable_votable, PARALLEL_ENABLE_VOTER,
+				disable, 0);
+
+	rc = smb1355_masked_write(chip, BANDGAP_ENABLE_REG,
+				BANDGAP_ENABLE_CMD_BIT,
+				disable ? 0 : BANDGAP_ENABLE_CMD_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't configure bandgap enable rc=%d\n", rc);
+		return rc;
+	}
+
 	chip->disabled = disable;
 
 	return 0;
@@ -1084,6 +1103,7 @@ static int smb1355_request_interrupt(struct smb1355 *chip,
 		return rc;
 	}
 
+	smb1355_irqs[irq_index].irq = irq;
 	if (smb1355_irqs[irq_index].wake)
 		enable_irq_wake(irq);
 
@@ -1111,6 +1131,23 @@ static int smb1355_request_interrupts(struct smb1355 *chip)
 	}
 
 	return rc;
+}
+static int smb1355_irq_disable_callback(struct votable *votable, void *data,
+			int disable, const char *client)
+
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(smb1355_irqs); i++) {
+		if (smb1355_irqs[i].irq) {
+			if (disable)
+				disable_irq(smb1355_irqs[i].irq);
+			else
+				enable_irq(smb1355_irqs[i].irq);
+		}
+	}
+
+	return 0;
 }
 
 /*********
@@ -1184,6 +1221,13 @@ static int smb1355_probe(struct platform_device *pdev)
 	rc = smb1355_request_interrupts(chip);
 	if (rc < 0) {
 		pr_err("Couldn't request interrupts rc=%d\n", rc);
+		goto cleanup;
+	}
+
+	chip->irq_disable_votable = create_votable("SMB1355_IRQ_DISABLE",
+			VOTE_SET_ANY, smb1355_irq_disable_callback, chip);
+	if (IS_ERR(chip->irq_disable_votable)) {
+		rc = PTR_ERR(chip->irq_disable_votable);
 		goto cleanup;
 	}
 
