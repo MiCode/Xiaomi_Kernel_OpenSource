@@ -55,6 +55,9 @@ Optional properties
 			key voltage rails, in degC.
 - qcom,vdd-restriction-temp-hysteresis: When temperature is above this threshold
 			will disable vdd restriction on key rails, in degC.
+- qcom,vdd-restriction-sensor-id: sensor id, which needs to be monitored for vdd restriction.
+			If this optional property is defined, msm_thermal will monitor only this
+			sensor, otherwise by default it will monitor all TSENS for this feature.
 - qcom,pmic-sw-mode-temp: Threshold temperature to disable auto mode on the
 			rail, in degC. If this property exists,
 			qcom,pmic-sw-mode-temp-hysteresis and
@@ -273,6 +276,7 @@ Example:
 		qcom,pmic-sw-mode-regs = "vdd-dig";
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
+		qcom,vdd-restriction-sensor-id = <0>;
 		vdd-dig-supply=<&pm8841_s2_floor_corner>
 		qcom,mx-restriction-temp = <5>;
 		qcom,mx-restriction-temp-hysteresis = <10>;
