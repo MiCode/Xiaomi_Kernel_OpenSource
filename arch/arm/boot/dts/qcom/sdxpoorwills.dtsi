@@ -698,6 +698,20 @@
 			"tx-ch3-intr", "tx-ch4-intr",
 			"rx-ch0-intr", "rx-ch1-intr",
 			"rx-ch2-intr", "rx-ch3-intr";
+		qcom,msm-bus,name = "emac";
+		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			<98 512 1250 0>, <1 781 0 40000>,  /* 10Mbps vote */
+			<98 512 12500 0>, <1 781 0 40000>,  /* 100Mbps vote */
+			<98 512 125000 0>, <1 781 0 40000>; /* 1000Mbps vote */
+		qcom,bus-vector-names = "10", "100", "1000";
+		clocks = <&clock_gcc GCC_ETH_AXI_CLK>,
+			<&clock_gcc GCC_ETH_PTP_CLK>,
+			<&clock_gcc GCC_ETH_RGMII_CLK>,
+			<&clock_gcc GCC_ETH_SLAVE_AHB_CLK>;
+		clock-names = "eth_axi_clk", "eth_ptp_clk",
+			"eth_rgmii_clk", "eth_slave_ahb_clk";
 		io-macro-info {
 			io-macro-bypass-mode = <0>;
 			io-interface = "rgmii";
