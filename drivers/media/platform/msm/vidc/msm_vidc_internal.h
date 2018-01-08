@@ -457,6 +457,7 @@ struct msm_vidc_buffer {
 void msm_comm_handle_thermal_event(void);
 void *msm_smem_new_client(enum smem_type mtype,
 		void *platform_resources, enum session_type stype);
+void msm_smem_set_tme_encode_mode(struct smem_client *client, bool enable);
 int msm_smem_alloc(struct smem_client *client,
 		size_t size, u32 align, u32 flags, enum hal_buffer buffer_type,
 		int map_kernel, struct msm_smem *smem);
