@@ -954,7 +954,9 @@ __ni_sys_trace:
 	tramp_map_kernel	x30
 #ifdef CONFIG_RANDOMIZE_BASE
 	adr	x30, tramp_vectors + PAGE_SIZE
-alternative_insn isb, nop, ARM64_WORKAROUND_QCOM_FALKOR_E1003
+#ifndef CONFIG_ARCH_MSM8996
+	isb
+#endif
 	ldr	x30, [x30]
 #else
 	ldr	x30, =vectors
