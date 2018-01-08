@@ -134,6 +134,8 @@
 			#size-cells = <0>;
 			compatible = "qcom,gpu-coresight";
 
+			status = "disabled";
+
 			qcom,gpu-coresight@0 {
 				reg = <0>;
 				coresight-name = "coresight-gfx";

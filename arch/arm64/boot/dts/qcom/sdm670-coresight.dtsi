@@ -562,6 +562,8 @@
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
 
+		status = "disabled";
+
 		ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
