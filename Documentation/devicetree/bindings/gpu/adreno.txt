@@ -191,6 +191,9 @@ GPU Quirks:
 - qcom,gpu-quirk-hfi-use-reg:
 				Use registers to replace DCVS HFI message to avoid GMU failure
 				to access system memory during IFPC
+- qcom,gpu-quirk-limit-uche-gbif-rw:
+				Limit number of read and write transactions from UCHE block to
+				GBIF to avoid possible deadlock between GBIF, SMMU and MEMNOC.
 
 KGSL Memory Pools:
 - qcom,gpu-mempools:		Container for sets of GPU mempools.Multiple sets
