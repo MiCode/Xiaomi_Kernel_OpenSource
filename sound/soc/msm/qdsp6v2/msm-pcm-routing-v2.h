@@ -416,6 +416,12 @@ enum {
 #define BE_DAI_PORT_SESSIONS_IDX_MAX		4
 #define BE_DAI_FE_SESSIONS_IDX_MAX		2
 
+enum {
+	ADM_TOPOLOGY_CAL_TYPE_IDX = 0,
+	ADM_LSM_TOPOLOGY_CAL_TYPE_IDX,
+	MAX_ROUTING_CAL_TYPES
+};
+
 struct msm_pcm_routing_evt {
 	void (*event_func)(enum msm_pcm_routing_event, void *);
 	void *priv_data;
