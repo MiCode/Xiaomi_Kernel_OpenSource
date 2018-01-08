@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -113,8 +114,8 @@
 		dai_mi2s5: qcom,msm-dai-q6-mi2s-quin {
 			compatible = "qcom,msm-dai-q6-mi2s";
 			qcom,msm-dai-q6-mi2s-dev-id = <5>;
-			qcom,msm-mi2s-rx-lines = <1>;
-			qcom,msm-mi2s-tx-lines = <2>;
+			qcom,msm-mi2s-rx-lines = <0xc>;
+			qcom,msm-mi2s-tx-lines = <3>;
 		};
 
 		dai_mi2s6: qcom,msm-dai-q6-mi2s-senary {
@@ -313,7 +314,7 @@
 			    "csr_gp_io_lpaif_pri_pcm_pri_mode_muxsel",
 			    "csr_gp_io_mux_quin_ctl";
 
-		qcom,msm-ext-pa = "primary";
+		qcom,msm-ext-pa = "quinary";
 		qcom,msm-mclk-freq = <9600000>;
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
@@ -328,15 +329,11 @@
 			"MIC BIAS External", "Secondary Mic",
 			"AMIC1", "MIC BIAS External",
 			"AMIC2", "MIC BIAS External2",
-			"AMIC3", "MIC BIAS External",
-			"WSA_SPK OUT", "VDD_WSA_SWITCH",
-			"SpkrMono WSA_IN", "WSA_SPK OUT";
+			"AMIC3", "MIC BIAS External";
 
-		qcom,hdmi-dba-codec-rx;
 
 		qcom,msm-gpios =
 			"pri_i2s",
-			"us_eu_gpio",
 			"quin_i2s";
 		qcom,pinctrl-names =
 			"all_off",

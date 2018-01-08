@@ -641,6 +641,21 @@ config SND_SOC_WSA881X
 	select REGMAP_SWR
 	select SND_SOC_WSA881X_SENSORS
 
+config  SND_SOC_TAS2560_STEREO
+	tristate "Texas Instruments TAS2560 SmartAmp(R)"
+
+config  TAS2560_REGMAP_STEREO
+	depends on SND_SOC_TAS2560_STEREO
+	bool "Use of RegMap API"
+
+config  TAS2560_CODEC_STEREO
+	depends on SND_SOC_TAS2560_STEREO
+	bool "Codec Driver support"
+
+config  TAS2560_MISC_STEREO
+	depends on SND_SOC_TAS2560_STEREO
+	bool "Misc Driver support"
+
 config SND_SOC_WSA881X_ANALOG
         tristate
 	select REGMAP_I2C

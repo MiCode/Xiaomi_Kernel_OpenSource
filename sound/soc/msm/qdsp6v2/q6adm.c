@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +27,7 @@
 #include <sound/msm-dts-eagle.h>
 #include "msm-dts-srs-tm-config.h"
 #include <sound/adsp_err.h>
+#include <sound/smart_amp.h>
 
 #define TIMEOUT_MS 1000
 
@@ -37,6 +39,10 @@
 
 #define ULL_SUPPORTED_BITS_PER_SAMPLE 16
 #define ULL_SUPPORTED_SAMPLE_RATE 48000
+
+#ifdef SMART_AMP
+static struct afe_smartamp_get_calib *calib_resp;
+#endif
 
 /* ENUM for adm_status */
 enum adm_cal_status {
@@ -117,6 +123,38 @@ static struct adm_multi_ch_map multi_ch_maps[2] = {
 static int adm_get_parameters[MAX_COPPS_PER_PORT * ADM_GET_PARAMETER_LENGTH];
 static int adm_module_topo_list[
 	MAX_COPPS_PER_PORT * ADM_GET_TOPO_MODULE_LIST_LENGTH];
+
+#ifdef SMART_AMP
+int32_t smartamp_get_set(uint32_t param_id, int32_t length, uint8_t get_set, u8 *user_data)
+{
+	int32_t  ret = 0;
+	switch (get_set) {
+	case TAS_SET_PARAM:
+		pr_debug("smartAmp: set param");
+		ret = afe_smartamp_set_calib_data(param_id , (struct afe_smartamp_set_params_t *)user_data, length);
+		break;
+	case TAS_GET_PARAM: {
+		if (calib_resp == NULL) {
+			calib_resp = kzalloc(sizeof(struct afe_smartamp_get_calib), GFP_KERNEL);
+			if (calib_resp == NULL) {
+				pr_err("smartAmp : No memory\n");
+				return -ENOMEM;
+			}
+		}
+		pr_debug("smartAmp: get param");
+
+		ret = afe_smartamp_get_calib_data(calib_resp, param_id, AFE_SMARTAMP_MODULE);
+		memcpy(user_data , calib_resp->res_cfg.payload , length);
+		}
+		break;
+	default:
+		goto fail_cmd;
+	}
+
+fail_cmd:
+	return ret;
+}
+#endif
 
 int adm_validate_and_get_port_index(int port_id)
 {

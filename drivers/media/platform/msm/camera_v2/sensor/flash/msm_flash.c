@@ -1,4 +1,5 @@
 /* Copyright (c) 2009-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +27,8 @@ DEFINE_MSM_MUTEX(msm_flash_mutex);
 
 static struct v4l2_file_operations msm_flash_v4l2_subdev_fops;
 static struct led_trigger *torch_trigger;
+static struct msm_flash_ctrl_t *g_fctrl;
+static unsigned char g_flashlight_brightness;
 
 static const struct of_device_id msm_flash_dt_match[] = {
 	{.compatible = "qcom,camera-flash", .data = NULL},
@@ -82,6 +85,78 @@ static struct led_classdev msm_torch_led[MAX_LED_TRIGGERS] = {
 		.brightness	= LED_OFF,
 	},
 };
+
+static void msm_pmic_flashlight_brightness_set(struct led_classdev *led_cdev,
+		enum led_brightness value)
+{
+	uint32_t curr[2];
+	uint32_t max_current = 0;
+	int32_t i = 0;
+	struct msm_flash_ctrl_t *flash_ctrl = g_fctrl;
+
+	for (i = 0; i < flash_ctrl->torch_num_sources; i++) {
+		max_current += flash_ctrl->torch_max_current[i];
+	}
+
+	/* Dual color flashlight interface range is 128 */
+
+	curr[0] = max_current * value / 128;
+	curr[1] = max_current - curr[0];
+
+	g_flashlight_brightness = value;
+
+	if (value == 0) {
+		/* Turn off flash triggers */
+		for (i = 0; i < flash_ctrl->torch_num_sources; i++)
+			if (flash_ctrl->torch_trigger[i])
+				led_trigger_event(flash_ctrl->torch_trigger[i], 0);
+
+		if (flash_ctrl->switch_trigger)
+			led_trigger_event(flash_ctrl->switch_trigger, 0);
+
+	} else {
+		/* Turn on flash triggers */
+		for (i = 0; i < flash_ctrl->torch_num_sources; i++)
+				led_trigger_event(flash_ctrl->torch_trigger[i], curr[i]);
+
+		if (flash_ctrl->switch_trigger)
+			led_trigger_event(flash_ctrl->switch_trigger, 1);
+
+	}
+}
+
+static enum led_brightness msm_flashlight_brightness_get(struct led_classdev *led_cdev)
+{
+	return g_flashlight_brightness;
+}
+
+static struct led_classdev msm_pmic_flashlight_led = {
+       .name           = "flashlight",
+       .brightness_set = msm_pmic_flashlight_brightness_set,
+       .brightness_get = msm_flashlight_brightness_get,
+       .brightness     = LED_OFF,
+};
+int32_t msm_flashlight_create_classdev(struct platform_device *pdev,
+		void *data)
+{
+	int32_t i, rc = 0;
+	struct msm_flash_ctrl_t *fctrl =
+		(struct msm_flash_ctrl_t *)data;
+
+	if (!fctrl) {
+		pr_err("Invalid fctrl\n");
+		return -EINVAL;
+	}
+
+	g_fctrl = fctrl;
+
+	rc = led_classdev_register(&pdev->dev, &msm_pmic_flashlight_led);
+	if (rc) {
+		pr_err("Failed to register %d led dev. rc = %d\n", i, rc);
+		return rc;
+	}
+	return 0;
+}
 
 static int32_t msm_torch_create_classdev(struct platform_device *pdev,
 				void *data)
@@ -360,6 +435,7 @@ static int32_t msm_flash_i2c_release(
 		pr_err("%s:%d failed: %pK %pK\n",
 			__func__, __LINE__, &flash_ctrl->power_info,
 			&flash_ctrl->flash_i2c_client);
+		flash_ctrl->flash_state = MSM_CAMERA_FLASH_RELEASE;
 		return -EINVAL;
 	}
 
@@ -371,6 +447,7 @@ static int32_t msm_flash_i2c_release(
 			__func__, __LINE__);
 		return -EINVAL;
 	}
+	flash_ctrl->flash_state = MSM_CAMERA_FLASH_RELEASE;
 	return 0;
 }
 
@@ -501,6 +578,64 @@ static int32_t msm_flash_init(
 	return 0;
 }
 
+static int32_t msm_flash_init_prepare(
+	struct msm_flash_ctrl_t *flash_ctrl,
+	struct msm_flash_cfg_data_t *flash_data)
+{
+#ifdef CONFIG_COMPAT
+	struct msm_flash_cfg_data_t flash_data_k;
+	struct msm_flash_init_info_t flash_init_info;
+	int32_t i = 0;
+	if (!is_compat_task()) {
+		/*for 64-bit usecase,it need copy the data to local memory*/
+		flash_data_k.cfg_type = flash_data->cfg_type;
+		for (i = 0; i < MAX_LED_TRIGGERS; i++) {
+			flash_data_k.flash_current[i] =
+				flash_data->flash_current[i];
+			flash_data_k.flash_duration[i] =
+				flash_data->flash_duration[i];
+		}
+
+		flash_data_k.cfg.flash_init_info = &flash_init_info;
+		if (copy_from_user(&flash_init_info,
+			(void *)(flash_data->cfg.flash_init_info),
+			sizeof(struct msm_flash_init_info_t))) {
+			pr_err("%s copy_from_user failed %d\n",
+				__func__, __LINE__);
+			return -EFAULT;
+		}
+		return msm_flash_init(flash_ctrl, &flash_data_k);
+	}
+	/*
+	 * for 32-bit usecase,it already copy the userspace
+	 * data to local memory in msm_flash_subdev_do_ioctl()
+	 * so here do not need copy from user
+	 */
+	return msm_flash_init(flash_ctrl, flash_data);
+#else
+	struct msm_flash_cfg_data_t flash_data_k;
+	struct msm_flash_init_info_t flash_init_info;
+	int32_t i = 0;
+	flash_data_k.cfg_type = flash_data->cfg_type;
+	for (i = 0; i < MAX_LED_TRIGGERS; i++) {
+		flash_data_k.flash_current[i] =
+			flash_data->flash_current[i];
+		flash_data_k.flash_duration[i] =
+			flash_data->flash_duration[i];
+	}
+
+	flash_data_k.cfg.flash_init_info = &flash_init_info;
+	if (copy_from_user(&flash_init_info,
+			(void *)(flash_data->cfg.flash_init_info),
+			sizeof(struct msm_flash_init_info_t))) {
+			pr_err("%s copy_from_user failed %d\n",
+				__func__, __LINE__);
+			return -EFAULT;
+		}
+	return msm_flash_init(flash_ctrl, &flash_data_k);
+#endif
+}
+
 static int32_t msm_flash_low(
 	struct msm_flash_ctrl_t *flash_ctrl,
 	struct msm_flash_cfg_data_t *flash_data)
@@ -607,7 +742,8 @@ static int32_t msm_flash_config(struct msm_flash_ctrl_t *flash_ctrl,
 
 	switch (flash_data->cfg_type) {
 	case CFG_FLASH_INIT:
-		rc = msm_flash_init(flash_ctrl, flash_data);
+		rc = msm_flash_init_prepare(flash_ctrl, flash_data);
+		g_flashlight_brightness = 0;
 		break;
 	case CFG_FLASH_RELEASE:
 		if (flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT)
@@ -615,19 +751,25 @@ static int32_t msm_flash_config(struct msm_flash_ctrl_t *flash_ctrl,
 				flash_ctrl);
 		break;
 	case CFG_FLASH_OFF:
-		if (flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT)
+		if (flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT) {
 			rc = flash_ctrl->func_tbl->camera_flash_off(
 				flash_ctrl, flash_data);
+			g_flashlight_brightness = 0;
+		}
 		break;
 	case CFG_FLASH_LOW:
-		if (flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT)
+		if (flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT) {
 			rc = flash_ctrl->func_tbl->camera_flash_low(
 				flash_ctrl, flash_data);
+			g_flashlight_brightness = 100;
+		}
 		break;
 	case CFG_FLASH_HIGH:
-		if (flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT)
+		if (flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT) {
 			rc = flash_ctrl->func_tbl->camera_flash_high(
 				flash_ctrl, flash_data);
+			g_flashlight_brightness = 100;
+		}
 		break;
 	default:
 		rc = -EFAULT;
@@ -1095,6 +1237,7 @@ static int32_t msm_flash_platform_probe(struct platform_device *pdev)
 	if (flash_ctrl->flash_driver_type == FLASH_DRIVER_PMIC)
 		rc = msm_torch_create_classdev(pdev, flash_ctrl);
 
+	msm_flashlight_create_classdev(pdev, flash_ctrl);
 	CDBG("probe success\n");
 	return rc;
 }
@@ -1114,6 +1257,8 @@ static int __init msm_flash_init_module(void)
 {
 	int32_t rc = 0;
 	CDBG("Enter\n");
+	g_fctrl = NULL;
+	g_flashlight_brightness = 0;
 	rc = platform_driver_register(&msm_flash_platform_driver);
 	if (rc)
 		pr_err("platform probe for flash failed");

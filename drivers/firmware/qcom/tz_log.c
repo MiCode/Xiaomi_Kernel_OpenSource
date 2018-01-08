@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,8 +28,8 @@
 #include <soc/qcom/scm.h>
 #include <soc/qcom/qseecomi.h>
 
-/* QSEE_LOG_BUF_SIZE = 32K */
-#define QSEE_LOG_BUF_SIZE 0x8000
+/* QSEE_LOG_BUF_SIZE = 64K */
+#define QSEE_LOG_BUF_SIZE 0x10000
 
 
 /* TZ Diagnostic Area legacy version number */
@@ -672,7 +673,12 @@ static int _disp_hyp_log_stats(size_t count)
 {
 	static struct hypdbg_log_pos_t log_start = {0};
 	uint8_t *log_ptr;
+	char err_str[] = "HYP log not enable!";
 
+	if (!tzdbg.is_hyplog_enabled) {
+		tzdbg.stat[TZDBG_HYP_LOG].data = (char *)tzdbg.disp_buf;
+		return snprintf((unsigned char *)tzdbg.disp_buf, strlen(err_str)+1, "%s\n", err_str);
+	}
 	log_ptr = (uint8_t *)((unsigned char *)tzdbg.hyp_diag_buf +
 				tzdbg.hyp_diag_buf->ring_off);
 
@@ -694,32 +700,36 @@ static int _disp_hyp_general_stats(size_t count)
 	int len = 0;
 	int i;
 	struct hypdbg_boot_info_t *ptr = NULL;
+	char err_str[] = "HYP log not enable!";
 
-	len += snprintf((unsigned char *)tzdbg.disp_buf + len,
-			tzdbg.hyp_debug_rw_buf_size - 1,
-			"   Magic Number    : 0x%x\n"
-			"   CPU Count       : 0x%x\n"
-			"   S2 Fault Counter: 0x%x\n",
-			tzdbg.hyp_diag_buf->magic_num,
-			tzdbg.hyp_diag_buf->cpu_count,
-			tzdbg.hyp_diag_buf->s2_fault_counter);
-
-	ptr = tzdbg.hyp_diag_buf->boot_info;
-	for (i = 0; i < tzdbg.hyp_diag_buf->cpu_count; i++) {
+	if (tzdbg.is_hyplog_enabled) {
 		len += snprintf((unsigned char *)tzdbg.disp_buf + len,
-				(tzdbg.hyp_debug_rw_buf_size - 1) - len,
-				"  CPU #: %d\n"
-				"     Warmboot entry CPU counter: 0x%x\n"
-				"     Warmboot exit CPU counter : 0x%x\n",
-				i, ptr->warm_entry_cnt, ptr->warm_exit_cnt);
+				tzdbg.hyp_debug_rw_buf_size - 1,
+				"   Magic Number    : 0x%x\n"
+				"   CPU Count       : 0x%x\n"
+				"   S2 Fault Counter: 0x%x\n",
+				tzdbg.hyp_diag_buf->magic_num,
+				tzdbg.hyp_diag_buf->cpu_count,
+				tzdbg.hyp_diag_buf->s2_fault_counter);
 
-		if (len > (tzdbg.hyp_debug_rw_buf_size - 1)) {
-			pr_warn("%s: Cannot fit all info into the buffer\n",
-								__func__);
-			break;
+		ptr = tzdbg.hyp_diag_buf->boot_info;
+		for (i = 0; i < tzdbg.hyp_diag_buf->cpu_count; i++) {
+			len += snprintf((unsigned char *)tzdbg.disp_buf + len,
+					(tzdbg.hyp_debug_rw_buf_size - 1) - len,
+					"  CPU #: %d\n"
+					"     Warmboot entry CPU counter: 0x%x\n"
+					"     Warmboot exit CPU counter : 0x%x\n",
+					i, ptr->warm_entry_cnt, ptr->warm_exit_cnt);
+
+			if (len > (tzdbg.hyp_debug_rw_buf_size - 1)) {
+				pr_warn("%s: Cannot fit all info into the buffer\n",
+									__func__);
+				break;
+			}
+			ptr++;
 		}
-		ptr++;
-	}
+	} else
+		len += snprintf((unsigned char *)tzdbg.disp_buf, strlen(err_str)+1, "%s\n", err_str);
 
 	tzdbg.stat[TZDBG_HYP_GENERAL].data = (char *)tzdbg.disp_buf;
 	return len;
@@ -769,7 +779,7 @@ static ssize_t tzdbgfs_read(struct file *file, char __user *buf,
 		break;
 	case TZDBG_HYP_LOG:
 		len = _disp_hyp_log_stats(count);
-		*offp = 0;
+		*offp = tzdbg.is_hyplog_enabled ? 0 : *offp;
 		break;
 	default:
 		break;

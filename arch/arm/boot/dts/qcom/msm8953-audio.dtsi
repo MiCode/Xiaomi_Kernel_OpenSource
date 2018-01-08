@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,52 +17,34 @@
 &int_codec {
 	qcom,model = "msm8953-snd-card-mtp";
 
-	qcom,cdc-us-euro-gpios = <&tlmm 63 0>;
-	qcom,msm-mbhc-hphl-swh = <0>;
-	qcom,msm-mbhc-gnd-swh = <0>;
-	qcom,msm-hs-micbias-type = "internal";
+	qcom,msm-mbhc-hphl-swh = <1>;
+	qcom,msm-mbhc-gnd-swh = <1>;
+	qcom,msm-hs-micbias-type = "external";
 	qcom,msm-micbias1-ext-cap;
 
 	qcom,msm-gpios =
 		"pri_i2s",
-		"us_eu_gpio",
 		"quin_i2s",
 		"comp_gpio";
 	qcom,pinctrl-names =
 		"all_off",
 		"pri_i2s_act",
-		"us_eu_gpio_act",
-		"pri_i2s_us_eu_gpio_act",
 		"quin_act",
 		"quin_pri_i2s_act",
-		"quin_us_eu_gpio_act",
-		"quin_us_eu_gpio_pri_i2s_act",
 		"comp_gpio_act",
 		"comp_gpio_pri_i2s_act",
-		"comp_gpio_us_eu_gpio_act",
-		"comp_gpio_pri_i2s_us_eu_gpio_act",
 		"comp_gpio_quin_act",
-		"comp_gpio_quin_pri_i2s_act",
-		"comp_gpio_quin_us_eu_gpio_act",
-		"comp_gpio_quin_us_eu_gpio_pri_i2s_act";
+		"comp_gpio_quin_pri_i2s_act";
 
 	pinctrl-names =
 		"all_off",
 		"pri_i2s_act",
-		"us_eu_gpio_act",
-		"pri_i2s_us_eu_gpio_act",
 		"quin_act",
 		"quin_pri_i2s_act",
-		"quin_us_eu_gpio_act",
-		"quin_us_eu_gpio_pri_i2s_act",
 		"comp_gpio_act",
 		"comp_gpio_pri_i2s_act",
-		"comp_gpio_us_eu_gpio_act",
-		"comp_gpio_pri_i2s_us_eu_gpio_act",
 		"comp_gpio_quin_act",
-		"comp_gpio_quin_pri_i2s_act",
-		"comp_gpio_quin_us_eu_gpio_act",
-		"comp_gpio_quin_us_eu_gpio_pri_i2s_act";
+		"comp_gpio_quin_pri_i2s_act";
 
 	pinctrl-0 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_sus
 		&cdc_pdm_lines_2_sus &cross_conn_det_sus
@@ -70,57 +53,27 @@
 		&cdc_pdm_lines_2_act &cross_conn_det_sus
 		&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
 	pinctrl-2 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_sus
-		&cdc_pdm_lines_2_sus &cross_conn_det_act
-		&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
+		&cdc_pdm_lines_2_sus &cross_conn_det_sus
+		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
 	pinctrl-3 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_sus
-		&cdc_pdm_lines_2_act &cross_conn_det_act
-		&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
-	pinctrl-4 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_sus
-		&cdc_pdm_lines_2_sus &cross_conn_det_sus
-		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
-	pinctrl-5 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_sus
 		&cdc_pdm_lines_2_act &cross_conn_det_sus
 		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
-	pinctrl-6 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_sus
-		&cdc_pdm_lines_2_sus &cross_conn_det_act
-		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
-	pinctrl-7 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_sus
-		&cdc_pdm_lines_2_act &cross_conn_det_act
-		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
-	pinctrl-8 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_act
+	pinctrl-4 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_act
 		&cdc_pdm_lines_2_sus &cross_conn_det_sus
 		&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
-	pinctrl-9 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_act
+	pinctrl-5 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_act
 		&cdc_pdm_lines_2_act &cross_conn_det_sus
 		&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
-	pinctrl-10 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_act
-		&cdc_pdm_lines_2_sus &cross_conn_det_act
-		&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
-	pinctrl-11 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_act
-		&cdc_pdm_lines_2_act &cross_conn_det_act
-		&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
-	pinctrl-12 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_act
+	pinctrl-6 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_act
 		&cdc_pdm_lines_2_sus &cross_conn_det_sus
 		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
-	pinctrl-13 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_act
+	pinctrl-7 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_act
 		&cdc_pdm_lines_2_act &cross_conn_det_sus
-		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
-	pinctrl-14 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_act
-		&cdc_pdm_lines_2_sus &cross_conn_det_act
-		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
-	pinctrl-15 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_act
-		&cdc_pdm_lines_2_act &cross_conn_det_act
 		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
 
-	asoc-codec = <&stub_codec>, <&pm8953_diangu_dig>, <&hdmi_dba>;
-	asoc-codec-names = "msm-stub-codec.1", "cajon_codec",
-						"msm-hdmi-dba-codec-rx";
-	asoc-wsa-codec-names = "wsa881x-i2c-codec.2-000f";
-	asoc-wsa-codec-prefixes = "SpkrMono";
+	asoc-codec = <&stub_codec>, <&pm8953_diangu_dig>;
+	asoc-codec-names = "msm-stub-codec.1", "cajon_codec";
 
-	msm-vdd-wsa-switch-supply = <&pm8953_l5>;
-	qcom,msm-vdd-wsa-switch-voltage = <1800000>;
-	qcom,msm-vdd-wsa-switch-current = <10000>;
 };
 
 &pm8953_gpios {
@@ -234,36 +187,4 @@
 
 &wcd_rst_gpio {
 	qcom,cdc-rst-n-gpio = <&tlmm 67 0>;
-};
-
-&wcd9335 {
-	clock-names = "wcd_clk", "wcd_native_clk";
-	clocks = <&clock_audio clk_audio_pmi_clk>,
-		<&clock_audio clk_audio_ap_clk2>;
-
-	qcom,cdc-reset-gpio = <&tlmm 67 0>;
-
-	cdc-vdd-buck-supply = <&eldo2_8953>;
-	qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
-	qcom,cdc-vdd-buck-current = <650000>;
-
-	cdc-buck-sido-supply = <&eldo2_8953>;
-	qcom,cdc-buck-sido-voltage = <1800000 1800000>;
-	qcom,cdc-buck-sido-current = <150000>;
-
-	cdc-vdd-tx-h-supply = <&eldo2_8953>;
-	qcom,cdc-vdd-tx-h-voltage = <1800000 1800000>;
-	qcom,cdc-vdd-tx-h-current = <25000>;
-
-	cdc-vdd-rx-h-supply = <&eldo2_8953>;
-	qcom,cdc-vdd-rx-h-voltage = <1800000 1800000>;
-	qcom,cdc-vdd-rx-h-current = <25000>;
-
-	cdc-vdd-px-supply = <&eldo2_8953>;
-	qcom,cdc-vdd-px-voltage = <1800000 1800000>;
-	qcom,cdc-vdd-px-current = <10000>;
-
-	cdc-vdd-mic-bias-supply = <&pm8953_l13>;
-	qcom,cdc-vdd-mic-bias-voltage = <3125000 3125000>;
-	qcom,cdc-vdd-mic-bias-current = <15000>;
 };

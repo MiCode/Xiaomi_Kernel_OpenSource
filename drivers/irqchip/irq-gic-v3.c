@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2013, 2014 ARM Limited, All Rights Reserved.
  * Author: Marc Zyngier <marc.zyngier@arm.com>
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -28,7 +29,7 @@
 
 #include <linux/irqchip/arm-gic-v3.h>
 #include <linux/syscore_ops.h>
-
+#include <linux/wakeup_reason.h>
 #include <asm/cputype.h>
 #include <asm/exception.h>
 #include <asm/smp_plat.h>
@@ -386,6 +387,15 @@ static void gic_show_resume_irq(struct gic_chip_data *gic)
 			name = desc->action->name;
 
 		pr_warn("%s: %d triggered %s\n", __func__, irq, name);
+
+		if (irq == 50)
+			continue;
+		if (irq == 10)
+			continue;
+		if (irq == 162)
+			continue;
+
+		log_wakeup_reason(irq);
 	}
 }
 

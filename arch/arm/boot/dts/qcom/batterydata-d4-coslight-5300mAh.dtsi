@@ -1,0 +1,60 @@
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,d4_coslight_5300mah {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <5300>;
+	qcom,batt-id-kohm = <100>;
+	qcom,battery-beta = <3435>;
+	qcom,battery-type = "d4_coslight";
+	qcom,chg-rslow-comp-c1 = <3697337>;
+	qcom,chg-rslow-comp-c2 = <6273538>;
+	qcom,chg-rs-to-rslow = <777588>;
+	qcom,chg-rslow-comp-thr = <0xB5>;
+	qcom,checksum = <0xD0D9>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.16";
+	qcom,fg-profile-data = [
+		 E1 83 C5 7C
+		 F5 80 DD 76
+		 61 83 C0 6E
+		 DF 88 23 94
+		 2E 82 EB 99
+		 FA BC A9 C9
+		 56 0E 01 88
+		 89 7D 63 81
+		 78 77 45 83
+		 F8 72 10 7C
+		 8F 5F 7B 82
+		 AB 93 69 B5
+		 2A C1 58 13
+		 E5 14 2C 58
+		 14 70 EE FB
+		 B4 3C C6 3F
+		 DE 33 00 00
+		 9B 44 4A 3A
+		 3E 45 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 68 6A 70 69
+		 09 68 84 88
+		 4C 74 6E 69
+		 A1 64 4E 79
+		 9E 6D A9 62
+		 A7 74 8A A2
+		 20 BA 60 74
+		 5E A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};

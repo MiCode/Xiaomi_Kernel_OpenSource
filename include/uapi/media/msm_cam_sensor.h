@@ -260,6 +260,7 @@ enum eeprom_cfg_type_t {
 	CFG_EEPROM_WRITE_DATA,
 	CFG_EEPROM_GET_MM_INFO,
 	CFG_EEPROM_INIT,
+	CFG_EEPROM_IDENTY,
 };
 
 struct eeprom_get_t {
@@ -298,6 +299,11 @@ struct msm_ir_cut_cfg_data_t {
 	enum msm_ir_cut_cfg_type_t cfg_type;
 };
 
+struct msm_eeprom_identy_t {
+	char eeprom_name[MAX_SENSOR_NAME];
+	uint32_t vendor_id;
+};
+
 struct msm_eeprom_cfg_data {
 	enum eeprom_cfg_type_t cfgtype;
 	uint8_t is_supported;
@@ -308,6 +314,7 @@ struct msm_eeprom_cfg_data {
 		struct eeprom_write_t write_data;
 		struct eeprom_get_cmm_t get_cmm_data;
 		struct msm_eeprom_info_t eeprom_info;
+		struct msm_eeprom_identy_t identier;
 	} cfg;
 };
 

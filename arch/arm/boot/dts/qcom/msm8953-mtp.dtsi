@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -94,6 +95,14 @@
 			linux,code = <115>;
 			debounce-interval = <15>;
 		};
+		hall_key {
+			label = "hall_key";
+			gpios = <&tlmm 140 0x01>;
+			linux,input-type = <5>;
+			linux,code = <0>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
 	};
 
 	hbtp {
@@ -138,13 +147,13 @@
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_truly_1080_vid>;
+	qcom,dsi-pref-prim-pan = <&dsi_tianma_r63350_1080p_vid>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 
 	qcom,platform-te-gpio = <&tlmm 24 0>;
-	qcom,platform-reset-gpio = <&tlmm 61 0>;
+	qcom,platform-reset-gpio = <&tlmm 35 0>;
 	qcom,platform-bklight-en-gpio = <&tlmm 59 0>;
 };
 
@@ -249,9 +258,6 @@
 
 &pm8953_typec {
 	ss-mux-supply = <&pm8953_l13>;
-	qcom,ssmux-gpio = <&tlmm 139 GPIO_ACTIVE_HIGH>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&typec_ssmux_config>;
 };
 
 /{

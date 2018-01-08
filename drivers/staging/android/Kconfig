@@ -126,6 +126,18 @@ config ONESHOT_SYNC_USER
 	help
 	  Provide a userspace API for creating oneshot sync objects.
 
+config ANDROID_WHETSTONE
+	bool "Android Whetstone"
+	default N
+	---help---
+	  report to whetstone the memory state when reach target limit value.
+
+config MULTIPLE_LMK
+	bool "Multiple lowmemorykiller"
+	default n
+	---help---
+	  Provide multiple kill in LMK routine
+
 source "drivers/staging/android/ion/Kconfig"
 
 source "drivers/staging/android/fiq_debugger/Kconfig"

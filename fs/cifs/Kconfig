@@ -131,7 +131,7 @@ config CIFS_ACL
 
 config CIFS_DEBUG
 	bool "Enable CIFS debugging routines"
-	default y
+	default n
 	depends on CIFS
 	help
 	   Enabling this option adds helpful debugging messages to

@@ -305,11 +305,16 @@ struct address_space *page_mapping(struct page *page)
 		swp_entry_t entry;
 
 		entry.val = page_private(page);
-		mapping = swap_address_space(entry);
-	} else if ((unsigned long)mapping & PAGE_MAPPING_ANON)
-		mapping = NULL;
-	return mapping;
+		return swap_address_space(entry);
+	}
+
+	if ((unsigned long)mapping & PAGE_MAPPING_ANON)
+		return NULL;
+
+	return (void *)((unsigned long)mapping & ~PAGE_MAPPING_FLAGS);
+
 }
+EXPORT_SYMBOL_GPL(page_mapping);
 
 int overcommit_ratio_handler(struct ctl_table *table, int write,
 			     void __user *buffer, size_t *lenp,

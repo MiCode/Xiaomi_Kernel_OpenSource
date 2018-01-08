@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +27,7 @@
 #include <linux/of.h>
 #include <linux/uaccess.h>
 #include <asm/arch_timer.h>
+#include <linux/syscore_ops.h>
 #include "rpm_stats.h"
 
 #define GET_PDATA_OF_ATTR(attr) \
@@ -76,6 +78,7 @@ struct msm_rpmstats_kobj_attr {
 };
 
 static struct dentry *heap_dent;
+static struct msm_rpmstats_private_data rpm_stats_data;
 
 static inline u64 get_time_in_sec(u64 counter)
 {
@@ -444,6 +447,38 @@ fail:
 	return ret;
 }
 
+static u32 debug_rpm_stats = 1;
+
+static void msm_rpmstats_resume(void)
+{
+	struct msm_rpmstats_private_data *prvdata;
+
+	prvdata = &rpm_stats_data;
+
+	if (likely(!debug_rpm_stats))
+		return;
+
+	if (!prvdata)
+		return;
+	if (prvdata->platform_data->version == 1) {
+		if (!prvdata->num_records)
+			prvdata->num_records = readl_relaxed(prvdata->reg_base);
+	}
+	if (prvdata->platform_data->version == 1)
+		prvdata->len = msm_rpmstats_copy_stats(prvdata);
+	else if (prvdata->platform_data->version == 2)
+		prvdata->len = msm_rpmstats_copy_stats_v2(
+				prvdata);
+	if (prvdata->len > 0)
+		pr_err("%s", prvdata->buf);
+
+}
+
+static struct syscore_ops msm_rpmstats_ops = {
+	.suspend = NULL,
+	.resume = msm_rpmstats_resume,
+};
+
 static int msm_rpmstats_probe(struct platform_device *pdev)
 {
 	struct dentry *dent = NULL;
@@ -525,6 +560,13 @@ static int msm_rpmstats_probe(struct platform_device *pdev)
 		pdata->heap_phys_addrbase = res->start;
 	}
 
+	rpm_stats_data.reg_base = ioremap_nocache(pdata->phys_addr_base,
+			pdata->phys_size);
+	rpm_stats_data.read_idx = rpm_stats_data.num_records = rpm_stats_data.len = 0;
+	rpm_stats_data.platform_data = pdata;
+	if (pdata->version == 2)
+		rpm_stats_data.num_records = 2;
+
 	msm_rpmstats_create_sysfs(pdata);
 
 	platform_set_drvdata(pdev, dent);
@@ -556,6 +598,13 @@ static struct platform_driver msm_rpmstats_driver = {
 		.of_match_table = rpm_stats_table,
 	},
 };
+
+static int __init msm_rpmstats_syscore_init(void)
+{
+	register_syscore_ops(&msm_rpmstats_ops);
+
+	return 0;
+}
 static int __init msm_rpmstats_init(void)
 {
 	return platform_driver_register(&msm_rpmstats_driver);
@@ -564,6 +613,8 @@ static void __exit msm_rpmstats_exit(void)
 {
 	platform_driver_unregister(&msm_rpmstats_driver);
 }
+
+device_initcall(msm_rpmstats_syscore_init);
 module_init(msm_rpmstats_init);
 module_exit(msm_rpmstats_exit);
 

@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -315,6 +316,64 @@ ERROR:
 	return rc;
 }
 
+static int msm_eeprom_parse_identity_map(struct device_node *of,
+	struct msm_eeprom_identity_block_t *data)
+{
+	int i, rc = 0;
+	char property[PROPERTY_MAXSIZE];
+	uint32_t count = 2;
+	struct msm_eeprom_identity_map_t *map;
+
+	data->num_map = 0;
+	snprintf(property, PROPERTY_MAXSIZE, "xiaomi,vendor-id-count");
+	rc = of_property_read_u32(of, property, &data->num_map);
+	pr_err("%s: %s %d\n", __func__, property, data->num_map);
+	if (rc < 0) {
+		data->num_map = 0;
+		pr_err("%s failed rc %d\n", __func__, rc);
+		return rc;
+	}
+
+	map = kzalloc((sizeof(*map) * data->num_map), GFP_KERNEL);
+	if (!map) {
+		rc = -ENOMEM;
+		pr_err("%s failed line %d\n", __func__, __LINE__);
+		return rc;
+	}
+	data->map = map;
+
+	for (i = 0; i < data->num_map; i++) {
+		snprintf(property, PROPERTY_MAXSIZE, "xiaomi,eeprom-flag-offset%d", i);
+		rc = of_property_read_u32_array(of, property,
+			(uint32_t *) &map[i].eeprom_flag_offset, count);
+		if (rc < 0) {
+			pr_err("%s: eeprom-flag-offset not needed %d\n", __func__, __LINE__);
+		}
+
+		snprintf(property, PROPERTY_MAXSIZE,
+			"xiaomi,eeprom-valid-flag%d", i);
+		rc = of_property_read_u32_array(of, property,
+			(uint32_t *) &map[i].eeprom_valid_flag, count);
+		if (rc < 0)
+			pr_err("%s: eeprom-valid-flag not needed\n", __func__);
+
+		snprintf(property, PROPERTY_MAXSIZE, "xiaomi,vendor-id-offset%d", i);
+		rc = of_property_read_u32_array(of, property,
+			(uint32_t *) &map[i].vendor_id_offset, count);
+		if (rc < 0) {
+			pr_err("%s failed %d\n", __func__, __LINE__);
+			goto ERROR;
+		}
+
+	}
+
+	return rc;
+
+ERROR:
+	kfree(data->map);
+	memset(data, 0, sizeof(*data));
+	return rc;
+}
 /**
   * eeprom_parse_memory_map - Parse mem map
   * @e_ctrl:	ctrl structure
@@ -465,7 +524,85 @@ static int msm_eeprom_power_up(struct msm_eeprom_ctrl_t *e_ctrl,
 	}
 	return rc;
 }
+static int get_eeprom_identier_info(struct msm_eeprom_ctrl_t *e_ctrl,
+	void __user *argp)
+{
+	int rc = -EINVAL, num_map = 0, i = 0;
+	struct msm_eeprom_identity_block_t *identity_block = &e_ctrl->identity;
+	struct msm_eeprom_cfg_data *cdata = argp;
+	struct msm_eeprom_identity_map_t *map;
+	struct eeprom_identity_map_t *eeprom_flag_offset_ptr;
+	struct eeprom_identity_map_t *eeprom_valid_flag_ptr;
+	struct eeprom_identity_map_t *vendor_id_offset_ptr;
+	uint8_t *mapdata = NULL;
 
+	num_map = identity_block->num_map;
+	map = identity_block->map;
+	mapdata = e_ctrl->cal_data.mapdata;
+	if (num_map == 1) {
+		vendor_id_offset_ptr = &(map->vendor_id_offset);
+		if (vendor_id_offset_ptr->data < e_ctrl->cal_data.num_data - 1) {
+			cdata->cfg.identier.vendor_id = (uint32_t) (mapdata[vendor_id_offset_ptr->data]);
+			memcpy(cdata->cfg.identier.eeprom_name,
+				e_ctrl->eboard_info->eeprom_name,
+				sizeof(cdata->cfg.identier.eeprom_name));
+			rc = 0;
+		}
+	} else {
+		for (i = 0; i < num_map; i++) {
+			eeprom_flag_offset_ptr = &(map[i].eeprom_flag_offset);
+			eeprom_valid_flag_ptr = &(map[i].eeprom_valid_flag);
+			vendor_id_offset_ptr = &(map[i].vendor_id_offset);
+			if ((eeprom_flag_offset_ptr->data < e_ctrl->cal_data.num_data - 1)
+				&& (vendor_id_offset_ptr->data < e_ctrl->cal_data.num_data - 1)) {
+				if (mapdata[eeprom_flag_offset_ptr->data] == (uint8_t) (eeprom_valid_flag_ptr->data)) {
+					cdata->cfg.identier.vendor_id = (uint32_t) (mapdata[vendor_id_offset_ptr->data]);
+					memcpy(cdata->cfg.identier.eeprom_name,
+						e_ctrl->eboard_info->eeprom_name,
+						sizeof(cdata->cfg.identier.eeprom_name));
+					rc = 0;
+					break;
+				}
+			}
+		}
+	}
+	pr_err("%s:%d eeprom name:%s, vendor_id:%d\n",
+		__func__, __LINE__, cdata->cfg.identier.eeprom_name,
+		cdata->cfg.identier.vendor_id);
+	return rc;
+}
+static int eeprom_init_config2(struct msm_eeprom_ctrl_t *e_ctrl,
+	void __user *argp)
+{
+	int rc =  0;
+	int j = 0;
+
+	rc = msm_camera_power_up(&(e_ctrl->eboard_info->power_info), e_ctrl->eeprom_device_type,
+				&e_ctrl->i2c_client);
+	if (rc) {
+		pr_err("msm_camera_power_up failed rc %d\n", rc);
+		return rc;
+	}
+	rc = read_eeprom_memory(e_ctrl, &e_ctrl->cal_data);
+	if (rc < 0) {
+		pr_err("%s read_eeprom_memory failed\n", __func__);
+		goto power_down;
+	}
+	for (j = 0; j < e_ctrl->cal_data.num_data; j++)
+		CDBG("memory_data[%d] = 0x%X\n", j,
+			e_ctrl->cal_data.mapdata[j]);
+
+	rc = msm_camera_power_down(&(e_ctrl->eboard_info->power_info),
+				e_ctrl->eeprom_device_type, &e_ctrl->i2c_client);
+	if (rc) {
+		pr_err("msm_camera_power_down failed rc %d\n", rc);
+	}
+	return rc;
+power_down:
+	msm_camera_power_down(&(e_ctrl->eboard_info->power_info),
+				e_ctrl->eeprom_device_type, &e_ctrl->i2c_client);
+	return rc;
+}
 /**
   * msm_eeprom_power_up - Do power up, parse and power down
   * @e_ctrl: ctrl structure
@@ -670,6 +807,23 @@ static int msm_eeprom_config(struct msm_eeprom_ctrl_t *e_ctrl,
 		} else {
 			CDBG("%s:%d Already read eeprom\n",
 				__func__, __LINE__);
+		}
+		break;
+	case CFG_EEPROM_IDENTY:
+		if (e_ctrl->userspace_probe == 2) {
+			rc = eeprom_init_config2(e_ctrl, argp);
+			if (rc < 0) {
+					pr_err("%s:%d Eeprom init 2 failed\n",
+						__func__, __LINE__);
+					return rc;
+			}
+			e_ctrl->userspace_probe = 0;
+		}
+		rc = get_eeprom_identier_info(e_ctrl, argp);
+		if (rc < 0) {
+			pr_err("%s:%d get_eeprom_identier_info failed\n",
+						__func__, __LINE__);
+			return rc;
 		}
 		break;
 	default:
@@ -971,7 +1125,7 @@ static int msm_eeprom_get_dt_data(struct msm_eeprom_ctrl_t *e_ctrl)
 	if (rc < 0)
 		return rc;
 
-	if (e_ctrl->userspace_probe == 0) {
+	if (e_ctrl->userspace_probe == 0 || (e_ctrl->userspace_probe == 2)) {
 		rc = msm_camera_get_dt_power_setting_data(of_node,
 			power_info->cam_vreg, power_info->num_vreg,
 			power_info);
@@ -1531,6 +1685,23 @@ static int msm_eeprom_config32(struct msm_eeprom_ctrl_t *e_ctrl,
 				__func__, __LINE__);
 		}
 		break;
+	case CFG_EEPROM_IDENTY:
+		if (e_ctrl->userspace_probe == 2) {
+			rc = eeprom_init_config2(e_ctrl, argp);
+			if (rc < 0) {
+					pr_err("%s:%d Eeprom init 2 failed\n",
+						__func__, __LINE__);
+					return rc;
+			}
+			e_ctrl->userspace_probe = 0;
+		}
+		rc = get_eeprom_identier_info(e_ctrl, argp);
+		if (rc < 0) {
+			pr_err("%s:%d get_eeprom_identier_info failed\n",
+						__func__, __LINE__);
+			return rc;
+		}
+		break;
 	default:
 		break;
 	}
@@ -1600,6 +1771,7 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 
 	e_ctrl->cal_data.mapdata = NULL;
 	e_ctrl->cal_data.map = NULL;
+	e_ctrl->identity.map = NULL;
 	e_ctrl->userspace_probe = 0;
 	e_ctrl->is_supported = 0;
 	if (!of_node) {
@@ -1673,12 +1845,14 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 		pr_err("%s failed %d\n", __func__, __LINE__);
 		e_ctrl->userspace_probe = 1;
 	}
+	if (of_property_read_bool(of_node, "xiaomi,vendor-id-count"))
+		e_ctrl->userspace_probe = 2;
 
 	rc = msm_eeprom_get_dt_data(e_ctrl);
 	if (rc < 0)
 		goto board_free;
 
-	if (e_ctrl->userspace_probe == 0) {
+	if (e_ctrl->userspace_probe == 0 || e_ctrl->userspace_probe == 2) {
 		rc = of_property_read_u32(of_node, "qcom,slave-addr",
 			&temp);
 		if (rc < 0) {
@@ -1709,29 +1883,33 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 		rc = msm_eeprom_parse_memory_map(of_node, &e_ctrl->cal_data);
 		if (rc < 0)
 			goto board_free;
+		if (e_ctrl->userspace_probe == 2) {
+			pr_err("read eeprom and identify module vendor in userspace");
+			e_ctrl->is_supported = 1;
+		} else {
+			rc = msm_camera_power_up(power_info, e_ctrl->eeprom_device_type,
+				&e_ctrl->i2c_client);
+			if (rc) {
+				pr_err("failed rc %d\n", rc);
+				goto memdata_free;
+			}
+			rc = read_eeprom_memory(e_ctrl, &e_ctrl->cal_data);
+			if (rc < 0) {
+				pr_err("%s read_eeprom_memory failed\n", __func__);
+				goto power_down;
+			}
+			for (j = 0; j < e_ctrl->cal_data.num_data; j++)
+				CDBG("memory_data[%d] = 0x%X\n", j,
+					e_ctrl->cal_data.mapdata[j]);
 
-		rc = msm_camera_power_up(power_info, e_ctrl->eeprom_device_type,
-			&e_ctrl->i2c_client);
-		if (rc) {
-			pr_err("failed rc %d\n", rc);
-			goto memdata_free;
-		}
-		rc = read_eeprom_memory(e_ctrl, &e_ctrl->cal_data);
-		if (rc < 0) {
-			pr_err("%s read_eeprom_memory failed\n", __func__);
-			goto power_down;
-		}
-		for (j = 0; j < e_ctrl->cal_data.num_data; j++)
-			CDBG("memory_data[%d] = 0x%X\n", j,
-				e_ctrl->cal_data.mapdata[j]);
+			e_ctrl->is_supported |= msm_eeprom_match_crc(&e_ctrl->cal_data);
 
-		e_ctrl->is_supported |= msm_eeprom_match_crc(&e_ctrl->cal_data);
-
-		rc = msm_camera_power_down(power_info,
-			e_ctrl->eeprom_device_type, &e_ctrl->i2c_client);
-		if (rc) {
-			pr_err("failed rc %d\n", rc);
-			goto memdata_free;
+			rc = msm_camera_power_down(power_info,
+				e_ctrl->eeprom_device_type, &e_ctrl->i2c_client);
+			if (rc) {
+				pr_err("failed rc %d\n", rc);
+				goto memdata_free;
+			}
 		}
 	} else
 		e_ctrl->is_supported = 1;
@@ -1757,6 +1935,7 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 #endif
 
 	e_ctrl->is_supported = (e_ctrl->is_supported << 1) | 1;
+	msm_eeprom_parse_identity_map(of_node, &e_ctrl->identity);
 	CDBG("%s X\n", __func__);
 	return rc;
 
@@ -1802,6 +1981,7 @@ static int msm_eeprom_platform_remove(struct platform_device *pdev)
 	kfree(e_ctrl->i2c_client.cci_client);
 	kfree(e_ctrl->cal_data.mapdata);
 	kfree(e_ctrl->cal_data.map);
+	kfree(e_ctrl->identity.map);
 	if (e_ctrl->eboard_info) {
 		kfree(e_ctrl->eboard_info->power_info.gpio_conf);
 		kfree(e_ctrl->eboard_info);

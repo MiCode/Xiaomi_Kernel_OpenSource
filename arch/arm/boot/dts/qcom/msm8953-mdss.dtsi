@@ -302,7 +302,6 @@
 
 			qcom,timing-db-mode;
 			qcom,mdss-mdp = <&mdss_mdp>;
-			vdd-supply = <&pm8953_l17>;
 			vddio-supply = <&pm8953_l6>;
 			lab-supply = <&lab_regulator>;
 			ibb-supply = <&ibb_regulator>;

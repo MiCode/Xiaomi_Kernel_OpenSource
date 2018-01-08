@@ -1,4 +1,5 @@
-/* Copyright (c) 2002,2008-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2008-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -131,6 +132,8 @@ typedef void (*reg_read_fill_t)(struct kgsl_device *device, int i,
 static void sync_event_print(struct seq_file *s,
 		struct kgsl_cmdbatch_sync_event *sync_event)
 {
+	unsigned long flags;
+
 	switch (sync_event->type) {
 	case KGSL_CMD_SYNCPOINT_TYPE_TIMESTAMP: {
 		seq_printf(s, "sync: ctx: %d ts: %d",
@@ -138,9 +141,13 @@ static void sync_event_print(struct seq_file *s,
 		break;
 	}
 	case KGSL_CMD_SYNCPOINT_TYPE_FENCE:
+		spin_lock_irqsave(&sync_event->handle_lock, flags);
+
 		seq_printf(s, "sync: [%pK] %s", sync_event->handle,
 		(sync_event->handle && sync_event->handle->fence)
 				? sync_event->handle->fence->name : "NULL");
+
+		spin_unlock_irqrestore(&sync_event->handle_lock, flags);
 		break;
 	default:
 		seq_printf(s, "sync: type: %d", sync_event->type);

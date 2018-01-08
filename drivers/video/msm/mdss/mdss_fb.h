@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -301,6 +302,7 @@ struct msm_fb_data_type {
 	u32 bl_scale;
 	u32 bl_min_lvl;
 	u32 unset_bl_level;
+	u32 backlight_enable_flag;
 	bool allow_bl_update;
 	u32 bl_level_scaled;
 	struct mutex bl_lock;
@@ -322,6 +324,8 @@ struct msm_fb_data_type {
 	struct task_struct *disp_thread;
 	atomic_t commits_pending;
 	atomic_t kickoff_pending;
+	atomic_t resume_pending;
+	wait_queue_head_t resume_wait_q;
 	wait_queue_head_t commit_wait_q;
 	wait_queue_head_t idle_wait_q;
 	wait_queue_head_t kickoff_wait_q;

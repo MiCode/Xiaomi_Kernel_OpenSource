@@ -308,6 +308,11 @@ config BW_MONITOR
 	 monitored and limited by thermal core framework. It does
 	 it by registering the bus bandwidth as a sensor in
 	 thermal core framework.
+config GPIO13_RF
+	tristate "setting gpio13 for RF"
+	default n
+	help
+	 Enable this module if dynamically change RF paramaters by monitor status of GPIO13.
 
 source "drivers/platform/msm/spmi/Kconfig"
 

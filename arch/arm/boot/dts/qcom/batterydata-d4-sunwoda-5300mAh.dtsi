@@ -1,0 +1,60 @@
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,d4_sunwoda_5300mah {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <5300>;
+	qcom,batt-id-kohm = <68>;
+	qcom,battery-beta = <3435>;
+	qcom,battery-type = "d4_sunwoda";
+	qcom,chg-rslow-comp-c1 = <3079027>;
+	qcom,chg-rslow-comp-c2 = <3974719>;
+	qcom,chg-rs-to-rslow = <938740>;
+	qcom,chg-rslow-comp-thr = <0x9C>;
+	qcom,checksum = <0xC937>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.16";
+	qcom,fg-profile-data = [
+		 F1 83 79 7D
+		 98 81 18 7C
+		 50 83 89 60
+		 70 7B B1 86
+		 20 82 68 9A
+		 B0 BD E6 CA
+		 5C 0E 10 88
+		 AB 7E 59 82
+		 BB 7C 48 83
+		 33 72 C0 75
+		 D1 65 5C 82
+		 1E 99 3B BC
+		 B6 C8 5E 0D
+		 E5 14 41 58
+		 14 70 02 FC
+		 26 3D A3 45
+		 E6 41 00 00
+		 FE 47 86 31
+		 CF 38 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 35 70 B0 6A
+		 99 6D A9 88
+		 D4 75 0D 6B
+		 0C 65 D2 78
+		 E3 6E D9 62
+		 EA 6F 0E AA
+		 20 D8 63 1F
+		 66 A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};

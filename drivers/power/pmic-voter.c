@@ -163,7 +163,7 @@ int vote(struct votable *votable, int client_id, bool state, int val)
 	votable->votes[client_id].state = state;
 	votable->votes[client_id].value = val;
 
-	pr_debug("%s: %d voting for %d - %s\n",
+	pr_info("%s: %d voting for %d - %s\n",
 			votable->name,
 			client_id, val, state ? "on" : "off");
 	switch (votable->type) {

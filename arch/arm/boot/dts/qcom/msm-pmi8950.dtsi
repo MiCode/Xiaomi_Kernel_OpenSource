@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -180,7 +181,7 @@
 			mpp@a100 {
 				reg = <0xa100 0x100>;
 				qcom,pin-num = <2>;
-				status = "disabled";
+				status = "okay";
 			};
 
 			mpp@a200 {
@@ -215,7 +216,6 @@
 			qcom,pmic-revid = <&pmi8950_revid>;
 			qcom,force-aicl-rerun;
 			qcom,aicl-rerun-period-s = <180>;
-			qcom,autoadjust-vfloat;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
@@ -409,6 +409,18 @@
 			compatible = "qcom,leds-qpnp";
 			reg = <0xa100 0x100>;
 			label = "mpp";
+			qcom,led_mpp_2 {
+				label = "mpp";
+				linux,name = "button-backlight";
+				linux,default-trigger = "none";
+				qcom,default-state = "off";
+				qcom,max-current = <40>;
+				qcom,current-setting = <5>;
+				qcom,id = <6>;
+				qcom,source-sel = <1>;
+				qcom,mode-ctrl = <0x60>;
+				qcom,mode = "manual";
+			};
 		};
 	};
 
@@ -518,7 +530,7 @@
 			linux,default-trigger = "bkl-trigger";
 			qcom,fdbk-output = "auto";
 			qcom,vref-mv = <350>;
-			qcom,switch-freq-khz = <800>;
+			qcom,switch-freq-khz = <600>;
 			qcom,ovp-mv = <29500>;
 			qcom,ilim-ma = <980>;
 			qcom,boost-duty-ns = <26>;
@@ -529,8 +541,8 @@
 			qcom,sync-dly-us = <800>;
 			qcom,fs-curr-ua = <20000>;
 			qcom,led-strings-list = [00 01];
-			qcom,en-ext-pfet-sc-pro;
 			qcom,cons-sync-write-delay-us = <1000>;
+			qcom,en-cabc;
 		};
 
 		flash_led: qcom,leds@d300 {
@@ -583,9 +595,9 @@
 				qcom,led-name = "led:torch_0";
 				qcom,default-led-trigger =
 						"torch0_trigger";
-				qcom,max-current = <200>;
+				qcom,max-current = <100>;
 				qcom,id = <0>;
-				qcom,current = <120>;
+				qcom,current = <100>;
 			};
 
 			pmi8950_torch1: qcom,torch_1 {
@@ -593,9 +605,9 @@
 				qcom,led-name = "led:torch_1";
 				qcom,default-led-trigger =
 						"torch1_trigger";
-				qcom,max-current = <200>;
+				qcom,max-current = <100>;
 				qcom,id = <1>;
-				qcom,current = <120>;
+				qcom,current = <100>;
 			};
 
 			pmi8950_switch: qcom,switch {

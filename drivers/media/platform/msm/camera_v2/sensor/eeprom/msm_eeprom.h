@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +30,22 @@ struct msm_eeprom_ctrl_t;
 
 #define PROPERTY_MAXSIZE 32
 
+struct eeprom_identity_map_t {
+	uint32_t is_valid;
+	uint32_t data;
+};
+
+struct msm_eeprom_identity_map_t {
+	struct eeprom_identity_map_t eeprom_flag_offset;
+	struct eeprom_identity_map_t eeprom_valid_flag;
+	struct eeprom_identity_map_t vendor_id_offset;
+};
+
+struct msm_eeprom_identity_block_t {
+	struct msm_eeprom_identity_map_t *map;
+	uint32_t num_map;	/* number of map blocks */
+};
+
 struct msm_eeprom_ctrl_t {
 	struct platform_device *pdev;
 	struct mutex *eeprom_mutex;
@@ -46,6 +63,7 @@ struct msm_eeprom_ctrl_t {
 	int32_t userspace_probe;
 	struct msm_eeprom_memory_block_t cal_data;
 	uint8_t is_supported;
+	struct msm_eeprom_identity_block_t identity;
 };
 
 #endif

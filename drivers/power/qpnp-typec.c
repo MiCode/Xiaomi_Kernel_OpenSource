@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +29,9 @@
 #include <linux/slab.h>
 #include <linux/spmi.h>
 #include <linux/usb/class-dual-role.h>
+#ifdef CONFIG_TYPEC_DRIVER
+#include <linux/usb/typec_class.h>
+#endif
 
 #define CREATE_MASK(NUM_BITS, POS) \
 	((unsigned char) (((1 << (NUM_BITS)) - 1) << (POS)))
@@ -51,9 +55,13 @@
 
 #define TYPEC_SW_CTL_REG(base)		(base + 0x52)
 
-#define TYPEC_STD_MA			900
+/* only support USB2.0, so set default mode current to 500mA */
+#define TYPEC_STD_MA                   500
 #define TYPEC_MED_MA			1500
-#define TYPEC_HIGH_MA			3000
+/* set TYPEC_HIGH_MA from 3A to 1.5A for more safety */
+#define TYPEC_HIGH_MA			1500
+
+#define TRYSNK_TIMEOUT_MS		600
 
 #define QPNP_TYPEC_DEV_NAME	"qcom,qpnp-typec"
 #define TYPEC_PSY_NAME		"typec"
@@ -121,6 +129,11 @@ struct qpnp_typec_chip {
 	struct dual_role_phy_desc	dr_desc;
 	struct delayed_work		role_reversal_check;
 	struct typec_wakeup_source	role_reversal_wakeup_source;
+	bool			try_snk_attempt;
+	struct delayed_work		typec_wdog_work;
+#ifdef CONFIG_TYPEC_DRIVER
+	struct typec_dev c_dev;
+#endif
 };
 
 /* current mode */
@@ -328,7 +341,7 @@ static int qpnp_typec_force_mode(struct qpnp_typec_chip *chip, int mode)
 			pr_err("Failed to force typeC mode rc=%d\n", rc);
 		} else {
 			chip->force_mode = mode;
-			pr_debug("Forced mode: %s\n",
+			pr_info("Forced mode: %s\n",
 					mode_text[chip->force_mode]);
 		}
 	}
@@ -336,6 +349,79 @@ static int qpnp_typec_force_mode(struct qpnp_typec_chip *chip, int mode)
 	return rc;
 }
 
+#ifdef CONFIG_TYPEC_DRIVER
+/*
+ * get role mode
+ * success if return positive value ,or return negative
+ */
+static int qpnp_typec_get_mode(struct typec_dev *dev)
+{
+	struct qpnp_typec_chip *chip =
+		  container_of(dev, struct qpnp_typec_chip, c_dev);
+
+	if (chip->typec_state == POWER_SUPPLY_TYPE_UFP)
+		return 0;
+	else if (chip->typec_state == POWER_SUPPLY_TYPE_DFP)
+		return 1;
+	else
+		return -EINVAL;
+}
+
+/*
+ * for compatible,
+ * buf = 0  means device mode, 1 means host mode,2 means drp mode
+ */
+static int qpnp_typec_set_mode(struct typec_dev *dev, int value)
+{
+	int rc = 0;
+	struct qpnp_typec_chip *chip =
+		  container_of(dev, struct qpnp_typec_chip, c_dev);
+
+	if (value == 0) {
+		rc = qpnp_typec_force_mode(chip, DUAL_ROLE_PROP_MODE_UFP);
+		if (rc)
+			pr_err("Failed to set UFP mode rc=%d\n", rc);
+	} else if (value == 1) {
+		rc = qpnp_typec_force_mode(chip, DUAL_ROLE_PROP_MODE_DFP);
+		if (rc)
+			pr_err("Failed to set DFP mode rc=%d\n", rc);
+	} else if (value == 2) {
+		rc = qpnp_typec_force_mode(chip, DUAL_ROLE_PROP_MODE_NONE);
+		if (rc)
+			pr_err("Failed to set DRP mode rc=%d\n", rc);
+	}
+	return rc;
+}
+
+/*
+ * get cc  orientation
+ * success if return positive value ,or return 0
+ * return 1 means cc1
+ * return 2 means cc2.
+ */
+static int qpnp_typec_get_cc_orientation(struct typec_dev *dev)
+{
+	int rc;
+	struct qpnp_typec_chip *chip =
+		  container_of(dev, struct qpnp_typec_chip, c_dev);
+
+	pr_info("CC_line state = %d\n", chip->cc_line_state);
+	switch (chip->cc_line_state) {
+	case CC_1:
+		rc = 1;
+		break;
+	case CC_2:
+		rc = 2;
+		break;
+	case OPEN:
+	default:
+		rc = 0;
+		break;
+	}
+
+	return rc;
+}
+#endif
 static int qpnp_typec_handle_usb_insertion(struct qpnp_typec_chip *chip, u8 reg)
 {
 	int rc;
@@ -366,6 +452,13 @@ static int qpnp_typec_handle_detach(struct qpnp_typec_chip *chip)
 		return rc;
 	}
 
+	/* clear UFP_EN_CMD when cable detach */
+	if (!chip->in_force_mode) {
+		rc = qpnp_typec_force_mode(chip,
+						DUAL_ROLE_PROP_MODE_NONE);
+			if (rc)
+				pr_err("Failed to force DRP mode rc=%d\n", rc);
+	}
 	chip->cc_line_state = OPEN;
 	chip->current_ma = 0;
 	chip->typec_state = POWER_SUPPLY_TYPE_UNKNOWN;
@@ -398,7 +491,7 @@ static irqreturn_t vrd_changed_handler(int irq, void *_chip)
 	u8 reg;
 	struct qpnp_typec_chip *chip = _chip;
 
-	pr_debug("vrd changed triggered\n");
+	pr_info("vrd changed triggered\n");
 
 	mutex_lock(&chip->typec_lock);
 	rc = qpnp_typec_read(chip, &reg, TYPEC_UFP_STATUS_REG(chip->base), 1);
@@ -419,7 +512,7 @@ static irqreturn_t vrd_changed_handler(int irq, void *_chip)
 					rc);
 	}
 
-	pr_debug("UFP status reg = 0x%x old current = %dma new current = %dma\n",
+	pr_info("UFP status reg = 0x%x old current = %dma new current = %dma\n",
 			reg, old_current, chip->current_ma);
 
 out:
@@ -440,9 +533,17 @@ static irqreturn_t ufp_detect_handler(int irq, void *_chip)
 	u8 reg;
 	struct qpnp_typec_chip *chip = _chip;
 
-	pr_debug("ufp detect triggered\n");
+	pr_info("ufp detect triggered\n");
+
+	/* cancel watch dog work */
+	cancel_delayed_work(&chip->typec_wdog_work);
 
 	mutex_lock(&chip->typec_lock);
+	if (chip->try_snk_attempt) {
+		pr_info("%s: TrySNK success, Source and VBUS detected\n",
+						__func__);
+		chip->try_snk_attempt = false;
+	}
 	rc = qpnp_typec_read(chip, &reg, TYPEC_UFP_STATUS_REG(chip->base), 1);
 	if (rc) {
 		pr_err("failed to read status reg rc=%d\n", rc);
@@ -479,9 +580,13 @@ static irqreturn_t ufp_detach_handler(int irq, void *_chip)
 	int rc;
 	struct qpnp_typec_chip *chip = _chip;
 
-	pr_debug("ufp detach triggered\n");
+	pr_info("ufp detach triggered\n");
 
 	mutex_lock(&chip->typec_lock);
+	if (chip->try_snk_attempt)
+		chip->try_snk_attempt = false;
+
+	chip->in_force_mode = false;
 	rc = qpnp_typec_handle_detach(chip);
 	if (rc)
 		pr_err("failed to handle UFP detach rc=%d\n", rc);
@@ -491,13 +596,36 @@ static irqreturn_t ufp_detach_handler(int irq, void *_chip)
 	return IRQ_HANDLED;
 }
 
+static void typec_wdog_work_fn(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct qpnp_typec_chip *chip = container_of(dwork,
+				struct qpnp_typec_chip, typec_wdog_work);
+	int rc;
+
+	pr_err("%s: start\n", __func__);
+
+	mutex_lock(&chip->typec_lock);
+	chip->in_force_mode = false;
+	mutex_unlock(&chip->typec_lock);
+	rc = qpnp_typec_force_mode(chip,
+					DUAL_ROLE_PROP_MODE_NONE);
+	if (rc)
+		pr_err("Failed to set DRP mode rc=%d\n", rc);
+	/* to notify userspace that the state might have changed */
+	if (chip->dr_inst)
+		dual_role_instance_changed(chip->dr_inst);
+
+	pr_err("%s: end\n", __func__);
+}
+
 static irqreturn_t dfp_detect_handler(int irq, void *_chip)
 {
 	int rc;
 	u8 reg[2];
 	struct qpnp_typec_chip *chip = _chip;
 
-	pr_debug("dfp detect trigerred\n");
+	pr_info("dfp detect trigerred\n");
 
 	mutex_lock(&chip->typec_lock);
 	rc = qpnp_typec_read(chip, reg, TYPEC_UFP_STATUS_REG(chip->base), 2);
@@ -507,20 +635,39 @@ static irqreturn_t dfp_detect_handler(int irq, void *_chip)
 	}
 
 	if (reg[1] & VALID_DFP_MASK) {
-		rc = qpnp_typec_handle_usb_insertion(chip, reg[0]);
-		if (rc) {
-			pr_err("failed to handle USB insertion rc=%d\n", rc);
-			goto out;
-		}
+		if (chip->try_snk_attempt == false) {
+			/* start try snk */
+			rc = qpnp_typec_force_mode(chip,
+						DUAL_ROLE_PROP_MODE_UFP);
+			if (rc)
+				pr_err("Failed to force UFP mode rc=%d\n", rc);
+			else
+				chip->in_force_mode = true;
+			chip->try_snk_attempt = true;
+			pr_info("%s: schedule wdog work\n", __func__);
+			schedule_delayed_work(&chip->typec_wdog_work,
+					      msecs_to_jiffies
+					      (TRYSNK_TIMEOUT_MS));
+		} else {
+			pr_info("TrySNK fail, Sink detected again\n");
+			/* TrySNK has been attempted, clear the flag */
+			chip->try_snk_attempt = false;
+			chip->in_force_mode = false;
+			rc = qpnp_typec_handle_usb_insertion(chip, reg[0]);
+			if (rc) {
+				pr_err("failed to handle USB insertion rc=%d\n", rc);
+				goto out;
+			}
 
-		chip->typec_state = POWER_SUPPLY_TYPE_DFP;
-		chip->type_c_psy.type = POWER_SUPPLY_TYPE_DFP;
-		chip->current_ma = 0;
-		rc = set_property_on_battery(chip,
-				POWER_SUPPLY_PROP_TYPEC_MODE);
-		if (rc)
-			pr_err("failed to set TYPEC MODE on battery psy rc=%d\n",
-					rc);
+			chip->typec_state = POWER_SUPPLY_TYPE_DFP;
+			chip->type_c_psy.type = POWER_SUPPLY_TYPE_DFP;
+			chip->current_ma = 0;
+			rc = set_property_on_battery(chip,
+					POWER_SUPPLY_PROP_TYPEC_MODE);
+			if (rc)
+				pr_err("failed to set TYPEC MODE on battery psy rc=%d\n",
+						rc);
+		}
 	}
 
 	if (chip->dr_inst)
@@ -539,7 +686,7 @@ static irqreturn_t dfp_detach_handler(int irq, void *_chip)
 	int rc;
 	struct qpnp_typec_chip *chip = _chip;
 
-	pr_debug("dfp detach triggered\n");
+	pr_info("dfp detach triggered\n");
 
 	mutex_lock(&chip->typec_lock);
 	rc = qpnp_typec_handle_detach(chip);
@@ -666,7 +813,7 @@ static int qpnp_typec_request_irqs(struct qpnp_typec_chip *chip)
 	REQUEST_IRQ(chip, chip->dfp_detect, "dfp-detect", dfp_detect_handler,
 			flags, true, rc);
 	REQUEST_IRQ(chip, chip->vbus_err, "vbus-err", vbus_err_handler,
-			flags, true, rc);
+			flags, false, rc);
 	REQUEST_IRQ(chip, chip->vconn_oc, "vconn-oc", vconn_oc_handler,
 			flags, true, rc);
 
@@ -902,6 +1049,9 @@ static int qpnp_typec_probe(struct spmi_device *spmi)
 	mutex_init(&chip->typec_lock);
 	spin_lock_init(&chip->rw_lock);
 
+	chip->force_mode = DUAL_ROLE_PROP_MODE_NONE;
+	INIT_DELAYED_WORK(&chip->typec_wdog_work, typec_wdog_work_fn);
+
 	/* determine initial status */
 	rc = qpnp_typec_determine_initial_status(chip);
 	if (rc) {
@@ -956,6 +1106,17 @@ static int qpnp_typec_probe(struct spmi_device *spmi)
 		goto unregister_psy;
 	}
 
+#ifdef CONFIG_TYPEC_DRIVER
+	/* register typec class and support cc_direction test for factory */
+	chip->c_dev.name = QPNP_TYPEC_DEV_NAME;
+	chip->c_dev.get_mode = qpnp_typec_get_mode;
+	chip->c_dev.set_mode = qpnp_typec_set_mode;
+	chip->c_dev.get_direction = qpnp_typec_get_cc_orientation;
+	rc = typec_dev_register(&chip->c_dev);
+	if (rc < 0)
+		goto unregister_psy;
+#endif
+
 	pr_info("TypeC successfully probed state=%d CC-line-state=%d\n",
 			chip->typec_state, chip->cc_line_state);
 	return 0;
@@ -978,6 +1139,7 @@ static int qpnp_typec_remove(struct spmi_device *spmi)
 		cancel_delayed_work_sync(&chip->role_reversal_check);
 		wakeup_source_trash(&chip->role_reversal_wakeup_source.source);
 	}
+	cancel_delayed_work_sync(&chip->typec_wdog_work);
 	rc = qpnp_typec_configure_ssmux(chip, OPEN);
 	if (rc)
 		pr_err("failed to configure SSMUX rc=%d\n", rc);

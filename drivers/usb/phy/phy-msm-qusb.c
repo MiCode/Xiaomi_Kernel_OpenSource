@@ -939,7 +939,7 @@ static int qusb_phy_linestate_with_idp_src(struct usb_phy *phy)
 	 * Caller expects bit(1) as DP and bit(0) DM i.e. usual linestate format
 	 */
 	ret = (int_status >> 2) | ((int_status & 0x1) << 1);
-	pr_debug("%s: int_status:%x, dpdm:%x\n", __func__, int_status, ret);
+	pr_info("%s: int_status:%x, dpdm:%x\n", __func__, int_status, ret);
 
 	/* Re-initialize PHY */
 	qusb_phy_init(phy);

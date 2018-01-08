@@ -1,4 +1,5 @@
 /* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -594,6 +595,11 @@ static ssize_t hdmi_tx_sysfs_rda_edid(struct device *dev,
 
 	mutex_lock(&hdmi_ctrl->tx_lock);
 	cea_blks = hdmi_ctrl->edid_buf[EDID_BLOCK_SIZE - 2];
+	if (cea_blks >= MAX_EDID_BLOCKS) {
+		DEV_ERR("%s: invalid cea blocks\n", __func__);
+		mutex_unlock(&hdmi_ctrl->tx_lock);
+		return -EINVAL;
+	}
 	size = (cea_blks + 1) * EDID_BLOCK_SIZE;
 	size = min_t(u32, size, PAGE_SIZE);
 

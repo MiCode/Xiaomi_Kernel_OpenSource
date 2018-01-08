@@ -99,6 +99,11 @@ struct msm_eeprom_info_t32 {
 	compat_uptr_t mem_map_array;
 };
 
+struct msm_eeprom_identy_t32 {
+	char eeprom_name[MAX_SENSOR_NAME];
+	uint32_t vendor_id;
+};
+
 struct msm_eeprom_cfg_data32 {
 	enum eeprom_cfg_type_t cfgtype;
 	uint8_t is_supported;
@@ -108,6 +113,7 @@ struct msm_eeprom_cfg_data32 {
 		struct eeprom_read_t32 read_data;
 		struct eeprom_write_t32 write_data;
 		struct msm_eeprom_info_t32 eeprom_info;
+		struct msm_eeprom_identy_t32 identier;
 	} cfg;
 };
 

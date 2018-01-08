@@ -832,6 +832,11 @@ config QCOM_SMCINVOKE
 	  Enable SMCInvoke driver which supports capability based secure
 	  communication between QSEE and HLOS.
 
+config SERIAL_NUM
+	bool "Enable Serial Number Proc Interface"
+	help
+	  Provide a interface for reading CPU serial number
+
 source "drivers/soc/qcom/memshare/Kconfig"
 
 endif # ARCH_MSM

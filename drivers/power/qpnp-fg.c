@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -310,7 +311,7 @@ static struct fg_mem_data fg_backup_regs[FG_BACKUP_MAX] = {
 	BACKUP(MAH_TO_SOC,	0x4A0,   0,      4,     -EINVAL),
 };
 
-static int fg_debug_mask;
+static int fg_debug_mask = FG_IRQS | FG_STATUS | FG_AGING;
 module_param_named(
 	debug_mask, fg_debug_mask, int, S_IRUSR | S_IWUSR
 );
@@ -546,6 +547,7 @@ struct fg_chip {
 	struct delayed_work	update_sram_data;
 	struct delayed_work	update_temp_work;
 	struct delayed_work	check_empty_work;
+	struct delayed_work	soc_work;
 	char			*batt_profile;
 	u8			thermal_coefficients[THERMAL_COEFF_N_BYTES];
 	u32			cc_cv_threshold_mv;
@@ -583,6 +585,7 @@ struct fg_chip {
 	u16			*offset;
 	bool			ima_supported;
 	bool			init_done;
+	int			mi_last_soc;
 	/* jeita hysteresis */
 	bool			jeita_hysteresis_support;
 	bool			batt_hot;
@@ -638,6 +641,11 @@ struct fg_chip {
 	bool			batt_info_restore;
 	bool			*batt_range_ocv;
 	int			*batt_range_pct;
+
+	/* esr-based adjustment */
+	int 			esr_lvl;
+	struct work_struct	esr_adjust_work;
+	bool			empty_irq_enabled;
 };
 
 /* FG_MEMIF DEBUGFS structures */
@@ -707,6 +715,44 @@ static char *fg_supplicants[] = {
 	"bcl",
 	"fg_adc"
 };
+
+#define CONFIG(_esr, _v_cutoff, _v_empty, _irq_enable)	\
+	{				   		\
+		.esr = _esr,			   		\
+		.v_cutoff = _v_cutoff,		   		\
+		.v_empty = _v_empty,		   		\
+		.empty_irq_enable = _irq_enable,   		\
+	}
+
+struct esr_based_config {
+	int esr;
+	int v_cutoff;
+	int v_empty;
+	int empty_irq_enable;
+} 
+cfg[] = {
+	CONFIG(80000, 3400, 3200, 1),
+	CONFIG(100000, 3450, 3100, 1),
+	CONFIG(150000, 3500, 3000, 1),
+	CONFIG(5000000, 3550, 3000, 0),
+};
+
+
+#define DEFAULT_ESR_LVL		0
+#define MAX_ESR_LVL		3
+static int get_esr_lvl(int esr)
+{
+	int i;
+
+	for (i = 0; i < (MAX_ESR_LVL + 1); i++) {
+		pr_info("%d,%d,%d,%d\n", cfg[i].esr, cfg[i].v_cutoff,
+				cfg[i].v_empty, cfg[i].empty_irq_enable);
+		if (esr <= cfg[i].esr)
+			return i;
+	}
+
+	return MAX_ESR_LVL;
+}
 
 #define DEBUG_PRINT_BUFFER_SIZE 64
 static void fill_string(char *str, size_t str_len, u8 *buf, int buf_len)
@@ -2175,7 +2221,7 @@ static int get_monotonic_soc_raw(struct fg_chip *chip)
 }
 
 #define EMPTY_CAPACITY		0
-#define DEFAULT_CAPACITY	50
+#define DEFAULT_CAPACITY	1
 #define MISSING_CAPACITY	100
 #define FULL_CAPACITY		100
 #define FULL_SOC_RAW		0xFF
@@ -2188,15 +2234,17 @@ static int get_prop_capacity(struct fg_chip *chip)
 		if (chip->last_soc == FULL_SOC_RAW)
 			return FULL_CAPACITY;
 		return DIV_ROUND_CLOSEST((chip->last_soc - 1) *
-				(FULL_CAPACITY - 2),
+				(FULL_CAPACITY - 1),
 				FULL_SOC_RAW - 2) + 1;
 	}
 
 	if (chip->battery_missing)
 		return MISSING_CAPACITY;
 
-	if (!chip->profile_loaded && !chip->use_otp_profile)
-		return DEFAULT_CAPACITY;
+	if (!chip->profile_loaded && !chip->use_otp_profile) {
+		pr_info("loading batt profile, return last soc %d\n", chip->mi_last_soc);
+		return chip->mi_last_soc;
+	}
 
 	if (chip->charge_full)
 		return FULL_CAPACITY;
@@ -2220,7 +2268,7 @@ static int get_prop_capacity(struct fg_chip *chip)
 
 			if (!vbatt_low_sts)
 				return DIV_ROUND_CLOSEST((chip->last_soc - 1) *
-						(FULL_CAPACITY - 2),
+						(FULL_CAPACITY - 1),
 						FULL_SOC_RAW - 2) + 1;
 			else
 				return EMPTY_CAPACITY;
@@ -2231,8 +2279,39 @@ static int get_prop_capacity(struct fg_chip *chip)
 		return FULL_CAPACITY;
 	}
 
-	return DIV_ROUND_CLOSEST((msoc - 1) * (FULL_CAPACITY - 2),
+	return DIV_ROUND_CLOSEST((msoc - 1) * (FULL_CAPACITY - 1),
 			FULL_SOC_RAW - 2) + 1;
+}
+
+static int get_last_soc(struct fg_chip *chip)
+{
+	u8 cap[2];
+	int rc, capacity = 0, tries = 0;
+
+	while (tries < MAX_TRIES_SOC) {
+		rc = fg_read(chip, cap,
+				chip->soc_base + SOC_MONOTONIC_SOC, 2);
+		if (rc) {
+			pr_err("spmi read failed: addr=%03x, rc=%d\n",
+				chip->soc_base + SOC_MONOTONIC_SOC, rc);
+			return rc;
+		}
+
+		if (cap[0] == cap[1])
+			break;
+
+		tries++;
+	}
+
+	if (tries == MAX_TRIES_SOC) {
+		pr_err("shadow registers do not match\n");
+		return DEFAULT_CAPACITY;
+	}
+
+	if (cap[0] > 0)
+		capacity = (cap[0] * 100 / FULL_PERCENT);
+
+	return capacity;
 }
 
 #define HIGH_BIAS	3
@@ -2485,7 +2564,7 @@ static int64_t twos_compliment_extend(int64_t val, int nbytes)
 #define FULL_PERCENT_28BIT		0xFFFFFFF
 static int update_sram_data(struct fg_chip *chip, int *resched_ms)
 {
-	int i, j, rc = 0;
+	int i, j, esr, lvl, rc = 0;
 	u8 reg[4];
 	int64_t temp;
 	int battid_valid = fg_is_batt_id_valid(chip);
@@ -2525,6 +2604,12 @@ static int update_sram_data(struct fg_chip *chip, int *resched_ms)
 			break;
 		case FG_DATA_BATT_ESR:
 			fg_data[i].value = float_decode((u16) temp);
+			esr = fg_data[i].value;
+			lvl = get_esr_lvl(esr);
+			if (lvl != chip->esr_lvl) {
+				chip->esr_lvl = lvl;
+				schedule_work(&chip->esr_adjust_work);
+			}
 			break;
 		case FG_DATA_BATT_ESR_COUNT:
 			fg_data[i].value = (u16)temp;
@@ -2643,6 +2728,39 @@ resched:
 		msecs_to_jiffies(SANITY_CHECK_PERIOD_MS));
 out:
 	fg_relax(&chip->sanity_wakeup_source);
+}
+
+#define SOC_WORK_MS	20000
+static int fg_get_cycle_count(struct fg_chip *chip);
+
+static void soc_work_fn(struct work_struct *work)
+{	struct fg_chip *chip = container_of(work,
+				struct fg_chip,
+				soc_work.work);
+	int soc;
+	int cycle_count;
+	static int prev_soc = -EINVAL;
+
+	cycle_count = fg_get_cycle_count(chip);
+	soc = get_prop_capacity(chip);
+	pr_info("adjust_soc: s %d r %d i %d v %d t %d cc %d\n",
+			soc,
+			get_sram_prop_now(chip, FG_DATA_BATT_ESR),
+			get_sram_prop_now(chip, FG_DATA_CURRENT),
+			get_sram_prop_now(chip, FG_DATA_VOLTAGE),
+			get_sram_prop_now(chip, FG_DATA_BATT_TEMP), cycle_count);
+
+	/* if soc changes, report power supply change uevent */
+	if (soc != prev_soc) {
+		if (chip->power_supply_registered)
+			power_supply_changed(&chip->bms_psy);
+		prev_soc = soc;
+	}
+
+	schedule_delayed_work(
+		&chip->soc_work,
+		msecs_to_jiffies(SOC_WORK_MS));
+
 }
 
 #define SRAM_TIMEOUT_MS			3000
@@ -2966,7 +3084,8 @@ out:
 
 static int fg_get_cycle_count(struct fg_chip *chip)
 {
-	int count;
+	u16 count = 0;
+	int i;
 
 	if (!chip->cyc_ctr.en)
 		return 0;
@@ -2975,7 +3094,9 @@ static int fg_get_cycle_count(struct fg_chip *chip)
 		return -EINVAL;
 
 	mutex_lock(&chip->cyc_ctr.lock);
-	count = chip->cyc_ctr.count[chip->cyc_ctr.id - 1];
+	for (i = 0; i < BUCKET_COUNT; i++)
+		count += chip->cyc_ctr.count[i];
+	count /= BUCKET_COUNT;
 	mutex_unlock(&chip->cyc_ctr.lock);
 	return count;
 }
@@ -4454,6 +4575,7 @@ static enum power_supply_property fg_power_props[] = {
 	POWER_SUPPLY_PROP_ENABLE_JEITA_DETECTION,
 	POWER_SUPPLY_PROP_BATTERY_INFO,
 	POWER_SUPPLY_PROP_BATTERY_INFO_ID,
+	POWER_SUPPLY_PROP_PROFILE_STATUS,
 };
 
 static int fg_power_get_property(struct power_supply *psy,
@@ -4558,6 +4680,9 @@ static int fg_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_BATTERY_INFO_ID:
 		val->intval = chip->batt_info_id;
+		break;
+	case POWER_SUPPLY_PROP_PROFILE_STATUS:
+		val->intval = chip->profile_loaded;
 		break;
 	default:
 		return -EINVAL;
@@ -5121,7 +5246,7 @@ static bool is_first_est_done(struct fg_chip *chip)
 	return (fg_soc_sts & SOC_FIRST_EST_DONE) ? true : false;
 }
 
-#define FG_EMPTY_DEBOUNCE_MS	1500
+#define FG_EMPTY_DEBOUNCE_MS	 5000
 static irqreturn_t fg_vbatt_low_handler(int irq, void *_chip)
 {
 	struct fg_chip *chip = _chip;
@@ -5388,6 +5513,8 @@ static void set_resume_soc_work(struct work_struct *work)
 
 	if (is_input_present(chip) && !chip->resume_soc_lowered) {
 		if (!chip->charge_done)
+			goto done;
+		if (chip->health == POWER_SUPPLY_HEALTH_GOOD)
 			goto done;
 		resume_soc_raw = get_monotonic_soc_raw(chip)
 			- (0xFF - settings[FG_MEM_RESUME_SOC].value);
@@ -6508,13 +6635,43 @@ reschedule:
 	return 0;
 }
 
+static int get_batt_voltage(struct fg_chip *chip)
+{
+	int i = FG_DATA_VOLTAGE, j, rc = 0;
+	u8 reg[4];
+	int64_t temp = 0;
+
+	rc = fg_mem_read(chip, reg, fg_data[i].address,
+			fg_data[i].len, fg_data[i].offset, 0);
+	if (rc)
+		pr_err("Failed to update sram data\n");
+
+	for (j = 0; j < fg_data[i].len; j++)
+		temp |= reg[j] << (8 * j);
+
+	fg_data[i].value = div_u64(
+			(u64)(u16)temp * LSB_16B_NUMRTR,
+			LSB_16B_DENMTR);
+
+	return fg_data[i].value;
+}
+
+#define IRQ_USE_VOLTAGE_HYST_BIT	BIT(0)
+#define FG_ALG_SYSCTL_1			0x4B0
+#define ALERT_CFG_OFFSET		3
+#define EMPTY_FROM_VOLTAGE_BIT		BIT(1)
+#define EMPTY_FROM_SOC_BIT		BIT(2)
+#define EMPTY_SOC_IRQ_MASK		(IRQ_USE_VOLTAGE_HYST_BIT | \
+					EMPTY_FROM_SOC_BIT | \
+					EMPTY_FROM_VOLTAGE_BIT)
 static void check_empty_work(struct work_struct *work)
 {
 	struct fg_chip *chip = container_of(work,
 				struct fg_chip,
 				check_empty_work.work);
 	bool vbatt_low_sts;
-	int msoc;
+	int msoc, volt;
+	int rc;
 
 	/* handle empty soc based on vbatt-low interrupt */
 	if (chip->use_vbat_low_empty_soc) {
@@ -6539,13 +6696,38 @@ static void check_empty_work(struct work_struct *work)
 			enable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
 			chip->vbat_low_irq_enabled = true;
 		}
-	} else if (fg_is_batt_empty(chip)) {
-		if (fg_debug_mask & FG_STATUS)
-			pr_info("EMPTY SOC high\n");
-		chip->soc_empty = true;
-		if (chip->power_supply_registered)
-			power_supply_changed(&chip->bms_psy);
+	} else {
+		volt = get_batt_voltage(chip);
+		volt = volt / 1000;
+		pr_info("volt %d\n", volt);
+		if (fg_is_batt_empty(chip)
+			&& volt < settings[FG_MEM_IRQ_VOLT_EMPTY].value) {
+			pr_info("EMPTY SOC high \n");
+			chip->soc_empty = true;
+			if (chip->power_supply_registered)
+				power_supply_changed(&chip->bms_psy);
+		}
 	}
+
+	/*
+	 * Clear bits 0-2 in 0x4B3 and set them again to make empty_soc irq
+	 * trigger again.
+	 */
+	rc = fg_mem_masked_write(chip, FG_ALG_SYSCTL_1, EMPTY_SOC_IRQ_MASK,
+			0, ALERT_CFG_OFFSET);
+	if (rc) {
+		pr_err("failed to write to 0x4B3 rc=%d\n", rc);
+	}
+
+	/* Wait for a FG cycle before enabling empty soc irq configuration */
+	msleep(FG_CYCLE_MS);
+
+	rc = fg_mem_masked_write(chip, FG_ALG_SYSCTL_1, EMPTY_SOC_IRQ_MASK,
+			EMPTY_SOC_IRQ_MASK, ALERT_CFG_OFFSET);
+	if (rc) {
+		pr_err("failed to write to 0x4B3 rc=%d\n", rc);
+	}
+
 
 out:
 	fg_relax(&chip->empty_check_wakeup_source);
@@ -6748,6 +6930,32 @@ static int update_cutoff_voltage(struct fg_chip *chip)
 	return fg_mem_write(chip, data, settings[FG_MEM_CUTOFF_VOLTAGE].address,
 				2, settings[FG_MEM_CUTOFF_VOLTAGE].offset, 0);
 }
+
+static void esr_adjust_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work,
+				struct fg_chip,
+				esr_adjust_work);
+	int lvl;
+	int esr;
+
+	esr = get_sram_prop_now(chip, FG_DATA_BATT_ESR);
+	lvl = get_esr_lvl(esr);
+	if (cfg[lvl].empty_irq_enable) {
+		settings[FG_MEM_IRQ_VOLT_EMPTY].value = cfg[lvl].v_empty;
+		update_irq_volt_empty(chip);
+		if (!chip->empty_irq_enabled) {
+			enable_irq(chip->soc_irq[EMPTY_SOC].irq);
+			enable_irq_wake(chip->soc_irq[EMPTY_SOC].irq);
+			chip->empty_irq_enabled = true;
+		}
+	} else {
+		disable_irq_wake(chip->soc_irq[EMPTY_SOC].irq);
+		disable_irq_nosync(chip->soc_irq[EMPTY_SOC].irq);
+		chip->empty_irq_enabled = false;
+	}
+}
+
 
 static int update_iterm(struct fg_chip *chip)
 {
@@ -7348,6 +7556,7 @@ static int fg_init_irqs(struct fg_chip *chip)
 
 static void fg_cancel_all_works(struct fg_chip *chip)
 {
+	cancel_delayed_work_sync(&chip->soc_work);
 	cancel_delayed_work_sync(&chip->check_sanity_work);
 	cancel_delayed_work_sync(&chip->update_sram_data);
 	cancel_delayed_work_sync(&chip->update_temp_work);
@@ -7366,6 +7575,7 @@ static void fg_cancel_all_works(struct fg_chip *chip)
 	cancel_work_sync(&chip->cycle_count_work);
 	cancel_work_sync(&chip->update_esr_work);
 	cancel_work_sync(&chip->sysfs_restart_work);
+	cancel_work_sync(&chip->esr_adjust_work);
 	cancel_work_sync(&chip->gain_comp_work);
 	cancel_work_sync(&chip->init_work);
 	cancel_work_sync(&chip->charge_full_work);
@@ -7878,23 +8088,15 @@ static int bcl_trim_workaround(struct fg_chip *chip)
 	return 0;
 }
 
-#define FG_ALG_SYSCTL_1			0x4B0
 #define KI_COEFF_PRED_FULL_ADDR		0x408
 #define TEMP_FRAC_SHIFT_REG		0x4A4
 #define FG_ADC_CONFIG_REG		0x4B8
 #define KI_COEFF_PRED_FULL_4_0_MSB	0x88
 #define KI_COEFF_PRED_FULL_4_0_LSB	0x00
 #define FG_BCL_CONFIG_OFFSET		0x3
-#define ALERT_CFG_OFFSET		3
 #define I_TERM_QUAL_BIT			BIT(1)
 #define PATCH_NEG_CURRENT_BIT		BIT(3)
 #define BCL_FORCED_HPM_IN_CHARGE	BIT(2)
-#define IRQ_USE_VOLTAGE_HYST_BIT	BIT(0)
-#define EMPTY_FROM_VOLTAGE_BIT		BIT(1)
-#define EMPTY_FROM_SOC_BIT		BIT(2)
-#define EMPTY_SOC_IRQ_MASK		(IRQ_USE_VOLTAGE_HYST_BIT | \
-					EMPTY_FROM_SOC_BIT | \
-					EMPTY_FROM_VOLTAGE_BIT)
 static int fg_common_hw_init(struct fg_chip *chip)
 {
 	int rc;
@@ -8536,6 +8738,10 @@ static void delayed_init_work(struct work_struct *work)
 	if (chip->last_temp_update_time == 0)
 		update_temp_data(&chip->update_temp_work.work);
 
+	schedule_delayed_work(
+		&chip->soc_work,
+		msecs_to_jiffies(SOC_WORK_MS));
+
 	if (!chip->use_otp_profile)
 		schedule_delayed_work(&chip->batt_profile_init, 0);
 
@@ -8625,6 +8831,7 @@ static int fg_probe(struct spmi_device *spmi)
 	INIT_DELAYED_WORK(&chip->update_sram_data, update_sram_data_work);
 	INIT_DELAYED_WORK(&chip->update_temp_work, update_temp_data);
 	INIT_DELAYED_WORK(&chip->check_empty_work, check_empty_work);
+	INIT_DELAYED_WORK(&chip->soc_work, soc_work_fn);
 	INIT_DELAYED_WORK(&chip->batt_profile_init, batt_profile_init);
 	INIT_DELAYED_WORK(&chip->check_sanity_work, check_sanity_work);
 	INIT_WORK(&chip->ima_error_recovery_work, ima_error_recovery_work);
@@ -8637,6 +8844,7 @@ static int fg_probe(struct spmi_device *spmi)
 	INIT_WORK(&chip->update_esr_work, update_esr_value);
 	INIT_WORK(&chip->set_resume_soc_work, set_resume_soc_work);
 	INIT_WORK(&chip->sysfs_restart_work, sysfs_restart_work);
+	INIT_WORK(&chip->esr_adjust_work, esr_adjust_work);
 	INIT_WORK(&chip->init_work, delayed_init_work);
 	INIT_WORK(&chip->charge_full_work, charge_full_work);
 	INIT_WORK(&chip->gain_comp_work, iadc_gain_comp_work);
@@ -8786,6 +8994,12 @@ static int fg_probe(struct spmi_device *spmi)
 		}
 	}
 
+	/* products have been in market for more than one year , so set default lvl
+	 * to 1 to save one configuration, note that new product should set it to 0 */
+	chip->esr_lvl = DEFAULT_ESR_LVL;
+
+	chip->mi_last_soc = get_last_soc(chip);
+	pr_info("last soc %d\n", chip->mi_last_soc);
 	/* Fake temperature till the actual temperature is read */
 	chip->last_good_temp = 250;
 
@@ -8858,6 +9072,9 @@ static void check_and_update_sram_data(struct fg_chip *chip)
 
 	schedule_delayed_work(
 		&chip->update_sram_data, msecs_to_jiffies(time_left * 1000));
+
+	schedule_delayed_work(
+		&chip->soc_work, msecs_to_jiffies(SOC_WORK_MS));
 }
 
 static int fg_suspend(struct device *dev)
@@ -8867,6 +9084,7 @@ static int fg_suspend(struct device *dev)
 	if (!chip->sw_rbias_ctrl)
 		return 0;
 
+	cancel_delayed_work(&chip->soc_work);
 	cancel_delayed_work(&chip->update_temp_work);
 	cancel_delayed_work(&chip->update_sram_data);
 

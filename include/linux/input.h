@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 1999-2002 Vojtech Pavlik
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -35,6 +36,23 @@ struct input_value {
 	__u16 code;
 	__s32 value;
 };
+
+#ifdef CONFIG_LAST_TOUCH_EVENTS
+#define TOUCH_EVENT_MAX 512
+struct touch_event {
+	struct timespec press_time_stamp;
+	struct timespec release_time_stamp;
+	__s32 press_pos_x;
+	__s32 press_pos_y;
+	__s32 release_pos_x;
+	__s32 release_pos_y;
+};
+
+struct touch_event_info {
+	u32 touch_event_num;
+	struct touch_event touch_event_buf[TOUCH_EVENT_MAX];
+};
+#endif
 
 /**
  * struct input_dev - represents an input device
@@ -187,6 +205,11 @@ struct input_dev {
 	struct input_value *vals;
 
 	bool devres_managed;
+#ifdef CONFIG_LAST_TOUCH_EVENTS
+	bool touch_is_pressed;
+	struct touch_event latest_touch_event;
+	struct touch_event_info *touch_events;
+#endif
 };
 #define to_input_dev(d) container_of(d, struct input_dev, dev)
 

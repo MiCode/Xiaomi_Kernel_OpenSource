@@ -5,6 +5,7 @@
  * (C) Copyright 1999 Johannes Erdfelt
  * (C) Copyright 1999 Gregory P. Smith
  * (C) Copyright 2001 Brad Hards (bhards@bigpond.net.au)
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  */
 
@@ -3002,22 +3003,6 @@ EXPORT_SYMBOL_GPL(usb_enable_ltm);
  * enable remote wake for the first interface.  FIXME if the interface
  * association descriptor shows there's more than one function.
  */
-static int usb_enable_remote_wakeup(struct usb_device *udev)
-{
-	if (udev->speed < USB_SPEED_SUPER)
-		return usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
-				USB_REQ_SET_FEATURE, USB_RECIP_DEVICE,
-				USB_DEVICE_REMOTE_WAKEUP, 0, NULL, 0,
-				USB_CTRL_SET_TIMEOUT);
-	else
-		return usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
-				USB_REQ_SET_FEATURE, USB_RECIP_INTERFACE,
-				USB_INTRF_FUNC_SUSPEND,
-				USB_INTRF_FUNC_SUSPEND_RW |
-					USB_INTRF_FUNC_SUSPEND_LP,
-				NULL, 0, USB_CTRL_SET_TIMEOUT);
-}
-
 /*
  * usb_disable_remote_wakeup - disable remote wakeup for a device
  * @udev: target device
@@ -3115,16 +3100,11 @@ int usb_port_suspend(struct usb_device *udev, pm_message_t msg)
 	 * NOTE:  OTG devices may issue remote wakeup (or SRP) even when
 	 * we don't explicitly enable it here.
 	 */
-	if (udev->do_remote_wakeup) {
-		status = usb_enable_remote_wakeup(udev);
-		if (status) {
-			dev_dbg(&udev->dev, "won't remote wakeup, status %d\n",
-					status);
-			/* bail if autosuspend is requested */
-			if (PMSG_IS_AUTO(msg))
-				goto err_wakeup;
-		}
-	}
+	/*
+	 * disable remote wakeup, as msm8953 remote wakeup feature
+	 * is not stable, some USB earphone may disconnect when try
+	 * to do remote wakeup
+	 */
 
 	/* disable USB2 hardware LPM */
 	if (udev->usb2_hw_lpm_enabled == 1)
@@ -3179,7 +3159,6 @@ int usb_port_suspend(struct usb_device *udev, pm_message_t msg)
 
 		if (udev->do_remote_wakeup)
 			(void) usb_disable_remote_wakeup(udev);
- err_wakeup:
 
 		/* System sleep transitions should never fail */
 		if (!PMSG_IS_AUTO(msg))

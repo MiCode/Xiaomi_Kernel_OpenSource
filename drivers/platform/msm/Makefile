@@ -26,3 +26,4 @@ obj-$(CONFIG_MSM_AVTIMER) += avtimer.o
 obj-$(CONFIG_MSM_11AD) += msm_11ad/
 obj-$(CONFIG_MSM_MHI_DEV) += mhi_dev/
 obj-$(CONFIG_SSM) += ssm.o
+obj-$(CONFIG_GPIO13_RF) += gpio13.o

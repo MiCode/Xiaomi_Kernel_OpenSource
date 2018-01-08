@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -291,6 +292,9 @@ static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 		pr_warn("%s: Panel reset failed. rc=%d\n", __func__, ret);
 		ret = 0;
 	}
+
+	if (pdata->panel_info.rst_off_delay)
+		mdelay(pdata->panel_info.rst_off_delay);
 
 	if (mdss_dsi_pinctrl_set_state(ctrl_pdata, false))
 		pr_debug("reset disable: pinctrl not enabled\n");
@@ -1146,8 +1150,9 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata, int power_state)
 
 	panel_info = &ctrl_pdata->panel_data.panel_info;
 
-	pr_debug("%s+: ctrl=%pK ndx=%d power_state=%d\n",
+	pr_info("%s+: ctrl=%pK ndx=%d power_state=%d\n",
 		__func__, ctrl_pdata, ctrl_pdata->ndx, power_state);
+	ctrl_pdata->dsi_pipe_ready = false;
 
 	if (power_state == panel_info->panel_power_state) {
 		pr_debug("%s: No change in power state %d -> %d\n", __func__,
@@ -1201,7 +1206,7 @@ panel_power_ctrl:
 	/* Initialize Max Packet size for DCS reads */
 	ctrl_pdata->cur_max_pkt_size = 0;
 end:
-	pr_debug("%s-:\n", __func__);
+	pr_info("%s-:\n", __func__);
 
 	return ret;
 }
@@ -1327,7 +1332,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 		mdss_dsi_validate_debugfs_info(ctrl_pdata);
 
 	cur_power_state = pdata->panel_info.panel_power_state;
-	pr_debug("%s+: ctrl=%pK ndx=%d cur_power_state=%d\n", __func__,
+	pr_info("%s+: ctrl=%pK ndx=%d cur_power_state=%d\n", __func__,
 		ctrl_pdata, ctrl_pdata->ndx, cur_power_state);
 
 	pinfo = &pdata->panel_info;
@@ -1416,7 +1421,8 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 				  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_OFF);
 
 end:
-	pr_debug("%s-:\n", __func__);
+	ctrl_pdata->dsi_pipe_ready = true;
+	pr_info("%s-:\n", __func__);
 	return ret;
 }
 
@@ -2253,6 +2259,33 @@ static int mdss_dsi_ctl_partial_roi(struct mdss_panel_data *pdata)
 	return rc;
 }
 
+static int mdss_dsi_dispparam(struct mdss_panel_data *pdata)
+{
+	int rc = -EINVAL;
+	u32 data = 10;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+
+	data = pdata->panel_info.panel_paramstatus;
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+
+	if (ctrl_pdata->dispparam_fnc)
+		rc = ctrl_pdata->dispparam_fnc(pdata);
+
+	if (rc) {
+		pr_err("%s: unable to initialize the panel\n",
+				__func__);
+		return rc;
+	}
+	return rc;
+}
+
 static int mdss_dsi_set_stream_size(struct mdss_panel_data *pdata)
 {
 	u32 stream_ctrl, stream_total, idle;
@@ -2541,7 +2574,9 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		ctrl_pdata->ctrl_state &= ~CTRL_STATE_MDP_ACTIVE;
 		if (ctrl_pdata->off_cmds.link_state == DSI_LP_MODE)
 			rc = mdss_dsi_blank(pdata, power_state);
+		mutex_lock(&ctrl_pdata->dsi_ctrl_mutex);
 		rc = mdss_dsi_off(pdata, power_state);
+		mutex_unlock(&ctrl_pdata->dsi_ctrl_mutex);
 		break;
 	case MDSS_EVENT_CONT_SPLASH_FINISH:
 		if (ctrl_pdata->off_cmds.link_state == DSI_LP_MODE)
@@ -2580,6 +2615,11 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		break;
 	case MDSS_EVENT_ENABLE_PARTIAL_ROI:
 		rc = mdss_dsi_ctl_partial_roi(pdata);
+		break;
+	case MDSS_EVENT_DISPPARAM:
+		mutex_lock(&ctrl_pdata->dsi_ctrl_mutex);
+		rc = mdss_dsi_dispparam(pdata);
+		mutex_unlock(&ctrl_pdata->dsi_ctrl_mutex);
 		break;
 	case MDSS_EVENT_DSI_RESET_WRITE_PTR:
 		rc = mdss_dsi_reset_write_ptr(pdata);
@@ -3082,6 +3122,7 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 
 	ctrl_pdata->mdss_util = util;
 	atomic_set(&ctrl_pdata->te_irq_ready, 0);
+	ctrl_pdata->dsi_pipe_ready = false;
 
 	ctrl_name = of_get_property(pdev->dev.of_node, "label", NULL);
 	if (!ctrl_name)

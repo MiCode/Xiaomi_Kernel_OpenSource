@@ -4,6 +4,7 @@
  * Copyright (c) 2003 Patrick Mochel
  * Copyright (c) 2003 Open Source Development Lab
  * Copyright (c) 2009 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This file is released under the GPLv2.
  */
@@ -32,6 +33,8 @@
 #include <linux/wakeup_reason.h>
 
 #include "power.h"
+
+#include <soc/qcom/smsm.h>
 
 const char *pm_labels[] = { "mem", "standby", "freeze", NULL };
 const char *pm_states[PM_SUSPEND_MAX];
@@ -518,7 +521,11 @@ int pm_suspend(suspend_state_t state)
 		return -EINVAL;
 
 	pm_suspend_marker("entry");
+	smsm_change_state(SMSM_APPS_STATE, SMSM_PROC_AWAKE, 0);
+	pr_info("pm_suspend: PM_SUSPEND_PREPARE smsm_change_sate clear!\n");
 	error = enter_state(state);
+	smsm_change_state(SMSM_APPS_STATE, 0, SMSM_PROC_AWAKE);
+	pr_info("pm_suspend: PM_POST_SUSPEND smsm_change_sate set!\n");
 	if (error) {
 		suspend_stats.fail++;
 		dpm_save_failed_errno(error);

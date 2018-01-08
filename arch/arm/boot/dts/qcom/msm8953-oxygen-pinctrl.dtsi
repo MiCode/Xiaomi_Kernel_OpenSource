@@ -1,0 +1,77 @@
+/*
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm8953-pinctrl.dtsi"
+
+&cci {
+	/delete-node/	cci1_active;
+	/delete-node/	cci1_suspend;
+};
+&gpio_key_active {
+	mux {
+		pins = "gpio85";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio85";
+		drive-strength = <2>;
+		bias-pull-up;
+	};
+};
+&gpio_key_suspend {
+	mux {
+		pins = "gpio85";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio85";
+		drive-strength = <2>;
+		bias-pull-up;
+	};
+};
+
+&cam_sensor_rear_default {
+	mux {
+		pins = "gpio39";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio39";
+		bias-disable; /* No PULL */
+		drive-strength = <2>; /* 2 MA */
+	};
+};
+
+&cam_sensor_rear_sleep {
+	mux {
+		pins ="gpio39";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio39";
+		bias-disable; /* No PULL */
+		drive-strength = <2>; /* 2 MA */
+	};
+};
+
+&tlmm {
+	/delete-node/	cam_sensor_rear_vana;
+	/delete-node/	cam_sensor_rear_vana_sleep;
+	/delete-node/	cam_sensor_front_default;
+	/delete-node/	cam_sensor_front_sleep;
+};

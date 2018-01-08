@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2014, 2016 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +25,8 @@
 #include <linux/mm.h>
 #include <linux/of.h>
 #include <linux/uaccess.h>
+#include <linux/syscore_ops.h>
+
 
 #include "rpm_stats.h"
 
@@ -74,6 +77,8 @@ struct msm_rpm_master_stats_private_data {
 	char buf[RPM_MASTERS_BUF_LEN];
 	struct msm_rpm_master_stats_platform_data *platform_data;
 };
+
+static struct msm_rpm_master_stats_private_data rpm_master_stats_private_data;
 
 int msm_rpm_master_stats_file_close(struct inode *inode,
 		struct file *file)
@@ -260,6 +265,174 @@ static int msm_rpm_master_copy_stats(
 	return RPM_MASTERS_BUF_LEN - count;
 }
 
+static int msm_rpm_master_copy_stats_print(
+		struct msm_rpm_master_stats_private_data *prvdata)
+{
+	struct msm_rpm_master_stats record;
+	struct msm_rpm_master_stats_platform_data *pdata;
+	static int master_cnt;
+	int count, j = 0;
+	char *buf;
+
+	/* Iterate possible number of masters */
+	if (master_cnt > prvdata->num_masters - 1) {
+		master_cnt = 0;
+		return 0;
+	}
+
+	pdata = prvdata->platform_data;
+	count = RPM_MASTERS_BUF_LEN;
+	buf = prvdata->buf;
+
+	if (prvdata->platform_data->version == 2) {
+		SNPRINTF(buf, count, "%s\n",
+				GET_MASTER_NAME(master_cnt, prvdata));
+
+		record.shutdown_req = readq_relaxed(prvdata->reg_base +
+			(master_cnt * pdata->master_offset +
+			offsetof(struct msm_rpm_master_stats, shutdown_req)));
+
+		SNPRINTF(buf, count, "\t%s:0x%llX\n",
+			GET_FIELD(record.shutdown_req),
+			record.shutdown_req);
+
+		record.wakeup_ind = readq_relaxed(prvdata->reg_base +
+			(master_cnt * pdata->master_offset +
+			offsetof(struct msm_rpm_master_stats, wakeup_ind)));
+
+		SNPRINTF(buf, count, "\t%s:0x%llX\n",
+			GET_FIELD(record.wakeup_ind),
+			record.wakeup_ind);
+
+		record.bringup_req = readq_relaxed(prvdata->reg_base +
+			(master_cnt * pdata->master_offset +
+			offsetof(struct msm_rpm_master_stats, bringup_req)));
+
+		SNPRINTF(buf, count, "\t%s:0x%llX\n",
+			GET_FIELD(record.bringup_req),
+			record.bringup_req);
+
+		record.bringup_ack = readq_relaxed(prvdata->reg_base +
+			(master_cnt * pdata->master_offset +
+			offsetof(struct msm_rpm_master_stats, bringup_ack)));
+
+		SNPRINTF(buf, count, "\t%s:0x%llX\n",
+			GET_FIELD(record.bringup_ack),
+			record.bringup_ack);
+
+		record.xo_last_entered_at = readq_relaxed(prvdata->reg_base +
+			(master_cnt * pdata->master_offset +
+			offsetof(struct msm_rpm_master_stats,
+			xo_last_entered_at)));
+
+		SNPRINTF(buf, count, "\t%s:0x%llX\n",
+			GET_FIELD(record.xo_last_entered_at),
+			record.xo_last_entered_at);
+
+		record.xo_last_exited_at = readq_relaxed(prvdata->reg_base +
+			(master_cnt * pdata->master_offset +
+			offsetof(struct msm_rpm_master_stats,
+			xo_last_exited_at)));
+
+		SNPRINTF(buf, count, "\t%s:0x%llX\n",
+			GET_FIELD(record.xo_last_exited_at),
+			record.xo_last_exited_at);
+
+		record.xo_accumulated_duration =
+				readq_relaxed(prvdata->reg_base +
+				(master_cnt * pdata->master_offset +
+				offsetof(struct msm_rpm_master_stats,
+				xo_accumulated_duration)));
+
+		SNPRINTF(buf, count, "\t%s:0x%llX\n",
+			GET_FIELD(record.xo_accumulated_duration),
+			record.xo_accumulated_duration);
+
+		record.last_sleep_transition_duration =
+				readl_relaxed(prvdata->reg_base +
+				(master_cnt * pdata->master_offset +
+				offsetof(struct msm_rpm_master_stats,
+				last_sleep_transition_duration)));
+
+		SNPRINTF(buf, count, "\t%s:0x%x\n",
+			GET_FIELD(record.last_sleep_transition_duration),
+			record.last_sleep_transition_duration);
+
+		record.last_wake_transition_duration =
+				readl_relaxed(prvdata->reg_base +
+				(master_cnt * pdata->master_offset +
+				offsetof(struct msm_rpm_master_stats,
+				last_wake_transition_duration)));
+
+		SNPRINTF(buf, count, "\t%s:0x%x\n",
+			GET_FIELD(record.last_wake_transition_duration),
+			record.last_wake_transition_duration);
+
+		record.xo_count =
+				readl_relaxed(prvdata->reg_base +
+				(master_cnt * pdata->master_offset +
+				offsetof(struct msm_rpm_master_stats,
+				xo_count)));
+
+		SNPRINTF(buf, count, "\t%s:0x%x\n",
+			GET_FIELD(record.xo_count),
+			record.xo_count);
+
+		record.wakeup_reason = readl_relaxed(prvdata->reg_base +
+					(master_cnt * pdata->master_offset +
+					offsetof(struct msm_rpm_master_stats,
+					wakeup_reason)));
+
+		SNPRINTF(buf, count, "\t%s:0x%x\n",
+			GET_FIELD(record.wakeup_reason),
+			record.wakeup_reason);
+
+		record.numshutdowns = readl_relaxed(prvdata->reg_base +
+			(master_cnt * pdata->master_offset +
+			 offsetof(struct msm_rpm_master_stats, numshutdowns)));
+
+		SNPRINTF(buf, count, "\t%s:0x%x\n",
+			GET_FIELD(record.numshutdowns),
+			record.numshutdowns);
+
+		record.active_cores = readl_relaxed(prvdata->reg_base +
+			(master_cnt * pdata->master_offset) +
+			offsetof(struct msm_rpm_master_stats, active_cores));
+
+		SNPRINTF(buf, count, "\t%s:0x%x\n",
+			GET_FIELD(record.active_cores),
+			record.active_cores);
+	} else {
+		SNPRINTF(buf, count, "%s\n",
+				GET_MASTER_NAME(master_cnt, prvdata));
+
+		record.numshutdowns = readl_relaxed(prvdata->reg_base +
+				(master_cnt * pdata->master_offset) + 0x0);
+
+		SNPRINTF(buf, count, "\t%s:0x%0x\n",
+			GET_FIELD(record.numshutdowns),
+			record.numshutdowns);
+
+		record.active_cores = readl_relaxed(prvdata->reg_base +
+				(master_cnt * pdata->master_offset) + 0x4);
+
+		SNPRINTF(buf, count, "\t%s:0x%0x\n",
+			GET_FIELD(record.active_cores),
+			record.active_cores);
+	}
+
+	j = find_first_bit((unsigned long *)&record.active_cores,
+							BITS_PER_LONG);
+	while (j < BITS_PER_LONG) {
+		SNPRINTF(buf, count, "\t\tcore%d\n", j);
+		j = find_next_bit((unsigned long *)&record.active_cores,
+				BITS_PER_LONG, j + 1);
+	}
+
+	master_cnt++;
+	return RPM_MASTERS_BUF_LEN - count;
+}
+
 static ssize_t msm_rpm_master_stats_file_read(struct file *file,
 				char __user *bufu, size_t count, loff_t *ppos)
 {
@@ -390,6 +563,31 @@ err:
 	return NULL;
 }
 
+static u32 debug_rpm_master_stats = 1;
+
+static void msm_rpm_master_stats_resume(void)
+{
+	int i = 0;
+	struct msm_rpm_master_stats_private_data *prvdata;
+
+	prvdata = &rpm_master_stats_private_data;
+
+	if (likely(!debug_rpm_master_stats))
+		return;
+	if (!prvdata)
+		return;
+	for (i = 0; i < prvdata->num_masters; i++) {
+		prvdata->len = msm_rpm_master_copy_stats_print(prvdata);
+		if (prvdata->len > 0)
+			pr_err("%s", prvdata->buf);
+	}
+}
+
+static struct syscore_ops msm_master_rpmstats_ops = {
+	.suspend = NULL,
+	.resume = msm_rpm_master_stats_resume,
+};
+
 static  int msm_rpm_master_stats_probe(struct platform_device *pdev)
 {
 	struct dentry *dent;
@@ -430,6 +628,13 @@ static  int msm_rpm_master_stats_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	rpm_master_stats_private_data.reg_base =  ioremap_nocache(pdata->phys_addr_base,
+				pdata->phys_size);
+	rpm_master_stats_private_data.len = 0;
+	rpm_master_stats_private_data.num_masters = pdata->num_masters;
+	rpm_master_stats_private_data.master_names = pdata->masters;
+	rpm_master_stats_private_data.platform_data = pdata;
+
 	platform_set_drvdata(pdev, dent);
 	return 0;
 }
@@ -464,11 +669,18 @@ static int __init msm_rpm_master_stats_init(void)
 	return platform_driver_register(&msm_rpm_master_stats_driver);
 }
 
+static int __init msm_master_rpmstats_syscore_init(void)
+{
+	register_syscore_ops(&msm_master_rpmstats_ops);
+	return 0;
+}
+
 static void __exit msm_rpm_master_stats_exit(void)
 {
 	platform_driver_unregister(&msm_rpm_master_stats_driver);
 }
 
+device_initcall(msm_master_rpmstats_syscore_init);
 module_init(msm_rpm_master_stats_init);
 module_exit(msm_rpm_master_stats_exit);
 

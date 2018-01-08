@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -595,6 +596,14 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 
 	/* Load the MBA image into memory */
 	count = fw->size;
+
+	if (count > SZ_1M) {
+		dev_err(pil->dev, "%s fw image loading into memory is failed due to fw size overflow\n",
+			__func__);
+		ret = -EINVAL;
+		goto err_mba_data;
+	}
+
 	memcpy(mba_dp_virt, data, count);
 	/* Ensure memcpy of the MBA memory is done before loading the DP */
 	wmb();
