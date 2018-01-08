@@ -180,14 +180,14 @@ static inline void tcp_event_ack_sent(struct sock *sk, unsigned int pkts,
 }
 
 
-u32 tcp_default_init_rwnd(u32 mss)
+u32 tcp_default_init_rwnd(const struct sock *sk, u32 mss)
 {
 	/* Initial receive window should be twice of TCP_INIT_CWND to
 	 * enable proper sending of new unsent data during fast recovery
 	 * (RFC 3517, Section 4, NextSeg() rule (2)). Further place a
 	 * limit when mss is larger than 1460.
 	 */
-	u32 init_rwnd = sysctl_tcp_default_init_rwnd;
+	u32 init_rwnd = sock_net(sk)->ipv4.sysctl_tcp_default_init_rwnd;
 
 	if (mss > 1460)
 		init_rwnd = max((1460 * init_rwnd) / mss, 2U);
@@ -243,7 +243,7 @@ void tcp_select_initial_window(const struct sock *sk, int __space, __u32 mss,
 	}
 
 	if (!init_rcv_wnd) /* Use default unless specified otherwise */
-		init_rcv_wnd = tcp_default_init_rwnd(mss);
+		init_rcv_wnd = tcp_default_init_rwnd(sk, mss);
 	*rcv_wnd = min(*rcv_wnd, init_rcv_wnd * mss);
 
 	/* Set the clamp no higher than max representable value */

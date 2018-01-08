@@ -45,13 +45,13 @@ static ssize_t _name##_store(struct kobject *kobj, \
 static struct kobj_attribute _name##_attr = \
 	__ATTR(_name, 0644, _name##_show, _name##_store)
 
-CREATE_IPV4_FILE(tcp_wmem_min, sysctl_tcp_wmem[0]);
-CREATE_IPV4_FILE(tcp_wmem_def, sysctl_tcp_wmem[1]);
-CREATE_IPV4_FILE(tcp_wmem_max, sysctl_tcp_wmem[2]);
+CREATE_IPV4_FILE(tcp_wmem_min, init_net.ipv4.sysctl_tcp_wmem[0]);
+CREATE_IPV4_FILE(tcp_wmem_def, init_net.ipv4.sysctl_tcp_wmem[1]);
+CREATE_IPV4_FILE(tcp_wmem_max, init_net.ipv4.sysctl_tcp_wmem[2]);
 
-CREATE_IPV4_FILE(tcp_rmem_min, sysctl_tcp_rmem[0]);
-CREATE_IPV4_FILE(tcp_rmem_def, sysctl_tcp_rmem[1]);
-CREATE_IPV4_FILE(tcp_rmem_max, sysctl_tcp_rmem[2]);
+CREATE_IPV4_FILE(tcp_rmem_min, init_net.ipv4.sysctl_tcp_rmem[0]);
+CREATE_IPV4_FILE(tcp_rmem_def, init_net.ipv4.sysctl_tcp_rmem[1]);
+CREATE_IPV4_FILE(tcp_rmem_max, init_net.ipv4.sysctl_tcp_rmem[2]);
 
 static struct attribute *ipv4_attrs[] = {
 	&tcp_wmem_min_attr.attr,
