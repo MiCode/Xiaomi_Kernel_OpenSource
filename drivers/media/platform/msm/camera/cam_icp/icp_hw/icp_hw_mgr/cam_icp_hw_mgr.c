@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1385,11 +1385,18 @@ static int cam_icp_mgr_process_direct_ack_msg(uint32_t *msg_ptr)
 {
 	struct cam_icp_hw_ctx_data *ctx_data = NULL;
 	struct hfi_msg_ipebps_async_ack *ioconfig_ack = NULL;
+	struct cam_hw_intf *a5_dev_intf = NULL;
+	struct cam_hw_info *a5_dev = NULL;
 	int rc = 0;
 
+	a5_dev_intf = icp_hw_mgr.a5_dev_intf;
+	if (!a5_dev_intf) {
+		CAM_ERR(CAM_ICP, "a5_dev_intf is invalid");
+		return -EINVAL;
+	}
+	a5_dev = (struct cam_hw_info *)a5_dev_intf->hw_priv;
+
 	switch (msg_ptr[ICP_PACKET_OPCODE]) {
-	case HFI_IPEBPS_CMD_OPCODE_IPE_DESTROY:
-	case HFI_IPEBPS_CMD_OPCODE_BPS_DESTROY:
 	case HFI_IPEBPS_CMD_OPCODE_IPE_ABORT:
 	case HFI_IPEBPS_CMD_OPCODE_BPS_ABORT:
 		CAM_DBG(CAM_ICP, "received IPE/BPS_DESTROY/ABORT:");
@@ -1399,6 +1406,26 @@ static int cam_icp_mgr_process_direct_ack_msg(uint32_t *msg_ptr)
 		if ((ctx_data->state == CAM_ICP_CTX_STATE_RELEASE) ||
 			(ctx_data->state == CAM_ICP_CTX_STATE_IN_USE))
 			complete(&ctx_data->wait_complete);
+
+		break;
+	case HFI_IPEBPS_CMD_OPCODE_IPE_DESTROY:
+	case HFI_IPEBPS_CMD_OPCODE_BPS_DESTROY:
+		CAM_INFO(CAM_ICP, "received IPE/BPS_DESTROY/ABORT:");
+		ioconfig_ack = (struct hfi_msg_ipebps_async_ack *)msg_ptr;
+		ctx_data =
+			(struct cam_icp_hw_ctx_data *)ioconfig_ack->user_data1;
+		if ((ctx_data->state == CAM_ICP_CTX_STATE_RELEASE) ||
+			(ctx_data->state == CAM_ICP_CTX_STATE_IN_USE)) {
+
+			if (!icp_hw_mgr.icp_pc_flag) {
+				CAM_INFO(CAM_ICP, "disabling CPU");
+				cam_hfi_disable_cpu(
+					a5_dev->soc_info.
+					reg_map[A5_SIERRA_BASE].mem_base);
+				CAM_INFO(CAM_ICP, "done disabling CPU");
+			}
+			complete(&ctx_data->wait_complete);
+		}
 
 		break;
 	default:
@@ -2097,6 +2124,7 @@ static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args)
 {
 	struct cam_icp_hw_mgr *hw_mgr = hw_priv;
 	struct cam_hw_intf *a5_dev_intf = NULL;
+	struct cam_hw_info *a5_dev = NULL;
 	struct cam_icp_a5_set_irq_cb irq_cb;
 	struct cam_icp_a5_set_fw_buf_info fw_buf_info;
 	int rc = 0;
@@ -2116,6 +2144,8 @@ static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args)
 		return -EINVAL;
 	}
 
+	a5_dev = (struct cam_hw_info *)a5_dev_intf->hw_priv;
+
 	fw_buf_info.kva = 0;
 	fw_buf_info.iova = 0;
 	fw_buf_info.len = 0;
@@ -2127,7 +2157,7 @@ static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args)
 	if (rc)
 		CAM_ERR(CAM_ICP, "nullify the fw buf failed");
 
-	cam_hfi_deinit();
+	cam_hfi_deinit(a5_dev->soc_info.reg_map[A5_SIERRA_BASE].mem_base);
 
 	irq_cb.icp_hw_mgr_cb = NULL;
 	irq_cb.data = NULL;
@@ -2436,7 +2466,7 @@ static int cam_icp_mgr_hw_open(void *hw_mgr_priv, void *download_fw_args)
 	return rc;
 
 fw_init_failed:
-	cam_hfi_deinit();
+	cam_hfi_deinit(a5_dev->soc_info.reg_map[A5_SIERRA_BASE].mem_base);
 hfi_init_failed:
 	cam_hfi_disable_cpu(a5_dev->soc_info.reg_map[A5_SIERRA_BASE].mem_base);
 fw_download_failed:
