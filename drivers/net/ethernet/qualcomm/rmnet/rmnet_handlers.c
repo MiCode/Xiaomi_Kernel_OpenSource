@@ -16,6 +16,8 @@
 #include <linux/netdevice.h>
 #include <linux/netdev_features.h>
 #include <linux/if_arp.h>
+#include <linux/ip.h>
+#include <linux/ipv6.h>
 #include <net/sock.h>
 #include "rmnet_private.h"
 #include "rmnet_config.h"
@@ -27,6 +29,22 @@
 #define RMNET_IP_VERSION_6 0x60
 
 /* Helper Functions */
+
+static int rmnet_check_skb_can_gro(struct sk_buff *skb)
+{
+	switch(skb->protocol) {
+	case htons(ETH_P_IP):
+		if (ip_hdr(skb)->protocol == IPPROTO_TCP)
+			return 0;
+		break;
+	case htons(ETH_P_IPV6):
+		if (ipv6_hdr(skb)->nexthdr == IPPROTO_TCP)
+			return 0;
+		/* Fall through */
+	}
+
+	return -EPROTONOSUPPORT;
+}
 
 static void rmnet_set_skb_proto(struct sk_buff *skb)
 {
@@ -56,7 +74,11 @@ rmnet_deliver_skb(struct sk_buff *skb)
 
 	skb->pkt_type = PACKET_HOST;
 	skb_set_mac_header(skb, 0);
-	gro_cells_receive(&priv->gro_cells, skb);
+
+	if (!rmnet_check_skb_can_gro(skb))
+		gro_cells_receive(&priv->gro_cells, skb);
+	else
+		netif_receive_skb(skb);
 }
 
 /* MAP handler */
