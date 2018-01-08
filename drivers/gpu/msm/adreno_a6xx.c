@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -375,6 +375,21 @@ static void _update_always_on_regs(struct adreno_device *adreno_dev)
 		A6XX_CP_ALWAYS_ON_COUNTER_LO;
 	regs[ADRENO_REG_RBBM_ALWAYSON_COUNTER_HI] =
 		A6XX_CP_ALWAYS_ON_COUNTER_HI;
+}
+
+static uint64_t read_AO_counter(struct kgsl_device *device)
+{
+	unsigned int l, h, h1;
+
+	kgsl_gmu_regread(device, A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_H, &h);
+	kgsl_gmu_regread(device, A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_L, &l);
+	kgsl_gmu_regread(device, A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_H, &h1);
+
+	if (h == h1)
+		return (uint64_t) l | ((uint64_t) h << 32);
+
+	kgsl_gmu_regread(device, A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_L, &l);
+	return (uint64_t) l | ((uint64_t) h1 << 32);
 }
 
 static void a6xx_pwrup_reglist_init(struct adreno_device *adreno_dev)
@@ -1550,7 +1565,7 @@ static void a6xx_sptprac_disable(struct adreno_device *adreno_dev)
 #define SP_CLK_OFF		BIT(4)
 #define GX_GDSC_POWER_OFF	BIT(6)
 #define GX_CLK_OFF		BIT(7)
-
+#define is_on(val)		(!(val & (GX_GDSC_POWER_OFF | GX_CLK_OFF)))
 /*
  * a6xx_gx_is_on() - Check if GX is on using pwr status register
  * @adreno_dev - Pointer to adreno_device
@@ -1566,7 +1581,7 @@ static bool a6xx_gx_is_on(struct adreno_device *adreno_dev)
 		return true;
 
 	kgsl_gmu_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &val);
-	return !(val & (GX_GDSC_POWER_OFF | GX_CLK_OFF));
+	return is_on(val);
 }
 
 /*
@@ -1942,48 +1957,65 @@ static bool a6xx_hw_isidle(struct adreno_device *adreno_dev)
 	return true;
 }
 
+static bool idle_trandition_complete(unsigned int idle_level,
+	unsigned int gmu_power_reg,
+	unsigned int sptprac_clk_reg)
+{
+	if (idle_level != gmu_power_reg)
+		return false;
+
+	switch (idle_level) {
+	case GPU_HW_IFPC:
+		if (is_on(sptprac_clk_reg))
+			return false;
+		break;
+	/* other GMU idle levels can be added here */
+	case GPU_HW_ACTIVE:
+	default:
+		break;
+	}
+	return true;
+}
+
 static int a6xx_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_device *gmu = &device->gmu;
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	unsigned int reg;
+	unsigned int reg, reg1;
 	unsigned long t;
+	uint64_t ts1, ts2, ts3;
 
 	if (!kgsl_gmu_isenabled(device))
 		return 0;
 
+	ts1 = read_AO_counter(device);
+
 	t = jiffies + msecs_to_jiffies(GMU_IDLE_TIMEOUT);
-	while (!time_after(jiffies, t)) {
-		adreno_read_gmureg(ADRENO_DEVICE(device),
-				ADRENO_REG_GMU_RPMH_POWER_STATE, &reg);
+	do {
+		kgsl_gmu_regread(device,
+			A6XX_GPU_GMU_CX_GMU_RPMH_POWER_STATE, &reg);
+		kgsl_gmu_regread(device,
+			A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &reg1);
 
-		/* SPTPRAC PC has the same idle level as IFPC */
-		if ((reg == gmu->idle_level) ||
-				(gmu->idle_level == GPU_HW_SPTP_PC &&
-				reg == GPU_HW_IFPC)) {
-			/* IFPC is not complete until GX is off */
-			if (gmu->idle_level != GPU_HW_IFPC ||
-					!gpudev->gx_is_on(adreno_dev))
-				return 0;
-		}
-
+		if (idle_trandition_complete(gmu->idle_level, reg, reg1))
+			return 0;
 		/* Wait 100us to reduce unnecessary AHB bus traffic */
 		usleep_range(10, 100);
-	}
+	} while (!time_after(jiffies, t));
 
+	ts2 = read_AO_counter(device);
 	/* Check one last time */
-	adreno_read_gmureg(ADRENO_DEVICE(device),
-			ADRENO_REG_GMU_RPMH_POWER_STATE, &reg);
-	if ((reg == gmu->idle_level) ||
-			(gmu->idle_level == GPU_HW_SPTP_PC &&
-			reg == GPU_HW_IFPC)) {
-		if (gmu->idle_level != GPU_HW_IFPC ||
-				!gpudev->gx_is_on(adreno_dev))
-			return 0;
-	}
 
-	WARN(1, "Timeout waiting for lowest idle level: %d\n", reg);
+	kgsl_gmu_regread(device, A6XX_GPU_GMU_CX_GMU_RPMH_POWER_STATE, &reg);
+	kgsl_gmu_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &reg1);
+
+	if (idle_trandition_complete(gmu->idle_level, reg, reg1))
+		return 0;
+
+	ts3 = read_AO_counter(device);
+	WARN(1, "Timeout waiting for lowest idle: %08x %llx %llx %llx %x\n",
+		reg, ts1, ts2, ts3, reg1);
+
 	return -ETIMEDOUT;
 }
 
