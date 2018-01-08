@@ -33,6 +33,8 @@
 #include <linux/qdsp6v2/apr.h>
 #include <sound/info.h>
 #include <soc/qcom/bg_glink.h>
+#include <sound/q6core.h>
+#include <soc/qcom/subsystem_notif.h>
 #include <trace/events/power.h>
 #include "bg_codec.h"
 #include "pktzr.h"
@@ -48,6 +50,11 @@
 				  SNDRV_PCM_FMTBIT_S24_3LE)
 #define BG_BLOB_DATA_SIZE 3136
 #define SPEAK_VREG_NAME "vdd-spkr"
+/*
+ *50 Milliseconds sufficient for DSP bring up in the modem
+ * after Sub System Restart
+ */
+#define ADSP_STATE_READY_TIMEOUT_MS 50
 
 enum {
 	BG_AIF1_PB = 0,
@@ -86,6 +93,8 @@ struct bg_cdc_priv {
 	unsigned long status_mask;
 	struct bg_hw_params hw_params;
 	struct notifier_block bg_pm_nb;
+	struct notifier_block bg_adsp_nb;
+	struct notifier_block bg_ssr_nb;
 	/* cal info for codec */
 	struct fw_info *fw_data;
 	struct firmware_cal *hwdep_spk_cal;
@@ -95,6 +104,8 @@ struct bg_cdc_priv {
 	int src[NUM_CODEC_DAIS];
 	bool hwd_started;
 	bool bg_cal_updated;
+	bool adsp_dev_up;
+	bool bg_dev_up;
 	struct regulator *spkr_vreg;
 	uint16_t num_sessions;
 };
@@ -110,6 +121,9 @@ struct graphite_basic_rsp_result {
 	/* Valid Graphite error code or completion status */
 	uint32_t status;
 };
+
+static void *adsp_state_notifier;
+static void *bg_state_notifier;
 
 static uint32_t get_active_session_id(int dai_id)
 
@@ -361,15 +375,17 @@ static int _bg_codec_stop(struct bg_cdc_priv *bg_cdc, int dai_id)
 	rsp.buf = kzalloc(rsp.buf_size, GFP_KERNEL);
 	if (!rsp.buf)
 		return -ENOMEM;
-	ret = pktzr_cmd_stop(&codec_start, sizeof(codec_start), &rsp);
+	if (bg_cdc->bg_dev_up) {
+		ret = pktzr_cmd_stop(&codec_start, sizeof(codec_start), &rsp);
 	if (ret < 0)
 		pr_err("pktzr cmd stop failed with error %d\n", ret);
+	}
 
 	mutex_lock(&bg_cdc->bg_cdc_lock);
 	if (bg_cdc->num_sessions > 0)
 		bg_cdc->num_sessions--;
 
-	if (bg_cdc->num_sessions == 0) {
+	if ((bg_cdc->num_sessions == 0) && (bg_cdc->bg_dev_up)) {
 		/* Reset the regulator mode if this is the last session */
 		ret = regulator_set_optimum_mode(bg_cdc->spkr_vreg, 0);
 		if (ret < 0)
@@ -565,7 +581,10 @@ static int bg_cdc_hw_params(struct snd_pcm_substream *substream,
 	pr_debug("%s: dai_name = %s DAI-ID %x rate %d width %d num_ch %d\n",
 		 __func__, dai->name, dai->id, params_rate(params),
 		 params_width(params), params_channels(params));
-
+	if (!bg_cdc->bg_dev_up) {
+		pr_err("%s:Bg ssr in progress\n", __func__);
+		return -EINVAL;
+	}
 	bg_cdc->hw_params.active_session = get_active_session_id(dai->id);
 	if (bg_cdc->hw_params.active_session == 0) {
 		pr_err("%s:Invalid dai id %d", __func__, dai->id);
@@ -793,7 +812,7 @@ static struct snd_soc_dai_driver bg_cdc_dai[] = {
 };
 
 static int data_cmd_rsp(void *buf, uint32_t len, void *priv_data,
-			 bool *is_basic_rsp)
+			bool *is_basic_rsp)
 {
 	struct graphite_basic_rsp_result *resp;
 
@@ -846,9 +865,124 @@ static void bg_cdc_pktzr_init(struct work_struct *work)
 		kzfree(rsp.buf);
 }
 
+static int bg_cdc_bg_device_up(struct bg_cdc_priv *bg_cdc)
+{
+	struct bg_hw_params hw_params;
+	struct pktzr_cmd_rsp rsp;
+	int num_of_intents = 2;
+	uint32_t size[2] = {4096, 4096};
+	int ret = 0;
+	struct bg_glink_ch_cfg ch_info[1] = {
+		{"CODEC_CHANNEL", num_of_intents, size}
+	};
+	mutex_lock(&bg_cdc->bg_cdc_lock);
+	if (!bg_cdc->bg_cal_updated) {
+		bg_cdc_enable_regulator(bg_cdc->spkr_vreg, true);
+		ret = pktzr_init(bg_cdc->pdev_child, ch_info, 1, data_cmd_rsp);
+		if (ret < 0) {
+			dev_err(bg_cdc->dev, "%s: failed in pktzr_init\n",
+				__func__);
+		}
+		/* Send open command */
+		rsp.buf_size = sizeof(struct graphite_basic_rsp_result);
+		rsp.buf = kzalloc(rsp.buf_size, GFP_KERNEL);
+		memcpy(&hw_params, &bg_cdc->hw_params, sizeof(hw_params));
+		/* Send command to BG to start session */
+		ret = pktzr_cmd_open(&hw_params, sizeof(hw_params), &rsp);
+		if (ret < 0)
+			pr_err("pktzr cmd open failed\n");
+		if (rsp.buf)
+			kzfree(rsp.buf);
+		bg_cdc_cal(bg_cdc);
+	}
+	if ((!bg_cdc->bg_dev_up) && (bg_cdc->adsp_dev_up))
+		snd_soc_card_change_online_state(bg_cdc->codec->component.card,
+						 1);
+	mutex_unlock(&bg_cdc->bg_cdc_lock);
+	return 0;
+}
+
+static int bg_cdc_bg_device_down(struct bg_cdc_priv *bg_cdc)
+{
+	pktzr_deinit();
+	mutex_lock(&bg_cdc->bg_cdc_lock);
+	if (bg_cdc->bg_cal_updated) {
+		bg_cdc_enable_regulator(bg_cdc->spkr_vreg, false);
+		bg_cdc->bg_cal_updated = false;
+	}
+	snd_soc_card_change_online_state(bg_cdc->codec->component.card, 0);
+	mutex_unlock(&bg_cdc->bg_cdc_lock);
+	return 0;
+}
+
+static int bg_cdc_adsp_device_up(struct bg_cdc_priv *bg_cdc)
+{
+	bool timedout;
+	unsigned long timeout;
+
+	mutex_lock(&bg_cdc->bg_cdc_lock);
+	if (!q6core_is_adsp_ready()) {
+		timeout = jiffies +
+			  msecs_to_jiffies(ADSP_STATE_READY_TIMEOUT_MS);
+		while (!(timedout = time_after(jiffies, timeout))) {
+			if (!q6core_is_adsp_ready()) {
+				dev_err(bg_cdc->dev, "ADSP isn't ready\n");
+			} else {
+				dev_err(bg_cdc->dev, "ADSP is ready\n");
+				break;
+			}
+		}
+	} else
+		dev_err(bg_cdc->dev, "%s:ADSP is ready\n", __func__);
+
+	if ((!bg_cdc->adsp_dev_up) && (bg_cdc->bg_dev_up))
+		snd_soc_card_change_online_state(bg_cdc->codec->component.card,
+						 1);
+	mutex_unlock(&bg_cdc->bg_cdc_lock);
+	return 0;
+}
+
+static int bg_cdc_adsp_device_down(struct bg_cdc_priv *bg_cdc)
+{
+	snd_soc_card_change_online_state(bg_cdc->codec->component.card, 0);
+	return 0;
+}
+
+static int bg_state_callback(struct notifier_block *nb, unsigned long value,
+				void *priv)
+{
+	struct bg_cdc_priv *bg_cdc =
+			container_of(nb, struct bg_cdc_priv, bg_ssr_nb);
+
+	if (value == SUBSYS_BEFORE_SHUTDOWN) {
+		bg_cdc_bg_device_down(bg_cdc);
+		bg_cdc->bg_dev_up = false;
+	} else if (value == SUBSYS_AFTER_POWERUP) {
+		bg_cdc_bg_device_up(bg_cdc);
+		bg_cdc->bg_dev_up = true;
+	}
+	return NOTIFY_OK;
+}
+
+static int adsp_state_callback(struct notifier_block *nb, unsigned long value,
+				void *priv)
+{
+	struct bg_cdc_priv *bg_cdc =
+			container_of(nb, struct bg_cdc_priv, bg_adsp_nb);
+
+	if (value == SUBSYS_BEFORE_SHUTDOWN) {
+		bg_cdc_adsp_device_down(bg_cdc);
+		bg_cdc->adsp_dev_up = false;
+	} else if (value == SUBSYS_AFTER_POWERUP) {
+		bg_cdc_adsp_device_up(bg_cdc);
+		bg_cdc->adsp_dev_up = true;
+	}
+	return NOTIFY_OK;
+}
 static int bg_cdc_codec_probe(struct snd_soc_codec *codec)
 {
 	struct bg_cdc_priv *bg_cdc = dev_get_drvdata(codec->dev);
+	const char *subsys_name = NULL;
 	int ret;
 
 	schedule_delayed_work(&bg_cdc->bg_cdc_pktzr_init_work,
@@ -858,6 +992,8 @@ static int bg_cdc_codec_probe(struct snd_soc_codec *codec)
 				      sizeof(*(bg_cdc->fw_data)), GFP_KERNEL);
 
 	bg_cdc->bg_cal_updated = false;
+	bg_cdc->adsp_dev_up = true;
+	bg_cdc->bg_dev_up = true;
 
 	set_bit(BG_CODEC_MIC_CAL, bg_cdc->fw_data->cal_bit);
 	set_bit(BG_CODEC_SPEAKER_CAL, bg_cdc->fw_data->cal_bit);
@@ -868,6 +1004,28 @@ static int bg_cdc_codec_probe(struct snd_soc_codec *codec)
 		dev_err(codec->dev, "%s hwdep failed %d\n", __func__, ret);
 		devm_kfree(codec->dev, bg_cdc->fw_data);
 	}
+	ret = of_property_read_string(codec->dev->of_node,
+				     "qcom,subsys-name",
+				     &subsys_name);
+	bg_cdc->bg_adsp_nb.notifier_call = adsp_state_callback;
+	if (ret) {
+		dev_dbg(codec->dev, "missing subsys-name entry in dt node\n");
+		adsp_state_notifier = subsys_notif_register_notifier("adsp",
+							&bg_cdc->bg_adsp_nb);
+	} else {
+		adsp_state_notifier = subsys_notif_register_notifier(
+							subsys_name,
+							&bg_cdc->bg_adsp_nb);
+	}
+	if (!adsp_state_notifier)
+		dev_err(codec->dev, "Failed to register adsp notifier\n");
+	bg_cdc->bg_ssr_nb.notifier_call = bg_state_callback;
+	bg_state_notifier = subsys_notif_register_notifier("bg-wear",
+							&bg_cdc->bg_ssr_nb);
+	if (!bg_state_notifier)
+		dev_err(codec->dev, "Failed to register bg notifier\n");
+
+	bg_cdc->codec = codec;
 	return 0;
 }
 
@@ -876,6 +1034,12 @@ static int bg_cdc_codec_remove(struct snd_soc_codec *codec)
 	struct bg_cdc_priv *bg_cdc = dev_get_drvdata(codec->dev);
 	pr_debug("In func %s\n", __func__);
 	pktzr_deinit();
+	if (adsp_state_notifier)
+		subsys_notif_unregister_notifier(adsp_state_notifier,
+						 &bg_cdc->bg_adsp_nb);
+	if (bg_state_notifier)
+		subsys_notif_unregister_notifier(bg_state_notifier,
+						 &bg_cdc->bg_ssr_nb);
 	kfree(bg_cdc->fw_data);
 	return 0;
 }
