@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2262,6 +2262,33 @@ end:
 	return rc;
 }
 
+static int cam_ife_csid_reset_retain_sw_reg(
+	struct cam_ife_csid_hw *csid_hw)
+{
+	int rc = 0;
+	struct cam_ife_csid_reg_offset *csid_reg =
+		csid_hw->csid_info->csid_reg;
+
+	cam_io_w_mb(csid_reg->cmn_reg->csid_rst_stb,
+		csid_hw->hw_info->soc_info.reg_map[0].mem_base +
+		csid_reg->cmn_reg->csid_rst_strobes_addr);
+
+	CAM_DBG(CAM_ISP, " Waiting for SW reset complete from irq handler");
+	rc = wait_for_completion_timeout(&csid_hw->csid_top_complete,
+		msecs_to_jiffies(IFE_CSID_TIMEOUT));
+	if (rc <= 0) {
+		CAM_ERR(CAM_ISP, "CSID:%d reset completion in fail rc = %d",
+			csid_hw->hw_intf->hw_idx, rc);
+		if (rc == 0)
+			rc = -ETIMEDOUT;
+	} else {
+		rc = 0;
+	}
+
+	return rc;
+}
+
+
 static int cam_ife_csid_init_hw(void *hw_priv,
 	void *init_args, uint32_t arg_size)
 {
@@ -2294,7 +2321,6 @@ static int cam_ife_csid_init_hw(void *hw_priv,
 		goto end;
 	}
 
-
 	if ((res->res_type == CAM_ISP_RESOURCE_PIX_PATH) &&
 		(res->res_state != CAM_ISP_RESOURCE_STATE_RESERVED)) {
 		CAM_ERR(CAM_ISP,
@@ -2307,7 +2333,6 @@ static int cam_ife_csid_init_hw(void *hw_priv,
 
 	CAM_DBG(CAM_ISP, "CSID:%d res type :%d res_id:%d",
 		csid_hw->hw_intf->hw_idx, res->res_type, res->res_id);
-
 
 	/* Initialize the csid hardware */
 	rc = cam_ife_csid_enable_hw(csid_hw);
@@ -2330,6 +2355,12 @@ static int cam_ife_csid_init_hw(void *hw_priv,
 			 csid_hw->hw_intf->hw_idx,
 			res->res_type);
 		break;
+	}
+
+	rc = cam_ife_csid_reset_retain_sw_reg(csid_hw);
+	if (rc < 0) {
+		CAM_ERR(CAM_ISP, "CSID: Failed in SW reset");
+		return rc;
 	}
 
 	if (rc)
