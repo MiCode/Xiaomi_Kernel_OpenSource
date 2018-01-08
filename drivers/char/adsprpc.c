@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1501,6 +1501,7 @@ static void fastrpc_init(struct fastrpc_apps *me)
 	int i;
 
 	INIT_HLIST_HEAD(&me->drivers);
+	INIT_HLIST_HEAD(&me->maps);
 	spin_lock_init(&me->hlock);
 	mutex_init(&me->smd_mutex);
 	me->channel = &gcinfo[0];
@@ -2588,7 +2589,7 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 		if (err)
 			pr_warn("adsprpc: initial intent fail for %d err %d\n",
 					 cid, err);
-		if (me->channel[cid].ssrcount !=
+		if (cid == 0 && me->channel[cid].ssrcount !=
 				 me->channel[cid].prevssrcount) {
 			if (fastrpc_mmap_remove_ssr(fl))
 				pr_err("ADSPRPC: SSR: Failed to unmap remote heap\n");
