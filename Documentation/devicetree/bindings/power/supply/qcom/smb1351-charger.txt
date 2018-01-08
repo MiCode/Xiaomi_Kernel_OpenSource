@@ -71,6 +71,8 @@ Optional Properties:
 				If not specified the default value is active-low.
 - qcom,parallel-external-current-sense If present specifies external rsense is
 				used for charge current sensing.
+- qcom,stacked-batfet:		Boolean flag. Specifies if parallel charger has stacked BATFET
+				cofiguration.
 
 Example for standalone charger:
 

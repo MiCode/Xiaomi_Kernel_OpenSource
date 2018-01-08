@@ -461,6 +461,7 @@ struct smb1351_charger {
 
 	int			parallel_pin_polarity_setting;
 	int			parallel_mode;
+	int			pl_batfet_mode;
 	bool			parallel_charger;
 	bool			parallel_charger_suspended;
 	bool			bms_controlled_charging;
@@ -1417,6 +1418,7 @@ static enum power_supply_property smb1351_parallel_properties[] = {
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
 	POWER_SUPPLY_PROP_PARALLEL_MODE,
 	POWER_SUPPLY_PROP_INPUT_SUSPEND,
+	POWER_SUPPLY_PROP_PARALLEL_BATFET_MODE,
 };
 
 static int smb1351_parallel_set_chg_suspend(struct smb1351_charger *chip,
@@ -1705,6 +1707,9 @@ static int smb1351_parallel_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
 		val->intval = chip->parallel_charger_suspended;
+		break;
+	case POWER_SUPPLY_PROP_PARALLEL_BATFET_MODE:
+		val->intval = chip->pl_batfet_mode;
 		break;
 	default:
 		return -EINVAL;
@@ -2212,7 +2217,7 @@ static int smb1351_usbin_uv_handler(struct smb1351_charger *chip, u8 status)
 static int smb1351_usbin_ov_handler(struct smb1351_charger *chip, u8 status)
 {
 	int rc;
-	u8 reg;
+	u8 reg = 0;
 	union power_supply_propval pval = {0, };
 
 	rc = smb1351_read_reg(chip, IRQ_E_REG, &reg);
@@ -3196,6 +3201,10 @@ static int smb1351_parallel_charger_probe(struct i2c_client *client,
 		chip->parallel_mode = POWER_SUPPLY_PL_USBIN_USBIN_EXT;
 	else
 		chip->parallel_mode = POWER_SUPPLY_PL_USBIN_USBIN;
+
+	chip->pl_batfet_mode = POWER_SUPPLY_PL_NON_STACKED_BATFET;
+	if (of_property_read_bool(node, "qcom,stacked-batfet"))
+		chip->pl_batfet_mode = POWER_SUPPLY_PL_STACKED_BATFET;
 
 	i2c_set_clientdata(client, chip);
 

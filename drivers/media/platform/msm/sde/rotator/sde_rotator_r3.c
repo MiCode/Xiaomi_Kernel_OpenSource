@@ -711,7 +711,7 @@ static int sde_hw_rotator_reset(struct sde_hw_rotator *rot,
 	u32 int_mask = (REGDMA_INT_0_MASK | REGDMA_INT_1_MASK |
 			REGDMA_INT_2_MASK);
 	u32 last_ts[ROT_QUEUE_MAX] = {0,};
-	u32 latest_ts;
+	u32 latest_ts, opmode;
 	int elapsed_time, t;
 	int i, j;
 	unsigned long flags;
@@ -723,7 +723,15 @@ static int sde_hw_rotator_reset(struct sde_hw_rotator *rot,
 
 	/* sw reset the hw rotator */
 	SDE_ROTREG_WRITE(rot->mdss_base, ROTTOP_SW_RESET_OVERRIDE, 1);
+	/* ensure write is issued to the rotator HW */
+	wmb();
 	usleep_range(MS_TO_US(10), MS_TO_US(20));
+
+	/* force rotator into offline mode */
+	opmode = SDE_ROTREG_READ(rot->mdss_base, ROTTOP_OP_MODE);
+	SDE_ROTREG_WRITE(rot->mdss_base, ROTTOP_OP_MODE,
+			opmode & ~(BIT(5) | BIT(4) | BIT(1) | BIT(0)));
+
 	SDE_ROTREG_WRITE(rot->mdss_base, ROTTOP_SW_RESET_OVERRIDE, 0);
 
 	/* halt vbif xin client to ensure no pending transaction */

@@ -461,6 +461,8 @@ static void ipa3_active_clients_log_destroy(void)
 
 	spin_lock_irqsave(&ipa3_ctx->ipa3_active_clients_logging.lock, flags);
 	ipa3_ctx->ipa3_active_clients_logging.log_rdy = 0;
+	kfree(active_clients_table_buf);
+	active_clients_table_buf = NULL;
 	kfree(ipa3_ctx->ipa3_active_clients_logging.log_buffer[0]);
 	ipa3_ctx->ipa3_active_clients_logging.log_head = 0;
 	ipa3_ctx->ipa3_active_clients_logging.log_tail =
@@ -4650,8 +4652,7 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 		return -EFAULT;
 	}
 
-	if (count > 0)
-		dbg_buff[count - 1] = '\0';
+	dbg_buff[count] = '\0';
 
 	IPADBG("user input string %s\n", dbg_buff);
 
@@ -4680,11 +4681,15 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 			return count;
 		}
 
+		/* trim ending newline character if any */
+		if (count && (dbg_buff[count - 1] == '\n'))
+			dbg_buff[count - 1] = '\0';
+
 		if (!strcasecmp(dbg_buff, "MHI")) {
 			ipa3_ctx->ipa_config_is_mhi = true;
 			pr_info(
 				"IPA is loading with MHI configuration\n");
-		} else if (!strcmp(dbg_buff, "1\n")) {
+		} else if (!strcmp(dbg_buff, "1")) {
 			pr_info(
 				"IPA is loading with non MHI configuration\n");
 		} else {
@@ -4971,7 +4976,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_clk;
 
 	/* init active_clients_log after getting ipa-clk */
-	if (ipa3_active_clients_log_init())
+	result = ipa3_active_clients_log_init();
+	if (result)
 		goto fail_init_active_client;
 
 	/* Enable ipa3_ctx->enable_clock_scaling */

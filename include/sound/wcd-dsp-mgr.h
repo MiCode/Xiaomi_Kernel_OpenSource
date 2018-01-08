@@ -77,6 +77,9 @@ enum wdsp_signal {
 	/* Other signals */
 	WDSP_CDC_DOWN_SIGNAL,
 	WDSP_CDC_UP_SIGNAL,
+
+	/* Software generated signal indicating debug dumps to be collected */
+	WDSP_DEBUG_DUMP,
 };
 
 /*

@@ -13,7 +13,9 @@
 #include <linux/ipa_uc_offload.h>
 #include <linux/msm_ipa.h>
 #include "../ipa_common_i.h"
+#ifdef CONFIG_IPA3
 #include "../ipa_v3/ipa_pm.h"
+#endif
 
 #define IPA_NTN_DMA_POOL_ALIGNMENT 8
 #define OFFLOAD_DRV_NAME "ipa_uc_offload"
@@ -115,6 +117,7 @@ static int ipa_commit_partial_hdr(
 	return 0;
 }
 
+#ifdef CONFIG_IPA3
 static void ipa_uc_offload_ntn_pm_cb(void *p, enum ipa_pm_cb_event event)
 {
 	/* suspend/resume is not supported */
@@ -156,6 +159,7 @@ static void ipa_uc_offload_ntn_deregister_pm_client(
 	ipa_pm_deactivate_sync(ntn_ctx->pm_hdl);
 	ipa_pm_deregister(ntn_ctx->pm_hdl);
 }
+#endif
 static int ipa_uc_offload_ntn_create_rm_resources(
 	struct ipa_uc_offload_ctx *ntn_ctx)
 {
@@ -203,9 +207,11 @@ static int ipa_uc_offload_ntn_reg_intf(
 
 	IPA_UC_OFFLOAD_DBG("register interface for netdev %s\n",
 					 inp->netdev_name);
+#ifdef CONFIG_IPA3
 	if (ipa_pm_is_used())
 		ret = ipa_uc_offload_ntn_register_pm_client(ntn_ctx);
 	else
+#endif
 		ret = ipa_uc_offload_ntn_create_rm_resources(ntn_ctx);
 	if (ret) {
 		IPA_UC_OFFLOAD_ERR("fail to create rm resource\n");
@@ -289,12 +295,16 @@ static int ipa_uc_offload_ntn_reg_intf(
 fail:
 	kfree(hdr);
 fail_alloc:
+#ifdef CONFIG_IPA3
 	if (ipa_pm_is_used()) {
 		ipa_uc_offload_ntn_deregister_pm_client(ntn_ctx);
 	} else {
+#endif
 		ipa_rm_delete_resource(IPA_RM_RESOURCE_ETHERNET_CONS);
 		ipa_rm_delete_resource(IPA_RM_RESOURCE_ETHERNET_PROD);
+#ifdef CONFIG_IPA3
 	}
+#endif
 	return ret;
 }
 
@@ -412,6 +422,7 @@ int ipa_uc_ntn_conn_pipes(struct ipa_ntn_conn_in_params *inp,
 		return -EINVAL;
 	}
 
+#ifdef CONFIG_IPA3
 	if (ipa_pm_is_used()) {
 		result = ipa_pm_activate_sync(ntn_ctx->pm_hdl);
 		if (result) {
@@ -419,6 +430,7 @@ int ipa_uc_ntn_conn_pipes(struct ipa_ntn_conn_in_params *inp,
 			return result;
 		}
 	} else {
+#endif
 		result = ipa_rm_add_dependency(IPA_RM_RESOURCE_ETHERNET_PROD,
 			IPA_RM_RESOURCE_APPS_CONS);
 		if (result) {
@@ -440,7 +452,9 @@ int ipa_uc_ntn_conn_pipes(struct ipa_ntn_conn_in_params *inp,
 			result = -EFAULT;
 			goto fail;
 		}
+#ifdef CONFIG_IPA3
 	}
+#endif
 
 	ntn_ctx->state = IPA_UC_OFFLOAD_STATE_UP;
 	result = ipa_setup_uc_ntn_pipes(inp, ntn_ctx->notify,
@@ -529,11 +543,12 @@ int ipa_set_perf_profile(struct ipa_perf_profile *profile)
 		return -EINVAL;
 	}
 
+#ifdef CONFIG_IPA3
 	if (ipa_pm_is_used())
 		return ipa_pm_set_perf_profile(
 			ipa_uc_offload_ctx[IPA_UC_NTN]->pm_hdl,
 			profile->max_supported_bw_mbps);
-
+#endif
 	if (ipa_rm_set_perf_profile(resource_name, &rm_profile)) {
 		IPA_UC_OFFLOAD_ERR("fail to setup rm perf profile\n");
 		return -EFAULT;
@@ -550,6 +565,7 @@ static int ipa_uc_ntn_disconn_pipes(struct ipa_uc_offload_ctx *ntn_ctx)
 
 	ntn_ctx->state = IPA_UC_OFFLOAD_STATE_INITIALIZED;
 
+#ifdef CONFIG_IPA3
 	if (ipa_pm_is_used()) {
 		ret = ipa_pm_deactivate_sync(ntn_ctx->pm_hdl);
 		if (ret) {
@@ -558,6 +574,7 @@ static int ipa_uc_ntn_disconn_pipes(struct ipa_uc_offload_ctx *ntn_ctx)
 			return -EFAULT;
 		}
 	} else {
+#endif
 		ret = ipa_rm_release_resource(IPA_RM_RESOURCE_ETHERNET_PROD);
 		if (ret) {
 			IPA_UC_OFFLOAD_ERR("fail release ETHERNET_PROD: %d\n",
@@ -571,7 +588,9 @@ static int ipa_uc_ntn_disconn_pipes(struct ipa_uc_offload_ctx *ntn_ctx)
 			IPA_UC_OFFLOAD_ERR("fail del dep ETH->APPS, %d\n", ret);
 			return -EFAULT;
 		}
+#ifdef CONFIG_IPA3
 	}
+#endif
 
 	ipa_ep_idx_ul = ipa_get_ep_mapping(IPA_CLIENT_ETHERNET_PROD);
 	ipa_ep_idx_dl = ipa_get_ep_mapping(IPA_CLIENT_ETHERNET_CONS);
@@ -627,9 +646,11 @@ static int ipa_uc_ntn_cleanup(struct ipa_uc_offload_ctx *ntn_ctx)
 	int len, result = 0;
 	struct ipa_ioc_del_hdr *hdr;
 
+#ifdef CONFIG_IPA3
 	if (ipa_pm_is_used()) {
 		ipa_uc_offload_ntn_deregister_pm_client(ntn_ctx);
 	} else {
+#endif
 		if (ipa_rm_delete_resource(IPA_RM_RESOURCE_ETHERNET_PROD)) {
 			IPA_UC_OFFLOAD_ERR("fail to delete ETHERNET_PROD\n");
 			return -EFAULT;
@@ -639,8 +660,9 @@ static int ipa_uc_ntn_cleanup(struct ipa_uc_offload_ctx *ntn_ctx)
 			IPA_UC_OFFLOAD_ERR("fail to delete ETHERNET_CONS\n");
 			return -EFAULT;
 		}
+#ifdef CONFIG_IPA3
 	}
-
+#endif
 	len = sizeof(struct ipa_ioc_del_hdr) + 2 * sizeof(struct ipa_hdr_del);
 	hdr = kzalloc(len, GFP_KERNEL);
 	if (hdr == NULL) {

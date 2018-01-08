@@ -43,7 +43,6 @@ config ARCH_SDXPOORWILLS
 	select CPU_V7
 	select HAVE_ARM_ARCH_TIMER
 	select MSM_CORTEX_A7
-	select COMMON_CLK_MSM
 	select PINCTRL
 	select QCOM_SCM if SMP
 	select MSM_JTAG_MM if CORESIGHT_ETM
@@ -59,9 +58,10 @@ config ARCH_MSM8953
 	select PINCTRL
 	select QCOM_SCM if SMP
 	select PM_DEVFREQ
-	select COMMON_CLK
-	select COMMON_CLK_QCOM
-	select QCOM_GDSC
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select COMMON_CLK_MSM
 
 config ARCH_SDM450
 	bool "Enable support for SDM450"
@@ -70,9 +70,10 @@ config ARCH_SDM450
 	select PINCTRL
 	select QCOM_SCM if SMP
 	select PM_DEVFREQ
-	select COMMON_CLK
-	select COMMON_CLK_QCOM
-	select QCOM_GDSC
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select COMMON_CLK_MSM
 
 endmenu
 endif

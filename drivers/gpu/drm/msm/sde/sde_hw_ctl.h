@@ -277,15 +277,6 @@ struct sde_hw_ctl {
 };
 
 /**
- * sde_unstage_pipe_for_cont_splash - Unstage pipes for continuous splash
- * @data: pointer to sde splash data
- * @mmio: mapped register io address of MDP
- * @return: error code
- */
-int sde_unstage_pipe_for_cont_splash(struct sde_splash_data *data,
-		void __iomem *mmio);
-
-/**
  * sde_hw_ctl - convert base object sde_hw_base to container
  * @hw: Pointer to base hardware block
  * return: Pointer to hardware block container

@@ -1130,22 +1130,62 @@ static int _sde_rm_make_next_rsvp(
 }
 
 /**
+ * poll_intr_status - Gets HW interrupt status based on
+ *			given lookup IRQ index.
+ * @intr:	HW interrupt handle
+ * @irq_idx:	Lookup irq index return from irq_idx_lookup
+ * @msec:	Maximum delay allowed to check intr status
+ * return:	return zero on success.
+ */
+static u32 _sde_rm_poll_intr_status_for_cont_splash
+			(struct sde_hw_intr *intr,
+			int irq_idx, u32 const msec)
+{
+	int i;
+	u32 status = 0;
+	u32 const delay_us = 500;
+	u32 const timeout_us = msec * 1000;
+	/* Make sure the status is checked atleast once */
+	int loop = max((u32)1, (u32)(timeout_us / delay_us));
+
+	if (!intr)
+		return 0;
+
+	for (i = 0; i < loop; i++) {
+		status = intr->ops.get_intr_status_nomask
+				(intr, irq_idx, false);
+
+		if (status & BIT(irq_idx)) {
+			SDE_DEBUG(" Poll success. i=%d, status=0x%x\n",
+							i, status);
+			return 0;
+		}
+		usleep_range(delay_us, delay_us + 10);
+	}
+	SDE_ERROR("polling timed out. status = 0x%x\n", status);
+	return -ETIMEDOUT;
+}
+
+/**
  * sde_rm_get_pp_dsc_for_cont_splash - retrieve the current dsc enabled blocks
  *	and disable autorefresh if enabled.
- * @mmio: mapped register io address of MDP
+ * @rm:	Pointer to resource manager structure
+ * @sde_kms: Pointer to sde kms structure
  * @max_dsc_cnt: number of DSC blocks supported in the hw
  * @dsc_ids: pointer to store the active DSC block IDs
  * return: number of active DSC blocks
  */
 static int _sde_rm_get_pp_dsc_for_cont_splash(struct sde_rm *rm,
-			int max_dsc_cnt, u8 *dsc_ids)
+					struct sde_kms *sde_kms,
+					int max_dsc_cnt, u8 *dsc_ids)
 {
 	int index = 0;
 	int value, dsc_cnt = 0;
 	struct sde_hw_autorefresh cfg;
 	struct sde_rm_hw_iter iter_pp;
+	int irq_idx_pp_done = -1;
 
-	if (!rm || !dsc_ids) {
+	if (!rm || !sde_kms || !dsc_ids) {
 		SDE_ERROR("invalid input parameters\n");
 		return 0;
 	}
@@ -1155,9 +1195,19 @@ static int _sde_rm_get_pp_dsc_for_cont_splash(struct sde_rm *rm,
 	while (_sde_rm_get_hw_locked(rm, &iter_pp)) {
 		struct sde_hw_pingpong *pp =
 				to_sde_hw_pingpong(iter_pp.blk->hw);
+		u32 intr_value = 0;
+		u32 const timeout_ms = 35; /* Max two vsyncs delay */
+		int rc = 0, i, loop = 2;
+		struct sde_hw_intr *hw_intr = NULL;
+		struct sde_hw_pp_vsync_info info;
 
 		if (!pp->ops.get_dsc_status) {
 			SDE_ERROR("get_dsc_status ops not initialized\n");
+			return 0;
+		}
+		hw_intr = sde_kms->hw_intr;
+		if (!hw_intr) {
+			SDE_ERROR("hw_intr handler not initialized\n");
 			return 0;
 		}
 		value = pp->ops.get_dsc_status(pp);
@@ -1177,14 +1227,61 @@ static int _sde_rm_get_pp_dsc_for_cont_splash(struct sde_rm *rm,
 		if (!pp->ops.get_autorefresh(pp, &cfg)
 				&& (cfg.enable)
 				&& (pp->ops.setup_autorefresh)) {
+			if (hw_intr->ops.irq_idx_lookup) {
+				irq_idx_pp_done = hw_intr->ops.irq_idx_lookup
+					(SDE_IRQ_TYPE_PING_PONG_COMP,
+								pp->idx);
+				SDE_DEBUG(" itr_idx = %d\n", irq_idx_pp_done);
+			}
+
+			if ((irq_idx_pp_done >= 0) &&
+					(hw_intr->ops.get_intr_status_nomask)) {
+				intr_value = hw_intr->ops.get_intr_status_nomask
+					(hw_intr, irq_idx_pp_done, false);
+				hw_intr->ops.clear_intr_status_force_mask
+					(hw_intr, irq_idx_pp_done, intr_value);
+			}
 			cfg.enable = false;
-			SDE_DEBUG("Disabling autoreferesh\n");
+			SDE_DEBUG("Disabling autorefresh\n");
 			pp->ops.setup_autorefresh(pp, &cfg);
+
 			/*
-			 * Wait for one frame update so that
-			 * auto refresh disable is through
+			 * Check the line count again if
+			 * the line count is equal to the active
+			 * height to make sure their is no
+			 * additional frame updates
 			 */
-			usleep_range(16000, 20000);
+			for (i = 0; i < loop; i++) {
+				info.wr_ptr_line_count = 0;
+				info.rd_ptr_init_val = 0;
+				if (pp->ops.get_vsync_info)
+					pp->ops.get_vsync_info(pp, &info);
+				/*
+				 * For cmd-mode using external-TE logic,
+				 * the rd_ptr_init_val is equal to
+				 * active-height. Use this init_val to
+				 * compare that with lane count. Need
+				 * to implement a different check
+				 * if external-TE is not used.
+				 */
+				if (info.wr_ptr_line_count
+						< info.rd_ptr_init_val) {
+					/* wait for read ptr intr */
+					rc =
+					_sde_rm_poll_intr_status_for_cont_splash
+					(hw_intr, irq_idx_pp_done, timeout_ms);
+					if (!rc)
+						break;
+				}
+				SDE_DEBUG("i=%d, line count=%d\n",
+						i, info.wr_ptr_line_count);
+				/*
+				 * Wait for few milli seconds for line count
+				 * to increase if any frame transfer is
+				 * pending.
+				 */
+				usleep_range(3000, 4000);
+			}
 		}
 	}
 
@@ -1266,14 +1363,16 @@ static void _sde_rm_get_ctl_top_for_cont_splash(struct sde_hw_ctl *ctl,
 				top->dspp_sel, top->intf_sel);
 }
 
-int sde_rm_cont_splash_res_init(struct sde_rm *rm,
+int sde_rm_cont_splash_res_init(struct msm_drm_private *priv,
+				struct sde_rm *rm,
 				struct sde_splash_data *splash_data,
 				struct sde_mdss_cfg *cat)
 {
 	struct sde_rm_hw_iter iter_c;
 	int index = 0, ctl_top_cnt;
+	struct sde_kms *sde_kms = NULL;
 
-	if (!rm || !cat || !splash_data) {
+	if (!priv || !rm || !cat || !splash_data) {
 		SDE_ERROR("invalid input parameters\n");
 		return -EINVAL;
 	}
@@ -1284,6 +1383,12 @@ int sde_rm_cont_splash_res_init(struct sde_rm *rm,
 			cat->dsc_count);
 
 	ctl_top_cnt = cat->ctl_count;
+
+	if (!priv->kms) {
+		SDE_ERROR("invalid kms\n");
+		return -EINVAL;
+	}
+	sde_kms = to_sde_kms(priv->kms);
 
 	if (ctl_top_cnt > ARRAY_SIZE(splash_data->top)) {
 		SDE_ERROR("Mismatch in ctl_top array size\n");
@@ -1318,6 +1423,7 @@ int sde_rm_cont_splash_res_init(struct sde_rm *rm,
 
 	splash_data->dsc_cnt =
 		_sde_rm_get_pp_dsc_for_cont_splash(rm,
+				sde_kms,
 				cat->dsc_count,
 				splash_data->dsc_ids);
 	SDE_DEBUG("splash_data: ctl_top_cnt=%d, lm_cnt=%d, dsc_cnt=%d\n",

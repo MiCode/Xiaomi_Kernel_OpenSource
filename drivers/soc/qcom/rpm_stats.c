@@ -53,6 +53,11 @@ struct msm_rpm_stats_data {
 	u64 last_entered_at;
 	u64 last_exited_at;
 	u64 accumulated;
+#if defined(CONFIG_MSM_RPM_SMD)
+	u32 client_votes;
+	u32 reserved[3];
+#endif
+
 };
 
 struct msm_rpmstats_kobj_attr {
@@ -92,11 +97,21 @@ static inline int msm_rpmstats_append_data_to_buf(char *buf,
 	time_since_last_mode = get_time_in_sec(time_since_last_mode);
 	actual_last_sleep = get_time_in_msec(data->accumulated);
 
+#if defined(CONFIG_MSM_RPM_SMD)
+	return snprintf(buf, buflength,
+		"RPM Mode:%s\n\t count:%d\ntime in last mode(msec):%llu\n"
+		"time since last mode(sec):%llu\nactual last sleep(msec):%llu\n"
+		"client votes: %#010x\n\n",
+		stat_type, data->count, time_in_last_mode,
+		time_since_last_mode, actual_last_sleep,
+		data->client_votes);
+#else
 	return snprintf(buf, buflength,
 		"RPM Mode:%s\n\t count:%d\ntime in last mode(msec):%llu\n"
 		"time since last mode(sec):%llu\nactual last sleep(msec):%llu\n\n",
 		stat_type, data->count, time_in_last_mode,
 		time_since_last_mode, actual_last_sleep);
+#endif
 }
 
 static inline u32 msm_rpmstats_read_long_register(void __iomem *regbase,
@@ -141,6 +156,12 @@ static inline int msm_rpmstats_copy_stats(
 		data.accumulated = msm_rpmstats_read_quad_register(reg,
 				i, offsetof(struct msm_rpm_stats_data,
 					accumulated));
+#if defined(CONFIG_MSM_RPM_SMD)
+		data.client_votes = msm_rpmstats_read_long_register(reg,
+				i, offsetof(struct msm_rpm_stats_data,
+					client_votes));
+#endif
+
 		length += msm_rpmstats_append_data_to_buf(prvdata->buf + length,
 				&data, sizeof(prvdata->buf) - length);
 		prvdata->read_idx++;

@@ -206,6 +206,17 @@ struct sde_hw_intr_ops {
 			int irq_idx);
 
 	/**
+	 * clear_intr_status_force_mask() - clear the HW interrupts
+	 * @intr:	HW interrupt handle
+	 * @irq_idx:	Lookup irq index return from irq_idx_lookup
+	 * @irq_mask:	irq mask to clear
+	 */
+	void (*clear_intr_status_force_mask)(
+			struct sde_hw_intr *intr,
+			int irq_idx,
+			u32 irq_mask);
+
+	/**
 	 * get_interrupt_status - Gets HW interrupt status, and clear if set,
 	 *                        based on given lookup IRQ index.
 	 * @intr:	HW interrupt handle
@@ -224,6 +235,17 @@ struct sde_hw_intr_ops {
 	 * @clear:	True to clear irq after read
 	 */
 	u32 (*get_intr_status_nolock)(
+			struct sde_hw_intr *intr,
+			int irq_idx,
+			bool clear);
+
+	/**
+	 * get_intr_status_nomask - nolock version of get_interrupt_status
+	 * @intr:	HW interrupt handle
+	 * @irq_idx:	Lookup irq index return from irq_idx_lookup
+	 * @clear:	True to clear irq after read
+	 */
+	u32 (*get_intr_status_nomask)(
 			struct sde_hw_intr *intr,
 			int irq_idx,
 			bool clear);

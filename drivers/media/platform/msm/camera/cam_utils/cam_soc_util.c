@@ -325,7 +325,7 @@ int cam_soc_util_clk_disable(struct clk *clk, const char *clk_name)
  *
  * @return:             success or failure
  */
-static int cam_soc_util_clk_enable_default(struct cam_hw_soc_info *soc_info,
+int cam_soc_util_clk_enable_default(struct cam_hw_soc_info *soc_info,
 	enum cam_vote_level clk_level)
 {
 	int i, rc = 0;
@@ -372,7 +372,7 @@ clk_disable:
  *
  * @return:             success or failure
  */
-static void cam_soc_util_clk_disable_default(struct cam_hw_soc_info *soc_info)
+void cam_soc_util_clk_disable_default(struct cam_hw_soc_info *soc_info)
 {
 	int i;
 
