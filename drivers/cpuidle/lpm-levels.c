@@ -1043,18 +1043,9 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 	}
 
 	if (level->notify_rpm) {
-		uint64_t us;
-		uint32_t pred_us;
-
-		us = get_cluster_sleep_time(cluster, NULL, from_idle,
-								&pred_us);
-
-		us = us + 1;
-
 		clear_predict_history();
 		clear_cl_predict_history();
-
-		if (system_sleep_enter(us))
+		if (system_sleep_enter())
 			return -EBUSY;
 	}
 	/* Notify cluster enter event after successfully config completion */
@@ -1261,6 +1252,13 @@ int get_cluster_id(struct lpm_cluster *cluster, int *aff_lvl)
 		state_id |= (level->psci_id & cluster->psci_mode_mask)
 					<< cluster->psci_mode_shift;
 		(*aff_lvl)++;
+
+		/*
+		 * We may have updated the broadcast timers, update
+		 * the wakeup value by reading the bc timer directly.
+		 */
+		if (level->notify_rpm)
+			system_sleep_update_wakeup();
 	}
 unlock_and_return:
 	spin_unlock(&cluster->sync_lock);

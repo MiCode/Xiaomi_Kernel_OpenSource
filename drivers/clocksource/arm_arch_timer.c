@@ -48,6 +48,8 @@
 #define CNTFRQ		0x10
 #define CNTP_TVAL	0x28
 #define CNTP_CTL	0x2c
+#define CNTCVAL_LO	0x30
+#define CNTCVAL_HI	0x34
 #define CNTV_TVAL	0x38
 #define CNTV_CTL	0x3c
 
@@ -541,6 +543,23 @@ u32 arch_timer_get_rate(void)
 	return arch_timer_rate;
 }
 
+void arch_timer_mem_get_cval(u32 *lo, u32 *hi)
+{
+	u32 ctrl;
+
+	*lo = *hi = ~0U;
+
+	if (!arch_counter_base)
+		return;
+
+	ctrl = readl_relaxed_no_log(arch_counter_base + CNTV_CTL);
+
+	if (ctrl & ARCH_TIMER_CTRL_ENABLE) {
+		*lo = readl_relaxed_no_log(arch_counter_base + CNTCVAL_LO);
+		*hi = readl_relaxed_no_log(arch_counter_base + CNTCVAL_HI);
+	}
+}
+
 static u64 arch_counter_get_cntvct_mem(void)
 {
 	u32 vct_lo, vct_hi, tmp_hi;
@@ -873,7 +892,7 @@ static int __init arch_timer_init(void)
 		return ret;
 
 	arch_timer_kvm_info.virtual_irq = arch_timer_ppi[VIRT_PPI];
-	
+
 	return 0;
 }
 
