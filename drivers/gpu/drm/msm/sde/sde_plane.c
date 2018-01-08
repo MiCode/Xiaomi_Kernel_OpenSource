@@ -182,7 +182,7 @@ static struct drm_crtc_state *_sde_plane_get_crtc_state(
 	return cstate;
 }
 
-static bool sde_plane_enabled(struct drm_plane_state *state)
+static bool sde_plane_enabled(const struct drm_plane_state *state)
 {
 	return state && state->fb && state->crtc;
 }
@@ -2966,30 +2966,22 @@ int sde_plane_validate_multirect_v2(struct sde_multirect_plane_states *plane)
 }
 
 int sde_plane_confirm_hw_rsvps(struct drm_plane *plane,
-		const struct drm_plane_state *state)
+		const struct drm_plane_state *state,
+		struct drm_crtc_state *cstate)
 {
-	struct drm_crtc_state *cstate;
 	struct sde_plane_state *pstate;
 	struct sde_plane_rot_state *rstate;
 	struct sde_hw_blk *hw_blk;
 
-	if (!plane || !state) {
-		SDE_ERROR("invalid plane/state\n");
+	if (!plane || !state || !cstate) {
+		SDE_ERROR("invalid parameters\n");
 		return -EINVAL;
 	}
 
 	pstate = to_sde_plane_state(state);
 	rstate = &pstate->rot;
 
-	/* cstate will be null if crtc is disconnected from plane */
-	cstate = _sde_plane_get_crtc_state((struct drm_plane_state *)state);
-	if (IS_ERR_OR_NULL(cstate)) {
-		SDE_ERROR("invalid crtc state\n");
-		return -EINVAL;
-	}
-
-	if (sde_plane_enabled((struct drm_plane_state *)state) &&
-			rstate->out_sbuf) {
+	if (sde_plane_enabled(state) && rstate->out_sbuf) {
 		SDE_DEBUG("plane%d.%d acquire rotator, fb %d\n",
 				plane->base.id, rstate->sequence_id,
 				state->fb ? state->fb->base.id : -1);
@@ -3005,7 +2997,15 @@ int sde_plane_confirm_hw_rsvps(struct drm_plane *plane,
 					SDE_EVTLOG_ERROR);
 			return -EINVAL;
 		}
+
+		_sde_plane_rot_get_fb(plane, cstate, rstate);
+
+		SDE_EVT32(DRMID(plane), rstate->sequence_id,
+				state->fb ? state->fb->base.id : -1,
+				rstate->out_fb ? rstate->out_fb->base.id : -1,
+				hw_blk->id);
 	}
+
 	return 0;
 }
 
