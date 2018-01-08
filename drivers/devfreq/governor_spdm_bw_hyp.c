@@ -1,5 +1,5 @@
 /*
- *Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ *Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  *This program is free software; you can redistribute it and/or modify
  *it under the terms of the GNU General Public License version 2 and
@@ -42,7 +42,7 @@ static int enable_clocks(void)
 
 	rpm_req = msm_rpm_create_request(MSM_RPM_CTX_ACTIVE_SET, SPDM_RES_TYPE,
 					 SPDM_RES_ID, 1);
-	if (!rpm_req)
+	if (IS_ERR_OR_NULL(rpm_req))
 		return -ENODEV;
 	msm_rpm_add_kvp_data(rpm_req, SPDM_KEY, (const uint8_t *)&one,
 			     sizeof(int));
@@ -61,7 +61,7 @@ static int disable_clocks(void)
 
 	rpm_req = msm_rpm_create_request(MSM_RPM_CTX_ACTIVE_SET, SPDM_RES_TYPE,
 					 SPDM_RES_ID, 1);
-	if (!rpm_req)
+	if (IS_ERR_OR_NULL(rpm_req))
 		return -ENODEV;
 	msm_rpm_add_kvp_data(rpm_req, SPDM_KEY, (const uint8_t *)&zero,
 			     sizeof(int));
