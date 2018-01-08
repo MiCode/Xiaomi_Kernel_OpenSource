@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -181,7 +181,7 @@
 					15 01 00 00 00 00 02 ec 00
 					15 01 00 00 00 00 02 ff 10
 					15 01 00 00 00 00 02 bb 10
-					15 01 00 00 00 00 02 35 02
+					15 01 00 00 00 00 02 35 00
 					05 01 00 00 78 00 02 11 00
 					05 01 00 00 78 00 02 29 00];
 				qcom,mdss-dsi-off-command = [05 01 00 00 14
