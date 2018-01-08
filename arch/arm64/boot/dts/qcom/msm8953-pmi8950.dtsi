@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,3 +30,9 @@
 &usb3 {
 	vbus_dwc3-supply = <&smbcharger_charger_otg>;
 };
+
+&pmi8950_charger {
+	qcom,external-typec;
+	qcom,typec-psy-name = "typec";
+};
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,9 @@
 /dts-v1/;
 
 #include "sdm450.dtsi"
+#include "pmi8937.dtsi"
 #include "msm8953-mtp.dtsi"
+#include "msm8953-pmi8937.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM450 + PMI8937 MTP";
