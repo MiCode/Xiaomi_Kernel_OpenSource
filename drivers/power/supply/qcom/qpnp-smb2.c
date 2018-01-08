@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1573,20 +1573,12 @@ static int smb2_init_hw(struct smb2 *chip)
 		BATT_PROFILE_VOTER, true, chg->batt_profile_fv_uv);
 	vote(chg->dc_icl_votable,
 		DEFAULT_VOTER, true, chip->dt.dc_icl_ua);
-	vote(chg->hvdcp_disable_votable_indirect, PD_INACTIVE_VOTER,
-			true, 0);
-	vote(chg->hvdcp_disable_votable_indirect, VBUS_CC_SHORT_VOTER,
-			true, 0);
 	vote(chg->hvdcp_disable_votable_indirect, DEFAULT_VOTER,
 		chip->dt.hvdcp_disable, 0);
 	vote(chg->pd_disallowed_votable_indirect, CC_DETACHED_VOTER,
 			true, 0);
 	vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER,
 			true, 0);
-	vote(chg->pd_disallowed_votable_indirect, MICRO_USB_VOTER,
-		(chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB), 0);
-	vote(chg->hvdcp_enable_votable, MICRO_USB_VOTER,
-		(chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB), 0);
 
 	/*
 	 * AICL configuration:
@@ -1635,6 +1627,16 @@ static int smb2_init_hw(struct smb2 *chip)
 			"Couldn't configure Type-C interrupts rc=%d\n", rc);
 		return rc;
 	}
+
+	/* Connector types based votes */
+	vote(chg->hvdcp_disable_votable_indirect, PD_INACTIVE_VOTER,
+		(chg->connector_type == POWER_SUPPLY_CONNECTOR_TYPEC), 0);
+	vote(chg->hvdcp_disable_votable_indirect, VBUS_CC_SHORT_VOTER,
+		(chg->connector_type == POWER_SUPPLY_CONNECTOR_TYPEC), 0);
+	vote(chg->pd_disallowed_votable_indirect, MICRO_USB_VOTER,
+		(chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB), 0);
+	vote(chg->hvdcp_enable_votable, MICRO_USB_VOTER,
+		(chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB), 0);
 
 	/* configure VCONN for software control */
 	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
