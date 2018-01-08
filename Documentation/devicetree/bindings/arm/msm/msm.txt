@@ -50,6 +50,9 @@ SoCs:
 - SDM640
   compatible = "qcom,sdm640"
 
+- QCS405
+  compatible = "qcom,qcs405"
+
 Generic board variants:
 
 - CDP device:
@@ -136,3 +139,6 @@ compatible = "qcom,sdm640-rumi"
 compatible = "qcom,sdm640-mtp"
 compatible = "qcom,sdm640-cdp"
 compatible = "qcom,sdm640-qrd"
+compatible = "qcom,qcs405-rumi"
+compatible = "qcom,qcs405-mtp"
+compatible = "qcom,qcs405-cdp"
