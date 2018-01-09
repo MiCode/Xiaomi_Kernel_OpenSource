@@ -1526,6 +1526,10 @@ unsigned int cpu_temp(int cpu)
 		return 0;
 }
 
+/*
+ * kfree() may wakeup kswapd. So this function should NOT be called
+ * with any CPU's rq->lock acquired.
+ */
 void free_task_load_ptrs(struct task_struct *p)
 {
 	kfree(p->ravg.curr_window_cpu);
