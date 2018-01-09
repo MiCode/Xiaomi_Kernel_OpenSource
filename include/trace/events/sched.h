@@ -436,9 +436,9 @@ TRACE_EVENT(sched_update_task_ravg,
 
 TRACE_EVENT(sched_get_task_cpu_cycles,
 
-	TP_PROTO(int cpu, int event, u64 cycles, u64 exec_time),
+	TP_PROTO(int cpu, int event, u64 cycles, u64 exec_time, struct task_struct *p),
 
-	TP_ARGS(cpu, event, cycles, exec_time),
+	TP_ARGS(cpu, event, cycles, exec_time, p),
 
 	TP_STRUCT__entry(
 		__field(int,		cpu		)
@@ -448,6 +448,8 @@ TRACE_EVENT(sched_get_task_cpu_cycles,
 		__field(u32,		freq		)
 		__field(u32,		legacy_freq	)
 		__field(u32,		max_freq)
+		__field(pid_t,		pid		)
+		__array(char,	comm,   TASK_COMM_LEN	)
 	),
 
 	TP_fast_assign(
@@ -458,12 +460,14 @@ TRACE_EVENT(sched_get_task_cpu_cycles,
 		__entry->freq		= cpu_cycles_to_freq(cycles, exec_time);
 		__entry->legacy_freq 	= cpu_cur_freq(cpu);
 		__entry->max_freq	= cpu_max_freq(cpu);
+		__entry->pid            = p->pid;
+		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
 	),
 
-	TP_printk("cpu=%d event=%d cycles=%llu exec_time=%llu freq=%u legacy_freq=%u max_freq=%u",
+	TP_printk("cpu=%d event=%d cycles=%llu exec_time=%llu freq=%u legacy_freq=%u max_freq=%u task=%d (%s)",
 		__entry->cpu, __entry->event, __entry->cycles,
 		__entry->exec_time, __entry->freq, __entry->legacy_freq,
-		__entry->max_freq)
+		__entry->max_freq, __entry->pid, __entry->comm)
 );
 
 TRACE_EVENT(sched_update_history,
