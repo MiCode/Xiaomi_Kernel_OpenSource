@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -88,6 +88,10 @@ struct msm_bus_rsc_device_type {
 	int req_state;
 	uint32_t acv[NUM_CTX];
 	uint32_t query_acv[NUM_CTX];
+	struct tcs_cmd *cmdlist_active;
+	struct tcs_cmd *cmdlist_wake;
+	struct tcs_cmd *cmdlist_sleep;
+	int num_bcm_devs;
 };
 
 struct msm_bus_bcm_device_type {
