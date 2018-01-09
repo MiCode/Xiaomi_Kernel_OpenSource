@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -217,12 +217,18 @@ static const char * const _size_to_string(unsigned long size)
 		return "16K";
 	case SZ_64K:
 		return "64K";
+	case SZ_1M:
+		return "1M";
 	case SZ_2M:
 		return "2M";
 	case SZ_1M * 12:
 		return "12M";
 	case SZ_1M * 20:
 		return "20M";
+	case SZ_1M * 24:
+		return "24M";
+	case SZ_1M * 32:
+		return "32M";
 	}
 	return "unknown size, please add to %s function", __func__;
 }
@@ -408,8 +414,8 @@ out_domain_free:
 static int iommu_debug_profiling_show(struct seq_file *s, void *ignored)
 {
 	struct iommu_debug_device *ddev = s->private;
-	const size_t sizes[] = { SZ_4K, SZ_64K, SZ_2M, SZ_1M * 12,
-					SZ_1M * 20, 0 };
+	const size_t sizes[] = { SZ_4K, SZ_64K, SZ_1M, SZ_2M, SZ_1M * 12,
+					SZ_1M * 24, SZ_1M * 32, 0 };
 	enum iommu_attr attrs[] = {
 		DOMAIN_ATTR_ATOMIC,
 	};
@@ -437,8 +443,8 @@ static const struct file_operations iommu_debug_profiling_fops = {
 static int iommu_debug_secure_profiling_show(struct seq_file *s, void *ignored)
 {
 	struct iommu_debug_device *ddev = s->private;
-	const size_t sizes[] = { SZ_4K, SZ_64K, SZ_2M, SZ_1M * 12,
-					SZ_1M * 20, 0 };
+	const size_t sizes[] = { SZ_4K, SZ_64K, SZ_1M, SZ_2M, SZ_1M * 12,
+					SZ_1M * 24, SZ_1M * 32, 0 };
 
 	enum iommu_attr attrs[] = {
 		DOMAIN_ATTR_ATOMIC,
