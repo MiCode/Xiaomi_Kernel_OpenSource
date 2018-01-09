@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -960,6 +960,12 @@ static int msm_tdm_startup(struct snd_pcm_substream *substream)
 		 substream->name, substream->stream);
 	pr_debug("dai id = 0x%x", cpu_dai->id);
 
+	if (!q6core_is_adsp_ready()) {
+		pr_err_ratelimited("%s: ADSP Audio isn't ready\n",
+					   __func__);
+		return -EINVAL;
+	}
+
 	switch (cpu_dai->id) {
 	case AFE_PORT_ID_PRIMARY_TDM_RX:
 	case AFE_PORT_ID_PRIMARY_TDM_RX_1:
@@ -1047,6 +1053,11 @@ static void msm_tdm_shutdown(struct snd_pcm_substream *substream)
 			ret = regulator_set_optimum_mode(pdata->spkr_vreg, 0);
 			if (ret < 0) {
 				pr_err("Failed to set spkr_vreg mode.\n");
+				goto err;
+			}
+
+			if (!q6core_is_adsp_ready()) {
+				pr_err("%s(): adsp not ready\n", __func__);
 				goto err;
 			}
 			/* Reset Configuration of mux for Primary TDM */
