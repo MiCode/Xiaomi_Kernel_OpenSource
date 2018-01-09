@@ -6,9 +6,11 @@ Required properties :
 		"qcom,virtclk-frontend-8996"
 
 - #clock-cells : shall contain 1
+- #reset-cells : shall contain 1
 
 Example:
 	virtclk-frontend@0 {
 		compatible = "qcom,virtclk-frontend-8996";
 		#clock-cells = <1>;
+		#reset-cells = <1>;
 	};

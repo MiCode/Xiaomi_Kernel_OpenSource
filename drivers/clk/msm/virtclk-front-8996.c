@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,7 @@
 #include <linux/platform_device.h>
 #include <linux/of.h>
 #include <dt-bindings/clock/msm-clocks-8996.h>
+#include "virt-reset-front.h"
 
 static struct virtclk_front gcc_blsp1_ahb_clk = {
 	.c = {
@@ -524,6 +525,15 @@ static struct clk_lookup msm_clocks_8996[] = {
 	CLK_LIST(gcc_mss_mnoc_bimc_axi_clk),
 };
 
+static struct virt_reset_map msm_resets_8996[] = {
+	[QUSB2PHY_PRIM_BCR] = { "gcc_qusb2phy_prim_clk" },
+	[QUSB2PHY_SEC_BCR] = { "gcc_qusb2phy_sec_clk" },
+	[USB_20_BCR] = { "gcc_usb20_master_clk" },
+	[USB_30_BCR] = { "gcc_usb3_phy_pipe_clk" },
+	[USB3_PHY_BCR] = { "gcc_usb3_phy_clk" },
+	[USB3PHY_PHY_BCR] = { "gcc_usb3phy_phy_clk" },
+};
+
 static const struct of_device_id msm8996_virtclk_front_match_table[] = {
 	{ .compatible = "qcom,virtclk-frontend-8996" },
 	{}
@@ -531,8 +541,17 @@ static const struct of_device_id msm8996_virtclk_front_match_table[] = {
 
 static int msm8996_virtclk_front_probe(struct platform_device *pdev)
 {
-	return msm_virtclk_front_probe(pdev, msm_clocks_8996,
+	int ret = 0;
+
+	ret = msm_virtclk_front_probe(pdev, msm_clocks_8996,
 			ARRAY_SIZE(msm_clocks_8996));
+	if (ret)
+		return ret;
+
+	ret = msm_virtrc_front_register(pdev, msm_resets_8996,
+			ARRAY_SIZE(msm_resets_8996));
+
+	return ret;
 }
 
 static struct platform_driver msm8996_virtclk_front_driver = {

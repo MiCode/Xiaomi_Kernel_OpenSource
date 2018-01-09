@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,56 +17,16 @@
 #include <linux/of.h>
 #include <linux/habmm.h>
 #include <soc/qcom/msm-clock-controller.h>
+#include "virtclk-front.h"
 
-struct virtclk_front_data {
-	int handle;
-	struct rt_mutex lock;
-};
-
-enum virtclk_cmd {
-	CLK_MSG_GETID = 1,
-	CLK_MSG_ENABLE,
-	CLK_MSG_DISABLE,
-	CLK_MSG_RESET,
-	CLK_MSG_SETFREQ,
-	CLK_MSG_GETFREQ,
-	CLK_MSG_MAX
-};
-
-struct clk_msg_header {
-	u32 cmd;
-	u32 len;
-	u32 clk_id;
-} __packed;
-
-struct clk_msg_rsp {
-	struct clk_msg_header header;
-	u32 rsp;
-} __packed;
-
-struct clk_msg_setfreq {
-	struct clk_msg_header header;
-	u32 freq;
-} __packed;
-
-struct clk_msg_getid {
-	struct clk_msg_header header;
-	char name[32];
-} __packed;
-
-struct clk_msg_getfreq {
-	struct clk_msg_rsp rsp;
-	u32 freq;
-} __packed;
-
-static struct virtclk_front_data virtclk_front_ctx;
+struct virtclk_front_data virtclk_front_ctx;
 
 static inline struct virtclk_front *to_virtclk_front(struct clk *clk)
 {
 	return container_of(clk, struct virtclk_front, c);
 }
 
-static int virtclk_front_init_iface(void)
+int virtclk_front_init_iface(void)
 {
 	int ret = 0;
 	int handle;
@@ -88,6 +48,7 @@ out:
 	rt_mutex_unlock(&virtclk_front_ctx.lock);
 	return ret;
 }
+EXPORT_SYMBOL(virtclk_front_init_iface);
 
 static int virtclk_front_get_id(struct clk *clk)
 {
@@ -246,7 +207,7 @@ err_out:
 static int virtclk_front_reset(struct clk *clk, enum clk_reset_action action)
 {
 	struct virtclk_front *v = to_virtclk_front(clk);
-	struct clk_msg_header msg;
+	struct clk_msg_reset msg;
 	struct clk_msg_rsp rsp;
 	u32 rsp_size = sizeof(rsp);
 	int handle;
@@ -260,9 +221,10 @@ static int virtclk_front_reset(struct clk *clk, enum clk_reset_action action)
 	if (ret)
 		return ret;
 
-	msg.clk_id = v->id;
-	msg.cmd = CLK_MSG_RESET;
-	msg.len = sizeof(struct clk_msg_header);
+	msg.header.clk_id = v->id;
+	msg.header.cmd = CLK_MSG_RESET;
+	msg.header.len = sizeof(struct clk_msg_header);
+	msg.reset = action;
 
 	rt_mutex_lock(&virtclk_front_ctx.lock);
 
