@@ -235,6 +235,10 @@ static int msm_isp_validate_axi_request(struct vfe_device *vfe_dev,
 	case V4L2_PIX_FMT_P16GBRG10:
 	case V4L2_PIX_FMT_P16GRBG10:
 	case V4L2_PIX_FMT_P16RGGB10:
+	case V4L2_PIX_FMT_P16BGGR12:
+	case V4L2_PIX_FMT_P16GBRG12:
+	case V4L2_PIX_FMT_P16GRBG12:
+	case V4L2_PIX_FMT_P16RGGB12:
 	case V4L2_PIX_FMT_JPEG:
 	case V4L2_PIX_FMT_META:
 	case V4L2_PIX_FMT_META10:
@@ -376,6 +380,10 @@ static uint32_t msm_isp_axi_get_plane_size(
 	case V4L2_PIX_FMT_P16GBRG10:
 	case V4L2_PIX_FMT_P16GRBG10:
 	case V4L2_PIX_FMT_P16RGGB10:
+	case V4L2_PIX_FMT_P16BGGR12:
+	case V4L2_PIX_FMT_P16GBRG12:
+	case V4L2_PIX_FMT_P16GRBG12:
+	case V4L2_PIX_FMT_P16RGGB12:
 		size = plane_cfg[plane_idx].output_height *
 		plane_cfg[plane_idx].output_width;
 		break;
