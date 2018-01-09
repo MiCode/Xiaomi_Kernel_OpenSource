@@ -1082,7 +1082,7 @@
 		vdd_pwrcl_mx_ao-supply = <&pm660l_s1_level_ao>;
 
 		qcom,mx-turbo-freq = <1440000000 1708000000 3300000001>;
-		l3-devs = <&l3_cpu0 &l3_cpu6>;
+		l3-devs = <&l3_cpu0 &l3_cpu6 &l3_cdsp>;
 
 		clock-names = "xo_ao";
 		clocks = <&clock_rpmh RPMH_CXO_CLK_A>;
@@ -2759,6 +2759,13 @@
 				< 1747200 MHZ_TO_MBPS( 768, 4) >,
 				< 1996800 MHZ_TO_MBPS(1017, 4) >,
 				< 2457600 MHZ_TO_MBPS(1804, 4) >;
+	};
+
+	l3_cdsp: qcom,l3-cdsp {
+		compatible = "devfreq-simple-dev";
+		clock-names = "devfreq_clk";
+		clocks = <&clock_cpucc L3_MISC_VOTE_CLK>;
+		governor = "powersave";
 	};
 
 	cpu_pmu: cpu-pmu {
