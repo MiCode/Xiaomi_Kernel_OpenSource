@@ -2576,6 +2576,8 @@ try_onemore:
 	sb->s_flags = (sb->s_flags & ~MS_POSIXACL) |
 		(test_opt(sbi, POSIX_ACL) ? MS_POSIXACL : 0);
 	memcpy(sb->s_uuid, raw_super->uuid, sizeof(raw_super->uuid));
+	/* FIXME: no cgroup support */
+	/* sb->s_iflags |= SB_I_CGROUPWB; */
 
 	/* init f2fs-specific super block info */
 	sbi->valid_super_block = valid_super_block;
