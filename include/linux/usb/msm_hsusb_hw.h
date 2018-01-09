@@ -21,7 +21,6 @@
 
 #define USB_AHBBURST         (MSM_USB_BASE + 0x0090)
 #define USB_AHBMODE          (MSM_USB_BASE + 0x0098)
-#define USB_GENCONFIG        (MSM_USB_BASE + 0x009C)
 #define USB_GENCONFIG_2      (MSM_USB_BASE + 0x00a0)
 #define ULPI_TX_PKT_EN_CLR_FIX	BIT(19)
 
@@ -40,15 +39,6 @@
 #define USBCMD_RESET   2
 #define USB_USBINTR          (MSM_USB_BASE + 0x0148)
 
-#define USB_L1_EP_CTRL       (MSM_USB_BASE + 0x0250)
-#define USB_L1_CONFIG        (MSM_USB_BASE + 0x0254)
-
-#define L1_CONFIG_LPM_EN        BIT(4)
-#define L1_CONFIG_REMOTE_WAKEUP BIT(5)
-#define L1_CONFIG_GATE_SYS_CLK	BIT(7)
-#define L1_CONFIG_PHY_LPM	BIT(10)
-#define L1_CONFIG_PLL		BIT(11)
-
 #define PORTSC_PHCD            (1 << 23) /* phy suspend mode */
 #define PORTSC_PTS_MASK        (3 << 30)
 #define PORTSC_PTS_ULPI        (2 << 30)
@@ -61,10 +51,6 @@
 #define ULPI_ADDR(n)          (((n) & 255) << 16)
 #define ULPI_DATA(n)          ((n) & 255)
 #define ULPI_DATA_READ(n)     (((n) >> 8) & 255)
-
-#define GENCONFIG_BAM_DISABLE (1 << 13)
-#define GENCONFIG_TXFIFO_IDLE_FORCE_DISABLE (1 << 4)
-#define GENCONFIG_ULPI_SERIAL_EN (1 << 5)
 
 /* synopsys 28nm phy registers */
 #define ULPI_PWR_CLK_MNG_REG	0x88
