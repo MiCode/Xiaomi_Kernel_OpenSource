@@ -21,6 +21,9 @@
 	(0x40 + (((lm) - LM_0) * 0x004))
 #define   CTL_LAYER_EXT2(lm)             \
 	(0x70 + (((lm) - LM_0) * 0x004))
+#define   CTL_LAYER_EXT3(lm)             \
+	(0xA0 + (((lm) - LM_0) * 0x004))
+
 #define   CTL_TOP                       0x014
 #define   CTL_FLUSH                     0x018
 #define   CTL_START                     0x01C
@@ -315,8 +318,12 @@ static void sde_hw_ctl_clear_all_blendstages(struct sde_hw_ctl *ctx)
 	int i;
 
 	for (i = 0; i < ctx->mixer_count; i++) {
-		SDE_REG_WRITE(c, CTL_LAYER(LM_0 + i), 0);
-		SDE_REG_WRITE(c, CTL_LAYER_EXT(LM_0 + i), 0);
+		int mixer_id = ctx->mixer_hw_caps[i].id;
+
+		SDE_REG_WRITE(c, CTL_LAYER(mixer_id), 0);
+		SDE_REG_WRITE(c, CTL_LAYER_EXT(mixer_id), 0);
+		SDE_REG_WRITE(c, CTL_LAYER_EXT2(mixer_id), 0);
+		SDE_REG_WRITE(c, CTL_LAYER_EXT3(mixer_id), 0);
 	}
 }
 
