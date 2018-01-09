@@ -144,7 +144,6 @@ static int pktzr_send_pkt(void *payload, uint32_t size, void *rsp,
 		rc = bg_cdc_glink_write(ppriv->ch_info[0], pkt_hdr, pkt_size);
 	if (rc < 0) {
 		pr_err("%s: Failed to send command over glink\n", __func__);
-		list_del(&pnode->list);
 		goto exit;
 	}
 
