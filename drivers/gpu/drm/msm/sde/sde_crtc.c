@@ -4733,56 +4733,7 @@ void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file)
 	_sde_crtc_complete_flip(crtc, file);
 }
 
-int sde_crtc_helper_reset_custom_properties(struct drm_crtc *crtc,
-		struct drm_crtc_state *crtc_state)
-{
-	struct sde_crtc *sde_crtc;
-	struct sde_crtc_state *cstate;
-	struct drm_property *drm_prop;
-	enum msm_mdp_crtc_property prop_idx;
 
-	if (!crtc || !crtc_state) {
-		SDE_ERROR("invalid params\n");
-		return -EINVAL;
-	}
-
-	sde_crtc = to_sde_crtc(crtc);
-	cstate = to_sde_crtc_state(crtc_state);
-
-	for (prop_idx = 0; prop_idx < CRTC_PROP_COUNT; prop_idx++) {
-		uint64_t val = cstate->property_values[prop_idx].value;
-		uint64_t def;
-		int ret;
-
-		drm_prop = msm_property_index_to_drm_property(
-				&sde_crtc->property_info, prop_idx);
-		if (!drm_prop) {
-			/* not all props will be installed, based on caps */
-			SDE_DEBUG("%s: invalid property index %d\n",
-					sde_crtc->name, prop_idx);
-			continue;
-		}
-
-		def = msm_property_get_default(&sde_crtc->property_info,
-				prop_idx);
-		if (val == def)
-			continue;
-
-		SDE_DEBUG("%s: set prop %s idx %d from %llu to %llu\n",
-				sde_crtc->name, drm_prop->name, prop_idx, val,
-				def);
-
-		ret = drm_atomic_crtc_set_property(crtc, crtc_state, drm_prop,
-				def);
-		if (ret) {
-			SDE_ERROR("%s: set property failed, idx %d ret %d\n",
-					sde_crtc->name, prop_idx, ret);
-			continue;
-		}
-	}
-
-	return 0;
-}
 
 /**
  * sde_crtc_install_properties - install all drm properties for crtc
@@ -5143,21 +5094,6 @@ exit:
 }
 
 /**
- * sde_crtc_set_property - set a crtc drm property
- * @crtc: Pointer to drm crtc structure
- * @property: Pointer to targeted drm property
- * @val: Updated property value
- * @Returns: Zero on success
- */
-static int sde_crtc_set_property(struct drm_crtc *crtc,
-		struct drm_property *property, uint64_t val)
-{
-	SDE_DEBUG("\n");
-
-	return sde_crtc_atomic_set_property(crtc, crtc->state, property, val);
-}
-
-/**
  * sde_crtc_atomic_get_property - retrieve a crtc drm property
  * @crtc: Pointer to drm crtc structure
  * @state: Pointer to drm crtc state structure
@@ -5196,6 +5132,57 @@ static int sde_crtc_atomic_get_property(struct drm_crtc *crtc,
 
 end:
 	return ret;
+}
+
+int sde_crtc_helper_reset_custom_properties(struct drm_crtc *crtc,
+		struct drm_crtc_state *crtc_state)
+{
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *cstate;
+	struct drm_property *drm_prop;
+	enum msm_mdp_crtc_property prop_idx;
+
+	if (!crtc || !crtc_state) {
+		SDE_ERROR("invalid params\n");
+		return -EINVAL;
+	}
+
+	sde_crtc = to_sde_crtc(crtc);
+	cstate = to_sde_crtc_state(crtc_state);
+
+	for (prop_idx = 0; prop_idx < CRTC_PROP_COUNT; prop_idx++) {
+		uint64_t val = cstate->property_values[prop_idx].value;
+		uint64_t def;
+		int ret;
+
+		drm_prop = msm_property_index_to_drm_property(
+				&sde_crtc->property_info, prop_idx);
+		if (!drm_prop) {
+			/* not all props will be installed, based on caps */
+			SDE_DEBUG("%s: invalid property index %d\n",
+					sde_crtc->name, prop_idx);
+			continue;
+		}
+
+		def = msm_property_get_default(&sde_crtc->property_info,
+				prop_idx);
+		if (val == def)
+			continue;
+
+		SDE_DEBUG("%s: set prop %s idx %d from %llu to %llu\n",
+				sde_crtc->name, drm_prop->name, prop_idx, val,
+				def);
+
+		ret = sde_crtc_atomic_set_property(crtc, crtc_state, drm_prop,
+				def);
+		if (ret) {
+			SDE_ERROR("%s: set property failed, idx %d ret %d\n",
+					sde_crtc->name, prop_idx, ret);
+			continue;
+		}
+	}
+
+	return 0;
 }
 
 #ifdef CONFIG_DEBUG_FS
@@ -5579,7 +5566,6 @@ static const struct drm_crtc_funcs sde_crtc_funcs = {
 	.set_config = drm_atomic_helper_set_config,
 	.destroy = sde_crtc_destroy,
 	.page_flip = drm_atomic_helper_page_flip,
-	.set_property = sde_crtc_set_property,
 	.atomic_set_property = sde_crtc_atomic_set_property,
 	.atomic_get_property = sde_crtc_atomic_get_property,
 	.reset = sde_crtc_reset,

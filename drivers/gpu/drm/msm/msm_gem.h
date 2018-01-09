@@ -30,10 +30,10 @@ struct msm_gem_object;
 
 struct msm_gem_aspace_ops {
 	int (*map)(struct msm_gem_address_space *, struct msm_gem_vma *,
-		struct sg_table *sgt, void *priv, unsigned int flags);
+		struct sg_table *sgt, int npages, unsigned int flags);
 
 	void (*unmap)(struct msm_gem_address_space *, struct msm_gem_vma *,
-		struct sg_table *sgt, void *priv);
+		struct sg_table *sgt);
 
 	void (*destroy)(struct msm_gem_address_space *);
 	void (*add_to_active)(struct msm_gem_address_space *,
@@ -118,10 +118,6 @@ struct msm_gem_object {
 	void *vaddr;
 
 	struct list_head vmas;    /* list of msm_gem_vma */
-
-	struct {
-		dma_addr_t iova;
-	} domain[NUM_DOMAINS];
 
 	/* normally (resv == &_resv) except for imported bo's */
 	struct reservation_object *resv;

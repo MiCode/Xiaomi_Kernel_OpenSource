@@ -247,17 +247,6 @@ void msm_property_install_volatile_range(struct msm_property_info *info,
 		uint32_t property_idx);
 
 /**
- * msm_property_install_rotation - install standard drm rotation property
- * @info: Pointer to property info container struct
- * @supported_rotations: Bitmask of supported rotation values (see
- *                       drm_mode_create_rotation_property for more details)
- * @property_idx: Property index
- */
-void msm_property_install_rotation(struct msm_property_info *info,
-		unsigned int supported_rotations,
-		uint32_t property_idx);
-
-/**
  * msm_property_install_enum - install standard drm enum/bitmask property
  * @info: Pointer to property info container struct
  * @name: Property name

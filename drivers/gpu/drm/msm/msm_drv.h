@@ -118,7 +118,6 @@ enum msm_mdp_plane_property {
 	PLANE_PROP_SCALER_V2,
 
 	/* enum/bitmask properties */
-	PLANE_PROP_ROTATION,
 	PLANE_PROP_BLEND_OP,
 	PLANE_PROP_SRC_CONFIG,
 	PLANE_PROP_FB_TRANSLATION_MODE,
@@ -652,7 +651,8 @@ void msm_atomic_state_free(struct drm_atomic_state *state);
 void msm_gem_unmap_vma(struct msm_gem_address_space *aspace,
 		struct msm_gem_vma *vma, struct sg_table *sgt);
 int msm_gem_map_vma(struct msm_gem_address_space *aspace,
-		struct msm_gem_vma *vma, struct sg_table *sgt, int npages);
+		struct msm_gem_vma *vma, struct sg_table *sgt, int npages,
+		unsigned int flags);
 
 void msm_gem_address_space_put(struct msm_gem_address_space *aspace);
 
@@ -785,6 +785,9 @@ uint32_t msm_framebuffer_iova(struct drm_framebuffer *fb,
 uint32_t msm_framebuffer_phys(struct drm_framebuffer *fb, int plane);
 struct drm_gem_object *msm_framebuffer_bo(struct drm_framebuffer *fb, int plane);
 const struct msm_format *msm_framebuffer_format(struct drm_framebuffer *fb);
+struct drm_framebuffer *msm_framebuffer_init(struct drm_device *dev,
+		const struct drm_mode_fb_cmd2 *mode_cmd,
+		struct drm_gem_object **bos);
 struct drm_framebuffer *msm_framebuffer_create(struct drm_device *dev,
 		struct drm_file *file, const struct drm_mode_fb_cmd2 *mode_cmd);
 struct drm_framebuffer * msm_alloc_stolen_fb(struct drm_device *dev,

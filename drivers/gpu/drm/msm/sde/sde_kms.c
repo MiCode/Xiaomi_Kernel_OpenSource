@@ -1411,17 +1411,14 @@ struct sde_kms_fbo *sde_kms_fbo_alloc(struct drm_device *dev, u32 width,
 		/* insert extra bo flags */
 		sde_kms_set_gem_flags(to_msm_bo(fbo->bo[0]), MSM_BO_KEEPATTRS);
 	} else {
-		mutex_lock(&dev->struct_mutex);
 		fbo->bo[0] = msm_gem_new(dev, fbo->layout.total_size,
 				MSM_BO_SCANOUT | MSM_BO_WC | MSM_BO_KEEPATTRS);
 		if (IS_ERR(fbo->bo[0])) {
-			mutex_unlock(&dev->struct_mutex);
 			SDE_ERROR("failed to new gem buffer\n");
 			ret = PTR_ERR(fbo->bo[0]);
 			fbo->bo[0] = NULL;
 			goto done;
 		}
-		mutex_unlock(&dev->struct_mutex);
 	}
 
 	mutex_lock(&dev->struct_mutex);
@@ -1657,12 +1654,12 @@ static void sde_kms_destroy(struct msm_kms *kms)
 
 	sde_kms = to_sde_kms(kms);
 	dev = sde_kms->dev;
-	if (!dev) {
+	if (!dev || !dev->dev) {
 		SDE_ERROR("invalid device\n");
 		return;
 	}
 
-	_sde_kms_hw_destroy(sde_kms, dev->platformdev);
+	_sde_kms_hw_destroy(sde_kms, to_platform_device(dev->dev));
 	kfree(sde_kms);
 }
 
@@ -2161,7 +2158,7 @@ static int sde_kms_cont_splash_config(struct msm_kms *kms)
 
 	sde_kms = to_sde_kms(kms);
 	dev = sde_kms->dev;
-	if (!dev || !dev->platformdev) {
+	if (!dev) {
 		SDE_ERROR("invalid device\n");
 		return -EINVAL;
 	}
@@ -2460,7 +2457,7 @@ static int _sde_kms_mmu_destroy(struct sde_kms *sde_kms)
 
 		mmu->funcs->detach(mmu, (const char **)iommu_ports,
 				ARRAY_SIZE(iommu_ports));
-		msm_gem_address_space_destroy(sde_kms->aspace[i]);
+		msm_gem_address_space_put(sde_kms->aspace[i]);
 
 		sde_kms->aspace[i] = NULL;
 	}
@@ -2498,7 +2495,7 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 				ARRAY_SIZE(iommu_ports));
 		if (ret) {
 			SDE_ERROR("failed to attach iommu %d: %d\n", i, ret);
-			msm_gem_address_space_destroy(aspace);
+			msm_gem_address_space_put(aspace);
 			goto fail;
 		}
 		aspace->domain_attached = true;
@@ -2723,6 +2720,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	struct drm_device *dev;
 	struct msm_drm_private *priv;
 	bool splash_mem_found = false;
+	struct platform_device *platformdev;
 	int i, rc = -EINVAL;
 
 	if (!kms) {
@@ -2732,18 +2730,19 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 
 	sde_kms = to_sde_kms(kms);
 	dev = sde_kms->dev;
-	if (!dev || !dev->platformdev) {
+	if (!dev || !dev->dev) {
 		SDE_ERROR("invalid device\n");
 		goto end;
 	}
 
+	platformdev = to_platform_device(dev->dev);
 	priv = dev->dev_private;
 	if (!priv) {
 		SDE_ERROR("invalid private data\n");
 		goto end;
 	}
 
-	sde_kms->mmio = msm_ioremap(dev->platformdev, "mdp_phys", "mdp_phys");
+	sde_kms->mmio = msm_ioremap(platformdev, "mdp_phys", "mdp_phys");
 	if (IS_ERR(sde_kms->mmio)) {
 		rc = PTR_ERR(sde_kms->mmio);
 		SDE_ERROR("mdp register memory map failed: %d\n", rc);
@@ -2751,14 +2750,14 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		goto error;
 	}
 	DRM_INFO("mapped mdp address space @%p\n", sde_kms->mmio);
-	sde_kms->mmio_len = msm_iomap_size(dev->platformdev, "mdp_phys");
+	sde_kms->mmio_len = msm_iomap_size(platformdev, "mdp_phys");
 
 	rc = sde_dbg_reg_register_base(SDE_DBG_NAME, sde_kms->mmio,
 			sde_kms->mmio_len);
 	if (rc)
 		SDE_ERROR("dbg base register kms failed: %d\n", rc);
 
-	sde_kms->vbif[VBIF_RT] = msm_ioremap(dev->platformdev, "vbif_phys",
+	sde_kms->vbif[VBIF_RT] = msm_ioremap(platformdev, "vbif_phys",
 								"vbif_phys");
 	if (IS_ERR(sde_kms->vbif[VBIF_RT])) {
 		rc = PTR_ERR(sde_kms->vbif[VBIF_RT]);
@@ -2766,20 +2765,20 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		sde_kms->vbif[VBIF_RT] = NULL;
 		goto error;
 	}
-	sde_kms->vbif_len[VBIF_RT] = msm_iomap_size(dev->platformdev,
+	sde_kms->vbif_len[VBIF_RT] = msm_iomap_size(platformdev,
 								"vbif_phys");
 	rc = sde_dbg_reg_register_base("vbif_rt", sde_kms->vbif[VBIF_RT],
 				sde_kms->vbif_len[VBIF_RT]);
 	if (rc)
 		SDE_ERROR("dbg base register vbif_rt failed: %d\n", rc);
 
-	sde_kms->vbif[VBIF_NRT] = msm_ioremap(dev->platformdev, "vbif_nrt_phys",
+	sde_kms->vbif[VBIF_NRT] = msm_ioremap(platformdev, "vbif_nrt_phys",
 								"vbif_nrt_phys");
 	if (IS_ERR(sde_kms->vbif[VBIF_NRT])) {
 		sde_kms->vbif[VBIF_NRT] = NULL;
 		SDE_DEBUG("VBIF NRT is not defined");
 	} else {
-		sde_kms->vbif_len[VBIF_NRT] = msm_iomap_size(dev->platformdev,
+		sde_kms->vbif_len[VBIF_NRT] = msm_iomap_size(platformdev,
 							"vbif_nrt_phys");
 		rc = sde_dbg_reg_register_base("vbif_nrt",
 				sde_kms->vbif[VBIF_NRT],
@@ -2789,13 +2788,13 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 					rc);
 	}
 
-	sde_kms->reg_dma = msm_ioremap(dev->platformdev, "regdma_phys",
+	sde_kms->reg_dma = msm_ioremap(platformdev, "regdma_phys",
 								"regdma_phys");
 	if (IS_ERR(sde_kms->reg_dma)) {
 		sde_kms->reg_dma = NULL;
 		SDE_DEBUG("REG_DMA is not defined");
 	} else {
-		sde_kms->reg_dma_len = msm_iomap_size(dev->platformdev,
+		sde_kms->reg_dma_len = msm_iomap_size(platformdev,
 								"regdma_phys");
 		rc =  sde_dbg_reg_register_base("reg_dma",
 				sde_kms->reg_dma,
@@ -3000,7 +2999,7 @@ perf_err:
 power_error:
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 error:
-	_sde_kms_hw_destroy(sde_kms, dev->platformdev);
+	_sde_kms_hw_destroy(sde_kms, platformdev);
 end:
 	return rc;
 }

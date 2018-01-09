@@ -1947,11 +1947,11 @@ static void dsi_display_aspace_cb_locked(void *cb_data, bool is_detach)
 		display->cmd_buffer_iova = 0;
 
 		/* return the virtual address mapping */
-		msm_gem_put_vaddr_locked(display->tx_cmd_buf);
-		msm_gem_vunmap(display->tx_cmd_buf);
+		msm_gem_put_vaddr(display->tx_cmd_buf);
+		msm_gem_vunmap(display->tx_cmd_buf, OBJ_LOCK_NORMAL);
 
 	} else {
-		rc = msm_gem_get_iova_locked(display->tx_cmd_buf,
+		rc = msm_gem_get_iova(display->tx_cmd_buf,
 				display->aspace, &(display->cmd_buffer_iova));
 		if (rc) {
 			pr_err("failed to get the iova rc %d\n", rc);
@@ -1959,7 +1959,7 @@ static void dsi_display_aspace_cb_locked(void *cb_data, bool is_detach)
 		}
 
 		display->vaddr =
-			(void *) msm_gem_get_vaddr_locked(display->tx_cmd_buf);
+			(void *) msm_gem_get_vaddr(display->tx_cmd_buf);
 
 		if (IS_ERR_OR_NULL(display->vaddr)) {
 			pr_err("failed to get va rc %d\n", rc);
@@ -2026,11 +2026,9 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 	}
 
 	if (display->tx_cmd_buf == NULL) {
-		mutex_lock(&display->drm_dev->struct_mutex);
 		display->tx_cmd_buf = msm_gem_new(display->drm_dev,
 				SZ_4K,
 				MSM_BO_UNCACHED);
-		mutex_unlock(&display->drm_dev->struct_mutex);
 
 		display->cmd_buffer_size = SZ_4K;
 
