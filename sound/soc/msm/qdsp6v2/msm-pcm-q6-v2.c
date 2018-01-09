@@ -385,16 +385,10 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 			return -ENOMEM;
 		}
 	} else {
-		if (q6asm_get_svc_version(APR_SVC_ASM) >=
-				ADSP_ASM_API_VERSION_V2)
-			ret = q6asm_open_write_v5(prtd->audio_client,
+		ret = q6asm_open_write_with_retry(prtd->audio_client,
 				fmt_type, bits_per_sample);
-		else
-			ret = q6asm_open_write_v4(prtd->audio_client,
-				fmt_type, bits_per_sample);
-
 		if (ret < 0) {
-			pr_err("%s: q6asm_open_write_v4 failed (%d)\n",
+			pr_err("%s: q6asm_open_write_with_retry failed (%d)\n",
 			__func__, ret);
 			q6asm_audio_client_free(prtd->audio_client);
 			prtd->audio_client = NULL;
