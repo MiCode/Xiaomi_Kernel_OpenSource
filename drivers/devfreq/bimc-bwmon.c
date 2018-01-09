@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,7 +35,8 @@
 #define	GLB_INT_EN(m)		((m)->global_base + 0x10C)
 #define MON_INT_STATUS(m)	((m)->base + 0x100)
 #define MON_INT_STATUS_MASK	0x03
-#define MON2_INT_STATUS_MASK	0xF0
+#define MON2_INT_STATUS_MASK	0xA0
+#define MON2_INT_DISABLE_MASK	0xF0
 #define MON2_INT_STATUS_SHIFT	4
 #define MON_INT_CLR(m)		((m)->base + 0x108)
 #define	MON_INT_EN(m)		((m)->base + 0x10C)
@@ -63,7 +64,8 @@
 #define MON3_INT_STATUS(m)	((m)->base + 0x00)
 #define MON3_INT_CLR(m)		((m)->base + 0x08)
 #define MON3_INT_EN(m)		((m)->base + 0x0C)
-#define MON3_INT_STATUS_MASK	0x0F
+#define MON3_INT_STATUS_MASK	0x0A
+#define MON3_INT_DISABLE_MASK	0x0F
 #define MON3_EN(m)		((m)->base + 0x10)
 #define MON3_CLEAR(m)		((m)->base + 0x14)
 #define MON3_MASK(m)		((m)->base + 0x18)
@@ -283,12 +285,12 @@ void mon_irq_disable(struct bwmon *m, enum mon_reg_type type)
 	case MON2:
 		mon_glb_irq_disable(m);
 		val = readl_relaxed(MON_INT_EN(m));
-		val &= ~MON2_INT_STATUS_MASK;
+		val &= ~MON2_INT_DISABLE_MASK;
 		writel_relaxed(val, MON_INT_EN(m));
 		break;
 	case MON3:
 		val = readl_relaxed(MON3_INT_EN(m));
-		val &= ~MON3_INT_STATUS_MASK;
+		val &= ~MON3_INT_DISABLE_MASK;
 		writel_relaxed(val, MON3_INT_EN(m));
 		break;
 	}
