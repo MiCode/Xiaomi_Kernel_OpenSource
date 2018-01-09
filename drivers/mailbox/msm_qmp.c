@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,7 @@
 #include <linux/platform_device.h>
 #include <linux/mailbox_controller.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/kthread.h>
 #include <linux/workqueue.h>
@@ -921,8 +922,10 @@ static int qmp_mbox_probe(struct platform_device *pdev)
 		pr_err("%s: enable_irq_wake on %d failed: %d\n", __func__,
 							mdev->rx_irq_line, ret);
 
-	/* Trigger RX */
-	qmp_irq_handler(0, mdev);
+	/* Trigger fake RX in case of missed interrupt */
+	if (of_property_read_bool(edge_node, "qcom,early-boot"))
+		qmp_irq_handler(0, mdev);
+
 	return 0;
 }
 
