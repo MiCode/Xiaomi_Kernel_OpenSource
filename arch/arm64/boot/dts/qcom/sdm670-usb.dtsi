@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,8 +27,6 @@
 };
 
 &usb0 {
-	/delete-property/ iommus;
-	/delete-property/ qcom,smmu-s1-bypass;
 	qcom,pm-qos-latency = <601>; /* CPU-CLUSTER-WFI-LVL latency +1 */
 	extcon = <0>, <0>, <&eud>, <0>, <0>;
 };
