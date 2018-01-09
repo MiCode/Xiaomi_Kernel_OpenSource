@@ -2537,8 +2537,6 @@
 		qcom,count-unit = <0x10000>;
 		qcom,hw-timer-hz = <19200000>;
 		qcom,target-dev = <&cpubw>;
-		qcom,byte-mid-mask = <0xe000>;
-		qcom,byte-mid-match = <0xe000>;
 	};
 
 	memlat_cpu0: qcom,memlat-cpu0 {
