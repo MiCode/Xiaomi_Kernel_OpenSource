@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2216,13 +2216,24 @@ int hdcp_library_register(struct hdcp_register_data *data)
 	}
 
 	*data->hdcp_ctx = handle;
-	/* Cache the client ctx to be used later
-	 * HDCP driver probe happens earlier than
+
+	/* Cache the client ctx to be used later if
+	 * Misc HDCP driver probe happens later than
 	 * SDE driver probe hence caching it to
 	 * be used later.
 	 */
-
 	drv_client_handle = handle;
+
+	/* if misc HDCP driver probe happens earlier
+	 * than SDE driver probe store the client
+	 * handle to be used to sysfs notifications.
+	 */
+
+	if (hdcp_drv_mgr && !hdcp_drv_mgr->handle) {
+		if (drv_client_handle)
+			hdcp_drv_mgr->handle = drv_client_handle;
+	}
+
 	handle->thread = kthread_run(kthread_worker_fn,
 				     &handle->worker, "hdcp_tz_lib");
 
