@@ -11384,22 +11384,23 @@ int msm_routing_get_rms_value_control(struct snd_kcontrol *kcontrol,
 	int be_idx = 0;
 	char *param_value;
 	int *update_param_value;
-	uint32_t param_length = sizeof(uint32_t);
-	uint32_t param_payload_len = RMS_PAYLOAD_LEN * sizeof(uint32_t);
-	param_value = kzalloc(param_length + param_payload_len, GFP_KERNEL);
-	if (!param_value) {
-		pr_err("%s, param memory alloc failed\n", __func__);
+	uint32_t param_size = (RMS_PAYLOAD_LEN + 1) * sizeof(uint32_t);
+	struct param_hdr_v3 param_hdr = {0};
+
+	param_value = kzalloc(param_size, GFP_KERNEL);
+	if (!param_value)
 		return -ENOMEM;
-	}
+
 	for (be_idx = 0; be_idx < MSM_BACKEND_DAI_MAX; be_idx++)
 		if (msm_bedais[be_idx].port_id == SLIMBUS_0_TX)
 			break;
 	if ((be_idx < MSM_BACKEND_DAI_MAX) && msm_bedais[be_idx].active) {
-		rc = adm_get_params(SLIMBUS_0_TX, 0,
-				RMS_MODULEID_APPI_PASSTHRU,
-				RMS_PARAM_FIRST_SAMPLE,
-				param_length + param_payload_len,
-				param_value);
+		param_hdr.module_id = RMS_MODULEID_APPI_PASSTHRU;
+		param_hdr.instance_id = INSTANCE_ID_0;
+		param_hdr.param_id = RMS_PARAM_FIRST_SAMPLE;
+		param_hdr.param_size = param_size;
+		rc = adm_get_pp_params(SLIMBUS_0_TX, 0, ADM_CLIENT_ID_DEFAULT,
+				       NULL, &param_hdr, (u8 *) param_value);
 		if (rc) {
 			pr_err("%s: get parameters failed:%d\n", __func__, rc);
 			kfree(param_value);

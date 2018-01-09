@@ -24,6 +24,7 @@
 #include "sound/q6audio-v2.h"
 #include "sound/apr_audio-v2.h"
 #include "sound/q6afe-v2.h"
+#include <sound/q6common.h>
 #include <sound/audio_cal_utils.h>
 #include "q6voice.h"
 #include <sound/adsp_err.h>
@@ -93,8 +94,9 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv);
 static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv);
 static int32_t qdsp_cvp_callback(struct apr_client_data *data, void *priv);
 
-static int voice_send_set_pp_enable_cmd(struct voice_data *v,
-					uint32_t module_id, int enable);
+static int voice_send_set_pp_enable_cmd(
+	struct voice_data *v, struct module_instance_info mod_inst_info,
+	int enable);
 static int is_cal_memory_allocated(void);
 static bool is_cvd_version_queried(void);
 static int is_voip_memory_allocated(void);
@@ -126,6 +128,12 @@ static int voice_send_get_sound_focus_cmd(struct voice_data *v,
 				struct sound_focus_param *soundFocusData);
 static int voice_send_get_source_tracking_cmd(struct voice_data *v,
 			struct source_tracking_param *sourceTrackingData);
+static int voice_pack_and_set_cvp_param(struct voice_data *v,
+					struct param_hdr_v3 param_hdr,
+					u8 *param_data);
+static int voice_pack_and_set_cvs_ui_property(struct voice_data *v,
+					      struct param_hdr_v3 param_hdr,
+					      u8 *param_data);
 
 static void voice_itr_init(struct voice_session_itr *itr,
 			   u32 session_id)
@@ -1451,70 +1459,29 @@ fail:
 	return ret;
 }
 
-static int voice_send_set_pp_enable_cmd(struct voice_data *v,
-					uint32_t module_id, int enable)
+static int voice_send_set_pp_enable_cmd(
+	struct voice_data *v, struct module_instance_info mod_inst_info,
+	int enable)
 {
-	struct cvs_set_pp_enable_cmd cvs_set_pp_cmd;
+	struct enable_param enable_param = {0};
+	struct param_hdr_v3 param_hdr = {0};
 	int ret = 0;
-	void *apr_cvs;
-	u16 cvs_handle;
 
-	if (v == NULL) {
-		pr_err("%s: v is NULL\n", __func__);
-		return -EINVAL;
-	}
-	apr_cvs = common.apr_q6_cvs;
+	param_hdr.module_id = mod_inst_info.module_id;
+	param_hdr.instance_id = mod_inst_info.instance_id;
+	param_hdr.param_id = VOICE_PARAM_MOD_ENABLE;
+	param_hdr.param_size = sizeof(enable_param);
+	enable_param.enable = enable ? 1 : 0;
 
-	if (!apr_cvs) {
-		pr_err("%s: apr_cvs is NULL.\n", __func__);
-		return -EINVAL;
-	}
-	cvs_handle = voice_get_cvs_handle(v);
+	pr_debug("%s: voice_send_set_pp_enable_cmd, module_id=%d, instance_id=%d, enable=%d\n",
+		__func__, mod_inst_info.module_id, mod_inst_info.instance_id,
+		enable);
 
-	cvs_set_pp_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
-						     APR_HDR_LEN(APR_HDR_SIZE),
-						     APR_PKT_VER);
-	cvs_set_pp_cmd.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
-						   sizeof(cvs_set_pp_cmd) -
-						   APR_HDR_SIZE);
-	cvs_set_pp_cmd.hdr.src_port = voice_get_idx_for_session(v->session_id);
-	cvs_set_pp_cmd.hdr.dest_port = cvs_handle;
-	cvs_set_pp_cmd.hdr.token = 0;
-	cvs_set_pp_cmd.hdr.opcode = VSS_ICOMMON_CMD_SET_UI_PROPERTY;
+	ret = voice_pack_and_set_cvs_ui_property(v, param_hdr,
+						 (uint8_t *) &enable_param);
+	if (ret < 0)
+		pr_err("Fail: sending cvs set pp enable\n");
 
-	cvs_set_pp_cmd.vss_set_pp.module_id = module_id;
-	cvs_set_pp_cmd.vss_set_pp.param_id = VOICE_PARAM_MOD_ENABLE;
-	cvs_set_pp_cmd.vss_set_pp.param_size = MOD_ENABLE_PARAM_LEN;
-	cvs_set_pp_cmd.vss_set_pp.reserved = 0;
-	cvs_set_pp_cmd.vss_set_pp.enable = enable;
-	cvs_set_pp_cmd.vss_set_pp.reserved_field = 0;
-	pr_debug("voice_send_set_pp_enable_cmd, module_id=%d, enable=%d\n",
-		module_id, enable);
-
-	v->cvs_state = CMD_STATUS_FAIL;
-	v->async_err = 0;
-	ret = apr_send_pkt(apr_cvs, (uint32_t *) &cvs_set_pp_cmd);
-	if (ret < 0) {
-		pr_err("Fail: sending cvs set pp enable,\n");
-		goto fail;
-	}
-	ret = wait_event_timeout(v->cvs_wait,
-				 (v->cvs_state == CMD_STATUS_SUCCESS),
-				 msecs_to_jiffies(TIMEOUT_MS));
-	if (!ret) {
-		pr_err("%s: wait_event timeout\n", __func__);
-		goto fail;
-	}
-	if (v->async_err > 0) {
-		pr_err("%s: DSP returned error[%s]\n",
-				__func__, adsp_err_get_err_str(
-				v->async_err));
-		ret = adsp_err_get_lnx_err_code(
-				v->async_err);
-		goto fail;
-	}
-	return 0;
-fail:
 	return ret;
 }
 
@@ -3823,6 +3790,7 @@ done:
 
 static int voice_setup_vocproc(struct voice_data *v)
 {
+	struct module_instance_info mod_inst_info = {0};
 	int ret = 0;
 
 	ret = voice_send_cvp_create_cmd(v);
@@ -3844,6 +3812,9 @@ static int voice_setup_vocproc(struct voice_data *v)
 		       __func__, ret);
 		goto fail;
 	}
+
+	mod_inst_info.module_id = MODULE_ID_VOICE_MODULE_ST;
+	mod_inst_info.instance_id = INSTANCE_ID_0;
 
 	voice_send_cvs_register_cal_cmd(v);
 	voice_send_cvp_register_dev_cfg_cmd(v);
@@ -3878,9 +3849,7 @@ static int voice_setup_vocproc(struct voice_data *v)
 	}
 
 	if (v->st_enable && !v->tty_mode)
-		voice_send_set_pp_enable_cmd(v,
-					     MODULE_ID_VOICE_MODULE_ST,
-					     v->st_enable);
+		voice_send_set_pp_enable_cmd(v, mod_inst_info, v->st_enable);
 	/* Start in-call music delivery if this feature is enabled */
 	if (v->music_info.play_enable)
 		voice_cvs_start_playback(v);
@@ -4017,14 +3986,9 @@ done:
 static int voice_send_cvp_media_format_cmd(struct voice_data *v,
 					   uint32_t param_type)
 {
+	struct vss_param_endpoint_media_format_info media_fmt_info = {0};
+	struct param_hdr_v3 param_hdr = {0};
 	int ret = 0;
-	struct cvp_set_media_format_cmd cvp_set_media_format_cmd;
-	void *apr_cvp;
-	u16 cvp_handle;
-	struct vss_icommon_param_data_t *media_fmt_param_data =
-		&cvp_set_media_format_cmd.cvp_set_param_v2.param_data;
-	struct vss_param_endpoint_media_format_info_t *media_fmt_info =
-		&media_fmt_param_data->media_format_info;
 
 	if (v == NULL) {
 		pr_err("%s: v is NULL\n", __func__);
@@ -4032,75 +3996,41 @@ static int voice_send_cvp_media_format_cmd(struct voice_data *v,
 		goto done;
 	}
 
-	apr_cvp = common.apr_q6_cvp;
-	if (!apr_cvp) {
-		pr_err("%s: apr_cvp is NULL.\n", __func__);
-		ret = -EINVAL;
-		goto done;
-	}
+	param_hdr.module_id = VSS_MODULE_CVD_GENERIC;
+	param_hdr.instance_id = INSTANCE_ID_0;
+	param_hdr.param_size = sizeof(media_fmt_info);
 
-	cvp_handle = voice_get_cvp_handle(v);
-	memset(&cvp_set_media_format_cmd, 0, sizeof(cvp_set_media_format_cmd));
-
-	/* Fill header data */
-	cvp_set_media_format_cmd.hdr.hdr_field =
-		APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD, APR_HDR_LEN(APR_HDR_SIZE),
-			      APR_PKT_VER);
-	cvp_set_media_format_cmd.hdr.pkt_size =
-		APR_PKT_SIZE(APR_HDR_SIZE,
-			     sizeof(cvp_set_media_format_cmd) - APR_HDR_SIZE);
-	cvp_set_media_format_cmd.hdr.src_svc = 0;
-	cvp_set_media_format_cmd.hdr.src_domain = APR_DOMAIN_APPS;
-	cvp_set_media_format_cmd.hdr.src_port =
-		voice_get_idx_for_session(v->session_id);
-	cvp_set_media_format_cmd.hdr.dest_svc = 0;
-	cvp_set_media_format_cmd.hdr.dest_domain = APR_DOMAIN_ADSP;
-	cvp_set_media_format_cmd.hdr.dest_port = cvp_handle;
-	cvp_set_media_format_cmd.hdr.token = VOC_SET_MEDIA_FORMAT_PARAM_TOKEN;
-	cvp_set_media_format_cmd.hdr.opcode = VSS_ICOMMON_CMD_SET_PARAM_V2;
-
-	/* Fill param data */
-	cvp_set_media_format_cmd.cvp_set_param_v2.mem_size =
-		sizeof(struct vss_icommon_param_data_t);
-	media_fmt_param_data->module_id = VSS_MODULE_CVD_GENERIC;
-	media_fmt_param_data->param_size =
-		sizeof(struct vss_param_endpoint_media_format_info_t);
-
-	/* Fill device specific data */
 	switch (param_type) {
 	case RX_PATH:
-		media_fmt_param_data->param_id =
-			VSS_PARAM_RX_PORT_ENDPOINT_MEDIA_INFO;
-		media_fmt_info->port_id = v->dev_rx.port_id;
-		media_fmt_info->num_channels = v->dev_rx.no_of_channels;
-		media_fmt_info->bits_per_sample = v->dev_rx.bits_per_sample;
-		media_fmt_info->sample_rate = v->dev_rx.sample_rate;
-		memcpy(&media_fmt_info->channel_mapping,
+		param_hdr.param_id = VSS_PARAM_RX_PORT_ENDPOINT_MEDIA_INFO;
+		media_fmt_info.port_id = v->dev_rx.port_id;
+		media_fmt_info.num_channels = v->dev_rx.no_of_channels;
+		media_fmt_info.bits_per_sample = v->dev_rx.bits_per_sample;
+		media_fmt_info.sample_rate = v->dev_rx.sample_rate;
+		memcpy(&media_fmt_info.channel_mapping,
 		       &v->dev_rx.channel_mapping, VSS_CHANNEL_MAPPING_SIZE);
 		break;
 
 	case TX_PATH:
-		media_fmt_param_data->param_id =
-			VSS_PARAM_TX_PORT_ENDPOINT_MEDIA_INFO;
-		media_fmt_info->port_id = v->dev_tx.port_id;
-		media_fmt_info->num_channels = v->dev_tx.no_of_channels;
-		media_fmt_info->bits_per_sample = v->dev_tx.bits_per_sample;
-		media_fmt_info->sample_rate = v->dev_tx.sample_rate;
-		memcpy(&media_fmt_info->channel_mapping,
+		param_hdr.param_id = VSS_PARAM_TX_PORT_ENDPOINT_MEDIA_INFO;
+		media_fmt_info.port_id = v->dev_tx.port_id;
+		media_fmt_info.num_channels = v->dev_tx.no_of_channels;
+		media_fmt_info.bits_per_sample = v->dev_tx.bits_per_sample;
+		media_fmt_info.sample_rate = v->dev_tx.sample_rate;
+		memcpy(&media_fmt_info.channel_mapping,
 		       &v->dev_tx.channel_mapping, VSS_CHANNEL_MAPPING_SIZE);
 		break;
 
 	case EC_REF_PATH:
-		media_fmt_param_data->param_id =
-			VSS_PARAM_EC_REF_PORT_ENDPOINT_MEDIA_INFO;
-		media_fmt_info->port_id = common.ec_media_fmt_info.port_id;
-		media_fmt_info->num_channels =
+		param_hdr.param_id = VSS_PARAM_EC_REF_PORT_ENDPOINT_MEDIA_INFO;
+		media_fmt_info.port_id = common.ec_media_fmt_info.port_id;
+		media_fmt_info.num_channels =
 			common.ec_media_fmt_info.num_channels;
-		media_fmt_info->bits_per_sample =
+		media_fmt_info.bits_per_sample =
 			common.ec_media_fmt_info.bits_per_sample;
-		media_fmt_info->sample_rate =
+		media_fmt_info.sample_rate =
 			common.ec_media_fmt_info.sample_rate;
-		memcpy(&media_fmt_info->channel_mapping,
+		memcpy(&media_fmt_info.channel_mapping,
 		       &common.ec_media_fmt_info.channel_mapping,
 		       VSS_CHANNEL_MAPPING_SIZE);
 		break;
@@ -4111,32 +4041,11 @@ static int voice_send_cvp_media_format_cmd(struct voice_data *v,
 		goto done;
 	}
 
-	/* Send command */
-	v->cvp_state = CMD_STATUS_FAIL;
-	v->async_err = 0;
-	ret = apr_send_pkt(apr_cvp, (uint32_t *) &cvp_set_media_format_cmd);
-	if (ret < 0) {
-		pr_err("%s: Fail in sending VSS_ICOMMON_CMD_SET_PARAM_V2\n",
-		       __func__);
-		ret = -EINVAL;
-		goto done;
-	}
-
-	ret = wait_event_timeout(v->cvp_wait,
-				 (v->cvp_state == CMD_STATUS_SUCCESS),
-				 msecs_to_jiffies(TIMEOUT_MS));
-	if (!ret) {
-		pr_err("%s: wait_event timeout\n", __func__);
-		ret = -EINVAL;
-		goto done;
-	}
-
-	if (v->async_err > 0) {
-		pr_err("%s: DSP returned error[%s] handle = %d\n", __func__,
-		       adsp_err_get_err_str(v->async_err), cvp_handle);
-		ret = adsp_err_get_lnx_err_code(v->async_err);
-		goto done;
-	}
+	ret = voice_pack_and_set_cvp_param(v, param_hdr,
+					   (u8 *) &media_fmt_info);
+	if (ret)
+		pr_err("%s: Failed to set media format params on CVP, err %d\n",
+		       __func__, ret);
 
 done:
 	return ret;
@@ -4532,6 +4441,7 @@ static int voice_destroy_vocproc(struct voice_data *v)
 {
 	struct mvm_detach_vocproc_cmd mvm_d_vocproc_cmd;
 	struct apr_hdr cvp_destroy_session_cmd;
+	struct module_instance_info mod_inst_info = {0};
 	int ret = 0;
 	void *apr_mvm, *apr_cvp;
 	u16 mvm_handle, cvp_handle;
@@ -4550,9 +4460,12 @@ static int voice_destroy_vocproc(struct voice_data *v)
 	mvm_handle = voice_get_mvm_handle(v);
 	cvp_handle = voice_get_cvp_handle(v);
 
+	mod_inst_info.module_id = MODULE_ID_VOICE_MODULE_ST;
+	mod_inst_info.instance_id = INSTANCE_ID_0;
+
 	/* disable slowtalk if st_enable is set */
 	if (v->st_enable)
-		voice_send_set_pp_enable_cmd(v, MODULE_ID_VOICE_MODULE_ST, 0);
+		voice_send_set_pp_enable_cmd(v, mod_inst_info, 0);
 
 	/* Disable HD Voice if hd_enable is set */
 	if (v->hd_enable)
@@ -5789,11 +5702,15 @@ uint8_t voc_get_tty_mode(uint32_t session_id)
 	return ret;
 }
 
-int voc_set_pp_enable(uint32_t session_id, uint32_t module_id, uint32_t enable)
+int voc_set_pp_enable(uint32_t session_id,
+		      struct module_instance_info mod_inst_info,
+		      uint32_t enable)
 {
 	struct voice_data *v = NULL;
 	int ret = 0;
 	struct voice_session_itr itr;
+	int mid = mod_inst_info.module_id;
+	int iid = mod_inst_info.instance_id;
 
 	voice_itr_init(&itr, session_id);
 	while (voice_itr_get_next_session(&itr, &v)) {
@@ -5802,15 +5719,15 @@ int voc_set_pp_enable(uint32_t session_id, uint32_t module_id, uint32_t enable)
 				continue;
 
 			mutex_lock(&v->lock);
-			if (module_id == MODULE_ID_VOICE_MODULE_ST)
+			if (mid == MODULE_ID_VOICE_MODULE_ST &&
+			    iid == INSTANCE_ID_0)
 				v->st_enable = enable;
 
 			if (v->voc_state == VOC_RUN) {
-				if ((module_id == MODULE_ID_VOICE_MODULE_ST) &&
-				    (!v->tty_mode))
-					ret = voice_send_set_pp_enable_cmd(v,
-						MODULE_ID_VOICE_MODULE_ST,
-						enable);
+				if ((mid == MODULE_ID_VOICE_MODULE_ST) &&
+				    iid == INSTANCE_ID_0 && (!v->tty_mode))
+					ret = voice_send_set_pp_enable_cmd(
+						v, mod_inst_info, enable);
 			}
 			mutex_unlock(&v->lock);
 		} else {
@@ -5893,7 +5810,8 @@ bool voc_get_afe_sidetone(void)
 	return ret;
 }
 
-int voc_get_pp_enable(uint32_t session_id, uint32_t module_id)
+int voc_get_pp_enable(uint32_t session_id,
+		      struct module_instance_info mod_inst_info)
 {
 	struct voice_data *v = voice_get_session(session_id);
 	int ret = 0;
@@ -5905,7 +5823,8 @@ int voc_get_pp_enable(uint32_t session_id, uint32_t module_id)
 	}
 
 	mutex_lock(&v->lock);
-	if (module_id == MODULE_ID_VOICE_MODULE_ST)
+	if (mod_inst_info.module_id == MODULE_ID_VOICE_MODULE_ST &&
+	    mod_inst_info.instance_id == INSTANCE_ID_0)
 		ret = v->st_enable;
 	mutex_unlock(&v->lock);
 
@@ -6180,6 +6099,7 @@ done:
 int voc_enable_device(uint32_t session_id)
 {
 	struct voice_data *v = voice_get_session(session_id);
+	struct module_instance_info mod_inst_info = {0};
 	int ret = 0;
 
 	if (v == NULL) {
@@ -6197,15 +6117,15 @@ int voc_enable_device(uint32_t session_id)
 			/* Not a critical error, allow voice call to continue */
 		}
 
+		mod_inst_info.module_id = MODULE_ID_VOICE_MODULE_ST;
+		mod_inst_info.instance_id = INSTANCE_ID_0;
+
 		if (v->tty_mode) {
 			/* disable slowtalk */
-			voice_send_set_pp_enable_cmd(v,
-						     MODULE_ID_VOICE_MODULE_ST,
-						     0);
+			voice_send_set_pp_enable_cmd(v, mod_inst_info, 0);
 		} else {
 			/* restore slowtalk */
-			voice_send_set_pp_enable_cmd(v,
-						     MODULE_ID_VOICE_MODULE_ST,
+			voice_send_set_pp_enable_cmd(v, mod_inst_info,
 						     v->st_enable);
 		}
 
@@ -6787,6 +6707,7 @@ static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv)
 			case VSS_ICOMMON_CMD_MAP_MEMORY:
 			case VSS_ICOMMON_CMD_UNMAP_MEMORY:
 			case VSS_ICOMMON_CMD_SET_UI_PROPERTY:
+			case VSS_ICOMMON_CMD_SET_UI_PROPERTY_V2:
 			case VSS_IPLAYBACK_CMD_START:
 			case VSS_IPLAYBACK_CMD_STOP:
 			case VSS_IRECORD_CMD_START:
@@ -6800,12 +6721,14 @@ static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv)
 				wake_up(&v->cvs_wait);
 				break;
 			case VSS_ICOMMON_CMD_SET_PARAM_V2:
-				pr_debug("%s: VSS_ICOMMON_CMD_SET_PARAM_V2\n",
+			case VSS_ICOMMON_CMD_SET_PARAM_V3:
+				pr_debug("%s: VSS_ICOMMON_CMD_SET_PARAM\n",
 					 __func__);
 				rtac_make_voice_callback(RTAC_CVS, ptr,
 							data->payload_size);
 				break;
 			case VSS_ICOMMON_CMD_GET_PARAM_V2:
+			case VSS_ICOMMON_CMD_GET_PARAM_V3:
 				pr_debug("%s: VSS_ICOMMON_CMD_GET_PARAM_V2\n",
 					 __func__);
 				/* Should only come here if there is an APR */
@@ -6938,7 +6861,8 @@ static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv)
 		pr_debug("Recd VSS_ISTREAM_EVT_NOT_READY\n");
 	} else if (data->opcode == VSS_ISTREAM_EVT_READY) {
 		pr_debug("Recd VSS_ISTREAM_EVT_READY\n");
-	} else if (data->opcode == VSS_ICOMMON_RSP_GET_PARAM) {
+	} else if (data->opcode == VSS_ICOMMON_RSP_GET_PARAM ||
+		   VSS_ICOMMON_RSP_GET_PARAM_V3) {
 		pr_debug("%s: VSS_ICOMMON_RSP_GET_PARAM\n", __func__);
 		ptr = data->payload;
 		if (ptr[0] != 0) {
@@ -7081,28 +7005,30 @@ static int32_t qdsp_cvp_callback(struct apr_client_data *data, void *priv)
 			case VSS_IVPCM_EVT_PUSH_BUFFER_V2:
 				break;
 			case VSS_ICOMMON_CMD_SET_PARAM_V2:
+			case VSS_ICOMMON_CMD_SET_PARAM_V3:
 				switch (data->token) {
 				case VOC_SET_MEDIA_FORMAT_PARAM_TOKEN:
-					pr_debug("%s: VSS_ICOMMON_CMD_SET_PARAM_V2 called by voice_send_cvp_media_format_cmd\n",
+					pr_debug("%s: VSS_ICOMMON_CMD_SET_PARAM called by voice_send_cvp_media_format_cmd\n",
 						__func__);
 					v->cvp_state = CMD_STATUS_SUCCESS;
 					v->async_err = ptr[1];
 					wake_up(&v->cvp_wait);
 					break;
 				case VOC_RTAC_SET_PARAM_TOKEN:
-					pr_debug("%s: VSS_ICOMMON_CMD_SET_PARAM_V2 called by rtac\n",
+					pr_debug("%s: VSS_ICOMMON_CMD_SET_PARAM called by rtac\n",
 						__func__);
 					rtac_make_voice_callback(
 						RTAC_CVP, ptr,
 						data->payload_size);
 					break;
 				default:
-					pr_debug("%s: invalid token for command VSS_ICOMMON_CMD_SET_PARAM_V2: %d\n",
+					pr_debug("%s: invalid token for command VSS_ICOMMON_CMD_SET_PARAM: %d\n",
 						__func__, data->token);
 					break;
 				}
 				break;
 			case VSS_ICOMMON_CMD_GET_PARAM_V2:
+			case VSS_ICOMMON_CMD_GET_PARAM_V3:
 				pr_debug("%s: VSS_ICOMMON_CMD_GET_PARAM_V2\n",
 					 __func__);
 				/* Should only come here if there is an APR */
@@ -7169,7 +7095,8 @@ static int32_t qdsp_cvp_callback(struct apr_client_data *data, void *priv)
 				break;
 			}
 		}
-	} else if (data->opcode == VSS_ICOMMON_RSP_GET_PARAM) {
+	} else if (data->opcode == VSS_ICOMMON_RSP_GET_PARAM ||
+		   VSS_ICOMMON_RSP_GET_PARAM_V3) {
 		pr_debug("%s: VSS_ICOMMON_RSP_GET_PARAM\n", __func__);
 		ptr = data->payload;
 		if (ptr[0] != 0) {
@@ -8575,6 +8502,199 @@ int voc_get_source_tracking(struct source_tracking_param *sourceTrackingData)
 	mutex_unlock(&common.common_lock);
 	pr_debug("%s: Exit, ret=%d\n", __func__, ret);
 
+	return ret;
+}
+
+static int voice_set_cvp_param(struct voice_data *v,
+			       struct vss_icommon_mem_mapping_hdr *mem_hdr,
+			       u32 *param_data, u32 param_size)
+{
+	struct vss_icommon_cmd_set_param *set_param = NULL;
+	uint32_t pkt_size = sizeof(struct vss_icommon_cmd_set_param);
+	void *apr_cvp;
+	int ret = 0;
+
+	apr_cvp = common.apr_q6_cvp;
+	if (!apr_cvp) {
+		pr_err("%s: apr_cvp is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	if (param_data != NULL)
+		pkt_size += param_size;
+	set_param = kzalloc(pkt_size, GFP_KERNEL);
+	if (!set_param)
+		return -ENOMEM;
+
+	set_param->apr_hdr.hdr_field =
+		APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD, APR_HDR_LEN(APR_HDR_SIZE),
+			      APR_PKT_VER);
+	set_param->apr_hdr.pkt_size =
+		APR_PKT_SIZE(APR_HDR_SIZE, pkt_size - APR_HDR_SIZE);
+	set_param->apr_hdr.src_svc = 0;
+	set_param->apr_hdr.src_domain = APR_DOMAIN_APPS;
+	set_param->apr_hdr.src_port = voice_get_idx_for_session(v->session_id);
+	set_param->apr_hdr.dest_svc = 0;
+	set_param->apr_hdr.dest_domain = APR_DOMAIN_ADSP;
+	set_param->apr_hdr.dest_port = voice_get_cvp_handle(v);
+	set_param->apr_hdr.token = VOC_SET_MEDIA_FORMAT_PARAM_TOKEN;
+	set_param->apr_hdr.opcode = q6common_is_instance_id_supported() ?
+					    VSS_ICOMMON_CMD_SET_PARAM_V3 :
+					    VSS_ICOMMON_CMD_SET_PARAM_V2;
+
+	set_param->payload_size = param_size;
+
+	if (mem_hdr != NULL) {
+		set_param->mem_hdr = *mem_hdr;
+	} else if (param_data != NULL) {
+		memcpy(set_param->param_data, param_data, param_size);
+	} else {
+		pr_err("%s: Both memory header and param data are NULL\n",
+		       __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	v->cvp_state = CMD_STATUS_FAIL;
+	v->async_err = 0;
+	ret = apr_send_pkt(apr_cvp, (u32 *) set_param);
+	if (ret < 0) {
+		pr_err("%s: Failed to send apr packet, error %d\n", __func__,
+		       ret);
+		goto done;
+	}
+
+	ret = wait_event_timeout(v->cvp_wait,
+				 v->cvp_state == CMD_STATUS_SUCCESS,
+				 msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		ret = -ETIMEDOUT;
+		goto done;
+	}
+
+	if (v->async_err > 0) {
+		pr_err("%s: DSP returned error[%s]\n", __func__,
+		       adsp_err_get_err_str(v->async_err));
+		ret = adsp_err_get_lnx_err_code(v->async_err);
+		goto done;
+	}
+	ret = 0;
+
+done:
+	kfree(set_param);
+	return ret;
+}
+
+static int voice_pack_and_set_cvp_param(struct voice_data *v,
+					struct param_hdr_v3 param_hdr,
+					u8 *param_data)
+{
+	u8 *packed_data = NULL;
+	u32 total_size = 0;
+	int ret = 0;
+
+	total_size = sizeof(union param_hdrs) + param_hdr.param_size;
+	packed_data = kzalloc(total_size, GFP_KERNEL);
+	if (!packed_data)
+		return -ENOMEM;
+
+	ret = q6common_pack_pp_params(packed_data, &param_hdr, param_data,
+				    &total_size);
+	if (ret) {
+		pr_err("%s: Failed to pack params, error %d", __func__, ret);
+		goto done;
+	}
+
+	ret = voice_set_cvp_param(v, NULL, (u32 *) packed_data, total_size);
+
+done:
+	kfree(packed_data);
+	return ret;
+}
+
+/*
+ * Out of band is not supported and there are currently no pre-packed cases,
+ * so pack and set in the same function. When needed, split up.
+ */
+static int voice_pack_and_set_cvs_ui_property(struct voice_data *v,
+					      struct param_hdr_v3 param_hdr,
+					      u8 *param_data)
+{
+	struct vss_icommon_cmd_set_ui_property *set_ui_property = NULL;
+	u32 total_size = 0;
+	bool iid_supported = q6common_is_instance_id_supported();
+	void *apr_cvs;
+	int ret = 0;
+
+	apr_cvs = common.apr_q6_cvs;
+	if (!apr_cvs) {
+		pr_err("%s: apr_cvs is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	total_size = sizeof(struct vss_icommon_cmd_set_ui_property) +
+		     sizeof(union param_hdrs) + param_hdr.param_size;
+	set_ui_property = kzalloc(total_size, GFP_KERNEL);
+	if (!set_ui_property)
+		return -ENOMEM;
+
+	ret = q6common_pack_pp_params(set_ui_property->param_data, &param_hdr,
+				    param_data, &total_size);
+	if (ret) {
+		pr_err("%s: Failed to pack params, error %d", __func__, ret);
+		goto done;
+	}
+
+	/*
+	 * Pack the APR header after packing the data so we have the actual
+	 * total size of the payload
+	 */
+	set_ui_property->apr_hdr.hdr_field =
+		APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD, APR_HDR_LEN(APR_HDR_SIZE),
+			      APR_PKT_VER);
+	set_ui_property->apr_hdr.pkt_size =
+		APR_PKT_SIZE(APR_HDR_SIZE, total_size - APR_HDR_SIZE);
+	set_ui_property->apr_hdr.src_svc = 0;
+	set_ui_property->apr_hdr.src_domain = APR_DOMAIN_APPS;
+	set_ui_property->apr_hdr.src_port =
+		voice_get_idx_for_session(v->session_id);
+	set_ui_property->apr_hdr.dest_svc = 0;
+	set_ui_property->apr_hdr.dest_domain = APR_DOMAIN_ADSP;
+	set_ui_property->apr_hdr.dest_port = voice_get_cvs_handle(v);
+	set_ui_property->apr_hdr.token = 0;
+
+	set_ui_property->apr_hdr.opcode =
+		iid_supported ? VSS_ICOMMON_CMD_SET_UI_PROPERTY_V2 :
+				VSS_ICOMMON_CMD_SET_UI_PROPERTY;
+
+	v->cvs_state = CMD_STATUS_FAIL;
+	v->async_err = 0;
+	ret = apr_send_pkt(apr_cvs, (u32 *) set_ui_property);
+	if (ret < 0) {
+		pr_err("%s: Failed to send apr packet, error %d\n", __func__,
+		       ret);
+		goto done;
+	}
+
+	ret = wait_event_timeout(v->cvs_wait,
+				 v->cvs_state == CMD_STATUS_SUCCESS,
+				 msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		ret = -ETIMEDOUT;
+		goto done;
+	}
+
+	if (v->async_err > 0) {
+		pr_err("%s: DSP returned error[%s]\n", __func__,
+		       adsp_err_get_err_str(v->async_err));
+		ret = adsp_err_get_lnx_err_code(v->async_err);
+		goto done;
+	}
+	ret = 0;
+done:
+	kfree(set_ui_property);
 	return ret;
 }
 

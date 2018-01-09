@@ -112,31 +112,27 @@ struct lsm_custom_topologies {
 	uint32_t buffer_size;
 } __packed;
 
-struct lsm_param_size_reserved {
-	uint16_t param_size;
-	uint16_t reserved;
+struct lsm_session_cmd_set_params_v2 {
+	struct apr_hdr apr_hdr;
+	uint32_t payload_size;
+	struct mem_mapping_hdr mem_hdr;
+	u32 param_data[0];
 } __packed;
 
-union lsm_param_size {
-	uint32_t param_size;
-	struct lsm_param_size_reserved sr;
-} __packed;
-
-struct lsm_param_payload_common {
-	uint32_t	module_id;
-	uint32_t	param_id;
-	union lsm_param_size p_size;
+struct lsm_session_cmd_set_params_v3 {
+	struct apr_hdr apr_hdr;
+	struct mem_mapping_hdr mem_hdr;
+	uint32_t payload_size;
+	u32 param_data[0];
 } __packed;
 
 struct lsm_param_op_mode {
-	struct lsm_param_payload_common common;
 	uint32_t	minor_version;
 	uint16_t	mode;
 	uint16_t	reserved;
 } __packed;
 
 struct lsm_param_connect_to_port {
-	struct lsm_param_payload_common common;
 	uint32_t	minor_version;
 	/* AFE port id that receives voice wake up data */
 	uint16_t	port_id;
@@ -144,20 +140,17 @@ struct lsm_param_connect_to_port {
 } __packed;
 
 struct lsm_param_poll_enable {
-	struct lsm_param_payload_common common;
 	uint32_t	minor_version;
 	/* indicates to voice wakeup that HW MAD/SW polling is enabled or not */
 	uint32_t	polling_enable;
 } __packed;
 
 struct lsm_param_fwk_mode_cfg {
-	struct lsm_param_payload_common common;
 	uint32_t	minor_version;
 	uint32_t	mode;
 } __packed;
 
 struct lsm_param_media_fmt {
-	struct lsm_param_payload_common common;
 	uint32_t	minor_version;
 	uint32_t	sample_rate;
 	uint16_t	num_channels;
@@ -165,76 +158,21 @@ struct lsm_param_media_fmt {
 	uint8_t		channel_mapping[LSM_MAX_NUM_CHANNELS];
 } __packed;
 
-/*
- * This param cannot be sent in this format.
- * The actual number of confidence level values
- * need to appended to this param payload.
- */
-struct lsm_param_min_confidence_levels {
-	struct lsm_param_payload_common common;
-	uint8_t		num_confidence_levels;
-} __packed;
-
-struct lsm_set_params_hdr {
-	uint32_t	data_payload_size;
-	uint32_t	data_payload_addr_lsw;
-	uint32_t	data_payload_addr_msw;
-	uint32_t	mem_map_handle;
-} __packed;
-
-struct lsm_cmd_set_params {
-	struct apr_hdr  msg_hdr;
-	struct lsm_set_params_hdr param_hdr;
-} __packed;
-
-struct lsm_cmd_set_params_conf {
-	struct apr_hdr  msg_hdr;
-	struct lsm_set_params_hdr params_hdr;
-	struct lsm_param_min_confidence_levels	conf_payload;
-} __packed;
-
-struct lsm_cmd_set_params_opmode {
-	struct apr_hdr  msg_hdr;
-	struct lsm_set_params_hdr params_hdr;
-	struct lsm_param_op_mode op_mode;
-} __packed;
-
-struct lsm_cmd_set_connectport {
-	struct apr_hdr msg_hdr;
-	struct lsm_set_params_hdr params_hdr;
-	struct lsm_param_connect_to_port connect_to_port;
-} __packed;
-
-struct lsm_cmd_poll_enable {
-	struct apr_hdr  msg_hdr;
-	struct lsm_set_params_hdr params_hdr;
-	struct lsm_param_poll_enable poll_enable;
+struct lsm_param_confidence_levels {
+	uint8_t num_confidence_levels;
+	uint8_t confidence_levels[0];
 } __packed;
 
 struct lsm_param_epd_thres {
-	struct lsm_param_payload_common common;
 	uint32_t	minor_version;
 	uint32_t	epd_begin;
 	uint32_t	epd_end;
 } __packed;
 
-struct lsm_cmd_set_epd_threshold {
-	struct apr_hdr msg_hdr;
-	struct lsm_set_params_hdr param_hdr;
-	struct lsm_param_epd_thres epd_thres;
-} __packed;
-
 struct lsm_param_gain {
-	struct lsm_param_payload_common common;
 	uint32_t	minor_version;
 	uint16_t	gain;
 	uint16_t	reserved;
-} __packed;
-
-struct lsm_cmd_set_gain {
-	struct apr_hdr msg_hdr;
-	struct lsm_set_params_hdr param_hdr;
-	struct lsm_param_gain lsm_gain;
 } __packed;
 
 struct lsm_cmd_reg_snd_model {
@@ -245,29 +183,14 @@ struct lsm_cmd_reg_snd_model {
 	uint32_t	mem_map_handle;
 } __packed;
 
-struct lsm_lab_enable {
-	struct lsm_param_payload_common common;
+struct lsm_param_lab_enable {
 	uint16_t enable;
 	uint16_t reserved;
 } __packed;
 
-struct lsm_params_lab_enable {
-	struct apr_hdr msg_hdr;
-	struct lsm_set_params_hdr params_hdr;
-	struct lsm_lab_enable lab_enable;
-} __packed;
-
-struct lsm_lab_config {
-	struct lsm_param_payload_common common;
+struct lsm_param_lab_config {
 	uint32_t minor_version;
 	uint32_t wake_up_latency_ms;
-} __packed;
-
-
-struct lsm_params_lab_config {
-	struct apr_hdr  msg_hdr;
-	struct lsm_set_params_hdr params_hdr;
-	struct lsm_lab_config lab_config;
 } __packed;
 
 struct lsm_cmd_read {
@@ -290,19 +213,6 @@ struct lsm_cmd_read_done {
 	uint32_t timestamp_msw;
 	uint32_t flags;
 } __packed;
-
-struct lsm_cmd_set_fwk_mode_cfg {
-	struct apr_hdr  msg_hdr;
-	struct lsm_set_params_hdr params_hdr;
-	struct lsm_param_fwk_mode_cfg fwk_mode_cfg;
-} __packed;
-
-struct lsm_cmd_set_media_fmt {
-	struct apr_hdr  msg_hdr;
-	struct lsm_set_params_hdr params_hdr;
-	struct lsm_param_media_fmt media_fmt;
-} __packed;
-
 
 struct lsm_client *q6lsm_client_alloc(lsm_app_cb cb, void *priv);
 void q6lsm_client_free(struct lsm_client *client);

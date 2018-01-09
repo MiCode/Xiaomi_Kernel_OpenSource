@@ -25,6 +25,8 @@
 #define MAX_MODULES_IN_TOPO 16
 #define ADM_GET_TOPO_MODULE_LIST_LENGTH\
 		((MAX_MODULES_IN_TOPO + 1) * sizeof(uint32_t))
+#define ADM_GET_TOPO_MODULE_INSTANCE_LIST_LENGTH                               \
+	((MAX_MODULES_IN_TOPO + 1) * 2 * sizeof(uint32_t))
 #define AUD_PROC_BLOCK_SIZE	4096
 #define AUD_VOL_BLOCK_SIZE	4096
 #define AUDIO_RX_CALIBRATION_SIZE	(AUD_PROC_BLOCK_SIZE + \
@@ -101,11 +103,23 @@ void adm_copp_mfc_cfg(int port_id, int copp_idx, int dst_sample_rate);
 int adm_get_params(int port_id, int copp_idx, uint32_t module_id,
 		   uint32_t param_id, uint32_t params_length, char *params);
 
+int adm_get_pp_params(int port_id, int copp_idx, uint32_t client_id,
+		      struct mem_mapping_hdr *mem_hdr,
+		      struct param_hdr_v3 *param_hdr, u8 *returned_param_data);
+
 int adm_send_params_v5(int port_id, int copp_idx, char *params,
 			      uint32_t params_length);
 
 int adm_dolby_dap_send_params(int port_id, int copp_idx, char *params,
 			      uint32_t params_length);
+
+int adm_set_pp_params(int port_id, int copp_idx,
+		      struct mem_mapping_hdr *mem_hdr, u8 *param_data,
+		      u32 params_size);
+
+int adm_pack_and_set_one_pp_param(int port_id, int copp_idx,
+				  struct param_hdr_v3 param_hdr,
+				  u8 *param_data);
 
 int adm_open(int port, int path, int rate, int mode, int topology,
 			   int perf_mode, uint16_t bits_per_sample,
@@ -157,6 +171,10 @@ int adm_set_downmix_params(int port_id, int copp_idx,
 int adm_get_pp_topo_module_list(int port_id, int copp_idx, int32_t param_length,
 				char *params);
 
+int adm_get_pp_topo_module_list_v2(int port_id, int copp_idx,
+				   int32_t param_length,
+				   int32_t *returned_params);
+
 int adm_set_volume(int port_id, int copp_idx, int volume);
 
 int adm_set_softvolume(int port_id, int copp_idx,
@@ -168,6 +186,9 @@ int adm_send_set_multichannel_ec_primary_mic_ch(int port_id, int copp_idx,
 				int primary_mic_ch);
 
 int adm_param_enable(int port_id, int copp_idx, int module_id,  int enable);
+
+int adm_param_enable_v2(int port_id, int copp_idx,
+			struct module_instance_info mod_inst_info, int enable);
 
 int adm_send_calibration(int port_id, int copp_idx, int path, int perf_mode,
 			 int cal_type, char *params, int size);

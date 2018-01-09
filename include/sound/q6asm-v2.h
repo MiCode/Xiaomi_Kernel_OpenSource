@@ -265,6 +265,17 @@ int q6asm_audio_client_buf_alloc_contiguous(unsigned int dir
 int q6asm_audio_client_buf_free_contiguous(unsigned int dir,
 			struct audio_client *ac);
 
+int q6asm_set_pp_params(struct audio_client *ac,
+			struct mem_mapping_hdr *mem_hdr, u8 *param_data,
+			u32 param_size);
+
+int q6asm_pack_and_set_pp_param_in_band(struct audio_client *ac,
+					struct param_hdr_v3 param_hdr,
+					u8 *param_data);
+
+int q6asm_set_soft_volume_module_instance_ids(int instance,
+					      struct param_hdr_v3 *param_hdr);
+
 int q6asm_open_read(struct audio_client *ac, uint32_t format
 		/*, uint16_t bits_per_sample*/);
 
