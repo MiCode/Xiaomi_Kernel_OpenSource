@@ -26,9 +26,6 @@
 #define ULPI_TX_PKT_EN_CLR_FIX	BIT(19)
 
 #define USB_CAPLENGTH        (MSM_USB_BASE + 0x0100) /* 8 bit */
-#define USB_HS_APF_CTRL      (MSM_USB_BASE + 0x0380)
-
-#define APF_CTRL_EN		BIT(0)
 
 #define USB_USBCMD           (MSM_USB_BASE + 0x0140)
 #define USB_PORTSC           (MSM_USB_BASE + 0x0184)
@@ -38,8 +35,6 @@
 #define USB_PHY_CTRL2        (MSM_USB_BASE + 0x0278)
 
 #define GENCONFIG_2_SESS_VLD_CTRL_EN	BIT(7)
-#define GENCONFIG_2_LINESTATE_DIFF_WAKEUP_EN	BIT(12)
-#define GENCONFIG_2_DPSE_DMSE_HV_INTR_EN	BIT(15)
 #define USBCMD_SESS_VLD_CTRL		BIT(25)
 
 #define USBCMD_RESET   2
@@ -53,17 +48,11 @@
 #define L1_CONFIG_GATE_SYS_CLK	BIT(7)
 #define L1_CONFIG_PHY_LPM	BIT(10)
 #define L1_CONFIG_PLL		BIT(11)
-#define AHB2AHB_BYPASS          BIT(31)
-#define AHB2AHB_BYPASS_BIT_MASK        BIT(31)
-#define AHB2AHB_BYPASS_CLEAR   (0 << 31)
 
 #define PORTSC_PHCD            (1 << 23) /* phy suspend mode */
 #define PORTSC_PTS_MASK        (3 << 30)
 #define PORTSC_PTS_ULPI        (2 << 30)
 #define PORTSC_PTS_SERIAL      (3 << 30)
-#define PORTSC_LS	       (3 << 10)
-#define PORTSC_LS_DM	       (1 << 10)
-#define PORTSC_CCS	       (1 << 0)
 
 #define USB_ULPI_VIEWPORT    (MSM_USB_BASE + 0x0170)
 #define ULPI_RUN              (1 << 30)
@@ -88,46 +77,15 @@
 #define ASYNC_INTR_CTRL         (1 << 29) /* Enable async interrupt */
 #define ULPI_STP_CTRL           (1 << 30) /* Block communication with PHY */
 #define PHY_RETEN               (1 << 1) /* PHY retention enable/disable */
-#define PHY_IDHV_INTEN          (1 << 8) /* PHY ID HV interrupt */
-#define PHY_OTGSESSVLDHV_INTEN  (1 << 9) /* PHY Session Valid HV int. */
-#define PHY_CLAMP_DPDMSE_EN	(1 << 21) /* PHY mpm DP DM clamp enable */
-#define PHY_POR_BIT_MASK        BIT(0)
 #define PHY_POR_ASSERT		(1 << 0) /* USB2 28nm PHY POR ASSERT */
-#define PHY_POR_DEASSERT        (0 << 0) /* USB2 28nm PHY POR DEASSERT */
 
 /* OTG definitions */
 #define OTGSC_INTSTS_MASK	(0x7f << 16)
-#define OTGSC_IDPU		(1 << 5)
 #define OTGSC_ID		(1 << 8)
 #define OTGSC_BSV		(1 << 11)
 #define OTGSC_IDIS		(1 << 16)
 #define OTGSC_BSVIS		(1 << 19)
 #define OTGSC_IDIE		(1 << 24)
 #define OTGSC_BSVIE		(1 << 27)
-
-/* USB PHY CSR registers and bit definitions */
-
-#define USB_PHY_CSR_PHY_CTRL_COMMON0 (MSM_USB_PHY_CSR_BASE + 0x078)
-#define SIDDQ BIT(2)
-
-#define USB_PHY_CSR_PHY_CTRL1 (MSM_USB_PHY_CSR_BASE + 0x08C)
-#define ID_HV_CLAMP_EN_N BIT(1)
-
-#define USB_PHY_CSR_PHY_CTRL3 (MSM_USB_PHY_CSR_BASE + 0x094)
-#define CLAMP_MPM_DPSE_DMSE_EN_N BIT(2)
-
-#define USB2_PHY_USB_PHY_IRQ_CMD (MSM_USB_PHY_CSR_BASE + 0x0D0)
-#define USB2_PHY_USB_PHY_INTERRUPT_SRC_STATUS (MSM_USB_PHY_CSR_BASE + 0x05C)
-
-#define USB2_PHY_USB_PHY_INTERRUPT_CLEAR0 (MSM_USB_PHY_CSR_BASE + 0x0DC)
-#define USB2_PHY_USB_PHY_INTERRUPT_CLEAR1 (MSM_USB_PHY_CSR_BASE + 0x0E0)
-
-#define USB2_PHY_USB_PHY_INTERRUPT_MASK1 (MSM_USB_PHY_CSR_BASE + 0x0D8)
-
-#define USB_PHY_IDDIG_1_0 BIT(7)
-
-#define USB_PHY_IDDIG_RISE_MASK BIT(0)
-#define USB_PHY_IDDIG_FALL_MASK BIT(1)
-#define USB_PHY_ID_MASK (USB_PHY_IDDIG_RISE_MASK | USB_PHY_IDDIG_FALL_MASK)
 
 #endif /* __LINUX_USB_GADGET_MSM72K_UDC_H__ */
