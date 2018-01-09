@@ -468,9 +468,6 @@ struct usb_gadget_ops {
  * @deactivated: True if gadget is deactivated - in deactivated state it cannot
  *	be connected.
  * @connected: True if gadget is connected.
- * @bam2bam_func_enabled; Indicates function using bam2bam is enabled or not.
- * @extra_buf_alloc: Extra allocation size for AXI prefetch so that out of
- * boundary access is protected.
  *
  * Gadgets have a mostly-portable "gadget driver" implementing device
  * functions, handling all usb configurations and interfaces.  Gadget
@@ -524,9 +521,6 @@ struct usb_gadget {
 	unsigned			deactivated:1;
 	unsigned			connected:1;
 	bool				remote_wakeup;
-	bool				bam2bam_func_enabled;
-	u32				extra_buf_alloc;
-	bool				l1_supported;
 };
 #define work_to_gadget(w)	(container_of((w), struct usb_gadget, work))
 
