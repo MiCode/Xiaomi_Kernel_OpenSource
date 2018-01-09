@@ -9,6 +9,7 @@ msm_hab-objs = \
 	hab_mem_linux.o \
 	hab_pipe.o \
 	qvm_comm.o \
-	hab_qvm.o
+	hab_qvm.o \
+	hab_parser.o
 
 obj-$(CONFIG_MSM_HAB) += msm_hab.o

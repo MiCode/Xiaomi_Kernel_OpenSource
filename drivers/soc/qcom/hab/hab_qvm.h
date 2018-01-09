@@ -30,6 +30,7 @@ struct qvm_channel {
 	struct tasklet_struct task;
 	struct guest_shm_factory *guest_factory;
 	struct guest_shm_control *guest_ctrl;
+	/* cached guest ctrl idx value to prevent trap when accessed */
 	uint32_t idx;
 
 	int channel;
@@ -37,11 +38,15 @@ struct qvm_channel {
 
 	unsigned int guest_intr;
 	unsigned int guest_iid;
+	unsigned int factory_addr;
+	unsigned int irq;
+
 };
 
 /* Shared mem size in each direction for communication pipe */
 #define PIPE_SHMEM_SIZE (128 * 1024)
 
 void *qnx_hyp_rx_dispatch(void *data);
+void hab_pipe_reset(struct physical_channel *pchan);
 
 #endif /* __HAB_QNX_H */

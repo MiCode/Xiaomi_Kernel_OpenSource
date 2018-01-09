@@ -73,8 +73,9 @@ struct hab_unimport {
 #define MM_AUD_END	105
 
 #define MM_CAM_START	200
-#define MM_CAM		201
-#define MM_CAM_END	202
+#define MM_CAM_1	201
+#define MM_CAM_2	202
+#define MM_CAM_END	203
 
 #define MM_DISP_START	300
 #define MM_DISP_1	301
@@ -102,13 +103,27 @@ struct hab_unimport {
 #define MM_QCPE_VM3	703
 #define MM_QCPE_VM4	704
 #define MM_QCPE_END	705
-#define MM_ID_MAX	706
+
+#define MM_CLK_START	800
+#define MM_CLK_VM1	801
+#define MM_CLK_VM2	802
+#define MM_CLK_END	803
+
+#define MM_ID_MAX	804
 
 #define HABMM_SOCKET_OPEN_FLAGS_SINGLE_BE_SINGLE_FE        0x00000000
 #define HABMM_SOCKET_OPEN_FLAGS_SINGLE_BE_SINGLE_DOMU      0x00000001
 #define HABMM_SOCKET_OPEN_FLAGS_SINGLE_BE_MULTI_DOMUS      0x00000002
 
 #define HABMM_SOCKET_SEND_FLAGS_NON_BLOCKING 0x00000001
+
+/*
+ * Collect cross-VM stats: client provides stat-buffer large enough to allow 2
+ * ets of a 2-uint64_t pair to collect seconds and nano-seconds at the
+ * beginning of the stat-buffer. Stats are collected when the stat-buffer leaves
+ * VM1, then enters VM2
+ */
+#define HABMM_SOCKET_SEND_FLAGS_XING_VM_STAT 0x00000002
 
 #define HABMM_SOCKET_RECV_FLAGS_NON_BLOCKING 0x00000001
 

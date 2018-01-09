@@ -117,7 +117,7 @@ int32_t habmm_import(int32_t handle, void **buff_shared, uint32_t size_bytes,
 	param.flags = flags;
 
 	ret = hab_mem_import(hab_driver.kctx, &param, 1);
-	if (!IS_ERR(ret))
+	if (!ret)
 		*buff_shared = (void *)(uintptr_t)param.kva;
 
 	return ret;

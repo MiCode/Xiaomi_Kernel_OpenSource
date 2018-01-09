@@ -35,6 +35,7 @@ struct importer_context {
 	int cnt; /* pages allocated for local file */
 	struct list_head imp_list;
 	struct file *filp;
+	rwlock_t implist_lock;
 };
 
 void *habmm_hyp_allocate_grantable(int page_count,
@@ -73,8 +74,12 @@ static int habmem_get_dma_pages(unsigned long address,
 	int fd;
 
 	vma = find_vma(current->mm, address);
-	if (!vma || !vma->vm_file)
+	if (!vma || !vma->vm_file) {
+		pr_err("cannot find vma\n");
 		goto err;
+	}
+
+	pr_debug("vma flags %lx\n", vma->vm_flags);
 
 	/* Look for the fd that matches this the vma file */
 	fd = iterate_fd(current->files, 0, match_file, vma->vm_file);
@@ -103,6 +108,7 @@ static int habmem_get_dma_pages(unsigned long address,
 
 	for_each_sg(sg_table->sgl, s, sg_table->nents, i) {
 		page = sg_page(s);
+		pr_debug("sgl length %d\n", s->length);
 
 		for (j = page_offset; j < (s->length >> PAGE_SHIFT); j++) {
 			pages[rc] = nth_page(page, j);
@@ -136,6 +142,12 @@ err:
 	return rc;
 }
 
+/*
+ * exporter - grant & revoke
+ * degenerate sharabled page list based on CPU friendly virtual "address".
+ * The result as an array is stored in ppdata to return to caller
+ * page size 4KB is assumed
+ */
 int habmem_hyp_grant_user(unsigned long address,
 		int page_count,
 		int flags,
@@ -220,6 +232,7 @@ void *habmem_imp_hyp_open(void)
 	if (!priv)
 		return NULL;
 
+	rwlock_init(&priv->implist_lock);
 	INIT_LIST_HEAD(&priv->imp_list);
 
 	return priv;
@@ -261,7 +274,7 @@ long habmem_imp_hyp_map(void *imp_ctx,
 		uint32_t userflags)
 {
 	struct page **pages;
-	struct compressed_pfns *pfn_table = impdata;
+	struct compressed_pfns *pfn_table = (struct compressed_pfns *)impdata;
 	struct pages_list *pglist;
 	struct importer_context *priv = imp_ctx;
 	unsigned long pfn;
@@ -310,6 +323,9 @@ long habmem_imp_hyp_map(void *imp_ctx,
 			kfree(pglist);
 			pr_err("%ld pages vmap failed\n", pglist->npages);
 			return -ENOMEM;
+		} else {
+			pr_debug("%ld pages vmap pass, return %pK\n",
+				pglist->npages, pglist->kva);
 		}
 
 		pglist->uva = NULL;
@@ -320,8 +336,11 @@ long habmem_imp_hyp_map(void *imp_ctx,
 		pglist->kva = NULL;
 	}
 
+	write_lock(&priv->implist_lock);
 	list_add_tail(&pglist->list,  &priv->imp_list);
 	priv->cnt++;
+	write_unlock(&priv->implist_lock);
+	pr_debug("index returned %llx\n", *index);
 
 	return 0;
 }
@@ -333,11 +352,15 @@ long habmm_imp_hyp_unmap(void *imp_ctx,
 		int kernel)
 {
 	struct importer_context *priv = imp_ctx;
-	struct pages_list *pglist;
+	struct pages_list *pglist, *tmp;
 	int found = 0;
 	uint64_t pg_index = index >> PAGE_SHIFT;
 
-	list_for_each_entry(pglist, &priv->imp_list, list) {
+	write_lock(&priv->implist_lock);
+	list_for_each_entry_safe(pglist, tmp, &priv->imp_list, list) {
+		pr_debug("node pglist %pK, kernel %d, pg_index %llx\n",
+			pglist, pglist->kernel, pg_index);
+
 		if (kernel) {
 			if (pglist->kva == (void *)((uintptr_t)index))
 				found  = 1;
@@ -353,10 +376,14 @@ long habmm_imp_hyp_unmap(void *imp_ctx,
 		}
 	}
 
+	write_unlock(&priv->implist_lock);
 	if (!found) {
 		pr_err("failed to find export id on index %llx\n", index);
 		return -EINVAL;
 	}
+
+	pr_debug("detach pglist %pK, index %llx, kernel %d, list cnt %d\n",
+		pglist, pglist->index, pglist->kernel, priv->cnt);
 
 	if (kernel)
 		if (pglist->kva)
@@ -393,6 +420,8 @@ static int hab_map_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		return VM_FAULT_SIGBUS;
 	}
 
+	pr_debug("Fault page index %d\n", page_idx);
+
 	page = pglist->pages[page_idx];
 	get_page(page);
 	vmf->page = page;
@@ -422,15 +451,20 @@ int habmem_imp_hyp_mmap(struct file *filp, struct vm_area_struct *vma)
 	struct pages_list *pglist;
 	int bfound = 0;
 
+	pr_debug("mmap request start %lX, len %ld, index %lX\n",
+		vma->vm_start, length, vma->vm_pgoff);
+
+	read_lock(&imp_ctx->implist_lock);
 	list_for_each_entry(pglist, &imp_ctx->imp_list, list) {
 		if (pglist->index == vma->vm_pgoff) {
 			bfound = 1;
 			break;
 		}
 	}
+	read_unlock(&imp_ctx->implist_lock);
 
 	if (!bfound) {
-		pr_err("Failed to find pglist vm_pgoff: %d\n", vma->vm_pgoff);
+		pr_err("Failed to find pglist vm_pgoff: %ld\n", vma->vm_pgoff);
 		return -EINVAL;
 	}
 

@@ -21,6 +21,7 @@ static inline void habhyp_notify(void *commdev)
 		dev->guest_ctrl->notify = ~0;
 }
 
+/* this is only used to read payload, never the head! */
 int physical_channel_read(struct physical_channel *pchan,
 		void *payload,
 		size_t read_size)
@@ -33,6 +34,8 @@ int physical_channel_read(struct physical_channel *pchan,
 		return 0;
 }
 
+#define HAB_HEAD_SIGNATURE 0xBEE1BEE1
+
 int physical_channel_send(struct physical_channel *pchan,
 		struct hab_header *header,
 		void *payload)
@@ -40,6 +43,7 @@ int physical_channel_send(struct physical_channel *pchan,
 	int sizebytes = HAB_HEADER_GET_SIZE(*header);
 	struct qvm_channel *dev  = (struct qvm_channel *)pchan->hyp_data;
 	int total_size = sizeof(*header) + sizebytes;
+	struct timeval tv;
 
 	if (total_size > dev->pipe_ep->tx_info.sh_buf->size)
 		return -EINVAL; /* too much data for ring */
@@ -53,11 +57,19 @@ int physical_channel_send(struct physical_channel *pchan,
 		return -EAGAIN; /* not enough free space */
 	}
 
+	header->signature = HAB_HEAD_SIGNATURE;
+
 	if (hab_pipe_write(dev->pipe_ep,
 		(unsigned char *)header,
 		sizeof(*header)) != sizeof(*header)) {
 		spin_unlock_bh(&dev->io_lock);
 		return -EIO;
+	}
+
+	if (HAB_HEADER_GET_TYPE(*header) == HAB_PAYLOAD_TYPE_PROFILE) {
+		do_gettimeofday(&tv);
+		((uint64_t *)payload)[0] = tv.tv_sec;
+		((uint64_t *)payload)[1] = tv.tv_usec;
 	}
 
 	if (sizebytes) {
@@ -88,6 +100,14 @@ void physical_channel_rx_dispatch(unsigned long data)
 			(unsigned char *)&header,
 			sizeof(header)) != sizeof(header))
 			break; /* no data available */
+
+		if (header.signature != HAB_HEAD_SIGNATURE) {
+			pr_err("HAB signature mismatch, expect %X, received %X, id_type_size %X, session %X, sequence %X\n",
+				HAB_HEAD_SIGNATURE, header.signature,
+				header.id_type_size,
+				header.session_id,
+				header.sequence);
+		}
 
 		hab_msg_recv(pchan, &header);
 	}

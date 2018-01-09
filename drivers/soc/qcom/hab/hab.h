@@ -13,7 +13,7 @@
 #ifndef __HAB_H
 #define __HAB_H
 
-#define pr_fmt(fmt) "hab: " fmt
+#define pr_fmt(fmt) "|hab:%s:%d|" fmt, __func__, __LINE__
 
 #include <linux/types.h>
 
@@ -47,6 +47,7 @@ enum hab_payload_type {
 	HAB_PAYLOAD_TYPE_EXPORT_ACK,
 	HAB_PAYLOAD_TYPE_PROFILE,
 	HAB_PAYLOAD_TYPE_CLOSE,
+	HAB_PAYLOAD_TYPE_MAX,
 };
 #define LOOPBACK_DOM 0xFF
 
@@ -61,7 +62,8 @@ enum hab_payload_type {
 #define DEVICE_AUD2_NAME "hab_aud2"
 #define DEVICE_AUD3_NAME "hab_aud3"
 #define DEVICE_AUD4_NAME "hab_aud4"
-#define DEVICE_CAM_NAME "hab_cam"
+#define DEVICE_CAM1_NAME "hab_cam1"
+#define DEVICE_CAM2_NAME "hab_cam2"
 #define DEVICE_DISP1_NAME "hab_disp1"
 #define DEVICE_DISP2_NAME "hab_disp2"
 #define DEVICE_DISP3_NAME "hab_disp3"
@@ -74,6 +76,48 @@ enum hab_payload_type {
 #define DEVICE_QCPE2_NAME "hab_qcpe_vm2"
 #define DEVICE_QCPE3_NAME "hab_qcpe_vm3"
 #define DEVICE_QCPE4_NAME "hab_qcpe_vm4"
+#define DEVICE_CLK1_NAME "hab_clock_vm1"
+#define DEVICE_CLK2_NAME "hab_clock_vm2"
+
+/* make sure concascaded name is less than this value */
+#define MAX_VMID_NAME_SIZE 30
+
+#define HABCFG_FILE_SIZE_MAX   256
+#define HABCFG_MMID_AREA_MAX   (MM_ID_MAX/100)
+
+#define HABCFG_VMID_MAX        16
+#define HABCFG_VMID_INVALID    (-1)
+#define HABCFG_VMID_DONT_CARE  (-2)
+
+#define HABCFG_ID_LINE_LIMIT   ","
+#define HABCFG_ID_VMID         "VMID="
+#define HABCFG_ID_BE           "BE="
+#define HABCFG_ID_FE           "FE="
+#define HABCFG_ID_MMID         "MMID="
+#define HABCFG_ID_RANGE        "-"
+#define HABCFG_ID_DONTCARE     "X"
+
+#define HABCFG_FOUND_VMID      1
+#define HABCFG_FOUND_FE_MMIDS  2
+#define HABCFG_FOUND_BE_MMIDS  3
+#define HABCFG_FOUND_NOTHING   (-1)
+
+#define HABCFG_BE_FALSE        0
+#define HABCFG_BE_TRUE         1
+
+#define HABCFG_GET_VMID(_local_cfg_, _vmid_) \
+	((settings)->vmid_mmid_list[_vmid_].vmid)
+#define HABCFG_GET_MMID(_local_cfg_, _vmid_, _mmid_) \
+	((settings)->vmid_mmid_list[_vmid_].mmid[_mmid_])
+#define HABCFG_GET_BE(_local_cfg_, _vmid_, _mmid_) \
+	((settings)->vmid_mmid_list[_vmid_].is_listener[_mmid_])
+
+struct hab_header {
+	uint32_t id_type_size;
+	uint32_t session_id;
+	uint32_t signature;
+	uint32_t sequence;
+} __packed;
 
 /* "Size" of the HAB_HEADER_ID and HAB_VCID_ID must match */
 #define HAB_HEADER_SIZE_SHIFT 0
@@ -96,34 +140,44 @@ enum hab_payload_type {
 #define HAB_VCID_GET_ID(vcid) \
 	(((vcid) & HAB_VCID_ID_MASK) >> HAB_VCID_ID_SHIFT)
 
+
+#define HAB_HEADER_SET_SESSION_ID(header, sid) ((header).session_id = (sid))
+
 #define HAB_HEADER_SET_SIZE(header, size) \
-	((header).info = (((header).info) & (~HAB_HEADER_SIZE_MASK)) | \
-		(((size) << HAB_HEADER_SIZE_SHIFT) & HAB_HEADER_SIZE_MASK))
+	((header).id_type_size = ((header).id_type_size & \
+			(~HAB_HEADER_SIZE_MASK)) | \
+			(((size) << HAB_HEADER_SIZE_SHIFT) & \
+			HAB_HEADER_SIZE_MASK))
 
 #define HAB_HEADER_SET_TYPE(header, type) \
-	((header).info = (((header).info) & (~HAB_HEADER_TYPE_MASK)) | \
-		(((type) << HAB_HEADER_TYPE_SHIFT) & HAB_HEADER_TYPE_MASK))
+	((header).id_type_size = ((header).id_type_size & \
+			(~HAB_HEADER_TYPE_MASK)) | \
+			(((type) << HAB_HEADER_TYPE_SHIFT) & \
+			HAB_HEADER_TYPE_MASK))
 
 #define HAB_HEADER_SET_ID(header, id) \
-	((header).info = (((header).info) & (~HAB_HEADER_ID_MASK)) | \
-		((HAB_VCID_GET_ID(id) << HAB_HEADER_ID_SHIFT) \
-		& HAB_HEADER_ID_MASK))
+	((header).id_type_size = ((header).id_type_size & \
+			(~HAB_HEADER_ID_MASK)) | \
+			((HAB_VCID_GET_ID(id) << HAB_HEADER_ID_SHIFT) & \
+			HAB_HEADER_ID_MASK))
 
 #define HAB_HEADER_GET_SIZE(header) \
-	((((header).info) & HAB_HEADER_SIZE_MASK) >> HAB_HEADER_SIZE_SHIFT)
+	(((header).id_type_size & \
+		HAB_HEADER_SIZE_MASK) >> HAB_HEADER_SIZE_SHIFT)
 
 #define HAB_HEADER_GET_TYPE(header) \
-	((((header).info) & HAB_HEADER_TYPE_MASK) >> HAB_HEADER_TYPE_SHIFT)
+	(((header).id_type_size & \
+		HAB_HEADER_TYPE_MASK) >> HAB_HEADER_TYPE_SHIFT)
 
 #define HAB_HEADER_GET_ID(header) \
-	(((((header).info) & HAB_HEADER_ID_MASK) >> \
+	((((header).id_type_size & HAB_HEADER_ID_MASK) >> \
 	(HAB_HEADER_ID_SHIFT - HAB_VCID_ID_SHIFT)) & HAB_VCID_ID_MASK)
 
-struct hab_header {
-	uint32_t info;
-};
+#define HAB_HEADER_GET_SESSION_ID(header) ((header).session_id)
 
 struct physical_channel {
+	char name[MAX_VMID_NAME_SIZE];
+	int is_be;
 	struct kref refcount;
 	struct hab_device *habdev;
 	struct list_head node;
@@ -138,6 +192,10 @@ struct physical_channel {
 	int closed;
 
 	spinlock_t rxbuf_lock;
+
+	/* vchans over this pchan */
+	struct list_head vchannels;
+	rwlock_t vchans_lock;
 };
 
 struct hab_open_send_data {
@@ -179,9 +237,10 @@ struct hab_message {
 };
 
 struct hab_device {
-	const char *name;
+	char name[MAX_VMID_NAME_SIZE];
 	unsigned int id;
 	struct list_head pchannels;
+	int pchan_cnt;
 	struct mutex pchan_lock;
 	struct list_head openq_list;
 	spinlock_t openlock;
@@ -211,19 +270,37 @@ struct uhab_context {
 	int kernel;
 };
 
+/*
+ * array to describe the VM and its MMID configuration as what is connected to
+ * so this is describing a pchan's remote side
+ */
+struct vmid_mmid_desc {
+	int vmid; /* remote vmid  */
+	int mmid[HABCFG_MMID_AREA_MAX+1]; /* selected or not */
+	int is_listener[HABCFG_MMID_AREA_MAX+1]; /* yes or no */
+};
+
+struct local_vmid {
+	int32_t self; /* only this field is for local */
+	struct vmid_mmid_desc vmid_mmid_list[HABCFG_VMID_MAX];
+};
+
 struct hab_driver {
 	struct device *dev;
 	struct cdev cdev;
 	dev_t major;
 	struct class *class;
-	int irq;
-
 	int ndevices;
 	struct hab_device *devp;
 	struct uhab_context *kctx;
+
+	struct local_vmid settings; /* parser results */
+
 	int b_server_dom;
 	int loopback_num;
 	int b_loopback;
+
+	void *hyp_priv; /* hypervisor plug-in storage */
 };
 
 struct virtual_channel {
@@ -243,12 +320,14 @@ struct virtual_channel {
 	struct physical_channel *pchan;
 	struct uhab_context *ctx;
 	struct list_head node;
+	struct list_head pnode;
 	struct list_head rx_list;
 	wait_queue_head_t rx_queue;
 	spinlock_t rx_lock;
 	int id;
 	int otherend_id;
 	int otherend_closed;
+	uint32_t session_id;
 };
 
 /*
@@ -271,7 +350,7 @@ struct export_desc {
 	void *kva;
 	int                 payload_count;
 	unsigned char       payload[1];
-};
+} __packed;
 
 int hab_vchan_open(struct uhab_context *ctx,
 		unsigned int mmid, int32_t *vcid, uint32_t flags);
@@ -286,6 +365,7 @@ struct hab_message *hab_vchan_recv(struct uhab_context *ctx,
 				int vcid,
 				unsigned int flags);
 void hab_vchan_stop(struct virtual_channel *vchan);
+void hab_vchans_stop(struct physical_channel *pchan);
 void hab_vchan_stop_notify(struct virtual_channel *vchan);
 
 int hab_mem_export(struct uhab_context *ctx,
@@ -350,7 +430,7 @@ void hab_open_request_init(struct hab_open_request *request,
 		int open_id);
 int hab_open_request_send(struct hab_open_request *request);
 int hab_open_request_add(struct physical_channel *pchan,
-		struct hab_header *header);
+		size_t sizebytes, int request_type);
 void hab_open_request_free(struct hab_open_request *request);
 int hab_open_listen(struct uhab_context *ctx,
 		struct hab_device *dev,
@@ -361,7 +441,7 @@ int hab_open_listen(struct uhab_context *ctx,
 struct virtual_channel *hab_vchan_alloc(struct uhab_context *ctx,
 		struct physical_channel *pchan);
 struct virtual_channel *hab_vchan_get(struct physical_channel *pchan,
-		uint32_t vchan_id);
+						  struct hab_header *header);
 void hab_vchan_put(struct virtual_channel *vchan);
 
 struct virtual_channel *hab_get_vchan_fromvcid(int32_t vcid,
@@ -394,6 +474,9 @@ static inline void hab_ctx_put(struct uhab_context *ctx)
 void hab_send_close_msg(struct virtual_channel *vchan);
 int hab_hypervisor_register(void);
 void hab_hypervisor_unregister(void);
+int habhyp_commdev_alloc(void **commdev, int is_be, char *name,
+		int vmid_remote, struct hab_device *mmid_device);
+int habhyp_commdev_dealloc(void *commdev);
 
 int physical_channel_read(struct physical_channel *pchan,
 		void *payload,
@@ -406,6 +489,13 @@ int physical_channel_send(struct physical_channel *pchan,
 void physical_channel_rx_dispatch(unsigned long physical_channel);
 
 int loopback_pchan_create(char *dev_name);
+
+int hab_parse(struct local_vmid *settings);
+
+int do_hab_parse(void);
+
+int fill_default_gvm_settings(struct local_vmid *settings,
+		int vmid_local, int mmid_start, int mmid_end);
 
 bool hab_is_loopback(void);
 

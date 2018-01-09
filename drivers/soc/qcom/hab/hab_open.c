@@ -42,7 +42,7 @@ int hab_open_request_send(struct hab_open_request *request)
 }
 
 int hab_open_request_add(struct physical_channel *pchan,
-		struct hab_header *header)
+			size_t sizebytes, int request_type)
 {
 	struct hab_open_node *node;
 	struct hab_device *dev = pchan->habdev;
@@ -53,12 +53,11 @@ int hab_open_request_add(struct physical_channel *pchan,
 	if (!node)
 		return -ENOMEM;
 
-	if (physical_channel_read(pchan, &data, HAB_HEADER_GET_SIZE(*header)) !=
-		HAB_HEADER_GET_SIZE(*header))
+	if (physical_channel_read(pchan, &data, sizebytes) != sizebytes)
 		return -EIO;
 
 	request = &node->request;
-	request->type     = HAB_HEADER_GET_TYPE(*header);
+	request->type     = request_type;
 	request->pchan    = pchan;
 	request->vchan_id = data.vchan_id;
 	request->sub_id   = data.sub_id;
