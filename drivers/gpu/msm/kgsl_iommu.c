@@ -35,6 +35,7 @@
 #include "kgsl_pwrctrl.h"
 
 #define CP_APERTURE_REG	0
+#define CP_SMMU_APERTURE_ID 0x1B
 
 #define _IOMMU_PRIV(_mmu) (&((_mmu)->priv.iommu))
 
@@ -1172,7 +1173,7 @@ static int program_smmu_aperture(unsigned int cb, unsigned int aperture_reg)
 	desc.args[3] = 0xFFFFFFFF;
 	desc.arginfo = SCM_ARGS(4);
 
-	return scm_call2(SCM_SIP_FNID(SCM_SVC_MP, 0x1B), &desc);
+	return scm_call2(SCM_SIP_FNID(SCM_SVC_MP, CP_SMMU_APERTURE_ID), &desc);
 }
 
 static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
@@ -1215,7 +1216,8 @@ static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 		goto done;
 	}
 
-	if (!MMU_FEATURE(mmu, KGSL_MMU_GLOBAL_PAGETABLE)) {
+	if (!MMU_FEATURE(mmu, KGSL_MMU_GLOBAL_PAGETABLE) &&
+		scm_is_call_available(SCM_SVC_MP, CP_SMMU_APERTURE_ID)) {
 		ret = program_smmu_aperture(cb_num, CP_APERTURE_REG);
 		if (ret) {
 			pr_err("SMMU aperture programming call failed with error %d\n",
