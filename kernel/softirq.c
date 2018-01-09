@@ -236,7 +236,7 @@ static inline void lockdep_softirq_end(bool in_hardirq) { }
 
 #define long_softirq_pending()	(local_softirq_pending() & LONG_SOFTIRQ_MASK)
 #define defer_for_rt()		(long_softirq_pending() && cpupri_check_rt())
-asmlinkage __visible void __do_softirq(void)
+asmlinkage __visible void __softirq_entry __do_softirq(void)
 {
 	unsigned long end = jiffies + MAX_SOFTIRQ_TIME;
 	unsigned long old_flags = current->flags;
