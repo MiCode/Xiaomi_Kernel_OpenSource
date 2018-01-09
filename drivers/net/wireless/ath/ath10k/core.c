@@ -2088,7 +2088,7 @@ void ath10k_core_stop(struct ath10k *ar)
 	/* try to suspend target */
 	if (ar->state != ATH10K_STATE_RESTARTING &&
 	    ar->state != ATH10K_STATE_UTF)
-		ath10k_wait_for_suspend(ar, WMI_PDEV_SUSPEND_AND_DISABLE_INTR);
+		ath10k_wait_for_suspend(ar, ar->hw_values->pdev_suspend_option);
 
 	ath10k_hif_stop(ar);
 	ath10k_htt_tx_free(&ar->htt);

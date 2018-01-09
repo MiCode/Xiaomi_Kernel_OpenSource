@@ -363,6 +363,7 @@ extern struct ath10k_hw_ce_regs qcax_ce_regs;
 extern struct fw_flag wcn3990_fw_flags;
 
 struct ath10k_hw_values {
+	u32 pdev_suspend_option;
 	u32 rtc_state_val_on;
 	u8 ce_count;
 	u8 msi_assign_ce_max;
