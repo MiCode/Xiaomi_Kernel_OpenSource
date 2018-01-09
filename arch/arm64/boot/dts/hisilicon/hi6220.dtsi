@@ -92,6 +92,7 @@
 			cooling-max-level = <0>;
 			#cooling-cells = <2>; /* min followed by max */
 			cpu-idle-states = <&CPU_SLEEP &CLUSTER_SLEEP>;
+			sched-energy-costs = <&CPU_COST &CLUSTER_COST &SYSTEM_COST>;
 			dynamic-power-coefficient = <311>;
 			capacity-dmips-mhz = <1024>;
 		};
@@ -104,6 +105,7 @@
 			next-level-cache = <&CLUSTER0_L2>;
 			operating-points-v2 = <&cpu_opp_table>;
 			cpu-idle-states = <&CPU_SLEEP &CLUSTER_SLEEP>;
+			sched-energy-costs = <&CPU_COST &CLUSTER_COST &SYSTEM_COST>;
 			capacity-dmips-mhz = <1024>;
 		};
 
@@ -126,6 +128,7 @@
 			next-level-cache = <&CLUSTER0_L2>;
 			operating-points-v2 = <&cpu_opp_table>;
 			cpu-idle-states = <&CPU_SLEEP &CLUSTER_SLEEP>;
+			sched-energy-costs = <&CPU_COST &CLUSTER_COST &SYSTEM_COST>;
 			capacity-dmips-mhz = <1024>;
 		};
 
@@ -148,6 +151,7 @@
 			next-level-cache = <&CLUSTER1_L2>;
 			operating-points-v2 = <&cpu_opp_table>;
 			cpu-idle-states = <&CPU_SLEEP &CLUSTER_SLEEP>;
+			sched-energy-costs = <&CPU_COST &CLUSTER_COST &SYSTEM_COST>;
 			capacity-dmips-mhz = <1024>;
 		};
 
@@ -159,6 +163,7 @@
 			next-level-cache = <&CLUSTER1_L2>;
 			operating-points-v2 = <&cpu_opp_table>;
 			cpu-idle-states = <&CPU_SLEEP &CLUSTER_SLEEP>;
+			sched-energy-costs = <&CPU_COST &CLUSTER_COST &SYSTEM_COST>;
 			capacity-dmips-mhz = <1024>;
 		};
 
@@ -170,6 +175,7 @@
 			next-level-cache = <&CLUSTER1_L2>;
 			operating-points-v2 = <&cpu_opp_table>;
 			cpu-idle-states = <&CPU_SLEEP &CLUSTER_SLEEP>;
+			sched-energy-costs = <&CPU_COST &CLUSTER_COST &SYSTEM_COST>;
 			capacity-dmips-mhz = <1024>;
 		};
 
@@ -179,6 +185,50 @@
 
 		CLUSTER1_L2: l2-cache1 {
 			compatible = "cache";
+		};
+
+		energy-costs {
+			SYSTEM_COST: system-cost0 {
+				busy-cost-data = <
+					1024   0
+				>;
+				idle-cost-data = <
+					0
+					0
+					0
+					0
+				>;
+			};
+			CLUSTER_COST: cluster-cost0 {
+				busy-cost-data = <
+					178   16
+					369   29
+					622   47
+					819   75
+					1024  112
+				>;
+				idle-cost-data = <
+					107
+					107
+					 47
+					 0
+				>;
+			};
+			CPU_COST: core-cost0 {
+				busy-cost-data = <
+					178   69
+					369   125
+					622   224
+					819   367
+					1024  670
+				>;
+				idle-cost-data = <
+					15
+					15
+					 0
+					 0
+				>;
+			};
 		};
 	};
 

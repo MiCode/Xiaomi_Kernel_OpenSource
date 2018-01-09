@@ -644,9 +644,8 @@ static int add_as_linear_device(struct dm_target *ti, char *dev)
 	android_verity_target.end_io = dm_linear_end_io,
 	android_verity_target.prepare_ioctl = dm_linear_prepare_ioctl,
 	android_verity_target.iterate_devices = dm_linear_iterate_devices,
-        android_verity_target.direct_access = dm_linear_direct_access,
+        android_verity_target.direct_access = dm_linear_dax_direct_access,
         android_verity_target.dax_copy_from_iter = dm_linear_dax_copy_from_iter,
-        android_verity_target.dax_flush = dm_linear_dax_flush,
 	android_verity_target.io_hints = NULL;
 
 	set_disk_ro(dm_disk(dm_table_get_md(ti->table)), 0);

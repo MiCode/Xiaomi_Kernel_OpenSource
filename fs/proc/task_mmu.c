@@ -855,6 +855,11 @@ static int show_smap(struct seq_file *m, void *v, int is_pid)
 
 	if (!rollup_mode) {
 		show_map_vma(m, vma, is_pid);
+		if (vma_get_anon_name(vma)) {
+			seq_puts(m, "Name:           ");
+			seq_print_vma_name(m, vma);
+			seq_putc(m, '\n');
+		}
 	} else if (last_vma) {
 		show_vma_header_prefix(
 			m, mss->first_vma_start, vma->vm_end, 0, 0, 0, 0);

@@ -288,6 +288,9 @@ static int init_rootdomain(struct root_domain *rd)
 
 	if (cpupri_init(&rd->cpupri) != 0)
 		goto free_cpudl;
+
+	rd->max_cap_orig_cpu = rd->min_cap_orig_cpu = -1;
+
 	return 0;
 
 free_cpudl:
@@ -722,6 +725,7 @@ static void init_overlap_sched_group(struct sched_domain *sd,
 	sg_span = sched_group_span(sg);
 	sg->sgc->capacity = SCHED_CAPACITY_SCALE * cpumask_weight(sg_span);
 	sg->sgc->min_capacity = SCHED_CAPACITY_SCALE;
+	sg->sgc->max_capacity = SCHED_CAPACITY_SCALE;
 }
 
 static int
@@ -970,6 +974,41 @@ next:
 	update_group_capacity(sd, cpu);
 }
 
+#define cap_state_power(s,i) (s->cap_states[i].power)
+#define cap_state_cap(s,i) (s->cap_states[i].cap)
+#define idle_state_power(s,i) (s->idle_states[i].power)
+
+static inline int sched_group_energy_equal(const struct sched_group_energy *a,
+		const struct sched_group_energy *b)
+{
+	int i;
+
+	/* check pointers first */
+	if (a == b)
+		return true;
+
+	/* check contents are equivalent */
+	if (a->nr_cap_states != b->nr_cap_states)
+		return false;
+	if (a->nr_idle_states != b->nr_idle_states)
+		return false;
+	for (i=0;i<a->nr_cap_states;i++){
+		if (cap_state_power(a,i) !=
+			cap_state_power(b,i))
+			return false;
+		if (cap_state_cap(a,i) !=
+			cap_state_cap(b,i))
+			return false;
+	}
+	for (i=0;i<a->nr_idle_states;i++){
+		if (idle_state_power(a,i) !=
+			idle_state_power(b,i))
+			return false;
+	}
+
+	return true;
+}
+
 #define energy_eff(e, n) \
     ((e->cap_states[n].cap << SCHED_CAPACITY_SHIFT)/e->cap_states[n].power)
 
@@ -1015,7 +1054,7 @@ static void init_sched_groups_energy(int cpu, struct sched_domain *sd,
 		cpumask_xor(&mask, sched_group_span(sg), get_cpu_mask(cpu));
 
 		for_each_cpu(i, &mask)
-			BUG_ON(sge != fn(i));
+			BUG_ON(!sched_group_energy_equal(sge,fn(i)));
 	}
 
 	/* Check that energy efficiency (capacity/power) is monotonically
@@ -1776,12 +1815,23 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 	/* Attach the domains */
 	rcu_read_lock();
 	for_each_cpu(i, cpu_map) {
+		int max_cpu = READ_ONCE(d.rd->max_cap_orig_cpu);
+		int min_cpu = READ_ONCE(d.rd->min_cap_orig_cpu);
+
 		rq = cpu_rq(i);
 		sd = *per_cpu_ptr(d.sd, i);
 
 		/* Use READ_ONCE()/WRITE_ONCE() to avoid load/store tearing: */
 		if (rq->cpu_capacity_orig > READ_ONCE(d.rd->max_cpu_capacity))
 			WRITE_ONCE(d.rd->max_cpu_capacity, rq->cpu_capacity_orig);
+
+		if ((max_cpu < 0) || (cpu_rq(i)->cpu_capacity_orig >
+		    cpu_rq(max_cpu)->cpu_capacity_orig))
+			WRITE_ONCE(d.rd->max_cap_orig_cpu, i);
+
+		if ((min_cpu < 0) || (cpu_rq(i)->cpu_capacity_orig <
+		    cpu_rq(min_cpu)->cpu_capacity_orig))
+			WRITE_ONCE(d.rd->min_cap_orig_cpu, i);
 
 		cpu_attach_domain(sd, d.rd, i);
 	}
