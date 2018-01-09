@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -170,8 +170,85 @@ static int rsc_hw_wrapper_init(struct sde_rsc_priv *rsc)
 	return 0;
 }
 
+static int rsc_hw_seq_memory_init_v2(struct sde_rsc_priv *rsc)
+{
+	const u32 mode_0_start_addr = 0x0;
+	const u32 mode_1_start_addr = 0xc;
+	const u32 mode_2_start_addr = 0x18;
+
+	pr_debug("rsc sequencer memory init v2\n");
+
+	/* Mode - 0 sequence */
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x0,
+						0xe0bb9ebe, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x4,
+						0x9ebeff39, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x8,
+						0x2020209b, rsc->debug_mode);
+
+	/* Mode - 1 sequence */
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0xc,
+						0x38bb9ebe, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x10,
+						0xbeff39e0, rsc->debug_mode);
+
+	/* Mode - 2 sequence */
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x14,
+						0x20209b9e, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x18,
+						0xfab9baa0, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x1c,
+						0xfebdbbf9, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x20,
+						0xa138999a, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x24,
+						0xa2e081e1, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x28,
+						0x9d3982e2, rsc->debug_mode);
+
+	/* tcs sleep & wake sequence */
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x2c,
+						0x20209bfd, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x30,
+						0x01a6fcbc, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x34,
+						0x20209ce6, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x38,
+						0x01a7fcbc, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x3c,
+						0x00209ce7, rsc->debug_mode);
+
+
+	/* branch address */
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_CFG_BR_ADDR_0_DRV0,
+						0x30, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_CFG_BR_ADDR_1_DRV0,
+						0x38, rsc->debug_mode);
+
+	/* start address */
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_OVERRIDE_CTRL_DRV0,
+					mode_0_start_addr,
+					rsc->debug_mode);
+
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM0_DRV0_MODE0,
+					mode_0_start_addr,
+					rsc->debug_mode);
+
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM0_DRV0_MODE1,
+					mode_1_start_addr,
+					rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM0_DRV0_MODE2,
+					mode_2_start_addr,
+					rsc->debug_mode);
+	return 0;
+
+}
 static int rsc_hw_seq_memory_init(struct sde_rsc_priv *rsc)
 {
+	const u32 mode_0_start_addr = 0x0;
+	const u32 mode_1_start_addr = 0xa;
+	const u32 mode_2_start_addr = 0x15;
+
 	pr_debug("rsc sequencer memory init\n");
 
 	/* Mode - 0 sequence */
@@ -216,14 +293,27 @@ static int rsc_hw_seq_memory_init(struct sde_rsc_priv *rsc)
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_CFG_BR_ADDR_1_DRV0,
 						0x31, rsc->debug_mode);
 
+	/* start address */
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_OVERRIDE_CTRL_DRV0,
+					mode_0_start_addr,
+					rsc->debug_mode);
+
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM0_DRV0_MODE0,
+					mode_0_start_addr,
+					rsc->debug_mode);
+
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM0_DRV0_MODE1,
+					mode_1_start_addr,
+					rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM0_DRV0_MODE2,
+					mode_2_start_addr,
+					rsc->debug_mode);
+
 	return 0;
 }
 
 static int rsc_hw_solver_init(struct sde_rsc_priv *rsc)
 {
-	const u32 mode_0_start_addr = 0x0;
-	const u32 mode_1_start_addr = 0xa;
-	const u32 mode_2_start_addr = 0x15;
 
 	pr_debug("rsc solver init\n");
 
@@ -259,15 +349,11 @@ static int rsc_hw_solver_init(struct sde_rsc_priv *rsc)
 
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_OVERRIDE_MODE_DRV0,
 						0x0, rsc->debug_mode);
-	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_OVERRIDE_CTRL_DRV0,
-					mode_0_start_addr, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSC_TIMERS_CONSIDERED_DRV0,
 						0x1, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_OVERRIDE_IDLE_TIME_DRV0,
 						0x01000010, rsc->debug_mode);
 
-	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM0_DRV0_MODE0,
-					mode_0_start_addr, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM1_DRV0_MODE0,
 					0x80000000, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM2_DRV0_MODE0,
@@ -275,8 +361,6 @@ static int rsc_hw_solver_init(struct sde_rsc_priv *rsc)
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM3_DRV0_MODE0,
 			rsc->timer_config.pdc_backoff_time_ns, rsc->debug_mode);
 
-	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM0_DRV0_MODE1,
-					mode_1_start_addr, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM1_DRV0_MODE1,
 					0x80000000, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM2_DRV0_MODE1,
@@ -284,8 +368,6 @@ static int rsc_hw_solver_init(struct sde_rsc_priv *rsc)
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM3_DRV0_MODE1,
 			rsc->timer_config.pdc_backoff_time_ns, rsc->debug_mode);
 
-	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM0_DRV0_MODE2,
-					mode_2_start_addr, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM1_DRV0_MODE2,
 					0x80000000, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM2_DRV0_MODE2,
@@ -585,7 +667,10 @@ int rsc_hw_init(struct sde_rsc_priv *rsc)
 		goto end;
 	}
 
-	rc = rsc_hw_seq_memory_init(rsc);
+	if (rsc->version == 2)
+		rc = rsc_hw_seq_memory_init_v2(rsc);
+	else
+		rc = rsc_hw_seq_memory_init(rsc);
 	if (rc) {
 		pr_err("rsc sequencer memory init failed\n");
 		goto end;
