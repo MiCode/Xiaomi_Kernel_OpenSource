@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1508,8 +1508,14 @@ static int cnss_driver_recovery_hdlr(struct cnss_plat_data *plat_priv,
 		    cnss_recovery_reason_to_str(recovery_data->reason),
 		    recovery_data->reason);
 
+	if (!plat_priv->driver_state) {
+		cnss_pr_err("Improper driver state, ignore recovery\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
 	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
-		cnss_pr_err("Recovery is already in progress!\n");
+		cnss_pr_err("Recovery is already in progress\n");
 		ret = -EINVAL;
 		goto out;
 	}
