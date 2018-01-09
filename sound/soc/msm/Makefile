@@ -44,7 +44,7 @@ snd-soc-mdm9607-objs := mdm9607.o
 obj-$(CONFIG_SND_SOC_MDM9607) += snd-soc-mdm9607.o
 
 # for MSM 8909 sound card driver
-snd-soc-msm8909-objs := msm8952.o msm-audio-pinctrl.o apq8009-i2s-ext-codec.o msm_bg.o
+snd-soc-msm8909-objs := msm8952.o msm-audio-pinctrl.o apq8009-i2s-ext-codec.o msm_bg.o msm8909.o
 obj-$(CONFIG_SND_SOC_MSM8909) += snd-soc-msm8909.o
 
 # for MDM9640 sound card driver
