@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -173,7 +173,7 @@ static ssize_t rpmstats_show(struct kobject *kobj,
 	if (prvdata.read_idx < prvdata.num_records)
 		prvdata.len = msm_rpmstats_copy_stats(&prvdata);
 
-	return snprintf(buf, prvdata.len, prvdata.buf);
+	return snprintf(buf, prvdata.len, "%s", prvdata.buf);
 }
 
 static int msm_rpmstats_create_sysfs(struct msm_rpmstats_platform_data *pd)
