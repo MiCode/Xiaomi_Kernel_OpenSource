@@ -1035,6 +1035,8 @@ static void mdss_dsi_8996_phy_config(struct mdss_dsi_ctrl_pdata *ctrl)
 	int j, off, ln, cnt, ln_off;
 	char *ip;
 	void __iomem *base;
+	u32 data;
+	struct mdss_panel_info *pinfo;
 
 	pd = &(((ctrl->panel_data).panel_info.mipi).dsi_phy_db);
 
@@ -1118,7 +1120,13 @@ static void mdss_dsi_8996_phy_config(struct mdss_dsi_ctrl_pdata *ctrl)
 			mdss_dsi_8996_pll_source_standalone(ctrl);
 	}
 
-	MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0, 0x7f);
+	pinfo = &ctrl->panel_data.panel_info;
+	if (!(pinfo->allow_phy_power_off) && (pinfo->type == MIPI_CMD_PANEL)) {
+		data = MIPI_INP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0);
+		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0, data | 0x7f);
+	} else {
+		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0, 0x7f);
+	}
 	wmb(); /* make sure registers committed */
 }
 
