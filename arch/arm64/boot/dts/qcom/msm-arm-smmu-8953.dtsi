@@ -39,6 +39,7 @@
 
 	/* A test device to test the SMMU operation */
 	kgsl_iommu_test_device0 {
+		status = "disabled";
 		compatible = "iommu-debug-test";
 		/* The SID should be valid one to get the proper
 		 *SMR,S2CR indices.
