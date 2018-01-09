@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1158,6 +1158,10 @@
 			<&pm8994_gpios 7 0>;   /* INT3    */
 	};
 
+	qcom,tv-tuner {
+		compatible = "qcom,tv-tuner";
+	};
+
 	qcom,msm-ba {
 		compatible = "qcom,msm-ba";
 		qcom,ba-input-profile-0 {
@@ -1177,6 +1181,16 @@
 			qcom,ba-output = <0>;     /* ba output id */
 			qcom,sd-name = "adv7481"; /* sd name      */
 			qcom,ba-node = <1>;       /* ba node      */
+			qcom,user-type = <1>;     /* user type    */
+		};
+
+		qcom,ba-input-profile-2 {
+			qcom,type = <8>;          /* input type   */
+			qcom,name = "TUNER-2";     /* input name   */
+			qcom,ba-input = <16>;      /* ba input id  */
+			qcom,ba-output = <0>;     /* ba output id */
+			qcom,sd-name = "tv-tuner"; /* sd name      */
+			qcom,ba-node = <2>;       /* ba node      */
 			qcom,user-type = <1>;     /* user type    */
 		};
 	};
