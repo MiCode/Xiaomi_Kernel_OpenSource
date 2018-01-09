@@ -862,7 +862,7 @@ void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver_ops)
 
 	cnss_driver_event_post(plat_priv,
 			       CNSS_DRIVER_EVENT_UNREGISTER_DRIVER,
-			       CNSS_EVENT_SYNC, NULL);
+			       CNSS_EVENT_SYNC_UNINTERRUPTIBLE, NULL);
 }
 EXPORT_SYMBOL(cnss_wlan_unregister_driver);
 
