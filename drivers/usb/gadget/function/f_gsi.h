@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
-
+ * Copyright (c) 2015-2016, 2018 The Linux Foundation. All rights reserved.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -519,7 +519,7 @@ static struct usb_endpoint_descriptor rndis_gsi_fs_out_desc = {
 };
 
 static struct usb_descriptor_header *gsi_eth_fs_function[] = {
-	(struct usb_descriptor_header *) &gsi_eth_fs_function,
+	(struct usb_descriptor_header *) &rndis_gsi_iad_descriptor,
 	/* control interface matches ACM, not Ethernet */
 	(struct usb_descriptor_header *) &rndis_gsi_control_intf,
 	(struct usb_descriptor_header *) &rndis_gsi_header_desc,
