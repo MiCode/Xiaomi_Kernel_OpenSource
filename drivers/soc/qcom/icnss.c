@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1130,6 +1130,9 @@ static int icnss_hw_power_off(struct icnss_priv *priv)
 	int ret = 0;
 
 	if (test_bit(HW_ALWAYS_ON, &quirks))
+		return 0;
+
+	if (test_bit(ICNSS_FW_DOWN, &priv->state))
 		return 0;
 
 	icnss_pr_dbg("HW Power off: 0x%lx\n", priv->state);
