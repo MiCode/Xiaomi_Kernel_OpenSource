@@ -440,7 +440,7 @@ static bool is_dynamic_domain(struct iommu_domain *domain)
 	return !!(smmu_domain->attributes & (1 << DOMAIN_ATTR_DYNAMIC));
 }
 
-static int arm_smmu_restore_sec_cfg(struct arm_smmu_device *smmu)
+static int arm_smmu_restore_sec_cfg(struct arm_smmu_device *smmu, u32 cb)
 {
 	int ret;
 	int scm_ret = 0;
@@ -448,7 +448,7 @@ static int arm_smmu_restore_sec_cfg(struct arm_smmu_device *smmu)
 	if (!arm_smmu_is_static_cb(smmu))
 		return 0;
 
-	ret = scm_restore_sec_cfg(smmu->sec_id, 0x0, &scm_ret);
+	ret = scm_restore_sec_cfg(smmu->sec_id, cb, &scm_ret);
 	if (ret || scm_ret) {
 		pr_err("scm call IOMMU_SECURE_CFG failed\n");
 		return -EINVAL;
@@ -3990,7 +3990,7 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 	bool cttw_reg, cttw_fw = smmu->features & ARM_SMMU_FEAT_COHERENT_WALK;
 	int i;
 
-	if (arm_smmu_restore_sec_cfg(smmu))
+	if (arm_smmu_restore_sec_cfg(smmu, 0))
 		return -ENODEV;
 
 	dev_dbg(smmu->dev, "probing hardware configuration...\n");
