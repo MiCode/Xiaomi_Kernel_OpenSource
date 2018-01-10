@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3885,10 +3885,19 @@ static int msm8x16_wcd_codec_config_compander(struct snd_soc_codec *codec,
 					int interp_n, int event)
 {
 	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+	int comp_ch_bits_set = 0x03;
 
 	dev_dbg(codec->dev, "%s: event %d shift %d, enabled %d\n",
 		__func__, event, interp_n,
 		msm8x16_wcd->comp_enabled[interp_n]);
+
+	/* compander is invalid */
+	if (msm8x16_wcd->comp_enabled[interp_n] != COMPANDER_1 &&
+	    msm8x16_wcd->comp_enabled[interp_n]) {
+		dev_dbg(codec->dev, "%s: Invalid compander %d\n", __func__,
+			msm8x16_wcd->comp_enabled[interp_n]);
+		return 0;
+	}
 
 	/* compander is not enabled */
 	if (!msm8x16_wcd->comp_enabled[interp_n]) {
@@ -3900,55 +3909,50 @@ static int msm8x16_wcd_codec_config_compander(struct snd_soc_codec *codec,
 		return 0;
 	}
 
-	switch (msm8x16_wcd->comp_enabled[interp_n]) {
-	case COMPANDER_1:
-		if (SND_SOC_DAPM_EVENT_ON(event)) {
-			if (get_codec_version(msm8x16_wcd) >= DIANGU)
-				snd_soc_update_bits(codec,
-					MSM8X16_WCD_A_ANALOG_RX_COM_BIAS_DAC,
-					0x08, 0x08);
-			/* Enable Compander Clock */
+	if (SND_SOC_DAPM_EVENT_ON(event)) {
+		if (get_codec_version(msm8x16_wcd) >= DIANGU)
 			snd_soc_update_bits(codec,
-				MSM8X16_WCD_A_CDC_COMP0_B2_CTL, 0x0F, 0x09);
-			snd_soc_update_bits(codec,
-				MSM8X16_WCD_A_CDC_CLK_RX_B2_CTL, 0x01, 0x01);
-			snd_soc_update_bits(codec,
-				MSM8X16_WCD_A_CDC_COMP0_B1_CTL,
-				1 << interp_n, 1 << interp_n);
-			snd_soc_update_bits(codec,
-				MSM8X16_WCD_A_CDC_COMP0_B3_CTL, 0xFF, 0x01);
-			snd_soc_update_bits(codec,
-				MSM8X16_WCD_A_CDC_COMP0_B2_CTL, 0xF0, 0x50);
-			/* add sleep for compander to settle */
-			usleep_range(1000, 1100);
-			snd_soc_update_bits(codec,
-				MSM8X16_WCD_A_CDC_COMP0_B3_CTL, 0xFF, 0x28);
-			snd_soc_update_bits(codec,
-				MSM8X16_WCD_A_CDC_COMP0_B2_CTL, 0xF0, 0xB0);
+				MSM8X16_WCD_A_ANALOG_RX_COM_BIAS_DAC,
+				0x08, 0x08);
+		/* Enable Compander Clock */
+		snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_CDC_COMP0_B2_CTL, 0x0F, 0x09);
+		snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_CDC_CLK_RX_B2_CTL, 0x01, 0x01);
+		snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_CDC_COMP0_B1_CTL,
+			1 << interp_n, 1 << interp_n);
+		snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_CDC_COMP0_B3_CTL, 0xFF, 0x01);
+		snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_CDC_COMP0_B2_CTL, 0xF0, 0x50);
+		/* add sleep for compander to settle */
+		usleep_range(1000, 1100);
+		snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_CDC_COMP0_B3_CTL, 0xFF, 0x28);
+		snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_CDC_COMP0_B2_CTL, 0xF0, 0xB0);
 
-			/* Enable Compander GPIO */
-			if (msm8x16_wcd->codec_hph_comp_gpio)
-				msm8x16_wcd->codec_hph_comp_gpio(1);
-		} else if (SND_SOC_DAPM_EVENT_OFF(event)) {
-			/* Disable Compander GPIO */
-			if (msm8x16_wcd->codec_hph_comp_gpio)
-				msm8x16_wcd->codec_hph_comp_gpio(0);
+		/* Enable Compander GPIO */
+		if (msm8x16_wcd->codec_hph_comp_gpio)
+			msm8x16_wcd->codec_hph_comp_gpio(1);
+	} else if (SND_SOC_DAPM_EVENT_OFF(event)) {
+		/* Disable Compander GPIO */
+		if (msm8x16_wcd->codec_hph_comp_gpio)
+			msm8x16_wcd->codec_hph_comp_gpio(0);
 
+		snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_CDC_COMP0_B1_CTL,
+			1 << interp_n, 0);
+		comp_ch_bits_set = snd_soc_read(codec,
+					MSM8X16_WCD_A_CDC_COMP0_B1_CTL);
+		if ((comp_ch_bits_set & 0x03) == 0x00) {
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_CDC_COMP0_B2_CTL, 0x0F, 0x05);
-			snd_soc_update_bits(codec,
-				MSM8X16_WCD_A_CDC_COMP0_B1_CTL,
-				1 << interp_n, 0);
-			snd_soc_update_bits(codec,
-				MSM8X16_WCD_A_CDC_CLK_RX_B2_CTL, 0x01, 0x00);
+		snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_CDC_CLK_RX_B2_CTL, 0x01, 0x00);
 		}
-		break;
-	default:
-		dev_dbg(codec->dev, "%s: Invalid compander %d\n", __func__,
-				msm8x16_wcd->comp_enabled[interp_n]);
-		break;
-	};
-
+	}
 	return 0;
 }
 
